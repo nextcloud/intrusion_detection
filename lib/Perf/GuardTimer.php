@@ -1,0 +1,102 @@
+<?php
+
+declare(strict_types=1);
+
+/**
+ * SPDX-FileCopyrightText: 2026 Nextcloud GmbH and Nextcloud contributors
+ * SPDX-License-Identifier: AGPL-3.0-or-later
+ */
+
+namespace OCA\IntrusionDetection\Perf;
+
+use OCA\IntrusionDetection\AppInfo\Application;
+use OCP\AppFramework\Utility\ITimeFactory;
+use OCP\ICacheFactory;
+use OCP\IMemcache;
+
+/**
+ * Measures the request guards on 1 in SAMPLE_RATE requests and keeps hourly
+ * totals (sum, count, maximum) in the memory cache, so the admin page and
+ * occ can show the real cost on this server.
+ *
+ * Without a memory cache nothing is measured: writing to the database to
+ * measure would cost more than the guards themselves.
+ */
+class GuardTimer {
+	public const SAMPLE_RATE = 1000;
+	private const PREFIX = 'gt:';
+
+	private ?IMemcache $cache = null;
+	private bool $initialised = false;
+
+	public function __construct(
+		private readonly ICacheFactory $cacheFactory,
+		private readonly ITimeFactory $timeFactory,
+	) {
+	}
+
+	/**
+	 * Whether this request is one of the sampled ones.
+	 */
+	public function sample(): bool {
+		return random_int(1, self::SAMPLE_RATE) === 1 && $this->cache() !== null;
+	}
+
+	/**
+	 * @param int $nanoseconds measured with hrtime(true)
+	 */
+	public function record(int $nanoseconds): void {
+		$cache = $this->cache();
+		if ($cache === null) {
+			return;
+		}
+		$hour = intdiv($this->timeFactory->getTime(), 3600);
+		$micro = max(0, intdiv($nanoseconds, 1000));
+		$ttl = 26 * 3600;
+		$cache->add(self::PREFIX . $hour . ':n', 0, $ttl);
+		$cache->add(self::PREFIX . $hour . ':s', 0, $ttl);
+		$cache->inc(self::PREFIX . $hour . ':n');
+		$cache->inc(self::PREFIX . $hour . ':s', $micro);
+		$max = $cache->get(self::PREFIX . $hour . ':m');
+		if (!is_int($max) || $micro > $max) {
+			$cache->set(self::PREFIX . $hour . ':m', $micro, $ttl);
+		}
+	}
+
+	/**
+	 * Average and maximum guard time over the last `$hours` hours.
+	 *
+	 * @return array{samples: int, averageMicroseconds: float, maxMicroseconds: int}|null null when nothing was measured
+	 */
+	public function summary(int $hours = 24): ?array {
+		$cache = $this->cache();
+		if ($cache === null) {
+			return null;
+		}
+		$now = intdiv($this->timeFactory->getTime(), 3600);
+		$count = 0;
+		$sum = 0;
+		$max = 0;
+		for ($hour = $now - $hours + 1; $hour <= $now; $hour++) {
+			$count += (int)$cache->get(self::PREFIX . $hour . ':n');
+			$sum += (int)$cache->get(self::PREFIX . $hour . ':s');
+			$max = max($max, (int)$cache->get(self::PREFIX . $hour . ':m'));
+		}
+		if ($count === 0) {
+			return null;
+		}
+		return ['samples' => $count, 'averageMicroseconds' => $sum / $count, 'maxMicroseconds' => $max];
+	}
+
+	private function cache(): ?IMemcache {
+		if (!$this->initialised) {
+			$this->initialised = true;
+			// Counters need atomic increments, which only the memcache types offer.
+			$cache = $this->cacheFactory->isAvailable()
+				? $this->cacheFactory->createDistributed(Application::APP_ID . '-perf')
+				: ($this->cacheFactory->isLocalCacheAvailable() ? $this->cacheFactory->createLocal(Application::APP_ID . '-perf') : null);
+			$this->cache = $cache instanceof IMemcache ? $cache : null;
+		}
+		return $this->cache;
+	}
+}

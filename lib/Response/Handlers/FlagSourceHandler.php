@@ -1,0 +1,56 @@
+<?php
+
+declare(strict_types=1);
+
+/**
+ * SPDX-FileCopyrightText: 2026 Nextcloud GmbH and Nextcloud contributors
+ * SPDX-License-Identifier: AGPL-3.0-or-later
+ */
+
+namespace OCA\IntrusionDetection\Response\Handlers;
+
+use OCA\IntrusionDetection\Check\ResponseType;
+use OCA\IntrusionDetection\Explain\DateFormatter;
+use OCA\IntrusionDetection\Explain\IDescribesAction;
+use OCA\IntrusionDetection\Response\FlaggedSources;
+use OCA\IntrusionDetection\Response\IResponseHandler;
+use OCA\IntrusionDetection\Response\ResponseContext;
+use OCA\IntrusionDetection\Response\ResponseOutcome;
+use OCP\IL10N;
+
+/**
+ * Flags the detection's sources, so that successful logins from them need
+ * extra confirmation for a while.
+ */
+class FlagSourceHandler implements IResponseHandler, IDescribesAction {
+	public function __construct(
+		private readonly FlaggedSources $flags,
+	) {
+	}
+
+	#[\Override]
+	public function type(): ResponseType {
+		return ResponseType::FlagSource;
+	}
+
+	#[\Override]
+	public function apply(ResponseContext $context): ResponseOutcome {
+		$targets = $context->draft->banTargets();
+		if ($targets === []) {
+			return ResponseOutcome::skipped(ResponseOutcome::NOTE_NOTHING_TO_DO);
+		}
+		$until = 0;
+		foreach ($targets as $target) {
+			$until = $this->flags->flagSource($target, FlaggedSources::REASON_ATTACK, $context->detection->getId());
+		}
+		return ResponseOutcome::done(['sources' => count($targets), 'until' => $until]);
+	}
+
+	#[\Override]
+	public function describeAction(array $action, IL10N $l, DateFormatter $dates): array {
+		$until = (int)(is_array($action['ref'] ?? null) ? ($action['ref']['until'] ?? 0) : 0);
+		return [$until > 0
+			? $l->t('Successful logins from this address need extra confirmation until %s.', [$dates->dateTime($until)])
+			: $l->t('Successful logins from this address need extra confirmation for a while.')];
+	}
+}

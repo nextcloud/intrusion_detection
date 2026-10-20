@@ -1,0 +1,29 @@
+<?php
+
+declare(strict_types=1);
+
+/**
+ * SPDX-FileCopyrightText: 2026 Nextcloud GmbH and Nextcloud contributors
+ * SPDX-License-Identifier: AGPL-3.0-or-later
+ */
+
+namespace OCA\IntrusionDetection\Db;
+
+final class DetectionFilter {
+	/**
+	 * @param list<string> $checkIds
+	 * @param list<string> $severities
+	 */
+	public function __construct(
+		public readonly array $checkIds = [],
+		public readonly array $severities = [],
+		public readonly ?string $uid = null,
+		public readonly ?string $ip = null,
+		public readonly ?bool $enforced = null,
+		public readonly ?int $since = null,
+		public readonly ?int $until = null,
+		public readonly int $limit = 50,
+		public readonly int $offset = 0,
+	) {
+	}
+}

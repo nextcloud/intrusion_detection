@@ -1,0 +1,61 @@
+<?xml version="1.0"?>
+<!--
+  - SPDX-FileCopyrightText: 2026 Nextcloud GmbH and Nextcloud contributors
+  - SPDX-License-Identifier: AGPL-3.0-or-later
+-->
+<info xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+      xsi:noNamespaceSchemaLocation="https://apps.nextcloud.com/schema/apps/info.xsd">
+    <id>intrusion_detection</id>
+    <name>Intrusion detection</name>
+    <summary>Recognises attacks on logins, shares and accounts, and answers them with graduated, explained responses.</summary>
+    <description><![CDATA[Nextcloud's brute-force protection slows down guessing from one address. This app recognises the attacks it cannot see: botnets that send one attempt per address, one password tried against every account, stolen app passwords, phishing login requests and more.
+
+Every check can be switched between Off, Observe and Protect, every threshold is configurable, and every detection explains in plain language why it happened and what Nextcloud did. Normal requests cost a few memory-cache lookups.]]></description>
+    <version>1.0.0</version>
+    <licence>agpl</licence>
+    <author>Nextcloud GmbH and Nextcloud contributors</author>
+    <namespace>IntrusionDetection</namespace>
+    <default_enable/>
+    <types>
+        <logging/>
+    </types>
+
+    <documentation>
+        <admin>https://docs.nextcloud.com/server/latest/admin_manual/configuration_server/intrusion_detection.html</admin>
+    </documentation>
+
+    <category>security</category>
+
+    <website>https://github.com/nextcloud/server</website>
+    <bugs>https://github.com/nextcloud/server/issues</bugs>
+    <repository>https://github.com/nextcloud/server.git</repository>
+
+    <dependencies>
+        <nextcloud min-version="36" max-version="36"/>
+    </dependencies>
+
+    <background-jobs>
+        <job>OCA\IntrusionDetection\BackgroundJob\Cleanup</job>
+        <job>OCA\IntrusionDetection\BackgroundJob\LearningModeJob</job>
+    </background-jobs>
+
+    <repair-steps>
+        <install>
+            <step>OCA\IntrusionDetection\Repair\StartLearningMode</step>
+        </install>
+    </repair-steps>
+
+    <commands>
+        <command>OCA\IntrusionDetection\Command\Status</command>
+        <command>OCA\IntrusionDetection\Command\Benchmark</command>
+        <command>OCA\IntrusionDetection\Command\Learning</command>
+        <command>OCA\IntrusionDetection\Command\Checks\ListChecks</command>
+        <command>OCA\IntrusionDetection\Command\Checks\Set</command>
+        <command>OCA\IntrusionDetection\Command\Checks\Explain</command>
+        <command>OCA\IntrusionDetection\Command\Bans\ListBans</command>
+        <command>OCA\IntrusionDetection\Command\Bans\Lift</command>
+        <command>OCA\IntrusionDetection\Command\Bans\Add</command>
+        <command>OCA\IntrusionDetection\Command\Detections\ListDetections</command>
+        <command>OCA\IntrusionDetection\Command\Detections\Explain</command>
+    </commands>
+</info>

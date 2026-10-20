@@ -1,0 +1,91 @@
+<?php
+
+declare(strict_types=1);
+
+/**
+ * SPDX-FileCopyrightText: 2026 Nextcloud GmbH and Nextcloud contributors
+ * SPDX-License-Identifier: AGPL-3.0-or-later
+ */
+
+namespace OCA\IntrusionDetection\Config;
+
+use OCA\IntrusionDetection\Check\ParamDefinition;
+use OCA\IntrusionDetection\Check\ParamType;
+
+/**
+ * The settings that belong to the app rather than to one check.
+ *
+ * Each one is a {@see ParamDefinition}, so global settings are validated
+ * exactly like check parameters, and the config lexicon is generated from
+ * these definitions and the check registry together. The key is the
+ * definition's name.
+ */
+final class GlobalSettings {
+	/** Not 'enabled': core keeps every app's enabled state under that key */
+	public const ENABLED = 'protection_enabled';
+	public const LEARNING_UNTIL = 'learning_until';
+	public const LEARNING_DECOYS_ACT = 'learning_decoys_act';
+	public const LEARNING_NOTICE_SENT = 'learning_notice_sent';
+	public const BAN_DURATION_1 = 'ban_duration_1';
+	public const BAN_DURATION_2 = 'ban_duration_2';
+	public const BAN_DURATION_3 = 'ban_duration_3';
+	public const BAN_HISTORY_DAYS = 'ban_history_days';
+	public const BAN_NET_AFTER = 'ban_net_after';
+	public const BAN_SHARED_IP_USERS = 'ban_shared_ip_users';
+	public const FLAG_DURATION = 'flag_duration';
+	public const RETENTION_DETECTIONS_DAYS = 'retention_detections_days';
+
+	/** Internal state, not shown as settings */
+	public const BAN_VERSION = 'ban_version';
+	public const INSTALLED_AT = 'installed_at';
+	/** While in the future, low-value attempts are sampled because the attempts table is flooded */
+	public const ATTEMPTS_FLOOD_UNTIL = 'attempts_flood_until';
+
+	/** Seconds in the learning period that starts when the app is first enabled */
+	public const LEARNING_DEFAULT_PERIOD = 7 * 86400;
+
+	/** @var array<string, ParamDefinition>|null */
+	private ?array $definitions = null;
+
+	/**
+	 * @return array<string, ParamDefinition> keyed by setting name
+	 */
+	public function all(): array {
+		if ($this->definitions === null) {
+			$list = [
+				new ParamDefinition(self::ENABLED, ParamType::Bool, true),
+				new ParamDefinition(self::LEARNING_UNTIL, ParamType::Int, 0, min: 0),
+				new ParamDefinition(self::LEARNING_DECOYS_ACT, ParamType::Bool, true),
+				new ParamDefinition(self::LEARNING_NOTICE_SENT, ParamType::Int, 0, min: 0),
+				// The three escalation levels: first block, repeat within the history window, and after that.
+				new ParamDefinition(self::BAN_DURATION_1, ParamType::Duration, 14400, min: 300, max: 90 * 86400),
+				new ParamDefinition(self::BAN_DURATION_2, ParamType::Duration, 86400, min: 300, max: 90 * 86400),
+				new ParamDefinition(self::BAN_DURATION_3, ParamType::Duration, 604800, min: 300, max: 90 * 86400),
+				new ParamDefinition(self::BAN_HISTORY_DAYS, ParamType::Int, 30, min: 1, max: 365),
+				new ParamDefinition(self::BAN_NET_AFTER, ParamType::Int, 3, min: 2, max: 256),
+				new ParamDefinition(self::BAN_SHARED_IP_USERS, ParamType::Int, 5, min: 0, max: 10000),
+				new ParamDefinition(self::FLAG_DURATION, ParamType::Duration, 86400, min: 3600, max: 30 * 86400),
+				new ParamDefinition(self::RETENTION_DETECTIONS_DAYS, ParamType::Int, 90, min: 7, max: 730),
+				new ParamDefinition(self::BAN_VERSION, ParamType::Int, 0, min: 0),
+				new ParamDefinition(self::INSTALLED_AT, ParamType::Int, 0, min: 0),
+				new ParamDefinition(self::ATTEMPTS_FLOOD_UNTIL, ParamType::Int, 0, min: 0),
+			];
+			$this->definitions = [];
+			foreach ($list as $definition) {
+				$this->definitions[$definition->name] = $definition;
+			}
+		}
+		return $this->definitions;
+	}
+
+	public function get(string $name): ?ParamDefinition {
+		return $this->all()[$name] ?? null;
+	}
+
+	/**
+	 * Settings that hold internal state and are never set by an admin.
+	 */
+	public static function isInternal(string $name): bool {
+		return in_array($name, [self::BAN_VERSION, self::INSTALLED_AT, self::LEARNING_NOTICE_SENT, self::ATTEMPTS_FLOOD_UNTIL], true);
+	}
+}

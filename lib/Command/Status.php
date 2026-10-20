@@ -1,0 +1,88 @@
+<?php
+
+declare(strict_types=1);
+
+/**
+ * SPDX-FileCopyrightText: 2026 Nextcloud GmbH and Nextcloud contributors
+ * SPDX-License-Identifier: AGPL-3.0-or-later
+ */
+
+namespace OCA\IntrusionDetection\Command;
+
+use OC\Core\Command\Base;
+use OCA\IntrusionDetection\Check\CheckRegistry;
+use OCA\IntrusionDetection\Check\Mode;
+use OCA\IntrusionDetection\Config\Prerequisites;
+use OCA\IntrusionDetection\Config\Settings;
+use OCA\IntrusionDetection\Db\BanMapper;
+use OCA\IntrusionDetection\Db\DetectionMapper;
+use OCA\IntrusionDetection\Learning\LearningService;
+use OCA\IntrusionDetection\Perf\GuardTimer;
+use OCP\AppFramework\Utility\ITimeFactory;
+use Symfony\Component\Console\Input\InputInterface;
+use Symfony\Component\Console\Output\OutputInterface;
+
+class Status extends Base {
+	public function __construct(
+		private readonly Settings $settings,
+		private readonly CheckRegistry $registry,
+		private readonly LearningService $learning,
+		private readonly Prerequisites $prerequisites,
+		private readonly BanMapper $bans,
+		private readonly DetectionMapper $detections,
+		private readonly GuardTimer $timer,
+		private readonly ITimeFactory $timeFactory,
+	) {
+		parent::__construct();
+	}
+
+	#[\Override]
+	protected function configure(): void {
+		parent::configure();
+		$this->setName('intrusion:status')
+			->setDescription('Show what intrusion detection is doing: mode, learning period, prerequisites, cost and counts');
+	}
+
+	#[\Override]
+	protected function execute(InputInterface $input, OutputInterface $output): int {
+		$now = $this->timeFactory->getTime();
+		$modes = ['off' => 0, 'observe' => 0, 'protect' => 0];
+		foreach ($this->registry->configurable() as $check) {
+			$modes[$this->settings->effectiveMode($check->id)->value]++;
+		}
+		$last24h = $this->detections->countByCheck($now - 86400);
+		$timing = $this->timer->summary();
+
+		$status = [
+			'state' => !$this->settings->isEnabled() ? 'off' : ($this->learning->isActive() ? 'learning' : 'protecting'),
+			'learning_until' => $this->learning->until() > $now ? date('c', $this->learning->until()) : null,
+			'learning_days_left' => $this->learning->daysLeft(),
+			'checks' => $modes,
+			'memory_cache' => $this->prerequisites->hasDistributedCache() ? 'distributed' : ($this->prerequisites->hasMemoryCache() ? 'local' : 'none'),
+			'mail' => $this->prerequisites->hasMail(),
+			'active_bans' => $this->bans->countActive($now),
+			'detections_24h' => array_sum(array_map(static fn (array $c): int => $c['enforced'] + $c['observed'], $last24h)),
+			'guard_average_us' => $timing === null ? null : round($timing['averageMicroseconds'], 1),
+			'guard_max_us' => $timing['maxMicroseconds'] ?? null,
+			'guard_samples' => $timing['samples'] ?? 0,
+		];
+
+		if ($input->getOption('output') !== self::OUTPUT_FORMAT_PLAIN) {
+			$this->writeArrayInOutputFormat($input, $output, $status);
+			return self::SUCCESS;
+		}
+
+		$output->writeln(match ($status['state']) {
+			'off' => '<comment>Off.</comment> No checks run.',
+			'learning' => sprintf('<info>Learning:</info> %d day(s) left, until %s. Checks set to Protect only observe.', $status['learning_days_left'], $status['learning_until']),
+			default => '<info>Protecting.</info>',
+		});
+		$output->writeln(sprintf('Checks: %d protecting, %d observing, %d off.', $modes[Mode::Protect->value], $modes[Mode::Observe->value], $modes[Mode::Off->value]));
+		$output->writeln(sprintf('Memory cache: %s. Mail: %s.', $status['memory_cache'], $status['mail'] ? 'configured' : 'not configured'));
+		$output->writeln(sprintf('Active blocks: %d. Detections in the last 24 hours: %d.', $status['active_bans'], $status['detections_24h']));
+		$output->writeln($timing === null
+			? 'Cost per request: not measured yet (needs a memory cache; 1 in 1000 requests is measured).'
+			: sprintf('Cost per request: %.1f µs on average, %d µs at most (%d samples, last 24 hours).', $timing['averageMicroseconds'], $timing['maxMicroseconds'], $timing['samples']));
+		return self::SUCCESS;
+	}
+}
