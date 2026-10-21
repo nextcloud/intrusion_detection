@@ -38,6 +38,7 @@ class PersonalTest extends TestCase {
 		$this->settings = $this->createMock(Settings::class);
 		$this->settings->method('isEnabled')->willReturnCallback(fn (): bool => $this->master);
 		$this->settings->method('getBool')->willReturnCallback(fn (string $name): bool => $name === GlobalSettings::PERSONAL_PAGE_ENABLED ? $this->page : false);
+		$this->settings->method('personalPageEnabled')->willReturnCallback(fn (): bool => $this->master && $this->page);
 		$this->state = $this->createMock(IInitialState::class);
 		$this->overview = $this->createMock(PersonalOverview::class);
 	}

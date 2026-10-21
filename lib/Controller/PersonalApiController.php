@@ -34,6 +34,7 @@ use OCP\AppFramework\Http\Attribute\OpenAPI;
 use OCP\AppFramework\Http\Attribute\PasswordConfirmationRequired;
 use OCP\AppFramework\Http\Attribute\UserRateLimit;
 use OCP\AppFramework\Http\DataResponse;
+use OCP\AppFramework\OCS\OCSNotFoundException;
 use OCP\AppFramework\OCSController;
 use OCP\AppFramework\Utility\ITimeFactory;
 use OCP\IL10N;
@@ -95,12 +96,14 @@ class PersonalApiController extends OCSController {
 	 *
 	 * @param int<1, 100> $limit at most this many, newest first
 	 * @return DataResponse<Http::STATUS_OK, list<IntrusionDetectionPersonalDetection>, array{}>
+	 * @throws OCSNotFoundException The security page is switched off
 	 *
 	 * 200: The events
 	 */
 	#[NoAdminRequired]
 	#[ApiRoute(verb: 'GET', url: '/api/v1/personal/detections')]
 	public function detections(int $limit = 50): DataResponse {
+		$this->requirePage();
 		return new DataResponse($this->detections->forUser($this->user(), $limit));
 	}
 
@@ -158,12 +161,14 @@ class PersonalApiController extends OCSController {
 	 *
 	 * @param int<1, 100> $limit the most networks to return
 	 * @return DataResponse<Http::STATUS_OK, list<IntrusionDetectionTrustedNetwork>, array{}>
+	 * @throws OCSNotFoundException The security page is switched off
 	 *
 	 * 200: The trusted networks, newest first
 	 */
 	#[NoAdminRequired]
 	#[ApiRoute(verb: 'GET', url: '/api/v1/personal/trusted-networks')]
 	public function trustedNetworks(int $limit = 100): DataResponse {
+		$this->requirePage();
 		return new DataResponse($this->trustedNetworks->forUser($this->user()->getUID(), max(1, min(100, $limit))));
 	}
 
@@ -172,6 +177,7 @@ class PersonalApiController extends OCSController {
 	 *
 	 * @param int $id the entry
 	 * @return DataResponse<Http::STATUS_OK, array{removed: int}, array{}>|DataResponse<Http::STATUS_NOT_FOUND, IntrusionDetectionAnswerError, array{}>
+	 * @throws OCSNotFoundException The security page is switched off
 	 *
 	 * 200: Removed
 	 * 404: The current user has no such entry
@@ -180,6 +186,7 @@ class PersonalApiController extends OCSController {
 	#[UserRateLimit(limit: 20, period: 600)]
 	#[ApiRoute(verb: 'DELETE', url: '/api/v1/personal/trusted-networks/{id}', requirements: ['id' => '\d+'])]
 	public function removeTrustedNetwork(int $id): DataResponse {
+		$this->requirePage();
 		$uid = $this->user()->getUID();
 		if (!$this->trustedNetworks->remove($uid, $id)) {
 			return new DataResponse(['reason' => AnswerException::NOT_FOUND, 'message' => $this->l->t('This network is not one of your trusted networks.')], Http::STATUS_NOT_FOUND);
@@ -192,12 +199,14 @@ class PersonalApiController extends OCSController {
 	 *
 	 * @param int<1, 50> $limit the most devices to return
 	 * @return DataResponse<Http::STATUS_OK, list<IntrusionDetectionKnownDevice>, array{}>
+	 * @throws OCSNotFoundException The security page is switched off
 	 *
 	 * 200: The devices, most recently used first; `current` marks the browser of this request
 	 */
 	#[NoAdminRequired]
 	#[ApiRoute(verb: 'GET', url: '/api/v1/personal/known-devices')]
 	public function knownDevices(int $limit = 50): DataResponse {
+		$this->requirePage();
 		return new DataResponse($this->knownDevices->forUser($this->user()->getUID(), $this->l, max(1, min(KnownDevices::MAX_PER_USER, $limit))));
 	}
 
@@ -208,6 +217,7 @@ class PersonalApiController extends OCSController {
 	 *
 	 * @param int $id the device
 	 * @return DataResponse<Http::STATUS_OK, array{removed: int}, array{}>|DataResponse<Http::STATUS_NOT_FOUND, IntrusionDetectionAnswerError, array{}>
+	 * @throws OCSNotFoundException The security page is switched off
 	 *
 	 * 200: Forgotten
 	 * 404: The current user has no such device
@@ -216,6 +226,7 @@ class PersonalApiController extends OCSController {
 	#[UserRateLimit(limit: 20, period: 600)]
 	#[ApiRoute(verb: 'DELETE', url: '/api/v1/personal/known-devices/{id}', requirements: ['id' => '\d+'])]
 	public function removeKnownDevice(int $id): DataResponse {
+		$this->requirePage();
 		if (!$this->knownDevices->remove($this->user()->getUID(), $id)) {
 			return new DataResponse(['reason' => AnswerException::NOT_FOUND, 'message' => $this->l->t('This device is not one of your remembered devices.')], Http::STATUS_NOT_FOUND);
 		}
@@ -228,12 +239,14 @@ class PersonalApiController extends OCSController {
 	 * @param int<1, 365> $days how far back, at most as long as the history is kept
 	 * @param int<1, 200> $limit the most logins to return
 	 * @return DataResponse<Http::STATUS_OK, list<IntrusionDetectionLogin>, array{}>
+	 * @throws OCSNotFoundException The security page is switched off
 	 *
 	 * 200: The logins, newest first; `current` marks the login of this session
 	 */
 	#[NoAdminRequired]
 	#[ApiRoute(verb: 'GET', url: '/api/v1/personal/logins')]
 	public function logins(int $days = 30, int $limit = 100): DataResponse {
+		$this->requirePage();
 		$days = max(1, min($days, $this->settings->getInt(GlobalSettings::HISTORY_RETENTION_DAYS)));
 		$current = $this->currentSession->tokenId();
 		$entries = $this->loginHistory->forUser($this->user()->getUID(), $this->timeFactory->getTime() - $days * 86400, null, max(1, min(200, $limit)));
@@ -258,12 +271,14 @@ class PersonalApiController extends OCSController {
 	 *
 	 * @param int<1, 100> $limit at most this many, newest first
 	 * @return DataResponse<Http::STATUS_OK, list<IntrusionDetectionSecurityChange>, array{}>
+	 * @throws OCSNotFoundException The security page is switched off
 	 *
 	 * 200: The changes, as long as they are kept
 	 */
 	#[NoAdminRequired]
 	#[ApiRoute(verb: 'GET', url: '/api/v1/personal/security-changes')]
 	public function securityChanges(int $limit = 50): DataResponse {
+		$this->requirePage();
 		$since = $this->timeFactory->getTime() - $this->settings->getInt(GlobalSettings::HISTORY_RETENTION_DAYS) * 86400;
 		$rows = $this->changes->findRecent($this->user()->getUID(), $since, max(1, min(100, $limit)));
 		return new DataResponse(array_map(fn (array $row): array => SecureAccountOverview::change($row, $this->l), $rows));
@@ -344,12 +359,14 @@ class PersonalApiController extends OCSController {
 	 * The status, failed logins and hints at the top of the current user's security section
 	 *
 	 * @return DataResponse<Http::STATUS_OK, IntrusionDetectionPersonalOverview, array{}>
+	 * @throws OCSNotFoundException The security page is switched off
 	 *
 	 * 200: The overview
 	 */
 	#[NoAdminRequired]
 	#[ApiRoute(verb: 'GET', url: '/api/v1/personal/overview')]
 	public function overview(): DataResponse {
+		$this->requirePage();
 		return new DataResponse($this->personalOverview->get($this->user(), $this->l));
 	}
 
@@ -359,6 +376,7 @@ class PersonalApiController extends OCSController {
 	 * App passwords and connected devices keep working.
 	 *
 	 * @return DataResponse<Http::STATUS_OK, IntrusionDetectionLoggedOutElsewhere, array{}>|DataResponse<Http::STATUS_BAD_REQUEST, IntrusionDetectionAnswerError, array{}>
+	 * @throws OCSNotFoundException The security page is switched off
 	 *
 	 * 200: Logged out everywhere else
 	 * 400: Only a browser session can do this, not an app password
@@ -368,11 +386,24 @@ class PersonalApiController extends OCSController {
 	#[UserRateLimit(limit: 5, period: 3600)]
 	#[ApiRoute(verb: 'POST', url: '/api/v1/personal/log-out-elsewhere')]
 	public function logOutElsewhere(): DataResponse {
+		$this->requirePage();
 		$result = $this->logOutElsewhere->run($this->user());
 		if ($result === null) {
 			return new DataResponse(['reason' => self::NO_SESSION, 'message' => $this->l->t('This can only be done from a browser session, not with an app password.')], Http::STATUS_BAD_REQUEST);
 		}
 		return new DataResponse($result);
+	}
+
+	/**
+	 * The endpoints of the security page answer only while the page is
+	 * shown. Answers to "Was this you?" stay reachable from notifications.
+	 *
+	 * @throws OCSNotFoundException
+	 */
+	private function requirePage(): void {
+		if (!$this->settings->personalPageEnabled()) {
+			throw new OCSNotFoundException();
+		}
 	}
 
 	private static function deviceLabel(?string $userAgent, IL10N $l): string {

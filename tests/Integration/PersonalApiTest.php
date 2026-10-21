@@ -10,6 +10,7 @@ declare(strict_types=1);
 namespace OCA\IntrusionDetection\Tests\Integration;
 
 use OCA\IntrusionDetection\AppInfo\Application;
+use OCA\IntrusionDetection\Config\GlobalSettings;
 use OCA\IntrusionDetection\Controller\PersonalApiController;
 use OCA\IntrusionDetection\Db\DetectionMapper;
 use OCA\IntrusionDetection\Db\LoginHistoryMapper;
@@ -18,6 +19,7 @@ use OCA\IntrusionDetection\Net\SourceKey;
 use OCA\IntrusionDetection\Personal\FailedLoginStats;
 use OCA\IntrusionDetection\TrustedNetwork\TrustedNetworks;
 use OCP\AppFramework\Http;
+use OCP\AppFramework\OCS\OCSNotFoundException;
 use OCP\Authentication\Token\IToken;
 use OCP\IUser;
 use OCP\L10N\IFactory;
@@ -80,6 +82,40 @@ class PersonalApiTest extends PersonalApiTestCase {
 		$json = json_encode([$api->detections()->getData(), $api->trustedNetworks()->getData(), $api->knownDevices()->getData(), $api->logins()->getData(), $api->overview()->getData()], JSON_THROW_ON_ERROR);
 		$this->assertStringNotContainsString($this->bob->getUID(), $json);
 		$this->assertStringNotContainsString('203.0.113.11', $json);
+	}
+
+	public function testWithTheSecurityPageOffOnlyTheAnswersAndTheChecklistAnswer(): void {
+		$detection = $this->detection($this->alice, '203.0.113.10');
+		$network = $this->trustedNetwork($this->alice, '203.0.113.10');
+		$device = $this->rememberDevice($this->alice);
+		$this->appConfig->setValueBool(Application::APP_ID, GlobalSettings::PERSONAL_PAGE_ENABLED, false);
+		$this->startSession($this->alice);
+		$api = $this->controller();
+
+		$calls = [
+			'detections' => static fn () => $api->detections(),
+			'trustedNetworks' => static fn () => $api->trustedNetworks(),
+			'removeTrustedNetwork' => static fn () => $api->removeTrustedNetwork($network),
+			'knownDevices' => static fn () => $api->knownDevices(),
+			'removeKnownDevice' => static fn () => $api->removeKnownDevice($device),
+			'logins' => static fn () => $api->logins(),
+			'securityChanges' => static fn () => $api->securityChanges(),
+			'overview' => static fn () => $api->overview(),
+			'logOutElsewhere' => static fn () => $api->logOutElsewhere(),
+		];
+		foreach ($calls as $name => $call) {
+			try {
+				$call();
+				$this->fail($name . ' must not answer while the page is off');
+			} catch (OCSNotFoundException) {
+				$this->addToAssertionCount(1);
+			}
+		}
+		$this->assertCount(1, Server::get(TrustedNetworks::class)->forUser($this->alice->getUID()), 'Nothing was removed');
+
+		// The notification's "Was this you?" buttons and the checklist page still work.
+		$this->assertSame(Http::STATUS_OK, $api->secureAccount()->getStatus());
+		$this->assertSame(Http::STATUS_OK, $api->deny($detection->getId())->getStatus());
 	}
 
 	public function testTheOverviewSaysWhatNeedsTheUserNow(): void {

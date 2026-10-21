@@ -48,6 +48,13 @@ class Settings {
 		return $this->getBool(GlobalSettings::ENABLED);
 	}
 
+	/**
+	 * Whether users see their security events in their own security settings.
+	 */
+	public function personalPageEnabled(): bool {
+		return $this->isEnabled() && $this->getBool(GlobalSettings::PERSONAL_PAGE_ENABLED);
+	}
+
 	public function learningUntil(): int {
 		return $this->getInt(GlobalSettings::LEARNING_UNTIL);
 	}

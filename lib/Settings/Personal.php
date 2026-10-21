@@ -10,7 +10,6 @@ declare(strict_types=1);
 namespace OCA\IntrusionDetection\Settings;
 
 use OCA\IntrusionDetection\AppInfo\Application;
-use OCA\IntrusionDetection\Config\GlobalSettings;
 use OCA\IntrusionDetection\Config\Settings;
 use OCA\IntrusionDetection\KnownDevice\KnownDevices;
 use OCA\IntrusionDetection\Personal\PersonalOverview;
@@ -42,7 +41,7 @@ class Personal implements ISettings {
 	}
 
 	public function isVisible(): bool {
-		return $this->settings->isEnabled() && $this->settings->getBool(GlobalSettings::PERSONAL_PAGE_ENABLED);
+		return $this->settings->personalPageEnabled();
 	}
 
 	#[\Override]
