@@ -45,7 +45,11 @@ const selected = computed<SelectOption<T> | null>({
 			:ariaLabelCombobox="hideLabel ? label : undefined"
 			:clearable="false"
 			:searchable="options.length > 10"
-			:disabled="disabled" />
+			:disabled="disabled">
+			<template #selected-option="option">
+				<span :class="$style.select__selected" :title="option.label">{{ option.label }}</span>
+			</template>
+		</NcSelect>
 	</div>
 </template>
 
@@ -61,9 +65,18 @@ const selected = computed<SelectOption<T> | null>({
 	font-weight: 600;
 }
 
-.select :global(.v-select.select) {
+/* Fill the field, never wider than it. Stronger than NcSelect's own minimum
+   width and margin, whichever stylesheet loads last. */
+.select :global(.nc-select.v-select.select) {
 	width: 100%;
 	min-width: 0;
 	margin: 0;
+}
+
+.select__selected {
+	overflow: hidden;
+	min-width: 0;
+	text-overflow: ellipsis;
+	white-space: nowrap;
 }
 </style>

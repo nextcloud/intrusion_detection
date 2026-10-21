@@ -19,6 +19,13 @@ describe('a select with the Nextcloud look', () => {
 		expect(wrapper.text()).not.toContain('allow_notify')
 	})
 
+	test('a long chosen label is cut at the end of its field, the full label on hover', () => {
+		const wrapper = mount(SelectField, { props: { modelValue: 'allow_notify', options, label: 'If nothing can confirm' } })
+		const selected = wrapper.get('[title="Allow it and tell the user"]')
+		expect(selected.text()).toBe('Allow it and tell the user')
+		expect(selected.classes().some((name) => name.includes('select__selected'))).toBe(true)
+	})
+
 	test('passes on the value of the chosen option', async () => {
 		const wrapper = mount(SelectField, { props: { modelValue: 'refuse', options, label: 'If nothing can confirm' } })
 		wrapper.findComponent(NcSelect).vm.$emit('update:modelValue', options[1])

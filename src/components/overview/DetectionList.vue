@@ -276,7 +276,7 @@ defineExpose({ reload: load })
 .filters {
 	display: grid;
 	grid-template-columns: repeat(auto-fill, minmax(min(100%, 170px), 1fr));
-	align-items: end;
+	align-items: start;
 	gap: calc(var(--default-grid-baseline) * 3);
 }
 
@@ -295,7 +295,13 @@ defineExpose({ reload: load })
 	font-weight: 600;
 }
 
-.filters__clear {
+/* The text fields line up with the selects: no extra space around them */
+.filter_text :global(.input-field) {
+	margin: 0;
+}
+
+.filters .filters__clear {
+	align-self: end;
 	justify-self: start;
 }
 
