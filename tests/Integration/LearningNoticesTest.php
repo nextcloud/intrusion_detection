@@ -11,14 +11,20 @@ namespace OCA\IntrusionDetection\Tests\Integration;
 
 use OCA\IntrusionDetection\AppInfo\Application;
 use OCA\IntrusionDetection\BackgroundJob\LearningModeJob;
+use OCA\IntrusionDetection\Check\Checks\ManualBlock;
+use OCA\IntrusionDetection\Check\Mode;
 use OCA\IntrusionDetection\Config\GlobalSettings;
+use OCA\IntrusionDetection\Config\ModeState;
 use OCA\IntrusionDetection\Config\Settings;
 use OCA\IntrusionDetection\Controller\LearningActionController;
 use OCA\IntrusionDetection\Db\DetectionMapper;
+use OCA\IntrusionDetection\Detection\DetectionDraft;
 use OCA\IntrusionDetection\Learning\LearningService;
+use OCA\IntrusionDetection\Net\SourceKey;
 use OCA\IntrusionDetection\Notification\AdminRecipients;
 use OCA\IntrusionDetection\Notification\LearningNotices;
 use OCA\IntrusionDetection\Notification\Notifier;
+use OCA\IntrusionDetection\Response\ResponseEngine;
 use OCP\AppFramework\Utility\ITimeFactory;
 use OCP\IGroupManager;
 use OCP\IRequest;
@@ -160,6 +166,23 @@ class LearningNoticesTest extends IntegrationTestCase {
 		$data = $controller->extend()->getData();
 		$this->assertSame(['changed' => true, 'learning' => true, 'until' => $this->learning->until()], $data);
 		$this->assertFalse($controller->protect()->getData()['changed']);
+	}
+
+	public function testTheNoticeCountsWhatLearningHeldBackAndTheAddressesItWouldHaveBlocked(): void {
+		$this->learning->start(7, 'test');
+		$engine = Server::get(ResponseEngine::class);
+		// Two detections from one address and one from another, all held back by learning mode.
+		foreach (['198.51.100.7', '198.51.100.7', '198.51.100.8'] as $i => $ip) {
+			$engine->handle(new DetectionDraft(ManualBlock::ID, SourceKey::fromIp($ip), facts: ['n' => $i]));
+		}
+		// A check set to Observe on purpose is not what learning held back.
+		$engine->handle(new DetectionDraft(ManualBlock::ID, SourceKey::fromIp('198.51.100.9')), null, new ModeState(Mode::Observe, Mode::Observe));
+
+		$this->setLearningUntil(time() + 3600);
+		$this->assertTrue($this->notices->sendEndingNoticeIfDue());
+		$params = $this->sent[0]->getSubjectParameters();
+		$this->assertSame(3, $params['detections']);
+		$this->assertSame(2, $params['blocks'], 'Addresses, not detections');
 	}
 
 	private function setLearningUntil(int $until): void {

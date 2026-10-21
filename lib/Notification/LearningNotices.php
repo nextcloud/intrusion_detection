@@ -12,6 +12,7 @@ namespace OCA\IntrusionDetection\Notification;
 use OCA\IntrusionDetection\AppInfo\Application;
 use OCA\IntrusionDetection\Check\ResponseType;
 use OCA\IntrusionDetection\Config\GlobalSettings;
+use OCA\IntrusionDetection\Config\ModeState;
 use OCA\IntrusionDetection\Config\Settings;
 use OCA\IntrusionDetection\Db\DetectionFilter;
 use OCA\IntrusionDetection\Db\DetectionMapper;
@@ -159,19 +160,25 @@ class LearningNotices {
 	}
 
 	/**
-	 * @return array{0: int, 1: int} observed detections since a time, and how many of them would have blocked an address
+	 * What learning mode held back since a time: detections that were only
+	 * observed because of learning mode (not those of checks set to Observe),
+	 * and how many different addresses they would have blocked.
+	 *
+	 * @return array{0: int, 1: int}
 	 */
 	private function summary(int $since): array {
-		$observed = $this->detections->findList(new DetectionFilter(enforced: false, since: $since, limit: self::SUMMARY_LIMIT));
-		$blocks = 0;
-		foreach ($observed as $detection) {
-			foreach ($detection->getActionList() as $action) {
-				if ($action['type'] === ResponseType::Ban->value) {
-					$blocks++;
-					break;
-				}
+		$detections = 0;
+		$addresses = [];
+		foreach ($this->detections->findList(new DetectionFilter(enforced: false, since: $since, limit: self::SUMMARY_LIMIT)) as $detection) {
+			if (($detection->getExplanationData()['mode']['reason'] ?? null) !== ModeState::REASON_LEARNING) {
+				continue;
+			}
+			$detections++;
+			$ip = $detection->getIp();
+			if ($ip !== null && in_array(ResponseType::Ban->value, array_column($detection->getActionList(), 'type'), true)) {
+				$addresses[$ip] = true;
 			}
 		}
-		return [count($observed), $blocks];
+		return [$detections, count($addresses)];
 	}
 }

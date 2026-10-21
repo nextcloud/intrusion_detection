@@ -216,6 +216,9 @@ class AdminPagesApiTest extends IntegrationTestCase {
 		$this->assertSame('1 hour', $stored['failed_attempts']['retention']);
 		$this->assertStringContainsString('{retention_detections_days}', $stored['detections']['retention']);
 		$this->assertContains('Credential stuffing', $stored['failed_attempts']['checks']);
+		$this->assertSame('ids_reset_suppressions', $stored['reset_suppressions']['where']);
+		$this->assertStringContainsString('only be told about inside Nextcloud', $stored['account_state']['what'], 'The login notice time is a user value too');
+		$this->assertStringContainsString('at most 24 hours', $stored['flags']['retention']);
 		$outgoing = array_column($data['outgoing'], null, 'id');
 		$this->assertFalse($outgoing['blocklists']['active']);
 		$this->assertCount(2, $data['gdpr']);

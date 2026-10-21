@@ -39,7 +39,7 @@ use OCP\IL10N;
  */
 class PrivacyOverview {
 	/** Data the app keeps for features rather than for one check, always listed */
-	public const FEATURE_DATA = [DataKind::LoginHistory, DataKind::KnownDevices, DataKind::TrustedNetworks, DataKind::UnconfirmedSessions, DataKind::FailedLoginDays];
+	public const FEATURE_DATA = [DataKind::LoginHistory, DataKind::KnownDevices, DataKind::TrustedNetworks, DataKind::UnconfirmedSessions, DataKind::FailedLoginDays, DataKind::AccountState];
 
 	public function __construct(
 		private readonly CheckRegistry $registry,
@@ -190,9 +190,9 @@ class PrivacyOverview {
 			],
 			DataKind::AccountState => [
 				'name' => $l->t('Account state'),
-				'what' => $l->t('Per account: when the password was last checked against the breach list, whether it was found there, and whether a new password is required.'),
-				'why' => $l->t('To check each password only as often as needed, and to ask for a new one at the next login.'),
-				'retention' => $l->t('Until the account is deleted'),
+				'what' => $l->t('Per account: when the password was last checked against the breach list, whether it was found there, whether a new password is required, and when the first security event happened that the user could only be told about inside Nextcloud.'),
+				'why' => $l->t('To check each password only as often as needed, to ask for a new one at the next login, and to show users without a working email address their security events once at their next login.'),
+				'retention' => $l->t('Until the account is deleted; the time of the first unseen event until the user saw it'),
 				'where' => $l->t('user preferences'),
 			],
 			DataKind::ConfigSnapshot => [
@@ -236,6 +236,13 @@ class PrivacyOverview {
 				'why' => $l->t('To guide a user through securing their account, and to show you how far they got.'),
 				'retention' => $l->t('Until the account is deleted'),
 				'where' => $l->t('user preferences'),
+			],
+			DataKind::ResetSuppressions => [
+				'name' => $l->t('Held-back password reset emails'),
+				'what' => $l->t('Per account flooded with password reset requests: until when its reset emails are held back, and the detection.'),
+				'why' => $l->t('So that a flood of reset requests does not fill the person\'s inbox.'),
+				'retention' => $l->t('Until the emails are sent again'),
+				'where' => 'ids_reset_suppressions',
 			],
 			DataKind::FailedLoginDays => [
 				'name' => $l->t('Failed logins per account and day'),

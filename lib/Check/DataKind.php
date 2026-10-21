@@ -41,4 +41,6 @@ enum DataKind: string {
 	case SecureAccountProgress = 'secure_account_progress';
 	/** Failed logins per account and day, for the user's own security page */
 	case FailedLoginDays = 'failed_login_days';
+	/** Accounts whose password reset emails are held back during a flood */
+	case ResetSuppressions = 'reset_suppressions';
 }

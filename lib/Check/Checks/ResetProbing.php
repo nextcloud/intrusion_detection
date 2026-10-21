@@ -69,7 +69,7 @@ final class ResetProbing implements ICheck, IExplainsDetection, IExplainsToUser,
 			responses: [ResponseType::Ban, ResponseType::SuppressResetMail, ResponseType::NotifyAdmin, ResponseType::NotifyUser],
 			defaultResponses: [ResponseType::Ban, ResponseType::SuppressResetMail, ResponseType::NotifyAdmin, ResponseType::NotifyUser],
 			cost: CostClass::OnFailureOnly,
-			stores: [DataKind::FailedAttempts, DataKind::Detections, DataKind::Bans],
+			stores: [DataKind::FailedAttempts, DataKind::Detections, DataKind::Bans, DataKind::ResetSuppressions],
 			texts: static fn (IL10N $l): CheckTexts => new CheckTexts(
 				name: $l->t('Password reset abuse'),
 				summary: $l->t('Someone uses "Forgot password" to find accounts, or floods one person with reset emails.'),
