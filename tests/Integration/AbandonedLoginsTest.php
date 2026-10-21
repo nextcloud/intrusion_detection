@@ -111,25 +111,39 @@ class AbandonedLoginsTest extends StepUpTestCase {
 		$this->assertSame([], $this->detectionsOf(StepUpFailed::ID));
 	}
 
-	public function testPendingLoginsRememberedWithoutADeadlineGetOne(): void {
-		$started = time() - 7200;
+	public function testPendingLoginsRememberedWithoutADeadlineGetOneOrEndQuietly(): void {
+		$now = time();
 		$mapper = Server::get(StepUpSessionMapper::class);
 		$history = Server::get(LoginHistoryMapper::class);
+		$source = SourceKey::fromIp($this->remoteAddress);
+		// Waiting for a minute: it still may wait.
+		$mapper->record(str_repeat('a', 64), $this->alice->getUID(), $now - 60, $now + 86400);
+		$history->insert($this->alice->getUID(), $now - 60, $source, null, LoginHistory::METHOD_PASSWORD, false, 'none', LoginHistory::STEP_UP_PENDING, null);
+		// Left waiting two hours ago.
+		$carol = $this->user('ids-abandoned-old', 'carol@example.com');
+		$mapper->record(str_repeat('c', 64), $carol->getUID(), $now - 7200, $now + 86400);
+		$oldId = $history->insert($carol->getUID(), $now - 7200, $source, null, LoginHistory::METHOD_PASSWORD, false, 'none', LoginHistory::STEP_UP_PENDING, null);
+		// Refused, and next to it a pending login of the same account in another session.
 		$bob = $this->user('ids-abandoned-refused', null);
-		$mapper->record(str_repeat('a', 64), $this->alice->getUID(), $started, time() + 86400);
-		$history->insert($this->alice->getUID(), $started, SourceKey::fromIp($this->remoteAddress), null, LoginHistory::METHOD_PASSWORD, false, 'none', LoginHistory::STEP_UP_PENDING, null);
-		$mapper->record(str_repeat('b', 64), $bob->getUID(), $started, time() + 86400);
-		$history->insert($bob->getUID(), $started, SourceKey::fromIp($this->remoteAddress), null, LoginHistory::METHOD_PASSWORD, false, 'none', LoginHistory::STEP_UP_REFUSED, null);
+		$mapper->record(str_repeat('b', 64), $bob->getUID(), $now - 120, $now + 86400);
+		$history->insert($bob->getUID(), $now - 120, $source, null, LoginHistory::METHOD_PASSWORD, false, 'none', LoginHistory::STEP_UP_REFUSED, null);
+		$history->insert($bob->getUID(), $now - 117, $source, null, LoginHistory::METHOD_PASSWORD, false, 'none', LoginHistory::STEP_UP_PENDING, null);
 
 		$migration = Server::get(Version1000Date20261021220000::class);
 		$migration->postSchemaChange($this->createMock(IOutput::class), static fn () => null, []);
 
 		$deadlines = array_column($this->deadlines(), 'deadline', 'uid');
-		$this->assertSame($started + $this->settings->getInt(GlobalSettings::STEP_UP_SESSION_TTL), $deadlines[$this->alice->getUID()] ?? null, 'When it started, plus the time a login may wait');
+		$this->assertSame($now - 60 + $this->settings->getInt(GlobalSettings::STEP_UP_SESSION_TTL), $deadlines[$this->alice->getUID()] ?? null, 'When it started, plus the time a login may wait');
+		$this->assertArrayHasKey($carol->getUID(), $deadlines);
+		$this->assertNull($deadlines[$carol->getUID()], 'Past its time: no deadline the job would act on');
+		$this->assertSame(LoginHistory::STEP_UP_FAILED, $history->forUser($carol->getUID(), 0)[0]->stepUp, 'Ended quietly');
+		$this->assertSame($oldId, $history->forUser($carol->getUID(), 0)[0]->id);
 		$this->assertArrayHasKey($bob->getUID(), $deadlines);
-		$this->assertNull($deadlines[$bob->getUID()], 'A refused login keeps none');
-		$this->assertSame(1, $this->abandoned()->end(), 'The job ends it');
-		$this->assertSame($this->alice->getUID(), $this->detectionsOf(StepUpFailed::ID)[0]->getUid());
+		$this->assertNull($deadlines[$bob->getUID()], 'A refused login keeps none, even next to a pending one');
+
+		$this->assertSame(0, $this->abandoned()->end(), 'Nothing is past its deadline yet');
+		$this->assertSame([], $this->notificationsFor($carol->getUID(), UserAlerts::SUBJECT), 'Nobody is told about an old login');
+		$this->assertSame([], $this->detectionsOf(StepUpFailed::ID));
 	}
 
 	/**

@@ -204,9 +204,16 @@ class LoginHistoryMapper {
 		return is_array($row) ? LoginHistoryEntry::fromRow($row) : null;
 	}
 
+	/** Logins with a step-up looked at around a time */
+	private const AROUND_ROWS = 20;
+
 	/**
 	 * The row of a login that still waits for its confirmation, recorded
-	 * around when it started.
+	 * around when it started. Only the login with a step-up nearest to that
+	 * time counts, so that a refused login next to a pending one of the
+	 * same account is not taken for it. The session's row and the history
+	 * share no key: the session is kept only as a keyed fingerprint of its
+	 * id, the history by its token.
 	 */
 	public function pendingAround(string $uid, int $started): ?LoginHistoryEntry {
 		$qb = $this->db->getQueryBuilder();
@@ -215,14 +222,20 @@ class LoginHistoryMapper {
 			->where($qb->expr()->eq('uid', $qb->createNamedParameter($uid)))
 			->andWhere($qb->expr()->gte('created_at', $qb->createNamedParameter($started - 5, IQueryBuilder::PARAM_INT)))
 			->andWhere($qb->expr()->lte('created_at', $qb->createNamedParameter($started + 60, IQueryBuilder::PARAM_INT)))
-			->andWhere($qb->expr()->eq('step_up', $qb->createNamedParameter('pending')))
+			->andWhere($qb->expr()->isNotNull('step_up'))
 			->orderBy('created_at', 'ASC')
 			->addOrderBy('id', 'ASC')
-			->setMaxResults(1);
+			->setMaxResults(self::AROUND_ROWS);
 		$result = $qb->executeQuery();
-		$row = $result->fetch();
+		$nearest = null;
+		while ($row = $result->fetch()) {
+			$entry = LoginHistoryEntry::fromRow($row);
+			if ($nearest === null || abs($entry->createdAt - $started) < abs($nearest->createdAt - $started)) {
+				$nearest = $entry;
+			}
+		}
 		$result->closeCursor();
-		return is_array($row) ? LoginHistoryEntry::fromRow($row) : null;
+		return $nearest !== null && $nearest->stepUp === 'pending' ? $nearest : null;
 	}
 
 	/**
