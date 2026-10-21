@@ -21,7 +21,7 @@ import { useAnnouncer } from '../../composables/useAnnouncer.ts'
 import { useIncidentReport } from '../../composables/useIncidentReport.ts'
 import { errorMessage, lookup } from '../../services/api.ts'
 import { logger } from '../../services/logger.ts'
-import { APP_ID } from '../../utils/format.ts'
+import { APP_ID, formatAddress } from '../../utils/format.ts'
 
 const emit = defineEmits<{
 	openDetection: [id: number]
@@ -157,7 +157,7 @@ function clear() {
 				<ul v-if="result.bans.length > 0" :class="$style.result__list">
 					<li v-for="ban in result.bans" :key="ban.id" :class="$style.result__ban">
 						<span :class="$style.result__banMain">
-							<code>{{ ban.cidr }}</code>
+							<code>{{ formatAddress(ban.cidr) }}</code>
 							<ReferencePill :reference="ban.reference" />
 							<span v-if="ban.active" :class="$style.result__muted">
 								{{ t(APP_ID, 'blocked until') }} <TimeStamp :timestamp="ban.expiresAt" />

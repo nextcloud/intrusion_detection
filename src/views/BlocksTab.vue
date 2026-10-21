@@ -30,7 +30,7 @@ import TrapPathsCard from '../components/decoys/TrapPathsCard.vue'
 import { errorMessage, fetchBans, fetchTraps } from '../services/api.ts'
 import { logger } from '../services/logger.ts'
 import { openDetectionId, refreshChecks, state } from '../store.ts'
-import { APP_ID } from '../utils/format.ts'
+import { APP_ID, formatAddress } from '../utils/format.ts'
 
 const PAGE = 50
 const bans = ref<Ban[]>([])
@@ -179,82 +179,54 @@ function openDetection(ban: Ban) {
 				:description="t(APP_ID, 'Addresses that attack are blocked here automatically. You can also block one by hand.')"
 				:icon="mdiShieldCheckOutline" />
 
-			<div v-else :class="$style.tableWrap">
-				<table :class="$style.table">
-					<thead>
-						<tr>
-							<th scope="col">
-								{{ t(APP_ID, 'Address or network') }}
-							</th>
-							<th scope="col">
-								{{ t(APP_ID, 'Reference') }}
-							</th>
-							<th scope="col">
-								{{ t(APP_ID, 'Level') }}
-							</th>
-							<th scope="col">
-								{{ t(APP_ID, 'Since') }}
-							</th>
-							<th scope="col">
-								{{ t(APP_ID, 'Until') }}
-							</th>
-							<th scope="col">
-								{{ t(APP_ID, 'Reason') }}
-							</th>
-							<th scope="col">
-								<span class="hidden-visually">{{ t(APP_ID, 'Actions') }}</span>
-							</th>
-						</tr>
-					</thead>
-					<tbody>
-						<tr v-for="ban in bans" :key="ban.id" :class="{ [$style.row_ended]: !ban.active }">
-							<td :data-label="t(APP_ID, 'Address or network')">
-								<code :class="$style.cidr">{{ ban.cidr }}</code>
-								<span v-if="ban.scope === 'net'" :class="$style.tag">{{ t(APP_ID, 'network') }}</span>
-							</td>
-							<td :data-label="t(APP_ID, 'Reference')">
-								<ReferencePill :reference="ban.reference" />
-							</td>
-							<td :data-label="t(APP_ID, 'Level')">
-								{{ levelLabel(ban) }}
-							</td>
-							<td :data-label="t(APP_ID, 'Since')">
-								<TimeStamp :timestamp="ban.createdAt" short />
-							</td>
-							<td :data-label="t(APP_ID, 'Until')">
-								<template v-if="ban.liftedAt">
-									{{ t(APP_ID, 'lifted by {admin}', { admin: ban.liftedBy ?? '' }) }}
-								</template>
-								<TimeStamp v-else :timestamp="ban.expiresAt" short />
-							</td>
-							<td :data-label="t(APP_ID, 'Reason')">
-								<button
-									v-if="ban.detectionId !== null"
-									type="button"
-									:class="$style.link"
-									@click="openDetection(ban)">
-									{{ ban.checkName }}
-								</button>
-								<span v-else>{{ ban.checkName }}</span>
-								<span v-if="ban.createdBy" :class="$style.card__muted"> · {{ t(APP_ID, 'by {admin}', { admin: ban.createdBy }) }}</span>
-								<span v-if="ban.note" :class="$style.note">{{ ban.note }}</span>
-							</td>
-							<td>
-								<NcButton
-									v-if="ban.active"
-									variant="tertiary"
-									:aria-label="t(APP_ID, 'Lift the block of {address}', { address: ban.cidr })"
-									:title="t(APP_ID, 'Lift block')"
-									@click="liftTarget = ban">
-									<template #icon>
-										<NcIconSvgWrapper :path="mdiLockOpenVariantOutline" />
-									</template>
-								</NcButton>
-							</td>
-						</tr>
-					</tbody>
-				</table>
-			</div>
+			<ul v-else :class="$style.bans" :aria-label="showAll ? t(APP_ID, 'All blocks') : t(APP_ID, 'Active blocks')">
+				<li
+					v-for="ban in bans"
+					:key="ban.id"
+					:class="[$style.ban, { [$style.ban_ended]: !ban.active }]"
+					data-test="ban-row">
+					<div :class="$style.ban__address">
+						<code :class="$style.cidr">{{ formatAddress(ban.cidr) }}</code>
+						<span v-if="ban.scope === 'net'" :class="$style.tag">{{ t(APP_ID, 'network') }}</span>
+					</div>
+					<div :class="$style.ban__reason">
+						<button
+							v-if="ban.detectionId !== null"
+							type="button"
+							:class="$style.link"
+							@click="openDetection(ban)">
+							{{ ban.checkName }}
+						</button>
+						<span v-else>{{ ban.checkName }}</span>
+						<span v-if="ban.createdBy" :class="$style.card__muted"> · {{ t(APP_ID, 'by {admin}', { admin: ban.createdBy }) }}</span>
+						<span v-if="ban.note" :class="$style.note">{{ ban.note }}</span>
+					</div>
+					<div :class="$style.ban__until">
+						<template v-if="ban.liftedAt">
+							{{ t(APP_ID, 'Lifted by {admin}', { admin: ban.liftedBy ?? '' }) }}
+						</template>
+						<template v-else>
+							<span class="hidden-visually">{{ ban.active ? t(APP_ID, 'Blocked until') : t(APP_ID, 'Ended') }}</span>
+							<TimeStamp :timestamp="ban.expiresAt" short />
+						</template>
+						<span :class="$style.ban__level">{{ levelLabel(ban) }}</span>
+					</div>
+					<ReferencePill :class="$style.ban__reference" :reference="ban.reference" />
+					<div :class="$style.ban__actions">
+						<NcButton
+							v-if="ban.active"
+							variant="tertiary"
+							:aria-label="t(APP_ID, 'Lift the block of {address}', { address: formatAddress(ban.cidr) })"
+							:title="t(APP_ID, 'Lift block')"
+							data-test="ban-lift"
+							@click="liftTarget = ban">
+							<template #icon>
+								<NcIconSvgWrapper :path="mdiLockOpenVariantOutline" />
+							</template>
+						</NcButton>
+					</div>
+				</li>
+			</ul>
 
 			<div v-if="hasMore" :class="$style.more">
 				<NcButton variant="secondary" :disabled="loadingMore" @click="loadMore">
@@ -411,52 +383,113 @@ function openDetection(ban: Ban) {
 	gap: calc(var(--default-grid-baseline) * 2);
 }
 
-.tableWrap {
-	overflow-x: auto;
+/* One row per block. The columns line up across rows, and Lift always stays in view. */
+.bans {
+	display: flex;
+	flex-direction: column;
+	margin: 0;
+	padding: 0;
+	list-style: none;
+	container-type: inline-size;
 }
 
-.table {
-	width: 100%;
-	border-collapse: collapse;
-}
-
-.table th {
-	padding: calc(var(--default-grid-baseline) * 2) calc(var(--default-grid-baseline) * 3);
+.ban {
+	display: grid;
+	grid-template-columns: minmax(11em, 1fr) minmax(0, 2fr) minmax(8em, auto) auto var(--default-clickable-area);
+	grid-template-areas: 'address reason until reference actions';
+	align-items: center;
+	gap: calc(var(--default-grid-baseline) * 1) calc(var(--default-grid-baseline) * 4);
+	padding-block: calc(var(--default-grid-baseline) * 2);
 	border-bottom: 1px solid var(--color-border);
-	color: var(--color-text-maxcontrast);
-	font-size: 0.85em;
-	font-weight: 600;
-	text-align: start;
-	white-space: nowrap;
 }
 
-.table td {
-	padding: calc(var(--default-grid-baseline) * 2) calc(var(--default-grid-baseline) * 3);
-	border-bottom: 1px solid var(--color-border);
-	vertical-align: middle;
-}
-
-.table tbody tr:hover {
-	background-color: var(--color-background-hover);
-}
-
-.table tbody tr:last-child td {
+.ban:last-child {
 	border-bottom: none;
 }
 
-.table td:last-child {
-	width: 1%;
-	white-space: nowrap;
+.ban__address {
+	grid-area: address;
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: calc(var(--default-grid-baseline) * 1) calc(var(--default-grid-baseline) * 2);
+	min-width: 0;
+}
+
+.ban__reason {
+	grid-area: reason;
+	min-width: 0;
+	overflow-wrap: anywhere;
+}
+
+.ban__until {
+	grid-area: until;
+	display: flex;
+	flex-direction: column;
+	font-variant-numeric: tabular-nums;
+}
+
+.ban__level {
+	color: var(--color-text-maxcontrast);
+	font-size: 0.85em;
+}
+
+.ban__reference {
+	grid-area: reference;
+	justify-self: start;
+}
+
+.ban__actions {
+	grid-area: actions;
+	display: flex;
+	justify-content: flex-end;
+}
+
+.ban_ended {
+	color: var(--color-text-maxcontrast);
+}
+
+/* Narrow: two compact lines, the address and the time first, Lift on the right */
+@container (max-width: 720px) {
+	.ban {
+		grid-template-columns: minmax(0, 1fr) auto var(--default-clickable-area);
+		grid-template-areas:
+			'address until actions'
+			'reason reference actions';
+		gap: calc(var(--default-grid-baseline) / 2) calc(var(--default-grid-baseline) * 3);
+		padding-block: calc(var(--default-grid-baseline) * 1.5);
+	}
+
+	.ban__until {
+		align-items: flex-end;
+		font-size: 0.9em;
+	}
+
+	.ban__level {
+		display: none;
+	}
+
+	.ban__reason {
+		overflow: hidden;
+		color: var(--color-text-maxcontrast);
+		font-size: 0.9em;
+		text-overflow: ellipsis;
+		white-space: nowrap;
+	}
+
+	.ban__reason .note {
+		display: inline;
+	}
+
+	.ban__reason .note::before {
+		content: ' · ';
+	}
 }
 
 .card__text a {
 	color: var(--color-main-text);
 	text-decoration: underline;
 	text-underline-offset: 3px;
-}
-
-.row_ended {
-	color: var(--color-text-maxcontrast);
 }
 
 .cidr {
@@ -479,7 +512,7 @@ function openDetection(ban: Ban) {
 	font-size: 0.9em;
 }
 
-.table button.link {
+.ban__reason button.link {
 	margin: 0;
 	text-align: start;
 	white-space: normal;
@@ -495,55 +528,14 @@ function openDetection(ban: Ban) {
 	cursor: pointer;
 }
 
-.table button.link:hover,
-.table button.link:focus-visible {
+.ban__reason button.link:hover,
+.ban__reason button.link:focus-visible {
 	text-decoration-color: currentColor;
 }
 
 .more {
 	display: flex;
 	justify-content: center;
-}
-
-@media (max-width: 760px) {
-	.table thead {
-		display: none;
-	}
-
-	.table,
-	.table tbody,
-	.table tr,
-	.table td {
-		display: block;
-		width: 100%;
-	}
-
-	.table tr {
-		padding-block: calc(var(--default-grid-baseline) * 2);
-		border-bottom: 1px solid var(--color-border);
-	}
-
-	.table td {
-		position: relative;
-		padding: calc(var(--default-grid-baseline) * 1) 0;
-		padding-inline-start: 9em;
-		border: none;
-		overflow-wrap: anywhere;
-	}
-
-	.table td:last-child {
-		width: 100%;
-		padding-inline-start: 0;
-	}
-
-	.table td[data-label]::before {
-		content: attr(data-label);
-		position: absolute;
-		inset-inline-start: 0;
-		width: 8.5em;
-		color: var(--color-text-maxcontrast);
-		font-size: 0.85em;
-	}
 }
 
 @media (max-width: 600px) {

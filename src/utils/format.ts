@@ -144,6 +144,17 @@ function mergeText(segments: Segment[]): Segment[] {
 }
 
 /**
+ * An address or network as people write it: a single address without its
+ * "/32" or "/128" suffix, a network with its prefix.
+ *
+ * @param cidr - The block's address or network, e.g. "203.0.113.7/32"
+ */
+export function formatAddress(cidr: string): string {
+	const [address = cidr, prefix] = cidr.split('/')
+	return (prefix === '32' && !address.includes(':')) || (prefix === '128' && address.includes(':')) ? address : cidr
+}
+
+/**
  * A number with the reader's digit grouping.
  *
  * @param value - The number

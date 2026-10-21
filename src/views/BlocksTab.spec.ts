@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 
-import type { CheckRef, Traps } from '../types.ts'
+import type { Ban, CheckRef, Traps } from '../types.ts'
 
 import { flushPromises, mount } from '@vue/test-utils'
 import { beforeEach, describe, expect, test, vi } from 'vitest'
@@ -73,6 +73,23 @@ describe('the Blocks tab', () => {
 		expect(wrapper.get('#blocks-escalation').text()).toContain('How blocks escalate')
 		expect(wrapper.text()).toContain('Addresses that are never blocked')
 		expect(wrapper.text()).toContain('Locked yourself out?')
+	})
+
+	test('lists each block in one row with a bare address, the time it ends and a Lift button', async () => {
+		const ban = (overrides: Partial<Ban>): Ban => ({ id: 1, reference: 'K7Q2-MPXA', cidr: '203.0.113.7/32', scope: 'ip', level: 1, checkId: 'manual_block', checkName: 'Blocked by an administrator', detectionId: null, createdBy: 'admin', note: 'Scanner', createdAt: 1_760_000_000, expiresAt: 1_760_086_400, liftedAt: null, liftedBy: null, liftNote: null, active: true, ...overrides })
+		vi.mocked(fetchBans).mockResolvedValue({ bans: [ban({}), ban({ id: 2, cidr: '198.51.100.0/24', scope: 'net', reference: 'AB12-CD34' })], hasMore: false, activeCount: 2 })
+		const wrapper = await mountTab()
+		const rows = wrapper.findAll('[data-test="ban-row"]')
+		expect(rows).toHaveLength(2)
+		expect(rows[0]!.text()).toContain('203.0.113.7')
+		expect(rows[0]!.text()).not.toContain('/32')
+		expect(rows[0]!.text()).toContain('Blocked until')
+		expect(rows[0]!.text()).toContain('Scanner')
+		expect(rows[1]!.text()).toContain('198.51.100.0/24')
+		expect(rows[1]!.text()).toContain('network')
+		expect(rows.every((row) => row.find('[data-test="ban-lift"]').exists())).toBe(true)
+		expect(rows[0]!.get('[data-test="ban-lift"]').attributes('aria-label')).toBe('Lift the block of 203.0.113.7')
+		expect(wrapper.find('table').exists()).toBe(false)
 	})
 
 	test('says when the decoys cannot be loaded', async () => {

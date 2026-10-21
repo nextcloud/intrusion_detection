@@ -17,7 +17,7 @@ import RiskBreakdown from './RiskBreakdown.vue'
 import { useAnnouncer } from '../../composables/useAnnouncer.ts'
 import { useIncidentReport } from '../../composables/useIncidentReport.ts'
 import { detectionSections } from '../../extensions.ts'
-import { APP_ID } from '../../utils/format.ts'
+import { APP_ID, formatAddress } from '../../utils/format.ts'
 
 const props = defineProps<{
 	detail: DetectionDetail
@@ -62,7 +62,7 @@ async function copyText() {
 				<template #icon>
 					<NcIconSvgWrapper :path="mdiLockOpenVariantOutline" />
 				</template>
-				{{ activeBans.length > 1 ? t(APP_ID, 'Lift block of {address}', { address: ban.cidr }) : t(APP_ID, 'Lift block') }}
+				{{ activeBans.length > 1 ? t(APP_ID, 'Lift block of {address}', { address: formatAddress(ban.cidr) }) : t(APP_ID, 'Lift block') }}
 			</NcButton>
 			<NcButton
 				v-if="detail.detection.uid"
@@ -139,7 +139,7 @@ async function copyText() {
 				</h5>
 				<ul :class="$style.narrative__bans">
 					<li v-for="ban in activeBans" :key="ban.id" :class="$style.narrative__ban">
-						<code>{{ ban.cidr }}</code>
+						<code>{{ formatAddress(ban.cidr) }}</code>
 						<ReferencePill :reference="ban.reference" />
 						<span :class="$style.narrative__muted">
 							{{ t(APP_ID, 'until') }} <TimeStamp :timestamp="ban.expiresAt" />

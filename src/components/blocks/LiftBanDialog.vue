@@ -15,7 +15,7 @@ import { useAnnouncer } from '../../composables/useAnnouncer.ts'
 import { errorMessage, isCancelled, liftBan } from '../../services/api.ts'
 import { logger } from '../../services/logger.ts'
 import { refreshStatus } from '../../store.ts'
-import { APP_ID } from '../../utils/format.ts'
+import { APP_ID, formatAddress } from '../../utils/format.ts'
 
 const props = defineProps<{
 	ban: Ban | null
@@ -62,7 +62,7 @@ async function submit() {
 	error.value = null
 	try {
 		const lifted = await liftBan(props.ban.id, note.value.trim())
-		announce(t(APP_ID, 'The block of {address} was lifted.', { address: lifted.cidr }))
+		announce(t(APP_ID, 'The block of {address} was lifted.', { address: formatAddress(lifted.cidr) }))
 		emit('lifted', lifted)
 		emit('close')
 		refreshStatus()
@@ -80,7 +80,7 @@ async function submit() {
 <template>
 	<NcDialog
 		v-model:open="open"
-		:name="t(APP_ID, 'Lift the block of {address}?', { address: ban?.cidr ?? '' })"
+		:name="t(APP_ID, 'Lift the block of {address}?', { address: ban ? formatAddress(ban.cidr) : '' })"
 		isForm
 		:buttons="buttons"
 		size="normal"

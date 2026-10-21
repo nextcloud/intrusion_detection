@@ -4,7 +4,7 @@
  */
 
 import { describe, expect, test } from 'vitest'
-import { fillTemplate, fillTemplateText, formatDuration, formatValue, splitDuration } from './format.ts'
+import { fillTemplate, fillTemplateText, formatAddress, formatDuration, formatValue, splitDuration } from './format.ts'
 
 describe('formatDuration', () => {
 	test.each([
@@ -69,5 +69,15 @@ describe('fillTemplate', () => {
 
 	test('a template without placeholders is one segment', () => {
 		expect(fillTemplate('Plain text.', {})).toEqual([{ text: 'Plain text.' }])
+	})
+})
+
+describe('formatAddress', () => {
+	test('shows a single address without its prefix and a network with it', () => {
+		expect(formatAddress('203.0.113.7/32')).toBe('203.0.113.7')
+		expect(formatAddress('2001:db8::1/128')).toBe('2001:db8::1')
+		expect(formatAddress('198.51.100.0/24')).toBe('198.51.100.0/24')
+		expect(formatAddress('2001:db8:1:2::/64')).toBe('2001:db8:1:2::/64')
+		expect(formatAddress('203.0.113.7')).toBe('203.0.113.7')
 	})
 })

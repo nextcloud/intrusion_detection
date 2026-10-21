@@ -19,7 +19,7 @@ import { useAnnouncer } from '../../composables/useAnnouncer.ts'
 import { addBan, ApiError, errorMessage, isCancelled } from '../../services/api.ts'
 import { logger } from '../../services/logger.ts'
 import { globalValues, refreshStatus, state } from '../../store.ts'
-import { APP_ID, formatDuration } from '../../utils/format.ts'
+import { APP_ID, formatAddress, formatDuration } from '../../utils/format.ts'
 import { isCidr } from '../../utils/validate.ts'
 
 const open = defineModel<boolean>('open', { required: true })
@@ -113,7 +113,7 @@ async function submit() {
 			duration: length.value === 'custom' && typeof duration.value === 'number' ? duration.value : undefined,
 			note: note.value.trim(),
 		})
-		announce(t(APP_ID, '{address} is blocked. Reference {reference}.', { address: ban.cidr, reference: ban.reference }))
+		announce(t(APP_ID, '{address} is blocked. Reference {reference}.', { address: formatAddress(ban.cidr), reference: ban.reference }))
 		emit('added', ban)
 		open.value = false
 		refreshStatus()

@@ -39,7 +39,8 @@ describe('LookupBox', () => {
 		expect(lookup).toHaveBeenCalledWith('k7q2mpxa')
 		const result = wrapper.get('[data-test="lookup-result"]')
 		expect(result.text()).toContain('Block K7Q2-MPXA')
-		expect(result.text()).toContain('203.0.113.7/32')
+		expect(result.text()).toContain('203.0.113.7')
+		expect(result.text()).not.toContain('/32')
 		expect(result.text()).toContain('Credential stuffing')
 
 		await result.findAll('button').find((b) => b.text() === 'Lift block')!.trigger('click')
