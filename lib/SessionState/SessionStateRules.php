@@ -9,6 +9,11 @@ declare(strict_types=1);
 
 namespace OCA\IntrusionDetection\SessionState;
 
+use OCA\IntrusionDetection\Check\CredentialUse\CredentialUse;
+use OCA\IntrusionDetection\Check\CredentialUse\CredentialUseResolver;
+use OCA\IntrusionDetection\Guard\RequestContext;
+use OCA\IntrusionDetection\SessionState\Rules\DirectoryScrapingRule;
+use OCP\IRequest;
 use Psr\Container\ContainerInterface;
 use Psr\Log\LoggerInterface;
 
@@ -21,6 +26,13 @@ use Psr\Log\LoggerInterface;
  * exception is the step-up rule while a step-up is pending
  * ({@see self::FAIL_CLOSED}): an error must not let an unconfirmed login
  * through.
+ *
+ * Most requests have nothing for any rule: no session state, no credential
+ * the credential check waits to learn about, and no read of the user
+ * directory. {@see self::nothingToCheck()} tells so before any rule or its
+ * dependencies are built. It knows what each of RULES looks at, so a new
+ * rule must be added there too. A pending step-up is session state, so it
+ * always reaches the rules.
  */
 class SessionStateRules {
 	/**
@@ -53,10 +65,15 @@ class SessionStateRules {
 	public function __construct(
 		private readonly ContainerInterface $container,
 		private readonly LoggerInterface $logger,
+		private readonly RequestContext $context,
+		private readonly IRequest $request,
 	) {
 	}
 
 	public function check(SessionState $state, RequestTarget $target): ?SessionBlock {
+		if ($this->nothingToCheck($state, $target)) {
+			return null;
+		}
 		$rules = $this->rules();
 		foreach ($this->missing as $class) {
 			if ($this->failsClosed($class, $state)) {
@@ -94,6 +111,22 @@ class SessionStateRules {
 			}
 		}
 		return false;
+	}
+
+	/**
+	 * Whether none of RULES would look at this request: the step-up, password
+	 * change, login history and login notice rules need session state, the
+	 * credential use rule a credential the guard noted, and the directory
+	 * scraping rule a read of the user directory.
+	 */
+	private function nothingToCheck(SessionState $state, RequestTarget $target): bool {
+		if ($this->classes() !== self::RULES) {
+			return false;
+		}
+		$use = $this->context->get(CredentialUseResolver::CONTEXT_KEY);
+		return $state->isEmpty()
+			&& !($use instanceof CredentialUse && $use->needsResolution())
+			&& DirectoryScrapingRule::group($target, $this->request) === null;
 	}
 
 	/**

@@ -42,9 +42,7 @@ class DirectoryScrapingRule implements ISessionStateRule {
 
 	#[\Override]
 	public function check(SessionState $state, RequestTarget $target): ?SessionBlock {
-		$group = $target->dav
-			? DirectoryRoutes::davGroup($target->httpMethod, $target->uri, $this->request->getHeader('Depth'))
-			: DirectoryRoutes::group($this->request->getParam('_route'), fn (): mixed => $this->request->getParam('providerId'));
+		$group = self::group($target, $this->request);
 		if ($group === null) {
 			return null;
 		}
@@ -53,5 +51,14 @@ class DirectoryScrapingRule implements ISessionStateRule {
 			return null;
 		}
 		return $this->container->get(DirectoryScrapingDetector::class)->count($uid, $group);
+	}
+
+	/**
+	 * The directory group a request reads, null for any other request.
+	 */
+	public static function group(RequestTarget $target, IRequest $request): ?string {
+		return $target->dav
+			? DirectoryRoutes::davGroup($target->httpMethod, $target->uri, $request->getHeader('Depth'))
+			: DirectoryRoutes::group($request->getParam('_route'), static fn (): mixed => $request->getParam('providerId'));
 	}
 }

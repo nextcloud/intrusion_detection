@@ -90,7 +90,7 @@ class SessionStateMiddlewareTest extends TestCase {
 			CredentialUseRule::class => $credentialRule,
 			default => $rule,
 		});
-		$this->rules = new SessionStateRules($container, $this->createMock(LoggerInterface::class));
+		$this->rules = new SessionStateRules($container, $this->createMock(LoggerInterface::class), new \OCA\IntrusionDetection\Guard\RequestContext(), $this->createMock(\OCP\IRequest::class));
 		$this->request = $this->createMock(IRequest::class);
 		$this->request->method('getMethod')->willReturnCallback(fn (): string => $this->method);
 		$this->request->method('getRequestUri')->willReturn('/apps/files/');
@@ -206,7 +206,7 @@ class SessionStateMiddlewareTest extends TestCase {
 		}
 		$container = $this->createMock(ContainerInterface::class);
 		$container->method('get')->willReturnCallback(static fn (string $id): object => $byClass[$id]);
-		return new class(array_keys($byClass), $container, $this->createMock(LoggerInterface::class)) extends SessionStateRules {
+		return new class(array_keys($byClass), $container, $this->createMock(LoggerInterface::class), new \OCA\IntrusionDetection\Guard\RequestContext(), $this->createMock(\OCP\IRequest::class)) extends SessionStateRules {
 			/**
 			 * @param list<string> $names
 			 */
@@ -214,8 +214,10 @@ class SessionStateMiddlewareTest extends TestCase {
 				private readonly array $names,
 				ContainerInterface $container,
 				LoggerInterface $logger,
+				\OCA\IntrusionDetection\Guard\RequestContext $context,
+				\OCP\IRequest $request,
 			) {
-				parent::__construct($container, $logger);
+				parent::__construct($container, $logger, $context, $request);
 			}
 
 			protected function classes(): array {

@@ -50,7 +50,7 @@ class RateLimitAnswerTest extends TestCase {
 		};
 		$container = $this->createMock(ContainerInterface::class);
 		$container->method('get')->willReturn($rule);
-		$this->rules = new class($container, $this->createMock(LoggerInterface::class)) extends SessionStateRules {
+		$this->rules = new class($container, $this->createMock(LoggerInterface::class), new \OCA\IntrusionDetection\Guard\RequestContext(), $this->createMock(\OCP\IRequest::class)) extends SessionStateRules {
 			protected function classes(): array {
 				return [ISessionStateRule::class];
 			}
