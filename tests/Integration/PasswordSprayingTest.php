@@ -91,6 +91,21 @@ class PasswordSprayingTest extends LoginFailureTestCase {
 		$this->assertSame(PasswordSpraying::RULE_FLAGGED, $joined[0]->getExplanationData()['facts']['rule']);
 	}
 
+	public function testASprayingSourceThatComesBackKeepsItsSprayDetection(): void {
+		$this->spray(5);
+		$this->failLogin('198.51.100.5', 'someone-new', self::SPRAYED);
+		$fromSource = array_values(array_filter(
+			$this->detectionsOf(PasswordSpraying::ID),
+			static fn ($d): bool => $d->getIp() === '198.51.100.5',
+		));
+		$byRule = [];
+		foreach ($fromSource as $detection) {
+			$byRule[$detection->getExplanationData()['facts']['rule']] = $detection;
+		}
+		$this->assertEqualsCanonicalizing([PasswordSpraying::RULE_SPRAY, PasswordSpraying::RULE_FLAGGED], array_keys($byRule), 'Joining the spray again is its own detection');
+		$this->assertSame(5, $byRule[PasswordSpraying::RULE_SPRAY]->getExplanationData()['facts']['names'], 'The spray keeps its facts');
+	}
+
 	public function testAtMost500SourcesAreBlockedAndTheRestCounted(): void {
 		for ($i = 0; $i < 549; $i++) {
 			$this->storeAttempt('100.' . (64 + intdiv($i, 200)) . '.' . ($i % 200) . '.1', 'victim' . $i, password: self::SPRAYED);

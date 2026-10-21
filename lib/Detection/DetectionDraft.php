@@ -36,7 +36,7 @@ final class DetectionDraft {
 
 	/**
 	 * @param array<string, mixed> $facts
-	 * @param self::MERGE_* $merge which repeated hits within `$mergeWindow` update one row
+	 * @param self::MERGE_* $merge which repeated hits within `$mergeWindow` update one row (hits of different `rule` facts never do)
 	 * @param ?int $banLevel force at least this escalation level when banning
 	 * @param ?int $sessionTokenId the id of the session token involved, for the kill_session response
 	 * @param ?int $tokenId the id of the app password or token involved, for the revoke_token response
@@ -109,7 +109,10 @@ final class DetectionDraft {
 		if ($parts === null || in_array(null, $parts, true)) {
 			return null;
 		}
+		// Hits of different rules of a check are different detections.
+		$rule = $this->facts['rule'] ?? null;
+		$scope = is_string($rule) ? $this->checkId . "\0rule:" . $rule : $this->checkId;
 		// Hashed, so the key fits the column whatever the inputs are.
-		return hash('sha256', $this->checkId . "\0" . implode("\0", $parts));
+		return hash('sha256', $scope . "\0" . implode("\0", $parts));
 	}
 }

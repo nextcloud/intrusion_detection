@@ -295,6 +295,7 @@ class ComposerStaticInitIntrusionDetection
         'OCA\\IntrusionDetection\\Detection\\DetectionService' => __DIR__ . '/..' . '/../lib/Detection/DetectionService.php',
         'OCA\\IntrusionDetection\\Detection\\DetectionTotals' => __DIR__ . '/..' . '/../lib/Detection/DetectionTotals.php',
         'OCA\\IntrusionDetection\\Detection\\Explanation' => __DIR__ . '/..' . '/../lib/Detection/Explanation.php',
+        'OCA\\IntrusionDetection\\Detection\\FactsMerger' => __DIR__ . '/..' . '/../lib/Detection/FactsMerger.php',
         'OCA\\IntrusionDetection\\Detection\\Simulator' => __DIR__ . '/..' . '/../lib/Detection/Simulator.php',
         'OCA\\IntrusionDetection\\Event\\BanCreatedEvent' => __DIR__ . '/..' . '/../lib/Event/BanCreatedEvent.php',
         'OCA\\IntrusionDetection\\Event\\BanLiftedEvent' => __DIR__ . '/..' . '/../lib/Event/BanLiftedEvent.php',

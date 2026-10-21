@@ -280,6 +280,7 @@ return array(
     'OCA\\IntrusionDetection\\Detection\\DetectionService' => $baseDir . '/../lib/Detection/DetectionService.php',
     'OCA\\IntrusionDetection\\Detection\\DetectionTotals' => $baseDir . '/../lib/Detection/DetectionTotals.php',
     'OCA\\IntrusionDetection\\Detection\\Explanation' => $baseDir . '/../lib/Detection/Explanation.php',
+    'OCA\\IntrusionDetection\\Detection\\FactsMerger' => $baseDir . '/../lib/Detection/FactsMerger.php',
     'OCA\\IntrusionDetection\\Detection\\Simulator' => $baseDir . '/../lib/Detection/Simulator.php',
     'OCA\\IntrusionDetection\\Event\\BanCreatedEvent' => $baseDir . '/../lib/Event/BanCreatedEvent.php',
     'OCA\\IntrusionDetection\\Event\\BanLiftedEvent' => $baseDir . '/../lib/Event/BanLiftedEvent.php',

@@ -20,9 +20,10 @@ use OCA\IntrusionDetection\Risk\RiskScorer;
 use OCP\AppFramework\Utility\ITimeFactory;
 
 /**
- * Stores detections. Repeated hits of the same check from the same source
- * (or for the same user) within the merge window update one row, which keeps
- * the noise of traps and scanners small.
+ * Stores detections. Repeated hits of the same check and rule from the same
+ * source (or for the same user) within the merge window update one row,
+ * which keeps the noise of traps and scanners small. The row's facts are
+ * merged ({@see FactsMerger}), so it still explains every hit.
  *
  * A new detection with an address keeps the address risk score at that
  * moment (fact `risk`), unless its check already stored the score it
@@ -54,7 +55,7 @@ class DetectionService {
 			}
 			$explanation = $existing->getExplanationData();
 			$explanation['last'] = $now;
-			$explanation['facts'] = array_replace($explanation['facts'] ?? [], $draft->facts);
+			$explanation['facts'] = FactsMerger::merge(is_array($explanation['facts'] ?? null) ? $explanation['facts'] : [], Explanation::facts($draft));
 			$existing->setExplanationData($explanation);
 			$this->mapper->update($existing);
 			return [$existing, false];

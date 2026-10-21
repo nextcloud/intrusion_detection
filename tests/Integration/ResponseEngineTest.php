@@ -102,6 +102,23 @@ class ResponseEngineTest extends IntegrationTestCase {
 		$this->assertTrue($second->getActionList()[0]['enforced']);
 	}
 
+	public function testAMergedHitKeepsTheEarlierFacts(): void {
+		$first = $this->engine->handle(new DetectionDraft(ManualBlock::ID, SourceKey::fromIp('198.51.100.7'), facts: ['rule' => 'a', 'targets' => ['alice', 'bob'], 'first' => 1000, 'last' => 1100], merge: DetectionDraft::MERGE_SOURCE));
+		$second = $this->engine->handle(new DetectionDraft(ManualBlock::ID, SourceKey::fromIp('198.51.100.7'), facts: ['rule' => 'a', 'targets' => ['carol'], 'first' => 1050, 'last' => 1200], merge: DetectionDraft::MERGE_SOURCE));
+		$this->assertSame($first?->getId(), $second?->getId());
+		$facts = $this->detections->findById($second->getId())->getExplanationData()['facts'];
+		$this->assertSame(['alice', 'bob', 'carol'], $facts['targets']);
+		$this->assertSame(1000, $facts['first']);
+		$this->assertSame(1200, $facts['last']);
+	}
+
+	public function testHitsOfAnotherRuleAreAnotherDetection(): void {
+		$this->engine->handle(new DetectionDraft(ManualBlock::ID, SourceKey::fromIp('198.51.100.7'), facts: ['rule' => 'a'], merge: DetectionDraft::MERGE_SOURCE));
+		$this->engine->handle(new DetectionDraft(ManualBlock::ID, SourceKey::fromIp('198.51.100.7'), facts: ['rule' => 'b'], merge: DetectionDraft::MERGE_SOURCE));
+		$rules = array_map(static fn ($d): string => $d->getExplanationData()['facts']['rule'], $this->detections->findList(new DetectionFilter()));
+		$this->assertEqualsCanonicalizing(['a', 'b'], $rules);
+	}
+
 	public function testDifferentSourcesAreSeparateDetections(): void {
 		$this->engine->handle($this->draft('198.51.100.7', DetectionDraft::MERGE_SOURCE));
 		$this->engine->handle($this->draft('198.51.100.8', DetectionDraft::MERGE_SOURCE));
