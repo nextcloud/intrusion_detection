@@ -48,12 +48,14 @@ describe('the data and privacy section', () => {
 		state.settings = [days('retention_detections_days', 90), days('history_retention_days', 180)]
 	})
 
-	test('sums up what is kept, for how long, and what leaves the server', async () => {
+	test('one card says what is kept and for how long, the next one what leaves the server', async () => {
 		const wrapper = await mountSection()
-		const summary = wrapper.get('[data-test="privacy-summary"]').text()
-		expect(summary).toContain('Detections are kept for 90 days.')
-		expect(summary).toContain('kept for 180 days')
-		expect(summary).toContain('Only these contact other services: Breached password check.')
+		const kept = wrapper.get('[data-test="privacy-kept"]')
+		expect(kept.get('[data-test="privacy-retention"]').text()).toContain('Detections are kept for 90 days.')
+		expect(kept.text()).toContain('kept for 180 days')
+		expect(kept.find('[data-test="stored-toggle"]').exists()).toBe(true)
+		expect(wrapper.text()).not.toContain('What Nextcloud stores')
+		expect(wrapper.get('[data-test="privacy-outgoing"]').text()).toBe('Only these contact other services: Breached password check.')
 	})
 
 	test('then the retention settings, the outgoing data, and the full table behind its toggle', async () => {

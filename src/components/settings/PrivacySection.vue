@@ -6,7 +6,7 @@
 <script setup lang="ts">
 import type { Privacy } from '../../types.ts'
 
-import { mdiCloudUploadOutline, mdiDatabaseOutline, mdiScaleBalance, mdiShieldLockOutline } from '@mdi/js'
+import { mdiCloudUploadOutline, mdiDatabaseOutline, mdiScaleBalance } from '@mdi/js'
 import { n, t } from '@nextcloud/l10n'
 import { computed, onActivated, onMounted, ref } from 'vue'
 import NcIconSvgWrapper from '@nextcloud/vue/components/NcIconSvgWrapper'
@@ -70,27 +70,13 @@ onActivated(load)
 			<SectionCard
 				level="h4"
 				:heading="t(APP_ID, 'What Nextcloud keeps')"
-				:icon="mdiShieldLockOutline"
-				data-test="privacy-summary">
-				<p :class="$style.summary">
+				:icon="mdiDatabaseOutline"
+				data-test="privacy-kept">
+				<p :class="$style.summary" data-test="privacy-retention">
 					{{ n(APP_ID, 'Detections are kept for %n day.', 'Detections are kept for %n days.', days('retention_detections_days')) }}
 					{{ n(APP_ID, 'The security history of logins and changes is kept for %n day.', 'The security history of logins and changes is kept for %n days.', days('history_retention_days')) }}
-					{{ t(APP_ID, 'Then it is deleted automatically.') }}
-				</p>
-				<p :class="$style.summary">
-					<template v-if="activeOutgoing.length === 0">
-						{{ t(APP_ID, 'Nothing is sent to other services.') }}
-					</template>
-					<template v-else>
-						{{ t(APP_ID, 'Only these contact other services: {names}.', { names: activeOutgoing.join(', ') }, undefined, { escape: false, sanitize: false }) }}
-					</template>
-				</p>
-			</SectionCard>
-
-			<SectionCard level="h4" :heading="t(APP_ID, 'What Nextcloud stores')" :icon="mdiDatabaseOutline">
-				<template #description>
 					{{ t(APP_ID, 'Everything the checks keep is deleted automatically when its time is up.') }}
-				</template>
+				</p>
 				<SettingsGroup :settings="retentionSettings">
 					<template #default="{ fill, changed }">
 						<ShowMore
@@ -152,6 +138,14 @@ onActivated(load)
 				<template #description>
 					{{ t(APP_ID, 'Only what you switch on contacts another service, and this is everything it sends.') }}
 				</template>
+				<p :class="$style.summary" data-test="privacy-outgoing">
+					<template v-if="activeOutgoing.length === 0">
+						{{ t(APP_ID, 'Nothing is sent to other services.') }}
+					</template>
+					<template v-else>
+						{{ t(APP_ID, 'Only these contact other services: {names}.', { names: activeOutgoing.join(', ') }, undefined, { escape: false, sanitize: false }) }}
+					</template>
+				</p>
 				<ul :class="$style.outgoing">
 					<li v-for="item in data.outgoing" :key="item.id" :class="$style.outgoing__item">
 						<div :class="$style.outgoing__head">
