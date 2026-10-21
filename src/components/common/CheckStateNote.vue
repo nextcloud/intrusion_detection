@@ -19,11 +19,12 @@ const props = defineProps<{
 
 const state = computed(() => {
 	const { effective, configured, reason } = props.check.mode
-	if (effective === 'protect') {
+	// Learning mode is shown once in the status strip; here the check keeps its own mode.
+	if (effective === 'protect' || (reason === 'learning' && configured === 'protect')) {
 		return { type: 'success' as const, text: t(APP_ID, 'Protect') }
 	}
 	if (effective === 'observe') {
-		return { type: 'info' as const, text: reason === 'learning' && configured === 'protect' ? t(APP_ID, 'Observing while learning') : t(APP_ID, 'Observe') }
+		return { type: 'info' as const, text: t(APP_ID, 'Observe') }
 	}
 	return { type: 'warning' as const, text: t(APP_ID, 'Off') }
 })

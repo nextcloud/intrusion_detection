@@ -348,7 +348,11 @@ function sameList(a: string[], b: string[]): boolean {
 				:aria-controls="`${id}-details`"
 				@click="expanded = !expanded">
 				<span>{{ expanded ? t(APP_ID, 'Hide details') : t(APP_ID, 'Details and settings') }}</span>
-				<NcIconSvgWrapper :class="$style.card__chevron" :path="mdiChevronDown" :size="20" />
+				<NcIconSvgWrapper
+					inline
+					:class="$style.card__chevron"
+					:path="mdiChevronDown"
+					:size="20" />
 			</button>
 		</div>
 
@@ -603,6 +607,9 @@ function sameList(a: string[], b: string[]): boolean {
 	flex-wrap: wrap;
 	align-items: center;
 	gap: calc(var(--default-grid-baseline) * 2);
+	margin-top: auto;
+	padding-top: calc(var(--default-grid-baseline) * 3);
+	border-top: 1px solid var(--color-border);
 }
 
 .badge {
@@ -641,9 +648,9 @@ function sameList(a: string[], b: string[]): boolean {
 	gap: calc(var(--default-grid-baseline) * 1);
 	min-height: 34px;
 	margin: 0;
-	margin-inline-start: auto;
+	margin-inline: auto calc(var(--default-grid-baseline) * -2);
 	padding-block: 0;
-	padding-inline: calc(var(--default-grid-baseline) * 3) calc(var(--default-grid-baseline) * 2);
+	padding-inline: calc(var(--default-grid-baseline) * 2);
 	border: none;
 	border-radius: var(--border-radius-element);
 	background: transparent;
@@ -672,12 +679,14 @@ function sameList(a: string[], b: string[]): boolean {
 .card__collapse {
 	display: grid;
 	grid-template-rows: 0fr;
+	margin-top: calc(var(--default-grid-baseline) * -3);
 	opacity: 0;
-	transition: grid-template-rows 180ms ease, opacity 180ms ease;
+	transition: grid-template-rows 180ms ease, opacity 180ms ease, margin-top 180ms ease;
 }
 
 .card_expanded .card__collapse {
 	grid-template-rows: 1fr;
+	margin-top: 0;
 	opacity: 1;
 }
 
@@ -691,7 +700,6 @@ function sameList(a: string[], b: string[]): boolean {
 
 .card_expanded .card__collapseInner {
 	padding-top: calc(var(--default-grid-baseline) * 2);
-	border-top: 1px solid var(--color-border);
 }
 
 .card__body {
@@ -797,7 +805,7 @@ function sameList(a: string[], b: string[]): boolean {
 	}
 
 	.card__meta button.card__toggle {
-		margin-inline-start: 0;
+		margin-inline-start: auto;
 	}
 }
 

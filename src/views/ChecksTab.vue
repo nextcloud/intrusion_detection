@@ -108,6 +108,5 @@ watch(openCheckId, async (id) => {
 	display: grid;
 	grid-template-columns: repeat(auto-fill, minmax(min(100%, 420px), 1fr));
 	gap: calc(var(--default-grid-baseline) * 4);
-	align-items: start;
 }
 </style>

@@ -10,10 +10,10 @@ import { mdiClose, mdiShieldCheckOutline } from '@mdi/js'
 import { n, t } from '@nextcloud/l10n'
 import { computed, ref, useId, watch } from 'vue'
 import NcButton from '@nextcloud/vue/components/NcButton'
-import NcEmptyContent from '@nextcloud/vue/components/NcEmptyContent'
 import NcIconSvgWrapper from '@nextcloud/vue/components/NcIconSvgWrapper'
 import NcLoadingIcon from '@nextcloud/vue/components/NcLoadingIcon'
 import NcNoteCard from '@nextcloud/vue/components/NcNoteCard'
+import EmptyNote from '../common/EmptyNote.vue'
 import SkeletonBlock from '../common/SkeletonBlock.vue'
 import DetectionRow from './DetectionRow.vue'
 import { errorMessage, fetchDetections } from '../../services/api.ts'
@@ -212,14 +212,11 @@ defineExpose({ reload: load })
 			<SkeletonBlock v-for="i in 5" :key="i" height="44px" />
 		</div>
 
-		<NcEmptyContent
+		<EmptyNote
 			v-else-if="detections.length === 0 && !error"
 			:name="filtered ? t(APP_ID, 'No detections match these filters') : t(APP_ID, 'No attacks recorded')"
-			:description="filtered ? t(APP_ID, 'Try fewer filters.') : t(APP_ID, 'When a check finds something, it is listed here with an explanation. Nextcloud is watching.')">
-			<template #icon>
-				<NcIconSvgWrapper :path="mdiShieldCheckOutline" />
-			</template>
-		</NcEmptyContent>
+			:description="filtered ? t(APP_ID, 'Try fewer filters.') : t(APP_ID, 'When a check finds something, it is listed here with an explanation. Nextcloud is watching.')"
+			:icon="mdiShieldCheckOutline" />
 
 		<ul v-else :class="$style.detections__list">
 			<DetectionRow

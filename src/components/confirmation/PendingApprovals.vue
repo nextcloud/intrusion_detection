@@ -14,9 +14,9 @@ import NcAvatar from '@nextcloud/vue/components/NcAvatar'
 import NcButton from '@nextcloud/vue/components/NcButton'
 import NcDateTime from '@nextcloud/vue/components/NcDateTime'
 import NcDialog from '@nextcloud/vue/components/NcDialog'
-import NcEmptyContent from '@nextcloud/vue/components/NcEmptyContent'
 import NcIconSvgWrapper from '@nextcloud/vue/components/NcIconSvgWrapper'
 import NcLoadingIcon from '@nextcloud/vue/components/NcLoadingIcon'
+import EmptyNote from '../common/EmptyNote.vue'
 import { useAnnouncer } from '../../composables/useAnnouncer.ts'
 import { approveRequest, errorMessage, isCancelled, rejectRequest } from '../../services/api.ts'
 import { logger } from '../../services/logger.ts'
@@ -87,14 +87,11 @@ function address(approval: LoginApproval): string {
 
 <template>
 	<div :class="$style.approvals">
-		<NcEmptyContent
+		<EmptyNote
 			v-if="props.approvals.length === 0"
 			:name="t(APP_ID, 'No login is waiting')"
-			:description="t(APP_ID, 'Logins that wait for an administrator appear here, and as a notification with Approve and Reject.')">
-			<template #icon>
-				<NcIconSvgWrapper :path="mdiAccountClockOutline" />
-			</template>
-		</NcEmptyContent>
+			:description="t(APP_ID, 'Logins that wait for an administrator appear here, and as a notification with Approve and Reject.')"
+			:icon="mdiAccountClockOutline" />
 
 		<ul v-else :class="$style.list" data-test="approvals">
 			<li

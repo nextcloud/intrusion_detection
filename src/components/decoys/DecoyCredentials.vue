@@ -13,9 +13,9 @@ import { computed, ref } from 'vue'
 import NcButton from '@nextcloud/vue/components/NcButton'
 import NcDateTime from '@nextcloud/vue/components/NcDateTime'
 import NcDialog from '@nextcloud/vue/components/NcDialog'
-import NcEmptyContent from '@nextcloud/vue/components/NcEmptyContent'
 import NcIconSvgWrapper from '@nextcloud/vue/components/NcIconSvgWrapper'
 import CheckStateNote from '../common/CheckStateNote.vue'
+import EmptyNote from '../common/EmptyNote.vue'
 import SectionCard from '../common/SectionCard.vue'
 import StateBadge from '../common/StateBadge.vue'
 import CreateDecoyDialog from './CreateDecoyDialog.vue'
@@ -96,14 +96,11 @@ async function remove() {
 			</NcButton>
 		</template>
 
-		<NcEmptyContent
+		<EmptyNote
 			v-if="decoys.length === 0"
 			:name="t(APP_ID, 'No decoys yet')"
-			:description="t(APP_ID, 'Create one and plant it somewhere only an intruder would find it. It costs nothing until someone uses it.')">
-			<template #icon>
-				<NcIconSvgWrapper :path="mdiKeyVariant" />
-			</template>
-		</NcEmptyContent>
+			:description="t(APP_ID, 'Create one and plant it somewhere only an intruder would find it. It costs nothing until someone uses it.')"
+			:icon="mdiKeyVariant" />
 
 		<ul v-else :class="$style.list" data-test="decoy-list">
 			<li v-for="decoy in decoys" :key="decoy.id" :class="[$style.decoy, { [$style.decoy_used]: decoy.triggerCount > 0 }]">

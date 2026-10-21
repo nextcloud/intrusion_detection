@@ -10,8 +10,8 @@ import { mdiTimelineClockOutline } from '@mdi/js'
 import { getCanonicalLocale, n, t } from '@nextcloud/l10n'
 import { computed, ref, watch } from 'vue'
 import NcButton from '@nextcloud/vue/components/NcButton'
-import NcEmptyContent from '@nextcloud/vue/components/NcEmptyContent'
 import NcIconSvgWrapper from '@nextcloud/vue/components/NcIconSvgWrapper'
+import EmptyNote from '../common/EmptyNote.vue'
 import IncidentEntry from './IncidentEntry.vue'
 import { APP_ID, formatNumber } from '../../utils/format.ts'
 import { kindIcon } from './kinds.ts'
@@ -114,14 +114,11 @@ function toggleAll() {
 			{{ n(APP_ID, '%n entry shown', '%n entries shown', shown.length) }}
 		</p>
 
-		<NcEmptyContent
+		<EmptyNote
 			v-if="report.entries.length === 0"
 			:name="t(APP_ID, 'Nothing on the timeline')"
-			:description="t(APP_ID, 'Nextcloud recorded nothing about this subject in this period. Try a longer period, or check the spelling.')">
-			<template #icon>
-				<NcIconSvgWrapper :path="mdiTimelineClockOutline" />
-			</template>
-		</NcEmptyContent>
+			:description="t(APP_ID, 'Nextcloud recorded nothing about this subject in this period. Try a longer period, or check the spelling.')"
+			:icon="mdiTimelineClockOutline" />
 
 		<template v-else>
 			<div v-for="day in days" :key="day.label" :class="$style.timeline__day">

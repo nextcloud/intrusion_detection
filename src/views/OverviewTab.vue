@@ -125,6 +125,7 @@ watch(openDetectionId, async (id) => {
 .overview__top {
 	display: grid;
 	grid-template-columns: minmax(0, 3fr) minmax(300px, 2fr);
+	align-items: start;
 	gap: calc(var(--default-grid-baseline) * 5);
 }
 

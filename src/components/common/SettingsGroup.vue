@@ -143,7 +143,7 @@ function discard() {
 
 .group__fields {
 	display: grid;
-	grid-template-columns: repeat(auto-fill, minmax(min(100%, 210px), 1fr));
+	grid-template-columns: repeat(auto-fill, minmax(min(100%, 240px), 1fr));
 	gap: calc(var(--default-grid-baseline) * 4) calc(var(--default-grid-baseline) * 5);
 }
 

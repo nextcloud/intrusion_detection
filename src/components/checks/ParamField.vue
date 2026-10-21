@@ -25,6 +25,12 @@ const props = defineProps<{
 const id = useId()
 const hintId = `${id}-hint`
 
+/** Fields with a description of a few lines, switches with one, and lists take a whole row of a settings grid, so their text is not squeezed into a narrow column */
+const wide = computed(() => (props.param.type === 'bool' && props.param.help !== '')
+	|| props.param.help.length > 120
+	|| props.param.type === 'string_list'
+	|| props.param.type === 'cidr_list')
+
 const show = (value: number) => props.param.type === 'duration' ? formatDuration(value) : formatNumber(value)
 
 const range = computed(() => {
@@ -62,7 +68,7 @@ const textValue = computed({
 </script>
 
 <template>
-	<div :class="[$style.field, { [$style.field_invalid]: error }]">
+	<div :class="[$style.field, { [$style.field_invalid]: error, [$style.field_wide]: wide }]" :data-wide="wide ? 'true' : undefined">
 		<NcCheckboxRadioSwitch
 			v-if="param.type === 'bool'"
 			:modelValue="model === true"
@@ -143,6 +149,14 @@ const textValue = computed({
 	flex-direction: column;
 	gap: calc(var(--default-grid-baseline) * 1);
 	min-width: 0;
+}
+
+.field_wide {
+	grid-column: 1 / -1;
+}
+
+.field_wide > * {
+	max-width: 80ch;
 }
 
 .field__label {

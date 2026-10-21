@@ -12,13 +12,13 @@ import { computed, onActivated, onMounted, ref, watch } from 'vue'
 import NcButton from '@nextcloud/vue/components/NcButton'
 import NcCheckboxRadioSwitch from '@nextcloud/vue/components/NcCheckboxRadioSwitch'
 import NcDateTime from '@nextcloud/vue/components/NcDateTime'
-import NcEmptyContent from '@nextcloud/vue/components/NcEmptyContent'
 import NcIconSvgWrapper from '@nextcloud/vue/components/NcIconSvgWrapper'
 import NcLoadingIcon from '@nextcloud/vue/components/NcLoadingIcon'
 import NcNoteCard from '@nextcloud/vue/components/NcNoteCard'
 import AddBanDialog from '../components/blocks/AddBanDialog.vue'
 import LiftBanDialog from '../components/blocks/LiftBanDialog.vue'
 import LiveSentence from '../components/checks/LiveSentence.vue'
+import EmptyNote from '../components/common/EmptyNote.vue'
 import ReferencePill from '../components/common/ReferencePill.vue'
 import SettingsGroup from '../components/common/SettingsGroup.vue'
 import SkeletonBlock from '../components/common/SkeletonBlock.vue'
@@ -138,14 +138,11 @@ function openDetection(ban: Ban) {
 				<SkeletonBlock v-for="i in 4" :key="i" height="40px" />
 			</div>
 
-			<NcEmptyContent
+			<EmptyNote
 				v-else-if="bans.length === 0 && !error"
 				:name="showAll ? t(APP_ID, 'No blocks yet') : t(APP_ID, 'No address is blocked right now')"
-				:description="t(APP_ID, 'Addresses that attack are blocked here automatically. You can also block one by hand.')">
-				<template #icon>
-					<NcIconSvgWrapper :path="mdiShieldCheckOutline" />
-				</template>
-			</NcEmptyContent>
+				:description="t(APP_ID, 'Addresses that attack are blocked here automatically. You can also block one by hand.')"
+				:icon="mdiShieldCheckOutline" />
 
 			<div v-else :class="$style.tableWrap">
 				<table :class="$style.table">

@@ -12,10 +12,10 @@ import { n, t } from '@nextcloud/l10n'
 import { computed, nextTick, ref, watch } from 'vue'
 import NcButton from '@nextcloud/vue/components/NcButton'
 import NcDateTime from '@nextcloud/vue/components/NcDateTime'
-import NcEmptyContent from '@nextcloud/vue/components/NcEmptyContent'
 import NcIconSvgWrapper from '@nextcloud/vue/components/NcIconSvgWrapper'
 import NcLoadingIcon from '@nextcloud/vue/components/NcLoadingIcon'
 import NcNoteCard from '@nextcloud/vue/components/NcNoteCard'
+import EmptyNote from '../components/common/EmptyNote.vue'
 import SectionCard from '../components/common/SectionCard.vue'
 import SkeletonBlock from '../components/common/SkeletonBlock.vue'
 import IncidentForm from '../components/incidents/IncidentForm.vue'
@@ -192,15 +192,11 @@ watch(incidentRequest, async (request) => {
 			</NcButton>
 		</NcNoteCard>
 
-		<NcEmptyContent
+		<EmptyNote
 			v-else-if="report === null"
-			:class="$style.tab__empty"
 			:name="t(APP_ID, 'Choose an account or an address')"
-			:description="t(APP_ID, 'The report shows what happened, what Nextcloud did, and what is still open. From a detection on the overview, “Incident report” fills this in for you.')">
-			<template #icon>
-				<NcIconSvgWrapper :path="mdiTextBoxSearchOutline" />
-			</template>
-		</NcEmptyContent>
+			:description="t(APP_ID, 'The report shows what happened, what Nextcloud did, and what is still open. From a detection on the overview, “Incident report” fills this in for you.')"
+			:icon="mdiTextBoxSearchOutline" />
 
 		<article v-else :class="$style.report" :aria-label="t(APP_ID, 'Incident report')">
 			<header :class="$style.report__head">
@@ -299,10 +295,6 @@ watch(incidentRequest, async (request) => {
 
 .tab__retry {
 	margin-block-start: calc(var(--default-grid-baseline) * 2);
-}
-
-.tab__empty {
-	margin-block: calc(var(--default-grid-baseline) * 6);
 }
 
 .report {
