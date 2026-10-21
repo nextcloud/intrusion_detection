@@ -10,6 +10,7 @@ declare(strict_types=1);
 namespace OCA\IntrusionDetection\Detection;
 
 use OCA\IntrusionDetection\Check\CheckRegistry;
+use OCA\IntrusionDetection\Check\Severity;
 use OCA\IntrusionDetection\Config\ModeState;
 use OCA\IntrusionDetection\Config\Settings;
 use OCA\IntrusionDetection\Db\Detection;
@@ -42,6 +43,11 @@ class DetectionService {
 			if ($existing !== null && $existing->isEnforced() === $mode->acts()) {
 				$existing->setHits($existing->getHits() + 1);
 				$existing->setLastSeenAt($now);
+				$severity = Severity::tryFrom($existing->getSeverity());
+				if ($draft->severity !== null && ($severity === null || $draft->severity->rank() > $severity->rank())) {
+					// A stronger sign in the same attack raises the detection, e.g. a decoy's secret after its login name.
+					$existing->setSeverity($draft->severity->value);
+				}
 				$explanation = $existing->getExplanationData();
 				$explanation['last'] = $now;
 				$explanation['facts'] = array_replace($explanation['facts'] ?? [], $draft->facts);

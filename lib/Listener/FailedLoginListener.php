@@ -13,6 +13,7 @@ use OCA\IntrusionDetection\Check\Checks\AccountUnderAttack;
 use OCA\IntrusionDetection\Check\Checks\AccountUnderAttackDetector;
 use OCA\IntrusionDetection\Check\Checks\CredentialStuffing;
 use OCA\IntrusionDetection\Check\Checks\CredentialStuffingDetector;
+use OCA\IntrusionDetection\Check\Checks\DecoyCredentialDetector;
 use OCA\IntrusionDetection\Check\Checks\PasswordSpraying;
 use OCA\IntrusionDetection\Check\Checks\PasswordSprayingDetector;
 use OCA\IntrusionDetection\Check\Checks\ReservedNameDetector;
@@ -32,7 +33,8 @@ use Psr\Log\LoggerInterface;
  * login flow), in the order of concept section 12.1:
  *
  * 1. a source on the brute-force allowlist is ignored;
- * 2. a reserved login name is a detection on its own, and nothing else runs;
+ * 2. a decoy credential, and then a reserved login name, is a detection on
+ *    its own, and nothing else runs;
  * 3. the attempt is recorded, if any check uses it (fingerprints only; old
  *    attempts are cleaned up now and then by the recorder);
  * 4. the detectors of the checks that use failed logins run: password
@@ -56,6 +58,7 @@ class FailedLoginListener implements IEventListener {
 		private readonly Settings $settings,
 		private readonly RemoteAddressResolver $addresses,
 		private readonly AttemptRecorder $recorder,
+		private readonly DecoyCredentialDetector $decoys,
 		private readonly ReservedNameDetector $reservedNames,
 		private readonly CredentialStuffingDetector $stuffing,
 		private readonly PasswordSprayingDetector $spraying,
@@ -83,6 +86,9 @@ class FailedLoginListener implements IEventListener {
 			$password = $event->getPassword();
 			$userAgent = $this->request->getHeader('User-Agent');
 
+			if ($this->step('decoy_credential', fn (): bool => $this->decoys->detect($source, $loginName, $password, $userAgent)) === true) {
+				return;
+			}
 			if ($this->step('reserved_name', fn (): bool => $this->reservedNames->detect($source, $loginName, $userAgent)) === true) {
 				return;
 			}

@@ -11,6 +11,7 @@ namespace OCA\IntrusionDetection\Tests\Unit\Listener;
 
 use OCA\IntrusionDetection\Check\Checks\AccountUnderAttackDetector;
 use OCA\IntrusionDetection\Check\Checks\CredentialStuffingDetector;
+use OCA\IntrusionDetection\Check\Checks\DecoyCredentialDetector;
 use OCA\IntrusionDetection\Check\Checks\PasswordSprayingDetector;
 use OCA\IntrusionDetection\Check\Checks\ReservedNameDetector;
 use OCA\IntrusionDetection\Check\Mode;
@@ -70,7 +71,7 @@ class FailedLoginListenerTest extends TestCase {
 		));
 
 		$listener = new FailedLoginListener(
-			$settings, $addresses, $recorder, $this->createMock(ReservedNameDetector::class),
+			$settings, $addresses, $recorder, $this->createMock(DecoyCredentialDetector::class), $this->createMock(ReservedNameDetector::class),
 			$stuffing, $spraying, $accountUnderAttack,
 			$this->createMock(IUserManager::class), $this->createMock(IRequest::class), $logger,
 		);
@@ -85,11 +86,13 @@ class FailedLoginListenerTest extends TestCase {
 		$addresses->method('isBypassListed')->willReturn(true);
 		$recorder = $this->createMock(AttemptRecorder::class);
 		$recorder->expects($this->never())->method('record');
+		$decoys = $this->createMock(DecoyCredentialDetector::class);
+		$decoys->expects($this->never())->method('detect');
 		$reserved = $this->createMock(ReservedNameDetector::class);
 		$reserved->expects($this->never())->method('detect');
 
 		$listener = new FailedLoginListener(
-			$settings, $addresses, $recorder, $reserved,
+			$settings, $addresses, $recorder, $decoys, $reserved,
 			$this->createMock(CredentialStuffingDetector::class), $this->createMock(PasswordSprayingDetector::class), $this->createMock(AccountUnderAttackDetector::class),
 			$this->createMock(IUserManager::class), $this->createMock(IRequest::class), $this->createMock(LoggerInterface::class),
 		);

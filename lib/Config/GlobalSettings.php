@@ -59,6 +59,8 @@ final class GlobalSettings {
 	public const CS_DISTRIBUTED_DETECTED_AT = 'cs_distributed_detected_at';
 	/** Internal: the detection of the running distributed attack */
 	public const CS_DISTRIBUTED_DETECTION = 'cs_distributed_detection';
+	/** Internal: how many decoy credentials exist, so failed logins skip the lookup while there are none */
+	public const DECOY_COUNT = 'decoy_count';
 
 	/** Seconds in the learning period that starts when the app is first enabled */
 	public const LEARNING_DEFAULT_PERIOD = 7 * 86400;
@@ -99,6 +101,7 @@ final class GlobalSettings {
 				new ParamDefinition(self::CS_DISTRIBUTED_UNTIL, ParamType::Int, 0, min: 0),
 				new ParamDefinition(self::CS_DISTRIBUTED_DETECTED_AT, ParamType::Int, 0, min: 0),
 				new ParamDefinition(self::CS_DISTRIBUTED_DETECTION, ParamType::Int, 0, min: 0),
+				new ParamDefinition(self::DECOY_COUNT, ParamType::Int, 0, min: 0),
 			];
 			$this->definitions = [];
 			foreach ($list as $definition) {
@@ -120,6 +123,7 @@ final class GlobalSettings {
 			self::BAN_VERSION, self::INSTALLED_AT, self::LEARNING_NOTICE_SENT, self::ATTEMPTS_FLOOD_UNTIL,
 			self::BLOCKLIST_STATE, self::EXPORT_STATE,
 			self::CS_DISTRIBUTED_UNTIL, self::CS_DISTRIBUTED_DETECTED_AT, self::CS_DISTRIBUTED_DETECTION,
+			self::DECOY_COUNT,
 		], true);
 	}
 }

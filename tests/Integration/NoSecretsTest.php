@@ -12,6 +12,8 @@ namespace OCA\IntrusionDetection\Tests\Integration;
 use OCA\IntrusionDetection\AppInfo\Application;
 use OCA\IntrusionDetection\Crypto\Fingerprinter;
 use OCA\IntrusionDetection\Db\DetectionFilter;
+use OCA\IntrusionDetection\Decoy\DecoyFormat;
+use OCA\IntrusionDetection\Decoy\DecoyService;
 use OCA\IntrusionDetection\Explain\NarrativeBuilder;
 use OCA\IntrusionDetection\Notification\AdminAlerts;
 use OCA\IntrusionDetection\Notification\Notifier;
@@ -26,14 +28,15 @@ use Psr\Log\AbstractLogger;
 use Psr\Log\LoggerInterface;
 
 /**
- * Concept section 18: passwords and their fingerprints must appear in no
- * detection, notification, email or log line. Fingerprints may only be in
- * the attempts table (for an hour) and as flags of sprayed passwords.
+ * Concept section 18: passwords, decoy secrets and their fingerprints must
+ * appear in no detection, notification, email or log line. Fingerprints may
+ * only be in the attempts table (for an hour), as flags of sprayed
+ * passwords, and as the decoys' own secret fingerprints.
  */
 #[Group('DB')]
 class NoSecretsTest extends LoginFailureTestCase {
 	/** Tables that may hold fingerprints, and in which column */
-	private const FINGERPRINT_COLUMNS = ['ids_attempts' => ['pw_fp', 'name_hmac'], 'ids_flags' => ['flag_key']];
+	private const FINGERPRINT_COLUMNS = ['ids_attempts' => ['pw_fp', 'name_hmac'], 'ids_flags' => ['flag_key'], 'ids_decoys' => ['secret_hmac']];
 
 	/** @var list<string> */
 	private array $logged = [];
@@ -68,6 +71,8 @@ class NoSecretsTest extends LoginFailureTestCase {
 			'reserved' => 'Secret-Reserved-Password-9e9e',
 			'app-password' => 'Qx7Kp-Zt3Wm-Rb8Nc-Jd2Hf-Ls9Gy',
 		];
+		[, $secrets['decoy-app-password']] = Server::get(DecoyService::class)->create('planted on nas01', 'decoy-svc', DecoyFormat::AppPassword, 'test');
+		[, $secrets['decoy-token']] = Server::get(DecoyService::class)->create('planted in the wiki', null, DecoyFormat::Token, 'test');
 		$victim = 'ids-secret-victim-' . bin2hex(random_bytes(3));
 		$this->user($victim);
 		Server::get(ReservedNames::class)->add(['administrator'], 'test');
@@ -83,12 +88,16 @@ class NoSecretsTest extends LoginFailureTestCase {
 		}
 		$this->failLogin('198.51.100.99', 'administrator', $secrets['reserved']);
 		$this->failLogin('198.51.100.98', 'someone', $secrets['app-password']);
+		$this->failLogin('198.51.100.97', 'decoy-svc', 'Secret-Decoy-Name-Password-1d1d');
+		$this->failLogin('198.51.100.96', 'admin', $secrets['decoy-app-password']);
+		$this->failLogin('198.51.100.95', 'someone', $secrets['decoy-token']);
 
-		$this->assertGreaterThanOrEqual(4, $this->detections->count(new DetectionFilter()), 'Every scenario made a detection');
+		$secrets['decoy-name-password'] = 'Secret-Decoy-Name-Password-1d1d';
+		$this->assertGreaterThanOrEqual(7, $this->detections->count(new DetectionFilter()), 'Every scenario made a detection');
 		$fingerprinter = Server::get(Fingerprinter::class);
 		$fingerprints = [];
 		foreach ($secrets as $secret) {
-			foreach (array_merge($fingerprinter->passwordCandidates($secret), $fingerprinter->passwordFlagFingerprints($secret)) as $fingerprint) {
+			foreach (array_merge($fingerprinter->passwordCandidates($secret), $fingerprinter->passwordFlagFingerprints($secret), [$fingerprinter->decoy($secret)]) as $fingerprint) {
 				$fingerprints[] = bin2hex($fingerprint);
 			}
 		}

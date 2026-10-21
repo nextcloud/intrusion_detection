@@ -11,6 +11,7 @@ namespace OCA\IntrusionDetection\Tests\Integration;
 
 use OCA\IntrusionDetection\Check\Checks\AccountUnderAttackDetector;
 use OCA\IntrusionDetection\Check\Checks\CredentialStuffingDetector;
+use OCA\IntrusionDetection\Check\Checks\DecoyCredentialDetector;
 use OCA\IntrusionDetection\Check\Checks\PasswordSprayingDetector;
 use OCA\IntrusionDetection\Check\Checks\ReservedNameDetector;
 use OCA\IntrusionDetection\Config\Settings;
@@ -65,6 +66,7 @@ abstract class LoginFailureTestCase extends IntegrationTestCase {
 			$this->settings,
 			$addresses,
 			Server::get(AttemptRecorder::class),
+			Server::get(DecoyCredentialDetector::class),
 			Server::get(ReservedNameDetector::class),
 			// Built per test, so the memory-cache state of one test cannot leak into the next.
 			new CredentialStuffingDetector(

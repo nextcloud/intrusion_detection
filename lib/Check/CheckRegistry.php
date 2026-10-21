@@ -25,6 +25,7 @@ final class CheckRegistry {
 		Checks\AccountUnderAttack::class,
 		Checks\ReservedName::class,
 		Checks\TrapUrl::class,
+		Checks\DecoyCredential::class,
 	];
 
 	/** @var array<string, CheckDefinition>|null */
