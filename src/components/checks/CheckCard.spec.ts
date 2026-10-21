@@ -153,14 +153,14 @@ describe('CheckCard', () => {
 		const radios = card.findAll('input[type="radio"]')
 		expect(radios.map((r) => (r.element as HTMLInputElement).disabled)).toEqual([false, true, true])
 		expect(card.text()).toContain('Needs a memory cache')
-		expect(card.text()).toContain('This check cannot run on this server')
+		expect(card.text()).toContain('Until then it stays off, and only Off can be chosen.')
 		card.unmount()
 	})
 
-	test('the badge counts the last 7 days, and learning mode is explained', () => {
+	test('the badge counts the last 7 days, and learning mode is left to the status', () => {
 		const card = mountCard(makeCheck({ mode: { configured: 'protect', effective: 'observe', reason: 'learning', missing: null, default: 'protect' } }))
 		expect(card.text()).toContain('Fired 12 times · 9 addresses blocked')
-		expect(card.text()).toContain('Observing while learning')
+		expect(card.text()).not.toContain('learning')
 		card.unmount()
 	})
 })

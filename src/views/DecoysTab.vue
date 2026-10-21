@@ -73,10 +73,8 @@ function checksChanged() {
 					</span>
 				</li>
 			</ol>
-			<p v-if="learning" :class="$style.how__note">
-				{{ decoysActWhileLearning
-					? t(APP_ID, 'Decoys act even while Nextcloud is learning, because nobody uses one by accident.')
-					: t(APP_ID, 'While Nextcloud is learning, decoys only observe, as you chose on the Advanced tab.') }}
+			<p v-if="learning && !decoysActWhileLearning" :class="$style.how__note">
+				{{ t(APP_ID, 'While Nextcloud is learning, decoys only observe, as you chose on the Advanced tab.') }}
 			</p>
 		</section>
 

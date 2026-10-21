@@ -392,7 +392,7 @@ class ShareBruteforceTest extends RequestEventTestCase {
 		$this->assertSame([['type' => ResponseType::Ban->value, 'enforced' => false], ['type' => ResponseType::NotifyAdmin->value, 'enforced' => false]], $detections[0]->getActionList());
 		$this->assertSame([], $this->bans->findActiveForKeys(['198.51.100.7'], time()));
 		$l = Server::get(IFactory::class)->get(Application::APP_ID, 'en');
-		$this->assertSame('Would have: Block the address for hours, longer if it comes back.', Server::get(NarrativeBuilder::class)->build($detections[0], $l)->done[0]);
+		$this->assertSame('Block the address for hours, longer if it comes back.', Server::get(NarrativeBuilder::class)->build($detections[0], $l)->done[0]);
 	}
 
 	private function openUnknownLink(string $ip, string $token): void {

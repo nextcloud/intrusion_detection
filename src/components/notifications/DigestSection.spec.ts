@@ -82,9 +82,8 @@ describe('DigestSection', () => {
 		expect(wrapper.text()).not.toContain('Notify these groups')
 		expect(wrapper.get('[data-test="digest-schedule"]').text()).toContain('(Europe/Berlin)')
 		expect(wrapper.get('[data-test="digest-schedule"]').text()).toContain('Next digest:')
-		expect(wrapper.get('[data-test="digest-last"]').text()).toContain('sent to 2 people')
+		expect(wrapper.get('[data-test="digest-last"]').text()).toContain('Sent to 2 people')
 		expect(wrapper.get('[data-test="digest-recipients"]').text()).toBe('The digest goes to 2 people in the notification groups.')
-		expect(wrapper.find('[data-test="digest-without-email"]').exists()).toBe(false)
 	})
 
 	test('says who is skipped for lack of an email address', async () => {
@@ -93,9 +92,7 @@ describe('DigestSection', () => {
 			withoutEmail: [{ uid: 'bob', displayName: 'Bob Builder' }, { uid: 'carol', displayName: '' }],
 			withoutEmailCount: 3,
 		}))
-		const note = wrapper.get('[data-test="digest-without-email"]').text()
-		expect(note).toContain('3 people in the notification groups have no email address and get no digest: Bob Builder, carol and 1 more.')
-		expect(note).toContain('They still get the notifications in Nextcloud')
+		expect(wrapper.get('[data-test="digest-recipients"]').text()).toBe('The digest goes to 1 person in the notification groups. Bob Builder, carol and 1 more have no email address and get none.')
 	})
 
 	test('an off digest says so, and a quiet period that was skipped is explained', async () => {
@@ -104,9 +101,10 @@ describe('DigestSection', () => {
 		expect(wrapper.get('[data-test="digest-last"]').text()).toContain('quiet digests are off')
 	})
 
-	test('warns when no email server is set up', async () => {
+	test('leaves the missing email server to the one warning of the tab', async () => {
 		const wrapper = await mountSection(overview({ mailConfigured: false }))
-		expect(wrapper.text()).toContain('No email server is set up, so no digest can be sent.')
+		expect(wrapper.text()).not.toContain('email server')
+		expect(wrapper.find('[data-test="digest-schedule"]').exists()).toBe(true)
 	})
 
 	test('sends a test digest to the admin only and reports the result', async () => {

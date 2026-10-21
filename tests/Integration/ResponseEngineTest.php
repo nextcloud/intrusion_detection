@@ -27,9 +27,11 @@ use OCA\IntrusionDetection\Detection\DetectionService;
 use OCA\IntrusionDetection\Event\TypedEvents;
 use OCA\IntrusionDetection\Explain\NarrativeBuilder;
 use OCA\IntrusionDetection\Net\SourceKey;
+use OCA\IntrusionDetection\Notification\AdminAlerts;
 use OCA\IntrusionDetection\Response\Handlers\LockLinkHandler;
 use OCA\IntrusionDetection\Response\ResponseEngine;
 use OCA\IntrusionDetection\Response\ResponseOutcome;
+use OCP\IUser;
 use OCP\L10N\IFactory;
 use OCP\Server;
 use PHPUnit\Framework\Attributes\Group;
@@ -83,7 +85,12 @@ class ResponseEngineTest extends IntegrationTestCase {
 		$l = Server::get(IFactory::class)->get('intrusion_detection', 'en');
 		$narrative = Server::get(NarrativeBuilder::class)->build($detection, $l);
 		$this->assertStringContainsString('learning mode', (string)$narrative->observedBecause);
-		$this->assertStringStartsWith('Would have', $narrative->done[0]);
+		$this->assertNotSame([], $narrative->done);
+		$this->assertStringStartsNotWith('Would have', $narrative->done[0]);
+
+		$admin = $this->createMock(IUser::class);
+		$admin->method('getUID')->willReturn('admin');
+		$this->assertSame('What Nextcloud would have done:', Server::get(AdminAlerts::class)->mailFor($detection, $admin)->listHeading);
 	}
 
 	public function testOffRecordsNothing(): void {

@@ -9,6 +9,7 @@ import type { Notifications, TestAlertResult } from '../types.ts'
 import { mdiAccountGroupOutline, mdiAlertCircleOutline, mdiBellOutline, mdiBellRingOutline, mdiCheck, mdiCheckCircleOutline, mdiEmailOffOutline, mdiEmailOutline, mdiFormatListChecks, mdiMinus } from '@mdi/js'
 import { showError } from '@nextcloud/dialogs'
 import { n, t } from '@nextcloud/l10n'
+import { generateUrl } from '@nextcloud/router'
 import { computed, onActivated, onMounted, ref, watch } from 'vue'
 import NcAvatar from '@nextcloud/vue/components/NcAvatar'
 import NcButton from '@nextcloud/vue/components/NcButton'
@@ -34,6 +35,7 @@ const saving = ref(false)
 const testing = ref(false)
 const testResult = ref<TestAlertResult | null>(null)
 const { announce } = useAnnouncer()
+const mailSettingsUrl = generateUrl('/settings/admin/server')
 
 const savedGroups = computed<string[]>(() => {
 	const value = state.settings.find((s) => s.name === 'notify_admin_group')?.value
@@ -71,7 +73,6 @@ const emailSentence = computed(() => {
 	return fillTemplate(template, { severity: label })
 })
 
-const withoutEmail = computed(() => data.value?.recipients.filter((r) => !r.hasEmail) ?? [])
 const notifying = computed(() => data.value?.checks.filter((c) => c.admin).length ?? 0)
 
 /**
@@ -158,10 +159,15 @@ function openCheck() {
 		</div>
 
 		<template v-else>
+			<NcNoteCard v-if="!data.mail" type="warning" data-test="no-mail">
+				{{ t(APP_ID, 'This server cannot send emails yet, so alerts and digests appear only inside Nextcloud.') }}
+				<a :href="mailSettingsUrl" :class="$style.link">{{ t(APP_ID, 'Set up the email server') }}</a>
+			</NcNoteCard>
+
 			<div :class="$style.grid">
 				<SectionCard :heading="t(APP_ID, 'Who is notified')" :icon="mdiAccountGroupOutline">
 					<template #description>
-						{{ t(APP_ID, 'Members of these groups get the administrator alerts: a notification in Nextcloud for every detection that asks for one, at most one per check, address and hour, and further hits only raise its counter.') }}
+						{{ t(APP_ID, 'Members of these groups get the administrator alerts, at most one per check, address and hour.') }}
 					</template>
 					<form :class="$style.form" @submit.prevent="save">
 						<div :class="$style.field">
@@ -223,6 +229,7 @@ function openCheck() {
 									:path="person.hasEmail ? mdiEmailOutline : mdiEmailOffOutline"
 									:size="16"
 									:name="person.hasEmail ? t(APP_ID, 'has an email address') : t(APP_ID, 'no email address')" />
+								<span v-if="!person.hasEmail" :class="$style.person__note" aria-hidden="true">{{ t(APP_ID, 'no email') }}</span>
 							</li>
 						</ul>
 						<p v-if="data.recipients.length >= data.recipientLimit" :class="$style.muted">
@@ -231,18 +238,12 @@ function openCheck() {
 						<NcNoteCard v-if="data.recipients.length === 0" type="warning">
 							{{ t(APP_ID, 'Nobody is in these groups, so nobody is told about attacks. Choose a group with at least one active administrator.') }}
 						</NcNoteCard>
-						<NcNoteCard v-else-if="withoutEmail.length > 0" type="info">
-							{{ n(APP_ID, '%n of them has no email address and only sees the alerts inside Nextcloud.', '%n of them have no email address and only see the alerts inside Nextcloud.', withoutEmail.length) }}
-						</NcNoteCard>
-						<NcNoteCard v-if="!data.mail" type="warning">
-							{{ t(APP_ID, 'This server cannot send emails yet, so alerts appear only inside Nextcloud.') }}
-						</NcNoteCard>
 					</div>
 				</SectionCard>
 
 				<SectionCard :heading="t(APP_ID, 'Send a test alert to me')" :icon="mdiBellRingOutline">
 					<template #description>
-						{{ t(APP_ID, 'Sends you a notification in Nextcloud and an email, both marked as a test, the same way real alerts travel. Use it to check that alerts reach you.') }}
+						{{ t(APP_ID, 'A notification and an email, marked as a test, sent the way real alerts travel.') }}
 					</template>
 					<NcNoteCard v-if="!data.me.recipient" type="info">
 						{{ t(APP_ID, 'You are not in the groups above, so real alerts do not reach you. The test is still sent to you.') }}
@@ -304,7 +305,7 @@ function openCheck() {
 						<tbody>
 							<tr v-for="check in data.checks" :key="check.id" :class="{ [$style.row_off]: check.mode === 'off' }">
 								<th scope="row">
-									<a :href="`#checks/${check.id}`" :class="$style.link" @click="openCheck">{{ check.name }}</a>
+									<a :href="`#checks/${check.id}`" :class="$style.checkLink" @click="openCheck">{{ check.name }}</a>
 									<StateBadge v-if="check.mode === 'off'">
 										{{ t(APP_ID, 'Off') }}
 									</StateBadge>
@@ -326,7 +327,7 @@ function openCheck() {
 									</span>
 									<span v-else :class="check.user ? $style.yes : $style.no">
 										<NcIconSvgWrapper inline :path="check.user ? mdiCheck : mdiMinus" :size="18" />
-										{{ check.user ? t(APP_ID, 'Told') : t(APP_ID, 'Not told') }}
+										{{ check.user ? t(APP_ID, 'Notified') : t(APP_ID, 'Not notified') }}
 									</span>
 								</td>
 							</tr>
@@ -444,6 +445,11 @@ function openCheck() {
 	color: var(--color-warning-text);
 }
 
+.person__note {
+	color: var(--color-text-maxcontrast);
+	font-size: 0.85em;
+}
+
 .results {
 	display: flex;
 	flex-direction: column;
@@ -530,6 +536,18 @@ function openCheck() {
 .link:hover,
 .link:focus-visible {
 	text-decoration-color: currentColor;
+}
+
+.checkLink {
+	color: var(--color-main-text);
+	font-weight: 600;
+	text-decoration: none;
+}
+
+.checkLink:hover,
+.checkLink:focus-visible {
+	text-decoration: underline;
+	text-underline-offset: 3px;
 }
 
 .yes,

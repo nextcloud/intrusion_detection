@@ -33,14 +33,15 @@ describe('DetectionNarrative', () => {
 			narrative: {
 				title: 'Credential stuffing',
 				happened: ['The address 203.0.113.7 failed to log in 14 times.'],
-				done: ['Would have: Block the address for hours, longer if it comes back.'],
-				observedBecause: 'Nothing was done, because learning mode was on: Nextcloud was watching, not acting.',
+				done: ['Block the address for hours, longer if it comes back.'],
+				observedBecause: 'Nothing was done, because learning mode was on.',
 			},
 		})
 		detail.detection.enforced = false
 		const wrapper = mount(DetectionNarrative, { props: { detail } })
 		expect(wrapper.text()).toContain('What Nextcloud would have done')
-		expect(wrapper.text()).toContain('Would have: Block the address')
+		expect(wrapper.text()).toContain('Block the address')
+		expect(wrapper.text()).not.toContain('Would have:')
 		expect(wrapper.text()).toContain('because learning mode was on')
 		expect(button(wrapper, 'Lift block')).toBeUndefined()
 	})
@@ -99,5 +100,13 @@ describe('DetectionNarrative', () => {
 		detail.detection.ip = null
 		const without = mount(DetectionNarrative, { props: { detail } })
 		expect(without.find('[data-test^="incident-report-"]').exists()).toBe(false)
+	})
+
+	test('offers the attempts only for a detection with an address', () => {
+		expect(mount(DetectionNarrative, { props: { detail: makeDetail() } }).find('[data-test="show-attempts"]').exists()).toBe(true)
+		const detail = makeDetail()
+		detail.detection.ip = null
+		detail.detection.checkId = 'admin_change'
+		expect(mount(DetectionNarrative, { props: { detail } }).find('[data-test="show-attempts"]').exists()).toBe(false)
 	})
 })

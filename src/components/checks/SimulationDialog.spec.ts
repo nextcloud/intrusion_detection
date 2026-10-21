@@ -28,7 +28,7 @@ const simulation: Simulation = {
 	narrative: {
 		title: 'Credential stuffing',
 		happened: ['Between 9:48 and 9:57 the address 198.51.100.23 failed to log in 10 times, trying 5 different accounts.'],
-		done: ['Would have: Block the address for hours, longer if it comes back.'],
+		done: ['Block the address for hours, longer if it comes back.'],
 		observedBecause: 'Nothing was done, because learning mode was on.',
 	},
 	responses: [{ type: 'ban', text: 'The address is blocked for 4 hours.' }],

@@ -175,7 +175,7 @@ class IncidentReportBuilderTest extends TestCase {
 		$report = $this->builder([
 			0 => $this->source('detection', [
 				self::entry('d1', 100, severity: 'high', enforced: true, done: ['Blocked 198.51.100.7.', 'Notified the admins.'], categories: [DataCategory::AccountContent], address: '198.51.100.7', group: 'Second factor failed'),
-				self::entry('d2', 200, severity: 'low', enforced: false, done: ['Would have: blocked 203.0.113.9.'], followUp: 'Decide.', address: '203.0.113.9', group: 'Second factor failed'),
+				self::entry('d2', 200, severity: 'low', enforced: false, done: ['Blocked 203.0.113.9.'], followUp: 'Decide.', address: '203.0.113.9', group: 'Second factor failed'),
 				self::entry('d3', 300, severity: 'medium', enforced: true, done: ['Notified the admins.'], address: '198.51.100.7', group: 'Credential stuffing'),
 			]),
 			2 => $this->source('app_password', [

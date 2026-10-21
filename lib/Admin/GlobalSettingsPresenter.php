@@ -67,6 +67,14 @@ class GlobalSettingsPresenter {
 	}
 
 	/**
+	 * The label an admin sees for a global setting, e.g. "Email codes are
+	 * valid for"; null for a name that is not a global setting.
+	 */
+	public function label(string $name, IL10N $l): ?string {
+		return $this->globals->get($name) === null ? null : $this->describe($name, $l)[0]->label;
+	}
+
+	/**
 	 * @return IntrusionDetectionSettings
 	 */
 	public function present(IL10N $l): array {

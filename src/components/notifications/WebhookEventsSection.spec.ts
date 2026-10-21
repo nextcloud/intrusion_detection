@@ -63,15 +63,19 @@ describe('WebhookEventsSection', () => {
 		document.body.innerHTML = ''
 	})
 
-	test('lists every event with its name and a pretty-printed example payload', async () => {
+	test('lists every event with its name, and its pretty-printed example payload behind a toggle', async () => {
 		const wrapper = await mountSection()
 		const items = wrapper.findAll('[data-test="webhook-event"]')
 		expect(items).toHaveLength(2)
 		expect(items[0]!.text()).toContain('A check found something')
 		expect(items[0]!.text()).toContain('OCA\\IntrusionDetection\\Event\\DetectionCreatedEvent')
-		expect(items[0]!.attributes('open')).toBeDefined()
-		expect(items[1]!.attributes('open')).toBeUndefined()
-		const payload = wrapper.get('[data-test="webhook-payload"]').text()
+		expect(wrapper.find('[data-test="webhook-payload"]').exists()).toBe(false)
+		const toggle = items[0]!.get('[data-test="webhook-payload-toggle"] button')
+		expect(toggle.attributes('aria-expanded')).toBe('false')
+		await toggle.trigger('click')
+		expect(toggle.attributes('aria-expanded')).toBe('true')
+		expect(wrapper.findAll('[data-test="webhook-payload"]')).toHaveLength(1)
+		const payload = wrapper.get('[data-test="webhook-payload"] pre').text()
 		expect(payload).toBe(JSON.stringify(detectionExample, null, 2))
 		expect(payload).toContain('\n  "event": {\n')
 		expect(wrapper.text()).toContain('Addresses in webhook events')

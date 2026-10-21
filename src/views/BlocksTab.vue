@@ -274,8 +274,11 @@ function openDetection(ban: Ban) {
 				<SettingsGroup :settings="otherBlockSettings" />
 			</section>
 
-			<NcNoteCard type="info" :heading="t(APP_ID, 'Locked yourself out?')">
-				<p>{{ t(APP_ID, 'Lifting a block with occ always works: run occ intrusion:bans:lift followed by the address or the reference. To turn off every check of requests at once, set intrusion_detection.disable_guards to true in config.php.') }}</p>
+			<NcNoteCard type="info">
+				<p>
+					<strong>{{ t(APP_ID, 'Locked yourself out?') }}</strong>
+					{{ t(APP_ID, 'Run occ intrusion:bans:lift with the address or the reference. To turn off every check of requests at once, set intrusion_detection.disable_guards to true in config.php.') }}
+				</p>
 			</NcNoteCard>
 		</div>
 

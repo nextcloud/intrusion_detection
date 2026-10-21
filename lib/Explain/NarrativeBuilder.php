@@ -127,10 +127,8 @@ class NarrativeBuilder {
 			$described = ($action['enforced'] || $note === ResponseOutcome::NOTE_HELD_BACK) && $handler instanceof IDescribesAction ? $handler->describeAction($action, $l, $this->dates) : [];
 			if ($described !== []) {
 				array_push($sentences, ...$described);
-			} elseif ($action['enforced']) {
-				$sentences[] = $type->describe($l);
 			} else {
-				$sentences[] = $l->t('Would have: %s', [$type->describe($l)]);
+				$sentences[] = $type->describe($l);
 			}
 		}
 		if ($sentences === []) {
@@ -148,7 +146,7 @@ class NarrativeBuilder {
 		}
 		$reason = $explanation['mode']['reason'] ?? null;
 		return match ($reason) {
-			ModeState::REASON_LEARNING => $l->t('Nothing was done, because learning mode was on: Nextcloud was watching, not acting.'),
+			ModeState::REASON_LEARNING => $l->t('Nothing was done, because learning mode was on.'),
 			ModeState::REASON_AUTHENTICATED => $l->t('Nothing was done, because the request came from a logged-in user, and this check only observes those.'),
 			default => $l->t('Nothing was done, because this check was set to Observe.'),
 		};

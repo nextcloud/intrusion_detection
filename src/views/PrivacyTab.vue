@@ -14,6 +14,7 @@ import NcNoteCard from '@nextcloud/vue/components/NcNoteCard'
 import LiveSentence from '../components/checks/LiveSentence.vue'
 import SectionCard from '../components/common/SectionCard.vue'
 import SettingsGroup from '../components/common/SettingsGroup.vue'
+import ShowMore from '../components/common/ShowMore.vue'
 import SkeletonBlock from '../components/common/SkeletonBlock.vue'
 import StateBadge from '../components/common/StateBadge.vue'
 import { errorMessage, fetchPrivacy } from '../services/api.ts'
@@ -66,56 +67,61 @@ onActivated(load)
 		<template v-else>
 			<SectionCard :heading="t(APP_ID, 'What Nextcloud stores')" :icon="mdiDatabaseOutline">
 				<template #description>
-					{{ t(APP_ID, 'Every kind of data the installed checks keep, why, and for how long. Everything is deleted automatically when its time is up.') }}
+					{{ t(APP_ID, 'Everything the checks keep is deleted automatically when its time is up.') }}
 				</template>
 				<SettingsGroup :settings="retentionSettings">
 					<template #default="{ fill, changed }">
-						<div :class="$style.tableWrap">
-							<table :class="$style.table" data-test="stored-data">
-								<colgroup>
-									<col :class="$style.col_what">
-									<col :class="$style.col_why">
-									<col :class="$style.col_long">
-									<col>
-								</colgroup>
-								<thead>
-									<tr>
-										<th scope="col">
-											{{ t(APP_ID, 'What') }}
-										</th>
-										<th scope="col">
-											{{ t(APP_ID, 'Why') }}
-										</th>
-										<th scope="col">
-											{{ t(APP_ID, 'How long') }}
-										</th>
-										<th scope="col">
-											{{ t(APP_ID, 'Where') }}
-										</th>
-									</tr>
-								</thead>
-								<tbody>
-									<tr v-for="row in data.stored" :key="row.id">
-										<th scope="row" :data-label="t(APP_ID, 'What')">
-											<span :class="$style.name">{{ row.name }}</span>
-											<span :class="$style.what">{{ row.what }}</span>
-											<span v-if="row.checks.length > 0" :class="$style.users">
-												{{ storedBy(row.checks) }}
-											</span>
-										</th>
-										<td :data-label="t(APP_ID, 'Why')">
-											{{ row.why }}
-										</td>
-										<td :data-label="t(APP_ID, 'How long')" :class="$style.retention">
-											<LiveSentence :segments="fill(row.retention)" :changed="changed" />
-										</td>
-										<td :data-label="t(APP_ID, 'Where')">
-											<code v-for="where in row.where.split(', ')" :key="where" :class="$style.where">{{ where }}</code>
-										</td>
-									</tr>
-								</tbody>
-							</table>
-						</div>
+						<ShowMore
+							:label="t(APP_ID, 'Show what is stored, why and for how long')"
+							:note="n(APP_ID, '%n kind of data', '%n kinds of data', data.stored.length)"
+							data-test="stored-toggle">
+							<div :class="$style.tableWrap">
+								<table :class="$style.table" data-test="stored-data">
+									<colgroup>
+										<col :class="$style.col_what">
+										<col :class="$style.col_why">
+										<col :class="$style.col_long">
+										<col>
+									</colgroup>
+									<thead>
+										<tr>
+											<th scope="col">
+												{{ t(APP_ID, 'What') }}
+											</th>
+											<th scope="col">
+												{{ t(APP_ID, 'Why') }}
+											</th>
+											<th scope="col">
+												{{ t(APP_ID, 'How long') }}
+											</th>
+											<th scope="col">
+												{{ t(APP_ID, 'Where') }}
+											</th>
+										</tr>
+									</thead>
+									<tbody>
+										<tr v-for="row in data.stored" :key="row.id">
+											<th scope="row" :data-label="t(APP_ID, 'What')">
+												<span :class="$style.name">{{ row.name }}</span>
+												<span :class="$style.what">{{ row.what }}</span>
+												<span v-if="row.checks.length > 0" :class="$style.users">
+													{{ storedBy(row.checks) }}
+												</span>
+											</th>
+											<td :data-label="t(APP_ID, 'Why')">
+												{{ row.why }}
+											</td>
+											<td :data-label="t(APP_ID, 'How long')" :class="$style.retention">
+												<LiveSentence :segments="fill(row.retention)" :changed="changed" />
+											</td>
+											<td :data-label="t(APP_ID, 'Where')">
+												<code v-for="where in row.where.split(', ')" :key="where" :class="$style.where">{{ where }}</code>
+											</td>
+										</tr>
+									</tbody>
+								</table>
+							</div>
+						</ShowMore>
 					</template>
 				</SettingsGroup>
 			</SectionCard>
@@ -152,9 +158,14 @@ onActivated(load)
 					<h3 id="ids-gdpr-heading" :class="$style.gdpr__heading">
 						{{ t(APP_ID, 'A note on the GDPR') }}
 					</h3>
-					<p v-for="(paragraph, index) in data.gdpr" :key="index" :class="$style.gdpr__text">
-						{{ paragraph }}
+					<p v-if="data.gdpr.length > 0" :class="$style.gdpr__text">
+						{{ data.gdpr[0] }}
 					</p>
+					<ShowMore v-if="data.gdpr.length > 1" :label="t(APP_ID, 'Read more')">
+						<p v-for="(paragraph, index) in data.gdpr.slice(1)" :key="index" :class="$style.gdpr__text">
+							{{ paragraph }}
+						</p>
+					</ShowMore>
 				</div>
 			</section>
 		</template>

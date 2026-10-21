@@ -181,7 +181,7 @@ watch(incidentRequest, async (request) => {
 			<SkeletonBlock height="64px" />
 		</div>
 
-		<NcNoteCard v-else-if="error" type="error" :heading="t(APP_ID, 'No report')">
+		<NcNoteCard v-else-if="error" type="error">
 			<p>{{ error }}</p>
 			<NcButton
 				v-if="failed"

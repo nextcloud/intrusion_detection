@@ -10,6 +10,7 @@ declare(strict_types=1);
 namespace OCA\IntrusionDetection\AdminChange;
 
 use OC\SystemConfig;
+use OCA\IntrusionDetection\Admin\GlobalSettingsPresenter;
 use OCA\IntrusionDetection\AppInfo\Application;
 use OCA\IntrusionDetection\Check\CheckRegistry;
 use OCA\IntrusionDetection\Check\ResponseType;
@@ -170,11 +171,12 @@ class WatchedSettings {
 			}
 			foreach ($check->params as $param) {
 				if ($name === Keys::param($check->id, $param->name)) {
-					return $l->t('Intrusion detection: "%1$s", setting %2$s', [$checkName, $param->name]);
+					return $l->t('Intrusion detection: "%1$s" of "%2$s"', [$check->texts($l)->param($param->name)->label, $checkName]);
 				}
 			}
 		}
-		return $l->t('Intrusion detection: %s', [$name]);
+		$label = (new GlobalSettingsPresenter($this->globals, $this->settings))->label($name, $l);
+		return $l->t('Intrusion detection: %s', [$label ?? $name]);
 	}
 
 	/**

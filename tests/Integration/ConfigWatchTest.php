@@ -218,6 +218,13 @@ class ConfigWatchTest extends AdminChangeTestCase {
 		$this->assertSame('Security setting changed: Intrusion detection: mode of "Credential stuffing"', Server::get(AdminAlerts::class)->headline($detection, $this->l()));
 	}
 
+	public function testOwnSettingsAreNamedAsOnTheAdminPage(): void {
+		$watched = Server::get(WatchedSettings::class);
+		$this->assertSame('Intrusion detection: "Different accounts" of "Credential stuffing"', $watched->label(WatchedSettings::ownKey(Keys::param('credential_stuffing', 'min_names')), $this->l()));
+		$this->assertSame('Intrusion detection: Email codes are valid for', $watched->label(WatchedSettings::ownKey(GlobalSettings::STEP_UP_CODE_TTL), $this->l()));
+		$this->assertSame('Intrusion detection: not_a_setting', $watched->label(WatchedSettings::ownKey('not_a_setting'), $this->l()));
+	}
+
 	public function testOwnSettingsChangedThroughTheAppAreNotReportedTwice(): void {
 		Server::get(ConfigWatch::class)->run();
 		$this->assertSame([], $this->adminChanges());

@@ -252,7 +252,8 @@ const effectiveNote = computed(() => {
 	}
 	switch (reason) {
 		case 'learning':
-			return t(APP_ID, 'Observing while learning')
+			// The status strip says it for every check at once.
+			return null
 		case 'disabled':
 			return t(APP_ID, 'Off: intrusion detection is turned off')
 		case 'requirement':
@@ -353,7 +354,7 @@ function sameList(a: string[], b: string[]): boolean {
 
 		<div :id="`${id}-details`" :class="$style.card__collapse" :inert="!expanded">
 			<div :class="$style.card__collapseInner">
-				<NcNoteCard v-if="missingRequirement" type="warning" :heading="t(APP_ID, 'This check cannot run on this server')">
+				<NcNoteCard v-if="missingRequirement" type="warning">
 					{{ missingRequirement.text }} {{ t(APP_ID, 'Until then it stays off, and only Off can be chosen.') }}
 				</NcNoteCard>
 

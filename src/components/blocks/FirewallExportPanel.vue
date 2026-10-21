@@ -12,14 +12,15 @@ import { showError } from '@nextcloud/dialogs'
 import { n, t } from '@nextcloud/l10n'
 import { computed, onActivated, onMounted, ref } from 'vue'
 import NcCheckboxRadioSwitch from '@nextcloud/vue/components/NcCheckboxRadioSwitch'
-import NcDateTime from '@nextcloud/vue/components/NcDateTime'
 import NcIconSvgWrapper from '@nextcloud/vue/components/NcIconSvgWrapper'
 import NcNoteCard from '@nextcloud/vue/components/NcNoteCard'
 import AdminTabs from '../AdminTabs.vue'
 import CodeBlock from '../common/CodeBlock.vue'
 import SectionCard from '../common/SectionCard.vue'
+import ShowMore from '../common/ShowMore.vue'
 import SkeletonBlock from '../common/SkeletonBlock.vue'
 import StateBadge from '../common/StateBadge.vue'
+import TimeStamp from '../common/TimeStamp.vue'
 import { useAnnouncer } from '../../composables/useAnnouncer.ts'
 import { errorMessage, fetchExport, isCancelled, updateSettings } from '../../services/api.ts'
 import { logger } from '../../services/logger.ts'
@@ -148,7 +149,7 @@ async function setFormat(id: string, on: boolean) {
 <template>
 	<SectionCard :heading="t(APP_ID, 'Firewall export')" :icon="mdiServerSecurity">
 		<template #description>
-			{{ t(APP_ID, 'Nextcloud can write the active blocks into files that your firewall or fail2ban reads, so that blocked addresses are dropped before they reach the web server. Nextcloud never runs firewall commands itself.') }}
+			{{ t(APP_ID, 'Writes the active blocks into files your firewall or fail2ban reads, so blocked addresses are dropped before they reach the web server.') }}
 		</template>
 		<template v-if="status" #actions>
 			<StateBadge :type="status.type" :icon="status.icon">
@@ -163,11 +164,19 @@ async function setFormat(id: string, on: boolean) {
 		</div>
 
 		<template v-else>
-			<dl :class="$style.facts">
+			<div v-if="exportState.directory === null" :class="$style.setup" data-test="export-setup">
+				<p>{{ t(APP_ID, 'To switch it on, set a directory in config.php that the web server user can write to, outside the Nextcloud folder and the data directory:') }}</p>
+				<pre :class="$style.config"><code>{{ configLine }}</code></pre>
+				<p :class="$style.muted">
+					{{ t(APP_ID, 'This page cannot set it, so that an administrator account cannot make Nextcloud write files anywhere on the server.') }}
+				</p>
+			</div>
+
+			<dl v-else :class="$style.facts">
 				<div :class="$style.fact">
 					<dt>{{ t(APP_ID, 'Export directory') }}</dt>
 					<dd>
-						<span v-if="exportState.directory" :class="$style.path">
+						<span :class="$style.path">
 							<NcIconSvgWrapper
 								inline
 								:path="mdiLockOutline"
@@ -175,14 +184,13 @@ async function setFormat(id: string, on: boolean) {
 								:name="t(APP_ID, 'Read-only')" />
 							<code>{{ exportState.directory }}</code>
 						</span>
-						<span v-else :class="$style.muted">{{ t(APP_ID, 'Not set') }}</span>
 						<span :class="$style.fact__hint">{{ t(APP_ID, 'Set in config.php only') }}</span>
 					</dd>
 				</div>
 				<div :class="$style.fact">
 					<dt>{{ t(APP_ID, 'Last written') }}</dt>
 					<dd>
-						<NcDateTime v-if="exportState.lastWriteAt" :timestamp="exportState.lastWriteAt * 1000" />
+						<TimeStamp v-if="exportState.lastWriteAt" :timestamp="exportState.lastWriteAt" />
 						<span v-else :class="$style.muted">{{ t(APP_ID, 'Never') }}</span>
 						<span v-if="exportState.lastWriteAt" :class="$style.fact__hint">
 							{{ n(APP_ID, '%n block in the files', '%n blocks in the files', exportState.entries) }}
@@ -200,22 +208,17 @@ async function setFormat(id: string, on: boolean) {
 				</div>
 			</dl>
 
-			<NcNoteCard v-if="exportState.directory === null" type="info" :heading="t(APP_ID, 'How to switch it on')">
-				<p>{{ t(APP_ID, 'Set the directory in config.php. The web server user needs write access to it, and it must be outside the Nextcloud folder and the data directory:') }}</p>
-				<pre :class="$style.config"><code>{{ configLine }}</code></pre>
-				<p>{{ t(APP_ID, 'It cannot be set on this page on purpose: otherwise anyone with administrator access could make Nextcloud write files anywhere on the server.') }}</p>
-			</NcNoteCard>
-			<NcNoteCard
-				v-else-if="exportState.error"
-				type="error"
-				:heading="t(APP_ID, 'The files cannot be written')">
-				<p>{{ exportState.errorText }}</p>
+			<NcNoteCard v-if="exportState.directory !== null && exportState.error" type="error">
+				<p>
+					<strong>{{ t(APP_ID, 'The files cannot be written.') }}</strong>
+					{{ exportState.errorText }}
+				</p>
 				<p v-if="exportState.errorAt">
-					{{ t(APP_ID, 'Since') }} <NcDateTime :timestamp="exportState.errorAt * 1000" />
+					{{ t(APP_ID, 'Since') }} <TimeStamp :timestamp="exportState.errorAt" />
 				</p>
 			</NcNoteCard>
 
-			<fieldset :class="$style.formats">
+			<fieldset v-if="exportState.directory !== null" :class="$style.formats">
 				<legend :class="$style.formats__legend">
 					{{ t(APP_ID, 'Formats') }}
 				</legend>
@@ -234,10 +237,11 @@ async function setFormat(id: string, on: boolean) {
 				</div>
 			</fieldset>
 
-			<div :class="$style.snippets">
-				<h4 :class="$style.snippets__heading">
-					{{ t(APP_ID, 'Set up your firewall') }}
-				</h4>
+			<ShowMore
+				:class="$style.snippets"
+				:label="t(APP_ID, 'Show the firewall setup')"
+				:note="t(APP_ID, 'nftables, ipset, fail2ban, systemd')"
+				data-test="firewall-setup">
 				<p :class="$style.muted">
 					{{ exportState.snippetsUseDirectory
 						? t(APP_ID, 'Copy these files as root. They are filled in with your export directory.')
@@ -259,7 +263,7 @@ async function setFormat(id: string, on: boolean) {
 						:file="snippet.file"
 						:label="SNIPPET_LABELS[snippet.id]?.() ?? snippet.id" />
 				</div>
-			</div>
+			</ShowMore>
 		</template>
 	</SectionCard>
 </template>
@@ -345,7 +349,7 @@ async function setFormat(id: string, on: boolean) {
 	padding: calc(var(--default-grid-baseline) * 2) calc(var(--default-grid-baseline) * 3);
 	overflow-x: auto;
 	border-radius: var(--border-radius-element);
-	background-color: var(--color-main-background);
+	background-color: var(--color-background-hover);
 	font-family: var(--font-face-monospace, ui-monospace, 'SFMono-Regular', Menlo, Consolas, monospace);
 	font-size: 0.9em;
 }
@@ -381,18 +385,15 @@ async function setFormat(id: string, on: boolean) {
 	background-color: color-mix(in srgb, var(--color-primary-element) 6%, var(--color-main-background));
 }
 
-.snippets {
-	display: flex;
-	flex-direction: column;
-	gap: calc(var(--default-grid-baseline) * 3);
-	padding-top: calc(var(--default-grid-baseline) * 4);
-	border-top: 1px solid var(--color-border);
+.setup p {
+	margin: 0;
+	max-width: 80ch;
+	line-height: 1.5;
 }
 
-.snippets__heading {
-	margin: 0;
-	font-size: 1em;
-	font-weight: 700;
+.snippets {
+	padding-top: calc(var(--default-grid-baseline) * 3);
+	border-top: 1px solid var(--color-border);
 }
 
 .snippets p {
@@ -401,6 +402,7 @@ async function setFormat(id: string, on: boolean) {
 }
 
 .snippets__panel {
+	margin-top: calc(var(--default-grid-baseline) * 3);
 	display: flex;
 	flex-direction: column;
 	gap: calc(var(--default-grid-baseline) * 3);

@@ -12,7 +12,6 @@ import { computed, inject, ref, useId } from 'vue'
 import NcButton from '@nextcloud/vue/components/NcButton'
 import NcDateTime from '@nextcloud/vue/components/NcDateTime'
 import NcIconSvgWrapper from '@nextcloud/vue/components/NcIconSvgWrapper'
-import NcNoteCard from '@nextcloud/vue/components/NcNoteCard'
 import ReferencePill from '../common/ReferencePill.vue'
 import RiskBreakdown from './RiskBreakdown.vue'
 import { useAnnouncer } from '../../composables/useAnnouncer.ts'
@@ -85,7 +84,9 @@ async function copyText() {
 					{{ sentence }}
 				</li>
 			</ul>
-			<NcNoteCard v-if="detail.narrative.observedBecause" type="info" :text="detail.narrative.observedBecause" />
+			<p v-if="detail.narrative.observedBecause" :class="$style.narrative__muted" data-test="observed-because">
+				{{ detail.narrative.observedBecause }}
+			</p>
 		</section>
 
 		<component
@@ -121,7 +122,9 @@ async function copyText() {
 				{{ activeBans.length > 1 ? t(APP_ID, 'Lift block of {address}', { address: ban.cidr }) : t(APP_ID, 'Lift block') }}
 			</NcButton>
 			<NcButton
+				v-if="detail.detection.ip"
 				variant="tertiary"
+				data-test="show-attempts"
 				:aria-expanded="showAttempts ? 'true' : 'false'"
 				:aria-controls="`${id}-attempts`"
 				@click="showAttempts = !showAttempts">

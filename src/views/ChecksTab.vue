@@ -7,11 +7,10 @@
 import type { Ref } from 'vue'
 
 import { mdiShieldOutline } from '@mdi/js'
-import { getCanonicalLocale, t } from '@nextcloud/l10n'
+import { t } from '@nextcloud/l10n'
 import { computed, inject, nextTick, ref, watch } from 'vue'
 import NcEmptyContent from '@nextcloud/vue/components/NcEmptyContent'
 import NcIconSvgWrapper from '@nextcloud/vue/components/NcIconSvgWrapper'
-import NcNoteCard from '@nextcloud/vue/components/NcNoteCard'
 import CheckCard from '../components/checks/CheckCard.vue'
 import { state } from '../store.ts'
 import { APP_ID } from '../utils/format.ts'
@@ -21,13 +20,6 @@ const openCheckId = inject<Ref<string | null>>('ids-open-check', ref(null))
 const groups = computed(() => state.categories
 	.map((category) => ({ ...category, checks: state.checks.filter((check) => check.category === category.id) }))
 	.filter((group) => group.checks.length > 0))
-
-const learningUntil = computed(() => {
-	const learning = state.status?.learning
-	return learning?.active
-		? new Date(learning.until * 1000).toLocaleDateString(getCanonicalLocale(), { day: 'numeric', month: 'long' })
-		: null
-})
 
 watch(openCheckId, async (id) => {
 	if (id) {
@@ -40,12 +32,8 @@ watch(openCheckId, async (id) => {
 <template>
 	<div :class="$style.checks">
 		<p :class="$style.checks__intro">
-			{{ t(APP_ID, 'Each check watches for one kind of attack. Off: it does not run. Observe: it records what it finds and acts on nothing. Protect: it acts with the responses you choose. Open a check to see exactly how it decides, with your current numbers.') }}
+			{{ t(APP_ID, 'Each check watches for one kind of attack. Observe records what it finds; Protect also acts, with the responses you choose.') }}
 		</p>
-
-		<NcNoteCard v-if="learningUntil" type="info">
-			{{ t(APP_ID, 'Learning mode is on until {date}: checks set to Protect only observe until then, so you can see what they would do first. Checks that only send alerts keep sending them.', { date: learningUntil }) }}
-		</NcNoteCard>
 
 		<NcEmptyContent
 			v-if="groups.length === 0"

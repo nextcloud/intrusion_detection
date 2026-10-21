@@ -6,7 +6,7 @@
 <script setup lang="ts">
 import { mdiDownload, mdiRestore } from '@mdi/js'
 import { showError, showSuccess } from '@nextcloud/dialogs'
-import { getCanonicalLocale, n, t } from '@nextcloud/l10n'
+import { n, t } from '@nextcloud/l10n'
 import { computed, ref } from 'vue'
 import NcButton from '@nextcloud/vue/components/NcButton'
 import NcCheckboxRadioSwitch from '@nextcloud/vue/components/NcCheckboxRadioSwitch'
@@ -14,6 +14,7 @@ import NcDialog from '@nextcloud/vue/components/NcDialog'
 import NcIconSvgWrapper from '@nextcloud/vue/components/NcIconSvgWrapper'
 import NcLoadingIcon from '@nextcloud/vue/components/NcLoadingIcon'
 import SettingsGroup from '../components/common/SettingsGroup.vue'
+import TimeStamp from '../components/common/TimeStamp.vue'
 import { useAnnouncer } from '../composables/useAnnouncer.ts'
 import { errorMessage, exportSettings, isCancelled, resetSettings, updateLearning, updateSettings } from '../services/api.ts'
 import { logger } from '../services/logger.ts'
@@ -28,7 +29,6 @@ const { announce } = useAnnouncer()
 
 const learning = computed(() => state.status?.learning ?? { active: false, until: 0, daysLeft: 0, minDays: 1, maxDays: 30 })
 const enabled = computed(() => state.settings.find((s) => s.name === 'protection_enabled')?.value !== false)
-const learningUntil = computed(() => new Date(learning.value.until * 1000).toLocaleString(getCanonicalLocale(), { dateStyle: 'full', timeStyle: 'short' }))
 const daysValid = computed(() => Number.isInteger(days.value) && days.value >= learning.value.minDays && days.value <= learning.value.maxDays)
 
 const learningSettings = computed(() => state.settings.filter((s) => s.group === 'learning'))
@@ -129,10 +129,15 @@ async function download() {
 				{{ t(APP_ID, 'Learning mode') }}
 			</h3>
 			<p :class="$style.card__text">
-				{{ t(APP_ID, 'While Nextcloud is learning, every check set to Protect only observes: it records what it would have done, so you can see whether your settings fit before anything is blocked. Checks that only send alerts, such as admin change alerts, keep sending them. It starts for 7 days when the app is installed.') }}
+				{{ t(APP_ID, 'Checks set to Protect only record what they would do, so you can see whether the settings fit before anything is blocked. Alerts are still sent.') }}
 			</p>
 			<p :class="[$style.card__state, { [$style.card__state_on]: learning.active }]">
-				{{ learning.active ? t(APP_ID, 'Learning until {date}.', { date: learningUntil }) : t(APP_ID, 'Learning mode is off; checks set to Protect act.') }}
+				<template v-if="learning.active">
+					{{ t(APP_ID, 'Learning ends') }} <TimeStamp :timestamp="learning.until" />.
+				</template>
+				<template v-else>
+					{{ t(APP_ID, 'Learning mode is off; checks set to Protect act.') }}
+				</template>
 			</p>
 			<div :class="$style.card__row">
 				<label :class="$style.days">
@@ -167,7 +172,7 @@ async function download() {
 						<template v-if="busy === 'stop'" #icon>
 							<NcLoadingIcon />
 						</template>
-						{{ t(APP_ID, 'Stop learning and protect') }}
+						{{ t(APP_ID, 'Start protecting now') }}
 					</NcButton>
 				</template>
 			</div>

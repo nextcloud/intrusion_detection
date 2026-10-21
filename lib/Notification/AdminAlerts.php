@@ -217,7 +217,7 @@ class AdminAlerts {
 			subject: $l->t('Intrusion detection: %s', [$headline]),
 			heading: $headline,
 			paragraphs: $paragraphs,
-			listHeading: $l->t('What Nextcloud did:'),
+			listHeading: $detection->isEnforced() ? $l->t('What Nextcloud did:') : $l->t('What Nextcloud would have done:'),
 			listItems: $narrative->done,
 			buttonText: $l->t('Open intrusion detection'),
 			buttonUrl: $this->links->detection($detection->getId()),
