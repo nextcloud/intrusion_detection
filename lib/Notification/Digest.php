@@ -17,9 +17,9 @@ use OCA\IntrusionDetection\Check\Checks\AccountUnderAttack;
 use OCA\IntrusionDetection\Check\Checks\DecoyCredential;
 use OCA\IntrusionDetection\Check\Checks\ShareBruteforce;
 use OCA\IntrusionDetection\Db\BlocklistStatMapper;
-use OCA\IntrusionDetection\Db\DetectionMapper;
 use OCA\IntrusionDetection\Db\DigestMapper;
 use OCA\IntrusionDetection\Db\ProtectedAccountMapper;
+use OCA\IntrusionDetection\Detection\DetectionTotals;
 use OCP\AppFramework\Utility\ITimeFactory;
 use OCP\IDateTimeFormatter;
 use OCP\IL10N;
@@ -32,6 +32,10 @@ use OCP\Mail\IEMailTemplate;
  * period ({@see report()}), then the email in a reader's language
  * ({@see content()}). Sections without data are left out.
  *
+ * The detections per check, of the period and of the one before, come
+ * from the hourly totals: the period before may be older than detections
+ * are kept.
+ *
  * Every value is plain text; {@see Mails} escapes it for the HTML part.
  */
 class Digest {
@@ -43,7 +47,7 @@ class Digest {
 	public const VERDICT_LOOKBACK = 30 * 86400;
 
 	public function __construct(
-		private readonly DetectionMapper $detections,
+		private readonly DetectionTotals $totals,
 		private readonly DigestMapper $digests,
 		private readonly ProtectedAccountMapper $protectedAccounts,
 		private readonly BlocklistStatMapper $blocklistStats,
@@ -66,8 +70,8 @@ class Digest {
 
 		$status = $this->status->status($this->l10nFactory->get(Application::APP_ID, 'en'));
 
-		$current = $this->detections->countByCheck($start, $end);
-		$previous = $this->detections->countByCheck($previousStart, $start);
+		$current = $this->totals->perCheckBetween($start, $end);
+		$previous = $this->totals->perCheckBetween($previousStart, $start);
 		$checks = [];
 		foreach (array_unique(array_merge(array_keys($current), array_keys($previous))) as $checkId) {
 			$checks[(string)$checkId] = [

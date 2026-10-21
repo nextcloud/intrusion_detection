@@ -160,6 +160,33 @@ class DetectionTotals {
 	}
 
 	/**
+	 * New detections per check and enforcement in a period, by the hours
+	 * that start in it. Periods that follow each other count every hour
+	 * once; a period that does not start and end on a whole hour moves by
+	 * less than an hour.
+	 *
+	 * @return array<string, array{enforced: int, observed: int}> by check id
+	 */
+	public function perCheckBetween(int $since, int $until): array {
+		$qb = $this->db->getQueryBuilder();
+		$qb->select('check_id', 'enforced')
+			->selectAlias($qb->func()->sum('created'), 'c')
+			->from(self::TABLE)
+			->where($qb->expr()->gte('hour', $qb->createNamedParameter(intdiv($since + 3599, 3600), IQueryBuilder::PARAM_INT)))
+			->andWhere($qb->expr()->lt('hour', $qb->createNamedParameter(intdiv($until + 3599, 3600), IQueryBuilder::PARAM_INT)))
+			->groupBy('check_id', 'enforced');
+		$result = $qb->executeQuery();
+		$counts = [];
+		while ($row = $result->fetch()) {
+			$check = (string)$row['check_id'];
+			$counts[$check] ??= ['enforced' => 0, 'observed' => 0];
+			$counts[$check][(int)$row['enforced'] === 1 ? 'enforced' : 'observed'] += (int)$row['c'];
+		}
+		$result->closeCursor();
+		return $counts;
+	}
+
+	/**
 	 * New detections per local day, check and enforcement, since a time.
 	 * Days are made of whole hours, so with a time zone offset that is not a
 	 * whole number of hours a day starts up to half an hour early.

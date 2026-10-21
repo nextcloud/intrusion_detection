@@ -97,6 +97,23 @@ class DetectionTotalsTest extends IntegrationTestCase {
 		$this->assertSame(['enforced' => 1, 'observed' => 0], $counts['admin_change'], 'the older one is not counted');
 	}
 
+	public function testPeriodsThatFollowEachOtherCountEveryHourOnce(): void {
+		$hour = intdiv(time(), 3600) * 3600 - 10 * 3600;
+		$this->insert('trap_url', 'low', true, $hour);
+		$this->insert('trap_url', 'low', true, $hour + 1800);
+		$this->insert('trap_url', 'low', false, $hour + 3600);
+		$this->insert('trap_url', 'low', true, $hour + 7200);
+		$totals = Server::get(DetectionTotals::class);
+
+		$this->assertSame(['trap_url' => ['enforced' => 2, 'observed' => 0]], $totals->perCheckBetween($hour, $hour + 3600));
+		$this->assertSame(['trap_url' => ['enforced' => 0, 'observed' => 1]], $totals->perCheckBetween($hour + 3600, $hour + 7200));
+		$this->assertSame([], $totals->perCheckBetween($hour - 3600, $hour), 'the end is not part of a period');
+		// Half-hour boundaries: the hour that starts within a period belongs to it.
+		$this->assertSame(['trap_url' => ['enforced' => 0, 'observed' => 1]], $totals->perCheckBetween($hour + 1800, $hour + 5400));
+		$this->assertSame(['trap_url' => ['enforced' => 1, 'observed' => 0]], $totals->perCheckBetween($hour + 5400, $hour + 9000));
+		$this->assertSame(['trap_url' => ['enforced' => 2, 'observed' => 0]], $totals->perCheckBetween($hour - 1800, $hour + 1800));
+	}
+
 	public function testTheCheckListCostsTheSameForManyDetections(): void {
 		$list = Server::get(CheckList::class);
 		$l = Server::get(IFactory::class)->get('intrusion_detection', 'en');

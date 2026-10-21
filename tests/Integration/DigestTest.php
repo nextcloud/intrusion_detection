@@ -25,6 +25,7 @@ use OCA\IntrusionDetection\Db\BlocklistStatMapper;
 use OCA\IntrusionDetection\Db\Detection;
 use OCA\IntrusionDetection\Db\DetectionMapper;
 use OCA\IntrusionDetection\Db\ProtectedAccountMapper;
+use OCA\IntrusionDetection\Detection\DetectionTotals;
 use OCA\IntrusionDetection\Notification\AdminRecipients;
 use OCA\IntrusionDetection\Notification\Digest;
 use OCA\IntrusionDetection\Notification\DigestSchedule;
@@ -106,6 +107,16 @@ class DigestTest extends IntegrationTestCase {
 		$this->assertSame(['protected'], array_column($report->protectedAccounts, 'uid'));
 		$this->assertSame(['denier'], array_column($report->deniedByUsers, 'uid'));
 		$this->assertFalse($report->isQuiet());
+	}
+
+	public function testTheWeekBeforeCountsWhenItsDetectionsAreDeletedAlready(): void {
+		$this->seed();
+		// A retention of seven days: the detections of the week before are gone.
+		Server::get(DetectionTotals::class)->deleteCreatedBefore(self::DUE - 7 * self::DAY);
+		$report = $this->digest()->report($this->schedule(), self::DUE);
+		$this->assertSame(2, $report->previousDetections);
+		$this->assertSame(['enforced' => 6, 'observed' => 0, 'previous' => 2], $report->checks[CredentialStuffing::ID]);
+		$this->assertSame(14, $report->enforced);
 	}
 
 	public function testTheEmailHasASectionForEveryKindOfDataAndLeavesOutEmptyOnes(): void {
@@ -388,7 +399,9 @@ class DigestTest extends IntegrationTestCase {
 		$detection->setCreatedAt($at);
 		$detection->setLastSeenAt($at);
 		$detection->setHits(1);
-		return Server::get(DetectionMapper::class)->insert($detection);
+		$detection = Server::get(DetectionMapper::class)->insert($detection);
+		Server::get(DetectionTotals::class)->created($detection);
+		return $detection;
 	}
 
 	private function insertBan(Detection $detection, int $at): void {
