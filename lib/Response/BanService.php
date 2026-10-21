@@ -15,6 +15,7 @@ use OCA\IntrusionDetection\Config\GlobalSettings;
 use OCA\IntrusionDetection\Config\Settings;
 use OCA\IntrusionDetection\Db\Ban;
 use OCA\IntrusionDetection\Db\BanMapper;
+use OCA\IntrusionDetection\Db\KeyLock;
 use OCA\IntrusionDetection\Db\KeyMatch;
 use OCA\IntrusionDetection\Event\TypedEvents;
 use OCA\IntrusionDetection\Net\Ipv6Networks;
@@ -22,8 +23,6 @@ use OCA\IntrusionDetection\Net\ProtectedRanges;
 use OCA\IntrusionDetection\Net\RemoteAddressResolver;
 use OCA\IntrusionDetection\Net\SourceKey;
 use OCP\AppFramework\Utility\ITimeFactory;
-use OCP\Lock\ILockingProvider;
-use OCP\Lock\LockedException;
 use OCP\Security\ISecureRandom;
 
 /**
@@ -50,8 +49,6 @@ class BanService {
 	/** The longest block by hand */
 	public const MAX_DURATION = 90 * 86400;
 	/** Waiting for another request blocking the same address: tries and pause between them */
-	private const LOCK_TRIES = 20;
-	private const LOCK_PAUSE_US = 25000;
 
 	public function __construct(
 		private readonly BanMapper $mapper,
@@ -62,7 +59,7 @@ class BanService {
 		private readonly RemoteAddressResolver $addresses,
 		private readonly ProtectedRanges $protected,
 		private readonly FlaggedSources $flags,
-		private readonly ILockingProvider $locks,
+		private readonly KeyLock $locks,
 		private readonly ITimeFactory $timeFactory,
 		private readonly ISecureRandom $random,
 		private readonly TypedEvents $events,
@@ -80,7 +77,7 @@ class BanService {
 		$scope = $source->family === 6 ? Ban::SCOPE_NET : Ban::SCOPE_IP;
 		$cidr = $scope === Ban::SCOPE_NET ? $source->ipKey : $source->ip . '/32';
 
-		$result = $this->locked($source->ipKey, function () use ($source, $scope, $cidr, $checkId, $detectionId, $forceLevel, $now): BanResult {
+		$result = $this->locks->run('ban', $source->ipKey, function () use ($source, $scope, $cidr, $checkId, $detectionId, $forceLevel, $now): BanResult {
 			$existing = $this->activeFor([$source->ipKey], $now);
 			if ($existing !== null) {
 				// The active ban is not an earlier offence: another check of the same
@@ -127,7 +124,7 @@ class BanService {
 		}
 		$level = max(1, min(3, $level));
 		$expires = $now + ($duration ?? $this->durationFor($level));
-		return $this->locked($banKey, function () use ($cidr, $scope, $banKey, $level, $actor, $note, $now, $expires): Ban {
+		return $this->locks->run('ban', $banKey, function () use ($cidr, $scope, $banKey, $level, $actor, $note, $now, $expires): Ban {
 			$existing = $this->activeFor([$banKey], $now);
 			if ($existing !== null) {
 				$existing->setLevel(max($existing->getLevel(), $level));
@@ -207,7 +204,7 @@ class BanService {
 			];
 		}
 		foreach ($candidates as [$netKey, $members, $loginKeys, $threshold, $covering]) {
-			$ban = $this->locked($netKey, function () use ($netKey, $members, $loginKeys, $threshold, $covering, $checkId, $detectionId, $now): ?Ban {
+			$ban = $this->locks->run('ban', $netKey, function () use ($netKey, $members, $loginKeys, $threshold, $covering, $checkId, $detectionId, $now): ?Ban {
 				$blocked = $this->mapper->activeKeysIn($members, $now - 86400, $now);
 				if (count($blocked) < $threshold || $this->activeFor($covering, $now) !== null
 					|| $this->exemptions->forNetwork($netKey, $loginKeys, $now) !== null) {
@@ -267,35 +264,6 @@ class BanService {
 			$this->addressCache->refresh($source, $this->resolver->resolve($source), $this->timeFactory->getTime());
 		} else {
 			$this->addressCache->bump();
-		}
-	}
-
-	/**
-	 * Run a check-and-insert under a lock per ban key. When the lock cannot
-	 * be had in time (a stuck request), it runs anyway: a second block row is
-	 * harmless, a lost block is not.
-	 *
-	 * @template T
-	 * @param \Closure(): T $work
-	 * @return T
-	 */
-	private function locked(string $banKey, \Closure $work): mixed {
-		$lock = 'intrusion_detection/ban/' . md5($banKey);
-		$held = false;
-		for ($try = 0; $try < self::LOCK_TRIES && !$held; $try++) {
-			try {
-				$this->locks->acquireLock($lock, ILockingProvider::LOCK_EXCLUSIVE);
-				$held = true;
-			} catch (LockedException) {
-				usleep(self::LOCK_PAUSE_US);
-			}
-		}
-		try {
-			return $work();
-		} finally {
-			if ($held) {
-				$this->locks->releaseLock($lock, ILockingProvider::LOCK_EXCLUSIVE);
-			}
 		}
 	}
 

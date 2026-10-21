@@ -17,6 +17,7 @@ use OCA\IntrusionDetection\Config\GlobalSettings;
 use OCA\IntrusionDetection\Config\Settings;
 use OCA\IntrusionDetection\Db\Ban;
 use OCA\IntrusionDetection\Db\BanMapper;
+use OCA\IntrusionDetection\Db\KeyLock;
 use OCA\IntrusionDetection\Db\LoginHistoryMapper;
 use OCA\IntrusionDetection\Db\LoginMapper;
 use OCA\IntrusionDetection\Event\TypedEvents;
@@ -463,7 +464,7 @@ class BanServiceTest extends IntegrationTestCase {
 			new RemoteAddressResolver($this->createMock(IRequest::class), Server::get(IThrottler::class)),
 			$ranges,
 			Server::get(FlaggedSources::class),
-			$locks ?? Server::get(ILockingProvider::class),
+			new KeyLock($locks ?? Server::get(ILockingProvider::class)),
 			Server::get(ITimeFactory::class),
 			Server::get(ISecureRandom::class),
 			Server::get(TypedEvents::class),

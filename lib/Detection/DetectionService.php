@@ -15,6 +15,7 @@ use OCA\IntrusionDetection\Config\ModeState;
 use OCA\IntrusionDetection\Config\Settings;
 use OCA\IntrusionDetection\Db\Detection;
 use OCA\IntrusionDetection\Db\DetectionMapper;
+use OCA\IntrusionDetection\Db\KeyLock;
 use OCA\IntrusionDetection\Risk\RiskAssessment;
 use OCA\IntrusionDetection\Risk\RiskScorer;
 use OCP\AppFramework\Utility\ITimeFactory;
@@ -41,6 +42,7 @@ class DetectionService {
 		private readonly RiskScorer $risk,
 		private readonly DetectionAccounts $accounts,
 		private readonly DetectionTotals $totals,
+		private readonly KeyLock $locks,
 	) {
 	}
 
@@ -48,6 +50,18 @@ class DetectionService {
 	 * @return array{0: Detection, 1: bool} the stored detection, and whether it is new
 	 */
 	public function record(DetectionDraft $draft, ModeState $mode): array {
+		$mergeKey = $draft->mergeKey();
+		if ($mergeKey === null) {
+			return $this->recordUnlocked($draft, $mode);
+		}
+		// Parallel hits of one attack would otherwise each insert a detection, or lose a hit.
+		return $this->locks->run('detection', $mergeKey, fn (): array => $this->recordUnlocked($draft, $mode));
+	}
+
+	/**
+	 * @return array{0: Detection, 1: bool}
+	 */
+	private function recordUnlocked(DetectionDraft $draft, ModeState $mode): array {
 		$now = $this->timeFactory->getTime();
 		$existing = $this->mergeTarget($draft, $mode);
 		if ($existing !== null) {

@@ -131,7 +131,7 @@ class AddressGuardTest extends IntegrationTestCase {
 			$addresses,
 			Server::get(\OCA\IntrusionDetection\Net\ProtectedRanges::class),
 			Server::get(\OCA\IntrusionDetection\Response\FlaggedSources::class),
-			Server::get(\OCP\Lock\ILockingProvider::class),
+			Server::get(\OCA\IntrusionDetection\Db\KeyLock::class),
 			$time,
 			Server::get(\OCP\Security\ISecureRandom::class),
 			Server::get(\OCA\IntrusionDetection\Event\TypedEvents::class),

@@ -270,6 +270,7 @@ return array(
     'OCA\\IntrusionDetection\\Db\\DetectionMapper' => $baseDir . '/../lib/Db/DetectionMapper.php',
     'OCA\\IntrusionDetection\\Db\\DigestMapper' => $baseDir . '/../lib/Db/DigestMapper.php',
     'OCA\\IntrusionDetection\\Db\\FlagMapper' => $baseDir . '/../lib/Db/FlagMapper.php',
+    'OCA\\IntrusionDetection\\Db\\KeyLock' => $baseDir . '/../lib/Db/KeyLock.php',
     'OCA\\IntrusionDetection\\Db\\KeyMatch' => $baseDir . '/../lib/Db/KeyMatch.php',
     'OCA\\IntrusionDetection\\Db\\KnownDeviceMapper' => $baseDir . '/../lib/Db/KnownDeviceMapper.php',
     'OCA\\IntrusionDetection\\Db\\LockLinkMapper' => $baseDir . '/../lib/Db/LockLinkMapper.php',
