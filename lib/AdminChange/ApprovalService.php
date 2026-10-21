@@ -223,7 +223,7 @@ class ApprovalService {
 			'requester' => $approval->getRequestedBy(),
 		]);
 
-		$this->permit->allow($user->getUID(), $group->getGID(), [
+		$this->permit->allow($user->getUID(), $group->getGID(), facts: [
 			'approval' => (int)$approval->getId(),
 			'requested_by' => $approval->getRequestedBy(),
 			'approved_by' => $decider,

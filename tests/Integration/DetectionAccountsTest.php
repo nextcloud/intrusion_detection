@@ -50,6 +50,18 @@ class DetectionAccountsTest extends IntegrationTestCase {
 		$this->assertSame(['alice', 'bob', 'carol', 'admin', 'dave'], DetectionAccounts::of($detection));
 	}
 
+	public function testAnApprovedAdminGrantFindsItsRequesterAndApprover(): void {
+		[$detection] = $this->service->record(new DetectionDraft(AdminChange::ID, null, 'new-admin', [
+			'kind' => AdminChange::KIND_ADMIN_GRANTED,
+			'actor' => 'second-admin',
+			'approval' => 3,
+			'requested_by' => 'asking-admin',
+			'approved_by' => 'second-admin',
+		]), $this->protect);
+		$this->assertEqualsCanonicalizing(['new-admin', 'second-admin', 'asking-admin'], $this->accounts->uids($detection->getId()));
+		$this->assertSame([$detection->getId()], $this->accounts->detectionIds('asking-admin', 0, 10), 'Deleting the requester finds the detection');
+	}
+
 	public function testRecordingMergingAndActionsAddTheirAccounts(): void {
 		$draft = fn (array $targets): DetectionDraft => new DetectionDraft(CredentialStuffing::ID, SourceKey::fromIp('203.0.113.5'), null, ['targets' => $targets], merge: DetectionDraft::MERGE_SOURCE);
 		[$detection] = $this->service->record($draft(['alice', 'bob']), $this->protect);

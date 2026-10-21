@@ -26,8 +26,11 @@ use OCP\IDBConnection;
  * removes it only from the detections listed here.
  */
 class DetectionAccounts {
-	/** Facts that hold an account or a list of accounts */
-	public const FACT_KEYS = ['targets', 'users', 'actor', 'uid'];
+	/**
+	 * Facts that hold an account or a list of accounts. A test reads the
+	 * app's code for fact keys that look like they hold one.
+	 */
+	public const FACT_KEYS = ['targets', 'users', 'actor', 'uid', 'requested_by', 'approved_by', 'owner', 'managers'];
 	/** Keys of action references that hold an account */
 	public const REF_KEYS = ['uid', 'users'];
 	/** Accounts kept per detection at most */
