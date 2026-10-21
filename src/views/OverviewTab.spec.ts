@@ -52,12 +52,24 @@ describe('the overview', () => {
 		document.body.innerHTML = ''
 	})
 
-	test('says what happened in one sentence, with what needs attention and the recent activity', async () => {
+	test('shows the last 24 hours in figures, with what needs attention and the recent activity', async () => {
 		const { wrapper } = await mountOverview()
-		expect(wrapper.get('[data-test="status-summary"]').text()).toContain('In the last 24 hours: 1,234 detections, 6 addresses would have been blocked.')
+		const summary = wrapper.get('[data-test="status-summary"]')
+		expect(summary.get('h3').text()).toBe('Last 24 hours')
+		expect(summary.text()).not.toContain('In the last 24 hours:')
+		expect(summary.get('[data-test="status-figures"]').text()).toContain('1,234')
+		expect(summary.text()).toContain('account targeted')
+		expect(summary.text()).not.toContain('concerned')
+		expect(summary.text()).not.toContain('Cost')
 		expect(wrapper.find('#overview-attention').exists()).toBe(true)
 		expect(wrapper.text()).toContain('Recent activity')
 		expect(wrapper.text()).toContain('Look up an address or account')
+	})
+
+	test('the empty address and account filters show an example', async () => {
+		const { wrapper } = await mountOverview()
+		const placeholders = wrapper.get('[data-test="detection-filters"]').findAll('input[type="text"]').map((input) => input.attributes('placeholder'))
+		expect(placeholders).toEqual(['e.g. 203.0.113.5', 'e.g. alice'])
 	})
 
 	test('only real problems need attention; tips are listed further down', async () => {

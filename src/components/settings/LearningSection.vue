@@ -9,7 +9,6 @@ import { showError, showSuccess } from '@nextcloud/dialogs'
 import { n, t } from '@nextcloud/l10n'
 import { computed, ref } from 'vue'
 import NcButton from '@nextcloud/vue/components/NcButton'
-import NcCheckboxRadioSwitch from '@nextcloud/vue/components/NcCheckboxRadioSwitch'
 import NcDialog from '@nextcloud/vue/components/NcDialog'
 import NcIconSvgWrapper from '@nextcloud/vue/components/NcIconSvgWrapper'
 import NcLoadingIcon from '@nextcloud/vue/components/NcLoadingIcon'
@@ -17,19 +16,17 @@ import NcTextField from '@nextcloud/vue/components/NcTextField'
 import SettingsGroup from '../common/SettingsGroup.vue'
 import TimeStamp from '../common/TimeStamp.vue'
 import { useAnnouncer } from '../../composables/useAnnouncer.ts'
-import { errorMessage, exportSettings, isCancelled, resetSettings, updateLearning, updateSettings } from '../../services/api.ts'
+import { errorMessage, exportSettings, isCancelled, resetSettings, updateLearning } from '../../services/api.ts'
 import { logger } from '../../services/logger.ts'
 import { refreshChecks, refreshStatus, state } from '../../store.ts'
 import { APP_ID } from '../../utils/format.ts'
 
 const busy = ref<string | null>(null)
 const days = ref(7)
-const confirmOff = ref(false)
 const confirmReset = ref(false)
 const { announce } = useAnnouncer()
 
 const learning = computed(() => state.status?.learning ?? { active: false, until: 0, daysLeft: 0, minDays: 1, maxDays: 30 })
-const enabled = computed(() => state.settings.find((s) => s.name === 'protection_enabled')?.value !== false)
 const daysValid = computed(() => Number.isInteger(days.value) && days.value >= learning.value.minDays && days.value <= learning.value.maxDays)
 
 const learningSettings = computed(() => state.settings.filter((s) => s.group === 'learning'))
@@ -65,28 +62,6 @@ async function run(id: string, action: () => Promise<unknown>, done: string): Pr
 const startLearning = () => run('start', () => updateLearning('start', days.value), n(APP_ID, 'Learning mode is on for %n day.', 'Learning mode is on for %n days.', days.value))
 const extendLearning = () => run('extend', () => updateLearning('extend', days.value), n(APP_ID, 'Learning mode was extended by %n day.', 'Learning mode was extended by %n days.', days.value))
 const stopLearning = () => run('stop', () => updateLearning('stop'), t(APP_ID, 'Learning mode ended. Checks set to Protect act from now on.'))
-
-/**
- * @param on - The new state of the master switch
- */
-async function setEnabled(on: boolean) {
-	if (!on) {
-		confirmOff.value = true
-		return
-	}
-	await switchTo(true)
-}
-
-/**
- * @param on - The new state
- */
-async function switchTo(on: boolean) {
-	await run(on ? 'on' : 'off', async () => {
-		const payload = await updateSettings({ protection_enabled: on })
-		state.settings = payload.settings
-	}, on ? t(APP_ID, 'Intrusion detection is on.') : t(APP_ID, 'Intrusion detection is off.'))
-	confirmOff.value = false
-}
 
 /**
  * Reset everything, after the confirmation.
@@ -183,22 +158,11 @@ async function download() {
 			<SettingsGroup v-if="learningSettings.length > 0" :settings="learningSettings" />
 		</section>
 
-		<section id="settings-other" :class="$style.card" aria-labelledby="ids-master-heading">
-			<h4 id="ids-master-heading" :class="$style.card__heading">
-				{{ t(APP_ID, 'Master switch') }}
-			</h4>
-			<NcCheckboxRadioSwitch
-				:modelValue="enabled"
-				type="switch"
-				:loading="busy === 'on' || busy === 'off'"
-				:disabled="busy !== null"
-				:description="t(APP_ID, 'When it is off, no check runs, nothing is recorded and existing blocks are not enforced.')"
-				@update:modelValue="setEnabled">
-				{{ t(APP_ID, 'Intrusion detection is on') }}
-			</NcCheckboxRadioSwitch>
-		</section>
-
-		<section v-if="otherSettings.length > 0" :class="$style.card" aria-labelledby="ids-other-heading">
+		<section
+			v-if="otherSettings.length > 0"
+			id="settings-other"
+			:class="$style.card"
+			aria-labelledby="ids-other-heading">
 			<h4 id="ids-other-heading" :class="$style.card__heading">
 				{{ t(APP_ID, 'Other settings') }}
 			</h4>
@@ -231,15 +195,6 @@ async function download() {
 				</NcButton>
 			</div>
 		</section>
-
-		<NcDialog
-			v-model:open="confirmOff"
-			:name="t(APP_ID, 'Turn off intrusion detection?')"
-			:message="t(APP_ID, 'No check runs and nothing is recorded while it is off. Existing blocks are not enforced, so blocked addresses can reach the server again at once.')"
-			:buttons="[
-				{ label: t(APP_ID, 'Cancel'), callback: () => undefined },
-				{ label: t(APP_ID, 'Turn off'), variant: 'error', callback: () => { switchTo(false); return false } },
-			]" />
 
 		<NcDialog
 			v-model:open="confirmReset"

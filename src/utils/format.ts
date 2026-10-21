@@ -182,16 +182,6 @@ export function formatNumber(value: number): string {
 }
 
 /**
- * The measured guard cost in milliseconds, as people read it: "0.03 ms".
- *
- * @param microseconds - The cost in microseconds
- */
-export function formatCost(microseconds: number): string {
-	const format = new Intl.NumberFormat(getCanonicalLocale(), { maximumFractionDigits: microseconds >= 1000 ? 1 : 3 })
-	return t(APP_ID, '{value} ms', { value: format.format(microseconds / 1000) })
-}
-
-/**
  * Split a duration into the largest whole unit, for the duration field.
  *
  * @param seconds - The duration in seconds

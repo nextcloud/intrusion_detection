@@ -31,13 +31,13 @@ describe('the learning mode and other settings', () => {
 		]
 	})
 
-	test('learning mode, the master switch, the learning settings, every other setting, export and reset', () => {
+	test('learning mode, the learning settings, every other setting, export and reset; the master switch is in the page header', () => {
 		const wrapper = mount(LearningSection)
 		expect(wrapper.text()).toContain('Learning mode')
 		expect(wrapper.text()).toContain('Start protecting now')
-		expect(wrapper.find('#settings-other').text()).toContain('Intrusion detection is on')
+		expect(wrapper.text()).not.toContain('Intrusion detection is on')
 		expect(wrapper.text()).toContain('Label of learning_decoys_act')
-		expect(wrapper.text()).toContain('Label of admin_change_require_approval')
+		expect(wrapper.get('#settings-other').text()).toContain('Label of admin_change_require_approval')
 		const support = wrapper.get('#settings-support').text()
 		expect(support).toContain('Export settings as JSON')
 		expect(support).toContain('Reset all settings to defaults')

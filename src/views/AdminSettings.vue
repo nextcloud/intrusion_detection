@@ -8,6 +8,7 @@ import { t } from '@nextcloud/l10n'
 import { computed, nextTick, onBeforeUnmount, onMounted, provide, ref, watch } from 'vue'
 import NcNoteCard from '@nextcloud/vue/components/NcNoteCard'
 import AdminTabs from '../components/AdminTabs.vue'
+import MasterSwitch from '../components/MasterSwitch.vue'
 import StatusStrip from '../components/StatusStrip.vue'
 import TabContent from '../components/TabContent.vue'
 import { useAnnouncer } from '../composables/useAnnouncer.ts'
@@ -135,11 +136,15 @@ onBeforeUnmount(() => {
 				<h2 :class="$style.page__title">
 					{{ t(APP_ID, 'Intrusion detection') }}
 				</h2>
-				<StatusStrip
-					v-if="state.status"
-					:status="state.status"
-					:waiting="decidableLogins.length"
-					@attention="showAttention" />
+				<div :class="$style.page__status">
+					<StatusStrip
+						v-if="state.status"
+						:class="$style.page__strip"
+						:status="state.status"
+						:waiting="decidableLogins.length"
+						@attention="showAttention" />
+					<MasterSwitch />
+				</div>
 			</div>
 		</header>
 
@@ -187,6 +192,19 @@ onBeforeUnmount(() => {
 	flex: 1 1 400px;
 	flex-direction: column;
 	gap: calc(var(--default-grid-baseline) * 2);
+	min-width: 0;
+}
+
+.page__status {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	justify-content: space-between;
+	gap: calc(var(--default-grid-baseline) * 2) calc(var(--default-grid-baseline) * 4);
+}
+
+.page__strip {
+	flex: 1 1 20em;
 	min-width: 0;
 }
 

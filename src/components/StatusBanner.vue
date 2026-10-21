@@ -6,39 +6,25 @@
 <script setup lang="ts">
 import type { Status } from '../types.ts'
 
-import { mdiSpeedometer } from '@mdi/js'
 import { showError, showSuccess } from '@nextcloud/dialogs'
 import { n, t } from '@nextcloud/l10n'
-import { computed, ref } from 'vue'
+import { computed, ref, useId } from 'vue'
 import NcButton from '@nextcloud/vue/components/NcButton'
-import NcIconSvgWrapper from '@nextcloud/vue/components/NcIconSvgWrapper'
 import NcLoadingIcon from '@nextcloud/vue/components/NcLoadingIcon'
 import { useAnnouncer } from '../composables/useAnnouncer.ts'
 import { statusSections } from '../extensions.ts'
 import { errorMessage, isCancelled, updateLearning, updateSettings } from '../services/api.ts'
 import { logger } from '../services/logger.ts'
 import { refreshChecks, refreshSettings, refreshStatus } from '../store.ts'
-import { APP_ID, formatCost, formatNumber } from '../utils/format.ts'
+import { APP_ID, formatNumber } from '../utils/format.ts'
 
 const props = defineProps<{
 	status: Status
 }>()
 
+const id = useId()
 const busy = ref<string | null>(null)
 const { announce } = useAnnouncer()
-
-/** What happened in the last 24 hours, in one sentence */
-const sentence = computed(() => {
-	const last = props.status.last24h
-	if (last.detections === 0) {
-		return t(APP_ID, 'Quiet in the last 24 hours: no attacks were detected.')
-	}
-	const detections = n(APP_ID, '{count} detection', '{count} detections', last.detections, { count: formatNumber(last.detections) })
-	const blocked = props.status.state === 'learning'
-		? n(APP_ID, '{count} address would have been blocked', '{count} addresses would have been blocked', last.wouldHaveBlocked, { count: formatNumber(last.wouldHaveBlocked) })
-		: n(APP_ID, '{count} address was blocked', '{count} addresses were blocked', last.blockedAddresses, { count: formatNumber(last.blockedAddresses) })
-	return t(APP_ID, 'In the last 24 hours: {detections}, {blocked}.', { detections, blocked })
-})
 
 /** How many checks protect, observe or are off */
 const checksLine = computed(() => {
@@ -66,23 +52,9 @@ const figures = computed(() => {
 			label: n(APP_ID, 'detection', 'detections', last.detections),
 			detail: last.detections > 0 ? t(APP_ID, '{enforced} acted on, {observed} observed', { enforced: formatNumber(last.enforced), observed: formatNumber(last.observed) }) : undefined,
 		},
-		{ id: 'accounts', value: formatNumber(last.accounts), label: n(APP_ID, 'account concerned', 'accounts concerned', last.accounts) },
+		{ id: 'accounts', value: formatNumber(last.accounts), label: n(APP_ID, 'account targeted', 'accounts targeted', last.accounts) },
 		{ id: 'bans', value: formatNumber(props.status.activeBans), label: n(APP_ID, 'block active now', 'blocks active now', props.status.activeBans) },
 	]
-})
-
-const costLine = computed(() => {
-	const { cost, costSampleRate } = props.status
-	if (cost === null) {
-		return props.status.prerequisites.memoryCache === 'none'
-			? t(APP_ID, 'Cost per request: not measured, as that needs a memory cache.')
-			: t(APP_ID, 'Cost on every request: not measured yet. It is measured on 1 in {rate} requests.', { rate: formatNumber(costSampleRate) })
-	}
-	return t(APP_ID, 'Cost on every request: {average} on average, {max} at most (measured on 1 in {rate} requests over the last 24 hours).', {
-		average: formatCost(cost.averageMicroseconds),
-		max: formatCost(cost.maxMicroseconds),
-		rate: formatNumber(costSampleRate),
-	})
 })
 
 /**
@@ -116,11 +88,11 @@ const turnOn = () => run('on', () => updateSettings({ protection_enabled: true }
 </script>
 
 <template>
-	<section :class="$style.banner" :aria-label="t(APP_ID, 'The last 24 hours')" data-test="status-summary">
+	<section :class="$style.banner" :aria-labelledby="`${id}-heading`" data-test="status-summary">
 		<div :class="$style.banner__head">
-			<p :class="$style.banner__sentence">
-				{{ sentence }}
-			</p>
+			<h3 :id="`${id}-heading`" :class="$style.banner__heading">
+				{{ t(APP_ID, 'Last 24 hours') }}
+			</h3>
 			<div :class="$style.banner__actions">
 				<template v-if="status.state === 'learning'">
 					<NcButton variant="primary" :disabled="busy !== null" @click="startProtecting">
@@ -165,10 +137,6 @@ const turnOn = () => run('on', () => updateSettings({ protection_enabled: true }
 		<p :class="$style.banner__muted">
 			{{ checksLine }}
 		</p>
-		<p :class="[$style.banner__muted, $style.banner__cost]">
-			<NcIconSvgWrapper :path="mdiSpeedometer" :size="18" />
-			<span>{{ costLine }}</span>
-		</p>
 
 		<component :is="section" v-for="(section, index) in statusSections" :key="index" />
 	</section>
@@ -193,11 +161,11 @@ const turnOn = () => run('on', () => updateSettings({ protection_enabled: true }
 	gap: calc(var(--default-grid-baseline) * 3);
 }
 
-.banner__sentence {
-	flex: 1 1 300px;
+.banner__heading {
+	flex: 1 1 auto;
 	margin: 0;
 	font-size: 1.1em;
-	line-height: 1.5;
+	font-weight: 700;
 }
 
 .banner__actions {
@@ -210,17 +178,6 @@ const turnOn = () => run('on', () => updateSettings({ protection_enabled: true }
 	margin: 0;
 	color: var(--color-text-maxcontrast);
 	font-size: 0.92em;
-}
-
-.banner__cost {
-	display: flex;
-	align-items: flex-start;
-	gap: calc(var(--default-grid-baseline) * 2);
-}
-
-.banner__cost > :first-child {
-	flex: 0 0 auto;
-	margin-top: 1px;
 }
 
 .figures {

@@ -177,6 +177,7 @@ defineExpose({ reload: load })
 					:id="`${id}-address`"
 					v-model="address"
 					labelOutside
+					:placeholder="t(APP_ID, 'e.g. {example}', { example: '203.0.113.5' })"
 					autocomplete="off"
 					spellcheck="false" />
 			</div>
@@ -186,6 +187,7 @@ defineExpose({ reload: load })
 					:id="`${id}-user`"
 					v-model="user"
 					labelOutside
+					:placeholder="t(APP_ID, 'e.g. {example}', { example: 'alice' })"
 					autocomplete="off"
 					spellcheck="false" />
 			</div>

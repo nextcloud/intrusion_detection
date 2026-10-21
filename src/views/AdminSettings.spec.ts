@@ -52,11 +52,13 @@ describe('the admin page', () => {
 		await flushPromises()
 	}
 
-	test('the header has the status sentence and no switch for advanced options', () => {
+	test('the header has the status sentence and, next to it, the master switch; no switch for advanced options', () => {
 		const wrapper = mountPage()
 		const header = wrapper.get('header')
 		expect(header.find('[data-test="status-strip"]').exists()).toBe(true)
-		expect(header.find('input[type="checkbox"]').exists()).toBe(false)
+		const switches = header.findAll('input[type="checkbox"]')
+		expect(switches).toHaveLength(1)
+		expect(header.get('[data-test="master-switch"]').text()).toBe('Intrusion detection is on')
 		// The state is said once: in the header, not again above every tab.
 		expect(wrapper.findAll('[data-test="status-strip"]')).toHaveLength(1)
 	})
