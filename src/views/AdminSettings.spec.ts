@@ -34,7 +34,7 @@ describe('the admin page', () => {
 
 	const mountPage = () => mount(AdminSettings, {
 		attachTo: document.body,
-		global: { stubs: { KeepAlive: defineComponent({ setup: (_, { slots }) => () => slots.default?.() }), TabContent: OpenCheck, StatusBanner: defineComponent({ render: () => h('div', { 'data-test': 'banner' }) }) } },
+		global: { stubs: { KeepAlive: defineComponent({ setup: (_, { slots }) => () => slots.default?.() }), TabContent: OpenCheck } },
 	})
 
 	const tabIds = (wrapper: ReturnType<typeof mountPage>) => wrapper.findAll('[role="tab"]').map((tab) => tab.attributes('data-tab'))

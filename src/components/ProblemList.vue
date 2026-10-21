@@ -7,8 +7,8 @@
 import type { Problem } from '../types.ts'
 
 import { mdiAlertCircleOutline, mdiAlertOutline, mdiChevronDown, mdiInformationOutline, mdiWrenchOutline } from '@mdi/js'
-import { n, t } from '@nextcloud/l10n'
-import { computed, ref, useId, watch } from 'vue'
+import { t } from '@nextcloud/l10n'
+import { ref, useId, watch } from 'vue'
 import NcIconSvgWrapper from '@nextcloud/vue/components/NcIconSvgWrapper'
 import { APP_ID } from '../utils/format.ts'
 
@@ -30,8 +30,6 @@ const LEVELS = {
 	info: { icon: mdiInformationOutline, label: () => t(APP_ID, 'Tip') },
 }
 
-const heading = computed(() => n(APP_ID, '%n thing to look at', '%n things to look at', props.problems.length))
-
 /**
  * @param problemId - The problem to open or close
  */
@@ -43,7 +41,7 @@ function toggle(problemId: string) {
 <template>
 	<section :class="$style.problems" :aria-labelledby="`${id}-heading`">
 		<h3 :id="`${id}-heading`" :class="$style.problems__heading">
-			{{ heading }}
+			{{ t(APP_ID, 'Needs attention') }}
 		</h3>
 		<ul :class="$style.problems__list">
 			<li
@@ -98,7 +96,7 @@ function toggle(problemId: string) {
 	display: flex;
 	flex-direction: column;
 	gap: calc(var(--default-grid-baseline) * 2);
-	margin-top: calc(var(--default-grid-baseline) * 3);
+	scroll-margin-top: calc(var(--default-grid-baseline) * 4);
 }
 
 .problems__heading {

@@ -21,7 +21,7 @@ import DetectionGroup from './DetectionGroup.vue'
 import DetectionRow from './DetectionRow.vue'
 import { errorMessage, fetchDetections } from '../../services/api.ts'
 import { logger } from '../../services/logger.ts'
-import { detectionFilters, openDetectionId, state } from '../../store.ts'
+import { advanced, detectionFilters, openDetectionId, state } from '../../store.ts'
 import { APP_ID } from '../../utils/format.ts'
 import { groupDetections } from '../../utils/groups.ts'
 
@@ -144,14 +144,19 @@ defineExpose({ reload: load })
 	<section :class="$style.detections" :aria-labelledby="`${id}-heading`">
 		<header :class="$style.detections__head">
 			<h3 :id="`${id}-heading`" :class="$style.detections__heading">
-				{{ t(APP_ID, 'Recent detections') }}
+				{{ t(APP_ID, 'Recent activity') }}
 			</h3>
 			<span v-if="!loading" :class="$style.detections__count" aria-live="polite">
 				{{ detections.length === 0 ? '' : n(APP_ID, 'Showing %n detection', 'Showing %n detections', detections.length) }}
 			</span>
 		</header>
 
-		<div :class="$style.filters" role="group" :aria-label="t(APP_ID, 'Filter detections')">
+		<div
+			v-if="advanced"
+			:class="$style.filters"
+			role="group"
+			:aria-label="t(APP_ID, 'Filter detections')"
+			data-test="detection-filters">
 			<SelectField
 				v-model="detectionFilters.check"
 				:class="$style.filter"
@@ -190,6 +195,15 @@ defineExpose({ reload: load })
 				variant="tertiary"
 				:class="$style.filters__clear"
 				@click="clearFilters">
+				<template #icon>
+					<NcIconSvgWrapper :path="mdiClose" />
+				</template>
+				{{ t(APP_ID, 'Clear filters') }}
+			</NcButton>
+		</div>
+
+		<div v-else-if="filtered" :class="$style.filters__clear">
+			<NcButton variant="tertiary" @click="clearFilters">
 				<template #icon>
 					<NcIconSvgWrapper :path="mdiClose" />
 				</template>

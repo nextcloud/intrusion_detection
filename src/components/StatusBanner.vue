@@ -8,19 +8,17 @@ import type { Status } from '../types.ts'
 
 import { mdiSpeedometer } from '@mdi/js'
 import { showError, showSuccess } from '@nextcloud/dialogs'
-import { getCanonicalLocale, n, t } from '@nextcloud/l10n'
+import { n, t } from '@nextcloud/l10n'
 import { computed, ref } from 'vue'
 import NcButton from '@nextcloud/vue/components/NcButton'
 import NcIconSvgWrapper from '@nextcloud/vue/components/NcIconSvgWrapper'
 import NcLoadingIcon from '@nextcloud/vue/components/NcLoadingIcon'
-import ProblemList from './ProblemList.vue'
 import { useAnnouncer } from '../composables/useAnnouncer.ts'
 import { statusSections } from '../extensions.ts'
 import { errorMessage, isCancelled, updateLearning, updateSettings } from '../services/api.ts'
 import { logger } from '../services/logger.ts'
-import { refreshChecks, refreshSettings, refreshStatus } from '../store.ts'
+import { advanced, refreshChecks, refreshSettings, refreshStatus } from '../store.ts'
 import { APP_ID, formatCost, formatNumber } from '../utils/format.ts'
-import { statusIcon, statusTitle } from '../utils/status.ts'
 
 const props = defineProps<{
 	status: Status
@@ -29,18 +27,22 @@ const props = defineProps<{
 const busy = ref<string | null>(null)
 const { announce } = useAnnouncer()
 
-const icon = computed(() => statusIcon(props.status.state))
-const title = computed(() => statusTitle(props.status))
-
+/** What happened in the last 24 hours, in one sentence */
 const sentence = computed(() => {
-	const { checks, learning, state } = props.status
-	if (state === 'off') {
-		return t(APP_ID, 'No checks run, nothing is recorded and blocked addresses can reach the server again.')
+	const last = props.status.last24h
+	if (last.detections === 0) {
+		return t(APP_ID, 'Quiet in the last 24 hours: no attacks were detected.')
 	}
-	if (state === 'learning') {
-		const until = new Date(learning.until * 1000).toLocaleDateString(getCanonicalLocale(), { weekday: 'long', day: 'numeric', month: 'long' })
-		return t(APP_ID, 'Checks set to Protect only record what they would do until {date}. Blocks you add by hand apply.', { date: until })
-	}
+	const detections = n(APP_ID, '{count} detection', '{count} detections', last.detections, { count: formatNumber(last.detections) })
+	const blocked = props.status.state === 'learning'
+		? n(APP_ID, '{count} address would have been blocked', '{count} addresses would have been blocked', last.wouldHaveBlocked, { count: formatNumber(last.wouldHaveBlocked) })
+		: n(APP_ID, '{count} address was blocked', '{count} addresses were blocked', last.blockedAddresses, { count: formatNumber(last.blockedAddresses) })
+	return t(APP_ID, 'In the last 24 hours: {detections}, {blocked}.', { detections, blocked })
+})
+
+/** How many checks protect, observe or are off */
+const checksLine = computed(() => {
+	const { checks } = props.status
 	if (checks.protect + checks.observe + checks.off === 0) {
 		return t(APP_ID, 'Blocks you add by hand are enforced. No checks are installed yet.')
 	}
@@ -114,19 +116,11 @@ const turnOn = () => run('on', () => updateSettings({ protection_enabled: true }
 </script>
 
 <template>
-	<section :class="[$style.banner, $style[`banner_${status.state}`]]" aria-labelledby="ids-status-title">
+	<section :class="$style.banner" :aria-label="t(APP_ID, 'The last 24 hours')" data-test="status-summary">
 		<div :class="$style.banner__head">
-			<span :class="$style.banner__icon" aria-hidden="true">
-				<NcIconSvgWrapper :path="icon" :size="28" />
-			</span>
-			<div :class="$style.banner__text">
-				<h3 id="ids-status-title" :class="$style.banner__title">
-					{{ title }}
-				</h3>
-				<p :class="$style.banner__sentence">
-					{{ sentence }}
-				</p>
-			</div>
+			<p :class="$style.banner__sentence">
+				{{ sentence }}
+			</p>
 			<div :class="$style.banner__actions">
 				<template v-if="status.state === 'learning'">
 					<NcButton variant="primary" :disabled="busy !== null" @click="startProtecting">
@@ -155,11 +149,8 @@ const turnOn = () => run('on', () => updateSettings({ protection_enabled: true }
 			</div>
 		</div>
 
-		<div>
-			<p :class="$style.banner__period">
-				{{ t(APP_ID, 'In the last 24 hours') }}
-			</p>
-			<dl :class="$style.figures">
+		<template v-if="advanced">
+			<dl :class="$style.figures" data-test="status-figures">
 				<div v-for="figure in figures" :key="figure.id" :class="$style.figure">
 					<dt :class="$style.figure__label">
 						{{ figure.label }}
@@ -172,77 +163,42 @@ const turnOn = () => run('on', () => updateSettings({ protection_enabled: true }
 					</dd>
 				</div>
 			</dl>
-		</div>
-
-		<p :class="$style.banner__cost">
-			<NcIconSvgWrapper :path="mdiSpeedometer" :size="18" />
-			<span>{{ costLine }}</span>
-		</p>
+			<p :class="$style.banner__muted">
+				{{ checksLine }}
+			</p>
+			<p :class="[$style.banner__muted, $style.banner__cost]">
+				<NcIconSvgWrapper :path="mdiSpeedometer" :size="18" />
+				<span>{{ costLine }}</span>
+			</p>
+		</template>
 
 		<component :is="section" v-for="(section, index) in statusSections" :key="index" />
 	</section>
-
-	<ProblemList v-if="status.problems.length > 0" id="ids-section-attention" :problems="status.problems" />
 </template>
 
 <style module>
 .banner {
-	--state-color: var(--color-success);
-	--state-text: var(--color-success-text);
 	display: flex;
 	flex-direction: column;
 	gap: calc(var(--default-grid-baseline) * 4);
-	padding: calc(var(--default-grid-baseline) * 6);
-	border: 1px solid color-mix(in srgb, var(--state-color) 30%, var(--color-border));
-	border-radius: var(--border-radius-container, var(--border-radius-large));
-	background-color: color-mix(in srgb, var(--state-color) 12%, var(--color-main-background));
-}
-
-.banner_learning {
-	--state-color: var(--color-info);
-	--state-text: var(--color-info-text);
-}
-
-.banner_off {
-	--state-color: var(--color-warning);
-	--state-text: var(--color-warning-text);
+	padding: calc(var(--default-grid-baseline) * 5);
+	border: 1px solid var(--color-border);
+	border-radius: var(--border-radius-large);
+	background-color: var(--color-main-background);
 }
 
 .banner__head {
 	display: flex;
 	flex-wrap: wrap;
-	align-items: flex-start;
-	gap: calc(var(--default-grid-baseline) * 4);
-}
-
-.banner__icon {
-	display: inline-flex;
-	flex: 0 0 auto;
 	align-items: center;
-	justify-content: center;
-	width: 52px;
-	height: 52px;
-	border-radius: 50%;
-	background-color: color-mix(in srgb, var(--state-color) 20%, var(--color-main-background));
-	color: var(--state-text);
-}
-
-.banner__text {
-	flex: 1 1 200px;
-	min-width: 0;
-}
-
-.banner__title {
-	margin: 0;
-	color: var(--state-text);
-	font-size: 1.45em;
-	font-weight: 700;
-	line-height: 1.3;
+	justify-content: space-between;
+	gap: calc(var(--default-grid-baseline) * 3);
 }
 
 .banner__sentence {
-	margin-block: calc(var(--default-grid-baseline) * 1) 0;
-	max-width: 70ch;
+	flex: 1 1 300px;
+	margin: 0;
+	font-size: 1.1em;
 	line-height: 1.5;
 }
 
@@ -250,7 +206,23 @@ const turnOn = () => run('on', () => updateSettings({ protection_enabled: true }
 	display: flex;
 	flex-wrap: wrap;
 	gap: calc(var(--default-grid-baseline) * 2);
-	margin-inline-start: auto;
+}
+
+.banner__muted {
+	margin: 0;
+	color: var(--color-text-maxcontrast);
+	font-size: 0.92em;
+}
+
+.banner__cost {
+	display: flex;
+	align-items: flex-start;
+	gap: calc(var(--default-grid-baseline) * 2);
+}
+
+.banner__cost > :first-child {
+	flex: 0 0 auto;
+	margin-top: 1px;
 }
 
 .figures {
@@ -266,7 +238,7 @@ const turnOn = () => run('on', () => updateSettings({ protection_enabled: true }
 	min-width: 0;
 	padding: calc(var(--default-grid-baseline) * 3) calc(var(--default-grid-baseline) * 4);
 	border-radius: var(--border-radius-large);
-	background-color: color-mix(in srgb, var(--color-main-background) 72%, transparent);
+	background-color: var(--color-background-hover);
 }
 
 .figure dd,
@@ -278,8 +250,7 @@ const turnOn = () => run('on', () => updateSettings({ protection_enabled: true }
 
 .figure__value {
 	order: -1;
-	margin: 0;
-	font-size: 2em;
+	font-size: 1.8em;
 	font-weight: 700;
 	line-height: 1.15;
 	font-variant-numeric: tabular-nums;
@@ -288,9 +259,7 @@ const turnOn = () => run('on', () => updateSettings({ protection_enabled: true }
 .figure__label {
 	color: var(--color-text-maxcontrast);
 	font-size: 0.92em;
-	white-space: normal;
 	overflow-wrap: anywhere;
-	hyphens: auto;
 }
 
 .figure__detail {
@@ -299,37 +268,9 @@ const turnOn = () => run('on', () => updateSettings({ protection_enabled: true }
 	font-size: 0.85em;
 }
 
-.banner__period {
-	margin: 0 0 calc(var(--default-grid-baseline) * 2);
-	color: var(--color-text-maxcontrast);
-	font-size: 0.8em;
-	font-weight: 600;
-	letter-spacing: 0.06em;
-	text-transform: uppercase;
-}
-
-.banner__cost {
-	display: flex;
-	align-items: flex-start;
-	gap: calc(var(--default-grid-baseline) * 2);
-	margin: 0;
-	color: var(--color-text-maxcontrast);
-	font-size: 0.92em;
-}
-
-.banner__cost > :first-child {
-	flex: 0 0 auto;
-	margin-top: 1px;
-}
-
 @media (max-width: 600px) {
 	.banner {
 		padding: calc(var(--default-grid-baseline) * 4);
-	}
-
-	.banner__actions {
-		margin-inline-start: 0;
-		width: 100%;
 	}
 
 	.figures {
@@ -337,12 +278,8 @@ const turnOn = () => run('on', () => updateSettings({ protection_enabled: true }
 		gap: calc(var(--default-grid-baseline) * 2);
 	}
 
-	.figure {
-		padding: calc(var(--default-grid-baseline) * 2) calc(var(--default-grid-baseline) * 3);
-	}
-
 	.figure__value {
-		font-size: 1.6em;
+		font-size: 1.5em;
 	}
 }
 </style>

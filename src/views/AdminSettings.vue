@@ -12,7 +12,6 @@ import NcCheckboxRadioSwitch from '@nextcloud/vue/components/NcCheckboxRadioSwit
 import NcIconSvgWrapper from '@nextcloud/vue/components/NcIconSvgWrapper'
 import NcNoteCard from '@nextcloud/vue/components/NcNoteCard'
 import AdminTabs from '../components/AdminTabs.vue'
-import StatusBanner from '../components/StatusBanner.vue'
 import StatusStrip from '../components/StatusStrip.vue'
 import TabContent from '../components/TabContent.vue'
 import { useAnnouncer } from '../composables/useAnnouncer.ts'
@@ -165,7 +164,6 @@ onBeforeUnmount(() => window.removeEventListener('hashchange', readHash))
 				role="tabpanel"
 				:aria-labelledby="`ids-tab-${currentTab.id}`">
 				<NcNoteCard v-if="!state.status" type="error" :text="t(APP_ID, 'The status could not be loaded. Please reload the page.')" />
-				<StatusBanner v-else-if="currentTab.id === 'overview'" :status="state.status" />
 				<KeepAlive>
 					<TabContent :key="currentTab.id" :tab="currentTab" />
 				</KeepAlive>

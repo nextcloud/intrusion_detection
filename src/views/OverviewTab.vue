@@ -17,9 +17,11 @@ import SkeletonBlock from '../components/common/SkeletonBlock.vue'
 import DetectionChart from '../components/overview/DetectionChart.vue'
 import DetectionList from '../components/overview/DetectionList.vue'
 import LookupBox from '../components/overview/LookupBox.vue'
+import ProblemList from '../components/ProblemList.vue'
+import StatusBanner from '../components/StatusBanner.vue'
 import { errorMessage, fetchDailyStats } from '../services/api.ts'
 import { logger } from '../services/logger.ts'
-import { openDetectionId } from '../store.ts'
+import { advanced, openDetectionId, state } from '../store.ts'
 import { APP_ID } from '../utils/format.ts'
 
 const stats = ref<DailyStats | null>(null)
@@ -30,7 +32,7 @@ let afterLift: (() => Promise<void>) | null = null
 const quiet = computed(() => stats.value !== null && stats.value.days.every((day) => day.enforced + day.observed === 0))
 
 /**
- * Load the chart.
+ * Load the chart, which is shown with the advanced options.
  */
 async function loadStats() {
 	try {
@@ -42,9 +44,18 @@ async function loadStats() {
 	}
 }
 
-onMounted(loadStats)
+onMounted(() => {
+	if (advanced.value) {
+		loadStats()
+	}
+})
 onActivated(() => {
 	if (stats.value !== null) {
+		loadStats()
+	}
+})
+watch(advanced, (shown) => {
+	if (shown && stats.value === null) {
 		loadStats()
 	}
 })
@@ -77,38 +88,46 @@ watch(openDetectionId, async (id) => {
 
 <template>
 	<div :class="$style.overview">
-		<div :class="$style.overview__top">
-			<section :class="[$style.card, $style.card_chart]" aria-labelledby="ids-chart-heading">
-				<h3 id="ids-chart-heading" :class="$style.card__heading">
-					{{ t(APP_ID, 'Detections in the last 30 days') }}
-				</h3>
-				<NcNoteCard v-if="statsError" type="error" :text="statsError" />
-				<div v-else-if="stats === null" :class="$style.card__skeleton" aria-busy="true">
-					<SkeletonBlock width="40%" />
-					<SkeletonBlock height="180px" />
-				</div>
-				<NcEmptyContent
-					v-else-if="quiet"
-					:class="$style.card__empty"
-					:name="t(APP_ID, 'All quiet')"
-					:description="t(APP_ID, 'No attacks in the last 30 days. Nextcloud is watching.')">
-					<template #icon>
-						<NcIconSvgWrapper :path="mdiShieldCheckOutline" />
-					</template>
-				</NcEmptyContent>
-				<DetectionChart v-else :days="stats.days" />
-			</section>
+		<StatusBanner v-if="state.status" :status="state.status" />
 
-			<section :class="[$style.card, $style.card_lookup]" aria-labelledby="ids-lookup-heading">
+		<ProblemList v-if="state.status && state.status.problems.length > 0" id="ids-section-attention" :problems="state.status.problems" />
+
+		<section
+			v-if="advanced"
+			:class="$style.card"
+			aria-labelledby="ids-chart-heading"
+			data-test="overview-chart">
+			<h3 id="ids-chart-heading" :class="$style.card__heading">
+				{{ t(APP_ID, 'Detections in the last 30 days') }}
+			</h3>
+			<NcNoteCard v-if="statsError" type="error" :text="statsError" />
+			<div v-else-if="stats === null" :class="$style.card__skeleton" aria-busy="true">
+				<SkeletonBlock width="40%" />
+				<SkeletonBlock height="180px" />
+			</div>
+			<NcEmptyContent
+				v-else-if="quiet"
+				:class="$style.card__empty"
+				:name="t(APP_ID, 'All quiet')"
+				:description="t(APP_ID, 'No attacks in the last 30 days. Nextcloud is watching.')">
+				<template #icon>
+					<NcIconSvgWrapper :path="mdiShieldCheckOutline" />
+				</template>
+			</NcEmptyContent>
+			<DetectionChart v-else :days="stats.days" />
+		</section>
+
+		<div :class="$style.overview__main">
+			<div :class="$style.card">
+				<DetectionList @lift="onLift" />
+			</div>
+
+			<section :class="$style.card" aria-labelledby="ids-lookup-heading">
 				<h3 id="ids-lookup-heading" :class="$style.card__heading">
-					{{ t(APP_ID, 'Look up') }}
+					{{ t(APP_ID, 'Look up an address or account') }}
 				</h3>
 				<LookupBox @openDetection="openDetection" @lift="onLift" />
 			</section>
-		</div>
-
-		<div :class="$style.card">
-			<DetectionList @lift="onLift" />
 		</div>
 
 		<LiftBanDialog :ban="liftTarget" @close="liftTarget = null" @lifted="afterLift?.()" />
@@ -122,10 +141,9 @@ watch(openDetectionId, async (id) => {
 	gap: calc(var(--default-grid-baseline) * 5);
 }
 
-.overview__top {
-	display: grid;
-	grid-template-columns: minmax(0, 3fr) minmax(300px, 2fr);
-	align-items: start;
+.overview__main {
+	display: flex;
+	flex-direction: column;
 	gap: calc(var(--default-grid-baseline) * 5);
 }
 
@@ -154,12 +172,6 @@ watch(openDetectionId, async (id) => {
 
 .card__empty {
 	margin-block: calc(var(--default-grid-baseline) * 6) !important;
-}
-
-@media (max-width: 1000px) {
-	.overview__top {
-		grid-template-columns: minmax(0, 1fr);
-	}
 }
 
 @media (max-width: 600px) {

@@ -6,7 +6,7 @@
 <script setup lang="ts">
 import type { Ban, LookupResult } from '../../types.ts'
 
-import { mdiClose, mdiLockOpenVariantOutline, mdiMagnify } from '@mdi/js'
+import { mdiClose, mdiFileDocumentAlertOutline, mdiLockOpenVariantOutline, mdiMagnify } from '@mdi/js'
 import { n, t } from '@nextcloud/l10n'
 import { computed, ref } from 'vue'
 import NcButton from '@nextcloud/vue/components/NcButton'
@@ -18,8 +18,10 @@ import ReferencePill from '../common/ReferencePill.vue'
 import SeverityPill from '../common/SeverityPill.vue'
 import TimeStamp from '../common/TimeStamp.vue'
 import { useAnnouncer } from '../../composables/useAnnouncer.ts'
+import { useIncidentReport } from '../../composables/useIncidentReport.ts'
 import { errorMessage, lookup } from '../../services/api.ts'
 import { logger } from '../../services/logger.ts'
+import { advanced } from '../../store.ts'
 import { APP_ID } from '../../utils/format.ts'
 
 const emit = defineEmits<{
@@ -32,6 +34,19 @@ const result = ref<LookupResult | null>(null)
 const error = ref<string | null>(null)
 const searching = ref(false)
 const { announce } = useAnnouncer()
+const { createReport } = useIncidentReport()
+
+/** The account or address an incident report can be made about */
+const reportSubject = computed(() => {
+	const found = result.value
+	if (found?.kind === 'address') {
+		return { type: 'address' as const, value: found.query }
+	}
+	if (found?.kind === 'user' && found.user) {
+		return { type: 'user' as const, value: found.user.uid }
+	}
+	return null
+})
 
 const heading = computed(() => {
 	const found = result.value
@@ -89,7 +104,7 @@ function clear() {
 			<NcTextField
 				v-model="query"
 				:class="$style.lookup__field"
-				:label="t(APP_ID, 'Look up a reference, address or user')"
+				:label="t(APP_ID, 'Address or account')"
 				:placeholder="t(APP_ID, 'e.g. {example}', { example: t(APP_ID, 'K7Q2-MPXA, 203.0.113.7 or alice') })"
 				:showTrailingButton="query !== ''"
 				:trailingButtonLabel="t(APP_ID, 'Clear')"
@@ -180,6 +195,15 @@ function clear() {
 				<p v-else-if="result.kind !== 'reference'" :class="$style.result__muted">
 					{{ t(APP_ID, 'No detections in the last 30 days.') }}
 				</p>
+
+				<div v-if="advanced && reportSubject">
+					<NcButton variant="secondary" data-test="lookup-incident-report" @click="createReport(reportSubject.type, reportSubject.value)">
+						<template #icon>
+							<NcIconSvgWrapper :path="mdiFileDocumentAlertOutline" />
+						</template>
+						{{ t(APP_ID, 'Create incident report') }}
+					</NcButton>
+				</div>
 			</template>
 		</section>
 	</div>
@@ -194,6 +218,7 @@ function clear() {
 
 .lookup__form {
 	display: flex;
+	max-width: 640px;
 	align-items: flex-end;
 	gap: calc(var(--default-grid-baseline) * 2);
 }
