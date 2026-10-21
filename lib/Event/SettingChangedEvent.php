@@ -17,6 +17,10 @@ use OCP\EventDispatcher\Event;
  *
  * The values are the effective ones before and after the change (defaults
  * included), as the settings service reads them.
+ *
+ * A change that is not reported ({@see self::isReported()}) was made by the
+ * app on its own, or by a feature that writes it to the audit log itself:
+ * it is no administration change.
  */
 class SettingChangedEvent extends Event {
 	/**
@@ -27,6 +31,7 @@ class SettingChangedEvent extends Event {
 		private readonly string $key,
 		private readonly int|float|bool|string|array $oldValue,
 		private readonly int|float|bool|string|array $newValue,
+		private readonly bool $reported = true,
 	) {
 		parent::__construct();
 	}
@@ -47,5 +52,12 @@ class SettingChangedEvent extends Event {
 	 */
 	public function getNewValue(): int|float|bool|string|array {
 		return $this->newValue;
+	}
+
+	/**
+	 * Whether the change is reported as an administration change.
+	 */
+	public function isReported(): bool {
+		return $this->reported;
 	}
 }

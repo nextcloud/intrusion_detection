@@ -11,6 +11,7 @@ namespace OCA\IntrusionDetection\Repair;
 
 use OCA\IntrusionDetection\Config\GlobalSettings;
 use OCA\IntrusionDetection\Config\Settings;
+use OCA\IntrusionDetection\Learning\LearningService;
 use OCP\AppFramework\Utility\ITimeFactory;
 use OCP\Migration\IOutput;
 use OCP\Migration\IRepairStep;
@@ -23,6 +24,7 @@ use OCP\Migration\IRepairStep;
 class StartLearningMode implements IRepairStep {
 	public function __construct(
 		private readonly Settings $settings,
+		private readonly LearningService $learning,
 		private readonly ITimeFactory $timeFactory,
 	) {
 	}
@@ -39,7 +41,6 @@ class StartLearningMode implements IRepairStep {
 		}
 		$now = $this->timeFactory->getTime();
 		$this->settings->setGlobal(GlobalSettings::INSTALLED_AT, $now);
-		$this->settings->setGlobal(GlobalSettings::LEARNING_UNTIL, $now + GlobalSettings::LEARNING_DEFAULT_PERIOD);
-		$this->settings->setGlobal(GlobalSettings::LEARNING_STARTED_AT, $now);
+		$this->learning->startAtInstall($now);
 	}
 }

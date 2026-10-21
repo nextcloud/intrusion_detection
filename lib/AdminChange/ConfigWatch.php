@@ -32,7 +32,8 @@ use OCP\AppFramework\Utility\ITimeFactory;
  *   changes in between happened.
  * - Changes of this app's settings made through the app (admin page, occ
  *   intrusion:*) are reported at once with the actor, and the snapshot is
- *   updated then; the watch only finds those made around the app.
+ *   updated then; the watch only finds those made around the app. Changes
+ *   the app makes on its own (the learning period) only update the snapshot.
  * - This app's settings are compared by their stored values. Settings an
  *   update removed are dropped from the snapshot silently, and after an
  *   update of this app its settings are recorded again silently (an update
@@ -148,11 +149,23 @@ class ConfigWatch {
 	 * @param int|float|bool|string|list<string> $new
 	 */
 	public function ownSettingChanged(string $name, int|float|bool|string|array $old, int|float|bool|string|array $new, string $actor, ModeState $mode): void {
-		if ($this->settings->getInt(GlobalSettings::CONFIG_WATCH_BASELINE) !== 0) {
-			$value = $this->watched->ownCurrent($name, $new);
-			$this->snapshots->store($value->key, $this->fingerprinter->setting($value->canonical()), $value->display(), $this->timeFactory->getTime());
-		}
+		$this->ownSettingRecorded($name, $new);
 		$this->detector->settingChanged(WatchedSettings::ownKey($name), $old, $new, false, $actor, false, $mode);
+	}
+
+	/**
+	 * One of this app's settings was changed by the app itself, which is no
+	 * administration change: only keep the snapshot current, so the watch
+	 * does not report it either.
+	 *
+	 * @param int|float|bool|string|list<string> $new
+	 */
+	public function ownSettingRecorded(string $name, int|float|bool|string|array $new): void {
+		if ($this->settings->getInt(GlobalSettings::CONFIG_WATCH_BASELINE) === 0) {
+			return;
+		}
+		$value = $this->watched->ownCurrent($name, $new);
+		$this->snapshots->store($value->key, $this->fingerprinter->setting($value->canonical()), $value->display(), $this->timeFactory->getTime());
 	}
 
 	/**

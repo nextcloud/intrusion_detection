@@ -362,16 +362,18 @@ class Settings {
 	}
 
 	/**
+	 * @param bool $reported false for a change the app makes on its own or
+	 *                       writes to the audit log itself: it is no administration change
 	 * @return bool whether the value changed (always false for internal state)
 	 * @throws InvalidParamException
 	 */
-	public function setGlobal(string $name, mixed $value): bool {
+	public function setGlobal(string $name, mixed $value, bool $reported = true): bool {
 		$value = $this->validatedGlobal($name, $value);
 		if (GlobalSettings::isInternal($name)) {
 			$this->write($name, $this->globalDefinition($name), $value);
 			return false;
 		}
-		return $this->writeGlobal($name, $value);
+		return $this->writeGlobal($name, $value, $reported);
 	}
 
 	/**
@@ -437,11 +439,11 @@ class Settings {
 	/**
 	 * @param int|float|bool|string|list<string> $value validated
 	 */
-	private function writeGlobal(string $name, int|float|bool|string|array $value): bool {
+	private function writeGlobal(string $name, int|float|bool|string|array $value, bool $reported = true): bool {
 		$definition = $this->globalDefinition($name);
 		$old = $this->global($name);
 		$this->write($name, $definition, $value);
-		return $this->presetChanged($definition, $this->changed($name, $old, $this->global($name)));
+		return $this->presetChanged($definition, $this->changed($name, $old, $this->global($name), $reported));
 	}
 
 	/**
@@ -539,11 +541,11 @@ class Settings {
 	 * @param int|float|bool|string|list<string> $old
 	 * @param int|float|bool|string|list<string> $new
 	 */
-	private function changed(string $key, int|float|bool|string|array $old, int|float|bool|string|array $new): bool {
+	private function changed(string $key, int|float|bool|string|array $old, int|float|bool|string|array $new, bool $reported = true): bool {
 		if ($old === $new) {
 			return false;
 		}
-		$this->dispatcher->dispatchTyped(new SettingChangedEvent($key, $old, $new));
+		$this->dispatcher->dispatchTyped(new SettingChangedEvent($key, $old, $new, $reported));
 		return true;
 	}
 

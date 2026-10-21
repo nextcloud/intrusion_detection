@@ -44,7 +44,8 @@ use Psr\Log\LoggerInterface;
  * - group administrators appointed;
  * - accounts created by an administrator or occ;
  * - apps switched on or off;
- * - this app's own settings changed through the app.
+ * - this app's own settings changed through the app, except those the app
+ *   changes on its own (learning mode, see {@see \OCA\IntrusionDetection\Learning\LearningService}).
  *
  * With four-eyes approval on, an account added to the admin group from the
  * web interface or the provisioning API is taken out again at once and a
@@ -229,9 +230,14 @@ class AdminChangeListener implements IEventListener {
 
 	/**
 	 * Judged by the check's mode before the change, so that switching the app
-	 * or this check off is still reported.
+	 * or this check off is still reported. A change the app made on its own
+	 * is no administration change.
 	 */
 	private function settingChanged(SettingChangedEvent $event): void {
+		if (!$event->isReported()) {
+			$this->watch->ownSettingRecorded($event->getKey(), $event->getNewValue());
+			return;
+		}
 		$mode = $this->detector->modeBefore($event->getKey(), $event->getOldValue());
 		$this->watch->ownSettingChanged($event->getKey(), $event->getOldValue(), $event->getNewValue(), $this->actors->actor(), $mode);
 	}
