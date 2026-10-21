@@ -17,6 +17,7 @@ use OCA\IntrusionDetection\Check\CheckRegistry;
 use OCA\IntrusionDetection\Check\DataKind;
 use OCA\IntrusionDetection\Config\GlobalSettings;
 use OCA\IntrusionDetection\Config\Settings;
+use OCA\IntrusionDetection\Confirm\UntrustedSecondFactors;
 use OCA\IntrusionDetection\Db\BlocklistStatMapper;
 use OCA\IntrusionDetection\Detection\AttemptRecorder;
 use OCA\IntrusionDetection\Detection\DetectionTotals;
@@ -210,9 +211,13 @@ class PrivacyOverview {
 			],
 			DataKind::AccountState => [
 				'name' => $l->t('Account state'),
-				'what' => $l->t('Per account: when the password was last checked against the breach list, whether it was found there, whether a new password is required, when the first security event happened that the user could only be told about inside Nextcloud, and which second factors were set up from a login that was not confirmed, and when.'),
-				'why' => $l->t('To check each password only as often as needed, to ask for a new one at the next login, to show users without a working email address their security events once at their next login, and so that a second factor whoever had only the password could have set up never confirms a login.'),
-				'retention' => $l->t('Until the account is deleted; the time of the first unseen event until the user saw it; a second factor\'s mark until it is removed or set up again from a confirmed login'),
+				'what' => $l->t('Per account: when the password was last checked against the breach list, whether it was found there, whether a new password is required, when the first security event happened that the user could only be told about inside Nextcloud, and which second factors were set up from a login that proved only the password, and when.'),
+				'why' => $l->t('To check each password only as often as needed, to ask for a new one at the next login, to show users without a working email address their security events once at their next login, and so that a second factor that someone with only the password could have set up does not confirm logins for a while.'),
+				'retention' => $l->n(
+					'Until the account is deleted; the time of the first unseen event until the user saw it; a second factor\'s mark until it is removed or set up again from a confirmed login, or for %n day when its login needed no confirmation',
+					'Until the account is deleted; the time of the first unseen event until the user saw it; a second factor\'s mark until it is removed or set up again from a confirmed login, or for %n days when its login needed no confirmation',
+					intdiv(UntrustedSecondFactors::PASSWORD_DELAY, 86400),
+				),
 				'where' => $l->t('user preferences'),
 			],
 			DataKind::ConfigSnapshot => [
