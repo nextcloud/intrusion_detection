@@ -47,6 +47,7 @@ use OCA\IntrusionDetection\LoginHistory\LoginHistory;
 use OCA\IntrusionDetection\Net\RemoteAddressResolver;
 use OCA\IntrusionDetection\Notification\UserMessages;
 use OCA\IntrusionDetection\Response\FlaggedSources;
+use OCA\IntrusionDetection\Risk\RiskScorer;
 use OCA\IntrusionDetection\SessionState\Rules\StepUpRule;
 use OCA\IntrusionDetection\SessionState\SessionState;
 use OCP\AppFramework\Utility\ITimeFactory;
@@ -150,11 +151,11 @@ abstract class StepUpTestCase extends AccountTestCase {
 			$this->addresses(),
 			Server::get(Fingerprinter::class),
 			Server::get(FlaggedSources::class),
-			Server::get(StepUpReasons::class),
+			$this->stepUpReasons(),
 			Server::get(UnconfirmedSessions::class),
 			$this->request,
 			$this->session,
-			new OverridingContainer([
+			new OverridingContainer($this->listenerServices() + [
 				StepUpService::class => $this->service(),
 				LoginDetections::class => $this->linker(),
 				PasswordSprayingDetector::class => new PasswordSprayingDetector(
@@ -165,10 +166,27 @@ abstract class StepUpTestCase extends AccountTestCase {
 					Server::get(Fingerprinter::class),
 					Server::get(ICacheFactory::class),
 					Server::get(PasswordSpraying::class),
+					Server::get(RiskScorer::class),
 				),
 			]),
 			Server::get(LoggerInterface::class),
 		);
+	}
+
+	/**
+	 * The reasons the login listener collects.
+	 */
+	protected function stepUpReasons(): StepUpReasons {
+		return Server::get(StepUpReasons::class);
+	}
+
+	/**
+	 * Further services of the login listener a test replaces.
+	 *
+	 * @return array<string, object>
+	 */
+	protected function listenerServices(): array {
+		return [];
 	}
 
 	protected function service(): StepUpService {

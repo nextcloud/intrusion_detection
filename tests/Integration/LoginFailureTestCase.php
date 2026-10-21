@@ -29,6 +29,7 @@ use OCA\IntrusionDetection\Net\SourceKey;
 use OCA\IntrusionDetection\Response\BanService;
 use OCA\IntrusionDetection\Response\FlaggedSources;
 use OCA\IntrusionDetection\Response\ResponseEngine;
+use OCA\IntrusionDetection\Risk\RiskScorer;
 use OCP\Authentication\Events\AnyLoginFailedEvent;
 use OCP\ICacheFactory;
 use OCP\IRequest;
@@ -51,6 +52,7 @@ abstract class LoginFailureTestCase extends IntegrationTestCase {
 	/** @var IRequest&MockObject */
 	protected IRequest $request;
 	protected string $remoteAddress = '198.51.100.7';
+	protected string $userAgent = 'curl/8.0';
 	/** @var list<string> */
 	private array $createdUsers = [];
 
@@ -61,7 +63,7 @@ abstract class LoginFailureTestCase extends IntegrationTestCase {
 		$this->attempts = Server::get(AttemptMapper::class);
 		$this->request = $this->createMock(IRequest::class);
 		$this->request->method('getRemoteAddress')->willReturnCallback(fn (): string => $this->remoteAddress);
-		$this->request->method('getHeader')->willReturnCallback(static fn (string $name): string => $name === 'User-Agent' ? 'curl/8.0' : '');
+		$this->request->method('getHeader')->willReturnCallback(fn (string $name): string => $name === 'User-Agent' ? $this->userAgent : '');
 		$addresses = new RemoteAddressResolver($this->request, Server::get(IThrottler::class));
 		$this->listener = new FailedLoginListener(
 			$this->settings,
@@ -78,6 +80,7 @@ abstract class LoginFailureTestCase extends IntegrationTestCase {
 				Server::get(BanService::class),
 				$addresses,
 				Server::get(ICacheFactory::class),
+				Server::get(RiskScorer::class),
 			),
 			new PasswordSprayingDetector(
 				$this->settings,
@@ -87,8 +90,10 @@ abstract class LoginFailureTestCase extends IntegrationTestCase {
 				Server::get(Fingerprinter::class),
 				Server::get(ICacheFactory::class),
 				Server::get(PasswordSpraying::class),
+				Server::get(RiskScorer::class),
 			),
 			Server::get(AccountUnderAttackDetector::class),
+			Server::get(RiskScorer::class),
 			Server::get(IUserManager::class),
 			$this->request,
 			$this->listenerLogger(),

@@ -193,6 +193,30 @@ export interface BanList {
 	activeCount: number
 }
 
+export interface RiskPart {
+	fact: string
+	label: string
+	points: number
+}
+
+export interface RiskLimit {
+	param: string
+	label: string
+	plain: number
+	effective: number
+}
+
+/** The address risk score a detection stored, with its parts */
+export interface Risk {
+	score: number
+	tier: 'normal' | 'elevated' | 'high'
+	tierLabel: string
+	tierElevated: number
+	tierHigh: number
+	parts: RiskPart[]
+	lowered: RiskLimit[]
+}
+
 export interface DetectionDetail {
 	detection: Detection
 	explanation: Record<string, unknown>
@@ -202,6 +226,7 @@ export interface DetectionDetail {
 	attemptsAvailable: boolean
 	attempts: Attempt[]
 	bans: Ban[]
+	risk: Risk | null
 }
 
 export interface LookupResult {
@@ -364,6 +389,8 @@ export interface Blocklists {
 	countsMatches: boolean
 	matchDays: number
 	check: CheckRef
+	/** The check that uses the network lists */
+	networkCheck: CheckRef
 	maxLists: number
 	minInterval: number
 	maxInterval: number

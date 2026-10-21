@@ -9,6 +9,7 @@ declare(strict_types=1);
 
 namespace OCA\IntrusionDetection\Db;
 
+use OCA\IntrusionDetection\Net\SourceKey;
 use OCP\AppFramework\Db\DoesNotExistException;
 use OCP\AppFramework\Db\QBMapper;
 use OCP\DB\QueryBuilder\IQueryBuilder;
@@ -37,6 +38,35 @@ class DetectionMapper extends QBMapper {
 			->setMaxResults(1);
 		$entities = $this->findEntities($qb);
 		return $entities[0] ?? null;
+	}
+
+	/**
+	 * Which of the given checks had a detection for the address that was
+	 * seen since a time: the address itself for IPv4, its /64 for IPv6.
+	 *
+	 * @param list<string> $checkIds
+	 * @return list<string> check ids
+	 */
+	public function checksSeenFrom(SourceKey $source, array $checkIds, int $since): array {
+		if ($checkIds === []) {
+			return [];
+		}
+		$qb = $this->db->getQueryBuilder();
+		$qb->selectDistinct('check_id')
+			->from(self::TABLE)
+			->where($source->family === 4
+				? $qb->expr()->eq('ip', $qb->createNamedParameter($source->ip))
+				: $qb->expr()->eq('net_key', $qb->createNamedParameter($source->netKey)))
+			->andWhere($qb->expr()->in('check_id', $qb->createNamedParameter($checkIds, IQueryBuilder::PARAM_STR_ARRAY)))
+			->andWhere($qb->expr()->gte('last_seen_at', $qb->createNamedParameter($since, IQueryBuilder::PARAM_INT)));
+		$result = $qb->executeQuery();
+		$ids = [];
+		while (($id = $result->fetchOne()) !== false) {
+			$ids[] = (string)$id;
+		}
+		$result->closeCursor();
+		sort($ids);
+		return $ids;
 	}
 
 	/**

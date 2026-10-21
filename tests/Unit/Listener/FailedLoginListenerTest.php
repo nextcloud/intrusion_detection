@@ -23,6 +23,7 @@ use OCA\IntrusionDetection\Detection\AttemptRecorder;
 use OCA\IntrusionDetection\Listener\FailedLoginListener;
 use OCA\IntrusionDetection\Net\RemoteAddressResolver;
 use OCA\IntrusionDetection\Net\SourceKey;
+use OCA\IntrusionDetection\Risk\RiskScorer;
 use OCP\Authentication\Events\AnyLoginFailedEvent;
 use OCP\IRequest;
 use OCP\IUserManager;
@@ -72,7 +73,7 @@ class FailedLoginListenerTest extends TestCase {
 
 		$listener = new FailedLoginListener(
 			$settings, $addresses, $recorder, $this->createMock(DecoyCredentialDetector::class), $this->createMock(ReservedNameDetector::class),
-			$stuffing, $spraying, $accountUnderAttack,
+			$stuffing, $spraying, $accountUnderAttack, $this->createMock(RiskScorer::class),
 			$this->createMock(IUserManager::class), $this->createMock(IRequest::class), $logger,
 		);
 		$listener->handle(new AnyLoginFailedEvent('alice', 'secret'));
@@ -94,6 +95,7 @@ class FailedLoginListenerTest extends TestCase {
 		$listener = new FailedLoginListener(
 			$settings, $addresses, $recorder, $decoys, $reserved,
 			$this->createMock(CredentialStuffingDetector::class), $this->createMock(PasswordSprayingDetector::class), $this->createMock(AccountUnderAttackDetector::class),
+			$this->createMock(RiskScorer::class),
 			$this->createMock(IUserManager::class), $this->createMock(IRequest::class), $this->createMock(LoggerInterface::class),
 		);
 		$listener->handle(new AnyLoginFailedEvent('admin', 'secret'));

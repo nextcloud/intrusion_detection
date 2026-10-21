@@ -31,6 +31,9 @@ const denyLists = computed(() => data.value?.lists.filter((l) => l.purpose === '
 const attributeLists = computed(() => data.value?.lists.filter((l) => l.purpose !== 'deny') ?? [])
 const checkRuns = computed(() => data.value?.check.mode.effective !== 'off')
 const enabledDeny = computed(() => denyLists.value.some((l) => l.enabled))
+const enabledAttribute = computed(() => attributeLists.value.some((l) => l.enabled))
+const networkCheckRuns = computed(() => data.value?.networkCheck.mode.effective !== 'off')
+const riskEnabled = computed(() => state.settings.find((s) => s.name === 'risk_enabled')?.value !== false)
 const downloadSettings = computed(() => state.settings.filter((s) => s.group === 'blocklists'))
 
 /**
@@ -128,15 +131,21 @@ function removed(id: string) {
 			</section>
 
 			<section :class="$style.group" aria-labelledby="ids-attribute-lists">
-				<div>
-					<h4 id="ids-attribute-lists" :class="$style.group__heading">
-						<NcIconSvgWrapper inline :path="mdiCloudOutline" :size="20" />
-						{{ t(APP_ID, 'Network lists') }}
-					</h4>
-					<p :class="$style.group__text">
-						{{ t(APP_ID, 'These lists never block anyone. They mark addresses that belong to a cloud or hosting provider or to the Tor network. A check that asks for extra confirmation when someone logs in from such a network will use them; it is not installed yet, so switching a list on now only prepares it.') }}
-					</p>
+				<div :class="$style.group__head">
+					<div>
+						<h4 id="ids-attribute-lists" :class="$style.group__heading">
+							<NcIconSvgWrapper inline :path="mdiCloudOutline" :size="20" />
+							{{ t(APP_ID, 'Network lists') }}
+						</h4>
+						<p :class="$style.group__text">
+							{{ t(APP_ID, 'These lists never block anyone. They mark addresses that belong to a cloud or hosting provider or to the Tor network: a password login from there needs extra confirmation, and such addresses get points in the risk score. The counts show how often an address on a list was seen.') }}
+						</p>
+					</div>
+					<CheckStateNote :check="data.networkCheck" />
 				</div>
+				<NcNoteCard v-if="enabledAttribute && !networkCheckRuns && !riskEnabled" type="warning">
+					{{ t(APP_ID, 'The check "{check}" is off and the risk score is off, so the network lists you switched on are not used. Open the check and set it to Observe or Protect.', { check: data.networkCheck.name }) }}
+				</NcNoteCard>
 				<ul :class="$style.group__list">
 					<BlocklistRow
 						v-for="list in attributeLists"

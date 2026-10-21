@@ -14,6 +14,7 @@ import NcDateTime from '@nextcloud/vue/components/NcDateTime'
 import NcIconSvgWrapper from '@nextcloud/vue/components/NcIconSvgWrapper'
 import NcNoteCard from '@nextcloud/vue/components/NcNoteCard'
 import ReferencePill from '../common/ReferencePill.vue'
+import RiskBreakdown from './RiskBreakdown.vue'
 import { useAnnouncer } from '../../composables/useAnnouncer.ts'
 import { incidentRequest } from '../../store.ts'
 import { APP_ID } from '../../utils/format.ts'
@@ -70,6 +71,8 @@ async function copyText() {
 				{{ sentence }}
 			</p>
 		</section>
+
+		<RiskBreakdown v-if="detail.risk" :risk="detail.risk" />
 
 		<section :class="$style.narrative__section">
 			<h5 :class="$style.narrative__heading">

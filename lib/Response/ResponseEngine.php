@@ -49,6 +49,7 @@ class ResponseEngine {
 		Handlers\ForcePasswordChangeHandler::class,
 		Handlers\NotifyUserHandler::class,
 		Handlers\StepUpHandler::class,
+		Handlers\RateLimitHandler::class,
 	];
 
 	/** @var array<string, IResponseHandler>|null */

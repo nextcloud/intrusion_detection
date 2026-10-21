@@ -40,6 +40,8 @@ abstract class IntegrationTestCase extends TestCase {
 		$this->reset();
 		$this->appConfig->setValueInt(Application::APP_ID, GlobalSettings::LEARNING_UNTIL, 0);
 		$this->appConfig->setValueString(Application::APP_ID, Keys::mode(AdminChange::ID), Mode::Off->value);
+		// Checks are tested with their plain limits; the risk score has its own tests.
+		$this->appConfig->setValueBool(Application::APP_ID, GlobalSettings::RISK_ENABLED, false);
 	}
 
 	protected function tearDown(): void {

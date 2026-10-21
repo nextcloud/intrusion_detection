@@ -217,6 +217,29 @@ namespace OCA\IntrusionDetection;
  *     note: ?string,
  * }
  *
+ * @psalm-type IntrusionDetectionRiskPart = array{
+ *     fact: string,
+ *     label: string,
+ *     points: int,
+ * }
+ *
+ * @psalm-type IntrusionDetectionRiskLimit = array{
+ *     param: string,
+ *     label: string,
+ *     plain: int,
+ *     effective: int,
+ * }
+ *
+ * @psalm-type IntrusionDetectionRisk = array{
+ *     score: int,
+ *     tier: string,
+ *     tierLabel: string,
+ *     tierElevated: int,
+ *     tierHigh: int,
+ *     parts: list<IntrusionDetectionRiskPart>,
+ *     lowered: list<IntrusionDetectionRiskLimit>,
+ * }
+ *
  * @psalm-type IntrusionDetectionDetectionDetail = array{
  *     detection: IntrusionDetectionDetection,
  *     explanation: array<string, mixed>,
@@ -226,6 +249,7 @@ namespace OCA\IntrusionDetection;
  *     attemptsAvailable: bool,
  *     attempts: list<IntrusionDetectionAttempt>,
  *     bans: list<IntrusionDetectionBan>,
+ *     risk: ?IntrusionDetectionRisk,
  * }
  *
  * @psalm-type IntrusionDetectionLookup = array{
@@ -396,6 +420,7 @@ namespace OCA\IntrusionDetection;
  *     countsMatches: bool,
  *     matchDays: int,
  *     check: array{id: string, name: string, mode: IntrusionDetectionModeState},
+ *     networkCheck: array{id: string, name: string, mode: IntrusionDetectionModeState},
  *     maxLists: int,
  *     minInterval: int,
  *     maxInterval: int,

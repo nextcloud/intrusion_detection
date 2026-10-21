@@ -26,6 +26,8 @@ use OCA\IntrusionDetection\Detection\DetectionDraft;
 use OCA\IntrusionDetection\Explain\DateFormatter;
 use OCA\IntrusionDetection\Net\SourceKey;
 use OCA\IntrusionDetection\Response\ResponseEngine;
+use OCA\IntrusionDetection\Risk\RiskLimits;
+use OCA\IntrusionDetection\Risk\RiskScorer;
 use OCP\IDateTimeFormatter;
 use Test\TestCase;
 
@@ -89,7 +91,12 @@ class ResetProbingDetectorTest extends TestCase {
 		});
 		$detections = $this->createMock(DetectionMapper::class);
 		$detections->method('findMergeable')->willReturnCallback(fn (): ?Detection => $this->running);
-		return new ResetProbingDetector($settings, $attempts, $recorder, $engine, $detections, new ResetProbing(new DateFormatter($this->createMock(IDateTimeFormatter::class))));
+		$risk = $this->createMock(RiskScorer::class);
+		$risk->method('limits')->willReturnCallback(static function (?SourceKey $source, array $limits): RiskLimits {
+			$plain = array_map(static fn (array $l): int => $l[0], $limits);
+			return new RiskLimits($plain, $plain, array_map(static fn (array $l): int => $l[1], $limits), null);
+		});
+		return new ResetProbingDetector($settings, $attempts, $recorder, $engine, $detections, new ResetProbing(new DateFormatter($this->createMock(IDateTimeFormatter::class))), $risk);
 	}
 
 	private function attempt(): AttemptRecord {

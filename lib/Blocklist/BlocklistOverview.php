@@ -111,12 +111,12 @@ class BlocklistOverview {
 	}
 
 	/**
-	 * Matches per day of the blocklists, newest day first.
+	 * Matches per day of every list, blocklists and network lists, newest day first.
 	 *
 	 * @return array<string, list<DayStats>> keyed by list id
 	 */
 	public function matches(int $days = 14): array {
-		$ids = array_keys(array_filter($this->sources->all(), static fn (BlocklistSource $s): bool => $s->isDeny()));
+		$ids = array_keys($this->sources->all());
 		$since = gmdate('Y-m-d', $this->timeFactory->getTime() - max(0, $days - 1) * 86400);
 		$byList = array_fill_keys($ids, []);
 		foreach ($this->stats->findSince($ids, $since) as $row) {

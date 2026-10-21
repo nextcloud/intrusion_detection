@@ -12,6 +12,7 @@ namespace OCA\IntrusionDetection\Listener;
 use OCA\IntrusionDetection\Check\Checks\BreachedPassword;
 use OCA\IntrusionDetection\Check\Checks\BreachedPasswordDetector;
 use OCA\IntrusionDetection\Check\Checks\PasswordSprayingDetector;
+use OCA\IntrusionDetection\Check\Checks\RiskyNetworkDetector;
 use OCA\IntrusionDetection\Config\Settings;
 use OCA\IntrusionDetection\Confirm\LoginContext;
 use OCA\IntrusionDetection\Confirm\LoginDetections;
@@ -37,6 +38,8 @@ use Psr\Log\LoggerInterface;
  *
  * - a successful login with a sprayed password is reported
  *   ({@see PasswordSprayingDetector::detectSuccess()});
+ * - a login from a hosting or Tor network is reported
+ *   ({@see RiskyNetworkDetector::detectLogin()});
  * - the breach check runs, when it is on and due;
  * - the step-up reasons are collected and {@see StepUpService} decides.
  *
@@ -122,6 +125,10 @@ class StepUpLoginListener implements IEventListener {
 			$sprayed = $this->container->get(PasswordSprayingDetector::class)->detectSuccess($login);
 			if ($sprayed !== null) {
 				$detections[] = $sprayed->getId();
+			}
+			$risky = $this->container->get(RiskyNetworkDetector::class)->detectLogin($login);
+			if ($risky !== null) {
+				$detections[] = $risky->getId();
 			}
 			if ($interactive && $this->settings->modeState(BreachedPassword::ID)->runs()) {
 				// The check keeps its result for this request, so its own listener does not ask again.

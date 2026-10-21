@@ -23,6 +23,8 @@ final class BlocklistSource {
 	public const PURPOSE_TOR = 'tor';
 	public const PURPOSES = [self::PURPOSE_DENY, self::PURPOSE_HOSTING, self::PURPOSE_TOR];
 
+	public const NETWORK_ATTRIBUTE_PREFIX = 'net:';
+
 	public const MODE_OBSERVE = 'observe';
 	public const MODE_PROTECT = 'protect';
 	public const MODES = [self::MODE_OBSERVE, self::MODE_PROTECT];
@@ -67,6 +69,14 @@ final class BlocklistSource {
 	 */
 	public function attribute(): string {
 		return $this->isDeny() ? 'list:' . $this->id : $this->purpose;
+	}
+
+	/**
+	 * The attribute that names a network attribute list in the verdict of
+	 * an address on it, next to `hosting` or `tor`: `net:<id>`.
+	 */
+	public function networkAttribute(): string {
+		return self::NETWORK_ATTRIBUTE_PREFIX . $this->id;
 	}
 
 	/**

@@ -13,6 +13,8 @@ use OCA\IntrusionDetection\Address\AddressCache;
 use OCA\IntrusionDetection\Address\AddressFacts;
 use OCA\IntrusionDetection\Address\IAddressFactsProvider;
 use OCA\IntrusionDetection\Check\Checks\BlocklistMatch;
+use OCA\IntrusionDetection\Check\Checks\RiskyNetwork;
+use OCA\IntrusionDetection\Config\GlobalSettings;
 use OCA\IntrusionDetection\Config\Settings;
 use OCA\IntrusionDetection\Db\BlocklistRangeMapper;
 use OCA\IntrusionDetection\Db\BlocklistStatMapper;
@@ -30,11 +32,13 @@ use Psr\Log\LoggerInterface;
  *   with the list's reference;
  * - a blocklist in Observe, or any blocklist while the check only observes,
  *   adds the attribute `list:<id>`;
- * - a network attribute list adds `hosting` or `tor`.
+ * - a network attribute list adds `hosting` or `tor`, and `net:<id>`.
  *
- * Blocklists are skipped entirely while the blocklist check is off.
+ * Blocklists are skipped entirely while the blocklist check is off, network
+ * attribute lists while neither the hosting and Tor check runs nor the
+ * address risk score is on: then nothing reads their attributes.
  *
- * Matches of blocklists are counted per list and day ({@see BlocklistStatMapper}).
+ * Matches of all lists are counted per list and day ({@see BlocklistStatMapper}).
  * Counting happens here, on resolve, so it costs nothing on requests with a
  * cached verdict: an address is counted about once per verdict lifetime
  * ({@see AddressCache::OK_TTL}, and again after every block or list change),
@@ -72,12 +76,13 @@ class BlocklistFactsProvider implements IAddressFactsProvider {
 		}
 		$states = $this->states->all();
 		$mode = null;
+		$attributesUsed = null;
 		$hex = RangeCodec::addressHex($source);
 		$now = $this->timeFactory->getTime();
 		$denyUntil = 0;
 		$reference = '';
 		$attributes = [];
-		$matchedDeny = [];
+		$matched = [];
 		foreach ($enabled as $list) {
 			$version = ($states[$list->id] ?? null)?->version;
 			if ($version === null) {
@@ -88,15 +93,21 @@ class BlocklistFactsProvider implements IAddressFactsProvider {
 				if (!$mode->runs()) {
 					continue;
 				}
+			} else {
+				$attributesUsed ??= $this->settings->modeState(RiskyNetwork::ID)->runs() || $this->settings->getBool(GlobalSettings::RISK_ENABLED);
+				if (!$attributesUsed) {
+					continue;
+				}
 			}
 			if ($this->ranges->findContaining($list->id, $version, $source->family, $hex) === null) {
 				continue;
 			}
+			$matched[] = $list->id;
 			if (!$list->isDeny()) {
 				$attributes[] = $list->attribute();
+				$attributes[] = $list->networkAttribute();
 				continue;
 			}
-			$matchedDeny[] = $list->id;
 			if ($list->isProtect() && $mode !== null && $mode->acts()) {
 				if ($denyUntil === 0) {
 					$denyUntil = $now + AddressCache::OK_TTL;
@@ -106,8 +117,8 @@ class BlocklistFactsProvider implements IAddressFactsProvider {
 				$attributes[] = $list->attribute();
 			}
 		}
-		if ($matchedDeny !== []) {
-			$this->count($matchedDeny, $source, $now);
+		if ($matched !== []) {
+			$this->count($matched, $source, $now);
 		}
 		return new AddressFacts($denyUntil, $reference, array_values(array_unique($attributes)));
 	}

@@ -39,6 +39,8 @@ class CheckRegistry {
 		Checks\StepUpRefusedClient::class,
 		Checks\StepUpUnconfirmed::class,
 		Checks\UserDenied::class,
+		Checks\RiskyNetwork::class,
+		Checks\DirectoryScraping::class,
 	];
 
 	/** @var array<string, CheckDefinition>|null */

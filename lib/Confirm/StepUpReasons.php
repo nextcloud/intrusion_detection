@@ -27,6 +27,8 @@ class StepUpReasons {
 		Reasons\SprayedPasswordReason::class,
 		Reasons\ProtectedAccountReason::class,
 		Reasons\BreachedPasswordReason::class,
+		Reasons\RiskyNetworkReason::class,
+		Reasons\RiskHighReason::class,
 	];
 
 	public function __construct(

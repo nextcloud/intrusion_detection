@@ -109,6 +109,7 @@ class DetectionPresenter {
 			'attemptsAvailable' => $attemptsAvailable,
 			'attempts' => $attemptsAvailable ? $this->attempts($source, $keptSince, $l) : [],
 			'bans' => $source === null ? [] : $this->bans->presentAll($this->addresses->activeBans($source), $l),
+			'risk' => $this->narratives->risk($detection, $l),
 		];
 	}
 

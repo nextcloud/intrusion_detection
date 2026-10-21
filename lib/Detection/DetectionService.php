@@ -15,12 +15,18 @@ use OCA\IntrusionDetection\Config\ModeState;
 use OCA\IntrusionDetection\Config\Settings;
 use OCA\IntrusionDetection\Db\Detection;
 use OCA\IntrusionDetection\Db\DetectionMapper;
+use OCA\IntrusionDetection\Risk\RiskAssessment;
+use OCA\IntrusionDetection\Risk\RiskScorer;
 use OCP\AppFramework\Utility\ITimeFactory;
 
 /**
  * Stores detections. Repeated hits of the same check from the same source
  * (or for the same user) within the merge window update one row, which keeps
  * the noise of traps and scanners small.
+ *
+ * A new detection with an address keeps the address risk score at that
+ * moment (fact `risk`), unless its check already stored the score it
+ * lowered a limit with. Merged hits do not compute it again.
  */
 class DetectionService {
 	public function __construct(
@@ -28,6 +34,7 @@ class DetectionService {
 		private readonly CheckRegistry $registry,
 		private readonly Settings $settings,
 		private readonly ITimeFactory $timeFactory,
+		private readonly RiskScorer $risk,
 	) {
 	}
 
@@ -57,7 +64,7 @@ class DetectionService {
 			}
 		}
 
-		return [$this->mapper->insert($this->build($draft, $mode, $now)), true];
+		return [$this->mapper->insert($this->build($draft, $mode, $now, true)), true];
 	}
 
 	/**
@@ -67,7 +74,7 @@ class DetectionService {
 		return $this->build($draft, $mode, $this->timeFactory->getTime());
 	}
 
-	private function build(DetectionDraft $draft, ModeState $mode, int $now): Detection {
+	private function build(DetectionDraft $draft, ModeState $mode, int $now, bool $withRisk = false): Detection {
 		$definition = $this->registry->get($draft->checkId);
 		$detection = new Detection();
 		$detection->setCheckId($draft->checkId);
@@ -78,12 +85,18 @@ class DetectionService {
 		$detection->setUid($draft->uid);
 		$detection->setShareId($draft->shareId);
 		$detection->setMergeKey($draft->mergeKey());
-		$detection->setExplanationData(Explanation::build(
+		$explanation = Explanation::build(
 			$draft,
 			$mode,
 			$this->settings->params($draft->checkId),
 			$now,
-		));
+		);
+		if ($withRisk && $draft->source !== null && !isset($draft->facts[RiskAssessment::FACTS_KEY]) && $this->risk->isEnabled()) {
+			$facts = is_array($explanation['facts'] ?? null) ? $explanation['facts'] : [];
+			$facts[RiskAssessment::FACTS_KEY] = $this->risk->score($draft->source)->toArray();
+			$explanation['facts'] = $facts;
+		}
+		$detection->setExplanationData($explanation);
 		$detection->setActionList([]);
 		$detection->setCreatedAt($now);
 		$detection->setLastSeenAt($now);

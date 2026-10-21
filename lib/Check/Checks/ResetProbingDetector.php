@@ -18,6 +18,7 @@ use OCA\IntrusionDetection\Detection\AttemptRecord;
 use OCA\IntrusionDetection\Detection\AttemptRecorder;
 use OCA\IntrusionDetection\Detection\DetectionDraft;
 use OCA\IntrusionDetection\Response\ResponseEngine;
+use OCA\IntrusionDetection\Risk\RiskScorer;
 
 /**
  * Detects password reset abuse (concept section 10.10) after each reset request.
@@ -27,6 +28,9 @@ use OCA\IntrusionDetection\Response\ResponseEngine;
  * 2. Flooding: one account was asked for at least `flood_min_requests`
  *    reset emails within `flood_window`, from any addresses. A whole flood
  *    is one detection, and the person is told once.
+ *
+ * Both limits are lowered when the requesting address has an elevated or
+ * high risk score ({@see RiskScorer::limits()}).
  *
  * Under a flood of attempts the recorder keeps one reset request in
  * FLOOD_SAMPLE; only a kept one is evaluated, and the counts are scaled by
@@ -44,6 +48,7 @@ class ResetProbingDetector {
 		private readonly ResponseEngine $engine,
 		private readonly DetectionMapper $detections,
 		private readonly ResetProbing $check,
+		private readonly RiskScorer $risk,
 	) {
 	}
 
@@ -60,7 +65,8 @@ class ResetProbingDetector {
 
 		$since = $attempt->time - (int)$params['enum_window'];
 		$ip = $this->attempts->stats('ip_key', [$attempt->source->ipKey], $kinds, $since);
-		if (self::reaches($ip->distinctNames, $factor, (int)$params['enum_min_inputs'])) {
+		$enumLimits = $this->risk->limits($attempt->source, ['enum_min_inputs' => [(int)$params['enum_min_inputs'], $ip->distinctNames * $factor]]);
+		if (self::reaches($ip->distinctNames, $factor, $enumLimits->of('enum_min_inputs'))) {
 			$this->handle(new DetectionDraft(
 				checkId: ResetProbing::ID,
 				source: $attempt->source,
@@ -72,7 +78,7 @@ class ResetProbingDetector {
 					'targets' => $this->attempts->distinctUids('ip_key', [$attempt->source->ipKey], $kinds, $since, self::MAX_TARGETS),
 					'first' => $ip->first,
 					'last' => $ip->last,
-				],
+				] + $enumLimits->facts(),
 				merge: DetectionDraft::MERGE_SOURCE,
 				userAgent: $userAgent,
 			), $params, $attempt->time);
@@ -83,7 +89,8 @@ class ResetProbingDetector {
 			return;
 		}
 		$user = $this->attempts->stats('uid', [$uid], $kinds, $attempt->time - (int)$params['flood_window']);
-		if (self::reaches($user->failures, $factor, (int)$params['flood_min_requests'])) {
+		$floodLimits = $this->risk->limits($attempt->source, ['flood_min_requests' => [(int)$params['flood_min_requests'], $user->failures * $factor]]);
+		if (self::reaches($user->failures, $factor, $floodLimits->of('flood_min_requests'))) {
 			$this->handle(new DetectionDraft(
 				checkId: ResetProbing::ID,
 				uid: $uid,
@@ -95,7 +102,7 @@ class ResetProbingDetector {
 					'lastSource' => $attempt->source->ip,
 					'first' => $user->first,
 					'last' => $user->last,
-				],
+				] + $floodLimits->facts(),
 				merge: DetectionDraft::MERGE_USER,
 				mergeWindow: max((int)$params['flood_window'], (int)$params['suppress_duration']),
 				userAgent: $userAgent,

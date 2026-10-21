@@ -10,23 +10,31 @@ declare(strict_types=1);
 namespace OCA\IntrusionDetection\Explain;
 
 use OCA\IntrusionDetection\Check\CheckRegistry;
+use OCA\IntrusionDetection\Check\CheckTexts;
 use OCA\IntrusionDetection\Check\InvalidParamException;
 use OCA\IntrusionDetection\Check\ResponseType;
 use OCA\IntrusionDetection\Config\ModeState;
 use OCA\IntrusionDetection\Db\Detection;
 use OCA\IntrusionDetection\Response\ResponseEngine;
 use OCA\IntrusionDetection\Response\ResponseOutcome;
+use OCA\IntrusionDetection\ResponseDefinitions;
+use OCA\IntrusionDetection\Risk\RiskExplainer;
 use OCP\IL10N;
 use Psr\Container\ContainerInterface;
 
 /**
  * Renders a stored detection into "what happened, and what Nextcloud did".
+ * When the address risk score of the detection lowered a limit, or the
+ * score was not 0, the check's own sentences are followed by one about it.
+ *
+ * @psalm-import-type IntrusionDetectionRisk from ResponseDefinitions
  */
 class NarrativeBuilder {
 	public function __construct(
 		private readonly CheckRegistry $registry,
 		private readonly ContainerInterface $container,
 		private readonly DateFormatter $dates,
+		private readonly RiskExplainer $risk,
 	) {
 	}
 
@@ -34,19 +42,39 @@ class NarrativeBuilder {
 		$explanation = $detection->getExplanationData();
 		try {
 			$definition = $this->registry->get($detection->getCheckId());
-			$title = $definition->texts($l)->name;
+			$texts = $definition->texts($l);
+			$title = $texts->name;
 			$check = $this->container->get($this->registry->classOf($detection->getCheckId()));
 		} catch (InvalidParamException) {
 			// A detection of a check that no longer exists can still be shown.
 			$title = $detection->getCheckId();
+			$texts = null;
 			$check = null;
 		}
 
 		$happened = $check instanceof IExplainsDetection
 			? $check->narrative($detection, $l)
-			: $this->genericHappened($detection, $l, isset($definition) ? $definition->texts($l)->summary : '');
+			: $this->genericHappened($detection, $l, $texts?->summary ?? '');
+		array_push($happened, ...$this->risk->sentences($detection, $l, $texts));
 
 		return new Narrative($title, $happened, $this->done($detection, $l), $this->observedBecause($detection, $explanation, $l));
+	}
+
+	/**
+	 * The breakdown of the detection's risk score, for its detail.
+	 *
+	 * @return ?IntrusionDetectionRisk
+	 */
+	public function risk(Detection $detection, IL10N $l): ?array {
+		return $this->risk->present($detection, $l, $this->texts($detection, $l));
+	}
+
+	private function texts(Detection $detection, IL10N $l): ?CheckTexts {
+		try {
+			return $this->registry->get($detection->getCheckId())->texts($l);
+		} catch (InvalidParamException) {
+			return null;
+		}
 	}
 
 	/**

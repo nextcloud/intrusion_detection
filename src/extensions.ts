@@ -74,11 +74,13 @@ export const checkSections = shallowReactive<CheckSection[]>([
 	{ id: 'reserved-names', checks: ['reserved_name'], after: 'settings', component: defineAsyncComponent(() => import('./components/decoys/TrapsLinkSection.vue')), replacesParams: ['names'] },
 	{ id: 'trap-paths', checks: ['trap_url'], after: 'settings', component: defineAsyncComponent(() => import('./components/decoys/TrapsLinkSection.vue')), replacesParams: ['builtin_enabled', 'autodiscover', 'paths'] },
 	{ id: 'payload-signatures', checks: ['injection_probe'], after: 'data', component: defineAsyncComponent(() => import('./components/payload/SignaturesSection.vue')), replacesParams: ['disabled_signatures', 'custom_signatures'] },
+	{ id: 'risky-network', checks: ['risky_network'], after: 'settings', component: defineAsyncComponent(() => import('./components/checks/RiskyNetworkSection.vue')) },
 ])
 
 export const tabSections = shallowReactive<TabSection[]>([
 	{ id: 'digest', tab: 'notifications', order: 30, component: defineAsyncComponent(() => import('./components/notifications/DigestSection.vue')) },
 	{ id: 'webhook-events', tab: 'notifications', order: 40, component: defineAsyncComponent(() => import('./components/notifications/WebhookEventsSection.vue')) },
+	{ id: 'risk-score', tab: 'checks', order: 10, component: defineAsyncComponent(() => import('./components/checks/RiskScoreSection.vue')) },
 ])
 
 export const statusSections = shallowReactive<Component[]>([])

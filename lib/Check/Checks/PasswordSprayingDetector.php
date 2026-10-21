@@ -22,6 +22,7 @@ use OCA\IntrusionDetection\Detection\DetectionDraft;
 use OCA\IntrusionDetection\Net\SourceKey;
 use OCA\IntrusionDetection\Response\FlaggedSources;
 use OCA\IntrusionDetection\Response\ResponseEngine;
+use OCA\IntrusionDetection\Risk\RiskScorer;
 use OCP\ICache;
 use OCP\ICacheFactory;
 
@@ -33,6 +34,8 @@ use OCP\ICacheFactory;
  *   address at once.
  * - Otherwise: attempts with the same password fingerprint within `window`
  *   (at most one hour) for at least `min_names` different login names fire.
+ *   The limit is lowered when the failing address has an elevated or high
+ *   risk score ({@see RiskScorer::limits()}).
  *   Every address that tried it in the window is blocked (at most
  *   MAX_BAN_TARGETS), and the fingerprint is flagged for a day.
  *
@@ -56,6 +59,7 @@ class PasswordSprayingDetector {
 		private readonly Fingerprinter $fingerprinter,
 		private readonly ICacheFactory $cacheFactory,
 		private readonly PasswordSpraying $check,
+		private readonly RiskScorer $risk,
 	) {
 	}
 
@@ -98,7 +102,8 @@ class PasswordSprayingDetector {
 		$window = min(3600, $this->settings->paramInt(PasswordSpraying::ID, 'window'));
 		$since = $attempt->time - $window;
 		$stats = $this->attempts->stats('pw_fp', $attempt->passwordCandidates, self::KINDS, $since);
-		if ($stats->distinctNames < $this->settings->paramInt(PasswordSpraying::ID, 'min_names')) {
+		$limits = $this->risk->limits($attempt->source, ['min_names' => [$this->settings->paramInt(PasswordSpraying::ID, 'min_names'), $stats->distinctNames]]);
+		if (!$limits->reached()) {
 			return;
 		}
 		// Without a flag (Observe, or the response switched off) every further
@@ -127,7 +132,7 @@ class PasswordSprayingDetector {
 				'first' => $stats->first,
 				'last' => $stats->last,
 				'targets' => $this->attempts->distinctUids('pw_fp', $attempt->passwordCandidates, self::KINDS, $since, 20),
-			],
+			] + $limits->facts(),
 			merge: DetectionDraft::MERGE_SOURCE,
 			userAgent: $userAgent,
 		);

@@ -10,6 +10,7 @@ declare(strict_types=1);
 namespace OCA\IntrusionDetection\Middleware;
 
 use OCA\IntrusionDetection\SessionState\RequestTarget;
+use OCA\IntrusionDetection\SessionState\SessionBlock;
 use OCA\IntrusionDetection\SessionState\SessionState;
 use OCA\IntrusionDetection\SessionState\SessionStateRules;
 use OCP\AppFramework\Controller;
@@ -17,7 +18,9 @@ use OCP\AppFramework\Http;
 use OCP\AppFramework\Http\JSONResponse;
 use OCP\AppFramework\Http\RedirectResponse;
 use OCP\AppFramework\Http\Response;
+use OCP\AppFramework\Http\TooManyRequestsResponse;
 use OCP\AppFramework\Middleware;
+use OCP\AppFramework\OCS\OCSException;
 use OCP\AppFramework\OCSController;
 use OCP\IRequest;
 use OCP\IUserSession;
@@ -32,12 +35,17 @@ use Psr\Log\LoggerInterface;
  * factor is sent to the challenge first. A blocked browser navigation is
  * redirected where the rule says; other requests get 403 with
  * `{"error": "…"}`, OCS requests an OCS 403 with the error as its message.
+ * A rate limit answers 429 with `Retry-After` instead: core's "too many
+ * requests" page for a browser, an OCS 429 for OCS, and JSON otherwise.
  *
  * The middleware is built for every AppFramework request, so it only takes
  * light dependencies, and does nothing but one session read while no rule
  * applies. A failure lets the request pass.
  */
 class SessionStateMiddleware extends Middleware {
+	/** Seconds for the Retry-After header of a rate-limited OCS answer, which core's OCS middleware builds */
+	private ?int $retryAfter = null;
+
 	public function __construct(
 		private readonly SessionStateRules $rules,
 		private readonly SessionState $state,
@@ -70,6 +78,9 @@ class SessionStateMiddleware extends Middleware {
 			throw $exception;
 		}
 		$block = $exception->block;
+		if ($block->isRateLimit()) {
+			return $this->rateLimited($controller, $block);
+		}
 		if ($controller instanceof OCSController) {
 			// Core's OCS middleware turns this into an OCS 403 that carries the message.
 			return new JSONResponse(['message' => $block->error], Http::STATUS_FORBIDDEN);
@@ -78,6 +89,29 @@ class SessionStateMiddleware extends Middleware {
 			return new RedirectResponse($block->redirectUrl);
 		}
 		return new JSONResponse(['error' => $block->error], Http::STATUS_FORBIDDEN);
+	}
+
+	#[\Override]
+	public function afterController(Controller $controller, string $methodName, Response $response): Response {
+		if ($this->retryAfter !== null) {
+			$response->addHeader('Retry-After', (string)$this->retryAfter);
+		}
+		return $response;
+	}
+
+	/**
+	 * @throws OCSException for OCS controllers, which core's OCS middleware turns into an OCS 429
+	 */
+	private function rateLimited(Controller $controller, SessionBlock $block): Response {
+		$this->retryAfter = $block->retryAfter;
+		if ($controller instanceof OCSController) {
+			throw new OCSException($block->message, Http::STATUS_TOO_MANY_REQUESTS);
+		}
+		$response = $this->isPageNavigation()
+			? new TooManyRequestsResponse()
+			: new JSONResponse(['error' => $block->error], Http::STATUS_TOO_MANY_REQUESTS);
+		$response->addHeader('Retry-After', (string)$block->retryAfter);
+		return $response;
 	}
 
 	/**

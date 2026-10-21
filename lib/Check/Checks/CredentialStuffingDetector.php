@@ -24,6 +24,7 @@ use OCA\IntrusionDetection\Net\SourceKey;
 use OCA\IntrusionDetection\Response\BanService;
 use OCA\IntrusionDetection\Response\FlaggedSources;
 use OCA\IntrusionDetection\Response\ResponseEngine;
+use OCA\IntrusionDetection\Risk\RiskScorer;
 use OCP\ICacheFactory;
 use OCP\IMemcache;
 
@@ -32,7 +33,8 @@ use OCP\IMemcache;
  *
  * 1. Single source: the address has at least `min_failures` failures for at
  *    least `min_names` different login names within `window`. An IPv4 /24 is
- *    held to `net_factor` times these numbers.
+ *    held to `net_factor` times these numbers. Both are lowered for an
+ *    address with an elevated or high risk score ({@see RiskScorer::limits()}).
  * 2. Distributed: the whole server has at least the distributed numbers of
  *    failures, addresses and names within 10 minutes. That records one
  *    detection per 30 minutes while it lasts. During it, and for an hour
@@ -64,6 +66,7 @@ class CredentialStuffingDetector {
 		private readonly BanService $bans,
 		private readonly RemoteAddressResolver $addresses,
 		private readonly ICacheFactory $cacheFactory,
+		private readonly RiskScorer $risk,
 	) {
 	}
 
@@ -85,26 +88,28 @@ class CredentialStuffingDetector {
 		$since = $now - $window;
 
 		$ip = $this->attempts->stats('ip_key', [$source->ipKey], self::KINDS, $since);
-		if (self::reaches($ip, $minFailures, $minNames)) {
+		$limits = $this->risk->limits($source, self::limits($ip, $minFailures, $minNames));
+		if ($limits->reached()) {
 			$this->engine->handle(new DetectionDraft(
 				checkId: CredentialStuffing::ID,
 				source: $source,
 				facts: $this->facts(CredentialStuffing::RULE_SOURCE, $ip) + [
 					'targets' => $this->attempts->distinctUids('ip_key', [$source->ipKey], self::KINDS, $since, 20),
-				],
+				] + $limits->facts(),
 				merge: DetectionDraft::MERGE_SOURCE,
 				userAgent: $userAgent,
 			));
 		} elseif ($source->family === 4 && $factor > 0) {
 			$net = $this->attempts->stats('net_key', [$source->netKey], self::KINDS, $since);
-			if ($net->distinctSources > 1 && self::reaches($net, $minFailures * $factor, $minNames * $factor)) {
+			$netLimits = $net->distinctSources > 1 ? $this->risk->limits($source, self::limits($net, $minFailures * $factor, $minNames * $factor)) : null;
+			if ($netLimits !== null && $netLimits->reached()) {
 				$draft = new DetectionDraft(
 					checkId: CredentialStuffing::ID,
 					source: $source,
 					facts: $this->facts(CredentialStuffing::RULE_NETWORK, $net) + [
 						'net' => $source->netKey,
 						'targets' => $this->attempts->distinctUids('net_key', [$source->netKey], self::KINDS, $since, 20),
-					],
+					] + $netLimits->facts(),
 					merge: DetectionDraft::MERGE_SOURCE,
 					userAgent: $userAgent,
 				);
@@ -212,6 +217,15 @@ class CredentialStuffingDetector {
 
 	private static function reaches(AttemptStats $stats, int $failures, int $names): bool {
 		return $stats->failures >= $failures && $stats->distinctNames >= $names;
+	}
+
+	/**
+	 * The limits of the single-source rules with what was measured, for the risk score.
+	 *
+	 * @return array<string, array{0: int, 1: int}>
+	 */
+	private static function limits(AttemptStats $stats, int $failures, int $names): array {
+		return ['min_failures' => [$failures, $stats->failures], 'min_names' => [$names, $stats->distinctNames]];
 	}
 
 	private function cache(): ?IMemcache {

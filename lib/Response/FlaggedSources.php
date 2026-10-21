@@ -18,7 +18,10 @@ use OCP\AppFramework\Utility\ITimeFactory;
 /**
  * Flagged addresses, networks and passwords. A flag means: a successful
  * login from there (or with that password) needs extra confirmation.
- * Only the step-up logic reads flags.
+ * The step-up logic and the address risk score read flags.
+ *
+ * An address that failed a password login with an attack tool's user agent
+ * gets a flag of its own (`tool:`), which only the risk score reads.
  */
 class FlaggedSources {
 	public const REASON_ATTACK = 'attack';
@@ -26,6 +29,8 @@ class FlaggedSources {
 	public const REASON_DISTRIBUTED = 'distributed';
 	public const REASON_USER_DENIED = 'user_denied';
 	public const REASON_SPRAYED = 'sprayed';
+	/** How long an attack tool is remembered for an address */
+	public const ATTACK_TOOL_DURATION = 86400;
 
 	public function __construct(
 		private readonly FlagMapper $mapper,
@@ -81,6 +86,31 @@ class FlaggedSources {
 	public function unflagSource(SourceKey $source): void {
 		$this->mapper->unflag(self::sourceKey($source));
 		$this->mapper->unflag('net:' . $source->netKey);
+	}
+
+	/**
+	 * Remember for a day that the address used an attack tool.
+	 */
+	public function flagAttackTool(SourceKey $source, string $tool): void {
+		$this->mapper->flag(self::toolKey($source), $tool, $this->timeFactory->getTime() + self::ATTACK_TOOL_DURATION, null);
+	}
+
+	/**
+	 * The flags the risk score reads, in one query: the attack tool the
+	 * address used, and the flag on the address or its network.
+	 *
+	 * @return array{tool: ?string, source: ?string}
+	 */
+	public function riskFlags(SourceKey $source): array {
+		$toolKey = self::toolKey($source);
+		$flags = $this->mapper->active(array_values(array_unique([$toolKey, self::sourceKey($source), 'net:' . $source->netKey])), $this->timeFactory->getTime());
+		$tool = $flags[$toolKey] ?? null;
+		unset($flags[$toolKey]);
+		return ['tool' => $tool, 'source' => $flags === [] ? null : (string)reset($flags)];
+	}
+
+	private static function toolKey(SourceKey $source): string {
+		return 'tool:' . $source->ipKey;
 	}
 
 	private static function sourceKey(SourceKey $source): string {

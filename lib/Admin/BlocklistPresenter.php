@@ -16,6 +16,7 @@ use OCA\IntrusionDetection\Blocklist\SourceRepository;
 use OCA\IntrusionDetection\Blocklist\SyncFailure;
 use OCA\IntrusionDetection\Blocklist\SyncResult;
 use OCA\IntrusionDetection\Check\Checks\BlocklistMatch;
+use OCA\IntrusionDetection\Check\Checks\RiskyNetwork;
 use OCA\IntrusionDetection\Export\ExportDirectory;
 use OCA\IntrusionDetection\Export\ExportException;
 use OCA\IntrusionDetection\Export\FirewallExporter;
@@ -109,6 +110,7 @@ class BlocklistPresenter {
 			'countsMatches' => $this->overview->countsMatches(),
 			'matchDays' => self::MATCH_DAYS,
 			'check' => $this->checks->of(BlocklistMatch::ID, $l),
+			'networkCheck' => $this->checks->of(RiskyNetwork::ID, $l),
 			'maxLists' => SourceRepository::MAX_SOURCES,
 			'minInterval' => BlocklistSource::MIN_INTERVAL,
 			'maxInterval' => BlocklistSource::MAX_INTERVAL,

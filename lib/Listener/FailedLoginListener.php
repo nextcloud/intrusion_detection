@@ -21,6 +21,7 @@ use OCA\IntrusionDetection\Config\Settings;
 use OCA\IntrusionDetection\Db\AttemptKind;
 use OCA\IntrusionDetection\Detection\AttemptRecorder;
 use OCA\IntrusionDetection\Net\RemoteAddressResolver;
+use OCA\IntrusionDetection\Risk\RiskScorer;
 use OCP\Authentication\Events\AnyLoginFailedEvent;
 use OCP\EventDispatcher\Event;
 use OCP\EventDispatcher\IEventListener;
@@ -32,7 +33,8 @@ use Psr\Log\LoggerInterface;
  * Every failed password check (login form, Basic auth on WebDAV and OCS,
  * login flow), in the order of concept section 12.1:
  *
- * 1. a source on the brute-force allowlist is ignored;
+ * 1. a source on the brute-force allowlist is ignored; an attack tool's user
+ *    agent is remembered on the address for its risk score;
  * 2. a decoy credential, and then a reserved login name, is a detection on
  *    its own, and nothing else runs;
  * 3. the attempt is recorded, if any check uses it (fingerprints only; old
@@ -63,6 +65,7 @@ class FailedLoginListener implements IEventListener {
 		private readonly CredentialStuffingDetector $stuffing,
 		private readonly PasswordSprayingDetector $spraying,
 		private readonly AccountUnderAttackDetector $accountUnderAttack,
+		private readonly RiskScorer $risk,
 		private readonly IUserManager $userManager,
 		private readonly IRequest $request,
 		private readonly LoggerInterface $logger,
@@ -85,6 +88,7 @@ class FailedLoginListener implements IEventListener {
 			$loginName = $event->getLoginName();
 			$password = $event->getPassword();
 			$userAgent = $this->request->getHeader('User-Agent');
+			$this->step('risk_score', fn () => $this->risk->noteFailedLogin($source, $userAgent));
 
 			if ($this->step('decoy_credential', fn (): bool => $this->decoys->detect($source, $loginName, $password, $userAgent)) === true) {
 				return;

@@ -393,6 +393,7 @@
                     "countsMatches",
                     "matchDays",
                     "check",
+                    "networkCheck",
                     "maxLists",
                     "minInterval",
                     "maxInterval",
@@ -413,6 +414,25 @@
                         "format": "int64"
                     },
                     "check": {
+                        "type": "object",
+                        "required": [
+                            "id",
+                            "name",
+                            "mode"
+                        ],
+                        "properties": {
+                            "id": {
+                                "type": "string"
+                            },
+                            "name": {
+                                "type": "string"
+                            },
+                            "mode": {
+                                "$ref": "#/components/schemas/ModeState"
+                            }
+                        }
+                    },
+                    "networkCheck": {
                         "type": "object",
                         "required": [
                             "id",
@@ -1244,7 +1264,8 @@
                     "text",
                     "attemptsAvailable",
                     "attempts",
-                    "bans"
+                    "bans",
+                    "risk"
                 ],
                 "properties": {
                     "detection": {
@@ -1282,6 +1303,14 @@
                         "items": {
                             "$ref": "#/components/schemas/Ban"
                         }
+                    },
+                    "risk": {
+                        "nullable": true,
+                        "allOf": [
+                            {
+                                "$ref": "#/components/schemas/Risk"
+                            }
+                        ]
                     }
                 }
             },
@@ -3041,6 +3070,95 @@
                         }
                     },
                     "max": {
+                        "type": "integer",
+                        "format": "int64"
+                    }
+                }
+            },
+            "Risk": {
+                "type": "object",
+                "required": [
+                    "score",
+                    "tier",
+                    "tierLabel",
+                    "tierElevated",
+                    "tierHigh",
+                    "parts",
+                    "lowered"
+                ],
+                "properties": {
+                    "score": {
+                        "type": "integer",
+                        "format": "int64"
+                    },
+                    "tier": {
+                        "type": "string"
+                    },
+                    "tierLabel": {
+                        "type": "string"
+                    },
+                    "tierElevated": {
+                        "type": "integer",
+                        "format": "int64"
+                    },
+                    "tierHigh": {
+                        "type": "integer",
+                        "format": "int64"
+                    },
+                    "parts": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/RiskPart"
+                        }
+                    },
+                    "lowered": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/RiskLimit"
+                        }
+                    }
+                }
+            },
+            "RiskLimit": {
+                "type": "object",
+                "required": [
+                    "param",
+                    "label",
+                    "plain",
+                    "effective"
+                ],
+                "properties": {
+                    "param": {
+                        "type": "string"
+                    },
+                    "label": {
+                        "type": "string"
+                    },
+                    "plain": {
+                        "type": "integer",
+                        "format": "int64"
+                    },
+                    "effective": {
+                        "type": "integer",
+                        "format": "int64"
+                    }
+                }
+            },
+            "RiskPart": {
+                "type": "object",
+                "required": [
+                    "fact",
+                    "label",
+                    "points"
+                ],
+                "properties": {
+                    "fact": {
+                        "type": "string"
+                    },
+                    "label": {
+                        "type": "string"
+                    },
+                    "points": {
                         "type": "integer",
                         "format": "int64"
                     }

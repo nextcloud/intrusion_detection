@@ -18,6 +18,7 @@ use OCA\IntrusionDetection\Detection\AttemptRecorder;
 use OCA\IntrusionDetection\Detection\DetectionDraft;
 use OCA\IntrusionDetection\Net\SourceKey;
 use OCA\IntrusionDetection\Response\ResponseEngine;
+use OCA\IntrusionDetection\Risk\RiskScorer;
 use OCA\IntrusionDetection\Share\ShareLinks;
 use OCP\Share\IShare;
 
@@ -32,6 +33,9 @@ use OCP\Share\IShare;
  *    wrong passwords for one share within `password_source_window`.
  * 3. Password guessing on one share: at least `password_min_per_share`
  *    wrong passwords for it from any addresses within `password_share_window`.
+ *
+ * Each limit is lowered when the address of the failed access has an
+ * elevated or high risk score ({@see RiskScorer::limits()}).
  *
  * Under a flood the recorder keeps one unknown token in FLOOD_SAMPLE; only a
  * kept one is evaluated, and the counts are scaled by the sample factor.
@@ -53,6 +57,7 @@ class ShareBruteforceDetector {
 		private readonly ResponseEngine $engine,
 		private readonly ShareBruteforce $check,
 		private readonly ShareLinks $links,
+		private readonly RiskScorer $risk,
 	) {
 	}
 
@@ -72,11 +77,12 @@ class ShareBruteforceDetector {
 		$kinds = [AttemptKind::UnknownShareToken];
 
 		$ip = $this->attempts->stats('ip_key', [$source->ipKey], $kinds, $since);
-		if (self::reaches($ip->distinctNames, $factor, $minTokens)) {
+		$limits = $this->risk->limits($source, ['token_min' => [$minTokens, $ip->distinctNames * $factor]]);
+		if (self::reaches($ip->distinctNames, $factor, $limits->of('token_min'))) {
 			$this->handle(new DetectionDraft(
 				checkId: ShareBruteforce::ID,
 				source: $source,
-				facts: $this->tokenFacts(ShareBruteforce::RULE_TOKENS, $ip, $factor),
+				facts: $this->tokenFacts(ShareBruteforce::RULE_TOKENS, $ip, $factor) + $limits->facts(),
 				merge: DetectionDraft::MERGE_SOURCE,
 				userAgent: $userAgent,
 			), $params);
@@ -86,13 +92,17 @@ class ShareBruteforceDetector {
 			return;
 		}
 		$net = $this->attempts->stats('net_key', [$source->netKey], $kinds, $since);
-		if ($net->distinctSources < 2 || !self::reaches($net->distinctNames, $factor, $minTokens * $netFactor)) {
+		if ($net->distinctSources < 2) {
+			return;
+		}
+		$netLimits = $this->risk->limits($source, ['token_min' => [$minTokens * $netFactor, $net->distinctNames * $factor]]);
+		if (!self::reaches($net->distinctNames, $factor, $netLimits->of('token_min'))) {
 			return;
 		}
 		$draft = new DetectionDraft(
 			checkId: ShareBruteforce::ID,
 			source: $source,
-			facts: $this->tokenFacts(ShareBruteforce::RULE_TOKENS_NETWORK, $net, $factor) + ['net' => $source->netKey],
+			facts: $this->tokenFacts(ShareBruteforce::RULE_TOKENS_NETWORK, $net, $factor) + ['net' => $source->netKey] + $netLimits->facts(),
 			merge: DetectionDraft::MERGE_SOURCE,
 			userAgent: $userAgent,
 		);
@@ -119,7 +129,8 @@ class ShareBruteforceDetector {
 		$shareFacts = $this->shareFacts($share);
 
 		$fromSource = $this->attempts->statsForSourceOnShare($source->ipKey, $shareId, $kinds, $attempt->time - (int)$params['password_source_window']);
-		if ($fromSource->failures >= (int)$params['password_min_per_source']) {
+		$sourceLimits = $this->risk->limits($source, ['password_min_per_source' => [(int)$params['password_min_per_source'], $fromSource->failures]]);
+		if ($sourceLimits->reached()) {
 			$this->handle(new DetectionDraft(
 				checkId: ShareBruteforce::ID,
 				source: $source,
@@ -129,7 +140,7 @@ class ShareBruteforceDetector {
 					'failures' => $fromSource->failures,
 					'first' => $fromSource->first,
 					'last' => $fromSource->last,
-				] + $shareFacts,
+				] + $shareFacts + $sourceLimits->facts(),
 				shareId: $shareId,
 				// Not merged with token guessing from the same address, which is about no share.
 				merge: DetectionDraft::MERGE_SOURCE_USER,
@@ -138,7 +149,8 @@ class ShareBruteforceDetector {
 		}
 
 		$onShare = $this->attempts->stats('share_id', [$shareId], $kinds, $attempt->time - (int)$params['password_share_window']);
-		if ($onShare->failures >= (int)$params['password_min_per_share']) {
+		$shareLimits = $this->risk->limits($source, ['password_min_per_share' => [(int)$params['password_min_per_share'], $onShare->failures]]);
+		if ($shareLimits->reached()) {
 			$this->handle(new DetectionDraft(
 				checkId: ShareBruteforce::ID,
 				uid: $shareFacts['owner'],
@@ -149,7 +161,7 @@ class ShareBruteforceDetector {
 					'first' => $onShare->first,
 					'last' => $onShare->last,
 					'lastSource' => $source->ip,
-				] + $shareFacts,
+				] + $shareFacts + $shareLimits->facts(),
 				shareId: $shareId,
 				merge: DetectionDraft::MERGE_SHARE,
 				mergeWindow: self::SHARE_MERGE_WINDOW,

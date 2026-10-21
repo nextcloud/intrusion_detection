@@ -14,6 +14,8 @@ use OCA\IntrusionDetection\Confirm\LoginContext;
 use OCA\IntrusionDetection\Confirm\Reasons\BreachedPasswordReason;
 use OCA\IntrusionDetection\Confirm\Reasons\FlaggedSourceReason;
 use OCA\IntrusionDetection\Confirm\Reasons\ProtectedAccountReason;
+use OCA\IntrusionDetection\Confirm\Reasons\RiskHighReason;
+use OCA\IntrusionDetection\Confirm\Reasons\RiskyNetworkReason;
 use OCA\IntrusionDetection\Confirm\Reasons\SprayedPasswordReason;
 use OCA\IntrusionDetection\Confirm\StepUpPolicy;
 use OCA\IntrusionDetection\Confirm\StepUpReasons;
@@ -44,7 +46,7 @@ class StepUpReasonsTest extends TestCase {
 		$logger->expects($this->once())->method('error');
 		$reasons = new StepUpReasons($container, $logger);
 		$this->assertSame(
-			[StepUpPolicy::SprayedPassword, StepUpPolicy::ProtectedAccount, StepUpPolicy::BreachedPassword],
+			[StepUpPolicy::SprayedPassword, StepUpPolicy::ProtectedAccount, StepUpPolicy::BreachedPassword, StepUpPolicy::RiskyNetwork, StepUpPolicy::RiskHigh],
 			$reasons->collect($this->login()),
 		);
 	}
@@ -64,6 +66,8 @@ class StepUpReasonsTest extends TestCase {
 		$this->assertSame(StepUpPolicy::SprayedPassword, SprayedPasswordReason::policy());
 		$this->assertSame(StepUpPolicy::ProtectedAccount, ProtectedAccountReason::policy());
 		$this->assertSame(StepUpPolicy::BreachedPassword, BreachedPasswordReason::policy());
+		$this->assertSame(StepUpPolicy::RiskyNetwork, RiskyNetworkReason::policy());
+		$this->assertSame(StepUpPolicy::RiskHigh, RiskHighReason::policy());
 	}
 
 	private function login(bool $withAddress = true): LoginContext {

@@ -18,12 +18,15 @@ use OCA\IntrusionDetection\Detection\DetectionDraft;
 use OCA\IntrusionDetection\Net\SourceKey;
 use OCA\IntrusionDetection\Response\AccountProtection;
 use OCA\IntrusionDetection\Response\ResponseEngine;
+use OCA\IntrusionDetection\Risk\RiskScorer;
 
 /**
  * Detects one account attacked from many places (concept section 10.3)
  * after each failed login whose login name belongs to an account.
  *
  * The detection is about the account, so it has no single source address.
+ * The limits are lowered when the address of the failed login has an
+ * elevated or high risk score ({@see RiskScorer::limits()}).
  * While failures continue, an account that is already protected stays
  * protected until `protect_duration` after the last failure, even when the
  * numbers fall below the thresholds again.
@@ -38,6 +41,7 @@ class AccountUnderAttackDetector {
 		private readonly AttemptMapper $attempts,
 		private readonly ResponseEngine $engine,
 		private readonly AccountProtection $protection,
+		private readonly RiskScorer $risk,
 	) {
 	}
 
@@ -54,7 +58,11 @@ class AccountUnderAttackDetector {
 		$since = $attempt->time - (int)$params['window'];
 		$stats = $this->attempts->stats('uid', [$uid], self::KINDS, $since);
 
-		if ($stats->failures >= (int)$params['min_failures'] && $stats->distinctSources >= (int)$params['min_sources']) {
+		$limits = $this->risk->limits($attempt->source, [
+			'min_failures' => [(int)$params['min_failures'], $stats->failures],
+			'min_sources' => [(int)$params['min_sources'], $stats->distinctSources],
+		]);
+		if ($limits->reached()) {
 			$draft = new DetectionDraft(
 				checkId: AccountUnderAttack::ID,
 				uid: $uid,
@@ -64,7 +72,7 @@ class AccountUnderAttackDetector {
 					'first' => $stats->first,
 					'last' => $stats->last,
 					'lastSource' => $attempt->source->ip,
-				],
+				] + $limits->facts(),
 				merge: DetectionDraft::MERGE_USER,
 				userAgent: $userAgent,
 			);

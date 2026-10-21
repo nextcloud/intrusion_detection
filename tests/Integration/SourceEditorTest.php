@@ -121,7 +121,7 @@ class SourceEditorTest extends IntegrationTestCase {
 		$stats->record('spamhaus_drop_v4', gmdate('Y-m-d', time() - 20 * 86400), '198.51.100.9');
 		$matches = Server::get(BlocklistOverview::class)->matches(14);
 		$this->assertSame([['day' => $today, 'matches' => 2, 'sample' => ['198.51.100.7', '198.51.100.8']]], $matches['spamhaus_drop_v4']);
-		$this->assertArrayNotHasKey('aws', $matches, 'Attribute lists are not counted');
+		$this->assertSame([], $matches['aws'], 'Network lists are listed too, without matches so far');
 
 		$lists = Server::get(BlocklistOverview::class)->lists();
 		$drop = array_values(array_filter($lists, static fn (array $l): bool => $l['id'] === 'spamhaus_drop_v4'))[0];

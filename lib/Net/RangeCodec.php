@@ -107,6 +107,27 @@ final class RangeCodec {
 	}
 
 	/**
+	 * The first of the ranges (CIDR or single addresses) that contains the
+	 * address, or null. Entries that are not ranges are skipped.
+	 *
+	 * @param list<string> $ranges
+	 */
+	public static function firstContaining(array $ranges, SourceKey $source): ?string {
+		$hex = self::addressHex($source);
+		foreach ($ranges as $range) {
+			try {
+				$parsed = self::parse($range);
+			} catch (\InvalidArgumentException) {
+				continue;
+			}
+			if (strcmp($parsed['start'], $hex) <= 0 && strcmp($hex, $parsed['end']) <= 0) {
+				return $range;
+			}
+		}
+		return null;
+	}
+
+	/**
 	 * The first address of a range, as text.
 	 *
 	 * @throws \InvalidArgumentException

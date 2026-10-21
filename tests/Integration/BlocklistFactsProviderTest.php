@@ -17,6 +17,7 @@ use OCA\IntrusionDetection\Blocklist\ListState;
 use OCA\IntrusionDetection\Blocklist\SourceRepository;
 use OCA\IntrusionDetection\Blocklist\StateStore;
 use OCA\IntrusionDetection\Check\Checks\BlocklistMatch;
+use OCA\IntrusionDetection\Check\Checks\RiskyNetwork;
 use OCA\IntrusionDetection\Check\Mode;
 use OCA\IntrusionDetection\Config\GlobalSettings;
 use OCA\IntrusionDetection\Config\Settings;
@@ -78,7 +79,7 @@ class BlocklistFactsProviderTest extends IntegrationTestCase {
 	public function testAnObserveListOnlyAddsAnAttribute(): void {
 		$facts = $this->provider()->facts(SourceKey::fromIp('203.0.113.9'));
 		$this->assertSame(0, $facts->denyUntil);
-		$this->assertSame(['list:watch', 'hosting'], $facts->attributes);
+		$this->assertSame(['list:watch', 'hosting', 'net:cloud'], $facts->attributes);
 	}
 
 	public function testWhileTheCheckObservesAProtectListOnlyAddsAnAttribute(): void {
@@ -88,9 +89,31 @@ class BlocklistFactsProviderTest extends IntegrationTestCase {
 		$this->assertSame(['list:drop'], $facts->attributes);
 	}
 
+	public function testAttributeListsAreSkippedWhileNothingUsesThem(): void {
+		$this->settings->setMode(RiskyNetwork::ID, Mode::Off);
+		$this->settings->setGlobal(GlobalSettings::RISK_ENABLED, false);
+		$this->assertSame([], $this->provider()->facts(SourceKey::fromIp('192.0.2.77'))->attributes);
+		$this->assertNotContains('cloud', $this->queried);
+		$this->assertNotContains('exits', $this->queried);
+
+		$this->settings->setGlobal(GlobalSettings::RISK_ENABLED, true);
+		$this->assertSame(['hosting', 'net:cloud', 'tor', 'net:exits'], $this->provider()->facts(SourceKey::fromIp('192.0.2.77'))->attributes, 'The risk score uses them');
+		$this->settings->setGlobal(GlobalSettings::RISK_ENABLED, false);
+		$this->settings->setMode(RiskyNetwork::ID, Mode::Observe);
+		$this->assertSame(['hosting', 'net:cloud', 'tor', 'net:exits'], $this->provider()->facts(SourceKey::fromIp('192.0.2.77'))->attributes, 'The check uses them');
+	}
+
+	public function testAttributeListsMatchEveryAddressOfAnIpv6Network(): void {
+		$this->load('cloud', ['2001:db8:aa:1::/64']);
+		$this->assertSame(['hosting', 'net:cloud'], $this->provider()->facts(SourceKey::fromIp('2001:db8:aa:1::'))->attributes);
+		$this->assertSame(['hosting', 'net:cloud'], $this->provider()->facts(SourceKey::fromIp('2001:db8:aa:1:ffff:ffff:ffff:ffff'))->attributes);
+		$this->assertSame([], $this->provider()->facts(SourceKey::fromIp('2001:db8:aa:2::1'))->attributes);
+		$this->assertSame([], $this->provider()->facts(SourceKey::fromIp('2001:db8:aa:0:ffff:ffff:ffff:ffff'))->attributes);
+	}
+
 	public function testAttributeListsGiveHostingAndTor(): void {
-		$this->assertSame(['hosting', 'tor'], $this->provider()->facts(SourceKey::fromIp('192.0.2.77'))->attributes);
-		$this->assertSame(['hosting'], $this->provider()->facts(SourceKey::fromIp('192.0.2.78'))->attributes);
+		$this->assertSame(['hosting', 'net:cloud', 'tor', 'net:exits'], $this->provider()->facts(SourceKey::fromIp('192.0.2.77'))->attributes);
+		$this->assertSame(['hosting', 'net:cloud'], $this->provider()->facts(SourceKey::fromIp('192.0.2.78'))->attributes);
 	}
 
 	/**
@@ -119,7 +142,7 @@ class BlocklistFactsProviderTest extends IntegrationTestCase {
 	public function testANearerRangeOfAnotherListDoesNotHideAMatch(): void {
 		// 203.0.113.0/24 (cloud) starts at the same address as 203.0.113.0/25 (watch);
 		// each list is looked up on its own.
-		$this->assertSame(['hosting'], $this->provider()->facts(SourceKey::fromIp('203.0.113.200'))->attributes);
+		$this->assertSame(['hosting', 'net:cloud'], $this->provider()->facts(SourceKey::fromIp('203.0.113.200'))->attributes);
 	}
 
 	public function testBlocklistsAreNotLookedUpWhileTheCheckIsOff(): void {
@@ -145,7 +168,7 @@ class BlocklistFactsProviderTest extends IntegrationTestCase {
 		$this->assertNotNull($row);
 		$this->assertSame(3, $row['matches']);
 		$this->assertSame(['198.51.100.8', '198.51.100.7'], $row['sample'], 'Each address once, the latest last');
-		$this->assertNull(Server::get(BlocklistStatMapper::class)->find('cloud', '2026-10-20'), 'Attribute lists are not counted');
+		$this->assertSame(1, Server::get(BlocklistStatMapper::class)->find('cloud', '2026-10-20')['matches'] ?? null, 'Network lists are counted too');
 	}
 
 	public function testTheSampleKeepsTheLastTwentyAddresses(): void {
@@ -172,7 +195,7 @@ class BlocklistFactsProviderTest extends IntegrationTestCase {
 		$this->assertSame(AddressCache::OK_TTL, $decision->getRetryAfter());
 
 		$this->assertNull($guard->decisionFor('203.0.113.9'), 'An Observe list does not refuse');
-		$this->assertSame(['list:watch', 'hosting'], $context->verdict()?->attributes);
+		$this->assertSame(['list:watch', 'hosting', 'net:cloud'], $context->verdict()?->attributes);
 		$this->assertNull($guard->decisionFor('8.8.8.8'));
 	}
 

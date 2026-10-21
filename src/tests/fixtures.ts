@@ -100,6 +100,7 @@ export function makeDetail(overrides: Partial<DetectionDetail> = {}): DetectionD
 			liftNote: null,
 			active: true,
 		}],
+		risk: null,
 		...overrides,
 	}
 }
