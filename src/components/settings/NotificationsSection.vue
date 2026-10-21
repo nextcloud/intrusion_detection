@@ -7,7 +7,7 @@
 import type { Notifications, TestAlertResult } from '../../types.ts'
 
 import { mdiAccountGroupOutline, mdiAlertCircleOutline, mdiBellOutline, mdiCheck, mdiCheckCircleOutline, mdiEmailOffOutline, mdiEmailOutline, mdiFormatListChecks, mdiMinus } from '@mdi/js'
-import { showError } from '@nextcloud/dialogs'
+import { showError, showSuccess, showWarning } from '@nextcloud/dialogs'
 import { n, t } from '@nextcloud/l10n'
 import { generateUrl } from '@nextcloud/router'
 import { computed, onActivated, onMounted, ref, watch } from 'vue'
@@ -116,24 +116,6 @@ async function save() {
 	}
 }
 
-/**
- * Send the test alert.
- */
-async function test() {
-	testing.value = true
-	try {
-		testResult.value = await sendTestAlert()
-		announce(t(APP_ID, 'The test alert was sent. Look at the notifications at the top right.'))
-	} catch (error) {
-		if (!isCancelled(error)) {
-			logger.error('Could not send the test alert', { error })
-			showError(errorMessage(error, t(APP_ID, 'The test alert could not be sent. Please try again in a few minutes.')))
-		}
-	} finally {
-		testing.value = false
-	}
-}
-
 const emailResult = computed(() => {
 	const result = testResult.value
 	if (result === null) {
@@ -146,6 +128,34 @@ const emailResult = computed(() => {
 		failed: { ok: false, text: t(APP_ID, 'The email could not be sent. The server log has the details.') },
 	}[result.email]
 })
+
+/**
+ * Send the test alert.
+ */
+async function test() {
+	testing.value = true
+	try {
+		testResult.value = await sendTestAlert()
+		const sent = t(APP_ID, 'Test alert sent. Look at the bell at the top right.')
+		const email = emailResult.value
+		if (email === null || email.ok) {
+			const message = email === null ? sent : `${sent} ${email.text}`
+			showSuccess(message)
+			announce(message)
+		} else {
+			showSuccess(sent)
+			showWarning(email.text)
+			announce(`${sent} ${email.text}`)
+		}
+	} catch (error) {
+		if (!isCancelled(error)) {
+			logger.error('Could not send the test alert', { error })
+			showError(errorMessage(error, t(APP_ID, 'The test alert could not be sent. Please try again in a few minutes.')))
+		}
+	} finally {
+		testing.value = false
+	}
+}
 
 /**
  * Keep the check cards in step when someone opens one from here.

@@ -5,16 +5,18 @@
 
 import type { Notifications } from '../../types.ts'
 
+import { showSuccess, showWarning } from '@nextcloud/dialogs'
 import { flushPromises, mount } from '@vue/test-utils'
 import { afterEach, describe, expect, test, vi } from 'vitest'
 import NotificationsSection from './NotificationsSection.vue'
-import { fetchNotifications } from '../../services/api.ts'
+import { fetchNotifications, sendTestAlert } from '../../services/api.ts'
 
-vi.mock('@nextcloud/dialogs', () => ({ showError: vi.fn(), showSuccess: vi.fn() }))
+vi.mock('@nextcloud/dialogs', () => ({ showError: vi.fn(), showSuccess: vi.fn(), showWarning: vi.fn() }))
 
 vi.mock('../../services/api.ts', async (importOriginal) => ({
 	...(await importOriginal<object>()),
 	fetchNotifications: vi.fn(),
+	sendTestAlert: vi.fn(),
 	fetchChecks: vi.fn(() => new Promise(() => {})),
 }))
 
@@ -89,5 +91,21 @@ describe('the notifications section', () => {
 		expect(row).toContain('Notified')
 		expect(row).toContain('Not notified')
 		expect(row).not.toContain('Told')
+	})
+
+	test('sending a test alert says so in a toast, and warns when no email went out', async () => {
+		const wrapper = await mountTab()
+		const send = () => wrapper.findAll('button').find((b) => b.text() === 'Send a test alert to me')!.trigger('click')
+
+		vi.mocked(sendTestAlert).mockResolvedValue({ bell: true, email: 'sent', address: 'admin@example.com' })
+		await send()
+		await flushPromises()
+		expect(showSuccess).toHaveBeenLastCalledWith('Test alert sent. Look at the bell at the top right. Email sent to admin@example.com. It can take a minute to arrive.')
+
+		vi.mocked(sendTestAlert).mockResolvedValue({ bell: true, email: 'no_mail', address: null })
+		await send()
+		await flushPromises()
+		expect(showSuccess).toHaveBeenLastCalledWith('Test alert sent. Look at the bell at the top right.')
+		expect(showWarning).toHaveBeenCalledWith('No email: this server cannot send emails yet. Set up email in the basic settings.')
 	})
 })
