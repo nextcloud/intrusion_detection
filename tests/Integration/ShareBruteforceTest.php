@@ -200,6 +200,39 @@ class ShareBruteforceTest extends RequestEventTestCase {
 		$this->assertSame([], $this->bans->findActiveForKeys(['198.51.100.60'], time()), 'One outdated link never blocks an address');
 	}
 
+	public function testGuessingLinksWhileLoggedInIsReportedButNeverBlocks(): void {
+		$user = $this->user('ids-link-guesser');
+		$session = $this->createMock(IUserSession::class);
+		$session->method('getUser')->willReturn($user);
+		$this->listen(ShareLinkAccessFailedEvent::class, new ShareAccessFailedListener(
+			$this->settings, $this->addresses, Server::get(AttemptRecorder::class), Server::get(ShareBruteforceDetector::class),
+			$this->request, $session, Server::get(LoggerInterface::class),
+		));
+		for ($i = 1; $i <= 10; $i++) {
+			// The listener of setUp records it as not logged in; this one as logged in.
+			$this->openUnknownLink('198.51.100.7', 'loggedInToken' . $i);
+		}
+		$rows = $this->db->getQueryBuilder()->select('uid')->from(AttemptMapper::TABLE)->where('uid IS NOT NULL')->executeQuery()->fetchFirstColumn();
+		$this->assertSame(array_fill(0, 10, $user->getUID()), $rows, 'Recorded with the account');
+		$this->assertNotSame([], $this->detectionsOf(ShareBruteforce::ID));
+	}
+
+	public function testALoggedInDetectionNeverBlocksAndSaysWhy(): void {
+		$detector = Server::get(ShareBruteforceDetector::class);
+		$source = SourceKey::fromIp('198.51.100.7');
+		for ($i = 1; $i <= 10; $i++) {
+			$this->storeUnknownToken($source, 'mine' . $i, 1);
+		}
+		$detector->unknownToken(new AttemptRecord(AttemptKind::UnknownShareToken, $source, null, 'alice', null, null, [], time(), true), null);
+		$detections = $this->detectionsOf(ShareBruteforce::ID);
+		$this->assertCount(1, $detections);
+		$this->assertSame('alice', $detections[0]->getUid());
+		$this->assertSame([ResponseType::NotifyAdmin->value], array_column($detections[0]->getActionList(), 'type'), 'Reported, not blocked');
+		$this->assertSame([], $this->bans->findActiveForKeys(['198.51.100.7'], time()));
+		$l = Server::get(IFactory::class)->get(Application::APP_ID, 'en');
+		$this->assertStringContainsString('opened while logged in as alice', implode(' ', Server::get(NarrativeBuilder::class)->build($detections[0], $l)->happened));
+	}
+
 	public function testIpv6IsCountedPerSlash64(): void {
 		for ($i = 1; $i <= 10; $i++) {
 			$this->openUnknownLink('2001:db8:1:2::' . dechex($i), 'v6Token' . $i);

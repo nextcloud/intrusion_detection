@@ -78,13 +78,17 @@ class ShareBruteforceDetector {
 		$source = $attempt->source;
 		$kinds = [AttemptKind::UnknownShareToken];
 
+		// A logged-in user is told about, never blocked ({@see ShareBruteforce::responsesFor()}).
+		$loggedIn = $attempt->uid !== null ? ['loggedIn' => true] : [];
+
 		$ip = $this->attempts->stats('ip_key', [$source->ipKey], $kinds, $since);
 		$limits = $this->risk->limits($source, ['token_min' => [$minTokens, $ip->namesEstimate()]]);
 		if (self::reaches($ip->distinctNames, $ip->namesEstimate(), $limits->of('token_min'))) {
 			$this->handle(new DetectionDraft(
 				checkId: ShareBruteforce::ID,
 				source: $source,
-				facts: $this->tokenFacts(ShareBruteforce::RULE_TOKENS, $ip) + $limits->facts(),
+				uid: $attempt->uid,
+				facts: $this->tokenFacts(ShareBruteforce::RULE_TOKENS, $ip) + $loggedIn + $limits->facts(),
 				merge: DetectionDraft::MERGE_SOURCE,
 				userAgent: $userAgent,
 				lure: $attempt->lure,
@@ -105,7 +109,8 @@ class ShareBruteforceDetector {
 		$draft = new DetectionDraft(
 			checkId: ShareBruteforce::ID,
 			source: $source,
-			facts: $this->tokenFacts(ShareBruteforce::RULE_TOKENS_NETWORK, $net) + ['net' => $source->netKey] + $netLimits->facts(),
+			uid: $attempt->uid,
+			facts: $this->tokenFacts(ShareBruteforce::RULE_TOKENS_NETWORK, $net) + ['net' => $source->netKey] + $loggedIn + $netLimits->facts(),
 			merge: DetectionDraft::MERGE_SOURCE,
 			userAgent: $userAgent,
 			lure: $attempt->lure,

@@ -92,11 +92,12 @@ class PublicEventListenersTest extends TestCase {
 		$this->shareListener($detector)->handle(new ShareLinkAccessFailedEvent(self::TOKEN, null, ShareLinkAccessFailedEvent::REASON_NOT_FOUND));
 	}
 
-	public function testUnknownLinksOfLoggedInUsersAreIgnored(): void {
+	public function testUnknownLinksOfLoggedInUsersAreRecordedWithTheirAccount(): void {
 		$this->mode(Mode::Protect);
-		$this->recorder->expects($this->never())->method($this->anything());
+		$attempt = $this->attempt(AttemptKind::UnknownShareToken);
+		$this->recorder->expects($this->once())->method('recordUnknownShareToken')->with($this->anything(), self::TOKEN, false, 'alice')->willReturn($attempt);
 		$detector = $this->createMock(ShareBruteforceDetector::class);
-		$detector->expects($this->never())->method('unknownToken');
+		$detector->expects($this->once())->method('unknownToken')->with($attempt);
 		$this->shareListener($detector, loggedIn: true)->handle(new ShareLinkAccessFailedEvent(self::TOKEN, null, ShareLinkAccessFailedEvent::REASON_NOT_FOUND));
 	}
 
@@ -184,7 +185,9 @@ class PublicEventListenersTest extends TestCase {
 
 	private function shareListener(ShareBruteforceDetector $detector, bool $loggedIn = false): ShareAccessFailedListener {
 		$session = $this->createMock(IUserSession::class);
-		$session->method('isLoggedIn')->willReturn($loggedIn);
+		$user = $this->createMock(IUser::class);
+		$user->method('getUID')->willReturn('alice');
+		$session->method('getUser')->willReturn($loggedIn ? $user : null);
 		return new ShareAccessFailedListener($this->settings, $this->addresses, $this->recorder, $detector, $this->createMock(IRequest::class), $session, $this->logger);
 	}
 

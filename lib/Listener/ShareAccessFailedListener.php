@@ -30,9 +30,10 @@ use Psr\Log\LoggerInterface;
  * share link attack detector.
  *
  * Returns at once while the check is off and for sources on the
- * brute-force allowlist. Unknown tokens from logged-in users are ignored:
- * someone with a valid session who follows an old link is no attacker, and
- * a page that makes their browser request links must not get them blocked. Nothing here may break a share access: every
+ * brute-force allowlist. Unknown tokens from logged-in users are recorded
+ * with their account and reported, but never block their address: someone
+ * with a valid session who follows old links is rarely an attacker, and is
+ * known to the server anyway. Nothing here may break a share access: every
  * failure is logged and ignored. The token is never logged or stored.
  *
  * @template-implements IEventListener<ShareLinkAccessFailedEvent>
@@ -65,10 +66,7 @@ class ShareAccessFailedListener implements IEventListener {
 			$userAgent = $this->request->getHeader('User-Agent');
 
 			if ($event->getReason() === ShareLinkAccessFailedEvent::REASON_NOT_FOUND) {
-				if ($this->userSession->isLoggedIn()) {
-					return;
-				}
-				$attempt = $this->recorder->recordUnknownShareToken($source, $event->getToken(), FetchMetadata::isLure($this->request));
+				$attempt = $this->recorder->recordUnknownShareToken($source, $event->getToken(), FetchMetadata::isLure($this->request), $this->userSession->getUser()?->getUID());
 				$this->detector->unknownToken($attempt, $userAgent);
 				return;
 			}

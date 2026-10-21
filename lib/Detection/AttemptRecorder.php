@@ -68,10 +68,11 @@ class AttemptRecorder {
 	 * Only the token's fingerprint is stored.
 	 *
 	 * @param bool $lure the request was a possible lure ({@see \OCA\IntrusionDetection\Net\FetchMetadata}): it never makes its address a target of a block
+	 * @param ?string $uid the logged-in user who opened the link, if any
 	 */
-	public function recordUnknownShareToken(SourceKey $source, #[\SensitiveParameter] string $token, bool $lure = false): AttemptRecord {
+	public function recordUnknownShareToken(SourceKey $source, #[\SensitiveParameter] string $token, bool $lure = false, ?string $uid = null): AttemptRecord {
 		$nameHmac = trim($token) === '' ? null : bin2hex($this->fingerprinter->shareToken($token));
-		return $this->store(AttemptKind::UnknownShareToken, $source, $nameHmac, null, null, null, [], $this->timeFactory->getTime(), $lure);
+		return $this->store(AttemptKind::UnknownShareToken, $source, $nameHmac, $uid, null, null, [], $this->timeFactory->getTime(), $lure);
 	}
 
 	/**
