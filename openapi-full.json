@@ -1273,7 +1273,6 @@
                 "type": "object",
                 "required": [
                     "frequency",
-                    "sendQuiet",
                     "timezone",
                     "nextDue",
                     "last",
@@ -1286,9 +1285,6 @@
                 "properties": {
                     "frequency": {
                         "type": "string"
-                    },
-                    "sendQuiet": {
-                        "type": "boolean"
                     },
                     "timezone": {
                         "type": "string"
@@ -1797,6 +1793,7 @@
                     "title",
                     "severity",
                     "enforced",
+                    "outcome",
                     "details",
                     "done",
                     "note",
@@ -1838,6 +1835,16 @@
                     "enforced": {
                         "type": "boolean",
                         "nullable": true
+                    },
+                    "outcome": {
+                        "type": "string",
+                        "nullable": true,
+                        "enum": [
+                            "acted",
+                            "notified",
+                            "recorded",
+                            "observed"
+                        ]
                     },
                     "details": {
                         "type": "array",
@@ -2094,6 +2101,7 @@
                             "entries",
                             "detections",
                             "enforced",
+                            "acted",
                             "observed"
                         ],
                         "properties": {
@@ -2106,6 +2114,10 @@
                                 "format": "int64"
                             },
                             "enforced": {
+                                "type": "integer",
+                                "format": "int64"
+                            },
+                            "acted": {
                                 "type": "integer",
                                 "format": "int64"
                             },
