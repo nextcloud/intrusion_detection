@@ -16,6 +16,7 @@ use OCA\IntrusionDetection\Config\Settings;
 use OCA\IntrusionDetection\Db\AlertMapper;
 use OCA\IntrusionDetection\Db\TokenOriginMapper;
 use OCA\IntrusionDetection\Detection\DetectionService;
+use OCA\IntrusionDetection\Event\TypedEvents;
 use OCA\IntrusionDetection\Notification\AdminNotices;
 use OCA\IntrusionDetection\Notification\MailContent;
 use OCA\IntrusionDetection\Notification\Mails;
@@ -31,7 +32,6 @@ use OCP\AppFramework\Utility\ITimeFactory;
 use OCP\Authentication\Exceptions\InvalidTokenException;
 use OCP\Authentication\Token\IProvider;
 use OCP\Authentication\Token\IToken;
-use OCP\EventDispatcher\IEventDispatcher;
 use OCP\IUser;
 use OCP\IUserManager;
 use OCP\IUserSession;
@@ -168,7 +168,7 @@ abstract class AccountTestCase extends IntegrationTestCase {
 				KillSessionHandler::class => new KillSessionHandler($this->sessionKiller()),
 				NotifyUserHandler::class => new NotifyUserHandler($this->userAlerts()),
 			]),
-			Server::get(IEventDispatcher::class),
+			Server::get(TypedEvents::class),
 			Server::get(AuditLogger::class),
 			Server::get(LoggerInterface::class),
 		);
