@@ -40,10 +40,19 @@ class Add extends Base {
 
 	#[\Override]
 	protected function execute(InputInterface $input, OutputInterface $output): int {
+		$level = (string)$input->getOption('level');
+		if (!in_array($level, ['1', '2', '3'], true)) {
+			$output->writeln('<error>The level must be 1, 2 or 3.</error>');
+			return self::INVALID;
+		}
 		try {
 			$duration = is_string($input->getOption('duration')) ? ParamDefinition::parseDuration((string)$input->getOption('duration')) : null;
+			if ($duration !== null && ($duration <= 0 || $duration > BanService::MAX_DURATION)) {
+				$output->writeln('<error>A block lasts more than 0 seconds and at most 90 days.</error>');
+				return self::INVALID;
+			}
 			$note = is_string($input->getOption('note')) ? (string)$input->getOption('note') : null;
-			$ban = $this->bans->banManually((string)$input->getArgument('target'), (int)$input->getOption('level'), 'occ', $note, $duration);
+			$ban = $this->bans->banManually((string)$input->getArgument('target'), (int)$level, 'occ', $note, $duration);
 		} catch (InvalidParamException|\InvalidArgumentException $e) {
 			$output->writeln('<error>' . $e->getMessage() . '</error>');
 			return self::INVALID;

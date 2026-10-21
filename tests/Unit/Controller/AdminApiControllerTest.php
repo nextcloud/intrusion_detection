@@ -39,6 +39,7 @@ use OCA\IntrusionDetection\Db\DetectionMapper;
 use OCA\IntrusionDetection\Learning\LearningService;
 use OCA\IntrusionDetection\Net\RemoteAddressResolver;
 use OCA\IntrusionDetection\Net\SourceKey;
+use OCA\IntrusionDetection\Response\BanRefusedException;
 use OCA\IntrusionDetection\Response\BanService;
 use OCP\AppFramework\Db\DoesNotExistException;
 use OCP\AppFramework\Http;
@@ -328,6 +329,13 @@ class AdminApiControllerTest extends TestCase {
 		$this->banService->expects($this->never())->method('banManually');
 		$this->assertStringContainsString('never blocked', $this->controller->addBan('127.0.0.1')->getData()['message']);
 		$this->assertStringContainsString('allowlist', $this->controller->addBan('198.51.100.1')->getData()['message']);
+	}
+
+	public function testAddBanRefusesANetworkAroundTheAllowlist(): void {
+		$this->banService->method('banManually')->willThrowException(new BanRefusedException('198.51.100.0/24'));
+		$response = $this->controller->addBan('198.51.100.0/24');
+		$this->assertSame('target', $response->getData()['param']);
+		$this->assertStringContainsString('198.51.100.0/24 contains this server, a loopback address or an address on the brute-force allowlist', $response->getData()['message']);
 	}
 
 	public function testAddBanBlocksAndAudits(): void {

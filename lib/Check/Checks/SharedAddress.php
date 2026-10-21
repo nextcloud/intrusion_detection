@@ -44,7 +44,7 @@ final class SharedAddress implements ICheck {
 				name: $l->t('Shared address not blocked'),
 				summary: $l->t('An address would have been blocked, but many people log in from it.'),
 				detects: $l->t('A check wanted to block an address from which several different people logged in successfully in the last day. This is typical for an office network behind one address, or for a reverse proxy that is not configured as trusted, so that every visitor seems to come from the proxy.'),
-				decides: $l->t('Fires instead of a block when at least {ban_shared_ip_users} different people logged in successfully from the address or its network in the last 24 hours.'),
+				decides: $l->t('Fires instead of a block when at least {ban_shared_ip_users} different people logged in successfully in the last 24 hours from the address (or, for a block of a whole network, from the network). It also fires when the address is a private one most recent logins of different people came from while no trusted proxies are configured: then it is probably your reverse proxy.'),
 				wrong: $l->t('If one address really is used by many people and attacked from inside, block it by hand. If every visitor seems to come from the same address, configure trusted proxies.'),
 				data: $l->t('Successful logins: the address, the account and the hour, kept for 24 hours.'),
 			),

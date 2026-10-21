@@ -12,13 +12,14 @@ namespace OCA\IntrusionDetection\Address;
 use OCA\IntrusionDetection\Blocklist\BlocklistFactsProvider;
 use OCA\IntrusionDetection\Db\Ban;
 use OCA\IntrusionDetection\Db\BanMapper;
+use OCA\IntrusionDetection\Net\Ipv6Networks;
 use OCA\IntrusionDetection\Net\SourceKey;
 use OCP\AppFramework\Utility\ITimeFactory;
 use Psr\Container\ContainerInterface;
 
 /**
  * Resolves the verdict for an address from the database: one indexed query
- * on the bans (the address and its network), plus whatever the fact
+ * on the bans (the address and the networks around it), plus whatever the fact
  * providers add. Used on a cold cache only.
  */
 class AddressResolver {
@@ -38,7 +39,7 @@ class AddressResolver {
 		$now = $this->timeFactory->getTime();
 		$denyUntil = 0;
 		$reference = '';
-		foreach ($this->banMapper->findActiveForKeys(array_values(array_unique([$source->ipKey, $source->netKey])), $now) as $ban) {
+		foreach ($this->banMapper->findActiveForKeys(self::banKeys($source), $now) as $ban) {
 			if ($ban->getExpiresAt() > $denyUntil) {
 				$denyUntil = $ban->getExpiresAt();
 				$reference = $ban->getDisplayReference();
@@ -67,6 +68,23 @@ class AddressResolver {
 	 * @return list<Ban>
 	 */
 	public function activeBans(SourceKey $source): array {
-		return $this->banMapper->findActiveForKeys(array_values(array_unique([$source->ipKey, $source->netKey])), $this->timeFactory->getTime());
+		return $this->banMapper->findActiveForKeys(self::banKeys($source), $this->timeFactory->getTime());
+	}
+
+	/**
+	 * The ban keys that block an address: the address and its /24 for IPv4;
+	 * its /64, /56 and /48 for IPv6.
+	 *
+	 * @return list<string>
+	 */
+	public static function banKeys(SourceKey $source): array {
+		if ($source->family === 4) {
+			return [$source->ipKey, $source->netKey];
+		}
+		$keys = [$source->ipKey];
+		foreach (Ipv6Networks::PREFIXES as $prefix) {
+			$keys[] = Ipv6Networks::key($source, $prefix);
+		}
+		return $keys;
 	}
 }

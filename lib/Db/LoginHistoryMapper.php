@@ -9,6 +9,7 @@ declare(strict_types=1);
 
 namespace OCA\IntrusionDetection\Db;
 
+use OCA\IntrusionDetection\LoginHistory\LoginHistory;
 use OCA\IntrusionDetection\LoginHistory\LoginHistoryEntry;
 use OCA\IntrusionDetection\Net\SourceKey;
 use OCP\DB\QueryBuilder\IQueryBuilder;
@@ -199,6 +200,39 @@ class LoginHistoryMapper {
 		$row = $result->fetch();
 		$result->closeCursor();
 		return is_array($row) ? LoginHistoryEntry::fromRow($row) : null;
+	}
+
+	/**
+	 * The latest logins from an address (`ip`) or networks (`net_key`) since
+	 * a time that were not refused or left unconfirmed, newest first: for
+	 * each its account and whether the login was confirmed (a second
+	 * factor, an email code, admin approval or a remembered device).
+	 *
+	 * @param 'ip'|'net_key' $column
+	 * @return list<array{uid: string, confirmed: bool}>
+	 */
+	public function acceptedFrom(string $column, KeyMatch $keys, int $since, int $limit): array {
+		$qb = $this->db->getQueryBuilder();
+		$qb->select('uid', 'confirmed_by', 'known_device')
+			->from(self::TABLE)
+			->where($keys->condition($qb, $column))
+			->andWhere($qb->expr()->gte('created_at', $qb->createNamedParameter($since, IQueryBuilder::PARAM_INT)))
+			->andWhere($qb->expr()->orX(
+				$qb->expr()->isNull('step_up'),
+				$qb->expr()->in('step_up', $qb->createNamedParameter([LoginHistory::STEP_UP_CONFIRMED, LoginHistory::STEP_UP_ALLOWED], IQueryBuilder::PARAM_STR_ARRAY)),
+			))
+			->orderBy('created_at', 'DESC')
+			->setMaxResults($limit);
+		$result = $qb->executeQuery();
+		$rows = [];
+		while ($row = $result->fetch()) {
+			$rows[] = [
+				'uid' => (string)$row['uid'],
+				'confirmed' => (bool)$row['known_device'] || ($row['confirmed_by'] ?? LoginHistory::CONFIRMED_BY_NONE) !== LoginHistory::CONFIRMED_BY_NONE,
+			];
+		}
+		$result->closeCursor();
+		return $rows;
 	}
 
 	public function deleteOlderThan(int $before): int {

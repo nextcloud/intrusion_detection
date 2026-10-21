@@ -124,10 +124,12 @@ class AddressGuardTest extends IntegrationTestCase {
 
 		$bans = new BanService(
 			Server::get(\OCA\IntrusionDetection\Db\BanMapper::class),
-			Server::get(\OCA\IntrusionDetection\Db\LoginMapper::class),
+			Server::get(\OCA\IntrusionDetection\Response\BanExemptions::class),
 			Server::get(Settings::class),
 			$addressCache,
 			$addresses,
+			Server::get(\OCA\IntrusionDetection\Net\ProtectedRanges::class),
+			Server::get(\OCP\Lock\ILockingProvider::class),
 			$time,
 			Server::get(\OCP\Security\ISecureRandom::class),
 			Server::get(\OCA\IntrusionDetection\Event\TypedEvents::class),

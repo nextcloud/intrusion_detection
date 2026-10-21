@@ -34,6 +34,7 @@ use OCA\IntrusionDetection\Db\DetectionMapper;
 use OCA\IntrusionDetection\Learning\LearningService;
 use OCA\IntrusionDetection\Net\RemoteAddressResolver;
 use OCA\IntrusionDetection\Net\SourceKey;
+use OCA\IntrusionDetection\Response\BanRefusedException;
 use OCA\IntrusionDetection\Response\BanService;
 use OCA\IntrusionDetection\ResponseDefinitions;
 use OCP\AppFramework\Db\DoesNotExistException;
@@ -73,7 +74,7 @@ class AdminApiController extends OCSController {
 	public const MAX_PAGE = 100;
 	public const MAX_NOTE = 255;
 	public const MIN_BAN_DURATION = 300;
-	public const MAX_BAN_DURATION = 90 * 86400;
+	public const MAX_BAN_DURATION = BanService::MAX_DURATION;
 
 	public function __construct(
 		string $appName,
@@ -368,6 +369,8 @@ class AdminApiController extends OCSController {
 		}
 		try {
 			$ban = $this->banService->banManually($target, $level, $this->actor(), $note === '' ? null : $note, $duration);
+		} catch (BanRefusedException $e) {
+			return $this->error($this->l->t('%s contains this server, a loopback address or an address on the brute-force allowlist, so it is never blocked.', [$e->cidr]), 'target', 'invalid_target');
 		} catch (\InvalidArgumentException) {
 			return $this->error($this->targetHelp(), 'target', 'invalid_target');
 		}

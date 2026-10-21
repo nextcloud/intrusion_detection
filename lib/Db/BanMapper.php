@@ -40,20 +40,30 @@ class BanMapper extends QBMapper {
 	}
 
 	/**
-	 * Active single-address bans inside one IPv4 /24, created since the given time.
+	 * The distinct keys among a set that have an active ban created since a
+	 * time, with the highest level of each, for network escalation. Several
+	 * rows of one key (a race, or a raised ban) count once.
 	 *
-	 * @return list<Ban>
+	 * @return array<string, int> highest level per ban key
 	 */
-	public function findActiveInNet(string $netPrefix, int $since, int $now): array {
+	public function activeKeysIn(KeyMatch $keys, int $since, int $now, int $limit = 1000): array {
 		$qb = $this->db->getQueryBuilder();
-		$qb->select('*')
+		$qb->select('ban_key')
+			->selectAlias($qb->func()->max('level'), 'level')
 			->from(self::TABLE)
-			->where($qb->expr()->like('ban_key', $qb->createNamedParameter($this->db->escapeLikeParameter($netPrefix) . '%')))
-			->andWhere($qb->expr()->eq('scope', $qb->createNamedParameter(Ban::SCOPE_IP)))
+			->where($keys->condition($qb, 'ban_key'))
 			->andWhere($qb->expr()->gte('created_at', $qb->createNamedParameter($since, IQueryBuilder::PARAM_INT)))
 			->andWhere($qb->expr()->gt('expires_at', $qb->createNamedParameter($now, IQueryBuilder::PARAM_INT)))
-			->andWhere($qb->expr()->isNull('lifted_at'));
-		return $this->findEntities($qb);
+			->andWhere($qb->expr()->isNull('lifted_at'))
+			->groupBy('ban_key')
+			->setMaxResults($limit);
+		$result = $qb->executeQuery();
+		$keysFound = [];
+		while ($row = $result->fetch()) {
+			$keysFound[(string)$row['ban_key']] = (int)$row['level'];
+		}
+		$result->closeCursor();
+		return $keysFound;
 	}
 
 	/**

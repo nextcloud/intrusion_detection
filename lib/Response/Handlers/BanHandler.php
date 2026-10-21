@@ -29,8 +29,10 @@ use Psr\Container\ContainerInterface;
 
 /**
  * Blocks the detection's source (and, for some checks, further sources).
- * When the safety valve keeps an address from being blocked, a
- * `shared_address` detection tells the admin instead.
+ * When the safety valve or an unconfigured reverse proxy keeps an address
+ * from being blocked, a `shared_address` detection tells the admin instead.
+ * Addresses of this server's own people are not blocked either
+ * ({@see \OCA\IntrusionDetection\Response\BanExemptions}); the action says so.
  *
  * The address of the current request is not blocked when the request is a
  * possible lure ({@see FetchMetadata}): a browser that fetched the URL for
@@ -58,7 +60,7 @@ class BanHandler implements IResponseHandler, IDescribesAction {
 	public function apply(ResponseContext $context): ResponseOutcome {
 		$draft = $context->draft;
 		$listed = [];
-		$counts = ['banned' => 0, 'already' => 0, 'skipped' => 0, 'lure' => 0];
+		$counts = ['banned' => 0, 'already' => 0, 'skipped' => 0, 'lure' => 0, 'trusted' => 0, 'proxy' => 0];
 		$lure = $this->lureFrom();
 		foreach ($draft->banTargets() as $target) {
 			if ($lure !== null && $target->ipKey === $lure->ipKey) {
@@ -66,11 +68,15 @@ class BanHandler implements IResponseHandler, IDescribesAction {
 				continue;
 			}
 			$result = $this->bans->ban($target, $draft->checkId, $context->detection->getId(), $draft->banLevel);
-			if ($result->outcome === BanResult::SKIPPED_SHARED && $draft->checkId !== SharedAddress::ID) {
-				$this->reportShared($draft, $target, $result->sharedUsers);
+			if (($result->outcome === BanResult::SKIPPED_SHARED || $result->outcome === BanResult::SKIPPED_PROXY) && $draft->checkId !== SharedAddress::ID) {
+				$this->reportShared($draft, $target, $result->sharedUsers, $result->outcome === BanResult::SKIPPED_PROXY);
 			}
 			if ($result->ban === null) {
-				$counts['skipped']++;
+				$counts[match ($result->outcome) {
+					BanResult::SKIPPED_TRUSTED => 'trusted',
+					BanResult::SKIPPED_PROXY => 'proxy',
+					default => 'skipped',
+				}]++;
 				continue;
 			}
 			$counts[$result->outcome === BanResult::ALREADY ? 'already' : 'banned']++;
@@ -89,7 +95,7 @@ class BanHandler implements IResponseHandler, IDescribesAction {
 		}
 		$ref = ['bans' => array_values($listed), 'counts' => $counts];
 		if ($counts['banned'] === 0 && $counts['already'] === 0) {
-			return ResponseOutcome::skipped($counts['lure'] > 0 ? ResponseOutcome::NOTE_HELD_BACK : ResponseOutcome::NOTE_NOTHING_TO_DO, $ref);
+			return ResponseOutcome::skipped($counts['lure'] + $counts['trusted'] + $counts['proxy'] > 0 ? ResponseOutcome::NOTE_HELD_BACK : ResponseOutcome::NOTE_NOTHING_TO_DO, $ref);
 		}
 		return ResponseOutcome::done($ref);
 	}
@@ -123,6 +129,20 @@ class BanHandler implements IResponseHandler, IDescribesAction {
 		if ((int)($counts['lure'] ?? 0) > 0) {
 			$sentences[] = $l->t('The address of the request was not blocked: a browser made it for another website or an email, for example to show an image. Anyone can cause such a request, so it is only recorded.');
 		}
+		if ((int)($counts['trusted'] ?? 0) > 0) {
+			$sentences[] = $l->n(
+				'%n address was not blocked: within the last 7 days someone confirmed a login from it, or an administrator logged in from it.',
+				'%n addresses were not blocked: within the last 7 days someone confirmed a login from them, or an administrator logged in from them.',
+				(int)$counts['trusted'],
+			);
+		}
+		if ((int)($counts['proxy'] ?? 0) > 0) {
+			$sentences[] = $l->n(
+				'%n address was not blocked: it is a private address many people log in from while no trusted proxies are configured, so it is probably your reverse proxy.',
+				'%n addresses were not blocked: they are private addresses many people log in from while no trusted proxies are configured, so they are probably your reverse proxy.',
+				(int)$counts['proxy'],
+			);
+		}
 		if ((int)($counts['skipped'] ?? 0) > 0) {
 			$sentences[] = $l->n(
 				'%n address was not blocked: it is on the allowlist, is the server itself, or many people log in from it.',
@@ -140,13 +160,13 @@ class BanHandler implements IResponseHandler, IDescribesAction {
 		return FetchMetadata::isLure($this->request) ? $this->addresses->current() : null;
 	}
 
-	private function reportShared(DetectionDraft $draft, SourceKey $target, int $users): void {
+	private function reportShared(DetectionDraft $draft, SourceKey $target, int $users, bool $proxy): void {
 		// Resolved lazily: the engine runs this handler, so it cannot be a constructor dependency.
 		$engine = $this->container->get(ResponseEngine::class);
 		$engine->handle(new DetectionDraft(
 			checkId: SharedAddress::ID,
 			source: $target,
-			facts: ['users' => $users, 'wantedBy' => $draft->checkId],
+			facts: ['users' => $users, 'wantedBy' => $draft->checkId] + ($proxy ? ['proxy' => true] : []),
 			merge: DetectionDraft::MERGE_SOURCE,
 			mergeWindow: 86400,
 		));

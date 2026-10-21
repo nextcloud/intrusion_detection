@@ -20,6 +20,7 @@ use OCA\IntrusionDetection\Db\DetectionMapper;
 use OCA\IntrusionDetection\Db\LoginMapper;
 use OCA\IntrusionDetection\Decoy\DecoyService;
 use OCA\IntrusionDetection\Learning\LearningService;
+use OCA\IntrusionDetection\Net\ProxySuspect;
 use OCA\IntrusionDetection\Notification\AdminLinks;
 use OCA\IntrusionDetection\SetupCheck\BruteForceProtectionCheck;
 use OCA\IntrusionDetection\SetupCheck\Finding;
@@ -65,10 +66,10 @@ class SetupChecksTest extends TestCase {
 	 */
 	private function proxyCheck(array $logins, array $proxies = []): ReverseProxyCheck {
 		$mapper = $this->createMock(LoginMapper::class);
-		$mapper->method('recent')->with(ReverseProxyCheck::SAMPLE)->willReturn($logins);
+		$mapper->method('recent')->with(ProxySuspect::SAMPLE)->willReturn($logins);
 		$config = $this->createMock(IConfig::class);
 		$config->method('getSystemValue')->with('trusted_proxies', [])->willReturn($proxies);
-		return new ReverseProxyCheck($this->l, $this->links, $mapper, $config, $this->urls);
+		return new ReverseProxyCheck($this->l, $this->links, new ProxySuspect($mapper, $config), $this->urls);
 	}
 
 	public function testManyPeopleFromOnePrivateAddressPointToAProxy(): void {

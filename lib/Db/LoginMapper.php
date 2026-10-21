@@ -51,6 +51,21 @@ class LoginMapper {
 	}
 
 	/**
+	 * Distinct accounts that logged in from any of a set of networks since a time.
+	 */
+	public function distinctUsersForNets(KeyMatch $netKeys, int $sinceHour): int {
+		$qb = $this->db->getQueryBuilder();
+		$qb->select($qb->createFunction('COUNT(DISTINCT ' . $qb->getColumnName('uid') . ')'))
+			->from(self::TABLE)
+			->where($netKeys->condition($qb, 'net_key'))
+			->andWhere($qb->expr()->gte('hour', $qb->createNamedParameter($sinceHour, IQueryBuilder::PARAM_INT)));
+		$result = $qb->executeQuery();
+		$count = (int)$result->fetchOne();
+		$result->closeCursor();
+		return $count;
+	}
+
+	/**
 	 * The most recent logins, newest first (one row per address, account and hour).
 	 *
 	 * @return list<array{ipKey: string, uid: string}>

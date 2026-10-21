@@ -14,11 +14,15 @@ use OCA\IntrusionDetection\Config\GlobalSettings;
 use OCA\IntrusionDetection\Config\Settings;
 use OCA\IntrusionDetection\Db\Ban;
 use OCA\IntrusionDetection\Db\BanMapper;
-use OCA\IntrusionDetection\Db\LoginMapper;
+use OCA\IntrusionDetection\Db\KeyMatch;
 use OCA\IntrusionDetection\Event\TypedEvents;
+use OCA\IntrusionDetection\Net\Ipv6Networks;
+use OCA\IntrusionDetection\Net\ProtectedRanges;
 use OCA\IntrusionDetection\Net\RemoteAddressResolver;
 use OCA\IntrusionDetection\Net\SourceKey;
 use OCP\AppFramework\Utility\ITimeFactory;
+use OCP\Lock\ILockingProvider;
+use OCP\Lock\LockedException;
 use OCP\Security\ISecureRandom;
 
 /**
@@ -27,35 +31,42 @@ use OCP\Security\ISecureRandom;
  * - Level: none before within the history window gives level 1, one gives 2,
  *   more give 3; the durations come from the settings.
  * - IPv4 addresses are blocked singly; once BAN_NET_AFTER addresses of one /24
- *   are blocked within 24 hours, the /24 is blocked too. IPv6 is always
- *   blocked as a /64.
- * - Safety valve: an address (or network) from which BAN_SHARED_IP_USERS or
- *   more different people logged in within 24 hours is not blocked.
- * - Loopback, the server's own address and the brute-force allowlist are never blocked.
+ *   are blocked within 24 hours, the /24 is blocked too.
+ * - IPv6 is blocked as a /64. Once BAN_NET_AFTER /64s of one /56 are blocked
+ *   within 24 hours, the /56 is blocked; once BAN_NET_AFTER² /64s of one /48
+ *   are, the /48 (an attacker who controls a whole /48 rarely hits one /56
+ *   three times).
+ * - Loopback, the server's own address and the brute-force allowlist are
+ *   never blocked, not even inside a network. Automatic blocks also spare
+ *   shared addresses and the addresses of this server's own people
+ *   ({@see BanExemptions}).
+ * - The check for an active block and the insert run under a lock per
+ *   address or network, so parallel requests create one block, not several.
  */
 class BanService {
 	/** References avoid characters that are easily confused: no 0, O, 1, I or l */
 	public const REFERENCE_CHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+	/** The longest block by hand */
+	public const MAX_DURATION = 90 * 86400;
+	/** Waiting for another request blocking the same address: tries and pause between them */
+	private const LOCK_TRIES = 20;
+	private const LOCK_PAUSE_US = 25000;
 
 	public function __construct(
 		private readonly BanMapper $mapper,
-		private readonly LoginMapper $loginMapper,
+		private readonly BanExemptions $exemptions,
 		private readonly Settings $settings,
 		private readonly AddressCache $addressCache,
 		private readonly RemoteAddressResolver $addresses,
+		private readonly ProtectedRanges $protected,
+		private readonly ILockingProvider $locks,
 		private readonly ITimeFactory $timeFactory,
 		private readonly ISecureRandom $random,
 		private readonly TypedEvents $events,
 	) {
 	}
 
-	public function ban(
-		SourceKey $source,
-		string $checkId,
-		?int $detectionId = null,
-		?int $forceLevel = null,
-		bool $skipSafetyValve = false,
-	): BanResult {
+	public function ban(SourceKey $source, string $checkId, ?int $detectionId = null, ?int $forceLevel = null): BanResult {
 		if ($this->addresses->isNeverBlocked($source)) {
 			return new BanResult(BanResult::SKIPPED_NEVER);
 		}
@@ -63,63 +74,68 @@ class BanService {
 			return new BanResult(BanResult::SKIPPED_BYPASS);
 		}
 		$now = $this->timeFactory->getTime();
-
-		if (!$skipSafetyValve) {
-			$shared = $this->sharedUsers($source, $now);
-			if ($shared > 0) {
-				return new BanResult(BanResult::SKIPPED_SHARED, sharedUsers: $shared);
-			}
-		}
-
 		$scope = $source->family === 6 ? Ban::SCOPE_NET : Ban::SCOPE_IP;
-		$banKey = $scope === Ban::SCOPE_NET ? $source->netKey : $source->ipKey;
-		$cidr = $scope === Ban::SCOPE_NET ? $source->netKey : $source->ip . '/32';
-		$existing = $this->activeFor($banKey, $now);
-		if ($existing !== null) {
-			// The active ban is not an earlier offence: another check of the same
-			// attack must not escalate it. Only a stronger reason (e.g. a decoy
-			// after a trap hit) raises the level.
-			$level = $forceLevel === null ? 0 : min(3, $forceLevel);
-			if ($existing->getLevel() >= $level) {
-				return new BanResult(BanResult::ALREADY, $existing);
+		$cidr = $scope === Ban::SCOPE_NET ? $source->ipKey : $source->ip . '/32';
+
+		$result = $this->locked($source->ipKey, function () use ($source, $scope, $cidr, $checkId, $detectionId, $forceLevel, $now): BanResult {
+			$existing = $this->activeFor([$source->ipKey], $now);
+			if ($existing !== null) {
+				// The active ban is not an earlier offence: another check of the same
+				// attack must not escalate it. Only a stronger reason (e.g. a decoy
+				// after a trap hit) raises the level.
+				$level = $forceLevel === null ? 0 : min(3, $forceLevel);
+				if ($existing->getLevel() >= $level) {
+					return new BanResult(BanResult::ALREADY, $existing);
+				}
+				$existing->setLevel($level);
+				$existing->setExpiresAt(max($existing->getExpiresAt(), $now + $this->durationFor($level)));
+				$this->mapper->update($existing);
+				$this->changed($existing, true);
+				return new BanResult(BanResult::EXTENDED, $existing);
 			}
-			$existing->setLevel($level);
-			$existing->setExpiresAt(max($existing->getExpiresAt(), $now + $this->durationFor($level)));
-			$this->mapper->update($existing);
-			$this->changed($existing, true);
-			return new BanResult(BanResult::EXTENDED, $existing);
+			$exempt = $this->exemptions->forAddress($source, $now);
+			if ($exempt !== null) {
+				return $exempt;
+			}
+			$level = $this->levelFor($source->ipKey, $now, $forceLevel);
+			return new BanResult(BanResult::BANNED, $this->insert($cidr, $scope, $source->ipKey, $level, $checkId, $detectionId, $now, $now + $this->durationFor($level)));
+		});
+		if ($result->outcome !== BanResult::BANNED || $result->ban === null) {
+			return $result;
 		}
-
-		$level = $this->levelFor($banKey, $now, $forceLevel);
-
-		$ban = $this->insert($cidr, $scope, $banKey, $level, $checkId, $detectionId, $now, $now + $this->durationFor($level));
-		$netBan = $scope === Ban::SCOPE_IP ? $this->escalateToNetwork($source, $checkId, $detectionId, $now) : null;
-		return new BanResult(BanResult::BANNED, $ban, $netBan);
+		return new BanResult(BanResult::BANNED, $result->ban, $this->escalate($source, $checkId, $detectionId, $now));
 	}
 
 	/**
 	 * Block an address or network by hand. Accepts an IPv4 address, an IPv4
 	 * /24, or an IPv6 address or /64 (stored as the /64). Manual blocks skip
-	 * the safety valve: the administrator decided.
+	 * the safety valve: the administrator decided. Loopback, the server's own
+	 * address and the brute-force allowlist are refused, also inside a /24.
 	 *
-	 * @throws \InvalidArgumentException for anything else
+	 * @throws BanRefusedException for a target that is never blocked
+	 * @throws \InvalidArgumentException for anything else that is not a valid target
 	 */
 	public function banManually(string $target, int $level, string $actor, ?string $note, ?int $duration = null): Ban {
 		$now = $this->timeFactory->getTime();
 		[$cidr, $scope, $banKey] = $this->parseTarget($target);
+		$source = SourceKey::fromIp(explode('/', $cidr, 2)[0]);
+		if ($this->addresses->isIgnored($source) || $this->protected->overlapsCidr($cidr)) {
+			throw new BanRefusedException($cidr);
+		}
 		$level = max(1, min(3, $level));
 		$expires = $now + ($duration ?? $this->durationFor($level));
-		$existing = $this->activeFor($banKey, $now);
-		if ($existing !== null) {
-			$existing->setLevel(max($existing->getLevel(), $level));
-			$existing->setExpiresAt(max($existing->getExpiresAt(), $expires));
-			$existing->setNote($note ?? $existing->getNote());
-			$this->mapper->update($existing);
-			$this->changed($existing, true);
-			return $existing;
-		}
-		$ban = $this->insert($cidr, $scope, $banKey, $level, 'manual', null, $now, $expires, $actor, $note);
-		return $ban;
+		return $this->locked($banKey, function () use ($cidr, $scope, $banKey, $level, $actor, $note, $now, $expires): Ban {
+			$existing = $this->activeFor([$banKey], $now);
+			if ($existing !== null) {
+				$existing->setLevel(max($existing->getLevel(), $level));
+				$existing->setExpiresAt(max($existing->getExpiresAt(), $expires));
+				$existing->setNote($note ?? $existing->getNote());
+				$this->mapper->update($existing);
+				$this->changed($existing, true);
+				return $existing;
+			}
+			return $this->insert($cidr, $scope, $banKey, $level, 'manual', null, $now, $expires, $actor, $note);
+		});
 	}
 
 	public function lift(Ban $ban, string $actor, string $note): void {
@@ -142,24 +158,6 @@ class BanService {
 		return $durations[max(1, min(3, $level))];
 	}
 
-	/**
-	 * How many people logged in successfully from the address, or its
-	 * network, in the last 24 hours, if that reaches the safety valve's
-	 * threshold; 0 otherwise.
-	 */
-	public function sharedUsers(SourceKey $source, int $now): int {
-		$threshold = $this->settings->getInt(GlobalSettings::BAN_SHARED_IP_USERS);
-		if ($threshold <= 0) {
-			return 0;
-		}
-		$sinceHour = intdiv($now - 86400, 3600);
-		$users = max(
-			$this->loginMapper->distinctUsersForIp($source->ipKey, $sinceHour),
-			$source->netKey !== $source->ipKey ? $this->loginMapper->distinctUsersForNet($source->netKey, $sinceHour) : 0,
-		);
-		return $users >= $threshold ? $users : 0;
-	}
-
 	private function levelFor(string $banKey, int $now, ?int $forceLevel): int {
 		$historyDays = $this->settings->getInt(GlobalSettings::BAN_HISTORY_DAYS);
 		$earlier = $this->mapper->countSince($banKey, $now - $historyDays * 86400);
@@ -171,24 +169,54 @@ class BanService {
 		return max($level, min(3, $forceLevel ?? 1));
 	}
 
-	private function activeFor(string $banKey, int $now): ?Ban {
-		$active = $this->mapper->findActiveForKeys([$banKey], $now);
+	/**
+	 * @param list<string> $banKeys
+	 */
+	private function activeFor(array $banKeys, int $now): ?Ban {
+		$active = $this->mapper->findActiveForKeys($banKeys, $now);
 		usort($active, static fn (Ban $a, Ban $b): int => $b->getExpiresAt() <=> $a->getExpiresAt());
 		return $active[0] ?? null;
 	}
 
 	/**
-	 * Block the /24 once enough of its addresses are blocked.
+	 * Block the network once enough of its addresses are blocked: the /24
+	 * for IPv4; the /48, else the /56, for IPv6.
 	 */
-	private function escalateToNetwork(SourceKey $source, string $checkId, ?int $detectionId, int $now): ?Ban {
+	private function escalate(SourceKey $source, string $checkId, ?int $detectionId, int $now): ?Ban {
 		$netAfter = $this->settings->getInt(GlobalSettings::BAN_NET_AFTER);
-		$prefix = substr($source->netKey, 0, (int)strrpos($source->netKey, '.') + 1);
-		$banned = $this->mapper->findActiveInNet($prefix, $now - 86400, $now);
-		if (count($banned) < $netAfter || $this->activeFor($source->netKey, $now) !== null) {
+		if ($netAfter < 1) {
 			return null;
 		}
-		$level = max(array_map(static fn (Ban $b): int => $b->getLevel(), $banned));
-		return $this->insert($source->netKey, Ban::SCOPE_NET, $source->netKey, $level, $checkId, $detectionId, $now, $now + $this->durationFor($level));
+		if ($source->family === 4) {
+			$prefix = substr($source->netKey, 0, (int)strrpos($source->netKey, '.') + 1);
+			// The addresses of the /24: one to three digits after the prefix, never the /24 key itself.
+			$addresses = new KeyMatch([], [$prefix . '_', $prefix . '__', $prefix . '___']);
+			$candidates = [[$source->netKey, $addresses, new KeyMatch([$source->netKey]), $netAfter, [$source->netKey]]];
+		} else {
+			$key48 = Ipv6Networks::key($source, 48);
+			$key56 = Ipv6Networks::key($source, 56);
+			$in48 = Ipv6Networks::slash64Keys($key48);
+			$in56 = Ipv6Networks::slash64Keys($key56);
+			$candidates = [
+				[$key48, $in48, $in48, $netAfter * $netAfter, [$key48]],
+				[$key56, $in56, $in56, $netAfter, [$key56, $key48]],
+			];
+		}
+		foreach ($candidates as [$netKey, $members, $loginKeys, $threshold, $covering]) {
+			$ban = $this->locked($netKey, function () use ($netKey, $members, $loginKeys, $threshold, $covering, $checkId, $detectionId, $now): ?Ban {
+				$blocked = $this->mapper->activeKeysIn($members, $now - 86400, $now);
+				if (count($blocked) < $threshold || $this->activeFor($covering, $now) !== null
+					|| $this->exemptions->forNetwork($netKey, $loginKeys, $now) !== null) {
+					return null;
+				}
+				$level = max($blocked);
+				return $this->insert($netKey, Ban::SCOPE_NET, $netKey, $level, $checkId, $detectionId, $now, $now + $this->durationFor($level));
+			});
+			if ($ban !== null) {
+				return $ban;
+			}
+		}
+		return null;
 	}
 
 	private function insert(
@@ -223,6 +251,35 @@ class BanService {
 	private function changed(Ban $ban, bool $updated): void {
 		$this->addressCache->bump();
 		$this->events->banCreated($ban, $updated);
+	}
+
+	/**
+	 * Run a check-and-insert under a lock per ban key. When the lock cannot
+	 * be had in time (a stuck request), it runs anyway: a second block row is
+	 * harmless, a lost block is not.
+	 *
+	 * @template T
+	 * @param \Closure(): T $work
+	 * @return T
+	 */
+	private function locked(string $banKey, \Closure $work): mixed {
+		$lock = 'intrusion_detection/ban/' . md5($banKey);
+		$held = false;
+		for ($try = 0; $try < self::LOCK_TRIES && !$held; $try++) {
+			try {
+				$this->locks->acquireLock($lock, ILockingProvider::LOCK_EXCLUSIVE);
+				$held = true;
+			} catch (LockedException) {
+				usleep(self::LOCK_PAUSE_US);
+			}
+		}
+		try {
+			return $work();
+		} finally {
+			if ($held) {
+				$this->locks->releaseLock($lock, ILockingProvider::LOCK_EXCLUSIVE);
+			}
+		}
 	}
 
 	private function newReference(): string {

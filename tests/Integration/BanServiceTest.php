@@ -9,15 +9,34 @@ declare(strict_types=1);
 
 namespace OCA\IntrusionDetection\Tests\Integration;
 
+use OCA\IntrusionDetection\Address\AddressCache;
+use OCA\IntrusionDetection\Address\AddressResolver;
 use OCA\IntrusionDetection\AppInfo\Application;
 use OCA\IntrusionDetection\Config\GlobalSettings;
+use OCA\IntrusionDetection\Config\Settings;
 use OCA\IntrusionDetection\Db\Ban;
 use OCA\IntrusionDetection\Db\BanMapper;
+use OCA\IntrusionDetection\Db\LoginHistoryMapper;
 use OCA\IntrusionDetection\Db\LoginMapper;
+use OCA\IntrusionDetection\Event\TypedEvents;
+use OCA\IntrusionDetection\Net\ProtectedRanges;
+use OCA\IntrusionDetection\Net\ProxySuspect;
+use OCA\IntrusionDetection\Net\RemoteAddressResolver;
 use OCA\IntrusionDetection\Net\SourceKey;
+use OCA\IntrusionDetection\Response\BanExemptions;
+use OCA\IntrusionDetection\Response\BanRefusedException;
 use OCA\IntrusionDetection\Response\BanResult;
 use OCA\IntrusionDetection\Response\BanService;
+use OCP\AppFramework\Utility\ITimeFactory;
+use OCP\IConfig;
+use OCP\IGroupManager;
+use OCP\IRequest;
+use OCP\Lock\ILockingProvider;
+use OCP\Lock\LockedException;
+use OCP\Security\Bruteforce\IThrottler;
+use OCP\Security\ISecureRandom;
 use OCP\Server;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Group;
 
 #[Group('DB')]
@@ -115,14 +134,19 @@ class BanServiceTest extends IntegrationTestCase {
 		$this->assertSame([], $this->mapper->findActiveForKeys([$source->ipKey], time()));
 	}
 
-	public function testSafetyValveCountsTheNetworkToo(): void {
-		$logins = Server::get(LoginMapper::class);
-		$hour = intdiv(time(), 3600);
-		foreach (['alice', 'bob', 'carol', 'dave', 'erin'] as $i => $uid) {
-			$other = SourceKey::fromIp('198.51.100.' . (10 + $i));
-			$logins->record($other->ipKey, $other->netKey, $uid, $hour);
+	public function testSafetyValveCountsOnlyTheAddressForAnAddress(): void {
+		$this->loginsFromTheNetwork();
+		$result = $this->bans->ban(SourceKey::fromIp('198.51.100.99'), 'trap_url');
+		$this->assertSame(BanResult::BANNED, $result->outcome, 'Other people in the /24 do not protect this address');
+	}
+
+	public function testSafetyValveKeepsANetworkWithManyPeopleUnblocked(): void {
+		$this->loginsFromTheNetwork();
+		foreach ([97, 98, 99] as $last) {
+			$result = $this->bans->ban(SourceKey::fromIp('198.51.100.' . $last), 'trap_url');
+			$this->assertSame(BanResult::BANNED, $result->outcome);
 		}
-		$this->assertSame(BanResult::SKIPPED_SHARED, $this->bans->ban(SourceKey::fromIp('198.51.100.99'), 'trap_url')->outcome);
+		$this->assertNull($result->netBan, 'The /24 is not blocked');
 	}
 
 	public function testSafetyValveCanBeTurnedOff(): void {
@@ -165,6 +189,256 @@ class BanServiceTest extends IntegrationTestCase {
 		$typed = strtolower($ban->getDisplayReference());
 		$this->assertSame($ban->getId(), $this->mapper->findByReference($typed)->getId());
 		$this->assertSame($ban->getId(), $this->mapper->findByReference(str_replace('-', '', $typed))->getId());
+	}
+
+	public function testParallelRowsOfOneAddressCountOnceForTheNetwork(): void {
+		foreach (['198.51.100.1', '198.51.100.1', '198.51.100.2'] as $ip) {
+			$this->insertActiveBan($ip, $ip . '/32', Ban::SCOPE_IP);
+		}
+		$this->assertNull($this->bans->ban(SourceKey::fromIp('198.51.100.2'), 'trap_url')->netBan);
+		$this->assertNotNull($this->bans->ban(SourceKey::fromIp('198.51.100.3'), 'trap_url')->netBan, 'The third address does it');
+	}
+
+	public function testTheNetworkKeyItselfIsNoAddressOfTheNetwork(): void {
+		$this->insertActiveBan('198.51.100.0/24', '198.51.100.0/24', Ban::SCOPE_NET, lifted: true);
+		$this->insertActiveBan('198.51.100.1', '198.51.100.1/32', Ban::SCOPE_IP);
+		$this->assertNull($this->bans->ban(SourceKey::fromIp('198.51.100.2'), 'trap_url')->netBan);
+	}
+
+	public function testNoNetworkBlockOverAnAllowlistedAddress(): void {
+		$this->appConfig->setValueString('bruteForce', 'whitelist_1', '198.51.100.200/32');
+		try {
+			foreach ([1, 2, 3] as $last) {
+				$result = $this->freshService()->ban(SourceKey::fromIp('198.51.100.' . $last), 'trap_url');
+				$this->assertSame(BanResult::BANNED, $result->outcome);
+			}
+			$this->assertNull($result->netBan);
+		} finally {
+			$this->appConfig->deleteKey('bruteForce', 'whitelist_1');
+		}
+	}
+
+	public function testNoNetworkBlockOverTheServer(): void {
+		$_SERVER['SERVER_ADDR'] = '198.51.100.250';
+		try {
+			foreach ([1, 2, 3] as $last) {
+				$result = $this->freshService()->ban(SourceKey::fromIp('198.51.100.' . $last), 'trap_url');
+			}
+			$this->assertNull($result->netBan);
+		} finally {
+			unset($_SERVER['SERVER_ADDR']);
+		}
+	}
+
+	/**
+	 * @return array<string, array{string, bool, string, ?string}>
+	 */
+	public static function trustedLogins(): array {
+		return [
+			'second factor' => ['alice', false, 'second_factor', 'confirmed'],
+			'email code' => ['alice', false, 'email_code', 'confirmed'],
+			'remembered device' => ['alice', true, 'none', null],
+			'administrator' => ['admin', false, 'none', null],
+		];
+	}
+
+	#[DataProvider('trustedLogins')]
+	public function testAddressesOfTrustedLoginsAreNeverBlockedAutomatically(string $uid, bool $knownDevice, string $confirmedBy, ?string $stepUp): void {
+		$source = SourceKey::fromIp('198.51.100.7');
+		Server::get(LoginHistoryMapper::class)->insert($uid, time() - 3 * 86400, $source, null, 'password', $knownDevice, $confirmedBy, $stepUp, null);
+		$this->assertSame(BanResult::SKIPPED_TRUSTED, $this->bans->ban($source, 'trap_url')->outcome);
+		$this->assertSame('198.51.100.7/32', $this->bans->banManually('198.51.100.7', 1, 'admin', null)->getCidr(), 'By hand it still works');
+	}
+
+	/**
+	 * @return array<string, array{string, string, ?string, int}>
+	 */
+	public static function untrustedLogins(): array {
+		return [
+			'a plain password login' => ['alice', 'none', null, 3600],
+			'a refused confirmation' => ['admin', 'none', 'refused', 3600],
+			'a pending confirmation' => ['alice', 'second_factor', 'pending', 3600],
+			'a confirmation 8 days ago' => ['alice', 'second_factor', 'confirmed', 8 * 86400],
+		];
+	}
+
+	#[DataProvider('untrustedLogins')]
+	public function testOtherLoginsDoNotProtectAnAddress(string $uid, string $confirmedBy, ?string $stepUp, int $age): void {
+		$source = SourceKey::fromIp('198.51.100.7');
+		Server::get(LoginHistoryMapper::class)->insert($uid, time() - $age, $source, null, 'password', false, $confirmedBy, $stepUp, null);
+		$this->assertSame(BanResult::BANNED, $this->bans->ban($source, 'trap_url')->outcome);
+	}
+
+	public function testAConfirmedLoginInTheSlash64ProtectsIpv6(): void {
+		Server::get(LoginHistoryMapper::class)->insert('alice', time(), SourceKey::fromIp('2001:db8:1:2::5'), null, 'password', false, 'email_code', 'confirmed', null);
+		$this->assertSame(BanResult::SKIPPED_TRUSTED, $this->bans->ban(SourceKey::fromIp('2001:db8:1:2::99'), 'trap_url')->outcome);
+	}
+
+	public function testAConfirmedLoginInTheNetworkKeepsItUnblocked(): void {
+		Server::get(LoginHistoryMapper::class)->insert('alice', time(), SourceKey::fromIp('198.51.100.200'), null, 'password', false, 'second_factor', 'confirmed', null);
+		foreach ([1, 2, 3] as $last) {
+			$result = $this->bans->ban(SourceKey::fromIp('198.51.100.' . $last), 'trap_url');
+			$this->assertSame(BanResult::BANNED, $result->outcome);
+		}
+		$this->assertNull($result->netBan);
+	}
+
+	public function testAnUnconfiguredReverseProxyIsNotBlocked(): void {
+		$proxy = SourceKey::fromIp('10.0.0.2');
+		$logins = Server::get(LoginMapper::class);
+		foreach (['alice', 'bob', 'carol'] as $uid) {
+			$logins->record($proxy->ipKey, $proxy->netKey, $uid, intdiv(time(), 3600));
+		}
+		$result = $this->bans->ban($proxy, 'trap_url');
+		$this->assertSame(BanResult::SKIPPED_PROXY, $result->outcome);
+		$this->assertSame(3, $result->sharedUsers);
+		$this->assertSame(BanResult::BANNED, $this->bans->ban(SourceKey::fromIp('10.0.0.3'), 'trap_url')->outcome, 'Another private address is blocked');
+
+		$config = Server::get(IConfig::class);
+		$config->setSystemValue('trusted_proxies', ['10.0.0.1']);
+		try {
+			$this->assertSame(BanResult::BANNED, $this->bans->ban($proxy, 'trap_url')->outcome, 'With trusted proxies, Nextcloud sees the visitors');
+		} finally {
+			$config->deleteSystemValue('trusted_proxies');
+		}
+	}
+
+	public function testThreeSlash64sOfASlash56BlockTheSlash56(): void {
+		foreach (['2001:db8:1:2a01::1', '2001:db8:1:2a02::1'] as $ip) {
+			$this->assertNull($this->bans->ban(SourceKey::fromIp($ip), 'trap_url')->netBan);
+		}
+		$third = $this->bans->ban(SourceKey::fromIp('2001:db8:1:2aff::1'), 'trap_url');
+		$this->assertSame('2001:db8:1:2a00::/56', $third->netBan?->getCidr());
+		$this->assertNull($this->bans->ban(SourceKey::fromIp('2001:db8:1:2a10::1'), 'trap_url')->netBan, 'Already covered');
+		$resolver = Server::get(AddressResolver::class);
+		$this->assertTrue($resolver->resolve(SourceKey::fromIp('2001:db8:1:2a77::1'))->isDenied(time()), 'Another /64 of the /56 is blocked');
+		$this->assertFalse($resolver->resolve(SourceKey::fromIp('2001:db8:1:2b00::1'))->isDenied(time()), 'The next /56 is not');
+	}
+
+	public function testSlash64sAllOverASlash48BlockTheSlash48(): void {
+		$result = null;
+		for ($i = 1; $i <= 9; $i++) {
+			$result = $this->bans->ban(SourceKey::fromIp(sprintf('2001:db8:7:%x00::1', $i * 16)), 'trap_url');
+			if ($i < 9) {
+				$this->assertNull($result->netBan, (string)$i);
+			}
+		}
+		$this->assertSame('2001:db8:7::/48', $result?->netBan?->getCidr());
+		$this->assertTrue(Server::get(AddressResolver::class)->resolve(SourceKey::fromIp('2001:db8:7:ffff::1'))->isDenied(time()));
+	}
+
+	public function testIpv6NetworksFollowTheSafetyRules(): void {
+		Server::get(LoginHistoryMapper::class)->insert('alice', time(), SourceKey::fromIp('2001:db8:1:2a50::5'), null, 'password', true, 'known_device', null, null);
+		foreach (['2001:db8:1:2a01::1', '2001:db8:1:2a02::1', '2001:db8:1:2a03::1'] as $ip) {
+			$result = $this->bans->ban(SourceKey::fromIp($ip), 'trap_url');
+			$this->assertSame(BanResult::BANNED, $result->outcome);
+		}
+		$this->assertNull($result->netBan, 'Someone confirmed a login from the /56');
+	}
+
+	/**
+	 * @return array<string, array{string}>
+	 */
+	public static function neverBlockedTargets(): array {
+		return [
+			'loopback' => ['127.0.0.1'],
+			'loopback network' => ['127.0.0.0/24'],
+			'IPv6 loopback' => ['::1'],
+			'the allowlist' => ['203.0.113.9'],
+			'a network around the allowlist' => ['203.0.113.0/24'],
+			'the server' => ['192.0.2.10'],
+			'a network around the server' => ['192.0.2.0/24'],
+		];
+	}
+
+	#[DataProvider('neverBlockedTargets')]
+	public function testBlocksByHandRefuseWhatIsNeverBlocked(string $target): void {
+		$this->appConfig->setValueString('bruteForce', 'whitelist_1', '203.0.113.9/32');
+		$_SERVER['SERVER_ADDR'] = '192.0.2.10';
+		try {
+			$this->expectException(BanRefusedException::class);
+			$this->freshService()->banManually($target, 1, 'admin', null);
+		} finally {
+			unset($_SERVER['SERVER_ADDR']);
+			$this->appConfig->deleteKey('bruteForce', 'whitelist_1');
+		}
+	}
+
+	public function testTheCheckAndTheInsertRunUnderALockPerAddress(): void {
+		$locks = $this->createMock(ILockingProvider::class);
+		$calls = [];
+		$locks->method('acquireLock')->willReturnCallback(function (string $path) use (&$calls): void {
+			$calls[] = 'acquire ' . $path;
+			if (count($calls) === 1) {
+				throw new LockedException($path);
+			}
+		});
+		$locks->method('releaseLock')->willReturnCallback(function (string $path) use (&$calls): void {
+			$calls[] = 'release ' . $path;
+		});
+		$result = $this->freshService($locks)->ban(SourceKey::fromIp('198.51.100.7'), 'trap_url');
+		$this->assertSame(BanResult::BANNED, $result->outcome);
+		$lock = 'intrusion_detection/ban/' . md5('198.51.100.7');
+		$network = 'intrusion_detection/ban/' . md5('198.51.100.0/24');
+		$this->assertSame(['acquire ' . $lock, 'acquire ' . $lock, 'release ' . $lock, 'acquire ' . $network, 'release ' . $network], $calls, 'Waits for the lock, then holds it while it checks and inserts');
+		$this->assertLessThanOrEqual(64, strlen($lock), 'Fits the database lock table');
+	}
+
+	public function testAStuckLockDoesNotStopTheBlock(): void {
+		$locks = $this->createMock(ILockingProvider::class);
+		$locks->method('acquireLock')->willThrowException(new LockedException('x'));
+		$locks->expects($this->never())->method('releaseLock');
+		$this->assertSame(BanResult::BANNED, $this->freshService($locks)->ban(SourceKey::fromIp('198.51.100.7'), 'trap_url')->outcome);
+	}
+
+	private function loginsFromTheNetwork(): void {
+		$logins = Server::get(LoginMapper::class);
+		$hour = intdiv(time(), 3600);
+		foreach (['alice', 'bob', 'carol', 'dave', 'erin'] as $i => $uid) {
+			$other = SourceKey::fromIp('198.51.100.' . (10 + $i));
+			$logins->record($other->ipKey, $other->netKey, $uid, $hour);
+		}
+	}
+
+	/**
+	 * The service with nothing cached from earlier tests (the allowlist and
+	 * server ranges are read once per instance).
+	 */
+	private function freshService(?ILockingProvider $locks = null): BanService {
+		$ranges = new ProtectedRanges($this->appConfig);
+		return new BanService(
+			$this->mapper,
+			new BanExemptions(
+				Server::get(LoginMapper::class),
+				Server::get(LoginHistoryMapper::class),
+				Server::get(Settings::class),
+				Server::get(ProxySuspect::class),
+				$ranges,
+				Server::get(IGroupManager::class),
+			),
+			Server::get(Settings::class),
+			Server::get(AddressCache::class),
+			new RemoteAddressResolver($this->createMock(IRequest::class), Server::get(IThrottler::class)),
+			$ranges,
+			$locks ?? Server::get(ILockingProvider::class),
+			Server::get(ITimeFactory::class),
+			Server::get(ISecureRandom::class),
+			Server::get(TypedEvents::class),
+		);
+	}
+
+	private function insertActiveBan(string $banKey, string $cidr, string $scope, bool $lifted = false): void {
+		$ban = new Ban();
+		$ban->setReference(substr(str_shuffle('ABCDEFGHJKLMNPQRSTUVWXYZ23456789'), 0, 8));
+		$ban->setCidr($cidr);
+		$ban->setScope($scope);
+		$ban->setBanKey($banKey);
+		$ban->setLevel(1);
+		$ban->setCheckId('trap_url');
+		$ban->setCreatedAt(time());
+		$ban->setExpiresAt(time() + 14400);
+		$ban->setLiftedAt($lifted ? time() : null);
+		$this->mapper->insert($ban);
 	}
 
 	private function insertEndedBan(string $banKey, int $createdAt): void {

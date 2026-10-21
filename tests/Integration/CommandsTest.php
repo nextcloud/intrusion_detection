@@ -9,10 +9,12 @@ declare(strict_types=1);
 
 namespace OCA\IntrusionDetection\Tests\Integration;
 
+use OCA\IntrusionDetection\Command\Bans\Add;
 use OCA\IntrusionDetection\Command\ReservedNames;
 use OCA\IntrusionDetection\Command\Simulate;
 use OCA\IntrusionDetection\Command\TrapPaths;
 use OCA\IntrusionDetection\Command\User;
+use OCA\IntrusionDetection\Db\BanMapper;
 use OCA\IntrusionDetection\Response\AccountProtection;
 use OCA\IntrusionDetection\Response\PasswordChangeService;
 use OCP\IUserManager;
@@ -63,6 +65,38 @@ class CommandsTest extends IntegrationTestCase {
 	public function testInternalChecksCannotBeSimulated(): void {
 		$this->assertSame(Command::INVALID, $this->runCommand(Simulate::class, ['check' => 'manual'])[0]);
 		$this->assertSame(Command::INVALID, $this->runCommand(Simulate::class, ['check' => 'no_such_check'])[0]);
+	}
+
+	/**
+	 * @return array<string, array{array<string, string>, string}>
+	 */
+	public static function invalidBans(): array {
+		return [
+			'no duration' => [['--duration' => '0'], 'more than 0 seconds'],
+			'longer than 90 days' => [['--duration' => '91d'], 'at most 90 days'],
+			'a level that is no number' => [['--level' => 'abc'], 'The level must be 1, 2 or 3'],
+			'level 4' => [['--level' => '4'], 'The level must be 1, 2 or 3'],
+			'the server itself' => [['target' => '127.0.0.0/24'], 'never blocked'],
+		];
+	}
+
+	/**
+	 * @param array<string, string> $options
+	 */
+	#[DataProvider('invalidBans')]
+	public function testBansByHandAreValidated(array $options, string $message): void {
+		[$code, $output] = $this->runCommand(Add::class, $options + ['target' => '203.0.113.7']);
+		$this->assertSame(Command::INVALID, $code);
+		$this->assertStringContainsString($message, $output);
+		$this->assertSame(0, Server::get(BanMapper::class)->countActive(time()));
+	}
+
+	public function testABanByHandWithADurationAndLevel(): void {
+		[$code, $output] = $this->runCommand(Add::class, ['target' => '203.0.113.7', '--level' => '3', '--duration' => '90d']);
+		$this->assertSame(Command::SUCCESS, $code, $output);
+		$ban = Server::get(BanMapper::class)->findActiveForKeys(['203.0.113.7'], time())[0];
+		$this->assertSame(3, $ban->getLevel());
+		$this->assertEqualsWithDelta(time() + 90 * 86400, $ban->getExpiresAt(), 5);
 	}
 
 	public function testReservedNamesCommand(): void {

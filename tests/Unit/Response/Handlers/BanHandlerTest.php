@@ -9,6 +9,7 @@ declare(strict_types=1);
 
 namespace OCA\IntrusionDetection\Tests\Unit\Response\Handlers;
 
+use OCA\IntrusionDetection\Check\Checks\SharedAddress;
 use OCA\IntrusionDetection\Check\Checks\TrapUrl;
 use OCA\IntrusionDetection\Db\Ban;
 use OCA\IntrusionDetection\Db\Detection;
@@ -20,6 +21,7 @@ use OCA\IntrusionDetection\Response\BanResult;
 use OCA\IntrusionDetection\Response\BanService;
 use OCA\IntrusionDetection\Response\Handlers\BanHandler;
 use OCA\IntrusionDetection\Response\ResponseContext;
+use OCA\IntrusionDetection\Response\ResponseEngine;
 use OCA\IntrusionDetection\Response\ResponseOutcome;
 use OCP\IL10N;
 use OCP\IRequest;
@@ -121,13 +123,39 @@ class BanHandlerTest extends TestCase {
 		$bans->expects($this->once())->method('ban')->with($other)->willReturn(new BanResult(BanResult::BANNED, $this->ban()));
 		$outcome = $this->handler($bans, ['Sec-Fetch-Site' => 'cross-site'])->apply($this->context($draft));
 		$this->assertTrue($outcome->enforced);
-		$this->assertSame(['banned' => 1, 'already' => 0, 'skipped' => 0, 'lure' => 1], $outcome->ref['counts']);
+		$this->assertSame(['banned' => 1, 'already' => 0, 'skipped' => 0, 'lure' => 1, 'trusted' => 0, 'proxy' => 0], $outcome->ref['counts']);
 	}
 
 	public function testALureFromAnotherAddressBlocksTheDetectionsSource(): void {
 		$bans = $this->createMock(BanService::class);
 		$bans->expects($this->once())->method('ban')->willReturn(new BanResult(BanResult::BANNED, $this->ban()));
 		$this->assertTrue($this->handler($bans, ['Sec-Fetch-Site' => 'cross-site'], '203.0.113.50')->apply($this->context())->enforced);
+	}
+
+	public function testTheAddressOfTrustedLoginsIsHeldBackAndSaysWhy(): void {
+		$bans = $this->createMock(BanService::class);
+		$bans->method('ban')->willReturn(new BanResult(BanResult::SKIPPED_TRUSTED));
+		$outcome = $this->handler($bans)->apply($this->context());
+		$this->assertSame(ResponseOutcome::NOTE_HELD_BACK, $outcome->note);
+		$this->assertSame(1, $outcome->ref['counts']['trusted']);
+		$sentences = $this->handler($bans)->describeAction(['type' => 'ban', 'enforced' => false, 'note' => $outcome->note, 'ref' => $outcome->ref], $this->l, $this->dates);
+		$this->assertSame(['1 address was not blocked: within the last 7 days someone confirmed a login from it, or an administrator logged in from it.'], $sentences);
+	}
+
+	public function testAnUnconfiguredProxyIsReportedAsASharedAddress(): void {
+		$bans = $this->createMock(BanService::class);
+		$bans->method('ban')->willReturn(new BanResult(BanResult::SKIPPED_PROXY, sharedUsers: 4));
+		$engine = $this->createMock(ResponseEngine::class);
+		$engine->expects($this->once())->method('handle')->with($this->callback(
+			static fn (DetectionDraft $draft): bool => $draft->checkId === SharedAddress::ID && $draft->facts === ['users' => 4, 'wantedBy' => 'trap_url', 'proxy' => true],
+		));
+		$container = $this->createMock(ContainerInterface::class);
+		$container->method('get')->with(ResponseEngine::class)->willReturn($engine);
+		$request = $this->createMock(IRequest::class);
+		$handler = new BanHandler($bans, $container, $request, new RemoteAddressResolver($request, $this->createMock(IThrottler::class)));
+		$outcome = $handler->apply($this->context());
+		$this->assertSame(1, $outcome->ref['counts']['proxy']);
+		$this->assertSame(ResponseOutcome::NOTE_HELD_BACK, $outcome->note);
 	}
 
 	/**
