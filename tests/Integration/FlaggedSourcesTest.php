@@ -10,7 +10,6 @@ declare(strict_types=1);
 namespace OCA\IntrusionDetection\Tests\Integration;
 
 use OC\DB\ConnectionAdapter;
-use OCA\IntrusionDetection\Config\Settings;
 use OCA\IntrusionDetection\Db\FlagMapper;
 use OCA\IntrusionDetection\Net\SourceKey;
 use OCA\IntrusionDetection\Response\FlaggedSources;
@@ -87,7 +86,7 @@ class FlaggedSourcesTest extends IntegrationTestCase {
 	}
 
 	private function flags(): FlaggedSources {
-		return new FlaggedSources(Server::get(FlagMapper::class), Server::get(Settings::class), Server::get(ITimeFactory::class));
+		return new FlaggedSources(Server::get(FlagMapper::class), Server::get(ITimeFactory::class));
 	}
 
 	private function queries(): int {

@@ -15,6 +15,8 @@ use OCA\IntrusionDetection\Check\Checks\StepUpFailed;
 use OCA\IntrusionDetection\Check\Checks\StepUpRefused;
 use OCA\IntrusionDetection\Config\GlobalSettings;
 use OCA\IntrusionDetection\Confirm\IConfirmationMethod;
+use OCA\IntrusionDetection\Confirm\Methods\AdminApprovalMethod;
+use OCA\IntrusionDetection\Confirm\StepUpService;
 use OCA\IntrusionDetection\Confirm\StepUpState;
 use OCA\IntrusionDetection\Controller\VerifyController;
 use OCA\IntrusionDetection\Db\Approval;
@@ -62,7 +64,7 @@ class AdminApprovalTest extends StepUpTestCase {
 		$this->assertSame($this->bob->getUID(), $approval->getSubjectUid());
 		$this->assertSame($this->remoteAddress, $approval->getIp());
 		$this->assertSame($approval->getExpiresAt(), $stepUp->deadline, 'The login may wait as long as the request');
-		$this->assertGreaterThan($stepUp->started + $this->settings->getInt(GlobalSettings::STEP_UP_SESSION_TTL), $stepUp->deadline);
+		$this->assertGreaterThan($stepUp->started + StepUpService::SESSION_TTL, $stepUp->deadline);
 		$this->assertSame([], $this->detectionsOf(StepUpRefused::ID), 'Not refused');
 
 		$this->assertNotSame([], $this->notificationsFor(self::ADMIN, Notifier::SUBJECT_APPROVAL_REQUESTED), 'The administrators are asked');
@@ -191,7 +193,7 @@ class AdminApprovalTest extends StepUpTestCase {
 		$stepUp = $this->stepUp();
 		$this->assertNotNull($stepUp);
 		$this->assertSame($this->approval()->getExpiresAt(), $stepUp->deadline);
-		$this->assertLessThan($stepUp->started + $this->settings->getInt(GlobalSettings::STEP_UP_SESSION_TTL) + $this->settings->getInt(GlobalSettings::STEP_UP_ADMIN_APPROVAL_TTL), $stepUp->deadline + 1, 'Never beyond the login\'s own time plus one approval');
+		$this->assertLessThan($stepUp->started + StepUpService::SESSION_TTL + AdminApprovalMethod::TTL, $stepUp->deadline + 1, 'Never beyond the login\'s own time plus one approval');
 	}
 
 	public function testTheUserCanGiveUpWaiting(): void {

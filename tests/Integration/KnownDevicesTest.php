@@ -70,7 +70,7 @@ class KnownDevicesTest extends StepUpTestCase {
 		$this->assertCount(1, $this->deviceCookiesSet);
 		[$deviceId, $expires] = $this->deviceCookiesSet[0];
 		$this->assertTrue(DeviceCookie::isValid($deviceId));
-		$this->assertEqualsWithDelta(time() + KnownDevices::MAX_DURATION, $expires, 5);
+		$this->assertEqualsWithDelta(time() + KnownDevices::DURATION, $expires, 5);
 		$this->assertSame(1, $this->deviceRows());
 
 		$row = $this->rows()[0];
@@ -118,8 +118,7 @@ class KnownDevicesTest extends StepUpTestCase {
 
 	public function testADeviceExpiresAfterItsDurationWithoutUse(): void {
 		$this->rememberDevice();
-		$this->settings->setGlobal(GlobalSettings::KNOWN_DEVICE_DURATION, 86400 * 2);
-		$this->ageDevices(86400 * 3);
+		$this->ageDevices(KnownDevices::DURATION + 86400);
 		$this->freshLogin();
 		$this->assertSame(['email_code'], $this->stepUp()?->methods, 'Too long unused');
 

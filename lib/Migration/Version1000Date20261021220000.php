@@ -11,8 +11,7 @@ namespace OCA\IntrusionDetection\Migration;
 
 use Closure;
 use OCA\IntrusionDetection\Audit\AuditLogger;
-use OCA\IntrusionDetection\Config\GlobalSettings;
-use OCA\IntrusionDetection\Config\Settings;
+use OCA\IntrusionDetection\Confirm\StepUpService;
 use OCA\IntrusionDetection\Db\LoginHistoryMapper;
 use OCA\IntrusionDetection\Db\StepUpSessionMapper;
 use OCA\IntrusionDetection\LoginHistory\LoginHistory;
@@ -31,7 +30,7 @@ use OCP\Migration\SimpleMigrationStep;
  * Pending logins remembered before their deadline was kept are found by
  * the login history ({@see LoginHistoryMapper::pendingAround()}); refused
  * and ended logins keep no deadline. One still within
- * `step_up_session_ttl` of its start gets that deadline, so that the
+ * {@see StepUpService::SESSION_TTL} of its start gets that deadline, so that the
  * background job ends it as usual. One already past it ends quietly, as
  * {@see \OCA\IntrusionDetection\Confirm\AbandonedLogins} ends logins while
  * protection is off: the history says it failed, nobody is told days
@@ -45,7 +44,6 @@ class Version1000Date20261021220000 extends SimpleMigrationStep {
 	public function __construct(
 		private readonly StepUpSessionMapper $sessions,
 		private readonly LoginHistoryMapper $history,
-		private readonly Settings $settings,
 		private readonly ITimeFactory $timeFactory,
 		private readonly AuditLogger $audit,
 	) {
@@ -71,7 +69,7 @@ class Version1000Date20261021220000 extends SimpleMigrationStep {
 
 	#[\Override]
 	public function postSchemaChange(IOutput $output, Closure $schemaClosure, array $options): void {
-		$ttl = $this->settings->getInt(GlobalSettings::STEP_UP_SESSION_TTL);
+		$ttl = StepUpService::SESSION_TTL;
 		$now = $this->timeFactory->getTime();
 		$filled = 0;
 		$ended = 0;

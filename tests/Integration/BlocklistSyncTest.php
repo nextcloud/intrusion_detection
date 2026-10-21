@@ -320,11 +320,10 @@ class BlocklistSyncTest extends IntegrationTestCase {
 	}
 
 	public function testAListFailingForMoreThanThreeIntervalsIsReported(): void {
-		$this->settings->setGlobal(GlobalSettings::BLOCKLIST_SYNC_INTERVAL, 3600);
 		$this->respond(self::URL, 200, "192.0.2.0/24\n");
 		$this->sync()->sync();
 		for ($i = 0; $i < 4; $i++) {
-			$this->now += 3600;
+			$this->now += BlocklistSync::INTERVAL;
 			$this->respond(self::URL, 503, '');
 			$this->sync()->sync();
 			$stale = $this->overview()->stale();
@@ -452,7 +451,7 @@ class BlocklistSyncTest extends IntegrationTestCase {
 	}
 
 	private function overview(): BlocklistOverview {
-		return new BlocklistOverview(Server::get(SourceRepository::class), $this->states(), Server::get(BlocklistStatMapper::class), $this->settings, $this->time(), $this->addressCache());
+		return new BlocklistOverview(Server::get(SourceRepository::class), $this->states(), Server::get(BlocklistStatMapper::class), $this->time(), $this->addressCache());
 	}
 
 	private function states(): StateStore {

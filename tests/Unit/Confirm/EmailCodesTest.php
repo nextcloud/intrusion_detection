@@ -9,8 +9,6 @@ declare(strict_types=1);
 
 namespace OCA\IntrusionDetection\Tests\Unit\Confirm;
 
-use OCA\IntrusionDetection\Config\GlobalSettings;
-use OCA\IntrusionDetection\Config\Settings;
 use OCA\IntrusionDetection\Confirm\EmailCodes;
 use OCA\IntrusionDetection\Confirm\StepUpState;
 use OCA\IntrusionDetection\Confirm\UnconfirmedSessions;
@@ -254,8 +252,6 @@ class EmailCodesTest extends TestCase {
 		});
 		$messages = $this->createMock(UserMessages::class);
 		$messages->method('l10nFor')->willReturn(Server::get(IFactory::class)->get('intrusion_detection', 'en'));
-		$settings = $this->createMock(Settings::class);
-		$settings->method('getInt')->willReturnCallback(static fn (string $name): int => $name === GlobalSettings::STEP_UP_CODE_TTL ? 600 : 0);
 		$validator = $this->createMock(IEmailValidator::class);
 		$validator->method('isValid')->willReturnCallback(static fn (string $a): bool => str_contains($a, '@'));
 		$config = $this->createMock(IConfig::class);
@@ -277,6 +273,6 @@ class EmailCodesTest extends TestCase {
 			$this->mailTimes = $value;
 			return true;
 		});
-		return new EmailCodes($random, Server::get(IHasher::class), $mails, $messages, $settings, $validator, $config, $time, $sessions, $session, $userConfig);
+		return new EmailCodes($random, Server::get(IHasher::class), $mails, $messages, $validator, $config, $time, $sessions, $session, $userConfig);
 	}
 }

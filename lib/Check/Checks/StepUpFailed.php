@@ -21,6 +21,7 @@ use OCA\IntrusionDetection\Check\ResponseType;
 use OCA\IntrusionDetection\Check\Severity;
 use OCA\IntrusionDetection\Confirm\EmailCodes;
 use OCA\IntrusionDetection\Confirm\StepUpPolicy;
+use OCA\IntrusionDetection\Confirm\StepUpService;
 use OCA\IntrusionDetection\Db\Detection;
 use OCA\IntrusionDetection\Detection\DetectionDraft;
 use OCA\IntrusionDetection\Explain\DateFormatter;
@@ -75,7 +76,7 @@ final class StepUpFailed implements ICheck, IExplainsDetection, IExplainsToUser,
 				shortName: $l->t('Confirmation failed'),
 				summary: $l->t('A login that needed extra confirmation was not confirmed.'),
 				detects: $l->t('Someone logged in with the correct password, but the login needed extra confirmation, for example because it came from an address that took part in an attack. Nextcloud sent a code to the account\'s email address. Whoever entered wrong codes again and again knows the password, but cannot read the mailbox.'),
-				decides: $l->t('Fires after %1$s wrong codes, when the login was not confirmed within {step_up_session_ttl}, or when an administrator rejected it. Only wrong codes block the address.', [(string)EmailCodes::MAX_ATTEMPTS]),
+				decides: $l->t('Fires after %1$s wrong codes, when the login was not confirmed within %2$s, or when an administrator rejected it. Only wrong codes block the address.', [(string)EmailCodes::MAX_ATTEMPTS, TextRenderer::duration(StepUpService::SESSION_TTL, $l)]),
 				wrong: $l->t('Someone who mistypes the code several times, or who waits too long for the email. Their login is ended and they are asked whether it was them; they can log in again. Blocking the address can be switched off for this check with occ.'),
 				data: $l->t('Detections: the account, the address, why the login needed confirmation and how it failed. The code itself is never stored: only a hash of it is kept in the session until it is used or expires.'),
 			),

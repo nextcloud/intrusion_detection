@@ -71,9 +71,6 @@ class StepUpPolicyTest extends TestCase {
 			$this->assertSame(['refuse', 'allow_notify', 'allow_force_change'], $definition->choices);
 			$this->assertLessThanOrEqual(64, strlen($policy->settingKey()));
 		}
-		$this->assertSame(600, $globals->get(GlobalSettings::STEP_UP_CODE_TTL)?->default);
-		$this->assertSame(900, $globals->get(GlobalSettings::STEP_UP_SESSION_TTL)?->default);
-		$this->assertSame(30 * 86400, $globals->get(GlobalSettings::TRUSTED_NETWORK_DURATION)?->default);
 		$this->assertTrue(GlobalSettings::isInternal(GlobalSettings::STEP_UP_SESSIONS_UNTIL));
 	}
 

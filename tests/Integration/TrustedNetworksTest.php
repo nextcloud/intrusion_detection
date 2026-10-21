@@ -126,7 +126,7 @@ class TrustedNetworksTest extends IntegrationTestCase {
 	private function networks(): TrustedNetworks {
 		$time = $this->createMock(ITimeFactory::class);
 		$time->method('getTime')->willReturnCallback(fn (): int => $this->now);
-		return new TrustedNetworks(Server::get(TrustedNetworkMapper::class), $this->settings(), $time, Server::get(AuditLogger::class));
+		return new TrustedNetworks(Server::get(TrustedNetworkMapper::class), $time, Server::get(AuditLogger::class));
 	}
 
 	private function settings(): Settings {

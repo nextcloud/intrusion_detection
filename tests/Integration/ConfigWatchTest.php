@@ -221,7 +221,7 @@ class ConfigWatchTest extends AdminChangeTestCase {
 	public function testOwnSettingsAreNamedAsOnTheAdminPage(): void {
 		$watched = Server::get(WatchedSettings::class);
 		$this->assertSame('Intrusion detection: "Different accounts" of "Credential stuffing"', $watched->label(WatchedSettings::ownKey(Keys::param('credential_stuffing', 'min_names')), $this->l()));
-		$this->assertSame('Intrusion detection: Email codes are valid for', $watched->label(WatchedSettings::ownKey(GlobalSettings::STEP_UP_CODE_TTL), $this->l()));
+		$this->assertSame('Intrusion detection: First block', $watched->label(WatchedSettings::ownKey(GlobalSettings::BAN_DURATION_1), $this->l()));
 		$this->assertSame('Intrusion detection: not_a_setting', $watched->label(WatchedSettings::ownKey('not_a_setting'), $this->l()));
 	}
 

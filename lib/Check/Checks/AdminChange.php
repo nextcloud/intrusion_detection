@@ -10,6 +10,7 @@ declare(strict_types=1);
 namespace OCA\IntrusionDetection\Check\Checks;
 
 use OCA\IntrusionDetection\AdminChange\ActorResolver;
+use OCA\IntrusionDetection\AdminChange\ApprovalService;
 use OCA\IntrusionDetection\AdminChange\Approvers;
 use OCA\IntrusionDetection\AdminChange\WatchedSettings;
 use OCA\IntrusionDetection\AppInfo\Application;
@@ -30,6 +31,7 @@ use OCA\IntrusionDetection\Explain\DateFormatter;
 use OCA\IntrusionDetection\Explain\DetectionFacts;
 use OCA\IntrusionDetection\Explain\IExplainsDetection;
 use OCA\IntrusionDetection\Explain\IHeadlinesDetection;
+use OCA\IntrusionDetection\Explain\TextRenderer;
 use OCP\IL10N;
 use Psr\Container\ContainerInterface;
 
@@ -84,7 +86,7 @@ final class AdminChange implements ICheck, IExplainsDetection, IHeadlinesDetecti
 				shortName: $l->t('Admin change'),
 				summary: $l->t('Someone got administrator rights, an app was switched on or off, or a security setting changed.'),
 				detects: $l->t('An intruder who gets into an administrator account usually makes themselves at home: they give a second account administrator rights, switch on an app, or weaken a security setting so that the next step is easier. This check tells every administrator about such changes, including the one who made them. If that account was taken over, its owner still learns what was done in their name.'),
-				decides: $l->t('Fires on every change: an account added to the admin group or to a group with delegated administration settings, a group administrator appointed, an account created by an administrator, an app switched on or off, and every change of the watched security settings. Changes in config.php are found by a check every 5 minutes. A second administrator must approve new administrators: {admin_change_require_approval}. A request for approval expires after {admin_change_approval_ttl}.'),
+				decides: $l->t('Fires on every change: an account added to the admin group or to a group with delegated administration settings, a group administrator appointed, an account created by an administrator, an app switched on or off, and every change of the watched security settings. Changes in config.php are found by a check every 5 minutes. A second administrator must approve new administrators: {admin_change_require_approval}. A request for approval expires after %s.', [TextRenderer::duration(ApprovalService::TTL, $l)]),
 				wrong: $l->t('It reports changes, not attacks: most of them are your own work. Every administrator gets them, so that nobody has to wonder whether a change was planned. With approval switched on, administrators added on the command line (occ) and memberships that come from a user directory such as LDAP do not wait for approval: whoever can run occ already controls the server, and Nextcloud cannot undo a membership the directory sets. Both are still reported.'),
 				data: $l->t('Detections: who changed what and when, with the old and the new value. Values that Nextcloud treats as secret are never stored or shown; a keyed fingerprint tells that they changed. Requests for approval: who asked, for whom, the decision and who made it, kept 90 days after the decision.'),
 			),

@@ -10,26 +10,26 @@ declare(strict_types=1);
 namespace OCA\IntrusionDetection\TrustedNetwork;
 
 use OCA\IntrusionDetection\Audit\AuditLogger;
-use OCA\IntrusionDetection\Config\GlobalSettings;
-use OCA\IntrusionDetection\Config\Settings;
 use OCA\IntrusionDetection\Db\TrustedNetworkMapper;
 use OCA\IntrusionDetection\Net\SourceKey;
 use OCP\AppFramework\Utility\ITimeFactory;
 
 /**
  * The networks (/24 for IPv4, /64 for IPv6) users confirmed as their own by
- * answering "Yes, it was me" (concept section 11.8), each for
- * `trusted_network_duration`. Logins from a trusted network skip the extra
- * confirmation for flagged addresses, and login requests started there are
- * not reported as phishing at medium severity.
+ * answering "Yes, it was me" (concept section 11.8), each for DURATION.
+ * Logins from a trusted network skip the extra confirmation for flagged
+ * addresses, and login requests started there are not reported as phishing
+ * at medium severity.
  *
  * Read only where a decision needs it (a flagged address at login, a login
  * request), with one indexed query.
  */
 class TrustedNetworks implements ITrustedNetworks {
+	/** Seconds a network stays trusted */
+	public const DURATION = 30 * 86400;
+
 	public function __construct(
 		private readonly TrustedNetworkMapper $mapper,
-		private readonly Settings $settings,
 		private readonly ITimeFactory $timeFactory,
 		private readonly AuditLogger $audit,
 	) {
@@ -41,14 +41,14 @@ class TrustedNetworks implements ITrustedNetworks {
 	}
 
 	/**
-	 * Trust the network of an address for the account, from now on for the
-	 * configured duration.
+	 * Trust the network of an address for the account, from now on for
+	 * DURATION.
 	 *
 	 * @return int when the trust ends
 	 */
 	public function trust(string $uid, SourceKey $source, ?int $detectionId = null): int {
 		$now = $this->timeFactory->getTime();
-		$until = $now + $this->settings->getInt(GlobalSettings::TRUSTED_NETWORK_DURATION);
+		$until = $now + self::DURATION;
 		$this->mapper->trust($uid, $source->netKey, $detectionId, $now, $until);
 		$this->audit->log('network %s trusted by %s until %s (detection %s)', ['network' => $source->netKey, 'uid' => $uid, 'until' => (string)$until, 'detection' => $detectionId]);
 		return $until;

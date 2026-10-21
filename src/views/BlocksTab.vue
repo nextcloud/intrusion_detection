@@ -50,7 +50,6 @@ const decoysObserveWhileLearning = computed(() => state.status?.learning.active 
 
 const escalationSettings = computed(() => state.settings.filter((s) => ['ban_duration_1', 'ban_duration_2', 'ban_duration_3', 'ban_history_days', 'ban_net_after'].includes(s.name)))
 const valveSettings = computed(() => state.settings.filter((s) => s.name === 'ban_shared_ip_users'))
-const otherBlockSettings = computed(() => state.settings.filter((s) => s.group === 'blocks' && !escalationSettings.value.includes(s) && !valveSettings.value.includes(s)))
 
 /**
  * Load the first page.
@@ -299,13 +298,6 @@ function openDetection(ban: Ban) {
 						</p>
 					</template>
 				</SettingsGroup>
-			</section>
-
-			<section v-if="otherBlockSettings.length > 0" :class="$style.card" aria-labelledby="ids-flag-heading">
-				<h3 id="ids-flag-heading" :class="$style.card__heading">
-					{{ t(APP_ID, 'After an attack') }}
-				</h3>
-				<SettingsGroup :settings="otherBlockSettings" />
 			</section>
 
 			<NcNoteCard type="info">

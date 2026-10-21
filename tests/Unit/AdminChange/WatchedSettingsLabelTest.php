@@ -50,9 +50,9 @@ class WatchedSettingsLabelTest extends TestCase {
 	}
 
 	public function testAGlobalSettingUsesTheLabelOfTheSettingsTab(): void {
-		$label = Server::get(GlobalSettingsPresenter::class)->label(GlobalSettings::STEP_UP_CODE_TTL, $this->l);
+		$label = Server::get(GlobalSettingsPresenter::class)->label(GlobalSettings::BAN_DURATION_1, $this->l);
 		$this->assertNotNull($label);
-		$this->assertSame('Intrusion detection: ' . $label, $this->watched->label('intrusion_detection:' . GlobalSettings::STEP_UP_CODE_TTL, $this->l));
+		$this->assertSame('Intrusion detection: ' . $label, $this->watched->label('intrusion_detection:' . GlobalSettings::BAN_DURATION_1, $this->l));
 	}
 
 	public function testOtherAppsNameTheAppAndTheKey(): void {

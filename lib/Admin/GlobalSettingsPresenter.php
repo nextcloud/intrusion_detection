@@ -9,13 +9,20 @@ declare(strict_types=1);
 
 namespace OCA\IntrusionDetection\Admin;
 
+use OCA\IntrusionDetection\AdminChange\ApprovalService;
 use OCA\IntrusionDetection\Check\ParamText;
 use OCA\IntrusionDetection\Config\GlobalSettings;
 use OCA\IntrusionDetection\Config\Settings;
+use OCA\IntrusionDetection\Confirm\EmailCodes;
+use OCA\IntrusionDetection\Confirm\Methods\AdminApprovalMethod;
 use OCA\IntrusionDetection\Confirm\StepUpPolicy;
+use OCA\IntrusionDetection\Confirm\StepUpService;
+use OCA\IntrusionDetection\Explain\TextRenderer;
+use OCA\IntrusionDetection\KnownDevice\KnownDevices;
 use OCA\IntrusionDetection\ResponseDefinitions;
 use OCA\IntrusionDetection\Risk\RiskAssessment;
 use OCA\IntrusionDetection\Risk\RiskScorer;
+use OCA\IntrusionDetection\TrustedNetwork\TrustedNetworks;
 use OCP\IL10N;
 
 /**
@@ -69,8 +76,8 @@ class GlobalSettingsPresenter {
 	}
 
 	/**
-	 * The label an admin sees for a global setting, e.g. "Email codes are
-	 * valid for"; null for a name that is not a global setting.
+	 * The label an admin sees for a global setting, e.g. "First block"; null
+	 * for a name that is not a global setting.
 	 */
 	public function label(string $name, IL10N $l): ?string {
 		return $this->globals->get($name) === null ? null : $this->describe($name, $l)[0]->label;
@@ -101,6 +108,13 @@ class GlobalSettingsPresenter {
 				'safetyValve' => $l->t('An address from which at least {ban_shared_ip_users} different people whose accounts are at least 3 days old (or administrators) logged in successfully in the last 24 hours is never blocked, and neither is a network from which that many people logged in. Accounts registered in the last days do not count, so nobody can open the valve by creating a few. That is typical for an office network or a reverse proxy, and blocking it would lock everyone out. You are notified instead.'),
 				'safetyValveOff' => $l->t('The safety valve is off: an address is blocked even when many people log in from it. A company network or a misconfigured reverse proxy could lock everyone out.'),
 				'neverBlocked' => $l->t('Addresses on the brute-force allowlist and the server\'s own addresses are never blocked, and no network that contains one. Checks also never block an address an administrator logged in from in the last 7 days (except for trap URLs and injection probes), nor, for attacks on one account, an address from which that account confirmed a login in the last 7 days (with a second factor, an email code, an administrator\'s approval or a remembered device), nor a private address many people or an administrator log in from while no trusted proxies are configured. You can still block these by hand.'),
+				'confirmationTimes' => $l->t('Email codes are valid for %1$s. A login that is not confirmed within %2$s is ended, and the user is told. A login waits for an administrator\'s approval at most %3$s. When a user answers "Yes, it was me", their network is trusted for %4$s.', [
+					TextRenderer::duration(EmailCodes::TTL, $l),
+					TextRenderer::duration(StepUpService::SESSION_TTL, $l),
+					TextRenderer::duration(AdminApprovalMethod::TTL, $l),
+					TextRenderer::duration(TrustedNetworks::DURATION, $l),
+				]),
+				'knownDeviceTime' => $l->t('A remembered browser that is not used for %s is forgotten.', [TextRenderer::duration(KnownDevices::DURATION, $l)]),
 				'riskPoints' => $l->t('Points: %1$s for an attack tool or scripting library on a failed login in the last 24 hours, %2$s for a Tor exit node, %3$s for a cloud hosting network, %4$s for a blocklist that only observes, %5$s for a trap URL or reserved name in the last 24 hours, %6$s for an address marked after an attack, %7$s for every %8$s failed logins in the last hour (at most %9$s times), and %10$s for an office network.', [
 					(string)RiskScorer::POINTS[RiskAssessment::FACT_ATTACK_TOOL],
 					(string)RiskScorer::POINTS[RiskAssessment::FACT_TOR],
@@ -137,18 +151,6 @@ class GlobalSettingsPresenter {
 			}
 		}
 		return match ($name) {
-			GlobalSettings::STEP_UP_CODE_TTL => [new ParamText(
-				$l->t('Email codes are valid for'),
-				$l->t('How long the 6-digit code that confirms a login is valid after it was sent.'),
-			), self::GROUP_STEP_UP],
-			GlobalSettings::STEP_UP_SESSION_TTL => [new ParamText(
-				$l->t('A login must be confirmed within'),
-				$l->t('A login that waits longer for its confirmation is ended within a few minutes, also when nobody comes back to it, and the user is told.'),
-			), self::GROUP_STEP_UP],
-			GlobalSettings::TRUSTED_NETWORK_DURATION => [new ParamText(
-				$l->t('Trust a network for'),
-				$l->t('When a user answers "Yes, it was me", their network is trusted this long: logins from there do not need extra confirmation because of an attack from that network.'),
-			), self::GROUP_STEP_UP],
 			GlobalSettings::ENABLED => [new ParamText(
 				$l->t('Intrusion detection'),
 				$l->t('When it is off, no check runs, nothing is recorded and existing blocks are not enforced.'),
@@ -184,10 +186,6 @@ class GlobalSettingsPresenter {
 				$l->t('Addresses from which this many different people whose accounts are at least 3 days old logged in successfully in the last 24 hours are not blocked. 0 turns this safety valve off.'),
 				$l->t('people'),
 			), self::GROUP_BLOCKS],
-			GlobalSettings::FLAG_DURATION => [new ParamText(
-				$l->t('Extra confirmation after an attack'),
-				$l->t('How long successful logins from an attacking address need extra confirmation. A guessed password is remembered as long, but at most a day.'),
-			), self::GROUP_BLOCKS],
 			GlobalSettings::RETENTION_DETECTIONS_DAYS => [new ParamText(
 				$l->t('Keep detections for'),
 				$l->t('Older detections are deleted. Blocks are kept 30 days after they end, for escalation.'),
@@ -197,10 +195,6 @@ class GlobalSettingsPresenter {
 				$l->t('Firewall export formats'),
 				$l->t('The files written for your firewall or fail2ban. bans.log gets a line at once for every block; the other files are rewritten by the background job after a block changes, as often as cron runs (at most once a minute). They are only written when an export directory is set in config.php.'),
 			), self::GROUP_EXPORT],
-			GlobalSettings::BLOCKLIST_SYNC_INTERVAL => [new ParamText(
-				$l->t('Download lists every'),
-				$l->t('How often the enabled blocklists and network lists are downloaded again. A list can set its own interval.'),
-			), self::GROUP_BLOCKLISTS],
 			GlobalSettings::BLOCKLIST_MAX_ENTRIES => [new ParamText(
 				$l->t('Largest accepted list'),
 				$l->t('A downloaded list with more entries than this is refused, so a broken or hostile list cannot fill the database.'),
@@ -216,11 +210,7 @@ class GlobalSettingsPresenter {
 			), self::GROUP_NOTIFICATIONS],
 			GlobalSettings::ADMIN_CHANGE_REQUIRE_APPROVAL => [new ParamText(
 				$l->t('A second administrator approves new administrators'),
-				$l->t('Someone added to the admin group through the web interface or the API is taken out again until another administrator approves. occ and directory-backed groups are not held back, only reported. Needs at least two administrators.'),
-			), self::GROUP_APPROVALS],
-			GlobalSettings::ADMIN_CHANGE_APPROVAL_TTL => [new ParamText(
-				$l->t('Approval requests expire after'),
-				$l->t('A request nobody approved in this time is dropped, and the requester is told.'),
+				$l->t('Someone added to the admin group through the web interface or the API is taken out again until another administrator approves. A request nobody approves within %s is dropped, and the requester is told. occ and directory-backed groups are not held back, only reported. Needs at least two administrators.', [TextRenderer::duration(ApprovalService::TTL, $l)]),
 			), self::GROUP_APPROVALS],
 			GlobalSettings::DIGEST_FREQUENCY => [new ParamText(
 				$l->t('Send the digest'),
@@ -242,17 +232,9 @@ class GlobalSettingsPresenter {
 				$l->t('An administrator can approve logins'),
 				$l->t('When nothing else can confirm a login, it waits until an administrator approves it from the notification or this page. The account itself can never approve its own login.'),
 			), self::GROUP_STEP_UP],
-			GlobalSettings::STEP_UP_ADMIN_APPROVAL_TTL => [new ParamText(
-				$l->t('A login waits for approval at most'),
-				$l->t('If no administrator decides in this time, the login ends and the person can try again.'),
-			), self::GROUP_STEP_UP],
 			GlobalSettings::KNOWN_DEVICE_ENABLED => [new ParamText(
 				$l->t('Offer "Remember this device"'),
 				$l->t('After confirming a login with a code or an administrator\'s approval, users may remember the browser, so that later logins from it are confirmed without asking.'),
-			), self::GROUP_STEP_UP],
-			GlobalSettings::KNOWN_DEVICE_DURATION => [new ParamText(
-				$l->t('Remember devices for'),
-				$l->t('A remembered browser that is not used for this long is forgotten.'),
 			), self::GROUP_STEP_UP],
 			GlobalSettings::HISTORY_RETENTION_DAYS => [new ParamText(
 				$l->t('Keep the security history for'),

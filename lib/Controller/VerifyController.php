@@ -11,8 +11,6 @@ namespace OCA\IntrusionDetection\Controller;
 
 use OCA\IntrusionDetection\AppInfo\Application;
 use OCA\IntrusionDetection\Check\Checks\StepUpFailed;
-use OCA\IntrusionDetection\Config\GlobalSettings;
-use OCA\IntrusionDetection\Config\Settings;
 use OCA\IntrusionDetection\Confirm\ConfirmationPolicy;
 use OCA\IntrusionDetection\Confirm\EmailCodes;
 use OCA\IntrusionDetection\Confirm\IConfirmationMethod;
@@ -89,7 +87,6 @@ class VerifyController extends Controller {
 		private readonly StepUpService $stepUps,
 		private readonly EmailCodes $codes,
 		private readonly ConfirmationPolicy $policy,
-		private readonly Settings $settings,
 		private readonly IURLGenerator $urlGenerator,
 		private readonly LocalRedirect $redirect,
 		private readonly IL10N $l,
@@ -340,7 +337,7 @@ class VerifyController extends Controller {
 
 	private function codePage(IUser $user, StepUpState $stepUp, string $redirectUrl, ?string $error = null, ?string $notice = null, int $status = Http::STATUS_OK): StandaloneTemplateResponse {
 		$masked = EmailCodes::mask((string)$user->getEMailAddress());
-		$valid = TextRenderer::duration($this->settings->getInt(GlobalSettings::STEP_UP_CODE_TTL), $this->l);
+		$valid = TextRenderer::duration(EmailCodes::TTL, $this->l);
 		$hasCode = $stepUp->hasMethod(IConfirmationMethod::EMAIL_CODE);
 		$limited = $hasCode && $this->codes->isLimited($user);
 		if ($limited && $stepUp->codeHash === null) {
@@ -363,7 +360,7 @@ class VerifyController extends Controller {
 			'askAdmin' => $this->approvalMethod($user, $stepUp) !== null,
 			'waiting' => $stepUp->approvalId !== null,
 			'canRemember' => $this->knownDevices->isEnabled(),
-			'rememberFor' => TextRenderer::duration($this->knownDevices->duration(), $this->l),
+			'rememberFor' => TextRenderer::duration(KnownDevices::DURATION, $this->l),
 			'confirmAction' => $this->urlGenerator->linkToRoute(Application::APP_ID . '.Verify.confirm'),
 			'resendAction' => $this->urlGenerator->linkToRoute(Application::APP_ID . '.Verify.resend'),
 			'secondFactorAction' => $this->urlGenerator->linkToRoute(Application::APP_ID . '.Verify.secondFactor'),
@@ -395,7 +392,7 @@ class VerifyController extends Controller {
 			'hasCode' => $stepUp->hasMethod(IConfirmationMethod::EMAIL_CODE),
 			'codeUrl' => $this->urlGenerator->linkToRoute(Application::APP_ID . '.Verify.show', array_filter(['use' => self::MODE_CODE, 'redirect_url' => $safeRedirect])),
 			'canRemember' => $this->knownDevices->isEnabled(),
-			'rememberFor' => TextRenderer::duration($this->knownDevices->duration(), $this->l),
+			'rememberFor' => TextRenderer::duration(KnownDevices::DURATION, $this->l),
 			'statusUrl' => $this->urlGenerator->linkToRoute(Application::APP_ID . '.Verify.approvalStatus'),
 			'pollInterval' => self::POLL_INTERVAL,
 			'continueAction' => $this->urlGenerator->linkToRoute(Application::APP_ID . '.Verify.continueApproval'),

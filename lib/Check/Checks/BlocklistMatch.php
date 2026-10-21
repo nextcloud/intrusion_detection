@@ -10,6 +10,7 @@ declare(strict_types=1);
 namespace OCA\IntrusionDetection\Check\Checks;
 
 use OCA\IntrusionDetection\Address\Verdict;
+use OCA\IntrusionDetection\Blocklist\BlocklistSync;
 use OCA\IntrusionDetection\Check\Category;
 use OCA\IntrusionDetection\Check\CheckDefinition;
 use OCA\IntrusionDetection\Check\CheckTexts;
@@ -22,6 +23,7 @@ use OCA\IntrusionDetection\Check\Severity;
 use OCA\IntrusionDetection\Db\Detection;
 use OCA\IntrusionDetection\Detection\DetectionDraft;
 use OCA\IntrusionDetection\Explain\IExplainsDetection;
+use OCA\IntrusionDetection\Explain\TextRenderer;
 use OCA\IntrusionDetection\Net\SourceKey;
 use OCP\IL10N;
 
@@ -54,7 +56,7 @@ final class BlocklistMatch implements ICheck, IExplainsDetection {
 				shortName: $l->t('Known bad address'),
 				summary: $l->t('Refuses requests from networks on public blocklists, such as Spamhaus DROP.'),
 				detects: $l->t('Some organisations publish lists of networks that are run by criminals or send nothing but attacks. Nextcloud can download such lists and refuse every request from these networks, before they can try a single password.'),
-				decides: $l->t('Every list you switch on is downloaded every {blocklist_sync_interval}. A list set to Protect refuses all requests from an address on it. A list set to Observe only counts them. A failed login from an address on a list is recorded, at most once per address and hour. Lists with more than {blocklist_max_entries} entries are not used.'),
+				decides: $l->t('Every list you switch on is downloaded every %1$s. A list set to Protect refuses all requests from an address on it. A list set to Observe only counts them. A failed login from an address on a list is recorded, at most once per address and hour. Lists with more than {blocklist_max_entries} entries are not used.', [TextRenderer::duration(BlocklistSync::INTERVAL, $l)]),
 				wrong: $l->t('A list can contain a network that honest people use, for example after it changed hands. Add such addresses to the brute-force allowlist, which always wins, or set the list to Observe. Private and local networks are never taken from a list.'),
 				data: $l->t('The downloaded address ranges. Per list and day, how often an address on the list was seen, and the last 20 of these addresses. Downloading a list sends no data about your server.'),
 			),

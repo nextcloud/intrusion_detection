@@ -13,6 +13,7 @@ use OCA\IntrusionDetection\AppInfo\Application;
 use OCA\IntrusionDetection\Check\Checks\StepUpFailed;
 use OCA\IntrusionDetection\Confirm\EmailCodes;
 use OCA\IntrusionDetection\Confirm\IConfirmationMethod;
+use OCA\IntrusionDetection\Confirm\StepUpService;
 use OCA\IntrusionDetection\Confirm\StepUpState;
 use OCA\IntrusionDetection\Controller\VerifyController;
 use OCA\IntrusionDetection\Db\BanMapper;
@@ -298,12 +299,11 @@ class VerifyFlowTest extends StepUpTestCase {
 		}
 	}
 
-	public function testTheTimeLimitIsTheConfiguredOne(): void {
-		$this->settings->setGlobal('step_up_session_ttl', 300);
+	public function testTheTimeLimits(): void {
 		$this->pendingLogin();
 		$stepUp = $this->stepUp();
-		$this->assertSame(300, ($stepUp?->deadline ?? 0) - ($stepUp?->started ?? 0));
-		$this->assertLessThanOrEqual(Server::get(ITimeFactory::class)->getTime() + 600, $stepUp?->codeExpires);
+		$this->assertSame(StepUpService::SESSION_TTL, ($stepUp?->deadline ?? 0) - ($stepUp?->started ?? 0));
+		$this->assertLessThanOrEqual(Server::get(ITimeFactory::class)->getTime() + EmailCodes::TTL, $stepUp?->codeExpires);
 	}
 
 	private function pendingLogin(): void {

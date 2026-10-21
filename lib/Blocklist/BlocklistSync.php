@@ -49,6 +49,8 @@ use Psr\Log\LoggerInterface;
  * same list or the state at the same time.
  */
 class BlocklistSync {
+	/** Seconds between downloads of a list that sets no interval of its own */
+	public const INTERVAL = 21600;
 	public const MAX_BYTES = 10 * 1024 * 1024;
 	public const MAX_MALFORMED_SHARE = 0.01;
 	/** Seconds the previous version is kept after a switch */
@@ -82,12 +84,11 @@ class BlocklistSync {
 	 */
 	public function syncDue(): array {
 		$now = $this->timeFactory->getTime();
-		$interval = $this->settings->getInt(GlobalSettings::BLOCKLIST_SYNC_INTERVAL);
 		$due = [];
 		foreach ($this->activeSources() as $source) {
 			$attempt = $this->states->get($source->id)->attemptAt;
 			// A minute of slack, so a job that runs a little early does not skip a whole interval.
-			if ($attempt === null || $now - $attempt >= $source->effectiveInterval($interval) - 60) {
+			if ($attempt === null || $now - $attempt >= $source->effectiveInterval() - 60) {
 				$due[] = $source;
 			}
 		}

@@ -10,8 +10,6 @@ declare(strict_types=1);
 namespace OCA\IntrusionDetection\Confirm;
 
 use OCA\IntrusionDetection\AppInfo\Application;
-use OCA\IntrusionDetection\Config\GlobalSettings;
-use OCA\IntrusionDetection\Config\Settings;
 use OCA\IntrusionDetection\Explain\TextRenderer;
 use OCA\IntrusionDetection\Notification\MailContent;
 use OCA\IntrusionDetection\Notification\Mails;
@@ -29,9 +27,9 @@ use OCP\Security\ISecureRandom;
  * The 6-digit codes that confirm a login by email (concept section 11.5).
  *
  * A code comes from {@see ISecureRandom}; only its {@see IHasher} hash is
- * kept, in the session's step-up state, and it is valid `step_up_code_ttl`
- * seconds. A login gets MAX_ATTEMPTS tries in all and MAX_RESENDS new codes
- * per RESEND_WINDOW. An account gets at most MAX_MAILS codes per MAIL_WINDOW
+ * kept, in the session's step-up state, and it is valid TTL seconds. A
+ * login gets MAX_ATTEMPTS tries in all and MAX_RESENDS new codes per
+ * RESEND_WINDOW. An account gets at most MAX_MAILS codes per MAIL_WINDOW
  * across all its logins, so that apps or an attacker with the password
  * cannot flood its mailbox. The tries are counted on the server too
  * ({@see UnconfirmedSessions::takeCodeAttempt()}), before the code is
@@ -41,6 +39,7 @@ use OCP\Security\ISecureRandom;
  */
 class EmailCodes {
 	public const LENGTH = 6;
+	public const TTL = 600;
 	public const MAX_ATTEMPTS = 5;
 	public const MAX_RESENDS = 3;
 	public const RESEND_WINDOW = 600;
@@ -62,7 +61,6 @@ class EmailCodes {
 		private readonly IHasher $hasher,
 		private readonly Mails $mails,
 		private readonly UserMessages $messages,
-		private readonly Settings $settings,
 		private readonly IEmailValidator $emailValidator,
 		private readonly IConfig $config,
 		private readonly ITimeFactory $timeFactory,
@@ -101,7 +99,7 @@ class EmailCodes {
 		}
 		$this->userConfig->setValueArray($user->getUID(), Application::APP_ID, self::USER_KEY_MAILS, [...$sent, $this->timeFactory->getTime()], lazy: true);
 		$state->codeHash = $this->hasher->hash($code);
-		$state->codeExpires = $this->timeFactory->getTime() + $this->settings->getInt(GlobalSettings::STEP_UP_CODE_TTL);
+		$state->codeExpires = $this->timeFactory->getTime() + self::TTL;
 		return true;
 	}
 
@@ -208,7 +206,7 @@ class EmailCodes {
 
 	private function mail(IUser $user, StepUpState $state, #[\SensitiveParameter] string $code): MailContent {
 		$l = $this->messages->l10nFor($user);
-		$valid = TextRenderer::duration($this->settings->getInt(GlobalSettings::STEP_UP_CODE_TTL), $l);
+		$valid = TextRenderer::duration(self::TTL, $l);
 		$paragraphs = [
 			$l->t('Someone just logged in to your account %s with your password, and Nextcloud needs to confirm that it is you. Enter this code on the confirmation page.', [$user->getUID()]),
 			$l->t('The code is valid for %s.', [$valid]),

@@ -38,7 +38,6 @@ class LoginNotices {
 		private readonly IUserConfig $userConfig,
 		private readonly SessionState $state,
 		private readonly KnownDeviceMapper $devices,
-		private readonly KnownDevices $knownDevices,
 		private readonly ITimeFactory $timeFactory,
 	) {
 	}
@@ -72,7 +71,7 @@ class LoginNotices {
 			return;
 		}
 		$now = $this->timeFactory->getTime();
-		if ($device === null && $this->devices->forUser($uid, $now - $this->knownDevices->duration(), 1) !== []) {
+		if ($device === null && $this->devices->forUser($uid, $now - KnownDevices::DURATION, 1) !== []) {
 			return;
 		}
 		$this->state->set(SessionState::LOGIN_NOTICE, ['uid' => $uid, 'since' => $since]);

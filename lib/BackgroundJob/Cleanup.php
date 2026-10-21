@@ -132,7 +132,7 @@ class Cleanup extends TimedJob {
 	 * when something ended.
 	 */
 	private function flagEndedBans(int $now): void {
-		$since = max($this->settings->getInt(GlobalSettings::BANS_FLAGGED_UNTIL), $now - $this->settings->getInt(GlobalSettings::FLAG_DURATION));
+		$since = max($this->settings->getInt(GlobalSettings::BANS_FLAGGED_UNTIL), $now - FlaggedSources::DURATION);
 		$ended = $this->bans->findEndedBetween($since, $now, self::ENDED_BANS_PER_RUN);
 		if ($ended === []) {
 			return;

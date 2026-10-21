@@ -11,8 +11,6 @@ namespace OCA\IntrusionDetection\AdminChange;
 
 use OCA\IntrusionDetection\AppInfo\Application;
 use OCA\IntrusionDetection\Audit\AuditLogger;
-use OCA\IntrusionDetection\Config\GlobalSettings;
-use OCA\IntrusionDetection\Config\Settings;
 use OCA\IntrusionDetection\Db\Approval;
 use OCA\IntrusionDetection\Db\ApprovalMapper;
 use OCA\IntrusionDetection\Notification\Notifier;
@@ -52,6 +50,8 @@ class ApprovalService {
 	public const MAX_PENDING = 100;
 	/** Logins of one account beyond this many waiting ones are not stored */
 	public const MAX_PENDING_LOGINS = 3;
+	/** Seconds a request for a new administrator's approval waits before it expires */
+	public const TTL = 604800;
 	/** Decided requests are kept this long */
 	public const RETENTION_DAYS = 90;
 
@@ -67,7 +67,6 @@ class ApprovalService {
 		private readonly GrantPermit $permit,
 		private readonly IGroupManager $groupManager,
 		private readonly IUserManager $userManager,
-		private readonly Settings $settings,
 		private readonly INotificationManager $notifications,
 		private readonly IURLGenerator $urlGenerator,
 		private readonly AuditLogger $audit,
@@ -105,7 +104,7 @@ class ApprovalService {
 		$approval->setIp($ip);
 		$approval->setStatus(Approval::STATUS_PENDING);
 		$approval->setCreatedAt($now);
-		$approval->setExpiresAt($now + $this->settings->getInt(GlobalSettings::ADMIN_CHANGE_APPROVAL_TTL));
+		$approval->setExpiresAt($now + self::TTL);
 		$approval = $this->mapper->insert($approval);
 
 		$this->audit->log('approval requested: %s to join %s, asked by %s (request %s)', [

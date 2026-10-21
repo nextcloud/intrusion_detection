@@ -27,17 +27,21 @@ use OCP\IUser;
  * when `step_up_admin_approval` is on. The login waits on the verify page,
  * which asks for the request's status every few seconds; the
  * administrators get a notification that opens the admin page. The request
- * expires after `step_up_admin_approval_ttl`, and the login may wait that
- * long. A login asks once, and only before its own deadline: the step-up
- * rule ends it on the first request after that, so the wait never exceeds
- * `step_up_session_ttl` plus one approval's time. When its request was
- * rejected or has expired, the login ends.
+ * expires after TTL, and the login may wait that long. A login asks once,
+ * and only before its own deadline: the step-up rule ends it on the first
+ * request after that, so the wait never exceeds
+ * {@see \OCA\IntrusionDetection\Confirm\StepUpService::SESSION_TTL} plus
+ * one approval's time. When its request was rejected or has expired, the
+ * login ends.
  *
  * The rules of {@see ApprovalService} apply: the account never approves
  * its own login, and only an enabled member of the admin group decides. It
  * is offered only when such an administrator other than the account exists.
  */
 class AdminApprovalMethod implements IConfirmationMethod {
+	/** Seconds a login waits for an administrator's approval */
+	public const TTL = 1800;
+
 	public const STATUS_NONE = 'none';
 	public const STATUS_PENDING = 'pending';
 	public const STATUS_APPROVED = 'approved';
@@ -80,8 +84,7 @@ class AdminApprovalMethod implements IConfirmationMethod {
 	 */
 	#[\Override]
 	public function begin(IUser $user, StepUpState $state): string {
-		$ttl = $this->settings->getInt(GlobalSettings::STEP_UP_ADMIN_APPROVAL_TTL);
-		$approval = $this->approvals->requestLogin($user, $state->ip, $ttl);
+		$approval = $this->approvals->requestLogin($user, $state->ip, self::TTL);
 		if ($approval === null) {
 			return self::UNAVAILABLE;
 		}

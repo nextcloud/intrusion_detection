@@ -171,7 +171,7 @@ class LoginNoticesTest extends StepUpTestCase {
 	}
 
 	private function notices(): LoginNotices {
-		return new LoginNotices(Server::get(IUserConfig::class), $this->state, Server::get(KnownDeviceMapper::class), $this->knownDevices(), Server::get(ITimeFactory::class));
+		return new LoginNotices(Server::get(IUserConfig::class), $this->state, Server::get(KnownDeviceMapper::class), Server::get(ITimeFactory::class));
 	}
 
 	private function noticeRule(): LoginNoticeRule {

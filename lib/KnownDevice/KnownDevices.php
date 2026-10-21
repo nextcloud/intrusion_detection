@@ -30,17 +30,18 @@ use OCP\IUser;
  *   the database holds only its keyed fingerprint ({@see Fingerprinter::device()}).
  * - At a login it is recognised with one indexed read, and its last use is
  *   updated at most once a day, which also renews the cookie.
- * - It is no longer known `known_device_duration` after its last use (at
- *   most MAX_DURATION), when the user removes it, when the user answers
- *   "No, it was not me", when the password changes, and when a credential of
- *   the account is used from two networks at once.
+ * - It is no longer known DURATION after its last use, when the user
+ *   removes it, when the user answers "No, it was not me", when the password
+ *   changes, and when a credential of the account is used from two networks
+ *   at once.
  *
  * An account has at most MAX_PER_USER devices; the least recently used
  * ones are dropped.
  */
 class KnownDevices implements IKnownDevices {
 	public const MAX_PER_USER = 50;
-	public const MAX_DURATION = 180 * 86400;
+	/** How long a device stays known after its last use */
+	public const DURATION = 180 * 86400;
 	/** The last use is written at most this often */
 	public const TOUCH_INTERVAL = 86400;
 
@@ -64,13 +65,6 @@ class KnownDevices implements IKnownDevices {
 	}
 
 	/**
-	 * How long a device stays known after its last use.
-	 */
-	public function duration(): int {
-		return max(86400, min(self::MAX_DURATION, $this->settings->getInt(GlobalSettings::KNOWN_DEVICE_DURATION)));
-	}
-
-	/**
 	 * The account's remembered device the current request comes from.
 	 * One indexed read per account and request, nothing without the cookie.
 	 */
@@ -79,7 +73,7 @@ class KnownDevices implements IKnownDevices {
 			$deviceId = $this->isEnabled() ? $this->cookie->read() : null;
 			$device = $deviceId === null
 				? null
-				: $this->mapper->find($uid, $this->hmac($deviceId), $this->timeFactory->getTime() - $this->duration());
+				: $this->mapper->find($uid, $this->hmac($deviceId), $this->timeFactory->getTime() - self::DURATION);
 			$this->recognised[$uid] = $device ?? false;
 		}
 		$device = $this->recognised[$uid];
@@ -90,7 +84,7 @@ class KnownDevices implements IKnownDevices {
 	 * Whether the account has any remembered device that is still known.
 	 */
 	public function hasDevices(string $uid): bool {
-		return $this->isEnabled() && $this->mapper->forUser($uid, $this->timeFactory->getTime() - $this->duration(), 1) !== [];
+		return $this->isEnabled() && $this->mapper->forUser($uid, $this->timeFactory->getTime() - self::DURATION, 1) !== [];
 	}
 
 	/**
@@ -105,7 +99,7 @@ class KnownDevices implements IKnownDevices {
 		$this->mapper->touch($device->id, $now);
 		$deviceId = $this->cookie->read();
 		if ($deviceId !== null) {
-			$this->cookie->write($deviceId, $now + $this->duration());
+			$this->cookie->write($deviceId, $now + self::DURATION);
 		}
 	}
 
@@ -127,7 +121,7 @@ class KnownDevices implements IKnownDevices {
 		$this->mapper->insert($uid, $this->hmac($deviceId), $family, $platform, $label, $source?->netKey, $now);
 		$this->mapper->deleteBeyond($uid, self::MAX_PER_USER);
 		unset($this->recognised[$uid]);
-		if (!$this->cookie->write($deviceId, $now + $this->duration())) {
+		if (!$this->cookie->write($deviceId, $now + self::DURATION)) {
 			$this->mapper->deleteByHmac($uid, $this->hmac($deviceId));
 			return false;
 		}
@@ -149,7 +143,7 @@ class KnownDevices implements IKnownDevices {
 			'createdAt' => $d->createdAt,
 			'lastSeenAt' => $d->lastSeenAt,
 			'current' => $d->id === $current,
-		], $this->mapper->forUser($uid, $this->timeFactory->getTime() - $this->duration(), max(1, min(self::MAX_PER_USER, $limit))));
+		], $this->mapper->forUser($uid, $this->timeFactory->getTime() - self::DURATION, max(1, min(self::MAX_PER_USER, $limit))));
 	}
 
 	/**
@@ -198,7 +192,7 @@ class KnownDevices implements IKnownDevices {
 	}
 
 	public function deleteExpired(): int {
-		return $this->mapper->deleteUnusedSince($this->timeFactory->getTime() - $this->duration());
+		return $this->mapper->deleteUnusedSince($this->timeFactory->getTime() - self::DURATION);
 	}
 
 	private function hmac(#[\SensitiveParameter] string $deviceId): string {

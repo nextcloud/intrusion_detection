@@ -13,6 +13,7 @@ use OCA\IntrusionDetection\Audit\AuditLogger;
 use OCA\IntrusionDetection\Check\Checks\StepUpFailed;
 use OCA\IntrusionDetection\Config\GlobalSettings;
 use OCA\IntrusionDetection\Confirm\AbandonedLogins;
+use OCA\IntrusionDetection\Confirm\StepUpService;
 use OCA\IntrusionDetection\Db\BanMapper;
 use OCA\IntrusionDetection\Db\LoginHistoryMapper;
 use OCA\IntrusionDetection\Db\StepUpSessionMapper;
@@ -133,7 +134,7 @@ class AbandonedLoginsTest extends StepUpTestCase {
 		$migration->postSchemaChange($this->createMock(IOutput::class), static fn () => null, []);
 
 		$deadlines = array_column($this->deadlines(), 'deadline', 'uid');
-		$this->assertSame($now - 60 + $this->settings->getInt(GlobalSettings::STEP_UP_SESSION_TTL), $deadlines[$this->alice->getUID()] ?? null, 'When it started, plus the time a login may wait');
+		$this->assertSame($now - 60 + StepUpService::SESSION_TTL, $deadlines[$this->alice->getUID()] ?? null, 'When it started, plus the time a login may wait');
 		$this->assertArrayHasKey($carol->getUID(), $deadlines);
 		$this->assertNull($deadlines[$carol->getUID()], 'Past its time: no deadline the job would act on');
 		$this->assertSame(LoginHistory::STEP_UP_FAILED, $history->forUser($carol->getUID(), 0)[0]->stepUp, 'Ended quietly');

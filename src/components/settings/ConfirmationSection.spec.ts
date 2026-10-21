@@ -82,14 +82,15 @@ async function mountTab(value = overview()) {
 describe('the login confirmation section', () => {
 	beforeEach(() => {
 		state.settings = [
-			setting('step_up_code_ttl', 'duration', 600),
 			setting('step_up_no_method_flagged_source', 'choice', 'refuse'),
 			setting('step_up_known_device_ok_for', 'string_list', ['flagged_source']),
 			setting('step_up_admin_approval', 'bool', true),
-			setting('step_up_admin_approval_ttl', 'duration', 1800),
 			setting('known_device_enabled', 'bool', true),
-			setting('known_device_duration', 'duration', 86400 * 180),
 		]
+		state.templates = {
+			confirmationTimes: 'Email codes are valid for 10 minutes.',
+			knownDeviceTime: 'A remembered browser that is not used for 180 days is forgotten.',
+		}
 	})
 
 	afterEach(() => {
@@ -114,7 +115,7 @@ describe('the login confirmation section', () => {
 		expect(wrapper.find('[data-test="policies"]').exists()).toBe(false)
 		expect(wrapper.get('[data-test="reasons-toggle"] button').attributes('aria-expanded')).toBe('false')
 		expect(wrapper.find('[data-test="methods"]').exists()).toBe(false)
-		expect(wrapper.text()).not.toContain('Label of step_up_code_ttl')
+		expect(wrapper.text()).not.toContain('Email codes are valid for')
 		expect(wrapper.find('[data-test="users-without"]').exists()).toBe(true)
 	})
 
@@ -173,15 +174,14 @@ describe('the login confirmation section', () => {
 		expect(steps[3]!.text()).toContain('Off')
 	})
 
-	test('it edits the reasons in their table and every other confirmation setting in its own card', async () => {
+	test('it edits the reasons in their table and says the time limits in their own cards', async () => {
 		const wrapper = await mountTab()
 		await wrapper.get('[data-test="reasons-toggle"] button').trigger('click')
 		await wrapper.get('[data-test="confirmation-more"] button').trigger('click')
 		expect(wrapper.get('[data-test="policies"]').text()).toContain('Login from an attacking address')
+		expect(wrapper.get('[data-test="confirmation-times"]').text()).toBe('Email codes are valid for 10 minutes.')
+		expect(wrapper.get('[data-test="known-device-time"]').text()).toBe('A remembered browser that is not used for 180 days is forgotten.')
 		const text = wrapper.text()
-		expect(text).toContain('Label of step_up_code_ttl')
-		expect(text).toContain('Label of known_device_duration')
-		expect(text).toContain('Label of step_up_admin_approval_ttl')
 		expect(text).not.toContain('Label of step_up_no_method_flagged_source')
 		expect(text).not.toContain('Label of step_up_known_device_ok_for')
 	})

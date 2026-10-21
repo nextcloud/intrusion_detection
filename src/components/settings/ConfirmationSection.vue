@@ -16,7 +16,6 @@ import NcIconSvgWrapper from '@nextcloud/vue/components/NcIconSvgWrapper'
 import NcLoadingIcon from '@nextcloud/vue/components/NcLoadingIcon'
 import NcNoteCard from '@nextcloud/vue/components/NcNoteCard'
 import SectionCard from '../common/SectionCard.vue'
-import SettingsGroup from '../common/SettingsGroup.vue'
 import ShowMore from '../common/ShowMore.vue'
 import SkeletonBlock from '../common/SkeletonBlock.vue'
 import MethodSteps from '../confirmation/MethodSteps.vue'
@@ -34,10 +33,6 @@ const APPROVALS_REFRESH = 30_000
 
 const KNOWN_DEVICE = 'known_device_enabled'
 const ADMIN_APPROVAL = 'step_up_admin_approval'
-/** Set with the switches of the decision card */
-const SWITCHES = [KNOWN_DEVICE, ADMIN_APPROVAL]
-/** Edited in the reasons table */
-const POLICY_SETTINGS = ['step_up_known_device_ok_for']
 
 const PRESETS: { value: ConfirmationPreset, label: () => string, description: () => string }[] = [
 	{ value: 'recommended', label: () => t(APP_ID, 'Recommended'), description: () => t(APP_ID, 'Refuse it when an attack is likely; otherwise let it in and tell the user and you.') },
@@ -54,11 +49,6 @@ const reasonsOpen = ref(false)
 const { announce } = useAnnouncer()
 let timer: ReturnType<typeof setInterval> | undefined
 
-const byName = (names: string[]) => state.settings.filter((s) => names.includes(s.name))
-const knownDeviceSettings = computed(() => byName(['known_device_duration']))
-const timeoutSettings = computed(() => state.settings.filter((s) => s.group === 'step_up'
-	&& !s.name.startsWith('step_up_no_method_')
-	&& ![...SWITCHES, ...POLICY_SETTINGS, 'known_device_duration'].includes(s.name)))
 const switchOn = (name: string) => state.settings.find((s) => s.name === name)?.value === true
 const approvalOn = computed(() => switchOn(ADMIN_APPROVAL))
 
@@ -339,14 +329,18 @@ onBeforeUnmount(stopTimer)
 							<template #description>
 								{{ t(APP_ID, 'Only a fingerprint of a random cookie is stored. Users see and remove their devices in their security settings. A device is forgotten when they answer "No, it was not me", when their password changes, and when their session seems stolen.') }}
 							</template>
-							<SettingsGroup :settings="knownDeviceSettings" />
+							<p :class="$style.limits" data-test="known-device-time">
+								{{ state.templates.knownDeviceTime }}
+							</p>
 						</SectionCard>
 
 						<SectionCard level="h4" :heading="t(APP_ID, 'Codes and time limits')" :icon="mdiTimerOutline">
 							<template #description>
 								{{ t(APP_ID, 'How long codes are valid, and how long a login may wait for its confirmation.') }}
 							</template>
-							<SettingsGroup :settings="timeoutSettings" />
+							<p :class="$style.limits" data-test="confirmation-times">
+								{{ state.templates.confirmationTimes }}
+							</p>
 						</SectionCard>
 					</div>
 				</div>
@@ -407,5 +401,10 @@ onBeforeUnmount(stopTimer)
 	grid-template-columns: repeat(auto-fit, minmax(min(100%, 380px), 1fr));
 	gap: calc(var(--default-grid-baseline) * 5);
 	align-items: start;
+}
+
+.limits {
+	margin: 0;
+	line-height: 1.5;
 }
 </style>

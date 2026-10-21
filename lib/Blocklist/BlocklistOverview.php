@@ -10,8 +10,6 @@ declare(strict_types=1);
 namespace OCA\IntrusionDetection\Blocklist;
 
 use OCA\IntrusionDetection\Address\AddressCache;
-use OCA\IntrusionDetection\Config\GlobalSettings;
-use OCA\IntrusionDetection\Config\Settings;
 use OCA\IntrusionDetection\Db\BlocklistStatMapper;
 use OCP\AppFramework\Utility\ITimeFactory;
 
@@ -49,7 +47,6 @@ class BlocklistOverview {
 		private readonly SourceRepository $sources,
 		private readonly StateStore $states,
 		private readonly BlocklistStatMapper $stats,
-		private readonly Settings $settings,
 		private readonly ITimeFactory $timeFactory,
 		private readonly AddressCache $addressCache,
 	) {
@@ -69,12 +66,11 @@ class BlocklistOverview {
 	 */
 	public function lists(): array {
 		$now = $this->timeFactory->getTime();
-		$globalInterval = $this->settings->getInt(GlobalSettings::BLOCKLIST_SYNC_INTERVAL);
 		$states = $this->states->all();
 		$lists = [];
 		foreach ($this->sources->all() as $source) {
 			$state = $states[$source->id] ?? new ListState();
-			$interval = $source->effectiveInterval($globalInterval);
+			$interval = $source->effectiveInterval();
 			$lists[] = [
 				'id' => $source->id,
 				'name' => $source->name,

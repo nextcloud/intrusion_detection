@@ -9,8 +9,6 @@ declare(strict_types=1);
 
 namespace OCA\IntrusionDetection\Response;
 
-use OCA\IntrusionDetection\Config\GlobalSettings;
-use OCA\IntrusionDetection\Config\Settings;
 use OCA\IntrusionDetection\Db\Ban;
 use OCA\IntrusionDetection\Db\FlagMapper;
 use OCA\IntrusionDetection\Net\SourceKey;
@@ -33,6 +31,8 @@ class FlaggedSources {
 	public const REASON_DISTRIBUTED = 'distributed';
 	public const REASON_USER_DENIED = 'user_denied';
 	public const REASON_SPRAYED = 'sprayed';
+	/** How long a flag lasts */
+	public const DURATION = 86400;
 	/** How long an attack tool is remembered for an address */
 	public const ATTACK_TOOL_DURATION = 86400;
 	/**
@@ -49,7 +49,6 @@ class FlaggedSources {
 
 	public function __construct(
 		private readonly FlagMapper $mapper,
-		private readonly Settings $settings,
 		private readonly ITimeFactory $timeFactory,
 	) {
 	}
@@ -60,19 +59,19 @@ class FlaggedSources {
 	public function flagSource(SourceKey $source, string $reason, ?int $detectionId = null, ?int $duration = null): int {
 		$this->sourceFlags = [];
 		$now = $this->timeFactory->getTime();
-		$expires = $now + ($duration ?? $this->settings->getInt(GlobalSettings::FLAG_DURATION));
+		$expires = $now + ($duration ?? self::DURATION);
 		$this->mapper->flag(self::sourceKey($source), $reason, $expires, $detectionId, $now);
 		return $expires;
 	}
 
 	/**
 	 * @param string $fingerprint hex password fingerprint
-	 * @param ?int $duration seconds, at most PASSWORD_FLAG_MAX_DURATION; `flag_duration` capped so by default
+	 * @param ?int $duration seconds, at most PASSWORD_FLAG_MAX_DURATION; DURATION by default
 	 * @return int when the flag expires
 	 */
 	public function flagPassword(string $fingerprint, ?int $detectionId = null, ?int $duration = null): int {
 		$now = $this->timeFactory->getTime();
-		$expires = $now + min($duration ?? $this->settings->getInt(GlobalSettings::FLAG_DURATION), self::PASSWORD_FLAG_MAX_DURATION);
+		$expires = $now + min($duration ?? self::DURATION, self::PASSWORD_FLAG_MAX_DURATION);
 		$this->mapper->flag(self::passwordKey($fingerprint), self::REASON_SPRAYED, $expires, $detectionId, $now);
 		return $expires;
 	}
@@ -129,7 +128,7 @@ class FlaggedSources {
 	public function flagNetwork(SourceKey $source, string $reason, ?int $detectionId = null): void {
 		$this->sourceFlags = [];
 		$now = $this->timeFactory->getTime();
-		$this->mapper->flag('net:' . $source->netKey, $reason, $now + $this->settings->getInt(GlobalSettings::FLAG_DURATION), $detectionId, $now);
+		$this->mapper->flag('net:' . $source->netKey, $reason, $now + self::DURATION, $detectionId, $now);
 	}
 
 	public function unflagSource(SourceKey $source): void {
@@ -140,13 +139,13 @@ class FlaggedSources {
 
 	/**
 	 * Flag the address or /24 of a block that ended by itself, for
-	 * FLAG_DURATION after its end: a login from there needs confirmation
+	 * DURATION after its end: a login from there needs confirmation
 	 * for a while. IPv6 networks wider than a /64 are not flagged.
 	 */
 	public function flagEndedBan(Ban $ban): void {
 		$key = self::banFlagKey($ban);
 		if ($key !== null) {
-			$this->mapper->flag($key, self::REASON_BAN_EXPIRED, $ban->getExpiresAt() + $this->settings->getInt(GlobalSettings::FLAG_DURATION), $ban->getDetectionId());
+			$this->mapper->flag($key, self::REASON_BAN_EXPIRED, $ban->getExpiresAt() + self::DURATION, $ban->getDetectionId());
 		}
 	}
 

@@ -12,7 +12,6 @@ namespace OCA\IntrusionDetection\BackgroundJob;
 use OCA\IntrusionDetection\Blocklist\BlocklistSync;
 use OCA\IntrusionDetection\Blocklist\SourceRepository;
 use OCA\IntrusionDetection\Blocklist\StateStore;
-use OCA\IntrusionDetection\Config\GlobalSettings;
 use OCA\IntrusionDetection\Config\Settings;
 use OCP\AppFramework\Utility\ITimeFactory;
 use OCP\BackgroundJob\TimedJob;
@@ -20,7 +19,7 @@ use OCP\BackgroundJob\TimedJob;
 /**
  * Downloads the enabled lists that are due.
  *
- * Runs every `blocklist_sync_interval`, or as often as the shortest interval
+ * Runs every {@see BlocklistSync::INTERVAL}, or as often as the shortest interval
  * of an enabled list (the Tor exit list: hourly), and every 15 minutes while
  * an enabled list has never been downloaded. With no list enabled it only
  * removes what disabled lists left behind.
@@ -49,14 +48,13 @@ class BlocklistSyncJob extends TimedJob {
 	}
 
 	private function interval(): int {
-		$global = $this->settings->getInt(GlobalSettings::BLOCKLIST_SYNC_INTERVAL);
-		$interval = $global;
+		$interval = BlocklistSync::INTERVAL;
 		$states = $this->states->all();
 		foreach ($this->sources->enabled() as $source) {
 			if (($states[$source->id] ?? null)?->attemptAt === null) {
 				return self::MIN_INTERVAL;
 			}
-			$interval = min($interval, $source->effectiveInterval($global));
+			$interval = min($interval, $source->effectiveInterval());
 		}
 		return max(self::MIN_INTERVAL, $interval);
 	}

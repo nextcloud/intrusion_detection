@@ -26,7 +26,9 @@ use OCA\IntrusionDetection\Explain\DateFormatter;
 use OCA\IntrusionDetection\Explain\DetectionFacts;
 use OCA\IntrusionDetection\Explain\IExplainsDetection;
 use OCA\IntrusionDetection\Explain\IExplainsToUser;
+use OCA\IntrusionDetection\Explain\TextRenderer;
 use OCA\IntrusionDetection\Explain\UserNotice;
+use OCA\IntrusionDetection\Response\FlaggedSources;
 use OCP\IL10N;
 
 /**
@@ -60,7 +62,7 @@ final class UserDenied implements ICheck, IExplainsDetection, IExplainsToUser, I
 				shortName: $l->t('User said "not me"'),
 				summary: $l->t('A user answered "No, it was not me" about a security event of their account.'),
 				detects: $l->t('Users are asked "Was this you?" about logins and other events that may have been someone else. When they answer no, someone else has used their account or their password.'),
-				decides: $l->t('Ends the sessions and app passwords linked to the event, requires a new password when the event involved the password, blocks the address at the second level unless the answer comes from that very address, and marks its network, so that logins from there need extra confirmation for {flag_duration}. When the answer comes from a session whose login proved no more than the password, it only tells the administrators, and the question stays open until the user answers after a login that proved more.'),
+				decides: $l->t('Ends the sessions and app passwords linked to the event, requires a new password when the event involved the password, blocks the address at the second level unless the answer comes from that very address, and marks its network, so that logins from there need extra confirmation for %s. When the answer comes from a session whose login proved no more than the password, it only tells the administrators, and the question stays open until the user answers after a login that proved more.', [TextRenderer::duration(FlaggedSources::DURATION, $l)]),
 				wrong: $l->t('A user who does not recognise their own login, for example from a new phone. They lose that session and log in again. Lift the block if needed.'),
 				data: $l->t('Detections: the account, the event the answer was about and what was done.'),
 			),

@@ -18,7 +18,6 @@ use OCA\IntrusionDetection\Confirm\Methods\KnownDeviceMethod;
 use OCA\IntrusionDetection\Confirm\NoMethodOutcome;
 use OCA\IntrusionDetection\Confirm\StepUpPolicy;
 use OCA\IntrusionDetection\Confirm\StepUpReasons;
-use OCA\IntrusionDetection\KnownDevice\KnownDevices;
 use OCA\IntrusionDetection\Net\ServerAddresses;
 
 /**
@@ -41,7 +40,6 @@ final class GlobalSettings {
 	public const BAN_HISTORY_DAYS = 'ban_history_days';
 	public const BAN_NET_AFTER = 'ban_net_after';
 	public const BAN_SHARED_IP_USERS = 'ban_shared_ip_users';
-	public const FLAG_DURATION = 'flag_duration';
 	public const RETENTION_DETECTIONS_DAYS = 'retention_detections_days';
 
 	/** Internal state, not shown as settings */
@@ -51,7 +49,6 @@ final class GlobalSettings {
 
 	public const EXPORT_FORMATS = 'export_formats';
 	public const BLOCKLIST_SOURCES = 'blocklist_sources';
-	public const BLOCKLIST_SYNC_INTERVAL = 'blocklist_sync_interval';
 	public const BLOCKLIST_MAX_ENTRIES = 'blocklist_max_entries';
 	/** Internal: per list the active version and the last sync results */
 	public const BLOCKLIST_STATE = 'blocklist_state';
@@ -71,8 +68,6 @@ final class GlobalSettings {
 	public const DECOY_COUNT = 'decoy_count';
 	/** A second administrator must approve every new administrator */
 	public const ADMIN_CHANGE_REQUIRE_APPROVAL = 'admin_change_require_approval';
-	/** Seconds a request for approval waits before it expires */
-	public const ADMIN_CHANGE_APPROVAL_TTL = 'admin_change_approval_ttl';
 	/** Internal: when the watched settings were first recorded; 0 until then */
 	public const CONFIG_WATCH_BASELINE = 'config_watch_baseline';
 
@@ -90,24 +85,14 @@ final class GlobalSettings {
 	/** Internal: detections deleted after their retention, counted per check, severity and enforcement, for the metrics' running total */
 	public const DETECTIONS_RETIRED = 'detections_retired';
 
-	/** Seconds an email code for a login confirmation is valid */
-	public const STEP_UP_CODE_TTL = 'step_up_code_ttl';
-	/** Seconds a login may wait for its confirmation before it is ended */
-	public const STEP_UP_SESSION_TTL = 'step_up_session_ttl';
-	/** Seconds a network stays trusted after a user said "Yes, it was me" */
-	public const TRUSTED_NETWORK_DURATION = 'trusted_network_duration';
 	/** Internal: until when sessions with an unconfirmed login may exist, so that resumed sessions are checked */
 	public const STEP_UP_SESSIONS_UNTIL = 'step_up_sessions_until';
 	/** The step-up policies for which a remembered device confirms a login */
 	public const STEP_UP_KNOWN_DEVICE_OK_FOR = 'step_up_known_device_ok_for';
 	/** Whether an administrator can approve a login that nothing else can confirm */
 	public const STEP_UP_ADMIN_APPROVAL = 'step_up_admin_approval';
-	/** Seconds a login waits for an administrator's approval */
-	public const STEP_UP_ADMIN_APPROVAL_TTL = 'step_up_admin_approval_ttl';
 	/** Whether users may remember a browser after confirming a login */
 	public const KNOWN_DEVICE_ENABLED = 'known_device_enabled';
-	/** Seconds a remembered browser stays known after its last use */
-	public const KNOWN_DEVICE_DURATION = 'known_device_duration';
 	/** Days the login history and the security change log are kept */
 	public const HISTORY_RETENTION_DAYS = 'history_retention_days';
 
@@ -153,13 +138,11 @@ final class GlobalSettings {
 				new ParamDefinition(self::BAN_HISTORY_DAYS, ParamType::Int, 30, min: 1, max: 365),
 				new ParamDefinition(self::BAN_NET_AFTER, ParamType::Int, 3, min: 2, max: 256),
 				new ParamDefinition(self::BAN_SHARED_IP_USERS, ParamType::Int, 5, min: 0, max: 10000),
-				new ParamDefinition(self::FLAG_DURATION, ParamType::Duration, 86400, min: 3600, max: 30 * 86400),
 				new ParamDefinition(self::RETENTION_DETECTIONS_DAYS, ParamType::Int, 90, min: 7, max: 730),
 				new ParamDefinition(self::INSTALLED_AT, ParamType::Int, 0, min: 0),
 				new ParamDefinition(self::ATTEMPTS_FLOOD_UNTIL, ParamType::Int, 0, min: 0),
 				new ParamDefinition(self::EXPORT_FORMATS, ParamType::StringList, [], itemPattern: '/^(txt|nft|ipset|log)$/', maxItems: 4),
 				new ParamDefinition(self::BLOCKLIST_SOURCES, ParamType::Json, '[]'),
-				new ParamDefinition(self::BLOCKLIST_SYNC_INTERVAL, ParamType::Duration, 21600, min: 3600, max: 7 * 86400),
 				new ParamDefinition(self::BLOCKLIST_MAX_ENTRIES, ParamType::Int, 200000, min: 100, max: 500000),
 				new ParamDefinition(self::BLOCKLIST_STATE, ParamType::Json, '{}'),
 				new ParamDefinition(self::NOTIFY_ADMIN_GROUP, ParamType::StringList, ['admin'], itemPattern: '/^[^\x00-\x1f\x7f]{1,255}$/u', maxItems: 10),
@@ -170,16 +153,12 @@ final class GlobalSettings {
 				new ParamDefinition(self::CS_EVALUATED_AT, ParamType::Int, 0, min: 0),
 				new ParamDefinition(self::DECOY_COUNT, ParamType::Int, 0, min: 0),
 				new ParamDefinition(self::ADMIN_CHANGE_REQUIRE_APPROVAL, ParamType::Bool, false),
-				new ParamDefinition(self::ADMIN_CHANGE_APPROVAL_TTL, ParamType::Duration, 604800, min: 3600, max: 30 * 86400),
 				new ParamDefinition(self::CONFIG_WATCH_BASELINE, ParamType::Int, 0, min: 0),
 				new ParamDefinition(self::DIGEST_FREQUENCY, ParamType::Choice, 'weekly', choices: ['off', 'daily', 'weekly']),
 				new ParamDefinition(self::DIGEST_SEND_QUIET, ParamType::Bool, true),
 				new ParamDefinition(self::DIGEST_STATE, ParamType::Json, '{}'),
 				new ParamDefinition(self::EVENTS_INCLUDE_IP, ParamType::Bool, true),
 				new ParamDefinition(self::LEARNING_STARTED_AT, ParamType::Int, 0, min: 0),
-				new ParamDefinition(self::STEP_UP_CODE_TTL, ParamType::Duration, 600, min: 120, max: 3600),
-				new ParamDefinition(self::STEP_UP_SESSION_TTL, ParamType::Duration, 900, min: 300, max: 7200),
-				new ParamDefinition(self::TRUSTED_NETWORK_DURATION, ParamType::Duration, 30 * 86400, min: 86400, max: 365 * 86400),
 				new ParamDefinition(self::STEP_UP_SESSIONS_UNTIL, ParamType::Int, 0, min: 0),
 				...array_map(
 					static fn (StepUpPolicy $p): ParamDefinition => new ParamDefinition($p->settingKey(), ParamType::Choice, $p->defaultOutcome()->value, choices: NoMethodOutcome::values()),
@@ -188,9 +167,7 @@ final class GlobalSettings {
 				new ParamDefinition(self::DETECTIONS_RETIRED, ParamType::Json, '{}'),
 				new ParamDefinition(self::STEP_UP_KNOWN_DEVICE_OK_FOR, ParamType::StringList, KnownDeviceMethod::DEFAULT_POLICIES, itemPattern: KnownDeviceMethod::POLICY_PATTERN, maxItems: count(StepUpPolicy::cases())),
 				new ParamDefinition(self::STEP_UP_ADMIN_APPROVAL, ParamType::Bool, false),
-				new ParamDefinition(self::STEP_UP_ADMIN_APPROVAL_TTL, ParamType::Duration, 1800, min: 300, max: 86400),
 				new ParamDefinition(self::KNOWN_DEVICE_ENABLED, ParamType::Bool, true),
-				new ParamDefinition(self::KNOWN_DEVICE_DURATION, ParamType::Duration, KnownDevices::MAX_DURATION, min: 86400, max: KnownDevices::MAX_DURATION),
 				new ParamDefinition(self::HISTORY_RETENTION_DAYS, ParamType::Int, 90, min: 7, max: 365),
 				new ParamDefinition(self::RISK_ENABLED, ParamType::Bool, true),
 				new ParamDefinition(self::RISKY_NETWORK_OFFICE_NETWORKS, ParamType::CidrList, [], maxItems: 100),

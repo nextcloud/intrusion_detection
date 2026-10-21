@@ -15,7 +15,6 @@ use OCA\IntrusionDetection\Check\Checks\StepUpRefused;
 use OCA\IntrusionDetection\Check\Checks\StepUpRefusedClient;
 use OCA\IntrusionDetection\Check\Checks\StepUpUnconfirmed;
 use OCA\IntrusionDetection\Check\ResponseType;
-use OCA\IntrusionDetection\Config\GlobalSettings;
 use OCA\IntrusionDetection\Config\Settings;
 use OCA\IntrusionDetection\Db\Detection;
 use OCA\IntrusionDetection\Detection\DetectionDraft;
@@ -43,7 +42,7 @@ use Psr\Log\LoggerInterface;
  * - A method that needs the user (an email code): the session is marked,
  *   and {@see \OCA\IntrusionDetection\SessionState\Rules\StepUpRule} sends
  *   every request to the verify page until it is confirmed, fails, or
- *   `step_up_session_ttl` has passed.
+ *   SESSION_TTL has passed.
  * - No method: the policies decide ({@see ConfirmationPolicy::noMethodDecision()}):
  *   the login is refused, or allowed with a notice or a new password.
  *
@@ -69,6 +68,8 @@ class StepUpService {
 	public const REFUSED = 'refused';
 	public const REFUSED_CLIENT = 'refused_client';
 	public const ALLOWED = 'allowed';
+	/** Seconds a login may wait for its confirmation before it is ended */
+	public const SESSION_TTL = 900;
 	/** Outcomes of apps sending the password that may be repeated ({@see self::repeatClient()}) */
 	public const REPEATABLE = [self::NONE, self::REFUSED_CLIENT, self::ALLOWED];
 
@@ -142,7 +143,7 @@ class StepUpService {
 		}
 
 		$methods = $this->policy->methodsForAll($login->user, $policies);
-		$state = new StepUpState($uid, StepUpState::PENDING, $policyIds, $now, $now + $this->settings->getInt(GlobalSettings::STEP_UP_SESSION_TTL), $login->source?->ip);
+		$state = new StepUpState($uid, StepUpState::PENDING, $policyIds, $now, $now + self::SESSION_TTL, $login->source?->ip);
 		foreach ($methods as $i => $method) {
 			$state->methods = array_map(static fn (IConfirmationMethod $m): string => $m->id(), array_slice($methods, $i));
 			$started = $method->begin($login->user, $state);
@@ -263,7 +264,7 @@ class StepUpService {
 				'policies' => $stepUp->policies,
 				'attempts' => $stepUp->attempts,
 				'started' => $stepUp->started,
-				'ttl' => $this->settings->getInt(GlobalSettings::STEP_UP_SESSION_TTL),
+				'ttl' => self::SESSION_TTL,
 				'sessionTokenId' => $sessionTokenId,
 			],
 			merge: DetectionDraft::MERGE_SOURCE_USER,

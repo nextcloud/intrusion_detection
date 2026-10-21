@@ -73,8 +73,7 @@ class PasswordSprayingTest extends LoginFailureTestCase {
 		$this->assertTrue($this->flags->isPasswordFlagged(array_map('bin2hex', $fingerprinter->passwordCandidates(self::SPRAYED))));
 	}
 
-	public function testAPasswordFlagLastsAtMostADayWhateverTheFlagDuration(): void {
-		$this->settings->setGlobal(\OCA\IntrusionDetection\Config\GlobalSettings::FLAG_DURATION, 30 * 86400);
+	public function testAPasswordFlagLastsAtMostADay(): void {
 		$this->spray(5);
 		$result = $this->db->getQueryBuilder()->select('flag_key', 'expires_at')->from('ids_flags')->executeQuery();
 		$rows = $result->fetchAll();

@@ -15,17 +15,19 @@ use OCA\IntrusionDetection\Blocklist\BlocklistSync;
 use OCA\IntrusionDetection\Blocklist\SourceRepository;
 use OCA\IntrusionDetection\Check\CheckRegistry;
 use OCA\IntrusionDetection\Check\DataKind;
-use OCA\IntrusionDetection\Config\GlobalSettings;
 use OCA\IntrusionDetection\Config\Settings;
 use OCA\IntrusionDetection\Confirm\UntrustedSecondFactors;
 use OCA\IntrusionDetection\Db\BlocklistStatMapper;
 use OCA\IntrusionDetection\Detection\AttemptRecorder;
 use OCA\IntrusionDetection\Detection\DetectionTotals;
 use OCA\IntrusionDetection\Explain\TextRenderer;
+use OCA\IntrusionDetection\KnownDevice\KnownDevices;
 use OCA\IntrusionDetection\Personal\FailedLoginStats;
+use OCA\IntrusionDetection\Response\FlaggedSources;
 use OCA\IntrusionDetection\Response\ResetMailSuppressor;
 use OCA\IntrusionDetection\ResponseDefinitions;
 use OCA\IntrusionDetection\Takeover\LockLinks;
+use OCA\IntrusionDetection\TrustedNetwork\TrustedNetworks;
 use OCP\IL10N;
 
 /**
@@ -151,7 +153,11 @@ class PrivacyOverview {
 				'name' => $l->t('Marked addresses and accounts'),
 				'what' => $l->t('Addresses after an attack, accounts under attack, fingerprints of passwords that were tried against many accounts, and the name of an attack tool an address used for a failed login.'),
 				'why' => $l->t('So that a successful login after an attack needs extra confirmation, and for the address risk score.'),
-				'retention' => $l->t('{flag_duration}; password fingerprints {flag_duration}, at most 24 hours; attack tools 24 hours'),
+				'retention' => $l->t('%1$s; password fingerprints %2$s; attack tools %3$s', [
+					TextRenderer::duration(FlaggedSources::DURATION, $l),
+					TextRenderer::duration(min(FlaggedSources::DURATION, FlaggedSources::PASSWORD_FLAG_MAX_DURATION), $l),
+					TextRenderer::duration(FlaggedSources::ATTACK_TOOL_DURATION, $l),
+				]),
 				'where' => 'ids_flags, ids_protected_accounts',
 			],
 			DataKind::LoginHistory => [
@@ -172,7 +178,7 @@ class PrivacyOverview {
 				'name' => $l->t('Known devices'),
 				'what' => $l->t('For browsers a user chose to remember after confirming a login: a keyed fingerprint of a random cookie, the browser and system family, the network, and when it was first and last used.'),
 				'why' => $l->t('So that people logging in from their own device are not asked to confirm again, where the reason allows it.'),
-				'retention' => $l->t('{known_device_duration} after the last use, or until the user removes it'),
+				'retention' => $l->t('%s after the last use, or until the user removes it', [TextRenderer::duration(KnownDevices::DURATION, $l)]),
 				'where' => 'ids_known_devices',
 			],
 			DataKind::TokenOrigins => [
@@ -235,7 +241,7 @@ class PrivacyOverview {
 				'name' => $l->t('Trusted networks'),
 				'what' => $l->t('Per account: the networks the user confirmed as their own with "Yes, it was me", and when.'),
 				'why' => $l->t('So that logins from these networks are not asked for an extra confirmation again.'),
-				'retention' => $l->n('%n day, or until the user removes the network', '%n days, or until the user removes the network', intdiv($this->settings->getInt(GlobalSettings::TRUSTED_NETWORK_DURATION), 86400)),
+				'retention' => $l->n('%n day, or until the user removes the network', '%n days, or until the user removes the network', intdiv(TrustedNetworks::DURATION, 86400)),
 				'where' => 'ids_trusted_networks',
 			],
 			DataKind::UnconfirmedSessions => [

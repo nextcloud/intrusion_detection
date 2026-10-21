@@ -59,8 +59,8 @@ final class BlocklistSource {
 		return $this->isDeny() && $this->mode === self::MODE_PROTECT;
 	}
 
-	public function effectiveInterval(int $globalInterval): int {
-		return $this->interval ?? $globalInterval;
+	public function effectiveInterval(): int {
+		return $this->interval ?? BlocklistSync::INTERVAL;
 	}
 
 	/**

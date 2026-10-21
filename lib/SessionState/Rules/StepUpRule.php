@@ -38,7 +38,7 @@ use Psr\Log\LoggerInterface;
  * `{"error": "step_up_required"}`, WebDAV requests 403 with
  * `X-Nextcloud-Step-Up: required`.
  *
- * - A login that is not confirmed within `step_up_session_ttl` is failed
+ * - A login that is not confirmed within {@see StepUpService::SESSION_TTL} is failed
  *   here, on its next request: the session ends.
  * - A refused login can only open the verify page, which says why and ends it.
  * - A refused app login (Basic auth) is refused for every request.
