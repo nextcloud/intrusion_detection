@@ -254,7 +254,8 @@ class PersonalApiController extends OCSController {
 		$current = $this->currentSession->tokenId();
 		$entries = $this->loginHistory->forUser($this->user()->getUID(), $this->timeFactory->getTime() - $days * 86400, null, max(1, min(200, $limit)));
 		$l = $this->l;
-		return new DataResponse(array_map(static fn (LoginHistoryEntry $e): array => PersonalActivity::login($e, $current, $l), $entries));
+		$waitedOutBefore = $this->activity->waitedOutBefore();
+		return new DataResponse(array_map(static fn (LoginHistoryEntry $e): array => PersonalActivity::login($e, $current, $waitedOutBefore, $l), $entries));
 	}
 
 	/**

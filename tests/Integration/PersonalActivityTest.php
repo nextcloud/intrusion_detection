@@ -86,6 +86,24 @@ class PersonalActivityTest extends PersonalApiTestCase {
 		$this->assertSame($sorted, $times);
 	}
 
+	public function testALoginThatWaitedOutItsConfirmationIsNotShownAsWaiting(): void {
+		$now = time();
+		$waitedOut = $now - 900 - 60;
+		$history = Server::get(LoginHistoryMapper::class);
+		$old = $history->insert($this->alice->getUID(), $waitedOut, SourceKey::fromIp('198.51.100.7'), null, LoginHistory::METHOD_PASSWORD, false, 'none', LoginHistory::STEP_UP_PENDING, null);
+		$recent = $history->insert($this->alice->getUID(), $now - 60, SourceKey::fromIp('198.51.100.7'), null, LoginHistory::METHOD_PASSWORD, false, 'none', LoginHistory::STEP_UP_PENDING, null);
+		$this->startSession($this->alice);
+		$api = $this->controller();
+
+		$steps = array_column(array_column($api->activity()->getData()['items'], 'login'), 'stepUp', 'id');
+		$this->assertSame(LoginHistory::STEP_UP_FAILED, $steps[$old]);
+		$this->assertSame(LoginHistory::STEP_UP_PENDING, $steps[$recent], 'it may still be confirmed');
+		$this->assertSame([$recent => 'pending', $old => 'failed'], array_column($api->logins()->getData(), 'stepUp', 'id'));
+
+		$this->settings->setGlobal(GlobalSettings::STEP_UP_ADMIN_APPROVAL, true);
+		$this->assertSame([$recent => 'pending', $old => 'pending'], array_column($api->logins()->getData(), 'stepUp', 'id'), 'an administrator may still approve it');
+	}
+
 	public function testAnOldOpenQuestionIsListedBehindManyNewerDetections(): void {
 		$now = time();
 		$open = $this->detection($this->alice, '203.0.113.10');

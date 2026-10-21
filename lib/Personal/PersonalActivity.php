@@ -17,6 +17,7 @@ use OCA\IntrusionDetection\Db\LoginHistoryMapper;
 use OCA\IntrusionDetection\Db\SecurityChangeMapper;
 use OCA\IntrusionDetection\Guide\SecureAccountOverview;
 use OCA\IntrusionDetection\KnownDevice\DeviceLabel;
+use OCA\IntrusionDetection\LoginHistory\LoginHistory;
 use OCA\IntrusionDetection\LoginHistory\LoginHistoryEntry;
 use OCA\IntrusionDetection\Notification\UserMessages;
 use OCA\IntrusionDetection\ResponseDefinitions;
@@ -132,12 +133,13 @@ class PersonalActivity {
 		$moreEvents = count($found) >= PersonalDetections::MAX;
 
 		$current = $this->currentSession->tokenId();
+		$waitedOutBefore = $this->waitedOutBefore();
 		foreach ($this->loginHistory->forUser($uid, $since, null, $limit + 1) as $entry) {
 			$entries[] = [
 				'at' => $entry->createdAt,
 				'kind' => 'login',
 				'id' => $entry->id,
-				'make' => static fn (): array => self::item('login-' . $entry->id, 'login', $entry->createdAt, $day($entry->createdAt), login: self::login($entry, $current, $l)),
+				'make' => static fn (): array => self::item('login-' . $entry->id, 'login', $entry->createdAt, $day($entry->createdAt), login: self::login($entry, $current, $waitedOutBefore, $l)),
 			];
 		}
 
@@ -189,12 +191,24 @@ class PersonalActivity {
 	}
 
 	/**
-	 * One login as the user sees it.
+	 * Logins that still wait for a confirmation and started before this
+	 * time can no longer be confirmed: they waited longer than a login
+	 * session, and an administrator's approval when those are on, last.
+	 */
+	public function waitedOutBefore(): int {
+		$approval = $this->settings->getBool(GlobalSettings::STEP_UP_ADMIN_APPROVAL) ? $this->settings->getInt(GlobalSettings::STEP_UP_ADMIN_APPROVAL_TTL) : 0;
+		return $this->timeFactory->getTime() - $this->settings->getInt(GlobalSettings::STEP_UP_SESSION_TTL) - $approval;
+	}
+
+	/**
+	 * One login as the user sees it. A login that waited out its
+	 * confirmation is shown as failed, as the background job records it.
 	 *
 	 * @param ?int $current the token id of the current session
+	 * @param int $waitedOutBefore see {@see waitedOutBefore()}
 	 * @return IntrusionDetectionLogin
 	 */
-	public static function login(LoginHistoryEntry $entry, ?int $current, IL10N $l): array {
+	public static function login(LoginHistoryEntry $entry, ?int $current, int $waitedOutBefore, IL10N $l): array {
 		[$family, $platform] = DeviceLabel::parse($entry->userAgent);
 		return [
 			'id' => $entry->id,
@@ -205,7 +219,7 @@ class PersonalActivity {
 			'method' => $entry->method,
 			'knownDevice' => $entry->knownDevice,
 			'confirmedBy' => $entry->confirmedBy,
-			'stepUp' => $entry->stepUp,
+			'stepUp' => $entry->stepUp === LoginHistory::STEP_UP_PENDING && $entry->createdAt < $waitedOutBefore ? LoginHistory::STEP_UP_FAILED : $entry->stepUp,
 			'current' => $current !== null && $entry->sessionTokenId === $current,
 			'device' => DeviceLabel::translated($family, $platform, $l),
 		];

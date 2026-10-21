@@ -115,7 +115,7 @@ export function confirmationLabel(login: Login): string | null {
 		case 'refused':
 			return t(APP_ID, 'Refused')
 		case 'failed':
-			return t(APP_ID, 'Confirmation failed')
+			return t(APP_ID, 'Not confirmed')
 		case 'allowed':
 			return t(APP_ID, 'Allowed without confirmation')
 	}

@@ -51,6 +51,8 @@ describe('the activity timeline', () => {
 	test('puts logins and changes in plain words', () => {
 		expect(confirmationLabel(login(1, { confirmedBy: 'email_code' }))).toBe('Confirmed with an email code')
 		expect(confirmationLabel(login(1, { stepUp: 'refused' }))).toBe('Refused')
+		expect(confirmationLabel(login(1, { stepUp: 'pending' }))).toBe('Waiting for confirmation')
+		expect(confirmationLabel(login(1, { stepUp: 'failed' })), 'also a login that waited out its confirmation').toBe('Not confirmed')
 		expect(confirmationLabel(login(1)), 'Nothing to say about an ordinary login').toBeNull()
 		expect(changeValues(securityChange(1, { previous: 'a***@old.example', new: 'a***@example.com' }))).toBe('from a***@old.example to a***@example.com')
 		expect(changeValues(securityChange(1, { detail: 'TOTP' }))).toBe('TOTP')
