@@ -81,12 +81,12 @@ export function errorMessage(error: unknown, fallback: string): string {
 }
 
 /** Writes need a recent password confirmation; the page asks for it when needed. */
-const write = { confirmPassword: PwdConfirmationMode.Lax }
+export const write = { confirmPassword: PwdConfirmationMode.Lax }
 
 /**
  * @param path - Path below the app's API
  */
-function url(path: string): string {
+export function url(path: string): string {
 	return generateOcsUrl('apps/intrusion_detection/api/v1/' + path)
 }
 
@@ -95,7 +95,7 @@ function url(path: string): string {
  *
  * @param request - The request
  */
-async function call<T>(request: Promise<{ data: OCSResponse<T> }>): Promise<T> {
+export async function call<T>(request: Promise<{ data: OCSResponse<T> }>): Promise<T> {
 	try {
 		const { data } = await request
 		return data.ocs.data

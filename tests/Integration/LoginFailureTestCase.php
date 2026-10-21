@@ -26,6 +26,7 @@ use OCA\IntrusionDetection\Detection\AttemptRecorder;
 use OCA\IntrusionDetection\Listener\FailedLoginListener;
 use OCA\IntrusionDetection\Net\RemoteAddressResolver;
 use OCA\IntrusionDetection\Net\SourceKey;
+use OCA\IntrusionDetection\Personal\FailedLoginStats;
 use OCA\IntrusionDetection\Response\BanService;
 use OCA\IntrusionDetection\Response\FlaggedSources;
 use OCA\IntrusionDetection\Response\ResponseEngine;
@@ -97,6 +98,7 @@ abstract class LoginFailureTestCase extends IntegrationTestCase {
 			Server::get(IUserManager::class),
 			$this->request,
 			$this->listenerLogger(),
+			Server::get(FailedLoginStats::class),
 		);
 	}
 

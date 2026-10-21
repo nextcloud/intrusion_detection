@@ -39,4 +39,6 @@ enum DataKind: string {
 	case LockLinks = 'lock_links';
 	/** Progress of a user through the "Secure my account" checklist */
 	case SecureAccountProgress = 'secure_account_progress';
+	/** Failed logins per account and day, for the user's own security page */
+	case FailedLoginDays = 'failed_login_days';
 }

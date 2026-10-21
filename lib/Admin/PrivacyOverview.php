@@ -20,6 +20,7 @@ use OCA\IntrusionDetection\Config\GlobalSettings;
 use OCA\IntrusionDetection\Config\Settings;
 use OCA\IntrusionDetection\Db\BlocklistStatMapper;
 use OCA\IntrusionDetection\Detection\AttemptRecorder;
+use OCA\IntrusionDetection\Personal\FailedLoginStats;
 use OCA\IntrusionDetection\ResponseDefinitions;
 use OCA\IntrusionDetection\Takeover\LockLinks;
 use OCP\IL10N;
@@ -39,7 +40,7 @@ use OCP\IL10N;
  */
 class PrivacyOverview {
 	/** Data the app keeps for features rather than for one check, always listed */
-	public const FEATURE_DATA = [DataKind::LoginHistory, DataKind::KnownDevices, DataKind::TrustedNetworks, DataKind::UnconfirmedSessions];
+	public const FEATURE_DATA = [DataKind::LoginHistory, DataKind::KnownDevices, DataKind::TrustedNetworks, DataKind::UnconfirmedSessions, DataKind::FailedLoginDays];
 
 	public function __construct(
 		private readonly CheckRegistry $registry,
@@ -238,6 +239,13 @@ class PrivacyOverview {
 				'why' => $l->t('To guide a user through securing their account, and to show you how far they got.'),
 				'retention' => $l->t('Until the account is deleted'),
 				'where' => $l->t('user preferences'),
+			],
+			DataKind::FailedLoginDays => [
+				'name' => $l->t('Failed logins per account and day'),
+				'what' => $l->t('For each existing account: how many logins failed per hour of a day, and up to 20 addresses they came from with the time of their last failure. Only while users see their security events.'),
+				'why' => $l->t('So that users can see on their security page how often someone tried to log in to their account, and from where.'),
+				'retention' => $l->n('%n day', '%n days', FailedLoginStats::RETENTION_DAYS),
+				'where' => 'ids_user_daily',
 			],
 		};
 	}

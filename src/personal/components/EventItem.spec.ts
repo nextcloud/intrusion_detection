@@ -1,0 +1,167 @@
+/*!
+ * SPDX-FileCopyrightText: 2026 Nextcloud GmbH and Nextcloud contributors
+ * SPDX-License-Identifier: AGPL-3.0-or-later
+ */
+
+import type { SecurityEvent } from '../types.ts'
+
+import { showError, showSuccess } from '@nextcloud/dialogs'
+import { PasswordConfirmationCancelledError } from '@nextcloud/password-confirmation'
+import { flushPromises, mount } from '@vue/test-utils'
+import { AxiosError, AxiosHeaders } from 'axios'
+import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
+import EventItem from './EventItem.vue'
+import { ApiError } from '../../services/api.ts'
+import { overview, securityEvent } from '../../tests/personalFixtures.ts'
+import { confirmEvent, denyEvent, fetchOverview } from '../api.ts'
+import { personal } from '../store.ts'
+
+vi.mock('@nextcloud/dialogs', () => ({ showError: vi.fn(), showSuccess: vi.fn() }))
+
+vi.mock('../api.ts', async (importOriginal) => ({
+	...(await importOriginal<object>()),
+	confirmEvent: vi.fn(),
+	denyEvent: vi.fn(),
+	fetchOverview: vi.fn(),
+}))
+
+const mounted: { unmount: () => void }[] = []
+
+/**
+ * @param event - The event
+ */
+function mountItem(event: SecurityEvent) {
+	const wrapper = mount(EventItem, { props: { event }, attachTo: document.body })
+	mounted.push(wrapper)
+	return wrapper
+}
+
+/**
+ * An error as the API reports it, with the HTTP status.
+ *
+ * @param status - The HTTP status
+ * @param message - The server's explanation
+ */
+function apiError(status: number, message: string): ApiError {
+	const cause = new AxiosError(message, 'ERR', undefined, undefined, { status, statusText: '', data: {}, headers: {}, config: { headers: new AxiosHeaders() } })
+	return new ApiError(message, null, { cause })
+}
+
+/**
+ * @param text - The button text
+ */
+function bodyButton(text: string): HTMLButtonElement | undefined {
+	return [...document.body.querySelectorAll('button')].find((b) => b.textContent?.trim() === text)
+}
+
+describe('EventItem', () => {
+	beforeEach(() => {
+		personal.overview = overview()
+		personal.networksVersion = 0
+		vi.mocked(fetchOverview).mockResolvedValue(overview({ status: { level: 'ok', headline: 'Refreshed', items: [] } }))
+	})
+
+	afterEach(() => {
+		mounted.splice(0).forEach((wrapper) => wrapper.unmount())
+		vi.mocked(confirmEvent).mockReset()
+		vi.mocked(denyEvent).mockReset()
+		vi.mocked(showError).mockReset()
+		vi.mocked(showSuccess).mockReset()
+		document.body.innerHTML = ''
+	})
+
+	test('says what happened, when, from where and what Nextcloud did', async () => {
+		const wrapper = mountItem(securityEvent(1))
+		expect(wrapper.text()).toContain('Someone entered your password but failed the second factor 1')
+		expect(wrapper.text()).toContain('203.0.113.7')
+		expect(wrapper.text()).toContain('Handled')
+		const toggle = wrapper.get('[data-test="toggle"]')
+		expect(toggle.attributes('aria-expanded')).toBe('false')
+		await toggle.trigger('click')
+		expect(toggle.attributes('aria-expanded')).toBe('true')
+		const details = wrapper.get('[data-test="details"]')
+		expect(toggle.attributes('aria-controls')).toBe(details.attributes('id'))
+		expect(details.text()).toContain('What Nextcloud did')
+		expect(details.text()).toContain('The suspicious session was ended.')
+		expect(details.text()).toContain('from the address 203.0.113.7')
+		expect(wrapper.find('[data-test="question"]').exists()).toBe(false)
+	})
+
+	test('asks "Was this you?" and confirms after the password', async () => {
+		const answered = securityEvent(1, { asks: true, canConfirm: false, verdict: 'confirmed', verdictAt: 1792580400 })
+		vi.mocked(confirmEvent).mockResolvedValue(answered)
+		const wrapper = mountItem(securityEvent(1, { asks: true, canConfirm: true }))
+		expect(wrapper.get('[data-test="details"]').isVisible()).toBe(true)
+		expect(wrapper.text()).toContain('Needs your answer')
+		await wrapper.get('[data-test="confirm"]').trigger('click')
+		await flushPromises()
+		expect(confirmEvent).toHaveBeenCalledWith(1)
+		expect(wrapper.emitted('answered')).toEqual([[answered]])
+		expect(showSuccess).toHaveBeenCalled()
+		expect(personal.networksVersion).toBe(1)
+		expect(personal.overview?.status.headline).toBe('Refreshed')
+
+		await wrapper.setProps({ event: answered })
+		expect(wrapper.find('[data-test="question"]').exists()).toBe(false)
+		expect(wrapper.get('[data-test="answer"]').text()).toContain('You answered "Yes, it was me"')
+	})
+
+	test('does nothing when the password dialog is closed', async () => {
+		vi.mocked(confirmEvent).mockRejectedValue(new PasswordConfirmationCancelledError())
+		const wrapper = mountItem(securityEvent(1, { asks: true, canConfirm: true }))
+		await wrapper.get('[data-test="confirm"]').trigger('click')
+		await flushPromises()
+		expect(showError).not.toHaveBeenCalled()
+		expect(wrapper.emitted('answered')).toBeUndefined()
+		expect(wrapper.find('[data-test="confirm"]').exists()).toBe(true)
+	})
+
+	test('explains kindly why this session cannot say "Yes"', async () => {
+		const wrapper = mountItem(securityEvent(1, { asks: true, canConfirm: false }))
+		expect(wrapper.find('[data-test="confirm"]').exists()).toBe(false)
+		expect(wrapper.get('[data-test="confirm-elsewhere"]').text()).toContain('Answer from another device')
+		expect(wrapper.find('[data-test="deny"]').exists()).toBe(true)
+	})
+
+	test('turns a refusal of the server into the same explanation', async () => {
+		vi.mocked(confirmEvent).mockRejectedValue(apiError(403, 'For your safety, "Yes, it was me" cannot be answered from the session this event is about.'))
+		const wrapper = mountItem(securityEvent(1, { asks: true, canConfirm: true }))
+		await wrapper.get('[data-test="confirm"]').trigger('click')
+		await flushPromises()
+		expect(wrapper.find('[data-test="confirm"]').exists()).toBe(false)
+		expect(wrapper.find('[data-test="confirm-elsewhere"]').exists()).toBe(true)
+		expect(showError).not.toHaveBeenCalled()
+	})
+
+	test('reloads the list when the event was answered elsewhere', async () => {
+		vi.mocked(confirmEvent).mockRejectedValue(apiError(409, 'This event was answered already.'))
+		const wrapper = mountItem(securityEvent(1, { asks: true, canConfirm: true }))
+		await wrapper.get('[data-test="confirm"]').trigger('click')
+		await flushPromises()
+		expect(showError).toHaveBeenCalledWith('This event was answered already.')
+		expect(wrapper.emitted('stale')).toHaveLength(1)
+	})
+
+	test('"No" explains the consequences first and then answers', async () => {
+		const answered = securityEvent(1, { asks: true, verdict: 'denied', verdictAt: 1792580400 })
+		vi.mocked(denyEvent).mockResolvedValue(answered)
+		const wrapper = mountItem(securityEvent(1, { asks: true, canConfirm: true }))
+		await wrapper.get('[data-test="deny"]').trigger('click')
+		await flushPromises()
+		expect(denyEvent).not.toHaveBeenCalled()
+		expect(document.body.textContent).toContain('block the address it came from and tell your administrators')
+		bodyButton('Cancel')!.click()
+		await flushPromises()
+		expect(denyEvent).not.toHaveBeenCalled()
+
+		await wrapper.get('[data-test="deny"]').trigger('click')
+		await flushPromises()
+		bodyButton('It was not me')!.click()
+		await flushPromises()
+		expect(denyEvent).toHaveBeenCalledWith(1)
+		expect(wrapper.emitted('answered')).toEqual([[answered]])
+		await wrapper.setProps({ event: answered })
+		expect(wrapper.get('[data-test="answer"]').text()).toContain('You answered "No, it was not me"')
+		expect(wrapper.text()).toContain('You said it was not you')
+	})
+})

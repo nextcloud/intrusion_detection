@@ -1,0 +1,129 @@
+<?php
+
+declare(strict_types=1);
+
+/**
+ * SPDX-FileCopyrightText: 2026 Nextcloud GmbH and Nextcloud contributors
+ * SPDX-License-Identifier: AGPL-3.0-or-later
+ */
+
+namespace OCA\IntrusionDetection\Tests\Integration;
+
+use OCA\IntrusionDetection\AppInfo\Application;
+use OCA\IntrusionDetection\Audit\AuditLogger;
+use OCA\IntrusionDetection\Check\Checks\SecondFactorFailed;
+use OCA\IntrusionDetection\Check\Checks\UserDenied;
+use OCA\IntrusionDetection\Controller\PersonalApiController;
+use OCA\IntrusionDetection\Db\Detection;
+use OCA\IntrusionDetection\Db\DetectionMapper;
+use OCA\IntrusionDetection\Db\LoginHistoryMapper;
+use OCA\IntrusionDetection\Detection\DetectionDraft;
+use OCA\IntrusionDetection\Net\SourceKey;
+use OCA\IntrusionDetection\Notification\UserMessages;
+use OCA\IntrusionDetection\Personal\LogOutElsewhere;
+use OCA\IntrusionDetection\Personal\PersonalOverview;
+use OCA\IntrusionDetection\Response\FlaggedSources;
+use OCA\IntrusionDetection\Response\Tokens;
+use OCA\IntrusionDetection\TrustedNetwork\TrustedNetworks;
+use OCA\IntrusionDetection\WasThisYou\PersonalDetections;
+use OCA\IntrusionDetection\WasThisYou\Questions;
+use OCA\IntrusionDetection\WasThisYou\WasThisYouService;
+use OCP\AppFramework\Utility\ITimeFactory;
+use OCP\EventDispatcher\IEventDispatcher;
+use OCP\IUser;
+use OCP\L10N\IFactory;
+use OCP\Log\Audit\CriticalActionPerformedEvent;
+use OCP\Notification\IManager as INotificationManager;
+use OCP\Server;
+
+/**
+ * The personal API wired like the app wires it, with the test session,
+ * request and remembered-device cookies, and the audit log captured.
+ */
+abstract class PersonalApiTestCase extends StepUpTestCase {
+	/** @var list<CriticalActionPerformedEvent> */
+	protected array $audited = [];
+	private \Closure $auditListener;
+
+	protected function setUp(): void {
+		parent::setUp();
+		$this->auditListener = function (CriticalActionPerformedEvent $e): void {
+			$this->audited[] = $e;
+		};
+		Server::get(IEventDispatcher::class)->addListener(CriticalActionPerformedEvent::class, $this->auditListener);
+	}
+
+	protected function tearDown(): void {
+		Server::get(IEventDispatcher::class)->removeListener(CriticalActionPerformedEvent::class, $this->auditListener);
+		parent::tearDown();
+	}
+
+	protected function detection(IUser $user, string $ip): Detection {
+		$detection = $this->engine()->handle(new DetectionDraft(
+			checkId: SecondFactorFailed::ID,
+			source: SourceKey::fromIp($ip),
+			uid: $user->getUID(),
+			facts: [],
+			userAgent: 'Mozilla/5.0',
+		), []);
+		$this->assertNotNull($detection);
+		return $detection;
+	}
+
+	protected function trustedNetwork(IUser $user, string $ip): int {
+		Server::get(TrustedNetworks::class)->trust($user->getUID(), SourceKey::fromIp($ip));
+		return Server::get(TrustedNetworks::class)->forUser($user->getUID())[0]['id'];
+	}
+
+	protected function rememberDevice(IUser $user): int {
+		$this->assertTrue($this->knownDevices()->remember($user, SourceKey::fromIp($this->remoteAddress), 'Firefox/131.0 (X11; Linux)'));
+		$this->nextRequest();
+		$list = $this->knownDevices()->forUser($user->getUID(), Server::get(IFactory::class)->get(Application::APP_ID, 'en'));
+		return max(array_column($list, 'id'));
+	}
+
+	protected function wasAudited(string $text): bool {
+		foreach ($this->audited as $event) {
+			if (str_contains($event->getLogMessage(), $text)) {
+				return true;
+			}
+		}
+		return false;
+	}
+
+	protected function controller(): PersonalApiController {
+		$answers = new WasThisYouService(
+			Server::get(DetectionMapper::class),
+			Server::get(Questions::class),
+			$this->engine(),
+			Server::get(UserDenied::class),
+			$this->settings,
+			Server::get(FlaggedSources::class),
+			Server::get(TrustedNetworks::class),
+			$this->sessionKiller(),
+			$this->currentSession,
+			$this->addresses(),
+			$this->state,
+			$this->session,
+			Server::get(INotificationManager::class),
+			Server::get(IEventDispatcher::class),
+			Server::get(AuditLogger::class),
+			Server::get(ITimeFactory::class),
+		);
+		return new PersonalApiController(
+			$this->request,
+			$this->userSession,
+			new PersonalDetections(Server::get(DetectionMapper::class), Server::get(UserMessages::class), Server::get(Questions::class), $answers, $this->settings, Server::get(ITimeFactory::class)),
+			$answers,
+			Server::get(TrustedNetworks::class),
+			Server::get(IFactory::class)->get(Application::APP_ID, 'en'),
+			$this->knownDevices(),
+			Server::get(LoginHistoryMapper::class),
+			$this->currentSession,
+			$this->settings,
+			Server::get(ITimeFactory::class),
+			Server::get(PersonalOverview::class),
+			new LogOutElsewhere(Server::get(Tokens::class), $this->currentSession, $this->knownDevices(), $this->session, Server::get(AuditLogger::class)),
+		);
+	}
+}

@@ -53,7 +53,7 @@ class PersonalDetections {
 	 * @return IntrusionDetectionPersonalDetection
 	 */
 	public function present(Detection $detection, IUser $user): array {
-		$message = $this->messages->build($detection, $user);
+		$message = $this->messages->build($detection, $user, onSecurityPage: true);
 		$asks = $this->questions->asks($detection);
 		$open = $asks && $detection->getUserVerdict() === null;
 		return [

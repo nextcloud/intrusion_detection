@@ -21,6 +21,7 @@ use OCA\IntrusionDetection\Config\Settings;
 use OCA\IntrusionDetection\Db\AttemptKind;
 use OCA\IntrusionDetection\Detection\AttemptRecorder;
 use OCA\IntrusionDetection\Net\RemoteAddressResolver;
+use OCA\IntrusionDetection\Personal\FailedLoginStats;
 use OCA\IntrusionDetection\Risk\RiskScorer;
 use OCP\Authentication\Events\AnyLoginFailedEvent;
 use OCP\EventDispatcher\Event;
@@ -37,9 +38,11 @@ use Psr\Log\LoggerInterface;
  *    agent is remembered on the address for its risk score;
  * 2. a decoy credential, and then a reserved login name, is a detection on
  *    its own, and nothing else runs;
- * 3. the attempt is recorded, if any check uses it (fingerprints only; old
+ * 3. a failure of an existing account is counted for the user's own
+ *    security page, while users have it;
+ * 4. the attempt is recorded, if any check uses it (fingerprints only; old
  *    attempts are cleaned up now and then by the recorder);
- * 4. the detectors of the checks that use failed logins run: password
+ * 5. the detectors of the checks that use failed logins run: password
  *    spraying (a password that is already being sprayed blocks its address
  *    at once), credential stuffing, and one account attacked from many places.
  *
@@ -69,6 +72,7 @@ class FailedLoginListener implements IEventListener {
 		private readonly IUserManager $userManager,
 		private readonly IRequest $request,
 		private readonly LoggerInterface $logger,
+		private readonly FailedLoginStats $failedLoginStats,
 	) {
 	}
 
@@ -97,14 +101,23 @@ class FailedLoginListener implements IEventListener {
 				return;
 			}
 
-			if (!$this->anyDetectorRuns()) {
+			$detectorsRun = $this->anyDetectorRuns();
+			$counted = $this->failedLoginStats->isEnabled();
+			if (!$detectorsRun && !$counted) {
+				return;
+			}
+			$uid = $this->resolveUid($loginName);
+			if ($counted && $uid !== null) {
+				$this->step('failed_login_stats', fn () => $this->failedLoginStats->record($uid, $source));
+			}
+			if (!$detectorsRun) {
 				return;
 			}
 			$attempt = $this->recorder->record(
 				self::kindOf($password),
 				$source,
 				$loginName,
-				$this->resolveUid($loginName),
+				$uid,
 				null,
 				$password,
 			);

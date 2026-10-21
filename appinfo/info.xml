@@ -85,6 +85,7 @@ Every check can be switched between Off, Observe and Protect, every threshold is
     <settings>
         <admin>OCA\IntrusionDetection\Settings\Admin</admin>
         <admin-section>OCA\IntrusionDetection\Settings\AdminSection</admin-section>
+        <personal>OCA\IntrusionDetection\Settings\Personal</personal>
     </settings>
 
     <openmetrics>

@@ -68,6 +68,31 @@ class Tokens {
 		return $ended;
 	}
 
+	/**
+	 * Invalidate every browser session of the account except one. App
+	 * passwords, connected devices and pending remote wipes are left alone.
+	 *
+	 * @return int how many sessions were ended
+	 */
+	public function invalidateSessionsExcept(string $uid, int $keepTokenId): int {
+		$ended = 0;
+		foreach ($this->tokenLookup->getTokenByUser($uid) as $token) {
+			if ($token->getType() !== IToken::TEMPORARY_TOKEN || $token->getId() === $keepTokenId || $token->getUID() !== $uid) {
+				continue;
+			}
+			$this->tokenProvider->invalidateTokenById($uid, $token->getId());
+			$ended++;
+		}
+		return $ended;
+	}
+
+	/**
+	 * Whether the token is a browser session of the account.
+	 */
+	public function isSession(string $uid, int $tokenId): bool {
+		return $this->find($uid, $tokenId)?->getType() === IToken::TEMPORARY_TOKEN;
+	}
+
 	public static function name(IToken $token): string {
 		$name = trim((string)preg_replace('/[\x00-\x1f\x7f]+/u', ' ', $token->getName()));
 		return mb_strlen($name) > self::MAX_NAME ? mb_substr($name, 0, self::MAX_NAME - 1) . '…' : $name;

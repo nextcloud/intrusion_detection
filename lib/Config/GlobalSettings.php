@@ -143,6 +143,8 @@ final class GlobalSettings {
 	public const RISKY_NETWORK_OFFICE_NETWORKS = 'risky_network_office_networks';
 	/** Groups whose members may log in from hosting and Tor networks without extra confirmation */
 	public const RISKY_NETWORK_EXEMPT_GROUPS = 'risky_network_exempt_groups';
+	/** Whether users see the intrusion detection part of their security settings */
+	public const PERSONAL_PAGE_ENABLED = 'personal_page_enabled';
 
 	/** Seconds in the learning period that starts when the app is first enabled */
 	public const LEARNING_DEFAULT_PERIOD = 7 * 86400;
@@ -234,6 +236,7 @@ final class GlobalSettings {
 				),
 				new ParamDefinition(self::RISKY_NETWORK_OFFICE_NETWORKS, ParamType::CidrList, [], maxItems: 100),
 				new ParamDefinition(self::RISKY_NETWORK_EXEMPT_GROUPS, ParamType::StringList, [], itemPattern: '/^[^\x00-\x1f\x7f]{1,255}$/u', maxItems: 20),
+				new ParamDefinition(self::PERSONAL_PAGE_ENABLED, ParamType::Bool, true),
 			];
 			$this->definitions = [];
 			foreach ($list as $definition) {

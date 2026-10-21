@@ -60,11 +60,14 @@ class UserMessages {
 		return $this->l10nFactory->get(Application::APP_ID, $language ?? $this->l10nFactory->getUserLanguage($user), $locale !== '' ? $locale : null);
 	}
 
-	public function build(Detection $detection, IUser $user, ?string $language = null): UserMessage {
+	/**
+	 * @param bool $onSecurityPage for the user's security page, which shows the answers itself
+	 */
+	public function build(Detection $detection, IUser $user, ?string $language = null, bool $onSecurityPage = false): UserMessage {
 		$l = $this->l10nFor($user, $language);
 		$notice = $this->notice($detection, $l);
 		$advice = $notice->advice !== [] ? $notice->advice : [$l->t('If this was not you, change your password and check your devices and sessions in your security settings.')];
-		if ($this->questions->isOpen($detection)) {
+		if (!$onSecurityPage && $this->questions->isOpen($detection)) {
 			$advice[] = $l->t('Was this you? Answer "Yes, it was me" or "No, it was not me" in the notification about it in Nextcloud.');
 		}
 		return new UserMessage(
@@ -121,7 +124,7 @@ class UserMessages {
 	}
 
 	private function when(Detection $detection, IUser $user, IL10N $l): string {
-		$time = $this->dates->dateTimeFor($detection->getCreatedAt(), $this->timeZone($user), $l);
+		$time = $this->dates->dateTimeFor($detection->getCreatedAt(), $this->timeZoneOf($user), $l);
 		$ip = $detection->getIp();
 		$userAgent = self::shortUserAgent(is_string($detection->getExplanationData()['userAgent'] ?? null) ? $detection->getExplanationData()['userAgent'] : null);
 		if ($ip === null) {
@@ -138,7 +141,7 @@ class UserMessages {
 	 * zone of the browser that made the request is not used: it may be the
 	 * attacker's.
 	 */
-	private function timeZone(IUser $user): \DateTimeZone {
+	public function timeZoneOf(IUser $user): \DateTimeZone {
 		$name = $this->userConfig->getValueString($user->getUID(), 'core', 'timezone');
 		if ($name !== '') {
 			try {

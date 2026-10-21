@@ -310,6 +310,10 @@ class GlobalSettingsPresenter {
 				$l->t('Exempt groups'),
 				$l->t('Members of these groups may log in from hosting and Tor networks without extra confirmation, for example service accounts.'),
 			), self::GROUP_RISKY_NETWORK],
+			GlobalSettings::PERSONAL_PAGE_ENABLED => [new ParamText(
+				$l->t('Show users their security events'),
+				$l->t('Users see their security events, failed logins, recent logins, remembered devices and trusted networks in their own security settings, and can answer "Was this you?" there. When this is off, that part is hidden; notifications still reach them.'),
+			), self::GROUP_PRIVACY],
 			default => [new ParamText(ucfirst(str_replace('_', ' ', $name))), self::GROUP_OTHER],
 		};
 	}

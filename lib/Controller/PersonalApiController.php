@@ -16,8 +16,11 @@ use OCA\IntrusionDetection\Db\LoginHistoryMapper;
 use OCA\IntrusionDetection\Db\SecurityChangeMapper;
 use OCA\IntrusionDetection\Guide\SecureAccountGuide;
 use OCA\IntrusionDetection\Guide\SecureAccountOverview;
+use OCA\IntrusionDetection\KnownDevice\DeviceLabel;
 use OCA\IntrusionDetection\KnownDevice\KnownDevices;
 use OCA\IntrusionDetection\LoginHistory\LoginHistoryEntry;
+use OCA\IntrusionDetection\Personal\LogOutElsewhere;
+use OCA\IntrusionDetection\Personal\PersonalOverview;
 use OCA\IntrusionDetection\ResponseDefinitions;
 use OCA\IntrusionDetection\SessionState\CurrentSession;
 use OCA\IntrusionDetection\TrustedNetwork\TrustedNetworks;
@@ -39,10 +42,11 @@ use OCP\IUser;
 use OCP\IUserSession;
 
 /**
- * The logged-in user's own security events, their answers to "Was this
- * you?" (also the actions of the user notification), their trusted
- * networks, their remembered devices and their recent logins (concept
- * sections 11.5.1, 11.8 and 15.1).
+ * The logged-in user's own security events, their answers to
+ * "Was this you?" (also the actions of the user notification), their
+ * trusted networks, their remembered devices, their recent logins, the
+ * overview at the top of their security section and
+ * "Log out everywhere else" (concept sections 11.5.1, 11.8 and 15.1).
  *
  * Every endpoint only ever touches the current user's own rows: another
  * account's detection or network answers 404, like a missing one. Writes
@@ -57,9 +61,14 @@ use OCP\IUserSession;
  * @psalm-import-type IntrusionDetectionLogin from ResponseDefinitions
  * @psalm-import-type IntrusionDetectionSecurityChange from ResponseDefinitions
  * @psalm-import-type IntrusionDetectionSecureAccount from ResponseDefinitions
+ * @psalm-import-type IntrusionDetectionPersonalOverview from ResponseDefinitions
+ * @psalm-import-type IntrusionDetectionLoggedOutElsewhere from ResponseDefinitions
  */
 #[OpenAPI(scope: OpenAPI::SCOPE_DEFAULT)]
 class PersonalApiController extends OCSController {
+	/** The request is not a browser session of the user */
+	public const NO_SESSION = 'no_session';
+
 	public function __construct(
 		IRequest $request,
 		private readonly IUserSession $userSession,
@@ -75,6 +84,8 @@ class PersonalApiController extends OCSController {
 		private readonly SecurityChangeMapper $changes,
 		private readonly Settings $settings,
 		private readonly ITimeFactory $timeFactory,
+		private readonly PersonalOverview $overview,
+		private readonly LogOutElsewhere $logOutElsewhere,
 	) {
 		parent::__construct(Application::APP_ID, $request);
 	}
@@ -226,6 +237,7 @@ class PersonalApiController extends OCSController {
 		$days = max(1, min($days, $this->settings->getInt(GlobalSettings::HISTORY_RETENTION_DAYS)));
 		$current = $this->currentSession->tokenId();
 		$entries = $this->loginHistory->forUser($this->user()->getUID(), $this->timeFactory->getTime() - $days * 86400, null, max(1, min(200, $limit)));
+		$l = $this->l;
 		return new DataResponse(array_map(static fn (LoginHistoryEntry $e): array => [
 			'id' => $e->id,
 			'createdAt' => $e->createdAt,
@@ -237,6 +249,7 @@ class PersonalApiController extends OCSController {
 			'confirmedBy' => $e->confirmedBy,
 			'stepUp' => $e->stepUp,
 			'current' => $current !== null && $e->sessionTokenId === $current,
+			'device' => self::deviceLabel($e->userAgent, $l),
 		], $entries));
 	}
 
@@ -325,6 +338,46 @@ class PersonalApiController extends OCSController {
 		$user = $this->user();
 		$this->guide->dismiss($user->getUID());
 		return new DataResponse($this->overview->forUser($user, $this->l));
+	}
+
+	/**
+	 * The status, failed logins and hints at the top of the current user's security section
+	 *
+	 * @return DataResponse<Http::STATUS_OK, IntrusionDetectionPersonalOverview, array{}>
+	 *
+	 * 200: The overview
+	 */
+	#[NoAdminRequired]
+	#[ApiRoute(verb: 'GET', url: '/api/v1/personal/overview')]
+	public function overview(): DataResponse {
+		return new DataResponse($this->overview->get($this->user(), $this->l));
+	}
+
+	/**
+	 * Log out everywhere else: end every other browser session of the current user and forget the other remembered browsers
+	 *
+	 * App passwords and connected devices keep working.
+	 *
+	 * @return DataResponse<Http::STATUS_OK, IntrusionDetectionLoggedOutElsewhere, array{}>|DataResponse<Http::STATUS_BAD_REQUEST, IntrusionDetectionAnswerError, array{}>
+	 *
+	 * 200: Logged out everywhere else
+	 * 400: Only a browser session can do this, not an app password
+	 */
+	#[NoAdminRequired]
+	#[PasswordConfirmationRequired]
+	#[UserRateLimit(limit: 5, period: 3600)]
+	#[ApiRoute(verb: 'POST', url: '/api/v1/personal/log-out-elsewhere')]
+	public function logOutElsewhere(): DataResponse {
+		$result = $this->logOutElsewhere->run($this->user());
+		if ($result === null) {
+			return new DataResponse(['reason' => self::NO_SESSION, 'message' => $this->l->t('This can only be done from a browser session, not with an app password.')], Http::STATUS_BAD_REQUEST);
+		}
+		return new DataResponse($result);
+	}
+
+	private static function deviceLabel(?string $userAgent, IL10N $l): string {
+		[$family, $platform] = DeviceLabel::parse($userAgent);
+		return DeviceLabel::translated($family, $platform, $l);
 	}
 
 	private function user(): IUser {

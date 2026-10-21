@@ -27,6 +27,7 @@ use OCA\IntrusionDetection\Db\TrustedNetworkMapper;
 use OCA\IntrusionDetection\Detection\AttemptRecorder;
 use OCA\IntrusionDetection\Detection\DetectionTotals;
 use OCA\IntrusionDetection\KnownDevice\KnownDevices;
+use OCA\IntrusionDetection\Personal\FailedLoginStats;
 use OCA\IntrusionDetection\Takeover\SecurityChangeLog;
 use OCP\AppFramework\Utility\ITimeFactory;
 use OCP\BackgroundJob\IJob;
@@ -64,6 +65,7 @@ class Cleanup extends TimedJob {
 		private readonly LoginHistoryMapper $loginHistory,
 		private readonly SecurityChangeMapper $securityChanges,
 		private readonly LockLinkMapper $lockLinks,
+		private readonly FailedLoginStats $failedLoginStats,
 	) {
 		parent::__construct($time);
 		$this->setInterval(300);
@@ -89,6 +91,7 @@ class Cleanup extends TimedJob {
 		$this->securityChanges->deleteOlderThan($now - $this->settings->getInt(GlobalSettings::HISTORY_RETENTION_DAYS) * 86400);
 		$this->securityChanges->forgetAddressesBefore($now - SecurityChangeLog::ADDRESS_TTL);
 		$this->lockLinks->deleteExpired($now);
+		$this->failedLoginStats->deleteExpired();
 		$this->updateFloodState($now);
 	}
 

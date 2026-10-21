@@ -21,6 +21,8 @@ use OCA\IntrusionDetection\Guide\SecureAccountGuide;
 use OCA\IntrusionDetection\Guide\SecureAccountOverview;
 use OCA\IntrusionDetection\LoginHistory\LoginHistory;
 use OCA\IntrusionDetection\Net\SourceKey;
+use OCA\IntrusionDetection\Personal\LogOutElsewhere;
+use OCA\IntrusionDetection\Personal\PersonalOverview;
 use OCA\IntrusionDetection\Response\FlaggedSources;
 use OCA\IntrusionDetection\TrustedNetwork\TrustedNetworks;
 use OCA\IntrusionDetection\WasThisYou\PersonalDetections;
@@ -141,6 +143,8 @@ class ConfirmationApiTest extends StepUpTestCase {
 			Server::get(SecurityChangeMapper::class),
 			$this->settings,
 			Server::get(ITimeFactory::class),
+			Server::get(PersonalOverview::class),
+			Server::get(LogOutElsewhere::class),
 		);
 	}
 }

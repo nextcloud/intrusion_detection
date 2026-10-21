@@ -24,6 +24,7 @@ use OCA\IntrusionDetection\Db\SecurityChangeMapper;
 use OCA\IntrusionDetection\Db\StepUpSessionMapper;
 use OCA\IntrusionDetection\Db\TokenOriginMapper;
 use OCA\IntrusionDetection\Db\TrustedNetworkMapper;
+use OCA\IntrusionDetection\Db\UserDailyMapper;
 use OCA\IntrusionDetection\Notification\AdminNotices;
 use OCA\IntrusionDetection\Notification\UserAlerts;
 use OCP\DB\QueryBuilder\IQueryBuilder;
@@ -59,6 +60,7 @@ class UserDataCleanup {
 		LoginHistoryMapper::TABLE => 'uid',
 		SecurityChangeMapper::TABLE => 'uid',
 		LockLinkMapper::TABLE => 'uid',
+		UserDailyMapper::TABLE => 'uid',
 	];
 
 	/** @var array<string, string> table => the column set to null */

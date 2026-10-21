@@ -794,6 +794,52 @@ namespace OCA\IntrusionDetection;
  *     confirmedBy: string,
  *     stepUp: ?string,
  *     current: bool,
+ *     device: string,
+ * }
+ *
+ * @psalm-type IntrusionDetectionFailedLoginDay = array{
+ *     day: string,
+ *     start: int,
+ *     count: int,
+ * }
+ *
+ * @psalm-type IntrusionDetectionFailedLogins = array{
+ *     days: list<IntrusionDetectionFailedLoginDay>,
+ *     total: int,
+ *     places: int,
+ *     placesCapped: bool,
+ *     recent: list<array{address: string, lastSeenAt: int}>,
+ *     timezone: string,
+ * }
+ *
+ * @psalm-type IntrusionDetectionPersonalStatusItem = array{
+ *     id: string,
+ *     level: 'info'|'warning',
+ *     text: string,
+ *     at: ?int,
+ * }
+ *
+ * @psalm-type IntrusionDetectionPersonalStatus = array{
+ *     level: 'ok'|'info'|'warning',
+ *     headline: string,
+ *     items: list<IntrusionDetectionPersonalStatusItem>,
+ * }
+ *
+ * @psalm-type IntrusionDetectionEmailHint = array{
+ *     emailUrl: string,
+ *     secondFactorUrl: ?string,
+ * }
+ *
+ * @psalm-type IntrusionDetectionPersonalOverview = array{
+ *     status: IntrusionDetectionPersonalStatus,
+ *     failedLogins: IntrusionDetectionFailedLogins,
+ *     emailHint: ?IntrusionDetectionEmailHint,
+ *     timezone: string,
+ * }
+ *
+ * @psalm-type IntrusionDetectionLoggedOutElsewhere = array{
+ *     sessions: int,
+ *     devices: int,
  * }
  *
  * @psalm-type IntrusionDetectionSecurityChange = array{
