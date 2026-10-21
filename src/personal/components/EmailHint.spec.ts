@@ -18,17 +18,17 @@ describe('EmailHint', () => {
 	})
 
 	test('says why in the words of the concept and offers both ways', () => {
-		personal.overview = overview({ emailHint: { emailUrl: '/settings/user/personal-info', secondFactorUrl: '/settings/user/security#two-factor-auth' } })
+		personal.overview = overview({ emailHint: { emailUrl: '/settings/user/profile-contact', secondFactorUrl: '/settings/user/security#two-factor-auth' } })
 		const wrapper = mount(EmailHint)
 		expect(wrapper.text()).toContain('If Nextcloud notices something suspicious, it can only confirm it\'s you with an email address or a second factor. Without either, some logins may be refused.')
-		expect(wrapper.get('[data-test="add-email"]').attributes('href')).toBe('/settings/user/personal-info')
+		expect(wrapper.get('[data-test="add-email"]').attributes('href')).toBe('/settings/user/profile-contact')
 		expect(wrapper.get('[data-test="add-email"]').text()).toBe('Add email address')
 		expect(wrapper.get('[data-test="set-up-second-factor"]').attributes('href')).toBe('/settings/user/security#two-factor-auth')
 		expect(wrapper.get('[data-test="set-up-second-factor"]').text()).toBe('Set up two-factor authentication')
 	})
 
 	test('offers no second factor when none can be set up', () => {
-		personal.overview = overview({ emailHint: { emailUrl: '/settings/user/personal-info', secondFactorUrl: null } })
+		personal.overview = overview({ emailHint: { emailUrl: '/settings/user/profile-contact', secondFactorUrl: null } })
 		const wrapper = mount(EmailHint)
 		expect(wrapper.find('[data-test="add-email"]').exists()).toBe(true)
 		expect(wrapper.find('[data-test="set-up-second-factor"]').exists()).toBe(false)

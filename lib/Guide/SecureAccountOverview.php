@@ -83,7 +83,7 @@ class SecureAccountOverview {
 			'canChangePassword' => $user->canChangePassword(),
 			'links' => [
 				'security' => $this->urlGenerator->linkToRouteAbsolute('settings.PersonalSettings.index', ['section' => 'security']),
-				'personalInfo' => $this->urlGenerator->linkToRouteAbsolute('settings.PersonalSettings.index', ['section' => 'personal-info']),
+				'personalInfo' => $this->urlGenerator->linkToRouteAbsolute('settings.PersonalSettings.index', ['section' => 'profile-contact']),
 				'activity' => $this->appManager->isEnabledForUser('activity', $user) ? $this->urlGenerator->linkToRouteAbsolute('activity.Activities.showList') : null,
 				'trash' => $this->appManager->isEnabledForUser('files_trashbin', $user) ? $this->urlGenerator->linkToRouteAbsolute('files.view.indexView', ['view' => 'trashbin']) : null,
 			],

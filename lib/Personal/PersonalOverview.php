@@ -159,7 +159,7 @@ class PersonalOverview {
 			return null;
 		}
 		return [
-			'emailUrl' => $this->urlGenerator->linkToRoute('settings.PersonalSettings.index', ['section' => 'personal-info']),
+			'emailUrl' => $this->urlGenerator->linkToRoute('settings.PersonalSettings.index', ['section' => 'profile-contact']),
 			'secondFactorUrl' => $this->canSetUpSecondFactor($user)
 				? $this->urlGenerator->linkToRoute('settings.PersonalSettings.index', ['section' => 'security']) . '#two-factor-auth'
 				: null,

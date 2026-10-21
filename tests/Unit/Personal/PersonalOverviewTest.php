@@ -121,10 +121,10 @@ class PersonalOverviewTest extends TestCase {
 	public function testTheHintOffersASecondFactorOnlyWhenOneCanBeSetUp(): void {
 		$this->email = '';
 		$this->providers = [$this->provider('backup_codes')];
-		$this->assertSame(['emailUrl' => 'personal-info', 'secondFactorUrl' => null], $this->overview()->emailHint($this->user()), 'Backup codes alone are no second factor');
+		$this->assertSame(['emailUrl' => 'profile-contact', 'secondFactorUrl' => null], $this->overview()->emailHint($this->user()), 'Backup codes alone are no second factor');
 
 		$this->providers = [$this->provider('backup_codes'), $this->provider('totp')];
-		$this->assertSame(['emailUrl' => 'personal-info', 'secondFactorUrl' => 'security#two-factor-auth'], $this->overview()->emailHint($this->user()));
+		$this->assertSame(['emailUrl' => 'profile-contact', 'secondFactorUrl' => 'security#two-factor-auth'], $this->overview()->emailHint($this->user()));
 
 		$this->providersFail = true;
 		$this->assertNull($this->overview()->emailHint($this->user())['secondFactorUrl'] ?? null, 'A broken provider app hides the button');

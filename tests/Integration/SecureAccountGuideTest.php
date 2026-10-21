@@ -35,6 +35,8 @@ use OCA\IntrusionDetection\Personal\PersonalOverview;
 use OCA\IntrusionDetection\TrustedNetwork\TrustedNetworks;
 use OCA\IntrusionDetection\WasThisYou\PersonalDetections;
 use OCA\IntrusionDetection\WasThisYou\WasThisYouService;
+use OCA\Settings\Sections\Personal\ProfileContact as ProfileContactSection;
+use OCA\Settings\Sections\Personal\Security as SecuritySection;
 use OCP\AppFramework\Http;
 use OCP\AppFramework\Utility\ITimeFactory;
 use OCP\Authentication\Token\IToken;
@@ -159,6 +161,18 @@ class SecureAccountGuideTest extends AccountTestCase {
 		sort($names);
 
 		$this->assertSame(['Backup script on nas01', 'Chrome on macOS', 'some-script/1.0'], $names);
+	}
+
+	public function testItsLinksOpenThePersonalSectionsOfCore(): void {
+		$user = $this->newUser('ids-guide-links');
+		$links = Server::get(SecureAccountOverview::class)->forUser($user, Server::get(IFactory::class)->get(Application::APP_ID, 'en'))['links'];
+		$hint = Server::get(PersonalOverview::class)->emailHint($user);
+		$this->assertNotNull($hint);
+		$section = static fn (string $class): string => Server::get(IURLGenerator::class)->linkToRoute('settings.PersonalSettings.index', ['section' => Server::get($class)->getID()]);
+
+		$this->assertStringEndsWith($section(SecuritySection::class), $links['security']);
+		$this->assertStringEndsWith($section(ProfileContactSection::class), $links['personalInfo']);
+		$this->assertSame($section(ProfileContactSection::class), $hint['emailUrl']);
 	}
 
 	public function testDismissing(): void {
