@@ -12,6 +12,7 @@ namespace OCA\IntrusionDetection\Notification;
 use OCP\IUser;
 use OCP\Mail\EMailDetails;
 use OCP\Mail\EMailDetailsRow;
+use OCP\Mail\IEMailTemplate;
 use OCP\Mail\IEmailValidator;
 use OCP\Mail\IMailer;
 use Psr\Log\LoggerInterface;
@@ -61,11 +62,14 @@ class Mails {
 			$template->setSubject(self::clean($content->subject));
 			$template->addHeader();
 			$template->addHeading(self::clean($content->heading));
-			foreach ($content->notes as $note) {
-				$template->addBodyNote(self::clean($note['text']), self::clean($note['label']), $note['type']);
+			if (!$content->notesAfterParagraphs) {
+				self::addNotes($template, $content);
 			}
 			foreach ($content->paragraphs as $paragraph) {
 				$template->addBodyText(self::clean($paragraph));
+			}
+			if ($content->notesAfterParagraphs) {
+				self::addNotes($template, $content);
 			}
 			foreach ($content->details as $details) {
 				$template->addBodyDetails(self::cleanDetails($details));
@@ -96,6 +100,12 @@ class Mails {
 				'exception' => $e,
 			]);
 			return false;
+		}
+	}
+
+	private static function addNotes(IEMailTemplate $template, MailContent $content): void {
+		foreach ($content->notes as $note) {
+			$template->addBodyNote(self::clean($note['text']), self::clean($note['label']), $note['type']);
 		}
 	}
 

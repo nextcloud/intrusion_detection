@@ -210,8 +210,7 @@ class EmailCodes {
 		$l = $this->messages->l10nFor($user);
 		$valid = TextRenderer::duration($this->settings->getInt(GlobalSettings::STEP_UP_CODE_TTL), $l);
 		$paragraphs = [
-			$l->t('Someone just logged in to your account %s with your password, and Nextcloud needs to confirm that it is you. Enter this code on the confirmation page:', [$user->getUID()]),
-			$code,
+			$l->t('Someone just logged in to your account %s with your password, and Nextcloud needs to confirm that it is you. Enter this code on the confirmation page.', [$user->getUID()]),
 			$l->t('The code is valid for %s.', [$valid]),
 		];
 		if ($state->ip !== null) {
@@ -220,7 +219,7 @@ class EmailCodes {
 		return new MailContent(
 			templateId: 'intrusion_detection.stepUpCode',
 			subject: $l->t('Confirm your login'),
-			heading: $l->t('Your confirmation code'),
+			heading: $l->t('Your confirmation code: %s', [$code]),
 			paragraphs: $paragraphs,
 			language: $l->getLanguageCode(),
 			closing: [

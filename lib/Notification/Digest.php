@@ -187,6 +187,7 @@ class Digest {
 			language: $language,
 			notes: $notes,
 			details: $details,
+			notesAfterParagraphs: true,
 		);
 	}
 
@@ -281,7 +282,7 @@ class Digest {
 		foreach ($report->decoys as $decoy) {
 			$card->addRow($decoy['label'])
 				->text($l->n('Used from %n address', 'Used from %n addresses', $decoy['addresses']))
-				->muted($l->t('Last used: %s', [$this->dateFormatter->formatDateTime($decoy['lastAt'], 'short', 'short', $timezone, $l)]));
+				->muted($l->t('Last used: %s', [$this->dateFormatter->formatDateTime($decoy['lastAt'], 'long', 'short', $timezone, $l)]));
 		}
 		return $card;
 	}
@@ -324,7 +325,7 @@ class Digest {
 		if ($report->protectedAccounts !== []) {
 			$row = $card->addRow($l->t('Accounts that need extra confirmation'));
 			foreach ($report->protectedAccounts as $account) {
-				$row->text($l->t('%1$s, until %2$s', [$account['uid'], $this->dateFormatter->formatDateTime($account['until'], 'short', 'short', $timezone, $l)]));
+				$row->text($l->t('%1$s, until %2$s', [$account['uid'], $this->dateFormatter->formatDateTime($account['until'], 'long', 'short', $timezone, $l)]));
 			}
 		}
 		if ($report->deniedByUsers !== []) {

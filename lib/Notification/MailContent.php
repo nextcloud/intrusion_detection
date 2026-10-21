@@ -25,6 +25,7 @@ final class MailContent {
 	 * @param ?string $buttonUrl an absolute link; never one that carries a token
 	 * @param list<array{text: string, label: string, type: IEMailTemplate::NOTE_*}> $notes highlighted boxes, shown between the heading and the paragraphs
 	 * @param list<EMailDetails> $details cards with labelled rows, shown after the paragraphs
+	 * @param bool $notesAfterParagraphs show the notes after the paragraphs, for emails that lead with their numbers
 	 */
 	public function __construct(
 		public readonly string $templateId,
@@ -39,6 +40,7 @@ final class MailContent {
 		public readonly array $closing = [],
 		public readonly array $notes = [],
 		public readonly array $details = [],
+		public readonly bool $notesAfterParagraphs = false,
 	) {
 	}
 }

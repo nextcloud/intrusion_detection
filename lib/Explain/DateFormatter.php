@@ -37,8 +37,11 @@ class DateFormatter {
 		return $dates;
 	}
 
+	/**
+	 * Date and time in the one style of the server's texts, e.g. "October 21, 2026, 6:10 PM".
+	 */
 	public function dateTime(int $timestamp): string {
-		return $this->formatter()->formatDateTime($timestamp, 'short', 'short');
+		return $this->formatter()->formatDateTime($timestamp, 'long', 'short');
 	}
 
 	/**

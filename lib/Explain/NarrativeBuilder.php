@@ -105,6 +105,7 @@ class NarrativeBuilder {
 	private function done(Detection $detection, IL10N $l): array {
 		$handlers = $this->handlers();
 		$sentences = [];
+		$notNeeded = [];
 		foreach ($detection->getActionList() as $action) {
 			$type = ResponseType::tryFrom($action['type']);
 			if ($type === null) {
@@ -120,7 +121,7 @@ class NarrativeBuilder {
 				continue;
 			}
 			if ($note === ResponseOutcome::NOTE_NOTHING_TO_DO) {
-				$sentences[] = $l->t('%s Nothing needed to be done.', [$type->describe($l)]);
+				$notNeeded[] = $type->describe($l);
 				continue;
 			}
 			$handler = $handlers[$type->value] ?? null;
@@ -130,6 +131,9 @@ class NarrativeBuilder {
 			} else {
 				$sentences[] = $type->describe($l);
 			}
+		}
+		if ($notNeeded !== []) {
+			$sentences[] = $l->t('Not needed this time: %s', [implode(' ', $notNeeded)]);
 		}
 		if ($sentences === []) {
 			$sentences[] = $l->t('Nothing: this check only records what it finds.');

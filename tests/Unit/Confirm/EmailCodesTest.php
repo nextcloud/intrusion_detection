@@ -59,7 +59,8 @@ class EmailCodesTest extends TestCase {
 		$this->assertTrue(Server::get(IHasher::class)->verify('482915', $state->codeHash));
 		$this->assertSame($this->now + 600, $state->codeExpires);
 		$this->assertCount(1, $this->sent);
-		$this->assertContains('482915', $this->sent[0]->paragraphs);
+		$this->assertSame('Your confirmation code: 482915', $this->sent[0]->heading, 'The code comes first, in the heading');
+		$this->assertStringNotContainsString('482915', implode(' ', $this->sent[0]->paragraphs) . $this->sent[0]->subject, 'Once, and not in the subject');
 		$this->assertNull($this->sent[0]->buttonUrl, 'No link in the code email');
 		$this->assertStringContainsString('198.51.100.7', implode(' ', $this->sent[0]->paragraphs));
 	}

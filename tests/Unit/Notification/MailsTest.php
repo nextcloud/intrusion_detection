@@ -100,6 +100,34 @@ class MailsTest extends TestCase {
 		$this->assertStringNotContainsString("\x00", $text);
 	}
 
+	public function testNotesCanFollowTheParagraphs(): void {
+		$order = static function (bool $after): string {
+			$sent = null;
+			$mailer = self::createStub(IMailer::class);
+			$mailer->method('createEMailTemplate')->willReturnCallback(static fn (string $id, array $data) => Server::get(IMailer::class)->createEMailTemplate($id, $data));
+			$message = self::createStub(IMessage::class);
+			$message->method('setTo')->willReturnSelf();
+			$message->method('useTemplate')->willReturnCallback(function ($template) use (&$sent, $message) {
+				$sent = $template;
+				return $message;
+			});
+			$mailer->method('createMessage')->willReturn($message);
+			$mailer->method('send')->willReturn([]);
+			(new Mails($mailer, Server::get(IEmailValidator::class), self::createStub(LoggerInterface::class)))->sendTo('alice@example.com', 'Alice', new MailContent(
+				templateId: 'intrusion_detection.test',
+				subject: 'Subject',
+				heading: 'Heading',
+				paragraphs: ['The numbers'],
+				notes: [['text' => 'A note', 'label' => 'Protecting', 'type' => IEMailTemplate::NOTE_INFO]],
+				notesAfterParagraphs: $after,
+			), 'alice');
+			$text = (string)$sent?->renderText();
+			return strpos($text, 'The numbers') < strpos($text, 'A note') ? 'paragraphs first' : 'notes first';
+		};
+		$this->assertSame('notes first', $order(false));
+		$this->assertSame('paragraphs first', $order(true));
+	}
+
 	public function testAFailingMailServerIsLoggedNotThrown(): void {
 		$mailer = $this->createMock(IMailer::class);
 		$mailer->method('createEMailTemplate')->willThrowException(new \RuntimeException('down'));

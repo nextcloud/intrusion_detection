@@ -287,6 +287,7 @@ class IncidentReportTest extends LoginFailureTestCase {
 		$detection->setHits(1);
 		$detection->setActionList([
 			['type' => 'notify_user', 'enforced' => true, 'note' => 'nothing_to_do'],
+			['type' => 'force_password_change', 'enforced' => true, 'note' => 'nothing_to_do'],
 			['type' => 'flag_source', 'enforced' => true, 'note' => 'failed'],
 			['type' => 'notify_admin', 'enforced' => true, 'ref' => ['admins' => 2, 'emails' => 0]],
 		]);
@@ -294,9 +295,12 @@ class IncidentReportTest extends LoginFailureTestCase {
 		$all = Server::get(\OCA\IntrusionDetection\Explain\NarrativeBuilder::class)->build($detection, $l)->done;
 		$this->assertNotSame([], $measures);
 		$this->assertLessThan(count($all), count($measures));
-		$this->assertStringNotContainsString('Nothing needed to be done', implode(' ', $measures));
+		$this->assertStringNotContainsString('Not needed this time', implode(' ', $measures));
+		$notNeeded = array_values(array_filter($all, static fn (string $s): bool => str_starts_with($s, 'Not needed this time: ')));
+		$this->assertCount(1, $notNeeded, 'what was not needed is said once, not after every response');
+		$this->assertStringContainsString('Require a new password at the next login.', $notNeeded[0]);
 		$this->assertStringNotContainsString('this failed', implode(' ', $measures));
-		$this->assertCount(3, $detection->getActionList(), 'the detection itself is not changed');
+		$this->assertCount(4, $detection->getActionList(), 'the detection itself is not changed');
 
 		$detection->setEnforced(false);
 		$this->assertSame([], Server::get(\OCA\IntrusionDetection\Incident\Measures::class)->of($detection, $l), 'observed detections did nothing');

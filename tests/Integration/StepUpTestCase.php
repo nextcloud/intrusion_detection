@@ -403,10 +403,8 @@ abstract class StepUpTestCase extends AccountTestCase {
 	protected function lastCode(string $uid): ?string {
 		foreach (array_reverse($this->mailed) as [$to, $mail]) {
 			if ($to === $uid && $mail->templateId === 'intrusion_detection.stepUpCode') {
-				foreach ($mail->paragraphs as $paragraph) {
-					if (preg_match('/^\d{6}$/', $paragraph) === 1) {
-						return $paragraph;
-					}
+				if (preg_match('/(\d{6})$/', $mail->heading, $match) === 1) {
+					return $match[1];
 				}
 			}
 		}
