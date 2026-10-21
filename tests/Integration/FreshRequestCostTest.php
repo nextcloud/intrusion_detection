@@ -60,7 +60,7 @@ class FreshRequestCostTest extends IntegrationTestCase {
 		$this->assertLessThanOrEqual(1, $result['davPlugin']['queries'], 'only core\'s check that the account is enabled');
 
 		$this->assertCount(1, Server::get(LoginHistoryMapper::class)->forUser(self::UID, 0));
-		$this->assertSame(1, Server::get(LoginMapper::class)->distinctUsersForIp('4:203.0.113.71', 0) + Server::get(LoginMapper::class)->distinctUsersForIp('203.0.113.71', 0));
+		$this->assertSame(1, count(Server::get(LoginMapper::class)->distinctUidsForIp('4:203.0.113.71', 0, 100)) + count(Server::get(LoginMapper::class)->distinctUidsForIp('203.0.113.71', 0, 100)));
 	}
 
 	/**
