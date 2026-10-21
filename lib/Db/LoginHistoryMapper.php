@@ -22,8 +22,8 @@ use OCP\IDBConnection;
  */
 class LoginHistoryMapper {
 	public const TABLE = 'ids_login_history';
-	/** Lists return at most this many rows */
-	public const MAX_LIMIT = 500;
+	/** Lists return at most this many rows: enough for a full incident report */
+	public const MAX_LIMIT = 2001;
 	private const COLUMNS = ['id', 'uid', 'created_at', 'ip', 'net_key', 'user_agent', 'method', 'known_device', 'confirmed_by', 'step_up', 'session_token_id'];
 
 	public function __construct(
@@ -113,21 +113,22 @@ class LoginHistoryMapper {
 	}
 
 	/**
-	 * @return list<LoginHistoryEntry> the account's logins in [since, until), newest first
+	 * @return list<LoginHistoryEntry> the account's logins in [since, until), newest first unless `$oldestFirst`
 	 */
-	public function forUser(string $uid, int $since, ?int $until = null, int $limit = 100): array {
+	public function forUser(string $uid, int $since, ?int $until = null, int $limit = 100, bool $oldestFirst = false): array {
 		$qb = $this->db->getQueryBuilder();
 		$qb->where($qb->expr()->eq('uid', $qb->createNamedParameter($uid)));
-		return $this->range($qb, $since, $until, $limit);
+		return $this->range($qb, $since, $until, $limit, $oldestFirst);
 	}
 
 	/**
 	 * The logins from one address, or from a network when given its key
-	 * (as in {@see SourceKey::$netKey}), in [since, until), newest first.
+	 * (as in {@see SourceKey::$netKey}), in [since, until), newest first
+	 * unless `$oldestFirst`.
 	 *
 	 * @return list<LoginHistoryEntry>
 	 */
-	public function forAddress(string $address, int $since, ?int $until = null, int $limit = 100): array {
+	public function forAddress(string $address, int $since, ?int $until = null, int $limit = 100, bool $oldestFirst = false): array {
 		$qb = $this->db->getQueryBuilder();
 		$source = SourceKey::tryFromIp($address);
 		if ($source !== null) {
@@ -135,7 +136,7 @@ class LoginHistoryMapper {
 		} else {
 			$qb->where($qb->expr()->eq('net_key', $qb->createNamedParameter($address)));
 		}
-		return $this->range($qb, $since, $until, $limit);
+		return $this->range($qb, $since, $until, $limit, $oldestFirst);
 	}
 
 	public function deleteOlderThan(int $before): int {
@@ -148,12 +149,13 @@ class LoginHistoryMapper {
 	/**
 	 * @return list<LoginHistoryEntry>
 	 */
-	private function range(IQueryBuilder $qb, int $since, ?int $until, int $limit): array {
+	private function range(IQueryBuilder $qb, int $since, ?int $until, int $limit, bool $oldestFirst): array {
+		$order = $oldestFirst ? 'ASC' : 'DESC';
 		$qb->select(...self::COLUMNS)
 			->from(self::TABLE)
 			->andWhere($qb->expr()->gte('created_at', $qb->createNamedParameter($since, IQueryBuilder::PARAM_INT)))
-			->orderBy('created_at', 'DESC')
-			->addOrderBy('id', 'DESC')
+			->orderBy('created_at', $order)
+			->addOrderBy('id', $order)
 			->setMaxResults(max(1, min(self::MAX_LIMIT, $limit)));
 		if ($until !== null) {
 			$qb->andWhere($qb->expr()->lt('created_at', $qb->createNamedParameter($until, IQueryBuilder::PARAM_INT)));

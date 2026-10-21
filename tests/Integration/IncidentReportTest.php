@@ -20,17 +20,21 @@ use OCA\IntrusionDetection\Command\Report;
 use OCA\IntrusionDetection\Db\Approval;
 use OCA\IntrusionDetection\Db\ApprovalMapper;
 use OCA\IntrusionDetection\Db\BanMapper;
+use OCA\IntrusionDetection\Db\LoginHistoryMapper;
 use OCA\IntrusionDetection\Db\TokenOriginMapper;
 use OCA\IntrusionDetection\Detection\DetectionDraft;
 use OCA\IntrusionDetection\Explain\DateFormatter;
+use OCA\IntrusionDetection\Incident\DataCategory;
 use OCA\IntrusionDetection\Incident\IncidentQuery;
 use OCA\IntrusionDetection\Incident\IncidentReport;
 use OCA\IntrusionDetection\Incident\IncidentReportBuilder;
 use OCA\IntrusionDetection\Incident\IncidentReports;
 use OCA\IntrusionDetection\Incident\ReportFormat;
 use OCA\IntrusionDetection\Incident\ReportRenderer;
+use OCA\IntrusionDetection\Incident\Sources\LoginSource;
 use OCA\IntrusionDetection\Incident\Sources\ShareSource;
 use OCA\IntrusionDetection\Incident\TimelineEntry;
+use OCA\IntrusionDetection\LoginHistory\LoginHistory;
 use OCA\IntrusionDetection\Net\SourceKey;
 use OCA\IntrusionDetection\Response\BanService;
 use OCA\IntrusionDetection\Response\ResponseEngine;
@@ -345,6 +349,27 @@ class IncidentReportTest extends LoginFailureTestCase {
 			}
 		}
 		$this->assertStringContainsString('&lt;img src=x onerror=alert(1)&gt;.txt', $reports->document($this->forUser($this->victim), ReportFormat::Html, 'admin', $l)['body']);
+	}
+
+	public function testLoginsAreInTheTimelineOldestFirstAndAnUnconfirmedOneIsAFollowUp(): void {
+		$history = Server::get(LoginHistoryMapper::class);
+		$now = time();
+		$history->insert($this->victim, $now - 7200, SourceKey::fromIp('198.51.100.7'), 'Firefox on Linux', LoginHistory::METHOD_PASSWORD, false, 'email_code', LoginHistory::STEP_UP_CONFIRMED, null);
+		$history->insert($this->victim, $now - 3600, SourceKey::fromIp('2001:db8:5:6::1'), null, LoginHistory::METHOD_PASSWORD, false, LoginHistory::CONFIRMED_BY_NONE, LoginHistory::STEP_UP_ALLOWED, null);
+		$history->insert($this->other, $now - 1800, SourceKey::fromIp('198.51.100.7'), null, LoginHistory::METHOD_APP_PASSWORD, false, LoginHistory::CONFIRMED_BY_NONE, null, null);
+
+		$report = $this->report($this->forUser($this->victim));
+		$logins = array_values(array_filter($report->entries, static fn (TimelineEntry $e): bool => $e->kind === LoginSource::KIND));
+		$this->assertCount(2, $logins, 'Only the account\'s own logins');
+		$this->assertSame('198.51.100.7', $logins[0]->address);
+		$this->assertContains('Confirmed with a code sent by email.', $logins[0]->details);
+		$this->assertNull($logins[0]->followUp);
+		$this->assertNotNull($logins[1]->followUp, 'Let in although nothing confirmed it');
+		$this->assertSame([DataCategory::AccountContent], $logins[1]->categories);
+
+		$byAddress = $this->report($this->forAddress('198.51.100.7'));
+		$this->assertSame(2, self::kindCounts($byAddress)['login']);
+		$this->assertSame(1, self::kindCounts($this->report($this->forAddress('2001:db8:5:6::99')))['login'], 'An IPv6 address by its /64');
 	}
 
 	public function testBuildingAReportStoresNothing(): void {

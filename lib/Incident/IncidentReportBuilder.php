@@ -15,6 +15,7 @@ use OCA\IntrusionDetection\Incident\Sources\AdminChangeSource;
 use OCA\IntrusionDetection\Incident\Sources\AppPasswordSource;
 use OCA\IntrusionDetection\Incident\Sources\BanSource;
 use OCA\IntrusionDetection\Incident\Sources\DetectionSource;
+use OCA\IntrusionDetection\Incident\Sources\LoginSource;
 use OCA\IntrusionDetection\Incident\Sources\ShareSource;
 use OCP\AppFramework\Utility\ITimeFactory;
 use OCP\IL10N;
@@ -55,6 +56,7 @@ class IncidentReportBuilder {
 		AdminChangeSource::class,
 		ShareSource::class,
 		ActivitySource::class,
+		LoginSource::class,
 	];
 
 	public function __construct(

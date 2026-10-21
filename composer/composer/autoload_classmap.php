@@ -332,6 +332,7 @@ return array(
     'OCA\\IntrusionDetection\\Incident\\Sources\\AppPasswordSource' => $baseDir . '/../lib/Incident/Sources/AppPasswordSource.php',
     'OCA\\IntrusionDetection\\Incident\\Sources\\BanSource' => $baseDir . '/../lib/Incident/Sources/BanSource.php',
     'OCA\\IntrusionDetection\\Incident\\Sources\\DetectionSource' => $baseDir . '/../lib/Incident/Sources/DetectionSource.php',
+    'OCA\\IntrusionDetection\\Incident\\Sources\\LoginSource' => $baseDir . '/../lib/Incident/Sources/LoginSource.php',
     'OCA\\IntrusionDetection\\Incident\\Sources\\ShareSource' => $baseDir . '/../lib/Incident/Sources/ShareSource.php',
     'OCA\\IntrusionDetection\\Incident\\TimelineEntry' => $baseDir . '/../lib/Incident/TimelineEntry.php',
     'OCA\\IntrusionDetection\\KnownDevice\\DeviceCookie' => $baseDir . '/../lib/KnownDevice/DeviceCookie.php',

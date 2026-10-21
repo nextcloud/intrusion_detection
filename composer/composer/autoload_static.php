@@ -347,6 +347,7 @@ class ComposerStaticInitIntrusionDetection
         'OCA\\IntrusionDetection\\Incident\\Sources\\AppPasswordSource' => __DIR__ . '/..' . '/../lib/Incident/Sources/AppPasswordSource.php',
         'OCA\\IntrusionDetection\\Incident\\Sources\\BanSource' => __DIR__ . '/..' . '/../lib/Incident/Sources/BanSource.php',
         'OCA\\IntrusionDetection\\Incident\\Sources\\DetectionSource' => __DIR__ . '/..' . '/../lib/Incident/Sources/DetectionSource.php',
+        'OCA\\IntrusionDetection\\Incident\\Sources\\LoginSource' => __DIR__ . '/..' . '/../lib/Incident/Sources/LoginSource.php',
         'OCA\\IntrusionDetection\\Incident\\Sources\\ShareSource' => __DIR__ . '/..' . '/../lib/Incident/Sources/ShareSource.php',
         'OCA\\IntrusionDetection\\Incident\\TimelineEntry' => __DIR__ . '/..' . '/../lib/Incident/TimelineEntry.php',
         'OCA\\IntrusionDetection\\KnownDevice\\DeviceCookie' => __DIR__ . '/..' . '/../lib/KnownDevice/DeviceCookie.php',
