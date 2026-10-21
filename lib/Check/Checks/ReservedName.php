@@ -71,7 +71,7 @@ final class ReservedName implements ICheck, IExplainsDetection, ISimulatable, IV
 				wrong: $l->t('Someone who really has an account with that name, for example one that appeared later through LDAP. Such names are skipped automatically and shown as a problem in the setup checks.'),
 				data: $l->t('Detections: the address, the reserved name that was tried, and the time.'),
 				params: [
-					'names' => new ParamText($l->t('Reserved names'), $l->t('Login names no account uses. Manage them on the Decoys tab.')),
+					'names' => new ParamText($l->t('Reserved names'), $l->t('Login names no account uses. Manage them on the Blocks tab.')),
 				],
 			),
 			simulatable: true,

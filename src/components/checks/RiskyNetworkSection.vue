@@ -37,7 +37,7 @@ const settings = computed(() => state.settings.filter((s) => s.group === 'risky_
 			{{ t(APP_ID, 'Which hosting providers and Tor exit nodes count is set by the network lists. They are all off until you switch one on.') }}
 		</p>
 		<div>
-			<NcButton variant="secondary" href="#blocks">
+			<NcButton variant="secondary" href="#blocks/blocklists">
 				<template #icon>
 					<NcIconSvgWrapper :path="mdiArrowRight" />
 				</template>

@@ -37,7 +37,8 @@ describe('sections within a tab', () => {
 		} finally {
 			tabs.splice(tabs.findIndex((tab) => tab.id === 'test-empty'), 1)
 		}
-		expect(sectionsOf('notifications').map((s) => s.id)).toEqual(['digest', 'webhook-events'])
+		expect(sectionsOf('settings').map((s) => s.id)).toEqual(['digest', 'webhook-events'])
+		expect(sectionsOf('settings', false).map((s) => s.id)).toEqual(['digest'])
 	})
 
 	test('sections follow the tab component, in order', () => {

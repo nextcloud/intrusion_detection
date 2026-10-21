@@ -65,8 +65,8 @@ class AdminContactCheck extends ProblemCheck {
 				$l->t('No administrator can be reached or confirmed'),
 				$l->t('No administrator has an email address or a second factor. Security alerts can only be seen inside Nextcloud, where an intruder in an administrator account sees them too, and a stolen password is enough to take over the server.'),
 				$fix,
-				'#confirmation',
-				$l->t('Open the Confirmation tab'),
+				'#settings/confirmation',
+				$l->t('Open the login confirmation settings'),
 			);
 		}
 
@@ -95,8 +95,8 @@ class AdminContactCheck extends ProblemCheck {
 			$l->t('Administrators without email or second factor'),
 			implode(' ', $problems),
 			$fix,
-			'#confirmation',
-			$l->t('Open the Confirmation tab'),
+			'#settings/confirmation',
+			$l->t('Open the login confirmation settings'),
 		);
 	}
 

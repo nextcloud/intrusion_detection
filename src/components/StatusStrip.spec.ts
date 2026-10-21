@@ -8,24 +8,23 @@ import { describe, expect, test } from 'vitest'
 import StatusStrip from './StatusStrip.vue'
 import { makeStatus } from '../tests/fixtures.ts'
 
-describe('the status strip', () => {
-	test('says the state and the figures in one line', () => {
-		const wrapper = mount(StatusStrip, { props: { status: makeStatus() } })
-		expect(wrapper.text()).toContain('Learning: 7 days left')
-		expect(wrapper.text()).toContain('1,234 detections and 2 active blocks in the last 24 hours')
+describe('the status line of the header', () => {
+	test('says the state in one sentence', () => {
+		expect(mount(StatusStrip, { props: { status: makeStatus() } }).text()).toContain('Learning until')
+		expect(mount(StatusStrip, { props: { status: makeStatus({ state: 'protecting' }) } }).text()).toContain('Protecting this server.')
+		expect(mount(StatusStrip, { props: { status: makeStatus({ state: 'off' }) } }).text()).toContain('Off: nothing is checked and nobody is blocked.')
 	})
 
-	test('counts the problems that are not mere tips and leads to the overview', async () => {
+	test('counts the problems that are not mere tips and leads to them', async () => {
 		const wrapper = mount(StatusStrip, { props: { status: makeStatus() } })
 		const button = wrapper.find('button')
-		expect(button.text()).toBe('1 thing to look at')
+		expect(button.text()).toBe('1 thing needs attention')
 		await button.trigger('click')
-		expect(wrapper.emitted('overview')).toHaveLength(1)
+		expect(wrapper.emitted('attention')).toHaveLength(1)
 	})
 
-	test('offers the overview when nothing needs a look', () => {
+	test('says nothing more when nothing needs attention', () => {
 		const wrapper = mount(StatusStrip, { props: { status: makeStatus({ state: 'protecting', problems: [] }) } })
-		expect(wrapper.text()).toContain('Protecting')
-		expect(wrapper.find('button').text()).toBe('Overview')
+		expect(wrapper.find('button').exists()).toBe(false)
 	})
 })

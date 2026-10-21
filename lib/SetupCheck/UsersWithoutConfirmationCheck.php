@@ -16,7 +16,7 @@ use OCP\IL10N;
 /**
  * Setup check 9: active accounts with neither a second factor nor an email
  * address. If a check asks them to confirm a login, nothing can, and the
- * "no method" settings on the Confirmation tab decide. Information, or a
+ * "no method" login confirmation settings decide. Information, or a
  * warning above {@see ConfirmationCoverage::WARNING_SHARE} of the active
  * accounts. Counted cheaply and cached for an hour.
  */
@@ -51,13 +51,13 @@ class UsersWithoutConfirmationCheck extends ProblemCheck {
 			$warning ? Finding::LEVEL_WARNING : Finding::LEVEL_INFO,
 			$l->n('%n account cannot confirm a login', '%n accounts cannot confirm a login', $without),
 			$l->n(
-				'%1$s of %2$s active accounts has neither a second factor nor an email address. If Nextcloud asks it to confirm a risky login, nothing can, and the settings on the Confirmation tab decide whether the login is refused.',
-				'%1$s of %2$s active accounts have neither a second factor nor an email address. If Nextcloud asks them to confirm a risky login, nothing can, and the settings on the Confirmation tab decide whether the login is refused.',
+				'%1$s of %2$s active accounts has neither a second factor nor an email address. If Nextcloud asks it to confirm a risky login, nothing can, and the login confirmation settings decide whether the login is refused.',
+				'%1$s of %2$s active accounts have neither a second factor nor an email address. If Nextcloud asks them to confirm a risky login, nothing can, and the login confirmation settings decide whether the login is refused.',
 				$without,
 				[(string)$without, (string)$active],
 			),
-			$l->t('Ask these users to add an email address or set up a second factor. The Confirmation tab lists them.'),
-			'#confirmation',
+			$l->t('Ask these users to add an email address or set up a second factor. The login confirmation settings list them.'),
+			'#settings/confirmation',
 			$l->t('Show the accounts'),
 		);
 	}

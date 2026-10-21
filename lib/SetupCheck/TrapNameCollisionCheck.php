@@ -56,9 +56,9 @@ class TrapNameCollisionCheck extends ProblemCheck {
 				count($names),
 				[$quoted],
 			),
-			$l->t('Remove these names from the reserved names, or delete the decoys that use them, on the Decoys tab. Then choose names no account uses.'),
-			'#decoys',
-			$l->t('Open the Decoys tab'),
+			$l->t('Remove these names from the reserved names, or delete the decoys that use them, on the Blocks tab. Then choose names no account uses.'),
+			'#blocks/decoys',
+			$l->t('Open the decoys'),
 		);
 	}
 }

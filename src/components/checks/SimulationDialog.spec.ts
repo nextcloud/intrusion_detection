@@ -69,6 +69,6 @@ describe('Simulate on a check card', () => {
 		await flushPromises()
 		expect(card.find('textarea').exists()).toBe(false)
 		expect(card.text()).toContain('1 name is reserved: admin')
-		expect(card.text()).toContain('Manage them on the Decoys tab')
+		expect(card.text()).toContain('Manage them on the Blocks tab')
 	})
 })

@@ -182,7 +182,7 @@ const turnOn = () => run('on', () => updateSettings({ protection_enabled: true }
 		<component :is="section" v-for="(section, index) in statusSections" :key="index" />
 	</section>
 
-	<ProblemList v-if="status.problems.length > 0" :problems="status.problems" />
+	<ProblemList v-if="status.problems.length > 0" id="ids-section-attention" :problems="status.problems" />
 </template>
 
 <style module>

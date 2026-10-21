@@ -48,11 +48,11 @@ const summary = computed(() => {
 			{{ summary }}
 		</p>
 		<div>
-			<NcButton variant="secondary" href="#decoys">
+			<NcButton variant="secondary" href="#blocks/decoys">
 				<template #icon>
 					<NcIconSvgWrapper :path="mdiArrowRight" />
 				</template>
-				{{ t(APP_ID, 'Manage them on the Decoys tab') }}
+				{{ t(APP_ID, 'Manage them on the Blocks tab') }}
 			</NcButton>
 		</div>
 	</fieldset>

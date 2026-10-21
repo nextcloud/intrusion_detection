@@ -124,6 +124,6 @@ class TestAlertTest extends TestCase {
 		$prepared = $notifier->prepare($notification, 'en');
 		$this->assertSame('Test alert from intrusion detection', $prepared->getParsedSubject());
 		$this->assertStringContainsString('Nothing has happened', $prepared->getParsedMessage());
-		$this->assertSame('https://cloud.example.com/settings/admin/intrusion_detection#notifications', $prepared->getLink());
+		$this->assertSame('https://cloud.example.com/settings/admin/intrusion_detection#settings/notifications', $prepared->getLink());
 	}
 }

@@ -6,7 +6,7 @@
 import type { Component } from 'vue'
 import type { DetectionDetail } from './types.ts'
 
-import { mdiBellOutline, mdiCogOutline, mdiFileDocumentAlertOutline, mdiFingerprint, mdiFormatListChecks, mdiShieldLockOutline, mdiShieldSearch, mdiTargetAccount, mdiViewDashboardOutline } from '@mdi/js'
+import { mdiCogOutline, mdiFileDocumentAlertOutline, mdiShieldCheckOutline, mdiShieldLockOutline, mdiViewDashboardOutline } from '@mdi/js'
 import { t } from '@nextcloud/l10n'
 import { defineAsyncComponent, shallowReactive } from 'vue'
 import { APP_ID } from './utils/format.ts'
@@ -18,8 +18,10 @@ import { APP_ID } from './utils/format.ts'
  *   without a component or sections are not shown, so the page never has an
  *   empty tab.
  * - A section within a tab: add an entry to `tabSections`, e.g. the digest
- *   on the Notifications tab. Sections are rendered after the tab's own
+ *   on the Settings tab. Sections are rendered after the tab's own
  *   component, by `order`, so several parts of the app can fill one tab.
+ * - Tabs and sections marked `advanced` are shown only while "Show advanced
+ *   options" is on.
  * - A section in check cards: add an entry to `checkSections`, e.g. "Test a
  *   URL" for one check, rendered in the expanded card after the named section.
  * - The status banner: add a component to `statusSections`, e.g. a
@@ -37,6 +39,8 @@ export interface TabDefinition {
 	icon: string
 	order: number
 	component?: Component
+	/** Shown only with the advanced options */
+	advanced?: boolean
 }
 
 export interface TabSection {
@@ -45,6 +49,8 @@ export interface TabSection {
 	tab: string
 	order: number
 	component: Component
+	/** Shown only with the advanced options */
+	advanced?: boolean
 }
 
 export interface CheckSection {
@@ -69,14 +75,10 @@ export interface DetectionSection {
 
 export const tabs = shallowReactive<TabDefinition[]>([
 	{ id: 'overview', name: () => t(APP_ID, 'Overview'), icon: mdiViewDashboardOutline, order: 10, component: defineAsyncComponent(() => import('./views/OverviewTab.vue')) },
-	{ id: 'checks', name: () => t(APP_ID, 'Checks'), icon: mdiFormatListChecks, order: 20, component: defineAsyncComponent(() => import('./views/ChecksTab.vue')) },
+	{ id: 'protection', name: () => t(APP_ID, 'Protection'), icon: mdiShieldCheckOutline, order: 20, component: defineAsyncComponent(() => import('./views/ChecksTab.vue')) },
 	{ id: 'blocks', name: () => t(APP_ID, 'Blocks'), icon: mdiShieldLockOutline, order: 30, component: defineAsyncComponent(() => import('./views/BlocksTab.vue')) },
-	{ id: 'decoys', name: () => t(APP_ID, 'Decoys'), icon: mdiTargetAccount, order: 40, component: defineAsyncComponent(() => import('./views/DecoysTab.vue')) },
-	{ id: 'notifications', name: () => t(APP_ID, 'Notifications'), icon: mdiBellOutline, order: 50, component: defineAsyncComponent(() => import('./views/NotificationsTab.vue')) },
-	{ id: 'privacy', name: () => t(APP_ID, 'Data and privacy'), icon: mdiFingerprint, order: 60, component: defineAsyncComponent(() => import('./views/PrivacyTab.vue')) },
-	{ id: 'confirmation', name: () => t(APP_ID, 'Confirmation'), icon: mdiShieldSearch, order: 70, component: defineAsyncComponent(() => import('./views/ConfirmationTab.vue')) },
-	{ id: 'incidents', name: () => t(APP_ID, 'Incidents'), icon: mdiFileDocumentAlertOutline, order: 80, component: defineAsyncComponent(() => import('./views/IncidentsTab.vue')) },
-	{ id: 'advanced', name: () => t(APP_ID, 'Advanced'), icon: mdiCogOutline, order: 90, component: defineAsyncComponent(() => import('./views/AdvancedTab.vue')) },
+	{ id: 'settings', name: () => t(APP_ID, 'Settings'), icon: mdiCogOutline, order: 40, component: defineAsyncComponent(() => import('./views/SettingsTab.vue')) },
+	{ id: 'incidents', name: () => t(APP_ID, 'Incidents'), icon: mdiFileDocumentAlertOutline, order: 50, advanced: true, component: defineAsyncComponent(() => import('./views/IncidentsTab.vue')) },
 ])
 
 export const checkSections = shallowReactive<CheckSection[]>([
@@ -89,9 +91,10 @@ export const checkSections = shallowReactive<CheckSection[]>([
 ])
 
 export const tabSections = shallowReactive<TabSection[]>([
-	{ id: 'digest', tab: 'notifications', order: 30, component: defineAsyncComponent(() => import('./components/notifications/DigestSection.vue')) },
-	{ id: 'webhook-events', tab: 'notifications', order: 40, component: defineAsyncComponent(() => import('./components/notifications/WebhookEventsSection.vue')) },
-	{ id: 'risk-score', tab: 'checks', order: 10, component: defineAsyncComponent(() => import('./components/checks/RiskScoreSection.vue')) },
+	{ id: 'decoys', tab: 'blocks', order: 10, component: defineAsyncComponent(() => import('./views/DecoysTab.vue')) },
+	{ id: 'digest', tab: 'settings', order: 30, component: defineAsyncComponent(() => import('./components/notifications/DigestSection.vue')) },
+	{ id: 'webhook-events', tab: 'settings', order: 40, advanced: true, component: defineAsyncComponent(() => import('./components/notifications/WebhookEventsSection.vue')) },
+	{ id: 'risk-score', tab: 'protection', order: 10, advanced: true, component: defineAsyncComponent(() => import('./components/checks/RiskScoreSection.vue')) },
 ])
 
 export const statusSections = shallowReactive<Component[]>([])
@@ -109,14 +112,19 @@ export const detectionSections = shallowReactive<DetectionSection[]>([
  * The sections of a tab, in order.
  *
  * @param tabId - The tab
+ * @param advanced - Whether the advanced options are shown
  */
-export function sectionsOf(tabId: string): TabSection[] {
-	return tabSections.filter((section) => section.tab === tabId).sort((a, b) => a.order - b.order)
+export function sectionsOf(tabId: string, advanced = true): TabSection[] {
+	return tabSections.filter((section) => section.tab === tabId && (advanced || !section.advanced)).sort((a, b) => a.order - b.order)
 }
 
 /**
  * The tabs that have content, in order.
+ *
+ * @param advanced - Whether the advanced options are shown
  */
-export function visibleTabs(): TabDefinition[] {
-	return tabs.filter((tab) => tab.component !== undefined || sectionsOf(tab.id).length > 0).sort((a, b) => a.order - b.order)
+export function visibleTabs(advanced = true): TabDefinition[] {
+	return tabs
+		.filter((tab) => (advanced || !tab.advanced) && (tab.component !== undefined || sectionsOf(tab.id, advanced).length > 0))
+		.sort((a, b) => a.order - b.order)
 }

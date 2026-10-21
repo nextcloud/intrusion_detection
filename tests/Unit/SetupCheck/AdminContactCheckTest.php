@@ -39,7 +39,7 @@ class AdminContactCheckTest extends TestCase {
 		$this->assertStringContainsString('1 administrator has no email address', (string)$result->getDescription());
 		$this->assertStringContainsString('bob', (string)$result->getDescription());
 		$this->assertStringNotContainsString('alice', (string)$result->getDescription());
-		$this->assertStringEndsWith('#confirmation', (string)$result->getLinkToDoc(), 'It links to the Confirmation tab');
+		$this->assertStringEndsWith('#settings/confirmation', (string)$result->getLinkToDoc(), 'It links to the login confirmation settings');
 	}
 
 	public function testAnAdminWithOnlyBackupCodesHasNoSecondFactor(): void {

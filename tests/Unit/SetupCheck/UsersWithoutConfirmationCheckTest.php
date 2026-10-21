@@ -43,7 +43,7 @@ class UsersWithoutConfirmationCheckTest extends TestCase {
 		$this->assertSame($severity, $result->getSeverity());
 		if ($without > 0) {
 			$this->assertStringContainsString($without . ' of ' . $active . ' active accounts', (string)$result->getDescription());
-			$this->assertSame('https://cloud.example.com/settings/admin/intrusion_detection#confirmation', $result->getLinkToDoc());
+			$this->assertSame('https://cloud.example.com/settings/admin/intrusion_detection#settings/confirmation', $result->getLinkToDoc());
 		}
 	}
 
