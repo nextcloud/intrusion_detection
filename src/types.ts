@@ -570,3 +570,60 @@ export interface PayloadTest {
 	modes: { anonymous: Mode, authenticated: Mode }
 	values: PayloadValue[]
 }
+
+export type IncidentSubjectType = 'user' | 'address'
+
+export interface IncidentRequest {
+	/** The account or the address */
+	type: IncidentSubjectType
+	value: string
+	/** Unix times; null for the default period (the 7 days before now) */
+	since: number | null
+	until: number | null
+}
+
+export interface IncidentEntry {
+	id: string
+	at: number
+	endsAt: number | null
+	kind: string
+	group: string
+	title: string
+	severity: Severity | null
+	enforced: boolean | null
+	details: string[]
+	done: string[]
+	note: string | null
+	address: string | null
+	accounts: string[]
+	ref: { type: string, id: string } | null
+}
+
+export interface IncidentSummary {
+	headline: string
+	happened: string[]
+	startedAt: number | null
+	foundAt: number | null
+	lastActivityAt: number | null
+	affected: string[]
+	dataCategories: string[]
+	dataNote: string | null
+	measures: string[]
+	openItems: string[]
+	counts: { entries: number, detections: number, enforced: number, observed: number }
+}
+
+export interface IncidentReport {
+	schemaVersion: number
+	generatedAt: number
+	generatedBy: string
+	server: string
+	subject: { type: IncidentSubjectType, value: string, displayName: string | null }
+	period: { since: number, until: number }
+	summary: IncidentSummary
+	kinds: { id: string, label: string, count: number }[]
+	entries: IncidentEntry[]
+	notes: { id: string, text: string, url: string | null, linkLabel: string | null }[]
+	truncated: boolean
+	maxEntries: number
+}

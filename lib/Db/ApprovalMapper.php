@@ -82,6 +82,61 @@ class ApprovalMapper extends QBMapper {
 	}
 
 	/**
+	 * Pending requests per kind.
+	 *
+	 * @return array<string, int>
+	 */
+	public function countPendingByKind(): array {
+		$qb = $this->db->getQueryBuilder();
+		$qb->select('kind')
+			->selectAlias($qb->func()->count('*'), 'n')
+			->from(self::TABLE)
+			->where($qb->expr()->eq('status', $qb->createNamedParameter(Approval::STATUS_PENDING)))
+			->groupBy('kind');
+		$result = $qb->executeQuery();
+		$counts = [];
+		while ($row = $result->fetch()) {
+			$counts[(string)$row['kind']] = (int)$row['n'];
+		}
+		$result->closeCursor();
+		return $counts;
+	}
+
+	/**
+	 * Requests about, by or decided by an account, or from an address: the
+	 * pending ones made in a period, or (with `$decided`) the ones decided in
+	 * it, in that order.
+	 *
+	 * @return list<Approval>
+	 */
+	public function findForIncident(?string $uid, ?string $ip, bool $decided, int $since, int $until, int $limit): array {
+		$qb = $this->db->getQueryBuilder();
+		$expr = $qb->expr();
+		$qb->select('*')->from(self::TABLE);
+		if ($uid !== null) {
+			$qb->where($expr->orX(
+				$expr->eq('subject_uid', $qb->createNamedParameter($uid)),
+				$expr->eq('requested_by', $qb->createNamedParameter($uid)),
+				$expr->eq('decided_by', $qb->createNamedParameter($uid)),
+			));
+		} elseif ($ip !== null) {
+			$qb->where($expr->eq('ip', $qb->createNamedParameter($ip)));
+		} else {
+			return [];
+		}
+		$column = $decided ? 'decided_at' : 'created_at';
+		$qb->andWhere($decided
+			? $expr->neq('status', $qb->createNamedParameter(Approval::STATUS_PENDING))
+			: $expr->eq('status', $qb->createNamedParameter(Approval::STATUS_PENDING)))
+			->andWhere($expr->gte($column, $qb->createNamedParameter($since, IQueryBuilder::PARAM_INT)))
+			->andWhere($expr->lte($column, $qb->createNamedParameter($until, IQueryBuilder::PARAM_INT)))
+			->orderBy($column, 'ASC')
+			->addOrderBy('id', 'ASC')
+			->setMaxResults($limit);
+		return $this->findEntities($qb);
+	}
+
+	/**
 	 * @return list<Approval> pending requests whose time ran out
 	 */
 	public function findExpired(int $now, int $limit = 500): array {

@@ -1540,6 +1540,332 @@
                     }
                 }
             },
+            "IncidentEntry": {
+                "type": "object",
+                "required": [
+                    "id",
+                    "at",
+                    "endsAt",
+                    "kind",
+                    "group",
+                    "title",
+                    "severity",
+                    "enforced",
+                    "details",
+                    "done",
+                    "note",
+                    "address",
+                    "accounts",
+                    "ref"
+                ],
+                "properties": {
+                    "id": {
+                        "type": "string"
+                    },
+                    "at": {
+                        "type": "integer",
+                        "format": "int64"
+                    },
+                    "endsAt": {
+                        "type": "integer",
+                        "format": "int64",
+                        "nullable": true
+                    },
+                    "kind": {
+                        "type": "string"
+                    },
+                    "group": {
+                        "type": "string"
+                    },
+                    "title": {
+                        "type": "string"
+                    },
+                    "severity": {
+                        "type": "string",
+                        "nullable": true
+                    },
+                    "enforced": {
+                        "type": "boolean",
+                        "nullable": true
+                    },
+                    "details": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        }
+                    },
+                    "done": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        }
+                    },
+                    "note": {
+                        "type": "string",
+                        "nullable": true
+                    },
+                    "address": {
+                        "type": "string",
+                        "nullable": true
+                    },
+                    "accounts": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        }
+                    },
+                    "ref": {
+                        "type": "object",
+                        "nullable": true,
+                        "required": [
+                            "type",
+                            "id"
+                        ],
+                        "properties": {
+                            "type": {
+                                "type": "string"
+                            },
+                            "id": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            },
+            "IncidentReport": {
+                "type": "object",
+                "required": [
+                    "schemaVersion",
+                    "generatedAt",
+                    "generatedBy",
+                    "server",
+                    "subject",
+                    "period",
+                    "summary",
+                    "kinds",
+                    "entries",
+                    "notes",
+                    "truncated",
+                    "maxEntries"
+                ],
+                "properties": {
+                    "schemaVersion": {
+                        "type": "integer",
+                        "format": "int64"
+                    },
+                    "generatedAt": {
+                        "type": "integer",
+                        "format": "int64"
+                    },
+                    "generatedBy": {
+                        "type": "string"
+                    },
+                    "server": {
+                        "type": "string"
+                    },
+                    "subject": {
+                        "type": "object",
+                        "required": [
+                            "type",
+                            "value",
+                            "displayName"
+                        ],
+                        "properties": {
+                            "type": {
+                                "type": "string"
+                            },
+                            "value": {
+                                "type": "string"
+                            },
+                            "displayName": {
+                                "type": "string",
+                                "nullable": true
+                            }
+                        }
+                    },
+                    "period": {
+                        "type": "object",
+                        "required": [
+                            "since",
+                            "until"
+                        ],
+                        "properties": {
+                            "since": {
+                                "type": "integer",
+                                "format": "int64"
+                            },
+                            "until": {
+                                "type": "integer",
+                                "format": "int64"
+                            }
+                        }
+                    },
+                    "summary": {
+                        "$ref": "#/components/schemas/IncidentSummary"
+                    },
+                    "kinds": {
+                        "type": "array",
+                        "items": {
+                            "type": "object",
+                            "required": [
+                                "id",
+                                "label",
+                                "count"
+                            ],
+                            "properties": {
+                                "id": {
+                                    "type": "string"
+                                },
+                                "label": {
+                                    "type": "string"
+                                },
+                                "count": {
+                                    "type": "integer",
+                                    "format": "int64"
+                                }
+                            }
+                        }
+                    },
+                    "entries": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/IncidentEntry"
+                        }
+                    },
+                    "notes": {
+                        "type": "array",
+                        "items": {
+                            "type": "object",
+                            "required": [
+                                "id",
+                                "text",
+                                "url",
+                                "linkLabel"
+                            ],
+                            "properties": {
+                                "id": {
+                                    "type": "string"
+                                },
+                                "text": {
+                                    "type": "string"
+                                },
+                                "url": {
+                                    "type": "string",
+                                    "nullable": true
+                                },
+                                "linkLabel": {
+                                    "type": "string",
+                                    "nullable": true
+                                }
+                            }
+                        }
+                    },
+                    "truncated": {
+                        "type": "boolean"
+                    },
+                    "maxEntries": {
+                        "type": "integer",
+                        "format": "int64"
+                    }
+                }
+            },
+            "IncidentSummary": {
+                "type": "object",
+                "required": [
+                    "headline",
+                    "happened",
+                    "startedAt",
+                    "foundAt",
+                    "lastActivityAt",
+                    "affected",
+                    "dataCategories",
+                    "dataNote",
+                    "measures",
+                    "openItems",
+                    "counts"
+                ],
+                "properties": {
+                    "headline": {
+                        "type": "string"
+                    },
+                    "happened": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        }
+                    },
+                    "startedAt": {
+                        "type": "integer",
+                        "format": "int64",
+                        "nullable": true
+                    },
+                    "foundAt": {
+                        "type": "integer",
+                        "format": "int64",
+                        "nullable": true
+                    },
+                    "lastActivityAt": {
+                        "type": "integer",
+                        "format": "int64",
+                        "nullable": true
+                    },
+                    "affected": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        }
+                    },
+                    "dataCategories": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        }
+                    },
+                    "dataNote": {
+                        "type": "string",
+                        "nullable": true
+                    },
+                    "measures": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        }
+                    },
+                    "openItems": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        }
+                    },
+                    "counts": {
+                        "type": "object",
+                        "required": [
+                            "entries",
+                            "detections",
+                            "enforced",
+                            "observed"
+                        ],
+                        "properties": {
+                            "entries": {
+                                "type": "integer",
+                                "format": "int64"
+                            },
+                            "detections": {
+                                "type": "integer",
+                                "format": "int64"
+                            },
+                            "enforced": {
+                                "type": "integer",
+                                "format": "int64"
+                            },
+                            "observed": {
+                                "type": "integer",
+                                "format": "int64"
+                            }
+                        }
+                    }
+                }
+            },
             "Learning": {
                 "type": "object",
                 "required": [
@@ -8598,6 +8924,372 @@
                 }
             }
         },
+        "/ocs/v2.php/apps/intrusion_detection/api/v1/incidents/report": {
+            "post": {
+                "operationId": "incident_api-report",
+                "summary": "Build an incident report to show on the page",
+                "description": "One timeline for an account or an address over a period (at most 90 days; by default the 7 days before now), with a summary on top.\nThis endpoint requires admin access\nThis endpoint requires password confirmation",
+                "tags": [
+                    "incident_api"
+                ],
+                "security": [
+                    {
+                        "bearer_auth": []
+                    },
+                    {
+                        "basic_auth": []
+                    }
+                ],
+                "requestBody": {
+                    "required": false,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "properties": {
+                                    "user": {
+                                        "type": "string",
+                                        "default": "",
+                                        "description": "The account, or empty when the report is about an address"
+                                    },
+                                    "address": {
+                                        "type": "string",
+                                        "default": "",
+                                        "description": "The address, or empty when the report is about an account"
+                                    },
+                                    "since": {
+                                        "type": "integer",
+                                        "format": "int64",
+                                        "nullable": true,
+                                        "default": null,
+                                        "description": "Start of the period, Unix time"
+                                    },
+                                    "until": {
+                                        "type": "integer",
+                                        "format": "int64",
+                                        "nullable": true,
+                                        "default": null,
+                                        "description": "End of the period, Unix time"
+                                    }
+                                }
+                            }
+                        }
+                    }
+                },
+                "parameters": [
+                    {
+                        "name": "OCS-APIRequest",
+                        "in": "header",
+                        "description": "Required to be true for the API request to pass",
+                        "required": true,
+                        "schema": {
+                            "type": "boolean",
+                            "default": true
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Report built",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "required": [
+                                        "ocs"
+                                    ],
+                                    "properties": {
+                                        "ocs": {
+                                            "type": "object",
+                                            "required": [
+                                                "meta",
+                                                "data"
+                                            ],
+                                            "properties": {
+                                                "meta": {
+                                                    "$ref": "#/components/schemas/OCSMeta"
+                                                },
+                                                "data": {
+                                                    "$ref": "#/components/schemas/IncidentReport"
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "The account, the address or the period is not valid",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "required": [
+                                        "ocs"
+                                    ],
+                                    "properties": {
+                                        "ocs": {
+                                            "type": "object",
+                                            "required": [
+                                                "meta",
+                                                "data"
+                                            ],
+                                            "properties": {
+                                                "meta": {
+                                                    "$ref": "#/components/schemas/OCSMeta"
+                                                },
+                                                "data": {
+                                                    "$ref": "#/components/schemas/Error"
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Current user is not logged in",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "required": [
+                                        "ocs"
+                                    ],
+                                    "properties": {
+                                        "ocs": {
+                                            "type": "object",
+                                            "required": [
+                                                "meta",
+                                                "data"
+                                            ],
+                                            "properties": {
+                                                "meta": {
+                                                    "$ref": "#/components/schemas/OCSMeta"
+                                                },
+                                                "data": {}
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "Logged in account must be an admin",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "required": [
+                                        "ocs"
+                                    ],
+                                    "properties": {
+                                        "ocs": {
+                                            "type": "object",
+                                            "required": [
+                                                "meta",
+                                                "data"
+                                            ],
+                                            "properties": {
+                                                "meta": {
+                                                    "$ref": "#/components/schemas/OCSMeta"
+                                                },
+                                                "data": {}
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/ocs/v2.php/apps/intrusion_detection/api/v1/incidents/report/download": {
+            "post": {
+                "operationId": "incident_api-download",
+                "summary": "Download an incident report",
+                "description": "The same report as a file: JSON with a schema version, or an HTML page to print or save as PDF. The answer is the document itself.\nThis endpoint requires admin access\nThis endpoint requires password confirmation",
+                "tags": [
+                    "incident_api"
+                ],
+                "security": [
+                    {
+                        "bearer_auth": []
+                    },
+                    {
+                        "basic_auth": []
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "required": [
+                                    "output"
+                                ],
+                                "properties": {
+                                    "output": {
+                                        "type": "string",
+                                        "enum": [
+                                            "json",
+                                            "html"
+                                        ],
+                                        "description": "The kind of document; not called \"format\", which chooses the OCS response format"
+                                    },
+                                    "user": {
+                                        "type": "string",
+                                        "default": "",
+                                        "description": "The account, or empty when the report is about an address"
+                                    },
+                                    "address": {
+                                        "type": "string",
+                                        "default": "",
+                                        "description": "The address, or empty when the report is about an account"
+                                    },
+                                    "since": {
+                                        "type": "integer",
+                                        "format": "int64",
+                                        "nullable": true,
+                                        "default": null,
+                                        "description": "Start of the period, Unix time"
+                                    },
+                                    "until": {
+                                        "type": "integer",
+                                        "format": "int64",
+                                        "nullable": true,
+                                        "default": null,
+                                        "description": "End of the period, Unix time"
+                                    }
+                                }
+                            }
+                        }
+                    }
+                },
+                "parameters": [
+                    {
+                        "name": "OCS-APIRequest",
+                        "in": "header",
+                        "description": "Required to be true for the API request to pass",
+                        "required": true,
+                        "schema": {
+                            "type": "boolean",
+                            "default": true
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The document",
+                        "content": {
+                            "application/json; charset=utf-8": {
+                                "schema": {
+                                    "type": "string",
+                                    "format": "binary"
+                                }
+                            },
+                            "text/html; charset=utf-8": {
+                                "schema": {
+                                    "type": "string",
+                                    "format": "binary"
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "The kind of document, the account, the address or the period is not valid",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "required": [
+                                        "ocs"
+                                    ],
+                                    "properties": {
+                                        "ocs": {
+                                            "type": "object",
+                                            "required": [
+                                                "meta",
+                                                "data"
+                                            ],
+                                            "properties": {
+                                                "meta": {
+                                                    "$ref": "#/components/schemas/OCSMeta"
+                                                },
+                                                "data": {
+                                                    "$ref": "#/components/schemas/Error"
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Current user is not logged in",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "required": [
+                                        "ocs"
+                                    ],
+                                    "properties": {
+                                        "ocs": {
+                                            "type": "object",
+                                            "required": [
+                                                "meta",
+                                                "data"
+                                            ],
+                                            "properties": {
+                                                "meta": {
+                                                    "$ref": "#/components/schemas/OCSMeta"
+                                                },
+                                                "data": {}
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "Logged in account must be an admin",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "required": [
+                                        "ocs"
+                                    ],
+                                    "properties": {
+                                        "ocs": {
+                                            "type": "object",
+                                            "required": [
+                                                "meta",
+                                                "data"
+                                            ],
+                                            "properties": {
+                                                "meta": {
+                                                    "$ref": "#/components/schemas/OCSMeta"
+                                                },
+                                                "data": {}
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
         "/ocs/v2.php/apps/intrusion_detection/api/v1/learning/protect": {
             "post": {
                 "operationId": "learning_action-protect",
@@ -11028,6 +11720,10 @@
         {
             "name": "events_api",
             "description": "The admin page's API for the typed events that webhooks can receive. Administrators only, like the rest of the admin API."
+        },
+        {
+            "name": "incident_api",
+            "description": "The incident report on the Incidents tab. Administrators only. A report reveals what Nextcloud knows about an account or an address, so every way to get one needs a recent password confirmation, is rate limited and written to the audit log. Downloads are POST requests that answer with the document itself: the page fetches it with its CSRF token and password confirmation, then saves or prints it. No link, ticket or copy of the report exists on the server afterwards."
         },
         {
             "name": "learning_action",

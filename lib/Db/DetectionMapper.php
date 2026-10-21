@@ -143,6 +143,96 @@ class DetectionMapper extends QBMapper {
 		return $qb->executeStatement() === 1;
 	}
 
+	/**
+	 * Detections of an account, or of an address, that were active in a
+	 * period: started before its end and last seen after its start. An
+	 * account also matches detections whose explanation contains
+	 * `$jsonText` (its uid as JSON, for detections that targeted it), which
+	 * callers check in the decoded facts. An address matches by `ip`, an
+	 * IPv6 network by `net_key`. Oldest first.
+	 *
+	 * @return list<Detection>
+	 */
+	public function findForIncident(?string $uid, ?string $jsonText, ?string $ip, ?string $netKey, int $since, int $until, int $limit, int $offset = 0): array {
+		$qb = $this->db->getQueryBuilder();
+		$qb->select('*')->from(self::TABLE);
+		if ($uid !== null) {
+			$qb->where($jsonText === null
+				? $qb->expr()->eq('uid', $qb->createNamedParameter($uid))
+				: $qb->expr()->orX(
+					$qb->expr()->eq('uid', $qb->createNamedParameter($uid)),
+					$qb->expr()->like('explanation', $qb->createNamedParameter('%' . $this->db->escapeLikeParameter($jsonText) . '%')),
+				));
+		} elseif ($ip !== null) {
+			$qb->where($qb->expr()->eq('ip', $qb->createNamedParameter($ip)));
+		} elseif ($netKey !== null) {
+			$qb->where($qb->expr()->eq('net_key', $qb->createNamedParameter($netKey)));
+		} else {
+			return [];
+		}
+		$qb->andWhere($qb->expr()->lte('created_at', $qb->createNamedParameter($until, IQueryBuilder::PARAM_INT)))
+			->andWhere($qb->expr()->gte('last_seen_at', $qb->createNamedParameter($since, IQueryBuilder::PARAM_INT)))
+			->orderBy('created_at', 'ASC')
+			->addOrderBy('id', 'ASC')
+			->setMaxResults($limit)
+			->setFirstResult($offset);
+		return $this->findEntities($qb);
+	}
+
+	/**
+	 * Detections of one check created in a period whose explanation contains
+	 * a text, oldest first. Callers check the decoded facts as well, as the
+	 * text may also occur elsewhere in the explanation.
+	 *
+	 * @return list<Detection>
+	 */
+	public function findOfCheckContaining(string $checkId, string $jsonText, int $since, int $until, int $limit, int $offset = 0): array {
+		$qb = $this->db->getQueryBuilder();
+		$qb->select('*')
+			->from(self::TABLE)
+			->where($qb->expr()->eq('check_id', $qb->createNamedParameter($checkId)))
+			->andWhere($qb->expr()->gte('created_at', $qb->createNamedParameter($since, IQueryBuilder::PARAM_INT)))
+			->andWhere($qb->expr()->lte('created_at', $qb->createNamedParameter($until, IQueryBuilder::PARAM_INT)))
+			->andWhere($qb->expr()->like('explanation', $qb->createNamedParameter('%' . $this->db->escapeLikeParameter($jsonText) . '%')))
+			->orderBy('created_at', 'ASC')
+			->addOrderBy('id', 'ASC')
+			->setMaxResults($limit)
+			->setFirstResult($offset);
+		return $this->findEntities($qb);
+	}
+
+	/**
+	 * How many detections exist per check, severity and enforcement, all of
+	 * them or those created before a time.
+	 *
+	 * @return array<string, int> keyed by {@see self::labelKey()}
+	 */
+	public function countByLabels(?int $before = null): array {
+		$qb = $this->db->getQueryBuilder();
+		$qb->select('check_id', 'severity', 'enforced')
+			->selectAlias($qb->func()->count('*'), 'n')
+			->from(self::TABLE)
+			->groupBy('check_id', 'severity', 'enforced');
+		if ($before !== null) {
+			$qb->where($qb->expr()->lt('created_at', $qb->createNamedParameter($before, IQueryBuilder::PARAM_INT)));
+		}
+		$result = $qb->executeQuery();
+		$counts = [];
+		while ($row = $result->fetch()) {
+			$key = self::labelKey((string)$row['check_id'], (string)$row['severity'], (bool)$row['enforced']);
+			$counts[$key] = ($counts[$key] ?? 0) + (int)$row['n'];
+		}
+		$result->closeCursor();
+		return $counts;
+	}
+
+	/**
+	 * The key of a check, severity and enforcement in {@see self::countByLabels()}.
+	 */
+	public static function labelKey(string $checkId, string $severity, bool $enforced): string {
+		return $checkId . '|' . $severity . '|' . ($enforced ? '1' : '0');
+	}
+
 	public function deleteCreatedBefore(int $before): int {
 		$qb = $this->db->getQueryBuilder();
 		$qb->delete(self::TABLE)

@@ -12,6 +12,7 @@ namespace OCA\IntrusionDetection\Tests\Unit\Controller;
 use OCA\IntrusionDetection\Controller\AdminApiController;
 use OCA\IntrusionDetection\Controller\BlocklistApiController;
 use OCA\IntrusionDetection\Controller\DecoyApiController;
+use OCA\IntrusionDetection\Controller\IncidentApiController;
 use OCA\IntrusionDetection\Controller\NotificationApiController;
 use OCA\IntrusionDetection\Controller\PayloadApiController;
 use OCA\IntrusionDetection\Controller\PrivacyApiController;
@@ -50,6 +51,8 @@ class AdminControllersTest extends TestCase {
 		PayloadApiController::class . '::test',
 		PayloadApiController::class . '::checkSignatures',
 		SimulationApiController::class . '::simulate',
+		IncidentApiController::class . '::report',
+		IncidentApiController::class . '::download',
 	];
 
 	public static function controllers(): array {
@@ -61,6 +64,7 @@ class AdminControllersTest extends TestCase {
 			[PayloadApiController::class],
 			[PrivacyApiController::class],
 			[SimulationApiController::class],
+			[IncidentApiController::class],
 		];
 	}
 

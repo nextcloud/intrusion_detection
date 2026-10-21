@@ -6,15 +6,16 @@
 <script setup lang="ts">
 import type { Ban, DetectionDetail } from '../../types.ts'
 
-import { mdiContentCopy, mdiFormatListBulleted, mdiLockOpenVariantOutline } from '@mdi/js'
+import { mdiContentCopy, mdiFileDocumentAlertOutline, mdiFormatListBulleted, mdiLockOpenVariantOutline } from '@mdi/js'
 import { t } from '@nextcloud/l10n'
-import { computed, ref, useId } from 'vue'
+import { computed, inject, ref, useId } from 'vue'
 import NcButton from '@nextcloud/vue/components/NcButton'
 import NcDateTime from '@nextcloud/vue/components/NcDateTime'
 import NcIconSvgWrapper from '@nextcloud/vue/components/NcIconSvgWrapper'
 import NcNoteCard from '@nextcloud/vue/components/NcNoteCard'
 import ReferencePill from '../common/ReferencePill.vue'
 import { useAnnouncer } from '../../composables/useAnnouncer.ts'
+import { incidentRequest } from '../../store.ts'
 import { APP_ID } from '../../utils/format.ts'
 
 const props = defineProps<{
@@ -31,6 +32,20 @@ const { announce } = useAnnouncer()
 
 const enforced = computed(() => props.detail.detection.enforced)
 const activeBans = computed(() => props.detail.bans.filter((ban) => ban.active))
+
+const showTab = inject<(tab: string) => void>('ids-show-tab', () => undefined)
+
+/**
+ * Open the Incidents tab with a report about the account or the address of
+ * this detection, for the 7 days before now.
+ *
+ * @param type - Account or address
+ * @param value - The account or the address
+ */
+function incidentReport(type: 'user' | 'address', value: string) {
+	incidentRequest.value = { type, value, since: null, until: null }
+	showTab('incidents')
+}
 
 /**
  * "Copy as text": the narrative as plain text, e.g. for a ticket.
@@ -103,6 +118,26 @@ async function copyText() {
 					<NcIconSvgWrapper :path="mdiFormatListBulleted" />
 				</template>
 				{{ showAttempts ? t(APP_ID, 'Hide attempts') : t(APP_ID, 'Show attempts') }}
+			</NcButton>
+			<NcButton
+				v-if="detail.detection.uid"
+				variant="tertiary"
+				data-test="incident-report-user"
+				@click="incidentReport('user', detail.detection.uid)">
+				<template #icon>
+					<NcIconSvgWrapper :path="mdiFileDocumentAlertOutline" />
+				</template>
+				{{ t(APP_ID, 'Incident report for this account') }}
+			</NcButton>
+			<NcButton
+				v-if="detail.detection.ip"
+				variant="tertiary"
+				data-test="incident-report-address"
+				@click="incidentReport('address', detail.detection.ip)">
+				<template #icon>
+					<NcIconSvgWrapper :path="mdiFileDocumentAlertOutline" />
+				</template>
+				{{ t(APP_ID, 'Incident report for this address') }}
 			</NcButton>
 			<NcButton variant="tertiary" @click="copyText">
 				<template #icon>

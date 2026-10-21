@@ -78,10 +78,20 @@ Every check can be switched between Off, Observe and Protect, every threshold is
         <command>OCA\IntrusionDetection\Command\Contribution\Preview</command>
         <command>OCA\IntrusionDetection\Command\Approvals\ListApprovals</command>
         <command>OCA\IntrusionDetection\Command\Approvals\Decide</command>
+        <command>OCA\IntrusionDetection\Command\Report</command>
     </commands>
 
     <settings>
         <admin>OCA\IntrusionDetection\Settings\Admin</admin>
         <admin-section>OCA\IntrusionDetection\Settings\AdminSection</admin-section>
     </settings>
+
+    <openmetrics>
+        <exporter>OCA\IntrusionDetection\OpenMetrics\DetectionsMetric</exporter>
+        <exporter>OCA\IntrusionDetection\OpenMetrics\BansActiveMetric</exporter>
+        <exporter>OCA\IntrusionDetection\OpenMetrics\GuardSecondsMetric</exporter>
+        <exporter>OCA\IntrusionDetection\OpenMetrics\LearningModeMetric</exporter>
+        <exporter>OCA\IntrusionDetection\OpenMetrics\BlocklistRangesMetric</exporter>
+        <exporter>OCA\IntrusionDetection\OpenMetrics\ApprovalsPendingMetric</exporter>
+    </openmetrics>
 </info>

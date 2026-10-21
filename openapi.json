@@ -1151,6 +1151,10 @@
             "description": "The admin page's API for the typed events that webhooks can receive. Administrators only, like the rest of the admin API."
         },
         {
+            "name": "incident_api",
+            "description": "The incident report on the Incidents tab. Administrators only. A report reveals what Nextcloud knows about an account or an address, so every way to get one needs a recent password confirmation, is rate limited and written to the audit log. Downloads are POST requests that answer with the document itself: the page fetches it with its CSRF token and password confirmation, then saves or prints it. No link, ticket or copy of the report exists on the server afterwards."
+        },
+        {
             "name": "learning_action",
             "description": "The actions of the \"learning period ends tomorrow\" notification. Administrators only (the default for controllers), CSRF-protected, and idempotent: they act only while that notice is pending. A notification action cannot ask for the password, which is why both actions do only what the notice offered and are written to the audit log."
         },

@@ -85,6 +85,37 @@ class TokenOriginMapper {
 		return $this->ids($qb);
 	}
 
+	/**
+	 * The app passwords of an account, or created from an address, in a
+	 * period. Oldest first.
+	 *
+	 * @return list<array{token_id: int, uid: string, ip: ?string, session_token_id: ?int, created_at: int}>
+	 */
+	public function findInPeriod(?string $uid, ?string $ip, int $since, int $until, int $limit): array {
+		$qb = $this->db->getQueryBuilder();
+		$qb->select('token_id', 'uid', 'ip', 'session_token_id', 'created_at')
+			->from(self::TABLE)
+			->where($qb->expr()->gte('created_at', $qb->createNamedParameter($since, IQueryBuilder::PARAM_INT)))
+			->andWhere($qb->expr()->lte('created_at', $qb->createNamedParameter($until, IQueryBuilder::PARAM_INT)))
+			->orderBy('created_at', 'ASC')
+			->addOrderBy('token_id', 'ASC')
+			->setMaxResults($limit);
+		if ($uid !== null) {
+			$qb->andWhere($qb->expr()->eq('uid', $qb->createNamedParameter($uid)));
+		} elseif ($ip !== null) {
+			$qb->andWhere($qb->expr()->eq('ip', $qb->createNamedParameter($ip)));
+		} else {
+			return [];
+		}
+		$result = $qb->executeQuery();
+		$rows = [];
+		while ($row = $result->fetch()) {
+			$rows[] = self::row($row);
+		}
+		$result->closeCursor();
+		return $rows;
+	}
+
 	public function deleteOlderThan(int $before): int {
 		$qb = $this->db->getQueryBuilder();
 		$qb->delete(self::TABLE)

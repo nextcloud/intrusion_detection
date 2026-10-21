@@ -187,6 +187,55 @@ class BanMapper extends QBMapper {
 	}
 
 	/**
+	 * Bans of these keys, or caused by detections of an account, that were
+	 * created (or, with `$lifted`, lifted) in a period, in that order.
+	 *
+	 * @param list<string> $banKeys
+	 * @return list<Ban>
+	 */
+	public function findForIncident(array $banKeys, ?string $uid, bool $lifted, int $since, int $until, int $limit): array {
+		$column = $lifted ? 'b.lifted_at' : 'b.created_at';
+		$qb = $this->db->getQueryBuilder();
+		$qb->select('b.*')->from(self::TABLE, 'b');
+		if ($uid !== null) {
+			$qb->innerJoin('b', DetectionMapper::TABLE, 'd', $qb->expr()->eq('b.detection_id', 'd.id'))
+				->where($qb->expr()->eq('d.uid', $qb->createNamedParameter($uid)));
+		} elseif ($banKeys !== []) {
+			$qb->where($qb->expr()->in('b.ban_key', $qb->createNamedParameter($banKeys, IQueryBuilder::PARAM_STR_ARRAY)));
+		} else {
+			return [];
+		}
+		$qb->andWhere($qb->expr()->gte($column, $qb->createNamedParameter($since, IQueryBuilder::PARAM_INT)))
+			->andWhere($qb->expr()->lte($column, $qb->createNamedParameter($until, IQueryBuilder::PARAM_INT)))
+			->orderBy($column, 'ASC')
+			->addOrderBy('b.id', 'ASC')
+			->setMaxResults($limit);
+		return $this->findEntities($qb);
+	}
+
+	/**
+	 * Active bans per scope and level.
+	 *
+	 * @return list<array{scope: string, level: int, count: int}>
+	 */
+	public function countActiveByScopeAndLevel(int $now): array {
+		$qb = $this->db->getQueryBuilder();
+		$qb->select('scope', 'level')
+			->selectAlias($qb->func()->count('*'), 'n')
+			->from(self::TABLE)
+			->where($qb->expr()->gt('expires_at', $qb->createNamedParameter($now, IQueryBuilder::PARAM_INT)))
+			->andWhere($qb->expr()->isNull('lifted_at'))
+			->groupBy('scope', 'level');
+		$result = $qb->executeQuery();
+		$rows = [];
+		while ($row = $result->fetch()) {
+			$rows[] = ['scope' => (string)$row['scope'], 'level' => (int)$row['level'], 'count' => (int)$row['n']];
+		}
+		$result->closeCursor();
+		return $rows;
+	}
+
+	/**
 	 * Delete bans that ended before the given time. They are kept that long for escalation.
 	 */
 	public function deleteEndedBefore(int $before): int {

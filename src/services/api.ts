@@ -20,6 +20,8 @@ import type {
 	DetectionList,
 	DigestOverview,
 	FirewallExport,
+	IncidentReport,
+	IncidentRequest,
 	Learning,
 	LookupResult,
 	Mode,
@@ -334,4 +336,72 @@ export function checkSignatures(entries: string[]): Promise<{ entries: CustomSig
  */
 export function testPayload(input: string): Promise<PayloadTest> {
 	return call<PayloadTest>(axios.post(url('payload/test'), { input }))
+}
+
+/**
+ * The parameters of an incident report request.
+ *
+ * @param request - Subject and period
+ */
+function incidentParams(request: IncidentRequest): Record<string, string | number> {
+	const params: Record<string, string | number> = request.type === 'user' ? { user: request.value } : { address: request.value }
+	if (request.since !== null) {
+		params.since = request.since
+	}
+	if (request.until !== null) {
+		params.until = request.until
+	}
+	return params
+}
+
+/**
+ * Build an incident report to show on the page. Needs a recent password confirmation.
+ *
+ * @param request - Subject and period
+ */
+export function buildIncidentReport(request: IncidentRequest): Promise<IncidentReport> {
+	return call<IncidentReport>(axios.post(url('incidents/report'), incidentParams(request), write))
+}
+
+/**
+ * The incident report as a document: the server answers with the file itself.
+ * Needs a recent password confirmation, like building the report.
+ *
+ * @param request - Subject and period
+ * @param output - JSON, or the printable HTML page
+ */
+export async function downloadIncidentReport(request: IncidentRequest, output: 'json' | 'html'): Promise<{ blob: Blob, filename: string }> {
+	try {
+		const response = await axios.post<Blob>(url('incidents/report/download'), { ...incidentParams(request), output }, { ...write, responseType: 'blob' })
+		const disposition = String(response.headers['content-disposition'] ?? '')
+		const match = disposition.match(/filename="?([^";]+)"?/)
+		return { blob: response.data, filename: match?.[1] ?? 'incident-report.' + output }
+	} catch (error) {
+		// Errors arrive as a blob too; read the OCS message out of it.
+		if (isAxiosError(error) && error.response?.data instanceof Blob) {
+			try {
+				const ocs = JSON.parse(await error.response.data.text())?.ocs
+				const message = ocs?.data?.message || ocs?.meta?.message
+				if (message) {
+					throw new ApiError(message, ocs?.data?.param ?? null, { cause: error })
+				}
+			} catch (parsed) {
+				if (parsed instanceof ApiError) {
+					throw parsed
+				}
+			}
+		}
+		throw error
+	}
+}
+
+/**
+ * Accounts whose name, display name or email address contains a text, for
+ * the account picker. Uses the provisioning API, which administrators may use.
+ *
+ * @param search - What was typed
+ */
+export async function searchAccounts(search: string): Promise<{ uid: string, displayName: string, email: string | null }[]> {
+	const { data } = await axios.get<OCSResponse<{ users: Record<string, { id: string, displayname?: string, email?: string | null }> | [] }>>(generateOcsUrl('cloud/users/details'), { params: { search, limit: 10 } })
+	return Object.values(data.ocs.data.users ?? {}).map((user) => ({ uid: user.id, displayName: user.displayname || user.id, email: user.email ?? null }))
 }

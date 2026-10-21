@@ -25,6 +25,9 @@ use OCA\IntrusionDetection\Event\BanLiftedEvent;
 use OCA\IntrusionDetection\Event\DetectionCreatedEvent;
 use OCA\IntrusionDetection\Explain\IExplainsToUser;
 use OCA\IntrusionDetection\Explain\NarrativeBuilder;
+use OCA\IntrusionDetection\Incident\IncidentQuery;
+use OCA\IntrusionDetection\Incident\IncidentReports;
+use OCA\IntrusionDetection\Incident\ReportFormat;
 use OCA\IntrusionDetection\Listener\ResetRequestedListener;
 use OCA\IntrusionDetection\Listener\ShareAccessFailedListener;
 use OCA\IntrusionDetection\Net\RemoteAddressResolver;
@@ -172,6 +175,7 @@ class NoSecretsTest extends LoginFailureTestCase {
 		}
 
 		$this->assertEventsAndDigestClean($secrets, $fingerprints);
+		$this->assertReportsClean([$victim, 'admin'], ['198.51.100.7', '198.51.100.96', '198.51.100.95', '203.0.113.1'], $secrets, $fingerprints);
 
 		// Logs
 		$this->assertClean(implode("\n", $this->logged), $secrets, $fingerprints, 'listener log');
@@ -272,6 +276,7 @@ class NoSecretsTest extends LoginFailureTestCase {
 			}
 		}
 		$this->assertEventsAndDigestClean($secrets, $fingerprints);
+		$this->assertReportsClean([$owner, $victim], ['198.51.100.7', '203.0.113.1', '198.51.100.8', '192.0.2.1'], $secrets, $fingerprints);
 		$this->assertClean(implode("\n", $this->logged), $secrets, $fingerprints, 'listener log');
 		$this->assertClean($this->serverLogWithoutMailRecipients(), $secrets, $fingerprints, 'server log');
 	}
@@ -307,6 +312,35 @@ class NoSecretsTest extends LoginFailureTestCase {
 			}
 		}
 		$this->assertClean($text, $secrets, $fingerprints, 'digest');
+	}
+
+	/**
+	 * The incident reports of the accounts and addresses involved, as shown
+	 * on the page, as JSON and as the printable page, carry none of the
+	 * secrets.
+	 *
+	 * @param list<string> $accounts
+	 * @param list<string> $addresses
+	 * @param array<string, string> $secrets
+	 * @param list<string> $fingerprints
+	 */
+	private function assertReportsClean(array $accounts, array $addresses, array $secrets, array $fingerprints): void {
+		$reports = Server::get(IncidentReports::class);
+		$l = Server::get(IFactory::class)->get(Application::APP_ID, 'en');
+		$queries = array_merge(
+			array_map(static fn (string $uid): IncidentQuery => IncidentQuery::forUser($uid, null, null, time() + 1), $accounts),
+			array_map(static fn (string $ip): IncidentQuery => IncidentQuery::forAddress($ip, null, null, time() + 1), $addresses),
+		);
+		$entries = 0;
+		foreach ($queries as $query) {
+			$report = $reports->report($query, 'admin', $l);
+			$entries += count($report->entries);
+			$this->assertClean(json_encode($report->toArray(), JSON_THROW_ON_ERROR), $secrets, $fingerprints, 'incident report of ' . $query->subject());
+			foreach ([ReportFormat::Json, ReportFormat::Html] as $format) {
+				$this->assertClean($reports->document($query, $format, 'admin', $l)['body'], $secrets, $fingerprints, $format->value . ' incident report of ' . $query->subject());
+			}
+		}
+		$this->assertGreaterThan(0, $entries, 'the reports are not empty');
 	}
 
 	/**

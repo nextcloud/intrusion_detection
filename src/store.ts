@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 
-import type { Category, Check, DetectionFilters, GlobalSetting, InitialState, ParamType, ParamValue, Status } from './types.ts'
+import type { Category, Check, DetectionFilters, GlobalSetting, IncidentRequest, InitialState, ParamType, ParamValue, Status } from './types.ts'
 
 import { loadState } from '@nextcloud/initial-state'
 import { computed, reactive, ref } from 'vue'
@@ -33,6 +33,9 @@ export const detectionFilters = reactive<DetectionFilters>({ check: '', severity
 
 /** A detection to open in the overview, from a link or another tab */
 export const openDetectionId = ref<number | null>(null)
+
+/** An incident report to build on the Incidents tab, e.g. from "Incident report for this address" */
+export const incidentRequest = ref<IncidentRequest | null>(null)
 
 /** Values and types of the global settings, for `{name}` placeholders in texts */
 export const globalValues = computed<Record<string, ParamValue>>(() => Object.fromEntries(state.settings.map((s) => [s.name, s.value])))

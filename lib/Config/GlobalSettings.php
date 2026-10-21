@@ -91,6 +91,8 @@ final class GlobalSettings {
 	public const DIGEST_STATE = 'digest_state';
 	/** Whether the typed events for webhooks carry the address */
 	public const EVENTS_INCLUDE_IP = 'events_include_ip';
+	/** Internal: detections deleted after their retention, counted per check, severity and enforcement, for the metrics' running total */
+	public const DETECTIONS_RETIRED = 'detections_retired';
 
 	/** Seconds an email code for a login confirmation is valid */
 	public const STEP_UP_CODE_TTL = 'step_up_code_ttl';
@@ -161,6 +163,7 @@ final class GlobalSettings {
 					static fn (StepUpPolicy $p): ParamDefinition => new ParamDefinition($p->settingKey(), ParamType::Choice, $p->defaultOutcome()->value, choices: NoMethodOutcome::values()),
 					StepUpReasons::policies(),
 				),
+				new ParamDefinition(self::DETECTIONS_RETIRED, ParamType::Json, '{}'),
 			];
 			$this->definitions = [];
 			foreach ($list as $definition) {
@@ -201,6 +204,7 @@ final class GlobalSettings {
 			self::DIGEST_STATE,
 			self::LEARNING_STARTED_AT,
 			self::STEP_UP_SESSIONS_UNTIL,
+			self::DETECTIONS_RETIRED,
 		], true);
 	}
 

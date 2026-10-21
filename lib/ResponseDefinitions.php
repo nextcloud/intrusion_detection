@@ -647,6 +647,52 @@ namespace OCA\IntrusionDetection;
  *     reason: string,
  *     message: string,
  * }
+ *
+ * @psalm-type IntrusionDetectionIncidentEntry = array{
+ *     id: string,
+ *     at: int,
+ *     endsAt: ?int,
+ *     kind: string,
+ *     group: string,
+ *     title: string,
+ *     severity: ?string,
+ *     enforced: ?bool,
+ *     details: list<string>,
+ *     done: list<string>,
+ *     note: ?string,
+ *     address: ?string,
+ *     accounts: list<string>,
+ *     ref: ?array{type: string, id: string},
+ * }
+ *
+ * @psalm-type IntrusionDetectionIncidentSummary = array{
+ *     headline: string,
+ *     happened: list<string>,
+ *     startedAt: ?int,
+ *     foundAt: ?int,
+ *     lastActivityAt: ?int,
+ *     affected: list<string>,
+ *     dataCategories: list<string>,
+ *     dataNote: ?string,
+ *     measures: list<string>,
+ *     openItems: list<string>,
+ *     counts: array{entries: int, detections: int, enforced: int, observed: int},
+ * }
+ *
+ * @psalm-type IntrusionDetectionIncidentReport = array{
+ *     schemaVersion: int,
+ *     generatedAt: int,
+ *     generatedBy: string,
+ *     server: string,
+ *     subject: array{type: string, value: string, displayName: ?string},
+ *     period: array{since: int, until: int},
+ *     summary: IntrusionDetectionIncidentSummary,
+ *     kinds: list<array{id: string, label: string, count: int}>,
+ *     entries: list<IntrusionDetectionIncidentEntry>,
+ *     notes: list<array{id: string, text: string, url: ?string, linkLabel: ?string}>,
+ *     truncated: bool,
+ *     maxEntries: int,
+ * }
  */
 class ResponseDefinitions {
 }

@@ -6,6 +6,7 @@
 import { mount } from '@vue/test-utils'
 import { describe, expect, test, vi } from 'vitest'
 import DetectionNarrative from './DetectionNarrative.vue'
+import { incidentRequest } from '../../store.ts'
 import { makeDetail } from '../../tests/fixtures.ts'
 
 /**
@@ -80,5 +81,23 @@ describe('DetectionNarrative', () => {
 		const wrapper = mount(DetectionNarrative, { props: { detail } })
 		expect(wrapper.find('img').exists()).toBe(false)
 		expect(wrapper.text()).toContain('<img src=x onerror=alert(1)> tried')
+	})
+
+	test('"Incident report" opens the Incidents tab with the account or the address', async () => {
+		const showTab = vi.fn()
+		const detail = makeDetail()
+		detail.detection.uid = 'alice'
+		const wrapper = mount(DetectionNarrative, { props: { detail }, global: { provide: { 'ids-show-tab': showTab } } })
+		await wrapper.get('[data-test="incident-report-address"]').trigger('click')
+		expect(incidentRequest.value).toEqual({ type: 'address', value: detail.detection.ip, since: null, until: null })
+		expect(showTab).toHaveBeenCalledWith('incidents')
+		await wrapper.get('[data-test="incident-report-user"]').trigger('click')
+		expect(incidentRequest.value).toEqual({ type: 'user', value: 'alice', since: null, until: null })
+		incidentRequest.value = null
+
+		detail.detection.uid = null
+		detail.detection.ip = null
+		const without = mount(DetectionNarrative, { props: { detail } })
+		expect(without.find('[data-test^="incident-report-"]').exists()).toBe(false)
 	})
 })
