@@ -8,7 +8,7 @@ import type { Blocklist, Blocklists, CheckRef } from '../../types.ts'
 import { flushPromises, mount } from '@vue/test-utils'
 import { describe, expect, test, vi } from 'vitest'
 import BlocklistsPanel from './BlocklistsPanel.vue'
-import { fetchBlocklists, updateCheck } from '../../services/api.ts'
+import { ApiError, fetchBlocklists, updateBlocklist, updateCheck } from '../../services/api.ts'
 
 vi.mock('@nextcloud/dialogs', () => ({ showError: vi.fn(), showSuccess: vi.fn() }))
 
@@ -16,6 +16,7 @@ vi.mock('../../services/api.ts', async (importOriginal) => ({
 	...(await importOriginal<object>()),
 	fetchBlocklists: vi.fn(),
 	updateCheck: vi.fn(),
+	updateBlocklist: vi.fn(),
 }))
 
 vi.mock('../../store.ts', async (importOriginal) => ({
@@ -110,5 +111,19 @@ describe('the blocklists', () => {
 		const wrapper = await mountPanel({ lists: [failed] })
 		expect(wrapper.text()).toContain('Download failed')
 		expect(wrapper.get('[data-test="sync-error"]').text()).toBe('Reason: lists.example.org answered with HTTP status 503. Nextcloud tries again at the next download, or now with "Sync now".')
+	})
+
+	test('what a match does is one radio group, and a failed change puts the saved choice back', async () => {
+		vi.mocked(updateBlocklist).mockRejectedValue(new ApiError('Nope'))
+		const wrapper = await mountPanel({ lists: [list('drop', true)] })
+		const radios = wrapper.findAll('input[type="radio"]')
+		expect(radios).toHaveLength(2)
+		expect(radios[0]!.attributes('name')).toBeTruthy()
+		expect(radios[1]!.attributes('name')).toBe(radios[0]!.attributes('name'))
+		await radios[1]!.trigger('click')
+		expect(updateBlocklist).toHaveBeenCalledWith('drop', { mode: 'protect' })
+		await flushPromises()
+		expect((radios[0]!.element as HTMLInputElement).checked).toBe(true)
+		expect((radios[1]!.element as HTMLInputElement).checked).toBe(false)
 	})
 })

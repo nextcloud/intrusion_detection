@@ -5,6 +5,7 @@
 
 import { flushPromises, mount } from '@vue/test-utils'
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
+import { nextTick } from 'vue'
 import CheckRow from './CheckRow.vue'
 import { ApiError, updateCheck } from '../../services/api.ts'
 import { state } from '../../store.ts'
@@ -67,9 +68,12 @@ describe('a check on the Protection tab', () => {
 	test('a failed mode change goes back to the saved mode', async () => {
 		vi.mocked(updateCheck).mockRejectedValue(new ApiError('Nope'))
 		const row = mountRow()
+		await nextTick()
 		const radios = row.findAll('input[type="radio"]')
-		await radios[0]!.setValue(true)
+		await radios[0]!.trigger('click')
+		expect(updateCheck).toHaveBeenCalledWith('credential_stuffing', { mode: 'off' })
 		await flushPromises()
+		expect((radios[0]!.element as HTMLInputElement).checked).toBe(false)
 		expect((radios[2]!.element as HTMLInputElement).checked).toBe(true)
 	})
 

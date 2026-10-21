@@ -22,6 +22,7 @@ import NcTextField from '@nextcloud/vue/components/NcTextField'
 import { searchAccounts } from '../../services/api.ts'
 import { logger } from '../../services/logger.ts'
 import { APP_ID } from '../../utils/format.ts'
+import { vRadioGroupName } from '../../utils/radioGroupName.ts'
 import { isCidr } from '../../utils/validate.ts'
 
 const props = defineProps<{
@@ -169,7 +170,11 @@ if (props.initial) {
 <template>
 	<form :class="$style.form" novalidate @submit.prevent="submit">
 		<div :class="$style.form__row">
-			<NcRadioGroup v-model="type" :class="$style.form__choice" :label="t(APP_ID, 'Report about')">
+			<NcRadioGroup
+				v-model="type"
+				v-radio-group-name
+				:class="$style.form__choice"
+				:label="t(APP_ID, 'Report about')">
 				<NcRadioGroupButton value="user" :label="t(APP_ID, 'Account')" />
 				<NcRadioGroupButton value="address" :label="t(APP_ID, 'Address')" />
 			</NcRadioGroup>
@@ -200,7 +205,11 @@ if (props.initial) {
 		</div>
 
 		<div :class="$style.form__row">
-			<NcRadioGroup v-model="period" :class="$style.form__choice" :label="t(APP_ID, 'Period, ending now')">
+			<NcRadioGroup
+				v-model="period"
+				v-radio-group-name
+				:class="$style.form__choice"
+				:label="t(APP_ID, 'Period, ending now')">
 				<NcRadioGroupButton
 					v-for="option in periods"
 					:key="option.value"

@@ -17,6 +17,7 @@ import { errorMessage, isCancelled, updateProtectionLevel } from '../../services
 import { logger } from '../../services/logger.ts'
 import { refreshSettings, state } from '../../store.ts'
 import { APP_ID } from '../../utils/format.ts'
+import { vRadioGroupName } from '../../utils/radioGroupName.ts'
 
 type Choosable = Exclude<ProtectionLevel, 'custom'>
 
@@ -76,6 +77,7 @@ async function choose(value: ProtectionLevel) {
 			<NcLoadingIcon v-if="saving" :size="20" :name="t(APP_ID, 'Saving')" />
 		</div>
 		<NcRadioGroup
+			v-radio-group-name
 			:modelValue="state.protectionLevel"
 			:label="t(APP_ID, 'Protection level')"
 			hideLabel

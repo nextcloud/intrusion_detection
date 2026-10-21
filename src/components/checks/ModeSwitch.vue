@@ -10,6 +10,7 @@ import { t } from '@nextcloud/l10n'
 import NcRadioGroup from '@nextcloud/vue/components/NcRadioGroup'
 import NcRadioGroupButton from '@nextcloud/vue/components/NcRadioGroupButton'
 import { APP_ID } from '../../utils/format.ts'
+import { vRadioGroupName } from '../../utils/radioGroupName.ts'
 
 const mode = defineModel<Mode>({ required: true })
 
@@ -31,6 +32,7 @@ const modes: { value: Mode, label: () => string }[] = [
 <template>
 	<NcRadioGroup
 		v-model="mode"
+		v-radio-group-name
 		:class="$style.modeSwitch"
 		:label="label"
 		hideLabel>

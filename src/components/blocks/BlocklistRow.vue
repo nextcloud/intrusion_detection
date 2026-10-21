@@ -26,6 +26,7 @@ import { useAnnouncer } from '../../composables/useAnnouncer.ts'
 import { ApiError, errorMessage, isCancelled, removeBlocklist, syncBlocklist, updateBlocklist } from '../../services/api.ts'
 import { logger } from '../../services/logger.ts'
 import { APP_ID, formatDuration, formatNumber } from '../../utils/format.ts'
+import { vRadioGroupName } from '../../utils/radioGroupName.ts'
 
 const props = defineProps<{
 	list: Blocklist
@@ -137,16 +138,26 @@ function setEnabled(on: boolean) {
 		: t(APP_ID, '{list} is off.', { list: props.list.name }))
 }
 
+/** What a match does, shown at once and put back when saving fails */
+const matchMode = ref(props.list.mode ?? 'observe')
+watch(() => props.list.mode, (mode) => {
+	matchMode.value = mode ?? 'observe'
+})
+
 /**
  * @param mode - observe or protect
  */
-function setMode(mode: string) {
-	if (mode === props.list.mode) {
+async function setMode(mode: string) {
+	if (mode === matchMode.value) {
 		return
 	}
-	save('mode', { mode }, mode === 'protect'
+	matchMode.value = mode
+	const saved = await save('mode', { mode }, mode === 'protect'
 		? t(APP_ID, '{list} now refuses matching addresses.', { list: props.list.name })
 		: t(APP_ID, '{list} now only counts matching addresses.', { list: props.list.name }))
+	if (!saved) {
+		matchMode.value = props.list.mode ?? 'observe'
+	}
 }
 
 const intervalProblem = computed(() => {
@@ -303,7 +314,8 @@ async function remove() {
 
 			<div v-if="isDeny" :class="$style.row__line">
 				<NcRadioGroup
-					:modelValue="list.mode ?? 'observe'"
+					v-radio-group-name
+					:modelValue="matchMode"
 					:label="t(APP_ID, 'What a match does for {list}', { list: list.name })"
 					hideLabel
 					@update:modelValue="setMode">
