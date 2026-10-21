@@ -33,7 +33,10 @@ use OCA\IntrusionDetection\Confirm\StepUpService;
 use OCA\IntrusionDetection\Confirm\StepUpState;
 use OCA\IntrusionDetection\Confirm\UnconfirmedSessions;
 use OCA\IntrusionDetection\Crypto\Fingerprinter;
+use OCA\IntrusionDetection\Db\Approval;
+use OCA\IntrusionDetection\Db\ApprovalMapper;
 use OCA\IntrusionDetection\Db\LoginHistoryMapper;
+use OCA\IntrusionDetection\Db\StepUpSessionMapper;
 use OCA\IntrusionDetection\LoginHistory\LoginHistory;
 use OCA\IntrusionDetection\Net\SourceKey;
 use OCA\IntrusionDetection\Notification\AdminAlerts;
@@ -343,33 +346,29 @@ class StepUpTest extends StepUpTestCase {
 		$this->assertSame([StepUpPolicy::ProtectedAccount->value, StepUpPolicy::BreachedPassword->value], $this->stepUp()?->policies);
 	}
 
-	public function testBasicAuthThatGetsABrowserSessionWaitsForTheConfirmation(): void {
+	public function testAClientWithACookieJarStaysAnAppAndStartsNothing(): void {
+		$this->settings->setGlobal(GlobalSettings::STEP_UP_ADMIN_APPROVAL, true);
 		$this->give(StepUpPolicy::ProtectedAccount, $this->alice);
 		$this->basicAuth($this->alice);
+		$this->login($this->alice);
+		$this->assertSame(StepUpState::REFUSED_CLIENT, $this->stepUp()?->status);
+		$this->assertSame(0, $this->unconfirmedRows(), 'No cookies yet: core gives no session token');
+		$told = count($this->notificationsFor($this->alice->getUID(), UserAlerts::SUBJECT));
+
+		// Core set its cookie test; the client sends it back with the next request.
+		$this->session->clear();
+		$this->session->id = null;
 		$this->cookies[StepUpService::COOKIE_TEST] = 'test';
 		$this->login($this->alice);
-		$stepUp = $this->stepUp();
-		$this->assertSame(StepUpState::PENDING, $stepUp?->status, 'Core gives it a browser session: held like the login form');
-		$this->assertSame('482915', $this->lastCode($this->alice->getUID()));
+		$this->assertSame(StepUpState::REFUSED_CLIENT, $this->stepUp()?->status, 'Still an app, refused for every request');
 		$this->assertSame(1, $this->unconfirmedRows(), 'Core gives it a session token, which could come back');
+		$this->assertNull($this->lastCode($this->alice->getUID()), 'No code email');
+		$this->assertSame(0, Server::get(ApprovalMapper::class)->countPendingFor(Approval::KIND_LOGIN, $this->alice->getUID(), time()), 'No approval request');
 
-		$page = $this->rule()->check($this->state, RequestTarget::app($this->createMock(Controller::class), 'index', 'GET', '/index.php/apps/files/'));
-		$this->assertNotNull($page);
-		$this->assertStringContainsString('/apps/intrusion_detection/verify', (string)$page->redirectUrl, 'A browser is sent to the verify page');
-		$dav = $this->rule()->check($this->state, RequestTarget::dav('PROPFIND', '/remote.php/dav/files/'));
-		$this->assertNotNull($dav);
-		$this->assertSame([StepUpRule::ERROR, StepUpRule::DAV_HEADER], [$dav->error, $dav->davHeader], 'WebDAV and OCS get 403 with the header');
-	}
-
-	public function testBasicAuthThatGetsABrowserSessionIsRefusedLikeTheLoginForm(): void {
-		$this->settings->setGlobal(StepUpPolicy::ProtectedAccount->settingKey(), NoMethodOutcome::Refuse->value);
-		$bob = $this->user('ids-stepup-cookies', null);
-		$this->give(StepUpPolicy::ProtectedAccount, $bob);
-		$this->basicAuth($bob);
-		$this->cookies[StepUpService::COOKIE_TEST] = 'test';
-		$this->login($bob);
-		$this->assertSame(StepUpState::REFUSED, $this->stepUp()?->status, 'No method: the setting decides, as at the login form');
-		$this->assertSame(1, $this->unconfirmedRows());
+		$this->assertNotNull($this->rule()->check($this->state, RequestTarget::dav('PROPFIND', '/remote.php/dav/files/')));
+		$this->assertSame([], Server::get(StepUpSessionMapper::class)->findAbandoned(time() + 86400, 10), 'No deadline the background job could end it at');
+		$this->assertSame([], $this->detectionsOf(StepUpFailed::ID), 'Nothing waited, so nothing fails later');
+		$this->assertCount($told, $this->notificationsFor($this->alice->getUID(), UserAlerts::SUBJECT), 'Nobody is told again');
 	}
 
 	/**

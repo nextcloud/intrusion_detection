@@ -12,24 +12,41 @@ namespace OCA\IntrusionDetection\Tests\Integration;
 use OC\Authentication\Login\Chain;
 use OC\Authentication\Login\LoginData;
 use OC\User\Session;
+use OCA\IntrusionDetection\AppInfo\Application;
+use OCA\IntrusionDetection\Check\Checks\StepUpFailed;
 use OCA\IntrusionDetection\Check\Checks\StepUpRefused;
 use OCA\IntrusionDetection\Check\Checks\StepUpRefusedClient;
 use OCA\IntrusionDetection\Check\Checks\StepUpUnconfirmed;
+use OCA\IntrusionDetection\Config\GlobalSettings;
 use OCA\IntrusionDetection\Config\Settings;
-use OCA\IntrusionDetection\Confirm\IConfirmationMethod;
 use OCA\IntrusionDetection\Confirm\NoMethodOutcome;
 use OCA\IntrusionDetection\Confirm\StepUpPolicy;
+use OCA\IntrusionDetection\Confirm\StepUpReasons;
 use OCA\IntrusionDetection\Confirm\StepUpService;
 use OCA\IntrusionDetection\Confirm\StepUpState;
+use OCA\IntrusionDetection\Confirm\UnconfirmedSessions;
+use OCA\IntrusionDetection\Crypto\Fingerprinter;
+use OCA\IntrusionDetection\Db\Approval;
+use OCA\IntrusionDetection\Db\ApprovalMapper;
 use OCA\IntrusionDetection\Db\DetectionFilter;
 use OCA\IntrusionDetection\Db\DetectionMapper;
 use OCA\IntrusionDetection\Db\LoginHistoryMapper;
+use OCA\IntrusionDetection\Listener\StepUpLoginListener;
+use OCA\IntrusionDetection\Login\InteractiveLogin;
 use OCA\IntrusionDetection\LoginHistory\LoginHistory;
+use OCA\IntrusionDetection\Net\RemoteAddressResolver;
+use OCA\IntrusionDetection\Net\ServerAddresses;
+use OCA\IntrusionDetection\Net\SourceKey;
 use OCA\IntrusionDetection\Notification\MailContent;
 use OCA\IntrusionDetection\Notification\Mails;
 use OCA\IntrusionDetection\Response\AccountProtection;
+use OCA\IntrusionDetection\Response\FlaggedSources;
+use OCA\IntrusionDetection\SessionState\RequestTarget;
+use OCA\IntrusionDetection\SessionState\Rules\StepUpRule;
 use OCA\IntrusionDetection\SessionState\SessionState;
 use OCA\IntrusionDetection\Tests\BasicAuthServer;
+use OCP\AppFramework\Controller;
+use OCP\ICacheFactory;
 use OCP\IRequest;
 use OCP\ISession;
 use OCP\IUser;
@@ -38,6 +55,7 @@ use OCP\Security\Bruteforce\IThrottler;
 use OCP\Server;
 use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\MockObject\MockObject;
+use Psr\Log\LoggerInterface;
 
 /**
  * Real logins through core: the login form's login chain and Basic auth,
@@ -77,6 +95,23 @@ class RealLoginTest extends IntegrationTestCase {
 		$this->request->method('getPathInfo')->willReturnCallback(fn (): string => $this->path);
 		$this->request->method('getCookie')->willReturnCallback(fn (string $name): ?string => $this->cookies[$name] ?? null);
 		$this->overwriteService(IRequest::class, $this->request);
+		// Services an earlier test may have built with its own request: rebuilt with this one.
+		$addresses = new RemoteAddressResolver($this->request, Server::get(IThrottler::class), Server::get(ServerAddresses::class));
+		$this->overwriteService(RemoteAddressResolver::class, $addresses);
+		$this->overwriteService(StepUpLoginListener::class, new StepUpLoginListener(
+			Server::get(Settings::class),
+			new InteractiveLogin($this->request),
+			$addresses,
+			Server::get(Fingerprinter::class),
+			Server::get(FlaggedSources::class),
+			Server::get(StepUpReasons::class),
+			Server::get(UnconfirmedSessions::class),
+			$this->request,
+			Server::get(ISession::class),
+			\OC::$server->getRegisteredAppContainer(Application::APP_ID),
+			Server::get(ICacheFactory::class),
+			Server::get(LoggerInterface::class),
+		));
 		$mails = $this->createMock(Mails::class);
 		$mails->method('send')->willReturnCallback(function (IUser $user, MailContent $content): bool {
 			$this->mailed[] = [$user->getUID(), $content];
@@ -91,6 +126,8 @@ class RealLoginTest extends IntegrationTestCase {
 		Server::get(Session::class)->logout();
 		Server::get(ISession::class)->clear();
 		$this->restoreService(IRequest::class);
+		$this->restoreService(RemoteAddressResolver::class);
+		$this->restoreService(StepUpLoginListener::class);
 		$this->restoreService(Mails::class);
 		$this->user->delete();
 		parent::tearDown();
@@ -154,16 +191,50 @@ class RealLoginTest extends IntegrationTestCase {
 		$this->assertSame([], Server::get(DetectionMapper::class)->findList(new DetectionFilter(checkIds: [StepUpUnconfirmed::ID], uid: $this->user->getUID())), 'Not let in unconfirmed');
 		$this->assertSame([], $this->codeMails(), 'No code: an app cannot enter it');
 
-		// With core's cookie test the client gets a browser session: it waits for the code like the login form.
-		$this->remoteAddress = '198.51.100.11';
+		// A client with a cookie jar sends core's cookie test back from its second request on:
+		// still an app. Nothing is started for it, nothing fails later, and nobody is told again.
+		// The same address, decided afresh rather than repeated from the memory cache.
+		$caches = Server::get(ICacheFactory::class);
+		if ($caches->isAvailable()) {
+			$caches->createDistributed(Application::APP_ID)->clear();
+		} elseif ($caches->isLocalCacheAvailable()) {
+			$caches->createLocal(Application::APP_ID)->clear();
+		}
+		Server::get(Settings::class)->setGlobal(GlobalSettings::STEP_UP_ADMIN_APPROVAL, true);
+		$notices = $this->mailsOf('intrusion_detection.userNotice');
 		Server::get(Session::class)->logout();
 		Server::get(ISession::class)->clear();
 		$this->cookies[StepUpService::COOKIE_TEST] = 'test';
 		$this->assertTrue(Server::get(Session::class)->logClientIn($this->user->getUID(), self::PASSWORD, $this->request, Server::get(IThrottler::class)));
 		$stepUp = StepUpState::fromArray(Server::get(SessionState::class)->get(SessionState::STEP_UP) ?? []);
-		$this->assertSame(StepUpState::PENDING, $stepUp?->status, 'A browser session from Basic auth waits for its confirmation');
-		$this->assertSame([IConfirmationMethod::EMAIL_CODE], $stepUp?->methods);
-		$this->assertSame([$this->user->getUID()], $this->codeMails(), 'The code went to the account');
+		$this->assertSame(StepUpState::REFUSED_CLIENT, $stepUp?->status, 'Basic auth is an app whatever cookies it sends');
+		$this->assertSame([], $this->codeMails(), 'No code');
+		$this->assertSame(0, Server::get(ApprovalMapper::class)->countPendingFor(Approval::KIND_LOGIN, $this->user->getUID(), time()), 'No approval request');
+		$this->assertSame([], Server::get(DetectionMapper::class)->findList(new DetectionFilter(checkIds: [StepUpFailed::ID], uid: $this->user->getUID())), 'Nothing waits that could fail');
+		$this->assertSame($notices, $this->mailsOf('intrusion_detection.userNotice'), 'The user was told once today already');
+
+		// From a network the account's apps synced from before, the app keeps working; its
+		// session, a browser session because of the cookie test, serves apps only.
+		Server::get(LoginHistoryMapper::class)->insert($this->user->getUID(), time() - 86400, SourceKey::fromIp('203.0.113.20'), 'DAVx5', LoginHistory::METHOD_CLIENT_PASSWORD, false, 'none', null, null);
+		$this->remoteAddress = '203.0.113.21';
+		Server::get(Session::class)->logout();
+		Server::get(ISession::class)->clear();
+		$this->assertTrue(Server::get(Session::class)->logClientIn($this->user->getUID(), self::PASSWORD, $this->request, Server::get(IThrottler::class)));
+		$state = Server::get(SessionState::class);
+		$this->assertNull($state->get(SessionState::STEP_UP), 'A protected account does not lock out its calendar app at home');
+		$this->assertTrue($state->get(SessionState::CONFIRMATION)[StepUpService::CLIENT_ONLY] ?? false);
+		$rule = Server::get(StepUpRule::class);
+		$this->assertNull($rule->check($state, RequestTarget::dav('PROPFIND', '/remote.php/dav/files/' . $this->user->getUID())));
+		$page = $rule->check($state, RequestTarget::app($this->createMock(Controller::class), 'index', 'GET', '/index.php/apps/files/'));
+		$this->assertSame(StepUpRule::ERROR_CLIENT_ONLY, $page?->error, 'No pages from an app\'s session');
+		$this->assertSame([], $this->codeMails());
+	}
+
+	/**
+	 * @return int how many emails with this template were sent
+	 */
+	private function mailsOf(string $templateId): int {
+		return count(array_filter($this->mailed, static fn (array $m): bool => $m[1]->templateId === $templateId));
 	}
 
 	/**
