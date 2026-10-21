@@ -10,11 +10,13 @@ declare(strict_types=1);
 namespace OCA\IntrusionDetection\Tests\Unit\Middleware;
 
 use OCA\IntrusionDetection\Dav\SessionStatePlugin;
+use OCA\IntrusionDetection\Guard\RequestContext;
 use OCA\IntrusionDetection\Middleware\SessionBlockedException;
 use OCA\IntrusionDetection\Middleware\SessionStateMiddleware;
 use OCA\IntrusionDetection\Response\PasswordChangeFlag;
 use OCA\IntrusionDetection\SessionState\ISessionStateRule;
 use OCA\IntrusionDetection\SessionState\RequestTarget;
+use OCA\IntrusionDetection\SessionState\Rules\CredentialUseRule;
 use OCA\IntrusionDetection\SessionState\Rules\PasswordChangeRule;
 use OCA\IntrusionDetection\SessionState\SessionBlock;
 use OCA\IntrusionDetection\SessionState\SessionState;
@@ -79,7 +81,8 @@ class SessionStateMiddlewareTest extends TestCase {
 		$urls->method('linkToRoute')->willReturn('/index.php/apps/intrusion_detection/password?redirect_url=%2Fapps%2Ffiles%2F');
 		$rule = new PasswordChangeRule($this->flag, $userSession, $urls);
 		$container = $this->createMock(ContainerInterface::class);
-		$container->method('get')->willReturn($rule);
+		$credentialRule = new CredentialUseRule(new RequestContext(), $this->createMock(ContainerInterface::class));
+		$container->method('get')->willReturnCallback(static fn (string $class): ISessionStateRule => $class === CredentialUseRule::class ? $credentialRule : $rule);
 		$this->rules = new SessionStateRules($container, $this->createMock(LoggerInterface::class));
 		$this->request = $this->createMock(IRequest::class);
 		$this->request->method('getMethod')->willReturnCallback(fn (): string => $this->method);

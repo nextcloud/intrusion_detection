@@ -23,6 +23,7 @@ class SessionStateRules {
 	/** @var list<class-string<ISessionStateRule>> */
 	public const RULES = [
 		Rules\PasswordChangeRule::class,
+		Rules\CredentialUseRule::class,
 	];
 
 	/** @var list<ISessionStateRule>|null */

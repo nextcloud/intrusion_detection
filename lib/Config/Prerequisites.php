@@ -17,6 +17,9 @@ use OCP\IConfig;
  * Answers whether the server offers what a check needs.
  */
 class Prerequisites {
+	/** Cache classes that keep their values on one web server only */
+	private const LOCAL_ONLY_CACHES = ['OC\\Memcache\\APCu', 'OC\\Memcache\\ArrayCache'];
+
 	public function __construct(
 		private readonly ICacheFactory $cacheFactory,
 		private readonly IConfig $config,
@@ -34,8 +37,14 @@ class Prerequisites {
 		return $this->cacheFactory->isAvailable() || $this->cacheFactory->isLocalCacheAvailable();
 	}
 
+	/**
+	 * Whether a cache shared by all web servers is configured. Core hands
+	 * out the local cache as the distributed one when `memcache.distributed`
+	 * is not set, so the factory alone cannot tell.
+	 */
 	public function hasDistributedCache(): bool {
-		return $this->cacheFactory->isAvailable();
+		$class = ltrim($this->config->getSystemValueString('memcache.distributed', ''), '\\');
+		return $class !== '' && !in_array($class, self::LOCAL_ONLY_CACHES, true) && $this->cacheFactory->isAvailable();
 	}
 
 	public function hasMail(): bool {

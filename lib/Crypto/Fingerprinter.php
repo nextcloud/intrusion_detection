@@ -99,7 +99,7 @@ class Fingerprinter {
 	 * Short base64url key for a credential, for memory-cache keys only. It is
 	 * never written to the database.
 	 */
-	public function credential(string $credential): string {
+	public function credential(#[\SensitiveParameter] string $credential): string {
 		$raw = substr(hash_hmac('sha256', $credential, $this->key('credential/' . $this->today()), true), 0, 12);
 		return rtrim(strtr(base64_encode($raw), '+/', '-_'), '=');
 	}

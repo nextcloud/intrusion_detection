@@ -20,7 +20,9 @@ use OCP\IL10N;
 
 /**
  * Revokes the detection's app password or token (the draft's `tokenId`)
- * and the app passwords created with it; see {@see TokenRevoker}.
+ * and the app passwords created with it; see {@see TokenRevoker}. When the
+ * token is the detection's browser session (`tokenId` equals
+ * `sessionTokenId`), revoking it ends that session, and the action says so.
  */
 class RevokeTokenHandler implements IResponseHandler, IDescribesAction {
 	public function __construct(
@@ -43,6 +45,9 @@ class RevokeTokenHandler implements IResponseHandler, IDescribesAction {
 		if ($result['token'] === null && $result['tokens'] === []) {
 			return ResponseOutcome::skipped(ResponseOutcome::NOTE_NOTHING_TO_DO);
 		}
+		if ($draft->sessionTokenId !== null && $draft->sessionTokenId === $draft->tokenId) {
+			$result['session'] = true;
+		}
 		return ResponseOutcome::done($result);
 	}
 
@@ -51,7 +56,9 @@ class RevokeTokenHandler implements IResponseHandler, IDescribesAction {
 		$ref = is_array($action['ref'] ?? null) ? $action['ref'] : [];
 		$sentences = [];
 		if (is_array($ref['token'] ?? null)) {
-			$sentences[] = $l->t('Revoked the app password "%1$s" (id %2$s).', [(string)($ref['token']['name'] ?? ''), (string)($ref['token']['id'] ?? '')]);
+			$sentences[] = ($ref['session'] ?? false) === true
+				? $l->t('Ended the session "%1$s" (id %2$s).', [(string)($ref['token']['name'] ?? ''), (string)($ref['token']['id'] ?? '')])
+				: $l->t('Revoked the app password "%1$s" (id %2$s).', [(string)($ref['token']['name'] ?? ''), (string)($ref['token']['id'] ?? '')]);
 		}
 		$count = count((array)($ref['tokens'] ?? []));
 		if ($count > 0) {

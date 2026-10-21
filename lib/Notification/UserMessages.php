@@ -217,7 +217,9 @@ class UserMessages {
 	private function revokeSentences(array $ref, IL10N $l): array {
 		$sentences = [];
 		if (is_array($ref['token'] ?? null)) {
-			$sentences[] = $l->t('The app password "%s" was revoked.', [(string)($ref['token']['name'] ?? '')]);
+			$sentences[] = ($ref['session'] ?? false) === true
+				? $l->t('The session "%s" was ended.', [(string)($ref['token']['name'] ?? '')])
+				: $l->t('The app password "%s" was revoked.', [(string)($ref['token']['name'] ?? '')]);
 		}
 		$tokens = count((array)($ref['tokens'] ?? []));
 		if ($tokens > 0) {

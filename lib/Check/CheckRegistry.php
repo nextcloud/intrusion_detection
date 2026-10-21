@@ -33,6 +33,7 @@ class CheckRegistry {
 		Checks\BreachedPassword::class,
 		Checks\SecondFactorFailed::class,
 		Checks\AdminChange::class,
+		Checks\TokenConcurrentUse::class,
 	];
 
 	/** @var array<string, CheckDefinition>|null */

@@ -17,13 +17,17 @@ use OCA\IntrusionDetection\Event\BanCreatedEvent;
 use OCA\IntrusionDetection\Event\BanLiftedEvent;
 use OCA\IntrusionDetection\Event\SettingChangedEvent;
 use OCA\IntrusionDetection\Guard\AddressGuard;
+use OCA\IntrusionDetection\Guard\CredentialUseGuard;
 use OCA\IntrusionDetection\Guard\PayloadGuard;
 use OCA\IntrusionDetection\Guard\TrapUrlGuard;
+use OCA\IntrusionDetection\KnownDevice\IKnownDevices;
+use OCA\IntrusionDetection\KnownDevice\NullKnownDevices;
 use OCA\IntrusionDetection\Listener\AdminChangeListener;
 use OCA\IntrusionDetection\Listener\AppPasswordCreatedListener;
 use OCA\IntrusionDetection\Listener\BlocklistLoginListener;
 use OCA\IntrusionDetection\Listener\BreachedPasswordListener;
 use OCA\IntrusionDetection\Listener\BreachResetListener;
+use OCA\IntrusionDetection\Listener\CredentialUseLoginListener;
 use OCA\IntrusionDetection\Listener\FailedLoginListener;
 use OCA\IntrusionDetection\Listener\FirewallExportListener;
 use OCA\IntrusionDetection\Listener\LoginFlowGrantedListener;
@@ -117,6 +121,9 @@ class Application extends App implements IBootstrap {
 		foreach (SetupProblems::CHECKS as $setupCheck) {
 			$context->registerSetupCheck($setupCheck);
 		}
+		$context->registerRequestGuard(CredentialUseGuard::class);
+		$context->registerEventListener(UserLoggedInEvent::class, CredentialUseLoginListener::class);
+		$context->registerServiceAlias(IKnownDevices::class, NullKnownDevices::class);
 	}
 
 	#[\Override]
