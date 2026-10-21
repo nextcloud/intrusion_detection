@@ -57,14 +57,14 @@ class TrustedNetworks implements ITrustedNetworks {
 	/**
 	 * @return list<array{id: int, network: string, createdAt: int, expiresAt: int, detectionId: ?int}> the account's trusted networks, newest first
 	 */
-	public function forUser(string $uid): array {
+	public function forUser(string $uid, int $limit = 100): array {
 		return array_map(static fn (array $row): array => [
 			'id' => $row['id'],
 			'network' => $row['net_key'],
 			'createdAt' => $row['created_at'],
 			'expiresAt' => $row['expires_at'],
 			'detectionId' => $row['detection_id'],
-		], $this->mapper->findActive($uid, $this->timeFactory->getTime()));
+		], $this->mapper->findActive($uid, $this->timeFactory->getTime(), $limit));
 	}
 
 	/**

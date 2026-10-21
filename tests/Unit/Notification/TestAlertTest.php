@@ -23,7 +23,9 @@ use OCA\IntrusionDetection\Notification\Notifier;
 use OCA\IntrusionDetection\Notification\TestAlert;
 use OCA\IntrusionDetection\Notification\UserLinks;
 use OCA\IntrusionDetection\Notification\UserMessages;
+use OCA\IntrusionDetection\WasThisYou\Questions;
 use OCP\AppFramework\Utility\ITimeFactory;
+use OCP\IURLGenerator;
 use OCP\IUser;
 use OCP\IUserManager;
 use OCP\L10N\IFactory;
@@ -114,6 +116,8 @@ class TestAlertTest extends TestCase {
 			$this->createMock(IUserManager::class),
 			$this->createMock(ApprovalMapper::class),
 			$this->createMock(DateFormatter::class),
+			$this->createMock(Questions::class),
+			$this->createMock(IURLGenerator::class),
 		);
 		$notification = Server::get(INotificationManager::class)->createNotification();
 		$notification->setApp('intrusion_detection')->setUser('alice')->setDateTime(new \DateTime())->setObject(TestAlert::OBJECT_TYPE, '1')->setSubject(TestAlert::SUBJECT);

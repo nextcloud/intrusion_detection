@@ -122,23 +122,24 @@ class PersonalApiController extends OCSController {
 	/**
 	 * List the networks the current user confirmed as their own
 	 *
+	 * @param int<1, 100> $limit the most networks to return
 	 * @return DataResponse<Http::STATUS_OK, list<IntrusionDetectionTrustedNetwork>, array{}>
 	 *
 	 * 200: The trusted networks, newest first
 	 */
 	#[NoAdminRequired]
 	#[ApiRoute(verb: 'GET', url: '/api/v1/personal/trusted-networks')]
-	public function trustedNetworks(): DataResponse {
-		return new DataResponse($this->trustedNetworks->forUser($this->user()->getUID()));
+	public function trustedNetworks(int $limit = 100): DataResponse {
+		return new DataResponse($this->trustedNetworks->forUser($this->user()->getUID(), max(1, min(100, $limit))));
 	}
 
 	/**
 	 * Stop trusting one of the current user's networks
 	 *
 	 * @param int $id the entry
-	 * @return DataResponse<Http::STATUS_OK, list<IntrusionDetectionTrustedNetwork>, array{}>|DataResponse<Http::STATUS_NOT_FOUND, IntrusionDetectionAnswerError, array{}>
+	 * @return DataResponse<Http::STATUS_OK, array{removed: int}, array{}>|DataResponse<Http::STATUS_NOT_FOUND, IntrusionDetectionAnswerError, array{}>
 	 *
-	 * 200: Removed; the remaining trusted networks
+	 * 200: Removed
 	 * 404: The current user has no such entry
 	 */
 	#[NoAdminRequired]
@@ -149,7 +150,7 @@ class PersonalApiController extends OCSController {
 		if (!$this->trustedNetworks->remove($uid, $id)) {
 			return new DataResponse(['reason' => AnswerException::NOT_FOUND, 'message' => $this->l->t('This network is not one of your trusted networks.')], Http::STATUS_NOT_FOUND);
 		}
-		return new DataResponse($this->trustedNetworks->forUser($uid));
+		return new DataResponse(['removed' => $id]);
 	}
 
 	private function user(): IUser {

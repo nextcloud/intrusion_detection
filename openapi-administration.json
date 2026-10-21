@@ -9965,6 +9965,10 @@
             "description": "The signatures of the injection probe check and \"Test a URL\". Administrators only. Nothing here changes anything: signatures are switched and added through the check's settings, and the tests run the matcher on the server without sending a request or recording anything. They take a body because the input can be long, and are rate limited because they run regular expressions."
         },
         {
+            "name": "personal_api",
+            "description": "The logged-in user's own security events, their answers to \"Was this * you?\" (also the actions of the user notification) and their trusted networks (concept sections 11.8 and 15.1). Every endpoint only ever touches the current user's own rows: another account's detection or network answers 404, like a missing one. Writes are CSRF-protected (OCS) and rate limited per user; \"Yes, it was me\" needs a recent password confirmation and is refused from the session the detection is about."
+        },
+        {
             "name": "privacy_api",
             "description": "The \"Data and privacy\" tab. Administrators only; changes need a recent password confirmation and are audited."
         },

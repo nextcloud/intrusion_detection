@@ -16,6 +16,7 @@ use OCA\IntrusionDetection\Blocklist\ContributionOverview;
 use OCA\IntrusionDetection\Blocklist\SourceRepository;
 use OCA\IntrusionDetection\Check\CheckRegistry;
 use OCA\IntrusionDetection\Check\DataKind;
+use OCA\IntrusionDetection\Config\GlobalSettings;
 use OCA\IntrusionDetection\Config\Settings;
 use OCA\IntrusionDetection\Db\BlocklistStatMapper;
 use OCA\IntrusionDetection\Detection\AttemptRecorder;
@@ -205,6 +206,20 @@ class PrivacyOverview {
 				'why' => $l->t('So that a second administrator can approve new administrators.'),
 				'retention' => $l->n('%n day after the decision', '%n days after the decision', ApprovalService::RETENTION_DAYS),
 				'where' => 'ids_approvals',
+			],
+			DataKind::TrustedNetworks => [
+				'name' => $l->t('Trusted networks'),
+				'what' => $l->t('Per account: the networks the user confirmed as their own with "Yes, it was me", and when.'),
+				'why' => $l->t('So that logins from these networks are not asked for an extra confirmation again.'),
+				'retention' => $l->n('%n day, or until the user removes the network', '%n days, or until the user removes the network', intdiv($this->settings->getInt(GlobalSettings::TRUSTED_NETWORK_DURATION), 86400)),
+				'where' => 'ids_trusted_networks',
+			],
+			DataKind::UnconfirmedSessions => [
+				'name' => $l->t('Unconfirmed logins'),
+				'what' => $l->t('A keyed fingerprint of each session whose login still waits for its confirmation or was refused, never the session id itself.'),
+				'why' => $l->t('So that such a session cannot skip the confirmation by coming back through its remember-me cookie.'),
+				'retention' => $l->t('Until the login is confirmed or ended, at most as long as a remembered login lasts'),
+				'where' => 'ids_step_up_sessions',
 			],
 		};
 	}

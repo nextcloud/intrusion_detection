@@ -289,7 +289,8 @@ class WasThisYouTest extends StepUpTestCase {
 		$bobs = Server::get(TrustedNetworks::class)->forUser($bob->getUID())[0]['id'];
 		$this->assertSame(Http::STATUS_NOT_FOUND, $this->controller()->removeTrustedNetwork($bobs)->getStatus(), 'Never another account\'s');
 		$this->assertCount(1, Server::get(TrustedNetworks::class)->forUser($bob->getUID()));
-		$this->assertSame([], $this->controller()->removeTrustedNetwork($networks[0]['id'])->getData());
+		$this->assertSame(['removed' => $networks[0]['id']], $this->controller()->removeTrustedNetwork($networks[0]['id'])->getData());
+		$this->assertSame([], $this->controller()->trustedNetworks()->getData());
 
 		$suspicious = $this->startSession($this->alice);
 		$own = $this->detection(SecondFactorFailed::ID, $this->alice, ['sessionTokenId' => $suspicious['id']]);

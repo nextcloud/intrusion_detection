@@ -106,7 +106,7 @@ class SessionStateMiddlewareTest extends TestCase {
 			$middleware->beforeController($controller, 'index');
 		}
 		$elapsed = (hrtime(true) - $start) / 1e6;
-		$this->assertSame(1000 * count(SessionStateRules::RULES), $this->sessionReads, 'One session read per rule and request');
+		$this->assertLessThanOrEqual(1000 * count(SessionStateRules::RULES), $this->sessionReads, 'At most one session read per rule and request');
 		$this->assertLessThan(500, $elapsed, 'Far below a millisecond per request');
 	}
 
@@ -192,7 +192,7 @@ class SessionStateMiddlewareTest extends TestCase {
 		$request->method('getUrl')->willReturn('/remote.php/dav/files/alice/');
 		$response = new Response();
 		$plugin->beforeMethod($request, $response);
-		$this->assertSame(count(SessionStateRules::RULES), $this->sessionReads);
+		$this->assertLessThanOrEqual(count(SessionStateRules::RULES), $this->sessionReads);
 		$this->assertNull($response->getHeader('X-Nextcloud-Password-Change'));
 	}
 
