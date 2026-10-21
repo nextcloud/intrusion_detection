@@ -5,28 +5,23 @@
 
 import { enableAutoUnmount, flushPromises, mount } from '@vue/test-utils'
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
-import { defineComponent, h } from 'vue'
 import PersonalSettings from './PersonalSettings.vue'
-import { PERSONAL_ORDER, personalSections } from '../personal/extensions.ts'
+import { fetchActivity } from '../personal/api.ts'
 import { personal } from '../personal/store.ts'
-import { overview } from '../tests/personalFixtures.ts'
+import { activity, activityItem, login, overview, securityEvent } from '../tests/personalFixtures.ts'
 
 vi.mock('@nextcloud/dialogs', () => ({ showError: vi.fn(), showSuccess: vi.fn() }))
 
 vi.mock('../personal/api.ts', async (importOriginal) => ({
 	...(await importOriginal<object>()),
-	fetchEvents: vi.fn(() => Promise.resolve([])),
-	fetchLogins: vi.fn(() => Promise.resolve([])),
+	fetchActivity: vi.fn(),
 	fetchKnownDevices: vi.fn(() => Promise.resolve([])),
 	fetchTrustedNetworks: vi.fn(() => Promise.resolve([])),
 }))
 
 vi.mock('../services/secureAccount.ts', () => ({
-	fetchSecureAccount: vi.fn(() => Promise.resolve({ progress: { active: false } })),
-	fetchSecurityChanges: vi.fn(() => Promise.resolve([])),
+	fetchSecureAccountProgress: vi.fn(() => Promise.resolve({ active: false })),
 }))
-
-const original = [...personalSections]
 
 /**
  * Mount the page once its sections are loaded.
@@ -40,56 +35,64 @@ async function mountPage() {
 	return wrapper
 }
 
+/**
+ * The sections that show something, in their order.
+ *
+ * @param wrapper - The page
+ */
+function shownSections(wrapper: Awaited<ReturnType<typeof mountPage>>): string[] {
+	return wrapper.findAll('[data-section]').filter((s) => s.element.children.length > 0).map((s) => s.attributes('data-section')!)
+}
+
 enableAutoUnmount(afterEach)
 
 describe('PersonalSettings', () => {
 	beforeEach(() => {
 		personal.overview = overview()
-		personal.knownDevicesEnabled = true
+		personal.activity = null
+		personal.manage = { devices: 0, networks: 0, otherBrowsers: 0 }
 	})
 
 	afterEach(() => {
-		personalSections.splice(0, personalSections.length, ...original)
+		vi.mocked(fetchActivity).mockReset()
 	})
 
-	test('renders every section in its order under one heading', async () => {
+	test('a brand-new account sees just the status line', async () => {
+		vi.mocked(fetchActivity).mockResolvedValue(activity({ items: [activityItem({ login: login(1, { current: true }) })] }))
 		const wrapper = await mountPage()
+
+		expect(fetchActivity).toHaveBeenCalledTimes(1)
 		expect(wrapper.find('h2').text()).toBe('Account protection')
-		expect(wrapper.findAll('[data-section]').map((s) => s.attributes('data-section'))).toEqual([
-			'secure-account',
-			'status',
-			'email-hint',
-			'events',
-			'failed-logins',
-			'logins',
-			'security-changes',
-			'known-devices',
-			'trusted-networks',
-			'log-out-elsewhere',
-		])
-		expect(wrapper.get('[data-test="status"]').text()).toContain('No unusual activity in the last 30 days')
-		expect(wrapper.find('[data-test="email-hint"]').exists()).toBe(false)
+		expect(shownSections(wrapper)).toEqual(['status'])
+		expect(wrapper.findAll('h3').map((h) => h.text())).toEqual(['No unusual activity in the last 30 days'])
 	})
 
-	test('the checklist and the security changes sit in their reserved places', async () => {
+	test('and the email hint when Nextcloud has no way to confirm it is them', async () => {
+		personal.overview = overview({ emailHint: { emailUrl: '/settings/user', secondFactorUrl: null } })
+		vi.mocked(fetchActivity).mockResolvedValue(activity())
 		const wrapper = await mountPage()
-		const ids = wrapper.findAll('[data-section]').map((s) => s.attributes('data-section'))
-		expect(ids[0]).toBe('secure-account')
-		expect(ids.indexOf('security-changes')).toBe(ids.indexOf('logins') + 1)
-		expect(wrapper.get('[data-section="secure-account"]').text(), 'No checklist is open').toBe('')
+
+		expect(shownSections(wrapper)).toEqual(['status', 'email-hint'])
 	})
 
-	test('a later part plugs into the list without changing the page', async () => {
-		personalSections.push({ id: 'test-part', order: PERSONAL_ORDER.logOutElsewhere + 1, component: defineComponent({ render: () => h('p', 'Part') }) })
+	test('a busy account sees the open questions, the timeline and "Manage", in this order', async () => {
+		personal.manage = { devices: 1, networks: 0, otherBrowsers: 0 }
+		vi.mocked(fetchActivity).mockResolvedValue(activity({
+			questions: [securityEvent(1, { asks: true })],
+			items: [activityItem({ login: login(2) })],
+		}))
 		const wrapper = await mountPage()
-		const ids = wrapper.findAll('[data-section]').map((s) => s.attributes('data-section'))
-		expect(ids[ids.length - 1]).toBe('test-part')
-		expect(wrapper.get('[data-section="test-part"]').text()).toBe('Part')
+
+		expect(shownSections(wrapper)).toEqual(['status', 'questions', 'activity', 'manage'])
+		expect(wrapper.findAll('[data-section]').map((s) => s.attributes('data-section'))[0], 'The checklist card has the top').toBe('secure-account')
 	})
 
-	test('remembered devices and trusted networks share a row', async () => {
+	test('sections with nothing to show take no room', async () => {
+		vi.mocked(fetchActivity).mockResolvedValue(activity())
 		const wrapper = await mountPage()
-		const half = wrapper.findAll('[data-section]').filter((s) => s.classes().some((c) => c.includes('half')))
-		expect(half.map((s) => s.attributes('data-section'))).toEqual(['known-devices', 'trusted-networks'])
+
+		for (const id of ['secure-account', 'email-hint', 'questions', 'activity', 'manage']) {
+			expect(wrapper.get(`[data-section="${id}"]`).element.children, id).toHaveLength(0)
+		}
 	})
 })

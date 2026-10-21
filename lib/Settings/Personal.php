@@ -11,7 +11,6 @@ namespace OCA\IntrusionDetection\Settings;
 
 use OCA\IntrusionDetection\AppInfo\Application;
 use OCA\IntrusionDetection\Config\Settings;
-use OCA\IntrusionDetection\KnownDevice\KnownDevices;
 use OCA\IntrusionDetection\Personal\ManageSummary;
 use OCA\IntrusionDetection\Personal\PersonalOverview;
 use OCP\AppFramework\Http\TemplateResponse;
@@ -35,7 +34,6 @@ class Personal implements ISettings {
 	public function __construct(
 		private readonly Settings $settings,
 		private readonly PersonalOverview $overview,
-		private readonly KnownDevices $knownDevices,
 		private readonly IUserSession $userSession,
 		private readonly IInitialState $initialState,
 		private readonly IL10N $l,
@@ -55,7 +53,6 @@ class Personal implements ISettings {
 		}
 		$this->initialState->provideInitialState('personal', [
 			'overview' => $this->overview->get($user, $this->l),
-			'knownDevicesEnabled' => $this->knownDevices->isEnabled(),
 			'manage' => $this->manage->forUser($user->getUID(), $this->l),
 		]);
 		Util::addStyle(Application::APP_ID, 'settings-personal');

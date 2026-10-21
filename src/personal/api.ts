@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 
-import type { KnownDevice, LoggedOutElsewhere, Login, PersonalOverview, SecurityEvent, TrustedNetwork } from './types.ts'
+import type { KnownDevice, LoggedOutElsewhere, PersonalActivity, PersonalOverview, SecurityEvent, TrustedNetwork } from './types.ts'
 
 import axios, { isAxiosError } from '@nextcloud/axios'
 import { ApiError, call, url, write } from '../services/api.ts'
@@ -11,10 +11,13 @@ import { ApiError, call, url, write } from '../services/api.ts'
 export const fetchOverview = () => call<PersonalOverview>(axios.get(url('personal/overview')))
 
 /**
- * @param limit - At most this many, newest first
+ * The open questions and the timeline.
+ *
+ * @param limit - At most this many timeline entries, newest first
+ * @param days - How far back
  */
-export function fetchEvents(limit = 100): Promise<SecurityEvent[]> {
-	return call<SecurityEvent[]>(axios.get(url('personal/detections'), { params: { limit } }))
+export function fetchActivity(limit: number, days = 30): Promise<PersonalActivity> {
+	return call<PersonalActivity>(axios.get(url('personal/activity'), { params: { days, limit } }))
 }
 
 /**
@@ -42,14 +45,6 @@ export function confirmEvent(id: number): Promise<SecurityEvent> {
  */
 export function isRefusedFromThisSession(error: unknown): boolean {
 	return error instanceof ApiError && isAxiosError(error.cause) && error.cause.response?.status === 403
-}
-
-/**
- * @param days - How far back
- * @param limit - At most this many, newest first
- */
-export function fetchLogins(days = 30, limit = 200): Promise<Login[]> {
-	return call<Login[]>(axios.get(url('personal/logins'), { params: { days, limit } }))
 }
 
 export const fetchKnownDevices = () => call<KnownDevice[]>(axios.get(url('personal/known-devices')))

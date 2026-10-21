@@ -14,7 +14,6 @@ import NcButton from '@nextcloud/vue/components/NcButton'
 import NcIconSvgWrapper from '@nextcloud/vue/components/NcIconSvgWrapper'
 import NcLoadingIcon from '@nextcloud/vue/components/NcLoadingIcon'
 import SectionCard from '../../components/common/SectionCard.vue'
-import EmptyLine from './EmptyLine.vue'
 import LoadError from './LoadError.vue'
 import SkeletonRows from './SkeletonRows.vue'
 import { useAnnouncer } from '../../composables/useAnnouncer.ts'
@@ -33,7 +32,8 @@ const { items: networks, error, load } = useRemoteList<TrustedNetwork>(
 const removing = ref<number | null>(null)
 const { announce } = useAnnouncer()
 const timeZone = computed(() => personal.overview?.timezone)
-const emptyText = t(APP_ID, 'No trusted networks. When you answer "Yes, it was me", the network of that event is trusted for a while.')
+/** Shown while loading, and while there is a network or an error */
+const shown = computed(() => networks.value === null || networks.value.length > 0 || error.value !== null)
 
 /**
  * Stop trusting one network.
@@ -45,6 +45,7 @@ async function remove(network: TrustedNetwork) {
 	try {
 		await removeTrustedNetwork(network.id)
 		networks.value = (networks.value ?? []).filter((n) => n.id !== network.id)
+		personal.manage.networks = networks.value.length
 		const message = t(APP_ID, 'The network {network} is no longer trusted.', { network: network.network })
 		showSuccess(message)
 		announce(message)
@@ -61,17 +62,18 @@ onMounted(load)
 </script>
 
 <template>
-	<SectionCard :heading="t(APP_ID, 'Trusted networks')" :icon="mdiLanConnect" data-test="trusted-networks">
+	<SectionCard
+		v-if="shown"
+		:heading="t(APP_ID, 'Trusted networks')"
+		:icon="mdiLanConnect"
+		level="h4"
+		data-test="trusted-networks">
 		<template #description>
 			{{ t(APP_ID, 'Networks you confirmed with "Yes, it was me". Logins from them are asked fewer questions for a while.') }}
 		</template>
 
 		<LoadError v-if="error" :text="error" @retry="load" />
 		<SkeletonRows v-else-if="networks === null" :rows="2" />
-		<EmptyLine
-			v-else-if="networks.length === 0"
-			:icon="mdiLanConnect"
-			:text="emptyText" />
 		<ul v-else :class="$style.list">
 			<li
 				v-for="network in networks"

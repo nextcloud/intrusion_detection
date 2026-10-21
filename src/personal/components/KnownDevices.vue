@@ -16,7 +16,6 @@ import NcLoadingIcon from '@nextcloud/vue/components/NcLoadingIcon'
 import SectionCard from '../../components/common/SectionCard.vue'
 import StateBadge from '../../components/common/StateBadge.vue'
 import TimeStamp from '../../components/common/TimeStamp.vue'
-import EmptyLine from './EmptyLine.vue'
 import LoadError from './LoadError.vue'
 import SkeletonRows from './SkeletonRows.vue'
 import { useAnnouncer } from '../../composables/useAnnouncer.ts'
@@ -35,8 +34,8 @@ const { items: devices, error, load } = useRemoteList<KnownDevice>(
 const removing = ref<number | null>(null)
 const { announce } = useAnnouncer()
 const timeZone = computed(() => personal.overview?.timezone)
-/** Without the feature and without devices, there is nothing to show */
-const shown = computed(() => personal.knownDevicesEnabled || (devices.value?.length ?? 0) > 0 || error.value !== null)
+/** Shown while loading, and while there is a device or an error */
+const shown = computed(() => devices.value === null || devices.value.length > 0 || error.value !== null)
 
 /**
  * @param device - The device
@@ -58,6 +57,7 @@ async function remove(device: KnownDevice) {
 	try {
 		await removeKnownDevice(device.id)
 		devices.value = (devices.value ?? []).filter((d) => d.id !== device.id)
+		personal.manage.devices = devices.value.length
 		const message = t(APP_ID, '{device} is no longer remembered.', { device: device.label })
 		showSuccess(message)
 		announce(message)
@@ -78,6 +78,7 @@ onMounted(load)
 		v-if="shown"
 		:heading="t(APP_ID, 'Remembered devices')"
 		:icon="mdiDevices"
+		level="h4"
 		data-test="known-devices">
 		<template #description>
 			{{ t(APP_ID, 'Browsers you chose to remember after confirming a login. Logins from them are not asked again, unless your password itself is at risk.') }}
@@ -85,10 +86,6 @@ onMounted(load)
 
 		<LoadError v-if="error" :text="error" @retry="load" />
 		<SkeletonRows v-else-if="devices === null" :rows="2" />
-		<EmptyLine
-			v-else-if="devices.length === 0"
-			:icon="mdiDevices"
-			:text="t(APP_ID, 'No remembered devices. When Nextcloud asks you to confirm a login, you can choose to remember the browser.')" />
 		<ul v-else :class="$style.list">
 			<li
 				v-for="device in devices"

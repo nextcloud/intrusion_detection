@@ -45,7 +45,8 @@ describe('TrustedNetworks', () => {
 		await flushPromises()
 		expect(removeTrustedNetwork).toHaveBeenCalledWith(4)
 		expect(showSuccess).toHaveBeenCalledWith('The network 203.0.113.0/24 is no longer trusted.')
-		expect(wrapper.get('[data-test="empty"]').text()).toContain('No trusted networks. When you answer "Yes, it was me"')
+		expect(wrapper.find('[data-test="trusted-networks"]').exists(), 'Left out once empty').toBe(false)
+		expect(personal.manage.networks).toBe(0)
 	})
 
 	test('loads again after an answer elsewhere on the page', async () => {

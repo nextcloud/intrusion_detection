@@ -25,7 +25,7 @@ enableAutoUnmount(afterEach)
 describe('KnownDevices', () => {
 	beforeEach(() => {
 		personal.overview = overview()
-		personal.knownDevicesEnabled = true
+		personal.manage = { devices: 2, networks: 0, otherBrowsers: 0 }
 	})
 
 	afterEach(() => {
@@ -57,6 +57,7 @@ describe('KnownDevices', () => {
 		expect(removeKnownDevice).toHaveBeenCalledWith(2)
 		expect(wrapper.find('[data-test="device-2"]').exists()).toBe(false)
 		expect(showSuccess).toHaveBeenCalledWith('Firefox on Linux is no longer remembered.')
+		expect(personal.manage.devices).toBe(1)
 	})
 
 	test('says what went wrong when removing fails', async () => {
@@ -70,23 +71,15 @@ describe('KnownDevices', () => {
 		expect(wrapper.find('[data-test="device-1"]').exists()).toBe(true)
 	})
 
-	test('has an empty state and an error state', async () => {
+	test('is left out without devices, and says when they could not be loaded', async () => {
 		vi.mocked(fetchKnownDevices).mockResolvedValueOnce([]).mockRejectedValueOnce(new Error('offline'))
 		const wrapper = mount(KnownDevices)
 		await flushPromises()
-		expect(wrapper.get('[data-test="empty"]').text()).toContain('No remembered devices')
+		expect(wrapper.find('[data-test="known-devices"]').exists()).toBe(false)
 		personal.devicesVersion++
 		await nextTick()
 		await flushPromises()
 		expect(fetchKnownDevices).toHaveBeenCalledTimes(2)
 		expect(wrapper.get('[data-test="load-error"]').text()).toContain('could not be loaded')
-	})
-
-	test('is hidden when devices cannot be remembered and none are', async () => {
-		personal.knownDevicesEnabled = false
-		vi.mocked(fetchKnownDevices).mockResolvedValue([])
-		const wrapper = mount(KnownDevices)
-		await flushPromises()
-		expect(wrapper.find('[data-test="known-devices"]').exists()).toBe(false)
 	})
 })

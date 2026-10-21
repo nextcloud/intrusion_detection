@@ -41,6 +41,7 @@ async function run() {
 		showSuccess(message + devices)
 		announce(message + devices)
 		personal.devicesVersion++
+		personal.manage.otherBrowsers = 0
 	} catch (error) {
 		if (isCancelled(error)) {
 			return
@@ -61,7 +62,11 @@ const buttons = computed(() => [
 </script>
 
 <template>
-	<SectionCard :heading="t(APP_ID, 'Log out other browsers')" :icon="mdiLogoutVariant" data-test="log-out-elsewhere">
+	<SectionCard
+		:heading="t(APP_ID, 'Log out other browsers')"
+		:icon="mdiLogoutVariant"
+		level="h4"
+		data-test="log-out-elsewhere">
 		<template #description>
 			{{ t(APP_ID, 'Logs out every other browser and forgets the other remembered devices. Unlike "Revoke all other sessions" above, your apps and app passwords stay connected.') }}
 		</template>

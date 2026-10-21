@@ -5,6 +5,8 @@
 
 /** The shapes of the personal API, see `lib/ResponseDefinitions.php`. */
 
+import type { SecurityChange } from '../secureAccountTypes.ts'
+
 export type StatusLevel = 'ok' | 'info' | 'warning'
 
 export interface StatusItem {
@@ -108,8 +110,41 @@ export interface LoggedOutElsewhere {
 	devices: number
 }
 
+export type ActivityKind = 'login' | 'change' | 'failed_logins' | 'event'
+
+/** One entry of the timeline; the field named by `kind` is set */
+export interface ActivityItem {
+	id: string
+	kind: ActivityKind
+	at: number
+	/** The user's own day, YYYY-MM-DD */
+	day: string
+	login: Login | null
+	change: SecurityChange | null
+	failedLogins: { count: number } | null
+	event: SecurityEvent | null
+}
+
+export interface PersonalActivity {
+	/** The open "Was this you?" questions */
+	questions: SecurityEvent[]
+	/** Everything else, newest first */
+	items: ActivityItem[]
+	hasMore: boolean
+	/** Today in the user's time zone, YYYY-MM-DD */
+	today: string
+	timezone: string
+}
+
+/** What "Manage" has to offer */
+export interface ManageSummary {
+	devices: number
+	networks: number
+	otherBrowsers: number
+}
+
 /** What the page comes with */
 export interface PersonalState {
 	overview: PersonalOverview
-	knownDevicesEnabled: boolean
+	manage: ManageSummary
 }

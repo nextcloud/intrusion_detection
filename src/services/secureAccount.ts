@@ -4,7 +4,7 @@
  */
 
 import type { OCSResponse } from '@nextcloud/typings/ocs'
-import type { AccountGuide, SecureAccount, SecureAccountProgress, SecureAccountStepId, SecurityChange } from '../secureAccountTypes.ts'
+import type { AccountGuide, SecureAccount, SecureAccountProgress, SecureAccountStepId } from '../secureAccountTypes.ts'
 
 import axios, { isAxiosError } from '@nextcloud/axios'
 import { PwdConfirmationMode } from '@nextcloud/password-confirmation'
@@ -52,13 +52,6 @@ export const dismissSecureAccount = () => call<SecureAccount>(axios.delete(url('
  */
 export function completeStep(step: SecureAccountStepId): Promise<SecureAccount> {
 	return call<SecureAccount>(axios.post(url('personal/secure-account/steps/' + step)))
-}
-
-/**
- * @param limit - At most this many, newest first
- */
-export function fetchSecurityChanges(limit = 50): Promise<SecurityChange[]> {
-	return call<SecurityChange[]>(axios.get(url('personal/security-changes'), { params: { limit } }))
 }
 
 /**

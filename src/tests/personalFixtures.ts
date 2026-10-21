@@ -3,7 +3,8 @@
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 
-import type { KnownDevice, Login, PersonalOverview, SecurityEvent, TrustedNetwork } from '../personal/types.ts'
+import type { ActivityItem, KnownDevice, Login, PersonalActivity, PersonalOverview, SecurityEvent, TrustedNetwork } from '../personal/types.ts'
+import type { SecurityChange } from '../secureAccountTypes.ts'
 
 /** 2026-10-21 12:00 UTC */
 export const NOW = Date.UTC(2026, 9, 21, 12, 0) / 1000
@@ -110,6 +111,68 @@ export function trustedNetwork(id: number, overrides: Partial<TrustedNetwork> = 
 		createdAt: NOW - 86400,
 		expiresAt: NOW + 29 * 86400,
 		detectionId: 4,
+		...overrides,
+	}
+}
+
+/**
+ * @param id - The change id
+ * @param overrides - Fields to change
+ */
+export function securityChange(id: number, overrides: Partial<SecurityChange> = {}): SecurityChange {
+	return {
+		id,
+		type: 'password_changed',
+		label: 'Password changed',
+		via: 'self',
+		actor: null,
+		previous: null,
+		new: null,
+		detail: null,
+		address: '198.51.100.12',
+		createdAt: NOW - 1800 * id,
+		...overrides,
+	}
+}
+
+/**
+ * The UTC day of a time, as the fixtures' user lives in UTC.
+ *
+ * @param at - Seconds since the epoch
+ */
+function dayOf(at: number): string {
+	return new Date(at * 1000).toISOString().slice(0, 10)
+}
+
+/**
+ * A timeline entry around one of the other fixtures.
+ *
+ * @param of - What the entry is
+ */
+export function activityItem(of: { login: Login } | { change: SecurityChange } | { event: SecurityEvent } | { failed: number, at: number }): ActivityItem {
+	const base = { login: null, change: null, failedLogins: null, event: null }
+	if ('login' in of) {
+		return { ...base, id: 'login-' + of.login.id, kind: 'login', at: of.login.createdAt, day: dayOf(of.login.createdAt), login: of.login }
+	}
+	if ('change' in of) {
+		return { ...base, id: 'change-' + of.change.id, kind: 'change', at: of.change.createdAt, day: dayOf(of.change.createdAt), change: of.change }
+	}
+	if ('event' in of) {
+		return { ...base, id: 'event-' + of.event.id, kind: 'event', at: of.event.createdAt, day: dayOf(of.event.createdAt), event: of.event }
+	}
+	return { ...base, id: 'failed-' + dayOf(of.at), kind: 'failed_logins', at: of.at, day: dayOf(of.at), failedLogins: { count: of.failed } }
+}
+
+/**
+ * @param overrides - Fields to change
+ */
+export function activity(overrides: Partial<PersonalActivity> = {}): PersonalActivity {
+	return {
+		questions: [],
+		items: [],
+		hasMore: false,
+		today: dayOf(NOW),
+		timezone: 'UTC',
 		...overrides,
 	}
 }

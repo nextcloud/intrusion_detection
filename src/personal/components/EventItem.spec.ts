@@ -70,29 +70,25 @@ describe('EventItem', () => {
 		document.body.innerHTML = ''
 	})
 
-	test('says what happened, when, from where and what Nextcloud did', async () => {
-		const wrapper = mountItem(securityEvent(1))
-		expect(wrapper.text()).toContain('Someone entered your password but failed the second factor 1')
+	test('asks "Was this you?" and has what happened one click away', async () => {
+		const wrapper = mountItem(securityEvent(1, { asks: true, canConfirm: true }))
+		expect(wrapper.get('h4').text()).toBe('Someone entered your password but failed the second factor 1')
 		expect(wrapper.text()).toContain('203.0.113.7')
-		expect(wrapper.text()).toContain('Handled')
-		const toggle = wrapper.get('[data-test="toggle"]')
+		expect(wrapper.get('[data-test="question"]').attributes('aria-labelledby')).toBe(wrapper.get('h4').attributes('id'))
+		const toggle = wrapper.get('[data-test="toggle"] button')
 		expect(toggle.attributes('aria-expanded')).toBe('false')
 		await toggle.trigger('click')
 		expect(toggle.attributes('aria-expanded')).toBe('true')
 		const details = wrapper.get('[data-test="details"]')
-		expect(toggle.attributes('aria-controls')).toBe(details.attributes('id'))
 		expect(details.text()).toContain('What Nextcloud did')
 		expect(details.text()).toContain('The suspicious session was ended.')
 		expect(details.text()).toContain('from the address 203.0.113.7')
-		expect(wrapper.find('[data-test="question"]').exists()).toBe(false)
 	})
 
-	test('asks "Was this you?" and confirms after the password', async () => {
+	test('confirms after the password', async () => {
 		const answered = securityEvent(1, { asks: true, canConfirm: false, verdict: 'confirmed', verdictAt: 1792580400 })
 		vi.mocked(confirmEvent).mockResolvedValue(answered)
 		const wrapper = mountItem(securityEvent(1, { asks: true, canConfirm: true }))
-		expect(wrapper.get('[data-test="details"]').isVisible()).toBe(true)
-		expect(wrapper.text()).toContain('Needs your answer')
 		await wrapper.get('[data-test="confirm"]').trigger('click')
 		await flushPromises()
 		expect(confirmEvent).toHaveBeenCalledWith(1)
@@ -100,10 +96,6 @@ describe('EventItem', () => {
 		expect(showSuccess).toHaveBeenCalled()
 		expect(personal.networksVersion).toBe(1)
 		expect(personal.overview?.status.headline).toBe('Refreshed')
-
-		await wrapper.setProps({ event: answered })
-		expect(wrapper.find('[data-test="question"]').exists()).toBe(false)
-		expect(wrapper.get('[data-test="answer"]').text()).toContain('You answered "Yes, it was me"')
 	})
 
 	test('does nothing when the password dialog is closed', async () => {
@@ -160,8 +152,5 @@ describe('EventItem', () => {
 		await flushPromises()
 		expect(denyEvent).toHaveBeenCalledWith(1)
 		expect(wrapper.emitted('answered')).toEqual([[answered]])
-		await wrapper.setProps({ event: answered })
-		expect(wrapper.get('[data-test="answer"]').text()).toContain('You answered "No, it was not me"')
-		expect(wrapper.text()).toContain('You said it was not you')
 	})
 })
