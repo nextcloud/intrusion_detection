@@ -16,6 +16,9 @@ use OCA\IntrusionDetection\Confirm\ConfirmationCoverage;
 use OCA\IntrusionDetection\Controller\ConfirmationApiController;
 use OCA\IntrusionDetection\Controller\PersonalApiController;
 use OCA\IntrusionDetection\Db\LoginHistoryMapper;
+use OCA\IntrusionDetection\Db\SecurityChangeMapper;
+use OCA\IntrusionDetection\Guide\SecureAccountGuide;
+use OCA\IntrusionDetection\Guide\SecureAccountOverview;
 use OCA\IntrusionDetection\LoginHistory\LoginHistory;
 use OCA\IntrusionDetection\Net\SourceKey;
 use OCA\IntrusionDetection\Response\FlaggedSources;
@@ -133,6 +136,9 @@ class ConfirmationApiTest extends StepUpTestCase {
 			$this->knownDevices(),
 			Server::get(LoginHistoryMapper::class),
 			$this->currentSession,
+			Server::get(SecureAccountGuide::class),
+			Server::get(SecureAccountOverview::class),
+			Server::get(SecurityChangeMapper::class),
 			$this->settings,
 			Server::get(ITimeFactory::class),
 		);
