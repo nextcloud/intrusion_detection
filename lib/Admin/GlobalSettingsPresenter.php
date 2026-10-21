@@ -30,11 +30,13 @@ class GlobalSettingsPresenter {
 	/** Shown on the Blocks tab, next to the escalation explanation */
 	public const GROUP_BLOCKS = 'blocks';
 	public const GROUP_PRIVACY = 'privacy';
+	/** Who is told about detections, and how */
+	public const GROUP_NOTIFICATIONS = 'notifications';
 	/** Settings without a group are listed on the Advanced tab */
 	public const GROUP_OTHER = 'other';
 
 	/** Changed through the learning mode endpoint only, so every change is explained and audited as such */
-	private const MANAGED_ELSEWHERE = [GlobalSettings::LEARNING_UNTIL];
+	private const MANAGED_ELSEWHERE = [GlobalSettings::LEARNING_UNTIL, GlobalSettings::BLOCKLIST_SOURCES];
 
 	public function __construct(
 		private readonly GlobalSettings $globals,
@@ -48,6 +50,7 @@ class GlobalSettingsPresenter {
 	public function isEditable(string $name): bool {
 		return $this->globals->get($name) !== null
 			&& !GlobalSettings::isInternal($name)
+			&& !GlobalSettings::isUnlisted($name)
 			&& !in_array($name, self::MANAGED_ELSEWHERE, true);
 	}
 
@@ -129,6 +132,27 @@ class GlobalSettingsPresenter {
 				$l->t('Older detections are deleted. Blocks are kept 30 days after they end, for escalation.'),
 				$l->t('days'),
 			), self::GROUP_PRIVACY],
+			GlobalSettings::EXPORT_FORMATS => [new ParamText(
+				$l->t('Firewall export formats'),
+				$l->t('The files written for your firewall or fail2ban whenever a block changes. They are only written when an export directory is set in config.php.'),
+			), self::GROUP_BLOCKS],
+			GlobalSettings::BLOCKLIST_SYNC_INTERVAL => [new ParamText(
+				$l->t('Download lists every'),
+				$l->t('How often the enabled blocklists and network lists are downloaded again. A list can set its own interval.'),
+			), self::GROUP_BLOCKS],
+			GlobalSettings::BLOCKLIST_MAX_ENTRIES => [new ParamText(
+				$l->t('Largest accepted list'),
+				$l->t('A downloaded list with more entries than this is refused, so a broken or hostile list cannot fill the database.'),
+				$l->t('entries'),
+			), self::GROUP_BLOCKS],
+			GlobalSettings::NOTIFY_ADMIN_GROUP => [new ParamText(
+				$l->t('Notify these groups'),
+				$l->t('Members of these groups get the administrator notifications.'),
+			), self::GROUP_NOTIFICATIONS],
+			GlobalSettings::NOTIFY_ADMIN_EMAIL_MIN_SEVERITY => [new ParamText(
+				$l->t('Also email from severity'),
+				$l->t('Detections of this severity or higher are also emailed, at most once per check and hour. "never" sends no emails.'),
+			), self::GROUP_NOTIFICATIONS],
 			default => [new ParamText(ucfirst(str_replace('_', ' ', $name))), self::GROUP_OTHER],
 		};
 	}

@@ -28,7 +28,8 @@ class GlobalSettingsPresenterTest extends TestCase {
 		$names = array_column($presented['settings'], 'name');
 
 		foreach (array_keys($globals->all()) as $name) {
-			$hidden = GlobalSettings::isInternal($name) || $name === GlobalSettings::LEARNING_UNTIL;
+			$hidden = GlobalSettings::isInternal($name) || GlobalSettings::isUnlisted($name)
+				|| in_array($name, [GlobalSettings::LEARNING_UNTIL, GlobalSettings::BLOCKLIST_SOURCES], true);
 			$this->assertSame(!$hidden, in_array($name, $names, true), $name);
 			$this->assertSame(!$hidden, $presenter->isEditable($name), $name);
 		}
