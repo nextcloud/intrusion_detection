@@ -284,6 +284,10 @@ class WasThisYouTest extends StepUpTestCase {
 		$this->answers()->deny($this->alice, $detection->getId());
 		$this->answers()->deny($this->alice, $detection->getId());
 		$this->assertNull(Server::get(DetectionMapper::class)->findById($detection->getId())->getUserVerdict(), 'A weak "No" again changes nothing');
+		$denials = $this->detectionsOf(UserDenied::ID);
+		$this->assertCount(1, $denials, 'Only the first weak "No" is recorded');
+		$this->assertSame(1, $denials[0]->getHits(), 'The second never reached the engine');
+		$this->assertCount(1, $this->notificationsFor('admin', AdminAlerts::SUBJECT), 'The administrators are told once');
 		$this->assertTrue($this->tokenExists($suspicious['id']));
 
 		$this->session->clear();

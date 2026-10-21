@@ -13,6 +13,7 @@ use OCA\IntrusionDetection\AppInfo\Application;
 use OCA\IntrusionDetection\Audit\AuditLogger;
 use OCA\IntrusionDetection\Check\Checks\UserDenied;
 use OCA\IntrusionDetection\Check\Mode;
+use OCA\IntrusionDetection\Config\GlobalSettings;
 use OCA\IntrusionDetection\Config\ModeState;
 use OCA\IntrusionDetection\Config\Settings;
 use OCA\IntrusionDetection\Confirm\SessionConfirmation;
@@ -48,7 +49,8 @@ use OCP\Notification\IManager as INotificationManager;
  *   administrators are told, but nothing else is done: the question stays
  *   open, with its notification, until a session that proved more answers
  *   it. Such a "No" never claims the answer, so it cannot silence the
- *   account holder, and it keeps the remembered devices.
+ *   account holder, and it keeps the remembered devices. Only the first
+ *   one per detection is recorded; later ones change nothing.
  * - "Yes, it was me" (the controller asks for the password first) needs a
  *   session whose login proved more than the password, and not the
  *   session the detection is about: an attacker in the account must not
@@ -121,11 +123,18 @@ class WasThisYouService {
 					'sessionTokenIds' => $sessions,
 					'tokenId' => $tokenId,
 				],
+				merge: $weak ? DetectionDraft::MERGE_SUBJECT : DetectionDraft::MERGE_NONE,
+				mergeWindow: $this->settings->getInt(GlobalSettings::RETENTION_DETECTIONS_DAYS) * 86400,
 				banLevel: self::BAN_LEVEL,
 				sessionTokenId: $sessions[0] ?? null,
 				tokenId: $tokenId,
 			);
+			if ($weak && $this->weaklyDenied($draft)) {
+				$this->audit->log('%s answered "No, it was not me" about detection %s again from a session that proved only the password; nothing was recorded', ['uid' => $uid, 'detection' => $detection->getId()]);
+				return $detection;
+			}
 			// The account holder's own decision: learning mode does not hold it back.
+			// A weak "No" at the same time as another is merged into it.
 			$denial = $this->engine->handle(
 				$draft,
 				$this->deniedCheck->responsesFor($draft, $this->settings->responses(UserDenied::ID), []),
@@ -181,6 +190,14 @@ class WasThisYouService {
 			return false;
 		}
 		return !in_array($current, Questions::sessionTokens($detection), true) && $current !== Questions::tokenId($detection);
+	}
+
+	/**
+	 * Whether a weak "No" about the same detection was recorded already.
+	 */
+	private function weaklyDenied(DetectionDraft $draft): bool {
+		$key = $draft->mergeKey();
+		return $key !== null && $this->detections->findMergeable($key, $this->timeFactory->getTime() - $draft->mergeWindow) !== null;
 	}
 
 	/**

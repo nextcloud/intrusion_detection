@@ -163,6 +163,7 @@ const denyButtons = computed(() => [
 					{{ t(APP_ID, 'Yes, it was me') }}
 				</NcButton>
 				<NcButton
+					v-if="!toldOnly"
 					variant="error"
 					:disabled="busy !== null"
 					data-test="deny"
@@ -174,7 +175,7 @@ const denyButtons = computed(() => [
 				</NcButton>
 			</div>
 			<p v-if="toldOnly" :class="$style.question__note" data-test="told-only">
-				{{ t(APP_ID, 'Your administrators were told. To end the sessions of this event, answer again after a login with your second factor or an email code, or from a device you remembered.') }}
+				{{ t(APP_ID, 'Your administrators were told. To end the sessions of this event, answer "No" again after a login with your second factor or an email code, or from a device you remembered.') }}
 			</p>
 			<p v-if="!canConfirm" :class="$style.question__note" data-test="confirm-elsewhere">
 				{{ t(APP_ID, 'For your safety, "Yes, it was me" needs a login with your second factor, a confirmed login, or a remembered device, and not the session this event is about. Answer from another device.') }}

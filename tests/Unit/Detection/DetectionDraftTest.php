@@ -55,4 +55,13 @@ class DetectionDraftTest extends TestCase {
 		$context = new ResponseContext($draft, $detection, (new CredentialStuffing($this->createMock(DateFormatter::class)))->definition(), true);
 		$this->assertTrue((new FlagSourceHandler($flags))->apply($context)->enforced);
 	}
+
+	public function testAnswersAboutOneDetectionShareTheirMergeKey(): void {
+		$about = static fn (string $uid, mixed $detection): ?string => (new DetectionDraft(checkId: 'user_denied', uid: $uid, facts: ['detection' => $detection], merge: DetectionDraft::MERGE_SUBJECT))->mergeKey();
+		$this->assertNotNull($about('alice', 7));
+		$this->assertSame($about('alice', 7), $about('alice', 7));
+		$this->assertNotSame($about('alice', 7), $about('alice', 8));
+		$this->assertNotSame($about('alice', 7), $about('bob', 7));
+		$this->assertNull($about('alice', null), 'Without a detection there is nothing to merge on');
+	}
 }
