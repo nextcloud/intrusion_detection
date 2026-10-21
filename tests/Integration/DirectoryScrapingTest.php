@@ -285,7 +285,6 @@ class DirectoryScrapingTest extends IntegrationTestCase {
 		$currentSession = $this->createMock(CurrentSession::class);
 		$currentSession->method('tokenId')->willReturn(17);
 		return new DirectoryScrapingDetector(
-			Server::get(IAppConfig::class),
 			$settings,
 			$context,
 			$factory,

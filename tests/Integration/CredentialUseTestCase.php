@@ -120,7 +120,7 @@ abstract class CredentialUseTestCase extends AccountTestCase {
 		$container = new TestContainer();
 		$logger = $this->logger();
 
-		$guard = new TestCredentialUseGuard(Server::get(IConfig::class), Server::get(IAppConfig::class), $this->settings, new Fingerprinter(Server::get(IConfig::class), $time), $this->tracker, $context, $time, $container, $logger, Server::get(GuardTimer::class));
+		$guard = new TestCredentialUseGuard(Server::get(IConfig::class), $this->settings, new Fingerprinter(Server::get(IConfig::class), $time), $this->tracker, $context, $time, $container, $logger, Server::get(GuardTimer::class));
 		$knownDevices = new class($this->forgotten) implements IKnownDevices {
 			/** @param list<array{string, int}> $calls */
 			public function __construct(

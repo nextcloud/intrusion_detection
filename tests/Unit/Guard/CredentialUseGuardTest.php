@@ -17,6 +17,7 @@ use OCA\IntrusionDetection\Check\CredentialUse\CredentialTracker;
 use OCA\IntrusionDetection\Check\CredentialUse\CredentialUse;
 use OCA\IntrusionDetection\Check\CredentialUse\CredentialUseResolver;
 use OCA\IntrusionDetection\Check\CredentialUse\PresentedCredential;
+use OCA\IntrusionDetection\Check\Mode;
 use OCA\IntrusionDetection\Config\Settings;
 use OCA\IntrusionDetection\Crypto\Fingerprinter;
 use OCA\IntrusionDetection\Guard\AddressGuard;
@@ -27,7 +28,6 @@ use OCA\IntrusionDetection\Net\SourceKey;
 use OCA\IntrusionDetection\Perf\GuardTimer;
 use OCA\IntrusionDetection\Tests\BasicAuthServer;
 use OCP\AppFramework\Utility\ITimeFactory;
-use OCP\IAppConfig;
 use OCP\ICacheFactory;
 use OCP\IConfig;
 use OCP\IRequest;
@@ -47,7 +47,6 @@ class CredentialUseGuardTest extends TestCase {
 
 	private SpyCache $cache;
 	private ICacheFactory&MockObject $cacheFactory;
-	private IAppConfig&MockObject $appConfig;
 	private Settings&MockObject $settings;
 	private ContainerInterface&MockObject $container;
 	private RemoteAddressResolver&MockObject $addresses;
@@ -70,9 +69,8 @@ class CredentialUseGuardTest extends TestCase {
 		$this->cacheFactory->method('isLocalCacheAvailable')->willReturnCallback(fn (): bool => $this->local);
 		$this->cacheFactory->method('createLocal')->willReturn($this->cache);
 		$this->cacheFactory->method('createDistributed')->willReturn($this->cache);
-		$this->appConfig = $this->createMock(IAppConfig::class);
-		$this->appConfig->method('getValueString')->willReturnCallback(fn (): string => $this->mode);
 		$this->settings = $this->createMock(Settings::class);
+		$this->settings->method('configuredMode')->with(TokenConcurrentUse::ID)->willReturnCallback(fn (): Mode => Mode::from($this->mode));
 		$this->settings->method('isEnabled')->willReturn(true);
 		$this->settings->method('paramInt')->willReturnCallback(static fn (string $id, string $name): int => $name === TokenConcurrentUse::PARAM_WINDOW ? 900 : 3);
 		$this->addresses = $this->createMock(RemoteAddressResolver::class);
@@ -140,8 +138,8 @@ class CredentialUseGuardTest extends TestCase {
 
 	public function testRequestsWithoutCredentialsCostNoCacheOrSetting(): void {
 		$this->cacheFactory->expects($this->never())->method('isLocalCacheAvailable');
-		$this->appConfig->expects($this->never())->method('getValueString');
 		$this->settings->expects($this->never())->method('isEnabled');
+		$this->settings->expects($this->never())->method('configuredMode');
 		$guard = $this->guard();
 		$this->assertNull($guard->check($this->request('198.51.100.7', [], ['nc_token' => 'remember-me'])));
 		$this->assertNull($guard->check($this->request('198.51.100.7', ['HTTP_AUTHORIZATION' => 'Negotiate abc'])));
@@ -153,7 +151,6 @@ class CredentialUseGuardTest extends TestCase {
 		$this->local = false;
 		$this->cacheFactory->expects($this->never())->method('createLocal');
 		$this->cacheFactory->expects($this->never())->method('createDistributed');
-		$this->appConfig->expects($this->never())->method($this->anything());
 		$this->settings->expects($this->never())->method($this->anything());
 		$this->container->expects($this->never())->method('get');
 		$guard = $this->guard();
@@ -258,13 +255,13 @@ class CredentialUseGuardTest extends TestCase {
 		$time = $this->createMock(ITimeFactory::class);
 		$time->method('getTime')->willReturnCallback(fn (): int => $this->now);
 		$shutdown = &$this->shutdown;
-		return new class($config, $this->appConfig, $this->settings, $this->fingerprinter(), $this->tracker(), $this->context, $time, $this->container, $this->logger, $this->createMock(GuardTimer::class), $shutdown) extends CredentialUseGuard {
+		return new class($config, $this->settings, $this->fingerprinter(), $this->tracker(), $this->context, $time, $this->container, $this->logger, $this->createMock(GuardTimer::class), $shutdown) extends CredentialUseGuard {
 			/** @var list<\Closure> */
 			private array $registered;
 
 			/** @param list<\Closure> $registered */
-			public function __construct(IConfig $config, IAppConfig $appConfig, Settings $settings, Fingerprinter $fingerprinter, CredentialTracker $tracker, RequestContext $context, ITimeFactory $time, ContainerInterface $container, LoggerInterface $logger, GuardTimer $timer, array &$registered) {
-				parent::__construct($config, $appConfig, $settings, $fingerprinter, $tracker, $context, $time, $container, $logger, $timer);
+			public function __construct(IConfig $config, Settings $settings, Fingerprinter $fingerprinter, CredentialTracker $tracker, RequestContext $context, ITimeFactory $time, ContainerInterface $container, LoggerInterface $logger, GuardTimer $timer, array &$registered) {
+				parent::__construct($config, $settings, $fingerprinter, $tracker, $context, $time, $container, $logger, $timer);
 				$this->registered = &$registered;
 			}
 

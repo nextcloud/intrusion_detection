@@ -9,21 +9,18 @@ declare(strict_types=1);
 
 namespace OCA\IntrusionDetection\Guard;
 
-use OCA\IntrusionDetection\AppInfo\Application;
 use OCA\IntrusionDetection\Check\Checks\TokenConcurrentUse;
 use OCA\IntrusionDetection\Check\CredentialUse\CredentialTracker;
 use OCA\IntrusionDetection\Check\CredentialUse\CredentialUse;
 use OCA\IntrusionDetection\Check\CredentialUse\CredentialUseResolver;
 use OCA\IntrusionDetection\Check\CredentialUse\PresentedCredential;
 use OCA\IntrusionDetection\Check\Mode;
-use OCA\IntrusionDetection\Config\Keys;
 use OCA\IntrusionDetection\Config\Settings;
 use OCA\IntrusionDetection\Crypto\Fingerprinter;
 use OCA\IntrusionDetection\Net\RemoteAddressResolver;
 use OCA\IntrusionDetection\Net\SourceKey;
 use OCA\IntrusionDetection\Perf\GuardTimer;
 use OCP\AppFramework\Utility\ITimeFactory;
-use OCP\IAppConfig;
 use OCP\IConfig;
 use OCP\IRequest;
 use OCP\Security\Guard\GuardDecision;
@@ -54,7 +51,6 @@ class CredentialUseGuard implements IRequestGuard {
 
 	public function __construct(
 		private readonly IConfig $config,
-		private readonly IAppConfig $appConfig,
 		private readonly Settings $settings,
 		private readonly Fingerprinter $fingerprinter,
 		private readonly CredentialTracker $tracker,
@@ -70,7 +66,7 @@ class CredentialUseGuard implements IRequestGuard {
 	 * The same guard on another tracker, for measurements.
 	 */
 	public function withTracker(CredentialTracker $tracker): self {
-		return new self($this->config, $this->appConfig, $this->settings, $this->fingerprinter, $tracker, $this->context, $this->timeFactory, $this->container, $this->logger, $this->timer);
+		return new self($this->config, $this->settings, $this->fingerprinter, $tracker, $this->context, $this->timeFactory, $this->container, $this->logger, $this->timer);
 	}
 
 	#[\Override]
@@ -119,15 +115,15 @@ class CredentialUseGuard implements IRequestGuard {
 	}
 
 	/**
-	 * Whether the check may run, read straight from the app config (cached
-	 * for the request) so that the common path builds no check definitions.
-	 * The address guard runs first and only hands on a verdict while the app
-	 * is enabled. Learning mode does not matter here: Observe records like
-	 * Protect, and the response engine applies the effective mode.
+	 * Whether the check may run: two reads of the app config, which is
+	 * loaded for the request, and no check definition. The address guard
+	 * runs first and only hands on a verdict while the app is enabled.
+	 * Learning mode does not matter here: Observe records like Protect, and
+	 * the response engine applies the effective mode.
 	 */
 	private function runs(): bool {
 		return ($this->context->verdict() !== null || $this->settings->isEnabled())
-			&& $this->appConfig->getValueString(Application::APP_ID, Keys::mode(TokenConcurrentUse::ID), TokenConcurrentUse::DEFAULT_MODE->value) !== Mode::Off->value;
+			&& $this->settings->configuredMode(TokenConcurrentUse::ID) !== Mode::Off;
 	}
 
 	/**

@@ -102,7 +102,6 @@ class CredentialUseBenchmarkTest extends IntegrationTestCase {
 		);
 		return new CredentialUseGuard(
 			Server::get(IConfig::class),
-			Server::get(IAppConfig::class),
 			$settings,
 			Server::get(Fingerprinter::class),
 			$this->tracker = new CredentialTracker($factory, $settings),

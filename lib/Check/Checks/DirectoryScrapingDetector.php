@@ -12,7 +12,6 @@ namespace OCA\IntrusionDetection\Check\Checks;
 use OCA\IntrusionDetection\AppInfo\Application;
 use OCA\IntrusionDetection\Check\Mode;
 use OCA\IntrusionDetection\Check\ResponseType;
-use OCA\IntrusionDetection\Config\Keys;
 use OCA\IntrusionDetection\Config\Settings;
 use OCA\IntrusionDetection\Detection\DetectionDraft;
 use OCA\IntrusionDetection\Guard\RequestContext;
@@ -21,7 +20,6 @@ use OCA\IntrusionDetection\Response\ResponseEngine;
 use OCA\IntrusionDetection\SessionState\CurrentSession;
 use OCA\IntrusionDetection\SessionState\SessionBlock;
 use OCP\AppFramework\Utility\ITimeFactory;
-use OCP\IAppConfig;
 use OCP\ICacheFactory;
 use OCP\IMemcache;
 use OCP\IRequest;
@@ -49,7 +47,6 @@ class DirectoryScrapingDetector {
 	private bool $cacheInitialised = false;
 
 	public function __construct(
-		private readonly IAppConfig $appConfig,
 		private readonly Settings $settings,
 		private readonly RequestContext $context,
 		private readonly ICacheFactory $cacheFactory,
@@ -84,7 +81,8 @@ class DirectoryScrapingDetector {
 			// Some caches create counters without a lifetime.
 			$cache->set($key, 1, DirectoryScraping::WINDOW + 60);
 		}
-		$limit = $this->limit($limitDefinition);
+		// The default when the stored value is out of range.
+		$limit = $this->settings->paramInt(DirectoryScraping::ID, $limitDefinition[0]);
 		if ($count <= $limit) {
 			return null;
 		}
@@ -128,25 +126,14 @@ class DirectoryScrapingDetector {
 	}
 
 	/**
-	 * Whether the check may run, read straight from the app config (loaded
-	 * for the request anyway). The address check runs first and only hands on
-	 * a verdict while the app is enabled; learning mode and the memory cache
-	 * are applied when a limit is reached.
+	 * Whether the check may run: two reads of the app config, which is
+	 * loaded for the request anyway. The address check runs first and only
+	 * hands on a verdict while the app is enabled; learning mode and the
+	 * memory cache are applied when a limit is reached.
 	 */
 	private function runs(): bool {
 		return ($this->context->verdict() !== null || $this->settings->isEnabled())
-			&& $this->appConfig->getValueString(Application::APP_ID, Keys::mode(DirectoryScraping::ID), DirectoryScraping::DEFAULT_MODE->value) !== Mode::Off->value;
-	}
-
-	/**
-	 * The configured limit, or its default when the stored value is out of range.
-	 *
-	 * @param array{0: string, 1: int, 2: int, 3: int} $definition
-	 */
-	private function limit(array $definition): int {
-		[$name, $default, $min, $max] = $definition;
-		$limit = $this->appConfig->getValueInt(Application::APP_ID, Keys::param(DirectoryScraping::ID, $name), $default);
-		return $limit >= $min && $limit <= $max ? $limit : $default;
+			&& $this->settings->configuredMode(DirectoryScraping::ID) !== Mode::Off;
 	}
 
 	private function cache(): ?IMemcache {
