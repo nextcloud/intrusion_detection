@@ -110,7 +110,7 @@ async function submit() {
 			<NcTextField
 				v-model="label"
 				:label="t(APP_ID, 'Where you will plant it')"
-				:placeholder="t(APP_ID, 'Old backup script on nas01')"
+				:placeholder="t(APP_ID, 'e.g. {example}', { example: t(APP_ID, 'Old backup script on nas01') })"
 				:error="labelError !== null"
 				:helperText="labelError ?? t(APP_ID, 'Shown in the alert, so you know at once where it was found.')"
 				data-test="decoy-label"
@@ -119,7 +119,7 @@ async function submit() {
 			<NcTextField
 				v-model="loginName"
 				:label="t(APP_ID, 'Login name (optional)')"
-				placeholder="backup-svc"
+				:placeholder="t(APP_ID, 'e.g. {example}', { example: 'backup-svc' })"
 				autocomplete="off"
 				spellcheck="false"
 				:error="loginNameError !== null"

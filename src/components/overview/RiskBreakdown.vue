@@ -175,32 +175,33 @@ function signed(points: number): string {
 
 .risk__scale {
 	position: relative;
-	height: 8px;
+	height: 10px;
 	overflow: visible;
-	border-radius: 4px;
-	background-color: var(--color-background-dark);
+	border-radius: 5px;
+	background-color: color-mix(in srgb, var(--color-success) 45%, var(--color-background-dark));
 }
 
 .risk__band_elevated,
 .risk__band_high {
 	position: absolute;
 	inset-block: 0;
+	border-inline-start: 2px solid var(--color-main-background);
 }
 
 .risk__band_elevated {
-	background-color: color-mix(in srgb, var(--color-warning) 45%, var(--color-background-dark));
+	background-color: color-mix(in srgb, var(--color-warning) 80%, var(--color-background-dark));
 }
 
 .risk__band_high {
 	inset-inline-end: 0;
-	border-start-end-radius: 4px;
-	border-end-end-radius: 4px;
-	background-color: color-mix(in srgb, var(--color-error) 50%, var(--color-background-dark));
+	border-start-end-radius: 5px;
+	border-end-end-radius: 5px;
+	background-color: color-mix(in srgb, var(--color-error) 80%, var(--color-background-dark));
 }
 
 .risk__marker {
 	position: absolute;
-	top: -4px;
+	top: -3px;
 	width: 4px;
 	height: 16px;
 	margin-inline-start: -2px;

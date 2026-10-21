@@ -90,14 +90,6 @@ function formLabel(form: PayloadForm): string {
 	}[form.encoding] ?? form.encoding
 }
 
-/**
- * The weight bar, as a share of twice the threshold.
- *
- * @param weight - A weight
- */
-function share(weight: number): string {
-	return Math.min(100, (weight / (props.result.minWeight * 2)) * 100) + '%'
-}
 </script>
 
 <template>
@@ -128,9 +120,11 @@ function share(weight: number): string {
 						<code v-if="value.name" :class="$style.value__name">{{ value.name }}</code>
 					</span>
 					<span :class="$style.meter" :title="t(APP_ID, 'Weight {weight} of {needed} needed', { weight: value.weight ?? 0, needed: result.minWeight })">
-						<span :class="$style.meter__track" aria-hidden="true">
-							<span :class="[$style.meter__fill, { [$style.meter__fill_fires]: value.fires }]" :style="{ width: share(value.weight ?? 0) }" />
-							<span :class="$style.meter__threshold" />
+						<span :class="$style.meter__pips" aria-hidden="true">
+							<span
+								v-for="pip in result.minWeight"
+								:key="pip"
+								:class="[$style.meter__pip, { [$style.meter__pip_on]: pip <= (value.weight ?? 0), [$style.meter__pip_fires]: value.fires }]" />
 						</span>
 						<span :class="$style.meter__label">
 							{{ t(APP_ID, 'weight {weight} / {needed}', { weight: value.weight ?? 0, needed: result.minWeight }) }}
@@ -288,34 +282,26 @@ function share(weight: number): string {
 	gap: calc(var(--default-grid-baseline) * 2);
 }
 
-.meter__track {
-	position: relative;
-	display: block;
-	width: 96px;
-	height: 8px;
-	border-radius: 4px;
-	background-color: var(--color-background-dark);
+.meter__pips {
+	display: inline-flex;
+	gap: 3px;
 }
 
-.meter__fill {
-	position: absolute;
-	inset-block: 0;
-	inset-inline-start: 0;
-	border-radius: 4px;
+.meter__pip {
+	width: 10px;
+	height: 12px;
+	border: 1px solid var(--color-border-maxcontrast, var(--color-text-maxcontrast));
+	border-radius: 3px;
+}
+
+.meter__pip_on {
+	border-color: var(--color-text-maxcontrast);
 	background-color: var(--color-text-maxcontrast);
 }
 
-.meter__fill_fires {
+.meter__pip_on.meter__pip_fires {
+	border-color: var(--color-error);
 	background-color: var(--color-error);
-}
-
-.meter__threshold {
-	position: absolute;
-	inset-block: -3px;
-	inset-inline-start: calc(50% - 1px);
-	width: 2px;
-	border-radius: 1px;
-	background-color: var(--color-main-text);
 }
 
 .meter__label {

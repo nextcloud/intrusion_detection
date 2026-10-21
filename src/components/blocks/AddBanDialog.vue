@@ -146,7 +146,7 @@ async function submit() {
 			<NcTextField
 				v-model="target"
 				:label="t(APP_ID, 'Address or network')"
-				placeholder="203.0.113.7"
+				:placeholder="t(APP_ID, 'e.g. {example}', { example: '203.0.113.7' })"
 				autocomplete="off"
 				spellcheck="false"
 				:error="targetError !== null"

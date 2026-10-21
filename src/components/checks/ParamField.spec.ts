@@ -30,4 +30,9 @@ describe('the width of a field in a settings grid', () => {
 		expect(wide(param({ help: 'x'.repeat(121) }))).toBe(true)
 		expect(wide(param({ help: 'Within 10 minutes.' }))).toBe(false)
 	})
+	test('a whole number is shown with digit groups, like its hint', () => {
+		const wrapper = mount(ParamField, { props: { param: param({ value: 200000, default: 200000, max: 1000000 }), modelValue: 200000 } })
+		expect((wrapper.get('input').element as HTMLInputElement).value).toBe('200,000')
+		expect(wrapper.text()).toContain('default 200,000')
+	})
 })

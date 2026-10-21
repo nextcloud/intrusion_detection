@@ -158,7 +158,7 @@ async function submit() {
 			<NcTextField
 				v-model="address"
 				:label="t(APP_ID, 'Address of the list')"
-				placeholder="https://example.org/blocklist.txt"
+				:placeholder="t(APP_ID, 'e.g. {example}', { example: 'https://example.org/blocklist.txt' }, undefined, { escape: false, sanitize: false })"
 				type="url"
 				autocomplete="off"
 				spellcheck="false"
@@ -171,7 +171,7 @@ async function submit() {
 			<NcTextField
 				v-model="name"
 				:label="t(APP_ID, 'Short name')"
-				placeholder="my_provider"
+				:placeholder="t(APP_ID, 'e.g. {example}', { example: 'my_provider' })"
 				autocomplete="off"
 				spellcheck="false"
 				:error="nameError !== null"

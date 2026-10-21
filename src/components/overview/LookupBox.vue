@@ -90,7 +90,7 @@ function clear() {
 				v-model="query"
 				:class="$style.lookup__field"
 				:label="t(APP_ID, 'Look up a reference, address or user')"
-				:placeholder="t(APP_ID, 'K7Q2-MPXA, 203.0.113.7 or alice')"
+				:placeholder="t(APP_ID, 'e.g. {example}', { example: t(APP_ID, 'K7Q2-MPXA, 203.0.113.7 or alice') })"
 				:showTrailingButton="query !== ''"
 				:trailingButtonLabel="t(APP_ID, 'Clear')"
 				autocomplete="off"

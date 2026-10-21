@@ -181,7 +181,7 @@ defineExpose({ fill })
 					v-else
 					v-model="address"
 					:label="t(APP_ID, 'Address')"
-					placeholder="203.0.113.7"
+					:placeholder="t(APP_ID, 'e.g. {example}', { example: '203.0.113.7' })"
 					autocomplete="off"
 					spellcheck="false"
 					:error="addressError !== null"

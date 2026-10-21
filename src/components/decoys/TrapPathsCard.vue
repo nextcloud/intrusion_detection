@@ -143,7 +143,7 @@ async function save(key: string, change: { add?: string[], remove?: string[], bu
 					<ListEditor
 						:items="paths.custom"
 						:label="t(APP_ID, 'Add a path')"
-						placeholder="/old-admin/*"
+						:placeholder="t(APP_ID, 'e.g. {example}', { example: '/old-admin/*' }, undefined, { escape: false, sanitize: false })"
 						:validate="validate"
 						:normalise="(value) => value.trim().toLowerCase()"
 						:emptyText="t(APP_ID, 'None yet. A path matches exactly, or as a prefix when it ends with *.')"

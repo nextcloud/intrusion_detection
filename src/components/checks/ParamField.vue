@@ -52,7 +52,7 @@ const range = computed(() => {
 
 const hint = computed(() => [
 	range.value,
-	t(APP_ID, 'default {value}', { value: formatValue(props.param.default, props.param.type) }),
+	t(APP_ID, 'default {value}', { value: typeof props.param.default === 'number' && props.param.type === 'int' ? formatNumber(props.param.default) : formatValue(props.param.default, props.param.type) }),
 ].filter(Boolean).join(' · '))
 
 const listText = computed({
@@ -65,7 +65,8 @@ const listText = computed({
 const choices = computed(() => props.param.choices.map((choice) => ({ value: choice, label: choiceLabel(choice) })))
 
 const textValue = computed({
-	get: () => String(model.value ?? ''),
+	// Whole numbers are shown with digit groups, as in the hints and sentences
+	get: () => typeof model.value === 'number' && props.param.type === 'int' ? formatNumber(model.value) : String(model.value ?? ''),
 	set: (value: string) => {
 		model.value = value
 	},

@@ -6,7 +6,7 @@
 import type { Param, ParamValue } from '../types.ts'
 
 import { t } from '@nextcloud/l10n'
-import { APP_ID, formatDuration, formatValue } from './format.ts'
+import { APP_ID, formatDuration, formatNumber, formatValue } from './format.ts'
 
 export interface Validation {
 	/** The value in its canonical type, when valid */
@@ -49,7 +49,9 @@ export function validateParam(param: Pick<Param, 'type' | 'min' | 'max' | 'choic
  * @param raw - The value
  */
 function validateInteger(param: Pick<Param, 'type' | 'min' | 'max'>, raw: unknown): Validation {
-	const text = typeof raw === 'number' ? String(raw) : String(raw ?? '').trim()
+	const typed = typeof raw === 'number' ? String(raw) : String(raw ?? '').trim()
+	// Digit groups as numbers are shown, e.g. "200,000" or "200 000"
+	const text = /^-?\d{1,3}(?:[ ,.'’\u00a0\u202f]\d{3})+$/.test(typed) ? typed.replace(/[ ,.'’\u00a0\u202f]/g, '') : typed
 	if (!/^-?\d{1,18}$/.test(text)) {
 		return { error: t(APP_ID, 'Enter a whole number.') }
 	}
@@ -74,7 +76,7 @@ function validateFloat(param: Pick<Param, 'type' | 'min' | 'max'>, raw: unknown)
  * @param value - The number
  */
 function checkBounds(param: Pick<Param, 'type' | 'min' | 'max'>, value: number): Validation {
-	const show = (bound: number) => param.type === 'duration' ? formatDuration(bound) : formatValue(bound, param.type)
+	const show = (bound: number) => param.type === 'duration' ? formatDuration(bound) : (param.type === 'int' ? formatNumber(bound) : formatValue(bound, param.type))
 	if (param.min !== null && value < param.min) {
 		return { error: t(APP_ID, 'Enter at least {min}.', { min: show(param.min) }) }
 	}

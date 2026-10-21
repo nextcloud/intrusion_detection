@@ -79,7 +79,7 @@ async function change(change: { add?: string[], remove?: string[] }) {
 		<ListEditor
 			:items="reserved.names"
 			:label="t(APP_ID, 'Reserve a name')"
-			placeholder="administrator"
+			:placeholder="t(APP_ID, 'e.g. {example}', { example: 'administrator' })"
 			:validate="validate"
 			:normalise="(value) => value.trim().toLowerCase()"
 			:suggestions="reserved.suggestions"
