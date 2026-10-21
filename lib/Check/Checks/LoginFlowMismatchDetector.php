@@ -70,6 +70,7 @@ class LoginFlowMismatchDetector {
 			checkId: LoginFlowMismatch::ID,
 			source: $initiator ?? $granter,
 			uid: $uid,
+			tokenId: $token->getId(),
 			facts: [
 				'rule' => $rule,
 				'initiator' => $initiator?->ip,

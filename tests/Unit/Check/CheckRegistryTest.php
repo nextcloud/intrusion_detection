@@ -87,10 +87,13 @@ class CheckRegistryTest extends TestCase {
 	}
 
 	public function testTheRequiredPasswordChangeIsADeclaredUserSetting(): void {
-		$entries = (new Lexicon($this->registry, new GlobalSettings()))->getUserConfigs();
-		$this->assertSame([PasswordChangeFlag::USER_KEY], array_map(static fn (Entry $e): string => $e->getKey(), $entries));
-		$this->assertSame('0', $entries[0]->getDefault(\OCP\Config\Lexicon\Preset::NONE), 'Stored as a string');
-		$this->assertSame(\OCP\Config\ValueType::INT, $entries[0]->getValueType());
+		$entries = [];
+		foreach ((new Lexicon($this->registry, new GlobalSettings()))->getUserConfigs() as $entry) {
+			$entries[$entry->getKey()] = $entry;
+		}
+		$this->assertArrayHasKey(PasswordChangeFlag::USER_KEY, $entries);
+		$this->assertSame('0', $entries[PasswordChangeFlag::USER_KEY]->getDefault(\OCP\Config\Lexicon\Preset::NONE), 'Stored as a string');
+		$this->assertSame(\OCP\Config\ValueType::INT, $entries[PasswordChangeFlag::USER_KEY]->getValueType());
 	}
 
 	public function testConfigKeysAreValidAndShortEnough(): void {

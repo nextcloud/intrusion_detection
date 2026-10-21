@@ -121,8 +121,8 @@ class ResetProbingTest extends RequestEventTestCase {
 		$this->assertSame([ResponseType::SuppressResetMail->value, ResponseType::NotifyAdmin->value, ResponseType::NotifyUser->value], array_keys($actions));
 		$this->assertTrue($actions[ResponseType::SuppressResetMail->value]['enforced']);
 		$this->assertEqualsWithDelta(time() + 3600, $actions[ResponseType::SuppressResetMail->value]['ref']['until'], 5);
-		// Telling the user is the job of a response another step adds.
-		$this->assertSame(ResponseOutcome::NOTE_UNAVAILABLE, $actions[ResponseType::NotifyUser->value]['note'] ?? null);
+		$this->assertArrayHasKey(ResponseType::NotifyUser->value, $actions);
+		$this->assertNotSame(ResponseOutcome::NOTE_UNAVAILABLE, $actions[ResponseType::NotifyUser->value]['note'] ?? null);
 		$this->assertSame([], $this->bans->findActiveForKeys(['203.0.113.3'], time()), 'A flood from many addresses blocks none of them');
 
 		$l = Server::get(IFactory::class)->get(Application::APP_ID, 'en');

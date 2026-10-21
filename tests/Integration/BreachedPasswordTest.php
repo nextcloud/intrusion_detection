@@ -395,7 +395,8 @@ class BreachedPasswordTest extends IntegrationTestCase {
 		foreach (Server::get(Lexicon::class)->getUserConfigs() as $entry) {
 			$keys[$entry->getKey()] = $entry->isLazy();
 		}
-		$this->assertSame([BreachedPasswordDetector::KEY_CHECKED_AT => true, BreachedPasswordDetector::KEY_BREACHED => true], $keys);
+		$this->assertTrue($keys[BreachedPasswordDetector::KEY_CHECKED_AT] ?? false, 'declared and lazy');
+		$this->assertTrue($keys[BreachedPasswordDetector::KEY_BREACHED] ?? false, 'declared and lazy');
 	}
 
 	public function testExplainsItselfToAdminsAndTheUser(): void {

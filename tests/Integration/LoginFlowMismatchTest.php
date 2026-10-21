@@ -27,7 +27,6 @@ use OCA\IntrusionDetection\Net\SourceKey;
 use OCA\IntrusionDetection\Response\BanService;
 use OCA\IntrusionDetection\Response\FlaggedSources;
 use OCA\IntrusionDetection\Response\ResponseEngine;
-use OCA\IntrusionDetection\Response\ResponseOutcome;
 use OCA\IntrusionDetection\TrustedNetwork\ITrustedNetworks;
 use OCA\IntrusionDetection\TrustedNetwork\NullTrustedNetworks;
 use OCP\AppFramework\Utility\ITimeFactory;
@@ -78,8 +77,7 @@ class LoginFlowMismatchTest extends RequestEventTestCase {
 		$this->assertSame('203.0.113.66', $detection->getIp(), 'The detection is about the address that started the request');
 		$actions = $this->actions($detection);
 		$this->assertSame([ResponseType::RevokeToken->value, ResponseType::NotifyAdmin->value, ResponseType::NotifyUser->value], array_keys($actions));
-		// Revoking the token and telling the user are responses another step adds.
-		$this->assertSame(ResponseOutcome::NOTE_UNAVAILABLE, $actions[ResponseType::RevokeToken->value]['note'] ?? null);
+		$this->assertTrue($actions[ResponseType::RevokeToken->value]['enforced'], 'The app password created by the phished login is revoked');
 		$this->assertTrue($actions[ResponseType::NotifyAdmin->value]['enforced']);
 	}
 
