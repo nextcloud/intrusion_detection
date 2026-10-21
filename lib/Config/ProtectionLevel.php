@@ -24,11 +24,12 @@ enum ProtectionLevel: string {
 	case Custom = 'custom';
 
 	/**
-	 * The levels an administrator can choose; Custom only results from changes by hand.
+	 * The levels an administrator can choose, from the loosest to the
+	 * tightest limits; Custom only results from changes by hand.
 	 *
 	 * @return list<self>
 	 */
 	public static function choosable(): array {
-		return [self::Recommended, self::Strict, self::Relaxed];
+		return [self::Relaxed, self::Recommended, self::Strict];
 	}
 }

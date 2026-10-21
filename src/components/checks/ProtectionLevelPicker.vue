@@ -25,14 +25,15 @@ const id = useId()
 const saving = ref(false)
 const { announce } = useAnnouncer()
 
+/** From the loosest to the tightest limits */
 const LEVELS: { value: ProtectionLevel, label: () => string, text: () => string }[] = [
+	{ value: 'relaxed', label: () => t(APP_ID, 'Relaxed'), text: () => t(APP_ID, 'Checks fire at twice the usual counts, and blocks last half as long. For servers with many people behind one address.') },
 	{ value: 'recommended', label: () => t(APP_ID, 'Recommended'), text: () => t(APP_ID, 'Balanced limits that suit most servers.') },
 	{ value: 'strict', label: () => t(APP_ID, 'Strict'), text: () => t(APP_ID, 'Checks fire at half the usual counts, and blocks last twice as long. More false alarms are possible.') },
-	{ value: 'relaxed', label: () => t(APP_ID, 'Relaxed'), text: () => t(APP_ID, 'Checks fire at twice the usual counts, and blocks last half as long. For servers with many people behind one address.') },
 	{ value: 'custom', label: () => t(APP_ID, 'Custom'), text: () => t(APP_ID, 'Some limits were changed by hand. Choose a level to set them all again.') },
 ]
 
-const current = computed(() => LEVELS.find((level) => level.value === state.protectionLevel) ?? LEVELS[0]!)
+const current = computed(() => LEVELS.find((level) => level.value === state.protectionLevel) ?? LEVELS[1]!)
 const shown = computed(() => LEVELS.filter((level) => level.value !== 'custom' || state.protectionLevel === 'custom'))
 
 /**

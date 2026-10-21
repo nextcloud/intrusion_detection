@@ -83,8 +83,9 @@ class SetupChecksTest extends TestCase {
 		$finding = $this->proxyCheck($logins)->finding($this->l);
 		$this->assertNotNull($finding);
 		$this->assertSame(Finding::LEVEL_WARNING, $finding->level);
-		$this->assertStringContainsString('10.0.0.2', $finding->title);
+		$this->assertSame('All visitors share one address – reverse proxy?', $finding->title);
 		$this->assertStringContainsString('3 of the last 50 logins', $finding->text);
+		$this->assertStringContainsString('10.0.0.2', $finding->text, 'the address is named in the text');
 		$this->assertStringContainsString('trusted_proxies', $finding->fix);
 		$this->assertSame('https://docs.example.com/admin-reverse-proxy', $finding->url);
 		$this->assertSame(SetupResult::WARNING, $this->proxyCheck($logins)->run()->getSeverity());

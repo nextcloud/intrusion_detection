@@ -31,10 +31,10 @@ describe('the protection level', () => {
 		document.body.innerHTML = ''
 	})
 
-	test('offers Recommended, Strict and Relaxed, and explains the chosen one', () => {
+	test('offers Relaxed, Recommended and Strict, from the loosest to the tightest, and explains the chosen one', () => {
 		const wrapper = mount(ProtectionLevelPicker)
-		expect(labels(wrapper)).toEqual(['Recommended', 'Strict', 'Relaxed'])
-		expect((radios(wrapper)[0]!.element as HTMLInputElement).checked).toBe(true)
+		expect(labels(wrapper)).toEqual(['Relaxed', 'Recommended', 'Strict'])
+		expect((radios(wrapper)[1]!.element as HTMLInputElement).checked).toBe(true)
 		expect(wrapper.text()).toContain('Balanced limits that suit most servers.')
 		expect(wrapper.text()).toContain('Modes and responses stay as they are.')
 	})
@@ -42,7 +42,7 @@ describe('the protection level', () => {
 	test('"Custom" is shown, and cannot be chosen, after a change by hand', () => {
 		state.protectionLevel = 'custom'
 		const wrapper = mount(ProtectionLevelPicker)
-		expect(labels(wrapper)).toEqual(['Recommended', 'Strict', 'Relaxed', 'Custom'])
+		expect(labels(wrapper)).toEqual(['Relaxed', 'Recommended', 'Strict', 'Custom'])
 		const custom = radios(wrapper)[3]!.element as HTMLInputElement
 		expect(custom.checked).toBe(true)
 		expect(custom.disabled).toBe(true)
@@ -53,8 +53,8 @@ describe('the protection level', () => {
 		const strict = makeCheck({ params: makeCheck().params.map((p) => p.name === 'min_failures' ? { ...p, value: 5 } : p) })
 		vi.mocked(updateProtectionLevel).mockResolvedValue({ level: 'strict', checks: { checks: [strict], categories: [] } })
 		const wrapper = mount(ProtectionLevelPicker)
-		await radios(wrapper)[1]!.setValue(true)
-		await radios(wrapper)[1]!.trigger('change')
+		await radios(wrapper)[2]!.setValue(true)
+		await radios(wrapper)[2]!.trigger('change')
 		await flushPromises()
 		expect(updateProtectionLevel).toHaveBeenCalledTimes(1)
 		expect(updateProtectionLevel).toHaveBeenCalledWith('strict')
@@ -66,8 +66,8 @@ describe('the protection level', () => {
 	test('a refused change keeps the level', async () => {
 		vi.mocked(updateProtectionLevel).mockRejectedValue(new ApiError('Nope'))
 		const wrapper = mount(ProtectionLevelPicker)
-		await radios(wrapper)[2]!.setValue(true)
-		await radios(wrapper)[2]!.trigger('change')
+		await radios(wrapper)[0]!.setValue(true)
+		await radios(wrapper)[0]!.trigger('change')
 		await flushPromises()
 		expect(state.protectionLevel).toBe('recommended')
 	})

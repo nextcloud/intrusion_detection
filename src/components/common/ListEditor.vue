@@ -162,15 +162,16 @@ function add() {
 						<code>{{ suggestion }}</code>
 					</button>
 				</li>
+				<li v-if="openSuggestions.length > 1">
+					<button
+						type="button"
+						:class="[$style.suggestion, $style.suggestion_all]"
+						:disabled="busy"
+						@click="emit('add', openSuggestions)">
+						{{ t(APP_ID, 'Add all') }}
+					</button>
+				</li>
 			</ul>
-			<NcButton
-				v-if="openSuggestions.length > 1"
-				variant="tertiary"
-				size="small"
-				:disabled="busy"
-				@click="emit('add', openSuggestions)">
-				{{ t(APP_ID, 'Add all') }}
-			</NcButton>
 		</div>
 	</div>
 </template>
@@ -310,6 +311,12 @@ function add() {
 .editor__suggest button.suggestion:focus-visible {
 	outline: 2px solid var(--color-main-text);
 	outline-offset: 2px;
+}
+
+.editor__suggest button.suggestion_all {
+	padding-inline: calc(var(--default-grid-baseline) * 3);
+	border-style: solid;
+	font-weight: 600;
 }
 
 .editor__suggest code {
