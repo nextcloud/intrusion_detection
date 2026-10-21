@@ -19,6 +19,7 @@ use OCA\IntrusionDetection\Db\DetectionFilter;
 use OCA\IntrusionDetection\Db\DetectionMapper;
 use OCA\IntrusionDetection\Guard\TrapUrlGuard;
 use OCA\IntrusionDetection\Net\RemoteAddressResolver;
+use OCA\IntrusionDetection\Perf\GuardTimer;
 use OCA\IntrusionDetection\Response\ResponseEngine;
 use OCP\AppFramework\Utility\ITimeFactory;
 use OCP\IAppConfig;
@@ -125,6 +126,7 @@ class TrapUrlGuardTest extends IntegrationTestCase {
 			new RemoteAddressResolver($this->createMock(IRequest::class), Server::get(IThrottler::class)),
 			Server::get(ITimeFactory::class),
 			$container ?? $this->container(),
+			Server::get(GuardTimer::class),
 		);
 	}
 

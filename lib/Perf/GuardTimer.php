@@ -19,6 +19,10 @@ use OCP\IMemcache;
  * totals (sum, count, maximum) in the memory cache, so the admin page and
  * occ can show the real cost on this server.
  *
+ * Each guard wraps its work in start() and stop(); the time of all guards
+ * of a sampled request is added up and recorded once, at the end of the
+ * request.
+ *
  * Without a memory cache nothing is measured: writing to the database to
  * measure would cost more than the guards themselves.
  */
@@ -28,11 +32,45 @@ class GuardTimer {
 
 	private ?IMemcache $cache = null;
 	private bool $initialised = false;
+	/** Whether this request is sampled, decided by the first guard */
+	private ?bool $sampled = null;
+	private int $requestNanoseconds = 0;
 
 	public function __construct(
 		private readonly ICacheFactory $cacheFactory,
 		private readonly ITimeFactory $timeFactory,
 	) {
+	}
+
+	/**
+	 * Start timing a guard.
+	 *
+	 * @return int|null the start time for {@see stop()}, null when this request is not measured
+	 */
+	public function start(): ?int {
+		if ($this->sampled === null) {
+			$this->sampled = $this->sample();
+			if ($this->sampled) {
+				register_shutdown_function($this->finish(...));
+			}
+		}
+		return $this->sampled ? hrtime(true) : null;
+	}
+
+	public function stop(?int $start): void {
+		if ($start !== null) {
+			$this->requestNanoseconds += hrtime(true) - $start;
+		}
+	}
+
+	/**
+	 * Record the guards' time of this request. Runs at shutdown.
+	 */
+	public function finish(): void {
+		if ($this->requestNanoseconds > 0) {
+			$this->record($this->requestNanoseconds);
+			$this->requestNanoseconds = 0;
+		}
 	}
 
 	/**

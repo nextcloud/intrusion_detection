@@ -22,6 +22,7 @@ use OCA\IntrusionDetection\Crypto\Fingerprinter;
 use OCA\IntrusionDetection\Guard\CredentialUseGuard;
 use OCA\IntrusionDetection\Guard\RequestContext;
 use OCA\IntrusionDetection\Net\SourceKey;
+use OCA\IntrusionDetection\Perf\GuardTimer;
 use OCP\AppFramework\Utility\ITimeFactory;
 use OCP\EventDispatcher\IEventDispatcher;
 use OCP\IAppConfig;
@@ -109,6 +110,7 @@ class CredentialUseBenchmarkTest extends IntegrationTestCase {
 			Server::get(ITimeFactory::class),
 			Server::get(ContainerInterface::class),
 			Server::get(LoggerInterface::class),
+			Server::get(GuardTimer::class),
 		);
 	}
 

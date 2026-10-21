@@ -46,14 +46,11 @@ class AddressGuard implements IRequestGuard {
 
 	#[\Override]
 	public function check(IRequest $request): ?GuardDecision {
-		$sampled = $this->timer->sample();
-		$start = $sampled ? hrtime(true) : 0;
+		$start = $this->timer->start();
 		try {
 			return $this->decisionFor($request->getRemoteAddress());
 		} finally {
-			if ($sampled) {
-				$this->timer->record(hrtime(true) - $start);
-			}
+			$this->timer->stop($start);
 		}
 	}
 

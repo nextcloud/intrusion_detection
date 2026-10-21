@@ -24,6 +24,7 @@ use OCA\IntrusionDetection\Guard\CredentialUseGuard;
 use OCA\IntrusionDetection\Guard\RequestContext;
 use OCA\IntrusionDetection\Net\RemoteAddressResolver;
 use OCA\IntrusionDetection\Net\SourceKey;
+use OCA\IntrusionDetection\Perf\GuardTimer;
 use OCP\AppFramework\Utility\ITimeFactory;
 use OCP\IAppConfig;
 use OCP\ICacheFactory;
@@ -254,13 +255,13 @@ class CredentialUseGuardTest extends TestCase {
 		$time = $this->createMock(ITimeFactory::class);
 		$time->method('getTime')->willReturnCallback(fn (): int => $this->now);
 		$shutdown = &$this->shutdown;
-		return new class($config, $this->appConfig, $this->settings, $this->fingerprinter(), $this->tracker(), $this->context, $time, $this->container, $this->logger, $shutdown) extends CredentialUseGuard {
+		return new class($config, $this->appConfig, $this->settings, $this->fingerprinter(), $this->tracker(), $this->context, $time, $this->container, $this->logger, $this->createMock(GuardTimer::class), $shutdown) extends CredentialUseGuard {
 			/** @var list<\Closure> */
 			private array $registered;
 
 			/** @param list<\Closure> $registered */
-			public function __construct(IConfig $config, IAppConfig $appConfig, Settings $settings, Fingerprinter $fingerprinter, CredentialTracker $tracker, RequestContext $context, ITimeFactory $time, ContainerInterface $container, LoggerInterface $logger, array &$registered) {
-				parent::__construct($config, $appConfig, $settings, $fingerprinter, $tracker, $context, $time, $container, $logger);
+			public function __construct(IConfig $config, IAppConfig $appConfig, Settings $settings, Fingerprinter $fingerprinter, CredentialTracker $tracker, RequestContext $context, ITimeFactory $time, ContainerInterface $container, LoggerInterface $logger, GuardTimer $timer, array &$registered) {
+				parent::__construct($config, $appConfig, $settings, $fingerprinter, $tracker, $context, $time, $container, $logger, $timer);
 				$this->registered = &$registered;
 			}
 

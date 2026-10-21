@@ -18,6 +18,7 @@ use OCA\IntrusionDetection\Detection\DetectionDraft;
 use OCA\IntrusionDetection\Detection\Explanation;
 use OCA\IntrusionDetection\Net\RemoteAddressResolver;
 use OCA\IntrusionDetection\Net\SourceKey;
+use OCA\IntrusionDetection\Perf\GuardTimer;
 use OCA\IntrusionDetection\Response\ResponseEngine;
 use OCA\IntrusionDetection\Traps\TrapPaths;
 use OCP\AppFramework\Utility\ITimeFactory;
@@ -53,11 +54,21 @@ class TrapUrlGuard implements IRequestGuard {
 		private readonly RemoteAddressResolver $addresses,
 		private readonly ITimeFactory $timeFactory,
 		private readonly ContainerInterface $container,
+		private readonly GuardTimer $timer,
 	) {
 	}
 
 	#[\Override]
 	public function check(IRequest $request): ?GuardDecision {
+		$start = $this->timer->start();
+		try {
+			return $this->trap($request);
+		} finally {
+			$this->timer->stop($start);
+		}
+	}
+
+	private function trap(IRequest $request): ?GuardDecision {
 		if ($request->getHeader('Authorization') !== '' || $this->hasSessionCookie($request)) {
 			return null;
 		}

@@ -33,6 +33,7 @@ use OCA\IntrusionDetection\Listener\PayloadLoginListener;
 use OCA\IntrusionDetection\Middleware\PayloadBlockedException;
 use OCA\IntrusionDetection\Middleware\PayloadMiddleware;
 use OCA\IntrusionDetection\Net\RemoteAddressResolver;
+use OCA\IntrusionDetection\Perf\GuardTimer;
 use OCA\IntrusionDetection\Response\ResponseEngine;
 use OCP\AppFramework\Controller;
 use OCP\AppFramework\Http;
@@ -202,7 +203,7 @@ class PayloadGuardTest extends IntegrationTestCase {
 	public function testRequestsWithoutTriggersNeverReachTheMatcher(string $uri): void {
 		$container = $this->createMock(ContainerInterface::class);
 		$container->expects($this->never())->method('get');
-		$guard = new PayloadGuard(Server::get(IConfig::class), $this->addresses(), $container, Server::get(LoggerInterface::class));
+		$guard = new PayloadGuard(Server::get(IConfig::class), $this->addresses(), $container, Server::get(LoggerInterface::class), Server::get(GuardTimer::class));
 
 		$script = str_starts_with($uri, '/remote.php') ? '/remote.php' : (str_starts_with($uri, '/ocs/') ? '/ocs/v2.php' : '/index.php');
 		$this->assertNull($guard->check($this->request($uri, $script)));
@@ -371,7 +372,7 @@ class PayloadGuardTest extends IntegrationTestCase {
 	public function testTheConfigSwitchTurnsItOff(): void {
 		$config = $this->createMock(IConfig::class);
 		$config->method('getSystemValueBool')->with(AddressGuard::DISABLE_SWITCH)->willReturn(true);
-		$guard = new PayloadGuard($config, $this->addresses(), $this->container(), Server::get(LoggerInterface::class));
+		$guard = new PayloadGuard($config, $this->addresses(), $this->container(), Server::get(LoggerInterface::class), Server::get(GuardTimer::class));
 		$this->assertNull($guard->check($this->request('/index.php/apps/foo?id=1%20UNION%20SELECT%201', '/index.php')));
 		$this->assertSame([], $this->detections());
 	}
@@ -424,7 +425,7 @@ class PayloadGuardTest extends IntegrationTestCase {
 		$inspector->method('inspect')->willThrowException(new \RuntimeException('broken'));
 		$logger = $this->createMock(LoggerInterface::class);
 		$logger->expects($this->once())->method('error');
-		$guard = new PayloadGuard(Server::get(IConfig::class), $this->addresses(), $this->container($inspector), $logger);
+		$guard = new PayloadGuard(Server::get(IConfig::class), $this->addresses(), $this->container($inspector), $logger, Server::get(GuardTimer::class));
 		$this->assertNull($guard->check($this->request('/index.php/apps/foo?id=1%20UNION%20SELECT%201', '/index.php')));
 	}
 
@@ -432,7 +433,7 @@ class PayloadGuardTest extends IntegrationTestCase {
 		$saved = $_POST;
 		try {
 			$_POST = ['user' => 'admin', 'x' => '1 UNION SELECT 1'];
-			$guard = new PayloadGuard(Server::get(IConfig::class), $this->addresses(), $this->container(), Server::get(LoggerInterface::class));
+			$guard = new PayloadGuard(Server::get(IConfig::class), $this->addresses(), $this->container(), Server::get(LoggerInterface::class), Server::get(GuardTimer::class));
 			$this->assertNull($guard->check($this->request('/index.php/login', '/index.php')), 'GET ignores form fields');
 			$this->assertNotNull($guard->check($this->request('/index.php/login', '/index.php', method: 'POST')));
 			$this->assertSame('x', $this->onlyDetection()->getExplanationData()['facts']['param']);
@@ -512,7 +513,7 @@ class PayloadGuardTest extends IntegrationTestCase {
 		?IThrottler $throttler = null,
 		?PayloadInspector $inspector = null,
 	): ?GuardDecision {
-		$guard = new PayloadGuard(Server::get(IConfig::class), $this->addresses($throttler), $this->container($inspector), Server::get(LoggerInterface::class));
+		$guard = new PayloadGuard(Server::get(IConfig::class), $this->addresses($throttler), $this->container($inspector), Server::get(LoggerInterface::class), Server::get(GuardTimer::class));
 		return $guard->decide($this->request($uri, $script, $cookies, $headers), RequestParts::fromUri($uri, $script, $post));
 	}
 

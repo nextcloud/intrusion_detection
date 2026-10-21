@@ -17,6 +17,7 @@ use OCA\IntrusionDetection\Check\Payload\PreFilter;
 use OCA\IntrusionDetection\Check\Payload\RequestParts;
 use OCA\IntrusionDetection\Net\RemoteAddressResolver;
 use OCA\IntrusionDetection\Net\SourceKey;
+use OCA\IntrusionDetection\Perf\GuardTimer;
 use OCP\IConfig;
 use OCP\IRequest;
 use OCP\Security\Guard\GuardDecision;
@@ -47,11 +48,21 @@ class PayloadGuard implements IRequestGuard {
 		private readonly RemoteAddressResolver $addresses,
 		private readonly ContainerInterface $container,
 		private readonly LoggerInterface $logger,
+		private readonly GuardTimer $timer,
 	) {
 	}
 
 	#[\Override]
 	public function check(IRequest $request): ?GuardDecision {
+		$start = $this->timer->start();
+		try {
+			return $this->inspect($request);
+		} finally {
+			$this->timer->stop($start);
+		}
+	}
+
+	private function inspect(IRequest $request): ?GuardDecision {
 		if ($this->config->getSystemValueBool(AddressGuard::DISABLE_SWITCH, false)) {
 			return null;
 		}

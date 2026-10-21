@@ -21,6 +21,7 @@ use OCA\IntrusionDetection\Config\Settings;
 use OCA\IntrusionDetection\Crypto\Fingerprinter;
 use OCA\IntrusionDetection\Net\RemoteAddressResolver;
 use OCA\IntrusionDetection\Net\SourceKey;
+use OCA\IntrusionDetection\Perf\GuardTimer;
 use OCP\AppFramework\Utility\ITimeFactory;
 use OCP\IAppConfig;
 use OCP\IConfig;
@@ -61,6 +62,7 @@ class CredentialUseGuard implements IRequestGuard {
 		private readonly ITimeFactory $timeFactory,
 		private readonly ContainerInterface $container,
 		private readonly LoggerInterface $logger,
+		private readonly GuardTimer $timer,
 	) {
 	}
 
@@ -68,15 +70,18 @@ class CredentialUseGuard implements IRequestGuard {
 	 * The same guard on another tracker, for measurements.
 	 */
 	public function withTracker(CredentialTracker $tracker): self {
-		return new self($this->config, $this->appConfig, $this->settings, $this->fingerprinter, $tracker, $this->context, $this->timeFactory, $this->container, $this->logger);
+		return new self($this->config, $this->appConfig, $this->settings, $this->fingerprinter, $tracker, $this->context, $this->timeFactory, $this->container, $this->logger, $this->timer);
 	}
 
 	#[\Override]
 	public function check(IRequest $request): ?GuardDecision {
+		$start = $this->timer->start();
 		try {
 			$this->observe($request);
 		} catch (\Throwable $e) {
 			$this->logger->error('Intrusion detection could not check a credential for use from two networks', ['exception' => $e]);
+		} finally {
+			$this->timer->stop($start);
 		}
 		return null;
 	}
