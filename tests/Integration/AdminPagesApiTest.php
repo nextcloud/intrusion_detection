@@ -222,9 +222,11 @@ class AdminPagesApiTest extends IntegrationTestCase {
 		$this->assertSame('ids_reset_suppressions', $stored['reset_suppressions']['where']);
 		$this->assertStringContainsString('only be told about inside Nextcloud', $stored['account_state']['what'], 'The login notice time is a user value too');
 		$this->assertStringContainsString('at most 24 hours', $stored['flags']['retention']);
-		$this->assertStringContainsString('second factors were set up from a login that proved only the password', $stored['account_state']['what']);
-		$this->assertStringContainsString('does not confirm logins for a while', $stored['account_state']['why']);
-		$this->assertStringEndsWith('or for 7 days when its login needed no confirmation', $stored['account_state']['retention']);
+		$this->assertStringContainsString('second factors were set up after a login that proved only the password', $stored['account_state']['what']);
+		$this->assertStringContainsString('from confirming logins for a while', $stored['account_state']['why']);
+		$this->assertStringNotContainsString('never confirms', $stored['account_state']['why']);
+		$this->assertStringContainsString('A second factor\'s mark for 7 days, or until', $stored['account_state']['retention']);
+		$this->assertStringContainsString('last confirmation codes', $stored['account_state']['what']);
 		$this->assertSame('2 days from the first held-back email; until then, no new hold starts for the account', $stored['reset_suppressions']['retention']);
 		$this->assertSame('ids_detection_hourly', $stored['detection_totals']['where']);
 		$where = implode(', ', array_column($data['stored'], 'where'));
