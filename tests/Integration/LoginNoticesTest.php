@@ -11,7 +11,10 @@ namespace OCA\IntrusionDetection\Tests\Integration;
 
 use OC\Core\Controller\LoginController;
 use OCA\IntrusionDetection\AppInfo\Application;
+use OCA\IntrusionDetection\Audit\AuditLogger;
 use OCA\IntrusionDetection\Check\Checks\StepUpRefused;
+use OCA\IntrusionDetection\Check\Checks\UserDenied;
+use OCA\IntrusionDetection\Confirm\IConfirmationMethod;
 use OCA\IntrusionDetection\Controller\NoticeController;
 use OCA\IntrusionDetection\Db\DetectionMapper;
 use OCA\IntrusionDetection\Db\KnownDeviceMapper;
@@ -23,16 +26,20 @@ use OCA\IntrusionDetection\Response\FlaggedSources;
 use OCA\IntrusionDetection\SessionState\RequestTarget;
 use OCA\IntrusionDetection\SessionState\Rules\LoginNoticeRule;
 use OCA\IntrusionDetection\SessionState\SessionState;
+use OCA\IntrusionDetection\TrustedNetwork\TrustedNetworks;
 use OCA\IntrusionDetection\WasThisYou\PersonalDetections;
+use OCA\IntrusionDetection\WasThisYou\Questions;
 use OCA\IntrusionDetection\WasThisYou\WasThisYouService;
 use OCP\AppFramework\Controller;
 use OCP\AppFramework\Http\RedirectResponse;
 use OCP\AppFramework\Http\StandaloneTemplateResponse;
 use OCP\AppFramework\Utility\ITimeFactory;
 use OCP\Config\IUserConfig;
+use OCP\EventDispatcher\IEventDispatcher;
 use OCP\IURLGenerator;
 use OCP\IUser;
 use OCP\L10N\IFactory;
+use OCP\Notification\IManager as INotificationManager;
 use OCP\Server;
 use PHPUnit\Framework\Attributes\Group;
 
@@ -119,13 +126,29 @@ class LoginNoticesTest extends StepUpTestCase {
 
 	public function testNoItWasNotMeCanBeAnsweredOnThePage(): void {
 		$this->refusedLogin();
+		$this->session->clear();
 		$this->startSession($this->bob);
+		$this->sessionConfirmation()->proved($this->bob->getUID(), IConfirmationMethod::KNOWN_DEVICE);
 		$this->notices()->atLogin($this->bob->getUID(), null);
 		$detection = $this->detectionsOf(StepUpRefused::ID)[0];
 		$response = $this->controller()->deny($detection->getId());
 		$this->assertInstanceOf(StandaloneTemplateResponse::class, $response);
 		$this->assertSame('denied', Server::get(DetectionMapper::class)->findById($detection->getId())->getUserVerdict());
-		$this->assertStringContainsString('You answered: No, it was not me.', $response->render());
+		$html = $response->render();
+		$this->assertStringContainsString('You answered: No, it was not me.', $html);
+		$this->assertStringContainsString('Your answer was recorded and your administrator was told.', $html);
+	}
+
+	public function testNoAfterALoginWithOnlyThePasswordTellsHowToAnswerSoThatItCounts(): void {
+		$this->refusedLogin();
+		$this->session->clear();
+		$this->startSession($this->bob);
+		$this->notices()->atLogin($this->bob->getUID(), null);
+		$detection = $this->detectionsOf(StepUpRefused::ID)[0];
+		$response = $this->controller()->deny($detection->getId());
+		$this->assertInstanceOf(StandaloneTemplateResponse::class, $response);
+		$this->assertNull(Server::get(DetectionMapper::class)->findById($detection->getId())->getUserVerdict(), 'The question stays open');
+		$this->assertStringContainsString('Your administrator was told. To end the sessions of this event, answer again after a login with your second factor', $response->render());
 	}
 
 	public function testAdministratorsLearnWhomTheyCannotReach(): void {
@@ -160,7 +183,23 @@ class LoginNoticesTest extends StepUpTestCase {
 			$this->notices(),
 			Server::get(DetectionMapper::class),
 			Server::get(PersonalDetections::class),
-			Server::get(WasThisYouService::class),
+			new WasThisYouService(
+				Server::get(DetectionMapper::class),
+				Server::get(Questions::class),
+				$this->engine(),
+				Server::get(UserDenied::class),
+				$this->settings,
+				Server::get(FlaggedSources::class),
+				Server::get(TrustedNetworks::class),
+				$this->sessionKiller(),
+				$this->currentSession,
+				$this->addresses(),
+				$this->sessionConfirmation(),
+				Server::get(INotificationManager::class),
+				Server::get(IEventDispatcher::class),
+				Server::get(AuditLogger::class),
+				Server::get(ITimeFactory::class),
+			),
 			Server::get(IURLGenerator::class),
 			Server::get(LocalRedirect::class),
 			Server::get(IFactory::class)->get(Application::APP_ID, 'en'),

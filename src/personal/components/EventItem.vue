@@ -44,6 +44,8 @@ const busy = ref<'confirm' | 'deny' | null>(null)
 const denyDialog = ref(false)
 /** The server refused "Yes" from this session, although the list allowed it */
 const refused = ref(false)
+/** "No" from a session that proved only the password: the administrators were told, the question stays open */
+const toldOnly = ref(false)
 const canConfirm = computed(() => props.event.canConfirm && !refused.value)
 
 /**
@@ -74,6 +76,11 @@ async function deny() {
 	busy.value = 'deny'
 	try {
 		const event = await denyEvent(props.event.id)
+		if (event.verdict === null) {
+			toldOnly.value = true
+			announce(t(APP_ID, 'Your administrators were told. The question stays open.'))
+			return
+		}
 		announce(t(APP_ID, 'Thank you. Your answer was recorded and your administrators were told.'))
 		showSuccess(t(APP_ID, 'Thank you. Your answer was recorded and your administrators were told.'))
 		personal.networksVersion++
@@ -166,6 +173,9 @@ const denyButtons = computed(() => [
 					{{ t(APP_ID, 'No, it was not me') }}
 				</NcButton>
 			</div>
+			<p v-if="toldOnly" :class="$style.question__note" data-test="told-only">
+				{{ t(APP_ID, 'Your administrators were told. To end the sessions of this event, answer again after a login with your second factor or an email code, or from a device you remembered.') }}
+			</p>
 			<p v-if="!canConfirm" :class="$style.question__note" data-test="confirm-elsewhere">
 				{{ t(APP_ID, 'For your safety, "Yes, it was me" needs a login with your second factor, a confirmed login, or a remembered device, and not the session this event is about. Answer from another device.') }}
 			</p>

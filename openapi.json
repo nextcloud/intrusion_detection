@@ -1076,7 +1076,7 @@
                 ],
                 "responses": {
                     "200": {
-                        "description": "The answer was taken",
+                        "description": "The answer was taken; from a session whose login proved only the password, the administrators were told and the event stays open (no verdict)",
                         "content": {
                             "application/json": {
                                 "schema": {

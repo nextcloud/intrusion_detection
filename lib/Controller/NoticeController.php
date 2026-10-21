@@ -114,7 +114,7 @@ class NoticeController extends Controller {
 			return $this->continue($redirectUrl);
 		}
 		try {
-			$yes ? $this->answers->confirm($user, $id) : $this->answers->deny($user, $id);
+			$answered = $yes ? $this->answers->confirm($user, $id) : $this->answers->deny($user, $id);
 		} catch (AnswerException $e) {
 			return $this->page($user, $redirectUrl, $e->reason === AnswerException::SESSION_NOT_ALLOWED
 				? $this->l->t('For your safety, this answer cannot be given from this session. Answer from another device, after a login with your second factor or from a device you remembered.')
@@ -124,9 +124,11 @@ class NoticeController extends Controller {
 			// "No" ended the session the event was about, and that was this one.
 			return new RedirectResponse($this->urlGenerator->linkToRoute('core.login.showLoginForm'));
 		}
-		return $this->page($user, $redirectUrl, notice: $yes
-			? $this->l->t('Thank you. The network of this event is trusted for a while.')
-			: $this->l->t('Thank you. Your answer was recorded and your administrator was told.'));
+		return $this->page($user, $redirectUrl, notice: match (true) {
+			$yes => $this->l->t('Thank you. The network of this event is trusted for a while.'),
+			$answered->getUserVerdict() === null => $this->l->t('Your administrator was told. To end the sessions of this event, answer again after a login with your second factor or an email code, or from a device you remembered.'),
+			default => $this->l->t('Thank you. Your answer was recorded and your administrator was told.'),
+		});
 	}
 
 	private function page(IUser $user, string $redirectUrl, ?string $error = null, ?string $notice = null, int $status = Http::STATUS_OK): StandaloneTemplateResponse {

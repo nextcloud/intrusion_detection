@@ -116,7 +116,7 @@ class PersonalApiController extends OCSController {
 	 * @param int $id the event
 	 * @return DataResponse<Http::STATUS_OK, IntrusionDetectionPersonalDetection, array{}>|DataResponse<Http::STATUS_BAD_REQUEST|Http::STATUS_FORBIDDEN|Http::STATUS_NOT_FOUND|Http::STATUS_CONFLICT, IntrusionDetectionAnswerError, array{}>
 	 *
-	 * 200: The answer was taken
+	 * 200: The answer was taken; from a session whose login proved only the password, the administrators were told and the event stays open (no verdict)
 	 * 400: The event does not ask
 	 * 403: The answer cannot be given from this session
 	 * 404: There is no such event of the current user

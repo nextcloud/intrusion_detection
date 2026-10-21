@@ -30,6 +30,7 @@ use OCA\IntrusionDetection\Controller\PersonalApiController;
 use OCA\IntrusionDetection\Db\BanMapper;
 use OCA\IntrusionDetection\Db\Detection;
 use OCA\IntrusionDetection\Db\DetectionMapper;
+use OCA\IntrusionDetection\Db\KnownDeviceMapper;
 use OCA\IntrusionDetection\Db\LoginHistoryMapper;
 use OCA\IntrusionDetection\Db\SecurityChangeMapper;
 use OCA\IntrusionDetection\Db\TokenOriginMapper;
@@ -255,9 +256,17 @@ class WasThisYouTest extends StepUpTestCase {
 		$detection = $this->detection(SecondFactorFailed::ID, $this->alice, ['sessionTokenId' => $suspicious['id']]);
 		$this->startSession($this->alice);
 
-		$this->answers()->deny($this->alice, $detection->getId());
+		Server::get(KnownDeviceMapper::class)->insert($this->alice->getUID(), str_repeat('ab', 32), 'firefox', 'linux', 'Firefox on Linux', null, time());
 
-		$this->assertSame(Detection::VERDICT_DENIED, Server::get(DetectionMapper::class)->findById($detection->getId())->getUserVerdict(), 'The answer is recorded');
+		$answered = $this->answers()->deny($this->alice, $detection->getId());
+
+		$this->assertNull($answered->getUserVerdict());
+		$this->assertNull(Server::get(DetectionMapper::class)->findById($detection->getId())->getUserVerdict(), 'The question stays open for the account holder');
+		$this->assertTrue(Server::get(Questions::class)->asks($detection));
+		$this->assertSame([], array_filter(CapturingNotificationApp::$processed, static fn ($n): bool => $n->getObjectType() === UserAlerts::OBJECT_TYPE), 'Its notification stays');
+		$this->assertSame([], $this->answered, 'Not an answer: the remembered devices and the guide are left alone');
+		$this->assertCount(1, Server::get(KnownDeviceMapper::class)->forUser($this->alice->getUID(), 0, 10), 'The remembered devices are kept');
+		$this->assertTrue($this->wasAudited('proved only the password'));
 		$denial = $this->detectionsOf(UserDenied::ID)[0];
 		$this->assertTrue($denial->getExplanationData()['facts']['weakSession']);
 		$this->assertNotEmpty($this->notificationsFor('admin', AdminAlerts::SUBJECT), 'The administrators are told');
@@ -266,6 +275,34 @@ class WasThisYouTest extends StepUpTestCase {
 		$this->assertNull(Server::get(FlaggedSources::class)->sourceFlag(SourceKey::fromIp(self::ATTACKER)), 'Nothing is marked');
 		$this->assertFalse(Server::get(PasswordChangeFlag::class)->isRequired($this->alice->getUID()), 'No new password: whoever answered may know it');
 		$this->assertTrue(Server::get(TrustedNetworks::class)->isTrusted($this->alice->getUID(), SourceKey::fromIp(self::ATTACKER)));
+	}
+
+	public function testAProvenAnswerAfterAWeakNoDecides(): void {
+		$suspicious = $this->token($this->alice, IToken::TEMPORARY_TOKEN, 'The attacker\'s session');
+		$detection = $this->detection(SecondFactorFailed::ID, $this->alice, ['sessionTokenId' => $suspicious['id']]);
+		$this->startSession($this->alice);
+		$this->answers()->deny($this->alice, $detection->getId());
+		$this->answers()->deny($this->alice, $detection->getId());
+		$this->assertNull(Server::get(DetectionMapper::class)->findById($detection->getId())->getUserVerdict(), 'A weak "No" again changes nothing');
+		$this->assertTrue($this->tokenExists($suspicious['id']));
+
+		$this->session->clear();
+		$this->provenSession($this->alice);
+		$this->answers()->deny($this->alice, $detection->getId());
+		$this->assertSame(Detection::VERDICT_DENIED, Server::get(DetectionMapper::class)->findById($detection->getId())->getUserVerdict(), 'The proven answer decides');
+		$this->assertFalse($this->tokenExists($suspicious['id']), 'Now the session ends');
+		$this->assertCount(1, $this->answered);
+		$this->assertTrue($this->answered[0]->isDenied());
+		$this->assertAnswerFails(AnswerException::ANSWERED, fn () => $this->answers()->deny($this->alice, $detection->getId()));
+
+		$other = $this->detection(SecondFactorFailed::ID, $this->alice);
+		$this->session->clear();
+		$this->startSession($this->alice);
+		$this->answers()->deny($this->alice, $other->getId());
+		$this->session->clear();
+		$this->provenSession($this->alice);
+		$this->answers()->confirm($this->alice, $other->getId());
+		$this->assertSame(Detection::VERDICT_CONFIRMED, Server::get(DetectionMapper::class)->findById($other->getId())->getUserVerdict(), 'Or the proven "Yes"');
 	}
 
 	public function testAnswersAboutATokenUsedFromTwoPlacesNeverBlockMarkOrTrustANetwork(): void {

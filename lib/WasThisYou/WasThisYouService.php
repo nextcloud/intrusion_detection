@@ -44,8 +44,11 @@ use OCP\Notification\IManager as INotificationManager;
  *   blocks the address at the second level (unless the answer comes from
  *   that address), marks its network, and tells the administrators
  *   (detection `user_denied`, high). From a session whose login proved no
- *   more than the password, which an attacker could have, the answer is
- *   recorded and the administrators are told, but nothing else is done.
+ *   more than the password, which an attacker could have, the
+ *   administrators are told, but nothing else is done: the question stays
+ *   open, with its notification, until a session that proved more answers
+ *   it. Such a "No" never claims the answer, so it cannot silence the
+ *   account holder, and it keeps the remembered devices.
  * - "Yes, it was me" (the controller asks for the password first) needs a
  *   session whose login proved more than the password, and not the
  *   session the detection is about: an attacker in the account must not
@@ -54,7 +57,8 @@ use OCP\Notification\IManager as INotificationManager;
  * Detections that involve two addresses ({@see Questions::TWO_SOURCES})
  * never block, mark or trust a network on an answer.
  *
- * Both are audited and dispatch {@see WasThisYouAnsweredEvent}.
+ * Both are audited, and both answers that close the question dispatch
+ * {@see WasThisYouAnsweredEvent}.
  */
 class WasThisYouService {
 	/** "No" blocks the address at this escalation level */
@@ -80,6 +84,7 @@ class WasThisYouService {
 	}
 
 	/**
+	 * @return Detection the detection; still without an answer when the session proved only the password
 	 * @throws AnswerException
 	 */
 	public function deny(IUser $user, int $detectionId): Detection {
@@ -89,8 +94,10 @@ class WasThisYouService {
 		if ($level === SessionConfirmation::UNCONFIRMED) {
 			throw new AnswerException(AnswerException::SESSION_NOT_ALLOWED);
 		}
-		$this->claim($detection, $user, Detection::VERDICT_DENIED);
 		$weak = $level !== SessionConfirmation::PROVEN;
+		if (!$weak) {
+			$this->claim($detection, $user, Detection::VERDICT_DENIED);
+		}
 		$source = Questions::answerSource($detection);
 		$current = $this->addresses->current();
 		$sessions = Questions::sessionTokens($detection);
@@ -133,7 +140,11 @@ class WasThisYouService {
 				}
 			}
 		}
-		if ($source !== null && !$weak) {
+		if ($weak) {
+			$this->audit->log('%s answered "No, it was not me" about detection %s (%s) from a session that proved only the password; the question stays open', ['uid' => $uid, 'detection' => $detection->getId(), 'check' => $detection->getCheckId()]);
+			return $detection;
+		}
+		if ($source !== null) {
 			$this->trustedNetworks->distrust($uid, $source);
 		}
 		$this->finish($detection, $user, Detection::VERDICT_DENIED);
