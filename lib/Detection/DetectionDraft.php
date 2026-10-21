@@ -36,6 +36,8 @@ final class DetectionDraft {
 	 * @param array<string, mixed> $facts
 	 * @param self::MERGE_* $merge which repeated hits within `$mergeWindow` update one row
 	 * @param ?int $banLevel force at least this escalation level when banning
+	 * @param ?int $sessionTokenId the id of the session token involved, for the kill_session response
+	 * @param ?int $tokenId the id of the app password or token involved, for the revoke_token response
 	 */
 	public function __construct(
 		public readonly string $checkId,
@@ -48,6 +50,8 @@ final class DetectionDraft {
 		public readonly int $mergeWindow = 3600,
 		public readonly ?int $banLevel = null,
 		public readonly ?string $userAgent = null,
+		public readonly ?int $sessionTokenId = null,
+		public readonly ?int $tokenId = null,
 	) {
 	}
 

@@ -12,6 +12,7 @@ namespace OCA\IntrusionDetection\Config;
 use OCA\IntrusionDetection\Check\CheckRegistry;
 use OCA\IntrusionDetection\Check\Checks\BreachedPasswordDetector;
 use OCA\IntrusionDetection\Check\ResponseType;
+use OCA\IntrusionDetection\Response\PasswordChangeFlag;
 use OCP\Config\Lexicon\Entry;
 use OCP\Config\Lexicon\ILexicon;
 use OCP\Config\Lexicon\Strictness;
@@ -59,6 +60,7 @@ final class Lexicon implements ILexicon {
 		return [
 			new Entry(BreachedPasswordDetector::KEY_CHECKED_AT, ValueType::INT, 0, 'when the password was last checked against the breach list', lazy: true),
 			new Entry(BreachedPasswordDetector::KEY_BREACHED, ValueType::BOOL, false, 'the current password was found on the breach list', lazy: true),
+			new Entry(PasswordChangeFlag::USER_KEY, ValueType::INT, 0, 'when a new password was required at the next login (0: not required)'),
 		];
 	}
 }

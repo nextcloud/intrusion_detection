@@ -11,10 +11,12 @@ namespace OCA\IntrusionDetection\Notification;
 
 use OCA\IntrusionDetection\AppInfo\Application;
 use OCA\IntrusionDetection\Db\AlertMapper;
+use OCA\IntrusionDetection\Db\Detection;
 use OCA\IntrusionDetection\Db\DetectionMapper;
 use OCA\IntrusionDetection\Explain\NarrativeBuilder;
 use OCP\AppFramework\Db\DoesNotExistException;
 use OCP\IL10N;
+use OCP\IUserManager;
 use OCP\L10N\IFactory;
 use OCP\Notification\AlreadyProcessedException;
 use OCP\Notification\INotification;
@@ -42,6 +44,9 @@ class Notifier implements INotifier {
 		private readonly AdminAlerts $adminAlerts,
 		private readonly NarrativeBuilder $narratives,
 		private readonly AdminLinks $links,
+		private readonly UserMessages $userMessages,
+		private readonly UserLinks $userLinks,
+		private readonly IUserManager $userManager,
 	) {
 	}
 
@@ -66,6 +71,9 @@ class Notifier implements INotifier {
 			AdminAlerts::SUBJECT => $this->prepareDetection($notification, $l),
 			self::SUBJECT_LEARNING_ENDS => $this->prepareLearningEnds($notification, $l),
 			self::SUBJECT_PROTECTION_STARTED => $this->prepareProtectionStarted($notification, $l),
+			UserAlerts::SUBJECT => $this->prepareUserDetection($notification, $languageCode),
+			AdminNotices::SUBJECT_USER_UNREACHABLE => $this->prepareUserUnreachable($notification, $l, $languageCode),
+			AdminNotices::SUBJECT_PASSWORD_EXTERNAL => $this->preparePasswordExternal($notification, $l),
 			default => throw new UnknownNotificationException(),
 		};
 	}
@@ -146,5 +154,64 @@ class Notifier implements INotifier {
 			->setParsedMessage($l->t('The learning period is over. Checks set to Protect now act on what they find. You can start learning mode again on the admin page at any time.'))
 			->setLink($this->links->adminPage());
 		return $notification;
+	}
+
+	/**
+	 * What the affected user is told. Only the notification's own recipient
+	 * sees it, and only while the detection is still theirs.
+	 */
+	private function prepareUserDetection(INotification $notification, string $languageCode): INotification {
+		$detection = $this->detectionOf($notification);
+		$user = $detection->getUid() === null ? null : $this->userManager->get($detection->getUid());
+		if ($user === null || $user->getUID() !== $notification->getUser()) {
+			throw new AlreadyProcessedException();
+		}
+		$message = $this->userMessages->build($detection, $user, $languageCode);
+		$notification->setParsedSubject($message->subject)
+			->setParsedMessage($message->text())
+			->setLink($this->userLinks->securityPage());
+		return $notification;
+	}
+
+	private function prepareUserUnreachable(INotification $notification, IL10N $l, string $languageCode): INotification {
+		$params = $notification->getSubjectParameters();
+		$detection = $this->detectionOf($notification);
+		$uid = (string)($params['uid'] ?? '');
+		$user = $this->userManager->get($uid);
+		if ($user === null || $detection->getUid() !== $uid) {
+			throw new AlreadyProcessedException();
+		}
+		$told = $this->userMessages->build($detection, $user, $languageCode)->subject;
+		$message = ($params['reason'] ?? null) === AdminNotices::REASON_MAIL_FAILED
+			? $l->t('The email to %1$s could not be sent, so they could only be told inside Nextcloud: %2$s', [$uid, $told])
+			: $l->t('%1$s has no email address, so they could only be told inside Nextcloud: %2$s', [$uid, $told]);
+		$notification->setParsedSubject($l->t('%s could only be told inside Nextcloud', [$uid]))
+			->setRichSubject($l->t('{user} could only be told inside Nextcloud'), ['user' => ['type' => 'user', 'id' => $uid, 'name' => $uid]])
+			->setParsedMessage($message . ' ' . $l->t('If it matters, reach out to them another way.'))
+			->setLink($this->links->detection($detection->getId()));
+		return $notification;
+	}
+
+	private function preparePasswordExternal(INotification $notification, IL10N $l): INotification {
+		$params = $notification->getSubjectParameters();
+		$uid = (string)($params['uid'] ?? '');
+		$user = $this->userManager->get($uid);
+		if ($user === null) {
+			throw new AlreadyProcessedException();
+		}
+		$detectionId = (int)($params['detection'] ?? 0);
+		$notification->setParsedSubject($l->t('Reset the password of %s in the external directory', [$uid]))
+			->setRichSubject($l->t('Reset the password of {user} in the external directory'), ['user' => ['type' => 'user', 'id' => $uid, 'name' => $uid]])
+			->setParsedMessage($l->t('Intrusion detection wanted %1$s to choose a new password, but their password is managed outside Nextcloud (%2$s), so Nextcloud cannot ask for a new one. Reset the password in that directory, or ask the user to change it there.', [$uid, $user->getBackendClassName()]))
+			->setLink($detectionId > 0 ? $this->links->detection($detectionId) : $this->links->adminPage());
+		return $notification;
+	}
+
+	private function detectionOf(INotification $notification): Detection {
+		try {
+			return $this->detections->findById((int)($notification->getSubjectParameters()['detection'] ?? 0));
+		} catch (DoesNotExistException) {
+			throw new AlreadyProcessedException();
+		}
 	}
 }

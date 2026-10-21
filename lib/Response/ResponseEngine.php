@@ -45,6 +45,10 @@ class ResponseEngine {
 		Handlers\NotifyAdminHandler::class,
 		Handlers\NotifyShareOwnerHandler::class,
 		Handlers\SuppressResetMailHandler::class,
+		Handlers\KillSessionHandler::class,
+		Handlers\RevokeTokenHandler::class,
+		Handlers\ForcePasswordChangeHandler::class,
+		Handlers\NotifyUserHandler::class,
 	];
 
 	/** @var array<string, IResponseHandler>|null */
@@ -82,6 +86,8 @@ class ResponseEngine {
 		$actions = $isNew ? [] : $detection->getActionList();
 		foreach ($responses as $response) {
 			$actions = $this->replaceAction($actions, $this->run($response, $context, $mode->acts()));
+			// Later responses (the notifications) can say what the earlier ones did.
+			$detection->setActionList($actions);
 		}
 		$this->detections->setActions($detection, $actions);
 

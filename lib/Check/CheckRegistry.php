@@ -31,6 +31,7 @@ class CheckRegistry {
 		Checks\ResetProbing::class,
 		Checks\LoginFlowMismatch::class,
 		Checks\BreachedPassword::class,
+		Checks\SecondFactorFailed::class,
 	];
 
 	/** @var array<string, CheckDefinition>|null */

@@ -19,8 +19,8 @@ use OCA\IntrusionDetection\Check\ResponseType;
 use OCA\IntrusionDetection\Db\BanMapper;
 use OCA\IntrusionDetection\Db\ProtectedAccountMapper;
 use OCA\IntrusionDetection\Explain\IExplainsToUser;
+use OCA\IntrusionDetection\Notification\UserAlerts;
 use OCA\IntrusionDetection\Response\AccountProtection;
-use OCA\IntrusionDetection\Response\ResponseOutcome;
 use OCP\AppFramework\Utility\ITimeFactory;
 use OCP\ICacheFactory;
 use OCP\L10N\IFactory;
@@ -60,8 +60,9 @@ class AccountUnderAttackTest extends LoginFailureTestCase {
 
 		$actions = array_column($detections[0]->getActionList(), null, 'type');
 		$this->assertTrue($actions['protect_account']['enforced']);
-		// Until the user notification response exists, it is recorded as unavailable.
-		$this->assertSame(ResponseOutcome::NOTE_UNAVAILABLE, $actions['notify_user']['note'] ?? null);
+		$this->assertTrue($actions['notify_user']['enforced'], 'The user is told');
+		$this->assertSame(UserAlerts::EMAIL_NO_ADDRESS, $actions['notify_user']['ref']['email'] ?? null);
+		$this->assertSame(0, $actions['notify_user']['ref']['admins'] ?? null, 'Medium severity: the admins are not asked to reach out');
 		$this->assertSame(0, $this->rows('ids_bans'), 'Blocking is off by default');
 	}
 

@@ -99,6 +99,28 @@ class DetectionMapper extends QBMapper {
 		return $counts;
 	}
 
+	/**
+	 * Detections of an account, or whose explanation or actions contain a
+	 * text (the account's uid as JSON), after an id, oldest first.
+	 *
+	 * @return list<Detection>
+	 */
+	public function findMentioning(string $uid, string $jsonText, int $afterId, int $limit): array {
+		$needle = '%' . $this->db->escapeLikeParameter($jsonText) . '%';
+		$qb = $this->db->getQueryBuilder();
+		$qb->select('*')
+			->from(self::TABLE)
+			->where($qb->expr()->gt('id', $qb->createNamedParameter($afterId, IQueryBuilder::PARAM_INT)))
+			->andWhere($qb->expr()->orX(
+				$qb->expr()->eq('uid', $qb->createNamedParameter($uid)),
+				$qb->expr()->like('explanation', $qb->createNamedParameter($needle)),
+				$qb->expr()->like('actions', $qb->createNamedParameter($needle)),
+			))
+			->orderBy('id', 'ASC')
+			->setMaxResults($limit);
+		return $this->findEntities($qb);
+	}
+
 	public function deleteCreatedBefore(int $before): int {
 		$qb = $this->db->getQueryBuilder();
 		$qb->delete(self::TABLE)

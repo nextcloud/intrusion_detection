@@ -18,6 +18,7 @@ final class MailContent {
 	 * @param string $templateId identifies the template for theming apps, e.g. "intrusion_detection.alert"
 	 * @param list<string> $paragraphs
 	 * @param list<string> $listItems shown after the paragraphs, under `$listHeading`
+	 * @param list<string> $closing paragraphs after the list, before the button
 	 * @param ?string $buttonUrl an absolute link; never one that carries a token
 	 */
 	public function __construct(
@@ -30,6 +31,7 @@ final class MailContent {
 		public readonly ?string $buttonText = null,
 		public readonly ?string $buttonUrl = null,
 		public readonly string $language = '',
+		public readonly array $closing = [],
 	) {
 	}
 }

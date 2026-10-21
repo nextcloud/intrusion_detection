@@ -14,6 +14,7 @@ use OCA\IntrusionDetection\Check\ResponseType;
 use OCA\IntrusionDetection\Config\GlobalSettings;
 use OCA\IntrusionDetection\Config\Keys;
 use OCA\IntrusionDetection\Config\Lexicon;
+use OCA\IntrusionDetection\Response\PasswordChangeFlag;
 use OCP\Config\Lexicon\Entry;
 use OCP\L10N\IFactory;
 use OCP\Server;
@@ -83,6 +84,13 @@ class CheckRegistryTest extends TestCase {
 				$this->assertSame($param->type->valueType(), $entries[$key]->getValueType());
 			}
 		}
+	}
+
+	public function testTheRequiredPasswordChangeIsADeclaredUserSetting(): void {
+		$entries = (new Lexicon($this->registry, new GlobalSettings()))->getUserConfigs();
+		$this->assertSame([PasswordChangeFlag::USER_KEY], array_map(static fn (Entry $e): string => $e->getKey(), $entries));
+		$this->assertSame('0', $entries[0]->getDefault(\OCP\Config\Lexicon\Preset::NONE), 'Stored as a string');
+		$this->assertSame(\OCP\Config\ValueType::INT, $entries[0]->getValueType());
 	}
 
 	public function testConfigKeysAreValidAndShortEnough(): void {

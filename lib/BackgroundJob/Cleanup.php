@@ -19,6 +19,7 @@ use OCA\IntrusionDetection\Db\FlagMapper;
 use OCA\IntrusionDetection\Db\LoginMapper;
 use OCA\IntrusionDetection\Db\ProtectedAccountMapper;
 use OCA\IntrusionDetection\Db\ResetSuppressionMapper;
+use OCA\IntrusionDetection\Db\TokenOriginMapper;
 use OCA\IntrusionDetection\Detection\AttemptRecorder;
 use OCP\AppFramework\Utility\ITimeFactory;
 use OCP\BackgroundJob\IJob;
@@ -34,6 +35,8 @@ class Cleanup extends TimedJob {
 	public const BAN_HISTORY = 30 * 86400;
 	/** Alert counters are kept as long as their notifications are likely to be read */
 	public const ALERT_RETENTION = 30 * 86400;
+	/** Where app passwords came from is kept this long */
+	public const TOKEN_ORIGIN_RETENTION = 30 * 86400;
 
 	public function __construct(
 		ITimeFactory $time,
@@ -47,6 +50,7 @@ class Cleanup extends TimedJob {
 		private readonly ProtectedAccountMapper $protectedAccounts,
 		private readonly AlertMapper $alerts,
 		private readonly ResetSuppressionMapper $resetSuppressions,
+		private readonly TokenOriginMapper $tokenOrigins,
 	) {
 		parent::__construct($time);
 		$this->setInterval(300);
@@ -64,6 +68,7 @@ class Cleanup extends TimedJob {
 		$this->protectedAccounts->deleteExpired($now);
 		$this->alerts->deleteOlderThan($now - self::ALERT_RETENTION);
 		$this->resetSuppressions->deleteExpired($now);
+		$this->tokenOrigins->deleteOlderThan($now - self::TOKEN_ORIGIN_RETENTION);
 		$this->updateFloodState($now);
 	}
 

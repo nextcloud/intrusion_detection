@@ -14,6 +14,7 @@ use OCA\IntrusionDetection\Command\Simulate;
 use OCA\IntrusionDetection\Command\TrapPaths;
 use OCA\IntrusionDetection\Command\User;
 use OCA\IntrusionDetection\Response\AccountProtection;
+use OCA\IntrusionDetection\Response\PasswordChangeService;
 use OCP\IUserManager;
 use OCP\Server;
 use PHPUnit\Framework\Attributes\DataProvider;
@@ -96,6 +97,24 @@ class CommandsTest extends IntegrationTestCase {
 			$this->assertStringContainsString('has ended', $output);
 			$this->assertStringContainsString('Protection: none.', $output);
 			$this->assertSame(Command::INVALID, $this->runCommand(User::class, ['uid' => 'no-such-user-' . $uid])[0]);
+		} finally {
+			$user->delete();
+		}
+	}
+
+	public function testUserCommandLiftsARequiredPasswordChange(): void {
+		$uid = 'ids-cmd-' . bin2hex(random_bytes(3));
+		$user = Server::get(IUserManager::class)->createUser($uid, 'A-long-test-password-1');
+		try {
+			Server::get(PasswordChangeService::class)->require($uid);
+			[, $output] = $this->runCommand(User::class, ['uid' => $uid]);
+			$this->assertStringContainsString('New password: required at the next login', $output);
+			[, $output] = $this->runCommand(User::class, ['uid' => $uid, '--clear-forced-change' => true]);
+			$this->assertStringContainsString($uid . ' no longer needs to choose a new password.', $output);
+			$this->assertStringContainsString('New password: not required.', $output);
+			$this->assertFalse(Server::get(PasswordChangeService::class)->isRequired($uid));
+			[, $output] = $this->runCommand(User::class, ['uid' => $uid, '--clear-forced-change' => true]);
+			$this->assertStringContainsString('did not need to choose a new password', $output);
 		} finally {
 			$user->delete();
 		}

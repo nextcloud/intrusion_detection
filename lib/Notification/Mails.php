@@ -60,6 +60,9 @@ class Mails {
 					$template->addBodyListItem(self::clean($item));
 				}
 			}
+			foreach ($content->closing as $paragraph) {
+				$template->addBodyText(self::clean($paragraph));
+			}
 			if ($content->buttonText !== null && $content->buttonUrl !== null) {
 				$template->addBodyButton(self::clean($content->buttonText), $content->buttonUrl);
 			}
