@@ -16,6 +16,7 @@ use OCA\IntrusionDetection\Check\Checks\StepUpUnconfirmed;
 use OCA\IntrusionDetection\Check\Severity;
 use OCA\IntrusionDetection\Db\AlertMapper;
 use OCA\IntrusionDetection\Db\Detection;
+use OCA\IntrusionDetection\WasThisYou\Questions;
 use OCP\AppFramework\Utility\ITimeFactory;
 use OCP\IUserManager;
 use OCP\Notification\IManager as INotificationManager;
@@ -25,8 +26,12 @@ use OCP\Notification\IManager as INotificationManager;
  * notification and an email, both built by {@see UserMessages}, linking only
  * to the user's own security settings.
  *
- * Aggregated: at most one per check and user per interval (an hour; a day
- * for an account under attack). Later hits only raise a counter.
+ * Aggregated per check and user per interval (an hour; a day for an
+ * account under attack): later hits of a detection the user was told about
+ * only raise a counter. A different detection in the same interval that
+ * waits for a "Was this you?" answer (from another address, or after an
+ * answer) is told on its own, so it can be answered, up to
+ * MAX_DETECTIONS_PER_INTERVAL detections.
  *
  * Users without an email address are a normal case. They get the
  * notification, the event is shown once more at their next login from a
@@ -40,6 +45,10 @@ class UserAlerts {
 	public const OBJECT_TYPE = 'user_detection';
 	/** Counter key prefix; "@user:<uid>" fits the counter column */
 	public const KEY_PREFIX = '@user:';
+	/** Counter key prefix of the further detections told in an interval */
+	public const FURTHER_KEY_PREFIX = '@userd:';
+	/** At most this many different detections of one check are told per user and interval */
+	public const MAX_DETECTIONS_PER_INTERVAL = 3;
 	public const DEFAULT_INTERVAL = 3600;
 	/** @var array<string, int> checks that tell their users less often */
 	public const INTERVALS = [AccountUnderAttack::ID => 86400, StepUpRefusedClient::ID => 86400, StepUpUnconfirmed::ID => 86400];
@@ -62,13 +71,24 @@ class UserAlerts {
 		private readonly IUserManager $userManager,
 		private readonly ITimeFactory $timeFactory,
 		private readonly LoginNotices $loginNotices,
+		private readonly Questions $questions,
 	) {
 	}
 
 	/**
+	 * The counter keys of an account, for deleting them with it.
+	 *
+	 * @return list<string>
+	 */
+	public static function counterKeys(string $uid): array {
+		return [self::KEY_PREFIX . $uid, self::FURTHER_KEY_PREFIX . $uid];
+	}
+
+	/**
+	 * @param bool $isNew whether the detection was created by this hit, rather than merged into
 	 * @return ?array{bell: string, email: string, admins: int} null when the detection's account does not exist (any more)
 	 */
-	public function notify(Detection $detection): ?array {
+	public function notify(Detection $detection, bool $isNew = true): ?array {
 		$uid = $detection->getUid();
 		$user = $uid === null ? null : $this->userManager->get($uid);
 		if ($uid === null || $user === null || !$user->isEnabled()) {
@@ -76,8 +96,9 @@ class UserAlerts {
 		}
 		$now = $this->timeFactory->getTime();
 		$interval = self::INTERVALS[$detection->getCheckId()] ?? self::DEFAULT_INTERVAL;
-		[, $first] = $this->alerts->hit($detection->getCheckId(), self::KEY_PREFIX . $uid, intdiv($now, $interval), $detection->getId(), $now);
-		if (!$first) {
+		$bucket = intdiv($now, $interval);
+		[, $first] = $this->alerts->hit($detection->getCheckId(), self::KEY_PREFIX . $uid, $bucket, $detection->getId(), $now);
+		if (!$first && !$this->tellsFurther($detection, $isNew, $uid, $bucket, $now)) {
 			return ['bell' => self::BELL_AGGREGATED, 'email' => self::EMAIL_AGGREGATED, 'admins' => 0];
 		}
 
@@ -97,6 +118,19 @@ class UserAlerts {
 		}
 		$admins = $email === self::EMAIL_SENT ? 0 : $this->unreachable($detection, $uid, $email);
 		return ['bell' => self::BELL_SENT, 'email' => $email, 'admins' => $admins];
+	}
+
+	/**
+	 * Whether a detection that is not the first of its interval is told on
+	 * its own: only a new one that waits for its answer, up to the limit.
+	 */
+	private function tellsFurther(Detection $detection, bool $isNew, string $uid, int $bucket, int $now): bool {
+		if (!$isNew || !$this->questions->isOpen($detection)) {
+			return false;
+		}
+		[$counterId] = $this->alerts->hit($detection->getCheckId(), self::FURTHER_KEY_PREFIX . $uid, $bucket, $detection->getId(), $now);
+		$hits = $this->alerts->find($counterId)['hits'] ?? PHP_INT_MAX;
+		return $hits < self::MAX_DETECTIONS_PER_INTERVAL;
 	}
 
 	/**

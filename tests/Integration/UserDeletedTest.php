@@ -53,6 +53,7 @@ class UserDeletedTest extends AccountTestCase {
 		Server::get(LoginMapper::class)->record('203.0.113.1', '203.0.113.0/24', $other, intdiv($now, 3600));
 		Server::get(AlertMapper::class)->hit(SecondFactorFailed::ID, UserAlerts::KEY_PREFIX . $uid, 1, null, $now);
 		Server::get(AlertMapper::class)->hit(SecondFactorFailed::ID, UserAlerts::KEY_PREFIX . $other, 1, null, $now);
+		Server::get(AlertMapper::class)->hit(SecondFactorFailed::ID, UserAlerts::FURTHER_KEY_PREFIX . $uid, 1, null, $now);
 
 		$service = Server::get(DetectionService::class);
 		$protect = new ModeState(Mode::Protect, Mode::Protect);

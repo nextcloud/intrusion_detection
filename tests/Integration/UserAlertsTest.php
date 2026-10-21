@@ -27,6 +27,7 @@ use OCA\IntrusionDetection\Notification\Notifier;
 use OCA\IntrusionDetection\Notification\UserAlerts;
 use OCA\IntrusionDetection\Notification\UserMessages;
 use OCA\IntrusionDetection\Response\PasswordChangeService;
+use OCA\IntrusionDetection\WasThisYou\Questions;
 use OCP\AppFramework\Utility\ITimeFactory;
 use OCP\Config\IUserConfig;
 use OCP\IDateTimeFormatter;
@@ -123,12 +124,13 @@ class UserAlertsTest extends AccountTestCase {
 		$this->assertStringNotContainsString("\x07", $sent->renderText());
 	}
 
-	public function testOneNotificationPerCheckAndUserAndHour(): void {
+	public function testOneNotificationPerDetectionCheckAndUserAndHour(): void {
 		$user = $this->newUser('ids-notify', 'alice@example.com');
-		$first = $this->alerts()->notify($this->detection($user, SecondFactorFailed::ID));
-		$second = $this->alerts()->notify($this->detection($user, SecondFactorFailed::ID, ip: '198.51.100.8'));
+		$detection = $this->detection($user, SecondFactorFailed::ID);
+		$first = $this->alerts()->notify($detection);
+		$repeat = $this->alerts()->notify($detection, false);
 		$this->assertSame(UserAlerts::BELL_SENT, $first['bell'] ?? null);
-		$this->assertSame(['bell' => UserAlerts::BELL_AGGREGATED, 'email' => UserAlerts::EMAIL_AGGREGATED, 'admins' => 0], $second);
+		$this->assertSame(['bell' => UserAlerts::BELL_AGGREGATED, 'email' => UserAlerts::EMAIL_AGGREGATED, 'admins' => 0], $repeat, 'Later hits of the same detection only count');
 		$this->assertCount(1, $this->notificationsFor($user->getUID(), UserAlerts::SUBJECT));
 		$this->assertCount(1, $this->mailed);
 
@@ -138,8 +140,41 @@ class UserAlertsTest extends AccountTestCase {
 
 		// The next hour, again.
 		$this->now += 3600;
-		$this->alerts()->notify($this->detection($user, SecondFactorFailed::ID));
+		$this->alerts()->notify($this->detection($user, SecondFactorFailed::ID), false);
 		$this->assertCount(3, $this->mailed);
+	}
+
+	public function testAnotherDetectionInTheSameHourIsToldSoItCanBeAnswered(): void {
+		$user = $this->newUser('ids-notify', 'alice@example.com');
+		$this->alerts()->notify($this->detection($user, SecondFactorFailed::ID));
+		$other = $this->detection($user, SecondFactorFailed::ID, ip: '198.51.100.8');
+		$this->assertSame(UserAlerts::BELL_SENT, $this->alerts()->notify($other)['bell'] ?? null);
+		$this->assertSame(UserAlerts::BELL_AGGREGATED, $this->alerts()->notify($other, false)['bell'] ?? null, 'Its own later hits only count');
+		$bells = $this->notificationsFor($user->getUID(), UserAlerts::SUBJECT);
+		$this->assertEqualsCanonicalizing(
+			[(string)($bells[0]->getSubjectParameters()['detection'] ?? ''), (string)$other->getId()],
+			array_map(static fn ($n): string => $n->getObjectId(), $bells),
+		);
+		$this->assertCount(2, $bells, 'One bell for each detection, each with its own answer');
+		$this->assertCount(2, $this->mailed);
+
+		// An attack from many addresses stays a few notifications.
+		for ($i = 10; $i < 20; $i++) {
+			$this->alerts()->notify($this->detection($user, SecondFactorFailed::ID, ip: '198.51.100.' . $i));
+		}
+		$this->assertCount(UserAlerts::MAX_DETECTIONS_PER_INTERVAL, $this->notificationsFor($user->getUID(), UserAlerts::SUBJECT));
+		$this->assertCount(UserAlerts::MAX_DETECTIONS_PER_INTERVAL, $this->mailed);
+	}
+
+	public function testThroughTheEngineAMergedHitIsNotToldAgain(): void {
+		$user = $this->newUser('ids-notify', 'alice@example.com');
+		$draft = static fn (string $ip): DetectionDraft => new DetectionDraft(SecondFactorFailed::ID, SourceKey::fromIp($ip), $user->getUID(), merge: DetectionDraft::MERGE_SOURCE_USER);
+		$this->engine()->handle($draft('198.51.100.7'), [ResponseType::NotifyUser]);
+		$merged = $this->engine()->handle($draft('198.51.100.7'), [ResponseType::NotifyUser]);
+		$this->assertSame(2, $merged?->getHits());
+		$this->assertTrue($merged->getActionList()[0]['enforced'], 'The merged hit keeps what the first one did');
+		$this->engine()->handle($draft('198.51.100.8'), [ResponseType::NotifyUser]);
+		$this->assertCount(2, $this->notificationsFor($user->getUID(), UserAlerts::SUBJECT));
 	}
 
 	public function testAnAccountUnderAttackIsToldOnceADay(): void {
@@ -147,7 +182,7 @@ class UserAlertsTest extends AccountTestCase {
 		$this->now = intdiv(time(), 86400) * 86400 + 3600;
 		$this->alerts()->notify($this->detection($user, AccountUnderAttack::ID, ip: null));
 		$this->now += 6 * 3600;
-		$this->alerts()->notify($this->detection($user, AccountUnderAttack::ID, ip: null));
+		$this->alerts()->notify($this->detection($user, AccountUnderAttack::ID, ip: null), false);
 		$this->assertCount(1, $this->mailed);
 		$this->now += 86400;
 		$this->alerts()->notify($this->detection($user, AccountUnderAttack::ID, ip: null));
@@ -227,6 +262,7 @@ class UserAlertsTest extends AccountTestCase {
 			Server::get(IUserManager::class),
 			$time,
 			Server::get(LoginNotices::class),
+			Server::get(Questions::class),
 		);
 	}
 }

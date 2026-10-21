@@ -29,6 +29,7 @@ use OCA\IntrusionDetection\Response\ResponseEngine;
 use OCA\IntrusionDetection\Response\SessionKiller;
 use OCA\IntrusionDetection\Response\Tokens;
 use OCA\IntrusionDetection\SessionState\CurrentSession;
+use OCA\IntrusionDetection\WasThisYou\Questions;
 use OCP\AppFramework\Utility\ITimeFactory;
 use OCP\Authentication\Exceptions\InvalidTokenException;
 use OCP\Authentication\Token\IProvider;
@@ -144,6 +145,7 @@ abstract class AccountTestCase extends IntegrationTestCase {
 			Server::get(IUserManager::class),
 			Server::get(ITimeFactory::class),
 			Server::get(LoginNotices::class),
+			Server::get(Questions::class),
 		);
 	}
 

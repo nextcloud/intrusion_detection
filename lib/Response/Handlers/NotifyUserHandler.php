@@ -35,7 +35,7 @@ class NotifyUserHandler implements IResponseHandler, IDescribesAction {
 
 	#[\Override]
 	public function apply(ResponseContext $context): ResponseOutcome {
-		$result = $this->alerts->notify($context->detection);
+		$result = $this->alerts->notify($context->detection, $context->isNew);
 		if ($result === null) {
 			return ResponseOutcome::skipped(ResponseOutcome::NOTE_NOTHING_TO_DO);
 		}

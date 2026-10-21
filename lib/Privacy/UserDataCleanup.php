@@ -96,7 +96,7 @@ class UserDataCleanup {
 	}
 
 	private function deleteCounters(string $uid): void {
-		$keys = ['u:' . $uid, UserAlerts::KEY_PREFIX . $uid];
+		$keys = ['u:' . $uid, ...UserAlerts::counterKeys($uid)];
 		foreach (AdminNotices::KEY_PREFIXES as $prefix) {
 			$keys[] = $prefix . $uid;
 		}
