@@ -20,6 +20,7 @@ final class ListState {
 	 * @param ?string $error code of the last failure, null after a success
 	 * @param int $failures failed attempts since the last success
 	 * @param ?string $url the address the conditional request headers belong to
+	 * @param ?int $errorStatus the HTTP status of the last failure, if the server answered with one
 	 */
 	public function __construct(
 		public ?int $version = null,
@@ -38,6 +39,7 @@ final class ListState {
 		public ?string $url = null,
 		public ?string $lastModified = null,
 		public ?string $etag = null,
+		public ?int $errorStatus = null,
 	) {
 	}
 
@@ -75,6 +77,7 @@ final class ListState {
 			'success_at' => $this->successAt,
 			'failure_at' => $this->failureAt,
 			'error' => $this->error,
+			'error_status' => $this->errorStatus,
 			'failures' => $this->failures,
 			'url' => $this->url,
 			'last_modified' => $this->lastModified,
@@ -105,6 +108,7 @@ final class ListState {
 			$string('url'),
 			$string('last_modified'),
 			$string('etag'),
+			$int('error_status'),
 		);
 	}
 }

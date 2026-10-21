@@ -32,17 +32,39 @@ class SyncFailure extends \RuntimeException {
 	/** More than 1 % of the entries are not ranges */
 	public const TOO_MANY_MALFORMED = 'too_many_malformed';
 
+	/**
+	 * @param ?int $status the HTTP status of an {@see self::HTTP} failure
+	 */
 	public function __construct(
 		public readonly string $reason,
 		string $detail = '',
+		public readonly ?int $status = null,
 	) {
 		parent::__construct($detail !== '' ? $reason . ': ' . $detail : $reason);
 	}
 
 	/**
 	 * Why a download failed, in plain words, for the admin page and the setup check.
+	 *
+	 * @param string $url the list's address, to name its server
+	 * @param ?int $status the HTTP status of an {@see self::HTTP} failure
 	 */
-	public static function describe(?string $error, IL10N $l): string {
+	public static function describe(?string $error, IL10N $l, string $url = '', ?int $status = null): string {
+		$host = parse_url($url, PHP_URL_HOST);
+		if (!is_string($host) || $host === '') {
+			return self::describeWithoutHost($error, $l);
+		}
+		return match ($error) {
+			SyncFailure::NETWORK => $l->t('%s could not be reached in time', [$host]),
+			SyncFailure::HTTP => $status !== null
+				? $l->t('%1$s answered with HTTP status %2$s', [$host, (string)$status])
+				: $l->t('%s answered with an error', [$host]),
+			SyncFailure::URL_REFUSED, SyncFailure::TOO_LARGE, SyncFailure::INVALID_FORMAT, SyncFailure::EMPTY, SyncFailure::TOO_MANY_ENTRIES, SyncFailure::TOO_MANY_MALFORMED => self::describeWithoutHost($error, $l),
+			default => $l->t('the download from %s did not finish', [$host]),
+		};
+	}
+
+	private static function describeWithoutHost(?string $error, IL10N $l): string {
 		return match ($error) {
 			SyncFailure::URL_REFUSED => $l->t('the address is refused (not https, or in the local network)'),
 			SyncFailure::NETWORK => $l->t('the server could not be reached in time'),

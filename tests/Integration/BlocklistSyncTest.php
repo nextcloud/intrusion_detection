@@ -205,9 +205,12 @@ class BlocklistSyncTest extends IntegrationTestCase {
 
 		$results = $this->sync()->sync();
 		$this->assertSame([SyncFailure::HTTP, SyncFailure::INVALID_FORMAT], array_map(static fn (SyncResult $r): ?string => $r->error, $results));
+		$this->assertSame(500, $results[0]->status);
+		$this->assertSame(500, $this->states()->get('office_block')->errorStatus, 'the status is kept for the admin page');
 		$this->assertSame(SyncFailure::EMPTY, $this->sync()->sync('office_block')[0]->error);
 		$this->assertSame(SyncFailure::NETWORK, $this->sync()->sync('office_block')[0]->error);
 		$this->assertSame(3, $this->states()->get('office_block')->failures);
+		$this->assertNull($this->states()->get('office_block')->errorStatus, 'only an HTTP failure has a status');
 	}
 
 	public function testLocalAndPlainHttpAddressesAreNeverContacted(): void {

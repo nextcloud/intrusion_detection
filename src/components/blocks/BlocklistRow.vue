@@ -77,7 +77,7 @@ const sync = computed(() => {
 	}
 	const failedLast = list.lastFailureAt !== null && (list.lastSuccessAt === null || list.lastFailureAt > list.lastSuccessAt)
 	if (failedLast) {
-		return { type: 'error' as const, icon: mdiAlertCircleOutline, text: t(APP_ID, 'Download failed: {reason}', { reason: list.lastErrorText ?? '' }), at: list.lastFailureAt }
+		return { type: 'error' as const, icon: mdiAlertCircleOutline, text: t(APP_ID, 'Download failed'), detail: t(APP_ID, 'Reason: {reason}. Nextcloud tries again at the next download, or now with "Sync now".', { reason: list.lastErrorText ?? '' }), at: list.lastFailureAt }
 	}
 	if (list.lastSuccessAt !== null) {
 		return { type: list.stale ? 'warning' as const : 'success' as const, icon: list.stale ? mdiAlertOutline : mdiCheckCircleOutline, text: list.stale ? t(APP_ID, 'Out of date') : t(APP_ID, 'Up to date'), at: list.lastSuccessAt }
@@ -297,6 +297,9 @@ async function remove() {
 					{{ t(APP_ID, 'Sync now') }}
 				</NcButton>
 			</div>
+			<p v-if="sync?.detail" :class="$style.row__error" data-test="sync-error">
+				{{ sync.detail }}
+			</p>
 
 			<div v-if="isDeny" :class="$style.row__line">
 				<NcRadioGroup
@@ -530,6 +533,13 @@ async function remove() {
 
 .row__sync > :first-child {
 	white-space: normal;
+}
+
+.row__error {
+	margin: 0;
+	color: var(--color-text-maxcontrast);
+	font-size: 0.9em;
+	line-height: 1.5;
 }
 
 .row__muted {

@@ -22,12 +22,14 @@ final class SyncResult {
 	/**
 	 * @param self::UPDATED|self::UNCHANGED|self::FAILED|self::SKIPPED $outcome
 	 * @param ?string $error a {@see SyncFailure} code
+	 * @param ?int $status the HTTP status of an HTTP failure
 	 */
 	public function __construct(
 		public readonly string $listId,
 		public readonly string $outcome,
 		public readonly ?string $error = null,
 		public readonly int $ranges = 0,
+		public readonly ?int $status = null,
 	) {
 	}
 

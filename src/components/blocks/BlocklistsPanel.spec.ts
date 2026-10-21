@@ -104,4 +104,11 @@ describe('the blocklists', () => {
 		expect(updateCheck).toHaveBeenCalledWith('blocklist', { mode: 'observe' })
 		expect(wrapper.find('[data-test="deny-check-off"]').exists()).toBe(false)
 	})
+
+	test('a failed download says why, and that Nextcloud tries again', async () => {
+		const failed = { ...list('drop', true), lastFailureAt: 1_760_000_600, lastError: 'http_error', lastErrorText: 'lists.example.org answered with HTTP status 503' }
+		const wrapper = await mountPanel({ lists: [failed] })
+		expect(wrapper.text()).toContain('Download failed')
+		expect(wrapper.get('[data-test="sync-error"]').text()).toBe('Reason: lists.example.org answered with HTTP status 503. Nextcloud tries again at the next download, or now with "Sync now".')
+	})
 })

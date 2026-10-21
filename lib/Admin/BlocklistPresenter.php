@@ -99,7 +99,7 @@ class BlocklistPresenter {
 				'lastSuccessAt' => $list['lastSuccessAt'],
 				'lastFailureAt' => $list['lastFailureAt'],
 				'lastError' => $list['lastError'],
-				'lastErrorText' => $list['lastError'] === null ? null : SyncFailure::describe($list['lastError'], $l),
+				'lastErrorText' => $list['lastError'] === null ? null : SyncFailure::describe($list['lastError'], $l, $list['url'], $list['lastErrorStatus']),
 				'failures' => $list['failures'],
 				'stale' => $list['stale'],
 				'matches' => $matches[$list['id']] ?? [],
@@ -133,12 +133,12 @@ class BlocklistPresenter {
 	/**
 	 * @return IntrusionDetectionSyncResult
 	 */
-	public static function syncResult(SyncResult $result, IL10N $l): array {
+	public static function syncResult(SyncResult $result, IL10N $l, string $url): array {
 		return [
 			'list' => $result->listId,
 			'outcome' => $result->outcome,
 			'error' => $result->error,
-			'errorText' => $result->error === null ? null : SyncFailure::describe($result->error, $l),
+			'errorText' => $result->error === null ? null : SyncFailure::describe($result->error, $l, $url, $result->status),
 			'ranges' => $result->ranges,
 		];
 	}

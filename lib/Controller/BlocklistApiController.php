@@ -218,7 +218,7 @@ class BlocklistApiController extends AdminOCSController {
 		if ($list === null) {
 			throw new OCSNotFoundException($this->l->t('There is no list "%s".', [$id]));
 		}
-		return new DataResponse(['result' => BlocklistPresenter::syncResult($result, $this->l), 'list' => $list]);
+		return new DataResponse(['result' => BlocklistPresenter::syncResult($result, $this->l, $source->url), 'list' => $list]);
 	}
 
 	/**

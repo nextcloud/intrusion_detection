@@ -45,7 +45,7 @@ class BlocklistSyncCheck implements ISetupCheck {
 		}
 		$lines = [];
 		foreach ($stale as $list) {
-			$lines[] = $this->l->t('%1$s: %2$s', [$list['name'], SyncFailure::describe($list['lastError'], $this->l)]);
+			$lines[] = $this->l->t('%1$s: %2$s', [$list['name'], SyncFailure::describe($list['lastError'], $this->l, $list['url'], $list['lastErrorStatus'])]);
 		}
 		return SetupResult::warning(
 			$this->l->n(

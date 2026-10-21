@@ -38,6 +38,7 @@ use OCP\AppFramework\Utility\ITimeFactory;
  *     lastSuccessAt: ?int,
  *     lastFailureAt: ?int,
  *     lastError: ?string,
+ *     lastErrorStatus: ?int,
  *     failures: int,
  *     stale: bool,
  * }
@@ -94,6 +95,7 @@ class BlocklistOverview {
 				'lastSuccessAt' => $state->successAt,
 				'lastFailureAt' => $state->failureAt,
 				'lastError' => $state->error,
+				'lastErrorStatus' => $state->errorStatus,
 				'failures' => $state->failures,
 				'stale' => $source->enabled && $state->isStale($interval, $now),
 			];

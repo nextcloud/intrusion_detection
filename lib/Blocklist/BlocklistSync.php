@@ -184,6 +184,7 @@ class BlocklistSync {
 			if ($response === null) {
 				$state->successAt = $now;
 				$state->error = null;
+				$state->errorStatus = null;
 				$state->failures = 0;
 				$this->states->save($source->id, $state);
 				return new SyncResult($source->id, SyncResult::UNCHANGED, ranges: $state->ranges);
@@ -204,6 +205,7 @@ class BlocklistSync {
 			$state->malformed = $parsed->malformed;
 			$state->successAt = $now;
 			$state->error = null;
+			$state->errorStatus = null;
 			$state->failures = 0;
 			$state->url = $source->url;
 			$state->lastModified = self::headerValue($response, 'Last-Modified');
@@ -213,25 +215,26 @@ class BlocklistSync {
 			$this->ranges->deleteVersionsExcept($source->id, self::kept($state));
 			return new SyncResult($source->id, SyncResult::UPDATED, ranges: $state->ranges);
 		} catch (SyncFailure $e) {
-			return $this->failed($source, $state, $now, $e->reason, $e->getMessage());
+			return $this->failed($source, $state, $now, $e->reason, $e->getMessage(), $e->status);
 		} catch (\Throwable $e) {
 			// The HTTP client may wrap a failure raised in the sink or a callback.
 			$previous = $e->getPrevious();
 			if ($previous instanceof SyncFailure) {
-				return $this->failed($source, $state, $now, $previous->reason, $previous->getMessage());
+				return $this->failed($source, $state, $now, $previous->reason, $previous->getMessage(), $previous->status);
 			}
 			$this->logger->warning('Intrusion detection could not sync the list {list}', ['list' => $source->id, 'exception' => $e]);
 			return $this->failed($source, $state, $now, SyncFailure::NETWORK, $e->getMessage());
 		}
 	}
 
-	private function failed(BlocklistSource $source, ListState $state, int $now, string $reason, string $detail): SyncResult {
+	private function failed(BlocklistSource $source, ListState $state, int $now, string $reason, string $detail, ?int $status = null): SyncResult {
 		$this->logger->info('Intrusion detection did not take the list {list}: {detail}', ['list' => $source->id, 'detail' => $detail]);
 		$state->failureAt = $now;
 		$state->error = $reason;
+		$state->errorStatus = $status;
 		$state->failures++;
 		$this->states->save($source->id, $state);
-		return new SyncResult($source->id, SyncResult::FAILED, $reason, $state->ranges);
+		return new SyncResult($source->id, SyncResult::FAILED, $reason, $state->ranges, $status);
 	}
 
 	/**
@@ -283,7 +286,7 @@ class BlocklistSync {
 			return null;
 		}
 		if ($status !== 200) {
-			throw new SyncFailure(SyncFailure::HTTP, (string)$status);
+			throw new SyncFailure(SyncFailure::HTTP, (string)$status, $status);
 		}
 		return $response;
 	}
