@@ -7,7 +7,7 @@
 import type { Blocklist, Blocklists } from '../../types.ts'
 
 import { mdiCloudOutline, mdiPlaylistRemove, mdiPlus, mdiShieldAlertOutline } from '@mdi/js'
-import { t } from '@nextcloud/l10n'
+import { n, t } from '@nextcloud/l10n'
 import { computed, onActivated, onMounted, ref } from 'vue'
 import NcButton from '@nextcloud/vue/components/NcButton'
 import NcIconSvgWrapper from '@nextcloud/vue/components/NcIconSvgWrapper'
@@ -20,20 +20,23 @@ import AddBlocklistDialog from './AddBlocklistDialog.vue'
 import BlocklistRow from './BlocklistRow.vue'
 import { errorMessage, fetchBlocklists } from '../../services/api.ts'
 import { logger } from '../../services/logger.ts'
-import { state } from '../../store.ts'
+import { advanced, state } from '../../store.ts'
 import { APP_ID } from '../../utils/format.ts'
 
 const data = ref<Blocklists | null>(null)
 const loadError = ref<string | null>(null)
 const adding = ref(false)
 
-const denyLists = computed(() => data.value?.lists.filter((l) => l.purpose === 'deny') ?? [])
-const attributeLists = computed(() => data.value?.lists.filter((l) => l.purpose !== 'deny') ?? [])
+/** Your own lists are managed with the advanced options only */
+const shown = computed(() => data.value?.lists.filter((l) => l.builtin || advanced.value) ?? [])
+const denyLists = computed(() => shown.value.filter((l) => l.purpose === 'deny'))
+const attributeLists = computed(() => shown.value.filter((l) => l.purpose !== 'deny'))
 const checkRuns = computed(() => data.value?.check.mode.effective !== 'off')
 const enabledDeny = computed(() => denyLists.value.some((l) => l.enabled))
 const enabledAttribute = computed(() => attributeLists.value.some((l) => l.enabled))
 const networkCheckRuns = computed(() => data.value?.networkCheck.mode.effective !== 'off')
 const riskEnabled = computed(() => state.settings.find((s) => s.name === 'risk_enabled')?.value !== false)
+const customCount = computed(() => data.value?.lists.filter((l) => !l.builtin).length ?? 0)
 const downloadSettings = computed(() => state.settings.filter((s) => s.group === 'blocklists'))
 
 /**
@@ -80,9 +83,9 @@ function removed(id: string) {
 <template>
 	<SectionCard :heading="t(APP_ID, 'Blocklists and network lists')" :icon="mdiPlaylistRemove">
 		<template #description>
-			{{ t(APP_ID, 'Lists that others publish: addresses known for attacks, and the networks of hosting providers and Tor. Nextcloud downloads the lists you switch on and checks addresses against its own copy, so nothing about your users is sent anywhere.') }}
+			{{ t(APP_ID, 'Lists that others publish. Nextcloud downloads the ones you switch on and checks against its own copy, so nothing about your users is sent anywhere.') }}
 		</template>
-		<template #actions>
+		<template v-if="advanced" #actions>
 			<NcButton variant="secondary" :disabled="data === null || data.lists.length >= data.maxLists" @click="adding = true">
 				<template #icon>
 					<NcIconSvgWrapper :path="mdiPlus" />
@@ -105,7 +108,7 @@ function removed(id: string) {
 							{{ t(APP_ID, 'Blocklists') }}
 						</h4>
 						<p :class="$style.group__text">
-							{{ t(APP_ID, 'Addresses known for attacks. In Observe mode a list only counts matching addresses; in Protect mode they get an error page with a reference. Blocklists only work while their check is on:') }}
+							{{ t(APP_ID, 'Addresses known for attacks. Observe only counts them; Protect shows them an error page with a reference.') }}
 						</p>
 					</div>
 					<CheckStateNote :check="data.check" />
@@ -138,7 +141,7 @@ function removed(id: string) {
 							{{ t(APP_ID, 'Network lists') }}
 						</h4>
 						<p :class="$style.group__text">
-							{{ t(APP_ID, 'These lists never block anyone. They mark addresses that belong to a cloud or hosting provider or to the Tor network: a password login from there needs extra confirmation, and such addresses get points in the risk score. The counts show how often an address on a list was seen.') }}
+							{{ t(APP_ID, 'These never block anyone. A password login from a hosting provider or the Tor network needs extra confirmation.') }}
 						</p>
 					</div>
 					<CheckStateNote :check="data.networkCheck" />
@@ -160,7 +163,11 @@ function removed(id: string) {
 				</ul>
 			</section>
 
-			<section v-if="downloadSettings.length > 0" :class="$style.group" aria-labelledby="ids-list-downloads">
+			<p v-if="!advanced && customCount > 0" :class="$style.group__text" data-test="custom-lists-hint">
+				{{ n(APP_ID, 'You added %n list of your own. Show the advanced options to manage it.', 'You added %n lists of your own. Show the advanced options to manage them.', customCount) }}
+			</p>
+
+			<section v-if="advanced && downloadSettings.length > 0" :class="$style.group" aria-labelledby="ids-list-downloads">
 				<h4 id="ids-list-downloads" :class="$style.group__heading">
 					{{ t(APP_ID, 'Downloads') }}
 				</h4>
@@ -169,6 +176,7 @@ function removed(id: string) {
 		</template>
 
 		<AddBlocklistDialog
+			v-if="advanced"
 			v-model:open="adding"
 			:existing="data?.lists.map((l) => l.id) ?? []"
 			:formats="data?.formats ?? ['cidr']"

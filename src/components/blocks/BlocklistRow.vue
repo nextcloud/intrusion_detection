@@ -25,6 +25,7 @@ import TimeStamp from '../common/TimeStamp.vue'
 import { useAnnouncer } from '../../composables/useAnnouncer.ts'
 import { ApiError, errorMessage, isCancelled, removeBlocklist, syncBlocklist, updateBlocklist } from '../../services/api.ts'
 import { logger } from '../../services/logger.ts'
+import { advanced } from '../../store.ts'
 import { APP_ID, formatDuration, formatNumber } from '../../utils/format.ts'
 
 const props = defineProps<{
@@ -224,7 +225,7 @@ async function remove() {
 </script>
 
 <template>
-	<li :class="[$style.row, { [$style.row_off]: !list.enabled, [$style.row_expanded]: expanded }]" :aria-labelledby="`${id}-name`">
+	<li :class="[$style.row, { [$style.row_off]: !list.enabled, [$style.row_expanded]: expanded && advanced }]" :aria-labelledby="`${id}-name`">
 		<div :class="$style.row__main">
 			<span :class="[$style.row__icon, $style[`row__icon_${list.purpose}`]]" aria-hidden="true">
 				<NcIconSvgWrapper inline :path="purpose.icon" :size="20" />
@@ -250,6 +251,7 @@ async function remove() {
 			</div>
 			<div :class="$style.row__controls">
 				<button
+					v-if="advanced"
 					type="button"
 					:class="$style.row__toggle"
 					:aria-expanded="expanded ? 'true' : 'false'"
@@ -285,6 +287,7 @@ async function remove() {
 					</span>
 				</div>
 				<NcButton
+					v-if="advanced"
 					:class="$style.row__syncButton"
 					variant="tertiary"
 					size="small"
@@ -316,7 +319,11 @@ async function remove() {
 			</div>
 		</div>
 
-		<div :id="`${id}-details`" :class="$style.row__collapse" :inert="!expanded">
+		<div
+			v-if="advanced"
+			:id="`${id}-details`"
+			:class="$style.row__collapse"
+			:inert="!expanded">
 			<div :class="$style.row__collapseInner">
 				<dl :class="$style.details">
 					<div>

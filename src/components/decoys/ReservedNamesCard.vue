@@ -71,7 +71,7 @@ async function change(change: { add?: string[], remove?: string[] }) {
 <template>
 	<SectionCard :heading="t(APP_ID, 'Reserved names')" :icon="mdiAccountCancelOutline">
 		<template #description>
-			{{ t(APP_ID, 'Attack tools try account names like "admin" or "root" first. If no account on your server uses such a name, nobody who belongs here ever types it, so the first attempt with it blocks the address.') }}
+			{{ t(APP_ID, 'Account names like "admin" or "root" that no account here uses. Attack tools try them first, so the first login with one blocks the address.') }}
 		</template>
 		<template #actions>
 			<CheckStateNote :check="check" />

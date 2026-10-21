@@ -4,7 +4,7 @@
 -->
 
 <script setup lang="ts">
-import type { Ban } from '../types.ts'
+import type { Ban, Traps } from '../types.ts'
 
 import { mdiLockOpenVariantOutline, mdiPlus, mdiShieldCheckOutline } from '@mdi/js'
 import { n, t } from '@nextcloud/l10n'
@@ -15,6 +15,8 @@ import NcIconSvgWrapper from '@nextcloud/vue/components/NcIconSvgWrapper'
 import NcLoadingIcon from '@nextcloud/vue/components/NcLoadingIcon'
 import NcNoteCard from '@nextcloud/vue/components/NcNoteCard'
 import AddBanDialog from '../components/blocks/AddBanDialog.vue'
+import BlocklistsPanel from '../components/blocks/BlocklistsPanel.vue'
+import FirewallExportPanel from '../components/blocks/FirewallExportPanel.vue'
 import LiftBanDialog from '../components/blocks/LiftBanDialog.vue'
 import LiveSentence from '../components/checks/LiveSentence.vue'
 import EmptyNote from '../components/common/EmptyNote.vue'
@@ -22,10 +24,12 @@ import ReferencePill from '../components/common/ReferencePill.vue'
 import SettingsGroup from '../components/common/SettingsGroup.vue'
 import SkeletonBlock from '../components/common/SkeletonBlock.vue'
 import TimeStamp from '../components/common/TimeStamp.vue'
-import { blocksPanels } from '../extensions.ts'
-import { errorMessage, fetchBans } from '../services/api.ts'
+import DecoyCredentials from '../components/decoys/DecoyCredentials.vue'
+import ReservedNamesCard from '../components/decoys/ReservedNamesCard.vue'
+import TrapPathsCard from '../components/decoys/TrapPathsCard.vue'
+import { errorMessage, fetchBans, fetchTraps } from '../services/api.ts'
 import { logger } from '../services/logger.ts'
-import { openDetectionId, state } from '../store.ts'
+import { advanced, openDetectionId, refreshChecks, state } from '../store.ts'
 import { APP_ID } from '../utils/format.ts'
 
 const PAGE = 50
@@ -38,6 +42,11 @@ const loadingMore = ref(false)
 const error = ref<string | null>(null)
 const liftTarget = ref<Ban | null>(null)
 const adding = ref(false)
+
+const traps = ref<Traps | null>(null)
+const trapsError = ref<string | null>(null)
+const decoysObserveWhileLearning = computed(() => state.status?.learning.active === true
+	&& state.settings.find((s) => s.name === 'learning_decoys_act')?.value !== true)
 
 const escalationSettings = computed(() => state.settings.filter((s) => ['ban_duration_1', 'ban_duration_2', 'ban_duration_3', 'ban_history_days', 'ban_net_after'].includes(s.name)))
 const valveSettings = computed(() => state.settings.filter((s) => s.name === 'ban_shared_ip_users'))
@@ -78,8 +87,34 @@ async function loadMore() {
 	}
 }
 
-onMounted(load)
-onActivated(load)
+/**
+ * Load the decoys, reserved names and trap paths.
+ */
+async function loadTraps() {
+	try {
+		traps.value = await fetchTraps()
+		trapsError.value = null
+	} catch (e) {
+		logger.error('Could not load the decoys', { error: e })
+		trapsError.value = errorMessage(e, t(APP_ID, 'The decoys could not be loaded. Please reload the page.'))
+	}
+}
+
+/**
+ * The trap lists are also settings of their checks; keep the check cards in step.
+ */
+function checksChanged() {
+	refreshChecks().catch((error) => logger.error('Could not reload the checks', { error }))
+}
+
+onMounted(() => {
+	load()
+	loadTraps()
+})
+onActivated(() => {
+	load()
+	loadTraps()
+})
 watch(showAll, () => {
 	bans.value = []
 	load()
@@ -109,7 +144,7 @@ function openDetection(ban: Ban) {
 
 <template>
 	<div :class="$style.blocks">
-		<section :class="$style.card" aria-labelledby="ids-bans-heading">
+		<section id="blocks-active" :class="$style.card" aria-labelledby="ids-bans-heading">
 			<header :class="$style.card__head">
 				<div>
 					<h3 id="ids-bans-heading" :class="$style.card__heading">
@@ -231,7 +266,38 @@ function openDetection(ban: Ban) {
 			</div>
 		</section>
 
-		<div :class="$style.blocks__explain">
+		<BlocklistsPanel id="blocks-lists" />
+
+		<NcNoteCard v-if="decoysObserveWhileLearning" type="info">
+			{{ t(APP_ID, 'While Nextcloud is learning, decoys only observe.') }}
+		</NcNoteCard>
+		<NcNoteCard v-if="trapsError" type="error" :text="trapsError" />
+		<div v-else-if="traps === null" :class="$style.skeleton" aria-busy="true">
+			<SkeletonBlock v-for="i in 2" :key="i" height="160px" />
+		</div>
+		<template v-else>
+			<DecoyCredentials
+				id="blocks-decoys"
+				:decoys="traps.decoys"
+				:check="traps.decoyCheck"
+				:collisions="traps.decoyCollisions"
+				@changed="traps.decoys = $event" />
+			<ReservedNamesCard
+				id="blocks-reserved"
+				:reserved="traps.reservedNames"
+				:check="traps.reservedCheck"
+				@changed="traps.reservedNames = $event; checksChanged()" />
+			<TrapPathsCard
+				v-if="advanced"
+				id="blocks-trap-paths"
+				:paths="traps.trapPaths"
+				:check="traps.trapCheck"
+				@changed="traps.trapPaths = $event; checksChanged()" />
+		</template>
+
+		<FirewallExportPanel v-if="advanced" id="blocks-firewall" />
+
+		<div v-if="advanced" id="blocks-escalation" :class="$style.blocks__explain">
 			<section :class="$style.card" aria-labelledby="ids-escalation-heading">
 				<h3 id="ids-escalation-heading" :class="$style.card__heading">
 					{{ t(APP_ID, 'How blocks escalate') }}
@@ -278,8 +344,6 @@ function openDetection(ban: Ban) {
 				</p>
 			</NcNoteCard>
 		</div>
-
-		<component :is="panel" v-for="(panel, index) in blocksPanels" :key="index" />
 
 		<LiftBanDialog :ban="liftTarget" @close="liftTarget = null" @lifted="load" />
 		<AddBanDialog v-model:open="adding" @added="load" />
