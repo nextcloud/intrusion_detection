@@ -32,9 +32,22 @@ class EmailAccountsTest extends TestCase {
 		$factory->method('createDistributed')->willReturn(new ArrayCache());
 		$accounts = new EmailAccounts($users, $factory);
 
-		$this->assertTrue($accounts->isCached());
 		$this->assertSame('alice', $accounts->only('Alice@Example.com'));
 		$this->assertSame('alice', $accounts->only('alice@example.com '), 'the same address, from the cache');
+	}
+
+	public function testAnAddressWithoutAccountsIsNotKept(): void {
+		$users = $this->createMock(IUserManager::class);
+		$users->expects($this->exactly(2))->method('getByEmail')->willReturn([]);
+		$cache = new ArrayCache();
+		$factory = $this->createMock(ICacheFactory::class);
+		$factory->method('isAvailable')->willReturn(true);
+		$factory->method('createDistributed')->willReturn($cache);
+		$accounts = new EmailAccounts($users, $factory);
+
+		$this->assertNull($accounts->only('made-up@example.com'));
+		$this->assertNull($accounts->only('made-up@example.com'), 'asked again');
+		$this->assertNull($cache->get('email:' . hash('sha256', 'made-up@example.com')));
 	}
 
 	public function testOnlyOneAccountCountsAndDisabledOnesOptionally(): void {
@@ -46,7 +59,6 @@ class EmailAccountsTest extends TestCase {
 		]);
 		$accounts = new EmailAccounts($users, $this->createMock(ICacheFactory::class));
 
-		$this->assertFalse($accounts->isCached());
 		$this->assertNull($accounts->only('shared@example.com'));
 		$this->assertNull($accounts->only('old@example.com'));
 		$this->assertSame('d', $accounts->only('old@example.com', true));

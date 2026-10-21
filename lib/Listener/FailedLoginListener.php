@@ -108,8 +108,9 @@ class FailedLoginListener implements IEventListener {
 			if (!$detectorsRun && !$counted) {
 				return;
 			}
-			// Without a memory cache an email address is only looked up for the checks that count per account.
-			$uid = $this->resolveUid($loginName, $counted || $this->emailAccounts->isCached() || $this->settings->modeState(AccountUnderAttack::ID)->runs());
+			// An email address is only looked up for what counts per account: core's lookup is slow, and a
+			// stuffing list rarely repeats an address. Credential stuffing counts login names, not accounts.
+			$uid = $this->resolveUid($loginName, $counted || $this->settings->modeState(AccountUnderAttack::ID)->runs());
 			if ($counted && $uid !== null) {
 				$this->step('failed_login_stats', fn () => $this->failedLoginStats->record($uid, $source));
 			}

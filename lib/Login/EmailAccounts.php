@@ -18,9 +18,11 @@ use OCP\IUserManager;
 /**
  * The accounts with an email address, for failed logins and reset requests
  * that use one. Core's lookup cannot use an index (and asks every user
- * backend, e.g. LDAP), and an attack repeats the same addresses, so the
- * answer is kept for TTL seconds in the memory cache. The cache key is a
- * hash of the address; the value holds only uids.
+ * backend, e.g. LDAP), and an attack on an account repeats its address, so
+ * an address that has accounts is kept for TTL seconds in the memory cache.
+ * An address without one is not kept: lists of made-up addresses rarely
+ * repeat one, and would only fill the cache. The cache key is a hash of the
+ * address; the value holds only uids.
  */
 class EmailAccounts {
 	public const TTL = 60;
@@ -32,13 +34,6 @@ class EmailAccounts {
 		private readonly IUserManager $userManager,
 		private readonly ICacheFactory $cacheFactory,
 	) {
-	}
-
-	/**
-	 * Whether lookups are cached, so that repeating one is cheap.
-	 */
-	public function isCached(): bool {
-		return $this->cache() !== null;
 	}
 
 	/**
@@ -65,7 +60,9 @@ class EmailAccounts {
 			return $accounts;
 		}
 		$accounts = array_values(array_map(static fn (IUser $u): array => ['uid' => $u->getUID(), 'enabled' => $u->isEnabled()], $this->userManager->getByEmail($email)));
-		$this->cache()?->set($key, $accounts, self::TTL);
+		if ($accounts !== []) {
+			$this->cache()?->set($key, $accounts, self::TTL);
+		}
 		return $accounts;
 	}
 

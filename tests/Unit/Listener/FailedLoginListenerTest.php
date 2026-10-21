@@ -106,7 +106,7 @@ class FailedLoginListenerTest extends TestCase {
 		$listener->handle(new AnyLoginFailedEvent('admin', 'secret'));
 	}
 
-	public function testWithoutAMemoryCacheAnEmailIsOnlyLookedUpForTheChecksThatCountPerAccount(): void {
+	public function testAnEmailIsOnlyLookedUpForTheChecksThatCountPerAccountEvenWithAMemoryCache(): void {
 		$settings = $this->createMock(Settings::class);
 		$settings->method('isEnabled')->willReturn(true);
 		$settings->method('modeState')->willReturnCallback(static fn (string $id): ModeState => $id === \OCA\IntrusionDetection\Check\Checks\AccountUnderAttack::ID
@@ -120,7 +120,10 @@ class FailedLoginListenerTest extends TestCase {
 		$users = $this->createMock(IUserManager::class);
 		$users->method('getUserNameFromLoginName')->willReturnArgument(0);
 		$users->expects($this->never())->method('getByEmail');
-		$emails = new \OCA\IntrusionDetection\Login\EmailAccounts($users, $this->createMock(\OCP\ICacheFactory::class));
+		$cached = $this->createMock(\OCP\ICacheFactory::class);
+		$cached->method('isAvailable')->willReturn(true);
+		$cached->method('createDistributed')->willReturn(new \OC\Memcache\ArrayCache());
+		$emails = new \OCA\IntrusionDetection\Login\EmailAccounts($users, $cached);
 
 		$listener = new FailedLoginListener(
 			$settings, $addresses, $recorder, $this->createMock(DecoyCredentialDetector::class), $this->createMock(ReservedNameDetector::class),
