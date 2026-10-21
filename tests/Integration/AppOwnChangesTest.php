@@ -27,9 +27,10 @@ use OCP\Server;
 use PHPUnit\Framework\Attributes\Group;
 
 /**
- * Settings the app changes on its own, and the learning period an
- * administrator starts, extends or ends, are no administration changes:
- * they are written to the audit log. The app's own listener sees them here
+ * Settings the app changes on its own, and changes of a running learning
+ * period, are no administration changes: they are written to the audit
+ * log. An administrator starting learning mode while the instance was
+ * protecting is, with high severity. The app's own listener sees them here
  * as in production (the tests run on the command line, as cron does).
  */
 #[Group('DB')]
@@ -74,21 +75,39 @@ class AppOwnChangesTest extends AdminChangeTestCase {
 		], self::$audit);
 	}
 
-	public function testAnAdministratorChangingThePeriodIsWrittenToTheAuditLogOnly(): void {
+	public function testAnAdministratorStartingLearningWhileProtectingIsOneHighAlert(): void {
 		$watch = Server::get(ConfigWatch::class);
 		$watch->run();
 		$learning = Server::get(LearningService::class);
 		$learning->start(7, $this->alice);
-		$learning->extend(3, 'occ');
-		$learning->stop($this->carol);
 
-		$this->assertSame(0, $watch->run());
-		$this->assertSame([], $this->adminChanges());
+		$changes = $this->adminChanges();
+		$this->assertCount(1, $changes);
+		$this->assertSame(WatchedSettings::ownKey(GlobalSettings::LEARNING_UNTIL), $this->facts($changes[0])['setting']);
+		$this->assertSame(Severity::High->value, $changes[0]->getSeverity());
+		$this->assertTrue($changes[0]->isEnforced(), 'Told although learning mode is on now');
+		$this->assertNotSame([], CapturingNotificationApp::$notifications, 'The administrators are notified');
+
+		// Changing the running period and ending it weaken nothing.
+		$learning->extend(3, 'occ');
+		$learning->start(14, $this->carol);
+		$learning->stop($this->carol);
+		$this->assertCount(1, $this->adminChanges());
+		$this->assertSame(0, $watch->run(), 'The watch does not report any of them again');
 		$this->assertSame([
+			'Intrusion detection: admin_change detected (high, enforced), source , account ',
 			'Intrusion detection: learning mode started for 7 days by ' . $this->alice,
 			'Intrusion detection: learning mode extended by 3 days by occ',
+			'Intrusion detection: learning mode started for 14 days by ' . $this->carol,
 			'Intrusion detection: learning mode ended by ' . $this->carol,
 		], self::$audit);
+	}
+
+	public function testExtendingWhileProtectingStartsLearningAndIsOneHighAlert(): void {
+		Server::get(LearningService::class)->extend(3, 'occ');
+		$changes = $this->adminChanges();
+		$this->assertCount(1, $changes);
+		$this->assertSame(Severity::High->value, $changes[0]->getSeverity());
 	}
 
 	public function testStartingLearningModeAroundTheAppIsStillReported(): void {

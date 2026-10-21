@@ -44,8 +44,8 @@ use Psr\Log\LoggerInterface;
  * - group administrators appointed;
  * - accounts created by an administrator or occ;
  * - apps switched on or off;
- * - this app's own settings changed through the app, except those the app
- *   changes on its own (learning mode, see {@see \OCA\IntrusionDetection\Learning\LearningService}).
+ * - this app's own settings changed through the app, except changes of the
+ *   learning period that do not start it ({@see \OCA\IntrusionDetection\Learning\LearningService}).
  *
  * With four-eyes approval on, an account added to the admin group from the
  * web interface or the provisioning API is taken out again at once and a
