@@ -117,7 +117,7 @@ class NoticeController extends Controller {
 			$yes ? $this->answers->confirm($user, $id) : $this->answers->deny($user, $id);
 		} catch (AnswerException $e) {
 			return $this->page($user, $redirectUrl, $e->reason === AnswerException::SESSION_NOT_ALLOWED
-				? $this->l->t('For your safety, "Yes, it was me" cannot be answered from the session this event is about. Answer from another device.')
+				? $this->l->t('For your safety, this answer cannot be given from this session. Answer from another device, after a login with your second factor or from a device you remembered.')
 				: $this->l->t('This event cannot be answered any more.'), status: Http::STATUS_BAD_REQUEST);
 		}
 		if (!$this->userSession->isLoggedIn()) {
@@ -126,7 +126,7 @@ class NoticeController extends Controller {
 		}
 		return $this->page($user, $redirectUrl, notice: $yes
 			? $this->l->t('Thank you. The network of this event is trusted for a while.')
-			: $this->l->t('Thank you. Nextcloud ended the sessions of this event and told your administrator.'));
+			: $this->l->t('Thank you. Your answer was recorded and your administrator was told.'));
 	}
 
 	private function page(IUser $user, string $redirectUrl, ?string $error = null, ?string $notice = null, int $status = Http::STATUS_OK): StandaloneTemplateResponse {

@@ -59,7 +59,7 @@ final class UserDenied implements ICheck, IExplainsDetection, IExplainsToUser, I
 				name: $l->t('A user said it was not them'),
 				summary: $l->t('A user answered "No, it was not me" about a security event of their account.'),
 				detects: $l->t('Users are asked "Was this you?" about logins and other events that may have been someone else. When they answer no, someone else has used their account or their password.'),
-				decides: $l->t('Ends the sessions and app passwords linked to the event, requires a new password when the event involved the password, blocks the address at the second level unless the answer comes from that very address, and marks its network, so that logins from there need extra confirmation for {flag_duration}.'),
+				decides: $l->t('Ends the sessions and app passwords linked to the event, requires a new password when the event involved the password, blocks the address at the second level unless the answer comes from that very address, and marks its network, so that logins from there need extra confirmation for {flag_duration}. When the answer comes from a session whose login proved no more than the password, it only tells the administrators.'),
 				wrong: $l->t('A user who does not recognise their own login, for example from a new phone. They lose that session and log in again. Lift the block if needed.'),
 				data: $l->t('Detections: the account, the event the answer was about and what was done.'),
 			),
@@ -70,12 +70,17 @@ final class UserDenied implements ICheck, IExplainsDetection, IExplainsToUser, I
 	/**
 	 * A new password only when the password was involved. No block when the
 	 * answer comes from the very address of the event: that would lock out
-	 * the person who answers.
+	 * the person who answers. From a session whose login proved no more than
+	 * the password, only the administrators are told: whoever has the
+	 * password could have answered.
 	 */
 	#[\Override]
 	public function responsesFor(DetectionDraft $draft, array $configured, array $params): array {
 		$password = ($draft->facts['passwordInvolved'] ?? false) === true;
 		$fromSource = ($draft->facts['answeredFromSource'] ?? false) === true;
+		if (($draft->facts['weakSession'] ?? false) === true) {
+			return in_array(ResponseType::NotifyAdmin, $configured, true) ? [ResponseType::NotifyAdmin] : [];
+		}
 		return array_values(array_filter($configured, static fn (ResponseType $r): bool => match ($r) {
 			ResponseType::ForcePasswordChange => $password,
 			ResponseType::Ban => !$fromSource,
@@ -92,6 +97,9 @@ final class UserDenied implements ICheck, IExplainsDetection, IExplainsToUser, I
 			$this->names->name($facts->string('check'), $l),
 			$this->dates->dateTime($facts->int('detectedAt', $detection->getCreatedAt())),
 		])];
+		if ($facts->bool('weakSession')) {
+			$sentences[] = $l->t('The answer came from a session whose login proved no more than the password, so nothing was ended or blocked. Check with the user that they answered themselves.');
+		}
 		$network = $facts->string('network');
 		if ($network !== '') {
 			$sentences[] = $l->t('Logins from the network %s need extra confirmation for a while.', [$network]);

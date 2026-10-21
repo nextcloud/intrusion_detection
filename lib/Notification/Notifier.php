@@ -283,8 +283,9 @@ class Notifier implements INotifier {
 	 * sees it, and only while the detection is still theirs.
 	 *
 	 * While the detection waits for an answer to "Was this you?", the
-	 * notification offers both answers. They carry only the detection id;
-	 * the endpoints check that it is the user's own.
+	 * notification offers both answers. "No" carries only the detection id;
+	 * the endpoint checks that it is the user's own. "Yes" needs the
+	 * password, so it opens the security page to answer there.
 	 */
 	private function prepareUserDetection(INotification $notification, string $languageCode): INotification {
 		$detection = $this->detectionOf($notification);
@@ -298,14 +299,19 @@ class Notifier implements INotifier {
 			->setLink($this->userLinks->securityPage());
 		if ($notification->getParsedActions() === [] && $this->questions->isOpen($detection)) {
 			$l = $this->l10nFactory->get(Application::APP_ID, $languageCode);
-			foreach ([self::ACTION_DENY => ['deny', $l->t('No, it was not me'), true], self::ACTION_CONFIRM => ['confirm', $l->t('Yes, it was me'), false]] as $label => [$route, $text, $primary]) {
-				$action = $notification->createAction();
-				$action->setLabel($label)
-					->setParsedLabel($text)
-					->setLink($this->urlGenerator->linkToOCSRouteAbsolute(Application::APP_ID . '.PersonalApi.' . $route, ['id' => $detection->getId()]), 'POST')
-					->setPrimary($primary);
-				$notification->addParsedAction($action);
-			}
+			$deny = $notification->createAction();
+			$deny->setLabel(self::ACTION_DENY)
+				->setParsedLabel($l->t('No, it was not me'))
+				->setLink($this->urlGenerator->linkToOCSRouteAbsolute(Application::APP_ID . '.PersonalApi.deny', ['id' => $detection->getId()]), 'POST')
+				->setPrimary(true);
+			$notification->addParsedAction($deny);
+			// "Yes" needs the password first, which the notification cannot ask: it opens the security page.
+			$confirm = $notification->createAction();
+			$confirm->setLabel(self::ACTION_CONFIRM)
+				->setParsedLabel($l->t('Yes, it was me'))
+				->setLink($this->userLinks->securityPage(), 'WEB')
+				->setPrimary(false);
+			$notification->addParsedAction($confirm);
 		}
 		return $notification;
 	}

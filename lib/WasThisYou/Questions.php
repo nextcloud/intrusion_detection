@@ -10,16 +10,17 @@ declare(strict_types=1);
 namespace OCA\IntrusionDetection\WasThisYou;
 
 use OCA\IntrusionDetection\Check\CheckRegistry;
-use OCA\IntrusionDetection\Check\Checks\AccountUnderAttack;
 use OCA\IntrusionDetection\Check\Checks\PasswordSpraying;
 use OCA\IntrusionDetection\Check\Checks\SecondFactorFailed;
 use OCA\IntrusionDetection\Check\Checks\StepUpFailed;
 use OCA\IntrusionDetection\Check\Checks\StepUpRefused;
 use OCA\IntrusionDetection\Check\Checks\StepUpRefusedClient;
 use OCA\IntrusionDetection\Check\Checks\StepUpUnconfirmed;
+use OCA\IntrusionDetection\Check\Checks\TokenConcurrentUse;
 use OCA\IntrusionDetection\Check\InvalidParamException;
 use OCA\IntrusionDetection\Db\Detection;
 use OCA\IntrusionDetection\Explain\IAsksWasThisYou;
+use OCA\IntrusionDetection\Net\SourceKey;
 use Psr\Container\ContainerInterface;
 
 /**
@@ -32,7 +33,9 @@ use Psr\Container\ContainerInterface;
  */
 class Questions {
 	/** Checks whose every detection about an account asks */
-	public const ALWAYS = [SecondFactorFailed::ID, AccountUnderAttack::ID, 'token_concurrent_use'];
+	public const ALWAYS = [SecondFactorFailed::ID];
+	/** Checks whose detections involve two addresses: an answer says nothing about either */
+	public const TWO_SOURCES = [TokenConcurrentUse::ID];
 
 	/** Checks whose detections involve the account's password: "No" also requires a new one */
 	public const PASSWORD_INVOLVED = [
@@ -73,7 +76,24 @@ class Questions {
 	}
 
 	public function involvesPassword(Detection $detection): bool {
-		return in_array($detection->getCheckId(), self::PASSWORD_INVOLVED, true);
+		if (in_array($detection->getCheckId(), self::PASSWORD_INVOLVED, true)) {
+			return true;
+		}
+		$facts = $detection->getExplanationData()['facts'] ?? [];
+		return $detection->getCheckId() === TokenConcurrentUse::ID
+			&& is_array($facts) && ($facts['kind'] ?? null) === TokenConcurrentUse::KIND_PASSWORD;
+	}
+
+	/**
+	 * The address an answer is about: the one to block on "No" and to
+	 * trust on "Yes". None for detections that involve two addresses.
+	 */
+	public static function answerSource(Detection $detection): ?SourceKey {
+		if (in_array($detection->getCheckId(), self::TWO_SOURCES, true)) {
+			return null;
+		}
+		$ip = $detection->getIp();
+		return $ip === null ? null : SourceKey::tryFromIp($ip);
 	}
 
 	/**

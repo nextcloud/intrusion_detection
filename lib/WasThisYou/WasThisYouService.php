@@ -15,41 +15,44 @@ use OCA\IntrusionDetection\Check\Checks\UserDenied;
 use OCA\IntrusionDetection\Check\Mode;
 use OCA\IntrusionDetection\Config\ModeState;
 use OCA\IntrusionDetection\Config\Settings;
-use OCA\IntrusionDetection\Confirm\StepUpService;
+use OCA\IntrusionDetection\Confirm\SessionConfirmation;
 use OCA\IntrusionDetection\Db\Detection;
 use OCA\IntrusionDetection\Db\DetectionMapper;
 use OCA\IntrusionDetection\Detection\DetectionDraft;
 use OCA\IntrusionDetection\Event\WasThisYouAnsweredEvent;
 use OCA\IntrusionDetection\Net\RemoteAddressResolver;
-use OCA\IntrusionDetection\Net\SourceKey;
 use OCA\IntrusionDetection\Notification\UserAlerts;
 use OCA\IntrusionDetection\Response\FlaggedSources;
 use OCA\IntrusionDetection\Response\ResponseEngine;
 use OCA\IntrusionDetection\Response\SessionKiller;
 use OCA\IntrusionDetection\SessionState\CurrentSession;
-use OCA\IntrusionDetection\SessionState\SessionState;
 use OCA\IntrusionDetection\TrustedNetwork\TrustedNetworks;
 use OCP\AppFramework\Db\DoesNotExistException;
 use OCP\AppFramework\Utility\ITimeFactory;
 use OCP\EventDispatcher\IEventDispatcher;
-use OCP\ISession;
 use OCP\IUser;
 use OCP\Notification\IManager as INotificationManager;
 
 /**
  * The answers to "Was this you?" (concept section 11.8). Only ever about
- * the answering user's own detections, one answer per detection.
+ * the answering user's own detections, one answer per detection. Neither
+ * answer is taken from an app password or from a session whose own login
+ * is unconfirmed ({@see SessionConfirmation}).
  *
- * - "No, it was not me" needs no confirmation: whoever clicks it can only
- *   lock out the other party. It ends the sessions and app passwords linked
- *   to the detection, requires a new password when the password was
- *   involved, blocks the address at the second level (unless the answer
- *   comes from that address), marks its network, and tells the
- *   administrators (detection `user_denied`, high).
- * - "Yes, it was me" (the controller asks for the password first) is
- *   refused from the session the detection is about, and from sessions
- *   whose own login was not confirmed: an attacker in the account must not
+ * - "No, it was not me" ends the sessions and app passwords linked to the
+ *   detection, requires a new password when the password was involved,
+ *   blocks the address at the second level (unless the answer comes from
+ *   that address), marks its network, and tells the administrators
+ *   (detection `user_denied`, high). From a session whose login proved no
+ *   more than the password, which an attacker could have, the answer is
+ *   recorded and the administrators are told, but nothing else is done.
+ * - "Yes, it was me" (the controller asks for the password first) needs a
+ *   session whose login proved more than the password, and not the
+ *   session the detection is about: an attacker in the account must not
  *   vouch for themselves. It trusts the detection's network for the user.
+ *
+ * Detections that involve two addresses ({@see Questions::TWO_SOURCES})
+ * never block, mark or trust a network on an answer.
  *
  * Both are audited and dispatch {@see WasThisYouAnsweredEvent}.
  */
@@ -68,8 +71,7 @@ class WasThisYouService {
 		private readonly SessionKiller $sessionKiller,
 		private readonly CurrentSession $currentSession,
 		private readonly RemoteAddressResolver $addresses,
-		private readonly SessionState $state,
-		private readonly ISession $session,
+		private readonly SessionConfirmation $confirmation,
 		private readonly INotificationManager $notifications,
 		private readonly IEventDispatcher $dispatcher,
 		private readonly AuditLogger $audit,
@@ -82,9 +84,14 @@ class WasThisYouService {
 	 */
 	public function deny(IUser $user, int $detectionId): Detection {
 		$detection = $this->ownOpen($user, $detectionId);
-		$this->claim($detection, $user, Detection::VERDICT_DENIED);
 		$uid = $user->getUID();
-		$source = $detection->getIp() === null ? null : SourceKey::tryFromIp($detection->getIp());
+		$level = $this->confirmation->level($uid);
+		if ($level === SessionConfirmation::UNCONFIRMED) {
+			throw new AnswerException(AnswerException::SESSION_NOT_ALLOWED);
+		}
+		$this->claim($detection, $user, Detection::VERDICT_DENIED);
+		$weak = $level !== SessionConfirmation::PROVEN;
+		$source = Questions::answerSource($detection);
 		$current = $this->addresses->current();
 		$sessions = Questions::sessionTokens($detection);
 		$tokenId = Questions::tokenId($detection);
@@ -102,7 +109,8 @@ class WasThisYouService {
 					'detectedAt' => $detection->getCreatedAt(),
 					'passwordInvolved' => $this->questions->involvesPassword($detection),
 					'answeredFromSource' => $source !== null && $current !== null && $source->ipKey === $current->ipKey,
-					'network' => $source?->netKey,
+					'network' => $weak ? null : $source?->netKey,
+					'weakSession' => $weak,
 					'sessionTokenIds' => $sessions,
 					'tokenId' => $tokenId,
 				],
@@ -116,16 +124,16 @@ class WasThisYouService {
 				$this->deniedCheck->responsesFor($draft, $this->settings->responses(UserDenied::ID), []),
 				new ModeState($mode, $mode),
 			);
-			if ($mode->acts()) {
+			if ($mode->acts() && !$weak) {
 				foreach (array_slice($sessions, 1) as $sessionTokenId) {
 					$this->sessionKiller->kill($uid, $sessionTokenId, null, $denial?->getId());
 				}
-			}
-			if ($source !== null && $mode->acts()) {
-				$this->flags->flagNetwork($source, FlaggedSources::REASON_USER_DENIED, $denial?->getId());
+				if ($source !== null) {
+					$this->flags->flagNetwork($source, FlaggedSources::REASON_USER_DENIED, $denial?->getId());
+				}
 			}
 		}
-		if ($source !== null) {
+		if ($source !== null && !$weak) {
 			$this->trustedNetworks->distrust($uid, $source);
 		}
 		$this->finish($detection, $user, Detection::VERDICT_DENIED);
@@ -142,7 +150,7 @@ class WasThisYouService {
 			throw new AnswerException(AnswerException::SESSION_NOT_ALLOWED);
 		}
 		$this->claim($detection, $user, Detection::VERDICT_CONFIRMED);
-		$source = $detection->getIp() === null ? null : SourceKey::tryFromIp($detection->getIp());
+		$source = Questions::answerSource($detection);
 		if ($source !== null) {
 			$this->trustedNetworks->trust($user->getUID(), $source, $detection->getId());
 		}
@@ -153,20 +161,15 @@ class WasThisYouService {
 
 	/**
 	 * Whether the current session may say "Yes, it was me" about the
-	 * detection: not the session (or app password) it is about, not an app
-	 * password session, and not a session whose own login was not confirmed.
+	 * detection: its login proved more than the password, and it is not the
+	 * session (or app password) the detection is about.
 	 */
 	public function maySessionVouch(Detection $detection): bool {
 		$current = $this->currentSession->tokenId();
-		if ($current === null || $this->session->exists('app_password')) {
+		if ($current === null || $detection->getUid() === null || !$this->confirmation->isProven($detection->getUid())) {
 			return false;
 		}
-		if (in_array($current, Questions::sessionTokens($detection), true) || $current === Questions::tokenId($detection)) {
-			return false;
-		}
-		$confirmation = $this->state->get(SessionState::CONFIRMATION);
-		return ($confirmation['by'] ?? null) !== StepUpService::CONFIRMED_BY_NONE
-			&& $this->state->get(SessionState::STEP_UP) === null;
+		return !in_array($current, Questions::sessionTokens($detection), true) && $current !== Questions::tokenId($detection);
 	}
 
 	/**

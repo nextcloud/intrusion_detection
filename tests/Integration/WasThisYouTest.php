@@ -11,17 +11,21 @@ namespace OCA\IntrusionDetection\Tests\Integration;
 
 use OCA\IntrusionDetection\AppInfo\Application;
 use OCA\IntrusionDetection\Audit\AuditLogger;
+use OCA\IntrusionDetection\Check\Checks\AccountUnderAttack;
 use OCA\IntrusionDetection\Check\Checks\BreachedPassword;
 use OCA\IntrusionDetection\Check\Checks\LoginFlowMismatch;
 use OCA\IntrusionDetection\Check\Checks\SecondFactorFailed;
 use OCA\IntrusionDetection\Check\Checks\StepUpUnconfirmed;
+use OCA\IntrusionDetection\Check\Checks\TokenConcurrentUse;
 use OCA\IntrusionDetection\Check\Checks\UserDenied;
 use OCA\IntrusionDetection\Check\Mode;
 use OCA\IntrusionDetection\Check\Severity;
 use OCA\IntrusionDetection\Config\GlobalSettings;
 use OCA\IntrusionDetection\Config\Keys;
+use OCA\IntrusionDetection\Confirm\IConfirmationMethod;
 use OCA\IntrusionDetection\Confirm\LoginDetections;
 use OCA\IntrusionDetection\Confirm\StepUpPolicy;
+use OCA\IntrusionDetection\Confirm\StepUpState;
 use OCA\IntrusionDetection\Controller\PersonalApiController;
 use OCA\IntrusionDetection\Db\BanMapper;
 use OCA\IntrusionDetection\Db\Detection;
@@ -123,6 +127,7 @@ class WasThisYouTest extends StepUpTestCase {
 		$detection = $this->detection(SecondFactorFailed::ID, $this->alice, ['sessionTokenId' => $suspicious['id']]);
 		$this->session->id = $other['secret'];
 		$this->sessionUser = $this->alice;
+		$this->prove($this->alice);
 
 		$this->answers()->deny($this->alice, $detection->getId());
 
@@ -153,7 +158,7 @@ class WasThisYouTest extends StepUpTestCase {
 	}
 
 	public function testNoAboutAConnectedDeviceRevokesItWithoutANewPassword(): void {
-		$this->startSession($this->alice);
+		$this->provenSession($this->alice);
 		$device = $this->token($this->alice, IToken::PERMANENT_TOKEN, 'Phished desktop app');
 		$detection = $this->detection(LoginFlowMismatch::ID, $this->alice, ['tokenId' => $device['id']], Severity::Medium);
 		$this->answers()->deny($this->alice, $detection->getId());
@@ -163,7 +168,7 @@ class WasThisYouTest extends StepUpTestCase {
 
 	public function testNoFromTheEventsOwnAddressDoesNotLockOutTheOneWhoAnswers(): void {
 		$this->remoteAddress = self::ATTACKER;
-		$this->startSession($this->alice);
+		$this->provenSession($this->alice);
 		$detection = $this->detection(SecondFactorFailed::ID, $this->alice);
 		$this->answers()->deny($this->alice, $detection->getId());
 		$this->assertSame([], Server::get(BanMapper::class)->findActiveForKeys([SourceKey::fromIp(self::ATTACKER)->ipKey], time()));
@@ -173,25 +178,25 @@ class WasThisYouTest extends StepUpTestCase {
 
 	public function testNoActsEvenWhileLearning(): void {
 		$this->appConfig->setValueInt(Application::APP_ID, GlobalSettings::LEARNING_UNTIL, time() + 86400);
-		$this->startSession($this->alice);
+		$this->provenSession($this->alice);
 		$detection = $this->detection(SecondFactorFailed::ID, $this->alice);
 		$this->answers()->deny($this->alice, $detection->getId());
 		$this->assertNotSame([], Server::get(BanMapper::class)->findActiveForKeys([SourceKey::fromIp(self::ATTACKER)->ipKey], time()), 'It is the account holder\'s decision');
 	}
 
 	public function testEachDetectionTakesOneAnswer(): void {
-		$this->startSession($this->alice);
+		$this->provenSession($this->alice);
 		$detection = $this->detection(SecondFactorFailed::ID, $this->alice);
 		$this->answers()->deny($this->alice, $detection->getId());
 		$this->assertAnswerFails(AnswerException::ANSWERED, fn () => $this->answers()->deny($this->alice, $detection->getId()));
-		$this->startSession($this->alice);
+		$this->provenSession($this->alice);
 		$this->assertAnswerFails(AnswerException::ANSWERED, fn () => $this->answers()->confirm($this->alice, $detection->getId()));
 		$this->assertCount(1, $this->detectionsOf(UserDenied::ID));
 		$this->assertFalse(Server::get(DetectionMapper::class)->setVerdict($detection->getId(), $this->alice->getUID(), Detection::VERDICT_CONFIRMED, time()), 'Also when two answers race');
 	}
 
 	public function testYesIsRefusedFromTheSessionTheDetectionIsAbout(): void {
-		$suspicious = $this->startSession($this->alice);
+		$suspicious = $this->provenSession($this->alice);
 		$byFact = $this->detection(SecondFactorFailed::ID, $this->alice, ['sessionTokenId' => $suspicious['id']]);
 		$byLink = $this->detection(StepUpUnconfirmed::ID, $this->alice, [LoginDetections::FACT => [12345, $suspicious['id']], 'policies' => ['flagged_source']]);
 		$byToken = $this->detection(LoginFlowMismatch::ID, $this->alice, ['tokenId' => $suspicious['id']], Severity::Medium);
@@ -213,12 +218,86 @@ class WasThisYouTest extends StepUpTestCase {
 
 		$this->session->clear();
 		$this->session->id = 'no-token-' . bin2hex(random_bytes(8));
+		$this->prove($this->alice);
 		$this->assertAnswerFails(AnswerException::SESSION_NOT_ALLOWED, fn () => $this->answers()->confirm($this->alice, $detection->getId()), 'A session whose token is unknown');
+
+		$this->session->clear();
+		$this->startSession($this->alice);
+		$this->assertAnswerFails(AnswerException::SESSION_NOT_ALLOWED, fn () => $this->answers()->confirm($this->alice, $detection->getId()), 'A login that proved only the password');
+		$this->prove($this->alice);
+		$this->answers()->confirm($this->alice, $detection->getId());
+		$this->assertSame(Detection::VERDICT_CONFIRMED, Server::get(DetectionMapper::class)->findById($detection->getId())->getUserVerdict(), 'A login that proved its second factor');
+	}
+
+	public function testNoIsRefusedFromUnconfirmedSessions(): void {
+		$detection = $this->detection(SecondFactorFailed::ID, $this->alice);
+		$this->startSession($this->alice);
+		$this->state->set(SessionState::CONFIRMATION, ['uid' => $this->alice->getUID(), 'by' => 'none', 'policies' => [StepUpPolicy::FlaggedSource->value], 'at' => time()]);
+		$this->assertAnswerFails(AnswerException::SESSION_NOT_ALLOWED, fn () => $this->answers()->deny($this->alice, $detection->getId()), 'A login let in without a confirmation');
+
+		$this->session->clear();
+		$this->startSession($this->alice);
+		$this->state->set(SessionState::STEP_UP, (new StepUpState($this->alice->getUID(), StepUpState::PENDING, ['flagged_source'], time(), time() + 900))->toArray());
+		$this->assertAnswerFails(AnswerException::SESSION_NOT_ALLOWED, fn () => $this->answers()->deny($this->alice, $detection->getId()), 'A login that waits for its confirmation');
+
+		$this->session->clear();
+		$this->startSession($this->alice);
+		$this->session->set('app_password', 'xxx');
+		$this->assertAnswerFails(AnswerException::SESSION_NOT_ALLOWED, fn () => $this->answers()->deny($this->alice, $detection->getId()), 'An app password');
+		$this->assertNull(Server::get(DetectionMapper::class)->findById($detection->getId())->getUserVerdict());
+		$this->assertSame([], $this->detectionsOf(UserDenied::ID));
+	}
+
+	public function testNoFromALoginThatProvedOnlyThePasswordOnlyTellsTheAdministrators(): void {
+		$suspicious = $this->token($this->alice, IToken::TEMPORARY_TOKEN, 'The owner\'s session');
+		Server::get(TrustedNetworks::class)->trust($this->alice->getUID(), SourceKey::fromIp(self::ATTACKER));
+		$detection = $this->detection(SecondFactorFailed::ID, $this->alice, ['sessionTokenId' => $suspicious['id']]);
+		$this->startSession($this->alice);
+
+		$this->answers()->deny($this->alice, $detection->getId());
+
+		$this->assertSame(Detection::VERDICT_DENIED, Server::get(DetectionMapper::class)->findById($detection->getId())->getUserVerdict(), 'The answer is recorded');
+		$denial = $this->detectionsOf(UserDenied::ID)[0];
+		$this->assertTrue($denial->getExplanationData()['facts']['weakSession']);
+		$this->assertNotEmpty($this->notificationsFor('admin', AdminAlerts::SUBJECT), 'The administrators are told');
+		$this->assertTrue($this->tokenExists($suspicious['id']), 'No session is ended');
+		$this->assertSame([], Server::get(BanMapper::class)->findActiveForKeys([SourceKey::fromIp(self::ATTACKER)->ipKey], time()), 'Nothing is blocked');
+		$this->assertNull(Server::get(FlaggedSources::class)->sourceFlag(SourceKey::fromIp(self::ATTACKER)), 'Nothing is marked');
+		$this->assertFalse(Server::get(PasswordChangeFlag::class)->isRequired($this->alice->getUID()), 'No new password: whoever answered may know it');
+		$this->assertTrue(Server::get(TrustedNetworks::class)->isTrusted($this->alice->getUID(), SourceKey::fromIp(self::ATTACKER)));
+	}
+
+	public function testAnswersAboutATokenUsedFromTwoPlacesNeverBlockMarkOrTrustANetwork(): void {
+		$this->provenSession($this->alice);
+		$facts = ['ip1' => '198.51.100.30', 'net1' => '198.51.100.0/24', 'ip2' => self::ATTACKER, 'net2' => '203.0.113.0/24', 'kind' => 'password', 'scheme' => 'basic'];
+		$password = $this->detection(TokenConcurrentUse::ID, $this->alice, $facts);
+		$this->assertTrue(Server::get(Questions::class)->asks($password));
+		$this->assertTrue(Server::get(Questions::class)->involvesPassword($password), 'The password was sent from both places');
+		$this->answers()->deny($this->alice, $password->getId());
+		$this->assertTrue(Server::get(PasswordChangeFlag::class)->isRequired($this->alice->getUID()));
+		$this->assertSame([], Server::get(BanMapper::class)->findActiveForKeys([SourceKey::fromIp(self::ATTACKER)->ipKey, SourceKey::fromIp('198.51.100.30')->ipKey], time()), 'Either address may be the account holder\'s');
+		$this->assertNull(Server::get(FlaggedSources::class)->sourceFlag(SourceKey::fromIp(self::ATTACKER)));
+		$this->assertNull(Server::get(FlaggedSources::class)->sourceFlag(SourceKey::fromIp('198.51.100.30')));
+
+		$appPassword = $this->token($this->alice, IToken::PERMANENT_TOKEN, 'Phone');
+		$token = $this->detection(TokenConcurrentUse::ID, $this->alice, ['kind' => 'app_password', 'tokenId' => $appPassword['id']] + $facts);
+		$this->assertFalse(Server::get(Questions::class)->involvesPassword($token));
+		$this->answers()->deny($this->alice, $token->getId());
+		$this->assertFalse($this->tokenExists($appPassword['id']), 'The app password is revoked');
+
+		$yes = $this->detection(TokenConcurrentUse::ID, $this->alice, ['kind' => 'session'] + $facts);
+		$this->answers()->confirm($this->alice, $yes->getId());
+		$this->assertSame([], Server::get(TrustedNetworks::class)->forUser($this->alice->getUID()), 'No network is trusted');
+	}
+
+	public function testAnAccountUnderAttackDoesNotAsk(): void {
+		$detection = $this->detection(AccountUnderAttack::ID, $this->alice);
+		$this->assertFalse(Server::get(Questions::class)->asks($detection), 'Nobody got in: there is nothing to recognise');
 	}
 
 	public function testYesTrustsTheNetworkSoThatFlaggedSourcesNoLongerAsk(): void {
 		$detection = $this->detection(SecondFactorFailed::ID, $this->alice);
-		$this->startSession($this->alice);
+		$this->provenSession($this->alice);
 		$this->answers()->confirm($this->alice, $detection->getId());
 
 		$this->assertSame(Detection::VERDICT_CONFIRMED, Server::get(DetectionMapper::class)->findById($detection->getId())->getUserVerdict());
@@ -250,14 +329,14 @@ class WasThisYouTest extends StepUpTestCase {
 		$actions = $prepare($detection)->getParsedActions();
 		$this->assertCount(2, $actions);
 		$this->assertSame(['No, it was not me', 'Yes, it was me'], array_map(static fn ($a): string => $a->getParsedLabel(), $actions));
-		foreach ($actions as $action) {
-			$this->assertSame('POST', $action->getRequestType());
-			$this->assertMatchesRegularExpression('#/ocs/v2\.php/apps/intrusion_detection/api/v1/personal/detections/' . $detection->getId() . '/(deny|confirm)$#', $action->getLink(), 'Only the detection id');
-		}
+		$this->assertSame('POST', $actions[0]->getRequestType());
+		$this->assertMatchesRegularExpression('#/ocs/v2\.php/apps/intrusion_detection/api/v1/personal/detections/' . $detection->getId() . '/deny$#', $actions[0]->getLink(), 'Only the detection id');
+		$this->assertSame('WEB', $actions[1]->getRequestType(), '"Yes" needs the password, which the notification cannot ask');
+		$this->assertStringContainsString('/settings/user/security', $actions[1]->getLink());
 		$this->assertSame([], $prepare($plain)->getParsedActions());
 		$this->assertStringContainsString('Was this you?', $prepare($detection)->getParsedMessage());
 
-		$this->startSession($this->alice);
+		$this->provenSession($this->alice);
 		$this->answers()->confirm($this->alice, $detection->getId());
 		$this->assertSame([], $prepare($detection)->getParsedActions(), 'Answered');
 	}
@@ -266,7 +345,7 @@ class WasThisYouTest extends StepUpTestCase {
 		$bob = $this->user('ids-wty-bob2', 'bob@example.com');
 		$mine = $this->detection(SecondFactorFailed::ID, $this->alice, ['loginFailures' => 3, 'hourFailures' => 3, 'providerName' => 'TOTP']);
 		$this->detection(SecondFactorFailed::ID, $bob);
-		$this->startSession($this->alice);
+		$this->provenSession($this->alice);
 
 		$response = $this->controller()->detections();
 		$this->assertSame(Http::STATUS_OK, $response->getStatus());
@@ -283,7 +362,7 @@ class WasThisYouTest extends StepUpTestCase {
 	public function testThePersonalApiAnswersAndManagesTrustedNetworks(): void {
 		$bob = $this->user('ids-wty-bob3', 'bob@example.com');
 		$detection = $this->detection(SecondFactorFailed::ID, $this->alice);
-		$this->startSession($this->alice);
+		$this->provenSession($this->alice);
 		$this->assertSame(Http::STATUS_NOT_FOUND, $this->controller()->deny(999999999)->getStatus());
 		$response = $this->controller()->confirm($detection->getId());
 		$this->assertSame(Http::STATUS_OK, $response->getStatus());
@@ -299,7 +378,7 @@ class WasThisYouTest extends StepUpTestCase {
 		$this->assertSame(['removed' => $networks[0]['id']], $this->controller()->removeTrustedNetwork($networks[0]['id'])->getData());
 		$this->assertSame([], $this->controller()->trustedNetworks()->getData());
 
-		$suspicious = $this->startSession($this->alice);
+		$suspicious = $this->provenSession($this->alice);
 		$own = $this->detection(SecondFactorFailed::ID, $this->alice, ['sessionTokenId' => $suspicious['id']]);
 		$refused = $this->controller()->confirm($own->getId());
 		$this->assertSame(Http::STATUS_FORBIDDEN, $refused->getStatus());
@@ -340,6 +419,21 @@ class WasThisYouTest extends StepUpTestCase {
 		return $detection;
 	}
 
+	/**
+	 * A session whose login passed the second factor.
+	 *
+	 * @return array{id: int, secret: string}
+	 */
+	private function provenSession(IUser $user): array {
+		$token = $this->startSession($user);
+		$this->prove($user);
+		return $token;
+	}
+
+	private function prove(IUser $user): void {
+		$this->sessionConfirmation()->proved($user->getUID(), IConfirmationMethod::SECOND_FACTOR);
+	}
+
 	private function answers(): WasThisYouService {
 		return new WasThisYouService(
 			Server::get(DetectionMapper::class),
@@ -352,8 +446,7 @@ class WasThisYouTest extends StepUpTestCase {
 			$this->sessionKiller(),
 			$this->currentSession,
 			$this->addresses(),
-			$this->state,
-			$this->session,
+			$this->sessionConfirmation(),
 			Server::get(INotificationManager::class),
 			Server::get(IEventDispatcher::class),
 			Server::get(AuditLogger::class),

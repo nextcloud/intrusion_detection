@@ -69,7 +69,7 @@ const answer = computed(() => {
 	const at = dateTime(props.event.verdictAt, timeZone.value)
 	return props.event.verdict === 'confirmed'
 		? t(APP_ID, 'You answered "Yes, it was me" on {date}. Its network is trusted for a while.', { date: at })
-		: t(APP_ID, 'You answered "No, it was not me" on {date}. Nextcloud ended the sessions of this event and told your administrators.', { date: at })
+		: t(APP_ID, 'You answered "No, it was not me" on {date}. Your administrators were told.', { date: at })
 })
 
 /**
@@ -100,8 +100,8 @@ async function deny() {
 	try {
 		const event = await denyEvent(props.event.id)
 		emit('answered', event)
-		announce(t(APP_ID, 'Thank you. Nextcloud ended the sessions of this event and told your administrators.'))
-		showSuccess(t(APP_ID, 'Thank you. Nextcloud ended the sessions of this event and told your administrators.'))
+		announce(t(APP_ID, 'Thank you. Your answer was recorded and your administrators were told.'))
+		showSuccess(t(APP_ID, 'Thank you. Your answer was recorded and your administrators were told.'))
 		personal.networksVersion++
 		refreshOverview()
 	} catch (error) {
@@ -120,7 +120,7 @@ function failed(error: unknown) {
 	}
 	if (isRefusedFromThisSession(error)) {
 		refused.value = true
-		announce(t(APP_ID, '"Yes, it was me" cannot be answered from this session.'))
+		announce(t(APP_ID, 'This answer cannot be given from this session.'))
 		return
 	}
 	logger.error('Could not answer "Was this you?"', { error })
@@ -201,7 +201,7 @@ const denyButtons = computed(() => [
 				</NcButton>
 			</div>
 			<p v-if="!canConfirm" :class="$style.question__note" data-test="confirm-elsewhere">
-				{{ t(APP_ID, 'For your safety, "Yes, it was me" cannot be answered from the session this event is about, or from a login that was not confirmed. Answer from another device, or log out and log in again.') }}
+				{{ t(APP_ID, 'For your safety, "Yes, it was me" needs a login with your second factor, a confirmed login, or a remembered device, and not the session this event is about. Answer from another device.') }}
 			</p>
 		</div>
 		<p v-else-if="answer" :class="$style.event__answer" data-test="answer">
@@ -262,7 +262,7 @@ const denyButtons = computed(() => [
 			:buttons="denyButtons"
 			size="normal">
 			<p :class="$style.dialog">
-				{{ t(APP_ID, 'Nextcloud will end the sessions and app passwords that came with this event, block the address it came from and tell your administrators. If your password was involved, you will choose a new one at your next login.') }}
+				{{ t(APP_ID, 'Nextcloud will end the sessions and app passwords that came with this event, block the address it came from and tell your administrators. If your password was involved, you will choose a new one at your next login. After a login with only your password, only your administrators are told.') }}
 			</p>
 		</NcDialog>
 	</li>
