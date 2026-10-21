@@ -9,6 +9,7 @@ declare(strict_types=1);
 
 namespace OCA\IntrusionDetection\Tests\Integration;
 
+use OCA\IntrusionDetection\Address\AddressResolver;
 use OCA\IntrusionDetection\AppInfo\Application;
 use OCA\IntrusionDetection\Check\Checks\AccountUnderAttack;
 use OCA\IntrusionDetection\Check\Checks\CredentialStuffing;
@@ -20,6 +21,7 @@ use OCA\IntrusionDetection\Config\GlobalSettings;
 use OCA\IntrusionDetection\Db\AttemptKind;
 use OCA\IntrusionDetection\Db\BanMapper;
 use OCA\IntrusionDetection\Db\FlagMapper;
+use OCA\IntrusionDetection\Db\LoginHistoryMapper;
 use OCA\IntrusionDetection\Db\LoginMapper;
 use OCA\IntrusionDetection\Explain\NarrativeBuilder;
 use OCA\IntrusionDetection\Net\SourceKey;
@@ -102,9 +104,42 @@ class CredentialStuffingTest extends LoginFailureTestCase {
 		$this->assertSame(CredentialStuffing::RULE_NETWORK, $facts['rule']);
 		$this->assertSame('203.0.113.0/24', $facts['net']);
 		$this->assertSame(30, $facts['sources']);
-		// Every address of the network that took part is blocked, and with that the network.
+		// No address failed twice: the attempts are spread over the network, so the network itself is blocked.
 		$this->assertCount(1, $this->bans->findActiveForKeys(['203.0.113.0/24'], time()));
-		$this->assertCount(1, $this->bans->findActiveForKeys(['203.0.113.17'], time()));
+		$this->assertSame([], $this->bans->findActiveForKeys(['203.0.113.17'], time()));
+		$this->assertTrue(Server::get(AddressResolver::class)->resolve(SourceKey::fromIp('203.0.113.17'))->isDenied(time()));
+		$this->assertTrue(Server::get(AddressResolver::class)->resolve(SourceKey::fromIp('203.0.113.200'))->isDenied(time()));
+	}
+
+	public function testANetworkBlocksOnlyItsAddressesThatFailedTwiceForTwoNames(): void {
+		// 7 addresses guess 4 names each; a neighbour mistyped once.
+		for ($i = 1; $i <= 7; $i++) {
+			for ($n = 0; $n < 4; $n++) {
+				$this->storeAttempt('203.0.113.' . $i, 'name' . ($i * 4 + $n));
+			}
+		}
+		$this->storeAttempt('203.0.113.50', 'neighbour');
+		$this->failLogin('203.0.113.51', 'another-neighbour');
+		$detections = $this->detectionsOf(CredentialStuffing::ID);
+		$this->assertCount(1, $detections);
+		$this->assertSame(CredentialStuffing::RULE_NETWORK, $detections[0]->getExplanationData()['facts']['rule']);
+		for ($i = 1; $i <= 7; $i++) {
+			$this->assertCount(1, $this->bans->findActiveForKeys(['203.0.113.' . $i], time()), (string)$i);
+		}
+		$this->assertSame([], $this->bans->findActiveForKeys(['203.0.113.50'], time()), 'One mistyped password');
+		$this->assertSame([], $this->bans->findActiveForKeys(['203.0.113.51'], time()), 'The failure that tipped the network over, also just one');
+	}
+
+	public function testANetworkAnAdministratorUsesIsNotBlockedAsAWhole(): void {
+		Server::get(LoginHistoryMapper::class)->insert('admin', time() - 3600, SourceKey::fromIp('203.0.113.200'), null, 'password', false, 'none', null, null);
+		for ($i = 1; $i <= 29; $i++) {
+			$this->storeAttempt('203.0.113.' . $i, 'name' . ($i % 15));
+		}
+		$this->failLogin('203.0.113.30', 'name0');
+		$detections = $this->detectionsOf(CredentialStuffing::ID);
+		$this->assertCount(1, $detections);
+		$this->assertSame(0, $this->rows('ids_bans'));
+		$this->assertSame(['banned' => 0, 'already' => 0, 'skipped' => 0, 'lure' => 0, 'trusted' => 1, 'proxy' => 0], $detections[0]->getActionList()[0]['ref']['counts']);
 	}
 
 	public function testANetworkBelowThreeTimesTheNumbersDoesNotFire(): void {

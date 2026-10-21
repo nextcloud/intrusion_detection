@@ -34,6 +34,9 @@ final class DetectionDraft {
 
 	/** @var list<SourceKey> */
 	private array $extraBanTargets = [];
+	private bool $banSource = true;
+	/** @var list<SourceKey> */
+	private array $networkBanTargets = [];
 	/** @var list<string> */
 	private array $passwordFingerprints = [];
 	/** @var list<ResponseType> */
@@ -73,6 +76,34 @@ final class DetectionDraft {
 	}
 
 	/**
+	 * The ban response does not block `$source` itself, only the further
+	 * targets: for network rules whose triggering address did too little
+	 * on its own.
+	 */
+	public function spareSource(): void {
+		$this->banSource = false;
+	}
+
+	/**
+	 * The ban response blocks the IPv4 /24 of this address as a whole, under
+	 * the safety rules of a network block ({@see \OCA\IntrusionDetection\Response\BanService::banNetwork()}).
+	 */
+	public function addNetworkBanTarget(SourceKey $member): void {
+		$this->networkBanTargets[] = $member;
+	}
+
+	/**
+	 * @return list<SourceKey> one address of each network to block
+	 */
+	public function networkBanTargets(): array {
+		$unique = [];
+		foreach ($this->networkBanTargets as $member) {
+			$unique[$member->netKey] = $member;
+		}
+		return array_values($unique);
+	}
+
+	/**
 	 * Hex password fingerprints for the flag_password response. They are
 	 * handed to that response only and never stored with the detection.
 	 *
@@ -103,13 +134,28 @@ final class DetectionDraft {
 	}
 
 	/**
+	 * The addresses the ban response blocks: `$source` unless spared, and the further targets.
+	 *
 	 * @return list<SourceKey>
 	 */
 	public function banTargets(): array {
-		$targets = $this->source !== null ? [$this->source] : [];
-		foreach ($this->extraBanTargets as $target) {
-			$targets[] = $target;
-		}
+		return $this->unique($this->source !== null && $this->banSource ? [$this->source, ...$this->extraBanTargets] : $this->extraBanTargets);
+	}
+
+	/**
+	 * The addresses the detection implicates: `$source`, spared or not, and the further targets.
+	 *
+	 * @return list<SourceKey>
+	 */
+	public function sources(): array {
+		return $this->unique($this->source !== null ? [$this->source, ...$this->extraBanTargets] : $this->extraBanTargets);
+	}
+
+	/**
+	 * @param list<SourceKey> $targets
+	 * @return list<SourceKey>
+	 */
+	private function unique(array $targets): array {
 		$unique = [];
 		foreach ($targets as $target) {
 			$unique[$target->ipKey] = $target;

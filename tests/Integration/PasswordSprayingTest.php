@@ -102,9 +102,13 @@ class PasswordSprayingTest extends LoginFailureTestCase {
 		$this->assertSame([], $this->detectionsOf(PasswordSpraying::ID));
 	}
 
-	public function testALaterAttemptWithAFlaggedPasswordIsBlockedAtOnce(): void {
+	public function testALaterAttemptWithAFlaggedPasswordIsBlockedForTheSecondAccount(): void {
 		$this->spray(5);
 		$this->failLogin('203.0.113.99', 'someone-new', self::SPRAYED);
+		$this->assertSame([], $this->bans->findActiveForKeys(['203.0.113.99'], time()), 'One account: someone whose own password is the sprayed one');
+		$this->assertSame([], array_values(array_filter($this->detectionsOf(PasswordSpraying::ID), static fn ($d): bool => $d->getIp() === '203.0.113.99')));
+
+		$this->failLogin('203.0.113.99', 'someone-else', self::SPRAYED);
 		$this->assertCount(1, $this->bans->findActiveForKeys(['203.0.113.99'], time()));
 		$joined = array_values(array_filter(
 			$this->detectionsOf(PasswordSpraying::ID),
@@ -112,6 +116,9 @@ class PasswordSprayingTest extends LoginFailureTestCase {
 		));
 		$this->assertCount(1, $joined);
 		$this->assertSame(PasswordSpraying::RULE_FLAGGED, $joined[0]->getExplanationData()['facts']['rule']);
+		$this->assertSame(2, $joined[0]->getExplanationData()['facts']['names']);
+		$narrative = Server::get(NarrativeBuilder::class)->build($joined[0], Server::get(IFactory::class)->get(Application::APP_ID, 'en'));
+		$this->assertStringContainsString('for 2 accounts itself', implode(' ', $narrative->happened));
 	}
 
 	public function testASprayingSourceThatComesBackKeepsItsSprayDetection(): void {

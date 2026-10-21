@@ -88,7 +88,7 @@ final class PasswordSpraying implements ICheck, IExplainsDetection, ISimulatable
 				name: $l->t('Password spraying'),
 				summary: $l->t('One password is tried against many different accounts.'),
 				detects: $l->t('Instead of trying many passwords for one account, attackers try one common password, such as "Summer2026!", against every account they know. They use many addresses, so that no address and no account sees more than a failure or two.'),
-				decides: $l->t('Fires when the same password fails for at least {min_names} different accounts within {window}, no matter from how many addresses. Blocking blocks the address of that failure and every address that tried the password for at least 2 accounts itself. A successful login with that password while it is marked fires again for that account: blocking and marking apply to the failures, extra confirmation, the user notice and the new password to the successful login.'),
+				decides: $l->t('Fires when the same password fails for at least {min_names} different accounts within {window}, no matter from how many addresses. Blocking blocks the address of that failure and every address that tried the password for at least 2 accounts itself; addresses that try the password later, while it is marked, are blocked once they tried it for 2 accounts. A successful login with that password while it is marked fires again for that account: blocking and marking apply to the failures, extra confirmation, the user notice and the new password to the successful login.'),
 				wrong: $l->t('Several people who were all given the same initial password and mistype it, or a shared device with an old saved password. Successful logins with the password need confirmation and a new password; nobody who knows their own password is locked out.'),
 				data: $l->t('Failed logins: the address, a fingerprint of the account name and of the password, and the time, deleted after 1 hour. The password itself is never stored. When this check fires, the password fingerprint is kept for at most a day, so that logins with it need confirmation.'),
 				params: [
@@ -148,7 +148,10 @@ final class PasswordSpraying implements ICheck, IExplainsDetection, ISimulatable
 			return $sentences;
 		}
 		if ($facts->string('rule') === self::RULE_FLAGGED) {
-			return [$l->t('The address %s tried a password that is being tried against many accounts right now, so it was treated as part of that attack at once.', [(string)$detection->getIp()])];
+			$names = $facts->int('names');
+			return [$names > 0
+				? $l->t('The address %1$s tried a password that is being tried against many accounts right now, for %2$s accounts itself, so it was treated as part of that attack.', [(string)$detection->getIp(), (string)$names])
+				: $l->t('The address %s tried a password that is being tried against many accounts right now, so it was treated as part of that attack at once.', [(string)$detection->getIp()])];
 		}
 		$sentences = [
 			$l->t('Between %1$s and %2$s one password was tried against %3$s different accounts, from %4$s different addresses.', [

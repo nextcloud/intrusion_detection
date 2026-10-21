@@ -117,6 +117,29 @@ class BanServiceTest extends IntegrationTestCase {
 		$this->assertNull($fourth->netBan);
 	}
 
+	public function testANetworkCanBeBlockedAsAWhole(): void {
+		$result = $this->bans->banNetwork(SourceKey::fromIp('198.51.100.7'), 'credential_stuffing', 5);
+		$this->assertSame(BanResult::BANNED, $result->outcome);
+		$this->assertSame('198.51.100.0/24', $result->ban?->getCidr());
+		$this->assertSame(Ban::SCOPE_NET, $result->ban?->getScope());
+		$this->assertSame(1, $result->ban?->getLevel());
+		$this->assertSame(BanResult::ALREADY, $this->bans->banNetwork(SourceKey::fromIp('198.51.100.99'), 'credential_stuffing')->outcome);
+		$this->assertSame(BanResult::SKIPPED_NEVER, $this->bans->banNetwork(SourceKey::fromIp('2001:db8::1'), 'credential_stuffing')->outcome, 'Only an IPv4 /24');
+	}
+
+	public function testANetworkBlockedAsAWholeFollowsTheSafetyRules(): void {
+		$this->loginsFromTheNetwork();
+		$this->assertSame(BanResult::SKIPPED_SHARED, $this->bans->banNetwork(SourceKey::fromIp('198.51.100.7'), 'credential_stuffing')->outcome);
+		$this->appConfig->setValueString('bruteForce', 'whitelist_1', '203.0.113.200/32');
+		try {
+			$this->assertSame(BanResult::SKIPPED_NEVER, $this->freshService()->banNetwork(SourceKey::fromIp('203.0.113.7'), 'credential_stuffing')->outcome);
+		} finally {
+			$this->appConfig->deleteKey('bruteForce', 'whitelist_1');
+		}
+		Server::get(LoginHistoryMapper::class)->insert('admin', time(), SourceKey::fromIp('192.0.2.200'), null, 'password', false, 'none', null, null);
+		$this->assertSame(BanResult::SKIPPED_TRUSTED, $this->bans->banNetwork(SourceKey::fromIp('192.0.2.7'), 'credential_stuffing')->outcome);
+	}
+
 	public function testIpv6IsAlwaysBlockedAsTheSlash64(): void {
 		$result = $this->bans->ban(SourceKey::fromIp('2001:db8:1:2::7'), 'trap_url');
 		$this->assertSame('2001:db8:1:2::/64', $result->ban?->getCidr());

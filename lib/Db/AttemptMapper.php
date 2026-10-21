@@ -100,35 +100,6 @@ class AttemptMapper {
 	}
 
 	/**
-	 * The distinct ip keys among attempts where `$column` matches, at most `$limit`.
-	 *
-	 * @param 'ip_key'|'net_key'|'pw_fp'|'uid'|'share_id'|'name_hmac' $column
-	 * @param list<string|int> $values
-	 * @param list<AttemptKind> $kinds
-	 * @return list<string>
-	 */
-	public function distinctIpKeys(string $column, array $values, array $kinds, int $since, int $limit): array {
-		if (!in_array($column, self::KEY_COLUMNS, true)) {
-			throw new \InvalidArgumentException('Not an indexed key column: ' . $column);
-		}
-		if ($values === []) {
-			return [];
-		}
-		$qb = $this->db->getQueryBuilder();
-		$type = $column === 'share_id' ? IQueryBuilder::PARAM_INT_ARRAY : IQueryBuilder::PARAM_STR_ARRAY;
-		$qb->selectDistinct('ip_key')
-			->from(self::TABLE)
-			->where($qb->expr()->in($column, $qb->createNamedParameter($values, $type)))
-			->andWhere($qb->expr()->gte('created_at', $qb->createNamedParameter($since, IQueryBuilder::PARAM_INT)))
-			->setMaxResults($limit);
-		$this->whereKinds($qb, $kinds);
-		$result = $qb->executeQuery();
-		$keys = array_map('strval', $result->fetchFirstColumn());
-		$result->closeCursor();
-		return $keys;
-	}
-
-	/**
 	 * The distinct existing accounts among attempts where `$column` matches,
 	 * at most `$limit`, for the targets an explanation lists.
 	 *
@@ -237,6 +208,27 @@ class AttemptMapper {
 		$qb->where($qb->expr()->eq('ip_key', $qb->createNamedParameter($ipKey)))
 			->andWhere($qb->expr()->gte('created_at', $qb->createNamedParameter($since, IQueryBuilder::PARAM_INT)))
 			->andWhere($qb->expr()->eq('share_id', $qb->createNamedParameter($shareId, IQueryBuilder::PARAM_INT)));
+		$this->whereKinds($qb, $kinds);
+		return $this->fetchStats($qb);
+	}
+
+	/**
+	 * Counts over the attempts of one source with one of the given password
+	 * fingerprints, for "this address tried the password for N accounts".
+	 * Uses the ip_key index; the fingerprints are a filter on the few rows
+	 * of one address.
+	 *
+	 * @param list<string> $fingerprints
+	 * @param list<AttemptKind> $kinds
+	 */
+	public function statsForSourceWithPasswords(string $ipKey, #[\SensitiveParameter] array $fingerprints, array $kinds, int $since): AttemptStats {
+		if ($fingerprints === []) {
+			return new AttemptStats();
+		}
+		$qb = $this->statsQuery();
+		$qb->where($qb->expr()->eq('ip_key', $qb->createNamedParameter($ipKey)))
+			->andWhere($qb->expr()->gte('created_at', $qb->createNamedParameter($since, IQueryBuilder::PARAM_INT)))
+			->andWhere($qb->expr()->in('pw_fp', $qb->createNamedParameter($fingerprints, IQueryBuilder::PARAM_STR_ARRAY)));
 		$this->whereKinds($qb, $kinds);
 		return $this->fetchStats($qb);
 	}

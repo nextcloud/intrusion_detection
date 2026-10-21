@@ -185,6 +185,21 @@ class ShareBruteforceTest extends RequestEventTestCase {
 		$this->assertSame([], $this->bans->findActiveForKeys(['198.51.100.0/24'], time()), 'and the network is not');
 	}
 
+	public function testTheLinkThatTipsANetworkOverDoesNotBlockItsAddress(): void {
+		$n = 0;
+		foreach (['198.51.100.1' => 10, '198.51.100.2' => 10, '198.51.100.3' => 9] as $ip => $tokens) {
+			for ($i = 0; $i < $tokens; $i++) {
+				$this->storeUnknownToken(SourceKey::fromIp($ip), 'tipToken' . $n++, 1);
+			}
+		}
+		$this->openUnknownLink('198.51.100.60', 'oneOutdatedLink');
+		$detections = $this->detectionsOf(ShareBruteforce::ID);
+		$this->assertCount(1, $detections);
+		$this->assertSame(ShareBruteforce::RULE_TOKENS_NETWORK, $detections[0]->getExplanationData()['facts']['rule']);
+		$this->assertNotSame([], $this->bans->findActiveForKeys(['198.51.100.1'], time()));
+		$this->assertSame([], $this->bans->findActiveForKeys(['198.51.100.60'], time()), 'One outdated link never blocks an address');
+	}
+
 	public function testIpv6IsCountedPerSlash64(): void {
 		for ($i = 1; $i <= 10; $i++) {
 			$this->openUnknownLink('2001:db8:1:2::' . dechex($i), 'v6Token' . $i);

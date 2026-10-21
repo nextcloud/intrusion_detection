@@ -110,11 +110,17 @@ class ShareBruteforceDetector {
 			userAgent: $userAgent,
 			lure: $attempt->lure,
 		);
+		$sourceIsTarget = false;
 		foreach ($this->attempts->distinctNamesPerSource('net_key', $source->netKey, $kinds, $since, self::MAX_NET_TARGETS) as $ipKey => $tokens) {
 			$target = $tokens > self::STALE_TOLERANCE ? SourceKey::tryFromIpKey($ipKey) : null;
 			if ($target !== null) {
 				$draft->addBanTarget($target);
+				$sourceIsTarget = $sourceIsTarget || $target->ipKey === $source->ipKey;
 			}
+		}
+		if (!$sourceIsTarget) {
+			// One or two outdated links never get an address blocked, not even the one that tipped the network over.
+			$draft->spareSource();
 		}
 		$this->handle($draft, $params);
 	}

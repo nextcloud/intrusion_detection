@@ -110,6 +110,35 @@ class BanService {
 	}
 
 	/**
+	 * Block the IPv4 /24 of an address as a whole, for a network rule whose
+	 * addresses each did too little to be blocked alone. The same safety
+	 * rules as for a network block by escalation apply: never over
+	 * loopback, the server or the allowlist, and never a network many
+	 * people, a reverse proxy or an administrator log in from.
+	 *
+	 * @param ?string $uid the account the detection is about, for the exemptions of checks about one account
+	 */
+	public function banNetwork(SourceKey $member, string $checkId, ?int $detectionId = null, ?string $uid = null): BanResult {
+		if ($member->family !== 4) {
+			return new BanResult(BanResult::SKIPPED_NEVER);
+		}
+		$netKey = $member->netKey;
+		$now = $this->timeFactory->getTime();
+		return $this->locks->run('ban', $netKey, function () use ($netKey, $checkId, $detectionId, $uid, $now): BanResult {
+			$existing = $this->activeFor([$netKey], $now);
+			if ($existing !== null) {
+				return new BanResult(BanResult::ALREADY, $existing);
+			}
+			$exempt = $this->exemptions->forNetwork($netKey, new KeyMatch([$netKey]), $now, $checkId, $uid);
+			if ($exempt !== null) {
+				return $exempt;
+			}
+			$level = $this->levelFor($netKey, $now, null);
+			return new BanResult(BanResult::BANNED, $this->insert($netKey, Ban::SCOPE_NET, $netKey, $level, $checkId, $detectionId, $now, $now + $this->durationFor($level)));
+		});
+	}
+
+	/**
 	 * Whether a block of this address that was held back (a shared address,
 	 * a reverse proxy) should be reported now, see {@see BanExemptions::firstReport()}.
 	 */

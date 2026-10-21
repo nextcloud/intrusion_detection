@@ -19,8 +19,8 @@ use OCA\IntrusionDetection\Response\ResponseOutcome;
 use OCP\IL10N;
 
 /**
- * Flags the detection's sources, so that successful logins from them need
- * extra confirmation for a while.
+ * Flags the detection's sources, and the networks it blocks as a whole, so
+ * that successful logins from them need extra confirmation for a while.
  */
 class FlagSourceHandler implements IResponseHandler, IDescribesAction {
 	public function __construct(
@@ -35,13 +35,17 @@ class FlagSourceHandler implements IResponseHandler, IDescribesAction {
 
 	#[\Override]
 	public function apply(ResponseContext $context): ResponseOutcome {
-		$targets = $context->draft->banTargets();
-		if ($targets === []) {
+		$targets = $context->draft->sources();
+		$networks = $context->draft->networkBanTargets();
+		if ($targets === [] && $networks === []) {
 			return ResponseOutcome::skipped(ResponseOutcome::NOTE_NOTHING_TO_DO);
 		}
 		$until = 0;
 		foreach ($targets as $target) {
 			$until = $this->flags->flagSource($target, FlaggedSources::REASON_ATTACK, $context->detection->getId());
+		}
+		foreach ($networks as $member) {
+			$this->flags->flagNetwork($member, FlaggedSources::REASON_ATTACK, $context->detection->getId());
 		}
 		return ResponseOutcome::done(['sources' => count($targets), 'until' => $until]);
 	}

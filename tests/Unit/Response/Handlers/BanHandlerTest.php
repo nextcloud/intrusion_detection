@@ -170,6 +170,21 @@ class BanHandlerTest extends TestCase {
 		$this->assertSame(1, $outcome->ref['counts']['skipped']);
 	}
 
+	public function testASparedSourceIsNotBlockedButANetworkIs(): void {
+		$draft = new DetectionDraft(checkId: 'credential_stuffing', source: SourceKey::fromIp('198.51.100.7'));
+		$draft->spareSource();
+		$draft->addNetworkBanTarget(SourceKey::fromIp('198.51.100.9'));
+		$net = $this->ban();
+		$net->setCidr('198.51.100.0/24');
+		$bans = $this->createMock(BanService::class);
+		$bans->expects($this->never())->method('ban');
+		$bans->expects($this->once())->method('banNetwork')->with(SourceKey::fromIp('198.51.100.9'), 'credential_stuffing', 5)->willReturn(new BanResult(BanResult::BANNED, $net));
+		$outcome = $this->handler($bans)->apply($this->context($draft));
+		$this->assertTrue($outcome->enforced);
+		$this->assertSame('198.51.100.0/24', $outcome->ref['bans'][0]['cidr']);
+		$this->assertSame(1, $outcome->ref['counts']['banned']);
+	}
+
 	public function testTheBanKnowsTheAccountOfTheDetection(): void {
 		$bans = $this->createMock(BanService::class);
 		$bans->expects($this->once())->method('ban')->with(SourceKey::fromIp('198.51.100.7'), 'account_under_attack', 5, null, 'alice')->willReturn(new BanResult(BanResult::BANNED, $this->ban()));

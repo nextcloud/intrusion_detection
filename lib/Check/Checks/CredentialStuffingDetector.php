@@ -34,8 +34,10 @@ use OCP\IMemcache;
  *
  * 1. Single source: the address has at least `min_failures` failures for at
  *    least `min_names` different login names within `window`. An IPv4 /24 is
- *    held to `net_factor` times these numbers. Both are lowered for an
- *    address with an elevated or high risk score ({@see RiskScorer::limits()}).
+ *    held to `net_factor` times these numbers; then its addresses with at
+ *    least 2 failures for 2 names are blocked, or the /24 itself when none
+ *    has. Both are lowered for an address with an elevated or high risk
+ *    score ({@see RiskScorer::limits()}).
  * 2. Distributed: the whole server has at least the distributed numbers of
  *    failures, addresses and names within 10 minutes. That records one
  *    detection per 30 minutes while it lasts. During it, and for an hour
@@ -55,6 +57,9 @@ class CredentialStuffingDetector {
 	public const EVALUATE_EVERY = 30;
 	/** A network detection blocks at most this many of its addresses */
 	public const MAX_NET_TARGETS = 256;
+	/** A network detection blocks those of its addresses that failed this often for this many names */
+	public const NET_MEMBER_MIN_FAILURES = 2;
+	public const NET_MEMBER_MIN_NAMES = 2;
 
 	private ?IMemcache $cache = null;
 	private bool $cacheInitialised = false;
@@ -114,17 +119,41 @@ class CredentialStuffingDetector {
 					merge: DetectionDraft::MERGE_SOURCE,
 					userAgent: $userAgent,
 				);
-				foreach ($this->attempts->distinctIpKeys('net_key', [$source->netKey], self::KINDS, $since, self::MAX_NET_TARGETS) as $ipKey) {
-					$target = SourceKey::tryFromIpKey($ipKey);
-					if ($target !== null) {
-						$draft->addBanTarget($target);
-					}
-				}
+				$this->addNetworkTargets($draft, $since);
 				$this->engine->handle($draft);
 			}
 		}
 
 		$this->distributed($attempt, $state, $params, $window === self::DISTRIBUTED_WINDOW ? $ip : null);
+	}
+
+	/**
+	 * The addresses of the network that each failed at least
+	 * NET_MEMBER_MIN_FAILURES times for NET_MEMBER_MIN_NAMES names; a
+	 * neighbour who mistyped once is no target. When none did, the attack
+	 * is spread thinly over the network, and the /24 itself is the target.
+	 */
+	private function addNetworkTargets(DetectionDraft $draft, int $since): void {
+		$source = $draft->source;
+		if ($source === null) {
+			return;
+		}
+		$targets = [];
+		foreach ($this->attempts->countsPerSource('net_key', [$source->netKey], self::KINDS, $since, self::MAX_NET_TARGETS) as $ipKey => $counts) {
+			$target = $counts['failures'] >= self::NET_MEMBER_MIN_FAILURES && $counts['names'] >= self::NET_MEMBER_MIN_NAMES ? SourceKey::tryFromIpKey((string)$ipKey) : null;
+			if ($target !== null) {
+				$targets[$target->ipKey] = $target;
+			}
+		}
+		if (!isset($targets[$source->ipKey])) {
+			$draft->spareSource();
+		}
+		foreach ($targets as $target) {
+			$draft->addBanTarget($target);
+		}
+		if ($targets === []) {
+			$draft->addNetworkBanTarget($source);
+		}
 	}
 
 	/**

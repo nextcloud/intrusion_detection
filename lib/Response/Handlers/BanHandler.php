@@ -14,6 +14,7 @@ use OCA\IntrusionDetection\Check\Checks\ShareBruteforce;
 use OCA\IntrusionDetection\Check\Checks\SharedAddress;
 use OCA\IntrusionDetection\Check\Checks\TrapUrl;
 use OCA\IntrusionDetection\Check\ResponseType;
+use OCA\IntrusionDetection\Db\Ban;
 use OCA\IntrusionDetection\Detection\DetectionDraft;
 use OCA\IntrusionDetection\Explain\DateFormatter;
 use OCA\IntrusionDetection\Explain\IDescribesAction;
@@ -85,15 +86,23 @@ class BanHandler implements IResponseHandler, IDescribesAction {
 			$counts[$result->outcome === BanResult::ALREADY ? 'already' : 'banned']++;
 			foreach ([$result->ban, $result->netBan] as $ban) {
 				if ($ban !== null && count($listed) < self::MAX_LISTED) {
-					$listed[$ban->getId()] = [
-						'id' => $ban->getId(),
-						'reference' => $ban->getDisplayReference(),
-						'cidr' => $ban->getCidr(),
-						'level' => $ban->getLevel(),
-						'forced' => $draft->banLevel !== null,
-						'until' => $ban->getExpiresAt(),
-					];
+					$listed[$ban->getId()] = $this->listed($ban, $draft);
 				}
+			}
+		}
+		foreach ($draft->networkBanTargets() as $member) {
+			$result = $this->bans->banNetwork($member, $draft->checkId, $context->detection->getId(), $draft->uid);
+			if ($result->ban === null) {
+				$counts[match ($result->outcome) {
+					BanResult::SKIPPED_TRUSTED => 'trusted',
+					BanResult::SKIPPED_PROXY => 'proxy',
+					default => 'skipped',
+				}]++;
+				continue;
+			}
+			$counts[$result->outcome === BanResult::ALREADY ? 'already' : 'banned']++;
+			if (count($listed) < self::MAX_LISTED) {
+				$listed[$result->ban->getId()] = $this->listed($result->ban, $draft);
 			}
 		}
 		$ref = ['bans' => array_values($listed), 'counts' => $counts];
@@ -154,6 +163,20 @@ class BanHandler implements IResponseHandler, IDescribesAction {
 			);
 		}
 		return $sentences;
+	}
+
+	/**
+	 * @return array{id: int, reference: string, cidr: string, level: int, forced: bool, until: int}
+	 */
+	private function listed(Ban $ban, DetectionDraft $draft): array {
+		return [
+			'id' => $ban->getId(),
+			'reference' => $ban->getDisplayReference(),
+			'cidr' => $ban->getCidr(),
+			'level' => $ban->getLevel(),
+			'forced' => $draft->banLevel !== null,
+			'until' => $ban->getExpiresAt(),
+		];
 	}
 
 	private function reportShared(DetectionDraft $draft, SourceKey $target, int $users, bool $proxy): void {

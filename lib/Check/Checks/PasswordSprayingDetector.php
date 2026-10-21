@@ -31,7 +31,7 @@ use OCP\ICacheFactory;
  * password login.
  *
  * - A failed attempt with a password that is already flagged blocks its
- *   address at once.
+ *   address once it tried that password for MIN_NAMES_TO_BLOCK accounts.
  * - Otherwise: attempts with the same password fingerprint within `window`
  *   (at most one hour) for at least `min_names` different login names fire.
  *   The limit is lowered when the failing address has an elevated or high
@@ -161,14 +161,22 @@ class PasswordSprayingDetector {
 	}
 
 	/**
-	 * An address that joins a spray already detected: blocked at once,
-	 * without evaluating the whole spray again.
+	 * An address that joins a spray already detected: blocked once it tried
+	 * the password for MIN_NAMES_TO_BLOCK accounts itself, like the other
+	 * addresses of the spray, without evaluating the whole spray again.
+	 * Someone who mistyped their own password, which happens to be the
+	 * sprayed one, is no target.
 	 */
 	private function banJoiningSource(#[\SensitiveParameter] AttemptRecord $attempt, ?string $userAgent): void {
+		$window = $this->settings->paramInt(PasswordSpraying::ID, 'window');
+		$own = $this->attempts->statsForSourceWithPasswords($attempt->source->ipKey, $attempt->passwordCandidates, self::KINDS, $attempt->time - $window);
+		if ($own->distinctNames < PasswordSpraying::MIN_NAMES_TO_BLOCK) {
+			return;
+		}
 		$this->engine->handle(new DetectionDraft(
 			checkId: PasswordSpraying::ID,
 			source: $attempt->source,
-			facts: ['rule' => PasswordSpraying::RULE_FLAGGED],
+			facts: ['rule' => PasswordSpraying::RULE_FLAGGED, 'names' => $own->distinctNames],
 			merge: DetectionDraft::MERGE_SOURCE,
 			userAgent: $userAgent,
 		), array_values(array_filter(
