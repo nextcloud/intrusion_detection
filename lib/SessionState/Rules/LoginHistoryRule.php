@@ -21,8 +21,8 @@ use Psr\Log\LoggerInterface;
 /**
  * Links a browser session's token to its row of the login history on the
  * session's first request: core creates the token only after the login
- * event. Never blocks a request; costs one lookup in the session once the
- * row is linked.
+ * event. The marker goes with it, so that later requests of the session
+ * have nothing to check. Never blocks a request.
  */
 class LoginHistoryRule implements ISessionStateRule {
 	public function __construct(
@@ -35,7 +35,12 @@ class LoginHistoryRule implements ISessionStateRule {
 	#[\Override]
 	public function check(SessionState $state, RequestTarget $target): ?SessionBlock {
 		$marker = $state->all()[SessionState::LOGIN_HISTORY] ?? null;
-		if (!is_array($marker) || ($marker['linked'] ?? true) !== false) {
+		if (!is_array($marker)) {
+			return null;
+		}
+		if (($marker['linked'] ?? false) === true) {
+			// A marker that is linked already has nothing left to do.
+			$state->remove(SessionState::LOGIN_HISTORY);
 			return null;
 		}
 		try {

@@ -36,7 +36,9 @@ use OCP\AppFramework\Utility\ITimeFactory;
  *   per credential, address and hour through to the indexed check.
  * - Browser sessions get their session token linked on their first request
  *   ({@see \OCA\IntrusionDetection\SessionState\Rules\LoginHistoryRule}),
- *   since core creates the token after the login event.
+ *   since core creates the token after the login event. The session marker
+ *   goes then, so that later requests have nothing to check; later updates
+ *   of the row find it by the session's token.
  *
  * Never a password, token or session id: only the token's database id.
  */
@@ -71,6 +73,8 @@ class LoginHistory {
 	public const HISTORY_INTERVAL = 86400;
 	/** A confirmation recorded this recently belongs to the login being recorded */
 	private const CONFIRMATION_AGE = 60;
+	/** A session's own login is looked up this far back by its token */
+	private const SESSION_LOOKBACK = 86400;
 
 	public function __construct(
 		private readonly LoginHistoryMapper $mapper,
@@ -136,27 +140,32 @@ class LoginHistory {
 	}
 
 	/**
-	 * Link the current session's token to its login, once.
+	 * Link the current session's token to its login, once, and drop the
+	 * session marker.
 	 *
 	 * @param array<string, mixed> $marker
 	 */
 	public function link(array $marker, ?string $currentUid): void {
 		$uid = $marker['uid'] ?? null;
 		$id = $marker['id'] ?? null;
-		if (!is_string($uid) || !is_int($id) || $uid !== $currentUid) {
-			$this->state->remove(SessionState::LOGIN_HISTORY);
-			return;
-		}
-		$tokenId = $this->currentSession->tokenId();
+		$tokenId = is_string($uid) && is_int($id) && $uid === $currentUid ? $this->currentSession->tokenId() : null;
 		if ($tokenId !== null) {
-			$this->mapper->setSessionToken($id, $uid, $tokenId);
+			$this->mapper->setSessionToken($id, (string)$uid, $tokenId);
 		}
-		$this->state->set(SessionState::LOGIN_HISTORY, ['uid' => $uid, 'id' => $id, 'linked' => true]);
+		$this->state->remove(SessionState::LOGIN_HISTORY);
 	}
 
+	/**
+	 * The row of the current session's login: from the session marker until
+	 * it is linked, then by the session's token.
+	 */
 	private function rowOf(string $uid): ?int {
 		$marker = $this->state->get(SessionState::LOGIN_HISTORY);
-		return $marker !== null && ($marker['uid'] ?? null) === $uid && is_int($marker['id'] ?? null) ? $marker['id'] : null;
+		if ($marker !== null) {
+			return ($marker['uid'] ?? null) === $uid && is_int($marker['id'] ?? null) ? $marker['id'] : null;
+		}
+		$tokenId = $this->currentSession->tokenId();
+		return $tokenId === null ? null : $this->mapper->idForSessionToken($uid, $tokenId, $this->timeFactory->getTime() - self::SESSION_LOOKBACK);
 	}
 
 	/**

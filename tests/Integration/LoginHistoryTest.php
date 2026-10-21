@@ -71,7 +71,16 @@ class LoginHistoryTest extends StepUpTestCase {
 
 		$this->historyRule()->check($this->state, RequestTarget::dav('PROPFIND', '/'));
 		$this->assertSame($token['id'], $this->historyOf($this->alice)[0]->sessionTokenId);
-		$this->assertTrue($this->state->get(SessionState::LOGIN_HISTORY)['linked'] ?? false, 'Linked once');
+		$this->assertNull($this->state->get(SessionState::LOGIN_HISTORY), 'Linked once; the session has nothing left to check');
+		$this->assertTrue($this->state->isEmpty());
+	}
+
+	public function testALaterSecondFactorFindsTheLinkedRowByTheSessionToken(): void {
+		$this->startSession($this->alice);
+		$this->loginAndRecord($this->alice);
+		$this->historyRule()->check($this->state, RequestTarget::dav('PROPFIND', '/'));
+		$this->historyListener()->handle(new TwoFactorProviderChallengePassed($this->alice, $this->createMock(IProvider::class)));
+		$this->assertSame([null, 'second_factor'], $this->outcome($this->alice));
 	}
 
 	public function testTheRowSaysHowALoginThatNeededConfirmationWasConfirmed(): void {

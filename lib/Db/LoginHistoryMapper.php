@@ -116,6 +116,25 @@ class LoginHistoryMapper {
 	}
 
 	/**
+	 * The newest login of the account since a time that the session token
+	 * is linked to.
+	 */
+	public function idForSessionToken(string $uid, int $tokenId, int $since): ?int {
+		$qb = $this->db->getQueryBuilder();
+		$qb->select('id')
+			->from(self::TABLE)
+			->where($qb->expr()->eq('uid', $qb->createNamedParameter($uid)))
+			->andWhere($qb->expr()->gte('created_at', $qb->createNamedParameter($since, IQueryBuilder::PARAM_INT)))
+			->andWhere($qb->expr()->eq('session_token_id', $qb->createNamedParameter($tokenId, IQueryBuilder::PARAM_INT)))
+			->orderBy('id', 'DESC')
+			->setMaxResults(1);
+		$result = $qb->executeQuery();
+		$id = $result->fetchOne();
+		$result->closeCursor();
+		return $id === false ? null : (int)$id;
+	}
+
+	/**
 	 * Whether the account logged in from this address since a time with a
 	 * login that went through: it needed nothing, or it was confirmed.
 	 */
