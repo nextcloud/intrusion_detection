@@ -171,7 +171,8 @@ class Notifier implements INotifier {
 				default => null,
 			};
 			if ($label !== null) {
-				$action->setParsedLabel($label);
+				// Both change protection and need the password, which the notification cannot ask: the admin page decides.
+				$action->setParsedLabel($label)->setLink($this->links->adminPage(), 'WEB');
 				$notification->addParsedAction($action);
 			}
 		}
@@ -264,7 +265,8 @@ class Notifier implements INotifier {
 				default => null,
 			};
 			if ($label !== null) {
-				$action->setParsedLabel($label);
+				// Both change protection and need the password, which the notification cannot ask: the admin page decides.
+				$action->setParsedLabel($label)->setLink($this->links->adminPage(), 'WEB');
 				$notification->addParsedAction($action);
 			}
 		}

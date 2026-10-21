@@ -21,14 +21,15 @@ use OCA\IntrusionDetection\Db\DetectionMapper;
 use OCA\IntrusionDetection\Detection\DetectionDraft;
 use OCA\IntrusionDetection\Learning\LearningService;
 use OCA\IntrusionDetection\Net\SourceKey;
+use OCA\IntrusionDetection\Notification\AdminLinks;
 use OCA\IntrusionDetection\Notification\AdminRecipients;
 use OCA\IntrusionDetection\Notification\LearningNotices;
 use OCA\IntrusionDetection\Notification\Notifier;
 use OCA\IntrusionDetection\Response\ResponseEngine;
+use OCP\AppFramework\Http\Attribute\PasswordConfirmationRequired;
 use OCP\AppFramework\Utility\ITimeFactory;
 use OCP\IGroupManager;
 use OCP\IRequest;
-use OCP\IURLGenerator;
 use OCP\IUser;
 use OCP\IUserManager;
 use OCP\IUserSession;
@@ -84,7 +85,7 @@ class LearningNoticesTest extends IntegrationTestCase {
 			Server::get(AdminRecipients::class),
 			$this->notifications,
 			Server::get(DetectionMapper::class),
-			Server::get(IURLGenerator::class),
+			Server::get(AdminLinks::class),
 			Server::get(ITimeFactory::class),
 		);
 	}
@@ -109,13 +110,14 @@ class LearningNoticesTest extends IntegrationTestCase {
 		$notification = $this->sent[0];
 		$this->assertSame(Notifier::SUBJECT_LEARNING_ENDS, $notification->getSubject());
 		$links = array_map(static fn ($a): string => $a->getLink(), $notification->getActions());
-		$this->assertStringContainsString('/ocs/v2.php/apps/intrusion_detection/api/v1/learning/protect', $links[0]);
-		$this->assertStringContainsString('/ocs/v2.php/apps/intrusion_detection/api/v1/learning/extend', $links[1]);
-		$this->assertSame(['POST', 'POST'], array_map(static fn ($a): string => $a->getRequestType(), $notification->getActions()));
+		$this->assertStringContainsString('/settings/admin/intrusion_detection', $links[0], 'Both need the password, which the notification cannot ask');
+		$this->assertStringContainsString('/settings/admin/intrusion_detection', $links[1]);
+		$this->assertSame(['WEB', 'WEB'], array_map(static fn ($a): string => $a->getRequestType(), $notification->getActions()));
 
 		$prepared = Server::get(Notifier::class)->prepare($notification, 'en');
 		$this->assertSame('The learning period of intrusion detection ends tomorrow', $prepared->getParsedSubject());
 		$this->assertSame(['Start protecting now', 'Observe 7 more days'], array_map(static fn ($a): string => $a->getParsedLabel(), $prepared->getParsedActions()));
+		$this->assertSame(['WEB', 'WEB'], array_map(static fn ($a): string => $a->getRequestType(), $prepared->getParsedActions()), 'Also for notices sent with the old POST links');
 	}
 
 	public function testStartProtectingNowEndsLearningOnceAndIsIdempotent(): void {
@@ -166,6 +168,9 @@ class LearningNoticesTest extends IntegrationTestCase {
 		$data = $controller->extend()->getData();
 		$this->assertSame(['changed' => true, 'learning' => true, 'until' => $this->learning->until()], $data);
 		$this->assertFalse($controller->protect()->getData()['changed']);
+		foreach (['protect', 'extend'] as $method) {
+			$this->assertNotSame([], (new \ReflectionMethod(LearningActionController::class, $method))->getAttributes(PasswordConfirmationRequired::class), $method . ' changes protection');
+		}
 	}
 
 	public function testTheNoticeCountsWhatLearningHeldBackAndTheAddressesItWouldHaveBlocked(): void {

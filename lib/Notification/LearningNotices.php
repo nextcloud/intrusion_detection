@@ -18,7 +18,6 @@ use OCA\IntrusionDetection\Db\DetectionFilter;
 use OCA\IntrusionDetection\Db\DetectionMapper;
 use OCA\IntrusionDetection\Learning\LearningService;
 use OCP\AppFramework\Utility\ITimeFactory;
-use OCP\IURLGenerator;
 use OCP\Notification\IManager as INotificationManager;
 
 /**
@@ -50,7 +49,7 @@ class LearningNotices {
 		private readonly AdminRecipients $recipients,
 		private readonly INotificationManager $notifications,
 		private readonly DetectionMapper $detections,
-		private readonly IURLGenerator $urlGenerator,
+		private readonly AdminLinks $links,
 		private readonly ITimeFactory $timeFactory,
 	) {
 	}
@@ -82,12 +81,12 @@ class LearningNotices {
 				]);
 			$protect = $notification->createAction();
 			$protect->setLabel(Notifier::ACTION_PROTECT)
-				->setLink($this->urlGenerator->linkToOCSRouteAbsolute(Application::APP_ID . '.LearningAction.protect'), 'POST')
+				->setLink($this->links->adminPage(), 'WEB')
 				->setPrimary(true);
 			$notification->addAction($protect);
 			$extend = $notification->createAction();
 			$extend->setLabel(Notifier::ACTION_EXTEND)
-				->setLink($this->urlGenerator->linkToOCSRouteAbsolute(Application::APP_ID . '.LearningAction.extend'), 'POST');
+				->setLink($this->links->adminPage(), 'WEB');
 			$notification->addAction($extend);
 			$this->notifications->notify($notification);
 		}

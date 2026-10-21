@@ -9792,7 +9792,7 @@
             "post": {
                 "operationId": "learning_action-protect",
                 "summary": "End learning mode now, so that checks set to Protect start acting",
-                "description": "This endpoint requires admin access",
+                "description": "This endpoint requires admin access\nThis endpoint requires password confirmation",
                 "tags": [
                     "learning_action"
                 ],
@@ -9927,7 +9927,7 @@
             "post": {
                 "operationId": "learning_action-extend",
                 "summary": "Observe for 7 more days before protecting",
-                "description": "This endpoint requires admin access",
+                "description": "This endpoint requires admin access\nThis endpoint requires password confirmation",
                 "tags": [
                     "learning_action"
                 ],

@@ -15,6 +15,7 @@ use OCA\IntrusionDetection\Notification\LearningNotices;
 use OCP\AppFramework\Http;
 use OCP\AppFramework\Http\Attribute\ApiRoute;
 use OCP\AppFramework\Http\Attribute\OpenAPI;
+use OCP\AppFramework\Http\Attribute\PasswordConfirmationRequired;
 use OCP\AppFramework\Http\Attribute\UserRateLimit;
 use OCP\AppFramework\Http\DataResponse;
 use OCP\AppFramework\OCSController;
@@ -48,6 +49,7 @@ class LearningActionController extends OCSController {
 	 * 200: Learning mode state after the action
 	 */
 	#[ApiRoute(verb: 'POST', url: '/api/v1/learning/protect')]
+	#[PasswordConfirmationRequired]
 	#[UserRateLimit(limit: 10, period: 60)]
 	public function protect(): DataResponse {
 		$changed = $this->notices->startProtecting($this->actor());
@@ -62,6 +64,7 @@ class LearningActionController extends OCSController {
 	 * 200: Learning mode state after the action
 	 */
 	#[ApiRoute(verb: 'POST', url: '/api/v1/learning/extend')]
+	#[PasswordConfirmationRequired]
 	#[UserRateLimit(limit: 10, period: 60)]
 	public function extend(): DataResponse {
 		$changed = $this->notices->observeLonger($this->actor());
