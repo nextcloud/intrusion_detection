@@ -25,6 +25,7 @@ use OCA\IntrusionDetection\Guard\RequestContext;
 use OCA\IntrusionDetection\Net\RemoteAddressResolver;
 use OCA\IntrusionDetection\Net\SourceKey;
 use OCA\IntrusionDetection\Perf\GuardTimer;
+use OCA\IntrusionDetection\Tests\BasicAuthServer;
 use OCP\AppFramework\Utility\ITimeFactory;
 use OCP\IAppConfig;
 use OCP\ICacheFactory;
@@ -40,6 +41,8 @@ use Test\TestCase;
  * The guard's per-request cost and its preconditions, with a spy cache.
  */
 class CredentialUseGuardTest extends TestCase {
+	use BasicAuthServer;
+
 	private const COOKIE = 'oc1234567890';
 
 	private SpyCache $cache;
@@ -276,6 +279,8 @@ class CredentialUseGuardTest extends TestCase {
 	}
 
 	private function request(string $ip, array $server, array $cookies = []): IRequest {
+		$this->setBasicCredentials($server['PHP_AUTH_USER'] ?? null, $server['PHP_AUTH_PW'] ?? null);
+		unset($server['PHP_AUTH_USER'], $server['PHP_AUTH_PW']);
 		return new Request(['server' => $server + ['REMOTE_ADDR' => $ip], 'cookies' => $cookies], $this->createMock(IRequestId::class), $this->createMock(IConfig::class));
 	}
 }

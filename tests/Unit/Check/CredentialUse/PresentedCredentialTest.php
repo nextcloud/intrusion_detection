@@ -11,12 +11,15 @@ namespace OCA\IntrusionDetection\Tests\Unit\Check\CredentialUse;
 
 use OC\AppFramework\Http\Request;
 use OCA\IntrusionDetection\Check\CredentialUse\PresentedCredential;
+use OCA\IntrusionDetection\Tests\BasicAuthServer;
 use OCP\IConfig;
 use OCP\IRequest;
 use OCP\IRequestId;
 use Test\TestCase;
 
 class PresentedCredentialTest extends TestCase {
+	use BasicAuthServer;
+
 	private const COOKIE = 'oc1234567890';
 	private const APP_PASSWORD = 'AbCdE-FgHiJ-KlMnO-PqRsT-UvWxY';
 
@@ -92,11 +95,19 @@ class PresentedCredentialTest extends TestCase {
 		$this->assertStringNotContainsString(self::APP_PASSWORD, (string)ob_get_clean());
 	}
 
+	public function testAClientsOwnPhpAuthHeadersAreNoBasicCredentials(): void {
+		$this->assertNull($this->credential(['HTTP_PHP_AUTH_USER' => 'alice', 'HTTP_PHP_AUTH_PW' => 'made-up']));
+		$session = $this->credential(['HTTP_PHP_AUTH_USER' => 'alice', 'HTTP_PHP_AUTH_PW' => 'made-up'], [self::COOKIE => 'session-id']);
+		$this->assertSame(PresentedCredential::SCHEME_SESSION, $session?->scheme, 'The session cookie is tracked instead');
+	}
+
 	private function credential(array $server, array $cookies = []): ?PresentedCredential {
 		return PresentedCredential::fromRequest($this->request($server, $cookies), self::COOKIE);
 	}
 
 	private function request(array $server, array $cookies): IRequest {
+		$this->setBasicCredentials($server['PHP_AUTH_USER'] ?? null, $server['PHP_AUTH_PW'] ?? null);
+		unset($server['PHP_AUTH_USER'], $server['PHP_AUTH_PW']);
 		return new Request(['server' => $server, 'cookies' => $cookies], $this->createMock(IRequestId::class), $this->createMock(IConfig::class));
 	}
 }

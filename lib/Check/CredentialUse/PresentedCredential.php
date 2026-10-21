@@ -9,6 +9,7 @@ declare(strict_types=1);
 
 namespace OCA\IntrusionDetection\Check\CredentialUse;
 
+use OCA\IntrusionDetection\Login\BasicCredentials;
 use OCP\IRequest;
 
 /**
@@ -62,8 +63,7 @@ final class PresentedCredential {
 			}
 		}
 
-		$user = $request->getHeader('PHP_AUTH_USER');
-		$password = $request->getHeader('PHP_AUTH_PW');
+		[$user, $password] = BasicCredentials::fromServer() ?? ['', ''];
 		if ($password === '' && strncasecmp($authorization, 'Basic ', 6) === 0) {
 			$decoded = base64_decode(trim(substr($authorization, 6)), true);
 			$parts = is_string($decoded) ? explode(':', $decoded, 2) : [];

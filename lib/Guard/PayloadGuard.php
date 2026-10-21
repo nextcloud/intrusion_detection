@@ -15,6 +15,7 @@ use OCA\IntrusionDetection\Check\Payload\PayloadSettings;
 use OCA\IntrusionDetection\Check\Payload\PendingHit;
 use OCA\IntrusionDetection\Check\Payload\PreFilter;
 use OCA\IntrusionDetection\Check\Payload\RequestParts;
+use OCA\IntrusionDetection\Login\BasicCredentials;
 use OCA\IntrusionDetection\Net\RemoteAddressResolver;
 use OCA\IntrusionDetection\Net\SourceKey;
 use OCA\IntrusionDetection\Perf\GuardTimer;
@@ -124,7 +125,7 @@ class PayloadGuard implements IRequestGuard {
 				default => PendingHit::CREDENTIAL_OTHER,
 			};
 		}
-		if ($request->getHeader('PHP_AUTH_USER') !== '') {
+		if (BasicCredentials::fromServer() !== null) {
 			return PendingHit::CREDENTIAL_BASIC;
 		}
 		$sessionCookie = $this->config->getSystemValueString('instanceid', '');

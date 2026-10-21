@@ -76,9 +76,7 @@ class InteractiveLogin {
 	}
 
 	private static function basicPassword(): ?string {
-		$user = $_SERVER['PHP_AUTH_USER'] ?? '';
-		$password = $_SERVER['PHP_AUTH_PW'] ?? '';
-		return $user !== '' && $password !== '' ? $password : null;
+		return BasicCredentials::fromServer()[1] ?? null;
 	}
 
 	private function isLoginForm(): bool {

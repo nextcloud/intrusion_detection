@@ -396,6 +396,7 @@ class ComposerStaticInitIntrusionDetection
         'OCA\\IntrusionDetection\\Listener\\UserDeletedListener' => __DIR__ . '/..' . '/../lib/Listener/UserDeletedListener.php',
         'OCA\\IntrusionDetection\\LoginHistory\\LoginHistory' => __DIR__ . '/..' . '/../lib/LoginHistory/LoginHistory.php',
         'OCA\\IntrusionDetection\\LoginHistory\\LoginHistoryEntry' => __DIR__ . '/..' . '/../lib/LoginHistory/LoginHistoryEntry.php',
+        'OCA\\IntrusionDetection\\Login\\BasicCredentials' => __DIR__ . '/..' . '/../lib/Login/BasicCredentials.php',
         'OCA\\IntrusionDetection\\Login\\InteractiveLogin' => __DIR__ . '/..' . '/../lib/Login/InteractiveLogin.php',
         'OCA\\IntrusionDetection\\Middleware\\PayloadBlockedException' => __DIR__ . '/..' . '/../lib/Middleware/PayloadBlockedException.php',
         'OCA\\IntrusionDetection\\Middleware\\PayloadMiddleware' => __DIR__ . '/..' . '/../lib/Middleware/PayloadMiddleware.php',

@@ -336,6 +336,12 @@ class PayloadGuardTest extends IntegrationTestCase {
 		$this->assertCount(1, $this->detections(), 'The middleware does not record the hit again');
 	}
 
+	public function testAClientsOwnPhpAuthHeaderDoesNotMakeAProbeLoggedIn(): void {
+		$decision = $this->decide('/index.php/apps/foo?id=1%20UNION%20SELECT%20password%20FROM%20oc_users--', '/index.php', [], [], ['PHP-Auth-User' => 'alice', 'PHP-Auth-Pw' => 'made-up']);
+		$this->assertNotNull($decision, 'Still blocked as an anonymous probe');
+		$this->assertFalse($this->onlyDetection()->getExplanationData()['facts']['authenticated']);
+	}
+
 	public function testBearerAndRememberMeCountAsCredentials(): void {
 		$this->decide('/ocs/v2.php/x?id=1%20UNION%20SELECT%201', '/ocs/v2.php', [], [], ['Authorization' => 'Bearer abc']);
 		$this->assertSame(PendingHit::CREDENTIAL_BEARER, $this->context->get(PayloadResponder::CONTEXT_KEY)->credential);
