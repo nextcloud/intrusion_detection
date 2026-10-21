@@ -30,6 +30,7 @@ class CheckRegistry {
 		Checks\ShareBruteforce::class,
 		Checks\ResetProbing::class,
 		Checks\LoginFlowMismatch::class,
+		Checks\BreachedPassword::class,
 	];
 
 	/** @var array<string, CheckDefinition>|null */

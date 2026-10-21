@@ -17,6 +17,8 @@ use OCA\IntrusionDetection\Guard\AddressGuard;
 use OCA\IntrusionDetection\Guard\PayloadGuard;
 use OCA\IntrusionDetection\Guard\TrapUrlGuard;
 use OCA\IntrusionDetection\Listener\BlocklistLoginListener;
+use OCA\IntrusionDetection\Listener\BreachedPasswordListener;
+use OCA\IntrusionDetection\Listener\BreachResetListener;
 use OCA\IntrusionDetection\Listener\FailedLoginListener;
 use OCA\IntrusionDetection\Listener\FirewallExportListener;
 use OCA\IntrusionDetection\Listener\LoginFlowGrantedListener;
@@ -38,6 +40,7 @@ use OCP\Authentication\Events\AnyLoginFailedEvent;
 use OCP\Authentication\Events\LoginFlowV2GrantedEvent;
 use OCP\Security\Events\PasswordResetRequestedEvent;
 use OCP\Share\Events\ShareLinkAccessFailedEvent;
+use OCP\User\Events\PasswordUpdatedEvent;
 use OCP\User\Events\UserLoggedInEvent;
 
 class Application extends App implements IBootstrap {
@@ -72,6 +75,8 @@ class Application extends App implements IBootstrap {
 		$context->registerEventListener(PasswordResetRequestedEvent::class, ResetRequestedListener::class);
 		$context->registerEventListener(LoginFlowV2GrantedEvent::class, LoginFlowGrantedListener::class);
 		$context->registerNotifierService(ShareOwnerNotifier::class);
+		$context->registerEventListener(UserLoggedInEvent::class, BreachedPasswordListener::class);
+		$context->registerEventListener(PasswordUpdatedEvent::class, BreachResetListener::class);
 	}
 
 	#[\Override]

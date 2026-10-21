@@ -10,6 +10,7 @@ declare(strict_types=1);
 namespace OCA\IntrusionDetection\Config;
 
 use OCA\IntrusionDetection\Check\CheckRegistry;
+use OCA\IntrusionDetection\Check\Checks\BreachedPasswordDetector;
 use OCA\IntrusionDetection\Check\ResponseType;
 use OCP\Config\Lexicon\Entry;
 use OCP\Config\Lexicon\ILexicon;
@@ -55,6 +56,9 @@ final class Lexicon implements ILexicon {
 
 	#[\Override]
 	public function getUserConfigs(): array {
-		return [];
+		return [
+			new Entry(BreachedPasswordDetector::KEY_CHECKED_AT, ValueType::INT, 0, 'when the password was last checked against the breach list', lazy: true),
+			new Entry(BreachedPasswordDetector::KEY_BREACHED, ValueType::BOOL, false, 'the current password was found on the breach list', lazy: true),
+		];
 	}
 }

@@ -54,7 +54,9 @@ export const tabs = shallowReactive<TabDefinition[]>([
 	{ id: 'advanced', name: () => t(APP_ID, 'Advanced'), icon: mdiCogOutline, order: 90, component: defineAsyncComponent(() => import('./views/AdvancedTab.vue')) },
 ])
 
-export const checkSections = shallowReactive<CheckSection[]>([])
+export const checkSections = shallowReactive<CheckSection[]>([
+	{ id: 'breach-privacy', checks: ['breached_password'], after: 'data', component: defineAsyncComponent(() => import('./components/checks/BreachedPasswordPrivacy.vue')) },
+])
 
 export const statusSections = shallowReactive<Component[]>([])
 

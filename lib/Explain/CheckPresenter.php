@@ -76,7 +76,7 @@ class CheckPresenter {
 			]), $check->params),
 			'cost' => [
 				'class' => $check->cost->value,
-				'text' => $check->cost->describe($l),
+				'text' => trim($check->cost->describe($l) . ' ' . $this->renderer->fill($texts->cost, $values, $l, $check)),
 			],
 			'requirements' => array_map(fn (Requirement $r): array => [
 				'id' => $r->value,
