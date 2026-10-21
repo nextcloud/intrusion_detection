@@ -82,6 +82,9 @@ class ResponseEngine {
 		[$detection, $isNew] = $this->detections->record($draft, $mode);
 
 		$responses ??= $this->settings->responses($draft->checkId);
+		if (!$isNew) {
+			$responses = array_values(array_filter($responses, static fn (ResponseType $r): bool => !$draft->runsOnlyWhenNew($r)));
+		}
 		usort($responses, static fn (ResponseType $a, ResponseType $b): int => $a->order() <=> $b->order());
 
 		$context = new ResponseContext($draft, $detection, $definition, $isNew);

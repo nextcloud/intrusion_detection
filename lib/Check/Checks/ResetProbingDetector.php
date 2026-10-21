@@ -15,7 +15,6 @@ use OCA\IntrusionDetection\Db\AttemptKind;
 use OCA\IntrusionDetection\Db\AttemptMapper;
 use OCA\IntrusionDetection\Detection\AttemptRecord;
 use OCA\IntrusionDetection\Detection\DetectionDraft;
-use OCA\IntrusionDetection\Detection\DetectionService;
 use OCA\IntrusionDetection\Response\ResponseEngine;
 use OCA\IntrusionDetection\Risk\RiskScorer;
 
@@ -45,7 +44,6 @@ class ResetProbingDetector {
 		private readonly Settings $settings,
 		private readonly AttemptMapper $attempts,
 		private readonly ResponseEngine $engine,
-		private readonly DetectionService $detections,
 		private readonly ResetProbing $check,
 		private readonly RiskScorer $risk,
 	) {
@@ -112,19 +110,11 @@ class ResetProbingDetector {
 	 * @param array<string, int|float|bool|string|list<string>> $params
 	 */
 	private function handle(DetectionDraft $draft, array $params): void {
-		$responses = $this->check->responsesFor($draft, $this->settings->responses(ResetProbing::ID), $params);
-		if ($draft->uid !== null && $this->continuesDetection($draft)) {
-			// The person was told when this flood began.
-			$responses = array_values(array_filter($responses, static fn (ResponseType $r): bool => $r !== ResponseType::NotifyUser));
+		if ($draft->uid !== null) {
+			// The person is told when the flood begins, not for every request that continues it.
+			$draft->runOnlyWhenNew(ResponseType::NotifyUser);
 		}
-		$this->engine->handle($draft, $responses);
-	}
-
-	/**
-	 * Whether the draft will be merged into an earlier detection.
-	 */
-	private function continuesDetection(DetectionDraft $draft): bool {
-		return $this->detections->mergeTarget($draft, $this->settings->modeState(ResetProbing::ID)) !== null;
+		$this->engine->handle($draft, $this->check->responsesFor($draft, $this->settings->responses(ResetProbing::ID), $params));
 	}
 
 	/**

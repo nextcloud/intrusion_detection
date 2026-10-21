@@ -28,7 +28,10 @@ use OCA\IntrusionDetection\Event\TypedEvents;
 use OCA\IntrusionDetection\Explain\NarrativeBuilder;
 use OCA\IntrusionDetection\Net\SourceKey;
 use OCA\IntrusionDetection\Notification\AdminAlerts;
+use OCA\IntrusionDetection\Response\Handlers\BanHandler;
 use OCA\IntrusionDetection\Response\Handlers\LockLinkHandler;
+use OCA\IntrusionDetection\Response\IResponseHandler;
+use OCA\IntrusionDetection\Response\ResponseContext;
 use OCA\IntrusionDetection\Response\ResponseEngine;
 use OCA\IntrusionDetection\Response\ResponseOutcome;
 use OCP\IUser;
@@ -117,6 +120,44 @@ class ResponseEngineTest extends IntegrationTestCase {
 		$this->assertSame(['alice', 'bob', 'carol'], $facts['targets']);
 		$this->assertSame(1000, $facts['first']);
 		$this->assertSame(1200, $facts['last']);
+	}
+
+	public function testAResponseForNewDetectionsOnlyIsNotRunAgainForAMergedHit(): void {
+		$handler = new class implements IResponseHandler {
+			/** @var list<bool> isNew of every run */
+			public array $runs = [];
+
+			public function type(): ResponseType {
+				return ResponseType::Ban;
+			}
+
+			public function apply(ResponseContext $context): ResponseOutcome {
+				$this->runs[] = $context->isNew;
+				return ResponseOutcome::done(['run' => count($this->runs)]);
+			}
+		};
+		$engine = new ResponseEngine(
+			Server::get(CheckRegistry::class),
+			$this->settings,
+			Server::get(DetectionService::class),
+			new OverridingContainer([BanHandler::class => $handler]),
+			Server::get(TypedEvents::class),
+			Server::get(AuditLogger::class),
+			Server::get(LoggerInterface::class),
+		);
+		$draft = function (): DetectionDraft {
+			$draft = $this->draft('198.51.100.7', DetectionDraft::MERGE_SOURCE);
+			$draft->runOnlyWhenNew(ResponseType::Ban);
+			return $draft;
+		};
+		$first = $engine->handle($draft());
+		$second = $engine->handle($draft());
+		$this->assertSame($first?->getId(), $second?->getId());
+		$this->assertSame([true], $handler->runs, 'Run for the new detection only');
+		$this->assertSame([['type' => 'ban', 'enforced' => true, 'ref' => ['run' => 1]]], $second->getActionList(), 'What was done first is kept');
+
+		$engine->handle($this->draft('198.51.100.7', DetectionDraft::MERGE_SOURCE));
+		$this->assertSame([true, false], $handler->runs, 'Other drafts run it for merged hits as before');
 	}
 
 	public function testHitsOfAnotherRuleAreAnotherDetection(): void {

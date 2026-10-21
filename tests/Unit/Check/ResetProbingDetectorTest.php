@@ -21,7 +21,6 @@ use OCA\IntrusionDetection\Db\AttemptStats;
 use OCA\IntrusionDetection\Db\Detection;
 use OCA\IntrusionDetection\Detection\AttemptRecord;
 use OCA\IntrusionDetection\Detection\DetectionDraft;
-use OCA\IntrusionDetection\Detection\DetectionService;
 use OCA\IntrusionDetection\Explain\DateFormatter;
 use OCA\IntrusionDetection\Net\SourceKey;
 use OCA\IntrusionDetection\Response\ResponseEngine;
@@ -35,23 +34,17 @@ class ResetProbingDetectorTest extends TestCase {
 
 	/** @var list<list<ResponseType>> */
 	private array $handled = [];
-	private ?Detection $running = null;
+	/** @var list<DetectionDraft> */
+	private array $drafts = [];
 	private int $sampleFactor = 1;
 	private int $requests = 5;
 
 	public function testTheUserIsToldWhenAFloodBeginsAndNotForEveryLaterRequest(): void {
-		$detector = $this->detector();
-		$detector->detect($this->attempt(), null);
+		$this->detector()->detect($this->attempt(), null);
 		$this->assertSame([[ResponseType::SuppressResetMail, ResponseType::NotifyAdmin, ResponseType::NotifyUser]], $this->handled);
-
-		$this->running = new Detection();
-		$this->running->setEnforced(true);
-		$detector->detect($this->attempt(), null);
-		$this->assertSame([ResponseType::SuppressResetMail, ResponseType::NotifyAdmin], $this->handled[1], 'A request that continues the flood does not tell the user again');
-
-		$this->running->setEnforced(false);
-		$detector->detect($this->attempt(), null);
-		$this->assertContains(ResponseType::NotifyUser, $this->handled[2], 'An observed earlier detection is not continued by an enforced one');
+		$this->assertCount(1, $this->drafts);
+		$this->assertTrue($this->drafts[0]->runsOnlyWhenNew(ResponseType::NotifyUser), 'A request that continues the flood does not tell the user again');
+		$this->assertFalse($this->drafts[0]->runsOnlyWhenNew(ResponseType::SuppressResetMail), 'It keeps holding back the emails');
 	}
 
 	public function testUnderAFloodAFewKeptRequestsNeverFire(): void {
@@ -84,16 +77,15 @@ class ResetProbingDetectorTest extends TestCase {
 			$this->assertSame(ResetProbing::RULE_FLOOD, $draft->facts['rule']);
 			$this->assertSame($this->requests * $this->sampleFactor, $draft->facts['requests']);
 			$this->handled[] = $responses ?? [];
+			$this->drafts[] = $draft;
 			return null;
 		});
-		$detections = $this->createMock(DetectionService::class);
-		$detections->method('mergeTarget')->willReturnCallback(fn (DetectionDraft $draft, ModeState $mode): ?Detection => $this->running !== null && $this->running->isEnforced() === $mode->acts() ? $this->running : null);
 		$risk = $this->createMock(RiskScorer::class);
 		$risk->method('limits')->willReturnCallback(static function (?SourceKey $source, array $limits): RiskLimits {
 			$plain = array_map(static fn (array $l): int => $l[0], $limits);
 			return new RiskLimits($plain, $plain, array_map(static fn (array $l): int => $l[1], $limits), null);
 		});
-		return new ResetProbingDetector($settings, $attempts, $engine, $detections, new ResetProbing(DateFormatter::using($this->createMock(IDateTimeFormatter::class))), $risk);
+		return new ResetProbingDetector($settings, $attempts, $engine, new ResetProbing(DateFormatter::using($this->createMock(IDateTimeFormatter::class))), $risk);
 	}
 
 	private function attempt(): AttemptRecord {

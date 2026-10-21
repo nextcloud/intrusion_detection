@@ -9,6 +9,7 @@ declare(strict_types=1);
 
 namespace OCA\IntrusionDetection\Detection;
 
+use OCA\IntrusionDetection\Check\ResponseType;
 use OCA\IntrusionDetection\Check\Severity;
 use OCA\IntrusionDetection\Net\SourceKey;
 
@@ -35,6 +36,8 @@ final class DetectionDraft {
 	private array $extraBanTargets = [];
 	/** @var list<string> */
 	private array $passwordFingerprints = [];
+	/** @var list<ResponseType> */
+	private array $onlyWhenNew = [];
 
 	/**
 	 * @param array<string, mixed> $facts
@@ -82,6 +85,19 @@ final class DetectionDraft {
 	 */
 	public function passwordFingerprints(): array {
 		return $this->passwordFingerprints;
+	}
+
+	/**
+	 * Run these responses for a new detection only, not for a hit that is
+	 * merged into an earlier one. Whether it is merged is decided when it is
+	 * stored ({@see \OCA\IntrusionDetection\Response\ResponseEngine::handle()}).
+	 */
+	public function runOnlyWhenNew(ResponseType ...$responses): void {
+		$this->onlyWhenNew = array_values(array_unique([...$this->onlyWhenNew, ...$responses], SORT_REGULAR));
+	}
+
+	public function runsOnlyWhenNew(ResponseType $response): bool {
+		return in_array($response, $this->onlyWhenNew, true);
 	}
 
 	/**
