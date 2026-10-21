@@ -41,8 +41,16 @@ class EmailCodeMethod implements IConfirmationMethod {
 		return $this->isAvailable($user, $policy);
 	}
 
+	/**
+	 * When the account got too many codes, the login waits without one:
+	 * the verify page says so. Falling through to the next method would
+	 * let whoever caused the codes reach the outcome without a method.
+	 */
 	#[\Override]
 	public function begin(IUser $user, StepUpState $state): string {
+		if ($this->codes->isLimited($user)) {
+			return self::PENDING;
+		}
 		return $this->codes->issue($user, $state) ? self::PENDING : self::UNAVAILABLE;
 	}
 }

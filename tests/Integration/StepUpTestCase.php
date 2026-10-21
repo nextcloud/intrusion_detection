@@ -334,6 +334,7 @@ abstract class StepUpTestCase extends AccountTestCase {
 			Server::get(ITimeFactory::class),
 			Server::get(UnconfirmedSessions::class),
 			$this->session,
+			Server::get(IUserConfig::class),
 		);
 	}
 

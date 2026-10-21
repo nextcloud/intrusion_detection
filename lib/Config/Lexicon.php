@@ -10,6 +10,7 @@ declare(strict_types=1);
 namespace OCA\IntrusionDetection\Config;
 
 use OCA\IntrusionDetection\Check\Checks\BreachedPasswordDetector;
+use OCA\IntrusionDetection\Confirm\EmailCodes;
 use OCA\IntrusionDetection\Confirm\UntrustedSecondFactors;
 use OCA\IntrusionDetection\Guide\SecureAccountGuide;
 use OCA\IntrusionDetection\Notification\LoginNotices;
@@ -50,6 +51,7 @@ final class Lexicon implements ILexicon {
 			new Entry(PasswordChangeFlag::USER_KEY, ValueType::INT, 0, 'when a new password was required at the next login (0: not required)'),
 			new Entry(LoginNotices::USER_KEY, ValueType::INT, 0, 'when the oldest security event happened that the user could only be told inside Nextcloud and has not seen at a login yet (0: none)'),
 			new Entry(UntrustedSecondFactors::USER_KEY, ValueType::ARRAY, [], 'second factors set up from a session whose login proved only the password: provider id => when, or when and until when'),
+			new Entry(EmailCodes::USER_KEY_MAILS, ValueType::ARRAY, [], 'when the last confirmation codes were sent to the account, to limit them per hour', lazy: true),
 			new Entry(SecureAccountGuide::USER_KEY, ValueType::STRING, '', 'progress through the "Secure my account" checklist (JSON)', lazy: true),
 		];
 	}

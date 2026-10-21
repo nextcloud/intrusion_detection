@@ -18,6 +18,7 @@ use OCA\IntrusionDetection\Notification\MailContent;
 use OCA\IntrusionDetection\Notification\Mails;
 use OCA\IntrusionDetection\Notification\UserMessages;
 use OCP\AppFramework\Utility\ITimeFactory;
+use OCP\Config\IUserConfig;
 use OCP\IConfig;
 use OCP\ISession;
 use OCP\IUser;
@@ -43,6 +44,8 @@ class EmailCodesTest extends TestCase {
 	private string $smtpMode = 'smtp';
 	/** The tries the server counted; null: the session is not remembered there */
 	private ?int $serverTries = null;
+	/** @var list<int> when the account's codes were sent */
+	private array $mailTimes = [];
 
 	public function testACodeIsRandomOnlyItsHashIsKeptAndItIsSentByEmail(): void {
 		$random = $this->createMock(ISecureRandom::class);
@@ -108,6 +111,25 @@ class EmailCodesTest extends TestCase {
 		$this->now += 601;
 		$this->assertSame(EmailCodes::EXPIRED, $codes->verify($state, '482915'));
 		$this->assertSame(0, $this->serverTries);
+	}
+
+	public function testAnAccountGetsAtMostFiveCodesAnHour(): void {
+		$this->codes = ['111111', '222222', '333333', '444444', '555555', '666666', '777777'];
+		$codes = $this->codes();
+		for ($i = 0; $i < EmailCodes::MAX_MAILS; $i++) {
+			$this->assertTrue($codes->issue($this->user(), $this->state()), 'Code ' . ($i + 1));
+			$this->now += 60;
+		}
+		$this->assertTrue($codes->isLimited($this->user()));
+		$state = $this->state();
+		$this->assertFalse($codes->issue($this->user(), $state), 'A sixth login in the hour gets none');
+		$this->assertNull($state->codeHash);
+		$this->assertCount(EmailCodes::MAX_MAILS, $this->sent);
+
+		$this->now += EmailCodes::MAIL_WINDOW - 5 * 60 + 1;
+		$this->assertFalse($codes->isLimited($this->user()), 'The oldest code left the hour');
+		$this->assertTrue($codes->issue($this->user(), $this->state()));
+		$this->assertCount(EmailCodes::MAX_MAILS, $this->mailTimes, 'Only the last hour is kept');
 	}
 
 	public function testACodeExpires(): void {
@@ -248,6 +270,12 @@ class EmailCodesTest extends TestCase {
 		});
 		$session = $this->createMock(ISession::class);
 		$session->method('getId')->willReturn('session-id');
-		return new EmailCodes($random, Server::get(IHasher::class), $mails, $messages, $settings, $validator, $config, $time, $sessions, $session);
+		$userConfig = $this->createMock(IUserConfig::class);
+		$userConfig->method('getValueArray')->willReturnCallback(fn (): array => $this->mailTimes);
+		$userConfig->method('setValueArray')->willReturnCallback(function (string $uid, string $app, string $key, array $value): bool {
+			$this->mailTimes = $value;
+			return true;
+		});
+		return new EmailCodes($random, Server::get(IHasher::class), $mails, $messages, $settings, $validator, $config, $time, $sessions, $session, $userConfig);
 	}
 }

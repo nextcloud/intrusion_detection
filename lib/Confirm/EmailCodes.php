@@ -9,6 +9,7 @@ declare(strict_types=1);
 
 namespace OCA\IntrusionDetection\Confirm;
 
+use OCA\IntrusionDetection\AppInfo\Application;
 use OCA\IntrusionDetection\Config\GlobalSettings;
 use OCA\IntrusionDetection\Config\Settings;
 use OCA\IntrusionDetection\Explain\TextRenderer;
@@ -16,6 +17,7 @@ use OCA\IntrusionDetection\Notification\MailContent;
 use OCA\IntrusionDetection\Notification\Mails;
 use OCA\IntrusionDetection\Notification\UserMessages;
 use OCP\AppFramework\Utility\ITimeFactory;
+use OCP\Config\IUserConfig;
 use OCP\IConfig;
 use OCP\ISession;
 use OCP\IUser;
@@ -29,7 +31,9 @@ use OCP\Security\ISecureRandom;
  * A code comes from {@see ISecureRandom}; only its {@see IHasher} hash is
  * kept, in the session's step-up state, and it is valid `step_up_code_ttl`
  * seconds. A login gets MAX_ATTEMPTS tries in all and MAX_RESENDS new codes
- * per RESEND_WINDOW. The tries are counted on the server too
+ * per RESEND_WINDOW. An account gets at most MAX_MAILS codes per MAIL_WINDOW
+ * across all its logins, so that apps or an attacker with the password
+ * cannot flood its mailbox. The tries are counted on the server too
  * ({@see UnconfirmedSessions::takeCodeAttempt()}), before the code is
  * checked: parallel requests that each read the session before any of them
  * saved it never get more tries between them. The code is in the email and nowhere else: never in a
@@ -40,6 +44,10 @@ class EmailCodes {
 	public const MAX_ATTEMPTS = 5;
 	public const MAX_RESENDS = 3;
 	public const RESEND_WINDOW = 600;
+	public const MAX_MAILS = 5;
+	public const MAIL_WINDOW = 3600;
+	/** When the account's recent codes were sent */
+	public const USER_KEY_MAILS = 'code_mails';
 
 	public const VERIFIED = 'verified';
 	public const WRONG = 'wrong';
@@ -60,6 +68,7 @@ class EmailCodes {
 		private readonly ITimeFactory $timeFactory,
 		private readonly UnconfirmedSessions $sessions,
 		private readonly ISession $session,
+		private readonly IUserConfig $userConfig,
 	) {
 	}
 
@@ -77,18 +86,30 @@ class EmailCodes {
 	/**
 	 * Send a new code. The earlier code, if any, stops working.
 	 *
-	 * @return bool whether the email was handed to the mail server; when not, the state keeps no code
+	 * @return bool whether the email was handed to the mail server; when not, or when the account got too many codes, the state keeps no code
 	 */
 	public function issue(IUser $user, StepUpState $state): bool {
-		$code = $this->random->generate(self::LENGTH, ISecureRandom::CHAR_DIGITS);
 		$state->codeHash = null;
 		$state->codeExpires = 0;
+		$sent = $this->recentMails($user->getUID());
+		if (count($sent) >= self::MAX_MAILS) {
+			return false;
+		}
+		$code = $this->random->generate(self::LENGTH, ISecureRandom::CHAR_DIGITS);
 		if (!$this->mails->send($user, $this->mail($user, $state, $code))) {
 			return false;
 		}
+		$this->userConfig->setValueArray($user->getUID(), Application::APP_ID, self::USER_KEY_MAILS, [...$sent, $this->timeFactory->getTime()], lazy: true);
 		$state->codeHash = $this->hasher->hash($code);
 		$state->codeExpires = $this->timeFactory->getTime() + $this->settings->getInt(GlobalSettings::STEP_UP_CODE_TTL);
 		return true;
+	}
+
+	/**
+	 * Whether the account got MAX_MAILS codes within MAIL_WINDOW.
+	 */
+	public function isLimited(IUser $user): bool {
+		return count($this->recentMails($user->getUID())) >= self::MAX_MAILS;
 	}
 
 	/**
@@ -166,6 +187,15 @@ class EmailCodes {
 		} catch (\Throwable) {
 			return '';
 		}
+	}
+
+	/**
+	 * @return list<int> when the account's codes of the last MAIL_WINDOW were sent
+	 */
+	private function recentMails(string $uid): array {
+		$since = $this->timeFactory->getTime() - self::MAIL_WINDOW;
+		$sent = $this->userConfig->getValueArray($uid, Application::APP_ID, self::USER_KEY_MAILS, lazy: true);
+		return array_values(array_filter($sent, static fn (mixed $at): bool => is_int($at) && $at > $since));
 	}
 
 	/**

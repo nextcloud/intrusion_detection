@@ -174,6 +174,9 @@ class VerifyController extends Controller {
 		if ($user === null || $stepUp === null || !$stepUp->isPending()) {
 			return $this->continue($redirect_url);
 		}
+		if ($stepUp->hasMethod(IConfirmationMethod::EMAIL_CODE) && $this->codes->isLimited($user)) {
+			return $this->codePage($user, $stepUp, $redirect_url, $this->tooManyCodes());
+		}
 		if (!$stepUp->hasMethod(IConfirmationMethod::EMAIL_CODE) || !$this->codes->canResend($stepUp)) {
 			return $this->codePage($user, $stepUp, $redirect_url, $this->l->t('No more codes can be sent for a few minutes. Use the last code you received, or wait and try again.'));
 		}
@@ -339,11 +342,15 @@ class VerifyController extends Controller {
 		$masked = EmailCodes::mask((string)$user->getEMailAddress());
 		$valid = TextRenderer::duration($this->settings->getInt(GlobalSettings::STEP_UP_CODE_TTL), $this->l);
 		$hasCode = $stepUp->hasMethod(IConfirmationMethod::EMAIL_CODE);
+		$limited = $hasCode && $this->codes->isLimited($user);
+		if ($limited && $stepUp->codeHash === null) {
+			$error ??= $this->tooManyCodes();
+		}
 		$because = StepUpPolicy::describeAll($stepUp->policies, $this->l);
 		$safeRedirect = LocalRedirect::isSafe($redirectUrl, self::EXCLUDED) ? $redirectUrl : '';
 		$response = $this->render(self::MODE_CODE, [
 			'title' => $this->l->t('Confirm it\'s you'),
-			'lead' => $hasCode
+			'lead' => $hasCode && $stepUp->codeHash !== null
 				? $this->l->t('We noticed unusual activity around your login, so we need to confirm it\'s you. We sent a 6-digit code to %1$s. It is valid for %2$s.', [$masked, $valid])
 				: $this->l->t('We noticed unusual activity around your login, so we need to confirm it\'s you.'),
 			'why' => $because === '' ? null : $this->l->t('This login needs it because %s.', [$because]),
@@ -351,7 +358,7 @@ class VerifyController extends Controller {
 			'notice' => $notice,
 			'hasCode' => $hasCode,
 			'attemptsLeft' => $stepUp->attempts > 0 ? $this->l->n('%n try left.', '%n tries left.', $this->codes->attemptsLeft($stepUp)) : null,
-			'canResend' => $hasCode && $this->codes->canResend($stepUp),
+			'canResend' => $hasCode && !$limited && $this->codes->canResend($stepUp),
 			'secondFactor' => $this->secondFactorMethod($user, $stepUp) !== null,
 			'askAdmin' => $this->approvalMethod($user, $stepUp) !== null,
 			'waiting' => $stepUp->approvalId !== null,
@@ -366,6 +373,10 @@ class VerifyController extends Controller {
 		]);
 		$response->setStatus($error === null ? Http::STATUS_OK : ($status === Http::STATUS_OK ? Http::STATUS_BAD_REQUEST : $status));
 		return $response;
+	}
+
+	private function tooManyCodes(): string {
+		return $this->l->t('Too many codes were sent to your email address in the last hour. Wait a while, then send a new one, or use the last code you received.');
 	}
 
 	private function waitingPage(IUser $user, StepUpState $stepUp, string $redirectUrl, ?string $notice = null): StandaloneTemplateResponse {

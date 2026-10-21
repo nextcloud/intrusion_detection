@@ -9,7 +9,9 @@ declare(strict_types=1);
 
 namespace OCA\IntrusionDetection\Tests\Integration;
 
+use OCA\IntrusionDetection\AppInfo\Application;
 use OCA\IntrusionDetection\Check\Checks\StepUpFailed;
+use OCA\IntrusionDetection\Confirm\EmailCodes;
 use OCA\IntrusionDetection\Confirm\IConfirmationMethod;
 use OCA\IntrusionDetection\Confirm\StepUpState;
 use OCA\IntrusionDetection\Controller\VerifyController;
@@ -28,6 +30,7 @@ use OCP\AppFramework\Http\RedirectResponse;
 use OCP\AppFramework\Http\Response;
 use OCP\AppFramework\Http\StandaloneTemplateResponse;
 use OCP\AppFramework\Utility\ITimeFactory;
+use OCP\Config\IUserConfig;
 use OCP\IURLGenerator;
 use OCP\IUser;
 use OCP\Server;
@@ -161,6 +164,21 @@ class VerifyFlowTest extends StepUpTestCase {
 		$this->assertSame(0, $this->stepUp()?->attempts);
 		$response = $this->verifyController()->confirm('000000');
 		$this->assertSame('This code is not correct. You can try 4 more times.', $this->paramOf($response, 'error'), 'The server counts afresh too');
+	}
+
+	public function testAfterFiveCodesInAnHourTheLoginWaitsWithoutANewOne(): void {
+		Server::get(IUserConfig::class)->setValueArray($this->alice->getUID(), Application::APP_ID, EmailCodes::USER_KEY_MAILS, array_fill(0, EmailCodes::MAX_MAILS, time() - 60), lazy: true);
+		$this->pendingLogin();
+		$this->assertSame([IConfirmationMethod::EMAIL_CODE], $this->stepUp()?->methods, 'Still held: never let through for lack of a code');
+		$this->assertNull($this->stepUp()?->codeHash);
+		$this->assertSame([], $this->mailed);
+
+		$page = $this->verifyController()->show();
+		$this->assertStringContainsString('Too many codes were sent to your email address in the last hour', (string)$this->paramOf($page, 'error'));
+		$this->assertFalse($this->paramOf($page, 'canResend'));
+		$this->assertStringNotContainsString('We sent a 6-digit code', (string)$this->paramOf($page, 'lead'));
+		$this->assertStringContainsString('Too many codes', (string)$this->paramOf($this->verifyController()->resend(), 'error'));
+		$this->assertSame([], $this->mailed);
 	}
 
 	public function testALoginThatWaitsTooLongIsEndedWithoutBlockingTheAddress(): void {
