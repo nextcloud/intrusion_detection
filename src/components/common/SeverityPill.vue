@@ -32,14 +32,14 @@ const label = computed(() => ({
 
 <style module>
 .pill {
-	--pill-color: var(--color-text-maxcontrast);
+	--pill-color: var(--color-main-text);
 	--pill-tint: var(--color-text-maxcontrast);
 	display: inline-flex;
 	align-items: center;
 	gap: calc(var(--default-grid-baseline) * 1.5);
 	padding-block: calc(var(--default-grid-baseline) / 2);
 	padding-inline: calc(var(--default-grid-baseline) * 2);
-	border: 1px solid color-mix(in srgb, var(--pill-tint) 35%, transparent);
+	border: 1px solid color-mix(in srgb, var(--pill-tint) 40%, var(--color-main-background));
 	border-radius: var(--border-radius-pill, 100px);
 	background-color: color-mix(in srgb, var(--pill-tint) 16%, var(--color-main-background));
 	color: var(--pill-color);
@@ -53,7 +53,7 @@ const label = computed(() => ({
 	width: 7px;
 	height: 7px;
 	border-radius: 50%;
-	background-color: currentColor;
+	background-color: var(--pill-tint);
 }
 
 .pill_medium {
