@@ -10,6 +10,7 @@ declare(strict_types=1);
 namespace OCA\IntrusionDetection\Tests\Unit;
 
 use OCA\IntrusionDetection\Check\Checks\ShareBruteforceDetector;
+use OCA\IntrusionDetection\Crypto\Fingerprinter;
 use OCA\IntrusionDetection\Db\AttemptKind;
 use OCA\IntrusionDetection\Detection\AttemptRecord;
 use OCA\IntrusionDetection\Net\SourceKey;
@@ -18,8 +19,9 @@ use Test\TestCase;
 /**
  * An exception logged anywhere below a detector carries the arguments of
  * every frame above it. An attempt record holds fingerprints of passwords,
- * share tokens and reset inputs, so every parameter that takes one is marked
- * sensitive, and the log shows a placeholder instead.
+ * share tokens and reset inputs, and the fingerprinter takes the secrets
+ * themselves, so every parameter that takes one is marked sensitive, and
+ * the log shows a placeholder instead.
  */
 class SensitiveParametersTest extends TestCase {
 	public function testEveryParameterThatTakesAnAttemptRecordIsSensitive(): void {
@@ -40,6 +42,20 @@ class SensitiveParametersTest extends TestCase {
 			}
 		}
 		$this->assertGreaterThanOrEqual(8, $checked);
+	}
+
+	public function testEverySecretTheFingerprinterTakesIsSensitive(): void {
+		$checked = 0;
+		foreach ((new \ReflectionClass(Fingerprinter::class))->getMethods() as $method) {
+			if ($method->isConstructor() || in_array($method->getName(), ['today', 'key'], true)) {
+				continue;
+			}
+			$secret = $method->getParameters()[0] ?? null;
+			$this->assertNotNull($secret, $method->getName());
+			$checked++;
+			$this->assertNotSame([], $secret->getAttributes(\SensitiveParameter::class), 'Fingerprinter::' . $method->getName() . '($' . $secret->getName() . ') must be #[\SensitiveParameter]');
+		}
+		$this->assertGreaterThanOrEqual(11, $checked);
 	}
 
 	public function testTheTraceOfAnExceptionHidesTheRecord(): void {

@@ -37,7 +37,7 @@ class Fingerprinter {
 	/**
 	 * 16-byte fingerprint of an attempted password under today's key.
 	 */
-	public function password(string $password): string {
+	public function password(#[\SensitiveParameter] string $password): string {
 		return $this->passwordForDay($password, $this->today());
 	}
 
@@ -48,7 +48,7 @@ class Fingerprinter {
 	 *
 	 * @return list<string>
 	 */
-	public function passwordCandidates(string $password): array {
+	public function passwordCandidates(#[\SensitiveParameter] string $password): array {
 		$candidates = [$this->password($password)];
 		$now = $this->timeFactory->getTime();
 		if ($now % 86400 < self::MIDNIGHT_OVERLAP) {
@@ -91,7 +91,7 @@ class Fingerprinter {
 	/**
 	 * 32-byte fingerprint of a decoy secret.
 	 */
-	public function decoy(string $secret): string {
+	public function decoy(#[\SensitiveParameter] string $secret): string {
 		return hash_hmac('sha256', $secret, $this->key('decoy'), true);
 	}
 
@@ -137,7 +137,7 @@ class Fingerprinter {
 		return hash_hmac('sha256', $token, $this->key('lock_link'));
 	}
 
-	private function passwordForDay(string $password, string $day): string {
+	private function passwordForDay(#[\SensitiveParameter] string $password, string $day): string {
 		return substr(hash_hmac('sha256', $password, $this->key('password/' . $day), true), 0, 16);
 	}
 
