@@ -18,6 +18,7 @@ use OCA\IntrusionDetection\Confirm\ConfirmationCoverage;
 use OCA\IntrusionDetection\Confirm\IConfirmationMethod;
 use OCA\IntrusionDetection\Confirm\Methods\KnownDeviceMethod;
 use OCA\IntrusionDetection\Confirm\NoMethodOutcome;
+use OCA\IntrusionDetection\Confirm\NoMethodPreset;
 use OCA\IntrusionDetection\Confirm\StepUpReasons;
 use OCA\IntrusionDetection\Db\Approval;
 use OCA\IntrusionDetection\ResponseDefinitions;
@@ -29,7 +30,8 @@ use OCP\IUserManager;
  * confirms that a risky login is really the account holder's, in the order
  * of {@see \OCA\IntrusionDetection\Confirm\ConfirmationPolicy::METHODS}; per reason, whether a remembered device counts
  * and what happens when nothing can confirm; how many accounts have no way
- * to confirm; and the logins that wait for an administrator.
+ * to confirm; and the logins that wait for an administrator. The outcomes
+ * of all reasons together are one {@see NoMethodPreset}, or "custom".
  *
  * @psalm-import-type IntrusionDetectionConfirmation from ResponseDefinitions
  * @psalm-import-type IntrusionDetectionConfirmationMethod from ResponseDefinitions
@@ -46,6 +48,7 @@ class ConfirmationOverview {
 		private readonly Approvers $approvers,
 		private readonly ApprovalService $approvals,
 		private readonly IUserManager $userManager,
+		private readonly NoMethodPreset $preset,
 	) {
 	}
 
@@ -58,6 +61,7 @@ class ConfirmationOverview {
 		return [
 			'methods' => $this->methods($l),
 			'policies' => $this->policies($l),
+			'preset' => $this->preset->current(),
 			'outcomes' => array_map(static fn (NoMethodOutcome $o): array => ['id' => $o->value, 'label' => $o->label($l), 'description' => $o->description($l)], NoMethodOutcome::cases()),
 			'users' => ['withoutMethod' => $users['withoutMethod'], 'active' => $users['active']],
 			'admins' => [
@@ -130,9 +134,11 @@ class ConfirmationOverview {
 	}
 
 	/**
+	 * What each reason accepts, as stored.
+	 *
 	 * @return list<array{id: string, label: string, why: string, default: string, outcome: string, setting: string, knownDevice: bool, knownDeviceAllowed: bool}>
 	 */
-	private function policies(IL10N $l): array {
+	public function policies(IL10N $l): array {
 		$knownDeviceOk = $this->settings->global(GlobalSettings::STEP_UP_KNOWN_DEVICE_OK_FOR);
 		$knownDeviceOk = is_array($knownDeviceOk) ? $knownDeviceOk : [];
 		$policies = [];

@@ -10,23 +10,29 @@ declare(strict_types=1);
 namespace OCA\IntrusionDetection\Controller;
 
 use OCA\IntrusionDetection\Admin\ConfirmationOverview;
+use OCA\IntrusionDetection\Audit\AuditLogger;
+use OCA\IntrusionDetection\Check\InvalidParamException;
 use OCA\IntrusionDetection\Confirm\ConfirmationCoverage;
+use OCA\IntrusionDetection\Confirm\NoMethodPreset;
 use OCA\IntrusionDetection\ResponseDefinitions;
 use OCP\AppFramework\Http;
 use OCP\AppFramework\Http\Attribute\ApiRoute;
 use OCP\AppFramework\Http\Attribute\OpenAPI;
+use OCP\AppFramework\Http\Attribute\PasswordConfirmationRequired;
 use OCP\AppFramework\Http\DataResponse;
 use OCP\IL10N;
 use OCP\IRequest;
 use OCP\IUserSession;
 
 /**
- * The Confirmation tab of the admin page: read-only. Its settings are
- * changed through the settings endpoint, and waiting logins are decided
- * through the approvals endpoints, both with password confirmation.
- * Administrators only.
+ * Login confirmation on the admin page. Its settings are changed through
+ * the settings endpoint or, for the outcomes of all reasons at once, the
+ * preset endpoint; waiting logins are decided through the approvals
+ * endpoints. Every change needs password confirmation. Administrators only.
  *
  * @psalm-import-type IntrusionDetectionConfirmation from ResponseDefinitions
+ * @psalm-import-type IntrusionDetectionConfirmationPreset from ResponseDefinitions
+ * @psalm-import-type IntrusionDetectionError from ResponseDefinitions
  * @psalm-import-type IntrusionDetectionUnconfirmableAccount from ResponseDefinitions
  */
 #[OpenAPI(scope: OpenAPI::SCOPE_ADMINISTRATION)]
@@ -37,6 +43,8 @@ class ConfirmationApiController extends AdminOCSController {
 		IUserSession $userSession,
 		private readonly ConfirmationOverview $overview,
 		private readonly ConfirmationCoverage $coverage,
+		private readonly NoMethodPreset $preset,
+		private readonly AuditLogger $audit,
 	) {
 		parent::__construct($request, $l, $userSession);
 	}
@@ -76,5 +84,36 @@ class ConfirmationApiController extends AdminOCSController {
 	#[ApiRoute(verb: 'GET', url: '/api/v1/confirmation/accounts')]
 	public function accounts(int $limit = 50, int $offset = 0, bool $admins = false): DataResponse {
 		return new DataResponse($this->coverage->list(max(1, min(ConfirmationCoverage::MAX_LIST, $limit)), max(0, $offset), $admins));
+	}
+
+	/**
+	 * Decide what happens to every login that cannot be confirmed
+	 *
+	 * Sets the outcome of every reason at once: "recommended" (the default of
+	 * each reason), "refuse", or "allow" (let it in and tell the user and the
+	 * administrators; with a leaked password a new one is required).
+	 *
+	 * @param string $preset recommended, refuse or allow
+	 * @return DataResponse<Http::STATUS_OK, IntrusionDetectionConfirmationPreset, array{}>|DataResponse<Http::STATUS_BAD_REQUEST, IntrusionDetectionError, array{}>
+	 *
+	 * 200: Outcomes set
+	 * 400: Unknown preset; nothing was saved
+	 */
+	#[ApiRoute(verb: 'PUT', url: '/api/v1/confirmation/preset')]
+	#[PasswordConfirmationRequired]
+	public function setPreset(string $preset): DataResponse {
+		try {
+			$changes = $this->preset->apply($preset);
+		} catch (InvalidParamException $e) {
+			return $this->invalid($e);
+		}
+		if ($changes !== []) {
+			$this->audit->log('login confirmation without a method set to %s by %s: %s', [
+				'preset' => $preset,
+				'actor' => $this->actor(),
+				'change' => json_encode($changes),
+			]);
+		}
+		return new DataResponse(['preset' => $this->preset->current(), 'policies' => $this->overview->policies($this->l)]);
 	}
 }

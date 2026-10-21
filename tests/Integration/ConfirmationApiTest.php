@@ -11,8 +11,12 @@ namespace OCA\IntrusionDetection\Tests\Integration;
 
 use OCA\IntrusionDetection\Admin\ConfirmationOverview;
 use OCA\IntrusionDetection\AppInfo\Application;
+use OCA\IntrusionDetection\Audit\AuditLogger;
 use OCA\IntrusionDetection\Config\GlobalSettings;
 use OCA\IntrusionDetection\Confirm\ConfirmationCoverage;
+use OCA\IntrusionDetection\Confirm\NoMethodOutcome;
+use OCA\IntrusionDetection\Confirm\NoMethodPreset;
+use OCA\IntrusionDetection\Confirm\StepUpPolicy;
 use OCA\IntrusionDetection\Controller\ConfirmationApiController;
 use OCA\IntrusionDetection\Controller\PersonalApiController;
 use OCA\IntrusionDetection\Db\LoginHistoryMapper;
@@ -83,6 +87,28 @@ class ConfirmationApiTest extends StepUpTestCase {
 		$this->assertSame(Http::STATUS_OK, $this->confirmationApi()->accounts(5000, -3)->getStatus(), 'The limit and offset are bounded');
 	}
 
+	public function testOnePresetWritesTheOutcomeOfEveryReason(): void {
+		$this->sessionUser = Server::get(IUserManager::class)->get('admin');
+		$this->assertSame('recommended', $this->confirmationApi()->index()->getData()['preset'], 'The defaults are the recommended preset');
+
+		$data = $this->confirmationApi()->setPreset('refuse')->getData();
+		$this->assertSame('refuse', $data['preset']);
+		$this->assertSame(['refuse'], array_values(array_unique(array_column($data['policies'], 'outcome'))));
+		foreach (StepUpPolicy::cases() as $policy) {
+			$this->assertSame('refuse', $this->settings->global($policy->settingKey()), $policy->value);
+		}
+
+		$this->confirmationApi()->setPreset('allow');
+		$this->assertSame('allow_force_change', $this->settings->global(StepUpPolicy::BreachedPassword->settingKey()));
+		$this->assertSame('allow_notify', $this->settings->global(StepUpPolicy::FlaggedSource->settingKey()));
+
+		$this->settings->setGlobal(StepUpPolicy::RiskHigh->settingKey(), NoMethodOutcome::Refuse->value);
+		$this->assertSame('custom', $this->confirmationApi()->index()->getData()['preset'], 'A change of one reason makes it custom');
+
+		$this->assertSame(Http::STATUS_BAD_REQUEST, $this->confirmationApi()->setPreset('custom')->getStatus());
+		$this->assertSame('refuse', $this->settings->global(StepUpPolicy::RiskHigh->settingKey()), 'A refused preset saves nothing');
+	}
+
 	public function testUsersListAndRemoveTheirOwnDevices(): void {
 		$this->knownDevices()->remember($this->alice, SourceKey::fromIp($this->remoteAddress), 'Firefox/131.0 (X11; Linux)');
 		$this->sessionUser = $this->alice;
@@ -125,6 +151,8 @@ class ConfirmationApiTest extends StepUpTestCase {
 			$this->userSession,
 			Server::get(ConfirmationOverview::class),
 			Server::get(ConfirmationCoverage::class),
+			Server::get(NoMethodPreset::class),
+			Server::get(AuditLogger::class),
 		);
 	}
 

@@ -11,6 +11,7 @@ namespace OCA\IntrusionDetection\Tests\Unit\Controller;
 
 use OCA\IntrusionDetection\Controller\AdminApiController;
 use OCA\IntrusionDetection\Controller\BlocklistApiController;
+use OCA\IntrusionDetection\Controller\ConfirmationApiController;
 use OCA\IntrusionDetection\Controller\DecoyApiController;
 use OCA\IntrusionDetection\Controller\IncidentApiController;
 use OCA\IntrusionDetection\Controller\NotificationApiController;
@@ -65,6 +66,7 @@ class AdminControllersTest extends TestCase {
 			[PrivacyApiController::class],
 			[SimulationApiController::class],
 			[IncidentApiController::class],
+			[ConfirmationApiController::class],
 		];
 	}
 

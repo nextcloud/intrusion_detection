@@ -740,11 +740,17 @@ namespace OCA\IntrusionDetection;
  * @psalm-type IntrusionDetectionConfirmation = array{
  *     methods: list<IntrusionDetectionConfirmationMethod>,
  *     policies: list<IntrusionDetectionConfirmationPolicy>,
+ *     preset: 'recommended'|'refuse'|'allow'|'custom',
  *     outcomes: list<IntrusionDetectionConfirmationOutcome>,
  *     users: array{withoutMethod: int, active: int},
  *     admins: array{total: int, withoutEmail: int, withoutSecondFactor: int, withNeither: list<string>},
  *     approvers: int,
  *     approvals: list<IntrusionDetectionLoginApproval>,
+ * }
+ *
+ * @psalm-type IntrusionDetectionConfirmationPreset = array{
+ *     preset: 'recommended'|'refuse'|'allow'|'custom',
+ *     policies: list<IntrusionDetectionConfirmationPolicy>,
  * }
  *
  * @psalm-type IntrusionDetectionUnconfirmableAccount = array{

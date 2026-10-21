@@ -213,6 +213,7 @@ return array(
     'OCA\\IntrusionDetection\\Confirm\\Methods\\SecondFactorMethod' => $baseDir . '/../lib/Confirm/Methods/SecondFactorMethod.php',
     'OCA\\IntrusionDetection\\Confirm\\NoMethodDecision' => $baseDir . '/../lib/Confirm/NoMethodDecision.php',
     'OCA\\IntrusionDetection\\Confirm\\NoMethodOutcome' => $baseDir . '/../lib/Confirm/NoMethodOutcome.php',
+    'OCA\\IntrusionDetection\\Confirm\\NoMethodPreset' => $baseDir . '/../lib/Confirm/NoMethodPreset.php',
     'OCA\\IntrusionDetection\\Confirm\\Reasons\\BreachedPasswordReason' => $baseDir . '/../lib/Confirm/Reasons/BreachedPasswordReason.php',
     'OCA\\IntrusionDetection\\Confirm\\Reasons\\FlaggedSourceReason' => $baseDir . '/../lib/Confirm/Reasons/FlaggedSourceReason.php',
     'OCA\\IntrusionDetection\\Confirm\\Reasons\\ProtectedAccountReason' => $baseDir . '/../lib/Confirm/Reasons/ProtectedAccountReason.php',

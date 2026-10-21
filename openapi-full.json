@@ -729,6 +729,7 @@
                 "required": [
                     "methods",
                     "policies",
+                    "preset",
                     "outcomes",
                     "users",
                     "admins",
@@ -747,6 +748,15 @@
                         "items": {
                             "$ref": "#/components/schemas/ConfirmationPolicy"
                         }
+                    },
+                    "preset": {
+                        "type": "string",
+                        "enum": [
+                            "recommended",
+                            "refuse",
+                            "allow",
+                            "custom"
+                        ]
                     },
                     "outcomes": {
                         "type": "array",
@@ -900,6 +910,30 @@
                     },
                     "knownDeviceAllowed": {
                         "type": "boolean"
+                    }
+                }
+            },
+            "ConfirmationPreset": {
+                "type": "object",
+                "required": [
+                    "preset",
+                    "policies"
+                ],
+                "properties": {
+                    "preset": {
+                        "type": "string",
+                        "enum": [
+                            "recommended",
+                            "refuse",
+                            "allow",
+                            "custom"
+                        ]
+                    },
+                    "policies": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/ConfirmationPolicy"
+                        }
                     }
                 }
             },
@@ -9299,6 +9333,173 @@
                 }
             }
         },
+        "/ocs/v2.php/apps/intrusion_detection/api/v1/confirmation/preset": {
+            "put": {
+                "operationId": "confirmation_api-set-preset",
+                "summary": "Decide what happens to every login that cannot be confirmed",
+                "description": "Sets the outcome of every reason at once: \"recommended\" (the default of each reason), \"refuse\", or \"allow\" (let it in and tell the user and the administrators; with a leaked password a new one is required).\nThis endpoint requires admin access\nThis endpoint requires password confirmation",
+                "tags": [
+                    "confirmation_api"
+                ],
+                "security": [
+                    {
+                        "bearer_auth": []
+                    },
+                    {
+                        "basic_auth": []
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "required": [
+                                    "preset"
+                                ],
+                                "properties": {
+                                    "preset": {
+                                        "type": "string",
+                                        "description": "recommended, refuse or allow"
+                                    }
+                                }
+                            }
+                        }
+                    }
+                },
+                "parameters": [
+                    {
+                        "name": "OCS-APIRequest",
+                        "in": "header",
+                        "description": "Required to be true for the API request to pass",
+                        "required": true,
+                        "schema": {
+                            "type": "boolean",
+                            "default": true
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Outcomes set",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "required": [
+                                        "ocs"
+                                    ],
+                                    "properties": {
+                                        "ocs": {
+                                            "type": "object",
+                                            "required": [
+                                                "meta",
+                                                "data"
+                                            ],
+                                            "properties": {
+                                                "meta": {
+                                                    "$ref": "#/components/schemas/OCSMeta"
+                                                },
+                                                "data": {
+                                                    "$ref": "#/components/schemas/ConfirmationPreset"
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Unknown preset; nothing was saved",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "required": [
+                                        "ocs"
+                                    ],
+                                    "properties": {
+                                        "ocs": {
+                                            "type": "object",
+                                            "required": [
+                                                "meta",
+                                                "data"
+                                            ],
+                                            "properties": {
+                                                "meta": {
+                                                    "$ref": "#/components/schemas/OCSMeta"
+                                                },
+                                                "data": {
+                                                    "$ref": "#/components/schemas/Error"
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Current user is not logged in",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "required": [
+                                        "ocs"
+                                    ],
+                                    "properties": {
+                                        "ocs": {
+                                            "type": "object",
+                                            "required": [
+                                                "meta",
+                                                "data"
+                                            ],
+                                            "properties": {
+                                                "meta": {
+                                                    "$ref": "#/components/schemas/OCSMeta"
+                                                },
+                                                "data": {}
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "Logged in account must be an admin",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "required": [
+                                        "ocs"
+                                    ],
+                                    "properties": {
+                                        "ocs": {
+                                            "type": "object",
+                                            "required": [
+                                                "meta",
+                                                "data"
+                                            ],
+                                            "properties": {
+                                                "meta": {
+                                                    "$ref": "#/components/schemas/OCSMeta"
+                                                },
+                                                "data": {}
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
         "/ocs/v2.php/apps/intrusion_detection/api/v1/decoys": {
             "get": {
                 "operationId": "decoy_api-index",
@@ -15223,7 +15424,7 @@
         },
         {
             "name": "confirmation_api",
-            "description": "The Confirmation tab of the admin page: read-only. Its settings are changed through the settings endpoint, and waiting logins are decided through the approvals endpoints, both with password confirmation. Administrators only."
+            "description": "Login confirmation on the admin page. Its settings are changed through the settings endpoint or, for the outcomes of all reasons at once, the preset endpoint; waiting logins are decided through the approvals endpoints. Every change needs password confirmation. Administrators only."
         },
         {
             "name": "decoy_api",

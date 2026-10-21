@@ -228,6 +228,7 @@ class ComposerStaticInitIntrusionDetection
         'OCA\\IntrusionDetection\\Confirm\\Methods\\SecondFactorMethod' => __DIR__ . '/..' . '/../lib/Confirm/Methods/SecondFactorMethod.php',
         'OCA\\IntrusionDetection\\Confirm\\NoMethodDecision' => __DIR__ . '/..' . '/../lib/Confirm/NoMethodDecision.php',
         'OCA\\IntrusionDetection\\Confirm\\NoMethodOutcome' => __DIR__ . '/..' . '/../lib/Confirm/NoMethodOutcome.php',
+        'OCA\\IntrusionDetection\\Confirm\\NoMethodPreset' => __DIR__ . '/..' . '/../lib/Confirm/NoMethodPreset.php',
         'OCA\\IntrusionDetection\\Confirm\\Reasons\\BreachedPasswordReason' => __DIR__ . '/..' . '/../lib/Confirm/Reasons/BreachedPasswordReason.php',
         'OCA\\IntrusionDetection\\Confirm\\Reasons\\FlaggedSourceReason' => __DIR__ . '/..' . '/../lib/Confirm/Reasons/FlaggedSourceReason.php',
         'OCA\\IntrusionDetection\\Confirm\\Reasons\\ProtectedAccountReason' => __DIR__ . '/..' . '/../lib/Confirm/Reasons/ProtectedAccountReason.php',

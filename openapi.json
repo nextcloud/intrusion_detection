@@ -3458,7 +3458,7 @@
         },
         {
             "name": "confirmation_api",
-            "description": "The Confirmation tab of the admin page: read-only. Its settings are changed through the settings endpoint, and waiting logins are decided through the approvals endpoints, both with password confirmation. Administrators only."
+            "description": "Login confirmation on the admin page. Its settings are changed through the settings endpoint or, for the outcomes of all reasons at once, the preset endpoint; waiting logins are decided through the approvals endpoints. Every change needs password confirmation. Administrators only."
         },
         {
             "name": "decoy_api",
