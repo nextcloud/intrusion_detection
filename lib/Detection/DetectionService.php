@@ -30,12 +30,16 @@ use OCP\AppFramework\Utility\ITimeFactory;
  * lowered a limit with. Merged hits do not compute it again.
  */
 class DetectionService {
+	/** @var array<int, list<string>> the accounts recorded for detections in this request */
+	private array $recorded = [];
+
 	public function __construct(
 		private readonly DetectionMapper $mapper,
 		private readonly CheckRegistry $registry,
 		private readonly Settings $settings,
 		private readonly ITimeFactory $timeFactory,
 		private readonly RiskScorer $risk,
+		private readonly DetectionAccounts $accounts,
 	) {
 	}
 
@@ -46,6 +50,7 @@ class DetectionService {
 		$now = $this->timeFactory->getTime();
 		$existing = $this->mergeTarget($draft, $mode);
 		if ($existing !== null) {
+			$accountsBefore = DetectionAccounts::of($existing);
 			$existing->setHits($existing->getHits() + 1);
 			$existing->setLastSeenAt($now);
 			$severity = Severity::tryFrom($existing->getSeverity());
@@ -58,10 +63,14 @@ class DetectionService {
 			$explanation['facts'] = FactsMerger::merge(is_array($explanation['facts'] ?? null) ? $explanation['facts'] : [], Explanation::facts($draft));
 			$existing->setExplanationData($explanation);
 			$this->mapper->update($existing);
+			// The merged facts may name accounts the detection did not name before.
+			$this->recorded[$existing->getId()] = $this->accounts->recordChange($existing, $accountsBefore);
 			return [$existing, false];
 		}
 
-		return [$this->mapper->insert($this->build($draft, $mode, $now, true)), true];
+		$detection = $this->mapper->insert($this->build($draft, $mode, $now, true));
+		$this->recorded[$detection->getId()] = $this->accounts->recordNew($detection);
+		return [$detection, true];
 	}
 
 	/**
@@ -125,5 +134,6 @@ class DetectionService {
 	public function setActions(Detection $detection, array $actions): void {
 		$detection->setActionList($actions);
 		$this->mapper->update($detection);
+		$this->recorded[$detection->getId()] = $this->accounts->recordChange($detection, $this->recorded[$detection->getId()] ?? null);
 	}
 }

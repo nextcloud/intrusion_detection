@@ -54,17 +54,15 @@ class DetectionSource implements ITimelineSource {
 		$address = $query->address;
 		$uid = $query->uid;
 		// An account's report also has the attacks that targeted it, e.g. a credential stuffing run.
-		$jsonUid = $uid === null ? null : json_encode($uid, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
 		$rows = MatchingRows::collect(
-			fn (int $offset, int $limit): array => $this->detections->findForIncident(
+			fn (?Detection $after, int $limit): array => $this->detections->findForIncident(
 				$uid,
-				$jsonUid,
-				$address !== null && $address->family === 4 ? $address->ip : null,
-				$address !== null && $address->family === 6 ? $address->netKey : null,
+				$uid === null && $address !== null && $address->family === 4 ? $address->ip : null,
+				$uid === null && $address !== null && $address->family === 6 ? $address->netKey : null,
 				$query->since,
 				$query->until,
 				$limit,
-				$offset,
+				$after,
 			),
 			static fn (Detection $d): bool => $uid === null || $d->getUid() === $uid || in_array($uid, DetectionFacts::of($d)->list('targets'), true),
 			$query->limit,

@@ -76,9 +76,10 @@ class AdminChangeSource implements ITimelineSource {
 	 */
 	private function changes(IncidentQuery $query): array {
 		[$field, $value] = $query->uid !== null ? ['actor', $query->uid] : ['actor_ip', (string)$query->address?->ip];
-		$needle = '"' . $field . '":' . json_encode($value, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+		// The actor is recorded as an account of the detection; an address is only in its facts.
+		$needle = $query->uid !== null ? null : '"' . $field . '":' . json_encode($value, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
 		return MatchingRows::collect(
-			fn (int $offset, int $limit): array => $this->detections->findOfCheckContaining(AdminChange::ID, $needle, $query->since, $query->until, $limit, $offset),
+			fn (?Detection $after, int $limit): array => $this->detections->findOfCheckFor(AdminChange::ID, $query->uid, $needle, $query->since, $query->until, $limit, $after),
 			// Changes to the account itself are its own detections already.
 			static fn (Detection $d): bool => DetectionFacts::of($d)->string($field) === $value && ($query->uid === null || $d->getUid() !== $query->uid),
 			$query->limit,

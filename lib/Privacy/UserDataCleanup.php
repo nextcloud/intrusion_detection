@@ -13,6 +13,7 @@ use OCA\IntrusionDetection\Db\AlertMapper;
 use OCA\IntrusionDetection\Db\ApprovalMapper;
 use OCA\IntrusionDetection\Db\AttemptMapper;
 use OCA\IntrusionDetection\Db\Detection;
+use OCA\IntrusionDetection\Db\DetectionAccountMapper;
 use OCA\IntrusionDetection\Db\DetectionMapper;
 use OCA\IntrusionDetection\Db\KnownDeviceMapper;
 use OCA\IntrusionDetection\Db\LockLinkMapper;
@@ -25,6 +26,7 @@ use OCA\IntrusionDetection\Db\StepUpSessionMapper;
 use OCA\IntrusionDetection\Db\TokenOriginMapper;
 use OCA\IntrusionDetection\Db\TrustedNetworkMapper;
 use OCA\IntrusionDetection\Db\UserDailyMapper;
+use OCA\IntrusionDetection\Detection\DetectionAccounts;
 use OCA\IntrusionDetection\Notification\AdminNotices;
 use OCA\IntrusionDetection\Notification\UserAlerts;
 use OCP\DB\QueryBuilder\IQueryBuilder;
@@ -74,6 +76,7 @@ class UserDataCleanup {
 	public function __construct(
 		private readonly IDBConnection $db,
 		private readonly DetectionMapper $detections,
+		private readonly DetectionAccountMapper $accounts,
 	) {
 	}
 
@@ -107,19 +110,21 @@ class UserDataCleanup {
 	}
 
 	/**
-	 * Detections of the account, and detections whose explanation or actions
-	 * mention it (as a target of an attack), are rewritten without it.
+	 * Detections of the account, and detections whose facts or actions
+	 * mention it (as a target of an attack), are rewritten without it. They
+	 * are found through the accounts recorded per detection
+	 * ({@see DetectionAccounts}), not by searching the JSON of every row.
 	 */
 	private function scrubDetections(string $uid): void {
-		$jsonUid = json_encode($uid, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
 		$lastId = 0;
 		do {
-			$batch = $this->detections->findMentioning($uid, $jsonUid, $lastId, self::BATCH);
-			foreach ($batch as $detection) {
-				$lastId = $detection->getId();
+			$ids = $this->accounts->detectionIds($uid, $lastId, self::BATCH);
+			foreach ($this->detections->findByIds($ids) as $detection) {
 				$this->scrub($detection, $uid);
 			}
-		} while (count($batch) === self::BATCH);
+			$lastId = $ids === [] ? $lastId : max($ids);
+		} while (count($ids) === self::BATCH);
+		$this->accounts->deleteForUid($uid);
 	}
 
 	private function scrub(Detection $detection, string $uid): void {

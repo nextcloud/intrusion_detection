@@ -138,24 +138,18 @@ class DetectionMapper extends QBMapper {
 	}
 
 	/**
-	 * Detections of an account, or whose explanation or actions contain a
-	 * text (the account's uid as JSON), after an id, oldest first.
-	 *
-	 * @return list<Detection>
+	 * @param list<int> $ids
+	 * @return list<Detection> in id order
 	 */
-	public function findMentioning(string $uid, string $jsonText, int $afterId, int $limit): array {
-		$needle = '%' . $this->db->escapeLikeParameter($jsonText) . '%';
+	public function findByIds(array $ids): array {
+		if ($ids === []) {
+			return [];
+		}
 		$qb = $this->db->getQueryBuilder();
 		$qb->select('*')
 			->from(self::TABLE)
-			->where($qb->expr()->gt('id', $qb->createNamedParameter($afterId, IQueryBuilder::PARAM_INT)))
-			->andWhere($qb->expr()->orX(
-				$qb->expr()->eq('uid', $qb->createNamedParameter($uid)),
-				$qb->expr()->like('explanation', $qb->createNamedParameter($needle)),
-				$qb->expr()->like('actions', $qb->createNamedParameter($needle)),
-			))
-			->orderBy('id', 'ASC')
-			->setMaxResults($limit);
+			->where($qb->expr()->in('id', $qb->createNamedParameter($ids, IQueryBuilder::PARAM_INT_ARRAY)))
+			->orderBy('id', 'ASC');
 		return $this->findEntities($qb);
 	}
 
@@ -180,59 +174,80 @@ class DetectionMapper extends QBMapper {
 	/**
 	 * Detections of an account, or of an address, that were active in a
 	 * period: started before its end and last seen after its start. An
-	 * account also matches detections whose explanation contains
-	 * `$jsonText` (its uid as JSON, for detections that targeted it), which
-	 * callers check in the decoded facts. An address matches by `ip`, an
-	 * IPv6 network by `net_key`. Oldest first.
+	 * account matches the detections recorded for it
+	 * ({@see DetectionAccountMapper}): its own and those that named it, which
+	 * callers check in the decoded facts. An address matches by `ip`, an IPv6
+	 * network by `net_key`. Oldest first, after a detection for the next page.
 	 *
 	 * @return list<Detection>
 	 */
-	public function findForIncident(?string $uid, ?string $jsonText, ?string $ip, ?string $netKey, int $since, int $until, int $limit, int $offset = 0): array {
+	public function findForIncident(?string $uid, ?string $ip, ?string $netKey, int $since, int $until, int $limit, ?Detection $after = null): array {
 		$qb = $this->db->getQueryBuilder();
-		$qb->select('*')->from(self::TABLE);
+		$qb->select('d.*')->from(self::TABLE, 'd');
 		if ($uid !== null) {
-			$qb->where($jsonText === null
-				? $qb->expr()->eq('uid', $qb->createNamedParameter($uid))
-				: $qb->expr()->orX(
-					$qb->expr()->eq('uid', $qb->createNamedParameter($uid)),
-					$qb->expr()->like('explanation', $qb->createNamedParameter('%' . $this->db->escapeLikeParameter($jsonText) . '%')),
-				));
+			$qb->innerJoin('d', DetectionAccountMapper::TABLE, 'a', $qb->expr()->eq('a.detection_id', 'd.id'))
+				->where($qb->expr()->eq('a.uid', $qb->createNamedParameter($uid)));
 		} elseif ($ip !== null) {
-			$qb->where($qb->expr()->eq('ip', $qb->createNamedParameter($ip)));
+			$qb->where($qb->expr()->eq('d.ip', $qb->createNamedParameter($ip)));
 		} elseif ($netKey !== null) {
-			$qb->where($qb->expr()->eq('net_key', $qb->createNamedParameter($netKey)));
+			$qb->where($qb->expr()->eq('d.net_key', $qb->createNamedParameter($netKey)));
 		} else {
 			return [];
 		}
-		$qb->andWhere($qb->expr()->lte('created_at', $qb->createNamedParameter($until, IQueryBuilder::PARAM_INT)))
-			->andWhere($qb->expr()->gte('last_seen_at', $qb->createNamedParameter($since, IQueryBuilder::PARAM_INT)))
-			->orderBy('created_at', 'ASC')
-			->addOrderBy('id', 'ASC')
-			->setMaxResults($limit)
-			->setFirstResult($offset);
+		$qb->andWhere($qb->expr()->lte('d.created_at', $qb->createNamedParameter($until, IQueryBuilder::PARAM_INT)))
+			->andWhere($qb->expr()->gte('d.last_seen_at', $qb->createNamedParameter($since, IQueryBuilder::PARAM_INT)));
+		self::after($qb, $after);
+		$qb->orderBy('d.created_at', 'ASC')
+			->addOrderBy('d.id', 'ASC')
+			->setMaxResults($limit);
 		return $this->findEntities($qb);
 	}
 
 	/**
-	 * Detections of one check created in a period whose explanation contains
-	 * a text, oldest first. Callers check the decoded facts as well, as the
-	 * text may also occur elsewhere in the explanation.
+	 * Detections of one check created in a period, oldest first, after a
+	 * detection for the next page: of an account (recorded for it, e.g. as
+	 * the actor of an administration change), or whose explanation contains
+	 * a text. Callers check the decoded facts as well, as the account or the
+	 * text may also occur elsewhere.
 	 *
 	 * @return list<Detection>
 	 */
-	public function findOfCheckContaining(string $checkId, string $jsonText, int $since, int $until, int $limit, int $offset = 0): array {
+	public function findOfCheckFor(string $checkId, ?string $uid, ?string $jsonText, int $since, int $until, int $limit, ?Detection $after = null): array {
 		$qb = $this->db->getQueryBuilder();
-		$qb->select('*')
-			->from(self::TABLE)
-			->where($qb->expr()->eq('check_id', $qb->createNamedParameter($checkId)))
-			->andWhere($qb->expr()->gte('created_at', $qb->createNamedParameter($since, IQueryBuilder::PARAM_INT)))
-			->andWhere($qb->expr()->lte('created_at', $qb->createNamedParameter($until, IQueryBuilder::PARAM_INT)))
-			->andWhere($qb->expr()->like('explanation', $qb->createNamedParameter('%' . $this->db->escapeLikeParameter($jsonText) . '%')))
-			->orderBy('created_at', 'ASC')
-			->addOrderBy('id', 'ASC')
-			->setMaxResults($limit)
-			->setFirstResult($offset);
+		$qb->select('d.*')
+			->from(self::TABLE, 'd')
+			->where($qb->expr()->eq('d.check_id', $qb->createNamedParameter($checkId)))
+			->andWhere($qb->expr()->gte('d.created_at', $qb->createNamedParameter($since, IQueryBuilder::PARAM_INT)))
+			->andWhere($qb->expr()->lte('d.created_at', $qb->createNamedParameter($until, IQueryBuilder::PARAM_INT)));
+		if ($uid !== null) {
+			$qb->innerJoin('d', DetectionAccountMapper::TABLE, 'a', $qb->expr()->eq('a.detection_id', 'd.id'))
+				->andWhere($qb->expr()->eq('a.uid', $qb->createNamedParameter($uid)));
+		}
+		if ($jsonText !== null) {
+			$qb->andWhere($qb->expr()->like('d.explanation', $qb->createNamedParameter('%' . $this->db->escapeLikeParameter($jsonText) . '%')));
+		}
+		self::after($qb, $after);
+		$qb->orderBy('d.created_at', 'ASC')
+			->addOrderBy('d.id', 'ASC')
+			->setMaxResults($limit);
 		return $this->findEntities($qb);
+	}
+
+	/**
+	 * Only rows after a detection in (created_at, id) order.
+	 */
+	private static function after(IQueryBuilder $qb, ?Detection $after): void {
+		if ($after === null) {
+			return;
+		}
+		$createdAt = $qb->createNamedParameter((int)$after->getCreatedAt(), IQueryBuilder::PARAM_INT);
+		$qb->andWhere($qb->expr()->orX(
+			$qb->expr()->gt('d.created_at', $createdAt),
+			$qb->expr()->andX(
+				$qb->expr()->eq('d.created_at', $createdAt),
+				$qb->expr()->gt('d.id', $qb->createNamedParameter((int)$after->getId(), IQueryBuilder::PARAM_INT)),
+			),
+		));
 	}
 
 	/**
@@ -270,11 +285,25 @@ class DetectionMapper extends QBMapper {
 		return $checkId . '|' . $severity . '|' . ($enforced ? '1' : '0');
 	}
 
+	/**
+	 * Delete the detections created before a time, in batches, with the
+	 * accounts recorded for them.
+	 */
 	public function deleteCreatedBefore(int $before): int {
-		$qb = $this->db->getQueryBuilder();
-		$qb->delete(self::TABLE)
-			->where($qb->expr()->lt('created_at', $qb->createNamedParameter($before, IQueryBuilder::PARAM_INT)));
-		return $qb->executeStatement();
+		return BatchedDelete::run(
+			$this->db,
+			self::TABLE,
+			'id',
+			static fn (IQueryBuilder $qb): IQueryBuilder => $qb->where($qb->expr()->lt('created_at', $qb->createNamedParameter($before, IQueryBuilder::PARAM_INT))),
+			// All of them: the running totals already counted every one.
+			maxBatches: PHP_INT_MAX,
+			beforeDelete: function (array $ids): void {
+				$qb = $this->db->getQueryBuilder();
+				$qb->delete(DetectionAccountMapper::TABLE)
+					->where($qb->expr()->in('detection_id', $qb->createNamedParameter($ids, IQueryBuilder::PARAM_INT_ARRAY)))
+					->executeStatement();
+			},
+		);
 	}
 
 	private function applyFilter(IQueryBuilder $qb, DetectionFilter $filter): void {

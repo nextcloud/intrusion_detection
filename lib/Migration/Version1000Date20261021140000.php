@@ -10,8 +10,11 @@ declare(strict_types=1);
 namespace OCA\IntrusionDetection\Migration;
 
 use Closure;
+use OCA\IntrusionDetection\Detection\DetectionAccounts;
 use OCP\DB\ISchemaWrapper;
+use OCP\DB\Types;
 use OCP\Migration\Attributes\AddIndex;
+use OCP\Migration\Attributes\CreateTable;
 use OCP\Migration\Attributes\IndexType;
 use OCP\Migration\IOutput;
 use OCP\Migration\SimpleMigrationStep;
@@ -20,9 +23,15 @@ use OCP\Migration\SimpleMigrationStep;
  * Indexes and side tables that keep the statistics, the user deletion and
  * the incident reports off full scans.
  */
+#[CreateTable(table: 'ids_detection_accounts', description: 'Which accounts each detection is about or mentions, for deleting accounts and for incident reports')]
 #[AddIndex(table: 'ids_logins', type: IndexType::INDEX, description: 'Deleting the logins of a deleted account')]
 #[AddIndex(table: 'ids_alerts', type: IndexType::INDEX, description: 'Deleting the notification counters of a deleted account')]
 class Version1000Date20261021140000 extends SimpleMigrationStep {
+	public function __construct(
+		private readonly DetectionAccounts $accounts,
+	) {
+	}
+
 	/**
 	 * @param Closure(): ISchemaWrapper $schemaClosure
 	 */
@@ -30,6 +39,14 @@ class Version1000Date20261021140000 extends SimpleMigrationStep {
 	public function changeSchema(IOutput $output, Closure $schemaClosure, array $options): ?ISchemaWrapper {
 		/** @var ISchemaWrapper $schema */
 		$schema = $schemaClosure();
+
+		if (!$schema->hasTable('ids_detection_accounts')) {
+			$table = $schema->createTable('ids_detection_accounts');
+			$table->addColumn('detection_id', Types::BIGINT, ['notnull' => true, 'unsigned' => true]);
+			$table->addColumn('uid', Types::STRING, ['notnull' => true, 'length' => 64]);
+			$table->setPrimaryKey(['detection_id', 'uid']);
+			$table->addIndex(['uid', 'detection_id'], 'ids_detacc_uid');
+		}
 
 		$logins = $schema->getTable('ids_logins');
 		if (!$logins->hasIndex('ids_login_uid')) {
@@ -43,5 +60,15 @@ class Version1000Date20261021140000 extends SimpleMigrationStep {
 		}
 
 		return $schema;
+	}
+
+	/**
+	 * Record the accounts of the detections stored before the side table
+	 * existed. Accounts already recorded are skipped, so a repeated run adds
+	 * nothing.
+	 */
+	#[\Override]
+	public function postSchemaChange(IOutput $output, Closure $schemaClosure, array $options): void {
+		$this->accounts->backfill();
 	}
 }

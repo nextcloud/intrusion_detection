@@ -26,6 +26,7 @@ final class BatchedDelete {
 	 * @param string $idColumn the single-column primary key
 	 * @param \Closure(IQueryBuilder): mixed $where adds the condition to a query on the table
 	 * @param IQueryBuilder::PARAM_INT_ARRAY|IQueryBuilder::PARAM_STR_ARRAY $idType
+	 * @param ?\Closure(list<int|string>): void $beforeDelete runs with the ids of each batch before it is deleted, e.g. to delete dependent rows
 	 * @return int how many rows were deleted
 	 */
 	public static function run(
@@ -36,6 +37,7 @@ final class BatchedDelete {
 		int $idType = IQueryBuilder::PARAM_INT_ARRAY,
 		int $batch = self::BATCH,
 		int $maxBatches = self::MAX_BATCHES,
+		?\Closure $beforeDelete = null,
 	): int {
 		$deleted = 0;
 		for ($i = 0; $i < $maxBatches; $i++) {
@@ -48,12 +50,13 @@ final class BatchedDelete {
 			if ($ids === []) {
 				break;
 			}
+			$ids = $idType === IQueryBuilder::PARAM_INT_ARRAY ? array_map('intval', $ids) : array_map('strval', $ids);
+			if ($beforeDelete !== null) {
+				$beforeDelete($ids);
+			}
 			$delete = $db->getQueryBuilder();
 			$delete->delete($table)
-				->where($delete->expr()->in($idColumn, $delete->createNamedParameter(
-					$idType === IQueryBuilder::PARAM_INT_ARRAY ? array_map('intval', $ids) : array_map('strval', $ids),
-					$idType,
-				)));
+				->where($delete->expr()->in($idColumn, $delete->createNamedParameter($ids, $idType)));
 			$deleted += $delete->executeStatement();
 			if (count($ids) < $batch) {
 				break;
