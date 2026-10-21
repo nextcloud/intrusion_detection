@@ -22,13 +22,12 @@ use OCP\AppFramework\Utility\ITimeFactory;
  *
  * The login name and the password are fingerprinted with keys derived from
  * the instance secret before anything is stored; the plain values never
- * leave this method.
+ * leave this method. Expired attempts are deleted by the cleanup job, never
+ * on the path of a failed login.
  */
 class AttemptRecorder {
 	/** Attempts are kept this long */
 	public const RETENTION = 3600;
-	/** One in this many recordings also deletes expired attempts */
-	public const CLEANUP_ONE_IN = 50;
 	/** Above this many rows the table counts as flooded */
 	public const FLOOD_ROWS = 100000;
 	/** Under a flood, one in this many low-value attempts is kept */
@@ -93,10 +92,6 @@ class AttemptRecorder {
 		if ($stored) {
 			$this->mapper->insert($kind, $source->ipKey, $source->netKey, $nameHmac, $uid, $shareId, $fingerprint, $now, $weight);
 		}
-		if ($this->oneIn(self::CLEANUP_ONE_IN)) {
-			$this->mapper->deleteOlderThan($now - self::RETENTION);
-		}
-
 		return new AttemptRecord($kind, $source, $nameHmac, $uid, $shareId, $fingerprint, $candidates, $now, $stored);
 	}
 

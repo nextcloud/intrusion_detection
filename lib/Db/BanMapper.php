@@ -270,9 +270,6 @@ class BanMapper extends QBMapper {
 	 * Delete bans that ended before the given time. They are kept that long for escalation.
 	 */
 	public function deleteEndedBefore(int $before): int {
-		$qb = $this->db->getQueryBuilder();
-		$qb->delete(self::TABLE)
-			->where($qb->expr()->lt('expires_at', $qb->createNamedParameter($before, IQueryBuilder::PARAM_INT)));
-		return $qb->executeStatement();
+		return BatchedDelete::run($this->db, self::TABLE, 'id', static fn (IQueryBuilder $qb): IQueryBuilder => $qb->where($qb->expr()->lt('expires_at', $qb->createNamedParameter($before, IQueryBuilder::PARAM_INT))));
 	}
 }

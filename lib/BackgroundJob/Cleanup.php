@@ -34,11 +34,12 @@ use OCA\IntrusionDetection\Takeover\SecurityChangeLog;
 use OCP\AppFramework\Utility\ITimeFactory;
 use OCP\BackgroundJob\IJob;
 use OCP\BackgroundJob\TimedJob;
-use OCP\IDBConnection;
+use Psr\Log\LoggerInterface;
 
 /**
  * Deletes everything past its retention, every five minutes, and notices
- * when the attempts table is flooded.
+ * when the attempts table is flooded. Deletes run in batches, and a step
+ * that fails is logged without skipping the others.
  */
 class Cleanup extends TimedJob {
 	/** Ended bans are kept this long, for escalation */
@@ -49,6 +50,11 @@ class Cleanup extends TimedJob {
 	public const TOKEN_ORIGIN_RETENTION = 30 * 86400;
 	/** Ended blocks flagged per run at most */
 	public const ENDED_BANS_PER_RUN = 1000;
+	/**
+	 * Previous email addresses are forgotten for the changes of this period
+	 * before their time is up; older ones were forgotten by earlier runs.
+	 */
+	public const ADDRESS_LOOK_BACK = 7 * 86400;
 
 	public function __construct(
 		ITimeFactory $time,
@@ -57,7 +63,6 @@ class Cleanup extends TimedJob {
 		private readonly BanMapper $bans,
 		private readonly FlagMapper $flags,
 		private readonly Settings $settings,
-		private readonly IDBConnection $db,
 		private readonly ProtectedAccountMapper $protectedAccounts,
 		private readonly AlertMapper $alerts,
 		private readonly ResetMailSuppressor $resetMails,
@@ -72,6 +77,7 @@ class Cleanup extends TimedJob {
 		private readonly FailedLoginStats $failedLoginStats,
 		private readonly AbandonedLogins $abandonedLogins,
 		private readonly FlaggedSources $flaggedSources,
+		private readonly LoggerInterface $logger,
 	) {
 		parent::__construct($time);
 		$this->setInterval(300);
@@ -81,26 +87,40 @@ class Cleanup extends TimedJob {
 	#[\Override]
 	protected function run(mixed $argument): void {
 		$now = $this->time->getTime();
-		$this->flagEndedBans($now);
-		$this->attempts->deleteOlderThan($now - AttemptRecorder::RETENTION);
-		$this->logins->deleteOlderThan(intdiv($now - 86400, 3600));
-		$this->detectionTotals->deleteCreatedBefore($now - $this->settings->getInt(GlobalSettings::RETENTION_DETECTIONS_DAYS) * 86400);
-		$this->bans->deleteEndedBefore($now - max(self::BAN_HISTORY, $this->settings->getInt(GlobalSettings::BAN_HISTORY_DAYS) * 86400));
-		$this->flags->deleteExpired($now);
-		$this->protectedAccounts->deleteExpired($now);
-		$this->alerts->deleteOlderThan($now - self::ALERT_RETENTION);
-		$this->resetMails->deleteExpired();
-		$this->tokenOrigins->deleteOlderThan($now - self::TOKEN_ORIGIN_RETENTION);
-		$this->trustedNetworks->deleteExpired($now);
-		$this->abandonedLogins->end();
-		$this->stepUpSessions->deleteExpired($now);
-		$this->knownDevices->deleteExpired();
-		$this->loginHistory->deleteOlderThan($now - $this->settings->getInt(GlobalSettings::HISTORY_RETENTION_DAYS) * 86400);
-		$this->securityChanges->deleteOlderThan($now - $this->settings->getInt(GlobalSettings::HISTORY_RETENTION_DAYS) * 86400);
-		$this->securityChanges->forgetAddressesBefore($now - SecurityChangeLog::ADDRESS_TTL);
-		$this->lockLinks->deleteExpired($now);
-		$this->failedLoginStats->deleteExpired();
-		$this->updateFloodState($now);
+		$historyBefore = $now - $this->settings->getInt(GlobalSettings::HISTORY_RETENTION_DAYS) * 86400;
+		$steps = [
+			// Before ended blocks are deleted below.
+			'ended_bans' => fn () => $this->flagEndedBans($now),
+			'attempts' => fn (): int => $this->attempts->deleteOlderThan($now - AttemptRecorder::RETENTION),
+			'flood_state' => fn () => $this->updateFloodState($now),
+			'logins' => fn (): int => $this->logins->deleteOlderThan(intdiv($now - 86400, 3600)),
+			'detections' => fn (): int => $this->detectionTotals->deleteCreatedBefore($now - $this->settings->getInt(GlobalSettings::RETENTION_DETECTIONS_DAYS) * 86400),
+			'bans' => fn (): int => $this->bans->deleteEndedBefore($now - max(self::BAN_HISTORY, $this->settings->getInt(GlobalSettings::BAN_HISTORY_DAYS) * 86400)),
+			'flags' => fn (): int => $this->flags->deleteExpired($now),
+			'protected_accounts' => fn (): int => $this->protectedAccounts->deleteExpired($now),
+			'alerts' => fn (): int => $this->alerts->deleteOlderThan($now - self::ALERT_RETENTION),
+			'reset_suppressions' => fn () => $this->resetMails->deleteExpired(),
+			'token_origins' => fn (): int => $this->tokenOrigins->deleteOlderThan($now - self::TOKEN_ORIGIN_RETENTION),
+			'trusted_networks' => fn (): int => $this->trustedNetworks->deleteExpired($now),
+			'abandoned_logins' => fn () => $this->abandonedLogins->end(),
+			'step_up_sessions' => fn (): int => $this->stepUpSessions->deleteExpired($now),
+			'known_devices' => fn (): int => $this->knownDevices->deleteExpired(),
+			'login_history' => fn (): int => $this->loginHistory->deleteOlderThan($historyBefore),
+			'security_changes' => fn (): int => $this->securityChanges->deleteOlderThan($historyBefore),
+			'security_change_addresses' => fn (): int => $this->securityChanges->forgetAddressesBefore(
+				$now - SecurityChangeLog::ADDRESS_TTL,
+				$now - SecurityChangeLog::ADDRESS_TTL - self::ADDRESS_LOOK_BACK,
+			),
+			'lock_links' => fn (): int => $this->lockLinks->deleteExpired($now),
+			'failed_login_stats' => fn (): int => $this->failedLoginStats->deleteExpired(),
+		];
+		foreach ($steps as $name => $step) {
+			try {
+				$step();
+			} catch (\Throwable $e) {
+				$this->logger->error('Intrusion detection could not clean up {step}', ['step' => $name, 'exception' => $e]);
+			}
+		}
 	}
 
 	/**
@@ -124,12 +144,7 @@ class Cleanup extends TimedJob {
 	}
 
 	private function updateFloodState(int $now): void {
-		$qb = $this->db->getQueryBuilder();
-		$qb->select($qb->func()->count('*'))->from(AttemptMapper::TABLE);
-		$result = $qb->executeQuery();
-		$rows = (int)$result->fetchOne();
-		$result->closeCursor();
-		$flooded = $rows > AttemptRecorder::FLOOD_ROWS;
+		$flooded = $this->attempts->hasMoreThan(AttemptRecorder::FLOOD_ROWS);
 		$until = $this->settings->getInt(GlobalSettings::ATTEMPTS_FLOOD_UNTIL);
 		if ($flooded) {
 			$this->settings->setGlobal(GlobalSettings::ATTEMPTS_FLOOD_UNTIL, $now + 600);

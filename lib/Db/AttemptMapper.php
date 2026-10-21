@@ -20,6 +20,9 @@ use OCP\IDBConnection;
  */
 class AttemptMapper {
 	public const TABLE = 'ids_attempts';
+	/** An attack can add hundreds of thousands of attempts between two cleanups */
+	private const DELETE_BATCH = 5000;
+	private const DELETE_MAX_BATCHES = 200;
 
 	/** Columns an aggregate may group on, each the first column of an index */
 	private const KEY_COLUMNS = ['ip_key', 'net_key', 'pw_fp', 'uid', 'share_id', 'name_hmac'];
@@ -174,11 +177,40 @@ class AttemptMapper {
 		return $rows;
 	}
 
+	/**
+	 * Delete the attempts created before a time, in batches. The condition
+	 * on every kind lets the (kind, created_at) index find them: no index
+	 * starts with created_at, and without one MySQL scans and locks the
+	 * whole table.
+	 */
 	public function deleteOlderThan(int $before): int {
+		$kinds = array_map(static fn (AttemptKind $k): int => $k->value, AttemptKind::cases());
+		return BatchedDelete::run(
+			$this->db,
+			self::TABLE,
+			'id',
+			static fn (IQueryBuilder $qb): IQueryBuilder => $qb
+				->where($qb->expr()->in('kind', $qb->createNamedParameter($kinds, IQueryBuilder::PARAM_INT_ARRAY)))
+				->andWhere($qb->expr()->lt('created_at', $qb->createNamedParameter($before, IQueryBuilder::PARAM_INT))),
+			batch: self::DELETE_BATCH,
+			maxBatches: self::DELETE_MAX_BATCHES,
+		);
+	}
+
+	/**
+	 * Whether there are more than `$rows` attempts, reading at most one row
+	 * past that many index entries rather than counting the whole table.
+	 */
+	public function hasMoreThan(int $rows): bool {
 		$qb = $this->db->getQueryBuilder();
-		$qb->delete(self::TABLE)
-			->where($qb->expr()->lt('created_at', $qb->createNamedParameter($before, IQueryBuilder::PARAM_INT)));
-		return $qb->executeStatement();
+		$qb->select('id')
+			->from(self::TABLE)
+			->setFirstResult($rows)
+			->setMaxResults(1);
+		$result = $qb->executeQuery();
+		$found = $result->fetchOne() !== false;
+		$result->closeCursor();
+		return $found;
 	}
 
 	public function deleteForUser(string $uid): int {

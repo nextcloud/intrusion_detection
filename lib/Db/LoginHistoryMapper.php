@@ -236,10 +236,7 @@ class LoginHistoryMapper {
 	}
 
 	public function deleteOlderThan(int $before): int {
-		$qb = $this->db->getQueryBuilder();
-		$qb->delete(self::TABLE)
-			->where($qb->expr()->lt('created_at', $qb->createNamedParameter($before, IQueryBuilder::PARAM_INT)));
-		return $qb->executeStatement();
+		return BatchedDelete::run($this->db, self::TABLE, 'id', static fn (IQueryBuilder $qb): IQueryBuilder => $qb->where($qb->expr()->lt('created_at', $qb->createNamedParameter($before, IQueryBuilder::PARAM_INT))));
 	}
 
 	/**

@@ -141,20 +141,25 @@ class SecurityChangeMapper {
 		return $qb->executeStatement() > 0;
 	}
 
-	public function forgetAddressesBefore(int $before): int {
+	/**
+	 * Remove the encrypted previous addresses of the changes made between
+	 * `$since` and `$before`, through the created_at index. Earlier changes
+	 * were handled by earlier runs, so the whole history is not read again.
+	 */
+	public function forgetAddressesBefore(int $before, int $since = 0): int {
 		$qb = $this->db->getQueryBuilder();
 		$qb->update(self::TABLE)
 			->set('notify_to', $qb->createNamedParameter(null, IQueryBuilder::PARAM_NULL))
 			->where($qb->expr()->lt('created_at', $qb->createNamedParameter($before, IQueryBuilder::PARAM_INT)))
 			->andWhere($qb->expr()->isNotNull('notify_to'));
+		if ($since > 0) {
+			$qb->andWhere($qb->expr()->gte('created_at', $qb->createNamedParameter($since, IQueryBuilder::PARAM_INT)));
+		}
 		return $qb->executeStatement();
 	}
 
 	public function deleteOlderThan(int $before): int {
-		$qb = $this->db->getQueryBuilder();
-		$qb->delete(self::TABLE)
-			->where($qb->expr()->lt('created_at', $qb->createNamedParameter($before, IQueryBuilder::PARAM_INT)));
-		return $qb->executeStatement();
+		return BatchedDelete::run($this->db, self::TABLE, 'id', static fn (IQueryBuilder $qb): IQueryBuilder => $qb->where($qb->expr()->lt('created_at', $qb->createNamedParameter($before, IQueryBuilder::PARAM_INT))));
 	}
 
 	/**

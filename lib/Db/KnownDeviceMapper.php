@@ -149,9 +149,6 @@ class KnownDeviceMapper {
 	}
 
 	public function deleteUnusedSince(int $before): int {
-		$qb = $this->db->getQueryBuilder();
-		$qb->delete(self::TABLE)
-			->where($qb->expr()->lte('last_seen_at', $qb->createNamedParameter($before, IQueryBuilder::PARAM_INT)));
-		return $qb->executeStatement();
+		return BatchedDelete::run($this->db, self::TABLE, 'id', static fn (IQueryBuilder $qb): IQueryBuilder => $qb->where($qb->expr()->lte('last_seen_at', $qb->createNamedParameter($before, IQueryBuilder::PARAM_INT))));
 	}
 }

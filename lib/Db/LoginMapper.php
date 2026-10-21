@@ -86,10 +86,7 @@ class LoginMapper {
 	}
 
 	public function deleteOlderThan(int $beforeHour): int {
-		$qb = $this->db->getQueryBuilder();
-		$qb->delete(self::TABLE)
-			->where($qb->expr()->lt('hour', $qb->createNamedParameter($beforeHour, IQueryBuilder::PARAM_INT)));
-		return $qb->executeStatement();
+		return BatchedDelete::run($this->db, self::TABLE, 'id', static fn (IQueryBuilder $qb): IQueryBuilder => $qb->where($qb->expr()->lt('hour', $qb->createNamedParameter($beforeHour, IQueryBuilder::PARAM_INT))));
 	}
 
 	public function deleteForUser(string $uid): int {

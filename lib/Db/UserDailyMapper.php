@@ -123,9 +123,6 @@ class UserDailyMapper {
 	}
 
 	public function deleteBefore(int $day): int {
-		$qb = $this->db->getQueryBuilder();
-		$qb->delete(self::TABLE)
-			->where($qb->expr()->lt('day', $qb->createNamedParameter($day, IQueryBuilder::PARAM_INT)));
-		return $qb->executeStatement();
+		return BatchedDelete::run($this->db, self::TABLE, 'id', static fn (IQueryBuilder $qb): IQueryBuilder => $qb->where($qb->expr()->lt('day', $qb->createNamedParameter($day, IQueryBuilder::PARAM_INT))));
 	}
 }

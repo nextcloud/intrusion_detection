@@ -86,14 +86,19 @@ class ResetSuppressionMapper {
 	}
 
 	/**
-	 * Delete suppressions that ended and started before a time: a row is
-	 * kept for its whole period, so that a new suppression cannot start in it.
+	 * Delete suppressions that ended and started before a time, in batches:
+	 * a row is kept for its whole period, so that a new suppression cannot
+	 * start in it.
 	 */
 	public function deleteExpired(int $now, int $startedBefore = PHP_INT_MAX): int {
-		$qb = $this->db->getQueryBuilder();
-		$qb->delete(self::TABLE)
-			->where($qb->expr()->lte('expires_at', $qb->createNamedParameter($now, IQueryBuilder::PARAM_INT)))
-			->andWhere($qb->expr()->lt('created_at', $qb->createNamedParameter($startedBefore, IQueryBuilder::PARAM_INT)));
-		return $qb->executeStatement();
+		return BatchedDelete::run(
+			$this->db,
+			self::TABLE,
+			'uid',
+			static fn (IQueryBuilder $qb): IQueryBuilder => $qb
+				->where($qb->expr()->lte('expires_at', $qb->createNamedParameter($now, IQueryBuilder::PARAM_INT)))
+				->andWhere($qb->expr()->lt('created_at', $qb->createNamedParameter($startedBefore, IQueryBuilder::PARAM_INT))),
+			IQueryBuilder::PARAM_STR_ARRAY,
+		);
 	}
 }

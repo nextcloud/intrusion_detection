@@ -181,8 +181,7 @@ class RiskLimitsTest extends LoginFailureTestCase {
 	}
 
 	/**
-	 * Without the occasional cleanup of old attempts, so that query counts
-	 * compare.
+	 * Without sampling under a flood, so that query counts compare.
 	 */
 	#[\Override]
 	protected function attemptRecorder(): AttemptRecorder {
