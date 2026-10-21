@@ -4,11 +4,8 @@
 -->
 
 <script setup lang="ts">
-import { mdiBookOpenVariant } from '@mdi/js'
 import { t } from '@nextcloud/l10n'
 import { computed, nextTick, onBeforeUnmount, onMounted, provide, ref, watch } from 'vue'
-import NcButton from '@nextcloud/vue/components/NcButton'
-import NcIconSvgWrapper from '@nextcloud/vue/components/NcIconSvgWrapper'
 import NcNoteCard from '@nextcloud/vue/components/NcNoteCard'
 import AdminTabs from '../components/AdminTabs.vue'
 import StatusStrip from '../components/StatusStrip.vue'
@@ -120,20 +117,6 @@ onBeforeUnmount(() => window.removeEventListener('hashchange', readHash))
 				</h2>
 				<StatusStrip v-if="state.status" :status="state.status" @attention="showAttention" />
 			</div>
-			<div :class="$style.page__actions">
-				<NcButton
-					v-if="state.docUrl"
-					variant="tertiary"
-					:href="state.docUrl"
-					:aria-label="t(APP_ID, 'Documentation')"
-					:title="t(APP_ID, 'Documentation')"
-					target="_blank"
-					rel="noreferrer noopener">
-					<template #icon>
-						<NcIconSvgWrapper :path="mdiBookOpenVariant" />
-					</template>
-				</NcButton>
-			</div>
 		</header>
 
 		<div id="ids-tabs" :class="$style.page__tabs">
@@ -181,13 +164,6 @@ onBeforeUnmount(() => window.removeEventListener('hashchange', readHash))
 	flex-direction: column;
 	gap: calc(var(--default-grid-baseline) * 2);
 	min-width: 0;
-}
-
-.page__actions {
-	display: flex;
-	flex-wrap: wrap;
-	align-items: center;
-	gap: calc(var(--default-grid-baseline) * 1);
 }
 
 .page__title {

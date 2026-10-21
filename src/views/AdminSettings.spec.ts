@@ -55,6 +55,16 @@ describe('the admin page', () => {
 		expect(wrapper.findAll('[data-test="status-strip"]')).toHaveLength(1)
 	})
 
+	test('the header has no documentation link', () => {
+		state.docUrl = 'https://docs.example.org/admin-intrusion-detection'
+		try {
+			const wrapper = mountPage()
+			expect(wrapper.get('header').find(`[href="${state.docUrl}"]`).exists()).toBe(false)
+		} finally {
+			state.docUrl = ''
+		}
+	})
+
 	test('the Incidents tab is always in the tab list', () => {
 		const wrapper = mountPage()
 		expect(tabIds(wrapper)).toEqual(['overview', 'protection', 'blocks', 'settings', 'incidents'])
