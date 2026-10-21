@@ -101,9 +101,12 @@ class DetectionAccounts {
 
 	/**
 	 * Record the accounts of every stored detection, for the detections made
-	 * before the side table existed. Accounts already recorded are skipped.
+	 * before the side table existed or before a key was added to FACT_KEYS.
+	 * Accounts already recorded are skipped.
+	 *
+	 * @param list<string> $checkIds only the detections of these checks; all when empty
 	 */
-	public function backfill(): void {
+	public function backfill(array $checkIds = []): void {
 		$lastId = 0;
 		do {
 			$qb = $this->db->getQueryBuilder();
@@ -112,6 +115,9 @@ class DetectionAccounts {
 				->where($qb->expr()->gt('id', $qb->createNamedParameter($lastId, IQueryBuilder::PARAM_INT)))
 				->orderBy('id', 'ASC')
 				->setMaxResults(self::BACKFILL_BATCH);
+			if ($checkIds !== []) {
+				$qb->andWhere($qb->expr()->in('check_id', $qb->createNamedParameter($checkIds, IQueryBuilder::PARAM_STR_ARRAY)));
+			}
 			$result = $qb->executeQuery();
 			$rows = $result->fetchAll();
 			$result->closeCursor();
