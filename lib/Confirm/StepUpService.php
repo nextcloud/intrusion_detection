@@ -26,6 +26,7 @@ use OCA\IntrusionDetection\Response\ResponseEngine;
 use OCA\IntrusionDetection\SessionState\CurrentSession;
 use OCA\IntrusionDetection\SessionState\SessionState;
 use OCP\AppFramework\Utility\ITimeFactory;
+use OCP\IRequest;
 use OCP\ISession;
 use OCP\IUserSession;
 use Psr\Log\LoggerInterface;
@@ -63,9 +64,13 @@ class StepUpService {
 	public const REFUSED = 'refused';
 	public const REFUSED_CLIENT = 'refused_client';
 	public const ALLOWED = 'allowed';
+	/** Outcomes of apps sending the password that may be repeated ({@see self::repeatClient()}) */
+	public const REPEATABLE = [self::NONE, self::REFUSED_CLIENT, self::ALLOWED];
 
 	/** confirmed_by of a login that was allowed without a confirmation */
 	public const CONFIRMED_BY_NONE = 'none';
+	/** Core creates a session token for a Basic auth login only when the client sends this cookie */
+	public const COOKIE_TEST = 'cookie_test';
 
 	public function __construct(
 		private readonly SessionState $state,
@@ -84,6 +89,7 @@ class StepUpService {
 		private readonly LoggerInterface $logger,
 		private readonly LoginHistory $history,
 		private readonly FamiliarLogin $familiar,
+		private readonly IRequest $request,
 	) {
 	}
 
@@ -115,7 +121,9 @@ class StepUpService {
 				mergeWindow: 86400,
 				userAgent: $login->userAgent,
 			));
-			$this->mark(new StepUpState($uid, StepUpState::REFUSED_CLIENT, $policyIds, $now, 0, $login->source?->ip, detectionId: $detection?->getId()));
+			// Without the cookie, core gives the client no session token: nothing could resume this session.
+			$resumable = $this->request->getCookie(self::COOKIE_TEST) !== null;
+			$this->mark(new StepUpState($uid, StepUpState::REFUSED_CLIENT, $policyIds, $now, 0, $login->source?->ip, detectionId: $detection?->getId()), $resumable);
 			return [self::REFUSED_CLIENT, self::ids($detection)];
 		}
 
@@ -159,6 +167,23 @@ class StepUpService {
 		));
 		$this->audit->log('login of %s refused: it needed extra confirmation (%s), and nothing could confirm it', ['uid' => $uid, 'reasons' => implode(', ', $policyIds)]);
 		return [self::REFUSED, self::ids($detection)];
+	}
+
+	/**
+	 * Repeat a decision about an app sending the password, made moments
+	 * ago for the same account, password and address, without recording
+	 * it again.
+	 *
+	 * @param self::NONE|self::REFUSED_CLIENT|self::ALLOWED $outcome
+	 * @param list<string> $policyIds
+	 */
+	public function repeatClient(string $uid, ?SourceKey $source, string $outcome, array $policyIds): void {
+		if ($outcome === self::REFUSED_CLIENT) {
+			$now = $this->timeFactory->getTime();
+			$this->mark(new StepUpState($uid, StepUpState::REFUSED_CLIENT, $policyIds, $now, 0, $source?->ip), $this->request->getCookie(self::COOKIE_TEST) !== null);
+		} elseif ($outcome === self::ALLOWED) {
+			$this->confirmation($uid, self::CONFIRMED_BY_NONE, $policyIds);
+		}
 	}
 
 	/**
@@ -309,13 +334,16 @@ class StepUpService {
 		}
 	}
 
-	private function mark(StepUpState $stepUp): void {
+	/**
+	 * @param bool $resumable whether the session could come back without its state, and must be remembered
+	 */
+	private function mark(StepUpState $stepUp, bool $resumable = true): void {
 		if (!$this->save($stepUp)) {
 			// Without a writable session the login cannot be held back; the error is logged by the session state.
 			return;
 		}
 		$sessionId = $this->sessionId();
-		if ($sessionId !== '') {
+		if ($resumable && $sessionId !== '') {
 			$this->unconfirmed->remember($sessionId, $stepUp->uid);
 		}
 	}

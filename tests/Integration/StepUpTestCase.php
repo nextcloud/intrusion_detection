@@ -99,6 +99,8 @@ abstract class StepUpTestCase extends AccountTestCase {
 	protected bool $hasSecondFactor = false;
 	/** Whether core holds the login at the setup of a second factor */
 	protected bool $secondFactorSetupRequired = false;
+	/** The memory caches of the login listener; none by default */
+	protected ?ICacheFactory $listenerCaches = null;
 	protected bool $bypassListed = false;
 	/** @var IRequest&MockObject */
 	protected IRequest $request;
@@ -183,8 +185,16 @@ abstract class StepUpTestCase extends AccountTestCase {
 					Server::get(RiskScorer::class),
 				),
 			]),
+			$this->listenerCaches ?? $this->noCaches(),
 			Server::get(LoggerInterface::class),
 		);
+	}
+
+	protected function noCaches(): ICacheFactory {
+		$factory = $this->createMock(ICacheFactory::class);
+		$factory->method('isAvailable')->willReturn(false);
+		$factory->method('isLocalCacheAvailable')->willReturn(false);
+		return $factory;
 	}
 
 	/**
@@ -221,6 +231,7 @@ abstract class StepUpTestCase extends AccountTestCase {
 			Server::get(LoggerInterface::class),
 			$this->history(),
 			new FamiliarLogin($this->knownDevices(), Server::get(LoginHistoryMapper::class), Server::get(ITimeFactory::class)),
+			$this->request,
 		);
 	}
 

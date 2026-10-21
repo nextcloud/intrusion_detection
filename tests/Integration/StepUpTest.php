@@ -9,6 +9,7 @@ declare(strict_types=1);
 
 namespace OCA\IntrusionDetection\Tests\Integration;
 
+use OC\Memcache\ArrayCache;
 use OCA\IntrusionDetection\Admin\LookupService;
 use OCA\IntrusionDetection\AppInfo\Application;
 use OCA\IntrusionDetection\Check\Checks\BreachedPassword;
@@ -27,6 +28,7 @@ use OCA\IntrusionDetection\Confirm\LoginDetections;
 use OCA\IntrusionDetection\Confirm\NoMethodOutcome;
 use OCA\IntrusionDetection\Confirm\StepUpPolicy;
 use OCA\IntrusionDetection\Confirm\StepUpReference;
+use OCA\IntrusionDetection\Confirm\StepUpService;
 use OCA\IntrusionDetection\Confirm\StepUpState;
 use OCA\IntrusionDetection\Confirm\UnconfirmedSessions;
 use OCA\IntrusionDetection\Crypto\Fingerprinter;
@@ -41,6 +43,7 @@ use OCA\IntrusionDetection\Response\PasswordChangeFlag;
 use OCA\IntrusionDetection\SessionState\SessionState;
 use OCA\IntrusionDetection\TrustedNetwork\TrustedNetworks;
 use OCP\Config\IUserConfig;
+use OCP\ICacheFactory;
 use OCP\IUser;
 use OCP\L10N\IFactory;
 use OCP\Server;
@@ -330,6 +333,58 @@ class StepUpTest extends StepUpTestCase {
 		$this->assertSame([StepUpPolicy::ProtectedAccount->value, StepUpPolicy::BreachedPassword->value], $this->stepUp()?->policies);
 	}
 
+	public function testARefusedAppThatKeepsCookiesIsRemembered(): void {
+		$this->settings->setGlobal(StepUpPolicy::ProtectedAccount->settingKey(), NoMethodOutcome::Refuse->value);
+		$this->give(StepUpPolicy::ProtectedAccount, $this->alice);
+		$this->basicAuth($this->alice);
+		$this->cookies[StepUpService::COOKIE_TEST] = 'test';
+		$this->login($this->alice);
+		$this->assertSame(StepUpState::REFUSED_CLIENT, $this->stepUp()?->status);
+		$this->assertSame(1, $this->unconfirmedRows(), 'Core gives it a session token, which could come back');
+	}
+
+	public function testAnAppsDecisionIsRepeatedForAWhileWithoutTheChecks(): void {
+		$cache = new ArrayCache();
+		$factory = $this->createMock(ICacheFactory::class);
+		$factory->method('isAvailable')->willReturn(true);
+		$factory->method('createDistributed')->willReturn($cache);
+		$this->listenerCaches = $factory;
+		$this->settings->setGlobal(StepUpPolicy::ProtectedAccount->settingKey(), NoMethodOutcome::Refuse->value);
+		$this->give(StepUpPolicy::ProtectedAccount, $this->alice);
+		$this->basicAuth($this->alice);
+		for ($i = 0; $i < 3; $i++) {
+			$this->session->clear();
+			$this->session->id = null;
+			$this->login($this->alice);
+			$this->assertSame(StepUpState::REFUSED_CLIENT, $this->stepUp()?->status, 'Still refused, request ' . $i);
+		}
+		$this->assertSame(1, $this->detectionsOf(StepUpRefusedClient::ID)[0]->getHits(), 'Decided once, then repeated');
+
+		$this->remoteAddress = '192.0.2.77';
+		$this->session->clear();
+		$this->session->id = null;
+		$this->login($this->alice);
+		$this->assertSame(2, $this->detectionsOf(StepUpRefusedClient::ID)[0]->getHits(), 'Another address is decided again');
+
+		$this->session->clear();
+		$this->session->id = null;
+		$this->basicAuth($this->alice, 'Another-Password-2026');
+		$this->login($this->alice, 'Another-Password-2026');
+		$this->assertSame(3, $this->detectionsOf(StepUpRefusedClient::ID)[0]->getHits(), 'Another password too');
+
+		$bob = $this->user('ids-stepup-app', 'bob@example.com');
+		$this->basicAuth($bob);
+		$this->session->clear();
+		$this->session->id = null;
+		$this->login($bob);
+		$this->assertNull($this->stepUp(), 'Nothing to decide');
+		$this->give(StepUpPolicy::ProtectedAccount, $bob);
+		$this->session->clear();
+		$this->session->id = null;
+		$this->login($bob);
+		$this->assertNull($this->stepUp(), 'Within the minute, the earlier decision stands');
+	}
+
 	public function testAProtectedAccountWithoutAWayToConfirmIsLetInWithANoticeByDefault(): void {
 		$bob = $this->user('ids-stepup-guessed', null);
 		$this->give(StepUpPolicy::ProtectedAccount, $bob);
@@ -393,6 +448,7 @@ class StepUpTest extends StepUpTestCase {
 		$detections = $this->detectionsOf(StepUpRefusedClient::ID);
 		$this->assertCount(1, $detections, 'One detection per account and day');
 		$this->assertSame(4, $detections[0]->getHits());
+		$this->assertSame(0, $this->unconfirmedRows(), 'Without cookies no session token exists that could resume: no row per request');
 		$this->assertCount(1, $this->notificationsFor($this->alice->getUID(), UserAlerts::SUBJECT), 'Told once a day');
 	}
 

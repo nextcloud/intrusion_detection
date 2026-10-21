@@ -38,6 +38,9 @@ class FlaggedSources {
 	 */
 	public const PASSWORD_FLAG_MAX_DURATION = 86400;
 
+	/** @var array<string, ?string> the flag of an address or its network as {@see self::loginFlags()} read it in this request, by address key */
+	private array $sourceFlags = [];
+
 	public function __construct(
 		private readonly FlagMapper $mapper,
 		private readonly Settings $settings,
@@ -49,6 +52,7 @@ class FlaggedSources {
 	 * @return int when the flag expires
 	 */
 	public function flagSource(SourceKey $source, string $reason, ?int $detectionId = null, ?int $duration = null): int {
+		$this->sourceFlags = [];
 		$expires = $this->timeFactory->getTime() + ($duration ?? $this->settings->getInt(GlobalSettings::FLAG_DURATION));
 		$this->mapper->flag(self::sourceKey($source), $reason, $expires, $detectionId);
 		return $expires;
@@ -69,6 +73,9 @@ class FlaggedSources {
 	 * The flag on the address or its network, if any.
 	 */
 	public function sourceFlag(SourceKey $source): ?string {
+		if (array_key_exists($source->ipKey, $this->sourceFlags)) {
+			return $this->sourceFlags[$source->ipKey];
+		}
 		$keys = array_values(array_unique([self::sourceKey($source), 'net:' . $source->netKey]));
 		$flags = $this->mapper->active($keys, $this->timeFactory->getTime());
 		return $flags === [] ? null : (string)reset($flags);
@@ -87,12 +94,36 @@ class FlaggedSources {
 		return $this->mapper->active($keys, $this->timeFactory->getTime()) !== [];
 	}
 
+	/**
+	 * What a password login needs, in one query: whether one of the
+	 * password fingerprints is flagged (the result), and the flag of the
+	 * address or its network, which {@see self::sourceFlag()} then answers
+	 * for the rest of the request.
+	 *
+	 * @param list<string> $fingerprints hex
+	 */
+	public function loginFlags(?SourceKey $source, array $fingerprints): bool {
+		$passwordKeys = array_map(static fn (string $f): string => self::passwordKey($f), $fingerprints);
+		$sourceKeys = $source === null ? [] : array_values(array_unique([self::sourceKey($source), 'net:' . $source->netKey]));
+		if ($passwordKeys === [] && $sourceKeys === []) {
+			return false;
+		}
+		$flags = $this->mapper->active([...$passwordKeys, ...$sourceKeys], $this->timeFactory->getTime());
+		if ($source !== null) {
+			$found = array_intersect_key($flags, array_flip($sourceKeys));
+			$this->sourceFlags[$source->ipKey] = $found === [] ? null : (string)reset($found);
+		}
+		return array_intersect_key($flags, array_flip($passwordKeys)) !== [];
+	}
+
 	public function flagNetwork(SourceKey $source, string $reason, ?int $detectionId = null): void {
+		$this->sourceFlags = [];
 		$expires = $this->timeFactory->getTime() + $this->settings->getInt(GlobalSettings::FLAG_DURATION);
 		$this->mapper->flag('net:' . $source->netKey, $reason, $expires, $detectionId);
 	}
 
 	public function unflagSource(SourceKey $source): void {
+		$this->sourceFlags = [];
 		$this->mapper->unflag(self::sourceKey($source));
 		$this->mapper->unflag('net:' . $source->netKey);
 	}
