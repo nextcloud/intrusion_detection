@@ -59,13 +59,15 @@ class ConfirmationCoverage {
 	}
 
 	/**
-	 * The stored counts; counted now only when none were ever stored.
+	 * The stored counts; counted now when none were stored, or when they are
+	 * older than an hour because the background job did not run.
 	 *
 	 * @return array{withoutMethod: int, active: int, countedAt: int}
 	 */
 	public function users(): array {
 		$stored = $this->settings->getJson(GlobalSettings::COVERAGE_USERS);
-		if (is_int($stored['withoutMethod'] ?? null) && is_int($stored['active'] ?? null) && is_int($stored['countedAt'] ?? null)) {
+		if (is_int($stored['withoutMethod'] ?? null) && is_int($stored['active'] ?? null) && is_int($stored['countedAt'] ?? null)
+			&& $this->timeFactory->getTime() - $stored['countedAt'] <= self::CACHE_TTL) {
 			return ['withoutMethod' => $stored['withoutMethod'], 'active' => $stored['active'], 'countedAt' => $stored['countedAt']];
 		}
 		return $this->recount();

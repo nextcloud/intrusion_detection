@@ -188,12 +188,19 @@ function stopTimer() {
 	}
 }
 
+// Opening the tab counts the accounts again; the timer only looks for waiting logins.
+let justMounted = true
 onMounted(() => {
-	void load()
+	void recount()
 	startTimer()
 })
 onActivated(() => {
-	void load()
+	// Inside KeepAlive, the first activation comes with the mount.
+	if (justMounted) {
+		justMounted = false
+		return
+	}
+	void recount()
 	startTimer()
 })
 onDeactivated(stopTimer)

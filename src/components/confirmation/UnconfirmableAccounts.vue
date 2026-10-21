@@ -129,7 +129,7 @@ async function download() {
 		</div>
 
 		<p :class="$style.text">
-			{{ t(APP_ID, 'These accounts have neither a second factor nor an email address. If a check asks them to confirm a login, the table above decides what happens. Ask them to add an email address or set up a second factor.') }}
+			{{ t(APP_ID, 'These accounts have neither a second factor nor an email address. If a check asks them to confirm a login, your choice under "When a risky login cannot be confirmed" decides what happens. Ask them to add an email address or set up a second factor.') }}
 		</p>
 		<p v-if="admins.withoutEmail > 0 || admins.withoutSecondFactor > 0" :class="$style.text">
 			{{ t(APP_ID, 'Administrators: {email} without an email address, {secondFactor} without a second factor.', { email: formatNumber(admins.withoutEmail), secondFactor: formatNumber(admins.withoutSecondFactor) }) }}

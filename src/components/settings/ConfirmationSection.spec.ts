@@ -118,6 +118,14 @@ describe('the login confirmation section', () => {
 		expect(wrapper.find('[data-test="users-without"]').exists()).toBe(true)
 	})
 
+	test('opening the tab counts the accounts again, and the text points to the choice that decides', async () => {
+		const wrapper = await mountTab()
+		expect(fetchConfirmation).toHaveBeenCalledTimes(1)
+		expect(fetchConfirmation).toHaveBeenCalledWith(true)
+		expect(wrapper.text()).toContain('your choice under "When a risky login cannot be confirmed" decides what happens')
+		expect(wrapper.text()).not.toContain('the table above')
+	})
+
 	test('logins waiting for an administrator are in reach', async () => {
 		const wrapper = await mountTab()
 		expect(wrapper.find('#settings-approvals').exists()).toBe(true)

@@ -127,6 +127,19 @@ class ConfirmationCoverageTest extends IntegrationTestCase {
 		$this->assertSame($first['withoutMethod'] + 2, $coverage->users()['withoutMethod']);
 	}
 
+	public function testCountsOlderThanAnHourAreCountedAgain(): void {
+		$this->coverage()->users();
+		$this->account('late');
+		$stored = json_decode($this->appConfig->getValueString(Application::APP_ID, GlobalSettings::COVERAGE_USERS), true);
+		$stale = ['withoutMethod' => 0, 'active' => 0, 'countedAt' => time() - ConfirmationCoverage::CACHE_TTL - 60];
+		$this->appConfig->setValueString(Application::APP_ID, GlobalSettings::COVERAGE_USERS, json_encode($stale));
+
+		$counts = $this->coverage()->users();
+
+		$this->assertGreaterThan(0, $counts['withoutMethod'], 'counted again without the job');
+		$this->assertGreaterThanOrEqual($stored['countedAt'], $counts['countedAt']);
+	}
+
 	public function testCountingTenThousandAccountsLoadsNoAccount(): void {
 		$before = $this->coverage()->users();
 		$this->forgetCounts();
