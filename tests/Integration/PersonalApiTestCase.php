@@ -23,7 +23,9 @@ use OCA\IntrusionDetection\Guide\SecureAccountGuide;
 use OCA\IntrusionDetection\Guide\SecureAccountOverview;
 use OCA\IntrusionDetection\Net\SourceKey;
 use OCA\IntrusionDetection\Notification\UserMessages;
+use OCA\IntrusionDetection\Personal\FailedLoginStats;
 use OCA\IntrusionDetection\Personal\LogOutElsewhere;
+use OCA\IntrusionDetection\Personal\PersonalActivity;
 use OCA\IntrusionDetection\Personal\PersonalOverview;
 use OCA\IntrusionDetection\Response\FlaggedSources;
 use OCA\IntrusionDetection\Response\Tokens;
@@ -112,10 +114,11 @@ abstract class PersonalApiTestCase extends StepUpTestCase {
 			Server::get(AuditLogger::class),
 			Server::get(ITimeFactory::class),
 		);
+		$detections = new PersonalDetections(Server::get(DetectionMapper::class), Server::get(UserMessages::class), Server::get(Questions::class), $answers, $this->settings, Server::get(ITimeFactory::class));
 		return new PersonalApiController(
 			$this->request,
 			$this->userSession,
-			new PersonalDetections(Server::get(DetectionMapper::class), Server::get(UserMessages::class), Server::get(Questions::class), $answers, $this->settings, Server::get(ITimeFactory::class)),
+			$detections,
 			$answers,
 			Server::get(TrustedNetworks::class),
 			Server::get(IFactory::class)->get(Application::APP_ID, 'en'),
@@ -129,6 +132,18 @@ abstract class PersonalApiTestCase extends StepUpTestCase {
 			Server::get(ITimeFactory::class),
 			Server::get(PersonalOverview::class),
 			new LogOutElsewhere(Server::get(Tokens::class), $this->currentSession, $this->knownDevices(), $this->session, Server::get(AuditLogger::class)),
+			new PersonalActivity(
+				Server::get(DetectionMapper::class),
+				Server::get(Questions::class),
+				$detections,
+				Server::get(LoginHistoryMapper::class),
+				Server::get(SecurityChangeMapper::class),
+				Server::get(FailedLoginStats::class),
+				Server::get(UserMessages::class),
+				$this->currentSession,
+				$this->settings,
+				Server::get(ITimeFactory::class),
+			),
 		);
 	}
 }

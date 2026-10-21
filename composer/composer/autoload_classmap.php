@@ -449,6 +449,8 @@ return array(
     'OCA\\IntrusionDetection\\Perf\\GuardTimer' => $baseDir . '/../lib/Perf/GuardTimer.php',
     'OCA\\IntrusionDetection\\Personal\\FailedLoginStats' => $baseDir . '/../lib/Personal/FailedLoginStats.php',
     'OCA\\IntrusionDetection\\Personal\\LogOutElsewhere' => $baseDir . '/../lib/Personal/LogOutElsewhere.php',
+    'OCA\\IntrusionDetection\\Personal\\ManageSummary' => $baseDir . '/../lib/Personal/ManageSummary.php',
+    'OCA\\IntrusionDetection\\Personal\\PersonalActivity' => $baseDir . '/../lib/Personal/PersonalActivity.php',
     'OCA\\IntrusionDetection\\Personal\\PersonalOverview' => $baseDir . '/../lib/Personal/PersonalOverview.php',
     'OCA\\IntrusionDetection\\Privacy\\UserDataCleanup' => $baseDir . '/../lib/Privacy/UserDataCleanup.php',
     'OCA\\IntrusionDetection\\Repair\\StartLearningMode' => $baseDir . '/../lib/Repair/StartLearningMode.php',

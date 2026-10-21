@@ -51,6 +51,18 @@
                     }
                 }
             },
+            "FailedLoginActivity": {
+                "type": "object",
+                "required": [
+                    "count"
+                ],
+                "properties": {
+                    "count": {
+                        "type": "integer",
+                        "format": "int64"
+                    }
+                }
+            },
             "FailedLoginDay": {
                 "type": "object",
                 "required": [
@@ -262,6 +274,105 @@
                     },
                     "itemsperpage": {
                         "type": "string"
+                    }
+                }
+            },
+            "PersonalActivity": {
+                "type": "object",
+                "required": [
+                    "questions",
+                    "items",
+                    "hasMore",
+                    "today",
+                    "timezone"
+                ],
+                "properties": {
+                    "questions": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/PersonalDetection"
+                        }
+                    },
+                    "items": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/PersonalActivityItem"
+                        }
+                    },
+                    "hasMore": {
+                        "type": "boolean"
+                    },
+                    "today": {
+                        "type": "string"
+                    },
+                    "timezone": {
+                        "type": "string"
+                    }
+                }
+            },
+            "PersonalActivityItem": {
+                "type": "object",
+                "required": [
+                    "id",
+                    "kind",
+                    "at",
+                    "day",
+                    "login",
+                    "change",
+                    "failedLogins",
+                    "event"
+                ],
+                "properties": {
+                    "id": {
+                        "type": "string"
+                    },
+                    "kind": {
+                        "type": "string",
+                        "enum": [
+                            "login",
+                            "change",
+                            "failed_logins",
+                            "event"
+                        ]
+                    },
+                    "at": {
+                        "type": "integer",
+                        "format": "int64"
+                    },
+                    "day": {
+                        "type": "string"
+                    },
+                    "login": {
+                        "nullable": true,
+                        "allOf": [
+                            {
+                                "$ref": "#/components/schemas/Login"
+                            }
+                        ]
+                    },
+                    "change": {
+                        "nullable": true,
+                        "allOf": [
+                            {
+                                "$ref": "#/components/schemas/SecurityChange"
+                            }
+                        ]
+                    },
+                    "failedLogins": {
+                        "nullable": true,
+                        "allOf": [
+                            {
+                                "$ref": "#/components/schemas/FailedLoginActivity"
+                            }
+                        ]
+                    },
+                    "event": {
+                        "nullable": true,
+                        "allOf": [
+                            {
+                                "$ref": "#/components/schemas/PersonalDetection"
+                            }
+                        ]
                     }
                 }
             },
@@ -2100,6 +2211,147 @@
                 }
             }
         },
+        "/ocs/v2.php/apps/intrusion_detection/api/v1/personal/activity": {
+            "get": {
+                "operationId": "personal_api-activity",
+                "summary": "Get the recent activity of the current user: the open \"Was this you?\" questions, and one timeline of logins, security changes, days with failed logins and the other security events",
+                "tags": [
+                    "personal_api"
+                ],
+                "security": [
+                    {
+                        "bearer_auth": []
+                    },
+                    {
+                        "basic_auth": []
+                    }
+                ],
+                "parameters": [
+                    {
+                        "name": "days",
+                        "in": "query",
+                        "description": "how far back the timeline goes",
+                        "schema": {
+                            "type": "integer",
+                            "format": "int64",
+                            "default": 30,
+                            "minimum": 1,
+                            "maximum": 365
+                        }
+                    },
+                    {
+                        "name": "limit",
+                        "in": "query",
+                        "description": "the most timeline entries",
+                        "schema": {
+                            "type": "integer",
+                            "format": "int64",
+                            "default": 30,
+                            "minimum": 1,
+                            "maximum": 100
+                        }
+                    },
+                    {
+                        "name": "OCS-APIRequest",
+                        "in": "header",
+                        "description": "Required to be true for the API request to pass",
+                        "required": true,
+                        "schema": {
+                            "type": "boolean",
+                            "default": true
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The open questions and the timeline, newest first; `hasMore` when older entries exist",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "required": [
+                                        "ocs"
+                                    ],
+                                    "properties": {
+                                        "ocs": {
+                                            "type": "object",
+                                            "required": [
+                                                "meta",
+                                                "data"
+                                            ],
+                                            "properties": {
+                                                "meta": {
+                                                    "$ref": "#/components/schemas/OCSMeta"
+                                                },
+                                                "data": {
+                                                    "$ref": "#/components/schemas/PersonalActivity"
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "The security page is switched off",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "required": [
+                                        "ocs"
+                                    ],
+                                    "properties": {
+                                        "ocs": {
+                                            "type": "object",
+                                            "required": [
+                                                "meta",
+                                                "data"
+                                            ],
+                                            "properties": {
+                                                "meta": {
+                                                    "$ref": "#/components/schemas/OCSMeta"
+                                                },
+                                                "data": {}
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Current user is not logged in",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "required": [
+                                        "ocs"
+                                    ],
+                                    "properties": {
+                                        "ocs": {
+                                            "type": "object",
+                                            "required": [
+                                                "meta",
+                                                "data"
+                                            ],
+                                            "properties": {
+                                                "meta": {
+                                                    "$ref": "#/components/schemas/OCSMeta"
+                                                },
+                                                "data": {}
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
         "/ocs/v2.php/apps/intrusion_detection/api/v1/personal/security-changes": {
             "get": {
                 "operationId": "personal_api-security-changes",
@@ -3238,7 +3490,7 @@
         },
         {
             "name": "personal_api",
-            "description": "The logged-in user's own security events, their answers to \"Was this you?\" (also the actions of the user notification), their trusted networks, their remembered devices, their recent logins, the overview at the top of their security section and \"Log out everywhere else\" (concept sections 11.5.1, 11.8 and 15.1). Every endpoint only ever touches the current user's own rows: another account's detection or network answers 404, like a missing one. Writes are CSRF-protected (OCS) and rate limited per user; \"Yes, it was me\" needs a recent password confirmation and is refused from the session the detection is about."
+            "description": "The logged-in user's own security events, their answers to \"Was this you?\" (also the actions of the user notification), their trusted networks, their remembered devices, their recent logins, the overview at the top of their security section, their recent activity and \"Log out everywhere else\" (concept sections 11.5.1, 11.8 and 15.1). Every endpoint only ever touches the current user's own rows: another account's detection or network answers 404, like a missing one. Writes are CSRF-protected (OCS) and rate limited per user; \"Yes, it was me\" needs a recent password confirmation and is refused from the session the detection is about."
         },
         {
             "name": "privacy_api",

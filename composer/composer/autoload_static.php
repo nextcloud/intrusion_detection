@@ -464,6 +464,8 @@ class ComposerStaticInitIntrusionDetection
         'OCA\\IntrusionDetection\\Perf\\GuardTimer' => __DIR__ . '/..' . '/../lib/Perf/GuardTimer.php',
         'OCA\\IntrusionDetection\\Personal\\FailedLoginStats' => __DIR__ . '/..' . '/../lib/Personal/FailedLoginStats.php',
         'OCA\\IntrusionDetection\\Personal\\LogOutElsewhere' => __DIR__ . '/..' . '/../lib/Personal/LogOutElsewhere.php',
+        'OCA\\IntrusionDetection\\Personal\\ManageSummary' => __DIR__ . '/..' . '/../lib/Personal/ManageSummary.php',
+        'OCA\\IntrusionDetection\\Personal\\PersonalActivity' => __DIR__ . '/..' . '/../lib/Personal/PersonalActivity.php',
         'OCA\\IntrusionDetection\\Personal\\PersonalOverview' => __DIR__ . '/..' . '/../lib/Personal/PersonalOverview.php',
         'OCA\\IntrusionDetection\\Privacy\\UserDataCleanup' => __DIR__ . '/..' . '/../lib/Privacy/UserDataCleanup.php',
         'OCA\\IntrusionDetection\\Repair\\StartLearningMode' => __DIR__ . '/..' . '/../lib/Repair/StartLearningMode.php',

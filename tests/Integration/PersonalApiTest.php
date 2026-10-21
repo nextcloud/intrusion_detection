@@ -100,6 +100,7 @@ class PersonalApiTest extends PersonalApiTestCase {
 			'removeKnownDevice' => static fn () => $api->removeKnownDevice($device),
 			'logins' => static fn () => $api->logins(),
 			'securityChanges' => static fn () => $api->securityChanges(),
+			'activity' => static fn () => $api->activity(),
 			'overview' => static fn () => $api->overview(),
 			'logOutElsewhere' => static fn () => $api->logOutElsewhere(),
 			'secureAccountProgress' => static fn () => $api->secureAccountProgress(),

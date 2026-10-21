@@ -87,6 +87,19 @@ class Tokens {
 	}
 
 	/**
+	 * How many browser sessions the account has besides one.
+	 */
+	public function countSessionsExcept(string $uid, ?int $keepTokenId): int {
+		$count = 0;
+		foreach ($this->tokenLookup->getTokenByUser($uid) as $token) {
+			if ($token->getType() === IToken::TEMPORARY_TOKEN && $token->getId() !== $keepTokenId && $token->getUID() === $uid) {
+				$count++;
+			}
+		}
+		return $count;
+	}
+
+	/**
 	 * Whether the token is a browser session of the account.
 	 */
 	public function isSession(string $uid, int $tokenId): bool {

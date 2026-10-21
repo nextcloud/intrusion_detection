@@ -89,13 +89,59 @@ class FailedLoginStats {
 	 * @return IntrusionDetectionFailedLogins
 	 */
 	public function forUser(string $uid, \DateTimeZone $timeZone): array {
+		[$days, $sources, $capped] = $this->collect($uid, $timeZone);
+		arsort($sources);
+		$recent = [];
+		foreach (array_slice($sources, 0, self::RECENT, true) as $address => $lastSeen) {
+			$recent[] = ['address' => (string)$address, 'lastSeenAt' => $lastSeen];
+		}
+		$list = [];
+		$total = 0;
+		foreach ($days as $day) {
+			$list[] = ['day' => $day['day'], 'start' => $day['start'], 'count' => $day['count']];
+			$total += $day['count'];
+		}
+		return [
+			'days' => $list,
+			'total' => $total,
+			'places' => count($sources),
+			'placesCapped' => $capped,
+			'recent' => $recent,
+			'timezone' => $timeZone->getName(),
+		];
+	}
+
+	/**
+	 * The days of the last DAYS days in the time zone that had failed
+	 * logins, newest first, with about when the last one failed: the time
+	 * of the last failure of a UTC day, or the end of an earlier hour.
+	 *
+	 * @return list<array{day: string, count: int, lastAt: int}>
+	 */
+	public function daysWithFailures(string $uid, \DateTimeZone $timeZone): array {
+		[$days] = $this->collect($uid, $timeZone);
+		$list = [];
+		foreach (array_reverse($days) as $day) {
+			if ($day['count'] > 0) {
+				$list[] = ['day' => $day['day'], 'count' => $day['count'], 'lastAt' => $day['lastAt']];
+			}
+		}
+		return $list;
+	}
+
+	/**
+	 * One read of the rows of the last DAYS days.
+	 *
+	 * @return array{0: list<array{day: string, start: int, count: int, lastAt: int}>, 1: array<string, int>, 2: bool} the days oldest first, the addresses with their last failure, and whether a day had more addresses than kept
+	 */
+	private function collect(string $uid, \DateTimeZone $timeZone): array {
 		$now = $this->timeFactory->getTime();
 		$midnight = (new \DateTimeImmutable('@' . $now))->setTimezone($timeZone)->setTime(0, 0);
-		/** @var array<string, array{day: string, start: int, count: int}> $days */
+		/** @var array<string, array{day: string, start: int, count: int, lastAt: int}> $days */
 		$days = [];
 		for ($i = self::DAYS - 1; $i >= 0; $i--) {
 			$start = $midnight->modify('-' . $i . ' days');
-			$days[$start->format('Y-m-d')] = ['day' => $start->format('Y-m-d'), 'start' => $start->getTimestamp(), 'count' => 0];
+			$days[$start->format('Y-m-d')] = ['day' => $start->format('Y-m-d'), 'start' => $start->getTimestamp(), 'count' => 0, 'lastAt' => 0];
 		}
 		$first = $midnight->modify('-' . (self::DAYS - 1) . ' days')->getTimestamp();
 
@@ -115,6 +161,8 @@ class FailedLoginStats {
 				$key = (new \DateTimeImmutable('@' . $at))->setTimezone($timeZone)->format('Y-m-d');
 				if (isset($days[$key])) {
 					$days[$key]['count'] += $count;
+					$last = $hour === $lastHour ? min($row['updated_at'], $at + 3599) : $at + 3599;
+					$days[$key]['lastAt'] = max($days[$key]['lastAt'], min($last, $now));
 				}
 			}
 			$rowSources = self::sources($row['sources']);
@@ -125,25 +173,7 @@ class FailedLoginStats {
 				}
 			}
 		}
-
-		arsort($sources);
-		$recent = [];
-		foreach (array_slice($sources, 0, self::RECENT, true) as $address => $lastSeen) {
-			$recent[] = ['address' => (string)$address, 'lastSeenAt' => $lastSeen];
-		}
-		$list = array_values($days);
-		$total = 0;
-		foreach ($list as $day) {
-			$total += $day['count'];
-		}
-		return [
-			'days' => $list,
-			'total' => $total,
-			'places' => count($sources),
-			'placesCapped' => $capped,
-			'recent' => $recent,
-			'timezone' => $timeZone->getName(),
-		];
+		return [array_values($days), $sources, $capped];
 	}
 
 	public function deleteExpired(): int {

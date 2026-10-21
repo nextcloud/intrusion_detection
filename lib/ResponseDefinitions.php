@@ -829,6 +829,29 @@ namespace OCA\IntrusionDetection;
  *     createdAt: int,
  * }
  *
+ * @psalm-type IntrusionDetectionFailedLoginActivity = array{
+ *     count: int,
+ * }
+ *
+ * @psalm-type IntrusionDetectionPersonalActivityItem = array{
+ *     id: string,
+ *     kind: 'login'|'change'|'failed_logins'|'event',
+ *     at: int,
+ *     day: string,
+ *     login: ?IntrusionDetectionLogin,
+ *     change: ?IntrusionDetectionSecurityChange,
+ *     failedLogins: ?IntrusionDetectionFailedLoginActivity,
+ *     event: ?IntrusionDetectionPersonalDetection,
+ * }
+ *
+ * @psalm-type IntrusionDetectionPersonalActivity = array{
+ *     questions: list<IntrusionDetectionPersonalDetection>,
+ *     items: list<IntrusionDetectionPersonalActivityItem>,
+ *     hasMore: bool,
+ *     today: string,
+ *     timezone: string,
+ * }
+ *
  * @psalm-type IntrusionDetectionSecureAccountStep = array{
  *     id: string,
  *     done: bool,

@@ -13,6 +13,7 @@ use OCA\IntrusionDetection\Config\GlobalSettings;
 use OCA\IntrusionDetection\Config\Settings;
 use OCA\IntrusionDetection\KnownDevice\KnownDevices;
 use OCA\IntrusionDetection\Notification\UserLinks;
+use OCA\IntrusionDetection\Personal\ManageSummary;
 use OCA\IntrusionDetection\Personal\PersonalOverview;
 use OCA\IntrusionDetection\Settings\Personal;
 use OCP\AppFramework\Services\IInitialState;
@@ -46,7 +47,8 @@ class PersonalTest extends TestCase {
 	public function testTheSectionComesWithItsOverviewAndTheAnchorOfTheUserLinks(): void {
 		$this->overview->method('get')->willReturn(['status' => ['level' => 'ok']]);
 		$this->state->expects($this->once())->method('provideInitialState')->with('personal', $this->callback(
-			static fn (array $data): bool => $data['overview'] === ['status' => ['level' => 'ok']] && $data['knownDevicesEnabled'] === true,
+			static fn (array $data): bool => $data['overview'] === ['status' => ['level' => 'ok']] && $data['knownDevicesEnabled'] === true
+				&& $data['manage'] === ['devices' => 1, 'networks' => 0, 'otherBrowsers' => 2],
 		));
 
 		$response = $this->personal()->getForm();
@@ -91,6 +93,8 @@ class PersonalTest extends TestCase {
 		$devices->method('isEnabled')->willReturn(true);
 		$session = $this->createMock(IUserSession::class);
 		$session->method('getUser')->willReturn($this->createMock(IUser::class));
-		return new Personal($this->settings, $this->overview, $devices, $session, $this->state, $this->createMock(IL10N::class));
+		$manage = $this->createMock(ManageSummary::class);
+		$manage->method('forUser')->willReturn(['devices' => 1, 'networks' => 0, 'otherBrowsers' => 2]);
+		return new Personal($this->settings, $this->overview, $devices, $session, $this->state, $this->createMock(IL10N::class), $manage);
 	}
 }

@@ -44,6 +44,7 @@ use OCA\IntrusionDetection\Notification\Notifier;
 use OCA\IntrusionDetection\Notification\UserAlerts;
 use OCA\IntrusionDetection\Notification\UserMessages;
 use OCA\IntrusionDetection\Personal\LogOutElsewhere;
+use OCA\IntrusionDetection\Personal\PersonalActivity;
 use OCA\IntrusionDetection\Personal\PersonalOverview;
 use OCA\IntrusionDetection\Response\FlaggedSources;
 use OCA\IntrusionDetection\Response\PasswordChangeFlag;
@@ -473,6 +474,7 @@ class WasThisYouTest extends StepUpTestCase {
 			Server::get(ITimeFactory::class),
 			Server::get(PersonalOverview::class),
 			Server::get(LogOutElsewhere::class),
+			Server::get(PersonalActivity::class),
 		);
 	}
 

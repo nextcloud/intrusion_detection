@@ -11630,7 +11630,7 @@
         },
         {
             "name": "personal_api",
-            "description": "The logged-in user's own security events, their answers to \"Was this you?\" (also the actions of the user notification), their trusted networks, their remembered devices, their recent logins, the overview at the top of their security section and \"Log out everywhere else\" (concept sections 11.5.1, 11.8 and 15.1). Every endpoint only ever touches the current user's own rows: another account's detection or network answers 404, like a missing one. Writes are CSRF-protected (OCS) and rate limited per user; \"Yes, it was me\" needs a recent password confirmation and is refused from the session the detection is about."
+            "description": "The logged-in user's own security events, their answers to \"Was this you?\" (also the actions of the user notification), their trusted networks, their remembered devices, their recent logins, the overview at the top of their security section, their recent activity and \"Log out everywhere else\" (concept sections 11.5.1, 11.8 and 15.1). Every endpoint only ever touches the current user's own rows: another account's detection or network answers 404, like a missing one. Writes are CSRF-protected (OCS) and rate limited per user; \"Yes, it was me\" needs a recent password confirmation and is refused from the session the detection is about."
         },
         {
             "name": "privacy_api",

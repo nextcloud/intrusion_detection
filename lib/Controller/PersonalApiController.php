@@ -16,10 +16,10 @@ use OCA\IntrusionDetection\Db\LoginHistoryMapper;
 use OCA\IntrusionDetection\Db\SecurityChangeMapper;
 use OCA\IntrusionDetection\Guide\SecureAccountGuide;
 use OCA\IntrusionDetection\Guide\SecureAccountOverview;
-use OCA\IntrusionDetection\KnownDevice\DeviceLabel;
 use OCA\IntrusionDetection\KnownDevice\KnownDevices;
 use OCA\IntrusionDetection\LoginHistory\LoginHistoryEntry;
 use OCA\IntrusionDetection\Personal\LogOutElsewhere;
+use OCA\IntrusionDetection\Personal\PersonalActivity;
 use OCA\IntrusionDetection\Personal\PersonalOverview;
 use OCA\IntrusionDetection\ResponseDefinitions;
 use OCA\IntrusionDetection\SessionState\CurrentSession;
@@ -46,8 +46,8 @@ use OCP\IUserSession;
  * The logged-in user's own security events, their answers to
  * "Was this you?" (also the actions of the user notification), their
  * trusted networks, their remembered devices, their recent logins, the
- * overview at the top of their security section and
- * "Log out everywhere else" (concept sections 11.5.1, 11.8 and 15.1).
+ * overview at the top of their security section, their recent activity
+ * and "Log out everywhere else" (concept sections 11.5.1, 11.8 and 15.1).
  *
  * Every endpoint only ever touches the current user's own rows: another
  * account's detection or network answers 404, like a missing one. Writes
@@ -65,6 +65,7 @@ use OCP\IUserSession;
  * @psalm-import-type IntrusionDetectionSecureAccountProgress from ResponseDefinitions
  * @psalm-import-type IntrusionDetectionPersonalOverview from ResponseDefinitions
  * @psalm-import-type IntrusionDetectionLoggedOutElsewhere from ResponseDefinitions
+ * @psalm-import-type IntrusionDetectionPersonalActivity from ResponseDefinitions
  */
 #[OpenAPI(scope: OpenAPI::SCOPE_DEFAULT)]
 class PersonalApiController extends OCSController {
@@ -88,6 +89,7 @@ class PersonalApiController extends OCSController {
 		private readonly ITimeFactory $timeFactory,
 		private readonly PersonalOverview $personalOverview,
 		private readonly LogOutElsewhere $logOutElsewhere,
+		private readonly PersonalActivity $activity,
 	) {
 		parent::__construct(Application::APP_ID, $request);
 	}
@@ -252,19 +254,24 @@ class PersonalApiController extends OCSController {
 		$current = $this->currentSession->tokenId();
 		$entries = $this->loginHistory->forUser($this->user()->getUID(), $this->timeFactory->getTime() - $days * 86400, null, max(1, min(200, $limit)));
 		$l = $this->l;
-		return new DataResponse(array_map(static fn (LoginHistoryEntry $e): array => [
-			'id' => $e->id,
-			'createdAt' => $e->createdAt,
-			'ip' => $e->ip,
-			'network' => $e->netKey,
-			'userAgent' => $e->userAgent,
-			'method' => $e->method,
-			'knownDevice' => $e->knownDevice,
-			'confirmedBy' => $e->confirmedBy,
-			'stepUp' => $e->stepUp,
-			'current' => $current !== null && $e->sessionTokenId === $current,
-			'device' => self::deviceLabel($e->userAgent, $l),
-		], $entries));
+		return new DataResponse(array_map(static fn (LoginHistoryEntry $e): array => PersonalActivity::login($e, $current, $l), $entries));
+	}
+
+	/**
+	 * Get the recent activity of the current user: the open "Was this you?" questions, and one timeline of logins, security changes, days with failed logins and the other security events
+	 *
+	 * @param int<1, 365> $days how far back the timeline goes
+	 * @param int<1, 100> $limit the most timeline entries
+	 * @return DataResponse<Http::STATUS_OK, IntrusionDetectionPersonalActivity, array{}>
+	 * @throws OCSNotFoundException The security page is switched off
+	 *
+	 * 200: The open questions and the timeline, newest first; `hasMore` when older entries exist
+	 */
+	#[NoAdminRequired]
+	#[ApiRoute(verb: 'GET', url: '/api/v1/personal/activity')]
+	public function activity(int $days = 30, int $limit = 30): DataResponse {
+		$this->requirePage();
+		return new DataResponse($this->activity->forUser($this->user(), $this->l, $days, $limit));
 	}
 
 	/**
@@ -423,11 +430,6 @@ class PersonalApiController extends OCSController {
 		if (!$this->settings->personalPageEnabled()) {
 			throw new OCSNotFoundException();
 		}
-	}
-
-	private static function deviceLabel(?string $userAgent, IL10N $l): string {
-		[$family, $platform] = DeviceLabel::parse($userAgent);
-		return DeviceLabel::translated($family, $platform, $l);
 	}
 
 	private function user(): IUser {

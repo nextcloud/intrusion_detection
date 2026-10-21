@@ -70,10 +70,13 @@ class NoSecretsPersonalTest extends PersonalApiTestCase {
 			'overview' => $api->overview()->getData(),
 			'detections' => $api->detections()->getData(),
 			'logins' => $api->logins()->getData(),
+			'activity' => $api->activity()->getData(),
 			'known devices' => $api->knownDevices()->getData(),
 			'trusted networks' => $api->trustedNetworks()->getData(),
 		];
 		$this->assertSame(2, $responses['overview']['failedLogins']['total'], 'Both failures were counted');
+		$this->assertCount(1, $responses['activity']['questions']);
+		$this->assertEqualsCanonicalizing(['failed_logins', 'change', 'login'], array_values(array_unique(array_column($responses['activity']['items'], 'kind'))), 'The activity has the failures, the changes and the login');
 		$responses['log out everywhere else'] = $api->logOutElsewhere()->getData();
 		foreach ($responses as $name => $data) {
 			$this->assertClean(json_encode($data, JSON_THROW_ON_ERROR), $secrets, 'response of ' . $name);
