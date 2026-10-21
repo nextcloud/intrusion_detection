@@ -69,6 +69,7 @@ class ResetProbingTest extends RequestEventTestCase {
 			Server::get(IUserManager::class),
 			$this->request,
 			Server::get(LoggerInterface::class),
+			Server::get(\OCA\IntrusionDetection\Login\EmailAccounts::class),
 		));
 	}
 

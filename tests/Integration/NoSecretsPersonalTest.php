@@ -99,6 +99,7 @@ class NoSecretsPersonalTest extends PersonalApiTestCase {
 			$this->request,
 			Server::get(LoggerInterface::class),
 			Server::get(FailedLoginStats::class),
+			Server::get(\OCA\IntrusionDetection\Login\EmailAccounts::class),
 		);
 	}
 

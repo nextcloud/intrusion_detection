@@ -14,6 +14,7 @@ use OCA\IntrusionDetection\Check\Checks\ResetProbingDetector;
 use OCA\IntrusionDetection\Config\Settings;
 use OCA\IntrusionDetection\Db\AttemptKind;
 use OCA\IntrusionDetection\Detection\AttemptRecorder;
+use OCA\IntrusionDetection\Login\EmailAccounts;
 use OCA\IntrusionDetection\Net\RemoteAddressResolver;
 use OCA\IntrusionDetection\Response\ResetMailSuppressor;
 use OCP\EventDispatcher\Event;
@@ -51,6 +52,7 @@ class ResetRequestedListener implements IEventListener {
 		private readonly IUserManager $userManager,
 		private readonly IRequest $request,
 		private readonly LoggerInterface $logger,
+		private readonly EmailAccounts $emailAccounts,
 	) {
 	}
 
@@ -102,7 +104,6 @@ class ResetRequestedListener implements IEventListener {
 		if (!str_contains($input, '@')) {
 			return null;
 		}
-		$enabled = array_values(array_filter($this->userManager->getByEmail($input), static fn ($u): bool => $u->isEnabled()));
-		return count($enabled) === 1 ? $enabled[0]->getUID() : null;
+		return $this->emailAccounts->only($input, true);
 	}
 }

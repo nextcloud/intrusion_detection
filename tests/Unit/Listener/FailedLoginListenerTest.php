@@ -77,6 +77,7 @@ class FailedLoginListenerTest extends TestCase {
 			$stuffing, $spraying, $accountUnderAttack, $this->createMock(RiskScorer::class),
 			$this->createMock(IUserManager::class), $this->createMock(IRequest::class), $logger,
 			$this->createMock(FailedLoginStats::class),
+			$this->createMock(\OCA\IntrusionDetection\Login\EmailAccounts::class),
 		);
 		$listener->handle(new AnyLoginFailedEvent('alice', 'secret'));
 	}
@@ -100,7 +101,33 @@ class FailedLoginListenerTest extends TestCase {
 			$this->createMock(RiskScorer::class),
 			$this->createMock(IUserManager::class), $this->createMock(IRequest::class), $this->createMock(LoggerInterface::class),
 			$this->createMock(FailedLoginStats::class),
+			$this->createMock(\OCA\IntrusionDetection\Login\EmailAccounts::class),
 		);
 		$listener->handle(new AnyLoginFailedEvent('admin', 'secret'));
+	}
+
+	public function testWithoutAMemoryCacheAnEmailIsOnlyLookedUpForTheChecksThatCountPerAccount(): void {
+		$settings = $this->createMock(Settings::class);
+		$settings->method('isEnabled')->willReturn(true);
+		$settings->method('modeState')->willReturnCallback(static fn (string $id): ModeState => $id === \OCA\IntrusionDetection\Check\Checks\AccountUnderAttack::ID
+			? new ModeState(Mode::Off, Mode::Off)
+			: new ModeState(Mode::Protect, Mode::Protect));
+		$addresses = $this->createMock(RemoteAddressResolver::class);
+		$addresses->method('current')->willReturn(SourceKey::fromIp('198.51.100.7'));
+		$recorder = $this->createMock(AttemptRecorder::class);
+		$recorder->expects($this->once())->method('record')->with(AttemptKind::PasswordLogin, $this->anything(), 'alice@example.com', null)
+			->willReturn(new AttemptRecord(AttemptKind::PasswordLogin, SourceKey::fromIp('198.51.100.7'), 'aa', null, null, 'bb', ['bb'], time(), true));
+		$users = $this->createMock(IUserManager::class);
+		$users->method('getUserNameFromLoginName')->willReturnArgument(0);
+		$users->expects($this->never())->method('getByEmail');
+		$emails = new \OCA\IntrusionDetection\Login\EmailAccounts($users, $this->createMock(\OCP\ICacheFactory::class));
+
+		$listener = new FailedLoginListener(
+			$settings, $addresses, $recorder, $this->createMock(DecoyCredentialDetector::class), $this->createMock(ReservedNameDetector::class),
+			$this->createMock(CredentialStuffingDetector::class), $this->createMock(PasswordSprayingDetector::class), $this->createMock(AccountUnderAttackDetector::class),
+			$this->createMock(RiskScorer::class), $users, $this->createMock(IRequest::class), $this->createMock(LoggerInterface::class),
+			$this->createMock(FailedLoginStats::class), $emails,
+		);
+		$listener->handle(new AnyLoginFailedEvent('alice@example.com', 'secret'));
 	}
 }

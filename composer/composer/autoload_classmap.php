@@ -390,6 +390,7 @@ return array(
     'OCA\\IntrusionDetection\\LoginHistory\\LoginHistory' => $baseDir . '/../lib/LoginHistory/LoginHistory.php',
     'OCA\\IntrusionDetection\\LoginHistory\\LoginHistoryEntry' => $baseDir . '/../lib/LoginHistory/LoginHistoryEntry.php',
     'OCA\\IntrusionDetection\\Login\\BasicCredentials' => $baseDir . '/../lib/Login/BasicCredentials.php',
+    'OCA\\IntrusionDetection\\Login\\EmailAccounts' => $baseDir . '/../lib/Login/EmailAccounts.php',
     'OCA\\IntrusionDetection\\Login\\InteractiveLogin' => $baseDir . '/../lib/Login/InteractiveLogin.php',
     'OCA\\IntrusionDetection\\Middleware\\PayloadBlockedException' => $baseDir . '/../lib/Middleware/PayloadBlockedException.php',
     'OCA\\IntrusionDetection\\Middleware\\PayloadMiddleware' => $baseDir . '/../lib/Middleware/PayloadMiddleware.php',

@@ -99,6 +99,7 @@ abstract class LoginFailureTestCase extends IntegrationTestCase {
 			$this->request,
 			$this->listenerLogger(),
 			Server::get(FailedLoginStats::class),
+			Server::get(\OCA\IntrusionDetection\Login\EmailAccounts::class),
 		);
 	}
 

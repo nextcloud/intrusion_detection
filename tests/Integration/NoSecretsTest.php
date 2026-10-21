@@ -207,7 +207,7 @@ class NoSecretsTest extends LoginFailureTestCase {
 		}
 
 		$shares = new ShareAccessFailedListener($this->settings, new RemoteAddressResolver($this->request, Server::get(IThrottler::class)), Server::get(AttemptRecorder::class), Server::get(ShareBruteforceDetector::class), $this->request, Server::get(IUserSession::class), $this->listenerLogger());
-		$resets = new ResetRequestedListener($this->settings, new RemoteAddressResolver($this->request, Server::get(IThrottler::class)), Server::get(AttemptRecorder::class), Server::get(ResetProbingDetector::class), Server::get(ResetMailSuppressor::class), Server::get(IUserManager::class), $this->request, $this->listenerLogger());
+		$resets = new ResetRequestedListener($this->settings, new RemoteAddressResolver($this->request, Server::get(IThrottler::class)), Server::get(AttemptRecorder::class), Server::get(ResetProbingDetector::class), Server::get(ResetMailSuppressor::class), Server::get(IUserManager::class), $this->request, $this->listenerLogger(), Server::get(\OCA\IntrusionDetection\Login\EmailAccounts::class));
 
 		$this->remoteAddress = '198.51.100.7';
 		for ($i = 1; $i <= 10; $i++) {

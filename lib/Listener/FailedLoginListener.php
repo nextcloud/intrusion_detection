@@ -20,6 +20,7 @@ use OCA\IntrusionDetection\Check\Checks\ReservedNameDetector;
 use OCA\IntrusionDetection\Config\Settings;
 use OCA\IntrusionDetection\Db\AttemptKind;
 use OCA\IntrusionDetection\Detection\AttemptRecorder;
+use OCA\IntrusionDetection\Login\EmailAccounts;
 use OCA\IntrusionDetection\Net\RemoteAddressResolver;
 use OCA\IntrusionDetection\Personal\FailedLoginStats;
 use OCA\IntrusionDetection\Risk\RiskScorer;
@@ -73,6 +74,7 @@ class FailedLoginListener implements IEventListener {
 		private readonly IRequest $request,
 		private readonly LoggerInterface $logger,
 		private readonly FailedLoginStats $failedLoginStats,
+		private readonly EmailAccounts $emailAccounts,
 	) {
 	}
 
@@ -106,7 +108,8 @@ class FailedLoginListener implements IEventListener {
 			if (!$detectorsRun && !$counted) {
 				return;
 			}
-			$uid = $this->resolveUid($loginName);
+			// Without a memory cache an email address is only looked up for the checks that count per account.
+			$uid = $this->resolveUid($loginName, $counted || $this->emailAccounts->isCached() || $this->settings->modeState(AccountUnderAttack::ID)->runs());
 			if ($counted && $uid !== null) {
 				$this->step('failed_login_stats', fn () => $this->failedLoginStats->record($uid, $source));
 			}
@@ -155,10 +158,10 @@ class FailedLoginListener implements IEventListener {
 	/**
 	 * The account a login name belongs to, the way core resolves it: the
 	 * login name mapping of user backends, the uid itself, or an email address
-	 * that exactly one account has. Nothing is returned to the client, so
-	 * this reveals nothing.
+	 * that exactly one account has (only with `$byEmail`). Nothing is
+	 * returned to the client, so this reveals nothing.
 	 */
-	private function resolveUid(string $loginName): ?string {
+	private function resolveUid(string $loginName, bool $byEmail): ?string {
 		$name = trim($loginName);
 		if ($name === '' || strlen($name) > self::MAX_LOGIN_NAME) {
 			return null;
@@ -167,11 +170,8 @@ class FailedLoginListener implements IEventListener {
 		if ($user !== null) {
 			return $user->getUID();
 		}
-		if (filter_var($name, FILTER_VALIDATE_EMAIL) !== false) {
-			$users = $this->userManager->getByEmail($name);
-			if (count($users) === 1) {
-				return $users[0]->getUID();
-			}
+		if ($byEmail && filter_var($name, FILTER_VALIDATE_EMAIL) !== false) {
+			return $this->emailAccounts->only($name);
 		}
 		return null;
 	}
