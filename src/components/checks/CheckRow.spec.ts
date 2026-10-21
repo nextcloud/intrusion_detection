@@ -95,6 +95,11 @@ describe('a check on the Protection tab', () => {
 		expect(customise.attributes('aria-expanded')).toBe('false')
 		await customise.trigger('click')
 		expect(customise.attributes('aria-expanded')).toBe('true')
+		// The chevron stays and turns, so the toggle shows it closes the card again.
+		expect(customise.classes().some((name) => name.includes('row__customise_open'))).toBe(true)
+		const chevron = customise.get('.icon-vue')
+		expect(chevron.classes().some((name) => name.includes('row__chevron'))).toBe(true)
+		expect(chevron.find('svg path').exists()).toBe(true)
 		expect(row.text()).toContain('How it decides')
 		expect(row.text()).toContain('Save changes')
 	})

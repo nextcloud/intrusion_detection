@@ -100,7 +100,11 @@ const effectiveNote = computed(() => {
 					data-test="customise"
 					@click="customising = !customising">
 					<span>{{ t(APP_ID, 'Customise') }}</span>
-					<NcIconSvgWrapper inline :path="mdiChevronDown" :size="20" />
+					<NcIconSvgWrapper
+						inline
+						:class="$style.row__chevron"
+						:path="mdiChevronDown"
+						:size="20" />
 				</button>
 			</div>
 		</div>
@@ -204,16 +208,16 @@ const effectiveNote = computed(() => {
 	outline-offset: 2px;
 }
 
-.row__customise :last-child {
+.row__chevron {
 	transition: transform 180ms ease;
 }
 
-.row__customise_open :last-child {
+.row__customise_open .row__chevron {
 	transform: rotate(180deg);
 }
 
 @media (prefers-reduced-motion: reduce) {
-	.row__customise :last-child {
+	.row__chevron {
 		transition: none;
 	}
 }
