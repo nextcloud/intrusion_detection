@@ -33,6 +33,8 @@ class GuardDecisionPlugin extends ServerPlugin {
 	/** After the authentication plugin (priority 10), before the session-state plugin */
 	public const PRIORITY = 20;
 
+	private ?Server $server = null;
+
 	public function __construct(
 		private readonly RequestContext $context,
 		private readonly ContainerInterface $container,
@@ -42,6 +44,7 @@ class GuardDecisionPlugin extends ServerPlugin {
 
 	#[\Override]
 	public function initialize(Server $server): void {
+		$this->server = $server;
 		$server->on('beforeMethod:*', $this->beforeMethod(...), self::PRIORITY);
 	}
 
@@ -51,7 +54,7 @@ class GuardDecisionPlugin extends ServerPlugin {
 	}
 
 	/**
-	 * @return bool false when the request is refused here, which stops Sabre
+	 * @return bool false when the request is refused and answered here, which stops Sabre
 	 */
 	public function beforeMethod(RequestInterface $request, ResponseInterface $response): bool {
 		$decision = $this->context->refusal();
@@ -75,6 +78,8 @@ class GuardDecisionPlugin extends ServerPlugin {
 			'Access from your network is temporarily blocked. If you think this is a mistake, contact your administrator and give them this reference: %s',
 			[$decision->getReference()]
 		));
+		// Sabre sends no response for a method a listener stopped.
+		$this->server?->sapi->sendResponse($response);
 		return false;
 	}
 }

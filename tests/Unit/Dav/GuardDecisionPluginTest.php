@@ -21,8 +21,11 @@ use OCP\Security\Guard\GuardDecision;
 use OCP\Server;
 use Psr\Container\ContainerInterface;
 use Psr\Log\LoggerInterface;
+use Sabre\DAV\Server as SabreServer;
 use Sabre\HTTP\Request;
 use Sabre\HTTP\Response;
+use Sabre\HTTP\ResponseInterface;
+use Sabre\HTTP\Sapi;
 use Test\TestCase;
 
 class GuardDecisionPluginTest extends TestCase {
@@ -38,7 +41,17 @@ class GuardDecisionPluginTest extends TestCase {
 		$context->refuse(GuardDecision::deny(3600, 'BAAA-AAAB'));
 		$response = new Response();
 		$plugin = new GuardDecisionPlugin($context, $this->container($context, null), $this->createMock(LoggerInterface::class));
-		$this->assertFalse($plugin->beforeMethod(new Request('PROPFIND', '/remote.php/dav/files/alice/'), $response));
+		$sapi = new class extends Sapi {
+			/** @var list<ResponseInterface> */
+			public static array $sent = [];
+
+			public static function sendResponse(ResponseInterface $response): void {
+				self::$sent[] = $response;
+			}
+		};
+		$plugin->initialize(new SabreServer(null, $sapi));
+		$this->assertFalse($plugin->beforeMethod(new Request('PROPFIND', '/remote.php/dav/files/alice/'), $response), 'Sabre stops');
+		$this->assertSame([$response], $sapi::$sent, 'and the answer is sent, which Sabre does not do for a stopped method');
 		$this->assertSame(403, $response->getStatus());
 		$this->assertSame('3600', $response->getHeader('Retry-After'));
 		$this->assertStringContainsString('BAAA-AAAB', (string)$response->getBodyAsString());
