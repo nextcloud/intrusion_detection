@@ -42,46 +42,24 @@ class RemoveRetiredSettingsTest extends IntegrationTestCase {
 		$this->assertStringContainsString('"digest_send_quiet" is no longer a setting. It was false; now: quiet digests are always sent.', implode("\n", $this->logged));
 	}
 
-	public function testTheShorterRetentionWins(): void {
+	public function testTheOldHistoryPeriodIsOnlyDeleted(): void {
+		$this->settings()->setGlobal(GlobalSettings::RETENTION_DETECTIONS_DAYS, 180);
 		$this->appConfig->setValueMixed(Application::APP_ID, RemoveRetiredSettings::HISTORY_RETENTION_DAYS, '30');
 		$this->repair();
-		$this->assertSame(30, $this->settings()->getInt(GlobalSettings::RETENTION_DETECTIONS_DAYS), 'Logins were kept 30 days: so is everything now');
 		$this->assertNotContains(RemoveRetiredSettings::HISTORY_RETENTION_DAYS, $this->appConfig->getKeys(Application::APP_ID));
-		$this->assertCount(1, $this->logged);
-		$this->assertStringContainsString('It was 30 days, and detections were kept 90 days; now detections, logins and security changes are all kept 30 days', $this->logged[0] ?? '');
-	}
-
-	public function testAShorterDetectionPeriodStays(): void {
-		$this->settings()->setGlobal(GlobalSettings::RETENTION_DETECTIONS_DAYS, 60);
-		$this->appConfig->setValueMixed(Application::APP_ID, RemoveRetiredSettings::HISTORY_RETENTION_DAYS, '180');
-		$this->repair();
-		$this->assertSame(60, $this->settings()->getInt(GlobalSettings::RETENTION_DETECTIONS_DAYS));
-		$this->assertStringContainsString('It was 180 days, and detections were kept 60 days; now detections, logins and security changes are all kept 60 days', $this->logged[0] ?? '');
-	}
-
-	public function testTheDefaultHistoryPeriodLimitsALongerDetectionPeriod(): void {
-		$this->settings()->setGlobal(GlobalSettings::RETENTION_DETECTIONS_DAYS, 365);
-		$this->appConfig->setValueMixed(Application::APP_ID, RemoveRetiredSettings::HISTORY_RETENTION_DAYS, '90');
-		$this->repair();
-		$this->assertSame(90, $this->settings()->getInt(GlobalSettings::RETENTION_DETECTIONS_DAYS));
-		$this->assertCount(1, $this->logged);
+		$this->assertSame(180, $this->settings()->getInt(GlobalSettings::RETENTION_DETECTIONS_DAYS), 'The migration merges the periods, once');
+		$this->assertSame([], $this->logged);
 	}
 
 	public function testItIsIdempotent(): void {
-		$this->appConfig->setValueMixed(Application::APP_ID, RemoveRetiredSettings::HISTORY_RETENTION_DAYS, '30');
 		$this->appConfig->setValueMixed(Application::APP_ID, 'flag_duration', '3600');
 		$this->repair();
-		$this->assertCount(2, $this->logged);
+		$this->assertCount(1, $this->logged);
 
 		$this->logged = [];
 		$this->repair();
 		$this->assertSame([], $this->logged);
-		$this->assertSame(30, $this->settings()->getInt(GlobalSettings::RETENTION_DETECTIONS_DAYS));
-
-		$this->settings()->setGlobal(GlobalSettings::RETENTION_DETECTIONS_DAYS, 200);
-		$this->repair();
-		$this->assertSame(200, $this->settings()->getInt(GlobalSettings::RETENTION_DETECTIONS_DAYS), 'A later choice is never undone');
-		$this->assertSame([], $this->logged);
+		$this->assertNotContains('flag_duration', $this->appConfig->getKeys(Application::APP_ID));
 	}
 
 	private function repair(): void {
@@ -89,7 +67,7 @@ class RemoveRetiredSettingsTest extends IntegrationTestCase {
 		$logger->method('info')->willReturnCallback(function (string $message): void {
 			$this->logged[] = $message;
 		});
-		$step = new RemoveRetiredSettings($this->appConfig, Server::get(GlobalSettings::class), $this->settings(), $logger);
+		$step = new RemoveRetiredSettings($this->appConfig, $logger);
 		$step->run($this->createMock(IOutput::class));
 	}
 

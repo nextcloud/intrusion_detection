@@ -12,12 +12,11 @@ namespace OCA\IntrusionDetection\Repair;
 use OCA\IntrusionDetection\AdminChange\ApprovalService;
 use OCA\IntrusionDetection\AppInfo\Application;
 use OCA\IntrusionDetection\Blocklist\BlocklistSync;
-use OCA\IntrusionDetection\Config\GlobalSettings;
-use OCA\IntrusionDetection\Config\Settings;
 use OCA\IntrusionDetection\Confirm\EmailCodes;
 use OCA\IntrusionDetection\Confirm\Methods\AdminApprovalMethod;
 use OCA\IntrusionDetection\Confirm\StepUpService;
 use OCA\IntrusionDetection\KnownDevice\KnownDevices;
+use OCA\IntrusionDetection\Migration\Version1000Date20261022100000;
 use OCA\IntrusionDetection\Response\FlaggedSources;
 use OCA\IntrusionDetection\Risk\RiskAssessment;
 use OCA\IntrusionDetection\Risk\RiskScorer;
@@ -32,20 +31,17 @@ use Psr\Log\LoggerInterface;
  * differed from that setting's default is logged once, with what applies
  * instead, so that nobody loses a tuned value silently.
  *
- * `history_retention_days` is merged into `retention_detections_days`: the
- * shorter of the two periods is kept, so that no personal data is kept
- * longer than an administrator chose.
+ * `history_retention_days` is merged into `retention_detections_days` by
+ * {@see Version1000Date20261022100000}, which logs the result; here it is
+ * only deleted.
  *
  * Runs after every upgrade and does nothing once the values are gone.
  */
 class RemoveRetiredSettings implements IRepairStep {
 	public const HISTORY_RETENTION_DAYS = 'history_retention_days';
-	private const HISTORY_RETENTION_DEFAULT = 90;
 
 	public function __construct(
 		private readonly IAppConfig $appConfig,
-		private readonly GlobalSettings $globals,
-		private readonly Settings $settings,
 		private readonly LoggerInterface $logger,
 	) {
 	}
@@ -100,9 +96,6 @@ class RemoveRetiredSettings implements IRepairStep {
 		}
 		$values = $this->appConfig->getAllValues(Application::APP_ID);
 
-		if (in_array(self::HISTORY_RETENTION_DAYS, $stored, true)) {
-			$this->mergeRetention($values[self::HISTORY_RETENTION_DAYS] ?? null, $output);
-		}
 		foreach ($stored as $key) {
 			if (isset($retired[$key])) {
 				[$default, $applies] = $retired[$key];
@@ -111,25 +104,6 @@ class RemoveRetiredSettings implements IRepairStep {
 				}
 			}
 			$this->appConfig->deleteKey(Application::APP_ID, $key);
-		}
-	}
-
-	/**
-	 * Keep the shorter of the login history's and the detections' periods
-	 * in `retention_detections_days`.
-	 */
-	private function mergeRetention(mixed $history, IOutput $output): void {
-		$historyDays = is_numeric($history) ? (int)$history : self::HISTORY_RETENTION_DEFAULT;
-		$detectionsDays = $this->settings->getInt(GlobalSettings::RETENTION_DETECTIONS_DAYS);
-		$days = max((int)($this->globals->get(GlobalSettings::RETENTION_DETECTIONS_DAYS)?->min ?? 1), min($historyDays, $detectionsDays));
-		if ($days !== $detectionsDays) {
-			$this->settings->setGlobal(GlobalSettings::RETENTION_DETECTIONS_DAYS, $days, false);
-		}
-		if ($historyDays !== self::HISTORY_RETENTION_DEFAULT || $days !== $detectionsDays) {
-			$this->tell($output, sprintf(
-				'Intrusion detection: "%s" is no longer a setting. It was %d days, and detections were kept %d days; now detections, logins and security changes are all kept %d days ("%s").',
-				self::HISTORY_RETENTION_DAYS, $historyDays, $detectionsDays, $days, GlobalSettings::RETENTION_DETECTIONS_DAYS,
-			));
 		}
 	}
 
