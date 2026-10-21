@@ -12,10 +12,9 @@ namespace OCA\IntrusionDetection\Controller;
 use OCA\IntrusionDetection\AdminChange\ApprovalException;
 use OCA\IntrusionDetection\AdminChange\ApprovalService;
 use OCA\IntrusionDetection\AppInfo\Application;
-use OCA\IntrusionDetection\Confirm\StepUpService;
+use OCA\IntrusionDetection\Confirm\SessionConfirmation;
 use OCA\IntrusionDetection\Db\Approval;
 use OCA\IntrusionDetection\ResponseDefinitions;
-use OCA\IntrusionDetection\SessionState\SessionState;
 use OCP\AppFramework\Http;
 use OCP\AppFramework\Http\Attribute\ApiRoute;
 use OCP\AppFramework\Http\Attribute\OpenAPI;
@@ -34,9 +33,10 @@ use OCP\IUserSession;
  * Administrators only (the default for controllers) and CSRF-protected. A
  * decision needs a recent password confirmation; the rules who may decide
  * are in {@see ApprovalService}, shared with occ. Approving also needs the
- * deciding administrator's own login to have been confirmed when it needed
- * a confirmation: a session that was let in without one must not let
- * others in.
+ * deciding administrator's own session not to be unconfirmed
+ * ({@see SessionConfirmation::isUnconfirmed()}): a session that was let in
+ * without its confirmation, still waits for it, or uses an app password
+ * must not let others in.
  *
  * @psalm-import-type IntrusionDetectionApproval from ResponseDefinitions
  */
@@ -47,7 +47,7 @@ class ApprovalController extends OCSController {
 		private readonly ApprovalService $approvals,
 		private readonly IUserSession $userSession,
 		private readonly IL10N $l,
-		private readonly SessionState $state,
+		private readonly SessionConfirmation $confirmation,
 	) {
 		parent::__construct(Application::APP_ID, $request);
 	}
@@ -86,10 +86,11 @@ class ApprovalController extends OCSController {
 	#[UserRateLimit(limit: 10, period: 60)]
 	public function approve(int $id): DataResponse {
 		try {
-			if (($this->state->get(SessionState::CONFIRMATION)['by'] ?? null) === StepUpService::CONFIRMED_BY_NONE) {
+			$decider = $this->decider();
+			if ($this->confirmation->isUnconfirmed($decider)) {
 				throw new ApprovalException(ApprovalException::UNCONFIRMED);
 			}
-			return new DataResponse($this->approvals->approve($id, $this->decider(), ApprovalService::VIA_WEB)->jsonSerialize());
+			return new DataResponse($this->approvals->approve($id, $decider, ApprovalService::VIA_WEB)->jsonSerialize());
 		} catch (ApprovalException $e) {
 			return $this->refused($e);
 		}

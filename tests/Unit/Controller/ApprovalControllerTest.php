@@ -11,6 +11,8 @@ namespace OCA\IntrusionDetection\Tests\Unit\Controller;
 
 use OCA\IntrusionDetection\AdminChange\ApprovalException;
 use OCA\IntrusionDetection\AdminChange\ApprovalService;
+use OCA\IntrusionDetection\Confirm\SessionConfirmation;
+use OCA\IntrusionDetection\Confirm\StepUpState;
 use OCA\IntrusionDetection\Controller\ApprovalController;
 use OCA\IntrusionDetection\Db\Approval;
 use OCA\IntrusionDetection\SessionState\SessionState;
@@ -20,8 +22,10 @@ use OCP\AppFramework\Http\Attribute\NoCSRFRequired;
 use OCP\AppFramework\Http\Attribute\PasswordConfirmationRequired;
 use OCP\AppFramework\Http\Attribute\PublicPage;
 use OCP\AppFramework\Http\Attribute\UserRateLimit;
+use OCP\AppFramework\Utility\ITimeFactory;
 use OCP\IL10N;
 use OCP\IRequest;
+use OCP\ISession;
 use OCP\IUser;
 use OCP\IUserSession;
 use PHPUnit\Framework\Attributes\DataProvider;
@@ -30,6 +34,9 @@ use Test\TestCase;
 class ApprovalControllerTest extends TestCase {
 	/** @var ?array<string, mixed> how the deciding administrator's own login was confirmed */
 	private ?array $confirmation = null;
+	/** @var ?array<string, mixed> the step-up of the deciding administrator's own session */
+	private ?array $stepUp = null;
+	private bool $appPassword = false;
 
 	/**
 	 * @return array<string, array{string}>
@@ -86,6 +93,14 @@ class ApprovalControllerTest extends TestCase {
 		$this->assertSame(Http::STATUS_FORBIDDEN, $response->getStatus());
 		$this->assertSame(ApprovalException::UNCONFIRMED, $response->getData()['reason']);
 
+		$this->confirmation = null;
+		$this->stepUp = (new StepUpState('carol', StepUpState::PENDING, ['flagged_source'], 1, 901))->toArray();
+		$this->assertSame(ApprovalException::UNCONFIRMED, $this->controller($service)->approve(5)->getData()['reason'], 'A login that still waits for its confirmation');
+		$this->stepUp = null;
+		$this->appPassword = true;
+		$this->assertSame(ApprovalException::UNCONFIRMED, $this->controller($service)->approve(5)->getData()['reason'], 'An app password');
+		$this->appPassword = false;
+
 		$this->confirmation = ['uid' => 'carol', 'by' => 'email_code', 'policies' => ['flagged_source'], 'at' => 1];
 		$approval = new Approval();
 		$approval->setStatus(Approval::STATUS_APPROVED);
@@ -135,7 +150,14 @@ class ApprovalControllerTest extends TestCase {
 		$l = $this->createMock(IL10N::class);
 		$l->method('t')->willReturnArgument(0);
 		$state = $this->createMock(SessionState::class);
-		$state->method('get')->willReturnCallback(fn (string $name): ?array => $name === SessionState::CONFIRMATION ? $this->confirmation : null);
-		return new ApprovalController($this->createMock(IRequest::class), $service, $session, $l, $state);
+		$state->method('get')->willReturnCallback(fn (string $name): ?array => match ($name) {
+			SessionState::CONFIRMATION => $this->confirmation,
+			SessionState::STEP_UP => $this->stepUp,
+			default => null,
+		});
+		$phpSession = $this->createMock(ISession::class);
+		$phpSession->method('exists')->willReturnCallback(fn (string $key): bool => $key === 'app_password' && $this->appPassword);
+		$confirmation = new SessionConfirmation($state, $phpSession, $this->createMock(ITimeFactory::class));
+		return new ApprovalController($this->createMock(IRequest::class), $service, $session, $l, $confirmation);
 	}
 }
