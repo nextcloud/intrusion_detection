@@ -32,6 +32,8 @@ class GlobalSettingsPresenter {
 	public const GROUP_PRIVACY = 'privacy';
 	/** Who is told about detections, and how */
 	public const GROUP_NOTIFICATIONS = 'notifications';
+	/** A second administrator approves new administrators */
+	public const GROUP_APPROVALS = 'approvals';
 	/** Settings without a group are listed on the Advanced tab */
 	public const GROUP_OTHER = 'other';
 
@@ -153,6 +155,14 @@ class GlobalSettingsPresenter {
 				$l->t('Also email from severity'),
 				$l->t('Detections of this severity or higher are also emailed, at most once per check and hour. "never" sends no emails.'),
 			), self::GROUP_NOTIFICATIONS],
+			GlobalSettings::ADMIN_CHANGE_REQUIRE_APPROVAL => [new ParamText(
+				$l->t('A second administrator approves new administrators'),
+				$l->t('Someone added to the admin group through the web interface or the API is taken out again until another administrator approves. occ and directory-backed groups are not held back, only reported. Needs at least two administrators.'),
+			), self::GROUP_APPROVALS],
+			GlobalSettings::ADMIN_CHANGE_APPROVAL_TTL => [new ParamText(
+				$l->t('Approval requests expire after'),
+				$l->t('A request nobody approved in this time is dropped, and the requester is told.'),
+			), self::GROUP_APPROVALS],
 			default => [new ParamText(ucfirst(str_replace('_', ' ', $name))), self::GROUP_OTHER],
 		};
 	}

@@ -87,6 +87,38 @@ class UserDeletedTest extends AccountTestCase {
 		$this->assertSame([$other], $mapper->findById($unrelated->getId())->getExplanationData()['facts']['targets']);
 	}
 
+	public function testApprovalRequestsAndResetSuppressionsAboutTheAccountGoToo(): void {
+		$now = time();
+		foreach (['gone-user', 'kept-user'] as $uid) {
+			$qb = $this->db->getQueryBuilder();
+			$qb->insert('ids_approvals')->values([
+				'kind' => $qb->createNamedParameter('admin_grant'),
+				'subject_uid' => $qb->createNamedParameter($uid),
+				'requested_by' => $qb->createNamedParameter('admin'),
+				'group_id' => $qb->createNamedParameter('admin'),
+				'status' => $qb->createNamedParameter('pending'),
+				'created_at' => $qb->createNamedParameter($now, \OCP\DB\QueryBuilder\IQueryBuilder::PARAM_INT),
+				'expires_at' => $qb->createNamedParameter($now + 3600, \OCP\DB\QueryBuilder\IQueryBuilder::PARAM_INT),
+			])->executeStatement();
+			$qb = $this->db->getQueryBuilder();
+			$qb->insert('ids_reset_suppressions')->values([
+				'uid' => $qb->createNamedParameter($uid),
+				'created_at' => $qb->createNamedParameter($now, \OCP\DB\QueryBuilder\IQueryBuilder::PARAM_INT),
+				'expires_at' => $qb->createNamedParameter($now + 3600, \OCP\DB\QueryBuilder\IQueryBuilder::PARAM_INT),
+			])->executeStatement();
+		}
+
+		Server::get(UserDataCleanup::class)->deleteUser('gone-user');
+
+		foreach (['ids_approvals' => 'subject_uid', 'ids_reset_suppressions' => 'uid'] as $table => $column) {
+			$qb = $this->db->getQueryBuilder();
+			$qb->select($column)->from($table);
+			$result = $qb->executeQuery();
+			$this->assertSame(['kept-user'], array_map('strval', $result->fetchFirstColumn()), $table);
+			$result->closeCursor();
+		}
+	}
+
 	public function testWithoutRemovesTheAccountFromListsAndValues(): void {
 		$this->assertSame(
 			['targets' => ['bob'], 'uid' => null, 'nested' => ['by' => null, 'keep' => 'alice2'], 'count' => 3],

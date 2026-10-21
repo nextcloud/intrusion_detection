@@ -10,11 +10,13 @@ declare(strict_types=1);
 namespace OCA\IntrusionDetection\Privacy;
 
 use OCA\IntrusionDetection\Db\AlertMapper;
+use OCA\IntrusionDetection\Db\ApprovalMapper;
 use OCA\IntrusionDetection\Db\AttemptMapper;
 use OCA\IntrusionDetection\Db\Detection;
 use OCA\IntrusionDetection\Db\DetectionMapper;
 use OCA\IntrusionDetection\Db\LoginMapper;
 use OCA\IntrusionDetection\Db\ProtectedAccountMapper;
+use OCA\IntrusionDetection\Db\ResetSuppressionMapper;
 use OCA\IntrusionDetection\Db\TokenOriginMapper;
 use OCA\IntrusionDetection\Notification\AdminNotices;
 use OCA\IntrusionDetection\Notification\UserAlerts;
@@ -42,6 +44,9 @@ class UserDataCleanup {
 		TokenOriginMapper::TABLE => 'uid',
 		ProtectedAccountMapper::TABLE => 'uid',
 		LoginMapper::TABLE => 'uid',
+		ResetSuppressionMapper::TABLE => 'uid',
+		// Requests about the account; who requested or decided one stays, like a block's creator.
+		ApprovalMapper::TABLE => 'subject_uid',
 	];
 
 	/** @var array<string, string> table => the column set to null */
