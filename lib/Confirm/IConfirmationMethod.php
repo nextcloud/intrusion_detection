@@ -20,6 +20,8 @@ use OCP\IUser;
 interface IConfirmationMethod {
 	public const SECOND_FACTOR = 'second_factor';
 	public const EMAIL_CODE = 'email_code';
+	public const KNOWN_DEVICE = 'known_device';
+	public const ADMIN_APPROVAL = 'admin_approval';
 
 	/** The method confirmed the login by itself, or core confirms it next */
 	public const CONFIRMED = 'confirmed';

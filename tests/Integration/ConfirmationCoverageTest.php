@@ -1,0 +1,188 @@
+<?php
+
+declare(strict_types=1);
+
+/**
+ * SPDX-FileCopyrightText: 2026 Nextcloud GmbH and Nextcloud contributors
+ * SPDX-License-Identifier: AGPL-3.0-or-later
+ */
+
+namespace OCA\IntrusionDetection\Tests\Integration;
+
+use OC\Memcache\ArrayCache;
+use OCA\IntrusionDetection\AdminChange\Approvers;
+use OCA\IntrusionDetection\Confirm\ConfirmationCoverage;
+use OCA\IntrusionDetection\Notification\AdminLinks;
+use OCA\IntrusionDetection\SetupCheck\Finding;
+use OCA\IntrusionDetection\SetupCheck\UsersWithoutConfirmationCheck;
+use OCP\Authentication\TwoFactorAuth\IRegistry;
+use OCP\DB\QueryBuilder\IQueryBuilder;
+use OCP\ICacheFactory;
+use OCP\IGroupManager;
+use OCP\IUser;
+use OCP\IUserManager;
+use OCP\L10N\IFactory;
+use OCP\Server;
+use PHPUnit\Framework\Attributes\Group;
+
+/**
+ * Counting the accounts that cannot confirm a login (setup checks 9 and 10,
+ * the Confirmation tab): only enabled accounts that logged in, neither an
+ * email address nor a second factor, counted with queries rather than by
+ * loading accounts, and cached.
+ */
+#[Group('DB')]
+class ConfirmationCoverageTest extends IntegrationTestCase {
+	private const PREFIX = 'ids-cov-';
+
+	private ArrayCache $cache;
+	/** @var list<string> */
+	private array $users = [];
+
+	protected function setUp(): void {
+		parent::setUp();
+		$this->cache = new ArrayCache();
+		$this->removeFakeAccounts();
+	}
+
+	protected function tearDown(): void {
+		foreach ($this->users as $uid) {
+			Server::get(IUserManager::class)->get($uid)?->delete();
+		}
+		$this->removeFakeAccounts();
+		parent::tearDown();
+	}
+
+	public function testOnlyActiveAccountsWithoutEmailOrSecondFactorCount(): void {
+		$before = $this->coverage()->users();
+		$none = $this->account('none');
+		$this->account('email', email: true);
+		$this->account('totp', secondFactor: 'totp');
+		$this->account('backup', secondFactor: 'backup_codes');
+		$this->account('disabled', disabled: true);
+		$this->account('never', loggedIn: false);
+		$this->cache->clear();
+
+		$counts = $this->coverage()->users();
+		$this->assertSame($before['withoutMethod'] + 2, $counts['withoutMethod'], 'Nothing, or backup codes only');
+		$this->assertSame($before['active'] + 4, $counts['active'], 'Disabled and never logged in do not count');
+
+		$listed = array_column($this->coverage()->list(200), 'uid');
+		$this->assertContains($none, $listed);
+		$this->assertContains(self::PREFIX . 'backup', $listed);
+		$this->assertNotContains(self::PREFIX . 'email', $listed);
+		$row = array_values(array_filter($this->coverage()->list(200), static fn (array $r): bool => $r['uid'] === $none))[0];
+		$this->assertSame(1_760_000_000, $row['lastLogin']);
+		$this->assertSame(['staff'], $row['groups']);
+		$this->assertFalse($row['admin']);
+	}
+
+	public function testTheCountsAreCachedForAnHour(): void {
+		$coverage = $this->coverage();
+		$first = $coverage->users();
+		$this->account('cached');
+		$this->assertSame($first, $coverage->users(), 'From the cache');
+		$coverage->refresh();
+		$this->assertSame($first['withoutMethod'] + 1, $coverage->users()['withoutMethod']);
+	}
+
+	public function testCountingTenThousandAccountsLoadsNoAccount(): void {
+		$before = $this->coverage()->users();
+		$this->cache->clear();
+		$this->fakeAccounts(10_000);
+		$userManager = $this->createMock(IUserManager::class);
+		$userManager->expects($this->never())->method($this->anything());
+		$coverage = new ConfirmationCoverage($this->db, $userManager, $this->createMock(IGroupManager::class), $this->createMock(Approvers::class), $this->createMock(IRegistry::class), $this->cacheFactory());
+
+		$start = hrtime(true);
+		$counts = $coverage->users();
+		$elapsed = (hrtime(true) - $start) / 1e9;
+		// Every fourth has an email address, every fifth a second factor, every twentieth both.
+		$this->assertSame($before['withoutMethod'] + 6_000, $counts['withoutMethod']);
+		$this->assertSame($before['active'] + 10_000, $counts['active']);
+		$this->assertLessThan(2.0, $elapsed, 'Two indexed queries, not a loop over accounts');
+
+		$l = Server::get(IFactory::class)->get('intrusion_detection', 'en');
+		$check = new UsersWithoutConfirmationCheck($l, $this->createMock(AdminLinks::class), $coverage);
+		$this->assertSame(Finding::LEVEL_WARNING, $check->finding($l)?->level, 'Far more than a tenth');
+	}
+
+	private function coverage(): ConfirmationCoverage {
+		return new ConfirmationCoverage(
+			$this->db,
+			Server::get(IUserManager::class),
+			Server::get(IGroupManager::class),
+			Server::get(Approvers::class),
+			Server::get(IRegistry::class),
+			$this->cacheFactory(),
+		);
+	}
+
+	private function cacheFactory(): ICacheFactory {
+		$factory = $this->createMock(ICacheFactory::class);
+		$factory->method('createDistributed')->willReturn($this->cache);
+		return $factory;
+	}
+
+	private function account(string $name, bool $email = false, ?string $secondFactor = null, bool $disabled = false, bool $loggedIn = true): string {
+		$uid = self::PREFIX . $name;
+		$user = Server::get(IUserManager::class)->createUser($uid, 'A-long-test-password-' . $uid);
+		$this->assertInstanceOf(IUser::class, $user);
+		$this->users[] = $uid;
+		$group = Server::get(IGroupManager::class)->get('staff') ?? Server::get(IGroupManager::class)->createGroup('staff');
+		$group?->addUser($user);
+		if ($email) {
+			$user->setSystemEMailAddress($name . '@example.com');
+		}
+		if ($secondFactor !== null) {
+			$this->db->insertIfNotExist('*PREFIX*twofactor_providers', ['provider_id' => $secondFactor, 'uid' => $uid, 'enabled' => 1], ['provider_id', 'uid']);
+		}
+		if ($disabled) {
+			$user->setEnabled(false);
+		}
+		if ($loggedIn) {
+			$this->preference($uid, 'login', 'lastLogin', '1760000000');
+		}
+		return $uid;
+	}
+
+	/**
+	 * Accounts that only exist as rows, like accounts of a large directory.
+	 */
+	private function fakeAccounts(int $count): void {
+		$this->db->beginTransaction();
+		for ($i = 0; $i < $count; $i++) {
+			$uid = self::PREFIX . 'fake-' . $i;
+			$this->preference($uid, 'login', 'lastLogin', '1760000000');
+			if ($i % 4 === 0) {
+				$this->preference($uid, 'settings', 'email', $uid . '@example.com');
+			}
+			if ($i % 5 === 0) {
+				$qb = $this->db->getQueryBuilder();
+				$qb->insert('twofactor_providers')->values([
+					'provider_id' => $qb->createNamedParameter('totp'),
+					'uid' => $qb->createNamedParameter($uid),
+					'enabled' => $qb->createNamedParameter(1, IQueryBuilder::PARAM_INT),
+				])->executeStatement();
+			}
+		}
+		$this->db->commit();
+	}
+
+	private function preference(string $uid, string $app, string $key, string $value): void {
+		$qb = $this->db->getQueryBuilder();
+		$qb->insert('preferences')->values([
+			'userid' => $qb->createNamedParameter($uid),
+			'appid' => $qb->createNamedParameter($app),
+			'configkey' => $qb->createNamedParameter($key),
+			'configvalue' => $qb->createNamedParameter($value),
+		])->executeStatement();
+	}
+
+	private function removeFakeAccounts(): void {
+		$qb = $this->db->getQueryBuilder();
+		$qb->delete('preferences')->where($qb->expr()->like('userid', $qb->createNamedParameter(self::PREFIX . 'fake-%')))->executeStatement();
+		$qb = $this->db->getQueryBuilder();
+		$qb->delete('twofactor_providers')->where($qb->expr()->like('uid', $qb->createNamedParameter(self::PREFIX . '%')))->executeStatement();
+	}
+}

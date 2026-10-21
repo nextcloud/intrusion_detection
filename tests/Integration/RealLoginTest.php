@@ -17,6 +17,8 @@ use OCA\IntrusionDetection\Check\Checks\StepUpRefusedClient;
 use OCA\IntrusionDetection\Confirm\StepUpState;
 use OCA\IntrusionDetection\Db\DetectionFilter;
 use OCA\IntrusionDetection\Db\DetectionMapper;
+use OCA\IntrusionDetection\Db\LoginHistoryMapper;
+use OCA\IntrusionDetection\LoginHistory\LoginHistory;
 use OCA\IntrusionDetection\Response\AccountProtection;
 use OCA\IntrusionDetection\SessionState\SessionState;
 use OCP\IRequest;
@@ -77,6 +79,9 @@ class RealLoginTest extends IntegrationTestCase {
 		$this->assertSame(StepUpState::REFUSED, $stepUp->status, 'No email address and no second factor: refused by default');
 		$this->assertSame(['protected_account'], $stepUp->policies);
 		$this->assertCount(1, Server::get(DetectionMapper::class)->findList(new DetectionFilter(checkIds: [StepUpRefused::ID], uid: $this->user->getUID())));
+		$history = Server::get(LoginHistoryMapper::class)->forUser($this->user->getUID(), 0);
+		$this->assertCount(1, $history, 'The login is in the history, after the step-up decided');
+		$this->assertSame([LoginHistory::METHOD_PASSWORD, LoginHistory::STEP_UP_REFUSED], [$history[0]->method, $history[0]->stepUp]);
 
 		// The same account from an app that sends the password. In one test, because core keeps the
 		// app's listener, and with it the request it was built with, for the whole run.
@@ -90,5 +95,8 @@ class RealLoginTest extends IntegrationTestCase {
 		$stepUp = StepUpState::fromArray(Server::get(SessionState::class)->get(SessionState::STEP_UP) ?? []);
 		$this->assertSame(StepUpState::REFUSED_CLIENT, $stepUp?->status);
 		$this->assertCount(1, Server::get(DetectionMapper::class)->findList(new DetectionFilter(checkIds: [StepUpRefusedClient::ID], uid: $this->user->getUID())));
+		$history = Server::get(LoginHistoryMapper::class)->forUser($this->user->getUID(), 0);
+		$this->assertCount(2, $history);
+		$this->assertSame([LoginHistory::METHOD_CLIENT_PASSWORD, LoginHistory::STEP_UP_REFUSED], [$history[0]->method, $history[0]->stepUp]);
 	}
 }

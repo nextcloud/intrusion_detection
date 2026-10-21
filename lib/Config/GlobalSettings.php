@@ -13,9 +13,11 @@ use OCA\IntrusionDetection\Check\Checks\AdminChange;
 use OCA\IntrusionDetection\Check\IValidatesParams;
 use OCA\IntrusionDetection\Check\ParamDefinition;
 use OCA\IntrusionDetection\Check\ParamType;
+use OCA\IntrusionDetection\Confirm\Methods\KnownDeviceMethod;
 use OCA\IntrusionDetection\Confirm\NoMethodOutcome;
 use OCA\IntrusionDetection\Confirm\StepUpPolicy;
 use OCA\IntrusionDetection\Confirm\StepUpReasons;
+use OCA\IntrusionDetection\KnownDevice\KnownDevices;
 
 /**
  * The settings that belong to the app rather than to one check.
@@ -102,6 +104,18 @@ final class GlobalSettings {
 	public const TRUSTED_NETWORK_DURATION = 'trusted_network_duration';
 	/** Internal: until when sessions with an unconfirmed login may exist, so that resumed sessions are checked */
 	public const STEP_UP_SESSIONS_UNTIL = 'step_up_sessions_until';
+	/** The step-up policies for which a remembered device confirms a login */
+	public const STEP_UP_KNOWN_DEVICE_OK_FOR = 'step_up_known_device_ok_for';
+	/** Whether an administrator can approve a login that nothing else can confirm */
+	public const STEP_UP_ADMIN_APPROVAL = 'step_up_admin_approval';
+	/** Seconds a login waits for an administrator's approval */
+	public const STEP_UP_ADMIN_APPROVAL_TTL = 'step_up_admin_approval_ttl';
+	/** Whether users may remember a browser after confirming a login */
+	public const KNOWN_DEVICE_ENABLED = 'known_device_enabled';
+	/** Seconds a remembered browser stays known after its last use */
+	public const KNOWN_DEVICE_DURATION = 'known_device_duration';
+	/** Days the login history is kept */
+	public const HISTORY_RETENTION_DAYS = 'history_retention_days';
 
 	/** Seconds in the learning period that starts when the app is first enabled */
 	public const LEARNING_DEFAULT_PERIOD = 7 * 86400;
@@ -164,6 +178,12 @@ final class GlobalSettings {
 					StepUpReasons::policies(),
 				),
 				new ParamDefinition(self::DETECTIONS_RETIRED, ParamType::Json, '{}'),
+				new ParamDefinition(self::STEP_UP_KNOWN_DEVICE_OK_FOR, ParamType::StringList, KnownDeviceMethod::DEFAULT_POLICIES, itemPattern: KnownDeviceMethod::POLICY_PATTERN, maxItems: count(StepUpPolicy::cases())),
+				new ParamDefinition(self::STEP_UP_ADMIN_APPROVAL, ParamType::Bool, false),
+				new ParamDefinition(self::STEP_UP_ADMIN_APPROVAL_TTL, ParamType::Duration, 1800, min: 300, max: 86400),
+				new ParamDefinition(self::KNOWN_DEVICE_ENABLED, ParamType::Bool, true),
+				new ParamDefinition(self::KNOWN_DEVICE_DURATION, ParamType::Duration, KnownDevices::MAX_DURATION, min: 86400, max: KnownDevices::MAX_DURATION),
+				new ParamDefinition(self::HISTORY_RETENTION_DAYS, ParamType::Int, 90, min: 7, max: 365),
 			];
 			$this->definitions = [];
 			foreach ($list as $definition) {

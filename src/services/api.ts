@@ -11,6 +11,7 @@ import type {
 	Blocklists,
 	Check,
 	CheckList,
+	ConfirmationOverview,
 	Contribution,
 	CustomSignature,
 	DailyStats,
@@ -39,6 +40,7 @@ import type {
 	TestAlertResult,
 	TrapPathList,
 	Traps,
+	UnconfirmableAccount,
 	WebhookEvents,
 } from '../types.ts'
 
@@ -404,4 +406,38 @@ export async function downloadIncidentReport(request: IncidentRequest, output: '
 export async function searchAccounts(search: string): Promise<{ uid: string, displayName: string, email: string | null }[]> {
 	const { data } = await axios.get<OCSResponse<{ users: Record<string, { id: string, displayname?: string, email?: string | null }> | [] }>>(generateOcsUrl('cloud/users/details'), { params: { search, limit: 10 } })
 	return Object.values(data.ocs.data.users ?? {}).map((user) => ({ uid: user.id, displayName: user.displayname || user.id, email: user.email ?? null }))
+}
+
+/**
+ * @param refresh - Count the accounts again instead of using the counts of the last hour
+ */
+export function fetchConfirmation(refresh = false): Promise<ConfirmationOverview> {
+	return call<ConfirmationOverview>(axios.get(url('confirmation'), { params: refresh ? { refresh: 1 } : {} }))
+}
+
+/**
+ * @param limit - At most this many
+ * @param offset - Skip this many
+ * @param admins - Only administrators
+ */
+export function fetchUnconfirmableAccounts(limit = 50, offset = 0, admins = false): Promise<UnconfirmableAccount[]> {
+	return call<UnconfirmableAccount[]>(axios.get(url('confirmation/accounts'), { params: { limit, offset, admins: admins ? 1 : 0 } }))
+}
+
+/**
+ * Approve a request: for a login, the waiting login continues.
+ *
+ * @param id - The request
+ */
+export function approveRequest(id: number): Promise<unknown> {
+	return call<unknown>(axios.post(url(`approvals/${id}/approve`), {}, write))
+}
+
+/**
+ * Reject a request: for a login, the waiting login ends.
+ *
+ * @param id - The request
+ */
+export function rejectRequest(id: number): Promise<unknown> {
+	return call<unknown>(axios.post(url(`approvals/${id}/reject`), {}, write))
 }

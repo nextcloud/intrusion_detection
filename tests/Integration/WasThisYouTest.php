@@ -26,9 +26,11 @@ use OCA\IntrusionDetection\Controller\PersonalApiController;
 use OCA\IntrusionDetection\Db\BanMapper;
 use OCA\IntrusionDetection\Db\Detection;
 use OCA\IntrusionDetection\Db\DetectionMapper;
+use OCA\IntrusionDetection\Db\LoginHistoryMapper;
 use OCA\IntrusionDetection\Db\TokenOriginMapper;
 use OCA\IntrusionDetection\Detection\DetectionDraft;
 use OCA\IntrusionDetection\Event\WasThisYouAnsweredEvent;
+use OCA\IntrusionDetection\KnownDevice\KnownDevices;
 use OCA\IntrusionDetection\Net\SourceKey;
 use OCA\IntrusionDetection\Notification\AdminAlerts;
 use OCA\IntrusionDetection\Notification\Notifier;
@@ -363,6 +365,11 @@ class WasThisYouTest extends StepUpTestCase {
 			$service,
 			Server::get(TrustedNetworks::class),
 			Server::get(IFactory::class)->get(Application::APP_ID, 'en'),
+			Server::get(KnownDevices::class),
+			Server::get(LoginHistoryMapper::class),
+			$this->currentSession,
+			$this->settings,
+			Server::get(ITimeFactory::class),
 		);
 	}
 

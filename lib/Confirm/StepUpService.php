@@ -19,6 +19,7 @@ use OCA\IntrusionDetection\Config\GlobalSettings;
 use OCA\IntrusionDetection\Config\Settings;
 use OCA\IntrusionDetection\Db\Detection;
 use OCA\IntrusionDetection\Detection\DetectionDraft;
+use OCA\IntrusionDetection\LoginHistory\LoginHistory;
 use OCA\IntrusionDetection\Net\RemoteAddressResolver;
 use OCA\IntrusionDetection\Net\SourceKey;
 use OCA\IntrusionDetection\Response\ResponseEngine;
@@ -49,7 +50,8 @@ use Psr\Log\LoggerInterface;
  * logins that nothing confirms.
  *
  * How a login was confirmed is kept in the session ({@see SessionState::CONFIRMATION}:
- * none, second_factor, email_code), for later decisions about the session.
+ * none, second_factor, known_device, email_code, admin_approval), for later
+ * decisions about the session, and in the login history.
  * Unconfirmed sessions are also remembered on the server
  * ({@see UnconfirmedSessions}), so that they cannot come back without
  * their state.
@@ -80,6 +82,7 @@ class StepUpService {
 		private readonly ITimeFactory $timeFactory,
 		private readonly AuditLogger $audit,
 		private readonly LoggerInterface $logger,
+		private readonly LoginHistory $history,
 	) {
 	}
 
@@ -176,7 +179,22 @@ class StepUpService {
 		$this->state->remove(SessionState::STEP_UP);
 		$this->confirmation($stepUp->uid, $method, $stepUp->policies);
 		$this->unconfirmed->forget($this->sessionId());
+		$this->recordOutcome($stepUp->uid, $method, LoginHistory::STEP_UP_CONFIRMED);
 		$this->audit->log('login of %s confirmed with %s', ['uid' => $stepUp->uid, 'method' => $method]);
+	}
+
+	/**
+	 * The user gave up a login that waits for its confirmation: it ends
+	 * without a detection, since nothing points to an attack.
+	 */
+	public function abandon(StepUpState $stepUp): void {
+		$this->recordOutcome($stepUp->uid, LoginHistory::CONFIRMED_BY_NONE, LoginHistory::STEP_UP_FAILED);
+		$this->unconfirmed->forget($this->sessionId());
+		$this->state->remove(SessionState::STEP_UP);
+		if ($this->userSession->isLoggedIn()) {
+			$this->userSession->logout();
+		}
+		$this->audit->log('login of %s given up while it waited for its confirmation', ['uid' => $stepUp->uid]);
 	}
 
 	/**
@@ -204,6 +222,8 @@ class StepUpService {
 			merge: DetectionDraft::MERGE_SOURCE_USER,
 			sessionTokenId: $sessionTokenId,
 		);
+		// Before the responses, which may end the session and its markers with it.
+		$this->recordOutcome($stepUp->uid, LoginHistory::CONFIRMED_BY_NONE, LoginHistory::STEP_UP_FAILED);
 		$detection = $this->record($draft, $this->failedCheck->responsesFor($draft, $this->settings->responses(StepUpFailed::ID), []));
 		$this->unconfirmed->forget($sessionId);
 		if ($this->userSession->isLoggedIn()) {
@@ -274,6 +294,17 @@ class StepUpService {
 		} catch (\Throwable $e) {
 			$this->logger->error('Intrusion detection could not record {check}', ['check' => $draft->checkId, 'exception' => $e]);
 			return null;
+		}
+	}
+
+	/**
+	 * @param LoginHistory::STEP_UP_CONFIRMED|LoginHistory::STEP_UP_FAILED $outcome
+	 */
+	private function recordOutcome(string $uid, string $confirmedBy, string $outcome): void {
+		try {
+			$this->history->outcome($uid, $confirmedBy, $outcome);
+		} catch (\Throwable $e) {
+			$this->logger->error('Intrusion detection could not update the login history', ['exception' => $e]);
 		}
 	}
 

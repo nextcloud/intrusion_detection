@@ -55,9 +55,10 @@ class ApprovalMapper extends QBMapper {
 	}
 
 	/**
+	 * @param ?string $kind only requests of this kind
 	 * @return list<Approval> newest first; all statuses, or only pending ones
 	 */
-	public function findList(bool $pendingOnly, int $limit = 200): array {
+	public function findList(bool $pendingOnly, int $limit = 200, ?string $kind = null): array {
 		$qb = $this->db->getQueryBuilder();
 		$qb->select('*')
 			->from(self::TABLE)
@@ -65,9 +66,29 @@ class ApprovalMapper extends QBMapper {
 			->addOrderBy('id', 'DESC')
 			->setMaxResults($limit);
 		if ($pendingOnly) {
-			$qb->where($qb->expr()->eq('status', $qb->createNamedParameter(Approval::STATUS_PENDING)));
+			$qb->andWhere($qb->expr()->eq('status', $qb->createNamedParameter(Approval::STATUS_PENDING)));
+		}
+		if ($kind !== null) {
+			$qb->andWhere($qb->expr()->eq('kind', $qb->createNamedParameter($kind)));
 		}
 		return $this->findEntities($qb);
+	}
+
+	/**
+	 * How many requests of a kind about one account are pending and not expired.
+	 */
+	public function countPendingFor(string $kind, string $subjectUid, int $now): int {
+		$qb = $this->db->getQueryBuilder();
+		$qb->select($qb->func()->count('*'))
+			->from(self::TABLE)
+			->where($qb->expr()->eq('subject_uid', $qb->createNamedParameter($subjectUid)))
+			->andWhere($qb->expr()->eq('status', $qb->createNamedParameter(Approval::STATUS_PENDING)))
+			->andWhere($qb->expr()->eq('kind', $qb->createNamedParameter($kind)))
+			->andWhere($qb->expr()->gt('expires_at', $qb->createNamedParameter($now, IQueryBuilder::PARAM_INT)));
+		$result = $qb->executeQuery();
+		$count = (int)$result->fetchOne();
+		$result->closeCursor();
+		return $count;
 	}
 
 	public function countPending(): int {

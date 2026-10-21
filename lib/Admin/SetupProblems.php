@@ -10,6 +10,7 @@ declare(strict_types=1);
 namespace OCA\IntrusionDetection\Admin;
 
 use OCA\IntrusionDetection\ResponseDefinitions;
+use OCA\IntrusionDetection\SetupCheck\AdminContactCheck;
 use OCA\IntrusionDetection\SetupCheck\BruteForceProtectionCheck;
 use OCA\IntrusionDetection\SetupCheck\Finding;
 use OCA\IntrusionDetection\SetupCheck\LearningModeCheck;
@@ -19,6 +20,7 @@ use OCA\IntrusionDetection\SetupCheck\ProblemCheck;
 use OCA\IntrusionDetection\SetupCheck\ReverseProxyCheck;
 use OCA\IntrusionDetection\SetupCheck\SharedAddressCheck;
 use OCA\IntrusionDetection\SetupCheck\TrapNameCollisionCheck;
+use OCA\IntrusionDetection\SetupCheck\UsersWithoutConfirmationCheck;
 use OCP\IL10N;
 use Psr\Container\ContainerInterface;
 use Psr\Log\LoggerInterface;
@@ -39,6 +41,8 @@ class SetupProblems implements IStatusContributor {
 		TrapNameCollisionCheck::class,
 		SharedAddressCheck::class,
 		LearningModeCheck::class,
+		UsersWithoutConfirmationCheck::class,
+		AdminContactCheck::class,
 	];
 
 	private const ORDER = [Finding::LEVEL_ERROR => 0, Finding::LEVEL_WARNING => 1, Finding::LEVEL_INFO => 2];

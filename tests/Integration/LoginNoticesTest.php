@@ -1,0 +1,169 @@
+<?php
+
+declare(strict_types=1);
+
+/**
+ * SPDX-FileCopyrightText: 2026 Nextcloud GmbH and Nextcloud contributors
+ * SPDX-License-Identifier: AGPL-3.0-or-later
+ */
+
+namespace OCA\IntrusionDetection\Tests\Integration;
+
+use OC\Core\Controller\LoginController;
+use OCA\IntrusionDetection\AppInfo\Application;
+use OCA\IntrusionDetection\Check\Checks\StepUpRefused;
+use OCA\IntrusionDetection\Controller\NoticeController;
+use OCA\IntrusionDetection\Db\DetectionMapper;
+use OCA\IntrusionDetection\Db\KnownDeviceMapper;
+use OCA\IntrusionDetection\Http\LocalRedirect;
+use OCA\IntrusionDetection\Net\SourceKey;
+use OCA\IntrusionDetection\Notification\AdminNotices;
+use OCA\IntrusionDetection\Notification\LoginNotices;
+use OCA\IntrusionDetection\Response\FlaggedSources;
+use OCA\IntrusionDetection\SessionState\RequestTarget;
+use OCA\IntrusionDetection\SessionState\Rules\LoginNoticeRule;
+use OCA\IntrusionDetection\SessionState\SessionState;
+use OCA\IntrusionDetection\WasThisYou\PersonalDetections;
+use OCA\IntrusionDetection\WasThisYou\WasThisYouService;
+use OCP\AppFramework\Controller;
+use OCP\AppFramework\Http\RedirectResponse;
+use OCP\AppFramework\Http\StandaloneTemplateResponse;
+use OCP\AppFramework\Utility\ITimeFactory;
+use OCP\Config\IUserConfig;
+use OCP\IURLGenerator;
+use OCP\IUser;
+use OCP\L10N\IFactory;
+use OCP\Server;
+use PHPUnit\Framework\Attributes\Group;
+
+/**
+ * Users Nextcloud cannot reach by email (concept section 11.1): besides the
+ * notification, the event is shown once at their next login from a known
+ * device, before the start page, and the administrators learn about severe
+ * ones.
+ */
+#[Group('DB')]
+class LoginNoticesTest extends StepUpTestCase {
+	private IUser $bob;
+
+	protected function setUp(): void {
+		parent::setUp();
+		$this->bob = $this->user('ids-notice', null);
+		Server::get(FlaggedSources::class)->flagSource(SourceKey::fromIp($this->remoteAddress), FlaggedSources::REASON_ATTACK);
+	}
+
+	public function testAnEventTheUserCouldOnlyBeToldInsideNextcloudIsRemembered(): void {
+		$this->refusedLogin();
+		$since = $this->notices()->since($this->bob->getUID());
+		$this->assertNotNull($since, 'No email address: remembered for the next login');
+		$detection = $this->detectionsOf(StepUpRefused::ID)[0];
+		$this->assertSame($detection->getCreatedAt(), $since);
+		$this->assertNotSame([], $this->notificationsFor($this->bob->getUID()), 'The notification as for everyone');
+
+		$this->assertTrue(Server::get(IUserConfig::class)->hasKey($this->bob->getUID(), Application::APP_ID, LoginNotices::USER_KEY));
+		$this->notices()->remember($this->bob->getUID(), $since + 100);
+		$this->assertSame($since, $this->notices()->since($this->bob->getUID()), 'The oldest one is kept');
+	}
+
+	public function testTheNoticeIsShownAtTheNextLoginFromAKnownDeviceOrWhenThereIsNone(): void {
+		$this->refusedLogin();
+		$this->session->clear();
+		$this->notices()->atLogin($this->bob->getUID(), null);
+		$this->assertNotNull($this->state->get(SessionState::LOGIN_NOTICE), 'Without any known device: the next login');
+
+		$this->session->clear();
+		Server::get(KnownDeviceMapper::class)->insert($this->bob->getUID(), str_repeat('a', 64), 'firefox', 'linux', 'Firefox on Linux', null, time());
+		$this->notices()->atLogin($this->bob->getUID(), null);
+		$this->assertNull($this->state->get(SessionState::LOGIN_NOTICE), 'Not on a device the user never confirmed: it may be the attacker');
+
+		$device = Server::get(KnownDeviceMapper::class)->find($this->bob->getUID(), str_repeat('a', 64), 0);
+		$this->notices()->atLogin($this->bob->getUID(), $device);
+		$this->assertNotNull($this->state->get(SessionState::LOGIN_NOTICE), 'On a known device');
+	}
+
+	public function testOnlyPageNavigationsAreSentToTheNotice(): void {
+		$this->state->set(SessionState::LOGIN_NOTICE, ['uid' => $this->bob->getUID(), 'since' => 1]);
+		$page = $this->createMock(Controller::class);
+		$this->headers['Accept'] = 'text/html,application/xhtml+xml';
+		$this->method = 'GET';
+		$block = $this->noticeRule()->check($this->state, RequestTarget::app($page, 'index', 'GET', '/index.php/apps/files/'));
+		$this->assertNotNull($block);
+		$this->assertStringContainsString('/apps/intrusion_detection/notice', (string)$block->redirectUrl);
+
+		$this->assertNull($this->noticeRule()->check($this->state, RequestTarget::app($page, 'index', 'POST', '/index.php/apps/files/')), 'Writes are never held up');
+		$this->assertNull($this->noticeRule()->check($this->state, RequestTarget::dav('GET', '/remote.php/dav/files/bob')), 'Neither is WebDAV');
+		$this->assertNull($this->noticeRule()->check($this->state, RequestTarget::app($this->createMock(LoginController::class), 'logout', 'GET', '/index.php/logout')), 'Logging out works');
+		$this->headers['Accept'] = 'application/json';
+		$this->assertNull($this->noticeRule()->check($this->state, RequestTarget::app($page, 'index', 'GET', '/index.php/apps/files/api')), 'Nor are scripts');
+	}
+
+	public function testThePageShowsTheEventsAndContinuingClearsThem(): void {
+		$this->refusedLogin();
+		$this->startSession($this->bob);
+		$this->notices()->atLogin($this->bob->getUID(), null);
+
+		$page = $this->controller()->show('/index.php/apps/files/');
+		$this->assertInstanceOf(StandaloneTemplateResponse::class, $page);
+		$html = $page->render();
+		$this->assertStringContainsString('A login to your account was refused', $html);
+		$this->assertStringContainsString('No, it was not me', $html);
+		$this->assertStringContainsString('Add an email address', $html);
+
+		$response = $this->controller()->done('/index.php/apps/files/');
+		$this->assertInstanceOf(RedirectResponse::class, $response);
+		$this->assertStringEndsWith('/index.php/apps/files/', $response->getRedirectURL());
+		$this->assertNull($this->notices()->since($this->bob->getUID()));
+		$this->assertNull($this->state->get(SessionState::LOGIN_NOTICE));
+		$this->assertInstanceOf(RedirectResponse::class, $this->controller()->show(), 'Nothing left to show');
+	}
+
+	public function testNoItWasNotMeCanBeAnsweredOnThePage(): void {
+		$this->refusedLogin();
+		$this->startSession($this->bob);
+		$this->notices()->atLogin($this->bob->getUID(), null);
+		$detection = $this->detectionsOf(StepUpRefused::ID)[0];
+		$response = $this->controller()->deny($detection->getId());
+		$this->assertInstanceOf(StandaloneTemplateResponse::class, $response);
+		$this->assertSame('denied', Server::get(DetectionMapper::class)->findById($detection->getId())->getUserVerdict());
+		$this->assertStringContainsString('You answered: No, it was not me.', $response->render());
+	}
+
+	public function testAdministratorsLearnWhomTheyCannotReach(): void {
+		$this->refusedLogin();
+		$detection = $this->detectionsOf(StepUpRefused::ID)[0];
+		$detection->setSeverity('high');
+		// A new hour: the earlier notice about the refusal does not hold this one back.
+		$this->db->getQueryBuilder()->delete('ids_alerts')->executeStatement();
+		$this->assertSame(1, $this->userAlerts()->notify($detection)['admins'] ?? null, 'For severe events, the administrators are told');
+		$this->assertNotSame([], $this->notificationsFor('admin', AdminNotices::SUBJECT_USER_UNREACHABLE));
+	}
+
+	private function refusedLogin(): void {
+		$this->startSession($this->bob);
+		$this->login($this->bob);
+		$this->assertCount(1, $this->detectionsOf(StepUpRefused::ID));
+	}
+
+	private function notices(): LoginNotices {
+		return new LoginNotices(Server::get(IUserConfig::class), $this->state, Server::get(KnownDeviceMapper::class), $this->knownDevices(), Server::get(ITimeFactory::class));
+	}
+
+	private function noticeRule(): LoginNoticeRule {
+		return new LoginNoticeRule($this->request, Server::get(IURLGenerator::class));
+	}
+
+	private function controller(): NoticeController {
+		$request = $this->request;
+		return new NoticeController(
+			$request,
+			$this->userSession,
+			$this->notices(),
+			Server::get(DetectionMapper::class),
+			Server::get(PersonalDetections::class),
+			Server::get(WasThisYouService::class),
+			Server::get(IURLGenerator::class),
+			Server::get(LocalRedirect::class),
+			Server::get(IFactory::class)->get(Application::APP_ID, 'en'),
+		);
+	}
+}

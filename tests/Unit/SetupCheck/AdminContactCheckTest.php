@@ -9,10 +9,19 @@ declare(strict_types=1);
 
 namespace OCA\IntrusionDetection\Tests\Unit\SetupCheck;
 
+use OC\Memcache\ArrayCache;
+use OCA\IntrusionDetection\Admin\SetupProblems;
 use OCA\IntrusionDetection\AdminChange\Approvers;
+use OCA\IntrusionDetection\Confirm\ConfirmationCoverage;
+use OCA\IntrusionDetection\Notification\AdminLinks;
 use OCA\IntrusionDetection\SetupCheck\AdminContactCheck;
+use OCA\IntrusionDetection\SetupCheck\Finding;
 use OCP\Authentication\TwoFactorAuth\IRegistry;
+use OCP\ICacheFactory;
+use OCP\IDBConnection;
+use OCP\IGroupManager;
 use OCP\IUser;
+use OCP\IUserManager;
 use OCP\L10N\IFactory;
 use OCP\Server;
 use OCP\SetupCheck\SetupResult;
@@ -30,6 +39,7 @@ class AdminContactCheckTest extends TestCase {
 		$this->assertStringContainsString('1 administrator has no email address', (string)$result->getDescription());
 		$this->assertStringContainsString('bob', (string)$result->getDescription());
 		$this->assertStringNotContainsString('alice', (string)$result->getDescription());
+		$this->assertStringEndsWith('#confirmation', (string)$result->getLinkToDoc(), 'It links to the Confirmation tab');
 	}
 
 	public function testAnAdminWithOnlyBackupCodesHasNoSecondFactor(): void {
@@ -63,6 +73,21 @@ class AdminContactCheckTest extends TestCase {
 		$this->assertStringContainsString('and 2 more', (string)$this->check($admins)->getDescription());
 	}
 
+	public function testTheAdministratorsAreCheckedOnceAnHour(): void {
+		$approvers = $this->createMock(Approvers::class);
+		$approvers->expects($this->once())->method('all')->willReturn([$this->admin('alice', null)]);
+		$registry = $this->createMock(IRegistry::class);
+		$registry->method('getProviderStates')->willReturn([]);
+		$check = $this->instance($approvers, $registry);
+		$l = Server::get(IFactory::class)->get('intrusion_detection', 'en');
+		$this->assertSame(Finding::LEVEL_ERROR, $check->finding($l)?->level);
+		$this->assertSame(Finding::LEVEL_ERROR, $check->finding($l)?->level, 'The second run uses the cached result');
+	}
+
+	public function testItIsShownUnderTheStatusBanner(): void {
+		$this->assertContains(AdminContactCheck::class, SetupProblems::CHECKS);
+	}
+
 	/**
 	 * @param list<array{string, ?string, array<string, bool>}> $admins
 	 */
@@ -70,16 +95,37 @@ class AdminContactCheckTest extends TestCase {
 		$users = [];
 		$states = [];
 		foreach ($admins as [$uid, $email, $providers]) {
-			$user = $this->createMock(IUser::class);
-			$user->method('getUID')->willReturn($uid);
-			$user->method('getEMailAddress')->willReturn($email);
-			$users[] = $user;
+			$users[] = $this->admin($uid, $email);
 			$states[$uid] = $providers;
 		}
 		$approvers = $this->createMock(Approvers::class);
 		$approvers->method('all')->willReturn($users);
 		$registry = $this->createMock(IRegistry::class);
 		$registry->method('getProviderStates')->willReturnCallback(static fn (IUser $u): array => $states[$u->getUID()]);
-		return (new AdminContactCheck($approvers, $registry, Server::get(IFactory::class)->get('intrusion_detection', 'en')))->run();
+		return $this->instance($approvers, $registry)->run();
+	}
+
+	private function admin(string $uid, ?string $email): IUser {
+		$user = $this->createMock(IUser::class);
+		$user->method('getUID')->willReturn($uid);
+		$user->method('getEMailAddress')->willReturn($email);
+		return $user;
+	}
+
+	private function instance(Approvers $approvers, IRegistry $registry): AdminContactCheck {
+		$cache = new ArrayCache();
+		$cacheFactory = $this->createMock(ICacheFactory::class);
+		$cacheFactory->method('createDistributed')->willReturn($cache);
+		$coverage = new ConfirmationCoverage(
+			$this->createMock(IDBConnection::class),
+			$this->createMock(IUserManager::class),
+			$this->createMock(IGroupManager::class),
+			$approvers,
+			$registry,
+			$cacheFactory,
+		);
+		$links = $this->createMock(AdminLinks::class);
+		$links->method('adminPage')->willReturn('https://cloud.example.com/settings/admin/intrusion_detection');
+		return new AdminContactCheck(Server::get(IFactory::class)->get('intrusion_detection', 'en'), $links, $coverage);
 	}
 }

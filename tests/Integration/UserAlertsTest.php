@@ -21,6 +21,7 @@ use OCA\IntrusionDetection\Detection\DetectionDraft;
 use OCA\IntrusionDetection\Detection\DetectionService;
 use OCA\IntrusionDetection\Net\SourceKey;
 use OCA\IntrusionDetection\Notification\AdminNotices;
+use OCA\IntrusionDetection\Notification\LoginNotices;
 use OCA\IntrusionDetection\Notification\Mails;
 use OCA\IntrusionDetection\Notification\Notifier;
 use OCA\IntrusionDetection\Notification\UserAlerts;
@@ -225,6 +226,7 @@ class UserAlertsTest extends AccountTestCase {
 			new AdminNotices(Server::get(AlertMapper::class), Server::get(\OCA\IntrusionDetection\Notification\AdminRecipients::class), Server::get(INotificationManager::class), $time),
 			Server::get(IUserManager::class),
 			$time,
+			Server::get(LoginNotices::class),
 		);
 	}
 }

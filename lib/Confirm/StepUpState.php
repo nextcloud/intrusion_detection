@@ -12,8 +12,8 @@ namespace OCA\IntrusionDetection\Confirm;
 /**
  * The step-up of one session, as kept in the PHP session (concept section
  * 7, "intrusion_detection.step_up"): why the login needs confirmation, when
- * it started, and the email code's hash, attempts and resends. Never the
- * code itself.
+ * it started, the email code's hash, attempts and resends, and the request
+ * for an administrator's approval. Never the code itself.
  */
 final class StepUpState {
 	/** The login waits for its confirmation on the verify page */
@@ -36,7 +36,8 @@ final class StepUpState {
 		public readonly string $status,
 		public readonly array $policies,
 		public readonly int $started,
-		public readonly int $deadline,
+		/** Until when the login may wait; an administrator's approval can extend it */
+		public int $deadline,
 		/** The address the login came from */
 		public readonly ?string $ip = null,
 		public array $methods = [],
@@ -47,6 +48,8 @@ final class StepUpState {
 		public ?string $reference = null,
 		public ?int $detectionId = null,
 		public bool $secondFactorRequested = false,
+		/** The request for an administrator's approval of this login */
+		public ?int $approvalId = null,
 	) {
 	}
 
@@ -77,6 +80,7 @@ final class StepUpState {
 			'reference' => $this->reference,
 			'detection' => $this->detectionId,
 			'secondFactor' => $this->secondFactorRequested,
+			'approval' => $this->approvalId,
 		];
 	}
 
@@ -104,6 +108,7 @@ final class StepUpState {
 			is_string($data['reference'] ?? null) ? $data['reference'] : null,
 			is_int($data['detection'] ?? null) ? $data['detection'] : null,
 			($data['secondFactor'] ?? false) === true,
+			is_int($data['approval'] ?? null) ? $data['approval'] : null,
 		);
 	}
 

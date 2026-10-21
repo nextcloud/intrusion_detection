@@ -79,6 +79,7 @@ Every check can be switched between Off, Observe and Protect, every threshold is
         <command>OCA\IntrusionDetection\Command\Approvals\ListApprovals</command>
         <command>OCA\IntrusionDetection\Command\Approvals\Decide</command>
         <command>OCA\IntrusionDetection\Command\Report</command>
+        <command>OCA\IntrusionDetection\Command\Users\NoConfirmation</command>
     </commands>
 
     <settings>

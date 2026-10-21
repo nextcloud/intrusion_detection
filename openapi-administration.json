@@ -654,6 +654,185 @@
                     }
                 }
             },
+            "Confirmation": {
+                "type": "object",
+                "required": [
+                    "methods",
+                    "policies",
+                    "outcomes",
+                    "users",
+                    "admins",
+                    "approvers",
+                    "approvals"
+                ],
+                "properties": {
+                    "methods": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/ConfirmationMethod"
+                        }
+                    },
+                    "policies": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/ConfirmationPolicy"
+                        }
+                    },
+                    "outcomes": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/ConfirmationOutcome"
+                        }
+                    },
+                    "users": {
+                        "type": "object",
+                        "required": [
+                            "withoutMethod",
+                            "active"
+                        ],
+                        "properties": {
+                            "withoutMethod": {
+                                "type": "integer",
+                                "format": "int64"
+                            },
+                            "active": {
+                                "type": "integer",
+                                "format": "int64"
+                            }
+                        }
+                    },
+                    "admins": {
+                        "type": "object",
+                        "required": [
+                            "total",
+                            "withoutEmail",
+                            "withoutSecondFactor",
+                            "withNeither"
+                        ],
+                        "properties": {
+                            "total": {
+                                "type": "integer",
+                                "format": "int64"
+                            },
+                            "withoutEmail": {
+                                "type": "integer",
+                                "format": "int64"
+                            },
+                            "withoutSecondFactor": {
+                                "type": "integer",
+                                "format": "int64"
+                            },
+                            "withNeither": {
+                                "type": "array",
+                                "items": {
+                                    "type": "string"
+                                }
+                            }
+                        }
+                    },
+                    "approvers": {
+                        "type": "integer",
+                        "format": "int64"
+                    },
+                    "approvals": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/LoginApproval"
+                        }
+                    }
+                }
+            },
+            "ConfirmationMethod": {
+                "type": "object",
+                "required": [
+                    "id",
+                    "name",
+                    "description",
+                    "state",
+                    "note"
+                ],
+                "properties": {
+                    "id": {
+                        "type": "string"
+                    },
+                    "name": {
+                        "type": "string"
+                    },
+                    "description": {
+                        "type": "string"
+                    },
+                    "state": {
+                        "type": "string",
+                        "enum": [
+                            "on",
+                            "off",
+                            "unavailable"
+                        ]
+                    },
+                    "note": {
+                        "type": "string",
+                        "nullable": true
+                    }
+                }
+            },
+            "ConfirmationOutcome": {
+                "type": "object",
+                "required": [
+                    "id",
+                    "label",
+                    "description"
+                ],
+                "properties": {
+                    "id": {
+                        "type": "string"
+                    },
+                    "label": {
+                        "type": "string"
+                    },
+                    "description": {
+                        "type": "string"
+                    }
+                }
+            },
+            "ConfirmationPolicy": {
+                "type": "object",
+                "required": [
+                    "id",
+                    "label",
+                    "why",
+                    "default",
+                    "outcome",
+                    "setting",
+                    "knownDevice",
+                    "knownDeviceAllowed"
+                ],
+                "properties": {
+                    "id": {
+                        "type": "string"
+                    },
+                    "label": {
+                        "type": "string"
+                    },
+                    "why": {
+                        "type": "string"
+                    },
+                    "default": {
+                        "type": "string"
+                    },
+                    "outcome": {
+                        "type": "string"
+                    },
+                    "setting": {
+                        "type": "string"
+                    },
+                    "knownDevice": {
+                        "type": "boolean"
+                    },
+                    "knownDeviceAllowed": {
+                        "type": "boolean"
+                    }
+                }
+            },
             "Contribution": {
                 "type": "object",
                 "required": [
@@ -1879,6 +2058,45 @@
                     "maxDays": {
                         "type": "integer",
                         "format": "int64"
+                    }
+                }
+            },
+            "LoginApproval": {
+                "type": "object",
+                "required": [
+                    "id",
+                    "uid",
+                    "displayName",
+                    "ip",
+                    "createdAt",
+                    "expiresAt",
+                    "canDecide"
+                ],
+                "properties": {
+                    "id": {
+                        "type": "integer",
+                        "format": "int64"
+                    },
+                    "uid": {
+                        "type": "string"
+                    },
+                    "displayName": {
+                        "type": "string"
+                    },
+                    "ip": {
+                        "type": "string",
+                        "nullable": true
+                    },
+                    "createdAt": {
+                        "type": "integer",
+                        "format": "int64"
+                    },
+                    "expiresAt": {
+                        "type": "integer",
+                        "format": "int64"
+                    },
+                    "canDecide": {
+                        "type": "boolean"
                     }
                 }
             },
@@ -3219,6 +3437,37 @@
                     },
                     "trapPaths": {
                         "$ref": "#/components/schemas/TrapPaths"
+                    }
+                }
+            },
+            "UnconfirmableAccount": {
+                "type": "object",
+                "required": [
+                    "uid",
+                    "displayName",
+                    "lastLogin",
+                    "groups",
+                    "admin"
+                ],
+                "properties": {
+                    "uid": {
+                        "type": "string"
+                    },
+                    "displayName": {
+                        "type": "string"
+                    },
+                    "lastLogin": {
+                        "type": "integer",
+                        "format": "int64"
+                    },
+                    "groups": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        }
+                    },
+                    "admin": {
+                        "type": "boolean"
                     }
                 }
             },
@@ -5919,6 +6168,16 @@
                         }
                     },
                     {
+                        "name": "kind",
+                        "in": "query",
+                        "description": "only requests of this kind: admin_grant or login",
+                        "schema": {
+                            "type": "string",
+                            "nullable": true,
+                            "default": null
+                        }
+                    },
+                    {
                         "name": "OCS-APIRequest",
                         "in": "header",
                         "description": "Required to be true for the API request to pass",
@@ -6025,7 +6284,7 @@
         "/ocs/v2.php/apps/intrusion_detection/api/v1/approvals/{id}/approve": {
             "post": {
                 "operationId": "approval-approve",
-                "summary": "Approve a request: the account joins the group",
+                "summary": "Approve a request: the account joins the group, or the waiting login continues",
                 "description": "This endpoint requires admin access\nThis endpoint requires password confirmation",
                 "tags": [
                     "approval"
@@ -7509,6 +7768,286 @@
                                                     "$ref": "#/components/schemas/OCSMeta"
                                                 },
                                                 "data": {}
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Current user is not logged in",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "required": [
+                                        "ocs"
+                                    ],
+                                    "properties": {
+                                        "ocs": {
+                                            "type": "object",
+                                            "required": [
+                                                "meta",
+                                                "data"
+                                            ],
+                                            "properties": {
+                                                "meta": {
+                                                    "$ref": "#/components/schemas/OCSMeta"
+                                                },
+                                                "data": {}
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "Logged in account must be an admin",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "required": [
+                                        "ocs"
+                                    ],
+                                    "properties": {
+                                        "ocs": {
+                                            "type": "object",
+                                            "required": [
+                                                "meta",
+                                                "data"
+                                            ],
+                                            "properties": {
+                                                "meta": {
+                                                    "$ref": "#/components/schemas/OCSMeta"
+                                                },
+                                                "data": {}
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/ocs/v2.php/apps/intrusion_detection/api/v1/confirmation": {
+            "get": {
+                "operationId": "confirmation_api-index",
+                "summary": "How logins are confirmed",
+                "description": "The confirmation methods in the order they are tried, what happens per reason when nothing can confirm, how many accounts cannot confirm a login, and the logins that wait for an administrator.\nThis endpoint requires admin access",
+                "tags": [
+                    "confirmation_api"
+                ],
+                "security": [
+                    {
+                        "bearer_auth": []
+                    },
+                    {
+                        "basic_auth": []
+                    }
+                ],
+                "parameters": [
+                    {
+                        "name": "refresh",
+                        "in": "query",
+                        "description": "count the accounts again instead of using the counts of the last hour",
+                        "schema": {
+                            "type": "boolean",
+                            "default": false
+                        }
+                    },
+                    {
+                        "name": "OCS-APIRequest",
+                        "in": "header",
+                        "description": "Required to be true for the API request to pass",
+                        "required": true,
+                        "schema": {
+                            "type": "boolean",
+                            "default": true
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Overview returned",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "required": [
+                                        "ocs"
+                                    ],
+                                    "properties": {
+                                        "ocs": {
+                                            "type": "object",
+                                            "required": [
+                                                "meta",
+                                                "data"
+                                            ],
+                                            "properties": {
+                                                "meta": {
+                                                    "$ref": "#/components/schemas/OCSMeta"
+                                                },
+                                                "data": {
+                                                    "$ref": "#/components/schemas/Confirmation"
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Current user is not logged in",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "required": [
+                                        "ocs"
+                                    ],
+                                    "properties": {
+                                        "ocs": {
+                                            "type": "object",
+                                            "required": [
+                                                "meta",
+                                                "data"
+                                            ],
+                                            "properties": {
+                                                "meta": {
+                                                    "$ref": "#/components/schemas/OCSMeta"
+                                                },
+                                                "data": {}
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "Logged in account must be an admin",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "required": [
+                                        "ocs"
+                                    ],
+                                    "properties": {
+                                        "ocs": {
+                                            "type": "object",
+                                            "required": [
+                                                "meta",
+                                                "data"
+                                            ],
+                                            "properties": {
+                                                "meta": {
+                                                    "$ref": "#/components/schemas/OCSMeta"
+                                                },
+                                                "data": {}
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/ocs/v2.php/apps/intrusion_detection/api/v1/confirmation/accounts": {
+            "get": {
+                "operationId": "confirmation_api-accounts",
+                "summary": "List the active accounts that cannot confirm a login",
+                "description": "Accounts with neither a second factor nor an email address, by account name.\nThis endpoint requires admin access",
+                "tags": [
+                    "confirmation_api"
+                ],
+                "security": [
+                    {
+                        "bearer_auth": []
+                    },
+                    {
+                        "basic_auth": []
+                    }
+                ],
+                "parameters": [
+                    {
+                        "name": "limit",
+                        "in": "query",
+                        "description": "at most this many",
+                        "schema": {
+                            "type": "integer",
+                            "format": "int64",
+                            "default": 50,
+                            "minimum": 1,
+                            "maximum": 200
+                        }
+                    },
+                    {
+                        "name": "offset",
+                        "in": "query",
+                        "description": "skip this many",
+                        "schema": {
+                            "type": "integer",
+                            "format": "int64",
+                            "default": 0,
+                            "minimum": 0
+                        }
+                    },
+                    {
+                        "name": "admins",
+                        "in": "query",
+                        "description": "only members of the admin group",
+                        "schema": {
+                            "type": "boolean",
+                            "default": false
+                        }
+                    },
+                    {
+                        "name": "OCS-APIRequest",
+                        "in": "header",
+                        "description": "Required to be true for the API request to pass",
+                        "required": true,
+                        "schema": {
+                            "type": "boolean",
+                            "default": true
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The accounts",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "required": [
+                                        "ocs"
+                                    ],
+                                    "properties": {
+                                        "ocs": {
+                                            "type": "object",
+                                            "required": [
+                                                "meta",
+                                                "data"
+                                            ],
+                                            "properties": {
+                                                "meta": {
+                                                    "$ref": "#/components/schemas/OCSMeta"
+                                                },
+                                                "data": {
+                                                    "type": "array",
+                                                    "items": {
+                                                        "$ref": "#/components/schemas/UnconfirmableAccount"
+                                                    }
+                                                }
                                             }
                                         }
                                     }
@@ -10626,11 +11165,15 @@
         },
         {
             "name": "approval",
-            "description": "Requests for the approval of a second administrator: the list, and the decisions (also the actions of the approval notification). Administrators only (the default for controllers) and CSRF-protected. A decision needs a recent password confirmation; the rules who may decide are in {@see ApprovalService}, shared with occ."
+            "description": "Requests for the approval of a second administrator: the list, and the decisions (also the actions of the approval notification). Administrators only (the default for controllers) and CSRF-protected. A decision needs a recent password confirmation; the rules who may decide are in {@see ApprovalService}, shared with occ. Approving also needs the deciding administrator's own login to have been confirmed when it needed a confirmation: a session that was let in without one must not let others in."
         },
         {
             "name": "blocklist_api",
             "description": "The firewall export and the blocklists on the Blocks tab. Administrators only; every change needs a recent password confirmation and is audited. The export directory is deliberately not settable here: it is read from config.php only, so a web administrator cannot make Nextcloud write files anywhere on the server."
+        },
+        {
+            "name": "confirmation_api",
+            "description": "The Confirmation tab of the admin page: read-only. Its settings are changed through the settings endpoint, and waiting logins are decided through the approvals endpoints, both with password confirmation. Administrators only."
         },
         {
             "name": "decoy_api",
@@ -10662,7 +11205,7 @@
         },
         {
             "name": "personal_api",
-            "description": "The logged-in user's own security events, their answers to \"Was this * you?\" (also the actions of the user notification) and their trusted networks (concept sections 11.8 and 15.1). Every endpoint only ever touches the current user's own rows: another account's detection or network answers 404, like a missing one. Writes are CSRF-protected (OCS) and rate limited per user; \"Yes, it was me\" needs a recent password confirmation and is refused from the session the detection is about."
+            "description": "The logged-in user's own security events, their answers to \"Was this * you?\" (also the actions of the user notification), their trusted networks, their remembered devices and their recent logins (concept sections 11.5.1, 11.8 and 15.1). Every endpoint only ever touches the current user's own rows: another account's detection or network answers 404, like a missing one. Writes are CSRF-protected (OCS) and rate limited per user; \"Yes, it was me\" needs a recent password confirmation and is refused from the session the detection is about."
         },
         {
             "name": "privacy_api",

@@ -16,12 +16,15 @@ use OCA\IntrusionDetection\Config\Settings;
 use OCA\IntrusionDetection\Confirm\ConfirmationPolicy;
 use OCA\IntrusionDetection\Confirm\EmailCodes;
 use OCA\IntrusionDetection\Confirm\IConfirmationMethod;
+use OCA\IntrusionDetection\Confirm\Methods\AdminApprovalMethod;
 use OCA\IntrusionDetection\Confirm\Methods\SecondFactorMethod;
 use OCA\IntrusionDetection\Confirm\StepUpPolicy;
 use OCA\IntrusionDetection\Confirm\StepUpService;
 use OCA\IntrusionDetection\Confirm\StepUpState;
 use OCA\IntrusionDetection\Explain\TextRenderer;
 use OCA\IntrusionDetection\Http\LocalRedirect;
+use OCA\IntrusionDetection\KnownDevice\KnownDevices;
+use OCA\IntrusionDetection\Net\RemoteAddressResolver;
 use OCP\AppFramework\Controller;
 use OCP\AppFramework\Http;
 use OCP\AppFramework\Http\Attribute\BruteForceProtection;
@@ -32,9 +35,11 @@ use OCP\AppFramework\Http\Attribute\OpenAPI;
 use OCP\AppFramework\Http\Attribute\PublicPage;
 use OCP\AppFramework\Http\Attribute\UserRateLimit;
 use OCP\AppFramework\Http\Attribute\UseSession;
+use OCP\AppFramework\Http\JSONResponse;
 use OCP\AppFramework\Http\RedirectResponse;
 use OCP\AppFramework\Http\Response;
 use OCP\AppFramework\Http\StandaloneTemplateResponse;
+use OCP\AppFramework\Utility\ITimeFactory;
 use OCP\IL10N;
 use OCP\IRequest;
 use OCP\IURLGenerator;
@@ -45,9 +50,17 @@ use OCP\Util;
 /**
  * The verify page (concept sections 11.5 and 15.2): a login that needs
  * extra confirmation is held here until the code sent by email is entered
- * (or the second factor, where the account has one). A refused login is
- * told why, with a reference, and ended. A login that could not be
- * confirmed ends on a public page that only says so.
+ * (or the second factor, where the account has one), or until an
+ * administrator approved it. A refused login is told why, with a reference,
+ * and ended. A login that could not be confirmed ends on a public page that
+ * only says so.
+ *
+ * - After a correct code or an administrator's approval, the user may tick
+ *   "Remember this device" ({@see KnownDevices}): later logins from this
+ *   browser are confirmed without asking, where the reason allows it.
+ * - While an administrator is asked, the page shows that it waits and asks
+ *   a cheap status endpoint every few seconds (the verify script); without
+ *   the script, "Check now" does the same. The user can give up waiting.
  *
  * Every state change is a CSRF-protected POST, rate limited per user, and
  * wrong codes are throttled like failed logins. There is no
@@ -66,6 +79,9 @@ class VerifyController extends Controller {
 	public const MODE_CODE = 'code';
 	public const MODE_REFUSED = 'refused';
 	public const MODE_ENDED = 'ended';
+	public const MODE_WAITING = 'waiting';
+	/** Seconds between two status requests of the waiting page */
+	public const POLL_INTERVAL = 10;
 
 	public function __construct(
 		IRequest $request,
@@ -77,6 +93,9 @@ class VerifyController extends Controller {
 		private readonly IURLGenerator $urlGenerator,
 		private readonly LocalRedirect $redirect,
 		private readonly IL10N $l,
+		private readonly KnownDevices $knownDevices,
+		private readonly RemoteAddressResolver $addresses,
+		private readonly ITimeFactory $timeFactory,
 	) {
 		parent::__construct(Application::APP_ID, $request);
 	}
@@ -85,7 +104,7 @@ class VerifyController extends Controller {
 	#[NoCSRFRequired]
 	#[UseSession]
 	#[FrontpageRoute(verb: 'GET', url: '/verify')]
-	public function show(string $redirect_url = ''): Response {
+	public function show(string $redirect_url = '', string $use = ''): Response {
 		[$user, $stepUp] = $this->current();
 		if ($user === null || $stepUp === null) {
 			return $this->continue($redirect_url);
@@ -97,6 +116,9 @@ class VerifyController extends Controller {
 		}
 		if (!$stepUp->isPending()) {
 			return $this->continue($redirect_url);
+		}
+		if ($stepUp->approvalId !== null && !($use === self::MODE_CODE && $stepUp->hasMethod(IConfirmationMethod::EMAIL_CODE))) {
+			return $this->waitingPage($user, $stepUp, $redirect_url);
 		}
 		return $this->codePage($user, $stepUp, $redirect_url);
 	}
@@ -110,6 +132,7 @@ class VerifyController extends Controller {
 		#[\SensitiveParameter]
 		string $code = '',
 		string $redirect_url = '',
+		string $remember = '',
 	): Response {
 		[$user, $stepUp] = $this->current();
 		if ($user === null || $stepUp === null || !$stepUp->isPending()) {
@@ -122,6 +145,7 @@ class VerifyController extends Controller {
 		switch ($result) {
 			case EmailCodes::VERIFIED:
 				$this->stepUps->complete($stepUp, IConfirmationMethod::EMAIL_CODE);
+				$this->rememberIfChosen($user, $remember);
 				return $this->continue($redirect_url);
 			case EmailCodes::EXHAUSTED:
 				$this->stepUps->fail($stepUp, StepUpFailed::RULE_ATTEMPTS);
@@ -184,6 +208,99 @@ class VerifyController extends Controller {
 	}
 
 	/**
+	 * Ask an administrator to approve the login, instead of entering a code.
+	 */
+	#[NoAdminRequired]
+	#[UseSession]
+	#[UserRateLimit(limit: 5, period: 600)]
+	#[FrontpageRoute(verb: 'POST', url: '/verify/approval')]
+	public function requestApproval(string $redirect_url = ''): Response {
+		[$user, $stepUp] = $this->current();
+		if ($user === null || $stepUp === null || !$stepUp->isPending()) {
+			return $this->continue($redirect_url);
+		}
+		$method = $this->approvalMethod($user, $stepUp);
+		if ($method === null) {
+			return $this->codePage($user, $stepUp, $redirect_url, $this->l->t('No administrator can be asked to approve this login.'));
+		}
+		if ($stepUp->approvalId !== null && $method->status($user, $stepUp) === AdminApprovalMethod::STATUS_PENDING) {
+			return $this->waitingPage($user, $stepUp, $redirect_url);
+		}
+		if ($method->begin($user, $stepUp) !== IConfirmationMethod::PENDING) {
+			return $this->codePage($user, $stepUp, $redirect_url, $this->l->t('No administrator can be asked right now. Try again in a while, or contact your administrator.'));
+		}
+		$this->stepUps->save($stepUp);
+		return $this->waitingPage($user, $stepUp, $redirect_url);
+	}
+
+	/**
+	 * Whether an administrator decided on the waiting login: what the
+	 * waiting page asks every few seconds. Read-only and cheap: one lookup in
+	 * the session and one primary-key read.
+	 */
+	#[NoAdminRequired]
+	#[NoCSRFRequired]
+	#[UserRateLimit(limit: 120, period: 600)]
+	#[FrontpageRoute(verb: 'GET', url: '/verify/approval/status')]
+	public function approvalStatus(): JSONResponse {
+		[$user, $stepUp] = $this->current();
+		$method = $user === null || $stepUp === null || !$stepUp->isPending() ? null : $this->approvalMethod($user, $stepUp);
+		$status = $method === null || $user === null || $stepUp === null ? AdminApprovalMethod::STATUS_NONE : $method->status($user, $stepUp);
+		$response = new JSONResponse(['status' => $status, 'retryAfter' => self::POLL_INTERVAL]);
+		$response->cacheFor(0);
+		return $response;
+	}
+
+	/**
+	 * Continue a login an administrator approved; also what "Check now"
+	 * does while it still waits.
+	 */
+	#[NoAdminRequired]
+	#[UseSession]
+	#[UserRateLimit(limit: 60, period: 600)]
+	#[FrontpageRoute(verb: 'POST', url: '/verify/approval/continue')]
+	public function continueApproval(string $redirect_url = '', string $remember = ''): Response {
+		[$user, $stepUp] = $this->current();
+		if ($user === null || $stepUp === null || !$stepUp->isPending()) {
+			return $this->continue($redirect_url);
+		}
+		$method = $this->approvalMethod($user, $stepUp);
+		$status = $method === null ? AdminApprovalMethod::STATUS_NONE : $method->status($user, $stepUp);
+		switch ($status) {
+			case AdminApprovalMethod::STATUS_APPROVED:
+				$this->stepUps->complete($stepUp, IConfirmationMethod::ADMIN_APPROVAL);
+				$this->rememberIfChosen($user, $remember);
+				return $this->continue($redirect_url);
+			case AdminApprovalMethod::STATUS_REJECTED:
+				$this->stepUps->fail($stepUp, StepUpFailed::RULE_REJECTED);
+				return new RedirectResponse($this->urlGenerator->linkToRoute(Application::APP_ID . '.Verify.ended', ['reason' => StepUpFailed::RULE_REJECTED]));
+			case AdminApprovalMethod::STATUS_EXPIRED:
+				$this->stepUps->fail($stepUp, StepUpFailed::RULE_TIMEOUT);
+				return new RedirectResponse($this->urlGenerator->linkToRoute(Application::APP_ID . '.Verify.ended', ['reason' => StepUpFailed::RULE_TIMEOUT]));
+			case AdminApprovalMethod::STATUS_PENDING:
+				return $this->waitingPage($user, $stepUp, $redirect_url, $this->l->t('No administrator has decided yet. This page keeps checking.'));
+			default:
+				return $this->codePage($user, $stepUp, $redirect_url);
+		}
+	}
+
+	/**
+	 * Give up waiting: the request is withdrawn and the login ends.
+	 */
+	#[NoAdminRequired]
+	#[UseSession]
+	#[UserRateLimit(limit: 10, period: 600)]
+	#[FrontpageRoute(verb: 'POST', url: '/verify/approval/cancel')]
+	public function cancelApproval(): RedirectResponse {
+		[$user, $stepUp] = $this->current();
+		if ($user !== null && $stepUp !== null && $stepUp->isPending()) {
+			$this->approvalMethod($user, $stepUp)?->withdraw($user, $stepUp);
+			$this->stepUps->abandon($stepUp);
+		}
+		return new RedirectResponse($this->urlGenerator->linkToRoute('core.login.showLoginForm'));
+	}
+
+	/**
 	 * Where a login ends that could not be confirmed. It shows nothing but a
 	 * fixed text for the reason, so it may be public: the session is gone.
 	 */
@@ -194,6 +311,7 @@ class VerifyController extends Controller {
 		$text = match ($reason) {
 			StepUpFailed::RULE_ATTEMPTS => $this->l->t('The code was entered wrong too many times, so this login was ended. If it was you, log in again; a new code will be sent.'),
 			StepUpFailed::RULE_TIMEOUT => $this->l->t('This login was not confirmed in time, so it was ended. If it was you, log in again.'),
+			StepUpFailed::RULE_REJECTED => $this->l->t('An administrator rejected this login, so it was ended. If it was you, contact your administrator.'),
 			default => $this->l->t('This login was never confirmed, so it was ended. If it was you, log in again.'),
 		};
 		return $this->render(self::MODE_ENDED, [
@@ -232,13 +350,44 @@ class VerifyController extends Controller {
 			'attemptsLeft' => $stepUp->attempts > 0 ? $this->l->n('%n try left.', '%n tries left.', $this->codes->attemptsLeft($stepUp)) : null,
 			'canResend' => $hasCode && $this->codes->canResend($stepUp),
 			'secondFactor' => $this->secondFactorMethod($user, $stepUp) !== null,
+			'askAdmin' => $this->approvalMethod($user, $stepUp) !== null,
+			'waiting' => $stepUp->approvalId !== null,
+			'canRemember' => $this->knownDevices->isEnabled(),
+			'rememberFor' => TextRenderer::duration($this->knownDevices->duration(), $this->l),
 			'confirmAction' => $this->urlGenerator->linkToRoute(Application::APP_ID . '.Verify.confirm'),
 			'resendAction' => $this->urlGenerator->linkToRoute(Application::APP_ID . '.Verify.resend'),
 			'secondFactorAction' => $this->urlGenerator->linkToRoute(Application::APP_ID . '.Verify.secondFactor'),
+			'askAdminAction' => $this->urlGenerator->linkToRoute(Application::APP_ID . '.Verify.requestApproval'),
+			'waitingUrl' => $this->urlGenerator->linkToRoute(Application::APP_ID . '.Verify.show', $safeRedirect === '' ? [] : ['redirect_url' => $safeRedirect]),
 			'redirect_url' => $safeRedirect,
 		]);
 		$response->setStatus($error === null ? Http::STATUS_OK : ($status === Http::STATUS_OK ? Http::STATUS_BAD_REQUEST : $status));
 		return $response;
+	}
+
+	private function waitingPage(IUser $user, StepUpState $stepUp, string $redirectUrl, ?string $notice = null): StandaloneTemplateResponse {
+		$because = StepUpPolicy::describeAll($stepUp->policies, $this->l);
+		$safeRedirect = LocalRedirect::isSafe($redirectUrl, self::EXCLUDED) ? $redirectUrl : '';
+		$expiresAt = $this->approvalMethod($user, $stepUp)?->expiresAt($user, $stepUp) ?? $stepUp->deadline;
+		// Whole minutes: "30 minutes", not "1799 seconds".
+		$left = max(60, (int)ceil(($expiresAt - $this->timeFactory->getTime()) / 60) * 60);
+		Util::addScript(Application::APP_ID, 'verify');
+		return $this->render(self::MODE_WAITING, [
+			'title' => $this->l->t('Waiting for an administrator'),
+			'lead' => $this->l->t('An administrator needs to confirm this login. You can keep this page open; it continues automatically once approved.'),
+			'why' => $because === '' ? null : $this->l->t('This login needs it because %s.', [$because]),
+			'notice' => $notice,
+			'expires' => $this->l->t('If nobody decides within %s, the login ends and you can try again.', [TextRenderer::duration($left, $this->l)]),
+			'hasCode' => $stepUp->hasMethod(IConfirmationMethod::EMAIL_CODE),
+			'codeUrl' => $this->urlGenerator->linkToRoute(Application::APP_ID . '.Verify.show', array_filter(['use' => self::MODE_CODE, 'redirect_url' => $safeRedirect])),
+			'canRemember' => $this->knownDevices->isEnabled(),
+			'rememberFor' => TextRenderer::duration($this->knownDevices->duration(), $this->l),
+			'statusUrl' => $this->urlGenerator->linkToRoute(Application::APP_ID . '.Verify.approvalStatus'),
+			'pollInterval' => self::POLL_INTERVAL,
+			'continueAction' => $this->urlGenerator->linkToRoute(Application::APP_ID . '.Verify.continueApproval'),
+			'cancelAction' => $this->urlGenerator->linkToRoute(Application::APP_ID . '.Verify.cancelApproval'),
+			'redirect_url' => $safeRedirect,
+		]);
 	}
 
 	private function refusedPage(StepUpState $stepUp): StandaloneTemplateResponse {
@@ -278,6 +427,32 @@ class VerifyController extends Controller {
 			}
 		}
 		return $method;
+	}
+
+	private function approvalMethod(IUser $user, StepUpState $stepUp): ?AdminApprovalMethod {
+		if (!$stepUp->hasMethod(IConfirmationMethod::ADMIN_APPROVAL)) {
+			return null;
+		}
+		$method = $this->policy->method(IConfirmationMethod::ADMIN_APPROVAL);
+		if (!$method instanceof AdminApprovalMethod) {
+			return null;
+		}
+		foreach ($stepUp->policies as $policy) {
+			$known = StepUpPolicy::tryFrom($policy);
+			if ($known === null || !$method->isAvailable($user, $known)) {
+				return null;
+			}
+		}
+		return $method;
+	}
+
+	/**
+	 * After a confirmed login: remember this browser, when the user ticked it.
+	 */
+	private function rememberIfChosen(IUser $user, string $remember): void {
+		if ($remember === '1') {
+			$this->knownDevices->remember($user, $this->addresses->current(), $this->request->getHeader('User-Agent'));
+		}
 	}
 
 	private function continue(string $redirectUrl): RedirectResponse {

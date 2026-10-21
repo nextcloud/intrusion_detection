@@ -9,6 +9,8 @@ declare(strict_types=1);
 
 namespace OCA\IntrusionDetection\Tests\Integration;
 
+use OCA\IntrusionDetection\AdminChange\ApprovalService;
+use OCA\IntrusionDetection\AdminChange\Approvers;
 use OCA\IntrusionDetection\AppInfo\Application;
 use OCA\IntrusionDetection\Audit\AuditLogger;
 use OCA\IntrusionDetection\Check\Checks\PasswordSpraying;
@@ -18,7 +20,9 @@ use OCA\IntrusionDetection\Check\Checks\StepUpUnconfirmed;
 use OCA\IntrusionDetection\Confirm\ConfirmationPolicy;
 use OCA\IntrusionDetection\Confirm\EmailCodes;
 use OCA\IntrusionDetection\Confirm\LoginDetections;
+use OCA\IntrusionDetection\Confirm\Methods\AdminApprovalMethod;
 use OCA\IntrusionDetection\Confirm\Methods\EmailCodeMethod;
+use OCA\IntrusionDetection\Confirm\Methods\KnownDeviceMethod;
 use OCA\IntrusionDetection\Confirm\Methods\SecondFactorMethod;
 use OCA\IntrusionDetection\Confirm\StepUpReasons;
 use OCA\IntrusionDetection\Confirm\StepUpService;
@@ -26,14 +30,20 @@ use OCA\IntrusionDetection\Confirm\StepUpState;
 use OCA\IntrusionDetection\Confirm\UnconfirmedSessions;
 use OCA\IntrusionDetection\Controller\VerifyController;
 use OCA\IntrusionDetection\Crypto\Fingerprinter;
+use OCA\IntrusionDetection\Db\ApprovalMapper;
 use OCA\IntrusionDetection\Db\AttemptMapper;
 use OCA\IntrusionDetection\Db\Detection;
 use OCA\IntrusionDetection\Db\DetectionFilter;
 use OCA\IntrusionDetection\Db\DetectionMapper;
+use OCA\IntrusionDetection\Db\KnownDeviceMapper;
+use OCA\IntrusionDetection\Db\LoginHistoryMapper;
 use OCA\IntrusionDetection\Db\StepUpSessionMapper;
 use OCA\IntrusionDetection\Http\LocalRedirect;
+use OCA\IntrusionDetection\KnownDevice\DeviceCookie;
+use OCA\IntrusionDetection\KnownDevice\KnownDevices;
 use OCA\IntrusionDetection\Listener\StepUpLoginListener;
 use OCA\IntrusionDetection\Login\InteractiveLogin;
+use OCA\IntrusionDetection\LoginHistory\LoginHistory;
 use OCA\IntrusionDetection\Net\RemoteAddressResolver;
 use OCA\IntrusionDetection\Notification\UserMessages;
 use OCA\IntrusionDetection\Response\FlaggedSources;
@@ -81,6 +91,10 @@ abstract class StepUpTestCase extends AccountTestCase {
 	protected SessionState $state;
 	/** @var IChallengeRequester&MockObject */
 	protected IChallengeRequester $challenges;
+	/** @var list<array{string, int}> device cookies set: value and expiry */
+	protected array $deviceCookiesSet = [];
+	private ?KnownDevices $knownDevices = null;
+	private ?LoginHistory $history = null;
 
 	protected function setUp(): void {
 		parent::setUp();
@@ -173,14 +187,90 @@ abstract class StepUpTestCase extends AccountTestCase {
 			Server::get(ITimeFactory::class),
 			Server::get(AuditLogger::class),
 			Server::get(LoggerInterface::class),
+			$this->history(),
 		);
 	}
 
 	protected function policy(): ConfirmationPolicy {
 		return new ConfirmationPolicy($this->settings, new OverridingContainer([
 			SecondFactorMethod::class => new SecondFactorMethod($this->challenges, $this->registry()),
+			KnownDeviceMethod::class => new KnownDeviceMethod($this->knownDevices(), $this->settings),
 			EmailCodeMethod::class => new EmailCodeMethod($this->codes()),
+			AdminApprovalMethod::class => new AdminApprovalMethod(
+				Server::get(ApprovalService::class),
+				Server::get(ApprovalMapper::class),
+				Server::get(Approvers::class),
+				$this->settings,
+				Server::get(ITimeFactory::class),
+			),
 		]), Server::get(LoggerInterface::class));
+	}
+
+	/**
+	 * The known devices of the test request: its cookies are $this->cookies,
+	 * and cookies set are recorded there and in $this->deviceCookiesSet.
+	 */
+	protected function knownDevices(): KnownDevices {
+		if ($this->knownDevices === null) {
+			$cookie = new class($this->request, Server::get(IConfig::class), Server::get(IURLGenerator::class), Server::get(ISecureRandom::class), $this->setDeviceCookie(...)) extends DeviceCookie {
+				/** @param \Closure(string, int): void $sink */
+				public function __construct(
+					IRequest $request,
+					IConfig $config,
+					IURLGenerator $urlGenerator,
+					ISecureRandom $random,
+					private \Closure $sink,
+				) {
+					parent::__construct($request, $config, $urlGenerator, $random);
+				}
+
+				#[\Override]
+				protected function send(#[\SensitiveParameter] string $value, int $expires): bool {
+					($this->sink)($value, $expires);
+					return true;
+				}
+			};
+			$this->knownDevices = new KnownDevices(
+				Server::get(KnownDeviceMapper::class),
+				$cookie,
+				Server::get(Fingerprinter::class),
+				$this->settings,
+				Server::get(ITimeFactory::class),
+				Server::get(AuditLogger::class),
+			);
+		}
+		return $this->knownDevices;
+	}
+
+	protected function history(): LoginHistory {
+		return $this->history ??= new LoginHistory(
+			Server::get(LoginHistoryMapper::class),
+			$this->state,
+			$this->session,
+			$this->currentSession,
+			Server::get(ICacheFactory::class),
+			Server::get(ITimeFactory::class),
+		);
+	}
+
+	/**
+	 * The next request: services that remember things for one request start afresh.
+	 */
+	protected function nextRequest(): void {
+		$this->knownDevices = null;
+	}
+
+	protected function deviceCookieName(): string {
+		return DeviceCookie::PREFIX . preg_replace('/[^a-z0-9]/i', '', Server::get(IConfig::class)->getSystemValueString('instanceid'));
+	}
+
+	private function setDeviceCookie(string $value, int $expires): void {
+		$this->deviceCookiesSet[] = [$value, $expires];
+		if ($expires > time()) {
+			$this->cookies[$this->deviceCookieName()] = $value;
+		} else {
+			unset($this->cookies[$this->deviceCookieName()]);
+		}
 	}
 
 	protected function codes(): EmailCodes {
@@ -220,6 +310,9 @@ abstract class StepUpTestCase extends AccountTestCase {
 			Server::get(IURLGenerator::class),
 			Server::get(LocalRedirect::class),
 			Server::get(IFactory::class)->get(Application::APP_ID, 'en'),
+			$this->knownDevices(),
+			$this->addresses(),
+			Server::get(ITimeFactory::class),
 		);
 	}
 

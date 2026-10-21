@@ -26,7 +26,9 @@ class ConfirmationPolicy {
 	/** @var list<class-string<IConfirmationMethod>> */
 	public const METHODS = [
 		Methods\SecondFactorMethod::class,
+		Methods\KnownDeviceMethod::class,
 		Methods\EmailCodeMethod::class,
+		Methods\AdminApprovalMethod::class,
 	];
 
 	/** @var list<IConfirmationMethod>|null */

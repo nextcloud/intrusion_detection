@@ -30,6 +30,8 @@ class SessionStateRules {
 		Rules\StepUpRule::class,
 		Rules\PasswordChangeRule::class,
 		Rules\CredentialUseRule::class,
+		Rules\LoginHistoryRule::class,
+		Rules\LoginNoticeRule::class,
 	];
 
 	/** @var list<ISessionStateRule>|null */

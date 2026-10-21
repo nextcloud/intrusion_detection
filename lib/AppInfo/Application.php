@@ -16,12 +16,13 @@ use OCA\IntrusionDetection\Dashboard\IntrusionWidget;
 use OCA\IntrusionDetection\Event\BanCreatedEvent;
 use OCA\IntrusionDetection\Event\BanLiftedEvent;
 use OCA\IntrusionDetection\Event\SettingChangedEvent;
+use OCA\IntrusionDetection\Event\WasThisYouAnsweredEvent;
 use OCA\IntrusionDetection\Guard\AddressGuard;
 use OCA\IntrusionDetection\Guard\CredentialUseGuard;
 use OCA\IntrusionDetection\Guard\PayloadGuard;
 use OCA\IntrusionDetection\Guard\TrapUrlGuard;
 use OCA\IntrusionDetection\KnownDevice\IKnownDevices;
-use OCA\IntrusionDetection\KnownDevice\NullKnownDevices;
+use OCA\IntrusionDetection\KnownDevice\KnownDevices;
 use OCA\IntrusionDetection\Listener\AdminChangeListener;
 use OCA\IntrusionDetection\Listener\AppPasswordCreatedListener;
 use OCA\IntrusionDetection\Listener\BlocklistLoginListener;
@@ -30,7 +31,9 @@ use OCA\IntrusionDetection\Listener\BreachResetListener;
 use OCA\IntrusionDetection\Listener\CredentialUseLoginListener;
 use OCA\IntrusionDetection\Listener\FailedLoginListener;
 use OCA\IntrusionDetection\Listener\FirewallExportListener;
+use OCA\IntrusionDetection\Listener\KnownDeviceListener;
 use OCA\IntrusionDetection\Listener\LoginFlowGrantedListener;
+use OCA\IntrusionDetection\Listener\LoginHistoryListener;
 use OCA\IntrusionDetection\Listener\LoginRecordListener;
 use OCA\IntrusionDetection\Listener\PasswordChangeLoginListener;
 use OCA\IntrusionDetection\Listener\PasswordUpdatedListener;
@@ -46,7 +49,6 @@ use OCA\IntrusionDetection\Middleware\PayloadMiddleware;
 use OCA\IntrusionDetection\Middleware\SessionStateMiddleware;
 use OCA\IntrusionDetection\Notification\Notifier;
 use OCA\IntrusionDetection\Notification\ShareOwnerNotifier;
-use OCA\IntrusionDetection\SetupCheck\AdminContactCheck;
 use OCA\IntrusionDetection\SetupCheck\ApprovalCheck;
 use OCA\IntrusionDetection\SetupCheck\BlocklistSyncCheck;
 use OCA\IntrusionDetection\TrustedNetwork\ITrustedNetworks;
@@ -119,18 +121,23 @@ class Application extends App implements IBootstrap {
 		foreach ([UserAddedEvent::class, UserRemovedEvent::class, SubAdminAddedEvent::class, UserCreatedEvent::class, AppEnableEvent::class, AppDisableEvent::class, SettingChangedEvent::class] as $event) {
 			$context->registerEventListener($event, AdminChangeListener::class, AdminChangeListener::PRIORITY);
 		}
-		$context->registerSetupCheck(AdminContactCheck::class);
 		$context->registerSetupCheck(ApprovalCheck::class);
 		foreach (SetupProblems::CHECKS as $setupCheck) {
 			$context->registerSetupCheck($setupCheck);
 		}
 		$context->registerRequestGuard(CredentialUseGuard::class);
 		$context->registerEventListener(UserLoggedInEvent::class, CredentialUseLoginListener::class);
-		$context->registerServiceAlias(IKnownDevices::class, NullKnownDevices::class);
+		$context->registerServiceAlias(IKnownDevices::class, KnownDevices::class);
 		// Before the other login listeners, so that a new password required here is asked for at once.
 		$context->registerEventListener(UserLoggedInEvent::class, StepUpLoginListener::class, StepUpLoginListener::PRIORITY);
 		$context->registerEventListener(UserLoggedInWithCookieEvent::class, StepUpLoginListener::class, StepUpLoginListener::PRIORITY);
 		$context->registerEventListener(TwoFactorProviderChallengePassed::class, StepUpChallengePassedListener::class);
+		// After the step-up listener, so that the history says how the login was confirmed.
+		$context->registerEventListener(UserLoggedInEvent::class, LoginHistoryListener::class);
+		$context->registerEventListener(UserLoggedInWithCookieEvent::class, LoginHistoryListener::class);
+		$context->registerEventListener(TwoFactorProviderChallengePassed::class, LoginHistoryListener::class);
+		$context->registerEventListener(WasThisYouAnsweredEvent::class, KnownDeviceListener::class);
+		$context->registerEventListener(PasswordUpdatedEvent::class, KnownDeviceListener::class);
 	}
 
 	#[\Override]

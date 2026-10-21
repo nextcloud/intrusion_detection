@@ -37,6 +37,9 @@ use OCP\IL10N;
  * @psalm-import-type IntrusionDetectionOutgoingData from ResponseDefinitions
  */
 class PrivacyOverview {
+	/** Data the app keeps for features rather than for one check, always listed */
+	public const FEATURE_DATA = [DataKind::LoginHistory, DataKind::KnownDevices, DataKind::TrustedNetworks, DataKind::UnconfirmedSessions];
+
 	public function __construct(
 		private readonly CheckRegistry $registry,
 		private readonly Settings $settings,
@@ -73,10 +76,10 @@ class PrivacyOverview {
 		}
 		$rows = [];
 		foreach (DataKind::cases() as $kind) {
-			if (!isset($users[$kind->value])) {
+			if (!isset($users[$kind->value]) && !in_array($kind, self::FEATURE_DATA, true)) {
 				continue;
 			}
-			$rows[] = array_merge(['id' => $kind->value], $this->describe($kind, $l), ['checks' => array_values(array_unique($users[$kind->value]))]);
+			$rows[] = array_merge(['id' => $kind->value], $this->describe($kind, $l), ['checks' => array_values(array_unique($users[$kind->value] ?? []))]);
 		}
 		$rows[] = [
 			'id' => 'alert_counters',
@@ -132,9 +135,9 @@ class PrivacyOverview {
 			],
 			DataKind::LoginHistory => [
 				'name' => $l->t('Login history'),
-				'what' => $l->t('The address, the network, the browser or client, and the time of each login.'),
-				'why' => $l->t('To recognise logins from new places and devices.'),
-				'retention' => $l->t('90 days'),
+				'what' => $l->t('Per successful login: the account, the time, the address and its network, the browser or app (at most 200 characters), how the account logged in, and how the login was confirmed.'),
+				'why' => $l->t('So that users can see their recent logins, and so that an incident can be reconstructed. Apps that log in with every request are recorded at most once an hour.'),
+				'retention' => $l->t('{history_retention_days} days'),
 				'where' => 'ids_login_history',
 			],
 			DataKind::SecurityChanges => [
@@ -146,9 +149,9 @@ class PrivacyOverview {
 			],
 			DataKind::KnownDevices => [
 				'name' => $l->t('Known devices'),
-				'what' => $l->t('A fingerprint of a random cookie, the browser, and when it was last used.'),
-				'why' => $l->t('So that people logging in from a device they used before are not asked to confirm again.'),
-				'retention' => $l->t('180 days after the last use'),
+				'what' => $l->t('For browsers a user chose to remember after confirming a login: a keyed fingerprint of a random cookie, the browser and system family, the network, and when it was first and last used.'),
+				'why' => $l->t('So that people logging in from their own device are not asked to confirm again, where the reason allows it.'),
+				'retention' => $l->t('{known_device_duration} after the last use, or until the user removes it'),
 				'where' => 'ids_known_devices',
 			],
 			DataKind::TokenOrigins => [

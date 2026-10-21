@@ -627,3 +627,60 @@ export interface IncidentReport {
 	truncated: boolean
 	maxEntries: number
 }
+
+export type ConfirmationMethodId = 'second_factor' | 'known_device' | 'email_code' | 'admin_approval'
+
+export interface ConfirmationMethod {
+	id: ConfirmationMethodId
+	name: string
+	description: string
+	state: 'on' | 'off' | 'unavailable'
+	note: string | null
+}
+
+export interface ConfirmationPolicy {
+	id: string
+	label: string
+	why: string
+	default: string
+	outcome: string
+	/** The global setting that holds the outcome */
+	setting: string
+	knownDevice: boolean
+	/** False for reasons a remembered device can never confirm */
+	knownDeviceAllowed: boolean
+}
+
+export interface ConfirmationOutcome {
+	id: string
+	label: string
+	description: string
+}
+
+export interface LoginApproval {
+	id: number
+	uid: string
+	displayName: string
+	ip: string | null
+	createdAt: number
+	expiresAt: number
+	canDecide: boolean
+}
+
+export interface ConfirmationOverview {
+	methods: ConfirmationMethod[]
+	policies: ConfirmationPolicy[]
+	outcomes: ConfirmationOutcome[]
+	users: { withoutMethod: number, active: number }
+	admins: { total: number, withoutEmail: number, withoutSecondFactor: number, withNeither: string[] }
+	approvers: number
+	approvals: LoginApproval[]
+}
+
+export interface UnconfirmableAccount {
+	uid: string
+	displayName: string
+	lastLogin: number
+	groups: string[]
+	admin: boolean
+}

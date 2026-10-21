@@ -28,7 +28,7 @@ class ListApprovals extends Base {
 	protected function configure(): void {
 		parent::configure();
 		$this->setName('intrusion:approvals:list')
-			->setDescription('List requests that wait for the approval of a second administrator')
+			->setDescription('List requests that wait for the approval of an administrator: new administrators and logins')
 			->addOption('all', 'a', InputOption::VALUE_NONE, 'Include decided and expired requests of the last 90 days')
 			->addOption('limit', 'l', InputOption::VALUE_REQUIRED, 'At most this many', '200');
 	}
@@ -45,12 +45,12 @@ class ListApprovals extends Base {
 			return self::SUCCESS;
 		}
 		$table = new Table($output);
-		$table->setHeaders(['Id', 'Account', 'Group', 'Asked by', 'Asked at', 'Expires', 'Status', 'Decided by']);
+		$table->setHeaders(['Id', 'Account', 'Request', 'Asked by', 'Asked at', 'Expires', 'Status', 'Decided by']);
 		foreach ($approvals as $approval) {
 			$table->addRow([
 				$approval->getId(),
 				$approval->getSubjectUid(),
-				$approval->getGroupId(),
+				$approval->getKind() === Approval::KIND_LOGIN ? 'login from ' . ($approval->getIp() ?? '?') : 'join ' . (string)$approval->getGroupId(),
 				$approval->getRequestedBy(),
 				date('Y-m-d H:i', $approval->getCreatedAt()),
 				date('Y-m-d H:i', $approval->getExpiresAt()),

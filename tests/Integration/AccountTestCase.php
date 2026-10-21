@@ -18,6 +18,7 @@ use OCA\IntrusionDetection\Db\TokenOriginMapper;
 use OCA\IntrusionDetection\Detection\DetectionService;
 use OCA\IntrusionDetection\Event\TypedEvents;
 use OCA\IntrusionDetection\Notification\AdminNotices;
+use OCA\IntrusionDetection\Notification\LoginNotices;
 use OCA\IntrusionDetection\Notification\MailContent;
 use OCA\IntrusionDetection\Notification\Mails;
 use OCA\IntrusionDetection\Notification\UserAlerts;
@@ -142,6 +143,7 @@ abstract class AccountTestCase extends IntegrationTestCase {
 			Server::get(AdminNotices::class),
 			Server::get(IUserManager::class),
 			Server::get(ITimeFactory::class),
+			Server::get(LoginNotices::class),
 		);
 	}
 

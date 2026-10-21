@@ -63,7 +63,7 @@ export const tabs = shallowReactive<TabDefinition[]>([
 	{ id: 'decoys', name: () => t(APP_ID, 'Decoys'), icon: mdiTargetAccount, order: 40, component: defineAsyncComponent(() => import('./views/DecoysTab.vue')) },
 	{ id: 'notifications', name: () => t(APP_ID, 'Notifications'), icon: mdiBellOutline, order: 50, component: defineAsyncComponent(() => import('./views/NotificationsTab.vue')) },
 	{ id: 'privacy', name: () => t(APP_ID, 'Data and privacy'), icon: mdiFingerprint, order: 60, component: defineAsyncComponent(() => import('./views/PrivacyTab.vue')) },
-	{ id: 'confirmation', name: () => t(APP_ID, 'Confirmation'), icon: mdiShieldSearch, order: 70 },
+	{ id: 'confirmation', name: () => t(APP_ID, 'Confirmation'), icon: mdiShieldSearch, order: 70, component: defineAsyncComponent(() => import('./views/ConfirmationTab.vue')) },
 	{ id: 'incidents', name: () => t(APP_ID, 'Incidents'), icon: mdiFileDocumentAlertOutline, order: 80, component: defineAsyncComponent(() => import('./views/IncidentsTab.vue')) },
 	{ id: 'advanced', name: () => t(APP_ID, 'Advanced'), icon: mdiCogOutline, order: 90, component: defineAsyncComponent(() => import('./views/AdvancedTab.vue')) },
 ])

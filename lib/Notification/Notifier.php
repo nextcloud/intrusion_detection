@@ -192,6 +192,9 @@ class Notifier implements INotifier {
 		$account = $approval->getSubjectUid();
 		$requester = AdminChange::actorName($approval->getRequestedBy(), $l);
 		$expires = $this->dates->dateTime($approval->getExpiresAt());
+		if ($approval->getKind() === Approval::KIND_LOGIN) {
+			return $this->prepareLoginApproval($notification, $approval, $l, $expires);
+		}
 
 		if ($subjectId === self::SUBJECT_APPROVAL_REQUESTED) {
 			$notification->setParsedSubject($l->t('%1$s asks to make %2$s an administrator', [$requester, $account]))
@@ -233,6 +236,38 @@ class Notifier implements INotifier {
 			$notification->setParsedSubject($subject)->setParsedMessage($message);
 		}
 		$notification->setLink($this->links->approval((int)$approval->getId()));
+		return $notification;
+	}
+
+	/**
+	 * A login that waits for an administrator. Only the administrators who
+	 * may decide are asked; the account sees the decision on its waiting page.
+	 */
+	private function prepareLoginApproval(INotification $notification, Approval $approval, IL10N $l, string $expires): INotification {
+		if ($notification->getSubject() !== self::SUBJECT_APPROVAL_REQUESTED) {
+			throw new AlreadyProcessedException();
+		}
+		$account = $approval->getSubjectUid();
+		$address = $approval->getIp() ?? $l->t('an unknown address');
+		$notification->setParsedSubject($l->t('Approve the login of %s?', [$account]))
+			->setRichSubject($l->t('Approve the login of {user}?'), ['user' => ['type' => 'user', 'id' => $account, 'name' => $account]])
+			->setParsedMessage(implode(' ', [
+				$l->t('%1$s logged in from the address %2$s with the correct password. The login needs extra confirmation, and the account has no other way to give it.', [$account, $address]),
+				$l->t('Approve only if you know it is really %s, for example because they asked you. If you did not expect it, reject it: someone else may know the password.', [$account]),
+				$l->t('The request expires at %s. Deciding needs your password.', [$expires]),
+			]))
+			->setLink($this->links->adminPage() . '#confirmation');
+		foreach ($notification->getActions() as $action) {
+			$label = match ($action->getLabel()) {
+				self::ACTION_APPROVE => $l->t('Approve'),
+				self::ACTION_REJECT => $l->t('Reject'),
+				default => null,
+			};
+			if ($label !== null) {
+				$action->setParsedLabel($label);
+				$notification->addParsedAction($action);
+			}
+		}
 		return $notification;
 	}
 

@@ -12,6 +12,7 @@ namespace OCA\IntrusionDetection\Command\Approvals;
 use OC\Core\Command\Base;
 use OCA\IntrusionDetection\AdminChange\ApprovalException;
 use OCA\IntrusionDetection\AdminChange\ApprovalService;
+use OCA\IntrusionDetection\Db\Approval;
 use OCP\IL10N;
 use Symfony\Component\Console\Input\InputArgument;
 use Symfony\Component\Console\Input\InputInterface;
@@ -39,7 +40,7 @@ class Decide extends Base {
 		$this->setName('intrusion:approvals:decide')
 			->setDescription('Approve or reject a request that waits for the approval of a second administrator')
 			->addArgument('id', InputArgument::REQUIRED, 'The request, see intrusion:approvals:list')
-			->addOption('approve', null, InputOption::VALUE_NONE, 'Approve the request: the account joins the group')
+			->addOption('approve', null, InputOption::VALUE_NONE, 'Approve the request: the account joins the group, or the waiting login continues')
 			->addOption('reject', null, InputOption::VALUE_NONE, 'Reject the request: nothing changes')
 			->addOption('as', null, InputOption::VALUE_REQUIRED, 'The administrator who decides; required to approve');
 	}
@@ -71,6 +72,12 @@ class Decide extends Base {
 		} catch (ApprovalException $e) {
 			$output->writeln('<error>' . $e->describe($this->l) . '</error>');
 			return self::FAILURE;
+		}
+		if ($approval->getKind() === Approval::KIND_LOGIN) {
+			$output->writeln($approve
+				? sprintf('Approved: the login of %s from %s continues.', $approval->getSubjectUid(), $approval->getIp() ?? 'an unknown address')
+				: sprintf('Rejected: the login of %s from %s is ended.', $approval->getSubjectUid(), $approval->getIp() ?? 'an unknown address'));
+			return self::SUCCESS;
 		}
 		$output->writeln($approve
 			? sprintf('Approved: %s joined %s.', $approval->getSubjectUid(), (string)$approval->getGroupId())

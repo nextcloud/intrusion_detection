@@ -34,7 +34,8 @@ use OCP\IL10N;
 
 /**
  * A login that needed extra confirmation was not confirmed: too many wrong
- * email codes, or no confirmation in time. Raised by the step-up service.
+ * email codes, no confirmation in time, or an administrator rejected it.
+ * Raised by the step-up service.
  *
  * Only wrong codes block the address. A login that merely timed out (or
  * whose session came back later without its confirmation) is ended and
@@ -49,6 +50,8 @@ final class StepUpFailed implements ICheck, IExplainsDetection, IExplainsToUser,
 	public const RULE_TIMEOUT = 'timeout';
 	/** The session of an unconfirmed login came back without its confirmation state */
 	public const RULE_RESUMED = 'resumed';
+	/** An administrator rejected the login */
+	public const RULE_REJECTED = 'rejected';
 
 	public function __construct(
 		private readonly DateFormatter $dates,
@@ -71,7 +74,7 @@ final class StepUpFailed implements ICheck, IExplainsDetection, IExplainsToUser,
 				name: $l->t('Login confirmation failed'),
 				summary: $l->t('A login that needed extra confirmation was not confirmed.'),
 				detects: $l->t('Someone logged in with the correct password, but the login needed extra confirmation, for example because it came from an address that took part in an attack. Nextcloud sent a code to the account\'s email address. Whoever entered wrong codes again and again knows the password, but cannot read the mailbox.'),
-				decides: $l->t('Fires after %1$s wrong codes, or when the login was not confirmed within {step_up_session_ttl}. Only wrong codes block the address.', [(string)EmailCodes::MAX_ATTEMPTS]),
+				decides: $l->t('Fires after %1$s wrong codes, when the login was not confirmed within {step_up_session_ttl}, or when an administrator rejected it. Only wrong codes block the address.', [(string)EmailCodes::MAX_ATTEMPTS]),
 				wrong: $l->t('Someone who mistypes the code several times, or who waits too long for the email. Their login is ended and they are asked whether it was them; they can log in again. Blocking the address can be switched off for this check with occ.'),
 				data: $l->t('Detections: the account, the address, why the login needed confirmation and how it failed. The code itself is never stored: only a hash of it is kept in the session until it is used or expires.'),
 			),
@@ -106,6 +109,7 @@ final class StepUpFailed implements ICheck, IExplainsDetection, IExplainsToUser,
 		$sentences[] = match ($facts->string('rule')) {
 			self::RULE_TIMEOUT => $l->t('It was not confirmed within %s, so the login was ended.', [TextRenderer::duration($facts->int('ttl', 900), $l)]),
 			self::RULE_RESUMED => $l->t('It was never confirmed, and the session came back later through its remember-me cookie or its session token, without the confirmation. It was ended.'),
+			self::RULE_REJECTED => $l->t('It waited for an administrator\'s approval, and an administrator rejected it, so the login was ended.'),
 			default => $l->n('%n wrong code was entered, so the login was ended.', '%n wrong codes were entered, so the login was ended.', $facts->int('attempts')),
 		};
 		return $sentences;
@@ -117,6 +121,7 @@ final class StepUpFailed implements ICheck, IExplainsDetection, IExplainsToUser,
 		$because = StepUpPolicy::describeAll($facts->list('policies'), $l);
 		$message = [match ($facts->string('rule')) {
 			self::RULE_ATTEMPTS => $l->t('Someone logged in to your account with your correct password, but entered the wrong code again and again when asked to confirm it.'),
+			self::RULE_REJECTED => $l->t('Someone logged in to your account with your correct password. The login waited for an administrator\'s approval, and an administrator rejected it.'),
 			default => $l->t('Someone logged in to your account with your correct password, but did not confirm the login with the code sent to your email address in time.'),
 		}];
 		$message[] = $because === ''

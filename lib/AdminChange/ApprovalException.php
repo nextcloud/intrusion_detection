@@ -24,6 +24,8 @@ final class ApprovalException extends \RuntimeException {
 	public const NOT_ADMIN = 'not_admin';
 	public const SUBJECT_MISSING = 'subject_missing';
 	public const GROUP_MISSING = 'group_missing';
+	/** The deciding administrator's own login was allowed without a confirmation */
+	public const UNCONFIRMED = 'unconfirmed';
 
 	public function __construct(
 		public readonly string $reason,
@@ -41,6 +43,7 @@ final class ApprovalException extends \RuntimeException {
 			self::NOT_ADMIN => $l->t('Only another member of the admin group can decide on this request.'),
 			self::SUBJECT_MISSING => $l->t('The account no longer exists.'),
 			self::GROUP_MISSING => $l->t('The group no longer exists.'),
+			self::UNCONFIRMED => $l->t('Your own login was not confirmed, so you cannot approve requests from this session. Log in again and confirm it, or ask another administrator.'),
 			default => $l->t('The request cannot be decided.'),
 		};
 	}

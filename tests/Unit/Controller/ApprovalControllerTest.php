@@ -13,6 +13,7 @@ use OCA\IntrusionDetection\AdminChange\ApprovalException;
 use OCA\IntrusionDetection\AdminChange\ApprovalService;
 use OCA\IntrusionDetection\Controller\ApprovalController;
 use OCA\IntrusionDetection\Db\Approval;
+use OCA\IntrusionDetection\SessionState\SessionState;
 use OCP\AppFramework\Http;
 use OCP\AppFramework\Http\Attribute\NoAdminRequired;
 use OCP\AppFramework\Http\Attribute\NoCSRFRequired;
@@ -27,6 +28,9 @@ use PHPUnit\Framework\Attributes\DataProvider;
 use Test\TestCase;
 
 class ApprovalControllerTest extends TestCase {
+	/** @var ?array<string, mixed> how the deciding administrator's own login was confirmed */
+	private ?array $confirmation = null;
+
 	/**
 	 * @return array<string, array{string}>
 	 */
@@ -74,6 +78,33 @@ class ApprovalControllerTest extends TestCase {
 		$this->assertSame(Approval::STATUS_APPROVED, $response->getData()['status']);
 	}
 
+	public function testAnAdministratorWhoseOwnLoginWasNotConfirmedCannotApprove(): void {
+		$service = $this->createMock(ApprovalService::class);
+		$service->expects($this->never())->method('approve');
+		$this->confirmation = ['uid' => 'carol', 'by' => 'none', 'policies' => ['flagged_source'], 'at' => 1];
+		$response = $this->controller($service)->approve(5);
+		$this->assertSame(Http::STATUS_FORBIDDEN, $response->getStatus());
+		$this->assertSame(ApprovalException::UNCONFIRMED, $response->getData()['reason']);
+
+		$this->confirmation = ['uid' => 'carol', 'by' => 'email_code', 'policies' => ['flagged_source'], 'at' => 1];
+		$approval = new Approval();
+		$approval->setStatus(Approval::STATUS_APPROVED);
+		$other = $this->createMock(ApprovalService::class);
+		$other->expects($this->once())->method('approve')->willReturn($approval);
+		$this->assertSame(Http::STATUS_OK, $this->controller($other)->approve(5)->getStatus());
+	}
+
+	public function testTheListCanBeLimitedToOneKind(): void {
+		$service = $this->createMock(ApprovalService::class);
+		$service->expects($this->exactly(2))->method('list')
+			->willReturnCallback(function (bool $pendingOnly, int $limit, ?string $kind): array {
+				$this->assertContains($kind, [Approval::KIND_LOGIN, null]);
+				return [];
+			});
+		$this->controller($service)->index(kind: 'login');
+		$this->controller($service)->index(kind: 'anything else');
+	}
+
 	/**
 	 * @return array<string, array{string, int}>
 	 */
@@ -103,6 +134,8 @@ class ApprovalControllerTest extends TestCase {
 		$session->method('getUser')->willReturn($user);
 		$l = $this->createMock(IL10N::class);
 		$l->method('t')->willReturnArgument(0);
-		return new ApprovalController($this->createMock(IRequest::class), $service, $session, $l);
+		$state = $this->createMock(SessionState::class);
+		$state->method('get')->willReturnCallback(fn (string $name): ?array => $name === SessionState::CONFIRMATION ? $this->confirmation : null);
+		return new ApprovalController($this->createMock(IRequest::class), $service, $session, $l, $state);
 	}
 }

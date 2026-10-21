@@ -13,7 +13,8 @@ use OCP\AppFramework\Db\Entity;
 use OCP\DB\Types;
 
 /**
- * A change that waits for the approval of a second administrator.
+ * A change that waits for the approval of a second administrator, or a
+ * login that waits for an administrator's approval.
  *
  * @method string getKind()
  * @method void setKind(string $kind)
@@ -38,6 +39,8 @@ use OCP\DB\Types;
  */
 class Approval extends Entity implements \JsonSerializable {
 	public const KIND_ADMIN_GRANT = 'admin_grant';
+	/** A login that nothing else could confirm; requested by the account itself */
+	public const KIND_LOGIN = 'login';
 
 	public const STATUS_PENDING = 'pending';
 	public const STATUS_APPROVED = 'approved';

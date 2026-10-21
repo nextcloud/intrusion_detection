@@ -100,7 +100,7 @@ class GlobalSettingsPresenter {
 			if ($name === $policy->settingKey()) {
 				return [new ParamText(
 					$l->t('Nothing can confirm it: %s', [$policy->label($l)]),
-					$l->t('When such a login needs extra confirmation but the account has no second factor and no email address: "refuse" refuses the login and tells you; "allow_notify" allows it and tells the user and you; "allow_force_change" allows it and requires a new password. The default is "%1$s": %2$s', [$policy->defaultOutcome()->value, $policy->defaultWhy($l)]),
+					$l->t('What happens when such a login needs extra confirmation but nothing can confirm it. Default: %1$s. %2$s', [$policy->defaultOutcome()->label($l), $policy->defaultWhy($l)]),
 				), self::GROUP_STEP_UP];
 			}
 		}
@@ -202,6 +202,31 @@ class GlobalSettingsPresenter {
 				$l->t('Addresses in webhook events'),
 				$l->t('Whether the events sent to webhooks contain the attacking address. Turn this off when the receiving system must not get personal data.'),
 			), self::GROUP_NOTIFICATIONS],
+			GlobalSettings::STEP_UP_KNOWN_DEVICE_OK_FOR => [new ParamText(
+				$l->t('Remembered devices confirm these logins'),
+				$l->t('The reasons for which a browser the user chose to remember confirms a login without asking. A device never confirms a login whose password is being tried by attackers or is known from a breach, or one during lockdown.'),
+			), self::GROUP_STEP_UP],
+			GlobalSettings::STEP_UP_ADMIN_APPROVAL => [new ParamText(
+				$l->t('An administrator can approve logins'),
+				$l->t('When nothing else can confirm a login, it waits until an administrator approves it from the notification or this page. The account itself can never approve its own login.'),
+			), self::GROUP_STEP_UP],
+			GlobalSettings::STEP_UP_ADMIN_APPROVAL_TTL => [new ParamText(
+				$l->t('A login waits for approval at most'),
+				$l->t('If no administrator decides in this time, the login ends and the person can try again.'),
+			), self::GROUP_STEP_UP],
+			GlobalSettings::KNOWN_DEVICE_ENABLED => [new ParamText(
+				$l->t('Offer "Remember this device"'),
+				$l->t('After confirming a login with a code or an administrator\'s approval, users may remember the browser, so that later logins from it are confirmed without asking.'),
+			), self::GROUP_STEP_UP],
+			GlobalSettings::KNOWN_DEVICE_DURATION => [new ParamText(
+				$l->t('Remember devices for'),
+				$l->t('A remembered browser that is not used for this long is forgotten.'),
+			), self::GROUP_STEP_UP],
+			GlobalSettings::HISTORY_RETENTION_DAYS => [new ParamText(
+				$l->t('Keep the login history for'),
+				$l->t('Older logins are deleted from the history users and administrators see.'),
+				$l->t('days'),
+			), self::GROUP_PRIVACY],
 			default => [new ParamText(ucfirst(str_replace('_', ' ', $name))), self::GROUP_OTHER],
 		};
 	}

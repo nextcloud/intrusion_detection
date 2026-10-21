@@ -693,6 +693,83 @@ namespace OCA\IntrusionDetection;
  *     truncated: bool,
  *     maxEntries: int,
  * }
+ *
+ * @psalm-type IntrusionDetectionConfirmationMethod = array{
+ *     id: string,
+ *     name: string,
+ *     description: string,
+ *     state: 'on'|'off'|'unavailable',
+ *     note: ?string,
+ * }
+ *
+ * @psalm-type IntrusionDetectionConfirmationPolicy = array{
+ *     id: string,
+ *     label: string,
+ *     why: string,
+ *     default: string,
+ *     outcome: string,
+ *     setting: string,
+ *     knownDevice: bool,
+ *     knownDeviceAllowed: bool,
+ * }
+ *
+ * @psalm-type IntrusionDetectionConfirmationOutcome = array{
+ *     id: string,
+ *     label: string,
+ *     description: string,
+ * }
+ *
+ * @psalm-type IntrusionDetectionLoginApproval = array{
+ *     id: int,
+ *     uid: string,
+ *     displayName: string,
+ *     ip: ?string,
+ *     createdAt: int,
+ *     expiresAt: int,
+ *     canDecide: bool,
+ * }
+ *
+ * @psalm-type IntrusionDetectionConfirmation = array{
+ *     methods: list<IntrusionDetectionConfirmationMethod>,
+ *     policies: list<IntrusionDetectionConfirmationPolicy>,
+ *     outcomes: list<IntrusionDetectionConfirmationOutcome>,
+ *     users: array{withoutMethod: int, active: int},
+ *     admins: array{total: int, withoutEmail: int, withoutSecondFactor: int, withNeither: list<string>},
+ *     approvers: int,
+ *     approvals: list<IntrusionDetectionLoginApproval>,
+ * }
+ *
+ * @psalm-type IntrusionDetectionUnconfirmableAccount = array{
+ *     uid: string,
+ *     displayName: string,
+ *     lastLogin: int,
+ *     groups: list<string>,
+ *     admin: bool,
+ * }
+ *
+ * @psalm-type IntrusionDetectionKnownDevice = array{
+ *     id: int,
+ *     label: string,
+ *     family: string,
+ *     platform: string,
+ *     network: ?string,
+ *     createdAt: int,
+ *     lastSeenAt: int,
+ *     current: bool,
+ * }
+ *
+ * @psalm-type IntrusionDetectionLogin = array{
+ *     id: int,
+ *     createdAt: int,
+ *     ip: ?string,
+ *     network: ?string,
+ *     userAgent: ?string,
+ *     method: string,
+ *     knownDevice: bool,
+ *     confirmedBy: string,
+ *     stepUp: ?string,
+ *     current: bool,
+ * }
  */
 class ResponseDefinitions {
 }

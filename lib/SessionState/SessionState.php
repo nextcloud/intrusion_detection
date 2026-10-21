@@ -31,6 +31,10 @@ class SessionState {
 	public const CONFIRMATION = 'confirmation';
 	/** Detections recorded at login, to be linked to the session token once it exists */
 	public const LOGIN_DETECTIONS = 'login_detections';
+	/** The login history row of this session's login, until its session token is linked and for later updates */
+	public const LOGIN_HISTORY = 'login_history';
+	/** Security events to show once before the start page, for users Nextcloud cannot reach by email */
+	public const LOGIN_NOTICE = 'login_notice';
 
 	public function __construct(
 		private readonly ISession $session,

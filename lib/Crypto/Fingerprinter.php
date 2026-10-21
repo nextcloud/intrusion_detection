@@ -107,7 +107,7 @@ class Fingerprinter {
 	/**
 	 * 32-byte fingerprint of a known-device id from the device cookie.
 	 */
-	public function device(string $deviceId): string {
+	public function device(#[\SensitiveParameter] string $deviceId): string {
 		return hash_hmac('sha256', $deviceId, $this->key('device'), true);
 	}
 

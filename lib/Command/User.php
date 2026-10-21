@@ -11,8 +11,10 @@ namespace OCA\IntrusionDetection\Command;
 
 use OC\Core\Command\Base;
 use OCA\IntrusionDetection\Check\Checks\BreachedPasswordDetector;
+use OCA\IntrusionDetection\KnownDevice\KnownDevices;
 use OCA\IntrusionDetection\Response\AccountProtection;
 use OCA\IntrusionDetection\Response\PasswordChangeService;
+use OCP\IL10N;
 use OCP\IUserManager;
 use Symfony\Component\Console\Input\InputArgument;
 use Symfony\Component\Console\Input\InputInterface;
@@ -29,6 +31,8 @@ class User extends Base {
 		private readonly AccountProtection $protection,
 		private readonly BreachedPasswordDetector $breach,
 		private readonly PasswordChangeService $passwords,
+		private readonly KnownDevices $knownDevices,
+		private readonly IL10N $l,
 	) {
 		parent::__construct();
 	}
@@ -41,7 +45,8 @@ class User extends Base {
 			->addArgument('uid', InputArgument::REQUIRED, 'The account')
 			->addOption('end-protection', null, InputOption::VALUE_NONE, 'End the extra protection of the account (logins with its password no longer need confirmation)')
 			->addOption('reset-breach-check', null, InputOption::VALUE_NONE, 'Forget the result of the breached password check, so the password is checked again at the next login')
-			->addOption('clear-forced-change', null, InputOption::VALUE_NONE, 'No longer require a new password at the next login');
+			->addOption('clear-forced-change', null, InputOption::VALUE_NONE, 'No longer require a new password at the next login')
+			->addOption('forget-devices', null, InputOption::VALUE_NONE, 'Forget the browsers the account remembered, so their logins are confirmed again');
 	}
 
 	#[\Override]
@@ -69,6 +74,11 @@ class User extends Base {
 				: $uid . ' did not need to choose a new password.');
 		}
 
+		if ($input->getOption('forget-devices')) {
+			$forgotten = $this->knownDevices->forgetAll($uid, 'occ');
+			$output->writeln($forgotten === 1 ? '1 remembered device of ' . $uid . ' was forgotten.' : $forgotten . ' remembered devices of ' . $uid . ' were forgotten.');
+		}
+
 		$protection = $this->protection->get($uid);
 		$checkedAt = $this->breach->checkedAt($uid);
 		$passwordRequired = $this->passwords->requiredSince($uid);
@@ -80,6 +90,7 @@ class User extends Base {
 			'breach_checked_at' => $checkedAt === null ? null : date('c', $checkedAt),
 			'breached' => $this->breach->isBreached($uid),
 			'new_password_required_since' => $passwordRequired === null ? null : date('c', $passwordRequired),
+			'known_devices' => count($this->knownDevices->forUser($uid, $this->l)),
 		];
 		if ($input->getOption('output') !== self::OUTPUT_FORMAT_PLAIN) {
 			$this->writeArrayInOutputFormat($input, $output, $state);
@@ -96,6 +107,7 @@ class User extends Base {
 		$output->writeln($passwordRequired === null
 			? 'New password: not required.'
 			: sprintf('New password: required at the next login (since %s). Lift it with --clear-forced-change.', (string)$state['new_password_required_since']));
+		$output->writeln(sprintf('Remembered devices: %d.%s', $state['known_devices'], $state['known_devices'] > 0 ? ' Forget them with --forget-devices.' : ''));
 		return self::SUCCESS;
 	}
 }

@@ -29,9 +29,11 @@ use OCP\Notification\IManager as INotificationManager;
  * for an account under attack). Later hits only raise a counter.
  *
  * Users without an email address are a normal case. They get the
- * notification only, and for severe detections the administrators are told
- * that the user could only be reached inside Nextcloud. Further ways to
- * reach such users belong in {@see self::unreachable()}.
+ * notification, the event is shown once more at their next login from a
+ * known device ({@see LoginNotices}), and for severe detections the
+ * administrators are told that the user could only be reached inside
+ * Nextcloud. Further ways to reach such users belong in
+ * {@see self::unreachable()}.
  */
 class UserAlerts {
 	public const SUBJECT = 'user_detection';
@@ -59,6 +61,7 @@ class UserAlerts {
 		private readonly AdminNotices $adminNotices,
 		private readonly IUserManager $userManager,
 		private readonly ITimeFactory $timeFactory,
+		private readonly LoginNotices $loginNotices,
 	) {
 	}
 
@@ -97,12 +100,14 @@ class UserAlerts {
 	}
 
 	/**
-	 * The user could only be told inside Nextcloud. For severe detections the
+	 * The user could only be told inside Nextcloud: they see it again at
+	 * their next login from a known device. For severe detections the
 	 * administrators are told, so that they can reach out.
 	 *
 	 * @return int how many administrators were notified
 	 */
 	private function unreachable(Detection $detection, string $uid, string $email): int {
+		$this->loginNotices->remember($uid, $detection->getCreatedAt());
 		$severity = Severity::tryFrom($detection->getSeverity());
 		if ($severity === null || !$severity->atLeast(self::UNREACHABLE_MIN_SEVERITY)) {
 			return 0;
