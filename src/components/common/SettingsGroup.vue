@@ -13,6 +13,7 @@ import { computed, reactive, ref, watch } from 'vue'
 import NcButton from '@nextcloud/vue/components/NcButton'
 import NcLoadingIcon from '@nextcloud/vue/components/NcLoadingIcon'
 import ParamField from '../checks/ParamField.vue'
+import ShowMore from './ShowMore.vue'
 import { useAnnouncer } from '../../composables/useAnnouncer.ts'
 import { ApiError, errorMessage, isCancelled, updateSettings } from '../../services/api.ts'
 import { logger } from '../../services/logger.ts'
@@ -23,6 +24,8 @@ import { validateParam } from '../../utils/validate.ts'
 const props = defineProps<{
 	/** The global settings this group edits */
 	settings: GlobalSetting[]
+	/** Puts the fields behind a toggle with this label, e.g. "Change the points" */
+	collapsedLabel?: string
 }>()
 
 defineSlots<{
@@ -111,15 +114,17 @@ function discard() {
 <template>
 	<form :class="$style.group" @submit.prevent="save">
 		<slot :fill="fill" :changed="changed" />
-		<div :class="$style.group__fields">
-			<ParamField
-				v-for="setting in settings"
-				:key="setting.name"
-				v-model="draft[setting.name]"
-				:param="setting"
-				:error="validation[setting.name]?.error ?? serverErrors[setting.name] ?? null"
-				:disabled="saving" />
-		</div>
+		<component :is="collapsedLabel ? ShowMore : 'div'" :label="collapsedLabel" data-test="settings-fields">
+			<div :class="$style.group__fields">
+				<ParamField
+					v-for="setting in settings"
+					:key="setting.name"
+					v-model="draft[setting.name]"
+					:param="setting"
+					:error="validation[setting.name]?.error ?? serverErrors[setting.name] ?? null"
+					:disabled="saving" />
+			</div>
+		</component>
 		<div v-if="changed.length > 0 || hasErrors" :class="$style.group__save">
 			<NcButton type="submit" variant="primary" :disabled="hasErrors || saving">
 				<template v-if="saving" #icon>

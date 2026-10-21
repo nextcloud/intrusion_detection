@@ -21,7 +21,7 @@ import DetectionGroup from './DetectionGroup.vue'
 import DetectionRow from './DetectionRow.vue'
 import { errorMessage, fetchDetections } from '../../services/api.ts'
 import { logger } from '../../services/logger.ts'
-import { advanced, detectionFilters, openDetectionId, state } from '../../store.ts'
+import { detectionFilters, openDetectionId, state } from '../../store.ts'
 import { APP_ID } from '../../utils/format.ts'
 import { groupDetections } from '../../utils/groups.ts'
 
@@ -152,7 +152,6 @@ defineExpose({ reload: load })
 		</header>
 
 		<div
-			v-if="advanced"
 			:class="$style.filters"
 			role="group"
 			:aria-label="t(APP_ID, 'Filter detections')"
@@ -195,15 +194,6 @@ defineExpose({ reload: load })
 				variant="tertiary"
 				:class="$style.filters__clear"
 				@click="clearFilters">
-				<template #icon>
-					<NcIconSvgWrapper :path="mdiClose" />
-				</template>
-				{{ t(APP_ID, 'Clear filters') }}
-			</NcButton>
-		</div>
-
-		<div v-else-if="filtered" :class="$style.filters__clear">
-			<NcButton variant="tertiary" @click="clearFilters">
 				<template #icon>
 					<NcIconSvgWrapper :path="mdiClose" />
 				</template>

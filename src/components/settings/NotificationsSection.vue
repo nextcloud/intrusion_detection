@@ -20,6 +20,7 @@ import NcSettingsSelectGroup from '@nextcloud/vue/components/NcSettingsSelectGro
 import LiveSentence from '../checks/LiveSentence.vue'
 import SectionCard from '../common/SectionCard.vue'
 import SelectField from '../common/SelectField.vue'
+import ShowMore from '../common/ShowMore.vue'
 import SkeletonBlock from '../common/SkeletonBlock.vue'
 import StateBadge from '../common/StateBadge.vue'
 import DigestSection from '../notifications/DigestSection.vue'
@@ -27,7 +28,7 @@ import WebhookEventsSection from '../notifications/WebhookEventsSection.vue'
 import { useAnnouncer } from '../../composables/useAnnouncer.ts'
 import { errorMessage, fetchNotifications, isCancelled, sendTestAlert, updateSettings } from '../../services/api.ts'
 import { logger } from '../../services/logger.ts'
-import { advanced, refreshChecks, state } from '../../store.ts'
+import { refreshChecks, state } from '../../store.ts'
 import { APP_ID, fillTemplate } from '../../utils/format.ts'
 
 const data = ref<Notifications | null>(null)
@@ -277,16 +278,16 @@ function openCheck() {
 
 			<DigestSection />
 
-			<template v-if="advanced">
-				<SectionCard
-					level="h4"
-					:heading="t(APP_ID, 'Notifications per check')"
-					:icon="mdiFormatListChecks"
-					data-test="per-check">
-					<template #description>
-						{{ n(APP_ID, '%n check notifies the administrators.', '%n checks notify the administrators.', notifying) }}
-						{{ t(APP_ID, 'Change this with the responses of each check.') }}
-					</template>
+			<SectionCard
+				level="h4"
+				:heading="t(APP_ID, 'Notifications per check')"
+				:icon="mdiFormatListChecks"
+				data-test="per-check">
+				<template #description>
+					{{ n(APP_ID, '%n check notifies the administrators.', '%n checks notify the administrators.', notifying) }}
+					{{ t(APP_ID, 'Change this with the responses of each check.') }}
+				</template>
+				<ShowMore :label="t(APP_ID, 'Show each check')" data-test="per-check-toggle">
 					<div :class="$style.tableWrap">
 						<table :class="$style.table">
 							<thead>
@@ -334,10 +335,10 @@ function openCheck() {
 							</tbody>
 						</table>
 					</div>
-				</SectionCard>
+				</ShowMore>
+			</SectionCard>
 
-				<WebhookEventsSection />
-			</template>
+			<WebhookEventsSection />
 		</template>
 	</div>
 </template>

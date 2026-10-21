@@ -14,7 +14,6 @@ import NcLoadingIcon from '@nextcloud/vue/components/NcLoadingIcon'
 import CheckCard from './CheckCard.vue'
 import ModeSwitch from './ModeSwitch.vue'
 import { modeLabel, useCheckMode } from '../../composables/useCheckMode.ts'
-import { advanced } from '../../store.ts'
 import { APP_ID } from '../../utils/format.ts'
 
 const props = defineProps<{
@@ -94,7 +93,6 @@ const effectiveNote = computed(() => {
 					:disabled="saving"
 					@update:modelValue="change" />
 				<button
-					v-if="advanced"
 					type="button"
 					:class="[$style.row__customise, { [$style.row__customise_open]: customising }]"
 					:aria-expanded="customising ? 'true' : 'false'"
@@ -106,7 +104,7 @@ const effectiveNote = computed(() => {
 				</button>
 			</div>
 		</div>
-		<CheckCard v-if="advanced && customising" :id="`${id}-card`" :check="check" />
+		<CheckCard v-if="customising" :id="`${id}-card`" :check="check" />
 	</li>
 </template>
 

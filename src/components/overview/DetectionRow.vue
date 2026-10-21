@@ -17,7 +17,6 @@ import TimeStamp from '../common/TimeStamp.vue'
 import DetectionNarrative from './DetectionNarrative.vue'
 import { errorMessage, fetchDetection } from '../../services/api.ts'
 import { logger } from '../../services/logger.ts'
-import { advanced } from '../../store.ts'
 import { APP_ID } from '../../utils/format.ts'
 
 const props = defineProps<{
@@ -86,12 +85,10 @@ watch(() => props.detection?.lastSeenAt, () => {
 			<SeverityPill :severity="shown.severity" />
 			<span :class="$style.row__main">
 				<span :class="$style.row__title" data-test="detection-summary">{{ shown.summary || shown.checkName }}</span>
-				<span v-if="advanced || shown.hits > 1" :class="$style.row__facts">
-					<template v-if="advanced">
-						<span v-if="shown.summary">{{ shown.checkName }}</span>
-						<span v-if="shown.ip" :class="$style.row__address">{{ shown.ip }}</span>
-						<span v-if="shown.uid">{{ t(APP_ID, 'account {account}', { account: shown.uid }) }}</span>
-					</template>
+				<span :class="$style.row__facts">
+					<span v-if="shown.summary">{{ shown.checkName }}</span>
+					<span v-if="shown.ip" :class="$style.row__address">{{ shown.ip }}</span>
+					<span v-if="shown.uid">{{ t(APP_ID, 'account {account}', { account: shown.uid }) }}</span>
 					<span v-if="shown.hits > 1">{{ n(APP_ID, '%n time', '%n times', shown.hits) }}</span>
 				</span>
 			</span>

@@ -10,7 +10,7 @@ import { flushPromises, mount } from '@vue/test-utils'
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 import DigestSection from './DigestSection.vue'
 import { ApiError, fetchDigest, sendTestDigest, updateSettings } from '../../services/api.ts'
-import { setAdvanced, state } from '../../store.ts'
+import { state } from '../../store.ts'
 
 const mounted: { unmount: () => void }[] = []
 
@@ -58,7 +58,6 @@ async function mountSection(value = overview()) {
 
 describe('DigestSection', () => {
 	beforeEach(() => {
-		setAdvanced(true)
 		state.settings = [
 			{ name: 'digest_frequency', type: 'choice', default: 'weekly', min: null, max: null, choices: ['off', 'daily', 'weekly'], value: 'weekly', label: 'Send the digest', help: '', unit: '', group: 'notifications' },
 			{ name: 'digest_send_quiet', type: 'bool', default: true, min: null, max: null, choices: [], value: true, label: 'Also send quiet digests', help: '', unit: '', group: 'notifications' },
@@ -74,17 +73,6 @@ describe('DigestSection', () => {
 		vi.mocked(showSuccess).mockReset()
 		vi.mocked(showError).mockReset()
 		document.body.innerHTML = ''
-		setAdvanced(false)
-		window.localStorage.clear()
-	})
-
-	test('without the advanced options it offers only the frequency and the schedule', async () => {
-		setAdvanced(false)
-		const wrapper = await mountSection()
-		expect(wrapper.text()).toContain('Send the digest')
-		expect(wrapper.get('[data-test="digest-schedule"]').text()).toContain('Next digest:')
-		expect(wrapper.text()).not.toContain('Also send quiet digests')
-		expect(wrapper.findAll('button').some((b) => b.text() === 'Send a test digest now')).toBe(false)
 	})
 
 	test('shows its own settings, the next digest and who gets it', async () => {

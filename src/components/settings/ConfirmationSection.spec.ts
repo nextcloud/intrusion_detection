@@ -10,7 +10,7 @@ import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 import { nextTick } from 'vue'
 import ConfirmationSection from './ConfirmationSection.vue'
 import { approveRequest, fetchConfirmation, fetchSettings, fetchUnconfirmableAccounts, rejectRequest, setConfirmationPreset, updateSettings } from '../../services/api.ts'
-import { advanced, setAdvanced, state } from '../../store.ts'
+import { state } from '../../store.ts'
 
 vi.mock('@nextcloud/dialogs', () => ({ showError: vi.fn(), showSuccess: vi.fn() }))
 
@@ -81,7 +81,6 @@ async function mountTab(value = overview()) {
 
 describe('the login confirmation section', () => {
 	beforeEach(() => {
-		setAdvanced(true)
 		state.settings = [
 			setting('step_up_code_ttl', 'duration', 600),
 			setting('step_up_no_method_flagged_source', 'choice', 'refuse'),
@@ -102,12 +101,9 @@ describe('the login confirmation section', () => {
 		vi.mocked(setConfirmationPreset).mockReset()
 		vi.mocked(updateSettings).mockReset()
 		document.body.innerHTML = ''
-		setAdvanced(false)
-		window.localStorage.clear()
 	})
 
-	test('without the advanced options it is one decision and two switches', async () => {
-		setAdvanced(false)
+	test('it starts with one decision, two switches and the accounts that cannot confirm; the fine control is collapsed', async () => {
 		const wrapper = await mountTab()
 		const options = wrapper.get('[data-test="preset"]').findAll('input[type="radio"]')
 		expect(options.map((o) => o.attributes('value'))).toEqual(['recommended', 'refuse', 'allow'])
@@ -116,21 +112,19 @@ describe('the login confirmation section', () => {
 		expect(wrapper.text()).toContain('Administrators can approve logins')
 		expect(wrapper.get('[data-test="users-count"]').text()).toContain('37 of 200 active accounts have no way to confirm a login')
 		expect(wrapper.find('[data-test="policies"]').exists()).toBe(false)
+		expect(wrapper.get('[data-test="reasons-toggle"] button').attributes('aria-expanded')).toBe('false')
 		expect(wrapper.find('[data-test="methods"]').exists()).toBe(false)
-		expect(wrapper.find('[data-test="users-without"]').exists()).toBe(false)
 		expect(wrapper.text()).not.toContain('Label of step_up_code_ttl')
-		expect(wrapper.text()).not.toContain('Label of known_device_duration')
+		expect(wrapper.find('[data-test="users-without"]').exists()).toBe(true)
 	})
 
-	test('logins waiting for an administrator stay in reach without the advanced options', async () => {
-		setAdvanced(false)
+	test('logins waiting for an administrator are in reach', async () => {
 		const wrapper = await mountTab()
 		expect(wrapper.find('#settings-approvals').exists()).toBe(true)
 		expect(wrapper.get('[data-test="approvals"]').text()).toContain('Alice Liddell')
 	})
 
 	test('one choice sets the outcome of every reason', async () => {
-		setAdvanced(false)
 		vi.mocked(setConfirmationPreset).mockResolvedValue({ preset: 'refuse', policies: overview().policies })
 		const wrapper = await mountTab()
 		await wrapper.get('input[value="refuse"]').setValue(true)
@@ -141,7 +135,6 @@ describe('the login confirmation section', () => {
 	})
 
 	test('a mix set per reason is custom and leads to the reasons table', async () => {
-		setAdvanced(false)
 		Element.prototype.scrollIntoView = vi.fn()
 		const wrapper = await mountTab(overview({ preset: 'custom' }))
 		expect(wrapper.get('[data-test="preset"]').findAll('input').some((o) => (o.element as HTMLInputElement).checked)).toBe(false)
@@ -149,13 +142,11 @@ describe('the login confirmation section', () => {
 		expect(note.text()).toContain('Custom')
 		await note.get('button').trigger('click')
 		await nextTick()
-		expect(advanced.value).toBe(true)
 		expect(wrapper.find('[data-test="policies"]').exists()).toBe(true)
 		expect(Element.prototype.scrollIntoView).toHaveBeenCalled()
 	})
 
 	test('the switches save at once', async () => {
-		setAdvanced(false)
 		vi.mocked(updateSettings).mockResolvedValue({ settings: [setting('known_device_enabled', 'bool', false)], templates: {} })
 		const wrapper = await mountTab()
 		const toggle = wrapper.findAll('input[type="checkbox"]')[0]!
@@ -166,6 +157,7 @@ describe('the login confirmation section', () => {
 
 	test('shows the methods in the order they are tried, with their state', async () => {
 		const wrapper = await mountTab()
+		await wrapper.get('[data-test="confirmation-more"] button').trigger('click')
 		const steps = wrapper.get('[data-test="methods"]').findAll('li')
 		expect(steps.map((s) => s.attributes('data-method'))).toEqual(['second_factor', 'known_device', 'email_code', 'admin_approval'])
 		expect(steps[2]!.text()).toContain('Not available')
@@ -173,8 +165,10 @@ describe('the login confirmation section', () => {
 		expect(steps[3]!.text()).toContain('Off')
 	})
 
-	test('with the advanced options it edits the reasons in their table and every other confirmation setting in its own card', async () => {
+	test('it edits the reasons in their table and every other confirmation setting in its own card', async () => {
 		const wrapper = await mountTab()
+		await wrapper.get('[data-test="reasons-toggle"] button').trigger('click')
+		await wrapper.get('[data-test="confirmation-more"] button').trigger('click')
 		expect(wrapper.get('[data-test="policies"]').text()).toContain('Login from an attacking address')
 		const text = wrapper.text()
 		expect(text).toContain('Label of step_up_code_ttl')

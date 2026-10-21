@@ -5,9 +5,9 @@
 
 import { flushPromises, mount } from '@vue/test-utils'
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
-import { defineComponent, h, inject, nextTick } from 'vue'
+import { defineComponent, h, inject } from 'vue'
 import AdminSettings from './AdminSettings.vue'
-import { advanced, setAdvanced, state } from '../store.ts'
+import { state } from '../store.ts'
 import { makeStatus } from '../tests/fixtures.ts'
 
 const OpenCheck = defineComponent({
@@ -21,14 +21,11 @@ describe('the admin page', () => {
 	beforeEach(() => {
 		Element.prototype.scrollIntoView = vi.fn()
 		state.status = makeStatus()
-		setAdvanced(false)
 		window.history.replaceState(null, '', '#overview')
 	})
 
 	afterEach(() => {
 		state.status = null
-		setAdvanced(false)
-		window.localStorage.clear()
 		document.body.innerHTML = ''
 	})
 
@@ -49,38 +46,23 @@ describe('the admin page', () => {
 		await flushPromises()
 	}
 
-	test('the header has the status sentence and the advanced switch', () => {
+	test('the header has the status sentence and no switch for advanced options', () => {
 		const wrapper = mountPage()
 		const header = wrapper.get('header')
 		expect(header.find('[data-test="status-strip"]').exists()).toBe(true)
-		expect(header.text()).toContain('Show advanced options')
+		expect(header.find('input[type="checkbox"]').exists()).toBe(false)
 		// The state is said once: in the header, not again above every tab.
 		expect(wrapper.findAll('[data-test="status-strip"]')).toHaveLength(1)
 	})
 
-	test('four tabs, and Incidents only with the advanced options', async () => {
+	test('the Incidents tab is always in the tab list', () => {
 		const wrapper = mountPage()
-		expect(tabIds(wrapper)).toEqual(['overview', 'protection', 'blocks', 'settings'])
-		await wrapper.get('input[data-test="advanced-switch"]').setValue(true)
-		expect(advanced.value).toBe(true)
 		expect(tabIds(wrapper)).toEqual(['overview', 'protection', 'blocks', 'settings', 'incidents'])
 	})
 
-	test('hiding the advanced options leaves the Incidents tab', async () => {
-		setAdvanced(true)
+	test('a link to the Incidents tab opens it', async () => {
 		const wrapper = mountPage()
 		await navigate('#incidents')
-		expect(activeTab(wrapper)).toBe('incidents')
-		setAdvanced(false)
-		await nextTick()
-		await nextTick()
-		expect(activeTab(wrapper)).toBe('overview')
-	})
-
-	test('a link to the Incidents tab turns the advanced options on', async () => {
-		const wrapper = mountPage()
-		await navigate('#incidents')
-		expect(advanced.value).toBe(true)
 		expect(activeTab(wrapper)).toBe('incidents')
 	})
 
@@ -89,7 +71,6 @@ describe('the admin page', () => {
 		await navigate('#checks/credential_stuffing')
 		expect(activeTab(wrapper)).toBe('protection')
 		expect(wrapper.get('[data-test="open-check"]').text()).toBe('credential_stuffing')
-		expect(advanced.value).toBe(false)
 
 		await navigate('#notifications')
 		expect(activeTab(wrapper)).toBe('settings')
@@ -97,9 +78,8 @@ describe('the admin page', () => {
 		expect(activeTab(wrapper)).toBe('blocks')
 		await navigate('#advanced')
 		expect(activeTab(wrapper)).toBe('settings')
-		expect(advanced.value).toBe(false)
 		await navigate('#accounts')
-		expect(advanced.value).toBe(true)
+		expect(activeTab(wrapper)).toBe('settings')
 	})
 
 	test('a link to a section scrolls to it', async () => {

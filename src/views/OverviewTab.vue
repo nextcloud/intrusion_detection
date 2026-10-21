@@ -21,7 +21,7 @@ import ProblemList from '../components/ProblemList.vue'
 import StatusBanner from '../components/StatusBanner.vue'
 import { errorMessage, fetchDailyStats } from '../services/api.ts'
 import { logger } from '../services/logger.ts'
-import { advanced, openDetectionId, state } from '../store.ts'
+import { openDetectionId, state } from '../store.ts'
 import { APP_ID } from '../utils/format.ts'
 
 const stats = ref<DailyStats | null>(null)
@@ -30,15 +30,16 @@ const liftTarget = ref<Ban | null>(null)
 let afterLift: (() => Promise<void>) | null = null
 
 /**
- * Only real problems need attention; tips are for those who look at the
- * advanced options. Nothing asks to be configured while the defaults fit.
+ * Only real problems need attention; tips are listed further down. Nothing
+ * asks to be configured while the defaults fit.
  */
-const problems = computed(() => (state.status?.problems ?? []).filter((problem) => advanced.value || problem.level !== 'info'))
+const problems = computed(() => (state.status?.problems ?? []).filter((problem) => problem.level !== 'info'))
+const tips = computed(() => (state.status?.problems ?? []).filter((problem) => problem.level === 'info'))
 
 const quiet = computed(() => stats.value !== null && stats.value.days.every((day) => day.enforced + day.observed === 0))
 
 /**
- * Load the chart, which is shown with the advanced options.
+ * Load the chart.
  */
 async function loadStats() {
 	try {
@@ -50,18 +51,9 @@ async function loadStats() {
 	}
 }
 
-onMounted(() => {
-	if (advanced.value) {
-		loadStats()
-	}
-})
+onMounted(loadStats)
 onActivated(() => {
 	if (stats.value !== null) {
-		loadStats()
-	}
-})
-watch(advanced, (shown) => {
-	if (shown && stats.value === null) {
 		loadStats()
 	}
 })
@@ -98,8 +90,26 @@ watch(openDetectionId, async (id) => {
 
 		<ProblemList v-if="problems.length > 0" id="overview-attention" :problems="problems" />
 
+		<div :class="$style.overview__main">
+			<div :class="$style.card">
+				<DetectionList @lift="onLift" />
+			</div>
+
+			<section :class="$style.card" aria-labelledby="ids-lookup-heading">
+				<h3 id="ids-lookup-heading" :class="$style.card__heading">
+					{{ t(APP_ID, 'Look up an address or account') }}
+				</h3>
+				<LookupBox @openDetection="openDetection" @lift="onLift" />
+			</section>
+		</div>
+
+		<ProblemList
+			v-if="tips.length > 0"
+			:heading="t(APP_ID, 'Tips')"
+			:problems="tips"
+			data-test="overview-tips" />
+
 		<section
-			v-if="advanced"
 			:class="$style.card"
 			aria-labelledby="ids-chart-heading"
 			data-test="overview-chart">
@@ -122,19 +132,6 @@ watch(openDetectionId, async (id) => {
 			</NcEmptyContent>
 			<DetectionChart v-else :days="stats.days" />
 		</section>
-
-		<div :class="$style.overview__main">
-			<div :class="$style.card">
-				<DetectionList @lift="onLift" />
-			</div>
-
-			<section :class="$style.card" aria-labelledby="ids-lookup-heading">
-				<h3 id="ids-lookup-heading" :class="$style.card__heading">
-					{{ t(APP_ID, 'Look up an address or account') }}
-				</h3>
-				<LookupBox @openDetection="openDetection" @lift="onLift" />
-			</section>
-		</div>
 
 		<LiftBanDialog :ban="liftTarget" @close="liftTarget = null" @lifted="afterLift?.()" />
 	</div>

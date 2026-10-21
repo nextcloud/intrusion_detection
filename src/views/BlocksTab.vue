@@ -29,7 +29,7 @@ import ReservedNamesCard from '../components/decoys/ReservedNamesCard.vue'
 import TrapPathsCard from '../components/decoys/TrapPathsCard.vue'
 import { errorMessage, fetchBans, fetchTraps } from '../services/api.ts'
 import { logger } from '../services/logger.ts'
-import { advanced, openDetectionId, refreshChecks, state } from '../store.ts'
+import { openDetectionId, refreshChecks, state } from '../store.ts'
 import { APP_ID } from '../utils/format.ts'
 
 const PAGE = 50
@@ -288,21 +288,20 @@ function openDetection(ban: Ban) {
 				:check="traps.reservedCheck"
 				@changed="traps.reservedNames = $event; checksChanged()" />
 			<TrapPathsCard
-				v-if="advanced"
 				id="blocks-trap-paths"
 				:paths="traps.trapPaths"
 				:check="traps.trapCheck"
 				@changed="traps.trapPaths = $event; checksChanged()" />
 		</template>
 
-		<FirewallExportPanel v-if="advanced" id="blocks-firewall" />
+		<FirewallExportPanel id="blocks-firewall" />
 
-		<div v-if="advanced" id="blocks-escalation" :class="$style.blocks__explain">
+		<div id="blocks-escalation" :class="$style.blocks__explain">
 			<section :class="$style.card" aria-labelledby="ids-escalation-heading">
 				<h3 id="ids-escalation-heading" :class="$style.card__heading">
 					{{ t(APP_ID, 'How blocks escalate') }}
 				</h3>
-				<SettingsGroup :settings="escalationSettings">
+				<SettingsGroup :settings="escalationSettings" :collapsedLabel="t(APP_ID, 'Change the durations')">
 					<template #default="{ fill, changed }">
 						<p :class="$style.card__text">
 							<LiveSentence :segments="fill(state.templates.escalation ?? '')" :changed="changed" />

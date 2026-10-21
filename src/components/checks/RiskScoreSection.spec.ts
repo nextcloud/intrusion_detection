@@ -78,6 +78,7 @@ describe('RiskScoreSection', () => {
 		const wrapper = mount(RiskScoreSection, { attachTo: document.body })
 		mounted.push(wrapper)
 		expect(wrapper.text()).toContain('From 4 points: limits × 0.25')
+		await wrapper.get('[data-test="settings-fields"] button').trigger('click')
 		// The four points come first, then the two tiers.
 		await wrapper.findAll('input[type="text"]')[5]!.setValue('6')
 		await flushPromises()

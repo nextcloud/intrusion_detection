@@ -8,7 +8,6 @@ import { mdiBookOpenVariant } from '@mdi/js'
 import { t } from '@nextcloud/l10n'
 import { computed, nextTick, onBeforeUnmount, onMounted, provide, ref, watch } from 'vue'
 import NcButton from '@nextcloud/vue/components/NcButton'
-import NcCheckboxRadioSwitch from '@nextcloud/vue/components/NcCheckboxRadioSwitch'
 import NcIconSvgWrapper from '@nextcloud/vue/components/NcIconSvgWrapper'
 import NcNoteCard from '@nextcloud/vue/components/NcNoteCard'
 import AdminTabs from '../components/AdminTabs.vue'
@@ -16,11 +15,11 @@ import StatusStrip from '../components/StatusStrip.vue'
 import TabContent from '../components/TabContent.vue'
 import { useAnnouncer } from '../composables/useAnnouncer.ts'
 import { visibleTabs } from '../extensions.ts'
-import { advanced, openDetectionId, setAdvanced, state } from '../store.ts'
+import { openDetectionId, state } from '../store.ts'
 import { resolveLink } from '../utils/deepLinks.ts'
 import { APP_ID } from '../utils/format.ts'
 
-const tabs = computed(() => visibleTabs(advanced.value))
+const tabs = computed(() => visibleTabs())
 const activeTab = ref('overview')
 const currentTab = computed(() => tabs.value.find((tab) => tab.id === activeTab.value) ?? tabs.value[0])
 const openCheckId = ref<string | null>(null)
@@ -48,8 +47,7 @@ async function scrollToSection(section: string) {
 
 /**
  * Follow a link of the page, e.g. "#settings-notifications", "#incidents"
- * or a link of a former tab such as "#decoys". A target that is only shown
- * with the advanced options turns them on.
+ * or a link of a former tab such as "#decoys".
  *
  * @param link - The link, with or without "#"
  * @return whether the page knows the link
@@ -58,9 +56,6 @@ function follow(link: string): boolean {
 	const target = resolveLink(link)
 	if (target === null) {
 		return false
-	}
-	if (target.advanced && !advanced.value) {
-		setAdvanced(true)
 	}
 	activeTab.value = target.tab
 	openCheckId.value = target.check
@@ -109,13 +104,6 @@ watch(activeTab, (tab) => {
 	}
 })
 
-// Hiding the advanced options leaves a tab that is only shown with them.
-watch(tabs, (list) => {
-	if (!list.some((tab) => tab.id === activeTab.value)) {
-		activeTab.value = 'overview'
-	}
-})
-
 onMounted(() => {
 	readHash()
 	window.addEventListener('hashchange', readHash)
@@ -133,13 +121,6 @@ onBeforeUnmount(() => window.removeEventListener('hashchange', readHash))
 				<StatusStrip v-if="state.status" :status="state.status" @attention="showAttention" />
 			</div>
 			<div :class="$style.page__actions">
-				<NcCheckboxRadioSwitch
-					:modelValue="advanced"
-					type="switch"
-					data-test="advanced-switch"
-					@update:modelValue="setAdvanced">
-					{{ t(APP_ID, 'Show advanced options') }}
-				</NcCheckboxRadioSwitch>
 				<NcButton
 					v-if="state.docUrl"
 					variant="tertiary"

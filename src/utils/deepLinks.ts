@@ -6,29 +6,16 @@
 /** Where a link on the admin page leads */
 export interface LinkTarget {
 	tab: string
-	/** A check on the Protection tab, opened when the advanced options are on */
+	/** A check on the Protection tab, opened with its settings */
 	check: string | null
 	/** The element id of a section within the tab, scrolled to, e.g. `settings-privacy` */
 	section: string | null
 	/** A detection to open on the Overview */
 	detection: number | null
-	/** The target is only shown with the advanced options, so following it turns them on */
-	advanced: boolean
 }
 
 /** The tabs of the page */
 const TABS = ['overview', 'protection', 'blocks', 'settings', 'incidents']
-
-/** Tabs and sections shown only with the advanced options */
-const ADVANCED = [
-	'incidents',
-	'blocks-trap-paths',
-	'blocks-firewall',
-	'blocks-escalation',
-	'settings-confirmation-accounts',
-	'settings-confirmation-reasons',
-	'settings-support',
-]
 
 /**
  * Tabs and sections the page had before, and where their content is now.
@@ -64,12 +51,12 @@ export function resolveLink(hash: string): LinkTarget | null {
 	let link = hash.replace(/^#/, '')
 	const detection = link.match(/^detection-(\d{1,18})$/)
 	if (detection) {
-		return { tab: 'overview', check: null, section: null, detection: Number(detection[1]), advanced: false }
+		return { tab: 'overview', check: null, section: null, detection: Number(detection[1]) }
 	}
 	const [first = '', check = null, ...more] = link.split('/')
 	link = MOVED[first] ?? first
 	if (link === 'protection' && more.length === 0 && (check === null || CHECK.test(check))) {
-		return { tab: 'protection', check, section: null, detection: null, advanced: false }
+		return { tab: 'protection', check, section: null, detection: null }
 	}
 	if (check !== null) {
 		return null
@@ -84,6 +71,5 @@ export function resolveLink(hash: string): LinkTarget | null {
 		check: null,
 		section: section ? link : null,
 		detection: null,
-		advanced: ADVANCED.includes(tab) || ADVANCED.includes(link),
 	}
 }

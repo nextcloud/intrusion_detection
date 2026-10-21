@@ -8,13 +8,12 @@ import type { TabDefinition } from '../extensions.ts'
 
 import { computed } from 'vue'
 import { sectionsOf } from '../extensions.ts'
-import { advanced } from '../store.ts'
 
 const props = defineProps<{
 	tab: TabDefinition
 }>()
 
-const sections = computed(() => sectionsOf(props.tab.id, advanced.value))
+const sections = computed(() => sectionsOf(props.tab.id))
 </script>
 
 <template>

@@ -4,9 +4,9 @@
  */
 
 import { mount } from '@vue/test-utils'
-import { afterEach, describe, expect, test, vi } from 'vitest'
+import { describe, expect, test, vi } from 'vitest'
 import DetectionNarrative from './DetectionNarrative.vue'
-import { incidentRequest, setAdvanced } from '../../store.ts'
+import { incidentRequest } from '../../store.ts'
 import { makeDetail } from '../../tests/fixtures.ts'
 
 /**
@@ -31,11 +31,6 @@ async function mountOpen(props: { detail: ReturnType<typeof makeDetail> }, optio
 }
 
 describe('DetectionNarrative', () => {
-	afterEach(() => {
-		setAdvanced(false)
-		window.localStorage.clear()
-	})
-
 	test('below the plain sentence of its row, the detail starts with the actions; the narrative is under "Details"', async () => {
 		const wrapper = mount(DetectionNarrative, { props: { detail: makeDetail() } })
 		expect(wrapper.text()).not.toContain('Why did this happen?')
@@ -114,14 +109,10 @@ describe('DetectionNarrative', () => {
 		expect(wrapper.text()).toContain('<img src=x onerror=alert(1)> tried')
 	})
 
-	test('"Incident report" only with the advanced options, and it opens the Incidents tab with the account or the address', async () => {
+	test('"Incident report" opens the Incidents tab with the account or the address', async () => {
 		const showTab = vi.fn()
 		const detail = makeDetail()
 		detail.detection.uid = 'alice'
-		const plain = mount(DetectionNarrative, { props: { detail } })
-		expect(plain.find('[data-test^="incident-report-"]').exists()).toBe(false)
-
-		setAdvanced(true)
 		const wrapper = mount(DetectionNarrative, { props: { detail }, global: { provide: { 'ids-show-tab': showTab } } })
 		await wrapper.get('[data-test="incident-report-address"]').trigger('click')
 		expect(incidentRequest.value).toEqual({ type: 'address', value: detail.detection.ip, since: null, until: null })

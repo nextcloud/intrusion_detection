@@ -17,7 +17,7 @@ import { useAnnouncer } from '../composables/useAnnouncer.ts'
 import { statusSections } from '../extensions.ts'
 import { errorMessage, isCancelled, updateLearning, updateSettings } from '../services/api.ts'
 import { logger } from '../services/logger.ts'
-import { advanced, refreshChecks, refreshSettings, refreshStatus } from '../store.ts'
+import { refreshChecks, refreshSettings, refreshStatus } from '../store.ts'
 import { APP_ID, formatCost, formatNumber } from '../utils/format.ts'
 
 const props = defineProps<{
@@ -149,28 +149,26 @@ const turnOn = () => run('on', () => updateSettings({ protection_enabled: true }
 			</div>
 		</div>
 
-		<template v-if="advanced">
-			<dl :class="$style.figures" data-test="status-figures">
-				<div v-for="figure in figures" :key="figure.id" :class="$style.figure">
-					<dt :class="$style.figure__label">
-						{{ figure.label }}
-					</dt>
-					<dd :class="$style.figure__value">
-						{{ figure.value }}
-					</dd>
-					<dd v-if="figure.detail" :class="$style.figure__detail">
-						{{ figure.detail }}
-					</dd>
-				</div>
-			</dl>
-			<p :class="$style.banner__muted">
-				{{ checksLine }}
-			</p>
-			<p :class="[$style.banner__muted, $style.banner__cost]">
-				<NcIconSvgWrapper :path="mdiSpeedometer" :size="18" />
-				<span>{{ costLine }}</span>
-			</p>
-		</template>
+		<dl :class="$style.figures" data-test="status-figures">
+			<div v-for="figure in figures" :key="figure.id" :class="$style.figure">
+				<dt :class="$style.figure__label">
+					{{ figure.label }}
+				</dt>
+				<dd :class="$style.figure__value">
+					{{ figure.value }}
+				</dd>
+				<dd v-if="figure.detail" :class="$style.figure__detail">
+					{{ figure.detail }}
+				</dd>
+			</div>
+		</dl>
+		<p :class="$style.banner__muted">
+			{{ checksLine }}
+		</p>
+		<p :class="[$style.banner__muted, $style.banner__cost]">
+			<NcIconSvgWrapper :path="mdiSpeedometer" :size="18" />
+			<span>{{ costLine }}</span>
+		</p>
 
 		<component :is="section" v-for="(section, index) in statusSections" :key="index" />
 	</section>

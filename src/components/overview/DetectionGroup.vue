@@ -13,7 +13,6 @@ import NcIconSvgWrapper from '@nextcloud/vue/components/NcIconSvgWrapper'
 import SeverityPill from '../common/SeverityPill.vue'
 import TimeStamp from '../common/TimeStamp.vue'
 import DetectionRow from './DetectionRow.vue'
-import { advanced } from '../../store.ts'
 import { APP_ID, formatNumber } from '../../utils/format.ts'
 import { commonSummary, groupSpan, highestSeverity } from '../../utils/groups.ts'
 
@@ -56,10 +55,8 @@ const title = computed(() => shared.value
 			<span :class="$style.group__main">
 				<span :class="$style.group__title" data-test="detection-summary">{{ title }}</span>
 				<span :class="$style.group__facts">
-					<template v-if="advanced">
-						<span v-if="first.ip" :class="$style.group__address">{{ first.ip }}</span>
-						<span v-if="first.uid">{{ t(APP_ID, 'account {account}', { account: first.uid }) }}</span>
-					</template>
+					<span v-if="first.ip" :class="$style.group__address">{{ first.ip }}</span>
+					<span v-if="first.uid">{{ t(APP_ID, 'account {account}', { account: first.uid }) }}</span>
 					<span>{{ shared ? n(APP_ID, '%n time', '%n times', detections.length) + ' ' : '' }}{{ groupSpan(detections) }}</span>
 				</span>
 			</span>

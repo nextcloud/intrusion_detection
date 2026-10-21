@@ -21,19 +21,18 @@ import TimeStamp from '../common/TimeStamp.vue'
 import { useAnnouncer } from '../../composables/useAnnouncer.ts'
 import { errorMessage, fetchDigest, isCancelled, sendTestDigest } from '../../services/api.ts'
 import { logger } from '../../services/logger.ts'
-import { advanced, state } from '../../store.ts'
+import { state } from '../../store.ts'
 import { APP_ID } from '../../utils/format.ts'
 
-/** The settings this section edits; quiet digests only with the advanced options */
-const SETTINGS = ['digest_frequency']
-const ADVANCED_SETTINGS = ['digest_send_quiet']
+/** The settings this section edits */
+const SETTINGS = ['digest_frequency', 'digest_send_quiet']
 
 const digest = ref<DigestOverview | null>(null)
 const loadFailed = ref(false)
 const sending = ref(false)
 const { announce } = useAnnouncer()
 
-const settings = computed(() => state.settings.filter((s) => SETTINGS.includes(s.name) || (advanced.value && ADVANCED_SETTINGS.includes(s.name))))
+const settings = computed(() => state.settings.filter((s) => SETTINGS.includes(s.name)))
 
 const withoutEmailNames = computed(() => {
 	const value = digest.value
@@ -152,7 +151,7 @@ onMounted(load)
 				</li>
 			</ul>
 
-			<div v-if="advanced" :class="$style.row">
+			<div :class="$style.row">
 				<NcButton
 					variant="secondary"
 					:disabled="sending || !digest.viewerHasEmail"

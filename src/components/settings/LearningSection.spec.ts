@@ -6,9 +6,9 @@
 import type { GlobalSetting } from '../../types.ts'
 
 import { mount } from '@vue/test-utils'
-import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
+import { beforeEach, describe, expect, test, vi } from 'vitest'
 import LearningSection from './LearningSection.vue'
-import { setAdvanced, state } from '../../store.ts'
+import { state } from '../../store.ts'
 import { makeStatus } from '../../tests/fixtures.ts'
 
 vi.mock('@nextcloud/dialogs', () => ({ showError: vi.fn(), showSuccess: vi.fn() }))
@@ -31,25 +31,11 @@ describe('the learning mode and other settings', () => {
 		]
 	})
 
-	afterEach(() => {
-		setAdvanced(false)
-		window.localStorage.clear()
-	})
-
-	test('without the advanced options: learning mode and the master switch', () => {
-		setAdvanced(false)
+	test('learning mode, the master switch, the learning settings, every other setting, export and reset', () => {
 		const wrapper = mount(LearningSection)
 		expect(wrapper.text()).toContain('Learning mode')
 		expect(wrapper.text()).toContain('Start protecting now')
 		expect(wrapper.find('#settings-other').text()).toContain('Intrusion detection is on')
-		expect(wrapper.text()).not.toContain('Label of learning_decoys_act')
-		expect(wrapper.text()).not.toContain('Label of admin_change_require_approval')
-		expect(wrapper.find('#settings-support').exists()).toBe(false)
-	})
-
-	test('the advanced options add the learning settings, every other setting, export and reset', () => {
-		setAdvanced(true)
-		const wrapper = mount(LearningSection)
 		expect(wrapper.text()).toContain('Label of learning_decoys_act')
 		expect(wrapper.text()).toContain('Label of admin_change_require_approval')
 		const support = wrapper.get('#settings-support').text()

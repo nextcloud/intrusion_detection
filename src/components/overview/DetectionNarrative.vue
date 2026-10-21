@@ -17,7 +17,6 @@ import RiskBreakdown from './RiskBreakdown.vue'
 import { useAnnouncer } from '../../composables/useAnnouncer.ts'
 import { useIncidentReport } from '../../composables/useIncidentReport.ts'
 import { detectionSections } from '../../extensions.ts'
-import { advanced } from '../../store.ts'
 import { APP_ID } from '../../utils/format.ts'
 
 const props = defineProps<{
@@ -65,28 +64,26 @@ async function copyText() {
 				</template>
 				{{ activeBans.length > 1 ? t(APP_ID, 'Lift block of {address}', { address: ban.cidr }) : t(APP_ID, 'Lift block') }}
 			</NcButton>
-			<template v-if="advanced">
-				<NcButton
-					v-if="detail.detection.uid"
-					variant="tertiary"
-					data-test="incident-report-user"
-					@click="createReport('user', detail.detection.uid)">
-					<template #icon>
-						<NcIconSvgWrapper :path="mdiFileDocumentAlertOutline" />
-					</template>
-					{{ t(APP_ID, 'Incident report for this account') }}
-				</NcButton>
-				<NcButton
-					v-if="detail.detection.ip"
-					variant="tertiary"
-					data-test="incident-report-address"
-					@click="createReport('address', detail.detection.ip)">
-					<template #icon>
-						<NcIconSvgWrapper :path="mdiFileDocumentAlertOutline" />
-					</template>
-					{{ t(APP_ID, 'Incident report for this address') }}
-				</NcButton>
-			</template>
+			<NcButton
+				v-if="detail.detection.uid"
+				variant="tertiary"
+				data-test="incident-report-user"
+				@click="createReport('user', detail.detection.uid)">
+				<template #icon>
+					<NcIconSvgWrapper :path="mdiFileDocumentAlertOutline" />
+				</template>
+				{{ t(APP_ID, 'Incident report for this account') }}
+			</NcButton>
+			<NcButton
+				v-if="detail.detection.ip"
+				variant="tertiary"
+				data-test="incident-report-address"
+				@click="createReport('address', detail.detection.ip)">
+				<template #icon>
+					<NcIconSvgWrapper :path="mdiFileDocumentAlertOutline" />
+				</template>
+				{{ t(APP_ID, 'Incident report for this address') }}
+			</NcButton>
 			<NcButton
 				variant="tertiary"
 				data-test="show-details"

@@ -7,7 +7,7 @@ import { flushPromises, mount } from '@vue/test-utils'
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 import CheckRow from './CheckRow.vue'
 import { ApiError, updateCheck } from '../../services/api.ts'
-import { setAdvanced, state } from '../../store.ts'
+import { state } from '../../store.ts'
 import { makeCheck } from '../../tests/fixtures.ts'
 
 vi.mock('../../services/api.ts', async (importOriginal) => ({
@@ -37,8 +37,6 @@ describe('a check on the Protection tab', () => {
 	afterEach(() => {
 		mounted.splice(0).forEach((row) => row.unmount())
 		vi.mocked(updateCheck).mockReset()
-		setAdvanced(false)
-		window.localStorage.clear()
 		document.body.innerHTML = ''
 	})
 
@@ -90,13 +88,9 @@ describe('a check on the Protection tab', () => {
 		expect(row.text()).not.toContain('learning')
 	})
 
-	test('"Customise" and the full card only with the advanced options', async () => {
+	test('"Customise" opens the full card, which starts collapsed', async () => {
 		const row = mountRow()
-		expect(row.find('[data-test="customise"]').exists()).toBe(false)
 		expect(row.text()).not.toContain('How it decides')
-
-		setAdvanced(true)
-		await flushPromises()
 		const customise = row.get('[data-test="customise"]')
 		expect(customise.attributes('aria-expanded')).toBe('false')
 		await customise.trigger('click')
@@ -105,8 +99,7 @@ describe('a check on the Protection tab', () => {
 		expect(row.text()).toContain('Save changes')
 	})
 
-	test('a link to the check opens "Customise" when the advanced options are on', () => {
-		setAdvanced(true)
+	test('a link to the check opens "Customise"', () => {
 		const row = mountRow(makeCheck(), true)
 		expect(row.text()).toContain('How it decides')
 	})

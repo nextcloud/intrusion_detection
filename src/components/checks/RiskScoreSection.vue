@@ -53,7 +53,7 @@ const tiers = computed(() => [
 			</StateBadge>
 		</template>
 
-		<SettingsGroup :settings="settings">
+		<SettingsGroup :settings="settings" :collapsedLabel="t(APP_ID, 'Change the points and limits')">
 			<template #default="{ fill, changed }">
 				<div :class="$style.risk">
 					<table :class="$style.table">

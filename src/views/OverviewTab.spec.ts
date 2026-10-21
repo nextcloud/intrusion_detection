@@ -7,7 +7,7 @@ import { flushPromises, mount } from '@vue/test-utils'
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 import OverviewTab from './OverviewTab.vue'
 import { fetchDailyStats, fetchDetections, lookup } from '../services/api.ts'
-import { incidentRequest, setAdvanced, state } from '../store.ts'
+import { incidentRequest, state } from '../store.ts'
 import { makeStatus } from '../tests/fixtures.ts'
 
 vi.mock('../services/api.ts', async (importOriginal) => ({
@@ -41,8 +41,6 @@ describe('the overview', () => {
 
 	afterEach(() => {
 		mounted.splice(0).forEach((wrapper) => wrapper.unmount())
-		setAdvanced(false)
-		window.localStorage.clear()
 		state.status = null
 		incidentRequest.value = null
 		vi.mocked(fetchDailyStats).mockReset()
@@ -58,14 +56,12 @@ describe('the overview', () => {
 		expect(wrapper.text()).toContain('Look up an address or account')
 	})
 
-	test('only real problems need attention; tips are shown with the advanced options', async () => {
+	test('only real problems need attention; tips are listed further down', async () => {
 		const { wrapper } = await mountOverview()
-		const titles = () => wrapper.findAll('[data-test="problem"]').map((problem) => problem.text())
-		expect(titles().join(' ')).toContain('Nextcloud cannot send emails')
-		expect(titles().join(' ')).not.toContain('No memory cache')
-		setAdvanced(true)
-		await flushPromises()
-		expect(titles().join(' ')).toContain('No memory cache')
+		const attention = wrapper.get('#overview-attention').text()
+		expect(attention).toContain('Nextcloud cannot send emails')
+		expect(attention).not.toContain('No memory cache')
+		expect(wrapper.get('[data-test="overview-tips"]').text()).toContain('No memory cache')
 	})
 
 	test('nothing asks for attention while the defaults fit', async () => {
@@ -73,32 +69,22 @@ describe('the overview', () => {
 		const { wrapper } = await mountOverview()
 		expect(wrapper.find('#overview-attention').exists()).toBe(false)
 		expect(wrapper.text()).not.toContain('Needs attention')
+		expect(wrapper.get('[data-test="overview-tips"]').text()).toContain('No memory cache')
 	})
 
-	test('the figures, the chart and the filters only with the advanced options', async () => {
+	test('the figures, the filters and, below the recent activity, the chart', async () => {
 		const { wrapper } = await mountOverview()
-		expect(wrapper.find('[data-test="status-figures"]').exists()).toBe(false)
-		expect(wrapper.find('[data-test="overview-chart"]').exists()).toBe(false)
-		expect(wrapper.find('[data-test="detection-filters"]').exists()).toBe(false)
-		expect(fetchDailyStats).not.toHaveBeenCalled()
-
-		setAdvanced(true)
-		await flushPromises()
 		expect(wrapper.find('[data-test="status-figures"]').exists()).toBe(true)
 		expect(wrapper.find('[data-test="overview-chart"]').exists()).toBe(true)
 		expect(wrapper.find('[data-test="detection-filters"]').exists()).toBe(true)
 		expect(fetchDailyStats).toHaveBeenCalledTimes(1)
 	})
 
-	test('a looked-up address gets "Create incident report" with the advanced options', async () => {
+	test('a looked-up address gets "Create incident report"', async () => {
 		vi.mocked(lookup).mockResolvedValue({ kind: 'address', query: '203.0.113.7', bans: [], detections: [], user: null })
 		const { wrapper, showTab } = await mountOverview()
 		await wrapper.get('form[role="search"] input').setValue('203.0.113.7')
 		await wrapper.get('form[role="search"]').trigger('submit')
-		await flushPromises()
-		expect(wrapper.find('[data-test="lookup-incident-report"]').exists()).toBe(false)
-
-		setAdvanced(true)
 		await flushPromises()
 		await wrapper.get('[data-test="lookup-incident-report"]').trigger('click')
 		expect(incidentRequest.value).toEqual({ type: 'address', value: '203.0.113.7', since: null, until: null })

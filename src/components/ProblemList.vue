@@ -14,6 +14,8 @@ import { APP_ID } from '../utils/format.ts'
 
 const props = defineProps<{
 	problems: Problem[]
+	/** Defaults to "Needs attention" */
+	heading?: string
 }>()
 
 const id = useId()
@@ -41,7 +43,7 @@ function toggle(problemId: string) {
 <template>
 	<section :class="$style.problems" :aria-labelledby="`${id}-heading`">
 		<h3 :id="`${id}-heading`" :class="$style.problems__heading">
-			{{ t(APP_ID, 'Needs attention') }}
+			{{ heading ?? t(APP_ID, 'Needs attention') }}
 		</h3>
 		<ul :class="$style.problems__list">
 			<li

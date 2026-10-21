@@ -6,11 +6,9 @@
 import type { CheckRef, Traps } from '../types.ts'
 
 import { flushPromises, mount } from '@vue/test-utils'
-import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
-import { nextTick } from 'vue'
+import { beforeEach, describe, expect, test, vi } from 'vitest'
 import BlocksTab from './BlocksTab.vue'
 import { fetchBans, fetchTraps } from '../services/api.ts'
-import { advanced, setAdvanced } from '../store.ts'
 
 vi.mock('@nextcloud/dialogs', () => ({ showError: vi.fn(), showSuccess: vi.fn() }))
 
@@ -59,13 +57,7 @@ describe('the Blocks tab', () => {
 		vi.mocked(fetchTraps).mockResolvedValue(traps)
 	})
 
-	afterEach(() => {
-		setAdvanced(false)
-		window.localStorage.clear()
-	})
-
 	test('shows the blocks, the lists, the decoys and the reserved names', async () => {
-		setAdvanced(false)
 		const wrapper = await mountTab()
 		expect(wrapper.find('#blocks-active').exists()).toBe(true)
 		expect(wrapper.text()).toContain('Block an address')
@@ -74,17 +66,8 @@ describe('the Blocks tab', () => {
 		}
 	})
 
-	test('keeps trap paths, the firewall export and escalation for the advanced options', async () => {
-		setAdvanced(false)
+	test('shows the trap paths, the firewall export and escalation below them', async () => {
 		const wrapper = await mountTab()
-		expect(wrapper.find('[data-test="trap-paths"]').exists()).toBe(false)
-		expect(wrapper.find('[data-test="firewall"]').exists()).toBe(false)
-		expect(wrapper.find('#blocks-escalation').exists()).toBe(false)
-		expect(wrapper.text()).not.toContain('How blocks escalate')
-
-		setAdvanced(true)
-		await nextTick()
-		expect(advanced.value).toBe(true)
 		expect(wrapper.find('[data-test="trap-paths"]').exists()).toBe(true)
 		expect(wrapper.find('[data-test="firewall"]').exists()).toBe(true)
 		expect(wrapper.get('#blocks-escalation').text()).toContain('How blocks escalate')

@@ -38,39 +38,6 @@ export const openDetectionId = ref<number | null>(null)
 /** An incident report to build on the Incidents tab, e.g. from "Incident report for this address" */
 export const incidentRequest = ref<IncidentRequest | null>(null)
 
-const ADVANCED_KEY = APP_ID + '.advanced'
-
-/**
- * Read the remembered choice; storage can be missing or blocked.
- */
-function loadAdvanced(): boolean {
-	try {
-		return window.localStorage.getItem(ADVANCED_KEY) === '1'
-	} catch {
-		return false
-	}
-}
-
-/**
- * Whether the admin page shows the advanced options: the fine control of
- * each check, the expert tools and the Incidents tab. Remembered per browser.
- */
-export const advanced = ref<boolean>(loadAdvanced())
-
-/**
- * Show or hide the advanced options and remember the choice in this browser.
- *
- * @param value - Show them
- */
-export function setAdvanced(value: boolean): void {
-	advanced.value = value
-	try {
-		window.localStorage.setItem(ADVANCED_KEY, value ? '1' : '0')
-	} catch {
-		// Not remembered, but still applied for this page view.
-	}
-}
-
 /** Values and types of the global settings, for `{name}` placeholders in texts */
 export const globalValues = computed<Record<string, ParamValue>>(() => Object.fromEntries(state.settings.map((s) => [s.name, s.value])))
 export const globalTypes = computed<Record<string, ParamType>>(() => Object.fromEntries(state.settings.map((s) => [s.name, s.type])))

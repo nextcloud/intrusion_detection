@@ -7,7 +7,7 @@
 import type { Blocklist, Blocklists } from '../../types.ts'
 
 import { mdiCloudOutline, mdiPlaylistRemove, mdiPlus, mdiShieldAlertOutline } from '@mdi/js'
-import { n, t } from '@nextcloud/l10n'
+import { t } from '@nextcloud/l10n'
 import { computed, onActivated, onMounted, ref } from 'vue'
 import NcButton from '@nextcloud/vue/components/NcButton'
 import NcIconSvgWrapper from '@nextcloud/vue/components/NcIconSvgWrapper'
@@ -20,23 +20,21 @@ import AddBlocklistDialog from './AddBlocklistDialog.vue'
 import BlocklistRow from './BlocklistRow.vue'
 import { errorMessage, fetchBlocklists } from '../../services/api.ts'
 import { logger } from '../../services/logger.ts'
-import { advanced, state } from '../../store.ts'
+import { state } from '../../store.ts'
 import { APP_ID } from '../../utils/format.ts'
 
 const data = ref<Blocklists | null>(null)
 const loadError = ref<string | null>(null)
 const adding = ref(false)
 
-/** Your own lists are managed with the advanced options only */
-const shown = computed(() => data.value?.lists.filter((l) => l.builtin || advanced.value) ?? [])
-const denyLists = computed(() => shown.value.filter((l) => l.purpose === 'deny'))
-const attributeLists = computed(() => shown.value.filter((l) => l.purpose !== 'deny'))
+const lists = computed(() => data.value?.lists ?? [])
+const denyLists = computed(() => lists.value.filter((l) => l.purpose === 'deny'))
+const attributeLists = computed(() => lists.value.filter((l) => l.purpose !== 'deny'))
 const checkRuns = computed(() => data.value?.check.mode.effective !== 'off')
 const enabledDeny = computed(() => denyLists.value.some((l) => l.enabled))
 const enabledAttribute = computed(() => attributeLists.value.some((l) => l.enabled))
 const networkCheckRuns = computed(() => data.value?.networkCheck.mode.effective !== 'off')
 const riskEnabled = computed(() => state.settings.find((s) => s.name === 'risk_enabled')?.value !== false)
-const customCount = computed(() => data.value?.lists.filter((l) => !l.builtin).length ?? 0)
 const downloadSettings = computed(() => state.settings.filter((s) => s.group === 'blocklists'))
 
 /**
@@ -85,7 +83,7 @@ function removed(id: string) {
 		<template #description>
 			{{ t(APP_ID, 'Lists that others publish. Nextcloud downloads the ones you switch on and checks against its own copy, so nothing about your users is sent anywhere.') }}
 		</template>
-		<template v-if="advanced" #actions>
+		<template #actions>
 			<NcButton variant="secondary" :disabled="data === null || data.lists.length >= data.maxLists" @click="adding = true">
 				<template #icon>
 					<NcIconSvgWrapper :path="mdiPlus" />
@@ -163,11 +161,7 @@ function removed(id: string) {
 				</ul>
 			</section>
 
-			<p v-if="!advanced && customCount > 0" :class="$style.group__text" data-test="custom-lists-hint">
-				{{ n(APP_ID, 'You added %n list of your own. Show the advanced options to manage it.', 'You added %n lists of your own. Show the advanced options to manage them.', customCount) }}
-			</p>
-
-			<section v-if="advanced && downloadSettings.length > 0" :class="$style.group" aria-labelledby="ids-list-downloads">
+			<section v-if="downloadSettings.length > 0" :class="$style.group" aria-labelledby="ids-list-downloads">
 				<h4 id="ids-list-downloads" :class="$style.group__heading">
 					{{ t(APP_ID, 'Downloads') }}
 				</h4>
@@ -176,7 +170,6 @@ function removed(id: string) {
 		</template>
 
 		<AddBlocklistDialog
-			v-if="advanced"
 			v-model:open="adding"
 			:existing="data?.lists.map((l) => l.id) ?? []"
 			:formats="data?.formats ?? ['cidr']"

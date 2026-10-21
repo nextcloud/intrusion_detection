@@ -38,7 +38,6 @@ describe('sections within a tab', () => {
 			tabs.splice(tabs.findIndex((tab) => tab.id === 'test-empty'), 1)
 		}
 		expect(sectionsOf('protection').map((s) => s.id)).toEqual(['risk-score'])
-		expect(sectionsOf('protection', false)).toEqual([])
 	})
 
 	test('sections follow the tab component, in order', () => {

@@ -21,7 +21,6 @@ import { useAnnouncer } from '../../composables/useAnnouncer.ts'
 import { useIncidentReport } from '../../composables/useIncidentReport.ts'
 import { errorMessage, lookup } from '../../services/api.ts'
 import { logger } from '../../services/logger.ts'
-import { advanced } from '../../store.ts'
 import { APP_ID } from '../../utils/format.ts'
 
 const emit = defineEmits<{
@@ -196,7 +195,7 @@ function clear() {
 					{{ t(APP_ID, 'No detections in the last 30 days.') }}
 				</p>
 
-				<div v-if="advanced && reportSubject">
+				<div v-if="reportSubject">
 					<NcButton variant="secondary" data-test="lookup-incident-report" @click="createReport(reportSubject.type, reportSubject.value)">
 						<template #icon>
 							<NcIconSvgWrapper :path="mdiFileDocumentAlertOutline" />

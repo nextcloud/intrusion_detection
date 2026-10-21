@@ -19,7 +19,7 @@ import TimeStamp from '../common/TimeStamp.vue'
 import { useAnnouncer } from '../../composables/useAnnouncer.ts'
 import { errorMessage, exportSettings, isCancelled, resetSettings, updateLearning, updateSettings } from '../../services/api.ts'
 import { logger } from '../../services/logger.ts'
-import { advanced, refreshChecks, refreshStatus, state } from '../../store.ts'
+import { refreshChecks, refreshStatus, state } from '../../store.ts'
 import { APP_ID } from '../../utils/format.ts'
 
 const busy = ref<string | null>(null)
@@ -179,7 +179,7 @@ async function download() {
 			<p id="ids-days-hint" :class="[$style.card__hint, { [$style.card__hint_error]: !daysValid }]">
 				{{ t(APP_ID, 'From {min} to {max} days.', { min: learning.minDays, max: learning.maxDays }) }}
 			</p>
-			<SettingsGroup v-if="advanced && learningSettings.length > 0" :settings="learningSettings" />
+			<SettingsGroup v-if="learningSettings.length > 0" :settings="learningSettings" />
 		</section>
 
 		<section id="settings-other" :class="$style.card" aria-labelledby="ids-master-heading">
@@ -197,7 +197,7 @@ async function download() {
 			</NcCheckboxRadioSwitch>
 		</section>
 
-		<section v-if="advanced && otherSettings.length > 0" :class="$style.card" aria-labelledby="ids-other-heading">
+		<section v-if="otherSettings.length > 0" :class="$style.card" aria-labelledby="ids-other-heading">
 			<h4 id="ids-other-heading" :class="$style.card__heading">
 				{{ t(APP_ID, 'Other settings') }}
 			</h4>
@@ -205,7 +205,6 @@ async function download() {
 		</section>
 
 		<section
-			v-if="advanced"
 			id="settings-support"
 			:class="$style.card"
 			aria-labelledby="ids-maintenance-heading">

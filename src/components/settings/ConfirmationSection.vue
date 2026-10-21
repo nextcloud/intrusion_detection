@@ -17,6 +17,7 @@ import NcLoadingIcon from '@nextcloud/vue/components/NcLoadingIcon'
 import NcNoteCard from '@nextcloud/vue/components/NcNoteCard'
 import SectionCard from '../common/SectionCard.vue'
 import SettingsGroup from '../common/SettingsGroup.vue'
+import ShowMore from '../common/ShowMore.vue'
 import SkeletonBlock from '../common/SkeletonBlock.vue'
 import MethodSteps from '../confirmation/MethodSteps.vue'
 import PendingApprovals from '../confirmation/PendingApprovals.vue'
@@ -25,7 +26,7 @@ import UnconfirmableAccounts from '../confirmation/UnconfirmableAccounts.vue'
 import { useAnnouncer } from '../../composables/useAnnouncer.ts'
 import { errorMessage, fetchConfirmation, isCancelled, setConfirmationPreset, updateSettings } from '../../services/api.ts'
 import { logger } from '../../services/logger.ts'
-import { advanced, refreshSettings, setAdvanced, state } from '../../store.ts'
+import { refreshSettings, state } from '../../store.ts'
 import { APP_ID, formatNumber } from '../../utils/format.ts'
 
 /** Waiting logins are looked up again this often while the tab is open */
@@ -48,6 +49,8 @@ const data = ref<ConfirmationOverview | null>(null)
 const loadError = ref<string | null>(null)
 const refreshing = ref(false)
 const busy = ref<string | null>(null)
+/** Whether the reasons table is shown */
+const reasonsOpen = ref(false)
 const { announce } = useAnnouncer()
 let timer: ReturnType<typeof setInterval> | undefined
 
@@ -147,7 +150,7 @@ async function toggle(name: string, on: boolean) {
  * Show the reasons table, where each reason is set on its own.
  */
 async function showReasons() {
-	setAdvanced(true)
+	reasonsOpen.value = true
 	await nextTick()
 	document.getElementById('settings-confirmation-reasons')?.scrollIntoView({ block: 'start', behavior: 'smooth' })
 }
@@ -229,8 +232,8 @@ onBeforeUnmount(stopTimer)
 				</fieldset>
 				<p v-if="data.preset === 'custom'" :class="$style.custom" data-test="preset-custom">
 					<span>{{ t(APP_ID, 'Custom: set for each reason on its own.') }}</span>
-					<NcButton v-if="!advanced" variant="tertiary" @click="showReasons">
-						{{ t(APP_ID, 'Show the advanced options') }}
+					<NcButton v-if="!reasonsOpen" variant="tertiary" @click="showReasons">
+						{{ t(APP_ID, 'Show each reason') }}
 					</NcButton>
 				</p>
 				<p :class="$style.muted" data-test="users-count">
@@ -282,61 +285,65 @@ onBeforeUnmount(stopTimer)
 				<PendingApprovals :approvals="data.approvals" @decided="load()" />
 			</SectionCard>
 
-			<template v-if="advanced">
-				<SectionCard
-					id="settings-confirmation-reasons"
-					level="h4"
-					:heading="t(APP_ID, 'What each reason accepts')"
-					:icon="mdiListStatus">
-					<template #description>
-						{{ t(APP_ID, 'For each reason: whether a remembered device is enough, and what happens when the account has no way to confirm the login. Changes are saved at once.') }}
-					</template>
+			<SectionCard
+				id="settings-confirmation-reasons"
+				level="h4"
+				:heading="t(APP_ID, 'What each reason accepts')"
+				:icon="mdiListStatus">
+				<template #description>
+					{{ t(APP_ID, 'For each reason: whether a remembered device is enough, and what happens when the account has no way to confirm the login. Changes are saved at once.') }}
+				</template>
+				<ShowMore v-model:open="reasonsOpen" :label="t(APP_ID, 'Customise each reason')" data-test="reasons-toggle">
 					<PolicyTable :policies="data.policies" :outcomes="data.outcomes" @changed="onPolicies" />
-				</SectionCard>
+				</ShowMore>
+			</SectionCard>
 
-				<SectionCard level="h4" :heading="t(APP_ID, 'How Nextcloud confirms it is really the user')" :icon="mdiShieldAccountOutline">
-					<template #description>
-						{{ t(APP_ID, 'Nextcloud tries these ways in this order and uses the first one the account has.') }}
-					</template>
-					<MethodSteps :methods="data.methods" />
-				</SectionCard>
+			<SectionCard
+				id="settings-confirmation-accounts"
+				level="h4"
+				:heading="t(APP_ID, 'Accounts that cannot confirm a login')"
+				:icon="mdiAccountAlertOutline">
+				<template #description>
+					{{ t(APP_ID, 'Active accounts are enabled accounts that logged in at least once. The counts are at most an hour old.') }}
+				</template>
+				<template #actions>
+					<NcButton :disabled="refreshing" @click="recount">
+						<template #icon>
+							<NcLoadingIcon v-if="refreshing" :size="20" />
+							<NcIconSvgWrapper v-else :path="mdiRefresh" />
+						</template>
+						{{ t(APP_ID, 'Count again') }}
+					</NcButton>
+				</template>
+				<UnconfirmableAccounts :users="data.users" :admins="data.admins" />
+			</SectionCard>
 
-				<SectionCard
-					id="settings-confirmation-accounts"
-					level="h4"
-					:heading="t(APP_ID, 'Accounts that cannot confirm a login')"
-					:icon="mdiAccountAlertOutline">
-					<template #description>
-						{{ t(APP_ID, 'Active accounts are enabled accounts that logged in at least once. The counts are at most an hour old.') }}
-					</template>
-					<template #actions>
-						<NcButton :disabled="refreshing" @click="recount">
-							<template #icon>
-								<NcLoadingIcon v-if="refreshing" :size="20" />
-								<NcIconSvgWrapper v-else :path="mdiRefresh" />
+			<ShowMore :label="t(APP_ID, 'How logins are confirmed, remembered devices and time limits')" data-test="confirmation-more">
+				<div :class="$style.stack">
+					<SectionCard level="h4" :heading="t(APP_ID, 'How Nextcloud confirms it is really the user')" :icon="mdiShieldAccountOutline">
+						<template #description>
+							{{ t(APP_ID, 'Nextcloud tries these ways in this order and uses the first one the account has.') }}
+						</template>
+						<MethodSteps :methods="data.methods" />
+					</SectionCard>
+
+					<div :class="$style.columns">
+						<SectionCard level="h4" :heading="t(APP_ID, 'Remembered devices')" :icon="mdiLaptop">
+							<template #description>
+								{{ t(APP_ID, 'Only a fingerprint of a random cookie is stored. Users see and remove their devices in their security settings. A device is forgotten when they answer "No, it was not me", when their password changes, and when their session seems stolen.') }}
 							</template>
-							{{ t(APP_ID, 'Count again') }}
-						</NcButton>
-					</template>
-					<UnconfirmableAccounts :users="data.users" :admins="data.admins" />
-				</SectionCard>
+							<SettingsGroup :settings="knownDeviceSettings" />
+						</SectionCard>
 
-				<div :class="$style.columns">
-					<SectionCard level="h4" :heading="t(APP_ID, 'Remembered devices')" :icon="mdiLaptop">
-						<template #description>
-							{{ t(APP_ID, 'Only a fingerprint of a random cookie is stored. Users see and remove their devices in their security settings. A device is forgotten when they answer "No, it was not me", when their password changes, and when their session seems stolen.') }}
-						</template>
-						<SettingsGroup :settings="knownDeviceSettings" />
-					</SectionCard>
-
-					<SectionCard level="h4" :heading="t(APP_ID, 'Codes and time limits')" :icon="mdiTimerOutline">
-						<template #description>
-							{{ t(APP_ID, 'How long codes are valid, and how long a login may wait for its confirmation.') }}
-						</template>
-						<SettingsGroup :settings="timeoutSettings" />
-					</SectionCard>
+						<SectionCard level="h4" :heading="t(APP_ID, 'Codes and time limits')" :icon="mdiTimerOutline">
+							<template #description>
+								{{ t(APP_ID, 'How long codes are valid, and how long a login may wait for its confirmation.') }}
+							</template>
+							<SettingsGroup :settings="timeoutSettings" />
+						</SectionCard>
+					</div>
 				</div>
-			</template>
+			</ShowMore>
 		</template>
 	</div>
 </template>

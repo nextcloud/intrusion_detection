@@ -9,7 +9,6 @@ import { flushPromises, mount } from '@vue/test-utils'
 import { afterEach, describe, expect, test, vi } from 'vitest'
 import NotificationsSection from './NotificationsSection.vue'
 import { fetchNotifications } from '../../services/api.ts'
-import { setAdvanced } from '../../store.ts'
 
 vi.mock('@nextcloud/dialogs', () => ({ showError: vi.fn(), showSuccess: vi.fn() }))
 
@@ -51,26 +50,23 @@ async function mountTab(value = notifications()) {
 describe('the notifications section', () => {
 	afterEach(() => {
 		vi.mocked(fetchNotifications).mockReset()
-		setAdvanced(false)
-		window.localStorage.clear()
 	})
 
-	test('without the advanced options: who is notified, the email severity and the digest', async () => {
-		setAdvanced(false)
+	test('who is notified, the email severity, the digest, the table per check and the webhook events', async () => {
 		const wrapper = await mountTab()
 		expect(wrapper.text()).toContain('Who is notified')
 		expect(wrapper.text()).toContain('Also send an email for')
 		expect(wrapper.text()).toContain('Send a test alert to me')
 		expect(wrapper.find('[data-test="digest"]').exists()).toBe(true)
-		expect(wrapper.find('[data-test="per-check"]').exists()).toBe(false)
-		expect(wrapper.find('[data-test="webhooks"]').exists()).toBe(false)
-	})
-
-	test('the advanced options add the table per check and the webhook events', async () => {
-		setAdvanced(true)
-		const wrapper = await mountTab()
 		expect(wrapper.find('[data-test="per-check"]').exists()).toBe(true)
 		expect(wrapper.find('[data-test="webhooks"]').exists()).toBe(true)
+	})
+
+	test('the table per check starts collapsed', async () => {
+		const wrapper = await mountTab()
+		expect(wrapper.find('[data-test="per-check"] table').exists()).toBe(false)
+		await wrapper.get('[data-test="per-check-toggle"] button').trigger('click')
+		expect(wrapper.find('[data-test="per-check"] table').exists()).toBe(true)
 	})
 
 	test('says once that the server cannot send emails', async () => {
@@ -87,8 +83,8 @@ describe('the notifications section', () => {
 	})
 
 	test('names both columns of the table the same way', async () => {
-		setAdvanced(true)
 		const wrapper = await mountTab()
+		await wrapper.get('[data-test="per-check-toggle"] button').trigger('click')
 		const row = wrapper.get('tbody tr').text()
 		expect(row).toContain('Notified')
 		expect(row).toContain('Not notified')
