@@ -36,8 +36,8 @@ use Psr\Log\LoggerInterface;
  * At a login with reasons ({@see StepUpReasons}), the confirmation methods
  * ({@see ConfirmationPolicy}) are tried in order:
  *
- * - The account's second factor: core's challenge right after the password
- *   is the confirmation. Nothing else is asked.
+ * - The account's second factor: core's challenge right after the password.
+ *   The login waits until the challenge is passed.
  * - A method that needs the user (an email code): the session is marked,
  *   and {@see \OCA\IntrusionDetection\SessionState\Rules\StepUpRule} sends
  *   every request to the verify page until it is confirmed, fails, or

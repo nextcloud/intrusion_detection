@@ -10,6 +10,7 @@ declare(strict_types=1);
 namespace OCA\IntrusionDetection\Tests\Unit\Takeover;
 
 use OC\Session\Memory;
+use OCA\IntrusionDetection\Confirm\StepUpState;
 use OCA\IntrusionDetection\SessionState\CurrentSession;
 use OCA\IntrusionDetection\SessionState\SessionState;
 use OCA\IntrusionDetection\Takeover\IRiskyLoginSignal;
@@ -33,6 +34,15 @@ class RiskyLoginsTest extends TestCase {
 		$this->assertSame(1000, $login->at);
 		$this->assertSame(RiskyLogin::REASON_UNCONFIRMED, $login->reason);
 		$this->assertSame(['flagged_source'], $login->policies);
+	}
+
+	public function testALoginThatStillWaitsForItsConfirmationIsRisky(): void {
+		$signal = $this->signal(null, 7, new StepUpState('alice', StepUpState::PENDING, ['protected_account'], 900, 1800));
+		$login = $signal->riskyLogin('alice', 7);
+		$this->assertSame(900, $login?->at);
+		$this->assertSame(RiskyLogin::REASON_UNCONFIRMED, $login->reason);
+		$this->assertSame(['protected_account'], $login->policies);
+		$this->assertNull($signal->riskyLogin('bob', 7));
 	}
 
 	public function testAConfirmedLoginIsNot(): void {
@@ -77,9 +87,12 @@ class RiskyLoginsTest extends TestCase {
 	/**
 	 * @param ?array<string, mixed> $marker
 	 */
-	private function signal(?array $marker, int $currentToken): UnconfirmedLoginSignal {
+	private function signal(?array $marker, int $currentToken, ?StepUpState $stepUp = null): UnconfirmedLoginSignal {
 		$session = new Memory();
 		$state = new SessionState($session, $this->createMock(LoggerInterface::class));
+		if ($stepUp !== null) {
+			$state->set(SessionState::STEP_UP, $stepUp->toArray());
+		}
 		if ($marker !== null) {
 			$state->set(SessionState::CONFIRMATION, $marker);
 		}

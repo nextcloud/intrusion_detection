@@ -24,10 +24,13 @@ use OCA\IntrusionDetection\Confirm\Methods\AdminApprovalMethod;
 use OCA\IntrusionDetection\Confirm\Methods\EmailCodeMethod;
 use OCA\IntrusionDetection\Confirm\Methods\KnownDeviceMethod;
 use OCA\IntrusionDetection\Confirm\Methods\SecondFactorMethod;
+use OCA\IntrusionDetection\Confirm\SecondFactorSetup;
+use OCA\IntrusionDetection\Confirm\SessionConfirmation;
 use OCA\IntrusionDetection\Confirm\StepUpReasons;
 use OCA\IntrusionDetection\Confirm\StepUpService;
 use OCA\IntrusionDetection\Confirm\StepUpState;
 use OCA\IntrusionDetection\Confirm\UnconfirmedSessions;
+use OCA\IntrusionDetection\Confirm\UntrustedSecondFactors;
 use OCA\IntrusionDetection\Controller\VerifyController;
 use OCA\IntrusionDetection\Crypto\Fingerprinter;
 use OCA\IntrusionDetection\Db\ApprovalMapper;
@@ -41,6 +44,7 @@ use OCA\IntrusionDetection\Db\StepUpSessionMapper;
 use OCA\IntrusionDetection\Http\LocalRedirect;
 use OCA\IntrusionDetection\KnownDevice\DeviceCookie;
 use OCA\IntrusionDetection\KnownDevice\KnownDevices;
+use OCA\IntrusionDetection\Listener\StepUpChallengePassedListener;
 use OCA\IntrusionDetection\Listener\StepUpLoginListener;
 use OCA\IntrusionDetection\Login\InteractiveLogin;
 use OCA\IntrusionDetection\LoginHistory\LoginHistory;
@@ -53,7 +57,10 @@ use OCA\IntrusionDetection\SessionState\SessionState;
 use OCA\IntrusionDetection\Tests\BasicAuthServer;
 use OCP\AppFramework\Utility\ITimeFactory;
 use OCP\Authentication\TwoFactorAuth\IChallengeRequester;
+use OCP\Authentication\TwoFactorAuth\IProvider;
 use OCP\Authentication\TwoFactorAuth\IRegistry;
+use OCP\Authentication\TwoFactorAuth\TwoFactorProviderChallengePassed;
+use OCP\Config\IUserConfig;
 use OCP\ICacheFactory;
 use OCP\IConfig;
 use OCP\IRequest;
@@ -89,6 +96,8 @@ abstract class StepUpTestCase extends AccountTestCase {
 	/** @var list<string> */
 	protected array $codes = ['482915', '730264', '119838', '650417', '004213', '871102'];
 	protected bool $hasSecondFactor = false;
+	/** Whether core holds the login at the setup of a second factor */
+	protected bool $secondFactorSetupRequired = false;
 	protected bool $bypassListed = false;
 	/** @var IRequest&MockObject */
 	protected IRequest $request;
@@ -215,7 +224,7 @@ abstract class StepUpTestCase extends AccountTestCase {
 
 	protected function policy(): ConfirmationPolicy {
 		return new ConfirmationPolicy($this->settings, new OverridingContainer([
-			SecondFactorMethod::class => new SecondFactorMethod($this->challenges, $this->registry()),
+			SecondFactorMethod::class => $this->secondFactorMethod(),
 			KnownDeviceMethod::class => new KnownDeviceMethod($this->knownDevices(), $this->settings),
 			EmailCodeMethod::class => new EmailCodeMethod($this->codes()),
 			AdminApprovalMethod::class => new AdminApprovalMethod(
@@ -315,10 +324,35 @@ abstract class StepUpTestCase extends AccountTestCase {
 	}
 
 	protected function rule(): StepUpRule {
+		$setup = $this->createMock(SecondFactorSetup::class);
+		$setup->method('isRequired')->willReturnCallback(fn (): bool => $this->secondFactorSetupRequired);
 		return new StepUpRule($this->userSession, Server::get(IURLGenerator::class), Server::get(ITimeFactory::class), new OverridingContainer([
 			StepUpService::class => $this->service(),
 			LoginDetections::class => $this->linker(),
+			SecondFactorSetup::class => $setup,
 		]), Server::get(LoggerInterface::class));
+	}
+
+	protected function sessionConfirmation(): SessionConfirmation {
+		return new SessionConfirmation($this->state, $this->session, Server::get(ITimeFactory::class));
+	}
+
+	protected function untrustedSecondFactors(): UntrustedSecondFactors {
+		return new UntrustedSecondFactors(Server::get(IUserConfig::class), $this->userSession, $this->sessionConfirmation(), Server::get(ITimeFactory::class));
+	}
+
+	protected function secondFactorMethod(): SecondFactorMethod {
+		return new SecondFactorMethod($this->challenges, $this->registry(), $this->untrustedSecondFactors());
+	}
+
+	/**
+	 * Core reports a passed challenge of the session.
+	 */
+	protected function passChallenge(IUser $user, string $providerId = 'totp'): void {
+		$provider = $this->createMock(IProvider::class);
+		$provider->method('getId')->willReturn($providerId);
+		(new StepUpChallengePassedListener($this->service(), $this->secondFactorMethod(), $this->sessionConfirmation(), Server::get(LoggerInterface::class)))
+			->handle(new TwoFactorProviderChallengePassed($user, $provider));
 	}
 
 	protected function verifyController(): VerifyController {

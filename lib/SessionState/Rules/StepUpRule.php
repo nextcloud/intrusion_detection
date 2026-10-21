@@ -14,6 +14,7 @@ use OC\Core\Controller\TwoFactorChallengeController;
 use OCA\IntrusionDetection\AppInfo\Application;
 use OCA\IntrusionDetection\Check\Checks\StepUpFailed;
 use OCA\IntrusionDetection\Confirm\LoginDetections;
+use OCA\IntrusionDetection\Confirm\SecondFactorSetup;
 use OCA\IntrusionDetection\Confirm\StepUpService;
 use OCA\IntrusionDetection\Confirm\StepUpState;
 use OCA\IntrusionDetection\Controller\VerifyController;
@@ -121,7 +122,16 @@ class StepUpRule implements ISessionStateRule {
 		}
 		return $target->isController(VerifyController::class)
 			|| $target->isController(TwoFactorChallengeController::class)
-			|| $target->isController(ALoginSetupController::class);
+			|| ($target->isController(ALoginSetupController::class) && $this->mustSetUpSecondFactor());
+	}
+
+	/**
+	 * A provider's setup page, only while core holds the login there: at any
+	 * other time a pending login could add its own second factor.
+	 */
+	private function mustSetUpSecondFactor(): bool {
+		$user = $this->userSession->getUser();
+		return $user !== null && $this->container->get(SecondFactorSetup::class)->isRequired($user);
 	}
 
 	private function block(string $error, ?string $redirectUrl): SessionBlock {

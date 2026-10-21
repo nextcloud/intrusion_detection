@@ -12,6 +12,7 @@ namespace OCA\IntrusionDetection\Tests\Integration;
 use OC\Memcache\ArrayCache;
 use OCA\IntrusionDetection\BackgroundJob\Cleanup;
 use OCA\IntrusionDetection\Config\GlobalSettings;
+use OCA\IntrusionDetection\Confirm\SessionConfirmation;
 use OCA\IntrusionDetection\Confirm\StepUpPolicy;
 use OCA\IntrusionDetection\Db\LoginHistoryMapper;
 use OCA\IntrusionDetection\KnownDevice\KnownDevices;
@@ -124,6 +125,33 @@ class LoginHistoryTest extends StepUpTestCase {
 		$this->loginAndRecord($this->alice);
 		$this->historyListener()->handle(new TwoFactorProviderChallengePassed($this->alice, $this->createMock(IProvider::class)));
 		$this->assertSame([null, 'second_factor'], $this->outcome($this->alice));
+	}
+
+	public function testALoginHeldAtCoresSecondFactorIsPendingUntilTheChallengeIsPassed(): void {
+		Server::get(FlaggedSources::class)->flagSource(SourceKey::fromIp($this->remoteAddress), FlaggedSources::REASON_ATTACK);
+		$this->hasSecondFactor = true;
+		$this->startSession($this->alice);
+		$this->loginAndRecord($this->alice);
+		$this->assertSame([LoginHistory::STEP_UP_PENDING, 'none'], $this->outcome($this->alice), 'Stopped at the challenge: not confirmed yet');
+
+		$this->passChallenge($this->alice);
+		$this->historyListener()->handle(new TwoFactorProviderChallengePassed($this->alice, $this->createMock(IProvider::class)));
+		$this->assertSame([LoginHistory::STEP_UP_CONFIRMED, 'second_factor'], $this->outcome($this->alice));
+	}
+
+	public function testANormalLoginFromAKnownDeviceProvesTheDevice(): void {
+		Server::get(FlaggedSources::class)->flagSource(SourceKey::fromIp($this->remoteAddress), FlaggedSources::REASON_ATTACK);
+		$this->startSession($this->alice);
+		$this->loginAndRecord($this->alice);
+		$this->verifyController()->confirm('482915', '', '1');
+
+		Server::get(FlaggedSources::class)->unflagSource(SourceKey::fromIp($this->remoteAddress));
+		$this->session->clear();
+		$this->nextRequest();
+		$this->startSession($this->alice);
+		$this->loginAndRecord($this->alice);
+		$this->assertNull($this->historyOf($this->alice)[0]->stepUp, 'Nothing was needed');
+		$this->assertSame(SessionConfirmation::PROVEN, $this->sessionConfirmation()->level($this->alice->getUID()));
 	}
 
 	public function testAppsThatSendThePasswordAreRecordedOnceADayPerAddressWithoutAMemoryCache(): void {
@@ -249,6 +277,7 @@ class LoginHistoryTest extends StepUpTestCase {
 				LoginHistory::class => $history ?? $this->history(),
 				KnownDevices::class => $this->knownDevices(),
 				LoginNotices::class => $this->createMock(LoginNotices::class),
+				SessionConfirmation::class => $this->sessionConfirmation(),
 			]),
 			Server::get(LoggerInterface::class),
 		);

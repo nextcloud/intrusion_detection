@@ -29,6 +29,8 @@ class SessionState {
 	public const STEP_UP = 'step_up';
 	/** How the login of this session was confirmed, when it needed confirmation */
 	public const CONFIRMATION = 'confirmation';
+	/** What a login that needed no confirmation proved beyond the password: core's second factor or a known device */
+	public const PROOF = 'proof';
 	/** Detections recorded at login, to be linked to the session token once it exists */
 	public const LOGIN_DETECTIONS = 'login_detections';
 	/** The login history row of this session's login, until its session token is linked and for later updates */

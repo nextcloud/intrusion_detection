@@ -10,6 +10,8 @@ declare(strict_types=1);
 namespace OCA\IntrusionDetection\Listener;
 
 use OCA\IntrusionDetection\Config\Settings;
+use OCA\IntrusionDetection\Confirm\IConfirmationMethod;
+use OCA\IntrusionDetection\Confirm\SessionConfirmation;
 use OCA\IntrusionDetection\KnownDevice\KnownDevices;
 use OCA\IntrusionDetection\Login\InteractiveLogin;
 use OCA\IntrusionDetection\LoginHistory\LoginHistory;
@@ -75,6 +77,7 @@ class LoginHistoryListener implements IEventListener {
 			$device = $interactive ? $devices->recognise($uid) : null;
 			if ($device !== null) {
 				$devices->used($device);
+				$this->container->get(SessionConfirmation::class)->proved($uid, IConfirmationMethod::KNOWN_DEVICE);
 			}
 			$this->container->get(LoginHistory::class)->record($uid, $method, $source, $this->request->getHeader('User-Agent'), $device, $browser);
 			if ($interactive) {

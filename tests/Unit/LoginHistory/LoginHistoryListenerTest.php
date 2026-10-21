@@ -10,6 +10,8 @@ declare(strict_types=1);
 namespace OCA\IntrusionDetection\Tests\Unit\LoginHistory;
 
 use OCA\IntrusionDetection\Config\Settings;
+use OCA\IntrusionDetection\Confirm\IConfirmationMethod;
+use OCA\IntrusionDetection\Confirm\SessionConfirmation;
 use OCA\IntrusionDetection\KnownDevice\KnownDevice;
 use OCA\IntrusionDetection\KnownDevice\KnownDevices;
 use OCA\IntrusionDetection\Listener\LoginHistoryListener;
@@ -48,6 +50,8 @@ class LoginHistoryListenerTest extends TestCase {
 	private array $noticed = [];
 	private int $secondFactors = 0;
 	private ?KnownDevice $device = null;
+	/** @var list<array{string, string}> */
+	private array $proofs = [];
 
 	/**
 	 * Request headers, Basic credentials in $_SERVER, method, path, password, token login, expected method, browser.
@@ -93,6 +97,7 @@ class LoginHistoryListenerTest extends TestCase {
 		$this->listener()->handle(new UserLoggedInEvent($this->user(), 'alice', 'secret', false));
 		$this->assertSame([['alice', LoginHistory::METHOD_PASSWORD, true, true]], $this->recorded);
 		$this->assertSame(['alice'], $this->noticed);
+		$this->assertSame([['alice', IConfirmationMethod::KNOWN_DEVICE]], $this->proofs, 'The session proved the device');
 	}
 
 	public function testBypassListedAddressesAreNotRecorded(): void {
@@ -139,12 +144,17 @@ class LoginHistoryListenerTest extends TestCase {
 		$notices->method('atLogin')->willReturnCallback(function (string $uid): void {
 			$this->noticed[] = $uid;
 		});
+		$confirmation = $this->createMock(SessionConfirmation::class);
+		$confirmation->method('proved')->willReturnCallback(function (string $uid, string $by): void {
+			$this->proofs[] = [$uid, $by];
+		});
 		if ($container === null) {
 			$container = $this->createMock(ContainerInterface::class);
 			$container->method('get')->willReturnCallback(static fn (string $id): object => match ($id) {
 				LoginHistory::class => $history,
 				KnownDevices::class => $devices,
 				LoginNotices::class => $notices,
+				SessionConfirmation::class => $confirmation,
 			});
 		}
 		return new LoginHistoryListener(

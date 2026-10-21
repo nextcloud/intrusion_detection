@@ -105,7 +105,7 @@ class SecurityChangeListener implements IEventListener {
 	 * this, the first login after a provider app was enabled would look like
 	 * every user turning their second factor off.
 	 */
-	private static function isStateBackfill(): bool {
+	public static function isStateBackfill(): bool {
 		foreach (debug_backtrace(DEBUG_BACKTRACE_IGNORE_ARGS, 24) as $frame) {
 			if (($frame['function'] ?? '') === 'fixMissingProviderStates' && ($frame['class'] ?? '') === TwoFactorManager::class) {
 				return true;

@@ -22,6 +22,7 @@ use OCA\IntrusionDetection\Confirm\Methods\KnownDeviceMethod;
 use OCA\IntrusionDetection\Confirm\Methods\SecondFactorMethod;
 use OCA\IntrusionDetection\Confirm\StepUpPolicy;
 use OCA\IntrusionDetection\Confirm\StepUpState;
+use OCA\IntrusionDetection\Confirm\UntrustedSecondFactors;
 use OCA\IntrusionDetection\Db\Approval;
 use OCA\IntrusionDetection\Db\ApprovalMapper;
 use OCA\IntrusionDetection\KnownDevice\KnownDevice;
@@ -194,7 +195,7 @@ class ConfirmationOrderTest extends TestCase {
 		$challenges->method('isAvailable')->willReturnCallback(fn (): bool => $this->secondFactor);
 		$registry = $this->createMock(IRegistry::class);
 		$registry->method('getProviderStates')->willReturnCallback(fn (): array => $this->secondFactor ? ['totp' => true] : []);
-		return new SecondFactorMethod($challenges, $registry);
+		return new SecondFactorMethod($challenges, $registry, $this->createMock(UntrustedSecondFactors::class));
 	}
 
 	private function knownDeviceMethod(): KnownDeviceMethod {

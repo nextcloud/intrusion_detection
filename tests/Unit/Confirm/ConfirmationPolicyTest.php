@@ -18,6 +18,7 @@ use OCA\IntrusionDetection\Confirm\Methods\SecondFactorMethod;
 use OCA\IntrusionDetection\Confirm\NoMethodOutcome;
 use OCA\IntrusionDetection\Confirm\StepUpPolicy;
 use OCA\IntrusionDetection\Confirm\StepUpState;
+use OCA\IntrusionDetection\Confirm\UntrustedSecondFactors;
 use OCP\Authentication\TwoFactorAuth\IChallengeRequester;
 use OCP\Authentication\TwoFactorAuth\IRegistry;
 use OCP\IUser;
@@ -81,19 +82,37 @@ class ConfirmationPolicyTest extends TestCase {
 
 	public function testOnlyASecondFactorThatIsSetUpCounts(): void {
 		$user = $this->createMock(IUser::class);
+		$user->method('getUID')->willReturn('u');
 		$challenges = $this->createMock(IChallengeRequester::class);
 		$challenges->method('isAvailable')->willReturn(true);
+		$challenges->expects($this->once())->method('requestChallenge')->with($user)->willReturn('/challenge');
 		$registry = $this->createMock(IRegistry::class);
-		$registry->method('getProviderStates')->willReturnOnConsecutiveCalls(['totp' => true], ['backup_codes' => true, 'totp' => false], []);
-		$method = new SecondFactorMethod($challenges, $registry);
+		$registry->method('getProviderStates')->willReturnOnConsecutiveCalls(['totp' => true], ['backup_codes' => true, 'totp' => false], [], ['totp' => true, 'webauthn' => true], ['totp' => true]);
+		$untrusted = $this->createMock(UntrustedSecondFactors::class);
+		$untrusted->method('marks')->willReturn(['totp' => 1]);
+		$untrusted->method('isTrusted')->willReturnCallback(static fn (string $uid, string $id): bool => $id !== 'totp');
+		$method = new SecondFactorMethod($challenges, $registry, $this->createMock(UntrustedSecondFactors::class));
 		$this->assertTrue($method->isAvailable($user, StepUpPolicy::FlaggedSource));
 		$this->assertFalse($method->isAvailable($user, StepUpPolicy::FlaggedSource), 'Backup codes alone, or a disabled provider, are not a second factor');
 		$this->assertFalse($method->isAvailable($user, StepUpPolicy::FlaggedSource), 'Two factors enforced without a provider: none yet');
-		$this->assertSame(IConfirmationMethod::CONFIRMED, $method->begin($user, new StepUpState('u', StepUpState::PENDING, [], 0, 0)), 'At login, core\'s challenge is the confirmation');
+
+		$state = new StepUpState('u', StepUpState::PENDING, [], 0, 0, methods: [IConfirmationMethod::SECOND_FACTOR, IConfirmationMethod::EMAIL_CODE]);
+		$this->assertSame(IConfirmationMethod::PENDING, $method->begin($user, $state), 'The login waits for core\'s challenge');
+		$this->assertTrue($state->secondFactorRequested);
+		$this->assertSame([IConfirmationMethod::SECOND_FACTOR], $state->methods, 'No code was sent, so none is offered');
+
+		$withUntrusted = new SecondFactorMethod($challenges, $registry, $untrusted);
+		$this->assertTrue($withUntrusted->isAvailable($user, StepUpPolicy::FlaggedSource), 'Another provider counts');
+		$this->assertFalse($withUntrusted->isAvailable($user, StepUpPolicy::FlaggedSource), 'One set up from an unconfirmed session does not');
+		$this->assertFalse($withUntrusted->confirms($user, 'totp'));
+		$this->assertTrue($withUntrusted->confirms($user, 'webauthn'));
 
 		$appPasswordSession = $this->createMock(IChallengeRequester::class);
 		$appPasswordSession->method('isAvailable')->willReturn(false);
-		$this->assertFalse((new SecondFactorMethod($appPasswordSession, $registry))->isAvailable($user, StepUpPolicy::FlaggedSource));
+		$appPasswordSession->method('requestChallenge')->willThrowException(new \LogicException('no'));
+		$noChallenge = new SecondFactorMethod($appPasswordSession, $registry, $untrusted);
+		$this->assertFalse($noChallenge->isAvailable($user, StepUpPolicy::FlaggedSource));
+		$this->assertSame(IConfirmationMethod::UNAVAILABLE, $noChallenge->begin($user, new StepUpState('u', StepUpState::PENDING, [], 0, 0)));
 	}
 
 	/**

@@ -14,7 +14,6 @@ use OCA\IntrusionDetection\Confirm\IConfirmationMethod;
 use OCA\IntrusionDetection\Confirm\StepUpState;
 use OCA\IntrusionDetection\Controller\VerifyController;
 use OCA\IntrusionDetection\Db\BanMapper;
-use OCA\IntrusionDetection\Listener\StepUpChallengePassedListener;
 use OCA\IntrusionDetection\Net\SourceKey;
 use OCA\IntrusionDetection\Notification\UserAlerts;
 use OCA\IntrusionDetection\Response\FlaggedSources;
@@ -29,14 +28,11 @@ use OCP\AppFramework\Http\RedirectResponse;
 use OCP\AppFramework\Http\Response;
 use OCP\AppFramework\Http\StandaloneTemplateResponse;
 use OCP\AppFramework\Utility\ITimeFactory;
-use OCP\Authentication\TwoFactorAuth\IProvider;
-use OCP\Authentication\TwoFactorAuth\TwoFactorProviderChallengePassed;
 use OCP\IURLGenerator;
 use OCP\IUser;
 use OCP\Server;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Group;
-use Psr\Log\LoggerInterface;
 
 /**
  * The verify page (concept sections 11.5 and 15.2) with a login from a
@@ -224,14 +220,13 @@ class VerifyFlowTest extends StepUpTestCase {
 		$this->service()->save($stepUp);
 		$this->assertTrue($this->paramOf($this->verifyController()->show(), 'secondFactor'));
 
-		$passed = new TwoFactorProviderChallengePassed($this->alice, $this->createMock(IProvider::class));
-		(new StepUpChallengePassedListener($this->service(), Server::get(LoggerInterface::class)))->handle($passed);
+		$this->passChallenge($this->alice);
 		$this->assertNotNull($this->stepUp(), 'Not asked for: a challenge passed for something else does not count');
 
 		$response = $this->verifyController()->secondFactor('/index.php/apps/files/');
 		$this->assertInstanceOf(RedirectResponse::class, $response);
 		$this->assertSame('/index.php/login/challenge?redirect_url=back', $response->getRedirectURL());
-		(new StepUpChallengePassedListener($this->service(), Server::get(LoggerInterface::class)))->handle($passed);
+		$this->passChallenge($this->alice);
 		$this->assertNull($this->stepUp());
 		$this->assertSame('second_factor', $this->state->get(SessionState::CONFIRMATION)['by'] ?? null);
 	}

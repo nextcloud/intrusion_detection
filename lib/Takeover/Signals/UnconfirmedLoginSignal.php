@@ -10,6 +10,7 @@ declare(strict_types=1);
 namespace OCA\IntrusionDetection\Takeover\Signals;
 
 use OCA\IntrusionDetection\Confirm\StepUpService;
+use OCA\IntrusionDetection\Confirm\StepUpState;
 use OCA\IntrusionDetection\SessionState\CurrentSession;
 use OCA\IntrusionDetection\SessionState\SessionState;
 use OCA\IntrusionDetection\Takeover\IRiskyLoginSignal;
@@ -17,7 +18,9 @@ use OCA\IntrusionDetection\Takeover\RiskyLogin;
 
 /**
  * The current session's login needed a confirmation (a step-up reason),
- * and the policies let it in without one (`confirmed_by = none`). How the
+ * and still waits for it (a change made at a page the pending login may
+ * reach, such as core's second-factor setup) or the policies let it in
+ * without one (`confirmed_by = none`). How the
  * login was confirmed is kept in the session ({@see SessionState::CONFIRMATION});
  * a login confirmed with a second factor or an email code is not risky.
  *
@@ -35,6 +38,10 @@ class UnconfirmedLoginSignal implements IRiskyLoginSignal {
 	public function riskyLogin(string $uid, ?int $sessionTokenId): ?RiskyLogin {
 		if ($sessionTokenId === null || $this->currentSession->tokenId() !== $sessionTokenId) {
 			return null;
+		}
+		$stepUp = StepUpState::fromArray($this->state->get(SessionState::STEP_UP) ?? []);
+		if ($stepUp !== null && $stepUp->uid === $uid) {
+			return new RiskyLogin($stepUp->started, RiskyLogin::REASON_UNCONFIRMED, $stepUp->policies);
 		}
 		$confirmation = $this->state->get(SessionState::CONFIRMATION);
 		if ($confirmation === null || ($confirmation['uid'] ?? null) !== $uid || ($confirmation['by'] ?? null) !== StepUpService::CONFIRMED_BY_NONE) {

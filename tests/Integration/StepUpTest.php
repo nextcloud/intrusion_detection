@@ -125,21 +125,61 @@ class StepUpTest extends StepUpTestCase {
 		$this->assertNull($this->stepUp());
 	}
 
-	public function testAccountsWithASecondFactorAreNotAskedAgain(): void {
+	public function testAccountsWithASecondFactorWaitForCoresChallenge(): void {
 		$this->hasSecondFactor = true;
 		$this->give(StepUpPolicy::FlaggedSource, $this->alice);
 		$this->login($this->alice);
-		$this->assertNull($this->stepUp(), 'Core\'s challenge right after the password is the confirmation');
-		$this->assertSame([], $this->mailed);
+		$stepUp = $this->stepUp();
+		$this->assertSame(StepUpState::PENDING, $stepUp?->status, 'Stopped at core\'s challenge: not confirmed yet');
+		$this->assertSame([IConfirmationMethod::SECOND_FACTOR], $stepUp->methods);
+		$this->assertTrue($stepUp->secondFactorRequested);
+		$this->assertSame([], $this->mailed, 'No code: the second factor is asked instead');
+		$this->assertNull($this->state->get(SessionState::CONFIRMATION));
+
+		$this->passChallenge($this->alice);
+		$this->assertNull($this->stepUp());
 		$this->assertSame('second_factor', $this->state->get(SessionState::CONFIRMATION)['by'] ?? null);
 		$this->assertSame(0, $this->unconfirmedRows());
+	}
+
+	public function testASecondFactorSetUpFromAnUnconfirmedSessionNeverConfirms(): void {
+		$this->give(StepUpPolicy::FlaggedSource, $this->alice);
+		$this->login($this->alice);
+		$this->assertTrue($this->stepUp()?->hasMethod(IConfirmationMethod::EMAIL_CODE));
+		$this->untrustedSecondFactors()->registered($this->alice->getUID(), 'totp');
+		$this->hasSecondFactor = true;
+		$this->passChallenge($this->alice);
+		$this->assertTrue($this->stepUp()?->isPending(), 'A challenge with the new provider confirms nothing');
+
+		$this->session->clear();
+		$this->login($this->alice);
+		$this->assertSame([IConfirmationMethod::EMAIL_CODE], $this->stepUp()?->methods, 'Not offered at the next login either');
+
+		$this->untrustedSecondFactors()->unregistered($this->alice->getUID(), 'totp');
+		$this->session->clear();
+		$this->login($this->alice);
+		$this->assertSame([IConfirmationMethod::SECOND_FACTOR], $this->stepUp()?->methods, 'Removed and set up again: it counts');
+	}
+
+	public function testASecondFactorSetUpFromAConfirmedSessionCounts(): void {
+		$this->untrustedSecondFactors()->registered($this->alice->getUID(), 'totp');
+		$this->assertSame([], $this->untrustedSecondFactors()->marks($this->alice->getUID()), 'Nobody logged in: an administrator or occ');
+		$this->sessionUser = $this->alice;
+		$this->untrustedSecondFactors()->registered($this->alice->getUID(), 'totp');
+		$this->assertSame([], $this->untrustedSecondFactors()->marks($this->alice->getUID()));
+		$this->state->set(SessionState::CONFIRMATION, ['uid' => $this->alice->getUID(), 'by' => 'none', 'policies' => [], 'at' => time()]);
+		$this->untrustedSecondFactors()->registered($this->alice->getUID(), 'totp');
+		$this->assertArrayHasKey('totp', $this->untrustedSecondFactors()->marks($this->alice->getUID()), 'Let in without a confirmation');
+		$this->state->set(SessionState::CONFIRMATION, ['uid' => $this->alice->getUID(), 'by' => 'email_code', 'policies' => [], 'at' => time()]);
+		$this->untrustedSecondFactors()->registered($this->alice->getUID(), 'totp');
+		$this->assertSame([], $this->untrustedSecondFactors()->marks($this->alice->getUID()), 'Set up again from a confirmed session');
 	}
 
 	public function testASprayedPasswordIsReportedEvenWithASecondFactor(): void {
 		$this->hasSecondFactor = true;
 		$this->give(StepUpPolicy::SprayedPassword, $this->alice);
 		$this->login($this->alice);
-		$this->assertNull($this->stepUp());
+		$this->assertSame([IConfirmationMethod::SECOND_FACTOR], $this->stepUp()?->methods);
 		$this->assertTrue(Server::get(PasswordChangeFlag::class)->isRequired($this->alice->getUID()), 'Attackers know the password: it must change');
 		$this->assertCount(1, $this->notificationsFor($this->alice->getUID(), UserAlerts::SUBJECT));
 	}

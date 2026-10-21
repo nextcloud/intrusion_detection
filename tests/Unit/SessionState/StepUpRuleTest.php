@@ -14,6 +14,7 @@ use OC\Core\Controller\TwoFactorChallengeController;
 use OC\Session\Memory;
 use OCA\IntrusionDetection\Check\Checks\StepUpFailed;
 use OCA\IntrusionDetection\Confirm\LoginDetections;
+use OCA\IntrusionDetection\Confirm\SecondFactorSetup;
 use OCA\IntrusionDetection\Confirm\StepUpService;
 use OCA\IntrusionDetection\Confirm\StepUpState;
 use OCA\IntrusionDetection\Controller\PasswordChangeController;
@@ -25,6 +26,7 @@ use OCA\IntrusionDetection\SessionState\SessionState;
 use OCA\IntrusionDetection\SessionState\SessionStateRules;
 use OCP\AppFramework\Controller;
 use OCP\AppFramework\Utility\ITimeFactory;
+use OCP\Authentication\TwoFactorAuth\ALoginSetupController;
 use OCP\IURLGenerator;
 use OCP\IUser;
 use OCP\IUserSession;
@@ -45,6 +47,7 @@ class StepUpRuleTest extends TestCase {
 	/** @var LoginDetections&MockObject */
 	private LoginDetections $linker;
 	private bool $serviceLoaded = false;
+	private bool $setupRequired = false;
 
 	protected function setUp(): void {
 		parent::setUp();
@@ -82,6 +85,13 @@ class StepUpRuleTest extends TestCase {
 		$this->assertNull($this->rule()->check($this->state, $this->target(LoginController::class, 'logout')));
 		$this->assertNotNull($this->rule()->check($this->state, $this->target(LoginController::class, 'showLoginForm')));
 		$this->assertNotNull($this->rule()->check($this->state, $this->target(PasswordChangeController::class, 'show')), 'The password page needs a confirmed login');
+	}
+
+	public function testASecondFactorCanOnlyBeSetUpWhileCoreRequiresIt(): void {
+		$this->pending();
+		$this->assertNotNull($this->rule()->check($this->state, $this->target(ALoginSetupController::class)), 'A pending login must not add its own second factor');
+		$this->setupRequired = true;
+		$this->assertNull($this->rule()->check($this->state, $this->target(ALoginSetupController::class)), 'Two factors enforced and none set up: core holds the login there');
 	}
 
 	public function testATimedOutLoginIsFailedAndEnded(): void {
@@ -166,6 +176,11 @@ class StepUpRuleTest extends TestCase {
 		$container = $this->createMock(ContainerInterface::class);
 		$container->method('get')->willReturnCallback(function (string $id): object {
 			$this->serviceLoaded = true;
+			if ($id === SecondFactorSetup::class) {
+				$setup = $this->createMock(SecondFactorSetup::class);
+				$setup->method('isRequired')->willReturn($this->setupRequired);
+				return $setup;
+			}
 			return $id === LoginDetections::class ? $this->linker : $this->service;
 		});
 		return new StepUpRule($userSession, $urls, $time, $container, $this->createMock(LoggerInterface::class));

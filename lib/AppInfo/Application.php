@@ -50,6 +50,7 @@ use OCA\IntrusionDetection\Listener\SecurityChangeListener;
 use OCA\IntrusionDetection\Listener\ShareAccessFailedListener;
 use OCA\IntrusionDetection\Listener\StepUpChallengePassedListener;
 use OCA\IntrusionDetection\Listener\StepUpLoginListener;
+use OCA\IntrusionDetection\Listener\UntrustedSecondFactorListener;
 use OCA\IntrusionDetection\Listener\UserDeletedListener;
 use OCA\IntrusionDetection\Middleware\PayloadMiddleware;
 use OCA\IntrusionDetection\Middleware\SessionStateMiddleware;
@@ -142,6 +143,8 @@ class Application extends App implements IBootstrap {
 		$context->registerEventListener(UserLoggedInEvent::class, StepUpLoginListener::class, StepUpLoginListener::PRIORITY);
 		$context->registerEventListener(UserLoggedInWithCookieEvent::class, StepUpLoginListener::class, StepUpLoginListener::PRIORITY);
 		$context->registerEventListener(TwoFactorProviderChallengePassed::class, StepUpChallengePassedListener::class);
+		$context->registerEventListener(TwoFactorProviderForUserRegistered::class, UntrustedSecondFactorListener::class);
+		$context->registerEventListener(TwoFactorProviderForUserUnregistered::class, UntrustedSecondFactorListener::class);
 		// After the step-up listener, so that the history says how the login was confirmed.
 		$context->registerEventListener(UserLoggedInEvent::class, LoginHistoryListener::class);
 		$context->registerEventListener(UserLoggedInWithCookieEvent::class, LoginHistoryListener::class);
