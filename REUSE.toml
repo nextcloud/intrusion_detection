@@ -1,0 +1,28 @@
+version = 1
+SPDX-PackageName = "intrusion_detection"
+SPDX-PackageSupplier = "Nextcloud <info@nextcloud.com>"
+SPDX-PackageDownloadLocation = "https://github.com/nextcloud/intrusion_detection"
+
+[[annotations]]
+path = ["l10n/**.js", "l10n/**.json"]
+precedence = "aggregate"
+SPDX-FileCopyrightText = "2026 Nextcloud translators"
+SPDX-License-Identifier = "AGPL-3.0-or-later"
+
+[[annotations]]
+path = ["package.json", "package-lock.json", "tsconfig.json", "openapi-administration.json", "openapi-full.json", "composer/composer.json", "composer/composer.lock", "composer/composer/installed.json", "tests/fixtures/**"]
+precedence = "aggregate"
+SPDX-FileCopyrightText = "2026 Nextcloud GmbH and Nextcloud contributors"
+SPDX-License-Identifier = "AGPL-3.0-or-later"
+
+[[annotations]]
+path = ["composer/autoload.php", "composer/composer/**.php"]
+precedence = "aggregate"
+SPDX-FileCopyrightText = "Nils Adermann, Jordi Boggiano"
+SPDX-License-Identifier = "MIT"
+
+[[annotations]]
+path = ["img/app.svg", "img/app-dark.svg"]
+precedence = "aggregate"
+SPDX-FileCopyrightText = "2018-2026 Pictogrammers <https://pictogrammers.com/>"
+SPDX-License-Identifier = "Apache-2.0"
