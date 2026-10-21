@@ -13,6 +13,7 @@ import NcButton from '@nextcloud/vue/components/NcButton'
 import NcIconSvgWrapper from '@nextcloud/vue/components/NcIconSvgWrapper'
 import NcLoadingIcon from '@nextcloud/vue/components/NcLoadingIcon'
 import NcNoteCard from '@nextcloud/vue/components/NcNoteCard'
+import NcTextArea from '@nextcloud/vue/components/NcTextArea'
 import PayloadResult from './PayloadResult.vue'
 import { useAnnouncer } from '../../composables/useAnnouncer.ts'
 import { errorMessage, testPayload } from '../../services/api.ts'
@@ -77,15 +78,15 @@ function tryExample(value: string) {
 			{{ t(APP_ID, 'Paste a web address from your logs, or a single value, and see exactly what the check does with it. Nothing is sent to that address and nothing is recorded.') }}
 		</p>
 		<form :class="$style.tester__form" @submit.prevent="test">
-			<label :for="`${id}-input`" class="hidden-visually">{{ t(APP_ID, 'Web address or value to test with {check}', { check: check.texts.name }) }}</label>
-			<textarea
-				:id="`${id}-input`"
+			<NcTextArea
 				v-model="input"
 				:class="$style.tester__input"
+				:label="t(APP_ID, 'Web address or value to test with {check}', { check: check.texts.name })"
 				rows="2"
+				resize="vertical"
 				spellcheck="false"
 				autocomplete="off"
-				:placeholder="t(APP_ID, 'https://cloud.example.com/index.php/apps/foo/?id=1 UNION SELECT 1')"
+				:placeholder="t(APP_ID, 'e.g. {example}', { example: 'https://cloud.example.com/index.php/apps/foo/?id=1 UNION SELECT 1' }, undefined, { escape: false, sanitize: false })"
 				data-test="payload-input"
 				@keydown.enter.exact.prevent="test" />
 			<NcButton type="submit" variant="primary" :disabled="busy">
@@ -151,13 +152,14 @@ function tryExample(value: string) {
 	gap: calc(var(--default-grid-baseline) * 2);
 }
 
-.tester__input {
+.tester__form .tester__input {
 	flex: 1 1 260px;
-	min-height: 44px;
 	margin: 0;
+}
+
+.tester__input :global(textarea) {
 	font-family: var(--font-face-monospace, ui-monospace, 'SFMono-Regular', Menlo, Consolas, monospace);
 	font-size: 0.9em;
-	resize: vertical;
 }
 
 .tester__examples {

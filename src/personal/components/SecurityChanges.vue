@@ -9,9 +9,9 @@ import type { SecurityChange } from '../../secureAccountTypes.ts'
 import { mdiShieldEditOutline } from '@mdi/js'
 import { t } from '@nextcloud/l10n'
 import { computed, onMounted } from 'vue'
-import NcDateTime from '@nextcloud/vue/components/NcDateTime'
 import NcIconSvgWrapper from '@nextcloud/vue/components/NcIconSvgWrapper'
 import SectionCard from '../../components/common/SectionCard.vue'
+import TimeStamp from '../../components/common/TimeStamp.vue'
 import EmptyLine from './EmptyLine.vue'
 import LoadError from './LoadError.vue'
 import SkeletonRows from './SkeletonRows.vue'
@@ -92,7 +92,7 @@ onMounted(load)
 						<span v-if="values(change)" :class="$style.change__values">{{ values(change) }}</span>
 					</p>
 					<p :class="$style.change__meta">
-						<NcDateTime :timestamp="change.createdAt * 1000" relativeTime="long" :format="{ dateStyle: 'long', timeStyle: 'short', timeZone }" />
+						<TimeStamp :timestamp="change.createdAt" :timeZone="timeZone" />
 						<template v-if="by(change)">
 							· {{ by(change) }}
 						</template>

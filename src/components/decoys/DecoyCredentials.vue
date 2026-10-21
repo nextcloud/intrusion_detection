@@ -11,13 +11,13 @@ import { showError } from '@nextcloud/dialogs'
 import { n, t } from '@nextcloud/l10n'
 import { computed, ref } from 'vue'
 import NcButton from '@nextcloud/vue/components/NcButton'
-import NcDateTime from '@nextcloud/vue/components/NcDateTime'
 import NcDialog from '@nextcloud/vue/components/NcDialog'
 import NcIconSvgWrapper from '@nextcloud/vue/components/NcIconSvgWrapper'
 import CheckStateNote from '../common/CheckStateNote.vue'
 import EmptyNote from '../common/EmptyNote.vue'
 import SectionCard from '../common/SectionCard.vue'
 import StateBadge from '../common/StateBadge.vue'
+import TimeStamp from '../common/TimeStamp.vue'
 import CreateDecoyDialog from './CreateDecoyDialog.vue'
 import DecoySecretDialog from './DecoySecretDialog.vue'
 import { useAnnouncer } from '../../composables/useAnnouncer.ts'
@@ -118,7 +118,7 @@ async function remove() {
 						<span aria-hidden="true">·</span>
 						<span :class="$style.decoy__created">
 							<span>{{ t(APP_ID, 'created') }}</span>
-							<NcDateTime :timestamp="decoy.createdAt * 1000" relativeTime="short" />
+							<TimeStamp :timestamp="decoy.createdAt" short />
 							<span v-if="decoy.createdBy">{{ t(APP_ID, 'by {admin}', { admin: decoy.createdBy }, undefined, { escape: false, sanitize: false }) }}</span>
 						</span>
 					</span>
@@ -136,7 +136,7 @@ async function remove() {
 					</StateBadge>
 					<span v-if="decoy.lastTriggeredAt" :class="[$style.decoy__last, $style.decoy__created]">
 						<span>{{ t(APP_ID, 'last') }}</span>
-						<NcDateTime :timestamp="decoy.lastTriggeredAt * 1000" />
+						<TimeStamp :timestamp="decoy.lastTriggeredAt" />
 					</span>
 				</div>
 				<NcButton

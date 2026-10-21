@@ -10,13 +10,13 @@ import { mdiClose, mdiLockOpenVariantOutline, mdiMagnify } from '@mdi/js'
 import { n, t } from '@nextcloud/l10n'
 import { computed, ref } from 'vue'
 import NcButton from '@nextcloud/vue/components/NcButton'
-import NcDateTime from '@nextcloud/vue/components/NcDateTime'
 import NcIconSvgWrapper from '@nextcloud/vue/components/NcIconSvgWrapper'
 import NcLoadingIcon from '@nextcloud/vue/components/NcLoadingIcon'
 import NcNoteCard from '@nextcloud/vue/components/NcNoteCard'
 import NcTextField from '@nextcloud/vue/components/NcTextField'
 import ReferencePill from '../common/ReferencePill.vue'
 import SeverityPill from '../common/SeverityPill.vue'
+import TimeStamp from '../common/TimeStamp.vue'
 import { useAnnouncer } from '../../composables/useAnnouncer.ts'
 import { errorMessage, lookup } from '../../services/api.ts'
 import { logger } from '../../services/logger.ts'
@@ -146,7 +146,7 @@ function clear() {
 							<code>{{ ban.cidr }}</code>
 							<ReferencePill :reference="ban.reference" />
 							<span v-if="ban.active" :class="$style.result__muted">
-								{{ t(APP_ID, 'blocked until') }} <NcDateTime :timestamp="ban.expiresAt * 1000" :relativeTime="false" />
+								{{ t(APP_ID, 'blocked until') }} <TimeStamp :timestamp="ban.expiresAt" />
 							</span>
 							<span v-else :class="$style.result__muted">
 								{{ ban.liftedAt ? t(APP_ID, 'lifted by {admin}', { admin: ban.liftedBy ?? '' }) : t(APP_ID, 'ended') }}
@@ -172,7 +172,7 @@ function clear() {
 								<SeverityPill :severity="detection.severity" />
 								<span :class="$style.result__detectionName">{{ detection.checkName }}</span>
 								<span :class="$style.result__muted">{{ detection.enforced ? t(APP_ID, 'Acted on') : t(APP_ID, 'Observed') }}</span>
-								<NcDateTime :class="$style.result__muted" :timestamp="detection.lastSeenAt * 1000" relativeTime="short" />
+								<TimeStamp :class="$style.result__muted" :timestamp="detection.lastSeenAt" short />
 							</button>
 						</li>
 					</ul>

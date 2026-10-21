@@ -9,8 +9,8 @@ import type { IncidentSummary } from '../../types.ts'
 import { mdiAccountGroupOutline, mdiCheckCircleOutline, mdiDatabaseOutline, mdiFlagOutline, mdiTimelineClockOutline } from '@mdi/js'
 import { n, t } from '@nextcloud/l10n'
 import { computed } from 'vue'
-import NcDateTime from '@nextcloud/vue/components/NcDateTime'
 import NcIconSvgWrapper from '@nextcloud/vue/components/NcIconSvgWrapper'
+import TimeStamp from '../common/TimeStamp.vue'
 import { APP_ID, formatNumber } from '../../utils/format.ts'
 
 const props = defineProps<{
@@ -53,11 +53,7 @@ const sections = computed(() => [
 				<div v-for="fact in facts" :key="fact.id" :class="$style.summary__fact">
 					<dt>{{ fact.label }}</dt>
 					<dd>
-						<NcDateTime
-							v-if="fact.at !== null"
-							:timestamp="fact.at * 1000"
-							:relativeTime="false"
-							:format="{ dateStyle: 'medium', timeStyle: 'short' }" />
+						<TimeStamp v-if="fact.at !== null" :timestamp="fact.at" />
 						<span v-else>–</span>
 					</dd>
 				</div>

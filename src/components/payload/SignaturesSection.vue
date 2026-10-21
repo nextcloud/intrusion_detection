@@ -15,6 +15,9 @@ import NcCheckboxRadioSwitch from '@nextcloud/vue/components/NcCheckboxRadioSwit
 import NcIconSvgWrapper from '@nextcloud/vue/components/NcIconSvgWrapper'
 import NcLoadingIcon from '@nextcloud/vue/components/NcLoadingIcon'
 import NcNoteCard from '@nextcloud/vue/components/NcNoteCard'
+import NcTextField from '@nextcloud/vue/components/NcTextField'
+import SelectField from '../common/SelectField.vue'
+import ShowMore from '../common/ShowMore.vue'
 import SkeletonBlock from '../common/SkeletonBlock.vue'
 import StateBadge from '../common/StateBadge.vue'
 import { useAnnouncer } from '../../composables/useAnnouncer.ts'
@@ -183,11 +186,13 @@ async function remove(entry: string) {
 		</div>
 
 		<template v-else>
-			<details v-for="group in groups" :key="group.id" :class="$style.group">
-				<summary :class="$style.group__summary">
-					<span>{{ group.name }}</span>
-					<span :class="$style.muted">{{ n(APP_ID, '%n signature', '%n signatures', group.signatures.length) }}</span>
-				</summary>
+			<ShowMore
+				v-for="group in groups"
+				:key="group.id"
+				:class="$style.group"
+				variant="row"
+				:label="group.name"
+				:note="n(APP_ID, '%n signature', '%n signatures', group.signatures.length)">
 				<ul :class="$style.list">
 					<li v-for="signature in group.signatures" :key="signature.id" :class="[$style.sig, { [$style.sig_off]: !signature.enabled }]">
 						<NcCheckboxRadioSwitch
@@ -212,7 +217,7 @@ async function remove(entry: string) {
 						</span>
 					</li>
 				</ul>
-			</details>
+			</ShowMore>
 
 			<div :class="$style.custom">
 				<h6 :class="$style.custom__heading">
@@ -245,26 +250,24 @@ async function remove(entry: string) {
 				</p>
 
 				<form :class="$style.custom__form" @submit.prevent="add">
-					<label :class="$style.custom__weight">
-						<span>{{ t(APP_ID, 'Weight') }}</span>
-						<select v-model.number="weight" :disabled="busy !== null">
-							<option v-for="w in 9" :key="w" :value="w">{{ w }}</option>
-						</select>
-					</label>
-					<label :class="$style.custom__pattern">
-						<span>{{ t(APP_ID, 'Regular expression') }}</span>
-						<input
-							v-model="pattern"
-							type="text"
-							spellcheck="false"
-							autocomplete="off"
-							placeholder="union\s+distinct\s+select"
-							:maxlength="catalog.maxLength"
-							:disabled="busy !== null"
-							:aria-invalid="(patternError ?? localProblem) ? 'true' : undefined"
-							:aria-describedby="`${id}-pattern-hint`"
-							data-test="signature-pattern">
-					</label>
+					<SelectField
+						v-model="weight"
+						:class="$style.custom__weight"
+						:label="t(APP_ID, 'Weight')"
+						:options="[1, 2, 3, 4, 5, 6, 7, 8, 9].map((w) => ({ value: w, label: String(w) }))"
+						:disabled="busy !== null" />
+					<NcTextField
+						v-model="pattern"
+						:class="$style.custom__pattern"
+						:label="t(APP_ID, 'Regular expression')"
+						spellcheck="false"
+						autocomplete="off"
+						:placeholder="t(APP_ID, 'e.g. {example}', { example: 'union\\s+distinct\\s+select' }, undefined, { escape: false, sanitize: false })"
+						:maxlength="catalog.maxLength"
+						:disabled="busy !== null"
+						:error="(patternError ?? localProblem) !== null"
+						:aria-describedby="`${id}-pattern-hint`"
+						data-test="signature-pattern" />
 					<NcButton type="submit" variant="secondary" :disabled="busy !== null || pattern.trim() === '' || localProblem !== null">
 						<template #icon>
 							<NcLoadingIcon v-if="busy === 'add'" />
@@ -327,27 +330,6 @@ async function remove(entry: string) {
 .group {
 	border: 1px solid var(--color-border);
 	border-radius: var(--border-radius-large);
-}
-
-.group__summary {
-	display: flex;
-	align-items: center;
-	justify-content: space-between;
-	gap: calc(var(--default-grid-baseline) * 2);
-	min-height: var(--default-clickable-area);
-	padding-inline: calc(var(--default-grid-baseline) * 3);
-	border-radius: var(--border-radius-large);
-	font-weight: 600;
-	cursor: pointer;
-}
-
-.group__summary:hover {
-	background-color: var(--color-background-hover);
-}
-
-.group__summary:focus-visible {
-	outline: 2px solid var(--color-main-text);
-	outline-offset: -2px;
 }
 
 .list {
@@ -447,25 +429,16 @@ async function remove(entry: string) {
 	gap: calc(var(--default-grid-baseline) * 2);
 }
 
-.custom__form label {
-	display: flex;
-	flex-direction: column;
-	gap: calc(var(--default-grid-baseline) * 1);
-	font-weight: 600;
+.custom__form .custom__weight {
+	flex: 0 0 110px;
 }
 
-.custom__weight select {
-	width: 5em;
-	margin: 0;
-}
-
-.custom__pattern {
+.custom__form .custom__pattern {
 	flex: 1 1 220px;
+	margin: 0;
 }
 
-.custom__pattern input {
-	width: 100%;
-	margin: 0;
+.custom__pattern :global(input) {
 	font-family: var(--font-face-monospace, ui-monospace, 'SFMono-Regular', Menlo, Consolas, monospace);
 }
 

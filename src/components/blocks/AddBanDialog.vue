@@ -8,11 +8,13 @@ import type { Ban } from '../../types.ts'
 
 import { t } from '@nextcloud/l10n'
 import { computed, ref, watch } from 'vue'
+import NcCheckboxRadioSwitch from '@nextcloud/vue/components/NcCheckboxRadioSwitch'
 import NcDialog from '@nextcloud/vue/components/NcDialog'
 import NcNoteCard from '@nextcloud/vue/components/NcNoteCard'
 import NcTextArea from '@nextcloud/vue/components/NcTextArea'
 import NcTextField from '@nextcloud/vue/components/NcTextField'
 import DurationInput from '../checks/DurationInput.vue'
+import SelectField from '../common/SelectField.vue'
 import { useAnnouncer } from '../../composables/useAnnouncer.ts'
 import { addBan, ApiError, errorMessage, isCancelled } from '../../services/api.ts'
 import { logger } from '../../services/logger.ts'
@@ -139,7 +141,7 @@ async function submit() {
 		:buttons="buttons"
 		size="normal"
 		@submit="submit">
-		<div :class="$style.dialog">
+		<div :class="$style.dialog" @keydown.esc="open = false">
 			<p>{{ t(APP_ID, 'Requests from the address get an error page with a reference until the block ends. A whole network can be blocked as a /24 (IPv4) or /64 (IPv6).') }}</p>
 			<NcTextField
 				v-model="target"
@@ -155,23 +157,27 @@ async function submit() {
 				<legend :class="$style.dialog__legend">
 					{{ t(APP_ID, 'How long') }}
 				</legend>
-				<label :class="$style.dialog__radio">
-					<input v-model="length" type="radio" value="level">
-					<span>{{ t(APP_ID, 'Like an automatic block') }}</span>
-				</label>
-				<select
+				<NcCheckboxRadioSwitch
+					v-model="length"
+					type="radio"
+					value="level"
+					name="ids-ban-length">
+					{{ t(APP_ID, 'Like an automatic block') }}
+				</NcCheckboxRadioSwitch>
+				<SelectField
 					v-if="length === 'level'"
-					v-model.number="level"
+					v-model="level"
 					:class="$style.dialog__select"
-					:aria-label="t(APP_ID, 'Escalation level')">
-					<option v-for="option in levels" :key="option.value" :value="option.value">
-						{{ option.label }}
-					</option>
-				</select>
-				<label :class="$style.dialog__radio">
-					<input v-model="length" type="radio" value="custom">
-					<span>{{ t(APP_ID, 'For a time I choose') }}</span>
-				</label>
+					:label="t(APP_ID, 'Escalation level')"
+					hideLabel
+					:options="levels" />
+				<NcCheckboxRadioSwitch
+					v-model="length"
+					type="radio"
+					value="custom"
+					name="ids-ban-length">
+					{{ t(APP_ID, 'For a time I choose') }}
+				</NcCheckboxRadioSwitch>
 				<template v-if="length === 'custom'">
 					<DurationInput v-model="duration" :label="t(APP_ID, 'Duration')" :invalid="durationError !== null" />
 					<p v-if="durationError" :class="$style.dialog__error">
@@ -220,22 +226,9 @@ async function submit() {
 	font-weight: 600;
 }
 
-.dialog__radio {
-	display: inline-flex;
-	align-items: center;
-	gap: calc(var(--default-grid-baseline) * 2);
-	cursor: pointer;
-}
-
-.dialog__radio input {
-	margin: 0;
-	accent-color: var(--color-primary-element);
-}
-
 .dialog__select {
 	max-width: 320px;
-	margin: 0;
-	margin-inline-start: calc(var(--default-grid-baseline) * 6);
+	margin-inline-start: calc(var(--default-grid-baseline) * 9);
 }
 
 .dialog__error {

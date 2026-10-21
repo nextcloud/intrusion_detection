@@ -11,7 +11,6 @@ import { n, t } from '@nextcloud/l10n'
 import { computed, onActivated, onMounted, ref, watch } from 'vue'
 import NcButton from '@nextcloud/vue/components/NcButton'
 import NcCheckboxRadioSwitch from '@nextcloud/vue/components/NcCheckboxRadioSwitch'
-import NcDateTime from '@nextcloud/vue/components/NcDateTime'
 import NcIconSvgWrapper from '@nextcloud/vue/components/NcIconSvgWrapper'
 import NcLoadingIcon from '@nextcloud/vue/components/NcLoadingIcon'
 import NcNoteCard from '@nextcloud/vue/components/NcNoteCard'
@@ -22,6 +21,7 @@ import EmptyNote from '../components/common/EmptyNote.vue'
 import ReferencePill from '../components/common/ReferencePill.vue'
 import SettingsGroup from '../components/common/SettingsGroup.vue'
 import SkeletonBlock from '../components/common/SkeletonBlock.vue'
+import TimeStamp from '../components/common/TimeStamp.vue'
 import { blocksPanels } from '../extensions.ts'
 import { errorMessage, fetchBans } from '../services/api.ts'
 import { logger } from '../services/logger.ts'
@@ -184,13 +184,13 @@ function openDetection(ban: Ban) {
 								{{ levelLabel(ban) }}
 							</td>
 							<td :data-label="t(APP_ID, 'Since')">
-								<NcDateTime :timestamp="ban.createdAt * 1000" relativeTime="short" />
+								<TimeStamp :timestamp="ban.createdAt" short />
 							</td>
 							<td :data-label="t(APP_ID, 'Until')">
 								<template v-if="ban.liftedAt">
 									{{ t(APP_ID, 'lifted by {admin}', { admin: ban.liftedBy ?? '' }) }}
 								</template>
-								<NcDateTime v-else :timestamp="ban.expiresAt * 1000" relativeTime="short" />
+								<TimeStamp v-else :timestamp="ban.expiresAt" short />
 							</td>
 							<td :data-label="t(APP_ID, 'Reason')">
 								<button

@@ -12,11 +12,11 @@ import { t } from '@nextcloud/l10n'
 import { computed, ref } from 'vue'
 import NcAvatar from '@nextcloud/vue/components/NcAvatar'
 import NcButton from '@nextcloud/vue/components/NcButton'
-import NcDateTime from '@nextcloud/vue/components/NcDateTime'
 import NcDialog from '@nextcloud/vue/components/NcDialog'
 import NcIconSvgWrapper from '@nextcloud/vue/components/NcIconSvgWrapper'
 import NcLoadingIcon from '@nextcloud/vue/components/NcLoadingIcon'
 import EmptyNote from '../common/EmptyNote.vue'
+import TimeStamp from '../common/TimeStamp.vue'
 import { useAnnouncer } from '../../composables/useAnnouncer.ts'
 import { approveRequest, errorMessage, isCancelled, rejectRequest } from '../../services/api.ts'
 import { logger } from '../../services/logger.ts'
@@ -108,8 +108,8 @@ function address(approval: LoginApproval): string {
 					<span :class="$style.item__name">{{ approval.displayName }} <span :class="$style.item__uid">{{ approval.uid }}</span></span>
 					<span :class="$style.item__meta">
 						{{ t(APP_ID, 'From {address}', { address: address(approval) }, undefined, opts) }} ·
-						{{ t(APP_ID, 'asked') }} <NcDateTime :timestamp="approval.createdAt * 1000" /> ·
-						{{ t(APP_ID, 'expires') }} <NcDateTime :timestamp="approval.expiresAt * 1000" />
+						{{ t(APP_ID, 'asked') }} <TimeStamp :timestamp="approval.createdAt" /> ·
+						{{ t(APP_ID, 'expires') }} <TimeStamp :timestamp="approval.expiresAt" />
 					</span>
 				</div>
 				<div :class="$style.item__actions">

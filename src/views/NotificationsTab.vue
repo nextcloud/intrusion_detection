@@ -19,6 +19,7 @@ import NcNoteCard from '@nextcloud/vue/components/NcNoteCard'
 import NcSettingsSelectGroup from '@nextcloud/vue/components/NcSettingsSelectGroup'
 import LiveSentence from '../components/checks/LiveSentence.vue'
 import SectionCard from '../components/common/SectionCard.vue'
+import SelectField from '../components/common/SelectField.vue'
 import SkeletonBlock from '../components/common/SkeletonBlock.vue'
 import StateBadge from '../components/common/StateBadge.vue'
 import { useAnnouncer } from '../composables/useAnnouncer.ts'
@@ -181,16 +182,12 @@ function openCheck() {
 						</div>
 
 						<div :class="$style.field">
-							<label for="ids-email-severity" :class="$style.field__label">{{ t(APP_ID, 'Also send an email for') }}</label>
-							<select
-								id="ids-email-severity"
+							<SelectField
 								v-model="severity"
 								:class="$style.field__select"
-								:disabled="saving">
-								<option v-for="option in SEVERITIES" :key="option.value" :value="option.value">
-									{{ option.label() }}
-								</option>
-							</select>
+								:label="t(APP_ID, 'Also send an email for')"
+								:options="SEVERITIES.map((option) => ({ value: option.value, label: option.label() }))"
+								:disabled="saving" />
 							<p :class="$style.field__sentence">
 								<LiveSentence :segments="emailSentence" :changed="severity !== savedSeverity ? ['severity'] : []" />
 							</p>

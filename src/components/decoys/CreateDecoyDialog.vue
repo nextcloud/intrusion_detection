@@ -105,7 +105,7 @@ async function submit() {
 		:buttons="buttons"
 		size="normal"
 		@submit="submit">
-		<div :class="$style.dialog">
+		<div :class="$style.dialog" @keydown.esc="open = false">
 			<p>{{ t(APP_ID, 'Nextcloud makes up a secret that looks like a real credential. Nobody needs it, so anyone who uses it found it where you planted it.') }}</p>
 			<NcTextField
 				v-model="label"

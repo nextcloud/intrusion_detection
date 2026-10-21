@@ -11,13 +11,13 @@ import { showError } from '@nextcloud/dialogs'
 import { n, t } from '@nextcloud/l10n'
 import { computed, nextTick, ref, watch } from 'vue'
 import NcButton from '@nextcloud/vue/components/NcButton'
-import NcDateTime from '@nextcloud/vue/components/NcDateTime'
 import NcIconSvgWrapper from '@nextcloud/vue/components/NcIconSvgWrapper'
 import NcLoadingIcon from '@nextcloud/vue/components/NcLoadingIcon'
 import NcNoteCard from '@nextcloud/vue/components/NcNoteCard'
 import EmptyNote from '../components/common/EmptyNote.vue'
 import SectionCard from '../components/common/SectionCard.vue'
 import SkeletonBlock from '../components/common/SkeletonBlock.vue'
+import TimeStamp from '../components/common/TimeStamp.vue'
 import IncidentForm from '../components/incidents/IncidentForm.vue'
 import IncidentSummary from '../components/incidents/IncidentSummary.vue'
 import IncidentTimeline from '../components/incidents/IncidentTimeline.vue'
@@ -205,10 +205,10 @@ watch(incidentRequest, async (request) => {
 						{{ subject }}
 					</h3>
 					<p :class="$style.report__period">
-						<NcDateTime :timestamp="report.period.since * 1000" :relativeTime="false" :format="{ dateStyle: 'medium', timeStyle: 'short' }" />
+						<TimeStamp :timestamp="report.period.since" />
 						<span aria-hidden="true">–</span>
 						<span class="hidden-visually">{{ t(APP_ID, 'to') }}</span>
-						<NcDateTime :timestamp="report.period.until * 1000" :relativeTime="false" :format="{ dateStyle: 'medium', timeStyle: 'short' }" />
+						<TimeStamp :timestamp="report.period.until" />
 					</p>
 				</div>
 				<div :class="$style.report__actions">

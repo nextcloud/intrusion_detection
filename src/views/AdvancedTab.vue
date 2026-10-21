@@ -13,6 +13,7 @@ import NcCheckboxRadioSwitch from '@nextcloud/vue/components/NcCheckboxRadioSwit
 import NcDialog from '@nextcloud/vue/components/NcDialog'
 import NcIconSvgWrapper from '@nextcloud/vue/components/NcIconSvgWrapper'
 import NcLoadingIcon from '@nextcloud/vue/components/NcLoadingIcon'
+import NcTextField from '@nextcloud/vue/components/NcTextField'
 import SettingsGroup from '../components/common/SettingsGroup.vue'
 import TimeStamp from '../components/common/TimeStamp.vue'
 import { useAnnouncer } from '../composables/useAnnouncer.ts'
@@ -140,17 +141,16 @@ async function download() {
 				</template>
 			</p>
 			<div :class="$style.card__row">
-				<label :class="$style.days">
-					<span :class="$style.days__label">{{ t(APP_ID, 'Days') }}</span>
-					<input
-						v-model.number="days"
-						type="number"
-						:min="learning.minDays"
-						:max="learning.maxDays"
-						step="1"
-						:aria-invalid="daysValid ? undefined : 'true'"
-						aria-describedby="ids-days-hint">
-				</label>
+				<NcTextField
+					v-model.number="days"
+					:class="$style.days"
+					:label="t(APP_ID, 'Days')"
+					type="number"
+					:min="learning.minDays"
+					:max="learning.maxDays"
+					step="1"
+					:error="!daysValid"
+					aria-describedby="ids-days-hint" />
 				<NcButton
 					v-if="!learning.active"
 					variant="secondary"
@@ -309,19 +309,9 @@ async function download() {
 	font-weight: 600;
 }
 
-.days {
-	display: flex;
-	flex-direction: column;
-	gap: calc(var(--default-grid-baseline) * 1);
-}
-
-.days input {
-	width: 6em;
+.card__row .days {
+	flex: 0 0 120px;
 	margin: 0;
-}
-
-.days__label {
-	font-weight: 600;
 }
 
 @media (max-width: 600px) {

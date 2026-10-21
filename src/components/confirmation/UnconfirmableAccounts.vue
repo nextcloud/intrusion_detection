@@ -12,9 +12,9 @@ import { n, t } from '@nextcloud/l10n'
 import { computed, ref, watch } from 'vue'
 import NcButton from '@nextcloud/vue/components/NcButton'
 import NcCheckboxRadioSwitch from '@nextcloud/vue/components/NcCheckboxRadioSwitch'
-import NcDateTime from '@nextcloud/vue/components/NcDateTime'
 import NcIconSvgWrapper from '@nextcloud/vue/components/NcIconSvgWrapper'
 import NcLoadingIcon from '@nextcloud/vue/components/NcLoadingIcon'
+import TimeStamp from '../common/TimeStamp.vue'
 import { errorMessage, fetchUnconfirmableAccounts } from '../../services/api.ts'
 import { logger } from '../../services/logger.ts'
 import { APP_ID, formatNumber } from '../../utils/format.ts'
@@ -176,7 +176,7 @@ async function download() {
 							<span :class="$style.uid">{{ account.uid }}</span>
 						</th>
 						<td :data-label="t(APP_ID, 'Last login')">
-							<NcDateTime v-if="account.lastLogin > 0" :timestamp="account.lastLogin * 1000" />
+							<TimeStamp v-if="account.lastLogin > 0" :timestamp="account.lastLogin" />
 							<template v-else>
 								{{ t(APP_ID, 'Never') }}
 							</template>

@@ -7,8 +7,8 @@
 import { mdiChartBar, mdiShieldCheckOutline } from '@mdi/js'
 import { n, t } from '@nextcloud/l10n'
 import { computed } from 'vue'
-import NcDateTime from '@nextcloud/vue/components/NcDateTime'
 import SectionCard from '../../components/common/SectionCard.vue'
+import TimeStamp from '../../components/common/TimeStamp.vue'
 import EmptyLine from './EmptyLine.vue'
 import FailedLoginBars from './FailedLoginBars.vue'
 import { APP_ID, formatNumber } from '../../utils/format.ts'
@@ -56,7 +56,7 @@ const places = computed(() => {
 				<ul :class="$style.recent__list" data-test="recent-addresses">
 					<li v-for="source in stats.recent" :key="source.address" :class="$style.recent__item">
 						<span :class="$style.recent__address">{{ source.address }}</span>
-						<NcDateTime :timestamp="source.lastSeenAt * 1000" relativeTime="short" :format="{ dateStyle: 'long', timeStyle: 'short', timeZone: stats.timezone }" />
+						<TimeStamp :timestamp="source.lastSeenAt" short :timeZone="stats.timezone" />
 					</li>
 				</ul>
 			</div>

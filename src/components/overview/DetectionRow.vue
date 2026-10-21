@@ -9,11 +9,11 @@ import type { Ban, Detection, DetectionDetail } from '../../types.ts'
 import { mdiChevronDown } from '@mdi/js'
 import { n, t } from '@nextcloud/l10n'
 import { computed, ref, useId, watch } from 'vue'
-import NcDateTime from '@nextcloud/vue/components/NcDateTime'
 import NcIconSvgWrapper from '@nextcloud/vue/components/NcIconSvgWrapper'
 import NcNoteCard from '@nextcloud/vue/components/NcNoteCard'
 import SeverityPill from '../common/SeverityPill.vue'
 import SkeletonBlock from '../common/SkeletonBlock.vue'
+import TimeStamp from '../common/TimeStamp.vue'
 import DetectionNarrative from './DetectionNarrative.vue'
 import { errorMessage, fetchDetection } from '../../services/api.ts'
 import { logger } from '../../services/logger.ts'
@@ -94,7 +94,7 @@ watch(() => props.detection?.lastSeenAt, () => {
 			<span :class="[$style.row__outcome, shown.enforced ? $style.row__outcome_enforced : $style.row__outcome_observed]">
 				{{ shown.enforced ? t(APP_ID, 'Acted on') : t(APP_ID, 'Observed') }}
 			</span>
-			<NcDateTime :class="$style.row__time" :timestamp="shown.lastSeenAt * 1000" relativeTime="short" />
+			<TimeStamp :class="$style.row__time" :timestamp="shown.lastSeenAt" short />
 			<NcIconSvgWrapper :class="$style.row__chevron" :path="mdiChevronDown" :size="20" />
 		</button>
 

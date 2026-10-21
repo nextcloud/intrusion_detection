@@ -5,6 +5,8 @@
 
 import { flushPromises, mount } from '@vue/test-utils'
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
+import { nextTick } from 'vue'
+import SelectField from '../common/SelectField.vue'
 import CheckCard from './CheckCard.vue'
 import { ApiError, updateCheck } from '../../services/api.ts'
 import { state } from '../../store.ts'
@@ -24,6 +26,17 @@ vi.mock('../../services/api.ts', async (importOriginal) => ({
  */
 function mountCard(check = makeCheck()) {
 	return mount(CheckCard, { props: { check, open: true }, attachTo: document.body })
+}
+
+/**
+ * Choose the unit of the card's duration field.
+ *
+ * @param card - The mounted card
+ * @param seconds - The unit in seconds
+ */
+async function unit(card: ReturnType<typeof mountCard>, seconds: number) {
+	card.findComponent(SelectField).vm.$emit('update:modelValue', seconds)
+	await nextTick()
 }
 
 describe('CheckCard', () => {
@@ -56,7 +69,7 @@ describe('CheckCard', () => {
 		await inputs[0]!.setValue('30')
 		expect(card.get('[data-test="decides"]').text()).toContain('within 30 minutes')
 		await inputs[0]!.setValue('1')
-		await card.get('select').setValue('3600')
+		await unit(card, 3600)
 		expect(card.get('[data-test="decides"]').text()).toContain('within 1 hour')
 		// Above the maximum of 1 hour: the sentence shows the saved value and the field says why.
 		await inputs[0]!.setValue('4')
@@ -68,7 +81,7 @@ describe('CheckCard', () => {
 	test('durations are formatted like the server while typing', async () => {
 		const card = mountCard()
 		await card.findAll('input[type="text"]')[0]!.setValue('90')
-		await card.get('select').setValue('1')
+		await unit(card, 1)
 		expect(card.get('[data-test="decides"]').text()).toContain('within 90 seconds')
 		await card.findAll('input[type="text"]')[0]!.setValue('120')
 		expect(card.get('[data-test="decides"]').text()).toContain('within 2 minutes')

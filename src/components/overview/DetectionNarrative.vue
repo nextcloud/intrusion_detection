@@ -10,9 +10,9 @@ import { mdiContentCopy, mdiFileDocumentAlertOutline, mdiFormatListBulleted, mdi
 import { t } from '@nextcloud/l10n'
 import { computed, inject, ref, useId } from 'vue'
 import NcButton from '@nextcloud/vue/components/NcButton'
-import NcDateTime from '@nextcloud/vue/components/NcDateTime'
 import NcIconSvgWrapper from '@nextcloud/vue/components/NcIconSvgWrapper'
 import ReferencePill from '../common/ReferencePill.vue'
+import TimeStamp from '../common/TimeStamp.vue'
 import RiskBreakdown from './RiskBreakdown.vue'
 import { useAnnouncer } from '../../composables/useAnnouncer.ts'
 import { detectionSections } from '../../extensions.ts'
@@ -104,7 +104,7 @@ async function copyText() {
 					<code>{{ ban.cidr }}</code>
 					<ReferencePill :reference="ban.reference" />
 					<span :class="$style.narrative__muted">
-						{{ t(APP_ID, 'until') }} <NcDateTime :timestamp="ban.expiresAt * 1000" :relativeTime="false" />
+						{{ t(APP_ID, 'until') }} <TimeStamp :timestamp="ban.expiresAt" />
 					</span>
 				</li>
 			</ul>
@@ -187,7 +187,7 @@ async function copyText() {
 				</thead>
 				<tbody>
 					<tr v-for="(attempt, index) in detail.attempts" :key="index">
-						<td><NcDateTime :timestamp="attempt.createdAt * 1000" :relativeTime="false" :format="{ timeStyle: 'medium' }" /></td>
+						<td><TimeStamp :timestamp="attempt.createdAt" /></td>
 						<td>{{ attempt.label }}</td>
 						<td>{{ attempt.uid ?? t(APP_ID, 'not an existing account') }}</td>
 					</tr>

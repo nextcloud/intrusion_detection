@@ -12,6 +12,7 @@ import NcCheckboxRadioSwitch from '@nextcloud/vue/components/NcCheckboxRadioSwit
 import NcDialog from '@nextcloud/vue/components/NcDialog'
 import NcNoteCard from '@nextcloud/vue/components/NcNoteCard'
 import NcTextField from '@nextcloud/vue/components/NcTextField'
+import SelectField from '../common/SelectField.vue'
 import { useAnnouncer } from '../../composables/useAnnouncer.ts'
 import { ApiError, createBlocklist, errorMessage, isCancelled } from '../../services/api.ts'
 import { logger } from '../../services/logger.ts'
@@ -135,7 +136,7 @@ async function submit() {
 		:buttons="buttons"
 		size="normal"
 		@submit="submit">
-		<div :class="$style.dialog">
+		<div :class="$style.dialog" @keydown.esc="open = false">
 			<p>{{ t(APP_ID, 'Any list of addresses published over https can be used, for example one your provider or your security team maintains. Nextcloud downloads it regularly and never sends anything about your users.') }}</p>
 
 			<fieldset :class="$style.dialog__fieldset">
@@ -180,12 +181,11 @@ async function submit() {
 				@update:modelValue="edited('name')" />
 
 			<div :class="$style.dialog__field">
-				<label :class="$style.dialog__legend" for="ids-list-format">{{ t(APP_ID, 'Format') }}</label>
-				<select id="ids-list-format" v-model="format" :class="$style.dialog__select">
-					<option v-for="value in formats" :key="value" :value="value">
-						{{ FORMAT_LABELS[value]?.() ?? value }}
-					</option>
-				</select>
+				<SelectField
+					v-model="format"
+					:class="$style.dialog__select"
+					:label="t(APP_ID, 'Format')"
+					:options="formats.map((value) => ({ value, label: FORMAT_LABELS[value]?.() ?? value }))" />
 			</div>
 
 			<fieldset v-if="purpose === 'deny'" :class="$style.dialog__fieldset">

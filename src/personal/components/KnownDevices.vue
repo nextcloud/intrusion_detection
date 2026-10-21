@@ -11,11 +11,11 @@ import { showError, showSuccess } from '@nextcloud/dialogs'
 import { t } from '@nextcloud/l10n'
 import { computed, onMounted, ref, watch } from 'vue'
 import NcButton from '@nextcloud/vue/components/NcButton'
-import NcDateTime from '@nextcloud/vue/components/NcDateTime'
 import NcIconSvgWrapper from '@nextcloud/vue/components/NcIconSvgWrapper'
 import NcLoadingIcon from '@nextcloud/vue/components/NcLoadingIcon'
 import SectionCard from '../../components/common/SectionCard.vue'
 import StateBadge from '../../components/common/StateBadge.vue'
+import TimeStamp from '../../components/common/TimeStamp.vue'
 import EmptyLine from './EmptyLine.vue'
 import LoadError from './LoadError.vue'
 import SkeletonRows from './SkeletonRows.vue'
@@ -110,7 +110,7 @@ onMounted(load)
 					</p>
 					<p :class="$style.device__meta">
 						{{ t(APP_ID, 'Last used') }}
-						<NcDateTime :timestamp="device.lastSeenAt * 1000" relativeTime="long" :format="{ dateStyle: 'long', timeStyle: 'short', timeZone }" />
+						<TimeStamp :timestamp="device.lastSeenAt" :timeZone="timeZone" />
 					</p>
 				</div>
 				<NcButton

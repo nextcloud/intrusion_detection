@@ -33,14 +33,15 @@ const label = computed(() => ({
 <style module>
 .pill {
 	--pill-color: var(--color-text-maxcontrast);
-	--pill-background: var(--color-background-dark);
+	--pill-tint: var(--color-text-maxcontrast);
 	display: inline-flex;
 	align-items: center;
 	gap: calc(var(--default-grid-baseline) * 1.5);
 	padding-block: calc(var(--default-grid-baseline) / 2);
 	padding-inline: calc(var(--default-grid-baseline) * 2);
+	border: 1px solid color-mix(in srgb, var(--pill-tint) 35%, transparent);
 	border-radius: var(--border-radius-pill, 100px);
-	background-color: var(--pill-background);
+	background-color: color-mix(in srgb, var(--pill-tint) 16%, var(--color-main-background));
 	color: var(--pill-color);
 	font-size: 0.85em;
 	font-weight: 600;
@@ -57,16 +58,16 @@ const label = computed(() => ({
 
 .pill_medium {
 	--pill-color: var(--color-info-text);
-	--pill-background: color-mix(in srgb, var(--color-info) 14%, var(--color-main-background));
+	--pill-tint: var(--color-info);
 }
 
 .pill_high {
 	--pill-color: var(--color-warning-text);
-	--pill-background: color-mix(in srgb, var(--color-warning) 16%, var(--color-main-background));
+	--pill-tint: var(--color-warning);
 }
 
 .pill_critical {
 	--pill-color: var(--color-error-text);
-	--pill-background: color-mix(in srgb, var(--color-error) 14%, var(--color-main-background));
+	--pill-tint: var(--color-error);
 }
 </style>

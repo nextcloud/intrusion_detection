@@ -5,7 +5,9 @@
 
 <script setup lang="ts">
 import { t } from '@nextcloud/l10n'
-import { ref, useId, watch } from 'vue'
+import { computed, ref, useId, watch } from 'vue'
+import NcTextField from '@nextcloud/vue/components/NcTextField'
+import SelectField from '../common/SelectField.vue'
 import { APP_ID, DURATION_UNITS, splitDuration } from '../../utils/format.ts'
 
 /** Seconds; text that is not a number is passed on as typed, so validation can say what is wrong */
@@ -33,6 +35,8 @@ watch(model, (value) => {
 	}
 }, { immediate: true })
 
+const units = computed(() => DURATION_UNITS.map((option) => ({ value: option.seconds, label: option.label() })))
+
 /**
  * Combine the number and the unit into seconds.
  */
@@ -45,28 +49,26 @@ function emitValue() {
 <template>
 	<div :class="$style.duration">
 		<label :for="id" :class="$style.duration__label">{{ label }}</label>
-		<div :class="[$style.duration__row, { [$style.duration__row_invalid]: invalid }]">
-			<input
+		<div :class="$style.duration__row">
+			<NcTextField
 				:id="id"
 				v-model="amount"
 				:class="$style.duration__amount"
-				type="text"
+				labelOutside
 				inputmode="numeric"
 				autocomplete="off"
 				:disabled="disabled"
-				:aria-invalid="invalid ? 'true' : undefined"
+				:error="invalid"
 				:aria-describedby="describedby"
-				@input="emitValue">
-			<select
-				v-model.number="unit"
+				@update:modelValue="emitValue" />
+			<SelectField
+				v-model="unit"
 				:class="$style.duration__unit"
+				:options="units"
+				:label="t(APP_ID, 'Unit of {setting}', { setting: label })"
+				hideLabel
 				:disabled="disabled"
-				:aria-label="t(APP_ID, 'Unit of {setting}', { setting: label })"
-				@change="emitValue">
-				<option v-for="option in DURATION_UNITS" :key="option.seconds" :value="option.seconds">
-					{{ option.label() }}
-				</option>
-			</select>
+				@update:modelValue="emitValue" />
 		</div>
 	</div>
 </template>
@@ -84,27 +86,19 @@ function emitValue() {
 
 .duration__row {
 	display: flex;
-	max-width: 300px;
+	align-items: center;
+	gap: calc(var(--default-grid-baseline) * 2);
+	max-width: 360px;
 }
 
-.duration__row input.duration__amount {
-	flex: 1 1 80px;
+.duration__amount {
+	flex: 1 1 90px;
 	min-width: 0;
-	margin: 0;
-	border-start-end-radius: 0 !important;
-	border-end-end-radius: 0 !important;
 	font-variant-numeric: tabular-nums;
 }
 
-.duration__row select.duration__unit {
-	flex: 0 1 auto;
-	margin: 0;
-	margin-inline-start: -2px;
-	border-start-start-radius: 0 !important;
-	border-end-start-radius: 0 !important;
-}
-
-.duration__row_invalid input.duration__amount {
-	border-color: var(--color-border-error, var(--color-error)) !important;
+.duration__unit {
+	flex: 1 1 130px;
+	min-width: 0;
 }
 </style>

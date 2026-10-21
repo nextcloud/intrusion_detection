@@ -11,12 +11,12 @@ import { mdiAccountLockOpenOutline, mdiCheck, mdiKeyOutline } from '@mdi/js'
 import { n, t } from '@nextcloud/l10n'
 import { computed, onMounted, ref } from 'vue'
 import NcButton from '@nextcloud/vue/components/NcButton'
-import NcDateTime from '@nextcloud/vue/components/NcDateTime'
 import NcDialog from '@nextcloud/vue/components/NcDialog'
 import NcIconSvgWrapper from '@nextcloud/vue/components/NcIconSvgWrapper'
 import NcLoadingIcon from '@nextcloud/vue/components/NcLoadingIcon'
 import NcNoteCard from '@nextcloud/vue/components/NcNoteCard'
 import NcProgressBar from '@nextcloud/vue/components/NcProgressBar'
+import TimeStamp from '../common/TimeStamp.vue'
 import { useAnnouncer } from '../../composables/useAnnouncer.ts'
 import { errorMessage, isCancelled } from '../../services/api.ts'
 import { logger } from '../../services/logger.ts'
@@ -123,7 +123,7 @@ onMounted(load)
 				<template v-if="progress.active">{{ t(APP_ID, 'Started') }}</template>
 				<template v-else-if="progress.closedBy === 'done'">{{ t(APP_ID, 'Finished') }}</template>
 				<template v-else>{{ t(APP_ID, 'Closed by the user without finishing') }}</template>
-				<NcDateTime :timestamp="(progress.active ? progress.startedAt : (progress.closedAt ?? progress.startedAt)) * 1000" />
+				<TimeStamp :timestamp="progress.active ? progress.startedAt : (progress.closedAt ?? progress.startedAt)" />
 			</span>
 			<ul :class="$style.panel__steps">
 				<li

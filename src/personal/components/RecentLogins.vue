@@ -10,10 +10,10 @@ import { mdiApplicationOutline, mdiCellphone, mdiCheckCircleOutline, mdiLaptop, 
 import { n, t } from '@nextcloud/l10n'
 import { computed, onMounted, ref } from 'vue'
 import NcButton from '@nextcloud/vue/components/NcButton'
-import NcDateTime from '@nextcloud/vue/components/NcDateTime'
 import NcIconSvgWrapper from '@nextcloud/vue/components/NcIconSvgWrapper'
 import SectionCard from '../../components/common/SectionCard.vue'
 import StateBadge from '../../components/common/StateBadge.vue'
+import TimeStamp from '../../components/common/TimeStamp.vue'
 import EmptyLine from './EmptyLine.vue'
 import LoadError from './LoadError.vue'
 import SkeletonRows from './SkeletonRows.vue'
@@ -134,10 +134,7 @@ onMounted(load)
 							</StateBadge>
 						</p>
 						<p :class="$style.login__meta">
-							<NcDateTime
-								:timestamp="login.createdAt * 1000"
-								relativeTime="short"
-								:format="{ dateStyle: 'long', timeStyle: 'short', timeZone }" />
+							<TimeStamp :timestamp="login.createdAt" short :timeZone="timeZone" />
 							<span :class="$style.login__sep">{{ shortDateTime(login.createdAt, timeZone) }}</span>
 							<span v-if="login.ip" :class="[$style.login__sep, $style.login__address]">{{ login.ip }}</span>
 						</p>

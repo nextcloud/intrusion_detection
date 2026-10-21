@@ -12,7 +12,6 @@ import { n, t } from '@nextcloud/l10n'
 import { computed, ref, useId, watch } from 'vue'
 import NcButton from '@nextcloud/vue/components/NcButton'
 import NcCheckboxRadioSwitch from '@nextcloud/vue/components/NcCheckboxRadioSwitch'
-import NcDateTime from '@nextcloud/vue/components/NcDateTime'
 import NcDialog from '@nextcloud/vue/components/NcDialog'
 import NcIconSvgWrapper from '@nextcloud/vue/components/NcIconSvgWrapper'
 import NcLoadingIcon from '@nextcloud/vue/components/NcLoadingIcon'
@@ -22,6 +21,7 @@ import DurationInput from '../checks/DurationInput.vue'
 import MatchSparkline from '../common/MatchSparkline.vue'
 import ReferencePill from '../common/ReferencePill.vue'
 import StateBadge from '../common/StateBadge.vue'
+import TimeStamp from '../common/TimeStamp.vue'
 import { useAnnouncer } from '../../composables/useAnnouncer.ts'
 import { ApiError, errorMessage, isCancelled, removeBlocklist, syncBlocklist, updateBlocklist } from '../../services/api.ts'
 import { logger } from '../../services/logger.ts'
@@ -281,7 +281,7 @@ async function remove() {
 						{{ sync.text }}
 					</StateBadge>
 					<span v-if="sync.at" :class="$style.row__muted">
-						<NcDateTime :timestamp="sync.at * 1000" relativeTime="short" />
+						<TimeStamp :timestamp="sync.at" short />
 					</span>
 				</div>
 				<NcButton
@@ -333,7 +333,7 @@ async function remove() {
 					<div v-if="list.lastSuccessAt">
 						<dt>{{ t(APP_ID, 'Last good version') }}</dt>
 						<dd>
-							<NcDateTime :timestamp="list.lastSuccessAt * 1000" />
+							<TimeStamp :timestamp="list.lastSuccessAt" />
 							<span v-if="list.skipped > 0" :class="$style.row__muted">
 								· {{ n(APP_ID, '%n line skipped as not an address range', '%n lines skipped as not address ranges', list.skipped) }}
 							</span>

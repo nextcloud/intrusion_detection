@@ -9,9 +9,9 @@ import type { IncidentEntry } from '../../types.ts'
 import { mdiChevronDown } from '@mdi/js'
 import { getCanonicalLocale, t } from '@nextcloud/l10n'
 import { computed, useId } from 'vue'
-import NcDateTime from '@nextcloud/vue/components/NcDateTime'
 import NcIconSvgWrapper from '@nextcloud/vue/components/NcIconSvgWrapper'
 import SeverityPill from '../common/SeverityPill.vue'
+import TimeStamp from '../common/TimeStamp.vue'
 import { APP_ID } from '../../utils/format.ts'
 import { kindIcon } from './kinds.ts'
 
@@ -47,7 +47,7 @@ const tone = computed(() => props.entry.severity ?? 'neutral')
 					:class="[$style.entry__outcome, entry.enforced ? $style.entry__outcome_enforced : $style.entry__outcome_observed]">
 					{{ entry.enforced ? t(APP_ID, 'Acted on') : t(APP_ID, 'Observed') }}
 				</span>
-				<NcDateTime :class="$style.entry__relative" :timestamp="entry.at * 1000" relativeTime="short" />
+				<TimeStamp :class="$style.entry__relative" :timestamp="entry.at" short />
 			</div>
 			<button
 				v-if="hasDetail"
@@ -83,7 +83,7 @@ const tone = computed(() => props.entry.severity ?? 'neutral')
 				<dl :class="$style.entry__meta">
 					<div v-if="entry.endsAt">
 						<dt>{{ t(APP_ID, 'Until') }}</dt>
-						<dd><NcDateTime :timestamp="entry.endsAt * 1000" :relativeTime="false" :format="{ dateStyle: 'medium', timeStyle: 'short' }" /></dd>
+						<dd><TimeStamp :timestamp="entry.endsAt" /></dd>
 					</div>
 					<div v-if="entry.address">
 						<dt>{{ t(APP_ID, 'Address') }}</dt>

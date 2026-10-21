@@ -9,6 +9,9 @@ import type { Param } from '../../types.ts'
 import { t } from '@nextcloud/l10n'
 import { computed, useId } from 'vue'
 import NcCheckboxRadioSwitch from '@nextcloud/vue/components/NcCheckboxRadioSwitch'
+import NcTextArea from '@nextcloud/vue/components/NcTextArea'
+import NcTextField from '@nextcloud/vue/components/NcTextField'
+import SelectField from '../common/SelectField.vue'
 import DurationInput from './DurationInput.vue'
 import { APP_ID, choiceLabel, formatDuration, formatNumber, formatValue } from '../../utils/format.ts'
 
@@ -59,6 +62,8 @@ const listText = computed({
 	},
 })
 
+const choices = computed(() => props.param.choices.map((choice) => ({ value: choice, label: choiceLabel(choice) })))
+
 const textValue = computed({
 	get: () => String(model.value ?? ''),
 	set: (value: string) => {
@@ -88,46 +93,43 @@ const textValue = computed({
 				:disabled="disabled"
 				:describedby="hintId" />
 
-			<template v-else-if="param.type === 'choice'">
-				<label :for="id" :class="$style.field__label">{{ param.label }}</label>
-				<select
-					:id="id"
-					v-model="textValue"
-					:class="$style.field__select"
-					:disabled="disabled"
-					:aria-describedby="hintId">
-					<option v-for="choice in param.choices" :key="choice" :value="choice">
-						{{ choiceLabel(choice) }}
-					</option>
-				</select>
-			</template>
+			<SelectField
+				v-else-if="param.type === 'choice'"
+				v-model="textValue"
+				:class="$style.field__select"
+				:label="param.label"
+				:options="choices"
+				:disabled="disabled"
+				:aria-describedby="hintId" />
 
 			<template v-else-if="param.type === 'string_list' || param.type === 'cidr_list'">
 				<label :for="id" :class="$style.field__label">{{ param.label }}</label>
-				<textarea
+				<NcTextArea
 					:id="id"
 					v-model="listText"
 					:class="$style.field__list"
+					labelOutside
 					rows="4"
+					resize="vertical"
 					:disabled="disabled"
-					:placeholder="param.type === 'cidr_list' ? '192.0.2.0/24' : ''"
-					:aria-invalid="error ? 'true' : undefined"
+					:placeholder="param.type === 'cidr_list' ? t(APP_ID, 'e.g. {example}', { example: '192.0.2.0/24' }) : ''"
+					:error="!!error"
 					:aria-describedby="hintId" />
 			</template>
 
 			<template v-else>
 				<label :for="id" :class="$style.field__label">{{ param.label }}</label>
 				<span :class="$style.field__row">
-					<input
+					<NcTextField
 						:id="id"
 						v-model="textValue"
 						:class="$style.field__number"
-						type="text"
+						labelOutside
 						:inputmode="param.type === 'float' ? 'decimal' : 'numeric'"
 						autocomplete="off"
 						:disabled="disabled"
-						:aria-invalid="error ? 'true' : undefined"
-						:aria-describedby="hintId">
+						:error="!!error"
+						:aria-describedby="hintId" />
 					<span v-if="param.unit" :class="$style.field__unit">{{ param.unit }}</span>
 				</span>
 			</template>
@@ -170,8 +172,8 @@ const textValue = computed({
 }
 
 .field__number {
-	width: 9em;
-	margin: 0;
+	flex: 0 1 12em;
+	min-width: 0;
 	font-variant-numeric: tabular-nums;
 }
 
@@ -180,14 +182,15 @@ const textValue = computed({
 }
 
 .field__select {
-	max-width: 300px;
-	margin: 0;
+	width: 100%;
+	max-width: 360px;
 }
 
 .field__list {
-	width: 100%;
-	max-width: 420px;
-	margin: 0;
+	max-width: 480px;
+}
+
+.field__list :global(textarea) {
 	font-family: var(--font-face-monospace, ui-monospace, 'SFMono-Regular', Menlo, Consolas, monospace);
 }
 
@@ -213,8 +216,4 @@ const textValue = computed({
 	font-weight: 600;
 }
 
-.field_invalid .field__number,
-.field_invalid .field__list {
-	border-color: var(--color-border-error, var(--color-error)) !important;
-}
 </style>

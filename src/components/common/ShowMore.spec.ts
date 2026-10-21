@@ -8,10 +8,12 @@ import { describe, expect, test } from 'vitest'
 import { h } from 'vue'
 import ShowMore from './ShowMore.vue'
 
-const mountToggle = (props: Record<string, unknown> = {}) => mount(ShowMore, {
-	props: { label: 'Show the example payload', ...props },
-	slots: { default: () => h('pre', { 'data-test': 'content' }, '{ }') },
-})
+function mountToggle(props: Record<string, unknown> = {}) {
+	return mount(ShowMore, {
+		props: { label: 'Show the example payload', ...props },
+		slots: { default: () => h('pre', { 'data-test': 'content' }, '{ }') },
+	})
+}
 
 describe('a reference section behind a toggle', () => {
 	test('starts closed and renders nothing of its content', () => {

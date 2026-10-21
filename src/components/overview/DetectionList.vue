@@ -13,7 +13,9 @@ import NcButton from '@nextcloud/vue/components/NcButton'
 import NcIconSvgWrapper from '@nextcloud/vue/components/NcIconSvgWrapper'
 import NcLoadingIcon from '@nextcloud/vue/components/NcLoadingIcon'
 import NcNoteCard from '@nextcloud/vue/components/NcNoteCard'
+import NcTextField from '@nextcloud/vue/components/NcTextField'
 import EmptyNote from '../common/EmptyNote.vue'
+import SelectField from '../common/SelectField.vue'
 import SkeletonBlock from '../common/SkeletonBlock.vue'
 import DetectionRow from './DetectionRow.vue'
 import { errorMessage, fetchDetections } from '../../services/api.ts'
@@ -145,47 +147,39 @@ defineExpose({ reload: load })
 		</header>
 
 		<div :class="$style.filters" role="group" :aria-label="t(APP_ID, 'Filter detections')">
-			<label :class="$style.filter">
-				<span :class="$style.filter__label">{{ t(APP_ID, 'Check') }}</span>
-				<select v-model="detectionFilters.check">
-					<option value="">{{ t(APP_ID, 'All checks') }}</option>
-					<option v-for="option in checkOptions" :key="option.value" :value="option.value">
-						{{ option.label }}
-					</option>
-				</select>
-			</label>
-			<label :class="$style.filter">
-				<span :class="$style.filter__label">{{ t(APP_ID, 'Severity') }}</span>
-				<select v-model="detectionFilters.severity">
-					<option v-for="option in severityOptions" :key="option.value" :value="option.value">
-						{{ option.label() }}
-					</option>
-				</select>
-			</label>
-			<label :class="$style.filter">
-				<span :class="$style.filter__label">{{ t(APP_ID, 'Outcome') }}</span>
-				<select v-model="detectionFilters.mode">
-					<option value="">{{ t(APP_ID, 'All outcomes') }}</option>
-					<option value="enforced">{{ t(APP_ID, 'Acted on') }}</option>
-					<option value="observed">{{ t(APP_ID, 'Observed') }}</option>
-				</select>
-			</label>
-			<label :class="$style.filter">
-				<span :class="$style.filter__label">{{ t(APP_ID, 'Address') }}</span>
-				<input
+			<SelectField
+				v-model="detectionFilters.check"
+				:class="$style.filter"
+				:label="t(APP_ID, 'Check')"
+				:options="[{ value: '', label: t(APP_ID, 'All checks') }, ...checkOptions]" />
+			<SelectField
+				v-model="detectionFilters.severity"
+				:class="$style.filter"
+				:label="t(APP_ID, 'Severity')"
+				:options="severityOptions.map((option) => ({ value: option.value, label: option.label() }))" />
+			<SelectField
+				v-model="detectionFilters.mode"
+				:class="$style.filter"
+				:label="t(APP_ID, 'Outcome')"
+				:options="[{ value: '', label: t(APP_ID, 'All outcomes') }, { value: 'enforced', label: t(APP_ID, 'Acted on') }, { value: 'observed', label: t(APP_ID, 'Observed') }]" />
+			<div :class="[$style.filter, $style.filter_text]">
+				<label :for="`${id}-address`">{{ t(APP_ID, 'Address') }}</label>
+				<NcTextField
+					:id="`${id}-address`"
 					v-model="address"
-					type="text"
+					labelOutside
 					autocomplete="off"
-					spellcheck="false">
-			</label>
-			<label :class="$style.filter">
-				<span :class="$style.filter__label">{{ t(APP_ID, 'Account') }}</span>
-				<input
+					spellcheck="false" />
+			</div>
+			<div :class="[$style.filter, $style.filter_text]">
+				<label :for="`${id}-user`">{{ t(APP_ID, 'Account') }}</label>
+				<NcTextField
+					:id="`${id}-user`"
 					v-model="user"
-					type="text"
+					labelOutside
 					autocomplete="off"
-					spellcheck="false">
-			</label>
+					spellcheck="false" />
+			</div>
 			<NcButton
 				v-if="filtered"
 				variant="tertiary"
@@ -265,35 +259,29 @@ defineExpose({ reload: load })
 }
 
 .filters {
-	display: flex;
-	flex-wrap: wrap;
-	align-items: flex-end;
+	display: grid;
+	grid-template-columns: repeat(auto-fill, minmax(min(100%, 170px), 1fr));
+	align-items: end;
 	gap: calc(var(--default-grid-baseline) * 3);
 }
 
-.filter {
-	display: flex;
-	flex: 1 1 150px;
-	flex-direction: column;
-	gap: calc(var(--default-grid-baseline) * 1);
+.filters .filter {
 	min-width: 0;
-	max-width: 240px;
-}
-
-.filter select,
-.filter input {
-	width: 100%;
 	margin: 0;
 }
 
-.filter__label {
-	color: var(--color-text-maxcontrast);
-	font-size: 0.85em;
+.filter_text {
+	display: flex;
+	flex-direction: column;
+	gap: calc(var(--default-grid-baseline) * 1);
+}
+
+.filter_text label {
 	font-weight: 600;
 }
 
 .filters__clear {
-	flex: 0 0 auto;
+	justify-self: start;
 }
 
 .detections__list {
@@ -318,9 +306,4 @@ defineExpose({ reload: load })
 	justify-content: center;
 }
 
-@media (max-width: 600px) {
-	.filter {
-		max-width: none;
-	}
-}
 </style>

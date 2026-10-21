@@ -8,6 +8,7 @@ import type { ConfirmationOutcome, ConfirmationPolicy, GlobalSetting } from '../
 import { showSuccess } from '@nextcloud/dialogs'
 import { flushPromises, mount } from '@vue/test-utils'
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
+import SelectField from '../common/SelectField.vue'
 import PolicyTable from './PolicyTable.vue'
 import { updateSettings } from '../../services/api.ts'
 import { state } from '../../store.ts'
@@ -48,13 +49,14 @@ describe('PolicyTable', () => {
 		const wrapper = mount(PolicyTable, { props: { policies, outcomes } })
 		const rows = wrapper.findAll('tbody tr')
 		expect(rows).toHaveLength(3)
-		const options = rows[0]!.findAll('option').map((o) => o.text())
-		expect(options).toEqual(['Refuse the login (default)', 'Allow it and tell the user and you', 'Allow it and require a new password'])
+		const select = (row: number) => rows[row]!.findComponent(SelectField)
+		expect(select(0).props('options').map((o: { label: string }) => o.label)).toEqual(['Refuse the login (default)', 'Allow it and tell the user and you', 'Allow it and require a new password'])
+		expect(select(0).props('label')).toContain('Login from an attacking address')
 		expect(wrapper.text()).not.toContain('allow_notify')
-		expect(rows[2]!.get('select').element.value).toBe('allow_notify')
+		expect(select(2).props('modelValue')).toBe('allow_notify')
+		expect(rows[2]!.text()).toContain('Allow it and tell the user and you')
 		expect(rows[2]!.text()).toContain('Default: Allow it and require a new password.')
 		expect(rows[2]!.text()).toContain('The login goes ahead.')
-		expect(rows[0]!.get('label').text()).toContain('Login from an attacking address')
 	})
 
 	test('a remembered device can never confirm a login whose password is at risk', () => {
@@ -67,7 +69,7 @@ describe('PolicyTable', () => {
 
 	test('choosing an outcome saves it at once', async () => {
 		const wrapper = mount(PolicyTable, { props: { policies, outcomes } })
-		await wrapper.findAll('tbody tr')[0]!.get('select').setValue('allow_notify')
+		wrapper.findAll('tbody tr')[0]!.findComponent(SelectField).vm.$emit('update:modelValue', 'allow_notify')
 		await flushPromises()
 		expect(updateSettings).toHaveBeenCalledWith({ step_up_no_method_flagged_source: 'allow_notify' })
 		expect(wrapper.emitted('changed')?.[0]?.[0]).toEqual([{ ...policies[0], outcome: 'allow_notify' }, policies[1], policies[2]])

@@ -18,6 +18,7 @@ import CheckStateNote from '../common/CheckStateNote.vue'
 import CodeBlock from '../common/CodeBlock.vue'
 import ListEditor from '../common/ListEditor.vue'
 import SectionCard from '../common/SectionCard.vue'
+import ShowMore from '../common/ShowMore.vue'
 import { useAnnouncer } from '../../composables/useAnnouncer.ts'
 import { errorMessage, isCancelled, updateTrapPaths } from '../../services/api.ts'
 import { logger } from '../../services/logger.ts'
@@ -122,17 +123,18 @@ async function save(key: string, change: { add?: string[], remove?: string[], bu
 					</NcCheckboxRadioSwitch>
 				</div>
 
-				<details :class="$style.builtin">
-					<summary :class="$style.builtin__summary">
-						{{ t(APP_ID, 'What the built-in paths are') }}
-					</summary>
+				<ShowMore
+					:class="$style.builtin"
+					variant="row"
+					:label="t(APP_ID, 'What the built-in paths are')"
+					:note="n(APP_ID, '%n path', '%n paths', paths.builtin.length)">
 					<dl :class="$style.builtin__list">
 						<div v-for="item in paths.builtin" :key="item.path" :class="$style.builtin__item">
 							<dt><code>{{ item.path }}</code></dt>
 							<dd>{{ item.text }}</dd>
 						</div>
 					</dl>
-				</details>
+				</ShowMore>
 
 				<div :class="$style.custom">
 					<h4 :class="$style.subheading">
@@ -157,24 +159,26 @@ async function save(key: string, change: { add?: string[], remove?: string[], bu
 					{{ t(APP_ID, 'Route the trap paths to Nextcloud') }}
 				</h4>
 				<p :class="$style.text">
-					{{ t(APP_ID, 'Most of these paths never reach Nextcloud: the web server answers "not found" itself, or refuses hidden files like /.env before PHP runs. Add this to your web server configuration so that it hands exactly these paths to Nextcloud, which then blocks the scanner.') }}
+					{{ t(APP_ID, 'Most of these paths never reach Nextcloud, because the web server answers them itself. Hand exactly these paths to Nextcloud, which then blocks the scanner.') }}
 				</p>
-				<AdminTabs v-model="server" :tabs="serverTabs" />
-				<div :id="`ids-panel-${server}`" role="tabpanel" :aria-labelledby="`ids-tab-${server}`">
-					<template v-for="snippet in paths.snippets" :key="snippet.id">
-						<CodeBlock
-							v-if="snippet.id === server"
-							:content="snippet.content"
-							:file="snippet.file"
-							:label="server === 'nginx' ? t(APP_ID, 'nginx configuration') : t(APP_ID, 'Apache configuration')" />
-					</template>
-				</div>
-				<NcNoteCard v-if="paths.snippetsSkipped.length > 0" type="info">
-					{{ t(APP_ID, 'These paths contain characters that are not put into a web server configuration automatically: {paths}. Add them by hand if you need them.', { paths: paths.snippetsSkipped.join(' ') }, undefined, { escape: false, sanitize: false }) }}
-				</NcNoteCard>
-				<p :class="$style.hint">
-					{{ t(APP_ID, 'The snippet changes when you change the paths above. Reload the web server after you update it.') }}
-				</p>
+				<ShowMore :label="t(APP_ID, 'Show the web server configuration')" data-test="trap-snippets">
+					<AdminTabs v-model="server" :tabs="serverTabs" />
+					<div :id="`ids-panel-${server}`" role="tabpanel" :aria-labelledby="`ids-tab-${server}`">
+						<template v-for="snippet in paths.snippets" :key="snippet.id">
+							<CodeBlock
+								v-if="snippet.id === server"
+								:content="snippet.content"
+								:file="snippet.file"
+								:label="server === 'nginx' ? t(APP_ID, 'nginx configuration') : t(APP_ID, 'Apache configuration')" />
+						</template>
+					</div>
+					<NcNoteCard v-if="paths.snippetsSkipped.length > 0" type="info">
+						{{ t(APP_ID, 'These paths contain characters that are not put into a web server configuration automatically: {paths}. Add them by hand if you need them.', { paths: paths.snippetsSkipped.join(' ') }, undefined, { escape: false, sanitize: false }) }}
+					</NcNoteCard>
+					<p :class="$style.hint">
+						{{ t(APP_ID, 'The snippet changes when you change the paths above. Reload the web server after you update it.') }}
+					</p>
+				</ShowMore>
 			</div>
 		</div>
 	</SectionCard>
@@ -206,30 +210,12 @@ async function save(key: string, change: { add?: string[], remove?: string[], bu
 	border-radius: var(--border-radius-large);
 }
 
-.builtin__summary {
-	min-height: var(--default-clickable-area);
-	padding-inline: calc(var(--default-grid-baseline) * 3);
-	border-radius: var(--border-radius-large);
-	font-weight: 600;
-	line-height: var(--default-clickable-area);
-	cursor: pointer;
-}
-
-.builtin__summary:hover {
-	background-color: var(--color-background-hover);
-}
-
-.builtin__summary:focus-visible {
-	outline: 2px solid var(--color-main-text);
-	outline-offset: -2px;
-}
-
 .builtin__list {
 	display: grid;
 	grid-template-columns: repeat(auto-fill, minmax(min(100%, 340px), 1fr));
 	gap: 0 calc(var(--default-grid-baseline) * 5);
 	margin: 0;
-	padding: 0 calc(var(--default-grid-baseline) * 3) calc(var(--default-grid-baseline) * 3);
+	padding: 0;
 }
 
 .builtin__item {

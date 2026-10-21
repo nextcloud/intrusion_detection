@@ -11,11 +11,11 @@ import { showError, showSuccess } from '@nextcloud/dialogs'
 import { t } from '@nextcloud/l10n'
 import { computed, ref, useId } from 'vue'
 import NcButton from '@nextcloud/vue/components/NcButton'
-import NcDateTime from '@nextcloud/vue/components/NcDateTime'
 import NcDialog from '@nextcloud/vue/components/NcDialog'
 import NcIconSvgWrapper from '@nextcloud/vue/components/NcIconSvgWrapper'
 import NcLoadingIcon from '@nextcloud/vue/components/NcLoadingIcon'
 import StateBadge from '../../components/common/StateBadge.vue'
+import TimeStamp from '../../components/common/TimeStamp.vue'
 import { useAnnouncer } from '../../composables/useAnnouncer.ts'
 import { ApiError, errorMessage, isCancelled } from '../../services/api.ts'
 import { logger } from '../../services/logger.ts'
@@ -150,10 +150,7 @@ const denyButtons = computed(() => [
 					{{ event.subject }}
 				</h4>
 				<p :class="$style.event__meta">
-					<NcDateTime
-						:timestamp="event.createdAt * 1000"
-						:format="{ dateStyle: 'long', timeStyle: 'short', timeZone }"
-						relativeTime="long" />
+					<TimeStamp :timestamp="event.createdAt" :timeZone="timeZone" />
 					<span :class="$style.event__absolute">{{ dateTime(event.createdAt, timeZone) }}</span>
 					<span v-if="event.address" :class="$style.event__address">
 						<NcIconSvgWrapper inline :path="mdiMapMarkerOutline" :size="16" />

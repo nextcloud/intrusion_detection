@@ -24,7 +24,6 @@ import { computed, onMounted, ref } from 'vue'
 import NcAppContent from '@nextcloud/vue/components/NcAppContent'
 import NcButton from '@nextcloud/vue/components/NcButton'
 import NcContent from '@nextcloud/vue/components/NcContent'
-import NcDateTime from '@nextcloud/vue/components/NcDateTime'
 import NcDialog from '@nextcloud/vue/components/NcDialog'
 import NcEmptyContent from '@nextcloud/vue/components/NcEmptyContent'
 import NcIconSvgWrapper from '@nextcloud/vue/components/NcIconSvgWrapper'
@@ -33,6 +32,7 @@ import NcNoteCard from '@nextcloud/vue/components/NcNoteCard'
 import NcPasswordField from '@nextcloud/vue/components/NcPasswordField'
 import NcProgressBar from '@nextcloud/vue/components/NcProgressBar'
 import SkeletonBlock from '../components/common/SkeletonBlock.vue'
+import TimeStamp from '../components/common/TimeStamp.vue'
 import StepCard from '../components/secure/StepCard.vue'
 import { useAnnouncer } from '../composables/useAnnouncer.ts'
 import { errorMessage, isCancelled } from '../services/api.ts'
@@ -277,7 +277,7 @@ onMounted(load)
 							<template v-if="item.id === 'password'">
 								<p v-if="item.done" :class="$style.text">
 									{{ t(APP_ID, 'You chose a new password.') }}
-									<NcDateTime v-if="item.doneAt" :timestamp="item.doneAt * 1000" />
+									<TimeStamp v-if="item.doneAt" :timestamp="item.doneAt" />
 								</p>
 								<NcNoteCard v-else-if="item.managed" type="info" :text="t(APP_ID, 'Your password is managed by your organisation. Ask your administrator to reset it. This step is marked done when they have.')" />
 								<form v-else :class="$style.form" @submit.prevent="submitPassword">
@@ -319,7 +319,7 @@ onMounted(load)
 												<span>{{ session.kind === 'app_password' ? t(APP_ID, 'App password') : t(APP_ID, 'Browser session') }}</span>
 												<span v-if="session.address">{{ t(APP_ID, 'created from {address}', { address: session.address }) }}</span>
 												<span v-if="session.lastActivity">
-													{{ t(APP_ID, 'last used') }} <NcDateTime :timestamp="session.lastActivity * 1000" />
+													{{ t(APP_ID, 'last used') }} <TimeStamp :timestamp="session.lastActivity" />
 												</span>
 											</span>
 										</div>
@@ -384,7 +384,7 @@ onMounted(load)
 												</template>
 											</span>
 											<span :class="$style.row__meta">
-												<NcDateTime :timestamp="change.createdAt * 1000" />
+												<TimeStamp :timestamp="change.createdAt" />
 												<span>{{ viaText(change.via, change.actor) }}</span>
 												<span v-if="change.address">{{ t(APP_ID, 'from {address}', { address: change.address }) }}</span>
 											</span>
@@ -406,7 +406,7 @@ onMounted(load)
 											<span :class="$style.row__title">{{ share.name }}</span>
 											<span :class="$style.row__meta">
 												<span>{{ share.type === 'link' ? t(APP_ID, 'Public link') : (share.type === 'email' ? t(APP_ID, 'Shared by email with {recipient}', { recipient: share.recipient ?? '' }) : t(APP_ID, 'Shared with {recipient}', { recipient: share.recipient ?? '' })) }}</span>
-												<NcDateTime :timestamp="share.createdAt * 1000" />
+												<TimeStamp :timestamp="share.createdAt" />
 												<span v-if="share.type !== 'federated'">{{ share.hasPassword ? t(APP_ID, 'with a password') : t(APP_ID, 'no password') }}</span>
 											</span>
 										</div>

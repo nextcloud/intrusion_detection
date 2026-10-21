@@ -12,6 +12,7 @@ import { t } from '@nextcloud/l10n'
 import { ref } from 'vue'
 import NcCheckboxRadioSwitch from '@nextcloud/vue/components/NcCheckboxRadioSwitch'
 import NcIconSvgWrapper from '@nextcloud/vue/components/NcIconSvgWrapper'
+import SelectField from '../common/SelectField.vue'
 import { useAnnouncer } from '../../composables/useAnnouncer.ts'
 import { errorMessage, isCancelled, updateSettings } from '../../services/api.ts'
 import { logger } from '../../services/logger.ts'
@@ -138,20 +139,15 @@ function setKnownDevice(policy: ConfirmationPolicy, on: boolean) {
 						</span>
 					</td>
 					<td :data-label="t(APP_ID, 'If nothing can confirm it')">
-						<label :for="`ids-outcome-${policy.id}`" class="hidden-visually">
-							{{ t(APP_ID, 'If nothing can confirm: {reason}', { reason: policy.label }, undefined, opts) }}
-						</label>
-						<select
-							:id="`ids-outcome-${policy.id}`"
+						<SelectField
 							:class="$style.select"
-							:value="policy.outcome"
+							:modelValue="policy.outcome"
+							:label="t(APP_ID, 'If nothing can confirm: {reason}', { reason: policy.label }, undefined, opts)"
+							hideLabel
+							:options="outcomes.map((outcome) => ({ value: outcome.id, label: outcome.id === policy.default ? t(APP_ID, '{outcome} (default)', { outcome: outcome.label }, undefined, opts) : outcome.label }))"
 							:disabled="busy !== null"
 							:aria-describedby="`ids-outcome-${policy.id}-text`"
-							@change="setOutcome(policy, ($event.target as HTMLSelectElement).value)">
-							<option v-for="outcome in outcomes" :key="outcome.id" :value="outcome.id">
-								{{ outcome.id === policy.default ? t(APP_ID, '{outcome} (default)', { outcome: outcome.label }, undefined, opts) : outcome.label }}
-							</option>
-						</select>
+							@update:modelValue="setOutcome(policy, $event)" />
 						<p :id="`ids-outcome-${policy.id}-text`" :class="[$style.effect, { [$style.effect_refuse]: policy.outcome === 'refuse' }]">
 							{{ outcomeOf(policy.outcome)?.description }}
 						</p>
@@ -228,8 +224,7 @@ function setKnownDevice(policy: ConfirmationPolicy, on: boolean) {
 
 .select {
 	width: 100%;
-	max-width: 340px;
-	margin: 0;
+	max-width: 420px;
 }
 
 .effect {
