@@ -37,24 +37,32 @@ class PasswordSprayingTest extends LoginFailureTestCase {
 		$this->settings->setMode(AccountUnderAttack::ID, Mode::Off);
 	}
 
-	public function testOnePasswordAgainstManyAccountsBlocksEverySourceAndFlagsThePassword(): void {
-		for ($i = 1; $i <= 4; $i++) {
-			$this->failLogin('198.51.100.' . $i, 'user' . $i, self::SPRAYED);
-		}
+	public function testOnePasswordAgainstManyAccountsBlocksTheSprayersAndFlagsThePassword(): void {
+		$this->failLogin('198.51.100.1', 'user1', self::SPRAYED);
+		$this->failLogin('198.51.100.1', 'user2', self::SPRAYED);
+		$this->failLogin('198.51.100.2', 'user3', self::SPRAYED);
+		$this->failLogin('198.51.100.2', 'user4', self::SPRAYED);
+		// Someone who mistyped their own password, which happens to be the sprayed one.
+		$this->failLogin('198.51.100.4', 'user1', self::SPRAYED);
 		$this->assertSame([], $this->detectionsOf(PasswordSpraying::ID), '4 accounts are below the limit of 5');
 		$this->assertFalse($this->isFlagged(self::SPRAYED));
 
-		$this->failLogin('198.51.100.5', 'user5', self::SPRAYED);
+		$this->failLogin('198.51.100.3', 'user5', self::SPRAYED);
 		$detections = $this->detectionsOf(PasswordSpraying::ID);
 		$this->assertCount(1, $detections);
 		$facts = $detections[0]->getExplanationData()['facts'];
 		$this->assertSame(5, $facts['names']);
-		$this->assertSame(5, $facts['sources']);
-		for ($i = 1; $i <= 5; $i++) {
-			$this->assertCount(1, $this->bans->findActiveForKeys(['198.51.100.' . $i], time()), 'source ' . $i . ' is blocked');
+		$this->assertSame(4, $facts['sources']);
+		$this->assertSame(2, $facts['banTargets']);
+		foreach (['198.51.100.1', '198.51.100.2', '198.51.100.3'] as $ip) {
+			$this->assertCount(1, $this->bans->findActiveForKeys([$ip], time()), $ip . ' is blocked');
 		}
+		$this->assertSame([], $this->bans->findActiveForKeys(['198.51.100.4'], time()), 'One account from another address is not enough');
 		$this->assertTrue($this->isFlagged(self::SPRAYED));
 		$this->assertFalse($this->isFlagged('another password'));
+
+		$narrative = Server::get(NarrativeBuilder::class)->build($detections[0], Server::get(IFactory::class)->get(Application::APP_ID, 'en'));
+		$this->assertStringContainsString('2 addresses tried it for only one account each and were not blocked', implode(' ', $narrative->happened));
 	}
 
 	public function testTheFlagCoversTomorrowsFingerprintToo(): void {
@@ -124,6 +132,7 @@ class PasswordSprayingTest extends LoginFailureTestCase {
 	public function testAtMost500SourcesAreBlockedAndTheRestCounted(): void {
 		for ($i = 0; $i < 549; $i++) {
 			$this->storeAttempt('100.' . (64 + intdiv($i, 200)) . '.' . ($i % 200) . '.1', 'victim' . $i, password: self::SPRAYED);
+			$this->storeAttempt('100.' . (64 + intdiv($i, 200)) . '.' . ($i % 200) . '.1', 'other' . $i, password: self::SPRAYED);
 		}
 		$this->failLogin('100.70.0.1', 'victim-last', self::SPRAYED);
 		$detection = $this->detectionsOf(PasswordSpraying::ID)[0];
@@ -141,7 +150,7 @@ class PasswordSprayingTest extends LoginFailureTestCase {
 		for ($i = 1; $i <= 5; $i++) {
 			$this->failLogin('2001:db8:' . $i . '::1', 'user' . $i, self::SPRAYED);
 		}
-		$this->assertCount(1, $this->bans->findActiveForKeys(['2001:db8:3::/64'], time()));
+		$this->assertCount(1, $this->bans->findActiveForKeys(['2001:db8:5::/64'], time()));
 	}
 
 	public function testObserveFlagsNothingAndBlocksNothing(): void {

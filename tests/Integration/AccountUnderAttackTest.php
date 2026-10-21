@@ -109,19 +109,29 @@ class AccountUnderAttackTest extends LoginFailureTestCase {
 
 	public function testBlockingAddressesIsOptionalAndNeedsRepeatedFailures(): void {
 		$this->settings->setResponses(AccountUnderAttack::ID, [ResponseType::ProtectAccount, ResponseType::Ban]);
-		// Five addresses fail twice each, five more once.
+		// Five addresses guess four passwords each, four more fail once.
 		for ($i = 1; $i <= 5; $i++) {
-			$this->storeAttempt('203.0.113.' . $i, $this->uid, $this->uid);
-			$this->storeAttempt('203.0.113.' . $i, $this->uid, $this->uid);
+			for ($guess = 1; $guess <= 4; $guess++) {
+				$this->storeAttempt('203.0.113.' . $i, $this->uid, $this->uid, 'guess-' . $guess);
+			}
 		}
 		for ($i = 6; $i <= 9; $i++) {
-			$this->storeAttempt('203.0.113.' . $i, $this->uid, $this->uid);
+			$this->storeAttempt('203.0.113.' . $i, $this->uid, $this->uid, 'guess-1');
+		}
+		// A device with an old saved password, and a person who mistypes three times.
+		for ($retry = 1; $retry <= 8; $retry++) {
+			$this->storeAttempt('203.0.113.20', $this->uid, $this->uid, 'the-old-password');
+		}
+		foreach (['typo-1', 'typo-2', 'typo-3'] as $typo) {
+			$this->storeAttempt('203.0.113.21', $this->uid, $this->uid, $typo);
 		}
 		$this->failLogin('203.0.113.10', $this->uid);
 		$bans = Server::get(BanMapper::class);
 		$this->assertCount(1, $bans->findActiveForKeys(['203.0.113.3'], time()));
 		$this->assertSame([], $bans->findActiveForKeys(['203.0.113.7'], time()));
 		$this->assertSame([], $bans->findActiveForKeys(['203.0.113.10'], time()));
+		$this->assertSame([], $bans->findActiveForKeys(['203.0.113.20'], time()), 'One password over and over is a device, not a guesser');
+		$this->assertSame([], $bans->findActiveForKeys(['203.0.113.21'], time()));
 	}
 
 	public function testObserveProtectsNothing(): void {

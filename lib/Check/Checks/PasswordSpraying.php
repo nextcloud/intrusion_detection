@@ -59,6 +59,8 @@ final class PasswordSpraying implements ICheck, IExplainsDetection, ISimulatable
 
 	/** One detection blocks at most this many addresses; the others are counted */
 	public const MAX_BAN_TARGETS = 500;
+	/** Another address is only blocked when it tried the password for this many accounts */
+	public const MIN_NAMES_TO_BLOCK = 2;
 
 	public function __construct(
 		private readonly DateFormatter $dates,
@@ -85,7 +87,7 @@ final class PasswordSpraying implements ICheck, IExplainsDetection, ISimulatable
 				name: $l->t('Password spraying'),
 				summary: $l->t('One password is tried against many different accounts.'),
 				detects: $l->t('Instead of trying many passwords for one account, attackers try one common password, such as "Summer2026!", against every account they know. They use many addresses, so that no address and no account sees more than a failure or two.'),
-				decides: $l->t('Fires when the same password fails for at least {min_names} different accounts within {window}, no matter from how many addresses. A successful login with that password while it is marked fires again for that account: blocking and marking apply to the failures, extra confirmation, the user notice and the new password to the successful login.'),
+				decides: $l->t('Fires when the same password fails for at least {min_names} different accounts within {window}, no matter from how many addresses. Blocking blocks the address of that failure and every address that tried the password for at least 2 accounts itself. A successful login with that password while it is marked fires again for that account: blocking and marking apply to the failures, extra confirmation, the user notice and the new password to the successful login.'),
 				wrong: $l->t('Several people who were all given the same initial password and mistype it, or a shared device with an old saved password. Successful logins with the password need confirmation and a new password; nobody who knows their own password is locked out.'),
 				data: $l->t('Failed logins: the address, a fingerprint of the account name and of the password, and the time, deleted after 1 hour. The password itself is never stored. When this check fires, the password fingerprint is kept for at most a day, so that logins with it need confirmation.'),
 				params: [
@@ -163,7 +165,16 @@ final class PasswordSpraying implements ICheck, IExplainsDetection, ISimulatable
 			(string)$facts->threshold('min_names'),
 			TextRenderer::duration($facts->threshold('window', 3600), $l),
 		]);
-		$unbanned = $facts->int('sources') - $facts->int('banTargets');
+		$listed = $facts->int('listed', $facts->int('banTargets'));
+		$spared = $listed - $facts->int('banTargets');
+		if ($spared > 0) {
+			$sentences[] = $l->n(
+				'%n address tried it for only one account and was not blocked: that may be a person who mistyped.',
+				'%n addresses tried it for only one account each and were not blocked: those may be people who mistyped.',
+				$spared,
+			);
+		}
+		$unbanned = $facts->int('sources') - $listed;
 		if ($facts->int('banTargets') > 0 && $unbanned > 0) {
 			$sentences[] = $l->n(
 				'%n more address tried it, but one detection blocks at most %s addresses.',

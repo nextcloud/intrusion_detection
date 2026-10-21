@@ -153,36 +153,6 @@ class AttemptMapper {
 	}
 
 	/**
-	 * Attempts per ip key for one value of a key column, for "ban every source
-	 * with at least N failures".
-	 *
-	 * @param 'ip_key'|'net_key'|'pw_fp'|'uid'|'share_id'|'name_hmac' $column
-	 * @param list<AttemptKind> $kinds
-	 * @return array<string, int> failures per ip key
-	 */
-	public function failuresPerSource(string $column, string|int $value, array $kinds, int $since, int $limit = 500): array {
-		if (!in_array($column, self::KEY_COLUMNS, true)) {
-			throw new \InvalidArgumentException('Not an indexed key column: ' . $column);
-		}
-		$qb = $this->db->getQueryBuilder();
-		$qb->select('ip_key')
-			->selectAlias($qb->func()->count('*'), 'n')
-			->from(self::TABLE)
-			->where($qb->expr()->eq($column, $qb->createNamedParameter($value, is_int($value) ? IQueryBuilder::PARAM_INT : IQueryBuilder::PARAM_STR)))
-			->andWhere($qb->expr()->gte('created_at', $qb->createNamedParameter($since, IQueryBuilder::PARAM_INT)))
-			->groupBy('ip_key')
-			->setMaxResults($limit);
-		$this->whereKinds($qb, $kinds);
-		$result = $qb->executeQuery();
-		$counts = [];
-		while ($row = $result->fetch()) {
-			$counts[(string)$row['ip_key']] = (int)$row['n'];
-		}
-		$result->closeCursor();
-		return $counts;
-	}
-
-	/**
 	 * The raw attempts of one source, newest first, for "Show attempts".
 	 *
 	 * @return list<array{kind: int, uid: ?string, created_at: int}>
@@ -259,6 +229,44 @@ class AttemptMapper {
 		$counts = [];
 		while ($row = $result->fetch()) {
 			$counts[(string)$row['ip_key']] = (int)$row['n'];
+		}
+		$result->closeCursor();
+		return $counts;
+	}
+
+	/**
+	 * Per source among attempts where `$column` matches: the failures, the
+	 * different login names and the different passwords (by fingerprint),
+	 * for deciding which further addresses a detection may block.
+	 *
+	 * @param 'ip_key'|'net_key'|'pw_fp'|'uid'|'share_id'|'name_hmac' $column
+	 * @param list<string|int> $values
+	 * @param list<AttemptKind> $kinds
+	 * @return array<string, array{failures: int, names: int, passwords: int}> keyed by ip key
+	 */
+	public function countsPerSource(string $column, array $values, array $kinds, int $since, int $limit = 500): array {
+		if (!in_array($column, self::KEY_COLUMNS, true)) {
+			throw new \InvalidArgumentException('Not an indexed key column: ' . $column);
+		}
+		if ($values === []) {
+			return [];
+		}
+		$qb = $this->db->getQueryBuilder();
+		$type = $column === 'share_id' ? IQueryBuilder::PARAM_INT_ARRAY : IQueryBuilder::PARAM_STR_ARRAY;
+		$qb->select('ip_key')
+			->selectAlias($qb->func()->count('*'), 'failures')
+			->selectAlias($qb->createFunction('COUNT(DISTINCT ' . $qb->getColumnName('name_hmac') . ')'), 'names')
+			->selectAlias($qb->createFunction('COUNT(DISTINCT ' . $qb->getColumnName('pw_fp') . ')'), 'passwords')
+			->from(self::TABLE)
+			->where($qb->expr()->in($column, $qb->createNamedParameter($values, $type)))
+			->andWhere($qb->expr()->gte('created_at', $qb->createNamedParameter($since, IQueryBuilder::PARAM_INT)))
+			->groupBy('ip_key')
+			->setMaxResults($limit);
+		$this->whereKinds($qb, $kinds);
+		$result = $qb->executeQuery();
+		$counts = [];
+		while ($row = $result->fetch()) {
+			$counts[(string)$row['ip_key']] = ['failures' => (int)$row['failures'], 'names' => (int)$row['names'], 'passwords' => (int)$row['passwords']];
 		}
 		$result->closeCursor();
 		return $counts;

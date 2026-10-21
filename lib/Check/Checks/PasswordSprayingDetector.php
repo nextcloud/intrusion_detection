@@ -36,8 +36,9 @@ use OCP\ICacheFactory;
  *   (at most one hour) for at least `min_names` different login names fire.
  *   The limit is lowered when the failing address has an elevated or high
  *   risk score ({@see RiskScorer::limits()}).
- *   Every address that tried it in the window is blocked (at most
- *   MAX_BAN_TARGETS), and the fingerprint is flagged for a day.
+ *   The failing address is blocked, and so is every address that tried the
+ *   password for at least MIN_NAMES_TO_BLOCK accounts in the window (at most
+ *   MAX_BAN_TARGETS); the fingerprint is flagged for a day.
  *
  * - A successful login with a flagged password ({@see self::detectSuccess()})
  *   is a detection of its own for the account, with the login responses
@@ -120,7 +121,10 @@ class PasswordSprayingDetector {
 			return;
 		}
 
-		$targets = $this->attempts->distinctIpKeys('pw_fp', $attempt->passwordCandidates, self::KINDS, $since, PasswordSpraying::MAX_BAN_TARGETS);
+		$perSource = $this->attempts->countsPerSource('pw_fp', $attempt->passwordCandidates, self::KINDS, $since, PasswordSpraying::MAX_BAN_TARGETS);
+		// Other addresses are blocked only when they tried the password for
+		// several accounts themselves: one account is a person who mistyped.
+		$targets = array_keys(array_filter($perSource, static fn (array $counts): bool => $counts['names'] >= PasswordSpraying::MIN_NAMES_TO_BLOCK));
 		$draft = new DetectionDraft(
 			checkId: PasswordSpraying::ID,
 			source: $attempt->source,
@@ -130,6 +134,7 @@ class PasswordSprayingDetector {
 				'names' => $stats->distinctNames,
 				'sources' => $stats->distinctSources,
 				'banTargets' => count($targets),
+				'listed' => count($perSource),
 				'first' => $stats->first,
 				'last' => $stats->last,
 				'targets' => $this->attempts->distinctUids('pw_fp', $attempt->passwordCandidates, self::KINDS, $since, 20),
@@ -138,7 +143,7 @@ class PasswordSprayingDetector {
 			userAgent: $userAgent,
 		);
 		foreach ($targets as $ipKey) {
-			$target = SourceKey::tryFromIpKey($ipKey);
+			$target = SourceKey::tryFromIpKey((string)$ipKey);
 			if ($target !== null) {
 				$draft->addBanTarget($target);
 			}

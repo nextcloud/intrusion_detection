@@ -34,6 +34,8 @@ class AccountUnderAttackDetector {
 	public const KINDS = [AttemptKind::PasswordLogin, AttemptKind::AppPassword];
 	/** Blocking blocks at most this many addresses per detection */
 	public const MAX_BAN_TARGETS = 500;
+	/** An address is only blocked when it tried this many different passwords */
+	public const MIN_PASSWORDS_TO_BLOCK = 4;
 
 	public function __construct(
 		private readonly Settings $settings,
@@ -76,8 +78,10 @@ class AccountUnderAttackDetector {
 			);
 			if ($this->settings->hasResponse(AccountUnderAttack::ID, ResponseType::Ban)) {
 				$minimum = (int)$params['ban_min_failures'];
-				foreach ($this->attempts->failuresPerSource('uid', $uid, self::KINDS, $since, self::MAX_BAN_TARGETS) as $ipKey => $failures) {
-					$target = $failures >= $minimum ? SourceKey::tryFromIpKey($ipKey) : null;
+				foreach ($this->attempts->countsPerSource('uid', [$uid], self::KINDS, $since, self::MAX_BAN_TARGETS) as $ipKey => $counts) {
+					// A device with an old saved password repeats one password; guessing tries many.
+					$hostile = $counts['failures'] >= $minimum && $counts['passwords'] >= self::MIN_PASSWORDS_TO_BLOCK;
+					$target = $hostile ? SourceKey::tryFromIpKey((string)$ipKey) : null;
 					if ($target !== null) {
 						$draft->addBanTarget($target);
 					}

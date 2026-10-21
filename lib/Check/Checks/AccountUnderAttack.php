@@ -69,7 +69,7 @@ final class AccountUnderAttack implements ICheck, IExplainsDetection, IExplainsT
 				name: $l->t('One account attacked from many places'),
 				summary: $l->t('One account fails to log in from many different addresses.'),
 				detects: $l->t('A botnet guessing one person\'s password, each machine trying only once or twice so that no single address looks suspicious.'),
-				decides: $l->t('Fires when one account has {min_failures} failed logins from at least {min_sources} different addresses within {window}. With blocking switched on, every address with at least {ban_min_failures} of these failures is blocked.'),
+				decides: $l->t('Fires when one account has {min_failures} failed logins from at least {min_sources} different addresses within {window}. With blocking switched on, every address with at least {ban_min_failures} of these failures and at least 4 different passwords is blocked; a device that keeps sending one old password, or a person who mistypes a few times, is not.'),
 				wrong: $l->t('A user whose old password is still saved in several devices on different networks. They are asked for a confirmation at their next login and can fix their devices; nothing is blocked unless you switch blocking on.'),
 				data: $l->t('Failed logins: the address, a fingerprint of the account name, the account and the time, deleted after 1 hour. Protected accounts: the account and when the protection ends.'),
 				params: [
