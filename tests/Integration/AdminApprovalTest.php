@@ -76,7 +76,8 @@ class AdminApprovalTest extends StepUpTestCase {
 		$this->assertStringContainsString('data-ids-poll=', $html);
 		$this->assertStringContainsString('Cancel this login', $html);
 		$this->assertStringContainsString('Remember this device', $html);
-		$this->assertStringContainsString('Check now', $html, 'Works without the script');
+		$this->assertMatchesRegularExpression('/<button class="ids-page__secondary ids-page__check" type="submit">\s*Check now/', $html, 'Works without the script, and is not the main action as the page checks by itself');
+		$this->assertStringNotContainsString(' …', $html);
 
 		$this->assertSame(['status' => 'pending', 'retryAfter' => VerifyController::POLL_INTERVAL], $this->approvalStatus()->getData());
 		$this->assertNotNull($this->rule()->check($this->state, RequestTarget::dav('PROPFIND', '/')), 'Nothing else is reachable while it waits');

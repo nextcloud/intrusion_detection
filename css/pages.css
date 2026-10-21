@@ -154,6 +154,12 @@
 	border-radius: var(--border-radius-element);
 	background-color: var(--color-main-background);
 	color: var(--color-main-text);
+	font: inherit;
+	font-weight: bold;
+}
+
+.guest-box.ids-page button.ids-page__check {
+	margin-block-start: calc(5 * var(--default-grid-baseline));
 }
 
 .guest-box.ids-page button.ids-page__secondary:hover {
@@ -274,6 +280,7 @@
 	border-radius: var(--border-radius-element);
 	background-color: var(--color-main-background);
 	color: var(--color-main-text);
+	font: inherit;
 	font-weight: bold;
 	text-align: center;
 }

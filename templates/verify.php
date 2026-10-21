@@ -102,9 +102,9 @@ $described = $error !== null ? 'ids-verify-error' : null;
 		<div class="ids-page__waiting" data-ids-poll="<?php p($_['statusUrl'] ?? ''); ?>" data-ids-poll-interval="<?php p((string)($_['pollInterval'] ?? 10)); ?>" data-ids-poll-form="ids-approval-continue">
 			<span class="ids-page__spinner" aria-hidden="true"></span>
 			<p class="ids-page__waiting-text" role="status" aria-live="polite" data-ids-poll-status
-				data-ids-text-pending="<?php p($l->t('Waiting for an administrator …')); ?>"
-				data-ids-text-decided="<?php p($l->t('An administrator decided. Continuing …')); ?>"
-				data-ids-text-offline="<?php p($l->t('Cannot reach the server. Trying again …')); ?>"><?php p($notice ?? $l->t('Waiting for an administrator …')); ?></p>
+				data-ids-text-pending="<?php p($l->t('Waiting for an administrator…')); ?>"
+				data-ids-text-decided="<?php p($l->t('An administrator decided. Continuing…')); ?>"
+				data-ids-text-offline="<?php p($l->t('Cannot reach the server. Trying again…')); ?>"><?php p($notice ?? $l->t('Waiting for an administrator…')); ?></p>
 		</div>
 		<p class="ids-page__meta"><?php p($_['expires'] ?? ''); ?></p>
 
@@ -118,7 +118,7 @@ $described = $error !== null ? 'ids-verify-error' : null;
 					<p class="ids-page__meta" id="ids-verify-remember-hint"><?php p($l->t('Only on your own device. For %s, logins from this browser are confirmed without asking again, unless your password itself is at risk.', [$_['rememberFor'] ?? ''])); ?></p>
 				</div>
 			<?php endif; ?>
-			<button class="primary ids-page__submit" type="submit"><?php p($l->t('Check now')); ?></button>
+			<button class="ids-page__secondary ids-page__check" type="submit"><?php p($l->t('Check now')); ?></button>
 		</form>
 
 		<div class="ids-page__alternatives">
@@ -137,8 +137,10 @@ $described = $error !== null ? 'ids-verify-error' : null;
 	<?php elseif ($mode === 'refused'): ?>
 		<?php if (($_['reference'] ?? null) !== null): ?>
 			<p class="ids-page__hint">
-				<?php p($l->t('Reference:')); ?> <span class="ids-page__reference"><?php p($_['reference']); ?></span>
+				<?php p($l->t('Give your administrator this reference, so that they can see what happened:')); ?> <span class="ids-page__reference"><?php p($_['reference']); ?></span>
 			</p>
+		<?php else: ?>
+			<p class="ids-page__hint"><?php p($l->t('Please contact your administrator.')); ?></p>
 		<?php endif; ?>
 		<div class="ids-page__actions">
 			<a href="<?php p($_['login_url']); ?>"><?php p($l->t('Back to the login page')); ?></a>

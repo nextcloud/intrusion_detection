@@ -235,8 +235,9 @@ class VerifyFlowTest extends StepUpTestCase {
 		$this->assertInstanceOf(StandaloneTemplateResponse::class, $response);
 		$this->assertSame(Http::STATUS_FORBIDDEN, $response->getStatus());
 		$html = $response->render();
-		$this->assertStringContainsString('your account has no email address or second factor that we could use. Please contact your administrator.', $html);
-		$this->assertStringContainsString($reference, $html);
+		$this->assertStringContainsString('Your account has no email address or second factor that could confirm it, so this login cannot continue.', $html);
+		$this->assertSame(1, substr_count($html, 'This login needs extra confirmation'), 'The lead does not repeat the title');
+		$this->assertMatchesRegularExpression('/Give your administrator this reference, so that they can see what happened:\s*<span class="ids-page__reference">' . preg_quote($reference, '/') . '</', $html);
 		$this->assertNull($this->sessionUser, 'The refused session ends once it was told');
 		$this->assertSame(0, $this->unconfirmedRows());
 		$this->assertInstanceOf(RedirectResponse::class, $this->verifyController()->confirm('482915'), 'Nothing to confirm any more');

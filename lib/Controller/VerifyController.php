@@ -407,7 +407,7 @@ class VerifyController extends Controller {
 	private function refusedPage(StepUpState $stepUp): StandaloneTemplateResponse {
 		$response = $this->render(self::MODE_REFUSED, [
 			'title' => $this->l->t('This login needs extra confirmation'),
-			'lead' => $this->l->t('This login needs extra confirmation, but your account has no email address or second factor that we could use. Please contact your administrator.'),
+			'lead' => $this->l->t('Your account has no email address or second factor that could confirm it, so this login cannot continue.'),
 			'reference' => $stepUp->reference,
 		]);
 		$response->setStatus(Http::STATUS_FORBIDDEN);
