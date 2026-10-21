@@ -17,6 +17,9 @@ namespace OCA\IntrusionDetection\Check;
  * (on the admin page, while typing).
  */
 final class CheckTexts {
+	/**
+	 * @param array<string, ParamText> $params label, help and unit per parameter name
+	 */
 	public function __construct(
 		public readonly string $name,
 		public readonly string $summary,
@@ -24,7 +27,15 @@ final class CheckTexts {
 		public readonly string $decides,
 		public readonly string $wrong,
 		public readonly string $data,
+		public readonly array $params = [],
 	) {
+	}
+
+	/**
+	 * The texts of one parameter; a parameter without texts is labelled by its name.
+	 */
+	public function param(string $name): ParamText {
+		return $this->params[$name] ?? new ParamText(ucfirst(str_replace('_', ' ', $name)));
 	}
 
 	/**

@@ -74,4 +74,9 @@ Every check can be switched between Off, Observe and Protect, every threshold is
         <command>OCA\IntrusionDetection\Command\Payload\Test</command>
         <command>OCA\IntrusionDetection\Command\Contribution\Preview</command>
     </commands>
+
+    <settings>
+        <admin>OCA\IntrusionDetection\Settings\Admin</admin>
+        <admin-section>OCA\IntrusionDetection\Settings\AdminSection</admin-section>
+    </settings>
 </info>

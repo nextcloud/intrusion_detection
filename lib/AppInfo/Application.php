@@ -10,6 +10,7 @@ declare(strict_types=1);
 namespace OCA\IntrusionDetection\AppInfo;
 
 use OCA\IntrusionDetection\Config\Lexicon;
+use OCA\IntrusionDetection\Dashboard\IntrusionWidget;
 use OCA\IntrusionDetection\Event\BanCreatedEvent;
 use OCA\IntrusionDetection\Event\BanLiftedEvent;
 use OCA\IntrusionDetection\Guard\AddressGuard;
@@ -56,6 +57,7 @@ class Application extends App implements IBootstrap {
 		$context->registerRequestGuard(PayloadGuard::class);
 		$context->registerEventListener(UserLoggedInEvent::class, PayloadLoginListener::class);
 		$context->registerMiddleware(PayloadMiddleware::class, true);
+		$context->registerDashboardWidget(IntrusionWidget::class);
 	}
 
 	#[\Override]

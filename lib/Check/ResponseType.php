@@ -80,4 +80,18 @@ enum ResponseType: string {
 			self::NotifyShareOwner => $l->t('Tell the owner of the share.'),
 		};
 	}
+
+	/**
+	 * The response in the "What happens" text of the admin page: like
+	 * {@see self::describe()}, but with the settings it depends on as `{name}`
+	 * placeholders, which the page fills in while the admin types.
+	 */
+	public function happens(IL10N $l): string {
+		return match ($this) {
+			self::Ban => $l->t('The address is blocked for {ban_duration_1} ({ban_duration_2} if it is blocked again within {ban_history_days} days, then {ban_duration_3}).'),
+			self::FlagSource => $l->t('Successful logins from the address need extra confirmation for {flag_duration}.'),
+			self::FlagPassword => $l->t('Logins with the guessed password need extra confirmation for {flag_duration}.'),
+			default => $this->describe($l),
+		};
+	}
 }

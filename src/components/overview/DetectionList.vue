@@ -1,0 +1,329 @@
+<!--
+  - SPDX-FileCopyrightText: 2026 Nextcloud GmbH and Nextcloud contributors
+  - SPDX-License-Identifier: AGPL-3.0-or-later
+-->
+
+<script setup lang="ts">
+import type { Ban, Detection } from '../../types.ts'
+
+import { mdiClose, mdiShieldCheckOutline } from '@mdi/js'
+import { n, t } from '@nextcloud/l10n'
+import { computed, ref, useId, watch } from 'vue'
+import NcButton from '@nextcloud/vue/components/NcButton'
+import NcEmptyContent from '@nextcloud/vue/components/NcEmptyContent'
+import NcIconSvgWrapper from '@nextcloud/vue/components/NcIconSvgWrapper'
+import NcLoadingIcon from '@nextcloud/vue/components/NcLoadingIcon'
+import NcNoteCard from '@nextcloud/vue/components/NcNoteCard'
+import SkeletonBlock from '../common/SkeletonBlock.vue'
+import DetectionRow from './DetectionRow.vue'
+import { errorMessage, fetchDetections } from '../../services/api.ts'
+import { logger } from '../../services/logger.ts'
+import { detectionFilters, openDetectionId, state } from '../../store.ts'
+import { APP_ID, formatNumber } from '../../utils/format.ts'
+
+const emit = defineEmits<{
+	lift: [ban: Ban, reload: () => Promise<void>]
+}>()
+
+const PAGE = 25
+const id = useId()
+const detections = ref<Detection[]>([])
+const total = ref(0)
+const loading = ref(true)
+const loadingMore = ref(false)
+const error = ref<string | null>(null)
+const address = ref(detectionFilters.address)
+const user = ref(detectionFilters.user)
+
+const severityOptions = [
+	{ value: '', label: () => t(APP_ID, 'Any severity') },
+	{ value: 'medium,high,critical', label: () => t(APP_ID, 'Medium and above') },
+	{ value: 'high,critical', label: () => t(APP_ID, 'High and above') },
+	{ value: 'critical', label: () => t(APP_ID, 'Critical only') },
+]
+
+/** Configurable checks plus any other check seen in the list, e.g. "Shared address not blocked" */
+const checkOptions = computed(() => {
+	const options = new Map(state.checks.map((check) => [check.id, check.texts.name]))
+	for (const detection of detections.value) {
+		if (!options.has(detection.checkId)) {
+			options.set(detection.checkId, detection.checkName)
+		}
+	}
+	if (detectionFilters.check !== '' && !options.has(detectionFilters.check)) {
+		options.set(detectionFilters.check, detectionFilters.check)
+	}
+	return [...options.entries()].map(([value, label]) => ({ value, label })).sort((a, b) => a.label.localeCompare(b.label))
+})
+
+const filtered = computed(() => Object.values(detectionFilters).some((value) => value !== ''))
+
+/**
+ * Load the first page for the current filters.
+ */
+async function load() {
+	loading.value = true
+	error.value = null
+	try {
+		const page = await fetchDetections(detectionFilters, PAGE, 0)
+		detections.value = page.detections
+		total.value = page.total
+	} catch (e) {
+		logger.error('Could not load detections', { error: e })
+		error.value = errorMessage(e, t(APP_ID, 'The detections could not be loaded. Please reload the page.'))
+	} finally {
+		loading.value = false
+	}
+}
+
+/**
+ * Append the next page.
+ */
+async function loadMore() {
+	loadingMore.value = true
+	try {
+		const page = await fetchDetections(detectionFilters, PAGE, detections.value.length)
+		detections.value.push(...page.detections)
+		total.value = page.total
+	} catch (e) {
+		logger.error('Could not load more detections', { error: e })
+		error.value = errorMessage(e, t(APP_ID, 'More detections could not be loaded.'))
+	} finally {
+		loadingMore.value = false
+	}
+}
+
+let typing: ReturnType<typeof setTimeout> | undefined
+watch([address, user], () => {
+	clearTimeout(typing)
+	typing = setTimeout(() => {
+		detectionFilters.address = address.value.trim()
+		detectionFilters.user = user.value.trim()
+	}, 400)
+})
+
+watch(() => ({ ...detectionFilters }), () => {
+	address.value = detectionFilters.address
+	user.value = detectionFilters.user
+	load()
+}, { immediate: true })
+
+/**
+ * Remove every filter.
+ */
+function clearFilters() {
+	Object.assign(detectionFilters, { check: '', severity: '', user: '', address: '', mode: '' })
+}
+
+/** A detection opened from a link or the lookup that is not on the first page */
+const pinned = computed(() => openDetectionId.value !== null && !detections.value.some((d) => d.id === openDetectionId.value) ? openDetectionId.value : null)
+
+/**
+ * Reload the list after a block was lifted, so its rows and narratives show the change.
+ *
+ * @param ban - The block to lift
+ * @param reload - Reloads the narrative it was lifted from
+ */
+function onLift(ban: Ban, reload: () => Promise<void>) {
+	emit('lift', ban, async () => {
+		await Promise.all([reload(), load()])
+	})
+}
+
+defineExpose({ reload: load })
+</script>
+
+<template>
+	<section :class="$style.detections" :aria-labelledby="`${id}-heading`">
+		<header :class="$style.detections__head">
+			<h3 :id="`${id}-heading`" :class="$style.detections__heading">
+				{{ t(APP_ID, 'Recent detections') }}
+			</h3>
+			<span v-if="!loading" :class="$style.detections__count" aria-live="polite">
+				{{ total === 0 ? '' : n(APP_ID, 'Showing %n of {total}', 'Showing %n of {total}', detections.length, { total: formatNumber(total) }) }}
+			</span>
+		</header>
+
+		<div :class="$style.filters" role="group" :aria-label="t(APP_ID, 'Filter detections')">
+			<label :class="$style.filter">
+				<span :class="$style.filter__label">{{ t(APP_ID, 'Check') }}</span>
+				<select v-model="detectionFilters.check">
+					<option value="">{{ t(APP_ID, 'All checks') }}</option>
+					<option v-for="option in checkOptions" :key="option.value" :value="option.value">
+						{{ option.label }}
+					</option>
+				</select>
+			</label>
+			<label :class="$style.filter">
+				<span :class="$style.filter__label">{{ t(APP_ID, 'Severity') }}</span>
+				<select v-model="detectionFilters.severity">
+					<option v-for="option in severityOptions" :key="option.value" :value="option.value">
+						{{ option.label() }}
+					</option>
+				</select>
+			</label>
+			<label :class="$style.filter">
+				<span :class="$style.filter__label">{{ t(APP_ID, 'Outcome') }}</span>
+				<select v-model="detectionFilters.mode">
+					<option value="">{{ t(APP_ID, 'All outcomes') }}</option>
+					<option value="enforced">{{ t(APP_ID, 'Acted on') }}</option>
+					<option value="observed">{{ t(APP_ID, 'Observed') }}</option>
+				</select>
+			</label>
+			<label :class="$style.filter">
+				<span :class="$style.filter__label">{{ t(APP_ID, 'Address') }}</span>
+				<input
+					v-model="address"
+					type="text"
+					autocomplete="off"
+					spellcheck="false">
+			</label>
+			<label :class="$style.filter">
+				<span :class="$style.filter__label">{{ t(APP_ID, 'Account') }}</span>
+				<input
+					v-model="user"
+					type="text"
+					autocomplete="off"
+					spellcheck="false">
+			</label>
+			<NcButton
+				v-if="filtered"
+				variant="tertiary"
+				:class="$style.filters__clear"
+				@click="clearFilters">
+				<template #icon>
+					<NcIconSvgWrapper :path="mdiClose" />
+				</template>
+				{{ t(APP_ID, 'Clear filters') }}
+			</NcButton>
+		</div>
+
+		<NcNoteCard v-if="error" type="error" :text="error" />
+
+		<ul v-if="pinned !== null" :class="[$style.detections__list, $style.detections__list_pinned]" :aria-label="t(APP_ID, 'Opened detection')">
+			<DetectionRow
+				:key="pinned"
+				:detectionId="pinned"
+				open
+				@lift="onLift" />
+		</ul>
+
+		<div v-if="loading" :class="$style.detections__skeleton" aria-busy="true">
+			<SkeletonBlock v-for="i in 5" :key="i" height="44px" />
+		</div>
+
+		<NcEmptyContent
+			v-else-if="detections.length === 0 && !error"
+			:name="filtered ? t(APP_ID, 'No detections match these filters') : t(APP_ID, 'No attacks recorded')"
+			:description="filtered ? t(APP_ID, 'Try fewer filters.') : t(APP_ID, 'When a check finds something, it is listed here with an explanation. Nextcloud is watching.')">
+			<template #icon>
+				<NcIconSvgWrapper :path="mdiShieldCheckOutline" />
+			</template>
+		</NcEmptyContent>
+
+		<ul v-else :class="$style.detections__list">
+			<DetectionRow
+				v-for="detection in detections"
+				:key="detection.id"
+				:detection="detection"
+				:open="openDetectionId === detection.id"
+				@lift="onLift" />
+		</ul>
+
+		<div v-if="!loading && detections.length < total" :class="$style.detections__more">
+			<NcButton variant="secondary" :disabled="loadingMore" @click="loadMore">
+				<template v-if="loadingMore" #icon>
+					<NcLoadingIcon />
+				</template>
+				{{ t(APP_ID, 'Show more') }}
+			</NcButton>
+		</div>
+	</section>
+</template>
+
+<style module>
+.detections {
+	display: flex;
+	flex-direction: column;
+	gap: calc(var(--default-grid-baseline) * 4);
+}
+
+.detections__head {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: baseline;
+	justify-content: space-between;
+	gap: calc(var(--default-grid-baseline) * 2);
+}
+
+.detections__heading {
+	margin: 0;
+	font-size: 1.15em;
+	font-weight: 700;
+}
+
+.detections__count {
+	color: var(--color-text-maxcontrast);
+	font-size: 0.9em;
+}
+
+.filters {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: flex-end;
+	gap: calc(var(--default-grid-baseline) * 3);
+}
+
+.filter {
+	display: flex;
+	flex: 1 1 150px;
+	flex-direction: column;
+	gap: calc(var(--default-grid-baseline) * 1);
+	min-width: 0;
+	max-width: 240px;
+}
+
+.filter select,
+.filter input {
+	width: 100%;
+	margin: 0;
+}
+
+.filter__label {
+	color: var(--color-text-maxcontrast);
+	font-size: 0.85em;
+	font-weight: 600;
+}
+
+.filters__clear {
+	flex: 0 0 auto;
+}
+
+.detections__list {
+	margin: 0;
+	padding: 0;
+	list-style: none;
+}
+
+.detections__list_pinned {
+	border: 1px solid color-mix(in srgb, var(--color-primary-element) 40%, var(--color-border));
+	border-radius: var(--border-radius-large);
+}
+
+.detections__skeleton {
+	display: flex;
+	flex-direction: column;
+	gap: calc(var(--default-grid-baseline) * 2);
+}
+
+.detections__more {
+	display: flex;
+	justify-content: center;
+}
+
+@media (max-width: 600px) {
+	.filter {
+		max-width: none;
+	}
+}
+</style>

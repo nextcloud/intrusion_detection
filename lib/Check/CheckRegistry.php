@@ -14,7 +14,7 @@ use Psr\Container\ContainerInterface;
 /**
  * All checks the app knows. Adding a check means adding its class to CHECKS.
  */
-final class CheckRegistry {
+class CheckRegistry {
 	/** @var list<class-string<ICheck>> */
 	public const CHECKS = [
 		Checks\ManualBlock::class,
