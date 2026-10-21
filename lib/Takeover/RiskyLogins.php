@@ -26,6 +26,8 @@ class RiskyLogins {
 	/** @var list<class-string<IRiskyLoginSignal>> */
 	public const SIGNALS = [
 		Signals\UnconfirmedLoginSignal::class,
+		Signals\UnknownDeviceSignal::class,
+		Signals\RiskyNetworkSignal::class,
 	];
 
 	public function __construct(

@@ -139,6 +139,25 @@ class LoginHistoryMapper {
 		return $this->range($qb, $since, $until, $limit, $oldestFirst);
 	}
 
+	/**
+	 * The newest login of an account that started a session (or app
+	 * password) token.
+	 */
+	public function forSession(string $uid, int $sessionTokenId): ?LoginHistoryEntry {
+		$qb = $this->db->getQueryBuilder();
+		$qb->select(...self::COLUMNS)
+			->from(self::TABLE)
+			->where($qb->expr()->eq('uid', $qb->createNamedParameter($uid)))
+			->andWhere($qb->expr()->eq('session_token_id', $qb->createNamedParameter($sessionTokenId, IQueryBuilder::PARAM_INT)))
+			->orderBy('created_at', 'DESC')
+			->addOrderBy('id', 'DESC')
+			->setMaxResults(1);
+		$result = $qb->executeQuery();
+		$row = $result->fetch();
+		$result->closeCursor();
+		return is_array($row) ? LoginHistoryEntry::fromRow($row) : null;
+	}
+
 	public function deleteOlderThan(int $before): int {
 		$qb = $this->db->getQueryBuilder();
 		$qb->delete(self::TABLE)

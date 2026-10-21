@@ -15,7 +15,9 @@ use OCA\IntrusionDetection\SessionState\SessionState;
 use OCA\IntrusionDetection\Takeover\IRiskyLoginSignal;
 use OCA\IntrusionDetection\Takeover\RiskyLogin;
 use OCA\IntrusionDetection\Takeover\RiskyLogins;
+use OCA\IntrusionDetection\Takeover\Signals\RiskyNetworkSignal;
 use OCA\IntrusionDetection\Takeover\Signals\UnconfirmedLoginSignal;
+use OCA\IntrusionDetection\Takeover\Signals\UnknownDeviceSignal;
 use Psr\Container\ContainerInterface;
 use Psr\Log\LoggerInterface;
 use Test\TestCase;
@@ -69,7 +71,7 @@ class RiskyLoginsTest extends TestCase {
 			}
 		};
 		$this->assertSame(1000, $logins->of('alice', 7)?->at, 'The window starts at the earliest risky login');
-		$this->assertSame([UnconfirmedLoginSignal::class], RiskyLogins::SIGNALS);
+		$this->assertSame([UnconfirmedLoginSignal::class, UnknownDeviceSignal::class, RiskyNetworkSignal::class], RiskyLogins::SIGNALS);
 	}
 
 	/**
