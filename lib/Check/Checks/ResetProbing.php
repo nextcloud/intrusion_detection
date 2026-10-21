@@ -73,6 +73,7 @@ final class ResetProbing implements ICheck, IExplainsDetection, IExplainsToUser,
 			stores: [DataKind::FailedAttempts, DataKind::Detections, DataKind::Bans, DataKind::ResetSuppressions],
 			texts: static fn (IL10N $l): CheckTexts => new CheckTexts(
 				name: $l->t('Password reset abuse'),
+				shortName: $l->t('Password reset abuse'),
 				summary: $l->t('Someone uses "Forgot password" to find accounts, or floods one person with reset emails.'),
 				detects: $l->t('The "Forgot password" form gives the same answer whether an account exists or not, but attackers still use it. They try many names to find out which accounts exist, or send one person so many reset emails that the person gets annoyed, misses a real one, or clicks one they did not ask for.'),
 				decides: $l->t('Fires when one address asks for password resets for {enum_min_inputs} different names or email addresses within {enum_window}; the address is blocked. It also fires when one account is asked for {flood_min_requests} reset emails within {flood_window}, from any number of addresses: then no reset emails are sent to it for {suppress_duration} after the last request, for at most a day within two days, and the person is told once, with the latest time the emails are held back.'),

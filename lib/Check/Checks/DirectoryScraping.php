@@ -80,6 +80,7 @@ final class DirectoryScraping implements ICheck, IExplainsDetection, IExplainsTo
 			stores: [DataKind::CacheCounters, DataKind::Detections],
 			texts: static fn (IL10N $l): CheckTexts => new CheckTexts(
 				name: $l->t('Directory scraping'),
+				shortName: $l->t('Directory scraping'),
 				summary: $l->t('A logged-in account that reads the list of people on this server faster than a person could.'),
 				detects: $l->t('Someone who got into one account can copy the whole user directory: names, email addresses, phone numbers and pictures of everyone, for phishing or to sell. They do it by searching for one letter after the other, opening profile after profile, or downloading the address book over and over.'),
 				decides: $l->t('Counts the requests of each account within 10 minutes and fires when one kind goes above its limit: {limit_search} searches for people (autocomplete, the sharing dialog, the contacts menu, unified search), {limit_profile} profile pages and avatars, {limit_addressbook} downloads of the system address book or the user list over WebDAV, and {limit_users} user lists of the user management.'),

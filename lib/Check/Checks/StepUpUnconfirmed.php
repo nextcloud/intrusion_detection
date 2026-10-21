@@ -60,6 +60,7 @@ final class StepUpUnconfirmed implements ICheck, IExplainsDetection, IExplainsTo
 			stores: [DataKind::Detections],
 			texts: static fn (IL10N $l): CheckTexts => new CheckTexts(
 				name: $l->t('Login allowed without confirmation'),
+				shortName: $l->t('Unconfirmed login'),
 				summary: $l->t('A login needed extra confirmation, nothing could confirm it, and the settings allowed it anyway.'),
 				detects: $l->t('Some logins need extra confirmation: with the second factor, or with a code sent by email. When an account has neither, a setting per reason decides. For some reasons, such as a password from a data breach, the login is allowed with a notice, or a new password is required, instead of locking the person out.'),
 				decides: $l->t('Records each such login. Depending on the setting of the reason, the user and the administrators are told, or a new password is required.'),

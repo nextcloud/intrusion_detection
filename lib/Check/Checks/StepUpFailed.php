@@ -72,6 +72,7 @@ final class StepUpFailed implements ICheck, IExplainsDetection, IExplainsToUser,
 			stores: [DataKind::Detections],
 			texts: static fn (IL10N $l): CheckTexts => new CheckTexts(
 				name: $l->t('Login confirmation failed'),
+				shortName: $l->t('Confirmation failed'),
 				summary: $l->t('A login that needed extra confirmation was not confirmed.'),
 				detects: $l->t('Someone logged in with the correct password, but the login needed extra confirmation, for example because it came from an address that took part in an attack. Nextcloud sent a code to the account\'s email address. Whoever entered wrong codes again and again knows the password, but cannot read the mailbox.'),
 				decides: $l->t('Fires after %1$s wrong codes, when the login was not confirmed within {step_up_session_ttl}, or when an administrator rejected it. Only wrong codes block the address.', [(string)EmailCodes::MAX_ATTEMPTS]),

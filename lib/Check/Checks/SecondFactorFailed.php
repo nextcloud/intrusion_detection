@@ -77,6 +77,7 @@ final class SecondFactorFailed implements ICheck, IExplainsDetection, IExplainsT
 			stores: [DataKind::FailedAttempts, DataKind::Detections, DataKind::TokenOrigins],
 			texts: static fn (IL10N $l): CheckTexts => new CheckTexts(
 				name: $l->t('Correct password, then a failed second factor'),
+				shortName: $l->t('Failed 2nd factor'),
 				summary: $l->t('Someone gets the password right, but fails the second factor again and again.'),
 				detects: $l->t('An attacker who has the password, from a data breach or a phishing page, but not the phone or security key of the second factor. They get past the password and then try to guess the code. Whoever does this knows the password.'),
 				decides: $l->t('Fires when the second factor fails {max_failures} times in one login, or {max_failures_hour} times for one account within an hour. From an address that was flagged after an earlier attack, the first failure is enough. Backup codes count like every other second factor. One mistyped code never fires.'),

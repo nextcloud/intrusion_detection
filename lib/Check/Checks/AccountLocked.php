@@ -54,6 +54,7 @@ final class AccountLocked implements ICheck, IExplainsDetection, IHeadlinesDetec
 			stores: [DataKind::Detections, DataKind::LockLinks],
 			texts: static fn (IL10N $l): CheckTexts => new CheckTexts(
 				name: $l->t('Account locked with the lock link'),
+				shortName: $l->t('Account locked'),
 				summary: $l->t('The owner of an account\'s previous email address locked the account.'),
 				detects: $l->t('When an account\'s email address is changed as part of an account takeover sequence, the previous address gets a one-time link to lock the account. Someone used it: they say they did not make the change.'),
 				decides: $l->t('Every session and app password of the account was ended, and the account was disabled. Only an administrator can enable it again.'),

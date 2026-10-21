@@ -81,6 +81,7 @@ final class AdminChange implements ICheck, IExplainsDetection, IHeadlinesDetecti
 			stores: [DataKind::Detections, DataKind::ConfigSnapshot, DataKind::Approvals],
 			texts: static fn (IL10N $l): CheckTexts => new CheckTexts(
 				name: $l->t('Admin change alerts'),
+				shortName: $l->t('Admin change'),
 				summary: $l->t('Someone got administrator rights, an app was switched on or off, or a security setting changed.'),
 				detects: $l->t('An intruder who gets into an administrator account usually makes themselves at home: they give a second account administrator rights, switch on an app, or weaken a security setting so that the next step is easier. This check tells every administrator about such changes, including the one who made them. If that account was taken over, its owner still learns what was done in their name.'),
 				decides: $l->t('Fires on every change: an account added to the admin group or to a group with delegated administration settings, a group administrator appointed, an account created by an administrator, an app switched on or off, and every change of the watched security settings. Changes in config.php are found by a check every 5 minutes. A second administrator must approve new administrators: {admin_change_require_approval}. A request for approval expires after {admin_change_approval_ttl}.'),

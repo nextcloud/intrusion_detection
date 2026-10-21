@@ -16,7 +16,8 @@ namespace OCA\IntrusionDetection\Check;
  * value of that parameter, so the sentence follows the settings as they change
  * (on the admin page, while typing). `cost` adds to the cost class text what
  * this check costs in particular (for an external call: what, how often, how
- * long), with the same placeholders.
+ * long), with the same placeholders. `shortName` names the check where
+ * there is room for a few words only, such as a dashboard widget line.
  */
 final class CheckTexts {
 	/**
@@ -31,6 +32,7 @@ final class CheckTexts {
 		public readonly string $data,
 		public readonly array $params = [],
 		public readonly string $cost = '',
+		public readonly string $shortName = '',
 	) {
 	}
 

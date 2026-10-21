@@ -182,16 +182,23 @@ class IntrusionWidget implements IAPIWidgetV2, IConditionalWidget, IIconWidget, 
 		);
 	}
 
+	/**
+	 * "Failed 2nd factor · alice" over "4 minutes ago · 198.51.100.7": the
+	 * account, or the address when there is none, fits next to the short name.
+	 */
 	private function detectionItem(Detection $detection): WidgetItem {
+		$uid = $detection->getUid() ?? '';
+		$ip = $detection->getIp() ?? '';
+		$subject = $uid !== '' ? $uid : $ip;
+		$title = $this->names->shortName($detection->getCheckId(), $this->l);
+		if ($subject !== '') {
+			$title .= ' · ' . $subject;
+		}
 		$parts = array_filter([
 			$this->dates->ago($detection->getLastSeenAt(), $this->timeFactory->getTime()),
-			$detection->getIp(),
-			$detection->getUid(),
-		], static fn (?string $part): bool => $part !== null && $part !== '');
-		$title = $this->names->name($detection->getCheckId(), $this->l);
-		if (!$detection->isEnforced()) {
-			$title = $this->l->t('%s (observed)', [$title]);
-		}
+			$uid !== '' ? $ip : '',
+			$detection->isEnforced() ? '' : $this->l->t('observed'),
+		], static fn (string $part): bool => $part !== '');
 		return new WidgetItem(
 			$title,
 			implode(' · ', $parts),

@@ -82,6 +82,7 @@ final class InjectionProbe implements ICheck, IExplainsDetection {
 			stores: [DataKind::Detections, DataKind::RequestExcerpts, DataKind::Bans],
 			texts: static fn (IL10N $l): CheckTexts => new CheckTexts(
 				name: $l->t('SQL injection and encoded payloads'),
+				shortName: $l->t('Injection attempt'),
 				summary: $l->t('Database commands in web addresses, and attack code hidden in base64.'),
 				detects: $l->t('Attack tools try to break into web applications by putting database commands into web addresses, like ?id=1\' OR \'1\'=\'1 or UNION SELECT password FROM users. Some hide them in base64 so that simple filters miss them. Nextcloud itself is built to resist this, but such requests reveal an attacker before they find a weakness elsewhere, for example in an app.'),
 				decides: $l->t('Looks at the web address and form fields of requests, up to {max_bytes} bytes each. A request fires when it matches signatures with a total weight of at least {sql_min_weight}: one stray quote never does, UNION SELECT alone does. Values that look like base64 are decoded and checked the same way, plus checks for script, PHP and shell code. File names, search fields and password fields are never inspected. Visitors who are not logged in are handled by the mode of this check; requests of logged-in users by the mode for logged-in users, now: {authenticated_mode}.'),

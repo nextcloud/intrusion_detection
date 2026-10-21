@@ -40,6 +40,7 @@ final class ManualBlock implements ICheck {
 			stores: [DataKind::Bans],
 			texts: static fn (IL10N $l): CheckTexts => new CheckTexts(
 				name: $l->t('Blocked by an administrator'),
+				shortName: $l->t('Blocked by an admin'),
 				summary: $l->t('An administrator blocked this address by hand.'),
 				detects: $l->t('Nothing: an administrator added the block on the admin page or with occ.'),
 				decides: $l->t('The block lasts as long as the administrator chose.'),

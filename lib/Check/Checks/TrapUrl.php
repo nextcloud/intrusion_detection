@@ -64,6 +64,7 @@ final class TrapUrl implements ICheck, IExplainsDetection, ISimulatable, IValida
 			stores: [DataKind::Detections, DataKind::Bans],
 			texts: static fn (IL10N $l): CheckTexts => new CheckTexts(
 				name: $l->t('Trap URLs'),
+				shortName: $l->t('Trap URL'),
 				summary: $l->t('A visitor who is not logged in requests a path that no Nextcloud client ever requests.'),
 				detects: $l->t('Scanners look for weaknesses of other software, such as WordPress logins, leaked configuration files or database tools. Nextcloud has none of these, so anyone who asks for them is scanning your server.'),
 				decides: $l->t('Fires when a visitor who is not logged in requests one of the built-in trap paths (switched {builtin_enabled}), the Exchange autodiscover path (switched {autodiscover}), or one of your own paths: {paths}. Your own paths match exactly, or as a prefix when they end with "*".'),

@@ -108,6 +108,7 @@ final class AccountTakeover implements ICheck, IExplainsDetection, IExplainsToUs
 				}
 				return new CheckTexts(
 					name: $l->t('Account takeover sequence'),
+					shortName: $l->t('Account takeover'),
 					summary: $l->t('Several security changes to one account shortly after a risky login.'),
 					detects: $l->t('Someone who got into an account, with a stolen password or session, often makes it their own quickly: they change the email address, turn off the second factor and create an app password, so that the owner cannot get back in or notice. Each of these changes is normal on its own; several of them close together are not.'),
 					decides: $l->t('Every change counts points: email address {points_email_changed}, password {points_password_changed}, second factor added {points_second_factor_added}, removed {points_second_factor_removed}, turned off {points_second_factor_disabled}, app password {points_app_password_created}, device connected {points_device_connected}. Fires when the changes made in one session within {window} after a risky login add up to {min_points} points, or when the changes from any session within {window_any} add up to {min_points_any}. A login is risky when it needed extra confirmation and was let in without one. Changes made by an administrator, with occ, or by a password reset through email never count.'),

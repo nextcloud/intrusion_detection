@@ -52,6 +52,18 @@ class CheckRegistryTest extends TestCase {
 		}
 	}
 
+	public function testEveryCheckHasAShortNameThatFitsAWidgetLine(): void {
+		$l = Server::get(IFactory::class)->get('intrusion_detection', 'en');
+		$seen = [];
+		foreach ($this->registry->all() as $check) {
+			$texts = $check->texts($l);
+			$this->assertNotSame('', trim($texts->shortName), $check->id . ' has no short name');
+			$this->assertLessThanOrEqual(22, mb_strlen($texts->shortName), $check->id . ': "' . $texts->shortName . '" is too long for a widget line');
+			$this->assertArrayNotHasKey($texts->shortName, $seen, $check->id . ' has the short name of ' . ($seen[$texts->shortName] ?? ''));
+			$seen[$texts->shortName] = $check->id;
+		}
+	}
+
 	public function testPlaceholdersInDecideTextsExist(): void {
 		$l = Server::get(IFactory::class)->get('intrusion_detection', 'en');
 		foreach ($this->registry->all() as $check) {

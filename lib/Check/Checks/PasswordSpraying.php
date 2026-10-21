@@ -86,6 +86,7 @@ final class PasswordSpraying implements ICheck, IExplainsDetection, ISimulatable
 			stores: [DataKind::FailedAttempts, DataKind::Flags, DataKind::Detections, DataKind::Bans],
 			texts: static fn (IL10N $l): CheckTexts => new CheckTexts(
 				name: $l->t('Password spraying'),
+				shortName: $l->t('Password spraying'),
 				summary: $l->t('One password is tried against many different accounts.'),
 				detects: $l->t('Instead of trying many passwords for one account, attackers try one common password, such as "Summer2026!", against every account they know. They use many addresses, so that no address and no account sees more than a failure or two.'),
 				decides: $l->t('Fires when the same password fails for at least {min_names} different accounts within {window}, no matter from how many addresses. Blocking blocks the address of that failure and every address that tried the password for at least 2 accounts itself; addresses that try the password later, while it is marked, are blocked once they tried it for 2 accounts. A successful login with that password while it is marked fires again for that account: blocking and marking apply to the failures, extra confirmation, the user notice and the new password to the successful login.'),

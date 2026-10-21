@@ -51,6 +51,7 @@ final class BlocklistMatch implements ICheck, IExplainsDetection {
 			stores: [DataKind::BlocklistRanges, DataKind::Detections],
 			texts: static fn (IL10N $l): CheckTexts => new CheckTexts(
 				name: $l->t('Known bad addresses'),
+				shortName: $l->t('Known bad address'),
 				summary: $l->t('Refuses requests from networks on public blocklists, such as Spamhaus DROP.'),
 				detects: $l->t('Some organisations publish lists of networks that are run by criminals or send nothing but attacks. Nextcloud can download such lists and refuse every request from these networks, before they can try a single password.'),
 				decides: $l->t('Every list you switch on is downloaded every {blocklist_sync_interval}. A list set to Protect refuses all requests from an address on it. A list set to Observe only counts them. A failed login from an address on a list is recorded, at most once per address and hour. Lists with more than {blocklist_max_entries} entries are not used.'),

@@ -47,6 +47,7 @@ class IntrusionWidgetTest extends TestCase {
 		$this->groups->method('isAdmin')->willReturnCallback(static fn (string $uid): bool => $uid === 'admin');
 		$names = $this->createMock(CheckNames::class);
 		$names->method('name')->willReturnCallback(static fn (string $id): string => 'Name of ' . $id);
+		$names->method('shortName')->willReturnCallback(static fn (string $id): string => 'Short ' . $id);
 		$names->method('category')->willReturn(Category::Internal);
 		$dates = $this->createMock(DateFormatter::class);
 		$dates->method('ago')->willReturnCallback(static fn (int $at, int $now): string => ($now - $at) . ' seconds ago');
@@ -116,10 +117,28 @@ class IntrusionWidgetTest extends TestCase {
 		$this->assertCount(3, $items);
 		$this->assertSame('Protecting', $items[0]->getTitle());
 		$this->assertSame('41 addresses blocked in 24 hours · 12 detections', $items[0]->getSubtitle());
-		$this->assertSame('Name of account_takeover', $items[1]->getTitle());
-		$this->assertSame('300 seconds ago · 198.51.100.7 · alice', $items[1]->getSubtitle(), 'how long ago comes first, so it is never cut off');
+		$this->assertSame('Short account_takeover · alice', $items[1]->getTitle());
+		$this->assertSame('300 seconds ago · 198.51.100.7', $items[1]->getSubtitle(), 'how long ago comes first, so it is never cut off');
 		$this->assertStringEndsWith('#detection-7', $items[1]->getLink());
-		$this->assertSame('Name of decoy_credential (observed)', $items[2]->getTitle());
+		$this->assertSame('Short decoy_credential · alice', $items[2]->getTitle());
+		$this->assertSame('300 seconds ago · 198.51.100.7 · observed', $items[2]->getSubtitle());
+	}
+
+	public function testADetectionWithoutAnAccountIsNamedByItsAddress(): void {
+		$this->status->method('status')->willReturn(self::statusData('protecting'));
+		$byAddress = self::detection(7, 'trap_url', true);
+		$byAddress->setUid(null);
+		$neither = self::detection(8, 'admin_change', true);
+		$neither->setUid(null);
+		$neither->setIp(null);
+		$this->detections->method('findList')->willReturn([$byAddress, $neither]);
+
+		$items = $this->widget->getItemsV2('admin')->getItems();
+
+		$this->assertSame('Short trap_url · 198.51.100.7', $items[1]->getTitle());
+		$this->assertSame('300 seconds ago', $items[1]->getSubtitle());
+		$this->assertSame('Short admin_change', $items[2]->getTitle());
+		$this->assertSame('300 seconds ago', $items[2]->getSubtitle());
 	}
 
 	public function testLoginsWaitingForThisAdministratorComeFirst(): void {

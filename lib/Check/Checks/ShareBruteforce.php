@@ -86,6 +86,7 @@ final class ShareBruteforce implements ICheck, IExplainsDetection, IExplainsToUs
 			stores: [DataKind::FailedAttempts, DataKind::Detections, DataKind::Bans],
 			texts: static fn (IL10N $l): CheckTexts => new CheckTexts(
 				name: $l->t('Share link attacks'),
+				shortName: $l->t('Share link attack'),
 				summary: $l->t('Someone tries share links at random, or guesses the password of a share.'),
 				detects: $l->t('A share link works like a secret address: whoever knows it can open the share. Attackers try random links in the hope of finding shared files, or try one password after the other on a link that is protected by a password.'),
 				decides: $l->t('Fires when one address opens {token_min} different share links that do not exist within {token_window}; a whole /24 network is held to {net_factor} times this number. One or two outdated links never count. It also fires when one address enters {password_min_per_source} wrong passwords for one share within {password_source_window}, and when one share gets {password_min_per_share} wrong passwords from any number of addresses within {password_share_window}. The first two block the address; the last one tells the person who shared the link. Administrators are notified of each of them, if you choose so below.'),

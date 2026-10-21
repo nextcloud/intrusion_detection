@@ -65,6 +65,7 @@ final class LoginFlowMismatch implements ICheck, IExplainsDetection, IExplainsTo
 			stores: [DataKind::Detections],
 			texts: static fn (IL10N $l): CheckTexts => new CheckTexts(
 				name: $l->t('Login request phishing'),
+				shortName: $l->t('Login phishing'),
 				summary: $l->t('A request to connect a device was started on one network and approved on another.'),
 				detects: $l->t('Desktop and mobile apps connect to Nextcloud with a login request: the app opens a page, the person logs in there and approves the new device. An attacker can start such a request on their own computer and send the link to someone, for example in an email that looks official. Whoever approves it connects the attacker\'s app to their own account.'),
 				decides: $l->t('Rated high when the request was started from an address that is blocked or marked as attacking. Rated medium when it was started in another network than the one it was approved from, or approved more than {max_age} after it was started: real devices are approved within a minute or two. Rated low and only recorded when one side used IPv4 and the other IPv6, which computers with both do all the time. A medium rating counts as low when the request was started in a network the person confirmed as their own. High ratings disconnect the new device at once; medium ones only when you switch that on (switched {medium_revoke}).'),

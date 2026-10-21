@@ -54,6 +54,7 @@ final class RiskyNetwork implements ICheck, IExplainsDetection, IExplainsToUser 
 			stores: [DataKind::BlocklistRanges, DataKind::Detections],
 			texts: static fn (IL10N $l): CheckTexts => new CheckTexts(
 				name: $l->t('Hosting and Tor networks'),
+				shortName: $l->t('Hosting or Tor login'),
 				summary: $l->t('Asks for extra confirmation when someone logs in with their password from a cloud server or the Tor network.'),
 				detects: $l->t('Attackers rarely try stolen passwords from home. They rent servers at cloud and hosting providers, or hide behind the Tor network. Most people log in from home, the office or a mobile network. A password login from a hosting provider or Tor is therefore suspicious, though it is no proof of an attack.'),
 				decides: $l->t('Fires when someone logs in with their account password from an address on one of the network lists you switched on in the Blocks tab. Logins with app passwords never count, so sync clients and scripts in the cloud keep working. Addresses in your office networks ({risky_network_office_networks}), members of the exempt groups ({risky_network_exempt_groups}) and networks a user confirmed with "Yes, it was me" are never affected. Without a network list, this check does nothing.'),

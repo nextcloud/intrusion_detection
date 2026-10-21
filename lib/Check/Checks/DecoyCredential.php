@@ -58,6 +58,7 @@ final class DecoyCredential implements ICheck, IExplainsDetection {
 			stores: [DataKind::Decoys, DataKind::Detections, DataKind::Bans],
 			texts: static fn (IL10N $l): CheckTexts => new CheckTexts(
 				name: $l->t('Decoy app passwords and tokens'),
+				shortName: $l->t('Decoy credential used'),
 				summary: $l->t('Someone used a fake credential that you planted.'),
 				detects: $l->t('You create a decoy app password or token and leave it where only an intruder would look: an old script on a file server, a wiki page about backups, a note in a shared drive. It opens nothing, and nobody has a reason to use it, so whoever does found it where you put it.'),
 				decides: $l->t('Fires at the first login with a decoy\'s secret, whatever account name comes with it. A login with a decoy\'s account name and another password counts as a weaker sign. Unlike checks that block, it acts during learning mode as well (switched {learning_decoys_act}).'),

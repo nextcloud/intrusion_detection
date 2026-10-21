@@ -65,6 +65,7 @@ final class ReservedName implements ICheck, IExplainsDetection, ISimulatable, IV
 			stores: [DataKind::Detections, DataKind::Bans],
 			texts: static fn (IL10N $l): CheckTexts => new CheckTexts(
 				name: $l->t('Decoy admin account'),
+				shortName: $l->t('Decoy admin login'),
 				summary: $l->t('Someone tries to log in with a reserved name such as "admin" that no account uses.'),
 				detects: $l->t('Attack tools try common account names like "admin", "root" or "test" first. If no account on your server has such a name, nobody who belongs here ever types it, so an attempt with it is a sure sign of an attacker.'),
 				decides: $l->t('Fires at the first failed login with one of these names: {names}.'),

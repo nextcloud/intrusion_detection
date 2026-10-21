@@ -58,6 +58,7 @@ final class StepUpRefused implements ICheck, IExplainsDetection, IExplainsToUser
 			stores: [DataKind::Detections],
 			texts: static fn (IL10N $l): CheckTexts => new CheckTexts(
 				name: $l->t('Login refused: nothing could confirm it'),
+				shortName: $l->t('Login refused'),
 				summary: $l->t('A login needed extra confirmation, but the account has no second factor and no email address to confirm it with.'),
 				detects: $l->t('Some logins need extra confirmation, for example from an address that took part in an attack: with the second factor, or with a code sent by email. When an account has neither, a setting per reason decides whether the login is refused, or allowed with a notice.'),
 				decides: $l->t('Records each login that was refused because of these settings. The person sees a reference that they can give you.'),

@@ -57,6 +57,7 @@ final class StepUpRefusedClient implements ICheck, IExplainsDetection, IExplains
 			stores: [DataKind::Detections],
 			texts: static fn (IL10N $l): CheckTexts => new CheckTexts(
 				name: $l->t('App login with the password refused'),
+				shortName: $l->t('App login refused'),
 				summary: $l->t('An app or script logged in with the account\'s password while logins with it needed extra confirmation.'),
 				detects: $l->t('Apps that send the account\'s real password with every request, instead of an app password, cannot answer a request for extra confirmation. While a login with the password needs one, for example because the address took part in an attack, such requests are refused whenever the account could confirm the login in a browser: with an email code, a second factor, an administrator\'s approval or a remembered device. When someone is guessing the password, the password is on a breach list or the address belongs to a hosting network, apps keep working from a familiar place (a remembered device, a trusted network, or a network the account logged in from before), and the setting for the reason decides, as it does for accounts with no way to confirm.'),
 				decides: $l->t('Records the refused requests of one account from one address per day. The user is told at most once a day.'),

@@ -57,6 +57,7 @@ final class UserDenied implements ICheck, IExplainsDetection, IExplainsToUser, I
 			stores: [DataKind::Detections, DataKind::Bans, DataKind::Flags],
 			texts: static fn (IL10N $l): CheckTexts => new CheckTexts(
 				name: $l->t('A user said it was not them'),
+				shortName: $l->t('User said "not me"'),
 				summary: $l->t('A user answered "No, it was not me" about a security event of their account.'),
 				detects: $l->t('Users are asked "Was this you?" about logins and other events that may have been someone else. When they answer no, someone else has used their account or their password.'),
 				decides: $l->t('Ends the sessions and app passwords linked to the event, requires a new password when the event involved the password, blocks the address at the second level unless the answer comes from that very address, and marks its network, so that logins from there need extra confirmation for {flag_duration}. When the answer comes from a session whose login proved no more than the password, it only tells the administrators, and the question stays open until the user answers after a login that proved more.'),

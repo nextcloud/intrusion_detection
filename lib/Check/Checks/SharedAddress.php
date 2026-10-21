@@ -60,6 +60,7 @@ final class SharedAddress implements ICheck {
 			stores: [DataKind::SuccessfulLogins, DataKind::Detections],
 			texts: static fn (IL10N $l): CheckTexts => new CheckTexts(
 				name: $l->t('Shared address not blocked'),
+				shortName: $l->t('Shared address'),
 				summary: $l->t('An address would have been blocked, but many people log in from it.'),
 				detects: $l->t('A check wanted to block an address from which several different people whose accounts are at least 3 days old logged in successfully in the last day. This is typical for an office network behind one address, or for a reverse proxy that is not configured as trusted, so that every visitor seems to come from the proxy.'),
 				decides: $l->t('Fires instead of a block when at least {ban_shared_ip_users} different people whose accounts are at least 3 days old (or administrators) logged in successfully in the last 24 hours from the address (or, for a block of a whole network, from the network). Accounts registered in the last 3 days do not count, so nobody can keep their address from being blocked by creating a few. It also fires when the address is a private one most recent logins of different people with such accounts came from, or one an administrator logged in from within the last 7 days, while no trusted proxies are configured: then it is probably your reverse proxy.'),

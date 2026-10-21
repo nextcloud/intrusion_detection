@@ -59,6 +59,7 @@ final class BreachedPassword implements ICheck, IExplainsDetection, IExplainsToU
 			stores: [DataKind::AccountState, DataKind::Detections],
 			texts: static fn (IL10N $l): CheckTexts => new CheckTexts(
 				name: $l->t('Password known from data breaches'),
+				shortName: $l->t('Breached password'),
 				summary: $l->t('A user logs in with a password that appears in public lists of leaked passwords.'),
 				detects: $l->t('Passwords stolen from other websites are published in long lists, and attackers try the passwords on these lists first. A password on such a list is weak, however long it looks, even if it never leaked from your server. Nextcloud checks the password against the Pwned Passwords list of the Have I Been Pwned service when the user logs in, without revealing it.'),
 				decides: $l->t('Checks the password at a login through the login form, when it was not checked in the last {recheck_days} days, and at the first such login after the password changed. Fires when the password is on the list with a count of at least {min_count}. Apps and devices that log in with an app password are never checked.'),

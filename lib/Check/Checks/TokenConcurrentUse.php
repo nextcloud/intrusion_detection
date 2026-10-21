@@ -73,6 +73,7 @@ final class TokenConcurrentUse implements ICheck, IExplainsDetection, IExplainsT
 			stores: [DataKind::CacheCounters, DataKind::Detections],
 			texts: static fn (IL10N $l): CheckTexts => new CheckTexts(
 				name: $l->t('Stolen app password or session'),
+				shortName: $l->t('Stolen session'),
 				summary: $l->t('One app password or logged-in session used from two networks at the same time.'),
 				detects: $l->t('An app password or a logged-in browser session that is used from two different networks at the same time, as happens when someone copied it: from a computer, a backup or a browser. The real owner keeps using it, and so does the person who copied it. The same applies to a password that apps send with every request.'),
 				decides: $l->t('Fires when the same credential switches back and forth between two networks at least {min_switches} times within {window}. A phone moving from Wi-Fi to mobile data switches once and is not counted. Switching between IPv4 and IPv6 is ignored. A credential that does not log in is never reported.'),

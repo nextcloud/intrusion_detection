@@ -20,6 +20,8 @@ use OCP\IL10N;
 class CheckNames {
 	/** @var array<string, string> */
 	private array $names = [];
+	/** @var array<string, string> */
+	private array $shortNames = [];
 
 	public function __construct(
 		private readonly CheckRegistry $registry,
@@ -29,6 +31,19 @@ class CheckNames {
 	public function name(string $checkId, IL10N $l): string {
 		$key = $l->getLanguageCode() . "\0" . $checkId;
 		return $this->names[$key] ??= $this->registry->has($checkId) ? $this->registry->get($checkId)->texts($l)->name : $checkId;
+	}
+
+	/**
+	 * A name of a few words, for places with little room; the full name when
+	 * a check has no short one.
+	 */
+	public function shortName(string $checkId, IL10N $l): string {
+		$key = $l->getLanguageCode() . "\0" . $checkId;
+		if (!isset($this->shortNames[$key])) {
+			$short = $this->registry->has($checkId) ? $this->registry->get($checkId)->texts($l)->shortName : '';
+			$this->shortNames[$key] = $short !== '' ? $short : $this->name($checkId, $l);
+		}
+		return $this->shortNames[$key];
 	}
 
 	public function category(string $checkId): Category {
