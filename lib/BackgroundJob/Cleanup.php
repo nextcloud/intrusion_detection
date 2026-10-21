@@ -11,6 +11,7 @@ namespace OCA\IntrusionDetection\BackgroundJob;
 
 use OCA\IntrusionDetection\Config\GlobalSettings;
 use OCA\IntrusionDetection\Config\Settings;
+use OCA\IntrusionDetection\Confirm\AbandonedLogins;
 use OCA\IntrusionDetection\Db\AlertMapper;
 use OCA\IntrusionDetection\Db\AttemptMapper;
 use OCA\IntrusionDetection\Db\BanMapper;
@@ -66,6 +67,7 @@ class Cleanup extends TimedJob {
 		private readonly SecurityChangeMapper $securityChanges,
 		private readonly LockLinkMapper $lockLinks,
 		private readonly FailedLoginStats $failedLoginStats,
+		private readonly AbandonedLogins $abandonedLogins,
 	) {
 		parent::__construct($time);
 		$this->setInterval(300);
@@ -85,6 +87,7 @@ class Cleanup extends TimedJob {
 		$this->resetSuppressions->deleteExpired($now);
 		$this->tokenOrigins->deleteOlderThan($now - self::TOKEN_ORIGIN_RETENTION);
 		$this->trustedNetworks->deleteExpired($now);
+		$this->abandonedLogins->end();
 		$this->stepUpSessions->deleteExpired($now);
 		$this->knownDevices->deleteExpired();
 		$this->loginHistory->deleteOlderThan($now - $this->settings->getInt(GlobalSettings::HISTORY_RETENTION_DAYS) * 86400);

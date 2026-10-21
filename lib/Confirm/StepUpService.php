@@ -195,7 +195,14 @@ class StepUpService {
 	}
 
 	public function save(StepUpState $stepUp): bool {
-		return $this->state->set(SessionState::STEP_UP, $stepUp->toArray());
+		$saved = $this->state->set(SessionState::STEP_UP, $stepUp->toArray());
+		if ($saved && $stepUp->isPending()) {
+			$sessionId = $this->sessionId();
+			if ($sessionId !== '') {
+				$this->unconfirmed->extendDeadline($sessionId, $stepUp->deadline);
+			}
+		}
+		return $saved;
 	}
 
 	/**
@@ -338,13 +345,13 @@ class StepUpService {
 	 * @param bool $resumable whether the session could come back without its state, and must be remembered
 	 */
 	private function mark(StepUpState $stepUp, bool $resumable = true): void {
-		if (!$this->save($stepUp)) {
+		if (!$this->state->set(SessionState::STEP_UP, $stepUp->toArray())) {
 			// Without a writable session the login cannot be held back; the error is logged by the session state.
 			return;
 		}
 		$sessionId = $this->sessionId();
 		if ($resumable && $sessionId !== '') {
-			$this->unconfirmed->remember($sessionId, $stepUp->uid);
+			$this->unconfirmed->remember($sessionId, $stepUp->uid, $stepUp->isPending() ? $stepUp : null);
 		}
 	}
 

@@ -117,7 +117,7 @@ class GlobalSettingsPresenter {
 			), self::GROUP_STEP_UP],
 			GlobalSettings::STEP_UP_SESSION_TTL => [new ParamText(
 				$l->t('A login must be confirmed within'),
-				$l->t('A login that waits longer for its confirmation is ended, and the user is told.'),
+				$l->t('A login that waits longer for its confirmation is ended within a few minutes, also when nobody comes back to it, and the user is told.'),
 			), self::GROUP_STEP_UP],
 			GlobalSettings::TRUSTED_NETWORK_DURATION => [new ParamText(
 				$l->t('Trust a network for'),

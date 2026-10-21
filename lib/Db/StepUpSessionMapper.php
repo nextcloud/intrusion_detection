@@ -24,11 +24,19 @@ class StepUpSessionMapper {
 	) {
 	}
 
-	public function record(string $sessionKey, string $uid, int $now, int $expiresAt): void {
+	/**
+	 * @param ?int $deadline until when a pending login may wait; null for a refused one
+	 * @param list<string> $policies
+	 */
+	public function record(string $sessionKey, string $uid, int $now, int $expiresAt, ?int $deadline = null, ?string $ip = null, array $policies = []): void {
+		$policyList = $policies === [] ? null : substr(implode(',', $policies), 0, 255);
 		$qb = $this->db->getQueryBuilder();
 		$qb->update(self::TABLE)
 			->set('uid', $qb->createNamedParameter($uid))
 			->set('expires_at', $qb->createNamedParameter($expiresAt, IQueryBuilder::PARAM_INT))
+			->set('deadline', $qb->createNamedParameter($deadline, IQueryBuilder::PARAM_INT))
+			->set('ip', $qb->createNamedParameter($ip))
+			->set('policies', $qb->createNamedParameter($policyList))
 			->where($qb->expr()->eq('session_key', $qb->createNamedParameter($sessionKey)));
 		if ($qb->executeStatement() > 0) {
 			return;
@@ -38,7 +46,66 @@ class StepUpSessionMapper {
 			'uid' => $uid,
 			'created_at' => $now,
 			'expires_at' => $expiresAt,
+			'deadline' => $deadline,
+			'ip' => $ip,
+			'policies' => $policyList,
 		]);
+	}
+
+	/**
+	 * A pending login may wait longer (an administrator's approval).
+	 */
+	public function extendDeadline(string $sessionKey, int $deadline): void {
+		$qb = $this->db->getQueryBuilder();
+		$qb->update(self::TABLE)
+			->set('deadline', $qb->createNamedParameter($deadline, IQueryBuilder::PARAM_INT))
+			->where($qb->expr()->eq('session_key', $qb->createNamedParameter($sessionKey)))
+			->andWhere($qb->expr()->isNotNull('deadline'))
+			->andWhere($qb->expr()->lt('deadline', $qb->createNamedParameter($deadline, IQueryBuilder::PARAM_INT)))
+			->executeStatement();
+	}
+
+	/**
+	 * Pending logins whose deadline has passed, oldest first.
+	 *
+	 * @return list<array{session_key: string, uid: string, created_at: int, deadline: int, ip: ?string, policies: list<string>}>
+	 */
+	public function findAbandoned(int $now, int $limit): array {
+		$qb = $this->db->getQueryBuilder();
+		$qb->select('session_key', 'uid', 'created_at', 'deadline', 'ip', 'policies')
+			->from(self::TABLE)
+			->where($qb->expr()->lte('deadline', $qb->createNamedParameter($now, IQueryBuilder::PARAM_INT)))
+			->andWhere($qb->expr()->gt('expires_at', $qb->createNamedParameter($now, IQueryBuilder::PARAM_INT)))
+			->orderBy('deadline', 'ASC')
+			->setMaxResults($limit);
+		$result = $qb->executeQuery();
+		$rows = [];
+		while ($row = $result->fetch()) {
+			$rows[] = [
+				'session_key' => (string)$row['session_key'],
+				'uid' => (string)$row['uid'],
+				'created_at' => (int)$row['created_at'],
+				'deadline' => (int)$row['deadline'],
+				'ip' => $row['ip'] === null ? null : (string)$row['ip'],
+				'policies' => $row['policies'] === null || $row['policies'] === '' ? [] : explode(',', (string)$row['policies']),
+			];
+		}
+		$result->closeCursor();
+		return $rows;
+	}
+
+	/**
+	 * The pending login was ended; the row stays, so that the session cannot come back.
+	 *
+	 * @return bool whether this call ended it (and not another one at the same time)
+	 */
+	public function endWaiting(string $sessionKey): bool {
+		$qb = $this->db->getQueryBuilder();
+		$qb->update(self::TABLE)
+			->set('deadline', $qb->createNamedParameter(null, IQueryBuilder::PARAM_INT))
+			->where($qb->expr()->eq('session_key', $qb->createNamedParameter($sessionKey)))
+			->andWhere($qb->expr()->isNotNull('deadline'));
+		return $qb->executeStatement() > 0;
 	}
 
 	/**

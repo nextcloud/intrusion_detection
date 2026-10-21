@@ -180,6 +180,27 @@ class LoginHistoryMapper {
 		return is_array($row) ? LoginHistoryEntry::fromRow($row) : null;
 	}
 
+	/**
+	 * The row of a login that still waits for its confirmation, recorded
+	 * around when it started.
+	 */
+	public function pendingAround(string $uid, int $started): ?LoginHistoryEntry {
+		$qb = $this->db->getQueryBuilder();
+		$qb->select(...self::COLUMNS)
+			->from(self::TABLE)
+			->where($qb->expr()->eq('uid', $qb->createNamedParameter($uid)))
+			->andWhere($qb->expr()->gte('created_at', $qb->createNamedParameter($started - 5, IQueryBuilder::PARAM_INT)))
+			->andWhere($qb->expr()->lte('created_at', $qb->createNamedParameter($started + 60, IQueryBuilder::PARAM_INT)))
+			->andWhere($qb->expr()->eq('step_up', $qb->createNamedParameter('pending')))
+			->orderBy('created_at', 'ASC')
+			->addOrderBy('id', 'ASC')
+			->setMaxResults(1);
+		$result = $qb->executeQuery();
+		$row = $result->fetch();
+		$result->closeCursor();
+		return is_array($row) ? LoginHistoryEntry::fromRow($row) : null;
+	}
+
 	public function deleteOlderThan(int $before): int {
 		$qb = $this->db->getQueryBuilder();
 		$qb->delete(self::TABLE)

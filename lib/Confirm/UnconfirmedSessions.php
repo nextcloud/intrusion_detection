@@ -46,12 +46,31 @@ class UnconfirmedSessions {
 	) {
 	}
 
-	public function remember(#[\SensitiveParameter] string $sessionId, string $uid): void {
+	/**
+	 * @param ?StepUpState $pending a login that waits for its confirmation, which a background job ends at its deadline
+	 */
+	public function remember(#[\SensitiveParameter] string $sessionId, string $uid, ?StepUpState $pending = null): void {
 		$now = $this->timeFactory->getTime();
 		$expires = $now + $this->lifetime();
-		$this->mapper->record($this->fingerprinter->session($sessionId), $uid, $now, $expires);
+		$this->mapper->record(
+			$this->fingerprinter->session($sessionId),
+			$uid,
+			$now,
+			$expires,
+			$pending?->deadline,
+			$pending?->ip,
+			$pending === null ? [] : $pending->policies,
+		);
 		if ($this->settings->getInt(GlobalSettings::STEP_UP_SESSIONS_UNTIL) < $expires) {
 			$this->settings->setGlobal(GlobalSettings::STEP_UP_SESSIONS_UNTIL, $expires);
+		}
+	}
+
+	public function extendDeadline(#[\SensitiveParameter] string $sessionId, int $deadline): void {
+		try {
+			$this->mapper->extendDeadline($this->fingerprinter->session($sessionId), $deadline);
+		} catch (\Throwable $e) {
+			$this->logger->error('Intrusion detection could not extend the wait of an unconfirmed session', ['exception' => $e]);
 		}
 	}
 
