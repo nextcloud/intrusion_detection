@@ -45,7 +45,6 @@ class IntrusionWidget implements IAPIWidgetV2, IConditionalWidget, IIconWidget, 
 	public const ID = 'intrusion_detection';
 	/** Detections of this severity or above are listed */
 	public const MIN_SEVERITY = Severity::High;
-	public const MAX_DETECTIONS = 5;
 
 	public function __construct(
 		private readonly StatusService $status,
@@ -137,7 +136,8 @@ class IntrusionWidget implements IAPIWidgetV2, IConditionalWidget, IIconWidget, 
 				array_filter(Severity::cases(), static fn (Severity $s): bool => $s->atLeast(self::MIN_SEVERITY)),
 			)),
 			since: $this->timeFactory->getTime() - 30 * 86400,
-			limit: max(0, min(self::MAX_DETECTIONS, $limit - count($items))),
+			// A full list makes the dashboard show the "Open intrusion detection" link.
+			limit: max(0, $limit - count($items)),
 			afterId: $afterId,
 		));
 		foreach ($detections as $detection) {
@@ -184,9 +184,9 @@ class IntrusionWidget implements IAPIWidgetV2, IConditionalWidget, IIconWidget, 
 
 	private function detectionItem(Detection $detection): WidgetItem {
 		$parts = array_filter([
+			$this->dates->ago($detection->getLastSeenAt(), $this->timeFactory->getTime()),
 			$detection->getIp(),
 			$detection->getUid(),
-			$this->dates->dateTime($detection->getLastSeenAt()),
 		], static fn (?string $part): bool => $part !== null && $part !== '');
 		$title = $this->names->name($detection->getCheckId(), $this->l);
 		if (!$detection->isEnforced()) {
@@ -196,15 +196,20 @@ class IntrusionWidget implements IAPIWidgetV2, IConditionalWidget, IIconWidget, 
 			$title,
 			implode(' · ', $parts),
 			$this->pageUrl() . '#detection-' . $detection->getId(),
-			$this->itemIcon('widget-detection.svg'),
+			$this->itemIcon(match (Severity::tryFrom($detection->getSeverity())) {
+				Severity::Critical => 'widget-detection-critical.svg',
+				Severity::High => 'widget-detection-high.svg',
+				default => 'widget-detection.svg',
+			}),
 			(string)$detection->getId(),
 		);
 	}
 
 	/**
 	 * An icon for an item. The dashboard shows it as an image, so it cannot
-	 * follow the theme: it is drawn in the Nextcloud blue, which reads on a
-	 * light and on a dark background.
+	 * follow the theme: it is drawn in fixed colours that read on a light and
+	 * on a dark background, the Nextcloud blue, and orange and red for high
+	 * and critical detections.
 	 */
 	private function itemIcon(string $image): string {
 		return $this->urlGenerator->getAbsoluteURL($this->urlGenerator->imagePath(Application::APP_ID, $image));

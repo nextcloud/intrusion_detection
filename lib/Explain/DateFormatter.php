@@ -41,6 +41,13 @@ class DateFormatter {
 		return $this->formatter()->formatDateTime($timestamp, 'short', 'short');
 	}
 
+	/**
+	 * How long ago, e.g. "4 minutes ago", for lists that are read now.
+	 */
+	public function ago(int $timestamp, int $now): string {
+		return $this->formatter()->formatTimeSpan($timestamp, $now);
+	}
+
 	public function time(int $timestamp): string {
 		return $this->formatter()->formatTime($timestamp, 'short');
 	}

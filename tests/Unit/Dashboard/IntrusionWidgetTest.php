@@ -49,7 +49,7 @@ class IntrusionWidgetTest extends TestCase {
 		$names->method('name')->willReturnCallback(static fn (string $id): string => 'Name of ' . $id);
 		$names->method('category')->willReturn(Category::Internal);
 		$dates = $this->createMock(DateFormatter::class);
-		$dates->method('dateTime')->willReturn('10/20/26, 10:00 AM');
+		$dates->method('ago')->willReturnCallback(static fn (int $at, int $now): string => ($now - $at) . ' seconds ago');
 		$urls = $this->createMock(IURLGenerator::class);
 		$urls->method('linkToRouteAbsolute')->willReturn('https://cloud.example/settings/admin/intrusion_detection');
 		$urls->method('imagePath')->willReturnCallback(static fn (string $app, string $image): string => '/apps/' . $app . '/img/' . $image);
@@ -112,12 +112,12 @@ class IntrusionWidgetTest extends TestCase {
 		$items = $this->widget->getItemsV2('admin')->getItems();
 
 		$this->assertSame(['high', 'critical'], $filter?->severities);
-		$this->assertSame(5, $filter?->limit);
+		$this->assertSame(6, $filter?->limit, 'the list fills the widget, so the dashboard links to the page');
 		$this->assertCount(3, $items);
 		$this->assertSame('Protecting', $items[0]->getTitle());
 		$this->assertSame('41 addresses blocked in 24 hours · 12 detections', $items[0]->getSubtitle());
 		$this->assertSame('Name of account_takeover', $items[1]->getTitle());
-		$this->assertSame('198.51.100.7 · alice · 10/20/26, 10:00 AM', $items[1]->getSubtitle());
+		$this->assertSame('300 seconds ago · 198.51.100.7 · alice', $items[1]->getSubtitle(), 'how long ago comes first, so it is never cut off');
 		$this->assertStringEndsWith('#detection-7', $items[1]->getLink());
 		$this->assertSame('Name of decoy_credential (observed)', $items[2]->getTitle());
 	}
@@ -145,17 +145,19 @@ class IntrusionWidgetTest extends TestCase {
 		$this->assertSame(5, $filter?->limit);
 	}
 
-	public function testItemIconsReadInBothThemes(): void {
+	public function testItemIconsShowTheSeverityAndReadInBothThemes(): void {
 		$this->status->method('status')->willReturn(self::statusData('protecting', blocked: 1, detections: 1));
-		$this->detections->method('findList')->willReturn([self::detection(7, 'account_takeover', true)]);
+		$this->detections->method('findList')->willReturn([self::detection(7, 'account_takeover', true, 'high'), self::detection(8, 'decoy_credential', true, 'critical')]);
 
 		$items = $this->widget->getItemsV2('admin')->getItems();
 
 		$this->assertSame('/apps/intrusion_detection/img/widget-status.svg', $items[0]->getIconUrl());
-		$this->assertSame('/apps/intrusion_detection/img/widget-detection.svg', $items[1]->getIconUrl());
-		foreach (['widget-status.svg', 'widget-detection.svg'] as $image) {
+		$this->assertSame('/apps/intrusion_detection/img/widget-detection-high.svg', $items[1]->getIconUrl());
+		$this->assertSame('/apps/intrusion_detection/img/widget-detection-critical.svg', $items[2]->getIconUrl());
+		// Each colour has at least 3:1 contrast on white and on #171717.
+		foreach (['widget-status.svg' => '#0082c9', 'widget-detection.svg' => '#0082c9', 'widget-detection-high.svg' => '#c26a00', 'widget-detection-critical.svg' => '#e5383b'] as $image => $colour) {
 			$svg = (string)file_get_contents(__DIR__ . '/../../../img/' . $image);
-			$this->assertStringContainsString('fill="#0082c9"', $svg, 'A fixed colour that reads on light and dark backgrounds');
+			$this->assertStringContainsString('fill="' . $colour . '"', $svg, 'A fixed colour that reads on light and dark backgrounds');
 			$this->assertStringNotContainsString('#000', $svg);
 		}
 	}
@@ -171,7 +173,7 @@ class IntrusionWidgetTest extends TestCase {
 		$items = $this->widget->getItemsV2('admin', '8', 7);
 
 		$this->assertSame(8, $filter?->afterId);
-		$this->assertSame(IntrusionWidget::MAX_DETECTIONS, $filter?->limit);
+		$this->assertSame(7, $filter?->limit);
 		$this->assertSame(['9'], array_map(static fn ($item): string => $item->getSinceId(), $items->getItems()));
 		$this->assertSame('', $items->getEmptyContentMessage());
 	}
@@ -216,14 +218,15 @@ class IntrusionWidgetTest extends TestCase {
 		];
 	}
 
-	private static function detection(int $id, string $checkId, bool $enforced): Detection {
+	private static function detection(int $id, string $checkId, bool $enforced, string $severity = 'high'): Detection {
 		$detection = new Detection();
+		$detection->setSeverity($severity);
 		$detection->setId($id);
 		$detection->setCheckId($checkId);
 		$detection->setEnforced($enforced);
 		$detection->setIp('198.51.100.7');
 		$detection->setUid('alice');
-		$detection->setLastSeenAt(1_790_000_000);
+		$detection->setLastSeenAt(1_789_999_700);
 		return $detection;
 	}
 }
