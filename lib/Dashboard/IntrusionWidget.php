@@ -170,12 +170,18 @@ class IntrusionWidget implements IAPIWidgetV2, IConditionalWidget, IIconWidget, 
 	}
 
 	/**
+	 * "Approve login · alice" over "4 minutes ago · 203.0.113.9", like a detection.
+	 *
 	 * @param IntrusionDetectionLoginApproval $approval
 	 */
 	private function approvalItem(array $approval): WidgetItem {
+		$parts = array_filter([
+			$this->dates->ago($approval['createdAt'], $this->timeFactory->getTime()),
+			$approval['ip'] ?? '',
+		], static fn (string $part): bool => $part !== '');
 		return new WidgetItem(
-			$this->l->t('%s waits for your approval', [$approval['displayName']]),
-			$approval['ip'] === null ? $this->l->t('Login') : $this->l->t('Login from %s', [$approval['ip']]),
+			$this->l->t('Approve login · %s', [$approval['uid']]),
+			implode(' · ', $parts),
 			$this->pageUrl() . '#overview-attention',
 			$this->itemIcon('widget-approval.svg'),
 			'approval-' . $approval['id'],

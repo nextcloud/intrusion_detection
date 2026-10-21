@@ -155,8 +155,8 @@ class IntrusionWidgetTest extends TestCase {
 
 		$items = $this->widget->getItemsV2('admin')->getItems();
 
-		$this->assertSame('Alice Liddell waits for your approval', $items[0]->getTitle());
-		$this->assertSame('Login from 203.0.113.9', $items[0]->getSubtitle());
+		$this->assertSame('Approve login · alice', $items[0]->getTitle());
+		$this->assertStringEndsWith(' · 203.0.113.9', $items[0]->getSubtitle());
 		$this->assertStringEndsWith('#overview-attention', $items[0]->getLink());
 		$this->assertStringEndsWith('widget-approval.svg', $items[0]->getIconUrl());
 		$this->assertSame('Protecting', $items[1]->getTitle());
