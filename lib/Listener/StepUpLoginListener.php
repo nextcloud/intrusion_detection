@@ -61,14 +61,13 @@ use Psr\Log\LoggerInterface;
  * password and address when a memory cache exists, so that the checks run
  * once, not per request.
  *
- * It runs before the app's other login listeners (PRIORITY), so that a new
- * password required here is picked up by the forced password change at
- * once. Failures are logged and never break a login.
+ * It runs before the app's other login listeners ({@see LoginListener}),
+ * so that a new password required here is picked up by the forced password
+ * change at once. Failures are logged and never break a login.
  *
  * @template-implements IEventListener<UserLoggedInEvent|UserLoggedInWithCookieEvent>
  */
 class StepUpLoginListener implements IEventListener {
-	public const PRIORITY = 10;
 	/** Core's cookie with the id of the session a remember-me login renews */
 	public const SESSION_ID_COOKIE = 'nc_session_id';
 	/** How long the decision about an app sending the password is repeated */

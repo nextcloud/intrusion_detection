@@ -110,7 +110,14 @@ class UnconfirmedSessions {
 	 * Whether any unconfirmed session may still exist, without a query.
 	 */
 	public function mayExist(): bool {
-		return $this->settings->getInt(GlobalSettings::STEP_UP_SESSIONS_UNTIL) > $this->timeFactory->getTime();
+		return self::mayExistIn($this->settings, $this->timeFactory->getTime());
+	}
+
+	/**
+	 * The same, for callers that have not built this service.
+	 */
+	public static function mayExistIn(Settings $settings, int $now): bool {
+		return $settings->getInt(GlobalSettings::STEP_UP_SESSIONS_UNTIL) > $now;
 	}
 
 	/**

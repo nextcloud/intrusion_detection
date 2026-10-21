@@ -1,0 +1,185 @@
+<?php
+
+declare(strict_types=1);
+
+/**
+ * SPDX-FileCopyrightText: 2026 Nextcloud GmbH and Nextcloud contributors
+ * SPDX-License-Identifier: AGPL-3.0-or-later
+ */
+
+namespace OCA\IntrusionDetection\Tests\Unit\Listener;
+
+use OCA\IntrusionDetection\Check\CredentialUse\CredentialUse;
+use OCA\IntrusionDetection\Check\CredentialUse\CredentialUseResolver;
+use OCA\IntrusionDetection\Check\CredentialUse\PresentedCredential;
+use OCA\IntrusionDetection\Check\Payload\PayloadResponder;
+use OCA\IntrusionDetection\Check\Payload\PendingHit;
+use OCA\IntrusionDetection\Config\GlobalSettings;
+use OCA\IntrusionDetection\Config\Settings;
+use OCA\IntrusionDetection\Guard\RequestContext;
+use OCA\IntrusionDetection\Listener\BreachedPasswordListener;
+use OCA\IntrusionDetection\Listener\CredentialUseLoginListener;
+use OCA\IntrusionDetection\Listener\LoginHistoryListener;
+use OCA\IntrusionDetection\Listener\LoginListener;
+use OCA\IntrusionDetection\Listener\LoginRecordListener;
+use OCA\IntrusionDetection\Listener\PasswordChangeLoginListener;
+use OCA\IntrusionDetection\Listener\PayloadLoginListener;
+use OCA\IntrusionDetection\Listener\StepUpLoginListener;
+use OCA\IntrusionDetection\Login\LoginGate;
+use OCA\IntrusionDetection\Net\RemoteAddressResolver;
+use OCA\IntrusionDetection\Net\SourceKey;
+use OCP\AppFramework\Utility\ITimeFactory;
+use OCP\EventDispatcher\Event;
+use OCP\EventDispatcher\IEventListener;
+use OCP\IRequest;
+use OCP\IUser;
+use OCP\User\Events\UserLoggedInEvent;
+use OCP\User\Events\UserLoggedInWithCookieEvent;
+use PHPUnit\Framework\MockObject\MockObject;
+use Psr\Container\ContainerInterface;
+use Psr\Log\LoggerInterface;
+use Test\TestCase;
+
+class LoginListenerTest extends TestCase {
+	private const NOW = 1_792_500_000;
+
+	/** @var list<string> the listeners built, in order */
+	private array $built = [];
+	private RequestContext $context;
+	private Settings&MockObject $settings;
+	private LoginGate&MockObject $gate;
+	private ?bool $first = true;
+	private int $sessionsUntil = 0;
+	private string $authorization = '';
+	/** @var array<string, string> */
+	private array $server = [];
+
+	protected function setUp(): void {
+		parent::setUp();
+		$this->context = new RequestContext();
+		$this->settings = $this->createMock(Settings::class);
+		$this->settings->method('isEnabled')->willReturn(true);
+		$this->settings->method('getInt')->willReturnCallback(fn (string $name): int => $name === GlobalSettings::STEP_UP_SESSIONS_UNTIL ? $this->sessionsUntil : 0);
+		$this->gate = $this->createMock(LoginGate::class);
+		$this->gate->method('isFirst')->willReturnCallback(fn (): ?bool => $this->first);
+		$this->server = $_SERVER;
+	}
+
+	protected function tearDown(): void {
+		$_SERVER = $this->server;
+		parent::tearDown();
+	}
+
+	private function listener(?ContainerInterface $container = null): LoginListener {
+		$addresses = $this->createMock(RemoteAddressResolver::class);
+		$addresses->method('current')->willReturn(SourceKey::fromIp('203.0.113.5'));
+		$request = $this->createMock(IRequest::class);
+		$request->method('getHeader')->willReturnCallback(fn (string $name): string => $name === 'Authorization' ? $this->authorization : '');
+		$time = $this->createMock(ITimeFactory::class);
+		$time->method('getTime')->willReturn(self::NOW);
+		if ($container === null) {
+			$container = $this->createMock(ContainerInterface::class);
+			$container->method('get')->willReturnCallback(function (string $class): IEventListener {
+				$this->built[] = $class;
+				return new class implements IEventListener {
+					public function handle(Event $event): void {
+					}
+				};
+			});
+		}
+		return new LoginListener($this->settings, $this->context, $addresses, $this->gate, $request, $time, $container, $this->createMock(LoggerInterface::class));
+	}
+
+	private function login(bool $token): UserLoggedInEvent {
+		$user = $this->createMock(IUser::class);
+		$user->method('getUID')->willReturn('alice');
+		return new UserLoggedInEvent($user, 'alice', $token ? null : 'secret', $token);
+	}
+
+	private function appPassword(): void {
+		$_SERVER['PHP_AUTH_USER'] = 'alice';
+		$_SERVER['PHP_AUTH_PW'] = 'aaaaa-bbbbb-ccccc-ddddd-eeeee';
+	}
+
+	public function testARepeatedAppPasswordBuildsNothing(): void {
+		$this->appPassword();
+		$this->first = false;
+		$this->listener()->handle($this->login(true));
+		$this->assertSame([], $this->built);
+	}
+
+	public function testTheFirstAppPasswordLoginOfTheHourIsRecorded(): void {
+		$this->appPassword();
+		$this->listener()->handle($this->login(true));
+		$this->assertSame([LoginRecordListener::class, LoginHistoryListener::class], $this->built);
+	}
+
+	public function testWithoutAMemoryCacheTheRecordsCheckTheDatabase(): void {
+		$this->authorization = 'Bearer abc';
+		$this->first = null;
+		$this->listener()->handle($this->login(true));
+		$this->assertSame([LoginRecordListener::class, LoginHistoryListener::class], $this->built);
+	}
+
+	public function testAPasswordLoginRunsTheStepUpFirstAndTheHistoryLast(): void {
+		$this->listener()->handle($this->login(false));
+		$this->assertSame([StepUpLoginListener::class, LoginRecordListener::class, BreachedPasswordListener::class, PasswordChangeLoginListener::class, LoginHistoryListener::class], $this->built);
+	}
+
+	public function testABrowserSessionRestoredFromItsTokenIsNoAppLogin(): void {
+		$this->gate->expects($this->never())->method('isFirst');
+		$this->listener()->handle($this->login(true));
+		$this->assertSame([LoginRecordListener::class, PasswordChangeLoginListener::class, LoginHistoryListener::class], $this->built);
+	}
+
+	public function testAReturningSessionRunsTheStepUpWhileUnconfirmedSessionsMayExist(): void {
+		$this->sessionsUntil = self::NOW + 60;
+		$this->appPassword();
+		$this->first = false;
+		$this->listener()->handle($this->login(true));
+		$this->listener()->handle(new UserLoggedInWithCookieEvent($this->createMock(IUser::class), 'alice', null));
+		$this->assertSame([StepUpLoginListener::class, StepUpLoginListener::class, PasswordChangeLoginListener::class, LoginHistoryListener::class], $this->built);
+	}
+
+	public function testPendingProbesAndCredentialsGetTheirListeners(): void {
+		$this->appPassword();
+		$this->first = false;
+		$this->context->set(PayloadResponder::CONTEXT_KEY, (new \ReflectionClass(PendingHit::class))->newInstanceWithoutConstructor());
+		$use = new CredentialUse(PresentedCredential::SCHEME_BASIC, false);
+		$use->unknown = true;
+		$this->context->set(CredentialUseResolver::CONTEXT_KEY, $use);
+		$this->listener()->handle($this->login(true));
+		$this->assertSame([PayloadLoginListener::class, CredentialUseLoginListener::class], $this->built);
+
+		$this->built = [];
+		$use->resolved = true;
+		$this->context->set(PayloadResponder::CONTEXT_KEY, null);
+		$this->listener()->handle($this->login(true));
+		$this->assertSame([], $this->built, 'a credential that is known needs nothing');
+	}
+
+	public function testNothingRunsWhileProtectionIsOff(): void {
+		$settings = $this->createMock(Settings::class);
+		$settings->method('isEnabled')->willReturn(false);
+		$this->settings = $settings;
+		$this->listener()->handle($this->login(false));
+		$this->assertSame([], $this->built);
+	}
+
+	public function testAListenerThatFailsDoesNotStopTheOthers(): void {
+		$container = $this->createMock(ContainerInterface::class);
+		$container->method('get')->willReturnCallback(function (string $class): IEventListener {
+			$this->built[] = $class;
+			if ($class === LoginRecordListener::class) {
+				throw new \RuntimeException('cannot build');
+			}
+			return new class implements IEventListener {
+				public function handle(Event $event): void {
+				}
+			};
+		});
+		$this->appPassword();
+		$this->listener($container)->handle($this->login(true));
+		$this->assertSame([LoginRecordListener::class, LoginHistoryListener::class], $this->built);
+	}
+}

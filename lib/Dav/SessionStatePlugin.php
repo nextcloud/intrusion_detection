@@ -9,7 +9,6 @@ declare(strict_types=1);
 
 namespace OCA\IntrusionDetection\Dav;
 
-use OCA\IntrusionDetection\SessionState\RequestTarget;
 use OCA\IntrusionDetection\SessionState\SessionState;
 use OCA\IntrusionDetection\SessionState\SessionStateRules;
 use OCP\IUserSession;
@@ -60,7 +59,7 @@ class SessionStatePlugin extends ServerPlugin {
 			if (!$this->userSession->isLoggedIn()) {
 				return true;
 			}
-			$block = $this->rules->check($this->state, RequestTarget::dav($request->getMethod(), $request->getUrl()));
+			$block = $this->rules->checkDav($this->state, $request->getMethod(), $request->getUrl());
 		} catch (\Throwable $e) {
 			$this->logger->error('Intrusion detection could not check the session state of a WebDAV request', ['exception' => $e]);
 			return true;

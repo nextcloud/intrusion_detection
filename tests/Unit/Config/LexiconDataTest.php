@@ -11,8 +11,13 @@ namespace OCA\IntrusionDetection\Tests\Unit\Config;
 
 use OCA\IntrusionDetection\Check\CheckRegistry;
 use OCA\IntrusionDetection\Config\GlobalSettings;
+use OCA\IntrusionDetection\Config\Keys;
+use OCA\IntrusionDetection\Config\Lexicon;
 use OCA\IntrusionDetection\Config\LexiconData;
 use OCA\IntrusionDetection\Config\LexiconDataBuilder;
+use OCP\Config\Lexicon\Entry;
+use OCP\Config\Lexicon\Preset;
+use OCP\Config\ValueType;
 use OCP\Server;
 use Psr\Container\ContainerInterface;
 use Test\TestCase;
@@ -45,6 +50,23 @@ class LexiconDataTest extends TestCase {
 		$this->assertSame(count(CheckRegistry::CHECKS), count(LexiconData::CHECKS));
 	}
 
+	public function testTheEntriesMatchTheDefinitions(): void {
+		$this->assertSame($this->builder->entries(), LexiconData::ENTRIES, 'LexiconData.php is out of date: run this test with IDS_WRITE_LEXICON_DATA=1');
+	}
+
+	public function testTheLexiconHasAnEntryPerKeyWithItsTypeAndDefault(): void {
+		$entries = (new Lexicon())->getAppConfigs();
+		$this->assertCount(count(LexiconData::ENTRIES), $entries);
+		foreach ($entries as $i => $entry) {
+			[$key, $type, $default] = LexiconData::ENTRIES[$i];
+			$this->assertSame($key, $entry->getKey());
+			$this->assertSame($type, $entry->getValueType());
+			$this->assertSame((new Entry($key, $type, $default))->getDefault(Preset::NONE), $entry->getDefault(Preset::NONE));
+		}
+		$this->assertSame(ValueType::BOOL, $entries[0]->getValueType(), GlobalSettings::ENABLED);
+		$this->assertContains(Keys::mode('trap_url'), array_column(LexiconData::ENTRIES, 0));
+	}
+
 	public function testTheGeneratedSourceIsValidPhpWithTheSameData(): void {
 		$source = $this->builder->source();
 		$this->assertStringContainsString('final class LexiconData', $source);
@@ -60,6 +82,7 @@ class LexiconDataTest extends TestCase {
 		$class = 'OCA\\IntrusionDetection\\Config\\LexiconDataCopy' . md5($source);
 		$this->assertSame(LexiconData::CHECKS, constant($class . '::CHECKS'));
 		$this->assertSame(LexiconData::GLOBALS, constant($class . '::GLOBALS'));
+		$this->assertSame(LexiconData::ENTRIES, constant($class . '::ENTRIES'));
 	}
 
 	public function testOnlyItemValidatorsNeedTheFullDefinition(): void {

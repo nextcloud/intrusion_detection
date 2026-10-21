@@ -88,6 +88,27 @@ class SessionStateRulesGateTest extends TestCase {
 		$this->assertNull($rules->check($this->state(), $target));
 	}
 
+	public function testAWebDavRequestWithNothingForARuleBuildsNeitherARuleNorItsTarget(): void {
+		$container = $this->createMock(ContainerInterface::class);
+		$container->expects($this->never())->method('get');
+		$rules = new SessionStateRules($container, $this->createMock(LoggerInterface::class), $this->context, $this->request);
+		$this->assertNull($rules->checkDav($this->state(), 'propfind', '/remote.php/dav/files/alice/'));
+		$this->assertNull($rules->checkDav($this->state(), 'PUT', '/remote.php/dav/files/alice/a.txt'));
+	}
+
+	/**
+	 * @param \Closure(self): RequestTarget $prepare
+	 */
+	#[\PHPUnit\Framework\Attributes\DataProvider('busyRequests')]
+	public function testWebDavRequestsWithSomethingForARuleRunTheRules(\Closure $prepare): void {
+		$target = $prepare($this);
+		$rule = $this->createMock(ISessionStateRule::class);
+		$container = $this->createMock(ContainerInterface::class);
+		$container->expects($this->exactly(count(SessionStateRules::RULES)))->method('get')->willReturn($rule);
+		$rules = new SessionStateRules($container, $this->createMock(LoggerInterface::class), $this->context, $this->request);
+		$this->assertNull($rules->checkDav($this->state(), strtolower($target->httpMethod), $target->uri));
+	}
+
 	private function state(): SessionState {
 		$session = $this->createMock(ISession::class);
 		$session->method('get')->willReturnCallback(fn (string $key): mixed => $this->session[$key] ?? null);

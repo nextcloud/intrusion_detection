@@ -10,7 +10,6 @@ declare(strict_types=1);
 namespace OCA\IntrusionDetection\Config;
 
 use OCA\IntrusionDetection\Check\Checks\BreachedPasswordDetector;
-use OCA\IntrusionDetection\Check\ParamType;
 use OCA\IntrusionDetection\Confirm\UntrustedSecondFactors;
 use OCA\IntrusionDetection\Guide\SecureAccountGuide;
 use OCA\IntrusionDetection\Notification\LoginNotices;
@@ -22,9 +21,10 @@ use OCP\Config\ValueType;
 
 /**
  * Every config key of the app, from {@see LexiconData}: the global settings
- * and the check registry compiled into static data. Core asks for it on the
- * first app config read of every request, so it builds no check and no
- * setting definition and has no dependencies.
+ * and the check registry compiled into static data, value types included.
+ * Core asks for it on the first app config read of every request, so it
+ * builds no check and no setting definition, has no dependencies and only
+ * creates the entry objects core wants.
  */
 final class Lexicon implements ILexicon {
 
@@ -36,15 +36,8 @@ final class Lexicon implements ILexicon {
 	#[\Override]
 	public function getAppConfigs(): array {
 		$entries = [];
-		foreach (LexiconData::GLOBALS as $name => $spec) {
-			$entries[] = new Entry($name, ParamType::from($spec['type'])->valueType(), $spec['default'], 'intrusion detection: ' . $name);
-		}
-		foreach (LexiconData::CHECKS as $id => $check) {
-			$entries[] = new Entry(Keys::mode($id), ValueType::STRING, $check['mode'], 'mode of the ' . $id . ' check');
-			$entries[] = new Entry(Keys::responses($id), ValueType::ARRAY, $check['responses'], 'responses of the ' . $id . ' check');
-			foreach ($check['params'] as $name => $spec) {
-				$entries[] = new Entry(Keys::param($id, $name), ParamType::from($spec['type'])->valueType(), $spec['default'], $id . ' check: ' . $name);
-			}
+		foreach (LexiconData::ENTRIES as [$key, $type, $default, $definition]) {
+			$entries[] = new Entry($key, $type, $default, $definition);
 		}
 		return $entries;
 	}

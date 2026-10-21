@@ -73,11 +73,14 @@ class LoginHistoryListener implements IEventListener {
 			}
 			$uid = $event->getUser()->getUID();
 			$interactive = $method === LoginHistory::METHOD_PASSWORD || $method === LoginHistory::METHOD_SSO;
-			$devices = $this->container->get(KnownDevices::class);
-			$device = $interactive ? $devices->recognise($uid) : null;
-			if ($device !== null) {
-				$devices->used($device);
-				$this->container->get(SessionConfirmation::class)->proved($uid, IConfirmationMethod::KNOWN_DEVICE);
+			$device = null;
+			if ($interactive) {
+				$devices = $this->container->get(KnownDevices::class);
+				$device = $devices->recognise($uid);
+				if ($device !== null) {
+					$devices->used($device);
+					$this->container->get(SessionConfirmation::class)->proved($uid, IConfirmationMethod::KNOWN_DEVICE);
+				}
 			}
 			$this->container->get(LoginHistory::class)->record($uid, $method, $source, $this->request->getHeader('User-Agent'), $device, $browser);
 			if ($interactive) {

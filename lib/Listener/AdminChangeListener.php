@@ -60,7 +60,7 @@ use Psr\Log\LoggerInterface;
  */
 class AdminChangeListener implements IEventListener {
 	/** Listeners with a higher priority run first */
-	public const PRIORITY = -100;
+	public const PRIORITY = Application::ADMIN_CHANGE_PRIORITY;
 
 	/**
 	 * Removals reported in this request, by uid and group. Deleting an

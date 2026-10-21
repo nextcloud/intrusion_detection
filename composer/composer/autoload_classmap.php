@@ -383,6 +383,7 @@ return array(
     'OCA\\IntrusionDetection\\Listener\\KnownDeviceListener' => $baseDir . '/../lib/Listener/KnownDeviceListener.php',
     'OCA\\IntrusionDetection\\Listener\\LoginFlowGrantedListener' => $baseDir . '/../lib/Listener/LoginFlowGrantedListener.php',
     'OCA\\IntrusionDetection\\Listener\\LoginHistoryListener' => $baseDir . '/../lib/Listener/LoginHistoryListener.php',
+    'OCA\\IntrusionDetection\\Listener\\LoginListener' => $baseDir . '/../lib/Listener/LoginListener.php',
     'OCA\\IntrusionDetection\\Listener\\LoginRecordListener' => $baseDir . '/../lib/Listener/LoginRecordListener.php',
     'OCA\\IntrusionDetection\\Listener\\PasswordChangeLoginListener' => $baseDir . '/../lib/Listener/PasswordChangeLoginListener.php',
     'OCA\\IntrusionDetection\\Listener\\PasswordUpdatedListener' => $baseDir . '/../lib/Listener/PasswordUpdatedListener.php',

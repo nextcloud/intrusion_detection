@@ -12,6 +12,7 @@ namespace OCA\IntrusionDetection\SessionState;
 use OCA\IntrusionDetection\Check\CredentialUse\CredentialUse;
 use OCA\IntrusionDetection\Check\CredentialUse\CredentialUseResolver;
 use OCA\IntrusionDetection\Guard\RequestContext;
+use OCA\IntrusionDetection\Sensitive\DirectoryRoutes;
 use OCA\IntrusionDetection\SessionState\Rules\DirectoryScrapingRule;
 use OCP\IRequest;
 use Psr\Container\ContainerInterface;
@@ -71,7 +72,7 @@ class SessionStateRules {
 	}
 
 	public function check(SessionState $state, RequestTarget $target): ?SessionBlock {
-		if ($this->nothingToCheck($state, $target)) {
+		if ($this->nothingToCheck($state, fn (): ?string => DirectoryScrapingRule::group($target, $this->request))) {
 			return null;
 		}
 		$rules = $this->rules();
@@ -98,6 +99,17 @@ class SessionStateRules {
 	}
 
 	/**
+	 * The rules for a WebDAV request. Most have nothing to check, and then
+	 * neither the request target nor a rule is built.
+	 */
+	public function checkDav(SessionState $state, string $method, string $uri): ?SessionBlock {
+		if ($this->nothingToCheck($state, fn (): ?string => DirectoryRoutes::davGroup(strtoupper($method), $uri, $this->request->getHeader('Depth')))) {
+			return null;
+		}
+		return $this->check($state, RequestTarget::dav($method, $uri));
+	}
+
+	/**
 	 * @param ISessionStateRule|class-string<ISessionStateRule> $rule
 	 */
 	private function failsClosed(ISessionStateRule|string $rule, SessionState $state): bool {
@@ -118,15 +130,17 @@ class SessionStateRules {
 	 * change, login history and login notice rules need session state, the
 	 * credential use rule a credential the guard noted, and the directory
 	 * scraping rule a read of the user directory.
+	 *
+	 * @param \Closure(): ?string $directoryGroup the directory group the request reads
 	 */
-	private function nothingToCheck(SessionState $state, RequestTarget $target): bool {
+	private function nothingToCheck(SessionState $state, \Closure $directoryGroup): bool {
 		if ($this->classes() !== self::RULES) {
 			return false;
 		}
 		$use = $this->context->get(CredentialUseResolver::CONTEXT_KEY);
 		return $state->isEmpty()
 			&& !($use instanceof CredentialUse && $use->needsResolution())
-			&& DirectoryScrapingRule::group($target, $this->request) === null;
+			&& $directoryGroup() === null;
 	}
 
 	/**

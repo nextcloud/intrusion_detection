@@ -398,6 +398,7 @@ class ComposerStaticInitIntrusionDetection
         'OCA\\IntrusionDetection\\Listener\\KnownDeviceListener' => __DIR__ . '/..' . '/../lib/Listener/KnownDeviceListener.php',
         'OCA\\IntrusionDetection\\Listener\\LoginFlowGrantedListener' => __DIR__ . '/..' . '/../lib/Listener/LoginFlowGrantedListener.php',
         'OCA\\IntrusionDetection\\Listener\\LoginHistoryListener' => __DIR__ . '/..' . '/../lib/Listener/LoginHistoryListener.php',
+        'OCA\\IntrusionDetection\\Listener\\LoginListener' => __DIR__ . '/..' . '/../lib/Listener/LoginListener.php',
         'OCA\\IntrusionDetection\\Listener\\LoginRecordListener' => __DIR__ . '/..' . '/../lib/Listener/LoginRecordListener.php',
         'OCA\\IntrusionDetection\\Listener\\PasswordChangeLoginListener' => __DIR__ . '/..' . '/../lib/Listener/PasswordChangeLoginListener.php',
         'OCA\\IntrusionDetection\\Listener\\PasswordUpdatedListener' => __DIR__ . '/..' . '/../lib/Listener/PasswordUpdatedListener.php',

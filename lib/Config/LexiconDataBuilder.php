@@ -11,8 +11,10 @@ namespace OCA\IntrusionDetection\Config;
 
 use OCA\IntrusionDetection\Check\CheckRegistry;
 use OCA\IntrusionDetection\Check\ParamDefinition;
+use OCA\IntrusionDetection\Check\ParamType;
 use OCA\IntrusionDetection\Check\Requirement;
 use OCA\IntrusionDetection\Check\ResponseType;
+use OCP\Config\ValueType;
 
 /**
  * Builds the static data of {@see LexiconData} from the check registry and
@@ -22,6 +24,7 @@ use OCA\IntrusionDetection\Check\ResponseType;
  *
  * @psalm-import-type ParamSpec from LexiconData
  * @psalm-import-type CheckSpec from LexiconData
+ * @psalm-import-type EntrySpec from LexiconData
  */
 final class LexiconDataBuilder {
 	public function __construct(
@@ -65,6 +68,28 @@ final class LexiconDataBuilder {
 	}
 
 	/**
+	 * Every app config key with its value type, default and description, in
+	 * the order of the config lexicon: the global settings, then per check
+	 * its mode, its responses and its parameters.
+	 *
+	 * @return list<EntrySpec>
+	 */
+	public function entries(): array {
+		$entries = [];
+		foreach ($this->globals() as $name => $spec) {
+			$entries[] = [$name, ParamType::from($spec['type'])->valueType(), $spec['default'], 'intrusion detection: ' . $name];
+		}
+		foreach ($this->checks() as $id => $check) {
+			$entries[] = [Keys::mode($id), ValueType::STRING, $check['mode'], 'mode of the ' . $id . ' check'];
+			$entries[] = [Keys::responses($id), ValueType::ARRAY, $check['responses'], 'responses of the ' . $id . ' check'];
+			foreach ($check['params'] as $name => $spec) {
+				$entries[] = [Keys::param($id, $name), ParamType::from($spec['type'])->valueType(), $spec['default'], $id . ' check: ' . $name];
+			}
+		}
+		return $entries;
+	}
+
+	/**
 	 * The source of LexiconData.php.
 	 */
 	public function source(): string {
@@ -76,7 +101,9 @@ final class LexiconDataBuilder {
 		return substr($header, 0, $start)
 			. "\tpublic const GLOBALS = " . self::export($this->globals(), 1) . ";\n\n"
 			. "\t/** @var array<string, CheckSpec> */\n"
-			. "\tpublic const CHECKS = " . self::export($this->checks(), 1) . ";\n}\n";
+			. "\tpublic const CHECKS = " . self::export($this->checks(), 1) . ";\n\n"
+			. "\t/** @var list<EntrySpec> */\n"
+			. "\tpublic const ENTRIES = [\n" . implode('', array_map(static fn (array $entry): string => "\t\t" . self::inline($entry) . ",\n", $this->entries())) . "\t];\n}\n";
 	}
 
 	/**
@@ -108,6 +135,24 @@ final class LexiconDataBuilder {
 			$spec['validator'] = true;
 		}
 		return $spec;
+	}
+
+	/**
+	 * A value on one line.
+	 */
+	private static function inline(mixed $value): string {
+		if ($value instanceof ValueType) {
+			return 'ValueType::' . $value->name;
+		}
+		if (!is_array($value)) {
+			return var_export($value, true);
+		}
+		$list = array_is_list($value);
+		$items = [];
+		foreach ($value as $key => $item) {
+			$items[] = ($list ? '' : var_export($key, true) . ' => ') . self::inline($item);
+		}
+		return '[' . implode(', ', $items) . ']';
 	}
 
 	private static function export(mixed $value, int $depth): string {
