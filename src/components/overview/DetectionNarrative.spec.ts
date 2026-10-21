@@ -4,9 +4,9 @@
  */
 
 import { mount } from '@vue/test-utils'
-import { describe, expect, test, vi } from 'vitest'
+import { afterEach, describe, expect, test, vi } from 'vitest'
 import DetectionNarrative from './DetectionNarrative.vue'
-import { incidentRequest } from '../../store.ts'
+import { incidentRequest, setAdvanced } from '../../store.ts'
 import { makeDetail } from '../../tests/fixtures.ts'
 
 /**
@@ -17,9 +17,39 @@ function button(wrapper: ReturnType<typeof mount>, text: string) {
 	return wrapper.findAll('button').find((b) => b.text() === text)
 }
 
+/**
+ * Mount the detail with "Details" open.
+ *
+ * @param props - The props
+ * @param props.detail - The detection detail
+ * @param options - More mount options
+ */
+async function mountOpen(props: { detail: ReturnType<typeof makeDetail> }, options: Parameters<typeof mount>[1] = {}) {
+	const wrapper = mount(DetectionNarrative, { props, ...options })
+	await wrapper.get('[data-test="show-details"]').trigger('click')
+	return wrapper
+}
+
 describe('DetectionNarrative', () => {
-	test('tells what happened and what Nextcloud did', () => {
+	afterEach(() => {
+		setAdvanced(false)
+		window.localStorage.clear()
+	})
+
+	test('below the plain sentence of its row, the detail starts with the actions; the narrative is under "Details"', async () => {
 		const wrapper = mount(DetectionNarrative, { props: { detail: makeDetail() } })
+		expect(wrapper.text()).not.toContain('Why did this happen?')
+		expect(wrapper.find('[data-test="show-attempts"]').exists()).toBe(false)
+		expect(button(wrapper, 'Lift block')).toBeDefined()
+		const details = wrapper.get('[data-test="show-details"]')
+		expect(details.attributes('aria-expanded')).toBe('false')
+		await details.trigger('click')
+		expect(details.attributes('aria-expanded')).toBe('true')
+		expect(wrapper.get('[data-test="detection-details"]').text()).toContain('Why did this happen?')
+	})
+
+	test('tells what happened and what Nextcloud did', async () => {
+		const wrapper = await mountOpen({ detail: makeDetail() })
 		expect(wrapper.text()).toContain('Why did this happen?')
 		expect(wrapper.text()).toContain('failed to log in 14 times, trying 9 different accounts')
 		expect(wrapper.text()).toContain('What Nextcloud did')
@@ -27,7 +57,7 @@ describe('DetectionNarrative', () => {
 		expect(wrapper.text()).toContain('K7Q2-MPXA')
 	})
 
-	test('observed detections say what would have happened, and why nothing did', () => {
+	test('observed detections say what would have happened, and why nothing did', async () => {
 		const detail = makeDetail({
 			bans: [],
 			narrative: {
@@ -38,7 +68,7 @@ describe('DetectionNarrative', () => {
 			},
 		})
 		detail.detection.enforced = false
-		const wrapper = mount(DetectionNarrative, { props: { detail } })
+		const wrapper = await mountOpen({ detail })
 		expect(wrapper.text()).toContain('What Nextcloud would have done')
 		expect(wrapper.text()).toContain('Block the address')
 		expect(wrapper.text()).not.toContain('Would have:')
@@ -53,7 +83,7 @@ describe('DetectionNarrative', () => {
 	})
 
 	test('"Show attempts" lists the attempts of the last hour', async () => {
-		const wrapper = mount(DetectionNarrative, { props: { detail: makeDetail() } })
+		const wrapper = await mountOpen({ detail: makeDetail() })
 		expect(wrapper.find('table').exists()).toBe(false)
 		await button(wrapper, 'Show attempts')!.trigger('click')
 		const rows = wrapper.findAll('tbody tr')
@@ -63,7 +93,7 @@ describe('DetectionNarrative', () => {
 	})
 
 	test('older detections explain that attempts are not kept', async () => {
-		const wrapper = mount(DetectionNarrative, { props: { detail: makeDetail({ attemptsAvailable: false, attempts: [] }) } })
+		const wrapper = await mountOpen({ detail: makeDetail({ attemptsAvailable: false, attempts: [] }) })
 		await button(wrapper, 'Show attempts')!.trigger('click')
 		expect(wrapper.text()).toContain('Details older than 1 hour are not kept')
 	})
@@ -71,23 +101,27 @@ describe('DetectionNarrative', () => {
 	test('"Copy as text" copies the plain text narrative', async () => {
 		const writeText = vi.fn().mockResolvedValue(undefined)
 		Object.defineProperty(navigator, 'clipboard', { value: { writeText }, configurable: true })
-		const wrapper = mount(DetectionNarrative, { props: { detail: makeDetail() } })
+		const wrapper = await mountOpen({ detail: makeDetail() })
 		await button(wrapper, 'Copy as text')!.trigger('click')
 		expect(writeText).toHaveBeenCalledWith('Credential stuffing\n\nBetween 10:02 and 10:09 …')
 	})
 
-	test('texts from the server are shown as text, never as markup', () => {
+	test('texts from the server are shown as text, never as markup', async () => {
 		const detail = makeDetail()
 		detail.narrative.happened = ['<img src=x onerror=alert(1)> tried']
-		const wrapper = mount(DetectionNarrative, { props: { detail } })
+		const wrapper = await mountOpen({ detail })
 		expect(wrapper.find('img').exists()).toBe(false)
 		expect(wrapper.text()).toContain('<img src=x onerror=alert(1)> tried')
 	})
 
-	test('"Incident report" opens the Incidents tab with the account or the address', async () => {
+	test('"Incident report" only with the advanced options, and it opens the Incidents tab with the account or the address', async () => {
 		const showTab = vi.fn()
 		const detail = makeDetail()
 		detail.detection.uid = 'alice'
+		const plain = mount(DetectionNarrative, { props: { detail } })
+		expect(plain.find('[data-test^="incident-report-"]').exists()).toBe(false)
+
+		setAdvanced(true)
 		const wrapper = mount(DetectionNarrative, { props: { detail }, global: { provide: { 'ids-show-tab': showTab } } })
 		await wrapper.get('[data-test="incident-report-address"]').trigger('click')
 		expect(incidentRequest.value).toEqual({ type: 'address', value: detail.detection.ip, since: null, until: null })
@@ -102,11 +136,11 @@ describe('DetectionNarrative', () => {
 		expect(without.find('[data-test^="incident-report-"]').exists()).toBe(false)
 	})
 
-	test('offers the attempts only for a detection with an address', () => {
-		expect(mount(DetectionNarrative, { props: { detail: makeDetail() } }).find('[data-test="show-attempts"]').exists()).toBe(true)
+	test('offers the attempts only for a detection with an address', async () => {
+		expect((await mountOpen({ detail: makeDetail() })).find('[data-test="show-attempts"]').exists()).toBe(true)
 		const detail = makeDetail()
 		detail.detection.ip = null
 		detail.detection.checkId = 'admin_change'
-		expect(mount(DetectionNarrative, { props: { detail } }).find('[data-test="show-attempts"]').exists()).toBe(false)
+		expect((await mountOpen({ detail })).find('[data-test="show-attempts"]').exists()).toBe(false)
 	})
 })

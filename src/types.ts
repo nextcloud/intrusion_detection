@@ -149,8 +149,8 @@ export interface Detection {
 	createdAt: number
 	lastSeenAt: number
 	userVerdict: string | null
-	/** What this detection is about in a few words, e.g. "Security setting changed: First block"; not sent by every server */
-	summary?: string | null
+	/** One plain sentence: what happened and what was done, e.g. "Credential stuffing from 203.0.113.7. The address was blocked." */
+	summary: string
 }
 
 export interface DetectionList {

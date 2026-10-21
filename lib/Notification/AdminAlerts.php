@@ -11,13 +11,12 @@ namespace OCA\IntrusionDetection\Notification;
 
 use OCA\IntrusionDetection\AppInfo\Application;
 use OCA\IntrusionDetection\Check\CheckRegistry;
-use OCA\IntrusionDetection\Check\InvalidParamException;
 use OCA\IntrusionDetection\Check\Severity;
 use OCA\IntrusionDetection\Config\GlobalSettings;
 use OCA\IntrusionDetection\Config\Settings;
 use OCA\IntrusionDetection\Db\AlertMapper;
 use OCA\IntrusionDetection\Db\Detection;
-use OCA\IntrusionDetection\Explain\IHeadlinesDetection;
+use OCA\IntrusionDetection\Explain\DetectionHeadline;
 use OCA\IntrusionDetection\Explain\NarrativeBuilder;
 use OCP\AppFramework\Utility\ITimeFactory;
 use OCP\IL10N;
@@ -40,6 +39,8 @@ use OCP\Notification\IManager as INotificationManager;
  * are each told.
  */
 class AdminAlerts {
+	private ?DetectionHeadline $headlines = null;
+
 	public const SUBJECT = 'detection';
 	public const OBJECT_TYPE = 'alert';
 	/** Counter source key for the email limit, which is per check only */
@@ -117,38 +118,22 @@ class AdminAlerts {
 	 * "Credential stuffing from 203.0.113.7", "One account attacked from many places: alice".
 	 */
 	public function headline(Detection $detection, IL10N $l): string {
-		$custom = $this->customHeadline($detection, $l);
-		if ($custom !== null) {
-			return $custom;
-		}
-		$name = $this->checkName($detection->getCheckId(), $l);
-		if ($detection->getIp() !== null) {
-			return $l->t('%1$s from %2$s', [$name, $detection->getIp()]);
-		}
-		if ($detection->getUid() !== null) {
-			return $l->t('%1$s: account %2$s', [$name, $detection->getUid()]);
-		}
-		return $name;
+		return $this->headlines()->headline($detection, $l);
 	}
 
 	/**
 	 * The headline the detection's check gives it, if it names its detections itself.
 	 */
 	public function customHeadline(Detection $detection, IL10N $l): ?string {
-		try {
-			$check = $this->registry->check($this->registry->classOf($detection->getCheckId()));
-		} catch (InvalidParamException) {
-			return null;
-		}
-		return $check instanceof IHeadlinesDetection ? $check->headline($detection, $l) : null;
+		return $this->headlines()->custom($detection, $l);
 	}
 
 	public function checkName(string $checkId, IL10N $l): string {
-		try {
-			return $this->registry->get($checkId)->texts($l)->name;
-		} catch (InvalidParamException) {
-			return $checkId;
-		}
+		return $this->headlines()->checkName($checkId, $l);
+	}
+
+	private function headlines(): DetectionHeadline {
+		return $this->headlines ??= new DetectionHeadline($this->registry);
 	}
 
 	/**

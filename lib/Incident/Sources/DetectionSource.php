@@ -10,11 +10,10 @@ declare(strict_types=1);
 namespace OCA\IntrusionDetection\Incident\Sources;
 
 use OCA\IntrusionDetection\Admin\CheckNames;
-use OCA\IntrusionDetection\Check\CheckRegistry;
 use OCA\IntrusionDetection\Db\Detection;
 use OCA\IntrusionDetection\Db\DetectionMapper;
 use OCA\IntrusionDetection\Explain\DetectionFacts;
-use OCA\IntrusionDetection\Explain\IHeadlinesDetection;
+use OCA\IntrusionDetection\Explain\DetectionHeadline;
 use OCA\IntrusionDetection\Explain\NarrativeBuilder;
 use OCA\IntrusionDetection\Incident\DataCategory;
 use OCA\IntrusionDetection\Incident\IncidentQuery;
@@ -39,7 +38,7 @@ class DetectionSource implements ITimelineSource {
 		private readonly DetectionMapper $detections,
 		private readonly NarrativeBuilder $narratives,
 		private readonly CheckNames $names,
-		private readonly CheckRegistry $registry,
+		private readonly DetectionHeadline $headlines,
 		private readonly Measures $measures,
 	) {
 	}
@@ -95,7 +94,7 @@ class DetectionSource implements ITimelineSource {
 			at: $detection->getCreatedAt(),
 			kind: self::KIND,
 			group: $group,
-			title: $this->headline($detection, $l) ?? $group,
+			title: $this->headlines->custom($detection, $l) ?? $group,
 			endsAt: $detection->getLastSeenAt() > $detection->getCreatedAt() ? $detection->getLastSeenAt() : null,
 			severity: $detection->getSeverity(),
 			enforced: $enforced,
@@ -109,13 +108,5 @@ class DetectionSource implements ITimelineSource {
 			followUp: $followUp,
 			measures: $this->measures->of($detection, $l),
 		);
-	}
-
-	private function headline(Detection $detection, IL10N $l): ?string {
-		if (!$this->registry->has($detection->getCheckId())) {
-			return null;
-		}
-		$check = $this->registry->check($this->registry->classOf($detection->getCheckId()));
-		return $check instanceof IHeadlinesDetection ? $check->headline($detection, $l) : null;
 	}
 }

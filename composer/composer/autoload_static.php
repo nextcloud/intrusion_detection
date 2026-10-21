@@ -325,6 +325,8 @@ class ComposerStaticInitIntrusionDetection
         'OCA\\IntrusionDetection\\Explain\\CheckPresenter' => __DIR__ . '/..' . '/../lib/Explain/CheckPresenter.php',
         'OCA\\IntrusionDetection\\Explain\\DateFormatter' => __DIR__ . '/..' . '/../lib/Explain/DateFormatter.php',
         'OCA\\IntrusionDetection\\Explain\\DetectionFacts' => __DIR__ . '/..' . '/../lib/Explain/DetectionFacts.php',
+        'OCA\\IntrusionDetection\\Explain\\DetectionHeadline' => __DIR__ . '/..' . '/../lib/Explain/DetectionHeadline.php',
+        'OCA\\IntrusionDetection\\Explain\\DetectionSummary' => __DIR__ . '/..' . '/../lib/Explain/DetectionSummary.php',
         'OCA\\IntrusionDetection\\Explain\\IAsksWasThisYou' => __DIR__ . '/..' . '/../lib/Explain/IAsksWasThisYou.php',
         'OCA\\IntrusionDetection\\Explain\\IDescribesAction' => __DIR__ . '/..' . '/../lib/Explain/IDescribesAction.php',
         'OCA\\IntrusionDetection\\Explain\\IExplainsDetection' => __DIR__ . '/..' . '/../lib/Explain/IExplainsDetection.php',

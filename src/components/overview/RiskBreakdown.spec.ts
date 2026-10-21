@@ -73,9 +73,12 @@ describe('RiskBreakdown', () => {
 		expect(wrapper.text()).toContain('<img src=x onerror=alert(1)>')
 	})
 
-	test('the detection detail shows the breakdown only when the detection has a score', () => {
-		expect(mount(DetectionNarrative, { props: { detail: makeDetail() } }).find('[data-test="risk-breakdown"]').exists()).toBe(false)
+	test('the detection detail shows the breakdown only when the detection has a score', async () => {
+		const without = mount(DetectionNarrative, { props: { detail: makeDetail() } })
+		await without.get('[data-test="show-details"]').trigger('click')
+		expect(without.find('[data-test="risk-breakdown"]').exists()).toBe(false)
 		const withRisk = mount(DetectionNarrative, { props: { detail: makeDetail({ risk: makeRisk() }) } })
+		await withRisk.get('[data-test="show-details"]').trigger('click')
 		expect(withRisk.find('[data-test="risk-breakdown"]').exists()).toBe(true)
 	})
 })

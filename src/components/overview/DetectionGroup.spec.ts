@@ -15,7 +15,7 @@ vi.mock('../../services/api.ts', async (importOriginal) => ({
 	fetchDetection: vi.fn(() => new Promise(() => {})),
 }))
 
-const detections: Detection[] = [17, 16, 15].map((id) => ({ ...makeDetail().detection, id, checkName: 'Admin change alerts', ip: null, uid: null, enforced: false, createdAt: 1000 + id, lastSeenAt: 1000 + id }))
+const detections: Detection[] = [17, 16, 15].map((id) => ({ ...makeDetail().detection, id, checkName: 'Admin change alerts', summary: `Security setting changed: setting ${id}. The administrators were notified.`, ip: null, uid: null, enforced: false, createdAt: 1000 + id, lastSeenAt: 1000 + id }))
 
 describe('a group of detections', () => {
 	test('reads "3 × Admin change alerts" and opens to its detections', async () => {
@@ -35,5 +35,11 @@ describe('a group of detections', () => {
 		const wrapper = mount(DetectionGroup, { props: { detections, openId: 16 } })
 		expect(wrapper.get('button').attributes('aria-expanded')).toBe('true')
 		expect(wrapper.find('#detection-16').exists()).toBe(true)
+	})
+
+	test('a group whose detections read the same is named by their sentence', () => {
+		const same = detections.map((d) => ({ ...d, summary: 'Trap URLs from 203.0.113.9. The address was blocked.' }))
+		const wrapper = mount(DetectionGroup, { props: { detections: same } })
+		expect(wrapper.get('[data-test="detection-summary"]').text()).toBe('Trap URLs from 203.0.113.9. The address was blocked.')
 	})
 })

@@ -138,6 +138,7 @@ class AdminApiTest extends IntegrationTestCase {
 		$row = $this->controller->detections(check: SharedAddress::ID)->getData()['detections'][0];
 		$this->assertSame('Shared address not blocked', $row['checkName']);
 		$this->assertSame('internal', $row['category']);
+		$this->assertSame('Shared address not blocked from 198.51.100.7. Only recorded, as the check observes.', $row['summary']);
 	}
 
 	public function testDetectionDetailExplainsAndShowsRecentAttemptsWithoutFingerprints(): void {
@@ -164,6 +165,7 @@ class AdminApiTest extends IntegrationTestCase {
 		$this->assertSame(14, $detail['explanation']['facts']['failures']);
 		$this->assertSame([$ban->getId()], array_column($detail['bans'], 'id'));
 		$this->assertNotSame('', $detail['text']);
+		$this->assertStringStartsWith($detail['detection']['checkName'] . ' from 203.0.113.7. ', $detail['detection']['summary']);
 		$this->assertStringNotContainsString(self::SECRET_FINGERPRINT, $json);
 		$this->assertStringNotContainsString(self::SECRET_NAME_HMAC, $json);
 		$this->assertStringNotContainsString('pw_fp', $json);

@@ -17,6 +17,7 @@ import TimeStamp from '../common/TimeStamp.vue'
 import DetectionNarrative from './DetectionNarrative.vue'
 import { errorMessage, fetchDetection } from '../../services/api.ts'
 import { logger } from '../../services/logger.ts'
+import { advanced } from '../../store.ts'
 import { APP_ID } from '../../utils/format.ts'
 
 const props = defineProps<{
@@ -84,11 +85,13 @@ watch(() => props.detection?.lastSeenAt, () => {
 			@click="expanded = !expanded">
 			<SeverityPill :severity="shown.severity" />
 			<span :class="$style.row__main">
-				<span :class="$style.row__title">{{ shown.checkName }}</span>
-				<span :class="$style.row__facts">
-					<span v-if="shown.ip" :class="$style.row__address">{{ shown.ip }}</span>
-					<span v-if="shown.uid">{{ t(APP_ID, 'account {account}', { account: shown.uid }) }}</span>
-					<span v-if="shown.summary">{{ shown.summary }}</span>
+				<span :class="$style.row__title" data-test="detection-summary">{{ shown.summary || shown.checkName }}</span>
+				<span v-if="advanced || shown.hits > 1" :class="$style.row__facts">
+					<template v-if="advanced">
+						<span v-if="shown.summary">{{ shown.checkName }}</span>
+						<span v-if="shown.ip" :class="$style.row__address">{{ shown.ip }}</span>
+						<span v-if="shown.uid">{{ t(APP_ID, 'account {account}', { account: shown.uid }) }}</span>
+					</template>
 					<span v-if="shown.hits > 1">{{ n(APP_ID, '%n time', '%n times', shown.hits) }}</span>
 				</span>
 			</span>
@@ -166,10 +169,8 @@ watch(() => props.detection?.lastSeenAt, () => {
 }
 
 .row__title {
-	overflow: hidden;
 	font-weight: 600;
-	text-overflow: ellipsis;
-	white-space: nowrap;
+	overflow-wrap: anywhere;
 }
 
 .row__facts {
@@ -243,19 +244,15 @@ watch(() => props.detection?.lastSeenAt, () => {
 
 @media (max-width: 600px) {
 	.row .row__summary {
-		grid-template-columns: auto minmax(0, 1fr) auto;
+		grid-template-columns: auto minmax(0, 1fr) auto auto;
 		grid-template-areas:
-			"severity time outcome"
-			"main main main";
+			"severity time outcome chevron"
+			"main main main main";
 		gap: calc(var(--default-grid-baseline) * 1) calc(var(--default-grid-baseline) * 2);
 	}
 
 	.row .row__time {
 		justify-self: start;
-	}
-
-	.row .row__chevron {
-		display: none !important;
 	}
 
 	.row__detail {

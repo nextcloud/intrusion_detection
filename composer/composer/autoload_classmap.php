@@ -310,6 +310,8 @@ return array(
     'OCA\\IntrusionDetection\\Explain\\CheckPresenter' => $baseDir . '/../lib/Explain/CheckPresenter.php',
     'OCA\\IntrusionDetection\\Explain\\DateFormatter' => $baseDir . '/../lib/Explain/DateFormatter.php',
     'OCA\\IntrusionDetection\\Explain\\DetectionFacts' => $baseDir . '/../lib/Explain/DetectionFacts.php',
+    'OCA\\IntrusionDetection\\Explain\\DetectionHeadline' => $baseDir . '/../lib/Explain/DetectionHeadline.php',
+    'OCA\\IntrusionDetection\\Explain\\DetectionSummary' => $baseDir . '/../lib/Explain/DetectionSummary.php',
     'OCA\\IntrusionDetection\\Explain\\IAsksWasThisYou' => $baseDir . '/../lib/Explain/IAsksWasThisYou.php',
     'OCA\\IntrusionDetection\\Explain\\IDescribesAction' => $baseDir . '/../lib/Explain/IDescribesAction.php',
     'OCA\\IntrusionDetection\\Explain\\IExplainsDetection' => $baseDir . '/../lib/Explain/IExplainsDetection.php',

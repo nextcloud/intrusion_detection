@@ -14,6 +14,7 @@ use OCA\IntrusionDetection\Db\AttemptKind;
 use OCA\IntrusionDetection\Db\AttemptMapper;
 use OCA\IntrusionDetection\Db\Detection;
 use OCA\IntrusionDetection\Detection\AttemptRecorder;
+use OCA\IntrusionDetection\Explain\DetectionSummary;
 use OCA\IntrusionDetection\Explain\NarrativeBuilder;
 use OCA\IntrusionDetection\Net\SourceKey;
 use OCA\IntrusionDetection\ResponseDefinitions;
@@ -49,6 +50,7 @@ class DetectionPresenter {
 		private readonly AddressResolver $addresses,
 		private readonly BanPresenter $bans,
 		private readonly ITimeFactory $timeFactory,
+		private readonly DetectionSummary $summaries,
 	) {
 	}
 
@@ -72,6 +74,7 @@ class DetectionPresenter {
 			'createdAt' => $detection->getCreatedAt(),
 			'lastSeenAt' => $detection->getLastSeenAt(),
 			'userVerdict' => $detection->getUserVerdict(),
+			'summary' => $this->summaries->summary($detection, $l),
 		];
 	}
 

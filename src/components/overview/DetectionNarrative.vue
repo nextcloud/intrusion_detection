@@ -6,17 +6,18 @@
 <script setup lang="ts">
 import type { Ban, DetectionDetail } from '../../types.ts'
 
-import { mdiContentCopy, mdiFileDocumentAlertOutline, mdiFormatListBulleted, mdiLockOpenVariantOutline } from '@mdi/js'
+import { mdiChevronDown, mdiContentCopy, mdiFileDocumentAlertOutline, mdiFormatListBulleted, mdiLockOpenVariantOutline } from '@mdi/js'
 import { t } from '@nextcloud/l10n'
-import { computed, inject, ref, useId } from 'vue'
+import { computed, ref, useId } from 'vue'
 import NcButton from '@nextcloud/vue/components/NcButton'
 import NcIconSvgWrapper from '@nextcloud/vue/components/NcIconSvgWrapper'
 import ReferencePill from '../common/ReferencePill.vue'
 import TimeStamp from '../common/TimeStamp.vue'
 import RiskBreakdown from './RiskBreakdown.vue'
 import { useAnnouncer } from '../../composables/useAnnouncer.ts'
+import { useIncidentReport } from '../../composables/useIncidentReport.ts'
 import { detectionSections } from '../../extensions.ts'
-import { incidentRequest } from '../../store.ts'
+import { advanced } from '../../store.ts'
 import { APP_ID } from '../../utils/format.ts'
 
 const props = defineProps<{
@@ -35,19 +36,8 @@ const enforced = computed(() => props.detail.detection.enforced)
 const activeBans = computed(() => props.detail.bans.filter((ban) => ban.active))
 const sections = computed(() => detectionSections.filter((section) => section.applies(props.detail)))
 
-const showTab = inject<(tab: string) => void>('ids-show-tab', () => undefined)
-
-/**
- * Open the Incidents tab with a report about the account or the address of
- * this detection, for the 7 days before now.
- *
- * @param type - Account or address
- * @param value - The account or the address
- */
-function incidentReport(type: 'user' | 'address', value: string) {
-	incidentRequest.value = { type, value, since: null, until: null }
-	showTab('incidents')
-}
+const showDetails = ref(false)
+const { createReport } = useIncidentReport()
 
 /**
  * "Copy as text": the narrative as plain text, e.g. for a ticket.
@@ -64,52 +54,6 @@ async function copyText() {
 
 <template>
 	<div :class="$style.narrative">
-		<section :class="$style.narrative__section">
-			<h5 :class="$style.narrative__heading">
-				{{ t(APP_ID, 'Why did this happen?') }}
-			</h5>
-			<p v-for="(sentence, index) in detail.narrative.happened" :key="index" :class="$style.narrative__text">
-				{{ sentence }}
-			</p>
-		</section>
-
-		<RiskBreakdown v-if="detail.risk" :risk="detail.risk" />
-
-		<section :class="$style.narrative__section">
-			<h5 :class="$style.narrative__heading">
-				{{ enforced ? t(APP_ID, 'What Nextcloud did') : t(APP_ID, 'What Nextcloud would have done') }}
-			</h5>
-			<ul :class="$style.narrative__done">
-				<li v-for="(sentence, index) in detail.narrative.done" :key="index">
-					{{ sentence }}
-				</li>
-			</ul>
-			<p v-if="detail.narrative.observedBecause" :class="$style.narrative__muted" data-test="observed-because">
-				{{ detail.narrative.observedBecause }}
-			</p>
-		</section>
-
-		<component
-			:is="section.component"
-			v-for="section in sections"
-			:key="section.id"
-			:detail="detail" />
-
-		<section v-if="activeBans.length > 0" :class="$style.narrative__section">
-			<h5 :class="$style.narrative__heading">
-				{{ t(APP_ID, 'Blocked right now') }}
-			</h5>
-			<ul :class="$style.narrative__bans">
-				<li v-for="ban in activeBans" :key="ban.id" :class="$style.narrative__ban">
-					<code>{{ ban.cidr }}</code>
-					<ReferencePill :reference="ban.reference" />
-					<span :class="$style.narrative__muted">
-						{{ t(APP_ID, 'until') }} <TimeStamp :timestamp="ban.expiresAt" />
-					</span>
-				</li>
-			</ul>
-		</section>
-
 		<div :class="$style.narrative__actions">
 			<NcButton
 				v-for="ban in activeBans"
@@ -121,78 +65,146 @@ async function copyText() {
 				</template>
 				{{ activeBans.length > 1 ? t(APP_ID, 'Lift block of {address}', { address: ban.cidr }) : t(APP_ID, 'Lift block') }}
 			</NcButton>
+			<template v-if="advanced">
+				<NcButton
+					v-if="detail.detection.uid"
+					variant="tertiary"
+					data-test="incident-report-user"
+					@click="createReport('user', detail.detection.uid)">
+					<template #icon>
+						<NcIconSvgWrapper :path="mdiFileDocumentAlertOutline" />
+					</template>
+					{{ t(APP_ID, 'Incident report for this account') }}
+				</NcButton>
+				<NcButton
+					v-if="detail.detection.ip"
+					variant="tertiary"
+					data-test="incident-report-address"
+					@click="createReport('address', detail.detection.ip)">
+					<template #icon>
+						<NcIconSvgWrapper :path="mdiFileDocumentAlertOutline" />
+					</template>
+					{{ t(APP_ID, 'Incident report for this address') }}
+				</NcButton>
+			</template>
 			<NcButton
-				v-if="detail.detection.ip"
 				variant="tertiary"
-				data-test="show-attempts"
-				:aria-expanded="showAttempts ? 'true' : 'false'"
-				:aria-controls="`${id}-attempts`"
-				@click="showAttempts = !showAttempts">
+				data-test="show-details"
+				:aria-expanded="showDetails ? 'true' : 'false'"
+				:aria-controls="`${id}-details`"
+				@click="showDetails = !showDetails">
 				<template #icon>
-					<NcIconSvgWrapper :path="mdiFormatListBulleted" />
+					<NcIconSvgWrapper :class="{ [$style.narrative__chevron_open]: showDetails }" :path="mdiChevronDown" />
 				</template>
-				{{ showAttempts ? t(APP_ID, 'Hide attempts') : t(APP_ID, 'Show attempts') }}
-			</NcButton>
-			<NcButton
-				v-if="detail.detection.uid"
-				variant="tertiary"
-				data-test="incident-report-user"
-				@click="incidentReport('user', detail.detection.uid)">
-				<template #icon>
-					<NcIconSvgWrapper :path="mdiFileDocumentAlertOutline" />
-				</template>
-				{{ t(APP_ID, 'Incident report for this account') }}
-			</NcButton>
-			<NcButton
-				v-if="detail.detection.ip"
-				variant="tertiary"
-				data-test="incident-report-address"
-				@click="incidentReport('address', detail.detection.ip)">
-				<template #icon>
-					<NcIconSvgWrapper :path="mdiFileDocumentAlertOutline" />
-				</template>
-				{{ t(APP_ID, 'Incident report for this address') }}
-			</NcButton>
-			<NcButton variant="tertiary" @click="copyText">
-				<template #icon>
-					<NcIconSvgWrapper :path="mdiContentCopy" />
-				</template>
-				{{ t(APP_ID, 'Copy as text') }}
+				{{ t(APP_ID, 'Details') }}
 			</NcButton>
 		</div>
 
-		<div v-if="showAttempts" :id="`${id}-attempts`" :class="$style.narrative__attempts">
-			<p v-if="!detail.attemptsAvailable" :class="$style.narrative__muted">
-				{{ t(APP_ID, 'Details older than 1 hour are not kept; the counts above were saved when the detection was made.') }}
-			</p>
-			<p v-else-if="detail.attempts.length === 0" :class="$style.narrative__muted">
-				{{ t(APP_ID, 'No failed attempts from this address in the last hour.') }}
-			</p>
-			<table v-else :class="$style.table">
-				<caption class="hidden-visually">
-					{{ t(APP_ID, 'Failed attempts from this address in the last hour') }}
-				</caption>
-				<thead>
-					<tr>
-						<th scope="col">
-							{{ t(APP_ID, 'When') }}
-						</th>
-						<th scope="col">
-							{{ t(APP_ID, 'What') }}
-						</th>
-						<th scope="col">
-							{{ t(APP_ID, 'Account') }}
-						</th>
-					</tr>
-				</thead>
-				<tbody>
-					<tr v-for="(attempt, index) in detail.attempts" :key="index">
-						<td><TimeStamp :timestamp="attempt.createdAt" /></td>
-						<td>{{ attempt.label }}</td>
-						<td>{{ attempt.uid ?? t(APP_ID, 'not an existing account') }}</td>
-					</tr>
-				</tbody>
-			</table>
+		<component
+			:is="section.component"
+			v-for="section in sections"
+			:key="section.id"
+			:detail="detail" />
+
+		<div
+			v-if="showDetails"
+			:id="`${id}-details`"
+			:class="$style.narrative__details"
+			data-test="detection-details">
+			<section :class="$style.narrative__section">
+				<h5 :class="$style.narrative__heading">
+					{{ t(APP_ID, 'Why did this happen?') }}
+				</h5>
+				<p v-for="(sentence, index) in detail.narrative.happened" :key="index" :class="$style.narrative__text">
+					{{ sentence }}
+				</p>
+			</section>
+
+			<RiskBreakdown v-if="detail.risk" :risk="detail.risk" />
+
+			<section :class="$style.narrative__section">
+				<h5 :class="$style.narrative__heading">
+					{{ enforced ? t(APP_ID, 'What Nextcloud did') : t(APP_ID, 'What Nextcloud would have done') }}
+				</h5>
+				<ul :class="$style.narrative__done">
+					<li v-for="(sentence, index) in detail.narrative.done" :key="index">
+						{{ sentence }}
+					</li>
+				</ul>
+				<p v-if="detail.narrative.observedBecause" :class="$style.narrative__muted" data-test="observed-because">
+					{{ detail.narrative.observedBecause }}
+				</p>
+			</section>
+
+			<section v-if="activeBans.length > 0" :class="$style.narrative__section">
+				<h5 :class="$style.narrative__heading">
+					{{ t(APP_ID, 'Blocked right now') }}
+				</h5>
+				<ul :class="$style.narrative__bans">
+					<li v-for="ban in activeBans" :key="ban.id" :class="$style.narrative__ban">
+						<code>{{ ban.cidr }}</code>
+						<ReferencePill :reference="ban.reference" />
+						<span :class="$style.narrative__muted">
+							{{ t(APP_ID, 'until') }} <TimeStamp :timestamp="ban.expiresAt" />
+						</span>
+					</li>
+				</ul>
+			</section>
+
+			<div :class="$style.narrative__actions">
+				<NcButton
+					v-if="detail.detection.ip"
+					variant="tertiary"
+					data-test="show-attempts"
+					:aria-expanded="showAttempts ? 'true' : 'false'"
+					:aria-controls="`${id}-attempts`"
+					@click="showAttempts = !showAttempts">
+					<template #icon>
+						<NcIconSvgWrapper :path="mdiFormatListBulleted" />
+					</template>
+					{{ showAttempts ? t(APP_ID, 'Hide attempts') : t(APP_ID, 'Show attempts') }}
+				</NcButton>
+				<NcButton variant="tertiary" @click="copyText">
+					<template #icon>
+						<NcIconSvgWrapper :path="mdiContentCopy" />
+					</template>
+					{{ t(APP_ID, 'Copy as text') }}
+				</NcButton>
+			</div>
+
+			<div v-if="showAttempts" :id="`${id}-attempts`" :class="$style.narrative__attempts">
+				<p v-if="!detail.attemptsAvailable" :class="$style.narrative__muted">
+					{{ t(APP_ID, 'Details older than 1 hour are not kept; the counts above were saved when the detection was made.') }}
+				</p>
+				<p v-else-if="detail.attempts.length === 0" :class="$style.narrative__muted">
+					{{ t(APP_ID, 'No failed attempts from this address in the last hour.') }}
+				</p>
+				<table v-else :class="$style.table">
+					<caption class="hidden-visually">
+						{{ t(APP_ID, 'Failed attempts from this address in the last hour') }}
+					</caption>
+					<thead>
+						<tr>
+							<th scope="col">
+								{{ t(APP_ID, 'When') }}
+							</th>
+							<th scope="col">
+								{{ t(APP_ID, 'What') }}
+							</th>
+							<th scope="col">
+								{{ t(APP_ID, 'Account') }}
+							</th>
+						</tr>
+					</thead>
+					<tbody>
+						<tr v-for="(attempt, index) in detail.attempts" :key="index">
+							<td><TimeStamp :timestamp="attempt.createdAt" /></td>
+							<td>{{ attempt.label }}</td>
+							<td>{{ attempt.uid ?? t(APP_ID, 'not an existing account') }}</td>
+						</tr>
+					</tbody>
+				</table>
+			</div>
 		</div>
 	</div>
 </template>
@@ -202,6 +214,18 @@ async function copyText() {
 	display: flex;
 	flex-direction: column;
 	gap: calc(var(--default-grid-baseline) * 4);
+}
+
+.narrative__details {
+	display: flex;
+	flex-direction: column;
+	gap: calc(var(--default-grid-baseline) * 4);
+	padding-inline-start: calc(var(--default-grid-baseline) * 4);
+	border-inline-start: 2px solid var(--color-border);
+}
+
+.narrative__chevron_open {
+	transform: rotate(180deg);
 }
 
 .narrative__section {

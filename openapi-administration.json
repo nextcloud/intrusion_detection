@@ -1071,7 +1071,8 @@
                     "hits",
                     "createdAt",
                     "lastSeenAt",
-                    "userVerdict"
+                    "userVerdict",
+                    "summary"
                 ],
                 "properties": {
                     "id": {
@@ -1125,6 +1126,9 @@
                     "userVerdict": {
                         "type": "string",
                         "nullable": true
+                    },
+                    "summary": {
+                        "type": "string"
                     }
                 }
             },

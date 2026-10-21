@@ -7,12 +7,13 @@
 import type { Ban, Detection } from '../../types.ts'
 
 import { mdiChevronDown } from '@mdi/js'
-import { t } from '@nextcloud/l10n'
+import { n, t } from '@nextcloud/l10n'
 import { computed, ref, useId, watch } from 'vue'
 import NcIconSvgWrapper from '@nextcloud/vue/components/NcIconSvgWrapper'
 import SeverityPill from '../common/SeverityPill.vue'
 import TimeStamp from '../common/TimeStamp.vue'
 import DetectionRow from './DetectionRow.vue'
+import { advanced } from '../../store.ts'
 import { APP_ID, formatNumber } from '../../utils/format.ts'
 import { commonSummary, groupSpan, highestSeverity } from '../../utils/groups.ts'
 
@@ -37,8 +38,10 @@ watch(() => props.openId, (openId) => {
 })
 
 const first = computed(() => props.detections[0]!)
-const title = computed(() => t(APP_ID, '{count} × {check}', { count: formatNumber(props.detections.length), check: first.value.checkName }, undefined, { escape: false, sanitize: false }))
-const summary = computed(() => commonSummary(props.detections))
+const shared = computed(() => commonSummary(props.detections))
+/** The sentence every detection of the group shares, else "17 × Admin change alerts" */
+const title = computed(() => shared.value
+	?? t(APP_ID, '{count} × {check}', { count: formatNumber(props.detections.length), check: first.value.checkName }, undefined, { escape: false, sanitize: false }))
 </script>
 
 <template>
@@ -51,12 +54,13 @@ const summary = computed(() => commonSummary(props.detections))
 			@click="expanded = !expanded">
 			<SeverityPill :severity="highestSeverity(detections)" />
 			<span :class="$style.group__main">
-				<span :class="$style.group__title">{{ title }}</span>
+				<span :class="$style.group__title" data-test="detection-summary">{{ title }}</span>
 				<span :class="$style.group__facts">
-					<span v-if="first.ip" :class="$style.group__address">{{ first.ip }}</span>
-					<span v-if="first.uid">{{ t(APP_ID, 'account {account}', { account: first.uid }) }}</span>
-					<span v-if="summary">{{ summary }}</span>
-					<span>{{ groupSpan(detections) }}</span>
+					<template v-if="advanced">
+						<span v-if="first.ip" :class="$style.group__address">{{ first.ip }}</span>
+						<span v-if="first.uid">{{ t(APP_ID, 'account {account}', { account: first.uid }) }}</span>
+					</template>
+					<span>{{ shared ? n(APP_ID, '%n time', '%n times', detections.length) + ' ' : '' }}{{ groupSpan(detections) }}</span>
 				</span>
 			</span>
 			<span :class="[$style.group__outcome, first.enforced ? $style.group__outcome_enforced : $style.group__outcome_observed]">
@@ -130,10 +134,8 @@ const summary = computed(() => commonSummary(props.detections))
 }
 
 .group__title {
-	overflow: hidden;
 	font-weight: 600;
-	text-overflow: ellipsis;
-	white-space: nowrap;
+	overflow-wrap: anywhere;
 }
 
 .group__facts {
@@ -197,19 +199,15 @@ const summary = computed(() => commonSummary(props.detections))
 
 @media (max-width: 600px) {
 	.group button.group__summary {
-		grid-template-columns: auto minmax(0, 1fr) auto;
+		grid-template-columns: auto minmax(0, 1fr) auto auto;
 		grid-template-areas:
-			"severity time outcome"
-			"main main main";
+			"severity time outcome chevron"
+			"main main main main";
 		gap: calc(var(--default-grid-baseline) * 1) calc(var(--default-grid-baseline) * 2);
 	}
 
 	.group .group__time {
 		justify-self: start;
-	}
-
-	.group .group__chevron {
-		display: none !important;
 	}
 
 	.group__items {
