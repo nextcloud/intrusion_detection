@@ -274,15 +274,12 @@ class Notifier implements INotifier {
 				$l->t('The request expires at %s. Deciding needs your password.', [$expires]),
 			]))
 			->setLink($this->links->adminPage() . '#settings-approvals');
+		// Deciding needs the password, which the notification cannot ask: one
+		// button opens the admin page. The notifications app shows every web
+		// link as a primary button, so a Reject link would look like Approve.
 		foreach ($notification->getActions() as $action) {
-			$label = match ($action->getLabel()) {
-				self::ACTION_APPROVE => $l->t('Approve'),
-				self::ACTION_REJECT => $l->t('Reject'),
-				default => null,
-			};
-			if ($label !== null) {
-				// Both change protection and need the password, which the notification cannot ask: the admin page decides.
-				$action->setParsedLabel($label)->setLink($this->links->adminPage(), 'WEB');
+			if ($action->getLabel() === self::ACTION_APPROVE) {
+				$action->setParsedLabel($l->t('Review the login'))->setLink($this->links->adminPage() . '#settings-approvals', 'WEB');
 				$notification->addParsedAction($action);
 			}
 		}

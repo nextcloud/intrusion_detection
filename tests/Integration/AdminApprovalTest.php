@@ -258,7 +258,10 @@ class AdminApprovalTest extends StepUpTestCase {
 		$this->assertSame('Approve the login of ' . $this->bob->getUID() . '?', $prepared->getParsedSubject());
 		$this->assertStringContainsString('from the address ' . $this->remoteAddress, $prepared->getParsedMessage());
 		$this->assertStringEndsWith('#settings-approvals', $prepared->getLink());
-		$this->assertSame(['Approve', 'Reject'], array_map(static fn ($a): string => $a->getParsedLabel(), $prepared->getParsedActions()));
+		$actions = $prepared->getParsedActions();
+		$this->assertSame(['Review the login'], array_map(static fn ($a): string => $a->getParsedLabel(), $actions), 'one button, not "Reject" as a second primary one');
+		$this->assertSame('WEB', $actions[0]->getRequestType());
+		$this->assertStringEndsWith('#settings-approvals', $actions[0]->getLink());
 
 		Server::get(ApprovalService::class)->approve((int)$this->stepUp()?->approvalId, self::ADMIN, ApprovalService::VIA_WEB);
 		$this->expectException(AlreadyProcessedException::class);

@@ -75,6 +75,7 @@ class ApprovalFlowTest extends AdminChangeTestCase {
 		$prepared = Server::get(Notifier::class)->prepare($asked[0], 'en');
 		$this->assertSame($this->alice . ' asks to make ' . $this->bob . ' an administrator', $prepared->getParsedSubject());
 		$this->assertSame(['Approve', 'Reject'], array_map(static fn ($a): string => $a->getParsedLabel(), $prepared->getParsedActions()));
+		$this->assertSame([true, false], array_map(static fn ($a): bool => $a->isPrimary(), $prepared->getParsedActions()), 'Reject is the secondary choice');
 		foreach ($prepared->getParsedActions() as $action) {
 			$this->assertSame('POST', $action->getRequestType());
 			$this->assertMatchesRegularExpression('#/apps/intrusion_detection/api/v1/approvals/' . $approval->getId() . '/(approve|reject)$#', $action->getLink());

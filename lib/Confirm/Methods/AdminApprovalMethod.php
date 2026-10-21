@@ -26,7 +26,7 @@ use OCP\IUser;
  * An administrator approves the login (concept section 11.5, method 4),
  * when `step_up_admin_approval` is on. The login waits on the verify page,
  * which asks for the request's status every few seconds; the
- * administrators get a notification with Approve and Reject. The request
+ * administrators get a notification that opens the admin page. The request
  * expires after `step_up_admin_approval_ttl`, and the login may wait that
  * long. A login asks once, and only before its own deadline: the step-up
  * rule ends it on the first request after that, so the wait never exceeds

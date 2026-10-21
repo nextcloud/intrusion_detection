@@ -90,7 +90,7 @@ function address(approval: LoginApproval): string {
 		<EmptyNote
 			v-if="props.approvals.length === 0"
 			:name="t(APP_ID, 'No login is waiting')"
-			:description="t(APP_ID, 'Logins that wait for an administrator appear here, and as a notification with Approve and Reject.')"
+			:description="t(APP_ID, 'Logins that wait for an administrator appear here, and as a notification to every administrator who may decide.')"
 			:icon="mdiAccountClockOutline" />
 
 		<ul v-else :class="$style.list" data-test="approvals">
