@@ -1,0 +1,15 @@
+# SPDX-FileCopyrightText: 2026 Nextcloud GmbH and Nextcloud contributors
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
+/node_modules/
+/coverage/
+/.phpunit.cache/
+/.phpunit.result.cache
+
+# Built by `npm run build`; css/pages.css is written by hand
+/js/
+/css/*.chunk.css
+/css/secure-account.css
+/css/settings-admin.css
+/css/settings-personal.css
+/css/verify.css

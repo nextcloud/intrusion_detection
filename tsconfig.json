@@ -1,0 +1,21 @@
+{
+	"extends": "@vue/tsconfig/tsconfig.json",
+	"include": ["./src/**/*.ts", "./src/**/*.vue"],
+	"compilerOptions": {
+		"lib": ["DOM", "DOM.Iterable", "DOM.AsyncIterable", "ESNext"],
+		"target": "ESNext",
+		"module": "ESNext",
+		"moduleResolution": "bundler",
+		"allowImportingTsExtensions": true,
+		"rewriteRelativeImportExtensions": true,
+		"allowSyntheticDefaultImports": true,
+		"declaration": false,
+		"noEmit": true,
+		"noImplicitAny": false,
+		"resolveJsonModule": true,
+		"strict": true
+	},
+	"vueCompilerOptions": {
+		"target": 3.6
+	}
+}
