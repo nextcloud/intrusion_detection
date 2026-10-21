@@ -18,8 +18,10 @@ use OCA\IntrusionDetection\Db\AlertMapper;
 use OCA\IntrusionDetection\Db\AttemptKind;
 use OCA\IntrusionDetection\Db\AttemptMapper;
 use OCA\IntrusionDetection\Db\DetectionMapper;
+use OCA\IntrusionDetection\Db\LockLinkMapper;
 use OCA\IntrusionDetection\Db\LoginMapper;
 use OCA\IntrusionDetection\Db\ProtectedAccountMapper;
+use OCA\IntrusionDetection\Db\SecurityChangeMapper;
 use OCA\IntrusionDetection\Db\TokenOriginMapper;
 use OCA\IntrusionDetection\Detection\DetectionDraft;
 use OCA\IntrusionDetection\Detection\DetectionService;
@@ -113,6 +115,24 @@ class UserDeletedTest extends AccountTestCase {
 		foreach (['ids_approvals' => 'subject_uid', 'ids_reset_suppressions' => 'uid'] as $table => $column) {
 			$qb = $this->db->getQueryBuilder();
 			$qb->select($column)->from($table);
+			$result = $qb->executeQuery();
+			$this->assertSame(['kept-user'], array_map('strval', $result->fetchFirstColumn()), $table);
+			$result->closeCursor();
+		}
+	}
+
+	public function testSecurityChangesAndLockLinksOfTheAccountGoToo(): void {
+		$now = time();
+		foreach (['gone-user', 'kept-user'] as $uid) {
+			Server::get(SecurityChangeMapper::class)->insert(['uid' => $uid, 'type' => 'email_changed', 'via' => 'self', 'actor_uid' => $uid, 'old_value_hint' => 'o***@example.com', 'new_value_hint' => null, 'notify_to' => 'encrypted', 'ref_id' => null, 'detail' => null, 'session_token_id' => null, 'ip' => null, 'created_at' => $now]);
+			Server::get(LockLinkMapper::class)->insert($uid, str_repeat('c', 64), 'o***@example.com', null, null, $now, $now + 3600);
+		}
+
+		Server::get(UserDataCleanup::class)->deleteUser('gone-user');
+
+		foreach ([SecurityChangeMapper::TABLE, LockLinkMapper::TABLE] as $table) {
+			$qb = $this->db->getQueryBuilder();
+			$qb->select('uid')->from($table);
 			$result = $qb->executeQuery();
 			$this->assertSame(['kept-user'], array_map('strval', $result->fetchFirstColumn()), $table);
 			$result->closeCursor();

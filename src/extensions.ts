@@ -4,6 +4,7 @@
  */
 
 import type { Component } from 'vue'
+import type { DetectionDetail } from './types.ts'
 
 import { mdiBellOutline, mdiCogOutline, mdiFileDocumentAlertOutline, mdiFingerprint, mdiFormatListChecks, mdiShieldLockOutline, mdiShieldSearch, mdiTargetAccount, mdiViewDashboardOutline } from '@mdi/js'
 import { t } from '@nextcloud/l10n'
@@ -24,6 +25,8 @@ import { APP_ID } from './utils/format.ts'
  * - The status banner: add a component to `statusSections`, e.g. the lockdown
  *   banner; it is rendered under the key figures.
  * - The Blocks tab: add a component to `blocksPanels`, e.g. the firewall export.
+ * - The detail of a detection: add an entry to `detectionSections`, e.g. the
+ *   account's "Secure my account" progress; rendered after "What Nextcloud did".
  *
  * Components read the shared state from `store.ts`.
  */
@@ -54,6 +57,14 @@ export interface CheckSection {
 	component: Component
 	/** Settings of the check the section edits itself, so the card's settings form leaves them out */
 	replacesParams?: string[]
+}
+
+export interface DetectionSection {
+	id: string
+	/** Whether the section applies to this detection */
+	applies: (detail: DetectionDetail) => boolean
+	/** Receives the detection detail as prop `detail` */
+	component: Component
 }
 
 export const tabs = shallowReactive<TabDefinition[]>([
@@ -88,6 +99,10 @@ export const statusSections = shallowReactive<Component[]>([])
 export const blocksPanels = shallowReactive<Component[]>([
 	defineAsyncComponent(() => import('./components/blocks/FirewallExportPanel.vue')),
 	defineAsyncComponent(() => import('./components/blocks/BlocklistsPanel.vue')),
+])
+
+export const detectionSections = shallowReactive<DetectionSection[]>([
+	{ id: 'secure-account', applies: (detail) => detail.detection.uid !== null, component: defineAsyncComponent(() => import('./components/overview/SecureAccountPanel.vue')) },
 ])
 
 /**

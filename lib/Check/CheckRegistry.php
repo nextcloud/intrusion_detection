@@ -41,6 +41,8 @@ class CheckRegistry {
 		Checks\UserDenied::class,
 		Checks\RiskyNetwork::class,
 		Checks\DirectoryScraping::class,
+		Checks\AccountTakeover::class,
+		Checks\AccountLocked::class,
 	];
 
 	/** @var array<string, CheckDefinition>|null */

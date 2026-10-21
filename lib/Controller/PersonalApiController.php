@@ -13,6 +13,9 @@ use OCA\IntrusionDetection\AppInfo\Application;
 use OCA\IntrusionDetection\Config\GlobalSettings;
 use OCA\IntrusionDetection\Config\Settings;
 use OCA\IntrusionDetection\Db\LoginHistoryMapper;
+use OCA\IntrusionDetection\Db\SecurityChangeMapper;
+use OCA\IntrusionDetection\Guide\SecureAccountGuide;
+use OCA\IntrusionDetection\Guide\SecureAccountOverview;
 use OCA\IntrusionDetection\KnownDevice\KnownDevices;
 use OCA\IntrusionDetection\LoginHistory\LoginHistoryEntry;
 use OCA\IntrusionDetection\ResponseDefinitions;
@@ -52,6 +55,8 @@ use OCP\IUserSession;
  * @psalm-import-type IntrusionDetectionAnswerError from ResponseDefinitions
  * @psalm-import-type IntrusionDetectionKnownDevice from ResponseDefinitions
  * @psalm-import-type IntrusionDetectionLogin from ResponseDefinitions
+ * @psalm-import-type IntrusionDetectionSecurityChange from ResponseDefinitions
+ * @psalm-import-type IntrusionDetectionSecureAccount from ResponseDefinitions
  */
 #[OpenAPI(scope: OpenAPI::SCOPE_DEFAULT)]
 class PersonalApiController extends OCSController {
@@ -65,6 +70,9 @@ class PersonalApiController extends OCSController {
 		private readonly KnownDevices $knownDevices,
 		private readonly LoginHistoryMapper $loginHistory,
 		private readonly CurrentSession $currentSession,
+		private readonly SecureAccountGuide $guide,
+		private readonly SecureAccountOverview $overview,
+		private readonly SecurityChangeMapper $changes,
 		private readonly Settings $settings,
 		private readonly ITimeFactory $timeFactory,
 	) {
@@ -230,6 +238,93 @@ class PersonalApiController extends OCSController {
 			'stepUp' => $e->stepUp,
 			'current' => $current !== null && $e->sessionTokenId === $current,
 		], $entries));
+	}
+
+	/**
+	 * List the recent security changes of the current user: email address, password, second factor and app passwords
+	 *
+	 * @param int<1, 100> $limit at most this many, newest first
+	 * @return DataResponse<Http::STATUS_OK, list<IntrusionDetectionSecurityChange>, array{}>
+	 *
+	 * 200: The changes, as long as they are kept
+	 */
+	#[NoAdminRequired]
+	#[ApiRoute(verb: 'GET', url: '/api/v1/personal/security-changes')]
+	public function securityChanges(int $limit = 50): DataResponse {
+		$since = $this->timeFactory->getTime() - $this->settings->getInt(GlobalSettings::HISTORY_RETENTION_DAYS) * 86400;
+		$rows = $this->changes->findRecent($this->user()->getUID(), $since, max(1, min(100, $limit)));
+		return new DataResponse(array_map(fn (array $row): array => SecureAccountOverview::change($row, $this->l), $rows));
+	}
+
+	/**
+	 * Get the "Secure my account" checklist of the current user, with what each step shows
+	 *
+	 * @return DataResponse<Http::STATUS_OK, IntrusionDetectionSecureAccount, array{}>
+	 *
+	 * 200: The checklist; `progress.active` is false when none is open
+	 */
+	#[NoAdminRequired]
+	#[ApiRoute(verb: 'GET', url: '/api/v1/personal/secure-account')]
+	public function secureAccount(): DataResponse {
+		return new DataResponse($this->overview->forUser($this->user(), $this->l));
+	}
+
+	/**
+	 * Start the "Secure my account" checklist, or keep the open one
+	 *
+	 * @return DataResponse<Http::STATUS_OK, IntrusionDetectionSecureAccount, array{}>
+	 *
+	 * 200: The checklist
+	 */
+	#[NoAdminRequired]
+	#[UserRateLimit(limit: 10, period: 600)]
+	#[ApiRoute(verb: 'POST', url: '/api/v1/personal/secure-account')]
+	public function startSecureAccount(): DataResponse {
+		$user = $this->user();
+		if (!$this->guide->isOpen($user->getUID())) {
+			$this->guide->start($user->getUID(), SecureAccountGuide::REASON_SELF);
+		}
+		return new DataResponse($this->overview->forUser($user, $this->l));
+	}
+
+	/**
+	 * Mark a step of the checklist done that the user checks themselves
+	 *
+	 * @param string $step sessions, email, shares or files
+	 * @return DataResponse<Http::STATUS_OK, IntrusionDetectionSecureAccount, array{}>|DataResponse<Http::STATUS_BAD_REQUEST|Http::STATUS_CONFLICT, IntrusionDetectionAnswerError, array{}>
+	 *
+	 * 200: The step is done
+	 * 400: The user cannot mark this step
+	 * 409: No checklist is open
+	 */
+	#[NoAdminRequired]
+	#[UserRateLimit(limit: 30, period: 600)]
+	#[ApiRoute(verb: 'POST', url: '/api/v1/personal/secure-account/steps/{step}', requirements: ['step' => '[a-z_]{1,32}'])]
+	public function completeSecureAccountStep(string $step): DataResponse {
+		$user = $this->user();
+		if (!in_array($step, SecureAccountGuide::USER_STEPS, true)) {
+			return new DataResponse(['reason' => 'not_a_user_step', 'message' => $this->l->t('This step is done by itself once you have done it.')], Http::STATUS_BAD_REQUEST);
+		}
+		if (!$this->guide->markDone($user->getUID(), $step)) {
+			return new DataResponse(['reason' => 'not_open', 'message' => $this->l->t('There is no open checklist. Start it again to go through it.')], Http::STATUS_CONFLICT);
+		}
+		return new DataResponse($this->overview->forUser($user, $this->l));
+	}
+
+	/**
+	 * Close the checklist without finishing it
+	 *
+	 * @return DataResponse<Http::STATUS_OK, IntrusionDetectionSecureAccount, array{}>
+	 *
+	 * 200: Closed, or none was open
+	 */
+	#[NoAdminRequired]
+	#[UserRateLimit(limit: 10, period: 600)]
+	#[ApiRoute(verb: 'DELETE', url: '/api/v1/personal/secure-account')]
+	public function dismissSecureAccount(): DataResponse {
+		$user = $this->user();
+		$this->guide->dismiss($user->getUID());
+		return new DataResponse($this->overview->forUser($user, $this->l));
 	}
 
 	private function user(): IUser {

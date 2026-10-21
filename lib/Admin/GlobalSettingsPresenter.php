@@ -230,8 +230,8 @@ class GlobalSettingsPresenter {
 				$l->t('A remembered browser that is not used for this long is forgotten.'),
 			), self::GROUP_STEP_UP],
 			GlobalSettings::HISTORY_RETENTION_DAYS => [new ParamText(
-				$l->t('Keep the login history for'),
-				$l->t('Older logins are deleted from the history users and administrators see.'),
+				$l->t('Keep the security history for'),
+				$l->t('Logins and security changes of accounts (email address, password, second factor, app passwords) are deleted after this time.'),
 				$l->t('days'),
 			), self::GROUP_PRIVACY],
 			GlobalSettings::RISK_ENABLED => [new ParamText(

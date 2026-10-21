@@ -21,6 +21,7 @@ use OCA\IntrusionDetection\Config\Settings;
 use OCA\IntrusionDetection\Db\BlocklistStatMapper;
 use OCA\IntrusionDetection\Detection\AttemptRecorder;
 use OCA\IntrusionDetection\ResponseDefinitions;
+use OCA\IntrusionDetection\Takeover\LockLinks;
 use OCP\IL10N;
 
 /**
@@ -142,9 +143,9 @@ class PrivacyOverview {
 			],
 			DataKind::SecurityChanges => [
 				'name' => $l->t('Security changes'),
-				'what' => $l->t('The kind of change to an account, the address and the time.'),
-				'why' => $l->t('To recognise an account takeover, where an attacker changes the email address or password one after the other.'),
-				'retention' => $l->t('90 days'),
+				'what' => $l->t('The kind of change to an account (email address, password, second factor, app passwords), who made it, the session, the address and the time. Email addresses only masked; the full previous address encrypted for one day.'),
+				'why' => $l->t('To recognise an account takeover, where an attacker changes the email address or password one after the other, to reach the previous address with the lock link, and to show users and incident reports what changed.'),
+				'retention' => $l->t('{history_retention_days} days; the previous address 1 day'),
 				'where' => 'ids_security_changes',
 			],
 			DataKind::KnownDevices => [
@@ -223,6 +224,20 @@ class PrivacyOverview {
 				'why' => $l->t('So that such a session cannot skip the confirmation by coming back through its remember-me cookie.'),
 				'retention' => $l->t('Until the login is confirmed or ended, at most as long as a remembered login lasts'),
 				'where' => 'ids_step_up_sessions',
+			],
+			DataKind::LockLinks => [
+				'name' => $l->t('Lock links'),
+				'what' => $l->t('Per link: the account, a keyed fingerprint of the link (never the link itself), the masked address it was sent to, and when it was used and from which address.'),
+				'why' => $l->t('So that the owner of an account\'s previous email address can lock the account once with the link from the email.'),
+				'retention' => $l->n('%n day', '%n days', intdiv(LockLinks::TTL, 86400)),
+				'where' => 'ids_lock_links',
+			],
+			DataKind::SecureAccountProgress => [
+				'name' => $l->t('"Secure my account" progress'),
+				'what' => $l->t('Per account: when the checklist started and why, which steps are done, and when it was finished.'),
+				'why' => $l->t('To guide a user through securing their account, and to show you how far they got.'),
+				'retention' => $l->t('Until the account is deleted'),
+				'where' => $l->t('user preferences'),
 			],
 		};
 	}

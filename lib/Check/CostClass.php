@@ -19,6 +19,8 @@ enum CostClass: string {
 	case EveryRequestScan = 'every_request_scan';
 	case ExternalCall = 'external_call';
 	case Background = 'background';
+	/** Only when an account's email address, password, second factor or app passwords change */
+	case OnSecurityChange = 'on_security_change';
 
 	public function describe(IL10N $l): string {
 		return match ($this) {
@@ -28,6 +30,7 @@ enum CostClass: string {
 			self::EveryRequestScan => $l->t('A quick scan of the web address on every request. Only requests that contain suspicious characters are examined further. Typically under 0.01 ms.'),
 			self::ExternalCall => $l->t('Contacts an external service.'),
 			self::Background => $l->t('Runs in a background job.'),
+			self::OnSecurityChange => $l->t('Runs only when an account\'s email address, password, second factor or app passwords change. No effect on normal requests.'),
 		};
 	}
 }

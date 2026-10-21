@@ -15,10 +15,12 @@ use OCA\IntrusionDetection\Db\AttemptMapper;
 use OCA\IntrusionDetection\Db\Detection;
 use OCA\IntrusionDetection\Db\DetectionMapper;
 use OCA\IntrusionDetection\Db\KnownDeviceMapper;
+use OCA\IntrusionDetection\Db\LockLinkMapper;
 use OCA\IntrusionDetection\Db\LoginHistoryMapper;
 use OCA\IntrusionDetection\Db\LoginMapper;
 use OCA\IntrusionDetection\Db\ProtectedAccountMapper;
 use OCA\IntrusionDetection\Db\ResetSuppressionMapper;
+use OCA\IntrusionDetection\Db\SecurityChangeMapper;
 use OCA\IntrusionDetection\Db\StepUpSessionMapper;
 use OCA\IntrusionDetection\Db\TokenOriginMapper;
 use OCA\IntrusionDetection\Db\TrustedNetworkMapper;
@@ -55,6 +57,8 @@ class UserDataCleanup {
 		StepUpSessionMapper::TABLE => 'uid',
 		KnownDeviceMapper::TABLE => 'uid',
 		LoginHistoryMapper::TABLE => 'uid',
+		SecurityChangeMapper::TABLE => 'uid',
+		LockLinkMapper::TABLE => 'uid',
 	];
 
 	/** @var array<string, string> table => the column set to null */

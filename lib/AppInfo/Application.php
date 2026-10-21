@@ -9,18 +9,22 @@ declare(strict_types=1);
 
 namespace OCA\IntrusionDetection\AppInfo;
 
+use OC\Core\Events\BeforePasswordResetEvent;
+use OC\Core\Events\PasswordResetEvent;
 use OCA\DAV\Events\SabrePluginAddEvent;
 use OCA\IntrusionDetection\Admin\SetupProblems;
 use OCA\IntrusionDetection\Config\Lexicon;
 use OCA\IntrusionDetection\Dashboard\IntrusionWidget;
 use OCA\IntrusionDetection\Event\BanCreatedEvent;
 use OCA\IntrusionDetection\Event\BanLiftedEvent;
+use OCA\IntrusionDetection\Event\DetectionCreatedEvent;
 use OCA\IntrusionDetection\Event\SettingChangedEvent;
 use OCA\IntrusionDetection\Event\WasThisYouAnsweredEvent;
 use OCA\IntrusionDetection\Guard\AddressGuard;
 use OCA\IntrusionDetection\Guard\CredentialUseGuard;
 use OCA\IntrusionDetection\Guard\PayloadGuard;
 use OCA\IntrusionDetection\Guard\TrapUrlGuard;
+use OCA\IntrusionDetection\Guide\SecureAccountNotifier;
 use OCA\IntrusionDetection\KnownDevice\IKnownDevices;
 use OCA\IntrusionDetection\KnownDevice\KnownDevices;
 use OCA\IntrusionDetection\Listener\AdminChangeListener;
@@ -41,6 +45,8 @@ use OCA\IntrusionDetection\Listener\PayloadLoginListener;
 use OCA\IntrusionDetection\Listener\ResetRequestedListener;
 use OCA\IntrusionDetection\Listener\SabrePluginAddListener;
 use OCA\IntrusionDetection\Listener\SecondFactorFailedListener;
+use OCA\IntrusionDetection\Listener\SecureGuideListener;
+use OCA\IntrusionDetection\Listener\SecurityChangeListener;
 use OCA\IntrusionDetection\Listener\ShareAccessFailedListener;
 use OCA\IntrusionDetection\Listener\StepUpChallengePassedListener;
 use OCA\IntrusionDetection\Listener\StepUpLoginListener;
@@ -62,14 +68,18 @@ use OCP\AppFramework\Bootstrap\IRegistrationContext;
 use OCP\Authentication\Events\AnyLoginFailedEvent;
 use OCP\Authentication\Events\AppPasswordCreatedEvent;
 use OCP\Authentication\Events\LoginFlowV2GrantedEvent;
+use OCP\Authentication\Events\TokenInvalidatedEvent;
 use OCP\Authentication\TwoFactorAuth\TwoFactorProviderChallengeFailed;
 use OCP\Authentication\TwoFactorAuth\TwoFactorProviderChallengePassed;
+use OCP\Authentication\TwoFactorAuth\TwoFactorProviderForUserRegistered;
+use OCP\Authentication\TwoFactorAuth\TwoFactorProviderForUserUnregistered;
 use OCP\Group\Events\SubAdminAddedEvent;
 use OCP\Group\Events\UserAddedEvent;
 use OCP\Group\Events\UserRemovedEvent;
 use OCP\Security\Events\PasswordResetRequestedEvent;
 use OCP\Share\Events\ShareLinkAccessFailedEvent;
 use OCP\User\Events\PasswordUpdatedEvent;
+use OCP\User\Events\UserChangedEvent;
 use OCP\User\Events\UserCreatedEvent;
 use OCP\User\Events\UserDeletedEvent;
 use OCP\User\Events\UserLoggedInEvent;
@@ -138,6 +148,13 @@ class Application extends App implements IBootstrap {
 		$context->registerEventListener(TwoFactorProviderChallengePassed::class, LoginHistoryListener::class);
 		$context->registerEventListener(WasThisYouAnsweredEvent::class, KnownDeviceListener::class);
 		$context->registerEventListener(PasswordUpdatedEvent::class, KnownDeviceListener::class);
+		foreach ([BeforePasswordResetEvent::class, PasswordResetEvent::class, UserChangedEvent::class, PasswordUpdatedEvent::class, TwoFactorProviderForUserRegistered::class, TwoFactorProviderForUserUnregistered::class, AppPasswordCreatedEvent::class, LoginFlowV2GrantedEvent::class, TokenInvalidatedEvent::class] as $event) {
+			$context->registerEventListener($event, SecurityChangeListener::class);
+		}
+		foreach ([WasThisYouAnsweredEvent::class, DetectionCreatedEvent::class, PasswordUpdatedEvent::class] as $event) {
+			$context->registerEventListener($event, SecureGuideListener::class);
+		}
+		$context->registerNotifierService(SecureAccountNotifier::class);
 	}
 
 	#[\Override]

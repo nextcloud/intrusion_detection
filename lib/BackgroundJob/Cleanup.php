@@ -15,16 +15,19 @@ use OCA\IntrusionDetection\Db\AlertMapper;
 use OCA\IntrusionDetection\Db\AttemptMapper;
 use OCA\IntrusionDetection\Db\BanMapper;
 use OCA\IntrusionDetection\Db\FlagMapper;
+use OCA\IntrusionDetection\Db\LockLinkMapper;
 use OCA\IntrusionDetection\Db\LoginHistoryMapper;
 use OCA\IntrusionDetection\Db\LoginMapper;
 use OCA\IntrusionDetection\Db\ProtectedAccountMapper;
 use OCA\IntrusionDetection\Db\ResetSuppressionMapper;
+use OCA\IntrusionDetection\Db\SecurityChangeMapper;
 use OCA\IntrusionDetection\Db\StepUpSessionMapper;
 use OCA\IntrusionDetection\Db\TokenOriginMapper;
 use OCA\IntrusionDetection\Db\TrustedNetworkMapper;
 use OCA\IntrusionDetection\Detection\AttemptRecorder;
 use OCA\IntrusionDetection\Detection\DetectionTotals;
 use OCA\IntrusionDetection\KnownDevice\KnownDevices;
+use OCA\IntrusionDetection\Takeover\SecurityChangeLog;
 use OCP\AppFramework\Utility\ITimeFactory;
 use OCP\BackgroundJob\IJob;
 use OCP\BackgroundJob\TimedJob;
@@ -59,6 +62,8 @@ class Cleanup extends TimedJob {
 		private readonly DetectionTotals $detectionTotals,
 		private readonly KnownDevices $knownDevices,
 		private readonly LoginHistoryMapper $loginHistory,
+		private readonly SecurityChangeMapper $securityChanges,
+		private readonly LockLinkMapper $lockLinks,
 	) {
 		parent::__construct($time);
 		$this->setInterval(300);
@@ -81,6 +86,9 @@ class Cleanup extends TimedJob {
 		$this->stepUpSessions->deleteExpired($now);
 		$this->knownDevices->deleteExpired();
 		$this->loginHistory->deleteOlderThan($now - $this->settings->getInt(GlobalSettings::HISTORY_RETENTION_DAYS) * 86400);
+		$this->securityChanges->deleteOlderThan($now - $this->settings->getInt(GlobalSettings::HISTORY_RETENTION_DAYS) * 86400);
+		$this->securityChanges->forgetAddressesBefore($now - SecurityChangeLog::ADDRESS_TTL);
+		$this->lockLinks->deleteExpired($now);
 		$this->updateFloodState($now);
 	}
 

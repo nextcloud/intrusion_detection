@@ -115,7 +115,7 @@ final class GlobalSettings {
 	public const KNOWN_DEVICE_ENABLED = 'known_device_enabled';
 	/** Seconds a remembered browser stays known after its last use */
 	public const KNOWN_DEVICE_DURATION = 'known_device_duration';
-	/** Days the login history is kept */
+	/** Days the login history and the security change log are kept */
 	public const HISTORY_RETENTION_DAYS = 'history_retention_days';
 
 	/** Whether the address risk score lowers limits and asks for confirmation (concept section 10.18) */

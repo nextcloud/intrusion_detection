@@ -39,8 +39,18 @@ class Mails {
 	 * @return bool whether the email was handed to the mail server
 	 */
 	public function send(IUser $recipient, MailContent $content): bool {
-		$address = $recipient->getEMailAddress();
-		if ($address === null || $address === '' || !$this->emailValidator->isValid($address)) {
+		return $this->sendTo((string)$recipient->getEMailAddress(), $recipient->getDisplayName(), $content, $recipient->getUID());
+	}
+
+	/**
+	 * Send to an address that is not (or no longer) the account's own, such
+	 * as the previous address that gets the lock link.
+	 *
+	 * @param string $uid the account the email is about, for the log
+	 * @return bool whether the email was handed to the mail server
+	 */
+	public function sendTo(string $address, string $name, MailContent $content, string $uid): bool {
+		if ($address === '' || !$this->emailValidator->isValid($address)) {
 			return false;
 		}
 		try {
@@ -77,12 +87,12 @@ class Mails {
 			$template->addFooter('', $content->language !== '' ? $content->language : null);
 
 			$message = $this->mailer->createMessage();
-			$message->setTo([$address => self::clean($recipient->getDisplayName())]);
+			$message->setTo([$address => self::clean($name)]);
 			$message->useTemplate($template);
 			return $this->mailer->send($message) === [];
 		} catch (\Throwable $e) {
 			$this->logger->error('Intrusion detection could not send an email to {uid}', [
-				'uid' => $recipient->getUID(),
+				'uid' => $uid,
 				'exception' => $e,
 			]);
 			return false;

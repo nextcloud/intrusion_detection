@@ -103,8 +103,16 @@ class ResponseEngineTest extends IntegrationTestCase {
 	}
 
 	public function testAResponseWithoutAHandlerIsRecordedAsUnavailable(): void {
-		$detection = $this->engine->handle(new DetectionDraft(SharedAddress::ID, SourceKey::fromIp('198.51.100.7')), [ResponseType::LockLink]);
-		$this->assertSame([['type' => 'lock_link', 'enforced' => false, 'note' => ResponseOutcome::NOTE_UNAVAILABLE]], $detection->getActionList());
+		$handled = [];
+		foreach (ResponseEngine::HANDLERS as $class) {
+			$handled[] = Server::get($class)->type();
+		}
+		$missing = array_values(array_filter(ResponseType::cases(), static fn (ResponseType $r): bool => !in_array($r, $handled, true)));
+		if ($missing === []) {
+			$this->markTestSkipped('Every response has a handler');
+		}
+		$detection = $this->engine->handle(new DetectionDraft(SharedAddress::ID, SourceKey::fromIp('198.51.100.7')), [$missing[0]]);
+		$this->assertSame([['type' => $missing[0]->value, 'enforced' => false, 'note' => ResponseOutcome::NOTE_UNAVAILABLE]], $detection->getActionList());
 	}
 
 	public function testTheSafetyValveRaisesASharedAddressDetectionInsteadOfABan(): void {

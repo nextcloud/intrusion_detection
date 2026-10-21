@@ -16,6 +16,7 @@ import NcNoteCard from '@nextcloud/vue/components/NcNoteCard'
 import ReferencePill from '../common/ReferencePill.vue'
 import RiskBreakdown from './RiskBreakdown.vue'
 import { useAnnouncer } from '../../composables/useAnnouncer.ts'
+import { detectionSections } from '../../extensions.ts'
 import { incidentRequest } from '../../store.ts'
 import { APP_ID } from '../../utils/format.ts'
 
@@ -33,6 +34,7 @@ const { announce } = useAnnouncer()
 
 const enforced = computed(() => props.detail.detection.enforced)
 const activeBans = computed(() => props.detail.bans.filter((ban) => ban.active))
+const sections = computed(() => detectionSections.filter((section) => section.applies(props.detail)))
 
 const showTab = inject<(tab: string) => void>('ids-show-tab', () => undefined)
 
@@ -85,6 +87,12 @@ async function copyText() {
 			</ul>
 			<NcNoteCard v-if="detail.narrative.observedBecause" type="info" :text="detail.narrative.observedBecause" />
 		</section>
+
+		<component
+			:is="section.component"
+			v-for="section in sections"
+			:key="section.id"
+			:detail="detail" />
 
 		<section v-if="activeBans.length > 0" :class="$style.narrative__section">
 			<h5 :class="$style.narrative__heading">

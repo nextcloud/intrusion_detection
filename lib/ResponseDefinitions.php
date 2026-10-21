@@ -795,6 +795,84 @@ namespace OCA\IntrusionDetection;
  *     stepUp: ?string,
  *     current: bool,
  * }
+ *
+ * @psalm-type IntrusionDetectionSecurityChange = array{
+ *     id: int,
+ *     type: string,
+ *     label: string,
+ *     via: string,
+ *     actor: ?string,
+ *     previous: ?string,
+ *     new: ?string,
+ *     detail: ?string,
+ *     address: ?string,
+ *     createdAt: int,
+ * }
+ *
+ * @psalm-type IntrusionDetectionSecureAccountStep = array{
+ *     id: string,
+ *     done: bool,
+ *     doneAt: ?int,
+ *     skipped: bool,
+ *     managed: bool,
+ *     userConfirms: bool,
+ * }
+ *
+ * @psalm-type IntrusionDetectionSecureAccountProgress = array{
+ *     active: bool,
+ *     startedAt: ?int,
+ *     eventAt: ?int,
+ *     reason: ?string,
+ *     detectionId: ?int,
+ *     closedAt: ?int,
+ *     closedBy: ?string,
+ *     done: int,
+ *     total: int,
+ *     steps: list<IntrusionDetectionSecureAccountStep>,
+ * }
+ *
+ * @psalm-type IntrusionDetectionSecureAccountSession = array{
+ *     id: int,
+ *     name: string,
+ *     kind: 'session'|'app_password',
+ *     current: bool,
+ *     lastActivity: ?int,
+ *     createdAt: ?int,
+ *     address: ?string,
+ *     afterEvent: bool,
+ * }
+ *
+ * @psalm-type IntrusionDetectionSecureAccountShare = array{
+ *     id: string,
+ *     name: string,
+ *     type: 'link'|'email'|'federated',
+ *     recipient: ?string,
+ *     createdAt: int,
+ *     hasPassword: bool,
+ *     expiresAt: ?int,
+ *     isFolder: bool,
+ * }
+ *
+ * @psalm-type IntrusionDetectionSecureAccount = array{
+ *     progress: IntrusionDetectionSecureAccountProgress,
+ *     since: int,
+ *     sessions: list<IntrusionDetectionSecureAccountSession>,
+ *     changes: list<IntrusionDetectionSecurityChange>,
+ *     shares: list<IntrusionDetectionSecureAccountShare>,
+ *     email: ?string,
+ *     canChangePassword: bool,
+ *     links: array{security: string, personalInfo: string, activity: ?string, trash: ?string},
+ * }
+ *
+ * @psalm-type IntrusionDetectionAccountGuide = array{
+ *     uid: string,
+ *     displayName: string,
+ *     exists: bool,
+ *     enabled: bool,
+ *     lockedByLink: bool,
+ *     canReenable: bool,
+ *     progress: ?IntrusionDetectionSecureAccountProgress,
+ * }
  */
 class ResponseDefinitions {
 }

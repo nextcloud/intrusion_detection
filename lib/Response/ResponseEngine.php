@@ -50,6 +50,7 @@ class ResponseEngine {
 		Handlers\NotifyUserHandler::class,
 		Handlers\StepUpHandler::class,
 		Handlers\RateLimitHandler::class,
+		Handlers\LockLinkHandler::class,
 	];
 
 	/** @var array<string, IResponseHandler>|null */

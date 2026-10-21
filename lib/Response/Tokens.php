@@ -54,6 +54,20 @@ class Tokens {
 		return ['id' => $tokenId, 'name' => self::name($token)];
 	}
 
+	/**
+	 * Invalidate every session and app password of the account.
+	 *
+	 * @return list<array{id: int, name: string}> what was invalidated
+	 */
+	public function invalidateAll(string $uid): array {
+		$ended = [];
+		foreach ($this->tokenLookup->getTokenByUser($uid) as $token) {
+			$this->tokenProvider->invalidateTokenById($uid, $token->getId());
+			$ended[] = ['id' => $token->getId(), 'name' => self::name($token)];
+		}
+		return $ended;
+	}
+
 	public static function name(IToken $token): string {
 		$name = trim((string)preg_replace('/[\x00-\x1f\x7f]+/u', ' ', $token->getName()));
 		return mb_strlen($name) > self::MAX_NAME ? mb_substr($name, 0, self::MAX_NAME - 1) . '…' : $name;

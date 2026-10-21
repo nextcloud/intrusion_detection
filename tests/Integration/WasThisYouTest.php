@@ -27,9 +27,12 @@ use OCA\IntrusionDetection\Db\BanMapper;
 use OCA\IntrusionDetection\Db\Detection;
 use OCA\IntrusionDetection\Db\DetectionMapper;
 use OCA\IntrusionDetection\Db\LoginHistoryMapper;
+use OCA\IntrusionDetection\Db\SecurityChangeMapper;
 use OCA\IntrusionDetection\Db\TokenOriginMapper;
 use OCA\IntrusionDetection\Detection\DetectionDraft;
 use OCA\IntrusionDetection\Event\WasThisYouAnsweredEvent;
+use OCA\IntrusionDetection\Guide\SecureAccountGuide;
+use OCA\IntrusionDetection\Guide\SecureAccountOverview;
 use OCA\IntrusionDetection\KnownDevice\KnownDevices;
 use OCA\IntrusionDetection\Net\SourceKey;
 use OCA\IntrusionDetection\Notification\AdminAlerts;
@@ -143,7 +146,7 @@ class WasThisYouTest extends StepUpTestCase {
 		$this->assertTrue($this->wasAudited('"No, it was not me"'));
 		$this->assertSame([[$this->alice->getUID(), UserAlerts::OBJECT_TYPE, (string)$detection->getId()]], array_values(array_unique(array_map(
 			static fn ($n): array => [$n->getUser(), $n->getObjectType(), $n->getObjectId()],
-			CapturingNotificationApp::$processed,
+			array_filter(CapturingNotificationApp::$processed, static fn ($n): bool => $n->getObjectType() === UserAlerts::OBJECT_TYPE),
 		), SORT_REGULAR)), 'The notification with the question goes away');
 	}
 
@@ -368,6 +371,9 @@ class WasThisYouTest extends StepUpTestCase {
 			Server::get(KnownDevices::class),
 			Server::get(LoginHistoryMapper::class),
 			$this->currentSession,
+			Server::get(SecureAccountGuide::class),
+			Server::get(SecureAccountOverview::class),
+			Server::get(SecurityChangeMapper::class),
 			$this->settings,
 			Server::get(ITimeFactory::class),
 		);

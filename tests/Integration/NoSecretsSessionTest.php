@@ -18,6 +18,8 @@ use OCA\IntrusionDetection\Db\DetectionMapper;
 use OCA\IntrusionDetection\Db\TokenOriginMapper;
 use OCA\IntrusionDetection\Detection\AttemptRecorder;
 use OCA\IntrusionDetection\Explain\NarrativeBuilder;
+use OCA\IntrusionDetection\Guide\SecureAccountGuide;
+use OCA\IntrusionDetection\Guide\SecureAccountNotifier;
 use OCA\IntrusionDetection\Http\LocalRedirect;
 use OCA\IntrusionDetection\Listener\AppPasswordCreatedListener;
 use OCA\IntrusionDetection\Listener\PasswordChangeLoginListener;
@@ -91,7 +93,8 @@ class NoSecretsSessionTest extends AccountTestCase {
 		}
 		$this->assertNotSame([], CapturingNotificationApp::$notifications);
 		foreach (CapturingNotificationApp::$notifications as $notification) {
-			$prepared = Server::get(Notifier::class)->prepare($notification, 'en');
+			$notifier = $notification->getSubject() === SecureAccountGuide::NOTIFICATION_SUBJECT ? Server::get(SecureAccountNotifier::class) : Server::get(Notifier::class);
+			$prepared = $notifier->prepare($notification, 'en');
 			$this->assertClean(json_encode($notification->getSubjectParameters()) . $prepared->getParsedSubject() . $prepared->getParsedMessage() . $prepared->getLink(), $secrets, 'notification');
 		}
 		$this->assertNotSame([], $this->mailed);

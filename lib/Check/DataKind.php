@@ -35,4 +35,8 @@ enum DataKind: string {
 	case TrustedNetworks = 'trusted_networks';
 	/** Keyed fingerprints of sessions whose login waits for its confirmation */
 	case UnconfirmedSessions = 'unconfirmed_sessions';
+	/** One-time links that let the previous email address lock an account */
+	case LockLinks = 'lock_links';
+	/** Progress of a user through the "Secure my account" checklist */
+	case SecureAccountProgress = 'secure_account_progress';
 }

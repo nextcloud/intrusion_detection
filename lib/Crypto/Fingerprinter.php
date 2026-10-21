@@ -129,6 +129,14 @@ class Fingerprinter {
 		return bin2hex(substr(hash_hmac('sha256', $sessionId, $this->key('session'), true), 0, 16));
 	}
 
+	/**
+	 * 64 hex characters: a keyed fingerprint of a lock link's token, so the
+	 * link can be checked without storing the token.
+	 */
+	public function lockToken(#[\SensitiveParameter] string $token): string {
+		return hash_hmac('sha256', $token, $this->key('lock_link'));
+	}
+
 	private function passwordForDay(string $password, string $day): string {
 		return substr(hash_hmac('sha256', $password, $this->key('password/' . $day), true), 0, 16);
 	}

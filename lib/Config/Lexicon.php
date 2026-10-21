@@ -12,6 +12,7 @@ namespace OCA\IntrusionDetection\Config;
 use OCA\IntrusionDetection\Check\CheckRegistry;
 use OCA\IntrusionDetection\Check\Checks\BreachedPasswordDetector;
 use OCA\IntrusionDetection\Check\ResponseType;
+use OCA\IntrusionDetection\Guide\SecureAccountGuide;
 use OCA\IntrusionDetection\Notification\LoginNotices;
 use OCA\IntrusionDetection\Response\PasswordChangeFlag;
 use OCP\Config\Lexicon\Entry;
@@ -63,6 +64,7 @@ final class Lexicon implements ILexicon {
 			new Entry(BreachedPasswordDetector::KEY_BREACHED, ValueType::BOOL, false, 'the current password was found on the breach list', lazy: true),
 			new Entry(PasswordChangeFlag::USER_KEY, ValueType::INT, 0, 'when a new password was required at the next login (0: not required)'),
 			new Entry(LoginNotices::USER_KEY, ValueType::INT, 0, 'when the oldest security event happened that the user could only be told inside Nextcloud and has not seen at a login yet (0: none)'),
+			new Entry(SecureAccountGuide::USER_KEY, ValueType::STRING, '', 'progress through the "Secure my account" checklist (JSON)', lazy: true),
 		];
 	}
 }
