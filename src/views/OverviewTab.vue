@@ -14,6 +14,7 @@ import NcIconSvgWrapper from '@nextcloud/vue/components/NcIconSvgWrapper'
 import NcNoteCard from '@nextcloud/vue/components/NcNoteCard'
 import LiftBanDialog from '../components/blocks/LiftBanDialog.vue'
 import SkeletonBlock from '../components/common/SkeletonBlock.vue'
+import PendingApprovals from '../components/confirmation/PendingApprovals.vue'
 import DetectionChart from '../components/overview/DetectionChart.vue'
 import DetectionList from '../components/overview/DetectionList.vue'
 import LookupBox from '../components/overview/LookupBox.vue'
@@ -21,7 +22,7 @@ import ProblemList from '../components/ProblemList.vue'
 import StatusBanner from '../components/StatusBanner.vue'
 import { errorMessage, fetchDailyStats } from '../services/api.ts'
 import { logger } from '../services/logger.ts'
-import { openDetectionId, state } from '../store.ts'
+import { decidableLogins, openDetectionId, refreshWaitingLogins, state } from '../store.ts'
 import { APP_ID } from '../utils/format.ts'
 
 const stats = ref<DailyStats | null>(null)
@@ -88,7 +89,14 @@ watch(openDetectionId, async (id) => {
 	<div :class="$style.overview">
 		<StatusBanner v-if="state.status" :status="state.status" />
 
-		<ProblemList v-if="problems.length > 0" id="overview-attention" :problems="problems" />
+		<ProblemList
+			v-if="problems.length > 0 || decidableLogins.length > 0"
+			id="overview-attention"
+			:problems="problems">
+			<template v-if="decidableLogins.length > 0" #default>
+				<PendingApprovals :approvals="decidableLogins" data-test="overview-waiting" @decided="refreshWaitingLogins" />
+			</template>
+		</ProblemList>
 
 		<div :class="$style.overview__main">
 			<div :class="$style.card">

@@ -6,14 +6,17 @@
 import { flushPromises, mount } from '@vue/test-utils'
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 import OverviewTab from './OverviewTab.vue'
-import { fetchDailyStats, fetchDetections, lookup } from '../services/api.ts'
-import { incidentRequest, state } from '../store.ts'
+import { approveRequest, fetchDailyStats, fetchDetections, fetchWaitingLogins, lookup, rejectRequest } from '../services/api.ts'
+import { incidentRequest, state, waitingLogins } from '../store.ts'
 import { makeStatus } from '../tests/fixtures.ts'
 
 vi.mock('../services/api.ts', async (importOriginal) => ({
 	...(await importOriginal<object>()),
 	fetchDailyStats: vi.fn(),
 	fetchDetections: vi.fn(),
+	fetchWaitingLogins: vi.fn(() => Promise.resolve([])),
+	approveRequest: vi.fn(),
+	rejectRequest: vi.fn(),
 	lookup: vi.fn(),
 }))
 
@@ -43,6 +46,7 @@ describe('the overview', () => {
 		mounted.splice(0).forEach((wrapper) => wrapper.unmount())
 		state.status = null
 		incidentRequest.value = null
+		waitingLogins.value = []
 		vi.mocked(fetchDailyStats).mockReset()
 		vi.mocked(lookup).mockReset()
 		document.body.innerHTML = ''
@@ -62,6 +66,29 @@ describe('the overview', () => {
 		expect(attention).toContain('Nextcloud cannot send emails')
 		expect(attention).not.toContain('No memory cache')
 		expect(wrapper.get('[data-test="overview-tips"]').text()).toContain('No memory cache')
+	})
+
+	test('a login waiting for this administrator needs attention first, with Approve and Reject', async () => {
+		state.status = makeStatus({ state: 'protecting', problems: [] })
+		waitingLogins.value = [
+			{ id: 7, uid: 'alice', displayName: 'Alice Liddell', ip: '203.0.113.9', createdAt: 1_760_000_000, expiresAt: 1_760_001_800, canDecide: true },
+			{ id: 8, uid: 'admin', displayName: 'Admin', ip: null, createdAt: 1_760_000_100, expiresAt: 1_760_001_900, canDecide: false },
+		]
+		vi.mocked(rejectRequest).mockResolvedValue({})
+		vi.mocked(fetchWaitingLogins).mockResolvedValue([])
+		const { wrapper } = await mountOverview()
+		const attention = wrapper.get('#overview-attention')
+		expect(attention.text()).toContain('Needs attention')
+		const waiting = attention.get('[data-test="overview-waiting"]')
+		expect(waiting.text()).toContain('Alice Liddell')
+		expect(waiting.text()).not.toContain('Your own login')
+		expect(waiting.findAll('button').map((b) => b.text())).toEqual(['Reject', 'Approve'])
+		await waiting.findAll('button')[0]!.trigger('click')
+		await flushPromises()
+		expect(rejectRequest).toHaveBeenCalledWith(7)
+		expect(approveRequest).not.toHaveBeenCalled()
+		expect(fetchWaitingLogins).toHaveBeenCalled()
+		expect(wrapper.find('#overview-attention').exists()).toBe(false)
 	})
 
 	test('nothing asks for attention while the defaults fit', async () => {

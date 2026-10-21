@@ -12,7 +12,7 @@ import StatusStrip from '../components/StatusStrip.vue'
 import TabContent from '../components/TabContent.vue'
 import { useAnnouncer } from '../composables/useAnnouncer.ts'
 import { visibleTabs } from '../extensions.ts'
-import { openDetectionId, state } from '../store.ts'
+import { decidableLogins, openDetectionId, refreshWaitingLogins, state } from '../store.ts'
 import { resolveLink } from '../utils/deepLinks.ts'
 import { APP_ID } from '../utils/format.ts'
 
@@ -101,11 +101,31 @@ watch(activeTab, (tab) => {
 	}
 })
 
+/** Waiting logins are looked up again this often; a user waits on the other side */
+const WAITING_REFRESH = 30_000
+let waitingTimer: ReturnType<typeof setInterval> | undefined
+
+/**
+ * Look for waiting logins, unless the page is in the background.
+ */
+function lookForWaitingLogins() {
+	if (document.visibilityState !== 'hidden') {
+		refreshWaitingLogins()
+	}
+}
+
 onMounted(() => {
 	readHash()
 	window.addEventListener('hashchange', readHash)
+	refreshWaitingLogins()
+	waitingTimer = setInterval(lookForWaitingLogins, WAITING_REFRESH)
+	document.addEventListener('visibilitychange', lookForWaitingLogins)
 })
-onBeforeUnmount(() => window.removeEventListener('hashchange', readHash))
+onBeforeUnmount(() => {
+	window.removeEventListener('hashchange', readHash)
+	document.removeEventListener('visibilitychange', lookForWaitingLogins)
+	clearInterval(waitingTimer)
+})
 </script>
 
 <template>
@@ -115,7 +135,11 @@ onBeforeUnmount(() => window.removeEventListener('hashchange', readHash))
 				<h2 :class="$style.page__title">
 					{{ t(APP_ID, 'Intrusion detection') }}
 				</h2>
-				<StatusStrip v-if="state.status" :status="state.status" @attention="showAttention" />
+				<StatusStrip
+					v-if="state.status"
+					:status="state.status"
+					:waiting="decidableLogins.length"
+					@attention="showAttention" />
 			</div>
 		</header>
 

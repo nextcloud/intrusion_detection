@@ -3,11 +3,11 @@
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 
-import type { Category, Check, DetectionFilters, GlobalSetting, IncidentRequest, InitialState, ParamType, ParamValue, ProtectionLevel, Status } from './types.ts'
+import type { Category, Check, DetectionFilters, GlobalSetting, IncidentRequest, InitialState, LoginApproval, ParamType, ParamValue, ProtectionLevel, Status } from './types.ts'
 
 import { loadState } from '@nextcloud/initial-state'
 import { computed, reactive, ref } from 'vue'
-import { fetchChecks, fetchProtectionLevel, fetchSettings, fetchStatus } from './services/api.ts'
+import { fetchChecks, fetchProtectionLevel, fetchSettings, fetchStatus, fetchWaitingLogins } from './services/api.ts'
 import { logger } from './services/logger.ts'
 import { APP_ID } from './utils/format.ts'
 
@@ -37,6 +37,23 @@ export const openDetectionId = ref<number | null>(null)
 
 /** An incident report to build on the Incidents tab, e.g. from "Incident report for this address" */
 export const incidentRequest = ref<IncidentRequest | null>(null)
+
+/** The logins that wait for an administrator, oldest first */
+export const waitingLogins = ref<LoginApproval[]>([])
+
+/** The waiting logins this administrator may decide: someone waits for them */
+export const decidableLogins = computed(() => waitingLogins.value.filter((approval) => approval.canDecide))
+
+/**
+ * Reload the waiting logins; on failure the last list stays.
+ */
+export async function refreshWaitingLogins(): Promise<void> {
+	try {
+		waitingLogins.value = await fetchWaitingLogins()
+	} catch (error) {
+		logger.error('Could not load the waiting logins', { error })
+	}
+}
 
 /** Values and types of the global settings, for `{name}` placeholders in texts */
 export const globalValues = computed<Record<string, ParamValue>>(() => Object.fromEntries(state.settings.map((s) => [s.name, s.value])))

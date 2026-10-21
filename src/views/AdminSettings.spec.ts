@@ -7,8 +7,14 @@ import { flushPromises, mount } from '@vue/test-utils'
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 import { defineComponent, h, inject } from 'vue'
 import AdminSettings from './AdminSettings.vue'
-import { state } from '../store.ts'
+import { fetchWaitingLogins } from '../services/api.ts'
+import { state, waitingLogins } from '../store.ts'
 import { makeStatus } from '../tests/fixtures.ts'
+
+vi.mock('../services/api.ts', async (importOriginal) => ({
+	...(await importOriginal<object>()),
+	fetchWaitingLogins: vi.fn(() => Promise.resolve([])),
+}))
 
 const OpenCheck = defineComponent({
 	setup() {
@@ -63,6 +69,16 @@ describe('the admin page', () => {
 		} finally {
 			state.docUrl = ''
 		}
+	})
+
+	test('looks for waiting logins and counts them in the header', async () => {
+		state.status = makeStatus({ problems: [] })
+		vi.mocked(fetchWaitingLogins).mockResolvedValue([{ id: 7, uid: 'alice', displayName: 'Alice', ip: null, createdAt: 1, expiresAt: 2, canDecide: true }])
+		const wrapper = mountPage()
+		await flushPromises()
+		expect(fetchWaitingLogins).toHaveBeenCalled()
+		expect(wrapper.get('[data-test="status-strip"] button').text()).toBe('1 thing needs attention')
+		waitingLogins.value = []
 	})
 
 	test('the Incidents tab is always in the tab list', () => {

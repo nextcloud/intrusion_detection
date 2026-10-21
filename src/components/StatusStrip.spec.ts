@@ -23,6 +23,11 @@ describe('the status line of the header', () => {
 		expect(wrapper.emitted('attention')).toHaveLength(1)
 	})
 
+	test('counts the logins that wait for this administrator', () => {
+		const wrapper = mount(StatusStrip, { props: { status: makeStatus({ state: 'protecting', problems: [] }), waiting: 2 } })
+		expect(wrapper.get('button').text()).toBe('2 things need attention')
+	})
+
 	test('says nothing more when nothing needs attention', () => {
 		const wrapper = mount(StatusStrip, { props: { status: makeStatus({ state: 'protecting', problems: [] }) } })
 		expect(wrapper.find('button').exists()).toBe(false)

@@ -25,6 +25,7 @@ import type {
 	IncidentReport,
 	IncidentRequest,
 	Learning,
+	LoginApproval,
 	LookupResult,
 	Mode,
 	NewDecoy,
@@ -427,6 +428,13 @@ export async function searchAccounts(search: string): Promise<{ uid: string, dis
  */
 export function fetchConfirmation(refresh = false): Promise<ConfirmationOverview> {
 	return call<ConfirmationOverview>(axios.get(url('confirmation'), { params: refresh ? { refresh: 1 } : {} }))
+}
+
+/**
+ * The logins that wait for an administrator, read live.
+ */
+export function fetchWaitingLogins(): Promise<LoginApproval[]> {
+	return call<LoginApproval[]>(axios.get(url('confirmation/waiting')))
 }
 
 /**

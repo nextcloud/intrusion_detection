@@ -15,6 +15,8 @@ import { statusIcon } from '../utils/status.ts'
 
 const props = defineProps<{
 	status: Status
+	/** Logins that wait for this administrator's approval */
+	waiting?: number
 }>()
 
 const emit = defineEmits<{
@@ -35,7 +37,7 @@ const sentence = computed(() => {
 	}
 })
 
-const attention = computed(() => props.status.problems.filter((problem) => problem.level !== 'info').length)
+const attention = computed(() => props.status.problems.filter((problem) => problem.level !== 'info').length + (props.waiting ?? 0))
 </script>
 
 <template>

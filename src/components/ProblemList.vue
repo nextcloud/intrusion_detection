@@ -45,7 +45,10 @@ function toggle(problemId: string) {
 		<h3 :id="`${id}-heading`" :class="$style.problems__heading">
 			{{ heading ?? t(APP_ID, 'Needs attention') }}
 		</h3>
-		<ul :class="$style.problems__list">
+		<div v-if="$slots.default" :class="$style.problems__extra">
+			<slot />
+		</div>
+		<ul v-if="problems.length > 0" :class="$style.problems__list">
 			<li
 				v-for="problem in problems"
 				:key="problem.id"
@@ -108,6 +111,14 @@ function toggle(problemId: string) {
 	font-weight: 700;
 	letter-spacing: 0.06em;
 	text-transform: uppercase;
+}
+
+.problems__extra {
+	padding-inline: calc(var(--default-grid-baseline) * 4);
+	border: 1px solid var(--color-border);
+	border-inline-start: 4px solid var(--color-warning);
+	border-radius: var(--border-radius-large);
+	background-color: var(--color-main-background);
 }
 
 .problems__list {
