@@ -39,6 +39,7 @@ Every check can be switched between Off, Observe and Protect, every threshold is
         <job>OCA\IntrusionDetection\BackgroundJob\LearningModeJob</job>
         <job>OCA\IntrusionDetection\BackgroundJob\FirewallExportJob</job>
         <job>OCA\IntrusionDetection\BackgroundJob\BlocklistSyncJob</job>
+        <job>OCA\IntrusionDetection\BackgroundJob\ContributionJob</job>
     </background-jobs>
 
     <repair-steps>
@@ -71,5 +72,6 @@ Every check can be switched between Off, Observe and Protect, every threshold is
         <command>OCA\IntrusionDetection\Command\Decoys\Create</command>
         <command>OCA\IntrusionDetection\Command\Decoys\Delete</command>
         <command>OCA\IntrusionDetection\Command\Payload\Test</command>
+        <command>OCA\IntrusionDetection\Command\Contribution\Preview</command>
     </commands>
 </info>

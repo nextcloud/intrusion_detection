@@ -25,13 +25,15 @@ enum ParamType: string {
 	case CidrList = 'cidr_list';
 	/** A JSON document, stored as text; the class that owns the setting validates its structure */
 	case Json = 'json';
+	/** One line of text, at most maxItemLength characters, matching itemPattern when one is given */
+	case Text = 'text';
 
 	public function valueType(): ValueType {
 		return match ($this) {
 			self::Int, self::Duration => ValueType::INT,
 			self::Float => ValueType::FLOAT,
 			self::Bool => ValueType::BOOL,
-			self::Choice, self::Json => ValueType::STRING,
+			self::Choice, self::Json, self::Text => ValueType::STRING,
 			self::StringList, self::CidrList => ValueType::ARRAY,
 		};
 	}

@@ -262,7 +262,7 @@ class Settings {
 	public function placeholderValues(?string $checkId = null): array {
 		$values = [];
 		foreach ($this->globals->all() as $name => $definition) {
-			if (!GlobalSettings::isInternal($name)) {
+			if (!GlobalSettings::isInternal($name) && !GlobalSettings::isUnlisted($name)) {
 				$values[$name] = $this->read($name, $definition);
 			}
 		}
@@ -285,7 +285,7 @@ class Settings {
 			ParamType::Int, ParamType::Duration => $this->appConfig->getValueInt($app, $key, (int)$definition->default),
 			ParamType::Float => $this->appConfig->getValueFloat($app, $key, (float)$definition->default),
 			ParamType::Bool => $this->appConfig->getValueBool($app, $key, (bool)$definition->default),
-			ParamType::Choice, ParamType::Json => $this->appConfig->getValueString($app, $key, (string)$definition->default),
+			ParamType::Choice, ParamType::Json, ParamType::Text => $this->appConfig->getValueString($app, $key, (string)$definition->default),
 			ParamType::StringList, ParamType::CidrList => array_values($this->appConfig->getValueArray($app, $key, (array)$definition->default)),
 		};
 		try {
@@ -301,7 +301,7 @@ class Settings {
 			ParamType::Int, ParamType::Duration => $this->appConfig->setValueInt($app, $key, (int)$value),
 			ParamType::Float => $this->appConfig->setValueFloat($app, $key, (float)$value),
 			ParamType::Bool => $this->appConfig->setValueBool($app, $key, (bool)$value),
-			ParamType::Choice, ParamType::Json => $this->appConfig->setValueString($app, $key, (string)$value),
+			ParamType::Choice, ParamType::Json, ParamType::Text => $this->appConfig->setValueString($app, $key, (string)$value),
 			ParamType::StringList, ParamType::CidrList => $this->appConfig->setValueArray($app, $key, (array)$value),
 		};
 	}

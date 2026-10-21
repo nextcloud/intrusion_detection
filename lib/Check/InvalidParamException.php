@@ -61,6 +61,9 @@ final class InvalidParamException extends \InvalidArgumentException {
 			'too_many_lists' => $l->t('There can be at most %s lists.', [(string)($this->details['max'] ?? '')]),
 			'existing_user' => $l->t('"%s" is an existing account. Only names that no account uses can be reserved or used as decoys.', [(string)($this->details['item'] ?? '')]),
 			'nextcloud_path' => $l->t('"%s" is, or covers, a path Nextcloud itself uses, so legitimate clients would be blocked.', [(string)($this->details['item'] ?? '')]),
+			'invalid_text' => $l->t('"%1$s" must be one line of text, at most %2$s characters.', [$param, (string)($this->details['max'] ?? '')]),
+			'contribution_unavailable' => $l->t('Contributing to a shared blocklist is not available on this server.'),
+			'contribution_url_refused' => $l->t('Reports can only be sent to https:// addresses outside the local network, without a user name or password in the address.'),
 			default => $l->t('The value is not valid.'),
 		};
 	}

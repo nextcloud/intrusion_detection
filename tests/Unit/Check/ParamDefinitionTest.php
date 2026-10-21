@@ -159,4 +159,26 @@ class ParamDefinitionTest extends TestCase {
 		$this->expectExceptionObject(new InvalidParamException('not_json', ['param' => 'doc']));
 		$p->validate($value);
 	}
+
+	public function testTextIsOneBoundedLine(): void {
+		$p = new ParamDefinition('url', ParamType::Text, '', maxItemLength: 20);
+		$this->assertSame('', $p->validate(''));
+		$this->assertSame('https://a.example', $p->validate('https://a.example'));
+		$this->assertSame('https://a.example', $p->parse(' https://a.example '));
+		foreach ([str_repeat('a', 21), "a\nb", "a\x00", 42, ['a'], null] as $invalid) {
+			try {
+				$p->validate($invalid);
+				$this->fail('Expected an exception for ' . json_encode($invalid));
+			} catch (InvalidParamException $e) {
+				$this->assertSame('invalid_text', $e->reason);
+			}
+		}
+	}
+
+	public function testTextChecksThePattern(): void {
+		$p = new ParamDefinition('id', ParamType::Text, '', itemPattern: '/^([a-z0-9]{4})?$/');
+		$this->assertSame('ab12', $p->validate('ab12'));
+		$this->expectExceptionObject(new InvalidParamException('invalid_text', ['param' => 'id', 'max' => 255]));
+		$p->validate('AB12');
+	}
 }

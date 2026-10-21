@@ -139,6 +139,54 @@ class BanMapper extends QBMapper {
 	}
 
 	/**
+	 * Bans the given checks created in (after, until] that were not lifted,
+	 * with the detection that caused them, if that detection was enforced.
+	 * IPv4 network bans are left out: they are inferred from the address bans
+	 * inside them. Oldest first.
+	 *
+	 * @param list<string> $checkIds
+	 * @return list<array{id: int, cidr: string, checkId: string, detectionId: int, detectionIp: ?string, firstSeen: int, hits: int}>
+	 */
+	public function findForContribution(array $checkIds, int $after, int $until, int $limit): array {
+		$qb = $this->db->getQueryBuilder();
+		$qb->select('b.id', 'b.cidr', 'b.check_id', 'b.detection_id')
+			->selectAlias('d.ip', 'detection_ip')
+			->selectAlias('d.created_at', 'first_seen')
+			->selectAlias('d.hits', 'hits')
+			->from(self::TABLE, 'b')
+			->innerJoin('b', DetectionMapper::TABLE, 'd', $qb->expr()->eq('b.detection_id', 'd.id'))
+			->where($qb->expr()->in('b.check_id', $qb->createNamedParameter($checkIds, IQueryBuilder::PARAM_STR_ARRAY)))
+			->andWhere($qb->expr()->gt('b.created_at', $qb->createNamedParameter($after, IQueryBuilder::PARAM_INT)))
+			->andWhere($qb->expr()->lte('b.created_at', $qb->createNamedParameter($until, IQueryBuilder::PARAM_INT)))
+			// Every ban ends after it starts, so this lets the expiry index narrow the scan.
+			->andWhere($qb->expr()->gt('b.expires_at', $qb->createNamedParameter($after, IQueryBuilder::PARAM_INT)))
+			->andWhere($qb->expr()->isNull('b.lifted_at'))
+			->andWhere($qb->expr()->eq('d.enforced', $qb->createNamedParameter(true, IQueryBuilder::PARAM_BOOL)))
+			->andWhere($qb->expr()->orX(
+				$qb->expr()->eq('b.scope', $qb->createNamedParameter(Ban::SCOPE_IP)),
+				$qb->expr()->like('b.cidr', $qb->createNamedParameter('%:%')),
+			))
+			->orderBy('b.created_at', 'ASC')
+			->addOrderBy('b.id', 'ASC')
+			->setMaxResults($limit);
+		$result = $qb->executeQuery();
+		$rows = [];
+		while ($row = $result->fetchAssociative()) {
+			$rows[] = [
+				'id' => (int)$row['id'],
+				'cidr' => (string)$row['cidr'],
+				'checkId' => (string)$row['check_id'],
+				'detectionId' => (int)$row['detection_id'],
+				'detectionIp' => $row['detection_ip'] === null ? null : (string)$row['detection_ip'],
+				'firstSeen' => (int)$row['first_seen'],
+				'hits' => (int)$row['hits'],
+			];
+		}
+		$result->closeCursor();
+		return $rows;
+	}
+
+	/**
 	 * Delete bans that ended before the given time. They are kept that long for escalation.
 	 */
 	public function deleteEndedBefore(int $before): int {
