@@ -257,7 +257,7 @@ class Notifier implements INotifier {
 				$l->t('Approve only if you know it is really %s, for example because they asked you. If you did not expect it, reject it: someone else may know the password.', [$account]),
 				$l->t('The request expires at %s. Deciding needs your password.', [$expires]),
 			]))
-			->setLink($this->links->adminPage() . '#settings/confirmation');
+			->setLink($this->links->adminPage() . '#settings-approvals');
 		foreach ($notification->getActions() as $action) {
 			$label = match ($action->getLabel()) {
 				self::ACTION_APPROVE => $l->t('Approve'),
@@ -363,7 +363,7 @@ class Notifier implements INotifier {
 	private function prepareTestAlert(INotification $notification, IL10N $l): INotification {
 		$notification->setParsedSubject($l->t('Test alert from intrusion detection'))
 			->setParsedMessage($l->t('This is a test you asked for. Nothing has happened. Real alerts reach you here in the same way.'))
-			->setLink($this->links->adminPage() . '#settings/notifications');
+			->setLink($this->links->adminPage() . '#settings-notifications');
 		return $notification;
 	}
 }

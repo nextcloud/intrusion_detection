@@ -111,6 +111,6 @@ describe('RiskyNetworkSection', () => {
 		expect(wrapper.text()).toContain('Office networks')
 		expect(wrapper.text()).toContain('Exempt groups')
 		expect(wrapper.text()).not.toContain('Use the risk score')
-		expect(wrapper.get('a[href="#blocks/blocklists"]').text()).toContain('Choose the network lists on the Blocks tab')
+		expect(wrapper.get('a[href="#blocks-lists"]').text()).toContain('Choose the network lists on the Blocks tab')
 	})
 })

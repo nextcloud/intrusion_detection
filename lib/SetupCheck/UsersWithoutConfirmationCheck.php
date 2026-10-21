@@ -57,7 +57,7 @@ class UsersWithoutConfirmationCheck extends ProblemCheck {
 				[(string)$without, (string)$active],
 			),
 			$l->t('Ask these users to add an email address or set up a second factor. The login confirmation settings list them.'),
-			'#settings/confirmation',
+			'#settings-confirmation-accounts',
 			$l->t('Show the accounts'),
 		);
 	}

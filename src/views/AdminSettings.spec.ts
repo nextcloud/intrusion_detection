@@ -97,15 +97,17 @@ describe('the admin page', () => {
 		expect(activeTab(wrapper)).toBe('blocks')
 		await navigate('#advanced')
 		expect(activeTab(wrapper)).toBe('settings')
+		expect(advanced.value).toBe(false)
+		await navigate('#accounts')
 		expect(advanced.value).toBe(true)
 	})
 
 	test('a link to a section scrolls to it', async () => {
 		const section = document.createElement('div')
-		section.id = 'ids-section-privacy'
+		section.id = 'settings-privacy'
 		document.body.appendChild(section)
 		mountPage()
-		await navigate('#settings/privacy')
+		await navigate('#settings-privacy')
 		expect(section.scrollIntoView).toHaveBeenCalled()
 	})
 
@@ -113,7 +115,7 @@ describe('the admin page', () => {
 		const wrapper = mountPage()
 		await navigate('#protection')
 		const list = document.createElement('div')
-		list.id = 'ids-section-attention'
+		list.id = 'overview-attention'
 		document.body.appendChild(list)
 		await wrapper.get('[data-test="status-strip"] button').trigger('click')
 		await flushPromises()

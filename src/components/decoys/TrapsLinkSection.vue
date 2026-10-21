@@ -48,7 +48,7 @@ const summary = computed(() => {
 			{{ summary }}
 		</p>
 		<div>
-			<NcButton variant="secondary" href="#blocks/decoys">
+			<NcButton variant="secondary" href="#blocks-decoys">
 				<template #icon>
 					<NcIconSvgWrapper :path="mdiArrowRight" />
 				</template>

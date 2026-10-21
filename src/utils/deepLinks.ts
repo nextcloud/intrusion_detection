@@ -8,7 +8,7 @@ export interface LinkTarget {
 	tab: string
 	/** A check on the Protection tab, opened when the advanced options are on */
 	check: string | null
-	/** A section within the tab, scrolled to: element id `ids-section-<section>` */
+	/** The element id of a section within the tab, scrolled to, e.g. `settings-privacy` */
 	section: string | null
 	/** A detection to open on the Overview */
 	detection: number | null
@@ -16,62 +16,74 @@ export interface LinkTarget {
 	advanced: boolean
 }
 
-/** The tabs of the page; `incidents` only with the advanced options */
+/** The tabs of the page */
 const TABS = ['overview', 'protection', 'blocks', 'settings', 'incidents']
-const ADVANCED_TABS = ['incidents']
+
+/** Tabs and sections shown only with the advanced options */
+const ADVANCED = [
+	'incidents',
+	'blocks-trap-paths',
+	'blocks-firewall',
+	'blocks-escalation',
+	'settings-confirmation-accounts',
+	'settings-confirmation-reasons',
+	'settings-support',
+]
 
 /**
- * Tabs the page had before, and where their content is now. Emails,
- * notifications and bookmarks still carry these links.
+ * Tabs and sections the page had before, and where their content is now.
+ * Emails, notifications and bookmarks still carry these links.
  */
-const MOVED: Record<string, { tab: string, section: string | null, advanced: boolean }> = {
-	checks: { tab: 'protection', section: null, advanced: false },
-	decoys: { tab: 'blocks', section: 'decoys', advanced: false },
-	notifications: { tab: 'settings', section: 'notifications', advanced: false },
-	confirmation: { tab: 'settings', section: 'confirmation', advanced: false },
-	privacy: { tab: 'settings', section: 'privacy', advanced: false },
-	advanced: { tab: 'settings', section: 'advanced', advanced: true },
+const MOVED: Record<string, string> = {
+	checks: 'protection',
+	decoys: 'blocks-decoys',
+	notifications: 'settings-notifications',
+	confirmation: 'settings-confirmation',
+	approvals: 'settings-approvals',
+	accounts: 'settings-confirmation-accounts',
+	privacy: 'settings-privacy',
+	advanced: 'settings-learning',
 }
 
-const ID = /^[a-z][a-z0-9_-]{0,63}$/
+const CHECK = /^[a-z][a-z0-9_]{0,63}$/
+const SECTION = /^([a-z]+)-[a-z0-9-]{1,64}$/
 
 /**
- * Resolve a link of the page, with or without "#": `#protection`,
- * `#protection/credential_stuffing`, `#settings/notifications`,
- * `#detection-42`, and the links of the former tabs such as `#checks/…`,
- * `#decoys` or `#advanced`.
+ * Resolve a link of the page, with or without "#":
+ *
+ * - a tab: `#protection`, `#incidents`;
+ * - a section, by its element id: `#settings-privacy`, `#blocks-decoys`;
+ * - a check: `#protection/credential_stuffing`;
+ * - a detection: `#detection-42`;
+ * - the links of the former tabs, such as `#checks/…`, `#decoys` or `#advanced`.
  *
  * @param hash - The location hash
  * @return the target, or null for a link the page does not know
  */
 export function resolveLink(hash: string): LinkTarget | null {
-	const link = hash.replace(/^#/, '')
+	let link = hash.replace(/^#/, '')
 	const detection = link.match(/^detection-(\d{1,18})$/)
 	if (detection) {
 		return { tab: 'overview', check: null, section: null, detection: Number(detection[1]), advanced: false }
 	}
-	const [first = '', rest = null, ...more] = link.split('/')
-	if (more.length > 0 || (rest !== null && !ID.test(rest))) {
+	const [first = '', check = null, ...more] = link.split('/')
+	link = MOVED[first] ?? first
+	if (link === 'protection' && more.length === 0 && (check === null || CHECK.test(check))) {
+		return { tab: 'protection', check, section: null, detection: null, advanced: false }
+	}
+	if (check !== null) {
 		return null
 	}
-	const moved = MOVED[first]
-	if (moved) {
-		return {
-			tab: moved.tab,
-			check: moved.tab === 'protection' ? rest : null,
-			section: moved.tab === 'protection' ? null : (rest ?? moved.section),
-			detection: null,
-			advanced: moved.advanced,
-		}
-	}
-	if (!TABS.includes(first)) {
+	const section = link.match(SECTION)
+	const tab = section ? section[1]! : link
+	if (!TABS.includes(tab)) {
 		return null
 	}
 	return {
-		tab: first,
-		check: first === 'protection' ? rest : null,
-		section: first === 'protection' ? null : rest,
+		tab,
+		check: null,
+		section: section ? link : null,
 		detection: null,
-		advanced: ADVANCED_TABS.includes(first),
+		advanced: ADVANCED.includes(tab) || ADVANCED.includes(link),
 	}
 }

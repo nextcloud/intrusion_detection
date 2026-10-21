@@ -53,7 +53,7 @@ describe('the overview', () => {
 	test('says what happened in one sentence, with what needs attention and the recent activity', async () => {
 		const { wrapper } = await mountOverview()
 		expect(wrapper.get('[data-test="status-summary"]').text()).toContain('In the last 24 hours: 1,234 detections, 6 addresses would have been blocked.')
-		expect(wrapper.find('#ids-section-attention').exists()).toBe(true)
+		expect(wrapper.find('#overview-attention').exists()).toBe(true)
 		expect(wrapper.text()).toContain('Recent activity')
 		expect(wrapper.text()).toContain('Look up an address or account')
 	})

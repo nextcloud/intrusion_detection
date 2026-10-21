@@ -57,7 +57,7 @@ class TrapNameCollisionCheck extends ProblemCheck {
 				[$quoted],
 			),
 			$l->t('Remove these names from the reserved names, or delete the decoys that use them, on the Blocks tab. Then choose names no account uses.'),
-			'#blocks/decoys',
+			'#blocks-decoys',
 			$l->t('Open the decoys'),
 		);
 	}

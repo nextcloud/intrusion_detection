@@ -17,8 +17,8 @@ import { APP_ID } from './utils/format.ts'
  * - A tab: set `component` of its entry in `tabs` (or add an entry). Tabs
  *   without a component or sections are not shown, so the page never has an
  *   empty tab.
- * - A section within a tab: add an entry to `tabSections`, e.g. the digest
- *   on the Settings tab. Sections are rendered after the tab's own
+ * - A section within a tab: add an entry to `tabSections`, e.g. the risk
+ *   score card on the Protection tab. Sections are rendered after the tab's own
  *   component, by `order`, so several parts of the app can fill one tab.
  * - Tabs and sections marked `advanced` are shown only while "Show advanced
  *   options" is on.
@@ -26,7 +26,6 @@ import { APP_ID } from './utils/format.ts'
  *   URL" for one check, rendered in the expanded card after the named section.
  * - The status banner: add a component to `statusSections`, e.g. a
  *   banner; it is rendered under the key figures.
- * - The Blocks tab: add a component to `blocksPanels`, e.g. the firewall export.
  * - The detail of a detection: add an entry to `detectionSections`, e.g. the
  *   account's "Secure my account" progress; rendered after "What Nextcloud did".
  *
@@ -91,18 +90,12 @@ export const checkSections = shallowReactive<CheckSection[]>([
 ])
 
 export const tabSections = shallowReactive<TabSection[]>([
-	{ id: 'decoys', tab: 'blocks', order: 10, component: defineAsyncComponent(() => import('./views/DecoysTab.vue')) },
-	{ id: 'digest', tab: 'settings', order: 30, component: defineAsyncComponent(() => import('./components/notifications/DigestSection.vue')) },
-	{ id: 'webhook-events', tab: 'settings', order: 40, advanced: true, component: defineAsyncComponent(() => import('./components/notifications/WebhookEventsSection.vue')) },
 	{ id: 'risk-score', tab: 'protection', order: 10, advanced: true, component: defineAsyncComponent(() => import('./components/checks/RiskScoreSection.vue')) },
 ])
 
 export const statusSections = shallowReactive<Component[]>([])
 
-export const blocksPanels = shallowReactive<Component[]>([
-	defineAsyncComponent(() => import('./components/blocks/FirewallExportPanel.vue')),
-	defineAsyncComponent(() => import('./components/blocks/BlocklistsPanel.vue')),
-])
+export const blocksPanels = shallowReactive<Component[]>([])
 
 export const detectionSections = shallowReactive<DetectionSection[]>([
 	{ id: 'secure-account', applies: (detail) => detail.detection.uid !== null, component: defineAsyncComponent(() => import('./components/overview/SecureAccountPanel.vue')) },

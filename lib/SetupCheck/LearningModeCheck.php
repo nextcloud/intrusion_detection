@@ -62,7 +62,7 @@ class LearningModeCheck extends ProblemCheck {
 			$l->t('Learning mode is still on'),
 			$l->n('Learning mode has been on for %n day. While it is on, checks set to Protect only record what they would do, and no attacker is blocked.', 'Learning mode has been on for %n days. While it is on, checks set to Protect only record what they would do, and no attacker is blocked.', $days),
 			$l->t('Look through the recent detections. If they show no false alarms, start protecting.'),
-			'#settings/learning',
+			'#settings-learning',
 			$l->t('Open learning mode'),
 		);
 	}

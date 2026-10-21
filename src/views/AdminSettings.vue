@@ -32,12 +32,12 @@ const counts = computed(() => ({ blocks: state.status?.activeBans ?? 0 }))
  * Scroll to a section of the current tab once it is rendered; tabs load
  * their parts asynchronously, so it is looked for a few times.
  *
- * @param section - The section, element id `ids-section-<section>`
+ * @param section - The element id of the section, e.g. "settings-privacy"
  */
 async function scrollToSection(section: string) {
 	for (let attempt = 0; attempt < 20; attempt++) {
 		await nextTick()
-		const element = document.getElementById(`ids-section-${section}`)
+		const element = document.getElementById(section)
 		if (element) {
 			element.scrollIntoView({ block: 'start', behavior: 'smooth' })
 			return
@@ -47,7 +47,7 @@ async function scrollToSection(section: string) {
 }
 
 /**
- * Follow a link of the page, e.g. "#settings/notifications", "#incidents"
+ * Follow a link of the page, e.g. "#settings-notifications", "#incidents"
  * or a link of a former tab such as "#decoys". A target that is only shown
  * with the advanced options turns them on.
  *
@@ -75,12 +75,12 @@ function follow(link: string): boolean {
 
 /**
  * Switch tabs from inside a tab, e.g. "Show recent detections" on a check
- * card; also takes a section, e.g. "settings/notifications".
+ * card; also takes a section, e.g. "settings-notifications".
  *
  * @param link - The tab id, or a link of the page
  */
 function showTab(link: string) {
-	if (follow(link) && !link.includes('/')) {
+	if (follow(link) && resolveLink(link)?.section === null) {
 		document.getElementById('ids-tabs')?.scrollIntoView({ block: 'start', behavior: 'smooth' })
 	}
 }
@@ -92,11 +92,11 @@ provide('ids-open-check', openCheckId)
  */
 function showAttention() {
 	activeTab.value = 'overview'
-	scrollToSection('attention')
+	scrollToSection('overview-attention')
 }
 
 /**
- * Deep links: #protection, #protection/credential_stuffing, #detection-42, …
+ * Deep links: #protection, #protection/credential_stuffing, #settings-privacy, #detection-42, …
  */
 function readHash() {
 	follow(decodeURIComponent(window.location.hash.slice(1)))

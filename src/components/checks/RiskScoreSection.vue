@@ -98,7 +98,7 @@ const tiers = computed(() => [
 							</li>
 						</ol>
 						<p :class="$style.tiers__note">
-							{{ t(APP_ID, 'Lower limits apply to credential stuffing, password spraying, one account attacked from many places, share link attacks and password reset abuse. A high score is a reason for extra confirmation like the others; the Advanced tab sets what happens when an account has no way to confirm. Every detection shows the score of its address and how it came about.') }}
+							{{ t(APP_ID, 'Lower limits apply to credential stuffing, password spraying, one account attacked from many places, share link attacks and password reset abuse. A high score is a reason for extra confirmation like the others; the login confirmation settings say what happens when an account has no way to confirm. Every detection shows the score of its address and how it came about.') }}
 						</p>
 					</div>
 				</div>

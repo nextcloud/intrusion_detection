@@ -90,7 +90,7 @@ watch(openDetectionId, async (id) => {
 	<div :class="$style.overview">
 		<StatusBanner v-if="state.status" :status="state.status" />
 
-		<ProblemList v-if="state.status && state.status.problems.length > 0" id="ids-section-attention" :problems="state.status.problems" />
+		<ProblemList v-if="state.status && state.status.problems.length > 0" id="overview-attention" :problems="state.status.problems" />
 
 		<section
 			v-if="advanced"

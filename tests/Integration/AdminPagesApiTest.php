@@ -135,7 +135,7 @@ class AdminPagesApiTest extends IntegrationTestCase {
 		$this->assertSame(['ids_root2'], $this->decoys->index()->getData()['reservedNames']['collisions']);
 		$problems = array_column($this->admin->status()->getData()['problems'], null, 'id');
 		$this->assertSame('error', $problems['trap_name_collision']['level']);
-		$this->assertSame('#blocks/decoys', $problems['trap_name_collision']['url']);
+		$this->assertSame('#blocks-decoys', $problems['trap_name_collision']['url']);
 		$this->assertNotEmpty($problems['trap_name_collision']['fix']);
 
 		// Any later change releases the name that no longer works.

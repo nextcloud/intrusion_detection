@@ -152,11 +152,11 @@ class SetupChecksTest extends TestCase {
 		$finding = $check->finding($this->l);
 		$this->assertSame(Finding::LEVEL_ERROR, $finding?->level);
 		$this->assertStringContainsString('"admin", "backup-svc", "support" are reserved', (string)$finding?->text);
-		$this->assertSame('#blocks/decoys', $finding?->url);
+		$this->assertSame('#blocks-decoys', $finding?->url);
 
 		$result = $check->run();
 		$this->assertSame(SetupResult::ERROR, $result->getSeverity());
-		$this->assertSame('https://cloud.example.com/settings/admin/intrusion_detection#blocks/decoys', $result->getLinkToDoc(), 'Core shows an absolute link');
+		$this->assertSame('https://cloud.example.com/settings/admin/intrusion_detection#blocks-decoys', $result->getLinkToDoc(), 'Core shows an absolute link');
 	}
 
 	public function testNoTrapNameCollision(): void {
@@ -206,7 +206,7 @@ class SetupChecksTest extends TestCase {
 		$finding = $this->learningCheck(true, self::NOW - 15 * 86400)->finding($this->l);
 		$this->assertSame(Finding::LEVEL_INFO, $finding?->level);
 		$this->assertStringContainsString('on for 15 days', (string)$finding?->text);
-		$this->assertSame('#settings/learning', $finding?->url);
+		$this->assertSame('#settings-learning', $finding?->url);
 		$this->assertNotNull($this->learningCheck(true, 0, self::NOW - 20 * 86400)->finding($this->l), 'Falls back to the installation time');
 	}
 

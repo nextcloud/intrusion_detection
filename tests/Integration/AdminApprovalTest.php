@@ -202,7 +202,7 @@ class AdminApprovalTest extends StepUpTestCase {
 		$prepared = Server::get(Notifier::class)->prepare(clone $notification, 'en');
 		$this->assertSame('Approve the login of ' . $this->bob->getUID() . '?', $prepared->getParsedSubject());
 		$this->assertStringContainsString('from the address ' . $this->remoteAddress, $prepared->getParsedMessage());
-		$this->assertStringEndsWith('#settings/confirmation', $prepared->getLink());
+		$this->assertStringEndsWith('#settings-approvals', $prepared->getLink());
 		$this->assertSame(['Approve', 'Reject'], array_map(static fn ($a): string => $a->getParsedLabel(), $prepared->getParsedActions()));
 
 		Server::get(ApprovalService::class)->approve((int)$this->stepUp()?->approvalId, self::ADMIN, ApprovalService::VIA_WEB);
