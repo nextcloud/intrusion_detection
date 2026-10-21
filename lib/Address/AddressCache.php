@@ -10,9 +10,8 @@ declare(strict_types=1);
 namespace OCA\IntrusionDetection\Address;
 
 use OCA\IntrusionDetection\AppInfo\Application;
-use OCA\IntrusionDetection\Config\GlobalSettings;
+use OCA\IntrusionDetection\Db\StateMapper;
 use OCA\IntrusionDetection\Net\SourceKey;
-use OCP\IAppConfig;
 use OCP\ICache;
 use OCP\ICacheFactory;
 use OCP\IMemcache;
@@ -30,9 +29,11 @@ use OCP\IMemcache;
  *   overwrite it, because requests only add missing verdicts. 2 cache gets
  *   per request, the version only once per request.
  * - With only a local cache (APCu), every web server has its own cache: a
- *   change sets a new random version in app config, and each web server
- *   reloads it after at most VERSION_TTL seconds, so a block reaches every
- *   web server within that time. Single-address changes do the same.
+ *   change sets a new random version in the database (ids_state, not the
+ *   app config, whose every write drops core's cached app config), and each
+ *   web server reads it again after at most VERSION_TTL seconds, so a block
+ *   reaches every web server within that time. Single-address changes do
+ *   the same; the ban service makes one change of many blocks in a request.
  * - Without any memory cache, nothing is cached and every request resolves.
  *
  * A verdict that holds for one IPv6 address but not for the rest of its /64
@@ -43,6 +44,8 @@ use OCP\IMemcache;
 class AddressCache {
 	public const VERSION_TTL = 30;
 	public const OK_TTL = 300;
+	/** The ids_state row of the version, without a distributed cache */
+	public const VERSION_STATE = 'verdict_version';
 	private const VERSION_KEY = 'addr:v';
 
 	private ?ICache $cache = null;
@@ -54,7 +57,7 @@ class AddressCache {
 
 	public function __construct(
 		private readonly ICacheFactory $cacheFactory,
-		private readonly IAppConfig $appConfig,
+		private readonly StateMapper $state,
 	) {
 	}
 
@@ -114,7 +117,7 @@ class AddressCache {
 			$this->cache?->set(self::VERSION_KEY, $this->version);
 			return;
 		}
-		$this->appConfig->setValueInt(Application::APP_ID, GlobalSettings::BAN_VERSION, (int)$this->version);
+		$this->state->set(self::VERSION_STATE, $this->version);
 		$this->cache?->set(self::VERSION_KEY, $this->version, self::VERSION_TTL);
 	}
 
@@ -170,14 +173,13 @@ class AddressCache {
 			}
 			return $this->version = $version;
 		}
-		$version = (string)$this->appConfig->getValueInt(Application::APP_ID, GlobalSettings::BAN_VERSION);
+		$version = $this->state->get(self::VERSION_STATE) ?? '0';
 		$this->cache?->set(self::VERSION_KEY, $version, self::VERSION_TTL);
 		return $this->version = $version;
 	}
 
 	/**
-	 * A version no earlier one had (with overwhelming probability), as digits,
-	 * so it also fits the integer setting used without a distributed cache.
+	 * A version no earlier one had (with overwhelming probability).
 	 */
 	private function newVersion(): string {
 		return (string)random_int(1, PHP_INT_MAX);

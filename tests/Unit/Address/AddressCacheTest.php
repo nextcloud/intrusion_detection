@@ -12,8 +12,8 @@ namespace OCA\IntrusionDetection\Tests\Unit\Address;
 use OC\Memcache\ArrayCache;
 use OCA\IntrusionDetection\Address\AddressCache;
 use OCA\IntrusionDetection\Address\Verdict;
+use OCA\IntrusionDetection\Db\StateMapper;
 use OCA\IntrusionDetection\Net\SourceKey;
-use OCP\IAppConfig;
 use OCP\ICacheFactory;
 use Test\TestCase;
 
@@ -23,7 +23,7 @@ class AddressCacheTest extends TestCase {
 	/** One store per kind, shared by every "web server" of a test */
 	private ArrayCache $distributed;
 	private ArrayCache $local;
-	private int $appConfigVersion = 0;
+	private ?string $storedVersion = null;
 	private int $versionReads = 0;
 
 	protected function setUp(): void {
@@ -120,14 +120,16 @@ class AddressCacheTest extends TestCase {
 		$this->assertNull($this->cache()->get($neighbour));
 	}
 
-	public function testWithOnlyALocalCacheAChangeReachesEveryServerThroughAppConfig(): void {
+	public function testWithOnlyALocalCacheAChangeReachesEveryServerThroughTheDatabase(): void {
 		$source = SourceKey::fromIp('198.51.100.7');
 		$server = $this->cache('local');
 		$this->assertFalse($server->isDistributed());
 		$server->set($source, $this->ok(), self::NOW);
-		$before = $this->appConfigVersion;
+		$before = $this->storedVersion;
 		$this->cache('local')->refresh($source, $this->denied(), self::NOW);
-		$this->assertNotSame($before, $this->appConfigVersion, 'The version in app config changed');
+		$this->assertNotSame($before, $this->storedVersion, 'The version in the database changed');
+		$this->local->remove('addr:v');
+		$this->assertNull($this->cache('local')->get($source), 'Another web server reads it once its own copy expired');
 	}
 
 	public function testApcuHandedOutAsTheDistributedCacheIsLocal(): void {
@@ -136,7 +138,7 @@ class AddressCacheTest extends TestCase {
 		$factory->method('isLocalCacheAvailable')->willReturn(true);
 		$factory->method('createDistributed')->willReturn(new ArrayCache('a'));
 		$factory->method('createLocal')->willReturn(new ArrayCache('b'));
-		$this->assertFalse((new AddressCache($factory, $this->appConfig()))->isDistributed());
+		$this->assertFalse((new AddressCache($factory, $this->state()))->isDistributed());
 	}
 
 	/**
@@ -150,17 +152,17 @@ class AddressCacheTest extends TestCase {
 		$factory->method('isLocalCacheAvailable')->willReturn(true);
 		$factory->method('createDistributed')->willReturn($this->distributed);
 		$factory->method('createLocal')->willReturn($this->local);
-		return new AddressCache($factory, $this->appConfig());
+		return new AddressCache($factory, $this->state());
 	}
 
-	private function appConfig(): IAppConfig {
-		$appConfig = $this->createMock(IAppConfig::class);
-		$appConfig->method('getValueInt')->willReturnCallback(fn (): int => $this->appConfigVersion);
-		$appConfig->method('setValueInt')->willReturnCallback(function (string $app, string $key, int $value): bool {
-			$this->appConfigVersion = $value;
-			return true;
+	private function state(): StateMapper {
+		$state = $this->createMock(StateMapper::class);
+		$state->method('get')->willReturnCallback(fn (string $name): ?string => $name === AddressCache::VERSION_STATE ? $this->storedVersion : null);
+		$state->method('set')->willReturnCallback(function (string $name, string $value): void {
+			$this->assertSame(AddressCache::VERSION_STATE, $name);
+			$this->storedVersion = $value;
 		});
-		return $appConfig;
+		return $state;
 	}
 
 	private function ok(): Verdict {

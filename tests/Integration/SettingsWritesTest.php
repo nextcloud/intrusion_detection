@@ -97,7 +97,7 @@ class SettingsWritesTest extends IntegrationTestCase {
 
 	public function testInternalStateIsNoGlobalChange(): void {
 		$this->expectException(InvalidParamException::class);
-		$this->settings->updateGlobals([GlobalSettings::BAN_VERSION => 2]);
+		$this->settings->updateGlobals([GlobalSettings::INSTALLED_AT => 2]);
 	}
 
 	public function testOccSavesNothingWhenOneValueIsRefused(): void {

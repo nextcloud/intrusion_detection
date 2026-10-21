@@ -21,6 +21,7 @@ use OCA\IntrusionDetection\Config\Settings;
 use OCA\IntrusionDetection\Db\BanMapper;
 use OCA\IntrusionDetection\Db\BlocklistRangeMapper;
 use OCA\IntrusionDetection\Db\BlocklistStatMapper;
+use OCA\IntrusionDetection\Db\StateMapper;
 use OCA\IntrusionDetection\Guard\AddressGuard;
 use OCA\IntrusionDetection\Guard\RequestContext;
 use OCA\IntrusionDetection\Net\RangeCodec;
@@ -110,7 +111,7 @@ class RiskyNetworkBenchmarkTest extends IntegrationTestCase {
 		$factory->method('isLocalCacheAvailable')->willReturn($cached);
 		$factory->method('createDistributed')->willReturn($store);
 		$factory->method('createLocal')->willReturn($store);
-		$addressCache = new AddressCache($factory, $this->appConfig);
+		$addressCache = new AddressCache($factory, Server::get(StateMapper::class));
 		$settings = Server::get(Settings::class);
 		$provider = new BlocklistFactsProvider(
 			new SourceRepository($settings, Server::get(\OCA\IntrusionDetection\Crypto\Fingerprinter::class)),

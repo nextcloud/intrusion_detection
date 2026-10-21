@@ -397,7 +397,7 @@ class AdminApiControllerTest extends TestCase {
 
 	public function testSettingsRefuseInternalAndUnknownKeys(): void {
 		$this->settings->expects($this->never())->method('updateGlobals');
-		foreach ([GlobalSettings::BAN_VERSION, GlobalSettings::INSTALLED_AT, GlobalSettings::LEARNING_UNTIL, 'no_such_setting'] as $name) {
+		foreach ([GlobalSettings::ATTEMPTS_FLOOD_UNTIL, GlobalSettings::INSTALLED_AT, GlobalSettings::LEARNING_UNTIL, 'no_such_setting'] as $name) {
 			$response = $this->controller->updateSettings([$name => 1]);
 			$this->assertSame(Http::STATUS_BAD_REQUEST, $response->getStatus(), $name);
 			$this->assertSame($name, $response->getData()['param']);

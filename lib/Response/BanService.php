@@ -42,13 +42,24 @@ use OCP\Security\ISecureRandom;
  *   this server's own people ({@see BanExemptions}).
  * - The check for an active block and the insert run under a lock per
  *   address or network, so parallel requests create one block, not several.
+ *   An address that is blocked already (also by a block of its network), or
+ *   exempt, and a network far from its threshold, take no lock at all.
+ * - Blocking many addresses at once ({@see banMany()}) costs one query for
+ *   those blocked already, one escalation per network and one change of the
+ *   cached verdicts.
  */
 class BanService {
 	/** References avoid characters that are easily confused: no 0, O, 1, I or l */
 	public const REFERENCE_CHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
 	/** The longest block by hand */
 	public const MAX_DURATION = 90 * 86400;
-	/** Waiting for another request blocking the same address: tries and pause between them */
+	/** With a distributed cache, up to this many changed addresses get a new verdict each; more drop all verdicts at once */
+	public const REFRESH_MAX = 10;
+	/** Ban keys per query, below every database's limit for a list */
+	private const KEYS_PER_QUERY = 500;
+
+	/** @var list<Ban>|null bans whose cached verdicts change at the end of the batch, while one runs */
+	private ?array $changes = null;
 
 	public function __construct(
 		private readonly BanMapper $mapper,
@@ -70,43 +81,101 @@ class BanService {
 	 * @param ?string $uid the account the detection is about, for the exemptions of checks about one account
 	 */
 	public function ban(SourceKey $source, string $checkId, ?int $detectionId = null, ?int $forceLevel = null, ?string $uid = null): BanResult {
-		if ($this->addresses->isNeverBlocked($source)) {
-			return new BanResult(BanResult::SKIPPED_NEVER);
+		return $this->banMany([$source], $checkId, $detectionId, $forceLevel, $uid)[$source->ipKey];
+	}
+
+	/**
+	 * Block several addresses for one detection, such as the addresses of a
+	 * password spray: one query finds those that are blocked already (also
+	 * by a block of their network), each network is escalated once, and the
+	 * cached verdicts are changed once at the end.
+	 *
+	 * @param list<SourceKey> $sources
+	 * @param ?string $uid the account the detection is about, for the exemptions of checks about one account
+	 * @return array<string, BanResult> by ip key; a network block by escalation is in the result of the address that caused it
+	 */
+	public function banMany(array $sources, string $checkId, ?int $detectionId = null, ?int $forceLevel = null, ?string $uid = null): array {
+		$results = [];
+		$candidates = [];
+		foreach ($sources as $source) {
+			$results[$source->ipKey] = match (true) {
+				$this->addresses->isNeverBlocked($source) => new BanResult(BanResult::SKIPPED_NEVER),
+				$this->addresses->isBypassListed($source) => new BanResult(BanResult::SKIPPED_BYPASS),
+				default => null,
+			};
+			if ($results[$source->ipKey] === null) {
+				$candidates[$source->ipKey] = $source;
+			}
 		}
-		if ($this->addresses->isBypassListed($source)) {
-			return new BanResult(BanResult::SKIPPED_BYPASS);
+		if ($candidates === []) {
+			return array_filter($results);
 		}
 		$now = $this->timeFactory->getTime();
-		$scope = $source->family === 6 ? Ban::SCOPE_NET : Ban::SCOPE_IP;
-		$cidr = $scope === Ban::SCOPE_NET ? $source->ipKey : $source->ip . '/32';
-
-		$result = $this->locks->run('ban', $source->ipKey, function () use ($source, $scope, $cidr, $checkId, $detectionId, $forceLevel, $uid, $now): BanResult {
-			$existing = $this->activeFor([$source->ipKey], $now);
-			if ($existing !== null) {
-				// The active ban is not an earlier offence: another check of the same
-				// attack must not escalate it. Only a stronger reason (e.g. a decoy
-				// after a trap hit) raises the level.
-				$level = $forceLevel === null ? 0 : min(3, $forceLevel);
-				if ($existing->getLevel() >= $level) {
-					return new BanResult(BanResult::ALREADY, $existing);
+		$active = $this->activeByKey($candidates, $now);
+		// The active ban is not an earlier offence: another check of the same
+		// attack must not escalate it. Only a stronger reason (e.g. a decoy
+		// after a trap hit) raises the level.
+		$level = $forceLevel === null ? 0 : min(3, $forceLevel);
+		return $this->batch(function () use ($results, $candidates, $active, $level, $checkId, $detectionId, $forceLevel, $uid, $now): array {
+			/** @var array<string, SourceKey> $escalate network => the last address of it that was blocked */
+			$escalate = [];
+			foreach ($candidates as $ipKey => $source) {
+				$covering = null;
+				foreach (AddressResolver::banKeys($source) as $key) {
+					$ban = $active[$key] ?? null;
+					if ($ban !== null && ($covering === null || $ban->getExpiresAt() > $covering->getExpiresAt())) {
+						$covering = $ban;
+					}
 				}
-				$existing->setLevel($level);
-				$existing->setExpiresAt(max($existing->getExpiresAt(), $now + $this->durationFor($level)));
-				$this->mapper->update($existing);
-				$this->changed($existing, true);
-				return new BanResult(BanResult::EXTENDED, $existing);
+				if ($covering !== null && $covering->getLevel() >= $level) {
+					// Blocked already, by its own block or one of its network: no lock, no write.
+					$results[$ipKey] = new BanResult(BanResult::ALREADY, $covering);
+					continue;
+				}
+				if (!isset($active[$ipKey])) {
+					$exempt = $this->exemptions->forAddress($source, $now, $checkId, $uid);
+					if ($exempt !== null) {
+						$results[$ipKey] = $exempt;
+						continue;
+					}
+				}
+				$results[$ipKey] = $this->banLocked($source, $checkId, $detectionId, $forceLevel, $level, $now);
+				if ($results[$ipKey]->outcome === BanResult::BANNED) {
+					$escalate[$source->family === 4 ? $source->netKey : Ipv6Networks::key($source, 56)] = $source;
+				}
 			}
-			$exempt = $this->exemptions->forAddress($source, $now, $checkId, $uid);
-			if ($exempt !== null) {
-				return $exempt;
+			foreach ($escalate as $source) {
+				$netBan = $this->escalate($source, $checkId, $detectionId, $uid, $now);
+				$result = $results[$source->ipKey];
+				if ($netBan !== null && $result !== null) {
+					$results[$source->ipKey] = new BanResult(BanResult::BANNED, $result->ban, $netBan);
+				}
 			}
-			$level = $this->levelFor($source->ipKey, $now, $forceLevel);
-			return new BanResult(BanResult::BANNED, $this->insert($cidr, $scope, $source->ipKey, $level, $checkId, $detectionId, $now, $now + $this->durationFor($level)));
+			return array_filter($results);
 		});
-		if ($result->outcome !== BanResult::BANNED || $result->ban === null) {
-			return $result;
+	}
+
+	/**
+	 * Run work that may block, raise or lift many addresses, and change the
+	 * cached verdicts once at its end ({@see flush()}). Nested calls join the
+	 * outer one.
+	 *
+	 * @template T
+	 * @param \Closure(): T $work
+	 * @return T
+	 */
+	public function batch(\Closure $work): mixed {
+		if ($this->changes !== null) {
+			return $work();
 		}
-		return new BanResult(BanResult::BANNED, $result->ban, $this->escalate($source, $checkId, $detectionId, $uid, $now));
+		$this->changes = [];
+		try {
+			return $work();
+		} finally {
+			$changes = $this->changes;
+			$this->changes = null;
+			$this->flush($changes);
+		}
 	}
 
 	/**
@@ -124,6 +193,10 @@ class BanService {
 		}
 		$netKey = $member->netKey;
 		$now = $this->timeFactory->getTime();
+		$existing = $this->activeFor([$netKey], $now);
+		if ($existing !== null) {
+			return new BanResult(BanResult::ALREADY, $existing);
+		}
 		return $this->locks->run('ban', $netKey, function () use ($netKey, $checkId, $detectionId, $uid, $now): BanResult {
 			$existing = $this->activeFor([$netKey], $now);
 			if ($existing !== null) {
@@ -199,6 +272,55 @@ class BanService {
 		return $durations[max(1, min(3, $level))];
 	}
 
+	/**
+	 * Block one address under its lock, or raise its own active block.
+	 */
+	private function banLocked(SourceKey $source, string $checkId, ?int $detectionId, ?int $forceLevel, int $level, int $now): BanResult {
+		$scope = $source->family === 6 ? Ban::SCOPE_NET : Ban::SCOPE_IP;
+		$cidr = $scope === Ban::SCOPE_NET ? $source->ipKey : $source->ip . '/32';
+		return $this->locks->run('ban', $source->ipKey, function () use ($source, $scope, $cidr, $checkId, $detectionId, $forceLevel, $level, $now): BanResult {
+			$existing = $this->activeFor([$source->ipKey], $now);
+			if ($existing !== null) {
+				if ($existing->getLevel() >= $level) {
+					return new BanResult(BanResult::ALREADY, $existing);
+				}
+				$existing->setLevel($level);
+				$existing->setExpiresAt(max($existing->getExpiresAt(), $now + $this->durationFor($level)));
+				$this->mapper->update($existing);
+				$this->changed($existing, true);
+				return new BanResult(BanResult::EXTENDED, $existing);
+			}
+			$newLevel = $this->levelFor($source->ipKey, $now, $forceLevel);
+			return new BanResult(BanResult::BANNED, $this->insert($cidr, $scope, $source->ipKey, $newLevel, $checkId, $detectionId, $now, $now + $this->durationFor($newLevel)));
+		});
+	}
+
+	/**
+	 * The active bans of the addresses and of the networks around them, the
+	 * longest of each key, in chunks that every database accepts.
+	 *
+	 * @param array<string, SourceKey> $sources
+	 * @return array<string, Ban> by ban key
+	 */
+	private function activeByKey(array $sources, int $now): array {
+		$keys = [];
+		foreach ($sources as $source) {
+			foreach (AddressResolver::banKeys($source) as $key) {
+				$keys[$key] = true;
+			}
+		}
+		$active = [];
+		foreach (array_chunk(array_keys($keys), self::KEYS_PER_QUERY) as $chunk) {
+			foreach ($this->mapper->findActiveForKeys($chunk, $now) as $ban) {
+				$key = $ban->getBanKey();
+				if (!isset($active[$key]) || $ban->getExpiresAt() > $active[$key]->getExpiresAt()) {
+					$active[$key] = $ban;
+				}
+			}
+		}
+		return $active;
+	}
+
 	private function levelFor(string $banKey, int $now, ?int $forceLevel): int {
 		$historyDays = $this->settings->getInt(GlobalSettings::BAN_HISTORY_DAYS);
 		$earlier = $this->mapper->countSince($banKey, $now - $historyDays * 86400);
@@ -244,6 +366,10 @@ class BanService {
 			];
 		}
 		foreach ($candidates as [$netKey, $members, $loginKeys, $threshold, $covering]) {
+			// Most blocks are far from a network block: decided without the lock, checked again under it.
+			if (count($this->mapper->activeKeysIn($members, $now - 86400, $now)) < $threshold || $this->activeFor($covering, $now) !== null) {
+				continue;
+			}
 			$ban = $this->locks->run('ban', $netKey, function () use ($netKey, $members, $loginKeys, $threshold, $covering, $checkId, $detectionId, $uid, $now): ?Ban {
 				$blocked = $this->mapper->activeKeysIn($members, $now - 86400, $now);
 				if (count($blocked) < $threshold || $this->activeFor($covering, $now) !== null
@@ -294,16 +420,37 @@ class BanService {
 		$this->events->banCreated($ban, $updated);
 	}
 
-	/**
-	 * Update the cached verdicts a ban changes: that of its one address (an
-	 * IPv6 /64) with a distributed cache, otherwise all of them.
-	 */
 	private function invalidate(Ban $ban): void {
-		$source = SourceKey::tryFromIpKey($ban->getBanKey());
-		if ($source !== null && $this->addressCache->isDistributed()) {
-			$this->addressCache->refresh($source, $this->resolver->resolve($source), $this->timeFactory->getTime());
-		} else {
+		if ($this->changes !== null) {
+			$this->changes[] = $ban;
+			return;
+		}
+		$this->flush([$ban]);
+	}
+
+	/**
+	 * Update the cached verdicts that changed bans change: with a
+	 * distributed cache that of each address (an IPv6 /64), for up to
+	 * REFRESH_MAX of them; otherwise, and for networks, all verdicts at
+	 * once, with one new version.
+	 *
+	 * @param list<Ban> $bans
+	 */
+	private function flush(array $bans): void {
+		if ($bans === []) {
+			return;
+		}
+		$sources = [];
+		foreach ($bans as $ban) {
+			$sources[] = SourceKey::tryFromIpKey($ban->getBanKey());
+		}
+		if (!$this->addressCache->isDistributed() || count($sources) > self::REFRESH_MAX || in_array(null, $sources, true)) {
 			$this->addressCache->bump();
+			return;
+		}
+		$now = $this->timeFactory->getTime();
+		foreach ($sources as $source) {
+			$this->addressCache->refresh($source, $this->resolver->resolve($source), $now);
 		}
 	}
 

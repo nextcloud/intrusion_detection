@@ -287,7 +287,7 @@ class AdminApiTest extends IntegrationTestCase {
 		$this->assertSame(Http::STATUS_OK, $response->getStatus());
 		$settings = array_column($response->getData()['settings'], 'value', 'name');
 		$this->assertSame(7200, $settings[GlobalSettings::BAN_DURATION_1]);
-		$this->assertArrayNotHasKey(GlobalSettings::BAN_VERSION, $settings);
+		$this->assertArrayNotHasKey(GlobalSettings::INSTALLED_AT, $settings);
 		$this->assertArrayNotHasKey(GlobalSettings::LEARNING_UNTIL, $settings);
 		$this->assertArrayHasKey('escalation', $response->getData()['templates']);
 

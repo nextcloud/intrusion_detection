@@ -25,6 +25,7 @@ use OCA\IntrusionDetection\Db\Ban;
 use OCA\IntrusionDetection\Db\BanMapper;
 use OCA\IntrusionDetection\Db\BlocklistRangeMapper;
 use OCA\IntrusionDetection\Db\BlocklistStatMapper;
+use OCA\IntrusionDetection\Db\StateMapper;
 use OCA\IntrusionDetection\Guard\AddressGuard;
 use OCA\IntrusionDetection\Guard\RequestContext;
 use OCA\IntrusionDetection\Net\RangeCodec;
@@ -326,7 +327,7 @@ class BlocklistFactsProviderTest extends IntegrationTestCase {
 		$factory->method('isLocalCacheAvailable')->willReturn($available);
 		$factory->method('createDistributed')->willReturn($store);
 		$factory->method('createLocal')->willReturn($store);
-		return new AddressCache($factory, $this->appConfig);
+		return new AddressCache($factory, Server::get(StateMapper::class));
 	}
 
 	private function time(): ITimeFactory {

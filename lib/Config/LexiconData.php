@@ -90,11 +90,6 @@ final class LexiconData {
 			'min' => 7,
 			'max' => 730,
 		],
-		'ban_version' => [
-			'type' => 'int',
-			'default' => 0,
-			'min' => 0,
-		],
 		'installed_at' => [
 			'type' => 'int',
 			'default' => 0,

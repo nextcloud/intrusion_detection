@@ -28,6 +28,7 @@ use OCP\IL10N;
 use OCP\L10N\IFactory;
 use OCP\Server;
 use PHPUnit\Framework\Attributes\DataProvider;
+use PHPUnit\Framework\MockObject\MockObject;
 use Psr\Container\ContainerInterface;
 use Test\TestCase;
 
@@ -58,7 +59,7 @@ class BanHandlerTest extends TestCase {
 
 	#[DataProvider('bans')]
 	public function testTheSentenceSaysWhyTheBlockLastsThisLong(array $ban, string $why): void {
-		$handler = $this->handler($this->createMock(BanService::class));
+		$handler = $this->handler($this->banService());
 		$action = ['type' => 'ban', 'enforced' => true, 'ref' => [
 			'bans' => [array_merge(['id' => 1, 'reference' => 'BAAA-AAAB', 'cidr' => '198.51.100.7/32', 'until' => 1], $ban)],
 			'counts' => ['banned' => 1, 'already' => 0, 'skipped' => 0],
@@ -82,8 +83,8 @@ class BanHandlerTest extends TestCase {
 
 	#[DataProvider('lureChecks')]
 	public function testALureNeverBlocksTheAddressOfTheRequest(string $checkId): void {
-		$bans = $this->createMock(BanService::class);
-		$bans->expects($this->never())->method('ban');
+		$bans = $this->banService();
+		$bans->expects($this->never())->method('banMany');
 		$outcome = $this->handler($bans)->apply($this->context($this->lure($checkId)));
 		$this->assertFalse($outcome->enforced);
 		$this->assertSame(ResponseOutcome::NOTE_HELD_BACK, $outcome->note);
@@ -107,8 +108,8 @@ class BanHandlerTest extends TestCase {
 	#[DataProvider('checksWithoutLures')]
 	public function testOtherChecksBlockALure(string $checkId): void {
 		$source = SourceKey::fromIp('198.51.100.7');
-		$bans = $this->createMock(BanService::class);
-		$bans->expects($this->once())->method('ban')->with($source)->willReturn(new BanResult(BanResult::BANNED, $this->ban()));
+		$bans = $this->banService();
+		$bans->expects($this->once())->method('banMany')->with([$source])->willReturn([$source->ipKey => new BanResult(BanResult::BANNED, $this->ban())]);
 		$outcome = $this->handler($bans)->apply($this->context($this->lure($checkId)));
 		$this->assertTrue($outcome->enforced);
 		$this->assertSame(0, $outcome->ref['counts']['lure']);
@@ -116,8 +117,8 @@ class BanHandlerTest extends TestCase {
 
 	public function testARequestThatIsNoLureIsBlocked(): void {
 		$source = SourceKey::fromIp('198.51.100.7');
-		$bans = $this->createMock(BanService::class);
-		$bans->expects($this->once())->method('ban')->with($source)->willReturn(new BanResult(BanResult::BANNED, $this->ban()));
+		$bans = $this->banService();
+		$bans->expects($this->once())->method('banMany')->with([$source])->willReturn([$source->ipKey => new BanResult(BanResult::BANNED, $this->ban())]);
 		$outcome = $this->handler($bans)->apply($this->context());
 		$this->assertTrue($outcome->enforced);
 		$this->assertSame(0, $outcome->ref['counts']['lure']);
@@ -127,16 +128,16 @@ class BanHandlerTest extends TestCase {
 		$other = SourceKey::fromIp('203.0.113.9');
 		$draft = $this->lure(ShareBruteforce::ID);
 		$draft->addBanTarget($other);
-		$bans = $this->createMock(BanService::class);
-		$bans->expects($this->once())->method('ban')->with($other)->willReturn(new BanResult(BanResult::BANNED, $this->ban()));
+		$bans = $this->banService();
+		$bans->expects($this->once())->method('banMany')->with([$other])->willReturn([$other->ipKey => new BanResult(BanResult::BANNED, $this->ban())]);
 		$outcome = $this->handler($bans)->apply($this->context($draft));
 		$this->assertTrue($outcome->enforced);
 		$this->assertSame(['banned' => 1, 'already' => 0, 'skipped' => 0, 'lure' => 1, 'trusted' => 0, 'proxy' => 0], $outcome->ref['counts']);
 	}
 
 	public function testTheAddressOfTrustedLoginsIsHeldBackAndSaysWhy(): void {
-		$bans = $this->createMock(BanService::class);
-		$bans->method('ban')->willReturn(new BanResult(BanResult::SKIPPED_TRUSTED));
+		$bans = $this->banService();
+		$bans->method('banMany')->willReturnCallback(static fn (array $targets): array => array_fill_keys(array_map(static fn (SourceKey $t): string => $t->ipKey, $targets), new BanResult(BanResult::SKIPPED_TRUSTED)));
 		$outcome = $this->handler($bans)->apply($this->context());
 		$this->assertSame(ResponseOutcome::NOTE_HELD_BACK, $outcome->note);
 		$this->assertSame(1, $outcome->ref['counts']['trusted']);
@@ -145,8 +146,8 @@ class BanHandlerTest extends TestCase {
 	}
 
 	public function testAnUnconfiguredProxyIsReportedAsASharedAddress(): void {
-		$bans = $this->createMock(BanService::class);
-		$bans->method('ban')->willReturn(new BanResult(BanResult::SKIPPED_PROXY, sharedUsers: 4));
+		$bans = $this->banService();
+		$bans->method('banMany')->willReturnCallback(static fn (array $targets): array => array_fill_keys(array_map(static fn (SourceKey $t): string => $t->ipKey, $targets), new BanResult(BanResult::SKIPPED_PROXY, sharedUsers: 4)));
 		$bans->method('firstReport')->willReturn(true);
 		$engine = $this->createMock(ResponseEngine::class);
 		$engine->expects($this->once())->method('handle')->with($this->callback(
@@ -161,8 +162,8 @@ class BanHandlerTest extends TestCase {
 	}
 
 	public function testAHeldBackAddressIsReportedOncePerMinute(): void {
-		$bans = $this->createMock(BanService::class);
-		$bans->method('ban')->willReturn(new BanResult(BanResult::SKIPPED_SHARED, sharedUsers: 6));
+		$bans = $this->banService();
+		$bans->method('banMany')->willReturnCallback(static fn (array $targets): array => array_fill_keys(array_map(static fn (SourceKey $t): string => $t->ipKey, $targets), new BanResult(BanResult::SKIPPED_SHARED, sharedUsers: 6)));
 		$bans->method('firstReport')->willReturn(false);
 		$container = $this->createMock(ContainerInterface::class);
 		$container->expects($this->never())->method('get');
@@ -176,8 +177,8 @@ class BanHandlerTest extends TestCase {
 		$draft->addNetworkBanTarget(SourceKey::fromIp('198.51.100.9'));
 		$net = $this->ban();
 		$net->setCidr('198.51.100.0/24');
-		$bans = $this->createMock(BanService::class);
-		$bans->expects($this->never())->method('ban');
+		$bans = $this->banService();
+		$bans->expects($this->never())->method('banMany');
 		$bans->expects($this->once())->method('banNetwork')->with(SourceKey::fromIp('198.51.100.9'), 'credential_stuffing', 5)->willReturn(new BanResult(BanResult::BANNED, $net));
 		$outcome = $this->handler($bans)->apply($this->context($draft));
 		$this->assertTrue($outcome->enforced);
@@ -186,9 +187,18 @@ class BanHandlerTest extends TestCase {
 	}
 
 	public function testTheBanKnowsTheAccountOfTheDetection(): void {
-		$bans = $this->createMock(BanService::class);
-		$bans->expects($this->once())->method('ban')->with(SourceKey::fromIp('198.51.100.7'), 'account_under_attack', 5, null, 'alice')->willReturn(new BanResult(BanResult::BANNED, $this->ban()));
+		$bans = $this->banService();
+		$bans->expects($this->once())->method('banMany')->with([SourceKey::fromIp('198.51.100.7')], 'account_under_attack', 5, null, 'alice')->willReturn(['198.51.100.7' => new BanResult(BanResult::BANNED, $this->ban())]);
 		$this->handler($bans)->apply($this->context(new DetectionDraft(checkId: 'account_under_attack', source: SourceKey::fromIp('198.51.100.7'), uid: 'alice')));
+	}
+
+	/**
+	 * A ban service whose batches just run their work.
+	 */
+	private function banService(): BanService&MockObject {
+		$bans = $this->createMock(BanService::class);
+		$bans->method('batch')->willReturnCallback(static fn (\Closure $work): mixed => $work());
+		return $bans;
 	}
 
 	private function handler(BanService $bans): BanHandler {

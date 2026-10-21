@@ -92,7 +92,7 @@ class ConfigWatchTest extends AdminChangeTestCase {
 		$this->assertArrayHasKey(WatchedSettings::systemKey('overwritehost'), $snapshot, 'Fixed keys are watched even when not set');
 		$this->assertArrayNotHasKey(WatchedSettings::systemKey('secret'), $snapshot, 'Only the watched keys');
 		$this->assertArrayHasKey(WatchedSettings::ownKey(Keys::mode('credential_stuffing')), $snapshot);
-		$this->assertArrayNotHasKey(WatchedSettings::ownKey(GlobalSettings::BAN_VERSION), $snapshot, 'Internal state is not watched');
+		$this->assertArrayNotHasKey(WatchedSettings::ownKey(GlobalSettings::INSTALLED_AT), $snapshot, 'Internal state is not watched');
 	}
 
 	public function testAChangeIsOneDetectionAndOnlyOnce(): void {

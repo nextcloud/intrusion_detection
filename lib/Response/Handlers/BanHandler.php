@@ -61,55 +61,60 @@ class BanHandler implements IResponseHandler, IDescribesAction {
 
 	#[\Override]
 	public function apply(ResponseContext $context): ResponseOutcome {
+		return $this->bans->batch(fn (): ResponseOutcome => $this->banAll($context));
+	}
+
+	private function banAll(ResponseContext $context): ResponseOutcome {
 		$draft = $context->draft;
 		$listed = [];
 		$counts = ['banned' => 0, 'already' => 0, 'skipped' => 0, 'lure' => 0, 'trusted' => 0, 'proxy' => 0];
 		$lure = $draft->lure && in_array($draft->checkId, self::LURE_CHECKS, true) ? $draft->source : null;
+		$targets = [];
 		foreach ($draft->banTargets() as $target) {
 			if ($lure !== null && $target->ipKey === $lure->ipKey) {
 				$counts['lure']++;
 				continue;
 			}
-			$result = $this->bans->ban($target, $draft->checkId, $context->detection->getId(), $draft->banLevel, $draft->uid);
-			if (($result->outcome === BanResult::SKIPPED_SHARED || $result->outcome === BanResult::SKIPPED_PROXY) && $draft->checkId !== SharedAddress::ID
-				&& $this->bans->firstReport($target)) {
+			$targets[$target->ipKey] = $target;
+		}
+		$results = $targets === [] ? [] : $this->bans->banMany(array_values($targets), $draft->checkId, $context->detection->getId(), $draft->banLevel, $draft->uid);
+		foreach ($results as $ipKey => $result) {
+			$target = $targets[$ipKey] ?? null;
+			if ($target !== null && ($result->outcome === BanResult::SKIPPED_SHARED || $result->outcome === BanResult::SKIPPED_PROXY)
+				&& $draft->checkId !== SharedAddress::ID && $this->bans->firstReport($target)) {
 				$this->reportShared($draft, $target, $result->sharedUsers, $result->outcome === BanResult::SKIPPED_PROXY);
 			}
-			if ($result->ban === null) {
-				$counts[match ($result->outcome) {
-					BanResult::SKIPPED_TRUSTED => 'trusted',
-					BanResult::SKIPPED_PROXY => 'proxy',
-					default => 'skipped',
-				}]++;
-				continue;
-			}
-			$counts[$result->outcome === BanResult::ALREADY ? 'already' : 'banned']++;
-			foreach ([$result->ban, $result->netBan] as $ban) {
-				if ($ban !== null && count($listed) < self::MAX_LISTED) {
-					$listed[$ban->getId()] = $this->listed($ban, $draft);
-				}
-			}
+			$this->count($result, $draft, $counts, $listed);
 		}
 		foreach ($draft->networkBanTargets() as $member) {
-			$result = $this->bans->banNetwork($member, $draft->checkId, $context->detection->getId(), $draft->uid);
-			if ($result->ban === null) {
-				$counts[match ($result->outcome) {
-					BanResult::SKIPPED_TRUSTED => 'trusted',
-					BanResult::SKIPPED_PROXY => 'proxy',
-					default => 'skipped',
-				}]++;
-				continue;
-			}
-			$counts[$result->outcome === BanResult::ALREADY ? 'already' : 'banned']++;
-			if (count($listed) < self::MAX_LISTED) {
-				$listed[$result->ban->getId()] = $this->listed($result->ban, $draft);
-			}
+			$this->count($this->bans->banNetwork($member, $draft->checkId, $context->detection->getId(), $draft->uid), $draft, $counts, $listed);
 		}
 		$ref = ['bans' => array_values($listed), 'counts' => $counts];
 		if ($counts['banned'] === 0 && $counts['already'] === 0) {
 			return ResponseOutcome::skipped($counts['lure'] + $counts['trusted'] + $counts['proxy'] > 0 ? ResponseOutcome::NOTE_HELD_BACK : ResponseOutcome::NOTE_NOTHING_TO_DO, $ref);
 		}
 		return ResponseOutcome::done($ref);
+	}
+
+	/**
+	 * @param array<string, int> $counts
+	 * @param array<int, array{id: int, reference: string, cidr: string, level: int, forced: bool, until: int}> $listed
+	 */
+	private function count(BanResult $result, DetectionDraft $draft, array &$counts, array &$listed): void {
+		if ($result->ban === null) {
+			$counts[match ($result->outcome) {
+				BanResult::SKIPPED_TRUSTED => 'trusted',
+				BanResult::SKIPPED_PROXY => 'proxy',
+				default => 'skipped',
+			}]++;
+			return;
+		}
+		$counts[$result->outcome === BanResult::ALREADY ? 'already' : 'banned']++;
+		foreach ([$result->ban, $result->netBan] as $ban) {
+			if ($ban !== null && count($listed) < self::MAX_LISTED) {
+				$listed[$ban->getId()] = $this->listed($ban, $draft);
+			}
+		}
 	}
 
 	#[\Override]

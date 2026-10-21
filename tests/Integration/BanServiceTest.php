@@ -20,6 +20,7 @@ use OCA\IntrusionDetection\Db\BanMapper;
 use OCA\IntrusionDetection\Db\KeyLock;
 use OCA\IntrusionDetection\Db\LoginHistoryMapper;
 use OCA\IntrusionDetection\Db\LoginMapper;
+use OCA\IntrusionDetection\Db\StateMapper;
 use OCA\IntrusionDetection\Event\TypedEvents;
 use OCA\IntrusionDetection\Net\ProtectedRanges;
 use OCA\IntrusionDetection\Net\ProxySuspect;
@@ -194,9 +195,9 @@ class BanServiceTest extends IntegrationTestCase {
 
 	public function testLiftEndsTheBanAndInvalidatesTheCache(): void {
 		$result = $this->bans->ban(SourceKey::fromIp('198.51.100.7'), 'trap_url');
-		$versionBefore = $this->appConfig->getValueInt(Application::APP_ID, GlobalSettings::BAN_VERSION);
+		$versionBefore = Server::get(StateMapper::class)->get(AddressCache::VERSION_STATE);
 		$this->bans->lift($result->ban, 'admin', 'false alarm');
-		$this->assertNotSame($versionBefore, $this->appConfig->getValueInt(Application::APP_ID, GlobalSettings::BAN_VERSION));
+		$this->assertNotSame($versionBefore, Server::get(StateMapper::class)->get(AddressCache::VERSION_STATE));
 		$stored = $this->mapper->findById($result->ban->getId());
 		$this->assertNotNull($stored->getLiftedAt());
 		$this->assertSame('admin', $stored->getLiftedBy());
@@ -507,9 +508,44 @@ class BanServiceTest extends IntegrationTestCase {
 		$result = $this->freshService($locks)->ban(SourceKey::fromIp('198.51.100.7'), 'trap_url');
 		$this->assertSame(BanResult::BANNED, $result->outcome);
 		$lock = 'intrusion_detection/ban/' . md5('198.51.100.7');
-		$network = 'intrusion_detection/ban/' . md5('198.51.100.0/24');
-		$this->assertSame(['acquire ' . $lock, 'acquire ' . $lock, 'release ' . $lock, 'acquire ' . $network, 'release ' . $network], $calls, 'Waits for the lock, then holds it while it checks and inserts');
+		$this->assertSame(['acquire ' . $lock, 'acquire ' . $lock, 'release ' . $lock], $calls, 'Waits for the lock, then holds it while it checks and inserts; a network far from its threshold takes none');
 		$this->assertLessThanOrEqual(64, strlen($lock), 'Fits the database lock table');
+	}
+
+	public function testABlockedOrExemptAddressTakesNoLock(): void {
+		$this->bans->ban(SourceKey::fromIp('198.51.100.7'), 'trap_url');
+		$this->bans->banNetwork(SourceKey::fromIp('203.0.113.1'), 'credential_stuffing');
+		Server::get(LoginHistoryMapper::class)->insert('admin', time(), SourceKey::fromIp('192.0.2.7'), null, 'password', false, 'none', null, null);
+		$locks = $this->createMock(ILockingProvider::class);
+		$locks->expects($this->never())->method('acquireLock');
+		$bans = $this->freshService($locks);
+		$this->assertSame(BanResult::ALREADY, $bans->ban(SourceKey::fromIp('198.51.100.7'), 'password_spraying')->outcome);
+		$this->assertSame(BanResult::ALREADY, $bans->ban(SourceKey::fromIp('203.0.113.99'), 'password_spraying')->outcome, 'Inside a blocked /24');
+		$this->assertSame(BanResult::SKIPPED_TRUSTED, $bans->ban(SourceKey::fromIp('192.0.2.7'), 'password_spraying')->outcome);
+		$this->assertSame(BanResult::ALREADY, $bans->banNetwork(SourceKey::fromIp('203.0.113.5'), 'credential_stuffing')->outcome);
+	}
+
+	public function testManyAddressesAreBlockedWithOneEscalationPerNetworkAndOneVersion(): void {
+		$state = Server::get(StateMapper::class);
+		$targets = [];
+		for ($i = 1; $i <= 6; $i++) {
+			$targets[] = SourceKey::fromIp('198.51.100.' . $i);
+			$targets[] = SourceKey::fromIp('203.0.113.' . $i);
+		}
+		$targets[] = SourceKey::fromIp('192.0.2.1');
+		$writes = 0;
+		$results = $this->freshService(state: $this->countingState($writes))->banMany($targets, 'password_spraying', 7);
+		$this->assertCount(13, $results);
+		$this->assertSame(1, $writes, 'The cached verdicts change once');
+		$this->assertCount(1, $this->mapper->findActiveForKeys(['198.51.100.0/24'], time()));
+		$this->assertCount(1, $this->mapper->findActiveForKeys(['203.0.113.0/24'], time()));
+		$this->assertSame([], $this->mapper->findActiveForKeys(['192.0.2.0/24'], time()));
+		$netBans = array_filter($results, static fn (BanResult $r): bool => $r->netBan !== null);
+		$this->assertCount(2, $netBans, 'Each network is blocked once, in the result of the address that did it');
+
+		$again = $this->freshService()->banMany($targets, 'password_spraying', 7);
+		$this->assertSame([BanResult::ALREADY], array_values(array_unique(array_map(static fn (BanResult $r): string => $r->outcome, $again))));
+		$this->assertNotNull($state->get(AddressCache::VERSION_STATE));
 	}
 
 	public function testAStuckLockDoesNotStopTheBlock(): void {
@@ -571,7 +607,7 @@ class BanServiceTest extends IntegrationTestCase {
 	 * The service with nothing cached from earlier tests (the allowlist and
 	 * server ranges are read once per instance).
 	 */
-	private function freshService(?ILockingProvider $locks = null): BanService {
+	private function freshService(?ILockingProvider $locks = null, ?StateMapper $state = null): BanService {
 		$ranges = new ProtectedRanges($this->appConfig, Server::get(ServerAddresses::class));
 		return new BanService(
 			$this->mapper,
@@ -585,7 +621,7 @@ class BanServiceTest extends IntegrationTestCase {
 				Server::get(ICacheFactory::class),
 			),
 			Server::get(Settings::class),
-			Server::get(AddressCache::class),
+			$state === null ? Server::get(AddressCache::class) : new AddressCache(Server::get(ICacheFactory::class), $state),
 			Server::get(AddressResolver::class),
 			new RemoteAddressResolver($this->createMock(IRequest::class), Server::get(IThrottler::class), Server::get(ServerAddresses::class)),
 			$ranges,
@@ -595,6 +631,20 @@ class BanServiceTest extends IntegrationTestCase {
 			Server::get(ISecureRandom::class),
 			Server::get(TypedEvents::class),
 		);
+	}
+
+	/**
+	 * The state table, counting the writes of the verdict version.
+	 */
+	private function countingState(int &$writes): StateMapper {
+		$real = Server::get(StateMapper::class);
+		$state = $this->createMock(StateMapper::class);
+		$state->method('get')->willReturnCallback(static fn (string $name): ?string => $real->get($name));
+		$state->method('set')->willReturnCallback(static function (string $name, string $value) use ($real, &$writes): void {
+			$writes++;
+			$real->set($name, $value);
+		});
+		return $state;
 	}
 
 	private function insertBan(string $banKey, string $cidr, int $expiresAt, bool $lifted = false): void {

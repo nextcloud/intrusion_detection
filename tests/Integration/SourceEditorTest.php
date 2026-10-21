@@ -21,6 +21,7 @@ use OCA\IntrusionDetection\Check\InvalidParamException;
 use OCA\IntrusionDetection\Config\GlobalSettings;
 use OCA\IntrusionDetection\Config\Settings;
 use OCA\IntrusionDetection\Db\BlocklistStatMapper;
+use OCA\IntrusionDetection\Db\StateMapper;
 use OCP\Server;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Group;
@@ -31,12 +32,12 @@ class SourceEditorTest extends IntegrationTestCase {
 	private array $audited = [];
 
 	public function testABuiltInListIsSwitchedOnAndBackToItsDefault(): void {
-		$version = $this->appConfig->getValueInt(Application::APP_ID, GlobalSettings::BAN_VERSION);
+		$version = Server::get(StateMapper::class)->get(AddressCache::VERSION_STATE);
 		$source = $this->editor()->set('spamhaus_drop_v4', ['enabled' => true, 'mode' => 'observe'], 'admin');
 		$this->assertTrue($source->enabled);
 		$this->assertSame('observe', $source->mode);
 		$this->assertTrue(Server::get(SourceRepository::class)->get('spamhaus_drop_v4')?->enabled);
-		$this->assertGreaterThan($version, $this->appConfig->getValueInt(Application::APP_ID, GlobalSettings::BAN_VERSION), 'Cached verdicts are invalidated');
+		$this->assertNotSame($version, Server::get(StateMapper::class)->get(AddressCache::VERSION_STATE), 'Cached verdicts are invalidated');
 		$this->assertStringContainsString('spamhaus_drop_v4', json_encode($this->audited));
 		$this->assertStringContainsString('admin', json_encode($this->audited));
 

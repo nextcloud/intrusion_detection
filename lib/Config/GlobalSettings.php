@@ -46,7 +46,6 @@ final class GlobalSettings {
 	public const RETENTION_DETECTIONS_DAYS = 'retention_detections_days';
 
 	/** Internal state, not shown as settings */
-	public const BAN_VERSION = 'ban_version';
 	public const INSTALLED_AT = 'installed_at';
 	/** While in the future, low-value attempts are sampled because the attempts table is flooded */
 	public const ATTEMPTS_FLOOD_UNTIL = 'attempts_flood_until';
@@ -176,7 +175,6 @@ final class GlobalSettings {
 				new ParamDefinition(self::BAN_SHARED_IP_USERS, ParamType::Int, 5, min: 0, max: 10000),
 				new ParamDefinition(self::FLAG_DURATION, ParamType::Duration, 86400, min: 3600, max: 30 * 86400),
 				new ParamDefinition(self::RETENTION_DETECTIONS_DAYS, ParamType::Int, 90, min: 7, max: 730),
-				new ParamDefinition(self::BAN_VERSION, ParamType::Int, 0, min: 0),
 				new ParamDefinition(self::INSTALLED_AT, ParamType::Int, 0, min: 0),
 				new ParamDefinition(self::ATTEMPTS_FLOOD_UNTIL, ParamType::Int, 0, min: 0),
 				new ParamDefinition(self::EXPORT_FORMATS, ParamType::StringList, [], itemPattern: '/^(txt|nft|ipset|log)$/', maxItems: 4),
@@ -274,7 +272,7 @@ final class GlobalSettings {
 	 */
 	public static function isInternal(string $name): bool {
 		return in_array($name, [
-			self::BAN_VERSION, self::INSTALLED_AT, self::LEARNING_NOTICE_SENT, self::ATTEMPTS_FLOOD_UNTIL,
+			self::INSTALLED_AT, self::LEARNING_NOTICE_SENT, self::ATTEMPTS_FLOOD_UNTIL,
 			self::BLOCKLIST_STATE,
 			self::CS_DISTRIBUTED_UNTIL, self::CS_DISTRIBUTED_DETECTED_AT, self::CS_DISTRIBUTED_DETECTION, self::CS_EVALUATED_AT,
 			self::DECOY_COUNT,

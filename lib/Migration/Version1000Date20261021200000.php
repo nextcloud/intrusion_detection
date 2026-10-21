@@ -29,7 +29,7 @@ use OCP\Migration\SimpleMigrationStep;
 #[CreateTable(table: 'ids_state', description: 'Internal state written often: the verdict cache version, the firewall export state')]
 class Version1000Date20261021200000 extends SimpleMigrationStep {
 	/** App config keys whose state moved to ids_state */
-	private const MOVED_KEYS = ['export_state'];
+	private const MOVED_KEYS = ['export_state', 'ban_version'];
 
 	public function __construct(
 		private readonly IAppConfig $appConfig,
