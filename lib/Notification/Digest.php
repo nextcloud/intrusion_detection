@@ -228,18 +228,42 @@ class Digest {
 		return implode(' ', $sentences);
 	}
 
+	/**
+	 * A row per check with detections in the period, compared with the
+	 * period before when that had any; the checks without detections share
+	 * one row.
+	 */
 	private function checksCard(DigestReport $report, IL10N $l): ?EMailDetails {
 		if ($report->checks === []) {
 			return null;
 		}
 		$card = new EMailDetails($l->t('Detections per check'));
-		$card->setSubtitle($report->kind === DigestSchedule::WEEKLY ? $l->t('This week, and the week before') : $l->t('Today, and the day before'));
+		$quiet = [];
+		$compared = false;
 		foreach ($report->checks as $checkId => $counts) {
-			$row = $card->addRow($this->names->name($checkId, $l))
-				->text($l->t('%1$s (before: %2$s)', [(string)($counts['enforced'] + $counts['observed']), (string)$counts['previous']]));
-			if ($counts['enforced'] + $counts['observed'] > 0) {
-				$row->muted($l->t('%1$s acted on, %2$s observed', [(string)$counts['enforced'], (string)$counts['observed']]));
+			$count = $counts['enforced'] + $counts['observed'];
+			if ($count === 0) {
+				$quiet[] = $this->names->shortName($checkId, $l);
+				continue;
 			}
+			$row = $card->addRow($this->names->name($checkId, $l));
+			if ($counts['previous'] > 0) {
+				$row->text($l->t('%1$s (before: %2$s)', [(string)$count, (string)$counts['previous']]));
+				$compared = true;
+			} else {
+				$row->text((string)$count);
+			}
+			$row->muted($l->t('%1$s acted on, %2$s observed', [(string)$counts['enforced'], (string)$counts['observed']]));
+		}
+		if ($quiet !== []) {
+			$card->addRow($l->t('Quiet'))
+				->text(count($quiet) === count($report->checks)
+					? $l->n('%n check', '%n checks', count($quiet))
+					: $l->n('%n other check', '%n other checks', count($quiet)))
+				->muted(implode(', ', $quiet));
+		}
+		if ($compared) {
+			$card->setSubtitle($report->kind === DigestSchedule::WEEKLY ? $l->t('This week, and the week before') : $l->t('Today, and the day before'));
 		}
 		return $card;
 	}

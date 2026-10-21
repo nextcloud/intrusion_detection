@@ -39,6 +39,7 @@ use OCP\IDateTimeZone;
 use OCP\IL10N;
 use OCP\IUser;
 use OCP\L10N\IFactory;
+use OCP\Mail\EMailDetails;
 use OCP\Mail\IEMailTemplate;
 use OCP\Mail\IEmailValidator;
 use OCP\Mail\IMailer;
@@ -143,6 +144,30 @@ class DigestTest extends IntegrationTestCase {
 		$this->insertDetection(CredentialStuffing::ID, '198.51.100.8', null, self::DUE + 7 * self::DAY - 3600);
 		$next = $this->digest()->content($this->digest()->report($this->schedule(), self::DUE + 7 * self::DAY), self::l10n(), new \DateTimeZone('UTC'));
 		$this->assertSame(['Detections per check', 'Most active addresses', 'Open items'], array_map(static fn ($card): string => $card->getTitle(), $next->details));
+	}
+
+	public function testChecksAreComparedOnlyWithDetectionsBeforeAndQuietOnesShareARow(): void {
+		$this->seed();
+		$card = $this->digest()->content($this->digest()->report($this->schedule(), self::DUE), self::l10n(), new \DateTimeZone('UTC'))->details[0];
+		$rows = self::rows($card);
+		$this->assertSame('Credential stuffing: 6 (before: 2) · 6 acted on, 0 observed', $rows[0]);
+		$this->assertContains('Password spraying: 2 · 2 acted on, 0 observed', $rows, 'nothing the week before: no comparison');
+		$this->assertSame('This week, and the week before', $card->getSubtitle());
+
+		$this->insertDetection(CredentialStuffing::ID, '198.51.100.8', null, self::DUE + 7 * self::DAY - 3600);
+		$card = $this->digest()->content($this->digest()->report($this->schedule(), self::DUE + 7 * self::DAY), self::l10n(), new \DateTimeZone('UTC'))->details[0];
+		$rows = self::rows($card);
+		$this->assertSame('Credential stuffing: 2 (before: 6) · 2 acted on, 0 observed', $rows[0]);
+		$this->assertCount(2, $rows, 'the checks without detections share one row');
+		$this->assertStringStartsWith('Quiet: 5 other checks · ', $rows[1]);
+		$this->assertStringContainsString('Password spraying', $rows[1]);
+	}
+
+	public function testWithoutAnyComparisonTheCardSaysNothingAboutThePeriodBefore(): void {
+		$this->insertDetection(TrapUrl::ID, '203.0.113.9', null, self::DUE - 3600);
+		$card = $this->digest()->content($this->digest()->report($this->schedule(), self::DUE), self::l10n(), new \DateTimeZone('UTC'))->details[0];
+		$this->assertSame(['Trap URLs: 1 · 1 acted on, 0 observed'], self::rows($card));
+		$this->assertSame('', $card->getSubtitle());
 	}
 
 	public function testLearningModeAndProblemsAreShownOnTop(): void {
@@ -319,6 +344,13 @@ class DigestTest extends IntegrationTestCase {
 
 	private function schedule(): DigestSchedule {
 		return new DigestSchedule((string)$this->settings->global(GlobalSettings::DIGEST_FREQUENCY), new \DateTimeZone('UTC'));
+	}
+
+	/**
+	 * @return list<string> "label: part · part" per row
+	 */
+	private static function rows(EMailDetails $card): array {
+		return array_map(static fn ($row): string => $row->getLabel() . ': ' . implode(' · ', array_column($row->getParts(), 'text')), $card->getRows());
 	}
 
 	private static function l10n(): IL10N {
