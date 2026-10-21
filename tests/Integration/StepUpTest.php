@@ -364,13 +364,13 @@ class StepUpTest extends StepUpTestCase {
 		$this->session->clear();
 		$this->session->id = null;
 		$this->login($this->alice);
-		$this->assertSame(2, $this->detectionsOf(StepUpRefusedClient::ID)[0]->getHits(), 'Another address is decided again');
+		$this->assertCount(2, $this->detectionsOf(StepUpRefusedClient::ID), 'Another address is decided again, as a detection of its own');
 
 		$this->session->clear();
 		$this->session->id = null;
 		$this->basicAuth($this->alice, 'Another-Password-2026');
 		$this->login($this->alice, 'Another-Password-2026');
-		$this->assertSame(3, $this->detectionsOf(StepUpRefusedClient::ID)[0]->getHits(), 'Another password too');
+		$this->assertSame(3, array_sum(array_map(static fn ($d): int => $d->getHits(), $this->detectionsOf(StepUpRefusedClient::ID))), 'Another password too');
 
 		$bob = $this->user('ids-stepup-app', 'bob@example.com');
 		$this->basicAuth($bob);
@@ -453,6 +453,7 @@ class StepUpTest extends StepUpTestCase {
 	}
 
 	public function testRefusedAppsAreOneDetectionPerAddress(): void {
+		$this->settings->setGlobal(StepUpPolicy::ProtectedAccount->settingKey(), NoMethodOutcome::Refuse->value);
 		$this->give(StepUpPolicy::ProtectedAccount, $this->alice);
 		$this->basicAuth($this->alice);
 		foreach (['198.51.100.7', '203.0.113.9'] as $address) {
