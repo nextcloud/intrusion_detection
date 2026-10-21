@@ -52,6 +52,7 @@ class NotifyAdminHandler implements IResponseHandler, IDescribesAction {
 			AdminAlerts::EMAIL_SENT => $l->t('An email was sent as well.'),
 			AdminAlerts::EMAIL_LIMITED => $l->t('No email was sent, because one was already sent for this check within the hour.'),
 			AdminAlerts::EMAIL_NO_ADDRESS => $l->t('No email was sent, because no administrator has an email address. They only see the notification inside Nextcloud.'),
+			AdminAlerts::EMAIL_FAILED => $l->t('The email could not be sent. Check the email settings; the administrators only see the notification inside Nextcloud.'),
 			default => $l->t('No email was sent: emails are only sent for more severe detections.'),
 		};
 		return $sentences;

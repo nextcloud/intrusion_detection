@@ -17,6 +17,7 @@ use OCA\IntrusionDetection\Config\Settings;
 use OCA\IntrusionDetection\Db\AlertMapper;
 use OCA\IntrusionDetection\Db\Detection;
 use OCA\IntrusionDetection\Db\DetectionMapper;
+use OCA\IntrusionDetection\Explain\DateFormatter;
 use OCA\IntrusionDetection\Explain\NarrativeBuilder;
 use OCA\IntrusionDetection\Notification\AdminAlerts;
 use OCA\IntrusionDetection\Notification\AdminLinks;
@@ -24,6 +25,7 @@ use OCA\IntrusionDetection\Notification\AdminRecipients;
 use OCA\IntrusionDetection\Notification\MailContent;
 use OCA\IntrusionDetection\Notification\Mails;
 use OCA\IntrusionDetection\Notification\Notifier;
+use OCA\IntrusionDetection\Response\Handlers\NotifyAdminHandler;
 use OCP\AppFramework\Utility\ITimeFactory;
 use OCP\IUser;
 use OCP\L10N\IFactory;
@@ -143,6 +145,25 @@ class AdminAlertsTest extends IntegrationTestCase {
 		$this->assertSame([], $this->mailed);
 		// The email slot is not used up, so the next admin with an address still gets one.
 		$this->assertSame(AdminAlerts::EMAIL_SENT, $this->alerts->alert($this->detection('198.51.100.8', Severity::Critical))['email']);
+	}
+
+	public function testAnEmailThatCouldNotBeSentIsNotBlamedOnMissingAddresses(): void {
+		$mails = $this->createMock(Mails::class);
+		$mails->method('send')->willReturn(false);
+		$alerts = new AdminAlerts(
+			Server::get(AlertMapper::class), $this->recipients, $this->notifications, $mails, Server::get(Settings::class),
+			Server::get(NarrativeBuilder::class), Server::get(CheckRegistry::class), Server::get(IFactory::class),
+			Server::get(AdminLinks::class), Server::get(ITimeFactory::class),
+		);
+		$this->assertSame(AdminAlerts::EMAIL_FAILED, $alerts->alert($this->detection('198.51.100.7', Severity::Critical))['email']);
+
+		$sentences = Server::get(NotifyAdminHandler::class)->describeAction(
+			['type' => 'notify_admin', 'enforced' => true, 'ref' => ['email' => AdminAlerts::EMAIL_FAILED]],
+			Server::get(IFactory::class)->get('intrusion_detection', 'en'),
+			Server::get(DateFormatter::class),
+		);
+		$this->assertStringContainsString('could not be sent', implode(' ', $sentences));
+		$this->assertStringNotContainsString('no administrator has an email address', implode(' ', $sentences));
 	}
 
 	public function testAPreparedNotificationOfADeletedDetectionIsDropped(): void {

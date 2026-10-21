@@ -55,6 +55,7 @@ class AdminAlerts {
 	public const EMAIL_LIMITED = 'limited';
 	public const EMAIL_BELOW_SEVERITY = 'below_severity';
 	public const EMAIL_NO_ADDRESS = 'no_address';
+	public const EMAIL_FAILED = 'failed';
 
 	public function __construct(
 		private readonly AlertMapper $alerts,
@@ -195,7 +196,7 @@ class AdminAlerts {
 				$sent++;
 			}
 		}
-		return $sent > 0 ? self::EMAIL_SENT : self::EMAIL_NO_ADDRESS;
+		return $sent > 0 ? self::EMAIL_SENT : self::EMAIL_FAILED;
 	}
 
 	/**
