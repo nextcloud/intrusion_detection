@@ -13,12 +13,14 @@ import type {
 	DetectionDetail,
 	DetectionFilters,
 	DetectionList,
+	DigestOverview,
 	Learning,
 	LookupResult,
 	Mode,
 	ParamValue,
 	SettingsPayload,
 	Status,
+	WebhookEvents,
 } from '../types.ts'
 
 import axios, { isAxiosError } from '@nextcloud/axios'
@@ -189,3 +191,9 @@ export function updateSettings(values: Record<string, ParamValue>): Promise<Sett
 export const resetSettings = () => call<SettingsPayload>(axios.post(url('settings/reset'), {}, write))
 
 export const exportSettings = () => call<Record<string, unknown>>(axios.get(url('settings/export')))
+
+export const fetchDigest = () => call<DigestOverview>(axios.get(url('digest')))
+
+export const sendTestDigest = () => call<{ message: string }>(axios.post(url('digest/test'), {}, write))
+
+export const fetchWebhookEvents = () => call<WebhookEvents>(axios.get(url('events')))

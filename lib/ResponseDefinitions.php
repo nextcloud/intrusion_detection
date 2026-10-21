@@ -280,6 +280,49 @@ namespace OCA\IntrusionDetection;
  *     param: ?string,
  *     reason: string,
  * }
+ *
+ * @psalm-type IntrusionDetectionDigestRecipient = array{
+ *     uid: string,
+ *     displayName: string,
+ * }
+ *
+ * @psalm-type IntrusionDetectionDigestLast = array{
+ *     period: int,
+ *     sentAt: int,
+ *     result: string,
+ *     recipients: int,
+ *     failed: int,
+ * }
+ *
+ * @psalm-type IntrusionDetectionDigest = array{
+ *     frequency: string,
+ *     sendQuiet: bool,
+ *     timezone: string,
+ *     nextDue: ?int,
+ *     last: ?IntrusionDetectionDigestLast,
+ *     recipients: int,
+ *     withoutEmail: list<IntrusionDetectionDigestRecipient>,
+ *     withoutEmailCount: int,
+ *     mailConfigured: bool,
+ *     viewerHasEmail: bool,
+ * }
+ *
+ * @psalm-type IntrusionDetectionMessage = array{
+ *     message: string,
+ * }
+ *
+ * @psalm-type IntrusionDetectionWebhookEvent = array{
+ *     class: string,
+ *     name: string,
+ *     description: string,
+ *     example: array<string, mixed>,
+ * }
+ *
+ * @psalm-type IntrusionDetectionWebhookEvents = array{
+ *     includeIp: bool,
+ *     webhooksEnabled: bool,
+ *     events: list<IntrusionDetectionWebhookEvent>,
+ * }
  */
 class ResponseDefinitions {
 }

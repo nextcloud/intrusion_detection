@@ -10,6 +10,8 @@ declare(strict_types=1);
 namespace OCA\IntrusionDetection\Notification;
 
 use OCP\IUser;
+use OCP\Mail\EMailDetails;
+use OCP\Mail\EMailDetailsRow;
 use OCP\Mail\IEmailValidator;
 use OCP\Mail\IMailer;
 use Psr\Log\LoggerInterface;
@@ -49,8 +51,14 @@ class Mails {
 			$template->setSubject(self::clean($content->subject));
 			$template->addHeader();
 			$template->addHeading(self::clean($content->heading));
+			foreach ($content->notes as $note) {
+				$template->addBodyNote(self::clean($note['text']), self::clean($note['label']), $note['type']);
+			}
 			foreach ($content->paragraphs as $paragraph) {
 				$template->addBodyText(self::clean($paragraph));
+			}
+			foreach ($content->details as $details) {
+				$template->addBodyDetails(self::cleanDetails($details));
 			}
 			if ($content->listItems !== []) {
 				if ($content->listHeading !== '') {
@@ -79,6 +87,25 @@ class Mails {
 			]);
 			return false;
 		}
+	}
+
+	/**
+	 * A copy of the card with every text cleaned like {@see clean()}.
+	 */
+	private static function cleanDetails(EMailDetails $details): EMailDetails {
+		$clean = new EMailDetails(self::clean($details->getTitle()));
+		$clean->setSubtitle(self::clean($details->getSubtitle()));
+		foreach ($details->getRows() as $row) {
+			$cleanRow = $clean->addRow(self::clean($row->getLabel()));
+			foreach ($row->getParts() as $part) {
+				match ($part['type']) {
+					EMailDetailsRow::PART_LINK => $cleanRow->link(self::clean($part['text']), $part['url']),
+					EMailDetailsRow::PART_MUTED => $cleanRow->muted(self::clean($part['text'])),
+					default => $cleanRow->text(self::clean($part['text'])),
+				};
+			}
+		}
+		return $clean;
 	}
 
 	/**

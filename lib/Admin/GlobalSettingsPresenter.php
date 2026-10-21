@@ -163,6 +163,18 @@ class GlobalSettingsPresenter {
 				$l->t('Approval requests expire after'),
 				$l->t('A request nobody approved in this time is dropped, and the requester is told.'),
 			), self::GROUP_APPROVALS],
+			GlobalSettings::DIGEST_FREQUENCY => [new ParamText(
+				$l->t('Send the digest'),
+				$l->t('A summary of what intrusion detection saw and did, for everyone in the notification groups who has an email address. Weekly digests are sent on Monday at 08:00, daily ones every day at 08:00, in the server\'s time zone.'),
+			), self::GROUP_NOTIFICATIONS],
+			GlobalSettings::DIGEST_SEND_QUIET => [new ParamText(
+				$l->t('Also send quiet digests'),
+				$l->t('When nothing happened, a short email says so. It shows that intrusion detection is running.'),
+			), self::GROUP_NOTIFICATIONS],
+			GlobalSettings::EVENTS_INCLUDE_IP => [new ParamText(
+				$l->t('Addresses in webhook events'),
+				$l->t('Whether the events sent to webhooks contain the attacking address. Turn this off when the receiving system must not get personal data.'),
+			), self::GROUP_NOTIFICATIONS],
 			default => [new ParamText(ucfirst(str_replace('_', ' ', $name))), self::GROUP_OTHER],
 		};
 	}

@@ -12,6 +12,7 @@ import NcIconSvgWrapper from '@nextcloud/vue/components/NcIconSvgWrapper'
 import NcNoteCard from '@nextcloud/vue/components/NcNoteCard'
 import AdminTabs from '../components/AdminTabs.vue'
 import StatusBanner from '../components/StatusBanner.vue'
+import TabContent from '../components/TabContent.vue'
 import { useAnnouncer } from '../composables/useAnnouncer.ts'
 import { visibleTabs } from '../extensions.ts'
 import { openDetectionId, state } from '../store.ts'
@@ -104,7 +105,7 @@ onBeforeUnmount(() => window.removeEventListener('hashchange', readHash))
 				role="tabpanel"
 				:aria-labelledby="`ids-tab-${currentTab.id}`">
 				<KeepAlive>
-					<component :is="currentTab.component" :key="currentTab.id" />
+					<TabContent :key="currentTab.id" :tab="currentTab" />
 				</KeepAlive>
 			</div>
 		</div>

@@ -130,7 +130,7 @@ class AddressGuardTest extends IntegrationTestCase {
 			$addresses,
 			$time,
 			Server::get(\OCP\Security\ISecureRandom::class),
-			Server::get(\OCP\EventDispatcher\IEventDispatcher::class),
+			Server::get(\OCA\IntrusionDetection\Event\TypedEvents::class),
 		);
 		if ($config === null) {
 			$config = $this->createMock(IConfig::class);

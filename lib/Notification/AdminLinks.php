@@ -23,7 +23,12 @@ class AdminLinks {
 	}
 
 	public function adminPage(): string {
-		return $this->urlGenerator->linkToRouteAbsolute('settings.AdminSettings.index', ['section' => Application::APP_ID]);
+		$path = $this->urlGenerator->linkToRoute('settings.AdminSettings.index', ['section' => Application::APP_ID]);
+		// In a request guard the apps' routes are not loaded yet, and the router returns nothing.
+		if ($path === '') {
+			$path = rtrim($this->urlGenerator->linkTo('', 'index.php'), '/') . '/settings/admin/' . Application::APP_ID;
+		}
+		return $this->urlGenerator->getAbsoluteURL($path);
 	}
 
 	public function detection(int $id): string {

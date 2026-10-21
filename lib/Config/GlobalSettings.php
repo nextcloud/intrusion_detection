@@ -78,6 +78,15 @@ final class GlobalSettings {
 	/** Internal: the last run, its result and the end of the last window sent */
 	public const CONTRIBUTE_STATE = 'contribute_state';
 
+	/** How often the administrators get the digest email: off, daily or weekly */
+	public const DIGEST_FREQUENCY = 'digest_frequency';
+	/** Whether a digest is also sent when nothing happened */
+	public const DIGEST_SEND_QUIET = 'digest_send_quiet';
+	/** Internal: the last digest sent, for the admin page */
+	public const DIGEST_STATE = 'digest_state';
+	/** Whether the typed events for webhooks carry the address */
+	public const EVENTS_INCLUDE_IP = 'events_include_ip';
+
 	/** Seconds in the learning period that starts when the app is first enabled */
 	public const LEARNING_DEFAULT_PERIOD = 7 * 86400;
 
@@ -125,6 +134,10 @@ final class GlobalSettings {
 				new ParamDefinition(self::ADMIN_CHANGE_REQUIRE_APPROVAL, ParamType::Bool, false),
 				new ParamDefinition(self::ADMIN_CHANGE_APPROVAL_TTL, ParamType::Duration, 604800, min: 3600, max: 30 * 86400),
 				new ParamDefinition(self::CONFIG_WATCH_BASELINE, ParamType::Int, 0, min: 0),
+				new ParamDefinition(self::DIGEST_FREQUENCY, ParamType::Choice, 'weekly', choices: ['off', 'daily', 'weekly']),
+				new ParamDefinition(self::DIGEST_SEND_QUIET, ParamType::Bool, true),
+				new ParamDefinition(self::DIGEST_STATE, ParamType::Json, '{}'),
+				new ParamDefinition(self::EVENTS_INCLUDE_IP, ParamType::Bool, true),
 			];
 			$this->definitions = [];
 			foreach ($list as $definition) {
@@ -162,6 +175,7 @@ final class GlobalSettings {
 			self::DECOY_COUNT,
 			self::CONTRIBUTE_ID, self::CONTRIBUTE_STATE,
 			self::CONFIG_WATCH_BASELINE,
+			self::DIGEST_STATE,
 		], true);
 	}
 

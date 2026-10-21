@@ -12,6 +12,8 @@ namespace OCA\IntrusionDetection\Tests\Unit\Notification;
 use OCA\IntrusionDetection\Notification\MailContent;
 use OCA\IntrusionDetection\Notification\Mails;
 use OCP\IUser;
+use OCP\Mail\EMailDetails;
+use OCP\Mail\IEMailTemplate;
 use OCP\Mail\IEmailValidator;
 use OCP\Mail\IMailer;
 use OCP\Mail\IMessage;
@@ -59,6 +61,43 @@ class MailsTest extends TestCase {
 		$this->assertStringNotContainsString('<b>backup</b>', $html);
 		$this->assertStringNotContainsString("\x07", $sent->renderText());
 		$this->assertStringNotContainsString("\n", $sent->renderSubject());
+	}
+
+	public function testNotesAndCardsAreCleanedAndEscapedToo(): void {
+		$sent = null;
+		$mailer = $this->createMock(IMailer::class);
+		$mailer->method('createEMailTemplate')->willReturnCallback(static fn (string $id, array $data) => Server::get(IMailer::class)->createEMailTemplate($id, $data));
+		$message = $this->createMock(IMessage::class);
+		$message->method('setTo')->willReturnSelf();
+		$message->method('useTemplate')->willReturnCallback(function ($template) use (&$sent, $message) {
+			$sent = $template;
+			return $message;
+		});
+		$mailer->method('createMessage')->willReturn($message);
+		$mailer->method('send')->willReturn([]);
+		$mails = new Mails($mailer, Server::get(IEmailValidator::class), $this->createMock(LoggerInterface::class));
+
+		$card = new EMailDetails('<h1>Card</h1>');
+		$card->setSubtitle("Sub\x07title");
+		$card->addRow('<i>label</i>')->text('<script>x</script>')->muted("muted\nline")->link('<b>link</b>', 'https://cloud.example.com/"onclick="x');
+		$this->assertTrue($mails->send($this->user('alice@example.com'), new MailContent(
+			templateId: 'intrusion_detection.test',
+			subject: 'Subject',
+			heading: 'Heading',
+			paragraphs: [],
+			notes: [['text' => '<u>note</u>', 'label' => "Label\x00", 'type' => IEMailTemplate::NOTE_WARNING]],
+			details: [$card],
+		)));
+		$html = $sent->renderHtml();
+		foreach (['<h1>', '<i>label', '<script>', '<b>link', '<u>note', '"onclick="x'] as $raw) {
+			$this->assertStringNotContainsString($raw, $html);
+		}
+		$this->assertStringContainsString('&lt;script&gt;x&lt;/script&gt;', $html);
+		$this->assertStringContainsString('&lt;u&gt;note&lt;/u&gt;', $html);
+		$text = $sent->renderText();
+		$this->assertStringContainsString('Sub title', $text);
+		$this->assertStringContainsString('muted line', $text);
+		$this->assertStringNotContainsString("\x00", $text);
 	}
 
 	public function testAFailingMailServerIsLoggedNotThrown(): void {

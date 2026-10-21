@@ -15,16 +15,22 @@ use OCA\IntrusionDetection\Check\Checks\ResetProbingDetector;
 use OCA\IntrusionDetection\Check\Checks\ShareBruteforceDetector;
 use OCA\IntrusionDetection\Config\GlobalSettings;
 use OCA\IntrusionDetection\Crypto\Fingerprinter;
+use OCA\IntrusionDetection\Db\BanMapper;
 use OCA\IntrusionDetection\Db\DetectionFilter;
 use OCA\IntrusionDetection\Decoy\DecoyFormat;
 use OCA\IntrusionDetection\Decoy\DecoyService;
 use OCA\IntrusionDetection\Detection\AttemptRecorder;
+use OCA\IntrusionDetection\Event\BanCreatedEvent;
+use OCA\IntrusionDetection\Event\BanLiftedEvent;
+use OCA\IntrusionDetection\Event\DetectionCreatedEvent;
 use OCA\IntrusionDetection\Explain\IExplainsToUser;
 use OCA\IntrusionDetection\Explain\NarrativeBuilder;
 use OCA\IntrusionDetection\Listener\ResetRequestedListener;
 use OCA\IntrusionDetection\Listener\ShareAccessFailedListener;
 use OCA\IntrusionDetection\Net\RemoteAddressResolver;
 use OCA\IntrusionDetection\Notification\AdminAlerts;
+use OCA\IntrusionDetection\Notification\Digest;
+use OCA\IntrusionDetection\Notification\DigestSchedule;
 use OCA\IntrusionDetection\Notification\Notifier;
 use OCA\IntrusionDetection\Response\ResetMailSuppressor;
 use OCA\IntrusionDetection\Traps\ReservedNames;
@@ -165,6 +171,8 @@ class NoSecretsTest extends LoginFailureTestCase {
 			$this->assertClean(json_encode(Server::get(NarrativeBuilder::class)->build($detection, $l)->toArray()), $secrets, $fingerprints, 'narrative');
 		}
 
+		$this->assertEventsAndDigestClean($secrets, $fingerprints);
+
 		// Logs
 		$this->assertClean(implode("\n", $this->logged), $secrets, $fingerprints, 'listener log');
 		$this->assertClean($this->serverLogWithoutMailRecipients(), $secrets, $fingerprints, 'server log');
@@ -263,8 +271,42 @@ class NoSecretsTest extends LoginFailureTestCase {
 				$this->assertClean(json_encode(get_object_vars($check->userNotice($detection, $l)), JSON_THROW_ON_ERROR), $secrets, $fingerprints, 'user notice');
 			}
 		}
+		$this->assertEventsAndDigestClean($secrets, $fingerprints);
 		$this->assertClean(implode("\n", $this->logged), $secrets, $fingerprints, 'listener log');
 		$this->assertClean($this->serverLogWithoutMailRecipients(), $secrets, $fingerprints, 'server log');
+	}
+
+	/**
+	 * The webhook payloads of every detection and block, and the digest of
+	 * the period, carry none of the secrets.
+	 *
+	 * @param array<string, string> $secrets
+	 * @param list<string> $fingerprints
+	 */
+	private function assertEventsAndDigestClean(array $secrets, array $fingerprints): void {
+		$payloads = [];
+		foreach ($this->detections->findList(new DetectionFilter(limit: 100)) as $detection) {
+			$payloads[] = (new DetectionCreatedEvent($detection))->getWebhookSerializable();
+		}
+		$bans = Server::get(BanMapper::class)->findList(time(), true, 100);
+		$this->assertNotSame([], $bans, 'Some scenario blocked an address');
+		foreach ($bans as $ban) {
+			$payloads[] = (new BanCreatedEvent($ban))->getWebhookSerializable();
+			$payloads[] = (new BanLiftedEvent($ban))->getWebhookSerializable();
+		}
+		$this->assertClean(json_encode($payloads, JSON_THROW_ON_ERROR), $secrets, $fingerprints, 'webhook payload');
+
+		$digest = Server::get(Digest::class);
+		$content = $digest->content($digest->report(new DigestSchedule(DigestSchedule::WEEKLY, new \DateTimeZone('UTC')), time() + 60), 'en');
+		$this->assertNotSame([], $content->details, 'The digest lists what happened');
+		$text = json_encode(get_object_vars($content), JSON_THROW_ON_ERROR);
+		foreach ($content->details as $card) {
+			$text .= $card->getTitle() . $card->getSubtitle();
+			foreach ($card->getRows() as $row) {
+				$text .= $row->getLabel() . json_encode($row->getParts(), JSON_THROW_ON_ERROR);
+			}
+		}
+		$this->assertClean($text, $secrets, $fingerprints, 'digest');
 	}
 
 	/**

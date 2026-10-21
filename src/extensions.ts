@@ -14,7 +14,11 @@ import { APP_ID } from './utils/format.ts'
  * The places where later parts of the app plug into the admin page.
  *
  * - A tab: set `component` of its entry in `tabs` (or add an entry). Tabs
- *   without a component are not shown, so the page never has an empty tab.
+ *   without a component or sections are not shown, so the page never has an
+ *   empty tab.
+ * - A section within a tab: add an entry to `tabSections`, e.g. the digest
+ *   on the Notifications tab. Sections are rendered after the tab's own
+ *   component, by `order`, so several parts of the app can fill one tab.
  * - A section in check cards: add an entry to `checkSections`, e.g. "Test a
  *   URL" for one check, rendered in the expanded card after the named section.
  * - The status banner: add a component to `statusSections`, e.g. the lockdown
@@ -30,6 +34,14 @@ export interface TabDefinition {
 	icon: string
 	order: number
 	component?: Component
+}
+
+export interface TabSection {
+	id: string
+	/** The id of the tab it is shown in */
+	tab: string
+	order: number
+	component: Component
 }
 
 export interface CheckSection {
@@ -58,13 +70,27 @@ export const checkSections = shallowReactive<CheckSection[]>([
 	{ id: 'breach-privacy', checks: ['breached_password'], after: 'data', component: defineAsyncComponent(() => import('./components/checks/BreachedPasswordPrivacy.vue')) },
 ])
 
+export const tabSections = shallowReactive<TabSection[]>([
+	{ id: 'digest', tab: 'notifications', order: 30, component: defineAsyncComponent(() => import('./components/notifications/DigestSection.vue')) },
+	{ id: 'webhook-events', tab: 'notifications', order: 40, component: defineAsyncComponent(() => import('./components/notifications/WebhookEventsSection.vue')) },
+])
+
 export const statusSections = shallowReactive<Component[]>([])
 
 export const blocksPanels = shallowReactive<Component[]>([])
 
 /**
+ * The sections of a tab, in order.
+ *
+ * @param tabId - The tab
+ */
+export function sectionsOf(tabId: string): TabSection[] {
+	return tabSections.filter((section) => section.tab === tabId).sort((a, b) => a.order - b.order)
+}
+
+/**
  * The tabs that have content, in order.
  */
 export function visibleTabs(): TabDefinition[] {
-	return tabs.filter((tab) => tab.component !== undefined).sort((a, b) => a.order - b.order)
+	return tabs.filter((tab) => tab.component !== undefined || sectionsOf(tab.id).length > 0).sort((a, b) => a.order - b.order)
 }

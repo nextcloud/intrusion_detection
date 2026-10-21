@@ -15,12 +15,10 @@ use OCA\IntrusionDetection\Config\Settings;
 use OCA\IntrusionDetection\Db\Ban;
 use OCA\IntrusionDetection\Db\BanMapper;
 use OCA\IntrusionDetection\Db\LoginMapper;
-use OCA\IntrusionDetection\Event\BanCreatedEvent;
-use OCA\IntrusionDetection\Event\BanLiftedEvent;
+use OCA\IntrusionDetection\Event\TypedEvents;
 use OCA\IntrusionDetection\Net\RemoteAddressResolver;
 use OCA\IntrusionDetection\Net\SourceKey;
 use OCP\AppFramework\Utility\ITimeFactory;
-use OCP\EventDispatcher\IEventDispatcher;
 use OCP\Security\ISecureRandom;
 
 /**
@@ -47,7 +45,7 @@ class BanService {
 		private readonly RemoteAddressResolver $addresses,
 		private readonly ITimeFactory $timeFactory,
 		private readonly ISecureRandom $random,
-		private readonly IEventDispatcher $dispatcher,
+		private readonly TypedEvents $events,
 	) {
 	}
 
@@ -133,7 +131,7 @@ class BanService {
 		$ban->setLiftNote(mb_substr($note, 0, 255));
 		$this->mapper->update($ban);
 		$this->addressCache->bump();
-		$this->dispatcher->dispatchTyped(new BanLiftedEvent($ban));
+		$this->events->banLifted($ban);
 	}
 
 	/**
@@ -224,7 +222,7 @@ class BanService {
 
 	private function changed(Ban $ban, bool $updated): void {
 		$this->addressCache->bump();
-		$this->dispatcher->dispatchTyped(new BanCreatedEvent($ban, $updated));
+		$this->events->banCreated($ban, $updated);
 	}
 
 	private function newReference(): string {

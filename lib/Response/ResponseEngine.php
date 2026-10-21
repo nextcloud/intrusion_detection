@@ -17,8 +17,7 @@ use OCA\IntrusionDetection\Config\Settings;
 use OCA\IntrusionDetection\Db\Detection;
 use OCA\IntrusionDetection\Detection\DetectionDraft;
 use OCA\IntrusionDetection\Detection\DetectionService;
-use OCA\IntrusionDetection\Event\DetectionCreatedEvent;
-use OCP\EventDispatcher\IEventDispatcher;
+use OCA\IntrusionDetection\Event\TypedEvents;
 use Psr\Container\ContainerInterface;
 use Psr\Log\LoggerInterface;
 
@@ -59,7 +58,7 @@ class ResponseEngine {
 		private readonly Settings $settings,
 		private readonly DetectionService $detections,
 		private readonly ContainerInterface $container,
-		private readonly IEventDispatcher $dispatcher,
+		private readonly TypedEvents $events,
 		private readonly AuditLogger $audit,
 		private readonly LoggerInterface $logger,
 	) {
@@ -99,7 +98,7 @@ class ResponseEngine {
 				'ip' => $draft->source?->ip,
 				'uid' => $draft->uid,
 			]);
-			$this->dispatcher->dispatchTyped(new DetectionCreatedEvent($detection));
+			$this->events->detectionCreated($detection);
 		}
 		return $detection;
 	}

@@ -247,3 +247,29 @@ export interface InitialState {
 	docUrl: string
 	bruteForceSettingsUrl: string
 }
+
+export interface DigestOverview {
+	frequency: 'off' | 'daily' | 'weekly'
+	sendQuiet: boolean
+	timezone: string
+	nextDue: number | null
+	last: { period: number, sentAt: number, result: string, recipients: number, failed: number } | null
+	recipients: number
+	withoutEmail: { uid: string, displayName: string }[]
+	withoutEmailCount: number
+	mailConfigured: boolean
+	viewerHasEmail: boolean
+}
+
+export interface WebhookEvent {
+	class: string
+	name: string
+	description: string
+	example: Record<string, unknown>
+}
+
+export interface WebhookEvents {
+	includeIp: boolean
+	webhooksEnabled: boolean
+	events: WebhookEvent[]
+}

@@ -75,11 +75,12 @@ class DetectionMapper extends QBMapper {
 	}
 
 	/**
-	 * Detections per check, split by enforced or observed, since a time.
+	 * Detections per check, split by enforced or observed, since a time
+	 * (and before another, if given).
 	 *
 	 * @return array<string, array{enforced: int, observed: int, hits: int}>
 	 */
-	public function countByCheck(int $since): array {
+	public function countByCheck(int $since, ?int $until = null): array {
 		$qb = $this->db->getQueryBuilder();
 		$qb->select('check_id', 'enforced')
 			->selectAlias($qb->func()->count('*'), 'n')
@@ -87,6 +88,9 @@ class DetectionMapper extends QBMapper {
 			->from(self::TABLE)
 			->where($qb->expr()->gte('created_at', $qb->createNamedParameter($since, IQueryBuilder::PARAM_INT)))
 			->groupBy('check_id', 'enforced');
+		if ($until !== null) {
+			$qb->andWhere($qb->expr()->lt('created_at', $qb->createNamedParameter($until, IQueryBuilder::PARAM_INT)));
+		}
 		$result = $qb->executeQuery();
 		$counts = [];
 		while ($row = $result->fetch()) {
