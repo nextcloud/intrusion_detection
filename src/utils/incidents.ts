@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 
-import type { Detection, IncidentRequest, IncidentSubjectType, Severity } from '../types.ts'
+import type { Detection, DetectionOutcome, IncidentRequest, IncidentSubjectType, Severity } from '../types.ts'
 
 import { highestSeverity } from './groups.ts'
 
@@ -13,12 +13,24 @@ export interface IncidentSubject {
 	type: IncidentSubjectType
 	value: string
 	severity: Severity
-	/** Whether Nextcloud acted on at least one of its detections */
-	enforced: boolean
+	/** The most Nextcloud did about one of its detections */
+	outcome: DetectionOutcome
 	/** The check names, most recent first, without repeats */
 	checks: string[]
 	detections: number
 	updatedAt: number
+}
+
+/** Outcomes from the most to the least that Nextcloud did */
+const OUTCOMES: DetectionOutcome[] = ['acted', 'notified', 'recorded', 'observed']
+
+/**
+ * The most Nextcloud did about any of the detections.
+ *
+ * @param detections - At least one detection
+ */
+export function strongestOutcome(detections: Detection[]): DetectionOutcome {
+	return OUTCOMES.find((outcome) => detections.some((d) => d.outcome === outcome)) ?? 'observed'
 }
 
 /**
@@ -67,7 +79,7 @@ export function incidentSubjects(detections: Detection[]): IncidentSubject[] {
 				type: group.type,
 				value: group.value,
 				severity: highestSeverity(sorted),
-				enforced: sorted.some((d) => d.enforced),
+				outcome: strongestOutcome(sorted),
 				checks: [...new Set(sorted.map((d) => d.checkName))],
 				detections: sorted.length,
 				updatedAt: sorted[0]!.lastSeenAt,

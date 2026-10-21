@@ -23,7 +23,7 @@ final class ReportSummary {
 	 * @param ?string $dataNote what the absence of data categories means, when there are none
 	 * @param list<string> $measures what Nextcloud and the administrators did
 	 * @param list<string> $openItems what to check or decide next
-	 * @param array{entries: int, detections: int, enforced: int, observed: int} $counts
+	 * @param array{entries: int, detections: int, enforced: int, acted: int, observed: int} $counts enforced: not only observed; acted: an action other than a notification ran
 	 */
 	public function __construct(
 		public readonly string $headline,
@@ -41,7 +41,7 @@ final class ReportSummary {
 	}
 
 	/**
-	 * @return array{headline: string, happened: list<string>, startedAt: ?int, foundAt: ?int, lastActivityAt: ?int, affected: list<string>, dataCategories: list<string>, dataNote: ?string, measures: list<string>, openItems: list<string>, counts: array{entries: int, detections: int, enforced: int, observed: int}}
+	 * @return array{headline: string, happened: list<string>, startedAt: ?int, foundAt: ?int, lastActivityAt: ?int, affected: list<string>, dataCategories: list<string>, dataNote: ?string, measures: list<string>, openItems: list<string>, counts: array{entries: int, detections: int, enforced: int, acted: int, observed: int}}
 	 */
 	public function toArray(): array {
 		return [

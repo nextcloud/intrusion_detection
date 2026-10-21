@@ -109,9 +109,14 @@ class IncidentReportBuilderTest extends TestCase {
 	/**
 	 * @param list<DataCategory> $categories
 	 * @param list<string> $done
+	 * @param 'acted'|'notified'|'recorded'|'observed'|null $outcome by default "acted" when enforced, "observed" when not
 	 */
-	private static function entry(string $id, int $at, string $kind = 'detection', ?string $severity = null, ?bool $enforced = null, array $done = [], array $categories = [], ?string $followUp = null, ?string $address = null, array $accounts = [], string $group = 'Group'): TimelineEntry {
-		return new TimelineEntry($id, $at, $kind, $group, 'Title ' . $id, severity: $severity, enforced: $enforced, done: $done, address: $address, accounts: $accounts, categories: $categories, followUp: $followUp);
+	private static function entry(string $id, int $at, string $kind = 'detection', ?string $severity = null, ?bool $enforced = null, array $done = [], array $categories = [], ?string $followUp = null, ?string $address = null, array $accounts = [], string $group = 'Group', ?string $outcome = null): TimelineEntry {
+		return new TimelineEntry($id, $at, $kind, $group, 'Title ' . $id, severity: $severity, enforced: $enforced, done: $done, address: $address, accounts: $accounts, categories: $categories, followUp: $followUp, outcome: $outcome ?? match ($enforced) {
+			true => 'acted',
+			false => 'observed',
+			null => null,
+		});
 	}
 
 	private function user(): IncidentQuery {
@@ -194,7 +199,7 @@ class IncidentReportBuilderTest extends TestCase {
 			0 => $this->source('detection', [
 				self::entry('d1', 100, severity: 'high', enforced: true, done: ['Blocked 198.51.100.7.', 'Notified the admins.'], categories: [DataCategory::AccountContent], address: '198.51.100.7', group: 'Second factor failed'),
 				self::entry('d2', 200, severity: 'low', enforced: false, done: ['Blocked 203.0.113.9.'], followUp: 'Decide.', address: '203.0.113.9', group: 'Second factor failed'),
-				self::entry('d3', 300, severity: 'medium', enforced: true, done: ['Notified the admins.'], address: '198.51.100.7', group: 'Credential stuffing'),
+				self::entry('d3', 300, severity: 'medium', enforced: true, done: ['Notified the admins.'], address: '198.51.100.7', group: 'Credential stuffing', outcome: 'notified'),
 			]),
 			2 => $this->source('app_password', [
 				self::entry('a1', 50, 'app_password', categories: [DataCategory::ConnectedDevices], followUp: $followUp, group: 'App passwords created'),
@@ -203,7 +208,7 @@ class IncidentReportBuilderTest extends TestCase {
 		])->build($this->user(), 'admin', $this->l);
 		$summary = $report->summary;
 
-		$this->assertSame('Nextcloud recorded 5 events about the account alice between @' . (self::NOW - 86400) . ' and @' . self::NOW . '. Detections: 3 (acted on: 2, only observed: 1).', $summary->headline);
+		$this->assertSame('Nextcloud recorded 5 events about the account alice between @' . (self::NOW - 86400) . ' and @' . self::NOW . '. Detections: 3 (acted on: 1, only notified or recorded: 1, only observed: 1).', $summary->headline);
 		$this->assertSame(['App passwords created: 2 times, the first at @50', 'Second factor failed: 2 times, the first at @100', 'Credential stuffing: once, at @300'], $summary->happened);
 		$this->assertSame(50, $summary->startedAt);
 		$this->assertSame(100, $summary->foundAt, 'found when the first detection was made');
@@ -213,7 +218,7 @@ class IncidentReportBuilderTest extends TestCase {
 		$this->assertNull($summary->dataNote);
 		$this->assertSame(['Blocked 198.51.100.7.', 'Notified the admins.'], $summary->measures, 'what observed detections would have done is no measure, and nothing is repeated');
 		$this->assertSame([$followUp, 'Decide.'], $summary->openItems);
-		$this->assertSame(['entries' => 5, 'detections' => 3, 'enforced' => 2, 'observed' => 1], $summary->counts);
+		$this->assertSame(['entries' => 5, 'detections' => 3, 'enforced' => 2, 'acted' => 1, 'observed' => 1], $summary->counts);
 		$this->assertSame('Alice Liddell', $report->displayName);
 		$this->assertSame('https://cloud.example.org', $report->server);
 		$this->assertSame('admin', $report->generatedBy);

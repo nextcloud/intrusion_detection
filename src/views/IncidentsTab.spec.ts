@@ -44,6 +44,7 @@ function entry(id: string, kind: string, overrides: Partial<IncidentEntry> = {})
 		title: 'Title of ' + id,
 		severity: null,
 		enforced: null,
+		outcome: null,
 		details: ['Detail of ' + id],
 		done: [],
 		note: null,
@@ -76,7 +77,7 @@ function report(overrides: Partial<IncidentReport> = {}): IncidentReport {
 			dataNote: 'No sign that data was opened: only failed attempts and blocks were recorded.',
 			measures: ['Blocked 203.0.113.7 until 14:02.'],
 			openItems: ['Check the app passwords created in this period with the account owner.'],
-			counts: { entries: 3, detections: 1, enforced: 1, observed: 0 },
+			counts: { entries: 3, detections: 1, enforced: 1, acted: 1, observed: 0 },
 		},
 		kinds: [
 			{ id: 'detection', label: 'Detections', count: 1 },
@@ -85,7 +86,7 @@ function report(overrides: Partial<IncidentReport> = {}): IncidentReport {
 			{ id: 'share', label: 'Shares created', count: 0 },
 		],
 		entries: [
-			entry('detection:1', 'detection', { severity: 'high', enforced: true, title: 'Credential stuffing', done: ['Blocked 203.0.113.7 until 14:02.'] }),
+			entry('detection:1', 'detection', { severity: 'high', enforced: true, outcome: 'acted', title: 'Credential stuffing', done: ['Blocked 203.0.113.7 until 14:02.'] }),
 			entry('block:1', 'block', { title: 'Address 203.0.113.7 blocked' }),
 			entry('app-password:9', 'app_password', { at: AT + 60, title: 'App password created for alice' }),
 		],
@@ -160,8 +161,8 @@ describe('IncidentsTab', () => {
 	test('lists the addresses and accounts of the last 7 days with status, severity and time; nothing is built until one is chosen', async () => {
 		vi.mocked(fetchDetections).mockResolvedValue({
 			detections: [
-				detection({ id: 1, ip: '203.0.113.7', severity: 'high', enforced: true, lastSeenAt: AT }),
-				detection({ id: 2, ip: null, uid: 'alice', severity: 'low', enforced: false, checkName: 'Admin change alerts', lastSeenAt: AT - 60 }),
+				detection({ id: 1, ip: '203.0.113.7', severity: 'high', enforced: true, outcome: 'acted', lastSeenAt: AT }),
+				detection({ id: 2, ip: null, uid: 'alice', severity: 'low', enforced: false, outcome: 'observed', checkName: 'Admin change alerts', lastSeenAt: AT - 60 }),
 			],
 			hasMore: false,
 		})

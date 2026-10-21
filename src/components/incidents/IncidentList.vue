@@ -9,6 +9,7 @@ import type { IncidentSubject } from '../../utils/incidents.ts'
 import { n, t } from '@nextcloud/l10n'
 import { useId } from 'vue'
 import NcNoteCard from '@nextcloud/vue/components/NcNoteCard'
+import OutcomeBadge from '../common/OutcomeBadge.vue'
 import SeverityPill from '../common/SeverityPill.vue'
 import SkeletonBlock from '../common/SkeletonBlock.vue'
 import TimeStamp from '../common/TimeStamp.vue'
@@ -83,9 +84,7 @@ function checks(subject: IncidentSubject): string {
 					</span>
 					<span :class="$style.item__meta">
 						<SeverityPill :severity="subject.severity" />
-						<span :class="$style.item__status">
-							{{ subject.enforced ? t(APP_ID, 'Acted on') : t(APP_ID, 'Observed') }}
-						</span>
+						<OutcomeBadge :outcome="subject.outcome" />
 						<span :class="$style.item__checks">
 							{{ n(APP_ID, '%n detection', '%n detections', subject.detections) }} · {{ checks(subject) }}
 						</span>
@@ -200,10 +199,6 @@ function checks(subject: IncidentSubject): string {
 	gap: calc(var(--default-grid-baseline) * 1) calc(var(--default-grid-baseline) * 2);
 	color: var(--color-text-maxcontrast);
 	font-size: 0.9em;
-}
-
-.item__status {
-	font-weight: 600;
 }
 
 .item__checks {

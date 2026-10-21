@@ -10,6 +10,7 @@ import { mdiChevronDown } from '@mdi/js'
 import { getCanonicalLocale, t } from '@nextcloud/l10n'
 import { computed, useId } from 'vue'
 import NcIconSvgWrapper from '@nextcloud/vue/components/NcIconSvgWrapper'
+import OutcomeBadge from '../common/OutcomeBadge.vue'
 import SeverityPill from '../common/SeverityPill.vue'
 import TimeStamp from '../common/TimeStamp.vue'
 import { APP_ID } from '../../utils/format.ts'
@@ -44,11 +45,7 @@ const tone = computed(() => props.entry.severity ?? 'neutral')
 				</time>
 				<span :class="$style.entry__kind">{{ kindLabel }}</span>
 				<SeverityPill v-if="entry.severity" :severity="entry.severity" />
-				<span
-					v-if="entry.enforced !== null"
-					:class="[$style.entry__outcome, entry.enforced ? $style.entry__outcome_enforced : $style.entry__outcome_observed]">
-					{{ entry.enforced ? t(APP_ID, 'Acted on') : t(APP_ID, 'Observed') }}
-				</span>
+				<OutcomeBadge v-if="entry.outcome" :outcome="entry.outcome" />
 				<TimeStamp :class="$style.entry__relative" :timestamp="entry.at" short />
 			</div>
 			<button
@@ -186,26 +183,6 @@ const tone = computed(() => props.entry.severity ?? 'neutral')
 
 .entry__kind {
 	font-weight: 600;
-}
-
-.entry__outcome {
-	padding-inline: calc(var(--default-grid-baseline) * 2);
-	border-radius: var(--border-radius-element);
-	font-size: 0.9em;
-	font-weight: 600;
-	line-height: 22px;
-	white-space: nowrap;
-}
-
-.entry__outcome_enforced {
-	background-color: var(--color-primary-element);
-	color: var(--color-primary-element-text);
-}
-
-.entry__outcome_observed {
-	border: 1px dashed var(--color-primary-element);
-	background-color: var(--color-primary-element-light);
-	color: var(--color-primary-element-light-text, var(--color-main-text));
 }
 
 .entry__relative {

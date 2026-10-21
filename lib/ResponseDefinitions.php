@@ -667,6 +667,7 @@ namespace OCA\IntrusionDetection;
  *     title: string,
  *     severity: ?string,
  *     enforced: ?bool,
+ *     outcome: 'acted'|'notified'|'recorded'|'observed'|null,
  *     details: list<string>,
  *     done: list<string>,
  *     note: ?string,
@@ -686,7 +687,7 @@ namespace OCA\IntrusionDetection;
  *     dataNote: ?string,
  *     measures: list<string>,
  *     openItems: list<string>,
- *     counts: array{entries: int, detections: int, enforced: int, observed: int},
+ *     counts: array{entries: int, detections: int, enforced: int, acted: int, observed: int},
  * }
  *
  * @psalm-type IntrusionDetectionIncidentReport = array{

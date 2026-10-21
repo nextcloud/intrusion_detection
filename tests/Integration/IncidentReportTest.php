@@ -180,6 +180,8 @@ class IncidentReportTest extends LoginFailureTestCase {
 		$detection = $report->entries[1];
 		$this->assertSame(CredentialStuffing::ID, Server::get(\OCA\IntrusionDetection\Db\DetectionMapper::class)->findById((int)$detection->ref['id'])->getCheckId());
 		$this->assertTrue($detection->enforced);
+		$this->assertSame('acted', $detection->outcome, 'the address was blocked');
+		$this->assertNull($report->entries[0]->outcome, 'only detections have an outcome');
 		$this->assertNotSame([], $detection->done);
 		$this->assertContains('Client: curl/8.0', $detection->details);
 		$this->assertStringContainsString('Our own scanner', implode(' ', $report->entries[3]->details));
@@ -304,6 +306,29 @@ class IncidentReportTest extends LoginFailureTestCase {
 
 		$detection->setEnforced(false);
 		$this->assertSame([], Server::get(\OCA\IntrusionDetection\Incident\Measures::class)->of($detection, $l), 'observed detections did nothing');
+	}
+
+	public function testADetectionThatOnlyNotifiedIsNeverSaidToBeActedOn(): void {
+		$detection = new \OCA\IntrusionDetection\Db\Detection();
+		$detection->setCheckId(CredentialStuffing::ID);
+		$detection->setSeverity('medium');
+		$detection->setEnforced(true);
+		$detection->setIp('198.51.100.21');
+		$detection->setExplanationData([]);
+		$detection->setActionList([['type' => 'notify_admin', 'enforced' => true, 'ref' => ['admins' => 1, 'emails' => 0]]]);
+		$detection->setCreatedAt(time() - 60);
+		$detection->setLastSeenAt(time() - 60);
+		$detection->setHits(1);
+		Server::get(\OCA\IntrusionDetection\Db\DetectionMapper::class)->insert($detection);
+
+		$query = $this->forAddress('198.51.100.21');
+		$this->assertSame(['notified'], array_map(static fn (TimelineEntry $e): ?string => $e->outcome, $this->report($query)->entries));
+		$l = Server::get(IFactory::class)->get(Application::APP_ID, 'en');
+		$html = $this->reports()->document($query, ReportFormat::Html, 'admin', $l)['body'];
+		$this->assertStringContainsString('Notified', $html);
+		$this->assertStringNotContainsString('Acted on', $html);
+		$json = json_decode($this->reports()->document($query, ReportFormat::Json, 'admin', $l)['body'], true, 64, JSON_THROW_ON_ERROR);
+		$this->assertSame('notified', $json['entries'][0]['outcome']);
 	}
 
 	public function testOnlyThePeriodCounts(): void {

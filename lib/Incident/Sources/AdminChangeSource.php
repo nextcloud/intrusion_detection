@@ -9,6 +9,7 @@ declare(strict_types=1);
 
 namespace OCA\IntrusionDetection\Incident\Sources;
 
+use OCA\IntrusionDetection\Admin\DetectionPresenter;
 use OCA\IntrusionDetection\Check\Checks\AdminChange;
 use OCA\IntrusionDetection\Db\Approval;
 use OCA\IntrusionDetection\Db\ApprovalMapper;
@@ -106,6 +107,7 @@ class AdminChangeSource implements ITimelineSource {
 			categories: [DataCategory::Administration],
 			followUp: $l->t('Review every administration change listed here and undo the ones that were not planned.'),
 			measures: $this->measures->of($detection, $l),
+			outcome: DetectionPresenter::outcome($detection),
 		);
 	}
 

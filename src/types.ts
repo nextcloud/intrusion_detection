@@ -604,6 +604,8 @@ export interface IncidentEntry {
 	title: string
 	severity: Severity | null
 	enforced: boolean | null
+	/** What Nextcloud did about a detection; null for other entries */
+	outcome: DetectionOutcome | null
 	details: string[]
 	done: string[]
 	note: string | null
@@ -623,7 +625,8 @@ export interface IncidentSummary {
 	dataNote: string | null
 	measures: string[]
 	openItems: string[]
-	counts: { entries: number, detections: number, enforced: number, observed: number }
+	/** enforced: not only observed; acted: an action other than a notification ran */
+	counts: { entries: number, detections: number, enforced: number, acted: number, observed: number }
 }
 
 export interface IncidentReport {

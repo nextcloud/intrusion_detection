@@ -11,6 +11,8 @@ namespace OCA\IntrusionDetection\Tests\Unit\Admin;
 
 use OCA\IntrusionDetection\Admin\DetectionPresenter;
 use OCA\IntrusionDetection\Db\Detection;
+use OCP\L10N\IFactory;
+use OCP\Server;
 use PHPUnit\Framework\Attributes\DataProvider;
 use Test\TestCase;
 
@@ -38,5 +40,13 @@ class DetectionOutcomeTest extends TestCase {
 		$detection->setEnforced($enforced);
 		$detection->setActionList($actions);
 		$this->assertSame($expected, DetectionPresenter::outcome($detection));
+	}
+
+	public function testEveryOutcomeHasTheLabelOfTheBadge(): void {
+		$l = Server::get(IFactory::class)->get('intrusion_detection', 'en');
+		$this->assertSame(
+			['Acted on', 'Notified', 'Recorded', 'Observed'],
+			array_map(static fn (string $outcome): string => DetectionPresenter::outcomeLabel($outcome, $l), ['acted', 'notified', 'recorded', 'observed']),
+		);
 	}
 }

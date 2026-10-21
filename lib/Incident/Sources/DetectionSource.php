@@ -10,6 +10,7 @@ declare(strict_types=1);
 namespace OCA\IntrusionDetection\Incident\Sources;
 
 use OCA\IntrusionDetection\Admin\CheckNames;
+use OCA\IntrusionDetection\Admin\DetectionPresenter;
 use OCA\IntrusionDetection\Db\Detection;
 use OCA\IntrusionDetection\Db\DetectionMapper;
 use OCA\IntrusionDetection\Explain\DetectionFacts;
@@ -107,6 +108,7 @@ class DetectionSource implements ITimelineSource {
 			followUp: $followUp,
 			measures: $this->measures->of($detection, $l),
 			lastSeenAt: $detection->getLastSeenAt() > $detection->getCreatedAt() ? $detection->getLastSeenAt() : null,
+			outcome: DetectionPresenter::outcome($detection),
 		);
 	}
 }

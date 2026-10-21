@@ -9,6 +9,7 @@ declare(strict_types=1);
 
 namespace OCA\IntrusionDetection\Incident;
 
+use OCA\IntrusionDetection\Admin\DetectionPresenter;
 use OCA\IntrusionDetection\AppInfo\Application;
 use OCP\IDateTimeFormatter;
 use OCP\IDateTimeZone;
@@ -127,8 +128,8 @@ class ReportRenderer {
 			if ($entry->severity !== null) {
 				$labels[] = $this->severity($entry->severity, $l);
 			}
-			if ($entry->enforced !== null) {
-				$labels[] = $entry->enforced ? $l->t('Acted on') : $l->t('Observed');
+			if ($entry->outcome !== null) {
+				$labels[] = DetectionPresenter::outcomeLabel($entry->outcome, $l);
 			}
 			$meta = [];
 			if ($entry->lastSeenAt !== null) {

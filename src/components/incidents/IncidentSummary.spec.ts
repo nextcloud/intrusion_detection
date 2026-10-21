@@ -30,9 +30,14 @@ function summary(counts: Summary['counts']): Summary {
 
 describe('the summary of an incident report', () => {
 	test('counts events and detections with a noun and the right plural', () => {
-		const many = mount(IncidentSummary, { props: { summary: summary({ entries: 3, detections: 3, enforced: 2, observed: 0 }) } })
+		const many = mount(IncidentSummary, { props: { summary: summary({ entries: 3, detections: 3, enforced: 2, acted: 2, observed: 0 }) } })
 		expect(many.get('[data-test="incident-counts"]').text()).toBe('3 events · 2 detections acted on · 0 detections only observed')
-		const one = mount(IncidentSummary, { props: { summary: summary({ entries: 1, detections: 2, enforced: 1, observed: 1 }) } })
+		const one = mount(IncidentSummary, { props: { summary: summary({ entries: 1, detections: 2, enforced: 1, acted: 1, observed: 1 }) } })
 		expect(one.get('[data-test="incident-counts"]').text()).toBe('1 event · 1 detection acted on · 1 detection only observed')
+	})
+
+	test('detections that only notified or were only recorded are not counted as acted on', () => {
+		const wrapper = mount(IncidentSummary, { props: { summary: summary({ entries: 4, detections: 4, enforced: 3, acted: 1, observed: 1 }) } })
+		expect(wrapper.get('[data-test="incident-counts"]').text()).toBe('4 events · 1 detection acted on · 2 detections only notified or recorded · 1 detection only observed')
 	})
 })

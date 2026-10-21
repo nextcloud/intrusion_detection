@@ -25,12 +25,14 @@ const facts = computed(() => [
 ])
 
 const counts = computed(() => {
-	const { entries, enforced, observed } = props.summary.counts
+	const { entries, enforced, acted, observed } = props.summary.counts
+	const told = enforced - acted
 	return [
 		n(APP_ID, '{count} event', '{count} events', entries, { count: formatNumber(entries) }),
-		n(APP_ID, '{count} detection acted on', '{count} detections acted on', enforced, { count: formatNumber(enforced) }),
+		n(APP_ID, '{count} detection acted on', '{count} detections acted on', acted, { count: formatNumber(acted) }),
+		told > 0 ? n(APP_ID, '{count} detection only notified or recorded', '{count} detections only notified or recorded', told, { count: formatNumber(told) }) : null,
 		n(APP_ID, '{count} detection only observed', '{count} detections only observed', observed, { count: formatNumber(observed) }),
-	].join(' · ')
+	].filter((part) => part !== null).join(' · ')
 })
 
 const sections = computed(() => [

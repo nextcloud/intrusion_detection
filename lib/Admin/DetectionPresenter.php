@@ -109,6 +109,18 @@ class DetectionPresenter {
 	}
 
 	/**
+	 * The outcome as the badge shows it: "Acted on", "Notified", "Recorded" or "Observed".
+	 */
+	public static function outcomeLabel(string $outcome, IL10N $l): string {
+		return match ($outcome) {
+			'acted' => $l->t('Acted on'),
+			'notified' => $l->t('Notified'),
+			'recorded' => $l->t('Recorded'),
+			default => $l->t('Observed'),
+		};
+	}
+
+	/**
 	 * @param list<Detection> $detections
 	 * @return list<IntrusionDetectionDetection>
 	 */

@@ -23,6 +23,7 @@ function entry(overrides: Partial<Entry> = {}): Entry {
 		title: 'Trap URLs',
 		severity: 'low',
 		enforced: true,
+		outcome: 'acted',
 		details: ['The address requested a trap.'],
 		done: [],
 		note: null,
@@ -50,6 +51,13 @@ describe('an entry of the incident timeline', () => {
 		const wrapper = mount(IncidentEntry, { props: { entry: entry({ kind: 'block', endsAt: 1_790_014_400, ref: { type: 'block', id: '2S8X-AXQ6' } }), kindLabel: 'Blocks', expanded: true } })
 		expect(wrapper.findAll('dt').map((term) => term.text())).toEqual(['Until', 'Address', 'Reference'])
 		expect(wrapper.get('dl > div:last-child code').text()).toBe('2S8X-AXQ6')
+	})
+
+	test('a detection says what Nextcloud did, and other entries say nothing about it', () => {
+		const badge = (overrides: Partial<Entry>) => mount(IncidentEntry, { props: { entry: entry(overrides), kindLabel: 'Detections' } }).find('[data-test="outcome"]')
+		expect(badge({ outcome: 'recorded' }).text()).toBe('Recorded')
+		expect(badge({ outcome: 'notified' }).text()).toBe('Notified')
+		expect(badge({ kind: 'login', enforced: null, outcome: null }).exists()).toBe(false)
 	})
 
 	test('internal ids are not shown', () => {

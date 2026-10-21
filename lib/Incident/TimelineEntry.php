@@ -9,6 +9,8 @@ declare(strict_types=1);
 
 namespace OCA\IntrusionDetection\Incident;
 
+use OCA\IntrusionDetection\Admin\DetectionPresenter;
+
 /**
  * One event on the timeline of an incident report.
  *
@@ -30,6 +32,7 @@ final class TimelineEntry {
 	 * @param ?int $endsAt for states with an end, such as blocks: when they end or ended
 	 * @param ?string $severity low, medium, high or critical; null for events without one
 	 * @param ?bool $enforced for detections: whether Nextcloud acted, or only observed
+	 * @param 'acted'|'notified'|'recorded'|'observed'|null $outcome for detections: what Nextcloud did, see {@see DetectionPresenter::outcome()}
 	 * @param list<string> $details what happened, sentence by sentence
 	 * @param list<string> $done what Nextcloud did (or would have done)
 	 * @param ?string $note why nothing was done, or another remark
@@ -60,6 +63,7 @@ final class TimelineEntry {
 		public readonly ?string $followUp = null,
 		public readonly ?array $measures = null,
 		public readonly ?int $lastSeenAt = null,
+		public readonly ?string $outcome = null,
 	) {
 	}
 
@@ -72,7 +76,7 @@ final class TimelineEntry {
 	}
 
 	/**
-	 * @return array{id: string, at: int, endsAt: ?int, lastSeenAt: ?int, kind: string, group: string, title: string, severity: ?string, enforced: ?bool, details: list<string>, done: list<string>, note: ?string, address: ?string, accounts: list<string>, ref: ?array{type: string, id: string}}
+	 * @return array{id: string, at: int, endsAt: ?int, lastSeenAt: ?int, kind: string, group: string, title: string, severity: ?string, enforced: ?bool, outcome: 'acted'|'notified'|'recorded'|'observed'|null, details: list<string>, done: list<string>, note: ?string, address: ?string, accounts: list<string>, ref: ?array{type: string, id: string}}
 	 */
 	public function toArray(): array {
 		return [
@@ -85,6 +89,7 @@ final class TimelineEntry {
 			'title' => $this->title,
 			'severity' => $this->severity,
 			'enforced' => $this->enforced,
+			'outcome' => $this->outcome,
 			'details' => $this->details,
 			'done' => $this->done,
 			'note' => $this->note,

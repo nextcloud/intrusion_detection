@@ -135,7 +135,8 @@ class IncidentReportBuilder {
 	private function summarise(IncidentQuery $query, array $entries, bool $truncated, IL10N $l): ReportSummary {
 		$detections = array_values(array_filter($entries, static fn (TimelineEntry $e): bool => $e->kind === DetectionSource::KIND));
 		$enforced = count(array_filter($detections, static fn (TimelineEntry $e): bool => $e->enforced === true));
-		$counts = ['entries' => count($entries), 'detections' => count($detections), 'enforced' => $enforced, 'observed' => count($detections) - $enforced];
+		$acted = count(array_filter($detections, static fn (TimelineEntry $e): bool => $e->outcome === 'acted'));
+		$counts = ['entries' => count($entries), 'detections' => count($detections), 'enforced' => $enforced, 'acted' => $acted, 'observed' => count($detections) - $enforced];
 
 		$since = $this->dates->dateTime($query->since);
 		$until = $this->dates->dateTime($query->until);
@@ -149,7 +150,9 @@ class IncidentReportBuilder {
 				? $l->n('Nextcloud recorded %n event about the account %1$s between %2$s and %3$s.', 'Nextcloud recorded %n events about the account %1$s between %2$s and %3$s.', count($entries), [$subject, $since, $until])
 				: $l->n('Nextcloud recorded %n event about the address %1$s between %2$s and %3$s.', 'Nextcloud recorded %n events about the address %1$s between %2$s and %3$s.', count($entries), [$subject, $since, $until]);
 			if ($detections !== []) {
-				$headline .= ' ' . $l->t('Detections: %1$s (acted on: %2$s, only observed: %3$s).', [(string)$counts['detections'], (string)$counts['enforced'], (string)$counts['observed']]);
+				$headline .= ' ' . ($enforced > $acted
+					? $l->t('Detections: %1$s (acted on: %2$s, only notified or recorded: %3$s, only observed: %4$s).', [(string)$counts['detections'], (string)$acted, (string)($enforced - $acted), (string)$counts['observed']])
+					: $l->t('Detections: %1$s (acted on: %2$s, only observed: %3$s).', [(string)$counts['detections'], (string)$acted, (string)$counts['observed']]));
 			}
 		}
 
