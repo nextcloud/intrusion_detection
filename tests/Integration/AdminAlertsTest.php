@@ -9,6 +9,7 @@ declare(strict_types=1);
 
 namespace OCA\IntrusionDetection\Tests\Integration;
 
+use OC\Memcache\ArrayCache;
 use OCA\IntrusionDetection\Check\CheckRegistry;
 use OCA\IntrusionDetection\Check\Checks\CredentialStuffing;
 use OCA\IntrusionDetection\Check\Severity;
@@ -27,6 +28,9 @@ use OCA\IntrusionDetection\Notification\Mails;
 use OCA\IntrusionDetection\Notification\Notifier;
 use OCA\IntrusionDetection\Response\Handlers\NotifyAdminHandler;
 use OCP\AppFramework\Utility\ITimeFactory;
+use OCP\ICacheFactory;
+use OCP\IGroup;
+use OCP\IGroupManager;
 use OCP\IUser;
 use OCP\L10N\IFactory;
 use OCP\Notification\IManager as INotificationManager;
@@ -163,6 +167,27 @@ class AdminAlertsTest extends IntegrationTestCase {
 		$this->assertSame([], $this->mailed);
 		// The email slot is not used up, so the next admin with an address still gets one.
 		$this->assertSame(AdminAlerts::EMAIL_SENT, $this->alerts->alert($this->detection('198.51.100.8', Severity::Critical))['email']);
+	}
+
+	public function testAdminsWithoutEmailAreNotLookedUpAgainForAMinute(): void {
+		$group = $this->createMock(IGroup::class);
+		$group->expects($this->once())->method('searchUsers')->willReturn([$this->admin('carol', null)]);
+		$groups = $this->createMock(IGroupManager::class);
+		$groups->method('get')->willReturn($group);
+		$cache = new ArrayCache('ids-test-recipients');
+		$factory = $this->createMock(ICacheFactory::class);
+		$factory->method('isLocalCacheAvailable')->willReturn(true);
+		$factory->method('createLocal')->willReturn($cache);
+		$recipients = new AdminRecipients(Server::get(Settings::class), $groups, $factory);
+		$alerts = new AdminAlerts(
+			Server::get(AlertMapper::class), $recipients, $this->notifications, $this->mails, Server::get(Settings::class),
+			Server::get(NarrativeBuilder::class), Server::get(CheckRegistry::class), Server::get(IFactory::class),
+			Server::get(AdminLinks::class), Server::get(ITimeFactory::class),
+		);
+		$this->assertSame(AdminAlerts::EMAIL_NO_ADDRESS, $alerts->alert($this->detection('198.51.100.7', Severity::Critical))['email']);
+		for ($i = 0; $i < 5; $i++) {
+			$this->assertSame(AdminAlerts::EMAIL_NO_ADDRESS, $alerts->alert($this->detection('198.51.100.7', Severity::Critical))['email']);
+		}
 	}
 
 	public function testAnEmailThatCouldNotBeSentIsNotBlamedOnMissingAddresses(): void {

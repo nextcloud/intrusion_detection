@@ -69,8 +69,9 @@ class BanHandler implements IResponseHandler, IDescribesAction {
 				$counts['lure']++;
 				continue;
 			}
-			$result = $this->bans->ban($target, $draft->checkId, $context->detection->getId(), $draft->banLevel);
-			if (($result->outcome === BanResult::SKIPPED_SHARED || $result->outcome === BanResult::SKIPPED_PROXY) && $draft->checkId !== SharedAddress::ID) {
+			$result = $this->bans->ban($target, $draft->checkId, $context->detection->getId(), $draft->banLevel, $draft->uid);
+			if (($result->outcome === BanResult::SKIPPED_SHARED || $result->outcome === BanResult::SKIPPED_PROXY) && $draft->checkId !== SharedAddress::ID
+				&& $this->bans->firstReport($target)) {
 				$this->reportShared($draft, $target, $result->sharedUsers, $result->outcome === BanResult::SKIPPED_PROXY);
 			}
 			if ($result->ban === null) {
@@ -133,15 +134,15 @@ class BanHandler implements IResponseHandler, IDescribesAction {
 		}
 		if ((int)($counts['trusted'] ?? 0) > 0) {
 			$sentences[] = $l->n(
-				'%n address was not blocked: within the last 7 days someone confirmed a login from it, or an administrator logged in from it.',
-				'%n addresses were not blocked: within the last 7 days someone confirmed a login from them, or an administrator logged in from them.',
+				'%n address was not blocked: within the last 7 days an administrator logged in from it, or the account the detection is about confirmed a login from it.',
+				'%n addresses were not blocked: within the last 7 days an administrator logged in from them, or the account the detection is about confirmed a login from them.',
 				(int)$counts['trusted'],
 			);
 		}
 		if ((int)($counts['proxy'] ?? 0) > 0) {
 			$sentences[] = $l->n(
-				'%n address was not blocked: it is a private address many people log in from while no trusted proxies are configured, so it is probably your reverse proxy.',
-				'%n addresses were not blocked: they are private addresses many people log in from while no trusted proxies are configured, so they are probably your reverse proxy.',
+				'%n address was not blocked: it is a private address several people or an administrator log in from while no trusted proxies are configured, so it is probably your reverse proxy.',
+				'%n addresses were not blocked: they are private addresses several people or an administrator log in from while no trusted proxies are configured, so they are probably your reverse proxy.',
 				(int)$counts['proxy'],
 			);
 		}

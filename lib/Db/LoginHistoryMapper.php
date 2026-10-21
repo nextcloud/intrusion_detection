@@ -12,6 +12,7 @@ namespace OCA\IntrusionDetection\Db;
 use OCA\IntrusionDetection\LoginHistory\LoginHistory;
 use OCA\IntrusionDetection\LoginHistory\LoginHistoryEntry;
 use OCA\IntrusionDetection\Net\SourceKey;
+use OCP\DB\QueryBuilder\ICompositeExpression;
 use OCP\DB\QueryBuilder\IQueryBuilder;
 use OCP\IDBConnection;
 
@@ -203,40 +204,66 @@ class LoginHistoryMapper {
 	}
 
 	/**
-	 * The latest logins from an address (`ip`) or networks (`net_key`) since
-	 * a time that were not refused or left unconfirmed, newest first: for
-	 * each its account and whether the login was confirmed (a second
-	 * factor, an email code, admin approval or a remembered device).
+	 * The different accounts with logins from an address (`ip`) or networks
+	 * (`net_key`) since a time that were not refused or left unconfirmed, at
+	 * most `$limit`. Distinct, so that the many logins of one client never
+	 * hide another account.
 	 *
 	 * @param 'ip'|'net_key' $column
-	 * @return list<array{uid: string, confirmed: bool}>
+	 * @return list<string>
 	 */
-	public function acceptedFrom(string $column, KeyMatch $keys, int $since, int $limit): array {
+	public function acceptedUidsFrom(string $column, KeyMatch $keys, int $since, int $limit): array {
 		$qb = $this->db->getQueryBuilder();
-		$qb->select('uid', 'confirmed_by', 'known_device')
+		$qb->selectDistinct('uid')
 			->from(self::TABLE)
 			->where($keys->condition($qb, $column))
 			->andWhere($qb->expr()->gte('created_at', $qb->createNamedParameter($since, IQueryBuilder::PARAM_INT)))
-			->andWhere($qb->expr()->orX(
-				$qb->expr()->isNull('step_up'),
-				$qb->expr()->in('step_up', $qb->createNamedParameter([LoginHistory::STEP_UP_CONFIRMED, LoginHistory::STEP_UP_ALLOWED], IQueryBuilder::PARAM_STR_ARRAY)),
-			))
-			->orderBy('created_at', 'DESC')
+			->andWhere($this->accepted($qb))
 			->setMaxResults($limit);
 		$result = $qb->executeQuery();
-		$rows = [];
-		while ($row = $result->fetch()) {
-			$rows[] = [
-				'uid' => (string)$row['uid'],
-				'confirmed' => (bool)$row['known_device'] || ($row['confirmed_by'] ?? LoginHistory::CONFIRMED_BY_NONE) !== LoginHistory::CONFIRMED_BY_NONE,
-			];
-		}
+		$uids = array_map('strval', $result->fetchFirstColumn());
 		$result->closeCursor();
-		return $rows;
+		return $uids;
+	}
+
+	/**
+	 * Whether the account confirmed a login (a second factor, an email code,
+	 * admin approval or a remembered device) from an address (`ip`) or
+	 * networks (`net_key`) since a time.
+	 *
+	 * @param 'ip'|'net_key' $column
+	 */
+	public function hasConfirmedLogin(string $uid, string $column, KeyMatch $keys, int $since): bool {
+		$qb = $this->db->getQueryBuilder();
+		$qb->select('id')
+			->from(self::TABLE)
+			->where($qb->expr()->eq('uid', $qb->createNamedParameter($uid)))
+			->andWhere($qb->expr()->gte('created_at', $qb->createNamedParameter($since, IQueryBuilder::PARAM_INT)))
+			->andWhere($keys->condition($qb, $column))
+			->andWhere($this->accepted($qb))
+			->andWhere($qb->expr()->orX(
+				$qb->expr()->eq('known_device', $qb->createNamedParameter(true, IQueryBuilder::PARAM_BOOL)),
+				$qb->expr()->neq('confirmed_by', $qb->createNamedParameter(LoginHistory::CONFIRMED_BY_NONE)),
+			))
+			->setMaxResults(1);
+		$result = $qb->executeQuery();
+		$found = $result->fetchOne() !== false;
+		$result->closeCursor();
+		return $found;
 	}
 
 	public function deleteOlderThan(int $before): int {
 		return BatchedDelete::run($this->db, self::TABLE, 'id', static fn (IQueryBuilder $qb): IQueryBuilder => $qb->where($qb->expr()->lt('created_at', $qb->createNamedParameter($before, IQueryBuilder::PARAM_INT))));
+	}
+
+	/**
+	 * Logins that were not refused or left unconfirmed.
+	 */
+	private function accepted(IQueryBuilder $qb): ICompositeExpression {
+		return $qb->expr()->orX(
+			$qb->expr()->isNull('step_up'),
+			$qb->expr()->in('step_up', $qb->createNamedParameter([LoginHistory::STEP_UP_CONFIRMED, LoginHistory::STEP_UP_ALLOWED], IQueryBuilder::PARAM_STR_ARRAY)),
+		);
 	}
 
 	/**

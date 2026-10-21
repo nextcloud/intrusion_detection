@@ -141,12 +141,13 @@ class BanHandlerTest extends TestCase {
 		$this->assertSame(ResponseOutcome::NOTE_HELD_BACK, $outcome->note);
 		$this->assertSame(1, $outcome->ref['counts']['trusted']);
 		$sentences = $this->handler($bans)->describeAction(['type' => 'ban', 'enforced' => false, 'note' => $outcome->note, 'ref' => $outcome->ref], $this->l, $this->dates);
-		$this->assertSame(['1 address was not blocked: within the last 7 days someone confirmed a login from it, or an administrator logged in from it.'], $sentences);
+		$this->assertSame(['1 address was not blocked: within the last 7 days an administrator logged in from it, or the account the detection is about confirmed a login from it.'], $sentences);
 	}
 
 	public function testAnUnconfiguredProxyIsReportedAsASharedAddress(): void {
 		$bans = $this->createMock(BanService::class);
 		$bans->method('ban')->willReturn(new BanResult(BanResult::SKIPPED_PROXY, sharedUsers: 4));
+		$bans->method('firstReport')->willReturn(true);
 		$engine = $this->createMock(ResponseEngine::class);
 		$engine->expects($this->once())->method('handle')->with($this->callback(
 			static fn (DetectionDraft $draft): bool => $draft->checkId === SharedAddress::ID && $draft->facts === ['users' => 4, 'wantedBy' => 'trap_url', 'proxy' => true],
@@ -157,6 +158,22 @@ class BanHandlerTest extends TestCase {
 		$outcome = $handler->apply($this->context());
 		$this->assertSame(1, $outcome->ref['counts']['proxy']);
 		$this->assertSame(ResponseOutcome::NOTE_HELD_BACK, $outcome->note);
+	}
+
+	public function testAHeldBackAddressIsReportedOncePerMinute(): void {
+		$bans = $this->createMock(BanService::class);
+		$bans->method('ban')->willReturn(new BanResult(BanResult::SKIPPED_SHARED, sharedUsers: 6));
+		$bans->method('firstReport')->willReturn(false);
+		$container = $this->createMock(ContainerInterface::class);
+		$container->expects($this->never())->method('get');
+		$outcome = (new BanHandler($bans, $container))->apply($this->context());
+		$this->assertSame(1, $outcome->ref['counts']['skipped']);
+	}
+
+	public function testTheBanKnowsTheAccountOfTheDetection(): void {
+		$bans = $this->createMock(BanService::class);
+		$bans->expects($this->once())->method('ban')->with(SourceKey::fromIp('198.51.100.7'), 'account_under_attack', 5, null, 'alice')->willReturn(new BanResult(BanResult::BANNED, $this->ban()));
+		$this->handler($bans)->apply($this->context(new DetectionDraft(checkId: 'account_under_attack', source: SourceKey::fromIp('198.51.100.7'), uid: 'alice')));
 	}
 
 	private function handler(BanService $bans): BanHandler {

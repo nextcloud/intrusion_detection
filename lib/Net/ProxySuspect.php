@@ -63,6 +63,14 @@ class ProxySuspect {
 		return $count >= self::MIN_USERS ? $count : 0;
 	}
 
+	/**
+	 * Whether no trusted proxy is configured.
+	 */
+	public function unconfigured(): bool {
+		$proxies = $this->config->getSystemValue('trusted_proxies', []);
+		return !is_array($proxies) || $proxies === [];
+	}
+
 	public static function isPrivate(SourceKey $source): bool {
 		return $source->isLoopback()
 			|| filter_var($source->ip, FILTER_VALIDATE_IP, FILTER_FLAG_NO_PRIV_RANGE | FILTER_FLAG_NO_RES_RANGE) === false;
@@ -72,8 +80,7 @@ class ProxySuspect {
 	 * @return array<string, int> accounts per private ip key, empty with trusted proxies configured
 	 */
 	private function accountsPerPrivateAddress(): array {
-		$proxies = $this->config->getSystemValue('trusted_proxies', []);
-		if (is_array($proxies) && $proxies !== []) {
+		if (!$this->unconfigured()) {
 			return [];
 		}
 		/** @var array<string, array<string, true>> $users */

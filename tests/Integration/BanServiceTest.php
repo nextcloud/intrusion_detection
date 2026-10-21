@@ -31,6 +31,7 @@ use OCA\IntrusionDetection\Response\BanResult;
 use OCA\IntrusionDetection\Response\BanService;
 use OCA\IntrusionDetection\Response\FlaggedSources;
 use OCP\AppFramework\Utility\ITimeFactory;
+use OCP\ICacheFactory;
 use OCP\IConfig;
 use OCP\IGroupManager;
 use OCP\IRequest;
@@ -233,24 +234,57 @@ class BanServiceTest extends IntegrationTestCase {
 		}
 	}
 
+	public function testAnAdministratorsAddressIsNotBlockedAutomatically(): void {
+		$source = SourceKey::fromIp('198.51.100.7');
+		Server::get(LoginHistoryMapper::class)->insert('admin', time() - 3 * 86400, $source, null, 'password', false, 'none', null, null);
+		$this->assertSame(BanResult::SKIPPED_TRUSTED, $this->bans->ban($source, 'credential_stuffing')->outcome);
+		$this->assertSame('198.51.100.7/32', $this->bans->banManually('198.51.100.7', 1, 'admin', null)->getCidr(), 'By hand it still works');
+	}
+
 	/**
-	 * @return array<string, array{string, bool, string, ?string}>
+	 * @return array<string, array{string}>
 	 */
-	public static function trustedLogins(): array {
+	public static function neverTrustedChecks(): array {
+		return ['a trap URL' => ['trap_url'], 'an injection probe' => ['injection_probe']];
+	}
+
+	#[DataProvider('neverTrustedChecks')]
+	public function testNoLoginExemptsFromTrapsAndProbes(string $checkId): void {
+		$source = SourceKey::fromIp('198.51.100.7');
+		$history = Server::get(LoginHistoryMapper::class);
+		$history->insert('admin', time() - 3600, $source, null, 'password', false, 'none', null, null);
+		$history->insert('alice', time() - 3600, $source, null, 'password', true, 'second_factor', 'confirmed', null);
+		$this->assertSame(BanResult::BANNED, $this->bans->ban($source, $checkId, uid: 'alice')->outcome);
+	}
+
+	/**
+	 * @return array<string, array{bool, string, ?string}>
+	 */
+	public static function confirmedLogins(): array {
 		return [
-			'second factor' => ['alice', false, 'second_factor', 'confirmed'],
-			'email code' => ['alice', false, 'email_code', 'confirmed'],
-			'remembered device' => ['alice', true, 'none', null],
-			'administrator' => ['admin', false, 'none', null],
+			'second factor' => [false, 'second_factor', 'confirmed'],
+			'email code' => [false, 'email_code', 'confirmed'],
+			'remembered device' => [true, 'none', null],
 		];
 	}
 
-	#[DataProvider('trustedLogins')]
-	public function testAddressesOfTrustedLoginsAreNeverBlockedAutomatically(string $uid, bool $knownDevice, string $confirmedBy, ?string $stepUp): void {
+	#[DataProvider('confirmedLogins')]
+	public function testAConfirmedLoginOnlyExemptsFromAttacksOnTheSameAccount(bool $knownDevice, string $confirmedBy, ?string $stepUp): void {
 		$source = SourceKey::fromIp('198.51.100.7');
-		Server::get(LoginHistoryMapper::class)->insert($uid, time() - 3 * 86400, $source, null, 'password', $knownDevice, $confirmedBy, $stepUp, null);
-		$this->assertSame(BanResult::SKIPPED_TRUSTED, $this->bans->ban($source, 'trap_url')->outcome);
-		$this->assertSame('198.51.100.7/32', $this->bans->banManually('198.51.100.7', 1, 'admin', null)->getCidr(), 'By hand it still works');
+		Server::get(LoginHistoryMapper::class)->insert('alice', time() - 3 * 86400, $source, null, 'password', $knownDevice, $confirmedBy, $stepUp, null);
+		$this->assertSame(BanResult::SKIPPED_TRUSTED, $this->bans->ban($source, 'account_under_attack', uid: 'alice')->outcome, 'Alice\'s own device with an old password');
+		$this->assertSame(BanResult::BANNED, $this->bans->ban($source, 'account_under_attack', uid: 'bob')->outcome, 'An attack on someone else');
+	}
+
+	#[DataProvider('confirmedLogins')]
+	public function testAConfirmedLoginDoesNotExemptFromChecksAboutManyAccounts(bool $knownDevice, string $confirmedBy, ?string $stepUp): void {
+		$source = SourceKey::fromIp('198.51.100.7');
+		// Anyone can register an account and confirm a login with it.
+		Server::get(LoginHistoryMapper::class)->insert('self-registered', time() - 3600, $source, null, 'password', $knownDevice, $confirmedBy, $stepUp, null);
+		foreach (['credential_stuffing', 'password_spraying', 'share_bruteforce', 'decoy_credential'] as $checkId) {
+			$this->assertSame(BanResult::BANNED, $this->freshService()->ban($source, $checkId, uid: 'self-registered')->outcome, $checkId);
+			$this->db->getQueryBuilder()->delete(BanMapper::TABLE)->executeStatement();
+		}
 	}
 
 	/**
@@ -259,7 +293,8 @@ class BanServiceTest extends IntegrationTestCase {
 	public static function untrustedLogins(): array {
 		return [
 			'a plain password login' => ['alice', 'none', null, 3600],
-			'a refused confirmation' => ['admin', 'none', 'refused', 3600],
+			'a refused confirmation' => ['alice', 'second_factor', 'refused', 3600],
+			'a refused administrator' => ['admin', 'none', 'refused', 3600],
 			'a pending confirmation' => ['alice', 'second_factor', 'pending', 3600],
 			'a confirmation 8 days ago' => ['alice', 'second_factor', 'confirmed', 8 * 86400],
 		];
@@ -269,21 +304,69 @@ class BanServiceTest extends IntegrationTestCase {
 	public function testOtherLoginsDoNotProtectAnAddress(string $uid, string $confirmedBy, ?string $stepUp, int $age): void {
 		$source = SourceKey::fromIp('198.51.100.7');
 		Server::get(LoginHistoryMapper::class)->insert($uid, time() - $age, $source, null, 'password', false, $confirmedBy, $stepUp, null);
-		$this->assertSame(BanResult::BANNED, $this->bans->ban($source, 'trap_url')->outcome);
+		$this->assertSame(BanResult::BANNED, $this->bans->ban($source, 'account_under_attack', uid: $uid)->outcome);
+	}
+
+	public function testManyClientLoginsDoNotHideAnAdministrator(): void {
+		$source = SourceKey::fromIp('198.51.100.7');
+		$history = Server::get(LoginHistoryMapper::class);
+		$history->insert('admin', time() - 2 * 86400, $source, null, 'password', false, 'none', null, null);
+		for ($i = 0; $i < 120; $i++) {
+			$history->insert('alice', time() - $i * 60, $source, null, 'app_password', false, 'none', null, null);
+		}
+		$this->assertSame(BanResult::SKIPPED_TRUSTED, $this->bans->ban($source, 'credential_stuffing')->outcome);
 	}
 
 	public function testAConfirmedLoginInTheSlash64ProtectsIpv6(): void {
 		Server::get(LoginHistoryMapper::class)->insert('alice', time(), SourceKey::fromIp('2001:db8:1:2::5'), null, 'password', false, 'email_code', 'confirmed', null);
-		$this->assertSame(BanResult::SKIPPED_TRUSTED, $this->bans->ban(SourceKey::fromIp('2001:db8:1:2::99'), 'trap_url')->outcome);
+		$this->assertSame(BanResult::SKIPPED_TRUSTED, $this->bans->ban(SourceKey::fromIp('2001:db8:1:2::99'), 'account_under_attack', uid: 'alice')->outcome);
 	}
 
-	public function testAConfirmedLoginInTheNetworkKeepsItUnblocked(): void {
-		Server::get(LoginHistoryMapper::class)->insert('alice', time(), SourceKey::fromIp('198.51.100.200'), null, 'password', false, 'second_factor', 'confirmed', null);
+	public function testAnAdministratorInTheNetworkKeepsItUnblocked(): void {
+		Server::get(LoginHistoryMapper::class)->insert('admin', time(), SourceKey::fromIp('198.51.100.200'), null, 'password', false, 'none', null, null);
 		foreach ([1, 2, 3] as $last) {
-			$result = $this->bans->ban(SourceKey::fromIp('198.51.100.' . $last), 'trap_url');
+			$result = $this->bans->ban(SourceKey::fromIp('198.51.100.' . $last), 'credential_stuffing');
 			$this->assertSame(BanResult::BANNED, $result->outcome);
 		}
 		$this->assertNull($result->netBan);
+	}
+
+	public function testAConfirmedLoginInTheNetworkDoesNotKeepItUnblockedForOthers(): void {
+		Server::get(LoginHistoryMapper::class)->insert('alice', time(), SourceKey::fromIp('198.51.100.200'), null, 'password', false, 'second_factor', 'confirmed', null);
+		foreach ([1, 2, 3] as $last) {
+			$result = $this->bans->ban(SourceKey::fromIp('198.51.100.' . $last), 'credential_stuffing');
+		}
+		$this->assertSame('198.51.100.0/24', $result->netBan?->getCidr());
+	}
+
+	/**
+	 * @return array<string, array{string}>
+	 */
+	public static function anyCheck(): array {
+		return ['a trap URL' => ['trap_url'], 'credential stuffing' => ['credential_stuffing']];
+	}
+
+	#[DataProvider('anyCheck')]
+	public function testAPrivateAddressAnAdministratorUsesIsNotBlockedWithoutTrustedProxies(string $checkId): void {
+		// A small server behind a reverse proxy nobody configured: every request comes from the proxy.
+		$proxy = SourceKey::fromIp('192.168.1.2');
+		$history = Server::get(LoginHistoryMapper::class);
+		$history->insert('admin', time() - 6 * 86400, $proxy, null, 'password', false, 'none', null, null);
+		for ($i = 0; $i < 60; $i++) {
+			$history->insert('alice', time() - $i * 60, $proxy, null, 'app_password', false, 'none', null, null);
+		}
+		$result = $this->bans->ban($proxy, $checkId);
+		$this->assertSame(BanResult::SKIPPED_PROXY, $result->outcome);
+		$this->assertSame(2, $result->sharedUsers);
+
+		$config = Server::get(IConfig::class);
+		$config->setSystemValue('trusted_proxies', ['10.0.0.1']);
+		try {
+			$expected = $checkId === 'trap_url' ? BanResult::BANNED : BanResult::SKIPPED_TRUSTED;
+			$this->assertSame($expected, $this->freshService()->ban($proxy, $checkId)->outcome, 'With trusted proxies, the address is a person');
+		} finally {
+			$config->deleteSystemValue('trusted_proxies');
+		}
 	}
 
 	public function testAnUnconfiguredReverseProxyIsNotBlocked(): void {
@@ -331,12 +414,12 @@ class BanServiceTest extends IntegrationTestCase {
 	}
 
 	public function testIpv6NetworksFollowTheSafetyRules(): void {
-		Server::get(LoginHistoryMapper::class)->insert('alice', time(), SourceKey::fromIp('2001:db8:1:2a50::5'), null, 'password', true, 'known_device', null, null);
+		Server::get(LoginHistoryMapper::class)->insert('admin', time(), SourceKey::fromIp('2001:db8:1:2a50::5'), null, 'password', true, 'known_device', null, null);
 		foreach (['2001:db8:1:2a01::1', '2001:db8:1:2a02::1', '2001:db8:1:2a03::1'] as $ip) {
-			$result = $this->bans->ban(SourceKey::fromIp($ip), 'trap_url');
+			$result = $this->bans->ban(SourceKey::fromIp($ip), 'credential_stuffing');
 			$this->assertSame(BanResult::BANNED, $result->outcome);
 		}
-		$this->assertNull($result->netBan, 'Someone confirmed a login from the /56');
+		$this->assertNull($result->netBan, 'An administrator logged in from the /56');
 	}
 
 	/**
@@ -457,6 +540,7 @@ class BanServiceTest extends IntegrationTestCase {
 				Server::get(ProxySuspect::class),
 				$ranges,
 				Server::get(IGroupManager::class),
+				Server::get(ICacheFactory::class),
 			),
 			Server::get(Settings::class),
 			Server::get(AddressCache::class),

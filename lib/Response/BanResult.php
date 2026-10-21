@@ -18,9 +18,9 @@ final class BanResult {
 	public const SKIPPED_BYPASS = 'bypass';
 	public const SKIPPED_NEVER = 'never';
 	public const SKIPPED_SHARED = 'shared';
-	/** A private address that is probably the reverse proxy, while no trusted proxy is configured */
+	/** A private address that is probably the reverse proxy (many people or an administrator log in from it), while no trusted proxy is configured */
 	public const SKIPPED_PROXY = 'proxy';
-	/** Someone confirmed a login from it recently, or an administrator logged in from it */
+	/** An administrator logged in from it recently, or the account the detection is about confirmed a login from it */
 	public const SKIPPED_TRUSTED = 'trusted';
 
 	/**

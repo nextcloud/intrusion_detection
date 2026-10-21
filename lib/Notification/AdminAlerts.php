@@ -82,8 +82,9 @@ class AdminAlerts {
 		[$alertId, $first] = $this->alerts->hit($checkId, self::sourceKey($detection), $bucket, $detection->getId(), $now);
 		// Group members are only looked up when a notification or an email is sent.
 		$recipients = null;
-		$load = function () use (&$recipients, $detection): array {
-			return $recipients ??= $this->recipients->users(($detection->getExplanationData()['facts'][self::FACT_ALL_ADMINS] ?? false) === true);
+		$allAdmins = ($detection->getExplanationData()['facts'][self::FACT_ALL_ADMINS] ?? false) === true;
+		$load = function () use (&$recipients, $allAdmins): array {
+			return $recipients ??= $this->recipients->users($allAdmins);
 		};
 
 		if ($first) {
@@ -103,7 +104,7 @@ class AdminAlerts {
 			}
 		}
 
-		$email = $this->email($detection, $load, $bucket, $now);
+		$email = $this->email($detection, $load, $allAdmins, $bucket, $now);
 		$counter = $this->alerts->find($alertId);
 		return [
 			'alert' => $alertId,
@@ -166,7 +167,7 @@ class AdminAlerts {
 	/**
 	 * @param \Closure(): list<IUser> $recipients
 	 */
-	private function email(Detection $detection, \Closure $recipients, int $bucket, int $now): string {
+	private function email(Detection $detection, \Closure $recipients, bool $allAdmins, int $bucket, int $now): string {
 		$minimum = Severity::tryFrom((string)$this->settings->global(GlobalSettings::NOTIFY_ADMIN_EMAIL_MIN_SEVERITY));
 		$severity = Severity::tryFrom($detection->getSeverity());
 		if ($minimum === null || $severity === null || !$severity->atLeast($minimum)) {
@@ -178,9 +179,13 @@ class AdminAlerts {
 		if ($this->alerts->exists($detection->getCheckId(), $mailKey, $bucket)) {
 			return self::EMAIL_LIMITED;
 		}
-		$withAddress = array_values(array_filter($recipients(), static fn (IUser $u): bool => (string)$u->getEMailAddress() !== ''));
 		// Without an address the hour's email is not used up, so an admin who adds one still gets it.
+		if ($this->recipients->knownWithoutEmail($allAdmins)) {
+			return self::EMAIL_NO_ADDRESS;
+		}
+		$withAddress = array_values(array_filter($recipients(), static fn (IUser $u): bool => (string)$u->getEMailAddress() !== ''));
 		if ($withAddress === []) {
+			$this->recipients->rememberWithoutEmail($allAdmins);
 			return self::EMAIL_NO_ADDRESS;
 		}
 		[, $first] = $this->alerts->hit($detection->getCheckId(), $mailKey, $bucket, $detection->getId(), $now);

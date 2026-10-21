@@ -38,8 +38,8 @@ use OCP\Security\ISecureRandom;
  *   three times).
  * - Loopback, the server's own address and the brute-force allowlist are
  *   never blocked, not even inside a network. Automatic blocks also spare
- *   shared addresses and the addresses of this server's own people
- *   ({@see BanExemptions}).
+ *   shared addresses, an unconfigured reverse proxy and the addresses of
+ *   this server's own people ({@see BanExemptions}).
  * - The check for an active block and the insert run under a lock per
  *   address or network, so parallel requests create one block, not several.
  */
@@ -66,7 +66,10 @@ class BanService {
 	) {
 	}
 
-	public function ban(SourceKey $source, string $checkId, ?int $detectionId = null, ?int $forceLevel = null): BanResult {
+	/**
+	 * @param ?string $uid the account the detection is about, for the exemptions of checks about one account
+	 */
+	public function ban(SourceKey $source, string $checkId, ?int $detectionId = null, ?int $forceLevel = null, ?string $uid = null): BanResult {
 		if ($this->addresses->isNeverBlocked($source)) {
 			return new BanResult(BanResult::SKIPPED_NEVER);
 		}
@@ -77,7 +80,7 @@ class BanService {
 		$scope = $source->family === 6 ? Ban::SCOPE_NET : Ban::SCOPE_IP;
 		$cidr = $scope === Ban::SCOPE_NET ? $source->ipKey : $source->ip . '/32';
 
-		$result = $this->locks->run('ban', $source->ipKey, function () use ($source, $scope, $cidr, $checkId, $detectionId, $forceLevel, $now): BanResult {
+		$result = $this->locks->run('ban', $source->ipKey, function () use ($source, $scope, $cidr, $checkId, $detectionId, $forceLevel, $uid, $now): BanResult {
 			$existing = $this->activeFor([$source->ipKey], $now);
 			if ($existing !== null) {
 				// The active ban is not an earlier offence: another check of the same
@@ -93,7 +96,7 @@ class BanService {
 				$this->changed($existing, true);
 				return new BanResult(BanResult::EXTENDED, $existing);
 			}
-			$exempt = $this->exemptions->forAddress($source, $now);
+			$exempt = $this->exemptions->forAddress($source, $now, $checkId, $uid);
 			if ($exempt !== null) {
 				return $exempt;
 			}
@@ -103,7 +106,15 @@ class BanService {
 		if ($result->outcome !== BanResult::BANNED || $result->ban === null) {
 			return $result;
 		}
-		return new BanResult(BanResult::BANNED, $result->ban, $this->escalate($source, $checkId, $detectionId, $now));
+		return new BanResult(BanResult::BANNED, $result->ban, $this->escalate($source, $checkId, $detectionId, $uid, $now));
+	}
+
+	/**
+	 * Whether a block of this address that was held back (a shared address,
+	 * a reverse proxy) should be reported now, see {@see BanExemptions::firstReport()}.
+	 */
+	public function firstReport(SourceKey $source): bool {
+		return $this->exemptions->firstReport($source);
 	}
 
 	/**
@@ -183,7 +194,7 @@ class BanService {
 	 * Block the network once enough of its addresses are blocked: the /24
 	 * for IPv4; the /48, else the /56, for IPv6.
 	 */
-	private function escalate(SourceKey $source, string $checkId, ?int $detectionId, int $now): ?Ban {
+	private function escalate(SourceKey $source, string $checkId, ?int $detectionId, ?string $uid, int $now): ?Ban {
 		$netAfter = $this->settings->getInt(GlobalSettings::BAN_NET_AFTER);
 		if ($netAfter < 1) {
 			return null;
@@ -204,10 +215,10 @@ class BanService {
 			];
 		}
 		foreach ($candidates as [$netKey, $members, $loginKeys, $threshold, $covering]) {
-			$ban = $this->locks->run('ban', $netKey, function () use ($netKey, $members, $loginKeys, $threshold, $covering, $checkId, $detectionId, $now): ?Ban {
+			$ban = $this->locks->run('ban', $netKey, function () use ($netKey, $members, $loginKeys, $threshold, $covering, $checkId, $detectionId, $uid, $now): ?Ban {
 				$blocked = $this->mapper->activeKeysIn($members, $now - 86400, $now);
 				if (count($blocked) < $threshold || $this->activeFor($covering, $now) !== null
-					|| $this->exemptions->forNetwork($netKey, $loginKeys, $now) !== null) {
+					|| $this->exemptions->forNetwork($netKey, $loginKeys, $now, $checkId, $uid) !== null) {
 					return null;
 				}
 				$level = max($blocked);
