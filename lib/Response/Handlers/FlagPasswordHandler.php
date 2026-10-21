@@ -10,20 +10,17 @@ declare(strict_types=1);
 namespace OCA\IntrusionDetection\Response\Handlers;
 
 use OCA\IntrusionDetection\Check\ResponseType;
-use OCA\IntrusionDetection\Config\GlobalSettings;
-use OCA\IntrusionDetection\Config\Settings;
 use OCA\IntrusionDetection\Explain\DateFormatter;
 use OCA\IntrusionDetection\Explain\IDescribesAction;
 use OCA\IntrusionDetection\Response\FlaggedSources;
 use OCA\IntrusionDetection\Response\IResponseHandler;
 use OCA\IntrusionDetection\Response\ResponseContext;
 use OCA\IntrusionDetection\Response\ResponseOutcome;
-use OCP\AppFramework\Utility\ITimeFactory;
 use OCP\IL10N;
 
 /**
  * Flags the password a detection is about, by its fingerprints, for the flag
- * duration (a day by default): further failed attempts with it block their
+ * duration, at most a day: further failed attempts with it block their
  * address at once, and successful logins with it need extra confirmation.
  *
  * The fingerprints come from the draft and are written to ids_flags only;
@@ -32,8 +29,6 @@ use OCP\IL10N;
 class FlagPasswordHandler implements IResponseHandler, IDescribesAction {
 	public function __construct(
 		private readonly FlaggedSources $flags,
-		private readonly Settings $settings,
-		private readonly ITimeFactory $timeFactory,
 	) {
 	}
 
@@ -48,10 +43,11 @@ class FlagPasswordHandler implements IResponseHandler, IDescribesAction {
 		if ($fingerprints === []) {
 			return ResponseOutcome::skipped(ResponseOutcome::NOTE_NOTHING_TO_DO);
 		}
+		$until = 0;
 		foreach ($fingerprints as $fingerprint) {
-			$this->flags->flagPassword($fingerprint, $context->detection->getId());
+			$until = max($until, $this->flags->flagPassword($fingerprint, $context->detection->getId()));
 		}
-		return ResponseOutcome::done(['until' => $this->timeFactory->getTime() + $this->settings->getInt(GlobalSettings::FLAG_DURATION)]);
+		return ResponseOutcome::done(['until' => $until]);
 	}
 
 	#[\Override]

@@ -65,6 +65,21 @@ class PasswordSprayingTest extends LoginFailureTestCase {
 		$this->assertTrue($this->flags->isPasswordFlagged(array_map('bin2hex', $fingerprinter->passwordCandidates(self::SPRAYED))));
 	}
 
+	public function testAPasswordFlagLastsAtMostADayWhateverTheFlagDuration(): void {
+		$this->settings->setGlobal(\OCA\IntrusionDetection\Config\GlobalSettings::FLAG_DURATION, 30 * 86400);
+		$this->spray(5);
+		$result = $this->db->getQueryBuilder()->select('flag_key', 'expires_at')->from('ids_flags')->executeQuery();
+		$rows = $result->fetchAll();
+		$result->closeCursor();
+		$passwordFlags = array_filter($rows, static fn (array $row): bool => str_starts_with((string)$row['flag_key'], 'fp:'));
+		$this->assertNotSame([], $passwordFlags);
+		foreach ($passwordFlags as $row) {
+			$this->assertLessThanOrEqual(time() + FlaggedSources::PASSWORD_FLAG_MAX_DURATION, (int)$row['expires_at']);
+		}
+		$until = array_column($this->detectionsOf(PasswordSpraying::ID)[0]->getActionList(), 'ref', 'type')['flag_password']['until'];
+		$this->assertLessThanOrEqual(time() + FlaggedSources::PASSWORD_FLAG_MAX_DURATION, $until, 'The detection says when it really ends');
+	}
+
 	public function testDifferentPasswordsDoNotAddUp(): void {
 		for ($i = 1; $i <= 6; $i++) {
 			$this->failLogin('198.51.100.' . $i, 'user' . $i, 'password-' . $i);

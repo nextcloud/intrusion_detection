@@ -160,7 +160,7 @@ class GlobalSettingsPresenter {
 			), self::GROUP_BLOCKS],
 			GlobalSettings::FLAG_DURATION => [new ParamText(
 				$l->t('Extra confirmation after an attack'),
-				$l->t('How long successful logins from an attacking address need extra confirmation.'),
+				$l->t('How long successful logins from an attacking address need extra confirmation. A guessed password is remembered as long, but at most a day.'),
 			), self::GROUP_BLOCKS],
 			GlobalSettings::RETENTION_DETECTIONS_DAYS => [new ParamText(
 				$l->t('Keep detections for'),

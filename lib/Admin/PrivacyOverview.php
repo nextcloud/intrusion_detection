@@ -129,7 +129,7 @@ class PrivacyOverview {
 				'name' => $l->t('Marked addresses and accounts'),
 				'what' => $l->t('Addresses after an attack, accounts under attack, fingerprints of passwords that were tried against many accounts, and the name of an attack tool an address used for a failed login.'),
 				'why' => $l->t('So that a successful login after an attack needs extra confirmation, and for the address risk score.'),
-				'retention' => $l->t('{flag_duration}; password fingerprints and attack tools 24 hours'),
+				'retention' => $l->t('{flag_duration}; password fingerprints {flag_duration}, at most 24 hours; attack tools 24 hours'),
 				'where' => 'ids_flags, ids_protected_accounts',
 			],
 			DataKind::LoginHistory => [

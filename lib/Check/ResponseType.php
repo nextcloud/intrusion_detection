@@ -67,7 +67,7 @@ enum ResponseType: string {
 			self::ForcePasswordChange => $l->t('Require a new password at the next login.'),
 			self::ProtectAccount => $l->t('Ask for extra confirmation at every password login to this account for a while.'),
 			self::FlagSource => $l->t('Mark the address, so that successful logins from it need extra confirmation.'),
-			self::FlagPassword => $l->t('Remember the guessed password for a day, so that logins with it need extra confirmation.'),
+			self::FlagPassword => $l->t('Remember the guessed password for at most a day, so that logins with it need extra confirmation.'),
 			self::SuppressResetMail => $l->t('Stop sending password reset emails to the flooded account for a while. Whoever asks gets the usual answer.'),
 			self::RateLimit => $l->t('Refuse further requests of this kind for a few minutes.'),
 			self::StepUp => $l->t('Ask the user to confirm the login with their second factor or an email code.'),
@@ -87,7 +87,7 @@ enum ResponseType: string {
 		return match ($this) {
 			self::Ban => $l->t('The address is blocked for {ban_duration_1} ({ban_duration_2} if it is blocked again within {ban_history_days} days, then {ban_duration_3}).'),
 			self::FlagSource => $l->t('Successful logins from the address need extra confirmation for {flag_duration}.'),
-			self::FlagPassword => $l->t('Logins with the guessed password need extra confirmation for {flag_duration}.'),
+			self::FlagPassword => $l->t('Logins with the guessed password need extra confirmation for {flag_duration}, at most a day.'),
 			default => $this->describe($l),
 		};
 	}

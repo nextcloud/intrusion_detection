@@ -31,6 +31,12 @@ class FlaggedSources {
 	public const REASON_SPRAYED = 'sprayed';
 	/** How long an attack tool is remembered for an address */
 	public const ATTACK_TOOL_DURATION = 86400;
+	/**
+	 * Password flags last at most this long: the password fingerprint key
+	 * changes daily, and a flag is stored under today's and tomorrow's key
+	 * only ({@see \OCA\IntrusionDetection\Crypto\Fingerprinter::passwordFlagFingerprints()}).
+	 */
+	public const PASSWORD_FLAG_MAX_DURATION = 86400;
 
 	public function __construct(
 		private readonly FlagMapper $mapper,
@@ -50,10 +56,13 @@ class FlaggedSources {
 
 	/**
 	 * @param string $fingerprint hex password fingerprint
+	 * @param ?int $duration seconds, at most PASSWORD_FLAG_MAX_DURATION; `flag_duration` capped so by default
+	 * @return int when the flag expires
 	 */
-	public function flagPassword(string $fingerprint, ?int $detectionId = null, ?int $duration = null): void {
-		$expires = $this->timeFactory->getTime() + ($duration ?? $this->settings->getInt(GlobalSettings::FLAG_DURATION));
+	public function flagPassword(string $fingerprint, ?int $detectionId = null, ?int $duration = null): int {
+		$expires = $this->timeFactory->getTime() + min($duration ?? $this->settings->getInt(GlobalSettings::FLAG_DURATION), self::PASSWORD_FLAG_MAX_DURATION);
 		$this->mapper->flag(self::passwordKey($fingerprint), self::REASON_SPRAYED, $expires, $detectionId);
+		return $expires;
 	}
 
 	/**
