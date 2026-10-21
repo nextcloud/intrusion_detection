@@ -364,12 +364,35 @@ class IncidentReportTest extends LoginFailureTestCase {
 		$this->assertSame('198.51.100.7', $logins[0]->address);
 		$this->assertContains('Confirmed with a code sent by email.', $logins[0]->details);
 		$this->assertNull($logins[0]->followUp);
+		$this->assertSame([DataCategory::AccountContent], $logins[0]->categories, 'A confirmed login got in too');
 		$this->assertNotNull($logins[1]->followUp, 'Let in although nothing confirmed it');
 		$this->assertSame([DataCategory::AccountContent], $logins[1]->categories);
 
 		$byAddress = $this->report($this->forAddress('198.51.100.7'));
 		$this->assertSame(2, self::kindCounts($byAddress)['login']);
 		$this->assertSame(1, self::kindCounts($this->report($this->forAddress('2001:db8:5:6::99')))['login'], 'An IPv6 address by its /64');
+	}
+
+	public function testASuccessfulLoginIsNeverReportedAsNothingOpened(): void {
+		$history = Server::get(LoginHistoryMapper::class);
+		$now = time();
+		$history->insert($this->victim, $now - 3600, SourceKey::fromIp('198.51.100.7'), null, LoginHistory::METHOD_APP_PASSWORD, false, LoginHistory::CONFIRMED_BY_NONE, null, null);
+		$summary = $this->report($this->forUser($this->victim))->summary;
+		$this->assertNull($summary->dataNote);
+		$this->assertNotSame([], $summary->dataCategories);
+	}
+
+	public function testRefusedAndPendingLoginsOpenedNothing(): void {
+		$history = Server::get(LoginHistoryMapper::class);
+		$now = time();
+		$history->insert($this->victim, $now - 3600, SourceKey::fromIp('198.51.100.7'), null, LoginHistory::METHOD_PASSWORD, false, LoginHistory::CONFIRMED_BY_NONE, LoginHistory::STEP_UP_REFUSED, null);
+		$history->insert($this->victim, $now - 1800, SourceKey::fromIp('198.51.100.7'), null, LoginHistory::METHOD_PASSWORD, false, LoginHistory::CONFIRMED_BY_NONE, LoginHistory::STEP_UP_FAILED, null);
+		$history->insert($this->victim, $now - 900, SourceKey::fromIp('198.51.100.7'), null, LoginHistory::METHOD_PASSWORD, false, LoginHistory::CONFIRMED_BY_NONE, LoginHistory::STEP_UP_PENDING, null);
+		$logins = array_values(array_filter($this->report($this->forUser($this->victim))->entries, static fn (TimelineEntry $e): bool => $e->kind === LoginSource::KIND));
+		$this->assertCount(3, $logins);
+		foreach ($logins as $login) {
+			$this->assertSame([], $login->categories);
+		}
 	}
 
 	public function testBuildingAReportStoresNothing(): void {

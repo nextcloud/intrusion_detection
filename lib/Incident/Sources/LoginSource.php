@@ -65,6 +65,8 @@ class LoginSource implements ITimelineSource {
 			$details[] = $confirmation;
 		}
 		$unconfirmed = $row->stepUp === LoginHistory::STEP_UP_ALLOWED;
+		// A login that got in could open whatever the account can.
+		$gotIn = !in_array($row->stepUp, [LoginHistory::STEP_UP_PENDING, LoginHistory::STEP_UP_REFUSED, LoginHistory::STEP_UP_FAILED], true);
 		return new TimelineEntry(
 			id: 'login:' . $row->id,
 			at: $row->createdAt,
@@ -79,7 +81,7 @@ class LoginSource implements ITimelineSource {
 			address: $row->ip,
 			accounts: [$row->uid],
 			ref: ['type' => 'login', 'id' => (string)$row->id],
-			categories: $unconfirmed ? [DataCategory::AccountContent] : [],
+			categories: $gotIn ? [DataCategory::AccountContent] : [],
 			followUp: $unconfirmed ? $l->t('This login was let in although nothing could confirm it. Ask the account owner whether it was them.') : null,
 		);
 	}
