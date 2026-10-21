@@ -34,6 +34,11 @@ class CheckRegistry {
 		Checks\SecondFactorFailed::class,
 		Checks\AdminChange::class,
 		Checks\TokenConcurrentUse::class,
+		Checks\StepUpFailed::class,
+		Checks\StepUpRefused::class,
+		Checks\StepUpRefusedClient::class,
+		Checks\StepUpUnconfirmed::class,
+		Checks\UserDenied::class,
 	];
 
 	/** @var array<string, CheckDefinition>|null */

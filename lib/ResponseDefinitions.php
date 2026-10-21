@@ -614,6 +614,39 @@ namespace OCA\IntrusionDetection;
  *     decidedAt: ?int,
  *     expiresAt: int,
  * }
+ *
+ * @psalm-type IntrusionDetectionPersonalDetection = array{
+ *     id: int,
+ *     check: string,
+ *     severity: string,
+ *     enforced: bool,
+ *     createdAt: int,
+ *     lastSeenAt: int,
+ *     hits: int,
+ *     subject: string,
+ *     happened: list<string>,
+ *     when: string,
+ *     done: list<string>,
+ *     advice: list<string>,
+ *     address: ?string,
+ *     asks: bool,
+ *     verdict: ?string,
+ *     verdictAt: ?int,
+ *     canConfirm: bool,
+ * }
+ *
+ * @psalm-type IntrusionDetectionTrustedNetwork = array{
+ *     id: int,
+ *     network: string,
+ *     createdAt: int,
+ *     expiresAt: int,
+ *     detectionId: ?int,
+ * }
+ *
+ * @psalm-type IntrusionDetectionAnswerError = array{
+ *     reason: string,
+ *     message: string,
+ * }
  */
 class ResponseDefinitions {
 }

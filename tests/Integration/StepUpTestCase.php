@@ -1,0 +1,269 @@
+<?php
+
+declare(strict_types=1);
+
+/**
+ * SPDX-FileCopyrightText: 2026 Nextcloud GmbH and Nextcloud contributors
+ * SPDX-License-Identifier: AGPL-3.0-or-later
+ */
+
+namespace OCA\IntrusionDetection\Tests\Integration;
+
+use OCA\IntrusionDetection\AppInfo\Application;
+use OCA\IntrusionDetection\Audit\AuditLogger;
+use OCA\IntrusionDetection\Check\Checks\PasswordSpraying;
+use OCA\IntrusionDetection\Check\Checks\PasswordSprayingDetector;
+use OCA\IntrusionDetection\Check\Checks\StepUpFailed;
+use OCA\IntrusionDetection\Check\Checks\StepUpUnconfirmed;
+use OCA\IntrusionDetection\Confirm\ConfirmationPolicy;
+use OCA\IntrusionDetection\Confirm\EmailCodes;
+use OCA\IntrusionDetection\Confirm\LoginDetections;
+use OCA\IntrusionDetection\Confirm\Methods\EmailCodeMethod;
+use OCA\IntrusionDetection\Confirm\Methods\SecondFactorMethod;
+use OCA\IntrusionDetection\Confirm\StepUpReasons;
+use OCA\IntrusionDetection\Confirm\StepUpService;
+use OCA\IntrusionDetection\Confirm\StepUpState;
+use OCA\IntrusionDetection\Confirm\UnconfirmedSessions;
+use OCA\IntrusionDetection\Controller\VerifyController;
+use OCA\IntrusionDetection\Crypto\Fingerprinter;
+use OCA\IntrusionDetection\Db\AttemptMapper;
+use OCA\IntrusionDetection\Db\Detection;
+use OCA\IntrusionDetection\Db\DetectionFilter;
+use OCA\IntrusionDetection\Db\DetectionMapper;
+use OCA\IntrusionDetection\Db\StepUpSessionMapper;
+use OCA\IntrusionDetection\Http\LocalRedirect;
+use OCA\IntrusionDetection\Listener\StepUpLoginListener;
+use OCA\IntrusionDetection\Login\InteractiveLogin;
+use OCA\IntrusionDetection\Net\RemoteAddressResolver;
+use OCA\IntrusionDetection\Notification\UserMessages;
+use OCA\IntrusionDetection\Response\FlaggedSources;
+use OCA\IntrusionDetection\SessionState\Rules\StepUpRule;
+use OCA\IntrusionDetection\SessionState\SessionState;
+use OCP\AppFramework\Utility\ITimeFactory;
+use OCP\Authentication\TwoFactorAuth\IChallengeRequester;
+use OCP\Authentication\TwoFactorAuth\IRegistry;
+use OCP\ICacheFactory;
+use OCP\IConfig;
+use OCP\IRequest;
+use OCP\IURLGenerator;
+use OCP\IUser;
+use OCP\L10N\IFactory;
+use OCP\Mail\IEmailValidator;
+use OCP\Security\Bruteforce\IThrottler;
+use OCP\Security\IHasher;
+use OCP\Security\ISecureRandom;
+use OCP\Server;
+use OCP\User\Events\UserLoggedInEvent;
+use PHPUnit\Framework\MockObject\MockObject;
+use Psr\Log\LoggerInterface;
+
+/**
+ * Logins that need extra confirmation, wired like the app wires them, with
+ * the test session, a request whose address and headers the test chooses,
+ * captured emails and a known sequence of email codes.
+ */
+abstract class StepUpTestCase extends AccountTestCase {
+	public const PASSWORD = 'Correct-Horse-Battery-Staple-2026';
+
+	protected string $remoteAddress = '198.51.100.7';
+	/** @var array<string, string> */
+	protected array $headers = [];
+	/** @var array<string, string> */
+	protected array $cookies = [];
+	protected string $method = 'POST';
+	protected string $pathInfo = '/login';
+	/** @var list<string> */
+	protected array $codes = ['482915', '730264', '119838', '650417', '004213', '871102'];
+	protected bool $hasSecondFactor = false;
+	protected bool $bypassListed = false;
+	/** @var IRequest&MockObject */
+	protected IRequest $request;
+	protected SessionState $state;
+	/** @var IChallengeRequester&MockObject */
+	protected IChallengeRequester $challenges;
+
+	protected function setUp(): void {
+		parent::setUp();
+		$this->state = new SessionState($this->session, Server::get(LoggerInterface::class));
+		$this->request = $this->createMock(IRequest::class);
+		$this->request->method('getRemoteAddress')->willReturnCallback(fn (): string => $this->remoteAddress);
+		$this->request->method('getHeader')->willReturnCallback(fn (string $name): string => $this->headers[$name] ?? '');
+		$this->request->method('getMethod')->willReturnCallback(fn (): string => $this->method);
+		$this->request->method('getPathInfo')->willReturnCallback(fn (): string => $this->pathInfo);
+		$this->request->method('getCookie')->willReturnCallback(fn (string $name): ?string => $this->cookies[$name] ?? null);
+		$this->request->method('getRequestUri')->willReturn('/index.php/apps/files/');
+		$this->userSession->method('logout')->willReturnCallback(function (): void {
+			$this->sessionUser = null;
+			$this->session->clear();
+		});
+		$this->challenges = $this->createMock(IChallengeRequester::class);
+		$this->challenges->method('isAvailable')->willReturnCallback(fn (): bool => $this->hasSecondFactor);
+		$this->challenges->method('requestChallenge')->willReturn('/index.php/login/challenge?redirect_url=back');
+	}
+
+	/**
+	 * A password login through the login form (or, with Basic auth headers,
+	 * from an app), as core reports it.
+	 */
+	protected function login(IUser $user, string $password = self::PASSWORD, bool $tokenLogin = false): void {
+		if ($this->session->id === null) {
+			$this->session->id = bin2hex(random_bytes(32));
+		}
+		$this->sessionUser = $user;
+		$this->listener()->handle(new UserLoggedInEvent($user, $user->getUID(), $password, $tokenLogin));
+	}
+
+	protected function basicAuth(IUser $user, string $password = self::PASSWORD): void {
+		$this->headers['Authorization'] = 'Basic ' . base64_encode($user->getUID() . ':' . $password);
+		$this->method = 'PROPFIND';
+		$this->pathInfo = '/files/' . $user->getUID();
+	}
+
+	protected function user(string $prefix, ?string $email = 'person@example.com'): IUser {
+		$user = $this->newUser($prefix, $email);
+		$user->setPassword(self::PASSWORD);
+		return $user;
+	}
+
+	protected function stepUp(): ?StepUpState {
+		return $this->service()->current();
+	}
+
+	protected function listener(): StepUpLoginListener {
+		return new StepUpLoginListener(
+			$this->settings,
+			new InteractiveLogin($this->request, $this->session),
+			$this->addresses(),
+			Server::get(Fingerprinter::class),
+			Server::get(FlaggedSources::class),
+			Server::get(StepUpReasons::class),
+			Server::get(UnconfirmedSessions::class),
+			$this->request,
+			$this->session,
+			new OverridingContainer([
+				StepUpService::class => $this->service(),
+				LoginDetections::class => $this->linker(),
+				PasswordSprayingDetector::class => new PasswordSprayingDetector(
+					$this->settings,
+					Server::get(AttemptMapper::class),
+					$this->engine(),
+					Server::get(FlaggedSources::class),
+					Server::get(Fingerprinter::class),
+					Server::get(ICacheFactory::class),
+					Server::get(PasswordSpraying::class),
+				),
+			]),
+			Server::get(LoggerInterface::class),
+		);
+	}
+
+	protected function service(): StepUpService {
+		return new StepUpService(
+			$this->state,
+			$this->session,
+			$this->userSession,
+			$this->policy(),
+			$this->engine(),
+			$this->settings,
+			Server::get(UnconfirmedSessions::class),
+			$this->currentSession,
+			$this->addresses(),
+			Server::get(StepUpFailed::class),
+			Server::get(StepUpUnconfirmed::class),
+			Server::get(ITimeFactory::class),
+			Server::get(AuditLogger::class),
+			Server::get(LoggerInterface::class),
+		);
+	}
+
+	protected function policy(): ConfirmationPolicy {
+		return new ConfirmationPolicy($this->settings, new OverridingContainer([
+			SecondFactorMethod::class => new SecondFactorMethod($this->challenges, $this->registry()),
+			EmailCodeMethod::class => new EmailCodeMethod($this->codes()),
+		]), Server::get(LoggerInterface::class));
+	}
+
+	protected function codes(): EmailCodes {
+		$random = $this->createMock(ISecureRandom::class);
+		$random->method('generate')->willReturnCallback(fn (): string => array_shift($this->codes) ?? '999999');
+		return new EmailCodes(
+			$random,
+			Server::get(IHasher::class),
+			$this->mails,
+			Server::get(UserMessages::class),
+			$this->settings,
+			Server::get(IEmailValidator::class),
+			Server::get(IConfig::class),
+			Server::get(ITimeFactory::class),
+		);
+	}
+
+	protected function linker(): LoginDetections {
+		return new LoginDetections($this->state, Server::get(DetectionMapper::class), $this->currentSession, Server::get(LoggerInterface::class));
+	}
+
+	protected function rule(): StepUpRule {
+		return new StepUpRule($this->userSession, Server::get(IURLGenerator::class), Server::get(ITimeFactory::class), new OverridingContainer([
+			StepUpService::class => $this->service(),
+			LoginDetections::class => $this->linker(),
+		]), Server::get(LoggerInterface::class));
+	}
+
+	protected function verifyController(): VerifyController {
+		return new VerifyController(
+			$this->request,
+			$this->userSession,
+			$this->service(),
+			$this->codes(),
+			$this->policy(),
+			$this->settings,
+			Server::get(IURLGenerator::class),
+			Server::get(LocalRedirect::class),
+			Server::get(IFactory::class)->get(Application::APP_ID, 'en'),
+		);
+	}
+
+	protected function addresses(): RemoteAddressResolver {
+		$throttler = $this->createMock(IThrottler::class);
+		$throttler->method('isBypassListed')->willReturnCallback(fn (): bool => $this->bypassListed);
+		return new RemoteAddressResolver($this->request, $throttler);
+	}
+
+	/**
+	 * The code in the last email to the account.
+	 */
+	protected function lastCode(string $uid): ?string {
+		foreach (array_reverse($this->mailed) as [$to, $mail]) {
+			if ($to === $uid && $mail->templateId === 'intrusion_detection.stepUpCode') {
+				foreach ($mail->paragraphs as $paragraph) {
+					if (preg_match('/^\d{6}$/', $paragraph) === 1) {
+						return $paragraph;
+					}
+				}
+			}
+		}
+		return null;
+	}
+
+	/**
+	 * @return list<Detection>
+	 */
+	protected function detectionsOf(string $checkId): array {
+		return Server::get(DetectionMapper::class)->findList(new DetectionFilter(checkIds: [$checkId], limit: 100));
+	}
+
+	protected function unconfirmedRows(): int {
+		$qb = $this->db->getQueryBuilder();
+		$qb->select($qb->func()->count('*'))->from(StepUpSessionMapper::TABLE);
+		$result = $qb->executeQuery();
+		$count = (int)$result->fetchOne();
+		$result->closeCursor();
+		return $count;
+	}
+
+	private function registry(): IRegistry {
+		$registry = $this->createMock(IRegistry::class);
+		$registry->method('getProviderStates')->willReturnCallback(fn (): array => $this->hasSecondFactor ? ['totp' => true] : []);
+		return $registry;
+	}
+}

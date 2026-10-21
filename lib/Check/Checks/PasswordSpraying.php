@@ -15,6 +15,7 @@ use OCA\IntrusionDetection\Check\CheckTexts;
 use OCA\IntrusionDetection\Check\CostClass;
 use OCA\IntrusionDetection\Check\DataKind;
 use OCA\IntrusionDetection\Check\ICheck;
+use OCA\IntrusionDetection\Check\ISelectsResponses;
 use OCA\IntrusionDetection\Check\ISimulatable;
 use OCA\IntrusionDetection\Check\Mode;
 use OCA\IntrusionDetection\Check\ParamDefinition;
@@ -26,20 +27,35 @@ use OCA\IntrusionDetection\Db\Detection;
 use OCA\IntrusionDetection\Detection\DetectionDraft;
 use OCA\IntrusionDetection\Explain\DateFormatter;
 use OCA\IntrusionDetection\Explain\DetectionFacts;
+use OCA\IntrusionDetection\Explain\IAsksWasThisYou;
 use OCA\IntrusionDetection\Explain\IExplainsDetection;
+use OCA\IntrusionDetection\Explain\IExplainsToUser;
 use OCA\IntrusionDetection\Explain\TextRenderer;
+use OCA\IntrusionDetection\Explain\UserNotice;
 use OCA\IntrusionDetection\Net\SourceKey;
 use OCP\IL10N;
 
 /**
  * One password tried against many accounts, from any number of addresses.
  * The detector is {@see PasswordSprayingDetector}.
+ *
+ * A successful login with a flagged password is a detection of its own
+ * (rule `login_success`) with its own responses: the login needs extra
+ * confirmation, the user is told and must choose a new password. The
+ * failure rules only block and flag.
  */
-final class PasswordSpraying implements ICheck, IExplainsDetection, ISimulatable {
+final class PasswordSpraying implements ICheck, IExplainsDetection, ISimulatable, ISelectsResponses, IExplainsToUser, IAsksWasThisYou {
 	public const ID = 'password_spraying';
 
 	public const RULE_SPRAY = 'spray';
 	public const RULE_FLAGGED = 'flagged_password';
+	/** A successful login with a flagged password */
+	public const RULE_LOGIN = 'login_success';
+
+	/** The responses of the failure rules */
+	public const FAILURE_RESPONSES = [ResponseType::Ban, ResponseType::FlagPassword, ResponseType::NotifyAdmin];
+	/** The responses of a successful login with a flagged password */
+	public const LOGIN_RESPONSES = [ResponseType::StepUp, ResponseType::ForcePasswordChange, ResponseType::NotifyAdmin, ResponseType::NotifyUser];
 
 	/** One detection blocks at most this many addresses; the others are counted */
 	public const MAX_BAN_TARGETS = 500;
@@ -61,16 +77,16 @@ final class PasswordSpraying implements ICheck, IExplainsDetection, ISimulatable
 				new ParamDefinition('window', ParamType::Duration, 3600, min: 300, max: 3600),
 				new ParamDefinition('min_names', ParamType::Int, 5, min: 3, max: 1000),
 			],
-			responses: [ResponseType::Ban, ResponseType::FlagPassword, ResponseType::NotifyAdmin],
-			defaultResponses: [ResponseType::Ban, ResponseType::FlagPassword, ResponseType::NotifyAdmin],
+			responses: [ResponseType::Ban, ResponseType::FlagPassword, ResponseType::StepUp, ResponseType::ForcePasswordChange, ResponseType::NotifyAdmin, ResponseType::NotifyUser],
+			defaultResponses: [ResponseType::Ban, ResponseType::FlagPassword, ResponseType::StepUp, ResponseType::ForcePasswordChange, ResponseType::NotifyAdmin, ResponseType::NotifyUser],
 			cost: CostClass::OnFailureOnly,
 			stores: [DataKind::FailedAttempts, DataKind::Flags, DataKind::Detections, DataKind::Bans],
 			texts: static fn (IL10N $l): CheckTexts => new CheckTexts(
 				name: $l->t('Password spraying'),
 				summary: $l->t('One password is tried against many different accounts.'),
 				detects: $l->t('Instead of trying many passwords for one account, attackers try one common password, such as "Summer2026!", against every account they know. They use many addresses, so that no address and no account sees more than a failure or two.'),
-				decides: $l->t('Fires when the same password fails for at least {min_names} different accounts within {window}, no matter from how many addresses.'),
-				wrong: $l->t('Several people who were all given the same initial password and mistype it, or a shared device with an old saved password. Successful logins with the password need confirmation; nobody who knows their own password is locked out.'),
+				decides: $l->t('Fires when the same password fails for at least {min_names} different accounts within {window}, no matter from how many addresses. A successful login with that password while it is marked fires again for that account: blocking and marking apply to the failures, extra confirmation, the user notice and the new password to the successful login.'),
+				wrong: $l->t('Several people who were all given the same initial password and mistype it, or a shared device with an old saved password. Successful logins with the password need confirmation and a new password; nobody who knows their own password is locked out.'),
 				data: $l->t('Failed logins: the address, a fingerprint of the account name and of the password, and the time, deleted after 1 hour. The password itself is never stored. When this check fires, the password fingerprint is kept for a day, so that logins with it need confirmation.'),
 				params: [
 					'window' => new ParamText($l->t('Time window'), $l->t('How far back failed logins with the same password are counted.')),
@@ -82,8 +98,52 @@ final class PasswordSpraying implements ICheck, IExplainsDetection, ISimulatable
 	}
 
 	#[\Override]
+	public function responsesFor(DetectionDraft $draft, array $configured, array $params): array {
+		$allowed = ($draft->facts['rule'] ?? null) === self::RULE_LOGIN ? self::LOGIN_RESPONSES : self::FAILURE_RESPONSES;
+		return array_values(array_filter($configured, static fn (ResponseType $r): bool => in_array($r, $allowed, true)));
+	}
+
+	#[\Override]
+	public function asksWasThisYou(Detection $detection): bool {
+		return DetectionFacts::of($detection)->string('rule') === self::RULE_LOGIN;
+	}
+
+	#[\Override]
+	public function userNotice(Detection $detection, IL10N $l): UserNotice {
+		$forced = false;
+		foreach ($detection->getActionList() as $action) {
+			if ($action['type'] === ResponseType::ForcePasswordChange->value && $action['enforced']) {
+				$forced = true;
+			}
+		}
+		return new UserNotice(
+			$l->t('Your password is on attackers\' lists'),
+			[
+				$l->t('Someone logged in to your account with a password that attackers are trying against many accounts on this server right now.'),
+				$l->t('That does not mean that Nextcloud leaked it: attackers try common passwords and passwords stolen from other websites. But they know this one.'),
+			],
+			[
+				$forced
+					? $l->t('You will be asked to choose a new password. Choose one that you use nowhere else.')
+					: $l->t('Change your password to one that you use nowhere else.'),
+				$l->t('If the login was not you, also answer "No, it was not me".'),
+			],
+		);
+	}
+
+	#[\Override]
 	public function narrative(Detection $detection, IL10N $l): array {
 		$facts = DetectionFacts::of($detection);
+		if ($facts->string('rule') === self::RULE_LOGIN) {
+			$sentences = [$facts->bool('client')
+				? $l->t('At %1$s an app or script logged in as %2$s from %3$s with a password that is being tried against many accounts right now.', [$this->dates->dateTime($facts->first), (string)$detection->getUid(), (string)$detection->getIp()])
+				: $l->t('At %1$s %2$s logged in from %3$s with a password that is being tried against many accounts right now.', [$this->dates->dateTime($facts->first), (string)$detection->getUid(), (string)$detection->getIp()])];
+			if ($detection->getHits() > 1) {
+				$sentences[] = $l->n('It logged in with it %n time within the hour.', 'It logged in with it %n times within the hour.', $detection->getHits());
+			}
+			$sentences[] = $l->t('Attackers know this password, so the account holder must confirm such logins and choose a new one.');
+			return $sentences;
+		}
 		if ($facts->string('rule') === self::RULE_FLAGGED) {
 			return [$l->t('The address %s tried a password that is being tried against many accounts right now, so it was treated as part of that attack at once.', [(string)$detection->getIp()])];
 		}

@@ -10,8 +10,11 @@ declare(strict_types=1);
 namespace OCA\IntrusionDetection\Admin;
 
 use OCA\IntrusionDetection\Address\AddressResolver;
+use OCA\IntrusionDetection\Check\Checks\StepUpRefused;
+use OCA\IntrusionDetection\Confirm\StepUpReference;
 use OCA\IntrusionDetection\Db\Ban;
 use OCA\IntrusionDetection\Db\BanMapper;
+use OCA\IntrusionDetection\Db\Detection;
 use OCA\IntrusionDetection\Db\DetectionFilter;
 use OCA\IntrusionDetection\Db\DetectionMapper;
 use OCA\IntrusionDetection\Net\SourceKey;
@@ -26,7 +29,8 @@ use OCP\IUserManager;
  * "Look up a reference, address or user" on the admin page.
  *
  * A blocked visitor reports the reference shown on the block page
- * (K7Q2-MPXA, in any case, with or without the dash). An address shows the
+ * (K7Q2-MPXA, in any case, with or without the dash), a refused login the
+ * reference of its refusal ({@see StepUpReference}). An address shows the
  * blocks that cover it and its recent detections; an account shows the
  * detections about it.
  *
@@ -84,7 +88,13 @@ class LookupService {
 				}
 				return $result;
 			} catch (DoesNotExistException) {
-				// Not a known reference; it may still be an account name.
+				// Not a block; it may be a refused login, or an account name.
+			}
+			$refusal = $this->refusal($query);
+			if ($refusal !== null) {
+				$result['kind'] = 'reference';
+				$result['detections'] = [$this->detections->row($refusal, $l)];
+				return $result;
 			}
 		}
 
@@ -104,6 +114,19 @@ class LookupService {
 			$result['detections'] = $this->recentDetections(uid: $user->getUID(), l: $l);
 		}
 		return $result;
+	}
+
+	private function refusal(string $reference): ?Detection {
+		$id = StepUpReference::detectionId($reference);
+		if ($id === null) {
+			return null;
+		}
+		try {
+			$detection = $this->detectionMapper->findById($id);
+		} catch (DoesNotExistException) {
+			return null;
+		}
+		return $detection->getCheckId() === StepUpRefused::ID ? $detection : null;
 	}
 
 	/**

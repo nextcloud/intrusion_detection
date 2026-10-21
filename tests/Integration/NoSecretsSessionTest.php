@@ -18,6 +18,7 @@ use OCA\IntrusionDetection\Db\DetectionMapper;
 use OCA\IntrusionDetection\Db\TokenOriginMapper;
 use OCA\IntrusionDetection\Detection\AttemptRecorder;
 use OCA\IntrusionDetection\Explain\NarrativeBuilder;
+use OCA\IntrusionDetection\Http\LocalRedirect;
 use OCA\IntrusionDetection\Listener\AppPasswordCreatedListener;
 use OCA\IntrusionDetection\Listener\PasswordChangeLoginListener;
 use OCA\IntrusionDetection\Net\SourceKey;
@@ -78,7 +79,7 @@ class NoSecretsSessionTest extends AccountTestCase {
 		$passwords = Server::get(PasswordChangeService::class);
 		(new PasswordChangeLoginListener($this->settings, $passwords, $state, $request, Server::get(LoggerInterface::class)))
 			->handle(new UserLoggedInEvent($user, $user->getUID(), $oldPassword, false));
-		$controller = new PasswordChangeController($request, $this->userSession, Server::get(IUserManager::class), $passwords, $state, Server::get(IURLGenerator::class), Server::get(IFactory::class)->get(Application::APP_ID, 'en'));
+		$controller = new PasswordChangeController($request, $this->userSession, Server::get(IUserManager::class), $passwords, $state, Server::get(IURLGenerator::class), Server::get(IFactory::class)->get(Application::APP_ID, 'en'), Server::get(LocalRedirect::class));
 		$controller->change($secrets['wrong password'], $secrets['new password'], $secrets['new password']);
 		$controller->change($oldPassword, $secrets['new password'], $secrets['new password']);
 		$this->assertNotFalse(Server::get(IUserManager::class)->checkPassword($user->getUID(), $secrets['new password']), 'The scenario changed the password');

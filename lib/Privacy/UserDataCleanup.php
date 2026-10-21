@@ -17,7 +17,9 @@ use OCA\IntrusionDetection\Db\DetectionMapper;
 use OCA\IntrusionDetection\Db\LoginMapper;
 use OCA\IntrusionDetection\Db\ProtectedAccountMapper;
 use OCA\IntrusionDetection\Db\ResetSuppressionMapper;
+use OCA\IntrusionDetection\Db\StepUpSessionMapper;
 use OCA\IntrusionDetection\Db\TokenOriginMapper;
+use OCA\IntrusionDetection\Db\TrustedNetworkMapper;
 use OCA\IntrusionDetection\Notification\AdminNotices;
 use OCA\IntrusionDetection\Notification\UserAlerts;
 use OCP\DB\QueryBuilder\IQueryBuilder;
@@ -47,6 +49,8 @@ class UserDataCleanup {
 		ResetSuppressionMapper::TABLE => 'uid',
 		// Requests about the account; who requested or decided one stays, like a block's creator.
 		ApprovalMapper::TABLE => 'subject_uid',
+		TrustedNetworkMapper::TABLE => 'uid',
+		StepUpSessionMapper::TABLE => 'uid',
 	];
 
 	/** @var array<string, string> table => the column set to null */

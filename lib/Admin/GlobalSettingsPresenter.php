@@ -12,6 +12,7 @@ namespace OCA\IntrusionDetection\Admin;
 use OCA\IntrusionDetection\Check\ParamText;
 use OCA\IntrusionDetection\Config\GlobalSettings;
 use OCA\IntrusionDetection\Config\Settings;
+use OCA\IntrusionDetection\Confirm\StepUpPolicy;
 use OCA\IntrusionDetection\ResponseDefinitions;
 use OCP\IL10N;
 
@@ -38,6 +39,8 @@ class GlobalSettingsPresenter {
 	public const GROUP_EXPORT = 'export';
 	/** Shown in the blocklists panel of the Blocks tab */
 	public const GROUP_BLOCKLISTS = 'blocklists';
+	/** Extra confirmation of risky logins */
+	public const GROUP_STEP_UP = 'step_up';
 	/** Settings without a group are listed on the Advanced tab */
 	public const GROUP_OTHER = 'other';
 
@@ -93,7 +96,27 @@ class GlobalSettingsPresenter {
 	 * @return array{0: ParamText, 1: string}
 	 */
 	private function describe(string $name, IL10N $l): array {
+		foreach (StepUpPolicy::cases() as $policy) {
+			if ($name === $policy->settingKey()) {
+				return [new ParamText(
+					$l->t('Nothing can confirm it: %s', [$policy->label($l)]),
+					$l->t('When such a login needs extra confirmation but the account has no second factor and no email address: "refuse" refuses the login and tells you; "allow_notify" allows it and tells the user and you; "allow_force_change" allows it and requires a new password. The default is "%1$s": %2$s', [$policy->defaultOutcome()->value, $policy->defaultWhy($l)]),
+				), self::GROUP_STEP_UP];
+			}
+		}
 		return match ($name) {
+			GlobalSettings::STEP_UP_CODE_TTL => [new ParamText(
+				$l->t('Email codes are valid for'),
+				$l->t('How long the 6-digit code that confirms a login is valid after it was sent.'),
+			), self::GROUP_STEP_UP],
+			GlobalSettings::STEP_UP_SESSION_TTL => [new ParamText(
+				$l->t('A login must be confirmed within'),
+				$l->t('A login that waits longer for its confirmation is ended, and the user is told.'),
+			), self::GROUP_STEP_UP],
+			GlobalSettings::TRUSTED_NETWORK_DURATION => [new ParamText(
+				$l->t('Trust a network for'),
+				$l->t('When a user answers "Yes, it was me", their network is trusted this long: logins from there do not need extra confirmation because of an attack from that network.'),
+			), self::GROUP_STEP_UP],
 			GlobalSettings::ENABLED => [new ParamText(
 				$l->t('Intrusion detection'),
 				$l->t('When it is off, no check runs, nothing is recorded and existing blocks are not enforced.'),

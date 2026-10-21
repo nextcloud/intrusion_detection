@@ -18,6 +18,7 @@ use OCA\IntrusionDetection\Explain\DateFormatter;
 use OCA\IntrusionDetection\Explain\IExplainsToUser;
 use OCA\IntrusionDetection\Explain\UserNotice;
 use OCA\IntrusionDetection\Response\PasswordChangeService;
+use OCA\IntrusionDetection\WasThisYou\Questions;
 use OCP\Config\IUserConfig;
 use OCP\IDateTimeZone;
 use OCP\IL10N;
@@ -47,6 +48,7 @@ class UserMessages {
 		private readonly IUserConfig $userConfig,
 		private readonly IDateTimeZone $dateTimeZone,
 		private readonly UserLinks $links,
+		private readonly Questions $questions,
 	) {
 	}
 
@@ -61,12 +63,16 @@ class UserMessages {
 	public function build(Detection $detection, IUser $user, ?string $language = null): UserMessage {
 		$l = $this->l10nFor($user, $language);
 		$notice = $this->notice($detection, $l);
+		$advice = $notice->advice !== [] ? $notice->advice : [$l->t('If this was not you, change your password and check your devices and sessions in your security settings.')];
+		if ($this->questions->isOpen($detection)) {
+			$advice[] = $l->t('Was this you? Answer "Yes, it was me" or "No, it was not me" in the notification about it in Nextcloud.');
+		}
 		return new UserMessage(
 			$notice->subject,
 			$notice->message,
 			$this->when($detection, $user, $l),
 			$this->done($detection, $l),
-			$notice->advice !== [] ? $notice->advice : [$l->t('If this was not you, change your password and check your devices and sessions in your security settings.')],
+			$advice,
 			$l->getLanguageCode(),
 		);
 	}

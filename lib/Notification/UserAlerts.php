@@ -11,6 +11,8 @@ namespace OCA\IntrusionDetection\Notification;
 
 use OCA\IntrusionDetection\AppInfo\Application;
 use OCA\IntrusionDetection\Check\Checks\AccountUnderAttack;
+use OCA\IntrusionDetection\Check\Checks\StepUpRefusedClient;
+use OCA\IntrusionDetection\Check\Checks\StepUpUnconfirmed;
 use OCA\IntrusionDetection\Check\Severity;
 use OCA\IntrusionDetection\Db\AlertMapper;
 use OCA\IntrusionDetection\Db\Detection;
@@ -38,7 +40,7 @@ class UserAlerts {
 	public const KEY_PREFIX = '@user:';
 	public const DEFAULT_INTERVAL = 3600;
 	/** @var array<string, int> checks that tell their users less often */
-	public const INTERVALS = [AccountUnderAttack::ID => 86400];
+	public const INTERVALS = [AccountUnderAttack::ID => 86400, StepUpRefusedClient::ID => 86400, StepUpUnconfirmed::ID => 86400];
 	/** Users without email: the administrators are told from this severity on */
 	public const UNREACHABLE_MIN_SEVERITY = Severity::High;
 

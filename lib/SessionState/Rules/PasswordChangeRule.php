@@ -13,6 +13,7 @@ use OC\Core\Controller\LoginController;
 use OC\Core\Controller\TwoFactorChallengeController;
 use OCA\IntrusionDetection\AppInfo\Application;
 use OCA\IntrusionDetection\Controller\PasswordChangeController;
+use OCA\IntrusionDetection\Controller\VerifyController;
 use OCA\IntrusionDetection\Response\PasswordChangeFlag;
 use OCA\IntrusionDetection\SessionState\ISessionStateRule;
 use OCA\IntrusionDetection\SessionState\RequestTarget;
@@ -25,8 +26,10 @@ use OCP\IUserSession;
 /**
  * While a session must choose a new password (concept section 11.7), it can
  * reach nothing but the password page, logging out, the second-factor pages
- * of the login, and public read-only resources such as styles. Browsers are
- * sent to the password page; everything else gets 403.
+ * of the login, the verify page of a login that still needs its extra
+ * confirmation ({@see StepUpRule} comes first), and public read-only
+ * resources such as styles. Browsers are sent to the password page;
+ * everything else gets 403.
  *
  * The login listener marks the session. A marker whose requirement was
  * lifted meanwhile (password changed elsewhere, an admin cleared it) is
@@ -72,6 +75,7 @@ class PasswordChangeRule implements ISessionStateRule {
 
 	public static function isExempt(RequestTarget $target): bool {
 		return $target->isController(PasswordChangeController::class)
+			|| $target->isController(VerifyController::class)
 			|| $target->isController(LoginController::class, 'logout')
 			|| $target->isController(TwoFactorChallengeController::class)
 			|| $target->isController(ALoginSetupController::class)

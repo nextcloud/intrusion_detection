@@ -1,0 +1,93 @@
+<?php
+
+declare(strict_types=1);
+
+/**
+ * SPDX-FileCopyrightText: 2026 Nextcloud GmbH and Nextcloud contributors
+ * SPDX-License-Identifier: AGPL-3.0-or-later
+ */
+
+namespace OCA\IntrusionDetection\Confirm;
+
+use OCA\IntrusionDetection\Config\GlobalSettings;
+use OCA\IntrusionDetection\Config\Settings;
+use OCA\IntrusionDetection\Crypto\Fingerprinter;
+use OCA\IntrusionDetection\Db\StepUpSessionMapper;
+use OCP\AppFramework\Utility\ITimeFactory;
+use OCP\IConfig;
+use Psr\Log\LoggerInterface;
+
+/**
+ * The sessions whose login still waits for its confirmation, or was refused,
+ * remembered on the server by a keyed fingerprint of the session id.
+ *
+ * The step-up state lives in the PHP session, but a session can come back
+ * without it: through the remember-me cookie, which core issues at the end
+ * of the login, or from its session token when the PHP session data is
+ * gone. Such a resumed session must not skip the confirmation. A login is
+ * remembered here as long as its session could be resumed, and forgotten
+ * when it is confirmed or ended.
+ *
+ * Normal logins cost nothing: the table is only read while an unconfirmed
+ * session may exist, which a global setting tells without a query.
+ */
+class UnconfirmedSessions {
+	/** Core's defaults for how long a remembered login and a session last */
+	public const DEFAULT_REMEMBER_LIFETIME = 15 * 86400;
+	public const DEFAULT_SESSION_LIFETIME = 86400;
+
+	public function __construct(
+		private readonly StepUpSessionMapper $mapper,
+		private readonly Fingerprinter $fingerprinter,
+		private readonly Settings $settings,
+		private readonly IConfig $config,
+		private readonly ITimeFactory $timeFactory,
+		private readonly LoggerInterface $logger,
+	) {
+	}
+
+	public function remember(#[\SensitiveParameter] string $sessionId, string $uid): void {
+		$now = $this->timeFactory->getTime();
+		$expires = $now + $this->lifetime();
+		$this->mapper->record($this->fingerprinter->session($sessionId), $uid, $now, $expires);
+		if ($this->settings->getInt(GlobalSettings::STEP_UP_SESSIONS_UNTIL) < $expires) {
+			$this->settings->setGlobal(GlobalSettings::STEP_UP_SESSIONS_UNTIL, $expires);
+		}
+	}
+
+	public function forget(#[\SensitiveParameter] string $sessionId): void {
+		try {
+			$this->mapper->delete($this->fingerprinter->session($sessionId));
+		} catch (\Throwable $e) {
+			$this->logger->error('Intrusion detection could not forget an unconfirmed session', ['exception' => $e]);
+		}
+	}
+
+	/**
+	 * The account whose unconfirmed login this session is, or null.
+	 */
+	public function accountOf(#[\SensitiveParameter] string $sessionId): ?string {
+		if ($sessionId === '' || !$this->mayExist()) {
+			return null;
+		}
+		return $this->mapper->find($this->fingerprinter->session($sessionId), $this->timeFactory->getTime());
+	}
+
+	/**
+	 * Whether any unconfirmed session may still exist, without a query.
+	 */
+	public function mayExist(): bool {
+		return $this->settings->getInt(GlobalSettings::STEP_UP_SESSIONS_UNTIL) > $this->timeFactory->getTime();
+	}
+
+	/**
+	 * As long as core could resume the session: the longer of the
+	 * remember-me cookie's and the session's lifetime, and an hour more.
+	 */
+	private function lifetime(): int {
+		return max(
+			$this->config->getSystemValueInt('remember_login_cookie_lifetime', self::DEFAULT_REMEMBER_LIFETIME),
+			$this->config->getSystemValueInt('session_lifetime', self::DEFAULT_SESSION_LIFETIME),
+		) + 3600;
+	}
+}

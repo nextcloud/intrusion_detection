@@ -13,6 +13,9 @@ use OCA\IntrusionDetection\Check\Checks\AdminChange;
 use OCA\IntrusionDetection\Check\IValidatesParams;
 use OCA\IntrusionDetection\Check\ParamDefinition;
 use OCA\IntrusionDetection\Check\ParamType;
+use OCA\IntrusionDetection\Confirm\NoMethodOutcome;
+use OCA\IntrusionDetection\Confirm\StepUpPolicy;
+use OCA\IntrusionDetection\Confirm\StepUpReasons;
 
 /**
  * The settings that belong to the app rather than to one check.
@@ -89,6 +92,15 @@ final class GlobalSettings {
 	/** Whether the typed events for webhooks carry the address */
 	public const EVENTS_INCLUDE_IP = 'events_include_ip';
 
+	/** Seconds an email code for a login confirmation is valid */
+	public const STEP_UP_CODE_TTL = 'step_up_code_ttl';
+	/** Seconds a login may wait for its confirmation before it is ended */
+	public const STEP_UP_SESSION_TTL = 'step_up_session_ttl';
+	/** Seconds a network stays trusted after a user said "Yes, it was me" */
+	public const TRUSTED_NETWORK_DURATION = 'trusted_network_duration';
+	/** Internal: until when sessions with an unconfirmed login may exist, so that resumed sessions are checked */
+	public const STEP_UP_SESSIONS_UNTIL = 'step_up_sessions_until';
+
 	/** Seconds in the learning period that starts when the app is first enabled */
 	public const LEARNING_DEFAULT_PERIOD = 7 * 86400;
 
@@ -141,6 +153,14 @@ final class GlobalSettings {
 				new ParamDefinition(self::DIGEST_STATE, ParamType::Json, '{}'),
 				new ParamDefinition(self::EVENTS_INCLUDE_IP, ParamType::Bool, true),
 				new ParamDefinition(self::LEARNING_STARTED_AT, ParamType::Int, 0, min: 0),
+				new ParamDefinition(self::STEP_UP_CODE_TTL, ParamType::Duration, 600, min: 120, max: 3600),
+				new ParamDefinition(self::STEP_UP_SESSION_TTL, ParamType::Duration, 900, min: 300, max: 7200),
+				new ParamDefinition(self::TRUSTED_NETWORK_DURATION, ParamType::Duration, 30 * 86400, min: 86400, max: 365 * 86400),
+				new ParamDefinition(self::STEP_UP_SESSIONS_UNTIL, ParamType::Int, 0, min: 0),
+				...array_map(
+					static fn (StepUpPolicy $p): ParamDefinition => new ParamDefinition($p->settingKey(), ParamType::Choice, $p->defaultOutcome()->value, choices: NoMethodOutcome::values()),
+					StepUpReasons::policies(),
+				),
 			];
 			$this->definitions = [];
 			foreach ($list as $definition) {
@@ -180,6 +200,7 @@ final class GlobalSettings {
 			self::CONFIG_WATCH_BASELINE,
 			self::DIGEST_STATE,
 			self::LEARNING_STARTED_AT,
+			self::STEP_UP_SESSIONS_UNTIL,
 		], true);
 	}
 

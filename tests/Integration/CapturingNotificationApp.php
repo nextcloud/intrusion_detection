@@ -19,6 +19,8 @@ use OCP\Notification\INotification;
 class CapturingNotificationApp implements IApp {
 	/** @var list<INotification> */
 	public static array $notifications = [];
+	/** @var list<INotification> */
+	public static array $processed = [];
 
 	#[\Override]
 	public function notify(INotification $notification): void {
@@ -27,6 +29,7 @@ class CapturingNotificationApp implements IApp {
 
 	#[\Override]
 	public function markProcessed(INotification $notification): void {
+		self::$processed[] = $notification;
 	}
 
 	#[\Override]

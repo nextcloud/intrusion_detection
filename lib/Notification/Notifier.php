@@ -18,8 +18,10 @@ use OCA\IntrusionDetection\Db\Detection;
 use OCA\IntrusionDetection\Db\DetectionMapper;
 use OCA\IntrusionDetection\Explain\DateFormatter;
 use OCA\IntrusionDetection\Explain\NarrativeBuilder;
+use OCA\IntrusionDetection\WasThisYou\Questions;
 use OCP\AppFramework\Db\DoesNotExistException;
 use OCP\IL10N;
+use OCP\IURLGenerator;
 use OCP\IUserManager;
 use OCP\L10N\IFactory;
 use OCP\Notification\AlreadyProcessedException;
@@ -48,6 +50,9 @@ class Notifier implements INotifier {
 	public const ACTION_EXTEND = 'extend';
 	public const ACTION_APPROVE = 'approve';
 	public const ACTION_REJECT = 'reject';
+	/** "Was this you?" on the user's own notification */
+	public const ACTION_DENY = 'deny';
+	public const ACTION_CONFIRM = 'confirm';
 
 	public function __construct(
 		private readonly IFactory $l10nFactory,
@@ -61,6 +66,8 @@ class Notifier implements INotifier {
 		private readonly IUserManager $userManager,
 		private readonly ApprovalMapper $approvals,
 		private readonly DateFormatter $dates,
+		private readonly Questions $questions,
+		private readonly IURLGenerator $urlGenerator,
 	) {
 	}
 
@@ -239,6 +246,10 @@ class Notifier implements INotifier {
 	/**
 	 * What the affected user is told. Only the notification's own recipient
 	 * sees it, and only while the detection is still theirs.
+	 *
+	 * While the detection waits for an answer to "Was this you?", the
+	 * notification offers both answers. They carry only the detection id;
+	 * the endpoints check that it is the user's own.
 	 */
 	private function prepareUserDetection(INotification $notification, string $languageCode): INotification {
 		$detection = $this->detectionOf($notification);
@@ -250,6 +261,17 @@ class Notifier implements INotifier {
 		$notification->setParsedSubject($message->subject)
 			->setParsedMessage($message->text())
 			->setLink($this->userLinks->securityPage());
+		if ($notification->getParsedActions() === [] && $this->questions->isOpen($detection)) {
+			$l = $this->l10nFactory->get(Application::APP_ID, $languageCode);
+			foreach ([self::ACTION_DENY => ['deny', $l->t('No, it was not me'), true], self::ACTION_CONFIRM => ['confirm', $l->t('Yes, it was me'), false]] as $label => [$route, $text, $primary]) {
+				$action = $notification->createAction();
+				$action->setLabel($label)
+					->setParsedLabel($text)
+					->setLink($this->urlGenerator->linkToOCSRouteAbsolute(Application::APP_ID . '.PersonalApi.' . $route, ['id' => $detection->getId()]), 'POST')
+					->setPrimary($primary);
+				$notification->addParsedAction($action);
+			}
+		}
 		return $notification;
 	}
 

@@ -125,6 +125,24 @@ class DetectionMapper extends QBMapper {
 		return $this->findEntities($qb);
 	}
 
+	/**
+	 * Record a user's answer to "Was this you?", only if the detection is
+	 * theirs and has no answer yet, in one statement.
+	 *
+	 * @param Detection::VERDICT_* $verdict
+	 * @return bool whether this answer was recorded
+	 */
+	public function setVerdict(int $id, string $uid, string $verdict, int $now): bool {
+		$qb = $this->db->getQueryBuilder();
+		$qb->update(self::TABLE)
+			->set('user_verdict', $qb->createNamedParameter($verdict))
+			->set('verdict_at', $qb->createNamedParameter($now, IQueryBuilder::PARAM_INT))
+			->where($qb->expr()->eq('id', $qb->createNamedParameter($id, IQueryBuilder::PARAM_INT)))
+			->andWhere($qb->expr()->eq('uid', $qb->createNamedParameter($uid)))
+			->andWhere($qb->expr()->isNull('user_verdict'));
+		return $qb->executeStatement() === 1;
+	}
+
 	public function deleteCreatedBefore(int $before): int {
 		$qb = $this->db->getQueryBuilder();
 		$qb->delete(self::TABLE)

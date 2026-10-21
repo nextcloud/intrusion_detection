@@ -25,6 +25,12 @@ class SessionState {
 
 	/** A new password must be chosen before anything else (concept section 11.7) */
 	public const PASSWORD_CHANGE = 'password_change';
+	/** The login waits for its extra confirmation, or was refused (concept section 11.5) */
+	public const STEP_UP = 'step_up';
+	/** How the login of this session was confirmed, when it needed confirmation */
+	public const CONFIRMATION = 'confirmation';
+	/** Detections recorded at login, to be linked to the session token once it exists */
+	public const LOGIN_DETECTIONS = 'login_detections';
 
 	public function __construct(
 		private readonly ISession $session,

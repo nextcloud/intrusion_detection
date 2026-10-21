@@ -20,8 +20,14 @@ use Psr\Log\LoggerInterface;
  * broken rule must not lock everybody out.
  */
 class SessionStateRules {
-	/** @var list<class-string<ISessionStateRule>> */
+	/**
+	 * The confirmation of a login comes before everything else: the password
+	 * page, for one, must only be reached by a confirmed login.
+	 *
+	 * @var list<class-string<ISessionStateRule>>
+	 */
 	public const RULES = [
+		Rules\StepUpRule::class,
 		Rules\PasswordChangeRule::class,
 		Rules\CredentialUseRule::class,
 	];

@@ -39,6 +39,8 @@ use OCA\IntrusionDetection\Listener\ResetRequestedListener;
 use OCA\IntrusionDetection\Listener\SabrePluginAddListener;
 use OCA\IntrusionDetection\Listener\SecondFactorFailedListener;
 use OCA\IntrusionDetection\Listener\ShareAccessFailedListener;
+use OCA\IntrusionDetection\Listener\StepUpChallengePassedListener;
+use OCA\IntrusionDetection\Listener\StepUpLoginListener;
 use OCA\IntrusionDetection\Listener\UserDeletedListener;
 use OCA\IntrusionDetection\Middleware\PayloadMiddleware;
 use OCA\IntrusionDetection\Middleware\SessionStateMiddleware;
@@ -48,7 +50,7 @@ use OCA\IntrusionDetection\SetupCheck\AdminContactCheck;
 use OCA\IntrusionDetection\SetupCheck\ApprovalCheck;
 use OCA\IntrusionDetection\SetupCheck\BlocklistSyncCheck;
 use OCA\IntrusionDetection\TrustedNetwork\ITrustedNetworks;
-use OCA\IntrusionDetection\TrustedNetwork\NullTrustedNetworks;
+use OCA\IntrusionDetection\TrustedNetwork\TrustedNetworks;
 use OCP\App\Events\AppDisableEvent;
 use OCP\App\Events\AppEnableEvent;
 use OCP\AppFramework\App;
@@ -59,6 +61,7 @@ use OCP\Authentication\Events\AnyLoginFailedEvent;
 use OCP\Authentication\Events\AppPasswordCreatedEvent;
 use OCP\Authentication\Events\LoginFlowV2GrantedEvent;
 use OCP\Authentication\TwoFactorAuth\TwoFactorProviderChallengeFailed;
+use OCP\Authentication\TwoFactorAuth\TwoFactorProviderChallengePassed;
 use OCP\Group\Events\SubAdminAddedEvent;
 use OCP\Group\Events\UserAddedEvent;
 use OCP\Group\Events\UserRemovedEvent;
@@ -97,7 +100,7 @@ class Application extends App implements IBootstrap {
 		$context->registerEventListener(UserLoggedInEvent::class, PayloadLoginListener::class);
 		$context->registerMiddleware(PayloadMiddleware::class, true);
 		$context->registerDashboardWidget(IntrusionWidget::class);
-		$context->registerServiceAlias(ITrustedNetworks::class, NullTrustedNetworks::class);
+		$context->registerServiceAlias(ITrustedNetworks::class, TrustedNetworks::class);
 		$context->registerEventListener(ShareLinkAccessFailedEvent::class, ShareAccessFailedListener::class);
 		$context->registerEventListener(PasswordResetRequestedEvent::class, ResetRequestedListener::class);
 		$context->registerEventListener(LoginFlowV2GrantedEvent::class, LoginFlowGrantedListener::class);
@@ -124,6 +127,10 @@ class Application extends App implements IBootstrap {
 		$context->registerRequestGuard(CredentialUseGuard::class);
 		$context->registerEventListener(UserLoggedInEvent::class, CredentialUseLoginListener::class);
 		$context->registerServiceAlias(IKnownDevices::class, NullKnownDevices::class);
+		// Before the other login listeners, so that a new password required here is asked for at once.
+		$context->registerEventListener(UserLoggedInEvent::class, StepUpLoginListener::class, StepUpLoginListener::PRIORITY);
+		$context->registerEventListener(UserLoggedInWithCookieEvent::class, StepUpLoginListener::class, StepUpLoginListener::PRIORITY);
+		$context->registerEventListener(TwoFactorProviderChallengePassed::class, StepUpChallengePassedListener::class);
 	}
 
 	#[\Override]

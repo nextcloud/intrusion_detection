@@ -28,7 +28,6 @@ use OCA\IntrusionDetection\Response\BanService;
 use OCA\IntrusionDetection\Response\FlaggedSources;
 use OCA\IntrusionDetection\Response\ResponseEngine;
 use OCA\IntrusionDetection\TrustedNetwork\ITrustedNetworks;
-use OCA\IntrusionDetection\TrustedNetwork\NullTrustedNetworks;
 use OCP\AppFramework\Utility\ITimeFactory;
 use OCP\Authentication\Events\LoginFlowV2GrantedEvent;
 use OCP\Authentication\Token\IToken;
@@ -53,7 +52,7 @@ class LoginFlowMismatchTest extends RequestEventTestCase {
 	protected function setUp(): void {
 		parent::setUp();
 		$this->user = $this->user('ids-flow');
-		$this->trustedNetworks = new NullTrustedNetworks();
+		$this->trustedNetworks = Server::get(ITrustedNetworks::class);
 		$this->listen(LoginFlowV2GrantedEvent::class, new LoginFlowGrantedListener(
 			$this->settings,
 			$this->addresses,

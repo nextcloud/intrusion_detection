@@ -19,7 +19,9 @@ use OCA\IntrusionDetection\Db\FlagMapper;
 use OCA\IntrusionDetection\Db\LoginMapper;
 use OCA\IntrusionDetection\Db\ProtectedAccountMapper;
 use OCA\IntrusionDetection\Db\ResetSuppressionMapper;
+use OCA\IntrusionDetection\Db\StepUpSessionMapper;
 use OCA\IntrusionDetection\Db\TokenOriginMapper;
+use OCA\IntrusionDetection\Db\TrustedNetworkMapper;
 use OCA\IntrusionDetection\Detection\AttemptRecorder;
 use OCP\AppFramework\Utility\ITimeFactory;
 use OCP\BackgroundJob\IJob;
@@ -51,6 +53,8 @@ class Cleanup extends TimedJob {
 		private readonly AlertMapper $alerts,
 		private readonly ResetSuppressionMapper $resetSuppressions,
 		private readonly TokenOriginMapper $tokenOrigins,
+		private readonly TrustedNetworkMapper $trustedNetworks,
+		private readonly StepUpSessionMapper $stepUpSessions,
 	) {
 		parent::__construct($time);
 		$this->setInterval(300);
@@ -69,6 +73,8 @@ class Cleanup extends TimedJob {
 		$this->alerts->deleteOlderThan($now - self::ALERT_RETENTION);
 		$this->resetSuppressions->deleteExpired($now);
 		$this->tokenOrigins->deleteOlderThan($now - self::TOKEN_ORIGIN_RETENTION);
+		$this->trustedNetworks->deleteExpired($now);
+		$this->stepUpSessions->deleteExpired($now);
 		$this->updateFloodState($now);
 	}
 

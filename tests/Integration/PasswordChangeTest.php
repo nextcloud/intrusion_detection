@@ -12,6 +12,7 @@ namespace OCA\IntrusionDetection\Tests\Integration;
 use OCA\IntrusionDetection\AppInfo\Application;
 use OCA\IntrusionDetection\Audit\AuditLogger;
 use OCA\IntrusionDetection\Controller\PasswordChangeController;
+use OCA\IntrusionDetection\Http\LocalRedirect;
 use OCA\IntrusionDetection\Listener\PasswordChangeLoginListener;
 use OCA\IntrusionDetection\Listener\PasswordUpdatedListener;
 use OCA\IntrusionDetection\Notification\AdminNotices;
@@ -292,6 +293,7 @@ class PasswordChangeTest extends AccountTestCase {
 			$this->state,
 			Server::get(IURLGenerator::class),
 			Server::get(IFactory::class)->get(Application::APP_ID, 'en'),
+			Server::get(LocalRedirect::class),
 		);
 	}
 

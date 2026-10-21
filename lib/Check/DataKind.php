@@ -31,4 +31,8 @@ enum DataKind: string {
 	case AccountState = 'account_state';
 	case ConfigSnapshot = 'config_snapshot';
 	case Approvals = 'approvals';
+	/** Networks users confirmed as their own */
+	case TrustedNetworks = 'trusted_networks';
+	/** Keyed fingerprints of sessions whose login waits for its confirmation */
+	case UnconfirmedSessions = 'unconfirmed_sessions';
 }

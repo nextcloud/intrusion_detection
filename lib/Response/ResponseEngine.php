@@ -48,6 +48,7 @@ class ResponseEngine {
 		Handlers\RevokeTokenHandler::class,
 		Handlers\ForcePasswordChangeHandler::class,
 		Handlers\NotifyUserHandler::class,
+		Handlers\StepUpHandler::class,
 	];
 
 	/** @var array<string, IResponseHandler>|null */

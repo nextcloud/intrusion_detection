@@ -12,6 +12,7 @@ namespace OCA\IntrusionDetection\Tests\Integration;
 use OCA\IntrusionDetection\Check\Checks\AccountUnderAttackDetector;
 use OCA\IntrusionDetection\Check\Checks\CredentialStuffingDetector;
 use OCA\IntrusionDetection\Check\Checks\DecoyCredentialDetector;
+use OCA\IntrusionDetection\Check\Checks\PasswordSpraying;
 use OCA\IntrusionDetection\Check\Checks\PasswordSprayingDetector;
 use OCA\IntrusionDetection\Check\Checks\ReservedNameDetector;
 use OCA\IntrusionDetection\Config\Settings;
@@ -85,6 +86,7 @@ abstract class LoginFailureTestCase extends IntegrationTestCase {
 				Server::get(FlaggedSources::class),
 				Server::get(Fingerprinter::class),
 				Server::get(ICacheFactory::class),
+				Server::get(PasswordSpraying::class),
 			),
 			Server::get(AccountUnderAttackDetector::class),
 			Server::get(IUserManager::class),

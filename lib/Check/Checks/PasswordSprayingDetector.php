@@ -12,9 +12,11 @@ namespace OCA\IntrusionDetection\Check\Checks;
 use OCA\IntrusionDetection\AppInfo\Application;
 use OCA\IntrusionDetection\Check\ResponseType;
 use OCA\IntrusionDetection\Config\Settings;
+use OCA\IntrusionDetection\Confirm\LoginContext;
 use OCA\IntrusionDetection\Crypto\Fingerprinter;
 use OCA\IntrusionDetection\Db\AttemptKind;
 use OCA\IntrusionDetection\Db\AttemptMapper;
+use OCA\IntrusionDetection\Db\Detection;
 use OCA\IntrusionDetection\Detection\AttemptRecord;
 use OCA\IntrusionDetection\Detection\DetectionDraft;
 use OCA\IntrusionDetection\Net\SourceKey;
@@ -34,8 +36,11 @@ use OCP\ICacheFactory;
  *   Every address that tried it in the window is blocked (at most
  *   MAX_BAN_TARGETS), and the fingerprint is flagged for a day.
  *
- * The successful-login half (confirming logins with a flagged password) is
- * part of the step-up logic, which reads {@see FlaggedSources::isPasswordFlagged()}.
+ * - A successful login with a flagged password ({@see self::detectSuccess()})
+ *   is a detection of its own for the account, with the login responses
+ *   (extra confirmation, telling the user, a new password). Whether the
+ *   login needs confirmation is decided by the step-up reasons, which read
+ *   the same flag.
  */
 class PasswordSprayingDetector {
 	public const KINDS = [AttemptKind::PasswordLogin];
@@ -50,7 +55,30 @@ class PasswordSprayingDetector {
 		private readonly FlaggedSources $flags,
 		private readonly Fingerprinter $fingerprinter,
 		private readonly ICacheFactory $cacheFactory,
+		private readonly PasswordSpraying $check,
 	) {
+	}
+
+	/**
+	 * A successful password login: when its password is flagged, record a
+	 * detection for the account, merged per account and hour, and run the
+	 * login responses.
+	 *
+	 * @return ?Detection the detection, or null when the password is not flagged or the check is off
+	 */
+	public function detectSuccess(LoginContext $login): ?Detection {
+		if (!$login->passwordFlagged || !$this->settings->modeState(PasswordSpraying::ID)->runs()) {
+			return null;
+		}
+		$draft = new DetectionDraft(
+			checkId: PasswordSpraying::ID,
+			source: $login->source,
+			uid: $login->uid(),
+			facts: ['rule' => PasswordSpraying::RULE_LOGIN, 'client' => !$login->interactive],
+			merge: DetectionDraft::MERGE_USER,
+			userAgent: $login->userAgent,
+		);
+		return $this->engine->handle($draft, $this->check->responsesFor($draft, $this->settings->responses(PasswordSpraying::ID), []));
 	}
 
 	public function detect(#[\SensitiveParameter] AttemptRecord $attempt, ?string $userAgent, #[\SensitiveParameter] ?string $password): void {
@@ -113,7 +141,7 @@ class PasswordSprayingDetector {
 			$attempt->passwordCandidates,
 			array_map('bin2hex', $this->fingerprinter->passwordFlagFingerprints($password)),
 		));
-		$this->engine->handle($draft);
+		$this->engine->handle($draft, $this->check->responsesFor($draft, $this->settings->responses(PasswordSpraying::ID), []));
 		if (!$flags) {
 			$this->cache()?->set($seenKey, 1, $window);
 		}

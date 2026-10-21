@@ -18,6 +18,7 @@ use OCA\IntrusionDetection\SessionState\ISessionStateRule;
 use OCA\IntrusionDetection\SessionState\RequestTarget;
 use OCA\IntrusionDetection\SessionState\Rules\CredentialUseRule;
 use OCA\IntrusionDetection\SessionState\Rules\PasswordChangeRule;
+use OCA\IntrusionDetection\SessionState\Rules\StepUpRule;
 use OCA\IntrusionDetection\SessionState\SessionBlock;
 use OCA\IntrusionDetection\SessionState\SessionState;
 use OCA\IntrusionDetection\SessionState\SessionStateRules;
@@ -26,6 +27,7 @@ use OCP\AppFramework\Http\DataResponse;
 use OCP\AppFramework\Http\JSONResponse;
 use OCP\AppFramework\Http\RedirectResponse;
 use OCP\AppFramework\OCSController;
+use OCP\AppFramework\Utility\ITimeFactory;
 use OCP\IRequest;
 use OCP\ISession;
 use OCP\IURLGenerator;
@@ -41,7 +43,7 @@ use Test\TestCase;
 
 /**
  * The session-state middleware and WebDAV plugin: what they answer, and
- * that a session with nothing pending costs one session read.
+ * that a session with nothing pending costs one session read per rule.
  */
 class SessionStateMiddlewareTest extends TestCase {
 	/** @var array<string, mixed> */
@@ -82,7 +84,12 @@ class SessionStateMiddlewareTest extends TestCase {
 		$rule = new PasswordChangeRule($this->flag, $userSession, $urls);
 		$container = $this->createMock(ContainerInterface::class);
 		$credentialRule = new CredentialUseRule(new RequestContext(), $this->createMock(ContainerInterface::class));
-		$container->method('get')->willReturnCallback(static fn (string $class): ISessionStateRule => $class === CredentialUseRule::class ? $credentialRule : $rule);
+		$stepUp = new StepUpRule($userSession, $urls, $this->createMock(ITimeFactory::class), $container, $this->createMock(LoggerInterface::class));
+		$container->method('get')->willReturnCallback(static fn (string $id): object => match ($id) {
+			StepUpRule::class => $stepUp,
+			CredentialUseRule::class => $credentialRule,
+			default => $rule,
+		});
 		$this->rules = new SessionStateRules($container, $this->createMock(LoggerInterface::class));
 		$this->request = $this->createMock(IRequest::class);
 		$this->request->method('getMethod')->willReturnCallback(fn (): string => $this->method);
@@ -90,7 +97,7 @@ class SessionStateMiddlewareTest extends TestCase {
 		$this->request->method('getHeader')->willReturnCallback(fn (string $name): string => $name === 'Accept' ? $this->accept : '');
 	}
 
-	public function testNothingPendingCostsOneSessionReadAndNoDatabase(): void {
+	public function testNothingPendingCostsOneSessionReadPerRuleAndNoDatabase(): void {
 		$this->flag->expects($this->never())->method('isRequired');
 		$middleware = $this->middleware();
 		$controller = $this->controller();
@@ -99,7 +106,7 @@ class SessionStateMiddlewareTest extends TestCase {
 			$middleware->beforeController($controller, 'index');
 		}
 		$elapsed = (hrtime(true) - $start) / 1e6;
-		$this->assertSame(1000, $this->sessionReads, 'One session read per request');
+		$this->assertSame(1000 * count(SessionStateRules::RULES), $this->sessionReads, 'One session read per rule and request');
 		$this->assertLessThan(500, $elapsed, 'Far below a millisecond per request');
 	}
 
@@ -185,7 +192,7 @@ class SessionStateMiddlewareTest extends TestCase {
 		$request->method('getUrl')->willReturn('/remote.php/dav/files/alice/');
 		$response = new Response();
 		$plugin->beforeMethod($request, $response);
-		$this->assertSame(1, $this->sessionReads);
+		$this->assertSame(count(SessionStateRules::RULES), $this->sessionReads);
 		$this->assertNull($response->getHeader('X-Nextcloud-Password-Change'));
 	}
 

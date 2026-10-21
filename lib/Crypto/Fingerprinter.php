@@ -120,6 +120,15 @@ class Fingerprinter {
 		return hash_hmac('sha256', $value, $this->key('setting'));
 	}
 
+	/**
+	 * 32 hex characters: a keyed fingerprint of a session id, so a session
+	 * can be recognised later without storing its id, which is the secret of
+	 * its token.
+	 */
+	public function session(#[\SensitiveParameter] string $sessionId): string {
+		return bin2hex(substr(hash_hmac('sha256', $sessionId, $this->key('session'), true), 0, 16));
+	}
+
 	private function passwordForDay(string $password, string $day): string {
 		return substr(hash_hmac('sha256', $password, $this->key('password/' . $day), true), 0, 16);
 	}

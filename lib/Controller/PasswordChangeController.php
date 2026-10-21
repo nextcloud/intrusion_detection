@@ -11,6 +11,7 @@ namespace OCA\IntrusionDetection\Controller;
 
 use OC\User\Session;
 use OCA\IntrusionDetection\AppInfo\Application;
+use OCA\IntrusionDetection\Http\LocalRedirect;
 use OCA\IntrusionDetection\Response\PasswordChangeService;
 use OCA\IntrusionDetection\SessionState\SessionState;
 use OCP\AppFramework\Controller;
@@ -49,6 +50,8 @@ use OCP\Util;
 class PasswordChangeController extends Controller {
 	public const TEMPLATE = 'password';
 	public const BRUTE_FORCE_ACTION = 'intrusion_detection_password';
+	/** Never continued to: this page itself */
+	private const EXCLUDED = ['/apps/' . Application::APP_ID . '/password'];
 
 	public function __construct(
 		IRequest $request,
@@ -58,6 +61,7 @@ class PasswordChangeController extends Controller {
 		private readonly SessionState $state,
 		private readonly IURLGenerator $urlGenerator,
 		private readonly IL10N $l,
+		private readonly LocalRedirect $redirect,
 	) {
 		parent::__construct(Application::APP_ID, $request);
 	}
@@ -157,10 +161,10 @@ class PasswordChangeController extends Controller {
 	}
 
 	private function page(string $redirectUrl, ?string $error = null, int $status = Http::STATUS_OK): StandaloneTemplateResponse {
-		Util::addStyle(Application::APP_ID, 'password');
+		Util::addStyle(Application::APP_ID, 'pages');
 		$response = new StandaloneTemplateResponse(Application::APP_ID, self::TEMPLATE, [
 			'action' => $this->urlGenerator->linkToRoute(Application::APP_ID . '.PasswordChange.change'),
-			'redirect_url' => $this->isSafeTarget($redirectUrl) ? $redirectUrl : '',
+			'redirect_url' => LocalRedirect::isSafe($redirectUrl, self::EXCLUDED) ? $redirectUrl : '',
 			'logout_url' => $this->urlGenerator->getLogoutUrl(),
 			'error' => $error,
 		], 'guest');
@@ -168,27 +172,7 @@ class PasswordChangeController extends Controller {
 		return $response;
 	}
 
-	/**
-	 * Where to continue: the page the user wanted, if it is a path on this
-	 * server, else the start page.
-	 */
 	private function target(string $redirectUrl): string {
-		return $this->isSafeTarget($redirectUrl)
-			? $this->urlGenerator->getAbsoluteURL($redirectUrl)
-			: $this->urlGenerator->linkToDefaultPageUrl();
-	}
-
-	/**
-	 * A local path: one leading slash, no scheme or host, no backslashes or
-	 * control characters, and not this page.
-	 */
-	private function isSafeTarget(string $url): bool {
-		return $url !== ''
-			&& strlen($url) <= 2000
-			&& $url[0] === '/'
-			&& !str_starts_with($url, '//')
-			&& !str_contains($url, '\\')
-			&& preg_match('/[\x00-\x1f\x7f]/', $url) !== 1
-			&& !str_contains($url, '/apps/' . Application::APP_ID . '/password');
+		return $this->redirect->target($redirectUrl, self::EXCLUDED);
 	}
 }
