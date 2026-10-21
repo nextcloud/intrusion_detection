@@ -167,14 +167,12 @@ class LearningNoticesTest extends IntegrationTestCase {
 		Server::get(Notifier::class)->prepare($notice, 'en');
 	}
 
-	public function testTheNoticeSaysThatDecoysStillBlock(): void {
+	public function testTheNoticeSaysWhatStillBlocksWhileLearning(): void {
 		$this->setLearningUntil(time() + 3600);
 		$this->notices->sendEndingNoticeIfDue();
-		$again = clone $this->sent[0];
-		$this->assertStringContainsString('blocks only addresses that use a decoy', Server::get(Notifier::class)->prepare($this->sent[0], 'en')->getParsedMessage());
-
-		$this->settings->setGlobal(GlobalSettings::LEARNING_DECOYS_ACT, false);
-		$this->assertStringContainsString('but blocks nothing', Server::get(Notifier::class)->prepare($again, 'en')->getParsedMessage());
+		$message = Server::get(Notifier::class)->prepare($this->sent[0], 'en')->getParsedMessage();
+		$this->assertStringContainsString('earlier blocks, blocks you add by hand, a user\'s "No, it was not me" and, unless you switched it off, decoys still block.', $message);
+		$this->assertStringNotContainsString('blocks nothing', $message);
 	}
 
 	public function testTheJobTellsTheAdminsWhenProtectionStarts(): void {

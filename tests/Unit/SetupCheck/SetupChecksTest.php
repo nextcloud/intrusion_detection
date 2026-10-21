@@ -191,10 +191,9 @@ class SetupChecksTest extends TestCase {
 	/**
 	 * @param int $startedAt when learning started, 0 when unknown
 	 */
-	private function learningCheck(bool $active, int $startedAt, int $installedAt = 0, bool $decoysBlock = false): LearningModeCheck {
+	private function learningCheck(bool $active, int $startedAt, int $installedAt = 0): LearningModeCheck {
 		$learning = $this->createMock(LearningService::class);
 		$learning->method('isActive')->willReturn($active);
-		$learning->method('decoysBlock')->willReturn($decoysBlock);
 		$settings = $this->createMock(Settings::class);
 		$settings->method('getInt')->willReturnMap([
 			[GlobalSettings::LEARNING_STARTED_AT, $startedAt],
@@ -209,12 +208,11 @@ class SetupChecksTest extends TestCase {
 		$this->assertStringContainsString('on for 15 days', (string)$finding?->text);
 		$this->assertSame('#settings-learning', $finding?->url);
 		$this->assertNotNull($this->learningCheck(true, 0, self::NOW - 20 * 86400)->finding($this->l), 'Falls back to the installation time');
-		$this->assertStringContainsString('no attacker is blocked', (string)$finding?->text);
 	}
 
-	public function testLearningSaysThatDecoysStillBlock(): void {
-		$text = (string)$this->learningCheck(true, self::NOW - 15 * 86400, decoysBlock: true)->finding($this->l)?->text;
-		$this->assertStringContainsString('only addresses that use a decoy are blocked', $text);
+	public function testLearningSaysWhatStillBlocks(): void {
+		$text = (string)$this->learningCheck(true, self::NOW - 15 * 86400)->finding($this->l)?->text;
+		$this->assertStringContainsString('Learning mode has been on for 15 days. Checks set to Protect only record what they would block; earlier blocks', $text);
 		$this->assertStringNotContainsString('no attacker', $text);
 	}
 

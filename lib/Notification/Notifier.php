@@ -160,9 +160,8 @@ class Notifier implements INotifier {
 		$blocks = (int)($params['blocks'] ?? 0);
 		$days = max(1, (int)($params['days'] ?? 7));
 		$message = [
-			$this->learning->decoysBlock()
-				? $l->t('Intrusion detection is still learning: it watches and sends its alerts, but blocks only addresses that use a decoy.')
-				: $l->t('Intrusion detection is still learning: it watches and sends its alerts, but blocks nothing.'),
+			$l->t('Intrusion detection is still learning and sends its alerts.'),
+			$l->t('Checks set to Protect only record what they would block; earlier blocks, blocks you add by hand, a user\'s "No, it was not me" and, unless you switched it off, decoys still block.'),
 			$detections === 0
 				? $l->n('In the last %n day it found nothing it would have acted on.', 'In the last %n days it found nothing it would have acted on.', $days)
 				: $l->n('In the last %n day it would have acted on %1$s detections and blocked %2$s addresses.', 'In the last %n days it would have acted on %1$s detections and blocked %2$s addresses.', $days, [(string)$detections, (string)$blocks]),

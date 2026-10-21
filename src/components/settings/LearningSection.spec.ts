@@ -43,11 +43,9 @@ describe('the learning mode and other settings', () => {
 		expect(support).toContain('Reset all settings to defaults')
 	})
 
-	test('learning mode says that decoys still block, unless they only observe', () => {
-		expect(mount(LearningSection).text()).toContain('Only addresses that use a decoy are still blocked.')
-		state.settings = state.settings.map((s) => s.name === 'learning_decoys_act' ? { ...s, value: false } : s)
+	test('learning mode says what still blocks', () => {
 		const text = mount(LearningSection).text()
-		expect(text).toContain('before they block anything. Alerts are still sent.')
-		expect(text).not.toContain('decoy are still blocked')
+		expect(text).toContain('Checks set to Protect only record what they would block; earlier blocks, blocks you add by hand, a user\'s "No, it was not me" and, unless you switched it off, decoys still block.')
+		expect(text).toContain('Alerts are still sent.')
 	})
 })

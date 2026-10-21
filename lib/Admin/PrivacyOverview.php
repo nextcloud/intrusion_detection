@@ -261,7 +261,7 @@ class PrivacyOverview {
 				'name' => $l->t('Held-back password reset emails'),
 				'what' => $l->t('Per account flooded with password reset requests: until when its reset emails are held back, and the detection.'),
 				'why' => $l->t('So that a flood of reset requests does not fill the person\'s inbox.'),
-				'retention' => $l->n('%n day after the first held-back email: no new hold can start before', '%n days after the first held-back email: no new hold can start before', intdiv(ResetMailSuppressor::PERIOD, 86400)),
+				'retention' => $l->n('%n day from the first held-back email; until then, no new hold starts for the account', '%n days from the first held-back email; until then, no new hold starts for the account', intdiv(ResetMailSuppressor::PERIOD, 86400)),
 				'where' => 'ids_reset_suppressions',
 			],
 			DataKind::FailedLoginDays => [
