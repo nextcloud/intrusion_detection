@@ -75,6 +75,22 @@ final class CheckDefinition {
 		return in_array($response, $this->responses, true);
 	}
 
+	/**
+	 * Whether every response this check can have is a notification. Such a
+	 * check blocks nothing, so it acts during learning mode as well.
+	 */
+	public function onlyNotifies(): bool {
+		if ($this->responses === []) {
+			return false;
+		}
+		foreach ($this->responses as $response) {
+			if (!$response->isNotification()) {
+				return false;
+			}
+		}
+		return true;
+	}
+
 	public function texts(IL10N $l): CheckTexts {
 		return ($this->texts)($l);
 	}

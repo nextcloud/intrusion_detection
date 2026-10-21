@@ -15,8 +15,8 @@ use OCA\IntrusionDetection\Config\Settings;
 use OCP\AppFramework\Utility\ITimeFactory;
 
 /**
- * Learning mode: while it lasts, every check set to Protect only observes
- * (decoys excepted, by default). It starts for seven days when the app is
+ * Learning mode: while it lasts, every check set to Protect only observes,
+ * except checks that only notify and (by default) decoys. It starts for seven days when the app is
  * installed and can be started again for 1 to 30 days at any time.
  */
 class LearningService {

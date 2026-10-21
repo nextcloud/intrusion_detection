@@ -145,7 +145,8 @@ class AdminChangeDetector {
 	 * The mode this check had before one of the app's own settings changed.
 	 * A change that switches the app or this check off, or starts learning
 	 * mode, is reported as the check stood before, so the change that silences
-	 * it is still told.
+	 * it is still told. As this check only notifies, learning mode does not
+	 * silence it ({@see Settings::actsWhileLearning()}).
 	 *
 	 * @param int|float|bool|string|list<string> $old
 	 */
@@ -160,7 +161,7 @@ class AdminChangeDetector {
 		if (!$enabled) {
 			return new ModeState($configured, Mode::Off, ModeState::REASON_DISABLED);
 		}
-		if ($configured === Mode::Protect && $learning) {
+		if ($configured === Mode::Protect && $learning && !$this->settings->actsWhileLearning(AdminChange::ID)) {
 			return new ModeState($configured, Mode::Observe, ModeState::REASON_LEARNING);
 		}
 		return new ModeState($configured, $configured);

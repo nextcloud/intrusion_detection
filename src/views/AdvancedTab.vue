@@ -129,7 +129,7 @@ async function download() {
 				{{ t(APP_ID, 'Learning mode') }}
 			</h3>
 			<p :class="$style.card__text">
-				{{ t(APP_ID, 'While Nextcloud is learning, every check set to Protect only observes: it records what it would have done, so you can see whether your settings fit before anything is blocked. It starts for 7 days when the app is installed.') }}
+				{{ t(APP_ID, 'While Nextcloud is learning, every check set to Protect only observes: it records what it would have done, so you can see whether your settings fit before anything is blocked. Checks that only send alerts, such as admin change alerts, keep sending them. It starts for 7 days when the app is installed.') }}
 			</p>
 			<p :class="[$style.card__state, { [$style.card__state_on]: learning.active }]">
 				{{ learning.active ? t(APP_ID, 'Learning until {date}.', { date: learningUntil }) : t(APP_ID, 'Learning mode is off; checks set to Protect act.') }}

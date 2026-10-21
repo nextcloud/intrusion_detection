@@ -85,7 +85,7 @@ class CheckPresenter {
 			], $check->requirements),
 			'stores' => array_map(static fn (DataKind $k): string => $k->value, $check->stores),
 			'sendsData' => $check->sendsData,
-			'actsWhileLearning' => $check->actsWhileLearning,
+			'actsWhileLearning' => $check->actsWhileLearning || $check->onlyNotifies(),
 			'simulatable' => $check->simulatable,
 		];
 	}

@@ -44,7 +44,7 @@ watch(openCheckId, async (id) => {
 		</p>
 
 		<NcNoteCard v-if="learningUntil" type="info">
-			{{ t(APP_ID, 'Learning mode is on until {date}: checks set to Protect only observe until then, so you can see what they would do first.', { date: learningUntil }) }}
+			{{ t(APP_ID, 'Learning mode is on until {date}: checks set to Protect only observe until then, so you can see what they would do first. Checks that only send alerts keep sending them.', { date: learningUntil }) }}
 		</NcNoteCard>
 
 		<NcEmptyContent

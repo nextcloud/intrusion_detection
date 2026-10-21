@@ -12,6 +12,7 @@ namespace OCA\IntrusionDetection\Config;
 use OCA\IntrusionDetection\AppInfo\Application;
 use OCA\IntrusionDetection\Check\CheckDefinition;
 use OCA\IntrusionDetection\Check\CheckRegistry;
+use OCA\IntrusionDetection\Check\Checks\DecoyCredential;
 use OCA\IntrusionDetection\Check\InvalidParamException;
 use OCA\IntrusionDetection\Check\IValidatesParams;
 use OCA\IntrusionDetection\Check\Mode;
@@ -79,7 +80,7 @@ class Settings {
 				return new ModeState($configured, Mode::Off, ModeState::REASON_REQUIREMENT, $requirement);
 			}
 		}
-		if ($configured === Mode::Protect && $this->isLearning() && !$this->actsWhileLearning($check)) {
+		if ($configured === Mode::Protect && $this->isLearning() && !$this->definitionActsWhileLearning($check)) {
 			return new ModeState($configured, Mode::Observe, ModeState::REASON_LEARNING);
 		}
 		return new ModeState($configured, $configured);
@@ -324,8 +325,22 @@ class Settings {
 		}
 	}
 
-	private function actsWhileLearning(CheckDefinition $check): bool {
-		return $check->actsWhileLearning && $this->getBool(GlobalSettings::LEARNING_DECOYS_ACT);
+	/**
+	 * Whether a check set to Protect acts during learning mode: checks that
+	 * only notify always do, decoys when `learning_decoys_act` is on.
+	 */
+	public function actsWhileLearning(string $checkId): bool {
+		return $this->definitionActsWhileLearning($this->registry->get($checkId));
+	}
+
+	private function definitionActsWhileLearning(CheckDefinition $check): bool {
+		if ($check->onlyNotifies()) {
+			return true;
+		}
+		if (!$check->actsWhileLearning) {
+			return false;
+		}
+		return $check->id !== DecoyCredential::ID || $this->getBool(GlobalSettings::LEARNING_DECOYS_ACT);
 	}
 
 	/**

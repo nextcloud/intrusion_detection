@@ -120,7 +120,7 @@ class AdminChangeDetectorTest extends TestCase {
 	/**
 	 * The current state is the one after the change: configured mode, master switch, learning.
 	 *
-	 * @return array<string, array{string, int|float|bool|string|list<string>, Mode, bool, bool, Mode, ?string}>
+	 * @return array<string, array{0: string, 1: int|float|bool|string|list<string>, 2: Mode, 3: bool, 4: bool, 5: Mode, 6: ?string, 7?: bool}>
 	 */
 	public static function modesBefore(): array {
 		return [
@@ -130,6 +130,8 @@ class AdminChangeDetectorTest extends TestCase {
 			'this check from off was not watched' => [Keys::mode(AdminChange::ID), 'off', Mode::Protect, true, false, Mode::Off, null],
 			'learning started is told as before' => [GlobalSettings::LEARNING_UNTIL, 0, Mode::Protect, true, true, Mode::Protect, null],
 			'learning ended while learning' => [GlobalSettings::LEARNING_UNTIL, self::NOW + 60, Mode::Protect, true, false, Mode::Observe, ModeState::REASON_LEARNING],
+			'learning does not silence a check that acts while learning' => [GlobalSettings::LEARNING_UNTIL, self::NOW + 60, Mode::Protect, true, false, Mode::Protect, null, true],
+			'any setting while learning, acting while learning' => [GlobalSettings::BAN_NET_AFTER, 3, Mode::Protect, true, true, Mode::Protect, null, true],
 			'any other setting' => [GlobalSettings::BAN_NET_AFTER, 3, Mode::Protect, true, false, Mode::Protect, null],
 		];
 	}
@@ -138,8 +140,9 @@ class AdminChangeDetectorTest extends TestCase {
 	 * @param int|float|bool|string|list<string> $old
 	 */
 	#[DataProvider('modesBefore')]
-	public function testTheModeBeforeAChange(string $name, int|float|bool|string|array $old, Mode $configuredNow, bool $enabledNow, bool $learningNow, Mode $effective, ?string $reason): void {
+	public function testTheModeBeforeAChange(string $name, int|float|bool|string|array $old, Mode $configuredNow, bool $enabledNow, bool $learningNow, Mode $effective, ?string $reason, bool $actsWhileLearning = false): void {
 		$settings = $this->createMock(Settings::class);
+		$settings->method('actsWhileLearning')->with(AdminChange::ID)->willReturn($actsWhileLearning);
 		$settings->method('configuredMode')->willReturn($configuredNow);
 		$settings->method('isEnabled')->willReturn($enabledNow);
 		$settings->method('isLearning')->willReturn($learningNow);

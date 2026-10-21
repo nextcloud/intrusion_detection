@@ -60,7 +60,7 @@ final class DecoyCredential implements ICheck, IExplainsDetection {
 				name: $l->t('Decoy app passwords and tokens'),
 				summary: $l->t('Someone used a fake credential that you planted.'),
 				detects: $l->t('You create a decoy app password or token and leave it where only an intruder would look: an old script on a file server, a wiki page about backups, a note in a shared drive. It opens nothing, and nobody has a reason to use it, so whoever does found it where you put it.'),
-				decides: $l->t('Fires at the first login with a decoy\'s secret, whatever account name comes with it. A login with a decoy\'s account name and another password counts as a weaker sign. Unlike other checks it acts during learning mode as well (switched {learning_decoys_act}).'),
+				decides: $l->t('Fires at the first login with a decoy\'s secret, whatever account name comes with it. A login with a decoy\'s account name and another password counts as a weaker sign. Unlike checks that block, it acts during learning mode as well (switched {learning_decoys_act}).'),
 				wrong: $l->t('Practically never: the secrets are random and exist nowhere but where you planted them. If a decoy fires, find out who could read the place where it was.'),
 				data: $l->t('Decoys: the label, the optional account name and a keyed fingerprint of the secret. The secret itself is shown once and never stored. Detections: the address, the decoy\'s label and the time.'),
 			),

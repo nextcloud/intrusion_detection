@@ -201,13 +201,14 @@ class AdminChangeListenerTest extends AdminChangeTestCase {
 		$this->assertSame([], $this->adminChanges());
 	}
 
-	public function testDuringLearningModeChangesAreOnlyObserved(): void {
+	public function testDuringLearningModeAdminsAreStillNotified(): void {
 		$this->appConfig->setValueInt(Application::APP_ID, GlobalSettings::LEARNING_UNTIL, time() + 3600);
+		$this->appConfig->setValueBool(Application::APP_ID, GlobalSettings::LEARNING_DECOYS_ACT, false);
 		$this->act($this->alice);
 		$this->dispatch(new AppEnableEvent('files_external'));
 		[$detection] = $this->adminChanges();
-		$this->assertFalse($detection->isEnforced());
-		$this->assertSame([], $this->notificationsWithSubject(AdminAlerts::SUBJECT));
+		$this->assertTrue($detection->isEnforced());
+		$this->assertNotSame([], $this->notificationsWithSubject(AdminAlerts::SUBJECT));
 	}
 
 	public function testTheWholeChainThroughSettingsAndTheRegisteredListener(): void {
