@@ -11,6 +11,8 @@ namespace OCA\IntrusionDetection\Personal;
 
 use OCA\IntrusionDetection\Config\GlobalSettings;
 use OCA\IntrusionDetection\Config\Settings;
+use OCA\IntrusionDetection\Confirm\Methods\AdminApprovalMethod;
+use OCA\IntrusionDetection\Confirm\StepUpService;
 use OCA\IntrusionDetection\Db\DetectionFilter;
 use OCA\IntrusionDetection\Db\DetectionMapper;
 use OCA\IntrusionDetection\Db\LoginHistoryMapper;
@@ -196,8 +198,8 @@ class PersonalActivity {
 	 * session, and an administrator's approval when those are on, last.
 	 */
 	public function waitedOutBefore(): int {
-		$approval = $this->settings->getBool(GlobalSettings::STEP_UP_ADMIN_APPROVAL) ? $this->settings->getInt(GlobalSettings::STEP_UP_ADMIN_APPROVAL_TTL) : 0;
-		return $this->timeFactory->getTime() - $this->settings->getInt(GlobalSettings::STEP_UP_SESSION_TTL) - $approval;
+		$approval = $this->settings->getBool(GlobalSettings::STEP_UP_ADMIN_APPROVAL) ? AdminApprovalMethod::TTL : 0;
+		return $this->timeFactory->getTime() - StepUpService::SESSION_TTL - $approval;
 	}
 
 	/**
