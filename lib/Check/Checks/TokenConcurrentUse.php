@@ -17,6 +17,7 @@ use OCA\IntrusionDetection\Check\DataKind;
 use OCA\IntrusionDetection\Check\ICheck;
 use OCA\IntrusionDetection\Check\Mode;
 use OCA\IntrusionDetection\Check\ParamDefinition;
+use OCA\IntrusionDetection\Check\ParamPreset;
 use OCA\IntrusionDetection\Check\ParamText;
 use OCA\IntrusionDetection\Check\ParamType;
 use OCA\IntrusionDetection\Check\Requirement;
@@ -62,7 +63,7 @@ final class TokenConcurrentUse implements ICheck, IExplainsDetection, IExplainsT
 			severity: Severity::Medium,
 			params: [
 				new ParamDefinition(self::PARAM_WINDOW, ParamType::Duration, 900, min: 60, max: 3600),
-				new ParamDefinition(self::PARAM_MIN_SWITCHES, ParamType::Int, 3, min: 2, max: 20),
+				new ParamDefinition(self::PARAM_MIN_SWITCHES, ParamType::Int, 3, min: 2, max: 20, preset: ParamPreset::Limit),
 			],
 			responses: [ResponseType::RevokeToken, ResponseType::NotifyAdmin, ResponseType::NotifyUser],
 			defaultResponses: [ResponseType::NotifyAdmin, ResponseType::NotifyUser],

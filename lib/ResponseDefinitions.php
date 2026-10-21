@@ -80,7 +80,6 @@ namespace OCA\IntrusionDetection;
  *     detections: int,
  *     enforced: int,
  *     observed: int,
- *     fired: int,
  *     addressesBlocked: int,
  * }
  *
@@ -96,6 +95,15 @@ namespace OCA\IntrusionDetection;
  * @psalm-type IntrusionDetectionCheckList = array{
  *     checks: list<IntrusionDetectionCheck>,
  *     categories: list<IntrusionDetectionCategory>,
+ * }
+ *
+ * @psalm-type IntrusionDetectionProtectionLevel = array{
+ *     level: 'recommended'|'strict'|'relaxed'|'custom',
+ * }
+ *
+ * @psalm-type IntrusionDetectionProtectionLevelChange = array{
+ *     level: 'recommended'|'strict'|'relaxed'|'custom',
+ *     checks: IntrusionDetectionCheckList,
  * }
  *
  * @psalm-type IntrusionDetectionLearning = array{

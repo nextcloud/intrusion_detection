@@ -42,7 +42,7 @@ describe('Simulate on a check card', () => {
 
 	test('runs the simulation on the server and shows what would be reported and done', async () => {
 		vi.mocked(simulateCheck).mockResolvedValue(simulation)
-		const card = mount(CheckCard, { props: { check: makeCheck(), open: true }, attachTo: document.body })
+		const card = mount(CheckCard, { props: { check: makeCheck() }, attachTo: document.body })
 		await card.findAll('button').find((b) => b.text() === 'Simulate')!.trigger('click')
 		await flushPromises()
 		expect(simulateCheck).toHaveBeenCalledWith('credential_stuffing')
@@ -55,7 +55,7 @@ describe('Simulate on a check card', () => {
 	})
 
 	test('checks that cannot be simulated have no button', () => {
-		const card = mount(CheckCard, { props: { check: makeCheck({ simulatable: false }), open: true } })
+		const card = mount(CheckCard, { props: { check: makeCheck({ simulatable: false }) } })
 		expect(card.findAll('button').some((b) => b.text() === 'Simulate')).toBe(false)
 	})
 
@@ -64,7 +64,7 @@ describe('Simulate on a check card', () => {
 			id: 'reserved_name',
 			params: [{ name: 'names', type: 'string_list', default: [], min: null, max: null, choices: [], value: ['admin'], label: 'Reserved names', help: '', unit: '' }],
 		})
-		const card = mount(CheckCard, { props: { check, open: true } })
+		const card = mount(CheckCard, { props: { check } })
 		await vi.dynamicImportSettled()
 		await flushPromises()
 		expect(card.find('textarea').exists()).toBe(false)

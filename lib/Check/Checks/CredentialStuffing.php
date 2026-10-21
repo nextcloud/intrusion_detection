@@ -18,6 +18,7 @@ use OCA\IntrusionDetection\Check\ICheck;
 use OCA\IntrusionDetection\Check\ISimulatable;
 use OCA\IntrusionDetection\Check\Mode;
 use OCA\IntrusionDetection\Check\ParamDefinition;
+use OCA\IntrusionDetection\Check\ParamPreset;
 use OCA\IntrusionDetection\Check\ParamText;
 use OCA\IntrusionDetection\Check\ParamType;
 use OCA\IntrusionDetection\Check\ResponseType;
@@ -57,12 +58,12 @@ final class CredentialStuffing implements ICheck, IExplainsDetection, ISimulatab
 			severity: Severity::Medium,
 			params: [
 				new ParamDefinition('window', ParamType::Duration, 600, min: 60, max: 3600),
-				new ParamDefinition('min_failures', ParamType::Int, 10, min: 3, max: 1000),
-				new ParamDefinition('min_names', ParamType::Int, 5, min: 2, max: 1000),
+				new ParamDefinition('min_failures', ParamType::Int, 10, min: 3, max: 1000, preset: ParamPreset::Limit),
+				new ParamDefinition('min_names', ParamType::Int, 5, min: 2, max: 1000, preset: ParamPreset::Limit),
 				new ParamDefinition('net_factor', ParamType::Int, 3, min: 1, max: 100),
-				new ParamDefinition('distributed_min_failures', ParamType::Int, 100, min: 10, max: 100000),
-				new ParamDefinition('distributed_min_sources', ParamType::Int, 20, min: 2, max: 10000),
-				new ParamDefinition('distributed_min_names', ParamType::Int, 20, min: 2, max: 10000),
+				new ParamDefinition('distributed_min_failures', ParamType::Int, 100, min: 10, max: 100000, preset: ParamPreset::Limit),
+				new ParamDefinition('distributed_min_sources', ParamType::Int, 20, min: 2, max: 10000, preset: ParamPreset::Limit),
+				new ParamDefinition('distributed_min_names', ParamType::Int, 20, min: 2, max: 10000, preset: ParamPreset::Limit),
 			],
 			responses: [ResponseType::Ban, ResponseType::FlagSource, ResponseType::NotifyAdmin],
 			defaultResponses: [ResponseType::Ban, ResponseType::FlagSource, ResponseType::NotifyAdmin],

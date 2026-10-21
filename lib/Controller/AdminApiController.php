@@ -27,6 +27,8 @@ use OCA\IntrusionDetection\Check\Requirement;
 use OCA\IntrusionDetection\Check\ResponseType;
 use OCA\IntrusionDetection\Check\Severity;
 use OCA\IntrusionDetection\Config\GlobalSettings;
+use OCA\IntrusionDetection\Config\ProtectionLevel;
+use OCA\IntrusionDetection\Config\ProtectionLevels;
 use OCA\IntrusionDetection\Config\Settings;
 use OCA\IntrusionDetection\Db\BanMapper;
 use OCA\IntrusionDetection\Db\DetectionFilter;
@@ -58,6 +60,8 @@ use OCP\IUserSession;
  * @psalm-import-type IntrusionDetectionStatus from ResponseDefinitions
  * @psalm-import-type IntrusionDetectionCheck from ResponseDefinitions
  * @psalm-import-type IntrusionDetectionCheckList from ResponseDefinitions
+ * @psalm-import-type IntrusionDetectionProtectionLevel from ResponseDefinitions
+ * @psalm-import-type IntrusionDetectionProtectionLevelChange from ResponseDefinitions
  * @psalm-import-type IntrusionDetectionDetectionList from ResponseDefinitions
  * @psalm-import-type IntrusionDetectionDetectionDetail from ResponseDefinitions
  * @psalm-import-type IntrusionDetectionDailyStats from ResponseDefinitions
@@ -99,6 +103,7 @@ class AdminApiController extends OCSController {
 		private readonly SettingsTransfer $transfer,
 		private readonly RemoteAddressResolver $addresses,
 		private readonly AuditLogger $audit,
+		private readonly ProtectionLevels $protectionLevels,
 	) {
 		parent::__construct($appName, $request);
 	}
@@ -202,6 +207,55 @@ class AdminApiController extends OCSController {
 		$this->settings->resetCheck($id);
 		$this->audit->log('check %s reset to defaults by %s', ['check' => $id, 'actor' => $this->actor()]);
 		return new DataResponse($this->checks->one($check, $this->l));
+	}
+
+	/**
+	 * Show the protection level
+	 *
+	 * @return DataResponse<Http::STATUS_OK, IntrusionDetectionProtectionLevel, array{}>
+	 *
+	 * 200: Protection level returned; "custom" when a limit was changed by hand
+	 */
+	#[ApiRoute(verb: 'GET', url: '/api/v1/protection-level')]
+	public function protectionLevel(): DataResponse {
+		return new DataResponse(['level' => $this->settings->protectionLevel()->value]);
+	}
+
+	/**
+	 * Set the protection level
+	 *
+	 * Sets the count limits of every check and the block durations to the
+	 * level in one go: recommended are the defaults, strict halves the
+	 * limits and doubles the block durations, relaxed does the opposite,
+	 * always within each setting's range. Modes and responses stay as they are.
+	 *
+	 * @param 'recommended'|'strict'|'relaxed' $level The level
+	 * @return DataResponse<Http::STATUS_OK, IntrusionDetectionProtectionLevelChange, array{}>|DataResponse<Http::STATUS_BAD_REQUEST, IntrusionDetectionError, array{}>
+	 *
+	 * 200: Protection level set
+	 * 400: The level is not valid; nothing was changed
+	 */
+	#[ApiRoute(verb: 'PUT', url: '/api/v1/protection-level')]
+	#[PasswordConfirmationRequired]
+	public function updateProtectionLevel(string $level): DataResponse {
+		$chosen = ProtectionLevel::tryFrom($level);
+		if ($chosen === null || !in_array($chosen, ProtectionLevel::choosable(), true)) {
+			return $this->error($this->l->t('Choose the recommended, strict or relaxed protection level.'), 'level', 'invalid_level');
+		}
+		try {
+			$changes = $this->protectionLevels->apply($chosen);
+		} catch (InvalidParamException $e) {
+			return $this->invalid($e);
+		}
+		$this->audit->log('protection level set to %s by %s: %s', [
+			'level' => $chosen->value,
+			'actor' => $this->actor(),
+			'change' => json_encode($changes),
+		]);
+		return new DataResponse([
+			'level' => $this->settings->protectionLevel()->value,
+			'checks' => $this->checks->all($this->l),
+		]);
 	}
 
 	/**

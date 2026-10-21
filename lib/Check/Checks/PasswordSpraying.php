@@ -19,6 +19,7 @@ use OCA\IntrusionDetection\Check\ISelectsResponses;
 use OCA\IntrusionDetection\Check\ISimulatable;
 use OCA\IntrusionDetection\Check\Mode;
 use OCA\IntrusionDetection\Check\ParamDefinition;
+use OCA\IntrusionDetection\Check\ParamPreset;
 use OCA\IntrusionDetection\Check\ParamText;
 use OCA\IntrusionDetection\Check\ParamType;
 use OCA\IntrusionDetection\Check\ResponseType;
@@ -77,7 +78,7 @@ final class PasswordSpraying implements ICheck, IExplainsDetection, ISimulatable
 			params: [
 				// Attempts are kept for one hour, so the window cannot be longer.
 				new ParamDefinition('window', ParamType::Duration, 3600, min: 300, max: 3600),
-				new ParamDefinition('min_names', ParamType::Int, 5, min: 3, max: 1000),
+				new ParamDefinition('min_names', ParamType::Int, 5, min: 3, max: 1000, preset: ParamPreset::Limit),
 			],
 			responses: [ResponseType::Ban, ResponseType::FlagPassword, ResponseType::StepUp, ResponseType::ForcePasswordChange, ResponseType::NotifyAdmin, ResponseType::NotifyUser],
 			defaultResponses: [ResponseType::Ban, ResponseType::FlagPassword, ResponseType::StepUp, ResponseType::ForcePasswordChange, ResponseType::NotifyAdmin, ResponseType::NotifyUser],

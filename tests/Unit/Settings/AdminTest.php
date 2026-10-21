@@ -12,6 +12,8 @@ namespace OCA\IntrusionDetection\Tests\Unit\Settings;
 use OCA\IntrusionDetection\Admin\CheckList;
 use OCA\IntrusionDetection\Admin\GlobalSettingsPresenter;
 use OCA\IntrusionDetection\Admin\StatusService;
+use OCA\IntrusionDetection\Config\ProtectionLevel;
+use OCA\IntrusionDetection\Config\Settings;
 use OCA\IntrusionDetection\Net\RemoteAddressResolver;
 use OCA\IntrusionDetection\Net\SourceKey;
 use OCA\IntrusionDetection\Settings\Admin;
@@ -36,10 +38,14 @@ class AdminTest extends TestCase {
 			static fn (array $data): bool => $data['status'] === ['state' => 'protecting']
 				&& $data['checks'] === ['checks' => [], 'categories' => []]
 				&& $data['ownAddress'] === '192.0.2.10'
+				&& $data['protectionLevel'] === 'strict'
 				&& array_key_exists('docUrl', $data),
 		));
 
-		$admin = new Admin($status, $checks, $settings, $addresses, $state, $this->createMock(IURLGenerator::class), $this->createMock(IL10N::class));
+		$values = $this->createMock(Settings::class);
+		$values->method('protectionLevel')->willReturn(ProtectionLevel::Strict);
+
+		$admin = new Admin($status, $checks, $settings, $addresses, $state, $this->createMock(IURLGenerator::class), $this->createMock(IL10N::class), $values);
 		$response = $admin->getForm();
 
 		$this->assertSame('settings-admin', $response->getTemplateName());

@@ -135,6 +135,31 @@ class DetectionTotals {
 	}
 
 	/**
+	 * New detections per check and enforcement since a time, counted from the
+	 * whole hour that contains it. One grouped read of the hourly rows, so
+	 * the cost does not grow with the number of detections or checks.
+	 *
+	 * @return array<string, array{enforced: int, observed: int}> by check id
+	 */
+	public function perCheck(int $since): array {
+		$qb = $this->db->getQueryBuilder();
+		$qb->select('check_id', 'enforced')
+			->selectAlias($qb->func()->sum('created'), 'c')
+			->from(self::TABLE)
+			->where($qb->expr()->gte('hour', $qb->createNamedParameter(intdiv($since, 3600), IQueryBuilder::PARAM_INT)))
+			->groupBy('check_id', 'enforced');
+		$result = $qb->executeQuery();
+		$counts = [];
+		while ($row = $result->fetch()) {
+			$check = (string)$row['check_id'];
+			$counts[$check] ??= ['enforced' => 0, 'observed' => 0];
+			$counts[$check][(int)$row['enforced'] === 1 ? 'enforced' : 'observed'] += (int)$row['c'];
+		}
+		$result->closeCursor();
+		return $counts;
+	}
+
+	/**
 	 * New detections per local day, check and enforcement, since a time.
 	 * Days are made of whole hours, so with a time zone offset that is not a
 	 * whole number of hours a day starts up to half an hour early.

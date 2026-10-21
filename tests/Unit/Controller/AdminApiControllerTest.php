@@ -30,6 +30,8 @@ use OCA\IntrusionDetection\Check\ParamType;
 use OCA\IntrusionDetection\Check\ResponseType;
 use OCA\IntrusionDetection\Check\Severity;
 use OCA\IntrusionDetection\Config\GlobalSettings;
+use OCA\IntrusionDetection\Config\ProtectionLevel;
+use OCA\IntrusionDetection\Config\ProtectionLevels;
 use OCA\IntrusionDetection\Config\Settings;
 use OCA\IntrusionDetection\Controller\AdminApiController;
 use OCA\IntrusionDetection\Db\Ban;
@@ -78,6 +80,7 @@ class AdminApiControllerTest extends TestCase {
 	private SettingsTransfer&MockObject $transfer;
 	private RemoteAddressResolver&MockObject $addresses;
 	private AuditLogger&MockObject $audit;
+	private ProtectionLevels&MockObject $levels;
 	private StatusService&MockObject $status;
 	private CheckDefinition $check;
 	private AdminApiController $controller;
@@ -120,6 +123,7 @@ class AdminApiControllerTest extends TestCase {
 		$this->addresses = $this->createMock(RemoteAddressResolver::class);
 		$this->addresses->method('current')->willReturn(SourceKey::fromIp('192.0.2.10'));
 		$this->audit = $this->createMock(AuditLogger::class);
+		$this->levels = $this->createMock(ProtectionLevels::class);
 
 		$this->controller = new AdminApiController(
 			'intrusion_detection',
@@ -144,6 +148,7 @@ class AdminApiControllerTest extends TestCase {
 			$this->transfer,
 			$this->addresses,
 			$this->audit,
+			$this->levels,
 		);
 	}
 
@@ -193,7 +198,7 @@ class AdminApiControllerTest extends TestCase {
 				$this->assertCount(1, $confirmation, $method->getName() . ' changes something and needs password confirmation');
 			}
 		}
-		$this->assertSame(7, $writes);
+		$this->assertSame(8, $writes);
 	}
 
 	public function testRoutesAreVersionedApiRoutes(): void {
@@ -203,7 +208,7 @@ class AdminApiControllerTest extends TestCase {
 			$this->assertStringStartsWith('/api/v1/', $url);
 			$urls[] = $method->getAttributes(ApiRoute::class)[0]->getArguments()['verb'] . ' ' . $url;
 		}
-		$this->assertCount(17, array_unique($urls));
+		$this->assertCount(19, array_unique($urls));
 	}
 
 	public function testUpdateCheckValidatesEverythingBeforeSaving(): void {
@@ -428,6 +433,24 @@ class AdminApiControllerTest extends TestCase {
 		$this->transfer->expects($this->once())->method('resetAll');
 		$this->audit->expects($this->once())->method('log')->with('all settings reset to defaults by %s', ['actor' => 'alice']);
 		$this->controller->resetSettings();
+	}
+
+	public function testTheProtectionLevelIsAppliedAndAudited(): void {
+		$changes = ['checks' => [self::CHECK => ['min_failures' => 5]], 'settings' => []];
+		$this->levels->expects($this->once())->method('apply')->with(ProtectionLevel::Strict)->willReturn($changes);
+		$this->settings->method('protectionLevel')->willReturn(ProtectionLevel::Strict);
+		$this->checks->method('all')->willReturn(['checks' => [], 'categories' => []]);
+		$this->audit->expects($this->once())->method('log')->with('protection level set to %s by %s: %s', ['level' => 'strict', 'actor' => 'alice', 'change' => json_encode($changes)]);
+		$response = $this->controller->updateProtectionLevel('strict');
+		$this->assertSame(Http::STATUS_OK, $response->getStatus());
+		$this->assertSame('strict', $response->getData()['level']);
+	}
+
+	public function testCustomAndUnknownLevelsAreRefusedBeforeAnythingChanges(): void {
+		$this->levels->expects($this->never())->method('apply');
+		$this->audit->expects($this->never())->method('log');
+		$this->assertSame(Http::STATUS_BAD_REQUEST, $this->controller->updateProtectionLevel('custom')->getStatus());
+		$this->assertSame(Http::STATUS_BAD_REQUEST, $this->controller->updateProtectionLevel('paranoid')->getStatus());
 	}
 
 	/**

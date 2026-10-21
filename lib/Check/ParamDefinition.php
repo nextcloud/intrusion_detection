@@ -9,6 +9,8 @@ declare(strict_types=1);
 
 namespace OCA\IntrusionDetection\Check;
 
+use OCA\IntrusionDetection\Config\ProtectionLevel;
+
 /**
  * One configurable parameter of a check, with its type, default and allowed range.
  *
@@ -27,6 +29,7 @@ final class ParamDefinition {
 	 * @param int $maxItems maximum number of list items
 	 * @param int $maxItemLength maximum length of one list item
 	 * @param ?\Closure(string, bool): ?string $itemValidator extra check of one StringList item, given the item and whether to be thorough (when saving); returns why it is invalid, or null
+	 * @param ?ParamPreset $preset how the protection levels change the value; only for Int and Duration
 	 */
 	public function __construct(
 		public readonly string $name,
@@ -39,12 +42,35 @@ final class ParamDefinition {
 		public readonly int $maxItems = 200,
 		public readonly int $maxItemLength = 255,
 		public readonly ?\Closure $itemValidator = null,
+		public readonly ?ParamPreset $preset = null,
 	) {
 		if (!preg_match('/^[a-z][a-z0-9_]*$/', $name)) {
 			throw new \InvalidArgumentException('Invalid parameter name: ' . $name);
 		}
 		// The default must itself be valid, so a definition cannot drift from its own rules.
 		$this->validate($default);
+		if ($preset !== null && $type !== ParamType::Int && $type !== ParamType::Duration) {
+			throw new \InvalidArgumentException('A preset needs a whole number: ' . $name);
+		}
+	}
+
+	/**
+	 * The value a protection level gives this parameter: the default times
+	 * the level's factor, rounded and kept within the minimum and maximum.
+	 * Null when the levels do not change it.
+	 */
+	public function presetValue(ProtectionLevel $level): ?int {
+		if ($this->preset === null || $level === ProtectionLevel::Custom) {
+			return null;
+		}
+		$value = max(1, (int)round((int)$this->default * $this->preset->factor($level)));
+		if ($this->min !== null) {
+			$value = max($value, (int)ceil($this->min));
+		}
+		if ($this->max !== null) {
+			$value = min($value, (int)floor($this->max));
+		}
+		return $value;
 	}
 
 	/**

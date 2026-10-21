@@ -43,9 +43,11 @@ export interface CheckStats {
 	detections: number
 	enforced: number
 	observed: number
-	fired: number
 	addressesBlocked: number
 }
+
+/** Sets every check limit and block duration at once; "custom" after a change by hand */
+export type ProtectionLevel = 'recommended' | 'strict' | 'relaxed' | 'custom'
 
 export interface Check {
 	id: string
@@ -272,6 +274,7 @@ export interface DetectionFilters {
 export interface InitialState {
 	status: Status
 	checks: CheckList
+	protectionLevel: ProtectionLevel
 	settings: SettingsPayload
 	ownAddress: string | null
 	docUrl: string

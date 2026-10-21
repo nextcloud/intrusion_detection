@@ -43,7 +43,7 @@ export function makeCheck(overrides: Partial<Check> = {}): Check {
 		sendsData: false,
 		actsWhileLearning: false,
 		simulatable: true,
-		stats: { days: 7, detections: 3, enforced: 3, observed: 0, fired: 12, addressesBlocked: 9 },
+		stats: { days: 7, detections: 3, enforced: 3, observed: 0, addressesBlocked: 9 },
 		...overrides,
 	}
 }

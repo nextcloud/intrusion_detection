@@ -41,9 +41,9 @@ class GlobalSettingsPresenter {
 	public const GROUP_BLOCKLISTS = 'blocklists';
 	/** Extra confirmation of risky logins */
 	public const GROUP_STEP_UP = 'step_up';
-	/** Settings without a group are listed on the Advanced tab */
+	/** Settings without a group are listed under "Other" on the Settings tab */
 	public const GROUP_OTHER = 'other';
-	/** The address risk score, shown in its card on the Checks tab */
+	/** The address risk score, shown in its card on the Protection tab */
 	public const GROUP_RISK = 'risk';
 	/** Office networks and exempt groups, shown in the card of the hosting and Tor networks check */
 	public const GROUP_RISKY_NETWORK = 'risky_network';

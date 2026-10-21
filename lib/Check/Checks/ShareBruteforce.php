@@ -19,6 +19,7 @@ use OCA\IntrusionDetection\Check\ISelectsResponses;
 use OCA\IntrusionDetection\Check\ISimulatable;
 use OCA\IntrusionDetection\Check\Mode;
 use OCA\IntrusionDetection\Check\ParamDefinition;
+use OCA\IntrusionDetection\Check\ParamPreset;
 use OCA\IntrusionDetection\Check\ParamType;
 use OCA\IntrusionDetection\Check\ResponseType;
 use OCA\IntrusionDetection\Check\Severity;
@@ -71,12 +72,12 @@ final class ShareBruteforce implements ICheck, IExplainsDetection, IExplainsToUs
 			severity: Severity::Medium,
 			params: [
 				// Below 3, one or two outdated links could fire it.
-				new ParamDefinition('token_min', ParamType::Int, 10, min: 3, max: 1000),
+				new ParamDefinition('token_min', ParamType::Int, 10, min: 3, max: 1000, preset: ParamPreset::Limit),
 				new ParamDefinition('token_window', ParamType::Duration, 600, min: 60, max: 3600),
 				new ParamDefinition('net_factor', ParamType::Int, 3, min: 1, max: 100),
-				new ParamDefinition('password_min_per_source', ParamType::Int, 5, min: 2, max: 1000),
+				new ParamDefinition('password_min_per_source', ParamType::Int, 5, min: 2, max: 1000, preset: ParamPreset::Limit),
 				new ParamDefinition('password_source_window', ParamType::Duration, 600, min: 60, max: 3600),
-				new ParamDefinition('password_min_per_share', ParamType::Int, 20, min: 3, max: 10000),
+				new ParamDefinition('password_min_per_share', ParamType::Int, 20, min: 3, max: 10000, preset: ParamPreset::Limit),
 				new ParamDefinition('password_share_window', ParamType::Duration, 3600, min: 300, max: 3600),
 			],
 			responses: [ResponseType::Ban, ResponseType::NotifyAdmin, ResponseType::NotifyShareOwner],

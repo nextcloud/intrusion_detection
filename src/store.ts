@@ -3,11 +3,11 @@
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 
-import type { Category, Check, DetectionFilters, GlobalSetting, IncidentRequest, InitialState, ParamType, ParamValue, Status } from './types.ts'
+import type { Category, Check, DetectionFilters, GlobalSetting, IncidentRequest, InitialState, ParamType, ParamValue, ProtectionLevel, Status } from './types.ts'
 
 import { loadState } from '@nextcloud/initial-state'
 import { computed, reactive, ref } from 'vue'
-import { fetchChecks, fetchSettings, fetchStatus } from './services/api.ts'
+import { fetchChecks, fetchProtectionLevel, fetchSettings, fetchStatus } from './services/api.ts'
 import { logger } from './services/logger.ts'
 import { APP_ID } from './utils/format.ts'
 
@@ -22,6 +22,7 @@ export const state = reactive({
 	status: initial?.status ?? null as Status | null,
 	checks: initial?.checks.checks ?? [] as Check[],
 	categories: initial?.checks.categories ?? [] as Category[],
+	protectionLevel: initial?.protectionLevel ?? 'recommended' as ProtectionLevel,
 	settings: initial?.settings.settings ?? [] as GlobalSetting[],
 	templates: initial?.settings.templates ?? {} as Record<string, string>,
 	ownAddress: initial?.ownAddress ?? null,
@@ -104,15 +105,32 @@ export async function refreshSettings(): Promise<void> {
 }
 
 /**
- * Put a check as the server returned it in place of the old one.
+ * Reload the protection level, which a limit changed by hand makes "custom".
+ */
+export async function refreshProtectionLevel(): Promise<void> {
+	try {
+		state.protectionLevel = (await fetchProtectionLevel()).level
+	} catch (error) {
+		logger.error('Could not reload the protection level', { error })
+	}
+}
+
+/**
+ * Put a check as the server returned it in place of the old one. When its
+ * settings changed, the protection level may have become "custom".
  *
  * @param check - The check from the server
  */
 export function replaceCheck(check: Check): void {
 	const index = state.checks.findIndex((c) => c.id === check.id)
+	const values = (c: Check | undefined) => JSON.stringify(c?.params.map((p) => p.value) ?? [])
+	const paramsChanged = index !== -1 && values(state.checks[index]) !== values(check)
 	if (index === -1) {
 		state.checks.push(check)
 	} else {
 		state.checks.splice(index, 1, check)
+	}
+	if (paramsChanged && state.protectionLevel !== 'custom') {
+		refreshProtectionLevel()
 	}
 }

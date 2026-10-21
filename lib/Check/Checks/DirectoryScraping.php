@@ -17,6 +17,7 @@ use OCA\IntrusionDetection\Check\DataKind;
 use OCA\IntrusionDetection\Check\ICheck;
 use OCA\IntrusionDetection\Check\Mode;
 use OCA\IntrusionDetection\Check\ParamDefinition;
+use OCA\IntrusionDetection\Check\ParamPreset;
 use OCA\IntrusionDetection\Check\ParamText;
 use OCA\IntrusionDetection\Check\ParamType;
 use OCA\IntrusionDetection\Check\Requirement;
@@ -65,7 +66,7 @@ final class DirectoryScraping implements ICheck, IExplainsDetection, IExplainsTo
 	public function definition(): CheckDefinition {
 		$params = [];
 		foreach (self::LIMITS as [$name, $default, $min, $max]) {
-			$params[] = new ParamDefinition($name, ParamType::Int, $default, min: $min, max: $max);
+			$params[] = new ParamDefinition($name, ParamType::Int, $default, min: $min, max: $max, preset: ParamPreset::Limit);
 		}
 		return new CheckDefinition(
 			id: self::ID,

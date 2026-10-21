@@ -9,6 +9,7 @@ declare(strict_types=1);
 
 namespace OCA\IntrusionDetection\Tests\Integration;
 
+use OCA\IntrusionDetection\Admin\CheckList;
 use OCA\IntrusionDetection\Check\Checks\DecoyCredential;
 use OCA\IntrusionDetection\Check\Mode;
 use OCA\IntrusionDetection\Check\Severity;
@@ -19,6 +20,7 @@ use OCA\IntrusionDetection\Detection\DetectionDraft;
 use OCA\IntrusionDetection\Detection\DetectionService;
 use OCA\IntrusionDetection\Detection\DetectionTotals;
 use OCA\IntrusionDetection\Net\SourceKey;
+use OCP\L10N\IFactory;
 use OCP\Server;
 use PHPUnit\Framework\Attributes\Group;
 
@@ -78,6 +80,41 @@ class DetectionTotalsTest extends IntegrationTestCase {
 			['check' => 'admin_change', 'severity' => 'high', 'enforced' => true, 'count' => 1],
 			['check' => 'trap_url', 'severity' => 'low', 'enforced' => false, 'count' => 2],
 		], $totals->totals());
+	}
+
+	public function testTheLastSevenDaysPerCheckComeFromTheHourlyTable(): void {
+		$now = time();
+		for ($i = 0; $i < 30; $i++) {
+			$this->insert('trap_url', $i % 3 === 0 ? 'medium' : 'low', $i % 2 === 0, $now - $i * 3600);
+		}
+		$this->insert('admin_change', 'high', true, $now - 86400);
+		$this->insert('admin_change', 'high', true, $now - 8 * 86400);
+
+		$queries = $this->db->getInner()->getStats()['executed'];
+		$counts = Server::get(DetectionTotals::class)->perCheck($now - 7 * 86400);
+		$this->assertSame(1, $this->db->getInner()->getStats()['executed'] - $queries, 'one grouped query');
+		$this->assertSame(['enforced' => 15, 'observed' => 15], $counts['trap_url']);
+		$this->assertSame(['enforced' => 1, 'observed' => 0], $counts['admin_change'], 'the older one is not counted');
+	}
+
+	public function testTheCheckListCostsTheSameForManyDetections(): void {
+		$list = Server::get(CheckList::class);
+		$l = Server::get(IFactory::class)->get('intrusion_detection', 'en');
+		$this->insert('trap_url', 'low', false, time());
+		$queries = $this->db->getInner()->getStats()['executed'];
+		$list->all($l);
+		$few = $this->db->getInner()->getStats()['executed'] - $queries;
+
+		for ($i = 0; $i < 200; $i++) {
+			$this->insert('trap_url', 'low', $i % 2 === 0, time() - $i * 600);
+		}
+		$queries = $this->db->getInner()->getStats()['executed'];
+		$result = $list->all($l);
+		$this->assertSame($few, $this->db->getInner()->getStats()['executed'] - $queries, 'the counts do not read the detections');
+		$trap = array_values(array_filter($result['checks'], static fn (array $check): bool => $check['id'] === 'trap_url'))[0];
+		$this->assertSame(201, $trap['stats']['detections']);
+		$this->assertSame(100, $trap['stats']['enforced']);
+		$this->assertSame(7, $trap['stats']['days']);
 	}
 
 	private function insert(string $check, string $severity, bool $enforced, int $createdAt, bool $count = true): void {

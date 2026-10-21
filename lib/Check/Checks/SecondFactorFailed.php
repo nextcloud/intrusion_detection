@@ -17,6 +17,7 @@ use OCA\IntrusionDetection\Check\DataKind;
 use OCA\IntrusionDetection\Check\ICheck;
 use OCA\IntrusionDetection\Check\Mode;
 use OCA\IntrusionDetection\Check\ParamDefinition;
+use OCA\IntrusionDetection\Check\ParamPreset;
 use OCA\IntrusionDetection\Check\ParamType;
 use OCA\IntrusionDetection\Check\ResponseType;
 use OCA\IntrusionDetection\Check\Severity;
@@ -54,8 +55,8 @@ final class SecondFactorFailed implements ICheck, IExplainsDetection, IExplainsT
 			defaultMode: Mode::Protect,
 			severity: Severity::High,
 			params: [
-				new ParamDefinition('max_failures', ParamType::Int, 3, min: 2, max: 20),
-				new ParamDefinition('max_failures_hour', ParamType::Int, 5, min: 2, max: 100),
+				new ParamDefinition('max_failures', ParamType::Int, 3, min: 2, max: 20, preset: ParamPreset::Limit),
+				new ParamDefinition('max_failures_hour', ParamType::Int, 5, min: 2, max: 100, preset: ParamPreset::Limit),
 			],
 			responses: [
 				ResponseType::KillSession,

@@ -25,8 +25,8 @@ use OCA\IntrusionDetection\Config\GlobalSettings;
 use OCA\IntrusionDetection\Config\ModeState;
 use OCA\IntrusionDetection\Config\Prerequisites;
 use OCA\IntrusionDetection\Config\Settings;
-use OCA\IntrusionDetection\Db\DetectionMapper;
 use OCA\IntrusionDetection\Db\StatsMapper;
+use OCA\IntrusionDetection\Detection\DetectionTotals;
 use OCA\IntrusionDetection\Explain\CheckPresenter;
 use OCA\IntrusionDetection\Explain\TextRenderer;
 use OCP\AppFramework\Utility\ITimeFactory;
@@ -36,8 +36,8 @@ use OCP\Server;
 use Test\TestCase;
 
 /**
- * The checks tab renders whatever the registry holds, grouped by category,
- * with the texts filled in and the badge counts of the last 7 days.
+ * The Protection tab renders whatever the registry holds, grouped by category,
+ * with the texts filled in and the counts of the last 7 days.
  */
 class CheckListTest extends TestCase {
 	public function testChecksAreGroupedPresentedAndCounted(): void {
@@ -52,8 +52,8 @@ class CheckListTest extends TestCase {
 		$settings->method('responses')->willReturn([ResponseType::NotifyAdmin, ResponseType::Ban]);
 		$settings->method('param')->willReturnCallback(static fn (string $check, string $name): int => ['min_failures' => 12, 'window' => 900][$name]);
 
-		$detections = $this->createMock(DetectionMapper::class);
-		$detections->method('countByCheck')->with(1_790_000_000 - 7 * 86400)->willReturn(['login_check' => ['enforced' => 2, 'observed' => 1, 'hits' => 12]]);
+		$totals = $this->createMock(DetectionTotals::class);
+		$totals->expects($this->once())->method('perCheck')->with(1_790_000_000 - 7 * 86400)->willReturn(['login_check' => ['enforced' => 2, 'observed' => 1]]);
 		$stats = $this->createMock(StatsMapper::class);
 		$stats->method('bansCreatedByCheck')->willReturn(['login_check' => 9]);
 		$time = $this->createMock(ITimeFactory::class);
@@ -62,7 +62,7 @@ class CheckListTest extends TestCase {
 		$list = new CheckList(
 			$registry,
 			new CheckPresenter($settings, $this->createMock(Prerequisites::class), new TextRenderer(new GlobalSettings())),
-			$detections,
+			$totals,
 			$stats,
 			$time,
 		);
@@ -73,8 +73,8 @@ class CheckListTest extends TestCase {
 		$this->assertSame('Login attacks', $result['categories'][0]['name']);
 
 		$login = $result['checks'][1];
-		$this->assertSame(['days' => 7, 'detections' => 3, 'enforced' => 2, 'observed' => 1, 'fired' => 12, 'addressesBlocked' => 9], $login['stats']);
-		$this->assertSame(0, $result['checks'][0]['stats']['fired']);
+		$this->assertSame(['days' => 7, 'detections' => 3, 'enforced' => 2, 'observed' => 1, 'addressesBlocked' => 9], $login['stats']);
+		$this->assertSame(0, $result['checks'][0]['stats']['detections']);
 		$this->assertSame('Fires at 12 failures within 15 minutes.', $login['decides']);
 		$this->assertSame('Fires at {min_failures} failures within {window}.', $login['decidesTemplate']);
 		$this->assertSame(['configured' => 'protect', 'effective' => 'observe', 'reason' => 'learning', 'missing' => null, 'default' => 'protect'], $login['mode']);

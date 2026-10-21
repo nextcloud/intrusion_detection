@@ -449,6 +449,16 @@ final class LexiconData {
 			'type' => 'json',
 			'default' => '{}',
 		],
+		'protection_level' => [
+			'type' => 'choice',
+			'default' => 'recommended',
+			'choices' => [
+				'recommended',
+				'strict',
+				'relaxed',
+				'custom',
+			],
+		],
 	];
 
 	/** @var array<string, CheckSpec> */

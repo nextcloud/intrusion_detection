@@ -30,6 +30,7 @@ import type {
 	ParamValue,
 	PayloadTest,
 	Privacy,
+	ProtectionLevel,
 	ReservedNames,
 	SettingsPayload,
 	Signatures,
@@ -113,6 +114,17 @@ export async function call<T>(request: Promise<{ data: OCSResponse<T> }>): Promi
 export const fetchStatus = () => call<Status>(axios.get(url('status')))
 
 export const fetchChecks = () => call<CheckList>(axios.get(url('checks')))
+
+export const fetchProtectionLevel = () => call<{ level: ProtectionLevel }>(axios.get(url('protection-level')))
+
+/**
+ * Set every check limit and block duration to a level.
+ *
+ * @param level - The level
+ */
+export function updateProtectionLevel(level: Exclude<ProtectionLevel, 'custom'>): Promise<{ level: ProtectionLevel, checks: CheckList }> {
+	return call<{ level: ProtectionLevel, checks: CheckList }>(axios.put(url('protection-level'), { level }, write))
+}
 
 /**
  * @param id - The check id

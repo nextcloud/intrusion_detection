@@ -20,12 +20,12 @@ vi.mock('../../services/api.ts', async (importOriginal) => ({
 }))
 
 /**
- * Mount an expanded card.
+ * Mount the full card of a check, as "Customise" opens it.
  *
  * @param check - The check
  */
 function mountCard(check = makeCheck()) {
-	return mount(CheckCard, { props: { check, open: true }, attachTo: document.body })
+	return mount(CheckCard, { props: { check }, attachTo: document.body })
 }
 
 /**
@@ -134,46 +134,18 @@ describe('CheckCard', () => {
 		card.unmount()
 	})
 
-	test('the mode switch saves at once and is a radio group', async () => {
-		vi.mocked(updateCheck).mockResolvedValue(makeCheck({ mode: { configured: 'observe', effective: 'observe', reason: null, missing: null, default: 'protect' } }))
-		const card = mountCard()
-		const group = card.get('[role="radiogroup"], fieldset')
-		const radios = group.findAll('input[type="radio"]')
-		expect(radios).toHaveLength(3)
-		await radios[1]!.setValue(true)
-		await radios[1]!.trigger('change')
-		await flushPromises()
-		expect(updateCheck).toHaveBeenCalledTimes(1)
-		expect(updateCheck).toHaveBeenCalledWith('credential_stuffing', { mode: 'observe' })
-		card.unmount()
-	})
-
-	test('a failed mode change goes back to the saved mode', async () => {
-		vi.mocked(updateCheck).mockRejectedValue(new ApiError('Nope'))
-		const card = mountCard()
-		const radios = card.findAll('input[type="radio"]')
-		await radios[0]!.setValue(true)
-		await flushPromises()
-		expect((radios[2]!.element as HTMLInputElement).checked).toBe(true)
-		card.unmount()
-	})
-
-	test('without a requirement only Off can be chosen, and the card says why', () => {
+	test('a missing requirement is explained in the card', () => {
 		const card = mountCard(makeCheck({
 			mode: { configured: 'protect', effective: 'off', reason: 'requirement', missing: 'memory_cache', default: 'protect' },
 			requirements: [{ id: 'memory_cache', met: false, text: 'Needs a memory cache (APCu, Redis or Memcached).' }],
 		}))
-		const radios = card.findAll('input[type="radio"]')
-		expect(radios.map((r) => (r.element as HTMLInputElement).disabled)).toEqual([false, true, true])
-		expect(card.text()).toContain('Needs a memory cache')
-		expect(card.text()).toContain('Until then it stays off, and only Off can be chosen.')
+		expect(card.text()).toContain('Needs a memory cache (APCu, Redis or Memcached). Until then it stays off, and only Off can be chosen.')
 		card.unmount()
 	})
 
-	test('the badge counts the last 7 days, and learning mode is left to the status', () => {
-		const card = mountCard(makeCheck({ mode: { configured: 'protect', effective: 'observe', reason: 'learning', missing: null, default: 'protect' } }))
-		expect(card.text()).toContain('Fired 12 times · 9 addresses blocked')
-		expect(card.text()).not.toContain('learning')
+	test('the card has no mode switch of its own: the row has it', () => {
+		const card = mountCard()
+		expect(card.findAll('input[type="radio"]')).toHaveLength(0)
 		card.unmount()
 	})
 })

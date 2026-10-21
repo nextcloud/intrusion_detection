@@ -18,6 +18,7 @@ use OCA\IntrusionDetection\Check\ICheck;
 use OCA\IntrusionDetection\Check\ISimulatable;
 use OCA\IntrusionDetection\Check\Mode;
 use OCA\IntrusionDetection\Check\ParamDefinition;
+use OCA\IntrusionDetection\Check\ParamPreset;
 use OCA\IntrusionDetection\Check\ParamText;
 use OCA\IntrusionDetection\Check\ParamType;
 use OCA\IntrusionDetection\Check\ResponseType;
@@ -56,10 +57,10 @@ final class AccountUnderAttack implements ICheck, IExplainsDetection, IExplainsT
 			severity: Severity::Medium,
 			params: [
 				new ParamDefinition('window', ParamType::Duration, 3600, min: 300, max: 3600),
-				new ParamDefinition('min_failures', ParamType::Int, 10, min: 3, max: 1000),
-				new ParamDefinition('min_sources', ParamType::Int, 5, min: 2, max: 1000),
+				new ParamDefinition('min_failures', ParamType::Int, 10, min: 3, max: 1000, preset: ParamPreset::Limit),
+				new ParamDefinition('min_sources', ParamType::Int, 5, min: 2, max: 1000, preset: ParamPreset::Limit),
 				new ParamDefinition('protect_duration', ParamType::Duration, 86400, min: 3600, max: 7 * 86400),
-				new ParamDefinition('ban_min_failures', ParamType::Int, 2, min: 1, max: 100),
+				new ParamDefinition('ban_min_failures', ParamType::Int, 2, min: 1, max: 100, preset: ParamPreset::Limit),
 			],
 			responses: [ResponseType::ProtectAccount, ResponseType::Ban, ResponseType::NotifyAdmin, ResponseType::NotifyUser],
 			defaultResponses: [ResponseType::ProtectAccount, ResponseType::NotifyAdmin, ResponseType::NotifyUser],

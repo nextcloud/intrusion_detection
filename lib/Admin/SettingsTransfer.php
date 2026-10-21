@@ -78,5 +78,7 @@ class SettingsTransfer {
 				$this->settings->resetGlobal($name);
 			}
 		}
+		// Every limit is at its default again.
+		$this->settings->resetGlobal(GlobalSettings::PROTECTION_LEVEL);
 	}
 }

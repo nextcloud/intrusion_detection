@@ -43,6 +43,8 @@ use OCP\IAppConfig;
 class Settings {
 	/** @var array<string, ParamDefinition> read definitions by config key */
 	private array $definitions = [];
+	/** While a protection level is applied, its own writes do not make it "custom" */
+	private bool $applyingLevel = false;
 
 	public function __construct(
 		private readonly IAppConfig $appConfig,
@@ -240,14 +242,14 @@ class Settings {
 		$definition = $this->registry->get($checkId)->param($name);
 		$old = $this->param($checkId, $name);
 		$this->write(Keys::param($checkId, $name), $definition, $value);
-		return $this->changed(Keys::param($checkId, $name), $old, $this->param($checkId, $name));
+		return $this->presetChanged($definition, $this->changed(Keys::param($checkId, $name), $old, $this->param($checkId, $name)));
 	}
 
 	public function resetParam(string $checkId, string $name): void {
-		$this->registry->get($checkId)->param($name);
+		$definition = $this->registry->get($checkId)->param($name);
 		$old = $this->param($checkId, $name);
 		$this->appConfig->deleteKey(Application::APP_ID, Keys::param($checkId, $name));
-		$this->changed(Keys::param($checkId, $name), $old, $this->param($checkId, $name));
+		$this->presetChanged($definition, $this->changed(Keys::param($checkId, $name), $old, $this->param($checkId, $name)));
 	}
 
 	/**
@@ -329,7 +331,7 @@ class Settings {
 		$this->changed(Keys::mode($checkId), $oldMode, $this->configuredMode($checkId)->value);
 		$this->changed(Keys::responses($checkId), $oldResponses, $this->responseValues($checkId));
 		foreach ($this->params($checkId) as $name => $value) {
-			$this->changed(Keys::param($checkId, $name), $oldParams[$name], $value);
+			$this->presetChanged($check->param($name), $this->changed(Keys::param($checkId, $name), $oldParams[$name], $value));
 		}
 	}
 
@@ -409,7 +411,7 @@ class Settings {
 		}
 		$old = $this->global($name);
 		$this->appConfig->deleteKey(Application::APP_ID, $name);
-		return $this->changed($name, $old, $this->global($name));
+		return $this->presetChanged($this->globalDefinition($name), $this->changed($name, $old, $this->global($name)));
 	}
 
 	/**
@@ -436,9 +438,62 @@ class Settings {
 	 * @param int|float|bool|string|list<string> $value validated
 	 */
 	private function writeGlobal(string $name, int|float|bool|string|array $value): bool {
+		$definition = $this->globalDefinition($name);
 		$old = $this->global($name);
-		$this->write($name, $this->globalDefinition($name), $value);
-		return $this->changed($name, $old, $this->global($name));
+		$this->write($name, $definition, $value);
+		return $this->presetChanged($definition, $this->changed($name, $old, $this->global($name)));
+	}
+
+	/**
+	 * The protection level the limits were last set to.
+	 */
+	public function protectionLevel(): ProtectionLevel {
+		return ProtectionLevel::tryFrom((string)$this->global(GlobalSettings::PROTECTION_LEVEL)) ?? ProtectionLevel::Recommended;
+	}
+
+	/**
+	 * Write the values of a protection level, and the level. The values are
+	 * validated already ({@see ProtectionLevels}), so nothing is refused.
+	 * The level itself is internal state: the values are the changes, and
+	 * each of them is reported as such.
+	 *
+	 * @param array<string, array<string, int>> $checkParams validated values by check id and parameter name
+	 * @param array<string, int> $globals validated values by global setting name
+	 * @return array{checks: array<string, array<string, int|float|bool|string|list<string>>>, settings: array<string, int|float|bool|string|list<string>>} what really changed
+	 */
+	public function applyProtectionLevel(ProtectionLevel $level, array $checkParams, array $globals): array {
+		$changes = ['checks' => [], 'settings' => []];
+		$this->applyingLevel = true;
+		try {
+			foreach ($checkParams as $checkId => $params) {
+				foreach ($params as $name => $value) {
+					if ($this->writeParam($checkId, $name, $value)) {
+						$changes['checks'][$checkId][$name] = $value;
+					}
+				}
+			}
+			foreach ($globals as $name => $value) {
+				if ($this->writeGlobal($name, $value)) {
+					$changes['settings'][$name] = $value;
+				}
+			}
+		} finally {
+			$this->applyingLevel = false;
+		}
+		$this->setGlobal(GlobalSettings::PROTECTION_LEVEL, $level->value);
+		return $changes;
+	}
+
+	/**
+	 * A limit or block duration changed by hand makes the protection level "custom".
+	 *
+	 * @return bool $changed, passed through
+	 */
+	private function presetChanged(ParamDefinition $definition, bool $changed): bool {
+		if ($changed && $definition->preset !== null && !$this->applyingLevel && $this->protectionLevel() !== ProtectionLevel::Custom) {
+			$this->setGlobal(GlobalSettings::PROTECTION_LEVEL, ProtectionLevel::Custom->value);
+		}
+		return $changed;
 	}
 
 	/**

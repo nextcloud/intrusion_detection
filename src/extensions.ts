@@ -75,7 +75,7 @@ export interface DetectionSection {
 
 export const tabs = shallowReactive<TabDefinition[]>([
 	{ id: 'overview', name: () => t(APP_ID, 'Overview'), icon: mdiViewDashboardOutline, order: 10, component: defineAsyncComponent(() => import('./views/OverviewTab.vue')) },
-	{ id: 'protection', name: () => t(APP_ID, 'Protection'), icon: mdiShieldCheckOutline, order: 20, component: defineAsyncComponent(() => import('./views/ChecksTab.vue')) },
+	{ id: 'protection', name: () => t(APP_ID, 'Protection'), icon: mdiShieldCheckOutline, order: 20, component: defineAsyncComponent(() => import('./views/ProtectionTab.vue')) },
 	{ id: 'blocks', name: () => t(APP_ID, 'Blocks'), icon: mdiShieldLockOutline, order: 30, component: defineAsyncComponent(() => import('./views/BlocksTab.vue')) },
 	{ id: 'settings', name: () => t(APP_ID, 'Settings'), icon: mdiCogOutline, order: 40, component: defineAsyncComponent(() => import('./views/SettingsTab.vue')) },
 	{ id: 'incidents', name: () => t(APP_ID, 'Incidents'), icon: mdiFileDocumentAlertOutline, order: 50, advanced: true, component: defineAsyncComponent(() => import('./views/IncidentsTab.vue')) },

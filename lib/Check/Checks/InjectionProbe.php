@@ -17,6 +17,7 @@ use OCA\IntrusionDetection\Check\DataKind;
 use OCA\IntrusionDetection\Check\ICheck;
 use OCA\IntrusionDetection\Check\Mode;
 use OCA\IntrusionDetection\Check\ParamDefinition;
+use OCA\IntrusionDetection\Check\ParamPreset;
 use OCA\IntrusionDetection\Check\ParamText;
 use OCA\IntrusionDetection\Check\ParamType;
 use OCA\IntrusionDetection\Check\Payload\CustomSignatures;
@@ -62,7 +63,7 @@ final class InjectionProbe implements ICheck, IExplainsDetection {
 			severity: Severity::Medium,
 			params: [
 				new ParamDefinition(self::PARAM_AUTHENTICATED_MODE, ParamType::Choice, Mode::Observe->value, choices: [Mode::Off->value, Mode::Observe->value, Mode::Protect->value]),
-				new ParamDefinition(self::PARAM_MIN_WEIGHT, ParamType::Int, 3, min: 2, max: 20),
+				new ParamDefinition(self::PARAM_MIN_WEIGHT, ParamType::Int, 3, min: 2, max: 20, preset: ParamPreset::Limit),
 				new ParamDefinition(self::PARAM_MAX_BYTES, ParamType::Int, 8192, min: 1024, max: 65536),
 				new ParamDefinition(self::PARAM_EXCLUDED, ParamType::StringList, self::DEFAULT_EXCLUDED, itemPattern: '/^[A-Za-z0-9_.\-]{1,64}$/', maxItems: 200, maxItemLength: 64),
 				new ParamDefinition(self::PARAM_DISABLED, ParamType::StringList, [], itemPattern: '/^[a-z0-9_]{1,64}$/', maxItems: 100, maxItemLength: 64),

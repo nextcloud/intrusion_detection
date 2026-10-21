@@ -17,6 +17,7 @@ use OCA\IntrusionDetection\Check\DataKind;
 use OCA\IntrusionDetection\Check\ICheck;
 use OCA\IntrusionDetection\Check\Mode;
 use OCA\IntrusionDetection\Check\ParamDefinition;
+use OCA\IntrusionDetection\Check\ParamPreset;
 use OCA\IntrusionDetection\Check\ParamText;
 use OCA\IntrusionDetection\Check\ParamType;
 use OCA\IntrusionDetection\Check\ResponseType;
@@ -71,9 +72,9 @@ final class AccountTakeover implements ICheck, IExplainsDetection, IExplainsToUs
 	public function definition(): CheckDefinition {
 		$params = [
 			new ParamDefinition(self::PARAM_WINDOW, ParamType::Duration, 3600, min: 600, max: 86400),
-			new ParamDefinition(self::PARAM_MIN_POINTS, ParamType::Int, 3, min: 1, max: 50),
+			new ParamDefinition(self::PARAM_MIN_POINTS, ParamType::Int, 3, min: 1, max: 50, preset: ParamPreset::Limit),
 			new ParamDefinition(self::PARAM_WINDOW_ANY, ParamType::Duration, 1800, min: 600, max: 86400),
-			new ParamDefinition(self::PARAM_MIN_POINTS_ANY, ParamType::Int, 5, min: 1, max: 50),
+			new ParamDefinition(self::PARAM_MIN_POINTS_ANY, ParamType::Int, 5, min: 1, max: 50, preset: ParamPreset::Limit),
 		];
 		foreach (self::DEFAULT_POINTS as $type => $points) {
 			$params[] = new ParamDefinition('points_' . $type, ParamType::Int, $points, min: 0, max: 10);

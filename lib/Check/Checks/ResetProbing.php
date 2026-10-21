@@ -19,6 +19,7 @@ use OCA\IntrusionDetection\Check\ISelectsResponses;
 use OCA\IntrusionDetection\Check\ISimulatable;
 use OCA\IntrusionDetection\Check\Mode;
 use OCA\IntrusionDetection\Check\ParamDefinition;
+use OCA\IntrusionDetection\Check\ParamPreset;
 use OCA\IntrusionDetection\Check\ParamType;
 use OCA\IntrusionDetection\Check\ResponseType;
 use OCA\IntrusionDetection\Check\Severity;
@@ -60,9 +61,9 @@ final class ResetProbing implements ICheck, IExplainsDetection, IExplainsToUser,
 			defaultMode: Mode::Protect,
 			severity: Severity::Medium,
 			params: [
-				new ParamDefinition('enum_min_inputs', ParamType::Int, 5, min: 3, max: 1000),
+				new ParamDefinition('enum_min_inputs', ParamType::Int, 5, min: 3, max: 1000, preset: ParamPreset::Limit),
 				new ParamDefinition('enum_window', ParamType::Duration, 600, min: 60, max: 3600),
-				new ParamDefinition('flood_min_requests', ParamType::Int, 5, min: 3, max: 1000),
+				new ParamDefinition('flood_min_requests', ParamType::Int, 5, min: 3, max: 1000, preset: ParamPreset::Limit),
 				new ParamDefinition('flood_window', ParamType::Duration, 3600, min: 300, max: 3600),
 				new ParamDefinition('suppress_duration', ParamType::Duration, 3600, min: 600, max: 86400),
 			],

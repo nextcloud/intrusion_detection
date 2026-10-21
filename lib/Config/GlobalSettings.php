@@ -12,6 +12,7 @@ namespace OCA\IntrusionDetection\Config;
 use OCA\IntrusionDetection\Check\Checks\AdminChange;
 use OCA\IntrusionDetection\Check\IValidatesParams;
 use OCA\IntrusionDetection\Check\ParamDefinition;
+use OCA\IntrusionDetection\Check\ParamPreset;
 use OCA\IntrusionDetection\Check\ParamType;
 use OCA\IntrusionDetection\Confirm\Methods\KnownDeviceMethod;
 use OCA\IntrusionDetection\Confirm\NoMethodOutcome;
@@ -146,6 +147,8 @@ final class GlobalSettings {
 	public const COVERAGE_USERS = 'coverage_users';
 	/** Internal: reserved names and decoy login names that are accounts by now, with when they were looked up */
 	public const TRAP_NAME_COLLISIONS = 'trap_name_collisions';
+	/** Internal: the protection level the limits were last set to (recommended, strict, relaxed), or custom after a change by hand */
+	public const PROTECTION_LEVEL = 'protection_level';
 
 	/** Seconds in the learning period that starts when the app is first enabled */
 	public const LEARNING_DEFAULT_PERIOD = 7 * 86400;
@@ -164,9 +167,9 @@ final class GlobalSettings {
 				new ParamDefinition(self::LEARNING_DECOYS_ACT, ParamType::Bool, true),
 				new ParamDefinition(self::LEARNING_NOTICE_SENT, ParamType::Int, 0, min: 0),
 				// The three escalation levels: first block, repeat within the history window, and after that.
-				new ParamDefinition(self::BAN_DURATION_1, ParamType::Duration, 14400, min: 300, max: 90 * 86400),
-				new ParamDefinition(self::BAN_DURATION_2, ParamType::Duration, 86400, min: 300, max: 90 * 86400),
-				new ParamDefinition(self::BAN_DURATION_3, ParamType::Duration, 604800, min: 300, max: 90 * 86400),
+				new ParamDefinition(self::BAN_DURATION_1, ParamType::Duration, 14400, min: 300, max: 90 * 86400, preset: ParamPreset::BlockDuration),
+				new ParamDefinition(self::BAN_DURATION_2, ParamType::Duration, 86400, min: 300, max: 90 * 86400, preset: ParamPreset::BlockDuration),
+				new ParamDefinition(self::BAN_DURATION_3, ParamType::Duration, 604800, min: 300, max: 90 * 86400, preset: ParamPreset::BlockDuration),
 				new ParamDefinition(self::BAN_HISTORY_DAYS, ParamType::Int, 30, min: 1, max: 365),
 				new ParamDefinition(self::BAN_NET_AFTER, ParamType::Int, 3, min: 2, max: 256),
 				new ParamDefinition(self::BAN_SHARED_IP_USERS, ParamType::Int, 5, min: 0, max: 10000),
@@ -238,6 +241,7 @@ final class GlobalSettings {
 				new ParamDefinition(self::BANS_FLAGGED_UNTIL, ParamType::Int, 0, min: 0),
 				new ParamDefinition(self::COVERAGE_USERS, ParamType::Json, '{}'),
 				new ParamDefinition(self::TRAP_NAME_COLLISIONS, ParamType::Json, '{}'),
+				new ParamDefinition(self::PROTECTION_LEVEL, ParamType::Choice, ProtectionLevel::Recommended->value, choices: array_map(static fn (ProtectionLevel $level): string => $level->value, ProtectionLevel::cases())),
 			];
 			$this->definitions = [];
 			foreach ($list as $definition) {
@@ -281,6 +285,7 @@ final class GlobalSettings {
 			self::BANS_FLAGGED_UNTIL,
 			self::COVERAGE_USERS,
 			self::TRAP_NAME_COLLISIONS,
+			self::PROTECTION_LEVEL,
 		], true);
 	}
 }

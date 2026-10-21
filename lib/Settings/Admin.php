@@ -13,6 +13,7 @@ use OCA\IntrusionDetection\Admin\CheckList;
 use OCA\IntrusionDetection\Admin\GlobalSettingsPresenter;
 use OCA\IntrusionDetection\Admin\StatusService;
 use OCA\IntrusionDetection\AppInfo\Application;
+use OCA\IntrusionDetection\Config\Settings;
 use OCA\IntrusionDetection\Net\RemoteAddressResolver;
 use OCP\AppFramework\Http\TemplateResponse;
 use OCP\AppFramework\Services\IInitialState;
@@ -34,6 +35,7 @@ class Admin implements ISettings {
 		private readonly IInitialState $initialState,
 		private readonly IURLGenerator $urlGenerator,
 		private readonly IL10N $l,
+		private readonly Settings $settings,
 	) {
 	}
 
@@ -42,6 +44,7 @@ class Admin implements ISettings {
 		$this->initialState->provideInitialState('admin', [
 			'status' => $this->status->status($this->l),
 			'checks' => $this->checks->all($this->l),
+			'protectionLevel' => $this->settings->protectionLevel()->value,
 			'settings' => $this->globalSettings->present($this->l),
 			'ownAddress' => $this->addresses->current()?->ip,
 			'docUrl' => $this->urlGenerator->linkToDocs('admin-intrusion-detection'),
