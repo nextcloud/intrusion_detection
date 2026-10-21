@@ -35,6 +35,95 @@
                     }
                 }
             },
+            "EmailHint": {
+                "type": "object",
+                "required": [
+                    "emailUrl",
+                    "secondFactorUrl"
+                ],
+                "properties": {
+                    "emailUrl": {
+                        "type": "string"
+                    },
+                    "secondFactorUrl": {
+                        "type": "string",
+                        "nullable": true
+                    }
+                }
+            },
+            "FailedLoginDay": {
+                "type": "object",
+                "required": [
+                    "day",
+                    "start",
+                    "count"
+                ],
+                "properties": {
+                    "day": {
+                        "type": "string"
+                    },
+                    "start": {
+                        "type": "integer",
+                        "format": "int64"
+                    },
+                    "count": {
+                        "type": "integer",
+                        "format": "int64"
+                    }
+                }
+            },
+            "FailedLogins": {
+                "type": "object",
+                "required": [
+                    "days",
+                    "total",
+                    "places",
+                    "placesCapped",
+                    "recent",
+                    "timezone"
+                ],
+                "properties": {
+                    "days": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/FailedLoginDay"
+                        }
+                    },
+                    "total": {
+                        "type": "integer",
+                        "format": "int64"
+                    },
+                    "places": {
+                        "type": "integer",
+                        "format": "int64"
+                    },
+                    "placesCapped": {
+                        "type": "boolean"
+                    },
+                    "recent": {
+                        "type": "array",
+                        "items": {
+                            "type": "object",
+                            "required": [
+                                "address",
+                                "lastSeenAt"
+                            ],
+                            "properties": {
+                                "address": {
+                                    "type": "string"
+                                },
+                                "lastSeenAt": {
+                                    "type": "integer",
+                                    "format": "int64"
+                                }
+                            }
+                        }
+                    },
+                    "timezone": {
+                        "type": "string"
+                    }
+                }
+            },
             "KnownDevice": {
                 "type": "object",
                 "required": [
@@ -78,6 +167,23 @@
                     }
                 }
             },
+            "LoggedOutElsewhere": {
+                "type": "object",
+                "required": [
+                    "sessions",
+                    "devices"
+                ],
+                "properties": {
+                    "sessions": {
+                        "type": "integer",
+                        "format": "int64"
+                    },
+                    "devices": {
+                        "type": "integer",
+                        "format": "int64"
+                    }
+                }
+            },
             "Login": {
                 "type": "object",
                 "required": [
@@ -90,7 +196,8 @@
                     "knownDevice",
                     "confirmedBy",
                     "stepUp",
-                    "current"
+                    "current",
+                    "device"
                 ],
                 "properties": {
                     "id": {
@@ -128,6 +235,9 @@
                     },
                     "current": {
                         "type": "boolean"
+                    },
+                    "device": {
+                        "type": "string"
                     }
                 }
             },
@@ -244,6 +354,90 @@
                     },
                     "canConfirm": {
                         "type": "boolean"
+                    }
+                }
+            },
+            "PersonalOverview": {
+                "type": "object",
+                "required": [
+                    "status",
+                    "failedLogins",
+                    "emailHint",
+                    "timezone"
+                ],
+                "properties": {
+                    "status": {
+                        "$ref": "#/components/schemas/PersonalStatus"
+                    },
+                    "failedLogins": {
+                        "$ref": "#/components/schemas/FailedLogins"
+                    },
+                    "emailHint": {
+                        "nullable": true,
+                        "allOf": [
+                            {
+                                "$ref": "#/components/schemas/EmailHint"
+                            }
+                        ]
+                    },
+                    "timezone": {
+                        "type": "string"
+                    }
+                }
+            },
+            "PersonalStatus": {
+                "type": "object",
+                "required": [
+                    "level",
+                    "headline",
+                    "items"
+                ],
+                "properties": {
+                    "level": {
+                        "type": "string",
+                        "enum": [
+                            "ok",
+                            "info",
+                            "warning"
+                        ]
+                    },
+                    "headline": {
+                        "type": "string"
+                    },
+                    "items": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/PersonalStatusItem"
+                        }
+                    }
+                }
+            },
+            "PersonalStatusItem": {
+                "type": "object",
+                "required": [
+                    "id",
+                    "level",
+                    "text",
+                    "at"
+                ],
+                "properties": {
+                    "id": {
+                        "type": "string"
+                    },
+                    "level": {
+                        "type": "string",
+                        "enum": [
+                            "info",
+                            "warning"
+                        ]
+                    },
+                    "text": {
+                        "type": "string"
+                    },
+                    "at": {
+                        "type": "integer",
+                        "format": "int64",
+                        "nullable": true
                     }
                 }
             },
@@ -2270,6 +2464,215 @@
                 }
             }
         },
+        "/ocs/v2.php/apps/intrusion_detection/api/v1/personal/overview": {
+            "get": {
+                "operationId": "personal_api-overview",
+                "summary": "The status, failed logins and hints at the top of the current user's security section",
+                "tags": [
+                    "personal_api"
+                ],
+                "security": [
+                    {
+                        "bearer_auth": []
+                    },
+                    {
+                        "basic_auth": []
+                    }
+                ],
+                "parameters": [
+                    {
+                        "name": "OCS-APIRequest",
+                        "in": "header",
+                        "description": "Required to be true for the API request to pass",
+                        "required": true,
+                        "schema": {
+                            "type": "boolean",
+                            "default": true
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The overview",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "required": [
+                                        "ocs"
+                                    ],
+                                    "properties": {
+                                        "ocs": {
+                                            "type": "object",
+                                            "required": [
+                                                "meta",
+                                                "data"
+                                            ],
+                                            "properties": {
+                                                "meta": {
+                                                    "$ref": "#/components/schemas/OCSMeta"
+                                                },
+                                                "data": {
+                                                    "$ref": "#/components/schemas/PersonalOverview"
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Current user is not logged in",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "required": [
+                                        "ocs"
+                                    ],
+                                    "properties": {
+                                        "ocs": {
+                                            "type": "object",
+                                            "required": [
+                                                "meta",
+                                                "data"
+                                            ],
+                                            "properties": {
+                                                "meta": {
+                                                    "$ref": "#/components/schemas/OCSMeta"
+                                                },
+                                                "data": {}
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/ocs/v2.php/apps/intrusion_detection/api/v1/personal/log-out-elsewhere": {
+            "post": {
+                "operationId": "personal_api-log-out-elsewhere",
+                "summary": "Log out everywhere else: end every other browser session of the current user and forget the other remembered browsers",
+                "description": "App passwords and connected devices keep working.\nThis endpoint requires password confirmation",
+                "tags": [
+                    "personal_api"
+                ],
+                "security": [
+                    {
+                        "bearer_auth": []
+                    },
+                    {
+                        "basic_auth": []
+                    }
+                ],
+                "parameters": [
+                    {
+                        "name": "OCS-APIRequest",
+                        "in": "header",
+                        "description": "Required to be true for the API request to pass",
+                        "required": true,
+                        "schema": {
+                            "type": "boolean",
+                            "default": true
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Logged out everywhere else",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "required": [
+                                        "ocs"
+                                    ],
+                                    "properties": {
+                                        "ocs": {
+                                            "type": "object",
+                                            "required": [
+                                                "meta",
+                                                "data"
+                                            ],
+                                            "properties": {
+                                                "meta": {
+                                                    "$ref": "#/components/schemas/OCSMeta"
+                                                },
+                                                "data": {
+                                                    "$ref": "#/components/schemas/LoggedOutElsewhere"
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Only a browser session can do this, not an app password",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "required": [
+                                        "ocs"
+                                    ],
+                                    "properties": {
+                                        "ocs": {
+                                            "type": "object",
+                                            "required": [
+                                                "meta",
+                                                "data"
+                                            ],
+                                            "properties": {
+                                                "meta": {
+                                                    "$ref": "#/components/schemas/OCSMeta"
+                                                },
+                                                "data": {
+                                                    "$ref": "#/components/schemas/AnswerError"
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Current user is not logged in",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "required": [
+                                        "ocs"
+                                    ],
+                                    "properties": {
+                                        "ocs": {
+                                            "type": "object",
+                                            "required": [
+                                                "meta",
+                                                "data"
+                                            ],
+                                            "properties": {
+                                                "meta": {
+                                                    "$ref": "#/components/schemas/OCSMeta"
+                                                },
+                                                "data": {}
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
         "/ocs/v2.php/apps/intrusion_detection/api/v1/share-alerts/{detectionId}/disable": {
             "post": {
                 "operationId": "share_alert-disable",
@@ -2471,7 +2874,7 @@
         },
         {
             "name": "personal_api",
-            "description": "The logged-in user's own security events, their answers to \"Was this * you?\" (also the actions of the user notification), their trusted networks, their remembered devices and their recent logins (concept sections 11.5.1, 11.8 and 15.1). Every endpoint only ever touches the current user's own rows: another account's detection or network answers 404, like a missing one. Writes are CSRF-protected (OCS) and rate limited per user; \"Yes, it was me\" needs a recent password confirmation and is refused from the session the detection is about."
+            "description": "The logged-in user's own security events, their answers to \"Was this you?\" (also the actions of the user notification), their trusted networks, their remembered devices, their recent logins, the overview at the top of their security section and \"Log out everywhere else\" (concept sections 11.5.1, 11.8 and 15.1). Every endpoint only ever touches the current user's own rows: another account's detection or network answers 404, like a missing one. Writes are CSRF-protected (OCS) and rate limited per user; \"Yes, it was me\" needs a recent password confirmation and is refused from the session the detection is about."
         },
         {
             "name": "privacy_api",

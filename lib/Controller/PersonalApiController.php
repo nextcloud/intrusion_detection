@@ -84,7 +84,7 @@ class PersonalApiController extends OCSController {
 		private readonly SecurityChangeMapper $changes,
 		private readonly Settings $settings,
 		private readonly ITimeFactory $timeFactory,
-		private readonly PersonalOverview $overview,
+		private readonly PersonalOverview $personalOverview,
 		private readonly LogOutElsewhere $logOutElsewhere,
 	) {
 		parent::__construct(Application::APP_ID, $request);
@@ -350,7 +350,7 @@ class PersonalApiController extends OCSController {
 	#[NoAdminRequired]
 	#[ApiRoute(verb: 'GET', url: '/api/v1/personal/overview')]
 	public function overview(): DataResponse {
-		return new DataResponse($this->overview->get($this->user(), $this->l));
+		return new DataResponse($this->personalOverview->get($this->user(), $this->l));
 	}
 
 	/**

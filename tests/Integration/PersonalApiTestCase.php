@@ -17,7 +17,10 @@ use OCA\IntrusionDetection\Controller\PersonalApiController;
 use OCA\IntrusionDetection\Db\Detection;
 use OCA\IntrusionDetection\Db\DetectionMapper;
 use OCA\IntrusionDetection\Db\LoginHistoryMapper;
+use OCA\IntrusionDetection\Db\SecurityChangeMapper;
 use OCA\IntrusionDetection\Detection\DetectionDraft;
+use OCA\IntrusionDetection\Guide\SecureAccountGuide;
+use OCA\IntrusionDetection\Guide\SecureAccountOverview;
 use OCA\IntrusionDetection\Net\SourceKey;
 use OCA\IntrusionDetection\Notification\UserMessages;
 use OCA\IntrusionDetection\Personal\LogOutElsewhere;
@@ -120,6 +123,9 @@ abstract class PersonalApiTestCase extends StepUpTestCase {
 			$this->knownDevices(),
 			Server::get(LoginHistoryMapper::class),
 			$this->currentSession,
+			Server::get(SecureAccountGuide::class),
+			Server::get(SecureAccountOverview::class),
+			Server::get(SecurityChangeMapper::class),
 			$this->settings,
 			Server::get(ITimeFactory::class),
 			Server::get(PersonalOverview::class),
