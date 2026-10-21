@@ -9,6 +9,7 @@ declare(strict_types=1);
 
 namespace OCA\IntrusionDetection\Tests\Integration;
 
+use OC\Memcache\ArrayCache;
 use OCA\IntrusionDetection\Address\AddressCache;
 use OCA\IntrusionDetection\Address\AddressResolver;
 use OCA\IntrusionDetection\AppInfo\Application;
@@ -37,8 +38,6 @@ use OCP\ICacheFactory;
 use OCP\IConfig;
 use OCP\IGroupManager;
 use OCP\IRequest;
-use OCP\Lock\ILockingProvider;
-use OCP\Lock\LockedException;
 use OCP\Security\Bruteforce\IThrottler;
 use OCP\Security\ISecureRandom;
 use OCP\Server;
@@ -504,31 +503,39 @@ class BanServiceTest extends IntegrationTestCase {
 	}
 
 	public function testTheCheckAndTheInsertRunUnderALockPerAddress(): void {
-		$locks = $this->createMock(ILockingProvider::class);
 		$calls = [];
-		$locks->method('acquireLock')->willReturnCallback(function (string $path) use (&$calls): void {
-			$calls[] = 'acquire ' . $path;
-			if (count($calls) === 1) {
-				throw new LockedException($path);
+		$cache = new class($calls) extends ArrayCache {
+			/** @param list<string> $calls */
+			public function __construct(
+				private array &$calls,
+			) {
+				parent::__construct();
 			}
-		});
-		$locks->method('releaseLock')->willReturnCallback(function (string $path) use (&$calls): void {
-			$calls[] = 'release ' . $path;
-		});
-		$result = $this->freshService($locks)->ban(SourceKey::fromIp('198.51.100.7'), 'trap_url');
+
+			public function add($key, $value, $ttl = 0) {
+				$this->calls[] = 'acquire ' . $key;
+				// Another request holds the address's lock at first.
+				return count($this->calls) > 1 && parent::add($key, $value, $ttl);
+			}
+
+			public function remove($key) {
+				$this->calls[] = 'release ' . $key;
+				return parent::remove($key);
+			}
+		};
+		$result = $this->freshService($this->lockCaches($cache))->ban(SourceKey::fromIp('198.51.100.7'), 'trap_url');
 		$this->assertSame(BanResult::BANNED, $result->outcome);
-		$lock = 'intrusion_detection/ban/' . md5('198.51.100.7');
+		$lock = 'ban/' . md5('198.51.100.7');
 		$this->assertSame(['acquire ' . $lock, 'acquire ' . $lock, 'release ' . $lock], $calls, 'Waits for the lock, then holds it while it checks and inserts; a network far from its threshold takes none');
-		$this->assertLessThanOrEqual(64, strlen($lock), 'Fits the database lock table');
 	}
 
 	public function testABlockedOrExemptAddressTakesNoLock(): void {
 		$this->bans->ban(SourceKey::fromIp('198.51.100.7'), 'trap_url');
 		$this->bans->banNetwork(SourceKey::fromIp('203.0.113.1'), 'credential_stuffing');
 		Server::get(LoginHistoryMapper::class)->insert('admin', time(), SourceKey::fromIp('192.0.2.7'), null, 'password', false, 'none', null, null);
-		$locks = $this->createMock(ILockingProvider::class);
-		$locks->expects($this->never())->method('acquireLock');
-		$bans = $this->freshService($locks);
+		$locks = $this->createMock(ArrayCache::class);
+		$locks->expects($this->never())->method('add');
+		$bans = $this->freshService($this->lockCaches($locks));
 		$this->assertSame(BanResult::ALREADY, $bans->ban(SourceKey::fromIp('198.51.100.7'), 'password_spraying')->outcome);
 		$this->assertSame(BanResult::ALREADY, $bans->ban(SourceKey::fromIp('203.0.113.99'), 'password_spraying')->outcome, 'Inside a blocked /24');
 		$this->assertSame(BanResult::SKIPPED_TRUSTED, $bans->ban(SourceKey::fromIp('192.0.2.7'), 'password_spraying')->outcome);
@@ -559,10 +566,17 @@ class BanServiceTest extends IntegrationTestCase {
 	}
 
 	public function testAStuckLockDoesNotStopTheBlock(): void {
-		$locks = $this->createMock(ILockingProvider::class);
-		$locks->method('acquireLock')->willThrowException(new LockedException('x'));
-		$locks->expects($this->never())->method('releaseLock');
-		$this->assertSame(BanResult::BANNED, $this->freshService($locks)->ban(SourceKey::fromIp('198.51.100.7'), 'trap_url')->outcome);
+		$cache = $this->createMock(ArrayCache::class);
+		$cache->method('add')->willReturn(false);
+		$cache->expects($this->never())->method('remove');
+		$this->assertSame(BanResult::BANNED, $this->freshService($this->lockCaches($cache))->ban(SourceKey::fromIp('198.51.100.7'), 'trap_url')->outcome);
+	}
+
+	private function lockCaches(ArrayCache $cache): ICacheFactory {
+		$factory = $this->createMock(ICacheFactory::class);
+		$factory->method('isAvailable')->willReturn(true);
+		$factory->method('createDistributed')->willReturn($cache);
+		return $factory;
 	}
 
 	public function testLiftingABlockRemovesTheFlagOfItsAddress(): void {
@@ -617,7 +631,7 @@ class BanServiceTest extends IntegrationTestCase {
 	 * The service with nothing cached from earlier tests (the allowlist and
 	 * server ranges are read once per instance).
 	 */
-	private function freshService(?ILockingProvider $locks = null, ?StateMapper $state = null): BanService {
+	private function freshService(?ICacheFactory $lockCaches = null, ?StateMapper $state = null): BanService {
 		$ranges = new ProtectedRanges($this->appConfig, Server::get(ServerAddresses::class));
 		return new BanService(
 			$this->mapper,
@@ -636,7 +650,7 @@ class BanServiceTest extends IntegrationTestCase {
 			new RemoteAddressResolver($this->createMock(IRequest::class), Server::get(IThrottler::class), Server::get(ServerAddresses::class)),
 			$ranges,
 			Server::get(FlaggedSources::class),
-			new KeyLock($locks ?? Server::get(ILockingProvider::class)),
+			$lockCaches === null ? Server::get(KeyLock::class) : new KeyLock($lockCaches),
 			Server::get(ITimeFactory::class),
 			Server::get(ISecureRandom::class),
 			Server::get(TypedEvents::class),

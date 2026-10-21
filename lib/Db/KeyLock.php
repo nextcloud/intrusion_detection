@@ -9,21 +9,32 @@ declare(strict_types=1);
 
 namespace OCA\IntrusionDetection\Db;
 
-use OCP\Lock\ILockingProvider;
-use OCP\Lock\LockedException;
+use OCA\IntrusionDetection\AppInfo\Application;
+use OCP\ICacheFactory;
+use OCP\IMemcache;
 
 /**
  * Runs a check-and-write under a lock per key, so parallel requests do not
- * both insert what each found missing. When the lock cannot be had in time
- * (a stuck request), the work runs anyway: a duplicate row is harmless, a
- * lost block or detection is not.
+ * both insert what each found missing.
+ *
+ * - The lock is an atomic add in the memory cache (distributed if there is
+ *   one), never a database row: core's database locking costs several
+ *   writes per lock.
+ * - A lock ends after TTL seconds, so one left by a request that died
+ *   stops mattering soon.
+ * - A held lock is waited for once (PAUSE_US). When it is still held, or
+ *   without a memory cache, the work runs unlocked: a duplicate row or a
+ *   lost hit count is harmless, a lost block or detection is not.
  */
 class KeyLock {
-	private const TRIES = 20;
-	private const PAUSE_US = 25000;
+	public const TTL = 5;
+	public const PAUSE_US = 25000;
+	public const PREFIX = Application::APP_ID . '-lock';
+
+	private IMemcache|null|false $cache = false;
 
 	public function __construct(
-		private readonly ILockingProvider $locks,
+		private readonly ICacheFactory $cacheFactory,
 	) {
 	}
 
@@ -34,22 +45,33 @@ class KeyLock {
 	 * @return T
 	 */
 	public function run(string $scope, string $key, \Closure $work): mixed {
-		$lock = 'intrusion_detection/' . $scope . '/' . md5($key);
-		$held = false;
-		for ($try = 0; $try < self::TRIES && !$held; $try++) {
-			try {
-				$this->locks->acquireLock($lock, ILockingProvider::LOCK_EXCLUSIVE);
-				$held = true;
-			} catch (LockedException) {
-				usleep(self::PAUSE_US);
-			}
+		$cache = $this->cache();
+		if ($cache === null) {
+			return $work();
+		}
+		$lock = $scope . '/' . md5($key);
+		$held = $cache->add($lock, 1, self::TTL);
+		if (!$held) {
+			usleep(self::PAUSE_US);
+			$held = $cache->add($lock, 1, self::TTL);
 		}
 		try {
 			return $work();
 		} finally {
 			if ($held) {
-				$this->locks->releaseLock($lock, ILockingProvider::LOCK_EXCLUSIVE);
+				$cache->remove($lock);
 			}
 		}
+	}
+
+	private function cache(): ?IMemcache {
+		if ($this->cache === false) {
+			$cache = $this->cacheFactory->isAvailable()
+				? $this->cacheFactory->createDistributed(self::PREFIX)
+				: ($this->cacheFactory->isLocalCacheAvailable() ? $this->cacheFactory->createLocal(self::PREFIX) : null);
+			// add() is atomic only on the memcache types.
+			$this->cache = $cache instanceof IMemcache ? $cache : null;
+		}
+		return $this->cache;
 	}
 }
