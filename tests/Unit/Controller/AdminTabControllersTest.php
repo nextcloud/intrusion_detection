@@ -111,11 +111,11 @@ class AdminTabControllersTest extends TestCase {
 		$this->assertSame('list_disabled', $controller->syncNow('corp')->getData()['reason']);
 
 		[$controller, , $sync] = $this->blocklists(self::source('corp', true));
-		$sync->expects($this->once())->method('sync')->with('corp')->willReturn([new SyncResult('corp', SyncResult::FAILED, 'http_error')]);
+		$sync->expects($this->once())->method('sync')->with('corp')->willReturn([new SyncResult('corp', SyncResult::FAILED, 'http_error', status: 503)]);
 		$this->audit->expects($this->once())->method('log')->with('blocklist %s downloaded by %s: %s', ['list' => 'corp', 'actor' => 'alice', 'outcome' => 'failed']);
 		$data = $controller->syncNow('corp')->getData();
 		$this->assertSame('failed', $data['result']['outcome']);
-		$this->assertSame('the server answered with an error', $data['result']['errorText']);
+		$this->assertSame('lists.example.org answered with HTTP status 503', $data['result']['errorText'], 'the server and the status of the list');
 	}
 
 	/**
