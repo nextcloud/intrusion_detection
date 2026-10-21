@@ -100,6 +100,32 @@ describe('SecureAccount', () => {
 		expect(wrapper.text()).toContain('Check your devices and sessions')
 	})
 
+	test('numbers only the steps that apply and shows one segment per step', async () => {
+		const data = account(['password'])
+		data.progress.steps[2]!.skipped = true
+		data.progress.total = 5
+		const wrapper = await render(data)
+		const markers = wrapper.findAll('ol > li').map((li) => li.get('button span').text())
+		expect(markers).toEqual(['', '2', '', '3', '4', '5'])
+		const bar = wrapper.get('[data-test="checklist-progress"]')
+		expect(bar.attributes('aria-valuenow')).toBe('1')
+		expect(bar.attributes('aria-valuemax')).toBe('5')
+		expect(bar.findAll('span')).toHaveLength(5)
+	})
+
+	test('keeps one step open at a time, the next one to do', async () => {
+		vi.mocked(completeStep).mockResolvedValue(account(['password', 'sessions']))
+		const wrapper = await render(account(['password']))
+		const open = () => wrapper.findAll('ol > li > h3 > button').filter((b) => b.attributes('aria-expanded') === 'true').map((b) => b.text())
+		expect(open()).toHaveLength(1)
+		expect(open()[0]).toContain('Check your devices and sessions')
+		await wrapper.findAll('ol > li > h3 > button')[3]!.trigger('click')
+		expect(open()).toHaveLength(1)
+		expect(open()[0]).toContain('Check your email address and profile')
+		await wrapper.findAll('ol > li > h3 > button')[3]!.trigger('click')
+		expect(open()).toHaveLength(0)
+	})
+
 	test('marks entries created after the event and revokes them', async () => {
 		vi.mocked(revokeSession).mockResolvedValue(undefined)
 		const wrapper = await render(account())

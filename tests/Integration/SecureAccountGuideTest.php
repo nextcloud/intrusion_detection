@@ -36,6 +36,7 @@ use OCA\IntrusionDetection\WasThisYou\PersonalDetections;
 use OCA\IntrusionDetection\WasThisYou\WasThisYouService;
 use OCP\AppFramework\Http;
 use OCP\AppFramework\Utility\ITimeFactory;
+use OCP\Authentication\Token\IToken;
 use OCP\Authentication\TwoFactorAuth\IProvider;
 use OCP\Authentication\TwoFactorAuth\IRegistry;
 use OCP\Config\IUserConfig;
@@ -143,6 +144,20 @@ class SecureAccountGuideTest extends AccountTestCase {
 		$external->method('canChangePassword')->willReturn(false);
 		$this->guide->start($user->getUID(), SecureAccountGuide::REASON_SELF);
 		$this->assertTrue($this->step($this->guide->progress($external), 'password')['managed']);
+	}
+
+	public function testBrowserSessionsAreNamedLikeRememberedDevices(): void {
+		$user = $this->newUser('ids-guide-names');
+		$this->token($user, IToken::TEMPORARY_TOKEN, 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/153.0.0.0 Safari/537.36');
+		$this->token($user, IToken::TEMPORARY_TOKEN, 'some-script/1.0');
+		$this->token($user, IToken::PERMANENT_TOKEN, 'Backup script on nas01');
+		$this->guide->start($user->getUID(), SecureAccountGuide::REASON_DENIED);
+
+		$sessions = Server::get(SecureAccountOverview::class)->forUser($user, Server::get(IFactory::class)->get(Application::APP_ID, 'en'))['sessions'];
+		$names = array_column($sessions, 'name');
+		sort($names);
+
+		$this->assertSame(['Backup script on nas01', 'Chrome on macOS', 'some-script/1.0'], $names);
 	}
 
 	public function testDismissing(): void {

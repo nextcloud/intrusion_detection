@@ -13,6 +13,7 @@ use OC\Authentication\Token\IProvider as PrivateTokenProvider;
 use OC\Authentication\Token\PublicKeyToken;
 use OCA\IntrusionDetection\Db\SecurityChangeMapper;
 use OCA\IntrusionDetection\Db\TokenOriginMapper;
+use OCA\IntrusionDetection\KnownDevice\DeviceLabel;
 use OCA\IntrusionDetection\Response\Tokens;
 use OCA\IntrusionDetection\ResponseDefinitions;
 use OCA\IntrusionDetection\SessionState\CurrentSession;
@@ -75,7 +76,7 @@ class SecureAccountOverview {
 		return [
 			'progress' => $progress,
 			'since' => $since,
-			'sessions' => $this->sessions($uid, $eventAt),
+			'sessions' => $this->sessions($uid, $eventAt, $l),
 			'changes' => array_map(fn (array $row): array => self::change($row, $l), $this->changes->findRecent($uid, $since, self::MAX_CHANGES)),
 			'shares' => $this->shares($uid, $since),
 			'email' => $email === '' ? null : $email,
@@ -114,7 +115,7 @@ class SecureAccountOverview {
 	/**
 	 * @return list<IntrusionDetectionSecureAccountSession>
 	 */
-	private function sessions(string $uid, int $eventAt): array {
+	private function sessions(string $uid, int $eventAt, IL10N $l): array {
 		$current = $this->currentSession->tokenId();
 		$sessions = [];
 		try {
@@ -132,7 +133,7 @@ class SecureAccountOverview {
 			$lastActivity = $token instanceof PublicKeyToken ? $token->getLastActivity() : null;
 			$sessions[] = [
 				'id' => $token->getId(),
-				'name' => Tokens::name($token),
+				'name' => $type === IToken::TEMPORARY_TOKEN ? self::browserName($token, $l) : Tokens::name($token),
 				'kind' => $type === IToken::PERMANENT_TOKEN ? 'app_password' : 'session',
 				'current' => $token->getId() === $current,
 				'lastActivity' => $lastActivity,
@@ -143,6 +144,15 @@ class SecureAccountOverview {
 		}
 		usort($sessions, static fn (array $a, array $b): int => [(int)$b['afterEvent'], $b['lastActivity'] ?? 0] <=> [(int)$a['afterEvent'], $a['lastActivity'] ?? 0]);
 		return array_slice($sessions, 0, self::MAX_SESSIONS);
+	}
+
+	/**
+	 * A browser session is named by its user agent; people recognise
+	 * "Firefox on Linux" as on the personal page, not the raw string.
+	 */
+	private static function browserName(IToken $token, IL10N $l): string {
+		[$family, $platform] = DeviceLabel::parse($token->getName());
+		return $family === DeviceLabel::OTHER && $platform === DeviceLabel::OTHER ? Tokens::name($token) : DeviceLabel::translated($family, $platform, $l);
 	}
 
 	/**

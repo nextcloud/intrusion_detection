@@ -6,11 +6,15 @@
 <script setup lang="ts">
 import { mdiCheck, mdiChevronDown, mdiMinus } from '@mdi/js'
 import { t } from '@nextcloud/l10n'
-import { computed, ref, useId, watch } from 'vue'
+import { computed, useId } from 'vue'
 import NcIconSvgWrapper from '@nextcloud/vue/components/NcIconSvgWrapper'
 import { APP_ID } from '../../utils/format.ts'
 
+/** Whether the step is open; the checklist keeps one step open at a time */
+const expanded = defineModel<boolean>('open', { default: false })
+
 const props = defineProps<{
+	/** The position among the steps that apply; skipped steps have none */
 	number: number
 	heading: string
 	/** An outline icon path (mdi) for the step */
@@ -26,13 +30,6 @@ defineSlots<{
 }>()
 
 const id = useId()
-// Open steps are expanded; finished ones fold away but can be opened again.
-const expanded = ref(!props.done && !props.skipped)
-watch(() => props.done, (done) => {
-	if (done) {
-		expanded.value = false
-	}
-})
 
 const state = computed(() => {
 	if (props.skipped) {
@@ -65,7 +62,11 @@ const state = computed(() => {
 				<span :class="[$style.step__state, done ? $style.step__state_done : (skipped ? $style.step__state_skipped : $style.step__state_open)]">
 					{{ state }}
 				</span>
-				<NcIconSvgWrapper :class="$style.step__chevron" :path="mdiChevronDown" :size="20" />
+				<NcIconSvgWrapper
+					inline
+					:class="$style.step__chevron"
+					:path="mdiChevronDown"
+					:size="20" />
 			</button>
 		</h3>
 		<div v-show="expanded" :id="`${id}-body`" :class="$style.step__body">

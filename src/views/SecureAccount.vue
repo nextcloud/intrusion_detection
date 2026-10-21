@@ -20,7 +20,7 @@ import {
 	mdiTwoFactorAuthentication,
 } from '@mdi/js'
 import { n, t } from '@nextcloud/l10n'
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import NcAppContent from '@nextcloud/vue/components/NcAppContent'
 import NcButton from '@nextcloud/vue/components/NcButton'
 import NcContent from '@nextcloud/vue/components/NcContent'
@@ -30,7 +30,6 @@ import NcIconSvgWrapper from '@nextcloud/vue/components/NcIconSvgWrapper'
 import NcLoadingIcon from '@nextcloud/vue/components/NcLoadingIcon'
 import NcNoteCard from '@nextcloud/vue/components/NcNoteCard'
 import NcPasswordField from '@nextcloud/vue/components/NcPasswordField'
-import NcProgressBar from '@nextcloud/vue/components/NcProgressBar'
 import SkeletonBlock from '../components/common/SkeletonBlock.vue'
 import TimeStamp from '../components/common/TimeStamp.vue'
 import StepCard from '../components/secure/StepCard.vue'
@@ -59,7 +58,23 @@ const { message: announcement, announce } = useAnnouncer()
 
 const progress = computed(() => data.value?.progress ?? null)
 const finished = computed(() => progress.value !== null && !progress.value.active && progress.value.closedBy === 'done')
-const percent = computed(() => progress.value && progress.value.total > 0 ? Math.round(progress.value.done / progress.value.total * 100) : 0)
+
+/** Steps are numbered among those that apply, so a skipped step leaves no gap */
+const numbers = computed(() => {
+	let count = 0
+	return Object.fromEntries((progress.value?.steps ?? []).map((step) => [step.id, step.skipped ? 0 : ++count]))
+})
+const applicable = computed(() => (progress.value?.steps ?? []).filter((step) => !step.skipped))
+
+/** One step is open at a time: the first one still to do, until the user opens another */
+const openStep = ref<SecureAccountStepId | null>(null)
+watch(() => (progress.value?.steps ?? []).map((step) => `${step.id}:${step.done}`).join(','), () => {
+	const steps = progress.value?.steps ?? []
+	const current = steps.find((step) => step.id === openStep.value)
+	if (current === undefined || current.done || current.skipped) {
+		openStep.value = steps.find((step) => !step.done && !step.skipped)?.id ?? null
+	}
+}, { immediate: true })
 
 const lead = computed(() => {
 	switch (progress.value?.reason) {
@@ -239,10 +254,19 @@ onMounted(load)
 								<span :class="$style.hero__count">
 									{{ n(APP_ID, '{done} of %n step done', '{done} of %n steps done', progress.total, { done: progress.done }) }}
 								</span>
-								<NcProgressBar
-									:value="percent"
-									size="medium"
-									:aria-label="t(APP_ID, 'Progress of the checklist')" />
+								<span
+									:class="$style.hero__bar"
+									role="progressbar"
+									:aria-label="t(APP_ID, 'Progress of the checklist')"
+									aria-valuemin="0"
+									:aria-valuemax="progress.total"
+									:aria-valuenow="progress.done"
+									data-test="checklist-progress">
+									<span
+										v-for="step in applicable"
+										:key="step.id"
+										:class="[$style.hero__segment, { [$style.hero__segment_done]: step.done }]" />
+								</span>
 							</div>
 						</div>
 						<div v-if="!progress.active" :class="$style.hero__actions">
@@ -267,13 +291,15 @@ onMounted(load)
 
 					<ol v-if="progress.active" :class="$style.steps">
 						<StepCard
-							v-for="(item, index) in progress.steps"
+							v-for="item in progress.steps"
 							:key="item.id"
-							:number="index + 1"
+							:open="openStep === item.id"
+							:number="numbers[item.id] ?? 0"
 							:heading="STEP_TEXTS[item.id].heading()"
 							:icon="STEP_TEXTS[item.id].icon"
 							:done="item.done"
-							:skipped="item.skipped">
+							:skipped="item.skipped"
+							@update:open="openStep = $event ? item.id : null">
 							<template v-if="item.id === 'password'">
 								<p v-if="item.done" :class="$style.text">
 									{{ t(APP_ID, 'You chose a new password.') }}
@@ -559,6 +585,22 @@ onMounted(load)
 
 .hero__count {
 	font-weight: 600;
+}
+
+.hero__bar {
+	display: flex;
+	gap: calc(var(--default-grid-baseline) * 1);
+}
+
+.hero__segment {
+	flex: 1 1 0;
+	height: 8px;
+	border-radius: 4px;
+	background-color: color-mix(in srgb, var(--color-main-text) 14%, var(--color-main-background));
+}
+
+.hero__segment_done {
+	background-color: var(--color-success);
 }
 
 .hero__actions {
