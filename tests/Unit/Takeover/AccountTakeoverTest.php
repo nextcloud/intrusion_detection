@@ -108,7 +108,7 @@ class AccountTakeoverTest extends TestCase {
 		$formatter = $this->createMock(IDateTimeFormatter::class);
 		$formatter->method('formatDateTime')->willReturnCallback(static fn ($t): string => gmdate('Y-m-d H:i', is_int($t) ? $t : 0));
 		$formatter->method('formatTime')->willReturnCallback(static fn ($t): string => gmdate('H:i', is_int($t) ? $t : 0));
-		return new DateFormatter($formatter);
+		return DateFormatter::using($formatter);
 	}
 
 	private function l(): IL10N {

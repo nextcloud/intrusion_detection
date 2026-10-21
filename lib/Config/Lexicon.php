@@ -9,9 +9,8 @@ declare(strict_types=1);
 
 namespace OCA\IntrusionDetection\Config;
 
-use OCA\IntrusionDetection\Check\CheckRegistry;
 use OCA\IntrusionDetection\Check\Checks\BreachedPasswordDetector;
-use OCA\IntrusionDetection\Check\ResponseType;
+use OCA\IntrusionDetection\Check\ParamType;
 use OCA\IntrusionDetection\Confirm\UntrustedSecondFactors;
 use OCA\IntrusionDetection\Guide\SecureAccountGuide;
 use OCA\IntrusionDetection\Notification\LoginNotices;
@@ -22,15 +21,12 @@ use OCP\Config\Lexicon\Strictness;
 use OCP\Config\ValueType;
 
 /**
- * Every config key of the app, generated from the global settings and the
- * check registry, so that the two cannot drift apart.
+ * Every config key of the app, from {@see LexiconData}: the global settings
+ * and the check registry compiled into static data. Core asks for it on the
+ * first app config read of every request, so it builds no check and no
+ * setting definition and has no dependencies.
  */
 final class Lexicon implements ILexicon {
-	public function __construct(
-		private readonly CheckRegistry $registry,
-		private readonly GlobalSettings $globals,
-	) {
-	}
 
 	#[\Override]
 	public function getStrictness(): Strictness {
@@ -40,19 +36,14 @@ final class Lexicon implements ILexicon {
 	#[\Override]
 	public function getAppConfigs(): array {
 		$entries = [];
-		foreach ($this->globals->all() as $definition) {
-			$entries[] = new Entry($definition->name, $definition->type->valueType(), $definition->default, 'intrusion detection: ' . $definition->name);
+		foreach (LexiconData::GLOBALS as $name => $spec) {
+			$entries[] = new Entry($name, ParamType::from($spec['type'])->valueType(), $spec['default'], 'intrusion detection: ' . $name);
 		}
-		foreach ($this->registry->all() as $check) {
-			$entries[] = new Entry(Keys::mode($check->id), ValueType::STRING, $check->defaultMode->value, 'mode of the ' . $check->id . ' check');
-			$entries[] = new Entry(
-				Keys::responses($check->id),
-				ValueType::ARRAY,
-				array_map(static fn (ResponseType $r): string => $r->value, $check->defaultResponses),
-				'responses of the ' . $check->id . ' check',
-			);
-			foreach ($check->params as $param) {
-				$entries[] = new Entry(Keys::param($check->id, $param->name), $param->type->valueType(), $param->default, $check->id . ' check: ' . $param->name);
+		foreach (LexiconData::CHECKS as $id => $check) {
+			$entries[] = new Entry(Keys::mode($id), ValueType::STRING, $check['mode'], 'mode of the ' . $id . ' check');
+			$entries[] = new Entry(Keys::responses($id), ValueType::ARRAY, $check['responses'], 'responses of the ' . $id . ' check');
+			foreach ($check['params'] as $name => $spec) {
+				$entries[] = new Entry(Keys::param($id, $name), ParamType::from($spec['type'])->valueType(), $spec['default'], $id . ' check: ' . $name);
 			}
 		}
 		return $entries;

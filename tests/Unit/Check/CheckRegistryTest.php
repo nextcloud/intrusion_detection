@@ -67,7 +67,7 @@ class CheckRegistryTest extends TestCase {
 
 	public function testLexiconHasOneEntryPerSettingWithTheSameDefault(): void {
 		$entries = [];
-		foreach ((new Lexicon($this->registry, new GlobalSettings()))->getAppConfigs() as $entry) {
+		foreach ((new Lexicon())->getAppConfigs() as $entry) {
 			/** @var Entry $entry */
 			$this->assertArrayNotHasKey($entry->getKey(), $entries, 'Duplicate lexicon key ' . $entry->getKey());
 			$entries[$entry->getKey()] = $entry;
@@ -90,7 +90,7 @@ class CheckRegistryTest extends TestCase {
 
 	public function testTheRequiredPasswordChangeIsADeclaredUserSetting(): void {
 		$entries = [];
-		foreach ((new Lexicon($this->registry, new GlobalSettings()))->getUserConfigs() as $entry) {
+		foreach ((new Lexicon())->getUserConfigs() as $entry) {
 			$entries[$entry->getKey()] = $entry;
 		}
 		$this->assertArrayHasKey(PasswordChangeFlag::USER_KEY, $entries);
@@ -99,7 +99,7 @@ class CheckRegistryTest extends TestCase {
 	}
 
 	public function testConfigKeysAreValidAndShortEnough(): void {
-		foreach ((new Lexicon($this->registry, new GlobalSettings()))->getAppConfigs() as $entry) {
+		foreach ((new Lexicon())->getAppConfigs() as $entry) {
 			$this->assertMatchesRegularExpression('/^[a-z0-9_]+$/', $entry->getKey());
 			$this->assertLessThanOrEqual(64, strlen($entry->getKey()), $entry->getKey() . ' is too long for oc_appconfig');
 		}

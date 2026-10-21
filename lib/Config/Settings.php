@@ -10,7 +10,6 @@ declare(strict_types=1);
 namespace OCA\IntrusionDetection\Config;
 
 use OCA\IntrusionDetection\AppInfo\Application;
-use OCA\IntrusionDetection\Check\CheckDefinition;
 use OCA\IntrusionDetection\Check\CheckRegistry;
 use OCA\IntrusionDetection\Check\Checks\DecoyCredential;
 use OCA\IntrusionDetection\Check\InvalidParamException;
@@ -18,6 +17,7 @@ use OCA\IntrusionDetection\Check\IValidatesParams;
 use OCA\IntrusionDetection\Check\Mode;
 use OCA\IntrusionDetection\Check\ParamDefinition;
 use OCA\IntrusionDetection\Check\ParamType;
+use OCA\IntrusionDetection\Check\Requirement;
 use OCA\IntrusionDetection\Check\ResponseType;
 use OCA\IntrusionDetection\Event\SettingChangedEvent;
 use OCP\AppFramework\Utility\ITimeFactory;
@@ -32,8 +32,18 @@ use OCP\IAppConfig;
  * validate and throw {@see InvalidParamException}. Every write of a setting
  * that is not internal state dispatches a {@see SettingChangedEvent} when the
  * effective value changed.
+ *
+ * Reads take the definitions from {@see LexiconData}, so that reading a
+ * setting builds no check and no other setting. Writes validate against the
+ * full definitions of the check registry and the global settings.
+ *
+ * @psalm-import-type CheckSpec from LexiconData
+ * @psalm-import-type ParamSpec from LexiconData
  */
 class Settings {
+	/** @var array<string, ParamDefinition> read definitions by config key */
+	private array $definitions = [];
+
 	public function __construct(
 		private readonly IAppConfig $appConfig,
 		private readonly CheckRegistry $registry,
@@ -67,9 +77,9 @@ class Settings {
 	 * The mode the admin chose for a check.
 	 */
 	public function configuredMode(string $checkId): Mode {
-		$check = $this->registry->get($checkId);
-		$raw = $this->appConfig->getValueString(Application::APP_ID, Keys::mode($checkId), $check->defaultMode->value);
-		return Mode::tryFrom($raw) ?? $check->defaultMode;
+		$default = Mode::from($this->check($checkId)['mode']);
+		$raw = $this->appConfig->getValueString(Application::APP_ID, Keys::mode($checkId), $default->value);
+		return Mode::tryFrom($raw) ?? $default;
 	}
 
 	/**
@@ -77,17 +87,18 @@ class Settings {
 	 * mode and missing prerequisites are applied.
 	 */
 	public function modeState(string $checkId): ModeState {
-		$check = $this->registry->get($checkId);
+		$check = $this->check($checkId);
 		$configured = $this->configuredMode($checkId);
 		if (!$this->isEnabled()) {
 			return new ModeState($configured, Mode::Off, ModeState::REASON_DISABLED);
 		}
-		foreach ($check->requirements as $requirement) {
+		foreach ($check['requirements'] as $value) {
+			$requirement = Requirement::from($value);
 			if (!$this->prerequisites->isMet($requirement)) {
 				return new ModeState($configured, Mode::Off, ModeState::REASON_REQUIREMENT, $requirement);
 			}
 		}
-		if ($configured === Mode::Protect && $this->isLearning() && !$this->definitionActsWhileLearning($check)) {
+		if ($configured === Mode::Protect && $this->isLearning() && !$this->specActsWhileLearning($checkId, $check)) {
 			return new ModeState($configured, Mode::Observe, ModeState::REASON_LEARNING);
 		}
 		return new ModeState($configured, $configured);
@@ -160,8 +171,10 @@ class Settings {
 	 * @return int|float|bool|string|list<string>
 	 */
 	public function param(string $checkId, string $name): int|float|bool|string|array {
-		$definition = $this->registry->get($checkId)->param($name);
-		return $this->read(Keys::param($checkId, $name), $definition);
+		$key = Keys::param($checkId, $name);
+		$definition = $this->definitions[$key] ??= self::fromSpec($name, $this->check($checkId)['params'][$name] ?? null)
+			?? $this->registry->get($checkId)->param($name);
+		return $this->read($key, $definition);
 	}
 
 	public function paramInt(string $checkId, string $name): int {
@@ -189,8 +202,8 @@ class Settings {
 	 */
 	public function params(string $checkId): array {
 		$values = [];
-		foreach ($this->registry->get($checkId)->params as $param) {
-			$values[$param->name] = $this->param($checkId, $param->name);
+		foreach (array_keys($this->check($checkId)['params']) as $name) {
+			$values[$name] = $this->param($checkId, $name);
 		}
 		return $values;
 	}
@@ -241,14 +254,13 @@ class Settings {
 	 * @return list<ResponseType>
 	 */
 	public function responses(string $checkId): array {
-		$check = $this->registry->get($checkId);
-		$defaults = array_map(static fn (ResponseType $r): string => $r->value, $check->defaultResponses);
-		$raw = $this->appConfig->getValueArray(Application::APP_ID, Keys::responses($checkId), $defaults);
+		$check = $this->check($checkId);
+		$raw = $this->appConfig->getValueArray(Application::APP_ID, Keys::responses($checkId), $check['responses']);
 		$responses = [];
 		foreach ($raw as $value) {
 			$response = is_string($value) ? ResponseType::tryFrom($value) : null;
 			// Responses the check no longer allows are dropped rather than run.
-			if ($response !== null && $check->allowsResponse($response)) {
+			if ($response !== null && in_array($response->value, $check['allowed'], true)) {
 				$responses[] = $response;
 			}
 		}
@@ -325,7 +337,8 @@ class Settings {
 	 * @return int|float|bool|string|list<string>
 	 */
 	public function global(string $name): int|float|bool|string|array {
-		return $this->read($name, $this->globalDefinition($name));
+		$definition = $this->definitions[$name] ??= self::fromSpec($name, LexiconData::GLOBALS[$name] ?? null) ?? $this->globalDefinition($name);
+		return $this->read($name, $definition);
 	}
 
 	public function getInt(string $name): int {
@@ -484,17 +497,51 @@ class Settings {
 	 * only notify always do, decoys when `learning_decoys_act` is on.
 	 */
 	public function actsWhileLearning(string $checkId): bool {
-		return $this->definitionActsWhileLearning($this->registry->get($checkId));
+		return $this->specActsWhileLearning($checkId, $this->check($checkId));
 	}
 
-	private function definitionActsWhileLearning(CheckDefinition $check): bool {
-		if ($check->onlyNotifies()) {
+	/**
+	 * @param CheckSpec $check
+	 */
+	private function specActsWhileLearning(string $checkId, array $check): bool {
+		if ($check['onlyNotifies']) {
 			return true;
 		}
-		if (!$check->actsWhileLearning) {
+		if (!$check['learning']) {
 			return false;
 		}
-		return $check->id !== DecoyCredential::ID || $this->getBool(GlobalSettings::LEARNING_DECOYS_ACT);
+		return $checkId !== DecoyCredential::ID || $this->getBool(GlobalSettings::LEARNING_DECOYS_ACT);
+	}
+
+	/**
+	 * @return CheckSpec
+	 * @throws InvalidParamException for an unknown check
+	 */
+	private function check(string $checkId): array {
+		return LexiconData::CHECKS[$checkId] ?? throw new InvalidParamException('unknown_check', ['check' => $checkId]);
+	}
+
+	/**
+	 * A definition to read with, built from its static data; null when its
+	 * items need a validator of their own, which only the full definition has.
+	 *
+	 * @param ?ParamSpec $spec
+	 */
+	private static function fromSpec(string $name, ?array $spec): ?ParamDefinition {
+		if ($spec === null || isset($spec['validator'])) {
+			return null;
+		}
+		return new ParamDefinition(
+			$name,
+			ParamType::from($spec['type']),
+			$spec['default'],
+			$spec['min'] ?? null,
+			$spec['max'] ?? null,
+			$spec['choices'] ?? [],
+			$spec['pattern'] ?? null,
+			$spec['maxItems'] ?? 200,
+			$spec['maxItemLength'] ?? 255,
+		);
 	}
 
 	/**

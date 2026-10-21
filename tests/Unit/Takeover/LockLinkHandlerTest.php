@@ -58,7 +58,7 @@ class LockLinkHandlerTest extends TestCase {
 	public function testTheNarrative(): void {
 		$handler = $this->handler($this->createMock(LockLinks::class));
 		$l = Server::get(IFactory::class)->get('intrusion_detection', 'en');
-		$dates = new DateFormatter($this->createMock(IDateTimeFormatter::class));
+		$dates = DateFormatter::using($this->createMock(IDateTimeFormatter::class));
 		$this->assertSame(['A one-time link to lock the account was emailed to the previous address o***@example.com. It works for 7 days.'], $handler->describeAction(['type' => 'lock_link', 'enforced' => true, 'ref' => ['sentTo' => 'o***@example.com']], $l, $dates));
 		$this->assertSame(['No lock link was sent: the account had no email address before the change.'], $handler->describeAction(['type' => 'lock_link', 'enforced' => true, 'note' => LockLinks::NO_PREVIOUS_ADDRESS], $l, $dates));
 		$this->assertSame(['No lock link was sent: the email address was not changed.'], $handler->describeAction(['type' => 'lock_link', 'enforced' => true, 'note' => LockLinkHandler::NOTE_NO_EMAIL_CHANGE], $l, $dates));
@@ -77,6 +77,6 @@ class LockLinkHandlerTest extends TestCase {
 		$detection = new Detection();
 		$detection->setId(42);
 		$detection->setExplanationData(['facts' => $facts]);
-		return new ResponseContext(new DetectionDraft(AccountTakeover::ID, uid: 'alice', facts: $facts), $detection, (new AccountTakeover(new DateFormatter($this->createMock(IDateTimeFormatter::class))))->definition(), true);
+		return new ResponseContext(new DetectionDraft(AccountTakeover::ID, uid: 'alice', facts: $facts), $detection, (new AccountTakeover(DateFormatter::using($this->createMock(IDateTimeFormatter::class))))->definition(), true);
 	}
 }

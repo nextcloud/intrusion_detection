@@ -93,7 +93,7 @@ class ResetProbingDetectorTest extends TestCase {
 			$plain = array_map(static fn (array $l): int => $l[0], $limits);
 			return new RiskLimits($plain, $plain, array_map(static fn (array $l): int => $l[1], $limits), null);
 		});
-		return new ResetProbingDetector($settings, $attempts, $engine, $detections, new ResetProbing(new DateFormatter($this->createMock(IDateTimeFormatter::class))), $risk);
+		return new ResetProbingDetector($settings, $attempts, $engine, $detections, new ResetProbing(DateFormatter::using($this->createMock(IDateTimeFormatter::class))), $risk);
 	}
 
 	private function attempt(): AttemptRecord {

@@ -21,6 +21,7 @@ use OCA\IntrusionDetection\Guard\CredentialUseGuard;
 use OCA\IntrusionDetection\Guard\PayloadGuard;
 use OCA\IntrusionDetection\Guard\TrapUrlGuard;
 use OCA\IntrusionDetection\Net\SourceKey;
+use OCA\IntrusionDetection\Perf\FreshRequestProbe;
 use OCP\AppFramework\Utility\ITimeFactory;
 use OCP\ICache;
 use OCP\ICacheFactory;
@@ -46,10 +47,18 @@ use Symfony\Component\Console\Output\OutputInterface;
  *
  * The credential check tracks the synthetic app passwords in a cache of its
  * own, emptied afterwards, so the real entries are not touched.
+ *
+ * Both run in this process, where every class is loaded and every service
+ * built after the first request. The fresh-process figure is what a new web
+ * server process pays: the median of FRESH_RUNS new PHP processes that each
+ * read a setting and run the guards once ({@see FreshRequestProbe}).
+ *
+ * @psalm-import-type FreshRequestResult from FreshRequestProbe
  */
 class Benchmark extends Base {
 	private const GUARDS = ['address', 'trap_url', 'injection_probe', 'credential_use'];
 	private const WARM_ADDRESS = '203.0.113.7';
+	public const FRESH_RUNS = 5;
 
 	public function __construct(
 		private readonly AddressGuard $addressGuard,
@@ -72,7 +81,8 @@ class Benchmark extends Base {
 		parent::configure();
 		$this->setName('intrusion:benchmark')
 			->setDescription('Measure the cost of the request guards per request')
-			->addOption('iterations', 'i', InputOption::VALUE_REQUIRED, 'Requests per measurement', '10000');
+			->addOption('iterations', 'i', InputOption::VALUE_REQUIRED, 'Requests per measurement', '10000')
+			->addOption('no-fresh', null, InputOption::VALUE_NONE, 'Skip the measurement in new PHP processes');
 	}
 
 	#[\Override]
@@ -108,6 +118,7 @@ class Benchmark extends Base {
 			$cache?->clear();
 		}
 
+		$fresh = $input->getOption('no-fresh') ? null : $this->fresh();
 		$result = [
 			'iterations' => $iterations,
 			'credential_cache' => $cacheKind,
@@ -116,6 +127,16 @@ class Benchmark extends Base {
 		];
 		foreach (self::GUARDS as $name) {
 			$result['guards'][$name] = ['cold_us_per_request' => round($cold[$name], 2), 'warm_us_per_request' => round($warm[$name], 2)];
+		}
+		if ($fresh !== null) {
+			$result['fresh_process'] = [
+				'runs' => self::FRESH_RUNS,
+				'settings_us' => $fresh['settings_us'],
+				'guards_us' => $fresh['guards_us'],
+				'total_us' => $fresh['total_us'],
+				'queries' => $fresh['queries'],
+				'app_classes' => $fresh['app_classes'],
+			];
 		}
 		if ($input->getOption('output') !== self::OUTPUT_FORMAT_PLAIN) {
 			$this->writeArrayInOutputFormat($input, $output, $result);
@@ -133,7 +154,38 @@ class Benchmark extends Base {
 			default => 'No memory cache: the credential check is unavailable and returned at once.',
 		});
 		$output->writeln('Cold: a new address and an unknown app password per request. Warm: the same address and a known app password every time.');
+		if ($fresh !== null) {
+			$output->writeln(sprintf(
+				'Fresh process (median of %d new PHP processes): %.1f µs per request, of which %.1f µs for the first settings read and %.1f µs for the guards; %d queries, %d classes of the app loaded.',
+				self::FRESH_RUNS,
+				$fresh['total_us'],
+				$fresh['settings_us'],
+				$fresh['guards_us'],
+				$fresh['queries'],
+				$fresh['app_classes'],
+			));
+		} elseif (!$input->getOption('no-fresh')) {
+			$output->writeln('Fresh process: the measurement in a new PHP process failed.');
+		}
 		return self::SUCCESS;
+	}
+
+	/**
+	 * The median of FRESH_RUNS runs in new PHP processes, by total time.
+	 *
+	 * @return FreshRequestResult|null null when a process failed
+	 */
+	private function fresh(): ?array {
+		$runs = [];
+		for ($i = 0; $i < self::FRESH_RUNS; $i++) {
+			$run = FreshRequestProbe::inNewProcess();
+			if ($run === null) {
+				return null;
+			}
+			$runs[] = $run;
+		}
+		usort($runs, static fn (array $a, array $b): int => $a['total_us'] <=> $b['total_us']);
+		return $runs[intdiv(count($runs), 2)];
 	}
 
 	/**

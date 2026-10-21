@@ -30,7 +30,7 @@ use Test\TestCase;
  */
 class RuleResponsesTest extends TestCase {
 	public function testShareRulesAboutOneAddressBlockAndTellTheAdmins(): void {
-		$check = new ShareBruteforce(new DateFormatter($this->createMock(IDateTimeFormatter::class)), $this->createMock(ContainerInterface::class));
+		$check = new ShareBruteforce(DateFormatter::using($this->createMock(IDateTimeFormatter::class)), $this->createMock(ContainerInterface::class));
 		$all = [ResponseType::Ban, ResponseType::NotifyAdmin, ResponseType::NotifyShareOwner];
 		foreach ([ShareBruteforce::RULE_TOKENS, ShareBruteforce::RULE_TOKENS_NETWORK, ShareBruteforce::RULE_PASSWORD_SOURCE] as $rule) {
 			$this->assertSame([ResponseType::Ban, ResponseType::NotifyAdmin], $check->responsesFor($this->draft(ShareBruteforce::ID, $rule), $all, []), $rule);
@@ -41,7 +41,7 @@ class RuleResponsesTest extends TestCase {
 	}
 
 	public function testResetRules(): void {
-		$check = new ResetProbing(new DateFormatter($this->createMock(IDateTimeFormatter::class)));
+		$check = new ResetProbing(DateFormatter::using($this->createMock(IDateTimeFormatter::class)));
 		$all = [ResponseType::Ban, ResponseType::SuppressResetMail, ResponseType::NotifyAdmin, ResponseType::NotifyUser];
 		$this->assertSame([ResponseType::Ban], $check->responsesFor($this->draft(ResetProbing::ID, ResetProbing::RULE_ENUMERATION), $all, []));
 		$this->assertSame([ResponseType::SuppressResetMail, ResponseType::NotifyAdmin, ResponseType::NotifyUser], $check->responsesFor($this->draft(ResetProbing::ID, ResetProbing::RULE_FLOOD), $all, []));
@@ -105,7 +105,7 @@ class RuleResponsesTest extends TestCase {
 		$links->method('find')->willReturn(null);
 		$container = $this->createMock(ContainerInterface::class);
 		$container->method('get')->willReturn($links);
-		$check = new ShareBruteforce(new DateFormatter($this->createMock(IDateTimeFormatter::class)), $container);
+		$check = new ShareBruteforce(DateFormatter::using($this->createMock(IDateTimeFormatter::class)), $container);
 		$l = \OCP\Server::get(\OCP\L10N\IFactory::class)->get('intrusion_detection', 'en');
 		$detection = new Detection();
 		$detection->setExplanationData(['facts' => ['rule' => ShareBruteforce::RULE_PASSWORD_SOURCE, 'failures' => 5], 'thresholds' => ['password_source_window' => 600, 'password_share_window' => 3600]]);

@@ -11,22 +11,38 @@ namespace OCA\IntrusionDetection\Explain;
 
 use OCP\IDateTimeFormatter;
 use OCP\IL10N;
+use Psr\Container\ContainerInterface;
 
 /**
  * Formats timestamps for explanations, in the reader's time zone.
+ *
+ * Core's formatter is resolved on the first use: it takes the time zone and
+ * language of the session, so it must not be built while a check is
+ * constructed, which may happen before the session exists.
  */
 class DateFormatter {
+	private ?IDateTimeFormatter $formatter = null;
+
 	public function __construct(
-		private readonly IDateTimeFormatter $formatter,
+		private readonly ?ContainerInterface $container = null,
 	) {
 	}
 
+	/**
+	 * A formatter that uses the given one, for tests and callers that have one.
+	 */
+	public static function using(IDateTimeFormatter $formatter): self {
+		$dates = new self();
+		$dates->formatter = $formatter;
+		return $dates;
+	}
+
 	public function dateTime(int $timestamp): string {
-		return $this->formatter->formatDateTime($timestamp, 'short', 'short');
+		return $this->formatter()->formatDateTime($timestamp, 'short', 'short');
 	}
 
 	public function time(int $timestamp): string {
-		return $this->formatter->formatTime($timestamp, 'short');
+		return $this->formatter()->formatTime($timestamp, 'short');
 	}
 
 	/**
@@ -34,6 +50,17 @@ class DateFormatter {
 	 * email: in their time zone and language.
 	 */
 	public function dateTimeFor(int $timestamp, \DateTimeZone $timeZone, IL10N $l): string {
-		return $this->formatter->formatDateTime($timestamp, 'long', 'short', $timeZone, $l);
+		return $this->formatter()->formatDateTime($timestamp, 'long', 'short', $timeZone, $l);
+	}
+
+	private function formatter(): IDateTimeFormatter {
+		if ($this->formatter === null) {
+			$formatter = $this->container?->get(IDateTimeFormatter::class);
+			if (!$formatter instanceof IDateTimeFormatter) {
+				throw new \LogicException('No date formatter');
+			}
+			$this->formatter = $formatter;
+		}
+		return $this->formatter;
 	}
 }

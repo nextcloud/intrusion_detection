@@ -85,7 +85,7 @@ class StepUpResponsesTest extends TestCase {
 	}
 
 	private function dates(): DateFormatter {
-		return new DateFormatter($this->createMock(IDateTimeFormatter::class));
+		return DateFormatter::using($this->createMock(IDateTimeFormatter::class));
 	}
 
 	private function draft(string $checkId, string $rule): DetectionDraft {
