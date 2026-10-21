@@ -29,6 +29,7 @@ use OCA\IntrusionDetection\Explain\IExplainsDetection;
 use OCA\IntrusionDetection\Explain\IExplainsToUser;
 use OCA\IntrusionDetection\Explain\TextRenderer;
 use OCA\IntrusionDetection\Explain\UserNotice;
+use OCA\IntrusionDetection\KnownDevice\DeviceLabel;
 use OCP\IL10N;
 
 /**
@@ -127,7 +128,10 @@ final class LoginFlowMismatch implements ICheck, IExplainsDetection, IExplainsTo
 				$revoked = true;
 			}
 		}
-		$message = [$l->t('A new device "%s" was connected to your account.', [$facts->string('client')])];
+		$device = DeviceLabel::describe($facts->string('client'), $l);
+		$message = [$device === null
+			? $l->t('A new device was connected to your account.')
+			: $l->t('A new device was connected to your account: %s.', [$device])];
 		$message[] = $initiator !== ''
 			? $l->t('The request came from %1$s, you approved it from %2$s.', [$initiator, $granter])
 			: $l->t('You approved the request from %s.', [$granter]);

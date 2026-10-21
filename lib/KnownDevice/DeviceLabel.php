@@ -89,6 +89,16 @@ final class DeviceLabel {
 	}
 
 	/**
+	 * The device a user agent or session name stands for, as users are
+	 * shown it ("Firefox on Windows"), or null when neither the browser nor
+	 * the system is known. Never the text itself: whoever sent it chose it.
+	 */
+	public static function describe(?string $userAgent, IL10N $l): ?string {
+		[$family, $platform] = self::parse($userAgent);
+		return $family === self::OTHER && $platform === self::OTHER ? null : self::translated($family, $platform, $l);
+	}
+
+	/**
 	 * @param array<string, list<string>> $markers
 	 */
 	private static function first(string $agent, array $markers): string {

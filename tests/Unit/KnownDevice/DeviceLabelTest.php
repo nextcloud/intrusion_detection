@@ -43,4 +43,13 @@ class DeviceLabelTest extends TestCase {
 	public function testOnlyTheStartOfAHugeAgentIsLookedAt(): void {
 		$this->assertSame(['other', 'other'], DeviceLabel::parse(str_repeat('x', DeviceLabel::MAX_LENGTH) . ' Firefox/131.0 Linux'));
 	}
+
+	public function testUsersAreShownTheKindOfDeviceNeverTheTextThatWasSent(): void {
+		$l = Server::get(IFactory::class)->get('intrusion_detection', 'en');
+		$this->assertSame('Firefox on Windows', DeviceLabel::describe('Mozilla/5.0 (Windows NT 10.0) Firefox/131.0 Your account is locked, call +1 555 0100', $l));
+		$this->assertSame('Unknown browser on Linux', DeviceLabel::describe('python-requests (Linux)', $l));
+		$this->assertNull(DeviceLabel::describe('Restore access at https://evil.example', $l));
+		$this->assertNull(DeviceLabel::describe('', $l));
+		$this->assertNull(DeviceLabel::describe(null, $l));
+	}
 }

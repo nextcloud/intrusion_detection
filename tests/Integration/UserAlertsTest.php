@@ -60,6 +60,25 @@ class UserAlertsTest extends AccountTestCase {
 		$this->now = time();
 	}
 
+	public function testTheUserIsToldTheKindOfDeviceButNeverTheTextItSent(): void {
+		$user = $this->newUser('ids-device', 'alice@example.com');
+		$phishing = 'Mozilla/5.0 (Windows NT 10.0) Firefox/131.0 Your account is locked, restore access at https://evil.example';
+		$detection = $this->detection($user, SecondFactorFailed::ID, [
+			['type' => ResponseType::RevokeToken->value, 'enforced' => true, 'ref' => ['token' => ['id' => 7, 'name' => $phishing], 'session' => true]],
+			['type' => ResponseType::RevokeToken->value, 'enforced' => true, 'ref' => ['token' => ['id' => 8, 'name' => 'Restore access at https://evil.example']]],
+		], userAgent: $phishing);
+		$this->alerts()->notify($detection);
+
+		$mail = $this->mailed[0][1];
+		$this->assertStringEndsWith(', from the address 198.51.100.7. Device: Firefox on Windows.', (string)$mail->paragraphs[count($mail->paragraphs) - 1]);
+		$this->assertSame(['The session (Firefox on Windows) was ended.', 'The app password was revoked.'], $mail->listItems, 'A name that is no known device is left out');
+		$bell = Server::get(Notifier::class)->prepare($this->notificationsFor($user->getUID(), UserAlerts::SUBJECT)[0], 'en');
+		foreach ([json_encode($mail, JSON_THROW_ON_ERROR), $bell->getParsedSubject(), $bell->getParsedMessage()] as $text) {
+			$this->assertStringNotContainsString('evil.example', $text);
+			$this->assertStringNotContainsString('restore access', strtolower($text));
+		}
+	}
+
 	public function testTheUserGetsANotificationAndAnEmailAboutWhatHappenedAndWhatWasDone(): void {
 		$user = $this->newUser('ids-notify', 'alice@example.com');
 		Server::get(IUserConfig::class)->setValueString($user->getUID(), 'core', 'timezone', 'Pacific/Auckland');
@@ -80,10 +99,8 @@ class UserAlertsTest extends AccountTestCase {
 		$this->assertSame('Security notice: Someone entered your password, but not your second factor', $mail->subject);
 		$when = Server::get(IDateTimeFormatter::class)->formatDateTime($detection->getCreatedAt(), 'long', 'short', new \DateTimeZone('Pacific/Auckland'), Server::get(IFactory::class)->get(Application::APP_ID, 'en'));
 		$whenParagraph = (string)($mail->paragraphs[count($mail->paragraphs) - 1] ?? '');
-		$this->assertStringStartsWith('This happened on ' . $when . ', from the address 198.51.100.7, with "Mozilla/5.0 <script>alert(1)</script>', $whenParagraph, 'In the user\'s time zone');
-		$this->assertTrue(preg_match('/with "(.*)"\.$/', $whenParagraph, $match) === 1);
-		$this->assertLessThanOrEqual(UserMessages::MAX_USER_AGENT, mb_strlen($match[1]), 'A short user agent');
-		$this->assertStringNotContainsString("\x07", $whenParagraph);
+		$this->assertSame('This happened on ' . $when . ', from the address 198.51.100.7.', $whenParagraph, 'In the user\'s time zone, and no unknown device');
+		$this->assertStringNotContainsString('script', json_encode($mail, JSON_THROW_ON_ERROR), 'The user agent is never shown as it was sent');
 		$this->assertSame(['The suspicious session was ended.', 'You will be asked to choose a new password the next time you log in.'], $mail->listItems, 'Only what was really done');
 		$this->assertStringContainsString('Choose a new password when you are asked at your next login', implode(' ', $mail->closing));
 		$this->assertSame(Server::get(\OCP\IURLGenerator::class)->linkToRouteAbsolute('settings.PersonalSettings.index', ['section' => 'security']) . '#intrusion-detection', $mail->buttonUrl);
@@ -119,8 +136,7 @@ class UserAlertsTest extends AccountTestCase {
 		$this->assertTrue($mails->send($user, Server::get(UserMessages::class)->mail($detection, $user)));
 		$this->assertNotNull($sent);
 		$html = $sent->renderHtml();
-		$this->assertStringNotContainsString('<script>', $html);
-		$this->assertStringContainsString('&lt;script&gt;', $html);
+		$this->assertStringNotContainsString('script', $html, 'The user agent is not shown, escaped or not');
 		$this->assertStringNotContainsString("\x07", $sent->renderText());
 	}
 

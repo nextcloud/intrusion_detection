@@ -17,6 +17,7 @@ use OCA\IntrusionDetection\Db\Detection;
 use OCA\IntrusionDetection\Explain\DateFormatter;
 use OCA\IntrusionDetection\Explain\IExplainsToUser;
 use OCA\IntrusionDetection\Explain\UserNotice;
+use OCA\IntrusionDetection\KnownDevice\DeviceLabel;
 use OCA\IntrusionDetection\Response\PasswordChangeService;
 use OCA\IntrusionDetection\WasThisYou\Questions;
 use OCP\Config\IUserConfig;
@@ -29,10 +30,12 @@ use Psr\Container\ContainerInterface;
 /**
  * Builds what the affected user is told about a detection: the check's own
  * words ({@see IExplainsToUser}), when it happened in the user's time zone,
- * the address and a short user agent, what Nextcloud did, and what to do.
+ * the address and the kind of device, what Nextcloud did, and what to do.
  *
  * Users never see thresholds, other accounts or anything meant for the
- * administrators.
+ * administrators, nor a user agent or session name as it was sent: an
+ * attacker chooses those, and they would read like part of a genuine
+ * security message. Devices are named by {@see DeviceLabel::describe()}.
  */
 class UserMessages {
 	/** User agents are cut to this length */
@@ -126,14 +129,15 @@ class UserMessages {
 	private function when(Detection $detection, IUser $user, IL10N $l): string {
 		$time = $this->dates->dateTimeFor($detection->getCreatedAt(), $this->timeZoneOf($user), $l);
 		$ip = $detection->getIp();
-		$userAgent = self::shortUserAgent(is_string($detection->getExplanationData()['userAgent'] ?? null) ? $detection->getExplanationData()['userAgent'] : null);
+		$userAgent = $detection->getExplanationData()['userAgent'] ?? null;
+		$device = DeviceLabel::describe(is_string($userAgent) ? $userAgent : null, $l);
 		if ($ip === null) {
 			return $l->t('This happened on %s.', [$time]);
 		}
-		if ($userAgent === null) {
+		if ($device === null) {
 			return $l->t('This happened on %1$s, from the address %2$s.', [$time, $ip]);
 		}
-		return $l->t('This happened on %1$s, from the address %2$s, with "%3$s".', [$time, $ip, $userAgent]);
+		return $l->t('This happened on %1$s, from the address %2$s. Device: %3$s.', [$time, $ip, $device]);
 	}
 
 	/**
@@ -226,9 +230,15 @@ class UserMessages {
 	private function revokeSentences(array $ref, IL10N $l): array {
 		$sentences = [];
 		if (is_array($ref['token'] ?? null)) {
-			$sentences[] = ($ref['session'] ?? false) === true
-				? $l->t('The session "%s" was ended.', [(string)($ref['token']['name'] ?? '')])
-				: $l->t('The app password "%s" was revoked.', [(string)($ref['token']['name'] ?? '')]);
+			$name = $ref['token']['name'] ?? null;
+			$device = DeviceLabel::describe(is_string($name) ? $name : null, $l);
+			$session = ($ref['session'] ?? false) === true;
+			$sentences[] = match (true) {
+				$session && $device !== null => $l->t('The session (%s) was ended.', [$device]),
+				$session => $l->t('The session was ended.'),
+				$device !== null => $l->t('The app password (%s) was revoked.', [$device]),
+				default => $l->t('The app password was revoked.'),
+			};
 		}
 		$tokens = count((array)($ref['tokens'] ?? []));
 		if ($tokens > 0) {

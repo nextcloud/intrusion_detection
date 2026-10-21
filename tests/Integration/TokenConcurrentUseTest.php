@@ -50,6 +50,9 @@ use PHPUnit\Framework\Attributes\Group;
  */
 #[Group('DB')]
 class TokenConcurrentUseTest extends CredentialUseTestCase {
+	/** A browser session is named after the user agent it logged in with */
+	private const FIREFOX = 'Mozilla/5.0 (X11; Linux x86_64; rv:131.0) Gecko/20100101 Firefox/131.0';
+
 	public function testAStolenAppPasswordUsedAlongsideItsOwnerIsReported(): void {
 		$user = $this->newUser('ids-cu', 'cu@example.com');
 		$token = $this->token($user, IToken::PERMANENT_TOKEN, 'Desktop client on laptop');
@@ -80,7 +83,8 @@ class TokenConcurrentUseTest extends CredentialUseTestCase {
 		$this->assertCount(1, $this->notificationsFor($user->getUID()));
 		$this->assertCount(1, $this->mailed);
 		$mail = json_encode(get_object_vars($this->mailed[0][1]), JSON_THROW_ON_ERROR | JSON_UNESCAPED_UNICODE);
-		$this->assertStringContainsString('Your app password \"Desktop client on laptop\" was used from two different networks at the same time: ' . self::HOME . ' and ' . self::AWAY, $mail);
+		$this->assertStringContainsString('One of your app passwords was used from two different networks at the same time: ' . self::HOME . ' and ' . self::AWAY, $mail);
+		$this->assertStringNotContainsString('Desktop client on laptop', $mail, 'Users see a known kind of device, never the name as it was sent');
 		$this->assertSame([[$user->getUID(), $detection->getId()]], $this->forgotten, 'The known device that came with it is forgotten');
 	}
 
@@ -99,7 +103,7 @@ class TokenConcurrentUseTest extends CredentialUseTestCase {
 		$this->assertFalse($this->tokenExists($child['id']), 'With what was created with it');
 		$this->assertTrue($this->tokenExists($other['id']), 'The other devices keep working');
 		$message = Server::get(UserMessages::class)->build($detection, $user, 'en');
-		$this->assertContains('The app password "Phone" was revoked.', $message->done);
+		$this->assertContains('The app password was revoked.', $message->done, 'A name is shown only as a known kind of device');
 	}
 
 	public function testABearerTokenIsTheSameCredentialAsWithBasic(): void {
@@ -122,7 +126,7 @@ class TokenConcurrentUseTest extends CredentialUseTestCase {
 	public function testABrowserSessionUsedFromTwoNetworksIsReportedAndCanBeEnded(): void {
 		$this->settings->setResponses(TokenConcurrentUse::ID, [ResponseType::RevokeToken, ResponseType::NotifyUser]);
 		$user = $this->newUser('ids-cu', 'cu@example.com');
-		$session = $this->token($user, IToken::TEMPORARY_TOKEN, 'Firefox on Linux');
+		$session = $this->token($user, IToken::TEMPORARY_TOKEN, self::FIREFOX);
 
 		$this->pingPong([], [$this->cookieName => $session['secret']], $this->loggedInSession($user, $session));
 
@@ -130,13 +134,13 @@ class TokenConcurrentUseTest extends CredentialUseTestCase {
 		$facts = $detection->getExplanationData()['facts'];
 		$this->assertSame(TokenConcurrentUse::KIND_SESSION, $facts['kind']);
 		$this->assertSame([$session['id'], $session['id']], [$facts['tokenId'], $facts['sessionTokenId']]);
-		$this->assertSame('Firefox on Linux', $facts['tokenName']);
+		$this->assertSame(self::FIREFOX, $facts['tokenName']);
 		$this->assertFalse($this->tokenExists($session['id']), 'The session is ended');
 		$message = Server::get(UserMessages::class)->build($detection, $user, 'en');
-		$this->assertContains('The session "Firefox on Linux" was ended.', $message->done);
-		$this->assertStringContainsString('Your logged-in session "Firefox on Linux" was used from two different networks at the same time', implode(' ', $message->happened));
+		$this->assertContains('The session (Firefox on Linux) was ended.', $message->done);
+		$this->assertStringContainsString('Your logged-in session (Firefox on Linux) was used from two different networks at the same time', implode(' ', $message->happened));
 		$narrative = json_encode(Server::get(NarrativeBuilder::class)->build($detection, Server::get(IFactory::class)->get(Application::APP_ID, 'en'))->toArray(), JSON_UNESCAPED_UNICODE);
-		$this->assertStringContainsString('Ended the session \"Firefox on Linux\"', (string)$narrative);
+		$this->assertStringContainsString('Ended the session \"' . str_replace('/', '\/', self::FIREFOX) . '\"', (string)$narrative, 'Administrators see the name as it was sent');
 	}
 
 	public function testThePasswordOverBasicIsConfirmedByTheLogin(): void {
@@ -170,7 +174,7 @@ class TokenConcurrentUseTest extends CredentialUseTestCase {
 
 	public function testAStolenSessionCannotHideBehindAMadeUpHeader(): void {
 		$user = $this->newUser('ids-cu');
-		$session = $this->token($user, IToken::TEMPORARY_TOKEN, 'Firefox on Linux');
+		$session = $this->token($user, IToken::TEMPORARY_TOKEN, self::FIREFOX);
 		$cookie = [$this->cookieName => $session['secret']];
 		$owner = $this->loggedInSession($user, $session);
 		$garbage = $this->basic($user->getUID(), 'made-up');

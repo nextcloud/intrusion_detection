@@ -105,7 +105,7 @@ class LoginFlowMismatchTest extends RequestEventTestCase {
 		$notice = Server::get(LoginFlowMismatch::class)->userNotice($detection, $l);
 		$this->assertSame('A new device was connected to your account', $notice->subject);
 		$this->assertSame([
-			'A new device "' . self::CLIENT . '" was connected to your account.',
+			'A new device was connected to your account.',
 			'The request came from 203.0.113.5, you approved it from 198.51.100.7.',
 			'If this was not you, remove the device in your security settings and change your password.',
 		], $notice->message);
