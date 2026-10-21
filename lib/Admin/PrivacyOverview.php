@@ -96,7 +96,7 @@ class PrivacyOverview {
 		$rows[] = [
 			'id' => 'detection_totals',
 			'name' => $l->t('Detection totals'),
-			'what' => $l->t('Per hour, check and severity: how many detections there were, and whether Nextcloud acted on them. No address and no account.'),
+			'what' => $l->t('Per hour, check and severity: how many detections there were, and whether Nextcloud handled them or only observed them. No address and no account.'),
 			'why' => $l->t('For the statistics, the digest and the metrics, which count further back than detections are kept.'),
 			'retention' => $l->n('Hours for %n day, then one running total per check', 'Hours for %n days, then one running total per check', DetectionTotals::ROLLUP_DAYS),
 			'where' => 'ids_detection_hourly',

@@ -50,7 +50,7 @@ const figures = computed(() => {
 			id: 'detections',
 			value: formatNumber(last.detections),
 			label: n(APP_ID, 'detection', 'detections', last.detections),
-			detail: last.detections > 0 ? t(APP_ID, '{enforced} acted on, {observed} observed', { enforced: formatNumber(last.enforced), observed: formatNumber(last.observed) }) : undefined,
+			detail: last.detections > 0 ? t(APP_ID, '{enforced} handled, {observed} only observed', { enforced: formatNumber(last.enforced), observed: formatNumber(last.observed) }) : undefined,
 		},
 		{ id: 'accounts', value: formatNumber(last.accounts), label: n(APP_ID, 'account targeted', 'accounts targeted', last.accounts) },
 		{ id: 'bans', value: formatNumber(props.status.activeBans), label: n(APP_ID, 'block active now', 'blocks active now', props.status.activeBans) },

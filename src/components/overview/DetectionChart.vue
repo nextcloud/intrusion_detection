@@ -152,12 +152,12 @@ function onKeydown(event: KeyboardEvent) {
 		<figcaption :class="$style.chart__caption">
 			<span :class="$style.legend">
 				<span :class="[$style.legend__swatch, $style.legend__swatch_enforced]" aria-hidden="true" />
-				{{ t(APP_ID, 'Acted on') }}
+				{{ t(APP_ID, 'Handled') }}
 				<strong>{{ formatNumber(totals.enforced) }}</strong>
 			</span>
 			<span :class="$style.legend">
 				<span :class="[$style.legend__swatch, $style.legend__swatch_observed]" aria-hidden="true" />
-				{{ t(APP_ID, 'Observed') }}
+				{{ t(APP_ID, 'Only observed') }}
 				<strong>{{ formatNumber(totals.observed) }}</strong>
 			</span>
 		</figcaption>
@@ -244,7 +244,7 @@ function onKeydown(event: KeyboardEvent) {
 				aria-live="polite">
 				<strong>{{ longDate(activeBar.day) }}</strong>
 				<span>{{ n(APP_ID, '%n detection', '%n detections', activeBar.total) }}</span>
-				<span v-if="activeBar.total > 0">{{ t(APP_ID, '{enforced} acted on, {observed} observed', { enforced: formatNumber(activeBar.day.enforced), observed: formatNumber(activeBar.day.observed) }) }}</span>
+				<span v-if="activeBar.total > 0">{{ t(APP_ID, '{enforced} handled, {observed} only observed', { enforced: formatNumber(activeBar.day.enforced), observed: formatNumber(activeBar.day.observed) }) }}</span>
 			</div>
 		</div>
 
@@ -256,10 +256,10 @@ function onKeydown(event: KeyboardEvent) {
 						{{ t(APP_ID, 'Day') }}
 					</th>
 					<th scope="col">
-						{{ t(APP_ID, 'Acted on') }}
+						{{ t(APP_ID, 'Handled') }}
 					</th>
 					<th scope="col">
-						{{ t(APP_ID, 'Observed') }}
+						{{ t(APP_ID, 'Only observed') }}
 					</th>
 				</tr>
 			</thead>

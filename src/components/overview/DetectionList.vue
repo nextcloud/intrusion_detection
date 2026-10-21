@@ -170,7 +170,7 @@ defineExpose({ reload: load })
 				v-model="detectionFilters.mode"
 				:class="$style.filter"
 				:label="t(APP_ID, 'Outcome')"
-				:options="[{ value: '', label: t(APP_ID, 'All outcomes') }, { value: 'enforced', label: t(APP_ID, 'Acted on') }, { value: 'observed', label: t(APP_ID, 'Observed') }]" />
+				:options="[{ value: '', label: t(APP_ID, 'All outcomes') }, { value: 'enforced', label: t(APP_ID, 'Handled') }, { value: 'observed', label: t(APP_ID, 'Only observed') }]" />
 			<div :class="[$style.filter, $style.filter_text]">
 				<label :for="`${id}-address`">{{ t(APP_ID, 'Address') }}</label>
 				<NcTextField

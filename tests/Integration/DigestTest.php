@@ -138,7 +138,7 @@ class DigestTest extends IntegrationTestCase {
 		$this->assertSame(['Detections per check', 'Most active addresses', 'Accounts under attack', 'Decoys that were used', 'Shares under attack', 'Blocklist matches', 'Open items'],
 			array_map(static fn ($card): string => $card->getTitle(), $content->details));
 		$this->assertSame('Protecting', $content->notes[0]['label']);
-		$this->assertStringContainsString('15 detections in this period. Nextcloud acted on 14 and observed 1. The week before: 2 detections. 3 addresses or networks were blocked.', $content->paragraphs[1]);
+		$this->assertStringContainsString('15 detections in this period. Nextcloud handled 14 and only observed 1. The week before: 2 detections. 3 addresses or networks were blocked.', $content->paragraphs[1]);
 		$this->assertStringEndsWith('/settings/admin/intrusion_detection', (string)$content->buttonUrl);
 
 		$this->insertDetection(CredentialStuffing::ID, '198.51.100.8', null, self::DUE + 7 * self::DAY - 3600);
@@ -150,14 +150,14 @@ class DigestTest extends IntegrationTestCase {
 		$this->seed();
 		$card = $this->digest()->content($this->digest()->report($this->schedule(), self::DUE), self::l10n(), new \DateTimeZone('UTC'))->details[0];
 		$rows = self::rows($card);
-		$this->assertSame('Credential stuffing: 6 (before: 2) · 6 acted on, 0 observed', $rows[0]);
-		$this->assertContains('Password spraying: 2 · 2 acted on, 0 observed', $rows, 'nothing the week before: no comparison');
+		$this->assertSame('Credential stuffing: 6 (before: 2) · 6 handled, 0 only observed', $rows[0]);
+		$this->assertContains('Password spraying: 2 · 2 handled, 0 only observed', $rows, 'nothing the week before: no comparison');
 		$this->assertSame('This week, and the week before', $card->getSubtitle());
 
 		$this->insertDetection(CredentialStuffing::ID, '198.51.100.8', null, self::DUE + 7 * self::DAY - 3600);
 		$card = $this->digest()->content($this->digest()->report($this->schedule(), self::DUE + 7 * self::DAY), self::l10n(), new \DateTimeZone('UTC'))->details[0];
 		$rows = self::rows($card);
-		$this->assertSame('Credential stuffing: 2 (before: 6) · 2 acted on, 0 observed', $rows[0]);
+		$this->assertSame('Credential stuffing: 2 (before: 6) · 2 handled, 0 only observed', $rows[0]);
 		$this->assertCount(2, $rows, 'the checks without detections share one row');
 		$this->assertStringStartsWith('Quiet: 5 other checks · ', $rows[1]);
 		$this->assertStringContainsString('Password spraying', $rows[1]);
@@ -166,7 +166,7 @@ class DigestTest extends IntegrationTestCase {
 	public function testWithoutAnyComparisonTheCardSaysNothingAboutThePeriodBefore(): void {
 		$this->insertDetection(TrapUrl::ID, '203.0.113.9', null, self::DUE - 3600);
 		$card = $this->digest()->content($this->digest()->report($this->schedule(), self::DUE), self::l10n(), new \DateTimeZone('UTC'))->details[0];
-		$this->assertSame(['Trap URLs: 1 · 1 acted on, 0 observed'], self::rows($card));
+		$this->assertSame(['Trap URLs: 1 · 1 handled, 0 only observed'], self::rows($card));
 		$this->assertSame('', $card->getSubtitle());
 	}
 

@@ -219,7 +219,7 @@ class Digest {
 	private function summary(DigestReport $report, IL10N $l): string {
 		$sentences = [
 			$l->n('%n detection in this period.', '%n detections in this period.', $report->detections()),
-			$l->t('Nextcloud acted on %1$s and observed %2$s.', [(string)$report->enforced, (string)$report->observed]),
+			$l->t('Nextcloud handled %1$s and only observed %2$s.', [(string)$report->enforced, (string)$report->observed]),
 			$report->kind === DigestSchedule::WEEKLY
 				? $l->n('The week before: %n detection.', 'The week before: %n detections.', $report->previousDetections)
 				: $l->n('The day before: %n detection.', 'The day before: %n detections.', $report->previousDetections),
@@ -253,7 +253,7 @@ class Digest {
 			} else {
 				$row->text((string)$count);
 			}
-			$row->muted($l->t('%1$s acted on, %2$s observed', [(string)$counts['enforced'], (string)$counts['observed']]));
+			$row->muted($l->t('%1$s handled, %2$s only observed', [(string)$counts['enforced'], (string)$counts['observed']]));
 		}
 		if ($quiet !== []) {
 			$card->addRow($l->t('Quiet'))
