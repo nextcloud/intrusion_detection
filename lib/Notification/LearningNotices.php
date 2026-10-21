@@ -29,7 +29,9 @@ use OCP\Notification\IManager as INotificationManager;
  *
  * The notice is sent once per learning period (`learning_notice_sent`;
  * starting or extending learning mode resets it). Its actions open the admin
- * page, as both change protection and need the password.
+ * page, as both change protection and need the password. Starting,
+ * extending or ending learning mode removes it
+ * ({@see LearningService}).
  */
 class LearningNotices {
 	public const OBJECT_TYPE = 'learning';
@@ -61,7 +63,7 @@ class LearningNotices {
 	public function sendEndingNoticeIfDue(): bool {
 		$now = $this->timeFactory->getTime();
 		$until = $this->learning->until();
-		if (!$this->learning->isActive() || $until - $now > self::NOTICE_BEFORE || $this->isNoticePending()) {
+		if (!$this->learning->isActive() || $until - $now > self::NOTICE_BEFORE || $this->learning->isEndingNoticePending()) {
 			return false;
 		}
 		[$detections, $blocks] = $this->summary($now - self::SUMMARY_DAYS * 86400);
@@ -96,7 +98,6 @@ class LearningNotices {
 	 * Learning mode ended by itself: tell the administrators.
 	 */
 	public function protectionStarted(): void {
-		$this->dismiss();
 		$now = $this->timeFactory->getTime();
 		foreach ($this->recipients->users() as $user) {
 			$notification = $this->notifications->createNotification();
@@ -107,24 +108,6 @@ class LearningNotices {
 				->setSubject(Notifier::SUBJECT_PROTECTION_STARTED);
 			$this->notifications->notify($notification);
 		}
-	}
-
-	/**
-	 * Whether the "learning ends tomorrow" notice was sent for the running
-	 * learning period and nobody answered it yet.
-	 */
-	public function isNoticePending(): bool {
-		return $this->learning->isActive() && $this->settings->getInt(GlobalSettings::LEARNING_NOTICE_SENT) > 0;
-	}
-
-	/**
-	 * Remove the notice for every administrator.
-	 */
-	private function dismiss(): void {
-		$notification = $this->notifications->createNotification();
-		$notification->setApp(Application::APP_ID)
-			->setObject(self::OBJECT_TYPE, self::OBJECT_ID);
-		$this->notifications->markProcessed($notification);
 	}
 
 	/**

@@ -22,6 +22,7 @@ use OCP\AppFramework\Utility\ITimeFactory;
 use OCP\EventDispatcher\IEventDispatcher;
 use OCP\Log\Audit\CriticalActionPerformedEvent;
 use OCP\Migration\IOutput;
+use OCP\Notification\IManager as INotificationManager;
 use OCP\Server;
 use PHPUnit\Framework\Attributes\Group;
 
@@ -60,7 +61,7 @@ class AppOwnChangesTest extends AdminChangeTestCase {
 		// The period is over: the hourly job ends it.
 		$later = $this->createMock(ITimeFactory::class);
 		$later->method('getTime')->willReturn($learning->until() + 60);
-		$expiring = new LearningService(Server::get(Settings::class), $later, Server::get(AuditLogger::class));
+		$expiring = new LearningService(Server::get(Settings::class), $later, Server::get(AuditLogger::class), Server::get(INotificationManager::class));
 		$this->assertTrue($expiring->expireIfDue());
 		$this->assertFalse($learning->isActive());
 

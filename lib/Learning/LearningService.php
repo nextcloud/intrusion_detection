@@ -9,10 +9,13 @@ declare(strict_types=1);
 
 namespace OCA\IntrusionDetection\Learning;
 
+use OCA\IntrusionDetection\AppInfo\Application;
 use OCA\IntrusionDetection\Audit\AuditLogger;
 use OCA\IntrusionDetection\Config\GlobalSettings;
 use OCA\IntrusionDetection\Config\Settings;
+use OCA\IntrusionDetection\Notification\LearningNotices;
 use OCP\AppFramework\Utility\ITimeFactory;
+use OCP\Notification\IManager as INotificationManager;
 
 /**
  * Learning mode: while it lasts, every check set to Protect only observes,
@@ -25,6 +28,9 @@ use OCP\AppFramework\Utility\ITimeFactory;
  * changes it on its own when it is installed and when the period is over.
  * A change of `learning_until` made around the app is still reported by
  * the config watch.
+ *
+ * Every change of the period removes the "learning ends tomorrow" notice:
+ * it was about the period before.
  */
 class LearningService {
 	public const MIN_DAYS = 1;
@@ -34,6 +40,7 @@ class LearningService {
 		private readonly Settings $settings,
 		private readonly ITimeFactory $timeFactory,
 		private readonly AuditLogger $audit,
+		private readonly INotificationManager $notifications,
 	) {
 	}
 
@@ -61,6 +68,7 @@ class LearningService {
 		$this->settings->setGlobal(GlobalSettings::LEARNING_UNTIL, $until, reported: false);
 		$this->settings->setGlobal(GlobalSettings::LEARNING_STARTED_AT, $this->timeFactory->getTime());
 		$this->settings->setGlobal(GlobalSettings::LEARNING_NOTICE_SENT, 0);
+		$this->dismissEndingNotice();
 		$this->audit->log('learning mode started for %s days by %s', ['days' => $days, 'actor' => $actor]);
 		return $until;
 	}
@@ -76,6 +84,7 @@ class LearningService {
 		$until = min($base + $days * 86400, $this->timeFactory->getTime() + self::MAX_DAYS * 86400);
 		$this->settings->setGlobal(GlobalSettings::LEARNING_UNTIL, $until, reported: false);
 		$this->settings->setGlobal(GlobalSettings::LEARNING_NOTICE_SENT, 0);
+		$this->dismissEndingNotice();
 		$this->audit->log('learning mode extended by %s days by %s', ['days' => $days, 'actor' => $actor]);
 		return $until;
 	}
@@ -84,6 +93,7 @@ class LearningService {
 	 * End learning mode now: checks set to Protect start acting.
 	 */
 	public function stop(string $actor): void {
+		$this->dismissEndingNotice();
 		if ($this->until() === 0) {
 			return;
 		}
@@ -112,7 +122,26 @@ class LearningService {
 			return false;
 		}
 		$this->settings->setGlobal(GlobalSettings::LEARNING_UNTIL, 0, reported: false);
+		$this->dismissEndingNotice();
 		$this->audit->log('learning mode ended automatically; protection is active', []);
 		return true;
+	}
+
+	/**
+	 * Whether the "learning ends tomorrow" notice was sent for the running
+	 * learning period, which nobody started, extended or ended since.
+	 */
+	public function isEndingNoticePending(): bool {
+		return $this->isActive() && $this->settings->getInt(GlobalSettings::LEARNING_NOTICE_SENT) > 0;
+	}
+
+	/**
+	 * Remove the "learning ends tomorrow" notice for every administrator.
+	 */
+	private function dismissEndingNotice(): void {
+		$notification = $this->notifications->createNotification();
+		$notification->setApp(Application::APP_ID)
+			->setObject(LearningNotices::OBJECT_TYPE, LearningNotices::OBJECT_ID);
+		$this->notifications->markProcessed($notification);
 	}
 }

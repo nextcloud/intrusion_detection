@@ -15,6 +15,7 @@ use OCA\IntrusionDetection\Db\ApprovalMapper;
 use OCA\IntrusionDetection\Db\DetectionMapper;
 use OCA\IntrusionDetection\Explain\DateFormatter;
 use OCA\IntrusionDetection\Explain\NarrativeBuilder;
+use OCA\IntrusionDetection\Learning\LearningService;
 use OCA\IntrusionDetection\Notification\AdminAlerts;
 use OCA\IntrusionDetection\Notification\AdminLinks;
 use OCA\IntrusionDetection\Notification\MailContent;
@@ -118,6 +119,7 @@ class TestAlertTest extends TestCase {
 			$this->createMock(DateFormatter::class),
 			$this->createMock(Questions::class),
 			$this->createMock(IURLGenerator::class),
+			$this->createMock(LearningService::class),
 		);
 		$notification = Server::get(INotificationManager::class)->createNotification();
 		$notification->setApp('intrusion_detection')->setUser('alice')->setDateTime(new \DateTime())->setObject(TestAlert::OBJECT_TYPE, '1')->setSubject(TestAlert::SUBJECT);

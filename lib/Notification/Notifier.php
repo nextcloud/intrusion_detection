@@ -18,6 +18,7 @@ use OCA\IntrusionDetection\Db\Detection;
 use OCA\IntrusionDetection\Db\DetectionMapper;
 use OCA\IntrusionDetection\Explain\DateFormatter;
 use OCA\IntrusionDetection\Explain\NarrativeBuilder;
+use OCA\IntrusionDetection\Learning\LearningService;
 use OCA\IntrusionDetection\WasThisYou\Questions;
 use OCP\AppFramework\Db\DoesNotExistException;
 use OCP\IL10N;
@@ -68,6 +69,7 @@ class Notifier implements INotifier {
 		private readonly DateFormatter $dates,
 		private readonly Questions $questions,
 		private readonly IURLGenerator $urlGenerator,
+		private readonly LearningService $learning,
 	) {
 	}
 
@@ -149,6 +151,10 @@ class Notifier implements INotifier {
 	}
 
 	private function prepareLearningEnds(INotification $notification, IL10N $l): INotification {
+		if (!$this->learning->isEndingNoticePending()) {
+			// Learning mode was started, extended or ended since.
+			throw new AlreadyProcessedException();
+		}
 		$params = $notification->getSubjectParameters();
 		$detections = (int)($params['detections'] ?? 0);
 		$blocks = (int)($params['blocks'] ?? 0);

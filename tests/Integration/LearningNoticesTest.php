@@ -10,6 +10,7 @@ declare(strict_types=1);
 namespace OCA\IntrusionDetection\Tests\Integration;
 
 use OCA\IntrusionDetection\AppInfo\Application;
+use OCA\IntrusionDetection\Audit\AuditLogger;
 use OCA\IntrusionDetection\BackgroundJob\LearningModeJob;
 use OCA\IntrusionDetection\Check\Checks\ManualBlock;
 use OCA\IntrusionDetection\Check\Mode;
@@ -29,9 +30,11 @@ use OCP\AppFramework\Utility\ITimeFactory;
 use OCP\IGroupManager;
 use OCP\IUser;
 use OCP\IUserManager;
+use OCP\Notification\AlreadyProcessedException;
 use OCP\Notification\IManager as INotificationManager;
 use OCP\Notification\INotification;
 use OCP\Server;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\MockObject\MockObject;
 
@@ -62,7 +65,7 @@ class LearningNoticesTest extends IntegrationTestCase {
 			$this->dismissed++;
 		});
 		$this->settings = Server::get(Settings::class);
-		$this->learning = Server::get(LearningService::class);
+		$this->learning = new LearningService($this->settings, Server::get(ITimeFactory::class), Server::get(AuditLogger::class), $this->notifications);
 
 		// The administrators are the members of the configured groups, enabled ones only.
 		$this->groupId = 'ids-admins-' . bin2hex(random_bytes(3));
@@ -116,11 +119,50 @@ class LearningNoticesTest extends IntegrationTestCase {
 		$this->assertSame(['WEB', 'WEB'], array_map(static fn ($a): string => $a->getRequestType(), $prepared->getParsedActions()), 'Also for notices sent with the old POST links');
 	}
 
+	/**
+	 * @return array<string, array{\Closure(LearningService): mixed}>
+	 */
+	public static function periodChanges(): array {
+		return [
+			'start' => [static fn (LearningService $learning) => $learning->start(14, 'admin')],
+			'extend' => [static fn (LearningService $learning) => $learning->extend(7, 'admin')],
+			'end' => [static fn (LearningService $learning) => $learning->stop('admin')],
+		];
+	}
+
+	/**
+	 * @param \Closure(LearningService): mixed $change
+	 */
+	#[DataProvider('periodChanges')]
+	public function testChangingThePeriodRemovesTheNotice(\Closure $change): void {
+		$this->setLearningUntil(time() + 3600);
+		$this->notices->sendEndingNoticeIfDue();
+		$notice = $this->sent[0];
+		$this->assertSame('The learning period of intrusion detection ends tomorrow', Server::get(Notifier::class)->prepare($notice, 'en')->getParsedSubject());
+
+		$change($this->learning);
+		$this->assertSame(1, $this->dismissed);
+		$this->expectException(AlreadyProcessedException::class);
+		Server::get(Notifier::class)->prepare($notice, 'en');
+	}
+
+	public function testTheNoticeIsGoneOnceLearningEndedByItself(): void {
+		$this->setLearningUntil(time() + 3600);
+		$this->notices->sendEndingNoticeIfDue();
+		$notice = $this->sent[0];
+		$this->setLearningUntil(time() - 10);
+		$this->assertTrue($this->learning->expireIfDue());
+		$this->assertSame(1, $this->dismissed);
+		$this->expectException(AlreadyProcessedException::class);
+		Server::get(Notifier::class)->prepare($notice, 'en');
+	}
+
 	public function testTheJobTellsTheAdminsWhenProtectionStarts(): void {
 		$this->setLearningUntil(time() - 10);
 		$job = new LearningModeJob(Server::get(ITimeFactory::class), $this->learning, $this->notices);
 		self::invokePrivate($job, 'run', [null]);
 		$this->assertFalse($this->learning->isActive());
+		$this->assertSame(1, $this->dismissed, 'The notice about the ending period goes');
 		$this->assertSame([Notifier::SUBJECT_PROTECTION_STARTED, Notifier::SUBJECT_PROTECTION_STARTED], array_map(static fn (INotification $n): string => $n->getSubject(), $this->sent));
 		$this->assertSame('Intrusion detection is now protecting this server', Server::get(Notifier::class)->prepare($this->sent[0], 'en')->getParsedSubject());
 	}
