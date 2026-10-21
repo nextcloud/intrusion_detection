@@ -49,6 +49,9 @@ Every check can be switched between Off, Observe and Protect, every threshold is
         <install>
             <step>OCA\IntrusionDetection\Repair\StartLearningMode</step>
         </install>
+        <post-migration>
+            <step>OCA\IntrusionDetection\Repair\RemoveRetiredSettings</step>
+        </post-migration>
     </repair-steps>
 
     <commands>

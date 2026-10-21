@@ -487,6 +487,7 @@ class ComposerStaticInitIntrusionDetection
         'OCA\\IntrusionDetection\\Personal\\PersonalActivity' => __DIR__ . '/..' . '/../lib/Personal/PersonalActivity.php',
         'OCA\\IntrusionDetection\\Personal\\PersonalOverview' => __DIR__ . '/..' . '/../lib/Personal/PersonalOverview.php',
         'OCA\\IntrusionDetection\\Privacy\\UserDataCleanup' => __DIR__ . '/..' . '/../lib/Privacy/UserDataCleanup.php',
+        'OCA\\IntrusionDetection\\Repair\\RemoveRetiredSettings' => __DIR__ . '/..' . '/../lib/Repair/RemoveRetiredSettings.php',
         'OCA\\IntrusionDetection\\Repair\\StartLearningMode' => __DIR__ . '/..' . '/../lib/Repair/StartLearningMode.php',
         'OCA\\IntrusionDetection\\ResponseDefinitions' => __DIR__ . '/..' . '/../lib/ResponseDefinitions.php',
         'OCA\\IntrusionDetection\\Response\\AccountProtection' => __DIR__ . '/..' . '/../lib/Response/AccountProtection.php',
