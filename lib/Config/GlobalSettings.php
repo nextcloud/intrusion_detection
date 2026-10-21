@@ -20,7 +20,6 @@ use OCA\IntrusionDetection\Confirm\StepUpPolicy;
 use OCA\IntrusionDetection\Confirm\StepUpReasons;
 use OCA\IntrusionDetection\KnownDevice\KnownDevices;
 use OCA\IntrusionDetection\Net\ServerAddresses;
-use OCA\IntrusionDetection\Risk\AttackTools;
 
 /**
  * The settings that belong to the app rather than to one check.
@@ -114,25 +113,6 @@ final class GlobalSettings {
 
 	/** Whether the address risk score lowers limits and asks for confirmation (concept section 10.18) */
 	public const RISK_ENABLED = 'risk_enabled';
-	/** Points per fact of the risk score */
-	public const RISK_POINTS_ATTACK_TOOL = 'risk_points_attack_tool';
-	public const RISK_POINTS_TOR = 'risk_points_tor';
-	public const RISK_POINTS_HOSTING = 'risk_points_hosting';
-	public const RISK_POINTS_BLOCKLIST = 'risk_points_blocklist';
-	public const RISK_POINTS_TRAP = 'risk_points_trap';
-	public const RISK_POINTS_FLAGGED = 'risk_points_flagged';
-	/** Points for every {@see \OCA\IntrusionDetection\Risk\RiskScorer::FAILURES_PER_STEP} failed logins in the last hour */
-	public const RISK_POINTS_FAILURES = 'risk_points_failures';
-	/** Points for an address in an office network; negative */
-	public const RISK_POINTS_OFFICE = 'risk_points_office';
-	/** The score from which an address is elevated, and high */
-	public const RISK_TIER_ELEVATED = 'risk_tier_elevated';
-	public const RISK_TIER_HIGH = 'risk_tier_high';
-	/** What the count limits of the login-failure checks are multiplied by in each tier */
-	public const RISK_FACTOR_ELEVATED = 'risk_factor_elevated';
-	public const RISK_FACTOR_HIGH = 'risk_factor_high';
-	/** Regular expressions for attack tools' user agents, on top of the built-in list */
-	public const RISK_ATTACK_TOOL_PATTERNS = 'risk_attack_tool_patterns';
 	/** Networks whose addresses are never risky: the company's own networks and VPN */
 	public const RISKY_NETWORK_OFFICE_NETWORKS = 'risky_network_office_networks';
 	/** Groups whose members may log in from hosting and Tor networks without extra confirmation */
@@ -213,26 +193,6 @@ final class GlobalSettings {
 				new ParamDefinition(self::KNOWN_DEVICE_DURATION, ParamType::Duration, KnownDevices::MAX_DURATION, min: 86400, max: KnownDevices::MAX_DURATION),
 				new ParamDefinition(self::HISTORY_RETENTION_DAYS, ParamType::Int, 90, min: 7, max: 365),
 				new ParamDefinition(self::RISK_ENABLED, ParamType::Bool, true),
-				new ParamDefinition(self::RISK_POINTS_ATTACK_TOOL, ParamType::Int, 2, min: 0, max: 20),
-				new ParamDefinition(self::RISK_POINTS_TOR, ParamType::Int, 2, min: 0, max: 20),
-				new ParamDefinition(self::RISK_POINTS_HOSTING, ParamType::Int, 1, min: 0, max: 20),
-				new ParamDefinition(self::RISK_POINTS_BLOCKLIST, ParamType::Int, 2, min: 0, max: 20),
-				new ParamDefinition(self::RISK_POINTS_TRAP, ParamType::Int, 3, min: 0, max: 20),
-				new ParamDefinition(self::RISK_POINTS_FLAGGED, ParamType::Int, 2, min: 0, max: 20),
-				new ParamDefinition(self::RISK_POINTS_FAILURES, ParamType::Int, 1, min: 0, max: 20),
-				new ParamDefinition(self::RISK_POINTS_OFFICE, ParamType::Int, -10, min: -100, max: 0),
-				new ParamDefinition(self::RISK_TIER_ELEVATED, ParamType::Int, 2, min: 1, max: 100),
-				new ParamDefinition(self::RISK_TIER_HIGH, ParamType::Int, 4, min: 1, max: 100),
-				new ParamDefinition(self::RISK_FACTOR_ELEVATED, ParamType::Float, 0.5, min: 0.05, max: 1.0),
-				new ParamDefinition(self::RISK_FACTOR_HIGH, ParamType::Float, 0.25, min: 0.05, max: 1.0),
-				new ParamDefinition(
-					self::RISK_ATTACK_TOOL_PATTERNS,
-					ParamType::StringList,
-					[],
-					maxItems: AttackTools::MAX_PATTERNS,
-					maxItemLength: AttackTools::MAX_PATTERN_LENGTH,
-					itemValidator: static fn (string $item, bool $thorough): ?string => AttackTools::problem($item, $thorough),
-				),
 				new ParamDefinition(self::RISKY_NETWORK_OFFICE_NETWORKS, ParamType::CidrList, [], maxItems: 100),
 				new ParamDefinition(self::RISKY_NETWORK_EXEMPT_GROUPS, ParamType::StringList, [], itemPattern: '/^[^\x00-\x1f\x7f]{1,255}$/u', maxItems: 20),
 				new ParamDefinition(self::PERSONAL_PAGE_ENABLED, ParamType::Bool, true),

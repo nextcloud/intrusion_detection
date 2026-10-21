@@ -32,7 +32,7 @@ class RiskAssessmentTest extends TestCase {
 
 	#[DataProvider('tiers')]
 	public function testTheScoreFallsIntoItsTier(int $score, string $tier, float $factor): void {
-		$risk = RiskAssessment::of($score === 0 ? [] : [['fact' => 'x', 'points' => $score, 'detail' => null]], 2, 4, 0.5, 0.25);
+		$risk = RiskAssessment::of($score === 0 ? [] : [['fact' => 'x', 'points' => $score, 'detail' => null]]);
 		$this->assertSame($score, $risk->score);
 		$this->assertSame($tier, $risk->tier);
 		$this->assertSame($factor, $risk->factor);
@@ -44,14 +44,9 @@ class RiskAssessmentTest extends TestCase {
 			['fact' => RiskAssessment::FACT_HOSTING, 'points' => 1, 'detail' => null],
 			['fact' => RiskAssessment::FACT_ATTACK_TOOL, 'points' => 2, 'detail' => 'curl'],
 			['fact' => RiskAssessment::FACT_OFFICE, 'points' => -10, 'detail' => '203.0.113.0/24'],
-		], 2, 4, 0.5, 0.25);
+		]);
 		$this->assertSame(-7, $risk->score);
 		$this->assertSame(RiskAssessment::TIER_NORMAL, $risk->tier);
-	}
-
-	public function testAHighTierBelowTheElevatedOneStillWins(): void {
-		$risk = RiskAssessment::of([['fact' => 'x', 'points' => 3, 'detail' => null]], 5, 3, 0.5, 0.25);
-		$this->assertSame(RiskAssessment::TIER_HIGH, $risk->tier);
 	}
 
 	/**
@@ -86,7 +81,7 @@ class RiskAssessmentTest extends TestCase {
 		$risk = RiskAssessment::of([
 			['fact' => RiskAssessment::FACT_TOR, 'points' => 2, 'detail' => null],
 			['fact' => RiskAssessment::FACT_FAILURES, 'points' => 2, 'detail' => '11'],
-		], 2, 4, 0.5, 0.25);
+		]);
 		$stored = json_decode((string)json_encode($risk->toArray()), true);
 		$this->assertEquals($risk, RiskAssessment::fromArray($stored));
 	}
@@ -102,7 +97,7 @@ class RiskAssessmentTest extends TestCase {
 	}
 
 	public function testLimitsReachAndTellWhatWasLowered(): void {
-		$risk = RiskAssessment::of([['fact' => RiskAssessment::FACT_TOR, 'points' => 3, 'detail' => null]], 2, 4, 0.5, 0.25);
+		$risk = RiskAssessment::of([['fact' => RiskAssessment::FACT_TOR, 'points' => 3, 'detail' => null]]);
 		$limits = new RiskLimits(['min_failures' => 10, 'min_names' => 2], ['min_failures' => 5, 'min_names' => 2], ['min_failures' => 6, 'min_names' => 2], $risk);
 		$this->assertTrue($limits->reached());
 		$this->assertTrue($limits->isLowered());

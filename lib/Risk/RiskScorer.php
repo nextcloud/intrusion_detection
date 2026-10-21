@@ -43,6 +43,9 @@ use Psr\Log\LoggerInterface;
  *   the detections), and failed logins in the last hour (one on the attempts).
  * - From the settings: an office network takes points off.
  *
+ * The points per fact are POINTS; the tiers and their factors are in
+ * {@see RiskAssessment}.
+ *
  * It is computed only where a decision is made, never per request: by the
  * login-failure checks when a count is close to its limit
  * ({@see self::limits()}), at successful password logins (the `risk_high`
@@ -56,6 +59,17 @@ class RiskScorer {
 	public const FAILURES_WINDOW = 3600;
 	public const TRAP_WINDOW = 86400;
 	public const CACHE_TTL = 60;
+	/** Points per fact; for failed logins per FAILURES_PER_STEP of them */
+	public const POINTS = [
+		RiskAssessment::FACT_ATTACK_TOOL => 2,
+		RiskAssessment::FACT_TOR => 2,
+		RiskAssessment::FACT_HOSTING => 1,
+		RiskAssessment::FACT_BLOCKLIST => 2,
+		RiskAssessment::FACT_TRAP => 3,
+		RiskAssessment::FACT_FLAGGED => 2,
+		RiskAssessment::FACT_FAILURES => 1,
+		RiskAssessment::FACT_OFFICE => -10,
+	];
 	/** The checks whose detections count as a trap hit */
 	public const TRAP_CHECKS = [TrapUrl::ID, ReservedName::ID];
 	private const FAILURE_KINDS = [AttemptKind::PasswordLogin, AttemptKind::AppPassword];
@@ -111,12 +125,8 @@ class RiskScorer {
 		if ($source === null || !$this->isEnabled() || $this->allReach($measured, $plain)) {
 			return new RiskLimits($plain, $plain, $measured, null);
 		}
-		$lowest = min(
-			1.0,
-			$this->settings->global(GlobalSettings::RISK_FACTOR_ELEVATED),
-			$this->settings->global(GlobalSettings::RISK_FACTOR_HIGH),
-		);
-		$possible = array_map(static fn (int $limit): int => RiskAssessment::lowerBy($limit, (float)$lowest), $plain);
+		$lowest = min(RiskAssessment::FACTOR_ELEVATED, RiskAssessment::FACTOR_HIGH);
+		$possible = array_map(static fn (int $limit): int => RiskAssessment::lowerBy($limit, $lowest), $plain);
 		if (!$this->allReach($measured, $possible)) {
 			return new RiskLimits($plain, $plain, $measured, null);
 		}
@@ -132,7 +142,7 @@ class RiskScorer {
 		if (!$this->isEnabled()) {
 			return;
 		}
-		$tool = $this->tools->match($userAgent, $this->list(GlobalSettings::RISK_ATTACK_TOOL_PATTERNS));
+		$tool = $this->tools->match($userAgent);
 		if ($tool === null) {
 			return;
 		}
@@ -151,56 +161,47 @@ class RiskScorer {
 	}
 
 	private function assess(SourceKey $source): RiskAssessment {
-		$points = fn (string $setting): int => $this->settings->getInt($setting);
 		$parts = [];
-		$add = static function (string $fact, int $value, ?string $detail = null) use (&$parts): void {
-			if ($value !== 0) {
-				$parts[] = ['fact' => $fact, 'points' => $value, 'detail' => $detail];
-			}
+		$add = static function (string $fact, ?string $detail = null, int $times = 1) use (&$parts): void {
+			$parts[] = ['fact' => $fact, 'points' => $times * self::POINTS[$fact], 'detail' => $detail];
 		};
 
 		$facts = $this->storedFacts($source);
 		if ($facts['tool'] !== null) {
-			$add(RiskAssessment::FACT_ATTACK_TOOL, $points(GlobalSettings::RISK_POINTS_ATTACK_TOOL), $facts['tool']);
+			$add(RiskAssessment::FACT_ATTACK_TOOL, $facts['tool']);
 		}
 
 		$verdict = $this->verdict($source);
 		if ($verdict !== null) {
 			if ($verdict->hasAttribute(BlocklistSource::PURPOSE_TOR)) {
-				$add(RiskAssessment::FACT_TOR, $points(GlobalSettings::RISK_POINTS_TOR));
+				$add(RiskAssessment::FACT_TOR);
 			}
 			if ($verdict->hasAttribute(BlocklistSource::PURPOSE_HOSTING)) {
-				$add(RiskAssessment::FACT_HOSTING, $points(GlobalSettings::RISK_POINTS_HOSTING));
+				$add(RiskAssessment::FACT_HOSTING);
 			}
 			$lists = BlocklistMatch::listsOf($verdict);
 			if ($lists !== []) {
-				$add(RiskAssessment::FACT_BLOCKLIST, $points(GlobalSettings::RISK_POINTS_BLOCKLIST), implode(', ', $lists));
+				$add(RiskAssessment::FACT_BLOCKLIST, implode(', ', $lists));
 			}
 		}
 
 		if ($facts['traps'] !== []) {
-			$add(RiskAssessment::FACT_TRAP, $points(GlobalSettings::RISK_POINTS_TRAP), implode(', ', $facts['traps']));
+			$add(RiskAssessment::FACT_TRAP, implode(', ', $facts['traps']));
 		}
 		if ($facts['flag'] !== null) {
-			$add(RiskAssessment::FACT_FLAGGED, $points(GlobalSettings::RISK_POINTS_FLAGGED), $facts['flag']);
+			$add(RiskAssessment::FACT_FLAGGED, $facts['flag']);
 		}
 		$steps = min(self::MAX_FAILURE_STEPS, intdiv($facts['failures'], self::FAILURES_PER_STEP));
 		if ($steps > 0) {
-			$add(RiskAssessment::FACT_FAILURES, $steps * $points(GlobalSettings::RISK_POINTS_FAILURES), (string)$facts['failures']);
+			$add(RiskAssessment::FACT_FAILURES, (string)$facts['failures'], $steps);
 		}
 
 		$office = RangeCodec::firstContaining($this->list(GlobalSettings::RISKY_NETWORK_OFFICE_NETWORKS), $source);
 		if ($office !== null) {
-			$add(RiskAssessment::FACT_OFFICE, $points(GlobalSettings::RISK_POINTS_OFFICE), $office);
+			$add(RiskAssessment::FACT_OFFICE, $office);
 		}
 
-		return RiskAssessment::of(
-			$parts,
-			$points(GlobalSettings::RISK_TIER_ELEVATED),
-			$points(GlobalSettings::RISK_TIER_HIGH),
-			(float)$this->settings->global(GlobalSettings::RISK_FACTOR_ELEVATED),
-			(float)$this->settings->global(GlobalSettings::RISK_FACTOR_HIGH),
-		);
+		return RiskAssessment::of($parts);
 	}
 
 	/**

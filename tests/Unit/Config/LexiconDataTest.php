@@ -99,6 +99,6 @@ class LexiconDataTest extends TestCase {
 				}
 			}
 		}
-		$this->assertSame([GlobalSettings::RISK_ATTACK_TOOL_PATTERNS, 'injection_probe.custom_signatures'], $withValidator);
+		$this->assertSame(['injection_probe.custom_signatures'], $withValidator);
 	}
 }

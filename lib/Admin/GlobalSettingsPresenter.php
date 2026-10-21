@@ -14,6 +14,8 @@ use OCA\IntrusionDetection\Config\GlobalSettings;
 use OCA\IntrusionDetection\Config\Settings;
 use OCA\IntrusionDetection\Confirm\StepUpPolicy;
 use OCA\IntrusionDetection\ResponseDefinitions;
+use OCA\IntrusionDetection\Risk\RiskAssessment;
+use OCA\IntrusionDetection\Risk\RiskScorer;
 use OCP\IL10N;
 
 /**
@@ -99,9 +101,25 @@ class GlobalSettingsPresenter {
 				'safetyValve' => $l->t('An address from which at least {ban_shared_ip_users} different people whose accounts are at least 3 days old (or administrators) logged in successfully in the last 24 hours is never blocked, and neither is a network from which that many people logged in. Accounts registered in the last days do not count, so nobody can open the valve by creating a few. That is typical for an office network or a reverse proxy, and blocking it would lock everyone out. You are notified instead.'),
 				'safetyValveOff' => $l->t('The safety valve is off: an address is blocked even when many people log in from it. A company network or a misconfigured reverse proxy could lock everyone out.'),
 				'neverBlocked' => $l->t('Addresses on the brute-force allowlist and the server\'s own addresses are never blocked, and no network that contains one. Checks also never block an address an administrator logged in from in the last 7 days (except for trap URLs and injection probes), nor, for attacks on one account, an address from which that account confirmed a login in the last 7 days (with a second factor, an email code, an administrator\'s approval or a remembered device), nor a private address many people or an administrator log in from while no trusted proxies are configured. You can still block these by hand.'),
-				'riskNormal' => $l->t('Below {risk_tier_elevated} points: every limit as configured.'),
-				'riskElevated' => $l->t('From {risk_tier_elevated} points: the count limits of the login, share and password reset checks are multiplied by {risk_factor_elevated}, but never go below 2.'),
-				'riskHigh' => $l->t('From {risk_tier_high} points: the limits are multiplied by {risk_factor_high}, never below 2, and every password login from the address needs extra confirmation.'),
+				'riskPoints' => $l->t('Points: %1$s for an attack tool or scripting library on a failed login in the last 24 hours, %2$s for a Tor exit node, %3$s for a cloud hosting network, %4$s for a blocklist that only observes, %5$s for a trap URL or reserved name in the last 24 hours, %6$s for an address marked after an attack, %7$s for every %8$s failed logins in the last hour (at most %9$s times), and %10$s for an office network.', [
+					(string)RiskScorer::POINTS[RiskAssessment::FACT_ATTACK_TOOL],
+					(string)RiskScorer::POINTS[RiskAssessment::FACT_TOR],
+					(string)RiskScorer::POINTS[RiskAssessment::FACT_HOSTING],
+					(string)RiskScorer::POINTS[RiskAssessment::FACT_BLOCKLIST],
+					(string)RiskScorer::POINTS[RiskAssessment::FACT_TRAP],
+					(string)RiskScorer::POINTS[RiskAssessment::FACT_FLAGGED],
+					(string)RiskScorer::POINTS[RiskAssessment::FACT_FAILURES],
+					(string)RiskScorer::FAILURES_PER_STEP,
+					(string)RiskScorer::MAX_FAILURE_STEPS,
+					(string)RiskScorer::POINTS[RiskAssessment::FACT_OFFICE],
+				]),
+				'riskTiers' => $l->t('From %1$s points, the count limits of the login, share and password reset checks are multiplied by %2$s, never below %3$s. From %4$s points, they are multiplied by %5$s, and every password login from the address needs extra confirmation.', [
+					(string)RiskAssessment::SCORE_ELEVATED,
+					(string)RiskAssessment::FACTOR_ELEVATED,
+					(string)RiskAssessment::FLOOR,
+					(string)RiskAssessment::SCORE_HIGH,
+					(string)RiskAssessment::FACTOR_HIGH,
+				]),
 			],
 		];
 	}
@@ -244,70 +262,6 @@ class GlobalSettingsPresenter {
 			GlobalSettings::RISK_ENABLED => [new ParamText(
 				$l->t('Use the risk score'),
 				$l->t('When it is off, every check uses its plain limits, and a high score never asks for confirmation.'),
-			), self::GROUP_RISK],
-			GlobalSettings::RISK_POINTS_ATTACK_TOOL => [new ParamText(
-				$l->t('Attack tool'),
-				$l->t('A failed login in the last 24 hours with the user agent of an attack tool or a scripting library, such as hydra, sqlmap, python-requests or curl.'),
-				$l->t('points'),
-			), self::GROUP_RISK],
-			GlobalSettings::RISK_POINTS_TOR => [new ParamText(
-				$l->t('Tor exit node'),
-				$l->t('The address is on a Tor network list you switched on.'),
-				$l->t('points'),
-			), self::GROUP_RISK],
-			GlobalSettings::RISK_POINTS_HOSTING => [new ParamText(
-				$l->t('Cloud hosting network'),
-				$l->t('The address is on a hosting provider list you switched on.'),
-				$l->t('points'),
-			), self::GROUP_RISK],
-			GlobalSettings::RISK_POINTS_BLOCKLIST => [new ParamText(
-				$l->t('Blocklist that only observes'),
-				$l->t('The address is on a blocklist that is set to Observe, so it is not refused.'),
-				$l->t('points'),
-			), self::GROUP_RISK],
-			GlobalSettings::RISK_POINTS_TRAP => [new ParamText(
-				$l->t('Trap or reserved name'),
-				$l->t('The address requested a trap URL or tried a reserved login name in the last 24 hours. It is usually blocked for that anyway; this counts once the block has ended.'),
-				$l->t('points'),
-			), self::GROUP_RISK],
-			GlobalSettings::RISK_POINTS_FLAGGED => [new ParamText(
-				$l->t('Marked after an attack'),
-				$l->t('The address or its network is marked because it took part in an attack.'),
-				$l->t('points'),
-			), self::GROUP_RISK],
-			GlobalSettings::RISK_POINTS_FAILURES => [new ParamText(
-				$l->t('Failed logins'),
-				$l->t('For every 5 failed logins from the address in the last hour, at most 3 times.'),
-				$l->t('points'),
-			), self::GROUP_RISK],
-			GlobalSettings::RISK_POINTS_OFFICE => [new ParamText(
-				$l->t('Office network'),
-				$l->t('The address is in one of your office networks. A negative number lowers the score.'),
-				$l->t('points'),
-			), self::GROUP_RISK],
-			GlobalSettings::RISK_TIER_ELEVATED => [new ParamText(
-				$l->t('Elevated from'),
-				$l->t('From this score on, an address is elevated: the limits of the login checks are lowered.'),
-				$l->t('points'),
-			), self::GROUP_RISK],
-			GlobalSettings::RISK_TIER_HIGH => [new ParamText(
-				$l->t('High from'),
-				$l->t('From this score on, an address is high: the limits are lowered further, and every password login from it needs extra confirmation.'),
-				$l->t('points'),
-			), self::GROUP_RISK],
-			GlobalSettings::RISK_FACTOR_ELEVATED => [new ParamText(
-				$l->t('Limits when elevated'),
-				$l->t('The count limits of the login, share and password reset checks are multiplied by this, but never below 2. 0.5 halves them.'),
-				$l->t('× limit'),
-			), self::GROUP_RISK],
-			GlobalSettings::RISK_FACTOR_HIGH => [new ParamText(
-				$l->t('Limits when high'),
-				$l->t('The count limits are multiplied by this for an address with a high score, but never below 2.'),
-				$l->t('× limit'),
-			), self::GROUP_RISK],
-			GlobalSettings::RISK_ATTACK_TOOL_PATTERNS => [new ParamText(
-				$l->t('More attack tools'),
-				$l->t('Regular expressions for user agents of further tools, on top of the built-in list. They must be fast: slow ones are refused when you save.'),
 			), self::GROUP_RISK],
 			GlobalSettings::RISKY_NETWORK_OFFICE_NETWORKS => [new ParamText(
 				$l->t('Office networks'),

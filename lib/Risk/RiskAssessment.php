@@ -15,7 +15,7 @@ namespace OCA\IntrusionDetection\Risk;
  * count limits of the login-failure checks are multiplied by in that tier.
  *
  * Detections store it (fact `risk`), with the tiers in force, so that their
- * explanation stays right after the settings changed.
+ * explanation does not depend on the tiers of a later version.
  *
  * @psalm-type RiskPart = array{fact: string, points: int, detail: ?string}
  */
@@ -32,6 +32,13 @@ final class RiskAssessment {
 	public const FACT_FLAGGED = 'flagged';
 	public const FACT_FAILURES = 'failures';
 	public const FACT_OFFICE = 'office';
+
+	/** The score from which an address is elevated, and high */
+	public const SCORE_ELEVATED = 2;
+	public const SCORE_HIGH = 4;
+	/** What the count limits of the login-failure checks are multiplied by in each tier */
+	public const FACTOR_ELEVATED = 0.5;
+	public const FACTOR_HIGH = 0.25;
 
 	/** A lowered limit is never below this, and limits at or below it are never lowered */
 	public const FLOOR = 2;
@@ -62,14 +69,14 @@ final class RiskAssessment {
 	/**
 	 * @param list<RiskPart> $parts
 	 */
-	public static function of(array $parts, int $tierElevated, int $tierHigh, float $factorElevated, float $factorHigh): self {
+	public static function of(array $parts): self {
 		$score = array_sum(array_column($parts, 'points'));
 		[$tier, $factor] = match (true) {
-			$score >= $tierHigh => [self::TIER_HIGH, $factorHigh],
-			$score >= $tierElevated => [self::TIER_ELEVATED, $factorElevated],
+			$score >= self::SCORE_HIGH => [self::TIER_HIGH, self::FACTOR_HIGH],
+			$score >= self::SCORE_ELEVATED => [self::TIER_ELEVATED, self::FACTOR_ELEVATED],
 			default => [self::TIER_NORMAL, 1.0],
 		};
-		return new self($score, $tier, $factor, $parts, $tierElevated, $tierHigh);
+		return new self($score, $tier, $factor, $parts, self::SCORE_ELEVATED, self::SCORE_HIGH);
 	}
 
 	public function isHigh(): bool {

@@ -76,13 +76,6 @@ class RiskScorerTest extends IntegrationTestCase {
 		$this->assertSame([], $this->scorer()->score(SourceKey::fromIp('198.51.100.8'))->parts, 'Only for that address');
 	}
 
-	public function testCustomAttackToolsCount(): void {
-		$this->settings->setGlobal(GlobalSettings::RISK_ATTACK_TOOL_PATTERNS, ['evilscan']);
-		$source = SourceKey::fromIp(self::IP);
-		$this->scorer()->noteFailedLogin($source, 'EvilScan/2');
-		$this->assertSame('evilscan', $this->scorer()->score($source)->parts[0]['detail'] ?? null);
-	}
-
 	public function testNetworkAttributesComeFromTheVerdictOfTheRequest(): void {
 		$this->context->setVerdict(new Verdict(0, '', ['tor', 'net:exits', 'hosting', 'net:aws', 'list:watch']));
 		$risk = $this->scorer()->score(SourceKey::fromIp(self::IP));
@@ -178,19 +171,13 @@ class RiskScorerTest extends IntegrationTestCase {
 		$this->assertSame(5, $this->scorer()->score($source)->score);
 	}
 
-	public function testPointsTiersAndFactorsAreSettings(): void {
-		$this->settings->setGlobal(GlobalSettings::RISK_POINTS_HOSTING, 5);
-		$this->settings->setGlobal(GlobalSettings::RISK_TIER_HIGH, 6);
-		$this->settings->setGlobal(GlobalSettings::RISK_FACTOR_ELEVATED, 0.8);
-		$this->context->setVerdict(new Verdict(0, '', ['hosting']));
+	public function testTheTiersInForceAreKeptWithTheScore(): void {
+		$this->context->setVerdict(new Verdict(0, '', ['tor']));
 		$risk = $this->scorer()->score(SourceKey::fromIp(self::IP));
-		$this->assertSame(5, $risk->score);
+		$this->assertSame(2, $risk->score);
 		$this->assertSame(RiskAssessment::TIER_ELEVATED, $risk->tier);
-		$this->assertSame(8, $risk->lower(10));
-		$this->assertSame(['elevated' => 2, 'high' => 6], $risk->toArray()['tiers'], 'The tiers in force are kept with the score');
-
-		$this->settings->setGlobal(GlobalSettings::RISK_POINTS_HOSTING, 0);
-		$this->assertSame([], $this->scorer()->score(SourceKey::fromIp(self::IP))->parts, 'A fact worth 0 points is left out');
+		$this->assertSame(5, $risk->lower(10));
+		$this->assertSame(['elevated' => 2, 'high' => 4], $risk->toArray()['tiers']);
 	}
 
 	public function testOffItIsNeutralAndAsksNothing(): void {

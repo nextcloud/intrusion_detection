@@ -27,28 +27,19 @@ const mounted: { unmount: () => void }[] = []
  * @param overrides - Further fields
  */
 function setting(name: string, value: number | boolean | string[], overrides: Partial<GlobalSetting> = {}): GlobalSetting {
-	const type = typeof value === 'boolean' ? 'bool' : Array.isArray(value) ? 'string_list' : (name.startsWith('risk_factor') ? 'float' : 'int')
+	const type = typeof value === 'boolean' ? 'bool' : Array.isArray(value) ? 'string_list' : 'int'
 	return { name, type, default: value, min: null, max: null, choices: [], value, label: name, help: '', unit: '', group: 'risk', ...overrides }
 }
 
 beforeEach(() => {
 	state.settings = [
 		setting('risk_enabled', true, { label: 'Use the risk score' }),
-		setting('risk_points_attack_tool', 2, { label: 'Attack tool', help: 'A failed login with an attack tool.' }),
-		setting('risk_points_tor', 2, { label: 'Tor exit node' }),
-		setting('risk_points_hosting', 1, { label: 'Cloud hosting network' }),
-		setting('risk_points_office', -10, { label: 'Office network' }),
-		setting('risk_tier_elevated', 2),
-		setting('risk_tier_high', 4),
-		setting('risk_factor_elevated', 0.5),
-		setting('risk_factor_high', 0.25),
 		setting('risky_network_office_networks', ['203.0.113.0/24'], { type: 'cidr_list', group: 'risky_network', label: 'Office networks' }),
 		setting('risky_network_exempt_groups', [], { group: 'risky_network', label: 'Exempt groups' }),
 	]
 	state.templates = {
-		riskNormal: 'Below {risk_tier_elevated} points: the limits as configured.',
-		riskElevated: 'From {risk_tier_elevated} points: limits × {risk_factor_elevated}, never below 2.',
-		riskHigh: 'From {risk_tier_high} points: limits × {risk_factor_high}, and every password login needs extra confirmation.',
+		riskPoints: 'Points: 2 for an attack tool, and -10 for an office network.',
+		riskTiers: 'From 2 points, the limits are multiplied by 0.5. From 4 points, by 0.25.',
 	}
 })
 
@@ -59,30 +50,24 @@ describe('RiskScoreSection', () => {
 		document.body.innerHTML = ''
 	})
 
-	test('shows the point table with the current points', () => {
+	test('shows the switch and the fixed points and tiers as text', () => {
 		const wrapper = mount(RiskScoreSection, { attachTo: document.body })
 		mounted.push(wrapper)
-		const rows = wrapper.findAll('tbody tr')
-		expect(rows.map((row) => row.find('th').text())).toEqual([
-			expect.stringContaining('Attack tool'),
-			expect.stringContaining('Tor exit node'),
-			expect.stringContaining('Cloud hosting network'),
-			expect.stringContaining('Office network'),
-		])
-		expect(rows[0]!.find('td').text()).toBe('2')
-		expect(rows[3]!.find('td').text()).toBe('-10')
+		expect(wrapper.get('[data-test="risk-points"]').text()).toBe('Points: 2 for an attack tool, and -10 for an office network.')
+		expect(wrapper.get('[data-test="risk-tiers"]').text()).toContain('From 4 points, by 0.25.')
+		expect(wrapper.text()).toContain('Use the risk score')
+		expect(wrapper.findAll('input[type="text"]')).toHaveLength(0)
 		expect(wrapper.text()).toContain('On')
 	})
 
-	test('the tiers are live sentences that follow the fields while typing', async () => {
+	test('saves the switch', async () => {
+		vi.mocked(updateSettings).mockResolvedValue({ settings: state.settings, templates: state.templates })
 		const wrapper = mount(RiskScoreSection, { attachTo: document.body })
 		mounted.push(wrapper)
-		expect(wrapper.text()).toContain('From 4 points: limits × 0.25')
-		await wrapper.get('[data-test="settings-fields"] button').trigger('click')
-		// The four points come first, then the two tiers.
-		await wrapper.findAll('input[type="text"]')[5]!.setValue('6')
+		await wrapper.get('input[type="checkbox"]').setValue(false)
+		await wrapper.get('form').trigger('submit')
 		await flushPromises()
-		expect(wrapper.text()).toContain('From 6 points: limits × 0.25')
+		expect(updateSettings).toHaveBeenCalledWith({ risk_enabled: false })
 	})
 
 	test('says when the score is off', () => {
