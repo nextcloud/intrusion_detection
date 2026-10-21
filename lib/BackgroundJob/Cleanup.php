@@ -20,7 +20,6 @@ use OCA\IntrusionDetection\Db\LockLinkMapper;
 use OCA\IntrusionDetection\Db\LoginHistoryMapper;
 use OCA\IntrusionDetection\Db\LoginMapper;
 use OCA\IntrusionDetection\Db\ProtectedAccountMapper;
-use OCA\IntrusionDetection\Db\ResetSuppressionMapper;
 use OCA\IntrusionDetection\Db\SecurityChangeMapper;
 use OCA\IntrusionDetection\Db\StepUpSessionMapper;
 use OCA\IntrusionDetection\Db\TokenOriginMapper;
@@ -30,6 +29,7 @@ use OCA\IntrusionDetection\Detection\DetectionTotals;
 use OCA\IntrusionDetection\KnownDevice\KnownDevices;
 use OCA\IntrusionDetection\Personal\FailedLoginStats;
 use OCA\IntrusionDetection\Response\FlaggedSources;
+use OCA\IntrusionDetection\Response\ResetMailSuppressor;
 use OCA\IntrusionDetection\Takeover\SecurityChangeLog;
 use OCP\AppFramework\Utility\ITimeFactory;
 use OCP\BackgroundJob\IJob;
@@ -60,7 +60,7 @@ class Cleanup extends TimedJob {
 		private readonly IDBConnection $db,
 		private readonly ProtectedAccountMapper $protectedAccounts,
 		private readonly AlertMapper $alerts,
-		private readonly ResetSuppressionMapper $resetSuppressions,
+		private readonly ResetMailSuppressor $resetMails,
 		private readonly TokenOriginMapper $tokenOrigins,
 		private readonly TrustedNetworkMapper $trustedNetworks,
 		private readonly StepUpSessionMapper $stepUpSessions,
@@ -89,7 +89,7 @@ class Cleanup extends TimedJob {
 		$this->flags->deleteExpired($now);
 		$this->protectedAccounts->deleteExpired($now);
 		$this->alerts->deleteOlderThan($now - self::ALERT_RETENTION);
-		$this->resetSuppressions->deleteExpired($now);
+		$this->resetMails->deleteExpired();
 		$this->tokenOrigins->deleteOlderThan($now - self::TOKEN_ORIGIN_RETENTION);
 		$this->trustedNetworks->deleteExpired($now);
 		$this->abandonedLogins->end();

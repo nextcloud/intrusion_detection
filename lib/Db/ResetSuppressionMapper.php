@@ -49,6 +49,22 @@ class ResetSuppressionMapper {
 	}
 
 	/**
+	 * When the account's suppression started and when it ends, or null.
+	 *
+	 * @return ?array{createdAt: int, expiresAt: int}
+	 */
+	public function find(string $uid): ?array {
+		$qb = $this->db->getQueryBuilder();
+		$qb->select('created_at', 'expires_at')
+			->from(self::TABLE)
+			->where($qb->expr()->eq('uid', $qb->createNamedParameter($uid)));
+		$result = $qb->executeQuery();
+		$row = $result->fetch();
+		$result->closeCursor();
+		return is_array($row) ? ['createdAt' => (int)$row['created_at'], 'expiresAt' => (int)$row['expires_at']] : null;
+	}
+
+	/**
 	 * When the account's suppression ends, 0 if it has none.
 	 */
 	public function expiresAt(string $uid): int {
@@ -69,10 +85,15 @@ class ResetSuppressionMapper {
 		return $qb->executeStatement() > 0;
 	}
 
-	public function deleteExpired(int $now): int {
+	/**
+	 * Delete suppressions that ended and started before a time: a row is
+	 * kept for its whole period, so that a new suppression cannot start in it.
+	 */
+	public function deleteExpired(int $now, int $startedBefore = PHP_INT_MAX): int {
 		$qb = $this->db->getQueryBuilder();
 		$qb->delete(self::TABLE)
-			->where($qb->expr()->lte('expires_at', $qb->createNamedParameter($now, IQueryBuilder::PARAM_INT)));
+			->where($qb->expr()->lte('expires_at', $qb->createNamedParameter($now, IQueryBuilder::PARAM_INT)))
+			->andWhere($qb->expr()->lt('created_at', $qb->createNamedParameter($startedBefore, IQueryBuilder::PARAM_INT)));
 		return $qb->executeStatement();
 	}
 }

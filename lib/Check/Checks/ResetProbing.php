@@ -74,9 +74,9 @@ final class ResetProbing implements ICheck, IExplainsDetection, IExplainsToUser,
 				name: $l->t('Password reset abuse'),
 				summary: $l->t('Someone uses "Forgot password" to find accounts, or floods one person with reset emails.'),
 				detects: $l->t('The "Forgot password" form gives the same answer whether an account exists or not, but attackers still use it. They try many names to find out which accounts exist, or send one person so many reset emails that the person gets annoyed, misses a real one, or clicks one they did not ask for.'),
-				decides: $l->t('Fires when one address asks for password resets for {enum_min_inputs} different names or email addresses within {enum_window}; the address is blocked. It also fires when one account is asked for {flood_min_requests} reset emails within {flood_window}, from any number of addresses: then no reset emails are sent to it for {suppress_duration} after the last request, and the person is told once.'),
+				decides: $l->t('Fires when one address asks for password resets for {enum_min_inputs} different names or email addresses within {enum_window}; the address is blocked. It also fires when one account is asked for {flood_min_requests} reset emails within {flood_window}, from any number of addresses: then no reset emails are sent to it for {suppress_duration} after the last request, for at most a day within two days, and the person is told once, with the latest time the emails are held back.'),
 				wrong: $l->t('Someone who does not remember their login name and tries a few variants; it takes several different ones to fire. A person who asks for many reset emails because none arrives: they get no further emails for a while and are told why. The answer on the page is always the same, so nobody learns whether an email was sent.'),
-				data: $l->t('Reset requests: the address, a fingerprint of what was typed (never the text itself), the account if it matches one, and the time, deleted after 1 hour. Accounts whose reset emails are held back: the account and until when.'),
+				data: $l->t('Reset requests: the address, a fingerprint of what was typed (never the text itself), the account if it matches one, and the time, deleted after 1 hour. Accounts whose reset emails are held back: the account, since and until when, kept for two days.'),
 			),
 			simulatable: true,
 		);
@@ -129,9 +129,11 @@ final class ResetProbing implements ICheck, IExplainsDetection, IExplainsToUser,
 	public function userNotice(Detection $detection, IL10N $l): UserNotice {
 		$facts = DetectionFacts::of($detection);
 		$until = null;
+		$latest = null;
 		foreach ($detection->getActionList() as $action) {
 			if ($action['type'] === ResponseType::SuppressResetMail->value && $action['enforced'] && is_array($action['ref'] ?? null)) {
 				$until = (int)($action['ref']['until'] ?? 0) ?: null;
+				$latest = (int)($action['ref']['latest'] ?? 0) ?: null;
 			}
 		}
 		$message = [
@@ -144,6 +146,9 @@ final class ResetProbing implements ICheck, IExplainsDetection, IExplainsToUser,
 		];
 		if ($until !== null) {
 			$message[] = $l->t('Nextcloud stopped sending them until %s.', [$this->dates->dateTime($until)]);
+			if ($latest !== null && $latest > $until) {
+				$message[] = $l->t('If someone keeps asking, they stay held back until %s at the latest, never longer.', [$this->dates->dateTime($latest)]);
+			}
 		}
 		$message[] = $l->t('Your password has not been changed.');
 		$message[] = $until !== null

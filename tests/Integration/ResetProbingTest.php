@@ -134,7 +134,25 @@ class ResetProbingTest extends RequestEventTestCase {
 		$this->assertSame('Someone asked for many password reset emails for your account', $notice->subject);
 		$this->assertStringContainsString('Someone asked for password reset emails for your account 4 times within 1 hour.', implode(' ', $notice->message));
 		$this->assertStringContainsString('Nextcloud stopped sending them until', implode(' ', $notice->message));
+		$this->assertStringContainsString('If someone keeps asking, they stay held back until', implode(' ', $notice->message), 'The person learns the latest end');
+		$this->assertEqualsWithDelta(time() + ResetMailSuppressor::MAX_SUPPRESSION, $actions[ResponseType::SuppressResetMail->value]['ref']['latest'], 5);
 		$this->assertStringContainsString('Your password has not been changed.', implode(' ', $notice->message));
+	}
+
+	public function testOnceTheTimeIsUsedUpTheResponseSaysEmailsAreSentAgain(): void {
+		$this->settings->setParam(ResetProbing::ID, 'flood_min_requests', 3);
+		$victim = $this->user('ids-reset-victim', 'victim@example.com');
+		Server::get(ResetSuppressionMapper::class)->suppress($victim->getUID(), null, time() - ResetMailSuppressor::MAX_SUPPRESSION - 60, time() - 60);
+		for ($i = 1; $i <= 3; $i++) {
+			$this->askForReset('203.0.113.' . $i, $victim->getUID());
+		}
+		$this->assertCount(3, $this->sentTo, 'Every email is sent');
+		$detection = $this->detectionsOf(ResetProbing::ID)[0];
+		$action = array_values(array_filter($detection->getActionList(), static fn (array $a): bool => $a['type'] === ResponseType::SuppressResetMail->value))[0];
+		$this->assertFalse($action['enforced']);
+		$this->assertSame(ResponseOutcome::NOTE_HELD_BACK, $action['note']);
+		$narrative = Server::get(NarrativeBuilder::class)->build($detection, Server::get(IFactory::class)->get(Application::APP_ID, 'en'));
+		$this->assertStringContainsString('are sent again: they were already held back for as long as allowed', implode(' ', $narrative->done));
 	}
 
 	public function testEnumerationBlocksTheAddress(): void {
@@ -216,16 +234,49 @@ class ResetProbingTest extends RequestEventTestCase {
 
 	public function testSuppressionsEndAndAreCleanedUp(): void {
 		$suppressor = $this->suppressor();
-		$this->assertSame(time() + 600, $suppressor->suppress('ids-reset-a', time() + 600));
-		$this->assertSame(time() + 600, $suppressor->suppress('ids-reset-a', time() + 300), 'A shorter suppression does not shorten a running one');
-		$this->assertSame(time() + 900, $suppressor->suppress('ids-reset-a', time() + 900), 'A longer one extends it');
+		$this->assertSame(time() + 600, $suppressor->suppress('ids-reset-a', time() + 600)['until']);
+		$this->assertSame(time() + 600, $suppressor->suppress('ids-reset-a', time() + 300)['until'], 'A shorter suppression does not shorten a running one');
+		$this->assertSame(time() + 900, $suppressor->suppress('ids-reset-a', time() + 900)['until'], 'A longer one extends it');
 		$suppressor->suppress('ids-reset-b', time() - 1);
 		$this->assertFalse($suppressor->isSuppressed('ids-reset-b'));
 		$this->assertTrue($suppressor->isSuppressed('ids-reset-a'));
 
 		self::invokePrivate(Server::get(Cleanup::class), 'run', [null]);
-		$this->assertSame(0, Server::get(ResetSuppressionMapper::class)->expiresAt('ids-reset-b'));
+		$this->assertNotNull(Server::get(ResetSuppressionMapper::class)->find('ids-reset-b'), 'Kept for its period');
 		$this->assertSame(time() + 900, Server::get(ResetSuppressionMapper::class)->expiresAt('ids-reset-a'));
+	}
+
+	public function testAnOutsiderCannotHoldBackResetEmailsForever(): void {
+		$now = time();
+		$suppressor = $this->suppressor(function () use (&$now): int {
+			return $now;
+		});
+		$start = $now;
+		$this->assertSame(['until' => $start + 3600, 'latest' => $start + ResetMailSuppressor::MAX_SUPPRESSION], $suppressor->suppress('ids-reset-a', $now + 3600));
+		// The flood goes on: every request extends the suppression by an hour, up to the bound.
+		for ($hour = 1; $hour <= 30; $hour++) {
+			$now = $start + $hour * 3600;
+			$result = $suppressor->suppress('ids-reset-a', $now + 3600);
+		}
+		$this->assertSame($start + ResetMailSuppressor::MAX_SUPPRESSION, $result['latest']);
+		$this->assertLessThan($now, $result['until'], 'After a day emails are sent again');
+		$this->assertFalse($suppressor->isSuppressed('ids-reset-a'));
+
+		$now = $start + ResetMailSuppressor::PERIOD - 60;
+		$this->assertFalse($suppressor->isSuppressed('ids-reset-a'));
+		$this->assertLessThan($now, $suppressor->suppress('ids-reset-a', $now + 3600)['until'], 'Not again within the period');
+
+		$now = $start + ResetMailSuppressor::PERIOD + 1;
+		$this->assertSame($now + 3600, $suppressor->suppress('ids-reset-a', $now + 3600)['until'], 'A new period may start');
+	}
+
+	public function testTheCleanupKeepsARowForItsWholePeriod(): void {
+		$mapper = Server::get(ResetSuppressionMapper::class);
+		$mapper->suppress('ids-reset-old', null, time() - ResetMailSuppressor::PERIOD - 10, time() - 3600);
+		$mapper->suppress('ids-reset-recent', null, time() - 7200, time() - 3600);
+		self::invokePrivate(Server::get(Cleanup::class), 'run', [null]);
+		$this->assertNull($mapper->find('ids-reset-old'));
+		$this->assertNotNull($mapper->find('ids-reset-recent'));
 	}
 
 	private function askForReset(string $ip, string $input): JSONResponse {
@@ -274,10 +325,18 @@ class ResetProbingTest extends RequestEventTestCase {
 		return json_encode([$response->getStatus(), $response->getHeaders(), $response->render(), $response->isThrottled(), $response->getThrottleMetadata()], JSON_THROW_ON_ERROR);
 	}
 
-	private function suppressor(): ResetMailSuppressor {
+	/**
+	 * @param ?\Closure(): int $clock
+	 */
+	private function suppressor(?\Closure $clock = null): ResetMailSuppressor {
 		// Without a cache, so that suppressions set by one test are seen at once and not by the next.
 		$cacheFactory = $this->createMock(ICacheFactory::class);
-		return new ResetMailSuppressor(Server::get(ResetSuppressionMapper::class), Server::get(ITimeFactory::class), $cacheFactory);
+		$time = Server::get(ITimeFactory::class);
+		if ($clock !== null) {
+			$time = $this->createMock(ITimeFactory::class);
+			$time->method('getTime')->willReturnCallback($clock);
+		}
+		return new ResetMailSuppressor(Server::get(ResetSuppressionMapper::class), $time, $cacheFactory);
 	}
 
 	protected function user(string $prefix, ?string $email = null): IUser {
