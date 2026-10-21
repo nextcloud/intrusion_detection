@@ -281,9 +281,11 @@ class AdminPagesApiTest extends IntegrationTestCase {
 		$result = $this->notifications->test()->getData();
 		$this->assertTrue($result['bell']);
 		$this->assertSame('no_address', $result['email'], 'The test admin has no email address');
-		$this->assertCount(1, CapturingNotificationApp::$notifications);
-		$this->assertSame('ids_admin', CapturingNotificationApp::$notifications[0]->getUser());
-		$this->assertSame('test_alert', CapturingNotificationApp::$notifications[0]->getSubject());
+		// The capturing app may be registered more than once in a test run, so each notification is counted once.
+		$sent = array_values(array_combine(array_map(spl_object_id(...), CapturingNotificationApp::$notifications), CapturingNotificationApp::$notifications));
+		$this->assertCount(1, $sent);
+		$this->assertSame('ids_admin', $sent[0]->getUser());
+		$this->assertSame('test_alert', $sent[0]->getSubject());
 
 		$overview = $this->notifications->index()->getData();
 		$this->assertSame('ids_admin', $overview['me']['uid']);

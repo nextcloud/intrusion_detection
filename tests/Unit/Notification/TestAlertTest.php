@@ -11,7 +11,9 @@ namespace OCA\IntrusionDetection\Tests\Unit\Notification;
 
 use OCA\IntrusionDetection\Config\Prerequisites;
 use OCA\IntrusionDetection\Db\AlertMapper;
+use OCA\IntrusionDetection\Db\ApprovalMapper;
 use OCA\IntrusionDetection\Db\DetectionMapper;
+use OCA\IntrusionDetection\Explain\DateFormatter;
 use OCA\IntrusionDetection\Explain\NarrativeBuilder;
 use OCA\IntrusionDetection\Notification\AdminAlerts;
 use OCA\IntrusionDetection\Notification\AdminLinks;
@@ -19,8 +21,11 @@ use OCA\IntrusionDetection\Notification\MailContent;
 use OCA\IntrusionDetection\Notification\Mails;
 use OCA\IntrusionDetection\Notification\Notifier;
 use OCA\IntrusionDetection\Notification\TestAlert;
+use OCA\IntrusionDetection\Notification\UserLinks;
+use OCA\IntrusionDetection\Notification\UserMessages;
 use OCP\AppFramework\Utility\ITimeFactory;
 use OCP\IUser;
+use OCP\IUserManager;
 use OCP\L10N\IFactory;
 use OCP\Notification\IManager as INotificationManager;
 use OCP\Notification\INotification;
@@ -104,6 +109,11 @@ class TestAlertTest extends TestCase {
 			$this->createMock(AdminAlerts::class),
 			$this->createMock(NarrativeBuilder::class),
 			$links,
+			$this->createMock(UserMessages::class),
+			$this->createMock(UserLinks::class),
+			$this->createMock(IUserManager::class),
+			$this->createMock(ApprovalMapper::class),
+			$this->createMock(DateFormatter::class),
 		);
 		$notification = Server::get(INotificationManager::class)->createNotification();
 		$notification->setApp('intrusion_detection')->setUser('alice')->setDateTime(new \DateTime())->setObject(TestAlert::OBJECT_TYPE, '1')->setSubject(TestAlert::SUBJECT);

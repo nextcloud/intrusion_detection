@@ -23,9 +23,16 @@ describe('sections within a tab', () => {
 	})
 
 	test('a tab with sections but without a component is shown', () => {
-		expect(visibleTabs().map((tab) => tab.id)).toContain('notifications')
+		tabs.push({ id: 'test-sections-only', name: () => 'Test', icon: '', order: 1 })
+		tabSections.push({ id: 'test-only', tab: 'test-sections-only', order: 10, component: First })
+		added.push('test-only')
+		try {
+			expect(visibleTabs().map((tab) => tab.id)).toContain('test-sections-only')
+		} finally {
+			tabs.splice(tabs.findIndex((tab) => tab.id === 'test-sections-only'), 1)
+		}
+		expect(visibleTabs().map((tab) => tab.id)).not.toContain('confirmation')
 		expect(sectionsOf('notifications').map((s) => s.id)).toEqual(['digest', 'webhook-events'])
-		expect(visibleTabs().map((tab) => tab.id)).not.toContain('decoys')
 	})
 
 	test('sections follow the tab component, in order', () => {

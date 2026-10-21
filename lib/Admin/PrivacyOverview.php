@@ -9,6 +9,7 @@ declare(strict_types=1);
 
 namespace OCA\IntrusionDetection\Admin;
 
+use OCA\IntrusionDetection\AdminChange\ApprovalService;
 use OCA\IntrusionDetection\Blocklist\BlocklistSource;
 use OCA\IntrusionDetection\Blocklist\BlocklistSync;
 use OCA\IntrusionDetection\Blocklist\ContributionOverview;
@@ -183,6 +184,27 @@ class PrivacyOverview {
 				'why' => $l->t('To recognise fast attacks without writing to the database on every request.'),
 				'retention' => $l->t('Minutes, at most an hour'),
 				'where' => $l->t('memory cache'),
+			],
+			DataKind::AccountState => [
+				'name' => $l->t('Account state'),
+				'what' => $l->t('Per account: when the password was last checked against the breach list, whether it was found there, and whether a new password is required.'),
+				'why' => $l->t('To check each password only as often as needed, and to ask for a new one at the next login.'),
+				'retention' => $l->t('Until the account is deleted'),
+				'where' => $l->t('user preferences'),
+			],
+			DataKind::ConfigSnapshot => [
+				'name' => $l->t('Settings snapshot'),
+				'what' => $l->t('A keyed hash of each watched security setting, and its value where it is not secret.'),
+				'why' => $l->t('To recognise security settings that were changed outside the web interface.'),
+				'retention' => $l->t('Replaced at every check'),
+				'where' => 'ids_config_snapshot',
+			],
+			DataKind::Approvals => [
+				'name' => $l->t('Approval requests'),
+				'what' => $l->t('Who asked for which change, who decided, and when.'),
+				'why' => $l->t('So that a second administrator can approve new administrators.'),
+				'retention' => $l->n('%n day after the decision', '%n days after the decision', ApprovalService::RETENTION_DAYS),
+				'where' => 'ids_approvals',
 			],
 		};
 	}
