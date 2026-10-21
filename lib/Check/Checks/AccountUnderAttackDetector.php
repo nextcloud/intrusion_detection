@@ -34,7 +34,12 @@ class AccountUnderAttackDetector {
 	public const KINDS = [AttemptKind::PasswordLogin, AttemptKind::AppPassword];
 	/** Blocking blocks at most this many addresses per detection */
 	public const MAX_BAN_TARGETS = 500;
-	/** An address is only blocked when it tried this many different passwords */
+	/**
+	 * An address is only blocked when it tried this many different passwords
+	 * ({@see AttemptMapper::countsPerSource()}). Attempts with the shape of an
+	 * app password count as none: a device with a revoked app password sends
+	 * it over and over, and nobody guesses a generated one.
+	 */
 	public const MIN_PASSWORDS_TO_BLOCK = 4;
 
 	public function __construct(

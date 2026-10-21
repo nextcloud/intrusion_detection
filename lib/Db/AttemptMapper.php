@@ -271,6 +271,13 @@ class AttemptMapper {
 	 * different login names and the different passwords (by fingerprint),
 	 * for deciding which further addresses a detection may block.
 	 *
+	 * Passwords are fingerprinted under a key of the UTC day, so one password
+	 * tried before and after midnight has two fingerprints. They are counted
+	 * per day, before and after the first midnight after `$since`, and the
+	 * larger count is taken: a password is never counted twice, at the cost
+	 * of counting fewer around midnight. Attempts without a fingerprint
+	 * (those with the shape of an app password) count as no password.
+	 *
 	 * @param 'ip_key'|'net_key'|'pw_fp'|'uid'|'share_id'|'name_hmac' $column
 	 * @param list<string|int> $values
 	 * @param list<AttemptKind> $kinds
@@ -285,10 +292,14 @@ class AttemptMapper {
 		}
 		$qb = $this->db->getQueryBuilder();
 		$type = $column === 'share_id' ? IQueryBuilder::PARAM_INT_ARRAY : IQueryBuilder::PARAM_STR_ARRAY;
+		$midnight = $qb->createNamedParameter((intdiv($since, 86400) + 1) * 86400, IQueryBuilder::PARAM_INT);
+		$createdAt = $qb->getColumnName('created_at');
+		$password = $qb->getColumnName('pw_fp');
 		$qb->select('ip_key')
 			->selectAlias($qb->func()->count('*'), 'failures')
 			->selectAlias($qb->createFunction('COUNT(DISTINCT ' . $qb->getColumnName('name_hmac') . ')'), 'names')
-			->selectAlias($qb->createFunction('COUNT(DISTINCT ' . $qb->getColumnName('pw_fp') . ')'), 'passwords')
+			->selectAlias($qb->createFunction('COUNT(DISTINCT CASE WHEN ' . $createdAt . ' < ' . $midnight . ' THEN ' . $password . ' END)'), 'passwords_before')
+			->selectAlias($qb->createFunction('COUNT(DISTINCT CASE WHEN ' . $createdAt . ' >= ' . $midnight . ' THEN ' . $password . ' END)'), 'passwords_after')
 			->from(self::TABLE)
 			->where($qb->expr()->in($column, $qb->createNamedParameter($values, $type)))
 			->andWhere($qb->expr()->gte('created_at', $qb->createNamedParameter($since, IQueryBuilder::PARAM_INT)))
@@ -298,7 +309,7 @@ class AttemptMapper {
 		$result = $qb->executeQuery();
 		$counts = [];
 		while ($row = $result->fetch()) {
-			$counts[(string)$row['ip_key']] = ['failures' => (int)$row['failures'], 'names' => (int)$row['names'], 'passwords' => (int)$row['passwords']];
+			$counts[(string)$row['ip_key']] = ['failures' => (int)$row['failures'], 'names' => (int)$row['names'], 'passwords' => max((int)$row['passwords_before'], (int)$row['passwords_after'])];
 		}
 		$result->closeCursor();
 		return $counts;

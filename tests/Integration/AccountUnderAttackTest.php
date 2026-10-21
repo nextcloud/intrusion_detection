@@ -12,17 +12,22 @@ namespace OCA\IntrusionDetection\Tests\Integration;
 use OCA\IntrusionDetection\AppInfo\Application;
 use OCA\IntrusionDetection\Audit\AuditLogger;
 use OCA\IntrusionDetection\Check\Checks\AccountUnderAttack;
+use OCA\IntrusionDetection\Check\Checks\AccountUnderAttackDetector;
 use OCA\IntrusionDetection\Check\Checks\CredentialStuffing;
 use OCA\IntrusionDetection\Check\Checks\PasswordSpraying;
 use OCA\IntrusionDetection\Check\Mode;
 use OCA\IntrusionDetection\Check\ResponseType;
+use OCA\IntrusionDetection\Crypto\Fingerprinter;
+use OCA\IntrusionDetection\Db\AttemptKind;
 use OCA\IntrusionDetection\Db\BanMapper;
 use OCA\IntrusionDetection\Db\ProtectedAccountMapper;
 use OCA\IntrusionDetection\Explain\IExplainsToUser;
+use OCA\IntrusionDetection\Net\SourceKey;
 use OCA\IntrusionDetection\Notification\UserAlerts;
 use OCA\IntrusionDetection\Response\AccountProtection;
 use OCP\AppFramework\Utility\ITimeFactory;
 use OCP\ICacheFactory;
+use OCP\IConfig;
 use OCP\L10N\IFactory;
 use OCP\Server;
 use PHPUnit\Framework\Attributes\Group;
@@ -134,6 +139,33 @@ class AccountUnderAttackTest extends LoginFailureTestCase {
 		$this->assertSame([], $bans->findActiveForKeys(['203.0.113.21'], time()));
 	}
 
+	public function testOnePasswordTriedAcrossMidnightIsOnePassword(): void {
+		$midnight = (intdiv(time(), 86400) - 1) * 86400;
+		$before = $this->fingerprinterAt($midnight - 600);
+		$after = $this->fingerprinterAt($midnight + 600);
+		// A device with two old passwords, before and after midnight.
+		foreach ([$before, $after] as $i => $fingerprinter) {
+			foreach (['old-1', 'old-2'] as $password) {
+				$this->insertAttempt('203.0.113.30', $fingerprinter->password($password), $midnight - 600 + $i * 1200);
+			}
+		}
+		// A guesser with four passwords before midnight and one after.
+		foreach (['g-1', 'g-2', 'g-3', 'g-4'] as $password) {
+			$this->insertAttempt('203.0.113.31', $before->password($password), $midnight - 300);
+		}
+		$this->insertAttempt('203.0.113.31', $after->password('g-5'), $midnight + 300);
+		// A device with a revoked app password: no fingerprint.
+		for ($i = 0; $i < 10; $i++) {
+			$this->insertAttempt('203.0.113.32', null, $midnight + $i, AttemptKind::AppPassword);
+		}
+
+		$counts = $this->attempts->countsPerSource('uid', [$this->uid], AccountUnderAttackDetector::KINDS, $midnight - 1800);
+		$this->assertSame(['failures' => 4, 'names' => 1, 'passwords' => 2], $counts['203.0.113.30'], 'Not four');
+		$this->assertSame(4, $counts['203.0.113.31']['passwords']);
+		$this->assertSame(['failures' => 10, 'names' => 1, 'passwords' => 0], $counts['203.0.113.32']);
+		$this->assertLessThan(AccountUnderAttackDetector::MIN_PASSWORDS_TO_BLOCK, $counts['203.0.113.30']['passwords']);
+	}
+
 	public function testObserveProtectsNothing(): void {
 		$this->settings->setMode(AccountUnderAttack::ID, Mode::Observe);
 		$this->attack(10, 5);
@@ -166,6 +198,17 @@ class AccountUnderAttackTest extends LoginFailureTestCase {
 		for ($i = 1; $i <= $failures; $i++) {
 			$this->failLogin('198.51.100.' . ($i % $sources + 1), $this->uid);
 		}
+	}
+
+	private function fingerprinterAt(int $time): Fingerprinter {
+		$clock = $this->createMock(ITimeFactory::class);
+		$clock->method('getTime')->willReturn($time);
+		return new Fingerprinter(Server::get(IConfig::class), $clock);
+	}
+
+	private function insertAttempt(string $ip, ?string $passwordFingerprint, int $at, AttemptKind $kind = AttemptKind::PasswordLogin): void {
+		$source = SourceKey::fromIp($ip);
+		$this->attempts->insert($kind, $source->ipKey, $source->netKey, bin2hex(Server::get(Fingerprinter::class)->name($this->uid)), $this->uid, null, $passwordFingerprint === null ? null : bin2hex($passwordFingerprint), $at);
 	}
 
 	private function freshProtection(): AccountProtection {
