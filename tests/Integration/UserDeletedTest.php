@@ -80,7 +80,7 @@ class UserDeletedTest extends AccountTestCase {
 		$this->assertStringContainsString($other, $dump, 'Other accounts are untouched');
 
 		$this->assertNotNull(Server::get(TokenOriginMapper::class)->find(502));
-		$this->assertSame(1, Server::get(LoginMapper::class)->distinctUsersForIp('203.0.113.1', 0));
+		$this->assertSame(1, count(Server::get(LoginMapper::class)->distinctUidsForIp('203.0.113.1', 0, 100)));
 		$this->assertSame(1, Server::get(AttemptMapper::class)->stats('ip_key', ['203.0.113.1'], [], 0)->failures, 'The attempt still counts against its address');
 
 		$mapper = Server::get(DetectionMapper::class);

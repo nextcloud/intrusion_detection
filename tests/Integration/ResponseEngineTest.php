@@ -53,6 +53,8 @@ use Psr\Log\LoggerInterface;
  */
 #[Group('DB')]
 class ResponseEngineTest extends IntegrationTestCase {
+	use CreatesAccounts;
+
 	private ResponseEngine $engine;
 	private Settings $settings;
 	private DetectionMapper $detections;
@@ -64,6 +66,11 @@ class ResponseEngineTest extends IntegrationTestCase {
 		$this->settings = Server::get(Settings::class);
 		$this->detections = Server::get(DetectionMapper::class);
 		$this->bans = Server::get(BanMapper::class);
+	}
+
+	protected function tearDown(): void {
+		$this->deleteAccounts();
+		parent::tearDown();
 	}
 
 	public function testProtectRecordsTheDetectionAndActs(): void {
@@ -242,7 +249,7 @@ class ResponseEngineTest extends IntegrationTestCase {
 	public function testTheSafetyValveRaisesASharedAddressDetectionInsteadOfABan(): void {
 		$source = SourceKey::fromIp('198.51.100.7');
 		$logins = Server::get(LoginMapper::class);
-		foreach (['alice', 'bob', 'carol', 'dave', 'erin'] as $uid) {
+		foreach ($this->accounts(5) as $uid) {
 			$logins->record($source->ipKey, $source->netKey, $uid, intdiv(time(), 3600));
 		}
 		$detection = $this->engine->handle($this->draft('198.51.100.7'));

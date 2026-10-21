@@ -18,6 +18,7 @@ use OCA\IntrusionDetection\Config\Settings;
 use OCA\IntrusionDetection\Db\KeyMatch;
 use OCA\IntrusionDetection\Db\LoginHistoryMapper;
 use OCA\IntrusionDetection\Db\LoginMapper;
+use OCA\IntrusionDetection\Login\EstablishedAccounts;
 use OCA\IntrusionDetection\Net\ProtectedRanges;
 use OCA\IntrusionDetection\Net\ProxySuspect;
 use OCA\IntrusionDetection\Net\RangeCodec;
@@ -30,9 +31,11 @@ use OCP\IMemcache;
  * Why an address or network must not be blocked automatically, asked only
  * when a block is about to be created (never on the common path):
  *
- * - Safety valve: at least BAN_SHARED_IP_USERS different people logged in
- *   successfully from the address (for a network: from the network) within
- *   24 hours. An office network or a reverse proxy.
+ * - Safety valve: at least BAN_SHARED_IP_USERS different people, whose
+ *   accounts are at least 3 days old or administrators
+ *   ({@see EstablishedAccounts}), logged in successfully from the address
+ *   (for a network: from the network) within 24 hours. An office network
+ *   or a reverse proxy; freshly registered accounts cannot open it.
  * - Unconfigured reverse proxy, while no trusted proxy is configured: a
  *   private address most of the latest logins of different people came
  *   from ({@see ProxySuspect}), or a private address an administrator
@@ -76,6 +79,7 @@ class BanExemptions {
 		private readonly ProtectedRanges $protected,
 		private readonly IGroupManager $groups,
 		private readonly ICacheFactory $cacheFactory,
+		private readonly EstablishedAccounts $accounts,
 	) {
 	}
 
@@ -89,7 +93,7 @@ class BanExemptions {
 	public function forAddress(SourceKey $source, int $now, string $checkId, ?string $uid = null): ?BanResult {
 		[$column, $keys] = $source->family === 4 ? ['ip', new KeyMatch([$source->ip])] : ['net_key', new KeyMatch([$source->ipKey])];
 		$facts = $this->remembered('a:' . $source->ipKey, fn (): array => [
-			'shared' => $this->sharedUsers($this->logins->distinctUsersForIp($source->ipKey, intdiv($now - 86400, 3600))),
+			'shared' => $this->sharedUsers($this->logins->distinctUidsForIp($source->ipKey, intdiv($now - 86400, 3600), self::MAX_ACCOUNTS), $now),
 			'proxy' => $this->proxies->accountsBehind($source),
 		] + $this->accounts($column, $keys, $now, ProxySuspect::isPrivate($source)));
 		return $this->decide($facts, $checkId, $uid, $column, $keys, $now);
@@ -119,7 +123,7 @@ class BanExemptions {
 			}
 			$first = SourceKey::tryFromIp(explode('/', $cidr, 2)[0]);
 			return [
-				'shared' => $this->sharedUsers($this->logins->distinctUsersForNets($netKeys, intdiv($now - 86400, 3600))),
+				'shared' => $this->sharedUsers($this->logins->distinctUidsForNets($netKeys, intdiv($now - 86400, 3600), self::MAX_ACCOUNTS), $now),
 				'proxy' => $proxy,
 			] + $this->accounts('net_key', $netKeys, $now, $first !== null && ProxySuspect::isPrivate($first));
 		});
@@ -185,11 +189,18 @@ class BanExemptions {
 	}
 
 	/**
-	 * The number of people, if it reaches the safety valve's threshold; 0 otherwise.
+	 * The number of people, if it reaches the safety valve's threshold; 0
+	 * otherwise. Only established accounts count ({@see EstablishedAccounts}).
+	 *
+	 * @param list<string> $uids
 	 */
-	private function sharedUsers(int $users): int {
+	private function sharedUsers(array $uids, int $now): int {
 		$threshold = $this->settings->getInt(GlobalSettings::BAN_SHARED_IP_USERS);
-		return $threshold > 0 && $users >= $threshold ? $users : 0;
+		if ($threshold <= 0 || count($uids) < $threshold) {
+			return 0;
+		}
+		$users = $this->accounts->count($uids, $now);
+		return $users >= $threshold ? $users : 0;
 	}
 
 	/**

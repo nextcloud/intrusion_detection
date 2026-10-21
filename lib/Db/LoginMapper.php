@@ -54,32 +54,21 @@ class LoginMapper {
 	}
 
 	/**
-	 * Distinct accounts that logged in from an address since a time.
+	 * The distinct accounts that logged in from an address since a time, at most `$limit`.
+	 *
+	 * @return list<string>
 	 */
-	public function distinctUsersForIp(string $ipKey, int $sinceHour): int {
-		return $this->distinctUsers('ip_key', $ipKey, $sinceHour);
+	public function distinctUidsForIp(string $ipKey, int $sinceHour, int $limit): array {
+		return $this->distinctUids(new KeyMatch([$ipKey]), 'ip_key', $sinceHour, $limit);
 	}
 
 	/**
-	 * Distinct accounts that logged in from a network since a time.
+	 * The distinct accounts that logged in from any of a set of networks since a time, at most `$limit`.
+	 *
+	 * @return list<string>
 	 */
-	public function distinctUsersForNet(string $netKey, int $sinceHour): int {
-		return $this->distinctUsers('net_key', $netKey, $sinceHour);
-	}
-
-	/**
-	 * Distinct accounts that logged in from any of a set of networks since a time.
-	 */
-	public function distinctUsersForNets(KeyMatch $netKeys, int $sinceHour): int {
-		$qb = $this->db->getQueryBuilder();
-		$qb->select($qb->createFunction('COUNT(DISTINCT ' . $qb->getColumnName('uid') . ')'))
-			->from(self::TABLE)
-			->where($netKeys->condition($qb, 'net_key'))
-			->andWhere($qb->expr()->gte('hour', $qb->createNamedParameter($sinceHour, IQueryBuilder::PARAM_INT)));
-		$result = $qb->executeQuery();
-		$count = (int)$result->fetchOne();
-		$result->closeCursor();
-		return $count;
+	public function distinctUidsForNets(KeyMatch $netKeys, int $sinceHour, int $limit): array {
+		return $this->distinctUids($netKeys, 'net_key', $sinceHour, $limit);
 	}
 
 	/**
@@ -113,15 +102,20 @@ class LoginMapper {
 		return $qb->executeStatement();
 	}
 
-	private function distinctUsers(string $column, string $value, int $sinceHour): int {
+	/**
+	 * @param 'ip_key'|'net_key' $column
+	 * @return list<string>
+	 */
+	private function distinctUids(KeyMatch $keys, string $column, int $sinceHour, int $limit): array {
 		$qb = $this->db->getQueryBuilder();
-		$qb->select($qb->createFunction('COUNT(DISTINCT ' . $qb->getColumnName('uid') . ')'))
+		$qb->selectDistinct('uid')
 			->from(self::TABLE)
-			->where($qb->expr()->eq($column, $qb->createNamedParameter($value)))
-			->andWhere($qb->expr()->gte('hour', $qb->createNamedParameter($sinceHour, IQueryBuilder::PARAM_INT)));
+			->where($keys->condition($qb, $column))
+			->andWhere($qb->expr()->gte('hour', $qb->createNamedParameter($sinceHour, IQueryBuilder::PARAM_INT)))
+			->setMaxResults($limit);
 		$result = $qb->executeQuery();
-		$count = (int)$result->fetchOne();
+		$uids = array_map('strval', $result->fetchFirstColumn());
 		$result->closeCursor();
-		return $count;
+		return $uids;
 	}
 }

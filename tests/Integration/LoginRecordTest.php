@@ -48,7 +48,7 @@ class LoginRecordTest extends IntegrationTestCase {
 		}
 		$this->assertSame($first, $this->queries() - $queries, 'repeated logins write nothing');
 		$request()->handle($this->event('bob'));
-		$this->assertSame(2, Server::get(LoginMapper::class)->distinctUsersForIp('203.0.113.40', 0));
+		$this->assertSame(2, count(Server::get(LoginMapper::class)->distinctUidsForIp('203.0.113.40', 0, 100)));
 	}
 
 	public function testWithoutAMemoryCacheEveryLoginIsOneReadAndOnlyTheFirstInserts(): void {
@@ -64,7 +64,7 @@ class LoginRecordTest extends IntegrationTestCase {
 		$this->assertSame(3, $this->queries() - $queries, 'a read each, no insert');
 		$listener->handle($this->event('bob'));
 		$this->assertSame($id + 1, $this->lastId(), 'no insert that skipped the row used up an id');
-		$this->assertSame(2, Server::get(LoginMapper::class)->distinctUsersForIp('203.0.113.41', 0));
+		$this->assertSame(2, count(Server::get(LoginMapper::class)->distinctUidsForIp('203.0.113.41', 0, 100)));
 	}
 
 	public function testTheLoginHistoryOfTheSameLoginAsksTheGateNoMore(): void {

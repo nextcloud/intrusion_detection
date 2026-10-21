@@ -60,7 +60,7 @@ class Ipv6NetworksTest extends IntegrationTestCase {
 				$inside['in' . $i] = true;
 			}
 			$key = Ipv6Networks::key(SourceKey::fromIp($network . '1'), $prefix);
-			$this->assertSame(count($inside), $logins->distinctUsersForNets(Ipv6Networks::slash64Keys($key), 0), $key);
+			$this->assertSame(count($inside), count($logins->distinctUidsForNets(Ipv6Networks::slash64Keys($key), 0, 1000)), $key);
 		}
 	}
 

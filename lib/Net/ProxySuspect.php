@@ -10,12 +10,16 @@ declare(strict_types=1);
 namespace OCA\IntrusionDetection\Net;
 
 use OCA\IntrusionDetection\Db\LoginMapper;
+use OCA\IntrusionDetection\Login\EstablishedAccounts;
+use OCP\AppFramework\Utility\ITimeFactory;
 use OCP\IConfig;
 
 /**
  * Whether Nextcloud seems to see a reverse proxy instead of its visitors:
  * no trusted proxy is configured, and several of the latest successful
- * logins by different people came from one private address.
+ * logins by different people came from one private address. Only accounts
+ * at least 3 days old and administrators count ({@see EstablishedAccounts}),
+ * so freshly registered accounts cannot make an address look like the proxy.
  *
  * Read by the reverse proxy setup check, and by the ban service before it
  * blocks a private address: blocking the proxy would lock everyone out.
@@ -29,6 +33,8 @@ class ProxySuspect {
 	public function __construct(
 		private readonly LoginMapper $logins,
 		private readonly IConfig $config,
+		private readonly EstablishedAccounts $accounts,
+		private readonly ITimeFactory $timeFactory,
 	) {
 	}
 
@@ -91,6 +97,12 @@ class ProxySuspect {
 				$users[$row['ipKey']][$row['uid']] = true;
 			}
 		}
-		return array_map('count', $users);
+		$now = $this->timeFactory->getTime();
+		$counts = [];
+		foreach ($users as $ipKey => $uids) {
+			// Only addresses that could reach the threshold ask about the accounts.
+			$counts[$ipKey] = count($uids) < self::MIN_USERS ? count($uids) : $this->accounts->count(array_map('strval', array_keys($uids)), $now);
+		}
+		return $counts;
 	}
 }

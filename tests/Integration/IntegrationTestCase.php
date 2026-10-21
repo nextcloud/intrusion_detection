@@ -14,6 +14,7 @@ use OCA\IntrusionDetection\Check\Checks\AdminChange;
 use OCA\IntrusionDetection\Check\Mode;
 use OCA\IntrusionDetection\Config\GlobalSettings;
 use OCA\IntrusionDetection\Config\Keys;
+use OCA\IntrusionDetection\Login\EstablishedAccounts;
 use OCA\IntrusionDetection\Notification\AdminRecipients;
 use OCA\IntrusionDetection\Response\BanExemptions;
 use OCP\IAppConfig;
@@ -56,7 +57,7 @@ abstract class IntegrationTestCase extends TestCase {
 			$this->db->getQueryBuilder()->delete($table)->executeStatement();
 		}
 		// Facts these services remember in the memory cache would outlive a test.
-		foreach ([BanExemptions::class, AdminRecipients::class] as $class) {
+		foreach ([BanExemptions::class, AdminRecipients::class, EstablishedAccounts::class] as $class) {
 			self::invokePrivate(Server::get($class), 'cache')?->clear();
 		}
 		foreach ($this->appConfig->getKeys(Application::APP_ID) as $key) {

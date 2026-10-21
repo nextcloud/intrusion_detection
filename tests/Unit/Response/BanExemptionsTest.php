@@ -13,6 +13,7 @@ use OC\Memcache\ArrayCache;
 use OCA\IntrusionDetection\Config\Settings;
 use OCA\IntrusionDetection\Db\LoginHistoryMapper;
 use OCA\IntrusionDetection\Db\LoginMapper;
+use OCA\IntrusionDetection\Login\EstablishedAccounts;
 use OCA\IntrusionDetection\Net\ProtectedRanges;
 use OCA\IntrusionDetection\Net\ProxySuspect;
 use OCA\IntrusionDetection\Net\SourceKey;
@@ -39,7 +40,7 @@ class BanExemptionsTest extends TestCase {
 	}
 
 	public function testTheFactsOfAnAddressAreRememberedForAMinute(): void {
-		$this->logins->expects($this->once())->method('distinctUsersForIp')->willReturn(6);
+		$this->logins->expects($this->once())->method('distinctUidsForIp')->willReturn(['a', 'b', 'c', 'd', 'e', 'f']);
 		$this->history->expects($this->once())->method('acceptedUidsFrom')->willReturn([]);
 		$exemptions = $this->exemptions(new ArrayCache('ids-test'));
 		$source = SourceKey::fromIp('198.51.100.7');
@@ -51,7 +52,7 @@ class BanExemptionsTest extends TestCase {
 	}
 
 	public function testWithoutAMemoryCacheEveryBlockAsks(): void {
-		$this->logins->expects($this->exactly(2))->method('distinctUsersForIp')->willReturn(0);
+		$this->logins->expects($this->exactly(2))->method('distinctUidsForIp')->willReturn([]);
 		$exemptions = $this->exemptions(null);
 		$exemptions->forAddress(SourceKey::fromIp('198.51.100.7'), time(), 'trap_url');
 		$exemptions->forAddress(SourceKey::fromIp('198.51.100.7'), time(), 'trap_url');
@@ -90,6 +91,8 @@ class BanExemptionsTest extends TestCase {
 		if ($cache !== null) {
 			$factory->method('createLocal')->willReturn($cache);
 		}
-		return new BanExemptions($this->logins, $this->history, $settings, $this->proxies, $this->createMock(ProtectedRanges::class), $this->groups, $factory);
+		$accounts = $this->createMock(EstablishedAccounts::class);
+		$accounts->method('count')->willReturnCallback(static fn (array $uids): int => count($uids));
+		return new BanExemptions($this->logins, $this->history, $settings, $this->proxies, $this->createMock(ProtectedRanges::class), $this->groups, $factory, $accounts);
 	}
 }

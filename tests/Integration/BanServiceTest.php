@@ -23,6 +23,7 @@ use OCA\IntrusionDetection\Db\LoginHistoryMapper;
 use OCA\IntrusionDetection\Db\LoginMapper;
 use OCA\IntrusionDetection\Db\StateMapper;
 use OCA\IntrusionDetection\Event\TypedEvents;
+use OCA\IntrusionDetection\Login\EstablishedAccounts;
 use OCA\IntrusionDetection\Net\ProtectedRanges;
 use OCA\IntrusionDetection\Net\ProxySuspect;
 use OCA\IntrusionDetection\Net\RemoteAddressResolver;
@@ -46,6 +47,8 @@ use PHPUnit\Framework\Attributes\Group;
 
 #[Group('DB')]
 class BanServiceTest extends IntegrationTestCase {
+	use CreatesAccounts;
+
 	private BanService $bans;
 	private BanMapper $mapper;
 
@@ -53,6 +56,11 @@ class BanServiceTest extends IntegrationTestCase {
 		parent::setUp();
 		$this->bans = Server::get(BanService::class);
 		$this->mapper = Server::get(BanMapper::class);
+	}
+
+	protected function tearDown(): void {
+		$this->deleteAccounts();
+		parent::tearDown();
 	}
 
 	public function testFirstBanIsLevelOneForFourHours(): void {
@@ -153,13 +161,47 @@ class BanServiceTest extends IntegrationTestCase {
 		$source = SourceKey::fromIp('198.51.100.7');
 		$logins = Server::get(LoginMapper::class);
 		$hour = intdiv(time(), 3600);
-		foreach (['alice', 'bob', 'carol', 'dave', 'erin'] as $uid) {
+		foreach ($this->accounts(5) as $uid) {
 			$logins->record($source->ipKey, $source->netKey, $uid, $hour);
 		}
 		$result = $this->bans->ban($source, 'credential_stuffing');
 		$this->assertSame(BanResult::SKIPPED_SHARED, $result->outcome);
 		$this->assertSame(5, $result->sharedUsers);
 		$this->assertSame([], $this->mapper->findActiveForKeys([$source->ipKey], time()));
+	}
+
+	/**
+	 * @return array<string, array{?int}>
+	 */
+	public static function newAccounts(): array {
+		return ['created today' => [3600], 'two days old' => [2 * 86400], 'never logged in' => [null]];
+	}
+
+	#[DataProvider('newAccounts')]
+	public function testNewAccountsDoNotOpenTheSafetyValve(?int $age): void {
+		// Anyone who can register accounts could create five and log in with them from the address they attack from.
+		$source = SourceKey::fromIp('198.51.100.7');
+		foreach ($this->accounts(5, $age) as $uid) {
+			Server::get(LoginMapper::class)->record($source->ipKey, $source->netKey, $uid, intdiv(time(), 3600));
+		}
+		$this->assertSame(BanResult::BANNED, $this->bans->ban($source, 'credential_stuffing')->outcome);
+	}
+
+	public function testAnAdministratorCountsForTheSafetyValveHoweverNew(): void {
+		$source = SourceKey::fromIp('198.51.100.7');
+		$uids = [...$this->accounts(4), 'admin'];
+		foreach ($uids as $uid) {
+			Server::get(LoginMapper::class)->record($source->ipKey, $source->netKey, $uid, intdiv(time(), 3600));
+		}
+		$this->assertSame(BanResult::SKIPPED_SHARED, $this->bans->ban($source, 'trap_url')->outcome);
+	}
+
+	public function testNewAccountsDoNotMakeAnAddressLookLikeTheProxy(): void {
+		$proxy = SourceKey::fromIp('10.0.0.2');
+		foreach ($this->accounts(3, 3600) as $uid) {
+			Server::get(LoginMapper::class)->record($proxy->ipKey, $proxy->netKey, $uid, intdiv(time(), 3600));
+		}
+		$this->assertSame(BanResult::BANNED, $this->bans->ban($proxy, 'trap_url')->outcome);
 	}
 
 	public function testSafetyValveCountsOnlyTheAddressForAnAddress(): void {
@@ -181,7 +223,7 @@ class BanServiceTest extends IntegrationTestCase {
 		$this->appConfig->setValueInt(Application::APP_ID, GlobalSettings::BAN_SHARED_IP_USERS, 0);
 		$source = SourceKey::fromIp('198.51.100.7');
 		$logins = Server::get(LoginMapper::class);
-		foreach (['alice', 'bob', 'carol', 'dave', 'erin'] as $uid) {
+		foreach ($this->accounts(5) as $uid) {
 			$logins->record($source->ipKey, $source->netKey, $uid, intdiv(time(), 3600));
 		}
 		$this->assertSame(BanResult::BANNED, $this->bans->ban($source, 'trap_url')->outcome);
@@ -406,7 +448,7 @@ class BanServiceTest extends IntegrationTestCase {
 	public function testAnUnconfiguredReverseProxyIsNotBlocked(): void {
 		$proxy = SourceKey::fromIp('10.0.0.2');
 		$logins = Server::get(LoginMapper::class);
-		foreach (['alice', 'bob', 'carol'] as $uid) {
+		foreach ($this->accounts(3) as $uid) {
 			$logins->record($proxy->ipKey, $proxy->netKey, $uid, intdiv(time(), 3600));
 		}
 		$result = $this->bans->ban($proxy, 'trap_url');
@@ -621,7 +663,7 @@ class BanServiceTest extends IntegrationTestCase {
 	private function loginsFromTheNetwork(): void {
 		$logins = Server::get(LoginMapper::class);
 		$hour = intdiv(time(), 3600);
-		foreach (['alice', 'bob', 'carol', 'dave', 'erin'] as $i => $uid) {
+		foreach ($this->accounts(5) as $i => $uid) {
 			$other = SourceKey::fromIp('198.51.100.' . (10 + $i));
 			$logins->record($other->ipKey, $other->netKey, $uid, $hour);
 		}
@@ -643,6 +685,7 @@ class BanServiceTest extends IntegrationTestCase {
 				$ranges,
 				Server::get(IGroupManager::class),
 				Server::get(ICacheFactory::class),
+				Server::get(EstablishedAccounts::class),
 			),
 			Server::get(Settings::class),
 			$state === null ? Server::get(AddressCache::class) : new AddressCache(Server::get(ICacheFactory::class), $state),

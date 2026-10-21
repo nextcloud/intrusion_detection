@@ -19,6 +19,7 @@ use OCA\IntrusionDetection\Db\DetectionFilter;
 use OCA\IntrusionDetection\Db\DetectionMapper;
 use OCA\IntrusionDetection\Db\LoginMapper;
 use OCA\IntrusionDetection\Learning\LearningService;
+use OCA\IntrusionDetection\Login\EstablishedAccounts;
 use OCA\IntrusionDetection\Net\ProxySuspect;
 use OCA\IntrusionDetection\Notification\AdminLinks;
 use OCA\IntrusionDetection\SetupCheck\BruteForceProtectionCheck;
@@ -68,7 +69,9 @@ class SetupChecksTest extends TestCase {
 		$mapper->method('recent')->with(ProxySuspect::SAMPLE)->willReturn($logins);
 		$config = $this->createMock(IConfig::class);
 		$config->method('getSystemValue')->with('trusted_proxies', [])->willReturn($proxies);
-		return new ReverseProxyCheck($this->l, $this->links, new ProxySuspect($mapper, $config), $this->urls);
+		$accounts = $this->createMock(EstablishedAccounts::class);
+		$accounts->method('count')->willReturnCallback(static fn (array $uids): int => count($uids));
+		return new ReverseProxyCheck($this->l, $this->links, new ProxySuspect($mapper, $config, $accounts, $this->time), $this->urls);
 	}
 
 	public function testManyPeopleFromOnePrivateAddressPointToAProxy(): void {

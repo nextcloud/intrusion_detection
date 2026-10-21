@@ -404,6 +404,7 @@ return array(
     'OCA\\IntrusionDetection\\LoginHistory\\LoginHistoryEntry' => $baseDir . '/../lib/LoginHistory/LoginHistoryEntry.php',
     'OCA\\IntrusionDetection\\Login\\BasicCredentials' => $baseDir . '/../lib/Login/BasicCredentials.php',
     'OCA\\IntrusionDetection\\Login\\EmailAccounts' => $baseDir . '/../lib/Login/EmailAccounts.php',
+    'OCA\\IntrusionDetection\\Login\\EstablishedAccounts' => $baseDir . '/../lib/Login/EstablishedAccounts.php',
     'OCA\\IntrusionDetection\\Login\\InteractiveLogin' => $baseDir . '/../lib/Login/InteractiveLogin.php',
     'OCA\\IntrusionDetection\\Login\\LoginGate' => $baseDir . '/../lib/Login/LoginGate.php',
     'OCA\\IntrusionDetection\\Middleware\\PayloadBlockedException' => $baseDir . '/../lib/Middleware/PayloadBlockedException.php',

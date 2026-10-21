@@ -25,6 +25,7 @@ use OCA\IntrusionDetection\Db\LoginHistoryMapper;
 use OCA\IntrusionDetection\Db\LoginMapper;
 use OCA\IntrusionDetection\Explain\NarrativeBuilder;
 use OCA\IntrusionDetection\Net\SourceKey;
+use OCP\Config\IUserConfig;
 use OCP\L10N\IFactory;
 use OCP\Server;
 use PHPUnit\Framework\Attributes\Group;
@@ -253,7 +254,9 @@ class CredentialStuffingTest extends LoginFailureTestCase {
 		$this->appConfig->setValueInt(Application::APP_ID, GlobalSettings::CS_DISTRIBUTED_UNTIL, time() + 300);
 		$this->appConfig->setValueInt(Application::APP_ID, GlobalSettings::CS_DISTRIBUTED_DETECTED_AT, time());
 		$source = SourceKey::fromIp('192.0.2.210');
-		foreach (['alice', 'bob', 'carol', 'dave', 'erin'] as $uid) {
+		foreach (['alice', 'bob', 'carol', 'dave', 'erin'] as $name) {
+			$uid = $this->user('ids-' . $name . '-' . bin2hex(random_bytes(3)))->getUID();
+			Server::get(IUserConfig::class)->setValueInt($uid, 'login', 'firstLogin', time() - 30 * 86400);
 			Server::get(LoginMapper::class)->record($source->ipKey, $source->netKey, $uid, intdiv(time(), 3600));
 		}
 		foreach (['someone', 'someone', 'someone-else'] as $name) {

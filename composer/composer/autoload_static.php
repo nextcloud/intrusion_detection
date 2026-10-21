@@ -419,6 +419,7 @@ class ComposerStaticInitIntrusionDetection
         'OCA\\IntrusionDetection\\LoginHistory\\LoginHistoryEntry' => __DIR__ . '/..' . '/../lib/LoginHistory/LoginHistoryEntry.php',
         'OCA\\IntrusionDetection\\Login\\BasicCredentials' => __DIR__ . '/..' . '/../lib/Login/BasicCredentials.php',
         'OCA\\IntrusionDetection\\Login\\EmailAccounts' => __DIR__ . '/..' . '/../lib/Login/EmailAccounts.php',
+        'OCA\\IntrusionDetection\\Login\\EstablishedAccounts' => __DIR__ . '/..' . '/../lib/Login/EstablishedAccounts.php',
         'OCA\\IntrusionDetection\\Login\\InteractiveLogin' => __DIR__ . '/..' . '/../lib/Login/InteractiveLogin.php',
         'OCA\\IntrusionDetection\\Login\\LoginGate' => __DIR__ . '/..' . '/../lib/Login/LoginGate.php',
         'OCA\\IntrusionDetection\\Middleware\\PayloadBlockedException' => __DIR__ . '/..' . '/../lib/Middleware/PayloadBlockedException.php',

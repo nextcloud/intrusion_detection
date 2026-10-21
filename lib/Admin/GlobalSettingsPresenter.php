@@ -96,9 +96,9 @@ class GlobalSettingsPresenter {
 			'settings' => $settings,
 			'templates' => [
 				'escalation' => $l->t('First block: {ban_duration_1}. If the same address is blocked again within {ban_history_days} days: {ban_duration_2}. After that: {ban_duration_3}. When {ban_net_after} addresses of the same /24 network are blocked within 24 hours, the whole network is blocked. IPv6 addresses are always blocked with their /64 network, because one device usually controls all of it. When {ban_net_after} of these /64 networks of one /56 are blocked within 24 hours, the /56 is blocked; when {ban_net_after} times {ban_net_after} of one /48 are, the /48.'),
-				'safetyValve' => $l->t('An address from which at least {ban_shared_ip_users} different people logged in successfully in the last 24 hours is never blocked, and neither is a network from which that many people logged in. That is typical for an office network or a reverse proxy, and blocking it would lock everyone out. You are notified instead.'),
+				'safetyValve' => $l->t('An address from which at least {ban_shared_ip_users} different people whose accounts are at least 3 days old (or administrators) logged in successfully in the last 24 hours is never blocked, and neither is a network from which that many people logged in. Accounts registered in the last days do not count, so nobody can open the valve by creating a few. That is typical for an office network or a reverse proxy, and blocking it would lock everyone out. You are notified instead.'),
 				'safetyValveOff' => $l->t('The safety valve is off: an address is blocked even when many people log in from it. A company network or a misconfigured reverse proxy could lock everyone out.'),
-				'neverBlocked' => $l->t('Addresses on the brute-force allowlist and the server\'s own addresses are never blocked, and no network that contains one. Checks also never block an address from which someone confirmed a login in the last 7 days (with a second factor, an email code, an administrator\'s approval or a remembered device) or an administrator logged in, nor a private address many people log in from while no trusted proxies are configured. You can still block these by hand.'),
+				'neverBlocked' => $l->t('Addresses on the brute-force allowlist and the server\'s own addresses are never blocked, and no network that contains one. Checks also never block an address an administrator logged in from in the last 7 days (except for trap URLs and injection probes), nor, for attacks on one account, an address from which that account confirmed a login in the last 7 days (with a second factor, an email code, an administrator\'s approval or a remembered device), nor a private address many people or an administrator log in from while no trusted proxies are configured. You can still block these by hand.'),
 				'riskNormal' => $l->t('Below {risk_tier_elevated} points: every limit as configured.'),
 				'riskElevated' => $l->t('From {risk_tier_elevated} points: the count limits of the login, share and password reset checks are multiplied by {risk_factor_elevated}, but never go below 2.'),
 				'riskHigh' => $l->t('From {risk_tier_high} points: the limits are multiplied by {risk_factor_high}, never below 2, and every password login from the address needs extra confirmation.'),
@@ -163,7 +163,7 @@ class GlobalSettingsPresenter {
 			), self::GROUP_BLOCKS],
 			GlobalSettings::BAN_SHARED_IP_USERS => [new ParamText(
 				$l->t('Never block addresses shared by'),
-				$l->t('Addresses from which this many different people logged in successfully in the last 24 hours are not blocked. 0 turns this safety valve off.'),
+				$l->t('Addresses from which this many different people whose accounts are at least 3 days old logged in successfully in the last 24 hours are not blocked. 0 turns this safety valve off.'),
 				$l->t('people'),
 			), self::GROUP_BLOCKS],
 			GlobalSettings::FLAG_DURATION => [new ParamText(
