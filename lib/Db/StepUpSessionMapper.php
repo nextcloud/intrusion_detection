@@ -195,6 +195,6 @@ class StepUpSessionMapper {
 	}
 
 	public function deleteExpired(int $now): int {
-		return BatchedDelete::run($this->db, self::TABLE, 'session_key', static fn (IQueryBuilder $qb): IQueryBuilder => $qb->where($qb->expr()->lte('expires_at', $qb->createNamedParameter($now, IQueryBuilder::PARAM_INT))), IQueryBuilder::PARAM_STR_ARRAY);
+		return BatchedDelete::run($this->db, self::TABLE, 'session_key', 'expires_at', static fn (IQueryBuilder $qb): IQueryBuilder => $qb->where($qb->expr()->lte('expires_at', $qb->createNamedParameter($now, IQueryBuilder::PARAM_INT))), IQueryBuilder::PARAM_STR_ARRAY);
 	}
 }

@@ -13,6 +13,7 @@ use OCA\IntrusionDetection\Db\AttemptKind;
 use OCA\IntrusionDetection\Db\AttemptMapper;
 use OCA\IntrusionDetection\Db\BatchedDelete;
 use OCA\IntrusionDetection\Db\FlagMapper;
+use OCA\IntrusionDetection\Db\LoginMapper;
 use OCA\IntrusionDetection\Db\SecurityChangeMapper;
 use OCP\DB\QueryBuilder\IQueryBuilder;
 use OCP\Server;
@@ -43,13 +44,44 @@ class RetentionTest extends IntegrationTestCase {
 		$where = static fn (IQueryBuilder $qb): IQueryBuilder => $qb->where($qb->expr()->lte('expires_at', $qb->createNamedParameter(1000, IQueryBuilder::PARAM_INT)));
 
 		$queries = $this->queries();
-		$deleted = BatchedDelete::run($this->db, FlagMapper::TABLE, 'flag_key', $where, IQueryBuilder::PARAM_STR_ARRAY, batch: 2, maxBatches: 2);
+		$deleted = BatchedDelete::run($this->db, FlagMapper::TABLE, 'flag_key', 'expires_at', $where, IQueryBuilder::PARAM_STR_ARRAY, batch: 2, maxBatches: 2);
 		$this->assertSame(4, $deleted, 'two batches of two');
 		$this->assertSame(4, $this->queries() - $queries, 'one select and one delete per batch');
 		$this->assertSame(3, $this->rows(FlagMapper::TABLE));
 
-		$this->assertSame(3, BatchedDelete::run($this->db, FlagMapper::TABLE, 'flag_key', $where, IQueryBuilder::PARAM_STR_ARRAY, batch: 2));
+		$this->assertSame(3, BatchedDelete::run($this->db, FlagMapper::TABLE, 'flag_key', 'expires_at', $where, IQueryBuilder::PARAM_STR_ARRAY, batch: 2));
 		$this->assertSame(0, $this->rows(FlagMapper::TABLE));
+	}
+
+	public function testBatchesStartWhereTheLastOneEndedAlsoWithinOneValue(): void {
+		$logins = Server::get(LoginMapper::class);
+		// Five logins in each of two hours: batches of two split the hours.
+		for ($i = 0; $i < 10; $i++) {
+			$logins->record('4:198.51.100.' . $i, '4n:198.51.100', 'user' . $i, 400000 + intdiv($i, 5));
+		}
+		$where = static fn (IQueryBuilder $qb): IQueryBuilder => $qb->where($qb->expr()->lt('hour', $qb->createNamedParameter(500000, IQueryBuilder::PARAM_INT)));
+
+		$seen = [];
+		foreach (BatchedDelete::batches($this->db, LoginMapper::TABLE, 'id', 'hour', $where, batch: 2) as $ids) {
+			$this->assertLessThanOrEqual(2, count($ids));
+			array_push($seen, ...$ids);
+		}
+		$this->assertCount(10, $seen, 'every row once, though none was deleted');
+		$this->assertSame($seen, array_values(array_unique($seen)));
+
+		$this->assertSame(10, $logins->deleteOlderThan(500000));
+		$this->assertSame(0, $this->rows(LoginMapper::TABLE));
+	}
+
+	public function testAttemptsAreDeletedOneKindAfterTheOtherInTimeOrder(): void {
+		$mapper = Server::get(AttemptMapper::class);
+		foreach ([AttemptKind::PasswordLogin, AttemptKind::PasswordReset] as $kind) {
+			$mapper->insert($kind, 'k1', 'n1', null, null, null, null, 1000);
+		}
+		$queries = $this->queries();
+		$this->assertSame(2, $mapper->deleteOlderThan(2000));
+		// A select per kind, a delete for each kind that had rows.
+		$this->assertSame(count(AttemptKind::cases()) + 2, $this->queries() - $queries);
 	}
 
 	public function testAFlagIsOnlyExtendedOnceLessThanHalfRemains(): void {
@@ -89,6 +121,9 @@ class RetentionTest extends IntegrationTestCase {
 		$this->assertSame(1, $mapper->forgetAddressesBefore(6000, 1000));
 		$this->assertSame(1, $mapper->forgetAddressesBefore(6000), 'without a lower bound the rest goes as well');
 		$this->assertSame([$old => null, $recent => null], $this->notifyTo());
+		$queries = $this->queries();
+		$this->assertSame(0, $mapper->forgetAddressesBefore(6000));
+		$this->assertSame(1, $this->queries() - $queries, 'one select of ids finds nothing to update');
 	}
 
 	public function testIndexesForDeletingAnAccountExist(): void {

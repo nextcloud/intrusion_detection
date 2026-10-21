@@ -235,6 +235,7 @@ class DetectionMapper extends QBMapper {
 			$this->db,
 			self::TABLE,
 			'id',
+			'created_at',
 			static fn (IQueryBuilder $qb): IQueryBuilder => $qb->where($qb->expr()->lt('created_at', $qb->createNamedParameter($before, IQueryBuilder::PARAM_INT))),
 			beforeDelete: function (array $ids): void {
 				$qb = $this->db->getQueryBuilder();

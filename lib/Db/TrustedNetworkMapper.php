@@ -120,6 +120,6 @@ class TrustedNetworkMapper {
 	}
 
 	public function deleteExpired(int $now): int {
-		return BatchedDelete::run($this->db, self::TABLE, 'id', static fn (IQueryBuilder $qb): IQueryBuilder => $qb->where($qb->expr()->lte('expires_at', $qb->createNamedParameter($now, IQueryBuilder::PARAM_INT))));
+		return BatchedDelete::run($this->db, self::TABLE, 'id', 'expires_at', static fn (IQueryBuilder $qb): IQueryBuilder => $qb->where($qb->expr()->lte('expires_at', $qb->createNamedParameter($now, IQueryBuilder::PARAM_INT))));
 	}
 }

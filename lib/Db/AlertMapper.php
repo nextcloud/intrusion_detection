@@ -96,7 +96,7 @@ class AlertMapper {
 	}
 
 	public function deleteOlderThan(int $before): int {
-		return BatchedDelete::run($this->db, self::TABLE, 'id', static fn (IQueryBuilder $qb): IQueryBuilder => $qb->where($qb->expr()->lt('last_at', $qb->createNamedParameter($before, IQueryBuilder::PARAM_INT))));
+		return BatchedDelete::run($this->db, self::TABLE, 'id', 'last_at', static fn (IQueryBuilder $qb): IQueryBuilder => $qb->where($qb->expr()->lt('last_at', $qb->createNamedParameter($before, IQueryBuilder::PARAM_INT))));
 	}
 
 	/**

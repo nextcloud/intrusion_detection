@@ -154,23 +154,31 @@ class AttemptMapper {
 	}
 
 	/**
-	 * Delete the attempts created before a time, in batches. The condition
-	 * on every kind lets the (kind, created_at) index find them: no index
-	 * starts with created_at, and without one MySQL scans and locks the
-	 * whole table.
+	 * Delete the attempts created before a time, in batches, one kind
+	 * after the other: the (kind, created_at) index reads each kind in time
+	 * order. No index starts with created_at, and without one MySQL scans
+	 * and locks the whole table.
 	 */
 	public function deleteOlderThan(int $before): int {
-		$kinds = array_map(static fn (AttemptKind $k): int => $k->value, AttemptKind::cases());
-		return BatchedDelete::run(
-			$this->db,
-			self::TABLE,
-			'id',
-			static fn (IQueryBuilder $qb): IQueryBuilder => $qb
-				->where($qb->expr()->in('kind', $qb->createNamedParameter($kinds, IQueryBuilder::PARAM_INT_ARRAY)))
-				->andWhere($qb->expr()->lt('created_at', $qb->createNamedParameter($before, IQueryBuilder::PARAM_INT))),
-			batch: self::DELETE_BATCH,
-			maxBatches: self::DELETE_MAX_BATCHES,
-		);
+		$deleted = 0;
+		foreach (AttemptKind::cases() as $kind) {
+			$batches = self::DELETE_MAX_BATCHES - intdiv($deleted, self::DELETE_BATCH);
+			if ($batches < 1) {
+				break;
+			}
+			$deleted += BatchedDelete::run(
+				$this->db,
+				self::TABLE,
+				'id',
+				'created_at',
+				static fn (IQueryBuilder $qb): IQueryBuilder => $qb
+					->where($qb->expr()->eq('kind', $qb->createNamedParameter($kind->value, IQueryBuilder::PARAM_INT)))
+					->andWhere($qb->expr()->lt('created_at', $qb->createNamedParameter($before, IQueryBuilder::PARAM_INT))),
+				batch: self::DELETE_BATCH,
+				maxBatches: $batches,
+			);
+		}
+		return $deleted;
 	}
 
 	/**

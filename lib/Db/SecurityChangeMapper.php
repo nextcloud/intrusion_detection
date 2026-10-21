@@ -143,23 +143,35 @@ class SecurityChangeMapper {
 
 	/**
 	 * Remove the encrypted previous addresses of the changes made between
-	 * `$since` and `$before`, through the created_at index. Earlier changes
-	 * were handled by earlier runs, so the whole history is not read again.
+	 * `$since` and `$before`. Earlier changes were handled by earlier runs,
+	 * so the whole history is not read again. The ids are selected through
+	 * the created_at index a batch at a time and updated by primary key: as
+	 * one statement, MySQL scanned and locked the whole table.
 	 */
 	public function forgetAddressesBefore(int $before, int $since = 0): int {
-		$qb = $this->db->getQueryBuilder();
-		$qb->update(self::TABLE)
-			->set('notify_to', $qb->createNamedParameter(null, IQueryBuilder::PARAM_NULL))
-			->where($qb->expr()->lt('created_at', $qb->createNamedParameter($before, IQueryBuilder::PARAM_INT)))
-			->andWhere($qb->expr()->isNotNull('notify_to'));
-		if ($since > 0) {
-			$qb->andWhere($qb->expr()->gte('created_at', $qb->createNamedParameter($since, IQueryBuilder::PARAM_INT)));
+		$forgotten = 0;
+		$batches = BatchedDelete::batches(
+			$this->db,
+			self::TABLE,
+			'id',
+			'created_at',
+			static fn (IQueryBuilder $qb): IQueryBuilder => $qb
+				->where($qb->expr()->gte('created_at', $qb->createNamedParameter($since, IQueryBuilder::PARAM_INT)))
+				->andWhere($qb->expr()->lt('created_at', $qb->createNamedParameter($before, IQueryBuilder::PARAM_INT)))
+				->andWhere($qb->expr()->isNotNull('notify_to')),
+		);
+		foreach ($batches as $ids) {
+			$qb = $this->db->getQueryBuilder();
+			$qb->update(self::TABLE)
+				->set('notify_to', $qb->createNamedParameter(null, IQueryBuilder::PARAM_NULL))
+				->where($qb->expr()->in('id', $qb->createNamedParameter($ids, IQueryBuilder::PARAM_INT_ARRAY)));
+			$forgotten += $qb->executeStatement();
 		}
-		return $qb->executeStatement();
+		return $forgotten;
 	}
 
 	public function deleteOlderThan(int $before): int {
-		return BatchedDelete::run($this->db, self::TABLE, 'id', static fn (IQueryBuilder $qb): IQueryBuilder => $qb->where($qb->expr()->lt('created_at', $qb->createNamedParameter($before, IQueryBuilder::PARAM_INT))));
+		return BatchedDelete::run($this->db, self::TABLE, 'id', 'created_at', static fn (IQueryBuilder $qb): IQueryBuilder => $qb->where($qb->expr()->lt('created_at', $qb->createNamedParameter($before, IQueryBuilder::PARAM_INT))));
 	}
 
 	/**

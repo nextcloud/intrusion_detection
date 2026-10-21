@@ -95,6 +95,7 @@ class ResetSuppressionMapper {
 			$this->db,
 			self::TABLE,
 			'uid',
+			'expires_at',
 			static fn (IQueryBuilder $qb): IQueryBuilder => $qb
 				->where($qb->expr()->lte('expires_at', $qb->createNamedParameter($now, IQueryBuilder::PARAM_INT)))
 				->andWhere($qb->expr()->lt('created_at', $qb->createNamedParameter($startedBefore, IQueryBuilder::PARAM_INT))),
