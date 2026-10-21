@@ -82,33 +82,25 @@ class BlocklistRangeMapper {
 	}
 
 	/**
-	 * Write a version of a list. Leftovers of the same version (from a sync
-	 * that died half-way) are removed first.
+	 * Write a version of a list, with multi-row inserts in transactions of
+	 * CHUNK rows. Leftovers of the same version (from a sync that died
+	 * half-way) are removed first.
 	 *
 	 * @param list<string> $ranges compact ranges ({@see RangeCodec})
 	 */
 	public function writeVersion(string $listId, int $version, array $ranges): void {
 		$this->deleteVersion($listId, $version);
-		$qb = $this->db->getQueryBuilder();
-		$qb->insert(self::TABLE)
-			->values([
-				'list_id' => $qb->createParameter('list_id'),
-				'version' => $qb->createParameter('version'),
-				'family' => $qb->createParameter('family'),
-				'range_start' => $qb->createParameter('range_start'),
-				'range_end' => $qb->createParameter('range_end'),
-			]);
 		foreach (array_chunk($ranges, self::CHUNK) as $chunk) {
+			$rows = array_map(static fn (string $range): array => [
+				$listId,
+				$version,
+				(int)$range[0],
+				substr($range, 1, RangeCodec::HEX_LENGTH),
+				substr($range, 1 + RangeCodec::HEX_LENGTH, RangeCodec::HEX_LENGTH),
+			], $chunk);
 			$this->db->beginTransaction();
 			try {
-				foreach ($chunk as $range) {
-					$qb->setParameter('list_id', $listId);
-					$qb->setParameter('version', $version, IQueryBuilder::PARAM_INT);
-					$qb->setParameter('family', (int)$range[0], IQueryBuilder::PARAM_INT);
-					$qb->setParameter('range_start', substr($range, 1, RangeCodec::HEX_LENGTH));
-					$qb->setParameter('range_end', substr($range, 1 + RangeCodec::HEX_LENGTH, RangeCodec::HEX_LENGTH));
-					$qb->executeStatement();
-				}
+				MultiRowInsert::insert($this->db, self::TABLE, ['list_id', 'version', 'family', 'range_start', 'range_end'], $rows);
 				$this->db->commit();
 			} catch (\Throwable $e) {
 				$this->db->rollBack();
