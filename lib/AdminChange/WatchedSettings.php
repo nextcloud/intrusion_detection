@@ -137,6 +137,10 @@ class WatchedSettings {
 	 * A readable name for a watched setting.
 	 */
 	public function label(string $key, IL10N $l): string {
+		// "<app id>:<key>" without the "app:" prefix is read as an app config key.
+		if (!str_starts_with($key, 'app:') && !str_starts_with($key, 'system:') && substr_count($key, ':') === 1) {
+			$key = 'app:' . $key;
+		}
 		if ($key === self::BRUTEFORCE_ALLOWLIST) {
 			return $l->t('Brute-force protection allowlist');
 		}
