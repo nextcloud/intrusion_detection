@@ -94,7 +94,7 @@ async function save(key: string, change: { add?: string[], remove?: string[], bu
 <template>
 	<SectionCard :heading="t(APP_ID, 'Trap paths')" :icon="mdiSignDirection">
 		<template #description>
-			{{ t(APP_ID, 'Scanners look for the weak spots of other software: WordPress logins, leaked configuration files, database tools. Nextcloud has none of them, so a visitor who is not logged in and asks for one is scanning your server. Logged-in users and clients with credentials are never checked.') }}
+			{{ t(APP_ID, 'Scanners look for the weak spots of other software: WordPress logins, leaked configuration files, database tools. Nextcloud has none of them, so a visitor who is not logged in and asks for one is scanning your server. Logged-in users and clients never trip it.') }}
 		</template>
 		<template #actions>
 			<CheckStateNote :check="check" />

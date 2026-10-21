@@ -10,6 +10,7 @@ declare(strict_types=1);
 namespace OCA\IntrusionDetection\Tests\Integration;
 
 use OCA\DAV\Events\SabrePluginAddEvent;
+use OCA\IntrusionDetection\Dav\GuardDecisionPlugin;
 use OCA\IntrusionDetection\Dav\SessionStatePlugin;
 use OCP\EventDispatcher\IEventDispatcher;
 use OCP\IRequest;
@@ -56,6 +57,7 @@ class DavEntryPointsTest extends IntegrationTestCase {
 
 		$this->assertInstanceOf(SabreServer::class, $server, 'The endpoint lets apps add plugins');
 		$this->assertInstanceOf(SessionStatePlugin::class, $server->getPlugin('intrusion-detection-session-state'));
+		$this->assertInstanceOf(GuardDecisionPlugin::class, $server->getPlugin('intrusion-detection-guard-decisions'), 'Guard hits decided at the login refuse WebDAV requests too');
 	}
 
 	/**

@@ -9,8 +9,7 @@ declare(strict_types=1);
 
 namespace OCA\IntrusionDetection\Listener;
 
-use OCA\IntrusionDetection\Check\Payload\PayloadResponder;
-use OCA\IntrusionDetection\Check\Payload\PendingHit;
+use OCA\IntrusionDetection\Guard\DeferredHits;
 use OCA\IntrusionDetection\Guard\RequestContext;
 use OCP\EventDispatcher\Event;
 use OCP\EventDispatcher\IEventListener;
@@ -19,8 +18,9 @@ use Psr\Container\ContainerInterface;
 use Psr\Log\LoggerInterface;
 
 /**
- * Decides an injection probe hit of a request that logs in with Basic auth,
- * an app password or a Bearer token: the login names the user.
+ * Decides the guard hits of a request that logs in with Basic auth, an app
+ * password or a Bearer token (an injection probe, a trap URL,
+ * {@see DeferredHits}): the login names the user.
  *
  * @template-implements IEventListener<UserLoggedInEvent>
  */
@@ -35,14 +35,14 @@ class PayloadLoginListener implements IEventListener {
 	#[\Override]
 	public function handle(Event $event): void {
 		// Nearly every login has nothing pending: stop before loading anything.
-		if (!$event instanceof UserLoggedInEvent || !$this->context->get(PayloadResponder::CONTEXT_KEY) instanceof PendingHit) {
+		if (!$event instanceof UserLoggedInEvent || !DeferredHits::isPending($this->context)) {
 			return;
 		}
 		try {
-			$this->container->get(PayloadResponder::class)->resolve($event->getUser());
+			$this->container->get(DeferredHits::class)->resolve($event->getUser());
 		} catch (\Throwable $e) {
 			// A failure here must never break a login.
-			$this->logger->error('Intrusion detection could not record an injection probe', ['exception' => $e]);
+			$this->logger->error('Intrusion detection could not record a request guard hit', ['exception' => $e]);
 		}
 	}
 }

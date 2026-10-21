@@ -27,6 +27,7 @@ use OCA\IntrusionDetection\Db\DetectionFilter;
 use OCA\IntrusionDetection\Db\DetectionMapper;
 use OCA\IntrusionDetection\Explain\NarrativeBuilder;
 use OCA\IntrusionDetection\Guard\AddressGuard;
+use OCA\IntrusionDetection\Guard\DeferredHits;
 use OCA\IntrusionDetection\Guard\PayloadGuard;
 use OCA\IntrusionDetection\Guard\RequestContext;
 use OCA\IntrusionDetection\Listener\PayloadLoginListener;
@@ -600,9 +601,10 @@ class PayloadGuardTest extends IntegrationTestCase {
 	 */
 	private function container(?PayloadInspector $inspector = null): ContainerInterface {
 		$container = $this->createMock(ContainerInterface::class);
-		$container->method('get')->willReturnCallback(function (string $class) use ($inspector): mixed {
+		$container->method('get')->willReturnCallback(function (string $class) use ($inspector, $container): mixed {
 			return match ($class) {
 				PayloadResponder::class => $this->responder,
+				DeferredHits::class => new DeferredHits($this->context, $container),
 				PayloadInspector::class => $inspector ?? Server::get(PayloadInspector::class),
 				IUserSession::class => $this->userSession(),
 				default => Server::get($class),

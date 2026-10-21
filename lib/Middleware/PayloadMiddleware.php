@@ -9,8 +9,7 @@ declare(strict_types=1);
 
 namespace OCA\IntrusionDetection\Middleware;
 
-use OCA\IntrusionDetection\Check\Payload\PayloadResponder;
-use OCA\IntrusionDetection\Check\Payload\PendingHit;
+use OCA\IntrusionDetection\Guard\DeferredHits;
 use OCA\IntrusionDetection\Guard\RequestContext;
 use OCP\AppFramework\Controller;
 use OCP\AppFramework\Http;
@@ -21,19 +20,18 @@ use OCP\AppFramework\Middleware;
 use OCP\AppFramework\OCSController;
 use OCP\IUserSession;
 use OCP\L10N\IFactory;
-use OCP\Security\Guard\GuardDecision;
 use Psr\Container\ContainerInterface;
 use Psr\Log\LoggerInterface;
 
 /**
- * Decides an injection probe hit of a request with credentials as soon as a
- * controller is about to run, when the user is known. If the address is
- * blocked by it, the controller does not run and the client gets the same
- * answer as from a request guard.
+ * Decides the guard hits of a request with credentials (an injection probe,
+ * a trap URL, {@see DeferredHits}) as soon as a controller is about to run,
+ * when the user is known. If the address is blocked by one, the controller
+ * does not run and the client gets the same answer as from a request guard.
  *
  * A hit already decided at the login (Basic auth, app passwords, tokens) is
  * refused here too. Registered for every app's controllers. On requests
- * without a hit it costs two array lookups.
+ * without a hit it costs three property and array lookups.
  */
 class PayloadMiddleware extends Middleware {
 	public function __construct(
@@ -45,17 +43,17 @@ class PayloadMiddleware extends Middleware {
 
 	#[\Override]
 	public function beforeController(Controller $controller, string $methodName): void {
-		$decided = $this->context->get(PayloadResponder::DECISION_KEY);
-		if ($decided instanceof GuardDecision) {
+		$decided = $this->context->refusal();
+		if ($decided !== null) {
 			throw new PayloadBlockedException($decided);
 		}
-		if (!$this->context->get(PayloadResponder::CONTEXT_KEY) instanceof PendingHit) {
+		if (!DeferredHits::isPending($this->context)) {
 			return;
 		}
 		try {
-			$decision = $this->container->get(PayloadResponder::class)->resolve($this->container->get(IUserSession::class)->getUser());
+			$decision = $this->container->get(DeferredHits::class)->resolve($this->container->get(IUserSession::class)->getUser());
 		} catch (\Throwable $e) {
-			$this->logger->error('Intrusion detection could not record an injection probe', ['exception' => $e]);
+			$this->logger->error('Intrusion detection could not record a request guard hit', ['exception' => $e]);
 			return;
 		}
 		if ($decision !== null) {

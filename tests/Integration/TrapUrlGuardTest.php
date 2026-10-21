@@ -17,19 +17,29 @@ use OCA\IntrusionDetection\Config\Settings;
 use OCA\IntrusionDetection\Db\BanMapper;
 use OCA\IntrusionDetection\Db\DetectionFilter;
 use OCA\IntrusionDetection\Db\DetectionMapper;
+use OCA\IntrusionDetection\Guard\DeferredHits;
+use OCA\IntrusionDetection\Guard\RequestContext;
 use OCA\IntrusionDetection\Guard\TrapUrlGuard;
+use OCA\IntrusionDetection\Middleware\PayloadBlockedException;
+use OCA\IntrusionDetection\Middleware\PayloadMiddleware;
 use OCA\IntrusionDetection\Net\RemoteAddressResolver;
 use OCA\IntrusionDetection\Perf\GuardTimer;
 use OCA\IntrusionDetection\Response\ResponseEngine;
 use OCA\IntrusionDetection\Response\ResponseOutcome;
+use OCA\IntrusionDetection\Traps\TrapResponder;
+use OCP\AppFramework\Controller;
 use OCP\AppFramework\Utility\ITimeFactory;
 use OCP\IAppConfig;
 use OCP\IConfig;
 use OCP\IRequest;
+use OCP\IUser;
+use OCP\IUserSession;
 use OCP\Security\Bruteforce\IThrottler;
 use OCP\Server;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Group;
 use Psr\Container\ContainerInterface;
+use Psr\Log\LoggerInterface;
 
 #[Group('DB')]
 class TrapUrlGuardTest extends IntegrationTestCase {
@@ -38,11 +48,36 @@ class TrapUrlGuardTest extends IntegrationTestCase {
 
 	private Settings $settings;
 	private DetectionMapper $detections;
+	private RequestContext $context;
+	private TrapResponder $responder;
+	/** @var list<\Closure> */
+	private array $shutdown = [];
+	private ?IUser $sessionUser = null;
 
 	protected function setUp(): void {
 		parent::setUp();
 		$this->settings = Server::get(Settings::class);
 		$this->detections = Server::get(DetectionMapper::class);
+		$this->context = new RequestContext();
+		$shutdown = &$this->shutdown;
+		$this->responder = new class(Server::get(ResponseEngine::class), Server::get(AddressResolver::class), $this->context, Server::get(ITimeFactory::class), $this->container(), Server::get(LoggerInterface::class), $shutdown) extends TrapResponder {
+			/** @param list<\Closure> $shutdown */
+			public function __construct(
+				ResponseEngine $engine,
+				AddressResolver $resolver,
+				RequestContext $context,
+				ITimeFactory $time,
+				ContainerInterface $container,
+				LoggerInterface $logger,
+				private array &$shutdown,
+			) {
+				parent::__construct($engine, $resolver, $context, $time, $container, $logger);
+			}
+
+			protected function registerShutdown(\Closure $callback): void {
+				$this->shutdown[] = $callback;
+			}
+		};
 	}
 
 	public function testATrapPathIsAnsweredWithTheBlocksReference(): void {
@@ -78,14 +113,54 @@ class TrapUrlGuardTest extends IntegrationTestCase {
 		}
 	}
 
-	public function testRequestsWithCredentialsAreNeverChecked(): void {
-		$guard = $this->guard();
-		$this->assertNull($guard->check($this->request('/wp-login.php', headers: ['Authorization' => 'Basic YWxpY2U6c2VjcmV0'])));
-		$this->assertNull($guard->check($this->request('/wp-login.php', cookies: ['nc_session_id' => 'x'])));
-		$this->assertNull($guard->check($this->request('/wp-login.php', cookies: ['nc_token' => 'x'])));
+	/**
+	 * @return array<string, array{array<string, string>, array<string, string>}>
+	 */
+	public static function credentials(): array {
 		$instanceId = Server::get(IConfig::class)->getSystemValueString('instanceid');
-		$this->assertNull($guard->check($this->request('/wp-login.php', cookies: [$instanceId => 'x'])));
-		$this->assertSame(0, $this->detections->count(new DetectionFilter()));
+		return [
+			'Basic' => [['Authorization' => 'Basic YWxpY2U6c2VjcmV0'], []],
+			'Bearer' => [['Authorization' => 'Bearer x'], []],
+			'a session cookie' => [[], [$instanceId => 'x']],
+			'a remember-me cookie' => [[], ['nc_token' => 'x']],
+			'a cookie a scanner made up' => [[], ['nc_username' => 'x']],
+		];
+	}
+
+	/**
+	 * @param array<string, string> $headers
+	 * @param array<string, string> $cookies
+	 */
+	#[DataProvider('credentials')]
+	public function testAHitWithCredentialsWaitsForTheLoginAndLoggedInUsersNeverTripIt(array $headers, array $cookies): void {
+		$this->assertNull($this->guard()->check($this->request('/wp-login.php', headers: $headers, cookies: $cookies)));
+		$this->assertSame(0, $this->detections->count(new DetectionFilter()), 'Nothing is decided yet');
+		$this->assertTrue(DeferredHits::isPending($this->context));
+		$this->sessionUser = $this->createMock(IUser::class);
+		$this->assertNull((new DeferredHits($this->context, $this->container()))->resolve($this->sessionUser));
+		$this->assertFalse(DeferredHits::isPending($this->context));
+		$this->assertSame(0, $this->detections->count(new DetectionFilter()), 'A logged-in request never trips it');
+	}
+
+	/**
+	 * @param array<string, string> $headers
+	 * @param array<string, string> $cookies
+	 */
+	#[DataProvider('credentials')]
+	public function testAHitWithCredentialsThatDoNotLogInIsATrapHit(array $headers, array $cookies): void {
+		$this->assertNull($this->guard()->check($this->request('/wp-login.php', headers: $headers, cookies: $cookies)));
+		$this->assertCount(1, $this->shutdown, 'Decided at the end of the request at the latest');
+		($this->shutdown[0])();
+		$this->assertSame(1, $this->detections->count(new DetectionFilter(checkIds: [TrapUrl::ID])));
+		$this->assertCount(1, Server::get(BanMapper::class)->findActiveForKeys(['198.51.100.7'], time()));
+		$this->assertNotNull($this->context->refusal(), 'Later steps of the request refuse it');
+	}
+
+	public function testTheMiddlewareRefusesATrapHitWithMadeUpCredentialsBeforeTheController(): void {
+		$this->guard()->check($this->request('/wp-login.php', cookies: ['nc_username' => 'x']));
+		$middleware = new PayloadMiddleware($this->context, $this->container(), Server::get(LoggerInterface::class));
+		$this->expectException(PayloadBlockedException::class);
+		$middleware->beforeController($this->createMock(Controller::class), 'index');
 	}
 
 	public function testCustomPathsAndTheirValidation(): void {
@@ -157,20 +232,32 @@ class TrapUrlGuardTest extends IntegrationTestCase {
 			Server::get(IAppConfig::class),
 			$this->settings,
 			new RemoteAddressResolver($this->createMock(IRequest::class), Server::get(IThrottler::class)),
-			Server::get(ITimeFactory::class),
 			$container ?? $this->container(),
 			Server::get(GuardTimer::class),
 		);
 	}
 
+	/**
+	 * The app container as the guard sees it, with the test's request
+	 * context, responder and session.
+	 */
 	private function container(): ContainerInterface {
-		$engine = Server::get(ResponseEngine::class);
 		$container = $this->createMock(ContainerInterface::class);
-		$container->method('get')->willReturnCallback(static fn (string $id): object => match ($id) {
-			ResponseEngine::class => $engine,
-			AddressResolver::class => Server::get(AddressResolver::class),
+		$container->method('get')->willReturnCallback(function (string $id) use ($container): object {
+			return match ($id) {
+				TrapResponder::class => $this->responder,
+				DeferredHits::class => new DeferredHits($this->context, $container),
+				IUserSession::class => $this->userSession(),
+				default => Server::get($id),
+			};
 		});
 		return $container;
+	}
+
+	private function userSession(): IUserSession {
+		$session = $this->createMock(IUserSession::class);
+		$session->method('getUser')->willReturnCallback(fn (): ?IUser => $this->sessionUser);
+		return $session;
 	}
 
 	/**

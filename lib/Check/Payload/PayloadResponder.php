@@ -13,6 +13,8 @@ use OCA\IntrusionDetection\Check\Checks\InjectionProbe;
 use OCA\IntrusionDetection\Check\ResponseType;
 use OCA\IntrusionDetection\Db\Detection;
 use OCA\IntrusionDetection\Detection\DetectionDraft;
+use OCA\IntrusionDetection\Guard\DeferredHits;
+use OCA\IntrusionDetection\Guard\IDeferredResponder;
 use OCA\IntrusionDetection\Guard\RequestContext;
 use OCA\IntrusionDetection\Net\SourceKey;
 use OCA\IntrusionDetection\Response\ResponseEngine;
@@ -32,18 +34,12 @@ use Psr\Log\LoggerInterface;
  * - Logged in: a detection naming the user, merged per address, user and
  *   hour, in the mode for logged-in users (Observe by default).
  *
- * A hit with credentials is resolved at the first of: a successful login
- * ({@see \OCA\IntrusionDetection\Listener\PayloadLoginListener}), the start of
- * a controller ({@see \OCA\IntrusionDetection\Middleware\PayloadMiddleware}),
- * or the end of the request, for entry points without controllers such as
- * WebDAV. A request that never logs in is handled as not logged in. A
- * refusal decided at the login is kept, so the middleware still refuses
- * the request.
+ * A hit with credentials waits until the request knows its user
+ * ({@see DeferredHits}). A request that never logs in is handled as not
+ * logged in.
  */
-class PayloadResponder {
+class PayloadResponder implements IDeferredResponder {
 	public const CONTEXT_KEY = 'injection_probe.pending';
-	/** The refusal of a hit that was decided before a controller ran, for the middleware */
-	public const DECISION_KEY = 'injection_probe.decision';
 
 	private bool $shutdownRegistered = false;
 
@@ -114,12 +110,7 @@ class PayloadResponder {
 		return $this->context->get(self::CONTEXT_KEY) instanceof PendingHit;
 	}
 
-	/**
-	 * Decide the pending hit, if any, now that the user is known.
-	 *
-	 * @param ?IUser $user the logged-in user, null when the request is not logged in
-	 * @return ?GuardDecision the refusal when the address is blocked now
-	 */
+	#[\Override]
 	public function resolve(?IUser $user): ?GuardDecision {
 		$pending = $this->context->get(self::CONTEXT_KEY);
 		if (!$pending instanceof PendingHit) {
@@ -130,7 +121,7 @@ class PayloadResponder {
 			? $this->anonymous($pending->hit, $pending->source, $pending->userAgent, $pending->credential, $pending->lure)
 			: $this->authenticated($pending->hit, $pending->source, $user->getUID(), $pending->credential, $pending->userAgent, $pending->lure);
 		if ($decision !== null) {
-			$this->context->set(self::DECISION_KEY, $decision);
+			$this->context->refuse($decision);
 		}
 		return $decision;
 	}

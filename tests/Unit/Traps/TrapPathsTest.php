@@ -122,4 +122,64 @@ class TrapPathsTest extends TestCase {
 		}
 		$this->assertFalse(TrapPaths::conflictsWithNextcloud(TrapPaths::AUTODISCOVER));
 	}
+
+	/**
+	 * @return array<string, array{string, bool}>
+	 */
+	public static function nextcloudPaths(): array {
+		return [
+			'root' => ['/', true],
+			'an app' => ['/apps/files/', true],
+			'the front controller' => ['/index.php/apps/files', true],
+			'WebDAV' => ['/remote.php/dav/files/alice/.env', true],
+			'a share link' => ['/s/aBcD', true],
+			'a trap' => ['/.env', false],
+			'a trap behind the front controller' => ['/index.php/.env', false],
+			'the front controller alone' => ['/index.php', true],
+			'a custom path' => ['/old-admin', false],
+		];
+	}
+
+	#[DataProvider('nextcloudPaths')]
+	public function testNextcloudPathsCanNeverBeATrap(string $path, bool $nextcloud): void {
+		$this->assertSame($nextcloud, TrapPaths::isNextcloudPath($path));
+		if ($nextcloud) {
+			$this->assertNull(TrapPaths::match($path, true, true, ['/old-admin', '/backup/*']));
+		}
+	}
+
+	/**
+	 * @return array<string, array{string, string, bool}>
+	 */
+	public static function plainUris(): array {
+		return [
+			'WebDAV' => ['/remote.php/dav/files/alice/', '/', true],
+			'an app under a web root' => ['/nextcloud/index.php/apps/files/', '/nextcloud', true],
+			'a query' => ['/?x=1', '/', true],
+			'a segment with a query' => ['/apps?x=1', '/', true],
+			'upper case is normalised first' => ['/Remote.php/dav', '/', false],
+			'encoded is normalised first' => ['/%72emote.php/dav', '/', false],
+			'doubled slashes are normalised first' => ['//remote.php/dav', '/', false],
+			'a trap behind doubled slashes' => ['//.env', '/', false],
+			'a trap' => ['/.env', '/', false],
+			'a trap behind the front controller' => ['/index.php/.env', '/', false],
+			'a trap under a web root' => ['/nextcloud/wp-login.php', '/nextcloud', false],
+		];
+	}
+
+	#[DataProvider('plainUris')]
+	public function testPlainNextcloudUrisSkipTheNormalisation(string $uri, string $webRoot, bool $plain): void {
+		$this->assertSame($plain, TrapPaths::isPlainNextcloudUri($uri, $webRoot));
+		if ($plain) {
+			$this->assertTrue(TrapPaths::isNextcloudPath(TrapPaths::normalise($uri, $webRoot)), 'Normalising would say the same');
+		}
+	}
+
+	public function testNoBuiltInTrapIsANextcloudPath(): void {
+		foreach ([...TrapPaths::BUILTIN, TrapPaths::AUTODISCOVER] as $entry) {
+			$this->assertFalse(TrapPaths::isNextcloudPath($entry), $entry);
+			$this->assertFalse(TrapPaths::isPlainNextcloudUri($entry, '/'), $entry);
+			$this->assertFalse(TrapPaths::isNextcloudPath('/index.php' . $entry), $entry);
+		}
+	}
 }

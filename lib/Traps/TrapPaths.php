@@ -110,6 +110,44 @@ final class TrapPaths {
 	}
 
 	/**
+	 * Whether a normalised path is one of Nextcloud's own: its first segment
+	 * (after `/index.php/`, if any) is one Nextcloud uses. No trap can match
+	 * such a path: the built-in paths are none of them, and a custom path
+	 * that would be one is refused ({@see conflictsWithNextcloud()}). Lets
+	 * the common request skip reading the trap settings.
+	 */
+	public static function isNextcloudPath(string $path): bool {
+		$candidate = str_starts_with($path, '/index.php/') ? substr($path, strlen('/index.php')) : $path;
+		$segment = explode('/', substr($candidate, 1), 2)[0];
+		return in_array($segment, self::NEXTCLOUD_SEGMENTS, true);
+	}
+
+	/**
+	 * {@see isNextcloudPath()} for a request URI as it came, without
+	 * normalising it: true only when its first segment is literally one of
+	 * Nextcloud's, in lower case and not encoded, so that normalising could
+	 * not change it. False means "normalise and look again", not "a trap".
+	 */
+	public static function isPlainNextcloudUri(string $requestUri, string $webRoot): bool {
+		$webRoot = rtrim($webRoot, '/');
+		if ($webRoot !== '' && $webRoot !== '.' && str_starts_with($requestUri, $webRoot . '/')) {
+			$requestUri = substr($requestUri, strlen($webRoot));
+		}
+		if (str_starts_with($requestUri, '/index.php/')) {
+			$requestUri = substr($requestUri, strlen('/index.php'));
+		}
+		if (!str_starts_with($requestUri, '/')) {
+			return false;
+		}
+		$segment = substr($requestUri, 1, strcspn($requestUri, '/?#', 1));
+		if ($segment === '' && ($requestUri[1] ?? '') === '/') {
+			// Doubled slashes collapse: "//.env" is "/.env".
+			return false;
+		}
+		return in_array($segment, self::NEXTCLOUD_SEGMENTS, true) && $segment === strtolower($segment);
+	}
+
+	/**
 	 * Whether a custom entry is, or covers, a path Nextcloud itself uses.
 	 */
 	public static function conflictsWithNextcloud(string $entry): bool {

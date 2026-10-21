@@ -10,6 +10,7 @@ declare(strict_types=1);
 namespace OCA\IntrusionDetection\Listener;
 
 use OCA\DAV\Events\SabrePluginAddEvent;
+use OCA\IntrusionDetection\Dav\GuardDecisionPlugin;
 use OCA\IntrusionDetection\Dav\SessionStatePlugin;
 use OCP\EventDispatcher\Event;
 use OCP\EventDispatcher\IEventListener;
@@ -17,7 +18,7 @@ use Psr\Container\ContainerInterface;
 use Psr\Log\LoggerInterface;
 
 /**
- * Adds the session-state plugin to the WebDAV servers.
+ * Adds the guard decision and session-state plugins to the WebDAV servers.
  *
  * @template-implements IEventListener<SabrePluginAddEvent>
  */
@@ -34,6 +35,7 @@ class SabrePluginAddListener implements IEventListener {
 			return;
 		}
 		try {
+			$event->getServer()->addPlugin($this->container->get(GuardDecisionPlugin::class));
 			$event->getServer()->addPlugin($this->container->get(SessionStatePlugin::class));
 		} catch (\Throwable $e) {
 			$this->logger->error('Intrusion detection could not add its WebDAV plugin', ['exception' => $e]);

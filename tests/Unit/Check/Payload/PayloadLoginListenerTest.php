@@ -12,6 +12,7 @@ namespace OCA\IntrusionDetection\Tests\Unit\Check\Payload;
 use OCA\IntrusionDetection\Check\Payload\PayloadHit;
 use OCA\IntrusionDetection\Check\Payload\PayloadResponder;
 use OCA\IntrusionDetection\Check\Payload\PendingHit;
+use OCA\IntrusionDetection\Guard\DeferredHits;
 use OCA\IntrusionDetection\Guard\RequestContext;
 use OCA\IntrusionDetection\Listener\PayloadLoginListener;
 use OCA\IntrusionDetection\Net\SourceKey;
@@ -40,7 +41,7 @@ class PayloadLoginListenerTest extends TestCase {
 		$responder = $this->createMock(PayloadResponder::class);
 		$responder->method('resolve')->willThrowException(new \RuntimeException('database gone'));
 		$container = $this->createMock(ContainerInterface::class);
-		$container->method('get')->willReturn($responder);
+		$container->method('get')->willReturnCallback(static fn (string $class): object => $class === DeferredHits::class ? new DeferredHits($context, $container) : $responder);
 		$logger = $this->createMock(LoggerInterface::class);
 		$logger->expects($this->once())->method('error');
 

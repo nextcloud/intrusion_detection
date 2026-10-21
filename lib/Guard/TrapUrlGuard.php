@@ -9,20 +9,19 @@ declare(strict_types=1);
 
 namespace OCA\IntrusionDetection\Guard;
 
-use OCA\IntrusionDetection\Address\AddressResolver;
 use OCA\IntrusionDetection\AppInfo\Application;
 use OCA\IntrusionDetection\Check\Checks\TrapUrl;
 use OCA\IntrusionDetection\Config\Keys;
 use OCA\IntrusionDetection\Config\Settings;
-use OCA\IntrusionDetection\Detection\DetectionDraft;
 use OCA\IntrusionDetection\Detection\Explanation;
+use OCA\IntrusionDetection\Login\BasicCredentials;
 use OCA\IntrusionDetection\Net\FetchMetadata;
 use OCA\IntrusionDetection\Net\RemoteAddressResolver;
 use OCA\IntrusionDetection\Net\SourceKey;
 use OCA\IntrusionDetection\Perf\GuardTimer;
-use OCA\IntrusionDetection\Response\ResponseEngine;
+use OCA\IntrusionDetection\Traps\PendingTrapHit;
 use OCA\IntrusionDetection\Traps\TrapPaths;
-use OCP\AppFramework\Utility\ITimeFactory;
+use OCA\IntrusionDetection\Traps\TrapResponder;
 use OCP\IAppConfig;
 use OCP\IConfig;
 use OCP\IRequest;
@@ -34,11 +33,13 @@ use Psr\Container\ContainerInterface;
  * Trap URLs: a request for a path no legitimate Nextcloud client requests
  * blocks its source.
  *
- * Only requests without credentials are looked at: no Authorization header
- * and no Nextcloud session or remember-me cookie, so logged-in users and
- * clients can never trip it. On that path the cost is one regular
- * expression match plus a loop over the custom paths; the check's mode and
- * the response engine are only touched on a hit.
+ * A request for one of Nextcloud's own paths costs the normalisation of its
+ * path and one array lookup; any other one a regular expression match plus
+ * a loop over the custom paths. The check's mode and the responder are only
+ * touched on a hit. A hit with credentials (an Authorization header, a
+ * session or remember-me cookie) is decided once the request knows whether
+ * it is logged in ({@see TrapResponder}): logged-in users and clients never
+ * trip it, but made-up credentials do not hide a scanner either.
  *
  * Registered after the address guard, so an address that is already blocked
  * never gets here.
@@ -53,7 +54,6 @@ class TrapUrlGuard implements IRequestGuard {
 		private readonly IAppConfig $appConfig,
 		private readonly Settings $settings,
 		private readonly RemoteAddressResolver $addresses,
-		private readonly ITimeFactory $timeFactory,
 		private readonly ContainerInterface $container,
 		private readonly GuardTimer $timer,
 	) {
@@ -70,13 +70,18 @@ class TrapUrlGuard implements IRequestGuard {
 	}
 
 	private function trap(IRequest $request): ?GuardDecision {
-		if ($request->getHeader('Authorization') !== '' || $this->hasSessionCookie($request)) {
-			return null;
-		}
 		if ($this->config->getSystemValueBool(AddressGuard::DISABLE_SWITCH, false)) {
 			return null;
 		}
-		$path = TrapPaths::normalise($request->getRequestUri(), dirname($request->getScriptName()));
+		$uri = $request->getRequestUri();
+		$webRoot = dirname($request->getScriptName());
+		if (TrapPaths::isPlainNextcloudUri($uri, $webRoot)) {
+			return null;
+		}
+		$path = TrapPaths::normalise($uri, $webRoot);
+		if (TrapPaths::isNextcloudPath($path)) {
+			return null;
+		}
 		$trap = $this->match($path);
 		if ($trap === null || !$this->settings->isEnabled()) {
 			return null;
@@ -110,29 +115,32 @@ class TrapUrlGuard implements IRequestGuard {
 		if (!$state->runs() || $source === null || $this->addresses->isIgnored($source)) {
 			return null;
 		}
-		// Resolved only on a hit, to keep the guard's own dependencies light.
-		$engine = $this->container->get(ResponseEngine::class);
-		$detection = $engine->handle(new DetectionDraft(
-			checkId: TrapUrl::ID,
-			source: $source,
-			facts: [
+		$hit = new PendingTrapHit(
+			$source,
+			[
 				'path' => mb_substr((string)Explanation::cleanUserAgent($path), 0, self::MAX_STORED_PATH),
 				'trap' => $trap,
 				'method' => substr(preg_replace('/[^A-Z]/', '', strtoupper($request->getMethod())) ?? '', 0, 10),
 			],
-			merge: DetectionDraft::MERGE_SOURCE,
-			userAgent: $request->getHeader('User-Agent'),
-			lure: FetchMetadata::isLure($request),
-		));
-		if ($detection === null || !$detection->isEnforced()) {
+			$request->getHeader('User-Agent'),
+			FetchMetadata::isLure($request),
+		);
+		// Resolved only on a hit, to keep the guard's own dependencies light.
+		$responder = $this->container->get(TrapResponder::class);
+		if ($this->presentsCredentials($request)) {
+			$responder->defer($hit);
 			return null;
 		}
-		$verdict = $this->container->get(AddressResolver::class)->resolve($source);
-		$now = $this->timeFactory->getTime();
-		if (!$verdict->isDenied($now)) {
-			return null;
-		}
-		return GuardDecision::deny($verdict->denyUntil - $now, $verdict->reference);
+		return $responder->anonymous($hit);
+	}
+
+	/**
+	 * Whether the request presents something to log in with: an
+	 * Authorization header, Basic credentials PHP parsed, or a Nextcloud
+	 * session or remember-me cookie. None of it is verified yet.
+	 */
+	private function presentsCredentials(IRequest $request): bool {
+		return $request->getHeader('Authorization') !== '' || BasicCredentials::fromServer() !== null || $this->hasSessionCookie($request);
 	}
 
 	private function hasSessionCookie(IRequest $request): bool {
