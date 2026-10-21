@@ -37,6 +37,23 @@ class LoginMapper {
 	}
 
 	/**
+	 * Whether the login of the account from the address in the hour is recorded.
+	 */
+	public function exists(string $ipKey, string $uid, int $hour): bool {
+		$qb = $this->db->getQueryBuilder();
+		$qb->select('id')
+			->from(self::TABLE)
+			->where($qb->expr()->eq('ip_key', $qb->createNamedParameter($ipKey)))
+			->andWhere($qb->expr()->eq('uid', $qb->createNamedParameter($uid)))
+			->andWhere($qb->expr()->eq('hour', $qb->createNamedParameter($hour, IQueryBuilder::PARAM_INT)))
+			->setMaxResults(1);
+		$result = $qb->executeQuery();
+		$found = $result->fetchOne() !== false;
+		$result->closeCursor();
+		return $found;
+	}
+
+	/**
 	 * Distinct accounts that logged in from an address since a time.
 	 */
 	public function distinctUsersForIp(string $ipKey, int $sinceHour): int {

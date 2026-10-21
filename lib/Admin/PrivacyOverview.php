@@ -146,7 +146,7 @@ class PrivacyOverview {
 			DataKind::LoginHistory => [
 				'name' => $l->t('Login history'),
 				'what' => $l->t('Per successful login: the account, the time, the address and its network, the browser or app (at most 200 characters), how the account logged in, and how the login was confirmed.'),
-				'why' => $l->t('So that users can see their recent logins, and so that an incident can be reconstructed. Apps that log in with every request are recorded at most once an hour.'),
+				'why' => $l->t('So that users can see their recent logins, and so that an incident can be reconstructed. Apps that log in with every request are recorded once a day, and again when they log in from another network.'),
 				'retention' => $l->t('{history_retention_days} days'),
 				'where' => 'ids_login_history',
 			],

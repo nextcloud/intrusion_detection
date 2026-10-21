@@ -12,12 +12,14 @@ namespace OCA\IntrusionDetection\Tests\Integration;
 use OC\Memcache\ArrayCache;
 use OCA\IntrusionDetection\BackgroundJob\Cleanup;
 use OCA\IntrusionDetection\Config\GlobalSettings;
+use OCA\IntrusionDetection\Config\Prerequisites;
 use OCA\IntrusionDetection\Confirm\SessionConfirmation;
 use OCA\IntrusionDetection\Confirm\StepUpPolicy;
 use OCA\IntrusionDetection\Db\LoginHistoryMapper;
 use OCA\IntrusionDetection\KnownDevice\KnownDevices;
 use OCA\IntrusionDetection\Listener\LoginHistoryListener;
 use OCA\IntrusionDetection\Login\InteractiveLogin;
+use OCA\IntrusionDetection\Login\LoginGate;
 use OCA\IntrusionDetection\LoginHistory\LoginHistory;
 use OCA\IntrusionDetection\LoginHistory\LoginHistoryEntry;
 use OCA\IntrusionDetection\Net\SourceKey;
@@ -154,10 +156,10 @@ class LoginHistoryTest extends StepUpTestCase {
 		$this->assertSame(SessionConfirmation::PROVEN, $this->sessionConfirmation()->level($this->alice->getUID()));
 	}
 
-	public function testAppsThatSendThePasswordAreRecordedOnceADayPerAddressWithoutAMemoryCache(): void {
+	public function testAppsThatSendThePasswordAreRecordedOnceADayPerNetworkWithoutAMemoryCache(): void {
 		$factory = $this->createMock(ICacheFactory::class);
 		$factory->method('isAvailable')->willReturn(false);
-		$history = new LoginHistory(Server::get(LoginHistoryMapper::class), $this->state, $this->session, $this->currentSession, $factory, Server::get(ITimeFactory::class));
+		$history = $this->historyWith($factory);
 		$this->basicAuth($this->alice);
 		for ($i = 0; $i < 3; $i++) {
 			$this->session->clear();
@@ -171,15 +173,18 @@ class LoginHistoryTest extends StepUpTestCase {
 
 		$this->remoteAddress = '198.51.100.99';
 		$this->historyListener($history)->handle(new UserLoggedInEvent($this->alice, $this->alice->getUID(), self::PASSWORD, false));
-		$this->assertCount(2, $this->historyOf($this->alice), 'Another address is another row');
+		$this->assertCount(1, $this->historyOf($this->alice), 'Another address of the same network is the same row');
+		$this->remoteAddress = '203.0.113.99';
+		$this->historyListener($history)->handle(new UserLoggedInEvent($this->alice, $this->alice->getUID(), self::PASSWORD, false));
+		$this->assertCount(2, $this->historyOf($this->alice), 'Another network is another row');
 	}
 
-	public function testAppPasswordsAreRecordedOncePerTokenAndHourWithAMemoryCache(): void {
+	public function testAppPasswordsAreRecordedOncePerTokenAndDayWithAMemoryCache(): void {
 		$cache = new ArrayCache();
 		$factory = $this->createMock(ICacheFactory::class);
 		$factory->method('isAvailable')->willReturn(true);
 		$factory->method('createDistributed')->willReturn($cache);
-		$history = new LoginHistory(Server::get(LoginHistoryMapper::class), $this->state, $this->session, $this->currentSession, $factory, Server::get(ITimeFactory::class));
+		$history = $this->historyWith($factory);
 		$first = $this->token($this->alice, \OCP\Authentication\Token\IToken::PERMANENT_TOKEN, 'Desktop client');
 		$second = $this->token($this->alice, \OCP\Authentication\Token\IToken::PERMANENT_TOKEN, 'Phone');
 		$this->headers['Authorization'] = 'Basic ' . base64_encode('alice:app-password');
@@ -191,6 +196,13 @@ class LoginHistoryTest extends StepUpTestCase {
 			$this->session->set('token-id', $token['id']);
 			$this->historyListener($history)->handle(new UserLoggedInEvent($this->alice, 'alice', 'app-password', true));
 		}
+		// The next hour the gate lets the first login through again; the row of the day stays the only one.
+		$cache->clear();
+		$this->session->clear();
+		$this->session->set('token-id', $first['id']);
+		$queries = $this->db->getInner()->getStats()['executed'];
+		$this->historyWith($factory)->record($this->alice->getUID(), LoginHistory::METHOD_APP_PASSWORD, SourceKey::fromIp($this->remoteAddress), 'client', null, false);
+		$this->assertSame(1, $this->db->getInner()->getStats()['executed'] - $queries, 'One indexed read, no insert');
 		$rows = $this->historyOf($this->alice);
 		$this->assertCount(2, $rows, 'Once per app password');
 		$this->assertSame([LoginHistory::METHOD_APP_PASSWORD, LoginHistory::METHOD_APP_PASSWORD], array_map(static fn (LoginHistoryEntry $e): string => $e->method, $rows));
@@ -265,6 +277,10 @@ class LoginHistoryTest extends StepUpTestCase {
 	private function outcome(IUser $user): array {
 		$row = $this->historyOf($user)[0];
 		return [$row->stepUp, $row->confirmedBy];
+	}
+
+	private function historyWith(ICacheFactory $factory): LoginHistory {
+		return new LoginHistory(Server::get(LoginHistoryMapper::class), $this->state, $this->currentSession, new LoginGate($factory, Server::get(Prerequisites::class), $this->session), Server::get(ITimeFactory::class));
 	}
 
 	private function historyListener(?LoginHistory $history = null): LoginHistoryListener {

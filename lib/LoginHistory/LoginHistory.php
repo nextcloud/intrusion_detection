@@ -12,14 +12,12 @@ namespace OCA\IntrusionDetection\LoginHistory;
 use OCA\IntrusionDetection\Confirm\StepUpState;
 use OCA\IntrusionDetection\Db\LoginHistoryMapper;
 use OCA\IntrusionDetection\KnownDevice\KnownDevice;
+use OCA\IntrusionDetection\Login\LoginGate;
 use OCA\IntrusionDetection\Net\SourceKey;
 use OCA\IntrusionDetection\Notification\UserMessages;
 use OCA\IntrusionDetection\SessionState\CurrentSession;
 use OCA\IntrusionDetection\SessionState\SessionState;
 use OCP\AppFramework\Utility\ITimeFactory;
-use OCP\ICacheFactory;
-use OCP\IMemcache;
-use OCP\ISession;
 
 /**
  * The login history (concept section 7, `ids_login_history`): one row per
@@ -32,9 +30,10 @@ use OCP\ISession;
  *   the verify page updates the row.
  * - Apps that send a password or an app password with every request would
  *   write a row per request, so these logins are written at most once per
- *   credential (the app password, or the address for the real password)
- *   and GATE_INTERVAL with a memory cache, and once a day without one,
- *   checked with one indexed query.
+ *   credential (the app password, or the password), network and
+ *   HISTORY_INTERVAL, with or without a memory cache: a client that stays
+ *   on one network is one row a day. The {@see LoginGate} lets one login
+ *   per credential, address and hour through to the indexed check.
  * - Browser sessions get their session token linked on their first request
  *   ({@see \OCA\IntrusionDetection\SessionState\Rules\LoginHistoryRule}),
  *   since core creates the token after the login event.
@@ -68,19 +67,16 @@ class LoginHistory {
 	public const STEP_UP_FAILED = 'failed';
 	public const STEP_UP = [self::STEP_UP_PENDING, self::STEP_UP_CONFIRMED, self::STEP_UP_ALLOWED, self::STEP_UP_REFUSED, self::STEP_UP_FAILED];
 
-	public const GATE_INTERVAL = 3600;
-	public const GATE_INTERVAL_WITHOUT_CACHE = 86400;
+	/** An app's logins with one credential from one network are one row this long */
+	public const HISTORY_INTERVAL = 86400;
 	/** A confirmation recorded this recently belongs to the login being recorded */
 	private const CONFIRMATION_AGE = 60;
-	/** Where core keeps the id of the token a request logged in with */
-	private const TOKEN_ID_KEY = 'token-id';
 
 	public function __construct(
 		private readonly LoginHistoryMapper $mapper,
 		private readonly SessionState $state,
-		private readonly ISession $session,
 		private readonly CurrentSession $currentSession,
-		private readonly ICacheFactory $cacheFactory,
+		private readonly LoginGate $gate,
 		private readonly ITimeFactory $timeFactory,
 	) {
 	}
@@ -94,7 +90,7 @@ class LoginHistory {
 	 */
 	public function record(string $uid, string $method, ?SourceKey $source, ?string $userAgent, ?KnownDevice $device, bool $browser): ?int {
 		$now = $this->timeFactory->getTime();
-		$tokenId = $browser ? null : $this->requestTokenId();
+		$tokenId = $browser ? null : $this->gate->tokenId();
 		if (!$browser && !$this->passesGate($uid, $method, $tokenId, $source, $now)) {
 			return null;
 		}
@@ -187,25 +183,13 @@ class LoginHistory {
 	}
 
 	/**
-	 * Whether a login of an app is due for a row: once per credential and
-	 * hour with a memory cache, once a day without.
+	 * Whether a login of an app is due for a row: the first with its
+	 * credential from its network in HISTORY_INTERVAL.
 	 */
 	private function passesGate(string $uid, string $method, ?int $tokenId, ?SourceKey $source, int $now): bool {
-		if ($this->cacheFactory->isAvailable()) {
-			$cache = $this->cacheFactory->createDistributed('intrusion_detection_lh');
-			if ($cache instanceof IMemcache) {
-				return $cache->add($method . ':' . ($tokenId ?? $source?->ipKey ?? '-') . ':' . $uid, 1, self::GATE_INTERVAL);
-			}
+		if ($source !== null && $this->gate->isFirst($uid, $source->ipKey, $now) === false) {
+			return false;
 		}
-		return !$this->mapper->existsSince($uid, $method, $tokenId, $tokenId === null ? $source?->ip : null, $now - self::GATE_INTERVAL_WITHOUT_CACHE);
-	}
-
-	private function requestTokenId(): ?int {
-		try {
-			$id = $this->session->get(self::TOKEN_ID_KEY);
-		} catch (\Throwable) {
-			return null;
-		}
-		return is_int($id) || (is_string($id) && ctype_digit($id)) ? (int)$id : null;
+		return !$this->mapper->existsSince($uid, $method, $tokenId, $source?->netKey, $now - self::HISTORY_INTERVAL);
 	}
 }

@@ -17,6 +17,7 @@ use OCA\IntrusionDetection\Check\Checks\PasswordSpraying;
 use OCA\IntrusionDetection\Check\Checks\PasswordSprayingDetector;
 use OCA\IntrusionDetection\Check\Checks\StepUpFailed;
 use OCA\IntrusionDetection\Check\Checks\StepUpUnconfirmed;
+use OCA\IntrusionDetection\Config\Prerequisites;
 use OCA\IntrusionDetection\Confirm\ConfirmationPolicy;
 use OCA\IntrusionDetection\Confirm\EmailCodes;
 use OCA\IntrusionDetection\Confirm\FamiliarLogin;
@@ -48,6 +49,7 @@ use OCA\IntrusionDetection\KnownDevice\KnownDevices;
 use OCA\IntrusionDetection\Listener\StepUpChallengePassedListener;
 use OCA\IntrusionDetection\Listener\StepUpLoginListener;
 use OCA\IntrusionDetection\Login\InteractiveLogin;
+use OCA\IntrusionDetection\Login\LoginGate;
 use OCA\IntrusionDetection\LoginHistory\LoginHistory;
 use OCA\IntrusionDetection\Net\RemoteAddressResolver;
 use OCA\IntrusionDetection\Net\ServerAddresses;
@@ -291,9 +293,8 @@ abstract class StepUpTestCase extends AccountTestCase {
 		return $this->history ??= new LoginHistory(
 			Server::get(LoginHistoryMapper::class),
 			$this->state,
-			$this->session,
 			$this->currentSession,
-			Server::get(ICacheFactory::class),
+			new LoginGate(Server::get(ICacheFactory::class), Server::get(Prerequisites::class), $this->session),
 			Server::get(ITimeFactory::class),
 		);
 	}

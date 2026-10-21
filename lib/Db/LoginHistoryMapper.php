@@ -93,9 +93,9 @@ class LoginHistoryMapper {
 
 	/**
 	 * Whether the account logged in this way since a time, with this token
-	 * or, without one, from this address.
+	 * (if any) and from this network (if any).
 	 */
-	public function existsSince(string $uid, string $method, ?int $tokenId, ?string $ip, int $since): bool {
+	public function existsSince(string $uid, string $method, ?int $tokenId, ?string $netKey, int $since): bool {
 		$qb = $this->db->getQueryBuilder();
 		$qb->select('id')
 			->from(self::TABLE)
@@ -105,8 +105,9 @@ class LoginHistoryMapper {
 			->setMaxResults(1);
 		if ($tokenId !== null) {
 			$qb->andWhere($qb->expr()->eq('session_token_id', $qb->createNamedParameter($tokenId, IQueryBuilder::PARAM_INT)));
-		} elseif ($ip !== null) {
-			$qb->andWhere($qb->expr()->eq('ip', $qb->createNamedParameter($ip)));
+		}
+		if ($netKey !== null) {
+			$qb->andWhere($qb->expr()->eq('net_key', $qb->createNamedParameter($netKey)));
 		}
 		$result = $qb->executeQuery();
 		$found = $result->fetchOne() !== false;
