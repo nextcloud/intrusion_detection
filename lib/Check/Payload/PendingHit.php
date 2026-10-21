@@ -26,12 +26,14 @@ final class PendingHit {
 
 	/**
 	 * @param self::CREDENTIAL_* $credential
+	 * @param bool $lure the request is a possible lure ({@see \OCA\IntrusionDetection\Net\FetchMetadata})
 	 */
 	public function __construct(
 		public readonly PayloadHit $hit,
 		public readonly SourceKey $source,
 		public readonly string $credential,
 		public readonly ?string $userAgent,
+		public readonly bool $lure = false,
 	) {
 	}
 }

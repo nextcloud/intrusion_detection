@@ -19,6 +19,7 @@ use OCA\IntrusionDetection\Net\SourceKey;
 final class AttemptRecord {
 	/**
 	 * @param list<string> $passwordCandidates the password fingerprints to look for (today's, and yesterday's after midnight)
+	 * @param bool $lure the request was a possible lure ({@see \OCA\IntrusionDetection\Net\FetchMetadata})
 	 */
 	public function __construct(
 		public readonly AttemptKind $kind,
@@ -30,6 +31,7 @@ final class AttemptRecord {
 		public readonly array $passwordCandidates,
 		public readonly int $time,
 		public readonly bool $stored,
+		public readonly bool $lure = false,
 	) {
 	}
 }

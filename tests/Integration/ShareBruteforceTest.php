@@ -149,6 +149,42 @@ class ShareBruteforceTest extends RequestEventTestCase {
 		$this->assertSame([], $this->bans->findActiveForKeys(['198.51.100.50'], time()), 'An address with one outdated link is not blocked on its own');
 	}
 
+	public function testALinkABrowserOpensForAnotherSiteIsRecordedButDoesNotBlockItsAddress(): void {
+		$this->requestHeaders = ['Sec-Fetch-Site' => 'cross-site', 'Sec-Fetch-Mode' => 'no-cors', 'Sec-Fetch-Dest' => 'image'];
+		for ($i = 1; $i <= 10; $i++) {
+			$this->openUnknownLink('198.51.100.7', 'luredToken' . $i);
+		}
+		$detections = $this->detectionsOf(ShareBruteforce::ID);
+		$this->assertCount(1, $detections, 'It is recorded');
+		$this->assertSame([], $this->bans->findActiveForKeys(['198.51.100.7'], time()), 'but the address is not blocked');
+		$lures = $this->db->getQueryBuilder()->select('lure')->from(AttemptMapper::TABLE)->executeQuery()->fetchFirstColumn();
+		$this->assertCount(10, $lures);
+		$this->assertSame([true], array_values(array_unique(array_map('boolval', $lures))), 'Each attempt is marked as a possible lure');
+	}
+
+	public function testLuresNeverMakeTheAddressesOfANetworkTargets(): void {
+		// An email with many images of made-up links, opened by people behind one network.
+		$this->requestHeaders = ['Sec-Fetch-Site' => 'cross-site', 'Sec-Fetch-Mode' => 'no-cors', 'Sec-Fetch-Dest' => 'image'];
+		$n = 0;
+		foreach (['198.51.100.1', '198.51.100.2', '198.51.100.3'] as $ip) {
+			for ($i = 0; $i < 9; $i++) {
+				$this->openUnknownLink($ip, 'mailImage' . $n++);
+			}
+		}
+		$this->requestHeaders = [];
+		for ($i = 0; $i < 3; $i++) {
+			$this->openUnknownLink('198.51.100.4', 'guess' . $i);
+		}
+		$detections = $this->detectionsOf(ShareBruteforce::ID);
+		$this->assertCount(1, $detections);
+		$this->assertSame(ShareBruteforce::RULE_TOKENS_NETWORK, $detections[0]->getExplanationData()['facts']['rule'], 'The network as a whole crossed its limit');
+		foreach (['198.51.100.1', '198.51.100.2', '198.51.100.3'] as $ip) {
+			$this->assertSame([], $this->bans->findActiveForKeys([$ip], time()), $ip . ' only opened lures');
+		}
+		$this->assertNotSame([], $this->bans->findActiveForKeys(['198.51.100.4'], time()), 'The address that guessed by itself is blocked');
+		$this->assertSame([], $this->bans->findActiveForKeys(['198.51.100.0/24'], time()), 'and the network is not');
+	}
+
 	public function testIpv6IsCountedPerSlash64(): void {
 		for ($i = 1; $i <= 10; $i++) {
 			$this->openUnknownLink('2001:db8:1:2::' . dechex($i), 'v6Token' . $i);

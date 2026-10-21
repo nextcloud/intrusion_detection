@@ -32,6 +32,9 @@ class AttemptMapper {
 	) {
 	}
 
+	/**
+	 * @param bool $lure the attempt may have been a lure; stored as true, or as null otherwise
+	 */
 	public function insert(
 		AttemptKind $kind,
 		string $ipKey,
@@ -42,6 +45,7 @@ class AttemptMapper {
 		?string $pwFp,
 		int $createdAt,
 		int $weight = 1,
+		bool $lure = false,
 	): void {
 		$qb = $this->db->getQueryBuilder();
 		$qb->insert(self::TABLE)
@@ -55,6 +59,7 @@ class AttemptMapper {
 				'pw_fp' => $qb->createNamedParameter($pwFp),
 				'created_at' => $qb->createNamedParameter($createdAt, IQueryBuilder::PARAM_INT),
 				'weight' => $qb->createNamedParameter($weight, IQueryBuilder::PARAM_INT),
+				'lure' => $lure ? $qb->createNamedParameter(true, IQueryBuilder::PARAM_BOOL) : $qb->createNamedParameter(null, IQueryBuilder::PARAM_NULL),
 			])
 			->executeStatement();
 	}
@@ -239,6 +244,8 @@ class AttemptMapper {
 	/**
 	 * Distinct name fingerprints per ip key for one value of a key column,
 	 * for "block every address of the network that tried at least N names".
+	 * Attempts that may have been lures are left out: they never make an
+	 * address a target.
 	 *
 	 * @param 'ip_key'|'net_key'|'pw_fp'|'uid'|'share_id'|'name_hmac' $column
 	 * @param list<AttemptKind> $kinds
@@ -254,6 +261,7 @@ class AttemptMapper {
 			->from(self::TABLE)
 			->where($qb->expr()->eq($column, $qb->createNamedParameter($value, is_int($value) ? IQueryBuilder::PARAM_INT : IQueryBuilder::PARAM_STR)))
 			->andWhere($qb->expr()->gte('created_at', $qb->createNamedParameter($since, IQueryBuilder::PARAM_INT)))
+			->andWhere($qb->expr()->isNull('lure'))
 			->groupBy('ip_key')
 			->setMaxResults($limit);
 		$this->whereKinds($qb, $kinds);

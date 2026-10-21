@@ -10,8 +10,6 @@ declare(strict_types=1);
 namespace OCA\IntrusionDetection\Tests\Integration;
 
 use OCA\IntrusionDetection\Address\AddressResolver;
-use OCA\IntrusionDetection\Audit\AuditLogger;
-use OCA\IntrusionDetection\Check\CheckRegistry;
 use OCA\IntrusionDetection\Check\Checks\TrapUrl;
 use OCA\IntrusionDetection\Check\InvalidParamException;
 use OCA\IntrusionDetection\Check\Mode;
@@ -19,13 +17,9 @@ use OCA\IntrusionDetection\Config\Settings;
 use OCA\IntrusionDetection\Db\BanMapper;
 use OCA\IntrusionDetection\Db\DetectionFilter;
 use OCA\IntrusionDetection\Db\DetectionMapper;
-use OCA\IntrusionDetection\Detection\DetectionService;
-use OCA\IntrusionDetection\Event\TypedEvents;
 use OCA\IntrusionDetection\Guard\TrapUrlGuard;
 use OCA\IntrusionDetection\Net\RemoteAddressResolver;
 use OCA\IntrusionDetection\Perf\GuardTimer;
-use OCA\IntrusionDetection\Response\BanService;
-use OCA\IntrusionDetection\Response\Handlers\BanHandler;
 use OCA\IntrusionDetection\Response\ResponseEngine;
 use OCA\IntrusionDetection\Response\ResponseOutcome;
 use OCP\AppFramework\Utility\ITimeFactory;
@@ -36,10 +30,12 @@ use OCP\Security\Bruteforce\IThrottler;
 use OCP\Server;
 use PHPUnit\Framework\Attributes\Group;
 use Psr\Container\ContainerInterface;
-use Psr\Log\LoggerInterface;
 
 #[Group('DB')]
 class TrapUrlGuardTest extends IntegrationTestCase {
+	/** What a browser sends for an image another site embeds */
+	private const LURE = ['Sec-Fetch-Site' => 'cross-site', 'Sec-Fetch-Mode' => 'no-cors', 'Sec-Fetch-Dest' => 'image'];
+
 	private Settings $settings;
 	private DetectionMapper $detections;
 
@@ -118,17 +114,23 @@ class TrapUrlGuardTest extends IntegrationTestCase {
 	}
 
 	public function testALureFromAnotherSiteIsRecordedButNotBlocked(): void {
-		$headers = ['Sec-Fetch-Site' => 'cross-site', 'Sec-Fetch-Mode' => 'no-cors', 'Sec-Fetch-Dest' => 'image'];
-		$request = $this->request('/.env', headers: $headers);
-		$this->assertNull($this->guard(request: $request)->check($request));
+		$this->assertNull($this->guard()->check($this->request('/.env', headers: self::LURE)));
 		$this->assertSame(0, Server::get(BanMapper::class)->countActive(time()));
 		$detection = $this->detections->findList(new DetectionFilter(checkIds: [TrapUrl::ID]))[0];
 		$this->assertTrue($detection->isEnforced());
 		$this->assertSame(ResponseOutcome::NOTE_HELD_BACK, $detection->getActionList()[0]['note']);
 
 		// The same address without fetch metadata, as a scanner sends it, is blocked.
-		$scanner = $this->request('/.git/config');
-		$this->assertNotNull($this->guard(request: $scanner)->check($scanner));
+		$this->assertNotNull($this->guard()->check($this->request('/.git/config')));
+	}
+
+	public function testOnlyAGetOrHeadRequestCanBeALure(): void {
+		$this->assertNotNull($this->guard()->check($this->request('/.env', headers: self::LURE, method: 'POST')));
+	}
+
+	public function testARequestFromAPageOfThisServerIsNoLure(): void {
+		$headers = self::LURE + ['Referer' => 'https://cloud.example.com/index.php/apps/files/'];
+		$this->assertNotNull($this->guard()->check($this->request('/.env', headers: $headers)));
 	}
 
 	public function testOffAndTheMasterSwitchSkipTheCheck(): void {
@@ -149,36 +151,20 @@ class TrapUrlGuardTest extends IntegrationTestCase {
 		$this->assertNotNull($this->guard()->check($this->request('/nextcloud/index.php/.env', script: '/nextcloud/index.php')));
 	}
 
-	/**
-	 * @param ?IRequest $request the request the responses see, when they read it
-	 */
-	private function guard(?ContainerInterface $container = null, ?IRequest $request = null): TrapUrlGuard {
+	private function guard(?ContainerInterface $container = null): TrapUrlGuard {
 		return new TrapUrlGuard(
 			Server::get(IConfig::class),
 			Server::get(IAppConfig::class),
 			$this->settings,
 			new RemoteAddressResolver($this->createMock(IRequest::class), Server::get(IThrottler::class)),
 			Server::get(ITimeFactory::class),
-			$container ?? $this->container($request),
+			$container ?? $this->container(),
 			Server::get(GuardTimer::class),
 		);
 	}
 
-	private function container(?IRequest $request): ContainerInterface {
-		$engine = $request === null ? Server::get(ResponseEngine::class) : new ResponseEngine(
-			Server::get(CheckRegistry::class),
-			$this->settings,
-			Server::get(DetectionService::class),
-			new OverridingContainer([BanHandler::class => new BanHandler(
-				Server::get(BanService::class),
-				Server::get(ContainerInterface::class),
-				$request,
-				new RemoteAddressResolver($request, Server::get(IThrottler::class)),
-			)]),
-			Server::get(TypedEvents::class),
-			Server::get(AuditLogger::class),
-			Server::get(LoggerInterface::class),
-		);
+	private function container(): ContainerInterface {
+		$engine = Server::get(ResponseEngine::class);
 		$container = $this->createMock(ContainerInterface::class);
 		$container->method('get')->willReturnCallback(static fn (string $id): object => match ($id) {
 			ResponseEngine::class => $engine,
@@ -191,12 +177,13 @@ class TrapUrlGuardTest extends IntegrationTestCase {
 	 * @param array<string, string> $headers
 	 * @param array<string, string> $cookies
 	 */
-	private function request(string $uri, array $headers = [], array $cookies = [], string $ip = '198.51.100.7', string $script = '/index.php'): IRequest {
+	private function request(string $uri, array $headers = [], array $cookies = [], string $ip = '198.51.100.7', string $script = '/index.php', string $method = 'GET'): IRequest {
 		$request = $this->createMock(IRequest::class);
 		$request->method('getRequestUri')->willReturn($uri);
 		$request->method('getScriptName')->willReturn($script);
 		$request->method('getRemoteAddress')->willReturn($ip);
-		$request->method('getMethod')->willReturn('GET');
+		$request->method('getMethod')->willReturn($method);
+		$request->method('getServerHost')->willReturn('cloud.example.com');
 		$request->method('getHeader')->willReturnCallback(static fn (string $name): string => $headers[$name] ?? '');
 		$request->method('getCookie')->willReturnCallback(static fn (string $name): ?string => $cookies[$name] ?? null);
 		return $request;

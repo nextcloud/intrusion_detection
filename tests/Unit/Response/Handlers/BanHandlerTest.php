@@ -9,13 +9,14 @@ declare(strict_types=1);
 
 namespace OCA\IntrusionDetection\Tests\Unit\Response\Handlers;
 
+use OCA\IntrusionDetection\Check\Checks\InjectionProbe;
+use OCA\IntrusionDetection\Check\Checks\ShareBruteforce;
 use OCA\IntrusionDetection\Check\Checks\SharedAddress;
 use OCA\IntrusionDetection\Check\Checks\TrapUrl;
 use OCA\IntrusionDetection\Db\Ban;
 use OCA\IntrusionDetection\Db\Detection;
 use OCA\IntrusionDetection\Detection\DetectionDraft;
 use OCA\IntrusionDetection\Explain\DateFormatter;
-use OCA\IntrusionDetection\Net\RemoteAddressResolver;
 use OCA\IntrusionDetection\Net\SourceKey;
 use OCA\IntrusionDetection\Response\BanResult;
 use OCA\IntrusionDetection\Response\BanService;
@@ -24,9 +25,7 @@ use OCA\IntrusionDetection\Response\ResponseContext;
 use OCA\IntrusionDetection\Response\ResponseEngine;
 use OCA\IntrusionDetection\Response\ResponseOutcome;
 use OCP\IL10N;
-use OCP\IRequest;
 use OCP\L10N\IFactory;
-use OCP\Security\Bruteforce\IThrottler;
 use OCP\Server;
 use PHPUnit\Framework\Attributes\DataProvider;
 use Psr\Container\ContainerInterface;
@@ -71,22 +70,21 @@ class BanHandlerTest extends TestCase {
 	}
 
 	/**
-	 * @return array<string, array{array<string, string>}>
+	 * @return array<string, array{string}>
 	 */
-	public static function lures(): array {
+	public static function lureChecks(): array {
 		return [
-			'another site' => [['Sec-Fetch-Site' => 'cross-site', 'Sec-Fetch-Mode' => 'navigate', 'Sec-Fetch-Dest' => 'document']],
-			'an image' => [['Sec-Fetch-Site' => 'same-site', 'Sec-Fetch-Mode' => 'no-cors', 'Sec-Fetch-Dest' => 'image']],
-			'a script, header case and spaces' => [['Sec-Fetch-Dest' => ' Script ']],
-			'a frame' => [['Sec-Fetch-Site' => 'same-origin', 'Sec-Fetch-Mode' => 'navigate', 'Sec-Fetch-Dest' => 'iframe']],
+			'a trap URL' => [TrapUrl::ID],
+			'an injection probe' => [InjectionProbe::ID],
+			'an unknown share link' => [ShareBruteforce::ID],
 		];
 	}
 
-	#[DataProvider('lures')]
-	public function testALureNeverBlocksTheAddressOfTheRequest(array $headers): void {
+	#[DataProvider('lureChecks')]
+	public function testALureNeverBlocksTheAddressOfTheRequest(string $checkId): void {
 		$bans = $this->createMock(BanService::class);
 		$bans->expects($this->never())->method('ban');
-		$outcome = $this->handler($bans, $headers)->apply($this->context());
+		$outcome = $this->handler($bans)->apply($this->context($this->lure($checkId)));
 		$this->assertFalse($outcome->enforced);
 		$this->assertSame(ResponseOutcome::NOTE_HELD_BACK, $outcome->note);
 		$this->assertSame(1, $outcome->ref['counts']['lure']);
@@ -95,41 +93,45 @@ class BanHandlerTest extends TestCase {
 	}
 
 	/**
-	 * @return array<string, array{array<string, string>}>
+	 * @return array<string, array{string}>
 	 */
-	public static function noLures(): array {
+	public static function checksWithoutLures(): array {
 		return [
-			'a script without fetch metadata' => [[]],
-			'the user went there' => [['Sec-Fetch-Site' => 'none', 'Sec-Fetch-Mode' => 'navigate', 'Sec-Fetch-Dest' => 'document']],
-			'a script of the same site' => [['Sec-Fetch-Site' => 'same-origin', 'Sec-Fetch-Mode' => 'cors', 'Sec-Fetch-Dest' => 'empty']],
+			'password spraying' => ['password_spraying'],
+			'credential stuffing' => ['credential_stuffing'],
+			'an account under attack' => ['account_under_attack'],
+			'a decoy' => ['decoy_credential'],
 		];
 	}
 
-	#[DataProvider('noLures')]
-	public function testOtherRequestsBlockAsBefore(array $headers): void {
+	#[DataProvider('checksWithoutLures')]
+	public function testOtherChecksBlockALure(string $checkId): void {
 		$source = SourceKey::fromIp('198.51.100.7');
 		$bans = $this->createMock(BanService::class);
 		$bans->expects($this->once())->method('ban')->with($source)->willReturn(new BanResult(BanResult::BANNED, $this->ban()));
-		$outcome = $this->handler($bans, $headers)->apply($this->context());
+		$outcome = $this->handler($bans)->apply($this->context($this->lure($checkId)));
+		$this->assertTrue($outcome->enforced);
+		$this->assertSame(0, $outcome->ref['counts']['lure']);
+	}
+
+	public function testARequestThatIsNoLureIsBlocked(): void {
+		$source = SourceKey::fromIp('198.51.100.7');
+		$bans = $this->createMock(BanService::class);
+		$bans->expects($this->once())->method('ban')->with($source)->willReturn(new BanResult(BanResult::BANNED, $this->ban()));
+		$outcome = $this->handler($bans)->apply($this->context());
 		$this->assertTrue($outcome->enforced);
 		$this->assertSame(0, $outcome->ref['counts']['lure']);
 	}
 
 	public function testALureOnlySparesTheAddressOfTheRequest(): void {
 		$other = SourceKey::fromIp('203.0.113.9');
-		$draft = new DetectionDraft(checkId: 'password_spraying', source: SourceKey::fromIp('198.51.100.7'));
+		$draft = $this->lure(ShareBruteforce::ID);
 		$draft->addBanTarget($other);
 		$bans = $this->createMock(BanService::class);
 		$bans->expects($this->once())->method('ban')->with($other)->willReturn(new BanResult(BanResult::BANNED, $this->ban()));
-		$outcome = $this->handler($bans, ['Sec-Fetch-Site' => 'cross-site'])->apply($this->context($draft));
+		$outcome = $this->handler($bans)->apply($this->context($draft));
 		$this->assertTrue($outcome->enforced);
 		$this->assertSame(['banned' => 1, 'already' => 0, 'skipped' => 0, 'lure' => 1, 'trusted' => 0, 'proxy' => 0], $outcome->ref['counts']);
-	}
-
-	public function testALureFromAnotherAddressBlocksTheDetectionsSource(): void {
-		$bans = $this->createMock(BanService::class);
-		$bans->expects($this->once())->method('ban')->willReturn(new BanResult(BanResult::BANNED, $this->ban()));
-		$this->assertTrue($this->handler($bans, ['Sec-Fetch-Site' => 'cross-site'], '203.0.113.50')->apply($this->context())->enforced);
 	}
 
 	public function testTheAddressOfTrustedLoginsIsHeldBackAndSaysWhy(): void {
@@ -151,21 +153,18 @@ class BanHandlerTest extends TestCase {
 		));
 		$container = $this->createMock(ContainerInterface::class);
 		$container->method('get')->with(ResponseEngine::class)->willReturn($engine);
-		$request = $this->createMock(IRequest::class);
-		$handler = new BanHandler($bans, $container, $request, new RemoteAddressResolver($request, $this->createMock(IThrottler::class)));
+		$handler = new BanHandler($bans, $container);
 		$outcome = $handler->apply($this->context());
 		$this->assertSame(1, $outcome->ref['counts']['proxy']);
 		$this->assertSame(ResponseOutcome::NOTE_HELD_BACK, $outcome->note);
 	}
 
-	/**
-	 * @param array<string, string> $headers
-	 */
-	private function handler(BanService $bans, array $headers = [], string $requestAddress = '198.51.100.7'): BanHandler {
-		$request = $this->createMock(IRequest::class);
-		$request->method('getHeader')->willReturnCallback(static fn (string $name): string => $headers[$name] ?? '');
-		$request->method('getRemoteAddress')->willReturn($requestAddress);
-		return new BanHandler($bans, $this->createMock(ContainerInterface::class), $request, new RemoteAddressResolver($request, $this->createMock(IThrottler::class)));
+	private function handler(BanService $bans): BanHandler {
+		return new BanHandler($bans, $this->createMock(ContainerInterface::class));
+	}
+
+	private function lure(string $checkId): DetectionDraft {
+		return new DetectionDraft(checkId: $checkId, source: SourceKey::fromIp('198.51.100.7'), lure: true);
 	}
 
 	private function context(?DetectionDraft $draft = null): ResponseContext {

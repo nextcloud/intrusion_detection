@@ -16,6 +16,7 @@ use OCA\IntrusionDetection\Check\Payload\PendingHit;
 use OCA\IntrusionDetection\Check\Payload\PreFilter;
 use OCA\IntrusionDetection\Check\Payload\RequestParts;
 use OCA\IntrusionDetection\Login\BasicCredentials;
+use OCA\IntrusionDetection\Net\FetchMetadata;
 use OCA\IntrusionDetection\Net\RemoteAddressResolver;
 use OCA\IntrusionDetection\Net\SourceKey;
 use OCA\IntrusionDetection\Perf\GuardTimer;
@@ -37,7 +38,9 @@ use Psr\Log\LoggerInterface;
  * A request without credentials that matches is answered at once: detection,
  * block, and this request refused with the block's reference. A request with
  * credentials is decided once it is known whether it is really logged in
- * ({@see PayloadResponder}). The brute-force allowlist is always honoured.
+ * ({@see PayloadResponder}). A possible lure (a GET request a browser made
+ * for another site, {@see FetchMetadata}) is recorded without blocking its
+ * address. The brute-force allowlist is always honoured.
  * Anything that goes wrong lets the request through.
  */
 class PayloadGuard implements IRequestGuard {
@@ -101,12 +104,13 @@ class PayloadGuard implements IRequestGuard {
 		}
 		$userAgent = $request->getHeader('User-Agent');
 		$userAgent = $userAgent === '' ? null : $userAgent;
+		$lure = FetchMetadata::isLure($request);
 		$responder = $this->container->get(PayloadResponder::class);
 		if ($credential !== null) {
-			$responder->defer(new PendingHit($hit, $source, $credential, $userAgent));
+			$responder->defer(new PendingHit($hit, $source, $credential, $userAgent, $lure));
 			return null;
 		}
-		return $responder->anonymous($hit, $source, $userAgent);
+		return $responder->anonymous($hit, $source, $userAgent, lure: $lure);
 	}
 
 	/**

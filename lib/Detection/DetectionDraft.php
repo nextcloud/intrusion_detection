@@ -45,6 +45,7 @@ final class DetectionDraft {
 	 * @param ?int $banLevel force at least this escalation level when banning
 	 * @param ?int $sessionTokenId the id of the session token involved, for the kill_session response
 	 * @param ?int $tokenId the id of the app password or token involved, for the revoke_token response
+	 * @param bool $lure the request is a possible lure ({@see \OCA\IntrusionDetection\Net\FetchMetadata}): the ban response spares `$source`, for the checks that honour lures
 	 */
 	public function __construct(
 		public readonly string $checkId,
@@ -59,6 +60,7 @@ final class DetectionDraft {
 		public readonly ?string $userAgent = null,
 		public readonly ?int $sessionTokenId = null,
 		public readonly ?int $tokenId = null,
+		public readonly bool $lure = false,
 	) {
 	}
 

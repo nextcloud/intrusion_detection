@@ -432,6 +432,7 @@ class ComposerStaticInitIntrusionDetection
         'OCA\\IntrusionDetection\\Migration\\Version1000Date20261021140000' => __DIR__ . '/..' . '/../lib/Migration/Version1000Date20261021140000.php',
         'OCA\\IntrusionDetection\\Migration\\Version1000Date20261021150000' => __DIR__ . '/..' . '/../lib/Migration/Version1000Date20261021150000.php',
         'OCA\\IntrusionDetection\\Migration\\Version1000Date20261021170000' => __DIR__ . '/..' . '/../lib/Migration/Version1000Date20261021170000.php',
+        'OCA\\IntrusionDetection\\Migration\\Version1000Date20261021200000' => __DIR__ . '/..' . '/../lib/Migration/Version1000Date20261021200000.php',
         'OCA\\IntrusionDetection\\Migration\\Version1000Date20261021220000' => __DIR__ . '/..' . '/../lib/Migration/Version1000Date20261021220000.php',
         'OCA\\IntrusionDetection\\Net\\FetchMetadata' => __DIR__ . '/..' . '/../lib/Net/FetchMetadata.php',
         'OCA\\IntrusionDetection\\Net\\Ipv6Networks' => __DIR__ . '/..' . '/../lib/Net/Ipv6Networks.php',

@@ -16,6 +16,7 @@ use OCA\IntrusionDetection\Config\Keys;
 use OCA\IntrusionDetection\Config\Settings;
 use OCA\IntrusionDetection\Detection\DetectionDraft;
 use OCA\IntrusionDetection\Detection\Explanation;
+use OCA\IntrusionDetection\Net\FetchMetadata;
 use OCA\IntrusionDetection\Net\RemoteAddressResolver;
 use OCA\IntrusionDetection\Net\SourceKey;
 use OCA\IntrusionDetection\Perf\GuardTimer;
@@ -121,6 +122,7 @@ class TrapUrlGuard implements IRequestGuard {
 			],
 			merge: DetectionDraft::MERGE_SOURCE,
 			userAgent: $request->getHeader('User-Agent'),
+			lure: FetchMetadata::isLure($request),
 		));
 		if ($detection === null || !$detection->isEnforced()) {
 			return null;

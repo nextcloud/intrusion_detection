@@ -36,6 +36,11 @@ use OCP\Share\IShare;
  * Each limit is lowered when the address of the failed access has an
  * elevated or high risk score ({@see RiskScorer::limits()}).
  *
+ * A possible lure (a browser that opened the link for another site or an
+ * email) counts, but the ban response spares the address of that request,
+ * and attempts that may have been lures never make an address of the
+ * network a target.
+ *
  * Under a flood the recorder keeps one unknown token in FLOOD_SAMPLE; only a
  * kept one is evaluated, and each kept row counts with its stored weight.
  * However the numbers are scaled, an address with at most STALE_TOLERANCE
@@ -82,6 +87,7 @@ class ShareBruteforceDetector {
 				facts: $this->tokenFacts(ShareBruteforce::RULE_TOKENS, $ip) + $limits->facts(),
 				merge: DetectionDraft::MERGE_SOURCE,
 				userAgent: $userAgent,
+				lure: $attempt->lure,
 			), $params);
 			return;
 		}
@@ -102,6 +108,7 @@ class ShareBruteforceDetector {
 			facts: $this->tokenFacts(ShareBruteforce::RULE_TOKENS_NETWORK, $net) + ['net' => $source->netKey] + $netLimits->facts(),
 			merge: DetectionDraft::MERGE_SOURCE,
 			userAgent: $userAgent,
+			lure: $attempt->lure,
 		);
 		foreach ($this->attempts->distinctNamesPerSource('net_key', $source->netKey, $kinds, $since, self::MAX_NET_TARGETS) as $ipKey => $tokens) {
 			$target = $tokens > self::STALE_TOLERANCE ? SourceKey::tryFromIpKey($ipKey) : null;

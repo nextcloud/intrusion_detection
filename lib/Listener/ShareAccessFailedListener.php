@@ -14,6 +14,7 @@ use OCA\IntrusionDetection\Check\Checks\ShareBruteforceDetector;
 use OCA\IntrusionDetection\Config\Settings;
 use OCA\IntrusionDetection\Db\AttemptKind;
 use OCA\IntrusionDetection\Detection\AttemptRecorder;
+use OCA\IntrusionDetection\Net\FetchMetadata;
 use OCA\IntrusionDetection\Net\RemoteAddressResolver;
 use OCP\EventDispatcher\Event;
 use OCP\EventDispatcher\IEventListener;
@@ -67,7 +68,7 @@ class ShareAccessFailedListener implements IEventListener {
 				if ($this->userSession->isLoggedIn()) {
 					return;
 				}
-				$attempt = $this->recorder->recordUnknownShareToken($source, $event->getToken());
+				$attempt = $this->recorder->recordUnknownShareToken($source, $event->getToken(), FetchMetadata::isLure($this->request));
 				$this->detector->unknownToken($attempt, $userAgent);
 				return;
 			}

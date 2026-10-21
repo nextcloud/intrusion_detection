@@ -35,6 +35,7 @@ use OCA\IntrusionDetection\Middleware\PayloadMiddleware;
 use OCA\IntrusionDetection\Net\RemoteAddressResolver;
 use OCA\IntrusionDetection\Perf\GuardTimer;
 use OCA\IntrusionDetection\Response\ResponseEngine;
+use OCA\IntrusionDetection\Response\ResponseOutcome;
 use OCP\AppFramework\Controller;
 use OCP\AppFramework\Http;
 use OCP\AppFramework\Http\JSONResponse;
@@ -425,6 +426,25 @@ class PayloadGuardTest extends IntegrationTestCase {
 		$this->assertSame('cat', $detection->getExplanationData()['facts']['param'], 'The latest hit explains the row');
 	}
 
+	public function testAProbeInAnImageAnotherSiteEmbedsIsRecordedButNotBlocked(): void {
+		$lure = ['Sec-Fetch-Site' => 'cross-site', 'Sec-Fetch-Mode' => 'no-cors', 'Sec-Fetch-Dest' => 'image'];
+		$this->assertNull($this->decide('/index.php/apps/foo?id=1%20UNION%20SELECT%201', '/index.php', headers: $lure));
+		$this->assertSame([], Server::get(BanMapper::class)->findActiveForKeys([self::IP], time()));
+		$this->assertSame(ResponseOutcome::NOTE_HELD_BACK, $this->onlyDetection()->getActionList()[0]['note']);
+
+		$this->resetTables();
+		$this->assertNotNull($this->decide('/index.php/apps/foo?id=1%20UNION%20SELECT%201', '/index.php', headers: $lure, method: 'POST'), 'No image or link makes a POST');
+	}
+
+	public function testAProbeLoggedInUsersMakeForAnotherSiteDoesNotBlockTheirAddress(): void {
+		$this->settings->setParam(InjectionProbe::ID, InjectionProbe::PARAM_AUTHENTICATED_MODE, 'protect');
+		$lure = ['Sec-Fetch-Site' => 'cross-site', 'Sec-Fetch-Dest' => 'image'];
+		$this->assertNull($this->decide('/index.php/apps/foo?id=1%20UNION%20SELECT%201', '/index.php', cookies: [$this->sessionCookie() => 'x'], headers: $lure));
+		$this->assertNull($this->responder->resolve($this->user('alice')));
+		$this->assertSame([], Server::get(BanMapper::class)->findActiveForKeys([self::IP], time()));
+		$this->assertSame('alice', $this->onlyDetection()->getUid());
+	}
+
 	public function testCustomAndDisabledSignaturesFromTheSettings(): void {
 		$this->settings->setParam(InjectionProbe::ID, InjectionProbe::PARAM_CUSTOM, ['dbms_pipe\.receive_message']);
 		$this->assertNotNull($this->decide('/index.php/apps/foo?id=DBMS_PIPE.RECEIVE_MESSAGE(%27a%27,5)', '/index.php'));
@@ -536,9 +556,10 @@ class PayloadGuardTest extends IntegrationTestCase {
 		array $headers = [],
 		?IThrottler $throttler = null,
 		?PayloadInspector $inspector = null,
+		string $method = 'GET',
 	): ?GuardDecision {
 		$guard = new PayloadGuard(Server::get(IConfig::class), $this->addresses($throttler), $this->container($inspector), Server::get(LoggerInterface::class), Server::get(GuardTimer::class));
-		return $guard->decide($this->request($uri, $script, $cookies, $headers), RequestParts::fromUri($uri, $script, $post));
+		return $guard->decide($this->request($uri, $script, $cookies, $headers, $method), RequestParts::fromUri($uri, $script, $post));
 	}
 
 	/**

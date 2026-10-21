@@ -9,13 +9,14 @@ declare(strict_types=1);
 
 namespace OCA\IntrusionDetection\Response\Handlers;
 
+use OCA\IntrusionDetection\Check\Checks\InjectionProbe;
+use OCA\IntrusionDetection\Check\Checks\ShareBruteforce;
 use OCA\IntrusionDetection\Check\Checks\SharedAddress;
+use OCA\IntrusionDetection\Check\Checks\TrapUrl;
 use OCA\IntrusionDetection\Check\ResponseType;
 use OCA\IntrusionDetection\Detection\DetectionDraft;
 use OCA\IntrusionDetection\Explain\DateFormatter;
 use OCA\IntrusionDetection\Explain\IDescribesAction;
-use OCA\IntrusionDetection\Net\FetchMetadata;
-use OCA\IntrusionDetection\Net\RemoteAddressResolver;
 use OCA\IntrusionDetection\Net\SourceKey;
 use OCA\IntrusionDetection\Response\BanResult;
 use OCA\IntrusionDetection\Response\BanService;
@@ -24,7 +25,6 @@ use OCA\IntrusionDetection\Response\ResponseContext;
 use OCA\IntrusionDetection\Response\ResponseEngine;
 use OCA\IntrusionDetection\Response\ResponseOutcome;
 use OCP\IL10N;
-use OCP\IRequest;
 use Psr\Container\ContainerInterface;
 
 /**
@@ -34,20 +34,22 @@ use Psr\Container\ContainerInterface;
  * Addresses of this server's own people are not blocked either
  * ({@see \OCA\IntrusionDetection\Response\BanExemptions}); the action says so.
  *
- * The address of the current request is not blocked when the request is a
- * possible lure ({@see FetchMetadata}): a browser that fetched the URL for
- * another site's page or an email. Anyone could have caused it, so it is
- * recorded, but blocking it would let any page lock its visitors out.
+ * The address of the request is not blocked when the request is a possible
+ * lure ({@see \OCA\IntrusionDetection\Net\FetchMetadata}): a browser that
+ * fetched a URL for another site's page or an email. Anyone could have caused
+ * it, so it is recorded, but blocking it would let any page lock its visitors
+ * out. Only the checks a plain link can trigger honour lures (LURE_CHECKS);
+ * failed logins and wrong share passwords never come from a lure.
  */
 class BanHandler implements IResponseHandler, IDescribesAction {
 	/** At most this many blocks are listed in the action; the rest are counted */
 	public const MAX_LISTED = 20;
+	/** The checks whose detections may spare the address of a lure */
+	public const LURE_CHECKS = [TrapUrl::ID, InjectionProbe::ID, ShareBruteforce::ID];
 
 	public function __construct(
 		private readonly BanService $bans,
 		private readonly ContainerInterface $container,
-		private readonly IRequest $request,
-		private readonly RemoteAddressResolver $addresses,
 	) {
 	}
 
@@ -61,7 +63,7 @@ class BanHandler implements IResponseHandler, IDescribesAction {
 		$draft = $context->draft;
 		$listed = [];
 		$counts = ['banned' => 0, 'already' => 0, 'skipped' => 0, 'lure' => 0, 'trusted' => 0, 'proxy' => 0];
-		$lure = $this->lureFrom();
+		$lure = $draft->lure && in_array($draft->checkId, self::LURE_CHECKS, true) ? $draft->source : null;
 		foreach ($draft->banTargets() as $target) {
 			if ($lure !== null && $target->ipKey === $lure->ipKey) {
 				$counts['lure']++;
@@ -151,13 +153,6 @@ class BanHandler implements IResponseHandler, IDescribesAction {
 			);
 		}
 		return $sentences;
-	}
-
-	/**
-	 * The address of the current request when the request is a possible lure.
-	 */
-	private function lureFrom(): ?SourceKey {
-		return FetchMetadata::isLure($this->request) ? $this->addresses->current() : null;
 	}
 
 	private function reportShared(DetectionDraft $draft, SourceKey $target, int $users, bool $proxy): void {

@@ -45,6 +45,8 @@ abstract class RequestEventTestCase extends IntegrationTestCase {
 	protected IRequest $request;
 	protected RemoteAddressResolver $addresses;
 	protected string $remoteAddress = '198.51.100.7';
+	/** @var array<string, string> the request's headers besides the User-Agent */
+	protected array $requestHeaders = [];
 	/** @var list<array{class-string, callable}> */
 	private array $listeners = [];
 	/** @var list<string> */
@@ -58,7 +60,8 @@ abstract class RequestEventTestCase extends IntegrationTestCase {
 		$this->detections = Server::get(DetectionMapper::class);
 		$this->request = $this->createMock(IRequest::class);
 		$this->request->method('getRemoteAddress')->willReturnCallback(fn (): string => $this->remoteAddress);
-		$this->request->method('getHeader')->willReturnCallback(static fn (string $name): string => $name === 'User-Agent' ? 'curl/8.0' : '');
+		$this->request->method('getHeader')->willReturnCallback(fn (string $name): string => $name === 'User-Agent' ? 'curl/8.0' : ($this->requestHeaders[$name] ?? ''));
+		$this->request->method('getMethod')->willReturn('GET');
 		$this->addresses = new RemoteAddressResolver($this->request, Server::get(IThrottler::class));
 		Server::get(INotificationManager::class)->registerApp(CapturingNotificationApp::class);
 		CapturingNotificationApp::$notifications = [];

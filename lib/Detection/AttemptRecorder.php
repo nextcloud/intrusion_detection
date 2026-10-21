@@ -66,10 +66,12 @@ class AttemptRecorder {
 	/**
 	 * Record an access to a share link with a token that does not exist.
 	 * Only the token's fingerprint is stored.
+	 *
+	 * @param bool $lure the request was a possible lure ({@see \OCA\IntrusionDetection\Net\FetchMetadata}): it never makes its address a target of a block
 	 */
-	public function recordUnknownShareToken(SourceKey $source, #[\SensitiveParameter] string $token): AttemptRecord {
+	public function recordUnknownShareToken(SourceKey $source, #[\SensitiveParameter] string $token, bool $lure = false): AttemptRecord {
 		$nameHmac = trim($token) === '' ? null : bin2hex($this->fingerprinter->shareToken($token));
-		return $this->store(AttemptKind::UnknownShareToken, $source, $nameHmac, null, null, null, [], $this->timeFactory->getTime());
+		return $this->store(AttemptKind::UnknownShareToken, $source, $nameHmac, null, null, null, [], $this->timeFactory->getTime(), $lure);
 	}
 
 	/**
@@ -86,13 +88,13 @@ class AttemptRecorder {
 	/**
 	 * @param list<string> $candidates
 	 */
-	private function store(AttemptKind $kind, SourceKey $source, ?string $nameHmac, ?string $uid, ?int $shareId, ?string $fingerprint, array $candidates, int $now): AttemptRecord {
+	private function store(AttemptKind $kind, SourceKey $source, ?string $nameHmac, ?string $uid, ?int $shareId, ?string $fingerprint, array $candidates, int $now, bool $lure = false): AttemptRecord {
 		$weight = $this->sampleFactor($kind, $now);
 		$stored = $weight === 1 || $this->oneIn(self::FLOOD_SAMPLE);
 		if ($stored) {
-			$this->mapper->insert($kind, $source->ipKey, $source->netKey, $nameHmac, $uid, $shareId, $fingerprint, $now, $weight);
+			$this->mapper->insert($kind, $source->ipKey, $source->netKey, $nameHmac, $uid, $shareId, $fingerprint, $now, $weight, $lure);
 		}
-		return new AttemptRecord($kind, $source, $nameHmac, $uid, $shareId, $fingerprint, $candidates, $now, $stored);
+		return new AttemptRecord($kind, $source, $nameHmac, $uid, $shareId, $fingerprint, $candidates, $now, $stored, $lure);
 	}
 
 	private static function isSampledKind(AttemptKind $kind): bool {

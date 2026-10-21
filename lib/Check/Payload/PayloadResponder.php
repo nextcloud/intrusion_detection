@@ -61,9 +61,10 @@ class PayloadResponder {
 	 * Record a hit of a request that is not logged in.
 	 *
 	 * @param ?string $credential what the request carried if it claimed to be logged in, see PendingHit::CREDENTIAL_*
+	 * @param bool $lure the request is a possible lure: its address is not blocked
 	 * @return ?GuardDecision the refusal when the address is blocked now
 	 */
-	public function anonymous(PayloadHit $hit, SourceKey $source, ?string $userAgent, ?string $credential = null): ?GuardDecision {
+	public function anonymous(PayloadHit $hit, SourceKey $source, ?string $userAgent, ?string $credential = null, bool $lure = false): ?GuardDecision {
 		$facts = $hit->facts() + ['authenticated' => false, 'credential' => $credential];
 		$draft = new DetectionDraft(
 			checkId: InjectionProbe::ID,
@@ -72,6 +73,7 @@ class PayloadResponder {
 			merge: DetectionDraft::MERGE_SOURCE,
 			mergeWindow: 3600,
 			userAgent: $userAgent,
+			lure: $lure,
 		);
 		return $this->refusal($this->engine->handle($draft, null, $this->settings->anonymousMode()));
 	}
@@ -80,8 +82,9 @@ class PayloadResponder {
 	 * Record a hit of a logged-in user.
 	 *
 	 * @param PendingHit::CREDENTIAL_* $credential
+	 * @param bool $lure the request is a possible lure: its address is not blocked
 	 */
-	public function authenticated(PayloadHit $hit, SourceKey $source, string $uid, string $credential, ?string $userAgent): ?GuardDecision {
+	public function authenticated(PayloadHit $hit, SourceKey $source, string $uid, string $credential, ?string $userAgent, bool $lure = false): ?GuardDecision {
 		$facts = $hit->facts() + ['authenticated' => true, 'credential' => $credential];
 		$draft = new DetectionDraft(
 			checkId: InjectionProbe::ID,
@@ -91,6 +94,7 @@ class PayloadResponder {
 			merge: DetectionDraft::MERGE_SOURCE_USER,
 			mergeWindow: 3600,
 			userAgent: $userAgent,
+			lure: $lure,
 		);
 		return $this->refusal($this->engine->handle($draft, null, $this->settings->authenticatedMode()));
 	}
@@ -123,8 +127,8 @@ class PayloadResponder {
 		}
 		$this->context->set(self::CONTEXT_KEY, null);
 		$decision = $user === null
-			? $this->anonymous($pending->hit, $pending->source, $pending->userAgent, $pending->credential)
-			: $this->authenticated($pending->hit, $pending->source, $user->getUID(), $pending->credential, $pending->userAgent);
+			? $this->anonymous($pending->hit, $pending->source, $pending->userAgent, $pending->credential, $pending->lure)
+			: $this->authenticated($pending->hit, $pending->source, $user->getUID(), $pending->credential, $pending->userAgent, $pending->lure);
 		if ($decision !== null) {
 			$this->context->set(self::DECISION_KEY, $decision);
 		}
