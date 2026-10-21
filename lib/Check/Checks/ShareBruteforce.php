@@ -52,7 +52,7 @@ final class ShareBruteforce implements ICheck, IExplainsDetection, IExplainsToUs
 	public const RULE_PASSWORD_SHARE = 'password_share';
 
 	/** The responses of the rules about one address */
-	private const SOURCE_RESPONSES = [ResponseType::Ban];
+	private const SOURCE_RESPONSES = [ResponseType::Ban, ResponseType::NotifyAdmin];
 	/** The responses of the rule about one share attacked from anywhere */
 	private const SHARE_RESPONSES = [ResponseType::NotifyShareOwner, ResponseType::NotifyAdmin];
 
@@ -87,7 +87,7 @@ final class ShareBruteforce implements ICheck, IExplainsDetection, IExplainsToUs
 				name: $l->t('Share link attacks'),
 				summary: $l->t('Someone tries share links at random, or guesses the password of a share.'),
 				detects: $l->t('A share link works like a secret address: whoever knows it can open the share. Attackers try random links in the hope of finding shared files, or try one password after the other on a link that is protected by a password.'),
-				decides: $l->t('Fires when one address opens {token_min} different share links that do not exist within {token_window}; a whole /24 network is held to {net_factor} times this number. One or two outdated links never count. It also fires when one address enters {password_min_per_source} wrong passwords for one share within {password_source_window}, and when one share gets {password_min_per_share} wrong passwords from any number of addresses within {password_share_window}. The first two block the address; the last one tells the person who shared the link, and you.'),
+				decides: $l->t('Fires when one address opens {token_min} different share links that do not exist within {token_window}; a whole /24 network is held to {net_factor} times this number. One or two outdated links never count. It also fires when one address enters {password_min_per_source} wrong passwords for one share within {password_source_window}, and when one share gets {password_min_per_share} wrong passwords from any number of addresses within {password_share_window}. The first two block the address; the last one tells the person who shared the link. Administrators are notified of each of them, if you choose so below.'),
 				wrong: $l->t('Someone with old bookmarks to deleted shares, or a link checker that walks through many outdated links. People behind one office address who mistype a share\'s password many times: the person who shared it can send them the password again. When the server is flooded with failed attempts, only one in ten unknown links is recorded and the numbers are estimates, so nobody with one or two outdated links is affected.'),
 				data: $l->t('Failed share accesses: the address, a fingerprint of the link (never the link itself), the share for wrong passwords, and the time, deleted after 1 hour. Detections keep the share\'s id and the accounts that manage it, never its name or link.'),
 			),
@@ -166,7 +166,9 @@ final class ShareBruteforce implements ICheck, IExplainsDetection, IExplainsToUs
 		$links = $this->container->get(ShareLinks::class);
 		$share = $links->find($detection);
 		$failures = $facts->int('failures');
-		$window = TextRenderer::duration($facts->threshold('password_share_window', 3600), $l);
+		$window = TextRenderer::duration($facts->string('rule') === self::RULE_PASSWORD_SOURCE
+			? $facts->threshold('password_source_window', 600)
+			: $facts->threshold('password_share_window', 3600), $l);
 		$message = [
 			$share !== null
 				? $l->n(

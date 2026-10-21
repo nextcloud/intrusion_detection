@@ -18,6 +18,7 @@ use OCA\IntrusionDetection\Check\Severity;
 use OCA\IntrusionDetection\Db\Detection;
 use OCA\IntrusionDetection\Detection\DetectionDraft;
 use OCA\IntrusionDetection\Explain\DateFormatter;
+use OCA\IntrusionDetection\Share\ShareLinks;
 use OCP\IDateTimeFormatter;
 use PHPUnit\Framework\Attributes\DataProvider;
 use Psr\Container\ContainerInterface;
@@ -28,11 +29,12 @@ use Test\TestCase;
  * rules that keep outdated links from firing.
  */
 class RuleResponsesTest extends TestCase {
-	public function testShareRulesAboutOneAddressOnlyBlock(): void {
+	public function testShareRulesAboutOneAddressBlockAndTellTheAdmins(): void {
 		$check = new ShareBruteforce(new DateFormatter($this->createMock(IDateTimeFormatter::class)), $this->createMock(ContainerInterface::class));
 		$all = [ResponseType::Ban, ResponseType::NotifyAdmin, ResponseType::NotifyShareOwner];
 		foreach ([ShareBruteforce::RULE_TOKENS, ShareBruteforce::RULE_TOKENS_NETWORK, ShareBruteforce::RULE_PASSWORD_SOURCE] as $rule) {
-			$this->assertSame([ResponseType::Ban], $check->responsesFor($this->draft(ShareBruteforce::ID, $rule), $all, []), $rule);
+			$this->assertSame([ResponseType::Ban, ResponseType::NotifyAdmin], $check->responsesFor($this->draft(ShareBruteforce::ID, $rule), $all, []), $rule);
+			$this->assertSame([ResponseType::Ban], $check->responsesFor($this->draft(ShareBruteforce::ID, $rule), [ResponseType::Ban], []), 'What the admin switched off stays off');
 		}
 		$this->assertSame([ResponseType::NotifyAdmin, ResponseType::NotifyShareOwner], $check->responsesFor($this->draft(ShareBruteforce::ID, ShareBruteforce::RULE_PASSWORD_SHARE), $all, []));
 		$this->assertSame([], $check->responsesFor($this->draft(ShareBruteforce::ID, ShareBruteforce::RULE_PASSWORD_SHARE), [ResponseType::Ban], []), 'A response the admin switched off stays off');
@@ -96,6 +98,20 @@ class RuleResponsesTest extends TestCase {
 	#[DataProvider('tokenCounts')]
 	public function testOutdatedLinksAreToleratedWhateverTheScale(int $raw, int $factor, int $threshold, bool $fires): void {
 		$this->assertSame($fires, ShareBruteforceDetector::reaches($raw, $factor, $threshold));
+	}
+
+	public function testTheShareNoticeNamesTheWindowOfItsRule(): void {
+		$links = $this->createMock(ShareLinks::class);
+		$links->method('find')->willReturn(null);
+		$container = $this->createMock(ContainerInterface::class);
+		$container->method('get')->willReturn($links);
+		$check = new ShareBruteforce(new DateFormatter($this->createMock(IDateTimeFormatter::class)), $container);
+		$l = \OCP\Server::get(\OCP\L10N\IFactory::class)->get('intrusion_detection', 'en');
+		$detection = new Detection();
+		$detection->setExplanationData(['facts' => ['rule' => ShareBruteforce::RULE_PASSWORD_SOURCE, 'failures' => 5], 'thresholds' => ['password_source_window' => 600, 'password_share_window' => 3600]]);
+		$this->assertStringContainsString('within 10 minutes', implode(' ', $check->userNotice($detection, $l)->message));
+		$detection->setExplanationData(['facts' => ['rule' => ShareBruteforce::RULE_PASSWORD_SHARE, 'failures' => 20], 'thresholds' => ['password_source_window' => 600, 'password_share_window' => 3600]]);
+		$this->assertStringContainsString('within 1 hour', implode(' ', $check->userNotice($detection, $l)->message));
 	}
 
 	private function draft(string $checkId, string $rule): DetectionDraft {

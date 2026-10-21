@@ -54,9 +54,9 @@ class CommandsTest extends IntegrationTestCase {
 	}
 
 	public function testSimulationsShowOnlyTheResponsesOfTheSimulatedRule(): void {
-		foreach (['share_bruteforce', 'reset_probing'] as $check) {
+		foreach (['share_bruteforce' => ['ban', 'notify_admin'], 'reset_probing' => ['ban']] as $check => $expected) {
 			[, $output] = $this->runCommand(Simulate::class, ['check' => $check, '--output' => 'json']);
-			$this->assertSame(['ban'], array_column(json_decode($output, true, 16, JSON_THROW_ON_ERROR)['responses'], 'type'), $check);
+			$this->assertSame($expected, array_column(json_decode($output, true, 16, JSON_THROW_ON_ERROR)['responses'], 'type'), $check);
 		}
 	}
 

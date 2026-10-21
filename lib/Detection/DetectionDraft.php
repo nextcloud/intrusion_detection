@@ -26,6 +26,8 @@ final class DetectionDraft {
 	public const MERGE_USER = 'user';
 	public const MERGE_SOURCE_USER = 'source_user';
 	public const MERGE_SHARE = 'share';
+	/** Per address and share */
+	public const MERGE_SOURCE_SHARE = 'source_share';
 	/** Per account and token: `tokenId`, else `sessionTokenId` */
 	public const MERGE_TOKEN = 'token';
 
@@ -103,6 +105,7 @@ final class DetectionDraft {
 			self::MERGE_USER => [$this->uid],
 			self::MERGE_SOURCE_USER => [$this->source?->ipKey, $this->uid],
 			self::MERGE_SHARE => [$this->shareId === null ? null : (string)$this->shareId],
+			self::MERGE_SOURCE_SHARE => [$this->source?->ipKey, $this->shareId === null ? null : (string)$this->shareId],
 			self::MERGE_TOKEN => [$this->uid, ($this->tokenId ?? $this->sessionTokenId) === null ? null : (string)($this->tokenId ?? $this->sessionTokenId)],
 			default => null,
 		};

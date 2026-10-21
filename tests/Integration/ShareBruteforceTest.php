@@ -118,7 +118,7 @@ class ShareBruteforceTest extends RequestEventTestCase {
 		$this->assertSame(10, $facts['tokens']);
 		$this->assertSame(11, $facts['attempts']);
 		$this->assertSame(1, $facts['sampleFactor']);
-		$this->assertSame([ResponseType::Ban->value], array_column($detection->getActionList(), 'type'), 'Token guessing only blocks');
+		$this->assertSame([ResponseType::Ban->value, ResponseType::NotifyAdmin->value], array_column($detection->getActionList(), 'type'), 'Token guessing blocks and tells the admins');
 		$this->assertCount(1, $this->bans->findActiveForKeys(['198.51.100.7'], time()));
 
 		$l = Server::get(IFactory::class)->get(Application::APP_ID, 'en');
@@ -199,8 +199,10 @@ class ShareBruteforceTest extends RequestEventTestCase {
 		$this->assertCount(1, $detections);
 		$this->assertSame(ShareBruteforce::RULE_PASSWORD_SOURCE, $detections[0]->getExplanationData()['facts']['rule']);
 		$this->assertSame((int)$share->getId(), $detections[0]->getShareId());
-		$this->assertSame($owner->getUID(), $detections[0]->getUid());
+		$this->assertNull($detections[0]->getUid(), 'About the address: it is not shown on the owner\'s security page');
+		$this->assertSame([$owner->getUID()], $detections[0]->getExplanationData()['facts']['managers']);
 		$this->assertSame('198.51.100.7', $detections[0]->getIp());
+		$this->assertSame(['ban' => true, 'notify_admin' => true], array_column($detections[0]->getActionList(), 'enforced', 'type'));
 		$this->assertNotSame([], $this->bans->findActiveForKeys(['198.51.100.7'], time()));
 		$this->assertSame([], $this->notifications(ShareOwnerAlerts::SUBJECT), 'One address guessing is blocked; the owner is not bothered');
 	}
@@ -355,7 +357,7 @@ class ShareBruteforceTest extends RequestEventTestCase {
 		$detections = $this->detectionsOf(ShareBruteforce::ID);
 		$this->assertCount(1, $detections);
 		$this->assertFalse($detections[0]->isEnforced());
-		$this->assertSame([['type' => ResponseType::Ban->value, 'enforced' => false]], $detections[0]->getActionList());
+		$this->assertSame([['type' => ResponseType::Ban->value, 'enforced' => false], ['type' => ResponseType::NotifyAdmin->value, 'enforced' => false]], $detections[0]->getActionList());
 		$this->assertSame([], $this->bans->findActiveForKeys(['198.51.100.7'], time()));
 		$l = Server::get(IFactory::class)->get(Application::APP_ID, 'en');
 		$this->assertSame('Would have: Block the address for hours, longer if it comes back.', Server::get(NarrativeBuilder::class)->build($detections[0], $l)->done[0]);

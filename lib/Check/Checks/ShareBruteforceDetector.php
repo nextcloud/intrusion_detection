@@ -131,10 +131,10 @@ class ShareBruteforceDetector {
 		$fromSource = $this->attempts->statsForSourceOnShare($source->ipKey, $shareId, $kinds, $attempt->time - (int)$params['password_source_window']);
 		$sourceLimits = $this->risk->limits($source, ['password_min_per_source' => [(int)$params['password_min_per_source'], $fromSource->failures]]);
 		if ($sourceLimits->reached()) {
+			// About the address, not the account: the owner is told only of attacks from many addresses.
 			$this->handle(new DetectionDraft(
 				checkId: ShareBruteforce::ID,
 				source: $source,
-				uid: $shareFacts['owner'],
 				facts: [
 					'rule' => ShareBruteforce::RULE_PASSWORD_SOURCE,
 					'failures' => $fromSource->failures,
@@ -142,8 +142,7 @@ class ShareBruteforceDetector {
 					'last' => $fromSource->last,
 				] + $shareFacts + $sourceLimits->facts(),
 				shareId: $shareId,
-				// Not merged with token guessing from the same address, which is about no share.
-				merge: DetectionDraft::MERGE_SOURCE_USER,
+				merge: DetectionDraft::MERGE_SOURCE_SHARE,
 				userAgent: $userAgent,
 			), $params);
 		}
