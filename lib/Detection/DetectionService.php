@@ -43,28 +43,42 @@ class DetectionService {
 	 */
 	public function record(DetectionDraft $draft, ModeState $mode): array {
 		$now = $this->timeFactory->getTime();
-		$mergeKey = $draft->mergeKey();
-
-		if ($mergeKey !== null) {
-			$existing = $this->mapper->findMergeable($mergeKey, $now - $draft->mergeWindow);
-			if ($existing !== null && $existing->isEnforced() === $mode->acts()) {
-				$existing->setHits($existing->getHits() + 1);
-				$existing->setLastSeenAt($now);
-				$severity = Severity::tryFrom($existing->getSeverity());
-				if ($draft->severity !== null && ($severity === null || $draft->severity->rank() > $severity->rank())) {
-					// A stronger sign in the same attack raises the detection, e.g. a decoy's secret after its login name.
-					$existing->setSeverity($draft->severity->value);
-				}
-				$explanation = $existing->getExplanationData();
-				$explanation['last'] = $now;
-				$explanation['facts'] = array_replace($explanation['facts'] ?? [], $draft->facts);
-				$existing->setExplanationData($explanation);
-				$this->mapper->update($existing);
-				return [$existing, false];
+		$existing = $this->mergeTarget($draft, $mode);
+		if ($existing !== null) {
+			$existing->setHits($existing->getHits() + 1);
+			$existing->setLastSeenAt($now);
+			$severity = Severity::tryFrom($existing->getSeverity());
+			if ($draft->severity !== null && ($severity === null || $draft->severity->rank() > $severity->rank())) {
+				// A stronger sign in the same attack raises the detection, e.g. a decoy's secret after its login name.
+				$existing->setSeverity($draft->severity->value);
 			}
+			$explanation = $existing->getExplanationData();
+			$explanation['last'] = $now;
+			$explanation['facts'] = array_replace($explanation['facts'] ?? [], $draft->facts);
+			$existing->setExplanationData($explanation);
+			$this->mapper->update($existing);
+			return [$existing, false];
 		}
 
 		return [$this->mapper->insert($this->build($draft, $mode, $now, true)), true];
+	}
+
+	/**
+	 * The stored detection a draft is merged into: the latest one with its
+	 * merge key within the merge window, recorded in the same mode, and not
+	 * answered with "Was this you?" yet. An answered detection stays as it
+	 * was answered; a later hit starts a new one.
+	 */
+	public function mergeTarget(DetectionDraft $draft, ModeState $mode): ?Detection {
+		$mergeKey = $draft->mergeKey();
+		if ($mergeKey === null) {
+			return null;
+		}
+		$existing = $this->mapper->findMergeable($mergeKey, $this->timeFactory->getTime() - $draft->mergeWindow);
+		if ($existing === null || $existing->isEnforced() !== $mode->acts() || $existing->getUserVerdict() !== null) {
+			return null;
+		}
+		return $existing;
 	}
 
 	/**

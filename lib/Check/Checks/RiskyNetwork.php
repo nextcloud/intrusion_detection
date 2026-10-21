@@ -29,7 +29,7 @@ use OCP\IL10N;
  * A password login from a hosting provider's network or a Tor exit node
  * (concept section 10.17). It never blocks: the login needs extra
  * confirmation (step-up policy `risky_network`), and a low-severity
- * detection is kept, merged per account and day.
+ * detection is kept, merged per account, address and day.
  *
  * The networks come from the network lists of the Blocks tab, which are
  * all off until an administrator switches one on: without a list the check
@@ -58,7 +58,7 @@ final class RiskyNetwork implements ICheck, IExplainsDetection, IExplainsToUser 
 				detects: $l->t('Attackers rarely try stolen passwords from home. They rent servers at cloud and hosting providers, or hide behind the Tor network. Most people log in from home, the office or a mobile network. A password login from a hosting provider or Tor is therefore suspicious, though it is no proof of an attack.'),
 				decides: $l->t('Fires when someone logs in with their account password from an address on one of the network lists you switched on in the Blocks tab. Logins with app passwords never count, so sync clients and scripts in the cloud keep working. Addresses in your office networks ({risky_network_office_networks}), members of the exempt groups ({risky_network_exempt_groups}) and networks a user confirmed with "Yes, it was me" are never affected. Without a network list, this check does nothing.'),
 				wrong: $l->t('People whose VPN or company proxy runs at a hosting provider, and people who use Tor for privacy. They are asked to confirm with their second factor or an email code; nothing is blocked. Add your company\'s VPN to the office networks, and put service accounts into an exempt group.'),
-				data: $l->t('Detections: the address, the account and the kind of network, at most one per account and day. The network lists are stored like blocklists, with how often an address on them was seen.'),
+				data: $l->t('Detections: the address, the account and the kind of network, at most one per account, address and day. The network lists are stored like blocklists, with how often an address on them was seen.'),
 				cost: $l->t('Nothing on normal requests: the network of an address is known from the same lookup that checks for blocks. Only at a password login from such a network are the office networks and exempt groups checked.'),
 			),
 		);

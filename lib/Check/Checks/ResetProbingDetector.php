@@ -13,10 +13,10 @@ use OCA\IntrusionDetection\Check\ResponseType;
 use OCA\IntrusionDetection\Config\Settings;
 use OCA\IntrusionDetection\Db\AttemptKind;
 use OCA\IntrusionDetection\Db\AttemptMapper;
-use OCA\IntrusionDetection\Db\DetectionMapper;
 use OCA\IntrusionDetection\Detection\AttemptRecord;
 use OCA\IntrusionDetection\Detection\AttemptRecorder;
 use OCA\IntrusionDetection\Detection\DetectionDraft;
+use OCA\IntrusionDetection\Detection\DetectionService;
 use OCA\IntrusionDetection\Response\ResponseEngine;
 use OCA\IntrusionDetection\Risk\RiskScorer;
 
@@ -46,7 +46,7 @@ class ResetProbingDetector {
 		private readonly AttemptMapper $attempts,
 		private readonly AttemptRecorder $recorder,
 		private readonly ResponseEngine $engine,
-		private readonly DetectionMapper $detections,
+		private readonly DetectionService $detections,
 		private readonly ResetProbing $check,
 		private readonly RiskScorer $risk,
 	) {
@@ -81,7 +81,7 @@ class ResetProbingDetector {
 				] + $enumLimits->facts(),
 				merge: DetectionDraft::MERGE_SOURCE,
 				userAgent: $userAgent,
-			), $params, $attempt->time);
+			), $params);
 		}
 
 		$uid = $attempt->uid;
@@ -106,16 +106,16 @@ class ResetProbingDetector {
 				merge: DetectionDraft::MERGE_USER,
 				mergeWindow: max((int)$params['flood_window'], (int)$params['suppress_duration']),
 				userAgent: $userAgent,
-			), $params, $attempt->time);
+			), $params);
 		}
 	}
 
 	/**
 	 * @param array<string, int|float|bool|string|list<string>> $params
 	 */
-	private function handle(DetectionDraft $draft, array $params, int $now): void {
+	private function handle(DetectionDraft $draft, array $params): void {
 		$responses = $this->check->responsesFor($draft, $this->settings->responses(ResetProbing::ID), $params);
-		if ($draft->uid !== null && $this->continuesDetection($draft, $now)) {
+		if ($draft->uid !== null && $this->continuesDetection($draft)) {
 			// The person was told when this flood began.
 			$responses = array_values(array_filter($responses, static fn (ResponseType $r): bool => $r !== ResponseType::NotifyUser));
 		}
@@ -123,13 +123,10 @@ class ResetProbingDetector {
 	}
 
 	/**
-	 * Whether the draft will be merged into an earlier detection, the way
-	 * {@see \OCA\IntrusionDetection\Detection\DetectionService::record()} merges.
+	 * Whether the draft will be merged into an earlier detection.
 	 */
-	private function continuesDetection(DetectionDraft $draft, int $now): bool {
-		$mergeKey = $draft->mergeKey();
-		$existing = $mergeKey === null ? null : $this->detections->findMergeable($mergeKey, $now - $draft->mergeWindow);
-		return $existing !== null && $existing->isEnforced() === $this->settings->modeState(ResetProbing::ID)->acts();
+	private function continuesDetection(DetectionDraft $draft): bool {
+		return $this->detections->mergeTarget($draft, $this->settings->modeState(ResetProbing::ID)) !== null;
 	}
 
 	private static function reaches(int $raw, int $factor, int $threshold): bool {

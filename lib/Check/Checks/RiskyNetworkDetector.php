@@ -23,12 +23,12 @@ use OCP\IMemcache;
 
 /**
  * Records a password login from a hosting or Tor network as a
- * `risky_network` detection, merged per account and day, and runs its
+ * `risky_network` detection, merged per account, address and day, and runs its
  * responses. Whether the login needs extra confirmation is decided by the
  * step-up reason, which asks {@see NetworkAttributes} the same question.
  *
  * Apps and scripts that send the password (Basic auth) log in on every
- * request; with a memory cache, they are recorded once per account and day
+ * request; with a memory cache, they are recorded once per account, address and day
  * without touching the database again.
  */
 class RiskyNetworkDetector {
@@ -57,7 +57,7 @@ class RiskyNetworkDetector {
 			return null;
 		}
 		if (!$login->interactive) {
-			$key = 'rn:' . ($mode->acts() ? 'p' : 'o') . ':' . gmdate('Y-m-d', $this->timeFactory->getTime()) . ':' . hash('sha256', $login->uid());
+			$key = 'rn:' . ($mode->acts() ? 'p' : 'o') . ':' . gmdate('Y-m-d', $this->timeFactory->getTime()) . ':' . hash('sha256', $login->uid() . "\0" . ($login->source?->ipKey ?? ''));
 			$cache = $this->cache();
 			if ($cache !== null && !$cache->add($key, 1, self::MERGE_WINDOW)) {
 				return null;
@@ -77,7 +77,7 @@ class RiskyNetworkDetector {
 				'listNames' => $names,
 				'client' => !$login->interactive,
 			],
-			merge: DetectionDraft::MERGE_USER,
+			merge: DetectionDraft::MERGE_SOURCE_USER,
 			mergeWindow: self::MERGE_WINDOW,
 			userAgent: $login->userAgent,
 		));

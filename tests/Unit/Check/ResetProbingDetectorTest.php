@@ -19,10 +19,10 @@ use OCA\IntrusionDetection\Db\AttemptKind;
 use OCA\IntrusionDetection\Db\AttemptMapper;
 use OCA\IntrusionDetection\Db\AttemptStats;
 use OCA\IntrusionDetection\Db\Detection;
-use OCA\IntrusionDetection\Db\DetectionMapper;
 use OCA\IntrusionDetection\Detection\AttemptRecord;
 use OCA\IntrusionDetection\Detection\AttemptRecorder;
 use OCA\IntrusionDetection\Detection\DetectionDraft;
+use OCA\IntrusionDetection\Detection\DetectionService;
 use OCA\IntrusionDetection\Explain\DateFormatter;
 use OCA\IntrusionDetection\Net\SourceKey;
 use OCA\IntrusionDetection\Response\ResponseEngine;
@@ -89,8 +89,8 @@ class ResetProbingDetectorTest extends TestCase {
 			$this->handled[] = $responses ?? [];
 			return null;
 		});
-		$detections = $this->createMock(DetectionMapper::class);
-		$detections->method('findMergeable')->willReturnCallback(fn (): ?Detection => $this->running);
+		$detections = $this->createMock(DetectionService::class);
+		$detections->method('mergeTarget')->willReturnCallback(fn (DetectionDraft $draft, ModeState $mode): ?Detection => $this->running !== null && $this->running->isEnforced() === $mode->acts() ? $this->running : null);
 		$risk = $this->createMock(RiskScorer::class);
 		$risk->method('limits')->willReturnCallback(static function (?SourceKey $source, array $limits): RiskLimits {
 			$plain = array_map(static fn (array $l): int => $l[0], $limits);

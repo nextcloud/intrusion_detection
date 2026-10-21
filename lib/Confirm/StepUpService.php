@@ -110,7 +110,7 @@ class StepUpService {
 				source: $login->source,
 				uid: $uid,
 				facts: ['policies' => $policyIds],
-				merge: DetectionDraft::MERGE_USER,
+				merge: DetectionDraft::MERGE_SOURCE_USER,
 				mergeWindow: 86400,
 				userAgent: $login->userAgent,
 			));

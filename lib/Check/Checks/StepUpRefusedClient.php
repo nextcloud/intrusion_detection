@@ -31,8 +31,9 @@ use OCP\IL10N;
 /**
  * An app or script logged in with the account's real password (Basic auth)
  * while that needed extra confirmation, which an app cannot give, so the
- * request was refused (concept section 11.5). One detection per account and
- * day; the user is told at most once a day. Raised by the step-up service.
+ * request was refused (concept section 11.5). One detection per account,
+ * address and day; the user is told at most once a day. Raised by the
+ * step-up service.
  */
 final class StepUpRefusedClient implements ICheck, IExplainsDetection, IExplainsToUser, IAsksWasThisYou {
 	public const ID = 'step_up_refused_client';
@@ -58,9 +59,9 @@ final class StepUpRefusedClient implements ICheck, IExplainsDetection, IExplains
 				name: $l->t('App login with the password refused'),
 				summary: $l->t('An app or script logged in with the account\'s password while logins with it needed extra confirmation.'),
 				detects: $l->t('Apps that send the account\'s real password with every request, instead of an app password, cannot answer a request for extra confirmation. While a login with the password needs one, for example because the address took part in an attack, such requests are refused, unless the setting for the reason allows logins that nothing can confirm.'),
-				decides: $l->t('Records the refused requests of one account per day. The user is told at most once a day.'),
+				decides: $l->t('Records the refused requests of one account from one address per day. The user is told at most once a day.'),
 				wrong: $l->t('A calendar or file sync app that was set up with the password instead of an app password. It works again when the reason ends, or when it is connected with an app password.'),
-				data: $l->t('Detections: the account, the address and the reasons, one per account and day.'),
+				data: $l->t('Detections: the account, the address and the reasons, one per account, address and day.'),
 			),
 			internal: true,
 		);

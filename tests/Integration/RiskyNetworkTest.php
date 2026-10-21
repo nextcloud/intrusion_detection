@@ -211,6 +211,49 @@ class RiskyNetworkTest extends StepUpTestCase {
 		$this->assertTrue($detections[0]->getExplanationData()['facts']['client']);
 	}
 
+	public function testAppsSendingThePasswordFromAnotherAddressAreRecordedSeparately(): void {
+		$this->network(['hosting']);
+		$this->basicAuth($this->alice);
+		foreach (['198.51.100.7', '203.0.113.9', '198.51.100.7'] as $address) {
+			$this->remoteAddress = $address;
+			$this->session->clear();
+			$this->session->id = null;
+			$this->login($this->alice);
+		}
+		$detections = $this->detectionsOf(RiskyNetwork::ID);
+		$this->assertEqualsCanonicalizing(['198.51.100.7', '203.0.113.9'], array_map(static fn ($d): ?string => $d->getIp(), $detections));
+	}
+
+	public function testLoginsFromTwoAddressesAreTwoDetections(): void {
+		$this->network(['hosting']);
+		$this->login($this->alice);
+		$this->session->clear();
+		$this->session->id = null;
+		$this->remoteAddress = '203.0.113.9';
+		$this->login($this->alice);
+		$detections = $this->detectionsOf(RiskyNetwork::ID);
+		$this->assertCount(2, $detections, 'A "Was this you?" answer applies to one address only');
+		$this->assertEqualsCanonicalizing(['198.51.100.7', '203.0.113.9'], array_map(static fn ($d): ?string => $d->getIp(), $detections));
+	}
+
+	public function testALoginAfterAnAnswerStartsANewDetection(): void {
+		$this->network(['hosting']);
+		$this->login($this->alice);
+		[$answered] = $this->detectionsOf(RiskyNetwork::ID);
+		$this->assertTrue(Server::get(DetectionMapper::class)->setVerdict($answered->getId(), $this->alice->getUID(), \OCA\IntrusionDetection\Db\Detection::VERDICT_CONFIRMED, time()));
+		$this->session->clear();
+		$this->session->id = null;
+		$this->login($this->alice);
+		$detections = $this->detectionsOf(RiskyNetwork::ID);
+		$this->assertCount(2, $detections, 'The answered detection stays as it was answered');
+		$byId = [];
+		foreach ($detections as $detection) {
+			$byId[$detection->getId()] = $detection;
+		}
+		$this->assertSame(1, $byId[$answered->getId()]->getHits());
+		$this->assertSame(\OCA\IntrusionDetection\Db\Detection::VERDICT_CONFIRMED, $byId[$answered->getId()]->getUserVerdict());
+	}
+
 	public function testAHighRiskScoreAsksForConfirmation(): void {
 		$this->settings->setGlobal(GlobalSettings::RISK_ENABLED, true);
 		$this->settings->setMode(RiskyNetwork::ID, Mode::Off);

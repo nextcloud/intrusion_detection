@@ -65,7 +65,7 @@ class PasswordSprayingDetector {
 
 	/**
 	 * A successful password login: when its password is flagged, record a
-	 * detection for the account, merged per account and hour, and run the
+	 * detection for the account, merged per account, address and hour, and run the
 	 * login responses.
 	 *
 	 * @return ?Detection the detection, or null when the password is not flagged or the check is off
@@ -79,7 +79,7 @@ class PasswordSprayingDetector {
 			source: $login->source,
 			uid: $login->uid(),
 			facts: ['rule' => PasswordSpraying::RULE_LOGIN, 'client' => !$login->interactive],
-			merge: DetectionDraft::MERGE_USER,
+			merge: DetectionDraft::MERGE_SOURCE_USER,
 			userAgent: $login->userAgent,
 		);
 		return $this->engine->handle($draft, $this->check->responsesFor($draft, $this->settings->responses(PasswordSpraying::ID), []));

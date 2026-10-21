@@ -275,6 +275,30 @@ class StepUpTest extends StepUpTestCase {
 		$this->assertCount(1, $this->notificationsFor($this->alice->getUID(), UserAlerts::SUBJECT), 'Told once a day');
 	}
 
+	public function testRefusedAppsAreOneDetectionPerAddress(): void {
+		$this->give(StepUpPolicy::ProtectedAccount, $this->alice);
+		$this->basicAuth($this->alice);
+		foreach (['198.51.100.7', '203.0.113.9'] as $address) {
+			$this->remoteAddress = $address;
+			$this->session->clear();
+			$this->session->id = null;
+			$this->login($this->alice);
+		}
+		$this->assertCount(2, $this->detectionsOf(StepUpRefusedClient::ID), 'Each address can be answered on its own');
+	}
+
+	public function testSprayedPasswordLoginsAreOneDetectionPerAddress(): void {
+		$this->give(StepUpPolicy::SprayedPassword, $this->alice);
+		foreach (['198.51.100.7', '203.0.113.9'] as $address) {
+			$this->remoteAddress = $address;
+			$this->session->clear();
+			$this->session->id = null;
+			$this->login($this->alice);
+		}
+		$detections = $this->detectionsOf(PasswordSpraying::ID);
+		$this->assertEqualsCanonicalizing(['198.51.100.7', '203.0.113.9'], array_map(static fn ($d): ?string => $d->getIp(), $detections));
+	}
+
 	public function testAppsAreAllowedWhereThePolicyAllowsLoginsNothingConfirms(): void {
 		$this->give(StepUpPolicy::BreachedPassword, $this->alice);
 		$this->basicAuth($this->alice);
