@@ -9,6 +9,7 @@ declare(strict_types=1);
 
 namespace OCA\IntrusionDetection\Tests\Integration;
 
+use OC\Core\Controller\LoginController;
 use OC\Memcache\ArrayCache;
 use OCA\IntrusionDetection\Admin\LookupService;
 use OCA\IntrusionDetection\AppInfo\Application;
@@ -45,6 +46,7 @@ use OCA\IntrusionDetection\SessionState\Rules\StepUpRule;
 use OCA\IntrusionDetection\SessionState\SessionState;
 use OCA\IntrusionDetection\TrustedNetwork\TrustedNetworks;
 use OCP\AppFramework\Controller;
+use OCP\AppFramework\OCSController;
 use OCP\Config\IUserConfig;
 use OCP\ICacheFactory;
 use OCP\IUser;
@@ -421,6 +423,31 @@ class StepUpTest extends StepUpTestCase {
 		$this->remoteAddress = '203.0.113.50';
 		$this->login($this->alice);
 		$this->assertSame(StepUpState::REFUSED_CLIENT, $this->stepUp()?->status, 'The attacker\'s place is not familiar');
+	}
+
+	public function testASessionOfAnAppLetInUnconfirmedServesAppsOnly(): void {
+		Server::get(LoginHistoryMapper::class)->insert($this->alice->getUID(), time() - 86400, SourceKey::fromIp($this->remoteAddress), null, LoginHistory::METHOD_CLIENT_PASSWORD, false, 'none', null, null);
+		$this->give(StepUpPolicy::ProtectedAccount, $this->alice);
+		$this->basicAuth($this->alice);
+		$this->login($this->alice);
+		$this->assertNull($this->stepUp());
+		$this->assertTrue($this->state->get(SessionState::CONFIRMATION)[StepUpService::CLIENT_ONLY] ?? false);
+
+		$this->assertNull($this->rule()->check($this->state, RequestTarget::dav('PROPFIND', '/remote.php/dav/files/')), 'WebDAV works');
+		$this->assertNull($this->rule()->check($this->state, RequestTarget::app($this->createMock(OCSController::class), 'index', 'GET', '/ocs/v2.php/cloud/user')), 'OCS works');
+		$page = $this->rule()->check($this->state, RequestTarget::app($this->createMock(Controller::class), 'index', 'GET', '/index.php/apps/files/'));
+		$this->assertNotNull($page, 'No pages: the login form would have asked for a confirmation');
+		$this->assertSame(StepUpRule::ERROR_CLIENT_ONLY, $page->error);
+		$this->assertNull($this->rule()->check($this->state, RequestTarget::app($this->createMock(LoginController::class), 'logout', 'GET', '/index.php/logout')));
+
+		$this->session->clear();
+		$this->setBasicCredentials(null, null);
+		$this->method = 'POST';
+		$this->pathInfo = '/login';
+		$this->remoteAddress = '198.51.100.7';
+		$bob = $this->user('ids-stepup-nothing', 'bob@example.com');
+		$this->login($bob);
+		$this->assertNull($this->rule()->check($this->state, RequestTarget::app($this->createMock(Controller::class), 'index', 'GET', '/index.php/apps/files/')), 'A login without a reason is a normal session');
 	}
 
 	public function testAStrictReasonRefusesAppsEvenFromAFamiliarPlace(): void {

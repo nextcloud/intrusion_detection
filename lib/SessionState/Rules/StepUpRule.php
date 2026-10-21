@@ -22,6 +22,7 @@ use OCA\IntrusionDetection\SessionState\ISessionStateRule;
 use OCA\IntrusionDetection\SessionState\RequestTarget;
 use OCA\IntrusionDetection\SessionState\SessionBlock;
 use OCA\IntrusionDetection\SessionState\SessionState;
+use OCP\AppFramework\OCSController;
 use OCP\AppFramework\Utility\ITimeFactory;
 use OCP\Authentication\TwoFactorAuth\ALoginSetupController;
 use OCP\IURLGenerator;
@@ -41,6 +42,11 @@ use Psr\Log\LoggerInterface;
  *   here, on its next request: the session ends.
  * - A refused login can only open the verify page, which says why and ends it.
  * - A refused app login (Basic auth) is refused for every request.
+ * - A session that an app sending the password opened while a reason
+ *   applied, and that was let in unconfirmed, serves apps only: WebDAV and
+ *   OCS. Core gives such a login a browser session when it sends core's
+ *   cookie test, and that session must not render pages the login form
+ *   would have asked a confirmation for.
  * - A session whose unconfirmed login came back without its state is ended.
  *
  * With nothing pending this costs one lookup in the session; services are
@@ -61,6 +67,8 @@ class StepUpRule implements ISessionStateRule {
 	public const MESSAGE_PENDING = 'This login waits for its extra confirmation. Confirm it in the browser where you logged in, or use an app password.';
 	public const MESSAGE_REFUSED = 'This login was refused: it needs extra confirmation, and nothing could confirm it. Contact your administrator.';
 	public const MESSAGE_ENDED = 'This login was ended because it was not confirmed. Log in again.';
+	public const ERROR_CLIENT_ONLY = 'app_session';
+	public const MESSAGE_CLIENT_ONLY = 'This session was opened by an app with the account\'s password and serves apps only. Log in with a browser.';
 
 	public function __construct(
 		private readonly IUserSession $userSession,
@@ -74,6 +82,11 @@ class StepUpRule implements ISessionStateRule {
 	#[\Override]
 	public function check(SessionState $state, RequestTarget $target): ?SessionBlock {
 		$all = $state->all();
+		if (($all[SessionState::CONFIRMATION][StepUpService::CLIENT_ONLY] ?? false) === true
+			&& !$target->dav && !$target->isController(OCSController::class)
+			&& !$target->isController(LoginController::class, 'logout') && !$target->isPublicResource()) {
+			return new SessionBlock(self::ERROR_CLIENT_ONLY, self::DAV_HEADER, self::MESSAGE_CLIENT_ONLY);
+		}
 		if (!isset($all[SessionState::STEP_UP]) && !isset($all[SessionState::LOGIN_DETECTIONS])) {
 			return null;
 		}

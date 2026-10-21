@@ -24,6 +24,7 @@ use OCA\IntrusionDetection\Net\RemoteAddressResolver;
 use OCA\IntrusionDetection\Net\SourceKey;
 use OCA\IntrusionDetection\Response\ResponseEngine;
 use OCA\IntrusionDetection\SessionState\CurrentSession;
+use OCA\IntrusionDetection\SessionState\Rules\StepUpRule;
 use OCA\IntrusionDetection\SessionState\SessionState;
 use OCP\AppFramework\Utility\ITimeFactory;
 use OCP\IRequest;
@@ -75,6 +76,8 @@ class StepUpService {
 	public const CONFIRMED_BY_NONE = 'none';
 	/** Core creates a session token for a Basic auth login only when the client sends this cookie */
 	public const COOKIE_TEST = 'cookie_test';
+	/** In the confirmation of a session that an app sending the password opened while a reason applied */
+	public const CLIENT_ONLY = 'client';
 
 	public function __construct(
 		private readonly SessionState $state,
@@ -193,7 +196,7 @@ class StepUpService {
 			$now = $this->timeFactory->getTime();
 			$this->mark(new StepUpState($uid, StepUpState::REFUSED_CLIENT, $policyIds, $now, 0, $source?->ip), $this->request->getCookie(self::COOKIE_TEST) !== null);
 		} elseif ($outcome === self::ALLOWED) {
-			$this->confirmation($uid, self::CONFIRMED_BY_NONE, $policyIds);
+			$this->confirmation($uid, self::CONFIRMED_BY_NONE, $policyIds, true);
 		}
 	}
 
@@ -321,7 +324,7 @@ class StepUpService {
 			userAgent: $login->userAgent,
 		);
 		$detection = $this->record($draft, $this->unconfirmedCheck->responsesFor($draft, $this->settings->responses(StepUpUnconfirmed::ID), []));
-		$this->confirmation($login->uid(), self::CONFIRMED_BY_NONE, $policyIds);
+		$this->confirmation($login->uid(), self::CONFIRMED_BY_NONE, $policyIds, !$login->interactive);
 		$this->audit->log('login of %s allowed without confirmation (%s)', ['uid' => $login->uid(), 'reasons' => implode(', ', $policyIds)]);
 		return [self::ALLOWED, self::ids($detection)];
 	}
@@ -384,13 +387,17 @@ class StepUpService {
 	/**
 	 * @param list<string> $policyIds
 	 */
-	private function confirmation(string $uid, string $method, array $policyIds): void {
-		$this->state->set(SessionState::CONFIRMATION, [
+	/**
+	 * @param bool $client an app sending the password was let in without a confirmation: the session serves apps only ({@see StepUpRule})
+	 */
+	private function confirmation(string $uid, string $method, array $policyIds, bool $client = false): void {
+		$this->state->set(SessionState::CONFIRMATION, array_filter([
 			'uid' => $uid,
 			'by' => $method,
 			'policies' => $policyIds,
 			'at' => $this->timeFactory->getTime(),
-		]);
+			self::CLIENT_ONLY => $client ?: null,
+		], static fn (mixed $v): bool => $v !== null));
 	}
 
 	private function sessionId(): string {
