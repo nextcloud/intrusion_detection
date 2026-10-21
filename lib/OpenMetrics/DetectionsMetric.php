@@ -20,9 +20,9 @@ use Override;
 
 /**
  * Detections since the app was installed, by check, severity and whether
- * Nextcloud acted on them. One grouped count over the detections table plus
- * the running total of deleted ones, cached for a minute in the local
- * memory cache, so frequent scrapes cost nothing.
+ * Nextcloud acted on them, from the running totals ({@see DetectionTotals}),
+ * which only ever grow. Cached for a minute, in the distributed cache when
+ * there is one, so frequent scrapes from several servers cost nothing.
  */
 class DetectionsMetric implements IMetricFamily {
 	public const CACHE_TTL = 60;
@@ -56,7 +56,9 @@ class DetectionsMetric implements IMetricFamily {
 
 	#[Override]
 	public function metrics(): Generator {
-		$cache = $this->cacheFactory->createLocal(Application::APP_ID . '-metrics');
+		$cache = $this->cacheFactory->isAvailable()
+			? $this->cacheFactory->createDistributed(Application::APP_ID . '-metrics')
+			: $this->cacheFactory->createLocal(Application::APP_ID . '-metrics');
 		$rows = $cache->get(self::CACHE_KEY);
 		if (!is_array($rows)) {
 			$rows = $this->totals->totals();

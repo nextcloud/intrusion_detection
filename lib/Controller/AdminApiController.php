@@ -265,12 +265,14 @@ class AdminApiController extends OCSController {
 			ip: $ip,
 			enforced: $mode === '' ? null : $mode === 'enforced',
 			since: $since > 0 ? $since : null,
-			limit: $limit,
+			// One more than asked for tells whether there are more, without counting them all.
+			limit: $limit + 1,
 			offset: $offset,
 		);
+		$found = $this->detectionMapper->findList($filter);
 		return new DataResponse([
-			'detections' => $this->detections->rows($this->detectionMapper->findList($filter), $this->l),
-			'total' => $this->detectionMapper->count($filter),
+			'detections' => $this->detections->rows(array_slice($found, 0, $limit), $this->l),
+			'hasMore' => count($found) > $limit,
 		]);
 	}
 

@@ -95,6 +95,7 @@ class Cleanup extends TimedJob {
 			'flood_state' => fn () => $this->updateFloodState($now),
 			'logins' => fn (): int => $this->logins->deleteOlderThan(intdiv($now - 86400, 3600)),
 			'detections' => fn (): int => $this->detectionTotals->deleteCreatedBefore($now - $this->settings->getInt(GlobalSettings::RETENTION_DETECTIONS_DAYS) * 86400),
+			'detection_totals' => fn (): int => $this->detectionTotals->retireBefore($now - DetectionTotals::ROLLUP_DAYS * 86400),
 			'bans' => fn (): int => $this->bans->deleteEndedBefore($now - max(self::BAN_HISTORY, $this->settings->getInt(GlobalSettings::BAN_HISTORY_DAYS) * 86400)),
 			'flags' => fn (): int => $this->flags->deleteExpired($now),
 			'protected_accounts' => fn (): int => $this->protectedAccounts->deleteExpired($now),

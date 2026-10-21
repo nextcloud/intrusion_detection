@@ -169,7 +169,7 @@ namespace OCA\IntrusionDetection;
  *
  * @psalm-type IntrusionDetectionDetectionList = array{
  *     detections: list<IntrusionDetectionDetection>,
- *     total: int,
+ *     hasMore: bool,
  * }
  *
  * @psalm-type IntrusionDetectionNarrative = array{

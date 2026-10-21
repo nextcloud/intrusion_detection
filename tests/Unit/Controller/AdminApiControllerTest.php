@@ -284,12 +284,12 @@ class AdminApiControllerTest extends TestCase {
 			$captured = $filter;
 			return [];
 		});
-		$this->detectionMapper->method('count')->willReturn(42);
+		$this->detectionMapper->expects($this->never())->method('count');
 		$this->detections->method('rows')->willReturn([]);
 
 		$response = $this->controller->detections('a_check, other_check', 'high,critical', ' bob ', '2001:DB8::1', 'observed', 1_789_000_000, 10, 20);
 
-		$this->assertSame(['detections' => [], 'total' => 42], $response->getData());
+		$this->assertSame(['detections' => [], 'hasMore' => false], $response->getData());
 		$this->assertInstanceOf(DetectionFilter::class, $captured);
 		$this->assertSame(['a_check', 'other_check'], $captured->checkIds);
 		$this->assertSame(['high', 'critical'], $captured->severities);
@@ -297,7 +297,7 @@ class AdminApiControllerTest extends TestCase {
 		$this->assertSame('2001:db8::1', $captured->ip);
 		$this->assertFalse($captured->enforced);
 		$this->assertSame(1_789_000_000, $captured->since);
-		$this->assertSame(10, $captured->limit);
+		$this->assertSame(11, $captured->limit, 'one more, to tell whether there are more');
 		$this->assertSame(20, $captured->offset);
 	}
 

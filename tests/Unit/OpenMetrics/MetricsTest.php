@@ -64,6 +64,18 @@ class MetricsTest extends TestCase {
 		}
 	}
 
+	public function testTheDetectionsTotalIsSharedByAllServersWithADistributedCache(): void {
+		$cache = $this->createMock(ICache::class);
+		$cache->method('get')->willReturn([['check' => 'trap_url', 'severity' => 'low', 'enforced' => false, 'count' => 3]]);
+		$factory = $this->createMock(ICacheFactory::class);
+		$factory->method('isAvailable')->willReturn(true);
+		$factory->expects($this->once())->method('createDistributed')->willReturn($cache);
+		$factory->expects($this->never())->method('createLocal');
+		$totals = $this->createMock(DetectionTotals::class);
+		$totals->expects($this->never())->method('totals');
+		$this->assertSame(3, self::metrics(new DetectionsMetric($totals, $factory))[0]->value);
+	}
+
 	public function testGuardTimeIsInSecondsAndNotANumberWithoutMeasurements(): void {
 		$timer = $this->createMock(GuardTimer::class);
 		$timer->method('summary')->with(1)->willReturnOnConsecutiveCalls(['samples' => 3, 'averageMicroseconds' => 42.0, 'maxMicroseconds' => 120], null);

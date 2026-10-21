@@ -21,6 +21,7 @@ use OCA\IntrusionDetection\Db\AttemptMapper;
 use OCA\IntrusionDetection\Db\BanMapper;
 use OCA\IntrusionDetection\Db\Detection;
 use OCA\IntrusionDetection\Db\DetectionMapper;
+use OCA\IntrusionDetection\Detection\DetectionTotals;
 use OCA\IntrusionDetection\Response\BanService;
 use OCP\AppFramework\Http;
 use OCP\IUserManager;
@@ -115,19 +116,24 @@ class AdminApiTest extends IntegrationTestCase {
 		}
 		$this->insertDetection(SharedAddress::ID, 'high', false, '198.51.100.7', 'ids_alice', createdAt: time() - 30);
 
+		$queries = $this->db->getInner()->getStats()['executed'];
 		$page = $this->controller->detections(limit: 2, offset: 1)->getData();
-		$this->assertSame(6, $page['total']);
+		$this->assertTrue($page['hasMore']);
 		$this->assertCount(2, $page['detections']);
 		// Newest first: the shared-address one is second newest.
 		$this->assertSame('198.51.100.7', $page['detections'][0]['ip']);
+		$this->assertSame(1, $this->db->getInner()->getStats()['executed'] - $queries, 'one query for the page, no count');
+		$last = $this->controller->detections(limit: 2, offset: 4)->getData();
+		$this->assertCount(2, $last['detections']);
+		$this->assertFalse($last['hasMore']);
 
-		$this->assertSame(1, $this->controller->detections(check: SharedAddress::ID)->getData()['total']);
-		$this->assertSame(1, $this->controller->detections(severity: 'high,critical')->getData()['total']);
-		$this->assertSame(1, $this->controller->detections(mode: 'observed')->getData()['total']);
-		$this->assertSame(5, $this->controller->detections(mode: 'enforced')->getData()['total']);
-		$this->assertSame(1, $this->controller->detections(user: 'ids_alice')->getData()['total']);
-		$this->assertSame(1, $this->controller->detections(address: '203.0.113.3')->getData()['total']);
-		$this->assertSame(3, $this->controller->detections(since: time() - 90)->getData()['total']);
+		$this->assertCount(1, $this->controller->detections(check: SharedAddress::ID)->getData()['detections']);
+		$this->assertCount(1, $this->controller->detections(severity: 'high,critical')->getData()['detections']);
+		$this->assertCount(1, $this->controller->detections(mode: 'observed')->getData()['detections']);
+		$this->assertCount(5, $this->controller->detections(mode: 'enforced')->getData()['detections']);
+		$this->assertCount(1, $this->controller->detections(user: 'ids_alice')->getData()['detections']);
+		$this->assertCount(1, $this->controller->detections(address: '203.0.113.3')->getData()['detections']);
+		$this->assertCount(3, $this->controller->detections(since: time() - 90)->getData()['detections']);
 
 		$row = $this->controller->detections(check: SharedAddress::ID)->getData()['detections'][0];
 		$this->assertSame('Shared address not blocked', $row['checkName']);
@@ -328,6 +334,8 @@ class AdminApiTest extends IntegrationTestCase {
 		$detection->setCreatedAt($createdAt);
 		$detection->setLastSeenAt($createdAt);
 		$detection->setHits(1);
-		return $this->detections->insert($detection);
+		$detection = $this->detections->insert($detection);
+		Server::get(DetectionTotals::class)->created($detection);
+		return $detection;
 	}
 }

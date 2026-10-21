@@ -251,35 +251,7 @@ class DetectionMapper extends QBMapper {
 	}
 
 	/**
-	 * How many detections exist per check, severity and enforcement, all of
-	 * them or those created before a time.
-	 *
-	 * @return array<string, int> keyed by {@see self::labelKey()}
-	 */
-	public function countByLabels(?int $before = null): array {
-		$qb = $this->db->getQueryBuilder();
-		$qb->select('check_id', 'severity', 'enforced')
-			->selectAlias($qb->func()->count('*'), 'n')
-			->from(self::TABLE)
-			->groupBy('check_id', 'severity', 'enforced')
-			->orderBy('check_id')
-			->addOrderBy('severity')
-			->addOrderBy('enforced');
-		if ($before !== null) {
-			$qb->where($qb->expr()->lt('created_at', $qb->createNamedParameter($before, IQueryBuilder::PARAM_INT)));
-		}
-		$result = $qb->executeQuery();
-		$counts = [];
-		while ($row = $result->fetch()) {
-			$key = self::labelKey((string)$row['check_id'], (string)$row['severity'], (bool)$row['enforced']);
-			$counts[$key] = ($counts[$key] ?? 0) + (int)$row['n'];
-		}
-		$result->closeCursor();
-		return $counts;
-	}
-
-	/**
-	 * The key of a check, severity and enforcement in {@see self::countByLabels()}.
+	 * The key of a check, severity and enforcement in the running totals.
 	 */
 	public static function labelKey(string $checkId, string $severity, bool $enforced): string {
 		return $checkId . '|' . $severity . '|' . ($enforced ? '1' : '0');
@@ -295,8 +267,6 @@ class DetectionMapper extends QBMapper {
 			self::TABLE,
 			'id',
 			static fn (IQueryBuilder $qb): IQueryBuilder => $qb->where($qb->expr()->lt('created_at', $qb->createNamedParameter($before, IQueryBuilder::PARAM_INT))),
-			// All of them: the running totals already counted every one.
-			maxBatches: PHP_INT_MAX,
 			beforeDelete: function (array $ids): void {
 				$qb = $this->db->getQueryBuilder();
 				$qb->delete(DetectionAccountMapper::TABLE)

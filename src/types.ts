@@ -153,7 +153,7 @@ export interface Detection {
 
 export interface DetectionList {
 	detections: Detection[]
-	total: number
+	hasMore: boolean
 }
 
 export interface Narrative {

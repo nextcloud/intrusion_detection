@@ -1212,7 +1212,7 @@
                 "type": "object",
                 "required": [
                     "detections",
-                    "total"
+                    "hasMore"
                 ],
                 "properties": {
                     "detections": {
@@ -1221,9 +1221,8 @@
                             "$ref": "#/components/schemas/Detection"
                         }
                     },
-                    "total": {
-                        "type": "integer",
-                        "format": "int64"
+                    "hasMore": {
+                        "type": "boolean"
                     }
                 }
             },

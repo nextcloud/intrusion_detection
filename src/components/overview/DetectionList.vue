@@ -22,7 +22,7 @@ import DetectionRow from './DetectionRow.vue'
 import { errorMessage, fetchDetections } from '../../services/api.ts'
 import { logger } from '../../services/logger.ts'
 import { detectionFilters, openDetectionId, state } from '../../store.ts'
-import { APP_ID, formatNumber } from '../../utils/format.ts'
+import { APP_ID } from '../../utils/format.ts'
 import { groupDetections } from '../../utils/groups.ts'
 
 const emit = defineEmits<{
@@ -32,7 +32,7 @@ const emit = defineEmits<{
 const PAGE = 25
 const id = useId()
 const detections = ref<Detection[]>([])
-const total = ref(0)
+const hasMore = ref(false)
 const loading = ref(true)
 const loadingMore = ref(false)
 const error = ref<string | null>(null)
@@ -74,7 +74,7 @@ async function load() {
 	try {
 		const page = await fetchDetections(detectionFilters, PAGE, 0)
 		detections.value = page.detections
-		total.value = page.total
+		hasMore.value = page.hasMore
 	} catch (e) {
 		logger.error('Could not load detections', { error: e })
 		error.value = errorMessage(e, t(APP_ID, 'The detections could not be loaded. Please reload the page.'))
@@ -91,7 +91,7 @@ async function loadMore() {
 	try {
 		const page = await fetchDetections(detectionFilters, PAGE, detections.value.length)
 		detections.value.push(...page.detections)
-		total.value = page.total
+		hasMore.value = page.hasMore
 	} catch (e) {
 		logger.error('Could not load more detections', { error: e })
 		error.value = errorMessage(e, t(APP_ID, 'More detections could not be loaded.'))
@@ -147,7 +147,7 @@ defineExpose({ reload: load })
 				{{ t(APP_ID, 'Recent detections') }}
 			</h3>
 			<span v-if="!loading" :class="$style.detections__count" aria-live="polite">
-				{{ total === 0 ? '' : n(APP_ID, 'Showing %n of {total}', 'Showing %n of {total}', detections.length, { total: formatNumber(total) }) }}
+				{{ detections.length === 0 ? '' : n(APP_ID, 'Showing %n detection', 'Showing %n detections', detections.length) }}
 			</span>
 		</header>
 
@@ -232,7 +232,7 @@ defineExpose({ reload: load })
 			</template>
 		</ul>
 
-		<div v-if="!loading && detections.length < total" :class="$style.detections__more">
+		<div v-if="!loading && hasMore" :class="$style.detections__more">
 			<NcButton variant="secondary" :disabled="loadingMore" @click="loadMore">
 				<template v-if="loadingMore" #icon>
 					<NcLoadingIcon />

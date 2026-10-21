@@ -10,6 +10,7 @@ declare(strict_types=1);
 namespace OCA\IntrusionDetection\Admin;
 
 use OCA\IntrusionDetection\Db\StatsMapper;
+use OCA\IntrusionDetection\Detection\DetectionTotals;
 use OCA\IntrusionDetection\ResponseDefinitions;
 use OCP\AppFramework\Utility\ITimeFactory;
 use OCP\IDateTimeZone;
@@ -29,7 +30,7 @@ class DailyStats {
 	public const MAX_DAYS = 90;
 
 	public function __construct(
-		private readonly StatsMapper $stats,
+		private readonly DetectionTotals $totals,
 		private readonly CheckNames $names,
 		private readonly IDateTimeZone $dateTimeZone,
 		private readonly ITimeFactory $timeFactory,
@@ -60,7 +61,7 @@ class DailyStats {
 			];
 		}
 
-		foreach ($this->stats->detectionsPerDay($first * StatsMapper::DAY - $offset, $offset) as $row) {
+		foreach ($this->totals->perDay($first * StatsMapper::DAY - $offset, $offset) as $row) {
 			if (!isset($buckets[$row['bucket']])) {
 				continue;
 			}

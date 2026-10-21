@@ -62,7 +62,7 @@ class OpenMetricsTest extends IntegrationTestCase {
 		$detection->setCreatedAt($createdAt);
 		$detection->setLastSeenAt($createdAt);
 		$detection->setHits(1);
-		Server::get(DetectionMapper::class)->insert($detection);
+		Server::get(DetectionTotals::class)->created(Server::get(DetectionMapper::class)->insert($detection));
 	}
 
 	/**

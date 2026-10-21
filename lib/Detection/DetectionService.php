@@ -40,6 +40,7 @@ class DetectionService {
 		private readonly ITimeFactory $timeFactory,
 		private readonly RiskScorer $risk,
 		private readonly DetectionAccounts $accounts,
+		private readonly DetectionTotals $totals,
 	) {
 	}
 
@@ -54,7 +55,8 @@ class DetectionService {
 			$existing->setHits($existing->getHits() + 1);
 			$existing->setLastSeenAt($now);
 			$severity = Severity::tryFrom($existing->getSeverity());
-			if ($draft->severity !== null && ($severity === null || $draft->severity->rank() > $severity->rank())) {
+			$raised = $draft->severity !== null && ($severity === null || $draft->severity->rank() > $severity->rank());
+			if ($raised) {
 				// A stronger sign in the same attack raises the detection, e.g. a decoy's secret after its login name.
 				$existing->setSeverity($draft->severity->value);
 			}
@@ -63,12 +65,16 @@ class DetectionService {
 			$explanation['facts'] = FactsMerger::merge(is_array($explanation['facts'] ?? null) ? $explanation['facts'] : [], Explanation::facts($draft));
 			$existing->setExplanationData($explanation);
 			$this->mapper->update($existing);
+			if ($raised) {
+				$this->totals->raised($existing, $now);
+			}
 			// The merged facts may name accounts the detection did not name before.
 			$this->recorded[$existing->getId()] = $this->accounts->recordChange($existing, $accountsBefore);
 			return [$existing, false];
 		}
 
 		$detection = $this->mapper->insert($this->build($draft, $mode, $now, true));
+		$this->totals->created($detection);
 		$this->recorded[$detection->getId()] = $this->accounts->recordNew($detection);
 		return [$detection, true];
 	}

@@ -114,40 +114,4 @@ class StatsMapper {
 		$result->closeCursor();
 		return count($addresses);
 	}
-
-	/**
-	 * Detections per local day, check and enforcement, since a time.
-	 *
-	 * @param int $offset seconds to add to UTC to get local time; days start at local midnight
-	 * @return list<array{bucket: int, checkId: string, enforced: bool, count: int}> `bucket` is the local day number since the epoch
-	 */
-	public function detectionsPerDay(int $since, int $offset): array {
-		$qb = $this->db->getQueryBuilder();
-		$shifted = '(' . $qb->getColumnName('created_at') . ($offset >= 0 ? ' + ' : ' - ') . abs($offset) . ')';
-		$bucket = match ($this->db->getDatabaseProvider()) {
-			IDBConnection::PLATFORM_MYSQL, IDBConnection::PLATFORM_MARIADB => $shifted . ' DIV ' . self::DAY,
-			IDBConnection::PLATFORM_ORACLE => 'FLOOR(' . $shifted . ' / ' . self::DAY . ')',
-			// Integer division: created_at is an integer column.
-			default => $shifted . ' / ' . self::DAY,
-		};
-		$qb->selectAlias($qb->createFunction($bucket), 'bucket')
-			->addSelect('check_id', 'enforced')
-			->selectAlias($qb->func()->count('*'), 'n')
-			->from(DetectionMapper::TABLE)
-			->where($qb->expr()->gte('created_at', $qb->createNamedParameter($since, IQueryBuilder::PARAM_INT)))
-			->groupBy($qb->createFunction($bucket))
-			->addGroupBy('check_id', 'enforced');
-		$result = $qb->executeQuery();
-		$rows = [];
-		while ($row = $result->fetch()) {
-			$rows[] = [
-				'bucket' => (int)$row['bucket'],
-				'checkId' => (string)$row['check_id'],
-				'enforced' => (bool)$row['enforced'],
-				'count' => (int)$row['n'],
-			];
-		}
-		$result->closeCursor();
-		return $rows;
-	}
 }
