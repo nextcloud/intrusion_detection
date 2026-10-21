@@ -29,6 +29,12 @@ const statsError = ref<string | null>(null)
 const liftTarget = ref<Ban | null>(null)
 let afterLift: (() => Promise<void>) | null = null
 
+/**
+ * Only real problems need attention; tips are for those who look at the
+ * advanced options. Nothing asks to be configured while the defaults fit.
+ */
+const problems = computed(() => (state.status?.problems ?? []).filter((problem) => advanced.value || problem.level !== 'info'))
+
 const quiet = computed(() => stats.value !== null && stats.value.days.every((day) => day.enforced + day.observed === 0))
 
 /**
@@ -90,7 +96,7 @@ watch(openDetectionId, async (id) => {
 	<div :class="$style.overview">
 		<StatusBanner v-if="state.status" :status="state.status" />
 
-		<ProblemList v-if="state.status && state.status.problems.length > 0" id="overview-attention" :problems="state.status.problems" />
+		<ProblemList v-if="problems.length > 0" id="overview-attention" :problems="problems" />
 
 		<section
 			v-if="advanced"

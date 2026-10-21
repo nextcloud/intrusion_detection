@@ -58,6 +58,23 @@ describe('the overview', () => {
 		expect(wrapper.text()).toContain('Look up an address or account')
 	})
 
+	test('only real problems need attention; tips are shown with the advanced options', async () => {
+		const { wrapper } = await mountOverview()
+		const titles = () => wrapper.findAll('[data-test="problem"]').map((problem) => problem.text())
+		expect(titles().join(' ')).toContain('Nextcloud cannot send emails')
+		expect(titles().join(' ')).not.toContain('No memory cache')
+		setAdvanced(true)
+		await flushPromises()
+		expect(titles().join(' ')).toContain('No memory cache')
+	})
+
+	test('nothing asks for attention while the defaults fit', async () => {
+		state.status = makeStatus({ state: 'protecting', problems: [{ id: 'cache', level: 'info', title: 'No memory cache', text: '', url: null, urlLabel: null }] })
+		const { wrapper } = await mountOverview()
+		expect(wrapper.find('#overview-attention').exists()).toBe(false)
+		expect(wrapper.text()).not.toContain('Needs attention')
+	})
+
 	test('the figures, the chart and the filters only with the advanced options', async () => {
 		const { wrapper } = await mountOverview()
 		expect(wrapper.find('[data-test="status-figures"]').exists()).toBe(false)
