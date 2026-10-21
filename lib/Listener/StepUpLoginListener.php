@@ -50,7 +50,8 @@ use Psr\Log\LoggerInterface;
  *
  * Only logins with the account's password count: through the login form,
  * or from apps and scripts that send it (Basic auth); a password login of
- * any other kind is treated like the login form ({@see InteractiveLogin}).
+ * any other kind is treated like the login form ({@see InteractiveLogin}),
+ * and so is Basic auth that gets a browser session (core's cookie test).
  * App passwords and tokens never need it. A session that comes back through its remember-me
  * cookie or its session token is checked against the unconfirmed sessions,
  * so that a login that was never confirmed cannot be resumed.
@@ -123,7 +124,9 @@ class StepUpLoginListener implements IEventListener {
 		if ($kind === null || $password === null) {
 			return;
 		}
-		$interactive = $kind !== InteractiveLogin::CLIENT;
+		// Core gives a Basic auth login that sends its cookie test a browser session
+		// (Session::logClientIn): that session waits for its confirmation like the login form's.
+		$interactive = $kind !== InteractiveLogin::CLIENT || $this->request->getCookie(StepUpService::COOKIE_TEST) !== null;
 		$source = $this->addresses->current();
 		if ($source !== null && $this->addresses->isBypassListed($source)) {
 			return;

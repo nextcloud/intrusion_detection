@@ -67,6 +67,11 @@ class AdminApprovalMethod implements IConfirmationMethod {
 		return $this->approvable[$uid] ??= $this->approvers->except([$uid]) !== [];
 	}
 
+	#[\Override]
+	public function isAvailableInBrowser(IUser $user, StepUpPolicy $policy): bool {
+		return $this->isAvailable($user, $policy);
+	}
+
 	/**
 	 * Ask the administrators. The login may wait until the request expires.
 	 */

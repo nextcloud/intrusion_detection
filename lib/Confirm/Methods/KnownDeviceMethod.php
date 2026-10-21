@@ -52,6 +52,14 @@ class KnownDeviceMethod implements IConfirmationMethod {
 		return $this->accepts($policy) && $this->devices->recognise($user->getUID()) !== null;
 	}
 
+	/**
+	 * Any of the account's remembered devices, not only the current request's.
+	 */
+	#[\Override]
+	public function isAvailableInBrowser(IUser $user, StepUpPolicy $policy): bool {
+		return $this->accepts($policy) && $this->devices->hasDevices($user->getUID());
+	}
+
 	#[\Override]
 	public function begin(IUser $user, StepUpState $state): string {
 		$device = $this->devices->recognise($user->getUID());

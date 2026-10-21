@@ -80,6 +80,22 @@ class ConfirmationPolicyTest extends TestCase {
 		$this->assertSame('email_code', $policy->method('email_code')?->id());
 	}
 
+	public function testAnAccountCanConfirmInABrowserWhenOneMethodAcceptsEveryReason(): void {
+		$device = $this->createMock(IConfirmationMethod::class);
+		$device->method('id')->willReturn('known_device');
+		$device->method('isAvailable')->willReturn(false);
+		$device->method('isAvailableInBrowser')->willReturnCallback(static fn (IUser $u, StepUpPolicy $p): bool => $p !== StepUpPolicy::BreachedPassword);
+		$broken = $this->createMock(IConfirmationMethod::class);
+		$broken->method('id')->willReturn('broken');
+		$broken->method('isAvailableInBrowser')->willThrowException(new \RuntimeException('down'));
+		$user = $this->createMock(IUser::class);
+
+		$this->assertTrue($this->policy($broken, $device)->canConfirmInBrowser($user, [StepUpPolicy::ProtectedAccount]), 'A device of the account, not of this request');
+		$this->assertFalse($this->policy($broken, $device)->canConfirmInBrowser($user, [StepUpPolicy::ProtectedAccount, StepUpPolicy::BreachedPassword]), 'Every reason must accept the method');
+		$this->assertTrue($this->policy($device, $this->email(true))->canConfirmInBrowser($user, [StepUpPolicy::BreachedPassword]));
+		$this->assertFalse($this->policy($this->email(false))->canConfirmInBrowser($user, [StepUpPolicy::FlaggedSource]));
+	}
+
 	public function testOnlyASecondFactorThatIsSetUpCounts(): void {
 		$user = $this->createMock(IUser::class);
 		$user->method('getUID')->willReturn('u');

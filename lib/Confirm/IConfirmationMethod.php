@@ -44,6 +44,14 @@ interface IConfirmationMethod {
 	public function isAvailable(IUser $user, StepUpPolicy $policy): bool;
 
 	/**
+	 * Whether the account could confirm a login with this policy at the
+	 * login form, from any of its browsers. While it could, apps that send
+	 * the password are refused: the account holder has a way in that proves
+	 * more, and the app can use an app password. Must be cheap.
+	 */
+	public function isAvailableInBrowser(IUser $user, StepUpPolicy $policy): bool;
+
+	/**
 	 * Start confirming a login with this method, at the login itself.
 	 * The method may keep what it needs in the state, never a secret in
 	 * plain text.

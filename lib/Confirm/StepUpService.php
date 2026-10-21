@@ -47,8 +47,10 @@ use Psr\Log\LoggerInterface;
  *   the login is refused, or allowed with a notice or a new password.
  *
  * Apps and scripts that send the password (Basic auth) cannot answer a
- * confirmation, so their request is refused unless the policies allow
- * logins that nothing confirms.
+ * confirmation. Their request is refused when the account could confirm
+ * the login in a browser ({@see ConfirmationPolicy::canConfirmInBrowser()}):
+ * they are to use an app password. Only when the account has no method at
+ * all do the policies decide, as for the login form.
  *
  * How a login was confirmed is kept in the session ({@see SessionState::CONFIRMATION}:
  * none, second_factor, known_device, email_code, admin_approval), for later
@@ -108,15 +110,18 @@ class StepUpService {
 		$policyIds = array_map(static fn (StepUpPolicy $p): string => $p->value, $policies);
 
 		if (!$login->interactive) {
-			$decision = $this->policy->noMethodDecision($policies, fn (): bool => $this->familiar->isFamiliar($login));
-			if (!$decision->refuse) {
-				return $this->allow($login, $policyIds, $decision);
+			$inBrowser = $this->policy->canConfirmInBrowser($login->user, $policies);
+			if (!$inBrowser) {
+				$decision = $this->policy->noMethodDecision($policies, fn (): bool => $this->familiar->isFamiliar($login));
+				if (!$decision->refuse) {
+					return $this->allow($login, $policyIds, $decision);
+				}
 			}
 			$detection = $this->record(new DetectionDraft(
 				checkId: StepUpRefusedClient::ID,
 				source: $login->source,
 				uid: $uid,
-				facts: ['policies' => $policyIds],
+				facts: ['policies' => $policyIds, 'inBrowser' => $inBrowser],
 				merge: DetectionDraft::MERGE_SOURCE_USER,
 				mergeWindow: 86400,
 				userAgent: $login->userAgent,

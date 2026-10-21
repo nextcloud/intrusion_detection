@@ -87,6 +87,13 @@ class KnownDevices implements IKnownDevices {
 	}
 
 	/**
+	 * Whether the account has any remembered device that is still known.
+	 */
+	public function hasDevices(string $uid): bool {
+		return $this->isEnabled() && $this->mapper->forUser($uid, $this->timeFactory->getTime() - $this->duration(), 1) !== [];
+	}
+
+	/**
 	 * A recognised device was used: note it once a day, and renew its cookie.
 	 */
 	public function used(KnownDevice $device): void {

@@ -37,6 +37,11 @@ class EmailCodeMethod implements IConfirmationMethod {
 	}
 
 	#[\Override]
+	public function isAvailableInBrowser(IUser $user, StepUpPolicy $policy): bool {
+		return $this->isAvailable($user, $policy);
+	}
+
+	#[\Override]
 	public function begin(IUser $user, StepUpState $state): string {
 		return $this->codes->issue($user, $state) ? self::PENDING : self::UNAVAILABLE;
 	}

@@ -77,6 +77,30 @@ class ConfirmationPolicy {
 		return $available;
 	}
 
+	/**
+	 * Whether the account could confirm a login with all these policies at
+	 * the login form, from any of its browsers
+	 * ({@see IConfirmationMethod::isAvailableInBrowser()}).
+	 *
+	 * @param list<StepUpPolicy> $policies
+	 */
+	public function canConfirmInBrowser(IUser $user, array $policies): bool {
+		foreach ($this->methods() as $method) {
+			try {
+				foreach ($policies as $policy) {
+					if (!$method->isAvailableInBrowser($user, $policy)) {
+						continue 2;
+					}
+				}
+			} catch (\Throwable $e) {
+				$this->logger->error('Intrusion detection could not check the confirmation method {method}', ['method' => $method->id(), 'exception' => $e]);
+				continue;
+			}
+			return true;
+		}
+		return false;
+	}
+
 	public function method(string $id): ?IConfirmationMethod {
 		foreach ($this->methods() as $method) {
 			if ($method->id() === $id) {

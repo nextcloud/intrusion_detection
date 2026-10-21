@@ -203,7 +203,7 @@ class RiskyNetworkTest extends StepUpTestCase {
 			$this->session->clear();
 			$this->session->id = null;
 			$this->login($this->alice);
-			$this->assertNull($this->stepUp(), 'Allowed: the policy lets logins in that nothing confirms');
+			$this->assertSame(StepUpState::REFUSED_CLIENT, $this->stepUp()?->status, 'Refused: the account can confirm in a browser, so the app must use an app password');
 		}
 		$detections = $this->detectionsOf(RiskyNetwork::ID);
 		$this->assertCount(1, $detections);

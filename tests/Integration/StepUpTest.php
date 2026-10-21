@@ -40,8 +40,11 @@ use OCA\IntrusionDetection\Notification\UserAlerts;
 use OCA\IntrusionDetection\Response\AccountProtection;
 use OCA\IntrusionDetection\Response\FlaggedSources;
 use OCA\IntrusionDetection\Response\PasswordChangeFlag;
+use OCA\IntrusionDetection\SessionState\RequestTarget;
+use OCA\IntrusionDetection\SessionState\Rules\StepUpRule;
 use OCA\IntrusionDetection\SessionState\SessionState;
 use OCA\IntrusionDetection\TrustedNetwork\TrustedNetworks;
+use OCP\AppFramework\Controller;
 use OCP\Config\IUserConfig;
 use OCP\ICacheFactory;
 use OCP\IUser;
@@ -333,14 +336,89 @@ class StepUpTest extends StepUpTestCase {
 		$this->assertSame([StepUpPolicy::ProtectedAccount->value, StepUpPolicy::BreachedPassword->value], $this->stepUp()?->policies);
 	}
 
-	public function testARefusedAppThatKeepsCookiesIsRemembered(): void {
-		$this->settings->setGlobal(StepUpPolicy::ProtectedAccount->settingKey(), NoMethodOutcome::Refuse->value);
+	public function testBasicAuthThatGetsABrowserSessionWaitsForTheConfirmation(): void {
 		$this->give(StepUpPolicy::ProtectedAccount, $this->alice);
 		$this->basicAuth($this->alice);
 		$this->cookies[StepUpService::COOKIE_TEST] = 'test';
 		$this->login($this->alice);
-		$this->assertSame(StepUpState::REFUSED_CLIENT, $this->stepUp()?->status);
+		$stepUp = $this->stepUp();
+		$this->assertSame(StepUpState::PENDING, $stepUp?->status, 'Core gives it a browser session: held like the login form');
+		$this->assertSame('482915', $this->lastCode($this->alice->getUID()));
 		$this->assertSame(1, $this->unconfirmedRows(), 'Core gives it a session token, which could come back');
+
+		$page = $this->rule()->check($this->state, RequestTarget::app($this->createMock(Controller::class), 'index', 'GET', '/index.php/apps/files/'));
+		$this->assertNotNull($page);
+		$this->assertStringContainsString('/apps/intrusion_detection/verify', (string)$page->redirectUrl, 'A browser is sent to the verify page');
+		$dav = $this->rule()->check($this->state, RequestTarget::dav('PROPFIND', '/remote.php/dav/files/'));
+		$this->assertNotNull($dav);
+		$this->assertSame([StepUpRule::ERROR, StepUpRule::DAV_HEADER], [$dav->error, $dav->davHeader], 'WebDAV and OCS get 403 with the header');
+	}
+
+	public function testBasicAuthThatGetsABrowserSessionIsRefusedLikeTheLoginForm(): void {
+		$this->settings->setGlobal(StepUpPolicy::ProtectedAccount->settingKey(), NoMethodOutcome::Refuse->value);
+		$bob = $this->user('ids-stepup-cookies', null);
+		$this->give(StepUpPolicy::ProtectedAccount, $bob);
+		$this->basicAuth($bob);
+		$this->cookies[StepUpService::COOKIE_TEST] = 'test';
+		$this->login($bob);
+		$this->assertSame(StepUpState::REFUSED, $this->stepUp()?->status, 'No method: the setting decides, as at the login form');
+		$this->assertSame(1, $this->unconfirmedRows());
+	}
+
+	/**
+	 * @return array<string, array{string}>
+	 */
+	public static function lenientReasons(): array {
+		return [
+			'protected account' => [StepUpPolicy::ProtectedAccount->value],
+			'breached password' => [StepUpPolicy::BreachedPassword->value],
+		];
+	}
+
+	#[DataProvider('lenientReasons')]
+	public function testAppsOfAnAccountWithAnEmailAddressAreRefusedWhateverTheSettingWithoutAMethod(string $policy): void {
+		$this->give(StepUpPolicy::from($policy), $this->alice);
+		$this->basicAuth($this->alice);
+		$this->login($this->alice);
+		$this->assertSame(StepUpState::REFUSED_CLIENT, $this->stepUp()?->status, 'The login form would ask for the code: the app must use an app password');
+		$this->assertNull($this->state->get(SessionState::CONFIRMATION), 'Never let in unconfirmed');
+		$this->assertSame([], $this->detectionsOf(StepUpUnconfirmed::ID));
+		$this->assertCount(1, $this->detectionsOf(StepUpRefusedClient::ID));
+		$this->assertNull($this->lastCode($this->alice->getUID()), 'No code: an app cannot enter it');
+		$this->assertFalse(Server::get(PasswordChangeFlag::class)->isRequired($this->alice->getUID()), 'Refused, not let in with a new password to choose');
+	}
+
+	public function testAppsOfAnAccountWhoseAdministratorsCanApproveAreRefused(): void {
+		$this->settings->setGlobal(GlobalSettings::STEP_UP_ADMIN_APPROVAL, true);
+		$bob = $this->user('ids-stepup-approvable', null);
+		$this->give(StepUpPolicy::ProtectedAccount, $bob);
+		$this->basicAuth($bob);
+		$this->login($bob);
+		$this->assertSame(StepUpState::REFUSED_CLIENT, $this->stepUp()?->status);
+	}
+
+	public function testAppsOfAnAccountWithARememberedDeviceAreRefusedWhereTheDeviceCounts(): void {
+		$bob = $this->user('ids-stepup-device', null);
+		$this->knownDevices()->remember($bob, SourceKey::fromIp('192.0.2.30'), 'Mozilla/5.0 (X11; Linux x86_64) Firefox/140.0');
+		// The app does not send the device cookie: any of the account's devices counts.
+		$this->cookies = [];
+		$this->nextRequest();
+		$this->give(StepUpPolicy::ProtectedAccount, $bob);
+		$this->basicAuth($bob);
+		$this->login($bob);
+		$this->assertSame(StepUpState::REFUSED_CLIENT, $this->stepUp()?->status, 'The account holder can confirm from the remembered browser');
+
+		$carol = $this->user('ids-stepup-device-breached', null);
+		$this->knownDevices()->remember($carol, SourceKey::fromIp('192.0.2.30'), 'Mozilla/5.0 (X11; Linux x86_64) Firefox/140.0');
+		$this->cookies = [];
+		$this->nextRequest();
+		$this->session->clear();
+		$this->session->id = null;
+		$this->give(StepUpPolicy::BreachedPassword, $carol);
+		$this->basicAuth($carol);
+		$this->login($carol, self::PASSWORD);
+		$this->assertNull($this->stepUp(), 'A device never confirms a breached password: no method, so the setting decides');
+		$this->assertTrue(Server::get(PasswordChangeFlag::class)->isRequired($carol->getUID()));
 	}
 
 	public function testAnAppsDecisionIsRepeatedForAWhileWithoutTheChecks(): void {
@@ -477,12 +555,13 @@ class StepUpTest extends StepUpTestCase {
 		$this->assertEqualsCanonicalizing(['198.51.100.7', '203.0.113.9'], array_map(static fn ($d): ?string => $d->getIp(), $detections));
 	}
 
-	public function testAppsAreAllowedWhereThePolicyAllowsLoginsNothingConfirms(): void {
-		$this->give(StepUpPolicy::BreachedPassword, $this->alice);
-		$this->basicAuth($this->alice);
-		$this->login($this->alice);
+	public function testAppsOfAnAccountWithoutAMethodAreAllowedWhereThePolicyAllowsLoginsNothingConfirms(): void {
+		$bob = $this->user('ids-stepup-app-nomethod', null);
+		$this->give(StepUpPolicy::BreachedPassword, $bob);
+		$this->basicAuth($bob);
+		$this->login($bob);
 		$this->assertNull($this->stepUp());
-		$this->assertTrue(Server::get(PasswordChangeFlag::class)->isRequired($this->alice->getUID()), 'Its next requests are refused by the forced password change');
+		$this->assertTrue(Server::get(PasswordChangeFlag::class)->isRequired($bob->getUID()), 'Its next requests are refused by the forced password change');
 	}
 
 	public function testAnUnconfirmedLoginCannotComeBackThroughItsRememberMeCookie(): void {
