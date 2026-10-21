@@ -105,7 +105,16 @@
 	width: 100%;
 	min-height: 48px;
 	margin-block-start: calc(5 * var(--default-grid-baseline));
+	border: none;
+	border-radius: var(--border-radius-element);
+	background-color: var(--color-primary-element);
+	color: var(--color-primary-element-text);
 	font-size: 16px;
+	font-weight: bold;
+}
+
+.guest-box.ids-page button.ids-page__submit:hover {
+	background-color: var(--color-primary-element-hover);
 }
 
 .guest-box.ids-page input.ids-page__code {
@@ -142,6 +151,7 @@
 	min-height: var(--default-clickable-area);
 	margin: 0;
 	border: 1px solid var(--color-border-maxcontrast, var(--color-border));
+	border-radius: var(--border-radius-element);
 	background-color: var(--color-main-background);
 	color: var(--color-main-text);
 }
