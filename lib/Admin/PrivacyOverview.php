@@ -100,6 +100,15 @@ class PrivacyOverview {
 			'where' => 'ids_detection_hourly',
 			'checks' => [],
 		];
+		$rows[] = [
+			'id' => 'internal_state',
+			'name' => $l->t('Internal state'),
+			'what' => $l->t('The version of the cached address checks, and when the firewall export was last written and what it changed.'),
+			'why' => $l->t('So that every web server knows when its cached address checks are out of date, and the export is only written again when something changed.'),
+			'retention' => $l->t('As long as the app is installed'),
+			'where' => 'ids_state',
+			'checks' => [],
+		];
 		return $rows;
 	}
 
