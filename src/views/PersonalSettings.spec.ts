@@ -54,7 +54,7 @@ describe('PersonalSettings', () => {
 
 	test('renders every section in its order under one heading', async () => {
 		const wrapper = await mountPage()
-		expect(wrapper.find('h2').text()).toBe('Security events')
+		expect(wrapper.find('h2').text()).toBe('Account protection')
 		expect(wrapper.findAll('[data-section]').map((s) => s.attributes('data-section'))).toEqual([
 			'secure-account',
 			'status',

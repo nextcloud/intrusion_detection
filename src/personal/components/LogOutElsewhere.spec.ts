@@ -30,7 +30,7 @@ async function runFromDialog() {
 	await wrapper.get('[data-test="log-out-elsewhere-button"]').trigger('click')
 	await flushPromises()
 	expect(logOutElsewhere).not.toHaveBeenCalled()
-	const button = [...document.body.querySelectorAll('[role="dialog"] button')].find((b) => b.textContent?.trim() === 'Log out everywhere else') as HTMLButtonElement
+	const button = [...document.body.querySelectorAll('[role="dialog"] button')].find((b) => b.textContent?.trim() === 'Log out other browsers') as HTMLButtonElement
 	button.click()
 	await flushPromises()
 	return wrapper
@@ -49,10 +49,9 @@ describe('LogOutElsewhere', () => {
 		document.body.innerHTML = ''
 	})
 
-	test('says that app passwords keep working and where to revoke them', () => {
+	test('says how it differs from revoking all sessions: apps stay connected', () => {
 		const wrapper = mount(LogOutElsewhere)
-		expect(wrapper.text()).toContain('Apps and devices connected with app passwords keep working')
-		expect(wrapper.text()).toContain('Devices & sessions')
+		expect(wrapper.text()).toContain('Unlike "Revoke all other sessions" above, your apps and app passwords stay connected.')
 	})
 
 	test('asks first, then logs out the other browsers and reloads the devices', async () => {

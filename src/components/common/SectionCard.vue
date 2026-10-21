@@ -4,7 +4,7 @@
 -->
 
 <script setup lang="ts">
-import { useId } from 'vue'
+import { inject, useId } from 'vue'
 import NcIconSvgWrapper from '@nextcloud/vue/components/NcIconSvgWrapper'
 
 withDefaults(defineProps<{
@@ -26,13 +26,15 @@ defineSlots<{
 }>()
 
 const id = useId()
+/** Flat sections without a card, as on the personal settings page, which follows core's flat sections */
+const flat = inject('ids-flat-sections', false)
 </script>
 
 <template>
-	<section :class="$style.card" :aria-labelledby="id">
+	<section :class="[$style.card, { [$style.card_flat]: flat }]" :aria-labelledby="id">
 		<header :class="$style.card__head">
 			<div :class="$style.card__title">
-				<span v-if="icon" :class="$style.card__icon" aria-hidden="true">
+				<span v-if="icon && !flat" :class="$style.card__icon" aria-hidden="true">
 					<NcIconSvgWrapper inline :path="icon" :size="20" />
 				</span>
 				<div :class="$style.card__titleText">
@@ -117,8 +119,20 @@ const id = useId()
 	gap: calc(var(--default-grid-baseline) * 2);
 }
 
+.card_flat {
+	gap: calc(var(--default-grid-baseline) * 3);
+	padding: 0;
+	border: none;
+	border-radius: 0;
+	background-color: transparent;
+}
+
+.card_flat .card__heading {
+	font-size: 1.05em;
+}
+
 @media (max-width: 600px) {
-	.card {
+	.card:not(.card_flat) {
 		padding: calc(var(--default-grid-baseline) * 3);
 	}
 }

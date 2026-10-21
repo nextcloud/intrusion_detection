@@ -56,19 +56,15 @@ async function run() {
 
 const buttons = computed(() => [
 	{ label: t(APP_ID, 'Cancel'), callback: () => undefined },
-	{ label: t(APP_ID, 'Log out everywhere else'), variant: 'error' as const, callback: () => { run() } },
+	{ label: t(APP_ID, 'Log out other browsers'), variant: 'error' as const, callback: () => { run() } },
 ])
 </script>
 
 <template>
-	<SectionCard :heading="t(APP_ID, 'Log out everywhere else')" :icon="mdiLogoutVariant" data-test="log-out-elsewhere">
+	<SectionCard :heading="t(APP_ID, 'Log out other browsers')" :icon="mdiLogoutVariant" data-test="log-out-elsewhere">
 		<template #description>
-			{{ t(APP_ID, 'Ends every other browser session of your account and forgets the other remembered devices. You stay logged in here.') }}
+			{{ t(APP_ID, 'Logs out every other browser and forgets the other remembered devices. Unlike "Revoke all other sessions" above, your apps and app passwords stay connected.') }}
 		</template>
-
-		<p :class="$style.note">
-			{{ t(APP_ID, 'Apps and devices connected with app passwords keep working. To disconnect them, revoke their app passwords in "Devices & sessions" above.') }}
-		</p>
 		<div>
 			<NcButton
 				variant="error"
@@ -79,13 +75,13 @@ const buttons = computed(() => [
 					<NcLoadingIcon v-if="busy" :size="20" />
 					<NcIconSvgWrapper v-else :path="mdiLogoutVariant" />
 				</template>
-				{{ t(APP_ID, 'Log out everywhere else') }}
+				{{ t(APP_ID, 'Log out other browsers') }}
 			</NcButton>
 		</div>
 
 		<NcDialog
 			v-model:open="dialog"
-			:name="t(APP_ID, 'Log out everywhere else?')"
+			:name="t(APP_ID, 'Log out other browsers?')"
 			:buttons="buttons"
 			size="normal">
 			<p :class="$style.dialog">
@@ -96,13 +92,6 @@ const buttons = computed(() => [
 </template>
 
 <style module>
-.note {
-	margin: 0;
-	max-width: 75ch;
-	color: var(--color-text-maxcontrast);
-	line-height: 1.5;
-}
-
 .dialog {
 	margin: 0 0 calc(var(--default-grid-baseline) * 2);
 	line-height: 1.5;

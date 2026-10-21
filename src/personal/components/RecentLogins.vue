@@ -20,7 +20,6 @@ import SkeletonRows from './SkeletonRows.vue'
 import { APP_ID } from '../../utils/format.ts'
 import { fetchLogins } from '../api.ts'
 import { personal } from '../store.ts'
-import { shortDateTime } from '../time.ts'
 import { useRemoteList } from '../useRemoteList.ts'
 
 /** Shown before "Show all" */
@@ -135,7 +134,6 @@ onMounted(load)
 						</p>
 						<p :class="$style.login__meta">
 							<TimeStamp :timestamp="login.createdAt" short :timeZone="timeZone" />
-							<span :class="$style.login__sep">{{ shortDateTime(login.createdAt, timeZone) }}</span>
 							<span v-if="login.ip" :class="[$style.login__sep, $style.login__address]">{{ login.ip }}</span>
 						</p>
 						<p :class="$style.login__meta">

@@ -32,16 +32,6 @@ export function dateTime(timestamp: number, timeZone?: string): string {
 }
 
 /**
- * "21 Oct 2026, 14:03"
- *
- * @param timestamp - Seconds since the epoch
- * @param timeZone - The user's time zone
- */
-export function shortDateTime(timestamp: number, timeZone?: string): string {
-	return format(timestamp, { dateStyle: 'medium', timeStyle: 'short' }, timeZone)
-}
-
-/**
  * "21 October 2026"
  *
  * @param timestamp - Seconds since the epoch

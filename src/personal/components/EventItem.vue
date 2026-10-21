@@ -151,7 +151,6 @@ const denyButtons = computed(() => [
 				</h4>
 				<p :class="$style.event__meta">
 					<TimeStamp :timestamp="event.createdAt" :timeZone="timeZone" />
-					<span :class="$style.event__absolute">{{ dateTime(event.createdAt, timeZone) }}</span>
 					<span v-if="event.address" :class="$style.event__address">
 						<NcIconSvgWrapper inline :path="mdiMapMarkerOutline" :size="16" />
 						<span class="hidden-visually">{{ t(APP_ID, 'From the address') }}</span>
@@ -345,7 +344,6 @@ const denyButtons = computed(() => [
 	font-size: 0.92em;
 }
 
-.event__absolute::before,
 .event__address::before {
 	content: '·';
 	margin-inline-end: calc(var(--default-grid-baseline) * 3);
@@ -483,7 +481,6 @@ const denyButtons = computed(() => [
 		align-items: flex-start;
 	}
 
-	.event__absolute::before,
 	.event__address::before {
 		content: none;
 	}

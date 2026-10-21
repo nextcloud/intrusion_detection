@@ -5,7 +5,7 @@
 
 <script setup lang="ts">
 import { t } from '@nextcloud/l10n'
-import { computed } from 'vue'
+import { computed, provide } from 'vue'
 import NcSettingsSection from '@nextcloud/vue/components/NcSettingsSection'
 import { useAnnouncer } from '../composables/useAnnouncer.ts'
 import { orderedPersonalSections } from '../personal/extensions.ts'
@@ -13,12 +13,13 @@ import { APP_ID } from '../utils/format.ts'
 
 const { message } = useAnnouncer()
 const sections = computed(() => orderedPersonalSections())
+provide('ids-flat-sections', true)
 </script>
 
 <template>
 	<NcSettingsSection
-		:name="t(APP_ID, 'Security events')"
-		:description="t(APP_ID, 'What Nextcloud noticed about your account, from where, and what it did about it.')">
+		:name="t(APP_ID, 'Account protection')"
+		:description="t(APP_ID, 'What Nextcloud noticed about your account, and what it did about it.')">
 		<div :class="$style.container">
 			<div :class="$style.sections">
 				<div
@@ -46,7 +47,7 @@ const sections = computed(() => orderedPersonalSections())
 .sections {
 	display: grid;
 	grid-template-columns: repeat(2, minmax(0, 1fr));
-	gap: calc(var(--default-grid-baseline) * 4);
+	gap: calc(var(--default-grid-baseline) * 8) calc(var(--default-grid-baseline) * 8);
 }
 
 .sections__item {
