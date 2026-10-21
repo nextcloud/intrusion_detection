@@ -27,10 +27,9 @@ use OCP\Notification\IManager as INotificationManager;
  *   actions "Start protecting now" and "Observe 7 more days";
  * - when protection starts automatically.
  *
- * The notice is sent once per learning period (`learning_notice_sent`; starting
- * or extending learning mode resets it). Its actions only act while that
- * notice is pending, so clicking one twice, or a stale one after an admin
- * restarted learning mode, changes nothing.
+ * The notice is sent once per learning period (`learning_notice_sent`;
+ * starting or extending learning mode resets it). Its actions open the admin
+ * page, as both change protection and need the password.
  */
 class LearningNotices {
 	public const OBJECT_TYPE = 'learning';
@@ -116,36 +115,6 @@ class LearningNotices {
 	 */
 	public function isNoticePending(): bool {
 		return $this->learning->isActive() && $this->settings->getInt(GlobalSettings::LEARNING_NOTICE_SENT) > 0;
-	}
-
-	/**
-	 * "Start protecting now", from the notice.
-	 *
-	 * @return bool whether this ended learning mode (false when the notice was no longer pending)
-	 */
-	public function startProtecting(string $actor): bool {
-		if (!$this->isNoticePending()) {
-			$this->dismiss();
-			return false;
-		}
-		$this->learning->stop($actor);
-		$this->dismiss();
-		return true;
-	}
-
-	/**
-	 * "Observe 7 more days", from the notice.
-	 *
-	 * @return bool whether this extended learning mode (false when the notice was no longer pending)
-	 */
-	public function observeLonger(string $actor): bool {
-		if (!$this->isNoticePending()) {
-			$this->dismiss();
-			return false;
-		}
-		$this->learning->extend(self::EXTEND_DAYS, $actor);
-		$this->dismiss();
-		return true;
 	}
 
 	/**

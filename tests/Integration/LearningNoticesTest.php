@@ -16,7 +16,6 @@ use OCA\IntrusionDetection\Check\Mode;
 use OCA\IntrusionDetection\Config\GlobalSettings;
 use OCA\IntrusionDetection\Config\ModeState;
 use OCA\IntrusionDetection\Config\Settings;
-use OCA\IntrusionDetection\Controller\LearningActionController;
 use OCA\IntrusionDetection\Db\DetectionMapper;
 use OCA\IntrusionDetection\Detection\DetectionDraft;
 use OCA\IntrusionDetection\Learning\LearningService;
@@ -26,13 +25,10 @@ use OCA\IntrusionDetection\Notification\AdminRecipients;
 use OCA\IntrusionDetection\Notification\LearningNotices;
 use OCA\IntrusionDetection\Notification\Notifier;
 use OCA\IntrusionDetection\Response\ResponseEngine;
-use OCP\AppFramework\Http\Attribute\PasswordConfirmationRequired;
 use OCP\AppFramework\Utility\ITimeFactory;
 use OCP\IGroupManager;
-use OCP\IRequest;
 use OCP\IUser;
 use OCP\IUserManager;
-use OCP\IUserSession;
 use OCP\Notification\IManager as INotificationManager;
 use OCP\Notification\INotification;
 use OCP\Server;
@@ -120,35 +116,6 @@ class LearningNoticesTest extends IntegrationTestCase {
 		$this->assertSame(['WEB', 'WEB'], array_map(static fn ($a): string => $a->getRequestType(), $prepared->getParsedActions()), 'Also for notices sent with the old POST links');
 	}
 
-	public function testStartProtectingNowEndsLearningOnceAndIsIdempotent(): void {
-		$this->setLearningUntil(time() + 3600);
-		$this->notices->sendEndingNoticeIfDue();
-
-		$this->assertTrue($this->notices->startProtecting('admin'));
-		$this->assertFalse($this->learning->isActive());
-		$this->assertFalse($this->notices->startProtecting('admin'), 'A second click changes nothing');
-		$this->assertGreaterThanOrEqual(1, $this->dismissed);
-	}
-
-	public function testObserveLongerExtendsBySevenDaysOnlyOnce(): void {
-		$until = time() + 3600;
-		$this->setLearningUntil($until);
-		$this->notices->sendEndingNoticeIfDue();
-
-		$this->assertTrue($this->notices->observeLonger('admin'));
-		$this->assertSame($until + 7 * 86400, $this->learning->until());
-		$this->assertFalse($this->notices->observeLonger('admin'), 'The notice is answered');
-		$this->assertSame($until + 7 * 86400, $this->learning->until());
-	}
-
-	public function testAStaleNoticeDoesNotEndARestartedLearningPeriod(): void {
-		$this->setLearningUntil(time() + 3600);
-		$this->notices->sendEndingNoticeIfDue();
-		$this->learning->start(14, 'another admin');
-		$this->assertFalse($this->notices->startProtecting('admin'));
-		$this->assertTrue($this->learning->isActive());
-	}
-
 	public function testTheJobTellsTheAdminsWhenProtectionStarts(): void {
 		$this->setLearningUntil(time() - 10);
 		$job = new LearningModeJob(Server::get(ITimeFactory::class), $this->learning, $this->notices);
@@ -156,21 +123,6 @@ class LearningNoticesTest extends IntegrationTestCase {
 		$this->assertFalse($this->learning->isActive());
 		$this->assertSame([Notifier::SUBJECT_PROTECTION_STARTED, Notifier::SUBJECT_PROTECTION_STARTED], array_map(static fn (INotification $n): string => $n->getSubject(), $this->sent));
 		$this->assertSame('Intrusion detection is now protecting this server', Server::get(Notifier::class)->prepare($this->sent[0], 'en')->getParsedSubject());
-	}
-
-	public function testTheActionEndpointsUseTheNotices(): void {
-		$this->setLearningUntil(time() + 3600);
-		$this->notices->sendEndingNoticeIfDue();
-		$session = $this->createMock(IUserSession::class);
-		$session->method('getUser')->willReturn($this->users[0]);
-		$controller = new LearningActionController($this->createMock(IRequest::class), $this->notices, $this->learning, $session);
-
-		$data = $controller->extend()->getData();
-		$this->assertSame(['changed' => true, 'learning' => true, 'until' => $this->learning->until()], $data);
-		$this->assertFalse($controller->protect()->getData()['changed']);
-		foreach (['protect', 'extend'] as $method) {
-			$this->assertNotSame([], (new \ReflectionMethod(LearningActionController::class, $method))->getAttributes(PasswordConfirmationRequired::class), $method . ' changes protection');
-		}
 	}
 
 	public function testTheNoticeCountsWhatLearningHeldBackAndTheAddressesItWouldHaveBlocked(): void {

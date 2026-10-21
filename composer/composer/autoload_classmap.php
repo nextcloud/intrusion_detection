@@ -238,7 +238,6 @@ return array(
     'OCA\\IntrusionDetection\\Controller\\DigestApiController' => $baseDir . '/../lib/Controller/DigestApiController.php',
     'OCA\\IntrusionDetection\\Controller\\EventsApiController' => $baseDir . '/../lib/Controller/EventsApiController.php',
     'OCA\\IntrusionDetection\\Controller\\IncidentApiController' => $baseDir . '/../lib/Controller/IncidentApiController.php',
-    'OCA\\IntrusionDetection\\Controller\\LearningActionController' => $baseDir . '/../lib/Controller/LearningActionController.php',
     'OCA\\IntrusionDetection\\Controller\\LockLinkController' => $baseDir . '/../lib/Controller/LockLinkController.php',
     'OCA\\IntrusionDetection\\Controller\\NoticeController' => $baseDir . '/../lib/Controller/NoticeController.php',
     'OCA\\IntrusionDetection\\Controller\\NotificationApiController' => $baseDir . '/../lib/Controller/NotificationApiController.php',

@@ -253,7 +253,6 @@ class ComposerStaticInitIntrusionDetection
         'OCA\\IntrusionDetection\\Controller\\DigestApiController' => __DIR__ . '/..' . '/../lib/Controller/DigestApiController.php',
         'OCA\\IntrusionDetection\\Controller\\EventsApiController' => __DIR__ . '/..' . '/../lib/Controller/EventsApiController.php',
         'OCA\\IntrusionDetection\\Controller\\IncidentApiController' => __DIR__ . '/..' . '/../lib/Controller/IncidentApiController.php',
-        'OCA\\IntrusionDetection\\Controller\\LearningActionController' => __DIR__ . '/..' . '/../lib/Controller/LearningActionController.php',
         'OCA\\IntrusionDetection\\Controller\\LockLinkController' => __DIR__ . '/..' . '/../lib/Controller/LockLinkController.php',
         'OCA\\IntrusionDetection\\Controller\\NoticeController' => __DIR__ . '/..' . '/../lib/Controller/NoticeController.php',
         'OCA\\IntrusionDetection\\Controller\\NotificationApiController' => __DIR__ . '/..' . '/../lib/Controller/NotificationApiController.php',
