@@ -9,20 +9,27 @@ declare(strict_types=1);
 
 namespace OCA\IntrusionDetection\Confirm\Reasons;
 
+use OCA\IntrusionDetection\Config\Settings;
 use OCA\IntrusionDetection\Confirm\IStepUpReason;
 use OCA\IntrusionDetection\Confirm\LoginContext;
 use OCA\IntrusionDetection\Confirm\StepUpPolicy;
 use OCA\IntrusionDetection\Risk\RiskScorer;
+use OCA\IntrusionDetection\TrustedNetwork\ITrustedNetworks;
 
 /**
  * The address has a high risk score (concept section 10.18): every
  * successful password login from it needs extra confirmation. Nothing is
- * read while the risk score is off; otherwise the score's three indexed
- * queries, cached per address for a minute.
+ * read while the risk score is off, while protection is off or learning
+ * (the other reasons follow their checks' modes; this one has no check),
+ * or for a network the user confirmed as theirs ("Yes, it was me");
+ * otherwise the score's three indexed queries, cached per address for a
+ * minute.
  */
 class RiskHighReason implements IStepUpReason {
 	public function __construct(
 		private readonly RiskScorer $risk,
+		private readonly Settings $settings,
+		private readonly ITrustedNetworks $trustedNetworks,
 	) {
 	}
 
@@ -33,6 +40,9 @@ class RiskHighReason implements IStepUpReason {
 
 	#[\Override]
 	public function applies(LoginContext $login): bool {
-		return $login->source !== null && $this->risk->isEnabled() && $this->risk->score($login->source)->isHigh();
+		if ($login->source === null || !$this->risk->isEnabled() || !$this->settings->isEnabled() || $this->settings->isLearning()) {
+			return false;
+		}
+		return $this->risk->score($login->source)->isHigh() && !$this->trustedNetworks->isTrusted($login->uid(), $login->source);
 	}
 }

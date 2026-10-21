@@ -41,8 +41,9 @@ class DetectionMapper extends QBMapper {
 	}
 
 	/**
-	 * Which of the given checks had a detection for the address that was
-	 * seen since a time: the address itself for IPv4, its /64 for IPv6.
+	 * Which of the given checks had an enforced detection for the address
+	 * that was seen since a time: the address itself for IPv4, its /64 for
+	 * IPv6. Detections only observed (learning mode, Observe) do not count.
 	 *
 	 * @param list<string> $checkIds
 	 * @return list<string> check ids
@@ -58,7 +59,8 @@ class DetectionMapper extends QBMapper {
 				? $qb->expr()->eq('ip', $qb->createNamedParameter($source->ip))
 				: $qb->expr()->eq('net_key', $qb->createNamedParameter($source->netKey)))
 			->andWhere($qb->expr()->in('check_id', $qb->createNamedParameter($checkIds, IQueryBuilder::PARAM_STR_ARRAY)))
-			->andWhere($qb->expr()->gte('last_seen_at', $qb->createNamedParameter($since, IQueryBuilder::PARAM_INT)));
+			->andWhere($qb->expr()->gte('last_seen_at', $qb->createNamedParameter($since, IQueryBuilder::PARAM_INT)))
+			->andWhere($qb->expr()->eq('enforced', $qb->createNamedParameter(true, IQueryBuilder::PARAM_BOOL)));
 		$result = $qb->executeQuery();
 		$ids = [];
 		while (($id = $result->fetchOne()) !== false) {

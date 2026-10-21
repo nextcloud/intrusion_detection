@@ -262,6 +262,26 @@ class RiskyNetworkTest extends StepUpTestCase {
 		$this->assertSame([StepUpPolicy::RiskHigh->value], $this->stepUp()?->policies, 'Score 5: high');
 	}
 
+	public function testAHighRiskScoreDoesNotAskWhileLearningOrFromATrustedNetwork(): void {
+		$this->settings->setGlobal(GlobalSettings::RISK_ENABLED, true);
+		$this->settings->setMode(RiskyNetwork::ID, Mode::Off);
+		$this->network(['tor', 'hosting', 'list:watch']);
+		$this->appConfig->setValueInt(Application::APP_ID, GlobalSettings::LEARNING_UNTIL, time() + 86400);
+		$this->login($this->alice);
+		$this->assertNull($this->stepUp(), 'Learning: nothing acts yet');
+
+		$this->appConfig->setValueInt(Application::APP_ID, GlobalSettings::LEARNING_UNTIL, 0);
+		Server::get(TrustedNetworks::class)->trust($this->alice->getUID(), SourceKey::fromIp($this->remoteAddress));
+		$this->session->id = null;
+		$this->login($this->alice);
+		$this->assertNull($this->stepUp(), 'The user said it was them on this network');
+
+		$bob = $this->user('ids-risky-bob', 'bob@example.com');
+		$this->session->id = null;
+		$this->login($bob);
+		$this->assertSame([StepUpPolicy::RiskHigh->value], $this->stepUp()?->policies, 'Trusted for Alice only');
+	}
+
 	public function testAHighRiskScoreWithoutAWayToConfirmIsRefused(): void {
 		$this->settings->setGlobal(GlobalSettings::RISK_ENABLED, true);
 		Server::get(FlaggedSources::class)->flagAttackTool(SourceKey::fromIp($this->remoteAddress), 'hydra');
@@ -296,7 +316,7 @@ class RiskyNetworkTest extends StepUpTestCase {
 		$networks = $this->networks();
 		return new StepUpReasons(new OverridingContainer([
 			RiskyNetworkReason::class => new RiskyNetworkReason($this->settings, $networks),
-			RiskHighReason::class => new RiskHighReason($this->scorer()),
+			RiskHighReason::class => new RiskHighReason($this->scorer(), $this->settings, Server::get(ITrustedNetworks::class)),
 		]), Server::get(LoggerInterface::class));
 	}
 

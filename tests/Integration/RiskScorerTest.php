@@ -106,6 +106,11 @@ class RiskScorerTest extends IntegrationTestCase {
 		$this->assertSame(3, $this->queries() - $queries, 'The three stored facts, but no address lookup');
 	}
 
+	public function testOnlyEnforcedTrapHitsCount(): void {
+		$this->detection(TrapUrl::ID, self::IP, time(), enforced: false);
+		$this->assertSame([], $this->scorer()->score(SourceKey::fromIp(self::IP))->parts, 'Observed while learning or in Observe mode: nothing was blocked, so it scores nothing');
+	}
+
 	public function testATrapOrReservedNameHitCountsFor24Hours(): void {
 		$this->detection(TrapUrl::ID, self::IP, time() - 3600);
 		$this->assertSame([['fact' => RiskAssessment::FACT_TRAP, 'points' => 3, 'detail' => 'trap_url']], $this->scorer()->score(SourceKey::fromIp(self::IP))->parts);
@@ -278,12 +283,12 @@ class RiskScorerTest extends IntegrationTestCase {
 		return $factory;
 	}
 
-	private function detection(string $checkId, string $ip, int $lastSeen): void {
+	private function detection(string $checkId, string $ip, int $lastSeen, bool $enforced = true): void {
 		$source = SourceKey::fromIp($ip);
 		$detection = new Detection();
 		$detection->setCheckId($checkId);
 		$detection->setSeverity('low');
-		$detection->setEnforced(true);
+		$detection->setEnforced($enforced);
 		$detection->setIp($source->ip);
 		$detection->setNetKey($source->netKey);
 		$detection->setExplanationData([]);
