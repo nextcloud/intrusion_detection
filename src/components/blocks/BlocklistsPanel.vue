@@ -4,9 +4,10 @@
 -->
 
 <script setup lang="ts">
-import type { Blocklist, Blocklists } from '../../types.ts'
+import type { Blocklist, Blocklists, CheckRef } from '../../types.ts'
 
 import { mdiCloudOutline, mdiPlaylistRemove, mdiPlus, mdiShieldAlertOutline } from '@mdi/js'
+import { showError } from '@nextcloud/dialogs'
 import { t } from '@nextcloud/l10n'
 import { computed, onActivated, onMounted, ref } from 'vue'
 import NcButton from '@nextcloud/vue/components/NcButton'
@@ -18,14 +19,17 @@ import SettingsGroup from '../common/SettingsGroup.vue'
 import SkeletonBlock from '../common/SkeletonBlock.vue'
 import AddBlocklistDialog from './AddBlocklistDialog.vue'
 import BlocklistRow from './BlocklistRow.vue'
-import { errorMessage, fetchBlocklists } from '../../services/api.ts'
+import { useAnnouncer } from '../../composables/useAnnouncer.ts'
+import { errorMessage, fetchBlocklists, isCancelled, updateCheck } from '../../services/api.ts'
 import { logger } from '../../services/logger.ts'
-import { state } from '../../store.ts'
+import { refreshStatus, replaceCheck, state } from '../../store.ts'
 import { APP_ID } from '../../utils/format.ts'
 
 const data = ref<Blocklists | null>(null)
 const loadError = ref<string | null>(null)
 const adding = ref(false)
+const switching = ref(false)
+const { announce } = useAnnouncer()
 
 const lists = computed(() => data.value?.lists ?? [])
 const denyLists = computed(() => lists.value.filter((l) => l.purpose === 'deny'))
@@ -65,6 +69,33 @@ function replace(list: Blocklist) {
 		data.value.lists.push(list)
 	} else {
 		data.value.lists.splice(index, 1, list)
+	}
+}
+
+/**
+ * Set a check that is off to Observe, so that the lists it uses are downloaded and counted.
+ *
+ * @param which - The check of the blocklists or the one of the network lists
+ */
+async function observeWith(which: 'check' | 'networkCheck') {
+	if (data.value === null) {
+		return
+	}
+	const check: CheckRef = data.value[which]
+	switching.value = true
+	try {
+		const updated = await updateCheck(check.id, { mode: 'observe' })
+		replaceCheck(updated)
+		data.value[which] = { ...check, mode: updated.mode }
+		announce(t(APP_ID, 'Saved: {check} is set to {mode}.', { check: check.name, mode: t(APP_ID, 'Observe') }))
+		refreshStatus()
+	} catch (error) {
+		if (!isCancelled(error)) {
+			logger.error('Could not change the mode', { error })
+			showError(errorMessage(error, t(APP_ID, 'The mode could not be changed. Please try again.')))
+		}
+	} finally {
+		switching.value = false
 	}
 }
 
@@ -111,8 +142,16 @@ function removed(id: string) {
 					</div>
 					<CheckStateNote :check="data.check" />
 				</div>
-				<NcNoteCard v-if="enabledDeny && !checkRuns" type="warning">
-					{{ t(APP_ID, 'The check "{check}" is off, so the blocklists you switched on are not downloaded and do nothing. Open the check and set it to Observe or Protect.', { check: data.check.name }) }}
+				<NcNoteCard v-if="enabledDeny && !checkRuns" type="warning" data-test="deny-check-off">
+					<p>{{ t(APP_ID, 'The check "{check}" is off, so the blocklists you switched on are not downloaded and do nothing.', { check: data.check.name }) }}</p>
+					<NcButton
+						v-if="data.check.mode.configured === 'off'"
+						:class="$style.note__action"
+						variant="secondary"
+						:disabled="switching"
+						@click="observeWith('check')">
+						{{ t(APP_ID, 'Set it to Observe') }}
+					</NcButton>
 				</NcNoteCard>
 				<NcNoteCard v-else-if="enabledDeny && !data.countsMatches" type="info">
 					{{ t(APP_ID, 'Matches are counted only with a memory cache, so no counts are shown here.') }}
@@ -144,8 +183,16 @@ function removed(id: string) {
 					</div>
 					<CheckStateNote :check="data.networkCheck" />
 				</div>
-				<NcNoteCard v-if="enabledAttribute && !networkCheckRuns && !riskEnabled" type="warning">
-					{{ t(APP_ID, 'The check "{check}" is off and the risk score is off, so the network lists you switched on are not used. Open the check and set it to Observe or Protect.', { check: data.networkCheck.name }) }}
+				<NcNoteCard v-if="enabledAttribute && !networkCheckRuns && !riskEnabled" type="warning" data-test="network-check-off">
+					<p>{{ t(APP_ID, 'The check "{check}" is off and the risk score is off, so the network lists you switched on are not used.', { check: data.networkCheck.name }) }}</p>
+					<NcButton
+						v-if="data.networkCheck.mode.configured === 'off'"
+						:class="$style.note__action"
+						variant="secondary"
+						:disabled="switching"
+						@click="observeWith('networkCheck')">
+						{{ t(APP_ID, 'Set it to Observe') }}
+					</NcButton>
 				</NcNoteCard>
 				<ul :class="$style.group__list">
 					<BlocklistRow
@@ -218,6 +265,10 @@ function removed(id: string) {
 	max-width: 80ch;
 	color: var(--color-text-maxcontrast);
 	line-height: 1.5;
+}
+
+.note__action {
+	margin-top: calc(var(--default-grid-baseline) * 2);
 }
 
 .group__list {

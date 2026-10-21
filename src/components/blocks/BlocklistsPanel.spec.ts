@@ -8,13 +8,19 @@ import type { Blocklist, Blocklists, CheckRef } from '../../types.ts'
 import { flushPromises, mount } from '@vue/test-utils'
 import { describe, expect, test, vi } from 'vitest'
 import BlocklistsPanel from './BlocklistsPanel.vue'
-import { fetchBlocklists } from '../../services/api.ts'
+import { fetchBlocklists, updateCheck } from '../../services/api.ts'
 
 vi.mock('@nextcloud/dialogs', () => ({ showError: vi.fn(), showSuccess: vi.fn() }))
 
 vi.mock('../../services/api.ts', async (importOriginal) => ({
 	...(await importOriginal<object>()),
 	fetchBlocklists: vi.fn(),
+	updateCheck: vi.fn(),
+}))
+
+vi.mock('../../store.ts', async (importOriginal) => ({
+	...(await importOriginal<object>()),
+	refreshStatus: vi.fn(),
 }))
 
 const check = (id: string): CheckRef => ({ id, name: id, mode: { configured: 'observe', effective: 'observe', reason: null, missing: null, default: 'observe' } })
@@ -66,8 +72,8 @@ const lists: Blocklists = {
 /**
  * Mount the panel with a built-in and an own list.
  */
-async function mountPanel() {
-	vi.mocked(fetchBlocklists).mockResolvedValue(structuredClone(lists))
+async function mountPanel(overrides: Partial<Blocklists> = {}) {
+	vi.mocked(fetchBlocklists).mockResolvedValue({ ...structuredClone(lists), ...overrides })
 	const wrapper = mount(BlocklistsPanel, { global: { stubs: { AddBlocklistDialog: true, MatchSparkline: true } } })
 	await flushPromises()
 	return wrapper
@@ -85,5 +91,17 @@ describe('the blocklists', () => {
 		const toggles = wrapper.findAll('button[aria-controls]')
 		expect(toggles.length).toBeGreaterThan(0)
 		expect(toggles.every((toggle) => toggle.attributes('aria-expanded') === 'false')).toBe(true)
+	})
+
+	test('a blocklist switched on while its check is off offers to set the check to Observe', async () => {
+		const off = { ...check('blocklist'), mode: { configured: 'off' as const, effective: 'off' as const, reason: null, missing: null, default: 'observe' as const } }
+		vi.mocked(updateCheck).mockResolvedValue({ id: 'blocklist', mode: { ...off.mode, configured: 'observe', effective: 'observe' } } as never)
+		const wrapper = await mountPanel({ check: off })
+		const note = wrapper.get('[data-test="deny-check-off"]')
+		expect(note.text()).toContain('are not downloaded')
+		await note.get('button').trigger('click')
+		await flushPromises()
+		expect(updateCheck).toHaveBeenCalledWith('blocklist', { mode: 'observe' })
+		expect(wrapper.find('[data-test="deny-check-off"]').exists()).toBe(false)
 	})
 })
