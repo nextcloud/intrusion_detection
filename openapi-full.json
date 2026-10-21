@@ -1121,7 +1121,8 @@
                     "createdAt",
                     "lastSeenAt",
                     "userVerdict",
-                    "summary"
+                    "summary",
+                    "outcome"
                 ],
                 "properties": {
                     "id": {
@@ -1178,6 +1179,15 @@
                     },
                     "summary": {
                         "type": "string"
+                    },
+                    "outcome": {
+                        "type": "string",
+                        "enum": [
+                            "acted",
+                            "notified",
+                            "recorded",
+                            "observed"
+                        ]
                     }
                 }
             },
@@ -1781,6 +1791,7 @@
                     "id",
                     "at",
                     "endsAt",
+                    "lastSeenAt",
                     "kind",
                     "group",
                     "title",
@@ -1802,6 +1813,11 @@
                         "format": "int64"
                     },
                     "endsAt": {
+                        "type": "integer",
+                        "format": "int64",
+                        "nullable": true
+                    },
+                    "lastSeenAt": {
                         "type": "integer",
                         "format": "int64",
                         "nullable": true
