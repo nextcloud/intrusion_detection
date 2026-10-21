@@ -164,14 +164,14 @@ class PrivacyOverview {
 				'name' => $l->t('Login history'),
 				'what' => $l->t('Per successful login: the account, the time, the address and its network, the browser or app (at most 200 characters), how the account logged in, and how the login was confirmed.'),
 				'why' => $l->t('So that users can see their recent logins, and so that an incident can be reconstructed. Apps that log in with every request are recorded once a day, and again when they log in from another network.'),
-				'retention' => $l->t('{history_retention_days} days'),
+				'retention' => $l->t('{retention_detections_days} days'),
 				'where' => 'ids_login_history',
 			],
 			DataKind::SecurityChanges => [
 				'name' => $l->t('Security changes'),
 				'what' => $l->t('The kind of change to an account (email address, password, second factor, app passwords), who made it, the session, the address and the time. Email addresses only masked; the full previous address encrypted for one day.'),
 				'why' => $l->t('To recognise an account takeover, where an attacker changes the email address or password one after the other, to reach the previous address with the lock link, and to show users and incident reports what changed.'),
-				'retention' => $l->t('{history_retention_days} days; the previous address 1 day'),
+				'retention' => $l->t('{retention_detections_days} days; the previous address 1 day'),
 				'where' => 'ids_security_changes',
 			],
 			DataKind::KnownDevices => [

@@ -25,7 +25,7 @@ import { state } from '../../store.ts'
 import { APP_ID } from '../../utils/format.ts'
 
 /** The settings this section edits */
-const SETTINGS = ['digest_frequency', 'digest_send_quiet']
+const SETTINGS = ['digest_frequency']
 
 const digest = ref<DigestOverview | null>(null)
 const loadFailed = ref(false)

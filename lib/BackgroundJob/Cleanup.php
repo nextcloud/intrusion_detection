@@ -87,14 +87,14 @@ class Cleanup extends TimedJob {
 	#[\Override]
 	protected function run(mixed $argument): void {
 		$now = $this->time->getTime();
-		$historyBefore = $now - $this->settings->getInt(GlobalSettings::HISTORY_RETENTION_DAYS) * 86400;
+		$retainedSince = $now - $this->settings->getInt(GlobalSettings::RETENTION_DETECTIONS_DAYS) * 86400;
 		$steps = [
 			// Before ended blocks are deleted below.
 			'ended_bans' => fn () => $this->flagEndedBans($now),
 			'attempts' => fn (): int => $this->attempts->deleteOlderThan($now - AttemptRecorder::RETENTION),
 			'flood_state' => fn () => $this->updateFloodState($now),
 			'logins' => fn (): int => $this->logins->deleteOlderThan(intdiv($now - 86400, 3600)),
-			'detections' => fn (): int => $this->detectionTotals->deleteCreatedBefore($now - $this->settings->getInt(GlobalSettings::RETENTION_DETECTIONS_DAYS) * 86400),
+			'detections' => fn (): int => $this->detectionTotals->deleteCreatedBefore($retainedSince),
 			'detection_totals' => fn (): int => $this->detectionTotals->retireBefore($now - DetectionTotals::ROLLUP_DAYS * 86400),
 			'bans' => fn (): int => $this->bans->deleteEndedBefore($now - max(self::BAN_HISTORY, $this->settings->getInt(GlobalSettings::BAN_HISTORY_DAYS) * 86400)),
 			'flags' => fn (): int => $this->flags->deleteExpired($now),
@@ -106,8 +106,8 @@ class Cleanup extends TimedJob {
 			'abandoned_logins' => fn () => $this->abandonedLogins->end(),
 			'step_up_sessions' => fn (): int => $this->stepUpSessions->deleteExpired($now),
 			'known_devices' => fn (): int => $this->knownDevices->deleteExpired(),
-			'login_history' => fn (): int => $this->loginHistory->deleteOlderThan($historyBefore),
-			'security_changes' => fn (): int => $this->securityChanges->deleteOlderThan($historyBefore),
+			'login_history' => fn (): int => $this->loginHistory->deleteOlderThan($retainedSince),
+			'security_changes' => fn (): int => $this->securityChanges->deleteOlderThan($retainedSince),
 			'security_change_addresses' => fn (): int => $this->securityChanges->forgetAddressesBefore(
 				$now - SecurityChangeLog::ADDRESS_TTL,
 				$now - SecurityChangeLog::ADDRESS_TTL - self::ADDRESS_LOOK_BACK,

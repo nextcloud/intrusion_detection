@@ -40,7 +40,6 @@ class DigestSender {
 	public const RESULT_OFF = 'off';
 	public const RESULT_NOT_DUE = 'not_due';
 	public const RESULT_ALREADY_SENT = 'already_sent';
-	public const RESULT_QUIET_SKIPPED = 'quiet_skipped';
 	public const RESULT_NO_RECIPIENTS = 'no_recipients';
 	public const RESULT_SENT = 'sent';
 	public const RESULT_FAILED = 'failed';
@@ -97,9 +96,7 @@ class DigestSender {
 		$result = self::RESULT_SENT;
 		$sent = 0;
 		$failed = 0;
-		if ($report->isQuiet() && !$this->settings->getBool(GlobalSettings::DIGEST_SEND_QUIET)) {
-			$result = self::RESULT_QUIET_SKIPPED;
-		} elseif ($withEmail === []) {
+		if ($withEmail === []) {
 			$result = self::RESULT_NO_RECIPIENTS;
 		} else {
 			/** @var array<string, MailContent> $byReader */
@@ -162,7 +159,6 @@ class DigestSender {
 		$listed = array_slice($withoutEmail, 0, self::MAX_LISTED);
 		return [
 			'frequency' => $schedule->isOff() ? DigestSchedule::OFF : $schedule->frequency,
-			'sendQuiet' => $this->settings->getBool(GlobalSettings::DIGEST_SEND_QUIET),
 			'timezone' => $schedule->timezone->getName(),
 			'nextDue' => $schedule->nextDue($now),
 			'last' => isset($state['period'], $state['sentAt']) ? [

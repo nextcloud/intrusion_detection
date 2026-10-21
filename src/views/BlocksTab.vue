@@ -45,8 +45,6 @@ const adding = ref(false)
 
 const traps = ref<Traps | null>(null)
 const trapsError = ref<string | null>(null)
-const decoysObserveWhileLearning = computed(() => state.status?.learning.active === true
-	&& state.settings.find((s) => s.name === 'learning_decoys_act')?.value !== true)
 
 const escalationSettings = computed(() => state.settings.filter((s) => ['ban_duration_1', 'ban_duration_2', 'ban_duration_3', 'ban_history_days', 'ban_net_after'].includes(s.name)))
 const valveSettings = computed(() => state.settings.filter((s) => s.name === 'ban_shared_ip_users'))
@@ -239,9 +237,6 @@ function openDetection(ban: Ban) {
 
 		<BlocklistsPanel id="blocks-lists" />
 
-		<NcNoteCard v-if="decoysObserveWhileLearning" type="info">
-			{{ t(APP_ID, 'While Nextcloud is learning, decoys only observe.') }}
-		</NcNoteCard>
 		<NcNoteCard v-if="trapsError" type="error" :text="trapsError" />
 		<div v-else-if="traps === null" :class="$style.skeleton" aria-busy="true">
 			<SkeletonBlock v-for="i in 2" :key="i" height="160px" />

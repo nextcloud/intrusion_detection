@@ -331,7 +331,6 @@ namespace OCA\IntrusionDetection;
  *
  * @psalm-type IntrusionDetectionDigest = array{
  *     frequency: string,
- *     sendQuiet: bool,
  *     timezone: string,
  *     nextDue: ?int,
  *     last: ?IntrusionDetectionDigestLast,

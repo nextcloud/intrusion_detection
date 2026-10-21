@@ -59,7 +59,7 @@ class AccountTakeoverTest extends TestCase {
 		foreach ($definition->params as $param) {
 			$this->assertStringContainsString('{' . $param->name . '}', $texts->decides, $param->name);
 		}
-		$this->assertStringContainsString('{history_retention_days}', $texts->data);
+		$this->assertStringContainsString('{retention_detections_days}', $texts->data);
 	}
 
 	public function testTheNarrativeTellsTheChangesAndTheLimits(): void {

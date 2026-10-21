@@ -29,7 +29,6 @@ const { announce } = useAnnouncer()
 const learning = computed(() => state.status?.learning ?? { active: false, until: 0, daysLeft: 0, minDays: 1, maxDays: 30 })
 const daysValid = computed(() => Number.isInteger(days.value) && days.value >= learning.value.minDays && days.value <= learning.value.maxDays)
 
-const learningSettings = computed(() => state.settings.filter((s) => s.group === 'learning'))
 /** Notification, privacy and confirmation settings have their own sections */
 const otherSettings = computed(() => state.settings.filter((s) => s.group === 'approvals' || s.group === 'other'))
 
@@ -105,7 +104,7 @@ async function download() {
 				{{ t(APP_ID, 'Learning mode') }}
 			</h4>
 			<p :class="$style.card__text">
-				{{ t(APP_ID, 'Checks set to Protect only record what they would block; earlier blocks, blocks you add by hand, a user\'s "No, it was not me" and, unless you switched it off, decoys still block.') }}
+				{{ t(APP_ID, 'Checks set to Protect only record what they would block; earlier blocks, blocks you add by hand, a user\'s "No, it was not me" and decoys still block.') }}
 				{{ t(APP_ID, 'Alerts are still sent.') }}
 			</p>
 			<p :class="[$style.card__state, { [$style.card__state_on]: learning.active }]">
@@ -155,7 +154,6 @@ async function download() {
 			<p id="ids-days-hint" :class="[$style.card__hint, { [$style.card__hint_error]: !daysValid }]">
 				{{ t(APP_ID, 'From {min} to {max} days.', { min: learning.minDays, max: learning.maxDays }) }}
 			</p>
-			<SettingsGroup v-if="learningSettings.length > 0" :settings="learningSettings" />
 		</section>
 
 		<section

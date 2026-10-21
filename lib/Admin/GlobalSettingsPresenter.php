@@ -36,7 +36,6 @@ use OCP\IL10N;
 class GlobalSettingsPresenter {
 	/** The master switch, shown on its own with a confirmation */
 	public const GROUP_MASTER = 'master';
-	public const GROUP_LEARNING = 'learning';
 	/** Shown on the Blocks tab, next to the escalation explanation */
 	public const GROUP_BLOCKS = 'blocks';
 	public const GROUP_PRIVACY = 'privacy';
@@ -46,8 +45,6 @@ class GlobalSettingsPresenter {
 	public const GROUP_APPROVALS = 'approvals';
 	/** Shown in the firewall export panel of the Blocks tab */
 	public const GROUP_EXPORT = 'export';
-	/** Shown in the blocklists panel of the Blocks tab */
-	public const GROUP_BLOCKLISTS = 'blocklists';
 	/** Extra confirmation of risky logins */
 	public const GROUP_STEP_UP = 'step_up';
 	/** Settings without a group are listed under "Other" on the Settings tab */
@@ -155,10 +152,6 @@ class GlobalSettingsPresenter {
 				$l->t('Intrusion detection'),
 				$l->t('When it is off, no check runs, nothing is recorded and existing blocks are not enforced.'),
 			), self::GROUP_MASTER],
-			GlobalSettings::LEARNING_DECOYS_ACT => [new ParamText(
-				$l->t('Decoys act while learning'),
-				$l->t('Decoy credentials are planted on purpose, so nobody uses one by accident. Leave this on to block at once, even in learning mode.'),
-			), self::GROUP_LEARNING],
 			GlobalSettings::BAN_DURATION_1 => [new ParamText(
 				$l->t('First block'),
 				$l->t('How long an address is blocked the first time.'),
@@ -187,19 +180,14 @@ class GlobalSettingsPresenter {
 				$l->t('people'),
 			), self::GROUP_BLOCKS],
 			GlobalSettings::RETENTION_DETECTIONS_DAYS => [new ParamText(
-				$l->t('Keep detections for'),
-				$l->t('Older detections are deleted. Blocks are kept 30 days after they end, for escalation.'),
+				$l->t('Keep records for'),
+				$l->t('Older detections, logins and security changes of accounts (email address, password, second factor, app passwords) are deleted. Blocks are kept 30 days after they end, for escalation.'),
 				$l->t('days'),
 			), self::GROUP_PRIVACY],
 			GlobalSettings::EXPORT_FORMATS => [new ParamText(
 				$l->t('Firewall export formats'),
 				$l->t('The files written for your firewall or fail2ban. bans.log gets a line at once for every block; the other files are rewritten by the background job after a block changes, as often as cron runs (at most once a minute). They are only written when an export directory is set in config.php.'),
 			), self::GROUP_EXPORT],
-			GlobalSettings::BLOCKLIST_MAX_ENTRIES => [new ParamText(
-				$l->t('Largest accepted list'),
-				$l->t('A downloaded list with more entries than this is refused, so a broken or hostile list cannot fill the database.'),
-				$l->t('entries'),
-			), self::GROUP_BLOCKLISTS],
 			GlobalSettings::NOTIFY_ADMIN_GROUP => [new ParamText(
 				$l->t('Notify these groups'),
 				$l->t('Members of these groups get the administrator notifications.'),
@@ -215,10 +203,6 @@ class GlobalSettingsPresenter {
 			GlobalSettings::DIGEST_FREQUENCY => [new ParamText(
 				$l->t('Send the digest'),
 				$l->t('A summary of what intrusion detection saw and did, for everyone in the notification groups who has an email address. Weekly digests are sent on Monday at 08:00, daily ones every day at 08:00, in the server\'s time zone.'),
-			), self::GROUP_NOTIFICATIONS],
-			GlobalSettings::DIGEST_SEND_QUIET => [new ParamText(
-				$l->t('Also send quiet digests'),
-				$l->t('When nothing happened, a short email says so. It shows that intrusion detection is running.'),
 			), self::GROUP_NOTIFICATIONS],
 			GlobalSettings::EVENTS_INCLUDE_IP => [new ParamText(
 				$l->t('Addresses in webhook events'),
@@ -236,11 +220,6 @@ class GlobalSettingsPresenter {
 				$l->t('Offer "Remember this device"'),
 				$l->t('After confirming a login with a code or an administrator\'s approval, users may remember the browser, so that later logins from it are confirmed without asking.'),
 			), self::GROUP_STEP_UP],
-			GlobalSettings::HISTORY_RETENTION_DAYS => [new ParamText(
-				$l->t('Keep the security history for'),
-				$l->t('Logins and security changes of accounts (email address, password, second factor, app passwords) are deleted after this time.'),
-				$l->t('days'),
-			), self::GROUP_PRIVACY],
 			GlobalSettings::RISK_ENABLED => [new ParamText(
 				$l->t('Use the risk score'),
 				$l->t('When it is off, every check uses its plain limits, and a high score never asks for confirmation.'),

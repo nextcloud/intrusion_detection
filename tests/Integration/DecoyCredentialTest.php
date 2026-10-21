@@ -110,15 +110,6 @@ class DecoyCredentialTest extends LoginFailureTestCase {
 		$this->assertCount(1, $this->bans->findActiveForKeys(['198.51.100.7'], time()));
 	}
 
-	public function testDecoysOnlyObserveDuringLearningWhenSwitchedSo(): void {
-		[, $secret] = $this->decoys->create('label', null, DecoyFormat::AppPassword, 'admin');
-		$this->appConfig->setValueInt(Application::APP_ID, GlobalSettings::LEARNING_UNTIL, time() + 86400);
-		$this->settings->setGlobal(GlobalSettings::LEARNING_DECOYS_ACT, false);
-		$this->failLogin('198.51.100.7', 'x', $secret);
-		$this->assertFalse($this->detectionsOf(DecoyCredential::ID)[0]->isEnforced());
-		$this->assertSame(0, $this->rows('ids_bans'));
-	}
-
 	public function testTheDecoysLoginNameIsAWeakerHit(): void {
 		$this->decoys->create('label', 'backup-svc', DecoyFormat::AppPassword, 'admin');
 		$this->failLogin('198.51.100.7', 'Backup-Svc', 'some other password');

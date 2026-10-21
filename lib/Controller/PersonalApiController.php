@@ -250,7 +250,7 @@ class PersonalApiController extends OCSController {
 	#[ApiRoute(verb: 'GET', url: '/api/v1/personal/logins')]
 	public function logins(int $days = 30, int $limit = 100): DataResponse {
 		$this->requirePage();
-		$days = max(1, min($days, $this->settings->getInt(GlobalSettings::HISTORY_RETENTION_DAYS)));
+		$days = max(1, min($days, $this->settings->getInt(GlobalSettings::RETENTION_DETECTIONS_DAYS)));
 		$current = $this->currentSession->tokenId();
 		$entries = $this->loginHistory->forUser($this->user()->getUID(), $this->timeFactory->getTime() - $days * 86400, null, max(1, min(200, $limit)));
 		$l = $this->l;
@@ -288,7 +288,7 @@ class PersonalApiController extends OCSController {
 	#[ApiRoute(verb: 'GET', url: '/api/v1/personal/security-changes')]
 	public function securityChanges(int $limit = 50): DataResponse {
 		$this->requirePage();
-		$since = $this->timeFactory->getTime() - $this->settings->getInt(GlobalSettings::HISTORY_RETENTION_DAYS) * 86400;
+		$since = $this->timeFactory->getTime() - $this->settings->getInt(GlobalSettings::RETENTION_DETECTIONS_DAYS) * 86400;
 		$rows = $this->changes->findRecent($this->user()->getUID(), $since, max(1, min(100, $limit)));
 		return new DataResponse(array_map(fn (array $row): array => SecureAccountOverview::change($row, $this->l), $rows));
 	}

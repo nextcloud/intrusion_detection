@@ -27,7 +27,7 @@ class SyncFailure extends \RuntimeException {
 	public const INVALID_FORMAT = 'invalid_format';
 	/** The file has no ranges at all */
 	public const EMPTY = 'empty';
-	/** More entries than blocklist_max_entries */
+	/** More entries than {@see BlocklistSync::MAX_ENTRIES} */
 	public const TOO_MANY_ENTRIES = 'too_many_entries';
 	/** More than 1 % of the entries are not ranges */
 	public const TOO_MANY_MALFORMED = 'too_many_malformed';

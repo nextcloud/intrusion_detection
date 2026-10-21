@@ -32,7 +32,6 @@ final class GlobalSettings {
 	/** Not 'enabled': core keeps every app's enabled state under that key */
 	public const ENABLED = 'protection_enabled';
 	public const LEARNING_UNTIL = 'learning_until';
-	public const LEARNING_DECOYS_ACT = 'learning_decoys_act';
 	public const LEARNING_NOTICE_SENT = 'learning_notice_sent';
 	public const BAN_DURATION_1 = 'ban_duration_1';
 	public const BAN_DURATION_2 = 'ban_duration_2';
@@ -40,6 +39,7 @@ final class GlobalSettings {
 	public const BAN_HISTORY_DAYS = 'ban_history_days';
 	public const BAN_NET_AFTER = 'ban_net_after';
 	public const BAN_SHARED_IP_USERS = 'ban_shared_ip_users';
+	/** Days detections, the login history and the security change log are kept */
 	public const RETENTION_DETECTIONS_DAYS = 'retention_detections_days';
 
 	/** Internal state, not shown as settings */
@@ -49,7 +49,6 @@ final class GlobalSettings {
 
 	public const EXPORT_FORMATS = 'export_formats';
 	public const BLOCKLIST_SOURCES = 'blocklist_sources';
-	public const BLOCKLIST_MAX_ENTRIES = 'blocklist_max_entries';
 	/** Internal: per list the active version and the last sync results */
 	public const BLOCKLIST_STATE = 'blocklist_state';
 	/** The groups whose members get the admin notifications */
@@ -76,8 +75,6 @@ final class GlobalSettings {
 
 	/** How often the administrators get the digest email: off, daily or weekly */
 	public const DIGEST_FREQUENCY = 'digest_frequency';
-	/** Whether a digest is also sent when nothing happened */
-	public const DIGEST_SEND_QUIET = 'digest_send_quiet';
 	/** Internal: the last digest sent, for the admin page */
 	public const DIGEST_STATE = 'digest_state';
 	/** Whether the typed events for webhooks carry the address */
@@ -93,8 +90,6 @@ final class GlobalSettings {
 	public const STEP_UP_ADMIN_APPROVAL = 'step_up_admin_approval';
 	/** Whether users may remember a browser after confirming a login */
 	public const KNOWN_DEVICE_ENABLED = 'known_device_enabled';
-	/** Days the login history and the security change log are kept */
-	public const HISTORY_RETENTION_DAYS = 'history_retention_days';
 
 	/** Whether the address risk score lowers limits and asks for confirmation (concept section 10.18) */
 	public const RISK_ENABLED = 'risk_enabled';
@@ -129,7 +124,6 @@ final class GlobalSettings {
 			$list = [
 				new ParamDefinition(self::ENABLED, ParamType::Bool, true),
 				new ParamDefinition(self::LEARNING_UNTIL, ParamType::Int, 0, min: 0),
-				new ParamDefinition(self::LEARNING_DECOYS_ACT, ParamType::Bool, true),
 				new ParamDefinition(self::LEARNING_NOTICE_SENT, ParamType::Int, 0, min: 0),
 				// The three escalation levels: first block, repeat within the history window, and after that.
 				new ParamDefinition(self::BAN_DURATION_1, ParamType::Duration, 14400, min: 300, max: 90 * 86400, preset: ParamPreset::BlockDuration),
@@ -143,7 +137,6 @@ final class GlobalSettings {
 				new ParamDefinition(self::ATTEMPTS_FLOOD_UNTIL, ParamType::Int, 0, min: 0),
 				new ParamDefinition(self::EXPORT_FORMATS, ParamType::StringList, [], itemPattern: '/^(txt|nft|ipset|log)$/', maxItems: 4),
 				new ParamDefinition(self::BLOCKLIST_SOURCES, ParamType::Json, '[]'),
-				new ParamDefinition(self::BLOCKLIST_MAX_ENTRIES, ParamType::Int, 200000, min: 100, max: 500000),
 				new ParamDefinition(self::BLOCKLIST_STATE, ParamType::Json, '{}'),
 				new ParamDefinition(self::NOTIFY_ADMIN_GROUP, ParamType::StringList, ['admin'], itemPattern: '/^[^\x00-\x1f\x7f]{1,255}$/u', maxItems: 10),
 				new ParamDefinition(self::NOTIFY_ADMIN_EMAIL_MIN_SEVERITY, ParamType::Choice, 'high', choices: ['low', 'medium', 'high', 'critical', 'never']),
@@ -155,7 +148,6 @@ final class GlobalSettings {
 				new ParamDefinition(self::ADMIN_CHANGE_REQUIRE_APPROVAL, ParamType::Bool, false),
 				new ParamDefinition(self::CONFIG_WATCH_BASELINE, ParamType::Int, 0, min: 0),
 				new ParamDefinition(self::DIGEST_FREQUENCY, ParamType::Choice, 'weekly', choices: ['off', 'daily', 'weekly']),
-				new ParamDefinition(self::DIGEST_SEND_QUIET, ParamType::Bool, true),
 				new ParamDefinition(self::DIGEST_STATE, ParamType::Json, '{}'),
 				new ParamDefinition(self::EVENTS_INCLUDE_IP, ParamType::Bool, true),
 				new ParamDefinition(self::LEARNING_STARTED_AT, ParamType::Int, 0, min: 0),
@@ -168,7 +160,6 @@ final class GlobalSettings {
 				new ParamDefinition(self::STEP_UP_KNOWN_DEVICE_OK_FOR, ParamType::StringList, KnownDeviceMethod::DEFAULT_POLICIES, itemPattern: KnownDeviceMethod::POLICY_PATTERN, maxItems: count(StepUpPolicy::cases())),
 				new ParamDefinition(self::STEP_UP_ADMIN_APPROVAL, ParamType::Bool, false),
 				new ParamDefinition(self::KNOWN_DEVICE_ENABLED, ParamType::Bool, true),
-				new ParamDefinition(self::HISTORY_RETENTION_DAYS, ParamType::Int, 90, min: 7, max: 365),
 				new ParamDefinition(self::RISK_ENABLED, ParamType::Bool, true),
 				new ParamDefinition(self::RISKY_NETWORK_OFFICE_NETWORKS, ParamType::CidrList, [], maxItems: 100),
 				new ParamDefinition(self::RISKY_NETWORK_EXEMPT_GROUPS, ParamType::StringList, [], itemPattern: '/^[^\x00-\x1f\x7f]{1,255}$/u', maxItems: 20),

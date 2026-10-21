@@ -15,7 +15,6 @@ import NcIconSvgWrapper from '@nextcloud/vue/components/NcIconSvgWrapper'
 import NcNoteCard from '@nextcloud/vue/components/NcNoteCard'
 import CheckStateNote from '../common/CheckStateNote.vue'
 import SectionCard from '../common/SectionCard.vue'
-import SettingsGroup from '../common/SettingsGroup.vue'
 import SkeletonBlock from '../common/SkeletonBlock.vue'
 import AddBlocklistDialog from './AddBlocklistDialog.vue'
 import BlocklistRow from './BlocklistRow.vue'
@@ -39,7 +38,6 @@ const enabledDeny = computed(() => denyLists.value.some((l) => l.enabled))
 const enabledAttribute = computed(() => attributeLists.value.some((l) => l.enabled))
 const networkCheckRuns = computed(() => data.value?.networkCheck.mode.effective !== 'off')
 const riskEnabled = computed(() => state.settings.find((s) => s.name === 'risk_enabled')?.value !== false)
-const downloadSettings = computed(() => state.settings.filter((s) => s.group === 'blocklists'))
 
 /**
  * Load the lists.
@@ -206,13 +204,6 @@ function removed(id: string) {
 						@updated="replace"
 						@removed="removed" />
 				</ul>
-			</section>
-
-			<section v-if="downloadSettings.length > 0" :class="$style.group" aria-labelledby="ids-list-downloads">
-				<h4 id="ids-list-downloads" :class="$style.group__heading">
-					{{ t(APP_ID, 'Downloads') }}
-				</h4>
-				<SettingsGroup :settings="downloadSettings" />
 			</section>
 		</template>
 

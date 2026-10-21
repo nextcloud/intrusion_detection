@@ -144,9 +144,8 @@ class BlocklistSyncTest extends IntegrationTestCase {
 	}
 
 	public function testAListWithTooManyEntriesIsRefusedAndTheOldVersionStays(): void {
-		$this->settings->setGlobal(GlobalSettings::BLOCKLIST_MAX_ENTRIES, 100);
 		$this->respond(self::URL, 200, $this->fixture('custom.txt'));
-		$this->respond(self::URL, 200, self::lines(101));
+		$this->respond(self::URL, 200, self::networks(BlocklistSync::MAX_ENTRIES + 1));
 		$this->sync()->sync();
 
 		[$result] = $this->sync()->sync('office_block', true);
@@ -479,6 +478,17 @@ class BlocklistSyncTest extends IntegrationTestCase {
 		$lines = '';
 		for ($i = 0; $i < $count; $i++) {
 			$lines .= '203.0.' . intdiv($i, 250) . '.' . ($i % 250) . "\n";
+		}
+		return $lines;
+	}
+
+	/**
+	 * Distinct public /24 networks, one per line.
+	 */
+	private static function networks(int $count): string {
+		$lines = '';
+		for ($i = 0; $i < $count; $i++) {
+			$lines .= (100 + intdiv($i, 65536)) . '.' . (intdiv($i, 256) % 256) . '.' . ($i % 256) . ".0/24\n";
 		}
 		return $lines;
 	}

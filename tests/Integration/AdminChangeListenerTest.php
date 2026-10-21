@@ -204,7 +204,6 @@ class AdminChangeListenerTest extends AdminChangeTestCase {
 
 	public function testDuringLearningModeAdminsAreStillNotified(): void {
 		$this->appConfig->setValueInt(Application::APP_ID, GlobalSettings::LEARNING_UNTIL, time() + 3600);
-		$this->appConfig->setValueBool(Application::APP_ID, GlobalSettings::LEARNING_DECOYS_ACT, false);
 		$this->act($this->alice);
 		$this->dispatch(new AppEnableEvent('files_external'));
 		[$detection] = $this->adminChanges();

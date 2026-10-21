@@ -49,13 +49,9 @@ class LearningModeTest extends IntegrationTestCase {
 		$this->assertSame(ModeState::REASON_LEARNING, $state->reason);
 	}
 
-	public function testTheDecoySwitchGatesOnlyDecoys(): void {
-		$this->settings->setGlobal(GlobalSettings::LEARNING_DECOYS_ACT, false);
-		$this->assertSame(Mode::Observe, $this->settings->effectiveMode(DecoyCredential::ID));
-		$this->assertSame(Mode::Protect, $this->settings->effectiveMode(AdminChange::ID), 'Admin change alerts do not depend on the decoy switch');
-
-		$this->settings->setGlobal(GlobalSettings::LEARNING_DECOYS_ACT, true);
+	public function testDecoysAndAdminChangeAlertsActWhileLearning(): void {
 		$this->assertSame(Mode::Protect, $this->settings->effectiveMode(DecoyCredential::ID));
+		$this->assertSame(Mode::Protect, $this->settings->effectiveMode(AdminChange::ID));
 	}
 
 	public function testOnlyNotifyingChecksAreKnownByTheirResponses(): void {

@@ -166,9 +166,9 @@ class AppOwnChangesTest extends AdminChangeTestCase {
 	}
 
 	public function testOtherSettingsChangedThroughTheAppAreStillReported(): void {
-		Server::get(Settings::class)->setGlobal(GlobalSettings::LEARNING_DECOYS_ACT, false);
+		Server::get(Settings::class)->setGlobal(GlobalSettings::EVENTS_INCLUDE_IP, false);
 		$changes = $this->adminChanges();
 		$this->assertCount(1, $changes);
-		$this->assertSame(WatchedSettings::ownKey(GlobalSettings::LEARNING_DECOYS_ACT), $this->facts($changes[0])['setting']);
+		$this->assertSame(WatchedSettings::ownKey(GlobalSettings::EVENTS_INCLUDE_IP), $this->facts($changes[0])['setting']);
 	}
 }

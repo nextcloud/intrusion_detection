@@ -26,17 +26,15 @@ describe('the learning mode and other settings', () => {
 		state.status = makeStatus()
 		state.settings = [
 			bool('protection_enabled', 'master'),
-			bool('learning_decoys_act', 'learning'),
 			bool('admin_change_require_approval', 'approvals'),
 		]
 	})
 
-	test('learning mode, the learning settings, every other setting, export and reset; the master switch is in the page header', () => {
+	test('learning mode, every other setting, export and reset; the master switch is in the page header', () => {
 		const wrapper = mount(LearningSection)
 		expect(wrapper.text()).toContain('Learning mode')
 		expect(wrapper.text()).toContain('Start protecting now')
 		expect(wrapper.text()).not.toContain('Intrusion detection is on')
-		expect(wrapper.text()).toContain('Label of learning_decoys_act')
 		expect(wrapper.get('#settings-other').text()).toContain('Label of admin_change_require_approval')
 		const support = wrapper.get('#settings-support').text()
 		expect(support).toContain('Export settings as JSON')
@@ -45,7 +43,7 @@ describe('the learning mode and other settings', () => {
 
 	test('learning mode says what still blocks', () => {
 		const text = mount(LearningSection).text()
-		expect(text).toContain('Checks set to Protect only record what they would block; earlier blocks, blocks you add by hand, a user\'s "No, it was not me" and, unless you switched it off, decoys still block.')
+		expect(text).toContain('Checks set to Protect only record what they would block; earlier blocks, blocks you add by hand, a user\'s "No, it was not me" and decoys still block.')
 		expect(text).toContain('Alerts are still sent.')
 	})
 })

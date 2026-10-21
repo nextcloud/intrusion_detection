@@ -287,7 +287,6 @@ export interface InitialState {
 
 export interface DigestOverview {
 	frequency: 'off' | 'daily' | 'weekly'
-	sendQuiet: boolean
 	timezone: string
 	nextDue: number | null
 	last: { period: number, sentAt: number, result: string, recipients: number, failed: number } | null

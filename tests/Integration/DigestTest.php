@@ -240,18 +240,6 @@ class DigestTest extends IntegrationTestCase {
 		$this->assertStringContainsString('Nothing happened', implode(' ', $content->paragraphs));
 	}
 
-	public function testQuietDigestsCanBeTurnedOff(): void {
-		$this->settings->setGlobal(GlobalSettings::DIGEST_SEND_QUIET, false);
-		$this->assertSame(DigestSender::RESULT_QUIET_SKIPPED, $this->sender()->sendIfDue());
-		$this->assertSame([], $this->mailed);
-		$this->assertSame(DigestSender::RESULT_ALREADY_SENT, $this->sender()->sendIfDue(), 'the period is done');
-
-		// A period with something in it is still sent.
-		$this->insertDetection(CredentialStuffing::ID, '198.51.100.7', null, self::DUE + 3 * self::DAY);
-		$this->now = self::DUE + 7 * self::DAY + 60;
-		$this->assertSame(DigestSender::RESULT_SENT, $this->sender()->sendIfDue());
-	}
-
 	public function testOnlyAdminsWithAnEmailAddressGetIt(): void {
 		$this->assertSame(DigestSender::RESULT_SENT, $this->sender()->sendIfDue());
 		$this->assertSame(['alice'], array_column($this->mailed, 0));

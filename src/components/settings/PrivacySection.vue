@@ -73,8 +73,7 @@ onActivated(load)
 				:icon="mdiDatabaseOutline"
 				data-test="privacy-kept">
 				<p :class="$style.summary" data-test="privacy-retention">
-					{{ n(APP_ID, 'Detections are kept for %n day.', 'Detections are kept for %n days.', days('retention_detections_days')) }}
-					{{ n(APP_ID, 'The security history of logins and changes is kept for %n day.', 'The security history of logins and changes is kept for %n days.', days('history_retention_days')) }}
+					{{ n(APP_ID, 'Detections, logins and security changes are kept for %n day.', 'Detections, logins and security changes are kept for %n days.', days('retention_detections_days')) }}
 					{{ t(APP_ID, 'Everything the checks keep is deleted automatically when its time is up.') }}
 				</p>
 				<SettingsGroup :settings="retentionSettings">

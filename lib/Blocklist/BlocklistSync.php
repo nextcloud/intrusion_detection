@@ -13,7 +13,6 @@ use OCA\IntrusionDetection\Address\AddressCache;
 use OCA\IntrusionDetection\Blocklist\Parser\ListFormatException;
 use OCA\IntrusionDetection\Blocklist\Parser\ParsedList;
 use OCA\IntrusionDetection\Check\Checks\BlocklistMatch;
-use OCA\IntrusionDetection\Config\GlobalSettings;
 use OCA\IntrusionDetection\Config\Settings;
 use OCA\IntrusionDetection\Db\BlocklistRangeMapper;
 use OCA\IntrusionDetection\Db\BlocklistStatMapper;
@@ -35,8 +34,8 @@ use Psr\Log\LoggerInterface;
  * 2. Download with `If-Modified-Since` / `If-None-Match`, timeouts, at most
  *    three https redirects (each checked like the address itself), into a
  *    sink that aborts the transfer after MAX_BYTES ({@see LimitedSink}).
- * 3. Parse, and refuse a list that is empty, has more than
- *    `blocklist_max_entries` entries, or more than 1 % malformed entries.
+ * 3. Parse, and refuse a list that is empty, has more than MAX_ENTRIES
+ *    entries, or more than 1 % malformed entries.
  * 4. Write the ranges, merged so they never overlap, as a new version.
  * 5. Switch the list's active version in app config (one write), bump the
  *    address cache so every cached verdict is re-resolved, and delete
@@ -52,6 +51,8 @@ class BlocklistSync {
 	/** Seconds between downloads of a list that sets no interval of its own */
 	public const INTERVAL = 21600;
 	public const MAX_BYTES = 10 * 1024 * 1024;
+	/** A list with more entries is refused, so a broken or hostile list cannot fill the database */
+	public const MAX_ENTRIES = 200000;
 	public const MAX_MALFORMED_SHARE = 0.01;
 	/** Seconds the previous version is kept after a switch */
 	public const PREVIOUS_GRACE = 300;
@@ -325,9 +326,8 @@ class BlocklistSync {
 		} catch (ListFormatException $e) {
 			throw new SyncFailure(SyncFailure::INVALID_FORMAT, $e->getMessage());
 		}
-		$max = $this->settings->getInt(GlobalSettings::BLOCKLIST_MAX_ENTRIES);
-		if ($parsed->entries > $max) {
-			throw new SyncFailure(SyncFailure::TOO_MANY_ENTRIES, $parsed->entries . ' > ' . $max);
+		if ($parsed->entries > self::MAX_ENTRIES) {
+			throw new SyncFailure(SyncFailure::TOO_MANY_ENTRIES, $parsed->entries . ' > ' . self::MAX_ENTRIES);
 		}
 		if ($parsed->malformedShare() > self::MAX_MALFORMED_SHARE) {
 			throw new SyncFailure(SyncFailure::TOO_MANY_MALFORMED, $parsed->malformed . ' of ' . ($parsed->entries + $parsed->malformed));

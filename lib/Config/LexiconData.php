@@ -37,10 +37,6 @@ final class LexiconData {
 			'default' => 0,
 			'min' => 0,
 		],
-		'learning_decoys_act' => [
-			'type' => 'bool',
-			'default' => true,
-		],
 		'learning_notice_sent' => [
 			'type' => 'int',
 			'default' => 0,
@@ -108,12 +104,6 @@ final class LexiconData {
 			'type' => 'json',
 			'default' => '[]',
 		],
-		'blocklist_max_entries' => [
-			'type' => 'int',
-			'default' => 200000,
-			'min' => 100,
-			'max' => 500000,
-		],
 		'blocklist_state' => [
 			'type' => 'json',
 			'default' => '{}',
@@ -179,10 +169,6 @@ final class LexiconData {
 				'daily',
 				'weekly',
 			],
-		],
-		'digest_send_quiet' => [
-			'type' => 'bool',
-			'default' => true,
 		],
 		'digest_state' => [
 			'type' => 'json',
@@ -278,12 +264,6 @@ final class LexiconData {
 		'known_device_enabled' => [
 			'type' => 'bool',
 			'default' => true,
-		],
-		'history_retention_days' => [
-			'type' => 'int',
-			'default' => 90,
-			'min' => 7,
-			'max' => 365,
 		],
 		'risk_enabled' => [
 			'type' => 'bool',
@@ -1158,7 +1138,6 @@ final class LexiconData {
 	public const ENTRIES = [
 		['protection_enabled', ValueType::BOOL, true, 'intrusion detection: protection_enabled'],
 		['learning_until', ValueType::INT, 0, 'intrusion detection: learning_until'],
-		['learning_decoys_act', ValueType::BOOL, true, 'intrusion detection: learning_decoys_act'],
 		['learning_notice_sent', ValueType::INT, 0, 'intrusion detection: learning_notice_sent'],
 		['ban_duration_1', ValueType::INT, 14400, 'intrusion detection: ban_duration_1'],
 		['ban_duration_2', ValueType::INT, 86400, 'intrusion detection: ban_duration_2'],
@@ -1171,7 +1150,6 @@ final class LexiconData {
 		['attempts_flood_until', ValueType::INT, 0, 'intrusion detection: attempts_flood_until'],
 		['export_formats', ValueType::ARRAY, [], 'intrusion detection: export_formats'],
 		['blocklist_sources', ValueType::STRING, '[]', 'intrusion detection: blocklist_sources'],
-		['blocklist_max_entries', ValueType::INT, 200000, 'intrusion detection: blocklist_max_entries'],
 		['blocklist_state', ValueType::STRING, '{}', 'intrusion detection: blocklist_state'],
 		['notify_admin_group', ValueType::ARRAY, ['admin'], 'intrusion detection: notify_admin_group'],
 		['notify_admin_email_min_severity', ValueType::STRING, 'high', 'intrusion detection: notify_admin_email_min_severity'],
@@ -1183,7 +1161,6 @@ final class LexiconData {
 		['admin_change_require_approval', ValueType::BOOL, false, 'intrusion detection: admin_change_require_approval'],
 		['config_watch_baseline', ValueType::INT, 0, 'intrusion detection: config_watch_baseline'],
 		['digest_frequency', ValueType::STRING, 'weekly', 'intrusion detection: digest_frequency'],
-		['digest_send_quiet', ValueType::BOOL, true, 'intrusion detection: digest_send_quiet'],
 		['digest_state', ValueType::STRING, '{}', 'intrusion detection: digest_state'],
 		['events_include_ip', ValueType::BOOL, true, 'intrusion detection: events_include_ip'],
 		['learning_started_at', ValueType::INT, 0, 'intrusion detection: learning_started_at'],
@@ -1198,7 +1175,6 @@ final class LexiconData {
 		['step_up_known_device_ok_for', ValueType::ARRAY, ['flagged_source', 'protected_account', 'risky_network', 'risk_high'], 'intrusion detection: step_up_known_device_ok_for'],
 		['step_up_admin_approval', ValueType::BOOL, false, 'intrusion detection: step_up_admin_approval'],
 		['known_device_enabled', ValueType::BOOL, true, 'intrusion detection: known_device_enabled'],
-		['history_retention_days', ValueType::INT, 90, 'intrusion detection: history_retention_days'],
 		['risk_enabled', ValueType::BOOL, true, 'intrusion detection: risk_enabled'],
 		['risky_network_office_networks', ValueType::ARRAY, [], 'intrusion detection: risky_network_office_networks'],
 		['risky_network_exempt_groups', ValueType::ARRAY, [], 'intrusion detection: risky_network_exempt_groups'],

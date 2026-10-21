@@ -30,7 +30,6 @@ vi.mock('../../services/api.ts', async (importOriginal) => ({
 function overview(overrides: Partial<DigestOverview> = {}): DigestOverview {
 	return {
 		frequency: 'weekly',
-		sendQuiet: true,
 		timezone: 'Europe/Berlin',
 		nextDue: Date.UTC(2026, 9, 26, 7, 0) / 1000,
 		last: { period: Date.UTC(2026, 9, 19, 6, 0) / 1000, sentAt: Date.UTC(2026, 9, 19, 6, 5) / 1000, result: 'sent', recipients: 2, failed: 0 },
@@ -60,7 +59,6 @@ describe('DigestSection', () => {
 	beforeEach(() => {
 		state.settings = [
 			{ name: 'digest_frequency', type: 'choice', default: 'weekly', min: null, max: null, choices: ['off', 'daily', 'weekly'], value: 'weekly', label: 'Send the digest', help: '', unit: '', group: 'notifications' },
-			{ name: 'digest_send_quiet', type: 'bool', default: true, min: null, max: null, choices: [], value: true, label: 'Also send quiet digests', help: '', unit: '', group: 'notifications' },
 			{ name: 'notify_admin_group', type: 'string_list', default: ['admin'], min: null, max: null, choices: [], value: ['admin'], label: 'Notify these groups', help: '', unit: '', group: 'notifications' },
 		]
 	})
@@ -78,7 +76,7 @@ describe('DigestSection', () => {
 	test('shows its own settings, the next digest and who gets it', async () => {
 		const wrapper = await mountSection()
 		expect(wrapper.text()).toContain('Digest email')
-		expect(wrapper.text()).toContain('Also send quiet digests')
+		expect(wrapper.text()).toContain('Send the digest')
 		expect(wrapper.text()).not.toContain('Notify these groups')
 		expect(wrapper.get('[data-test="digest-schedule"]').text()).toContain('(Europe/Berlin)')
 		expect(wrapper.get('[data-test="digest-schedule"]').text()).toContain('Next digest:')

@@ -157,7 +157,7 @@ class SecurityChangeLogTest extends TakeoverTestCase {
 		$this->assertNull($links->find($expired));
 		$this->assertNotNull($links->find($valid));
 
-		$this->settings->setGlobal(GlobalSettings::HISTORY_RETENTION_DAYS, 7);
+		$this->settings->setGlobal(GlobalSettings::RETENTION_DETECTIONS_DAYS, 7);
 		$mapper->insert($row($now - 8 * 86400, null));
 		self::invokePrivate(Server::get(Cleanup::class), 'run', [null]);
 		$this->assertCount(2, $mapper->findSince('ids-retention', 0, 10), 'The retention setting applies');
