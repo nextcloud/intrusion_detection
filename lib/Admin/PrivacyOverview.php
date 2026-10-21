@@ -19,7 +19,9 @@ use OCA\IntrusionDetection\Config\GlobalSettings;
 use OCA\IntrusionDetection\Config\Settings;
 use OCA\IntrusionDetection\Db\BlocklistStatMapper;
 use OCA\IntrusionDetection\Detection\AttemptRecorder;
+use OCA\IntrusionDetection\Detection\DetectionTotals;
 use OCA\IntrusionDetection\Personal\FailedLoginStats;
+use OCA\IntrusionDetection\Response\ResetMailSuppressor;
 use OCA\IntrusionDetection\ResponseDefinitions;
 use OCA\IntrusionDetection\Takeover\LockLinks;
 use OCP\IL10N;
@@ -89,6 +91,15 @@ class PrivacyOverview {
 			'where' => 'ids_alerts',
 			'checks' => [],
 		];
+		$rows[] = [
+			'id' => 'detection_totals',
+			'name' => $l->t('Detection totals'),
+			'what' => $l->t('Per hour, check and severity: how many detections there were, and whether Nextcloud acted on them. No address and no account.'),
+			'why' => $l->t('For the statistics, the digest and the metrics, which count further back than detections are kept.'),
+			'retention' => $l->n('Hours for %n day, then one running total per check', 'Hours for %n days, then one running total per check', DetectionTotals::ROLLUP_DAYS),
+			'where' => 'ids_detection_hourly',
+			'checks' => [],
+		];
 		return $rows;
 	}
 
@@ -113,10 +124,10 @@ class PrivacyOverview {
 			],
 			DataKind::Detections => [
 				'name' => $l->t('Detections'),
-				'what' => $l->t('The check, the address, the account concerned, the measured values, what was done, and the time.'),
-				'why' => $l->t('To explain every decision on this page and in notifications, and to find repeated attacks.'),
+				'what' => $l->t('The check, the address, the account concerned, the measured values, what was done, and the time. Next to each detection, the accounts it names.'),
+				'why' => $l->t('To explain every decision on this page and in notifications, and to find repeated attacks. The accounts are listed so that deleting an account removes it from every detection.'),
 				'retention' => $l->t('{retention_detections_days} days'),
-				'where' => 'ids_detections',
+				'where' => 'ids_detections, ids_detection_accounts',
 			],
 			DataKind::Bans => [
 				'name' => $l->t('Blocks'),
@@ -190,9 +201,9 @@ class PrivacyOverview {
 			],
 			DataKind::AccountState => [
 				'name' => $l->t('Account state'),
-				'what' => $l->t('Per account: when the password was last checked against the breach list, whether it was found there, whether a new password is required, and when the first security event happened that the user could only be told about inside Nextcloud.'),
-				'why' => $l->t('To check each password only as often as needed, to ask for a new one at the next login, and to show users without a working email address their security events once at their next login.'),
-				'retention' => $l->t('Until the account is deleted; the time of the first unseen event until the user saw it'),
+				'what' => $l->t('Per account: when the password was last checked against the breach list, whether it was found there, whether a new password is required, when the first security event happened that the user could only be told about inside Nextcloud, and which second factors were set up from a login that was not confirmed, and when.'),
+				'why' => $l->t('To check each password only as often as needed, to ask for a new one at the next login, to show users without a working email address their security events once at their next login, and so that a second factor whoever had only the password could have set up never confirms a login.'),
+				'retention' => $l->t('Until the account is deleted; the time of the first unseen event until the user saw it; a second factor\'s mark until it is removed or set up again from a confirmed login'),
 				'where' => $l->t('user preferences'),
 			],
 			DataKind::ConfigSnapshot => [
@@ -241,7 +252,7 @@ class PrivacyOverview {
 				'name' => $l->t('Held-back password reset emails'),
 				'what' => $l->t('Per account flooded with password reset requests: until when its reset emails are held back, and the detection.'),
 				'why' => $l->t('So that a flood of reset requests does not fill the person\'s inbox.'),
-				'retention' => $l->t('Until the emails are sent again'),
+				'retention' => $l->n('%n day after the first held-back email: no new hold can start before', '%n days after the first held-back email: no new hold can start before', intdiv(ResetMailSuppressor::PERIOD, 86400)),
 				'where' => 'ids_reset_suppressions',
 			],
 			DataKind::FailedLoginDays => [

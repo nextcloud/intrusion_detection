@@ -18,7 +18,7 @@ use OCP\IL10N;
 
 /**
  * Learning mode has been running for more than 14 days, which only happens
- * when an administrator extended it: checks set to Protect still block nothing.
+ * when an administrator extended it: checks set to Protect still only observe.
  */
 class LearningModeCheck extends ProblemCheck {
 	public const DAYS = 14;
@@ -60,7 +60,9 @@ class LearningModeCheck extends ProblemCheck {
 			'learning_long',
 			Finding::LEVEL_INFO,
 			$l->t('Learning mode is still on'),
-			$l->n('Learning mode has been on for %n day. While it is on, checks set to Protect only record what they would do, and no attacker is blocked.', 'Learning mode has been on for %n days. While it is on, checks set to Protect only record what they would do, and no attacker is blocked.', $days),
+			$this->learning->decoysBlock()
+				? $l->n('Learning mode has been on for %n day. While it is on, checks set to Protect only record what they would do, and only addresses that use a decoy are blocked.', 'Learning mode has been on for %n days. While it is on, checks set to Protect only record what they would do, and only addresses that use a decoy are blocked.', $days)
+				: $l->n('Learning mode has been on for %n day. While it is on, checks set to Protect only record what they would do, and no attacker is blocked.', 'Learning mode has been on for %n days. While it is on, checks set to Protect only record what they would do, and no attacker is blocked.', $days),
 			$l->t('Look through the recent detections. If they show no false alarms, start protecting.'),
 			'#settings-learning',
 			$l->t('Open learning mode'),

@@ -222,6 +222,13 @@ class AdminPagesApiTest extends IntegrationTestCase {
 		$this->assertSame('ids_reset_suppressions', $stored['reset_suppressions']['where']);
 		$this->assertStringContainsString('only be told about inside Nextcloud', $stored['account_state']['what'], 'The login notice time is a user value too');
 		$this->assertStringContainsString('at most 24 hours', $stored['flags']['retention']);
+		$this->assertStringContainsString('second factors were set up from a login that was not confirmed', $stored['account_state']['what']);
+		$this->assertSame('2 days after the first held-back email: no new hold can start before', $stored['reset_suppressions']['retention']);
+		$this->assertSame('ids_detection_hourly', $stored['detection_totals']['where']);
+		$where = implode(', ', array_column($data['stored'], 'where'));
+		foreach (self::TABLES as $table) {
+			$this->assertMatchesRegularExpression('/(^|, )' . $table . '(,|$)/', $where, 'Every table of the app is listed');
+		}
 		$outgoing = array_column($data['outgoing'], null, 'id');
 		$this->assertFalse($outgoing['blocklists']['active']);
 		$this->assertCount(2, $data['gdpr']);

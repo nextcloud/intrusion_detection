@@ -11,6 +11,9 @@ namespace OCA\IntrusionDetection\Learning;
 
 use OCA\IntrusionDetection\AppInfo\Application;
 use OCA\IntrusionDetection\Audit\AuditLogger;
+use OCA\IntrusionDetection\Check\Checks\DecoyCredential;
+use OCA\IntrusionDetection\Check\Mode;
+use OCA\IntrusionDetection\Check\ResponseType;
 use OCA\IntrusionDetection\Config\GlobalSettings;
 use OCA\IntrusionDetection\Config\Settings;
 use OCA\IntrusionDetection\Notification\LearningNotices;
@@ -133,6 +136,15 @@ class LearningService {
 	 */
 	public function isEndingNoticePending(): bool {
 		return $this->isActive() && $this->settings->getInt(GlobalSettings::LEARNING_NOTICE_SENT) > 0;
+	}
+
+	/**
+	 * Whether an address that uses a decoy is blocked right now. While
+	 * learning, this is the only block a check makes.
+	 */
+	public function decoysBlock(): bool {
+		return $this->settings->effectiveMode(DecoyCredential::ID) === Mode::Protect
+			&& $this->settings->hasResponse(DecoyCredential::ID, ResponseType::Ban);
 	}
 
 	/**
