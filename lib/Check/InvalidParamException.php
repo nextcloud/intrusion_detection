@@ -39,6 +39,13 @@ final class InvalidParamException extends \InvalidArgumentException {
 			'not_a_list' => $l->t('"%s" must be a list.', [$param]),
 			'too_many_items' => $l->t('"%1$s" can have at most %2$s entries.', [$param, (string)($this->details['max'] ?? '')]),
 			'invalid_item' => $l->t('"%1$s" contains an invalid entry: %2$s', [$param, (string)($this->details['item'] ?? '')]),
+			'invalid_pattern' => $l->t('"%1$s" contains a pattern that cannot be used: %2$s. %3$s', [$param, (string)($this->details['item'] ?? ''), match ($this->details['why'] ?? '') {
+				'does_not_compile' => $l->t('It is not a valid regular expression.'),
+				'matches_everything' => $l->t('It matches every value, even an empty one.'),
+				'too_slow' => $l->t('It is too slow on long input and could be used to overload the server.'),
+				'too_long' => $l->t('It is too long.'),
+				default => '',
+			}]),
 			'invalid_range' => $l->t('"%1$s" contains an invalid address range: %2$s', [$param, (string)($this->details['item'] ?? '')]),
 			'unknown_param' => $l->t('This check has no setting "%s".', [$param]),
 			'unknown_check' => $l->t('There is no check "%s".', [(string)($this->details['check'] ?? '')]),

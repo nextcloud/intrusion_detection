@@ -121,6 +121,7 @@ class NarrativeBuilder {
 		$reason = $explanation['mode']['reason'] ?? null;
 		return match ($reason) {
 			ModeState::REASON_LEARNING => $l->t('Nothing was done, because learning mode was on: Nextcloud was watching, not acting.'),
+			ModeState::REASON_AUTHENTICATED => $l->t('Nothing was done, because the request came from a logged-in user, and this check only observes those.'),
 			default => $l->t('Nothing was done, because this check was set to Observe.'),
 		};
 	}

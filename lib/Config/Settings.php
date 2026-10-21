@@ -143,10 +143,10 @@ class Settings {
 	 */
 	public function setParam(string $checkId, string $name, mixed $value): void {
 		$definition = $this->registry->get($checkId)->param($name);
-		$value = $definition->validate($value);
+		$value = $definition->validate($value, true);
 		$check = $this->registry->check($this->registry->classOf($checkId));
 		if ($check instanceof IValidatesParams) {
-			$value = $definition->validate($check->validateParam($name, $value));
+			$value = $definition->validate($check->validateParam($name, $value), true);
 		}
 		$this->write(Keys::param($checkId, $name), $definition, $value);
 	}
@@ -237,7 +237,7 @@ class Settings {
 	 */
 	public function setGlobal(string $name, mixed $value): void {
 		$definition = $this->globals->get($name) ?? throw new InvalidParamException('unknown_param', ['param' => $name]);
-		$this->write($name, $definition, $definition->validate($value));
+		$this->write($name, $definition, $definition->validate($value, true));
 	}
 
 	/**

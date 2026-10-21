@@ -70,5 +70,6 @@ Every check can be switched between Off, Observe and Protect, every threshold is
         <command>OCA\IntrusionDetection\Command\Decoys\ListDecoys</command>
         <command>OCA\IntrusionDetection\Command\Decoys\Create</command>
         <command>OCA\IntrusionDetection\Command\Decoys\Delete</command>
+        <command>OCA\IntrusionDetection\Command\Payload\Test</command>
     </commands>
 </info>

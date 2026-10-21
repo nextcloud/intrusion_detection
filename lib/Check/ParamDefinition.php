@@ -26,6 +26,7 @@ final class ParamDefinition {
 	 * @param ?string $itemPattern regular expression every list item must match (StringList)
 	 * @param int $maxItems maximum number of list items
 	 * @param int $maxItemLength maximum length of one list item
+	 * @param ?\Closure(string, bool): ?string $itemValidator extra check of one StringList item, given the item and whether to be thorough (when saving); returns why it is invalid, or null
 	 */
 	public function __construct(
 		public readonly string $name,
@@ -37,6 +38,7 @@ final class ParamDefinition {
 		public readonly ?string $itemPattern = null,
 		public readonly int $maxItems = 200,
 		public readonly int $maxItemLength = 255,
+		public readonly ?\Closure $itemValidator = null,
 	) {
 		if (!preg_match('/^[a-z][a-z0-9_]*$/', $name)) {
 			throw new \InvalidArgumentException('Invalid parameter name: ' . $name);
@@ -48,23 +50,25 @@ final class ParamDefinition {
 	/**
 	 * Validate a value and return it in its canonical type.
 	 *
+	 * @param bool $thorough also run expensive item checks; done when a value is saved, not on every read
 	 * @return int|float|bool|string|list<string>
 	 * @throws InvalidParamException
 	 */
-	public function validate(mixed $value): int|float|bool|string|array {
+	public function validate(mixed $value, bool $thorough = false): int|float|bool|string|array {
 		return match ($this->type) {
 			ParamType::Int, ParamType::Duration => $this->validateInt($value),
 			ParamType::Float => $this->validateFloat($value),
 			ParamType::Bool => $this->validateBool($value),
 			ParamType::Choice => $this->validateChoice($value),
-			ParamType::StringList => $this->validateStringList($value),
+			ParamType::StringList => $this->validateStringList($value, $thorough),
 			ParamType::CidrList => $this->validateCidrList($value),
 			ParamType::Json => $this->validateJson($value),
 		};
 	}
 
 	/**
-	 * Parse a value typed on the command line or in a form field.
+	 * Parse a value typed on the command line or in a form field. Lists are
+	 * comma-separated, or a JSON array for items that contain commas.
 	 *
 	 * @return int|float|bool|string|list<string>
 	 * @throws InvalidParamException
@@ -77,11 +81,23 @@ final class ParamDefinition {
 			ParamType::Float => $this->validateFloat($raw),
 			ParamType::Bool => $this->validateBool($raw),
 			ParamType::Choice => $this->validateChoice($raw),
-			ParamType::StringList, ParamType::CidrList => $this->validate(
-				$raw === '' ? [] : array_values(array_filter(array_map('trim', explode(',', $raw)), static fn (string $s): bool => $s !== ''))
-			),
+			ParamType::StringList, ParamType::CidrList => $this->validate(self::parseList($raw)),
 			ParamType::Json => $this->validateJson($raw),
 		};
+	}
+
+	/**
+	 * The raw list as typed, for validate() to check.
+	 */
+	private static function parseList(string $raw): mixed {
+		if (str_starts_with($raw, '[')) {
+			try {
+				return json_decode($raw, true, 4, JSON_THROW_ON_ERROR);
+			} catch (\JsonException) {
+				return null;
+			}
+		}
+		return $raw === '' ? [] : array_values(array_filter(array_map('trim', explode(',', $raw)), static fn (string $s): bool => $s !== ''));
 	}
 
 	/**
@@ -178,11 +194,15 @@ final class ParamDefinition {
 	/**
 	 * @return list<string>
 	 */
-	private function validateStringList(mixed $value): array {
+	private function validateStringList(mixed $value, bool $thorough): array {
 		$items = $this->listItems($value);
 		foreach ($items as $item) {
 			if ($this->itemPattern !== null && preg_match($this->itemPattern, $item) !== 1) {
 				throw new InvalidParamException('invalid_item', ['param' => $this->name, 'item' => self::excerpt($item)]);
+			}
+			$problem = $this->itemValidator === null ? null : ($this->itemValidator)($item, $thorough);
+			if ($problem !== null) {
+				throw new InvalidParamException('invalid_pattern', ['param' => $this->name, 'item' => self::excerpt($item), 'why' => $problem]);
 			}
 		}
 		return $items;

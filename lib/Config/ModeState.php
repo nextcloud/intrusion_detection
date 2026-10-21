@@ -19,6 +19,8 @@ final class ModeState {
 	public const REASON_DISABLED = 'disabled';
 	public const REASON_LEARNING = 'learning';
 	public const REASON_REQUIREMENT = 'requirement';
+	/** The check acts on anonymous requests, but only observes those of logged-in users */
+	public const REASON_AUTHENTICATED = 'authenticated';
 
 	/**
 	 * @param self::REASON_*|null $reason

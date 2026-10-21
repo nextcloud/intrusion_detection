@@ -13,11 +13,14 @@ use OCA\IntrusionDetection\Config\Lexicon;
 use OCA\IntrusionDetection\Event\BanCreatedEvent;
 use OCA\IntrusionDetection\Event\BanLiftedEvent;
 use OCA\IntrusionDetection\Guard\AddressGuard;
+use OCA\IntrusionDetection\Guard\PayloadGuard;
 use OCA\IntrusionDetection\Guard\TrapUrlGuard;
 use OCA\IntrusionDetection\Listener\BlocklistLoginListener;
 use OCA\IntrusionDetection\Listener\FailedLoginListener;
 use OCA\IntrusionDetection\Listener\FirewallExportListener;
 use OCA\IntrusionDetection\Listener\LoginRecordListener;
+use OCA\IntrusionDetection\Listener\PayloadLoginListener;
+use OCA\IntrusionDetection\Middleware\PayloadMiddleware;
 use OCA\IntrusionDetection\Notification\Notifier;
 use OCA\IntrusionDetection\SetupCheck\BlocklistSyncCheck;
 use OCP\AppFramework\App;
@@ -50,6 +53,9 @@ class Application extends App implements IBootstrap {
 		$context->registerRequestGuard(TrapUrlGuard::class);
 		$context->registerEventListener(AnyLoginFailedEvent::class, FailedLoginListener::class);
 		$context->registerNotifierService(Notifier::class);
+		$context->registerRequestGuard(PayloadGuard::class);
+		$context->registerEventListener(UserLoggedInEvent::class, PayloadLoginListener::class);
+		$context->registerMiddleware(PayloadMiddleware::class, true);
 	}
 
 	#[\Override]

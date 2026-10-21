@@ -12,6 +12,7 @@ namespace OCA\IntrusionDetection\Response;
 use OCA\IntrusionDetection\Audit\AuditLogger;
 use OCA\IntrusionDetection\Check\CheckRegistry;
 use OCA\IntrusionDetection\Check\ResponseType;
+use OCA\IntrusionDetection\Config\ModeState;
 use OCA\IntrusionDetection\Config\Settings;
 use OCA\IntrusionDetection\Db\Detection;
 use OCA\IntrusionDetection\Detection\DetectionDraft;
@@ -60,11 +61,12 @@ class ResponseEngine {
 
 	/**
 	 * @param list<ResponseType>|null $responses run these instead of the configured ones
+	 * @param ?ModeState $mode use this mode instead of the check's, for checks with more than one (e.g. one for logged-in users)
 	 * @return ?Detection the stored detection, or null when the check is off
 	 */
-	public function handle(DetectionDraft $draft, ?array $responses = null): ?Detection {
+	public function handle(DetectionDraft $draft, ?array $responses = null, ?ModeState $mode = null): ?Detection {
 		$definition = $this->registry->get($draft->checkId);
-		$mode = $this->settings->modeState($draft->checkId);
+		$mode ??= $this->settings->modeState($draft->checkId);
 		if (!$mode->runs()) {
 			return null;
 		}
