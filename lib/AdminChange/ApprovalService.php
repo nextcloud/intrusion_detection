@@ -88,7 +88,7 @@ class ApprovalService {
 		if ($existing !== null && $existing->getExpiresAt() > $now) {
 			return $existing;
 		}
-		if ($this->mapper->countPending() >= self::MAX_PENDING) {
+		if ($this->mapper->countPending($now) >= self::MAX_PENDING) {
 			$this->audit->log('request to add %s to %s by %s not stored: too many pending requests', [
 				'subject' => $subject->getUID(),
 				'group' => $group->getGID(),
@@ -130,7 +130,7 @@ class ApprovalService {
 		$now = $this->timeFactory->getTime();
 		$uid = $subject->getUID();
 		if ($this->approvers->except([$uid]) === []
-			|| $this->mapper->countPending() >= self::MAX_PENDING
+			|| $this->mapper->countPending($now) >= self::MAX_PENDING
 			|| $this->mapper->countPendingFor(Approval::KIND_LOGIN, $uid, $now) >= self::MAX_PENDING_LOGINS) {
 			$this->audit->log('request to approve a login of %s not stored: nobody else can approve it, or too many requests are pending', ['subject' => $uid]);
 			return null;

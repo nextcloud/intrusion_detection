@@ -133,6 +133,22 @@ class IntrusionWidgetTest extends TestCase {
 		}
 	}
 
+	public function testWithASinceIdOnlyNewerDetectionsAreReturned(): void {
+		$this->status->expects($this->never())->method('status');
+		$filter = null;
+		$this->detections->method('findList')->willReturnCallback(function (DetectionFilter $f) use (&$filter): array {
+			$filter = $f;
+			return [self::detection(9, 'account_takeover', true)];
+		});
+
+		$items = $this->widget->getItemsV2('admin', '8', 7);
+
+		$this->assertSame(8, $filter?->afterId);
+		$this->assertSame(IntrusionWidget::MAX_DETECTIONS, $filter?->limit);
+		$this->assertSame(['9'], array_map(static fn ($item): string => $item->getSinceId(), $items->getItems()));
+		$this->assertSame('', $items->getEmptyContentMessage());
+	}
+
 	public function testLearningAndOff(): void {
 		$this->status->method('status')->willReturnOnConsecutiveCalls(self::statusData('learning', daysLeft: 4, wouldHave: 3), self::statusData('off'));
 		$this->detections->method('findList')->willReturn([]);

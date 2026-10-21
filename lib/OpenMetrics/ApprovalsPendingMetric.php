@@ -12,6 +12,7 @@ namespace OCA\IntrusionDetection\OpenMetrics;
 use Generator;
 use OCA\IntrusionDetection\Db\Approval;
 use OCA\IntrusionDetection\Db\ApprovalMapper;
+use OCP\AppFramework\Utility\ITimeFactory;
 use OCP\OpenMetrics\IMetricFamily;
 use OCP\OpenMetrics\Metric;
 use OCP\OpenMetrics\MetricType;
@@ -23,6 +24,7 @@ use Override;
 class ApprovalsPendingMetric implements IMetricFamily {
 	public function __construct(
 		private readonly ApprovalMapper $approvals,
+		private readonly ITimeFactory $timeFactory,
 	) {
 	}
 
@@ -48,7 +50,7 @@ class ApprovalsPendingMetric implements IMetricFamily {
 
 	#[Override]
 	public function metrics(): Generator {
-		$counts = $this->approvals->countPendingByKind() + [Approval::KIND_ADMIN_GRANT => 0];
+		$counts = $this->approvals->countPendingByKind($this->timeFactory->getTime()) + [Approval::KIND_ADMIN_GRANT => 0];
 		ksort($counts);
 		foreach ($counts as $kind => $count) {
 			yield new Metric($count, ['kind' => (string)$kind]);

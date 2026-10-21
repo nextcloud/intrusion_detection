@@ -91,11 +91,16 @@ class ApprovalMapper extends QBMapper {
 		return $count;
 	}
 
-	public function countPending(): int {
+	/**
+	 * How many requests are pending and not expired. Expired ones only wait
+	 * for the hourly job to mark them, and count for nothing.
+	 */
+	public function countPending(int $now): int {
 		$qb = $this->db->getQueryBuilder();
 		$qb->select($qb->func()->count('*'))
 			->from(self::TABLE)
-			->where($qb->expr()->eq('status', $qb->createNamedParameter(Approval::STATUS_PENDING)));
+			->where($qb->expr()->eq('status', $qb->createNamedParameter(Approval::STATUS_PENDING)))
+			->andWhere($qb->expr()->gt('expires_at', $qb->createNamedParameter($now, IQueryBuilder::PARAM_INT)));
 		$result = $qb->executeQuery();
 		$count = (int)$result->fetchOne();
 		$result->closeCursor();
@@ -103,16 +108,17 @@ class ApprovalMapper extends QBMapper {
 	}
 
 	/**
-	 * Pending requests per kind.
+	 * Pending requests per kind, without the expired ones.
 	 *
 	 * @return array<string, int>
 	 */
-	public function countPendingByKind(): array {
+	public function countPendingByKind(int $now): array {
 		$qb = $this->db->getQueryBuilder();
 		$qb->select('kind')
 			->selectAlias($qb->func()->count('*'), 'n')
 			->from(self::TABLE)
 			->where($qb->expr()->eq('status', $qb->createNamedParameter(Approval::STATUS_PENDING)))
+			->andWhere($qb->expr()->gt('expires_at', $qb->createNamedParameter($now, IQueryBuilder::PARAM_INT)))
 			->groupBy('kind')
 			->orderBy('kind');
 		$result = $qb->executeQuery();

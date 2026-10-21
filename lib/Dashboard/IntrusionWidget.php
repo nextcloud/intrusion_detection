@@ -114,8 +114,9 @@ class IntrusionWidget implements IAPIWidgetV2, IConditionalWidget, IIconWidget, 
 		if (!$this->groupManager->isAdmin($userId)) {
 			return new WidgetItems();
 		}
-		$status = $this->status->status($this->l);
-		$items = [$this->statusItem($status)];
+		// With the id of the newest detection the client has, only newer detections are new items.
+		$afterId = $since !== null && ctype_digit($since) ? (int)$since : null;
+		$items = $afterId === null ? [$this->statusItem($this->status->status($this->l))] : [];
 
 		$detections = $this->detections->findList(new DetectionFilter(
 			severities: array_values(array_map(
@@ -123,7 +124,8 @@ class IntrusionWidget implements IAPIWidgetV2, IConditionalWidget, IIconWidget, 
 				array_filter(Severity::cases(), static fn (Severity $s): bool => $s->atLeast(self::MIN_SEVERITY)),
 			)),
 			since: $this->timeFactory->getTime() - 30 * 86400,
-			limit: max(0, min(self::MAX_DETECTIONS, $limit - 1)),
+			limit: max(0, min(self::MAX_DETECTIONS, $afterId === null ? $limit - 1 : $limit)),
+			afterId: $afterId,
 		));
 		foreach ($detections as $detection) {
 			$items[] = $this->detectionItem($detection);
@@ -132,7 +134,7 @@ class IntrusionWidget implements IAPIWidgetV2, IConditionalWidget, IIconWidget, 
 		return new WidgetItems(
 			$items,
 			'',
-			$detections === [] ? $this->l->t('No serious detections in the last 30 days.') : '',
+			$detections === [] && $afterId === null ? $this->l->t('No serious detections in the last 30 days.') : '',
 		);
 	}
 

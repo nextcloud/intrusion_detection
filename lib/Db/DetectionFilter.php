@@ -24,6 +24,8 @@ final class DetectionFilter {
 		public readonly ?int $until = null,
 		public readonly int $limit = 50,
 		public readonly int $offset = 0,
+		/** Only detections with a higher id, i.e. newer ones */
+		public readonly ?int $afterId = null,
 	) {
 	}
 }
