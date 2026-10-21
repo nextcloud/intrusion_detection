@@ -20,15 +20,19 @@ use OCA\IntrusionDetection\Check\Checks\ResetProbingDetector;
 use OCA\IntrusionDetection\Check\Checks\ShareBruteforce;
 use OCA\IntrusionDetection\Check\Checks\ShareBruteforceDetector;
 use OCA\IntrusionDetection\Config\GlobalSettings;
+use OCA\IntrusionDetection\Config\Settings;
 use OCA\IntrusionDetection\Crypto\Fingerprinter;
 use OCA\IntrusionDetection\Db\AttemptKind;
+use OCA\IntrusionDetection\Db\AttemptMapper;
 use OCA\IntrusionDetection\Db\Detection;
 use OCA\IntrusionDetection\Detection\AttemptRecord;
+use OCA\IntrusionDetection\Detection\AttemptRecorder;
 use OCA\IntrusionDetection\Explain\NarrativeBuilder;
 use OCA\IntrusionDetection\Net\SourceKey;
 use OCA\IntrusionDetection\Response\FlaggedSources;
 use OCA\IntrusionDetection\Risk\RiskAssessment;
 use OCA\IntrusionDetection\Risk\RiskScorer;
+use OCP\AppFramework\Utility\ITimeFactory;
 use OCP\IDBConnection;
 use OCP\IL10N;
 use OCP\L10N\IFactory;
@@ -174,6 +178,20 @@ class RiskLimitsTest extends LoginFailureTestCase {
 			$counts[] = $this->queriesFor(fn () => $this->failLogin('198.51.100.7' . $i, 'someone'));
 		}
 		$this->assertSame([$counts[0], $counts[0], $counts[0], $counts[0]], $counts, 'The score is only computed close to a limit');
+	}
+
+	/**
+	 * Without the occasional cleanup of old attempts, so that query counts
+	 * compare.
+	 */
+	#[\Override]
+	protected function attemptRecorder(): AttemptRecorder {
+		return new class(Server::get(AttemptMapper::class), Server::get(Fingerprinter::class), Server::get(Settings::class), Server::get(ITimeFactory::class)) extends AttemptRecorder {
+			#[\Override]
+			protected function oneIn(int $n): bool {
+				return false;
+			}
+		};
 	}
 
 	/**

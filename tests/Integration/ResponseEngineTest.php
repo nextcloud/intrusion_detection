@@ -10,6 +10,8 @@ declare(strict_types=1);
 namespace OCA\IntrusionDetection\Tests\Integration;
 
 use OCA\IntrusionDetection\AppInfo\Application;
+use OCA\IntrusionDetection\Audit\AuditLogger;
+use OCA\IntrusionDetection\Check\CheckRegistry;
 use OCA\IntrusionDetection\Check\Checks\ManualBlock;
 use OCA\IntrusionDetection\Check\Checks\SharedAddress;
 use OCA\IntrusionDetection\Check\Mode;
@@ -21,13 +23,17 @@ use OCA\IntrusionDetection\Db\DetectionFilter;
 use OCA\IntrusionDetection\Db\DetectionMapper;
 use OCA\IntrusionDetection\Db\LoginMapper;
 use OCA\IntrusionDetection\Detection\DetectionDraft;
+use OCA\IntrusionDetection\Detection\DetectionService;
+use OCA\IntrusionDetection\Event\TypedEvents;
 use OCA\IntrusionDetection\Explain\NarrativeBuilder;
 use OCA\IntrusionDetection\Net\SourceKey;
+use OCA\IntrusionDetection\Response\Handlers\LockLinkHandler;
 use OCA\IntrusionDetection\Response\ResponseEngine;
 use OCA\IntrusionDetection\Response\ResponseOutcome;
 use OCP\L10N\IFactory;
 use OCP\Server;
 use PHPUnit\Framework\Attributes\Group;
+use Psr\Log\LoggerInterface;
 
 /**
  * Uses the internal `manual` check, whose only response is a ban, so the
@@ -103,16 +109,17 @@ class ResponseEngineTest extends IntegrationTestCase {
 	}
 
 	public function testAResponseWithoutAHandlerIsRecordedAsUnavailable(): void {
-		$handled = [];
-		foreach (ResponseEngine::HANDLERS as $class) {
-			$handled[] = Server::get($class)->type();
-		}
-		$missing = array_values(array_filter(ResponseType::cases(), static fn (ResponseType $r): bool => !in_array($r, $handled, true)));
-		if ($missing === []) {
-			$this->markTestSkipped('Every response has a handler');
-		}
-		$detection = $this->engine->handle(new DetectionDraft(SharedAddress::ID, SourceKey::fromIp('198.51.100.7')), [$missing[0]]);
-		$this->assertSame([['type' => $missing[0]->value, 'enforced' => false, 'note' => ResponseOutcome::NOTE_UNAVAILABLE]], $detection->getActionList());
+		$engine = new ResponseEngine(
+			Server::get(CheckRegistry::class),
+			$this->settings,
+			Server::get(DetectionService::class),
+			new OverridingContainer([LockLinkHandler::class => new \stdClass()]),
+			Server::get(TypedEvents::class),
+			Server::get(AuditLogger::class),
+			Server::get(LoggerInterface::class),
+		);
+		$detection = $engine->handle(new DetectionDraft(SharedAddress::ID, SourceKey::fromIp('198.51.100.7')), [ResponseType::LockLink]);
+		$this->assertSame([['type' => 'lock_link', 'enforced' => false, 'note' => ResponseOutcome::NOTE_UNAVAILABLE]], $detection->getActionList());
 	}
 
 	public function testTheSafetyValveRaisesASharedAddressDetectionInsteadOfABan(): void {

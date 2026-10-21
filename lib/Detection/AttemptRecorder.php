@@ -109,7 +109,7 @@ class AttemptRecorder {
 		return $kind === AttemptKind::UnknownShareToken || $kind === AttemptKind::PasswordReset;
 	}
 
-	private function oneIn(int $n): bool {
+	protected function oneIn(int $n): bool {
 		return random_int(1, $n) === 1;
 	}
 }

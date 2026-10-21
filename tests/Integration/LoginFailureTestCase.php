@@ -70,7 +70,7 @@ abstract class LoginFailureTestCase extends IntegrationTestCase {
 		$this->listener = new FailedLoginListener(
 			$this->settings,
 			$addresses,
-			Server::get(AttemptRecorder::class),
+			$this->attemptRecorder(),
 			Server::get(DecoyCredentialDetector::class),
 			Server::get(ReservedNameDetector::class),
 			// Built per test, so the memory-cache state of one test cannot leak into the next.
@@ -113,6 +113,10 @@ abstract class LoginFailureTestCase extends IntegrationTestCase {
 
 	protected function listenerLogger(): LoggerInterface {
 		return Server::get(LoggerInterface::class);
+	}
+
+	protected function attemptRecorder(): AttemptRecorder {
+		return Server::get(AttemptRecorder::class);
 	}
 
 	protected function failLogin(string $ip, string $loginName, #[\SensitiveParameter] ?string $password = 'wrong-password'): void {
