@@ -155,6 +155,7 @@ class LoginHistoryTest extends StepUpTestCase {
 		$first = $this->token($this->alice, \OCP\Authentication\Token\IToken::PERMANENT_TOKEN, 'Desktop client');
 		$second = $this->token($this->alice, \OCP\Authentication\Token\IToken::PERMANENT_TOKEN, 'Phone');
 		$this->headers['Authorization'] = 'Basic ' . base64_encode('alice:app-password');
+		$this->setBasicCredentials('alice', 'app-password');
 		$this->method = 'PROPFIND';
 		$this->pathInfo = '/files/alice';
 		foreach ([$first, $first, $second, $first] as $token) {
@@ -241,7 +242,7 @@ class LoginHistoryTest extends StepUpTestCase {
 	private function historyListener(?LoginHistory $history = null): LoginHistoryListener {
 		return new LoginHistoryListener(
 			$this->settings,
-			new InteractiveLogin($this->request, $this->session),
+			new InteractiveLogin($this->request),
 			$this->addresses(),
 			$this->request,
 			new OverridingContainer([

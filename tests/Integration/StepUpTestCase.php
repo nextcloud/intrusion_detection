@@ -50,6 +50,7 @@ use OCA\IntrusionDetection\Response\FlaggedSources;
 use OCA\IntrusionDetection\Risk\RiskScorer;
 use OCA\IntrusionDetection\SessionState\Rules\StepUpRule;
 use OCA\IntrusionDetection\SessionState\SessionState;
+use OCA\IntrusionDetection\Tests\BasicAuthServer;
 use OCP\AppFramework\Utility\ITimeFactory;
 use OCP\Authentication\TwoFactorAuth\IChallengeRequester;
 use OCP\Authentication\TwoFactorAuth\IRegistry;
@@ -74,6 +75,8 @@ use Psr\Log\LoggerInterface;
  * captured emails and a known sequence of email codes.
  */
 abstract class StepUpTestCase extends AccountTestCase {
+	use BasicAuthServer;
+
 	public const PASSWORD = 'Correct-Horse-Battery-Staple-2026';
 
 	protected string $remoteAddress = '198.51.100.7';
@@ -130,6 +133,7 @@ abstract class StepUpTestCase extends AccountTestCase {
 
 	protected function basicAuth(IUser $user, string $password = self::PASSWORD): void {
 		$this->headers['Authorization'] = 'Basic ' . base64_encode($user->getUID() . ':' . $password);
+		$this->setBasicCredentials($user->getUID(), $password);
 		$this->method = 'PROPFIND';
 		$this->pathInfo = '/files/' . $user->getUID();
 	}
@@ -147,7 +151,7 @@ abstract class StepUpTestCase extends AccountTestCase {
 	protected function listener(): StepUpLoginListener {
 		return new StepUpLoginListener(
 			$this->settings,
-			new InteractiveLogin($this->request, $this->session),
+			new InteractiveLogin($this->request),
 			$this->addresses(),
 			Server::get(Fingerprinter::class),
 			Server::get(FlaggedSources::class),

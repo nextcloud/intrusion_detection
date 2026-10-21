@@ -44,8 +44,9 @@ use Psr\Log\LoggerInterface;
  * - the step-up reasons are collected and {@see StepUpService} decides.
  *
  * Only logins with the account's password count: through the login form,
- * or from apps and scripts that send it (Basic auth). App passwords and
- * tokens never need it. A session that comes back through its remember-me
+ * or from apps and scripts that send it (Basic auth); a password login of
+ * any other kind is treated like the login form ({@see InteractiveLogin}).
+ * App passwords and tokens never need it. A session that comes back through its remember-me
  * cookie or its session token is checked against the unconfirmed sessions,
  * so that a login that was never confirmed cannot be resumed.
  *
@@ -89,10 +90,9 @@ class StepUpLoginListener implements IEventListener {
 				return;
 			}
 			if ($event->isTokenLogin()) {
-				if (!$this->hasCredentialHeader()) {
-					// A browser session restored from its token: same session id.
-					$this->resumed($event->getUser()->getUID(), $this->sessionId(), false);
-				}
+				// A browser session restored from its token keeps its session id; for app
+				// passwords and Bearer tokens the id is new and matches nothing.
+				$this->resumed($event->getUser()->getUID(), $this->sessionId(), false);
 				return;
 			}
 			$this->passwordLogin($event);
@@ -102,15 +102,12 @@ class StepUpLoginListener implements IEventListener {
 	}
 
 	private function passwordLogin(UserLoggedInEvent $event): void {
+		$kind = $this->interactive->kind($event);
 		$password = $event->getPassword();
-		if ($password === null || $password === '') {
+		if ($kind === null || $password === null) {
 			return;
 		}
-		$interactive = $this->interactive->isPasswordLogin($event);
-		if (!$interactive && !$this->isBasicAuth()) {
-			// Single sign-on and other logins that do not involve a person typing the password.
-			return;
-		}
+		$interactive = $kind !== InteractiveLogin::CLIENT;
 		$source = $this->addresses->current();
 		if ($source !== null && $this->addresses->isBypassListed($source)) {
 			return;
@@ -160,15 +157,6 @@ class StepUpLoginListener implements IEventListener {
 			return;
 		}
 		$this->container->get(StepUpService::class)->resumed($uid, $renewed ? $sessionId : null);
-	}
-
-	private function hasCredentialHeader(): bool {
-		return $this->request->getHeader('Authorization') !== '' || $this->request->getHeader('PHP_AUTH_USER') !== '';
-	}
-
-	private function isBasicAuth(): bool {
-		return $this->request->getHeader('PHP_AUTH_USER') !== ''
-			|| str_starts_with(strtolower(trim($this->request->getHeader('Authorization'))), 'basic ');
 	}
 
 	private function sessionId(): ?string {

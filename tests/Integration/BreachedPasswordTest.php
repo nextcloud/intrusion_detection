@@ -12,7 +12,6 @@ namespace OCA\IntrusionDetection\Tests\Integration;
 use GuzzleHttp\Exception\ConnectException;
 use GuzzleHttp\Psr7\Request;
 use OC\Memcache\ArrayCache;
-use OC\Session\Memory;
 use OCA\IntrusionDetection\AppInfo\Application;
 use OCA\IntrusionDetection\Breach\PwnedPasswordsClient;
 use OCA\IntrusionDetection\Check\Checks\BreachedPassword;
@@ -34,6 +33,7 @@ use OCA\IntrusionDetection\Net\RemoteAddressResolver;
 use OCA\IntrusionDetection\Notification\AdminAlerts;
 use OCA\IntrusionDetection\Notification\Notifier;
 use OCA\IntrusionDetection\Response\ResponseEngine;
+use OCA\IntrusionDetection\Tests\BasicAuthServer;
 use OCP\AppFramework\Utility\ITimeFactory;
 use OCP\Config\IUserConfig;
 use OCP\Http\Client\IClient;
@@ -66,6 +66,8 @@ use Symfony\Component\Console\Output\BufferedOutput;
  */
 #[Group('DB')]
 class BreachedPasswordTest extends IntegrationTestCase {
+	use BasicAuthServer;
+
 	/** SHA-1 21BD12DC183F740EE76F27B78EB39C8AD972A757 */
 	public const PASSWORD = 'P@ssw0rd';
 	public const SUFFIX = '2DC183F740EE76F27B78EB39C8AD972A757';
@@ -84,7 +86,6 @@ class BreachedPasswordTest extends IntegrationTestCase {
 	protected array $headers = [];
 	protected string $method = 'POST';
 	protected string $path = '/login';
-	protected bool $appPasswordSession = false;
 	protected string $remoteAddress = '198.51.100.20';
 	protected bool $bypassListed = false;
 	/** A memory cache the test can read, or null for none */
@@ -183,12 +184,8 @@ class BreachedPasswordTest extends IntegrationTestCase {
 		$detector = $this->detector();
 		$container = $this->createMock(ContainerInterface::class);
 		$container->method('get')->with(BreachedPasswordDetector::class)->willReturn($detector);
-		$session = new Memory();
-		if ($this->appPasswordSession) {
-			$session->set('app_password', 'an-app-password');
-		}
 		$request = $this->request();
-		$listener = new BreachedPasswordListener($this->settings, new InteractiveLogin($request, $session), $request, $container, $this->logger());
+		$listener = new BreachedPasswordListener($this->settings, new InteractiveLogin($request), $request, $container, $this->logger());
 		$listener->handle(new UserLoggedInEvent($this->user, $this->user->getUID(), $password, $tokenLogin));
 		return $detector;
 	}
@@ -326,21 +323,17 @@ class BreachedPasswordTest extends IntegrationTestCase {
 		$this->assertSame([], $this->requests, 'App password or token login');
 
 		$this->headers = ['Authorization' => 'Basic ' . base64_encode($this->user->getUID() . ':' . self::PASSWORD)];
+		$this->setBasicCredentials($this->user->getUID(), self::PASSWORD);
 		$this->method = 'PROPFIND';
 		$this->path = '/files/' . $this->user->getUID();
 		$this->login();
 		$this->assertSame([], $this->requests, 'Basic auth with the real password');
 
-		$this->headers = [];
+		$this->setBasicCredentials(null, null);
 		$this->method = 'POST';
 		$this->path = '/login';
-		$this->appPasswordSession = true;
 		$this->login();
-		$this->assertSame([], $this->requests, 'App password session');
-
-		$this->appPasswordSession = false;
-		$this->login();
-		$this->assertCount(1, $this->requests, 'The login form is checked');
+		$this->assertCount(1, $this->requests, 'The login form is checked, whatever its headers say');
 	}
 
 	public function testAllowlistedAddressesAreNotChecked(): void {

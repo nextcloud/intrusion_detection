@@ -89,21 +89,17 @@ class LoginHistoryListener implements IEventListener {
 	 * @return array{0: ?LoginHistory::METHOD_*, 1: bool} how the account logged in (null: not a new login), and whether it is a browser session
 	 */
 	private function method(UserLoggedInEvent $event): array {
-		$authorization = strtolower(trim($this->request->getHeader('Authorization')));
-		$basic = $this->request->getHeader('PHP_AUTH_USER') !== '' || str_starts_with($authorization, 'basic ');
 		if ($event->isTokenLogin()) {
-			if (str_starts_with($authorization, 'bearer ')) {
+			if (str_starts_with($this->request->getHeader('Authorization'), 'Bearer ')) {
 				return [LoginHistory::METHOD_TOKEN, false];
 			}
-			return $basic ? [LoginHistory::METHOD_APP_PASSWORD, false] : [null, false];
+			// Otherwise core restored a browser session from its token, unless Basic auth carried an app password.
+			return InteractiveLogin::hasBasicCredentials() ? [LoginHistory::METHOD_APP_PASSWORD, false] : [null, false];
 		}
-		if ($this->interactive->isPasswordLogin($event)) {
-			return [LoginHistory::METHOD_PASSWORD, true];
-		}
-		$password = $event->getPassword();
-		if ($basic && $password !== null && $password !== '') {
-			return [LoginHistory::METHOD_CLIENT_PASSWORD, false];
-		}
-		return [LoginHistory::METHOD_SSO, true];
+		return match ($this->interactive->kind($event)) {
+			InteractiveLogin::FORM => [LoginHistory::METHOD_PASSWORD, true],
+			InteractiveLogin::CLIENT => [LoginHistory::METHOD_CLIENT_PASSWORD, false],
+			default => [LoginHistory::METHOD_SSO, true],
+		};
 	}
 }

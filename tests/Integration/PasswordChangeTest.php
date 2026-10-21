@@ -15,11 +15,13 @@ use OCA\IntrusionDetection\Controller\PasswordChangeController;
 use OCA\IntrusionDetection\Http\LocalRedirect;
 use OCA\IntrusionDetection\Listener\PasswordChangeLoginListener;
 use OCA\IntrusionDetection\Listener\PasswordUpdatedListener;
+use OCA\IntrusionDetection\Login\InteractiveLogin;
 use OCA\IntrusionDetection\Notification\AdminNotices;
 use OCA\IntrusionDetection\Response\PasswordChangeFlag;
 use OCA\IntrusionDetection\Response\PasswordChangeService;
 use OCA\IntrusionDetection\SessionState\Rules\PasswordChangeRule;
 use OCA\IntrusionDetection\SessionState\SessionState;
+use OCA\IntrusionDetection\Tests\BasicAuthServer;
 use OCP\AppFramework\Http;
 use OCP\AppFramework\Http\RedirectResponse;
 use OCP\AppFramework\Http\StandaloneTemplateResponse;
@@ -45,6 +47,8 @@ use Psr\Log\LoggerInterface;
  */
 #[Group('DB')]
 class PasswordChangeTest extends AccountTestCase {
+	use BasicAuthServer;
+
 	private PasswordChangeService $passwords;
 	private PasswordChangeFlag $flag;
 	private SessionState $state;
@@ -117,27 +121,34 @@ class PasswordChangeTest extends AccountTestCase {
 	}
 
 	/**
-	 * @return array<string, array{array<string, string>, bool, bool, ?string}>
+	 * Request headers, Basic credentials in $_SERVER, token login, remember-me cookie, expected mode.
+	 *
+	 * @return array<string, array{array<string, string>, ?array{string, string}, bool, bool, ?string}>
 	 */
 	public static function logins(): array {
 		return [
-			'login form' => [[], false, false, PasswordChangeRule::MODE_REDIRECT],
-			'remembered login' => [[], false, true, PasswordChangeRule::MODE_REDIRECT],
-			'browser session restored from its token' => [[], true, false, PasswordChangeRule::MODE_REDIRECT],
-			'Basic auth with the password' => [['Authorization' => 'Basic YWxpY2U6c2VjcmV0'], false, false, PasswordChangeRule::MODE_REFUSE],
-			'Basic auth via PHP_AUTH_USER' => [['PHP_AUTH_USER' => 'alice'], false, false, PasswordChangeRule::MODE_REFUSE],
-			'Basic auth with an app password' => [['Authorization' => 'Basic YWxpY2U6c2VjcmV0'], true, false, null],
-			'Bearer token' => [['Authorization' => 'Bearer abc'], true, false, null],
+			'login form' => [[], null, false, false, PasswordChangeRule::MODE_REDIRECT],
+			'login form with forged credential headers' => [['Authorization' => 'Basic YWxpY2U6c2VjcmV0', 'PHP_AUTH_USER' => 'alice'], null, false, false, PasswordChangeRule::MODE_REDIRECT],
+			'remembered login' => [[], null, false, true, PasswordChangeRule::MODE_REDIRECT],
+			'browser session restored from its token' => [[], null, true, false, PasswordChangeRule::MODE_REDIRECT],
+			'browser session restored from its token with a forged Basic header' => [['Authorization' => 'Basic YWxpY2U6c2VjcmV0'], null, true, false, PasswordChangeRule::MODE_REDIRECT],
+			'Basic auth with the password' => [['Authorization' => 'Basic YWxpY2U6c2VjcmV0'], ['alice', 'irrelevant'], false, false, PasswordChangeRule::MODE_REFUSE],
+			'Basic auth with an app password' => [['Authorization' => 'Basic YWxpY2U6c2VjcmV0'], ['alice', 'irrelevant'], true, false, null],
+			'Bearer token' => [['Authorization' => 'Bearer abc'], null, true, false, null],
 		];
 	}
 
 	/**
 	 * @param array<string, string> $headers
+	 * @param ?array{string, string} $basic
 	 */
 	#[DataProvider('logins')]
-	public function testLoginsAreMarkedByHowTheyHappened(array $headers, bool $tokenLogin, bool $cookie, ?string $mode): void {
+	public function testLoginsAreMarkedByHowTheyHappened(array $headers, ?array $basic, bool $tokenLogin, bool $cookie, ?string $mode): void {
 		$this->passwords->require($this->user->getUID());
 		$this->headers = $headers;
+		if ($basic !== null) {
+			$this->setBasicCredentials(...$basic);
+		}
 		$this->loginListener()->handle($cookie
 			? new UserLoggedInWithCookieEvent($this->user, null)
 			: new UserLoggedInEvent($this->user, $this->user->getUID(), 'irrelevant', $tokenLogin));
@@ -280,7 +291,7 @@ class PasswordChangeTest extends AccountTestCase {
 	private function loginListener(): PasswordChangeLoginListener {
 		$request = $this->createMock(IRequest::class);
 		$request->method('getHeader')->willReturnCallback(fn (string $name): string => $this->headers[$name] ?? '');
-		return new PasswordChangeLoginListener($this->settings, $this->passwords, $this->state, $request, Server::get(LoggerInterface::class));
+		return new PasswordChangeLoginListener($this->settings, $this->passwords, $this->state, $request, new InteractiveLogin($request), Server::get(LoggerInterface::class));
 	}
 
 	private function controller(): PasswordChangeController {

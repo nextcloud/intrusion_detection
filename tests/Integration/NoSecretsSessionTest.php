@@ -23,6 +23,7 @@ use OCA\IntrusionDetection\Guide\SecureAccountNotifier;
 use OCA\IntrusionDetection\Http\LocalRedirect;
 use OCA\IntrusionDetection\Listener\AppPasswordCreatedListener;
 use OCA\IntrusionDetection\Listener\PasswordChangeLoginListener;
+use OCA\IntrusionDetection\Login\InteractiveLogin;
 use OCA\IntrusionDetection\Net\SourceKey;
 use OCA\IntrusionDetection\Notification\Notifier;
 use OCA\IntrusionDetection\Response\FlaggedSources;
@@ -79,7 +80,7 @@ class NoSecretsSessionTest extends AccountTestCase {
 		$this->startSession($user);
 		$state = new SessionState($this->session, Server::get(LoggerInterface::class));
 		$passwords = Server::get(PasswordChangeService::class);
-		(new PasswordChangeLoginListener($this->settings, $passwords, $state, $request, Server::get(LoggerInterface::class)))
+		(new PasswordChangeLoginListener($this->settings, $passwords, $state, $request, new InteractiveLogin($request), Server::get(LoggerInterface::class)))
 			->handle(new UserLoggedInEvent($user, $user->getUID(), $oldPassword, false));
 		$controller = new PasswordChangeController($request, $this->userSession, Server::get(IUserManager::class), $passwords, $state, Server::get(IURLGenerator::class), Server::get(IFactory::class)->get(Application::APP_ID, 'en'), Server::get(LocalRedirect::class));
 		$controller->change($secrets['wrong password'], $secrets['new password'], $secrets['new password']);

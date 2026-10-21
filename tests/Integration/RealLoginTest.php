@@ -21,6 +21,7 @@ use OCA\IntrusionDetection\Db\LoginHistoryMapper;
 use OCA\IntrusionDetection\LoginHistory\LoginHistory;
 use OCA\IntrusionDetection\Response\AccountProtection;
 use OCA\IntrusionDetection\SessionState\SessionState;
+use OCA\IntrusionDetection\Tests\BasicAuthServer;
 use OCP\IRequest;
 use OCP\ISession;
 use OCP\IUser;
@@ -32,12 +33,15 @@ use PHPUnit\Framework\MockObject\MockObject;
 
 /**
  * Real logins through core: the login form's login chain and Basic auth,
- * with the listeners the app registers itself. Only the request is
+ * with the listeners the app registers itself. Credential headers a client
+ * adds to the login form never make it look like an app. Only the request is
  * replaced, so that it looks like a browser posting the login form or an
  * app sending the password.
  */
 #[Group('DB')]
 class RealLoginTest extends IntegrationTestCase {
+	use BasicAuthServer;
+
 	private const PASSWORD = 'Correct-Horse-Battery-Staple-2026';
 
 	private IUser $user;
@@ -83,11 +87,26 @@ class RealLoginTest extends IntegrationTestCase {
 		$this->assertCount(1, $history, 'The login is in the history, after the step-up decided');
 		$this->assertSame([LoginHistory::METHOD_PASSWORD, LoginHistory::STEP_UP_REFUSED], [$history[0]->method, $history[0]->stepUp]);
 
-		// The same account from an app that sends the password. In one test, because core keeps the
-		// app's listener, and with it the request it was built with, for the whole run.
+		// The rest is in one test, because core keeps the app's listener, and with it the request
+		// it was built with, for the whole run.
+		// Forged credential headers on the login form change nothing.
+		foreach (['Authorization' => 'Bearer x', 'PHP_AUTH_USER' => 'x'] as $header => $value) {
+			Server::get(Session::class)->logout();
+			Server::get(ISession::class)->clear();
+			$this->headers = [$header => $value];
+			$result = Server::get(Chain::class)->process(new LoginData($this->request, $this->user->getUID(), self::PASSWORD, false));
+			$this->assertTrue($result->isSuccess());
+			$stepUp = StepUpState::fromArray(Server::get(SessionState::class)->get(SessionState::STEP_UP) ?? []);
+			$this->assertSame(StepUpState::REFUSED, $stepUp?->status, 'Held back like any login form, with ' . $header);
+			$history = Server::get(LoginHistoryMapper::class)->forUser($this->user->getUID(), 0);
+			$this->assertSame([LoginHistory::METHOD_PASSWORD, LoginHistory::STEP_UP_REFUSED], [$history[0]->method, $history[0]->stepUp]);
+		}
+
+		// The same account from an app that sends the password.
 		Server::get(Session::class)->logout();
 		Server::get(ISession::class)->clear();
-		$this->headers['Authorization'] = 'Basic ' . base64_encode($this->user->getUID() . ':' . self::PASSWORD);
+		$this->headers = ['Authorization' => 'Basic ' . base64_encode($this->user->getUID() . ':' . self::PASSWORD)];
+		$this->setBasicCredentials($this->user->getUID(), self::PASSWORD);
 		$this->method = 'PROPFIND';
 		$this->path = '/files/' . $this->user->getUID();
 		$this->assertTrue(Server::get(Session::class)->logClientIn($this->user->getUID(), self::PASSWORD, $this->request, Server::get(IThrottler::class)));
@@ -96,7 +115,7 @@ class RealLoginTest extends IntegrationTestCase {
 		$this->assertSame(StepUpState::REFUSED_CLIENT, $stepUp?->status);
 		$this->assertCount(1, Server::get(DetectionMapper::class)->findList(new DetectionFilter(checkIds: [StepUpRefusedClient::ID], uid: $this->user->getUID())));
 		$history = Server::get(LoginHistoryMapper::class)->forUser($this->user->getUID(), 0);
-		$this->assertCount(2, $history);
+		$this->assertCount(4, $history);
 		$this->assertSame([LoginHistory::METHOD_CLIENT_PASSWORD, LoginHistory::STEP_UP_REFUSED], [$history[0]->method, $history[0]->stepUp]);
 	}
 }

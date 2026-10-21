@@ -176,7 +176,7 @@ class StepUpTest extends StepUpTestCase {
 		$this->assertNull($this->stepUp());
 	}
 
-	public function testAppPasswordsTokensAndSingleSignOnAreNeverAsked(): void {
+	public function testAppPasswordsTokensAndSingleSignOnWithoutAPasswordAreNeverAsked(): void {
 		$this->give(StepUpPolicy::ProtectedAccount, $this->alice);
 		$this->headers['Authorization'] = 'Basic ' . base64_encode('alice:app-password');
 		$this->login($this->alice, 'xxxxx-xxxxx-xxxxx-xxxxx-xxxxx', tokenLogin: true);
@@ -189,8 +189,38 @@ class StepUpTest extends StepUpTestCase {
 		$this->headers = [];
 		$this->method = 'GET';
 		$this->pathInfo = '/apps/user_saml/saml/acs';
+		$this->login($this->alice, '');
+		$this->assertNull($this->stepUp(), 'Single sign-on without a password');
+	}
+
+	public function testAnyOtherLoginWithThePasswordIsAskedLikeTheLoginForm(): void {
+		$this->give(StepUpPolicy::ProtectedAccount, $this->alice);
+		$this->method = 'GET';
+		$this->pathInfo = '/apps/user_saml/saml/acs';
 		$this->login($this->alice);
-		$this->assertNull($this->stepUp(), 'A login that is neither the login form nor Basic auth');
+		$this->assertTrue($this->stepUp()?->isPending(), 'A password login that is neither the login form nor Basic auth');
+	}
+
+	/**
+	 * @return array<string, array{array<string, string>}>
+	 */
+	public static function forgedHeaders(): array {
+		return [
+			'Bearer' => [['Authorization' => 'Bearer x']],
+			'Basic' => [['Authorization' => 'Basic ' . base64_encode('x:y')]],
+			'PHP-Auth-User' => [['PHP_AUTH_USER' => 'x', 'PHP_AUTH_PW' => 'y']],
+		];
+	}
+
+	/**
+	 * @param array<string, string> $headers
+	 */
+	#[DataProvider('forgedHeaders')]
+	public function testForgedCredentialHeadersOnTheLoginFormAreStillAsked(array $headers): void {
+		$this->give(StepUpPolicy::ProtectedAccount, $this->alice);
+		$this->headers = $headers;
+		$this->login($this->alice);
+		$this->assertSame(StepUpState::PENDING, $this->stepUp()?->status, 'Asked for the email code like any login form');
 	}
 
 	public function testWithoutEmailTheLoginIsRefusedAndTheAdministratorsAreTold(): void {

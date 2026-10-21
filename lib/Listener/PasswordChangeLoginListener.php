@@ -10,6 +10,7 @@ declare(strict_types=1);
 namespace OCA\IntrusionDetection\Listener;
 
 use OCA\IntrusionDetection\Config\Settings;
+use OCA\IntrusionDetection\Login\InteractiveLogin;
 use OCA\IntrusionDetection\Response\PasswordChangeService;
 use OCA\IntrusionDetection\SessionState\Rules\PasswordChangeRule;
 use OCA\IntrusionDetection\SessionState\SessionState;
@@ -43,6 +44,7 @@ class PasswordChangeLoginListener implements IEventListener {
 		private readonly PasswordChangeService $passwords,
 		private readonly SessionState $state,
 		private readonly IRequest $request,
+		private readonly InteractiveLogin $interactive,
 		private readonly LoggerInterface $logger,
 	) {
 	}
@@ -82,13 +84,12 @@ class PasswordChangeLoginListener implements IEventListener {
 		if ($event instanceof UserLoggedInWithCookieEvent) {
 			return PasswordChangeRule::MODE_REDIRECT;
 		}
-		$authorization = strtolower(trim($this->request->getHeader('Authorization')));
-		$basic = $this->request->getHeader('PHP_AUTH_USER') !== '' || str_starts_with($authorization, 'basic ');
-		$bearer = str_starts_with($authorization, 'bearer ');
 		if ($event->isTokenLogin()) {
-			// Without credentials in the request, the token is a browser session's own.
-			return ($basic || $bearer) ? null : PasswordChangeRule::MODE_REDIRECT;
+			// Core takes a Bearer token from the header and an app password from Basic auth;
+			// any other token login is a browser session restored from its own token.
+			$bearer = str_starts_with($this->request->getHeader('Authorization'), 'Bearer ');
+			return ($bearer || InteractiveLogin::hasBasicCredentials()) ? null : PasswordChangeRule::MODE_REDIRECT;
 		}
-		return $basic ? PasswordChangeRule::MODE_REFUSE : PasswordChangeRule::MODE_REDIRECT;
+		return $this->interactive->kind($event) === InteractiveLogin::CLIENT ? PasswordChangeRule::MODE_REFUSE : PasswordChangeRule::MODE_REDIRECT;
 	}
 }

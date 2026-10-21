@@ -17,10 +17,10 @@ use OCA\IntrusionDetection\Login\InteractiveLogin;
 use OCA\IntrusionDetection\LoginHistory\LoginHistory;
 use OCA\IntrusionDetection\Net\RemoteAddressResolver;
 use OCA\IntrusionDetection\Notification\LoginNotices;
+use OCA\IntrusionDetection\Tests\BasicAuthServer;
 use OCP\Authentication\TwoFactorAuth\IProvider;
 use OCP\Authentication\TwoFactorAuth\TwoFactorProviderChallengePassed;
 use OCP\IRequest;
-use OCP\ISession;
 use OCP\IUser;
 use OCP\Security\Bruteforce\IThrottler;
 use OCP\User\Events\UserLoggedInEvent;
@@ -35,6 +35,8 @@ use Test\TestCase;
  * recorded at all.
  */
 class LoginHistoryListenerTest extends TestCase {
+	use BasicAuthServer;
+
 	/** @var array<string, string> */
 	private array $headers = [];
 	private string $method = 'POST';
@@ -48,25 +50,34 @@ class LoginHistoryListenerTest extends TestCase {
 	private ?KnownDevice $device = null;
 
 	/**
-	 * @return array<string, array{array<string, string>, string, string, ?string, bool, ?string, bool}>
+	 * Request headers, Basic credentials in $_SERVER, method, path, password, token login, expected method, browser.
+	 *
+	 * @return array<string, array{array<string, string>, ?array{string, string}, string, string, ?string, bool, ?string, bool}>
 	 */
 	public static function logins(): array {
 		return [
-			'the login form' => [[], 'POST', '/login', 'secret', false, LoginHistory::METHOD_PASSWORD, true],
-			'an app with the password' => [['Authorization' => 'Basic YTpi'], 'PROPFIND', '/files/a', 'secret', false, LoginHistory::METHOD_CLIENT_PASSWORD, false],
-			'an app password' => [['Authorization' => 'Basic YTpi'], 'PROPFIND', '/files/a', 'app-password', true, LoginHistory::METHOD_APP_PASSWORD, false],
-			'a bearer token' => [['Authorization' => 'Bearer abc'], 'GET', '/ocs/v2.php/cloud/user', '', true, LoginHistory::METHOD_TOKEN, false],
-			'single sign-on' => [[], 'GET', '/apps/user_saml/saml/acs', '', false, LoginHistory::METHOD_SSO, true],
-			'a session restored from its token' => [[], 'GET', '/apps/files', '', true, null, false],
+			'the login form' => [[], null, 'POST', '/login', 'secret', false, LoginHistory::METHOD_PASSWORD, true],
+			'the login form with forged credential headers' => [['Authorization' => 'Bearer x', 'PHP_AUTH_USER' => 'a'], null, 'POST', '/login', 'secret', false, LoginHistory::METHOD_PASSWORD, true],
+			'an app with the password' => [['Authorization' => 'Basic YTpi'], ['a', 'secret'], 'PROPFIND', '/files/a', 'secret', false, LoginHistory::METHOD_CLIENT_PASSWORD, false],
+			'an app password' => [['Authorization' => 'Basic YTpi'], ['a', 'app-password'], 'PROPFIND', '/files/a', 'app-password', true, LoginHistory::METHOD_APP_PASSWORD, false],
+			'a bearer token' => [['Authorization' => 'Bearer abc'], null, 'GET', '/ocs/v2.php/cloud/user', '', true, LoginHistory::METHOD_TOKEN, false],
+			'single sign-on' => [[], null, 'GET', '/apps/user_saml/saml/acs', '', false, LoginHistory::METHOD_SSO, true],
+			'a password login of another kind' => [[], null, 'GET', '/apps/user_saml/saml/acs', 'stored-secret', false, LoginHistory::METHOD_SSO, true],
+			'a session restored from its token' => [[], null, 'GET', '/apps/files', '', true, null, false],
+			'a session restored from its token with a forged Basic header' => [['Authorization' => 'Basic YTpi'], null, 'GET', '/apps/files', '', true, null, false],
 		];
 	}
 
 	/**
 	 * @param array<string, string> $headers
+	 * @param ?array{string, string} $basic
 	 */
 	#[DataProvider('logins')]
-	public function testEachKindOfLogin(array $headers, string $method, string $path, string $password, bool $token, ?string $expected, bool $browser): void {
+	public function testEachKindOfLogin(array $headers, ?array $basic, string $method, string $path, string $password, bool $token, ?string $expected, bool $browser): void {
 		[$this->headers, $this->method, $this->path] = [$headers, $method, $path];
+		if ($basic !== null) {
+			$this->setBasicCredentials(...$basic);
+		}
 		$this->listener()->handle(new UserLoggedInEvent($this->user(), 'alice', $password, $token));
 		$this->assertSame($expected === null ? [] : [['alice', $expected, false, $browser]], $this->recorded);
 	}
@@ -138,7 +149,7 @@ class LoginHistoryListenerTest extends TestCase {
 		}
 		return new LoginHistoryListener(
 			$settings,
-			new InteractiveLogin($request, $this->createMock(ISession::class)),
+			new InteractiveLogin($request),
 			new RemoteAddressResolver($request, $throttler),
 			$request,
 			$container,
