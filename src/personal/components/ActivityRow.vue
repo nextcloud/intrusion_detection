@@ -66,8 +66,11 @@ const row = computed(() => {
 	}
 })
 
-/** Failed logins are counted per day: they have no time of their own */
-const showsTime = computed(() => props.item.kind !== 'failed_logins')
+/** Failed logins are counted per day; their time is the time of the last one */
+const time = computed(() => {
+	const at = clock(props.item.at, props.timeZone)
+	return props.item.kind === 'failed_logins' ? t(APP_ID, 'the last one at {time}', { time: at }) : at
+})
 const meta = computed(() => row.value.meta.filter((part): part is string => !!part))
 
 const answer = computed(() => {
@@ -94,9 +97,9 @@ const answer = computed(() => {
 					{{ t(APP_ID, 'This session') }}
 				</StateBadge>
 			</p>
-			<p v-if="showsTime || meta.length > 0" :class="$style.row__meta">
-				<time v-if="showsTime" :datetime="new Date(item.at * 1000).toISOString()" :title="dateTime(item.at, timeZone)">{{ clock(item.at, timeZone) }}</time>
-				<span v-for="(part, index) in meta" :key="index" :class="{ [$style.row__part]: showsTime || index > 0 }">{{ part }}</span>
+			<p :class="$style.row__meta">
+				<time :datetime="new Date(item.at * 1000).toISOString()" :title="dateTime(item.at, timeZone)">{{ time }}</time>
+				<span v-for="(part, index) in meta" :key="index" :class="$style.row__part">{{ part }}</span>
 			</p>
 			<p v-if="answer" :class="$style.row__answer" data-test="answer">
 				{{ answer }}
@@ -152,6 +155,14 @@ const answer = computed(() => {
 	overflow-wrap: anywhere;
 }
 
+/* Each part wraps on its own, at its spaces; only a part too long for a line, such as an address, breaks inside */
+.row__meta {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: baseline;
+	column-gap: calc(var(--default-grid-baseline) * 1.5);
+}
+
 .row__meta,
 .row__answer {
 	margin: 0;
@@ -166,8 +177,12 @@ const answer = computed(() => {
 	white-space: nowrap;
 }
 
+.row__part {
+	min-width: 0;
+}
+
 .row__part::before {
 	content: '·';
-	margin-inline: calc(var(--default-grid-baseline) * 1.5);
+	margin-inline-end: calc(var(--default-grid-baseline) * 1.5);
 }
 </style>

@@ -47,6 +47,7 @@ describe('ActivityTimeline', () => {
 		expect(today.get('[data-test="activity-change-1"]').text()).toContain('by you')
 		expect(today.get('[data-test="activity-login-1"]').text()).toContain('This session')
 		expect(wrapper.get('[data-test="activity-failed-2026-10-20"]').text()).toContain('3 failed logins with a wrong password')
+		expect(wrapper.get('[data-test="activity-failed-2026-10-20"]').text()).toContain('the last one at')
 		expect(wrapper.get('[data-test="activity-login-2"]').text()).toContain('Confirmed with an email code')
 		expect(wrapper.find('[data-test="show-more"]').exists()).toBe(false)
 	})
