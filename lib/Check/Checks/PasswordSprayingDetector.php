@@ -99,7 +99,8 @@ class PasswordSprayingDetector {
 			return;
 		}
 
-		$window = min(3600, $this->settings->paramInt(PasswordSpraying::ID, 'window'));
+		// At most an hour, as long as attempts are kept (the parameter's maximum).
+		$window = $this->settings->paramInt(PasswordSpraying::ID, 'window');
 		$since = $attempt->time - $window;
 		$stats = $this->attempts->stats('pw_fp', $attempt->passwordCandidates, self::KINDS, $since);
 		$limits = $this->risk->limits($attempt->source, ['min_names' => [$this->settings->paramInt(PasswordSpraying::ID, 'min_names'), $stats->distinctNames]]);

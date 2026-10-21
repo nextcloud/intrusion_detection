@@ -10,10 +10,12 @@ declare(strict_types=1);
 namespace OCA\IntrusionDetection\Tests\Unit\Check;
 
 use OCA\IntrusionDetection\Check\CheckRegistry;
+use OCA\IntrusionDetection\Check\Checks\PasswordSpraying;
 use OCA\IntrusionDetection\Check\ResponseType;
 use OCA\IntrusionDetection\Config\GlobalSettings;
 use OCA\IntrusionDetection\Config\Keys;
 use OCA\IntrusionDetection\Config\Lexicon;
+use OCA\IntrusionDetection\Detection\AttemptRecorder;
 use OCA\IntrusionDetection\Response\PasswordChangeFlag;
 use OCP\Config\Lexicon\Entry;
 use OCP\L10N\IFactory;
@@ -107,6 +109,10 @@ class CheckRegistryTest extends TestCase {
 		foreach (['enabled', 'installed_version', 'types', 'groups'] as $reserved) {
 			$this->assertArrayNotHasKey($reserved, (new GlobalSettings())->all());
 		}
+	}
+
+	public function testSprayingCountsNoFurtherBackThanAttemptsAreKept(): void {
+		$this->assertLessThanOrEqual(AttemptRecorder::RETENTION, $this->registry->get(PasswordSpraying::ID)->param('window')->max);
 	}
 
 	public function testDefaultResponsesAreAllowedResponses(): void {

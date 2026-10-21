@@ -161,7 +161,7 @@ final class PasswordSpraying implements ICheck, IExplainsDetection, ISimulatable
 		}
 		$sentences[] = $l->t('The limit at that time was %1$s accounts within %2$s.', [
 			(string)$facts->threshold('min_names'),
-			TextRenderer::duration(min(3600, $facts->threshold('window', 3600)), $l),
+			TextRenderer::duration($facts->threshold('window', 3600), $l),
 		]);
 		$unbanned = $facts->int('sources') - $facts->int('banTargets');
 		if ($facts->int('banTargets') > 0 && $unbanned > 0) {
@@ -188,7 +188,7 @@ final class PasswordSpraying implements ICheck, IExplainsDetection, ISimulatable
 				'names' => $names,
 				'sources' => $names,
 				'banTargets' => $names,
-				'first' => $now - min(3600, (int)($params['window'] ?? 3600)) + 60,
+				'first' => $now - (int)($params['window'] ?? 3600) + 60,
 				'last' => $now,
 				'simulated' => true,
 			],
