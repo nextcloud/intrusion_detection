@@ -10,6 +10,7 @@ declare(strict_types=1);
 namespace OCA\IntrusionDetection\Tests\Unit\Dashboard;
 
 use OCA\IntrusionDetection\Admin\CheckNames;
+use OCA\IntrusionDetection\Admin\ConfirmationOverview;
 use OCA\IntrusionDetection\Admin\StatusService;
 use OCA\IntrusionDetection\Check\Category;
 use OCA\IntrusionDetection\Dashboard\IntrusionWidget;
@@ -30,6 +31,7 @@ use Test\TestCase;
 
 class IntrusionWidgetTest extends TestCase {
 	private StatusService&MockObject $status;
+	private ConfirmationOverview&MockObject $confirmation;
 	private DetectionMapper&MockObject $detections;
 	private IUserSession&MockObject $session;
 	private IGroupManager&MockObject $groups;
@@ -38,6 +40,7 @@ class IntrusionWidgetTest extends TestCase {
 	protected function setUp(): void {
 		parent::setUp();
 		$this->status = $this->createMock(StatusService::class);
+		$this->confirmation = $this->createMock(ConfirmationOverview::class);
 		$this->detections = $this->createMock(DetectionMapper::class);
 		$this->session = $this->createMock(IUserSession::class);
 		$this->groups = $this->createMock(IGroupManager::class);
@@ -56,6 +59,7 @@ class IntrusionWidgetTest extends TestCase {
 
 		$this->widget = new IntrusionWidget(
 			$this->status,
+			$this->confirmation,
 			$this->detections,
 			$names,
 			$dates,
@@ -116,6 +120,29 @@ class IntrusionWidgetTest extends TestCase {
 		$this->assertSame('198.51.100.7 · alice · 10/20/26, 10:00 AM', $items[1]->getSubtitle());
 		$this->assertStringEndsWith('#detection-7', $items[1]->getLink());
 		$this->assertSame('Name of decoy_credential (observed)', $items[2]->getTitle());
+	}
+
+	public function testLoginsWaitingForThisAdministratorComeFirst(): void {
+		$this->status->method('status')->willReturn(self::statusData('protecting', blocked: 0, detections: 0));
+		$this->confirmation->expects($this->once())->method('pendingLogins')->with('admin')->willReturn([
+			['id' => 3, 'uid' => 'alice', 'displayName' => 'Alice Liddell', 'ip' => '203.0.113.9', 'createdAt' => 1_789_999_000, 'expiresAt' => 1_790_001_000, 'canDecide' => true],
+			['id' => 4, 'uid' => 'admin', 'displayName' => 'Admin', 'ip' => null, 'createdAt' => 1_789_999_500, 'expiresAt' => 1_790_001_500, 'canDecide' => false],
+		]);
+		$filter = null;
+		$this->detections->method('findList')->willReturnCallback(function (DetectionFilter $f) use (&$filter): array {
+			$filter = $f;
+			return [];
+		});
+
+		$items = $this->widget->getItemsV2('admin')->getItems();
+
+		$this->assertSame('Alice Liddell waits for your approval', $items[0]->getTitle());
+		$this->assertSame('Login from 203.0.113.9', $items[0]->getSubtitle());
+		$this->assertStringEndsWith('#overview-attention', $items[0]->getLink());
+		$this->assertStringEndsWith('widget-approval.svg', $items[0]->getIconUrl());
+		$this->assertSame('Protecting', $items[1]->getTitle());
+		$this->assertCount(2, $items, 'Their own login is not offered to an administrator');
+		$this->assertSame(5, $filter?->limit);
 	}
 
 	public function testItemIconsReadInBothThemes(): void {

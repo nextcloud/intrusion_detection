@@ -59,7 +59,7 @@ class ConfirmationApiTest extends StepUpTestCase {
 	public function testTheConfirmationTabIsForAdministratorsOnly(): void {
 		$class = new \ReflectionClass(ConfirmationApiController::class);
 		$this->assertSame([], $class->getAttributes(NoAdminRequired::class));
-		foreach (['index', 'accounts'] as $method) {
+		foreach (['index', 'accounts', 'waiting'] as $method) {
 			$this->assertSame([], $class->getMethod($method)->getAttributes(NoAdminRequired::class), $method);
 		}
 	}
@@ -85,6 +85,22 @@ class ConfirmationApiTest extends StepUpTestCase {
 		$this->assertGreaterThanOrEqual(1, $data['users']['active']);
 
 		$this->assertSame(Http::STATUS_OK, $this->confirmationApi()->accounts(5000, -3)->getStatus(), 'The limit and offset are bounded');
+	}
+
+	public function testWaitingLoginsAreListedLive(): void {
+		$this->settings->setGlobal(GlobalSettings::STEP_UP_ADMIN_APPROVAL, true);
+		$this->sessionUser = Server::get(IUserManager::class)->get('admin');
+		$this->assertSame([], $this->confirmationApi()->waiting()->getData());
+
+		Server::get(FlaggedSources::class)->flagSource(SourceKey::fromIp($this->remoteAddress), FlaggedSources::REASON_ATTACK);
+		$bob = $this->user('ids-api-bob', null);
+		$this->startSession($bob);
+		$this->login($bob);
+		$this->sessionUser = Server::get(IUserManager::class)->get('admin');
+		$waiting = $this->confirmationApi()->waiting()->getData();
+		$this->assertCount(1, $waiting, 'A new waiting login is there at once');
+		$this->assertSame($bob->getUID(), $waiting[0]['uid']);
+		$this->assertTrue($waiting[0]['canDecide']);
 	}
 
 	public function testOnePresetWritesTheOutcomeOfEveryReason(): void {

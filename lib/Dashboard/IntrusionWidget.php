@@ -10,6 +10,7 @@ declare(strict_types=1);
 namespace OCA\IntrusionDetection\Dashboard;
 
 use OCA\IntrusionDetection\Admin\CheckNames;
+use OCA\IntrusionDetection\Admin\ConfirmationOverview;
 use OCA\IntrusionDetection\Admin\StatusService;
 use OCA\IntrusionDetection\AppInfo\Application;
 use OCA\IntrusionDetection\Check\Severity;
@@ -33,10 +34,12 @@ use OCP\IURLGenerator;
 use OCP\IUserSession;
 
 /**
- * The admin dashboard widget: the status line, the last 24 hours in numbers
- * and the latest serious detections. Administrators only.
+ * The admin dashboard widget: the logins that wait for this administrator's
+ * approval, the status line, the last 24 hours in numbers and the latest
+ * serious detections. Administrators only.
  *
  * @psalm-import-type IntrusionDetectionStatus from ResponseDefinitions
+ * @psalm-import-type IntrusionDetectionLoginApproval from ResponseDefinitions
  */
 class IntrusionWidget implements IAPIWidgetV2, IConditionalWidget, IIconWidget, IButtonWidget, IReloadableWidget {
 	public const ID = 'intrusion_detection';
@@ -46,6 +49,7 @@ class IntrusionWidget implements IAPIWidgetV2, IConditionalWidget, IIconWidget, 
 
 	public function __construct(
 		private readonly StatusService $status,
+		private readonly ConfirmationOverview $confirmation,
 		private readonly DetectionMapper $detections,
 		private readonly CheckNames $names,
 		private readonly DateFormatter $dates,
@@ -116,7 +120,16 @@ class IntrusionWidget implements IAPIWidgetV2, IConditionalWidget, IIconWidget, 
 		}
 		// With the id of the newest detection the client has, only newer detections are new items.
 		$afterId = $since !== null && ctype_digit($since) ? (int)$since : null;
-		$items = $afterId === null ? [$this->statusItem($this->status->status($this->l))] : [];
+		$items = [];
+		if ($afterId === null) {
+			// Waiting logins are read live: a user waits on the other side.
+			foreach ($this->confirmation->pendingLogins($userId) as $approval) {
+				if ($approval['canDecide']) {
+					$items[] = $this->approvalItem($approval);
+				}
+			}
+			$items[] = $this->statusItem($this->status->status($this->l));
+		}
 
 		$detections = $this->detections->findList(new DetectionFilter(
 			severities: array_values(array_map(
@@ -124,7 +137,7 @@ class IntrusionWidget implements IAPIWidgetV2, IConditionalWidget, IIconWidget, 
 				array_filter(Severity::cases(), static fn (Severity $s): bool => $s->atLeast(self::MIN_SEVERITY)),
 			)),
 			since: $this->timeFactory->getTime() - 30 * 86400,
-			limit: max(0, min(self::MAX_DETECTIONS, $afterId === null ? $limit - 1 : $limit)),
+			limit: max(0, min(self::MAX_DETECTIONS, $limit - count($items))),
 			afterId: $afterId,
 		));
 		foreach ($detections as $detection) {
@@ -154,6 +167,19 @@ class IntrusionWidget implements IAPIWidgetV2, IConditionalWidget, IIconWidget, 
 			: $this->l->n('%n address blocked in 24 hours', '%n addresses blocked in 24 hours', $last['blockedAddresses'])
 				. ' · ' . $this->l->n('%n detection', '%n detections', $last['detections']);
 		return new WidgetItem($title, $subtitle, $this->pageUrl(), $this->itemIcon('widget-status.svg'), 'status');
+	}
+
+	/**
+	 * @param IntrusionDetectionLoginApproval $approval
+	 */
+	private function approvalItem(array $approval): WidgetItem {
+		return new WidgetItem(
+			$this->l->t('%s waits for your approval', [$approval['displayName']]),
+			$approval['ip'] === null ? $this->l->t('Login') : $this->l->t('Login from %s', [$approval['ip']]),
+			$this->pageUrl() . '#overview-attention',
+			$this->itemIcon('widget-approval.svg'),
+			'approval-' . $approval['id'],
+		);
 	}
 
 	private function detectionItem(Detection $detection): WidgetItem {

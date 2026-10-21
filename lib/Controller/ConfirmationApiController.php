@@ -33,6 +33,7 @@ use OCP\IUserSession;
  * @psalm-import-type IntrusionDetectionConfirmation from ResponseDefinitions
  * @psalm-import-type IntrusionDetectionConfirmationPreset from ResponseDefinitions
  * @psalm-import-type IntrusionDetectionError from ResponseDefinitions
+ * @psalm-import-type IntrusionDetectionLoginApproval from ResponseDefinitions
  * @psalm-import-type IntrusionDetectionUnconfirmableAccount from ResponseDefinitions
  */
 #[OpenAPI(scope: OpenAPI::SCOPE_ADMINISTRATION)]
@@ -67,6 +68,21 @@ class ConfirmationApiController extends AdminOCSController {
 			$this->coverage->refresh();
 		}
 		return new DataResponse($this->overview->get($this->l, $this->actor()));
+	}
+
+	/**
+	 * List the logins that wait for an administrator
+	 *
+	 * Read when it is asked for, never from a cache, so a waiting login shows
+	 * up at once on the overview.
+	 *
+	 * @return DataResponse<Http::STATUS_OK, list<IntrusionDetectionLoginApproval>, array{}>
+	 *
+	 * 200: The waiting logins, oldest first
+	 */
+	#[ApiRoute(verb: 'GET', url: '/api/v1/confirmation/waiting')]
+	public function waiting(): DataResponse {
+		return new DataResponse($this->overview->pendingLogins($this->actor()));
 	}
 
 	/**
