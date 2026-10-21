@@ -31,7 +31,12 @@ describe('sections within a tab', () => {
 		} finally {
 			tabs.splice(tabs.findIndex((tab) => tab.id === 'test-sections-only'), 1)
 		}
-		expect(visibleTabs().map((tab) => tab.id)).not.toContain('incidents')
+		tabs.push({ id: 'test-empty', name: () => 'Empty', icon: '', order: 2 })
+		try {
+			expect(visibleTabs().map((tab) => tab.id)).not.toContain('test-empty')
+		} finally {
+			tabs.splice(tabs.findIndex((tab) => tab.id === 'test-empty'), 1)
+		}
 		expect(sectionsOf('notifications').map((s) => s.id)).toEqual(['digest', 'webhook-events'])
 	})
 
