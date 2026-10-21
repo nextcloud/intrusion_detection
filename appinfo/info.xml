@@ -26,9 +26,9 @@ Every check can be switched between Off, Observe and Protect, every threshold is
 
     <category>security</category>
 
-    <website>https://github.com/nextcloud/server</website>
-    <bugs>https://github.com/nextcloud/server/issues</bugs>
-    <repository>https://github.com/nextcloud/server.git</repository>
+    <website>https://github.com/nextcloud/intrusion_detection</website>
+    <bugs>https://github.com/nextcloud/intrusion_detection/issues</bugs>
+    <repository type="git">https://github.com/nextcloud/intrusion_detection.git</repository>
 
     <dependencies>
         <nextcloud min-version="36" max-version="36"/>
