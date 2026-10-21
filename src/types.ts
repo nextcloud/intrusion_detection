@@ -147,6 +147,8 @@ export interface Detection {
 	createdAt: number
 	lastSeenAt: number
 	userVerdict: string | null
+	/** What this detection is about in a few words, e.g. "Security setting changed: First block"; not sent by every server */
+	summary?: string | null
 }
 
 export interface DetectionList {

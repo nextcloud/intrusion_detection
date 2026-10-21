@@ -151,8 +151,7 @@ class IntrusionWidget implements IAPIWidgetV2, IConditionalWidget, IIconWidget, 
 				. ' · ' . $this->l->n('%n detection', '%n detections', $last['detections'])
 			: $this->l->n('%n address blocked in 24 hours', '%n addresses blocked in 24 hours', $last['blockedAddresses'])
 				. ' · ' . $this->l->n('%n detection', '%n detections', $last['detections']);
-		$icon = $this->urlGenerator->getAbsoluteURL($this->urlGenerator->imagePath(Application::APP_ID, 'app-dark.svg'));
-		return new WidgetItem($title, $subtitle, $this->pageUrl(), $icon, 'status');
+		return new WidgetItem($title, $subtitle, $this->pageUrl(), $this->itemIcon('widget-status.svg'), 'status');
 	}
 
 	private function detectionItem(Detection $detection): WidgetItem {
@@ -169,9 +168,18 @@ class IntrusionWidget implements IAPIWidgetV2, IConditionalWidget, IIconWidget, 
 			$title,
 			implode(' · ', $parts),
 			$this->pageUrl() . '#detection-' . $detection->getId(),
-			$this->urlGenerator->getAbsoluteURL($this->urlGenerator->imagePath('core', 'actions/error.svg')),
+			$this->itemIcon('widget-detection.svg'),
 			(string)$detection->getId(),
 		);
+	}
+
+	/**
+	 * An icon for an item. The dashboard shows it as an image, so it cannot
+	 * follow the theme: it is drawn in the Nextcloud blue, which reads on a
+	 * light and on a dark background.
+	 */
+	private function itemIcon(string $image): string {
+		return $this->urlGenerator->getAbsoluteURL($this->urlGenerator->imagePath(Application::APP_ID, $image));
 	}
 
 	private function pageUrl(): string {

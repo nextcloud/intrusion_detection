@@ -49,7 +49,7 @@ class IntrusionWidgetTest extends TestCase {
 		$dates->method('dateTime')->willReturn('10/20/26, 10:00 AM');
 		$urls = $this->createMock(IURLGenerator::class);
 		$urls->method('linkToRouteAbsolute')->willReturn('https://cloud.example/settings/admin/intrusion_detection');
-		$urls->method('imagePath')->willReturn('/apps/intrusion_detection/img/app-dark.svg');
+		$urls->method('imagePath')->willReturnCallback(static fn (string $app, string $image): string => '/apps/' . $app . '/img/' . $image);
 		$urls->method('getAbsoluteURL')->willReturnArgument(0);
 		$time = $this->createMock(ITimeFactory::class);
 		$time->method('getTime')->willReturn(1_790_000_000);
@@ -116,6 +116,21 @@ class IntrusionWidgetTest extends TestCase {
 		$this->assertSame('198.51.100.7 · alice · 10/20/26, 10:00 AM', $items[1]->getSubtitle());
 		$this->assertStringEndsWith('#detection-7', $items[1]->getLink());
 		$this->assertSame('Name of decoy_credential (observed)', $items[2]->getTitle());
+	}
+
+	public function testItemIconsReadInBothThemes(): void {
+		$this->status->method('status')->willReturn(self::statusData('protecting', blocked: 1, detections: 1));
+		$this->detections->method('findList')->willReturn([self::detection(7, 'account_takeover', true)]);
+
+		$items = $this->widget->getItemsV2('admin')->getItems();
+
+		$this->assertSame('/apps/intrusion_detection/img/widget-status.svg', $items[0]->getIconUrl());
+		$this->assertSame('/apps/intrusion_detection/img/widget-detection.svg', $items[1]->getIconUrl());
+		foreach (['widget-status.svg', 'widget-detection.svg'] as $image) {
+			$svg = (string)file_get_contents(__DIR__ . '/../../../img/' . $image);
+			$this->assertStringContainsString('fill="#0082c9"', $svg, 'A fixed colour that reads on light and dark backgrounds');
+			$this->assertStringNotContainsString('#000', $svg);
+		}
 	}
 
 	public function testLearningAndOff(): void {

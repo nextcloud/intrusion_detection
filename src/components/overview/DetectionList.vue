@@ -17,11 +17,13 @@ import NcTextField from '@nextcloud/vue/components/NcTextField'
 import EmptyNote from '../common/EmptyNote.vue'
 import SelectField from '../common/SelectField.vue'
 import SkeletonBlock from '../common/SkeletonBlock.vue'
+import DetectionGroup from './DetectionGroup.vue'
 import DetectionRow from './DetectionRow.vue'
 import { errorMessage, fetchDetections } from '../../services/api.ts'
 import { logger } from '../../services/logger.ts'
 import { detectionFilters, openDetectionId, state } from '../../store.ts'
 import { APP_ID, formatNumber } from '../../utils/format.ts'
+import { groupDetections } from '../../utils/groups.ts'
 
 const emit = defineEmits<{
 	lift: [ban: Ban, reload: () => Promise<void>]
@@ -57,6 +59,9 @@ const checkOptions = computed(() => {
 	}
 	return [...options.entries()].map(([value, label]) => ({ value, label })).sort((a, b) => a.label.localeCompare(b.label))
 })
+
+/** Runs of detections that read the same are folded into one row */
+const entries = computed(() => groupDetections(detections.value))
 
 const filtered = computed(() => Object.values(detectionFilters).some((value) => value !== ''))
 
@@ -213,12 +218,18 @@ defineExpose({ reload: load })
 			:icon="mdiShieldCheckOutline" />
 
 		<ul v-else :class="$style.detections__list">
-			<DetectionRow
-				v-for="detection in detections"
-				:key="detection.id"
-				:detection="detection"
-				:open="openDetectionId === detection.id"
-				@lift="onLift" />
+			<template v-for="entry in entries" :key="entry.key">
+				<DetectionRow
+					v-if="entry.type === 'single'"
+					:detection="entry.detection"
+					:open="openDetectionId === entry.detection.id"
+					@lift="onLift" />
+				<DetectionGroup
+					v-else
+					:detections="entry.detections"
+					:openId="openDetectionId"
+					@lift="onLift" />
+			</template>
 		</ul>
 
 		<div v-if="!loading && detections.length < total" :class="$style.detections__more">

@@ -88,6 +88,7 @@ watch(() => props.detection?.lastSeenAt, () => {
 				<span :class="$style.row__facts">
 					<span v-if="shown.ip" :class="$style.row__address">{{ shown.ip }}</span>
 					<span v-if="shown.uid">{{ t(APP_ID, 'account {account}', { account: shown.uid }) }}</span>
+					<span v-if="shown.summary">{{ shown.summary }}</span>
 					<span v-if="shown.hits > 1">{{ n(APP_ID, '%n time', '%n times', shown.hits) }}</span>
 				</span>
 			</span>
@@ -95,7 +96,11 @@ watch(() => props.detection?.lastSeenAt, () => {
 				{{ shown.enforced ? t(APP_ID, 'Acted on') : t(APP_ID, 'Observed') }}
 			</span>
 			<TimeStamp :class="$style.row__time" :timestamp="shown.lastSeenAt" short />
-			<NcIconSvgWrapper :class="$style.row__chevron" :path="mdiChevronDown" :size="20" />
+			<NcIconSvgWrapper
+				inline
+				:class="$style.row__chevron"
+				:path="mdiChevronDown"
+				:size="20" />
 		</button>
 
 		<div v-if="expanded" :id="`${id}-detail`" :class="$style.row__detail">
@@ -122,7 +127,7 @@ watch(() => props.detection?.lastSeenAt, () => {
 
 .row .row__summary {
 	display: grid;
-	grid-template-columns: 6.5em minmax(0, 1fr) auto auto auto;
+	grid-template-columns: 6em minmax(0, 1fr) auto auto auto;
 	grid-template-areas: "severity main outcome time chevron";
 	align-items: center;
 	gap: calc(var(--default-grid-baseline) * 3);
