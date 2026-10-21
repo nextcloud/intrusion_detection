@@ -21,6 +21,7 @@ use OCP\AppFramework\Middleware;
 use OCP\AppFramework\OCSController;
 use OCP\IUserSession;
 use OCP\L10N\IFactory;
+use OCP\Security\Guard\GuardDecision;
 use Psr\Container\ContainerInterface;
 use Psr\Log\LoggerInterface;
 
@@ -30,8 +31,9 @@ use Psr\Log\LoggerInterface;
  * blocked by it, the controller does not run and the client gets the same
  * answer as from a request guard.
  *
- * Registered for every app's controllers. On requests without a pending hit
- * it costs one array lookup.
+ * A hit already decided at the login (Basic auth, app passwords, tokens) is
+ * refused here too. Registered for every app's controllers. On requests
+ * without a hit it costs two array lookups.
  */
 class PayloadMiddleware extends Middleware {
 	public function __construct(
@@ -43,6 +45,10 @@ class PayloadMiddleware extends Middleware {
 
 	#[\Override]
 	public function beforeController(Controller $controller, string $methodName): void {
+		$decided = $this->context->get(PayloadResponder::DECISION_KEY);
+		if ($decided instanceof GuardDecision) {
+			throw new PayloadBlockedException($decided);
+		}
 		if (!$this->context->get(PayloadResponder::CONTEXT_KEY) instanceof PendingHit) {
 			return;
 		}

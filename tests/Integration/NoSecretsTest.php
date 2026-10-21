@@ -40,6 +40,7 @@ use OCA\IntrusionDetection\Traps\ReservedNames;
 use OCP\IConfig;
 use OCP\IUser;
 use OCP\IUserManager;
+use OCP\IUserSession;
 use OCP\L10N\IFactory;
 use OCP\Notification\IManager as INotificationManager;
 use OCP\Security\Bruteforce\IThrottler;
@@ -205,7 +206,7 @@ class NoSecretsTest extends LoginFailureTestCase {
 			$inputs['probe' . $i] = 'secret-probe-' . $i . '@example.org';
 		}
 
-		$shares = new ShareAccessFailedListener($this->settings, new RemoteAddressResolver($this->request, Server::get(IThrottler::class)), Server::get(AttemptRecorder::class), Server::get(ShareBruteforceDetector::class), $this->request, $this->listenerLogger());
+		$shares = new ShareAccessFailedListener($this->settings, new RemoteAddressResolver($this->request, Server::get(IThrottler::class)), Server::get(AttemptRecorder::class), Server::get(ShareBruteforceDetector::class), $this->request, Server::get(IUserSession::class), $this->listenerLogger());
 		$resets = new ResetRequestedListener($this->settings, new RemoteAddressResolver($this->request, Server::get(IThrottler::class)), Server::get(AttemptRecorder::class), Server::get(ResetProbingDetector::class), Server::get(ResetMailSuppressor::class), Server::get(IUserManager::class), $this->request, $this->listenerLogger());
 
 		$this->remoteAddress = '198.51.100.7';

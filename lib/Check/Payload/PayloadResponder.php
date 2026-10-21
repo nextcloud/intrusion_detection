@@ -36,10 +36,14 @@ use Psr\Log\LoggerInterface;
  * ({@see \OCA\IntrusionDetection\Listener\PayloadLoginListener}), the start of
  * a controller ({@see \OCA\IntrusionDetection\Middleware\PayloadMiddleware}),
  * or the end of the request, for entry points without controllers such as
- * WebDAV. A request that never logs in is handled as not logged in.
+ * WebDAV. A request that never logs in is handled as not logged in. A
+ * refusal decided at the login is kept, so the middleware still refuses
+ * the request.
  */
 class PayloadResponder {
 	public const CONTEXT_KEY = 'injection_probe.pending';
+	/** The refusal of a hit that was decided before a controller ran, for the middleware */
+	public const DECISION_KEY = 'injection_probe.decision';
 
 	private bool $shutdownRegistered = false;
 
@@ -118,9 +122,13 @@ class PayloadResponder {
 			return null;
 		}
 		$this->context->set(self::CONTEXT_KEY, null);
-		return $user === null
+		$decision = $user === null
 			? $this->anonymous($pending->hit, $pending->source, $pending->userAgent, $pending->credential)
 			: $this->authenticated($pending->hit, $pending->source, $user->getUID(), $pending->credential, $pending->userAgent);
+		if ($decision !== null) {
+			$this->context->set(self::DECISION_KEY, $decision);
+		}
+		return $decision;
 	}
 
 	/**

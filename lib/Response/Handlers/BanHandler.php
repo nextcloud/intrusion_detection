@@ -14,6 +14,8 @@ use OCA\IntrusionDetection\Check\ResponseType;
 use OCA\IntrusionDetection\Detection\DetectionDraft;
 use OCA\IntrusionDetection\Explain\DateFormatter;
 use OCA\IntrusionDetection\Explain\IDescribesAction;
+use OCA\IntrusionDetection\Net\FetchMetadata;
+use OCA\IntrusionDetection\Net\RemoteAddressResolver;
 use OCA\IntrusionDetection\Net\SourceKey;
 use OCA\IntrusionDetection\Response\BanResult;
 use OCA\IntrusionDetection\Response\BanService;
@@ -22,12 +24,18 @@ use OCA\IntrusionDetection\Response\ResponseContext;
 use OCA\IntrusionDetection\Response\ResponseEngine;
 use OCA\IntrusionDetection\Response\ResponseOutcome;
 use OCP\IL10N;
+use OCP\IRequest;
 use Psr\Container\ContainerInterface;
 
 /**
  * Blocks the detection's source (and, for some checks, further sources).
  * When the safety valve keeps an address from being blocked, a
  * `shared_address` detection tells the admin instead.
+ *
+ * The address of the current request is not blocked when the request is a
+ * possible lure ({@see FetchMetadata}): a browser that fetched the URL for
+ * another site's page or an email. Anyone could have caused it, so it is
+ * recorded, but blocking it would let any page lock its visitors out.
  */
 class BanHandler implements IResponseHandler, IDescribesAction {
 	/** At most this many blocks are listed in the action; the rest are counted */
@@ -36,6 +44,8 @@ class BanHandler implements IResponseHandler, IDescribesAction {
 	public function __construct(
 		private readonly BanService $bans,
 		private readonly ContainerInterface $container,
+		private readonly IRequest $request,
+		private readonly RemoteAddressResolver $addresses,
 	) {
 	}
 
@@ -48,8 +58,13 @@ class BanHandler implements IResponseHandler, IDescribesAction {
 	public function apply(ResponseContext $context): ResponseOutcome {
 		$draft = $context->draft;
 		$listed = [];
-		$counts = ['banned' => 0, 'already' => 0, 'skipped' => 0];
+		$counts = ['banned' => 0, 'already' => 0, 'skipped' => 0, 'lure' => 0];
+		$lure = $this->lureFrom();
 		foreach ($draft->banTargets() as $target) {
+			if ($lure !== null && $target->ipKey === $lure->ipKey) {
+				$counts['lure']++;
+				continue;
+			}
 			$result = $this->bans->ban($target, $draft->checkId, $context->detection->getId(), $draft->banLevel);
 			if ($result->outcome === BanResult::SKIPPED_SHARED && $draft->checkId !== SharedAddress::ID) {
 				$this->reportShared($draft, $target, $result->sharedUsers);
@@ -74,7 +89,7 @@ class BanHandler implements IResponseHandler, IDescribesAction {
 		}
 		$ref = ['bans' => array_values($listed), 'counts' => $counts];
 		if ($counts['banned'] === 0 && $counts['already'] === 0) {
-			return ResponseOutcome::skipped(ResponseOutcome::NOTE_NOTHING_TO_DO, $ref);
+			return ResponseOutcome::skipped($counts['lure'] > 0 ? ResponseOutcome::NOTE_HELD_BACK : ResponseOutcome::NOTE_NOTHING_TO_DO, $ref);
 		}
 		return ResponseOutcome::done($ref);
 	}
@@ -105,6 +120,9 @@ class BanHandler implements IResponseHandler, IDescribesAction {
 		if ($more > 0) {
 			$sentences[] = $l->n('%n more address was blocked.', '%n more addresses were blocked.', $more);
 		}
+		if ((int)($counts['lure'] ?? 0) > 0) {
+			$sentences[] = $l->t('The address of the request was not blocked: a browser made it for another website or an email, for example to show an image. Anyone can cause such a request, so it is only recorded.');
+		}
 		if ((int)($counts['skipped'] ?? 0) > 0) {
 			$sentences[] = $l->n(
 				'%n address was not blocked: it is on the allowlist, is the server itself, or many people log in from it.',
@@ -113,6 +131,13 @@ class BanHandler implements IResponseHandler, IDescribesAction {
 			);
 		}
 		return $sentences;
+	}
+
+	/**
+	 * The address of the current request when the request is a possible lure.
+	 */
+	private function lureFrom(): ?SourceKey {
+		return FetchMetadata::isLure($this->request) ? $this->addresses->current() : null;
 	}
 
 	private function reportShared(DetectionDraft $draft, SourceKey $target, int $users): void {

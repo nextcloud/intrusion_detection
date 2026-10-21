@@ -94,9 +94,11 @@ class TrapUrlGuard implements IRequestGuard {
 			$this->appConfig->getValueArray($app, Keys::param(TrapUrl::ID, 'paths'), []),
 			static fn (mixed $p): bool => is_string($p) && str_starts_with($p, '/'),
 		));
-		$trap = TrapPaths::match($path, true, $this->appConfig->getValueBool($app, Keys::param(TrapUrl::ID, 'autodiscover'), false), $custom);
+		$autodiscover = $this->appConfig->getValueBool($app, Keys::param(TrapUrl::ID, 'autodiscover'), false);
+		$trap = TrapPaths::match($path, true, $autodiscover, $custom);
 		if ($trap !== null && in_array($trap, TrapPaths::BUILTIN, true) && !$this->settings->paramBool(TrapUrl::ID, 'builtin_enabled')) {
-			return null;
+			// A custom path may cover a built-in one; it still counts while the built-in list is off.
+			return TrapPaths::match($path, false, $autodiscover, $custom);
 		}
 		return $trap;
 	}

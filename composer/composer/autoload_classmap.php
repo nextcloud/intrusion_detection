@@ -399,6 +399,7 @@ return array(
     'OCA\\IntrusionDetection\\Migration\\Version1000Date20261021130000' => $baseDir . '/../lib/Migration/Version1000Date20261021130000.php',
     'OCA\\IntrusionDetection\\Migration\\Version1000Date20261021150000' => $baseDir . '/../lib/Migration/Version1000Date20261021150000.php',
     'OCA\\IntrusionDetection\\Migration\\Version1000Date20261021170000' => $baseDir . '/../lib/Migration/Version1000Date20261021170000.php',
+    'OCA\\IntrusionDetection\\Net\\FetchMetadata' => $baseDir . '/../lib/Net/FetchMetadata.php',
     'OCA\\IntrusionDetection\\Net\\RangeCodec' => $baseDir . '/../lib/Net/RangeCodec.php',
     'OCA\\IntrusionDetection\\Net\\RemoteAddressResolver' => $baseDir . '/../lib/Net/RemoteAddressResolver.php',
     'OCA\\IntrusionDetection\\Net\\SourceKey' => $baseDir . '/../lib/Net/SourceKey.php',

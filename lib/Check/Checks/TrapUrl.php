@@ -67,7 +67,7 @@ final class TrapUrl implements ICheck, IExplainsDetection, ISimulatable, IValida
 				summary: $l->t('A visitor who is not logged in requests a path that no Nextcloud client ever requests.'),
 				detects: $l->t('Scanners look for weaknesses of other software, such as WordPress logins, leaked configuration files or database tools. Nextcloud has none of these, so anyone who asks for them is scanning your server.'),
 				decides: $l->t('Fires when a visitor who is not logged in requests one of the built-in trap paths (switched {builtin_enabled}), the Exchange autodiscover path (switched {autodiscover}), or one of your own paths: {paths}. Your own paths match exactly, or as a prefix when they end with "*".'),
-				wrong: $l->t('Logged-in users and clients that send credentials are never checked. A browser extension or a monitoring tool that probes such paths could trip it; put its address on the brute-force allowlist. Many of these paths never reach Nextcloud unless your web server forwards unknown paths to it.'),
+				wrong: $l->t('Logged-in users and clients that send credentials are never checked. A browser extension or a monitoring tool that probes such paths could trip it; put its address on the brute-force allowlist. Many of these paths never reach Nextcloud unless your web server forwards unknown paths to it. A link or an image on another website or in an email can make a visitor\'s browser request such a path: those requests are recorded, but the address is not blocked.'),
 				data: $l->t('Detections: the address, the requested path (at most 200 characters), and the time.'),
 				params: [
 					'builtin_enabled' => new ParamText($l->t('Built-in trap paths'), $l->t('Paths of other software that scanners look for.')),

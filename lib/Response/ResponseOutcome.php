@@ -17,6 +17,8 @@ final class ResponseOutcome {
 	public const NOTE_UNAVAILABLE = 'unavailable';
 	public const NOTE_FAILED = 'failed';
 	public const NOTE_NOTHING_TO_DO = 'nothing_to_do';
+	/** Deliberately not done; the handler's description says why */
+	public const NOTE_HELD_BACK = 'held_back';
 
 	public function __construct(
 		public readonly bool $enforced,

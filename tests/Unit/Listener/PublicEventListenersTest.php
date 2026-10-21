@@ -29,6 +29,7 @@ use OCP\Authentication\Token\IToken;
 use OCP\IRequest;
 use OCP\IUser;
 use OCP\IUserManager;
+use OCP\IUserSession;
 use OCP\Security\Events\PasswordResetRequestedEvent;
 use OCP\Share\Events\ShareLinkAccessFailedEvent;
 use OCP\Share\IShare;
@@ -89,6 +90,24 @@ class PublicEventListenersTest extends TestCase {
 		$detector = $this->createMock(ShareBruteforceDetector::class);
 		$detector->expects($this->once())->method('unknownToken')->with($attempt);
 		$this->shareListener($detector)->handle(new ShareLinkAccessFailedEvent(self::TOKEN, null, ShareLinkAccessFailedEvent::REASON_NOT_FOUND));
+	}
+
+	public function testUnknownLinksOfLoggedInUsersAreIgnored(): void {
+		$this->mode(Mode::Protect);
+		$this->recorder->expects($this->never())->method($this->anything());
+		$detector = $this->createMock(ShareBruteforceDetector::class);
+		$detector->expects($this->never())->method('unknownToken');
+		$this->shareListener($detector, loggedIn: true)->handle(new ShareLinkAccessFailedEvent(self::TOKEN, null, ShareLinkAccessFailedEvent::REASON_NOT_FOUND));
+	}
+
+	public function testAWrongPasswordOfALoggedInUserStillCounts(): void {
+		$this->mode(Mode::Protect);
+		$share = $this->createMock(IShare::class);
+		$share->method('getId')->willReturn('42');
+		$this->recorder->expects($this->once())->method('record')->willReturn($this->attempt(AttemptKind::WrongSharePassword));
+		$detector = $this->createMock(ShareBruteforceDetector::class);
+		$detector->expects($this->once())->method('wrongPassword');
+		$this->shareListener($detector, loggedIn: true)->handle(new ShareLinkAccessFailedEvent(self::TOKEN, $share, ShareLinkAccessFailedEvent::REASON_WRONG_PASSWORD));
 	}
 
 	public function testAWrongPasswordIsCountedPerShare(): void {
@@ -163,8 +182,10 @@ class PublicEventListenersTest extends TestCase {
 		return new AttemptRecord($kind, SourceKey::fromIp('198.51.100.7'), null, null, null, null, [], time(), true);
 	}
 
-	private function shareListener(ShareBruteforceDetector $detector): ShareAccessFailedListener {
-		return new ShareAccessFailedListener($this->settings, $this->addresses, $this->recorder, $detector, $this->createMock(IRequest::class), $this->logger);
+	private function shareListener(ShareBruteforceDetector $detector, bool $loggedIn = false): ShareAccessFailedListener {
+		$session = $this->createMock(IUserSession::class);
+		$session->method('isLoggedIn')->willReturn($loggedIn);
+		return new ShareAccessFailedListener($this->settings, $this->addresses, $this->recorder, $detector, $this->createMock(IRequest::class), $session, $this->logger);
 	}
 
 	private function resetListener(ResetProbingDetector $detector, ResetMailSuppressor $suppressor, ?string $existingUid = null): ResetRequestedListener {

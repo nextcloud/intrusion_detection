@@ -124,7 +124,7 @@ class NarrativeBuilder {
 				continue;
 			}
 			$handler = $handlers[$type->value] ?? null;
-			$described = $action['enforced'] && $handler instanceof IDescribesAction ? $handler->describeAction($action, $l, $this->dates) : [];
+			$described = ($action['enforced'] || $note === ResponseOutcome::NOTE_HELD_BACK) && $handler instanceof IDescribesAction ? $handler->describeAction($action, $l, $this->dates) : [];
 			if ($described !== []) {
 				array_push($sentences, ...$described);
 			} elseif ($action['enforced']) {

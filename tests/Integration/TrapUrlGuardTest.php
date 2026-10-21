@@ -10,6 +10,8 @@ declare(strict_types=1);
 namespace OCA\IntrusionDetection\Tests\Integration;
 
 use OCA\IntrusionDetection\Address\AddressResolver;
+use OCA\IntrusionDetection\Audit\AuditLogger;
+use OCA\IntrusionDetection\Check\CheckRegistry;
 use OCA\IntrusionDetection\Check\Checks\TrapUrl;
 use OCA\IntrusionDetection\Check\InvalidParamException;
 use OCA\IntrusionDetection\Check\Mode;
@@ -17,10 +19,15 @@ use OCA\IntrusionDetection\Config\Settings;
 use OCA\IntrusionDetection\Db\BanMapper;
 use OCA\IntrusionDetection\Db\DetectionFilter;
 use OCA\IntrusionDetection\Db\DetectionMapper;
+use OCA\IntrusionDetection\Detection\DetectionService;
+use OCA\IntrusionDetection\Event\TypedEvents;
 use OCA\IntrusionDetection\Guard\TrapUrlGuard;
 use OCA\IntrusionDetection\Net\RemoteAddressResolver;
 use OCA\IntrusionDetection\Perf\GuardTimer;
+use OCA\IntrusionDetection\Response\BanService;
+use OCA\IntrusionDetection\Response\Handlers\BanHandler;
 use OCA\IntrusionDetection\Response\ResponseEngine;
+use OCA\IntrusionDetection\Response\ResponseOutcome;
 use OCP\AppFramework\Utility\ITimeFactory;
 use OCP\IAppConfig;
 use OCP\IConfig;
@@ -29,6 +36,7 @@ use OCP\Security\Bruteforce\IThrottler;
 use OCP\Server;
 use PHPUnit\Framework\Attributes\Group;
 use Psr\Container\ContainerInterface;
+use Psr\Log\LoggerInterface;
 
 #[Group('DB')]
 class TrapUrlGuardTest extends IntegrationTestCase {
@@ -100,6 +108,29 @@ class TrapUrlGuardTest extends IntegrationTestCase {
 		$this->assertSame(0, $this->detections->count(new DetectionFilter()));
 	}
 
+	public function testACustomPathCoveringABuiltInOneStillFiresWithTheBuiltInListOff(): void {
+		$this->settings->setParam(TrapUrl::ID, 'builtin_enabled', false);
+		$this->settings->setParam(TrapUrl::ID, 'paths', ['/wp-login.php']);
+		$this->assertNotNull($this->guard()->check($this->request('/wp-login.php')));
+		$detection = $this->detections->findList(new DetectionFilter(checkIds: [TrapUrl::ID]))[0];
+		$this->assertSame('/wp-login.php', $detection->getExplanationData()['facts']['trap']);
+		$this->assertNull($this->guard()->check($this->request('/.env', ip: '198.51.100.8')), 'Other built-in paths stay off');
+	}
+
+	public function testALureFromAnotherSiteIsRecordedButNotBlocked(): void {
+		$headers = ['Sec-Fetch-Site' => 'cross-site', 'Sec-Fetch-Mode' => 'no-cors', 'Sec-Fetch-Dest' => 'image'];
+		$request = $this->request('/.env', headers: $headers);
+		$this->assertNull($this->guard(request: $request)->check($request));
+		$this->assertSame(0, Server::get(BanMapper::class)->countActive(time()));
+		$detection = $this->detections->findList(new DetectionFilter(checkIds: [TrapUrl::ID]))[0];
+		$this->assertTrue($detection->isEnforced());
+		$this->assertSame(ResponseOutcome::NOTE_HELD_BACK, $detection->getActionList()[0]['note']);
+
+		// The same address without fetch metadata, as a scanner sends it, is blocked.
+		$scanner = $this->request('/.git/config');
+		$this->assertNotNull($this->guard(request: $scanner)->check($scanner));
+	}
+
 	public function testOffAndTheMasterSwitchSkipTheCheck(): void {
 		$this->settings->setMode(TrapUrl::ID, Mode::Off);
 		$this->assertNull($this->guard()->check($this->request('/wp-login.php')));
@@ -118,22 +149,39 @@ class TrapUrlGuardTest extends IntegrationTestCase {
 		$this->assertNotNull($this->guard()->check($this->request('/nextcloud/index.php/.env', script: '/nextcloud/index.php')));
 	}
 
-	private function guard(?ContainerInterface $container = null): TrapUrlGuard {
+	/**
+	 * @param ?IRequest $request the request the responses see, when they read it
+	 */
+	private function guard(?ContainerInterface $container = null, ?IRequest $request = null): TrapUrlGuard {
 		return new TrapUrlGuard(
 			Server::get(IConfig::class),
 			Server::get(IAppConfig::class),
 			$this->settings,
 			new RemoteAddressResolver($this->createMock(IRequest::class), Server::get(IThrottler::class)),
 			Server::get(ITimeFactory::class),
-			$container ?? $this->container(),
+			$container ?? $this->container($request),
 			Server::get(GuardTimer::class),
 		);
 	}
 
-	private function container(): ContainerInterface {
+	private function container(?IRequest $request): ContainerInterface {
+		$engine = $request === null ? Server::get(ResponseEngine::class) : new ResponseEngine(
+			Server::get(CheckRegistry::class),
+			$this->settings,
+			Server::get(DetectionService::class),
+			new OverridingContainer([BanHandler::class => new BanHandler(
+				Server::get(BanService::class),
+				Server::get(ContainerInterface::class),
+				$request,
+				new RemoteAddressResolver($request, Server::get(IThrottler::class)),
+			)]),
+			Server::get(TypedEvents::class),
+			Server::get(AuditLogger::class),
+			Server::get(LoggerInterface::class),
+		);
 		$container = $this->createMock(ContainerInterface::class);
 		$container->method('get')->willReturnCallback(static fn (string $id): object => match ($id) {
-			ResponseEngine::class => Server::get(ResponseEngine::class),
+			ResponseEngine::class => $engine,
 			AddressResolver::class => Server::get(AddressResolver::class),
 		});
 		return $container;

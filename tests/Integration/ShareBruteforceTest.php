@@ -75,6 +75,7 @@ class ShareBruteforceTest extends RequestEventTestCase {
 			Server::get(AttemptRecorder::class),
 			Server::get(ShareBruteforceDetector::class),
 			$this->request,
+			Server::get(IUserSession::class),
 			Server::get(LoggerInterface::class),
 		));
 	}

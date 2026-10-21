@@ -318,6 +318,24 @@ class PayloadGuardTest extends IntegrationTestCase {
 		$this->assertFalse($detection->isEnforced());
 	}
 
+	public function testAHitDecidedAtTheLoginIsRefusedBeforeTheController(): void {
+		$this->settings->setParam(InjectionProbe::ID, InjectionProbe::PARAM_AUTHENTICATED_MODE, 'protect');
+		$this->decide('/ocs/v2.php/apps/foo?id=1%20UNION%20SELECT%201', '/ocs/v2.php', [], [], ['Authorization' => 'Basic ' . base64_encode('bob:app-password')]);
+		(new PayloadLoginListener($this->context, $this->container(), Server::get(LoggerInterface::class)))
+			->handle(new UserLoggedInEvent($this->user('bob'), 'bob', null, false));
+		$this->assertTrue($this->onlyDetection()->isEnforced());
+
+		$middleware = new PayloadMiddleware($this->context, $this->container(), Server::get(LoggerInterface::class));
+		try {
+			$middleware->beforeController($this->createMock(Controller::class), 'index');
+			$this->fail('The controller must not run');
+		} catch (PayloadBlockedException $e) {
+			$ban = Server::get(BanMapper::class)->findActiveForKeys([self::IP], time())[0];
+			$this->assertSame($ban->getDisplayReference(), $e->decision->getReference());
+		}
+		$this->assertCount(1, $this->detections(), 'The middleware does not record the hit again');
+	}
+
 	public function testBearerAndRememberMeCountAsCredentials(): void {
 		$this->decide('/ocs/v2.php/x?id=1%20UNION%20SELECT%201', '/ocs/v2.php', [], [], ['Authorization' => 'Bearer abc']);
 		$this->assertSame(PendingHit::CREDENTIAL_BEARER, $this->context->get(PayloadResponder::CONTEXT_KEY)->credential);
