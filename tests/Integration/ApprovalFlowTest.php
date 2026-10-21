@@ -21,6 +21,7 @@ use OCA\IntrusionDetection\Config\GlobalSettings;
 use OCA\IntrusionDetection\Config\Settings;
 use OCA\IntrusionDetection\Db\Approval;
 use OCA\IntrusionDetection\Db\ApprovalMapper;
+use OCA\IntrusionDetection\Notification\AdminAlerts;
 use OCA\IntrusionDetection\Notification\Notifier;
 use OCP\Group\Events\UserAddedEvent;
 use OCP\IGroup;
@@ -62,6 +63,7 @@ class ApprovalFlowTest extends AdminChangeTestCase {
 		$this->assertSame(Severity::High->value, $detection->getSeverity());
 		$this->assertTrue($facts['reverted']);
 		$this->assertSame($approval->getId(), $facts['approval']);
+		$this->assertSame([], $this->notificationsWithSubject(AdminAlerts::SUBJECT), 'The approval request is the only notification');
 
 		$asked = $this->notificationsWithSubject(Notifier::SUBJECT_APPROVAL_REQUESTED);
 		$askedUsers = array_map(static fn (INotification $n): string => $n->getUser(), $asked);
@@ -105,6 +107,7 @@ class ApprovalFlowTest extends AdminChangeTestCase {
 		$this->assertNull($mapper->findPending(Approval::KIND_ADMIN_GRANT, $this->bob, 'admin'));
 		[$detection] = $this->adminChanges();
 		$this->assertArrayNotHasKey('approval', $this->facts($detection));
+		$this->assertNotSame([], $this->notificationsWithSubject(AdminAlerts::SUBJECT), 'Without a request the administrators are alerted');
 		$this->assertStringContainsString('Too many requests are already waiting', implode(' ', Server::get(\OCA\IntrusionDetection\Explain\NarrativeBuilder::class)->build($detection, Server::get(\OCP\L10N\IFactory::class)->get(Application::APP_ID, 'en'))->happened));
 	}
 
@@ -267,6 +270,7 @@ class ApprovalFlowTest extends AdminChangeTestCase {
 		[$detection] = $this->adminChanges();
 		$this->assertTrue($this->facts($detection)['revert_failed']);
 		$this->assertSame(Severity::High->value, $detection->getSeverity());
+		$this->assertNotSame([], $this->notificationsWithSubject(AdminAlerts::SUBJECT));
 	}
 
 	public function testApprovalAppliesDuringLearningMode(): void {

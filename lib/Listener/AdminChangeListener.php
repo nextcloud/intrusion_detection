@@ -123,7 +123,11 @@ class AdminChangeListener implements IEventListener {
 	}
 
 	/**
-	 * Take the new member out again and ask a second administrator.
+	 * Take the new member out again and ask a second administrator. A stored
+	 * request is recorded without an alert: the approvers already have its
+	 * notification with Approve and Reject, which goes away with the
+	 * decision. Without a request (too many pending, or the revert failed)
+	 * the administrators are alerted as usual.
 	 */
 	private function holdForApproval(IGroup $group, IUser $user, string $actor): void {
 		$uid = $user->getUID();
@@ -146,7 +150,7 @@ class AdminChangeListener implements IEventListener {
 				$facts['expires_at'] = $approval->getExpiresAt();
 			}
 		}
-		$this->detector->record(AdminChange::KIND_GRANT_REQUESTED, Severity::High, $actor, $uid, $facts, AdminChange::KIND_GRANT_REQUESTED . ':' . $gid);
+		$this->detector->record(AdminChange::KIND_GRANT_REQUESTED, Severity::High, $actor, $uid, $facts, AdminChange::KIND_GRANT_REQUESTED . ':' . $gid, responses: isset($facts['approval']) ? [] : null);
 	}
 
 	private function userRemoved(IGroup $group, IUser $user): void {
