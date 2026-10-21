@@ -18,7 +18,9 @@ use OCA\IntrusionDetection\Check\Mode;
 use OCA\IntrusionDetection\Check\ParamDefinition;
 use OCA\IntrusionDetection\Check\ParamType;
 use OCA\IntrusionDetection\Check\ResponseType;
+use OCA\IntrusionDetection\Event\SettingChangedEvent;
 use OCP\AppFramework\Utility\ITimeFactory;
+use OCP\EventDispatcher\IEventDispatcher;
 use OCP\IAppConfig;
 
 /**
@@ -26,7 +28,9 @@ use OCP\IAppConfig;
  *
  * Reads never throw: a stored value that no longer validates (for example
  * after a definition's range changed) falls back to the default. Writes
- * validate and throw {@see InvalidParamException}.
+ * validate and throw {@see InvalidParamException}. Every write of a setting
+ * that is not internal state dispatches a {@see SettingChangedEvent} when the
+ * effective value changed.
  */
 class Settings {
 	public function __construct(
@@ -35,6 +39,7 @@ class Settings {
 		private readonly ITimeFactory $timeFactory,
 		private readonly Prerequisites $prerequisites,
 		private readonly GlobalSettings $globals,
+		private readonly IEventDispatcher $dispatcher,
 	) {
 	}
 
@@ -96,7 +101,9 @@ class Settings {
 				}
 			}
 		}
+		$old = $this->configuredMode($checkId);
 		$this->appConfig->setValueString(Application::APP_ID, Keys::mode($checkId), $mode->value);
+		$this->changed(Keys::mode($checkId), $old->value, $mode->value);
 	}
 
 	/**
@@ -148,12 +155,16 @@ class Settings {
 		if ($check instanceof IValidatesParams) {
 			$value = $definition->validate($check->validateParam($name, $value), true);
 		}
+		$old = $this->param($checkId, $name);
 		$this->write(Keys::param($checkId, $name), $definition, $value);
+		$this->changed(Keys::param($checkId, $name), $old, $this->param($checkId, $name));
 	}
 
 	public function resetParam(string $checkId, string $name): void {
 		$this->registry->get($checkId)->param($name);
+		$old = $this->param($checkId, $name);
 		$this->appConfig->deleteKey(Application::APP_ID, Keys::param($checkId, $name));
+		$this->changed(Keys::param($checkId, $name), $old, $this->param($checkId, $name));
 	}
 
 	/**
@@ -191,7 +202,16 @@ class Settings {
 			}
 			$values[] = $response->value;
 		}
+		$old = $this->responseValues($checkId);
 		$this->appConfig->setValueArray(Application::APP_ID, Keys::responses($checkId), array_values(array_unique($values)));
+		$this->changed(Keys::responses($checkId), $old, $this->responseValues($checkId));
+	}
+
+	/**
+	 * @return list<string>
+	 */
+	private function responseValues(string $checkId): array {
+		return array_map(static fn (ResponseType $r): string => $r->value, $this->responses($checkId));
 	}
 
 	/**
@@ -199,10 +219,18 @@ class Settings {
 	 */
 	public function resetCheck(string $checkId): void {
 		$check = $this->registry->get($checkId);
+		$oldMode = $this->configuredMode($checkId)->value;
+		$oldResponses = $this->responseValues($checkId);
+		$oldParams = $this->params($checkId);
 		$this->appConfig->deleteKey(Application::APP_ID, Keys::mode($checkId));
 		$this->appConfig->deleteKey(Application::APP_ID, Keys::responses($checkId));
 		foreach ($check->params as $param) {
 			$this->appConfig->deleteKey(Application::APP_ID, Keys::param($checkId, $param->name));
+		}
+		$this->changed(Keys::mode($checkId), $oldMode, $this->configuredMode($checkId)->value);
+		$this->changed(Keys::responses($checkId), $oldResponses, $this->responseValues($checkId));
+		foreach ($this->params($checkId) as $name => $value) {
+			$this->changed(Keys::param($checkId, $name), $oldParams[$name], $value);
 		}
 	}
 
@@ -237,7 +265,21 @@ class Settings {
 	 */
 	public function setGlobal(string $name, mixed $value): void {
 		$definition = $this->globals->get($name) ?? throw new InvalidParamException('unknown_param', ['param' => $name]);
-		$this->write($name, $definition, $definition->validate($value, true));
+		$value = $definition->validate($value, true);
+		if (GlobalSettings::isInternal($name)) {
+			$this->write($name, $definition, $value);
+			return;
+		}
+		$owner = GlobalSettings::validatedBy($name);
+		if ($owner !== null) {
+			$check = $this->registry->check($owner);
+			if ($check instanceof IValidatesParams) {
+				$value = $definition->validate($check->validateParam($name, $value), true);
+			}
+		}
+		$old = $this->global($name);
+		$this->write($name, $definition, $value);
+		$this->changed($name, $old, $this->global($name));
 	}
 
 	/**
@@ -270,6 +312,16 @@ class Settings {
 			$values = array_merge($values, $this->params($checkId));
 		}
 		return $values;
+	}
+
+	/**
+	 * @param int|float|bool|string|list<string> $old
+	 * @param int|float|bool|string|list<string> $new
+	 */
+	private function changed(string $key, int|float|bool|string|array $old, int|float|bool|string|array $new): void {
+		if ($old !== $new) {
+			$this->dispatcher->dispatchTyped(new SettingChangedEvent($key, $old, $new));
+		}
 	}
 
 	private function actsWhileLearning(CheckDefinition $check): bool {

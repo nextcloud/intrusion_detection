@@ -17,6 +17,7 @@ use OCA\IntrusionDetection\Config\GlobalSettings;
 use OCA\IntrusionDetection\Config\Settings;
 use OCA\IntrusionDetection\Db\AlertMapper;
 use OCA\IntrusionDetection\Db\Detection;
+use OCA\IntrusionDetection\Explain\IHeadlinesDetection;
 use OCA\IntrusionDetection\Explain\NarrativeBuilder;
 use OCP\AppFramework\Utility\ITimeFactory;
 use OCP\IL10N;
@@ -33,12 +34,20 @@ use OCP\Notification\IManager as INotificationManager;
  * - Email: only for detections of at least `notify_admin_email_min_severity`,
  *   and at most one per check and hour. Admins without an email address get
  *   the bell only.
+ *
+ * A detection with the fact {@see self::FACT_ALERT_KEY} is aggregated per
+ * check and that key (bell and email), so that different kinds of changes
+ * are each told.
  */
 class AdminAlerts {
 	public const SUBJECT = 'detection';
 	public const OBJECT_TYPE = 'alert';
 	/** Counter source key for the email limit, which is per check only */
 	public const MAIL_KEY = '@mail';
+	/** Detection fact: aggregate by this key instead of the source, for checks that report changes rather than attacks */
+	public const FACT_ALERT_KEY = 'alert_key';
+	/** Detection fact: also notify the members of the admin group, whatever notify_admin_group says */
+	public const FACT_ALL_ADMINS = 'alert_all_admins';
 
 	public const BELL_SENT = 'sent';
 	public const BELL_AGGREGATED = 'aggregated';
@@ -69,7 +78,7 @@ class AdminAlerts {
 		$bucket = intdiv($now, 3600);
 		$checkId = $detection->getCheckId();
 		[$alertId, $first] = $this->alerts->hit($checkId, self::sourceKey($detection), $bucket, $detection->getId(), $now);
-		$recipients = $this->recipients->users();
+		$recipients = $this->recipients->users(($detection->getExplanationData()['facts'][self::FACT_ALL_ADMINS] ?? false) === true);
 
 		if ($first) {
 			foreach ($recipients as $user) {
@@ -100,6 +109,10 @@ class AdminAlerts {
 	 * "Credential stuffing from 203.0.113.7", "One account attacked from many places: alice".
 	 */
 	public function headline(Detection $detection, IL10N $l): string {
+		$custom = $this->customHeadline($detection, $l);
+		if ($custom !== null) {
+			return $custom;
+		}
 		$name = $this->checkName($detection->getCheckId(), $l);
 		if ($detection->getIp() !== null) {
 			return $l->t('%1$s from %2$s', [$name, $detection->getIp()]);
@@ -108,6 +121,18 @@ class AdminAlerts {
 			return $l->t('%1$s: account %2$s', [$name, $detection->getUid()]);
 		}
 		return $name;
+	}
+
+	/**
+	 * The headline the detection's check gives it, if it names its detections itself.
+	 */
+	public function customHeadline(Detection $detection, IL10N $l): ?string {
+		try {
+			$check = $this->registry->check($this->registry->classOf($detection->getCheckId()));
+		} catch (InvalidParamException) {
+			return null;
+		}
+		return $check instanceof IHeadlinesDetection ? $check->headline($detection, $l) : null;
 	}
 
 	public function checkName(string $checkId, IL10N $l): string {
@@ -123,6 +148,10 @@ class AdminAlerts {
 	 * else the whole server.
 	 */
 	public static function sourceKey(Detection $detection): string {
+		$alertKey = self::alertKey($detection);
+		if ($alertKey !== null) {
+			return $alertKey;
+		}
 		if ($detection->getIp() !== null) {
 			return 'ip:' . $detection->getIp();
 		}
@@ -130,6 +159,15 @@ class AdminAlerts {
 			return 'u:' . $detection->getUid();
 		}
 		return 'instance';
+	}
+
+	/**
+	 * "k:" and a hash of the detection's alert key, short enough for the
+	 * counter table whatever the key is; null without one.
+	 */
+	private static function alertKey(Detection $detection): ?string {
+		$key = $detection->getExplanationData()['facts'][self::FACT_ALERT_KEY] ?? null;
+		return is_string($key) && $key !== '' ? 'k:' . substr(hash('sha256', $key), 0, 40) : null;
 	}
 
 	/**
@@ -145,7 +183,9 @@ class AdminAlerts {
 		if ($withAddress === []) {
 			return self::EMAIL_NO_ADDRESS;
 		}
-		[, $first] = $this->alerts->hit($detection->getCheckId(), self::MAIL_KEY, $bucket, $detection->getId(), $now);
+		$mailKey = self::alertKey($detection);
+		$mailKey = $mailKey === null ? self::MAIL_KEY : self::MAIL_KEY . ':' . $mailKey;
+		[, $first] = $this->alerts->hit($detection->getCheckId(), $mailKey, $bucket, $detection->getId(), $now);
 		if (!$first) {
 			return self::EMAIL_LIMITED;
 		}

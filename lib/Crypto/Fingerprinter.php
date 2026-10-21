@@ -111,6 +111,15 @@ class Fingerprinter {
 		return hash_hmac('sha256', $deviceId, $this->key('device'), true);
 	}
 
+	/**
+	 * 64 hex characters: a keyed hash of a watched setting's value, so the
+	 * snapshot can tell a change without holding the value, and a stored hash
+	 * of a secret cannot be tested against guesses without config.php.
+	 */
+	public function setting(#[\SensitiveParameter] string $value): string {
+		return hash_hmac('sha256', $value, $this->key('setting'));
+	}
+
 	private function passwordForDay(string $password, string $day): string {
 		return substr(hash_hmac('sha256', $password, $this->key('password/' . $day), true), 0, 16);
 	}

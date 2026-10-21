@@ -14,9 +14,11 @@ use OCA\IntrusionDetection\Config\Lexicon;
 use OCA\IntrusionDetection\Dashboard\IntrusionWidget;
 use OCA\IntrusionDetection\Event\BanCreatedEvent;
 use OCA\IntrusionDetection\Event\BanLiftedEvent;
+use OCA\IntrusionDetection\Event\SettingChangedEvent;
 use OCA\IntrusionDetection\Guard\AddressGuard;
 use OCA\IntrusionDetection\Guard\PayloadGuard;
 use OCA\IntrusionDetection\Guard\TrapUrlGuard;
+use OCA\IntrusionDetection\Listener\AdminChangeListener;
 use OCA\IntrusionDetection\Listener\AppPasswordCreatedListener;
 use OCA\IntrusionDetection\Listener\BlocklistLoginListener;
 use OCA\IntrusionDetection\Listener\BreachedPasswordListener;
@@ -37,9 +39,13 @@ use OCA\IntrusionDetection\Middleware\PayloadMiddleware;
 use OCA\IntrusionDetection\Middleware\SessionStateMiddleware;
 use OCA\IntrusionDetection\Notification\Notifier;
 use OCA\IntrusionDetection\Notification\ShareOwnerNotifier;
+use OCA\IntrusionDetection\SetupCheck\AdminContactCheck;
+use OCA\IntrusionDetection\SetupCheck\ApprovalCheck;
 use OCA\IntrusionDetection\SetupCheck\BlocklistSyncCheck;
 use OCA\IntrusionDetection\TrustedNetwork\ITrustedNetworks;
 use OCA\IntrusionDetection\TrustedNetwork\NullTrustedNetworks;
+use OCP\App\Events\AppDisableEvent;
+use OCP\App\Events\AppEnableEvent;
 use OCP\AppFramework\App;
 use OCP\AppFramework\Bootstrap\IBootContext;
 use OCP\AppFramework\Bootstrap\IBootstrap;
@@ -48,9 +54,13 @@ use OCP\Authentication\Events\AnyLoginFailedEvent;
 use OCP\Authentication\Events\AppPasswordCreatedEvent;
 use OCP\Authentication\Events\LoginFlowV2GrantedEvent;
 use OCP\Authentication\TwoFactorAuth\TwoFactorProviderChallengeFailed;
+use OCP\Group\Events\SubAdminAddedEvent;
+use OCP\Group\Events\UserAddedEvent;
+use OCP\Group\Events\UserRemovedEvent;
 use OCP\Security\Events\PasswordResetRequestedEvent;
 use OCP\Share\Events\ShareLinkAccessFailedEvent;
 use OCP\User\Events\PasswordUpdatedEvent;
+use OCP\User\Events\UserCreatedEvent;
 use OCP\User\Events\UserDeletedEvent;
 use OCP\User\Events\UserLoggedInEvent;
 use OCP\User\Events\UserLoggedInWithCookieEvent;
@@ -98,6 +108,11 @@ class Application extends App implements IBootstrap {
 		$context->registerEventListener(SabrePluginAddEvent::class, SabrePluginAddListener::class);
 		// Global, so that it covers every app's controllers; it runs after core's two-factor middleware.
 		$context->registerMiddleware(SessionStateMiddleware::class, true);
+		foreach ([UserAddedEvent::class, UserRemovedEvent::class, SubAdminAddedEvent::class, UserCreatedEvent::class, AppEnableEvent::class, AppDisableEvent::class, SettingChangedEvent::class] as $event) {
+			$context->registerEventListener($event, AdminChangeListener::class, AdminChangeListener::PRIORITY);
+		}
+		$context->registerSetupCheck(AdminContactCheck::class);
+		$context->registerSetupCheck(ApprovalCheck::class);
 	}
 
 	#[\Override]

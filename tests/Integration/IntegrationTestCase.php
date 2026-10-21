@@ -10,7 +10,10 @@ declare(strict_types=1);
 namespace OCA\IntrusionDetection\Tests\Integration;
 
 use OCA\IntrusionDetection\AppInfo\Application;
+use OCA\IntrusionDetection\Check\Checks\AdminChange;
+use OCA\IntrusionDetection\Check\Mode;
 use OCA\IntrusionDetection\Config\GlobalSettings;
+use OCA\IntrusionDetection\Config\Keys;
 use OCP\IAppConfig;
 use OCP\IDBConnection;
 use OCP\Server;
@@ -19,10 +22,13 @@ use Test\TestCase;
 /**
  * Runs against the real database, with every table of the app emptied and
  * the app's settings back at their defaults (learning mode off).
+ *
+ * The admin change check is switched off, as it would report every setting
+ * the tests change; its own tests switch it on.
  */
 abstract class IntegrationTestCase extends TestCase {
 	/** Tables emptied before and after each test */
-	public const TABLES = ['ids_attempts', 'ids_logins', 'ids_detections', 'ids_bans', 'ids_flags', 'ids_blocklist_ranges', 'ids_blocklist_stats', 'ids_protected_accounts', 'ids_alerts', 'ids_decoys', 'ids_reset_suppressions', 'ids_token_origin'];
+	public const TABLES = ['ids_attempts', 'ids_logins', 'ids_detections', 'ids_bans', 'ids_flags', 'ids_blocklist_ranges', 'ids_blocklist_stats', 'ids_protected_accounts', 'ids_alerts', 'ids_decoys', 'ids_reset_suppressions', 'ids_token_origin', 'ids_approvals', 'ids_config_snapshot'];
 
 	protected IDBConnection $db;
 	protected IAppConfig $appConfig;
@@ -33,6 +39,7 @@ abstract class IntegrationTestCase extends TestCase {
 		$this->appConfig = Server::get(IAppConfig::class);
 		$this->reset();
 		$this->appConfig->setValueInt(Application::APP_ID, GlobalSettings::LEARNING_UNTIL, 0);
+		$this->appConfig->setValueString(Application::APP_ID, Keys::mode(AdminChange::ID), Mode::Off->value);
 	}
 
 	protected function tearDown(): void {

@@ -30,6 +30,10 @@ class AdminLinks {
 		return $this->adminPage() . '#detection-' . $id;
 	}
 
+	public function approval(int $id): string {
+		return $this->adminPage() . '#approval-' . $id;
+	}
+
 	public function icon(): string {
 		return $this->urlGenerator->getAbsoluteURL($this->urlGenerator->imagePath(Application::APP_ID, 'app-dark.svg'));
 	}

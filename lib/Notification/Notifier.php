@@ -10,9 +10,13 @@ declare(strict_types=1);
 namespace OCA\IntrusionDetection\Notification;
 
 use OCA\IntrusionDetection\AppInfo\Application;
+use OCA\IntrusionDetection\Check\Checks\AdminChange;
 use OCA\IntrusionDetection\Db\AlertMapper;
+use OCA\IntrusionDetection\Db\Approval;
+use OCA\IntrusionDetection\Db\ApprovalMapper;
 use OCA\IntrusionDetection\Db\Detection;
 use OCA\IntrusionDetection\Db\DetectionMapper;
+use OCA\IntrusionDetection\Explain\DateFormatter;
 use OCA\IntrusionDetection\Explain\NarrativeBuilder;
 use OCP\AppFramework\Db\DoesNotExistException;
 use OCP\IL10N;
@@ -33,9 +37,17 @@ use OCP\Notification\UnknownNotificationException;
 class Notifier implements INotifier {
 	public const SUBJECT_LEARNING_ENDS = 'learning_ends';
 	public const SUBJECT_PROTECTION_STARTED = 'protection_started';
+	/** To the administrators who may decide on a request for approval */
+	public const SUBJECT_APPROVAL_REQUESTED = 'approval_requested';
+	/** To the administrator who asked, while the request waits */
+	public const SUBJECT_APPROVAL_PENDING = 'approval_pending';
+	/** To the administrator who asked, once the request was decided or expired */
+	public const SUBJECT_APPROVAL_DECIDED = 'approval_decided';
 
 	public const ACTION_PROTECT = 'protect';
 	public const ACTION_EXTEND = 'extend';
+	public const ACTION_APPROVE = 'approve';
+	public const ACTION_REJECT = 'reject';
 
 	public function __construct(
 		private readonly IFactory $l10nFactory,
@@ -47,6 +59,8 @@ class Notifier implements INotifier {
 		private readonly UserMessages $userMessages,
 		private readonly UserLinks $userLinks,
 		private readonly IUserManager $userManager,
+		private readonly ApprovalMapper $approvals,
+		private readonly DateFormatter $dates,
 	) {
 	}
 
@@ -74,6 +88,7 @@ class Notifier implements INotifier {
 			UserAlerts::SUBJECT => $this->prepareUserDetection($notification, $languageCode),
 			AdminNotices::SUBJECT_USER_UNREACHABLE => $this->prepareUserUnreachable($notification, $l, $languageCode),
 			AdminNotices::SUBJECT_PASSWORD_EXTERNAL => $this->preparePasswordExternal($notification, $l),
+			self::SUBJECT_APPROVAL_REQUESTED, self::SUBJECT_APPROVAL_PENDING, self::SUBJECT_APPROVAL_DECIDED => $this->prepareApproval($notification, $l),
 			default => throw new UnknownNotificationException(),
 		};
 	}
@@ -95,7 +110,11 @@ class Notifier implements INotifier {
 		$ip = $detection->getIp();
 		$uid = $detection->getUid();
 		$richParams = ['check' => ['type' => 'highlight', 'id' => $detection->getCheckId(), 'name' => $name]];
-		if ($ip !== null) {
+		if ($this->adminAlerts->customHeadline($detection, $l) !== null) {
+			// The check's own headline is plain text; the rich subject would not match it.
+			$richSubject = '';
+			$richParams = [];
+		} elseif ($ip !== null) {
 			$richSubject = $l->t('{check} from {address}');
 			$richParams['address'] = ['type' => 'highlight', 'id' => $ip, 'name' => $ip];
 		} elseif ($uid !== null) {
@@ -112,9 +131,11 @@ class Notifier implements INotifier {
 		}
 		$message[] = implode(' ', $narrative->done);
 
-		$notification->setParsedSubject($headline)
-			->setRichSubject($richSubject, $richParams)
-			->setParsedMessage(implode(' ', $message))
+		$notification->setParsedSubject($headline);
+		if ($richSubject !== '') {
+			$notification->setRichSubject($richSubject, $richParams);
+		}
+		$notification->setParsedMessage(implode(' ', $message))
 			->setLink($this->links->detection($detection->getId()));
 		return $notification;
 	}
@@ -146,6 +167,64 @@ class Notifier implements INotifier {
 				$notification->addParsedAction($action);
 			}
 		}
+		return $notification;
+	}
+
+	private function prepareApproval(INotification $notification, IL10N $l): INotification {
+		try {
+			$approval = $this->approvals->findById((int)($notification->getSubjectParameters()['approval'] ?? 0));
+		} catch (DoesNotExistException) {
+			throw new AlreadyProcessedException();
+		}
+		$subjectId = $notification->getSubject();
+		if ($subjectId !== self::SUBJECT_APPROVAL_DECIDED && !$approval->isPending()) {
+			// Decided in the meantime: nothing is left to do.
+			throw new AlreadyProcessedException();
+		}
+		$account = $approval->getSubjectUid();
+		$requester = AdminChange::actorName($approval->getRequestedBy(), $l);
+		$expires = $this->dates->dateTime($approval->getExpiresAt());
+
+		if ($subjectId === self::SUBJECT_APPROVAL_REQUESTED) {
+			$notification->setParsedSubject($l->t('%1$s asks to make %2$s an administrator', [$requester, $account]))
+				->setParsedMessage(implode(' ', [
+					$l->t('A second administrator must approve new administrators, so %s was not added yet.', [$account]),
+					$l->t('Approve only if you know about this change. If you did not expect it, reject it and check the account of the one who asked: it may have been taken over.'),
+					$l->t('The request expires at %s. Deciding needs your password.', [$expires]),
+				]));
+			foreach ($notification->getActions() as $action) {
+				$label = match ($action->getLabel()) {
+					self::ACTION_APPROVE => $l->t('Approve'),
+					self::ACTION_REJECT => $l->t('Reject'),
+					default => null,
+				};
+				if ($label !== null) {
+					$action->setParsedLabel($label);
+					$notification->addParsedAction($action);
+				}
+			}
+		} elseif ($subjectId === self::SUBJECT_APPROVAL_PENDING) {
+			$notification->setParsedSubject($l->t('%s is not an administrator yet', [$account]))
+				->setParsedMessage($l->t('A second administrator must approve new administrators, so %1$s was taken out of the admin group again. The other administrators were asked to approve; the request expires at %2$s.', [$account, $expires]));
+		} else {
+			$decider = AdminChange::actorName((string)$approval->getDecidedBy(), $l);
+			[$subject, $message] = match ($approval->getStatus()) {
+				Approval::STATUS_APPROVED => [
+					$l->t('%s is now an administrator', [$account]),
+					$l->t('%s approved your request.', [$decider]),
+				],
+				Approval::STATUS_REJECTED => [
+					$l->t('Your request to make %s an administrator was rejected', [$account]),
+					$l->t('%s rejected it. Nothing was changed.', [$decider]),
+				],
+				default => [
+					$l->t('Your request to make %s an administrator expired', [$account]),
+					$l->t('No other administrator approved it in time. Nothing was changed. Ask again if it is still needed.'),
+				],
+			};
+			$notification->setParsedSubject($subject)->setParsedMessage($message);
+		}
+		$notification->setLink($this->links->approval((int)$approval->getId()));
 		return $notification;
 	}
 

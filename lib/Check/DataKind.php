@@ -29,4 +29,6 @@ enum DataKind: string {
 	case CacheCounters = 'cache_counters';
 	/** Small per-account values, such as when the password was last checked against breach lists */
 	case AccountState = 'account_state';
+	case ConfigSnapshot = 'config_snapshot';
+	case Approvals = 'approvals';
 }

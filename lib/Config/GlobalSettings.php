@@ -9,6 +9,8 @@ declare(strict_types=1);
 
 namespace OCA\IntrusionDetection\Config;
 
+use OCA\IntrusionDetection\Check\Checks\AdminChange;
+use OCA\IntrusionDetection\Check\IValidatesParams;
 use OCA\IntrusionDetection\Check\ParamDefinition;
 use OCA\IntrusionDetection\Check\ParamType;
 
@@ -61,6 +63,12 @@ final class GlobalSettings {
 	public const CS_DISTRIBUTED_DETECTION = 'cs_distributed_detection';
 	/** Internal: how many decoy credentials exist, so failed logins skip the lookup while there are none */
 	public const DECOY_COUNT = 'decoy_count';
+	/** A second administrator must approve every new administrator */
+	public const ADMIN_CHANGE_REQUIRE_APPROVAL = 'admin_change_require_approval';
+	/** Seconds a request for approval waits before it expires */
+	public const ADMIN_CHANGE_APPROVAL_TTL = 'admin_change_approval_ttl';
+	/** Internal: when the watched settings were first recorded; 0 until then */
+	public const CONFIG_WATCH_BASELINE = 'config_watch_baseline';
 
 	/** Only shown and used while config.php has `intrusion_detection.contribution_available` */
 	public const CONTRIBUTE_ENABLED = 'contribute_enabled';
@@ -114,6 +122,9 @@ final class GlobalSettings {
 				new ParamDefinition(self::CONTRIBUTE_URL, ParamType::Text, '', maxItemLength: 2048),
 				new ParamDefinition(self::CONTRIBUTE_ID, ParamType::Text, '', itemPattern: '/^([a-z0-9]{32})?$/'),
 				new ParamDefinition(self::CONTRIBUTE_STATE, ParamType::Json, '{}'),
+				new ParamDefinition(self::ADMIN_CHANGE_REQUIRE_APPROVAL, ParamType::Bool, false),
+				new ParamDefinition(self::ADMIN_CHANGE_APPROVAL_TTL, ParamType::Duration, 604800, min: 3600, max: 30 * 86400),
+				new ParamDefinition(self::CONFIG_WATCH_BASELINE, ParamType::Int, 0, min: 0),
 			];
 			$this->definitions = [];
 			foreach ($list as $definition) {
@@ -128,6 +139,19 @@ final class GlobalSettings {
 	}
 
 	/**
+	 * The check whose rules a global setting must also pass when it is written,
+	 * for settings that belong to one check.
+	 *
+	 * @return ?class-string<IValidatesParams>
+	 */
+	public static function validatedBy(string $name): ?string {
+		return match ($name) {
+			self::ADMIN_CHANGE_REQUIRE_APPROVAL => AdminChange::class,
+			default => null,
+		};
+	}
+
+	/**
 	 * Settings that hold internal state and are never set by an admin.
 	 */
 	public static function isInternal(string $name): bool {
@@ -137,6 +161,7 @@ final class GlobalSettings {
 			self::CS_DISTRIBUTED_UNTIL, self::CS_DISTRIBUTED_DETECTED_AT, self::CS_DISTRIBUTED_DETECTION,
 			self::DECOY_COUNT,
 			self::CONTRIBUTE_ID, self::CONTRIBUTE_STATE,
+			self::CONFIG_WATCH_BASELINE,
 		], true);
 	}
 

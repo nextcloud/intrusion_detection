@@ -62,6 +62,17 @@ final class DetectionFacts {
 		return is_array($value) ? array_values(array_map('strval', array_filter($value, 'is_scalar'))) : [];
 	}
 
+	/**
+	 * A fact as it was stored, for facts that are not of one fixed type.
+	 */
+	public function value(string $key): mixed {
+		return $this->facts[$key] ?? null;
+	}
+
+	public function has(string $key): bool {
+		return array_key_exists($key, $this->facts);
+	}
+
 	public function threshold(string $key, int $default = 0): int {
 		$value = $this->thresholds[$key] ?? null;
 		return is_int($value) ? $value : (is_numeric($value) ? (int)$value : $default);
