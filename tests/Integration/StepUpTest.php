@@ -175,7 +175,12 @@ class StepUpTest extends StepUpTestCase {
 		$this->assertSame([], $this->untrustedSecondFactors()->marks($this->alice->getUID()), 'Nobody logged in: an administrator or occ');
 		$this->sessionUser = $this->alice;
 		$this->untrustedSecondFactors()->registered($this->alice->getUID(), 'totp');
-		$this->assertSame([], $this->untrustedSecondFactors()->marks($this->alice->getUID()));
+		$this->assertArrayHasKey('totp', $this->untrustedSecondFactors()->marks($this->alice->getUID()), 'A login that proved only the password: not yet');
+		$this->hasSecondFactor = true;
+		$this->give(StepUpPolicy::FlaggedSource, $this->alice);
+		$this->login($this->alice);
+		$this->assertSame([IConfirmationMethod::EMAIL_CODE], $this->stepUp()?->methods, 'Not offered for a week');
+		$this->session->clear();
 		$this->state->set(SessionState::CONFIRMATION, ['uid' => $this->alice->getUID(), 'by' => 'none', 'policies' => [], 'at' => time()]);
 		$this->untrustedSecondFactors()->registered($this->alice->getUID(), 'totp');
 		$this->assertArrayHasKey('totp', $this->untrustedSecondFactors()->marks($this->alice->getUID()), 'Let in without a confirmation');

@@ -20,7 +20,9 @@ use OCA\IntrusionDetection\Confirm\Methods\KnownDeviceMethod;
 use OCA\IntrusionDetection\Confirm\NoMethodOutcome;
 use OCA\IntrusionDetection\Confirm\NoMethodPreset;
 use OCA\IntrusionDetection\Confirm\StepUpReasons;
+use OCA\IntrusionDetection\Confirm\UntrustedSecondFactors;
 use OCA\IntrusionDetection\Db\Approval;
+use OCA\IntrusionDetection\Explain\TextRenderer;
 use OCA\IntrusionDetection\ResponseDefinitions;
 use OCP\IL10N;
 use OCP\IUserManager;
@@ -105,7 +107,7 @@ class ConfirmationOverview {
 		$methods[] = [
 			'id' => IConfirmationMethod::SECOND_FACTOR,
 			'name' => $l->t('Second factor'),
-			'description' => $l->t('Accounts with two-factor authentication confirm with it. At a login through the login form, the second factor Nextcloud asks for anyway is the confirmation, so these users notice nothing extra.'),
+			'description' => $l->t('Accounts with two-factor authentication confirm with it. At a login through the login form, the second factor Nextcloud asks for anyway is the confirmation, so these users notice nothing extra. A second factor added after a login that proved only the password counts after %1$s, or once it is set up again after a confirmed login; one added while a login waited for its confirmation or was let in without one counts only then.', [TextRenderer::duration(UntrustedSecondFactors::PASSWORD_DELAY, $l)]),
 			'state' => 'on',
 			'note' => null,
 		];

@@ -28,7 +28,8 @@ use OCP\IUser;
  * Only a second factor that is set up counts: an account for which two
  * factors are enforced but that has no provider yet would set one up with
  * just the password, which proves nothing. Neither does a provider set up
- * from an unconfirmed session ({@see UntrustedSecondFactors}).
+ * from a session that proved only the password, for a while or until it
+ * is set up again ({@see UntrustedSecondFactors}).
  */
 class SecondFactorMethod implements IConfirmationMethod {
 	/** Backup codes alone do not make an account use two factors, as in core */

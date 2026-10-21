@@ -56,7 +56,7 @@ final class Lexicon implements ILexicon {
 			new Entry(BreachedPasswordDetector::KEY_BREACHED, ValueType::BOOL, false, 'the current password was found on the breach list', lazy: true),
 			new Entry(PasswordChangeFlag::USER_KEY, ValueType::INT, 0, 'when a new password was required at the next login (0: not required)'),
 			new Entry(LoginNotices::USER_KEY, ValueType::INT, 0, 'when the oldest security event happened that the user could only be told inside Nextcloud and has not seen at a login yet (0: none)'),
-			new Entry(UntrustedSecondFactors::USER_KEY, ValueType::ARRAY, [], 'second factors set up from a session whose login was not confirmed: provider id => when'),
+			new Entry(UntrustedSecondFactors::USER_KEY, ValueType::ARRAY, [], 'second factors set up from a session whose login proved only the password: provider id => when, or when and until when'),
 			new Entry(SecureAccountGuide::USER_KEY, ValueType::STRING, '', 'progress through the "Secure my account" checklist (JSON)', lazy: true),
 		];
 	}

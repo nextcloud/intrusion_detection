@@ -18,8 +18,8 @@ use OCP\EventDispatcher\IEventListener;
 use Psr\Log\LoggerInterface;
 
 /**
- * Marks a second factor set up from an unconfirmed session, and drops the
- * mark when it is removed ({@see UntrustedSecondFactors}). Core recording
+ * Marks a second factor set up from a session that proved only the
+ * password, and drops the mark when it is removed ({@see UntrustedSecondFactors}). Core recording
  * the state of a provider it had none for is no change. Fails open.
  *
  * @template-implements IEventListener<TwoFactorProviderForUserRegistered|TwoFactorProviderForUserUnregistered>
