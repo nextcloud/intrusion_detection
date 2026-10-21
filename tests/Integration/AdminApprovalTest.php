@@ -169,24 +169,28 @@ class AdminApprovalTest extends StepUpTestCase {
 		$this->assertSame(0, $this->pendingFor($this->bob->getUID()), 'No new request');
 	}
 
-	public function testALateRequestWaitsNoLongerThanTheLoginsTimeAndOneApproval(): void {
+	public function testALoginPastItsDeadlineCannotAskAnAdministratorToWaitLonger(): void {
 		$carol = $this->user('ids-approval-late', 'carol@example.com');
 		$this->startSession($carol);
 		$this->login($carol);
 		$stepUp = $this->stepUp();
 		$this->assertNotNull($stepUp);
-		$ttl = $this->settings->getInt(GlobalSettings::STEP_UP_SESSION_TTL);
-		$approvalTtl = $this->settings->getInt(GlobalSettings::STEP_UP_ADMIN_APPROVAL_TTL);
-		// A login that started long ago and was kept waiting.
-		$late = StepUpState::fromArray(['started' => time() - $ttl - 600, 'deadline' => time() + 60] + $stepUp->toArray());
-		$this->assertNotNull($late);
-		$this->service()->save($late);
+		$stepUp->deadline = time() - 1;
+		$this->service()->save($stepUp);
 
-		$this->verifyController()->requestApproval();
-		$waiting = $this->stepUp();
-		$this->assertNotNull($waiting?->approvalId);
-		$this->assertSame($late->started + $ttl + $approvalTtl, $waiting->deadline, 'Capped, although the request lasts longer');
-		$this->assertGreaterThan($waiting->deadline, $this->approval()->getExpiresAt());
+		$block = $this->rule()->check($this->state, RequestTarget::app($this->verifyController(), 'requestApproval', 'POST', '/index.php/apps/intrusion_detection/verify/approval'));
+		$this->assertNotNull($block, 'The rule ends it before the verify page is reached');
+		$this->assertStringContainsString('reason=timeout', (string)$block->redirectUrl);
+		$this->assertNull($this->stepUp());
+		$this->assertSame(0, $this->pendingFor($carol->getUID()), 'Nobody was asked');
+	}
+
+	public function testAnApprovalLetsTheLoginWaitUntilItExpires(): void {
+		$this->waitingLogin();
+		$stepUp = $this->stepUp();
+		$this->assertNotNull($stepUp);
+		$this->assertSame($this->approval()->getExpiresAt(), $stepUp->deadline);
+		$this->assertLessThan($stepUp->started + $this->settings->getInt(GlobalSettings::STEP_UP_SESSION_TTL) + $this->settings->getInt(GlobalSettings::STEP_UP_ADMIN_APPROVAL_TTL), $stepUp->deadline + 1, 'Never beyond the login\'s own time plus one approval');
 	}
 
 	public function testTheUserCanGiveUpWaiting(): void {
