@@ -18,7 +18,8 @@ use OCA\IntrusionDetection\Db\KeyMatch;
  * The tables store IPv6 networks as /64 keys in the text form of
  * {@see SourceKey} (`2001:db8:1:2a00::/64`). That form always compresses the
  * trailing zero groups, so the /64 keys inside a /56 or /48 can be found
- * with a few LIKE patterns, and the indexes on the key columns still apply.
+ * with a few LIKE patterns that share their start, which {@see KeyMatch}
+ * turns into a key range the indexes on the key columns serve.
  */
 final class Ipv6Networks {
 	public const PREFIXES = [56, 48];

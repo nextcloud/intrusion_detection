@@ -15,8 +15,21 @@ use OCP\DB\QueryBuilder\IQueryBuilder;
 /**
  * A set of stored keys (addresses, networks), as exact values plus LIKE
  * patterns, for a query condition on one column.
+ *
+ * The patterns also become a key range: from their common literal prefix
+ * up to the prefix followed by RANGE_END (`>= prefix AND < prefix . 'g'`),
+ * with the patterns as a filter within it. A btree index can search such a
+ * range on every database, a LIKE pattern only where the column sorts byte
+ * by byte (not on PostgreSQL with its usual collations). The range holds
+ * every key that starts with the prefix: keys are made of digits, the
+ * lower-case hex letters a to f, ".", ":" and "/", which all sort below
+ * "g" in the binary, C and Unicode collations, and those compare character
+ * by character. The filter keeps the result exact.
  */
 final class KeyMatch {
+	/** Sorts after every character keys are made of */
+	public const RANGE_END = 'g';
+
 	/**
 	 * @param list<string> $exact keys matched as they are
 	 * @param list<string> $patterns LIKE patterns, already escaped where literal
@@ -32,9 +45,39 @@ final class KeyMatch {
 		if ($this->exact !== []) {
 			$parts[] = $qb->expr()->in($column, $qb->createNamedParameter($this->exact, IQueryBuilder::PARAM_STR_ARRAY));
 		}
-		foreach ($this->patterns as $pattern) {
-			$parts[] = $qb->expr()->like($column, $qb->createNamedParameter($pattern));
+		if ($this->patterns !== []) {
+			$likes = array_map(static fn (string $pattern): string => $qb->expr()->like($column, $qb->createNamedParameter($pattern)), $this->patterns);
+			$prefix = $this->prefix();
+			$parts[] = $prefix === ''
+				? $qb->expr()->orX(...$likes)
+				: $qb->expr()->andX(
+					$qb->expr()->gte($column, $qb->createNamedParameter($prefix)),
+					$qb->expr()->lt($column, $qb->createNamedParameter($prefix . self::RANGE_END)),
+					$qb->expr()->orX(...$likes),
+				);
 		}
 		return $qb->expr()->orX(...$parts);
+	}
+
+	/**
+	 * The longest literal start all patterns share: each up to its first
+	 * wildcard or escape character.
+	 */
+	public function prefix(): string {
+		$prefix = null;
+		foreach ($this->patterns as $pattern) {
+			$literal = substr($pattern, 0, strcspn($pattern, '%_\\'));
+			if ($prefix === null) {
+				$prefix = $literal;
+				continue;
+			}
+			$length = 0;
+			$max = min(strlen($prefix), strlen($literal));
+			while ($length < $max && $prefix[$length] === $literal[$length]) {
+				$length++;
+			}
+			$prefix = substr($prefix, 0, $length);
+		}
+		return $prefix ?? '';
 	}
 }

@@ -228,6 +228,16 @@ class BanServiceTest extends IntegrationTestCase {
 		$this->assertNotNull($this->bans->ban(SourceKey::fromIp('198.51.100.3'), 'trap_url')->netBan, 'The third address does it');
 	}
 
+	public function testOnlyTheAddressesOfTheSlash24Count(): void {
+		// Keys that share a start with the /24's addresses, or sort right next to them.
+		foreach (['198.51.10.1', '198.51.10.2', '198.51.1.3', '198.51.101.4', '198.51.100.0/24'] as $key) {
+			$this->insertActiveBan($key, str_contains($key, '/') ? $key : $key . '/32', str_contains($key, '/') ? Ban::SCOPE_NET : Ban::SCOPE_IP, lifted: str_contains($key, '/'));
+		}
+		$this->assertNull($this->bans->ban(SourceKey::fromIp('198.51.100.1'), 'trap_url')->netBan);
+		$this->assertNull($this->bans->ban(SourceKey::fromIp('198.51.100.255'), 'trap_url')->netBan);
+		$this->assertNotNull($this->bans->ban(SourceKey::fromIp('198.51.100.20'), 'trap_url')->netBan, 'The third address of the /24 itself');
+	}
+
 	public function testTheNetworkKeyItselfIsNoAddressOfTheNetwork(): void {
 		$this->insertActiveBan('198.51.100.0/24', '198.51.100.0/24', Ban::SCOPE_NET, lifted: true);
 		$this->insertActiveBan('198.51.100.1', '198.51.100.1/32', Ban::SCOPE_IP);
