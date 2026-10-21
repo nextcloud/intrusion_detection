@@ -114,6 +114,9 @@ class LoginNoticesTest extends StepUpTestCase {
 		$html = $page->render();
 		$this->assertStringContainsString('A login to your account was refused', $html);
 		$this->assertStringContainsString('No, it was not me', $html);
+		$this->assertStringContainsString('Yes, it was me', $html, 'Both answers are offered, as in the email');
+		$this->assertLessThan(strpos($html, 'No, it was not me'), strpos($html, 'Yes, it was me'));
+		$this->assertStringContainsString('&quot;Yes&quot; needs a login with your second factor', $html, 'This login proved only the password');
 		$this->assertStringContainsString('Add an email address', $html);
 
 		$response = $this->controller()->done('/index.php/apps/files/');

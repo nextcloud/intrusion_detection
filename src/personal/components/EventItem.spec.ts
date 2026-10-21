@@ -108,11 +108,14 @@ describe('EventItem', () => {
 		expect(wrapper.find('[data-test="confirm"]').exists()).toBe(true)
 	})
 
-	test('explains kindly why this session cannot say "Yes"', async () => {
+	test('offers "Yes" also where this session cannot say it, and explains why instead of sending it', async () => {
 		const wrapper = mountItem(securityEvent(1, { asks: true, canConfirm: false }))
-		expect(wrapper.find('[data-test="confirm"]').exists()).toBe(false)
-		expect(wrapper.get('[data-test="confirm-elsewhere"]').text()).toContain('Answer from another device')
-		expect(wrapper.find('[data-test="deny"]').exists()).toBe(true)
+		expect(wrapper.findAll('[data-test="question"] button').map((b) => b.text())).toEqual(['Yes, it was me', 'No, it was not me'])
+		expect(document.body.textContent).not.toContain('Answer from another device')
+		await wrapper.get('[data-test="confirm"]').trigger('click')
+		await flushPromises()
+		expect(confirmEvent).not.toHaveBeenCalled()
+		expect(document.body.textContent).toContain('Answer from another device')
 	})
 
 	test('turns a refusal of the server into the same explanation', async () => {
@@ -120,9 +123,11 @@ describe('EventItem', () => {
 		const wrapper = mountItem(securityEvent(1, { asks: true, canConfirm: true }))
 		await wrapper.get('[data-test="confirm"]').trigger('click')
 		await flushPromises()
-		expect(wrapper.find('[data-test="confirm"]').exists()).toBe(false)
-		expect(wrapper.find('[data-test="confirm-elsewhere"]').exists()).toBe(true)
+		expect(document.body.textContent).toContain('Answer from another device')
 		expect(showError).not.toHaveBeenCalled()
+		vi.mocked(confirmEvent).mockClear()
+		await wrapper.get('[data-test="confirm"]').trigger('click')
+		expect(confirmEvent).not.toHaveBeenCalled()
 	})
 
 	test('reloads the list when the event was answered elsewhere', async () => {

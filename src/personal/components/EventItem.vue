@@ -42,6 +42,8 @@ const timeZone = computed(() => personal.overview?.timezone)
 
 const busy = ref<'confirm' | 'deny' | null>(null)
 const denyDialog = ref(false)
+/** Why "Yes" cannot be taken from this session, shown instead of sending it */
+const yesDialog = ref(false)
 /** The server refused "Yes" from this session, although the list allowed it */
 const refused = ref(false)
 /** "No" from a session that proved only the password: the administrators were told, the question stays open */
@@ -102,6 +104,7 @@ function failed(error: unknown) {
 	}
 	if (isRefusedFromThisSession(error)) {
 		refused.value = true
+		yesDialog.value = true
 		announce(t(APP_ID, 'This answer cannot be given from this session.'))
 		return
 	}
@@ -152,11 +155,10 @@ const denyButtons = computed(() => [
 			</p>
 			<div :class="$style.question__buttons">
 				<NcButton
-					v-if="canConfirm"
 					variant="secondary"
 					:disabled="busy !== null"
 					data-test="confirm"
-					@click="confirm">
+					@click="canConfirm ? confirm() : (yesDialog = true)">
 					<template v-if="busy === 'confirm'" #icon>
 						<NcLoadingIcon :size="20" />
 					</template>
@@ -177,14 +179,25 @@ const denyButtons = computed(() => [
 			<p v-if="toldOnly" :class="$style.question__note" data-test="told-only">
 				{{ t(APP_ID, 'Your administrators were told. To end the sessions of this event, answer "No" again after a login with your second factor or an email code, or from a device you remembered.') }}
 			</p>
-			<p v-if="!canConfirm" :class="$style.question__note" data-test="confirm-elsewhere">
-				{{ t(APP_ID, 'For your safety, "Yes, it was me" needs a login with your second factor, a confirmed login, or a remembered device, and not the session this event is about. Answer from another device.') }}
-			</p>
 		</div>
 
 		<ShowMore :label="t(APP_ID, 'Details')" :class="$style.event__more" data-test="toggle">
 			<EventDetails :event="event" />
 		</ShowMore>
+
+		<NcDialog
+			v-model:open="yesDialog"
+			:name="t(APP_ID, 'Answer “Yes” from a confirmed login')"
+			:buttons="[{ label: t(APP_ID, 'OK'), variant: 'primary', callback: () => undefined }]"
+			size="normal"
+			data-test="confirm-elsewhere">
+			<p :class="$style.dialog">
+				{{ t(APP_ID, 'For your safety, "Yes, it was me" needs a login with your second factor, a confirmed login, or a remembered device, and not the session this event is about. Someone who knows only your password must not be able to answer for you.') }}
+			</p>
+			<p :class="$style.dialog">
+				{{ t(APP_ID, 'Answer from another device where you logged in that way, or log in again with your second factor. The question stays open until then.') }}
+			</p>
+		</NcDialog>
 
 		<NcDialog
 			v-model:open="denyDialog"

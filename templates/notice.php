@@ -36,19 +36,20 @@ $events = $_['events'];
 					<?php if ($event['asks'] && $event['verdict'] === null): ?>
 						<p class="ids-page__event-question"><?php p($l->t('Was this you?')); ?></p>
 						<div class="ids-page__event-actions">
+							<form method="post" action="<?php p($event['confirmAction']); ?>">
+								<input type="hidden" name="requesttoken" value="<?php p($_['requesttoken']); ?>">
+								<input type="hidden" name="redirect_url" value="<?php p($_['redirect_url']); ?>">
+								<button class="ids-page__secondary" type="submit"><?php p($l->t('Yes, it was me')); ?></button>
+							</form>
 							<form method="post" action="<?php p($event['denyAction']); ?>">
 								<input type="hidden" name="requesttoken" value="<?php p($_['requesttoken']); ?>">
 								<input type="hidden" name="redirect_url" value="<?php p($_['redirect_url']); ?>">
 								<button class="ids-page__secondary ids-page__danger" type="submit"><?php p($l->t('No, it was not me')); ?></button>
 							</form>
-							<?php if ($event['canConfirm']): ?>
-								<form method="post" action="<?php p($event['confirmAction']); ?>">
-									<input type="hidden" name="requesttoken" value="<?php p($_['requesttoken']); ?>">
-									<input type="hidden" name="redirect_url" value="<?php p($_['redirect_url']); ?>">
-									<button class="ids-page__secondary" type="submit"><?php p($l->t('Yes, it was me')); ?></button>
-								</form>
-							<?php endif; ?>
 						</div>
+						<?php if (!$event['canConfirm']): ?>
+							<p class="ids-page__hint"><?php p($l->t('"Yes" needs a login with your second factor, a confirmed login, or a remembered device. From this login only "No" can be taken; answer "Yes" later from such a login.')); ?></p>
+						<?php endif; ?>
 					<?php elseif ($event['verdict'] !== null): ?>
 						<p class="ids-page__answered"><?php p($event['verdict'] === 'denied' ? $l->t('You answered: No, it was not me.') : $l->t('You answered: Yes, it was me.')); ?></p>
 					<?php endif; ?>
