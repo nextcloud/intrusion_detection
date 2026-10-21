@@ -45,6 +45,22 @@ enum StepUpPolicy: string {
 	}
 
 	/**
+	 * Whether an app that sends the password may still log in from a
+	 * familiar place ({@see FamiliarLogin}) while the account could confirm
+	 * in a browser, with the outcome configured for no method. These
+	 * reasons can be caused by others (guessing, a breach list, the
+	 * network), so refusing everywhere would let anyone lock out the
+	 * account holder's calendar and file apps. The other reasons point at
+	 * the login itself and refuse such apps everywhere.
+	 */
+	public function allowsFamiliarApps(): bool {
+		return match ($this) {
+			self::ProtectedAccount, self::RiskyNetwork, self::BreachedPassword => true,
+			default => false,
+		};
+	}
+
+	/**
 	 * The global setting that holds the outcome without a method.
 	 */
 	public function settingKey(): string {

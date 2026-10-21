@@ -59,6 +59,7 @@ use OCA\IntrusionDetection\Risk\RiskScorer;
 use OCA\IntrusionDetection\SessionState\Rules\StepUpRule;
 use OCA\IntrusionDetection\SessionState\SessionState;
 use OCA\IntrusionDetection\Tests\BasicAuthServer;
+use OCA\IntrusionDetection\TrustedNetwork\TrustedNetworks;
 use OCP\AppFramework\Utility\ITimeFactory;
 use OCP\Authentication\TwoFactorAuth\IChallengeRequester;
 use OCP\Authentication\TwoFactorAuth\IProvider;
@@ -233,7 +234,7 @@ abstract class StepUpTestCase extends AccountTestCase {
 			Server::get(AuditLogger::class),
 			Server::get(LoggerInterface::class),
 			$this->history(),
-			new FamiliarLogin($this->knownDevices(), Server::get(LoginHistoryMapper::class), Server::get(ITimeFactory::class)),
+			new FamiliarLogin($this->knownDevices(), Server::get(LoginHistoryMapper::class), Server::get(TrustedNetworks::class), Server::get(ITimeFactory::class)),
 			$this->request,
 		);
 	}

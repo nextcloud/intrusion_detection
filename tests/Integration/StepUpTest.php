@@ -402,6 +402,62 @@ class StepUpTest extends StepUpTestCase {
 		$this->assertSame(StepUpState::REFUSED_CLIENT, $this->stepUp()?->status);
 	}
 
+	public function testAnAttackerGuessingThePasswordDoesNotLockOutTheCalendarAppAtHome(): void {
+		// The account holder's calendar app synced from home yesterday, before anyone guessed.
+		Server::get(LoginHistoryMapper::class)->insert($this->alice->getUID(), time() - 86400, SourceKey::fromIp('198.51.100.20'), 'DAVx5', LoginHistory::METHOD_CLIENT_PASSWORD, false, 'none', null, null);
+		$this->give(StepUpPolicy::ProtectedAccount, $this->alice);
+		$this->basicAuth($this->alice);
+		$this->headers['User-Agent'] = 'DAVx5';
+
+		$this->login($this->alice);
+		$this->assertNull($this->stepUp(), 'From the familiar network the app keeps working');
+		$this->assertSame('none', $this->state->get(SessionState::CONFIRMATION)['by'] ?? null);
+		$this->assertNull($this->lastCode($this->alice->getUID()), 'No code is ever sent for an app');
+		$detection = $this->detectionsOf(StepUpUnconfirmed::ID)[0];
+		$this->assertContains('notify_admin', array_column($detection->getActionList(), 'type'), 'Allowed with a notice, as configured');
+
+		$this->session->clear();
+		$this->session->id = null;
+		$this->remoteAddress = '203.0.113.50';
+		$this->login($this->alice);
+		$this->assertSame(StepUpState::REFUSED_CLIENT, $this->stepUp()?->status, 'The attacker\'s place is not familiar');
+	}
+
+	public function testAStrictReasonRefusesAppsEvenFromAFamiliarPlace(): void {
+		Server::get(LoginHistoryMapper::class)->insert($this->alice->getUID(), time() - 86400, SourceKey::fromIp($this->remoteAddress), null, LoginHistory::METHOD_CLIENT_PASSWORD, false, 'none', null, null);
+		$this->give(StepUpPolicy::FlaggedSource, $this->alice);
+		$this->basicAuth($this->alice);
+		$this->login($this->alice);
+		$this->assertSame(StepUpState::REFUSED_CLIENT, $this->stepUp()?->status);
+	}
+
+	public function testATrustedNetworkOrARememberedDeviceIsAFamiliarPlaceForApps(): void {
+		$this->give(StepUpPolicy::ProtectedAccount, $this->alice);
+		Server::get(TrustedNetworks::class)->trust($this->alice->getUID(), SourceKey::fromIp($this->remoteAddress));
+		$this->basicAuth($this->alice);
+		$this->login($this->alice);
+		$this->assertNull($this->stepUp(), 'A network the account holder trusts');
+
+		$bob = $this->user('ids-stepup-device-app', 'bob@example.com');
+		$this->give(StepUpPolicy::ProtectedAccount, $bob);
+		$this->knownDevices()->remember($bob, SourceKey::fromIp('192.0.2.30'), 'Mozilla/5.0 (X11; Linux x86_64) Firefox/140.0');
+		$this->nextRequest();
+		$this->session->clear();
+		$this->session->id = null;
+		$this->basicAuth($bob);
+		$this->login($bob);
+		$this->assertNull($this->stepUp(), 'A client that sends the cookie of a remembered device');
+	}
+
+	public function testLoginsLetInUnconfirmedDoNotMakeAPlaceFamiliar(): void {
+		Server::get(LoginHistoryMapper::class)->insert($this->alice->getUID(), time() - 3600, SourceKey::fromIp($this->remoteAddress), null, LoginHistory::METHOD_CLIENT_PASSWORD, false, 'none', LoginHistory::STEP_UP_ALLOWED, null);
+		Server::get(LoginHistoryMapper::class)->insert($this->alice->getUID(), time() - 1800, SourceKey::fromIp($this->remoteAddress), null, LoginHistory::METHOD_CLIENT_PASSWORD, false, 'none', LoginHistory::STEP_UP_REFUSED, null);
+		$this->give(StepUpPolicy::ProtectedAccount, $this->alice);
+		$this->basicAuth($this->alice);
+		$this->login($this->alice);
+		$this->assertSame(StepUpState::REFUSED_CLIENT, $this->stepUp()?->status);
+	}
+
 	public function testAppsOfAnAccountWithARememberedDeviceAreRefusedWhereTheDeviceCounts(): void {
 		$bob = $this->user('ids-stepup-device', null);
 		$this->knownDevices()->remember($bob, SourceKey::fromIp('192.0.2.30'), 'Mozilla/5.0 (X11; Linux x86_64) Firefox/140.0');

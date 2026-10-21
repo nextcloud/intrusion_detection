@@ -135,14 +135,16 @@ class LoginHistoryMapper {
 	}
 
 	/**
-	 * Whether the account logged in from this address since a time with a
-	 * login that went through: it needed nothing, or it was confirmed.
+	 * Whether the account logged in from this network (as in
+	 * {@see SourceKey::$netKey}) since a time with a login that went
+	 * through: it needed nothing, or it was confirmed. Logins let in
+	 * without a confirmation never count.
 	 */
-	public function wentThroughFrom(string $uid, string $ip, int $since): bool {
+	public function wentThroughFrom(string $uid, string $netKey, int $since): bool {
 		$qb = $this->db->getQueryBuilder();
 		$qb->select('id')
 			->from(self::TABLE)
-			->where($qb->expr()->eq('ip', $qb->createNamedParameter($ip)))
+			->where($qb->expr()->eq('net_key', $qb->createNamedParameter($netKey)))
 			->andWhere($qb->expr()->gte('created_at', $qb->createNamedParameter($since, IQueryBuilder::PARAM_INT)))
 			->andWhere($qb->expr()->eq('uid', $qb->createNamedParameter($uid)))
 			->andWhere($qb->expr()->orX(

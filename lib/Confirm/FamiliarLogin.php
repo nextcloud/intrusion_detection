@@ -11,13 +11,16 @@ namespace OCA\IntrusionDetection\Confirm;
 
 use OCA\IntrusionDetection\Db\LoginHistoryMapper;
 use OCA\IntrusionDetection\KnownDevice\KnownDevices;
+use OCA\IntrusionDetection\TrustedNetwork\TrustedNetworks;
 use OCP\AppFramework\Utility\ITimeFactory;
 
 /**
  * Whether a login comes from where the account holder logs in: a device
- * they remembered, or the address of one of their recent logins that went
- * through (needed nothing, or was confirmed). Someone guessing the password
- * from elsewhere must not be able to lock them out from there.
+ * they remembered, a network they trust, or the network of one of their
+ * recent logins that went through (needed nothing, or was confirmed; with
+ * the password, an app password or a token). Someone guessing the
+ * password from elsewhere must not be able to lock them out from there,
+ * and cannot make a place familiar without such a login.
  */
 class FamiliarLogin {
 	/** Logins this recent count */
@@ -26,15 +29,20 @@ class FamiliarLogin {
 	public function __construct(
 		private readonly KnownDevices $devices,
 		private readonly LoginHistoryMapper $history,
+		private readonly TrustedNetworks $trustedNetworks,
 		private readonly ITimeFactory $timeFactory,
 	) {
 	}
 
 	public function isFamiliar(LoginContext $login): bool {
-		if ($login->interactive && $this->devices->recognise($login->uid()) !== null) {
+		if ($this->devices->recognise($login->uid()) !== null) {
 			return true;
 		}
-		return $login->source !== null
-			&& $this->history->wentThroughFrom($login->uid(), $login->source->ip, $this->timeFactory->getTime() - self::WINDOW);
+		$source = $login->source;
+		if ($source === null) {
+			return false;
+		}
+		return $this->trustedNetworks->isTrusted($login->uid(), $source)
+			|| $this->history->wentThroughFrom($login->uid(), $source->netKey, $this->timeFactory->getTime() - self::WINDOW);
 	}
 }

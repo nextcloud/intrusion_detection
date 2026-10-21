@@ -47,10 +47,12 @@ use Psr\Log\LoggerInterface;
  *   the login is refused, or allowed with a notice or a new password.
  *
  * Apps and scripts that send the password (Basic auth) cannot answer a
- * confirmation. Their request is refused when the account could confirm
- * the login in a browser ({@see ConfirmationPolicy::canConfirmInBrowser()}):
- * they are to use an app password. Only when the account has no method at
- * all do the policies decide, as for the login form.
+ * confirmation, and none is ever started for them, whatever cookies they
+ * send. When the account could confirm the login in a browser
+ * ({@see ConfirmationPolicy::canConfirmInBrowser()}), they are refused and
+ * pointed to app passwords, except from a familiar place ({@see FamiliarLogin})
+ * while every reason allows that ({@see StepUpPolicy::allowsFamiliarApps()}):
+ * then, as for accounts without any method, the policies decide.
  *
  * How a login was confirmed is kept in the session ({@see SessionState::CONFIRMATION}:
  * none, second_factor, known_device, email_code, admin_approval), for later
@@ -108,11 +110,15 @@ class StepUpService {
 		$uid = $login->uid();
 		$now = $this->timeFactory->getTime();
 		$policyIds = array_map(static fn (StepUpPolicy $p): string => $p->value, $policies);
+		$familiar = null;
+		$isFamiliar = function () use (&$familiar, $login): bool {
+			return $familiar ??= $this->familiar->isFamiliar($login);
+		};
 
 		if (!$login->interactive) {
 			$inBrowser = $this->policy->canConfirmInBrowser($login->user, $policies);
-			if (!$inBrowser) {
-				$decision = $this->policy->noMethodDecision($policies, fn (): bool => $this->familiar->isFamiliar($login));
+			if (!$inBrowser || (self::allowFamiliarApps($policies) && $isFamiliar())) {
+				$decision = $this->policy->noMethodDecision($policies, $isFamiliar);
 				if (!$decision->refuse) {
 					return $this->allow($login, $policyIds, $decision);
 				}
@@ -148,7 +154,7 @@ class StepUpService {
 			}
 		}
 
-		$decision = $this->policy->noMethodDecision($policies, fn (): bool => $this->familiar->isFamiliar($login));
+		$decision = $this->policy->noMethodDecision($policies, $isFamiliar);
 		if (!$decision->refuse) {
 			return $this->allow($login, $policyIds, $decision);
 		}
@@ -318,6 +324,21 @@ class StepUpService {
 		$this->confirmation($login->uid(), self::CONFIRMED_BY_NONE, $policyIds);
 		$this->audit->log('login of %s allowed without confirmation (%s)', ['uid' => $login->uid(), 'reasons' => implode(', ', $policyIds)]);
 		return [self::ALLOWED, self::ids($detection)];
+	}
+
+	/**
+	 * Whether every reason lets an app of an account that could confirm in
+	 * a browser log in from a familiar place.
+	 *
+	 * @param list<StepUpPolicy> $policies
+	 */
+	private static function allowFamiliarApps(array $policies): bool {
+		foreach ($policies as $policy) {
+			if (!$policy->allowsFamiliarApps()) {
+				return false;
+			}
+		}
+		return true;
 	}
 
 	/**
