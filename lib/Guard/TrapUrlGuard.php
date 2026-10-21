@@ -117,13 +117,13 @@ class TrapUrlGuard implements IRequestGuard {
 		}
 		$hit = new PendingTrapHit(
 			$source,
-			[
+			facts: [
 				'path' => mb_substr((string)Explanation::cleanUserAgent($path), 0, self::MAX_STORED_PATH),
 				'trap' => $trap,
 				'method' => substr(preg_replace('/[^A-Z]/', '', strtoupper($request->getMethod())) ?? '', 0, 10),
 			],
-			$request->getHeader('User-Agent'),
-			FetchMetadata::isLure($request),
+			userAgent: $request->getHeader('User-Agent'),
+			lure: FetchMetadata::isLure($request),
 		);
 		// Resolved only on a hit, to keep the guard's own dependencies light.
 		$responder = $this->container->get(TrapResponder::class);

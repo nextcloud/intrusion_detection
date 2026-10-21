@@ -96,10 +96,10 @@ class AdminChangeDetector {
 			self::settingSeverity($key, $secret ? null : $old, $secret ? null : $new, $this->timeFactory->getTime()),
 			$actor,
 			null,
-			$facts,
-			self::settingAlertKey($key),
-			$mode,
-			!$foundByWatch,
+			facts: $facts,
+			alertKey: self::settingAlertKey($key),
+			mode: $mode,
+			withAddress: !$foundByWatch,
 		);
 	}
 

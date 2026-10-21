@@ -66,13 +66,27 @@ class DetectionFactKeysTest extends TestCase {
 
 	public function testTheScanFindsTheFactsOfEveryKind(): void {
 		$keys = self::factKeys(dirname(__DIR__, 3) . '/lib');
-		// Draft arguments, $facts writes, permit facts, helper methods and constants.
-		foreach (['targets', 'actor', 'requested_by', 'approved_by', 'owner', 'net', 'sessionTokenIds', 'alert_key', 'loweredLimits', 'excerpt'] as $key) {
+		// Draft and record arguments, $facts writes, permit facts, helper methods and constants.
+		foreach (['targets', 'actor', 'requested_by', 'approved_by', 'owner', 'net', 'sessionTokenIds', 'alert_key', 'loweredLimits', 'excerpt', 'app', 'group', 'method'] as $key) {
 			$this->assertArrayHasKey($key, $keys);
 		}
 		foreach (array_keys(self::NOT_ACCOUNTS) as $key) {
 			$this->assertArrayHasKey($key, $keys, 'Only keys that are still used are excused');
 		}
+	}
+
+	public function testFactsArePassedByName(): void {
+		$positions = self::factsParameters();
+		$this->assertArrayHasKey('DetectionDraft', $positions, 'The scan knows the draft\'s facts parameter');
+		$this->assertArrayHasKey('record', $positions);
+		$positional = [];
+		$files = new \RecursiveIteratorIterator(new \RecursiveDirectoryIterator(dirname(__DIR__, 3) . '/lib', \FilesystemIterator::SKIP_DOTS));
+		foreach ($files as $file) {
+			if ($file instanceof \SplFileInfo && $file->getExtension() === 'php') {
+				array_push($positional, ...self::positionalFacts((string)$file->getRealPath(), $positions));
+			}
+		}
+		$this->assertSame([], $positional, 'Pass facts as a named facts: argument, so that this test sees their keys');
 	}
 
 	public function testAnApprovedAdminAndASharedLinkNameTheirAccounts(): void {
@@ -84,6 +98,97 @@ class DetectionFactKeysTest extends TestCase {
 		$share = new Detection();
 		$share->setExplanationData(['facts' => ['owner' => 'sharer', 'managers' => ['sharer', 'co-owner'], 'share' => 'ocinternal:12']]);
 		$this->assertSame(['sharer', 'co-owner'], DetectionAccounts::of($share));
+	}
+
+	/**
+	 * Methods of the app with an array parameter named $facts, and its position.
+	 * Constructors are listed under their class's short name.
+	 *
+	 * @return array<string, list<int>> method name => positions
+	 */
+	private static function factsParameters(): array {
+		$classes = require dirname(__DIR__, 3) . '/composer/composer/autoload_classmap.php';
+		$positions = [];
+		foreach (array_keys($classes) as $class) {
+			if (!str_starts_with($class, 'OCA\\IntrusionDetection\\') || str_contains($class, '\\Migration\\')) {
+				continue;
+			}
+			$reflection = new \ReflectionClass($class);
+			foreach ($reflection->getMethods() as $method) {
+				// A private method's facts come from its own class, where the other parameters are looked at.
+				if ($method->getDeclaringClass()->getName() !== $reflection->getName() || $method->isPrivate()) {
+					continue;
+				}
+				foreach ($method->getParameters() as $parameter) {
+					$type = $parameter->getType();
+					if ($parameter->getName() === 'facts' && $type instanceof \ReflectionNamedType && $type->getName() === 'array') {
+						$name = $method->isConstructor() ? $reflection->getShortName() : $method->getName();
+						$positions[$name][] = $parameter->getPosition();
+					}
+				}
+			}
+		}
+		return array_map(static fn (array $p): array => array_values(array_unique($p)), $positions);
+	}
+
+	/**
+	 * Calls that pass an array literal or $facts by position where a method
+	 * of that name takes its facts.
+	 *
+	 * @param array<string, list<int>> $positions
+	 * @return list<string> file:line of each such call
+	 */
+	private static function positionalFacts(string $path, array $positions): array {
+		$tokens = array_values(array_filter(
+			token_get_all((string)file_get_contents($path)),
+			static fn (mixed $t): bool => !is_array($t) || !in_array($t[0], [T_WHITESPACE, T_COMMENT, T_DOC_COMMENT], true),
+		));
+		$found = [];
+		$count = count($tokens);
+		for ($i = 1; $i < $count; $i++) {
+			$name = $tokens[$i - 1];
+			if ($tokens[$i] !== '(' || !is_array($name) || !in_array($name[0], [T_STRING, T_NAME_QUALIFIED, T_NAME_FULLY_QUALIFIED], true)) {
+				continue;
+			}
+			$before = $tokens[$i - 2] ?? null;
+			if (is_array($before) && $before[0] === T_FUNCTION) {
+				continue;
+			}
+			$short = substr($name[1], (int)strrpos('\\' . $name[1], '\\'));
+			if (!isset($positions[$short])) {
+				continue;
+			}
+			// Walk the arguments: their index, whether named, and their first token.
+			$depth = 0;
+			$index = 0;
+			$argStart = $i + 1;
+			for ($j = $i + 1; $j < $count; $j++) {
+				$text = is_array($tokens[$j]) ? $tokens[$j][1] : $tokens[$j];
+				if (in_array($text, ['(', '[', '{'], true) || (is_array($tokens[$j]) && in_array($tokens[$j][0], [T_CURLY_OPEN, T_DOLLAR_OPEN_CURLY_BRACES], true))) {
+					$depth++;
+					continue;
+				}
+				$end = in_array($text, [')', ']', '}'], true);
+				if ($end && $depth > 0) {
+					$depth--;
+					continue;
+				}
+				if ($depth === 0 && ($text === ',' || $end)) {
+					$first = $tokens[$argStart] ?? null;
+					$named = is_array($first) && $first[0] === T_STRING && ($tokens[$argStart + 1] ?? null) === ':';
+					$firstText = is_array($first) ? $first[1] : $first;
+					if (!$named && in_array($index, $positions[$short], true) && ($firstText === '[' || $firstText === '$facts')) {
+						$found[] = basename($path) . ':' . $name[2];
+					}
+					if ($end) {
+						break;
+					}
+					$index++;
+					$argStart = $j + 1;
+				}
+			}
+		}
+		return $found;
 	}
 
 	private static function looksLikeAccount(string $key): bool {
