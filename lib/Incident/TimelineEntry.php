@@ -20,11 +20,14 @@ namespace OCA\IntrusionDetection\Incident;
  * of the entry as exported.
  */
 final class TimelineEntry {
+	/** The type of reference that is shown to people; the others are internal ids */
+	public const QUOTABLE_REFERENCE = 'block';
+
 	/**
 	 * @param string $id unique within the report, e.g. "detection:42"
 	 * @param string $kind what kind of event; the filters of the timeline use it
 	 * @param string $group short label to count entries by in the summary, e.g. the check's name
-	 * @param ?int $endsAt for events that lasted: when they were last seen
+	 * @param ?int $endsAt for states with an end, such as blocks: when they end or ended
 	 * @param ?string $severity low, medium, high or critical; null for events without one
 	 * @param ?bool $enforced for detections: whether Nextcloud acted, or only observed
 	 * @param list<string> $details what happened, sentence by sentence
@@ -36,6 +39,7 @@ final class TimelineEntry {
 	 * @param list<DataCategory> $categories data that may have been affected, for the summary
 	 * @param ?string $followUp something to check afterwards, for the summary's open items
 	 * @param ?list<string> $measures what was really done, for the summary; null to take `$done` unless only observed
+	 * @param ?int $lastSeenAt for events that repeated: when they were last seen
 	 */
 	public function __construct(
 		public readonly string $id,
@@ -55,17 +59,27 @@ final class TimelineEntry {
 		public readonly array $categories = [],
 		public readonly ?string $followUp = null,
 		public readonly ?array $measures = null,
+		public readonly ?int $lastSeenAt = null,
 	) {
 	}
 
 	/**
-	 * @return array{id: string, at: int, endsAt: ?int, kind: string, group: string, title: string, severity: ?string, enforced: ?bool, details: list<string>, done: list<string>, note: ?string, address: ?string, accounts: list<string>, ref: ?array{type: string, id: string}}
+	 * The reference people can quote, such as a block's "2S8X-AXQ6"; null
+	 * for internal ids, which stay in the JSON export only.
+	 */
+	public function quotableReference(): ?string {
+		return $this->ref !== null && $this->ref['type'] === self::QUOTABLE_REFERENCE ? $this->ref['id'] : null;
+	}
+
+	/**
+	 * @return array{id: string, at: int, endsAt: ?int, lastSeenAt: ?int, kind: string, group: string, title: string, severity: ?string, enforced: ?bool, details: list<string>, done: list<string>, note: ?string, address: ?string, accounts: list<string>, ref: ?array{type: string, id: string}}
 	 */
 	public function toArray(): array {
 		return [
 			'id' => $this->id,
 			'at' => $this->at,
 			'endsAt' => $this->endsAt,
+			'lastSeenAt' => $this->lastSeenAt,
 			'kind' => $this->kind,
 			'group' => $this->group,
 			'title' => $this->title,

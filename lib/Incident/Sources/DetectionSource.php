@@ -95,7 +95,6 @@ class DetectionSource implements ITimelineSource {
 			kind: self::KIND,
 			group: $group,
 			title: $this->headlines->custom($detection, $l) ?? $group,
-			endsAt: $detection->getLastSeenAt() > $detection->getCreatedAt() ? $detection->getLastSeenAt() : null,
 			severity: $detection->getSeverity(),
 			enforced: $enforced,
 			details: $details,
@@ -107,6 +106,7 @@ class DetectionSource implements ITimelineSource {
 			categories: DataCategory::forCheck($checkId),
 			followUp: $followUp,
 			measures: $this->measures->of($detection, $l),
+			lastSeenAt: $detection->getLastSeenAt() > $detection->getCreatedAt() ? $detection->getLastSeenAt() : null,
 		);
 	}
 }

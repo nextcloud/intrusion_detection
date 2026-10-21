@@ -179,14 +179,14 @@ class IncidentReportBuilder {
 			$openItems[] = $l->t('This report is incomplete: it holds only the first %s entries of the period. Build reports for shorter periods to see the rest.', [(string)$this->maxEntries]);
 		}
 
-		$ends = array_map(static fn (TimelineEntry $e): int => max($e->at, $e->endsAt ?? 0), $entries);
+		$lastSeen = array_map(static fn (TimelineEntry $e): int => max($e->at, $e->lastSeenAt ?? 0), $entries);
 		$found = array_values(array_filter($entries, static fn (TimelineEntry $e): bool => $e->severity !== null));
 		return new ReportSummary(
 			$headline,
 			$this->happened($entries, $l),
 			$entries[0]->at ?? null,
 			$found[0]->at ?? null,
-			$ends === [] ? null : max($ends),
+			$lastSeen === [] ? null : max($lastSeen),
 			$this->affected($query, $entries, $l),
 			$dataCategories,
 			$dataNote,

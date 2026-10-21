@@ -26,7 +26,9 @@ const id = useId()
 
 const time = computed(() => new Intl.DateTimeFormat(getCanonicalLocale(), { timeStyle: 'short' }).format(props.entry.at * 1000))
 const absolute = computed(() => new Intl.DateTimeFormat(getCanonicalLocale(), { dateStyle: 'full', timeStyle: 'medium' }).format(props.entry.at * 1000))
-const hasDetail = computed(() => props.entry.details.length > 0 || props.entry.done.length > 0 || props.entry.note !== null || props.entry.address !== null || props.entry.accounts.length > 0 || props.entry.ref !== null)
+// Only a block's reference is quoted by people; the other references are internal ids.
+const reference = computed(() => props.entry.ref?.type === 'block' ? props.entry.ref.id : null)
+const hasDetail = computed(() => props.entry.details.length > 0 || props.entry.done.length > 0 || props.entry.note !== null || props.entry.address !== null || props.entry.accounts.length > 0 || reference.value !== null)
 const tone = computed(() => props.entry.severity ?? 'neutral')
 </script>
 
@@ -81,6 +83,10 @@ const tone = computed(() => props.entry.severity ?? 'neutral')
 					{{ entry.note }}
 				</p>
 				<dl :class="$style.entry__meta">
+					<div v-if="entry.lastSeenAt">
+						<dt>{{ t(APP_ID, 'Last seen') }}</dt>
+						<dd><TimeStamp :timestamp="entry.lastSeenAt" /></dd>
+					</div>
 					<div v-if="entry.endsAt">
 						<dt>{{ t(APP_ID, 'Until') }}</dt>
 						<dd><TimeStamp :timestamp="entry.endsAt" /></dd>
@@ -93,9 +99,9 @@ const tone = computed(() => props.entry.severity ?? 'neutral')
 						<dt>{{ t(APP_ID, 'Accounts') }}</dt>
 						<dd>{{ entry.accounts.join(', ') }}</dd>
 					</div>
-					<div v-if="entry.ref">
+					<div v-if="reference">
 						<dt>{{ t(APP_ID, 'Reference') }}</dt>
-						<dd><code>{{ entry.ref.type }} {{ entry.ref.id }}</code></dd>
+						<dd><code>{{ reference }}</code></dd>
 					</div>
 				</dl>
 			</div>

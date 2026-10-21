@@ -170,6 +170,24 @@ class IncidentReportBuilderTest extends TestCase {
 		$this->assertStringContainsString('(App_password)', implode("\n", $notes));
 	}
 
+	public function testTheLastActivityIsWhenSomethingWasLastSeenNotWhenABlockEnds(): void {
+		$report = $this->builder([
+			0 => $this->source('detection', [new TimelineEntry('d1', 100, 'detection', 'Group', 'Title d1', lastSeenAt: 250)]),
+			1 => $this->source('block', [new TimelineEntry('b1', 200, 'block', 'Blocks', 'Title b1', endsAt: self::NOW + 4 * 3600, ref: ['type' => 'block', 'id' => '2S8X-AXQ6'])]),
+		])->build($this->user(), 'admin', $this->l);
+
+		$this->assertSame(250, $report->summary->lastActivityAt);
+	}
+
+	public function testOnlyTheReferencesOfBlocksAreQuoted(): void {
+		$block = new TimelineEntry('b1', 200, 'block', 'Blocks', 'Title', ref: ['type' => 'block', 'id' => '2S8X-AXQ6']);
+		$detection = new TimelineEntry('d1', 100, 'detection', 'Group', 'Title', ref: ['type' => 'detection', 'id' => '14']);
+
+		$this->assertSame('2S8X-AXQ6', $block->quotableReference());
+		$this->assertNull($detection->quotableReference());
+		$this->assertSame(['type' => 'detection', 'id' => '14'], $detection->toArray()['ref'], 'the export keeps every reference');
+	}
+
 	public function testTheSummaryOfAnAccount(): void {
 		$followUp = 'Check the app passwords.';
 		$report = $this->builder([

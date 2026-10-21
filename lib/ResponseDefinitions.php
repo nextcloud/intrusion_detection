@@ -661,6 +661,7 @@ namespace OCA\IntrusionDetection;
  *     id: string,
  *     at: int,
  *     endsAt: ?int,
+ *     lastSeenAt: ?int,
  *     kind: string,
  *     group: string,
  *     title: string,

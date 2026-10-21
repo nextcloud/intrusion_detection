@@ -131,6 +131,9 @@ class ReportRenderer {
 				$labels[] = $entry->enforced ? $l->t('Acted on') : $l->t('Observed');
 			}
 			$meta = [];
+			if ($entry->lastSeenAt !== null) {
+				$meta[] = $l->t('Last seen %s', [$this->dateTime($entry->lastSeenAt, $l)]);
+			}
 			if ($entry->endsAt !== null) {
 				$meta[] = $l->t('Until %s', [$this->dateTime($entry->endsAt, $l)]);
 			}
@@ -140,8 +143,9 @@ class ReportRenderer {
 			if ($entry->accounts !== []) {
 				$meta[] = $l->t('Accounts: %s', [implode(', ', $entry->accounts)]);
 			}
-			if ($entry->ref !== null) {
-				$meta[] = $l->t('Reference: %s', [$entry->ref['type'] . ' ' . $entry->ref['id']]);
+			$reference = $entry->quotableReference();
+			if ($reference !== null) {
+				$meta[] = $l->t('Reference: %s', [$reference]);
 			}
 			$dayEntries[] = [
 				'time' => $this->formatter->formatTime($entry->at, 'short', null, $l),

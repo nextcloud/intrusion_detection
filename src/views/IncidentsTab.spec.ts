@@ -38,6 +38,7 @@ function entry(id: string, kind: string, overrides: Partial<IncidentEntry> = {})
 		id,
 		at: AT,
 		endsAt: null,
+		lastSeenAt: null,
 		kind,
 		group: kind,
 		title: 'Title of ' + id,

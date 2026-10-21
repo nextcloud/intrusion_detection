@@ -595,7 +595,10 @@ export interface IncidentRequest {
 export interface IncidentEntry {
 	id: string
 	at: number
+	/** When a state with an end, such as a block, ends or ended */
 	endsAt: number | null
+	/** When a repeated event was last seen */
+	lastSeenAt: number | null
 	kind: string
 	group: string
 	title: string
