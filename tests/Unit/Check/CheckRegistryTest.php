@@ -29,8 +29,9 @@ class CheckRegistryTest extends TestCase {
 
 	protected function setUp(): void {
 		parent::setUp();
+		// Checks are built by the real container, as their narratives have dependencies.
 		$container = $this->createMock(ContainerInterface::class);
-		$container->method('get')->willReturnCallback(static fn (string $class): object => new $class());
+		$container->method('get')->willReturnCallback(static fn (string $class): object => Server::get($class));
 		$this->registry = new CheckRegistry($container);
 	}
 

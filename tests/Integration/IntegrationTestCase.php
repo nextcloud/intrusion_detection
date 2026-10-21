@@ -22,7 +22,7 @@ use Test\TestCase;
  */
 abstract class IntegrationTestCase extends TestCase {
 	/** Tables emptied before and after each test */
-	public const TABLES = ['ids_attempts', 'ids_logins', 'ids_detections', 'ids_bans', 'ids_flags', 'ids_blocklist_ranges', 'ids_blocklist_stats'];
+	public const TABLES = ['ids_attempts', 'ids_logins', 'ids_detections', 'ids_bans', 'ids_flags', 'ids_blocklist_ranges', 'ids_blocklist_stats', 'ids_protected_accounts', 'ids_alerts'];
 
 	protected IDBConnection $db;
 	protected IAppConfig $appConfig;

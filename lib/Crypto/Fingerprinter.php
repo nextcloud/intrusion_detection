@@ -58,6 +58,20 @@ class Fingerprinter {
 	}
 
 	/**
+	 * The fingerprints under which a flagged password stays recognisable for
+	 * the whole flag duration (at most a day): today's and tomorrow's, since
+	 * the key changes at UTC midnight.
+	 *
+	 * @return list<string>
+	 */
+	public function passwordFlagFingerprints(#[\SensitiveParameter] string $password): array {
+		return [
+			$this->password($password),
+			$this->passwordForDay($password, gmdate('Y-m-d', $this->timeFactory->getTime() + 86400)),
+		];
+	}
+
+	/**
 	 * 16-byte fingerprint of a login name, reset input or share token,
 	 * lower-cased and trimmed first.
 	 */

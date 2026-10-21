@@ -1,0 +1,177 @@
+<?php
+
+declare(strict_types=1);
+
+/**
+ * SPDX-FileCopyrightText: 2026 Nextcloud GmbH and Nextcloud contributors
+ * SPDX-License-Identifier: AGPL-3.0-or-later
+ */
+
+namespace OCA\IntrusionDetection\Notification;
+
+use OCA\IntrusionDetection\AppInfo\Application;
+use OCA\IntrusionDetection\Check\ResponseType;
+use OCA\IntrusionDetection\Config\GlobalSettings;
+use OCA\IntrusionDetection\Config\Settings;
+use OCA\IntrusionDetection\Db\DetectionFilter;
+use OCA\IntrusionDetection\Db\DetectionMapper;
+use OCA\IntrusionDetection\Learning\LearningService;
+use OCP\AppFramework\Utility\ITimeFactory;
+use OCP\IURLGenerator;
+use OCP\Notification\IManager as INotificationManager;
+
+/**
+ * Tells the administrators about the learning period:
+ *
+ * - a day before it ends, what the app would have done so far, with the
+ *   actions "Start protecting now" and "Observe 7 more days";
+ * - when protection starts automatically.
+ *
+ * The notice is sent once per learning period (`learning_notice_sent`; starting
+ * or extending learning mode resets it). Its actions only act while that
+ * notice is pending, so clicking one twice, or a stale one after an admin
+ * restarted learning mode, changes nothing.
+ */
+class LearningNotices {
+	public const OBJECT_TYPE = 'learning';
+	public const OBJECT_ID = 'period';
+	/** The notice is sent when this little of the learning period is left */
+	public const NOTICE_BEFORE = 86400;
+	public const EXTEND_DAYS = 7;
+	/** The notice summarises the observed detections of this many days */
+	public const SUMMARY_DAYS = 7;
+	/** At most this many detections are read for the summary */
+	public const SUMMARY_LIMIT = 5000;
+
+	public function __construct(
+		private readonly Settings $settings,
+		private readonly LearningService $learning,
+		private readonly AdminRecipients $recipients,
+		private readonly INotificationManager $notifications,
+		private readonly DetectionMapper $detections,
+		private readonly IURLGenerator $urlGenerator,
+		private readonly ITimeFactory $timeFactory,
+	) {
+	}
+
+	/**
+	 * Send the "learning ends tomorrow" notice once, when it is due.
+	 *
+	 * @return bool whether it was sent now
+	 */
+	public function sendEndingNoticeIfDue(): bool {
+		$now = $this->timeFactory->getTime();
+		$until = $this->learning->until();
+		if (!$this->learning->isActive() || $until - $now > self::NOTICE_BEFORE || $this->isNoticePending()) {
+			return false;
+		}
+		[$detections, $blocks] = $this->summary($now - self::SUMMARY_DAYS * 86400);
+		$this->settings->setGlobal(GlobalSettings::LEARNING_NOTICE_SENT, $now);
+		foreach ($this->recipients->users() as $user) {
+			$notification = $this->notifications->createNotification();
+			$notification->setApp(Application::APP_ID)
+				->setUser($user->getUID())
+				->setDateTime(new \DateTime('@' . $now))
+				->setObject(self::OBJECT_TYPE, self::OBJECT_ID)
+				->setSubject(Notifier::SUBJECT_LEARNING_ENDS, [
+					'until' => $until,
+					'days' => self::SUMMARY_DAYS,
+					'detections' => $detections,
+					'blocks' => $blocks,
+				]);
+			$protect = $notification->createAction();
+			$protect->setLabel(Notifier::ACTION_PROTECT)
+				->setLink($this->urlGenerator->linkToOCSRouteAbsolute(Application::APP_ID . '.LearningAction.protect'), 'POST')
+				->setPrimary(true);
+			$notification->addAction($protect);
+			$extend = $notification->createAction();
+			$extend->setLabel(Notifier::ACTION_EXTEND)
+				->setLink($this->urlGenerator->linkToOCSRouteAbsolute(Application::APP_ID . '.LearningAction.extend'), 'POST');
+			$notification->addAction($extend);
+			$this->notifications->notify($notification);
+		}
+		return true;
+	}
+
+	/**
+	 * Learning mode ended by itself: tell the administrators.
+	 */
+	public function protectionStarted(): void {
+		$this->dismiss();
+		$now = $this->timeFactory->getTime();
+		foreach ($this->recipients->users() as $user) {
+			$notification = $this->notifications->createNotification();
+			$notification->setApp(Application::APP_ID)
+				->setUser($user->getUID())
+				->setDateTime(new \DateTime('@' . $now))
+				->setObject(self::OBJECT_TYPE, 'started-' . $now)
+				->setSubject(Notifier::SUBJECT_PROTECTION_STARTED);
+			$this->notifications->notify($notification);
+		}
+	}
+
+	/**
+	 * Whether the "learning ends tomorrow" notice was sent for the running
+	 * learning period and nobody answered it yet.
+	 */
+	public function isNoticePending(): bool {
+		return $this->learning->isActive() && $this->settings->getInt(GlobalSettings::LEARNING_NOTICE_SENT) > 0;
+	}
+
+	/**
+	 * "Start protecting now", from the notice.
+	 *
+	 * @return bool whether this ended learning mode (false when the notice was no longer pending)
+	 */
+	public function startProtecting(string $actor): bool {
+		if (!$this->isNoticePending()) {
+			$this->dismiss();
+			return false;
+		}
+		$this->learning->stop($actor);
+		$this->dismiss();
+		return true;
+	}
+
+	/**
+	 * "Observe 7 more days", from the notice.
+	 *
+	 * @return bool whether this extended learning mode (false when the notice was no longer pending)
+	 */
+	public function observeLonger(string $actor): bool {
+		if (!$this->isNoticePending()) {
+			$this->dismiss();
+			return false;
+		}
+		$this->learning->extend(self::EXTEND_DAYS, $actor);
+		$this->dismiss();
+		return true;
+	}
+
+	/**
+	 * Remove the notice for every administrator.
+	 */
+	private function dismiss(): void {
+		$notification = $this->notifications->createNotification();
+		$notification->setApp(Application::APP_ID)
+			->setObject(self::OBJECT_TYPE, self::OBJECT_ID);
+		$this->notifications->markProcessed($notification);
+	}
+
+	/**
+	 * @return array{0: int, 1: int} observed detections since a time, and how many of them would have blocked an address
+	 */
+	private function summary(int $since): array {
+		$observed = $this->detections->findList(new DetectionFilter(enforced: false, since: $since, limit: self::SUMMARY_LIMIT));
+		$blocks = 0;
+		foreach ($observed as $detection) {
+			foreach ($detection->getActionList() as $action) {
+				if ($action['type'] === ResponseType::Ban->value) {
+					$blocks++;
+					break;
+				}
+			}
+		}
+		return [count($observed), $blocks];
+	}
+}

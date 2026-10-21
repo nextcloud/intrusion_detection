@@ -10,16 +10,20 @@ declare(strict_types=1);
 namespace OCA\IntrusionDetection\BackgroundJob;
 
 use OCA\IntrusionDetection\Learning\LearningService;
+use OCA\IntrusionDetection\Notification\LearningNotices;
 use OCP\AppFramework\Utility\ITimeFactory;
 use OCP\BackgroundJob\TimedJob;
 
 /**
- * Hourly: ends learning mode when its period is over.
+ * Hourly: a day before the learning period ends, tells the administrators
+ * what would have happened; when it is over, ends learning mode and tells
+ * them that protection started.
  */
 class LearningModeJob extends TimedJob {
 	public function __construct(
 		ITimeFactory $time,
 		private readonly LearningService $learning,
+		private readonly LearningNotices $notices,
 	) {
 		parent::__construct($time);
 		$this->setInterval(3600);
@@ -27,6 +31,10 @@ class LearningModeJob extends TimedJob {
 
 	#[\Override]
 	protected function run(mixed $argument): void {
-		$this->learning->expireIfDue();
+		if ($this->learning->expireIfDue()) {
+			$this->notices->protectionStarted();
+			return;
+		}
+		$this->notices->sendEndingNoticeIfDue();
 	}
 }

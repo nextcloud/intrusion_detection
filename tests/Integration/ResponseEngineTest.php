@@ -103,8 +103,8 @@ class ResponseEngineTest extends IntegrationTestCase {
 	}
 
 	public function testAResponseWithoutAHandlerIsRecordedAsUnavailable(): void {
-		$detection = $this->engine->handle(new DetectionDraft(SharedAddress::ID, SourceKey::fromIp('198.51.100.7')), [ResponseType::NotifyAdmin]);
-		$this->assertSame([['type' => 'notify_admin', 'enforced' => false, 'note' => ResponseOutcome::NOTE_UNAVAILABLE]], $detection->getActionList());
+		$detection = $this->engine->handle(new DetectionDraft(SharedAddress::ID, SourceKey::fromIp('198.51.100.7')), [ResponseType::LockLink]);
+		$this->assertSame([['type' => 'lock_link', 'enforced' => false, 'note' => ResponseOutcome::NOTE_UNAVAILABLE]], $detection->getActionList());
 	}
 
 	public function testTheSafetyValveRaisesASharedAddressDetectionInsteadOfABan(): void {

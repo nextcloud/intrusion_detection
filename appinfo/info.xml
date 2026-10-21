@@ -63,5 +63,9 @@ Every check can be switched between Off, Observe and Protect, every threshold is
         <command>OCA\IntrusionDetection\Command\Blocklists\ListBlocklists</command>
         <command>OCA\IntrusionDetection\Command\Blocklists\Sync</command>
         <command>OCA\IntrusionDetection\Command\Blocklists\Set</command>
+        <command>OCA\IntrusionDetection\Command\ReservedNames</command>
+        <command>OCA\IntrusionDetection\Command\TrapPaths</command>
+        <command>OCA\IntrusionDetection\Command\Simulate</command>
+        <command>OCA\IntrusionDetection\Command\User</command>
     </commands>
 </info>

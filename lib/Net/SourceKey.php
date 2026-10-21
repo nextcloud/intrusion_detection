@@ -63,6 +63,19 @@ final class SourceKey {
 	}
 
 	/**
+	 * The source for a stored ip key: an IPv4 address, or an IPv6 /64 such as
+	 * `2001:db8:1:2::/64` (which stands for every address in it).
+	 */
+	public static function tryFromIpKey(string $ipKey): ?self {
+		$slash = strpos($ipKey, '/');
+		if ($slash !== false && substr($ipKey, $slash) !== '/64') {
+			return null;
+		}
+		$source = self::tryFromIp($slash === false ? $ipKey : substr($ipKey, 0, $slash));
+		return $source !== null && $source->ipKey === $ipKey ? $source : null;
+	}
+
+	/**
 	 * Whether two addresses are in the same network: the same /24 for IPv4,
 	 * the same /64 for IPv6. Addresses of different families never are.
 	 */

@@ -34,7 +34,6 @@ class DetectionService {
 	 * @return array{0: Detection, 1: bool} the stored detection, and whether it is new
 	 */
 	public function record(DetectionDraft $draft, ModeState $mode): array {
-		$definition = $this->registry->get($draft->checkId);
 		$now = $this->timeFactory->getTime();
 		$mergeKey = $draft->mergeKey();
 
@@ -52,6 +51,18 @@ class DetectionService {
 			}
 		}
 
+		return [$this->mapper->insert($this->build($draft, $mode, $now)), true];
+	}
+
+	/**
+	 * The detection a draft would become, without storing it, for simulations.
+	 */
+	public function preview(DetectionDraft $draft, ModeState $mode): Detection {
+		return $this->build($draft, $mode, $this->timeFactory->getTime());
+	}
+
+	private function build(DetectionDraft $draft, ModeState $mode, int $now): Detection {
+		$definition = $this->registry->get($draft->checkId);
 		$detection = new Detection();
 		$detection->setCheckId($draft->checkId);
 		$detection->setSeverity(($draft->severity ?? $definition->severity)->value);
@@ -60,7 +71,7 @@ class DetectionService {
 		$detection->setNetKey($draft->source?->netKey);
 		$detection->setUid($draft->uid);
 		$detection->setShareId($draft->shareId);
-		$detection->setMergeKey($mergeKey);
+		$detection->setMergeKey($draft->mergeKey());
 		$detection->setExplanationData(Explanation::build(
 			$draft,
 			$mode,
@@ -71,7 +82,7 @@ class DetectionService {
 		$detection->setCreatedAt($now);
 		$detection->setLastSeenAt($now);
 		$detection->setHits(1);
-		return [$this->mapper->insert($detection), true];
+		return $detection;
 	}
 
 	/**

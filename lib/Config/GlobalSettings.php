@@ -49,6 +49,16 @@ final class GlobalSettings {
 	public const BLOCKLIST_STATE = 'blocklist_state';
 	/** Internal: the last firewall export */
 	public const EXPORT_STATE = 'export_state';
+	/** The groups whose members get the admin notifications */
+	public const NOTIFY_ADMIN_GROUP = 'notify_admin_group';
+	/** Detections of at least this severity are also emailed to them ("never" for no emails) */
+	public const NOTIFY_ADMIN_EMAIL_MIN_SEVERITY = 'notify_admin_email_min_severity';
+	/** Internal: until when a distributed credential stuffing attack counts as running */
+	public const CS_DISTRIBUTED_UNTIL = 'cs_distributed_until';
+	/** Internal: when the running distributed attack was last recorded as a detection */
+	public const CS_DISTRIBUTED_DETECTED_AT = 'cs_distributed_detected_at';
+	/** Internal: the detection of the running distributed attack */
+	public const CS_DISTRIBUTED_DETECTION = 'cs_distributed_detection';
 
 	/** Seconds in the learning period that starts when the app is first enabled */
 	public const LEARNING_DEFAULT_PERIOD = 7 * 86400;
@@ -84,6 +94,11 @@ final class GlobalSettings {
 				new ParamDefinition(self::BLOCKLIST_MAX_ENTRIES, ParamType::Int, 200000, min: 100, max: 500000),
 				new ParamDefinition(self::BLOCKLIST_STATE, ParamType::Json, '{}'),
 				new ParamDefinition(self::EXPORT_STATE, ParamType::Json, '{}'),
+				new ParamDefinition(self::NOTIFY_ADMIN_GROUP, ParamType::StringList, ['admin'], itemPattern: '/^[^\x00-\x1f\x7f]{1,255}$/u', maxItems: 10),
+				new ParamDefinition(self::NOTIFY_ADMIN_EMAIL_MIN_SEVERITY, ParamType::Choice, 'high', choices: ['low', 'medium', 'high', 'critical', 'never']),
+				new ParamDefinition(self::CS_DISTRIBUTED_UNTIL, ParamType::Int, 0, min: 0),
+				new ParamDefinition(self::CS_DISTRIBUTED_DETECTED_AT, ParamType::Int, 0, min: 0),
+				new ParamDefinition(self::CS_DISTRIBUTED_DETECTION, ParamType::Int, 0, min: 0),
 			];
 			$this->definitions = [];
 			foreach ($list as $definition) {
@@ -101,6 +116,10 @@ final class GlobalSettings {
 	 * Settings that hold internal state and are never set by an admin.
 	 */
 	public static function isInternal(string $name): bool {
-		return in_array($name, [self::BAN_VERSION, self::INSTALLED_AT, self::LEARNING_NOTICE_SENT, self::ATTEMPTS_FLOOD_UNTIL, self::BLOCKLIST_STATE, self::EXPORT_STATE], true);
+		return in_array($name, [
+			self::BAN_VERSION, self::INSTALLED_AT, self::LEARNING_NOTICE_SENT, self::ATTEMPTS_FLOOD_UNTIL,
+			self::BLOCKLIST_STATE, self::EXPORT_STATE,
+			self::CS_DISTRIBUTED_UNTIL, self::CS_DISTRIBUTED_DETECTED_AT, self::CS_DISTRIBUTED_DETECTION,
+		], true);
 	}
 }

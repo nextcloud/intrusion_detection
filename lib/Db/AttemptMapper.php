@@ -133,6 +133,38 @@ class AttemptMapper {
 	}
 
 	/**
+	 * The distinct existing accounts among attempts where `$column` matches,
+	 * at most `$limit`, for the targets an explanation lists.
+	 *
+	 * @param 'ip_key'|'net_key'|'pw_fp'|'uid'|'share_id'|'name_hmac' $column
+	 * @param list<string|int> $values
+	 * @param list<AttemptKind> $kinds
+	 * @return list<string>
+	 */
+	public function distinctUids(string $column, array $values, array $kinds, int $since, int $limit): array {
+		if (!in_array($column, self::KEY_COLUMNS, true)) {
+			throw new \InvalidArgumentException('Not an indexed key column: ' . $column);
+		}
+		if ($values === []) {
+			return [];
+		}
+		$qb = $this->db->getQueryBuilder();
+		$type = $column === 'share_id' ? IQueryBuilder::PARAM_INT_ARRAY : IQueryBuilder::PARAM_STR_ARRAY;
+		$qb->selectDistinct('uid')
+			->from(self::TABLE)
+			->where($qb->expr()->in($column, $qb->createNamedParameter($values, $type)))
+			->andWhere($qb->expr()->gte('created_at', $qb->createNamedParameter($since, IQueryBuilder::PARAM_INT)))
+			->andWhere($qb->expr()->isNotNull('uid'))
+			->setMaxResults($limit);
+		$this->whereKinds($qb, $kinds);
+		$result = $qb->executeQuery();
+		$uids = array_map('strval', $result->fetchFirstColumn());
+		$result->closeCursor();
+		sort($uids);
+		return $uids;
+	}
+
+	/**
 	 * Attempts per ip key for one value of a key column, for "ban every source
 	 * with at least N failures".
 	 *

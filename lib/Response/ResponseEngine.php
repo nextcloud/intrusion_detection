@@ -39,6 +39,9 @@ class ResponseEngine {
 	public const HANDLERS = [
 		Handlers\BanHandler::class,
 		Handlers\FlagSourceHandler::class,
+		Handlers\FlagPasswordHandler::class,
+		Handlers\ProtectAccountHandler::class,
+		Handlers\NotifyAdminHandler::class,
 	];
 
 	/** @var array<string, IResponseHandler>|null */

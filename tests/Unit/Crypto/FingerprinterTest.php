@@ -62,6 +62,13 @@ class FingerprinterTest extends TestCase {
 		$this->assertCount(1, $this->fingerprinter()->passwordCandidates('Summer2026!'));
 	}
 
+	public function testAFlaggedPasswordIsRecognisedTomorrowToo(): void {
+		$flagged = $this->fingerprinter()->passwordFlagFingerprints('Summer2026!');
+		$this->assertSame($this->fingerprinter()->password('Summer2026!'), $flagged[0]);
+		$this->now += 86400;
+		$this->assertContains($this->fingerprinter()->password('Summer2026!'), $flagged);
+	}
+
 	public function testNamesAreNormalised(): void {
 		$f = $this->fingerprinter();
 		$this->assertSame($f->name('Alice'), $f->name('  alice '));

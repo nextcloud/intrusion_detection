@@ -20,6 +20,11 @@ final class CheckRegistry {
 		Checks\ManualBlock::class,
 		Checks\SharedAddress::class,
 		Checks\BlocklistMatch::class,
+		Checks\CredentialStuffing::class,
+		Checks\PasswordSpraying::class,
+		Checks\AccountUnderAttack::class,
+		Checks\ReservedName::class,
+		Checks\TrapUrl::class,
 	];
 
 	/** @var array<string, CheckDefinition>|null */

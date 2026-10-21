@@ -13,6 +13,7 @@ use OCA\IntrusionDetection\AppInfo\Application;
 use OCA\IntrusionDetection\Check\CheckDefinition;
 use OCA\IntrusionDetection\Check\CheckRegistry;
 use OCA\IntrusionDetection\Check\InvalidParamException;
+use OCA\IntrusionDetection\Check\IValidatesParams;
 use OCA\IntrusionDetection\Check\Mode;
 use OCA\IntrusionDetection\Check\ParamDefinition;
 use OCA\IntrusionDetection\Check\ParamType;
@@ -142,7 +143,12 @@ class Settings {
 	 */
 	public function setParam(string $checkId, string $name, mixed $value): void {
 		$definition = $this->registry->get($checkId)->param($name);
-		$this->write(Keys::param($checkId, $name), $definition, $definition->validate($value));
+		$value = $definition->validate($value);
+		$check = $this->registry->check($this->registry->classOf($checkId));
+		if ($check instanceof IValidatesParams) {
+			$value = $definition->validate($check->validateParam($name, $value));
+		}
+		$this->write(Keys::param($checkId, $name), $definition, $value);
 	}
 
 	public function resetParam(string $checkId, string $name): void {

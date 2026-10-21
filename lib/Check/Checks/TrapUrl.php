@@ -1,0 +1,117 @@
+<?php
+
+declare(strict_types=1);
+
+/**
+ * SPDX-FileCopyrightText: 2026 Nextcloud GmbH and Nextcloud contributors
+ * SPDX-License-Identifier: AGPL-3.0-or-later
+ */
+
+namespace OCA\IntrusionDetection\Check\Checks;
+
+use OCA\IntrusionDetection\Check\Category;
+use OCA\IntrusionDetection\Check\CheckDefinition;
+use OCA\IntrusionDetection\Check\CheckTexts;
+use OCA\IntrusionDetection\Check\CostClass;
+use OCA\IntrusionDetection\Check\DataKind;
+use OCA\IntrusionDetection\Check\ICheck;
+use OCA\IntrusionDetection\Check\InvalidParamException;
+use OCA\IntrusionDetection\Check\ISimulatable;
+use OCA\IntrusionDetection\Check\IValidatesParams;
+use OCA\IntrusionDetection\Check\Mode;
+use OCA\IntrusionDetection\Check\ParamDefinition;
+use OCA\IntrusionDetection\Check\ParamType;
+use OCA\IntrusionDetection\Check\ResponseType;
+use OCA\IntrusionDetection\Check\Severity;
+use OCA\IntrusionDetection\Db\Detection;
+use OCA\IntrusionDetection\Detection\DetectionDraft;
+use OCA\IntrusionDetection\Explain\DateFormatter;
+use OCA\IntrusionDetection\Explain\DetectionFacts;
+use OCA\IntrusionDetection\Explain\IExplainsDetection;
+use OCA\IntrusionDetection\Net\SourceKey;
+use OCA\IntrusionDetection\Traps\TrapPaths;
+use OCP\IL10N;
+
+/**
+ * A request for a path no legitimate Nextcloud client ever requests, from a
+ * client that is not logged in. The guard is
+ * {@see \OCA\IntrusionDetection\Guard\TrapUrlGuard}.
+ */
+final class TrapUrl implements ICheck, IExplainsDetection, ISimulatable, IValidatesParams {
+	public const ID = 'trap_url';
+
+	public function __construct(
+		private readonly DateFormatter $dates,
+	) {
+	}
+
+	#[\Override]
+	public function definition(): CheckDefinition {
+		return new CheckDefinition(
+			id: self::ID,
+			category: Category::Traps,
+			defaultMode: Mode::Protect,
+			severity: Severity::Low,
+			params: [
+				new ParamDefinition('builtin_enabled', ParamType::Bool, true),
+				new ParamDefinition('autodiscover', ParamType::Bool, false),
+				new ParamDefinition('paths', ParamType::StringList, [], itemPattern: TrapPaths::CUSTOM_PATTERN, maxItems: TrapPaths::MAX_CUSTOM, maxItemLength: 200),
+			],
+			responses: [ResponseType::Ban, ResponseType::NotifyAdmin],
+			defaultResponses: [ResponseType::Ban],
+			cost: CostClass::EveryRequestTiny,
+			stores: [DataKind::Detections, DataKind::Bans],
+			texts: static fn (IL10N $l): CheckTexts => new CheckTexts(
+				name: $l->t('Trap URLs'),
+				summary: $l->t('A visitor who is not logged in requests a path that no Nextcloud client ever requests.'),
+				detects: $l->t('Scanners look for weaknesses of other software, such as WordPress logins, leaked configuration files or database tools. Nextcloud has none of these, so anyone who asks for them is scanning your server.'),
+				decides: $l->t('Fires when a visitor who is not logged in requests one of the built-in trap paths (switched {builtin_enabled}), the Exchange autodiscover path (switched {autodiscover}), or one of your own paths: {paths}. Your own paths match exactly, or as a prefix when they end with "*".'),
+				wrong: $l->t('Logged-in users and clients that send credentials are never checked. A browser extension or a monitoring tool that probes such paths could trip it; put its address on the brute-force allowlist. Many of these paths never reach Nextcloud unless your web server forwards unknown paths to it.'),
+				data: $l->t('Detections: the address, the requested path (at most 200 characters), and the time.'),
+			),
+			simulatable: true,
+		);
+	}
+
+	#[\Override]
+	public function validateParam(string $name, int|float|bool|string|array $value): int|float|bool|string|array {
+		if ($name !== 'paths' || !is_array($value)) {
+			return $value;
+		}
+		$paths = [];
+		foreach ($value as $path) {
+			$path = strtolower($path);
+			if (TrapPaths::conflictsWithNextcloud($path)) {
+				throw new InvalidParamException('nextcloud_path', ['param' => $name, 'item' => $path]);
+			}
+			$paths[] = $path;
+		}
+		return array_values(array_unique($paths));
+	}
+
+	#[\Override]
+	public function narrative(Detection $detection, IL10N $l): array {
+		$facts = DetectionFacts::of($detection);
+		$sentences = [$l->t('The address %1$s requested %2$s without being logged in. No Nextcloud client ever requests this path.', [
+			(string)$detection->getIp(),
+			$facts->string('path'),
+		])];
+		if ($detection->getHits() > 1) {
+			$sentences[] = $l->n('It requested trap paths %n time between %1$s and %2$s.', 'It requested trap paths %n times between %1$s and %2$s.', $detection->getHits(), [
+				$this->dates->dateTime($detection->getCreatedAt()),
+				$this->dates->time($detection->getLastSeenAt()),
+			]);
+		}
+		return $sentences;
+	}
+
+	#[\Override]
+	public function simulate(SourceKey $source, int $now, array $params): DetectionDraft {
+		return new DetectionDraft(
+			checkId: self::ID,
+			source: $source,
+			facts: ['path' => '/wp-login.php', 'trap' => '/wp-login.php', 'simulated' => true],
+			merge: DetectionDraft::MERGE_SOURCE,
+		);
+	}
+}

@@ -69,4 +69,15 @@ class SourceKeyTest extends TestCase {
 		$this->assertSame(16, strlen($low));
 		$this->assertLessThan(0, strcmp(bin2hex($low), bin2hex($high)));
 	}
+
+	public function testSourcesFromStoredIpKeys(): void {
+		$this->assertSame('198.51.100.7', SourceKey::tryFromIpKey('198.51.100.7')?->ipKey);
+		$v6 = SourceKey::tryFromIpKey('2001:db8:1:2::/64');
+		$this->assertSame('2001:db8:1:2::/64', $v6?->ipKey);
+		$this->assertSame(6, $v6?->family);
+		$this->assertNull(SourceKey::tryFromIpKey('2001:db8:1:2::5'), 'An IPv6 key is always a /64');
+		$this->assertNull(SourceKey::tryFromIpKey('198.51.100.0/24'), 'A network key is not an ip key');
+		$this->assertNull(SourceKey::tryFromIpKey('2001:db8::/48'));
+		$this->assertNull(SourceKey::tryFromIpKey('not an address'));
+	}
 }

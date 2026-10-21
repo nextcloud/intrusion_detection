@@ -28,6 +28,8 @@ final class DetectionDraft {
 
 	/** @var list<SourceKey> */
 	private array $extraBanTargets = [];
+	/** @var list<string> */
+	private array $passwordFingerprints = [];
 
 	/**
 	 * @param array<string, mixed> $facts
@@ -54,6 +56,23 @@ final class DetectionDraft {
 	 */
 	public function addBanTarget(SourceKey $target): void {
 		$this->extraBanTargets[] = $target;
+	}
+
+	/**
+	 * Hex password fingerprints for the flag_password response. They are
+	 * handed to that response only and never stored with the detection.
+	 *
+	 * @param list<string> $fingerprints
+	 */
+	public function setPasswordFingerprints(#[\SensitiveParameter] array $fingerprints): void {
+		$this->passwordFingerprints = array_values(array_unique($fingerprints));
+	}
+
+	/**
+	 * @return list<string>
+	 */
+	public function passwordFingerprints(): array {
+		return $this->passwordFingerprints;
 	}
 
 	/**
