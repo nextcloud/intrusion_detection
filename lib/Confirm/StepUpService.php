@@ -83,6 +83,7 @@ class StepUpService {
 		private readonly AuditLogger $audit,
 		private readonly LoggerInterface $logger,
 		private readonly LoginHistory $history,
+		private readonly FamiliarLogin $familiar,
 	) {
 	}
 
@@ -101,7 +102,7 @@ class StepUpService {
 		$policyIds = array_map(static fn (StepUpPolicy $p): string => $p->value, $policies);
 
 		if (!$login->interactive) {
-			$decision = $this->policy->noMethodDecision($policies);
+			$decision = $this->policy->noMethodDecision($policies, fn (): bool => $this->familiar->isFamiliar($login));
 			if (!$decision->refuse) {
 				return $this->allow($login, $policyIds, $decision);
 			}
@@ -134,7 +135,7 @@ class StepUpService {
 			}
 		}
 
-		$decision = $this->policy->noMethodDecision($policies);
+		$decision = $this->policy->noMethodDecision($policies, fn (): bool => $this->familiar->isFamiliar($login));
 		if (!$decision->refuse) {
 			return $this->allow($login, $policyIds, $decision);
 		}

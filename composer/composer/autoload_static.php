@@ -210,6 +210,7 @@ class ComposerStaticInitIntrusionDetection
         'OCA\\IntrusionDetection\\Confirm\\ConfirmationCoverage' => __DIR__ . '/..' . '/../lib/Confirm/ConfirmationCoverage.php',
         'OCA\\IntrusionDetection\\Confirm\\ConfirmationPolicy' => __DIR__ . '/..' . '/../lib/Confirm/ConfirmationPolicy.php',
         'OCA\\IntrusionDetection\\Confirm\\EmailCodes' => __DIR__ . '/..' . '/../lib/Confirm/EmailCodes.php',
+        'OCA\\IntrusionDetection\\Confirm\\FamiliarLogin' => __DIR__ . '/..' . '/../lib/Confirm/FamiliarLogin.php',
         'OCA\\IntrusionDetection\\Confirm\\IConfirmationMethod' => __DIR__ . '/..' . '/../lib/Confirm/IConfirmationMethod.php',
         'OCA\\IntrusionDetection\\Confirm\\IStepUpReason' => __DIR__ . '/..' . '/../lib/Confirm/IStepUpReason.php',
         'OCA\\IntrusionDetection\\Confirm\\LoginContext' => __DIR__ . '/..' . '/../lib/Confirm/LoginContext.php',

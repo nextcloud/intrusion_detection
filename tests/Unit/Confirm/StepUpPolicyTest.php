@@ -37,7 +37,7 @@ class StepUpPolicyTest extends TestCase {
 		return [
 			'flagged_source' => [StepUpPolicy::FlaggedSource, NoMethodOutcome::Refuse],
 			'sprayed_password' => [StepUpPolicy::SprayedPassword, NoMethodOutcome::Refuse],
-			'protected_account' => [StepUpPolicy::ProtectedAccount, NoMethodOutcome::Refuse],
+			'protected_account' => [StepUpPolicy::ProtectedAccount, NoMethodOutcome::AllowNotify],
 			'breached_password' => [StepUpPolicy::BreachedPassword, NoMethodOutcome::AllowForceChange],
 			'risky_network' => [StepUpPolicy::RiskyNetwork, NoMethodOutcome::AllowNotify],
 			'risk_high' => [StepUpPolicy::RiskHigh, NoMethodOutcome::Refuse],

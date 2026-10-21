@@ -39,7 +39,7 @@ enum StepUpPolicy: string {
 	public function defaultOutcome(): NoMethodOutcome {
 		return match ($this) {
 			self::BreachedPassword => NoMethodOutcome::AllowForceChange,
-			self::RiskyNetwork => NoMethodOutcome::AllowNotify,
+			self::RiskyNetwork, self::ProtectedAccount => NoMethodOutcome::AllowNotify,
 			default => NoMethodOutcome::Refuse,
 		};
 	}
@@ -103,7 +103,7 @@ enum StepUpPolicy: string {
 		return match ($this) {
 			self::FlaggedSource => $l->t('The address was part of an attack.'),
 			self::SprayedPassword => $l->t('Attackers are trying this password right now.'),
-			self::ProtectedAccount => $l->t('Someone is guessing this account\'s password.'),
+			self::ProtectedAccount => $l->t('Guessing is no proof that anyone has the password, and refusing would let anyone lock out accounts that have no email address or second factor.'),
 			self::BreachedPassword => $l->t('The password must change anyway, and refusing would lock people out without an attack.'),
 			self::RiskyNetwork => $l->t('Hosting networks are suspicious, not evidence.'),
 			self::RiskHigh => $l->t('Many signs of an attack come together at this address.'),

@@ -76,7 +76,7 @@ final class AccountUnderAttack implements ICheck, IExplainsDetection, IExplainsT
 					'window' => new ParamText($l->t('Time window'), $l->t('How far back failed logins of one account are counted.')),
 					'min_failures' => new ParamText($l->t('Failed logins'), $l->t('For one account within the time window.'), $l->t('failures')),
 					'min_sources' => new ParamText($l->t('Different addresses'), $l->t('That the failed logins come from.'), $l->t('addresses')),
-					'protect_duration' => new ParamText($l->t('Extra confirmation for'), $l->t('How long every password login to the account needs confirmation after the last failed attempt.')),
+					'protect_duration' => new ParamText($l->t('Extra confirmation for'), $l->t('How long every password login to the account needs confirmation after the limits were last reached.')),
 					'ban_min_failures' => new ParamText($l->t('Block addresses with at least'), $l->t('Failures of this account from one address, when blocking is switched on.'), $l->t('failures')),
 				],
 			),

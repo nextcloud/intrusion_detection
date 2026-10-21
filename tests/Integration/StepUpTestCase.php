@@ -19,6 +19,7 @@ use OCA\IntrusionDetection\Check\Checks\StepUpFailed;
 use OCA\IntrusionDetection\Check\Checks\StepUpUnconfirmed;
 use OCA\IntrusionDetection\Confirm\ConfirmationPolicy;
 use OCA\IntrusionDetection\Confirm\EmailCodes;
+use OCA\IntrusionDetection\Confirm\FamiliarLogin;
 use OCA\IntrusionDetection\Confirm\LoginDetections;
 use OCA\IntrusionDetection\Confirm\Methods\AdminApprovalMethod;
 use OCA\IntrusionDetection\Confirm\Methods\EmailCodeMethod;
@@ -219,6 +220,7 @@ abstract class StepUpTestCase extends AccountTestCase {
 			Server::get(AuditLogger::class),
 			Server::get(LoggerInterface::class),
 			$this->history(),
+			new FamiliarLogin($this->knownDevices(), Server::get(LoginHistoryMapper::class), Server::get(ITimeFactory::class)),
 		);
 	}
 

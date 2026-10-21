@@ -24,11 +24,14 @@ use OCA\IntrusionDetection\Config\GlobalSettings;
 use OCA\IntrusionDetection\Config\Keys;
 use OCA\IntrusionDetection\Confirm\IConfirmationMethod;
 use OCA\IntrusionDetection\Confirm\LoginDetections;
+use OCA\IntrusionDetection\Confirm\NoMethodOutcome;
 use OCA\IntrusionDetection\Confirm\StepUpPolicy;
 use OCA\IntrusionDetection\Confirm\StepUpReference;
 use OCA\IntrusionDetection\Confirm\StepUpState;
 use OCA\IntrusionDetection\Confirm\UnconfirmedSessions;
 use OCA\IntrusionDetection\Crypto\Fingerprinter;
+use OCA\IntrusionDetection\Db\LoginHistoryMapper;
+use OCA\IntrusionDetection\LoginHistory\LoginHistory;
 use OCA\IntrusionDetection\Net\SourceKey;
 use OCA\IntrusionDetection\Notification\AdminAlerts;
 use OCA\IntrusionDetection\Notification\UserAlerts;
@@ -318,6 +321,7 @@ class StepUpTest extends StepUpTestCase {
 	}
 
 	public function testOneRefusingReasonRefusesEvenWhenAnotherAllows(): void {
+		$this->settings->setGlobal(StepUpPolicy::ProtectedAccount->settingKey(), NoMethodOutcome::Refuse->value);
 		$bob = $this->user('ids-stepup-two', null);
 		$this->give(StepUpPolicy::BreachedPassword, $bob);
 		$this->give(StepUpPolicy::ProtectedAccount, $bob);
@@ -326,7 +330,54 @@ class StepUpTest extends StepUpTestCase {
 		$this->assertSame([StepUpPolicy::ProtectedAccount->value, StepUpPolicy::BreachedPassword->value], $this->stepUp()?->policies);
 	}
 
+	public function testAProtectedAccountWithoutAWayToConfirmIsLetInWithANoticeByDefault(): void {
+		$bob = $this->user('ids-stepup-guessed', null);
+		$this->give(StepUpPolicy::ProtectedAccount, $bob);
+		$this->login($bob);
+		$this->assertNull($this->stepUp(), 'Guessing alone must not lock the account holder out');
+		$this->assertSame('none', $this->state->get(SessionState::CONFIRMATION)['by'] ?? null);
+		$detection = $this->detectionsOf(StepUpUnconfirmed::ID)[0];
+		$this->assertContains('notify_admin', array_column($detection->getActionList(), 'type'));
+	}
+
+	public function testAProtectedAccountIsNeverRefusedFromAFamiliarPlace(): void {
+		$this->settings->setGlobal(StepUpPolicy::ProtectedAccount->settingKey(), NoMethodOutcome::Refuse->value);
+		$bob = $this->user('ids-stepup-home', null);
+		$this->give(StepUpPolicy::ProtectedAccount, $bob);
+		$history = Server::get(LoginHistoryMapper::class);
+		$history->insert($bob->getUID(), time() - 86400, SourceKey::fromIp($this->remoteAddress), null, LoginHistory::METHOD_PASSWORD, false, 'none', null, null);
+		$history->insert($bob->getUID(), time() - 3600, SourceKey::fromIp('192.0.2.50'), null, LoginHistory::METHOD_PASSWORD, false, 'none', LoginHistory::STEP_UP_REFUSED, null);
+
+		$this->login($bob);
+		$this->assertNull($this->stepUp(), 'From where the account holder logged in yesterday: allowed with a notice');
+		$this->assertSame('none', $this->state->get(SessionState::CONFIRMATION)['by'] ?? null);
+
+		$this->session->clear();
+		$this->session->id = null;
+		$this->basicAuth($bob);
+		$this->login($bob);
+		$this->assertNull($this->stepUp(), 'Their apps there keep working too');
+
+		$this->session->clear();
+		$this->session->id = null;
+		$this->setBasicCredentials(null, null);
+		$this->headers = [];
+		$this->method = 'POST';
+		$this->pathInfo = '/login';
+		$this->remoteAddress = '192.0.2.50';
+		$this->login($bob);
+		$this->assertSame(StepUpState::REFUSED, $this->stepUp()?->status, 'A refused login is no familiar place');
+
+		$this->session->clear();
+		$this->session->id = null;
+		$this->remoteAddress = '198.51.100.7';
+		$this->give(StepUpPolicy::FlaggedSource, $bob);
+		$this->login($bob);
+		$this->assertSame(StepUpState::REFUSED, $this->stepUp()?->status, 'Only the protection is lifted for familiar places');
+	}
+
 	public function testAppsSendingThePasswordAreRefusedAndTheUserIsToldOnceADay(): void {
+		$this->settings->setGlobal(StepUpPolicy::ProtectedAccount->settingKey(), NoMethodOutcome::Refuse->value);
 		$this->give(StepUpPolicy::ProtectedAccount, $this->alice);
 		$this->basicAuth($this->alice);
 		$this->login($this->alice);

@@ -14,6 +14,9 @@ use OC\Authentication\Login\LoginData;
 use OC\User\Session;
 use OCA\IntrusionDetection\Check\Checks\StepUpRefused;
 use OCA\IntrusionDetection\Check\Checks\StepUpRefusedClient;
+use OCA\IntrusionDetection\Config\Settings;
+use OCA\IntrusionDetection\Confirm\NoMethodOutcome;
+use OCA\IntrusionDetection\Confirm\StepUpPolicy;
 use OCA\IntrusionDetection\Confirm\StepUpState;
 use OCA\IntrusionDetection\Db\DetectionFilter;
 use OCA\IntrusionDetection\Db\DetectionMapper;
@@ -64,6 +67,7 @@ class RealLoginTest extends IntegrationTestCase {
 		$this->request->method('getPathInfo')->willReturnCallback(fn (): string => $this->path);
 		$this->overwriteService(IRequest::class, $this->request);
 		Server::get(AccountProtection::class)->protect($this->user->getUID(), time() + 3600);
+		Server::get(Settings::class)->setGlobal(StepUpPolicy::ProtectedAccount->settingKey(), NoMethodOutcome::Refuse->value);
 	}
 
 	protected function tearDown(): void {
@@ -80,7 +84,7 @@ class RealLoginTest extends IntegrationTestCase {
 
 		$stepUp = StepUpState::fromArray(Server::get(SessionState::class)->get(SessionState::STEP_UP) ?? []);
 		$this->assertNotNull($stepUp, 'The app\'s own listener marked the session');
-		$this->assertSame(StepUpState::REFUSED, $stepUp->status, 'No email address and no second factor: refused by default');
+		$this->assertSame(StepUpState::REFUSED, $stepUp->status, 'No email address and no second factor: refused, as configured');
 		$this->assertSame(['protected_account'], $stepUp->policies);
 		$this->assertCount(1, Server::get(DetectionMapper::class)->findList(new DetectionFilter(checkIds: [StepUpRefused::ID], uid: $this->user->getUID())));
 		$history = Server::get(LoginHistoryMapper::class)->forUser($this->user->getUID(), 0);

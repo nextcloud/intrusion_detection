@@ -16,7 +16,6 @@ use OCA\IntrusionDetection\Db\AttemptMapper;
 use OCA\IntrusionDetection\Detection\AttemptRecord;
 use OCA\IntrusionDetection\Detection\DetectionDraft;
 use OCA\IntrusionDetection\Net\SourceKey;
-use OCA\IntrusionDetection\Response\AccountProtection;
 use OCA\IntrusionDetection\Response\ResponseEngine;
 use OCA\IntrusionDetection\Risk\RiskScorer;
 
@@ -27,9 +26,9 @@ use OCA\IntrusionDetection\Risk\RiskScorer;
  * The detection is about the account, so it has no single source address.
  * The limits are lowered when the address of the failed login has an
  * elevated or high risk score ({@see RiskScorer::limits()}).
- * While failures continue, an account that is already protected stays
- * protected until `protect_duration` after the last failure, even when the
- * numbers fall below the thresholds again.
+ * The protection lasts `protect_duration` from the last time the limits
+ * were reached: single failures below them never extend it, so nobody can
+ * keep an account protected with an occasional guess.
  */
 class AccountUnderAttackDetector {
 	public const KINDS = [AttemptKind::PasswordLogin, AttemptKind::AppPassword];
@@ -40,7 +39,6 @@ class AccountUnderAttackDetector {
 		private readonly Settings $settings,
 		private readonly AttemptMapper $attempts,
 		private readonly ResponseEngine $engine,
-		private readonly AccountProtection $protection,
 		private readonly RiskScorer $risk,
 	) {
 	}
@@ -85,14 +83,8 @@ class AccountUnderAttackDetector {
 					}
 				}
 			}
+			// A merged detection runs its responses again: the protection is extended while the limits are reached.
 			$this->engine->handle($draft);
-			return;
-		}
-
-		if ($state->acts()
-			&& $this->settings->hasResponse(AccountUnderAttack::ID, ResponseType::ProtectAccount)
-			&& $this->protection->isProtected($uid)) {
-			$this->protection->protect($uid, $attempt->time + (int)$params['protect_duration']);
 		}
 	}
 }

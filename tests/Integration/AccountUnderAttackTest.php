@@ -88,10 +88,17 @@ class AccountUnderAttackTest extends LoginFailureTestCase {
 		$this->assertSame($this->uid, $this->allRows('ids_attempts')[0]['uid']);
 	}
 
-	public function testTheProtectionIsExtendedWhileFailuresContinue(): void {
+	public function testASingleFailureBelowTheLimitsNeverExtendsTheProtection(): void {
 		$protection = $this->freshProtection();
 		$protection->protect($this->uid, time() + 600);
 		$this->failLogin('198.51.100.1', $this->uid);
+		$this->assertEqualsWithDelta(time() + 600, $this->protected->find($this->uid)['expires_at'], 5, 'An occasional guess cannot keep the account protected');
+	}
+
+	public function testTheProtectionIsExtendedWhileTheLimitsAreReached(): void {
+		$this->attack(10, 5);
+		$this->freshProtection()->protect($this->uid, time() + 600);
+		$this->failLogin('198.51.100.11', $this->uid);
 		$this->assertEqualsWithDelta(time() + 86400, $this->protected->find($this->uid)['expires_at'], 5);
 	}
 

@@ -139,6 +139,22 @@ class ConfirmationPolicyTest extends TestCase {
 		$this->assertSame([$refuse, $notify, $forceChange], [$decision->refuse, $decision->notify, $decision->forceChange]);
 	}
 
+	public function testAFamiliarPlaceTurnsOnlyARefusedProtectedAccountIntoANotice(): void {
+		$asked = 0;
+		$familiar = static function () use (&$asked): bool {
+			$asked++;
+			return true;
+		};
+		$this->outcomes = ['protected_account' => 'refuse', 'flagged_source' => 'refuse'];
+		$decision = $this->policy()->noMethodDecision([StepUpPolicy::ProtectedAccount], $familiar);
+		$this->assertSame([false, true], [$decision->refuse, $decision->notify]);
+		$this->assertTrue($this->policy()->noMethodDecision([StepUpPolicy::ProtectedAccount, StepUpPolicy::FlaggedSource], $familiar)->refuse, 'Other reasons still refuse');
+		$this->assertSame(2, $asked);
+		$this->policy()->noMethodDecision([StepUpPolicy::FlaggedSource, StepUpPolicy::BreachedPassword], $familiar);
+		$this->assertSame(2, $asked, 'Not asked when it decides nothing');
+		$this->assertTrue($this->policy()->noMethodDecision([StepUpPolicy::ProtectedAccount], static fn (): bool => false)->refuse);
+	}
+
 	public function testEachNoMethodOutcomeIsReadFromItsSetting(): void {
 		foreach (NoMethodOutcome::cases() as $outcome) {
 			$this->outcomes = ['protected_account' => $outcome->value];

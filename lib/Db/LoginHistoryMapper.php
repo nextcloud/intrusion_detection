@@ -113,6 +113,28 @@ class LoginHistoryMapper {
 	}
 
 	/**
+	 * Whether the account logged in from this address since a time with a
+	 * login that went through: it needed nothing, or it was confirmed.
+	 */
+	public function wentThroughFrom(string $uid, string $ip, int $since): bool {
+		$qb = $this->db->getQueryBuilder();
+		$qb->select('id')
+			->from(self::TABLE)
+			->where($qb->expr()->eq('ip', $qb->createNamedParameter($ip)))
+			->andWhere($qb->expr()->gte('created_at', $qb->createNamedParameter($since, IQueryBuilder::PARAM_INT)))
+			->andWhere($qb->expr()->eq('uid', $qb->createNamedParameter($uid)))
+			->andWhere($qb->expr()->orX(
+				$qb->expr()->isNull('step_up'),
+				$qb->expr()->eq('step_up', $qb->createNamedParameter('confirmed')),
+			))
+			->setMaxResults(1);
+		$result = $qb->executeQuery();
+		$found = $result->fetchOne() !== false;
+		$result->closeCursor();
+		return $found;
+	}
+
+	/**
 	 * @return list<LoginHistoryEntry> the account's logins in [since, until), newest first unless `$oldestFirst`
 	 */
 	public function forUser(string $uid, int $since, ?int $until = null, int $limit = 100, bool $oldestFirst = false): array {

@@ -195,6 +195,7 @@ return array(
     'OCA\\IntrusionDetection\\Confirm\\ConfirmationCoverage' => $baseDir . '/../lib/Confirm/ConfirmationCoverage.php',
     'OCA\\IntrusionDetection\\Confirm\\ConfirmationPolicy' => $baseDir . '/../lib/Confirm/ConfirmationPolicy.php',
     'OCA\\IntrusionDetection\\Confirm\\EmailCodes' => $baseDir . '/../lib/Confirm/EmailCodes.php',
+    'OCA\\IntrusionDetection\\Confirm\\FamiliarLogin' => $baseDir . '/../lib/Confirm/FamiliarLogin.php',
     'OCA\\IntrusionDetection\\Confirm\\IConfirmationMethod' => $baseDir . '/../lib/Confirm/IConfirmationMethod.php',
     'OCA\\IntrusionDetection\\Confirm\\IStepUpReason' => $baseDir . '/../lib/Confirm/IStepUpReason.php',
     'OCA\\IntrusionDetection\\Confirm\\LoginContext' => $baseDir . '/../lib/Confirm/LoginContext.php',
