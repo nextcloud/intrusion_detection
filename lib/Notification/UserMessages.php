@@ -35,11 +35,15 @@ use Psr\Container\ContainerInterface;
  * Users never see thresholds, other accounts or anything meant for the
  * administrators, nor a user agent or session name as it was sent: an
  * attacker chooses those, and they would read like part of a genuine
- * security message. Devices are named by {@see DeviceLabel::describe()}.
+ * security message. Devices are named by {@see DeviceLabel::describe()};
+ * app passwords by the name their user gave them, cleaned so that it
+ * cannot pass for a link ({@see self::appPasswordName()}).
  */
 class UserMessages {
 	/** User agents are cut to this length */
 	public const MAX_USER_AGENT = 200;
+	/** App password names are cut to this length */
+	public const MAX_APP_PASSWORD_NAME = 40;
 	/** At most this many blocked addresses are named */
 	public const MAX_ADDRESSES = 3;
 
@@ -112,6 +116,42 @@ class UserMessages {
 			return null;
 		}
 		return mb_strlen($clean) > self::MAX_USER_AGENT ? mb_substr($clean, 0, self::MAX_USER_AGENT - 1) . '…' : $clean;
+	}
+
+	/**
+	 * The name a user gave an app password, as users are shown it: printable
+	 * characters only, at most MAX_APP_PASSWORD_NAME of them, and nothing
+	 * that a mail client could turn into a link (no "://", no "www.", no dot
+	 * between a name and a top-level domain). Null when nothing is left.
+	 */
+	public static function appPasswordName(?string $name): ?string {
+		$name = (string)$name;
+		// Control, format (bidi overrides), private-use and unassigned characters.
+		$name = (string)(preg_replace('/\p{C}+/u', ' ', $name) ?? '');
+		$name = str_replace(['"', '://', '@'], ["'", ' ', ' '], $name);
+		$name = (string)(preg_replace('/\bwww\s*[.。．｡]\s*/iu', '', $name) ?? '');
+		$name = (string)(preg_replace('/(?<=[\p{L}\p{N}])\s*[.。．｡]\s*(?=\p{L}{2})/u', ' ', $name) ?? '');
+		$name = trim((string)(preg_replace('/\s+/u', ' ', $name) ?? ''));
+		if ($name === '') {
+			return null;
+		}
+		return mb_strlen($name) > self::MAX_APP_PASSWORD_NAME ? rtrim(mb_substr($name, 0, self::MAX_APP_PASSWORD_NAME - 1)) . '…' : $name;
+	}
+
+	/**
+	 * An app password as users are shown it: its name quoted, with the
+	 * device its name stands for where there is one, e.g. "Thunderbird" or
+	 * "Desktop" (Firefox on Windows). Null when neither is known.
+	 */
+	public static function appPassword(?string $name, IL10N $l): ?string {
+		$shown = self::appPasswordName($name);
+		$device = DeviceLabel::describe($name, $l);
+		return match (true) {
+			$shown !== null && $device !== null => $l->t('"%1$s" (%2$s)', [$shown, $device]),
+			$shown !== null => $l->t('"%s"', [$shown]),
+			$device !== null => $l->t('(%s)', [$device]),
+			default => null,
+		};
 	}
 
 	private function notice(Detection $detection, IL10N $l): UserNotice {
@@ -231,14 +271,15 @@ class UserMessages {
 		$sentences = [];
 		if (is_array($ref['token'] ?? null)) {
 			$name = $ref['token']['name'] ?? null;
-			$device = DeviceLabel::describe(is_string($name) ? $name : null, $l);
-			$session = ($ref['session'] ?? false) === true;
-			$sentences[] = match (true) {
-				$session && $device !== null => $l->t('The session (%s) was ended.', [$device]),
-				$session => $l->t('The session was ended.'),
-				$device !== null => $l->t('The app password (%s) was revoked.', [$device]),
-				default => $l->t('The app password was revoked.'),
-			};
+			$name = is_string($name) ? $name : null;
+			if (($ref['session'] ?? false) === true) {
+				// A browser session is named after its user agent, which is not the user's.
+				$device = DeviceLabel::describe($name, $l);
+				$sentences[] = $device === null ? $l->t('The session was ended.') : $l->t('The session (%s) was ended.', [$device]);
+			} else {
+				$appPassword = self::appPassword($name, $l);
+				$sentences[] = $appPassword === null ? $l->t('The app password was revoked.') : $l->t('The app password %s was revoked.', [$appPassword]);
+			}
 		}
 		$tokens = count((array)($ref['tokens'] ?? []));
 		if ($tokens > 0) {

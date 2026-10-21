@@ -71,11 +71,12 @@ class UserAlertsTest extends AccountTestCase {
 
 		$mail = $this->mailed[0][1];
 		$this->assertStringEndsWith(', from the address 198.51.100.7. Device: Firefox on Windows.', (string)$mail->paragraphs[count($mail->paragraphs) - 1]);
-		$this->assertSame(['The session (Firefox on Windows) was ended.', 'The app password was revoked.'], $mail->listItems, 'A name that is no known device is left out');
+		$this->assertSame(['The session (Firefox on Windows) was ended.', 'The app password "Restore access at https evil example" was revoked.'], $mail->listItems, 'The app password\'s name, never as a link');
 		$bell = Server::get(Notifier::class)->prepare($this->notificationsFor($user->getUID(), UserAlerts::SUBJECT)[0], 'en');
 		foreach ([json_encode($mail, JSON_THROW_ON_ERROR), $bell->getParsedSubject(), $bell->getParsedMessage()] as $text) {
 			$this->assertStringNotContainsString('evil.example', $text);
-			$this->assertStringNotContainsString('restore access', strtolower($text));
+			$this->assertStringNotContainsString('://', $text);
+			$this->assertStringNotContainsString('account is locked', $text, 'Nothing of the user agent');
 		}
 	}
 

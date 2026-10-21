@@ -83,8 +83,7 @@ class TokenConcurrentUseTest extends CredentialUseTestCase {
 		$this->assertCount(1, $this->notificationsFor($user->getUID()));
 		$this->assertCount(1, $this->mailed);
 		$mail = json_encode(get_object_vars($this->mailed[0][1]), JSON_THROW_ON_ERROR | JSON_UNESCAPED_UNICODE);
-		$this->assertStringContainsString('One of your app passwords was used from two different networks at the same time: ' . self::HOME . ' and ' . self::AWAY, $mail);
-		$this->assertStringNotContainsString('Desktop client on laptop', $mail, 'Users see a known kind of device, never the name as it was sent');
+		$this->assertStringContainsString('Your app password \\"Desktop client on laptop\\" was used from two different networks at the same time: ' . self::HOME . ' and ' . self::AWAY, $mail, 'The name the user gave it');
 		$this->assertSame([[$user->getUID(), $detection->getId()]], $this->forgotten, 'The known device that came with it is forgotten');
 	}
 
@@ -103,7 +102,7 @@ class TokenConcurrentUseTest extends CredentialUseTestCase {
 		$this->assertFalse($this->tokenExists($child['id']), 'With what was created with it');
 		$this->assertTrue($this->tokenExists($other['id']), 'The other devices keep working');
 		$message = Server::get(UserMessages::class)->build($detection, $user, 'en');
-		$this->assertContains('The app password was revoked.', $message->done, 'A name is shown only as a known kind of device');
+		$this->assertContains('The app password "Phone" was revoked.', $message->done, 'The name the user gave it');
 	}
 
 	public function testABearerTokenIsTheSameCredentialAsWithBasic(): void {

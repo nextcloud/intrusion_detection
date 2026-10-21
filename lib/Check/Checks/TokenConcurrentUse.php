@@ -31,6 +31,7 @@ use OCA\IntrusionDetection\Explain\IExplainsToUser;
 use OCA\IntrusionDetection\Explain\TextRenderer;
 use OCA\IntrusionDetection\Explain\UserNotice;
 use OCA\IntrusionDetection\KnownDevice\DeviceLabel;
+use OCA\IntrusionDetection\Notification\UserMessages;
 use OCP\IL10N;
 
 /**
@@ -132,6 +133,7 @@ final class TokenConcurrentUse implements ICheck, IExplainsDetection, IExplainsT
 		$ip1 = $facts->string('ip1');
 		$ip2 = $facts->string('ip2');
 		$device = DeviceLabel::describe($facts->string('tokenName'), $l);
+		$appPassword = UserMessages::appPassword($facts->string('tokenName'), $l);
 		return match ($facts->string('kind')) {
 			self::KIND_SESSION => new UserNotice(
 				$l->t('Your session was used from two places at once'),
@@ -154,9 +156,9 @@ final class TokenConcurrentUse implements ICheck, IExplainsDetection, IExplainsT
 			default => new UserNotice(
 				$l->t('Your app password was used from two places at once'),
 				[
-					$device === null
+					$appPassword === null
 						? $l->t('One of your app passwords was used from two different networks at the same time: %1$s and %2$s.', [$ip1, $ip2])
-						: $l->t('Your app password (%1$s) was used from two different networks at the same time: %2$s and %3$s.', [$device, $ip1, $ip2]),
+						: $l->t('Your app password %1$s was used from two different networks at the same time: %2$s and %3$s.', [$appPassword, $ip1, $ip2]),
 					$l->t('This happens when someone copied it, for example from a computer or a backup.'),
 				],
 				[$l->t('If this was not you, answer "No, it was not me": the app password is then revoked and the sessions created with it end. Connect your own devices again afterwards and change your password.')],
