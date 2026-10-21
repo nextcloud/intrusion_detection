@@ -13,12 +13,14 @@ use OCA\IntrusionDetection\Check\CheckRegistry;
 use OCA\IntrusionDetection\Config\Prerequisites;
 use OCA\IntrusionDetection\Config\Settings;
 use OCA\IntrusionDetection\Db\BanMapper;
-use OCA\IntrusionDetection\Db\DetectionMapper;
 use OCA\IntrusionDetection\Db\StatsMapper;
+use OCA\IntrusionDetection\Detection\DetectionTotals;
 use OCA\IntrusionDetection\Learning\LearningService;
 use OCA\IntrusionDetection\Perf\GuardTimer;
 use OCA\IntrusionDetection\ResponseDefinitions;
 use OCP\AppFramework\Utility\ITimeFactory;
+use OCP\ICache;
+use OCP\ICacheFactory;
 use OCP\IL10N;
 use Psr\Container\ContainerInterface;
 use Psr\Log\LoggerInterface;
@@ -28,10 +30,18 @@ use Psr\Log\LoggerInterface;
  * in numbers, the prerequisites and the measured cost. Shown in the status
  * banner of the admin page, in the dashboard widget and by occ.
  *
+ * The numbers of the last day and the measured cost are kept for CACHE_TTL
+ * seconds in the memory cache (per language, for the category names),
+ * since the widget asks every few minutes per administrator; the per-check
+ * counts come from the hourly totals. The state, the modes and the setup
+ * problems, which an administrator acts on, are read live.
+ *
  * @psalm-import-type IntrusionDetectionStatus from ResponseDefinitions
  * @psalm-import-type IntrusionDetectionLearning from ResponseDefinitions
  * @psalm-import-type IntrusionDetectionProblem from ResponseDefinitions
  * @psalm-import-type IntrusionDetectionCategoryCount from ResponseDefinitions
+ * @psalm-import-type IntrusionDetectionCost from ResponseDefinitions
+ * @psalm-type Measured = array{last24h: array{detections: int, enforced: int, observed: int, blockedAddresses: int, wouldHaveBlocked: int, accounts: int, categories: list<IntrusionDetectionCategoryCount>}, activeBans: int, cost: ?IntrusionDetectionCost}
  */
 class StatusService {
 	/** @var list<class-string<IStatusContributor>> */
@@ -45,6 +55,11 @@ class StatusService {
 
 	/** Above this average guard time the banner points to the likely cause */
 	public const SLOW_GUARD_MICROSECONDS = 1000;
+	public const CACHE_TTL = 60;
+	public const CACHE_PREFIX = 'intrusion_detection_status';
+
+	private ?ICache $cache = null;
+	private bool $cacheInitialised = false;
 
 	public function __construct(
 		private readonly Settings $settings,
@@ -53,12 +68,13 @@ class StatusService {
 		private readonly LearningService $learning,
 		private readonly Prerequisites $prerequisites,
 		private readonly BanMapper $bans,
-		private readonly DetectionMapper $detections,
+		private readonly DetectionTotals $totals,
 		private readonly StatsMapper $stats,
 		private readonly GuardTimer $timer,
 		private readonly ITimeFactory $timeFactory,
 		private readonly ContainerInterface $container,
 		private readonly LoggerInterface $logger,
+		private readonly ICacheFactory $cacheFactory,
 	) {
 	}
 
@@ -91,19 +107,49 @@ class StatusService {
 	 * @return IntrusionDetectionStatus
 	 */
 	public function status(IL10N $l): array {
-		$now = $this->timeFactory->getTime();
-		$since = $now - 86400;
-
 		$modes = ['protect' => 0, 'observe' => 0, 'off' => 0];
 		foreach ($this->registry->configurable() as $check) {
 			$modes[$this->settings->effectiveMode($check->id)->value]++;
 		}
+		$key = 'status:' . $l->getLanguageCode();
+		$measured = $this->cache()?->get($key);
+		if (!is_array($measured) || !is_array($measured['last24h'] ?? null) || !is_int($measured['activeBans'] ?? null)) {
+			$measured = $this->measured($l);
+			$this->cache()?->set($key, $measured, self::CACHE_TTL);
+		}
+		/** @var Measured $measured */
+		[$problems, $extensions] = $this->problems($l, $measured['cost']);
+		return [
+			'state' => $this->state(),
+			'learning' => $this->learning(),
+			'checks' => $modes,
+			'last24h' => $measured['last24h'],
+			'activeBans' => $measured['activeBans'],
+			'prerequisites' => [
+				'memoryCache' => $this->prerequisites->hasDistributedCache() ? 'distributed' : ($this->prerequisites->hasMemoryCache() ? 'local' : 'none'),
+				'mail' => $this->prerequisites->hasMail(),
+			],
+			'cost' => $measured['cost'],
+			'costSampleRate' => GuardTimer::SAMPLE_RATE,
+			'problems' => $problems,
+			'extensions' => $extensions,
+		];
+	}
+
+	/**
+	 * The numbers of the last day and the measured cost.
+	 *
+	 * @return Measured
+	 */
+	private function measured(IL10N $l): array {
+		$now = $this->timeFactory->getTime();
+		$since = $now - 86400;
 
 		$enforced = 0;
 		$observed = 0;
 		/** @var array<string, IntrusionDetectionCategoryCount> $categories */
 		$categories = [];
-		foreach ($this->detections->countByCheck($since) as $checkId => $counts) {
+		foreach ($this->totals->perCheck($since) as $checkId => $counts) {
 			$enforced += $counts['enforced'];
 			$observed += $counts['observed'];
 			$category = $this->names->category($checkId);
@@ -113,11 +159,37 @@ class StatusService {
 		}
 
 		$cost = $this->timer->summary();
+
+		return [
+			'last24h' => [
+				'detections' => $enforced + $observed,
+				'enforced' => $enforced,
+				'observed' => $observed,
+				'blockedAddresses' => $this->stats->bansCreatedSince($since),
+				'wouldHaveBlocked' => $this->stats->wouldHaveBlockedSince($since),
+				'accounts' => $this->stats->accountsSince($since),
+				'categories' => array_values($categories),
+			],
+			'activeBans' => $this->bans->countActive($now),
+			'cost' => $cost === null ? null : [
+				'samples' => $cost['samples'],
+				'averageMicroseconds' => round($cost['averageMicroseconds'], 1),
+				'maxMicroseconds' => $cost['maxMicroseconds'],
+			],
+		];
+	}
+
+	/**
+	 * The problems and the data of the contributors.
+	 *
+	 * @param ?IntrusionDetectionCost $cost
+	 * @return array{0: list<IntrusionDetectionProblem>, 1: array<string, array<string, mixed>>}
+	 */
+	private function problems(IL10N $l, ?array $cost): array {
 		$problems = [];
 		if ($cost !== null && $cost['averageMicroseconds'] > self::SLOW_GUARD_MICROSECONDS) {
 			$problems[] = $this->slowGuardsProblem($l);
 		}
-
 		$extensions = [];
 		foreach (static::CONTRIBUTORS as $class) {
 			try {
@@ -135,34 +207,19 @@ class StatusService {
 				$this->logger->error('Intrusion detection status contributor {class} failed', ['class' => $class, 'exception' => $e]);
 			}
 		}
+		return [$problems, $extensions];
+	}
 
-		return [
-			'state' => $this->state(),
-			'learning' => $this->learning(),
-			'checks' => $modes,
-			'last24h' => [
-				'detections' => $enforced + $observed,
-				'enforced' => $enforced,
-				'observed' => $observed,
-				'blockedAddresses' => $this->stats->bansCreatedSince($since),
-				'wouldHaveBlocked' => $this->stats->wouldHaveBlockedSince($since),
-				'accounts' => $this->stats->accountsSince($since),
-				'categories' => array_values($categories),
-			],
-			'activeBans' => $this->bans->countActive($now),
-			'prerequisites' => [
-				'memoryCache' => $this->prerequisites->hasDistributedCache() ? 'distributed' : ($this->prerequisites->hasMemoryCache() ? 'local' : 'none'),
-				'mail' => $this->prerequisites->hasMail(),
-			],
-			'cost' => $cost === null ? null : [
-				'samples' => $cost['samples'],
-				'averageMicroseconds' => round($cost['averageMicroseconds'], 1),
-				'maxMicroseconds' => $cost['maxMicroseconds'],
-			],
-			'costSampleRate' => GuardTimer::SAMPLE_RATE,
-			'problems' => $problems,
-			'extensions' => $extensions,
-		];
+	private function cache(): ?ICache {
+		if (!$this->cacheInitialised) {
+			$this->cacheInitialised = true;
+			if ($this->cacheFactory->isAvailable()) {
+				$this->cache = $this->cacheFactory->createDistributed(self::CACHE_PREFIX);
+			} elseif ($this->cacheFactory->isLocalCacheAvailable()) {
+				$this->cache = $this->cacheFactory->createLocal(self::CACHE_PREFIX);
+			}
+		}
+		return $this->cache;
 	}
 
 	/**

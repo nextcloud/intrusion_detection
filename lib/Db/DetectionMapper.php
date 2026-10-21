@@ -107,37 +107,6 @@ class DetectionMapper extends QBMapper {
 	}
 
 	/**
-	 * Detections per check, split by enforced or observed, since a time
-	 * (and before another, if given).
-	 *
-	 * @return array<string, array{enforced: int, observed: int, hits: int}>
-	 */
-	public function countByCheck(int $since, ?int $until = null): array {
-		$qb = $this->db->getQueryBuilder();
-		$qb->select('check_id', 'enforced')
-			->selectAlias($qb->func()->count('*'), 'n')
-			->selectAlias($qb->func()->sum('hits'), 'h')
-			->from(self::TABLE)
-			->where($qb->expr()->gte('created_at', $qb->createNamedParameter($since, IQueryBuilder::PARAM_INT)))
-			->groupBy('check_id', 'enforced')
-			->orderBy('check_id')
-			->addOrderBy('enforced');
-		if ($until !== null) {
-			$qb->andWhere($qb->expr()->lt('created_at', $qb->createNamedParameter($until, IQueryBuilder::PARAM_INT)));
-		}
-		$result = $qb->executeQuery();
-		$counts = [];
-		while ($row = $result->fetch()) {
-			$check = (string)$row['check_id'];
-			$counts[$check] ??= ['enforced' => 0, 'observed' => 0, 'hits' => 0];
-			$counts[$check][(bool)$row['enforced'] ? 'enforced' : 'observed'] += (int)$row['n'];
-			$counts[$check]['hits'] += (int)$row['h'];
-		}
-		$result->closeCursor();
-		return $counts;
-	}
-
-	/**
 	 * @param list<int> $ids
 	 * @return list<Detection> in id order
 	 */

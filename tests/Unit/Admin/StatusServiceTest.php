@@ -9,6 +9,7 @@ declare(strict_types=1);
 
 namespace OCA\IntrusionDetection\Tests\Unit\Admin;
 
+use OC\Memcache\ArrayCache;
 use OCA\IntrusionDetection\Admin\CheckNames;
 use OCA\IntrusionDetection\Admin\IStatusContributor;
 use OCA\IntrusionDetection\Admin\StatusService;
@@ -16,11 +17,12 @@ use OCA\IntrusionDetection\Check\CheckRegistry;
 use OCA\IntrusionDetection\Config\Prerequisites;
 use OCA\IntrusionDetection\Config\Settings;
 use OCA\IntrusionDetection\Db\BanMapper;
-use OCA\IntrusionDetection\Db\DetectionMapper;
 use OCA\IntrusionDetection\Db\StatsMapper;
+use OCA\IntrusionDetection\Detection\DetectionTotals;
 use OCA\IntrusionDetection\Learning\LearningService;
 use OCA\IntrusionDetection\Perf\GuardTimer;
 use OCP\AppFramework\Utility\ITimeFactory;
+use OCP\ICacheFactory;
 use OCP\IL10N;
 use OCP\L10N\IFactory;
 use OCP\Server;
@@ -51,7 +53,7 @@ class StatusServiceTest extends TestCase {
 	/**
 	 * @param class-string<StatusService> $class
 	 */
-	private function service(string $class = StatusService::class): StatusService {
+	private function service(string $class = StatusService::class, ?ICacheFactory $cacheFactory = null, ?DetectionTotals $totals = null, ?StatsMapper $stats = null): StatusService {
 		$registry = $this->createMock(CheckRegistry::class);
 		$registry->method('configurable')->willReturn([]);
 		$time = $this->createMock(ITimeFactory::class);
@@ -63,12 +65,13 @@ class StatusServiceTest extends TestCase {
 			$this->learning,
 			$this->createMock(Prerequisites::class),
 			$this->createMock(BanMapper::class),
-			$this->createMock(DetectionMapper::class),
-			$this->createMock(StatsMapper::class),
+			$totals ?? $this->createMock(DetectionTotals::class),
+			$stats ?? $this->createMock(StatsMapper::class),
 			$this->timer,
 			$time,
 			$this->container,
 			$this->logger,
+			$cacheFactory ?? $this->createMock(ICacheFactory::class),
 		);
 	}
 
@@ -84,6 +87,34 @@ class StatusServiceTest extends TestCase {
 		$status = $this->service()->status($this->l);
 		$this->assertSame(31.0, $status['cost']['averageMicroseconds'] ?? null);
 		$this->assertSame([], $status['problems']);
+	}
+
+	public function testTheNumbersAreKeptForAMinutePerLanguageAndTheProblemsAreReadLive(): void {
+		$cache = new ArrayCache();
+		$factory = $this->createMock(ICacheFactory::class);
+		$factory->method('isAvailable')->willReturn(true);
+		$factory->method('createDistributed')->with(StatusService::CACHE_PREFIX)->willReturn($cache);
+		$totals = $this->createMock(DetectionTotals::class);
+		$totals->expects($this->exactly(2))->method('perCheck')->with(1_790_000_000 - 86400)->willReturn([]);
+		$stats = $this->createMock(StatsMapper::class);
+		$stats->expects($this->exactly(2))->method('accountsSince')->willReturn(4);
+		$this->timer->method('summary')->willReturn(null);
+		$this->container->expects($this->exactly(4 * count(StatusService::CONTRIBUTORS)))->method('get')->willReturn(null);
+
+		$first = $this->service(StatusService::class, $factory, $totals, $stats)->status($this->l);
+		$this->assertSame(4, $first['last24h']['accounts']);
+		$again = $this->service(StatusService::class, $factory, $totals, $stats)->status($this->l);
+		$this->assertSame($first, $again, 'the second request counts nothing');
+
+		$german = $this->createMock(IL10N::class);
+		$german->method('getLanguageCode')->willReturn('de');
+		$german->method('t')->willReturnArgument(0);
+		$this->service(StatusService::class, $factory, $totals, $stats)->status($german);
+
+		$this->learning->method('isActive')->willReturn(true);
+		$learning = $this->service(StatusService::class, $factory, $totals, $stats)->status($this->l);
+		$this->assertSame('learning', $learning['state'], 'the state is always read live');
+		$this->assertSame(4, $learning['last24h']['accounts']);
 	}
 
 	public function testLearningState(): void {

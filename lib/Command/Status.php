@@ -16,7 +16,7 @@ use OCA\IntrusionDetection\Check\Mode;
 use OCA\IntrusionDetection\Config\Prerequisites;
 use OCA\IntrusionDetection\Config\Settings;
 use OCA\IntrusionDetection\Db\BanMapper;
-use OCA\IntrusionDetection\Db\DetectionMapper;
+use OCA\IntrusionDetection\Detection\DetectionTotals;
 use OCA\IntrusionDetection\Export\FirewallExporter;
 use OCA\IntrusionDetection\Learning\LearningService;
 use OCA\IntrusionDetection\Perf\GuardTimer;
@@ -31,7 +31,7 @@ class Status extends Base {
 		private readonly LearningService $learning,
 		private readonly Prerequisites $prerequisites,
 		private readonly BanMapper $bans,
-		private readonly DetectionMapper $detections,
+		private readonly DetectionTotals $totals,
 		private readonly GuardTimer $timer,
 		private readonly ITimeFactory $timeFactory,
 		private readonly FirewallExporter $exporter,
@@ -54,7 +54,7 @@ class Status extends Base {
 		foreach ($this->registry->configurable() as $check) {
 			$modes[$this->settings->effectiveMode($check->id)->value]++;
 		}
-		$last24h = $this->detections->countByCheck($now - 86400);
+		$last24h = $this->totals->perCheck($now - 86400);
 		$timing = $this->timer->summary();
 		$export = $this->exporter->status()->toArray();
 		$lists = array_values(array_filter($this->blocklists->lists(), static fn (array $l): bool => $l['enabled']));
