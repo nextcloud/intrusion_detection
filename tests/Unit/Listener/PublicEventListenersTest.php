@@ -21,6 +21,7 @@ use OCA\IntrusionDetection\Detection\AttemptRecorder;
 use OCA\IntrusionDetection\Listener\LoginFlowGrantedListener;
 use OCA\IntrusionDetection\Listener\ResetRequestedListener;
 use OCA\IntrusionDetection\Listener\ShareAccessFailedListener;
+use OCA\IntrusionDetection\Lockdown\LockdownState;
 use OCA\IntrusionDetection\Net\RemoteAddressResolver;
 use OCA\IntrusionDetection\Net\SourceKey;
 use OCA\IntrusionDetection\Response\ResetMailSuppressor;
@@ -175,7 +176,7 @@ class PublicEventListenersTest extends TestCase {
 			$user->method('isEnabled')->willReturn(true);
 			$users->method('get')->willReturnMap([[$existingUid, $user]]);
 		}
-		return new ResetRequestedListener($this->settings, $this->addresses, $this->recorder, $detector, $suppressor, $users, $this->createMock(IRequest::class), $this->logger);
+		return new ResetRequestedListener($this->settings, $this->addresses, $this->recorder, $detector, $suppressor, $users, $this->createMock(IRequest::class), $this->logger, $this->createMock(LockdownState::class));
 	}
 
 	private function flowListener(LoginFlowMismatchDetector $detector): LoginFlowGrantedListener {

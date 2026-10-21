@@ -14,6 +14,8 @@ use OCA\IntrusionDetection\Check\Checks\ResetProbingDetector;
 use OCA\IntrusionDetection\Config\Settings;
 use OCA\IntrusionDetection\Db\AttemptKind;
 use OCA\IntrusionDetection\Detection\AttemptRecorder;
+use OCA\IntrusionDetection\Lockdown\LockdownEffect;
+use OCA\IntrusionDetection\Lockdown\LockdownState;
 use OCA\IntrusionDetection\Net\RemoteAddressResolver;
 use OCA\IntrusionDetection\Response\ResetMailSuppressor;
 use OCP\EventDispatcher\Event;
@@ -30,6 +32,9 @@ use Psr\Log\LoggerInterface;
  *    account it belongs to, resolved the way core resolves it for the email;
  * 2. runs the reset abuse detector;
  * 3. prevents the email while the account's reset emails are held back.
+ *
+ * During lockdown with the reset effect, every reset email is prevented,
+ * whatever the check's mode, before anything else.
  *
  * Core answers the request the same way whatever happens here, so nothing
  * this listener does is visible to the requester. Returns at once while the
@@ -51,6 +56,7 @@ class ResetRequestedListener implements IEventListener {
 		private readonly IUserManager $userManager,
 		private readonly IRequest $request,
 		private readonly LoggerInterface $logger,
+		private readonly LockdownState $lockdown,
 	) {
 	}
 
@@ -58,6 +64,13 @@ class ResetRequestedListener implements IEventListener {
 	public function handle(Event $event): void {
 		if (!$event instanceof PasswordResetRequestedEvent) {
 			return;
+		}
+		try {
+			if ($this->lockdown->applies(LockdownEffect::Reset)) {
+				$event->preventEmail();
+			}
+		} catch (\Throwable $e) {
+			$this->logger->error('Intrusion detection could not pause a password reset', ['exception' => $e]);
 		}
 		try {
 			$state = $this->settings->modeState(ResetProbing::ID);

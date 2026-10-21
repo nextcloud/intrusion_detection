@@ -4,9 +4,9 @@
 -->
 
 <script setup lang="ts">
-import type { ConfirmationOverview, ConfirmationPolicy } from '../types.ts'
+import type { ConfirmationOverview, ConfirmationPolicy, SensitiveGroup } from '../types.ts'
 
-import { mdiAccountAlertOutline, mdiAccountClockOutline, mdiLaptop, mdiListStatus, mdiRefresh, mdiShieldAccountOutline, mdiTimerOutline } from '@mdi/js'
+import { mdiAccountAlertOutline, mdiAccountClockOutline, mdiLaptop, mdiListStatus, mdiRefresh, mdiShieldAccountOutline, mdiShieldKeyOutline, mdiTimerOutline } from '@mdi/js'
 import { n, t } from '@nextcloud/l10n'
 import { computed, onActivated, onBeforeUnmount, onDeactivated, onMounted, ref } from 'vue'
 import NcButton from '@nextcloud/vue/components/NcButton'
@@ -19,6 +19,7 @@ import SkeletonBlock from '../components/common/SkeletonBlock.vue'
 import MethodSteps from '../components/confirmation/MethodSteps.vue'
 import PendingApprovals from '../components/confirmation/PendingApprovals.vue'
 import PolicyTable from '../components/confirmation/PolicyTable.vue'
+import SensitiveActions from '../components/confirmation/SensitiveActions.vue'
 import UnconfirmableAccounts from '../components/confirmation/UnconfirmableAccounts.vue'
 import { errorMessage, fetchConfirmation } from '../services/api.ts'
 import { logger } from '../services/logger.ts'
@@ -88,6 +89,15 @@ function onPolicies(policies: ConfirmationPolicy[]) {
 }
 
 /**
+ * @param groups - The groups of sensitive actions after a change
+ */
+function onSensitive(groups: SensitiveGroup[]) {
+	if (data.value) {
+		data.value.sensitive.groups = groups
+	}
+}
+
+/**
  * Look the waiting logins up again while the tab is visible.
  */
 function startTimer() {
@@ -143,6 +153,13 @@ onBeforeUnmount(stopTimer)
 					{{ t(APP_ID, 'For each reason: whether a remembered device is enough, and what happens when the account has no way to confirm the login. Changes are saved at once.') }}
 				</template>
 				<PolicyTable :policies="data.policies" :outcomes="data.outcomes" @changed="onPolicies" />
+			</SectionCard>
+
+			<SectionCard id="sensitive" :heading="t(APP_ID, 'Sensitive actions')" :icon="mdiShieldKeyOutline">
+				<template #description>
+					{{ t(APP_ID, 'In a risky session, these actions need a fresh confirmation first: a second factor, an email code or an administrator\'s approval, never just a remembered device. Someone who took over a session cannot quietly change the email address, remove the second factor or connect a device of their own.') }}
+				</template>
+				<SensitiveActions :sensitive="data.sensitive" @changed="onSensitive" />
 			</SectionCard>
 
 			<SectionCard id="approvals" :heading="t(APP_ID, 'Logins waiting for an administrator')" :icon="mdiAccountClockOutline">

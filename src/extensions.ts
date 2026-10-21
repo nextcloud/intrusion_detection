@@ -92,6 +92,7 @@ export const tabSections = shallowReactive<TabSection[]>([
 	{ id: 'digest', tab: 'notifications', order: 30, component: defineAsyncComponent(() => import('./components/notifications/DigestSection.vue')) },
 	{ id: 'webhook-events', tab: 'notifications', order: 40, component: defineAsyncComponent(() => import('./components/notifications/WebhookEventsSection.vue')) },
 	{ id: 'risk-score', tab: 'checks', order: 10, component: defineAsyncComponent(() => import('./components/checks/RiskScoreSection.vue')) },
+	{ id: 'lockdown', tab: 'incidents', order: 10, component: defineAsyncComponent(() => import('./components/lockdown/LockdownSection.vue')) },
 ])
 
 export const statusSections = shallowReactive<Component[]>([])

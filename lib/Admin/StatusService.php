@@ -37,6 +37,7 @@ class StatusService {
 	/** @var list<class-string<IStatusContributor>> */
 	public const CONTRIBUTORS = [
 		SetupProblems::class,
+		LockdownOverview::class,
 	];
 
 	public const STATE_PROTECTING = 'protecting';

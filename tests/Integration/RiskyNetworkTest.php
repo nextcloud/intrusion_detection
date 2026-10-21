@@ -31,6 +31,7 @@ use OCA\IntrusionDetection\Db\AttemptMapper;
 use OCA\IntrusionDetection\Db\DetectionMapper;
 use OCA\IntrusionDetection\Explain\NarrativeBuilder;
 use OCA\IntrusionDetection\Guard\RequestContext;
+use OCA\IntrusionDetection\Lockdown\LockdownState;
 use OCA\IntrusionDetection\Net\SourceKey;
 use OCA\IntrusionDetection\Notification\UserAlerts;
 use OCA\IntrusionDetection\Response\FlaggedSources;
@@ -294,6 +295,7 @@ class RiskyNetworkTest extends StepUpTestCase {
 			$this->memory(),
 			Server::get(ITimeFactory::class),
 			Server::get(LoggerInterface::class),
+			Server::get(LockdownState::class),
 		);
 	}
 

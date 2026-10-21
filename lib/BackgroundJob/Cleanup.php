@@ -15,11 +15,13 @@ use OCA\IntrusionDetection\Db\AlertMapper;
 use OCA\IntrusionDetection\Db\AttemptMapper;
 use OCA\IntrusionDetection\Db\BanMapper;
 use OCA\IntrusionDetection\Db\FlagMapper;
+use OCA\IntrusionDetection\Db\LockdownMapper;
 use OCA\IntrusionDetection\Db\LockLinkMapper;
 use OCA\IntrusionDetection\Db\LoginHistoryMapper;
 use OCA\IntrusionDetection\Db\LoginMapper;
 use OCA\IntrusionDetection\Db\ProtectedAccountMapper;
 use OCA\IntrusionDetection\Db\ResetSuppressionMapper;
+use OCA\IntrusionDetection\Db\RiskySessionMapper;
 use OCA\IntrusionDetection\Db\SecurityChangeMapper;
 use OCA\IntrusionDetection\Db\StepUpSessionMapper;
 use OCA\IntrusionDetection\Db\TokenOriginMapper;
@@ -66,6 +68,8 @@ class Cleanup extends TimedJob {
 		private readonly SecurityChangeMapper $securityChanges,
 		private readonly LockLinkMapper $lockLinks,
 		private readonly FailedLoginStats $failedLoginStats,
+		private readonly RiskySessionMapper $riskySessions,
+		private readonly LockdownMapper $lockdowns,
 	) {
 		parent::__construct($time);
 		$this->setInterval(300);
@@ -92,6 +96,8 @@ class Cleanup extends TimedJob {
 		$this->securityChanges->forgetAddressesBefore($now - SecurityChangeLog::ADDRESS_TTL);
 		$this->lockLinks->deleteExpired($now);
 		$this->failedLoginStats->deleteExpired();
+		$this->riskySessions->deleteExpired($now);
+		$this->lockdowns->deleteEndedBefore($now - $this->settings->getInt(GlobalSettings::RETENTION_DETECTIONS_DAYS) * 86400);
 		$this->updateFloodState($now);
 	}
 

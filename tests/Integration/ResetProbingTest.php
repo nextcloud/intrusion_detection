@@ -25,6 +25,7 @@ use OCA\IntrusionDetection\Db\ResetSuppressionMapper;
 use OCA\IntrusionDetection\Detection\AttemptRecorder;
 use OCA\IntrusionDetection\Explain\NarrativeBuilder;
 use OCA\IntrusionDetection\Listener\ResetRequestedListener;
+use OCA\IntrusionDetection\Lockdown\LockdownState;
 use OCA\IntrusionDetection\Response\ResetMailSuppressor;
 use OCA\IntrusionDetection\Response\ResponseOutcome;
 use OCP\AppFramework\Http\JSONResponse;
@@ -69,6 +70,7 @@ class ResetProbingTest extends RequestEventTestCase {
 			Server::get(IUserManager::class),
 			$this->request,
 			Server::get(LoggerInterface::class),
+			Server::get(LockdownState::class),
 		));
 	}
 

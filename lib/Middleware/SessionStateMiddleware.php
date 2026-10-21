@@ -15,6 +15,7 @@ use OCA\IntrusionDetection\SessionState\SessionState;
 use OCA\IntrusionDetection\SessionState\SessionStateRules;
 use OCP\AppFramework\Controller;
 use OCP\AppFramework\Http;
+use OCP\AppFramework\Http\DataResponse;
 use OCP\AppFramework\Http\JSONResponse;
 use OCP\AppFramework\Http\RedirectResponse;
 use OCP\AppFramework\Http\Response;
@@ -35,6 +36,8 @@ use Psr\Log\LoggerInterface;
  * factor is sent to the challenge first. A blocked browser navigation is
  * redirected where the rule says; other requests get 403 with
  * `{"error": "…"}`, OCS requests an OCS 403 with the error as its message.
+ * A block with data (a sensitive action that needs confirmation) puts it
+ * into the JSON or the OCS data, and also redirects a submitted form.
  * A rate limit answers 429 with `Retry-After` instead: core's "too many
  * requests" page for a browser, an OCS 429 for OCS, and JSON otherwise.
  *
@@ -82,13 +85,16 @@ class SessionStateMiddleware extends Middleware {
 			return $this->rateLimited($controller, $block);
 		}
 		if ($controller instanceof OCSController) {
+			if ($block->data !== []) {
+				return $this->ocsResponse($controller, $block);
+			}
 			// Core's OCS middleware turns this into an OCS 403 that carries the message.
 			return new JSONResponse(['message' => $block->error], Http::STATUS_FORBIDDEN);
 		}
-		if ($block->redirectUrl !== null && $this->isPageNavigation()) {
+		if ($block->redirectUrl !== null && ($this->isPageNavigation() || ($block->data !== [] && $this->isFormSubmission()))) {
 			return new RedirectResponse($block->redirectUrl);
 		}
-		return new JSONResponse(['error' => $block->error], Http::STATUS_FORBIDDEN);
+		return new JSONResponse(['error' => $block->error, ...$block->data], Http::STATUS_FORBIDDEN);
 	}
 
 	#[\Override]
@@ -112,6 +118,29 @@ class SessionStateMiddleware extends Middleware {
 			: new JSONResponse(['error' => $block->error], Http::STATUS_TOO_MANY_REQUESTS);
 		$response->addHeader('Retry-After', (string)$block->retryAfter);
 		return $response;
+	}
+
+	/**
+	 * An OCS 403 whose data says why and what to do, in the format the
+	 * client asked for. Core's OCS middleware passes OCS responses through.
+	 */
+	private function ocsResponse(OCSController $controller, SessionBlock $block): Response {
+		$format = $this->request->getFormat();
+		if ($format === null || !$controller->isResponderRegistered($format)) {
+			$format = 'xml';
+		}
+		return $controller->buildResponse(new DataResponse(['error' => $block->error, ...$block->data], Http::STATUS_FORBIDDEN), $format);
+	}
+
+	/**
+	 * A browser submitting a form, such as the "Grant access" page of a
+	 * client login, as opposed to a script.
+	 */
+	private function isFormSubmission(): bool {
+		return $this->request->getMethod() === 'POST'
+			&& stripos($this->request->getHeader('Accept'), 'html') !== false
+			&& $this->request->getHeader('X-Requested-With') === ''
+			&& $this->request->getHeader('OCS-APIREQUEST') === '';
 	}
 
 	/**

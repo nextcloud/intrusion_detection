@@ -35,7 +35,8 @@ use OCP\IL10N;
 /**
  * A login that needed extra confirmation was not confirmed: too many wrong
  * email codes, no confirmation in time, or an administrator rejected it.
- * Raised by the step-up service.
+ * Raised by the step-up service, and by the confirmation of a sensitive
+ * action in a running session (fact `action`).
  *
  * Only wrong codes block the address. A login that merely timed out (or
  * whose session came back later without its confirmation) is ended and
@@ -98,6 +99,16 @@ final class StepUpFailed implements ICheck, IExplainsDetection, IExplainsToUser,
 	#[\Override]
 	public function narrative(Detection $detection, IL10N $l): array {
 		$facts = DetectionFacts::of($detection);
+		if ($facts->bool('action')) {
+			return [
+				$l->t('At %1$s %2$s tried a sensitive action from %3$s, in a session that needed a fresh confirmation for it.', [
+					$this->dates->dateTime($facts->int('started', $facts->first)), (string)$detection->getUid(), (string)$detection->getIp(),
+				]),
+				$facts->string('rule') === self::RULE_REJECTED
+					? $l->t('An administrator rejected the confirmation, so the session was ended.')
+					: $l->n('%n wrong code was entered, so the session was ended.', '%n wrong codes were entered, so the session was ended.', $facts->int('attempts')),
+			];
+		}
 		$because = StepUpPolicy::describeAll($facts->list('policies'), $l);
 		$sentences = [$because === ''
 			? $l->t('At %1$s %2$s logged in from %3$s with the correct password. The login needed extra confirmation.', [
@@ -118,6 +129,21 @@ final class StepUpFailed implements ICheck, IExplainsDetection, IExplainsToUser,
 	#[\Override]
 	public function userNotice(Detection $detection, IL10N $l): UserNotice {
 		$facts = DetectionFacts::of($detection);
+		if ($facts->bool('action')) {
+			return new UserNotice(
+				$l->t('A sensitive action in your account was not confirmed'),
+				[
+					$facts->string('rule') === self::RULE_REJECTED
+						? $l->t('Someone in a session of your account tried to change something important, and an administrator rejected the confirmation.')
+						: $l->t('Someone in a session of your account tried to change something important, but entered the wrong code again and again when asked to confirm it.'),
+					$l->t('The session was ended.'),
+				],
+				[
+					$l->t('If this was you, just log in again.'),
+					$l->t('If it was not you, someone may have access to your account: change your password, and answer "No, it was not me".'),
+				],
+			);
+		}
 		$because = StepUpPolicy::describeAll($facts->list('policies'), $l);
 		$message = [match ($facts->string('rule')) {
 			self::RULE_ATTEMPTS => $l->t('Someone logged in to your account with your correct password, but entered the wrong code again and again when asked to confirm it.'),

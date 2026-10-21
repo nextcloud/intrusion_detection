@@ -46,7 +46,7 @@ class StepUpReasonsTest extends TestCase {
 		$logger->expects($this->once())->method('error');
 		$reasons = new StepUpReasons($container, $logger);
 		$this->assertSame(
-			[StepUpPolicy::SprayedPassword, StepUpPolicy::ProtectedAccount, StepUpPolicy::BreachedPassword, StepUpPolicy::RiskyNetwork, StepUpPolicy::RiskHigh],
+			[StepUpPolicy::SprayedPassword, StepUpPolicy::ProtectedAccount, StepUpPolicy::BreachedPassword, StepUpPolicy::RiskyNetwork, StepUpPolicy::RiskHigh, StepUpPolicy::Lockdown],
 			$reasons->collect($this->login()),
 		);
 	}

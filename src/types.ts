@@ -7,7 +7,7 @@
 
 export type Mode = 'off' | 'observe' | 'protect'
 export type Severity = 'low' | 'medium' | 'high' | 'critical'
-export type ParamType = 'int' | 'duration' | 'float' | 'bool' | 'choice' | 'string_list' | 'cidr_list'
+export type ParamType = 'int' | 'duration' | 'float' | 'bool' | 'choice' | 'string_list' | 'cidr_list' | 'text'
 export type ParamValue = number | boolean | string | string[]
 
 export interface Param {
@@ -676,6 +676,8 @@ export interface ConfirmationPolicy {
 	knownDevice: boolean
 	/** False for reasons a remembered device can never confirm */
 	knownDeviceAllowed: boolean
+	/** The setting the switch changes: the list of reasons, or the lockdown's own switch */
+	knownDeviceSetting: string
 }
 
 export interface ConfirmationOutcome {
@@ -692,6 +694,8 @@ export interface LoginApproval {
 	createdAt: number
 	expiresAt: number
 	canDecide: boolean
+	/** About a sensitive action in a running session rather than a login */
+	action: boolean
 }
 
 export interface ConfirmationOverview {
@@ -702,6 +706,7 @@ export interface ConfirmationOverview {
 	admins: { total: number, withoutEmail: number, withoutSecondFactor: number, withNeither: string[] }
 	approvers: number
 	approvals: LoginApproval[]
+	sensitive: SensitiveActions
 }
 
 export interface UnconfirmableAccount {
@@ -710,4 +715,68 @@ export interface UnconfirmableAccount {
 	lastLogin: number
 	groups: string[]
 	admin: boolean
+}
+
+export interface SensitiveGroup {
+	id: string
+	label: string
+	/** What it protects; may hold `{setting}` placeholders */
+	examples: string[]
+	enabled: boolean
+}
+
+export interface SensitiveActions {
+	groups: SensitiveGroup[]
+	/** The setting with the list of protected groups */
+	setting: string
+	/** When a session counts as risky; may hold `{setting}` placeholders */
+	risky: string[]
+}
+
+export interface LockdownEffect {
+	id: string
+	label: string
+	/** What it does; may hold `{setting}` placeholders */
+	description: string
+	enabled: boolean
+}
+
+export interface LockdownEntry {
+	id: number
+	startedAt: number
+	until: number
+	endedAt: number | null
+	startedBy: string
+	endedBy: string | null
+	reason: string
+	effects: string[]
+	automatic: boolean
+}
+
+export interface Lockdown {
+	active: boolean
+	until: number
+	startedAt: number
+	startedBy: string
+	reason: string
+	automatic: boolean
+	effects: LockdownEffect[]
+	defaultDuration: number
+	minDuration: number
+	maxDuration: number
+	maxReason: number
+	/** Accounts that cannot log in with their password during a lockdown */
+	usersWithoutMethod: number
+	history: LockdownEntry[]
+}
+
+/** The lockdown in the status, while one is running */
+export interface LockdownStatus {
+	active: true
+	until: number
+	startedAt: number
+	startedBy: string
+	reason: string
+	automatic: boolean
+	effects: string[]
 }

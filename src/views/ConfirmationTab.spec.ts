@@ -8,7 +8,7 @@ import type { ConfirmationOverview, GlobalSetting } from '../types.ts'
 import { flushPromises, mount } from '@vue/test-utils'
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 import ConfirmationTab from './ConfirmationTab.vue'
-import { approveRequest, fetchConfirmation, fetchUnconfirmableAccounts, rejectRequest } from '../services/api.ts'
+import { approveRequest, fetchConfirmation, fetchUnconfirmableAccounts, rejectRequest, updateSettings } from '../services/api.ts'
 import { state } from '../store.ts'
 
 vi.mock('@nextcloud/dialogs', () => ({ showError: vi.fn(), showSuccess: vi.fn() }))
@@ -46,7 +46,7 @@ function overview(overrides: Partial<ConfirmationOverview> = {}): ConfirmationOv
 			{ id: 'admin_approval', name: 'Administrator approval', description: 'An administrator approves.', state: 'off', note: null },
 		],
 		policies: [
-			{ id: 'flagged_source', label: 'Login from an attacking address', why: 'The address was part of an attack.', default: 'refuse', outcome: 'refuse', setting: 'step_up_no_method_flagged_source', knownDevice: true, knownDeviceAllowed: true },
+			{ id: 'flagged_source', label: 'Login from an attacking address', why: 'The address was part of an attack.', default: 'refuse', outcome: 'refuse', setting: 'step_up_no_method_flagged_source', knownDevice: true, knownDeviceAllowed: true, knownDeviceSetting: 'step_up_known_device_ok_for' },
 		],
 		outcomes: [
 			{ id: 'refuse', label: 'Refuse the login', description: 'Refused.' },
@@ -57,9 +57,17 @@ function overview(overrides: Partial<ConfirmationOverview> = {}): ConfirmationOv
 		admins: { total: 3, withoutEmail: 1, withoutSecondFactor: 2, withNeither: ['bob'] },
 		approvers: 3,
 		approvals: [
-			{ id: 7, uid: 'alice', displayName: 'Alice Liddell', ip: '203.0.113.7', createdAt: 1_760_000_000, expiresAt: 1_760_001_800, canDecide: true },
-			{ id: 8, uid: 'admin', displayName: 'The Admin', ip: '203.0.113.8', createdAt: 1_760_000_000, expiresAt: 1_760_001_800, canDecide: false },
+			{ id: 7, uid: 'alice', displayName: 'Alice Liddell', ip: '203.0.113.7', createdAt: 1_760_000_000, expiresAt: 1_760_001_800, canDecide: true, action: false },
+			{ id: 8, uid: 'admin', displayName: 'The Admin', ip: '203.0.113.8', createdAt: 1_760_000_000, expiresAt: 1_760_001_800, canDecide: false, action: false },
 		],
+		sensitive: {
+			setting: 'sensitive_groups',
+			groups: [
+				{ id: 'account', label: 'Account', examples: ['Changing an email address, also by an administrator'], enabled: true },
+				{ id: 'sharing', label: 'Sharing', examples: ['A public link of a folder with more than {sensitive_share_min_files} files'], enabled: false },
+			],
+			risky: ['Lockdown mode is on: then every session is risky.'],
+		},
 		...overrides,
 	}
 }
@@ -85,6 +93,9 @@ describe('ConfirmationTab', () => {
 			setting('step_up_admin_approval_ttl', 'duration', 1800),
 			setting('known_device_enabled', 'bool', true),
 			setting('known_device_duration', 'duration', 86400 * 180),
+			{ ...setting('sensitive_groups', 'string_list', ['account']), group: 'sensitive' },
+			{ ...setting('sensitive_confirm_ttl', 'duration', 600), group: 'sensitive' },
+			{ ...setting('sensitive_share_min_files', 'int', 1000), group: 'sensitive' },
 		]
 	})
 
@@ -164,5 +175,31 @@ describe('ConfirmationTab', () => {
 	test('says so when no login is waiting', async () => {
 		const wrapper = await mountTab(overview({ approvals: [] }))
 		expect(wrapper.text()).toContain('No login is waiting')
+	})
+
+	test('lists the sensitive actions with a switch per group, and their settings', async () => {
+		const wrapper = await mountTab()
+		const groups = wrapper.get('[data-test="sensitive-groups"]').findAll('li[data-group]')
+		expect(groups.map((g) => g.attributes('data-group'))).toEqual(['account', 'sharing'])
+		expect(groups[1]!.text()).toContain('more than 1000 files')
+		expect(wrapper.text()).toContain('A session is risky when')
+		expect(wrapper.text()).toContain('Label of sensitive_confirm_ttl')
+		expect(wrapper.text()).not.toContain('Label of sensitive_groups')
+	})
+
+	test('switching a group saves the list of protected groups', async () => {
+		vi.mocked(updateSettings).mockResolvedValue({ settings: state.settings, templates: {} })
+		const wrapper = await mountTab()
+		await wrapper.get('[data-group="sharing"] input[type="checkbox"]').setValue(true)
+		await flushPromises()
+		expect(updateSettings).toHaveBeenCalledWith({ sensitive_groups: ['account', 'sharing'] })
+		expect(wrapper.get('[data-group="sharing"] input[type="checkbox"]').element.checked).toBe(true)
+	})
+
+	test('a waiting sensitive action is told apart from a login', async () => {
+		const value = overview()
+		value.approvals[0] = { ...value.approvals[0]!, action: true }
+		const wrapper = await mountTab(value)
+		expect(wrapper.get('[data-test="approvals"]').findAll('li')[0]!.text()).toContain('Sensitive action, not a login')
 	})
 })

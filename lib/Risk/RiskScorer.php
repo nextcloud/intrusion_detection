@@ -22,6 +22,7 @@ use OCA\IntrusionDetection\Db\AttemptKind;
 use OCA\IntrusionDetection\Db\AttemptMapper;
 use OCA\IntrusionDetection\Db\DetectionMapper;
 use OCA\IntrusionDetection\Guard\RequestContext;
+use OCA\IntrusionDetection\Lockdown\LockdownState;
 use OCA\IntrusionDetection\Net\RangeCodec;
 use OCA\IntrusionDetection\Net\RemoteAddressResolver;
 use OCA\IntrusionDetection\Net\SourceKey;
@@ -76,6 +77,7 @@ class RiskScorer {
 		private readonly ICacheFactory $cacheFactory,
 		private readonly ITimeFactory $timeFactory,
 		private readonly LoggerInterface $logger,
+		private readonly LockdownState $lockdown,
 	) {
 	}
 
@@ -96,7 +98,11 @@ class RiskScorer {
 	}
 
 	/**
-	 * The count limits of one rule for an address, lowered by its risk score.
+	 * The count limits of one rule for an address, lowered by its risk score
+	 * and by lockdown mode: the limit times the risk tier's factor times the
+	 * lockdown factor, rounded up, but never below 2 (one multiplication, so
+	 * the two never compound below the floor). `$caps` set a limit to at
+	 * most a value on top, as lockdown does for share passwords.
 	 *
 	 * The score is only computed when it can change the outcome: when every
 	 * measured value reaches the lowest limit the score could give, but not
@@ -104,24 +110,37 @@ class RiskScorer {
 	 * configured limits, no query is made.
 	 *
 	 * @param array<string, array{0: int, 1: int}> $limits per parameter name: the configured limit and the measured value
+	 * @param array<string, int> $caps per parameter name: the highest the limit may be
 	 */
-	public function limits(?SourceKey $source, array $limits): RiskLimits {
+	public function limits(?SourceKey $source, array $limits, array $caps = []): RiskLimits {
 		$plain = array_map(static fn (array $l): int => $l[0], $limits);
 		$measured = array_map(static fn (array $l): int => $l[1], $limits);
-		if ($source === null || !$this->isEnabled() || $this->allReach($measured, $plain)) {
+		$lockdown = $this->lockdown->limitFactor();
+		if ($this->allReach($measured, $plain)) {
 			return new RiskLimits($plain, $plain, $measured, null);
 		}
-		$lowest = min(
-			1.0,
-			$this->settings->global(GlobalSettings::RISK_FACTOR_ELEVATED),
-			$this->settings->global(GlobalSettings::RISK_FACTOR_HIGH),
-		);
-		$possible = array_map(static fn (int $limit): int => RiskAssessment::lowerBy($limit, (float)$lowest), $plain);
-		if (!$this->allReach($measured, $possible)) {
+		$scored = $source !== null && $this->isEnabled();
+		$lowest = $scored
+			? min(1.0, $this->settings->global(GlobalSettings::RISK_FACTOR_ELEVATED), $this->settings->global(GlobalSettings::RISK_FACTOR_HIGH))
+			: 1.0;
+		if (!$this->allReach($measured, self::lowered($plain, (float)$lowest * $lockdown, $caps))) {
 			return new RiskLimits($plain, $plain, $measured, null);
 		}
-		$risk = $this->score($source);
-		return new RiskLimits($plain, array_map(static fn (int $limit): int => $risk->lower($limit), $plain), $measured, $risk);
+		$risk = $scored ? $this->score($source) : null;
+		return new RiskLimits($plain, self::lowered($plain, ($risk?->factor ?? 1.0) * $lockdown, $caps), $measured, $risk, $lockdown, $caps);
+	}
+
+	/**
+	 * @param array<string, int> $limits
+	 * @param array<string, int> $caps
+	 * @return array<string, int>
+	 */
+	private static function lowered(array $limits, float $factor, array $caps): array {
+		$lowered = [];
+		foreach ($limits as $name => $limit) {
+			$lowered[$name] = min(RiskAssessment::lowerBy($limit, $factor), $caps[$name] ?? PHP_INT_MAX);
+		}
+		return $lowered;
 	}
 
 	/**

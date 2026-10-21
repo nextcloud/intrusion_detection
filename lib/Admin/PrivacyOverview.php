@@ -40,7 +40,7 @@ use OCP\IL10N;
  */
 class PrivacyOverview {
 	/** Data the app keeps for features rather than for one check, always listed */
-	public const FEATURE_DATA = [DataKind::LoginHistory, DataKind::KnownDevices, DataKind::TrustedNetworks, DataKind::UnconfirmedSessions, DataKind::FailedLoginDays];
+	public const FEATURE_DATA = [DataKind::LoginHistory, DataKind::KnownDevices, DataKind::TrustedNetworks, DataKind::UnconfirmedSessions, DataKind::FailedLoginDays, DataKind::RiskySessions, DataKind::Lockdowns];
 
 	public function __construct(
 		private readonly CheckRegistry $registry,
@@ -246,6 +246,20 @@ class PrivacyOverview {
 				'why' => $l->t('So that users can see on their security page how often someone tried to log in to their account, and from where.'),
 				'retention' => $l->n('%n day', '%n days', FailedLoginStats::RETENTION_DAYS),
 				'where' => 'ids_user_daily',
+			],
+			DataKind::RiskySessions => [
+				'name' => $l->t('Sessions that must confirm'),
+				'what' => $l->t('The database id of a session\'s token (never the token), its account, and the check that made it risky.'),
+				'why' => $l->t('So that a session a check found suspicious later must confirm sensitive actions on every web server.'),
+				'retention' => $l->t('As long as the session could last'),
+				'where' => 'ids_risky_sessions',
+			],
+			DataKind::Lockdowns => [
+				'name' => $l->t('Lockdown history'),
+				'what' => $l->t('When each lockdown started and ended, who started and ended it, the reason given and its effects.'),
+				'why' => $l->t('So that you can see later why logins needed confirmation at that time, and for incident reports.'),
+				'retention' => $l->n('%n day after it ended', '%n days after it ended', $this->settings->getInt(GlobalSettings::RETENTION_DETECTIONS_DAYS)),
+				'where' => 'ids_lockdowns',
 			],
 		};
 	}

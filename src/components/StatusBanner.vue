@@ -4,15 +4,16 @@
 -->
 
 <script setup lang="ts">
-import type { Status } from '../types.ts'
+import type { LockdownStatus, Status } from '../types.ts'
 
-import { mdiShieldCheckOutline, mdiShieldOffOutline, mdiShieldSearch, mdiSpeedometer } from '@mdi/js'
+import { mdiShieldCheckOutline, mdiShieldLockOutline, mdiShieldOffOutline, mdiShieldSearch, mdiSpeedometer } from '@mdi/js'
 import { showError, showSuccess } from '@nextcloud/dialogs'
 import { getCanonicalLocale, n, t } from '@nextcloud/l10n'
 import { computed, ref } from 'vue'
 import NcButton from '@nextcloud/vue/components/NcButton'
 import NcIconSvgWrapper from '@nextcloud/vue/components/NcIconSvgWrapper'
 import NcLoadingIcon from '@nextcloud/vue/components/NcLoadingIcon'
+import LockdownControls from './lockdown/LockdownControls.vue'
 import ProblemList from './ProblemList.vue'
 import { useAnnouncer } from '../composables/useAnnouncer.ts'
 import { statusSections } from '../extensions.ts'
@@ -20,6 +21,7 @@ import { errorMessage, isCancelled, updateLearning, updateSettings } from '../se
 import { logger } from '../services/logger.ts'
 import { refreshChecks, refreshSettings, refreshStatus } from '../store.ts'
 import { APP_ID, formatCost, formatNumber } from '../utils/format.ts'
+import { actorLabel, effectsSentence, formatUntil } from './lockdown/summary.ts'
 
 const props = defineProps<{
 	status: Status
@@ -28,13 +30,26 @@ const props = defineProps<{
 const busy = ref<string | null>(null)
 const { announce } = useAnnouncer()
 
-const icon = computed(() => ({
-	protecting: mdiShieldCheckOutline,
-	learning: mdiShieldSearch,
-	off: mdiShieldOffOutline,
-})[props.status.state])
+/** The running lockdown; it outranks every other state in the banner */
+const lockdown = computed(() => {
+	const data = props.status.extensions.lockdown as LockdownStatus | undefined
+	return data?.active === true && props.status.state !== 'off' ? data : null
+})
+
+const tone = computed(() => lockdown.value ? 'lockdown' : props.status.state)
+
+const icon = computed(() => lockdown.value
+	? mdiShieldLockOutline
+	: ({
+			protecting: mdiShieldCheckOutline,
+			learning: mdiShieldSearch,
+			off: mdiShieldOffOutline,
+		})[props.status.state])
 
 const title = computed(() => {
+	if (lockdown.value) {
+		return t(APP_ID, 'Lockdown until {time}.', { time: formatUntil(lockdown.value.until) })
+	}
 	switch (props.status.state) {
 		case 'learning':
 			return n(APP_ID, 'Learning: %n day left.', 'Learning: %n days left.', props.status.learning.daysLeft)
@@ -47,6 +62,13 @@ const title = computed(() => {
 
 const sentence = computed(() => {
 	const { checks, learning, state } = props.status
+	if (lockdown.value) {
+		const { startedBy, reason, effects } = lockdown.value
+		const started = reason === ''
+			? t(APP_ID, 'Started by {actor}.', { actor: actorLabel(startedBy) }, undefined, { escape: false, sanitize: false })
+			: t(APP_ID, 'Started by {actor}: "{reason}".', { actor: actorLabel(startedBy), reason }, undefined, { escape: false, sanitize: false })
+		return started + ' ' + effectsSentence(effects)
+	}
 	if (state === 'off') {
 		return t(APP_ID, 'No checks run, nothing is recorded and blocked addresses can reach the server again.')
 	}
@@ -127,7 +149,7 @@ const turnOn = () => run('on', () => updateSettings({ protection_enabled: true }
 </script>
 
 <template>
-	<section :class="[$style.banner, $style[`banner_${status.state}`]]" aria-labelledby="ids-status-title">
+	<section :class="[$style.banner, $style[`banner_${tone}`]]" aria-labelledby="ids-status-title" :data-state="tone">
 		<div :class="$style.banner__head">
 			<span :class="$style.banner__icon" aria-hidden="true">
 				<NcIconSvgWrapper :path="icon" :size="28" />
@@ -141,7 +163,7 @@ const turnOn = () => run('on', () => updateSettings({ protection_enabled: true }
 				</p>
 			</div>
 			<div :class="$style.banner__actions">
-				<template v-if="status.state === 'learning'">
+				<template v-if="status.state === 'learning' && !lockdown">
 					<NcButton variant="primary" :disabled="busy !== null" @click="startProtecting">
 						<template v-if="busy === 'protect'" #icon>
 							<NcLoadingIcon />
@@ -165,6 +187,7 @@ const turnOn = () => run('on', () => updateSettings({ protection_enabled: true }
 					</template>
 					{{ t(APP_ID, 'Turn on') }}
 				</NcButton>
+				<LockdownControls v-if="status.state !== 'off'" :lockdown="lockdown" :disabled="busy !== null" />
 			</div>
 		</div>
 
@@ -219,6 +242,11 @@ const turnOn = () => run('on', () => updateSettings({ protection_enabled: true }
 .banner_off {
 	--state-color: var(--color-warning);
 	--state-text: var(--color-warning-text);
+}
+
+.banner_lockdown {
+	--state-color: var(--color-error);
+	--state-text: var(--color-error-text);
 }
 
 .banner__head {

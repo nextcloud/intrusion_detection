@@ -43,7 +43,7 @@ const range = computed(() => {
 
 const hint = computed(() => [
 	range.value,
-	t(APP_ID, 'default {value}', { value: formatValue(props.param.default, props.param.type) }),
+	props.param.default === '' ? '' : t(APP_ID, 'default {value}', { value: formatValue(props.param.default, props.param.type) }),
 ].filter(Boolean).join(' · '))
 
 const listText = computed({
@@ -94,6 +94,18 @@ const textValue = computed({
 						{{ choiceLabel(choice) }}
 					</option>
 				</select>
+			</template>
+
+			<template v-else-if="param.type === 'text'">
+				<label :for="id" :class="$style.field__label">{{ param.label }}</label>
+				<textarea
+					:id="id"
+					v-model="textValue"
+					:class="$style.field__text"
+					rows="2"
+					:disabled="disabled"
+					:aria-invalid="error ? 'true' : undefined"
+					:aria-describedby="hintId" />
 			</template>
 
 			<template v-else-if="param.type === 'string_list' || param.type === 'cidr_list'">
@@ -177,6 +189,13 @@ const textValue = computed({
 	font-family: var(--font-face-monospace, ui-monospace, 'SFMono-Regular', Menlo, Consolas, monospace);
 }
 
+.field__text {
+	width: 100%;
+	max-width: 420px;
+	margin: 0;
+	resize: vertical;
+}
+
 .field__hint {
 	margin: 0;
 	color: var(--color-text-maxcontrast);
@@ -200,6 +219,7 @@ const textValue = computed({
 }
 
 .field_invalid .field__number,
+.field_invalid .field__text,
 .field_invalid .field__list {
 	border-color: var(--color-border-error, var(--color-error)) !important;
 }

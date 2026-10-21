@@ -16,6 +16,7 @@ use OCA\IntrusionDetection\Db\AttemptStats;
 use OCA\IntrusionDetection\Detection\AttemptRecord;
 use OCA\IntrusionDetection\Detection\AttemptRecorder;
 use OCA\IntrusionDetection\Detection\DetectionDraft;
+use OCA\IntrusionDetection\Lockdown\LockdownState;
 use OCA\IntrusionDetection\Net\SourceKey;
 use OCA\IntrusionDetection\Response\ResponseEngine;
 use OCA\IntrusionDetection\Risk\RiskScorer;
@@ -58,6 +59,7 @@ class ShareBruteforceDetector {
 		private readonly ShareBruteforce $check,
 		private readonly ShareLinks $links,
 		private readonly RiskScorer $risk,
+		private readonly LockdownState $lockdown,
 	) {
 	}
 
@@ -129,7 +131,12 @@ class ShareBruteforceDetector {
 		$shareFacts = $this->shareFacts($share);
 
 		$fromSource = $this->attempts->statsForSourceOnShare($source->ipKey, $shareId, $kinds, $attempt->time - (int)$params['password_source_window']);
-		$sourceLimits = $this->risk->limits($source, ['password_min_per_source' => [(int)$params['password_min_per_source'], $fromSource->failures]]);
+		$lockdownLimit = $this->lockdown->sharePasswordLimit();
+		$sourceLimits = $this->risk->limits(
+			$source,
+			['password_min_per_source' => [(int)$params['password_min_per_source'], $fromSource->failures]],
+			$lockdownLimit === null ? [] : ['password_min_per_source' => $lockdownLimit],
+		);
 		if ($sourceLimits->reached()) {
 			$this->handle(new DetectionDraft(
 				checkId: ShareBruteforce::ID,

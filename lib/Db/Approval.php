@@ -41,6 +41,11 @@ class Approval extends Entity implements \JsonSerializable {
 	public const KIND_ADMIN_GRANT = 'admin_grant';
 	/** A login that nothing else could confirm; requested by the account itself */
 	public const KIND_LOGIN = 'login';
+	/**
+	 * The group id of a login request that is about a sensitive action in a
+	 * running session rather than a login; decided like a login.
+	 */
+	public const PURPOSE_SENSITIVE_ACTION = 'sensitive_action';
 
 	public const STATUS_PENDING = 'pending';
 	public const STATUS_APPROVED = 'approved';
@@ -73,6 +78,13 @@ class Approval extends Entity implements \JsonSerializable {
 
 	public function isPending(): bool {
 		return $this->status === self::STATUS_PENDING;
+	}
+
+	/**
+	 * A request about a sensitive action in a running session.
+	 */
+	public function isSensitiveAction(): bool {
+		return $this->kind === self::KIND_LOGIN && $this->groupId === self::PURPOSE_SENSITIVE_ACTION;
 	}
 
 	#[\Override]

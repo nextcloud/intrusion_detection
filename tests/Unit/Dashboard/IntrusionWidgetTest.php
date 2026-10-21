@@ -140,6 +140,23 @@ class IntrusionWidgetTest extends TestCase {
 		$this->assertSame('intrusion_detection', $this->widget->getId());
 	}
 
+	public function testARunningLockdownComesFirst(): void {
+		$status = self::statusData('protecting');
+		$status['extensions'] = ['lockdown' => ['active' => true, 'until' => 1_790_021_600, 'startedAt' => 1_790_000_000, 'startedBy' => 'alice', 'reason' => 'credential stuffing from botnet', 'automatic' => false, 'effects' => ['login']]];
+		$this->status->method('status')->willReturn($status);
+		$filter = null;
+		$this->detections->method('findList')->willReturnCallback(function (DetectionFilter $f) use (&$filter): array {
+			$filter = $f;
+			return [];
+		});
+
+		$items = $this->widget->getItemsV2('admin')->getItems();
+		$this->assertSame('Lockdown until 10/20/26, 10:00 AM', $items[0]->getTitle());
+		$this->assertSame('Started by alice: "credential stuffing from botnet"', $items[0]->getSubtitle());
+		$this->assertSame('Protecting', $items[1]->getTitle());
+		$this->assertSame(5, $filter?->limit, 'Still room for the detections');
+	}
+
 	/**
 	 * @return array<string, mixed>
 	 */

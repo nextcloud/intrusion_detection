@@ -18,9 +18,11 @@ use OCA\IntrusionDetection\Confirm\ConfirmationCoverage;
 use OCA\IntrusionDetection\Confirm\IConfirmationMethod;
 use OCA\IntrusionDetection\Confirm\Methods\KnownDeviceMethod;
 use OCA\IntrusionDetection\Confirm\NoMethodOutcome;
+use OCA\IntrusionDetection\Confirm\StepUpPolicy;
 use OCA\IntrusionDetection\Confirm\StepUpReasons;
 use OCA\IntrusionDetection\Db\Approval;
 use OCA\IntrusionDetection\ResponseDefinitions;
+use OCA\IntrusionDetection\Sensitive\SensitiveRoutes;
 use OCP\IL10N;
 use OCP\IUserManager;
 
@@ -29,11 +31,13 @@ use OCP\IUserManager;
  * confirms that a risky login is really the account holder's, in the order
  * of {@see \OCA\IntrusionDetection\Confirm\ConfirmationPolicy::METHODS}; per reason, whether a remembered device counts
  * and what happens when nothing can confirm; how many accounts have no way
- * to confirm; and the logins that wait for an administrator.
+ * to confirm; the logins that wait for an administrator; and the sensitive
+ * actions that need a fresh confirmation in a risky session (section 11.13).
  *
  * @psalm-import-type IntrusionDetectionConfirmation from ResponseDefinitions
  * @psalm-import-type IntrusionDetectionConfirmationMethod from ResponseDefinitions
  * @psalm-import-type IntrusionDetectionLoginApproval from ResponseDefinitions
+ * @psalm-import-type IntrusionDetectionSensitiveActions from ResponseDefinitions
  */
 class ConfirmationOverview {
 	/** At most this many waiting logins are listed */
@@ -68,6 +72,32 @@ class ConfirmationOverview {
 			],
 			'approvers' => count($this->approvers->all()),
 			'approvals' => $this->pendingLogins($viewer),
+			'sensitive' => $this->sensitive($l),
+		];
+	}
+
+	/**
+	 * The groups of sensitive actions, what each protects and whether it is on.
+	 *
+	 * @return IntrusionDetectionSensitiveActions
+	 */
+	public function sensitive(IL10N $l): array {
+		$enabled = $this->settings->global(GlobalSettings::SENSITIVE_GROUPS);
+		$enabled = is_array($enabled) ? $enabled : [];
+		return [
+			'groups' => array_map(static fn (string $group): array => [
+				'id' => $group,
+				'label' => SensitiveRoutes::groupLabel($group, $l),
+				'examples' => SensitiveRoutes::groupExamples($group, $l),
+				'enabled' => in_array($group, $enabled, true),
+			], SensitiveRoutes::GROUPS),
+			'setting' => GlobalSettings::SENSITIVE_GROUPS,
+			'risky' => [
+				$l->t('Its login was allowed without a confirmation, because the account had no way to give one.'),
+				$l->t('A check found something suspicious in it, such as an account takeover or directory scraping, and asks for confirmation as its response.'),
+				$l->t('Lockdown mode is on: then every session is risky.'),
+				$l->t('For administrators, when that is on: the last confirmation that it was really them is older than {sensitive_admin_max_age}.'),
+			],
 		];
 	}
 
@@ -86,6 +116,7 @@ class ConfirmationOverview {
 				'createdAt' => $approval->getCreatedAt(),
 				'expiresAt' => $approval->getExpiresAt(),
 				'canDecide' => $uid !== $viewer,
+				'action' => $approval->isSensitiveAction(),
 			];
 		}
 		return $list;
@@ -130,7 +161,7 @@ class ConfirmationOverview {
 	}
 
 	/**
-	 * @return list<array{id: string, label: string, why: string, default: string, outcome: string, setting: string, knownDevice: bool, knownDeviceAllowed: bool}>
+	 * @return list<array{id: string, label: string, why: string, default: string, outcome: string, setting: string, knownDevice: bool, knownDeviceAllowed: bool, knownDeviceSetting: string}>
 	 */
 	private function policies(IL10N $l): array {
 		$knownDeviceOk = $this->settings->global(GlobalSettings::STEP_UP_KNOWN_DEVICE_OK_FOR);
@@ -138,7 +169,8 @@ class ConfirmationOverview {
 		$policies = [];
 		foreach (StepUpReasons::policies() as $policy) {
 			$outcome = NoMethodOutcome::tryFrom((string)$this->settings->global($policy->settingKey())) ?? $policy->defaultOutcome();
-			$allowed = !in_array($policy, KnownDeviceMethod::NEVER, true);
+			$lockdown = $policy === StepUpPolicy::Lockdown;
+			$allowed = $lockdown || !in_array($policy, KnownDeviceMethod::NEVER, true);
 			$policies[] = [
 				'id' => $policy->value,
 				'label' => $policy->label($l),
@@ -146,8 +178,9 @@ class ConfirmationOverview {
 				'default' => $policy->defaultOutcome()->value,
 				'outcome' => $outcome->value,
 				'setting' => $policy->settingKey(),
-				'knownDevice' => $allowed && in_array($policy->value, $knownDeviceOk, true),
+				'knownDevice' => $lockdown ? $this->settings->getBool(GlobalSettings::LOCKDOWN_KNOWN_DEVICE_OK) : $allowed && in_array($policy->value, $knownDeviceOk, true),
 				'knownDeviceAllowed' => $allowed,
+				'knownDeviceSetting' => $lockdown ? GlobalSettings::LOCKDOWN_KNOWN_DEVICE_OK : GlobalSettings::STEP_UP_KNOWN_DEVICE_OK_FOR,
 			];
 		}
 		return $policies;

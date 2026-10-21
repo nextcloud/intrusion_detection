@@ -16,8 +16,10 @@ use OCA\IntrusionDetection\Db\Approval;
 use OCA\IntrusionDetection\Db\ApprovalMapper;
 use OCA\IntrusionDetection\Db\Detection;
 use OCA\IntrusionDetection\Db\DetectionMapper;
+use OCA\IntrusionDetection\Db\Lockdown;
 use OCA\IntrusionDetection\Explain\DateFormatter;
 use OCA\IntrusionDetection\Explain\NarrativeBuilder;
+use OCA\IntrusionDetection\Sensitive\SensitiveRoutes;
 use OCA\IntrusionDetection\WasThisYou\Questions;
 use OCP\AppFramework\Db\DoesNotExistException;
 use OCP\IL10N;
@@ -97,6 +99,8 @@ class Notifier implements INotifier {
 			AdminNotices::SUBJECT_PASSWORD_EXTERNAL => $this->preparePasswordExternal($notification, $l),
 			self::SUBJECT_APPROVAL_REQUESTED, self::SUBJECT_APPROVAL_PENDING, self::SUBJECT_APPROVAL_DECIDED => $this->prepareApproval($notification, $l),
 			TestAlert::SUBJECT => $this->prepareTestAlert($notification, $l),
+			LockdownNotices::SUBJECT_STARTED, LockdownNotices::SUBJECT_ENDED => $this->prepareLockdown($notification, $l),
+			AdminNotices::SUBJECT_SENSITIVE_UNCONFIRMED => $this->prepareSensitiveUnconfirmed($notification, $l),
 			default => throw new UnknownNotificationException(),
 		};
 	}
@@ -249,6 +253,17 @@ class Notifier implements INotifier {
 		}
 		$account = $approval->getSubjectUid();
 		$address = $approval->getIp() ?? $l->t('an unknown address');
+		if ($approval->isSensitiveAction()) {
+			$notification->setParsedSubject($l->t('Approve a sensitive action of %s?', [$account]))
+				->setRichSubject($l->t('Approve a sensitive action of {user}?'), ['user' => ['type' => 'user', 'id' => $account, 'name' => $account]])
+				->setParsedMessage(implode(' ', [
+					$l->t('%1$s wants to change something important from the address %2$s, such as an email address, a password or an app password. Their session needs a fresh confirmation for it, and the account has no other way to give it.', [$account, $address]),
+					$l->t('Approve only if you know it is really %s, for example because they asked you. If you did not expect it, reject it: someone else may be using the account, and the session is ended.', [$account]),
+					$l->t('The request expires at %s. Deciding needs your password.', [$expires]),
+				]))
+				->setLink($this->links->adminPage() . '#confirmation');
+			return $this->loginApprovalActions($notification, $l);
+		}
 		$notification->setParsedSubject($l->t('Approve the login of %s?', [$account]))
 			->setRichSubject($l->t('Approve the login of {user}?'), ['user' => ['type' => 'user', 'id' => $account, 'name' => $account]])
 			->setParsedMessage(implode(' ', [
@@ -257,6 +272,10 @@ class Notifier implements INotifier {
 				$l->t('The request expires at %s. Deciding needs your password.', [$expires]),
 			]))
 			->setLink($this->links->adminPage() . '#confirmation');
+		return $this->loginApprovalActions($notification, $l);
+	}
+
+	private function loginApprovalActions(INotification $notification, IL10N $l): INotification {
 		foreach ($notification->getActions() as $action) {
 			$label = match ($action->getLabel()) {
 				self::ACTION_APPROVE => $l->t('Approve'),
@@ -356,6 +375,60 @@ class Notifier implements INotifier {
 		$notification->setParsedSubject($l->t('Test alert from intrusion detection'))
 			->setParsedMessage($l->t('This is a test you asked for. Nothing has happened. Real alerts reach you here in the same way.'))
 			->setLink($this->links->adminPage() . '#notifications');
+		return $notification;
+	}
+
+	/**
+	 * A lockdown started or ended. Rendered from the notification's own
+	 * parameters, so it reads the same after the lockdown's history entry
+	 * was deleted.
+	 */
+	private function prepareLockdown(INotification $notification, IL10N $l): INotification {
+		$params = $notification->getSubjectParameters();
+		$startedBy = (string)($params['startedBy'] ?? '');
+		$reason = (string)($params['reason'] ?? '');
+		$started = $startedBy === Lockdown::ACTOR_AUTOMATIC
+			? $l->t('It was started automatically because many addresses are trying passwords at the same time.')
+			: $l->t('It was started by %s.', [$startedBy === Lockdown::ACTOR_OCC ? $l->t('a command on the server') : $startedBy]);
+		$message = [$started];
+		if ($reason !== '') {
+			$message[] = $l->t('Reason: "%s"', [$reason]);
+		}
+		if ($notification->getSubject() === LockdownNotices::SUBJECT_STARTED) {
+			$until = $this->dates->dateTime((int)($params['until'] ?? 0));
+			$message[] = $l->t('While it lasts, Nextcloud asks for extra confirmation and blocks new devices as set on the admin page. You can extend or end it there, or with occ intrusion:lockdown.');
+			$notification->setParsedSubject($l->t('Lockdown until %s', [$until]));
+		} else {
+			$endedBy = (string)($params['endedBy'] ?? '');
+			$message[] = $endedBy === Lockdown::ACTOR_AUTOMATIC
+				? $l->t('It ended at its planned time.')
+				: $l->t('It was ended early by %s.', [$endedBy === Lockdown::ACTOR_OCC ? $l->t('a command on the server') : $endedBy]);
+			$notification->setParsedSubject($l->t('The lockdown has ended'));
+		}
+		$notification->setParsedMessage(implode(' ', $message))
+			->setLink($this->links->adminPage());
+		return $notification;
+	}
+
+	/**
+	 * A sensitive action went ahead in a risky session without a
+	 * confirmation, because the account had no way to give one.
+	 */
+	private function prepareSensitiveUnconfirmed(INotification $notification, IL10N $l): INotification {
+		$params = $notification->getSubjectParameters();
+		$uid = (string)($params['uid'] ?? '');
+		if ($this->userManager->get($uid) === null) {
+			throw new AlreadyProcessedException();
+		}
+		$what = SensitiveRoutes::groupLabel((string)($params['group'] ?? ''), $l);
+		$notification->setParsedSubject($l->t('%s did a sensitive action without confirmation', [$uid]))
+			->setRichSubject($l->t('{user} did a sensitive action without confirmation'), ['user' => ['type' => 'user', 'id' => $uid, 'name' => $uid]])
+			->setParsedMessage(implode(' ', [
+				$l->t('%1$s changed something in "%2$s" in a session that needs extra confirmation for that.', [$uid, $what]),
+				$l->t('The account has neither a second factor nor an email address, and your settings allow such actions with a notice instead of refusing them.'),
+				$l->t('If you did not expect it, check the account.'),
+			]))
+			->setLink($this->links->adminPage() . '#confirmation');
 		return $notification;
 	}
 }

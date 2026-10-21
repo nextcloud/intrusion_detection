@@ -35,6 +35,12 @@ class SessionState {
 	public const LOGIN_HISTORY = 'login_history';
 	/** Security events to show once before the start page, for users Nextcloud cannot reach by email */
 	public const LOGIN_NOTICE = 'login_notice';
+	/** A detection made this session risky: sensitive actions need confirmation (concept section 11.13) */
+	public const RISKY = 'risky';
+	/** When this session last confirmed a sensitive action, and its last strong confirmation */
+	public const SENSITIVE = 'sensitive';
+	/** A confirmation of a sensitive action in progress, on the confirm page */
+	public const SENSITIVE_PENDING = 'sensitive_pending';
 
 	public function __construct(
 		private readonly ISession $session,

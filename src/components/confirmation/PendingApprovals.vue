@@ -109,6 +109,7 @@ function address(approval: LoginApproval): string {
 					disableMenu />
 				<div :class="$style.item__text">
 					<span :class="$style.item__name">{{ approval.displayName }} <span :class="$style.item__uid">{{ approval.uid }}</span></span>
+					<span v-if="approval.action" :class="$style.item__kind">{{ t(APP_ID, 'Sensitive action, not a login') }}</span>
 					<span :class="$style.item__meta">
 						{{ t(APP_ID, 'From {address}', { address: address(approval) }, undefined, opts) }} ·
 						{{ t(APP_ID, 'asked') }} <NcDateTime :timestamp="approval.createdAt * 1000" /> ·
@@ -151,7 +152,12 @@ function address(approval: LoginApproval): string {
 			:buttons="buttons"
 			size="normal">
 			<div :class="$style.dialog">
-				<p>{{ t(APP_ID, 'Someone logged in as {user} from {address} with the correct password. Approving lets this login in without any other confirmation.', { user: confirming?.uid ?? '', address: confirming ? address(confirming) : '' }, undefined, opts) }}</p>
+				<p v-if="confirming?.action">
+					{{ t(APP_ID, 'Someone in a session of {user} at {address} wants to change something important, such as the email address, the password or an app password. Approving lets this session do such changes for a few minutes.', { user: confirming.uid, address: address(confirming) }, undefined, opts) }}
+				</p>
+				<p v-else>
+					{{ t(APP_ID, 'Someone logged in as {user} from {address} with the correct password. Approving lets this login in without any other confirmation.', { user: confirming?.uid ?? '', address: confirming ? address(confirming) : '' }, undefined, opts) }}
+				</p>
 				<p><strong>{{ t(APP_ID, 'Approve only if you know it is really them, for example because they asked you. If you did not expect it, reject it: someone else may know the password.') }}</strong></p>
 			</div>
 		</NcDialog>
@@ -191,6 +197,15 @@ function address(approval: LoginApproval): string {
 .item__name {
 	font-weight: 700;
 	overflow-wrap: anywhere;
+}
+
+.item__kind {
+	align-self: flex-start;
+	padding: 0 calc(var(--default-grid-baseline) * 2);
+	border-radius: var(--border-radius-element);
+	background-color: color-mix(in srgb, var(--color-info) 14%, var(--color-main-background));
+	color: var(--color-main-text);
+	font-size: 0.85em;
 }
 
 .item__uid,

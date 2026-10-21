@@ -73,7 +73,7 @@ final class DirectoryScraping implements ICheck, IExplainsDetection, IExplainsTo
 			defaultMode: self::DEFAULT_MODE,
 			severity: Severity::Medium,
 			params: $params,
-			responses: [ResponseType::RateLimit, ResponseType::KillSession, ResponseType::NotifyAdmin, ResponseType::NotifyUser],
+			responses: [ResponseType::RateLimit, ResponseType::KillSession, ResponseType::NotifyAdmin, ResponseType::NotifyUser, ResponseType::ConfirmSensitive],
 			defaultResponses: [ResponseType::RateLimit, ResponseType::NotifyAdmin],
 			cost: CostClass::EveryRequestTiny,
 			stores: [DataKind::CacheCounters, DataKind::Detections],

@@ -72,7 +72,8 @@ class AdminApprovalMethod implements IConfirmationMethod {
 	 */
 	#[\Override]
 	public function begin(IUser $user, StepUpState $state): string {
-		$approval = $this->approvals->requestLogin($user, $state->ip, $this->settings->getInt(GlobalSettings::STEP_UP_ADMIN_APPROVAL_TTL));
+		$purpose = in_array(StepUpPolicy::SensitiveAction->value, $state->policies, true) ? Approval::PURPOSE_SENSITIVE_ACTION : null;
+		$approval = $this->approvals->requestLogin($user, $state->ip, $this->settings->getInt(GlobalSettings::STEP_UP_ADMIN_APPROVAL_TTL), $purpose);
 		if ($approval === null) {
 			return self::UNAVAILABLE;
 		}

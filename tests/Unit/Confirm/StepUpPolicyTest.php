@@ -54,7 +54,7 @@ class StepUpPolicyTest extends TestCase {
 	public function testEveryPolicyWithAReasonHasItsSettingWithTheDefault(): void {
 		$globals = new GlobalSettings();
 		$this->assertSame(
-			[StepUpPolicy::FlaggedSource, StepUpPolicy::SprayedPassword, StepUpPolicy::ProtectedAccount, StepUpPolicy::BreachedPassword, StepUpPolicy::RiskyNetwork, StepUpPolicy::RiskHigh],
+			[StepUpPolicy::FlaggedSource, StepUpPolicy::SprayedPassword, StepUpPolicy::ProtectedAccount, StepUpPolicy::BreachedPassword, StepUpPolicy::RiskyNetwork, StepUpPolicy::RiskHigh, StepUpPolicy::Lockdown],
 			StepUpReasons::policies(),
 		);
 		foreach (StepUpReasons::PROVIDERS as $class) {

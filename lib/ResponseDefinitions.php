@@ -736,6 +736,7 @@ namespace OCA\IntrusionDetection;
  *     setting: string,
  *     knownDevice: bool,
  *     knownDeviceAllowed: bool,
+ *     knownDeviceSetting: string,
  * }
  *
  * @psalm-type IntrusionDetectionConfirmationOutcome = array{
@@ -752,6 +753,20 @@ namespace OCA\IntrusionDetection;
  *     createdAt: int,
  *     expiresAt: int,
  *     canDecide: bool,
+ *     action: bool,
+ * }
+ *
+ * @psalm-type IntrusionDetectionSensitiveGroup = array{
+ *     id: string,
+ *     label: string,
+ *     examples: list<string>,
+ *     enabled: bool,
+ * }
+ *
+ * @psalm-type IntrusionDetectionSensitiveActions = array{
+ *     groups: list<IntrusionDetectionSensitiveGroup>,
+ *     setting: string,
+ *     risky: list<string>,
  * }
  *
  * @psalm-type IntrusionDetectionConfirmation = array{
@@ -762,6 +777,7 @@ namespace OCA\IntrusionDetection;
  *     admins: array{total: int, withoutEmail: int, withoutSecondFactor: int, withNeither: list<string>},
  *     approvers: int,
  *     approvals: list<IntrusionDetectionLoginApproval>,
+ *     sensitive: IntrusionDetectionSensitiveActions,
  * }
  *
  * @psalm-type IntrusionDetectionUnconfirmableAccount = array{
@@ -918,6 +934,41 @@ namespace OCA\IntrusionDetection;
  *     lockedByLink: bool,
  *     canReenable: bool,
  *     progress: ?IntrusionDetectionSecureAccountProgress,
+ * }
+ *
+ * @psalm-type IntrusionDetectionLockdownEffect = array{
+ *     id: string,
+ *     label: string,
+ *     description: string,
+ *     enabled: bool,
+ * }
+ *
+ * @psalm-type IntrusionDetectionLockdownEntry = array{
+ *     id: int,
+ *     startedAt: int,
+ *     until: int,
+ *     endedAt: ?int,
+ *     startedBy: string,
+ *     endedBy: ?string,
+ *     reason: string,
+ *     effects: list<string>,
+ *     automatic: bool,
+ * }
+ *
+ * @psalm-type IntrusionDetectionLockdown = array{
+ *     active: bool,
+ *     until: int,
+ *     startedAt: int,
+ *     startedBy: string,
+ *     reason: string,
+ *     automatic: bool,
+ *     effects: list<IntrusionDetectionLockdownEffect>,
+ *     defaultDuration: int,
+ *     minDuration: int,
+ *     maxDuration: int,
+ *     maxReason: int,
+ *     usersWithoutMethod: int,
+ *     history: list<IntrusionDetectionLockdownEntry>,
  * }
  */
 class ResponseDefinitions {

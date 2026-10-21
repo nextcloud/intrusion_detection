@@ -10,12 +10,14 @@ declare(strict_types=1);
 namespace OCA\IntrusionDetection\Dashboard;
 
 use OCA\IntrusionDetection\Admin\CheckNames;
+use OCA\IntrusionDetection\Admin\LockdownOverview;
 use OCA\IntrusionDetection\Admin\StatusService;
 use OCA\IntrusionDetection\AppInfo\Application;
 use OCA\IntrusionDetection\Check\Severity;
 use OCA\IntrusionDetection\Db\Detection;
 use OCA\IntrusionDetection\Db\DetectionFilter;
 use OCA\IntrusionDetection\Db\DetectionMapper;
+use OCA\IntrusionDetection\Db\Lockdown;
 use OCA\IntrusionDetection\Explain\DateFormatter;
 use OCA\IntrusionDetection\ResponseDefinitions;
 use OCP\AppFramework\Utility\ITimeFactory;
@@ -33,8 +35,8 @@ use OCP\IURLGenerator;
 use OCP\IUserSession;
 
 /**
- * The admin dashboard widget: the status line, the last 24 hours in numbers
- * and the latest serious detections. Administrators only.
+ * The admin dashboard widget: a running lockdown, the status line, the last
+ * 24 hours in numbers and the latest serious detections. Administrators only.
  *
  * @psalm-import-type IntrusionDetectionStatus from ResponseDefinitions
  */
@@ -115,7 +117,8 @@ class IntrusionWidget implements IAPIWidgetV2, IConditionalWidget, IIconWidget, 
 			return new WidgetItems();
 		}
 		$status = $this->status->status($this->l);
-		$items = [$this->statusItem($status)];
+		$lockdown = $this->lockdownItem($status);
+		$items = $lockdown === null ? [$this->statusItem($status)] : [$lockdown, $this->statusItem($status)];
 
 		$detections = $this->detections->findList(new DetectionFilter(
 			severities: array_values(array_map(
@@ -123,7 +126,7 @@ class IntrusionWidget implements IAPIWidgetV2, IConditionalWidget, IIconWidget, 
 				array_filter(Severity::cases(), static fn (Severity $s): bool => $s->atLeast(self::MIN_SEVERITY)),
 			)),
 			since: $this->timeFactory->getTime() - 30 * 86400,
-			limit: max(0, min(self::MAX_DETECTIONS, $limit - 1)),
+			limit: max(0, min(self::MAX_DETECTIONS, $limit - count($items))),
 		));
 		foreach ($detections as $detection) {
 			$items[] = $this->detectionItem($detection);
@@ -153,6 +156,32 @@ class IntrusionWidget implements IAPIWidgetV2, IConditionalWidget, IIconWidget, 
 				. ' · ' . $this->l->n('%n detection', '%n detections', $last['detections']);
 		$icon = $this->urlGenerator->getAbsoluteURL($this->urlGenerator->imagePath(Application::APP_ID, 'app-dark.svg'));
 		return new WidgetItem($title, $subtitle, $this->pageUrl(), $icon, 'status');
+	}
+
+	/**
+	 * The running lockdown, on top: "Lockdown until 18:00", with who started it and why.
+	 *
+	 * @param IntrusionDetectionStatus $status
+	 */
+	private function lockdownItem(array $status): ?WidgetItem {
+		$lockdown = $status['extensions'][LockdownOverview::KEY] ?? null;
+		if (!is_array($lockdown) || ($lockdown['active'] ?? false) !== true) {
+			return null;
+		}
+		$startedBy = (string)($lockdown['startedBy'] ?? '');
+		$reason = (string)($lockdown['reason'] ?? '');
+		$by = match ($startedBy) {
+			Lockdown::ACTOR_AUTOMATIC => $this->l->t('Started automatically'),
+			Lockdown::ACTOR_OCC => $this->l->t('Started with occ'),
+			default => $this->l->t('Started by %s', [$startedBy]),
+		};
+		return new WidgetItem(
+			$this->l->t('Lockdown until %s', [$this->dates->dateTime((int)($lockdown['until'] ?? 0))]),
+			$reason === '' ? $by : $this->l->t('%1$s: "%2$s"', [$by, $reason]),
+			$this->pageUrl(),
+			$this->urlGenerator->getAbsoluteURL($this->urlGenerator->imagePath('core', 'actions/password.svg')),
+			'lockdown',
+		);
 	}
 
 	private function detectionItem(Detection $detection): WidgetItem {

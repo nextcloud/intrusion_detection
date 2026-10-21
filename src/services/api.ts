@@ -24,6 +24,7 @@ import type {
 	IncidentReport,
 	IncidentRequest,
 	Learning,
+	Lockdown,
 	LookupResult,
 	Mode,
 	NewDecoy,
@@ -441,3 +442,23 @@ export function approveRequest(id: number): Promise<unknown> {
 export function rejectRequest(id: number): Promise<unknown> {
 	return call<unknown>(axios.post(url(`approvals/${id}/reject`), {}, write))
 }
+
+export const fetchLockdown = () => call<Lockdown>(axios.get(url('lockdown')))
+
+/**
+ * @param duration - Seconds, 1 to 24 hours
+ * @param reason - Why
+ * @param effects - The effects to switch on
+ */
+export function startLockdown(duration: number, reason: string, effects: string[]): Promise<Lockdown> {
+	return call<Lockdown>(axios.post(url('lockdown'), { duration, reason, effects }, write))
+}
+
+/**
+ * @param extend - Seconds, 1 to 24 hours
+ */
+export function extendLockdown(extend: number): Promise<Lockdown> {
+	return call<Lockdown>(axios.put(url('lockdown'), { extend }, write))
+}
+
+export const endLockdown = () => call<Lockdown>(axios.delete(url('lockdown'), write))

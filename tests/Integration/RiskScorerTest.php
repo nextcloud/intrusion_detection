@@ -22,6 +22,7 @@ use OCA\IntrusionDetection\Db\AttemptMapper;
 use OCA\IntrusionDetection\Db\Detection;
 use OCA\IntrusionDetection\Db\DetectionMapper;
 use OCA\IntrusionDetection\Guard\RequestContext;
+use OCA\IntrusionDetection\Lockdown\LockdownState;
 use OCA\IntrusionDetection\Net\RemoteAddressResolver;
 use OCA\IntrusionDetection\Net\SourceKey;
 use OCA\IntrusionDetection\Response\FlaggedSources;
@@ -238,7 +239,7 @@ class RiskScorerTest extends IntegrationTestCase {
 		$logger->expects($this->once())->method('error');
 		$scorer = new RiskScorer(
 			$this->settings, $flags, Server::get(AttemptMapper::class), Server::get(DetectionMapper::class), $this->context,
-			$this->addressCache(), $this->addresses(), new AttackTools(), $this->factory(), Server::get(ITimeFactory::class), $logger,
+			$this->addressCache(), $this->addresses(), new AttackTools(), $this->factory(), Server::get(ITimeFactory::class), $logger, Server::get(LockdownState::class),
 		);
 		$this->assertEquals(RiskAssessment::neutral(), $scorer->score(SourceKey::fromIp(self::IP)));
 	}
@@ -256,6 +257,7 @@ class RiskScorerTest extends IntegrationTestCase {
 			$this->factory(),
 			Server::get(ITimeFactory::class),
 			Server::get(LoggerInterface::class),
+			Server::get(LockdownState::class),
 		);
 	}
 

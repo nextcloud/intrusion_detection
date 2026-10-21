@@ -29,6 +29,7 @@ class StepUpReasons {
 		Reasons\BreachedPasswordReason::class,
 		Reasons\RiskyNetworkReason::class,
 		Reasons\RiskHighReason::class,
+		Reasons\LockdownReason::class,
 	];
 
 	public function __construct(

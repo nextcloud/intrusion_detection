@@ -32,12 +32,14 @@ use OCA\IntrusionDetection\Listener\AppPasswordCreatedListener;
 use OCA\IntrusionDetection\Listener\BlocklistLoginListener;
 use OCA\IntrusionDetection\Listener\BreachedPasswordListener;
 use OCA\IntrusionDetection\Listener\BreachResetListener;
+use OCA\IntrusionDetection\Listener\ConfirmDialogListener;
 use OCA\IntrusionDetection\Listener\CredentialUseLoginListener;
 use OCA\IntrusionDetection\Listener\FailedLoginListener;
 use OCA\IntrusionDetection\Listener\FirewallExportListener;
 use OCA\IntrusionDetection\Listener\KnownDeviceListener;
 use OCA\IntrusionDetection\Listener\LoginFlowGrantedListener;
 use OCA\IntrusionDetection\Listener\LoginHistoryListener;
+use OCA\IntrusionDetection\Listener\LoginNoticeListener;
 use OCA\IntrusionDetection\Listener\LoginRecordListener;
 use OCA\IntrusionDetection\Listener\PasswordChangeLoginListener;
 use OCA\IntrusionDetection\Listener\PasswordUpdatedListener;
@@ -47,6 +49,7 @@ use OCA\IntrusionDetection\Listener\SabrePluginAddListener;
 use OCA\IntrusionDetection\Listener\SecondFactorFailedListener;
 use OCA\IntrusionDetection\Listener\SecureGuideListener;
 use OCA\IntrusionDetection\Listener\SecurityChangeListener;
+use OCA\IntrusionDetection\Listener\SensitiveChallengePassedListener;
 use OCA\IntrusionDetection\Listener\ShareAccessFailedListener;
 use OCA\IntrusionDetection\Listener\StepUpChallengePassedListener;
 use OCA\IntrusionDetection\Listener\StepUpLoginListener;
@@ -65,6 +68,8 @@ use OCP\AppFramework\App;
 use OCP\AppFramework\Bootstrap\IBootContext;
 use OCP\AppFramework\Bootstrap\IBootstrap;
 use OCP\AppFramework\Bootstrap\IRegistrationContext;
+use OCP\AppFramework\Http\Events\BeforeLoginTemplateRenderedEvent;
+use OCP\AppFramework\Http\Events\BeforeTemplateRenderedEvent;
 use OCP\Authentication\Events\AnyLoginFailedEvent;
 use OCP\Authentication\Events\AppPasswordCreatedEvent;
 use OCP\Authentication\Events\LoginFlowV2GrantedEvent;
@@ -155,6 +160,9 @@ class Application extends App implements IBootstrap {
 			$context->registerEventListener($event, SecureGuideListener::class);
 		}
 		$context->registerNotifierService(SecureAccountNotifier::class);
+		$context->registerEventListener(TwoFactorProviderChallengePassed::class, SensitiveChallengePassedListener::class);
+		$context->registerEventListener(BeforeTemplateRenderedEvent::class, ConfirmDialogListener::class);
+		$context->registerEventListener(BeforeLoginTemplateRenderedEvent::class, LoginNoticeListener::class);
 	}
 
 	#[\Override]

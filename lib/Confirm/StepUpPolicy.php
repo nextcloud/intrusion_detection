@@ -34,6 +34,12 @@ enum StepUpPolicy: string {
 	case RiskHigh = 'risk_high';
 	/** An administrator started lockdown mode */
 	case Lockdown = 'lockdown';
+	/**
+	 * A sensitive action in a risky session (concept section 11.13). Not a
+	 * reason at login: the confirm page asks for it, and
+	 * `sensitive_no_method` decides when nothing can confirm it.
+	 */
+	case SensitiveAction = 'sensitive_action';
 
 	/**
 	 * What happens by default when no confirmation method is available.
@@ -65,6 +71,7 @@ enum StepUpPolicy: string {
 			self::RiskyNetwork => $l->t('Login from a hosting or Tor network'),
 			self::RiskHigh => $l->t('Login from an address with a high risk score'),
 			self::Lockdown => $l->t('Login during lockdown'),
+			self::SensitiveAction => $l->t('A sensitive action in a risky session'),
 		};
 	}
 
@@ -81,6 +88,7 @@ enum StepUpPolicy: string {
 			self::RiskyNetwork => $l->t('the address belongs to a hosting provider or the Tor network'),
 			self::RiskHigh => $l->t('the address has a high risk score'),
 			self::Lockdown => $l->t('lockdown mode was on'),
+			self::SensitiveAction => $l->t('a sensitive action needed a fresh confirmation'),
 		};
 	}
 
@@ -112,6 +120,7 @@ enum StepUpPolicy: string {
 			self::RiskyNetwork => $l->t('Hosting networks are suspicious, not evidence.'),
 			self::RiskHigh => $l->t('Many signs of an attack come together at this address.'),
 			self::Lockdown => $l->t('An administrator chose to lock down.'),
+			self::SensitiveAction => $l->t('The session is risky, and the action could hand the account to someone else.'),
 		};
 	}
 }
