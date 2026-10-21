@@ -6,7 +6,7 @@
 <script setup lang="ts">
 import type { Check, Mode, ParamValue } from '../../types.ts'
 
-import { mdiAlertOutline, mdiChevronDown, mdiFilterVariant, mdiOpenInNew, mdiRestore } from '@mdi/js'
+import { mdiAlertOutline, mdiChevronDown, mdiFilterVariant, mdiFlaskOutline, mdiOpenInNew, mdiRestore } from '@mdi/js'
 import { showError } from '@nextcloud/dialogs'
 import { n, t } from '@nextcloud/l10n'
 import { computed, inject, reactive, ref, useId, watch } from 'vue'
@@ -19,6 +19,7 @@ import NcNoteCard from '@nextcloud/vue/components/NcNoteCard'
 import LiveSentence from './LiveSentence.vue'
 import ModeSwitch from './ModeSwitch.vue'
 import ParamField from './ParamField.vue'
+import SimulationDialog from './SimulationDialog.vue'
 import { useAnnouncer } from '../../composables/useAnnouncer.ts'
 import { checkSections } from '../../extensions.ts'
 import { ApiError, errorMessage, isCancelled, resetCheck, updateCheck } from '../../services/api.ts'
@@ -35,6 +36,12 @@ const props = defineProps<{
 
 const id = useId()
 const expanded = ref(props.open ?? false)
+// A link to this check, e.g. from another tab, opens it while the list is shown.
+watch(() => props.open, (open) => {
+	if (open) {
+		expanded.value = true
+	}
+})
 const { announce } = useAnnouncer()
 const showTab = inject<(tab: string) => void>('ids-show-tab', () => {})
 
@@ -266,6 +273,16 @@ const requirementLabel = computed(() => {
 	} as Record<string, string>)[missing.id] ?? missing.text
 })
 
+/** Settings that a card section edits itself are left out of the settings form */
+const formParams = computed(() => {
+	const replaced = checkSections
+		.filter((section) => section.checks.length === 0 || section.checks.includes(props.check.id))
+		.flatMap((section) => section.replacesParams ?? [])
+	return props.check.params.filter((param) => !replaced.includes(param.name))
+})
+
+const simulating = ref(false)
+
 const sectionsAfter = (after: string) => checkSections.filter((section) => section.after === after && (section.checks.length === 0 || section.checks.includes(props.check.id)))
 
 const learnMoreUrl = computed(() => state.docUrl ? `${state.docUrl}#check-${props.check.id}` : '')
@@ -439,12 +456,12 @@ function sameList(a: string[], b: string[]): boolean {
 							</NcCheckboxRadioSwitch>
 						</fieldset>
 
-						<fieldset v-if="check.params.length > 0" :class="$style.fieldset">
+						<fieldset v-if="formParams.length > 0" :class="$style.fieldset">
 							<legend :class="$style.fieldset__legend">
 								{{ t(APP_ID, 'Settings') }}
 							</legend>
 							<ParamField
-								v-for="param in check.params"
+								v-for="param in formParams"
 								:key="param.name"
 								v-model="draft[param.name]"
 								:param="param"
@@ -482,6 +499,12 @@ function sameList(a: string[], b: string[]): boolean {
 						</template>
 						{{ t(APP_ID, 'Show recent detections') }}
 					</NcButton>
+					<NcButton v-if="check.simulatable" variant="secondary" @click="simulating = true">
+						<template #icon>
+							<NcIconSvgWrapper :path="mdiFlaskOutline" />
+						</template>
+						{{ t(APP_ID, 'Simulate') }}
+					</NcButton>
 					<NcButton variant="tertiary" @click="resetOpen = true">
 						<template #icon>
 							<NcIconSvgWrapper :path="mdiRestore" />
@@ -502,6 +525,8 @@ function sameList(a: string[], b: string[]): boolean {
 				</div>
 			</div>
 		</div>
+
+		<SimulationDialog v-if="check.simulatable" v-model:open="simulating" :check="check" />
 
 		<NcDialog
 			v-model:open="resetOpen"

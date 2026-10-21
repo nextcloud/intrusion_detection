@@ -111,6 +111,7 @@ namespace OCA\IntrusionDetection;
  *     level: 'info'|'warning'|'error',
  *     title: string,
  *     text: string,
+ *     fix?: string,
  *     url: ?string,
  *     urlLabel: ?string,
  * }
@@ -322,6 +323,282 @@ namespace OCA\IntrusionDetection;
  *     includeIp: bool,
  *     webhooksEnabled: bool,
  *     events: list<IntrusionDetectionWebhookEvent>,
+ * }
+ *
+ * @psalm-type IntrusionDetectionSimulation = array{
+ *     check: string,
+ *     testAddress: string,
+ *     mode: string,
+ *     modeReason: ?string,
+ *     runs: bool,
+ *     acts: bool,
+ *     severity: string,
+ *     narrative: IntrusionDetectionNarrative,
+ *     responses: list<array{type: string, text: string}>,
+ * }
+ *
+ * @psalm-type IntrusionDetectionSnippet = array{
+ *     id: string,
+ *     file: string,
+ *     content: string,
+ * }
+ *
+ * @psalm-type IntrusionDetectionFirewallExport = array{
+ *     directory: ?string,
+ *     active: bool,
+ *     formats: list<string>,
+ *     files: list<string>,
+ *     lastWriteAt: ?int,
+ *     error: ?string,
+ *     errorText: ?string,
+ *     errorAt: ?int,
+ *     entries: int,
+ *     configKey: string,
+ *     snippetsUseDirectory: bool,
+ *     exampleDirectory: string,
+ *     snippets: list<IntrusionDetectionSnippet>,
+ * }
+ *
+ * @psalm-type IntrusionDetectionBlocklistDay = array{
+ *     day: string,
+ *     matches: int,
+ *     sample: list<string>,
+ * }
+ *
+ * @psalm-type IntrusionDetectionBlocklist = array{
+ *     id: string,
+ *     name: string,
+ *     url: string,
+ *     format: string,
+ *     purpose: string,
+ *     mode: ?string,
+ *     enabled: bool,
+ *     builtin: bool,
+ *     interval: int,
+ *     customInterval: bool,
+ *     termsUrl: ?string,
+ *     reference: ?string,
+ *     ranges: int,
+ *     entries: int,
+ *     skipped: int,
+ *     lastAttemptAt: ?int,
+ *     lastSuccessAt: ?int,
+ *     lastFailureAt: ?int,
+ *     lastError: ?string,
+ *     lastErrorText: ?string,
+ *     failures: int,
+ *     stale: bool,
+ *     matches: list<IntrusionDetectionBlocklistDay>,
+ * }
+ *
+ * @psalm-type IntrusionDetectionBlocklists = array{
+ *     lists: list<IntrusionDetectionBlocklist>,
+ *     countsMatches: bool,
+ *     matchDays: int,
+ *     check: array{id: string, name: string, mode: IntrusionDetectionModeState},
+ *     maxLists: int,
+ *     minInterval: int,
+ *     maxInterval: int,
+ *     formats: list<string>,
+ * }
+ *
+ * @psalm-type IntrusionDetectionSyncResult = array{
+ *     list: string,
+ *     outcome: string,
+ *     error: ?string,
+ *     errorText: ?string,
+ *     ranges: int,
+ * }
+ *
+ * @psalm-type IntrusionDetectionDecoy = array{
+ *     id: int,
+ *     label: string,
+ *     loginName: ?string,
+ *     format: string,
+ *     createdBy: ?string,
+ *     createdAt: int,
+ *     lastTriggeredAt: ?int,
+ *     triggerCount: int,
+ * }
+ *
+ * @psalm-type IntrusionDetectionNewDecoy = array{
+ *     decoy: IntrusionDetectionDecoy,
+ *     secret: string,
+ * }
+ *
+ * @psalm-type IntrusionDetectionReservedNames = array{
+ *     names: list<string>,
+ *     suggestions: list<string>,
+ *     collisions: list<string>,
+ *     max: int,
+ * }
+ *
+ * @psalm-type IntrusionDetectionTrapPaths = array{
+ *     builtinEnabled: bool,
+ *     builtin: list<array{path: string, text: string}>,
+ *     autodiscover: bool,
+ *     autodiscoverPath: string,
+ *     custom: list<string>,
+ *     max: int,
+ *     snippets: list<IntrusionDetectionSnippet>,
+ *     snippetsSkipped: list<string>,
+ * }
+ *
+ * @psalm-type IntrusionDetectionTraps = array{
+ *     decoys: list<IntrusionDetectionDecoy>,
+ *     decoyCheck: array{id: string, name: string, mode: IntrusionDetectionModeState},
+ *     reservedCheck: array{id: string, name: string, mode: IntrusionDetectionModeState},
+ *     trapCheck: array{id: string, name: string, mode: IntrusionDetectionModeState},
+ *     decoyCollisions: list<string>,
+ *     reservedNames: IntrusionDetectionReservedNames,
+ *     trapPaths: IntrusionDetectionTrapPaths,
+ * }
+ *
+ * @psalm-type IntrusionDetectionRecipient = array{
+ *     uid: string,
+ *     displayName: string,
+ *     hasEmail: bool,
+ * }
+ *
+ * @psalm-type IntrusionDetectionCheckNotifications = array{
+ *     id: string,
+ *     name: string,
+ *     category: string,
+ *     mode: string,
+ *     admin: bool,
+ *     user: bool,
+ *     adminAvailable: bool,
+ *     userAvailable: bool,
+ * }
+ *
+ * @psalm-type IntrusionDetectionNotifications = array{
+ *     recipients: list<IntrusionDetectionRecipient>,
+ *     recipientLimit: int,
+ *     mail: bool,
+ *     me: array{uid: string, email: ?string, recipient: bool},
+ *     checks: list<IntrusionDetectionCheckNotifications>,
+ * }
+ *
+ * @psalm-type IntrusionDetectionTestAlert = array{
+ *     bell: bool,
+ *     email: 'sent'|'no_address'|'no_mail'|'failed',
+ *     address: ?string,
+ * }
+ *
+ * @psalm-type IntrusionDetectionStoredData = array{
+ *     id: string,
+ *     name: string,
+ *     what: string,
+ *     why: string,
+ *     retention: string,
+ *     where: string,
+ *     checks: list<string>,
+ * }
+ *
+ * @psalm-type IntrusionDetectionOutgoingData = array{
+ *     id: string,
+ *     name: string,
+ *     text: string,
+ *     active: bool,
+ *     items: list<string>,
+ * }
+ *
+ * @psalm-type IntrusionDetectionContributionReport = array{
+ *     ip: string,
+ *     check: string,
+ *     first_seen: int,
+ *     hits: int,
+ * }
+ *
+ * @psalm-type IntrusionDetectionContribution = array{
+ *     enabled: bool,
+ *     url: string,
+ *     lastAttemptAt: ?int,
+ *     lastSuccessAt: ?int,
+ *     lastResult: ?string,
+ *     lastError: ?string,
+ *     lastReports: int,
+ *     texts: array{name: string, summary: string, sent: string, privacy: string, status: string},
+ *     preview: array{
+ *         payload: array{instance: string, version: int, reports: list<IntrusionDetectionContributionReport>},
+ *         reason: ?string,
+ *         windowStart: int,
+ *         windowEnd: int,
+ *         truncated: bool,
+ *     },
+ * }
+ *
+ * @psalm-type IntrusionDetectionPrivacy = array{
+ *     stored: list<IntrusionDetectionStoredData>,
+ *     outgoing: list<IntrusionDetectionOutgoingData>,
+ *     contribution: ?IntrusionDetectionContribution,
+ *     gdpr: list<string>,
+ * }
+ *
+ * @psalm-type IntrusionDetectionSignature = array{
+ *     id: string,
+ *     weight: int,
+ *     scope: string,
+ *     requiresOther: bool,
+ *     description: string,
+ *     group: 'sql'|'payload',
+ *     enabled: bool,
+ * }
+ *
+ * @psalm-type IntrusionDetectionCustomSignature = array{
+ *     entry: string,
+ *     id: string,
+ *     weight: int,
+ *     pattern: string,
+ *     problem: ?string,
+ *     problemText: ?string,
+ * }
+ *
+ * @psalm-type IntrusionDetectionSignatures = array{
+ *     version: int,
+ *     minWeight: int,
+ *     signatures: list<IntrusionDetectionSignature>,
+ *     custom: list<IntrusionDetectionCustomSignature>,
+ *     maxCustom: int,
+ *     maxLength: int,
+ *     defaultWeight: int,
+ * }
+ *
+ * @psalm-type IntrusionDetectionSignatureMatch = array{
+ *     id: string,
+ *     weight: int,
+ *     description: string,
+ * }
+ *
+ * @psalm-type IntrusionDetectionPayloadForm = array{
+ *     encoding: string,
+ *     text: string,
+ *     weight: int,
+ *     matches: list<IntrusionDetectionSignatureMatch>,
+ * }
+ *
+ * @psalm-type IntrusionDetectionPayloadValue = array{
+ *     location: string,
+ *     name: string,
+ *     skipped: ?string,
+ *     truncated: bool,
+ *     normalised?: string,
+ *     decoded?: list<string>,
+ *     forms?: list<IntrusionDetectionPayloadForm>,
+ *     weight?: int,
+ *     fires?: bool,
+ * }
+ *
+ * @psalm-type IntrusionDetectionPayloadTest = array{
+ *     kind: 'url'|'value',
+ *     prefilter: bool,
+ *     pathExcluded: bool,
+ *     minWeight: int,
+ *     maxBytes: int,
+ *     signaturesVersion: int,
+ *     fires: bool,
+ *     modes: array{anonymous: string, authenticated: string},
+ *     values: list<IntrusionDetectionPayloadValue>,
  * }
  */
 class ResponseDefinitions {

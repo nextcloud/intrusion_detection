@@ -35,7 +35,9 @@ use Psr\Log\LoggerInterface;
  */
 class StatusService {
 	/** @var list<class-string<IStatusContributor>> */
-	public const CONTRIBUTORS = [];
+	public const CONTRIBUTORS = [
+		SetupProblems::class,
+	];
 
 	public const STATE_PROTECTING = 'protecting';
 	public const STATE_LEARNING = 'learning';

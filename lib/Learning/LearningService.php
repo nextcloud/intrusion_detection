@@ -52,6 +52,7 @@ class LearningService {
 		}
 		$until = $this->timeFactory->getTime() + $days * 86400;
 		$this->settings->setGlobal(GlobalSettings::LEARNING_UNTIL, $until);
+		$this->settings->setGlobal(GlobalSettings::LEARNING_STARTED_AT, $this->timeFactory->getTime());
 		$this->settings->setGlobal(GlobalSettings::LEARNING_NOTICE_SENT, 0);
 		$this->audit->log('learning mode started for %s days by %s', ['days' => $days, 'actor' => $actor]);
 		return $until;
@@ -61,6 +62,9 @@ class LearningService {
 	 * Add days to a running learning period (or start one).
 	 */
 	public function extend(int $days, string $actor): int {
+		if (!$this->isActive()) {
+			$this->settings->setGlobal(GlobalSettings::LEARNING_STARTED_AT, $this->timeFactory->getTime());
+		}
 		$base = max($this->until(), $this->timeFactory->getTime());
 		$until = min($base + $days * 86400, $this->timeFactory->getTime() + self::MAX_DAYS * 86400);
 		$this->settings->setGlobal(GlobalSettings::LEARNING_UNTIL, $until);

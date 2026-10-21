@@ -39,6 +39,26 @@ export function formatDuration(seconds: number): string {
 	return n(APP_ID, '%n second', '%n seconds', seconds)
 }
 
+const CHOICES: Record<string, () => string> = {
+	off: () => t(APP_ID, 'Off'),
+	observe: () => t(APP_ID, 'Observe'),
+	protect: () => t(APP_ID, 'Protect'),
+	low: () => t(APP_ID, 'Low'),
+	medium: () => t(APP_ID, 'Medium'),
+	high: () => t(APP_ID, 'High'),
+	critical: () => t(APP_ID, 'Critical'),
+	never: () => t(APP_ID, 'Never'),
+}
+
+/**
+ * The value of a choice setting as people read it: "Observe" for "observe".
+ *
+ * @param choice - The stored value
+ */
+export function choiceLabel(choice: string): string {
+	return CHOICES[choice]?.() ?? choice
+}
+
 /**
  * A setting's value as the explanation texts show it, like the server's `TextRenderer::format()`.
  *
@@ -54,6 +74,9 @@ export function formatValue(value: ParamValue, type?: ParamType): string {
 	}
 	if (Array.isArray(value)) {
 		return value.length === 0 ? t(APP_ID, 'none') : value.join(', ')
+	}
+	if (type === 'choice' && typeof value === 'string') {
+		return choiceLabel(value)
 	}
 	if (type === 'float' && typeof value === 'number') {
 		return String(Number(value.toFixed(2)))

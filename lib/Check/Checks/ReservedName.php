@@ -20,6 +20,7 @@ use OCA\IntrusionDetection\Check\ISimulatable;
 use OCA\IntrusionDetection\Check\IValidatesParams;
 use OCA\IntrusionDetection\Check\Mode;
 use OCA\IntrusionDetection\Check\ParamDefinition;
+use OCA\IntrusionDetection\Check\ParamText;
 use OCA\IntrusionDetection\Check\ParamType;
 use OCA\IntrusionDetection\Check\ResponseType;
 use OCA\IntrusionDetection\Check\Severity;
@@ -69,6 +70,9 @@ final class ReservedName implements ICheck, IExplainsDetection, ISimulatable, IV
 				decides: $l->t('Fires at the first failed login with one of these names: {names}.'),
 				wrong: $l->t('Someone who really has an account with that name, for example one that appeared later through LDAP. Such names are skipped automatically and shown as a problem in the setup checks.'),
 				data: $l->t('Detections: the address, the reserved name that was tried, and the time.'),
+				params: [
+					'names' => new ParamText($l->t('Reserved names'), $l->t('Login names no account uses. Manage them on the Decoys tab.')),
+				],
 			),
 			simulatable: true,
 		);

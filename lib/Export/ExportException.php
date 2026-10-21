@@ -9,6 +9,8 @@ declare(strict_types=1);
 
 namespace OCA\IntrusionDetection\Export;
 
+use OCP\IL10N;
+
 /**
  * The export directory cannot be used, or a file could not be written.
  */
@@ -27,5 +29,22 @@ class ExportException extends \RuntimeException {
 		public readonly string $reason,
 	) {
 		parent::__construct($reason);
+	}
+
+	/**
+	 * What is wrong, in plain words, for the admin page.
+	 */
+	public static function describe(string $reason, IL10N $l): string {
+		return match ($reason) {
+			self::NOT_CONFIGURED => $l->t('No export directory is set in config.php, so nothing is written.'),
+			self::NOT_ABSOLUTE => $l->t('The export directory must be an absolute path.'),
+			self::NOT_FOUND => $l->t('The export directory does not exist.'),
+			self::NOT_A_DIRECTORY => $l->t('The export directory is not a directory.'),
+			self::INSIDE_DATA_DIRECTORY => $l->t('The export directory must not be inside the data directory.'),
+			self::INSIDE_WEB_ROOT => $l->t('The export directory must not be inside the Nextcloud installation or an apps directory, nor contain it.'),
+			self::WORLD_WRITABLE => $l->t('The export directory must not be writable by every user.'),
+			self::NOT_WRITABLE => $l->t('The web server user cannot write to the export directory.'),
+			default => $l->t('A file could not be written to the export directory.'),
+		};
 	}
 }

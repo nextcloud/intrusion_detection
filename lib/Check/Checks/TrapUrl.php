@@ -20,6 +20,7 @@ use OCA\IntrusionDetection\Check\ISimulatable;
 use OCA\IntrusionDetection\Check\IValidatesParams;
 use OCA\IntrusionDetection\Check\Mode;
 use OCA\IntrusionDetection\Check\ParamDefinition;
+use OCA\IntrusionDetection\Check\ParamText;
 use OCA\IntrusionDetection\Check\ParamType;
 use OCA\IntrusionDetection\Check\ResponseType;
 use OCA\IntrusionDetection\Check\Severity;
@@ -68,6 +69,11 @@ final class TrapUrl implements ICheck, IExplainsDetection, ISimulatable, IValida
 				decides: $l->t('Fires when a visitor who is not logged in requests one of the built-in trap paths (switched {builtin_enabled}), the Exchange autodiscover path (switched {autodiscover}), or one of your own paths: {paths}. Your own paths match exactly, or as a prefix when they end with "*".'),
 				wrong: $l->t('Logged-in users and clients that send credentials are never checked. A browser extension or a monitoring tool that probes such paths could trip it; put its address on the brute-force allowlist. Many of these paths never reach Nextcloud unless your web server forwards unknown paths to it.'),
 				data: $l->t('Detections: the address, the requested path (at most 200 characters), and the time.'),
+				params: [
+					'builtin_enabled' => new ParamText($l->t('Built-in trap paths'), $l->t('Paths of other software that scanners look for.')),
+					'autodiscover' => new ParamText($l->t('Exchange autodiscover path'), $l->t('Some mail programs request it on any server; only switch it on if nobody uses one with your domain.')),
+					'paths' => new ParamText($l->t('Your own paths'), $l->t('Exact, or a prefix when they end with *.')),
+				],
 			),
 			simulatable: true,
 		);

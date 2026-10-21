@@ -18,6 +18,7 @@ use OCA\IntrusionDetection\Check\ICheck;
 use OCA\IntrusionDetection\Check\ISimulatable;
 use OCA\IntrusionDetection\Check\Mode;
 use OCA\IntrusionDetection\Check\ParamDefinition;
+use OCA\IntrusionDetection\Check\ParamText;
 use OCA\IntrusionDetection\Check\ParamType;
 use OCA\IntrusionDetection\Check\ResponseType;
 use OCA\IntrusionDetection\Check\Severity;
@@ -71,6 +72,10 @@ final class PasswordSpraying implements ICheck, IExplainsDetection, ISimulatable
 				decides: $l->t('Fires when the same password fails for at least {min_names} different accounts within {window}, no matter from how many addresses.'),
 				wrong: $l->t('Several people who were all given the same initial password and mistype it, or a shared device with an old saved password. Successful logins with the password need confirmation; nobody who knows their own password is locked out.'),
 				data: $l->t('Failed logins: the address, a fingerprint of the account name and of the password, and the time, deleted after 1 hour. The password itself is never stored. When this check fires, the password fingerprint is kept for a day, so that logins with it need confirmation.'),
+				params: [
+					'window' => new ParamText($l->t('Time window'), $l->t('How far back failed logins with the same password are counted.')),
+					'min_names' => new ParamText($l->t('Different accounts'), $l->t('That one password failed for within the time window.'), $l->t('accounts')),
+				],
 			),
 			simulatable: true,
 		);

@@ -13,7 +13,7 @@ import { computed, ref } from 'vue'
 import NcButton from '@nextcloud/vue/components/NcButton'
 import NcIconSvgWrapper from '@nextcloud/vue/components/NcIconSvgWrapper'
 import NcLoadingIcon from '@nextcloud/vue/components/NcLoadingIcon'
-import NcNoteCard from '@nextcloud/vue/components/NcNoteCard'
+import ProblemList from './ProblemList.vue'
 import { useAnnouncer } from '../composables/useAnnouncer.ts'
 import { statusSections } from '../extensions.ts'
 import { errorMessage, isCancelled, updateLearning, updateSettings } from '../services/api.ts'
@@ -195,18 +195,7 @@ const turnOn = () => run('on', () => updateSettings({ protection_enabled: true }
 		<component :is="section" v-for="(section, index) in statusSections" :key="index" />
 	</section>
 
-	<div v-if="status.problems.length > 0" :class="$style.problems">
-		<NcNoteCard
-			v-for="problem in status.problems"
-			:key="problem.id"
-			:type="problem.level"
-			:heading="problem.title">
-			<p>{{ problem.text }}</p>
-			<p v-if="problem.url">
-				<a :href="problem.url" target="_blank" rel="noreferrer noopener">{{ problem.urlLabel || t(APP_ID, 'Learn more') }} ↗</a>
-			</p>
-		</NcNoteCard>
-	</div>
+	<ProblemList v-if="status.problems.length > 0" :problems="status.problems" />
 </template>
 
 <style module>
@@ -340,13 +329,6 @@ const turnOn = () => run('on', () => updateSettings({ protection_enabled: true }
 .banner__cost > :first-child {
 	flex: 0 0 auto;
 	margin-top: 1px;
-}
-
-.problems {
-	display: flex;
-	flex-direction: column;
-	gap: calc(var(--default-grid-baseline) * 2);
-	margin-top: calc(var(--default-grid-baseline) * 3);
 }
 
 @media (max-width: 600px) {

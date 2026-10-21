@@ -7,19 +7,36 @@ import type { OCSResponse } from '@nextcloud/typings/ocs'
 import type {
 	Ban,
 	BanList,
+	Blocklist,
+	Blocklists,
 	Check,
 	CheckList,
+	Contribution,
+	CustomSignature,
 	DailyStats,
+	DecoyFormat,
 	DetectionDetail,
 	DetectionFilters,
 	DetectionList,
 	DigestOverview,
+	FirewallExport,
 	Learning,
 	LookupResult,
 	Mode,
+	NewDecoy,
+	Notifications,
 	ParamValue,
+	PayloadTest,
+	Privacy,
+	ReservedNames,
 	SettingsPayload,
+	Signatures,
+	Simulation,
 	Status,
+	SyncResult,
+	TestAlertResult,
+	TrapPathList,
+	Traps,
 	WebhookEvents,
 } from '../types.ts'
 
@@ -197,3 +214,124 @@ export const fetchDigest = () => call<DigestOverview>(axios.get(url('digest')))
 export const sendTestDigest = () => call<{ message: string }>(axios.post(url('digest/test'), {}, write))
 
 export const fetchWebhookEvents = () => call<WebhookEvents>(axios.get(url('events')))
+
+/**
+ * @param id - The check id
+ */
+export function simulateCheck(id: string): Promise<Simulation> {
+	return call<Simulation>(axios.get(url('checks/' + encodeURIComponent(id) + '/simulation')))
+}
+
+export const fetchExport = () => call<FirewallExport>(axios.get(url('export')))
+
+export const fetchBlocklists = () => call<Blocklists>(axios.get(url('blocklists')))
+
+/**
+ * @param list - The new list
+ * @param list.id - Its short name
+ * @param list.url - Where to download it
+ * @param list.purpose - Block, or mark as hosting or Tor
+ * @param list.format - The file format
+ * @param list.mode - For blocklists: observe or protect
+ */
+export function createBlocklist(list: { id: string, url: string, purpose: string, format: string, mode: string }): Promise<Blocklist> {
+	const { format, ...rest } = list
+	// "format" would choose the OCS response format
+	return call<Blocklist>(axios.post(url('blocklists'), { ...rest, fileFormat: format }, write))
+}
+
+/**
+ * @param id - The list
+ * @param change - What to change
+ * @param change.enabled - Use the list
+ * @param change.mode - Observe or protect
+ * @param change.interval - Seconds between downloads, 0 for the default
+ */
+export function updateBlocklist(id: string, change: { enabled?: boolean, mode?: string, interval?: number }): Promise<Blocklist> {
+	return call<Blocklist>(axios.put(url('blocklists/' + encodeURIComponent(id)), change, write))
+}
+
+/**
+ * @param id - The list
+ */
+export function removeBlocklist(id: string): Promise<{ removed: string }> {
+	return call<{ removed: string }>(axios.delete(url('blocklists/' + encodeURIComponent(id)), write))
+}
+
+/**
+ * @param id - The list
+ */
+export function syncBlocklist(id: string): Promise<{ result: SyncResult, list: Blocklist }> {
+	return call<{ result: SyncResult, list: Blocklist }>(axios.post(url('blocklists/' + encodeURIComponent(id) + '/sync'), {}, write))
+}
+
+export const fetchTraps = () => call<Traps>(axios.get(url('decoys')))
+
+/**
+ * @param decoy - The decoy to create
+ * @param decoy.label - Where it is planted
+ * @param decoy.loginName - An optional login name no account uses
+ * @param decoy.format - What the secret looks like
+ */
+export function createDecoy(decoy: { label: string, loginName: string, format: DecoyFormat }): Promise<NewDecoy> {
+	// "format" would choose the OCS response format
+	return call<NewDecoy>(axios.post(url('decoys'), { label: decoy.label, loginName: decoy.loginName, secretFormat: decoy.format }, write))
+}
+
+/**
+ * @param id - The decoy
+ */
+export function deleteDecoy(id: number): Promise<{ deleted: number }> {
+	return call<{ deleted: number }>(axios.delete(url('decoys/' + id), write))
+}
+
+/**
+ * @param change - Names to reserve and to release
+ * @param change.add - Names to reserve
+ * @param change.remove - Names to release
+ */
+export function updateReservedNames(change: { add?: string[], remove?: string[] }): Promise<ReservedNames> {
+	return call<ReservedNames>(axios.put(url('reserved-names'), change, write))
+}
+
+/**
+ * @param change - What to change
+ * @param change.add - Paths to add
+ * @param change.remove - Paths to remove
+ * @param change.builtinEnabled - Use the built-in list
+ * @param change.autodiscover - Trap the autodiscover path
+ */
+export function updateTrapPaths(change: { add?: string[], remove?: string[], builtinEnabled?: boolean, autodiscover?: boolean }): Promise<TrapPathList> {
+	return call<TrapPathList>(axios.put(url('trap-paths'), change, write))
+}
+
+export const fetchNotifications = () => call<Notifications>(axios.get(url('notifications')))
+
+export const sendTestAlert = () => call<TestAlertResult>(axios.post(url('notifications/test'), {}, write))
+
+export const fetchPrivacy = () => call<Privacy>(axios.get(url('privacy')))
+
+/**
+ * @param change - What to change
+ * @param change.enabled - Send reports
+ * @param change.url - Where to send them
+ */
+export function updateContribution(change: { enabled?: boolean, url?: string }): Promise<Contribution> {
+	return call<Contribution>(axios.put(url('contribution'), change, write))
+}
+
+export const fetchSignatures = () => call<Signatures>(axios.get(url('payload/signatures')))
+
+/**
+ * @param entries - Custom signatures to check before saving
+ */
+export function checkSignatures(entries: string[]): Promise<{ entries: CustomSignature[] }> {
+	return call<{ entries: CustomSignature[] }>(axios.post(url('payload/signatures/check'), { entries }))
+}
+
+/**
+ * @param input - A URL or a value
+ */
+export function testPayload(input: string): Promise<PayloadTest> {
+	return call<PayloadTest>(axios.post(url('payload/test'), { input }))
+}

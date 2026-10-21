@@ -18,6 +18,7 @@ use OCA\IntrusionDetection\Check\ICheck;
 use OCA\IntrusionDetection\Check\ISimulatable;
 use OCA\IntrusionDetection\Check\Mode;
 use OCA\IntrusionDetection\Check\ParamDefinition;
+use OCA\IntrusionDetection\Check\ParamText;
 use OCA\IntrusionDetection\Check\ParamType;
 use OCA\IntrusionDetection\Check\ResponseType;
 use OCA\IntrusionDetection\Check\Severity;
@@ -71,6 +72,13 @@ final class AccountUnderAttack implements ICheck, IExplainsDetection, IExplainsT
 				decides: $l->t('Fires when one account has {min_failures} failed logins from at least {min_sources} different addresses within {window}. With blocking switched on, every address with at least {ban_min_failures} of these failures is blocked.'),
 				wrong: $l->t('A user whose old password is still saved in several devices on different networks. They are asked for a confirmation at their next login and can fix their devices; nothing is blocked unless you switch blocking on.'),
 				data: $l->t('Failed logins: the address, a fingerprint of the account name, the account and the time, deleted after 1 hour. Protected accounts: the account and when the protection ends.'),
+				params: [
+					'window' => new ParamText($l->t('Time window'), $l->t('How far back failed logins of one account are counted.')),
+					'min_failures' => new ParamText($l->t('Failed logins'), $l->t('For one account within the time window.'), $l->t('failures')),
+					'min_sources' => new ParamText($l->t('Different addresses'), $l->t('That the failed logins come from.'), $l->t('addresses')),
+					'protect_duration' => new ParamText($l->t('Extra confirmation for'), $l->t('How long every password login to the account needs confirmation after the last failed attempt.')),
+					'ban_min_failures' => new ParamText($l->t('Block addresses with at least'), $l->t('Failures of this account from one address, when blocking is switched on.'), $l->t('failures')),
+				],
 			),
 			simulatable: true,
 		);

@@ -397,7 +397,7 @@ function openDetection(ban: Ban) {
 }
 
 .cidr {
-	font-family: var(--font-face-monospace, monospace);
+	font-family: var(--font-face-monospace, ui-monospace, 'SFMono-Regular', Menlo, Consolas, monospace);
 	white-space: nowrap;
 }
 

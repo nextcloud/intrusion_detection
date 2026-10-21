@@ -104,6 +104,9 @@ export interface Problem {
 	level: 'info' | 'warning' | 'error'
 	title: string
 	text: string
+	/** What to do about it */
+	fix?: string
+	/** Documentation, or a place on this page such as "#decoys" */
 	url: string | null
 	urlLabel: string | null
 }
@@ -272,4 +275,298 @@ export interface WebhookEvents {
 	includeIp: boolean
 	webhooksEnabled: boolean
 	events: WebhookEvent[]
+}
+
+export interface ModeState {
+	configured: Mode
+	effective: Mode
+	reason: string | null
+	missing: string | null
+	default: Mode
+}
+
+export interface CheckRef {
+	id: string
+	name: string
+	mode: ModeState
+}
+
+export interface Simulation {
+	check: string
+	testAddress: string
+	mode: Mode
+	modeReason: string | null
+	runs: boolean
+	acts: boolean
+	severity: Severity
+	narrative: Narrative
+	responses: { type: string, text: string }[]
+}
+
+export interface Snippet {
+	id: string
+	file: string
+	content: string
+}
+
+export interface FirewallExport {
+	directory: string | null
+	active: boolean
+	formats: string[]
+	files: string[]
+	lastWriteAt: number | null
+	error: string | null
+	errorText: string | null
+	errorAt: number | null
+	entries: number
+	configKey: string
+	snippetsUseDirectory: boolean
+	exampleDirectory: string
+	snippets: Snippet[]
+}
+
+export type ListPurpose = 'deny' | 'hosting' | 'tor'
+
+export interface BlocklistDay {
+	day: string
+	matches: number
+	sample: string[]
+}
+
+export interface Blocklist {
+	id: string
+	name: string
+	url: string
+	format: string
+	purpose: ListPurpose
+	mode: 'observe' | 'protect' | null
+	enabled: boolean
+	builtin: boolean
+	interval: number
+	customInterval: boolean
+	termsUrl: string | null
+	reference: string | null
+	ranges: number
+	entries: number
+	skipped: number
+	lastAttemptAt: number | null
+	lastSuccessAt: number | null
+	lastFailureAt: number | null
+	lastError: string | null
+	lastErrorText: string | null
+	failures: number
+	stale: boolean
+	matches: BlocklistDay[]
+}
+
+export interface Blocklists {
+	lists: Blocklist[]
+	countsMatches: boolean
+	matchDays: number
+	check: CheckRef
+	maxLists: number
+	minInterval: number
+	maxInterval: number
+	formats: string[]
+}
+
+export interface SyncResult {
+	list: string
+	outcome: 'updated' | 'unchanged' | 'failed' | 'skipped'
+	error: string | null
+	errorText: string | null
+	ranges: number
+}
+
+export type DecoyFormat = 'app-password' | 'token'
+
+export interface Decoy {
+	id: number
+	label: string
+	loginName: string | null
+	format: DecoyFormat
+	createdBy: string | null
+	createdAt: number
+	lastTriggeredAt: number | null
+	triggerCount: number
+}
+
+export interface NewDecoy {
+	decoy: Decoy
+	secret: string
+}
+
+export interface ReservedNames {
+	names: string[]
+	suggestions: string[]
+	collisions: string[]
+	max: number
+}
+
+export interface TrapPathList {
+	builtinEnabled: boolean
+	builtin: { path: string, text: string }[]
+	autodiscover: boolean
+	autodiscoverPath: string
+	custom: string[]
+	max: number
+	snippets: Snippet[]
+	snippetsSkipped: string[]
+}
+
+export interface Traps {
+	decoys: Decoy[]
+	decoyCheck: CheckRef
+	reservedCheck: CheckRef
+	trapCheck: CheckRef
+	decoyCollisions: string[]
+	reservedNames: ReservedNames
+	trapPaths: TrapPathList
+}
+
+export interface Recipient {
+	uid: string
+	displayName: string
+	hasEmail: boolean
+}
+
+export interface CheckNotifications {
+	id: string
+	name: string
+	category: string
+	mode: Mode
+	admin: boolean
+	user: boolean
+	adminAvailable: boolean
+	userAvailable: boolean
+}
+
+export interface Notifications {
+	recipients: Recipient[]
+	recipientLimit: number
+	mail: boolean
+	me: { uid: string, email: string | null, recipient: boolean }
+	checks: CheckNotifications[]
+}
+
+export interface TestAlertResult {
+	bell: boolean
+	email: 'sent' | 'no_address' | 'no_mail' | 'failed'
+	address: string | null
+}
+
+export interface StoredData {
+	id: string
+	name: string
+	what: string
+	why: string
+	retention: string
+	where: string
+	checks: string[]
+}
+
+export interface OutgoingData {
+	id: string
+	name: string
+	text: string
+	active: boolean
+	items: string[]
+}
+
+export interface ContributionReport {
+	ip: string
+	check: string
+	first_seen: number
+	hits: number
+}
+
+export interface Contribution {
+	enabled: boolean
+	url: string
+	lastAttemptAt: number | null
+	lastSuccessAt: number | null
+	lastResult: string | null
+	lastError: string | null
+	lastReports: number
+	texts: { name: string, summary: string, sent: string, privacy: string, status: string }
+	preview: {
+		payload: { instance: string, version: number, reports: ContributionReport[] }
+		reason: string | null
+		windowStart: number
+		windowEnd: number
+		truncated: boolean
+	}
+}
+
+export interface Privacy {
+	stored: StoredData[]
+	outgoing: OutgoingData[]
+	contribution: Contribution | null
+	gdpr: string[]
+}
+
+export interface Signature {
+	id: string
+	weight: number
+	scope: 'any' | 'encoded'
+	requiresOther: boolean
+	description: string
+	group: 'sql' | 'payload'
+	enabled: boolean
+}
+
+export interface CustomSignature {
+	entry: string
+	id: string
+	weight: number
+	pattern: string
+	problem: string | null
+	problemText: string | null
+}
+
+export interface Signatures {
+	version: number
+	minWeight: number
+	signatures: Signature[]
+	custom: CustomSignature[]
+	maxCustom: number
+	maxLength: number
+	defaultWeight: number
+}
+
+export interface SignatureMatch {
+	id: string
+	weight: number
+	description: string
+}
+
+export interface PayloadForm {
+	encoding: 'none' | 'base64' | 'base64_twice'
+	text: string
+	weight: number
+	matches: SignatureMatch[]
+}
+
+export interface PayloadValue {
+	location: 'path' | 'query' | 'form'
+	name: string
+	skipped: string | null
+	truncated: boolean
+	normalised?: string
+	decoded?: string[]
+	forms?: PayloadForm[]
+	weight?: number
+	fires?: boolean
+}
+
+export interface PayloadTest {
+	kind: 'url' | 'value'
+	prefilter: boolean
+	pathExcluded: boolean
+	minWeight: number
+	maxBytes: number
+	signaturesVersion: number
+	fires: boolean
+	modes: { anonymous: Mode, authenticated: Mode }
+	values: PayloadValue[]
 }

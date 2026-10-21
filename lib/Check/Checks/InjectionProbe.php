@@ -17,6 +17,7 @@ use OCA\IntrusionDetection\Check\DataKind;
 use OCA\IntrusionDetection\Check\ICheck;
 use OCA\IntrusionDetection\Check\Mode;
 use OCA\IntrusionDetection\Check\ParamDefinition;
+use OCA\IntrusionDetection\Check\ParamText;
 use OCA\IntrusionDetection\Check\ParamType;
 use OCA\IntrusionDetection\Check\Payload\CustomSignatures;
 use OCA\IntrusionDetection\Check\Payload\FormMatch;
@@ -85,6 +86,14 @@ final class InjectionProbe implements ICheck, IExplainsDetection {
 				decides: $l->t('Looks at the web address and form fields of requests, up to {max_bytes} bytes each. A request fires when it matches signatures with a total weight of at least {sql_min_weight}: one stray quote never does, UNION SELECT alone does. Values that look like base64 are decoded and checked the same way, plus checks for script, PHP and shell code. File names, search fields and password fields are never inspected. Visitors who are not logged in are handled by the mode of this check; requests of logged-in users by the mode for logged-in users, now: {authenticated_mode}.'),
 				wrong: $l->t('A third-party app that legitimately passes SQL-like text in a URL parameter. Add that parameter to the excluded list, or turn single signatures off. Use "Test a URL" to see exactly what matches.'),
 				data: $l->t('The parameter name, the matched signatures, and up to 200 characters of the suspicious value.'),
+				params: [
+					'authenticated_mode' => new ParamText($l->t('Logged-in users'), $l->t('What the check does with requests of logged-in users. It never goes beyond the mode of the check.')),
+					'sql_min_weight' => new ParamText($l->t('Weight that fires'), $l->t('The matched signatures of one value must add up to at least this.')),
+					'max_bytes' => new ParamText($l->t('Inspected per request'), $l->t('Input beyond this is ignored, so a huge request cannot slow the server down.'), $l->t('bytes')),
+					'excluded_params' => new ParamText($l->t('Parameters never inspected'), $l->t('Free-text fields that may legitimately contain SQL-like text.')),
+					'disabled_signatures' => new ParamText($l->t('Signatures turned off')),
+					'custom_signatures' => new ParamText($l->t('Your own signatures')),
+				],
 			),
 		);
 	}

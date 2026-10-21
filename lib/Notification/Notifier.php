@@ -89,6 +89,7 @@ class Notifier implements INotifier {
 			AdminNotices::SUBJECT_USER_UNREACHABLE => $this->prepareUserUnreachable($notification, $l, $languageCode),
 			AdminNotices::SUBJECT_PASSWORD_EXTERNAL => $this->preparePasswordExternal($notification, $l),
 			self::SUBJECT_APPROVAL_REQUESTED, self::SUBJECT_APPROVAL_PENDING, self::SUBJECT_APPROVAL_DECIDED => $this->prepareApproval($notification, $l),
+			TestAlert::SUBJECT => $this->prepareTestAlert($notification, $l),
 			default => throw new UnknownNotificationException(),
 		};
 	}
@@ -292,5 +293,12 @@ class Notifier implements INotifier {
 		} catch (DoesNotExistException) {
 			throw new AlreadyProcessedException();
 		}
+	}
+
+	private function prepareTestAlert(INotification $notification, IL10N $l): INotification {
+		$notification->setParsedSubject($l->t('Test alert from intrusion detection'))
+			->setParsedMessage($l->t('This is a test you asked for. Nothing has happened. Real alerts reach you here in the same way.'))
+			->setLink($this->links->adminPage() . '#notifications');
+		return $notification;
 	}
 }

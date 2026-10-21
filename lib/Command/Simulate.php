@@ -10,16 +10,7 @@ declare(strict_types=1);
 namespace OCA\IntrusionDetection\Command;
 
 use OC\Core\Command\Base;
-use OCA\IntrusionDetection\Check\CheckRegistry;
-use OCA\IntrusionDetection\Check\InvalidParamException;
-use OCA\IntrusionDetection\Check\ISelectsResponses;
-use OCA\IntrusionDetection\Check\ISimulatable;
-use OCA\IntrusionDetection\Check\ResponseType;
-use OCA\IntrusionDetection\Config\Settings;
-use OCA\IntrusionDetection\Detection\DetectionService;
-use OCA\IntrusionDetection\Explain\NarrativeBuilder;
-use OCA\IntrusionDetection\Net\SourceKey;
-use OCP\AppFramework\Utility\ITimeFactory;
+use OCA\IntrusionDetection\Detection\Simulator;
 use OCP\IL10N;
 use Symfony\Component\Console\Input\InputArgument;
 use Symfony\Component\Console\Input\InputInterface;
@@ -31,14 +22,10 @@ use Symfony\Component\Console\Output\OutputInterface;
  * from the documentation range 198.51.100.0/24.
  */
 class Simulate extends Base {
-	public const TEST_ADDRESS = '198.51.100.23';
+	public const TEST_ADDRESS = Simulator::TEST_ADDRESS;
 
 	public function __construct(
-		private readonly CheckRegistry $registry,
-		private readonly Settings $settings,
-		private readonly DetectionService $detections,
-		private readonly NarrativeBuilder $narratives,
-		private readonly ITimeFactory $timeFactory,
+		private readonly Simulator $simulator,
 		private readonly IL10N $l,
 	) {
 		parent::__construct();
@@ -55,58 +42,33 @@ class Simulate extends Base {
 	#[\Override]
 	protected function execute(InputInterface $input, OutputInterface $output): int {
 		$id = (string)$input->getArgument('check');
-		try {
-			$definition = $this->registry->get($id);
-		} catch (InvalidParamException $e) {
-			$output->writeln('<error>' . $e->describe($this->l) . '</error>');
+		if (!$this->simulator->canSimulate($id)) {
+			$output->writeln('<error>This check does not exist or cannot be simulated.</error>');
 			return self::INVALID;
 		}
-		$check = $this->registry->check($this->registry->classOf($id));
-		if (!$definition->simulatable || !$check instanceof ISimulatable) {
-			$output->writeln('<error>This check cannot be simulated.</error>');
-			return self::INVALID;
-		}
-
-		$mode = $this->settings->modeState($id);
-		$draft = $check->simulate(SourceKey::fromIp(self::TEST_ADDRESS), $this->timeFactory->getTime(), $this->settings->params($id));
-		$detection = $this->detections->preview($draft, $mode);
-		$responses = $this->settings->responses($id);
-		if ($check instanceof ISelectsResponses) {
-			$responses = $check->responsesFor($draft, $responses, $this->settings->params($id));
-		}
-		usort($responses, static fn (ResponseType $a, ResponseType $b): int => $a->order() <=> $b->order());
-		$detection->setActionList(array_map(static fn (ResponseType $r): array => ['type' => $r->value, 'enforced' => false], $responses));
-		$narrative = $this->narratives->build($detection, $this->l);
-
-		$result = [
-			'check' => $id,
-			'mode' => $mode->effective->value,
-			'modeReason' => $mode->reason,
-			'narrative' => $narrative->toArray(),
-			'responses' => array_map(static fn (ResponseType $r): string => $r->value, $responses),
-		];
+		$result = $this->simulator->simulate($id, $this->l);
 		if ($input->getOption('output') !== self::OUTPUT_FORMAT_PLAIN) {
 			$this->writeArrayInOutputFormat($input, $output, $result);
 			return self::SUCCESS;
 		}
 
-		$output->writeln('<info>Simulation</info> of ' . $narrative->title . ' with the test address ' . self::TEST_ADDRESS . '. Nothing is recorded, blocked or notified.');
+		$output->writeln('<info>Simulation</info> of ' . $result['narrative']['title'] . ' with the test address ' . self::TEST_ADDRESS . '. Nothing is recorded, blocked or notified.');
 		$output->writeln('');
-		foreach ($narrative->happened as $sentence) {
+		foreach ($result['narrative']['happened'] as $sentence) {
 			$output->writeln($sentence);
 		}
 		$output->writeln('');
-		if (!$mode->runs()) {
+		if (!$result['runs']) {
 			$output->writeln('<comment>The check is off, so in reality nothing would be recorded.</comment>');
-		} elseif (!$mode->acts()) {
-			$output->writeln('<comment>The check runs as Observe' . ($mode->reason !== null ? ' (' . $mode->reason . ')' : '') . ', so it would only record this. With Protect it would:</comment>');
+		} elseif (!$result['acts']) {
+			$output->writeln('<comment>The check runs as Observe' . ($result['modeReason'] !== null ? ' (' . $result['modeReason'] . ')' : '') . ', so it would only record this. With Protect it would:</comment>');
 		} else {
 			$output->writeln('<comment>Responses that would run:</comment>');
 		}
-		foreach ($responses as $response) {
-			$output->writeln('- ' . $response->describe($this->l));
+		foreach ($result['responses'] as $response) {
+			$output->writeln('- ' . $response['text']);
 		}
-		if ($responses === []) {
+		if ($result['responses'] === []) {
 			$output->writeln('- ' . $this->l->t('Nothing is done; detections are only recorded.'));
 		}
 		return self::SUCCESS;

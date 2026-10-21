@@ -10,7 +10,7 @@ import { t } from '@nextcloud/l10n'
 import { computed, useId } from 'vue'
 import NcCheckboxRadioSwitch from '@nextcloud/vue/components/NcCheckboxRadioSwitch'
 import DurationInput from './DurationInput.vue'
-import { APP_ID, formatDuration, formatNumber, formatValue } from '../../utils/format.ts'
+import { APP_ID, choiceLabel, formatDuration, formatNumber, formatValue } from '../../utils/format.ts'
 
 /** The field's raw value: what the admin typed, validated by the parent */
 const model = defineModel<unknown>({ required: true })
@@ -91,7 +91,7 @@ const textValue = computed({
 					:disabled="disabled"
 					:aria-describedby="hintId">
 					<option v-for="choice in param.choices" :key="choice" :value="choice">
-						{{ choice }}
+						{{ choiceLabel(choice) }}
 					</option>
 				</select>
 			</template>
@@ -174,7 +174,7 @@ const textValue = computed({
 	width: 100%;
 	max-width: 420px;
 	margin: 0;
-	font-family: var(--font-face-monospace, monospace);
+	font-family: var(--font-face-monospace, ui-monospace, 'SFMono-Regular', Menlo, Consolas, monospace);
 }
 
 .field__hint {

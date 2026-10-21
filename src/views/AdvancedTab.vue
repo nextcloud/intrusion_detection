@@ -32,7 +32,8 @@ const learningUntil = computed(() => new Date(learning.value.until * 1000).toLoc
 const daysValid = computed(() => Number.isInteger(days.value) && days.value >= learning.value.minDays && days.value <= learning.value.maxDays)
 
 const learningSettings = computed(() => state.settings.filter((s) => s.group === 'learning'))
-const otherSettings = computed(() => state.settings.filter((s) => s.group === 'notifications' || s.group === 'approvals' || s.group === 'privacy' || s.group === 'other'))
+/** Notification and privacy settings have their own tabs */
+const otherSettings = computed(() => state.settings.filter((s) => s.group === 'approvals' || s.group === 'other'))
 
 /**
  * Run an action and reload what it changes.

@@ -52,15 +52,17 @@ export interface CheckSection {
 	after: 'detects' | 'decides' | 'happens' | 'settings' | 'wrong' | 'cost' | 'data'
 	/** Receives the check as prop `check` */
 	component: Component
+	/** Settings of the check the section edits itself, so the card's settings form leaves them out */
+	replacesParams?: string[]
 }
 
 export const tabs = shallowReactive<TabDefinition[]>([
 	{ id: 'overview', name: () => t(APP_ID, 'Overview'), icon: mdiViewDashboardOutline, order: 10, component: defineAsyncComponent(() => import('./views/OverviewTab.vue')) },
 	{ id: 'checks', name: () => t(APP_ID, 'Checks'), icon: mdiFormatListChecks, order: 20, component: defineAsyncComponent(() => import('./views/ChecksTab.vue')) },
 	{ id: 'blocks', name: () => t(APP_ID, 'Blocks'), icon: mdiShieldLockOutline, order: 30, component: defineAsyncComponent(() => import('./views/BlocksTab.vue')) },
-	{ id: 'decoys', name: () => t(APP_ID, 'Decoys'), icon: mdiTargetAccount, order: 40 },
-	{ id: 'notifications', name: () => t(APP_ID, 'Notifications'), icon: mdiBellOutline, order: 50 },
-	{ id: 'privacy', name: () => t(APP_ID, 'Data and privacy'), icon: mdiFingerprint, order: 60 },
+	{ id: 'decoys', name: () => t(APP_ID, 'Decoys'), icon: mdiTargetAccount, order: 40, component: defineAsyncComponent(() => import('./views/DecoysTab.vue')) },
+	{ id: 'notifications', name: () => t(APP_ID, 'Notifications'), icon: mdiBellOutline, order: 50, component: defineAsyncComponent(() => import('./views/NotificationsTab.vue')) },
+	{ id: 'privacy', name: () => t(APP_ID, 'Data and privacy'), icon: mdiFingerprint, order: 60, component: defineAsyncComponent(() => import('./views/PrivacyTab.vue')) },
 	{ id: 'confirmation', name: () => t(APP_ID, 'Confirmation'), icon: mdiShieldSearch, order: 70 },
 	{ id: 'incidents', name: () => t(APP_ID, 'Incidents'), icon: mdiFileDocumentAlertOutline, order: 80 },
 	{ id: 'advanced', name: () => t(APP_ID, 'Advanced'), icon: mdiCogOutline, order: 90, component: defineAsyncComponent(() => import('./views/AdvancedTab.vue')) },
@@ -68,6 +70,10 @@ export const tabs = shallowReactive<TabDefinition[]>([
 
 export const checkSections = shallowReactive<CheckSection[]>([
 	{ id: 'breach-privacy', checks: ['breached_password'], after: 'data', component: defineAsyncComponent(() => import('./components/checks/BreachedPasswordPrivacy.vue')) },
+	{ id: 'payload-test', checks: ['injection_probe'], after: 'wrong', component: defineAsyncComponent(() => import('./components/payload/TestUrlSection.vue')) },
+	{ id: 'reserved-names', checks: ['reserved_name'], after: 'settings', component: defineAsyncComponent(() => import('./components/decoys/TrapsLinkSection.vue')), replacesParams: ['names'] },
+	{ id: 'trap-paths', checks: ['trap_url'], after: 'settings', component: defineAsyncComponent(() => import('./components/decoys/TrapsLinkSection.vue')), replacesParams: ['builtin_enabled', 'autodiscover', 'paths'] },
+	{ id: 'payload-signatures', checks: ['injection_probe'], after: 'data', component: defineAsyncComponent(() => import('./components/payload/SignaturesSection.vue')), replacesParams: ['disabled_signatures', 'custom_signatures'] },
 ])
 
 export const tabSections = shallowReactive<TabSection[]>([
@@ -77,7 +83,10 @@ export const tabSections = shallowReactive<TabSection[]>([
 
 export const statusSections = shallowReactive<Component[]>([])
 
-export const blocksPanels = shallowReactive<Component[]>([])
+export const blocksPanels = shallowReactive<Component[]>([
+	defineAsyncComponent(() => import('./components/blocks/FirewallExportPanel.vue')),
+	defineAsyncComponent(() => import('./components/blocks/BlocklistsPanel.vue')),
+])
 
 /**
  * The sections of a tab, in order.

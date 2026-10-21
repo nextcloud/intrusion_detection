@@ -82,6 +82,31 @@ class ReservedNames {
 	}
 
 	/**
+	 * Reserve and release names in one change: nothing is saved when one
+	 * of the new names is invalid or an existing account. Reserved names
+	 * that have become accounts since are released with it, because they
+	 * no longer work as traps.
+	 *
+	 * @param list<string> $add
+	 * @param list<string> $remove
+	 * @return list<string> the reserved names afterwards
+	 * @throws InvalidParamException
+	 */
+	public function change(array $add, array $remove, string $actor): array {
+		$add = array_map(AccountNames::normalise(...), $add);
+		$remove = array_map(AccountNames::normalise(...), $remove);
+		$collisions = $this->collisions();
+		$kept = array_filter($this->list(), static fn (string $n): bool => !in_array($n, $remove, true) && !in_array($n, $collisions, true));
+		$this->settings->setParam(ReservedName::ID, 'names', array_values(array_unique(array_merge($kept, $add))));
+		$this->audit->log('reserved names changed by %s: added %s, removed %s', [
+			'actor' => $actor,
+			'added' => implode(', ', $add),
+			'removed' => implode(', ', array_values(array_unique(array_merge($remove, $collisions)))),
+		]);
+		return $this->list();
+	}
+
+	/**
 	 * The reserved name a login name matches, unless an account with that
 	 * name exists by now.
 	 */

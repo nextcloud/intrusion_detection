@@ -61,7 +61,7 @@ async function copy() {
 
 .reference__code {
 	padding-inline: calc(var(--default-grid-baseline) * 2);
-	font-family: var(--font-face-monospace, monospace);
+	font-family: var(--font-face-monospace, ui-monospace, 'SFMono-Regular', Menlo, Consolas, monospace);
 	font-size: 0.9em;
 	letter-spacing: 0.04em;
 	white-space: nowrap;

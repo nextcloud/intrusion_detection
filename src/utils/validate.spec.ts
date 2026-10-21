@@ -6,7 +6,7 @@
 import type { Param } from '../types.ts'
 
 import { describe, expect, test } from 'vitest'
-import { isCidr, validateParam } from './validate.ts'
+import { httpsUrlProblem, isCidr, listIdProblem, validateParam } from './validate.ts'
 
 const rules = (type: Param['type'], min: number | null = null, max: number | null = null, choices: string[] = []) => ({ type, min, max, choices })
 
@@ -67,5 +67,30 @@ describe('isCidr', () => {
 		['localhost', false],
 	])('%s → %s', (value, expected) => {
 		expect(isCidr(value)).toBe(expected)
+	})
+})
+
+describe('httpsUrlProblem', () => {
+	test('https addresses without credentials are fine', () => {
+		expect(httpsUrlProblem('https://lists.example.org/drop.txt')).toBeNull()
+	})
+
+	test.each([
+		['', 'Enter the address of the list.'],
+		['lists.example.org/drop.txt', 'This is not a complete web address. It should look like https://example.org/list.txt.'],
+		['http://lists.example.org/drop.txt', 'Only https:// addresses are allowed, so nobody on the way can change the list.'],
+		['https://user:secret@lists.example.org/drop.txt', 'The address must not contain a user name or password.'],
+	])('%s is refused', (url, message) => {
+		expect(httpsUrlProblem(url)).toBe(message)
+	})
+})
+
+describe('listIdProblem', () => {
+	test.each(['corp_feed', 'a1'])('%s is a valid name', (id) => {
+		expect(listIdProblem(id)).toBeNull()
+	})
+
+	test.each(['', 'Corp', '1list', 'a', 'with space', 'x'.repeat(33)])('"%s" is not', (id) => {
+		expect(listIdProblem(id)).not.toBeNull()
 	})
 })

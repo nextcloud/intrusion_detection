@@ -87,7 +87,10 @@ class AdminApiTest extends IntegrationTestCase {
 		$this->assertSame(1, $status['last24h']['accounts']);
 		$this->assertSame(2, $status['activeBans']);
 		$this->assertSame([['id' => 'internal', 'name' => 'Raised by Nextcloud itself', 'enforced' => 1, 'observed' => 2]], $status['last24h']['categories']);
-		$this->assertSame([], $status['problems']);
+		// The shared-address detection above shows up as a setup problem; the guards are not slow.
+		$problems = array_column($status['problems'], 'id');
+		$this->assertContains('shared_address', $problems);
+		$this->assertNotContains('slow_guards', $problems);
 	}
 
 	public function testStatusShowsLearningAndOff(): void {

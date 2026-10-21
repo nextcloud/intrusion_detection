@@ -117,3 +117,48 @@ export function isCidr(item: string): boolean {
 	}
 	return /^[0-9a-f:.]+$/i.test(address) && address.includes(':') && (prefix === undefined || Number(prefix) <= 128)
 }
+
+/**
+ * What is wrong with an address lists or reports are downloaded from or
+ * sent to, before the server checks it again (it also refuses addresses in
+ * the local network, which only it can tell).
+ *
+ * @param value - The address as typed
+ */
+export function httpsUrlProblem(value: string): string | null {
+	const text = value.trim()
+	if (text === '') {
+		return t(APP_ID, 'Enter the address of the list.')
+	}
+	let parsed: URL
+	try {
+		parsed = new URL(text)
+	} catch {
+		return t(APP_ID, 'This is not a complete web address. It should look like https://example.org/list.txt.')
+	}
+	if (parsed.protocol !== 'https:') {
+		return t(APP_ID, 'Only https:// addresses are allowed, so nobody on the way can change the list.')
+	}
+	if (parsed.username !== '' || parsed.password !== '') {
+		return t(APP_ID, 'The address must not contain a user name or password.')
+	}
+	// eslint-disable-next-line no-control-regex
+	if (text.length > 2048 || /[\u0000- \u007F]/.test(text)) {
+		return t(APP_ID, 'The address is too long or contains spaces.')
+	}
+	return null
+}
+
+/**
+ * What is wrong with the short name of a new list.
+ *
+ * @param value - The name as typed
+ */
+export function listIdProblem(value: string): string | null {
+	if (value === '') {
+		return t(APP_ID, 'Give the list a short name.')
+	}
+	return /^[a-z][a-z0-9_]{1,31}$/.test(value)
+		? null
+		: t(APP_ID, 'Start with a letter and use only lower-case letters, digits and underscores, 2 to 32 characters.')
+}

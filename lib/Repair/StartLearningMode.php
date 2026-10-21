@@ -40,5 +40,6 @@ class StartLearningMode implements IRepairStep {
 		$now = $this->timeFactory->getTime();
 		$this->settings->setGlobal(GlobalSettings::INSTALLED_AT, $now);
 		$this->settings->setGlobal(GlobalSettings::LEARNING_UNTIL, $now + GlobalSettings::LEARNING_DEFAULT_PERIOD);
+		$this->settings->setGlobal(GlobalSettings::LEARNING_STARTED_AT, $now);
 	}
 }

@@ -50,6 +50,26 @@ class LoginMapper {
 		return $this->distinctUsers('net_key', $netKey, $sinceHour);
 	}
 
+	/**
+	 * The most recent logins, newest first (one row per address, account and hour).
+	 *
+	 * @return list<array{ipKey: string, uid: string}>
+	 */
+	public function recent(int $limit): array {
+		$qb = $this->db->getQueryBuilder();
+		$qb->select('ip_key', 'uid')
+			->from(self::TABLE)
+			->orderBy('id', 'DESC')
+			->setMaxResults($limit);
+		$result = $qb->executeQuery();
+		$rows = [];
+		while (($row = $result->fetch()) !== false) {
+			$rows[] = ['ipKey' => (string)$row['ip_key'], 'uid' => (string)$row['uid']];
+		}
+		$result->closeCursor();
+		return $rows;
+	}
+
 	public function deleteOlderThan(int $beforeHour): int {
 		$qb = $this->db->getQueryBuilder();
 		$qb->delete(self::TABLE)

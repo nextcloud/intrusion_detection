@@ -176,7 +176,7 @@ watch(() => props.detection?.lastSeenAt, () => {
 }
 
 .row__address {
-	font-family: var(--font-face-monospace, monospace);
+	font-family: var(--font-face-monospace, ui-monospace, 'SFMono-Regular', Menlo, Consolas, monospace);
 }
 
 .row__outcome {

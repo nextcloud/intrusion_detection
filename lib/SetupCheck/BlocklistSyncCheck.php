@@ -45,7 +45,7 @@ class BlocklistSyncCheck implements ISetupCheck {
 		}
 		$lines = [];
 		foreach ($stale as $list) {
-			$lines[] = $this->l->t('%1$s: %2$s', [$list['name'], $this->describe($list['lastError'])]);
+			$lines[] = $this->l->t('%1$s: %2$s', [$list['name'], SyncFailure::describe($list['lastError'], $this->l)]);
 		}
 		return SetupResult::warning(
 			$this->l->n(
@@ -55,18 +55,5 @@ class BlocklistSyncCheck implements ISetupCheck {
 				[implode('; ', $lines)],
 			),
 		);
-	}
-
-	private function describe(?string $error): string {
-		return match ($error) {
-			SyncFailure::URL_REFUSED => $this->l->t('the address is refused (not https, or in the local network)'),
-			SyncFailure::HTTP => $this->l->t('the server answered with an error'),
-			SyncFailure::TOO_LARGE => $this->l->t('the file is larger than 10 MB'),
-			SyncFailure::INVALID_FORMAT => $this->l->t('the file is not in the expected format'),
-			SyncFailure::EMPTY => $this->l->t('the file contains no address ranges'),
-			SyncFailure::TOO_MANY_ENTRIES => $this->l->t('the list has more entries than allowed'),
-			SyncFailure::TOO_MANY_MALFORMED => $this->l->t('more than one in a hundred entries are not address ranges'),
-			default => $this->l->t('the download failed'),
-		};
 	}
 }

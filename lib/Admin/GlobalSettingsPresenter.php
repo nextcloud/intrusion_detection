@@ -34,6 +34,10 @@ class GlobalSettingsPresenter {
 	public const GROUP_NOTIFICATIONS = 'notifications';
 	/** A second administrator approves new administrators */
 	public const GROUP_APPROVALS = 'approvals';
+	/** Shown in the firewall export panel of the Blocks tab */
+	public const GROUP_EXPORT = 'export';
+	/** Shown in the blocklists panel of the Blocks tab */
+	public const GROUP_BLOCKLISTS = 'blocklists';
 	/** Settings without a group are listed on the Advanced tab */
 	public const GROUP_OTHER = 'other';
 
@@ -137,16 +141,16 @@ class GlobalSettingsPresenter {
 			GlobalSettings::EXPORT_FORMATS => [new ParamText(
 				$l->t('Firewall export formats'),
 				$l->t('The files written for your firewall or fail2ban whenever a block changes. They are only written when an export directory is set in config.php.'),
-			), self::GROUP_BLOCKS],
+			), self::GROUP_EXPORT],
 			GlobalSettings::BLOCKLIST_SYNC_INTERVAL => [new ParamText(
 				$l->t('Download lists every'),
 				$l->t('How often the enabled blocklists and network lists are downloaded again. A list can set its own interval.'),
-			), self::GROUP_BLOCKS],
+			), self::GROUP_BLOCKLISTS],
 			GlobalSettings::BLOCKLIST_MAX_ENTRIES => [new ParamText(
 				$l->t('Largest accepted list'),
 				$l->t('A downloaded list with more entries than this is refused, so a broken or hostile list cannot fill the database.'),
 				$l->t('entries'),
-			), self::GROUP_BLOCKS],
+			), self::GROUP_BLOCKLISTS],
 			GlobalSettings::NOTIFY_ADMIN_GROUP => [new ParamText(
 				$l->t('Notify these groups'),
 				$l->t('Members of these groups get the administrator notifications.'),

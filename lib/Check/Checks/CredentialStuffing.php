@@ -18,6 +18,7 @@ use OCA\IntrusionDetection\Check\ICheck;
 use OCA\IntrusionDetection\Check\ISimulatable;
 use OCA\IntrusionDetection\Check\Mode;
 use OCA\IntrusionDetection\Check\ParamDefinition;
+use OCA\IntrusionDetection\Check\ParamText;
 use OCA\IntrusionDetection\Check\ParamType;
 use OCA\IntrusionDetection\Check\ResponseType;
 use OCA\IntrusionDetection\Check\Severity;
@@ -74,6 +75,15 @@ final class CredentialStuffing implements ICheck, IExplainsDetection, ISimulatab
 				decides: $l->t('Fires when one address fails to log in {min_failures} times for at least {min_names} different accounts within {window}. A whole /24 network is held to {net_factor} times these numbers. It also fires when the whole server sees at least {distributed_min_failures} failed logins from at least {distributed_min_sources} addresses for at least {distributed_min_names} accounts within 10 minutes, which is a botnet spreading its attempts thin. While that lasts, every address that fails 3 times for 2 accounts is blocked.'),
 				wrong: $l->t('Many people behind one office address mistyping their passwords at the same time. Addresses from which several different people logged in successfully in the last day are never blocked; you are notified instead.'),
 				data: $l->t('Failed logins: the address, a fingerprint of the account name, and the time, deleted after 1 hour.'),
+				params: [
+					'window' => new ParamText($l->t('Time window'), $l->t('How far back failed logins are counted.')),
+					'min_failures' => new ParamText($l->t('Failed logins'), $l->t('From one address within the time window.'), $l->t('failures')),
+					'min_names' => new ParamText($l->t('Different accounts'), $l->t('That the address tried within the time window.'), $l->t('accounts')),
+					'net_factor' => new ParamText($l->t('Network factor'), $l->t('A whole /24 network is held to this many times the numbers above.'), $l->t('times')),
+					'distributed_min_failures' => new ParamText($l->t('Failed logins on the whole server'), $l->t('Within 10 minutes, for the botnet detection.'), $l->t('failures')),
+					'distributed_min_sources' => new ParamText($l->t('Different addresses'), $l->t('That the failed logins on the whole server come from.'), $l->t('addresses')),
+					'distributed_min_names' => new ParamText($l->t('Different accounts on the whole server'), $l->t('That the failed logins on the whole server are for.'), $l->t('accounts')),
+				],
 			),
 			simulatable: true,
 		);

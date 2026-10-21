@@ -10,6 +10,7 @@ declare(strict_types=1);
 namespace OCA\IntrusionDetection\AppInfo;
 
 use OCA\DAV\Events\SabrePluginAddEvent;
+use OCA\IntrusionDetection\Admin\SetupProblems;
 use OCA\IntrusionDetection\Config\Lexicon;
 use OCA\IntrusionDetection\Dashboard\IntrusionWidget;
 use OCA\IntrusionDetection\Event\BanCreatedEvent;
@@ -113,6 +114,9 @@ class Application extends App implements IBootstrap {
 		}
 		$context->registerSetupCheck(AdminContactCheck::class);
 		$context->registerSetupCheck(ApprovalCheck::class);
+		foreach (SetupProblems::CHECKS as $setupCheck) {
+			$context->registerSetupCheck($setupCheck);
+		}
 	}
 
 	#[\Override]

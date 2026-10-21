@@ -77,6 +77,8 @@ final class GlobalSettings {
 	public const CONTRIBUTE_ID = 'contribute_id';
 	/** Internal: the last run, its result and the end of the last window sent */
 	public const CONTRIBUTE_STATE = 'contribute_state';
+	/** Internal: when the running learning period started */
+	public const LEARNING_STARTED_AT = 'learning_started_at';
 
 	/** How often the administrators get the digest email: off, daily or weekly */
 	public const DIGEST_FREQUENCY = 'digest_frequency';
@@ -138,6 +140,7 @@ final class GlobalSettings {
 				new ParamDefinition(self::DIGEST_SEND_QUIET, ParamType::Bool, true),
 				new ParamDefinition(self::DIGEST_STATE, ParamType::Json, '{}'),
 				new ParamDefinition(self::EVENTS_INCLUDE_IP, ParamType::Bool, true),
+				new ParamDefinition(self::LEARNING_STARTED_AT, ParamType::Int, 0, min: 0),
 			];
 			$this->definitions = [];
 			foreach ($list as $definition) {
@@ -176,6 +179,7 @@ final class GlobalSettings {
 			self::CONTRIBUTE_ID, self::CONTRIBUTE_STATE,
 			self::CONFIG_WATCH_BASELINE,
 			self::DIGEST_STATE,
+			self::LEARNING_STARTED_AT,
 		], true);
 	}
 

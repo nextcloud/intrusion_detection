@@ -9,12 +9,15 @@ declare(strict_types=1);
 
 namespace OCA\IntrusionDetection\Check\Payload;
 
+use OCA\IntrusionDetection\ResponseDefinitions;
 use OCP\IL10N;
 
 /**
  * "Test a URL": runs the injection probe check's matcher on a URL or a
  * single value and shows every step, without sending a request and without
  * recording anything. Used by occ intrusion:payload:test and the admin API.
+ *
+ * @psalm-import-type IntrusionDetectionPayloadTest from ResponseDefinitions
  */
 class PayloadTester {
 	/** Longer input is cut */
@@ -31,17 +34,7 @@ class PayloadTester {
 
 	/**
 	 * @param string $input a URL (absolute, or a path starting with /) or one parameter value
-	 * @return array{
-	 *     kind: 'url'|'value',
-	 *     prefilter: bool,
-	 *     pathExcluded: bool,
-	 *     minWeight: int,
-	 *     maxBytes: int,
-	 *     signaturesVersion: int,
-	 *     fires: bool,
-	 *     modes: array{anonymous: string, authenticated: string},
-	 *     values: list<array<string, mixed>>,
-	 * }
+	 * @return IntrusionDetectionPayloadTest
 	 */
 	public function test(string $input, IL10N $l): array {
 		$input = substr(trim($input), 0, self::MAX_INPUT);
