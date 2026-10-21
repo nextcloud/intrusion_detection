@@ -95,8 +95,6 @@ export const tabSections = shallowReactive<TabSection[]>([
 
 export const statusSections = shallowReactive<Component[]>([])
 
-export const blocksPanels = shallowReactive<Component[]>([])
-
 export const detectionSections = shallowReactive<DetectionSection[]>([
 	{ id: 'secure-account', applies: (detail) => detail.detection.uid !== null, component: defineAsyncComponent(() => import('./components/overview/SecureAccountPanel.vue')) },
 ])
