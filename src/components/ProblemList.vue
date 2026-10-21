@@ -19,11 +19,9 @@ const props = defineProps<{
 const id = useId()
 const open = ref<string[]>([])
 
-// Problems that need action start open, and so does a single one.
+// A single problem starts open; in a list, each title says enough to choose.
 watch(() => props.problems.map((p) => p.id).join(','), () => {
-	open.value = props.problems.length === 1
-		? props.problems.map((p) => p.id)
-		: props.problems.filter((p) => p.level === 'error').map((p) => p.id)
+	open.value = props.problems.length === 1 ? props.problems.map((p) => p.id) : []
 }, { immediate: true })
 
 const LEVELS = {

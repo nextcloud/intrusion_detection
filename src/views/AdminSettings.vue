@@ -12,6 +12,7 @@ import NcIconSvgWrapper from '@nextcloud/vue/components/NcIconSvgWrapper'
 import NcNoteCard from '@nextcloud/vue/components/NcNoteCard'
 import AdminTabs from '../components/AdminTabs.vue'
 import StatusBanner from '../components/StatusBanner.vue'
+import StatusStrip from '../components/StatusStrip.vue'
 import TabContent from '../components/TabContent.vue'
 import { useAnnouncer } from '../composables/useAnnouncer.ts'
 import { visibleTabs } from '../extensions.ts'
@@ -78,7 +79,7 @@ onBeforeUnmount(() => window.removeEventListener('hashchange', readHash))
 					{{ t(APP_ID, 'Intrusion detection') }}
 				</h2>
 				<p :class="$style.page__description">
-					{{ t(APP_ID, 'Recognises attacks on logins, shares and accounts, and answers them with graduated responses. Every decision is explained here, in plain words.') }}
+					{{ t(APP_ID, 'Recognises attacks on logins, shares and accounts, and explains every decision in plain words.') }}
 				</p>
 			</div>
 			<NcButton
@@ -94,16 +95,17 @@ onBeforeUnmount(() => window.removeEventListener('hashchange', readHash))
 			</NcButton>
 		</header>
 
-		<StatusBanner v-if="state.status" :status="state.status" />
-		<NcNoteCard v-else type="error" :text="t(APP_ID, 'The status could not be loaded. Please reload the page.')" />
-
 		<div id="ids-tabs" :class="$style.page__tabs">
 			<AdminTabs v-model="activeTab" :tabs="tabs" :counts="counts" />
 			<div
 				v-if="currentTab"
 				:id="`ids-panel-${currentTab.id}`"
+				:class="$style.page__panel"
 				role="tabpanel"
 				:aria-labelledby="`ids-tab-${currentTab.id}`">
+				<NcNoteCard v-if="!state.status" type="error" :text="t(APP_ID, 'The status could not be loaded. Please reload the page.')" />
+				<StatusBanner v-else-if="currentTab.id === 'overview'" :status="state.status" />
+				<StatusStrip v-else :status="state.status" @overview="showTab('overview')" />
 				<KeepAlive>
 					<TabContent :key="currentTab.id" :tab="currentTab" />
 				</KeepAlive>
@@ -155,7 +157,15 @@ onBeforeUnmount(() => window.removeEventListener('hashchange', readHash))
 	display: flex;
 	flex-direction: column;
 	gap: calc(var(--default-grid-baseline) * 5);
+	min-width: 0;
 	scroll-margin-top: calc(var(--default-grid-baseline) * 4);
+}
+
+.page__panel {
+	display: flex;
+	flex-direction: column;
+	gap: calc(var(--default-grid-baseline) * 5);
+	min-width: 0;
 }
 
 @media (max-width: 600px) {

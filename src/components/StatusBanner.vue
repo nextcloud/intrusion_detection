@@ -6,7 +6,7 @@
 <script setup lang="ts">
 import type { Status } from '../types.ts'
 
-import { mdiShieldCheckOutline, mdiShieldOffOutline, mdiShieldSearch, mdiSpeedometer } from '@mdi/js'
+import { mdiSpeedometer } from '@mdi/js'
 import { showError, showSuccess } from '@nextcloud/dialogs'
 import { getCanonicalLocale, n, t } from '@nextcloud/l10n'
 import { computed, ref } from 'vue'
@@ -20,6 +20,7 @@ import { errorMessage, isCancelled, updateLearning, updateSettings } from '../se
 import { logger } from '../services/logger.ts'
 import { refreshChecks, refreshSettings, refreshStatus } from '../store.ts'
 import { APP_ID, formatCost, formatNumber } from '../utils/format.ts'
+import { statusIcon, statusTitle } from '../utils/status.ts'
 
 const props = defineProps<{
 	status: Status
@@ -28,22 +29,8 @@ const props = defineProps<{
 const busy = ref<string | null>(null)
 const { announce } = useAnnouncer()
 
-const icon = computed(() => ({
-	protecting: mdiShieldCheckOutline,
-	learning: mdiShieldSearch,
-	off: mdiShieldOffOutline,
-})[props.status.state])
-
-const title = computed(() => {
-	switch (props.status.state) {
-		case 'learning':
-			return n(APP_ID, 'Learning: %n day left.', 'Learning: %n days left.', props.status.learning.daysLeft)
-		case 'off':
-			return t(APP_ID, 'Off.')
-		default:
-			return t(APP_ID, 'Protecting.')
-	}
-})
+const icon = computed(() => statusIcon(props.status.state))
+const title = computed(() => statusTitle(props.status))
 
 const sentence = computed(() => {
 	const { checks, learning, state } = props.status
@@ -52,7 +39,7 @@ const sentence = computed(() => {
 	}
 	if (state === 'learning') {
 		const until = new Date(learning.until * 1000).toLocaleDateString(getCanonicalLocale(), { weekday: 'long', day: 'numeric', month: 'long' })
-		return t(APP_ID, 'Nextcloud is watching, not acting: checks set to Protect only record what they would have done until {date}. Blocks you add by hand apply.', { date: until })
+		return t(APP_ID, 'Checks set to Protect only record what they would do until {date}. Blocks you add by hand apply.', { date: until })
 	}
 	if (checks.protect + checks.observe + checks.off === 0) {
 		return t(APP_ID, 'Blocks you add by hand are enforced. No checks are installed yet.')
@@ -86,7 +73,7 @@ const costLine = computed(() => {
 	const { cost, costSampleRate } = props.status
 	if (cost === null) {
 		return props.status.prerequisites.memoryCache === 'none'
-			? t(APP_ID, 'Cost on every request: not measured. Measuring needs a memory cache; without one, every request asks the database whether its address is blocked.')
+			? t(APP_ID, 'Cost per request: not measured, as that needs a memory cache.')
 			: t(APP_ID, 'Cost on every request: not measured yet. It is measured on 1 in {rate} requests.', { rate: formatNumber(costSampleRate) })
 	}
 	return t(APP_ID, 'Cost on every request: {average} on average, {max} at most (measured on 1 in {rate} requests over the last 24 hours).', {
@@ -276,6 +263,7 @@ const turnOn = () => run('on', () => updateSettings({ protection_enabled: true }
 .figure {
 	display: flex;
 	flex-direction: column;
+	min-width: 0;
 	padding: calc(var(--default-grid-baseline) * 3) calc(var(--default-grid-baseline) * 4);
 	border-radius: var(--border-radius-large);
 	background-color: color-mix(in srgb, var(--color-main-background) 72%, transparent);
@@ -300,6 +288,9 @@ const turnOn = () => run('on', () => updateSettings({ protection_enabled: true }
 .figure__label {
 	color: var(--color-text-maxcontrast);
 	font-size: 0.92em;
+	white-space: normal;
+	overflow-wrap: anywhere;
+	hyphens: auto;
 }
 
 .figure__detail {
@@ -343,6 +334,15 @@ const turnOn = () => run('on', () => updateSettings({ protection_enabled: true }
 
 	.figures {
 		grid-template-columns: repeat(2, minmax(0, 1fr));
+		gap: calc(var(--default-grid-baseline) * 2);
+	}
+
+	.figure {
+		padding: calc(var(--default-grid-baseline) * 2) calc(var(--default-grid-baseline) * 3);
+	}
+
+	.figure__value {
+		font-size: 1.6em;
 	}
 }
 </style>

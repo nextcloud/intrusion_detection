@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 
-import type { Check, DetectionDetail } from '../types.ts'
+import type { Check, DetectionDetail, Status } from '../types.ts'
 
 /**
  * A check as the API presents it, with the texts of concept section 16.3.
@@ -101,6 +101,30 @@ export function makeDetail(overrides: Partial<DetectionDetail> = {}): DetectionD
 			active: true,
 		}],
 		risk: null,
+		...overrides,
+	}
+}
+
+/**
+ * The status of the admin page.
+ *
+ * @param overrides - Fields to change
+ */
+export function makeStatus(overrides: Partial<Status> = {}): Status {
+	return {
+		state: 'learning',
+		learning: { active: true, until: 1_790_600_000, daysLeft: 7, minDays: 1, maxDays: 30 },
+		checks: { protect: 10, observe: 3, off: 2 },
+		last24h: { detections: 1234, enforced: 0, observed: 1234, blockedAddresses: 0, wouldHaveBlocked: 6, accounts: 1, categories: [] },
+		activeBans: 2,
+		prerequisites: { memoryCache: 'none', mail: false },
+		cost: null,
+		costSampleRate: 1000,
+		problems: [
+			{ id: 'mail', level: 'warning', title: 'Nextcloud cannot send emails', text: '', url: null, urlLabel: null },
+			{ id: 'cache', level: 'info', title: 'No memory cache', text: '', url: null, urlLabel: null },
+		],
+		extensions: {},
 		...overrides,
 	}
 }
