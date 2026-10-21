@@ -85,6 +85,7 @@ class DecoyCredentialTest extends LoginFailureTestCase {
 		$this->assertEqualsWithDelta(time() + 604800, $ban->getExpiresAt(), 5);
 		$actions = array_column($detections[0]->getActionList(), null, 'type');
 		$this->assertTrue($actions['notify_admin']['enforced']);
+		$this->assertTrue($actions['ban']['ref']['bans'][0]['forced'], 'Seven days because of the decoy, not because the address came back');
 
 		$stored = Server::get(DecoyMapper::class)->findById($decoy->getId());
 		$this->assertSame(1, $stored->getTriggerCount());
@@ -125,6 +126,7 @@ class DecoyCredentialTest extends LoginFailureTestCase {
 		$this->assertSame('high', $detection->getSeverity());
 		$this->assertSame(DecoyCredential::MATCH_LOGIN_NAME, $detection->getExplanationData()['facts']['match']);
 		$this->assertSame(1, $this->bans->findActiveForKeys(['198.51.100.7'], time())[0]->getLevel(), 'The usual escalation');
+		$this->assertFalse(array_column($detection->getActionList(), null, 'type')['ban']['ref']['bans'][0]['forced']);
 	}
 
 	public function testTheSecretAfterTheNameRaisesTheSameDetection(): void {

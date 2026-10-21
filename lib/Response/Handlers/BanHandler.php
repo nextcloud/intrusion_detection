@@ -66,6 +66,7 @@ class BanHandler implements IResponseHandler, IDescribesAction {
 						'reference' => $ban->getDisplayReference(),
 						'cidr' => $ban->getCidr(),
 						'level' => $ban->getLevel(),
+						'forced' => $draft->banLevel !== null,
 						'until' => $ban->getExpiresAt(),
 					];
 				}
@@ -90,10 +91,11 @@ class BanHandler implements IResponseHandler, IDescribesAction {
 				(string)($ban['cidr'] ?? ''),
 				$dates->dateTime((int)($ban['until'] ?? 0)),
 				(string)($ban['reference'] ?? ''),
-				match ((int)($ban['level'] ?? 1)) {
-					1 => $l->t('first block'),
-					2 => $l->t('second block within the history window'),
-					default => $l->t('repeat offender'),
+				match (true) {
+					(bool)($ban['forced'] ?? false) => $l->t('this check blocks for this long right away'),
+					(int)($ban['level'] ?? 1) <= 1 => $l->t('first block'),
+					(int)$ban['level'] === 2 => $l->t('second block within the history window'),
+					default => $l->t('blocked again within the history window'),
 				},
 			]);
 		}
