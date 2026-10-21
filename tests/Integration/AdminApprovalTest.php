@@ -139,6 +139,56 @@ class AdminApprovalTest extends StepUpTestCase {
 		$this->assertNull($this->sessionUser);
 	}
 
+	public function testARejectedLoginCannotAskAgain(): void {
+		$this->waitingLogin();
+		$asked = count($this->notificationsFor(self::ADMIN, Notifier::SUBJECT_APPROVAL_REQUESTED));
+		Server::get(ApprovalService::class)->reject((int)$this->stepUp()?->approvalId, self::ADMIN, ApprovalService::VIA_WEB);
+
+		$response = $this->verifyController()->requestApproval();
+		$this->assertInstanceOf(RedirectResponse::class, $response, 'Asking again after a rejection ends the login');
+		$this->assertStringContainsString('reason=rejected', $response->getRedirectURL());
+		$this->assertNull($this->sessionUser, 'The session ended');
+		$this->assertNull($this->stepUp());
+		$failed = $this->detectionsOf(StepUpFailed::ID);
+		$this->assertCount(1, $failed);
+		$this->assertSame(StepUpFailed::RULE_REJECTED, $failed[0]->getExplanationData()['facts']['rule'] ?? null);
+		$this->assertCount(1, Server::get(ApprovalMapper::class)->findList(false, 10, Approval::KIND_LOGIN), 'No new request');
+		$this->assertCount($asked, $this->notificationsFor(self::ADMIN, Notifier::SUBJECT_APPROVAL_REQUESTED), 'The administrators are not asked again');
+	}
+
+	public function testAnExpiredRequestCannotBeAskedAgain(): void {
+		$this->waitingLogin();
+		$qb = $this->db->getQueryBuilder();
+		$qb->update(ApprovalMapper::TABLE)->set('expires_at', $qb->createNamedParameter(time() - 1))->executeStatement();
+
+		$response = $this->verifyController()->requestApproval();
+		$this->assertInstanceOf(RedirectResponse::class, $response);
+		$this->assertStringContainsString('reason=timeout', $response->getRedirectURL());
+		$this->assertNull($this->sessionUser);
+		$this->assertSame(StepUpFailed::RULE_TIMEOUT, $this->detectionsOf(StepUpFailed::ID)[0]->getExplanationData()['facts']['rule'] ?? null);
+		$this->assertSame(0, $this->pendingFor($this->bob->getUID()), 'No new request');
+	}
+
+	public function testALateRequestWaitsNoLongerThanTheLoginsTimeAndOneApproval(): void {
+		$carol = $this->user('ids-approval-late', 'carol@example.com');
+		$this->startSession($carol);
+		$this->login($carol);
+		$stepUp = $this->stepUp();
+		$this->assertNotNull($stepUp);
+		$ttl = $this->settings->getInt(GlobalSettings::STEP_UP_SESSION_TTL);
+		$approvalTtl = $this->settings->getInt(GlobalSettings::STEP_UP_ADMIN_APPROVAL_TTL);
+		// A login that started long ago and was kept waiting.
+		$late = StepUpState::fromArray(['started' => time() - $ttl - 600, 'deadline' => time() + 60] + $stepUp->toArray());
+		$this->assertNotNull($late);
+		$this->service()->save($late);
+
+		$this->verifyController()->requestApproval();
+		$waiting = $this->stepUp();
+		$this->assertNotNull($waiting?->approvalId);
+		$this->assertSame($late->started + $ttl + $approvalTtl, $waiting->deadline, 'Capped, although the request lasts longer');
+		$this->assertGreaterThan($waiting->deadline, $this->approval()->getExpiresAt());
+	}
+
 	public function testTheUserCanGiveUpWaiting(): void {
 		$this->waitingLogin();
 		$id = (int)$this->stepUp()?->approvalId;

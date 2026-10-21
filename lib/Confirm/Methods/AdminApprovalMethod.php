@@ -28,7 +28,9 @@ use OCP\IUser;
  * which asks for the request's status every few seconds; the
  * administrators get a notification with Approve and Reject. The request
  * expires after `step_up_admin_approval_ttl`, and the login may wait that
- * long.
+ * long, but never longer than `step_up_session_ttl` and one approval's
+ * time after the login. A login asks once: when its request was rejected
+ * or has expired, the login ends.
  *
  * The rules of {@see ApprovalService} apply: the account never approves
  * its own login, and only an enabled member of the admin group decides. It
@@ -73,16 +75,19 @@ class AdminApprovalMethod implements IConfirmationMethod {
 	}
 
 	/**
-	 * Ask the administrators. The login may wait until the request expires.
+	 * Ask the administrators. The login may wait until the request expires,
+	 * at most `step_up_session_ttl` and one approval's time after the login.
 	 */
 	#[\Override]
 	public function begin(IUser $user, StepUpState $state): string {
-		$approval = $this->approvals->requestLogin($user, $state->ip, $this->settings->getInt(GlobalSettings::STEP_UP_ADMIN_APPROVAL_TTL));
+		$ttl = $this->settings->getInt(GlobalSettings::STEP_UP_ADMIN_APPROVAL_TTL);
+		$approval = $this->approvals->requestLogin($user, $state->ip, $ttl);
 		if ($approval === null) {
 			return self::UNAVAILABLE;
 		}
 		$state->approvalId = $approval->getId();
-		$state->deadline = max($state->deadline, $approval->getExpiresAt());
+		$latest = $state->started + $this->settings->getInt(GlobalSettings::STEP_UP_SESSION_TTL) + $ttl;
+		$state->deadline = min(max($state->deadline, $approval->getExpiresAt()), $latest);
 		return self::PENDING;
 	}
 

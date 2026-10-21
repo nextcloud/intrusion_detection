@@ -223,8 +223,13 @@ class VerifyController extends Controller {
 		if ($method === null) {
 			return $this->codePage($user, $stepUp, $redirect_url, $this->l->t('No administrator can be asked to approve this login.'));
 		}
-		if ($stepUp->approvalId !== null && $method->status($user, $stepUp) === AdminApprovalMethod::STATUS_PENDING) {
-			return $this->waitingPage($user, $stepUp, $redirect_url);
+		if ($stepUp->approvalId !== null) {
+			// A login asks once: a rejected, expired or vanished request ends it.
+			$status = $method->status($user, $stepUp);
+			if ($status === AdminApprovalMethod::STATUS_NONE) {
+				$status = AdminApprovalMethod::STATUS_EXPIRED;
+			}
+			return $this->endByApproval($stepUp, $status) ?? $this->waitingPage($user, $stepUp, $redirect_url);
 		}
 		if ($method->begin($user, $stepUp) !== IConfirmationMethod::PENDING) {
 			return $this->codePage($user, $stepUp, $redirect_url, $this->l->t('No administrator can be asked right now. Try again in a while, or contact your administrator.'));
@@ -266,17 +271,15 @@ class VerifyController extends Controller {
 		}
 		$method = $this->approvalMethod($user, $stepUp);
 		$status = $method === null ? AdminApprovalMethod::STATUS_NONE : $method->status($user, $stepUp);
+		$ended = $this->endByApproval($stepUp, $status);
+		if ($ended !== null) {
+			return $ended;
+		}
 		switch ($status) {
 			case AdminApprovalMethod::STATUS_APPROVED:
 				$this->stepUps->complete($stepUp, IConfirmationMethod::ADMIN_APPROVAL);
 				$this->rememberIfChosen($user, $remember);
 				return $this->continue($redirect_url);
-			case AdminApprovalMethod::STATUS_REJECTED:
-				$this->stepUps->fail($stepUp, StepUpFailed::RULE_REJECTED);
-				return new RedirectResponse($this->urlGenerator->linkToRoute(Application::APP_ID . '.Verify.ended', ['reason' => StepUpFailed::RULE_REJECTED]));
-			case AdminApprovalMethod::STATUS_EXPIRED:
-				$this->stepUps->fail($stepUp, StepUpFailed::RULE_TIMEOUT);
-				return new RedirectResponse($this->urlGenerator->linkToRoute(Application::APP_ID . '.Verify.ended', ['reason' => StepUpFailed::RULE_TIMEOUT]));
 			case AdminApprovalMethod::STATUS_PENDING:
 				return $this->waitingPage($user, $stepUp, $redirect_url, $this->l->t('No administrator has decided yet. This page keeps checking.'));
 			default:
@@ -444,6 +447,26 @@ class VerifyController extends Controller {
 			}
 		}
 		return $method;
+	}
+
+	/**
+	 * End the login when its request for approval was rejected or has
+	 * expired.
+	 *
+	 * @param AdminApprovalMethod::STATUS_* $status
+	 * @return ?RedirectResponse the page that says why, or null when the login goes on
+	 */
+	private function endByApproval(StepUpState $stepUp, string $status): ?RedirectResponse {
+		$rule = match ($status) {
+			AdminApprovalMethod::STATUS_REJECTED => StepUpFailed::RULE_REJECTED,
+			AdminApprovalMethod::STATUS_EXPIRED => StepUpFailed::RULE_TIMEOUT,
+			default => null,
+		};
+		if ($rule === null) {
+			return null;
+		}
+		$this->stepUps->fail($stepUp, $rule);
+		return new RedirectResponse($this->urlGenerator->linkToRoute(Application::APP_ID . '.Verify.ended', ['reason' => $rule]));
 	}
 
 	/**
