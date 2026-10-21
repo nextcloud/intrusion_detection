@@ -75,15 +75,16 @@ class ConfirmationApiController extends AdminOCSController {
 	 * Accounts with neither a second factor nor an email address, by account name.
 	 *
 	 * @param int<1, 200> $limit at most this many
-	 * @param int<0, max> $offset skip this many
+	 * @param int<0, max> $offset skip this many; ignored with `after`
 	 * @param bool $admins only members of the admin group
+	 * @param string $after the account name the previous page ended with: the page starts after it
 	 * @return DataResponse<Http::STATUS_OK, list<IntrusionDetectionUnconfirmableAccount>, array{}>
 	 *
 	 * 200: The accounts
 	 */
 	#[ApiRoute(verb: 'GET', url: '/api/v1/confirmation/accounts')]
-	public function accounts(int $limit = 50, int $offset = 0, bool $admins = false): DataResponse {
-		return new DataResponse($this->coverage->list(max(1, min(ConfirmationCoverage::MAX_LIST, $limit)), max(0, $offset), $admins));
+	public function accounts(int $limit = 50, int $offset = 0, bool $admins = false, string $after = ''): DataResponse {
+		return new DataResponse($this->coverage->list(max(1, min(ConfirmationCoverage::MAX_LIST, $limit)), max(0, $offset), $admins, $after === '' ? null : $after));
 	}
 
 	/**

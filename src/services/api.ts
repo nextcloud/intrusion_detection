@@ -430,11 +430,11 @@ export function setConfirmationPreset(preset: ConfirmationPreset): Promise<Confi
 
 /**
  * @param limit - At most this many
- * @param offset - Skip this many
+ * @param after - The account the previous page ended with; empty for the first page
  * @param admins - Only administrators
  */
-export function fetchUnconfirmableAccounts(limit = 50, offset = 0, admins = false): Promise<UnconfirmableAccount[]> {
-	return call<UnconfirmableAccount[]>(axios.get(url('confirmation/accounts'), { params: { limit, offset, admins: admins ? 1 : 0 } }))
+export function fetchUnconfirmableAccounts(limit = 50, after = '', admins = false): Promise<UnconfirmableAccount[]> {
+	return call<UnconfirmableAccount[]>(axios.get(url('confirmation/accounts'), { params: { limit, after, admins: admins ? 1 : 0 } }))
 }
 
 /**

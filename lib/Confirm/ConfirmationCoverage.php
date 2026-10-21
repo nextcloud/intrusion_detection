@@ -15,6 +15,7 @@ use OCA\IntrusionDetection\Config\Settings;
 use OCP\AppFramework\Utility\ITimeFactory;
 use OCP\Authentication\TwoFactorAuth\IRegistry;
 use OCP\DB\QueryBuilder\IQueryBuilder;
+use OCP\Group\Backend\INamedBackend;
 use OCP\ICacheFactory;
 use OCP\IDBConnection;
 use OCP\IGroupManager;
@@ -42,6 +43,8 @@ class ConfirmationCoverage {
 	public const MAX_LIST = 200;
 	/** Share of active accounts above which setup check 9 warns */
 	public const WARNING_SHARE = 0.10;
+	/** The name core's own group backend gives itself */
+	private const DATABASE_GROUP_BACKEND = 'Database';
 
 	public function __construct(
 		private readonly IDBConnection $db,
@@ -124,44 +127,61 @@ class ConfirmationCoverage {
 
 	/**
 	 * One page of the active accounts without a way to confirm, by uid.
+	 * A page costs a few queries whatever its size: the display names come
+	 * with the page, the groups and last logins are read for the whole page.
 	 *
 	 * @param bool $adminsOnly only members of the admin group
+	 * @param ?string $after the uid the previous page ended with; the next page starts after it, without counting the rows before it as `$offset` does
 	 * @return list<array{uid: string, displayName: string, lastLogin: int, groups: list<string>, admin: bool}>
 	 */
-	public function list(int $limit, int $offset = 0, bool $adminsOnly = false): array {
+	public function list(int $limit, int $offset = 0, bool $adminsOnly = false, ?string $after = null): array {
 		$limit = max(1, min(self::MAX_LIST, $limit));
 		if ($adminsOnly) {
-			$admins = $this->admins();
-			$uids = array_slice($admins['withNeither'], max(0, $offset), $limit);
-			$rows = array_map(fn (string $uid): array => ['uid' => $uid, 'lastLogin' => $this->lastLogin($uid)], $uids);
+			$uids = $this->admins()['withNeither'];
+			sort($uids, SORT_STRING);
+			if ($after !== null) {
+				$uids = array_values(array_filter($uids, static fn (string $uid): bool => strcmp($uid, $after) > 0));
+			}
+			$uids = array_slice($uids, $after === null ? max(0, $offset) : 0, $limit);
+			$lastLogins = $this->lastLogins($uids);
+			$rows = array_map(static fn (string $uid): array => ['uid' => $uid, 'lastLogin' => $lastLogins[$uid] ?? 0, 'displayName' => null], $uids);
 		} else {
 			$qb = $this->db->getQueryBuilder();
-			$qb->select('p.userid', 'p.configvalue');
+			$qb->select('p.userid', 'p.configvalue', 'u.uid', 'u.displayname');
 			$this->activeAccounts($qb, true);
-			$qb->orderBy('p.userid')
-				->setMaxResults($limit)
-				->setFirstResult(max(0, $offset));
+			// Display names of the database's own accounts; other backends are asked below.
+			$qb->leftJoin('p', 'users', 'u', $qb->expr()->eq('u.uid', 'p.userid'))
+				->orderBy('p.userid')
+				->setMaxResults($limit);
+			if ($after !== null) {
+				$qb->andWhere($qb->expr()->gt('p.userid', $qb->createNamedParameter($after)));
+			} else {
+				$qb->setFirstResult(max(0, $offset));
+			}
 			$result = $qb->executeQuery();
 			$rows = [];
 			while ($row = $result->fetch()) {
-				$rows[] = ['uid' => (string)$row['userid'], 'lastLogin' => (int)$row['configvalue']];
+				$uid = (string)$row['userid'];
+				$displayName = $row['uid'] === null ? null : trim((string)$row['displayname']);
+				$rows[] = ['uid' => $uid, 'lastLogin' => (int)$row['configvalue'], 'displayName' => $displayName === null ? null : ($displayName === '' ? $uid : $displayName)];
 			}
 			$result->closeCursor();
 		}
+		$groups = $this->groupsOf(array_column($rows, 'uid'));
 		$list = [];
 		foreach ($rows as $row) {
-			$user = $this->userManager->get($row['uid']);
-			if ($user === null) {
+			$displayName = $row['displayName'] ?? $this->userManager->getDisplayName($row['uid']);
+			if ($displayName === null) {
+				// Gone from its user backend.
 				continue;
 			}
-			$groups = $this->groupManager->getUserGroupIds($user);
-			sort($groups);
+			$userGroups = $groups[$row['uid']] ?? [];
 			$list[] = [
 				'uid' => $row['uid'],
-				'displayName' => $user->getDisplayName(),
+				'displayName' => $displayName,
 				'lastLogin' => $row['lastLogin'],
-				'groups' => $groups,
-				'admin' => in_array(Approvers::ADMIN_GROUP, $groups, true),
+				'groups' => $userGroups,
+				'admin' => in_array(Approvers::ADMIN_GROUP, $userGroups, true),
 			];
 		}
 		return $list;
@@ -229,16 +249,69 @@ class ConfirmationCoverage {
 		$qb->andWhere($qb->createFunction('NOT EXISTS (' . $secondFactor->getSQL() . ')'));
 	}
 
-	private function lastLogin(string $uid): int {
+	/**
+	 * @param list<string> $uids
+	 * @return array<string, int> core's last login per uid, for those that have one
+	 */
+	private function lastLogins(array $uids): array {
+		if ($uids === []) {
+			return [];
+		}
 		$qb = $this->db->getQueryBuilder();
-		$qb->select('configvalue')
+		$qb->select('userid', 'configvalue')
 			->from('preferences')
-			->where($qb->expr()->eq('userid', $qb->createNamedParameter($uid)))
+			->where($qb->expr()->in('userid', $qb->createNamedParameter($uids, IQueryBuilder::PARAM_STR_ARRAY)))
 			->andWhere($qb->expr()->eq('appid', $qb->createNamedParameter('login')))
 			->andWhere($qb->expr()->eq('configkey', $qb->createNamedParameter('lastLogin')));
 		$result = $qb->executeQuery();
-		$value = $result->fetchOne();
+		$lastLogins = [];
+		while ($row = $result->fetch()) {
+			$lastLogins[(string)$row['userid']] = (int)$row['configvalue'];
+		}
 		$result->closeCursor();
-		return $value === false ? 0 : (int)$value;
+		return $lastLogins;
+	}
+
+	/**
+	 * The groups of several accounts, sorted: the database's own groups in
+	 * one query, the groups of other group backends (e.g. LDAP) per account.
+	 *
+	 * @param list<string> $uids
+	 * @return array<string, list<string>>
+	 */
+	private function groupsOf(array $uids): array {
+		if ($uids === []) {
+			return [];
+		}
+		$groups = array_fill_keys($uids, []);
+		$database = false;
+		foreach ($this->groupManager->getBackends() as $backend) {
+			if ($backend instanceof INamedBackend && $backend->getBackendName() === self::DATABASE_GROUP_BACKEND) {
+				$database = true;
+				continue;
+			}
+			foreach ($uids as $uid) {
+				foreach ($backend->getUserGroups($uid) as $gid) {
+					$groups[$uid][] = (string)$gid;
+				}
+			}
+		}
+		if ($database) {
+			$qb = $this->db->getQueryBuilder();
+			$qb->select('uid', 'gid')
+				->from('group_user')
+				->where($qb->expr()->in('uid', $qb->createNamedParameter($uids, IQueryBuilder::PARAM_STR_ARRAY)));
+			$result = $qb->executeQuery();
+			while ($row = $result->fetch()) {
+				$groups[(string)$row['uid']][] = (string)$row['gid'];
+			}
+			$result->closeCursor();
+		}
+		foreach ($groups as $uid => $gids) {
+			$gids = array_values(array_unique($gids));
+			sort($gids);
+			$groups[$uid] = $gids;
+		}
+		return $groups;
 	}
 }

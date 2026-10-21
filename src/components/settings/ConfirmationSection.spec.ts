@@ -190,9 +190,20 @@ describe('the login confirmation section', () => {
 		const wrapper = await mountTab()
 		await wrapper.findAll('button').find((b) => b.text() === 'Show accounts')!.trigger('click')
 		await flushPromises()
-		expect(fetchUnconfirmableAccounts).toHaveBeenCalledWith(50, 0, false)
+		expect(fetchUnconfirmableAccounts).toHaveBeenCalledWith(50, '', false)
 		expect(wrapper.get('[data-test="accounts"]').text()).toContain('Carol')
 		expect(wrapper.get('[data-test="accounts"]').text()).toContain('staff')
+	})
+
+	test('the next page starts after the last account shown', async () => {
+		const page = Array.from({ length: 50 }, (_, i) => ({ uid: `user${String(i).padStart(2, '0')}`, displayName: `User ${i}`, lastLogin: 1_760_000_000, groups: [], admin: false }))
+		vi.mocked(fetchUnconfirmableAccounts).mockResolvedValueOnce(page).mockResolvedValueOnce([])
+		const wrapper = await mountTab()
+		await wrapper.findAll('button').find((b) => b.text() === 'Show accounts')!.trigger('click')
+		await flushPromises()
+		await wrapper.findAll('button').find((b) => b.text() === 'Show more')!.trigger('click')
+		await flushPromises()
+		expect(fetchUnconfirmableAccounts).toHaveBeenLastCalledWith(50, 'user49', false)
 	})
 
 	test('approving a waiting login asks first, then the list is loaded again', async () => {

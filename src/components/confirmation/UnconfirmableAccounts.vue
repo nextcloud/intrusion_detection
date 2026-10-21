@@ -44,7 +44,7 @@ const total = computed(() => adminsOnly.value ? props.admins.withNeither.length 
 async function loadMore() {
 	loading.value = true
 	try {
-		const page = await fetchUnconfirmableAccounts(PAGE, accounts.value.length, adminsOnly.value)
+		const page = await fetchUnconfirmableAccounts(PAGE, accounts.value.at(-1)?.uid ?? '', adminsOnly.value)
 		accounts.value.push(...page)
 		exhausted.value = page.length < PAGE
 	} catch (error) {
@@ -80,7 +80,7 @@ async function download() {
 	try {
 		const rows: UnconfirmableAccount[] = []
 		while (rows.length < CSV_MAX) {
-			const page = await fetchUnconfirmableAccounts(200, rows.length, adminsOnly.value)
+			const page = await fetchUnconfirmableAccounts(200, rows.at(-1)?.uid ?? '', adminsOnly.value)
 			rows.push(...page)
 			if (page.length < 200) {
 				break

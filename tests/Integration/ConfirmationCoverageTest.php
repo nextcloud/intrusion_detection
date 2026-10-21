@@ -84,6 +84,32 @@ class ConfirmationCoverageTest extends IntegrationTestCase {
 		$this->assertFalse($row['admin']);
 	}
 
+	public function testAPageCostsTheSameFewQueriesWhateverItsSizeAndTheNextOneStartsAfterIt(): void {
+		$uids = [];
+		for ($i = 1; $i <= 6; $i++) {
+			$uids[] = $this->account('page' . $i);
+		}
+		Server::get(IUserManager::class)->get($uids[1])?->setDisplayName('Second Page');
+		$coverage = $this->coverage();
+		$mine = static fn (array $rows): array => array_values(array_filter(array_column($rows, 'uid'), static fn (string $uid): bool => str_starts_with($uid, self::PREFIX . 'page')));
+
+		$queries = $this->db->getInner()->getStats()['executed'];
+		$first = $coverage->list(3, 0, false, self::PREFIX . 'page');
+		$small = $this->db->getInner()->getStats()['executed'] - $queries;
+		$this->assertSame(array_slice($uids, 0, 3), $mine($first));
+		$this->assertSame('Second Page', $first[1]['displayName']);
+		$this->assertSame(['staff'], $first[0]['groups']);
+
+		$queries = $this->db->getInner()->getStats()['executed'];
+		$all = $coverage->list(6, 0, false, self::PREFIX . 'page');
+		$this->assertSame($uids, $mine($all));
+		$this->assertSame($small, $this->db->getInner()->getStats()['executed'] - $queries, 'no query per account');
+		$this->assertLessThanOrEqual(3, $small, 'the page and the groups');
+
+		$next = $coverage->list(3, 0, false, $uids[2]);
+		$this->assertSame(array_slice($uids, 3, 3), $mine($next), 'starts after the last account of the page before');
+	}
+
 	public function testTheCountsAreStoredUntilTheJobOrARefreshCountsAgain(): void {
 		$coverage = $this->coverage();
 		$first = $coverage->users();

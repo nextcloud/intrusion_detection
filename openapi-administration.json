@@ -8449,7 +8449,7 @@
                     {
                         "name": "offset",
                         "in": "query",
-                        "description": "skip this many",
+                        "description": "skip this many; ignored with `after`",
                         "schema": {
                             "type": "integer",
                             "format": "int64",
@@ -8464,6 +8464,15 @@
                         "schema": {
                             "type": "boolean",
                             "default": false
+                        }
+                    },
+                    {
+                        "name": "after",
+                        "in": "query",
+                        "description": "the account name the previous page ended with: the page starts after it",
+                        "schema": {
+                            "type": "string",
+                            "default": ""
                         }
                     },
                     {
