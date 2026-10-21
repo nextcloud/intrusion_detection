@@ -24,7 +24,6 @@ use OCA\IntrusionDetection\Db\DetectionFilter;
 use OCA\IntrusionDetection\Db\DetectionMapper;
 use OCA\IntrusionDetection\Detection\AttemptRecorder;
 use OCA\IntrusionDetection\Listener\FailedLoginListener;
-use OCA\IntrusionDetection\Lockdown\LockdownService;
 use OCA\IntrusionDetection\Net\RemoteAddressResolver;
 use OCA\IntrusionDetection\Net\SourceKey;
 use OCA\IntrusionDetection\Personal\FailedLoginStats;
@@ -83,7 +82,6 @@ abstract class LoginFailureTestCase extends IntegrationTestCase {
 				$addresses,
 				Server::get(ICacheFactory::class),
 				Server::get(RiskScorer::class),
-				Server::get(LockdownService::class),
 			),
 			new PasswordSprayingDetector(
 				$this->settings,

@@ -46,12 +46,6 @@ describe('validateParam', () => {
 		expect(validateParam(choice, 'hourly').error).toBe('Choose one of: off, daily, weekly.')
 	})
 
-	test('a text is one line, and may be empty', () => {
-		expect(validateParam(rules('text'), ' We are under attack. ')).toEqual({ value: 'We are under attack.' })
-		expect(validateParam(rules('text'), '')).toEqual({ value: '' })
-		expect(validateParam(rules('text'), 'two\nlines').error).toBe('Use a single line of text.')
-	})
-
 	test('lists are entered one per line, trimmed and without duplicates', () => {
 		expect(validateParam(rules('string_list'), ' admin \nroot\n\nadmin')).toEqual({ value: ['admin', 'root'] })
 		expect(validateParam(rules('string_list'), ['a', 'b'])).toEqual({ value: ['a', 'b'] })

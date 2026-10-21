@@ -30,7 +30,6 @@ use OCA\IntrusionDetection\Incident\IncidentReports;
 use OCA\IntrusionDetection\Incident\ReportFormat;
 use OCA\IntrusionDetection\Listener\ResetRequestedListener;
 use OCA\IntrusionDetection\Listener\ShareAccessFailedListener;
-use OCA\IntrusionDetection\Lockdown\LockdownState;
 use OCA\IntrusionDetection\Net\RemoteAddressResolver;
 use OCA\IntrusionDetection\Notification\AdminAlerts;
 use OCA\IntrusionDetection\Notification\Digest;
@@ -207,7 +206,7 @@ class NoSecretsTest extends LoginFailureTestCase {
 		}
 
 		$shares = new ShareAccessFailedListener($this->settings, new RemoteAddressResolver($this->request, Server::get(IThrottler::class)), Server::get(AttemptRecorder::class), Server::get(ShareBruteforceDetector::class), $this->request, $this->listenerLogger());
-		$resets = new ResetRequestedListener($this->settings, new RemoteAddressResolver($this->request, Server::get(IThrottler::class)), Server::get(AttemptRecorder::class), Server::get(ResetProbingDetector::class), Server::get(ResetMailSuppressor::class), Server::get(IUserManager::class), $this->request, $this->listenerLogger(), Server::get(LockdownState::class));
+		$resets = new ResetRequestedListener($this->settings, new RemoteAddressResolver($this->request, Server::get(IThrottler::class)), Server::get(AttemptRecorder::class), Server::get(ResetProbingDetector::class), Server::get(ResetMailSuppressor::class), Server::get(IUserManager::class), $this->request, $this->listenerLogger());
 
 		$this->remoteAddress = '198.51.100.7';
 		for ($i = 1; $i <= 10; $i++) {

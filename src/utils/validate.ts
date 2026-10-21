@@ -40,11 +40,6 @@ export function validateParam(param: Pick<Param, 'type' | 'min' | 'max' | 'choic
 			return validateList(raw, () => true)
 		case 'cidr_list':
 			return validateList(raw, isCidr)
-		case 'text':
-			// eslint-disable-next-line no-control-regex
-			return typeof raw === 'string' && !/[\u0000-\u001F\u007F]/.test(raw)
-				? { value: raw.trim() }
-				: { error: t(APP_ID, 'Use a single line of text.') }
 	}
 	return { error: t(APP_ID, 'The value is not valid.') }
 }

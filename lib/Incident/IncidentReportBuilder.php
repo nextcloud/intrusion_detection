@@ -15,7 +15,6 @@ use OCA\IntrusionDetection\Incident\Sources\AdminChangeSource;
 use OCA\IntrusionDetection\Incident\Sources\AppPasswordSource;
 use OCA\IntrusionDetection\Incident\Sources\BanSource;
 use OCA\IntrusionDetection\Incident\Sources\DetectionSource;
-use OCA\IntrusionDetection\Incident\Sources\LockdownSource;
 use OCA\IntrusionDetection\Incident\Sources\LoginSource;
 use OCA\IntrusionDetection\Incident\Sources\SecurityChangeSource;
 use OCA\IntrusionDetection\Incident\Sources\ShareSource;
@@ -47,9 +46,8 @@ class IncidentReportBuilder {
 	/**
 	 * The sources, in the order entries of the same second are listed.
 	 *
-	 * The login history and the lockdown history, the security change log
-	 * and revoked app passwords come with the steps that record them; they
-	 * add their source here.
+	 * Parts of the app that record more events, such as the login history
+	 * and the security change log, add their source here.
 	 */
 	public const SOURCES = [
 		DetectionSource::class,
@@ -60,7 +58,6 @@ class IncidentReportBuilder {
 		ActivitySource::class,
 		LoginSource::class,
 		SecurityChangeSource::class,
-		LockdownSource::class,
 	];
 
 	public function __construct(

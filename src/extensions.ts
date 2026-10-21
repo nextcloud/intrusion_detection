@@ -22,7 +22,7 @@ import { APP_ID } from './utils/format.ts'
  *   component, by `order`, so several parts of the app can fill one tab.
  * - A section in check cards: add an entry to `checkSections`, e.g. "Test a
  *   URL" for one check, rendered in the expanded card after the named section.
- * - The status banner: add a component to `statusSections`, e.g. the lockdown
+ * - The status banner: add a component to `statusSections`, e.g. a
  *   banner; it is rendered under the key figures.
  * - The Blocks tab: add a component to `blocksPanels`, e.g. the firewall export.
  * - The detail of a detection: add an entry to `detectionSections`, e.g. the
@@ -92,7 +92,6 @@ export const tabSections = shallowReactive<TabSection[]>([
 	{ id: 'digest', tab: 'notifications', order: 30, component: defineAsyncComponent(() => import('./components/notifications/DigestSection.vue')) },
 	{ id: 'webhook-events', tab: 'notifications', order: 40, component: defineAsyncComponent(() => import('./components/notifications/WebhookEventsSection.vue')) },
 	{ id: 'risk-score', tab: 'checks', order: 10, component: defineAsyncComponent(() => import('./components/checks/RiskScoreSection.vue')) },
-	{ id: 'lockdown', tab: 'incidents', order: 10, component: defineAsyncComponent(() => import('./components/lockdown/LockdownSection.vue')) },
 ])
 
 export const statusSections = shallowReactive<Component[]>([])

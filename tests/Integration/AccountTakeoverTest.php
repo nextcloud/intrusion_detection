@@ -67,8 +67,6 @@ class AccountTakeoverTest extends TakeoverTestCase {
 
 		$actions = array_column($detection->getActionList(), null, 'type');
 		$this->assertTrue($actions[ResponseType::LockLink->value]['enforced']);
-		$this->assertTrue($actions[ResponseType::ConfirmSensitive->value]['enforced'], 'The session must confirm sensitive actions');
-		$this->assertSame($session['id'], $actions[ResponseType::ConfirmSensitive->value]['ref']['session']);
 
 		$this->assertCount(1, $this->sentTo, 'One lock link');
 		[$address, $mail] = $this->sentTo[0];

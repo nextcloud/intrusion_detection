@@ -47,10 +47,6 @@ class GlobalSettingsPresenter {
 	public const GROUP_RISK = 'risk';
 	/** Office networks and exempt groups, shown in the card of the hosting and Tor networks check */
 	public const GROUP_RISKY_NETWORK = 'risky_network';
-	/** Confirmation before sensitive actions, shown on the Confirmation tab */
-	public const GROUP_SENSITIVE = 'sensitive';
-	/** Lockdown mode, shown in its dialog and on the Incidents tab */
-	public const GROUP_LOCKDOWN = 'lockdown';
 
 	/** Changed through the learning mode endpoint only, so every change is explained and audited as such */
 	private const MANAGED_ELSEWHERE = [GlobalSettings::LEARNING_UNTIL, GlobalSettings::BLOCKLIST_SOURCES];
@@ -215,7 +211,7 @@ class GlobalSettingsPresenter {
 			), self::GROUP_NOTIFICATIONS],
 			GlobalSettings::STEP_UP_KNOWN_DEVICE_OK_FOR => [new ParamText(
 				$l->t('Remembered devices confirm these logins'),
-				$l->t('The reasons for which a browser the user chose to remember confirms a login without asking. A device never confirms a login whose password is being tried by attackers or is known from a breach, or one during lockdown.'),
+				$l->t('The reasons for which a browser the user chose to remember confirms a login without asking. A device never confirms a login whose password is being tried by attackers or is known from a breach.'),
 			), self::GROUP_STEP_UP],
 			GlobalSettings::STEP_UP_ADMIN_APPROVAL => [new ParamText(
 				$l->t('An administrator can approve logins'),
@@ -318,60 +314,6 @@ class GlobalSettingsPresenter {
 				$l->t('Show users their security events'),
 				$l->t('Users see their security events, failed logins, recent logins, remembered devices and trusted networks in their own security settings, and can answer "Was this you?" there. When this is off, that part is hidden; notifications still reach them.'),
 			), self::GROUP_PRIVACY],
-			GlobalSettings::SENSITIVE_GROUPS => [new ParamText(
-				$l->t('Protected actions'),
-				$l->t('The kinds of actions that need a fresh confirmation in a risky session.'),
-			), self::GROUP_SENSITIVE],
-			GlobalSettings::SENSITIVE_ADMINS_ALWAYS => [new ParamText(
-				$l->t('Confirm administrators regularly'),
-				$l->t('Administrator sessions count as risky once the last confirmation that it was really them (a second factor, an email code, or a confirmed action) is older than the age below.'),
-			), self::GROUP_SENSITIVE],
-			GlobalSettings::SENSITIVE_ADMIN_MAX_AGE => [new ParamText(
-				$l->t('For administrators, confirm again after'),
-				$l->t('How old an administrator\'s last confirmation may be before sensitive actions need a new one.'),
-			), self::GROUP_SENSITIVE],
-			GlobalSettings::SENSITIVE_CONFIRM_TTL => [new ParamText(
-				$l->t('A confirmation lasts'),
-				$l->t('After confirming, sensitive actions in that session go ahead without asking again for this long.'),
-			), self::GROUP_SENSITIVE],
-			GlobalSettings::SENSITIVE_NO_METHOD => [new ParamText(
-				$l->t('Accounts that cannot confirm'),
-				$l->t('What happens when an account with neither a second factor nor an email address tries a sensitive action in a risky session: refuse it, or allow it and notify the administrators.'),
-			), self::GROUP_SENSITIVE],
-			GlobalSettings::SENSITIVE_SHARE_MIN_FILES => [new ParamText(
-				$l->t('Large folders have more than'),
-				$l->t('Public links and federated shares of folders with more files than this, and of a whole account, need confirmation.'),
-				$l->t('files'),
-			), self::GROUP_SENSITIVE],
-			GlobalSettings::SENSITIVE_INCLUDE_DISPLAY_NAME => [new ParamText(
-				$l->t('Include display name changes'),
-				$l->t('Changing a display name counts as a sensitive action too. Off by default, because a display name gives no access.'),
-			), self::GROUP_SENSITIVE],
-			GlobalSettings::LOCKDOWN_DEFAULT_DURATION => [new ParamText(
-				$l->t('A lockdown lasts'),
-				$l->t('The duration the "Start lockdown" dialog suggests, between 1 and 24 hours.'),
-			), self::GROUP_LOCKDOWN],
-			GlobalSettings::LOCKDOWN_EFFECTS => [new ParamText(
-				$l->t('Effects of a lockdown'),
-				$l->t('What a lockdown does. You can change them for each lockdown when you start it.'),
-			), self::GROUP_LOCKDOWN],
-			GlobalSettings::LOCKDOWN_KNOWN_DEVICE_OK => [new ParamText(
-				$l->t('Remembered devices confirm logins during lockdown'),
-				$l->t('Off by default: during lockdown, only a second factor, an email code or an administrator confirms a password login.'),
-			), self::GROUP_LOCKDOWN],
-			GlobalSettings::LOCKDOWN_FACTOR => [new ParamText(
-				$l->t('Limits during lockdown'),
-				$l->t('The count limits of the login, share and password reset checks are multiplied by this during lockdown, but never below 2. 0.5 halves them.'),
-				$l->t('× limit'),
-			), self::GROUP_LOCKDOWN],
-			GlobalSettings::LOCKDOWN_AUTO_ON_DISTRIBUTED => [new ParamText(
-				$l->t('Start a lockdown when many addresses try passwords at once'),
-				$l->t('When a distributed credential stuffing attack is detected and the check acts, a lockdown starts for 2 hours.'),
-			), self::GROUP_LOCKDOWN],
-			GlobalSettings::LOCKDOWN_LOGIN_NOTICE => [new ParamText(
-				$l->t('Notice on the login page'),
-				$l->t('Shown above the login form during lockdown. Leave it empty for the default text: "Extra security checks are active. You may be asked to confirm your login."'),
-			), self::GROUP_LOCKDOWN],
 			default => [new ParamText(ucfirst(str_replace('_', ' ', $name))), self::GROUP_OTHER],
 		};
 	}

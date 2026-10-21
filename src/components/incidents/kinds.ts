@@ -7,7 +7,6 @@ import {
 	mdiAccountCheckOutline,
 	mdiAccountCogOutline,
 	mdiKeyOutline,
-	mdiLockAlertOutline,
 	mdiLockOpenVariantOutline,
 	mdiLoginVariant,
 	mdiShareVariantOutline,
@@ -31,7 +30,6 @@ const ICONS: Record<string, string> = {
 	share: mdiShareVariantOutline,
 	login: mdiLoginVariant,
 	security_change: mdiShieldEditOutline,
-	lockdown: mdiLockAlertOutline,
 }
 
 /**

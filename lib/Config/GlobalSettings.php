@@ -18,9 +18,7 @@ use OCA\IntrusionDetection\Confirm\NoMethodOutcome;
 use OCA\IntrusionDetection\Confirm\StepUpPolicy;
 use OCA\IntrusionDetection\Confirm\StepUpReasons;
 use OCA\IntrusionDetection\KnownDevice\KnownDevices;
-use OCA\IntrusionDetection\Lockdown\LockdownEffect;
 use OCA\IntrusionDetection\Risk\AttackTools;
-use OCA\IntrusionDetection\Sensitive\SensitiveRoutes;
 
 /**
  * The settings that belong to the app rather than to one check.
@@ -148,45 +146,6 @@ final class GlobalSettings {
 	/** Whether users see the intrusion detection part of their security settings */
 	public const PERSONAL_PAGE_ENABLED = 'personal_page_enabled';
 
-	/** The groups of sensitive actions that need confirmation in a risky session (concept section 11.13) */
-	public const SENSITIVE_GROUPS = 'sensitive_groups';
-	/** Whether administrator sessions count as risky once their last strong confirmation is old */
-	public const SENSITIVE_ADMINS_ALWAYS = 'sensitive_admins_always';
-	/** Seconds after which an administrator's last strong confirmation is too old */
-	public const SENSITIVE_ADMIN_MAX_AGE = 'sensitive_admin_max_age';
-	/** Seconds a confirmation of a sensitive action lasts */
-	public const SENSITIVE_CONFIRM_TTL = 'sensitive_confirm_ttl';
-	/** What happens to a sensitive action when the account has no way to confirm it */
-	public const SENSITIVE_NO_METHOD = 'sensitive_no_method';
-	/** Public links and federated shares of folders with more files than this need confirmation */
-	public const SENSITIVE_SHARE_MIN_FILES = 'sensitive_share_min_files';
-	/** Whether changing the display name counts as a sensitive action */
-	public const SENSITIVE_INCLUDE_DISPLAY_NAME = 'sensitive_include_display_name';
-	/** Internal: until when sessions marked risky by a detection in another request may exist */
-	public const SENSITIVE_MARKS_UNTIL = 'sensitive_marks_until';
-	/** Internal: until when lockdown mode lasts; 0 when it is off */
-	public const LOCKDOWN_UNTIL = 'lockdown_until';
-	/** Internal: when the running lockdown started */
-	public const LOCKDOWN_STARTED_AT = 'lockdown_started_at';
-	/** Internal: who started the running lockdown: an account, "occ" or "automatic" */
-	public const LOCKDOWN_STARTED_BY = 'lockdown_started_by';
-	/** Internal: why the running lockdown was started */
-	public const LOCKDOWN_REASON = 'lockdown_reason';
-	/** Internal: the history entry of the running lockdown */
-	public const LOCKDOWN_ID = 'lockdown_id';
-	/** Seconds a lockdown lasts unless the administrator chooses otherwise */
-	public const LOCKDOWN_DEFAULT_DURATION = 'lockdown_default_duration';
-	/** The effects of a lockdown that are on */
-	public const LOCKDOWN_EFFECTS = 'lockdown_effects';
-	/** Whether a remembered device confirms a login during lockdown */
-	public const LOCKDOWN_KNOWN_DEVICE_OK = 'lockdown_known_device_ok';
-	/** What count limits are multiplied by during lockdown */
-	public const LOCKDOWN_FACTOR = 'lockdown_factor';
-	/** Whether a distributed credential stuffing attack starts a lockdown */
-	public const LOCKDOWN_AUTO_ON_DISTRIBUTED = 'lockdown_auto_on_distributed';
-	/** The notice on the login page during lockdown; empty for the default text */
-	public const LOCKDOWN_LOGIN_NOTICE = 'lockdown_login_notice';
-
 	/** Seconds in the learning period that starts when the app is first enabled */
 	public const LEARNING_DEFAULT_PERIOD = 7 * 86400;
 
@@ -278,25 +237,6 @@ final class GlobalSettings {
 				new ParamDefinition(self::RISKY_NETWORK_OFFICE_NETWORKS, ParamType::CidrList, [], maxItems: 100),
 				new ParamDefinition(self::RISKY_NETWORK_EXEMPT_GROUPS, ParamType::StringList, [], itemPattern: '/^[^\x00-\x1f\x7f]{1,255}$/u', maxItems: 20),
 				new ParamDefinition(self::PERSONAL_PAGE_ENABLED, ParamType::Bool, true),
-				new ParamDefinition(self::SENSITIVE_GROUPS, ParamType::StringList, SensitiveRoutes::GROUPS, itemPattern: SensitiveRoutes::GROUP_PATTERN, maxItems: count(SensitiveRoutes::GROUPS)),
-				new ParamDefinition(self::SENSITIVE_ADMINS_ALWAYS, ParamType::Bool, true),
-				new ParamDefinition(self::SENSITIVE_ADMIN_MAX_AGE, ParamType::Duration, 3600, min: 300, max: 86400),
-				new ParamDefinition(self::SENSITIVE_CONFIRM_TTL, ParamType::Duration, 600, min: 60, max: 3600),
-				new ParamDefinition(self::SENSITIVE_NO_METHOD, ParamType::Choice, NoMethodOutcome::Refuse->value, choices: [NoMethodOutcome::Refuse->value, NoMethodOutcome::AllowNotify->value]),
-				new ParamDefinition(self::SENSITIVE_SHARE_MIN_FILES, ParamType::Int, 1000, min: 1, max: 1000000),
-				new ParamDefinition(self::SENSITIVE_INCLUDE_DISPLAY_NAME, ParamType::Bool, false),
-				new ParamDefinition(self::SENSITIVE_MARKS_UNTIL, ParamType::Int, 0, min: 0),
-				new ParamDefinition(self::LOCKDOWN_UNTIL, ParamType::Int, 0, min: 0),
-				new ParamDefinition(self::LOCKDOWN_STARTED_AT, ParamType::Int, 0, min: 0),
-				new ParamDefinition(self::LOCKDOWN_STARTED_BY, ParamType::Text, '', maxItemLength: 64),
-				new ParamDefinition(self::LOCKDOWN_REASON, ParamType::Text, '', maxItemLength: LockdownEffect::MAX_REASON),
-				new ParamDefinition(self::LOCKDOWN_ID, ParamType::Int, 0, min: 0),
-				new ParamDefinition(self::LOCKDOWN_DEFAULT_DURATION, ParamType::Duration, 21600, min: LockdownEffect::MIN_DURATION, max: LockdownEffect::MAX_DURATION),
-				new ParamDefinition(self::LOCKDOWN_EFFECTS, ParamType::StringList, LockdownEffect::values(), itemPattern: LockdownEffect::PATTERN, maxItems: count(LockdownEffect::cases())),
-				new ParamDefinition(self::LOCKDOWN_KNOWN_DEVICE_OK, ParamType::Bool, false),
-				new ParamDefinition(self::LOCKDOWN_FACTOR, ParamType::Float, 0.5, min: 0.1, max: 1.0),
-				new ParamDefinition(self::LOCKDOWN_AUTO_ON_DISTRIBUTED, ParamType::Bool, false),
-				new ParamDefinition(self::LOCKDOWN_LOGIN_NOTICE, ParamType::Text, '', maxItemLength: LockdownEffect::MAX_NOTICE),
 			];
 			$this->definitions = [];
 			foreach ($list as $definition) {
@@ -338,8 +278,6 @@ final class GlobalSettings {
 			self::LEARNING_STARTED_AT,
 			self::STEP_UP_SESSIONS_UNTIL,
 			self::DETECTIONS_RETIRED,
-			self::SENSITIVE_MARKS_UNTIL,
-			self::LOCKDOWN_UNTIL, self::LOCKDOWN_STARTED_AT, self::LOCKDOWN_STARTED_BY, self::LOCKDOWN_REASON, self::LOCKDOWN_ID,
 		], true);
 	}
 

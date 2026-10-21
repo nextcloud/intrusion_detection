@@ -19,15 +19,8 @@ namespace OCA\IntrusionDetection\SessionState;
  *
  * A rate limit ({@see self::rateLimited()}) answers 429 with `Retry-After`
  * instead, on every kind of request.
- *
- * Blocks with `$data` add it to the JSON and OCS answers, and also send
- * browsers that submit a form to `$redirectUrl`: a sensitive action that
- * needs a confirmation ({@see self::confirmationRequired()}) answers
- * `403 {"error": "confirmation_required", "url": …}`.
  */
 final class SessionBlock {
-	public const CONFIRMATION_REQUIRED = 'confirmation_required';
-	public const CONFIRMATION_HEADER = 'X-Nextcloud-Confirmation';
 	public function __construct(
 		/** Machine-readable, e.g. "password_change_required" */
 		public readonly string $error,
@@ -39,34 +32,7 @@ final class SessionBlock {
 		public readonly ?string $redirectUrl = null,
 		/** Seconds until the request may be repeated; set for a rate limit only */
 		public readonly ?int $retryAfter = null,
-		/** @var array<string, string|array<string, string>> more for the JSON and OCS answers, such as the URL that resolves the block */
-		public readonly array $data = [],
 	) {
-	}
-
-	/**
-	 * A sensitive action in a session that must confirm it first: 403 with
-	 * the URL of the confirm page, which returns to the page the user was on.
-	 *
-	 * @param array<string, string> $dialog the texts of the dialog that asks for it, in the user's language
-	 */
-	public static function confirmationRequired(string $url, string $message, array $dialog): self {
-		return new self(
-			self::CONFIRMATION_REQUIRED,
-			self::CONFIRMATION_HEADER,
-			'This action needs a fresh confirmation. Confirm it in a browser, then try again.',
-			$url,
-			null,
-			['url' => $url, 'message' => $message, 'dialog' => $dialog],
-		);
-	}
-
-	/**
-	 * A request that is refused outright, with a message for the user and,
-	 * for browsers, a page that explains it.
-	 */
-	public static function refused(string $error, string $davHeader, string $message, ?string $pageUrl): self {
-		return new self($error, $davHeader, $message, $pageUrl, null, ['message' => $message]);
 	}
 
 	/**

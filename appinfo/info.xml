@@ -43,7 +43,6 @@ Every check can be switched between Off, Observe and Protect, every threshold is
         <job>OCA\IntrusionDetection\BackgroundJob\ConfigWatchJob</job>
         <job>OCA\IntrusionDetection\BackgroundJob\ApprovalExpiryJob</job>
         <job>OCA\IntrusionDetection\BackgroundJob\DigestJob</job>
-        <job>OCA\IntrusionDetection\BackgroundJob\LockdownJob</job>
     </background-jobs>
 
     <repair-steps>
@@ -81,7 +80,6 @@ Every check can be switched between Off, Observe and Protect, every threshold is
         <command>OCA\IntrusionDetection\Command\Approvals\Decide</command>
         <command>OCA\IntrusionDetection\Command\Report</command>
         <command>OCA\IntrusionDetection\Command\Users\NoConfirmation</command>
-        <command>OCA\IntrusionDetection\Command\Lockdown</command>
     </commands>
 
     <settings>
@@ -97,6 +95,5 @@ Every check can be switched between Off, Observe and Protect, every threshold is
         <exporter>OCA\IntrusionDetection\OpenMetrics\LearningModeMetric</exporter>
         <exporter>OCA\IntrusionDetection\OpenMetrics\BlocklistRangesMetric</exporter>
         <exporter>OCA\IntrusionDetection\OpenMetrics\ApprovalsPendingMetric</exporter>
-        <exporter>OCA\IntrusionDetection\OpenMetrics\LockdownActiveMetric</exporter>
     </openmetrics>
 </info>

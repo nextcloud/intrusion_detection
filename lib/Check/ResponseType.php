@@ -28,7 +28,6 @@ enum ResponseType: string {
 	case SuppressResetMail = 'suppress_reset_mail';
 	case RateLimit = 'rate_limit';
 	case StepUp = 'step_up';
-	case ConfirmSensitive = 'confirm_sensitive';
 	case LockLink = 'lock_link';
 	case NotifyAdmin = 'notify_admin';
 	case NotifyUser = 'notify_user';
@@ -46,7 +45,6 @@ enum ResponseType: string {
 			self::SuppressResetMail => 43,
 			self::RateLimit => 44,
 			self::StepUp => 50,
-			self::ConfirmSensitive => 51,
 			self::LockLink => 60,
 			self::NotifyAdmin => 90,
 			self::NotifyUser => 91,
@@ -73,7 +71,6 @@ enum ResponseType: string {
 			self::SuppressResetMail => $l->t('Stop sending password reset emails to the flooded account for a while. Whoever asks gets the usual answer.'),
 			self::RateLimit => $l->t('Refuse further requests of this kind for a few minutes.'),
 			self::StepUp => $l->t('Ask the user to confirm the login with their second factor or an email code.'),
-			self::ConfirmSensitive => $l->t('Ask for confirmation before sensitive actions for the rest of the session.'),
 			self::LockLink => $l->t('Email the previous address a link to lock the account.'),
 			self::NotifyAdmin => $l->t('Notify the administrators.'),
 			self::NotifyUser => $l->t('Tell the affected user, with "Was this you?" where it applies.'),

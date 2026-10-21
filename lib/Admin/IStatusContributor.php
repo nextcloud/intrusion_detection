@@ -14,7 +14,7 @@ use OCP\IL10N;
 
 /**
  * Adds to the status the admin page shows on top and the dashboard widget
- * summarises: a field of its own (for example the lockdown state) and
+ * summarises: a field of its own (for example the state of a feature) and
  * problems shown as cards under the status banner (for example from the
  * setup checks). Implementations are listed in {@see StatusService::CONTRIBUTORS}.
  *

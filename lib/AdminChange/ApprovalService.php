@@ -126,7 +126,7 @@ class ApprovalService {
 	 *
 	 * @return ?Approval null when nobody else could approve it, or too many requests are pending
 	 */
-	public function requestLogin(IUser $subject, ?string $ip, int $ttl, ?string $purpose = null): ?Approval {
+	public function requestLogin(IUser $subject, ?string $ip, int $ttl): ?Approval {
 		$now = $this->timeFactory->getTime();
 		$uid = $subject->getUID();
 		if ($this->approvers->except([$uid]) === []
@@ -139,7 +139,6 @@ class ApprovalService {
 		$approval->setKind(Approval::KIND_LOGIN);
 		$approval->setSubjectUid($uid);
 		$approval->setRequestedBy($uid);
-		$approval->setGroupId($purpose);
 		$approval->setIp($ip);
 		$approval->setStatus(Approval::STATUS_PENDING);
 		$approval->setCreatedAt($now);

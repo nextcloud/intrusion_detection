@@ -33,7 +33,6 @@ class SessionStateRules {
 		Rules\LoginHistoryRule::class,
 		Rules\LoginNoticeRule::class,
 		Rules\DirectoryScrapingRule::class,
-		Rules\SensitiveActionRule::class,
 	];
 
 	/** @var list<ISessionStateRule>|null */

@@ -92,7 +92,6 @@ class ConfirmationOrderTest extends TestCase {
 		return [
 			'sprayed password' => [StepUpPolicy::SprayedPassword],
 			'breached password' => [StepUpPolicy::BreachedPassword],
-			'lockdown' => [StepUpPolicy::Lockdown],
 		];
 	}
 
@@ -125,7 +124,7 @@ class ConfirmationOrderTest extends TestCase {
 
 	public function testAdminApprovalNeedsTheSettingAndAnotherAdministrator(): void {
 		$this->approval = true;
-		$this->assertTrue($this->approvalMethod()->isAvailable($this->user(), StepUpPolicy::Lockdown));
+		$this->assertTrue($this->approvalMethod()->isAvailable($this->user(), StepUpPolicy::ProtectedAccount));
 		$this->otherApprovers = false;
 		$this->assertFalse($this->approvalMethod()->isAvailable($this->user(), StepUpPolicy::FlaggedSource), 'Nobody else could approve');
 		$this->otherApprovers = true;

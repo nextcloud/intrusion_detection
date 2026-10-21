@@ -86,13 +86,11 @@ final class AccountTakeover implements ICheck, IExplainsDetection, IExplainsToUs
 			params: $params,
 			responses: [
 				ResponseType::KillSession,
-				ResponseType::ConfirmSensitive,
 				ResponseType::LockLink,
 				ResponseType::NotifyAdmin,
 				ResponseType::NotifyUser,
 			],
 			defaultResponses: [
-				ResponseType::ConfirmSensitive,
 				ResponseType::LockLink,
 				ResponseType::NotifyAdmin,
 				ResponseType::NotifyUser,

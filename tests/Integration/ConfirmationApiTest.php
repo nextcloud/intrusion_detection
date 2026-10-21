@@ -71,14 +71,9 @@ class ConfirmationApiTest extends StepUpTestCase {
 		$data = $this->confirmationApi()->index(true)->getData();
 		$this->assertSame(['second_factor', 'known_device', 'email_code', 'admin_approval'], array_column($data['methods'], 'id'));
 		$this->assertSame('on', $data['methods'][3]['state']);
-		$this->assertSame(['flagged_source', 'sprayed_password', 'protected_account', 'breached_password', 'risky_network', 'risk_high', 'lockdown'], array_column($data['policies'], 'id'));
-		$this->assertSame([true, false, true, false, true, true, true], array_column($data['policies'], 'knownDeviceAllowed'));
-		$this->assertSame('lockdown_known_device_ok', $data['policies'][6]['knownDeviceSetting'], 'Lockdown has its own switch, off by default');
-		$this->assertFalse($data['policies'][6]['knownDevice']);
+		$this->assertSame(['flagged_source', 'sprayed_password', 'protected_account', 'breached_password', 'risky_network', 'risk_high'], array_column($data['policies'], 'id'));
+		$this->assertSame([true, false, true, false, true, true], array_column($data['policies'], 'knownDeviceAllowed'));
 		$this->assertSame(['refuse', 'allow_notify', 'allow_force_change'], array_column($data['outcomes'], 'id'));
-		$this->assertSame(['account', 'second_factor', 'devices', 'sharing', 'admin'], array_column($data['sensitive']['groups'], 'id'));
-		$this->assertSame([true, true, true, true, true], array_column($data['sensitive']['groups'], 'enabled'), 'Every group is protected by default');
-		$this->assertSame('sensitive_groups', $data['sensitive']['setting']);
 		$this->assertCount(1, $data['approvals']);
 		$this->assertSame($bob->getUID(), $data['approvals'][0]['uid']);
 		$this->assertTrue($data['approvals'][0]['canDecide']);

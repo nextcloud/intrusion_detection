@@ -19,7 +19,6 @@ use OCA\IntrusionDetection\Db\AttemptMapper;
 use OCA\IntrusionDetection\Db\AttemptStats;
 use OCA\IntrusionDetection\Detection\AttemptRecord;
 use OCA\IntrusionDetection\Detection\DetectionDraft;
-use OCA\IntrusionDetection\Lockdown\LockdownService;
 use OCA\IntrusionDetection\Net\RemoteAddressResolver;
 use OCA\IntrusionDetection\Net\SourceKey;
 use OCA\IntrusionDetection\Response\BanService;
@@ -40,8 +39,7 @@ use OCP\IMemcache;
  *    failures, addresses and names within 10 minutes. That records one
  *    detection per 30 minutes while it lasts. During it, and for an hour
  *    after, every failing address is flagged; during it, every address with
- *    3 failures for 2 names is blocked. When the detection acts and
- *    `lockdown_auto_on_distributed` is on, it starts a lockdown for 2 hours.
+ *    3 failures for 2 names is blocked.
  */
 class CredentialStuffingDetector {
 	public const KINDS = [AttemptKind::PasswordLogin, AttemptKind::AppPassword];
@@ -69,7 +67,6 @@ class CredentialStuffingDetector {
 		private readonly RemoteAddressResolver $addresses,
 		private readonly ICacheFactory $cacheFactory,
 		private readonly RiskScorer $risk,
-		private readonly LockdownService $lockdown,
 	) {
 	}
 
@@ -170,9 +167,6 @@ class CredentialStuffingDetector {
 			facts: $this->facts(CredentialStuffing::RULE_DISTRIBUTED, $instance) + ['distributed' => true],
 		), $responses);
 		$this->settings->setGlobal(GlobalSettings::CS_DISTRIBUTED_DETECTION, $detection?->getId() ?? 0);
-		if ($detection !== null && $detection->isEnforced()) {
-			$this->lockdown->startAutomatically($detection->getId(), 'Distributed credential stuffing');
-		}
 	}
 
 	/**

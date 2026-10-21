@@ -32,7 +32,7 @@ class AccountTakeoverTest extends TestCase {
 		$definition = (new AccountTakeover($this->dates()))->definition();
 		$this->assertSame(Mode::Protect, $definition->defaultMode);
 		$this->assertSame(Severity::High, $definition->severity);
-		$this->assertSame([ResponseType::ConfirmSensitive, ResponseType::LockLink, ResponseType::NotifyAdmin, ResponseType::NotifyUser], $definition->defaultResponses);
+		$this->assertSame([ResponseType::LockLink, ResponseType::NotifyAdmin, ResponseType::NotifyUser], $definition->defaultResponses);
 		$this->assertTrue($definition->allowsResponse(ResponseType::KillSession), 'Optional, off by default');
 		$this->assertSame(3600, $definition->param(AccountTakeover::PARAM_WINDOW)->default);
 		$this->assertSame(3, $definition->param(AccountTakeover::PARAM_MIN_POINTS)->default);

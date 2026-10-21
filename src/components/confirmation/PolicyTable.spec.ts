@@ -26,9 +26,9 @@ const outcomes: ConfirmationOutcome[] = [
 ]
 
 const policies: ConfirmationPolicy[] = [
-	{ id: 'flagged_source', label: 'Login from an attacking address', why: 'The address was part of an attack.', default: 'refuse', outcome: 'refuse', setting: 'step_up_no_method_flagged_source', knownDevice: true, knownDeviceAllowed: true, knownDeviceSetting: 'step_up_known_device_ok_for' },
-	{ id: 'sprayed_password', label: 'Login with a sprayed password', why: 'Attackers are trying it.', default: 'refuse', outcome: 'refuse', setting: 'step_up_no_method_sprayed_password', knownDevice: false, knownDeviceAllowed: false, knownDeviceSetting: 'step_up_known_device_ok_for' },
-	{ id: 'breached_password', label: 'Login with a breached password', why: 'It must change anyway.', default: 'allow_force_change', outcome: 'allow_notify', setting: 'step_up_no_method_breached_password', knownDevice: false, knownDeviceAllowed: false, knownDeviceSetting: 'step_up_known_device_ok_for' },
+	{ id: 'flagged_source', label: 'Login from an attacking address', why: 'The address was part of an attack.', default: 'refuse', outcome: 'refuse', setting: 'step_up_no_method_flagged_source', knownDevice: true, knownDeviceAllowed: true },
+	{ id: 'sprayed_password', label: 'Login with a sprayed password', why: 'Attackers are trying it.', default: 'refuse', outcome: 'refuse', setting: 'step_up_no_method_sprayed_password', knownDevice: false, knownDeviceAllowed: false },
+	{ id: 'breached_password', label: 'Login with a breached password', why: 'It must change anyway.', default: 'allow_force_change', outcome: 'allow_notify', setting: 'step_up_no_method_breached_password', knownDevice: false, knownDeviceAllowed: false },
 ]
 
 const knownDeviceSetting: GlobalSetting = { name: 'step_up_known_device_ok_for', type: 'string_list', default: [], min: null, max: null, choices: [], value: ['flagged_source', 'risk_high'], label: '', help: '', unit: '', group: 'step_up' }
@@ -80,15 +80,5 @@ describe('PolicyTable', () => {
 		await flushPromises()
 		expect(updateSettings).toHaveBeenCalledWith({ step_up_known_device_ok_for: ['risk_high'] })
 		expect(state.settings[0]!.value).toEqual(['risk_high'])
-	})
-
-	test('during lockdown, a remembered device counts only by its own switch', async () => {
-		const lockdown: ConfirmationPolicy = { id: 'lockdown', label: 'Login during lockdown', why: 'An administrator chose to lock down.', default: 'refuse', outcome: 'refuse', setting: 'step_up_no_method_lockdown', knownDevice: false, knownDeviceAllowed: true, knownDeviceSetting: 'lockdown_known_device_ok' }
-		vi.mocked(updateSettings).mockResolvedValue({ settings: [knownDeviceSetting], templates: {} })
-		const wrapper = mount(PolicyTable, { props: { policies: [lockdown], outcomes } })
-		await wrapper.get('tbody tr input[type="checkbox"]').setValue(true)
-		await flushPromises()
-		expect(updateSettings).toHaveBeenCalledWith({ lockdown_known_device_ok: true })
-		expect(wrapper.emitted('changed')?.[0]?.[0]).toEqual([{ ...lockdown, knownDevice: true }])
 	})
 })

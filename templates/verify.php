@@ -8,19 +8,15 @@ declare(strict_types=1);
  */
 
 /** @var \OCP\IL10N $l */
-/** @var array{mode: string, title: string, lead: string, logout_url: string, login_url: string, requesttoken: string, why?: ?string, error?: ?string, notice?: ?string, hasCode?: bool, attemptsLeft?: ?string, canResend?: bool, resendLabel?: string, secondFactor?: bool, askAdmin?: bool, waiting?: bool, canRemember?: bool, rememberFor?: string, warning?: string, escapeUrl?: string, escapeLabel?: string, confirmAction?: string, resendAction?: string, secondFactorAction?: string, askAdminAction?: string, waitingUrl?: string, redirect_url?: string, reference?: ?string, hint?: ?string, backUrl?: string, backLabel?: string, expires?: string, codeUrl?: string, statusUrl?: string, pollInterval?: int, continueAction?: string, cancelAction?: string, cancelLabel?: string} $_ */
+/** @var array{mode: string, title: string, lead: string, logout_url: string, login_url: string, requesttoken: string, why?: ?string, error?: ?string, notice?: ?string, hasCode?: bool, attemptsLeft?: ?string, canResend?: bool, secondFactor?: bool, askAdmin?: bool, waiting?: bool, canRemember?: bool, rememberFor?: string, confirmAction?: string, resendAction?: string, secondFactorAction?: string, askAdminAction?: string, waitingUrl?: string, redirect_url?: string, reference?: ?string, expires?: string, codeUrl?: string, statusUrl?: string, pollInterval?: int, continueAction?: string, cancelAction?: string} $_ */
 $mode = $_['mode'];
 $error = $_['error'] ?? null;
 $notice = $_['notice'] ?? null;
 $described = $error !== null ? 'ids-verify-error' : null;
-// Without a code in the mailbox, the second factor is the main way to confirm.
-$secondFactorFirst = $mode === 'code' && !($_['hasCode'] ?? false) && ($_['secondFactor'] ?? false);
 ?>
 <div class="guest-box ids-page">
-	<?php if ($mode === 'code' && !$secondFactorFirst): ?>
+	<?php if ($mode === 'code'): ?>
 		<div class="ids-page__icon ids-page__icon--mail" aria-hidden="true"></div>
-	<?php elseif ($mode === 'code'): ?>
-		<div class="ids-page__icon" aria-hidden="true"></div>
 	<?php elseif ($mode === 'waiting'): ?>
 		<div class="ids-page__icon ids-page__icon--waiting" aria-hidden="true"></div>
 	<?php else: ?>
@@ -61,24 +57,18 @@ $secondFactorFirst = $mode === 'code' && !($_['hasCode'] ?? false) && ($_['secon
 				<?php endif; ?>
 				<button class="primary ids-page__submit" type="submit"><?php p($l->t('Confirm and continue')); ?></button>
 			</form>
-		<?php elseif ($secondFactorFirst): ?>
-			<form class="ids-page__form" method="post" action="<?php p($_['secondFactorAction'] ?? ''); ?>">
-				<input type="hidden" name="requesttoken" value="<?php p($_['requesttoken']); ?>">
-				<input type="hidden" name="redirect_url" value="<?php p($_['redirect_url'] ?? ''); ?>">
-				<button class="primary ids-page__submit" type="submit" autofocus><?php p($l->t('Confirm with your second factor')); ?></button>
-			</form>
 		<?php endif; ?>
 
-		<?php if (($_['canResend'] ?? false) || (($_['secondFactor'] ?? false) && !$secondFactorFirst) || ($_['askAdmin'] ?? false)): ?>
+		<?php if (($_['canResend'] ?? false) || ($_['secondFactor'] ?? false) || ($_['askAdmin'] ?? false)): ?>
 			<div class="ids-page__alternatives">
 				<?php if ($_['canResend'] ?? false): ?>
 					<form method="post" action="<?php p($_['resendAction'] ?? ''); ?>">
 						<input type="hidden" name="requesttoken" value="<?php p($_['requesttoken']); ?>">
 						<input type="hidden" name="redirect_url" value="<?php p($_['redirect_url'] ?? ''); ?>">
-						<button class="ids-page__secondary" type="submit"><?php p($_['resendLabel'] ?? $l->t('Send a new code')); ?></button>
+						<button class="ids-page__secondary" type="submit"><?php p($l->t('Send a new code')); ?></button>
 					</form>
 				<?php endif; ?>
-				<?php if (($_['secondFactor'] ?? false) && !$secondFactorFirst): ?>
+				<?php if ($_['secondFactor'] ?? false): ?>
 					<form method="post" action="<?php p($_['secondFactorAction'] ?? ''); ?>">
 						<input type="hidden" name="requesttoken" value="<?php p($_['requesttoken']); ?>">
 						<input type="hidden" name="redirect_url" value="<?php p($_['redirect_url'] ?? ''); ?>">
@@ -98,11 +88,11 @@ $secondFactorFirst = $mode === 'code' && !($_['hasCode'] ?? false) && ($_['secon
 		<?php endif; ?>
 
 		<p class="ids-page__warning">
-			<?php p($_['warning'] ?? $l->t('If you did not just log in, someone knows your password. Do not enter the code anywhere; log out and change your password.')); ?>
+			<?php p($l->t('If you did not just log in, someone knows your password. Do not enter the code anywhere; log out and change your password.')); ?>
 		</p>
 
 		<div class="ids-page__actions">
-			<a href="<?php p($_['escapeUrl'] ?? $_['logout_url']); ?>"><?php p($_['escapeLabel'] ?? $l->t('Log out')); ?></a>
+			<a href="<?php p($_['logout_url']); ?>"><?php p($l->t('Log out')); ?></a>
 		</div>
 	<?php elseif ($mode === 'waiting'): ?>
 		<?php if (($_['why'] ?? null) !== null): ?>
@@ -137,25 +127,21 @@ $secondFactorFirst = $mode === 'code' && !($_['hasCode'] ?? false) && ($_['secon
 			<?php endif; ?>
 			<form method="post" action="<?php p($_['cancelAction'] ?? ''); ?>">
 				<input type="hidden" name="requesttoken" value="<?php p($_['requesttoken']); ?>">
-				<input type="hidden" name="redirect_url" value="<?php p($_['redirect_url'] ?? ''); ?>">
-				<button class="ids-page__secondary" type="submit"><?php p($_['cancelLabel'] ?? $l->t('Cancel this login')); ?></button>
+				<button class="ids-page__secondary" type="submit"><?php p($l->t('Cancel this login')); ?></button>
 			</form>
 		</div>
 
 		<p class="ids-page__warning">
-			<?php p($_['warning'] ?? $l->t('If you did not just log in, someone knows your password. Cancel this login, then change your password.')); ?>
+			<?php p($l->t('If you did not just log in, someone knows your password. Cancel this login, then change your password.')); ?>
 		</p>
 	<?php elseif ($mode === 'refused'): ?>
-		<?php if (($_['hint'] ?? null) !== null): ?>
-			<p class="ids-page__hint"><?php p($_['hint']); ?></p>
-		<?php endif; ?>
 		<?php if (($_['reference'] ?? null) !== null): ?>
 			<p class="ids-page__hint">
 				<?php p($l->t('Reference:')); ?> <span class="ids-page__reference"><?php p($_['reference']); ?></span>
 			</p>
 		<?php endif; ?>
 		<div class="ids-page__actions">
-			<a href="<?php p($_['backUrl'] ?? $_['login_url']); ?>"><?php p($_['backLabel'] ?? $l->t('Back to the login page')); ?></a>
+			<a href="<?php p($_['login_url']); ?>"><?php p($l->t('Back to the login page')); ?></a>
 		</div>
 	<?php else: ?>
 		<div class="ids-page__actions">

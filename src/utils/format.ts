@@ -48,8 +48,6 @@ const CHOICES: Record<string, () => string> = {
 	high: () => t(APP_ID, 'High'),
 	critical: () => t(APP_ID, 'Critical'),
 	never: () => t(APP_ID, 'Never'),
-	refuse: () => t(APP_ID, 'Refuse'),
-	allow_notify: () => t(APP_ID, 'Allow and notify'),
 }
 
 /**

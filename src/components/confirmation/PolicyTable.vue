@@ -84,11 +84,6 @@ function setOutcome(policy: ConfirmationPolicy, outcome: string) {
  * @param on - Whether a remembered device confirms such logins
  */
 function setKnownDevice(policy: ConfirmationPolicy, on: boolean) {
-	if (policy.knownDeviceSetting !== KNOWN_DEVICE_SETTING) {
-		// A reason with a switch of its own, such as lockdown.
-		void save(policy, { [policy.knownDeviceSetting]: on }, { ...policy, knownDevice: on })
-		return
-	}
 	const current = state.settings.find((s) => s.name === KNOWN_DEVICE_SETTING)?.value
 	const list = (Array.isArray(current) ? current : []).filter((id) => id !== policy.id)
 	if (on) {

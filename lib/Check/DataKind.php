@@ -41,8 +41,4 @@ enum DataKind: string {
 	case SecureAccountProgress = 'secure_account_progress';
 	/** Failed logins per account and day, for the user's own security page */
 	case FailedLoginDays = 'failed_login_days';
-	/** Session tokens that must confirm sensitive actions */
-	case RiskySessions = 'risky_sessions';
-	/** The history of lockdowns */
-	case Lockdowns = 'lockdowns';
 }

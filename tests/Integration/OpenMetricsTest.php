@@ -24,7 +24,6 @@ use OCA\IntrusionDetection\OpenMetrics\BlocklistRangesMetric;
 use OCA\IntrusionDetection\OpenMetrics\DetectionsMetric;
 use OCA\IntrusionDetection\OpenMetrics\GuardSecondsMetric;
 use OCA\IntrusionDetection\OpenMetrics\LearningModeMetric;
-use OCA\IntrusionDetection\OpenMetrics\LockdownActiveMetric;
 use OCA\IntrusionDetection\Response\BanService;
 use OCP\App\IAppManager;
 use OCP\IConfig;
@@ -49,7 +48,6 @@ class OpenMetricsTest extends IntegrationTestCase {
 		LearningModeMetric::class,
 		BlocklistRangesMetric::class,
 		ApprovalsPendingMetric::class,
-		LockdownActiveMetric::class,
 	];
 
 	private function detection(string $check, string $severity, bool $enforced, int $createdAt, ?string $ip = null, ?string $uid = null): void {
