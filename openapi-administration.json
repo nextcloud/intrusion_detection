@@ -5977,7 +5977,7 @@
                         }
                     },
                     "400": {
-                        "description": "The action or the number of days is not valid",
+                        "description": "The action or the number of days is not valid, or the learning period would last more than 30 days in all",
                         "content": {
                             "application/json": {
                                 "schema": {
@@ -11855,7 +11855,7 @@
         },
         {
             "name": "approval",
-            "description": "Requests for the approval of a second administrator: the list, and the decisions (also the actions of the approval notification). Administrators only (the default for controllers) and CSRF-protected. A decision needs a recent password confirmation; the rules who may decide are in {@see ApprovalService}, shared with occ. Approving also needs the deciding administrator's own login to have been confirmed when it needed a confirmation: a session that was let in without one must not let others in."
+            "description": "Requests for the approval of a second administrator: the list, and the decisions (also the actions of the approval notification). Administrators only (the default for controllers) and CSRF-protected. A decision needs a recent password confirmation; the rules who may decide are in {@see ApprovalService}, shared with occ. Approving also needs the deciding administrator's own session not to be unconfirmed ({@see SessionConfirmation::isUnconfirmed()}): a session that was let in without its confirmation, still waits for it, or uses an app password must not let others in."
         },
         {
             "name": "blocklist_api",

@@ -34,7 +34,8 @@ use OCP\AppFramework\Utility\ITimeFactory;
  *   group), the brute-force allowlist or `trusted_proxies` changed, 2FA
  *   enforcement switched off, this app switched off, learning mode started,
  *   a check weakened to Observe or Off, or four-eyes approval switched off;
- * - medium: an app switched on or off, a group administrator appointed;
+ * - medium: an app switched on or off, a group administrator appointed, a
+ *   running learning period made longer;
  * - low: everything else.
  *
  * Every administrator is notified, also the one who made the change; the
@@ -134,8 +135,14 @@ class AdminChangeDetector {
 		if (($name === GlobalSettings::ENABLED || $name === GlobalSettings::ADMIN_CHANGE_REQUIRE_APPROVAL) && self::isOn($old) && !self::isOn($new)) {
 			return Severity::High;
 		}
-		if ($name === GlobalSettings::LEARNING_UNTIL && is_numeric($new) && (int)$new > $now && (!is_numeric($old) || (int)$old <= $now)) {
-			return Severity::High;
+		if ($name === GlobalSettings::LEARNING_UNTIL && is_numeric($new) && (int)$new > $now) {
+			$wasLearning = is_numeric($old) && (int)$old > $now;
+			if (!$wasLearning) {
+				return Severity::High;
+			}
+			if ((int)$new > (int)$old) {
+				return Severity::Medium;
+			}
 		}
 		if (preg_match('/^check_[a-z0-9_]{3,32}_mode$/', $name) === 1 && self::modeRank($new) < self::modeRank($old)) {
 			return Severity::High;

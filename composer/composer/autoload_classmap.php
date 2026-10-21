@@ -371,6 +371,7 @@ return array(
     'OCA\\IntrusionDetection\\KnownDevice\\IKnownDevices' => $baseDir . '/../lib/KnownDevice/IKnownDevices.php',
     'OCA\\IntrusionDetection\\KnownDevice\\KnownDevice' => $baseDir . '/../lib/KnownDevice/KnownDevice.php',
     'OCA\\IntrusionDetection\\KnownDevice\\KnownDevices' => $baseDir . '/../lib/KnownDevice/KnownDevices.php',
+    'OCA\\IntrusionDetection\\Learning\\LearningLimitException' => $baseDir . '/../lib/Learning/LearningLimitException.php',
     'OCA\\IntrusionDetection\\Learning\\LearningService' => $baseDir . '/../lib/Learning/LearningService.php',
     'OCA\\IntrusionDetection\\Listener\\AdminChangeListener' => $baseDir . '/../lib/Listener/AdminChangeListener.php',
     'OCA\\IntrusionDetection\\Listener\\AppPasswordCreatedListener' => $baseDir . '/../lib/Listener/AppPasswordCreatedListener.php',

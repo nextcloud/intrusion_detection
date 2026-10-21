@@ -311,6 +311,15 @@ class AdminApiTest extends IntegrationTestCase {
 		$this->assertFalse($this->controller->updateLearning('stop')->getData()['active']);
 	}
 
+	public function testTheApiExplainsTheLimitOfThirtyDays(): void {
+		$this->controller->updateLearning('start', 25);
+		$response = $this->controller->updateLearning('extend', 7);
+		$this->assertSame(Http::STATUS_BAD_REQUEST, $response->getStatus());
+		$this->assertSame('learning_limit', $response->getData()['reason']);
+		$this->assertStringContainsString('Learning mode lasts at most 30 days in all, so that protection cannot stay off for long.', $response->getData()['message']);
+		$this->assertSame(25, $this->controller->updateLearning('extend', 5)->getData()['daysLeft'] - 5, 'Up to the limit');
+	}
+
 	public function testScrubKeepsOrdinaryFacts(): void {
 		$this->assertSame(
 			['failures' => 14, 'targets' => ['alice', 'bob'], 'path' => '/.env', 'tokenIds' => [5], 'list' => ['kept']],

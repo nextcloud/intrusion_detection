@@ -33,6 +33,7 @@ use OCA\IntrusionDetection\Config\Settings;
 use OCA\IntrusionDetection\Db\BanMapper;
 use OCA\IntrusionDetection\Db\DetectionFilter;
 use OCA\IntrusionDetection\Db\DetectionMapper;
+use OCA\IntrusionDetection\Learning\LearningLimitException;
 use OCA\IntrusionDetection\Learning\LearningService;
 use OCA\IntrusionDetection\Net\RemoteAddressResolver;
 use OCA\IntrusionDetection\Net\SourceKey;
@@ -516,7 +517,7 @@ class AdminApiController extends OCSController {
 	 * @return DataResponse<Http::STATUS_OK, IntrusionDetectionLearning, array{}>|DataResponse<Http::STATUS_BAD_REQUEST, IntrusionDetectionError, array{}>
 	 *
 	 * 200: Learning mode changed
-	 * 400: The action or the number of days is not valid
+	 * 400: The action or the number of days is not valid, or the learning period would last more than 30 days in all
 	 */
 	#[ApiRoute(verb: 'PUT', url: '/api/v1/learning')]
 	#[PasswordConfirmationRequired]
@@ -531,10 +532,19 @@ class AdminApiController extends OCSController {
 		if ($days < LearningService::MIN_DAYS || $days > LearningService::MAX_DAYS) {
 			return $this->error($this->l->t('Learning mode lasts 1 to 30 days.'), 'days', 'invalid_days');
 		}
-		if ($action === 'start') {
-			$this->learningService->start($days, $this->actor());
-		} else {
-			$this->learningService->extend($days, $this->actor());
+		try {
+			if ($action === 'start') {
+				$this->learningService->start($days, $this->actor());
+			} else {
+				$this->learningService->extend($days, $this->actor());
+			}
+		} catch (LearningLimitException $e) {
+			return $this->error($this->l->n(
+				'Learning mode lasts at most %n day in all, so that protection cannot stay off for long. This learning period started on %1$s and can last until %2$s at the latest.',
+				'Learning mode lasts at most %n days in all, so that protection cannot stay off for long. This learning period started on %1$s and can last until %2$s at the latest.',
+				LearningService::MAX_DAYS,
+				[(string)$this->l->l('datetime', $e->startedAt), (string)$this->l->l('datetime', $e->latest)],
+			), 'days', 'learning_limit');
 		}
 		return new DataResponse($this->status->learning());
 	}

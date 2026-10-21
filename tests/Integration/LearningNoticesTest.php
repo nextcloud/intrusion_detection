@@ -146,6 +146,16 @@ class LearningNoticesTest extends IntegrationTestCase {
 		Server::get(Notifier::class)->prepare($notice, 'en');
 	}
 
+	public function testExtendingSendsTheNoticeAgainBeforeTheNewEnd(): void {
+		$this->setLearningUntil(time() + 3600);
+		$this->assertTrue($this->notices->sendEndingNoticeIfDue());
+		$this->learning->extend(3, 'admin');
+		$this->assertFalse($this->notices->sendEndingNoticeIfDue(), 'Not before the last day of the new period');
+
+		$this->appConfig->setValueInt(Application::APP_ID, GlobalSettings::LEARNING_UNTIL, time() + 3600);
+		$this->assertTrue($this->notices->sendEndingNoticeIfDue(), 'The last day of the new period has its notice');
+	}
+
 	public function testTheNoticeIsGoneOnceLearningEndedByItself(): void {
 		$this->setLearningUntil(time() + 3600);
 		$this->notices->sendEndingNoticeIfDue();

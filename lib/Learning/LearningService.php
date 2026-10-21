@@ -26,12 +26,16 @@ use OCP\Notification\IManager as INotificationManager;
  * installed and can be started again for 1 to 30 days at any time.
  *
  * Starting, extending and ending it is written to the audit log with who
- * did it. An administrator (page or occ) who starts or extends it while the
- * instance was protecting weakens protection, like switching a check to
- * Observe: that is also reported as an administration change, with high
- * severity. Changing a running period, ending it, and the app's own changes
- * at installation and when the period is over are not. A change of
- * `learning_until` made around the app is reported by the config watch.
+ * did it. An administrator (page or occ) who moves its end to a later date
+ * keeps protection weakened for longer, like switching a check to Observe:
+ * that is also reported as an administration change, high when the
+ * instance was protecting before, medium when it was learning already.
+ * Ending or shortening it, and the app's own changes at installation and
+ * when the period is over, are not. A change of `learning_until` made
+ * around the app is reported by the config watch.
+ *
+ * One learning period lasts at most MAX_DAYS from its start, however often
+ * it is started again or extended while it runs ({@see LearningLimitException}).
  *
  * Every change of the period removes the "learning ends tomorrow" notice:
  * it was about the period before.
@@ -62,36 +66,68 @@ class LearningService {
 	}
 
 	/**
-	 * Start (or restart) learning mode for a number of days.
+	 * Start (or restart) learning mode for a number of days. While a period
+	 * runs, it sets that period's end; the period keeps its start.
+	 *
+	 * @throws LearningLimitException when the end would be more than MAX_DAYS after the period's start
 	 */
 	public function start(int $days, string $actor): int {
 		if ($days < self::MIN_DAYS || $days > self::MAX_DAYS) {
 			throw new \InvalidArgumentException('Learning mode lasts 1 to 30 days');
 		}
-		$protecting = !$this->isActive();
-		$until = $this->timeFactory->getTime() + $days * 86400;
-		$this->settings->setGlobal(GlobalSettings::LEARNING_UNTIL, $until, reported: $protecting);
-		$this->settings->setGlobal(GlobalSettings::LEARNING_STARTED_AT, $this->timeFactory->getTime());
-		$this->settings->setGlobal(GlobalSettings::LEARNING_NOTICE_SENT, 0);
-		$this->dismissEndingNotice();
+		$until = $this->setUntil($this->timeFactory->getTime() + $days * 86400);
 		$this->audit->log('learning mode started for %s days by %s', ['days' => $days, 'actor' => $actor]);
 		return $until;
 	}
 
 	/**
 	 * Add days to a running learning period (or start one).
+	 *
+	 * @throws LearningLimitException when the end would be more than MAX_DAYS after the period's start
 	 */
 	public function extend(int $days, string $actor): int {
+		$until = $this->setUntil(max($this->until(), $this->timeFactory->getTime()) + $days * 86400);
+		$this->audit->log('learning mode extended by %s days by %s', ['days' => $days, 'actor' => $actor]);
+		return $until;
+	}
+
+	/**
+	 * When the running learning period started, 0 while protecting.
+	 */
+	public function startedAt(): int {
+		if (!$this->isActive()) {
+			return 0;
+		}
+		$started = $this->settings->getInt(GlobalSettings::LEARNING_STARTED_AT);
+		return $started > 0 ? $started : $this->settings->getInt(GlobalSettings::INSTALLED_AT);
+	}
+
+	/**
+	 * The latest end a learning period that starts now, or the running one, may have.
+	 */
+	public function latestUntil(): int {
+		$started = $this->startedAt();
+		return ($started > 0 ? $started : $this->timeFactory->getTime()) + self::MAX_DAYS * 86400;
+	}
+
+	/**
+	 * Set the end of the learning period, starting one while protecting.
+	 * A later end than before is an administration change. The "learning
+	 * ends tomorrow" notice is sent again before the new end.
+	 */
+	private function setUntil(int $until): int {
+		$latest = $this->latestUntil();
+		if ($until > $latest) {
+			throw new LearningLimitException($latest, $this->startedAt());
+		}
 		$protecting = !$this->isActive();
+		$before = $this->until();
+		$this->settings->setGlobal(GlobalSettings::LEARNING_UNTIL, $until, reported: $until > $before);
 		if ($protecting) {
 			$this->settings->setGlobal(GlobalSettings::LEARNING_STARTED_AT, $this->timeFactory->getTime());
 		}
-		$base = max($this->until(), $this->timeFactory->getTime());
-		$until = min($base + $days * 86400, $this->timeFactory->getTime() + self::MAX_DAYS * 86400);
-		$this->settings->setGlobal(GlobalSettings::LEARNING_UNTIL, $until, reported: $protecting);
 		$this->settings->setGlobal(GlobalSettings::LEARNING_NOTICE_SENT, 0);
 		$this->dismissEndingNotice();
-		$this->audit->log('learning mode extended by %s days by %s', ['days' => $days, 'actor' => $actor]);
 		return $until;
 	}
 

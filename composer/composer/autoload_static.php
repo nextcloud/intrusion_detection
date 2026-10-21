@@ -386,6 +386,7 @@ class ComposerStaticInitIntrusionDetection
         'OCA\\IntrusionDetection\\KnownDevice\\IKnownDevices' => __DIR__ . '/..' . '/../lib/KnownDevice/IKnownDevices.php',
         'OCA\\IntrusionDetection\\KnownDevice\\KnownDevice' => __DIR__ . '/..' . '/../lib/KnownDevice/KnownDevice.php',
         'OCA\\IntrusionDetection\\KnownDevice\\KnownDevices' => __DIR__ . '/..' . '/../lib/KnownDevice/KnownDevices.php',
+        'OCA\\IntrusionDetection\\Learning\\LearningLimitException' => __DIR__ . '/..' . '/../lib/Learning/LearningLimitException.php',
         'OCA\\IntrusionDetection\\Learning\\LearningService' => __DIR__ . '/..' . '/../lib/Learning/LearningService.php',
         'OCA\\IntrusionDetection\\Listener\\AdminChangeListener' => __DIR__ . '/..' . '/../lib/Listener/AdminChangeListener.php',
         'OCA\\IntrusionDetection\\Listener\\AppPasswordCreatedListener' => __DIR__ . '/..' . '/../lib/Listener/AppPasswordCreatedListener.php',
