@@ -85,23 +85,19 @@ class Set extends Base {
 				}
 			}
 
-			if ($mode !== null) {
-				$this->settings->setMode($id, $mode);
-			}
-			foreach ($params as $name => $value) {
-				$this->settings->setParam($id, $name, $value);
-			}
-			if ($responses !== null) {
-				$this->settings->setResponses($id, $responses);
-			}
+			$changes = $this->settings->updateCheck($id, $mode, $params, $responses);
 		} catch (InvalidParamException $e) {
 			$output->writeln('<error>' . $e->describe($this->l) . '</error>');
 			return self::INVALID;
 		}
+		if ($changes === []) {
+			$output->writeln('Nothing changed.');
+			return self::SUCCESS;
+		}
 		$this->audit->log('check %s changed by %s: %s', [
 			'check' => $id,
 			'actor' => 'occ',
-			'change' => json_encode(['mode' => $mode?->value, 'params' => $params, 'responses' => $responses === null ? null : array_map(static fn (ResponseType $r): string => $r->value, $responses)]),
+			'change' => json_encode($changes),
 		]);
 		$output->writeln('Saved.');
 		return self::SUCCESS;

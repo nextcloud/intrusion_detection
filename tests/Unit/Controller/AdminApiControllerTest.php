@@ -208,7 +208,7 @@ class AdminApiControllerTest extends TestCase {
 	public function testUpdateCheckValidatesEverythingBeforeSaving(): void {
 		$this->settings->expects($this->never())->method('setMode');
 		$this->settings->expects($this->never())->method('setParam');
-		$this->settings->expects($this->never())->method('setResponses');
+		$this->settings->expects($this->never())->method('updateCheck');
 		$this->audit->expects($this->never())->method('log');
 
 		$response = $this->controller->updateCheck(self::CHECK, 'observe', ['ban'], ['window' => 600, 'min_failures' => 2]);
@@ -218,22 +218,22 @@ class AdminApiControllerTest extends TestCase {
 	}
 
 	public function testUpdateCheckSavesAndAudits(): void {
-		$this->settings->expects($this->once())->method('setMode')->with(self::CHECK, Mode::Observe);
-		$params = [];
-		$this->settings->expects($this->exactly(2))->method('setParam')
-			->willReturnCallback(function (string $check, string $name, mixed $value) use (&$params): void {
-				$params[$name] = $value;
-			});
-		$this->settings->expects($this->once())->method('setResponses')->with(self::CHECK, [ResponseType::Ban, ResponseType::NotifyAdmin]);
+		// Text as typed into a field is parsed like occ does it.
+		$this->settings->expects($this->once())->method('updateCheck')
+			->with(self::CHECK, Mode::Observe, ['window' => 600, 'min_failures' => 20], [ResponseType::Ban, ResponseType::NotifyAdmin])
+			->willReturn(['mode' => 'observe', 'params' => ['min_failures' => 20]]);
 		$this->audit->expects($this->once())->method('log')->with('check %s changed by %s: %s', $this->callback(
-			fn (array $p): bool => $p['check'] === self::CHECK && $p['actor'] === 'alice' && str_contains((string)$p['change'], '"min_failures":20'),
+			fn (array $p): bool => $p['check'] === self::CHECK && $p['actor'] === 'alice' && str_contains((string)$p['change'], '"min_failures":20') && !str_contains((string)$p['change'], 'window'),
 		));
 
 		$response = $this->controller->updateCheck(self::CHECK, 'observe', ['ban', 'notify_admin'], ['window' => '10m', 'min_failures' => 20]);
-
 		$this->assertSame(Http::STATUS_OK, $response->getStatus());
-		// Text as typed into a field is parsed like occ does it.
-		$this->assertSame(['window' => 600, 'min_failures' => 20], $params);
+	}
+
+	public function testAChangeThatChangesNothingIsNotAudited(): void {
+		$this->settings->method('updateCheck')->willReturn([]);
+		$this->audit->expects($this->never())->method('log');
+		$this->assertSame(Http::STATUS_OK, $this->controller->updateCheck(self::CHECK, 'protect')->getStatus());
 	}
 
 	public function testUpdateCheckRefusesUnknownResponsesAndModes(): void {
@@ -245,7 +245,7 @@ class AdminApiControllerTest extends TestCase {
 	}
 
 	public function testUpdateCheckExplainsAMissingRequirement(): void {
-		$this->settings->method('setMode')->willThrowException(new InvalidParamException('mode_unavailable', ['why' => 'memory_cache']));
+		$this->settings->method('updateCheck')->willThrowException(new InvalidParamException('mode_unavailable', ['why' => 'memory_cache']));
 		$response = $this->controller->updateCheck(self::CHECK, 'protect');
 		$this->assertSame(Http::STATUS_BAD_REQUEST, $response->getStatus());
 		$this->assertStringContainsString('Needs a memory cache', $response->getData()['message']);
@@ -383,7 +383,7 @@ class AdminApiControllerTest extends TestCase {
 	}
 
 	public function testSettingsRefuseInternalAndUnknownKeys(): void {
-		$this->settings->expects($this->never())->method('setGlobal');
+		$this->settings->expects($this->never())->method('updateGlobals');
 		foreach ([GlobalSettings::BAN_VERSION, GlobalSettings::INSTALLED_AT, GlobalSettings::LEARNING_UNTIL, 'no_such_setting'] as $name) {
 			$response = $this->controller->updateSettings([$name => 1]);
 			$this->assertSame(Http::STATUS_BAD_REQUEST, $response->getStatus(), $name);
@@ -392,7 +392,7 @@ class AdminApiControllerTest extends TestCase {
 	}
 
 	public function testSettingsValidateEverythingBeforeSaving(): void {
-		$this->settings->expects($this->never())->method('setGlobal');
+		$this->settings->expects($this->never())->method('updateGlobals');
 		$response = $this->controller->updateSettings([GlobalSettings::BAN_DURATION_1 => '2h', GlobalSettings::BAN_NET_AFTER => 1]);
 		$this->assertSame(Http::STATUS_BAD_REQUEST, $response->getStatus());
 		$this->assertSame(GlobalSettings::BAN_NET_AFTER, $response->getData()['param']);
@@ -400,8 +400,9 @@ class AdminApiControllerTest extends TestCase {
 
 	public function testSettingsAreSavedAndTheMasterSwitchIsAuditedOnItsOwn(): void {
 		$saved = [];
-		$this->settings->method('setGlobal')->willReturnCallback(function (string $name, mixed $value) use (&$saved): void {
-			$saved[$name] = $value;
+		$this->settings->method('updateGlobals')->willReturnCallback(function (array $values) use (&$saved): array {
+			$saved = $values;
+			return $values;
 		});
 		$logged = [];
 		$this->audit->method('log')->willReturnCallback(function (string $message, array $params) use (&$logged): void {

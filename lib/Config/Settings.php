@@ -91,20 +91,62 @@ class Settings {
 	}
 
 	/**
+	 * @return bool whether the mode changed
 	 * @throws InvalidParamException
 	 */
-	public function setMode(string $checkId, Mode $mode): void {
-		$check = $this->registry->get($checkId);
-		if ($mode !== Mode::Off) {
-			foreach ($check->requirements as $requirement) {
-				if (!$this->prerequisites->isMet($requirement)) {
-					throw new InvalidParamException('mode_unavailable', ['why' => $requirement->value]);
-				}
-			}
-		}
+	public function setMode(string $checkId, Mode $mode): bool {
+		$this->assertModeAvailable($checkId, $mode);
 		$old = $this->configuredMode($checkId);
 		$this->appConfig->setValueString(Application::APP_ID, Keys::mode($checkId), $mode->value);
-		$this->changed(Keys::mode($checkId), $old->value, $mode->value);
+		return $this->changed(Keys::mode($checkId), $old->value, $mode->value);
+	}
+
+	/**
+	 * @throws InvalidParamException when the mode cannot run on this server
+	 */
+	private function assertModeAvailable(string $checkId, Mode $mode): void {
+		if ($mode === Mode::Off) {
+			return;
+		}
+		foreach ($this->registry->get($checkId)->requirements as $requirement) {
+			if (!$this->prerequisites->isMet($requirement)) {
+				throw new InvalidParamException('mode_unavailable', ['why' => $requirement->value]);
+			}
+		}
+	}
+
+	/**
+	 * Change a check's mode, parameters and responses together: every value
+	 * is validated first, so a refused value leaves everything as it was.
+	 *
+	 * @param array<string, mixed> $params new parameter values by name
+	 * @param list<ResponseType>|null $responses
+	 * @return array{mode?: string, params?: array<string, int|float|bool|string|list<string>>, responses?: list<string>} what really changed
+	 * @throws InvalidParamException
+	 */
+	public function updateCheck(string $checkId, ?Mode $mode, array $params, ?array $responses): array {
+		if ($mode !== null) {
+			$this->assertModeAvailable($checkId, $mode);
+		}
+		$validated = [];
+		foreach ($params as $name => $value) {
+			$validated[(string)$name] = $this->validatedParam($checkId, (string)$name, $value);
+		}
+		$responseValues = $responses === null ? null : $this->validatedResponses($checkId, $responses);
+
+		$changes = [];
+		if ($mode !== null && $this->setMode($checkId, $mode)) {
+			$changes['mode'] = $mode->value;
+		}
+		foreach ($validated as $name => $value) {
+			if ($this->writeParam($checkId, $name, $value)) {
+				$changes['params'][$name] = $value;
+			}
+		}
+		if ($responseValues !== null && $this->writeResponses($checkId, $responseValues)) {
+			$changes['responses'] = $this->responseValues($checkId);
+		}
+		return $changes;
 	}
 
 	/**
@@ -147,18 +189,38 @@ class Settings {
 	}
 
 	/**
+	 * @return bool whether the value changed
 	 * @throws InvalidParamException
 	 */
-	public function setParam(string $checkId, string $name, mixed $value): void {
+	public function setParam(string $checkId, string $name, mixed $value): bool {
+		return $this->writeParam($checkId, $name, $this->validatedParam($checkId, $name, $value));
+	}
+
+	/**
+	 * A parameter value as it would be saved: validated by its definition
+	 * and by the check.
+	 *
+	 * @return int|float|bool|string|list<string>
+	 * @throws InvalidParamException
+	 */
+	public function validatedParam(string $checkId, string $name, mixed $value): int|float|bool|string|array {
 		$definition = $this->registry->get($checkId)->param($name);
 		$value = $definition->validate($value, true);
 		$check = $this->registry->check($this->registry->classOf($checkId));
 		if ($check instanceof IValidatesParams) {
 			$value = $definition->validate($check->validateParam($name, $value), true);
 		}
+		return $value;
+	}
+
+	/**
+	 * @param int|float|bool|string|list<string> $value validated
+	 */
+	private function writeParam(string $checkId, string $name, int|float|bool|string|array $value): bool {
+		$definition = $this->registry->get($checkId)->param($name);
 		$old = $this->param($checkId, $name);
 		$this->write(Keys::param($checkId, $name), $definition, $value);
-		$this->changed(Keys::param($checkId, $name), $old, $this->param($checkId, $name));
+		return $this->changed(Keys::param($checkId, $name), $old, $this->param($checkId, $name));
 	}
 
 	public function resetParam(string $checkId, string $name): void {
@@ -192,9 +254,19 @@ class Settings {
 
 	/**
 	 * @param list<ResponseType> $responses
+	 * @return bool whether the responses changed
 	 * @throws InvalidParamException
 	 */
-	public function setResponses(string $checkId, array $responses): void {
+	public function setResponses(string $checkId, array $responses): bool {
+		return $this->writeResponses($checkId, $this->validatedResponses($checkId, $responses));
+	}
+
+	/**
+	 * @param list<ResponseType> $responses
+	 * @return list<string>
+	 * @throws InvalidParamException
+	 */
+	private function validatedResponses(string $checkId, array $responses): array {
 		$check = $this->registry->get($checkId);
 		$values = [];
 		foreach ($responses as $response) {
@@ -203,9 +275,16 @@ class Settings {
 			}
 			$values[] = $response->value;
 		}
+		return array_values(array_unique($values));
+	}
+
+	/**
+	 * @param list<string> $values validated
+	 */
+	private function writeResponses(string $checkId, array $values): bool {
 		$old = $this->responseValues($checkId);
-		$this->appConfig->setValueArray(Application::APP_ID, Keys::responses($checkId), array_values(array_unique($values)));
-		$this->changed(Keys::responses($checkId), $old, $this->responseValues($checkId));
+		$this->appConfig->setValueArray(Application::APP_ID, Keys::responses($checkId), $values);
+		return $this->changed(Keys::responses($checkId), $old, $this->responseValues($checkId));
 	}
 
 	/**
@@ -239,8 +318,7 @@ class Settings {
 	 * @return int|float|bool|string|list<string>
 	 */
 	public function global(string $name): int|float|bool|string|array {
-		$definition = $this->globals->get($name) ?? throw new InvalidParamException('unknown_param', ['param' => $name]);
-		return $this->read($name, $definition);
+		return $this->read($name, $this->globalDefinition($name));
 	}
 
 	public function getInt(string $name): int {
@@ -262,25 +340,92 @@ class Settings {
 	}
 
 	/**
+	 * @return bool whether the value changed (always false for internal state)
 	 * @throws InvalidParamException
 	 */
-	public function setGlobal(string $name, mixed $value): void {
-		$definition = $this->globals->get($name) ?? throw new InvalidParamException('unknown_param', ['param' => $name]);
-		$value = $definition->validate($value, true);
+	public function setGlobal(string $name, mixed $value): bool {
+		$value = $this->validatedGlobal($name, $value);
 		if (GlobalSettings::isInternal($name)) {
-			$this->write($name, $definition, $value);
-			return;
+			$this->write($name, $this->globalDefinition($name), $value);
+			return false;
 		}
-		$owner = GlobalSettings::validatedBy($name);
+		return $this->writeGlobal($name, $value);
+	}
+
+	/**
+	 * Change several global settings together: every value is validated
+	 * first, so a refused value leaves everything as it was.
+	 *
+	 * @param array<string, mixed> $values
+	 * @return array<string, int|float|bool|string|list<string>> the settings that really changed, with their new values
+	 * @throws InvalidParamException
+	 */
+	public function updateGlobals(array $values): array {
+		$validated = [];
+		foreach ($values as $name => $value) {
+			$name = (string)$name;
+			if (GlobalSettings::isInternal($name)) {
+				throw new InvalidParamException('unknown_param', ['param' => $name]);
+			}
+			$validated[$name] = $this->validatedGlobal($name, $value);
+		}
+		$changes = [];
+		foreach ($validated as $name => $value) {
+			if ($this->writeGlobal($name, $value)) {
+				$changes[$name] = $this->global($name);
+			}
+		}
+		return $changes;
+	}
+
+	/**
+	 * Put a global setting back to its default.
+	 */
+	public function resetGlobal(string $name): bool {
+		$this->globalDefinition($name);
+		if (GlobalSettings::isInternal($name)) {
+			$this->appConfig->deleteKey(Application::APP_ID, $name);
+			return false;
+		}
+		$old = $this->global($name);
+		$this->appConfig->deleteKey(Application::APP_ID, $name);
+		return $this->changed($name, $old, $this->global($name));
+	}
+
+	/**
+	 * A global setting's value as it would be saved: validated by its
+	 * definition and by the check that owns it.
+	 *
+	 * @return int|float|bool|string|list<string>
+	 * @throws InvalidParamException
+	 */
+	public function validatedGlobal(string $name, mixed $value): int|float|bool|string|array {
+		$definition = $this->globalDefinition($name);
+		$value = $definition->validate($value, true);
+		$owner = GlobalSettings::isInternal($name) ? null : GlobalSettings::validatedBy($name);
 		if ($owner !== null) {
 			$check = $this->registry->check($owner);
 			if ($check instanceof IValidatesParams) {
 				$value = $definition->validate($check->validateParam($name, $value), true);
 			}
 		}
+		return $value;
+	}
+
+	/**
+	 * @param int|float|bool|string|list<string> $value validated
+	 */
+	private function writeGlobal(string $name, int|float|bool|string|array $value): bool {
 		$old = $this->global($name);
-		$this->write($name, $definition, $value);
-		$this->changed($name, $old, $this->global($name));
+		$this->write($name, $this->globalDefinition($name), $value);
+		return $this->changed($name, $old, $this->global($name));
+	}
+
+	/**
+	 * @throws InvalidParamException
+	 */
+	private function globalDefinition(string $name): ParamDefinition {
+		return $this->globals->get($name) ?? throw new InvalidParamException('unknown_param', ['param' => $name]);
 	}
 
 	/**
@@ -319,10 +464,12 @@ class Settings {
 	 * @param int|float|bool|string|list<string> $old
 	 * @param int|float|bool|string|list<string> $new
 	 */
-	private function changed(string $key, int|float|bool|string|array $old, int|float|bool|string|array $new): void {
-		if ($old !== $new) {
-			$this->dispatcher->dispatchTyped(new SettingChangedEvent($key, $old, $new));
+	private function changed(string $key, int|float|bool|string|array $old, int|float|bool|string|array $new): bool {
+		if ($old === $new) {
+			return false;
 		}
+		$this->dispatcher->dispatchTyped(new SettingChangedEvent($key, $old, $new));
+		return true;
 	}
 
 	/**

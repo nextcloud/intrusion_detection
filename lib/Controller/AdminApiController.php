@@ -170,30 +170,18 @@ class AdminApiController extends OCSController {
 			foreach ($params ?? [] as $name => $value) {
 				$newParams[(string)$name] = self::validated($check->param((string)$name), $value);
 			}
-
-			// Saved first: it is the only write that can still be refused (a missing requirement).
-			if ($newMode !== null) {
-				$this->settings->setMode($id, $newMode);
-			}
-			foreach ($newParams as $name => $value) {
-				$this->settings->setParam($id, $name, $value);
-			}
-			if ($newResponses !== null) {
-				$this->settings->setResponses($id, $newResponses);
-			}
+			$changes = $this->settings->updateCheck($id, $newMode, $newParams, $newResponses);
 		} catch (InvalidParamException $e) {
 			return $this->invalid($e);
 		}
 
-		$this->audit->log('check %s changed by %s: %s', [
-			'check' => $id,
-			'actor' => $this->actor(),
-			'change' => json_encode([
-				'mode' => $newMode?->value,
-				'params' => $newParams,
-				'responses' => $newResponses === null ? null : array_map(static fn (ResponseType $r): string => $r->value, $newResponses),
-			]),
-		]);
+		if ($changes !== []) {
+			$this->audit->log('check %s changed by %s: %s', [
+				'check' => $id,
+				'actor' => $this->actor(),
+				'change' => json_encode($changes),
+			]);
+		}
 		return new DataResponse($this->checks->one($check, $this->l));
 	}
 
@@ -521,19 +509,17 @@ class AdminApiController extends OCSController {
 	#[ApiRoute(verb: 'PUT', url: '/api/v1/settings')]
 	#[PasswordConfirmationRequired]
 	public function updateSettings(array $values = []): DataResponse {
-		$changes = [];
 		try {
+			$parsed = [];
 			foreach ($values as $name => $value) {
 				$name = (string)$name;
 				$definition = $this->globals->get($name);
 				if ($definition === null || !$this->globalSettings->isEditable($name)) {
 					throw new InvalidParamException('unknown_param', ['param' => $name]);
 				}
-				$changes[$name] = self::validated($definition, $value);
+				$parsed[$name] = self::validated($definition, $value);
 			}
-			foreach ($changes as $name => $value) {
-				$this->settings->setGlobal($name, $value);
-			}
+			$changes = $this->settings->updateGlobals($parsed);
 		} catch (InvalidParamException $e) {
 			return $this->invalid($e);
 		}

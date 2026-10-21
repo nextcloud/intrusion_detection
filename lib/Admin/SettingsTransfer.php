@@ -17,7 +17,6 @@ use OCA\IntrusionDetection\Config\Settings;
 use OCA\IntrusionDetection\ResponseDefinitions;
 use OCP\App\IAppManager;
 use OCP\AppFramework\Utility\ITimeFactory;
-use OCP\IAppConfig;
 
 /**
  * "Export settings as JSON" (for support) and "Reset all settings to
@@ -35,7 +34,6 @@ class SettingsTransfer {
 		private readonly Settings $settings,
 		private readonly GlobalSettings $globals,
 		private readonly GlobalSettingsPresenter $presenter,
-		private readonly IAppConfig $appConfig,
 		private readonly IAppManager $appManager,
 		private readonly ITimeFactory $timeFactory,
 	) {
@@ -77,7 +75,7 @@ class SettingsTransfer {
 		}
 		foreach (array_keys($this->globals->all()) as $name) {
 			if ($this->presenter->isEditable($name)) {
-				$this->appConfig->deleteKey(Application::APP_ID, $name);
+				$this->settings->resetGlobal($name);
 			}
 		}
 	}

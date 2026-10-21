@@ -187,18 +187,23 @@ class DecoyApiController extends AdminOCSController {
 			array_merge($this->settings->paramList(TrapUrl::ID, 'paths'), $add),
 			static fn (string $p): bool => !in_array($p, $remove, true),
 		));
+		$params = [];
+		if ($add !== [] || $remove !== []) {
+			$params['paths'] = $paths;
+		}
+		if ($builtinEnabled !== null) {
+			$params['builtin_enabled'] = $builtinEnabled;
+		}
+		if ($autodiscover !== null) {
+			$params['autodiscover'] = $autodiscover;
+		}
 		try {
-			if ($add !== [] || $remove !== []) {
-				$this->settings->setParam(TrapUrl::ID, 'paths', $paths);
-			}
-			if ($builtinEnabled !== null) {
-				$this->settings->setParam(TrapUrl::ID, 'builtin_enabled', $builtinEnabled);
-			}
-			if ($autodiscover !== null) {
-				$this->settings->setParam(TrapUrl::ID, 'autodiscover', $autodiscover);
-			}
+			$changes = $this->settings->updateCheck(TrapUrl::ID, null, $params, null);
 		} catch (InvalidParamException $e) {
 			return $this->invalid($e);
+		}
+		if ($changes === []) {
+			return new DataResponse($this->overview->trapPaths($this->l));
 		}
 		$this->audit->log('trap paths changed by %s: added %s, removed %s, built-in list %s, autodiscover %s', [
 			'actor' => $this->actor(),

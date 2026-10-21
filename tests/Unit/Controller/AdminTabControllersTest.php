@@ -133,13 +133,9 @@ class AdminTabControllersTest extends TestCase {
 	public function testTrapPathChangesAreSavedTogetherAndAudited(): void {
 		[$controller, $settings] = $this->decoys();
 		$settings->method('paramList')->willReturn(['/old/*', '/gone']);
-		$settings->expects($this->exactly(2))->method('setParam')->willReturnCallback(function (string $check, string $name, mixed $value): void {
-			$this->assertSame('trap_url', $check);
-			$this->assertContains($name, ['paths', 'autodiscover']);
-			if ($name === 'paths') {
-				$this->assertSame(['/old/*', '/new'], $value);
-			}
-		});
+		$settings->expects($this->once())->method('updateCheck')
+			->with('trap_url', null, ['paths' => ['/old/*', '/new'], 'autodiscover' => true], null)
+			->willReturn(['params' => ['paths' => ['/old/*', '/new'], 'autodiscover' => true]]);
 		$this->audit->expects($this->once())->method('log')->with($this->anything(), [
 			'actor' => 'alice', 'added' => '/new', 'removed' => '/gone', 'builtin' => 'unchanged', 'autodiscover' => 'on',
 		]);
@@ -149,11 +145,19 @@ class AdminTabControllersTest extends TestCase {
 	public function testAnInvalidTrapPathSavesNothing(): void {
 		[$controller, $settings] = $this->decoys();
 		$settings->method('paramList')->willReturn([]);
-		$settings->method('setParam')->willThrowException(new InvalidParamException('nextcloud_path', ['param' => 'paths', 'item' => '/apps']));
+		$settings->method('updateCheck')->willThrowException(new InvalidParamException('nextcloud_path', ['param' => 'paths', 'item' => '/apps']));
 		$this->audit->expects($this->never())->method('log');
 		$response = $controller->updateTrapPaths(['/apps']);
 		$this->assertSame(Http::STATUS_BAD_REQUEST, $response->getStatus());
 		$this->assertSame('paths', $response->getData()['param']);
+	}
+
+	public function testTrapPathsThatChangeNothingAreNotAudited(): void {
+		[$controller, $settings] = $this->decoys();
+		$settings->method('paramList')->willReturn(['/old']);
+		$settings->method('updateCheck')->willReturn([]);
+		$this->audit->expects($this->never())->method('log');
+		$this->assertSame(Http::STATUS_OK, $controller->updateTrapPaths(['/old'])->getStatus());
 	}
 
 	public function testTooManyChangesAtOnceAreRefused(): void {
