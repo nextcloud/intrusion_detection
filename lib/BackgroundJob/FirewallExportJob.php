@@ -24,7 +24,7 @@ class FirewallExportJob extends TimedJob {
 		private readonly FirewallExporter $exporter,
 	) {
 		parent::__construct($time);
-		$this->setInterval(300);
+		$this->setInterval(60);
 		$this->setTimeSensitivity(IJob::TIME_SENSITIVE);
 	}
 

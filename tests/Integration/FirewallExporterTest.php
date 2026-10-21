@@ -20,6 +20,7 @@ use OCA\IntrusionDetection\Export\ExportDirectory;
 use OCA\IntrusionDetection\Export\ExportException;
 use OCA\IntrusionDetection\Export\FirewallExporter;
 use OCA\IntrusionDetection\Listener\FirewallExportListener;
+use OCA\IntrusionDetection\Net\ProtectedRanges;
 use OCA\IntrusionDetection\Tests\Unit\Export\ExportDirectoryTest;
 use OCP\AppFramework\Utility\ITimeFactory;
 use OCP\BackgroundJob\IJobList;
@@ -70,6 +71,8 @@ class FirewallExporterTest extends IntegrationTestCase {
 	public function testABlockIsExportedInEveryFormat(): void {
 		$listener = new FirewallExportListener($this->exporter(), Server::get(LoggerInterface::class));
 		$listener->handle(new BanCreatedEvent($this->ban('203.0.113.7/32', 14400, 'K7Q2MPXA')));
+		$this->assertSame(['bans.log'], $this->files(), 'The request that blocked only appends the log line');
+		$this->assertTrue($this->exporter()->writeIfDue(), 'The job writes the rest');
 
 		$this->assertSame(['bans.ipset', 'bans.log', 'bans.nft', 'bans.txt'], $this->files());
 		$this->assertStringContainsString("203.0.113.7/32 # until=2026-10-20T14:00:00Z ref=K7Q2MPXA\n", $this->read('bans.txt'));
@@ -88,11 +91,14 @@ class FirewallExporterTest extends IntegrationTestCase {
 		$ban = $this->ban('203.0.113.7/32', 14400, 'K7Q2MPXA');
 		$exporter = $this->exporter();
 		$exporter->banChanged($ban, false);
+		$exporter->writeIfDue();
+		$this->assertStringContainsString('203.0.113.7', $this->read('bans.txt'));
 
 		$ban->setLiftedAt($this->now);
 		Server::get(BanMapper::class)->update($ban);
 		$this->now += 5;
 		(new FirewallExportListener($this->exporter(), Server::get(LoggerInterface::class)))->handle(new BanLiftedEvent($ban));
+		$this->assertTrue($this->exporter()->writeIfDue());
 
 		$this->assertStringEndsWith("2026-10-20T10:00:05Z LIFT 203.0.113.7/32 ref=K7Q2MPXA\n", $this->read('bans.log'));
 		$this->assertStringNotContainsString('203.0.113.7', $this->read('bans.txt'));
@@ -159,6 +165,72 @@ class FirewallExporterTest extends IntegrationTestCase {
 		$this->assertFalse($exporter->writeIfDue());
 	}
 
+	public function testEveryChangeOfTheBlocksIsWrittenAtTheNextJobRun(): void {
+		$exporter = $this->exporter();
+		$this->ban('203.0.113.7/32', 3600);
+		$exporter->write();
+		$this->assertFalse($exporter->writeIfDue());
+
+		$ban = $this->ban('198.51.100.9/32', 3600);
+		$this->assertTrue($exporter->writeIfDue(), 'A new block');
+		$this->assertStringContainsString('198.51.100.9', $this->read('bans.txt'));
+		$this->assertFalse($exporter->writeIfDue());
+
+		$ban->setExpiresAt($ban->getExpiresAt() + 3600);
+		Server::get(BanMapper::class)->update($ban);
+		$this->assertTrue($exporter->writeIfDue(), 'A longer block');
+		$this->assertStringContainsString('198.51.100.9/32 timeout 7200s', $this->read('bans.nft'));
+	}
+
+	public function testNothingIsExportedWhileProtectionIsOff(): void {
+		$this->ban('203.0.113.7/32', 3600);
+		$exporter = $this->exporter();
+		$exporter->write();
+		$this->assertStringContainsString('203.0.113.7', $this->read('bans.nft'));
+
+		$this->settings->setGlobal(GlobalSettings::ENABLED, false);
+		$this->assertTrue($exporter->writeIfDue(), 'Switching protection off rewrites the files');
+		$this->assertStringNotContainsString('203.0.113.7', $this->read('bans.nft'));
+		$this->assertStringNotContainsString('203.0.113.7', $this->read('bans.txt'));
+		$this->assertSame(0, $exporter->status()->entries);
+		$exporter->banChanged($this->ban('198.51.100.9/32', 3600), false);
+		$this->assertFileDoesNotExist($this->exportDir . '/bans.log', 'Nothing is logged either');
+
+		$this->settings->setGlobal(GlobalSettings::ENABLED, true);
+		$this->assertTrue($exporter->writeIfDue(), 'And switching it on again');
+		$this->assertStringContainsString('203.0.113.7', $this->read('bans.nft'));
+	}
+
+	public function testTheAllowlistAndTheServerAreNeverExported(): void {
+		$this->appConfig->setValueString('bruteForce', 'whitelist_1', '198.51.100.7/32');
+		$_SERVER['SERVER_ADDR'] = '198.51.100.250';
+		try {
+			$this->ban('198.51.100.7/32', 3600);
+			$this->ban('198.51.100.0/24', 3600);
+			$this->ban('127.0.0.1/32', 3600);
+			$this->exporter()->write();
+		} finally {
+			unset($_SERVER['SERVER_ADDR']);
+			$this->appConfig->deleteKey('bruteForce', 'whitelist_1');
+		}
+		$txt = $this->read('bans.txt');
+		$this->assertStringNotContainsString('198.51.100.7/32', $txt);
+		$this->assertStringNotContainsString('198.51.100.250/32', $txt);
+		$this->assertStringNotContainsString('198.51.100.0/24', $txt, 'The /24 is split around them');
+		$this->assertStringContainsString('198.51.100.128/26', $txt);
+		$this->assertStringContainsString('198.51.100.8/29', $txt);
+		$this->assertStringNotContainsString('127.0.0.1', $txt);
+	}
+
+	public function testTheExportCapKeepsTheLongestBlocks(): void {
+		$this->ban('203.0.113.1/32', 600);
+		$this->ban('203.0.113.2/32', 86400);
+		$this->ban('203.0.113.3/32', 3600);
+		$rows = Server::get(BanMapper::class)->findActiveForExport($this->now, 2);
+		$this->assertSame(['203.0.113.2/32', '203.0.113.3/32'], array_column($rows, 'cidr'));
+		$this->assertSame(['cidr', 'expires_at', 'reference', 'level', 'check_id'], array_keys($rows[0]), 'Plain columns only');
+	}
+
 	public function testTheLogIsRotatedAtTenMegabytes(): void {
 		$log = $this->exportDir . '/bans.log';
 		$handle = fopen($log, 'wb');
@@ -209,6 +281,7 @@ class FirewallExporterTest extends IntegrationTestCase {
 			new ExportDirectory($config),
 			$this->settings,
 			Server::get(BanMapper::class),
+			new ProtectedRanges($this->appConfig),
 			$this->time(),
 			Server::get(ISecureRandom::class),
 			Server::get(LoggerInterface::class),

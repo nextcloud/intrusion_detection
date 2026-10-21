@@ -169,7 +169,7 @@ class GlobalSettingsPresenter {
 			), self::GROUP_PRIVACY],
 			GlobalSettings::EXPORT_FORMATS => [new ParamText(
 				$l->t('Firewall export formats'),
-				$l->t('The files written for your firewall or fail2ban whenever a block changes. They are only written when an export directory is set in config.php.'),
+				$l->t('The files written for your firewall or fail2ban. bans.log gets a line at once for every block; the other files are rewritten by the background job after a block changes, as often as cron runs (at most once a minute). They are only written when an export directory is set in config.php.'),
 			), self::GROUP_EXPORT],
 			GlobalSettings::BLOCKLIST_SYNC_INTERVAL => [new ParamText(
 				$l->t('Download lists every'),

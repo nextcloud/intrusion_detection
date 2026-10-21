@@ -13,6 +13,7 @@ use OCA\IntrusionDetection\Config\GlobalSettings;
 use OCA\IntrusionDetection\Config\Settings;
 use OCA\IntrusionDetection\Db\Ban;
 use OCA\IntrusionDetection\Db\BanMapper;
+use OCA\IntrusionDetection\Net\ProtectedRanges;
 use OCP\AppFramework\Utility\ITimeFactory;
 use OCP\Security\ISecureRandom;
 use Psr\Log\LoggerInterface;
@@ -23,10 +24,17 @@ use Psr\Log\LoggerInterface;
  * itself; root-owned loaders pick the files up ({@see FirewallSnippets}).
  *
  * - `bans.txt`, `bans.nft`, `bans.ipset` are rewritten from the active blocks
- *   on every block change and when a block ended. Each is written to a new
- *   temporary file and renamed into place, so a reader never sees half a file.
- * - `bans.log` is appended to, one line per block and lift, and rotated to
- *   `bans.log.1` at 10 MB.
+ *   by the background job ({@see \OCA\IntrusionDetection\BackgroundJob\FirewallExportJob}),
+ *   at its next run after the blocks changed or one ended: one cheap query
+ *   tells whether they did. Writing them takes a while with many blocks, so
+ *   it never happens in the request that blocked an address. Each file is
+ *   written to a new temporary file and renamed into place, so a reader never
+ *   sees half a file.
+ * - `bans.log` is appended to at once, one line per block and lift, and
+ *   rotated to `bans.log.1` at 10 MB.
+ * - The files never block loopback, the server itself or the brute-force
+ *   allowlist ({@see ProtectedRanges}), and are empty while protection is off.
+ *   With more than MAX_ENTRIES blocks, those that last longest are kept.
  *
  * Nothing is written while `intrusion_detection.export_dir` is unset or no
  * format is switched on. Failures are recorded for the admin page, never thrown
@@ -36,18 +44,13 @@ class FirewallExporter {
 	public const LOG_ROTATE_BYTES = 10 * 1024 * 1024;
 	/** At most this many blocks are exported */
 	public const MAX_ENTRIES = 50000;
-	/** Further block changes within this many seconds are written once, at the end of the request */
-	private const COALESCE_SECONDS = 2.0;
 	private const FILE_MODE = 0o640;
-
-	private ?float $lastSnapshot = null;
-	private bool $pending = false;
-	private bool $shutdownRegistered = false;
 
 	public function __construct(
 		private readonly ExportDirectory $directory,
 		private readonly Settings $settings,
 		private readonly BanMapper $bans,
+		private readonly ProtectedRanges $protected,
 		private readonly ITimeFactory $timeFactory,
 		private readonly ISecureRandom $random,
 		private readonly LoggerInterface $logger,
@@ -90,22 +93,19 @@ class FirewallExporter {
 	}
 
 	/**
-	 * A block was created, raised or lifted: log it and rewrite the files.
-	 * Never throws.
+	 * A block was created, raised or lifted: log it. The other files follow
+	 * at the next run of the background job. Never throws.
 	 */
 	public function banChanged(Ban $ban, bool $lifted): void {
-		if (!$this->isActive()) {
+		if (!$this->isActive() || !$this->settings->isEnabled() || !in_array(ExportFormat::Log, $this->formats(), true)) {
 			return;
 		}
 		$now = $this->timeFactory->getTime();
-		if (in_array(ExportFormat::Log, $this->formats(), true)) {
-			try {
-				$this->appendLog($this->directory->resolve(), $lifted ? ExportRenderer::liftLine($ban, $now) : ExportRenderer::banLine($ban, $now));
-			} catch (ExportException $e) {
-				$this->recordError($e->reason, $now);
-			}
+		try {
+			$this->appendLog($this->directory->resolve(), $lifted ? ExportRenderer::liftLine($ban, $now) : ExportRenderer::banLine($ban, $now));
+		} catch (ExportException $e) {
+			$this->recordError($e->reason, $now);
 		}
-		$this->scheduleSnapshot();
 	}
 
 	/**
@@ -115,10 +115,9 @@ class FirewallExporter {
 	 */
 	public function write(): ExportStatus {
 		$now = $this->timeFactory->getTime();
-		$this->lastSnapshot = microtime(true);
-		$this->pending = false;
 		try {
 			$dir = $this->directory->resolve();
+			$changes = $this->bans->activeSignature($now);
 			$entries = $this->entries($now);
 			foreach ($this->formats() as $format) {
 				if ($format->isSnapshot()) {
@@ -136,14 +135,16 @@ class FirewallExporter {
 			'entries' => count($entries),
 			'next_expiry' => self::nextChange($entries, $now),
 			'signature' => $this->signature(),
+			'bans' => $changes,
 		]));
 		return $this->status();
 	}
 
 	/**
-	 * For the background job: rewrite only when a block ended (or an ipset
-	 * timeout ran out) since the last write, or the directory or formats
-	 * changed. Otherwise nothing is read or written.
+	 * For the background job: rewrite only when the blocks changed, a block
+	 * ended (or an ipset timeout ran out) since the last write, or the
+	 * directory, the formats or the protection switch changed. Otherwise
+	 * one aggregate query is all it costs.
 	 *
 	 * @return bool whether the files were written
 	 */
@@ -153,9 +154,11 @@ class FirewallExporter {
 		}
 		$state = $this->settings->getJson(GlobalSettings::EXPORT_STATE);
 		$nextExpiry = is_int($state['next_expiry'] ?? null) ? $state['next_expiry'] : 0;
+		$now = $this->timeFactory->getTime();
 		$due = !is_int($state['last_write_at'] ?? null)
 			|| ($state['signature'] ?? null) !== $this->signature()
-			|| ($nextExpiry > 0 && $this->timeFactory->getTime() >= $nextExpiry);
+			|| ($nextExpiry > 0 && $now >= $nextExpiry)
+			|| ($state['bans'] ?? null) !== $this->bans->activeSignature($now);
 		if (!$due) {
 			return false;
 		}
@@ -168,48 +171,25 @@ class FirewallExporter {
 	}
 
 	/**
-	 * Rewrite at once, or, when the files were written moments ago in this
-	 * request (a burst of blocks), once more at the end of the request.
-	 */
-	private function scheduleSnapshot(): void {
-		if ($this->lastSnapshot !== null && microtime(true) - $this->lastSnapshot < self::COALESCE_SECONDS) {
-			$this->pending = true;
-			if (!$this->shutdownRegistered) {
-				$this->shutdownRegistered = true;
-				register_shutdown_function(function (): void {
-					if ($this->pending) {
-						$this->writeQuietly();
-					}
-				});
-			}
-			return;
-		}
-		$this->writeQuietly();
-	}
-
-	private function writeQuietly(): void {
-		try {
-			$this->write();
-		} catch (ExportException) {
-			// Recorded in the status.
-		} catch (\Throwable $e) {
-			$this->logger->error('Intrusion detection could not write the firewall export', ['exception' => $e]);
-		}
-	}
-
-	/**
+	 * The blocks to write: none while protection is off; the longest-lasting
+	 * MAX_ENTRIES otherwise, sorted, without overlaps and with the protected
+	 * ranges cut out.
+	 *
 	 * @return list<ExportEntry>
 	 */
 	private function entries(int $now): array {
+		if (!$this->settings->isEnabled()) {
+			return [];
+		}
 		$entries = [];
-		foreach ($this->bans->findList($now, false, self::MAX_ENTRIES) as $ban) {
+		foreach ($this->bans->findActiveForExport($now, self::MAX_ENTRIES) as $row) {
 			try {
-				$entries[] = ExportEntry::fromBan($ban);
+				$entries[] = ExportEntry::fromRow($row);
 			} catch (\InvalidArgumentException) {
-				$this->logger->warning('Intrusion detection skipped a block with an invalid range in the firewall export', ['ban' => $ban->getId()]);
+				$this->logger->warning('Intrusion detection skipped a block with an invalid range in the firewall export', ['reference' => $row['reference']]);
 			}
 		}
-		return ExportEntry::sort($entries);
+		return ExportEntry::disjoint(ExportEntry::sort($entries), $this->protected->ranges());
 	}
 
 	/**
@@ -297,9 +277,11 @@ class FirewallExporter {
 	}
 
 	/**
-	 * Changes when the directory or the formats change, so the job rewrites then.
+	 * Changes when the directory, the formats or the protection switch
+	 * change, so the job rewrites then.
 	 */
 	private function signature(): string {
-		return hash('sha256', ($this->directory->configured() ?? '') . "\0" . implode(',', array_map(static fn (ExportFormat $f): string => $f->value, $this->formats())));
+		return hash('sha256', ($this->directory->configured() ?? '') . "\0" . implode(',', array_map(static fn (ExportFormat $f): string => $f->value, $this->formats()))
+			. "\0" . ($this->settings->isEnabled() ? 'on' : 'off'));
 	}
 }

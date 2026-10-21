@@ -61,7 +61,7 @@ const SNIPPETS: Record<string, { ids: string[], intro: () => string }> = {
 	},
 	systemd: {
 		ids: ['systemd_path', 'systemd_service'],
-		intro: () => t(APP_ID, 'A path unit runs the nftables loader as root whenever Nextcloud replaces bans.nft, so blocks reach the firewall within a second. Enable it with systemctl enable --now nextcloud-ids-firewall.path.'),
+		intro: () => t(APP_ID, 'A path unit runs the nftables loader as root whenever Nextcloud replaces bans.nft. Nextcloud rewrites the file in its background job, at most a minute after a block changes when cron runs every minute (otherwise at the next cron run), so blocks reach the firewall that much later than Nextcloud itself. Enable it with systemctl enable --now nextcloud-ids-firewall.path.'),
 	},
 }
 

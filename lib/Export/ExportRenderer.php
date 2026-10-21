@@ -66,7 +66,7 @@ final class ExportRenderer {
 			. "}\n"
 			. 'flush set ' . self::NFT_TABLE . ' ' . self::NFT_SET_V4 . "\n"
 			. 'flush set ' . self::NFT_TABLE . ' ' . self::NFT_SET_V6 . "\n";
-		$entries = ExportEntry::withoutContained($entries);
+		$entries = ExportEntry::disjoint($entries);
 		foreach ([4 => self::NFT_SET_V4, 6 => self::NFT_SET_V6] as $family => $set) {
 			$elements = [];
 			foreach ($entries as $entry) {

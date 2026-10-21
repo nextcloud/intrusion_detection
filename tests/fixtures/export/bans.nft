@@ -13,5 +13,5 @@ table inet nextcloud_ids {
 }
 flush set inet nextcloud_ids banned_v4
 flush set inet nextcloud_ids banned_v6
-add element inet nextcloud_ids banned_v4 { 192.0.2.1/32 timeout 7776000s, 198.51.100.0/24 timeout 3600s, 203.0.113.7/32 timeout 14400s }
+add element inet nextcloud_ids banned_v4 { 192.0.2.1/32 timeout 7776000s, 198.51.100.0/30 timeout 3600s, 198.51.100.4/31 timeout 3600s, 198.51.100.6/32 timeout 3600s, 198.51.100.7/32 timeout 86400s, 198.51.100.8/29 timeout 3600s, 198.51.100.16/28 timeout 3600s, 198.51.100.32/27 timeout 3600s, 198.51.100.64/26 timeout 3600s, 198.51.100.128/25 timeout 3600s, 203.0.113.7/32 timeout 14400s }
 add element inet nextcloud_ids banned_v6 { 2001:db8:1:2::/64 timeout 604800s }

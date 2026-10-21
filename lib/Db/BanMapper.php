@@ -136,6 +136,54 @@ class BanMapper extends QBMapper {
 		return $this->findEntities($qb);
 	}
 
+	/**
+	 * The active bans for the firewall export, longest-lasting first, as
+	 * plain rows.
+	 *
+	 * @return list<array{cidr: string, expires_at: int, reference: string, level: int, check_id: string}>
+	 */
+	public function findActiveForExport(int $now, int $limit): array {
+		$qb = $this->db->getQueryBuilder();
+		$qb->select('cidr', 'expires_at', 'reference', 'level', 'check_id')
+			->from(self::TABLE)
+			->where($qb->expr()->gt('expires_at', $qb->createNamedParameter($now, IQueryBuilder::PARAM_INT)))
+			->andWhere($qb->expr()->isNull('lifted_at'))
+			->orderBy('expires_at', 'DESC')
+			->addOrderBy('id', 'ASC')
+			->setMaxResults($limit);
+		$result = $qb->executeQuery();
+		$rows = [];
+		while ($row = $result->fetch()) {
+			$rows[] = [
+				'cidr' => (string)$row['cidr'],
+				'expires_at' => (int)$row['expires_at'],
+				'reference' => (string)$row['reference'],
+				'level' => (int)$row['level'],
+				'check_id' => (string)$row['check_id'],
+			];
+		}
+		$result->closeCursor();
+		return $rows;
+	}
+
+	/**
+	 * A short fingerprint of the active bans: it changes when a ban is
+	 * created, lifted, extended or ends. One aggregate over the expiry index.
+	 */
+	public function activeSignature(int $now): string {
+		$qb = $this->db->getQueryBuilder();
+		$qb->select($qb->func()->count('*', 'n'))
+			->selectAlias($qb->func()->max('id'), 'last_id')
+			->selectAlias($qb->func()->sum('expires_at'), 'expiry_sum')
+			->from(self::TABLE)
+			->where($qb->expr()->gt('expires_at', $qb->createNamedParameter($now, IQueryBuilder::PARAM_INT)))
+			->andWhere($qb->expr()->isNull('lifted_at'));
+		$result = $qb->executeQuery();
+		$row = $result->fetch();
+		$result->closeCursor();
+		return is_array($row) ? (int)$row['n'] . ':' . (int)$row['last_id'] . ':' . (string)$row['expiry_sum'] : '0';
+	}
+
 	public function countActive(int $now): int {
 		$qb = $this->db->getQueryBuilder();
 		$qb->select($qb->func()->count('*', 'n'))

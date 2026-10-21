@@ -14,6 +14,7 @@ use OCA\IntrusionDetection\Export\ExportEntry;
 use OCA\IntrusionDetection\Export\ExportFormat;
 use OCA\IntrusionDetection\Export\ExportRenderer;
 use OCA\IntrusionDetection\Export\FirewallSnippets;
+use OCA\IntrusionDetection\Net\RangeCodec;
 use PHPUnit\Framework\Attributes\DataProvider;
 use Test\TestCase;
 
@@ -54,12 +55,60 @@ class ExportRendererTest extends TestCase {
 		);
 	}
 
-	public function testNftablesLeavesOutAddressesInsideABlockedNetwork(): void {
-		$nft = ExportRenderer::nft(self::entries(), self::NOW);
-		$this->assertStringContainsString('198.51.100.0/24 timeout 3600s', $nft);
+	public function testNftablesLeavesOutAddressesThatEndBeforeTheirNetwork(): void {
+		$entries = ExportEntry::sort([
+			ExportEntry::fromBan(self::ban('198.51.100.0/24', self::NOW + 86400, 'NETWORKA', 2, 'trap_url')),
+			ExportEntry::fromBan(self::ban('198.51.100.7/32', self::NOW + 3600, 'ADDRESSA', 1, 'trap_url')),
+		]);
+		$nft = ExportRenderer::nft($entries, self::NOW);
+		$this->assertStringContainsString('{ 198.51.100.0/24 timeout 86400s }', $nft);
 		$this->assertStringNotContainsString('198.51.100.7', $nft);
 		// ipset sets accept overlapping ranges, so both stay there.
-		$this->assertStringContainsString('198.51.100.7/32', ExportRenderer::ipset(self::entries(), self::NOW));
+		$this->assertStringContainsString('198.51.100.7/32', ExportRenderer::ipset($entries, self::NOW));
+	}
+
+	public function testNftablesKeepsAnAddressThatOutlastsItsNetwork(): void {
+		$entries = ExportEntry::sort([
+			ExportEntry::fromBan(self::ban('198.51.100.0/24', self::NOW + 3600, 'NETWORKA', 1, 'trap_url')),
+			ExportEntry::fromBan(self::ban('198.51.100.7/32', self::NOW + 86400, 'ADDRESSA', 2, 'trap_url')),
+		]);
+		$nft = ExportRenderer::nft($entries, self::NOW);
+		$this->assertStringContainsString('198.51.100.7/32 timeout 86400s', $nft, 'Still blocked when the /24 ends');
+		$this->assertStringNotContainsString('198.51.100.0/24', $nft, 'The /24 is split around it, so nothing overlaps');
+		foreach (['198.51.100.0/30', '198.51.100.4/31', '198.51.100.6/32', '198.51.100.8/29', '198.51.100.128/25'] as $piece) {
+			$this->assertStringContainsString($piece . ' timeout 3600s', $nft);
+		}
+	}
+
+	public function testDisjointPiecesKeepTheLongestBlockOfEveryAddress(): void {
+		$entries = ExportEntry::sort([
+			ExportEntry::fromBan(self::ban('2001:db8:1::/48', self::NOW + 100, 'WIDE', 1, 'trap_url')),
+			ExportEntry::fromBan(self::ban('2001:db8:1:2a00::/56', self::NOW + 50, 'MIDDLE', 1, 'trap_url')),
+			ExportEntry::fromBan(self::ban('2001:db8:1:2a01::/64', self::NOW + 900, 'NARROW', 1, 'trap_url')),
+			ExportEntry::fromBan(self::ban('2001:db8:1:2a01::/64', self::NOW + 10, 'TWICE', 1, 'trap_url')),
+		]);
+		$pieces = ExportEntry::disjoint($entries);
+		$this->assertContains('2001:db8:1:2a01::/64 NARROW', array_map(static fn (ExportEntry $e): string => $e->cidr . ' ' . $e->reference, $pieces));
+		$this->assertNotContains('MIDDLE', array_map(static fn (ExportEntry $e): string => $e->reference, $pieces), 'The /56 ends first, the /48 covers it');
+		$this->assertNotContains('TWICE', array_map(static fn (ExportEntry $e): string => $e->reference, $pieces));
+		foreach ($pieces as $i => $piece) {
+			if ($i > 0) {
+				$this->assertLessThan(0, strcmp($pieces[$i - 1]->end, $piece->start), 'No overlaps');
+			}
+		}
+		$this->assertSame('20010db8000100000000000000000000', $pieces[0]->start);
+		$this->assertSame('20010db80001ffffffffffffffffffff', $pieces[count($pieces) - 1]->end);
+	}
+
+	public function testProtectedRangesAreCutOut(): void {
+		$protected = RangeCodec::parse('198.51.100.7');
+		$pieces = ExportEntry::disjoint(
+			[ExportEntry::fromBan(self::ban('198.51.100.0/24', self::NOW + 3600, 'NETWORKA', 1, 'trap_url'))],
+			[[$protected['family'], $protected['start'], $protected['end']]],
+		);
+		$cidrs = array_map(static fn (ExportEntry $e): string => $e->cidr, $pieces);
+		$this->assertSame(['198.51.100.0/30', '198.51.100.4/31', '198.51.100.6/32', '198.51.100.8/29', '198.51.100.16/28', '198.51.100.32/27', '198.51.100.64/26', '198.51.100.128/25'], $cidrs);
+		$this->assertSame([], ExportEntry::disjoint([ExportEntry::fromBan(self::ban('198.51.100.7/32', self::NOW + 3600, 'ADDRESSA', 1, 'trap_url'))], [[$protected['family'], $protected['start'], $protected['end']]]));
 	}
 
 	public function testIpsetTimeoutsAreCappedAtTheLongestIpsetAccepts(): void {

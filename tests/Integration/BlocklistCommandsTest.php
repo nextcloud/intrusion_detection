@@ -20,6 +20,7 @@ use OCA\IntrusionDetection\Db\BanMapper;
 use OCA\IntrusionDetection\Export\ExportDirectory;
 use OCA\IntrusionDetection\Export\ExportException;
 use OCA\IntrusionDetection\Export\FirewallExporter;
+use OCA\IntrusionDetection\Net\ProtectedRanges;
 use OCP\AppFramework\Utility\ITimeFactory;
 use OCP\IConfig;
 use OCP\Security\ISecureRandom;
@@ -85,6 +86,7 @@ class BlocklistCommandsTest extends IntegrationTestCase {
 			new ExportDirectory($config),
 			Server::get(Settings::class),
 			Server::get(BanMapper::class),
+			Server::get(ProtectedRanges::class),
 			Server::get(ITimeFactory::class),
 			Server::get(ISecureRandom::class),
 			Server::get(LoggerInterface::class),
