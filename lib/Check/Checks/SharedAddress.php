@@ -18,6 +18,8 @@ use OCA\IntrusionDetection\Check\ICheck;
 use OCA\IntrusionDetection\Check\Mode;
 use OCA\IntrusionDetection\Check\ResponseType;
 use OCA\IntrusionDetection\Check\Severity;
+use OCA\IntrusionDetection\Detection\DetectionDraft;
+use OCA\IntrusionDetection\Net\SourceKey;
 use OCP\IL10N;
 
 /**
@@ -27,6 +29,22 @@ use OCP\IL10N;
  */
 final class SharedAddress implements ICheck {
 	public const ID = 'shared_address';
+
+	/**
+	 * The detection for an address the safety valve kept from being blocked.
+	 *
+	 * @param string $wantedBy the check that wanted to block it
+	 * @param bool $proxy whether it looks like a reverse proxy without trusted_proxies
+	 */
+	public static function draft(SourceKey $target, int $users, string $wantedBy, bool $proxy): DetectionDraft {
+		return new DetectionDraft(
+			checkId: self::ID,
+			source: $target,
+			facts: ['users' => $users, 'wantedBy' => $wantedBy] + ($proxy ? ['proxy' => true] : []),
+			merge: DetectionDraft::MERGE_SOURCE,
+			mergeWindow: 86400,
+		);
+	}
 
 	#[\Override]
 	public function definition(): CheckDefinition {

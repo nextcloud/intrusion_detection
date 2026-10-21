@@ -21,6 +21,7 @@ use OCA\IntrusionDetection\Detection\AttemptRecord;
 use OCA\IntrusionDetection\Detection\DetectionDraft;
 use OCA\IntrusionDetection\Net\RemoteAddressResolver;
 use OCA\IntrusionDetection\Net\SourceKey;
+use OCA\IntrusionDetection\Response\BanResult;
 use OCA\IntrusionDetection\Response\BanService;
 use OCA\IntrusionDetection\Response\FlaggedSources;
 use OCA\IntrusionDetection\Response\ResponseEngine;
@@ -188,7 +189,10 @@ class CredentialStuffingDetector {
 		}
 		$stats = $ipStats ?? $this->attempts->stats('ip_key', [$attempt->source->ipKey], self::KINDS, $now - self::DISTRIBUTED_WINDOW);
 		if (self::reaches($stats, self::MEMBER_MIN_FAILURES, self::MEMBER_MIN_NAMES)) {
-			$this->bans->ban($attempt->source, CredentialStuffing::ID, $detectionId);
+			$result = $this->bans->ban($attempt->source, CredentialStuffing::ID, $detectionId);
+			if ($result->outcome === BanResult::SKIPPED_SHARED || $result->outcome === BanResult::SKIPPED_PROXY) {
+				$this->engine->handle(SharedAddress::draft($attempt->source, $result->sharedUsers, CredentialStuffing::ID, $result->outcome === BanResult::SKIPPED_PROXY));
+			}
 		}
 	}
 

@@ -14,12 +14,15 @@ use OCA\IntrusionDetection\Check\Checks\AccountUnderAttack;
 use OCA\IntrusionDetection\Check\Checks\CredentialStuffing;
 use OCA\IntrusionDetection\Check\Checks\CredentialStuffingDetector;
 use OCA\IntrusionDetection\Check\Checks\PasswordSpraying;
+use OCA\IntrusionDetection\Check\Checks\SharedAddress;
 use OCA\IntrusionDetection\Check\Mode;
 use OCA\IntrusionDetection\Config\GlobalSettings;
 use OCA\IntrusionDetection\Db\AttemptKind;
 use OCA\IntrusionDetection\Db\BanMapper;
 use OCA\IntrusionDetection\Db\FlagMapper;
+use OCA\IntrusionDetection\Db\LoginMapper;
 use OCA\IntrusionDetection\Explain\NarrativeBuilder;
+use OCA\IntrusionDetection\Net\SourceKey;
 use OCP\L10N\IFactory;
 use OCP\Server;
 use PHPUnit\Framework\Attributes\Group;
@@ -209,6 +212,22 @@ class CredentialStuffingTest extends LoginFailureTestCase {
 		$this->assertSame([], $this->bans->findActiveForKeys(['192.0.2.200'], time()), 'Two failures for one name are not enough');
 		$this->failLogin('192.0.2.200', 'someone-else');
 		$this->assertCount(1, $this->bans->findActiveForKeys(['192.0.2.200'], time()), '3 failures for 2 names are');
+	}
+
+	public function testASharedAddressInADistributedAttackIsReportedInsteadOfBlocked(): void {
+		$this->appConfig->setValueInt(Application::APP_ID, GlobalSettings::CS_DISTRIBUTED_UNTIL, time() + 300);
+		$this->appConfig->setValueInt(Application::APP_ID, GlobalSettings::CS_DISTRIBUTED_DETECTED_AT, time());
+		$source = SourceKey::fromIp('192.0.2.210');
+		foreach (['alice', 'bob', 'carol', 'dave', 'erin'] as $uid) {
+			Server::get(LoginMapper::class)->record($source->ipKey, $source->netKey, $uid, intdiv(time(), 3600));
+		}
+		foreach (['someone', 'someone', 'someone-else'] as $name) {
+			$this->failLogin('192.0.2.210', $name);
+		}
+		$this->assertSame([], $this->bans->findActiveForKeys(['192.0.2.210'], time()), 'Many people log in from it');
+		$shared = $this->detectionsOf(SharedAddress::ID);
+		$this->assertCount(1, $shared);
+		$this->assertSame(CredentialStuffing::ID, $shared[0]->getExplanationData()['facts']['wantedBy']);
 	}
 
 	public function testAfterADistributedAttackFailingAddressesStayFlaggedForAnHour(): void {

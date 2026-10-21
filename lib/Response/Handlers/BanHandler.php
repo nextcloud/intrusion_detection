@@ -162,13 +162,6 @@ class BanHandler implements IResponseHandler, IDescribesAction {
 
 	private function reportShared(DetectionDraft $draft, SourceKey $target, int $users, bool $proxy): void {
 		// Resolved lazily: the engine runs this handler, so it cannot be a constructor dependency.
-		$engine = $this->container->get(ResponseEngine::class);
-		$engine->handle(new DetectionDraft(
-			checkId: SharedAddress::ID,
-			source: $target,
-			facts: ['users' => $users, 'wantedBy' => $draft->checkId] + ($proxy ? ['proxy' => true] : []),
-			merge: DetectionDraft::MERGE_SOURCE,
-			mergeWindow: 86400,
-		));
+		$this->container->get(ResponseEngine::class)->handle(SharedAddress::draft($target, $users, $draft->checkId, $proxy));
 	}
 }
