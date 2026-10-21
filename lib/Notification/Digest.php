@@ -93,7 +93,6 @@ class Digest {
 			start: $start,
 			end: $end,
 			previousStart: $previousStart,
-			timezone: $schedule->timezone->getName(),
 			state: $status['state'],
 			learningDaysLeft: $status['learning']['daysLeft'],
 			modes: $status['checks'],
@@ -119,14 +118,12 @@ class Digest {
 	}
 
 	/**
-	 * The digest email in one language.
+	 * The digest email for readers of one language, locale and time zone.
 	 *
 	 * @param bool $test marks the email as a test, sent only to the admin who asked for it
 	 */
-	public function content(DigestReport $report, string $language, bool $test = false): MailContent {
-		$l = $this->l10nFactory->get(Application::APP_ID, $language);
+	public function content(DigestReport $report, IL10N $l, \DateTimeZone $timezone, bool $test = false): MailContent {
 		$weekly = $report->kind === DigestSchedule::WEEKLY;
-		$timezone = new \DateTimeZone($report->timezone);
 
 		$notes = [];
 		if ($test) {
@@ -154,7 +151,7 @@ class Digest {
 		$paragraphs = [$l->t('From %1$s to %2$s (%3$s).', [
 			$this->dateFormatter->formatDateTime($report->start, 'full', 'short', $timezone, $l),
 			$this->dateFormatter->formatDateTime($report->end, 'full', 'short', $timezone, $l),
-			$report->timezone,
+			$timezone->getName(),
 		])];
 
 		if ($report->isQuiet()) {
@@ -184,7 +181,7 @@ class Digest {
 			paragraphs: $paragraphs,
 			buttonText: $l->t('Open intrusion detection'),
 			buttonUrl: $this->links->adminPage(),
-			language: $language,
+			language: $l->getLanguageCode(),
 			notes: $notes,
 			details: $details,
 			notesAfterParagraphs: true,

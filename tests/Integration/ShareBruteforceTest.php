@@ -32,6 +32,7 @@ use OCA\IntrusionDetection\Notification\MailContent;
 use OCA\IntrusionDetection\Notification\Mails;
 use OCA\IntrusionDetection\Notification\ShareOwnerAlerts;
 use OCA\IntrusionDetection\Notification\ShareOwnerNotifier;
+use OCA\IntrusionDetection\Notification\UserMessages;
 use OCA\IntrusionDetection\Share\ShareLinks;
 use OCP\AppFramework\Http;
 use OCP\AppFramework\Utility\ITimeFactory;
@@ -392,7 +393,7 @@ class ShareBruteforceTest extends RequestEventTestCase {
 			Server::get(IUserManager::class),
 			Server::get(INotificationManager::class),
 			$mails,
-			Server::get(IFactory::class),
+			Server::get(UserMessages::class),
 			Server::get(IURLGenerator::class),
 			Server::get(ITimeFactory::class),
 		);

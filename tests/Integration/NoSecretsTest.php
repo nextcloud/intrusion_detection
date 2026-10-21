@@ -304,7 +304,7 @@ class NoSecretsTest extends LoginFailureTestCase {
 		$this->assertClean(json_encode($payloads, JSON_THROW_ON_ERROR), $secrets, $fingerprints, 'webhook payload');
 
 		$digest = Server::get(Digest::class);
-		$content = $digest->content($digest->report(new DigestSchedule(DigestSchedule::WEEKLY, new \DateTimeZone('UTC')), time() + 60), 'en');
+		$content = $digest->content($digest->report(new DigestSchedule(DigestSchedule::WEEKLY, new \DateTimeZone('UTC')), time() + 60), Server::get(IFactory::class)->get('intrusion_detection', 'en'), new \DateTimeZone('UTC'));
 		$this->assertNotSame([], $content->details, 'The digest lists what happened');
 		$text = json_encode(get_object_vars($content), JSON_THROW_ON_ERROR);
 		foreach ($content->details as $card) {

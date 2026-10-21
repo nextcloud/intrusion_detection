@@ -21,7 +21,6 @@ use OCA\IntrusionDetection\Explain\NarrativeBuilder;
 use OCP\AppFramework\Utility\ITimeFactory;
 use OCP\IL10N;
 use OCP\IUser;
-use OCP\L10N\IFactory;
 use OCP\Notification\IManager as INotificationManager;
 
 /**
@@ -66,7 +65,7 @@ class AdminAlerts {
 		private readonly Settings $settings,
 		private readonly NarrativeBuilder $narratives,
 		private readonly CheckRegistry $registry,
-		private readonly IFactory $l10nFactory,
+		private readonly UserMessages $messages,
 		private readonly AdminLinks $links,
 		private readonly ITimeFactory $timeFactory,
 	) {
@@ -202,28 +201,30 @@ class AdminAlerts {
 	}
 
 	/**
-	 * The alert email about a detection, in the recipient's language.
+	 * The alert email about a detection, in the recipient's language and
+	 * time zone.
 	 */
 	public function mailFor(Detection $detection, IUser $user): MailContent {
-		$language = $this->l10nFactory->getUserLanguage($user);
-		$l = $this->l10nFactory->get(Application::APP_ID, $language);
-		$narrative = $this->narratives->build($detection, $l);
-		$headline = $this->headline($detection, $l);
-		$paragraphs = $narrative->happened;
-		if ($narrative->observedBecause !== null) {
-			$paragraphs[] = $narrative->observedBecause;
-		}
-		$paragraphs[] = $l->t('Further detections of this kind within the hour are not emailed. You find all of them on the admin page.');
-		return new MailContent(
-			templateId: 'intrusion_detection.adminAlert',
-			subject: $l->t('Intrusion detection: %s', [$headline]),
-			heading: $headline,
-			paragraphs: $paragraphs,
-			listHeading: $detection->isEnforced() ? $l->t('What Nextcloud did:') : $l->t('What Nextcloud would have done:'),
-			listItems: $narrative->done,
-			buttonText: $l->t('Open intrusion detection'),
-			buttonUrl: $this->links->detection($detection->getId()),
-			language: $language,
-		);
+		$l = $this->messages->l10nFor($user);
+		return $this->messages->asReader($user, $l, function () use ($detection, $l): MailContent {
+			$narrative = $this->narratives->build($detection, $l);
+			$headline = $this->headline($detection, $l);
+			$paragraphs = $narrative->happened;
+			if ($narrative->observedBecause !== null) {
+				$paragraphs[] = $narrative->observedBecause;
+			}
+			$paragraphs[] = $l->t('Further detections of this kind within the hour are not emailed. You find all of them on the admin page.');
+			return new MailContent(
+				templateId: 'intrusion_detection.adminAlert',
+				subject: $l->t('Intrusion detection: %s', [$headline]),
+				heading: $headline,
+				paragraphs: $paragraphs,
+				listHeading: $detection->isEnforced() ? $l->t('What Nextcloud did:') : $l->t('What Nextcloud would have done:'),
+				listItems: $narrative->done,
+				buttonText: $l->t('Open intrusion detection'),
+				buttonUrl: $this->links->detection($detection->getId()),
+				language: $l->getLanguageCode(),
+			);
+		});
 	}
 }

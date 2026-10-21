@@ -35,7 +35,6 @@ final class DigestReport {
 		public readonly int $start,
 		public readonly int $end,
 		public readonly int $previousStart,
-		public readonly string $timezone,
 		public readonly string $state,
 		public readonly int $learningDaysLeft,
 		public readonly array $modes,

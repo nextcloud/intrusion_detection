@@ -72,6 +72,24 @@ class UserMessages {
 	 */
 	public function build(Detection $detection, IUser $user, ?string $language = null, bool $onSecurityPage = false): UserMessage {
 		$l = $this->l10nFor($user, $language);
+		return $this->asReader($user, $l, fn (): UserMessage => $this->message($detection, $l, $onSecurityPage));
+	}
+
+	/**
+	 * Runs `$build` with every date and time in the user's time zone and in
+	 * the language and locale of `$l`, for texts the user reads outside their
+	 * own session, such as an email sent from a background job or from
+	 * another user's request.
+	 *
+	 * @template T
+	 * @param \Closure(): T $build
+	 * @return T
+	 */
+	public function asReader(IUser $user, IL10N $l, \Closure $build): mixed {
+		return $this->dates->forReader($this->timeZoneOf($user), $l, $build);
+	}
+
+	private function message(Detection $detection, IL10N $l, bool $onSecurityPage): UserMessage {
 		$notice = $this->notice($detection, $l);
 		$advice = $notice->advice !== [] ? $notice->advice : [$l->t('If this was not you, change your password and check your devices and sessions in your security settings.')];
 		if (!$onSecurityPage && $this->questions->isOpen($detection)) {
@@ -80,7 +98,7 @@ class UserMessages {
 		return new UserMessage(
 			$notice->subject,
 			$notice->message,
-			$this->when($detection, $user, $l),
+			$this->when($detection, $l),
 			$this->done($detection, $l),
 			$advice,
 			$l->getLanguageCode(),
@@ -166,8 +184,8 @@ class UserMessages {
 		return new UserNotice($l->t('Unusual activity on your account'), [$l->t('Nextcloud noticed unusual activity on your account.')]);
 	}
 
-	private function when(Detection $detection, IUser $user, IL10N $l): string {
-		$time = $this->dates->dateTimeFor($detection->getCreatedAt(), $this->timeZoneOf($user), $l);
+	private function when(Detection $detection, IL10N $l): string {
+		$time = $this->dates->dateTime($detection->getCreatedAt());
 		$ip = $detection->getIp();
 		$userAgent = $detection->getExplanationData()['userAgent'] ?? null;
 		$device = DeviceLabel::describe(is_string($userAgent) ? $userAgent : null, $l);

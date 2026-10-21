@@ -17,7 +17,6 @@ use OCA\IntrusionDetection\ResponseDefinitions;
 use OCP\AppFramework\Utility\ITimeFactory;
 use OCP\IDateTimeZone;
 use OCP\IUser;
-use OCP\L10N\IFactory;
 use OCP\Mail\IEmailValidator;
 use Psr\Log\LoggerInterface;
 
@@ -57,7 +56,7 @@ class DigestSender {
 		private readonly Mails $mails,
 		private readonly AlertMapper $alerts,
 		private readonly IEmailValidator $emailValidator,
-		private readonly IFactory $l10nFactory,
+		private readonly UserMessages $messages,
 		private readonly IDateTimeZone $dateTimeZone,
 		private readonly Prerequisites $prerequisites,
 		private readonly ITimeFactory $timeFactory,
@@ -103,12 +102,14 @@ class DigestSender {
 		} elseif ($withEmail === []) {
 			$result = self::RESULT_NO_RECIPIENTS;
 		} else {
-			/** @var array<string, MailContent> $byLanguage */
-			$byLanguage = [];
+			/** @var array<string, MailContent> $byReader */
+			$byReader = [];
 			foreach ($withEmail as $user) {
-				$language = $this->l10nFactory->getUserLanguage($user);
-				$byLanguage[$language] ??= $this->digest->content($report, $language);
-				if ($this->mails->send($user, $byLanguage[$language])) {
+				$l = $this->messages->l10nFor($user);
+				$timeZone = $this->messages->timeZoneOf($user);
+				$reader = $l->getLanguageCode() . ' ' . $l->getLocaleCode() . ' ' . $timeZone->getName();
+				$byReader[$reader] ??= $this->digest->content($report, $l, $timeZone);
+				if ($this->mails->send($user, $byReader[$reader])) {
 					$sent++;
 				} else {
 					$failed++;
@@ -144,7 +145,7 @@ class DigestSender {
 			return self::TEST_NO_ADDRESS;
 		}
 		$report = $this->digest->report($this->schedule(), $this->timeFactory->getTime());
-		$content = $this->digest->content($report, $this->l10nFactory->getUserLanguage($admin), true);
+		$content = $this->digest->content($report, $this->messages->l10nFor($admin), $this->messages->timeZoneOf($admin), true);
 		return $this->mails->send($admin, $content) ? self::TEST_SENT : self::TEST_FAILED;
 	}
 

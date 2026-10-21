@@ -52,7 +52,6 @@ use OCP\IRequest;
 use OCP\IURLGenerator;
 use OCP\IUser;
 use OCP\IUserManager;
-use OCP\L10N\IFactory;
 use OCP\Notification\IManager as INotificationManager;
 use OCP\Security\ICrypto;
 use OCP\Security\ISecureRandom;
@@ -144,7 +143,7 @@ abstract class TakeoverTestCase extends AccountTestCase {
 			$this->settings,
 			Server::get(NarrativeBuilder::class),
 			Server::get(CheckRegistry::class),
-			Server::get(IFactory::class),
+			Server::get(UserMessages::class),
 			Server::get(AdminLinks::class),
 			Server::get(ITimeFactory::class),
 		);

@@ -118,6 +118,23 @@ class UserAlertsTest extends AccountTestCase {
 		Server::get(Notifier::class)->prepare($foreign, 'en');
 	}
 
+	public function testEveryTimeInTheEmailIsInTheUsersTimeZone(): void {
+		$user = $this->newUser('ids-notify', 'alice@example.com');
+		Server::get(IUserConfig::class)->setValueString($user->getUID(), 'core', 'timezone', 'Asia/Tokyo');
+		// Monday, October 12, 2026, 08:00 UTC is 17:00 in Tokyo.
+		$monday = 1791792000;
+		$detection = $this->detection($user, AccountUnderAttack::ID, [
+			['type' => ResponseType::ProtectAccount->value, 'enforced' => true, 'ref' => ['until' => $monday]],
+		]);
+		$detection->setCreatedAt($monday - 3600);
+
+		// ICU puts a narrow no-break space before "PM".
+		$text = str_replace("\u{202F}", ' ', implode(' ', Server::get(UserMessages::class)->mail($detection, $user)->paragraphs));
+
+		$this->assertStringContainsString('Until October 12, 2026, 5:00 PM, logins with your password', $text, 'the check\'s own sentence');
+		$this->assertStringContainsString('This happened on October 12, 2026, 4:00 PM', $text);
+	}
+
 	public function testTheEmailIsEscapedAndHasNoControlCharacters(): void {
 		$user = $this->newUser('ids-notify', 'alice@example.com');
 		$detection = $this->detection($user, SecondFactorFailed::ID, [], userAgent: self::USER_AGENT);

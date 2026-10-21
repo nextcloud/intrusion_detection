@@ -26,8 +26,10 @@ use OCA\IntrusionDetection\Notification\AdminRecipients;
 use OCA\IntrusionDetection\Notification\MailContent;
 use OCA\IntrusionDetection\Notification\Mails;
 use OCA\IntrusionDetection\Notification\Notifier;
+use OCA\IntrusionDetection\Notification\UserMessages;
 use OCA\IntrusionDetection\Response\Handlers\NotifyAdminHandler;
 use OCP\AppFramework\Utility\ITimeFactory;
+use OCP\Config\IUserConfig;
 use OCP\ICacheFactory;
 use OCP\IGroup;
 use OCP\IGroupManager;
@@ -79,7 +81,7 @@ class AdminAlertsTest extends IntegrationTestCase {
 			Server::get(Settings::class),
 			Server::get(NarrativeBuilder::class),
 			Server::get(CheckRegistry::class),
-			Server::get(IFactory::class),
+			Server::get(UserMessages::class),
 			Server::get(AdminLinks::class),
 			Server::get(ITimeFactory::class),
 		);
@@ -106,7 +108,7 @@ class AdminAlertsTest extends IntegrationTestCase {
 		$recipients->expects($this->once())->method('users')->willReturn([$this->admin('alice', 'alice@example.com'), $this->admin('bob', null)]);
 		$alerts = new AdminAlerts(
 			Server::get(AlertMapper::class), $recipients, $this->notifications, $this->mails, Server::get(Settings::class),
-			Server::get(NarrativeBuilder::class), Server::get(CheckRegistry::class), Server::get(IFactory::class),
+			Server::get(NarrativeBuilder::class), Server::get(CheckRegistry::class), Server::get(UserMessages::class),
 			Server::get(AdminLinks::class), Server::get(ITimeFactory::class),
 		);
 		// The first hit sends the bell and the email, with one lookup.
@@ -140,6 +142,28 @@ class AdminAlertsTest extends IntegrationTestCase {
 		$this->assertNotSame([], $content->listItems);
 	}
 
+	public function testEveryTimeInTheEmailIsInTheRecipientsTimeZone(): void {
+		$config = Server::get(IUserConfig::class);
+		$config->setValueString('ids-alert-tokyo', 'core', 'timezone', 'Asia/Tokyo');
+		$config->setValueString('ids-alert-berlin', 'core', 'timezone', 'Europe/Berlin');
+		$detection = $this->detection('198.51.100.7', Severity::Critical);
+		// Monday, October 12, 2026, 08:00 to 08:05 UTC.
+		$detection->setCreatedAt(1791792000);
+		$detection->setLastSeenAt(1791792300);
+
+		try {
+			$tokyo = implode(' ', $this->alerts->mailFor($detection, $this->admin('ids-alert-tokyo', 'tokyo@example.com'))->paragraphs);
+			$berlin = implode(' ', $this->alerts->mailFor($detection, $this->admin('ids-alert-berlin', 'berlin@example.com'))->paragraphs);
+		} finally {
+			$config->deleteAllUserConfig('ids-alert-tokyo');
+			$config->deleteAllUserConfig('ids-alert-berlin');
+		}
+
+		// ICU puts a narrow no-break space before "PM".
+		$this->assertStringContainsString('Between October 12, 2026, 5:00 PM and 5:05 PM', str_replace("\u{202F}", ' ', $tokyo));
+		$this->assertStringContainsString('Between October 12, 2026, 10:00 AM and 10:05 AM', str_replace("\u{202F}", ' ', $berlin));
+	}
+
 	public function testLessSevereDetectionsAreNotEmailed(): void {
 		$result = $this->alerts->alert($this->detection('198.51.100.7', Severity::Medium));
 		$this->assertSame(AdminAlerts::EMAIL_BELOW_SEVERITY, $result['email']);
@@ -158,7 +182,7 @@ class AdminAlertsTest extends IntegrationTestCase {
 		$recipients->method('users')->willReturn([$this->admin('carol', null)]);
 		$alerts = new AdminAlerts(
 			Server::get(AlertMapper::class), $recipients, $this->notifications, $this->mails, Server::get(Settings::class),
-			Server::get(NarrativeBuilder::class), Server::get(CheckRegistry::class), Server::get(IFactory::class),
+			Server::get(NarrativeBuilder::class), Server::get(CheckRegistry::class), Server::get(UserMessages::class),
 			Server::get(AdminLinks::class), Server::get(ITimeFactory::class),
 		);
 		$result = $alerts->alert($this->detection('198.51.100.7', Severity::Critical));
@@ -181,7 +205,7 @@ class AdminAlertsTest extends IntegrationTestCase {
 		$recipients = new AdminRecipients(Server::get(Settings::class), $groups, $factory);
 		$alerts = new AdminAlerts(
 			Server::get(AlertMapper::class), $recipients, $this->notifications, $this->mails, Server::get(Settings::class),
-			Server::get(NarrativeBuilder::class), Server::get(CheckRegistry::class), Server::get(IFactory::class),
+			Server::get(NarrativeBuilder::class), Server::get(CheckRegistry::class), Server::get(UserMessages::class),
 			Server::get(AdminLinks::class), Server::get(ITimeFactory::class),
 		);
 		$this->assertSame(AdminAlerts::EMAIL_NO_ADDRESS, $alerts->alert($this->detection('198.51.100.7', Severity::Critical))['email']);
@@ -195,7 +219,7 @@ class AdminAlertsTest extends IntegrationTestCase {
 		$mails->method('send')->willReturn(false);
 		$alerts = new AdminAlerts(
 			Server::get(AlertMapper::class), $this->recipients, $this->notifications, $mails, Server::get(Settings::class),
-			Server::get(NarrativeBuilder::class), Server::get(CheckRegistry::class), Server::get(IFactory::class),
+			Server::get(NarrativeBuilder::class), Server::get(CheckRegistry::class), Server::get(UserMessages::class),
 			Server::get(AdminLinks::class), Server::get(ITimeFactory::class),
 		);
 		$this->assertSame(AdminAlerts::EMAIL_FAILED, $alerts->alert($this->detection('198.51.100.7', Severity::Critical))['email']);

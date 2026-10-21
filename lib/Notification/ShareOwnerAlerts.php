@@ -17,7 +17,6 @@ use OCP\AppFramework\Utility\ITimeFactory;
 use OCP\IURLGenerator;
 use OCP\IUser;
 use OCP\IUserManager;
-use OCP\L10N\IFactory;
 use OCP\Notification\IManager as INotificationManager;
 use OCP\Share\IShare;
 
@@ -42,7 +41,7 @@ class ShareOwnerAlerts {
 		private readonly IUserManager $userManager,
 		private readonly INotificationManager $notifications,
 		private readonly Mails $mails,
-		private readonly IFactory $l10nFactory,
+		private readonly UserMessages $messages,
 		private readonly IURLGenerator $urlGenerator,
 		private readonly ITimeFactory $timeFactory,
 	) {
@@ -81,22 +80,23 @@ class ShareOwnerAlerts {
 	}
 
 	public function mailFor(Detection $detection, IShare $share, IUser $user): MailContent {
-		$language = $this->l10nFactory->getUserLanguage($user);
-		$l = $this->l10nFactory->get(Application::APP_ID, $language);
-		$notice = $this->check->userNotice($detection, $l);
-		$paragraphs = $notice->message;
-		if ($this->links->isLink($share)) {
-			$paragraphs[] = $l->t('You can change the password or turn the link off in the sharing settings of the file, or with "Disable link" in the notification inside Nextcloud.');
-		}
-		return new MailContent(
-			templateId: 'intrusion_detection.shareAttacked',
-			subject: $notice->subject,
-			heading: $notice->subject,
-			paragraphs: $paragraphs,
-			buttonText: $l->t('Open share settings'),
-			buttonUrl: $this->links->settingsLink($share),
-			language: $language,
-		);
+		$l = $this->messages->l10nFor($user);
+		return $this->messages->asReader($user, $l, function () use ($detection, $share, $l): MailContent {
+			$notice = $this->check->userNotice($detection, $l);
+			$paragraphs = $notice->message;
+			if ($this->links->isLink($share)) {
+				$paragraphs[] = $l->t('You can change the password or turn the link off in the sharing settings of the file, or with "Disable link" in the notification inside Nextcloud.');
+			}
+			return new MailContent(
+				templateId: 'intrusion_detection.shareAttacked',
+				subject: $notice->subject,
+				heading: $notice->subject,
+				paragraphs: $paragraphs,
+				buttonText: $l->t('Open share settings'),
+				buttonUrl: $this->links->settingsLink($share),
+				language: $l->getLanguageCode(),
+			);
+		});
 	}
 
 	private function notify(IUser $user, Detection $detection, IShare $share, int $now): void {

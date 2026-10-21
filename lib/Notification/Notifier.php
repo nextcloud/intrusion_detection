@@ -88,8 +88,17 @@ class Notifier implements INotifier {
 		if ($notification->getApp() !== Application::APP_ID) {
 			throw new UnknownNotificationException();
 		}
-		$l = $this->l10nFactory->get(Application::APP_ID, $languageCode);
 		$notification->setIcon($this->links->icon());
+		// Prepared also for push and email, outside the recipient's session.
+		$user = $this->userManager->get($notification->getUser());
+		if ($user === null) {
+			return $this->prepareSubject($notification, $this->l10nFactory->get(Application::APP_ID, $languageCode), $languageCode);
+		}
+		$l = $this->userMessages->l10nFor($user, $languageCode);
+		return $this->userMessages->asReader($user, $l, fn (): INotification => $this->prepareSubject($notification, $l, $languageCode));
+	}
+
+	private function prepareSubject(INotification $notification, IL10N $l, string $languageCode): INotification {
 		return match ($notification->getSubject()) {
 			AdminAlerts::SUBJECT => $this->prepareDetection($notification, $l),
 			self::SUBJECT_LEARNING_ENDS => $this->prepareLearningEnds($notification, $l),

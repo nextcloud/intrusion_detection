@@ -148,7 +148,7 @@ class LockLinks {
 	 */
 	private function mail(IUser $user, array $change, string $url): MailContent {
 		$l = $this->messages->l10nFor($user);
-		$when = $this->dates->dateTime($change['created_at']);
+		$when = $this->messages->asReader($user, $l, fn (): string => $this->dates->dateTime($change['created_at']));
 		$server = $this->defaults->getName();
 		return new MailContent(
 			templateId: 'intrusion_detection.lockLink',

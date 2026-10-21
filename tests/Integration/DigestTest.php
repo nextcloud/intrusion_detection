@@ -32,8 +32,11 @@ use OCA\IntrusionDetection\Notification\DigestSchedule;
 use OCA\IntrusionDetection\Notification\DigestSender;
 use OCA\IntrusionDetection\Notification\MailContent;
 use OCA\IntrusionDetection\Notification\Mails;
+use OCA\IntrusionDetection\Notification\UserMessages;
 use OCP\AppFramework\Utility\ITimeFactory;
+use OCP\Config\IUserConfig;
 use OCP\IDateTimeZone;
+use OCP\IL10N;
 use OCP\IUser;
 use OCP\L10N\IFactory;
 use OCP\Mail\IEMailTemplate;
@@ -69,6 +72,13 @@ class DigestTest extends IntegrationTestCase {
 		$this->settings = Server::get(Settings::class);
 		$this->admins = [$this->admin('alice', 'alice@example.com'), $this->admin('bob', null), $this->admin('carol', 'not an address')];
 		$this->logger = $this->createMock(LoggerInterface::class);
+	}
+
+	protected function tearDown(): void {
+		foreach (['ids-digest-tokyo', 'ids-digest-berlin'] as $uid) {
+			Server::get(IUserConfig::class)->deleteAllUserConfig($uid);
+		}
+		parent::tearDown();
 	}
 
 	public function testTheDigestIsDueOnMondayAt0800(): void {
@@ -121,7 +131,7 @@ class DigestTest extends IntegrationTestCase {
 
 	public function testTheEmailHasASectionForEveryKindOfDataAndLeavesOutEmptyOnes(): void {
 		$this->seed();
-		$content = $this->digest()->content($this->digest()->report($this->schedule(), self::DUE), 'en');
+		$content = $this->digest()->content($this->digest()->report($this->schedule(), self::DUE), self::l10n(), new \DateTimeZone('UTC'));
 		$this->assertSame('Intrusion detection weekly summary: 15 detections', $content->subject);
 		$this->assertSame('Weekly security summary', $content->heading);
 		$this->assertSame(['Detections per check', 'Most active addresses', 'Accounts under attack', 'Decoys that were used', 'Shares under attack', 'Blocklist matches', 'Open items'],
@@ -131,19 +141,19 @@ class DigestTest extends IntegrationTestCase {
 		$this->assertStringEndsWith('/settings/admin/intrusion_detection', (string)$content->buttonUrl);
 
 		$this->insertDetection(CredentialStuffing::ID, '198.51.100.8', null, self::DUE + 7 * self::DAY - 3600);
-		$next = $this->digest()->content($this->digest()->report($this->schedule(), self::DUE + 7 * self::DAY), 'en');
+		$next = $this->digest()->content($this->digest()->report($this->schedule(), self::DUE + 7 * self::DAY), self::l10n(), new \DateTimeZone('UTC'));
 		$this->assertSame(['Detections per check', 'Most active addresses', 'Open items'], array_map(static fn ($card): string => $card->getTitle(), $next->details));
 	}
 
 	public function testLearningModeAndProblemsAreShownOnTop(): void {
 		$this->settings->setGlobal(GlobalSettings::LEARNING_UNTIL, time() + 3 * self::DAY + 3600);
-		$content = $this->digest()->content($this->digest()->report($this->schedule(), self::DUE), 'en');
+		$content = $this->digest()->content($this->digest()->report($this->schedule(), self::DUE), self::l10n(), new \DateTimeZone('UTC'));
 		$this->assertSame('Learning: 4 days left', $content->notes[0]['label']);
 		$this->assertSame(IEMailTemplate::NOTE_INFO, $content->notes[0]['type']);
 
 		$this->settings->setGlobal(GlobalSettings::LEARNING_UNTIL, 0);
 		$this->settings->setGlobal(GlobalSettings::ENABLED, false);
-		$content = $this->digest()->content($this->digest()->report($this->schedule(), self::DUE), 'en');
+		$content = $this->digest()->content($this->digest()->report($this->schedule(), self::DUE), self::l10n(), new \DateTimeZone('UTC'));
 		$this->assertSame('Off', $content->notes[0]['label']);
 		$this->assertSame(IEMailTemplate::NOTE_WARNING, $content->notes[0]['type']);
 	}
@@ -151,7 +161,7 @@ class DigestTest extends IntegrationTestCase {
 	public function testEverythingInTheEmailIsEscaped(): void {
 		$this->insertDetection(AccountUnderAttack::ID, null, '<script>alert(1)</script>', self::DUE - 3600);
 		$this->insertDetection(DecoyCredential::ID, '192.0.2.1', null, self::DUE - 3600, ['decoy' => 1, 'label' => '<img src=x onerror=alert(2)>']);
-		$content = $this->digest()->content($this->digest()->report($this->schedule(), self::DUE), 'en');
+		$content = $this->digest()->content($this->digest()->report($this->schedule(), self::DUE), self::l10n(), new \DateTimeZone('UTC'));
 
 		$template = null;
 		$mailer = $this->createMock(IMailer::class);
@@ -176,6 +186,24 @@ class DigestTest extends IntegrationTestCase {
 		$text = $template->renderText();
 		$this->assertStringContainsString('Accounts under attack', $text);
 		$this->assertStringContainsString('<script>alert(1)</script>: 1 detection', $text, 'the plain-text part has the same content');
+	}
+
+	public function testEveryAdminReadsTheTimesInTheirOwnTimeZone(): void {
+		$config = Server::get(IUserConfig::class);
+		$config->setValueString('ids-digest-tokyo', 'core', 'timezone', 'Asia/Tokyo');
+		$config->setValueString('ids-digest-berlin', 'core', 'timezone', 'Europe/Berlin');
+		$this->admins = [$this->admin('ids-digest-tokyo', 'tokyo@example.com'), $this->admin('ids-digest-berlin', 'berlin@example.com')];
+
+		$this->assertSame(DigestSender::RESULT_SENT, $this->sender()->sendIfDue());
+
+		$this->assertSame(['ids-digest-tokyo', 'ids-digest-berlin'], array_column($this->mailed, 0));
+		$tokyo = $this->mailed[0][1]->paragraphs[0];
+		$this->assertStringContainsString('October 12, 2026', $tokyo);
+		$this->assertStringContainsString('5:00', $tokyo, 'Monday 08:00 UTC is 17:00 in Tokyo');
+		$this->assertStringContainsString('(Asia/Tokyo)', $tokyo);
+		$berlin = $this->mailed[1][1]->paragraphs[0];
+		$this->assertStringContainsString('10:00', $berlin, 'Monday 08:00 UTC is 10:00 in Berlin');
+		$this->assertStringContainsString('(Europe/Berlin)', $berlin);
 	}
 
 	public function testAQuietPeriodSendsAShortEmail(): void {
@@ -293,6 +321,10 @@ class DigestTest extends IntegrationTestCase {
 		return new DigestSchedule((string)$this->settings->global(GlobalSettings::DIGEST_FREQUENCY), new \DateTimeZone('UTC'));
 	}
 
+	private static function l10n(): IL10N {
+		return Server::get(IFactory::class)->get('intrusion_detection', 'en');
+	}
+
 	private function digest(): Digest {
 		return Server::get(Digest::class);
 	}
@@ -319,7 +351,7 @@ class DigestTest extends IntegrationTestCase {
 			$mails,
 			Server::get(AlertMapper::class),
 			Server::get(IEmailValidator::class),
-			Server::get(IFactory::class),
+			Server::get(UserMessages::class),
 			$timezone,
 			Server::get(Prerequisites::class),
 			$time,

@@ -16,12 +16,17 @@ use Psr\Container\ContainerInterface;
 /**
  * Formats timestamps for explanations, in the reader's time zone.
  *
+ * The reader is the current user, unless a text for someone else, such as
+ * an email, is built within {@see forReader()}.
+ *
  * Core's formatter is resolved on the first use: it takes the time zone and
  * language of the session, so it must not be built while a check is
  * constructed, which may happen before the session exists.
  */
 class DateFormatter {
 	private ?IDateTimeFormatter $formatter = null;
+	private ?\DateTimeZone $timeZone = null;
+	private ?IL10N $l = null;
 
 	public function __construct(
 		private readonly ?ContainerInterface $container = null,
@@ -41,26 +46,38 @@ class DateFormatter {
 	 * Date and time in the one style of the server's texts, e.g. "October 21, 2026, 6:10 PM".
 	 */
 	public function dateTime(int $timestamp): string {
-		return $this->formatter()->formatDateTime($timestamp, 'long', 'short');
+		return $this->formatter()->formatDateTime($timestamp, 'long', 'short', $this->timeZone, $this->l);
 	}
 
 	/**
 	 * How long ago, e.g. "4 minutes ago", for lists that are read now.
 	 */
 	public function ago(int $timestamp, int $now): string {
-		return $this->formatter()->formatTimeSpan($timestamp, $now);
+		return $this->formatter()->formatTimeSpan($timestamp, $now, $this->l);
 	}
 
 	public function time(int $timestamp): string {
-		return $this->formatter()->formatTime($timestamp, 'short');
+		return $this->formatter()->formatTime($timestamp, 'short', $this->timeZone, $this->l);
 	}
 
 	/**
-	 * Date and time for a reader other than the current user, e.g. in an
-	 * email: in their time zone and language.
+	 * Runs `$build` with every date and time in the given time zone, and in
+	 * the language and locale of `$l`, for a text read by someone other than
+	 * the current user. Scopes can be nested.
+	 *
+	 * @template T
+	 * @param \Closure(): T $build
+	 * @return T
 	 */
-	public function dateTimeFor(int $timestamp, \DateTimeZone $timeZone, IL10N $l): string {
-		return $this->formatter()->formatDateTime($timestamp, 'long', 'short', $timeZone, $l);
+	public function forReader(\DateTimeZone $timeZone, IL10N $l, \Closure $build): mixed {
+		$previous = [$this->timeZone, $this->l];
+		$this->timeZone = $timeZone;
+		$this->l = $l;
+		try {
+			return $build();
+		} finally {
+			[$this->timeZone, $this->l] = $previous;
+		}
 	}
 
 	private function formatter(): IDateTimeFormatter {
