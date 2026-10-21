@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 
-import type { ParamType, ParamValue } from '../types.ts'
+import type { DetectionOutcome, ParamType, ParamValue } from '../types.ts'
 
 import { getCanonicalLocale, n, t } from '@nextcloud/l10n'
 
@@ -57,6 +57,24 @@ const CHOICES: Record<string, () => string> = {
  */
 export function choiceLabel(choice: string): string {
 	return CHOICES[choice]?.() ?? choice
+}
+
+/**
+ * What Nextcloud did about a detection, in one word: "Acted on", "Notified", "Recorded" or "Observed".
+ *
+ * @param outcome - The outcome of the detection
+ */
+export function outcomeLabel(outcome: DetectionOutcome): string {
+	switch (outcome) {
+		case 'acted':
+			return t(APP_ID, 'Acted on')
+		case 'notified':
+			return t(APP_ID, 'Notified')
+		case 'recorded':
+			return t(APP_ID, 'Recorded')
+		default:
+			return t(APP_ID, 'Observed')
+	}
 }
 
 /**

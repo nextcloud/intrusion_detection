@@ -174,6 +174,7 @@ namespace OCA\IntrusionDetection;
  *     lastSeenAt: int,
  *     userVerdict: ?string,
  *     summary: string,
+ *     outcome: 'acted'|'notified'|'recorded'|'observed',
  * }
  *
  * @psalm-type IntrusionDetectionDetectionList = array{

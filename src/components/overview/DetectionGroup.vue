@@ -10,6 +10,7 @@ import { mdiChevronDown } from '@mdi/js'
 import { n, t } from '@nextcloud/l10n'
 import { computed, ref, useId, watch } from 'vue'
 import NcIconSvgWrapper from '@nextcloud/vue/components/NcIconSvgWrapper'
+import OutcomeBadge from '../common/OutcomeBadge.vue'
 import SeverityPill from '../common/SeverityPill.vue'
 import TimeStamp from '../common/TimeStamp.vue'
 import DetectionRow from './DetectionRow.vue'
@@ -60,9 +61,7 @@ const title = computed(() => shared.value
 					<span>{{ shared ? n(APP_ID, '%n time', '%n times', detections.length) + ' ' : '' }}{{ groupSpan(detections) }}</span>
 				</span>
 			</span>
-			<span :class="[$style.group__outcome, first.enforced ? $style.group__outcome_enforced : $style.group__outcome_observed]">
-				{{ first.enforced ? t(APP_ID, 'Acted on') : t(APP_ID, 'Observed') }}
-			</span>
+			<OutcomeBadge :class="$style.group__outcome" :outcome="first.outcome" />
 			<TimeStamp :class="$style.group__time" :timestamp="first.lastSeenAt" short />
 			<NcIconSvgWrapper
 				inline
@@ -92,7 +91,7 @@ const title = computed(() => shared.value
 
 .group button.group__summary {
 	display: grid;
-	grid-template-columns: 6em minmax(0, 1fr) auto auto auto;
+	grid-template-columns: 6em minmax(0, 1fr) 7.5em 7em 20px;
 	grid-template-areas: "severity main outcome time chevron";
 	align-items: center;
 	gap: calc(var(--default-grid-baseline) * 3);
@@ -150,27 +149,11 @@ const title = computed(() => shared.value
 .group__outcome {
 	grid-area: outcome;
 	justify-self: end;
-	padding-inline: calc(var(--default-grid-baseline) * 2);
-	border-radius: var(--border-radius-element);
-	font-size: 0.85em;
-	font-weight: 600;
-	line-height: 22px;
-	white-space: nowrap;
-}
-
-.group__outcome_enforced {
-	background-color: var(--color-primary-element);
-	color: var(--color-primary-element-text);
-}
-
-.group__outcome_observed {
-	border: 1px dashed var(--color-primary-element);
-	background-color: var(--color-primary-element-light);
-	color: var(--color-primary-element-light-text, var(--color-main-text));
 }
 
 .group__time {
 	grid-area: time;
+	justify-self: end;
 	color: var(--color-text-maxcontrast);
 	font-size: 0.9em;
 	white-space: nowrap;

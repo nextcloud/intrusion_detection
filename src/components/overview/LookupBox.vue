@@ -21,7 +21,7 @@ import { useAnnouncer } from '../../composables/useAnnouncer.ts'
 import { useIncidentReport } from '../../composables/useIncidentReport.ts'
 import { errorMessage, lookup } from '../../services/api.ts'
 import { logger } from '../../services/logger.ts'
-import { APP_ID, formatAddress } from '../../utils/format.ts'
+import { APP_ID, formatAddress, outcomeLabel } from '../../utils/format.ts'
 
 const emit = defineEmits<{
 	openDetection: [id: number]
@@ -185,7 +185,7 @@ function clear() {
 							<button type="button" :class="$style.result__detection" @click="emit('openDetection', detection.id)">
 								<SeverityPill :severity="detection.severity" />
 								<span :class="$style.result__detectionName">{{ detection.checkName }}</span>
-								<span :class="$style.result__muted">{{ detection.enforced ? t(APP_ID, 'Acted on') : t(APP_ID, 'Observed') }}</span>
+								<span :class="$style.result__muted">{{ outcomeLabel(detection.outcome) }}</span>
 								<TimeStamp :class="$style.result__muted" :timestamp="detection.lastSeenAt" short />
 							</button>
 						</li>

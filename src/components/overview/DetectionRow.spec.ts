@@ -28,6 +28,12 @@ describe('a detection in the list', () => {
 		expect(wrapper.text()).toContain('Credential stuffing')
 	})
 
+	test('a detection that was only recorded does not say "Acted on"', () => {
+		const wrapper = mount(DetectionRow, { props: { detection: { ...makeDetail().detection, summary: 'A setting was changed. It was recorded.', outcome: 'recorded' } } })
+		expect(wrapper.get('[data-test="outcome"]').text()).toBe('Recorded')
+		expect(wrapper.text()).not.toContain('Acted on')
+	})
+
 	test('the sentence is shown as text, never as markup', () => {
 		const wrapper = mount(DetectionRow, { props: { detection: { ...makeDetail().detection, summary: '<b>bold</b> summary' } } })
 		expect(wrapper.find('b').exists()).toBe(false)

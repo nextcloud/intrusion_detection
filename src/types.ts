@@ -134,6 +134,9 @@ export interface Status {
 	extensions: Record<string, Record<string, unknown>>
 }
 
+/** What Nextcloud did about a detection: acted, only notified, only recorded, or observed without acting */
+export type DetectionOutcome = 'acted' | 'notified' | 'recorded' | 'observed'
+
 export interface Detection {
 	id: number
 	checkId: string
@@ -151,6 +154,7 @@ export interface Detection {
 	userVerdict: string | null
 	/** One plain sentence: what happened and what was done, e.g. "Credential stuffing from 203.0.113.7. The address was blocked." */
 	summary: string
+	outcome: DetectionOutcome
 }
 
 export interface DetectionList {

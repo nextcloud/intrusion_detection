@@ -10,6 +10,7 @@ declare(strict_types=1);
 namespace OCA\IntrusionDetection\Admin;
 
 use OCA\IntrusionDetection\Address\AddressResolver;
+use OCA\IntrusionDetection\Check\ResponseType;
 use OCA\IntrusionDetection\Db\AttemptKind;
 use OCA\IntrusionDetection\Db\AttemptMapper;
 use OCA\IntrusionDetection\Db\Detection;
@@ -75,7 +76,36 @@ class DetectionPresenter {
 			'lastSeenAt' => $detection->getLastSeenAt(),
 			'userVerdict' => $detection->getUserVerdict(),
 			'summary' => $this->summaries->summary($detection, $l),
+			'outcome' => self::outcome($detection),
 		];
+	}
+
+	/**
+	 * What Nextcloud did, in one word: it acted (blocked, ended a session,
+	 * …), it only notified, it only recorded, or it only observed because
+	 * the check observes or learning mode was on.
+	 *
+	 * @return 'acted'|'notified'|'recorded'|'observed'
+	 */
+	public static function outcome(Detection $detection): string {
+		if (!$detection->isEnforced()) {
+			return 'observed';
+		}
+		$notified = false;
+		foreach ($detection->getActionList() as $action) {
+			if (!$action['enforced']) {
+				continue;
+			}
+			$type = ResponseType::tryFrom($action['type']);
+			if ($type === null) {
+				continue;
+			}
+			if (!$type->isNotification()) {
+				return 'acted';
+			}
+			$notified = true;
+		}
+		return $notified ? 'notified' : 'recorded';
 	}
 
 	/**

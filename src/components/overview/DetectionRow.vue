@@ -11,6 +11,7 @@ import { n, t } from '@nextcloud/l10n'
 import { computed, ref, useId, watch } from 'vue'
 import NcIconSvgWrapper from '@nextcloud/vue/components/NcIconSvgWrapper'
 import NcNoteCard from '@nextcloud/vue/components/NcNoteCard'
+import OutcomeBadge from '../common/OutcomeBadge.vue'
 import SeverityPill from '../common/SeverityPill.vue'
 import SkeletonBlock from '../common/SkeletonBlock.vue'
 import TimeStamp from '../common/TimeStamp.vue'
@@ -92,9 +93,7 @@ watch(() => props.detection?.lastSeenAt, () => {
 					<span v-if="shown.hits > 1">{{ n(APP_ID, '%n time', '%n times', shown.hits) }}</span>
 				</span>
 			</span>
-			<span :class="[$style.row__outcome, shown.enforced ? $style.row__outcome_enforced : $style.row__outcome_observed]">
-				{{ shown.enforced ? t(APP_ID, 'Acted on') : t(APP_ID, 'Observed') }}
-			</span>
+			<OutcomeBadge :class="$style.row__outcome" :outcome="shown.outcome" />
 			<TimeStamp :class="$style.row__time" :timestamp="shown.lastSeenAt" short />
 			<NcIconSvgWrapper
 				inline
@@ -127,7 +126,7 @@ watch(() => props.detection?.lastSeenAt, () => {
 
 .row .row__summary {
 	display: grid;
-	grid-template-columns: 6em minmax(0, 1fr) auto auto auto;
+	grid-template-columns: 6em minmax(0, 1fr) 7.5em 7em 20px;
 	grid-template-areas: "severity main outcome time chevron";
 	align-items: center;
 	gap: calc(var(--default-grid-baseline) * 3);
@@ -185,27 +184,11 @@ watch(() => props.detection?.lastSeenAt, () => {
 .row__outcome {
 	grid-area: outcome;
 	justify-self: end;
-	padding-inline: calc(var(--default-grid-baseline) * 2);
-	border-radius: var(--border-radius-element);
-	font-size: 0.85em;
-	font-weight: 600;
-	line-height: 22px;
-	white-space: nowrap;
-}
-
-.row__outcome_enforced {
-	background-color: var(--color-primary-element);
-	color: var(--color-primary-element-text);
-}
-
-.row__outcome_observed {
-	border: 1px dashed var(--color-primary-element);
-	color: var(--color-primary-element-light-text, var(--color-main-text));
-	background-color: var(--color-primary-element-light);
 }
 
 .row__time {
 	grid-area: time;
+	justify-self: end;
 	color: var(--color-text-maxcontrast);
 	font-size: 0.9em;
 	white-space: nowrap;

@@ -15,7 +15,7 @@ vi.mock('../../services/api.ts', async (importOriginal) => ({
 	fetchDetection: vi.fn(() => new Promise(() => {})),
 }))
 
-const detections: Detection[] = [17, 16, 15].map((id) => ({ ...makeDetail().detection, id, checkName: 'Admin change alerts', summary: `Security setting changed: setting ${id}. The administrators were notified.`, ip: null, uid: null, enforced: false, createdAt: 1000 + id, lastSeenAt: 1000 + id }))
+const detections: Detection[] = [17, 16, 15].map((id) => ({ ...makeDetail().detection, id, checkName: 'Admin change alerts', summary: `Security setting changed: setting ${id}. The administrators were notified.`, ip: null, uid: null, enforced: false, outcome: 'observed' as const, createdAt: 1000 + id, lastSeenAt: 1000 + id }))
 
 describe('a group of detections', () => {
 	test('reads "3 × Admin change alerts" and opens to its detections', async () => {

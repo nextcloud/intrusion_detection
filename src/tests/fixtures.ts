@@ -71,6 +71,7 @@ export function makeDetail(overrides: Partial<DetectionDetail> = {}): DetectionD
 			lastSeenAt: 1_790_000_400,
 			userVerdict: null,
 			summary: 'Credential stuffing from 203.0.113.7. The address was blocked.',
+			outcome: 'acted',
 		},
 		explanation: {},
 		actions: [{ type: 'ban', enforced: true, note: null }],
