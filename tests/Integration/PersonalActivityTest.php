@@ -21,6 +21,7 @@ use OCA\IntrusionDetection\Personal\ManageSummary;
 use OCA\IntrusionDetection\Personal\PersonalActivity;
 use OCA\IntrusionDetection\Response\Tokens;
 use OCA\IntrusionDetection\TrustedNetwork\TrustedNetworks;
+use OCA\IntrusionDetection\WasThisYou\PersonalDetections;
 use OCP\AppFramework\OCS\OCSNotFoundException;
 use OCP\Authentication\Token\IToken;
 use OCP\IDBConnection;
@@ -81,6 +82,31 @@ class PersonalActivityTest extends PersonalApiTestCase {
 		$sorted = $times;
 		rsort($sorted);
 		$this->assertSame($sorted, $times);
+	}
+
+	public function testAnOldOpenQuestionIsListedBehindManyNewerDetections(): void {
+		$now = time();
+		$open = $this->detection($this->alice, '203.0.113.10');
+		$this->setCreatedAt($open->getId(), $now - 86400 * 40);
+		$mapper = Server::get(DetectionMapper::class);
+		for ($i = 0; $i < PersonalDetections::MAX + 20; $i++) {
+			$answered = $this->detection($this->alice, '203.0.113.' . (100 + $i % 100));
+			$mapper->setVerdict($answered->getId(), $this->alice->getUID(), 'confirmed', $now - 60);
+		}
+		$this->startSession($this->alice);
+
+		$activity = $this->controller()->activity(7, 10)->getData();
+		$this->assertSame([$open->getId()], array_column($activity['questions'], 'id'));
+		$this->assertCount(10, $activity['items']);
+		$this->assertTrue($activity['hasMore']);
+	}
+
+	public function testOpenQuestionsAreBounded(): void {
+		for ($i = 0; $i < PersonalActivity::MAX_QUESTIONS + 3; $i++) {
+			$this->detection($this->alice, '203.0.113.' . (10 + $i));
+		}
+		$this->startSession($this->alice);
+		$this->assertCount(PersonalActivity::MAX_QUESTIONS, $this->controller()->activity()->getData()['questions']);
 	}
 
 	public function testTheTimelineIsBoundedAndSaysWhenThereIsMore(): void {

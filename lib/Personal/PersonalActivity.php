@@ -35,7 +35,9 @@ use OCP\IUser;
  *
  * Each source costs one query by its (uid, created_at) index, or the
  * unique (uid, day) index of the daily failure counts, and reads at most
- * one row more than shown. Only events that are shown are put into words.
+ * one row more than shown; the open questions are a second query of the
+ * detections, of at most MAX_QUESTIONS rows. Only events that are shown are
+ * put into words.
  *
  * @psalm-import-type IntrusionDetectionPersonalActivity from ResponseDefinitions
  * @psalm-import-type IntrusionDetectionPersonalActivityItem from ResponseDefinitions
@@ -46,6 +48,8 @@ use OCP\IUser;
  */
 class PersonalActivity {
 	public const MAX_LIMIT = 100;
+	/** Open questions listed at most */
+	public const MAX_QUESTIONS = 50;
 	public const MAX_DAYS = 365;
 
 	private const KIND_ORDER = ['event' => 0, 'change' => 1, 'login' => 2, 'failed_logins' => 3];
@@ -81,17 +85,27 @@ class PersonalActivity {
 		$entries = [];
 		$day = static fn (int $at): string => (new \DateTimeImmutable('@' . $at))->setTimezone($timeZone)->format('Y-m-d');
 
-		// Open questions are listed however old they are; the rest by the timeline's window.
-		$detectionsSince = $now - $this->settings->getInt(GlobalSettings::RETENTION_DETECTIONS_DAYS) * 86400;
-		$found = $this->detections->findList(new DetectionFilter(uid: $uid, since: $detectionsSince, limit: PersonalDetections::MAX));
+		// Open questions are listed however old they are, newest first; the rest by the timeline's window.
 		$questions = [];
+		$unanswered = $this->detections->findList(new DetectionFilter(
+			checkIds: $this->questions->askingCheckIds(),
+			uid: $uid,
+			since: $now - $this->settings->getInt(GlobalSettings::RETENTION_DETECTIONS_DAYS) * 86400,
+			limit: self::MAX_QUESTIONS,
+			answered: false,
+		));
+		foreach ($unanswered as $detection) {
+			if ($this->questions->isOpen($detection)) {
+				$questions[] = $this->personalDetections->present($detection, $user);
+			}
+		}
+		$found = $this->detections->findList(new DetectionFilter(uid: $uid, since: $since, limit: PersonalDetections::MAX));
 		$events = 0;
 		foreach ($found as $detection) {
 			if ($this->questions->isOpen($detection)) {
-				$questions[] = $this->personalDetections->present($detection, $user);
 				continue;
 			}
-			if ($detection->getCreatedAt() < $since || $events > $limit) {
+			if ($events > $limit) {
 				continue;
 			}
 			$events++;
@@ -103,8 +117,7 @@ class PersonalActivity {
 			];
 		}
 		// Older events than the oldest one read may exist.
-		$oldest = $found === [] ? null : $found[array_key_last($found)];
-		$moreEvents = count($found) >= PersonalDetections::MAX && $oldest !== null && $oldest->getCreatedAt() >= $since;
+		$moreEvents = count($found) >= PersonalDetections::MAX;
 
 		$current = $this->currentSession->tokenId();
 		foreach ($this->loginHistory->forUser($uid, $since, null, $limit + 1) as $entry) {

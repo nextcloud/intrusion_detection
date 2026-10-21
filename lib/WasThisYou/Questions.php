@@ -53,6 +53,21 @@ class Questions {
 	) {
 	}
 
+	/**
+	 * The checks whose detections may ask.
+	 *
+	 * @return list<string>
+	 */
+	public function askingCheckIds(): array {
+		$ids = self::ALWAYS;
+		foreach (array_keys($this->registry->all()) as $id) {
+			if (is_subclass_of($this->registry->classOf($id), IAsksWasThisYou::class)) {
+				$ids[] = $id;
+			}
+		}
+		return array_values(array_unique($ids));
+	}
+
 	public function asks(Detection $detection): bool {
 		if ($detection->getUid() === null) {
 			return false;

@@ -26,6 +26,8 @@ final class DetectionFilter {
 		public readonly int $offset = 0,
 		/** Only detections with a higher id, i.e. newer ones */
 		public readonly ?int $afterId = null,
+		/** Only detections the user answered "Was this you?" for (true), or did not (false) */
+		public readonly ?bool $answered = null,
 	) {
 	}
 }

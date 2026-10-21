@@ -307,5 +307,8 @@ class DetectionMapper extends QBMapper {
 		if ($filter->afterId !== null) {
 			$qb->andWhere($expr->gt('id', $qb->createNamedParameter($filter->afterId, IQueryBuilder::PARAM_INT)));
 		}
+		if ($filter->answered !== null) {
+			$qb->andWhere($filter->answered ? $expr->isNotNull('user_verdict') : $expr->isNull('user_verdict'));
+		}
 	}
 }
