@@ -13,6 +13,7 @@ use OCA\IntrusionDetection\AdminChange\ApprovalException;
 use OCA\IntrusionDetection\AdminChange\ApprovalService;
 use OCA\IntrusionDetection\AppInfo\Application;
 use OCA\IntrusionDetection\Db\Approval;
+use OCA\IntrusionDetection\ResponseDefinitions;
 use OCP\AppFramework\Http;
 use OCP\AppFramework\Http\Attribute\ApiRoute;
 use OCP\AppFramework\Http\Attribute\OpenAPI;
@@ -32,7 +33,7 @@ use OCP\IUserSession;
  * decision needs a recent password confirmation; the rules who may decide
  * are in {@see ApprovalService}, shared with occ.
  *
- * @psalm-type IntrusionDetectionApproval = array{id: int, kind: string, subject: string, requestedBy: string, group: ?string, ip: ?string, status: string, decidedBy: ?string, createdAt: int, decidedAt: ?int, expiresAt: int}
+ * @psalm-import-type IntrusionDetectionApproval from ResponseDefinitions
  */
 #[OpenAPI(scope: OpenAPI::SCOPE_ADMINISTRATION)]
 class ApprovalController extends OCSController {
@@ -49,14 +50,15 @@ class ApprovalController extends OCSController {
 	 * List requests for approval
 	 *
 	 * @param bool $all also the decided ones of the last 90 days
+	 * @param int<1, 200> $limit the most requests to return
 	 * @return DataResponse<Http::STATUS_OK, list<IntrusionDetectionApproval>, array{}>
 	 *
 	 * 200: The requests, newest first
 	 */
 	#[ApiRoute(verb: 'GET', url: '/api/v1/approvals')]
-	public function index(bool $all = false): DataResponse {
+	public function index(bool $all = false, int $limit = 200): DataResponse {
 		/** @var list<IntrusionDetectionApproval> $list */
-		$list = array_map(static fn (Approval $a): array => $a->jsonSerialize(), $this->approvals->list(!$all));
+		$list = array_map(static fn (Approval $a): array => $a->jsonSerialize(), $this->approvals->list(!$all, max(1, min(200, $limit))));
 		return new DataResponse($list);
 	}
 

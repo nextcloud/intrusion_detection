@@ -600,6 +600,20 @@ namespace OCA\IntrusionDetection;
  *     modes: array{anonymous: string, authenticated: string},
  *     values: list<IntrusionDetectionPayloadValue>,
  * }
+ *
+ * @psalm-type IntrusionDetectionApproval = array{
+ *     id: int,
+ *     kind: string,
+ *     subject: string,
+ *     requestedBy: string,
+ *     group: ?string,
+ *     ip: ?string,
+ *     status: string,
+ *     decidedBy: ?string,
+ *     createdAt: int,
+ *     decidedAt: ?int,
+ *     expiresAt: int,
+ * }
  */
 class ResponseDefinitions {
 }

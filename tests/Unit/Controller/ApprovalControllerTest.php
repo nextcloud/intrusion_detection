@@ -51,6 +51,19 @@ class ApprovalControllerTest extends TestCase {
 		$this->assertSame([], (new \ReflectionClass(ApprovalController::class))->getAttributes(NoAdminRequired::class));
 	}
 
+	public function testTheListLimitIsKeptWithinBounds(): void {
+		$service = $this->createMock(ApprovalService::class);
+		$service->expects($this->exactly(3))->method('list')
+			->willReturnCallback(function (bool $pendingOnly, int $limit): array {
+				$this->assertContains($limit, [1, 50, 200]);
+				return [];
+			});
+		$controller = $this->controller($service);
+		$controller->index(limit: 0);
+		$controller->index(limit: 50);
+		$controller->index(true, 5000);
+	}
+
 	public function testTheDecidingAdministratorIsTheLoggedInOne(): void {
 		$service = $this->createMock(ApprovalService::class);
 		$approval = new Approval();

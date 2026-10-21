@@ -38,9 +38,11 @@ class ShareAlertController extends OCSController {
 	}
 
 	/**
-	 * Turn off the share link a detection is about. Only someone who manages
-	 * the share can do this; for anyone else the detection does not exist.
-	 * Turning off a link that is already gone succeeds again.
+	 * Turn off the share link a detection is about
+	 *
+	 * Only someone who manages the share can do this; for anyone else the
+	 * detection does not exist. Turning off a link that is already gone
+	 * succeeds again.
 	 *
 	 * @param int $detectionId The detection from the notification
 	 * @return DataResponse<Http::STATUS_OK, array{status: 'disabled'|'already_gone'}, array{}>|DataResponse<Http::STATUS_NOT_FOUND, array{status: 'not_found'}, array{}>
