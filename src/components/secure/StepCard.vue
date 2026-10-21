@@ -151,9 +151,11 @@ const state = computed(() => {
 }
 
 .step__heading {
+	min-width: 0;
 	margin: 0;
 	font-size: 1.05em;
 	font-weight: 600;
+	overflow-wrap: anywhere;
 }
 
 .step_skipped .step__heading {
@@ -216,13 +218,13 @@ const state = computed(() => {
 
 @media (max-width: 600px) {
 	.step .step__head {
-		grid-template-columns: auto minmax(0, 1fr) auto;
+		grid-template-columns: auto minmax(0, 1fr) auto auto;
+		gap: calc(var(--default-grid-baseline) * 2);
 		padding-inline: calc(var(--default-grid-baseline) * 3);
 	}
 
-	.step__icon,
-	.step .step__chevron {
-		display: none !important;
+	.step__icon {
+		display: none;
 	}
 
 	.step__body {
