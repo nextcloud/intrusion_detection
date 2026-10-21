@@ -9,6 +9,7 @@ declare(strict_types=1);
 
 namespace OCA\IntrusionDetection\Tests\Unit\SessionState;
 
+use OC\Core\Controller\CssController;
 use OC\Core\Controller\LoginController;
 use OC\Core\Controller\TwoFactorChallengeController;
 use OCA\IntrusionDetection\Controller\PasswordChangeController;
@@ -92,8 +93,10 @@ class PasswordChangeRuleTest extends TestCase {
 		$this->assertNull($this->rule->check($this->state, $this->app($this->createMock(PasswordChangeController::class), 'show')));
 		$this->assertNull($this->rule->check($this->state, $this->app($this->createMock(LoginController::class), 'logout')));
 		$this->assertNull($this->rule->check($this->state, $this->app($this->createMock(TwoFactorChallengeController::class), 'showChallenge')));
-		$this->assertNull($this->rule->check($this->state, $this->app(new SomeController(), 'publicStyle')));
-		$this->assertNotNull($this->rule->check($this->state, $this->app(new SomeController(), 'publicStyle', 'POST')), 'Only reading public resources');
+		$css = $this->getMockBuilder(CssController::class)->disableOriginalConstructor()->onlyMethods([])->getMock();
+		$this->assertNull($this->rule->check($this->state, $this->app($css, 'getCss')));
+		$this->assertNotNull($this->rule->check($this->state, $this->app($css, 'getCss', 'POST')), 'Only reading public resources');
+		$this->assertNotNull($this->rule->check($this->state, $this->app(new SomeController(), 'publicStyle')), 'Only the resources every page needs');
 		$this->assertNotNull($this->rule->check($this->state, $this->app($this->createMock(LoginController::class), 'showLoginForm')));
 	}
 

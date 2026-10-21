@@ -47,7 +47,8 @@ use Psr\Log\LoggerInterface;
  * loaded only when something is pending. Detections recorded at login are
  * linked to the session here, on its first request. Unlike other rules,
  * this one does not fail open: errors while ending a login keep the
- * request blocked.
+ * request blocked, and so does {@see SessionStateRules} when the rule
+ * fails while a step-up is pending.
  */
 class StepUpRule implements ISessionStateRule {
 	public const ERROR = 'step_up_required';
@@ -55,6 +56,11 @@ class StepUpRule implements ISessionStateRule {
 	public const DAV_HEADER = 'X-Nextcloud-Step-Up';
 	public const ROUTE = Application::APP_ID . '.Verify.show';
 	public const ENDED_ROUTE = Application::APP_ID . '.Verify.ended';
+
+	public const MESSAGE_CLIENT = 'This login needs extra confirmation that apps cannot give. Log in with a browser, or use an app password.';
+	public const MESSAGE_PENDING = 'This login waits for its extra confirmation. Confirm it in the browser where you logged in, or use an app password.';
+	public const MESSAGE_REFUSED = 'This login was refused: it needs extra confirmation, and nothing could confirm it. Contact your administrator.';
+	public const MESSAGE_ENDED = 'This login was ended because it was not confirmed. Log in again.';
 
 	public function __construct(
 		private readonly IUserSession $userSession,
@@ -99,22 +105,32 @@ class StepUpRule implements ISessionStateRule {
 				// The request stays blocked: an error must not turn an unconfirmed login into a confirmed one.
 				$this->logger->error('Intrusion detection could not end an unconfirmed login', ['exception' => $e]);
 			}
-			return $this->block(self::ERROR, $this->urlGenerator->linkToRoute(self::ENDED_ROUTE, ['reason' => $rule]));
+			return $this->block(self::ERROR, $this->urlGenerator->linkToRoute(self::ENDED_ROUTE, ['reason' => $rule]), self::MESSAGE_ENDED);
 		}
 		if ($stepUp->status === StepUpState::REFUSED_CLIENT) {
-			return $this->block(self::ERROR, null);
+			return $this->block(self::ERROR, null, self::MESSAGE_CLIENT);
 		}
 		if (!$target->dav && $this->isExempt($stepUp, $target)) {
 			return null;
 		}
+		$refused = $stepUp->status === StepUpState::REFUSED;
 		return $this->block(
-			$stepUp->status === StepUpState::REFUSED ? self::ERROR_REFUSED : self::ERROR,
+			$refused ? self::ERROR_REFUSED : self::ERROR,
 			$this->urlGenerator->linkToRoute(self::ROUTE, ['redirect_url' => $target->uri]),
+			$refused ? self::MESSAGE_REFUSED : self::MESSAGE_PENDING,
 		);
 	}
 
+	/**
+	 * The block while the rule itself fails and a step-up is pending: the
+	 * request must not pass unconfirmed.
+	 */
+	public static function failed(): SessionBlock {
+		return new SessionBlock(self::ERROR, self::DAV_HEADER, self::MESSAGE_PENDING);
+	}
+
 	private function isExempt(StepUpState $stepUp, RequestTarget $target): bool {
-		if ($target->isController(LoginController::class, 'logout') || ($target->isReadOnly() && $target->isPublicPage())) {
+		if ($target->isController(LoginController::class, 'logout') || $target->isPublicResource()) {
 			return true;
 		}
 		if ($stepUp->status === StepUpState::REFUSED) {
@@ -134,12 +150,7 @@ class StepUpRule implements ISessionStateRule {
 		return $user !== null && $this->container->get(SecondFactorSetup::class)->isRequired($user);
 	}
 
-	private function block(string $error, ?string $redirectUrl): SessionBlock {
-		return new SessionBlock(
-			$error,
-			self::DAV_HEADER,
-			'This login needs extra confirmation that apps cannot give. Log in with a browser, or use an app password.',
-			$redirectUrl,
-		);
+	private function block(string $error, ?string $redirectUrl, string $message): SessionBlock {
+		return new SessionBlock($error, self::DAV_HEADER, $message, $redirectUrl);
 	}
 }

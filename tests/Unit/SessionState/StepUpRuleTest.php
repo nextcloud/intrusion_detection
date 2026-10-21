@@ -9,7 +9,11 @@ declare(strict_types=1);
 
 namespace OCA\IntrusionDetection\Tests\Unit\SessionState;
 
+use OC\Core\Controller\CssController;
+use OC\Core\Controller\GuestAvatarController;
+use OC\Core\Controller\JsController;
 use OC\Core\Controller\LoginController;
+use OC\Core\Controller\OCJSController;
 use OC\Core\Controller\TwoFactorChallengeController;
 use OC\Session\Memory;
 use OCA\IntrusionDetection\Check\Checks\StepUpFailed;
@@ -75,6 +79,26 @@ class StepUpRuleTest extends TestCase {
 		$this->pending();
 		$block = $this->rule()->check($this->state, RequestTarget::dav('PROPFIND', '/remote.php/dav/files/alice/'));
 		$this->assertSame('X-Nextcloud-Step-Up', $block?->davHeader);
+		$this->assertSame(StepUpRule::MESSAGE_PENDING, $block->message);
+	}
+
+	public function testWebDavIsToldWhyALoginWasRefusedOrEnded(): void {
+		$dav = RequestTarget::dav('PROPFIND', '/remote.php/dav/files/alice/');
+		$this->state->set(SessionState::STEP_UP, (new StepUpState('alice', StepUpState::REFUSED, ['flagged_source'], $this->now, 0))->toArray());
+		$this->assertSame(StepUpRule::MESSAGE_REFUSED, $this->rule()->check($this->state, $dav)?->message);
+		$this->state->set(SessionState::STEP_UP, (new StepUpState('alice', StepUpState::REFUSED_CLIENT, ['protected_account'], $this->now, 0))->toArray());
+		$this->assertSame(StepUpRule::MESSAGE_CLIENT, $this->rule()->check($this->state, $dav)?->message);
+		$this->pending(deadline: $this->now);
+		$this->assertSame(StepUpRule::MESSAGE_ENDED, $this->rule()->check($this->state, $dav)?->message);
+	}
+
+	public function testOnlyThePublicResourcesEveryPageNeedsStayReachable(): void {
+		$this->pending();
+		foreach ([CssController::class => 'getCss', JsController::class => 'getJs', OCJSController::class => 'getConfig'] as $class => $method) {
+			$this->assertNull($this->rule()->check($this->state, $this->publicTarget($class, $method)), $class);
+		}
+		$this->assertNotNull($this->rule()->check($this->state, $this->publicTarget(GuestAvatarController::class, 'getAvatar')), 'Another public page');
+		$this->assertNotNull($this->rule()->check($this->state, $this->publicTarget(CssController::class, 'getCss', 'POST')), 'Read-only only');
 	}
 
 	public function testThePagesThatResolveItStayReachable(): void {
@@ -158,6 +182,16 @@ class StepUpRuleTest extends TestCase {
 	private function target(string $class, string $method = 'index'): RequestTarget {
 		$controller = $this->getMockBuilder($class)->disableOriginalConstructor()->getMock();
 		return RequestTarget::app($controller, $method, 'GET', '/index.php/apps/files/');
+	}
+
+	/**
+	 * A real controller method, with its attributes.
+	 *
+	 * @param class-string<Controller> $class
+	 */
+	private function publicTarget(string $class, string $method, string $httpMethod = 'GET'): RequestTarget {
+		$controller = $this->getMockBuilder($class)->disableOriginalConstructor()->onlyMethods([])->getMock();
+		return RequestTarget::app($controller, $method, $httpMethod, '/index.php/css/core/server.css');
 	}
 
 	private function rule(): StepUpRule {

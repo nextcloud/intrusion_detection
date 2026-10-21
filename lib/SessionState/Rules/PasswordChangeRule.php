@@ -79,6 +79,6 @@ class PasswordChangeRule implements ISessionStateRule {
 			|| $target->isController(LoginController::class, 'logout')
 			|| $target->isController(TwoFactorChallengeController::class)
 			|| $target->isController(ALoginSetupController::class)
-			|| ($target->isReadOnly() && $target->isPublicPage());
+			|| $target->isPublicResource();
 	}
 }

@@ -9,6 +9,9 @@ declare(strict_types=1);
 
 namespace OCA\IntrusionDetection\SessionState;
 
+use OC\Core\Controller\CssController;
+use OC\Core\Controller\JsController;
+use OC\Core\Controller\OCJSController;
 use OCP\AppFramework\Controller;
 use OCP\AppFramework\Http\Attribute\PublicPage;
 
@@ -17,6 +20,21 @@ use OCP\AppFramework\Http\Attribute\PublicPage;
  * method, or a WebDAV path. Session-state rules decide on it.
  */
 final class RequestTarget {
+	/**
+	 * Controllers of resources every page needs, and their methods (lower
+	 * case; null: every public one). Theming is named as a string: the app
+	 * may be missing.
+	 *
+	 * @var array<string, ?list<string>>
+	 */
+	public const PUBLIC_RESOURCES = [
+		CssController::class => ['getcss'],
+		JsController::class => ['getjs'],
+		OCJSController::class => ['getconfig'],
+		'OCA\\Theming\\Controller\\ThemingController' => ['getimage', 'getthemestylesheet', 'getmanifest'],
+		'OCA\\Theming\\Controller\\IconController' => null,
+	];
+
 	private ?bool $publicPage = null;
 
 	private function __construct(
@@ -63,6 +81,24 @@ final class RequestTarget {
 			}
 		}
 		return $this->publicPage;
+	}
+
+	/**
+	 * A read-only request for what any page needs to render, also the
+	 * verify and password pages: styles, scripts, theming images and icons.
+	 * An allowlist: other public pages may show account data to a
+	 * logged-in session.
+	 */
+	public function isPublicResource(): bool {
+		if (!$this->isReadOnly() || !$this->isPublicPage()) {
+			return false;
+		}
+		foreach (self::PUBLIC_RESOURCES as $class => $methods) {
+			if ($this->controller instanceof $class) {
+				return $methods === null || in_array(strtolower((string)$this->controllerMethod), $methods, true);
+			}
+		}
+		return false;
 	}
 
 	public function isReadOnly(): bool {

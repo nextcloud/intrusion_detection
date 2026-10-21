@@ -16,8 +16,11 @@ use Psr\Log\LoggerInterface;
  * The session-state rules, in order. The first rule that blocks a request
  * decides. Adding a rule means adding its class to RULES.
  *
- * A rule that throws is logged and treated as letting the request pass: a
- * broken rule must not lock everybody out.
+ * A rule that throws, or cannot be loaded, is logged and treated as letting
+ * the request pass: a broken rule must not lock everybody out. The one
+ * exception is the step-up rule while a step-up is pending
+ * ({@see self::FAIL_CLOSED}): an error must not let an unconfirmed login
+ * through.
  */
 class SessionStateRules {
 	/**
@@ -35,8 +38,17 @@ class SessionStateRules {
 		Rules\DirectoryScrapingRule::class,
 	];
 
+	/**
+	 * Rules that block on an error while their session marker is set.
+	 *
+	 * @var array<class-string<ISessionStateRule>, string>
+	 */
+	public const FAIL_CLOSED = [Rules\StepUpRule::class => SessionState::STEP_UP];
+
 	/** @var list<ISessionStateRule>|null */
 	private ?array $rules = null;
+	/** @var list<class-string<ISessionStateRule>> rules that could not be loaded */
+	private array $missing = [];
 
 	public function __construct(
 		private readonly ContainerInterface $container,
@@ -45,11 +57,20 @@ class SessionStateRules {
 	}
 
 	public function check(SessionState $state, RequestTarget $target): ?SessionBlock {
-		foreach ($this->rules() as $rule) {
+		$rules = $this->rules();
+		foreach ($this->missing as $class) {
+			if ($this->failsClosed($class, $state)) {
+				return Rules\StepUpRule::failed();
+			}
+		}
+		foreach ($rules as $rule) {
 			try {
 				$block = $rule->check($state, $target);
 			} catch (\Throwable $e) {
 				$this->logger->error('Intrusion detection session rule {rule} failed', ['rule' => $rule::class, 'exception' => $e]);
+				if ($this->failsClosed($rule, $state)) {
+					return Rules\StepUpRule::failed();
+				}
 				continue;
 			}
 			if ($block !== null) {
@@ -57,6 +78,22 @@ class SessionStateRules {
 			}
 		}
 		return null;
+	}
+
+	/**
+	 * @param ISessionStateRule|class-string<ISessionStateRule> $rule
+	 */
+	private function failsClosed(ISessionStateRule|string $rule, SessionState $state): bool {
+		foreach (self::FAIL_CLOSED as $class => $marker) {
+			if ($rule instanceof $class || $rule === $class) {
+				try {
+					return $state->get($marker) !== null;
+				} catch (\Throwable) {
+					return true;
+				}
+			}
+		}
+		return false;
 	}
 
 	/**
@@ -77,6 +114,7 @@ class SessionStateRules {
 					$rule = $this->container->get($class);
 				} catch (\Throwable $e) {
 					$this->logger->error('Intrusion detection could not load the session rule {rule}', ['rule' => $class, 'exception' => $e]);
+					$this->missing[] = $class;
 					continue;
 				}
 				if ($rule instanceof ISessionStateRule) {
