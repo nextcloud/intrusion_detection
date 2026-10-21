@@ -169,6 +169,11 @@ final class LexiconData {
 			'default' => 0,
 			'min' => 0,
 		],
+		'cs_evaluated_at' => [
+			'type' => 'int',
+			'default' => 0,
+			'min' => 0,
+		],
 		'decoy_count' => [
 			'type' => 'int',
 			'default' => 0,

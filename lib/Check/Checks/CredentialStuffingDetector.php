@@ -133,7 +133,7 @@ class CredentialStuffingDetector {
 		$now = $attempt->time;
 		$until = $this->settings->getInt(GlobalSettings::CS_DISTRIBUTED_UNTIL);
 
-		if ($this->evaluationDue()) {
+		if ($this->evaluationDue($now)) {
 			$instance = $this->attempts->instanceStats(self::KINDS, $now - self::DISTRIBUTED_WINDOW);
 			if ($instance->failures >= (int)$params['distributed_min_failures']
 				&& $instance->distinctSources >= (int)$params['distributed_min_sources']
@@ -193,12 +193,22 @@ class CredentialStuffingDetector {
 	}
 
 	/**
-	 * Without a memory cache the instance-wide numbers are evaluated on every
-	 * failure; with one, at most every EVALUATE_EVERY seconds per web server.
+	 * The instance-wide numbers are evaluated at most every EVALUATE_EVERY
+	 * seconds: per web server with a memory cache, else instance-wide through
+	 * a stored time. Without a cache, requests that run at the same moment
+	 * may each evaluate once; there is never one evaluation per failure.
 	 */
-	private function evaluationDue(): bool {
+	private function evaluationDue(int $now): bool {
 		$cache = $this->cache();
-		return $cache === null || $cache->add('cs:eval', 1, self::EVALUATE_EVERY);
+		if ($cache !== null) {
+			return $cache->add('cs:eval', 1, self::EVALUATE_EVERY);
+		}
+		$last = $this->settings->getInt(GlobalSettings::CS_EVALUATED_AT);
+		if ($last <= $now && $now - $last < self::EVALUATE_EVERY) {
+			return false;
+		}
+		$this->settings->setGlobal(GlobalSettings::CS_EVALUATED_AT, $now);
+		return true;
 	}
 
 	/**
