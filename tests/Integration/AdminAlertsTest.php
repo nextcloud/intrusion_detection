@@ -97,6 +97,24 @@ class AdminAlertsTest extends IntegrationTestCase {
 		$this->assertStringContainsString('/settings/admin/intrusion_detection#detection-', $prepared->getLink());
 	}
 
+	public function testAggregatedHitsDoNotLookTheAdministratorsUp(): void {
+		$recipients = $this->createMock(AdminRecipients::class);
+		$recipients->expects($this->once())->method('users')->willReturn([$this->admin('alice', 'alice@example.com'), $this->admin('bob', null)]);
+		$alerts = new AdminAlerts(
+			Server::get(AlertMapper::class), $recipients, $this->notifications, $this->mails, Server::get(Settings::class),
+			Server::get(NarrativeBuilder::class), Server::get(CheckRegistry::class), Server::get(IFactory::class),
+			Server::get(AdminLinks::class), Server::get(ITimeFactory::class),
+		);
+		// The first hit sends the bell and the email, with one lookup.
+		$this->assertSame(2, $alerts->alert($this->detection('198.51.100.7', Severity::Critical))['recipients']);
+		for ($i = 0; $i < 5; $i++) {
+			$result = $alerts->alert($this->detection('198.51.100.7', Severity::Critical));
+		}
+		$this->assertSame(AdminAlerts::BELL_AGGREGATED, $result['bell']);
+		$this->assertSame(AdminAlerts::EMAIL_LIMITED, $result['email']);
+		$this->assertSame(2, $result['recipients'], 'the number the first hit went to');
+	}
+
 	public function testAnotherSourceIsAnotherNotification(): void {
 		$this->alerts->alert($this->detection('198.51.100.7'));
 		$this->alerts->alert($this->detection('198.51.100.8'));

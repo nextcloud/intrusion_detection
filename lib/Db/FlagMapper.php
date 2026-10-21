@@ -25,25 +25,30 @@ class FlagMapper {
 	}
 
 	/**
-	 * Set a flag, or extend it when it would expire earlier.
+	 * Set a flag, or extend it to `$expiresAt`. With `$now`, a flag is only
+	 * extended once less than half of the new duration remains, so that the
+	 * failures of an attack do not rewrite it every time.
+	 *
+	 * @return bool whether the flag was written
 	 */
-	public function flag(string $flagKey, string $reason, int $expiresAt, ?int $detectionId): void {
+	public function flag(string $flagKey, string $reason, int $expiresAt, ?int $detectionId, ?int $now = null): bool {
+		$extendBelow = $now === null ? $expiresAt : $now + intdiv(max(0, $expiresAt - $now), 2);
 		$qb = $this->db->getQueryBuilder();
 		$qb->update(self::TABLE)
 			->set('expires_at', $qb->createNamedParameter($expiresAt, IQueryBuilder::PARAM_INT))
 			->set('reason', $qb->createNamedParameter($reason))
 			->where($qb->expr()->eq('flag_key', $qb->createNamedParameter($flagKey)))
-			->andWhere($qb->expr()->lt('expires_at', $qb->createNamedParameter($expiresAt, IQueryBuilder::PARAM_INT)));
+			->andWhere($qb->expr()->lt('expires_at', $qb->createNamedParameter($extendBelow, IQueryBuilder::PARAM_INT)));
 		if ($qb->executeStatement() > 0) {
-			return;
+			return true;
 		}
-		// A flag that already expires later stays as it is.
-		$this->db->insertIgnoreConflict(self::TABLE, [
+		// A flag that already lasts long enough stays as it is.
+		return $this->db->insertIgnoreConflict(self::TABLE, [
 			'flag_key' => $flagKey,
 			'reason' => $reason,
 			'detection_id' => $detectionId,
 			'expires_at' => $expiresAt,
-		]);
+		]) > 0;
 	}
 
 	/**

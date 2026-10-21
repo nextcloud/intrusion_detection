@@ -79,10 +79,15 @@ class AdminAlerts {
 		$bucket = intdiv($now, 3600);
 		$checkId = $detection->getCheckId();
 		[$alertId, $first] = $this->alerts->hit($checkId, self::sourceKey($detection), $bucket, $detection->getId(), $now);
-		$recipients = $this->recipients->users(($detection->getExplanationData()['facts'][self::FACT_ALL_ADMINS] ?? false) === true);
+		// Group members are only looked up when a notification or an email is sent.
+		$recipients = null;
+		$load = function () use (&$recipients, $detection): array {
+			return $recipients ??= $this->recipients->users(($detection->getExplanationData()['facts'][self::FACT_ALL_ADMINS] ?? false) === true);
+		};
 
 		if ($first) {
-			foreach ($recipients as $user) {
+			$this->alerts->setRecipients($alertId, count($load()));
+			foreach ($load() as $user) {
 				$notification = $this->notifications->createNotification();
 				$notification->setApp(Application::APP_ID)
 					->setUser($user->getUID())
@@ -97,12 +102,14 @@ class AdminAlerts {
 			}
 		}
 
+		$email = $this->email($detection, $load, $bucket, $now);
+		$counter = $this->alerts->find($alertId);
 		return [
 			'alert' => $alertId,
-			'hits' => $this->alerts->find($alertId)['hits'] ?? 1,
+			'hits' => $counter['hits'] ?? 1,
 			'bell' => $first ? self::BELL_SENT : self::BELL_AGGREGATED,
-			'email' => $this->email($detection, $recipients, $bucket, $now),
-			'recipients' => count($recipients),
+			'email' => $email,
+			'recipients' => $recipients === null ? ($counter['recipients'] ?? 0) : count($recipients),
 		];
 	}
 
@@ -172,20 +179,25 @@ class AdminAlerts {
 	}
 
 	/**
-	 * @param list<IUser> $recipients
+	 * @param \Closure(): list<IUser> $recipients
 	 */
-	private function email(Detection $detection, array $recipients, int $bucket, int $now): string {
+	private function email(Detection $detection, \Closure $recipients, int $bucket, int $now): string {
 		$minimum = Severity::tryFrom((string)$this->settings->global(GlobalSettings::NOTIFY_ADMIN_EMAIL_MIN_SEVERITY));
 		$severity = Severity::tryFrom($detection->getSeverity());
 		if ($minimum === null || $severity === null || !$severity->atLeast($minimum)) {
 			return self::EMAIL_BELOW_SEVERITY;
 		}
-		$withAddress = array_values(array_filter($recipients, static fn (IUser $u): bool => (string)$u->getEMailAddress() !== ''));
+		$mailKey = self::alertKey($detection);
+		$mailKey = $mailKey === null ? self::MAIL_KEY : self::MAIL_KEY . ':' . $mailKey;
+		// The hour's email went out already: the recipients are not even looked up.
+		if ($this->alerts->exists($detection->getCheckId(), $mailKey, $bucket)) {
+			return self::EMAIL_LIMITED;
+		}
+		$withAddress = array_values(array_filter($recipients(), static fn (IUser $u): bool => (string)$u->getEMailAddress() !== ''));
+		// Without an address the hour's email is not used up, so an admin who adds one still gets it.
 		if ($withAddress === []) {
 			return self::EMAIL_NO_ADDRESS;
 		}
-		$mailKey = self::alertKey($detection);
-		$mailKey = $mailKey === null ? self::MAIL_KEY : self::MAIL_KEY . ':' . $mailKey;
 		[, $first] = $this->alerts->hit($detection->getCheckId(), $mailKey, $bucket, $detection->getId(), $now);
 		if (!$first) {
 			return self::EMAIL_LIMITED;

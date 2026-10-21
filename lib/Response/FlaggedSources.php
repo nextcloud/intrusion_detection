@@ -57,8 +57,9 @@ class FlaggedSources {
 	 */
 	public function flagSource(SourceKey $source, string $reason, ?int $detectionId = null, ?int $duration = null): int {
 		$this->sourceFlags = [];
-		$expires = $this->timeFactory->getTime() + ($duration ?? $this->settings->getInt(GlobalSettings::FLAG_DURATION));
-		$this->mapper->flag(self::sourceKey($source), $reason, $expires, $detectionId);
+		$now = $this->timeFactory->getTime();
+		$expires = $now + ($duration ?? $this->settings->getInt(GlobalSettings::FLAG_DURATION));
+		$this->mapper->flag(self::sourceKey($source), $reason, $expires, $detectionId, $now);
 		return $expires;
 	}
 
@@ -68,8 +69,9 @@ class FlaggedSources {
 	 * @return int when the flag expires
 	 */
 	public function flagPassword(string $fingerprint, ?int $detectionId = null, ?int $duration = null): int {
-		$expires = $this->timeFactory->getTime() + min($duration ?? $this->settings->getInt(GlobalSettings::FLAG_DURATION), self::PASSWORD_FLAG_MAX_DURATION);
-		$this->mapper->flag(self::passwordKey($fingerprint), self::REASON_SPRAYED, $expires, $detectionId);
+		$now = $this->timeFactory->getTime();
+		$expires = $now + min($duration ?? $this->settings->getInt(GlobalSettings::FLAG_DURATION), self::PASSWORD_FLAG_MAX_DURATION);
+		$this->mapper->flag(self::passwordKey($fingerprint), self::REASON_SPRAYED, $expires, $detectionId, $now);
 		return $expires;
 	}
 
@@ -122,8 +124,8 @@ class FlaggedSources {
 
 	public function flagNetwork(SourceKey $source, string $reason, ?int $detectionId = null): void {
 		$this->sourceFlags = [];
-		$expires = $this->timeFactory->getTime() + $this->settings->getInt(GlobalSettings::FLAG_DURATION);
-		$this->mapper->flag('net:' . $source->netKey, $reason, $expires, $detectionId);
+		$now = $this->timeFactory->getTime();
+		$this->mapper->flag('net:' . $source->netKey, $reason, $now + $this->settings->getInt(GlobalSettings::FLAG_DURATION), $detectionId, $now);
 	}
 
 	public function unflagSource(SourceKey $source): void {
@@ -157,9 +159,12 @@ class FlaggedSources {
 
 	/**
 	 * Remember for a day that the address used an attack tool.
+	 *
+	 * @return bool whether the flag was written, false while it lasts long enough
 	 */
-	public function flagAttackTool(SourceKey $source, string $tool): void {
-		$this->mapper->flag(self::toolKey($source), $tool, $this->timeFactory->getTime() + self::ATTACK_TOOL_DURATION, null);
+	public function flagAttackTool(SourceKey $source, string $tool): bool {
+		$now = $this->timeFactory->getTime();
+		return $this->mapper->flag(self::toolKey($source), $tool, $now + self::ATTACK_TOOL_DURATION, null, $now);
 	}
 
 	/**

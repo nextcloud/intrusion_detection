@@ -102,22 +102,24 @@ class PasswordSprayingDetector {
 
 		// At most an hour, as long as attempts are kept (the parameter's maximum).
 		$window = $this->settings->paramInt(PasswordSpraying::ID, 'window');
-		$since = $attempt->time - $window;
-		$stats = $this->attempts->stats('pw_fp', $attempt->passwordCandidates, self::KINDS, $since);
-		$limits = $this->risk->limits($attempt->source, ['min_names' => [$this->settings->paramInt(PasswordSpraying::ID, 'min_names'), $stats->distinctNames]]);
-		if (!$limits->reached()) {
-			return;
-		}
 		// Without a flag (Observe, or the response switched off) every further
 		// attempt would fire again and re-block every address; one detection
-		// per spray and window is enough, later addresses are blocked singly.
-		// The cache key is derived from the fingerprint and never stored.
+		// per spray and window is enough, later addresses are blocked singly,
+		// without counting the spray again. The cache key is derived from the
+		// fingerprint and never stored.
 		$flags = $state->acts() && $this->settings->hasResponse(PasswordSpraying::ID, ResponseType::FlagPassword);
 		$seenKey = 'spray:' . hash('sha256', $attempt->passwordCandidates[0]);
 		if (!$flags && $this->cache()?->get($seenKey) !== null) {
 			if ($state->acts()) {
 				$this->banJoiningSource($attempt, $userAgent);
 			}
+			return;
+		}
+
+		$since = $attempt->time - $window;
+		$stats = $this->attempts->stats('pw_fp', $attempt->passwordCandidates, self::KINDS, $since);
+		$limits = $this->risk->limits($attempt->source, ['min_names' => [$this->settings->paramInt(PasswordSpraying::ID, 'min_names'), $stats->distinctNames]]);
+		if (!$limits->reached()) {
 			return;
 		}
 

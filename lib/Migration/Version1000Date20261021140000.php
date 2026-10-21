@@ -14,7 +14,9 @@ use OCA\IntrusionDetection\Detection\DetectionAccounts;
 use OCA\IntrusionDetection\Detection\DetectionTotals;
 use OCP\DB\ISchemaWrapper;
 use OCP\DB\Types;
+use OCP\Migration\Attributes\AddColumn;
 use OCP\Migration\Attributes\AddIndex;
+use OCP\Migration\Attributes\ColumnType;
 use OCP\Migration\Attributes\CreateTable;
 use OCP\Migration\Attributes\IndexType;
 use OCP\Migration\IOutput;
@@ -28,6 +30,7 @@ use OCP\Migration\SimpleMigrationStep;
 #[CreateTable(table: 'ids_detection_hourly', description: 'Detections per hour, check, severity and enforcement, for the statistics and the metrics')]
 #[AddIndex(table: 'ids_logins', type: IndexType::INDEX, description: 'Deleting the logins of a deleted account')]
 #[AddIndex(table: 'ids_alerts', type: IndexType::INDEX, description: 'Deleting the notification counters of a deleted account')]
+#[AddColumn(table: 'ids_alerts', name: 'recipients', type: ColumnType::INTEGER, description: 'How many administrators the first notification of the hour went to')]
 class Version1000Date20261021140000 extends SimpleMigrationStep {
 	public function __construct(
 		private readonly DetectionAccounts $accounts,
@@ -77,6 +80,9 @@ class Version1000Date20261021140000 extends SimpleMigrationStep {
 		$alerts = $schema->getTable('ids_alerts');
 		if (!$alerts->hasIndex('ids_alert_src')) {
 			$alerts->addIndex(['source_key'], 'ids_alert_src');
+		}
+		if (!$alerts->hasColumn('recipients')) {
+			$alerts->addColumn('recipients', Types::INTEGER, ['notnull' => false, 'unsigned' => true]);
 		}
 
 		return $schema;

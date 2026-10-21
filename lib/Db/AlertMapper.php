@@ -58,11 +58,22 @@ class AlertMapper {
 	}
 
 	/**
-	 * @return ?array{id: int, check_id: string, source_key: string, bucket: int, hits: int, detection_id: ?int, first_at: int, last_at: int}
+	 * Remember how many administrators the first notification of a counter went to.
+	 */
+	public function setRecipients(int $id, int $recipients): void {
+		$qb = $this->db->getQueryBuilder();
+		$qb->update(self::TABLE)
+			->set('recipients', $qb->createNamedParameter($recipients, IQueryBuilder::PARAM_INT))
+			->where($qb->expr()->eq('id', $qb->createNamedParameter($id, IQueryBuilder::PARAM_INT)))
+			->executeStatement();
+	}
+
+	/**
+	 * @return ?array{id: int, check_id: string, source_key: string, bucket: int, hits: int, detection_id: ?int, first_at: int, last_at: int, recipients: ?int}
 	 */
 	public function find(int $id): ?array {
 		$qb = $this->db->getQueryBuilder();
-		$qb->select('id', 'check_id', 'source_key', 'bucket', 'hits', 'detection_id', 'first_at', 'last_at')
+		$qb->select('id', 'check_id', 'source_key', 'bucket', 'hits', 'detection_id', 'first_at', 'last_at', 'recipients')
 			->from(self::TABLE)
 			->where($qb->expr()->eq('id', $qb->createNamedParameter($id, IQueryBuilder::PARAM_INT)));
 		$result = $qb->executeQuery();
@@ -80,11 +91,19 @@ class AlertMapper {
 			'detection_id' => $row['detection_id'] === null ? null : (int)$row['detection_id'],
 			'first_at' => (int)$row['first_at'],
 			'last_at' => (int)$row['last_at'],
+			'recipients' => $row['recipients'] === null ? null : (int)$row['recipients'],
 		];
 	}
 
 	public function deleteOlderThan(int $before): int {
 		return BatchedDelete::run($this->db, self::TABLE, 'id', static fn (IQueryBuilder $qb): IQueryBuilder => $qb->where($qb->expr()->lt('last_at', $qb->createNamedParameter($before, IQueryBuilder::PARAM_INT))));
+	}
+
+	/**
+	 * Whether a counter has a hit already.
+	 */
+	public function exists(string $checkId, string $sourceKey, int $bucket): bool {
+		return $this->idOf($checkId, $sourceKey, $bucket) > 0;
 	}
 
 	private function idOf(string $checkId, string $sourceKey, int $bucket): int {

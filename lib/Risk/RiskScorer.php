@@ -136,9 +136,18 @@ class RiskScorer {
 		if ($tool === null) {
 			return;
 		}
-		$this->flags->flagAttackTool($source, $tool);
-		// The cached facts would miss the tool for up to a minute.
-		$this->cache()?->remove(self::CACHE_PREFIX . $source->ipKey);
+		$key = self::CACHE_PREFIX . $source->ipKey;
+		if ($this->flags->flagAttackTool($source, $tool)) {
+			// The cached facts would miss a new tool for up to a minute.
+			$this->cache()?->remove($key);
+			return;
+		}
+		// The tool is known: the cached facts only miss this failure.
+		$cached = $this->cache()?->get($key);
+		if (is_array($cached) && is_int($cached['failures'] ?? null)) {
+			$cached['failures']++;
+			$this->cache()?->set($key, $cached, self::CACHE_TTL);
+		}
 	}
 
 	private function assess(SourceKey $source): RiskAssessment {

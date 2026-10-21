@@ -52,6 +52,18 @@ class RetentionTest extends IntegrationTestCase {
 		$this->assertSame(0, $this->rows(FlagMapper::TABLE));
 	}
 
+	public function testAFlagIsOnlyExtendedOnceLessThanHalfRemains(): void {
+		$mapper = Server::get(FlagMapper::class);
+		$this->assertTrue($mapper->flag('ip:attack', 'attack', 1000 + 3600, null, 1000));
+		$queries = $this->db->getInner()->getStats()['executed'];
+		$this->assertFalse($mapper->flag('ip:attack', 'attack', 1010 + 3600, null, 1010), 'most of the hour is left');
+		$this->assertFalse($mapper->flag('ip:attack', 'attack', 2700 + 3600, null, 2700));
+		$this->assertTrue($mapper->flag('ip:attack', 'attack', 2900 + 3600, null, 2900), 'less than half is left');
+		$this->assertSame(['ip:attack' => 'attack'], $mapper->active(['ip:attack'], 2900 + 3599));
+		$this->assertSame([], $mapper->active(['ip:attack'], 2900 + 3600));
+		$this->assertTrue($mapper->flag('ip:other', 'attack', 5000, null), 'without a time a later end always extends');
+	}
+
 	public function testFlagRetentionDeletesOnlyExpiredFlags(): void {
 		$mapper = Server::get(FlagMapper::class);
 		$mapper->flag('ip:old', 'attack', 100, null);
