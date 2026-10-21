@@ -21,9 +21,12 @@ use OCA\IntrusionDetection\Config\Settings;
 use OCA\IntrusionDetection\Db\BanMapper;
 use OCA\IntrusionDetection\Db\DetectionFilter;
 use OCA\IntrusionDetection\Db\DetectionMapper;
+use OCA\IntrusionDetection\Db\KeyLock;
 use OCA\IntrusionDetection\Db\LoginMapper;
+use OCA\IntrusionDetection\Detection\DetectionAccounts;
 use OCA\IntrusionDetection\Detection\DetectionDraft;
 use OCA\IntrusionDetection\Detection\DetectionService;
+use OCA\IntrusionDetection\Detection\DetectionTotals;
 use OCA\IntrusionDetection\Event\TypedEvents;
 use OCA\IntrusionDetection\Explain\NarrativeBuilder;
 use OCA\IntrusionDetection\Net\SourceKey;
@@ -34,10 +37,14 @@ use OCA\IntrusionDetection\Response\IResponseHandler;
 use OCA\IntrusionDetection\Response\ResponseContext;
 use OCA\IntrusionDetection\Response\ResponseEngine;
 use OCA\IntrusionDetection\Response\ResponseOutcome;
+use OCA\IntrusionDetection\Risk\RiskScorer;
+use OCP\AppFramework\Db\Entity;
+use OCP\AppFramework\Utility\ITimeFactory;
 use OCP\IUser;
 use OCP\L10N\IFactory;
 use OCP\Server;
 use PHPUnit\Framework\Attributes\Group;
+use Psr\Container\ContainerInterface;
 use Psr\Log\LoggerInterface;
 
 /**
@@ -110,6 +117,51 @@ class ResponseEngineTest extends IntegrationTestCase {
 		$this->assertSame(1, $this->detections->count(new DetectionFilter()));
 		// The merged hit still shows the ban as done, not as "would have".
 		$this->assertTrue($second->getActionList()[0]['enforced']);
+	}
+
+	public function testAMergedHitWhoseActionsStayTheSameWritesTheDetectionOnce(): void {
+		$this->engine->handle($this->draft('198.51.100.7', DetectionDraft::MERGE_SOURCE));
+		// The second hit finds the address blocked already: its actions say so.
+		$updates = $this->detectionUpdates(fn () => $this->engine->handle($this->draft('198.51.100.7', DetectionDraft::MERGE_SOURCE)));
+		$this->assertSame(2, $updates);
+		$updates = $this->detectionUpdates(fn () => $this->engine->handle($this->draft('198.51.100.7', DetectionDraft::MERGE_SOURCE)));
+		$this->assertSame(1, $updates, 'the hit, not the unchanged actions');
+		$updates = $this->detectionUpdates(fn () => $this->engine->handle($this->draft('198.51.100.9', DetectionDraft::MERGE_SOURCE)));
+		$this->assertSame(1, $updates, 'a new detection: its actions once after the insert');
+	}
+
+	/**
+	 * @param \Closure(): mixed $hit
+	 */
+	private function detectionUpdates(\Closure $hit): int {
+		$counting = new class($this->db) extends DetectionMapper {
+			public int $updates = 0;
+
+			public function update(Entity $entity): Entity {
+				$this->updates++;
+				return parent::update($entity);
+			}
+		};
+		$this->engine = new ResponseEngine(
+			Server::get(CheckRegistry::class),
+			$this->settings,
+			new DetectionService(
+				$counting,
+				Server::get(CheckRegistry::class),
+				$this->settings,
+				Server::get(ITimeFactory::class),
+				Server::get(RiskScorer::class),
+				Server::get(DetectionAccounts::class),
+				Server::get(DetectionTotals::class),
+				Server::get(KeyLock::class),
+			),
+			Server::get(ContainerInterface::class),
+			Server::get(TypedEvents::class),
+			Server::get(AuditLogger::class),
+			Server::get(LoggerInterface::class),
+		);
+		$hit();
+		return $counting->updates;
 	}
 
 	public function testAMergedHitKeepsTheEarlierFacts(): void {

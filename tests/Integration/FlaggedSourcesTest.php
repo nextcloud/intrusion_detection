@@ -51,6 +51,41 @@ class FlaggedSourcesTest extends IntegrationTestCase {
 		$this->assertNull($flags->sourceFlag($source));
 	}
 
+	public function testTheRiskScoreReusesTheFlagsALoginRead(): void {
+		$flags = $this->flags();
+		$source = SourceKey::fromIp('203.0.113.7');
+		$flags->flagAttackTool($source, 'hydra');
+		$flags->flagSource($source, FlaggedSources::REASON_ATTACK);
+
+		$before = $this->queries();
+		$flags->loginFlags($source, ['cc33']);
+		$this->assertSame(['tool' => 'hydra', 'source' => FlaggedSources::REASON_ATTACK], $flags->riskFlags($source));
+		$this->assertSame(1, $this->queries() - $before, 'one read of the flags per login');
+
+		$flags->unflagSource($source);
+		$this->assertSame(['tool' => 'hydra', 'source' => null], $flags->riskFlags($source), 'a changed flag is read again');
+		$this->assertSame(['tool' => null, 'source' => null], $this->flags()->riskFlags(SourceKey::fromIp('198.51.100.9')));
+	}
+
+	public function testAFlagThatLastsLongEnoughCostsOneReadAndNoWrite(): void {
+		$mapper = Server::get(FlagMapper::class);
+		$now = Server::get(ITimeFactory::class)->getTime();
+		$this->assertTrue($mapper->flag('tool:4:203.0.113.8', 'hydra', $now + 86400, null, $now));
+
+		$before = $this->queries();
+		$this->assertFalse($mapper->flag('tool:4:203.0.113.8', 'hydra', $now + 86400 + 60, null, $now + 60));
+		$this->assertSame(1, $this->queries() - $before, 'one read, no update and no insert');
+
+		$before = $this->queries();
+		$this->assertTrue($mapper->flag('tool:4:203.0.113.8', 'nmap', $now + 3 * 86400, null, $now + 2 * 86400));
+		$this->assertSame(2, $this->queries() - $before, 'a read and the update');
+		$this->assertSame(['tool:4:203.0.113.8' => 'nmap'], $mapper->active(['tool:4:203.0.113.8'], $now + 2 * 86400));
+
+		$before = $this->queries();
+		$this->assertTrue($mapper->flag('tool:4:203.0.113.9', 'hydra', $now + 86400, null, $now));
+		$this->assertSame(2, $this->queries() - $before, 'a read and the insert');
+	}
+
 	private function flags(): FlaggedSources {
 		return new FlaggedSources(Server::get(FlagMapper::class), Server::get(Settings::class), Server::get(ITimeFactory::class));
 	}

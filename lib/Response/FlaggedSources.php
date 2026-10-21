@@ -44,6 +44,8 @@ class FlaggedSources {
 
 	/** @var array<string, ?string> the flag of an address or its network as {@see self::loginFlags()} read it in this request, by address key */
 	private array $sourceFlags = [];
+	/** @var array<string, ?string> the attack tool flag of an address as {@see self::loginFlags()} read it in this request, by address key */
+	private array $toolFlags = [];
 
 	public function __construct(
 		private readonly FlagMapper $mapper,
@@ -102,9 +104,9 @@ class FlaggedSources {
 
 	/**
 	 * What a password login needs, in one query: whether one of the
-	 * password fingerprints is flagged (the result), and the flag of the
-	 * address or its network, which {@see self::sourceFlag()} then answers
-	 * for the rest of the request.
+	 * password fingerprints is flagged (the result), and the flags of the
+	 * address, which {@see self::sourceFlag()} and {@see self::riskFlags()}
+	 * then answer for the rest of the request.
 	 *
 	 * @param list<string> $fingerprints hex
 	 */
@@ -114,10 +116,12 @@ class FlaggedSources {
 		if ($passwordKeys === [] && $sourceKeys === []) {
 			return false;
 		}
-		$flags = $this->mapper->active([...$passwordKeys, ...$sourceKeys], $this->timeFactory->getTime());
+		$toolKeys = $source === null ? [] : [self::toolKey($source)];
+		$flags = $this->mapper->active([...$passwordKeys, ...$sourceKeys, ...$toolKeys], $this->timeFactory->getTime());
 		if ($source !== null) {
 			$found = array_intersect_key($flags, array_flip($sourceKeys));
 			$this->sourceFlags[$source->ipKey] = $found === [] ? null : (string)reset($found);
+			$this->toolFlags[$source->ipKey] = $flags[self::toolKey($source)] ?? null;
 		}
 		return array_intersect_key($flags, array_flip($passwordKeys)) !== [];
 	}
@@ -163,6 +167,7 @@ class FlaggedSources {
 	 * @return bool whether the flag was written, false while it lasts long enough
 	 */
 	public function flagAttackTool(SourceKey $source, string $tool): bool {
+		unset($this->toolFlags[$source->ipKey]);
 		$now = $this->timeFactory->getTime();
 		return $this->mapper->flag(self::toolKey($source), $tool, $now + self::ATTACK_TOOL_DURATION, null, $now);
 	}
@@ -174,6 +179,9 @@ class FlaggedSources {
 	 * @return array{tool: ?string, source: ?string}
 	 */
 	public function riskFlags(SourceKey $source): array {
+		if (array_key_exists($source->ipKey, $this->toolFlags) && array_key_exists($source->ipKey, $this->sourceFlags)) {
+			return ['tool' => $this->toolFlags[$source->ipKey], 'source' => $this->sourceFlags[$source->ipKey]];
+		}
 		$toolKey = self::toolKey($source);
 		$flags = $this->mapper->active(array_values(array_unique([$toolKey, self::sourceKey($source), 'net:' . $source->netKey])), $this->timeFactory->getTime());
 		$tool = $flags[$toolKey] ?? null;

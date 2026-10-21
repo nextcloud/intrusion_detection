@@ -79,6 +79,8 @@ class DetectionService {
 			$explanation['facts'] = FactsMerger::merge(is_array($explanation['facts'] ?? null) ? $explanation['facts'] : [], Explanation::facts($draft));
 			$existing->setExplanationData($explanation);
 			$this->mapper->update($existing);
+			// Only what changes from here on is written again (the actions).
+			$existing->resetUpdatedFields();
 			if ($raised) {
 				$this->totals->raised($existing, $now);
 			}
@@ -88,6 +90,7 @@ class DetectionService {
 		}
 
 		$detection = $this->mapper->insert($this->build($draft, $mode, $now, true));
+		$detection->resetUpdatedFields();
 		$this->totals->created($detection);
 		$this->recorded[$detection->getId()] = $this->accounts->recordNew($detection);
 		return [$detection, true];
@@ -149,11 +152,18 @@ class DetectionService {
 	}
 
 	/**
+	 * Store the actions of a detection; nothing is written when they did
+	 * not change since it was recorded.
+	 *
 	 * @param list<array{type: string, enforced: bool, ref?: mixed, note?: string}> $actions
 	 */
 	public function setActions(Detection $detection, array $actions): void {
 		$detection->setActionList($actions);
+		if (!isset($detection->getUpdatedFields()['actions'])) {
+			return;
+		}
 		$this->mapper->update($detection);
+		$detection->resetUpdatedFields();
 		$this->recorded[$detection->getId()] = $this->accounts->recordChange($detection, $this->recorded[$detection->getId()] ?? null);
 	}
 }

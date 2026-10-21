@@ -27,22 +27,33 @@ class FlagMapper {
 	/**
 	 * Set a flag, or extend it to `$expiresAt`. With `$now`, a flag is only
 	 * extended once less than half of the new duration remains, so that the
-	 * failures of an attack do not rewrite it every time.
+	 * failures of an attack do not rewrite it every time: a flag that lasts
+	 * long enough costs one read, an update or an insert only when needed.
 	 *
 	 * @return bool whether the flag was written
 	 */
 	public function flag(string $flagKey, string $reason, int $expiresAt, ?int $detectionId, ?int $now = null): bool {
 		$extendBelow = $now === null ? $expiresAt : $now + intdiv(max(0, $expiresAt - $now), 2);
-		$qb = $this->db->getQueryBuilder();
-		$qb->update(self::TABLE)
-			->set('expires_at', $qb->createNamedParameter($expiresAt, IQueryBuilder::PARAM_INT))
-			->set('reason', $qb->createNamedParameter($reason))
-			->where($qb->expr()->eq('flag_key', $qb->createNamedParameter($flagKey)))
-			->andWhere($qb->expr()->lt('expires_at', $qb->createNamedParameter($extendBelow, IQueryBuilder::PARAM_INT)));
-		if ($qb->executeStatement() > 0) {
-			return true;
+		$select = $this->db->getQueryBuilder();
+		$select->select('expires_at')
+			->from(self::TABLE)
+			->where($select->expr()->eq('flag_key', $select->createNamedParameter($flagKey)));
+		$result = $select->executeQuery();
+		$current = $result->fetchOne();
+		$result->closeCursor();
+		if ($current !== false) {
+			if ((int)$current >= $extendBelow) {
+				return false;
+			}
+			$qb = $this->db->getQueryBuilder();
+			$qb->update(self::TABLE)
+				->set('expires_at', $qb->createNamedParameter($expiresAt, IQueryBuilder::PARAM_INT))
+				->set('reason', $qb->createNamedParameter($reason))
+				->where($qb->expr()->eq('flag_key', $qb->createNamedParameter($flagKey)))
+				// A parallel request may have extended it meanwhile.
+				->andWhere($qb->expr()->lt('expires_at', $qb->createNamedParameter($extendBelow, IQueryBuilder::PARAM_INT)));
+			return $qb->executeStatement() > 0;
 		}
-		// A flag that already lasts long enough stays as it is.
 		return $this->db->insertIgnoreConflict(self::TABLE, [
 			'flag_key' => $flagKey,
 			'reason' => $reason,
