@@ -225,7 +225,9 @@ class BanMapper extends QBMapper {
 			->from(self::TABLE)
 			->where($qb->expr()->gt('expires_at', $qb->createNamedParameter($now, IQueryBuilder::PARAM_INT)))
 			->andWhere($qb->expr()->isNull('lifted_at'))
-			->groupBy('scope', 'level');
+			->groupBy('scope', 'level')
+			->orderBy('scope')
+			->addOrderBy('level');
 		$result = $qb->executeQuery();
 		$rows = [];
 		while ($row = $result->fetch()) {

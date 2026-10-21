@@ -113,7 +113,8 @@ class ApprovalMapper extends QBMapper {
 			->selectAlias($qb->func()->count('*'), 'n')
 			->from(self::TABLE)
 			->where($qb->expr()->eq('status', $qb->createNamedParameter(Approval::STATUS_PENDING)))
-			->groupBy('kind');
+			->groupBy('kind')
+			->orderBy('kind');
 		$result = $qb->executeQuery();
 		$counts = [];
 		while ($row = $result->fetch()) {

@@ -117,7 +117,9 @@ class DetectionMapper extends QBMapper {
 			->selectAlias($qb->func()->sum('hits'), 'h')
 			->from(self::TABLE)
 			->where($qb->expr()->gte('created_at', $qb->createNamedParameter($since, IQueryBuilder::PARAM_INT)))
-			->groupBy('check_id', 'enforced');
+			->groupBy('check_id', 'enforced')
+			->orderBy('check_id')
+			->addOrderBy('enforced');
 		if ($until !== null) {
 			$qb->andWhere($qb->expr()->lt('created_at', $qb->createNamedParameter($until, IQueryBuilder::PARAM_INT)));
 		}
@@ -242,7 +244,10 @@ class DetectionMapper extends QBMapper {
 		$qb->select('check_id', 'severity', 'enforced')
 			->selectAlias($qb->func()->count('*'), 'n')
 			->from(self::TABLE)
-			->groupBy('check_id', 'severity', 'enforced');
+			->groupBy('check_id', 'severity', 'enforced')
+			->orderBy('check_id')
+			->addOrderBy('severity')
+			->addOrderBy('enforced');
 		if ($before !== null) {
 			$qb->where($qb->expr()->lt('created_at', $qb->createNamedParameter($before, IQueryBuilder::PARAM_INT)));
 		}

@@ -54,7 +54,8 @@ class StatsMapper {
 			->from(BanMapper::TABLE)
 			->where($qb->expr()->gte('expires_at', $qb->createNamedParameter($since, IQueryBuilder::PARAM_INT)))
 			->andWhere($qb->expr()->gte('created_at', $qb->createNamedParameter($since, IQueryBuilder::PARAM_INT)))
-			->groupBy('check_id');
+			->groupBy('check_id')
+			->orderBy('check_id');
 		$result = $qb->executeQuery();
 		$counts = [];
 		while ($row = $result->fetch()) {
