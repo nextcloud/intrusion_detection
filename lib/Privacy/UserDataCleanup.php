@@ -9,6 +9,7 @@ declare(strict_types=1);
 
 namespace OCA\IntrusionDetection\Privacy;
 
+use OCA\IntrusionDetection\BackgroundJob\UserDetectionsCleanupJob;
 use OCA\IntrusionDetection\Db\AlertMapper;
 use OCA\IntrusionDetection\Db\ApprovalMapper;
 use OCA\IntrusionDetection\Db\AttemptMapper;
@@ -29,6 +30,7 @@ use OCA\IntrusionDetection\Db\UserDailyMapper;
 use OCA\IntrusionDetection\Detection\DetectionAccounts;
 use OCA\IntrusionDetection\Notification\AdminNotices;
 use OCA\IntrusionDetection\Notification\UserAlerts;
+use OCP\BackgroundJob\IJobList;
 use OCP\DB\QueryBuilder\IQueryBuilder;
 use OCP\IDBConnection;
 
@@ -42,7 +44,9 @@ use OCP\IDBConnection;
  *   count against their address) keep existing without the account.
  * - Detections keep explaining what happened, without the account: their
  *   account is set to null, and the account is removed from the facts
- *   (the targets of an attack) and from the recorded actions.
+ *   (the targets of an attack) and from the recorded actions. An account
+ *   can be named in many detections, so they are rewritten after the
+ *   deletion, by a queued job ({@see UserDetectionsCleanupJob}) in batches.
  * - The counters that aggregate notifications about the account are deleted.
  *
  * The app's user settings and notifications are removed by core.
@@ -77,6 +81,7 @@ class UserDataCleanup {
 		private readonly IDBConnection $db,
 		private readonly DetectionMapper $detections,
 		private readonly DetectionAccountMapper $accounts,
+		private readonly IJobList $jobList,
 	) {
 	}
 
@@ -95,7 +100,9 @@ class UserDataCleanup {
 				->executeStatement();
 		}
 		$this->deleteCounters($uid);
-		$this->scrubDetections($uid);
+		if ($this->accounts->detectionIds($uid, 0, 1) !== []) {
+			$this->jobList->add(UserDetectionsCleanupJob::class, ['uid' => $uid, 'upTo' => $this->detections->lastId()]);
+		}
 	}
 
 	private function deleteCounters(string $uid): void {
@@ -111,20 +118,36 @@ class UserDataCleanup {
 
 	/**
 	 * Detections of the account, and detections whose facts or actions
-	 * mention it (as a target of an attack), are rewritten without it. They
-	 * are found through the accounts recorded per detection
-	 * ({@see DetectionAccounts}), not by searching the JSON of every row.
+	 * mention it (as a target of an attack), up to detection `$upTo`, are
+	 * rewritten without it, a batch per transaction. They are found through
+	 * the accounts recorded per detection ({@see DetectionAccounts}), not by
+	 * searching the JSON of every row.
+	 *
+	 * @param int $after the detection id the last call ended with
+	 * @return ?int the detection id to go on after, or null when all are done
 	 */
-	private function scrubDetections(string $uid): void {
-		$lastId = 0;
-		do {
-			$ids = $this->accounts->detectionIds($uid, $lastId, self::BATCH);
-			foreach ($this->detections->findByIds($ids) as $detection) {
-				$this->scrub($detection, $uid);
+	public function scrubDetections(string $uid, int $upTo, int $after = 0, int $maxBatches = PHP_INT_MAX): ?int {
+		for ($batch = 0; $batch < $maxBatches; $batch++) {
+			$ids = $this->accounts->detectionIds($uid, $after, self::BATCH, $upTo);
+			if ($ids !== []) {
+				$this->db->beginTransaction();
+				try {
+					foreach ($this->detections->findByIds($ids) as $detection) {
+						$this->scrub($detection, $uid);
+					}
+					$this->db->commit();
+				} catch (\Throwable $e) {
+					$this->db->rollBack();
+					throw $e;
+				}
+				$after = max($ids);
 			}
-			$lastId = $ids === [] ? $lastId : max($ids);
-		} while (count($ids) === self::BATCH);
-		$this->accounts->deleteForUid($uid);
+			if (count($ids) < self::BATCH) {
+				$this->accounts->deleteForUid($uid, $upTo);
+				return null;
+			}
+		}
+		return $after;
 	}
 
 	private function scrub(Detection $detection, string $uid): void {

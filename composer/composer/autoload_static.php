@@ -66,6 +66,7 @@ class ComposerStaticInitIntrusionDetection
         'OCA\\IntrusionDetection\\BackgroundJob\\FirewallExportJob' => __DIR__ . '/..' . '/../lib/BackgroundJob/FirewallExportJob.php',
         'OCA\\IntrusionDetection\\BackgroundJob\\LearningModeJob' => __DIR__ . '/..' . '/../lib/BackgroundJob/LearningModeJob.php',
         'OCA\\IntrusionDetection\\BackgroundJob\\StatusRefreshJob' => __DIR__ . '/..' . '/../lib/BackgroundJob/StatusRefreshJob.php',
+        'OCA\\IntrusionDetection\\BackgroundJob\\UserDetectionsCleanupJob' => __DIR__ . '/..' . '/../lib/BackgroundJob/UserDetectionsCleanupJob.php',
         'OCA\\IntrusionDetection\\Blocklist\\BlocklistFactsProvider' => __DIR__ . '/..' . '/../lib/Blocklist/BlocklistFactsProvider.php',
         'OCA\\IntrusionDetection\\Blocklist\\BlocklistOverview' => __DIR__ . '/..' . '/../lib/Blocklist/BlocklistOverview.php',
         'OCA\\IntrusionDetection\\Blocklist\\BlocklistSource' => __DIR__ . '/..' . '/../lib/Blocklist/BlocklistSource.php',

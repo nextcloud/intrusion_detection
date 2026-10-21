@@ -60,11 +60,11 @@ class DetectionAccountMapper {
 	}
 
 	/**
-	 * The detections of an account after an id, ascending.
+	 * The detections of an account after an id (and up to another), ascending.
 	 *
 	 * @return list<int>
 	 */
-	public function detectionIds(string $uid, int $afterId, int $limit): array {
+	public function detectionIds(string $uid, int $afterId, int $limit, ?int $upToId = null): array {
 		$qb = $this->db->getQueryBuilder();
 		$qb->select('detection_id')
 			->from(self::TABLE)
@@ -72,16 +72,25 @@ class DetectionAccountMapper {
 			->andWhere($qb->expr()->gt('detection_id', $qb->createNamedParameter($afterId, IQueryBuilder::PARAM_INT)))
 			->orderBy('detection_id', 'ASC')
 			->setMaxResults($limit);
+		if ($upToId !== null) {
+			$qb->andWhere($qb->expr()->lte('detection_id', $qb->createNamedParameter($upToId, IQueryBuilder::PARAM_INT)));
+		}
 		$result = $qb->executeQuery();
 		$ids = array_map('intval', $result->fetchFirstColumn());
 		$result->closeCursor();
 		return $ids;
 	}
 
-	public function deleteForUid(string $uid): int {
+	/**
+	 * @param ?int $upToId only for the detections up to this one
+	 */
+	public function deleteForUid(string $uid, ?int $upToId = null): int {
 		$qb = $this->db->getQueryBuilder();
 		$qb->delete(self::TABLE)
 			->where($qb->expr()->eq('uid', $qb->createNamedParameter($uid)));
+		if ($upToId !== null) {
+			$qb->andWhere($qb->expr()->lte('detection_id', $qb->createNamedParameter($upToId, IQueryBuilder::PARAM_INT)));
+		}
 		return $qb->executeStatement();
 	}
 

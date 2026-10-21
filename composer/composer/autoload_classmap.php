@@ -51,6 +51,7 @@ return array(
     'OCA\\IntrusionDetection\\BackgroundJob\\FirewallExportJob' => $baseDir . '/../lib/BackgroundJob/FirewallExportJob.php',
     'OCA\\IntrusionDetection\\BackgroundJob\\LearningModeJob' => $baseDir . '/../lib/BackgroundJob/LearningModeJob.php',
     'OCA\\IntrusionDetection\\BackgroundJob\\StatusRefreshJob' => $baseDir . '/../lib/BackgroundJob/StatusRefreshJob.php',
+    'OCA\\IntrusionDetection\\BackgroundJob\\UserDetectionsCleanupJob' => $baseDir . '/../lib/BackgroundJob/UserDetectionsCleanupJob.php',
     'OCA\\IntrusionDetection\\Blocklist\\BlocklistFactsProvider' => $baseDir . '/../lib/Blocklist/BlocklistFactsProvider.php',
     'OCA\\IntrusionDetection\\Blocklist\\BlocklistOverview' => $baseDir . '/../lib/Blocklist/BlocklistOverview.php',
     'OCA\\IntrusionDetection\\Blocklist\\BlocklistSource' => $baseDir . '/../lib/Blocklist/BlocklistSource.php',

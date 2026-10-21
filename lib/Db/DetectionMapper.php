@@ -107,6 +107,18 @@ class DetectionMapper extends QBMapper {
 	}
 
 	/**
+	 * The id of the latest detection, 0 without any.
+	 */
+	public function lastId(): int {
+		$qb = $this->db->getQueryBuilder();
+		$qb->select($qb->func()->max('id'))->from(self::TABLE);
+		$result = $qb->executeQuery();
+		$id = (int)$result->fetchOne();
+		$result->closeCursor();
+		return $id;
+	}
+
+	/**
 	 * @param list<int> $ids
 	 * @return list<Detection> in id order
 	 */

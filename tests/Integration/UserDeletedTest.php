@@ -9,6 +9,7 @@ declare(strict_types=1);
 
 namespace OCA\IntrusionDetection\Tests\Integration;
 
+use OCA\IntrusionDetection\BackgroundJob\UserDetectionsCleanupJob;
 use OCA\IntrusionDetection\Check\Checks\CredentialStuffing;
 use OCA\IntrusionDetection\Check\Checks\SecondFactorFailed;
 use OCA\IntrusionDetection\Check\Mode;
@@ -29,6 +30,7 @@ use OCA\IntrusionDetection\Listener\UserDeletedListener;
 use OCA\IntrusionDetection\Net\SourceKey;
 use OCA\IntrusionDetection\Notification\UserAlerts;
 use OCA\IntrusionDetection\Privacy\UserDataCleanup;
+use OCP\BackgroundJob\IJobList;
 use OCP\Server;
 use OCP\User\Events\UserDeletedEvent;
 use PHPUnit\Framework\Attributes\Group;
@@ -65,6 +67,8 @@ class UserDeletedTest extends AccountTestCase {
 		$user->delete();
 		// Run it directly too, in case the app's listeners are not registered in this test run; it is idempotent.
 		(new UserDeletedListener(Server::get(UserDataCleanup::class), Server::get(LoggerInterface::class)))->handle(new UserDeletedEvent($user));
+		$this->assertSame([$other, $uid], Server::get(DetectionMapper::class)->findById($attack->getId())->getExplanationData()['facts']['targets'], 'The detections are rewritten later, by a job');
+		$this->runQueuedCleanup();
 
 		$dump = '';
 		foreach (IntegrationTestCase::TABLES as $table) {
@@ -88,6 +92,62 @@ class UserDeletedTest extends AccountTestCase {
 		$this->assertSame([$other], $mapper->findById($attack->getId())->getExplanationData()['facts']['targets']);
 		$this->assertSame(12, $mapper->findById($attack->getId())->getExplanationData()['facts']['failures']);
 		$this->assertSame([$other], $mapper->findById($unrelated->getId())->getExplanationData()['facts']['targets']);
+	}
+
+	public function testTheDeletionCostsTheSameForAnAccountInManyDetectionsAndTheJobGoesInBatches(): void {
+		$service = Server::get(DetectionService::class);
+		$protect = new ModeState(Mode::Protect, Mode::Protect);
+		$count = UserDataCleanup::BATCH + 5;
+		for ($i = 0; $i < $count; $i++) {
+			$service->record(new DetectionDraft(CredentialStuffing::ID, SourceKey::fromIp('203.0.113.9'), null, ['targets' => ['many-user', 'kept-user'], 'n' => $i]), $protect);
+		}
+		[$few] = $service->record(new DetectionDraft(CredentialStuffing::ID, SourceKey::fromIp('203.0.113.8'), null, ['targets' => ['few-user']]), $protect);
+
+		$cleanup = Server::get(UserDataCleanup::class);
+		$queries = $this->db->getInner()->getStats()['executed'];
+		$cleanup->deleteUser('few-user');
+		$few = $this->db->getInner()->getStats()['executed'] - $queries;
+		$queries = $this->db->getInner()->getStats()['executed'];
+		$cleanup->deleteUser('many-user');
+		$this->assertSame($few, $this->db->getInner()->getStats()['executed'] - $queries, 'No query per detection in the deletion');
+
+		$upTo = Server::get(DetectionMapper::class)->lastId();
+		$this->assertSame(0, $cleanup->scrubDetections('many-user', $upTo, 0, 0), 'nothing done without a batch');
+		$after = $cleanup->scrubDetections('many-user', $upTo, 0, 1);
+		$this->assertNotNull($after, 'one batch, more to do');
+		$this->assertNull($cleanup->scrubDetections('many-user', $upTo, $after, 1));
+		$this->runQueuedCleanup();
+
+		$dump = json_encode(array_map(static fn ($d) => $d->getExplanationData(), Server::get(DetectionMapper::class)->findList(new \OCA\IntrusionDetection\Db\DetectionFilter(limit: 1000))), JSON_THROW_ON_ERROR);
+		$this->assertStringNotContainsString('many-user', $dump);
+		$this->assertStringNotContainsString('few-user', $dump);
+		$this->assertSame($count, substr_count($dump, 'kept-user'));
+		$this->assertSame([], Server::get(\OCA\IntrusionDetection\Db\DetectionAccountMapper::class)->detectionIds('many-user', 0, 10));
+	}
+
+	public function testANewAccountWithTheNameOfADeletedOneKeepsItsDetections(): void {
+		$service = Server::get(DetectionService::class);
+		$protect = new ModeState(Mode::Protect, Mode::Protect);
+		$service->record(new DetectionDraft(CredentialStuffing::ID, SourceKey::fromIp('203.0.113.9'), null, ['targets' => ['reused']]), $protect);
+		Server::get(UserDataCleanup::class)->deleteUser('reused');
+		[$later] = $service->record(new DetectionDraft(CredentialStuffing::ID, SourceKey::fromIp('203.0.113.7'), null, ['targets' => ['reused']]), $protect);
+		$this->runQueuedCleanup();
+		$this->assertSame(['reused'], Server::get(DetectionMapper::class)->findById($later->getId())->getExplanationData()['facts']['targets']);
+	}
+
+	private function runQueuedCleanup(): void {
+		$jobs = Server::get(IJobList::class);
+		for ($round = 0; $round < 10; $round++) {
+			$ran = false;
+			foreach ($jobs->getJobsIterator(UserDetectionsCleanupJob::class, null, 0) as $job) {
+				$job->start($jobs);
+				$ran = true;
+			}
+			if (!$ran) {
+				return;
+			}
+		}
+		$this->fail('The cleanup job keeps queueing itself');
 	}
 
 	public function testApprovalRequestsAndResetSuppressionsAboutTheAccountGoToo(): void {

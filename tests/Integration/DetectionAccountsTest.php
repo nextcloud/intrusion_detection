@@ -86,7 +86,10 @@ class DetectionAccountsTest extends IntegrationTestCase {
 
 		$queries = $this->queries();
 		Server::get(UserDataCleanup::class)->deleteUser('alice');
-		$this->assertLessThan(30, $this->queries() - $queries, 'two detections rewritten, not fifty read');
+		$this->assertLessThan(30, $this->queries() - $queries, 'the deletion reads no detection');
+		$queries = $this->queries();
+		$this->assertNull(Server::get(UserDataCleanup::class)->scrubDetections('alice', Server::get(DetectionMapper::class)->lastId()), 'what the queued job does');
+		$this->assertLessThan(15, $this->queries() - $queries, 'two detections rewritten, not fifty read');
 
 		$mapper = Server::get(DetectionMapper::class);
 		$this->assertSame(['bob'], $mapper->findById($attack->getId())->getExplanationData()['facts']['targets']);
