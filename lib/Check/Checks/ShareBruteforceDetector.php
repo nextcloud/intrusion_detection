@@ -14,7 +14,6 @@ use OCA\IntrusionDetection\Db\AttemptKind;
 use OCA\IntrusionDetection\Db\AttemptMapper;
 use OCA\IntrusionDetection\Db\AttemptStats;
 use OCA\IntrusionDetection\Detection\AttemptRecord;
-use OCA\IntrusionDetection\Detection\AttemptRecorder;
 use OCA\IntrusionDetection\Detection\DetectionDraft;
 use OCA\IntrusionDetection\Net\SourceKey;
 use OCA\IntrusionDetection\Response\ResponseEngine;
@@ -38,7 +37,7 @@ use OCP\Share\IShare;
  * elevated or high risk score ({@see RiskScorer::limits()}).
  *
  * Under a flood the recorder keeps one unknown token in FLOOD_SAMPLE; only a
- * kept one is evaluated, and the counts are scaled by the sample factor.
+ * kept one is evaluated, and each kept row counts with its stored weight.
  * However the numbers are scaled, an address with at most STALE_TOLERANCE
  * distinct tokens never fires and is never blocked: outdated links are normal.
  */
@@ -53,7 +52,6 @@ class ShareBruteforceDetector {
 	public function __construct(
 		private readonly Settings $settings,
 		private readonly AttemptMapper $attempts,
-		private readonly AttemptRecorder $recorder,
 		private readonly ResponseEngine $engine,
 		private readonly ShareBruteforce $check,
 		private readonly ShareLinks $links,
@@ -69,7 +67,6 @@ class ShareBruteforceDetector {
 			return;
 		}
 		$params = $this->settings->params(ShareBruteforce::ID);
-		$factor = $this->recorder->sampleFactor(AttemptKind::UnknownShareToken, $attempt->time);
 		$minTokens = (int)$params['token_min'];
 		$netFactor = (int)$params['net_factor'];
 		$since = $attempt->time - (int)$params['token_window'];
@@ -77,12 +74,12 @@ class ShareBruteforceDetector {
 		$kinds = [AttemptKind::UnknownShareToken];
 
 		$ip = $this->attempts->stats('ip_key', [$source->ipKey], $kinds, $since);
-		$limits = $this->risk->limits($source, ['token_min' => [$minTokens, $ip->distinctNames * $factor]]);
-		if (self::reaches($ip->distinctNames, $factor, $limits->of('token_min'))) {
+		$limits = $this->risk->limits($source, ['token_min' => [$minTokens, $ip->namesEstimate()]]);
+		if (self::reaches($ip->distinctNames, $ip->namesEstimate(), $limits->of('token_min'))) {
 			$this->handle(new DetectionDraft(
 				checkId: ShareBruteforce::ID,
 				source: $source,
-				facts: $this->tokenFacts(ShareBruteforce::RULE_TOKENS, $ip, $factor) + $limits->facts(),
+				facts: $this->tokenFacts(ShareBruteforce::RULE_TOKENS, $ip) + $limits->facts(),
 				merge: DetectionDraft::MERGE_SOURCE,
 				userAgent: $userAgent,
 			), $params);
@@ -95,14 +92,14 @@ class ShareBruteforceDetector {
 		if ($net->distinctSources < 2) {
 			return;
 		}
-		$netLimits = $this->risk->limits($source, ['token_min' => [$minTokens * $netFactor, $net->distinctNames * $factor]]);
-		if (!self::reaches($net->distinctNames, $factor, $netLimits->of('token_min'))) {
+		$netLimits = $this->risk->limits($source, ['token_min' => [$minTokens * $netFactor, $net->namesEstimate()]]);
+		if (!self::reaches($net->distinctNames, $net->namesEstimate(), $netLimits->of('token_min'))) {
 			return;
 		}
 		$draft = new DetectionDraft(
 			checkId: ShareBruteforce::ID,
 			source: $source,
-			facts: $this->tokenFacts(ShareBruteforce::RULE_TOKENS_NETWORK, $net, $factor) + ['net' => $source->netKey] + $netLimits->facts(),
+			facts: $this->tokenFacts(ShareBruteforce::RULE_TOKENS_NETWORK, $net) + ['net' => $source->netKey] + $netLimits->facts(),
 			merge: DetectionDraft::MERGE_SOURCE,
 			userAgent: $userAgent,
 		);
@@ -177,23 +174,24 @@ class ShareBruteforceDetector {
 	}
 
 	/**
-	 * Whether a raw count of distinct tokens, scaled by the sample factor,
-	 * reaches a threshold, and is more than a few outdated links.
+	 * Whether a count of distinct tokens reaches a threshold: its estimate
+	 * (stored rows scaled by their weight) reaches it, and the stored rows
+	 * are more than a few outdated links.
 	 */
-	public static function reaches(int $raw, int $factor, int $threshold): bool {
-		return $raw > self::STALE_TOLERANCE && $raw * $factor >= $threshold;
+	public static function reaches(int $raw, int $estimate, int $threshold): bool {
+		return $raw > self::STALE_TOLERANCE && $estimate >= $threshold;
 	}
 
 	/**
 	 * @return array<string, mixed>
 	 */
-	private function tokenFacts(string $rule, AttemptStats $stats, int $factor): array {
+	private function tokenFacts(string $rule, AttemptStats $stats): array {
 		return [
 			'rule' => $rule,
-			'tokens' => $stats->distinctNames * $factor,
-			'attempts' => $stats->failures * $factor,
+			'tokens' => $stats->namesEstimate(),
+			'attempts' => $stats->failuresEstimate(),
 			'sources' => $stats->distinctSources,
-			'sampleFactor' => $factor,
+			'sampleFactor' => $stats->maxWeight,
 			'first' => $stats->first,
 			'last' => $stats->last,
 		];

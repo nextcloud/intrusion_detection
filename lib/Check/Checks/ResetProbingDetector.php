@@ -14,7 +14,6 @@ use OCA\IntrusionDetection\Config\Settings;
 use OCA\IntrusionDetection\Db\AttemptKind;
 use OCA\IntrusionDetection\Db\AttemptMapper;
 use OCA\IntrusionDetection\Detection\AttemptRecord;
-use OCA\IntrusionDetection\Detection\AttemptRecorder;
 use OCA\IntrusionDetection\Detection\DetectionDraft;
 use OCA\IntrusionDetection\Detection\DetectionService;
 use OCA\IntrusionDetection\Response\ResponseEngine;
@@ -33,8 +32,9 @@ use OCA\IntrusionDetection\Risk\RiskScorer;
  * high risk score ({@see RiskScorer::limits()}).
  *
  * Under a flood of attempts the recorder keeps one reset request in
- * FLOOD_SAMPLE; only a kept one is evaluated, and the counts are scaled by
- * the sample factor. Fewer than MIN_RAW recorded rows never fire.
+ * FLOOD_SAMPLE; only a kept one is evaluated, and each kept row counts with
+ * its stored weight, so rows from before the flood count once. Fewer than
+ * MIN_RAW recorded rows never fire.
  */
 class ResetProbingDetector {
 	public const MIN_RAW = 3;
@@ -44,7 +44,6 @@ class ResetProbingDetector {
 	public function __construct(
 		private readonly Settings $settings,
 		private readonly AttemptMapper $attempts,
-		private readonly AttemptRecorder $recorder,
 		private readonly ResponseEngine $engine,
 		private readonly DetectionService $detections,
 		private readonly ResetProbing $check,
@@ -60,21 +59,20 @@ class ResetProbingDetector {
 			return;
 		}
 		$params = $this->settings->params(ResetProbing::ID);
-		$factor = $this->recorder->sampleFactor(AttemptKind::PasswordReset, $attempt->time);
 		$kinds = [AttemptKind::PasswordReset];
 
 		$since = $attempt->time - (int)$params['enum_window'];
 		$ip = $this->attempts->stats('ip_key', [$attempt->source->ipKey], $kinds, $since);
-		$enumLimits = $this->risk->limits($attempt->source, ['enum_min_inputs' => [(int)$params['enum_min_inputs'], $ip->distinctNames * $factor]]);
-		if (self::reaches($ip->distinctNames, $factor, $enumLimits->of('enum_min_inputs'))) {
+		$enumLimits = $this->risk->limits($attempt->source, ['enum_min_inputs' => [(int)$params['enum_min_inputs'], $ip->namesEstimate()]]);
+		if (self::reaches($ip->distinctNames, $ip->namesEstimate(), $enumLimits->of('enum_min_inputs'))) {
 			$this->handle(new DetectionDraft(
 				checkId: ResetProbing::ID,
 				source: $attempt->source,
 				facts: [
 					'rule' => ResetProbing::RULE_ENUMERATION,
-					'inputs' => $ip->distinctNames * $factor,
-					'requests' => $ip->failures * $factor,
-					'sampleFactor' => $factor,
+					'inputs' => $ip->namesEstimate(),
+					'requests' => $ip->failuresEstimate(),
+					'sampleFactor' => $ip->maxWeight,
 					'targets' => $this->attempts->distinctUids('ip_key', [$attempt->source->ipKey], $kinds, $since, self::MAX_TARGETS),
 					'first' => $ip->first,
 					'last' => $ip->last,
@@ -89,16 +87,16 @@ class ResetProbingDetector {
 			return;
 		}
 		$user = $this->attempts->stats('uid', [$uid], $kinds, $attempt->time - (int)$params['flood_window']);
-		$floodLimits = $this->risk->limits($attempt->source, ['flood_min_requests' => [(int)$params['flood_min_requests'], $user->failures * $factor]]);
-		if (self::reaches($user->failures, $factor, $floodLimits->of('flood_min_requests'))) {
+		$floodLimits = $this->risk->limits($attempt->source, ['flood_min_requests' => [(int)$params['flood_min_requests'], $user->failuresEstimate()]]);
+		if (self::reaches($user->failures, $user->failuresEstimate(), $floodLimits->of('flood_min_requests'))) {
 			$this->handle(new DetectionDraft(
 				checkId: ResetProbing::ID,
 				uid: $uid,
 				facts: [
 					'rule' => ResetProbing::RULE_FLOOD,
-					'requests' => $user->failures * $factor,
+					'requests' => $user->failuresEstimate(),
 					'sources' => $user->distinctSources,
-					'sampleFactor' => $factor,
+					'sampleFactor' => $user->maxWeight,
 					'lastSource' => $attempt->source->ip,
 					'first' => $user->first,
 					'last' => $user->last,
@@ -129,7 +127,11 @@ class ResetProbingDetector {
 		return $this->detections->mergeTarget($draft, $this->settings->modeState(ResetProbing::ID)) !== null;
 	}
 
-	private static function reaches(int $raw, int $factor, int $threshold): bool {
-		return $raw >= self::MIN_RAW && $raw * $factor >= $threshold;
+	/**
+	 * Whether a count reaches a threshold: the estimate, and at least
+	 * MIN_RAW stored rows.
+	 */
+	private static function reaches(int $raw, int $estimate, int $threshold): bool {
+		return $raw >= self::MIN_RAW && $estimate >= $threshold;
 	}
 }

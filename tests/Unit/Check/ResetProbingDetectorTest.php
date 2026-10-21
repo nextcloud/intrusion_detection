@@ -20,7 +20,6 @@ use OCA\IntrusionDetection\Db\AttemptMapper;
 use OCA\IntrusionDetection\Db\AttemptStats;
 use OCA\IntrusionDetection\Db\Detection;
 use OCA\IntrusionDetection\Detection\AttemptRecord;
-use OCA\IntrusionDetection\Detection\AttemptRecorder;
 use OCA\IntrusionDetection\Detection\DetectionDraft;
 use OCA\IntrusionDetection\Detection\DetectionService;
 use OCA\IntrusionDetection\Explain\DateFormatter;
@@ -78,10 +77,8 @@ class ResetProbingDetectorTest extends TestCase {
 		$settings->method('responses')->willReturn(self::ALL);
 		$attempts = $this->createMock(AttemptMapper::class);
 		$attempts->method('stats')->willReturnCallback(fn (string $column): AttemptStats => $column === 'uid'
-			? new AttemptStats(failures: $this->requests, distinctNames: 1, distinctSources: $this->requests, first: time() - 60, last: time())
+			? new AttemptStats(failures: $this->requests, distinctNames: 1, distinctSources: $this->requests, first: time() - 60, last: time(), estimatedFailures: $this->requests * $this->sampleFactor, maxWeight: $this->sampleFactor)
 			: new AttemptStats(failures: 1, distinctNames: 1, distinctSources: 1));
-		$recorder = $this->createMock(AttemptRecorder::class);
-		$recorder->method('sampleFactor')->willReturnCallback(fn (): int => $this->sampleFactor);
 		$engine = $this->createMock(ResponseEngine::class);
 		$engine->method('handle')->willReturnCallback(function (DetectionDraft $draft, ?array $responses = null): ?Detection {
 			$this->assertSame(ResetProbing::RULE_FLOOD, $draft->facts['rule']);
@@ -96,7 +93,7 @@ class ResetProbingDetectorTest extends TestCase {
 			$plain = array_map(static fn (array $l): int => $l[0], $limits);
 			return new RiskLimits($plain, $plain, array_map(static fn (array $l): int => $l[1], $limits), null);
 		});
-		return new ResetProbingDetector($settings, $attempts, $recorder, $engine, $detections, new ResetProbing(new DateFormatter($this->createMock(IDateTimeFormatter::class))), $risk);
+		return new ResetProbingDetector($settings, $attempts, $engine, $detections, new ResetProbing(new DateFormatter($this->createMock(IDateTimeFormatter::class))), $risk);
 	}
 
 	private function attempt(): AttemptRecord {

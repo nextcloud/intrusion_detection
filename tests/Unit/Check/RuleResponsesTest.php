@@ -85,19 +85,19 @@ class RuleResponsesTest extends TestCase {
 	 */
 	public static function tokenCounts(): array {
 		return [
-			'two links never fire' => [2, 1, 2, false],
-			'two kept links under a flood never fire' => [2, 10, 10, false],
-			'three links at the lowest limit' => [3, 1, 3, true],
-			'below the limit' => [9, 1, 10, false],
-			'at the limit' => [10, 1, 10, true],
-			'three kept links under a flood stand for thirty' => [3, 10, 30, true],
-			'not enough even when scaled' => [3, 10, 31, false],
+			'two links never fire' => [2, 2, 2, false],
+			'two kept links under a flood never fire' => [2, 20, 10, false],
+			'three links at the lowest limit' => [3, 3, 3, true],
+			'below the limit' => [9, 9, 10, false],
+			'at the limit' => [10, 10, 10, true],
+			'three kept links under a flood stand for thirty' => [3, 30, 30, true],
+			'not enough even when scaled' => [3, 30, 31, false],
 		];
 	}
 
 	#[DataProvider('tokenCounts')]
-	public function testOutdatedLinksAreToleratedWhateverTheScale(int $raw, int $factor, int $threshold, bool $fires): void {
-		$this->assertSame($fires, ShareBruteforceDetector::reaches($raw, $factor, $threshold));
+	public function testOutdatedLinksAreToleratedWhateverTheScale(int $raw, int $estimate, int $threshold, bool $fires): void {
+		$this->assertSame($fires, ShareBruteforceDetector::reaches($raw, $estimate, $threshold));
 	}
 
 	public function testTheShareNoticeNamesTheWindowOfItsRule(): void {

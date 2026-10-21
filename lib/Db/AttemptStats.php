@@ -11,6 +11,11 @@ namespace OCA\IntrusionDetection\Db;
 
 /**
  * Counts over a set of failed attempts.
+ *
+ * `failures` and `distinctNames` count the stored rows. While a flood was
+ * sampled, one stored row stands for several attempts (its weight); the
+ * estimates scale each row by its weight, and `maxWeight` is the largest
+ * weight among the rows (1 when nothing was sampled).
  */
 final class AttemptStats {
 	public function __construct(
@@ -20,6 +25,23 @@ final class AttemptStats {
 		public readonly int $distinctUsers = 0,
 		public readonly int $first = 0,
 		public readonly int $last = 0,
+		private readonly ?int $estimatedFailures = null,
+		private readonly ?int $estimatedNames = null,
+		public readonly int $maxWeight = 1,
 	) {
+	}
+
+	/**
+	 * How many attempts the rows stand for.
+	 */
+	public function failuresEstimate(): int {
+		return $this->estimatedFailures ?? $this->failures;
+	}
+
+	/**
+	 * How many different names (inputs, tokens) the rows stand for.
+	 */
+	public function namesEstimate(): int {
+		return $this->estimatedNames ?? $this->distinctNames;
 	}
 }

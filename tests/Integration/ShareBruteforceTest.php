@@ -157,6 +157,37 @@ class ShareBruteforceTest extends RequestEventTestCase {
 		$this->assertSame('2001:db8:1:2::/64', $detections[0]->getNetKey());
 	}
 
+	public function testLinksTriedBeforeAFloodCountOnce(): void {
+		$detector = Server::get(ShareBruteforceDetector::class);
+		$source = SourceKey::fromIp('198.51.100.7');
+		for ($i = 1; $i <= 4; $i++) {
+			$this->storeUnknownToken($source, 'beforeToken' . $i, 1);
+		}
+		$this->settings->setGlobal(GlobalSettings::ATTEMPTS_FLOOD_UNTIL, time() + 600);
+		$detector->unknownToken($this->kept($source), null);
+		$this->assertSame([], $this->detectionsOf(ShareBruteforce::ID), '4 links stay 4 when a flood starts');
+
+		$this->storeUnknownToken($source, 'floodToken1');
+		$detector->unknownToken($this->kept($source), null);
+		$facts = $this->detectionsOf(ShareBruteforce::ID)[0]->getExplanationData()['facts'];
+		$this->assertSame(14, $facts['tokens'], '4 before the flood, and one kept link that stands for 10');
+		$this->assertSame(10, $facts['sampleFactor']);
+	}
+
+	public function testTheRecorderStoresTheWeightOfASampledAttempt(): void {
+		$this->settings->setGlobal(GlobalSettings::ATTEMPTS_FLOOD_UNTIL, time() + 600);
+		$recorder = new class(Server::get(AttemptMapper::class), Server::get(Fingerprinter::class), $this->settings, Server::get(\OCP\AppFramework\Utility\ITimeFactory::class)) extends AttemptRecorder {
+			protected function oneIn(int $n): bool {
+				return $n === AttemptRecorder::FLOOD_SAMPLE;
+			}
+		};
+		$source = SourceKey::fromIp('198.51.100.9');
+		$this->assertTrue($recorder->recordUnknownShareToken($source, 'kept-under-flood')->stored);
+		$recorder->record(AttemptKind::PasswordLogin, $source, 'alice');
+		$this->assertSame(10, $this->attempts->stats('ip_key', [$source->ipKey], [AttemptKind::UnknownShareToken], 0)->failuresEstimate());
+		$this->assertSame(1, $this->attempts->stats('ip_key', [$source->ipKey], [AttemptKind::PasswordLogin], 0)->failuresEstimate(), 'Logins are never sampled');
+	}
+
 	public function testUnderAFloodCountsAreEstimatedButTwoLinksStillNeverFire(): void {
 		$this->settings->setGlobal(GlobalSettings::ATTEMPTS_FLOOD_UNTIL, time() + 600);
 		$detector = Server::get(ShareBruteforceDetector::class);
@@ -380,8 +411,8 @@ class ShareBruteforceTest extends RequestEventTestCase {
 		$controller->authenticate('not-the-password');
 	}
 
-	private function storeUnknownToken(SourceKey $source, string $token): void {
-		$this->attempts->insert(AttemptKind::UnknownShareToken, $source->ipKey, $source->netKey, bin2hex(Server::get(Fingerprinter::class)->shareToken($token)), null, null, null, time());
+	private function storeUnknownToken(SourceKey $source, string $token, int $weight = AttemptRecorder::FLOOD_SAMPLE): void {
+		$this->attempts->insert(AttemptKind::UnknownShareToken, $source->ipKey, $source->netKey, bin2hex(Server::get(Fingerprinter::class)->shareToken($token)), null, null, null, time(), $weight);
 	}
 
 	private function storeWrongPassword(SourceKey $source, int $shareId): void {

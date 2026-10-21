@@ -74,9 +74,11 @@ class AttemptRecorder {
 	}
 
 	/**
-	 * How many attempts one stored row of a kind stands for right now:
-	 * FLOOD_SAMPLE while that kind is sampled, otherwise 1. Detectors scale
-	 * their counts by it.
+	 * How many attempts one stored row of a kind stands for right now. Under
+	 * a flood of more than FLOOD_ROWS attempts, unknown share tokens and reset
+	 * requests are sampled: one in FLOOD_SAMPLE is kept, and this is
+	 * FLOOD_SAMPLE. Logins are always kept, with 1. It is stored with
+	 * the row as its weight, which the counts of {@see AttemptMapper} use.
 	 */
 	public function sampleFactor(AttemptKind $kind, int $now): int {
 		return self::isSampledKind($kind) && $this->settings->getInt(GlobalSettings::ATTEMPTS_FLOOD_UNTIL) > $now ? self::FLOOD_SAMPLE : 1;
@@ -86,23 +88,16 @@ class AttemptRecorder {
 	 * @param list<string> $candidates
 	 */
 	private function store(AttemptKind $kind, SourceKey $source, ?string $nameHmac, ?string $uid, ?int $shareId, ?string $fingerprint, array $candidates, int $now): AttemptRecord {
-		$stored = !$this->sampledOut($kind, $now);
+		$weight = $this->sampleFactor($kind, $now);
+		$stored = $weight === 1 || $this->oneIn(self::FLOOD_SAMPLE);
 		if ($stored) {
-			$this->mapper->insert($kind, $source->ipKey, $source->netKey, $nameHmac, $uid, $shareId, $fingerprint, $now);
+			$this->mapper->insert($kind, $source->ipKey, $source->netKey, $nameHmac, $uid, $shareId, $fingerprint, $now, $weight);
 		}
 		if ($this->oneIn(self::CLEANUP_ONE_IN)) {
 			$this->mapper->deleteOlderThan($now - self::RETENTION);
 		}
 
 		return new AttemptRecord($kind, $source, $nameHmac, $uid, $shareId, $fingerprint, $candidates, $now, $stored);
-	}
-
-	/**
-	 * Under a flood of more than FLOOD_ROWS attempts, unknown share tokens and
-	 * reset requests are sampled. Logins are always kept.
-	 */
-	private function sampledOut(AttemptKind $kind, int $now): bool {
-		return $this->sampleFactor($kind, $now) > 1 && !$this->oneIn(self::FLOOD_SAMPLE);
 	}
 
 	private static function isSampledKind(AttemptKind $kind): bool {

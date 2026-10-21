@@ -38,6 +38,7 @@ class AttemptMapper {
 		?int $shareId,
 		?string $pwFp,
 		int $createdAt,
+		int $weight = 1,
 	): void {
 		$qb = $this->db->getQueryBuilder();
 		$qb->insert(self::TABLE)
@@ -50,6 +51,7 @@ class AttemptMapper {
 				'share_id' => $qb->createNamedParameter($shareId, $shareId === null ? IQueryBuilder::PARAM_NULL : IQueryBuilder::PARAM_INT),
 				'pw_fp' => $qb->createNamedParameter($pwFp),
 				'created_at' => $qb->createNamedParameter($createdAt, IQueryBuilder::PARAM_INT),
+				'weight' => $qb->createNamedParameter($weight, IQueryBuilder::PARAM_INT),
 			])
 			->executeStatement();
 	}
@@ -267,7 +269,12 @@ class AttemptMapper {
 	 */
 	private function statsQuery(): IQueryBuilder {
 		$qb = $this->db->getQueryBuilder();
+		$weight = $qb->getColumnName('weight');
+		$name = $qb->getColumnName('name_hmac');
 		$qb->select($qb->func()->count('*', 'failures'))
+			->selectAlias($qb->func()->sum('weight'), 'weighted')
+			->selectAlias($qb->func()->max('weight'), 'max_weight')
+			->selectAlias($qb->createFunction('COUNT(DISTINCT CASE WHEN ' . $weight . ' > 1 THEN ' . $name . ' END)'), 'sampled_names')
 			->selectAlias($qb->createFunction('COUNT(DISTINCT ' . $qb->getColumnName('name_hmac') . ')'), 'names')
 			->selectAlias($qb->createFunction('COUNT(DISTINCT ' . $qb->getColumnName('ip_key') . ')'), 'sources')
 			->selectAlias($qb->createFunction('COUNT(DISTINCT ' . $qb->getColumnName('uid') . ')'), 'users')
@@ -296,13 +303,20 @@ class AttemptMapper {
 		if ($row === false) {
 			return new AttemptStats();
 		}
+		$names = (int)$row['names'];
+		$sampledNames = (int)($row['sampled_names'] ?? 0);
+		$maxWeight = max(1, (int)($row['max_weight'] ?? 1));
 		return new AttemptStats(
 			failures: (int)$row['failures'],
-			distinctNames: (int)$row['names'],
+			distinctNames: $names,
 			distinctSources: (int)$row['sources'],
 			distinctUsers: (int)$row['users'],
 			first: (int)($row['first'] ?? 0),
 			last: (int)($row['last'] ?? 0),
+			estimatedFailures: (int)($row['weighted'] ?? $row['failures']),
+			// Names seen in sampled rows stand for `maxWeight` names each; only one sample rate exists.
+			estimatedNames: $names - $sampledNames + $sampledNames * $maxWeight,
+			maxWeight: $maxWeight,
 		);
 	}
 }
