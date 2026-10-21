@@ -127,6 +127,7 @@ class AddressGuardTest extends IntegrationTestCase {
 			Server::get(\OCA\IntrusionDetection\Response\BanExemptions::class),
 			Server::get(Settings::class),
 			$addressCache,
+			Server::get(AddressResolver::class),
 			$addresses,
 			Server::get(\OCA\IntrusionDetection\Net\ProtectedRanges::class),
 			Server::get(\OCP\Lock\ILockingProvider::class),
@@ -154,7 +155,11 @@ class AddressGuardTest extends IntegrationTestCase {
 	private function cacheFactory(string $kind): ICacheFactory {
 		// One in-memory store per test and cache kind, so the caches the guard
 		// and the ban service create behave like one Redis or APCu.
-		$this->stores[$kind] ??= new \OC\Memcache\ArrayCache('ids-test-' . $kind);
+		// A distributed cache is another class than the local one, as Redis is to APCu.
+		$this->stores[$kind] ??= $kind === 'distributed'
+			? new class('ids-test-' . $kind) extends \OC\Memcache\ArrayCache {
+			}
+		: new \OC\Memcache\ArrayCache('ids-test-' . $kind);
 		$store = $this->stores[$kind];
 		$factory = $this->createMock(ICacheFactory::class);
 		$factory->method('isAvailable')->willReturn($kind === 'distributed');

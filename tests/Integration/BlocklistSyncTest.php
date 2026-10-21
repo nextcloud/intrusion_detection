@@ -82,7 +82,7 @@ class BlocklistSyncTest extends IntegrationTestCase {
 		$this->assertSame($this->now, $state->successAt);
 		$this->assertSame('Tue, 20 Oct 2026 08:00:00 GMT', $state->lastModified);
 		$this->assertSame(3, $this->ranges()->countVersion('office_block', 1));
-		$this->assertSame($cacheVersion + 1, $this->appConfig->getValueInt(Application::APP_ID, GlobalSettings::BAN_VERSION), 'Cached verdicts are invalidated');
+		$this->assertNotSame($cacheVersion, $this->appConfig->getValueInt(Application::APP_ID, GlobalSettings::BAN_VERSION), 'Cached verdicts are invalidated');
 	}
 
 	public function testTheDownloadIsLimitedAndRefusesLocalRedirects(): void {

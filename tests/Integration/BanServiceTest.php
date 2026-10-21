@@ -168,7 +168,7 @@ class BanServiceTest extends IntegrationTestCase {
 		$result = $this->bans->ban(SourceKey::fromIp('198.51.100.7'), 'trap_url');
 		$versionBefore = $this->appConfig->getValueInt(Application::APP_ID, GlobalSettings::BAN_VERSION);
 		$this->bans->lift($result->ban, 'admin', 'false alarm');
-		$this->assertGreaterThan($versionBefore, $this->appConfig->getValueInt(Application::APP_ID, GlobalSettings::BAN_VERSION));
+		$this->assertNotSame($versionBefore, $this->appConfig->getValueInt(Application::APP_ID, GlobalSettings::BAN_VERSION));
 		$stored = $this->mapper->findById($result->ban->getId());
 		$this->assertNotNull($stored->getLiftedAt());
 		$this->assertSame('admin', $stored->getLiftedBy());
@@ -418,6 +418,7 @@ class BanServiceTest extends IntegrationTestCase {
 			),
 			Server::get(Settings::class),
 			Server::get(AddressCache::class),
+			Server::get(AddressResolver::class),
 			new RemoteAddressResolver($this->createMock(IRequest::class), Server::get(IThrottler::class)),
 			$ranges,
 			$locks ?? Server::get(ILockingProvider::class),

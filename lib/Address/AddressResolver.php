@@ -47,6 +47,7 @@ class AddressResolver {
 		}
 
 		$attributes = [];
+		$perAddress = false;
 		foreach (self::PROVIDERS as $class) {
 			/** @var IAddressFactsProvider $provider */
 			$provider = $this->container->get($class);
@@ -56,10 +57,11 @@ class AddressResolver {
 				$reference = $facts->reference;
 			}
 			array_push($attributes, ...$facts->attributes);
+			$perAddress = $perAddress || $facts->perAddress;
 		}
 
 		$cacheUntil = $denyUntil > $now ? $denyUntil : $now + AddressCache::OK_TTL;
-		return new Verdict($denyUntil, $reference, array_values(array_unique($attributes)), $cacheUntil);
+		return new Verdict($denyUntil, $reference, array_values(array_unique($attributes)), $cacheUntil, $perAddress);
 	}
 
 	/**

@@ -21,12 +21,14 @@ final class Verdict {
 	 * @param string $reference the block reference shown to the client
 	 * @param list<string> $attributes network attributes, e.g. "hosting", "tor", "list:spamhaus_drop"
 	 * @param int $cacheUntil when this verdict must be re-resolved at the latest
+	 * @param bool $perAddress whether it holds for this IPv6 address only, not for its whole /64
 	 */
 	public function __construct(
 		public readonly int $denyUntil = 0,
 		public readonly string $reference = '',
 		public readonly array $attributes = [],
 		public readonly int $cacheUntil = 0,
+		public readonly bool $perAddress = false,
 	) {
 	}
 
@@ -39,10 +41,14 @@ final class Verdict {
 	}
 
 	/**
-	 * @return array{u: int, r: string, a: list<string>, c: int}
+	 * @return array{u: int, r: string, a: list<string>, c: int, x?: true}
 	 */
 	public function toArray(): array {
-		return ['u' => $this->denyUntil, 'r' => $this->reference, 'a' => $this->attributes, 'c' => $this->cacheUntil];
+		$data = ['u' => $this->denyUntil, 'r' => $this->reference, 'a' => $this->attributes, 'c' => $this->cacheUntil];
+		if ($this->perAddress) {
+			$data['x'] = true;
+		}
+		return $data;
 	}
 
 	public static function fromArray(mixed $data): ?self {
@@ -50,6 +56,6 @@ final class Verdict {
 			|| !is_int($data['u']) || !is_string($data['r']) || !is_array($data['a']) || !is_int($data['c'])) {
 			return null;
 		}
-		return new self($data['u'], $data['r'], array_values(array_filter($data['a'], 'is_string')), $data['c']);
+		return new self($data['u'], $data['r'], array_values(array_filter($data['a'], 'is_string')), $data['c'], ($data['x'] ?? false) === true);
 	}
 }

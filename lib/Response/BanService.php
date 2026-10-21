@@ -10,6 +10,7 @@ declare(strict_types=1);
 namespace OCA\IntrusionDetection\Response;
 
 use OCA\IntrusionDetection\Address\AddressCache;
+use OCA\IntrusionDetection\Address\AddressResolver;
 use OCA\IntrusionDetection\Config\GlobalSettings;
 use OCA\IntrusionDetection\Config\Settings;
 use OCA\IntrusionDetection\Db\Ban;
@@ -57,6 +58,7 @@ class BanService {
 		private readonly BanExemptions $exemptions,
 		private readonly Settings $settings,
 		private readonly AddressCache $addressCache,
+		private readonly AddressResolver $resolver,
 		private readonly RemoteAddressResolver $addresses,
 		private readonly ProtectedRanges $protected,
 		private readonly ILockingProvider $locks,
@@ -146,7 +148,7 @@ class BanService {
 		$ban->setLiftedBy($actor);
 		$ban->setLiftNote(mb_substr($note, 0, 255));
 		$this->mapper->update($ban);
-		$this->addressCache->bump();
+		$this->invalidate($ban);
 		$this->events->banLifted($ban);
 	}
 
@@ -249,8 +251,21 @@ class BanService {
 	}
 
 	private function changed(Ban $ban, bool $updated): void {
-		$this->addressCache->bump();
+		$this->invalidate($ban);
 		$this->events->banCreated($ban, $updated);
+	}
+
+	/**
+	 * Update the cached verdicts a ban changes: that of its one address (an
+	 * IPv6 /64) with a distributed cache, otherwise all of them.
+	 */
+	private function invalidate(Ban $ban): void {
+		$source = SourceKey::tryFromIpKey($ban->getBanKey());
+		if ($source !== null && $this->addressCache->isDistributed()) {
+			$this->addressCache->refresh($source, $this->resolver->resolve($source), $this->timeFactory->getTime());
+		} else {
+			$this->addressCache->bump();
+		}
 	}
 
 	/**

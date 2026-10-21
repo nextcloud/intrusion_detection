@@ -12,11 +12,13 @@ namespace OCA\IntrusionDetection\Address;
 final class AddressFacts {
 	/**
 	 * @param list<string> $attributes
+	 * @param bool $perAddress whether the facts hold for this IPv6 address only, not for its whole /64
 	 */
 	public function __construct(
 		public readonly int $denyUntil = 0,
 		public readonly string $reference = '',
 		public readonly array $attributes = [],
+		public readonly bool $perAddress = false,
 	) {
 	}
 }

@@ -27,7 +27,9 @@ use Psr\Log\LoggerInterface;
  * What the downloaded lists say about an address, for its verdict.
  *
  * Runs only when a verdict is resolved (a cold cache), with one indexed
- * query per enabled list that has a synced version:
+ * query per enabled list that has a synced version (for IPv6 it asks for
+ * the whole /64 the verdict is cached for, and only when a list splits the
+ * /64 also for the address itself):
  * - a blocklist in Protect (and the check in Protect) refuses the address,
  *   with the list's reference;
  * - a blocklist in Observe, or any blocklist while the check only observes,
@@ -78,6 +80,8 @@ class BlocklistFactsProvider implements IAddressFactsProvider {
 		$mode = null;
 		$attributesUsed = null;
 		$hex = RangeCodec::addressHex($source);
+		$slash64 = $source->family === 6 ? RangeCodec::parse($source->ipKey) : null;
+		$perAddress = false;
 		$now = $this->timeFactory->getTime();
 		$denyUntil = 0;
 		$reference = '';
@@ -99,7 +103,16 @@ class BlocklistFactsProvider implements IAddressFactsProvider {
 					continue;
 				}
 			}
-			if ($this->ranges->findContaining($list->id, $version, $source->family, $hex) === null) {
+			if ($slash64 !== null) {
+				$covered = $this->slash64Match($list->id, $version, $slash64['start'], $slash64['end']);
+				if ($covered === null) {
+					$perAddress = true;
+					$covered = $this->ranges->findContaining($list->id, $version, $source->family, $hex) !== null;
+				}
+				if (!$covered) {
+					continue;
+				}
+			} elseif ($this->ranges->findContaining($list->id, $version, $source->family, $hex) === null) {
 				continue;
 			}
 			$matched[] = $list->id;
@@ -120,7 +133,23 @@ class BlocklistFactsProvider implements IAddressFactsProvider {
 		if ($matched !== []) {
 			$this->count($matched, $source, $now);
 		}
-		return new AddressFacts($denyUntil, $reference, array_values(array_unique($attributes)));
+		return new AddressFacts($denyUntil, $reference, array_values(array_unique($attributes)), $perAddress);
+	}
+
+	/**
+	 * Whether a list covers a whole /64 (true), none of it (false), or only
+	 * part of it (null: then the answer depends on the address). One query,
+	 * like the lookup of a single address.
+	 */
+	private function slash64Match(string $listId, int $version, string $first, string $last): ?bool {
+		$range = $this->ranges->findLastStartingAtOrBefore($listId, $version, 6, $last);
+		if ($range === null || strcmp($range['end'], $first) < 0) {
+			return false;
+		}
+		if (strcmp($range['start'], $first) <= 0 && strcmp($range['end'], $last) >= 0) {
+			return true;
+		}
+		return null;
 	}
 
 	/**

@@ -111,6 +111,27 @@ class BlocklistFactsProviderTest extends IntegrationTestCase {
 		$this->assertSame([], $this->provider()->facts(SourceKey::fromIp('2001:db8:aa:0:ffff:ffff:ffff:ffff'))->attributes);
 	}
 
+	public function testFactsOfAWholeSlash64HoldForEveryAddressInIt(): void {
+		$this->load('cloud', ['2001:db8:aa:1::/64']);
+		$this->assertFalse($this->provider()->facts(SourceKey::fromIp('2001:db8:aa:1::5'))->perAddress, 'Listed as a whole');
+		$this->assertFalse($this->provider()->facts(SourceKey::fromIp('2001:db8:aa:2::5'))->perAddress, 'Not listed at all');
+		$denied = $this->provider()->facts(SourceKey::fromIp('2001:db8:1:7::1'));
+		$this->assertGreaterThan(0, $denied->denyUntil, 'Inside the /48 of the protect list');
+		$this->assertFalse($denied->perAddress);
+	}
+
+	public function testAnEntrySmallerThanTheSlash64IsLookedUpPerAddress(): void {
+		$this->load('exits', ['2001:db8:bb:1::77', '2001:db8:bb:2::/72']);
+		$exit = $this->provider()->facts(SourceKey::fromIp('2001:db8:bb:1::77'));
+		$this->assertSame(['tor', 'net:exits'], $exit->attributes);
+		$this->assertTrue($exit->perAddress);
+		$neighbour = $this->provider()->facts(SourceKey::fromIp('2001:db8:bb:1::78'));
+		$this->assertSame([], $neighbour->attributes);
+		$this->assertTrue($neighbour->perAddress, 'The /64 holds an entry, so its verdicts are per address');
+		$this->assertTrue($this->provider()->facts(SourceKey::fromIp('2001:db8:bb:2:ffff::1'))->perAddress, 'Behind a range that ends inside the /64');
+		$this->assertFalse($this->provider()->facts(SourceKey::fromIp('2001:db8:bb:3::1'))->perAddress);
+	}
+
 	public function testAttributeListsGiveHostingAndTor(): void {
 		$this->assertSame(['hosting', 'net:cloud', 'tor', 'net:exits'], $this->provider()->facts(SourceKey::fromIp('192.0.2.77'))->attributes);
 		$this->assertSame(['hosting', 'net:cloud'], $this->provider()->facts(SourceKey::fromIp('192.0.2.78'))->attributes);

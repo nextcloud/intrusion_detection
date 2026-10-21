@@ -58,6 +58,30 @@ class BlocklistRangeMapper {
 	}
 
 	/**
+	 * The range of a list version that starts last at or before an address,
+	 * whether or not it contains the address. Ranges of one version never
+	 * overlap ({@see \OCA\IntrusionDetection\Net\RangeCodec::merge()}), so
+	 * it is the only one that can reach the address or anything after it.
+	 *
+	 * @return ?array{start: string, end: string}
+	 */
+	public function findLastStartingAtOrBefore(string $listId, int $version, int $family, string $addressHex): ?array {
+		$qb = $this->db->getQueryBuilder();
+		$qb->select('range_start', 'range_end')
+			->from(self::TABLE)
+			->where($qb->expr()->eq('list_id', $qb->createNamedParameter($listId)))
+			->andWhere($qb->expr()->eq('version', $qb->createNamedParameter($version, IQueryBuilder::PARAM_INT)))
+			->andWhere($qb->expr()->eq('family', $qb->createNamedParameter($family, IQueryBuilder::PARAM_INT)))
+			->andWhere($qb->expr()->lte('range_start', $qb->createNamedParameter($addressHex)))
+			->orderBy('range_start', 'DESC')
+			->setMaxResults(1);
+		$result = $qb->executeQuery();
+		$row = $result->fetch();
+		$result->closeCursor();
+		return is_array($row) ? ['start' => (string)$row['range_start'], 'end' => (string)$row['range_end']] : null;
+	}
+
+	/**
 	 * Write a version of a list. Leftovers of the same version (from a sync
 	 * that died half-way) are removed first.
 	 *
