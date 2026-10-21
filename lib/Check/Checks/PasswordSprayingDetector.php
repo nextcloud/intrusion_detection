@@ -53,7 +53,7 @@ class PasswordSprayingDetector {
 	) {
 	}
 
-	public function detect(AttemptRecord $attempt, ?string $userAgent, #[\SensitiveParameter] ?string $password): void {
+	public function detect(#[\SensitiveParameter] AttemptRecord $attempt, ?string $userAgent, #[\SensitiveParameter] ?string $password): void {
 		if ($attempt->kind !== AttemptKind::PasswordLogin || $attempt->passwordCandidates === [] || $password === null || $password === '') {
 			return;
 		}
@@ -123,7 +123,7 @@ class PasswordSprayingDetector {
 	 * An address that joins a spray already detected: blocked at once,
 	 * without evaluating the whole spray again.
 	 */
-	private function banJoiningSource(AttemptRecord $attempt, ?string $userAgent): void {
+	private function banJoiningSource(#[\SensitiveParameter] AttemptRecord $attempt, ?string $userAgent): void {
 		$this->engine->handle(new DetectionDraft(
 			checkId: PasswordSpraying::ID,
 			source: $attempt->source,

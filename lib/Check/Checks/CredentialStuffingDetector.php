@@ -67,7 +67,7 @@ class CredentialStuffingDetector {
 	) {
 	}
 
-	public function detect(AttemptRecord $attempt, ?string $userAgent): void {
+	public function detect(#[\SensitiveParameter] AttemptRecord $attempt, ?string $userAgent): void {
 		if (!in_array($attempt->kind, self::KINDS, true)) {
 			return;
 		}
@@ -124,7 +124,7 @@ class CredentialStuffingDetector {
 	/**
 	 * @param array<string, int|float|bool|string|list<string>> $params
 	 */
-	private function distributed(AttemptRecord $attempt, ModeState $state, array $params, ?AttemptStats $ipStats): void {
+	private function distributed(#[\SensitiveParameter] AttemptRecord $attempt, ModeState $state, array $params, ?AttemptStats $ipStats): void {
 		$now = $attempt->time;
 		$until = $this->settings->getInt(GlobalSettings::CS_DISTRIBUTED_UNTIL);
 
@@ -168,7 +168,7 @@ class CredentialStuffingDetector {
 	 * An address failing during a distributed attack: flag it, and block it
 	 * once it failed 3 times for 2 names.
 	 */
-	private function member(AttemptRecord $attempt, ModeState $state, int $until, ?AttemptStats $ipStats): void {
+	private function member(#[\SensitiveParameter] AttemptRecord $attempt, ModeState $state, int $until, ?AttemptStats $ipStats): void {
 		if (!$state->acts() || $this->addresses->isNeverBlocked($attempt->source)) {
 			return;
 		}

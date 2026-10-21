@@ -69,14 +69,7 @@ class AttemptMapper {
 		if ($values === []) {
 			return new AttemptStats();
 		}
-		$qb = $this->db->getQueryBuilder();
-		$qb->select($qb->func()->count('*', 'failures'))
-			->selectAlias($qb->createFunction('COUNT(DISTINCT ' . $qb->getColumnName('name_hmac') . ')'), 'names')
-			->selectAlias($qb->createFunction('COUNT(DISTINCT ' . $qb->getColumnName('ip_key') . ')'), 'sources')
-			->selectAlias($qb->createFunction('COUNT(DISTINCT ' . $qb->getColumnName('uid') . ')'), 'users')
-			->selectAlias($qb->func()->min('created_at'), 'first')
-			->selectAlias($qb->func()->max('created_at'), 'last')
-			->from(self::TABLE);
+		$qb = $this->statsQuery();
 		$type = $column === 'share_id' ? IQueryBuilder::PARAM_INT_ARRAY : IQueryBuilder::PARAM_STR_ARRAY;
 		$qb->where($qb->expr()->in($column, $qb->createNamedParameter($values, $type)))
 			->andWhere($qb->expr()->gte('created_at', $qb->createNamedParameter($since, IQueryBuilder::PARAM_INT)));
@@ -90,15 +83,8 @@ class AttemptMapper {
 	 * @param list<AttemptKind> $kinds
 	 */
 	public function instanceStats(array $kinds, int $since): AttemptStats {
-		$qb = $this->db->getQueryBuilder();
-		$qb->select($qb->func()->count('*', 'failures'))
-			->selectAlias($qb->createFunction('COUNT(DISTINCT ' . $qb->getColumnName('name_hmac') . ')'), 'names')
-			->selectAlias($qb->createFunction('COUNT(DISTINCT ' . $qb->getColumnName('ip_key') . ')'), 'sources')
-			->selectAlias($qb->createFunction('COUNT(DISTINCT ' . $qb->getColumnName('uid') . ')'), 'users')
-			->selectAlias($qb->func()->min('created_at'), 'first')
-			->selectAlias($qb->func()->max('created_at'), 'last')
-			->from(self::TABLE)
-			->where($qb->expr()->gte('created_at', $qb->createNamedParameter($since, IQueryBuilder::PARAM_INT)));
+		$qb = $this->statsQuery();
+		$qb->where($qb->expr()->gte('created_at', $qb->createNamedParameter($since, IQueryBuilder::PARAM_INT)));
 		$this->whereKinds($qb, $kinds);
 		return $this->fetchStats($qb);
 	}
@@ -228,6 +214,67 @@ class AttemptMapper {
 		$qb->delete(self::TABLE)
 			->where($qb->expr()->eq('uid', $qb->createNamedParameter($uid)));
 		return $qb->executeStatement();
+	}
+
+	/**
+	 * Counts over the attempts of one source on one share, for "this address
+	 * guessed the password of this share". Uses the ip_key index; the share
+	 * is a filter on the few rows of one address.
+	 *
+	 * @param list<AttemptKind> $kinds
+	 */
+	public function statsForSourceOnShare(string $ipKey, int $shareId, array $kinds, int $since): AttemptStats {
+		$qb = $this->statsQuery();
+		$qb->where($qb->expr()->eq('ip_key', $qb->createNamedParameter($ipKey)))
+			->andWhere($qb->expr()->gte('created_at', $qb->createNamedParameter($since, IQueryBuilder::PARAM_INT)))
+			->andWhere($qb->expr()->eq('share_id', $qb->createNamedParameter($shareId, IQueryBuilder::PARAM_INT)));
+		$this->whereKinds($qb, $kinds);
+		return $this->fetchStats($qb);
+	}
+
+	/**
+	 * Distinct name fingerprints per ip key for one value of a key column,
+	 * for "block every address of the network that tried at least N names".
+	 *
+	 * @param 'ip_key'|'net_key'|'pw_fp'|'uid'|'share_id'|'name_hmac' $column
+	 * @param list<AttemptKind> $kinds
+	 * @return array<string, int> distinct names per ip key
+	 */
+	public function distinctNamesPerSource(string $column, string|int $value, array $kinds, int $since, int $limit = 500): array {
+		if (!in_array($column, self::KEY_COLUMNS, true)) {
+			throw new \InvalidArgumentException('Not an indexed key column: ' . $column);
+		}
+		$qb = $this->db->getQueryBuilder();
+		$qb->select('ip_key')
+			->selectAlias($qb->createFunction('COUNT(DISTINCT ' . $qb->getColumnName('name_hmac') . ')'), 'n')
+			->from(self::TABLE)
+			->where($qb->expr()->eq($column, $qb->createNamedParameter($value, is_int($value) ? IQueryBuilder::PARAM_INT : IQueryBuilder::PARAM_STR)))
+			->andWhere($qb->expr()->gte('created_at', $qb->createNamedParameter($since, IQueryBuilder::PARAM_INT)))
+			->groupBy('ip_key')
+			->setMaxResults($limit);
+		$this->whereKinds($qb, $kinds);
+		$result = $qb->executeQuery();
+		$counts = [];
+		while ($row = $result->fetch()) {
+			$counts[(string)$row['ip_key']] = (int)$row['n'];
+		}
+		$result->closeCursor();
+		return $counts;
+	}
+
+	/**
+	 * A query for the counts of {@see AttemptStats}, without conditions.
+	 */
+	private function statsQuery(): IQueryBuilder {
+		$qb = $this->db->getQueryBuilder();
+		$qb->select($qb->func()->count('*', 'failures'))
+			->selectAlias($qb->createFunction('COUNT(DISTINCT ' . $qb->getColumnName('name_hmac') . ')'), 'names')
+			->selectAlias($qb->createFunction('COUNT(DISTINCT ' . $qb->getColumnName('ip_key') . ')'), 'sources')
+			->selectAlias($qb->createFunction('COUNT(DISTINCT ' . $qb->getColumnName('uid') . ')'), 'users')
+			->selectAlias($qb->func()->min('created_at'), 'first')
+			->selectAlias($qb->func()->max('created_at'), 'last')
+			->from(self::TABLE);
+		return $qb;
 	}
 
 	/**

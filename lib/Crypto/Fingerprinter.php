@@ -75,8 +75,17 @@ class Fingerprinter {
 	 * 16-byte fingerprint of a login name, reset input or share token,
 	 * lower-cased and trimmed first.
 	 */
-	public function name(string $input): string {
+	public function name(#[\SensitiveParameter] string $input): string {
 		return substr(hash_hmac('sha256', mb_strtolower(trim($input)), $this->key('name'), true), 0, 16);
+	}
+
+	/**
+	 * 16-byte fingerprint of a share token, trimmed but not lower-cased:
+	 * tokens are case-sensitive, so tokens that differ only in case are
+	 * different guesses.
+	 */
+	public function shareToken(#[\SensitiveParameter] string $token): string {
+		return substr(hash_hmac('sha256', trim($token), $this->key('share_token'), true), 0, 16);
 	}
 
 	/**

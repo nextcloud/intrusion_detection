@@ -25,6 +25,7 @@ final class DetectionDraft {
 	public const MERGE_SOURCE = 'source';
 	public const MERGE_USER = 'user';
 	public const MERGE_SOURCE_USER = 'source_user';
+	public const MERGE_SHARE = 'share';
 
 	/** @var list<SourceKey> */
 	private array $extraBanTargets = [];
@@ -95,6 +96,7 @@ final class DetectionDraft {
 			self::MERGE_SOURCE => [$this->source?->ipKey],
 			self::MERGE_USER => [$this->uid],
 			self::MERGE_SOURCE_USER => [$this->source?->ipKey, $this->uid],
+			self::MERGE_SHARE => [$this->shareId === null ? null : (string)$this->shareId],
 			default => null,
 		};
 		if ($parts === null || in_array(null, $parts, true)) {

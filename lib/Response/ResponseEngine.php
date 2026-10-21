@@ -43,6 +43,8 @@ class ResponseEngine {
 		Handlers\FlagPasswordHandler::class,
 		Handlers\ProtectAccountHandler::class,
 		Handlers\NotifyAdminHandler::class,
+		Handlers\NotifyShareOwnerHandler::class,
+		Handlers\SuppressResetMailHandler::class,
 	];
 
 	/** @var array<string, IResponseHandler>|null */

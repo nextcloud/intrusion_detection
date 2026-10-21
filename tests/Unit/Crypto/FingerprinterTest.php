@@ -76,6 +76,15 @@ class FingerprinterTest extends TestCase {
 		$this->assertNotSame($f->name('alice'), $f->name('bob'));
 	}
 
+	public function testShareTokensKeepTheirCase(): void {
+		$f = $this->fingerprinter();
+		$this->assertSame(16, strlen($f->shareToken('AbCdEfGhJkLmNpQ')));
+		$this->assertSame($f->shareToken('AbCdEfGhJkLmNpQ'), $f->shareToken(' AbCdEfGhJkLmNpQ '));
+		$this->assertNotSame($f->shareToken('AbCdEfGhJkLmNpQ'), $f->shareToken('abcdefghjklmnpq'), 'Tokens that differ only in case are different guesses');
+		$this->assertNotSame($f->name('abcdefghjklmnpq'), $f->shareToken('abcdefghjklmnpq'), 'Tokens and names use different keys');
+		$this->assertNotSame($f->shareToken('AbCdEfGhJkLmNpQ'), $this->fingerprinter('other-secret')->shareToken('AbCdEfGhJkLmNpQ'));
+	}
+
 	public function testNameKeyDoesNotRotate(): void {
 		$f = $this->fingerprinter();
 		$before = $f->name('alice');

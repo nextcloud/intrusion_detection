@@ -104,7 +104,7 @@ abstract class LoginFailureTestCase extends IntegrationTestCase {
 		return Server::get(LoggerInterface::class);
 	}
 
-	protected function failLogin(string $ip, string $loginName, ?string $password = 'wrong-password'): void {
+	protected function failLogin(string $ip, string $loginName, #[\SensitiveParameter] ?string $password = 'wrong-password'): void {
 		$this->remoteAddress = $ip;
 		$this->listener->handle(new AnyLoginFailedEvent($loginName, $password));
 	}

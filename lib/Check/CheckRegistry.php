@@ -27,6 +27,9 @@ class CheckRegistry {
 		Checks\TrapUrl::class,
 		Checks\DecoyCredential::class,
 		Checks\InjectionProbe::class,
+		Checks\ShareBruteforce::class,
+		Checks\ResetProbing::class,
+		Checks\LoginFlowMismatch::class,
 	];
 
 	/** @var array<string, CheckDefinition>|null */

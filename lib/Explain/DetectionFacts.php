@@ -68,6 +68,15 @@ final class DetectionFacts {
 	}
 
 	/**
+	 * A count for a sentence, as "about 120" when it was estimated from
+	 * sampled attempts (fact `sampleFactor` above 1).
+	 */
+	public function estimated(string $key, IL10N $l): string {
+		$value = (string)$this->int($key);
+		return $this->int('sampleFactor', 1) > 1 ? $l->t('about %s', [$value]) : $value;
+	}
+
+	/**
 	 * "3 of them exist: alice, bob, carol." for the accounts an attack tried,
 	 * or null when none of them exists.
 	 */

@@ -34,6 +34,8 @@ class CommandsTest extends IntegrationTestCase {
 			'account under attack' => ['account_under_attack', 'had 10 failed logins from 5 different addresses'],
 			'reserved name' => ['reserved_name', 'tried to log in as "admin"'],
 			'trap url' => ['trap_url', 'requested /wp-login.php'],
+			'share token guessing' => ['share_bruteforce', 'tried 10 different share links that do not exist'],
+			'reset abuse' => ['reset_probing', 'asked for password resets for 5 different names or email addresses'],
 		];
 	}
 
@@ -47,6 +49,13 @@ class CommandsTest extends IntegrationTestCase {
 		foreach (self::TABLES as $table) {
 			$qb = $this->db->getQueryBuilder();
 			$this->assertSame(0, (int)$qb->select($qb->func()->count('*'))->from($table)->executeQuery()->fetchOne(), $table . ' stays empty');
+		}
+	}
+
+	public function testSimulationsShowOnlyTheResponsesOfTheSimulatedRule(): void {
+		foreach (['share_bruteforce', 'reset_probing'] as $check) {
+			[, $output] = $this->runCommand(Simulate::class, ['check' => $check, '--output' => 'json']);
+			$this->assertSame(['ban'], json_decode($output, true, 16, JSON_THROW_ON_ERROR)['responses'], $check);
 		}
 	}
 

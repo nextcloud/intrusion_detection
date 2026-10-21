@@ -70,7 +70,7 @@ enum ResponseType: string {
 			self::ProtectAccount => $l->t('Ask for extra confirmation at every password login to this account for a while.'),
 			self::FlagSource => $l->t('Mark the address, so that successful logins from it need extra confirmation.'),
 			self::FlagPassword => $l->t('Remember the guessed password for a day, so that logins with it need extra confirmation.'),
-			self::SuppressResetMail => $l->t('Stop sending password reset emails to this account for an hour.'),
+			self::SuppressResetMail => $l->t('Stop sending password reset emails to the flooded account for a while. Whoever asks gets the usual answer.'),
 			self::RateLimit => $l->t('Refuse further requests of this kind for a few minutes.'),
 			self::StepUp => $l->t('Ask the user to confirm the login with their second factor or an email code.'),
 			self::ConfirmSensitive => $l->t('Ask for confirmation before sensitive actions for the rest of the session.'),

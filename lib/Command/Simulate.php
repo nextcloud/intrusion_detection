@@ -12,6 +12,7 @@ namespace OCA\IntrusionDetection\Command;
 use OC\Core\Command\Base;
 use OCA\IntrusionDetection\Check\CheckRegistry;
 use OCA\IntrusionDetection\Check\InvalidParamException;
+use OCA\IntrusionDetection\Check\ISelectsResponses;
 use OCA\IntrusionDetection\Check\ISimulatable;
 use OCA\IntrusionDetection\Check\ResponseType;
 use OCA\IntrusionDetection\Config\Settings;
@@ -70,6 +71,9 @@ class Simulate extends Base {
 		$draft = $check->simulate(SourceKey::fromIp(self::TEST_ADDRESS), $this->timeFactory->getTime(), $this->settings->params($id));
 		$detection = $this->detections->preview($draft, $mode);
 		$responses = $this->settings->responses($id);
+		if ($check instanceof ISelectsResponses) {
+			$responses = $check->responsesFor($draft, $responses, $this->settings->params($id));
+		}
 		usort($responses, static fn (ResponseType $a, ResponseType $b): int => $a->order() <=> $b->order());
 		$detection->setActionList(array_map(static fn (ResponseType $r): array => ['type' => $r->value, 'enforced' => false], $responses));
 		$narrative = $this->narratives->build($detection, $this->l);

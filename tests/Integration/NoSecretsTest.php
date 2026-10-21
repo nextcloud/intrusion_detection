@@ -10,26 +10,42 @@ declare(strict_types=1);
 namespace OCA\IntrusionDetection\Tests\Integration;
 
 use OCA\IntrusionDetection\AppInfo\Application;
+use OCA\IntrusionDetection\Check\CheckRegistry;
+use OCA\IntrusionDetection\Check\Checks\ResetProbingDetector;
+use OCA\IntrusionDetection\Check\Checks\ShareBruteforceDetector;
+use OCA\IntrusionDetection\Config\GlobalSettings;
 use OCA\IntrusionDetection\Crypto\Fingerprinter;
 use OCA\IntrusionDetection\Db\DetectionFilter;
 use OCA\IntrusionDetection\Decoy\DecoyFormat;
 use OCA\IntrusionDetection\Decoy\DecoyService;
+use OCA\IntrusionDetection\Detection\AttemptRecorder;
+use OCA\IntrusionDetection\Explain\IExplainsToUser;
 use OCA\IntrusionDetection\Explain\NarrativeBuilder;
+use OCA\IntrusionDetection\Listener\ResetRequestedListener;
+use OCA\IntrusionDetection\Listener\ShareAccessFailedListener;
+use OCA\IntrusionDetection\Net\RemoteAddressResolver;
 use OCA\IntrusionDetection\Notification\AdminAlerts;
 use OCA\IntrusionDetection\Notification\Notifier;
+use OCA\IntrusionDetection\Response\ResetMailSuppressor;
 use OCA\IntrusionDetection\Traps\ReservedNames;
 use OCP\IConfig;
 use OCP\IUser;
+use OCP\IUserManager;
 use OCP\L10N\IFactory;
 use OCP\Notification\IManager as INotificationManager;
+use OCP\Security\Bruteforce\IThrottler;
+use OCP\Security\Events\PasswordResetRequestedEvent;
 use OCP\Server;
+use OCP\Share\Events\ShareLinkAccessFailedEvent;
+use OCP\Share\IShare;
 use PHPUnit\Framework\Attributes\Group;
 use Psr\Log\AbstractLogger;
 use Psr\Log\LoggerInterface;
 
 /**
- * Concept section 18: passwords, decoy secrets and their fingerprints must
- * appear in no detection, notification, email or log line. Fingerprints may
+ * Concept section 18: passwords, decoy secrets, share tokens, reset inputs
+ * and their fingerprints must appear in no detection, notification, email
+ * or log line. Fingerprints may
  * only be in the attempts table (for an hour), as flags of sprayed
  * passwords, and as the decoys' own secret fingerprints.
  */
@@ -41,6 +57,7 @@ class NoSecretsTest extends LoginFailureTestCase {
 	/** @var list<string> */
 	private array $logged = [];
 	private int $logOffset = 0;
+	private ?string $adminEmail = null;
 
 	protected function listenerLogger(): LoggerInterface {
 		return new class($this->logged) extends AbstractLogger {
@@ -61,6 +78,16 @@ class NoSecretsTest extends LoginFailureTestCase {
 		Server::get(INotificationManager::class)->registerApp(CapturingNotificationApp::class);
 		CapturingNotificationApp::$notifications = [];
 		$this->logOffset = is_file($this->logFile()) ? (int)filesize($this->logFile()) : 0;
+		// Admin alerts are emailed too: sending them, and failing to, must not leak either.
+		$admin = Server::get(IUserManager::class)->get('admin');
+		$this->adminEmail = $admin?->getSystemEMailAddress();
+		$admin?->setSystemEMailAddress('admin@example.com');
+		$this->settings->setGlobal(GlobalSettings::NOTIFY_ADMIN_EMAIL_MIN_SEVERITY, 'low');
+	}
+
+	protected function tearDown(): void {
+		Server::get(IUserManager::class)->get('admin')?->setSystemEMailAddress($this->adminEmail ?? '');
+		parent::tearDown();
 	}
 
 	public function testNoSecretReachesAnyTableNotificationEmailOrLog(): void {
@@ -143,13 +170,110 @@ class NoSecretsTest extends LoginFailureTestCase {
 		$this->assertClean($this->newLogContent(), $secrets, $fingerprints, 'server log');
 	}
 
+	public function testShareTokensAndResetInputsAppearNowhere(): void {
+		$tokens = [];
+		for ($i = 1; $i <= 10; $i++) {
+			$tokens['token' . $i] = 'SecretShareTok' . $i . 'x9q';
+		}
+		$owner = 'ids-secret-owner-' . bin2hex(random_bytes(3));
+		$this->user($owner);
+		$share = $this->createMock(IShare::class);
+		$share->method('getId')->willReturn('987654');
+		$share->method('getFullId')->willReturn('ocinternal:987654');
+		$share->method('getShareType')->willReturn(IShare::TYPE_LINK);
+		$share->method('getSharedBy')->willReturn($owner);
+		$share->method('getShareOwner')->willReturn($owner);
+		$share->method('getToken')->willReturn('SecretShareOfOwnerQ7');
+		$tokens['real'] = 'SecretShareOfOwnerQ7';
+
+		$victim = 'ids-secret-reset-' . bin2hex(random_bytes(3));
+		$this->user($victim)->setSystemEMailAddress('secret-victim-mail-' . bin2hex(random_bytes(3)) . '@example.net');
+		$inputs = ['victim-mail' => (string)Server::get(IUserManager::class)->get($victim)?->getEMailAddress()];
+		for ($i = 1; $i <= 5; $i++) {
+			$inputs['probe' . $i] = 'secret-probe-' . $i . '@example.org';
+		}
+
+		$shares = new ShareAccessFailedListener($this->settings, new RemoteAddressResolver($this->request, Server::get(IThrottler::class)), Server::get(AttemptRecorder::class), Server::get(ShareBruteforceDetector::class), $this->request, $this->listenerLogger());
+		$resets = new ResetRequestedListener($this->settings, new RemoteAddressResolver($this->request, Server::get(IThrottler::class)), Server::get(AttemptRecorder::class), Server::get(ResetProbingDetector::class), Server::get(ResetMailSuppressor::class), Server::get(IUserManager::class), $this->request, $this->listenerLogger());
+
+		$this->remoteAddress = '198.51.100.7';
+		for ($i = 1; $i <= 10; $i++) {
+			$shares->handle(new ShareLinkAccessFailedEvent($tokens['token' . $i], null, ShareLinkAccessFailedEvent::REASON_NOT_FOUND));
+		}
+		for ($i = 1; $i <= 20; $i++) {
+			$this->remoteAddress = '203.0.113.' . $i;
+			$shares->handle(new ShareLinkAccessFailedEvent($tokens['real'], $share, ShareLinkAccessFailedEvent::REASON_WRONG_PASSWORD));
+		}
+		$this->remoteAddress = '198.51.100.8';
+		for ($i = 1; $i <= 5; $i++) {
+			$resets->handle(new PasswordResetRequestedEvent($inputs['probe' . $i]));
+		}
+		for ($i = 1; $i <= 5; $i++) {
+			$this->remoteAddress = '192.0.2.' . $i;
+			$resets->handle(new PasswordResetRequestedEvent($inputs['victim-mail']));
+		}
+
+		$found = array_count_values(array_map(static fn ($d): string => $d->getCheckId() . ':' . $d->getExplanationData()['facts']['rule'], $this->detections->findList(new DetectionFilter(limit: 100))));
+		$this->assertSame(1, $found['share_bruteforce:tokens'] ?? 0);
+		$this->assertSame(1, $found['share_bruteforce:password_share'] ?? 0);
+		$this->assertSame(1, $found['reset_probing:enumeration'] ?? 0);
+		$this->assertSame(1, $found['reset_probing:flood'] ?? 0);
+
+		$secrets = $tokens + $inputs;
+		$fingerprinter = Server::get(Fingerprinter::class);
+		$fingerprints = [];
+		foreach ($tokens as $token) {
+			$fingerprints[] = bin2hex($fingerprinter->shareToken($token));
+		}
+		foreach ($inputs as $input) {
+			$fingerprints[] = bin2hex($fingerprinter->name($input));
+		}
+
+		foreach (IntegrationTestCase::TABLES as $table) {
+			foreach ($this->allRows($table) as $row) {
+				foreach ($row as $column => $value) {
+					$value = (string)$value;
+					foreach ($secrets as $name => $secret) {
+						$this->assertStringNotContainsStringIgnoringCase($secret, $value, $table . '.' . $column . ' holds the ' . $name);
+					}
+					if ($table !== 'ids_attempts' || $column !== 'name_hmac') {
+						foreach ($fingerprints as $fingerprint) {
+							$this->assertStringNotContainsString($fingerprint, $value, $table . '.' . $column . ' holds a fingerprint of a token or an input');
+						}
+					}
+				}
+			}
+		}
+
+		$this->assertNotSame([], CapturingNotificationApp::$notifications, 'The admins were notified');
+		foreach (CapturingNotificationApp::$notifications as $notification) {
+			$prepared = Server::get(Notifier::class)->prepare($notification, 'en');
+			$this->assertClean(json_encode($notification->getSubjectParameters()) . $prepared->getParsedSubject() . $prepared->getParsedMessage() . $prepared->getLink(), $secrets, $fingerprints, 'notification');
+		}
+		$admin = $this->createMock(IUser::class);
+		$admin->method('getUID')->willReturn('admin');
+		$admin->method('getEMailAddress')->willReturn('admin@example.com');
+		$l = Server::get(IFactory::class)->get(Application::APP_ID, 'en');
+		foreach ($this->detections->findList(new DetectionFilter(limit: 100)) as $detection) {
+			$mail = Server::get(AdminAlerts::class)->mailFor($detection, $admin);
+			$this->assertClean(json_encode(get_object_vars($mail), JSON_THROW_ON_ERROR), $secrets, $fingerprints, 'email');
+			$this->assertClean(json_encode(Server::get(NarrativeBuilder::class)->build($detection, $l)->toArray(), JSON_THROW_ON_ERROR), $secrets, $fingerprints, 'narrative');
+			$check = Server::get(CheckRegistry::class)->check(Server::get(CheckRegistry::class)->classOf($detection->getCheckId()));
+			if ($check instanceof IExplainsToUser && $detection->getUid() !== null) {
+				$this->assertClean(json_encode(get_object_vars($check->userNotice($detection, $l)), JSON_THROW_ON_ERROR), $secrets, $fingerprints, 'user notice');
+			}
+		}
+		$this->assertClean(implode("\n", $this->logged), $secrets, $fingerprints, 'listener log');
+		$this->assertClean($this->newLogContent(), $secrets, $fingerprints, 'server log');
+	}
+
 	/**
 	 * @param array<string, string> $secrets
 	 * @param list<string> $fingerprints
 	 */
 	private function assertClean(string $text, array $secrets, array $fingerprints, string $where): void {
 		foreach ($secrets as $name => $secret) {
-			$this->assertStringNotContainsString($secret, $text, 'The ' . $name . ' password is in the ' . $where);
+			$this->assertStringNotContainsStringIgnoringCase($secret, $text, 'The ' . $name . ' secret is in the ' . $where);
 		}
 		foreach ($fingerprints as $fingerprint) {
 			$this->assertStringNotContainsString($fingerprint, $text, 'A password fingerprint is in the ' . $where);

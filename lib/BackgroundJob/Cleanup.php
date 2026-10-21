@@ -18,6 +18,7 @@ use OCA\IntrusionDetection\Db\DetectionMapper;
 use OCA\IntrusionDetection\Db\FlagMapper;
 use OCA\IntrusionDetection\Db\LoginMapper;
 use OCA\IntrusionDetection\Db\ProtectedAccountMapper;
+use OCA\IntrusionDetection\Db\ResetSuppressionMapper;
 use OCA\IntrusionDetection\Detection\AttemptRecorder;
 use OCP\AppFramework\Utility\ITimeFactory;
 use OCP\BackgroundJob\IJob;
@@ -45,6 +46,7 @@ class Cleanup extends TimedJob {
 		private readonly IDBConnection $db,
 		private readonly ProtectedAccountMapper $protectedAccounts,
 		private readonly AlertMapper $alerts,
+		private readonly ResetSuppressionMapper $resetSuppressions,
 	) {
 		parent::__construct($time);
 		$this->setInterval(300);
@@ -61,6 +63,7 @@ class Cleanup extends TimedJob {
 		$this->flags->deleteExpired($now);
 		$this->protectedAccounts->deleteExpired($now);
 		$this->alerts->deleteOlderThan($now - self::ALERT_RETENTION);
+		$this->resetSuppressions->deleteExpired($now);
 		$this->updateFloodState($now);
 	}
 

@@ -19,16 +19,25 @@ use OCA\IntrusionDetection\Guard\TrapUrlGuard;
 use OCA\IntrusionDetection\Listener\BlocklistLoginListener;
 use OCA\IntrusionDetection\Listener\FailedLoginListener;
 use OCA\IntrusionDetection\Listener\FirewallExportListener;
+use OCA\IntrusionDetection\Listener\LoginFlowGrantedListener;
 use OCA\IntrusionDetection\Listener\LoginRecordListener;
 use OCA\IntrusionDetection\Listener\PayloadLoginListener;
+use OCA\IntrusionDetection\Listener\ResetRequestedListener;
+use OCA\IntrusionDetection\Listener\ShareAccessFailedListener;
 use OCA\IntrusionDetection\Middleware\PayloadMiddleware;
 use OCA\IntrusionDetection\Notification\Notifier;
+use OCA\IntrusionDetection\Notification\ShareOwnerNotifier;
 use OCA\IntrusionDetection\SetupCheck\BlocklistSyncCheck;
+use OCA\IntrusionDetection\TrustedNetwork\ITrustedNetworks;
+use OCA\IntrusionDetection\TrustedNetwork\NullTrustedNetworks;
 use OCP\AppFramework\App;
 use OCP\AppFramework\Bootstrap\IBootContext;
 use OCP\AppFramework\Bootstrap\IBootstrap;
 use OCP\AppFramework\Bootstrap\IRegistrationContext;
 use OCP\Authentication\Events\AnyLoginFailedEvent;
+use OCP\Authentication\Events\LoginFlowV2GrantedEvent;
+use OCP\Security\Events\PasswordResetRequestedEvent;
+use OCP\Share\Events\ShareLinkAccessFailedEvent;
 use OCP\User\Events\UserLoggedInEvent;
 
 class Application extends App implements IBootstrap {
@@ -58,6 +67,11 @@ class Application extends App implements IBootstrap {
 		$context->registerEventListener(UserLoggedInEvent::class, PayloadLoginListener::class);
 		$context->registerMiddleware(PayloadMiddleware::class, true);
 		$context->registerDashboardWidget(IntrusionWidget::class);
+		$context->registerServiceAlias(ITrustedNetworks::class, NullTrustedNetworks::class);
+		$context->registerEventListener(ShareLinkAccessFailedEvent::class, ShareAccessFailedListener::class);
+		$context->registerEventListener(PasswordResetRequestedEvent::class, ResetRequestedListener::class);
+		$context->registerEventListener(LoginFlowV2GrantedEvent::class, LoginFlowGrantedListener::class);
+		$context->registerNotifierService(ShareOwnerNotifier::class);
 	}
 
 	#[\Override]

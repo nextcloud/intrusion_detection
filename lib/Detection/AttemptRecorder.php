@@ -45,6 +45,7 @@ class AttemptRecorder {
 	public function record(
 		AttemptKind $kind,
 		SourceKey $source,
+		#[\SensitiveParameter]
 		?string $nameInput = null,
 		?string $uid = null,
 		?int $shareId = null,
@@ -60,6 +61,31 @@ class AttemptRecorder {
 			$fingerprint = $candidates[0];
 		}
 
+		return $this->store($kind, $source, $nameHmac, $uid, $shareId, $fingerprint, $candidates, $now);
+	}
+
+	/**
+	 * Record an access to a share link with a token that does not exist.
+	 * Only the token's fingerprint is stored.
+	 */
+	public function recordUnknownShareToken(SourceKey $source, #[\SensitiveParameter] string $token): AttemptRecord {
+		$nameHmac = trim($token) === '' ? null : bin2hex($this->fingerprinter->shareToken($token));
+		return $this->store(AttemptKind::UnknownShareToken, $source, $nameHmac, null, null, null, [], $this->timeFactory->getTime());
+	}
+
+	/**
+	 * How many attempts one stored row of a kind stands for right now:
+	 * FLOOD_SAMPLE while that kind is sampled, otherwise 1. Detectors scale
+	 * their counts by it.
+	 */
+	public function sampleFactor(AttemptKind $kind, int $now): int {
+		return self::isSampledKind($kind) && $this->settings->getInt(GlobalSettings::ATTEMPTS_FLOOD_UNTIL) > $now ? self::FLOOD_SAMPLE : 1;
+	}
+
+	/**
+	 * @param list<string> $candidates
+	 */
+	private function store(AttemptKind $kind, SourceKey $source, ?string $nameHmac, ?string $uid, ?int $shareId, ?string $fingerprint, array $candidates, int $now): AttemptRecord {
 		$stored = !$this->sampledOut($kind, $now);
 		if ($stored) {
 			$this->mapper->insert($kind, $source->ipKey, $source->netKey, $nameHmac, $uid, $shareId, $fingerprint, $now);
@@ -76,13 +102,11 @@ class AttemptRecorder {
 	 * reset requests are sampled. Logins are always kept.
 	 */
 	private function sampledOut(AttemptKind $kind, int $now): bool {
-		if ($kind !== AttemptKind::UnknownShareToken && $kind !== AttemptKind::PasswordReset) {
-			return false;
-		}
-		if ($this->settings->getInt(GlobalSettings::ATTEMPTS_FLOOD_UNTIL) <= $now) {
-			return false;
-		}
-		return !$this->oneIn(self::FLOOD_SAMPLE);
+		return $this->sampleFactor($kind, $now) > 1 && !$this->oneIn(self::FLOOD_SAMPLE);
+	}
+
+	private static function isSampledKind(AttemptKind $kind): bool {
+		return $kind === AttemptKind::UnknownShareToken || $kind === AttemptKind::PasswordReset;
 	}
 
 	private function oneIn(int $n): bool {

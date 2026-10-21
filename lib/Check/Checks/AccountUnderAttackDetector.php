@@ -41,7 +41,7 @@ class AccountUnderAttackDetector {
 	) {
 	}
 
-	public function detect(AttemptRecord $attempt, ?string $userAgent): void {
+	public function detect(#[\SensitiveParameter] AttemptRecord $attempt, ?string $userAgent): void {
 		$uid = $attempt->uid;
 		if ($uid === null || !in_array($attempt->kind, self::KINDS, true)) {
 			return;
