@@ -112,7 +112,7 @@ const tone = computed(() => props.entry.severity ?? 'neutral')
 	display: grid;
 	grid-template-columns: 36px minmax(0, 1fr);
 	gap: calc(var(--default-grid-baseline) * 3);
-	padding-block: calc(var(--default-grid-baseline) * 1.5);
+	padding-block: calc(var(--default-grid-baseline) * 2);
 }
 
 .entry_low {
@@ -160,11 +160,7 @@ const tone = computed(() => props.entry.severity ?? 'neutral')
 	flex-direction: column;
 	gap: calc(var(--default-grid-baseline) * 1);
 	min-width: 0;
-	padding: calc(var(--default-grid-baseline) * 2.5) calc(var(--default-grid-baseline) * 3.5);
-	border: 1px solid var(--color-border);
-	border-inline-start: 3px solid var(--entry-tone);
-	border-radius: var(--border-radius-large);
-	background-color: var(--color-main-background);
+	padding-block: calc(var(--default-grid-baseline) * 1.5);
 }
 
 .entry__head {
@@ -287,10 +283,8 @@ const tone = computed(() => props.entry.severity ?? 'neutral')
 
 .entry__note {
 	margin: 0;
-	padding: calc(var(--default-grid-baseline) * 2) calc(var(--default-grid-baseline) * 3);
-	border-radius: var(--border-radius-element);
-	background-color: var(--color-background-hover);
 	color: var(--color-text-maxcontrast);
+	font-style: italic;
 }
 
 .entry__meta {
@@ -337,10 +331,6 @@ const tone = computed(() => props.entry.severity ?? 'neutral')
 	.entry__marker {
 		width: 28px;
 		height: 28px;
-	}
-
-	.entry__card {
-		padding: calc(var(--default-grid-baseline) * 2) calc(var(--default-grid-baseline) * 2.5);
 	}
 
 	.entry__relative {

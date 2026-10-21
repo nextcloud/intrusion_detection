@@ -24,8 +24,10 @@ import { logger } from '../../services/logger.ts'
 import { APP_ID } from '../../utils/format.ts'
 import { isCidr } from '../../utils/validate.ts'
 
-defineProps<{
+const props = defineProps<{
 	busy?: boolean
+	/** Fills the form, e.g. with the request of the report shown */
+	initial?: IncidentRequest | null
 }>()
 
 const emit = defineEmits<{
@@ -132,7 +134,8 @@ function submit() {
 }
 
 /**
- * Fill the form from a request, e.g. "Incident report for this address".
+ * Fill the form from a request. A period that ended a moment ago and has the
+ * length of a choice is shown as that choice.
  *
  * @param prefill - Subject and period
  */
@@ -143,17 +146,24 @@ function fill(prefill: IncidentRequest) {
 	} else {
 		address.value = prefill.value
 	}
+	period.value = '7'
 	if (prefill.since !== null && prefill.until !== null) {
-		period.value = 'custom'
-		from.value = new Date(prefill.since * 1000)
-		to.value = new Date(prefill.until * 1000)
-	} else {
-		period.value = '7'
+		const days = String((prefill.until - prefill.since) / DAY)
+		const recent = Date.now() / 1000 - prefill.until < 3600
+		if (recent && periods.some((option) => option.value === days)) {
+			period.value = days as Period
+		} else {
+			period.value = 'custom'
+			from.value = new Date(prefill.since * 1000)
+			to.value = new Date(prefill.until * 1000)
+		}
 	}
 	touched.value = false
 }
 
-defineExpose({ fill })
+if (props.initial) {
+	fill(props.initial)
+}
 </script>
 
 <template>
@@ -234,6 +244,7 @@ defineExpose({ fill })
 	display: flex;
 	flex-direction: column;
 	gap: calc(var(--default-grid-baseline) * 5);
+	padding-block-end: calc(var(--default-grid-baseline) * 3);
 }
 
 .form__row {
@@ -291,18 +302,7 @@ defineExpose({ fill })
 }
 
 @media (max-width: 600px) {
-	.form__choice {
-	flex: 0 0 auto;
-	max-width: 100%;
-}
-
-/* Segments keep their label on one line and wrap as a whole on narrow screens. */
-.form__choice div {
-	flex-wrap: wrap;
-	white-space: nowrap;
-}
-
-.form__subject {
+	.form__subject {
 		max-width: none;
 	}
 }

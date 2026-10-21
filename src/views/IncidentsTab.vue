@@ -5,69 +5,105 @@
 
 <script setup lang="ts">
 import type { IncidentReport, IncidentRequest } from '../types.ts'
+import type { IncidentSubject } from '../utils/incidents.ts'
 
-import { mdiDownload, mdiFileCodeOutline, mdiFileDocumentAlertOutline, mdiInformationOutline, mdiOpenInNew, mdiPrinterOutline, mdiTextBoxSearchOutline } from '@mdi/js'
-import { showError } from '@nextcloud/dialogs'
+import { mdiPlus, mdiShieldCheckOutline, mdiTextBoxSearchOutline } from '@mdi/js'
 import { n, t } from '@nextcloud/l10n'
-import { computed, nextTick, ref, watch } from 'vue'
+import { computed, nextTick, onActivated, onMounted, ref, watch } from 'vue'
 import NcButton from '@nextcloud/vue/components/NcButton'
+import NcDialog from '@nextcloud/vue/components/NcDialog'
+import NcEmptyContent from '@nextcloud/vue/components/NcEmptyContent'
 import NcIconSvgWrapper from '@nextcloud/vue/components/NcIconSvgWrapper'
-import NcLoadingIcon from '@nextcloud/vue/components/NcLoadingIcon'
 import NcNoteCard from '@nextcloud/vue/components/NcNoteCard'
-import EmptyNote from '../components/common/EmptyNote.vue'
-import SectionCard from '../components/common/SectionCard.vue'
 import SkeletonBlock from '../components/common/SkeletonBlock.vue'
-import TimeStamp from '../components/common/TimeStamp.vue'
+import IncidentDetail from '../components/incidents/IncidentDetail.vue'
 import IncidentForm from '../components/incidents/IncidentForm.vue'
-import IncidentSummary from '../components/incidents/IncidentSummary.vue'
-import IncidentTimeline from '../components/incidents/IncidentTimeline.vue'
+import IncidentList from '../components/incidents/IncidentList.vue'
 import { useAnnouncer } from '../composables/useAnnouncer.ts'
-import { buildIncidentReport, downloadIncidentReport, errorMessage, isCancelled } from '../services/api.ts'
+import { buildIncidentReport, errorMessage, fetchDetections, isCancelled } from '../services/api.ts'
 import { logger } from '../services/logger.ts'
 import { incidentRequest } from '../store.ts'
 import { APP_ID } from '../utils/format.ts'
+import { incidentSubjects, subjectKey } from '../utils/incidents.ts'
 
-const form = ref<InstanceType<typeof IncidentForm> | null>(null)
+/** The list covers the detections of this many days */
+const LIST_DAYS = 7
+/** At most this many detections are folded into the list; the most the API returns */
+const LIST_LIMIT = 100
+
+const subjects = ref<IncidentSubject[]>([])
+const listLoading = ref(true)
+const listError = ref<string | null>(null)
+const listHasMore = ref(false)
+let listLoaded = false
+
+const detail = ref<InstanceType<typeof IncidentDetail> | null>(null)
 const report = ref<IncidentReport | null>(null)
-/** The request the shown report was built from; downloads use exactly this one */
+/** The request the shown report was built from */
 const built = ref<IncidentRequest | null>(null)
 const loading = ref(false)
 const error = ref<string | null>(null)
 const failed = ref<IncidentRequest | null>(null)
-const downloading = ref<'json' | 'html' | 'print' | null>(null)
+const formOpen = ref(false)
+/** What the form starts with: the shown report's request, or nothing for a new one */
+const formRequest = ref<IncidentRequest | null>(null)
 const { announce } = useAnnouncer()
 
-const subject = computed(() => {
-	const value = report.value?.subject
-	if (!value) {
-		return ''
+const selected = computed(() => (built.value ? subjectKey(built.value.type, built.value.value) : null))
+const nothingAtAll = computed(() => !listLoading.value && listError.value === null && subjects.value.length === 0
+	&& report.value === null && !loading.value && error.value === null)
+
+/**
+ * Load the addresses and accounts of the recent detections.
+ */
+async function loadList() {
+	try {
+		const since = Math.floor(Date.now() / 1000) - LIST_DAYS * 86400
+		const list = await fetchDetections({}, LIST_LIMIT, 0, since)
+		subjects.value = incidentSubjects(list.detections)
+		listHasMore.value = list.hasMore
+		listError.value = null
+	} catch (e) {
+		logger.error('Could not load the recent detections', { error: e })
+		listError.value = errorMessage(e, t(APP_ID, 'The recent incidents could not be loaded.'))
+	} finally {
+		listLoading.value = false
+		listLoaded = true
 	}
-	if (value.type === 'address') {
-		return t(APP_ID, 'Address {address}', { address: value.value })
+}
+
+onMounted(loadList)
+onActivated(() => {
+	if (listLoaded) {
+		loadList()
 	}
-	return value.displayName && value.displayName !== value.value
-		? t(APP_ID, 'Account {account} ({name})', { account: value.value, name: value.displayName })
-		: t(APP_ID, 'Account {account}', { account: value.value })
 })
 
 /**
  * Build the report and show it.
  *
  * @param request - Subject and period
+ * @param focus - Move the focus to the report once it is shown
  */
-async function build(request: IncidentRequest) {
+async function build(request: IncidentRequest, focus = false) {
 	loading.value = true
 	error.value = null
 	failed.value = null
+	built.value = request
 	try {
 		report.value = await buildIncidentReport(request)
-		built.value = request
+		loading.value = false
 		announce(n(APP_ID, 'The report is ready: %n entry.', 'The report is ready: %n entries.', report.value.entries.length))
+		if (focus) {
+			await nextTick()
+			detail.value?.focus()
+		}
 	} catch (e) {
 		if (isCancelled(e)) {
 			return
 		}
 		logger.error('Could not build the incident report', { error: e })
+		report.value = null
 		error.value = errorMessage(e, t(APP_ID, 'The report could not be built. Please try again.'))
 		failed.value = request
 		announce(error.value)
@@ -77,206 +113,129 @@ async function build(request: IncidentRequest) {
 }
 
 /**
- * Offer a file to save.
- *
- * @param blob - The file
- * @param filename - Its name
+ * @param subject - The address or account picked from the list
  */
-function save(blob: Blob, filename: string) {
-	const url = URL.createObjectURL(blob)
-	const link = document.createElement('a')
-	link.href = url
-	link.download = filename
-	document.body.appendChild(link)
-	link.click()
-	link.remove()
-	setTimeout(() => URL.revokeObjectURL(url), 10_000)
+function select(subject: IncidentSubject) {
+	build({ type: subject.type, value: subject.value, since: null, until: null }, true)
 }
 
 /**
- * Print the page through a hidden frame. The frame may not run scripts;
- * the document has none and loads nothing.
+ * Open the form, empty or with the request of the shown report.
  *
- * @param html - The printable page
+ * @param request - What the form starts with
  */
-function print(html: string) {
-	const frame = document.createElement('iframe')
-	frame.setAttribute('sandbox', 'allow-same-origin allow-modals')
-	frame.setAttribute('aria-hidden', 'true')
-	frame.setAttribute('title', t(APP_ID, 'Incident report'))
-	frame.tabIndex = -1
-	frame.style.position = 'fixed'
-	frame.style.width = '0'
-	frame.style.height = '0'
-	frame.style.border = '0'
-	frame.addEventListener('load', () => {
-		const view = frame.contentWindow
-		view?.addEventListener('afterprint', () => frame.remove(), { once: true })
-		view?.focus()
-		view?.print()
-	}, { once: true })
-	frame.srcdoc = html
-	document.body.appendChild(frame)
+function openForm(request: IncidentRequest | null) {
+	formRequest.value = request
+	formOpen.value = true
 }
 
 /**
- * Download the report as a file, or print it.
- *
- * @param action - JSON, the HTML page, or print the HTML page
+ * @param request - Subject and period from the form
  */
-async function download(action: 'json' | 'html' | 'print') {
-	if (!built.value) {
-		return
-	}
-	downloading.value = action
-	try {
-		const { blob, filename } = await downloadIncidentReport(built.value, action === 'json' ? 'json' : 'html')
-		if (action === 'print') {
-			print(await blob.text())
-		} else {
-			save(blob, filename)
-			announce(t(APP_ID, 'The report was downloaded.'))
-		}
-	} catch (e) {
-		if (isCancelled(e)) {
-			return
-		}
-		logger.error('Could not download the incident report', { error: e })
-		showError(errorMessage(e, t(APP_ID, 'The report could not be downloaded. Please try again.')))
-	} finally {
-		downloading.value = null
-	}
+function submitForm(request: IncidentRequest) {
+	formOpen.value = false
+	build(request, true)
 }
 
-// "Incident report for this account / address" from a detection: fill the form and build.
-watch(incidentRequest, async (request) => {
+// "Incident report for this account / address" from a detection or a lookup.
+watch(incidentRequest, (request) => {
 	if (request === null) {
 		return
 	}
 	incidentRequest.value = null
-	await nextTick()
-	form.value?.fill(request)
 	build(request)
 }, { immediate: true, flush: 'post' })
 </script>
 
 <template>
 	<div :class="$style.tab">
-		<SectionCard :heading="t(APP_ID, 'Incident report')" :icon="mdiFileDocumentAlertOutline">
-			<template #description>
-				{{ t(APP_ID, 'One timeline of everything Nextcloud knows about an account or an address in a period: detections, blocks, app passwords, shares and administration changes. Use it to investigate, and as the basis of a breach notification. Reports are built when you ask for them and never stored; each one is written to the audit log.') }}
-			</template>
-			<IncidentForm ref="form" :busy="loading" @build="build" />
-		</SectionCard>
+		<header :class="$style.tab__head">
+			<div :class="$style.tab__intro">
+				<h3 :class="$style.tab__heading">
+					{{ t(APP_ID, 'Incidents') }}
+				</h3>
+				<p :class="$style.tab__description">
+					{{ t(APP_ID, 'One timeline of everything Nextcloud knows about an account or an address in a period. Use it to investigate, and as the basis of a breach notification. Reports are built when you ask for them, never stored, and written to the audit log.') }}
+				</p>
+			</div>
+			<NcButton variant="primary" data-test="incident-new" @click="openForm(null)">
+				<template #icon>
+					<NcIconSvgWrapper :path="mdiPlus" />
+				</template>
+				{{ t(APP_ID, 'New incident report') }}
+			</NcButton>
+		</header>
 
-		<div
-			v-if="loading"
-			:class="$style.tab__skeleton"
-			aria-busy="true"
-			:aria-label="t(APP_ID, 'Building the report …')">
-			<SkeletonBlock height="28px" width="50%" />
-			<SkeletonBlock height="140px" />
-			<SkeletonBlock height="64px" />
-			<SkeletonBlock height="64px" />
-			<SkeletonBlock height="64px" />
+		<NcEmptyContent
+			v-if="nothingAtAll"
+			:class="$style.tab__empty"
+			:name="t(APP_ID, 'No incidents in the last 7 days')"
+			:description="t(APP_ID, 'No detection involved an address or an account. To look into one anyway, create an incident report.')"
+			data-test="incidents-empty">
+			<template #icon>
+				<NcIconSvgWrapper :path="mdiShieldCheckOutline" />
+			</template>
+		</NcEmptyContent>
+
+		<div v-else :class="$style.tab__layout">
+			<IncidentList
+				:class="$style.tab__list"
+				:subjects="subjects"
+				:selected="selected"
+				:loading="listLoading"
+				:error="listError"
+				:hasMore="listHasMore"
+				@select="select" />
+
+			<div :class="$style.tab__detail">
+				<div
+					v-if="loading"
+					:class="$style.tab__skeleton"
+					aria-busy="true"
+					:aria-label="t(APP_ID, 'Building the report …')">
+					<SkeletonBlock height="28px" width="50%" />
+					<SkeletonBlock height="96px" />
+					<SkeletonBlock height="64px" />
+					<SkeletonBlock height="64px" />
+				</div>
+
+				<NcNoteCard v-else-if="error" type="error">
+					<p>{{ error }}</p>
+					<NcButton
+						v-if="failed"
+						variant="secondary"
+						:class="$style.tab__retry"
+						@click="build(failed)">
+						{{ t(APP_ID, 'Try again') }}
+					</NcButton>
+				</NcNoteCard>
+
+				<IncidentDetail
+					v-else-if="report && built"
+					ref="detail"
+					:report="report"
+					:request="built"
+					@change="openForm(built)" />
+
+				<NcEmptyContent
+					v-else
+					:class="$style.tab__placeholder"
+					:name="t(APP_ID, 'Choose an incident')"
+					:description="t(APP_ID, 'Its report shows what happened, what Nextcloud did, and what is still open.')"
+					data-test="incident-placeholder">
+					<template #icon>
+						<NcIconSvgWrapper :path="mdiTextBoxSearchOutline" />
+					</template>
+				</NcEmptyContent>
+			</div>
 		</div>
 
-		<NcNoteCard v-else-if="error" type="error">
-			<p>{{ error }}</p>
-			<NcButton
-				v-if="failed"
-				variant="secondary"
-				:class="$style.tab__retry"
-				@click="build(failed)">
-				{{ t(APP_ID, 'Try again') }}
-			</NcButton>
-		</NcNoteCard>
-
-		<EmptyNote
-			v-else-if="report === null"
-			:name="t(APP_ID, 'Choose an account or an address')"
-			:description="t(APP_ID, 'The report shows what happened, what Nextcloud did, and what is still open. From a detection on the overview, “Incident report” fills this in for you.')"
-			:icon="mdiTextBoxSearchOutline" />
-
-		<article v-else :class="$style.report" :aria-label="t(APP_ID, 'Incident report')">
-			<header :class="$style.report__head">
-				<div :class="$style.report__title">
-					<h3 :class="$style.report__subject" data-test="incident-subject">
-						{{ subject }}
-					</h3>
-					<p :class="$style.report__period">
-						<TimeStamp :timestamp="report.period.since" />
-						<span aria-hidden="true">–</span>
-						<span class="hidden-visually">{{ t(APP_ID, 'to') }}</span>
-						<TimeStamp :timestamp="report.period.until" />
-					</p>
-				</div>
-				<div :class="$style.report__actions">
-					<NcButton
-						variant="secondary"
-						:disabled="downloading !== null"
-						data-test="incident-download-json"
-						@click="download('json')">
-						<template #icon>
-							<NcLoadingIcon v-if="downloading === 'json'" :size="20" />
-							<NcIconSvgWrapper v-else :path="mdiDownload" />
-						</template>
-						{{ t(APP_ID, 'Download JSON') }}
-					</NcButton>
-					<NcButton
-						variant="secondary"
-						:disabled="downloading !== null"
-						data-test="incident-print"
-						@click="download('print')">
-						<template #icon>
-							<NcLoadingIcon v-if="downloading === 'print'" :size="20" />
-							<NcIconSvgWrapper v-else :path="mdiPrinterOutline" />
-						</template>
-						{{ t(APP_ID, 'Print or save as PDF') }}
-					</NcButton>
-					<NcButton
-						variant="tertiary"
-						:disabled="downloading !== null"
-						data-test="incident-download-html"
-						@click="download('html')">
-						<template #icon>
-							<NcLoadingIcon v-if="downloading === 'html'" :size="20" />
-							<NcIconSvgWrapper v-else :path="mdiFileCodeOutline" />
-						</template>
-						{{ t(APP_ID, 'Download page') }}
-					</NcButton>
-				</div>
-			</header>
-
-			<IncidentSummary :summary="report.summary" />
-
-			<NcNoteCard v-if="report.truncated" type="warning" data-test="incident-truncated">
-				{{ t(APP_ID, 'Only the first {count} entries of the period are shown. Build reports for shorter periods to see the rest.', { count: report.maxEntries }) }}
-			</NcNoteCard>
-
-			<IncidentTimeline :report="report" />
-
-			<section v-if="report.notes.length > 0" :class="$style.report__notes" aria-labelledby="ids-incident-notes">
-				<h4 id="ids-incident-notes" :class="$style.report__notesHeading">
-					<NcIconSvgWrapper :path="mdiInformationOutline" :size="18" />
-					{{ t(APP_ID, 'Not in this report') }}
-				</h4>
-				<ul :class="$style.report__noteList">
-					<li v-for="note in report.notes" :key="note.id">
-						{{ note.text }}
-						<a
-							v-if="note.url"
-							:href="note.url"
-							target="_blank"
-							rel="noreferrer noopener"
-							:class="$style.report__link">
-							{{ note.linkLabel ?? note.url }}
-							<NcIconSvgWrapper :path="mdiOpenInNew" :size="14" inline />
-						</a>
-					</li>
-				</ul>
-			</section>
-		</article>
+		<NcDialog
+			v-model:open="formOpen"
+			:name="formRequest ? t(APP_ID, 'Change the report') : t(APP_ID, 'New incident report')"
+			size="normal">
+			<IncidentForm :initial="formRequest" @build="submitForm" />
+		</NcDialog>
 	</div>
 </template>
 
@@ -284,7 +243,44 @@ watch(incidentRequest, async (request) => {
 .tab {
 	display: flex;
 	flex-direction: column;
-	gap: calc(var(--default-grid-baseline) * 5);
+	gap: calc(var(--default-grid-baseline) * 6);
+	container-type: inline-size;
+}
+
+.tab__head {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: flex-start;
+	justify-content: space-between;
+	gap: calc(var(--default-grid-baseline) * 4);
+}
+
+.tab__intro {
+	flex: 1 1 360px;
+	min-width: 0;
+}
+
+.tab__heading {
+	margin: 0;
+	font-size: 1.25em;
+	font-weight: 700;
+}
+
+.tab__description {
+	margin: calc(var(--default-grid-baseline) * 1) 0 0;
+	max-width: 75ch;
+	color: var(--color-text-maxcontrast);
+	line-height: 1.5;
+}
+
+.tab__layout {
+	display: grid;
+	grid-template-columns: minmax(0, 1fr);
+	gap: calc(var(--default-grid-baseline) * 6);
+}
+
+.tab__detail {
+	min-width: 0;
 }
 
 .tab__skeleton {
@@ -297,80 +293,30 @@ watch(incidentRequest, async (request) => {
 	margin-block-start: calc(var(--default-grid-baseline) * 2);
 }
 
-.report {
-	display: flex;
-	flex-direction: column;
-	gap: calc(var(--default-grid-baseline) * 5);
-	min-width: 0;
+/* On narrow screens the list comes first and a report opens below it */
+.tab__placeholder {
+	display: none;
 }
 
-.report__head {
-	display: flex;
-	flex-wrap: wrap;
-	align-items: flex-end;
-	justify-content: space-between;
-	gap: calc(var(--default-grid-baseline) * 3);
-}
+@container (min-width: 820px) {
+	.tab__layout {
+		grid-template-columns: minmax(240px, 300px) minmax(0, 1fr);
+		gap: calc(var(--default-grid-baseline) * 8);
+	}
 
-.report__title {
-	min-width: 0;
-}
+	.tab__list {
+		position: sticky;
+		top: calc(var(--default-grid-baseline) * 2);
+		align-self: start;
+		max-height: calc(100vh - var(--header-height, 50px) - var(--default-grid-baseline) * 8);
+		overflow-y: auto;
+		padding-inline-end: calc(var(--default-grid-baseline) * 4);
+		border-inline-end: 1px solid var(--color-border);
+	}
 
-.report__subject {
-	margin: 0;
-	font-size: 1.35em;
-	font-weight: 700;
-	overflow-wrap: anywhere;
-}
-
-.report__period {
-	display: flex;
-	flex-wrap: wrap;
-	gap: calc(var(--default-grid-baseline) * 1.5);
-	margin: calc(var(--default-grid-baseline) * 1) 0 0;
-	color: var(--color-text-maxcontrast);
-}
-
-.report__actions {
-	display: flex;
-	flex-wrap: wrap;
-	gap: calc(var(--default-grid-baseline) * 2);
-}
-
-.report__notes {
-	display: flex;
-	flex-direction: column;
-	gap: calc(var(--default-grid-baseline) * 2);
-	padding: calc(var(--default-grid-baseline) * 4);
-	border: 1px solid var(--color-border);
-	border-radius: var(--border-radius-large);
-	background-color: var(--color-background-hover);
-}
-
-.report__notesHeading {
-	display: flex;
-	align-items: center;
-	gap: calc(var(--default-grid-baseline) * 2);
-	margin: 0;
-	font-size: 0.95em;
-	font-weight: 700;
-}
-
-.report__noteList {
-	display: flex;
-	flex-direction: column;
-	gap: calc(var(--default-grid-baseline) * 1.5);
-	margin: 0;
-	padding-inline-start: calc(var(--default-grid-baseline) * 5);
-	list-style: disc;
-	line-height: 1.5;
-}
-
-.report__link {
-	display: inline-flex;
-	align-items: center;
-	gap: calc(var(--default-grid-baseline) * 1);
-	color: var(--color-primary-element-text-dark, var(--color-primary-element));
-	text-decoration: underline;
+	.tab__placeholder {
+		display: flex;
+		margin-block-start: calc(var(--default-grid-baseline) * 10);
+	}
 }
 </style>

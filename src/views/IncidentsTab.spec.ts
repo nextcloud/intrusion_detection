@@ -3,13 +3,15 @@
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 
-import type { IncidentEntry, IncidentReport } from '../types.ts'
+import type { Detection, IncidentEntry, IncidentReport } from '../types.ts'
 
 import { flushPromises, mount } from '@vue/test-utils'
-import { afterEach, describe, expect, test, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
+import IncidentForm from '../components/incidents/IncidentForm.vue'
 import IncidentsTab from './IncidentsTab.vue'
-import { ApiError, buildIncidentReport, downloadIncidentReport } from '../services/api.ts'
+import { ApiError, buildIncidentReport, downloadIncidentReport, fetchDetections } from '../services/api.ts'
 import { incidentRequest } from '../store.ts'
+import { makeDetail } from '../tests/fixtures.ts'
 
 const mounted: { unmount: () => void }[] = []
 
@@ -19,6 +21,7 @@ vi.mock('../services/api.ts', async (importOriginal) => ({
 	...(await importOriginal<object>()),
 	buildIncidentReport: vi.fn(),
 	downloadIncidentReport: vi.fn(),
+	fetchDetections: vi.fn(),
 	searchAccounts: vi.fn(() => Promise.resolve([])),
 }))
 
@@ -112,37 +115,132 @@ async function mountTab(value: IncidentReport | Error | null = null) {
 	return wrapper
 }
 
+/**
+ * @param overrides - Fields to change
+ */
+function detection(overrides: Partial<Detection> = {}): Detection {
+	return { ...makeDetail().detection, ...overrides }
+}
+
+/**
+ * The form in the "New incident report" dialog.
+ *
+ * @param wrapper - The mounted tab
+ */
+async function openForm(wrapper: Awaited<ReturnType<typeof mountTab>>) {
+	await wrapper.get('[data-test="incident-new"]').trigger('click')
+	await flushPromises()
+	return wrapper.getComponent(IncidentForm)
+}
+
 describe('IncidentsTab', () => {
+	beforeEach(() => {
+		vi.mocked(fetchDetections).mockResolvedValue({ detections: [], hasMore: false })
+	})
+
 	afterEach(() => {
 		mounted.splice(0).forEach((wrapper) => wrapper.unmount())
 		vi.mocked(buildIncidentReport).mockReset()
 		vi.mocked(downloadIncidentReport).mockReset()
+		vi.mocked(fetchDetections).mockReset()
 		incidentRequest.value = null
 		document.body.innerHTML = ''
 	})
 
-	test('asks for a subject before anything is built', async () => {
+	test('without recent incidents it is calm, with one way to start a report', async () => {
 		const wrapper = await mountTab()
-		expect(wrapper.text()).toContain('Choose an account or an address')
+		expect(wrapper.get('[data-test="incidents-empty"]').text()).toContain('No incidents in the last 7 days')
+		expect(wrapper.findAll('[data-test="incident-new"]')).toHaveLength(1)
+		expect(wrapper.find('form').exists()).toBe(false)
 		expect(buildIncidentReport).not.toHaveBeenCalled()
 	})
 
-	test('an invalid address is explained and nothing is requested', async () => {
+	test('lists the addresses and accounts of the last 7 days with status, severity and time; nothing is built until one is chosen', async () => {
+		vi.mocked(fetchDetections).mockResolvedValue({
+			detections: [
+				detection({ id: 1, ip: '203.0.113.7', severity: 'high', enforced: true, lastSeenAt: AT }),
+				detection({ id: 2, ip: null, uid: 'alice', severity: 'low', enforced: false, checkName: 'Admin change alerts', lastSeenAt: AT - 60 }),
+			],
+			hasMore: false,
+		})
 		const wrapper = await mountTab()
-		await wrapper.findAll('input[type="radio"]').find((input) => input.attributes('value') === 'address')!.setValue(true)
-		await wrapper.find('input[type="text"]').setValue('203.0.113.0/24')
-		await wrapper.find('form').trigger('submit')
+		expect(vi.mocked(fetchDetections).mock.calls[0]![1]).toBeLessThanOrEqual(100)
+		const items = wrapper.findAll('[data-test="incident-subject-item"]')
+		expect(items.map((item) => item.text())).toEqual([
+			expect.stringContaining('Address 203.0.113.7'),
+			expect.stringContaining('Account alice'),
+		])
+		expect(items[0]!.text()).toContain('High')
+		expect(items[0]!.text()).toContain('Acted on')
+		expect(items[1]!.text()).toContain('Observed')
+		expect(wrapper.find('[data-test="incident-placeholder"]').exists()).toBe(true)
+		expect(buildIncidentReport).not.toHaveBeenCalled()
+
+		vi.mocked(buildIncidentReport).mockResolvedValue(report())
+		await items[0]!.trigger('click')
 		await flushPromises()
-		expect(wrapper.text()).toContain('Enter a single IPv4 or IPv6 address')
+		expect(buildIncidentReport).toHaveBeenCalledWith({ type: 'address', value: '203.0.113.7', since: null, until: null })
+		expect(wrapper.findAll('[data-test="incident-subject-item"]')[0]!.attributes('aria-current')).toBe('true')
+		expect(document.activeElement).toBe(wrapper.get('[data-test="incident-subject"]').element)
+	})
+
+	test('"New incident report" opens the form in a dialog; an invalid address is explained and nothing is requested', async () => {
+		const wrapper = await mountTab()
+		const form = await openForm(wrapper)
+		await form.findAll('input[type="radio"]').find((input) => input.attributes('value') === 'address')!.setValue(true)
+		await form.find('input[type="text"]').setValue('203.0.113.0/24')
+		await form.find('form').trigger('submit')
+		await flushPromises()
+		expect(form.text()).toContain('Enter a single IPv4 or IPv6 address')
 		expect(buildIncidentReport).not.toHaveBeenCalled()
 	})
 
 	test('an account must be chosen', async () => {
 		const wrapper = await mountTab()
-		await wrapper.find('form').trigger('submit')
+		const form = await openForm(wrapper)
+		await form.find('form').trigger('submit')
 		await flushPromises()
-		expect(wrapper.text()).toContain('Choose an account.')
+		expect(form.text()).toContain('Choose an account.')
 		expect(buildIncidentReport).not.toHaveBeenCalled()
+	})
+
+	test('a valid form closes the dialog and builds the report', async () => {
+		vi.mocked(buildIncidentReport).mockResolvedValue(report())
+		const wrapper = await mountTab()
+		const form = await openForm(wrapper)
+		await form.findAll('input[type="radio"]').find((input) => input.attributes('value') === 'address')!.setValue(true)
+		await form.find('input[type="text"]').setValue('203.0.113.7')
+		await form.find('form').trigger('submit')
+		await flushPromises()
+		expect(wrapper.findComponent(IncidentForm).exists()).toBe(false)
+		expect(buildIncidentReport).toHaveBeenCalledWith(expect.objectContaining({ type: 'address', value: '203.0.113.7' }))
+		expect(wrapper.get('[data-test="incident-subject"]').text()).toBe('Address 203.0.113.7')
+	})
+
+	test('"Change period" keeps a chosen period, and a period in the past is shown as custom dates', async () => {
+		vi.mocked(buildIncidentReport).mockResolvedValue(report())
+		const now = Math.floor(Date.now() / 1000)
+		incidentRequest.value = { type: 'address', value: '203.0.113.7', since: now - 30 * 86400, until: now }
+		const wrapper = await mountTab()
+		await wrapper.get('[data-test="incident-change"]').trigger('click')
+		await flushPromises()
+		const radio = (value: string) => wrapper.getComponent(IncidentForm).findAll('input[type="radio"]').find((input) => input.attributes('value') === value)!.element
+		expect(radio('30')).toHaveProperty('checked', true)
+
+		wrapper.getComponent(IncidentForm).vm.$emit('build', { type: 'address', value: '203.0.113.7', since: now - 40 * 86400, until: now - 10 * 86400 })
+		await flushPromises()
+		await wrapper.get('[data-test="incident-change"]').trigger('click')
+		await flushPromises()
+		expect(radio('custom')).toHaveProperty('checked', true)
+	})
+
+	test('"Change period" opens the form with the shown report\'s subject', async () => {
+		const wrapper = await mountTab(report())
+		await wrapper.get('[data-test="incident-change"]').trigger('click')
+		await flushPromises()
+		const form = wrapper.getComponent(IncidentForm)
+		expect((form.find('input[type="text"]').element as HTMLInputElement).value).toBe('203.0.113.7')
+		expect(form.findAll('input[type="radio"]').find((input) => input.attributes('value') === '7')!.element).toHaveProperty('checked', true)
 	})
 
 	test('a request from a detection builds the report with summary and timeline', async () => {
