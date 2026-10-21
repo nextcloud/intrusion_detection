@@ -146,7 +146,7 @@ An app that blocks people has to be careful about *whom* it blocks.
 - **Learning mode first.** When you first enable the app, it observes for 7 days. Checks set to Protect only record what they would block; earlier blocks, blocks you add by hand, a user's "No, it was not me" and decoys still act. You can end, extend or restart learning at any time.
 - **Protection levels.** *Relaxed*, *Recommended* (the default) or *Strict* sets the limits of every check at once: Strict fires at half the usual counts with blocks twice as long, Relaxed the other way round. Modes and responses stay as they are, and every number can still be changed by hand.
 - **Shared addresses are never blocked automatically.** An address from which at least 5 different people with established accounts (at least 3 days old, or administrators) logged in successfully in the last 24 hours, such as an office network or a reverse proxy, is not blocked. You are told instead.
-- **Admins don't lock themselves out.** Checks never block an address an administrator logged in from in the last 7 days, except for trap URLs and injection probes. The admin page refuses to block your own address. Addresses on the brute-force allowlist and the server's own addresses are never blocked.
+- **Admins' own addresses are spared.** Checks never block an address an administrator logged in from in the last 7 days, except for trap URLs and injection probes. The admin page refuses to block your own address. Addresses on the brute-force allowlist and the server's own addresses are never blocked.
 - **People who mistype are not attackers.** Limits count different accounts, not single typos. When a password spray is caught, addresses that tried the password for only one account are not blocked, and blocking for an attacked account needs at least 4 different passwords from one address, so a device with an old saved password is left alone.
 - **Blocks end on their own.** Every automatic block expires, and you can lift one early from its reference in seconds.
 - **Every decision is explained**, in the admin page, in emails and with `occ intrusion:detections:explain`, so a wrong one is easy to recognise and undo.
@@ -183,7 +183,7 @@ Apps that log in with an app password are never interrupted.
 **"Was this you?"** When Nextcloud sees something it cannot check by itself, such as a login that was not confirmed, a device connected from another network or a credential used in two places, it asks the account owner. The question appears on the personal page and as a notification.
 
 - **"No, it was not me"** ends the sessions and app passwords that came with the event, blocks the address it came from, requires a new password if the password was involved, and tells the admins. It only counts from a login that proved more than the password, so an intruder who knows only the password cannot use it.
-- **"Yes, it was me"** trusts that network for the user for 30 days.
+- **"Yes, it was me"**, from a login that proved more than the password, trusts that network for the user for 30 days.
 
 <img src="screenshots/was-this-you.gif" alt="Animation: on her Account protection page, Mia sees 'A login to your account was not confirmed' from 203.0.113.77 with the buttons 'Yes, it was me' and 'No, it was not me'. She clicks No and confirms 'It was not me'. The page then says she will be asked to choose a new password, and her recent activity shows 'You said it was not you'." width="960">
 
