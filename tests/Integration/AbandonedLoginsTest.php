@@ -11,17 +11,20 @@ namespace OCA\IntrusionDetection\Tests\Integration;
 
 use OCA\IntrusionDetection\Audit\AuditLogger;
 use OCA\IntrusionDetection\Check\Checks\StepUpFailed;
+use OCA\IntrusionDetection\Config\GlobalSettings;
 use OCA\IntrusionDetection\Confirm\AbandonedLogins;
 use OCA\IntrusionDetection\Db\BanMapper;
 use OCA\IntrusionDetection\Db\LoginHistoryMapper;
 use OCA\IntrusionDetection\Db\StepUpSessionMapper;
 use OCA\IntrusionDetection\LoginHistory\LoginHistory;
+use OCA\IntrusionDetection\Migration\Version1000Date20261021220000;
 use OCA\IntrusionDetection\Net\SourceKey;
 use OCA\IntrusionDetection\Notification\UserAlerts;
 use OCA\IntrusionDetection\Response\FlaggedSources;
 use OCP\AppFramework\Utility\ITimeFactory;
 use OCP\DB\QueryBuilder\IQueryBuilder;
 use OCP\IUser;
+use OCP\Migration\IOutput;
 use OCP\Server;
 use PHPUnit\Framework\Attributes\Group;
 use Psr\Log\LoggerInterface;
@@ -87,6 +90,61 @@ class AbandonedLoginsTest extends StepUpTestCase {
 		$this->assertNull($this->stepUp());
 		$this->moveDeadline(time() - 1);
 		$this->assertSame(0, $this->abandoned()->end(), 'A confirmed login is forgotten');
+	}
+
+	public function testWhileProtectionIsOffALoginPastItsDeadlineIsDroppedSilently(): void {
+		$token = $this->startSession($this->alice);
+		$this->login($this->alice);
+		$historyId = Server::get(LoginHistoryMapper::class)->insert($this->alice->getUID(), time(), SourceKey::fromIp($this->remoteAddress), null, LoginHistory::METHOD_PASSWORD, false, 'none', LoginHistory::STEP_UP_PENDING, $token['id']);
+		$this->settings->setGlobal(GlobalSettings::ENABLED, false);
+		$this->moveDeadline(time() - 1);
+
+		$this->assertSame(1, $this->abandoned()->end());
+		$this->assertSame([], $this->detectionsOf(StepUpFailed::ID), 'No detection');
+		$this->assertSame([], $this->notificationsFor($this->alice->getUID(), UserAlerts::SUBJECT), 'Nobody is told');
+		$row = Server::get(LoginHistoryMapper::class)->forUser($this->alice->getUID(), 0)[0];
+		$this->assertSame([$historyId, LoginHistory::STEP_UP_FAILED], [$row->id, $row->stepUp]);
+		$this->assertSame(1, $this->unconfirmedRows(), 'Kept, so that the session cannot come back');
+
+		$this->settings->setGlobal(GlobalSettings::ENABLED, true);
+		$this->assertSame(0, $this->abandoned()->end(), 'Turning protection back on tells nobody days later');
+		$this->assertSame([], $this->detectionsOf(StepUpFailed::ID));
+	}
+
+	public function testPendingLoginsRememberedWithoutADeadlineGetOne(): void {
+		$started = time() - 7200;
+		$mapper = Server::get(StepUpSessionMapper::class);
+		$history = Server::get(LoginHistoryMapper::class);
+		$bob = $this->user('ids-abandoned-refused', null);
+		$mapper->record(str_repeat('a', 64), $this->alice->getUID(), $started, time() + 86400);
+		$history->insert($this->alice->getUID(), $started, SourceKey::fromIp($this->remoteAddress), null, LoginHistory::METHOD_PASSWORD, false, 'none', LoginHistory::STEP_UP_PENDING, null);
+		$mapper->record(str_repeat('b', 64), $bob->getUID(), $started, time() + 86400);
+		$history->insert($bob->getUID(), $started, SourceKey::fromIp($this->remoteAddress), null, LoginHistory::METHOD_PASSWORD, false, 'none', LoginHistory::STEP_UP_REFUSED, null);
+
+		$migration = Server::get(Version1000Date20261021220000::class);
+		$migration->postSchemaChange($this->createMock(IOutput::class), static fn () => null, []);
+
+		$deadlines = array_column($this->deadlines(), 'deadline', 'uid');
+		$this->assertSame($started + $this->settings->getInt(GlobalSettings::STEP_UP_SESSION_TTL), $deadlines[$this->alice->getUID()] ?? null, 'When it started, plus the time a login may wait');
+		$this->assertArrayHasKey($bob->getUID(), $deadlines);
+		$this->assertNull($deadlines[$bob->getUID()], 'A refused login keeps none');
+		$this->assertSame(1, $this->abandoned()->end(), 'The job ends it');
+		$this->assertSame($this->alice->getUID(), $this->detectionsOf(StepUpFailed::ID)[0]->getUid());
+	}
+
+	/**
+	 * @return list<array{uid: string, deadline: ?int}>
+	 */
+	private function deadlines(): array {
+		$qb = $this->db->getQueryBuilder();
+		$qb->select('uid', 'deadline')->from(StepUpSessionMapper::TABLE);
+		$result = $qb->executeQuery();
+		$rows = [];
+		while ($row = $result->fetch()) {
+			$rows[] = ['uid' => (string)$row['uid'], 'deadline' => $row['deadline'] === null ? null : (int)$row['deadline']];
+		}
+		$result->closeCursor();
+		return $rows;
 	}
 
 	private function moveDeadline(int $deadline): void {

@@ -16,6 +16,7 @@ use OCA\IntrusionDetection\Db\LoginHistoryMapper;
 use OCA\IntrusionDetection\Db\StepUpSessionMapper;
 use OCA\IntrusionDetection\Detection\DetectionDraft;
 use OCA\IntrusionDetection\LoginHistory\LoginHistory;
+use OCA\IntrusionDetection\LoginHistory\LoginHistoryEntry;
 use OCA\IntrusionDetection\Net\SourceKey;
 use OCA\IntrusionDetection\Response\ResponseEngine;
 use OCP\AppFramework\Utility\ITimeFactory;
@@ -32,6 +33,10 @@ use Psr\Log\LoggerInterface;
  *
  * The session's row stays, without its deadline, so that the session
  * cannot come back unconfirmed.
+ *
+ * While protection is off, a login past its deadline is dropped silently:
+ * it ends the same way, but without a detection or a notice, so that
+ * turning protection back on does not tell users days later.
  */
 class AbandonedLogins {
 	/** Logins ended per run */
@@ -50,19 +55,21 @@ class AbandonedLogins {
 	}
 
 	/**
-	 * @return int the logins ended
+	 * @return int the logins ended, with or without a notice
 	 */
 	public function end(): int {
-		if (!$this->settings->isEnabled()) {
-			return 0;
-		}
+		$enabled = $this->settings->isEnabled();
 		$ended = 0;
 		foreach ($this->sessions->findAbandoned($this->timeFactory->getTime(), self::BATCH) as $row) {
 			if (!$this->sessions->endWaiting($row['session_key'])) {
 				continue;
 			}
 			try {
-				$this->endOne($row['uid'], $row['ip'], $row['policies'], $row['created_at'], $row['deadline']);
+				if ($enabled) {
+					$this->endOne($row['uid'], $row['ip'], $row['policies'], $row['created_at'], $row['deadline']);
+				} else {
+					$this->drop($row['uid'], $row['created_at']);
+				}
 				$ended++;
 			} catch (\Throwable $e) {
 				$this->logger->error('Intrusion detection could not end a login that waited for its confirmation', ['exception' => $e]);
@@ -71,15 +78,16 @@ class AbandonedLogins {
 		return $ended;
 	}
 
+	private function drop(string $uid, int $started): void {
+		$this->historyFailed($uid, $started);
+		$this->audit->log('login of %s ended while protection was off: it was left waiting for its confirmation', ['uid' => $uid]);
+	}
+
 	/**
 	 * @param list<string> $policies
 	 */
 	private function endOne(string $uid, ?string $ip, array $policies, int $started, int $deadline): void {
-		$entry = $this->history->pendingAround($uid, $started);
-		if ($entry !== null) {
-			$this->history->setOutcome($entry->id, $uid, LoginHistory::CONFIRMED_BY_NONE, LoginHistory::STEP_UP_FAILED);
-		}
-		$sessionTokenId = $entry?->sessionTokenId;
+		$sessionTokenId = $this->historyFailed($uid, $started)?->sessionTokenId;
 		$draft = new DetectionDraft(
 			checkId: StepUpFailed::ID,
 			source: $ip === null ? null : SourceKey::tryFromIp($ip),
@@ -98,5 +106,16 @@ class AbandonedLogins {
 		);
 		$this->engine->handle($draft, $this->failedCheck->responsesFor($draft, $this->settings->responses(StepUpFailed::ID), []));
 		$this->audit->log('login of %s ended: it was left waiting for its confirmation', ['uid' => $uid]);
+	}
+
+	/**
+	 * The login history says the login failed.
+	 */
+	private function historyFailed(string $uid, int $started): ?LoginHistoryEntry {
+		$entry = $this->history->pendingAround($uid, $started);
+		if ($entry !== null) {
+			$this->history->setOutcome($entry->id, $uid, LoginHistory::CONFIRMED_BY_NONE, LoginHistory::STEP_UP_FAILED);
+		}
+		return $entry;
 	}
 }
