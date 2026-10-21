@@ -61,6 +61,15 @@ class AdminChangeListener implements IEventListener {
 	/** Listeners with a higher priority run first */
 	public const PRIORITY = -100;
 
+	/**
+	 * Removals reported in this request, by uid and group. Deleting an
+	 * account sends UserRemovedEvent twice per group (from the group and
+	 * from the account), which must be one detection.
+	 *
+	 * @var array<string, true>
+	 */
+	private array $reportedRemovals = [];
+
 	public function __construct(
 		private readonly Settings $settings,
 		private readonly AdminChangeDetector $detector,
@@ -96,6 +105,7 @@ class AdminChangeListener implements IEventListener {
 
 	private function userAdded(IGroup $group, IUser $user): void {
 		$gid = $group->getGID();
+		unset($this->reportedRemovals[$user->getUID() . "\0" . $gid]);
 		$delegated = $gid === Approvers::ADMIN_GROUP ? null : $this->delegated->of($gid);
 		if ($gid !== Approvers::ADMIN_GROUP && $delegated === null) {
 			return;
@@ -162,6 +172,11 @@ class AdminChangeListener implements IEventListener {
 		if ($gid !== Approvers::ADMIN_GROUP && $delegated === null) {
 			return;
 		}
+		$removal = $user->getUID() . "\0" . $gid;
+		if (isset($this->reportedRemovals[$removal])) {
+			return;
+		}
+		$this->reportedRemovals[$removal] = true;
 		$facts = ['group' => $gid];
 		if ($delegated !== null) {
 			$facts['delegated'] = $delegated;

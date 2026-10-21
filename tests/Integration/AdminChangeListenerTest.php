@@ -25,6 +25,7 @@ use OCP\App\Events\AppDisableEvent;
 use OCP\App\Events\AppEnableEvent;
 use OCP\Group\Events\SubAdminAddedEvent;
 use OCP\Group\Events\UserRemovedEvent;
+use OCP\IUserManager;
 use OCP\L10N\IFactory;
 use OCP\Notification\INotification;
 use OCP\Server;
@@ -209,6 +210,31 @@ class AdminChangeListenerTest extends AdminChangeTestCase {
 		[$detection] = $this->adminChanges();
 		$this->assertTrue($detection->isEnforced());
 		$this->assertNotSame([], $this->notificationsWithSubject(AdminAlerts::SUBJECT));
+	}
+
+	public function testDeletingAnAdministratorIsOneDetection(): void {
+		$uid = 'ids-ac-deleted-' . bin2hex(random_bytes(3));
+		$user = Server::get(IUserManager::class)->createUser($uid, 'Ids-Test-Password-2026');
+		$this->assertNotFalse($user);
+		$this->group('admin')->addUser($user);
+		$this->assertTrue($user->delete());
+		$removed = array_values(array_filter(
+			$this->adminChanges(),
+			fn ($d): bool => $this->facts($d)['kind'] === AdminChange::KIND_ADMIN_REMOVED,
+		));
+		$this->assertCount(1, $removed, 'Core reports the removal from the group twice when an account is deleted');
+	}
+
+	public function testRemovingAgainAfterAnotherAdditionIsReportedAgain(): void {
+		$this->act($this->alice);
+		$group = $this->group('admin');
+		$bob = $this->user($this->bob);
+		$this->dispatch(new UserRemovedEvent($group, $bob));
+		$this->dispatch(new UserRemovedEvent($group, $bob));
+		$this->addAsWeb('admin', $this->bob);
+		$this->dispatch(new UserRemovedEvent($group, $bob));
+		$kinds = array_map(fn ($d): string => $this->facts($d)['kind'], $this->adminChanges());
+		$this->assertSame(2, count(array_keys($kinds, AdminChange::KIND_ADMIN_REMOVED, true)));
 	}
 
 	public function testTheWholeChainThroughSettingsAndTheRegisteredListener(): void {
