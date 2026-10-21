@@ -105,8 +105,8 @@ class PwnedPasswordsClientTest extends TestCase {
 		[$url, $options] = $this->requests[0];
 		$this->assertSame('https://api.pwnedpasswords.com/range/21BD1', $url);
 		$this->assertSame(['Add-Padding' => 'true', 'Accept' => 'text/plain'], $options['headers']);
-		$this->assertSame(2, $options['timeout']);
-		$this->assertSame(2, $options['connect_timeout']);
+		$this->assertSame(1.5, $options['timeout'], 'at most 1.5 s in all for a login that waits');
+		$this->assertSame(1.0, $options['connect_timeout']);
 		$this->assertFalse($options['allow_redirects']);
 		$this->assertFalse($options['http_errors']);
 		$this->assertInstanceOf(LimitedSink::class, $options['sink']);

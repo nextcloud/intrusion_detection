@@ -409,7 +409,7 @@ class BreachedPasswordTest extends IntegrationTestCase {
 
 		$card = Server::get(CheckPresenter::class)->present(Server::get(BreachedPassword::class)->definition(), $l);
 		$this->assertTrue($card['sendsData']);
-		$this->assertSame('Contacts an external service. One request to api.pwnedpasswords.com per user every 30 days, during the login. It adds up to 2 seconds to that login, typically about 150 ms. Answers are kept in the memory cache for a day.', $card['cost']['text']);
+		$this->assertSame('Contacts an external service. One request to api.pwnedpasswords.com per user every 30 days, during the login. It adds at most 1.5 seconds to that login, typically about 150 ms. Answers are kept in the memory cache for a day.', $card['cost']['text']);
 		$this->assertStringContainsString('the first 5 characters of the SHA-1 hash of the password, for example 21BD1', $card['texts']['data']);
 		$this->assertStringContainsString('The full password and its full hash never leave the server.', $card['texts']['data']);
 		$this->assertSame(['days', ''], array_column($card['params'], 'unit'));

@@ -36,8 +36,13 @@ use Psr\Log\LoggerInterface;
  */
 class PwnedPasswordsClient {
 	public const RANGE_URL = 'https://api.pwnedpasswords.com/range/';
-	/** Seconds for the whole request, including the connection */
-	public const TIMEOUT = 2;
+	/**
+	 * Seconds for the whole request, including the connection: the check
+	 * runs during interactive logins, which wait for it.
+	 */
+	public const TIMEOUT = 1.5;
+	/** Seconds to connect, within TIMEOUT */
+	public const CONNECT_TIMEOUT = 1.0;
 	/** A padded range has about 1 000 lines of 40 bytes; anything far larger is refused */
 	public const MAX_BYTES = 512 * 1024;
 	public const CACHE_TTL = 86400;
@@ -95,7 +100,7 @@ class PwnedPasswordsClient {
 			$response = $this->clientService->newClient()->get(self::RANGE_URL . $prefix, [
 				'headers' => ['Add-Padding' => 'true', 'Accept' => 'text/plain'],
 				'timeout' => self::TIMEOUT,
-				'connect_timeout' => self::TIMEOUT,
+				'connect_timeout' => self::CONNECT_TIMEOUT,
 				'allow_redirects' => false,
 				'http_errors' => false,
 				// Aborts the transfer when the answer grows beyond MAX_BYTES.

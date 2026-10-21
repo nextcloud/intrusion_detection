@@ -72,4 +72,29 @@ class GuardTimerTest extends TestCase {
 		$this->assertNull($timer->summary(1));
 		$this->assertSame(1, $timer->decisions);
 	}
+
+	public function testAViewReadsTheEarlierHoursOncePerHour(): void {
+		$cache = new class() extends ArrayCache {
+			public int $gets = 0;
+
+			#[\Override]
+			public function get($key) {
+				$this->gets++;
+				return parent::get($key);
+			}
+		};
+		$timer = $this->timer(true, $cache);
+		$hour = intdiv(1_800_000_000, 3600);
+		$cache->set('gt:' . ($hour - 3) . ':n', 2);
+		$cache->set('gt:' . ($hour - 3) . ':s', 400);
+		$cache->set('gt:' . ($hour - 3) . ':m', 300);
+		$timer->record(100_000);
+
+		$this->assertSame(['samples' => 3, 'averageMicroseconds' => 500 / 3, 'maxMicroseconds' => 300], $timer->summary(24));
+		$timer->record(200_000);
+		$cache->gets = 0;
+		$summary = $timer->summary(24);
+		$this->assertSame(4, $summary['samples'], 'the current hour is read live');
+		$this->assertSame(4, $cache->gets, 'the earlier hours come from one key');
+	}
 }

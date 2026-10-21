@@ -75,7 +75,7 @@ final class BreachedPassword implements ICheck, IExplainsDetection, IExplainsToU
 						$l->t('How often the password must appear in the list. 1 means anywhere in it.'),
 					),
 				],
-				cost: $l->t('One request to api.pwnedpasswords.com per user every {recheck_days} days, during the login. It adds up to 2 seconds to that login, typically about 150 ms. Answers are kept in the memory cache for a day.'),
+				cost: $l->t('One request to api.pwnedpasswords.com per user every {recheck_days} days, during the login. It adds at most 1.5 seconds to that login, typically about 150 ms. Answers are kept in the memory cache for a day.'),
 			),
 			sendsData: true,
 		);

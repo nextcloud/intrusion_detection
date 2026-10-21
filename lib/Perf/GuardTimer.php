@@ -104,6 +104,10 @@ class GuardTimer {
 	/**
 	 * Average and maximum guard time over the last `$hours` hours.
 	 *
+	 * Only the current hour still changes: the totals of the hours before it
+	 * are added up once per hour and kept, so a view reads four keys rather
+	 * than three per hour.
+	 *
 	 * @return array{samples: int, averageMicroseconds: float, maxMicroseconds: int}|null null when nothing was measured
 	 */
 	public function summary(int $hours = 24): ?array {
@@ -112,18 +116,32 @@ class GuardTimer {
 			return null;
 		}
 		$now = intdiv($this->timeFactory->getTime(), 3600);
-		$count = 0;
-		$sum = 0;
-		$max = 0;
-		for ($hour = $now - $hours + 1; $hour <= $now; $hour++) {
-			$count += (int)$cache->get(self::PREFIX . $hour . ':n');
-			$sum += (int)$cache->get(self::PREFIX . $hour . ':s');
-			$max = max($max, (int)$cache->get(self::PREFIX . $hour . ':m'));
+		$pastKey = self::PREFIX . 'past:' . $hours . ':' . $now;
+		$past = $cache->get($pastKey);
+		if (!is_array($past) || !is_int($past[0] ?? null) || !is_int($past[1] ?? null) || !is_int($past[2] ?? null)) {
+			$past = [0, 0, 0];
+			for ($hour = $now - $hours + 1; $hour < $now; $hour++) {
+				$past = self::add($past, $cache, $hour);
+			}
+			$cache->set($pastKey, $past, 3600);
 		}
+		[$count, $sum, $max] = self::add($past, $cache, $now);
 		if ($count === 0) {
 			return null;
 		}
 		return ['samples' => $count, 'averageMicroseconds' => $sum / $count, 'maxMicroseconds' => $max];
+	}
+
+	/**
+	 * @param array{0: int, 1: int, 2: int} $totals count, sum and maximum
+	 * @return array{0: int, 1: int, 2: int}
+	 */
+	private static function add(array $totals, IMemcache $cache, int $hour): array {
+		return [
+			$totals[0] + (int)$cache->get(self::PREFIX . $hour . ':n'),
+			$totals[1] + (int)$cache->get(self::PREFIX . $hour . ':s'),
+			max($totals[2], (int)$cache->get(self::PREFIX . $hour . ':m')),
+		];
 	}
 
 	private function cache(): ?IMemcache {
