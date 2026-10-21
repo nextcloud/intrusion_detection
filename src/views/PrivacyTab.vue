@@ -16,7 +16,6 @@ import SectionCard from '../components/common/SectionCard.vue'
 import SettingsGroup from '../components/common/SettingsGroup.vue'
 import SkeletonBlock from '../components/common/SkeletonBlock.vue'
 import StateBadge from '../components/common/StateBadge.vue'
-import ContributionCard from '../components/privacy/ContributionCard.vue'
 import { errorMessage, fetchPrivacy } from '../services/api.ts'
 import { logger } from '../services/logger.ts'
 import { state } from '../store.ts'
@@ -24,7 +23,6 @@ import { APP_ID } from '../utils/format.ts'
 
 const data = ref<Privacy | null>(null)
 const loadError = ref<string | null>(null)
-const refreshing = ref(false)
 
 /**
  * "Stored by" with at most three check names.
@@ -44,15 +42,12 @@ const retentionSettings = computed(() => state.settings.filter((s) => s.group ==
  * Load the overview.
  */
 async function load() {
-	refreshing.value = true
 	try {
 		data.value = await fetchPrivacy()
 		loadError.value = null
 	} catch (error) {
 		logger.error('Could not load the data overview', { error })
 		loadError.value = errorMessage(error, t(APP_ID, 'The overview could not be loaded. Please reload the page.'))
-	} finally {
-		refreshing.value = false
 	}
 }
 
@@ -147,12 +142,6 @@ onActivated(load)
 						</p>
 					</li>
 				</ul>
-				<ContributionCard
-					v-if="data.contribution"
-					:contribution="data.contribution"
-					:refreshing="refreshing"
-					@changed="data.contribution = $event"
-					@refresh="load" />
 			</SectionCard>
 
 			<section :class="$style.gdpr" aria-labelledby="ids-gdpr-heading">

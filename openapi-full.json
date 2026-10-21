@@ -908,152 +908,6 @@
                     }
                 }
             },
-            "Contribution": {
-                "type": "object",
-                "required": [
-                    "enabled",
-                    "url",
-                    "lastAttemptAt",
-                    "lastSuccessAt",
-                    "lastResult",
-                    "lastError",
-                    "lastReports",
-                    "texts",
-                    "preview"
-                ],
-                "properties": {
-                    "enabled": {
-                        "type": "boolean"
-                    },
-                    "url": {
-                        "type": "string"
-                    },
-                    "lastAttemptAt": {
-                        "type": "integer",
-                        "format": "int64",
-                        "nullable": true
-                    },
-                    "lastSuccessAt": {
-                        "type": "integer",
-                        "format": "int64",
-                        "nullable": true
-                    },
-                    "lastResult": {
-                        "type": "string",
-                        "nullable": true
-                    },
-                    "lastError": {
-                        "type": "string",
-                        "nullable": true
-                    },
-                    "lastReports": {
-                        "type": "integer",
-                        "format": "int64"
-                    },
-                    "texts": {
-                        "type": "object",
-                        "required": [
-                            "name",
-                            "summary",
-                            "sent",
-                            "privacy",
-                            "status"
-                        ],
-                        "properties": {
-                            "name": {
-                                "type": "string"
-                            },
-                            "summary": {
-                                "type": "string"
-                            },
-                            "sent": {
-                                "type": "string"
-                            },
-                            "privacy": {
-                                "type": "string"
-                            },
-                            "status": {
-                                "type": "string"
-                            }
-                        }
-                    },
-                    "preview": {
-                        "type": "object",
-                        "required": [
-                            "payload",
-                            "reason",
-                            "windowStart",
-                            "windowEnd",
-                            "truncated"
-                        ],
-                        "properties": {
-                            "payload": {
-                                "type": "object",
-                                "required": [
-                                    "instance",
-                                    "version",
-                                    "reports"
-                                ],
-                                "properties": {
-                                    "instance": {
-                                        "type": "string"
-                                    },
-                                    "version": {
-                                        "type": "integer",
-                                        "format": "int64"
-                                    },
-                                    "reports": {
-                                        "type": "array",
-                                        "items": {
-                                            "$ref": "#/components/schemas/ContributionReport"
-                                        }
-                                    }
-                                }
-                            },
-                            "reason": {
-                                "type": "string",
-                                "nullable": true
-                            },
-                            "windowStart": {
-                                "type": "integer",
-                                "format": "int64"
-                            },
-                            "windowEnd": {
-                                "type": "integer",
-                                "format": "int64"
-                            },
-                            "truncated": {
-                                "type": "boolean"
-                            }
-                        }
-                    }
-                }
-            },
-            "ContributionReport": {
-                "type": "object",
-                "required": [
-                    "ip",
-                    "check",
-                    "first_seen",
-                    "hits"
-                ],
-                "properties": {
-                    "ip": {
-                        "type": "string"
-                    },
-                    "check": {
-                        "type": "string"
-                    },
-                    "first_seen": {
-                        "type": "integer",
-                        "format": "int64"
-                    },
-                    "hits": {
-                        "type": "integer",
-                        "format": "int64"
-                    }
-                }
-            },
             "Cost": {
                 "type": "object",
                 "required": [
@@ -3165,7 +3019,6 @@
                 "required": [
                     "stored",
                     "outgoing",
-                    "contribution",
                     "gdpr"
                 ],
                 "properties": {
@@ -3180,14 +3033,6 @@
                         "items": {
                             "$ref": "#/components/schemas/OutgoingData"
                         }
-                    },
-                    "contribution": {
-                        "nullable": true,
-                        "allOf": [
-                            {
-                                "$ref": "#/components/schemas/Contribution"
-                            }
-                        ]
                     },
                     "gdpr": {
                         "type": "array",
@@ -11592,7 +11437,7 @@
             "get": {
                 "operationId": "privacy_api-index",
                 "summary": "What is stored, and what leaves the server",
-                "description": "Every kind of data the checks store, with why and for how long; the data sent to other services; and, where it is available, the shared blocklist contribution with a preview of the exact next report.\nThis endpoint requires admin access",
+                "description": "Every kind of data the checks store, with why and for how long, and the data sent to other services.\nThis endpoint requires admin access",
                 "tags": [
                     "privacy_api"
                 ],
@@ -11640,206 +11485,6 @@
                                                 "data": {
                                                     "$ref": "#/components/schemas/Privacy"
                                                 }
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    },
-                    "401": {
-                        "description": "Current user is not logged in",
-                        "content": {
-                            "application/json": {
-                                "schema": {
-                                    "type": "object",
-                                    "required": [
-                                        "ocs"
-                                    ],
-                                    "properties": {
-                                        "ocs": {
-                                            "type": "object",
-                                            "required": [
-                                                "meta",
-                                                "data"
-                                            ],
-                                            "properties": {
-                                                "meta": {
-                                                    "$ref": "#/components/schemas/OCSMeta"
-                                                },
-                                                "data": {}
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    },
-                    "403": {
-                        "description": "Logged in account must be an admin",
-                        "content": {
-                            "application/json": {
-                                "schema": {
-                                    "type": "object",
-                                    "required": [
-                                        "ocs"
-                                    ],
-                                    "properties": {
-                                        "ocs": {
-                                            "type": "object",
-                                            "required": [
-                                                "meta",
-                                                "data"
-                                            ],
-                                            "properties": {
-                                                "meta": {
-                                                    "$ref": "#/components/schemas/OCSMeta"
-                                                },
-                                                "data": {}
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        },
-        "/ocs/v2.php/apps/intrusion_detection/api/v1/contribution": {
-            "put": {
-                "operationId": "privacy_api-update-contribution",
-                "summary": "Change the shared blocklist contribution",
-                "description": "Only available while config.php has intrusion_detection.contribution_available.\nThis endpoint requires admin access\nThis endpoint requires password confirmation",
-                "tags": [
-                    "privacy_api"
-                ],
-                "security": [
-                    {
-                        "bearer_auth": []
-                    },
-                    {
-                        "basic_auth": []
-                    }
-                ],
-                "requestBody": {
-                    "required": false,
-                    "content": {
-                        "application/json": {
-                            "schema": {
-                                "type": "object",
-                                "properties": {
-                                    "enabled": {
-                                        "type": "boolean",
-                                        "nullable": true,
-                                        "default": null,
-                                        "description": "Send reports once a day"
-                                    },
-                                    "url": {
-                                        "type": "string",
-                                        "nullable": true,
-                                        "default": null,
-                                        "description": "Where to send them: an https:// address outside the local network; empty to remove it"
-                                    }
-                                }
-                            }
-                        }
-                    }
-                },
-                "parameters": [
-                    {
-                        "name": "OCS-APIRequest",
-                        "in": "header",
-                        "description": "Required to be true for the API request to pass",
-                        "required": true,
-                        "schema": {
-                            "type": "boolean",
-                            "default": true
-                        }
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "Contribution changed",
-                        "content": {
-                            "application/json": {
-                                "schema": {
-                                    "type": "object",
-                                    "required": [
-                                        "ocs"
-                                    ],
-                                    "properties": {
-                                        "ocs": {
-                                            "type": "object",
-                                            "required": [
-                                                "meta",
-                                                "data"
-                                            ],
-                                            "properties": {
-                                                "meta": {
-                                                    "$ref": "#/components/schemas/OCSMeta"
-                                                },
-                                                "data": {
-                                                    "$ref": "#/components/schemas/Contribution"
-                                                }
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    },
-                    "400": {
-                        "description": "The address is refused",
-                        "content": {
-                            "application/json": {
-                                "schema": {
-                                    "type": "object",
-                                    "required": [
-                                        "ocs"
-                                    ],
-                                    "properties": {
-                                        "ocs": {
-                                            "type": "object",
-                                            "required": [
-                                                "meta",
-                                                "data"
-                                            ],
-                                            "properties": {
-                                                "meta": {
-                                                    "$ref": "#/components/schemas/OCSMeta"
-                                                },
-                                                "data": {
-                                                    "$ref": "#/components/schemas/Error"
-                                                }
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    },
-                    "404": {
-                        "description": "The contribution is not available on this server",
-                        "content": {
-                            "application/json": {
-                                "schema": {
-                                    "type": "object",
-                                    "required": [
-                                        "ocs"
-                                    ],
-                                    "properties": {
-                                        "ocs": {
-                                            "type": "object",
-                                            "required": [
-                                                "meta",
-                                                "data"
-                                            ],
-                                            "properties": {
-                                                "meta": {
-                                                    "$ref": "#/components/schemas/OCSMeta"
-                                                },
-                                                "data": {}
                                             }
                                         }
                                     }
@@ -14674,7 +14319,7 @@
         },
         {
             "name": "privacy_api",
-            "description": "The \"Data and privacy\" tab. Administrators only; changes need a recent password confirmation and are audited."
+            "description": "The \"Data and privacy\" tab. Administrators only."
         },
         {
             "name": "secure_account_admin",

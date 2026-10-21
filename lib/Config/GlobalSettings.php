@@ -76,13 +76,6 @@ final class GlobalSettings {
 	/** Internal: when the watched settings were first recorded; 0 until then */
 	public const CONFIG_WATCH_BASELINE = 'config_watch_baseline';
 
-	/** Only shown and used while config.php has `intrusion_detection.contribution_available` */
-	public const CONTRIBUTE_ENABLED = 'contribute_enabled';
-	public const CONTRIBUTE_URL = 'contribute_url';
-	/** Internal: the random contributor id sent with every report */
-	public const CONTRIBUTE_ID = 'contribute_id';
-	/** Internal: the last run, its result and the end of the last window sent */
-	public const CONTRIBUTE_STATE = 'contribute_state';
 	/** Internal: when the running learning period started */
 	public const LEARNING_STARTED_AT = 'learning_started_at';
 
@@ -186,10 +179,6 @@ final class GlobalSettings {
 				new ParamDefinition(self::CS_DISTRIBUTED_DETECTED_AT, ParamType::Int, 0, min: 0),
 				new ParamDefinition(self::CS_DISTRIBUTED_DETECTION, ParamType::Int, 0, min: 0),
 				new ParamDefinition(self::DECOY_COUNT, ParamType::Int, 0, min: 0),
-				new ParamDefinition(self::CONTRIBUTE_ENABLED, ParamType::Bool, false),
-				new ParamDefinition(self::CONTRIBUTE_URL, ParamType::Text, '', maxItemLength: 2048),
-				new ParamDefinition(self::CONTRIBUTE_ID, ParamType::Text, '', itemPattern: '/^([a-z0-9]{32})?$/'),
-				new ParamDefinition(self::CONTRIBUTE_STATE, ParamType::Json, '{}'),
 				new ParamDefinition(self::ADMIN_CHANGE_REQUIRE_APPROVAL, ParamType::Bool, false),
 				new ParamDefinition(self::ADMIN_CHANGE_APPROVAL_TTL, ParamType::Duration, 604800, min: 3600, max: 30 * 86400),
 				new ParamDefinition(self::CONFIG_WATCH_BASELINE, ParamType::Int, 0, min: 0),
@@ -272,20 +261,11 @@ final class GlobalSettings {
 			self::BLOCKLIST_STATE, self::EXPORT_STATE,
 			self::CS_DISTRIBUTED_UNTIL, self::CS_DISTRIBUTED_DETECTED_AT, self::CS_DISTRIBUTED_DETECTION,
 			self::DECOY_COUNT,
-			self::CONTRIBUTE_ID, self::CONTRIBUTE_STATE,
 			self::CONFIG_WATCH_BASELINE,
 			self::DIGEST_STATE,
 			self::LEARNING_STARTED_AT,
 			self::STEP_UP_SESSIONS_UNTIL,
 			self::DETECTIONS_RETIRED,
 		], true);
-	}
-
-	/**
-	 * Settings that generic listings leave out, because a dedicated service
-	 * shows them only when the feature is available on this server.
-	 */
-	public static function isUnlisted(string $name): bool {
-		return in_array($name, [self::CONTRIBUTE_ENABLED, self::CONTRIBUTE_URL], true);
 	}
 }

@@ -2878,7 +2878,7 @@
         },
         {
             "name": "privacy_api",
-            "description": "The \"Data and privacy\" tab. Administrators only; changes need a recent password confirmation and are audited."
+            "description": "The \"Data and privacy\" tab. Administrators only."
         },
         {
             "name": "secure_account_admin",

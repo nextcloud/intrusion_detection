@@ -528,35 +528,9 @@ namespace OCA\IntrusionDetection;
  *     items: list<string>,
  * }
  *
- * @psalm-type IntrusionDetectionContributionReport = array{
- *     ip: string,
- *     check: string,
- *     first_seen: int,
- *     hits: int,
- * }
- *
- * @psalm-type IntrusionDetectionContribution = array{
- *     enabled: bool,
- *     url: string,
- *     lastAttemptAt: ?int,
- *     lastSuccessAt: ?int,
- *     lastResult: ?string,
- *     lastError: ?string,
- *     lastReports: int,
- *     texts: array{name: string, summary: string, sent: string, privacy: string, status: string},
- *     preview: array{
- *         payload: array{instance: string, version: int, reports: list<IntrusionDetectionContributionReport>},
- *         reason: ?string,
- *         windowStart: int,
- *         windowEnd: int,
- *         truncated: bool,
- *     },
- * }
- *
  * @psalm-type IntrusionDetectionPrivacy = array{
  *     stored: list<IntrusionDetectionStoredData>,
  *     outgoing: list<IntrusionDetectionOutgoingData>,
- *     contribution: ?IntrusionDetectionContribution,
  *     gdpr: list<string>,
  * }
  *

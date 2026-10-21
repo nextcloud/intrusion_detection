@@ -500,35 +500,9 @@ export interface OutgoingData {
 	items: string[]
 }
 
-export interface ContributionReport {
-	ip: string
-	check: string
-	first_seen: number
-	hits: number
-}
-
-export interface Contribution {
-	enabled: boolean
-	url: string
-	lastAttemptAt: number | null
-	lastSuccessAt: number | null
-	lastResult: string | null
-	lastError: string | null
-	lastReports: number
-	texts: { name: string, summary: string, sent: string, privacy: string, status: string }
-	preview: {
-		payload: { instance: string, version: number, reports: ContributionReport[] }
-		reason: string | null
-		windowStart: number
-		windowEnd: number
-		truncated: boolean
-	}
-}
-
 export interface Privacy {
 	stored: StoredData[]
 	outgoing: OutgoingData[]
-	contribution: Contribution | null
 	gdpr: string[]
 }
 

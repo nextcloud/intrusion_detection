@@ -11,13 +11,10 @@ namespace OCA\IntrusionDetection\Tests\Unit\Controller;
 
 use OCA\IntrusionDetection\Admin\BlocklistPresenter;
 use OCA\IntrusionDetection\Admin\NotificationOverview;
-use OCA\IntrusionDetection\Admin\PrivacyOverview;
 use OCA\IntrusionDetection\Admin\TrapsOverview;
 use OCA\IntrusionDetection\Audit\AuditLogger;
 use OCA\IntrusionDetection\Blocklist\BlocklistSource;
 use OCA\IntrusionDetection\Blocklist\BlocklistSync;
-use OCA\IntrusionDetection\Blocklist\ContributionOverview;
-use OCA\IntrusionDetection\Blocklist\ContributionSettings;
 use OCA\IntrusionDetection\Blocklist\ListFormat;
 use OCA\IntrusionDetection\Blocklist\SourceEditor;
 use OCA\IntrusionDetection\Blocklist\SourceRepository;
@@ -27,7 +24,6 @@ use OCA\IntrusionDetection\Config\Settings;
 use OCA\IntrusionDetection\Controller\BlocklistApiController;
 use OCA\IntrusionDetection\Controller\DecoyApiController;
 use OCA\IntrusionDetection\Controller\NotificationApiController;
-use OCA\IntrusionDetection\Controller\PrivacyApiController;
 use OCA\IntrusionDetection\Decoy\DecoyService;
 use OCA\IntrusionDetection\Notification\TestAlert;
 use OCA\IntrusionDetection\Traps\ReservedNames;
@@ -174,24 +170,4 @@ class AdminTabControllersTest extends TestCase {
 		$this->assertSame('sent', $controller->test()->getData()['email']);
 	}
 
-	public function testTheContributionCannotBeChangedWhereItIsNotAvailable(): void {
-		$settings = $this->createMock(ContributionSettings::class);
-		$settings->method('isAvailable')->willReturn(false);
-		$settings->expects($this->never())->method('setEnabled');
-		$controller = new PrivacyApiController($this->createMock(IRequest::class), $this->l, $this->session, $this->createMock(PrivacyOverview::class), $settings, $this->createMock(ContributionOverview::class));
-		$this->expectException(OCSNotFoundException::class);
-		$controller->updateContribution(true);
-	}
-
-	public function testARefusedContributionAddressIsExplained(): void {
-		$settings = $this->createMock(ContributionSettings::class);
-		$settings->method('isAvailable')->willReturn(true);
-		$settings->method('setUrl')->willThrowException(new InvalidParamException('contribution_url_refused'));
-		$settings->expects($this->never())->method('setEnabled');
-		$controller = new PrivacyApiController($this->createMock(IRequest::class), $this->l, $this->session, $this->createMock(PrivacyOverview::class), $settings, $this->createMock(ContributionOverview::class));
-		$response = $controller->updateContribution(true, 'https://localhost/reports');
-		$this->assertSame(Http::STATUS_BAD_REQUEST, $response->getStatus());
-		$this->assertSame('url', $response->getData()['param']);
-		$this->assertStringContainsString('https://', $response->getData()['message']);
-	}
 }

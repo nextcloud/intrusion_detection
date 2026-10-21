@@ -12,7 +12,6 @@ namespace OCA\IntrusionDetection\Admin;
 use OCA\IntrusionDetection\AdminChange\ApprovalService;
 use OCA\IntrusionDetection\Blocklist\BlocklistSource;
 use OCA\IntrusionDetection\Blocklist\BlocklistSync;
-use OCA\IntrusionDetection\Blocklist\ContributionOverview;
 use OCA\IntrusionDetection\Blocklist\SourceRepository;
 use OCA\IntrusionDetection\Check\CheckRegistry;
 use OCA\IntrusionDetection\Check\DataKind;
@@ -46,7 +45,6 @@ class PrivacyOverview {
 		private readonly CheckRegistry $registry,
 		private readonly Settings $settings,
 		private readonly SourceRepository $sources,
-		private readonly ContributionOverview $contribution,
 	) {
 	}
 
@@ -57,7 +55,6 @@ class PrivacyOverview {
 		return [
 			'stored' => $this->stored($l),
 			'outgoing' => $this->outgoing($l),
-			'contribution' => $this->contribution->get($l),
 			'gdpr' => [
 				$l->t('IP addresses and account names are personal data under the GDPR. Processing them to protect your server is usually a legitimate interest (Article 6(1)(f)), but you should document this decision in your records of processing activities and mention it in your privacy notice.'),
 				$l->t('Everything listed here stays in your database or memory cache and is deleted automatically after the time shown. Passwords are never stored; fingerprints of them cannot be turned back into a password and are useless without the secret in config.php.'),

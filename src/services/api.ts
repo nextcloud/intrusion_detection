@@ -12,7 +12,6 @@ import type {
 	Check,
 	CheckList,
 	ConfirmationOverview,
-	Contribution,
 	CustomSignature,
 	DailyStats,
 	DecoyFormat,
@@ -314,15 +313,6 @@ export const fetchNotifications = () => call<Notifications>(axios.get(url('notif
 export const sendTestAlert = () => call<TestAlertResult>(axios.post(url('notifications/test'), {}, write))
 
 export const fetchPrivacy = () => call<Privacy>(axios.get(url('privacy')))
-
-/**
- * @param change - What to change
- * @param change.enabled - Send reports
- * @param change.url - Where to send them
- */
-export function updateContribution(change: { enabled?: boolean, url?: string }): Promise<Contribution> {
-	return call<Contribution>(axios.put(url('contribution'), change, write))
-}
 
 export const fetchSignatures = () => call<Signatures>(axios.get(url('payload/signatures')))
 

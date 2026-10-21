@@ -23,9 +23,9 @@ final class ParamDefinition {
 	/**
 	 * @param int|float|bool|string|list<string> $default
 	 * @param list<string> $choices allowed values for ParamType::Choice
-	 * @param ?string $itemPattern regular expression every list item (StringList) or the text (Text) must match
+	 * @param ?string $itemPattern regular expression every list item must match (StringList)
 	 * @param int $maxItems maximum number of list items
-	 * @param int $maxItemLength maximum length of one list item, or of the text
+	 * @param int $maxItemLength maximum length of one list item
 	 * @param ?\Closure(string, bool): ?string $itemValidator extra check of one StringList item, given the item and whether to be thorough (when saving); returns why it is invalid, or null
 	 */
 	public function __construct(
@@ -63,7 +63,6 @@ final class ParamDefinition {
 			ParamType::StringList => $this->validateStringList($value, $thorough),
 			ParamType::CidrList => $this->validateCidrList($value),
 			ParamType::Json => $this->validateJson($value),
-			ParamType::Text => $this->validateText($value),
 		};
 	}
 
@@ -84,7 +83,6 @@ final class ParamDefinition {
 			ParamType::Choice => $this->validateChoice($raw),
 			ParamType::StringList, ParamType::CidrList => $this->validate(self::parseList($raw)),
 			ParamType::Json => $this->validateJson($raw),
-			ParamType::Text => $this->validateText($raw),
 		};
 	}
 
@@ -270,20 +268,6 @@ final class ParamDefinition {
 		}
 		if (!is_array($decoded)) {
 			throw new InvalidParamException('not_json', ['param' => $this->name]);
-		}
-		return $value;
-	}
-
-	/**
-	 * One line of text without control characters. The empty string is
-	 * accepted unless the pattern refuses it.
-	 */
-	private function validateText(mixed $value): string {
-		if (!is_string($value) || strlen($value) > $this->maxItemLength || preg_match('/[\x00-\x1f\x7f]/', $value)) {
-			throw new InvalidParamException('invalid_text', ['param' => $this->name, 'max' => $this->maxItemLength]);
-		}
-		if ($this->itemPattern !== null && preg_match($this->itemPattern, $value) !== 1) {
-			throw new InvalidParamException('invalid_text', ['param' => $this->name, 'max' => $this->maxItemLength]);
 		}
 		return $value;
 	}
