@@ -131,6 +131,38 @@ class VerifyFlowTest extends StepUpTestCase {
 		$this->assertCount(1, $this->notificationsFor($this->alice->getUID(), UserAlerts::SUBJECT));
 	}
 
+	public function testParallelRequestsGetNoMoreThanFiveTriesBetweenThem(): void {
+		$this->pendingLogin();
+		// Every request read the session before any of them saved it.
+		$loaded = $this->state->get(SessionState::STEP_UP);
+		$this->assertNotNull($loaded);
+		$statuses = [];
+		foreach (['000000', '000000', '000000', '000000', '000000', '482915', '000000'] as $code) {
+			$this->sessionUser = $this->alice;
+			$this->state->set(SessionState::STEP_UP, $loaded);
+			$response = $this->verifyController()->confirm($code);
+			$statuses[] = $response instanceof RedirectResponse ? $response->getRedirectURL() : $response->getStatus();
+		}
+		$this->assertSame([Http::STATUS_FORBIDDEN, Http::STATUS_FORBIDDEN, Http::STATUS_FORBIDDEN, Http::STATUS_FORBIDDEN], array_slice($statuses, 0, 4));
+		foreach (array_slice($statuses, 4) as $i => $status) {
+			$this->assertIsString($status, 'Request ' . ($i + 5) . ' gets no try');
+			$this->assertStringContainsString('/verify/ended?reason=attempts', $status);
+		}
+		$this->assertNull($this->state->get(SessionState::CONFIRMATION), 'Not even the right code got in');
+		$this->assertCount(1, $this->detectionsOf(StepUpFailed::ID));
+	}
+
+	public function testANewLoginInTheSameSessionStartsWithFiveTries(): void {
+		$this->pendingLogin();
+		for ($i = 0; $i < 4; $i++) {
+			$this->verifyController()->confirm('000000');
+		}
+		$this->login($this->alice);
+		$this->assertSame(0, $this->stepUp()?->attempts);
+		$response = $this->verifyController()->confirm('000000');
+		$this->assertSame('This code is not correct. You can try 4 more times.', $this->paramOf($response, 'error'), 'The server counts afresh too');
+	}
+
 	public function testALoginThatWaitsTooLongIsEndedWithoutBlockingTheAddress(): void {
 		$this->pendingLogin();
 		$stepUp = $this->stepUp();

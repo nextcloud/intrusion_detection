@@ -418,6 +418,7 @@ return array(
     'OCA\\IntrusionDetection\\Migration\\Version1000Date20261021140000' => $baseDir . '/../lib/Migration/Version1000Date20261021140000.php',
     'OCA\\IntrusionDetection\\Migration\\Version1000Date20261021150000' => $baseDir . '/../lib/Migration/Version1000Date20261021150000.php',
     'OCA\\IntrusionDetection\\Migration\\Version1000Date20261021170000' => $baseDir . '/../lib/Migration/Version1000Date20261021170000.php',
+    'OCA\\IntrusionDetection\\Migration\\Version1000Date20261021220000' => $baseDir . '/../lib/Migration/Version1000Date20261021220000.php',
     'OCA\\IntrusionDetection\\Net\\FetchMetadata' => $baseDir . '/../lib/Net/FetchMetadata.php',
     'OCA\\IntrusionDetection\\Net\\Ipv6Networks' => $baseDir . '/../lib/Net/Ipv6Networks.php',
     'OCA\\IntrusionDetection\\Net\\ProtectedRanges' => $baseDir . '/../lib/Net/ProtectedRanges.php',

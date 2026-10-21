@@ -218,7 +218,7 @@ class PrivacyOverview {
 			],
 			DataKind::UnconfirmedSessions => [
 				'name' => $l->t('Unconfirmed logins'),
-				'what' => $l->t('A keyed fingerprint of each session whose login still waits for its confirmation or was refused, never the session id itself; for a waiting login also its address, why it needs confirmation and until when it may wait.'),
+				'what' => $l->t('A keyed fingerprint of each session whose login still waits for its confirmation or was refused, never the session id itself; for a waiting login also its address, why it needs confirmation, until when it may wait and how often its email code was tried.'),
 				'why' => $l->t('So that such a session cannot skip the confirmation by coming back through its remember-me cookie, and so that a login nobody comes back to is ended and the user told.'),
 				'retention' => $l->t('Until the login is confirmed or ended, at most as long as a remembered login lasts'),
 				'where' => 'ids_step_up_sessions',

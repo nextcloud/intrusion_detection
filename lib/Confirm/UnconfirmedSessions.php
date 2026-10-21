@@ -74,6 +74,20 @@ class UnconfirmedSessions {
 		}
 	}
 
+	/**
+	 * Count one try of the session's email code on the server; see
+	 * {@see StepUpSessionMapper::takeAttempt()}. A pending login whose
+	 * session is not remembered (any more) has no try left: it was ended
+	 * meanwhile. Only a session without an id, which is never remembered,
+	 * gets 0, and its tries are counted in the session alone.
+	 */
+	public function takeCodeAttempt(#[\SensitiveParameter] string $sessionId, int $max): ?int {
+		if ($sessionId === '') {
+			return 0;
+		}
+		return $this->mapper->takeAttempt($this->fingerprinter->session($sessionId), $max);
+	}
+
 	public function forget(#[\SensitiveParameter] string $sessionId): void {
 		try {
 			$this->mapper->delete($this->fingerprinter->session($sessionId));

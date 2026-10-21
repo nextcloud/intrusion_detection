@@ -37,6 +37,7 @@ class StepUpSessionMapper {
 			->set('deadline', $qb->createNamedParameter($deadline, IQueryBuilder::PARAM_INT))
 			->set('ip', $qb->createNamedParameter($ip))
 			->set('policies', $qb->createNamedParameter($policyList))
+			->set('attempts', $qb->createNamedParameter(0, IQueryBuilder::PARAM_INT))
 			->where($qb->expr()->eq('session_key', $qb->createNamedParameter($sessionKey)));
 		if ($qb->executeStatement() > 0) {
 			return;
@@ -49,7 +50,33 @@ class StepUpSessionMapper {
 			'deadline' => $deadline,
 			'ip' => $ip,
 			'policies' => $policyList,
+			'attempts' => 0,
 		]);
+	}
+
+	/**
+	 * Count one try of the pending login's email code, unless it has used
+	 * all of them. One conditional update, so that parallel requests never
+	 * get more tries than `$max` between them.
+	 *
+	 * @return ?int the tries used, this one included; null when none is left or the session is not remembered (any more)
+	 */
+	public function takeAttempt(string $sessionKey, int $max): ?int {
+		$qb = $this->db->getQueryBuilder();
+		$qb->update(self::TABLE)
+			->set('attempts', $qb->createFunction($qb->getColumnName('attempts') . ' + 1'))
+			->where($qb->expr()->eq('session_key', $qb->createNamedParameter($sessionKey)))
+			->andWhere($qb->expr()->lt('attempts', $qb->createNamedParameter($max, IQueryBuilder::PARAM_INT)));
+		$taken = $qb->executeStatement() > 0;
+
+		$qb = $this->db->getQueryBuilder();
+		$qb->select('attempts')
+			->from(self::TABLE)
+			->where($qb->expr()->eq('session_key', $qb->createNamedParameter($sessionKey)));
+		$result = $qb->executeQuery();
+		$attempts = $result->fetchOne();
+		$result->closeCursor();
+		return $taken && $attempts !== false ? (int)$attempts : null;
 	}
 
 	/**

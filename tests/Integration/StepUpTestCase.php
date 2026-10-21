@@ -329,6 +329,8 @@ abstract class StepUpTestCase extends AccountTestCase {
 			Server::get(IEmailValidator::class),
 			Server::get(IConfig::class),
 			Server::get(ITimeFactory::class),
+			Server::get(UnconfirmedSessions::class),
+			$this->session,
 		);
 	}
 

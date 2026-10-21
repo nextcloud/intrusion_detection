@@ -17,6 +17,7 @@ use OCA\IntrusionDetection\Notification\Mails;
 use OCA\IntrusionDetection\Notification\UserMessages;
 use OCP\AppFramework\Utility\ITimeFactory;
 use OCP\IConfig;
+use OCP\ISession;
 use OCP\IUser;
 use OCP\Mail\IEmailValidator;
 use OCP\Security\IHasher;
@@ -28,7 +29,10 @@ use OCP\Security\ISecureRandom;
  * A code comes from {@see ISecureRandom}; only its {@see IHasher} hash is
  * kept, in the session's step-up state, and it is valid `step_up_code_ttl`
  * seconds. A login gets MAX_ATTEMPTS tries in all and MAX_RESENDS new codes
- * per RESEND_WINDOW. The code is in the email and nowhere else: never in a
+ * per RESEND_WINDOW. The tries are counted on the server too
+ * ({@see UnconfirmedSessions::takeCodeAttempt()}), before the code is
+ * checked: parallel requests that each read the session before any of them
+ * saved it never get more tries between them. The code is in the email and nowhere else: never in a
  * log line, a table, a notification or the session in plain text.
  */
 class EmailCodes {
@@ -54,6 +58,8 @@ class EmailCodes {
 		private readonly IEmailValidator $emailValidator,
 		private readonly IConfig $config,
 		private readonly ITimeFactory $timeFactory,
+		private readonly UnconfirmedSessions $sessions,
+		private readonly ISession $session,
 	) {
 	}
 
@@ -122,6 +128,13 @@ class EmailCodes {
 		if ($state->codeHash === null || $state->codeExpires <= $this->timeFactory->getTime()) {
 			return self::EXPIRED;
 		}
+		$used = $this->sessions->takeCodeAttempt($this->sessionId(), self::MAX_ATTEMPTS);
+		if ($used === null) {
+			$state->attempts = self::MAX_ATTEMPTS;
+			return self::EXHAUSTED;
+		}
+		// The tries before this one, as the server counted them.
+		$state->attempts = max($state->attempts, $used - 1);
 		if (!$this->hasher->verify($code, $state->codeHash)) {
 			$state->attempts++;
 			return $state->attempts >= self::MAX_ATTEMPTS ? self::EXHAUSTED : self::WRONG;
@@ -145,6 +158,14 @@ class EmailCodes {
 			return '***';
 		}
 		return mb_substr(substr($address, 0, $at), 0, 1) . '***' . substr($address, $at);
+	}
+
+	private function sessionId(): string {
+		try {
+			return $this->session->getId();
+		} catch (\Throwable) {
+			return '';
+		}
 	}
 
 	/**

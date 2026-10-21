@@ -13,11 +13,13 @@ use OCA\IntrusionDetection\Config\GlobalSettings;
 use OCA\IntrusionDetection\Config\Settings;
 use OCA\IntrusionDetection\Confirm\EmailCodes;
 use OCA\IntrusionDetection\Confirm\StepUpState;
+use OCA\IntrusionDetection\Confirm\UnconfirmedSessions;
 use OCA\IntrusionDetection\Notification\MailContent;
 use OCA\IntrusionDetection\Notification\Mails;
 use OCA\IntrusionDetection\Notification\UserMessages;
 use OCP\AppFramework\Utility\ITimeFactory;
 use OCP\IConfig;
+use OCP\ISession;
 use OCP\IUser;
 use OCP\L10N\IFactory;
 use OCP\Mail\IEmailValidator;
@@ -39,6 +41,8 @@ class EmailCodesTest extends TestCase {
 	/** @var list<string> */
 	private array $codes = ['482915', '730264', '119838', '650417', '004213'];
 	private string $smtpMode = 'smtp';
+	/** The tries the server counted; null: the session is not remembered there */
+	private ?int $serverTries = null;
 
 	public function testACodeIsRandomOnlyItsHashIsKeptAndItIsSentByEmail(): void {
 		$random = $this->createMock(ISecureRandom::class);
@@ -72,6 +76,38 @@ class EmailCodesTest extends TestCase {
 		$this->assertSame(EmailCodes::VERIFIED, $codes->verify($state, ' 482-915 '));
 		$this->assertNull($state->codeHash, 'Used up');
 		$this->assertSame(EmailCodes::EXPIRED, $codes->verify($state, '482915'));
+	}
+
+	public function testTheServerCountsTheTriesSoThatParallelRequestsShareThem(): void {
+		$this->serverTries = 0;
+		$codes = $this->codes();
+		$state = $this->state();
+		$codes->issue($this->user(), $state);
+		// Each request read the session before any of them saved it.
+		$results = [];
+		for ($i = 0; $i < 6; $i++) {
+			$copy = StepUpState::fromArray($state->toArray());
+			$this->assertNotNull($copy);
+			$results[] = $codes->verify($copy, '000000');
+		}
+		$this->assertSame([EmailCodes::WRONG, EmailCodes::WRONG, EmailCodes::WRONG, EmailCodes::WRONG, EmailCodes::EXHAUSTED, EmailCodes::EXHAUSTED], $results);
+		$this->assertSame(5, $this->serverTries, 'Never more than five');
+
+		$copy = StepUpState::fromArray($state->toArray());
+		$this->assertNotNull($copy);
+		$this->assertSame(EmailCodes::EXHAUSTED, $codes->verify($copy, '482915'), 'Not even the right code after that');
+		$this->assertSame(0, $codes->attemptsLeft($copy));
+	}
+
+	public function testMalformedAndExpiredCodesAreNotCountedOnTheServer(): void {
+		$this->serverTries = 0;
+		$codes = $this->codes();
+		$state = $this->state();
+		$codes->issue($this->user(), $state);
+		$this->assertSame(EmailCodes::MALFORMED, $codes->verify($state, 'abc'));
+		$this->now += 601;
+		$this->assertSame(EmailCodes::EXPIRED, $codes->verify($state, '482915'));
+		$this->assertSame(0, $this->serverTries);
 	}
 
 	public function testACodeExpires(): void {
@@ -203,6 +239,15 @@ class EmailCodesTest extends TestCase {
 		$config->method('getSystemValueString')->willReturnCallback(fn (string $key, string $default): string => $key === 'mail_smtpmode' ? $this->smtpMode : $default);
 		$time = $this->createMock(ITimeFactory::class);
 		$time->method('getTime')->willReturnCallback(fn (): int => $this->now);
-		return new EmailCodes($random, Server::get(IHasher::class), $mails, $messages, $settings, $validator, $config, $time);
+		$sessions = $this->createMock(UnconfirmedSessions::class);
+		$sessions->method('takeCodeAttempt')->willReturnCallback(function (string $sessionId, int $max): ?int {
+			if ($this->serverTries === null) {
+				return 0;
+			}
+			return $this->serverTries < $max ? ++$this->serverTries : null;
+		});
+		$session = $this->createMock(ISession::class);
+		$session->method('getId')->willReturn('session-id');
+		return new EmailCodes($random, Server::get(IHasher::class), $mails, $messages, $settings, $validator, $config, $time, $sessions, $session);
 	}
 }
