@@ -113,12 +113,23 @@ class WatchedSettings {
 	}
 
 	/**
-	 * The current value of one of this app's settings, as read() has it.
+	 * One of this app's settings, as read() has it: compared by the value
+	 * stored in the app config (null when unset), so that a default changed
+	 * by an update is no change, and shown with its effective value.
 	 *
 	 * @param int|float|bool|string|list<string> $value the effective value
 	 */
-	public static function ownValue(string $name, int|float|bool|string|array $value): WatchedValue {
-		return new WatchedValue(self::ownKey($name), $value, false, true);
+	public static function ownValue(string $name, int|float|bool|string|array $value, mixed $stored): WatchedValue {
+		return new WatchedValue(self::ownKey($name), $value, false, true, WatchedValue::canonicalOf($stored));
+	}
+
+	/**
+	 * The current value of one of this app's settings, right after the app changed it.
+	 *
+	 * @param int|float|bool|string|list<string> $value the effective value
+	 */
+	public function ownCurrent(string $name, int|float|bool|string|array $value): WatchedValue {
+		return self::ownValue($name, $value, $this->appConfig->getAllValues(Application::APP_ID, $name)[$name] ?? null);
 	}
 
 	/**
@@ -235,23 +246,23 @@ class WatchedSettings {
 	}
 
 	/**
-	 * This app's settings with their effective values, so a value set to its
-	 * default reads the same as an unset one.
+	 * Every setting this app defines (internal state left out), see {@see self::ownValue()}.
 	 *
 	 * @return list<WatchedValue>
 	 */
 	private function ownSettings(): array {
+		$stored = $this->appConfig->getAllValues(Application::APP_ID);
 		$values = [];
 		foreach ($this->globals->all() as $name => $definition) {
 			if (!GlobalSettings::isInternal($name)) {
-				$values[] = self::ownValue($name, $this->settings->global($name));
+				$values[] = self::ownValue($name, $this->settings->global($name), $stored[$name] ?? null);
 			}
 		}
 		foreach ($this->registry->all() as $check) {
-			$values[] = self::ownValue(Keys::mode($check->id), $this->settings->configuredMode($check->id)->value);
-			$values[] = self::ownValue(Keys::responses($check->id), array_map(static fn (ResponseType $r): string => $r->value, $this->settings->responses($check->id)));
+			$values[] = self::ownValue(Keys::mode($check->id), $this->settings->configuredMode($check->id)->value, $stored[Keys::mode($check->id)] ?? null);
+			$values[] = self::ownValue(Keys::responses($check->id), array_map(static fn (ResponseType $r): string => $r->value, $this->settings->responses($check->id)), $stored[Keys::responses($check->id)] ?? null);
 			foreach ($this->settings->params($check->id) as $name => $value) {
-				$values[] = self::ownValue(Keys::param($check->id, $name), $value);
+				$values[] = self::ownValue(Keys::param($check->id, $name), $value, $stored[Keys::param($check->id, $name)] ?? null);
 			}
 		}
 		return $values;

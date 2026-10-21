@@ -9,6 +9,7 @@ declare(strict_types=1);
 
 namespace OCA\IntrusionDetection\AdminChange;
 
+use OCA\IntrusionDetection\AppInfo\Application;
 use OCA\IntrusionDetection\Check\Checks\AdminChange;
 use OCA\IntrusionDetection\Check\Checks\AdminChangeDetector;
 use OCA\IntrusionDetection\Check\Mode;
@@ -17,6 +18,7 @@ use OCA\IntrusionDetection\Config\ModeState;
 use OCA\IntrusionDetection\Config\Settings;
 use OCA\IntrusionDetection\Crypto\Fingerprinter;
 use OCA\IntrusionDetection\Db\ConfigSnapshotMapper;
+use OCP\App\IAppManager;
 use OCP\AppFramework\Utility\ITimeFactory;
 
 /**
@@ -31,8 +33,16 @@ use OCP\AppFramework\Utility\ITimeFactory;
  * - Changes of this app's settings made through the app (admin page, occ
  *   intrusion:*) are reported at once with the actor, and the snapshot is
  *   updated then; the watch only finds those made around the app.
+ * - This app's settings are compared by their stored values. Settings an
+ *   update removed are dropped from the snapshot silently, and after an
+ *   update of this app its settings are recorded again silently (an update
+ *   may rename settings or change defaults; the snapshot row META_VERSION
+ *   holds the version of the last run).
  */
 class ConfigWatch {
+	/** Snapshot row that holds the app version of the last run */
+	public const META_VERSION = 'meta:app_version';
+
 	public function __construct(
 		private readonly WatchedSettings $watched,
 		private readonly ConfigSnapshotMapper $snapshots,
@@ -40,6 +50,7 @@ class ConfigWatch {
 		private readonly AdminChangeDetector $detector,
 		private readonly Settings $settings,
 		private readonly ITimeFactory $timeFactory,
+		private readonly IAppManager $appManager,
 	) {
 	}
 
@@ -58,6 +69,10 @@ class ConfigWatch {
 		$baseline = $this->settings->getInt(GlobalSettings::CONFIG_WATCH_BASELINE) === 0;
 		$current = $this->watched->read();
 		$snapshot = $this->snapshots->all();
+		$version = $this->appManager->getAppVersion(Application::APP_ID);
+		$versionHash = $this->fingerprinter->setting(WatchedValue::canonicalOf($version));
+		$updated = !isset($snapshot[self::META_VERSION]) || !hash_equals($snapshot[self::META_VERSION]['hash'], $versionHash);
+		unset($snapshot[self::META_VERSION]);
 		$changes = [];
 
 		foreach ($current as $key => $value) {
@@ -70,6 +85,11 @@ class ConfigWatch {
 			$this->snapshots->store($key, $hash, $value->display(), $now);
 			if ($baseline || ($row === null && $value->fixed)) {
 				// A setting watched for the first time is recorded silently.
+				continue;
+			}
+			$own = WatchedSettings::ownName($key) !== null;
+			if ($own && $row !== null && ($updated || $row['display'] === $value->display())) {
+				// Recorded again after an update of the app, or stored differently with the same effect.
 				continue;
 			}
 			$changes[] = [
@@ -89,6 +109,11 @@ class ConfigWatch {
 					continue;
 				}
 				$secret = $row['display'] === null;
+				if (WatchedSettings::ownName($key) !== null) {
+					// Every setting the app defines is read, so this one is no longer defined.
+					$this->snapshots->delete($key);
+					continue;
+				}
 				$this->snapshots->store($key, $unset, $secret ? null : DisplayValue::encode(null), $now);
 				if (!$baseline) {
 					$changes[] = ['key' => $key, 'old' => DisplayValue::decode($row['display']), 'new' => null, 'secret' => $secret];
@@ -96,6 +121,9 @@ class ConfigWatch {
 			}
 		}
 
+		if ($updated) {
+			$this->snapshots->store(self::META_VERSION, $versionHash, DisplayValue::encode($version), $now);
+		}
 		if ($baseline) {
 			$this->settings->setGlobal(GlobalSettings::CONFIG_WATCH_BASELINE, $now);
 			return 0;
@@ -121,7 +149,7 @@ class ConfigWatch {
 	 */
 	public function ownSettingChanged(string $name, int|float|bool|string|array $old, int|float|bool|string|array $new, string $actor, ModeState $mode): void {
 		if ($this->settings->getInt(GlobalSettings::CONFIG_WATCH_BASELINE) !== 0) {
-			$value = WatchedSettings::ownValue($name, $new);
+			$value = $this->watched->ownCurrent($name, $new);
 			$this->snapshots->store($value->key, $this->fingerprinter->setting($value->canonical()), $value->display(), $this->timeFactory->getTime());
 		}
 		$this->detector->settingChanged(WatchedSettings::ownKey($name), $old, $new, false, $actor, false, $mode);

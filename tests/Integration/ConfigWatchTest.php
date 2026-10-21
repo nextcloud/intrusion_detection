@@ -12,7 +12,9 @@ namespace OCA\IntrusionDetection\Tests\Integration;
 use OC\SystemConfig;
 use OCA\IntrusionDetection\AdminChange\ActorResolver;
 use OCA\IntrusionDetection\AdminChange\ConfigWatch;
+use OCA\IntrusionDetection\AdminChange\DisplayValue;
 use OCA\IntrusionDetection\AdminChange\WatchedSettings;
+use OCA\IntrusionDetection\AdminChange\WatchedValue;
 use OCA\IntrusionDetection\AppInfo\Application;
 use OCA\IntrusionDetection\Check\CheckRegistry;
 use OCA\IntrusionDetection\Check\Checks\AdminChange;
@@ -21,9 +23,12 @@ use OCA\IntrusionDetection\Check\Severity;
 use OCA\IntrusionDetection\Config\GlobalSettings;
 use OCA\IntrusionDetection\Config\Keys;
 use OCA\IntrusionDetection\Config\Settings;
+use OCA\IntrusionDetection\Crypto\Fingerprinter;
+use OCA\IntrusionDetection\Db\ConfigSnapshotMapper;
 use OCA\IntrusionDetection\Explain\NarrativeBuilder;
 use OCA\IntrusionDetection\Notification\AdminAlerts;
 use OCA\IntrusionDetection\Notification\Notifier;
+use OCP\App\IAppManager;
 use OCP\IAppConfig;
 use OCP\IConfig;
 use OCP\L10N\IFactory;
@@ -45,6 +50,7 @@ class ConfigWatchTest extends AdminChangeTestCase {
 	/** @var array<string, true> config.php keys Nextcloud treats as secret */
 	private array $sensitive = [];
 	private ConfigWatch $watch;
+	private SystemConfig $systemConfig;
 
 	protected function setUp(): void {
 		parent::setUp();
@@ -61,8 +67,12 @@ class ConfigWatchTest extends AdminChangeTestCase {
 		$systemConfig->method('getKeys')->willReturnCallback(fn (): array => array_keys($this->system));
 		$systemConfig->method('getValue')->willReturnCallback(fn (string $key, mixed $default = ''): mixed => $this->system[$key] ?? $default);
 		$systemConfig->method('getFilteredValue')->willReturnCallback(fn (string $key, mixed $default = ''): mixed => isset($this->sensitive[$key]) ? IConfig::SENSITIVE_VALUE : ($this->system[$key] ?? $default));
-		$watched = new WatchedSettings($systemConfig, Server::get(IAppConfig::class), Server::get(Settings::class), Server::get(CheckRegistry::class), new GlobalSettings(), Server::get(LoggerInterface::class));
-		$this->watch = $this->configWatch($watched);
+		$this->systemConfig = $systemConfig;
+		$this->watch = $this->configWatch($this->watchedSettings());
+	}
+
+	private function watchedSettings(): WatchedSettings {
+		return new WatchedSettings($this->systemConfig, Server::get(IAppConfig::class), Server::get(Settings::class), Server::get(CheckRegistry::class), new GlobalSettings(), Server::get(LoggerInterface::class));
 	}
 
 	protected function tearDown(): void {
@@ -128,6 +138,60 @@ class ConfigWatchTest extends AdminChangeTestCase {
 		$last = $this->adminChanges()[2];
 		$this->assertSame('x', $this->facts($last)['old']);
 		$this->assertNull($this->facts($last)['new']);
+	}
+
+	/**
+	 * On devel an update that removed 17 settings of this app raised 17
+	 * alerts "changed from … to not set" with an unknown actor.
+	 */
+	public function testSettingsAnUpdateRemovedRaiseNoAlerts(): void {
+		$this->watch->run();
+		$snapshots = Server::get(ConfigSnapshotMapper::class);
+		$fingerprinter = Server::get(Fingerprinter::class);
+		$removed = [];
+		foreach (['sensitive_actions_enabled', 'sensitive_window', 'lockdown_enabled', 'lockdown_until', 'lockdown_reason', 'check_sensitive_action_mode', 'check_sensitive_action_responses', 'check_lockdown_mode'] as $name) {
+			$removed[] = WatchedSettings::ownKey($name);
+		}
+		for ($i = count($removed); $i < 17; $i++) {
+			$removed[] = WatchedSettings::ownKey('check_sensitive_action_param_' . $i);
+		}
+		foreach ($removed as $key) {
+			$snapshots->store($key, $fingerprinter->setting(WatchedValue::canonicalOf(true)), DisplayValue::encode(true), time());
+		}
+
+		$this->assertSame(0, $this->watch->run());
+		$this->assertSame([], $this->adminChanges());
+		$this->assertSame([], array_intersect($removed, array_keys($this->snapshot())), 'Their rows are gone');
+		$this->assertSame(0, $this->watch->run());
+	}
+
+	public function testOwnSettingsAreComparedByTheirStoredValue(): void {
+		$this->watch->run();
+		// Stored explicitly with the value it had by default: nothing changed.
+		$this->appConfig->setValueInt(Application::APP_ID, Keys::param('credential_stuffing', 'window'), 600);
+		$this->assertSame(0, $this->watch->run());
+		$this->appConfig->setValueInt(Application::APP_ID, Keys::param('credential_stuffing', 'window'), 900);
+		$this->assertSame(1, $this->watch->run());
+	}
+
+	public function testAfterAnUpdateTheAppsSettingsAreRecordedAgainSilently(): void {
+		$version = '1.0.1';
+		$appManager = $this->createMock(IAppManager::class);
+		$appManager->method('getAppVersion')->willReturnCallback(static function () use (&$version): string {
+			return $version;
+		});
+		$watch = $this->configWatch($this->watchedSettings(), null, $appManager);
+		$watch->run();
+
+		// The update changed what is stored, for example by renaming a setting.
+		$version = '1.0.2';
+		$this->appConfig->setValueString(Application::APP_ID, Keys::mode('credential_stuffing'), Mode::Observe->value);
+		$this->system['loglevel'] = 0;
+		$this->assertSame(1, $watch->run(), 'Only the change outside this app is reported');
+		$this->assertSame(WatchedSettings::systemKey('loglevel'), $this->facts($this->adminChanges()[0])['setting']);
+
+		$this->appConfig->setValueString(Application::APP_ID, Keys::mode('credential_stuffing'), Mode::Off->value);
+		$this->assertSame(1, $watch->run(), 'Without an update, changes of this app are reported again');
 	}
 
 	public function testAppConfigIsWatched(): void {

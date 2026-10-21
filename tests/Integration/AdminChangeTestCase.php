@@ -153,8 +153,8 @@ abstract class AdminChangeTestCase extends IntegrationTestCase {
 		);
 	}
 
-	protected function configWatch(WatchedSettings $watched, ?ITimeFactory $time = null): ConfigWatch {
-		return new ConfigWatch($watched, Server::get(ConfigSnapshotMapper::class), Server::get(Fingerprinter::class), $this->detector, Server::get(Settings::class), $time ?? Server::get(ITimeFactory::class));
+	protected function configWatch(WatchedSettings $watched, ?ITimeFactory $time = null, ?\OCP\App\IAppManager $appManager = null): ConfigWatch {
+		return new ConfigWatch($watched, Server::get(ConfigSnapshotMapper::class), Server::get(Fingerprinter::class), $this->detector, Server::get(Settings::class), $time ?? Server::get(ITimeFactory::class), $appManager ?? Server::get(\OCP\App\IAppManager::class));
 	}
 
 	protected function requireApproval(bool $on = true): void {

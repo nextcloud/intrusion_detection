@@ -86,6 +86,13 @@ class ConfigSnapshotMapper {
 		]);
 	}
 
+	public function delete(string $key): void {
+		$qb = $this->db->getQueryBuilder();
+		$qb->delete(self::TABLE)
+			->where($qb->expr()->eq('setting_key', $qb->createNamedParameter($key)))
+			->executeStatement();
+	}
+
 	public function deleteAll(): void {
 		$this->db->getQueryBuilder()->delete(self::TABLE)->executeStatement();
 	}

@@ -25,6 +25,9 @@ final class WatchedValue {
 		public readonly mixed $value,
 		public readonly bool $secret,
 		public readonly bool $fixed,
+		/** The text to compare instead of the value's, for settings whose stored value differs from the shown one */
+		#[\SensitiveParameter]
+		private readonly ?string $compared = null,
 	) {
 	}
 
@@ -32,7 +35,7 @@ final class WatchedValue {
 	 * The canonical text the keyed hash is computed over.
 	 */
 	public function canonical(): string {
-		return self::canonicalOf($this->value);
+		return $this->compared ?? self::canonicalOf($this->value);
 	}
 
 	public static function canonicalOf(#[\SensitiveParameter] mixed $value): string {
