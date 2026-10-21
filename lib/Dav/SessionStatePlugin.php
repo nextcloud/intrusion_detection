@@ -32,6 +32,8 @@ class SessionStatePlugin extends ServerPlugin {
 	/** After the authentication plugin (priority 10) */
 	public const PRIORITY = 30;
 
+	private ?Server $server = null;
+
 	public function __construct(
 		private readonly SessionStateRules $rules,
 		private readonly SessionState $state,
@@ -42,6 +44,7 @@ class SessionStatePlugin extends ServerPlugin {
 
 	#[\Override]
 	public function initialize(Server $server): void {
+		$this->server = $server;
 		$server->on('beforeMethod:*', $this->beforeMethod(...), self::PRIORITY);
 	}
 
@@ -51,7 +54,7 @@ class SessionStatePlugin extends ServerPlugin {
 	}
 
 	/**
-	 * @return bool false when the request is answered here (a rate limit), which stops Sabre
+	 * @return bool false when the request is answered and the answer sent here (a rate limit), which stops Sabre
 	 * @throws Forbidden
 	 */
 	public function beforeMethod(RequestInterface $request, ResponseInterface $response): bool {
@@ -70,6 +73,8 @@ class SessionStatePlugin extends ServerPlugin {
 			$response->setHeader('Retry-After', (string)$block->retryAfter);
 			$response->setHeader('Content-Type', 'text/plain; charset=utf-8');
 			$response->setBody($block->message);
+			// Sabre sends no response for a method a listener stopped.
+			$this->server?->sapi->sendResponse($response);
 			return false;
 		}
 		if ($block !== null) {
