@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 
-import type { Detection, IncidentSubjectType, Severity } from '../types.ts'
+import type { Detection, IncidentRequest, IncidentSubjectType, Severity } from '../types.ts'
 
 import { highestSeverity } from './groups.ts'
 
@@ -27,6 +27,15 @@ export interface IncidentSubject {
  */
 export function subjectKey(type: IncidentSubjectType, value: string): string {
 	return type + ':' + value
+}
+
+/**
+ * The same key for requests about the same subject and period.
+ *
+ * @param request - Subject and period
+ */
+export function requestKey(request: IncidentRequest): string {
+	return [subjectKey(request.type, request.value), request.since ?? '', request.until ?? ''].join('|')
 }
 
 /**

@@ -7,7 +7,7 @@ import type { Detection } from '../types.ts'
 
 import { describe, expect, test } from 'vitest'
 import { makeDetail } from '../tests/fixtures.ts'
-import { incidentSubjects, subjectKey } from './incidents.ts'
+import { incidentSubjects, requestKey, subjectKey } from './incidents.ts'
 
 /**
  * @param overrides - Fields to change
@@ -29,6 +29,12 @@ describe('the subjects of the Incidents tab', () => {
 			{ key: 'user:bob', type: 'user', value: 'bob', severity: 'low', enforced: false, checks: ['Admin change alerts'], detections: 1, updatedAt: 400 },
 			{ key: 'address:203.0.113.7', type: 'address', value: '203.0.113.7', severity: 'high', enforced: true, checks: ['Trap URLs', 'Credential stuffing'], detections: 3, updatedAt: 300 },
 		])
+	})
+
+	test('requests about the same subject and period have the same key', () => {
+		expect(requestKey({ type: 'address', value: '203.0.113.7', since: null, until: null })).toBe(requestKey({ type: 'address', value: '203.0.113.7', since: null, until: null }))
+		expect(requestKey({ type: 'address', value: '203.0.113.7', since: 1, until: 2 })).not.toBe(requestKey({ type: 'address', value: '203.0.113.7', since: null, until: null }))
+		expect(requestKey({ type: 'user', value: 'alice', since: 1, until: 2 })).not.toBe(requestKey({ type: 'user', value: 'alice', since: 1, until: 3 }))
 	})
 
 	test('keys tell accounts and addresses apart', () => {

@@ -5,6 +5,7 @@
 
 import type { Detection, IncidentEntry, IncidentReport } from '../types.ts'
 
+import { PasswordConfirmationCancelledError } from '@nextcloud/password-confirmation'
 import { flushPromises, mount } from '@vue/test-utils'
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 import IncidentForm from '../components/incidents/IncidentForm.vue'
@@ -298,6 +299,94 @@ describe('IncidentsTab', () => {
 		await flushPromises()
 		expect(buildIncidentReport).toHaveBeenCalledTimes(2)
 		expect(wrapper.find('[data-test="incident-subject"]').exists()).toBe(true)
+		expect(document.activeElement).toBe(wrapper.get('[data-test="incident-subject"]').element)
+	})
+
+	test('too many reports in a short time get their own message', async () => {
+		const tooMany = Object.assign(new Error('Request failed with status code 429'), { isAxiosError: true, response: { status: 429, data: '' } })
+		const wrapper = await mountTab(tooMany)
+		expect(wrapper.text()).toContain('You built many reports in a short time. Try again in a few minutes.')
+	})
+
+	describe('picking from the list', () => {
+		const A = { type: 'address' as const, value: '203.0.113.7', since: null, until: null }
+		const B = { type: 'address' as const, value: '198.51.100.9', since: null, until: null }
+		const reportA = report()
+		const reportB = report({ subject: { type: 'address', value: '198.51.100.9', displayName: null } })
+
+		beforeEach(() => {
+			vi.mocked(fetchDetections).mockResolvedValue({
+				detections: [detection({ id: 1, ip: A.value, lastSeenAt: AT }), detection({ id: 2, ip: B.value, lastSeenAt: AT - 60 })],
+				hasMore: false,
+			})
+		})
+
+		/**
+		 * @param wrapper - The mounted tab
+		 * @param index - 0 for A, 1 for B
+		 */
+		async function pick(wrapper: Awaited<ReturnType<typeof mountTab>>, index: number) {
+			await wrapper.findAll('[data-test="incident-subject-item"]')[index]!.trigger('click')
+			await flushPromises()
+		}
+
+		/**
+		 * @param wrapper - The mounted tab
+		 */
+		async function downloadJson(wrapper: Awaited<ReturnType<typeof mountTab>>) {
+			vi.stubGlobal('URL', Object.assign(URL, { createObjectURL: vi.fn(() => 'blob:report'), revokeObjectURL: vi.fn() }))
+			vi.mocked(downloadIncidentReport).mockResolvedValue({ blob: new Blob(['{}']), filename: 'report.json' })
+			await wrapper.get('[data-test="incident-download-json"]').trigger('click')
+			await flushPromises()
+			vi.unstubAllGlobals()
+			return vi.mocked(downloadIncidentReport).mock.calls.at(-1)![0]
+		}
+
+		test('a cancelled password prompt keeps the shown report, and downloads stay with it', async () => {
+			vi.mocked(buildIncidentReport).mockResolvedValueOnce(reportA)
+			const wrapper = await mountTab()
+			await pick(wrapper, 0)
+			vi.mocked(buildIncidentReport).mockRejectedValueOnce(new PasswordConfirmationCancelledError())
+			await pick(wrapper, 1)
+			expect(wrapper.get('[data-test="incident-subject"]').text()).toBe('Address 203.0.113.7')
+			expect(wrapper.findAll('[data-test="incident-subject-item"]')[0]!.attributes('aria-current')).toBe('true')
+			expect(wrapper.text()).not.toContain('could not be built')
+			expect(await downloadJson(wrapper)).toEqual(A)
+		})
+
+		test('only the answer to the latest pick is shown, whatever order the answers come in', async () => {
+			let answerA: (value: IncidentReport) => void = () => {}
+			let answerB: (value: IncidentReport) => void = () => {}
+			vi.mocked(buildIncidentReport)
+				.mockImplementationOnce(() => new Promise((resolve) => {
+					answerA = resolve
+				}))
+				.mockImplementationOnce(() => new Promise((resolve) => {
+					answerB = resolve
+				}))
+			const wrapper = await mountTab()
+			await pick(wrapper, 0)
+			await pick(wrapper, 1)
+			answerB(reportB)
+			await flushPromises()
+			answerA(reportA)
+			await flushPromises()
+			expect(wrapper.get('[data-test="incident-subject"]').text()).toBe('Address 198.51.100.9')
+			expect(await downloadJson(wrapper)).toEqual(B)
+		})
+
+		test('the shown report and recent ones are not built again', async () => {
+			vi.mocked(buildIncidentReport).mockResolvedValueOnce(reportA).mockResolvedValueOnce(reportB)
+			const wrapper = await mountTab()
+			await pick(wrapper, 0)
+			await pick(wrapper, 0)
+			expect(buildIncidentReport).toHaveBeenCalledTimes(1)
+			await pick(wrapper, 1)
+			await pick(wrapper, 0)
+			expect(buildIncidentReport).toHaveBeenCalledTimes(2)
+			expect(wrapper.get('[data-test="incident-subject"]').text()).toBe('Address 203.0.113.7')
+			expect(document.activeElement).toBe(wrapper.get('[data-test="incident-subject"]').element)
+		})
 	})
 
 	test('downloads use exactly the request the report was built from', async () => {

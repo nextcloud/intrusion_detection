@@ -73,6 +73,16 @@ export function isCancelled(error: unknown): boolean {
 }
 
 /**
+ * Whether the server refused the request because too many came in a short time.
+ *
+ * @param error - The error a request threw
+ */
+export function isRateLimited(error: unknown): boolean {
+	const cause = error instanceof ApiError ? error.cause : error
+	return isAxiosError(cause) && cause.response?.status === 429
+}
+
+/**
  * The message to show for a failed request.
  *
  * @param error - The error

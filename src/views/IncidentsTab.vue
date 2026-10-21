@@ -20,16 +20,18 @@ import IncidentDetail from '../components/incidents/IncidentDetail.vue'
 import IncidentForm from '../components/incidents/IncidentForm.vue'
 import IncidentList from '../components/incidents/IncidentList.vue'
 import { useAnnouncer } from '../composables/useAnnouncer.ts'
-import { buildIncidentReport, errorMessage, fetchDetections, isCancelled } from '../services/api.ts'
+import { buildIncidentReport, errorMessage, fetchDetections, isCancelled, isRateLimited } from '../services/api.ts'
 import { logger } from '../services/logger.ts'
 import { incidentRequest } from '../store.ts'
 import { APP_ID } from '../utils/format.ts'
-import { incidentSubjects, subjectKey } from '../utils/incidents.ts'
+import { incidentSubjects, requestKey, subjectKey } from '../utils/incidents.ts'
 
 /** The list covers the detections of this many days */
 const LIST_DAYS = 7
 /** At most this many detections are folded into the list; the most the API returns */
 const LIST_LIMIT = 100
+/** This many built reports are kept for this page view */
+const CACHE_SIZE = 10
 
 const subjects = ref<IncidentSubject[]>([])
 const listLoading = ref(true)
@@ -39,8 +41,15 @@ let listLoaded = false
 
 const detail = ref<InstanceType<typeof IncidentDetail> | null>(null)
 const report = ref<IncidentReport | null>(null)
-/** The request the shown report was built from */
+/** The request the shown report was built from; set together with the report, so downloads match it */
 const built = ref<IncidentRequest | null>(null)
+/**
+ * Reports built in this page view, least recently shown first. Going back
+ * to one shows it again without a new build, so no new audit entry.
+ */
+const cache = new Map<string, { request: IncidentRequest, report: IncidentReport }>()
+/** Counts the builds; only the answer to the latest one is shown */
+let latestBuild = 0
 const loading = ref(false)
 const error = ref<string | null>(null)
 const failed = ref<IncidentRequest | null>(null)
@@ -49,7 +58,10 @@ const formOpen = ref(false)
 const formRequest = ref<IncidentRequest | null>(null)
 const { announce } = useAnnouncer()
 
-const selected = computed(() => (built.value ? subjectKey(built.value.type, built.value.value) : null))
+const selected = computed(() => {
+	const request = error.value !== null ? failed.value : built.value
+	return request ? subjectKey(request.type, request.value) : null
+})
 const nothingAtAll = computed(() => !listLoading.value && listError.value === null && subjects.value.length === 0
 	&& report.value === null && !loading.value && error.value === null)
 
@@ -80,35 +92,72 @@ onActivated(() => {
 })
 
 /**
- * Build the report and show it.
+ * Show a built report and remember it for this page view.
+ *
+ * @param request - The request it was built from
+ * @param result - The report
+ * @param focus - Move the focus to the report
+ */
+async function show(request: IncidentRequest, result: IncidentReport, focus: boolean) {
+	const key = requestKey(request)
+	cache.delete(key)
+	cache.set(key, { request, report: result })
+	for (const old of cache.keys()) {
+		if (cache.size <= CACHE_SIZE) {
+			break
+		}
+		cache.delete(old)
+	}
+	built.value = request
+	report.value = result
+	error.value = null
+	failed.value = null
+	loading.value = false
+	announce(n(APP_ID, 'The report is ready: %n entry.', 'The report is ready: %n entries.', result.entries.length))
+	if (focus) {
+		await nextTick()
+		detail.value?.focus()
+	}
+}
+
+/**
+ * Build the report and show it. A report built before in this page view,
+ * such as the one shown, is shown again without a new build. Only the
+ * answer to the latest build is shown; a cancelled password prompt leaves
+ * the shown report as it is.
  *
  * @param request - Subject and period
  * @param focus - Move the focus to the report once it is shown
  */
 async function build(request: IncidentRequest, focus = false) {
+	const ticket = ++latestBuild
+	const cached = cache.get(requestKey(request))
+	if (cached) {
+		await show(cached.request, cached.report, focus)
+		return
+	}
 	loading.value = true
 	error.value = null
 	failed.value = null
-	built.value = request
 	try {
-		report.value = await buildIncidentReport(request)
-		loading.value = false
-		announce(n(APP_ID, 'The report is ready: %n entry.', 'The report is ready: %n entries.', report.value.entries.length))
-		if (focus) {
-			await nextTick()
-			detail.value?.focus()
+		const result = await buildIncidentReport(request)
+		if (ticket === latestBuild) {
+			await show(request, result, focus)
 		}
 	} catch (e) {
-		if (isCancelled(e)) {
+		if (ticket !== latestBuild || isCancelled(e)) {
 			return
 		}
 		logger.error('Could not build the incident report', { error: e })
-		report.value = null
-		error.value = errorMessage(e, t(APP_ID, 'The report could not be built. Please try again.'))
+		error.value = isRateLimited(e)
+			? t(APP_ID, 'You built many reports in a short time. Try again in a few minutes.')
+			: errorMessage(e, t(APP_ID, 'The report could not be built. Please try again.'))
 		failed.value = request
 		announce(error.value)
 	} finally {
-		loading.value = false
+		if (ticket === latestBuild) {
+			loading.value = false
+		}
 	}
 }
 
@@ -205,7 +254,7 @@ watch(incidentRequest, (request) => {
 						v-if="failed"
 						variant="secondary"
 						:class="$style.tab__retry"
-						@click="build(failed)">
+						@click="build(failed, true)">
 						{{ t(APP_ID, 'Try again') }}
 					</NcButton>
 				</NcNoteCard>
