@@ -21,18 +21,19 @@ import TimeStamp from '../common/TimeStamp.vue'
 import { useAnnouncer } from '../../composables/useAnnouncer.ts'
 import { errorMessage, fetchDigest, isCancelled, sendTestDigest } from '../../services/api.ts'
 import { logger } from '../../services/logger.ts'
-import { state } from '../../store.ts'
+import { advanced, state } from '../../store.ts'
 import { APP_ID } from '../../utils/format.ts'
 
-/** The settings this section edits */
-const SETTINGS = ['digest_frequency', 'digest_send_quiet']
+/** The settings this section edits; quiet digests only with the advanced options */
+const SETTINGS = ['digest_frequency']
+const ADVANCED_SETTINGS = ['digest_send_quiet']
 
 const digest = ref<DigestOverview | null>(null)
 const loadFailed = ref(false)
 const sending = ref(false)
 const { announce } = useAnnouncer()
 
-const settings = computed(() => state.settings.filter((s) => SETTINGS.includes(s.name)))
+const settings = computed(() => state.settings.filter((s) => SETTINGS.includes(s.name) || (advanced.value && ADVANCED_SETTINGS.includes(s.name))))
 
 const withoutEmailNames = computed(() => {
 	const value = digest.value
@@ -116,9 +117,13 @@ onMounted(load)
 </script>
 
 <template>
-	<SectionCard :heading="t(APP_ID, 'Digest email')" :icon="mdiCalendarClockOutline" data-test="digest-section">
+	<SectionCard
+		level="h4"
+		:heading="t(APP_ID, 'Digest email')"
+		:icon="mdiCalendarClockOutline"
+		data-test="digest-section">
 		<template #description>
-			{{ t(APP_ID, 'A regular summary for the administrators: how each check did compared with the period before, the most active addresses, and what is still open.') }}
+			{{ t(APP_ID, 'A regular summary for the administrators: how each check did, the most active addresses, and what is still open.') }}
 		</template>
 
 		<SettingsGroup v-if="settings.length > 0" :settings="settings" />
@@ -147,7 +152,7 @@ onMounted(load)
 				</li>
 			</ul>
 
-			<div :class="$style.row">
+			<div v-if="advanced" :class="$style.row">
 				<NcButton
 					variant="secondary"
 					:disabled="sending || !digest.viewerHasEmail"

@@ -673,9 +673,18 @@ export interface LoginApproval {
 	canDecide: boolean
 }
 
+/** The outcome of every reason at once; "custom" when they were set per reason */
+export type ConfirmationPreset = 'recommended' | 'refuse' | 'allow'
+
+export interface ConfirmationPresetResult {
+	preset: ConfirmationPreset | 'custom'
+	policies: ConfirmationPolicy[]
+}
+
 export interface ConfirmationOverview {
 	methods: ConfirmationMethod[]
 	policies: ConfirmationPolicy[]
+	preset: ConfirmationPreset | 'custom'
 	outcomes: ConfirmationOutcome[]
 	users: { withoutMethod: number, active: number }
 	admins: { total: number, withoutEmail: number, withoutSecondFactor: number, withNeither: string[] }

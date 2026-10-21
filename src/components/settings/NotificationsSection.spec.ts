@@ -3,16 +3,17 @@
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 
-import type { Notifications } from '../types.ts'
+import type { Notifications } from '../../types.ts'
 
 import { flushPromises, mount } from '@vue/test-utils'
 import { afterEach, describe, expect, test, vi } from 'vitest'
-import NotificationsTab from './NotificationsTab.vue'
-import { fetchNotifications } from '../services/api.ts'
+import NotificationsSection from './NotificationsSection.vue'
+import { fetchNotifications } from '../../services/api.ts'
+import { setAdvanced } from '../../store.ts'
 
 vi.mock('@nextcloud/dialogs', () => ({ showError: vi.fn(), showSuccess: vi.fn() }))
 
-vi.mock('../services/api.ts', async (importOriginal) => ({
+vi.mock('../../services/api.ts', async (importOriginal) => ({
 	...(await importOriginal<object>()),
 	fetchNotifications: vi.fn(),
 	fetchChecks: vi.fn(() => new Promise(() => {})),
@@ -42,14 +43,34 @@ function notifications(overrides: Partial<Notifications> = {}): Notifications {
  */
 async function mountTab(value = notifications()) {
 	vi.mocked(fetchNotifications).mockResolvedValue(value)
-	const wrapper = mount(NotificationsTab, { global: { stubs: { NcSettingsSelectGroup: true, NcAvatar: true } } })
+	const wrapper = mount(NotificationsSection, { global: { stubs: { NcSettingsSelectGroup: true, NcAvatar: true, DigestSection: { template: '<section data-test="digest" />' }, WebhookEventsSection: { template: '<section data-test="webhooks" />' } } } })
 	await flushPromises()
 	return wrapper
 }
 
-describe('the Notifications tab', () => {
+describe('the notifications section', () => {
 	afterEach(() => {
 		vi.mocked(fetchNotifications).mockReset()
+		setAdvanced(false)
+		window.localStorage.clear()
+	})
+
+	test('without the advanced options: who is notified, the email severity and the digest', async () => {
+		setAdvanced(false)
+		const wrapper = await mountTab()
+		expect(wrapper.text()).toContain('Who is notified')
+		expect(wrapper.text()).toContain('Also send an email for')
+		expect(wrapper.text()).toContain('Send a test alert to me')
+		expect(wrapper.find('[data-test="digest"]').exists()).toBe(true)
+		expect(wrapper.find('[data-test="per-check"]').exists()).toBe(false)
+		expect(wrapper.find('[data-test="webhooks"]').exists()).toBe(false)
+	})
+
+	test('the advanced options add the table per check and the webhook events', async () => {
+		setAdvanced(true)
+		const wrapper = await mountTab()
+		expect(wrapper.find('[data-test="per-check"]').exists()).toBe(true)
+		expect(wrapper.find('[data-test="webhooks"]').exists()).toBe(true)
 	})
 
 	test('says once that the server cannot send emails', async () => {
@@ -66,6 +87,7 @@ describe('the Notifications tab', () => {
 	})
 
 	test('names both columns of the table the same way', async () => {
+		setAdvanced(true)
 		const wrapper = await mountTab()
 		const row = wrapper.get('tbody tr').text()
 		expect(row).toContain('Notified')

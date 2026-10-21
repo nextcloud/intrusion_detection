@@ -3,23 +3,26 @@
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 
-import type { ConfirmationOverview, GlobalSetting } from '../types.ts'
+import type { ConfirmationOverview, GlobalSetting } from '../../types.ts'
 
 import { flushPromises, mount } from '@vue/test-utils'
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
-import ConfirmationTab from './ConfirmationTab.vue'
-import { approveRequest, fetchConfirmation, fetchUnconfirmableAccounts, rejectRequest } from '../services/api.ts'
-import { state } from '../store.ts'
+import { nextTick } from 'vue'
+import ConfirmationSection from './ConfirmationSection.vue'
+import { approveRequest, fetchConfirmation, fetchSettings, fetchUnconfirmableAccounts, rejectRequest, setConfirmationPreset, updateSettings } from '../../services/api.ts'
+import { advanced, setAdvanced, state } from '../../store.ts'
 
 vi.mock('@nextcloud/dialogs', () => ({ showError: vi.fn(), showSuccess: vi.fn() }))
 
-vi.mock('../services/api.ts', async (importOriginal) => ({
+vi.mock('../../services/api.ts', async (importOriginal) => ({
 	...(await importOriginal<object>()),
 	fetchConfirmation: vi.fn(),
 	fetchUnconfirmableAccounts: vi.fn(),
 	approveRequest: vi.fn(),
 	rejectRequest: vi.fn(),
 	updateSettings: vi.fn(),
+	setConfirmationPreset: vi.fn(),
+	fetchSettings: vi.fn(() => new Promise(() => {})),
 	fetchChecks: vi.fn(() => new Promise(() => {})),
 }))
 
@@ -45,6 +48,7 @@ function overview(overrides: Partial<ConfirmationOverview> = {}): ConfirmationOv
 			{ id: 'email_code', name: 'Code by email', description: 'A 6-digit code.', state: 'unavailable', note: 'Nextcloud cannot send emails.' },
 			{ id: 'admin_approval', name: 'Administrator approval', description: 'An administrator approves.', state: 'off', note: null },
 		],
+		preset: 'recommended',
 		policies: [
 			{ id: 'flagged_source', label: 'Login from an attacking address', why: 'The address was part of an attack.', default: 'refuse', outcome: 'refuse', setting: 'step_up_no_method_flagged_source', knownDevice: true, knownDeviceAllowed: true },
 		],
@@ -69,14 +73,15 @@ function overview(overrides: Partial<ConfirmationOverview> = {}): ConfirmationOv
  */
 async function mountTab(value = overview()) {
 	vi.mocked(fetchConfirmation).mockResolvedValue(value)
-	const wrapper = mount(ConfirmationTab, { attachTo: document.body })
+	const wrapper = mount(ConfirmationSection, { attachTo: document.body })
 	mounted.push(wrapper)
 	await flushPromises()
 	return wrapper
 }
 
-describe('ConfirmationTab', () => {
+describe('the login confirmation section', () => {
 	beforeEach(() => {
+		setAdvanced(true)
 		state.settings = [
 			setting('step_up_code_ttl', 'duration', 600),
 			setting('step_up_no_method_flagged_source', 'choice', 'refuse'),
@@ -94,7 +99,69 @@ describe('ConfirmationTab', () => {
 		vi.mocked(fetchUnconfirmableAccounts).mockReset()
 		vi.mocked(approveRequest).mockReset()
 		vi.mocked(rejectRequest).mockReset()
+		vi.mocked(setConfirmationPreset).mockReset()
+		vi.mocked(updateSettings).mockReset()
 		document.body.innerHTML = ''
+		setAdvanced(false)
+		window.localStorage.clear()
+	})
+
+	test('without the advanced options it is one decision and two switches', async () => {
+		setAdvanced(false)
+		const wrapper = await mountTab()
+		const options = wrapper.get('[data-test="preset"]').findAll('input[type="radio"]')
+		expect(options.map((o) => o.attributes('value'))).toEqual(['recommended', 'refuse', 'allow'])
+		expect((options[0]!.element as HTMLInputElement).checked).toBe(true)
+		expect(wrapper.text()).toContain('Remember devices')
+		expect(wrapper.text()).toContain('Administrators can approve logins')
+		expect(wrapper.get('[data-test="users-count"]').text()).toContain('37 of 200 active accounts have no way to confirm a login')
+		expect(wrapper.find('[data-test="policies"]').exists()).toBe(false)
+		expect(wrapper.find('[data-test="methods"]').exists()).toBe(false)
+		expect(wrapper.find('[data-test="users-without"]').exists()).toBe(false)
+		expect(wrapper.text()).not.toContain('Label of step_up_code_ttl')
+		expect(wrapper.text()).not.toContain('Label of known_device_duration')
+	})
+
+	test('logins waiting for an administrator stay in reach without the advanced options', async () => {
+		setAdvanced(false)
+		const wrapper = await mountTab()
+		expect(wrapper.find('#settings-approvals').exists()).toBe(true)
+		expect(wrapper.get('[data-test="approvals"]').text()).toContain('Alice Liddell')
+	})
+
+	test('one choice sets the outcome of every reason', async () => {
+		setAdvanced(false)
+		vi.mocked(setConfirmationPreset).mockResolvedValue({ preset: 'refuse', policies: overview().policies })
+		const wrapper = await mountTab()
+		await wrapper.get('input[value="refuse"]').setValue(true)
+		await flushPromises()
+		expect(setConfirmationPreset).toHaveBeenCalledWith('refuse')
+		expect(fetchSettings).toHaveBeenCalled()
+		expect((wrapper.get('input[value="refuse"]').element as HTMLInputElement).checked).toBe(true)
+	})
+
+	test('a mix set per reason is custom and leads to the reasons table', async () => {
+		setAdvanced(false)
+		Element.prototype.scrollIntoView = vi.fn()
+		const wrapper = await mountTab(overview({ preset: 'custom' }))
+		expect(wrapper.get('[data-test="preset"]').findAll('input').some((o) => (o.element as HTMLInputElement).checked)).toBe(false)
+		const note = wrapper.get('[data-test="preset-custom"]')
+		expect(note.text()).toContain('Custom')
+		await note.get('button').trigger('click')
+		await nextTick()
+		expect(advanced.value).toBe(true)
+		expect(wrapper.find('[data-test="policies"]').exists()).toBe(true)
+		expect(Element.prototype.scrollIntoView).toHaveBeenCalled()
+	})
+
+	test('the switches save at once', async () => {
+		setAdvanced(false)
+		vi.mocked(updateSettings).mockResolvedValue({ settings: [setting('known_device_enabled', 'bool', false)], templates: {} })
+		const wrapper = await mountTab()
+		const toggle = wrapper.findAll('input[type="checkbox"]')[0]!
+		await toggle.setValue(false)
+		await flushPromises()
+		expect(updateSettings).toHaveBeenCalledWith({ known_device_enabled: false })
 	})
 
 	test('shows the methods in the order they are tried, with their state', async () => {
@@ -106,7 +173,7 @@ describe('ConfirmationTab', () => {
 		expect(steps[3]!.text()).toContain('Off')
 	})
 
-	test('edits the reasons in their table and every other confirmation setting in its own card', async () => {
+	test('with the advanced options it edits the reasons in their table and every other confirmation setting in its own card', async () => {
 		const wrapper = await mountTab()
 		expect(wrapper.get('[data-test="policies"]').text()).toContain('Login from an attacking address')
 		const text = wrapper.text()

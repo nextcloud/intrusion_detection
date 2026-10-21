@@ -4,23 +4,23 @@
 -->
 
 <script setup lang="ts">
-import type { Privacy } from '../types.ts'
+import type { Privacy } from '../../types.ts'
 
-import { mdiCloudUploadOutline, mdiDatabaseOutline, mdiScaleBalance } from '@mdi/js'
+import { mdiCloudUploadOutline, mdiDatabaseOutline, mdiScaleBalance, mdiShieldLockOutline } from '@mdi/js'
 import { n, t } from '@nextcloud/l10n'
 import { computed, onActivated, onMounted, ref } from 'vue'
 import NcIconSvgWrapper from '@nextcloud/vue/components/NcIconSvgWrapper'
 import NcNoteCard from '@nextcloud/vue/components/NcNoteCard'
-import LiveSentence from '../components/checks/LiveSentence.vue'
-import SectionCard from '../components/common/SectionCard.vue'
-import SettingsGroup from '../components/common/SettingsGroup.vue'
-import ShowMore from '../components/common/ShowMore.vue'
-import SkeletonBlock from '../components/common/SkeletonBlock.vue'
-import StateBadge from '../components/common/StateBadge.vue'
-import { errorMessage, fetchPrivacy } from '../services/api.ts'
-import { logger } from '../services/logger.ts'
-import { state } from '../store.ts'
-import { APP_ID } from '../utils/format.ts'
+import LiveSentence from '../checks/LiveSentence.vue'
+import SectionCard from '../common/SectionCard.vue'
+import SettingsGroup from '../common/SettingsGroup.vue'
+import ShowMore from '../common/ShowMore.vue'
+import SkeletonBlock from '../common/SkeletonBlock.vue'
+import StateBadge from '../common/StateBadge.vue'
+import { errorMessage, fetchPrivacy } from '../../services/api.ts'
+import { logger } from '../../services/logger.ts'
+import { advanced, state } from '../../store.ts'
+import { APP_ID } from '../../utils/format.ts'
 
 const data = ref<Privacy | null>(null)
 const loadError = ref<string | null>(null)
@@ -38,6 +38,8 @@ function storedBy(checks: string[]): string {
 }
 
 const retentionSettings = computed(() => state.settings.filter((s) => s.group === 'privacy'))
+const days = (name: string) => Number(state.settings.find((s) => s.name === name)?.value ?? 0)
+const activeOutgoing = computed(() => data.value?.outgoing.filter((item) => item.active).map((item) => item.name) ?? [])
 
 /**
  * Load the overview.
@@ -57,7 +59,7 @@ onActivated(load)
 </script>
 
 <template>
-	<div :class="$style.privacy">
+	<div :class="$style.stack">
 		<NcNoteCard v-if="loadError" type="error" :text="loadError" />
 		<div v-else-if="data === null" :class="$style.skeleton" aria-busy="true">
 			<SkeletonBlock height="320px" />
@@ -65,115 +67,143 @@ onActivated(load)
 		</div>
 
 		<template v-else>
-			<SectionCard :heading="t(APP_ID, 'What Nextcloud stores')" :icon="mdiDatabaseOutline">
-				<template #description>
-					{{ t(APP_ID, 'Everything the checks keep is deleted automatically when its time is up.') }}
-				</template>
-				<SettingsGroup :settings="retentionSettings">
-					<template #default="{ fill, changed }">
-						<ShowMore
-							:label="t(APP_ID, 'Show what is stored, why and for how long')"
-							:note="n(APP_ID, '%n kind of data', '%n kinds of data', data.stored.length)"
-							data-test="stored-toggle">
-							<div :class="$style.tableWrap">
-								<table :class="$style.table" data-test="stored-data">
-									<colgroup>
-										<col :class="$style.col_what">
-										<col :class="$style.col_why">
-										<col :class="$style.col_long">
-										<col>
-									</colgroup>
-									<thead>
-										<tr>
-											<th scope="col">
-												{{ t(APP_ID, 'What') }}
-											</th>
-											<th scope="col">
-												{{ t(APP_ID, 'Why') }}
-											</th>
-											<th scope="col">
-												{{ t(APP_ID, 'How long') }}
-											</th>
-											<th scope="col">
-												{{ t(APP_ID, 'Where') }}
-											</th>
-										</tr>
-									</thead>
-									<tbody>
-										<tr v-for="row in data.stored" :key="row.id">
-											<th scope="row" :data-label="t(APP_ID, 'What')">
-												<span :class="$style.name">{{ row.name }}</span>
-												<span :class="$style.what">{{ row.what }}</span>
-												<span v-if="row.checks.length > 0" :class="$style.users">
-													{{ storedBy(row.checks) }}
-												</span>
-											</th>
-											<td :data-label="t(APP_ID, 'Why')">
-												{{ row.why }}
-											</td>
-											<td :data-label="t(APP_ID, 'How long')" :class="$style.retention">
-												<LiveSentence :segments="fill(row.retention)" :changed="changed" />
-											</td>
-											<td :data-label="t(APP_ID, 'Where')">
-												<code v-for="where in row.where.split(', ')" :key="where" :class="$style.where">{{ where }}</code>
-											</td>
-										</tr>
-									</tbody>
-								</table>
-							</div>
-						</ShowMore>
+			<SectionCard
+				level="h4"
+				:heading="t(APP_ID, 'What Nextcloud keeps')"
+				:icon="mdiShieldLockOutline"
+				data-test="privacy-summary">
+				<p :class="$style.summary">
+					{{ n(APP_ID, 'Detections are kept for %n day.', 'Detections are kept for %n days.', days('retention_detections_days')) }}
+					{{ n(APP_ID, 'The security history of logins and changes is kept for %n day.', 'The security history of logins and changes is kept for %n days.', days('history_retention_days')) }}
+					{{ t(APP_ID, 'Then it is deleted automatically.') }}
+				</p>
+				<p :class="$style.summary">
+					<template v-if="activeOutgoing.length === 0">
+						{{ t(APP_ID, 'Nothing is sent to other services.') }}
 					</template>
-				</SettingsGroup>
+					<template v-else>
+						{{ t(APP_ID, 'Only these contact other services: {names}.', { names: activeOutgoing.join(', ') }, undefined, { escape: false, sanitize: false }) }}
+					</template>
+				</p>
 			</SectionCard>
 
-			<SectionCard :heading="t(APP_ID, 'What leaves the server')" :icon="mdiCloudUploadOutline">
-				<template #description>
-					{{ t(APP_ID, 'Only what you switch on contacts another service, and this is everything it sends.') }}
-				</template>
-				<ul :class="$style.outgoing">
-					<li v-for="item in data.outgoing" :key="item.id" :class="$style.outgoing__item">
-						<div :class="$style.outgoing__head">
-							<h4 :class="$style.outgoing__name">
-								{{ item.name }}
-							</h4>
-							<StateBadge :type="item.active ? 'success' : 'neutral'">
-								{{ item.active ? t(APP_ID, 'On') : t(APP_ID, 'Off') }}
-							</StateBadge>
-						</div>
-						<p :class="$style.outgoing__text">
-							{{ item.text }}
-						</p>
-						<p v-if="item.items.length > 0" :class="$style.outgoing__items">
-							{{ item.items.join(' · ') }}
-						</p>
-					</li>
-				</ul>
-			</SectionCard>
+			<template v-if="advanced">
+				<SectionCard level="h4" :heading="t(APP_ID, 'What Nextcloud stores')" :icon="mdiDatabaseOutline">
+					<template #description>
+						{{ t(APP_ID, 'Everything the checks keep is deleted automatically when its time is up.') }}
+					</template>
+					<SettingsGroup :settings="retentionSettings">
+						<template #default="{ fill, changed }">
+							<ShowMore
+								:label="t(APP_ID, 'Show what is stored, why and for how long')"
+								:note="n(APP_ID, '%n kind of data', '%n kinds of data', data.stored.length)"
+								data-test="stored-toggle">
+								<div :class="$style.tableWrap">
+									<table :class="$style.table" data-test="stored-data">
+										<colgroup>
+											<col :class="$style.col_what">
+											<col :class="$style.col_why">
+											<col :class="$style.col_long">
+											<col>
+										</colgroup>
+										<thead>
+											<tr>
+												<th scope="col">
+													{{ t(APP_ID, 'What') }}
+												</th>
+												<th scope="col">
+													{{ t(APP_ID, 'Why') }}
+												</th>
+												<th scope="col">
+													{{ t(APP_ID, 'How long') }}
+												</th>
+												<th scope="col">
+													{{ t(APP_ID, 'Where') }}
+												</th>
+											</tr>
+										</thead>
+										<tbody>
+											<tr v-for="row in data.stored" :key="row.id">
+												<th scope="row" :data-label="t(APP_ID, 'What')">
+													<span :class="$style.name">{{ row.name }}</span>
+													<span :class="$style.what">{{ row.what }}</span>
+													<span v-if="row.checks.length > 0" :class="$style.users">
+														{{ storedBy(row.checks) }}
+													</span>
+												</th>
+												<td :data-label="t(APP_ID, 'Why')">
+													{{ row.why }}
+												</td>
+												<td :data-label="t(APP_ID, 'How long')" :class="$style.retention">
+													<LiveSentence :segments="fill(row.retention)" :changed="changed" />
+												</td>
+												<td :data-label="t(APP_ID, 'Where')">
+													<code v-for="where in row.where.split(', ')" :key="where" :class="$style.where">{{ where }}</code>
+												</td>
+											</tr>
+										</tbody>
+									</table>
+								</div>
+							</ShowMore>
+						</template>
+					</SettingsGroup>
+				</SectionCard>
 
-			<section :class="$style.gdpr" aria-labelledby="ids-gdpr-heading">
-				<span :class="$style.gdpr__icon" aria-hidden="true">
-					<NcIconSvgWrapper inline :path="mdiScaleBalance" :size="22" />
-				</span>
-				<div>
-					<h3 id="ids-gdpr-heading" :class="$style.gdpr__heading">
-						{{ t(APP_ID, 'A note on the GDPR') }}
-					</h3>
-					<p v-if="data.gdpr.length > 0" :class="$style.gdpr__text">
-						{{ data.gdpr[0] }}
-					</p>
-					<ShowMore v-if="data.gdpr.length > 1" :label="t(APP_ID, 'Read more')">
-						<p v-for="(paragraph, index) in data.gdpr.slice(1)" :key="index" :class="$style.gdpr__text">
-							{{ paragraph }}
+				<SectionCard level="h4" :heading="t(APP_ID, 'What leaves the server')" :icon="mdiCloudUploadOutline">
+					<template #description>
+						{{ t(APP_ID, 'Only what you switch on contacts another service, and this is everything it sends.') }}
+					</template>
+					<ul :class="$style.outgoing">
+						<li v-for="item in data.outgoing" :key="item.id" :class="$style.outgoing__item">
+							<div :class="$style.outgoing__head">
+								<h4 :class="$style.outgoing__name">
+									{{ item.name }}
+								</h4>
+								<StateBadge :type="item.active ? 'success' : 'neutral'">
+									{{ item.active ? t(APP_ID, 'On') : t(APP_ID, 'Off') }}
+								</StateBadge>
+							</div>
+							<p :class="$style.outgoing__text">
+								{{ item.text }}
+							</p>
+							<p v-if="item.items.length > 0" :class="$style.outgoing__items">
+								{{ item.items.join(' · ') }}
+							</p>
+						</li>
+					</ul>
+				</SectionCard>
+
+				<section :class="$style.gdpr" aria-labelledby="ids-gdpr-heading">
+					<span :class="$style.gdpr__icon" aria-hidden="true">
+						<NcIconSvgWrapper inline :path="mdiScaleBalance" :size="22" />
+					</span>
+					<div>
+						<h4 id="ids-gdpr-heading" :class="$style.gdpr__heading">
+							{{ t(APP_ID, 'A note on the GDPR') }}
+						</h4>
+						<p v-if="data.gdpr.length > 0" :class="$style.gdpr__text">
+							{{ data.gdpr[0] }}
 						</p>
-					</ShowMore>
-				</div>
-			</section>
+						<ShowMore v-if="data.gdpr.length > 1" :label="t(APP_ID, 'Read more')">
+							<p v-for="(paragraph, index) in data.gdpr.slice(1)" :key="index" :class="$style.gdpr__text">
+								{{ paragraph }}
+							</p>
+						</ShowMore>
+					</div>
+				</section>
+			</template>
 		</template>
 	</div>
 </template>
 
 <style module>
-.privacy {
+.summary {
+	margin: 0;
+	max-width: 80ch;
+	line-height: 1.6;
+}
+
+.stack {
 	display: flex;
 	flex-direction: column;
 	gap: calc(var(--default-grid-baseline) * 5);

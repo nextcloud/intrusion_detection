@@ -74,7 +74,11 @@ onMounted(load)
 </script>
 
 <template>
-	<SectionCard :heading="t(APP_ID, 'Webhook events')" :icon="mdiWebhook" data-test="webhook-events-section">
+	<SectionCard
+		level="h4"
+		:heading="t(APP_ID, 'Webhook events')"
+		:icon="mdiWebhook"
+		data-test="webhook-events-section">
 		<template #description>
 			{{ t(APP_ID, 'The Webhooks app can forward these events to a chat room, a ticket system or a SIEM. They never contain passwords, tokens or other secrets.') }}
 		</template>

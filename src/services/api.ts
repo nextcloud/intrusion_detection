@@ -12,6 +12,8 @@ import type {
 	Check,
 	CheckList,
 	ConfirmationOverview,
+	ConfirmationPreset,
+	ConfirmationPresetResult,
 	CustomSignature,
 	DailyStats,
 	DecoyFormat,
@@ -415,6 +417,15 @@ export async function searchAccounts(search: string): Promise<{ uid: string, dis
  */
 export function fetchConfirmation(refresh = false): Promise<ConfirmationOverview> {
 	return call<ConfirmationOverview>(axios.get(url('confirmation'), { params: refresh ? { refresh: 1 } : {} }))
+}
+
+/**
+ * Set what happens to every login that nothing can confirm, for all reasons at once.
+ *
+ * @param preset - recommended, refuse or allow
+ */
+export function setConfirmationPreset(preset: ConfirmationPreset): Promise<ConfirmationPresetResult> {
+	return call<ConfirmationPresetResult>(axios.put(url('confirmation/preset'), { preset }, write))
 }
 
 /**

@@ -14,13 +14,13 @@ import NcDialog from '@nextcloud/vue/components/NcDialog'
 import NcIconSvgWrapper from '@nextcloud/vue/components/NcIconSvgWrapper'
 import NcLoadingIcon from '@nextcloud/vue/components/NcLoadingIcon'
 import NcTextField from '@nextcloud/vue/components/NcTextField'
-import SettingsGroup from '../components/common/SettingsGroup.vue'
-import TimeStamp from '../components/common/TimeStamp.vue'
-import { useAnnouncer } from '../composables/useAnnouncer.ts'
-import { errorMessage, exportSettings, isCancelled, resetSettings, updateLearning, updateSettings } from '../services/api.ts'
-import { logger } from '../services/logger.ts'
-import { refreshChecks, refreshStatus, state } from '../store.ts'
-import { APP_ID } from '../utils/format.ts'
+import SettingsGroup from '../common/SettingsGroup.vue'
+import TimeStamp from '../common/TimeStamp.vue'
+import { useAnnouncer } from '../../composables/useAnnouncer.ts'
+import { errorMessage, exportSettings, isCancelled, resetSettings, updateLearning, updateSettings } from '../../services/api.ts'
+import { logger } from '../../services/logger.ts'
+import { advanced, refreshChecks, refreshStatus, state } from '../../store.ts'
+import { APP_ID } from '../../utils/format.ts'
 
 const busy = ref<string | null>(null)
 const days = ref(7)
@@ -33,7 +33,7 @@ const enabled = computed(() => state.settings.find((s) => s.name === 'protection
 const daysValid = computed(() => Number.isInteger(days.value) && days.value >= learning.value.minDays && days.value <= learning.value.maxDays)
 
 const learningSettings = computed(() => state.settings.filter((s) => s.group === 'learning'))
-/** Notification, privacy and confirmation settings have their own tabs */
+/** Notification, privacy and confirmation settings have their own sections */
 const otherSettings = computed(() => state.settings.filter((s) => s.group === 'approvals' || s.group === 'other'))
 
 /**
@@ -124,11 +124,11 @@ async function download() {
 </script>
 
 <template>
-	<div :class="$style.advanced">
+	<div :class="$style.grid">
 		<section :class="$style.card" aria-labelledby="ids-learning-heading">
-			<h3 id="ids-learning-heading" :class="$style.card__heading">
+			<h4 id="ids-learning-heading" :class="$style.card__heading">
 				{{ t(APP_ID, 'Learning mode') }}
-			</h3>
+			</h4>
 			<p :class="$style.card__text">
 				{{ t(APP_ID, 'Checks set to Protect only record what they would do, so you can see whether the settings fit before anything is blocked. Alerts are still sent.') }}
 			</p>
@@ -179,13 +179,13 @@ async function download() {
 			<p id="ids-days-hint" :class="[$style.card__hint, { [$style.card__hint_error]: !daysValid }]">
 				{{ t(APP_ID, 'From {min} to {max} days.', { min: learning.minDays, max: learning.maxDays }) }}
 			</p>
-			<SettingsGroup v-if="learningSettings.length > 0" :settings="learningSettings" />
+			<SettingsGroup v-if="advanced && learningSettings.length > 0" :settings="learningSettings" />
 		</section>
 
-		<section :class="$style.card" aria-labelledby="ids-master-heading">
-			<h3 id="ids-master-heading" :class="$style.card__heading">
+		<section id="settings-other" :class="$style.card" aria-labelledby="ids-master-heading">
+			<h4 id="ids-master-heading" :class="$style.card__heading">
 				{{ t(APP_ID, 'Master switch') }}
-			</h3>
+			</h4>
 			<NcCheckboxRadioSwitch
 				:modelValue="enabled"
 				type="switch"
@@ -197,17 +197,21 @@ async function download() {
 			</NcCheckboxRadioSwitch>
 		</section>
 
-		<section v-if="otherSettings.length > 0" :class="$style.card" aria-labelledby="ids-other-heading">
-			<h3 id="ids-other-heading" :class="$style.card__heading">
+		<section v-if="advanced && otherSettings.length > 0" :class="$style.card" aria-labelledby="ids-other-heading">
+			<h4 id="ids-other-heading" :class="$style.card__heading">
 				{{ t(APP_ID, 'Other settings') }}
-			</h3>
+			</h4>
 			<SettingsGroup :settings="otherSettings" />
 		</section>
 
-		<section :class="$style.card" aria-labelledby="ids-maintenance-heading">
-			<h3 id="ids-maintenance-heading" :class="$style.card__heading">
+		<section
+			v-if="advanced"
+			id="settings-support"
+			:class="$style.card"
+			aria-labelledby="ids-maintenance-heading">
+			<h4 id="ids-maintenance-heading" :class="$style.card__heading">
 				{{ t(APP_ID, 'Support and reset') }}
-			</h3>
+			</h4>
 			<p :class="$style.card__text">
 				{{ t(APP_ID, 'The export contains every setting of every check, without detections, blocks or any personal data. Attach it when you ask for support.') }}
 			</p>
@@ -249,7 +253,7 @@ async function download() {
 </template>
 
 <style module>
-.advanced {
+.grid {
 	display: grid;
 	grid-template-columns: repeat(auto-fit, minmax(min(100%, 420px), 1fr));
 	gap: calc(var(--default-grid-baseline) * 5);

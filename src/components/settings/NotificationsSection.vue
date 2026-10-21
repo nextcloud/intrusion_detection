@@ -4,9 +4,9 @@
 -->
 
 <script setup lang="ts">
-import type { Notifications, TestAlertResult } from '../types.ts'
+import type { Notifications, TestAlertResult } from '../../types.ts'
 
-import { mdiAccountGroupOutline, mdiAlertCircleOutline, mdiBellOutline, mdiBellRingOutline, mdiCheck, mdiCheckCircleOutline, mdiEmailOffOutline, mdiEmailOutline, mdiFormatListChecks, mdiMinus } from '@mdi/js'
+import { mdiAccountGroupOutline, mdiAlertCircleOutline, mdiBellOutline, mdiCheck, mdiCheckCircleOutline, mdiEmailOffOutline, mdiEmailOutline, mdiFormatListChecks, mdiMinus } from '@mdi/js'
 import { showError } from '@nextcloud/dialogs'
 import { n, t } from '@nextcloud/l10n'
 import { generateUrl } from '@nextcloud/router'
@@ -17,16 +17,18 @@ import NcIconSvgWrapper from '@nextcloud/vue/components/NcIconSvgWrapper'
 import NcLoadingIcon from '@nextcloud/vue/components/NcLoadingIcon'
 import NcNoteCard from '@nextcloud/vue/components/NcNoteCard'
 import NcSettingsSelectGroup from '@nextcloud/vue/components/NcSettingsSelectGroup'
-import LiveSentence from '../components/checks/LiveSentence.vue'
-import SectionCard from '../components/common/SectionCard.vue'
-import SelectField from '../components/common/SelectField.vue'
-import SkeletonBlock from '../components/common/SkeletonBlock.vue'
-import StateBadge from '../components/common/StateBadge.vue'
-import { useAnnouncer } from '../composables/useAnnouncer.ts'
-import { errorMessage, fetchNotifications, isCancelled, sendTestAlert, updateSettings } from '../services/api.ts'
-import { logger } from '../services/logger.ts'
-import { refreshChecks, state } from '../store.ts'
-import { APP_ID, fillTemplate } from '../utils/format.ts'
+import LiveSentence from '../checks/LiveSentence.vue'
+import SectionCard from '../common/SectionCard.vue'
+import SelectField from '../common/SelectField.vue'
+import SkeletonBlock from '../common/SkeletonBlock.vue'
+import StateBadge from '../common/StateBadge.vue'
+import DigestSection from '../notifications/DigestSection.vue'
+import WebhookEventsSection from '../notifications/WebhookEventsSection.vue'
+import { useAnnouncer } from '../../composables/useAnnouncer.ts'
+import { errorMessage, fetchNotifications, isCancelled, sendTestAlert, updateSettings } from '../../services/api.ts'
+import { logger } from '../../services/logger.ts'
+import { advanced, refreshChecks, state } from '../../store.ts'
+import { APP_ID, fillTemplate } from '../../utils/format.ts'
 
 const data = ref<Notifications | null>(null)
 const loadError = ref<string | null>(null)
@@ -153,7 +155,7 @@ function openCheck() {
 </script>
 
 <template>
-	<div :class="$style.notifications">
+	<div :class="$style.stack">
 		<NcNoteCard v-if="loadError" type="error" :text="loadError" />
 		<div v-else-if="data === null" :class="$style.skeleton" aria-busy="true">
 			<SkeletonBlock v-for="i in 3" :key="i" height="140px" />
@@ -165,88 +167,82 @@ function openCheck() {
 				<a :href="mailSettingsUrl" :class="$style.link">{{ t(APP_ID, 'Set up the email server') }}</a>
 			</NcNoteCard>
 
-			<div :class="$style.grid">
-				<SectionCard :heading="t(APP_ID, 'Who is notified')" :icon="mdiAccountGroupOutline">
-					<template #description>
-						{{ t(APP_ID, 'Members of these groups get the administrator alerts, at most one per check, address and hour.') }}
-					</template>
-					<form :class="$style.form" @submit.prevent="save">
-						<div :class="$style.field">
-							<span id="ids-notify-groups" :class="$style.field__label">{{ t(APP_ID, 'Notify these groups') }}</span>
-							<NcSettingsSelectGroup
-								v-model="groups"
-								:label="t(APP_ID, 'Notify these groups')"
-								:placeholder="t(APP_ID, 'Choose groups')"
-								:disabled="saving"
-								aria-labelledby="ids-notify-groups" />
-						</div>
-
-						<div :class="$style.field">
-							<SelectField
-								v-model="severity"
-								:class="$style.field__select"
-								:label="t(APP_ID, 'Also send an email for')"
-								:options="SEVERITIES.map((option) => ({ value: option.value, label: option.label() }))"
-								:disabled="saving" />
-							<p :class="$style.field__sentence">
-								<LiveSentence :segments="emailSentence" :changed="severity !== savedSeverity ? ['severity'] : []" />
-							</p>
-						</div>
-
-						<div v-if="dirty" :class="$style.form__save">
-							<NcButton type="submit" variant="primary" :disabled="saving || groups.length === 0">
-								<template v-if="saving" #icon>
-									<NcLoadingIcon />
-								</template>
-								{{ t(APP_ID, 'Save changes') }}
-							</NcButton>
-							<NcButton variant="tertiary" :disabled="saving" @click="groups = [...savedGroups]; severity = savedSeverity">
-								{{ t(APP_ID, 'Discard') }}
-							</NcButton>
-							<span v-if="groups.length === 0" :class="$style.error">{{ t(APP_ID, 'Choose at least one group.') }}</span>
-						</div>
-					</form>
-
-					<div :class="$style.people">
-						<p :class="$style.people__count">
-							{{ n(APP_ID, '%n person gets these alerts now:', '%n people get these alerts now:', data.recipients.length) }}
-						</p>
-						<ul :class="$style.people__list">
-							<li v-for="person in data.recipients" :key="person.uid" :class="$style.person">
-								<NcAvatar
-									:user="person.uid"
-									:displayName="person.displayName"
-									:size="28"
-									disableMenu
-									disableTooltip />
-								<span :class="$style.person__name">{{ person.displayName }}</span>
-								<NcIconSvgWrapper
-									inline
-									:class="person.hasEmail ? $style.person__mail : $style.person__nomail"
-									:path="person.hasEmail ? mdiEmailOutline : mdiEmailOffOutline"
-									:size="16"
-									:name="person.hasEmail ? t(APP_ID, 'has an email address') : t(APP_ID, 'no email address')" />
-								<span v-if="!person.hasEmail" :class="$style.person__note" aria-hidden="true">{{ t(APP_ID, 'no email') }}</span>
-							</li>
-						</ul>
-						<p v-if="data.recipients.length >= data.recipientLimit" :class="$style.muted">
-							{{ n(APP_ID, 'At most %n person is notified, so one alert cannot become a flood.', 'At most %n people are notified, so one alert cannot become a flood.', data.recipientLimit) }}
-						</p>
-						<NcNoteCard v-if="data.recipients.length === 0" type="warning">
-							{{ t(APP_ID, 'Nobody is in these groups, so nobody is told about attacks. Choose a group with at least one active administrator.') }}
-						</NcNoteCard>
+			<SectionCard level="h4" :heading="t(APP_ID, 'Who is notified')" :icon="mdiAccountGroupOutline">
+				<template #description>
+					{{ t(APP_ID, 'Members of these groups get the administrator alerts, at most one per check, address and hour.') }}
+				</template>
+				<form :class="$style.form" @submit.prevent="save">
+					<div :class="$style.field">
+						<span id="ids-notify-groups" :class="$style.field__label">{{ t(APP_ID, 'Notify these groups') }}</span>
+						<NcSettingsSelectGroup
+							v-model="groups"
+							:label="t(APP_ID, 'Notify these groups')"
+							:placeholder="t(APP_ID, 'Choose groups')"
+							:disabled="saving"
+							aria-labelledby="ids-notify-groups" />
 					</div>
-				</SectionCard>
 
-				<SectionCard :heading="t(APP_ID, 'Send a test alert to me')" :icon="mdiBellRingOutline">
-					<template #description>
-						{{ t(APP_ID, 'A notification and an email, marked as a test, sent the way real alerts travel.') }}
-					</template>
+					<div :class="$style.field">
+						<SelectField
+							v-model="severity"
+							:class="$style.field__select"
+							:label="t(APP_ID, 'Also send an email for')"
+							:options="SEVERITIES.map((option) => ({ value: option.value, label: option.label() }))"
+							:disabled="saving" />
+						<p :class="$style.field__sentence">
+							<LiveSentence :segments="emailSentence" :changed="severity !== savedSeverity ? ['severity'] : []" />
+						</p>
+					</div>
+
+					<div v-if="dirty" :class="$style.form__save">
+						<NcButton type="submit" variant="primary" :disabled="saving || groups.length === 0">
+							<template v-if="saving" #icon>
+								<NcLoadingIcon />
+							</template>
+							{{ t(APP_ID, 'Save changes') }}
+						</NcButton>
+						<NcButton variant="tertiary" :disabled="saving" @click="groups = [...savedGroups]; severity = savedSeverity">
+							{{ t(APP_ID, 'Discard') }}
+						</NcButton>
+						<span v-if="groups.length === 0" :class="$style.error">{{ t(APP_ID, 'Choose at least one group.') }}</span>
+					</div>
+				</form>
+
+				<div :class="$style.people">
+					<p :class="$style.people__count">
+						{{ n(APP_ID, '%n person gets these alerts now:', '%n people get these alerts now:', data.recipients.length) }}
+					</p>
+					<ul :class="$style.people__list">
+						<li v-for="person in data.recipients" :key="person.uid" :class="$style.person">
+							<NcAvatar
+								:user="person.uid"
+								:displayName="person.displayName"
+								:size="28"
+								disableMenu
+								disableTooltip />
+							<span :class="$style.person__name">{{ person.displayName }}</span>
+							<NcIconSvgWrapper
+								inline
+								:class="person.hasEmail ? $style.person__mail : $style.person__nomail"
+								:path="person.hasEmail ? mdiEmailOutline : mdiEmailOffOutline"
+								:size="16"
+								:name="person.hasEmail ? t(APP_ID, 'has an email address') : t(APP_ID, 'no email address')" />
+							<span v-if="!person.hasEmail" :class="$style.person__note" aria-hidden="true">{{ t(APP_ID, 'no email') }}</span>
+						</li>
+					</ul>
+					<p v-if="data.recipients.length >= data.recipientLimit" :class="$style.muted">
+						{{ n(APP_ID, 'At most %n person is notified, so one alert cannot become a flood.', 'At most %n people are notified, so one alert cannot become a flood.', data.recipientLimit) }}
+					</p>
+					<NcNoteCard v-if="data.recipients.length === 0" type="warning">
+						{{ t(APP_ID, 'Nobody is in these groups, so nobody is told about attacks. Choose a group with at least one active administrator.') }}
+					</NcNoteCard>
+				</div>
+				<div :class="$style.test">
 					<NcNoteCard v-if="!data.me.recipient" type="info">
 						{{ t(APP_ID, 'You are not in the groups above, so real alerts do not reach you. The test is still sent to you.') }}
 					</NcNoteCard>
 					<div>
-						<NcButton variant="primary" :disabled="testing" @click="test">
+						<NcButton variant="secondary" :disabled="testing" @click="test">
 							<template #icon>
 								<NcLoadingIcon v-if="testing" />
 								<NcIconSvgWrapper v-else :path="mdiBellOutline" />
@@ -276,68 +272,78 @@ function openCheck() {
 							<span>{{ emailResult.text }}</span>
 						</li>
 					</ul>
-				</SectionCard>
-			</div>
-
-			<SectionCard :heading="t(APP_ID, 'Notifications per check')" :icon="mdiFormatListChecks">
-				<template #description>
-					{{ n(APP_ID, '%n check notifies the administrators.', '%n checks notify the administrators.', notifying) }}
-					{{ t(APP_ID, 'Change this with the responses of each check.') }}
-				</template>
-				<div :class="$style.tableWrap">
-					<table :class="$style.table">
-						<thead>
-							<tr>
-								<th scope="col">
-									{{ t(APP_ID, 'Check') }}
-								</th>
-								<th scope="col">
-									{{ t(APP_ID, 'Administrators') }}
-								</th>
-								<th scope="col">
-									{{ t(APP_ID, 'Affected user') }}
-								</th>
-							</tr>
-						</thead>
-						<tbody>
-							<tr v-for="check in data.checks" :key="check.id" :class="{ [$style.row_off]: check.mode === 'off' }">
-								<th scope="row">
-									<a :href="`#checks/${check.id}`" :class="$style.checkLink" @click="openCheck">{{ check.name }}</a>
-									<StateBadge v-if="check.mode === 'off'">
-										{{ t(APP_ID, 'Off') }}
-									</StateBadge>
-								</th>
-								<td :data-label="t(APP_ID, 'Administrators')">
-									<span v-if="!check.adminAvailable" :class="$style.muted" :title="t(APP_ID, 'This check has no such response')">
-										<span aria-hidden="true">—</span>
-										<span class="hidden-visually">{{ t(APP_ID, 'This check has no such response') }}</span>
-									</span>
-									<span v-else :class="check.admin ? $style.yes : $style.no">
-										<NcIconSvgWrapper inline :path="check.admin ? mdiCheck : mdiMinus" :size="18" />
-										{{ check.admin ? t(APP_ID, 'Notified') : t(APP_ID, 'Not notified') }}
-									</span>
-								</td>
-								<td :data-label="t(APP_ID, 'Affected user')">
-									<span v-if="!check.userAvailable" :class="$style.muted" :title="t(APP_ID, 'This check has no such response')">
-										<span aria-hidden="true">—</span>
-										<span class="hidden-visually">{{ t(APP_ID, 'This check has no such response') }}</span>
-									</span>
-									<span v-else :class="check.user ? $style.yes : $style.no">
-										<NcIconSvgWrapper inline :path="check.user ? mdiCheck : mdiMinus" :size="18" />
-										{{ check.user ? t(APP_ID, 'Notified') : t(APP_ID, 'Not notified') }}
-									</span>
-								</td>
-							</tr>
-						</tbody>
-					</table>
 				</div>
 			</SectionCard>
+
+			<DigestSection />
+
+			<template v-if="advanced">
+				<SectionCard
+					level="h4"
+					:heading="t(APP_ID, 'Notifications per check')"
+					:icon="mdiFormatListChecks"
+					data-test="per-check">
+					<template #description>
+						{{ n(APP_ID, '%n check notifies the administrators.', '%n checks notify the administrators.', notifying) }}
+						{{ t(APP_ID, 'Change this with the responses of each check.') }}
+					</template>
+					<div :class="$style.tableWrap">
+						<table :class="$style.table">
+							<thead>
+								<tr>
+									<th scope="col">
+										{{ t(APP_ID, 'Check') }}
+									</th>
+									<th scope="col">
+										{{ t(APP_ID, 'Administrators') }}
+									</th>
+									<th scope="col">
+										{{ t(APP_ID, 'Affected user') }}
+									</th>
+								</tr>
+							</thead>
+							<tbody>
+								<tr v-for="check in data.checks" :key="check.id" :class="{ [$style.row_off]: check.mode === 'off' }">
+									<th scope="row">
+										<a :href="`#checks/${check.id}`" :class="$style.checkLink" @click="openCheck">{{ check.name }}</a>
+										<StateBadge v-if="check.mode === 'off'">
+											{{ t(APP_ID, 'Off') }}
+										</StateBadge>
+									</th>
+									<td :data-label="t(APP_ID, 'Administrators')">
+										<span v-if="!check.adminAvailable" :class="$style.muted" :title="t(APP_ID, 'This check has no such response')">
+											<span aria-hidden="true">—</span>
+											<span class="hidden-visually">{{ t(APP_ID, 'This check has no such response') }}</span>
+										</span>
+										<span v-else :class="check.admin ? $style.yes : $style.no">
+											<NcIconSvgWrapper inline :path="check.admin ? mdiCheck : mdiMinus" :size="18" />
+											{{ check.admin ? t(APP_ID, 'Notified') : t(APP_ID, 'Not notified') }}
+										</span>
+									</td>
+									<td :data-label="t(APP_ID, 'Affected user')">
+										<span v-if="!check.userAvailable" :class="$style.muted" :title="t(APP_ID, 'This check has no such response')">
+											<span aria-hidden="true">—</span>
+											<span class="hidden-visually">{{ t(APP_ID, 'This check has no such response') }}</span>
+										</span>
+										<span v-else :class="check.user ? $style.yes : $style.no">
+											<NcIconSvgWrapper inline :path="check.user ? mdiCheck : mdiMinus" :size="18" />
+											{{ check.user ? t(APP_ID, 'Notified') : t(APP_ID, 'Not notified') }}
+										</span>
+									</td>
+								</tr>
+							</tbody>
+						</table>
+					</div>
+				</SectionCard>
+
+				<WebhookEventsSection />
+			</template>
 		</template>
 	</div>
 </template>
 
 <style module>
-.notifications {
+.stack {
 	display: flex;
 	flex-direction: column;
 	gap: calc(var(--default-grid-baseline) * 5);
@@ -349,11 +355,13 @@ function openCheck() {
 	gap: calc(var(--default-grid-baseline) * 3);
 }
 
-.grid {
-	display: grid;
-	grid-template-columns: repeat(auto-fit, minmax(min(100%, 420px), 1fr));
-	gap: calc(var(--default-grid-baseline) * 5);
-	align-items: start;
+.test {
+	display: flex;
+	flex-direction: column;
+	align-items: flex-start;
+	gap: calc(var(--default-grid-baseline) * 2);
+	padding-top: calc(var(--default-grid-baseline) * 4);
+	border-top: 1px solid var(--color-border);
 }
 
 .form {
