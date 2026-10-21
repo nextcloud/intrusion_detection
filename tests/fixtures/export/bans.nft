@@ -1,0 +1,17 @@
+#!/usr/sbin/nft -f
+# Nextcloud intrusion detection: active blocks, written 2026-10-20T10:00:00Z.
+# Generated file. Load it with: nft -f bans.nft
+table inet nextcloud_ids {
+	set banned_v4 {
+		type ipv4_addr
+		flags interval, timeout
+	}
+	set banned_v6 {
+		type ipv6_addr
+		flags interval, timeout
+	}
+}
+flush set inet nextcloud_ids banned_v4
+flush set inet nextcloud_ids banned_v6
+add element inet nextcloud_ids banned_v4 { 192.0.2.1/32 timeout 7776000s, 198.51.100.0/24 timeout 3600s, 203.0.113.7/32 timeout 14400s }
+add element inet nextcloud_ids banned_v6 { 2001:db8:1:2::/64 timeout 604800s }

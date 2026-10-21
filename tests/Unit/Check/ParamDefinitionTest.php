@@ -138,4 +138,25 @@ class ParamDefinitionTest extends TestCase {
 		$this->expectException(\InvalidArgumentException::class);
 		new ParamDefinition('Bad-Name', ParamType::Int, 1);
 	}
+
+	public function testJsonAcceptsObjectsAndListsAndKeepsThemAsText(): void {
+		$p = new ParamDefinition('doc', ParamType::Json, '[]');
+		$this->assertSame('{"a":1}', $p->validate('{"a":1}'));
+		$this->assertSame('[{"id":"x"}]', $p->validate([['id' => 'x']]));
+		$this->assertSame('[1,2]', $p->parse(' [1,2] '));
+	}
+
+	/**
+	 * @return list<array{mixed}>
+	 */
+	public static function invalidJson(): array {
+		return [['{broken'], ['"a string"'], ['42'], ['null'], [42], [true], [str_repeat(' ', ParamDefinition::MAX_JSON_LENGTH) . '[]'], [str_repeat('[', 40) . str_repeat(']', 40)]];
+	}
+
+	#[DataProvider('invalidJson')]
+	public function testJsonRejectsEverythingElse(mixed $value): void {
+		$p = new ParamDefinition('doc', ParamType::Json, '[]');
+		$this->expectExceptionObject(new InvalidParamException('not_json', ['param' => 'doc']));
+		$p->validate($value);
+	}
 }

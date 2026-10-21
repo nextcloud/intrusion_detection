@@ -10,12 +10,14 @@ declare(strict_types=1);
 namespace OCA\IntrusionDetection\Command;
 
 use OC\Core\Command\Base;
+use OCA\IntrusionDetection\Blocklist\BlocklistOverview;
 use OCA\IntrusionDetection\Check\CheckRegistry;
 use OCA\IntrusionDetection\Check\Mode;
 use OCA\IntrusionDetection\Config\Prerequisites;
 use OCA\IntrusionDetection\Config\Settings;
 use OCA\IntrusionDetection\Db\BanMapper;
 use OCA\IntrusionDetection\Db\DetectionMapper;
+use OCA\IntrusionDetection\Export\FirewallExporter;
 use OCA\IntrusionDetection\Learning\LearningService;
 use OCA\IntrusionDetection\Perf\GuardTimer;
 use OCP\AppFramework\Utility\ITimeFactory;
@@ -32,6 +34,8 @@ class Status extends Base {
 		private readonly DetectionMapper $detections,
 		private readonly GuardTimer $timer,
 		private readonly ITimeFactory $timeFactory,
+		private readonly FirewallExporter $exporter,
+		private readonly BlocklistOverview $blocklists,
 	) {
 		parent::__construct();
 	}
@@ -52,6 +56,8 @@ class Status extends Base {
 		}
 		$last24h = $this->detections->countByCheck($now - 86400);
 		$timing = $this->timer->summary();
+		$export = $this->exporter->status()->toArray();
+		$lists = array_values(array_filter($this->blocklists->lists(), static fn (array $l): bool => $l['enabled']));
 
 		$status = [
 			'state' => !$this->settings->isEnabled() ? 'off' : ($this->learning->isActive() ? 'learning' : 'protecting'),
@@ -65,6 +71,9 @@ class Status extends Base {
 			'guard_average_us' => $timing === null ? null : round($timing['averageMicroseconds'], 1),
 			'guard_max_us' => $timing['maxMicroseconds'] ?? null,
 			'guard_samples' => $timing['samples'] ?? 0,
+			'export' => $export,
+			'blocklists_enabled' => count($lists),
+			'blocklists_stale' => count(array_filter($lists, static fn (array $l): bool => $l['stale'])),
 		];
 
 		if ($input->getOption('output') !== self::OUTPUT_FORMAT_PLAIN) {
@@ -80,6 +89,12 @@ class Status extends Base {
 		$output->writeln(sprintf('Checks: %d protecting, %d observing, %d off.', $modes[Mode::Protect->value], $modes[Mode::Observe->value], $modes[Mode::Off->value]));
 		$output->writeln(sprintf('Memory cache: %s. Mail: %s.', $status['memory_cache'], $status['mail'] ? 'configured' : 'not configured'));
 		$output->writeln(sprintf('Active blocks: %d. Detections in the last 24 hours: %d.', $status['active_bans'], $status['detections_24h']));
+		$output->writeln(match (true) {
+			!$export['active'] => 'Firewall export: off.',
+			$export['error'] !== null => sprintf('Firewall export: <error>%s</error> (%s).', $export['error'], (string)$export['directory']),
+			default => sprintf('Firewall export: %s to %s, last written %s.', implode(', ', $export['files']), (string)$export['directory'], $export['lastWriteAt'] === null ? 'never' : date('c', $export['lastWriteAt'])),
+		});
+		$output->writeln(sprintf('Blocklists: %d enabled, %d not downloaded for more than three intervals.', $status['blocklists_enabled'], $status['blocklists_stale']));
 		$output->writeln($timing === null
 			? 'Cost per request: not measured yet (needs a memory cache; 1 in 1000 requests is measured).'
 			: sprintf('Cost per request: %.1f µs on average, %d µs at most (%d samples, last 24 hours).', $timing['averageMicroseconds'], $timing['maxMicroseconds'], $timing['samples']));

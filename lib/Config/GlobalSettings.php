@@ -41,6 +41,15 @@ final class GlobalSettings {
 	/** While in the future, low-value attempts are sampled because the attempts table is flooded */
 	public const ATTEMPTS_FLOOD_UNTIL = 'attempts_flood_until';
 
+	public const EXPORT_FORMATS = 'export_formats';
+	public const BLOCKLIST_SOURCES = 'blocklist_sources';
+	public const BLOCKLIST_SYNC_INTERVAL = 'blocklist_sync_interval';
+	public const BLOCKLIST_MAX_ENTRIES = 'blocklist_max_entries';
+	/** Internal: per list the active version and the last sync results */
+	public const BLOCKLIST_STATE = 'blocklist_state';
+	/** Internal: the last firewall export */
+	public const EXPORT_STATE = 'export_state';
+
 	/** Seconds in the learning period that starts when the app is first enabled */
 	public const LEARNING_DEFAULT_PERIOD = 7 * 86400;
 
@@ -69,6 +78,12 @@ final class GlobalSettings {
 				new ParamDefinition(self::BAN_VERSION, ParamType::Int, 0, min: 0),
 				new ParamDefinition(self::INSTALLED_AT, ParamType::Int, 0, min: 0),
 				new ParamDefinition(self::ATTEMPTS_FLOOD_UNTIL, ParamType::Int, 0, min: 0),
+				new ParamDefinition(self::EXPORT_FORMATS, ParamType::StringList, [], itemPattern: '/^(txt|nft|ipset|log)$/', maxItems: 4),
+				new ParamDefinition(self::BLOCKLIST_SOURCES, ParamType::Json, '[]'),
+				new ParamDefinition(self::BLOCKLIST_SYNC_INTERVAL, ParamType::Duration, 21600, min: 3600, max: 7 * 86400),
+				new ParamDefinition(self::BLOCKLIST_MAX_ENTRIES, ParamType::Int, 200000, min: 100, max: 500000),
+				new ParamDefinition(self::BLOCKLIST_STATE, ParamType::Json, '{}'),
+				new ParamDefinition(self::EXPORT_STATE, ParamType::Json, '{}'),
 			];
 			$this->definitions = [];
 			foreach ($list as $definition) {
@@ -86,6 +101,6 @@ final class GlobalSettings {
 	 * Settings that hold internal state and are never set by an admin.
 	 */
 	public static function isInternal(string $name): bool {
-		return in_array($name, [self::BAN_VERSION, self::INSTALLED_AT, self::LEARNING_NOTICE_SENT, self::ATTEMPTS_FLOOD_UNTIL], true);
+		return in_array($name, [self::BAN_VERSION, self::INSTALLED_AT, self::LEARNING_NOTICE_SENT, self::ATTEMPTS_FLOOD_UNTIL, self::BLOCKLIST_STATE, self::EXPORT_STATE], true);
 	}
 }

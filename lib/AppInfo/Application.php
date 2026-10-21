@@ -10,12 +10,18 @@ declare(strict_types=1);
 namespace OCA\IntrusionDetection\AppInfo;
 
 use OCA\IntrusionDetection\Config\Lexicon;
+use OCA\IntrusionDetection\Event\BanCreatedEvent;
+use OCA\IntrusionDetection\Event\BanLiftedEvent;
 use OCA\IntrusionDetection\Guard\AddressGuard;
+use OCA\IntrusionDetection\Listener\BlocklistLoginListener;
+use OCA\IntrusionDetection\Listener\FirewallExportListener;
 use OCA\IntrusionDetection\Listener\LoginRecordListener;
+use OCA\IntrusionDetection\SetupCheck\BlocklistSyncCheck;
 use OCP\AppFramework\App;
 use OCP\AppFramework\Bootstrap\IBootContext;
 use OCP\AppFramework\Bootstrap\IBootstrap;
 use OCP\AppFramework\Bootstrap\IRegistrationContext;
+use OCP\Authentication\Events\AnyLoginFailedEvent;
 use OCP\User\Events\UserLoggedInEvent;
 
 class Application extends App implements IBootstrap {
@@ -33,6 +39,11 @@ class Application extends App implements IBootstrap {
 		$context->registerRequestGuard(AddressGuard::class);
 
 		$context->registerEventListener(UserLoggedInEvent::class, LoginRecordListener::class);
+
+		$context->registerEventListener(BanCreatedEvent::class, FirewallExportListener::class);
+		$context->registerEventListener(BanLiftedEvent::class, FirewallExportListener::class);
+		$context->registerEventListener(AnyLoginFailedEvent::class, BlocklistLoginListener::class);
+		$context->registerSetupCheck(BlocklistSyncCheck::class);
 	}
 
 	#[\Override]

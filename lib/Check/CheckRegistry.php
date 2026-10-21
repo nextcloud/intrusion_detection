@@ -19,6 +19,7 @@ final class CheckRegistry {
 	public const CHECKS = [
 		Checks\ManualBlock::class,
 		Checks\SharedAddress::class,
+		Checks\BlocklistMatch::class,
 	];
 
 	/** @var array<string, CheckDefinition>|null */

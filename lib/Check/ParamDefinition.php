@@ -17,6 +17,9 @@ namespace OCA\IntrusionDetection\Check;
  * way wherever it is set.
  */
 final class ParamDefinition {
+	/** Longest accepted value of a ParamType::Json setting, in bytes */
+	public const MAX_JSON_LENGTH = 262144;
+
 	/**
 	 * @param int|float|bool|string|list<string> $default
 	 * @param list<string> $choices allowed values for ParamType::Choice
@@ -56,6 +59,7 @@ final class ParamDefinition {
 			ParamType::Choice => $this->validateChoice($value),
 			ParamType::StringList => $this->validateStringList($value),
 			ParamType::CidrList => $this->validateCidrList($value),
+			ParamType::Json => $this->validateJson($value),
 		};
 	}
 
@@ -76,6 +80,7 @@ final class ParamDefinition {
 			ParamType::StringList, ParamType::CidrList => $this->validate(
 				$raw === '' ? [] : array_values(array_filter(array_map('trim', explode(',', $raw)), static fn (string $s): bool => $s !== ''))
 			),
+			ParamType::Json => $this->validateJson($raw),
 		};
 	}
 
@@ -223,6 +228,28 @@ final class ParamDefinition {
 			$items[] = $item;
 		}
 		return array_values(array_unique($items));
+	}
+
+	/**
+	 * A JSON object or list, as text. Arrays are encoded. Only the syntax and
+	 * the size are checked here.
+	 */
+	private function validateJson(mixed $value): string {
+		if (is_array($value)) {
+			$value = json_encode($value, JSON_UNESCAPED_SLASHES);
+		}
+		if (!is_string($value) || strlen($value) > self::MAX_JSON_LENGTH) {
+			throw new InvalidParamException('not_json', ['param' => $this->name]);
+		}
+		try {
+			$decoded = json_decode($value, true, 32, JSON_THROW_ON_ERROR);
+		} catch (\JsonException) {
+			throw new InvalidParamException('not_json', ['param' => $this->name]);
+		}
+		if (!is_array($decoded)) {
+			throw new InvalidParamException('not_json', ['param' => $this->name]);
+		}
+		return $value;
 	}
 
 	private static function isValidCidr(string $range): bool {

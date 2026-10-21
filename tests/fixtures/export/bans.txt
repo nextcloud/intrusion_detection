@@ -1,0 +1,7 @@
+# Nextcloud intrusion detection: active blocks, written 2026-10-20T10:00:00Z.
+# One range per line. The comment gives the end of the block and its reference.
+192.0.2.1/32 # until=2027-01-18T10:00:00Z ref=M5MANUAL
+198.51.100.0/24 # until=2026-10-20T11:00:00Z ref=N8XYZ2QR
+198.51.100.7/32 # until=2026-10-21T10:00:00Z ref=P4CDEF9G
+203.0.113.7/32 # until=2026-10-20T14:00:00Z ref=K7Q2MPXA
+2001:db8:1:2::/64 # until=2026-10-27T10:00:00Z ref=W6HB3RTZ

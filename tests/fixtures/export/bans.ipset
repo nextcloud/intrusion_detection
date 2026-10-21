@@ -1,0 +1,17 @@
+# Nextcloud intrusion detection: active blocks, written 2026-10-20T10:00:00Z.
+# Generated file. Load it with: ipset restore < bans.ipset
+create nextcloud_ids_v4 hash:net family inet timeout 0 -exist
+create nextcloud_ids_v4_new hash:net family inet timeout 0 -exist
+flush nextcloud_ids_v4_new
+add nextcloud_ids_v4_new 192.0.2.1/32 timeout 2147483
+add nextcloud_ids_v4_new 198.51.100.0/24 timeout 3600
+add nextcloud_ids_v4_new 198.51.100.7/32 timeout 86400
+add nextcloud_ids_v4_new 203.0.113.7/32 timeout 14400
+swap nextcloud_ids_v4_new nextcloud_ids_v4
+destroy nextcloud_ids_v4_new
+create nextcloud_ids_v6 hash:net family inet6 timeout 0 -exist
+create nextcloud_ids_v6_new hash:net family inet6 timeout 0 -exist
+flush nextcloud_ids_v6_new
+add nextcloud_ids_v6_new 2001:db8:1:2::/64 timeout 604800
+swap nextcloud_ids_v6_new nextcloud_ids_v6
+destroy nextcloud_ids_v6_new

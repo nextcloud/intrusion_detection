@@ -45,6 +45,13 @@ final class InvalidParamException extends \InvalidArgumentException {
 			'unknown_response' => $l->t('"%s" is not a response this check can use.', [(string)($this->details['response'] ?? '')]),
 			'unknown_mode' => $l->t('The mode must be off, observe or protect.'),
 			'mode_unavailable' => $l->t('This check cannot run on this server: %s', [(string)($this->details['why'] ?? '')]),
+			'not_json' => $l->t('"%s" must be a valid JSON document.', [$param]),
+			'unknown_list' => $l->t('There is no list "%s".', [(string)($this->details['list'] ?? '')]),
+			'invalid_list_id' => $l->t('A list name must start with a letter and use only lower-case letters, digits and underscores, at most 32 characters.'),
+			'list_needs_url' => $l->t('A new list needs an address and a purpose.'),
+			'url_refused' => $l->t('Lists can only be downloaded from https:// addresses outside the local network, without a user name or password in the address.'),
+			'builtin_list' => $l->t('The address, purpose and format of a built-in list cannot be changed, and it cannot be removed. Switch it off instead.'),
+			'too_many_lists' => $l->t('There can be at most %s lists.', [(string)($this->details['max'] ?? '')]),
 			default => $l->t('The value is not valid.'),
 		};
 	}

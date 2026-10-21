@@ -9,6 +9,7 @@ declare(strict_types=1);
 
 namespace OCA\IntrusionDetection\Address;
 
+use OCA\IntrusionDetection\Blocklist\BlocklistFactsProvider;
 use OCA\IntrusionDetection\Db\Ban;
 use OCA\IntrusionDetection\Db\BanMapper;
 use OCA\IntrusionDetection\Net\SourceKey;
@@ -22,7 +23,9 @@ use Psr\Container\ContainerInterface;
  */
 class AddressResolver {
 	/** @var list<class-string<IAddressFactsProvider>> */
-	public const PROVIDERS = [];
+	public const PROVIDERS = [
+		BlocklistFactsProvider::class,
+	];
 
 	public function __construct(
 		private readonly BanMapper $banMapper,

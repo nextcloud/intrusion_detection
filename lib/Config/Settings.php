@@ -217,6 +217,16 @@ class Settings {
 	}
 
 	/**
+	 * A ParamType::Json setting, decoded. Invalid stored JSON reads as empty.
+	 *
+	 * @return array<array-key, mixed>
+	 */
+	public function getJson(string $name): array {
+		$decoded = json_decode((string)$this->global($name), true);
+		return is_array($decoded) ? $decoded : [];
+	}
+
+	/**
 	 * @throws InvalidParamException
 	 */
 	public function setGlobal(string $name, mixed $value): void {
@@ -269,7 +279,7 @@ class Settings {
 			ParamType::Int, ParamType::Duration => $this->appConfig->getValueInt($app, $key, (int)$definition->default),
 			ParamType::Float => $this->appConfig->getValueFloat($app, $key, (float)$definition->default),
 			ParamType::Bool => $this->appConfig->getValueBool($app, $key, (bool)$definition->default),
-			ParamType::Choice => $this->appConfig->getValueString($app, $key, (string)$definition->default),
+			ParamType::Choice, ParamType::Json => $this->appConfig->getValueString($app, $key, (string)$definition->default),
 			ParamType::StringList, ParamType::CidrList => array_values($this->appConfig->getValueArray($app, $key, (array)$definition->default)),
 		};
 		try {
@@ -285,7 +295,7 @@ class Settings {
 			ParamType::Int, ParamType::Duration => $this->appConfig->setValueInt($app, $key, (int)$value),
 			ParamType::Float => $this->appConfig->setValueFloat($app, $key, (float)$value),
 			ParamType::Bool => $this->appConfig->setValueBool($app, $key, (bool)$value),
-			ParamType::Choice => $this->appConfig->setValueString($app, $key, (string)$value),
+			ParamType::Choice, ParamType::Json => $this->appConfig->setValueString($app, $key, (string)$value),
 			ParamType::StringList, ParamType::CidrList => $this->appConfig->setValueArray($app, $key, (array)$value),
 		};
 	}
