@@ -102,6 +102,7 @@ class PersonalApiTest extends PersonalApiTestCase {
 			'securityChanges' => static fn () => $api->securityChanges(),
 			'overview' => static fn () => $api->overview(),
 			'logOutElsewhere' => static fn () => $api->logOutElsewhere(),
+			'secureAccountProgress' => static fn () => $api->secureAccountProgress(),
 		];
 		foreach ($calls as $name => $call) {
 			try {

@@ -39,6 +39,28 @@ class TokenOriginMapper {
 	}
 
 	/**
+	 * Where several app passwords and sessions came from, in one query.
+	 *
+	 * @param list<int> $tokenIds
+	 * @return array<int, array{token_id: int, uid: string, ip: ?string, session_token_id: ?int, created_at: int}> by token id; tokens without a row are missing
+	 */
+	public function findMany(array $tokenIds): array {
+		$rows = [];
+		foreach (array_chunk(array_values(array_unique($tokenIds)), 1000) as $chunk) {
+			$qb = $this->db->getQueryBuilder();
+			$qb->select('token_id', 'uid', 'ip', 'session_token_id', 'created_at')
+				->from(self::TABLE)
+				->where($qb->expr()->in('token_id', $qb->createNamedParameter($chunk, IQueryBuilder::PARAM_INT_ARRAY)));
+			$result = $qb->executeQuery();
+			while ($row = $result->fetch()) {
+				$rows[(int)$row['token_id']] = self::row($row);
+			}
+			$result->closeCursor();
+		}
+		return $rows;
+	}
+
+	/**
 	 * @return ?array{token_id: int, uid: string, ip: ?string, session_token_id: ?int, created_at: int}
 	 */
 	public function find(int $tokenId): ?array {

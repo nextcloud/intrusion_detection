@@ -62,6 +62,7 @@ use OCP\IUserSession;
  * @psalm-import-type IntrusionDetectionLogin from ResponseDefinitions
  * @psalm-import-type IntrusionDetectionSecurityChange from ResponseDefinitions
  * @psalm-import-type IntrusionDetectionSecureAccount from ResponseDefinitions
+ * @psalm-import-type IntrusionDetectionSecureAccountProgress from ResponseDefinitions
  * @psalm-import-type IntrusionDetectionPersonalOverview from ResponseDefinitions
  * @psalm-import-type IntrusionDetectionLoggedOutElsewhere from ResponseDefinitions
  */
@@ -295,6 +296,24 @@ class PersonalApiController extends OCSController {
 	#[ApiRoute(verb: 'GET', url: '/api/v1/personal/secure-account')]
 	public function secureAccount(): DataResponse {
 		return new DataResponse($this->overview->forUser($this->user(), $this->l));
+	}
+
+	/**
+	 * Get only the progress through the "Secure my account" checklist of the current user
+	 *
+	 * For the card on the personal security page, which needs nothing else:
+	 * the full checklist also lists every session and share.
+	 *
+	 * @return DataResponse<Http::STATUS_OK, IntrusionDetectionSecureAccountProgress, array{}>
+	 * @throws OCSNotFoundException The security page is switched off
+	 *
+	 * 200: The progress; `active` is false when no checklist is open
+	 */
+	#[NoAdminRequired]
+	#[ApiRoute(verb: 'GET', url: '/api/v1/personal/secure-account/progress')]
+	public function secureAccountProgress(): DataResponse {
+		$this->requirePage();
+		return new DataResponse($this->guide->progress($this->user()));
 	}
 
 	/**

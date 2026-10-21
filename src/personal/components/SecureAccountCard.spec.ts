@@ -6,10 +6,10 @@
 import { enableAutoUnmount, flushPromises, mount } from '@vue/test-utils'
 import { afterEach, describe, expect, test, vi } from 'vitest'
 import SecureAccountCard from './SecureAccountCard.vue'
-import { fetchSecureAccount } from '../../services/secureAccount.ts'
+import { fetchSecureAccountProgress } from '../../services/secureAccount.ts'
 
 vi.mock('../../services/secureAccount.ts', () => ({
-	fetchSecureAccount: vi.fn(),
+	fetchSecureAccountProgress: vi.fn(),
 }))
 
 enableAutoUnmount(afterEach)
@@ -19,12 +19,19 @@ enableAutoUnmount(afterEach)
  * @param done - Steps done
  */
 function account(active: boolean, done = 0) {
-	return { progress: { active, done, total: 6, startedAt: 1, eventAt: 1, reason: 'denied', detectionId: 1, closedAt: null, closedBy: null, steps: [] } }
+	return { active, done, total: 6, startedAt: 1, eventAt: 1, reason: 'denied', detectionId: 1, closedAt: null, closedBy: null, steps: [] }
 }
 
 describe('SecureAccountCard', () => {
+	test('only the progress is loaded, not the whole checklist', async () => {
+		vi.mocked(fetchSecureAccountProgress).mockClear().mockResolvedValue(account(true, 1) as never)
+		mount(SecureAccountCard)
+		await flushPromises()
+		expect(fetchSecureAccountProgress).toHaveBeenCalledTimes(1)
+	})
+
 	test('an open checklist shows its progress and leads to the checklist page', async () => {
-		vi.mocked(fetchSecureAccount).mockResolvedValue(account(true, 2) as never)
+		vi.mocked(fetchSecureAccountProgress).mockResolvedValue(account(true, 2) as never)
 		const wrapper = mount(SecureAccountCard)
 		await flushPromises()
 		expect(wrapper.get('[data-test="secure-account-progress"]').text()).toBe('2 of 6 steps done')
@@ -35,19 +42,19 @@ describe('SecureAccountCard', () => {
 	})
 
 	test('a checklist without any step done offers to start', async () => {
-		vi.mocked(fetchSecureAccount).mockResolvedValue(account(true) as never)
+		vi.mocked(fetchSecureAccountProgress).mockResolvedValue(account(true) as never)
 		const wrapper = mount(SecureAccountCard)
 		await flushPromises()
 		expect(wrapper.get('[data-test="secure-account-open"]').text()).toBe('Start')
 	})
 
 	test('without an open checklist, or when it cannot be loaded, nothing is shown', async () => {
-		vi.mocked(fetchSecureAccount).mockResolvedValue(account(false) as never)
+		vi.mocked(fetchSecureAccountProgress).mockResolvedValue(account(false) as never)
 		const closed = mount(SecureAccountCard)
 		await flushPromises()
 		expect(closed.find('[data-test="secure-account"]').exists()).toBe(false)
 
-		vi.mocked(fetchSecureAccount).mockRejectedValue(new Error('offline'))
+		vi.mocked(fetchSecureAccountProgress).mockRejectedValue(new Error('offline'))
 		const failed = mount(SecureAccountCard)
 		await flushPromises()
 		expect(failed.find('[data-test="secure-account"]').exists()).toBe(false)

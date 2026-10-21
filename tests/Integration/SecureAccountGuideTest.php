@@ -190,8 +190,10 @@ class SecureAccountGuideTest extends AccountTestCase {
 		$this->assertCount(1, array_filter($changes, static fn (array $c): bool => $c['address'] === '203.0.113.9'), 'Only the own account\'s changes');
 
 		$this->assertSame(Http::STATUS_CONFLICT, $controller->completeSecureAccountStep('sessions')->getStatus(), 'Nothing is open');
+		$this->assertFalse($controller->secureAccountProgress()->getData()['active']);
 		$started = $controller->startSecureAccount()->getData();
 		$this->assertTrue($started['progress']['active']);
+		$this->assertSame($started['progress'], $controller->secureAccountProgress()->getData(), 'the card reads only the progress');
 		$this->assertSame('owner@example.com', $started['email']);
 		$this->assertSame(Http::STATUS_BAD_REQUEST, $controller->completeSecureAccountStep('password')->getStatus(), 'The password step is done by a new password');
 		$this->assertSame(Http::STATUS_BAD_REQUEST, $controller->completeSecureAccountStep('two_factor')->getStatus());
@@ -199,6 +201,25 @@ class SecureAccountGuideTest extends AccountTestCase {
 		$this->assertTrue($this->step($done['progress'], 'sessions')['done']);
 		$this->assertNull($this->guide->state($other->getUID()), 'The other account is untouched');
 		$this->assertFalse($controller->dismissSecureAccount()->getData()['progress']['active']);
+	}
+
+	public function testTheOriginsOfAllSessionsAreReadWithOneQuery(): void {
+		$user = $this->newUser('ids-guide-tokens');
+		$this->startSession($user);
+		$origins = Server::get(\OCA\IntrusionDetection\Db\TokenOriginMapper::class);
+		for ($i = 0; $i < 30; $i++) {
+			$token = $this->token($user, \OCP\Authentication\Token\IToken::PERMANENT_TOKEN, 'App ' . $i);
+			$origins->record($token['id'], $user->getUID(), '203.0.113.' . $i, null, time() - 60);
+		}
+		$this->guide->start($user->getUID(), SecureAccountGuide::REASON_SELF);
+		$controller = $this->controller();
+		$db = Server::get(\OCP\IDBConnection::class);
+
+		$queries = $db->getInner()->getStats()['executed'];
+		$sessions = $controller->secureAccount()->getData()['sessions'];
+		$this->assertCount(31, $sessions);
+		$this->assertCount(30, array_filter($sessions, static fn (array $s): bool => $s['address'] !== null));
+		$this->assertLessThan(20, $db->getInner()->getStats()['executed'] - $queries, 'not one query per token');
 	}
 
 	/**

@@ -13,7 +13,7 @@ import { onMounted, ref } from 'vue'
 import NcButton from '@nextcloud/vue/components/NcButton'
 import SectionCard from '../../components/common/SectionCard.vue'
 import { logger } from '../../services/logger.ts'
-import { fetchSecureAccount } from '../../services/secureAccount.ts'
+import { fetchSecureAccountProgress } from '../../services/secureAccount.ts'
 import { APP_ID } from '../../utils/format.ts'
 
 const progress = ref<SecureAccountProgress | null>(null)
@@ -21,8 +21,8 @@ const checklistUrl = generateUrl('/apps/intrusion_detection/secure-account')
 
 onMounted(async () => {
 	try {
-		const account = await fetchSecureAccount()
-		progress.value = account.progress.active ? account.progress : null
+		const current = await fetchSecureAccountProgress()
+		progress.value = current.active ? current : null
 	} catch (e) {
 		// The rest of the section still shows; the checklist page has its own errors.
 		logger.error('Could not load the "Secure my account" checklist', { error: e })

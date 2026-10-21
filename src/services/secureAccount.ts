@@ -4,7 +4,7 @@
  */
 
 import type { OCSResponse } from '@nextcloud/typings/ocs'
-import type { AccountGuide, SecureAccount, SecureAccountStepId, SecurityChange } from '../secureAccountTypes.ts'
+import type { AccountGuide, SecureAccount, SecureAccountProgress, SecureAccountStepId, SecurityChange } from '../secureAccountTypes.ts'
 
 import axios, { isAxiosError } from '@nextcloud/axios'
 import { PwdConfirmationMode } from '@nextcloud/password-confirmation'
@@ -40,6 +40,8 @@ async function call<T>(request: Promise<{ data: OCSResponse<T> }>): Promise<T> {
 }
 
 export const fetchSecureAccount = () => call<SecureAccount>(axios.get(url('personal/secure-account')))
+
+export const fetchSecureAccountProgress = () => call<SecureAccountProgress>(axios.get(url('personal/secure-account/progress')))
 
 export const startSecureAccount = () => call<SecureAccount>(axios.post(url('personal/secure-account')))
 

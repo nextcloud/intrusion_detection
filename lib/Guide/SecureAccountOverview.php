@@ -124,12 +124,11 @@ class SecureAccountOverview {
 			$this->logger->warning('Intrusion detection could not list the sessions of {uid}', ['uid' => $uid, 'exception' => $e]);
 			return [];
 		}
+		$tokens = array_values(array_filter($tokens, static fn (IToken $t): bool => $t->getType() === IToken::TEMPORARY_TOKEN || $t->getType() === IToken::PERMANENT_TOKEN));
+		$origins = $this->origins->findMany(array_map(static fn (IToken $t): int => $t->getId(), $tokens));
 		foreach ($tokens as $token) {
 			$type = $token->getType();
-			if ($type !== IToken::TEMPORARY_TOKEN && $type !== IToken::PERMANENT_TOKEN) {
-				continue;
-			}
-			$origin = $this->origins->find($token->getId());
+			$origin = $origins[$token->getId()] ?? null;
 			$lastActivity = $token instanceof PublicKeyToken ? $token->getLastActivity() : null;
 			$sessions[] = [
 				'id' => $token->getId(),
