@@ -53,6 +53,8 @@ export const personalSections = shallowReactive<PersonalSection[]>([
 	{ id: 'known-devices', order: PERSONAL_ORDER.knownDevices, width: 'half', component: defineAsyncComponent(() => import('./components/KnownDevices.vue')) },
 	{ id: 'trusted-networks', order: PERSONAL_ORDER.trustedNetworks, width: 'half', component: defineAsyncComponent(() => import('./components/TrustedNetworks.vue')) },
 	{ id: 'log-out-elsewhere', order: PERSONAL_ORDER.logOutElsewhere, component: defineAsyncComponent(() => import('./components/LogOutElsewhere.vue')) },
+	{ id: 'secure-account', order: PERSONAL_ORDER.checklist, component: defineAsyncComponent(() => import('./components/SecureAccountCard.vue')) },
+	{ id: 'security-changes', order: PERSONAL_ORDER.securityChanges, component: defineAsyncComponent(() => import('./components/SecurityChanges.vue')) },
 ])
 
 /**

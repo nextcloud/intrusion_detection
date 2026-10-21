@@ -21,6 +21,11 @@ vi.mock('../personal/api.ts', async (importOriginal) => ({
 	fetchTrustedNetworks: vi.fn(() => Promise.resolve([])),
 }))
 
+vi.mock('../services/secureAccount.ts', () => ({
+	fetchSecureAccount: vi.fn(() => Promise.resolve({ progress: { active: false } })),
+	fetchSecurityChanges: vi.fn(() => Promise.resolve([])),
+}))
+
 const original = [...personalSections]
 
 /**
@@ -51,11 +56,13 @@ describe('PersonalSettings', () => {
 		const wrapper = await mountPage()
 		expect(wrapper.find('h2').text()).toBe('Security events')
 		expect(wrapper.findAll('[data-section]').map((s) => s.attributes('data-section'))).toEqual([
+			'secure-account',
 			'status',
 			'email-hint',
 			'events',
 			'failed-logins',
 			'logins',
+			'security-changes',
 			'known-devices',
 			'trusted-networks',
 			'log-out-elsewhere',
@@ -64,16 +71,20 @@ describe('PersonalSettings', () => {
 		expect(wrapper.find('[data-test="email-hint"]').exists()).toBe(false)
 	})
 
-	test('later parts plug into their reserved places without changing the page', async () => {
-		personalSections.push(
-			{ id: 'secure-account', order: PERSONAL_ORDER.checklist, component: defineComponent({ render: () => h('p', 'Checklist') }) },
-			{ id: 'security-changes', order: PERSONAL_ORDER.securityChanges, component: defineComponent({ render: () => h('p', 'Changes') }) },
-		)
+	test('the checklist and the security changes sit in their reserved places', async () => {
 		const wrapper = await mountPage()
 		const ids = wrapper.findAll('[data-section]').map((s) => s.attributes('data-section'))
 		expect(ids[0]).toBe('secure-account')
 		expect(ids.indexOf('security-changes')).toBe(ids.indexOf('logins') + 1)
-		expect(wrapper.get('[data-section="secure-account"]').text()).toBe('Checklist')
+		expect(wrapper.get('[data-section="secure-account"]').text(), 'No checklist is open').toBe('')
+	})
+
+	test('a later part plugs into the list without changing the page', async () => {
+		personalSections.push({ id: 'test-part', order: PERSONAL_ORDER.logOutElsewhere + 1, component: defineComponent({ render: () => h('p', 'Part') }) })
+		const wrapper = await mountPage()
+		const ids = wrapper.findAll('[data-section]').map((s) => s.attributes('data-section'))
+		expect(ids[ids.length - 1]).toBe('test-part')
+		expect(wrapper.get('[data-section="test-part"]').text()).toBe('Part')
 	})
 
 	test('remembered devices and trusted networks share a row', async () => {
