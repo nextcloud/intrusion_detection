@@ -30,6 +30,8 @@ const { announce } = useAnnouncer()
 
 const learning = computed(() => state.status?.learning ?? { active: false, until: 0, daysLeft: 0, minDays: 1, maxDays: 30 })
 const enabled = computed(() => state.settings.find((s) => s.name === 'protection_enabled')?.value !== false)
+/** Decoys keep blocking while learning, unless switched off */
+const decoysAct = computed(() => state.settings.find((s) => s.name === 'learning_decoys_act')?.value === true)
 const daysValid = computed(() => Number.isInteger(days.value) && days.value >= learning.value.minDays && days.value <= learning.value.maxDays)
 
 const learningSettings = computed(() => state.settings.filter((s) => s.group === 'learning'))
@@ -130,7 +132,9 @@ async function download() {
 				{{ t(APP_ID, 'Learning mode') }}
 			</h4>
 			<p :class="$style.card__text">
-				{{ t(APP_ID, 'Checks set to Protect only record what they would do, so you can see whether the settings fit before anything is blocked. Alerts are still sent.') }}
+				{{ decoysAct
+					? t(APP_ID, 'Checks set to Protect only record what they would do, so you can see whether the settings fit before they block anything. Only addresses that use a decoy are still blocked. Alerts are still sent.')
+					: t(APP_ID, 'Checks set to Protect only record what they would do, so you can see whether the settings fit before they block anything. Alerts are still sent.') }}
 			</p>
 			<p :class="[$style.card__state, { [$style.card__state_on]: learning.active }]">
 				<template v-if="learning.active">

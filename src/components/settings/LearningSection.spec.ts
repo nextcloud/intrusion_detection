@@ -42,4 +42,12 @@ describe('the learning mode and other settings', () => {
 		expect(support).toContain('Export settings as JSON')
 		expect(support).toContain('Reset all settings to defaults')
 	})
+
+	test('learning mode says that decoys still block, unless they only observe', () => {
+		expect(mount(LearningSection).text()).toContain('Only addresses that use a decoy are still blocked.')
+		state.settings = state.settings.map((s) => s.name === 'learning_decoys_act' ? { ...s, value: false } : s)
+		const text = mount(LearningSection).text()
+		expect(text).toContain('before they block anything. Alerts are still sent.')
+		expect(text).not.toContain('decoy are still blocked')
+	})
 })
