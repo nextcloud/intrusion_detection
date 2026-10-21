@@ -10,6 +10,9 @@ declare(strict_types=1);
 namespace OCA\IntrusionDetection\Confirm;
 
 use OCA\IntrusionDetection\AdminChange\Approvers;
+use OCA\IntrusionDetection\Config\GlobalSettings;
+use OCA\IntrusionDetection\Config\Settings;
+use OCP\AppFramework\Utility\ITimeFactory;
 use OCP\Authentication\TwoFactorAuth\IRegistry;
 use OCP\DB\QueryBuilder\IQueryBuilder;
 use OCP\ICacheFactory;
@@ -25,9 +28,11 @@ use OCP\IUserManager;
  *
  * Only active accounts count: enabled ones that logged in at least once.
  * Counting never loads accounts: it is one query over core's preferences
- * and second-factor tables, through their indexes, and the result is
- * cached for CACHE_TTL. Lists are read a page at a time. Administrators
- * (at most {@see Approvers::MAX}) are checked one by one, also cached.
+ * and second-factor tables, through their indexes. The counts are stored
+ * (setting `coverage_users`): an hourly job and an explicit refresh count
+ * again, the pages and setup checks only read them. Lists are read a page
+ * at a time. Administrators (at most {@see Approvers::MAX}) are checked one
+ * by one and cached for CACHE_TTL.
  */
 class ConfirmationCoverage {
 	public const CACHE_TTL = 3600;
@@ -45,20 +50,32 @@ class ConfirmationCoverage {
 		private readonly Approvers $approvers,
 		private readonly IRegistry $twoFactor,
 		private readonly ICacheFactory $cacheFactory,
+		private readonly Settings $settings,
+		private readonly ITimeFactory $timeFactory,
 	) {
 	}
 
 	/**
-	 * @return array{withoutMethod: int, active: int}
+	 * The stored counts; counted now only when none were ever stored.
+	 *
+	 * @return array{withoutMethod: int, active: int, countedAt: int}
 	 */
 	public function users(): array {
-		$cache = $this->cacheFactory->createDistributed('intrusion_detection_coverage');
-		$cached = $cache->get('users');
-		if (is_array($cached) && is_int($cached['withoutMethod'] ?? null) && is_int($cached['active'] ?? null)) {
-			return ['withoutMethod' => $cached['withoutMethod'], 'active' => $cached['active']];
+		$stored = $this->settings->getJson(GlobalSettings::COVERAGE_USERS);
+		if (is_int($stored['withoutMethod'] ?? null) && is_int($stored['active'] ?? null) && is_int($stored['countedAt'] ?? null)) {
+			return ['withoutMethod' => $stored['withoutMethod'], 'active' => $stored['active'], 'countedAt' => $stored['countedAt']];
 		}
-		$counts = ['withoutMethod' => $this->count(true), 'active' => $this->count(false)];
-		$cache->set('users', $counts, self::CACHE_TTL);
+		return $this->recount();
+	}
+
+	/**
+	 * Count the accounts again and store the counts.
+	 *
+	 * @return array{withoutMethod: int, active: int, countedAt: int}
+	 */
+	public function recount(): array {
+		$counts = ['withoutMethod' => $this->count(true), 'active' => $this->count(false), 'countedAt' => $this->timeFactory->getTime()];
+		$this->settings->setGlobal(GlobalSettings::COVERAGE_USERS, $counts);
 		return $counts;
 	}
 
@@ -98,12 +115,11 @@ class ConfirmationCoverage {
 	}
 
 	/**
-	 * Forget the cached counts, for example after the admin page asked for fresh ones.
+	 * Count again now, for example after the admin page asked for fresh numbers.
 	 */
 	public function refresh(): void {
-		$cache = $this->cacheFactory->createDistributed('intrusion_detection_coverage');
-		$cache->remove('users');
-		$cache->remove('admins');
+		$this->cacheFactory->createDistributed('intrusion_detection_coverage')->remove('admins');
+		$this->recount();
 	}
 
 	/**
@@ -175,20 +191,22 @@ class ConfirmationCoverage {
 	 * value, through the preferences' (appid, configkey) index), and with
 	 * $withoutMethod only those with neither an email address nor a second
 	 * factor, each tested by primary key or index.
+	 *
+	 * Disabled accounts are left out with a left join on their primary key:
+	 * PostgreSQL misestimates the equivalent NOT EXISTS on configvalue and
+	 * took seconds for it with many accounts.
 	 */
 	private function activeAccounts(IQueryBuilder $qb, bool $withoutMethod): void {
 		$qb->from('preferences', 'p')
+			->leftJoin('p', 'preferences', 'd', $qb->expr()->andX(
+				$qb->expr()->eq('d.userid', 'p.userid'),
+				$qb->expr()->eq('d.appid', $qb->createNamedParameter('core')),
+				$qb->expr()->eq('d.configkey', $qb->createNamedParameter('enabled')),
+				$qb->expr()->eq('d.configvalue', $qb->createNamedParameter('false'), IQueryBuilder::PARAM_STR),
+			))
 			->where($qb->expr()->eq('p.appid', $qb->createNamedParameter('login')))
-			->andWhere($qb->expr()->eq('p.configkey', $qb->createNamedParameter('lastLogin')));
-
-		$disabled = $this->db->getQueryBuilder();
-		$disabled->select('d.userid')
-			->from('preferences', 'd')
-			->where($disabled->expr()->eq('d.userid', 'p.userid'))
-			->andWhere($disabled->expr()->eq('d.appid', $qb->createNamedParameter('core')))
-			->andWhere($disabled->expr()->eq('d.configkey', $qb->createNamedParameter('enabled')))
-			->andWhere($disabled->expr()->eq('d.configvalue', $qb->createNamedParameter('false'), IQueryBuilder::PARAM_STR));
-		$qb->andWhere($qb->createFunction('NOT EXISTS (' . $disabled->getSQL() . ')'));
+			->andWhere($qb->expr()->eq('p.configkey', $qb->createNamedParameter('lastLogin')))
+			->andWhere($qb->expr()->isNull('d.userid'));
 		if (!$withoutMethod) {
 			return;
 		}

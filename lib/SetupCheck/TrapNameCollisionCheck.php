@@ -9,22 +9,22 @@ declare(strict_types=1);
 
 namespace OCA\IntrusionDetection\SetupCheck;
 
-use OCA\IntrusionDetection\Decoy\DecoyService;
 use OCA\IntrusionDetection\Notification\AdminLinks;
-use OCA\IntrusionDetection\Traps\ReservedNames;
+use OCA\IntrusionDetection\Traps\TrapNameCollisions;
 use OCP\IL10N;
 
 /**
  * A reserved login name or the login name of a decoy has become a real
  * account since, for example through LDAP or SAML. Such names are skipped at
- * login, so the trap no longer works.
+ * login, so the trap no longer works. Reads the stored lookup
+ * ({@see TrapNameCollisions}), which the hourly job and every change of the
+ * names refresh.
  */
 class TrapNameCollisionCheck extends ProblemCheck {
 	public function __construct(
 		IL10N $l,
 		AdminLinks $links,
-		private readonly ReservedNames $reservedNames,
-		private readonly DecoyService $decoys,
+		private readonly TrapNameCollisions $collisions,
 	) {
 		parent::__construct($l, $links);
 	}
@@ -41,11 +41,10 @@ class TrapNameCollisionCheck extends ProblemCheck {
 
 	#[\Override]
 	public function finding(IL10N $l): ?Finding {
-		$names = array_values(array_unique(array_merge($this->reservedNames->collisions(), $this->decoys->loginNameCollisions())));
+		$names = $this->collisions->all();
 		if ($names === []) {
 			return null;
 		}
-		sort($names);
 		$quoted = implode(', ', array_map(static fn (string $n): string => '"' . $n . '"', $names));
 		return new Finding(
 			'trap_name_collision',

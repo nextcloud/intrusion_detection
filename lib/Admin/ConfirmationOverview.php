@@ -59,7 +59,7 @@ class ConfirmationOverview {
 			'methods' => $this->methods($l),
 			'policies' => $this->policies($l),
 			'outcomes' => array_map(static fn (NoMethodOutcome $o): array => ['id' => $o->value, 'label' => $o->label($l), 'description' => $o->description($l)], NoMethodOutcome::cases()),
-			'users' => $users,
+			'users' => ['withoutMethod' => $users['withoutMethod'], 'active' => $users['active']],
 			'admins' => [
 				'total' => $admins['total'],
 				'withoutEmail' => count($admins['withoutEmail']),

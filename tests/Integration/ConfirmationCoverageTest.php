@@ -11,10 +11,16 @@ namespace OCA\IntrusionDetection\Tests\Integration;
 
 use OC\Memcache\ArrayCache;
 use OCA\IntrusionDetection\AdminChange\Approvers;
+use OCA\IntrusionDetection\AppInfo\Application;
+use OCA\IntrusionDetection\BackgroundJob\StatusRefreshJob;
+use OCA\IntrusionDetection\Config\GlobalSettings;
+use OCA\IntrusionDetection\Config\Settings;
 use OCA\IntrusionDetection\Confirm\ConfirmationCoverage;
 use OCA\IntrusionDetection\Notification\AdminLinks;
 use OCA\IntrusionDetection\SetupCheck\Finding;
 use OCA\IntrusionDetection\SetupCheck\UsersWithoutConfirmationCheck;
+use OCA\IntrusionDetection\Traps\TrapNameCollisions;
+use OCP\AppFramework\Utility\ITimeFactory;
 use OCP\Authentication\TwoFactorAuth\IRegistry;
 use OCP\DB\QueryBuilder\IQueryBuilder;
 use OCP\ICacheFactory;
@@ -24,6 +30,7 @@ use OCP\IUserManager;
 use OCP\L10N\IFactory;
 use OCP\Server;
 use PHPUnit\Framework\Attributes\Group;
+use Psr\Log\LoggerInterface;
 
 /**
  * Counting the accounts that cannot confirm a login (setup checks 9 and 10,
@@ -61,7 +68,7 @@ class ConfirmationCoverageTest extends IntegrationTestCase {
 		$this->account('backup', secondFactor: 'backup_codes');
 		$this->account('disabled', disabled: true);
 		$this->account('never', loggedIn: false);
-		$this->cache->clear();
+		$this->forgetCounts();
 
 		$counts = $this->coverage()->users();
 		$this->assertSame($before['withoutMethod'] + 2, $counts['withoutMethod'], 'Nothing, or backup codes only');
@@ -77,22 +84,30 @@ class ConfirmationCoverageTest extends IntegrationTestCase {
 		$this->assertFalse($row['admin']);
 	}
 
-	public function testTheCountsAreCachedForAnHour(): void {
+	public function testTheCountsAreStoredUntilTheJobOrARefreshCountsAgain(): void {
 		$coverage = $this->coverage();
 		$first = $coverage->users();
 		$this->account('cached');
-		$this->assertSame($first, $coverage->users(), 'From the cache');
+
+		$queries = $this->db->getInner()->getStats()['executed'];
+		$this->assertSame($first, $this->coverage()->users(), 'Stored, also for a new request');
+		$this->assertSame(0, $this->db->getInner()->getStats()['executed'] - $queries, 'Reading the counts costs no query');
+
 		$coverage->refresh();
 		$this->assertSame($first['withoutMethod'] + 1, $coverage->users()['withoutMethod']);
+
+		$this->account('job');
+		self::invokePrivate(new StatusRefreshJob(Server::get(ITimeFactory::class), $coverage, Server::get(TrapNameCollisions::class), Server::get(LoggerInterface::class)), 'run', [null]);
+		$this->assertSame($first['withoutMethod'] + 2, $coverage->users()['withoutMethod']);
 	}
 
 	public function testCountingTenThousandAccountsLoadsNoAccount(): void {
 		$before = $this->coverage()->users();
-		$this->cache->clear();
+		$this->forgetCounts();
 		$this->fakeAccounts(10_000);
 		$userManager = $this->createMock(IUserManager::class);
 		$userManager->expects($this->never())->method($this->anything());
-		$coverage = new ConfirmationCoverage($this->db, $userManager, $this->createMock(IGroupManager::class), $this->createMock(Approvers::class), $this->createMock(IRegistry::class), $this->cacheFactory());
+		$coverage = new ConfirmationCoverage($this->db, $userManager, $this->createMock(IGroupManager::class), $this->createMock(Approvers::class), $this->createMock(IRegistry::class), $this->cacheFactory(), Server::get(Settings::class), Server::get(ITimeFactory::class));
 
 		$start = hrtime(true);
 		$counts = $coverage->users();
@@ -115,7 +130,13 @@ class ConfirmationCoverageTest extends IntegrationTestCase {
 			Server::get(Approvers::class),
 			Server::get(IRegistry::class),
 			$this->cacheFactory(),
+			Server::get(Settings::class),
+			Server::get(ITimeFactory::class),
 		);
+	}
+
+	private function forgetCounts(): void {
+		$this->appConfig->deleteKey(Application::APP_ID, GlobalSettings::COVERAGE_USERS);
 	}
 
 	private function cacheFactory(): ICacheFactory {

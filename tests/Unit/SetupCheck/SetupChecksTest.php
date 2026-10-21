@@ -18,7 +18,6 @@ use OCA\IntrusionDetection\Db\Detection;
 use OCA\IntrusionDetection\Db\DetectionFilter;
 use OCA\IntrusionDetection\Db\DetectionMapper;
 use OCA\IntrusionDetection\Db\LoginMapper;
-use OCA\IntrusionDetection\Decoy\DecoyService;
 use OCA\IntrusionDetection\Learning\LearningService;
 use OCA\IntrusionDetection\Net\ProxySuspect;
 use OCA\IntrusionDetection\Notification\AdminLinks;
@@ -30,7 +29,7 @@ use OCA\IntrusionDetection\SetupCheck\MemoryCacheCheck;
 use OCA\IntrusionDetection\SetupCheck\ReverseProxyCheck;
 use OCA\IntrusionDetection\SetupCheck\SharedAddressCheck;
 use OCA\IntrusionDetection\SetupCheck\TrapNameCollisionCheck;
-use OCA\IntrusionDetection\Traps\ReservedNames;
+use OCA\IntrusionDetection\Traps\TrapNameCollisions;
 use OCP\AppFramework\Utility\ITimeFactory;
 use OCP\IConfig;
 use OCP\IL10N;
@@ -147,11 +146,9 @@ class SetupChecksTest extends TestCase {
 	}
 
 	public function testTrapNamesThatBecameAccountsAreAnErrorWithALinkToTheTab(): void {
-		$reserved = $this->createMock(ReservedNames::class);
-		$reserved->method('collisions')->willReturn(['support', 'admin']);
-		$decoys = $this->createMock(DecoyService::class);
-		$decoys->method('loginNameCollisions')->willReturn(['admin', 'backup-svc']);
-		$check = new TrapNameCollisionCheck($this->l, $this->links, $reserved, $decoys);
+		$collisions = $this->createMock(TrapNameCollisions::class);
+		$collisions->method('all')->willReturn(['admin', 'backup-svc', 'support']);
+		$check = new TrapNameCollisionCheck($this->l, $this->links, $collisions);
 		$finding = $check->finding($this->l);
 		$this->assertSame(Finding::LEVEL_ERROR, $finding?->level);
 		$this->assertStringContainsString('"admin", "backup-svc", "support" are reserved', (string)$finding?->text);
@@ -163,7 +160,7 @@ class SetupChecksTest extends TestCase {
 	}
 
 	public function testNoTrapNameCollision(): void {
-		$check = new TrapNameCollisionCheck($this->l, $this->links, $this->createMock(ReservedNames::class), $this->createMock(DecoyService::class));
+		$check = new TrapNameCollisionCheck($this->l, $this->links, $this->createMock(TrapNameCollisions::class));
 		$this->assertNull($check->finding($this->l));
 		$this->assertSame(SetupResult::SUCCESS, $check->run()->getSeverity());
 	}

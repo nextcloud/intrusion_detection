@@ -50,6 +50,7 @@ use OCA\IntrusionDetection\Listener\SecurityChangeListener;
 use OCA\IntrusionDetection\Listener\ShareAccessFailedListener;
 use OCA\IntrusionDetection\Listener\StepUpChallengePassedListener;
 use OCA\IntrusionDetection\Listener\StepUpLoginListener;
+use OCA\IntrusionDetection\Listener\TrapNamesChangedListener;
 use OCA\IntrusionDetection\Listener\UntrustedSecondFactorListener;
 use OCA\IntrusionDetection\Listener\UserDeletedListener;
 use OCA\IntrusionDetection\Middleware\PayloadMiddleware;
@@ -126,6 +127,7 @@ class Application extends App implements IBootstrap {
 		$context->registerEventListener(UserLoggedInWithCookieEvent::class, PasswordChangeLoginListener::class);
 		$context->registerEventListener(PasswordUpdatedEvent::class, PasswordUpdatedListener::class);
 		$context->registerEventListener(UserDeletedEvent::class, UserDeletedListener::class);
+		$context->registerEventListener(SettingChangedEvent::class, TrapNamesChangedListener::class);
 		$context->registerEventListener(SabrePluginAddEvent::class, SabrePluginAddListener::class);
 		// Global, so that it covers every app's controllers; it runs after core's two-factor middleware.
 		$context->registerMiddleware(SessionStateMiddleware::class, true);

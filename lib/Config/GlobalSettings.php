@@ -142,6 +142,10 @@ final class GlobalSettings {
 	public const PERSONAL_PAGE_ENABLED = 'personal_page_enabled';
 	/** Bans that ended up to this time have been flagged */
 	public const BANS_FLAGGED_UNTIL = 'bans_flagged_until';
+	/** Internal: the counts of active accounts and of those without a way to confirm a login, with when they were counted */
+	public const COVERAGE_USERS = 'coverage_users';
+	/** Internal: reserved names and decoy login names that are accounts by now, with when they were looked up */
+	public const TRAP_NAME_COLLISIONS = 'trap_name_collisions';
 
 	/** Seconds in the learning period that starts when the app is first enabled */
 	public const LEARNING_DEFAULT_PERIOD = 7 * 86400;
@@ -232,6 +236,8 @@ final class GlobalSettings {
 				new ParamDefinition(self::RISKY_NETWORK_EXEMPT_GROUPS, ParamType::StringList, [], itemPattern: '/^[^\x00-\x1f\x7f]{1,255}$/u', maxItems: 20),
 				new ParamDefinition(self::PERSONAL_PAGE_ENABLED, ParamType::Bool, true),
 				new ParamDefinition(self::BANS_FLAGGED_UNTIL, ParamType::Int, 0, min: 0),
+				new ParamDefinition(self::COVERAGE_USERS, ParamType::Json, '{}'),
+				new ParamDefinition(self::TRAP_NAME_COLLISIONS, ParamType::Json, '{}'),
 			];
 			$this->definitions = [];
 			foreach ($list as $definition) {
@@ -273,6 +279,8 @@ final class GlobalSettings {
 			self::STEP_UP_SESSIONS_UNTIL,
 			self::DETECTIONS_RETIRED,
 			self::BANS_FLAGGED_UNTIL,
+			self::COVERAGE_USERS,
+			self::TRAP_NAME_COLLISIONS,
 		], true);
 	}
 }

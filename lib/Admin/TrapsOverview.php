@@ -17,6 +17,7 @@ use OCA\IntrusionDetection\Db\Decoy;
 use OCA\IntrusionDetection\Decoy\DecoyService;
 use OCA\IntrusionDetection\ResponseDefinitions;
 use OCA\IntrusionDetection\Traps\ReservedNames;
+use OCA\IntrusionDetection\Traps\TrapNameCollisions;
 use OCA\IntrusionDetection\Traps\TrapPaths;
 use OCA\IntrusionDetection\Traps\TrapPathSnippets;
 use OCP\IL10N;
@@ -35,6 +36,7 @@ class TrapsOverview {
 	public function __construct(
 		private readonly DecoyService $decoys,
 		private readonly ReservedNames $reservedNames,
+		private readonly TrapNameCollisions $collisions,
 		private readonly TrapPathSnippets $snippets,
 		private readonly Settings $settings,
 		private readonly CheckSummary $checks,
@@ -79,7 +81,7 @@ class TrapsOverview {
 		return [
 			'names' => $this->reservedNames->list(),
 			'suggestions' => $this->reservedNames->suggestions(),
-			'collisions' => $this->reservedNames->collisions(),
+			'collisions' => $this->collisions->reserved(),
 			'max' => ReservedNames::MAX_NAMES,
 		];
 	}

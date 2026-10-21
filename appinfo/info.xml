@@ -42,6 +42,7 @@ Every check can be switched between Off, Observe and Protect, every threshold is
         <job>OCA\IntrusionDetection\BackgroundJob\ConfigWatchJob</job>
         <job>OCA\IntrusionDetection\BackgroundJob\ApprovalExpiryJob</job>
         <job>OCA\IntrusionDetection\BackgroundJob\DigestJob</job>
+        <job>OCA\IntrusionDetection\BackgroundJob\StatusRefreshJob</job>
     </background-jobs>
 
     <repair-steps>

@@ -22,6 +22,7 @@ use OCA\IntrusionDetection\Controller\PayloadApiController;
 use OCA\IntrusionDetection\Controller\PrivacyApiController;
 use OCA\IntrusionDetection\Controller\SimulationApiController;
 use OCA\IntrusionDetection\Detection\Simulator;
+use OCA\IntrusionDetection\Traps\TrapNameCollisions;
 use OCP\AppFramework\Http;
 use OCP\AppFramework\OCS\OCSNotFoundException;
 use OCP\IUserManager;
@@ -127,8 +128,10 @@ class AdminPagesApiTest extends IntegrationTestCase {
 		$this->assertSame('existing_user', $refused->getData()['reason']);
 		$this->assertSame(['root', 'ids_root2'], $this->decoys->index()->getData()['reservedNames']['names'], 'Nothing was saved');
 
-		// The name becomes an account later, as with LDAP.
+		// The name becomes an account later, as with LDAP; the hourly job finds it.
 		Server::get(IUserManager::class)->createUser('ids_root2', 'Ids-Test-Password-2026');
+		$this->assertSame([], $this->decoys->index()->getData()['reservedNames']['collisions'], 'Pages read the stored lookup');
+		Server::get(TrapNameCollisions::class)->refresh();
 		$this->assertSame(['ids_root2'], $this->decoys->index()->getData()['reservedNames']['collisions']);
 		$problems = array_column($this->admin->status()->getData()['problems'], null, 'id');
 		$this->assertSame('error', $problems['trap_name_collision']['level']);

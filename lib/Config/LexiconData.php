@@ -441,6 +441,14 @@ final class LexiconData {
 			'default' => 0,
 			'min' => 0,
 		],
+		'coverage_users' => [
+			'type' => 'json',
+			'default' => '{}',
+		],
+		'trap_name_collisions' => [
+			'type' => 'json',
+			'default' => '{}',
+		],
 	];
 
 	/** @var array<string, CheckSpec> */

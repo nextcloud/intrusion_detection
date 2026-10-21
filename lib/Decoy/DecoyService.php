@@ -17,6 +17,7 @@ use OCA\IntrusionDetection\Crypto\Fingerprinter;
 use OCA\IntrusionDetection\Db\Decoy;
 use OCA\IntrusionDetection\Db\DecoyMapper;
 use OCA\IntrusionDetection\Traps\AccountNames;
+use OCA\IntrusionDetection\Traps\TrapNameCollisions;
 use OCP\AppFramework\Db\DoesNotExistException;
 use OCP\AppFramework\Utility\ITimeFactory;
 use OCP\Security\ISecureRandom;
@@ -42,6 +43,7 @@ class DecoyService {
 		private readonly Settings $settings,
 		private readonly AuditLogger $audit,
 		private readonly ITimeFactory $timeFactory,
+		private readonly TrapNameCollisions $collisions,
 	) {
 	}
 
@@ -147,5 +149,6 @@ class DecoyService {
 
 	private function updateCount(): void {
 		$this->settings->setGlobal(GlobalSettings::DECOY_COUNT, $this->mapper->countAll());
+		$this->collisions->refresh();
 	}
 }

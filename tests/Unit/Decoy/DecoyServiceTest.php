@@ -17,6 +17,7 @@ use OCA\IntrusionDetection\Db\DecoyMapper;
 use OCA\IntrusionDetection\Decoy\DecoyFormat;
 use OCA\IntrusionDetection\Decoy\DecoyService;
 use OCA\IntrusionDetection\Traps\AccountNames;
+use OCA\IntrusionDetection\Traps\TrapNameCollisions;
 use OCP\AppFramework\Utility\ITimeFactory;
 use OCP\Security\ISecureRandom;
 use OCP\Server;
@@ -30,7 +31,7 @@ class DecoyServiceTest extends TestCase {
 		$mapper->expects($this->never())->method('findMatching');
 		$fingerprinter = $this->createMock(Fingerprinter::class);
 		$fingerprinter->expects($this->never())->method('decoy');
-		$service = new DecoyService($mapper, $fingerprinter, $this->createMock(ISecureRandom::class), $this->createMock(AccountNames::class), $settings, $this->createMock(AuditLogger::class), $this->createMock(ITimeFactory::class));
+		$service = new DecoyService($mapper, $fingerprinter, $this->createMock(ISecureRandom::class), $this->createMock(AccountNames::class), $settings, $this->createMock(AuditLogger::class), $this->createMock(ITimeFactory::class), $this->createMock(TrapNameCollisions::class));
 		$this->assertNull($service->match('some password', 'alice'));
 	}
 

@@ -123,6 +123,8 @@ class AdminContactCheckTest extends TestCase {
 			$approvers,
 			$registry,
 			$cacheFactory,
+			$this->createMock(\OCA\IntrusionDetection\Config\Settings::class),
+			$this->createMock(\OCP\AppFramework\Utility\ITimeFactory::class),
 		);
 		$links = $this->createMock(AdminLinks::class);
 		$links->method('adminPage')->willReturn('https://cloud.example.com/settings/admin/intrusion_detection');
