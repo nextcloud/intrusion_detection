@@ -15,16 +15,19 @@ use OCP\BackgroundJob\IJob;
 use OCP\BackgroundJob\TimedJob;
 
 /**
- * Every five minutes: rewrites the firewall export when a block ended since
- * the last write, so ended blocks leave the files. Does nothing otherwise.
+ * Every five minutes: rewrites the firewall export when the blocks changed
+ * or the first block in the files ended since the last write
+ * ({@see FirewallExporter::writeIfDue()}). Costs one aggregate query otherwise.
  */
 class FirewallExportJob extends TimedJob {
+	public const INTERVAL = 300;
+
 	public function __construct(
 		ITimeFactory $time,
 		private readonly FirewallExporter $exporter,
 	) {
 		parent::__construct($time);
-		$this->setInterval(60);
+		$this->setInterval(self::INTERVAL);
 		$this->setTimeSensitivity(IJob::TIME_SENSITIVE);
 	}
 

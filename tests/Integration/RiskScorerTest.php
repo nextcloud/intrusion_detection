@@ -23,6 +23,7 @@ use OCA\IntrusionDetection\Db\Detection;
 use OCA\IntrusionDetection\Db\DetectionMapper;
 use OCA\IntrusionDetection\Guard\RequestContext;
 use OCA\IntrusionDetection\Net\RemoteAddressResolver;
+use OCA\IntrusionDetection\Net\ServerAddresses;
 use OCA\IntrusionDetection\Net\SourceKey;
 use OCA\IntrusionDetection\Response\FlaggedSources;
 use OCA\IntrusionDetection\Risk\AttackTools;
@@ -267,7 +268,7 @@ class RiskScorerTest extends IntegrationTestCase {
 	private function addresses(): RemoteAddressResolver {
 		$request = $this->createMock(IRequest::class);
 		$request->method('getRemoteAddress')->willReturn(self::IP);
-		return new RemoteAddressResolver($request, Server::get(IThrottler::class));
+		return new RemoteAddressResolver($request, Server::get(IThrottler::class), Server::get(ServerAddresses::class));
 	}
 
 	private function addressCache(): AddressCache {

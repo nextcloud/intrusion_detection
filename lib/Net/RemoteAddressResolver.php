@@ -21,6 +21,7 @@ class RemoteAddressResolver {
 	public function __construct(
 		private readonly IRequest $request,
 		private readonly IThrottler $throttler,
+		private readonly ServerAddresses $servers,
 	) {
 	}
 
@@ -36,15 +37,20 @@ class RemoteAddressResolver {
 	}
 
 	/**
-	 * Loopback and the server's own addresses are never blocked: that would
-	 * lock out cron, health checks and the server itself.
+	 * Loopback and the server's own addresses ({@see ServerAddresses}) are
+	 * never blocked: that would lock out cron, health checks and the server
+	 * itself.
 	 */
 	public function isNeverBlocked(SourceKey $source): bool {
-		if ($source->isLoopback()) {
-			return true;
-		}
-		$own = SourceKey::tryFromIp($_SERVER['SERVER_ADDR'] ?? '');
-		return $own !== null && $own->ip === $source->ip;
+		return $source->isLoopback() || $this->servers->contains($source);
+	}
+
+	/**
+	 * Remember the address this web request came in on as one of the
+	 * server's own, for cron and occ ({@see ServerAddresses::observe()}).
+	 */
+	public function observeServerAddress(): void {
+		$this->servers->observe();
 	}
 
 	/**

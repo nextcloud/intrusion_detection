@@ -18,6 +18,7 @@ use OCA\IntrusionDetection\Listener\LoginHistoryListener;
 use OCA\IntrusionDetection\Login\InteractiveLogin;
 use OCA\IntrusionDetection\LoginHistory\LoginHistory;
 use OCA\IntrusionDetection\Net\RemoteAddressResolver;
+use OCA\IntrusionDetection\Net\ServerAddresses;
 use OCA\IntrusionDetection\Notification\LoginNotices;
 use OCA\IntrusionDetection\Tests\BasicAuthServer;
 use OCP\Authentication\TwoFactorAuth\IProvider;
@@ -25,6 +26,7 @@ use OCP\Authentication\TwoFactorAuth\TwoFactorProviderChallengePassed;
 use OCP\IRequest;
 use OCP\IUser;
 use OCP\Security\Bruteforce\IThrottler;
+use OCP\Server;
 use OCP\User\Events\UserLoggedInEvent;
 use OCP\User\Events\UserLoggedInWithCookieEvent;
 use PHPUnit\Framework\Attributes\DataProvider;
@@ -160,7 +162,7 @@ class LoginHistoryListenerTest extends TestCase {
 		return new LoginHistoryListener(
 			$settings,
 			new InteractiveLogin($request),
-			new RemoteAddressResolver($request, $throttler),
+			new RemoteAddressResolver($request, $throttler, Server::get(ServerAddresses::class)),
 			$request,
 			$container,
 			$logger ?? $this->createMock(LoggerInterface::class),

@@ -17,6 +17,7 @@ use OCA\IntrusionDetection\Config\Settings;
 use OCA\IntrusionDetection\Guard\AddressGuard;
 use OCA\IntrusionDetection\Guard\RequestContext;
 use OCA\IntrusionDetection\Net\RemoteAddressResolver;
+use OCA\IntrusionDetection\Net\ServerAddresses;
 use OCA\IntrusionDetection\Net\SourceKey;
 use OCA\IntrusionDetection\Perf\GuardTimer;
 use OCA\IntrusionDetection\Response\BanService;
@@ -111,6 +112,17 @@ class AddressGuardTest extends IntegrationTestCase {
 		$this->assertFalse($context->verdict()->isDenied(time()));
 	}
 
+	public function testAVerdictResolvedInAWebRequestRemembersTheServersAddress(): void {
+		[$guard] = $this->guard('distributed');
+		$_SERVER['SERVER_ADDR'] = '192.0.2.10';
+		try {
+			$guard->decisionFor('198.51.100.7');
+		} finally {
+			unset($_SERVER['SERVER_ADDR']);
+		}
+		$this->assertTrue(Server::get(ServerAddresses::class)->contains(SourceKey::fromIp('192.0.2.10')), 'Known from now on, also to cron and occ');
+	}
+
 	/**
 	 * @return array{0: AddressGuard, 1: BanService}
 	 */
@@ -120,7 +132,7 @@ class AddressGuardTest extends IntegrationTestCase {
 		$time = Server::get(ITimeFactory::class);
 		$throttler ??= $this->createMock(IThrottler::class);
 		$request = $this->createMock(\OCP\IRequest::class);
-		$addresses = new RemoteAddressResolver($request, $throttler);
+		$addresses = new RemoteAddressResolver($request, $throttler, Server::get(ServerAddresses::class));
 
 		$bans = new BanService(
 			Server::get(\OCA\IntrusionDetection\Db\BanMapper::class),

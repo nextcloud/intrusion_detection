@@ -14,6 +14,7 @@ use OCA\IntrusionDetection\Db\Detection;
 use OCA\IntrusionDetection\Db\DetectionFilter;
 use OCA\IntrusionDetection\Db\DetectionMapper;
 use OCA\IntrusionDetection\Net\RemoteAddressResolver;
+use OCA\IntrusionDetection\Net\ServerAddresses;
 use OCP\Constants;
 use OCP\DB\QueryBuilder\IQueryBuilder;
 use OCP\EventDispatcher\IEventDispatcher;
@@ -62,7 +63,7 @@ abstract class RequestEventTestCase extends IntegrationTestCase {
 		$this->request->method('getRemoteAddress')->willReturnCallback(fn (): string => $this->remoteAddress);
 		$this->request->method('getHeader')->willReturnCallback(fn (string $name): string => $name === 'User-Agent' ? 'curl/8.0' : ($this->requestHeaders[$name] ?? ''));
 		$this->request->method('getMethod')->willReturn('GET');
-		$this->addresses = new RemoteAddressResolver($this->request, Server::get(IThrottler::class));
+		$this->addresses = new RemoteAddressResolver($this->request, Server::get(IThrottler::class), Server::get(ServerAddresses::class));
 		Server::get(INotificationManager::class)->registerApp(CapturingNotificationApp::class);
 		CapturingNotificationApp::$notifications = [];
 	}

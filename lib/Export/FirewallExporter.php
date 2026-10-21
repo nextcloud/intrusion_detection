@@ -13,6 +13,7 @@ use OCA\IntrusionDetection\Config\GlobalSettings;
 use OCA\IntrusionDetection\Config\Settings;
 use OCA\IntrusionDetection\Db\Ban;
 use OCA\IntrusionDetection\Db\BanMapper;
+use OCA\IntrusionDetection\Db\StateMapper;
 use OCA\IntrusionDetection\Net\ProtectedRanges;
 use OCP\AppFramework\Utility\ITimeFactory;
 use OCP\Security\ISecureRandom;
@@ -25,11 +26,17 @@ use Psr\Log\LoggerInterface;
  *
  * - `bans.txt`, `bans.nft`, `bans.ipset` are rewritten from the active blocks
  *   by the background job ({@see \OCA\IntrusionDetection\BackgroundJob\FirewallExportJob}),
- *   at its next run after the blocks changed or one ended: one cheap query
- *   tells whether they did. Writing them takes a while with many blocks, so
- *   it never happens in the request that blocked an address. Each file is
- *   written to a new temporary file and renamed into place, so a reader never
- *   sees half a file.
+ *   at its next run after a block was created, raised or lifted, after the
+ *   first block ended that was in the files, or after the directory, the
+ *   formats, the protection switch or the protected ranges changed. One
+ *   cheap query tells whether the blocks did; a block ending alone does not
+ *   change it, the time of the first one to end is kept with the files.
+ *   Firewalls drop ended blocks by themselves (each entry carries its
+ *   timeout), so with many blocks ending all the time the files are still
+ *   written at most once per run of the job. Writing them takes a while
+ *   with many blocks, so it never happens in the request that blocked an
+ *   address. Each file is written to a new temporary file and renamed into
+ *   place, so a reader never sees half a file.
  * - `bans.log` is appended to at once, one line per block and lift, and
  *   rotated to `bans.log.1` at 10 MB.
  * - The files never block loopback, the server itself or the brute-force
@@ -41,6 +48,8 @@ use Psr\Log\LoggerInterface;
  * at the request that changed a block.
  */
 class FirewallExporter {
+	/** The ids_state row of the last write */
+	public const STATE = 'firewall_export';
 	public const LOG_ROTATE_BYTES = 10 * 1024 * 1024;
 	/** At most this many blocks are exported */
 	public const MAX_ENTRIES = 50000;
@@ -50,6 +59,7 @@ class FirewallExporter {
 		private readonly ExportDirectory $directory,
 		private readonly Settings $settings,
 		private readonly BanMapper $bans,
+		private readonly StateMapper $state,
 		private readonly ProtectedRanges $protected,
 		private readonly ITimeFactory $timeFactory,
 		private readonly ISecureRandom $random,
@@ -77,7 +87,7 @@ class FirewallExporter {
 	}
 
 	public function status(): ExportStatus {
-		$state = $this->settings->getJson(GlobalSettings::EXPORT_STATE);
+		$state = $this->state->getJson(self::STATE);
 		$error = is_string($state['error'] ?? null) ? $state['error'] : null;
 		if ($this->directory->configured() === null) {
 			$error = ExportException::NOT_CONFIGURED;
@@ -117,7 +127,7 @@ class FirewallExporter {
 		$now = $this->timeFactory->getTime();
 		try {
 			$dir = $this->directory->resolve();
-			$changes = $this->bans->activeSignature($now);
+			$changes = $this->bans->changeSignature($now);
 			$entries = $this->entries($now);
 			foreach ($this->formats() as $format) {
 				if ($format->isSnapshot()) {
@@ -128,7 +138,7 @@ class FirewallExporter {
 			$this->recordError($e->reason, $now);
 			throw $e;
 		}
-		$this->settings->setGlobal(GlobalSettings::EXPORT_STATE, json_encode([
+		$this->state->setJson(self::STATE, [
 			'last_write_at' => $now,
 			'error' => null,
 			'error_at' => null,
@@ -136,15 +146,16 @@ class FirewallExporter {
 			'next_expiry' => self::nextChange($entries, $now),
 			'signature' => $this->signature(),
 			'bans' => $changes,
-		]));
+		]);
 		return $this->status();
 	}
 
 	/**
-	 * For the background job: rewrite only when the blocks changed, a block
-	 * ended (or an ipset timeout ran out) since the last write, or the
-	 * directory, the formats or the protection switch changed. Otherwise
-	 * one aggregate query is all it costs.
+	 * For the background job: rewrite only when a block was created, raised
+	 * or lifted, the first block in the files ended (or an ipset timeout ran
+	 * out), or the directory, the formats, the protection switch or the
+	 * protected ranges changed. Otherwise one aggregate query is all it
+	 * costs.
 	 *
 	 * @return bool whether the files were written
 	 */
@@ -152,13 +163,14 @@ class FirewallExporter {
 		if (!$this->isActive()) {
 			return false;
 		}
-		$state = $this->settings->getJson(GlobalSettings::EXPORT_STATE);
+		$state = $this->state->getJson(self::STATE);
+		$lastWrite = $state['last_write_at'] ?? null;
 		$nextExpiry = is_int($state['next_expiry'] ?? null) ? $state['next_expiry'] : 0;
 		$now = $this->timeFactory->getTime();
-		$due = !is_int($state['last_write_at'] ?? null)
+		$due = !is_int($lastWrite)
 			|| ($state['signature'] ?? null) !== $this->signature()
 			|| ($nextExpiry > 0 && $now >= $nextExpiry)
-			|| ($state['bans'] ?? null) !== $this->bans->activeSignature($now);
+			|| ($state['bans'] ?? null) !== $this->bans->changeSignature($lastWrite);
 		if (!$due) {
 			return false;
 		}
@@ -266,22 +278,24 @@ class FirewallExporter {
 	}
 
 	private function recordError(string $reason, int $now): void {
-		$state = $this->settings->getJson(GlobalSettings::EXPORT_STATE);
+		$state = $this->state->getJson(self::STATE);
 		if (($state['error'] ?? null) === $reason) {
 			return;
 		}
 		$state['error'] = $reason;
 		$state['error_at'] = $now;
-		$this->settings->setGlobal(GlobalSettings::EXPORT_STATE, json_encode($state));
+		$this->state->setJson(self::STATE, $state);
 		$this->logger->warning('Intrusion detection could not write the firewall export: {reason}', ['reason' => $reason]);
 	}
 
 	/**
-	 * Changes when the directory, the formats or the protection switch
-	 * change, so the job rewrites then.
+	 * Changes when the directory, the formats, the protection switch or the
+	 * protected ranges (the allowlist, the server's addresses) change, so the
+	 * job rewrites then.
 	 */
 	private function signature(): string {
 		return hash('sha256', ($this->directory->configured() ?? '') . "\0" . implode(',', array_map(static fn (ExportFormat $f): string => $f->value, $this->formats()))
-			. "\0" . ($this->settings->isEnabled() ? 'on' : 'off'));
+			. "\0" . ($this->settings->isEnabled() ? 'on' : 'off')
+			. "\0" . json_encode($this->protected->ranges()));
 	}
 }

@@ -14,7 +14,7 @@ use OCP\IAppConfig;
 
 /**
  * The address ranges no block may cover: loopback, the server's own
- * address and the brute-force allowlist.
+ * addresses ({@see ServerAddresses}) and the brute-force allowlist.
  *
  * {@see RemoteAddressResolver} answers this for one address; this class
  * answers it for networks, before a network is blocked and when blocks are
@@ -30,6 +30,7 @@ class ProtectedRanges {
 
 	public function __construct(
 		private readonly IAppConfig $appConfig,
+		private readonly ServerAddresses $servers,
 	) {
 	}
 
@@ -44,8 +45,7 @@ class ProtectedRanges {
 			return $this->ranges;
 		}
 		$inputs = self::LOOPBACK;
-		$own = SourceKey::tryFromIp($_SERVER['SERVER_ADDR'] ?? '');
-		if ($own !== null) {
+		foreach ($this->servers->all() as $own) {
 			$inputs[] = $own->ip;
 		}
 		foreach ($this->appConfig->getKeys(WatchedSettings::BRUTEFORCE_APP) as $key) {

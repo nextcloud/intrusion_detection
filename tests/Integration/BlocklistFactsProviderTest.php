@@ -29,6 +29,7 @@ use OCA\IntrusionDetection\Guard\AddressGuard;
 use OCA\IntrusionDetection\Guard\RequestContext;
 use OCA\IntrusionDetection\Net\RangeCodec;
 use OCA\IntrusionDetection\Net\RemoteAddressResolver;
+use OCA\IntrusionDetection\Net\ServerAddresses;
 use OCA\IntrusionDetection\Net\SourceKey;
 use OCA\IntrusionDetection\Perf\GuardTimer;
 use OCP\AppFramework\Utility\ITimeFactory;
@@ -310,7 +311,7 @@ class BlocklistFactsProviderTest extends IntegrationTestCase {
 			$this->settings,
 			$cache,
 			$resolver,
-			new RemoteAddressResolver($this->createMock(IRequest::class), $throttler),
+			new RemoteAddressResolver($this->createMock(IRequest::class), $throttler, Server::get(ServerAddresses::class)),
 			$context,
 			$this->time(),
 			new GuardTimer($this->createMock(ICacheFactory::class), $this->time()),

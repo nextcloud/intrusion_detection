@@ -50,6 +50,7 @@ use OCA\IntrusionDetection\Listener\StepUpLoginListener;
 use OCA\IntrusionDetection\Login\InteractiveLogin;
 use OCA\IntrusionDetection\LoginHistory\LoginHistory;
 use OCA\IntrusionDetection\Net\RemoteAddressResolver;
+use OCA\IntrusionDetection\Net\ServerAddresses;
 use OCA\IntrusionDetection\Notification\UserMessages;
 use OCA\IntrusionDetection\Response\FlaggedSources;
 use OCA\IntrusionDetection\Risk\RiskScorer;
@@ -390,7 +391,7 @@ abstract class StepUpTestCase extends AccountTestCase {
 	protected function addresses(): RemoteAddressResolver {
 		$throttler = $this->createMock(IThrottler::class);
 		$throttler->method('isBypassListed')->willReturnCallback(fn (): bool => $this->bypassListed);
-		return new RemoteAddressResolver($this->request, $throttler);
+		return new RemoteAddressResolver($this->request, $throttler, Server::get(ServerAddresses::class));
 	}
 
 	/**

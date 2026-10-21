@@ -23,6 +23,7 @@ use OCA\IntrusionDetection\Explain\NarrativeBuilder;
 use OCA\IntrusionDetection\Guard\RequestContext;
 use OCA\IntrusionDetection\Listener\BlocklistLoginListener;
 use OCA\IntrusionDetection\Net\RemoteAddressResolver;
+use OCA\IntrusionDetection\Net\ServerAddresses;
 use OCA\IntrusionDetection\Response\ResponseEngine;
 use OCP\Authentication\Events\AnyLoginFailedEvent;
 use OCP\IRequest;
@@ -132,7 +133,7 @@ class BlocklistLoginListenerTest extends IntegrationTestCase {
 		};
 		return new BlocklistLoginListener(
 			$this->settings,
-			new RemoteAddressResolver($request, $throttler),
+			new RemoteAddressResolver($request, $throttler, Server::get(ServerAddresses::class)),
 			$context,
 			Server::get(AddressCache::class),
 			Server::get(CheckRegistry::class),

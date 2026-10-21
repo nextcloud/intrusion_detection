@@ -25,6 +25,7 @@ use OCA\IntrusionDetection\Guard\AddressGuard;
 use OCA\IntrusionDetection\Guard\RequestContext;
 use OCA\IntrusionDetection\Net\RangeCodec;
 use OCA\IntrusionDetection\Net\RemoteAddressResolver;
+use OCA\IntrusionDetection\Net\ServerAddresses;
 use OCA\IntrusionDetection\Perf\GuardTimer;
 use OCP\AppFramework\Utility\ITimeFactory;
 use OCP\ICacheFactory;
@@ -131,7 +132,7 @@ class RiskyNetworkBenchmarkTest extends IntegrationTestCase {
 			$settings,
 			$addressCache,
 			new AddressResolver(Server::get(BanMapper::class), Server::get(ITimeFactory::class), $container),
-			new RemoteAddressResolver($this->createMock(IRequest::class), Server::get(IThrottler::class)),
+			new RemoteAddressResolver($this->createMock(IRequest::class), Server::get(IThrottler::class), Server::get(ServerAddresses::class)),
 			$this->context,
 			Server::get(ITimeFactory::class),
 			new GuardTimer($this->createMock(ICacheFactory::class), Server::get(ITimeFactory::class)),

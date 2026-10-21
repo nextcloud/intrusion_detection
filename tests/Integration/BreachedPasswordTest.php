@@ -30,6 +30,7 @@ use OCA\IntrusionDetection\Listener\BreachedPasswordListener;
 use OCA\IntrusionDetection\Listener\BreachResetListener;
 use OCA\IntrusionDetection\Login\InteractiveLogin;
 use OCA\IntrusionDetection\Net\RemoteAddressResolver;
+use OCA\IntrusionDetection\Net\ServerAddresses;
 use OCA\IntrusionDetection\Notification\AdminAlerts;
 use OCA\IntrusionDetection\Notification\Notifier;
 use OCA\IntrusionDetection\Response\ResponseEngine;
@@ -160,7 +161,7 @@ class BreachedPasswordTest extends IntegrationTestCase {
 			new PwnedPasswordsClient($clientService, $cacheFactory, Server::get(ICrypto::class), $this->logger()),
 			Server::get(IUserConfig::class),
 			Server::get(ResponseEngine::class),
-			new RemoteAddressResolver($this->request(), $throttler),
+			new RemoteAddressResolver($this->request(), $throttler, Server::get(ServerAddresses::class)),
 			$time,
 		);
 	}

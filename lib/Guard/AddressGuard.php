@@ -87,6 +87,8 @@ class AddressGuard implements IRequestGuard {
 		}
 		$verdict = $this->resolver->resolve($source);
 		$this->cache->set($source, $verdict, $now);
+		// Off the common path: a verdict is resolved once per address and cache lifetime.
+		$this->addresses->observeServerAddress();
 		return $verdict;
 	}
 }

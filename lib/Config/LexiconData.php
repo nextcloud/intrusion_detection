@@ -131,10 +131,6 @@ final class LexiconData {
 			'type' => 'json',
 			'default' => '{}',
 		],
-		'export_state' => [
-			'type' => 'json',
-			'default' => '{}',
-		],
 		'notify_admin_group' => [
 			'type' => 'string_list',
 			'default' => [
@@ -458,6 +454,12 @@ final class LexiconData {
 				'relaxed',
 				'custom',
 			],
+		],
+		'server_addresses' => [
+			'type' => 'string_list',
+			'default' => [],
+			'pattern' => '/^[0-9a-f.:]{2,45}$/',
+			'maxItems' => 16,
 		],
 	];
 

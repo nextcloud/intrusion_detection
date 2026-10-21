@@ -24,6 +24,7 @@ use OCA\IntrusionDetection\Guard\RequestContext;
 use OCA\IntrusionDetection\KnownDevice\IKnownDevices;
 use OCA\IntrusionDetection\Listener\CredentialUseLoginListener;
 use OCA\IntrusionDetection\Net\RemoteAddressResolver;
+use OCA\IntrusionDetection\Net\ServerAddresses;
 use OCA\IntrusionDetection\Perf\GuardTimer;
 use OCA\IntrusionDetection\Response\Tokens;
 use OCA\IntrusionDetection\SessionState\CurrentSession;
@@ -138,7 +139,7 @@ abstract class CredentialUseTestCase extends AccountTestCase {
 			CurrentSession::class => new CurrentSession($session, Server::get(IProvider::class), $logger),
 			CredentialTracker::class => $this->tracker,
 			ITimeFactory::class => $time,
-			RemoteAddressResolver::class => new RemoteAddressResolver($request, Server::get(IThrottler::class)),
+			RemoteAddressResolver::class => new RemoteAddressResolver($request, Server::get(IThrottler::class), Server::get(ServerAddresses::class)),
 			TokenConcurrentUseDetector::class => new TokenConcurrentUseDetector($this->settings, $this->engine(), Server::get(Tokens::class), $knownDevices),
 			CredentialUseResolver::class => new CredentialUseResolver($context, $request, Server::get(IConfig::class), $container, $logger),
 		];

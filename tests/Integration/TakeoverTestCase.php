@@ -24,6 +24,7 @@ use OCA\IntrusionDetection\Explain\NarrativeBuilder;
 use OCA\IntrusionDetection\Guide\SecureAccountGuide;
 use OCA\IntrusionDetection\Listener\SecurityChangeListener;
 use OCA\IntrusionDetection\Net\RemoteAddressResolver;
+use OCA\IntrusionDetection\Net\ServerAddresses;
 use OCA\IntrusionDetection\Notification\AdminAlerts;
 use OCA\IntrusionDetection\Notification\AdminLinks;
 use OCA\IntrusionDetection\Notification\AdminRecipients;
@@ -114,7 +115,7 @@ abstract class TakeoverTestCase extends AccountTestCase {
 	}
 
 	protected function addresses(?string $ip = self::IP): RemoteAddressResolver {
-		return new RemoteAddressResolver($this->request($ip), Server::get(\OCP\Security\Bruteforce\IThrottler::class));
+		return new RemoteAddressResolver($this->request($ip), Server::get(\OCP\Security\Bruteforce\IThrottler::class), Server::get(ServerAddresses::class));
 	}
 
 	protected function lockLinks(): LockLinks {

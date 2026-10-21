@@ -24,6 +24,7 @@ use OCA\IntrusionDetection\Event\TypedEvents;
 use OCA\IntrusionDetection\Net\ProtectedRanges;
 use OCA\IntrusionDetection\Net\ProxySuspect;
 use OCA\IntrusionDetection\Net\RemoteAddressResolver;
+use OCA\IntrusionDetection\Net\ServerAddresses;
 use OCA\IntrusionDetection\Net\SourceKey;
 use OCA\IntrusionDetection\Response\BanExemptions;
 use OCA\IntrusionDetection\Response\BanRefusedException;
@@ -445,6 +446,24 @@ class BanServiceTest extends IntegrationTestCase {
 		$this->assertNull($result->netBan, 'An administrator logged in from the /56');
 	}
 
+	public function testTheServerSeenInWebRequestsIsNeverBlockedFromCronOrOcc(): void {
+		$_SERVER['SERVER_ADDR'] = '192.0.2.10';
+		try {
+			Server::get(ServerAddresses::class)->observe();
+		} finally {
+			unset($_SERVER['SERVER_ADDR']);
+		}
+		$bans = $this->freshService();
+		$this->assertSame(BanResult::SKIPPED_NEVER, $bans->ban(SourceKey::fromIp('192.0.2.10'), 'credential_stuffing')->outcome);
+		foreach (['192.0.2.10', '192.0.2.0/24'] as $target) {
+			try {
+				$bans->banManually($target, 1, 'admin', null);
+				$this->fail($target . ' was blocked');
+			} catch (BanRefusedException) {
+			}
+		}
+	}
+
 	/**
 	 * @return array<string, array{string}>
 	 */
@@ -553,7 +572,7 @@ class BanServiceTest extends IntegrationTestCase {
 	 * server ranges are read once per instance).
 	 */
 	private function freshService(?ILockingProvider $locks = null): BanService {
-		$ranges = new ProtectedRanges($this->appConfig);
+		$ranges = new ProtectedRanges($this->appConfig, Server::get(ServerAddresses::class));
 		return new BanService(
 			$this->mapper,
 			new BanExemptions(
@@ -568,7 +587,7 @@ class BanServiceTest extends IntegrationTestCase {
 			Server::get(Settings::class),
 			Server::get(AddressCache::class),
 			Server::get(AddressResolver::class),
-			new RemoteAddressResolver($this->createMock(IRequest::class), Server::get(IThrottler::class)),
+			new RemoteAddressResolver($this->createMock(IRequest::class), Server::get(IThrottler::class), Server::get(ServerAddresses::class)),
 			$ranges,
 			Server::get(FlaggedSources::class),
 			new KeyLock($locks ?? Server::get(ILockingProvider::class)),

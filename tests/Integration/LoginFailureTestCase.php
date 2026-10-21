@@ -25,6 +25,7 @@ use OCA\IntrusionDetection\Db\DetectionMapper;
 use OCA\IntrusionDetection\Detection\AttemptRecorder;
 use OCA\IntrusionDetection\Listener\FailedLoginListener;
 use OCA\IntrusionDetection\Net\RemoteAddressResolver;
+use OCA\IntrusionDetection\Net\ServerAddresses;
 use OCA\IntrusionDetection\Net\SourceKey;
 use OCA\IntrusionDetection\Personal\FailedLoginStats;
 use OCA\IntrusionDetection\Response\BanService;
@@ -65,7 +66,7 @@ abstract class LoginFailureTestCase extends IntegrationTestCase {
 		$this->request = $this->createMock(IRequest::class);
 		$this->request->method('getRemoteAddress')->willReturnCallback(fn (): string => $this->remoteAddress);
 		$this->request->method('getHeader')->willReturnCallback(fn (string $name): string => $name === 'User-Agent' ? $this->userAgent : '');
-		$addresses = new RemoteAddressResolver($this->request, Server::get(IThrottler::class));
+		$addresses = new RemoteAddressResolver($this->request, Server::get(IThrottler::class), Server::get(ServerAddresses::class));
 		$this->listener = new FailedLoginListener(
 			$this->settings,
 			$addresses,

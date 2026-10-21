@@ -167,16 +167,18 @@ class BanMapper extends QBMapper {
 	}
 
 	/**
-	 * A short fingerprint of the active bans: it changes when a ban is
-	 * created, lifted, extended or ends. One aggregate over the expiry index.
+	 * A short fingerprint of the bans that were active at a time or began
+	 * after it: it changes when a ban is created, lifted, raised or
+	 * extended, but not when one ends by itself. One aggregate over the
+	 * expiry index.
 	 */
-	public function activeSignature(int $now): string {
+	public function changeSignature(int $since): string {
 		$qb = $this->db->getQueryBuilder();
 		$qb->select($qb->func()->count('*', 'n'))
 			->selectAlias($qb->func()->max('id'), 'last_id')
 			->selectAlias($qb->func()->sum('expires_at'), 'expiry_sum')
 			->from(self::TABLE)
-			->where($qb->expr()->gt('expires_at', $qb->createNamedParameter($now, IQueryBuilder::PARAM_INT)))
+			->where($qb->expr()->gt('expires_at', $qb->createNamedParameter($since, IQueryBuilder::PARAM_INT)))
 			->andWhere($qb->expr()->isNull('lifted_at'));
 		$result = $qb->executeQuery();
 		$row = $result->fetch();

@@ -19,6 +19,7 @@ use OCA\IntrusionDetection\Confirm\NoMethodOutcome;
 use OCA\IntrusionDetection\Confirm\StepUpPolicy;
 use OCA\IntrusionDetection\Confirm\StepUpReasons;
 use OCA\IntrusionDetection\KnownDevice\KnownDevices;
+use OCA\IntrusionDetection\Net\ServerAddresses;
 use OCA\IntrusionDetection\Risk\AttackTools;
 
 /**
@@ -56,8 +57,6 @@ final class GlobalSettings {
 	public const BLOCKLIST_MAX_ENTRIES = 'blocklist_max_entries';
 	/** Internal: per list the active version and the last sync results */
 	public const BLOCKLIST_STATE = 'blocklist_state';
-	/** Internal: the last firewall export */
-	public const EXPORT_STATE = 'export_state';
 	/** The groups whose members get the admin notifications */
 	public const NOTIFY_ADMIN_GROUP = 'notify_admin_group';
 	/** Detections of at least this severity are also emailed to them ("never" for no emails) */
@@ -149,6 +148,8 @@ final class GlobalSettings {
 	public const TRAP_NAME_COLLISIONS = 'trap_name_collisions';
 	/** Internal: the protection level the limits were last set to (recommended, strict, relaxed), or custom after a change by hand */
 	public const PROTECTION_LEVEL = 'protection_level';
+	/** Internal: this server's own addresses seen in web requests, for cron and occ */
+	public const SERVER_ADDRESSES = 'server_addresses';
 
 	/** Seconds in the learning period that starts when the app is first enabled */
 	public const LEARNING_DEFAULT_PERIOD = 7 * 86400;
@@ -183,7 +184,6 @@ final class GlobalSettings {
 				new ParamDefinition(self::BLOCKLIST_SYNC_INTERVAL, ParamType::Duration, 21600, min: 3600, max: 7 * 86400),
 				new ParamDefinition(self::BLOCKLIST_MAX_ENTRIES, ParamType::Int, 200000, min: 100, max: 500000),
 				new ParamDefinition(self::BLOCKLIST_STATE, ParamType::Json, '{}'),
-				new ParamDefinition(self::EXPORT_STATE, ParamType::Json, '{}'),
 				new ParamDefinition(self::NOTIFY_ADMIN_GROUP, ParamType::StringList, ['admin'], itemPattern: '/^[^\x00-\x1f\x7f]{1,255}$/u', maxItems: 10),
 				new ParamDefinition(self::NOTIFY_ADMIN_EMAIL_MIN_SEVERITY, ParamType::Choice, 'high', choices: ['low', 'medium', 'high', 'critical', 'never']),
 				new ParamDefinition(self::CS_DISTRIBUTED_UNTIL, ParamType::Int, 0, min: 0),
@@ -242,6 +242,7 @@ final class GlobalSettings {
 				new ParamDefinition(self::COVERAGE_USERS, ParamType::Json, '{}'),
 				new ParamDefinition(self::TRAP_NAME_COLLISIONS, ParamType::Json, '{}'),
 				new ParamDefinition(self::PROTECTION_LEVEL, ParamType::Choice, ProtectionLevel::Recommended->value, choices: array_map(static fn (ProtectionLevel $level): string => $level->value, ProtectionLevel::cases())),
+				new ParamDefinition(self::SERVER_ADDRESSES, ParamType::StringList, [], itemPattern: '/^[0-9a-f.:]{2,45}$/', maxItems: ServerAddresses::MAX_REMEMBERED),
 			];
 			$this->definitions = [];
 			foreach ($list as $definition) {
@@ -274,7 +275,7 @@ final class GlobalSettings {
 	public static function isInternal(string $name): bool {
 		return in_array($name, [
 			self::BAN_VERSION, self::INSTALLED_AT, self::LEARNING_NOTICE_SENT, self::ATTEMPTS_FLOOD_UNTIL,
-			self::BLOCKLIST_STATE, self::EXPORT_STATE,
+			self::BLOCKLIST_STATE,
 			self::CS_DISTRIBUTED_UNTIL, self::CS_DISTRIBUTED_DETECTED_AT, self::CS_DISTRIBUTED_DETECTION, self::CS_EVALUATED_AT,
 			self::DECOY_COUNT,
 			self::CONFIG_WATCH_BASELINE,
@@ -286,6 +287,7 @@ final class GlobalSettings {
 			self::COVERAGE_USERS,
 			self::TRAP_NAME_COLLISIONS,
 			self::PROTECTION_LEVEL,
+			self::SERVER_ADDRESSES,
 		], true);
 	}
 }

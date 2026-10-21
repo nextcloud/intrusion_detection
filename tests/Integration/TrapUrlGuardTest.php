@@ -23,6 +23,7 @@ use OCA\IntrusionDetection\Guard\TrapUrlGuard;
 use OCA\IntrusionDetection\Middleware\PayloadBlockedException;
 use OCA\IntrusionDetection\Middleware\PayloadMiddleware;
 use OCA\IntrusionDetection\Net\RemoteAddressResolver;
+use OCA\IntrusionDetection\Net\ServerAddresses;
 use OCA\IntrusionDetection\Perf\GuardTimer;
 use OCA\IntrusionDetection\Response\ResponseEngine;
 use OCA\IntrusionDetection\Response\ResponseOutcome;
@@ -231,7 +232,7 @@ class TrapUrlGuardTest extends IntegrationTestCase {
 			Server::get(IConfig::class),
 			Server::get(IAppConfig::class),
 			$this->settings,
-			new RemoteAddressResolver($this->createMock(IRequest::class), Server::get(IThrottler::class)),
+			new RemoteAddressResolver($this->createMock(IRequest::class), Server::get(IThrottler::class), Server::get(ServerAddresses::class)),
 			$container ?? $this->container(),
 			Server::get(GuardTimer::class),
 		);

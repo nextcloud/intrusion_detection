@@ -9,11 +9,13 @@ declare(strict_types=1);
 
 namespace OCA\IntrusionDetection\Tests\Integration;
 
+use OCA\IntrusionDetection\AppInfo\Application;
 use OCA\IntrusionDetection\BackgroundJob\FirewallExportJob;
 use OCA\IntrusionDetection\Config\GlobalSettings;
 use OCA\IntrusionDetection\Config\Settings;
 use OCA\IntrusionDetection\Db\Ban;
 use OCA\IntrusionDetection\Db\BanMapper;
+use OCA\IntrusionDetection\Db\StateMapper;
 use OCA\IntrusionDetection\Event\BanCreatedEvent;
 use OCA\IntrusionDetection\Event\BanLiftedEvent;
 use OCA\IntrusionDetection\Export\ExportDirectory;
@@ -21,6 +23,7 @@ use OCA\IntrusionDetection\Export\ExportException;
 use OCA\IntrusionDetection\Export\FirewallExporter;
 use OCA\IntrusionDetection\Listener\FirewallExportListener;
 use OCA\IntrusionDetection\Net\ProtectedRanges;
+use OCA\IntrusionDetection\Net\ServerAddresses;
 use OCA\IntrusionDetection\Tests\Unit\Export\ExportDirectoryTest;
 use OCP\AppFramework\Utility\ITimeFactory;
 use OCP\BackgroundJob\IJobList;
@@ -222,6 +225,65 @@ class FirewallExporterTest extends IntegrationTestCase {
 		$this->assertStringNotContainsString('127.0.0.1', $txt);
 	}
 
+	public function testChangingTheAllowlistRewritesTheFiles(): void {
+		$this->ban('198.51.100.7/32', 3600);
+		$exporter = $this->exporter();
+		$exporter->write();
+		$this->assertFalse($exporter->writeIfDue());
+		$this->appConfig->setValueString('bruteForce', 'whitelist_1', '198.51.100.7/32');
+		try {
+			$exporter = $this->exporter();
+			$this->assertTrue($exporter->writeIfDue(), 'The allowlist is part of what was written');
+			$this->assertStringNotContainsString('198.51.100.7', $this->read('bans.txt'));
+		} finally {
+			$this->appConfig->deleteKey('bruteForce', 'whitelist_1');
+		}
+	}
+
+	public function testTheServerSeenInWebRequestsIsNotExportedByTheJob(): void {
+		$_SERVER['SERVER_ADDR'] = '198.51.100.250';
+		try {
+			Server::get(ServerAddresses::class)->observe();
+		} finally {
+			unset($_SERVER['SERVER_ADDR']);
+		}
+		// The job runs from cron, without a web request.
+		$this->ban('198.51.100.0/24', 3600);
+		$this->exporter()->write();
+		$txt = $this->read('bans.txt');
+		$this->assertStringNotContainsString('198.51.100.0/24', $txt);
+		$this->assertStringContainsString('198.51.100.251/32', $txt);
+		$this->assertStringNotContainsString('198.51.100.250/', $txt);
+	}
+
+	public function testBlocksEndingAllTheTimeAreWrittenAtMostOncePerJobRun(): void {
+		for ($i = 1; $i <= 60; $i++) {
+			$this->ban('203.0.113.' . $i . '/32', $i * 60);
+		}
+		$exporter = $this->exporter();
+		$exporter->write();
+		$writes = 0;
+		// An hour of job runs, while a block ends every minute.
+		for ($run = 1; $run <= 3600 / FirewallExportJob::INTERVAL; $run++) {
+			$this->now += FirewallExportJob::INTERVAL;
+			$writes += $exporter->writeIfDue() ? 1 : 0;
+		}
+		$this->assertSame(12, $writes);
+		$this->assertSame(0, $exporter->status()->entries);
+	}
+
+	public function testTheExportStateIsNotKeptInTheAppConfig(): void {
+		$this->ban('203.0.113.7/32', 3600);
+		$this->exporter()->write();
+		$this->assertNotContains('export_state', $this->appConfig->getKeys(Application::APP_ID));
+		$this->assertSame(1, $this->exporter()->status()->entries);
+	}
+
+	public function testTheJobRunsEveryFiveMinutes(): void {
+		$job = new FirewallExportJob($this->time(), $this->exporter());
+		$this->assertSame(300, $job->getInterval());
+	}
+
 	public function testTheExportCapKeepsTheLongestBlocks(): void {
 		$this->ban('203.0.113.1/32', 600);
 		$this->ban('203.0.113.2/32', 86400);
@@ -281,7 +343,8 @@ class FirewallExporterTest extends IntegrationTestCase {
 			new ExportDirectory($config),
 			$this->settings,
 			Server::get(BanMapper::class),
-			new ProtectedRanges($this->appConfig),
+			Server::get(StateMapper::class),
+			new ProtectedRanges($this->appConfig, Server::get(ServerAddresses::class)),
 			$this->time(),
 			Server::get(ISecureRandom::class),
 			Server::get(LoggerInterface::class),

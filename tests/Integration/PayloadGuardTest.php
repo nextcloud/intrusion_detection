@@ -34,6 +34,7 @@ use OCA\IntrusionDetection\Listener\PayloadLoginListener;
 use OCA\IntrusionDetection\Middleware\PayloadBlockedException;
 use OCA\IntrusionDetection\Middleware\PayloadMiddleware;
 use OCA\IntrusionDetection\Net\RemoteAddressResolver;
+use OCA\IntrusionDetection\Net\ServerAddresses;
 use OCA\IntrusionDetection\Perf\GuardTimer;
 use OCA\IntrusionDetection\Response\ResponseEngine;
 use OCA\IntrusionDetection\Response\ResponseOutcome;
@@ -592,7 +593,7 @@ class PayloadGuardTest extends IntegrationTestCase {
 	}
 
 	private function addresses(?IThrottler $throttler = null): RemoteAddressResolver {
-		return new RemoteAddressResolver($this->createMock(IRequest::class), $throttler ?? $this->createMock(IThrottler::class));
+		return new RemoteAddressResolver($this->createMock(IRequest::class), $throttler ?? $this->createMock(IThrottler::class), Server::get(ServerAddresses::class));
 	}
 
 	/**

@@ -33,6 +33,7 @@ use OCA\IntrusionDetection\Event\TypedEvents;
 use OCA\IntrusionDetection\Explain\NarrativeBuilder;
 use OCA\IntrusionDetection\Guard\RequestContext;
 use OCA\IntrusionDetection\Net\RemoteAddressResolver;
+use OCA\IntrusionDetection\Net\ServerAddresses;
 use OCA\IntrusionDetection\Response\ResponseEngine;
 use OCA\IntrusionDetection\Sensitive\DirectoryRoutes;
 use OCA\IntrusionDetection\SessionState\CurrentSession;
@@ -299,7 +300,7 @@ class DirectoryScrapingTest extends IntegrationTestCase {
 					Server::get(AuditLogger::class),
 					Server::get(LoggerInterface::class),
 				),
-				RemoteAddressResolver::class => new RemoteAddressResolver($request, Server::get(IThrottler::class)),
+				RemoteAddressResolver::class => new RemoteAddressResolver($request, Server::get(IThrottler::class), Server::get(ServerAddresses::class)),
 				IRequest::class => $request,
 				CurrentSession::class => $currentSession,
 			]),
