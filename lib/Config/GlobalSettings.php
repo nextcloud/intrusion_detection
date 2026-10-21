@@ -138,6 +138,8 @@ final class GlobalSettings {
 	public const RISKY_NETWORK_EXEMPT_GROUPS = 'risky_network_exempt_groups';
 	/** Whether users see the intrusion detection part of their security settings */
 	public const PERSONAL_PAGE_ENABLED = 'personal_page_enabled';
+	/** Bans that ended up to this time have been flagged */
+	public const BANS_FLAGGED_UNTIL = 'bans_flagged_until';
 
 	/** Seconds in the learning period that starts when the app is first enabled */
 	public const LEARNING_DEFAULT_PERIOD = 7 * 86400;
@@ -226,6 +228,7 @@ final class GlobalSettings {
 				new ParamDefinition(self::RISKY_NETWORK_OFFICE_NETWORKS, ParamType::CidrList, [], maxItems: 100),
 				new ParamDefinition(self::RISKY_NETWORK_EXEMPT_GROUPS, ParamType::StringList, [], itemPattern: '/^[^\x00-\x1f\x7f]{1,255}$/u', maxItems: 20),
 				new ParamDefinition(self::PERSONAL_PAGE_ENABLED, ParamType::Bool, true),
+				new ParamDefinition(self::BANS_FLAGGED_UNTIL, ParamType::Int, 0, min: 0),
 			];
 			$this->definitions = [];
 			foreach ($list as $definition) {
@@ -266,6 +269,7 @@ final class GlobalSettings {
 			self::LEARNING_STARTED_AT,
 			self::STEP_UP_SESSIONS_UNTIL,
 			self::DETECTIONS_RETIRED,
+			self::BANS_FLAGGED_UNTIL,
 		], true);
 	}
 }

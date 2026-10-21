@@ -29,6 +29,7 @@ use OCA\IntrusionDetection\Detection\AttemptRecorder;
 use OCA\IntrusionDetection\Detection\DetectionTotals;
 use OCA\IntrusionDetection\KnownDevice\KnownDevices;
 use OCA\IntrusionDetection\Personal\FailedLoginStats;
+use OCA\IntrusionDetection\Response\FlaggedSources;
 use OCA\IntrusionDetection\Takeover\SecurityChangeLog;
 use OCP\AppFramework\Utility\ITimeFactory;
 use OCP\BackgroundJob\IJob;
@@ -46,6 +47,8 @@ class Cleanup extends TimedJob {
 	public const ALERT_RETENTION = 30 * 86400;
 	/** Where app passwords came from is kept this long */
 	public const TOKEN_ORIGIN_RETENTION = 30 * 86400;
+	/** Ended blocks flagged per run at most */
+	public const ENDED_BANS_PER_RUN = 1000;
 
 	public function __construct(
 		ITimeFactory $time,
@@ -68,6 +71,7 @@ class Cleanup extends TimedJob {
 		private readonly LockLinkMapper $lockLinks,
 		private readonly FailedLoginStats $failedLoginStats,
 		private readonly AbandonedLogins $abandonedLogins,
+		private readonly FlaggedSources $flaggedSources,
 	) {
 		parent::__construct($time);
 		$this->setInterval(300);
@@ -77,6 +81,7 @@ class Cleanup extends TimedJob {
 	#[\Override]
 	protected function run(mixed $argument): void {
 		$now = $this->time->getTime();
+		$this->flagEndedBans($now);
 		$this->attempts->deleteOlderThan($now - AttemptRecorder::RETENTION);
 		$this->logins->deleteOlderThan(intdiv($now - 86400, 3600));
 		$this->detectionTotals->deleteCreatedBefore($now - $this->settings->getInt(GlobalSettings::RETENTION_DETECTIONS_DAYS) * 86400);
@@ -96,6 +101,26 @@ class Cleanup extends TimedJob {
 		$this->lockLinks->deleteExpired($now);
 		$this->failedLoginStats->deleteExpired();
 		$this->updateFloodState($now);
+	}
+
+	/**
+	 * Flag the addresses of blocks that ended since the last run, before
+	 * ended blocks are deleted. At most ENDED_BANS_PER_RUN per run; the rest
+	 * follow at the next. Blocks that ended longer ago than a flag lasts are
+	 * skipped: their flag would have ended too. The progress is only written
+	 * when something ended.
+	 */
+	private function flagEndedBans(int $now): void {
+		$since = max($this->settings->getInt(GlobalSettings::BANS_FLAGGED_UNTIL), $now - $this->settings->getInt(GlobalSettings::FLAG_DURATION));
+		$ended = $this->bans->findEndedBetween($since, $now, self::ENDED_BANS_PER_RUN);
+		if ($ended === []) {
+			return;
+		}
+		foreach ($ended as $ban) {
+			$this->flaggedSources->flagEndedBan($ban);
+		}
+		// Blocks that end in the same second as the last one flagged are looked at again; flagging is idempotent.
+		$this->settings->setGlobal(GlobalSettings::BANS_FLAGGED_UNTIL, count($ended) < self::ENDED_BANS_PER_RUN ? $now : $ended[count($ended) - 1]->getExpiresAt() - 1);
 	}
 
 	private function updateFloodState(int $now): void {

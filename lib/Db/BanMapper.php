@@ -184,6 +184,25 @@ class BanMapper extends QBMapper {
 		return is_array($row) ? (int)$row['n'] . ':' . (int)$row['last_id'] . ':' . (string)$row['expiry_sum'] : '0';
 	}
 
+	/**
+	 * Bans that ended by themselves (not lifted) after one time and at or
+	 * before another, oldest end first.
+	 *
+	 * @return list<Ban>
+	 */
+	public function findEndedBetween(int $after, int $until, int $limit): array {
+		$qb = $this->db->getQueryBuilder();
+		$qb->select('*')
+			->from(self::TABLE)
+			->where($qb->expr()->gt('expires_at', $qb->createNamedParameter($after, IQueryBuilder::PARAM_INT)))
+			->andWhere($qb->expr()->lte('expires_at', $qb->createNamedParameter($until, IQueryBuilder::PARAM_INT)))
+			->andWhere($qb->expr()->isNull('lifted_at'))
+			->orderBy('expires_at', 'ASC')
+			->addOrderBy('id', 'ASC')
+			->setMaxResults($limit);
+		return $this->findEntities($qb);
+	}
+
 	public function countActive(int $now): int {
 		$qb = $this->db->getQueryBuilder();
 		$qb->select($qb->func()->count('*', 'n'))

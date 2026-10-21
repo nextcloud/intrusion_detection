@@ -12,6 +12,7 @@ namespace OCA\IntrusionDetection\Tests\Integration;
 use OCA\IntrusionDetection\Address\AddressCache;
 use OCA\IntrusionDetection\Address\AddressResolver;
 use OCA\IntrusionDetection\AppInfo\Application;
+use OCA\IntrusionDetection\BackgroundJob\Cleanup;
 use OCA\IntrusionDetection\Config\GlobalSettings;
 use OCA\IntrusionDetection\Config\Settings;
 use OCA\IntrusionDetection\Db\Ban;
@@ -27,6 +28,7 @@ use OCA\IntrusionDetection\Response\BanExemptions;
 use OCA\IntrusionDetection\Response\BanRefusedException;
 use OCA\IntrusionDetection\Response\BanResult;
 use OCA\IntrusionDetection\Response\BanService;
+use OCA\IntrusionDetection\Response\FlaggedSources;
 use OCP\AppFramework\Utility\ITimeFactory;
 use OCP\IConfig;
 use OCP\IGroupManager;
@@ -391,6 +393,45 @@ class BanServiceTest extends IntegrationTestCase {
 		$this->assertSame(BanResult::BANNED, $this->freshService($locks)->ban(SourceKey::fromIp('198.51.100.7'), 'trap_url')->outcome);
 	}
 
+	public function testLiftingABlockRemovesTheFlagOfItsAddress(): void {
+		$source = SourceKey::fromIp('198.51.100.7');
+		$flags = Server::get(FlaggedSources::class);
+		$flags->flagSource($source, FlaggedSources::REASON_ATTACK);
+		$flags->flagNetwork($source, FlaggedSources::REASON_DISTRIBUTED);
+		$this->bans->lift($this->bans->ban($source, 'trap_url')->ban, 'admin', 'false alarm');
+		$this->assertSame(FlaggedSources::REASON_DISTRIBUTED, $flags->sourceFlag($source), 'The address flag is gone, the /24 flag of another detection stays');
+	}
+
+	public function testEndedBlocksFlagTheirAddressAtTheNextCleanup(): void {
+		$ended = SourceKey::fromIp('198.51.100.7');
+		$lifted = SourceKey::fromIp('198.51.100.8');
+		$network = SourceKey::fromIp('203.0.113.9');
+		$running = SourceKey::fromIp('192.0.2.5');
+		$ipv6 = SourceKey::fromIp('2001:db8:1:2::9');
+		$this->insertBan($ended->ipKey, $ended->ip . '/32', time() - 600);
+		$this->insertBan($lifted->ipKey, $lifted->ip . '/32', time() - 600, lifted: true);
+		$this->insertBan($network->netKey, $network->netKey, time() - 600);
+		$this->insertBan($running->ipKey, $running->ip . '/32', time() + 600);
+		$this->insertBan($ipv6->ipKey, $ipv6->ipKey, time() - 60);
+		$this->insertBan('2001:db8:1::/48', '2001:db8:1::/48', time() - 60);
+		$this->insertBan('198.51.100.99', '198.51.100.99/32', time() - 2 * 86400);
+
+		self::invokePrivate(Server::get(Cleanup::class), 'run', [null]);
+		$flags = Server::get(FlaggedSources::class);
+		$this->assertSame(FlaggedSources::REASON_BAN_EXPIRED, $flags->sourceFlag($ended));
+		$this->assertNull($flags->sourceFlag($lifted), 'A lifted block was a mistake');
+		$this->assertSame(FlaggedSources::REASON_BAN_EXPIRED, $flags->sourceFlag(SourceKey::fromIp('203.0.113.200')), 'The ended /24');
+		$this->assertNull($flags->sourceFlag($running));
+		$this->assertSame(FlaggedSources::REASON_BAN_EXPIRED, $flags->sourceFlag(SourceKey::fromIp('2001:db8:1:2::77')));
+		$this->assertNull($flags->sourceFlag(SourceKey::fromIp('2001:db8:1:5::1')), 'Wider IPv6 networks are not flagged');
+		$this->assertNull($flags->sourceFlag(SourceKey::fromIp('198.51.100.99')), 'Its flag would have ended already');
+		$this->assertSame(time(), $this->appConfig->getValueInt(Application::APP_ID, GlobalSettings::BANS_FLAGGED_UNTIL), 'Progress is kept');
+
+		$flags->unflagSource($ended);
+		self::invokePrivate(Server::get(Cleanup::class), 'run', [null]);
+		$this->assertNull($flags->sourceFlag($ended), 'A block is flagged once');
+	}
+
 	private function loginsFromTheNetwork(): void {
 		$logins = Server::get(LoginMapper::class);
 		$hour = intdiv(time(), 3600);
@@ -421,11 +462,26 @@ class BanServiceTest extends IntegrationTestCase {
 			Server::get(AddressResolver::class),
 			new RemoteAddressResolver($this->createMock(IRequest::class), Server::get(IThrottler::class)),
 			$ranges,
+			Server::get(FlaggedSources::class),
 			$locks ?? Server::get(ILockingProvider::class),
 			Server::get(ITimeFactory::class),
 			Server::get(ISecureRandom::class),
 			Server::get(TypedEvents::class),
 		);
+	}
+
+	private function insertBan(string $banKey, string $cidr, int $expiresAt, bool $lifted = false): void {
+		$ban = new Ban();
+		$ban->setReference(substr(str_shuffle('ABCDEFGHJKLMNPQRSTUVWXYZ23456789'), 0, 8));
+		$ban->setCidr($cidr);
+		$ban->setScope(str_ends_with($cidr, '/32') ? Ban::SCOPE_IP : Ban::SCOPE_NET);
+		$ban->setBanKey($banKey);
+		$ban->setLevel(1);
+		$ban->setCheckId('trap_url');
+		$ban->setCreatedAt($expiresAt - 3600);
+		$ban->setExpiresAt($expiresAt);
+		$ban->setLiftedAt($lifted ? $expiresAt - 60 : null);
+		$this->mapper->insert($ban);
 	}
 
 	private function insertActiveBan(string $banKey, string $cidr, string $scope, bool $lifted = false): void {

@@ -61,6 +61,7 @@ class BanService {
 		private readonly AddressResolver $resolver,
 		private readonly RemoteAddressResolver $addresses,
 		private readonly ProtectedRanges $protected,
+		private readonly FlaggedSources $flags,
 		private readonly ILockingProvider $locks,
 		private readonly ITimeFactory $timeFactory,
 		private readonly ISecureRandom $random,
@@ -148,6 +149,7 @@ class BanService {
 		$ban->setLiftedBy($actor);
 		$ban->setLiftNote(mb_substr($note, 0, 255));
 		$this->mapper->update($ban);
+		$this->flags->unflagBan($ban);
 		$this->invalidate($ban);
 		$this->events->banLifted($ban);
 	}

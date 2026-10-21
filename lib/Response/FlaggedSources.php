@@ -11,6 +11,7 @@ namespace OCA\IntrusionDetection\Response;
 
 use OCA\IntrusionDetection\Config\GlobalSettings;
 use OCA\IntrusionDetection\Config\Settings;
+use OCA\IntrusionDetection\Db\Ban;
 use OCA\IntrusionDetection\Db\FlagMapper;
 use OCA\IntrusionDetection\Net\SourceKey;
 use OCP\AppFramework\Utility\ITimeFactory;
@@ -22,6 +23,9 @@ use OCP\AppFramework\Utility\ITimeFactory;
  *
  * An address that failed a password login with an attack tool's user agent
  * gets a flag of its own (`tool:`), which only the risk score reads.
+ *
+ * A block that ends by itself flags its address or /24 (the cleanup job);
+ * lifting a block removes the flag.
  */
 class FlaggedSources {
 	public const REASON_ATTACK = 'attack';
@@ -129,6 +133,29 @@ class FlaggedSources {
 	}
 
 	/**
+	 * Flag the address or /24 of a block that ended by itself, for
+	 * FLAG_DURATION after its end: a login from there needs confirmation
+	 * for a while. IPv6 networks wider than a /64 are not flagged.
+	 */
+	public function flagEndedBan(Ban $ban): void {
+		$key = self::banFlagKey($ban);
+		if ($key !== null) {
+			$this->mapper->flag($key, self::REASON_BAN_EXPIRED, $ban->getExpiresAt() + $this->settings->getInt(GlobalSettings::FLAG_DURATION), $ban->getDetectionId());
+		}
+	}
+
+	/**
+	 * Remove the flag of a lifted block's address or /24, whatever set it:
+	 * whoever lifted the block decided the address is fine.
+	 */
+	public function unflagBan(Ban $ban): void {
+		$key = self::banFlagKey($ban);
+		if ($key !== null) {
+			$this->mapper->unflag($key);
+		}
+	}
+
+	/**
 	 * Remember for a day that the address used an attack tool.
 	 */
 	public function flagAttackTool(SourceKey $source, string $tool): void {
@@ -147,6 +174,18 @@ class FlaggedSources {
 		$tool = $flags[$toolKey] ?? null;
 		unset($flags[$toolKey]);
 		return ['tool' => $tool, 'source' => $flags === [] ? null : (string)reset($flags)];
+	}
+
+	/**
+	 * The flag key a block's address or network is read under, if any.
+	 */
+	private static function banFlagKey(Ban $ban): ?string {
+		$source = SourceKey::tryFromIpKey($ban->getBanKey());
+		if ($source !== null) {
+			return self::sourceKey($source);
+		}
+		$network = SourceKey::tryFromIp(explode('/', $ban->getBanKey(), 2)[0]);
+		return $network !== null && $network->family === 4 && $network->netKey === $ban->getBanKey() ? 'net:' . $network->netKey : null;
 	}
 
 	private static function toolKey(SourceKey $source): string {
