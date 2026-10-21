@@ -36,8 +36,9 @@ use OCP\IUser;
  * Each source costs one query by its (uid, created_at) index, or the
  * unique (uid, day) index of the daily failure counts, and reads at most
  * one row more than shown; the open questions are a second query of the
- * detections, of at most MAX_QUESTIONS rows. Only events that are shown are
- * put into words.
+ * unanswered detections of the checks that ask, of at most MAX_QUESTIONS
+ * rows, repeated for up to QUESTION_PAGES pages while their rows do not
+ * ask. Only events that are shown are put into words.
  *
  * @psalm-import-type IntrusionDetectionPersonalActivity from ResponseDefinitions
  * @psalm-import-type IntrusionDetectionPersonalActivityItem from ResponseDefinitions
@@ -50,6 +51,8 @@ class PersonalActivity {
 	public const MAX_LIMIT = 100;
 	/** Open questions listed at most */
 	public const MAX_QUESTIONS = 50;
+	/** Pages of MAX_QUESTIONS unanswered detections read at most for them */
+	public const QUESTION_PAGES = 4;
 	public const MAX_DAYS = 365;
 
 	private const KIND_ORDER = ['event' => 0, 'change' => 1, 'login' => 2, 'failed_logins' => 3];
@@ -87,16 +90,25 @@ class PersonalActivity {
 
 		// Open questions are listed however old they are, newest first; the rest by the timeline's window.
 		$questions = [];
-		$unanswered = $this->detections->findList(new DetectionFilter(
-			checkIds: $this->questions->askingCheckIds(),
-			uid: $uid,
-			since: $now - $this->settings->getInt(GlobalSettings::RETENTION_DETECTIONS_DAYS) * 86400,
-			limit: self::MAX_QUESTIONS,
-			answered: false,
-		));
-		foreach ($unanswered as $detection) {
-			if ($this->questions->isOpen($detection)) {
-				$questions[] = $this->personalDetections->present($detection, $user);
+		$askingChecks = $this->questions->askingCheckIds();
+		$retained = $now - $this->settings->getInt(GlobalSettings::RETENTION_DETECTIONS_DAYS) * 86400;
+		for ($page = 0; $page < self::QUESTION_PAGES && count($questions) < self::MAX_QUESTIONS; $page++) {
+			// Some checks ask for some of their detections only: those are read past, a page at a time.
+			$unanswered = $this->detections->findList(new DetectionFilter(
+				checkIds: $askingChecks,
+				uid: $uid,
+				since: $retained,
+				limit: self::MAX_QUESTIONS,
+				offset: $page * self::MAX_QUESTIONS,
+				answered: false,
+			));
+			foreach ($unanswered as $detection) {
+				if (count($questions) < self::MAX_QUESTIONS && $this->questions->isOpen($detection)) {
+					$questions[] = $this->personalDetections->present($detection, $user);
+				}
+			}
+			if (count($unanswered) < self::MAX_QUESTIONS) {
+				break;
 			}
 		}
 		$found = $this->detections->findList(new DetectionFilter(uid: $uid, since: $since, limit: PersonalDetections::MAX));

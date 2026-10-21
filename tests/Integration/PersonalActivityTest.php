@@ -10,10 +10,12 @@ declare(strict_types=1);
 namespace OCA\IntrusionDetection\Tests\Integration;
 
 use OCA\IntrusionDetection\AppInfo\Application;
+use OCA\IntrusionDetection\Check\Checks\PasswordSpraying;
 use OCA\IntrusionDetection\Config\GlobalSettings;
 use OCA\IntrusionDetection\Db\DetectionMapper;
 use OCA\IntrusionDetection\Db\LoginHistoryMapper;
 use OCA\IntrusionDetection\Db\SecurityChangeMapper;
+use OCA\IntrusionDetection\Detection\DetectionDraft;
 use OCA\IntrusionDetection\LoginHistory\LoginHistory;
 use OCA\IntrusionDetection\Net\SourceKey;
 use OCA\IntrusionDetection\Personal\FailedLoginStats;
@@ -99,6 +101,17 @@ class PersonalActivityTest extends PersonalApiTestCase {
 		$this->assertSame([$open->getId()], array_column($activity['questions'], 'id'));
 		$this->assertCount(10, $activity['items']);
 		$this->assertTrue($activity['hasMore']);
+	}
+
+	public function testDetectionsOfAnAskingCheckThatDoNotAskDoNotHideAnOpenQuestion(): void {
+		$open = $this->detection($this->alice, '203.0.113.10');
+		$this->setCreatedAt($open->getId(), time() - 86400 * 40);
+		// Password spraying asks only for a login with the sprayed password, not for a flagged one.
+		for ($i = 0; $i < PersonalActivity::MAX_QUESTIONS + 20; $i++) {
+			$this->engine()->handle(new DetectionDraft(PasswordSpraying::ID, SourceKey::fromIp('198.51.100.' . (10 + $i)), $this->alice->getUID(), ['rule' => PasswordSpraying::RULE_FLAGGED]), []);
+		}
+		$this->startSession($this->alice);
+		$this->assertSame([$open->getId()], array_column($this->controller()->activity()->getData()['questions'], 'id'));
 	}
 
 	public function testOpenQuestionsAreBounded(): void {
