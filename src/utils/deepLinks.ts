@@ -42,6 +42,7 @@ const SECTION = /^([a-z]+)-[a-z0-9-]{1,64}$/
  * - a section, by its element id: `#settings-privacy`, `#blocks-decoys`;
  * - a check: `#protection/credential_stuffing`;
  * - a detection: `#detection-42`;
+ * - a request for a new administrator, on the overview: `#approval-7`;
  * - the links of the former tabs, such as `#checks/…`, `#decoys` or `#advanced`.
  *
  * @param hash - The location hash
@@ -52,6 +53,9 @@ export function resolveLink(hash: string): LinkTarget | null {
 	const detection = link.match(/^detection-(\d{1,18})$/)
 	if (detection) {
 		return { tab: 'overview', check: null, section: null, detection: Number(detection[1]) }
+	}
+	if (/^approval-\d{1,18}$/.test(link)) {
+		return { tab: 'overview', check: null, section: link, detection: null }
 	}
 	const [first = '', check = null, ...more] = link.split('/')
 	link = MOVED[first] ?? first

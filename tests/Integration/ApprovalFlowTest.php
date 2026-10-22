@@ -26,6 +26,7 @@ use OCA\IntrusionDetection\Notification\Notifier;
 use OCP\Group\Events\UserAddedEvent;
 use OCP\IGroup;
 use OCP\Notification\AlreadyProcessedException;
+use OCP\Notification\IManager as INotificationManager;
 use OCP\Notification\INotification;
 use OCP\Server;
 use PHPUnit\Framework\Attributes\Group;
@@ -74,12 +75,28 @@ class ApprovalFlowTest extends AdminChangeTestCase {
 
 		$prepared = Server::get(Notifier::class)->prepare($asked[0], 'en');
 		$this->assertSame($this->alice . ' asks to make ' . $this->bob . ' an administrator', $prepared->getParsedSubject());
-		$this->assertSame(['Approve', 'Reject'], array_map(static fn ($a): string => $a->getParsedLabel(), $prepared->getParsedActions()));
-		$this->assertSame([true, false], array_map(static fn ($a): bool => $a->isPrimary(), $prepared->getParsedActions()), 'Reject is the secondary choice');
-		foreach ($prepared->getParsedActions() as $action) {
-			$this->assertSame('POST', $action->getRequestType());
-			$this->assertMatchesRegularExpression('#/apps/intrusion_detection/api/v1/approvals/' . $approval->getId() . '/(approve|reject)$#', $action->getLink());
+		$this->assertReviewedOnTheAdminPage($prepared, (int)$approval->getId());
+		$this->assertSame(['WEB'], array_map(static fn ($a): string => $a->getRequestType(), $asked[0]->getActions()), 'Only a link is stored');
+	}
+
+	public function testANotificationStoredWithApproveAndRejectActionsOpensTheAdminPage(): void {
+		$this->act($this->alice);
+		$this->addAsWeb('admin', $this->bob);
+		[$approval] = $this->approvals->list(true);
+		$id = (int)$approval->getId();
+
+		$stored = Server::get(INotificationManager::class)->createNotification();
+		$stored->setApp(Application::APP_ID)
+			->setUser($this->carol)
+			->setDateTime(new \DateTime())
+			->setObject(ApprovalService::OBJECT_TYPE, (string)$id)
+			->setSubject(Notifier::SUBJECT_APPROVAL_REQUESTED, ['approval' => $id]);
+		foreach (['approve', 'reject'] as $label) {
+			$action = $stored->createAction();
+			$action->setLabel($label)->setLink('https://cloud.example.com/ocs/v2.php/apps/intrusion_detection/api/v1/approvals/' . $id . '/' . $label, 'POST');
+			$stored->addAction($action);
 		}
+		$this->assertReviewedOnTheAdminPage(Server::get(Notifier::class)->prepare($stored, 'en'), $id);
 	}
 
 	public function testAnotherAddOfTheSameAccountReusesTheRequest(): void {
@@ -317,5 +334,19 @@ class ApprovalFlowTest extends AdminChangeTestCase {
 		$approval = Server::get(ApprovalMapper::class)->findById($id);
 		$approval->setExpiresAt(time() - 1);
 		Server::get(ApprovalMapper::class)->update($approval);
+	}
+
+	/**
+	 * Approving needs the password, which no notification can ask: the one
+	 * button opens the request on the admin page, also in the clients.
+	 */
+	private function assertReviewedOnTheAdminPage(INotification $prepared, int $id): void {
+		$this->assertStringContainsString('Approving needs your password', $prepared->getParsedMessage());
+		$this->assertStringEndsWith('/settings/admin/intrusion_detection#approval-' . $id, $prepared->getLink());
+		$actions = $prepared->getParsedActions();
+		$this->assertSame(['Review the request'], array_map(static fn ($a): string => $a->getParsedLabel(), $actions));
+		$this->assertSame('WEB', $actions[0]->getRequestType());
+		$this->assertTrue($actions[0]->isPrimary());
+		$this->assertSame($prepared->getLink(), $actions[0]->getLink());
 	}
 }

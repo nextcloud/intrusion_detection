@@ -9,9 +9,11 @@ declare(strict_types=1);
 
 namespace OCA\IntrusionDetection\Controller;
 
+use OCA\IntrusionDetection\AdminChange\ActorResolver;
 use OCA\IntrusionDetection\AdminChange\ApprovalException;
 use OCA\IntrusionDetection\AdminChange\ApprovalService;
 use OCA\IntrusionDetection\AppInfo\Application;
+use OCA\IntrusionDetection\Check\Checks\AdminChange;
 use OCA\IntrusionDetection\Confirm\SessionConfirmation;
 use OCA\IntrusionDetection\Db\Approval;
 use OCA\IntrusionDetection\ResponseDefinitions;
@@ -22,23 +24,31 @@ use OCP\AppFramework\Http\Attribute\PasswordConfirmationRequired;
 use OCP\AppFramework\Http\Attribute\UserRateLimit;
 use OCP\AppFramework\Http\DataResponse;
 use OCP\AppFramework\OCSController;
+use OCP\AppFramework\Utility\ITimeFactory;
 use OCP\IL10N;
 use OCP\IRequest;
+use OCP\IUserManager;
 use OCP\IUserSession;
 
 /**
  * Requests for the approval of a second administrator: the list, and the
- * decisions (also the actions of the approval notification).
+ * decisions, made on the admin page or by API.
  *
- * Administrators only (the default for controllers) and CSRF-protected. A
- * decision needs a recent password confirmation; the rules who may decide
- * are in {@see ApprovalService}, shared with occ. Approving also needs the
- * deciding administrator's own session not to be unconfirmed
+ * Administrators only (the default for controllers) and CSRF-protected; the
+ * rules who may decide are in {@see ApprovalService}, shared with occ.
+ *
+ * Approving needs a recent password confirmation, and the deciding
+ * administrator's own session must not be unconfirmed
  * ({@see SessionConfirmation::isUnconfirmed()}): a session that was let in
  * without its confirmation, still waits for it, or uses an app password
- * must not let others in.
+ * must not let others in. So a stolen app password alone never approves.
+ *
+ * Rejecting needs neither: it changes nothing (the account does not join,
+ * the waiting login ends and can be tried again), and stopping a request
+ * one did not expect must be quick.
  *
  * @psalm-import-type IntrusionDetectionApproval from ResponseDefinitions
+ * @psalm-import-type IntrusionDetectionAdminGrantRequest from ResponseDefinitions
  */
 #[OpenAPI(scope: OpenAPI::SCOPE_ADMINISTRATION)]
 class ApprovalController extends OCSController {
@@ -48,6 +58,8 @@ class ApprovalController extends OCSController {
 		private readonly IUserSession $userSession,
 		private readonly IL10N $l,
 		private readonly SessionConfirmation $confirmation,
+		private readonly IUserManager $userManager,
+		private readonly ITimeFactory $timeFactory,
 	) {
 		parent::__construct(Application::APP_ID, $request);
 	}
@@ -71,7 +83,45 @@ class ApprovalController extends OCSController {
 	}
 
 	/**
+	 * List the accounts waiting to become administrators
+	 *
+	 * The pending requests that have not expired, for the admin page.
+	 *
+	 * @return DataResponse<Http::STATUS_OK, list<IntrusionDetectionAdminGrantRequest>, array{}>
+	 *
+	 * 200: The requests, oldest first
+	 */
+	#[ApiRoute(verb: 'GET', url: '/api/v1/approvals/admin-grants')]
+	public function adminGrants(): DataResponse {
+		$viewer = $this->userSession->getUser()?->getUID() ?? '';
+		$now = $this->timeFactory->getTime();
+		$list = [];
+		foreach (array_reverse($this->approvals->list(true, 200, Approval::KIND_ADMIN_GRANT)) as $approval) {
+			if ($approval->getExpiresAt() <= $now) {
+				continue;
+			}
+			$uid = $approval->getSubjectUid();
+			$requester = $approval->getRequestedBy();
+			$list[] = [
+				'id' => (int)$approval->getId(),
+				'uid' => $uid,
+				'displayName' => $this->userManager->getDisplayName($uid) ?? $uid,
+				'group' => (string)$approval->getGroupId(),
+				'requestedBy' => $requester,
+				'requesterName' => ActorResolver::isPerson($requester) ? ($this->userManager->getDisplayName($requester) ?? $requester) : AdminChange::actorName($requester, $this->l),
+				'createdAt' => $approval->getCreatedAt(),
+				'expiresAt' => $approval->getExpiresAt(),
+				'canApprove' => $viewer !== $uid && $viewer !== $requester,
+			];
+		}
+		return new DataResponse($list);
+	}
+
+	/**
 	 * Approve a request: the account joins the group, or the waiting login continues
+	 *
+	 * Needs a recent password confirmation, which apps and clients cannot
+	 * give: their notification opens the admin page instead.
 	 *
 	 * @param int $id the request
 	 * @return DataResponse<Http::STATUS_OK, IntrusionDetectionApproval, array{}>|DataResponse<Http::STATUS_BAD_REQUEST|Http::STATUS_FORBIDDEN|Http::STATUS_NOT_FOUND, array{reason: string, message: string}, array{}>
@@ -108,7 +158,6 @@ class ApprovalController extends OCSController {
 	 * 404: There is no such request
 	 */
 	#[ApiRoute(verb: 'POST', url: '/api/v1/approvals/{id}/reject', requirements: ['id' => '\d+'])]
-	#[PasswordConfirmationRequired]
 	#[UserRateLimit(limit: 10, period: 60)]
 	public function reject(int $id): DataResponse {
 		try {
