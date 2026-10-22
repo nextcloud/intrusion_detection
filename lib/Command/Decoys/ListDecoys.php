@@ -10,7 +10,7 @@ declare(strict_types=1);
 namespace OCA\IntrusionDetection\Command\Decoys;
 
 use OC\Core\Command\Base;
-use OCA\IntrusionDetection\Db\Decoy;
+use OCA\IntrusionDetection\Decoy\Db\Decoy;
 use OCA\IntrusionDetection\Decoy\DecoyService;
 use Symfony\Component\Console\Helper\Table;
 use Symfony\Component\Console\Input\InputInterface;

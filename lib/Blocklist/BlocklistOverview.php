@@ -10,7 +10,7 @@ declare(strict_types=1);
 namespace OCA\IntrusionDetection\Blocklist;
 
 use OCA\IntrusionDetection\Address\AddressCache;
-use OCA\IntrusionDetection\Db\BlocklistStatMapper;
+use OCA\IntrusionDetection\Blocklist\Db\BlocklistStatMapper;
 use OCP\AppFramework\Utility\ITimeFactory;
 
 /**

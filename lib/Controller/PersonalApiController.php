@@ -11,17 +11,17 @@ namespace OCA\IntrusionDetection\Controller;
 
 use OCA\IntrusionDetection\AppInfo\Application;
 use OCA\IntrusionDetection\Config\AppSettings;
-use OCA\IntrusionDetection\Db\LoginHistoryMapper;
-use OCA\IntrusionDetection\Db\SecurityChangeMapper;
 use OCA\IntrusionDetection\Guide\SecureAccountGuide;
 use OCA\IntrusionDetection\Guide\SecureAccountOverview;
 use OCA\IntrusionDetection\KnownDevice\KnownDevices;
+use OCA\IntrusionDetection\LoginHistory\LoginHistory;
 use OCA\IntrusionDetection\LoginHistory\LoginHistoryEntry;
 use OCA\IntrusionDetection\Personal\LogOutElsewhere;
 use OCA\IntrusionDetection\Personal\PersonalActivity;
 use OCA\IntrusionDetection\Personal\PersonalOverview;
 use OCA\IntrusionDetection\ResponseDefinitions;
 use OCA\IntrusionDetection\SessionState\CurrentSession;
+use OCA\IntrusionDetection\Takeover\Db\SecurityChangeMapper;
 use OCA\IntrusionDetection\TrustedNetwork\TrustedNetworks;
 use OCA\IntrusionDetection\WasThisYou\AnswerException;
 use OCA\IntrusionDetection\WasThisYou\PersonalDetections;
@@ -79,7 +79,7 @@ class PersonalApiController extends OCSController {
 		private readonly TrustedNetworks $trustedNetworks,
 		private readonly IL10N $l,
 		private readonly KnownDevices $knownDevices,
-		private readonly LoginHistoryMapper $loginHistory,
+		private readonly LoginHistory $loginHistory,
 		private readonly CurrentSession $currentSession,
 		private readonly SecureAccountGuide $guide,
 		private readonly SecureAccountOverview $overview,

@@ -11,7 +11,7 @@ namespace OCA\IntrusionDetection\Notification;
 
 use OCA\IntrusionDetection\Config\AppSettings;
 use OCA\IntrusionDetection\Config\Prerequisites;
-use OCA\IntrusionDetection\Db\AlertMapper;
+use OCA\IntrusionDetection\Notification\Db\AlertMapper;
 use OCA\IntrusionDetection\ResponseDefinitions;
 use OCA\IntrusionDetection\State\AppState;
 use OCP\AppFramework\Utility\ITimeFactory;

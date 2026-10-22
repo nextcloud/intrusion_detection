@@ -11,7 +11,7 @@ namespace OCA\IntrusionDetection\Tests\Unit\Decoy;
 
 use OCA\IntrusionDetection\Audit\AuditLogger;
 use OCA\IntrusionDetection\Crypto\Fingerprinter;
-use OCA\IntrusionDetection\Db\DecoyMapper;
+use OCA\IntrusionDetection\Decoy\Db\DecoyMapper;
 use OCA\IntrusionDetection\Decoy\DecoyFormat;
 use OCA\IntrusionDetection\Decoy\DecoyService;
 use OCA\IntrusionDetection\State\HotState;

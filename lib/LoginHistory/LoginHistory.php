@@ -10,11 +10,13 @@ declare(strict_types=1);
 namespace OCA\IntrusionDetection\LoginHistory;
 
 use OCA\IntrusionDetection\Confirm\StepUpState;
-use OCA\IntrusionDetection\Db\LoginHistoryMapper;
+use OCA\IntrusionDetection\Db\KeyMatch;
 use OCA\IntrusionDetection\KnownDevice\KnownDevice;
 use OCA\IntrusionDetection\Login\LoginGate;
+use OCA\IntrusionDetection\LoginHistory\Db\LoginHistoryMapper;
 use OCA\IntrusionDetection\Net\SourceKey;
 use OCA\IntrusionDetection\Notification\UserMessages;
+use OCA\IntrusionDetection\Response\IAcceptedLogins;
 use OCA\IntrusionDetection\SessionState\CurrentSession;
 use OCA\IntrusionDetection\SessionState\SessionState;
 use OCP\AppFramework\Utility\ITimeFactory;
@@ -42,7 +44,7 @@ use OCP\AppFramework\Utility\ITimeFactory;
  *
  * Never a password, token or session id: only the token's database id.
  */
-class LoginHistory {
+class LoginHistory implements IAcceptedLogins {
 	/** The login form */
 	public const METHOD_PASSWORD = 'password';
 	/** An app or script sending the account's password (Basic auth) */
@@ -153,6 +155,65 @@ class LoginHistory {
 			$this->mapper->setSessionToken($id, (string)$uid, $tokenId);
 		}
 		$this->state->remove(SessionState::LOGIN_HISTORY);
+	}
+
+	/**
+	 * @return list<LoginHistoryEntry> the account's logins in [since, until), newest first unless `$oldestFirst`
+	 */
+	public function forUser(string $uid, int $since, ?int $until = null, int $limit = 100, bool $oldestFirst = false): array {
+		return $this->mapper->forUser($uid, $since, $until, $limit, $oldestFirst);
+	}
+
+	/**
+	 * The logins from one address, or from a network when given its key
+	 * (as in {@see SourceKey::$netKey}), in [since, until), newest first
+	 * unless `$oldestFirst`.
+	 *
+	 * @return list<LoginHistoryEntry>
+	 */
+	public function forAddress(string $address, int $since, ?int $until = null, int $limit = 100, bool $oldestFirst = false): array {
+		return $this->mapper->forAddress($address, $since, $until, $limit, $oldestFirst);
+	}
+
+	/**
+	 * The newest login of an account that started a session (or app
+	 * password) token.
+	 */
+	public function forSession(string $uid, int $sessionTokenId): ?LoginHistoryEntry {
+		return $this->mapper->forSession($uid, $sessionTokenId);
+	}
+
+	/**
+	 * Whether the account logged in from this network (as in
+	 * {@see SourceKey::$netKey}) since a time with a login that went
+	 * through: it needed nothing, or it was confirmed.
+	 */
+	public function wentThroughFrom(string $uid, string $netKey, int $since): bool {
+		return $this->mapper->wentThroughFrom($uid, $netKey, $since);
+	}
+
+	/**
+	 * A login that waited for its confirmation since `$started` failed
+	 * (it was left waiting past its deadline).
+	 *
+	 * @return ?LoginHistoryEntry its row, or null when none waits
+	 */
+	public function failPending(string $uid, int $started): ?LoginHistoryEntry {
+		$entry = $this->mapper->pendingAround($uid, $started);
+		if ($entry !== null) {
+			$this->mapper->setOutcome($entry->id, $uid, self::CONFIRMED_BY_NONE, self::STEP_UP_FAILED);
+		}
+		return $entry;
+	}
+
+	#[\Override]
+	public function acceptedUidsFrom(string $column, KeyMatch $keys, int $since, int $limit): array {
+		return $this->mapper->acceptedUidsFrom($column, $keys, $since, $limit);
+	}
+
+	#[\Override]
+	public function hasConfirmedLogin(string $uid, string $column, KeyMatch $keys, int $since): bool {
+		return $this->mapper->hasConfirmedLogin($uid, $column, $keys, $since);
 	}
 
 	/**

@@ -9,13 +9,13 @@ declare(strict_types=1);
 
 namespace OCA\IntrusionDetection\AdminChange;
 
+use OCA\IntrusionDetection\AdminChange\Db\ConfigSnapshotMapper;
 use OCA\IntrusionDetection\AppInfo\Application;
 use OCA\IntrusionDetection\Check\Checks\AdminChange\AdminChange;
 use OCA\IntrusionDetection\Check\Checks\AdminChange\AdminChangeDetector;
 use OCA\IntrusionDetection\Config\CheckSettings;
 use OCA\IntrusionDetection\Config\ModeState;
 use OCA\IntrusionDetection\Crypto\Fingerprinter;
-use OCA\IntrusionDetection\Db\ConfigSnapshotMapper;
 use OCA\IntrusionDetection\Definition\Mode;
 use OCA\IntrusionDetection\State\AppState;
 use OCP\App\IAppManager;

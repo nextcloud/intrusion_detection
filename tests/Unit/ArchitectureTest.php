@@ -58,8 +58,6 @@ class ArchitectureTest extends TestCase {
 		'Check' => ['Check\\Checks'],
 		// Check names and the request context live in Admin and Guard (feature slices, login package).
 		'Check\\Checks' => ['Admin', 'Guard'],
-		// Mappers whose value objects live in their feature (mappers into features).
-		'Db' => ['KnownDevice', 'LoginHistory'],
 		// The risk scorer adds to detections and narratives (pipeline).
 		'Detection' => ['Risk'],
 		'Explain' => ['Risk'],

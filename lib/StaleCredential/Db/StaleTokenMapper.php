@@ -7,7 +7,7 @@ declare(strict_types=1);
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 
-namespace OCA\IntrusionDetection\Db;
+namespace OCA\IntrusionDetection\StaleCredential\Db;
 
 use OC\Authentication\Token\PublicKeyToken;
 use OCP\Authentication\Token\IToken;

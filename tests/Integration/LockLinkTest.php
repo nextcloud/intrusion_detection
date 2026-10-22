@@ -17,10 +17,10 @@ use OCA\IntrusionDetection\Controller\SecureAccountAdminController;
 use OCA\IntrusionDetection\Db\Detection;
 use OCA\IntrusionDetection\Db\DetectionFilter;
 use OCA\IntrusionDetection\Db\DetectionMapper;
-use OCA\IntrusionDetection\Db\LockLinkMapper;
 use OCA\IntrusionDetection\Guide\SecureAccountGuide;
 use OCA\IntrusionDetection\Notification\AdminAlerts;
 use OCA\IntrusionDetection\Takeover\AccountLock;
+use OCA\IntrusionDetection\Takeover\Db\LockLinkMapper;
 use OCA\IntrusionDetection\Takeover\LockLinks;
 use OCP\AppFramework\Http;
 use OCP\AppFramework\Http\Attribute\AnonRateLimit;
@@ -273,7 +273,7 @@ class LockLinkTest extends TakeoverTestCase {
 	private function lockLinksAt(ITimeFactory $time): LockLinks {
 		return new LockLinks(
 			Server::get(LockLinkMapper::class),
-			Server::get(\OCA\IntrusionDetection\Db\SecurityChangeMapper::class),
+			Server::get(\OCA\IntrusionDetection\Takeover\Db\SecurityChangeMapper::class),
 			Server::get(\OCA\IntrusionDetection\Crypto\Fingerprinter::class),
 			Server::get(ISecureRandom::class),
 			Server::get(\OCP\Security\ICrypto::class),

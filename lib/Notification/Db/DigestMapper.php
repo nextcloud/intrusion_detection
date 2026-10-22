@@ -7,8 +7,11 @@ declare(strict_types=1);
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 
-namespace OCA\IntrusionDetection\Db;
+namespace OCA\IntrusionDetection\Notification\Db;
 
+use OCA\IntrusionDetection\Db\BanMapper;
+use OCA\IntrusionDetection\Db\Detection;
+use OCA\IntrusionDetection\Db\DetectionMapper;
 use OCP\DB\QueryBuilder\IQueryBuilder;
 use OCP\IDBConnection;
 

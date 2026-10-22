@@ -10,7 +10,7 @@ declare(strict_types=1);
 namespace OCA\IntrusionDetection\Tests\Integration;
 
 use OCA\IntrusionDetection\Check\Checks\ReservedName\ReservedName;
-use OCA\IntrusionDetection\Db\DecoyMapper;
+use OCA\IntrusionDetection\Decoy\Db\DecoyMapper;
 use OCA\IntrusionDetection\Decoy\DecoyFormat;
 use OCA\IntrusionDetection\Decoy\DecoyService;
 use OCA\IntrusionDetection\SetupCheck\TrapNameCollisionCheck;

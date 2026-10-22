@@ -20,10 +20,11 @@ use OCA\IntrusionDetection\Check\CheckRegistry;
 use OCA\IntrusionDetection\Config\GlobalSettings;
 use OCA\IntrusionDetection\Db\Ban;
 use OCA\IntrusionDetection\Db\BanMapper;
-use OCA\IntrusionDetection\Db\LoginHistoryMapper;
 use OCA\IntrusionDetection\Db\LoginMapper;
 use OCA\IntrusionDetection\Event\TypedEvents;
 use OCA\IntrusionDetection\Login\EstablishedAccounts;
+use OCA\IntrusionDetection\LoginHistory\Db\LoginHistoryMapper;
+use OCA\IntrusionDetection\LoginHistory\LoginHistory;
 use OCA\IntrusionDetection\Net\ProtectedRanges;
 use OCA\IntrusionDetection\Net\RemoteAddressResolver;
 use OCA\IntrusionDetection\Net\ServerAddresses;
@@ -678,7 +679,7 @@ class BanServiceTest extends IntegrationTestCase {
 			$this->mapper,
 			new BanExemptions(
 				Server::get(LoginMapper::class),
-				Server::get(LoginHistoryMapper::class),
+				Server::get(LoginHistory::class),
 				$this->appSettings(),
 				Server::get(ProxySuspect::class),
 				$ranges,

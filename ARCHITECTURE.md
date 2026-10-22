@@ -15,7 +15,7 @@ enforces this on every test run.
 | pages | `Admin`, `Personal` | What the admin and personal pages show, built from the features. |
 | features | `Check\Checks`, `Address`, `AdminChange`, `Blocklist`, `Breach`, `Confirm`, `Decoy`, `Export`, `Guide`, `Incident`, `KnownDevice`, `Learning`, `LoginHistory`, `OpenMetrics`, `Privacy`, `Risk`, `SessionState`, `Share`, `StaleCredential`, `Takeover`, `Traps`, `TrustedNetwork`, `WasThisYou` | One check or one feature each: its definition, detection, texts and state. |
 | platform | `Check`, `Configure`, `Detection`, `Response`, `Explain`, `Event`, `Notification`, `Login` | The check registry and capability interfaces, validated settings writes, recording detections, running responses, explanation texts, events and notifications. |
-| storage | `Db`, `Config` | Tables and mappers; reading the settings, the config lexicon and its keys. |
+| storage | `Db`, `Config` | The shared records and their helpers; reading the settings, the config lexicon and its keys. |
 | kernel | `Definition`, `Net`, `Crypto`, `Audit`, `Http`, `ResponseDefinitions`, `Sensitive`, `Cache`, `State` | The shared vocabulary, the memory caches and the app's internal state. Uses nothing above it. |
 
 ## Rules
@@ -24,6 +24,14 @@ enforces this on every test run.
   definition and texts (`<Name>`), its detector (`<Name>Detector`) and the
   classes only that check uses, such as the payload matching of
   `InjectionProbe` or the credential tracking of `TokenConcurrentUse`.
+- **A table belongs to its feature.** A feature's mappers and entities live
+  in its `Db/` sub-namespace (`KnownDevice\Db\KnownDeviceMapper`), which is
+  part of the feature. Other features use that data through the feature's
+  service, not its mapper. Only records several layers share stay in `Db`:
+  detections, blocks, attempts, approvals, logins and app password origins,
+  with the helpers `KeyMatch`, `BatchedDelete` and `MultiRowInsert`. The
+  daily failed-login counts stay too: their owner is the personal page,
+  above the privacy cleanup that deletes them.
 - **`Definition` uses nothing else of the app.** It holds what a check is
   made of: `CheckDefinition` with its texts, `Mode`, `Severity`,
   `ResponseType`, the parameter types, `Requirement`, `ProtectionLevel` and

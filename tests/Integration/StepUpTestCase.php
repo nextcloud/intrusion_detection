@@ -19,6 +19,7 @@ use OCA\IntrusionDetection\Check\Checks\PasswordSpraying\PasswordSprayingDetecto
 use OCA\IntrusionDetection\Check\Checks\StepUpFailed\StepUpFailed;
 use OCA\IntrusionDetection\Check\Checks\StepUpUnconfirmed\StepUpUnconfirmed;
 use OCA\IntrusionDetection\Confirm\ConfirmationPolicy;
+use OCA\IntrusionDetection\Confirm\Db\StepUpSessionMapper;
 use OCA\IntrusionDetection\Confirm\EmailCodes;
 use OCA\IntrusionDetection\Confirm\FamiliarLogin;
 use OCA\IntrusionDetection\Confirm\LoginDetections;
@@ -40,16 +41,15 @@ use OCA\IntrusionDetection\Db\AttemptMapper;
 use OCA\IntrusionDetection\Db\Detection;
 use OCA\IntrusionDetection\Db\DetectionFilter;
 use OCA\IntrusionDetection\Db\DetectionMapper;
-use OCA\IntrusionDetection\Db\KnownDeviceMapper;
-use OCA\IntrusionDetection\Db\LoginHistoryMapper;
-use OCA\IntrusionDetection\Db\StepUpSessionMapper;
 use OCA\IntrusionDetection\Http\LocalRedirect;
+use OCA\IntrusionDetection\KnownDevice\Db\KnownDeviceMapper;
 use OCA\IntrusionDetection\KnownDevice\DeviceCookie;
 use OCA\IntrusionDetection\KnownDevice\KnownDevices;
 use OCA\IntrusionDetection\Listener\StepUpChallengePassedListener;
 use OCA\IntrusionDetection\Listener\StepUpLoginListener;
 use OCA\IntrusionDetection\Login\InteractiveLogin;
 use OCA\IntrusionDetection\Login\LoginGate;
+use OCA\IntrusionDetection\LoginHistory\Db\LoginHistoryMapper;
 use OCA\IntrusionDetection\LoginHistory\LoginHistory;
 use OCA\IntrusionDetection\Net\RemoteAddressResolver;
 use OCA\IntrusionDetection\Net\ServerAddresses;
@@ -231,7 +231,7 @@ abstract class StepUpTestCase extends AccountTestCase {
 			Server::get(AuditLogger::class),
 			Server::get(LoggerInterface::class),
 			$this->history(),
-			new FamiliarLogin($this->knownDevices(), Server::get(LoginHistoryMapper::class), Server::get(TrustedNetworks::class), Server::get(ITimeFactory::class)),
+			new FamiliarLogin($this->knownDevices(), $this->history(), Server::get(TrustedNetworks::class), Server::get(ITimeFactory::class)),
 			$this->request,
 		);
 	}

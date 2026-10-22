@@ -14,7 +14,7 @@ use OCA\IntrusionDetection\Check\Checks\RiskyNetwork\RiskyNetworkDetector;
 use OCA\IntrusionDetection\Confirm\LoginDetections;
 use OCA\IntrusionDetection\Db\DetectionFilter;
 use OCA\IntrusionDetection\Db\DetectionMapper;
-use OCA\IntrusionDetection\Db\LoginHistoryMapper;
+use OCA\IntrusionDetection\LoginHistory\LoginHistory;
 use OCA\IntrusionDetection\Takeover\IRiskyLoginSignal;
 use OCA\IntrusionDetection\Takeover\RiskyLogin;
 use OCP\AppFramework\Utility\ITimeFactory;
@@ -32,7 +32,7 @@ class RiskyNetworkSignal implements IRiskyLoginSignal {
 
 	public function __construct(
 		private readonly DetectionMapper $detections,
-		private readonly LoginHistoryMapper $history,
+		private readonly LoginHistory $history,
 		private readonly ITimeFactory $timeFactory,
 	) {
 	}

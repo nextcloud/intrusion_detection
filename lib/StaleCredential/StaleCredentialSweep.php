@@ -13,7 +13,7 @@ use OCA\IntrusionDetection\AppInfo\Application;
 use OCA\IntrusionDetection\Config\AppSettings;
 use OCA\IntrusionDetection\Config\GlobalSettings;
 use OCA\IntrusionDetection\Config\UserKeys;
-use OCA\IntrusionDetection\Db\StaleTokenMapper;
+use OCA\IntrusionDetection\StaleCredential\Db\StaleTokenMapper;
 use OCA\IntrusionDetection\State\AppState;
 use OCP\AppFramework\Utility\ITimeFactory;
 use OCP\Config\IUserConfig;

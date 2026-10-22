@@ -19,16 +19,16 @@ use OCA\IntrusionDetection\Confirm\NoMethodPreset;
 use OCA\IntrusionDetection\Confirm\StepUpPolicy;
 use OCA\IntrusionDetection\Controller\ConfirmationApiController;
 use OCA\IntrusionDetection\Controller\PersonalApiController;
-use OCA\IntrusionDetection\Db\LoginHistoryMapper;
-use OCA\IntrusionDetection\Db\SecurityChangeMapper;
 use OCA\IntrusionDetection\Guide\SecureAccountGuide;
 use OCA\IntrusionDetection\Guide\SecureAccountOverview;
+use OCA\IntrusionDetection\LoginHistory\Db\LoginHistoryMapper;
 use OCA\IntrusionDetection\LoginHistory\LoginHistory;
 use OCA\IntrusionDetection\Net\SourceKey;
 use OCA\IntrusionDetection\Personal\LogOutElsewhere;
 use OCA\IntrusionDetection\Personal\PersonalActivity;
 use OCA\IntrusionDetection\Personal\PersonalOverview;
 use OCA\IntrusionDetection\Response\FlaggedSources;
+use OCA\IntrusionDetection\Takeover\Db\SecurityChangeMapper;
 use OCA\IntrusionDetection\TrustedNetwork\TrustedNetworks;
 use OCA\IntrusionDetection\WasThisYou\PersonalDetections;
 use OCA\IntrusionDetection\WasThisYou\WasThisYouService;
@@ -181,7 +181,7 @@ class ConfirmationApiTest extends StepUpTestCase {
 			Server::get(TrustedNetworks::class),
 			Server::get(IFactory::class)->get(Application::APP_ID, 'en'),
 			$this->knownDevices(),
-			Server::get(LoginHistoryMapper::class),
+			Server::get(LoginHistory::class),
 			$this->currentSession,
 			Server::get(SecureAccountGuide::class),
 			Server::get(SecureAccountOverview::class),

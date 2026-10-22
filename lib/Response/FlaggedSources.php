@@ -10,8 +10,8 @@ declare(strict_types=1);
 namespace OCA\IntrusionDetection\Response;
 
 use OCA\IntrusionDetection\Db\Ban;
-use OCA\IntrusionDetection\Db\FlagMapper;
 use OCA\IntrusionDetection\Net\SourceKey;
+use OCA\IntrusionDetection\Response\Db\FlagMapper;
 use OCP\AppFramework\Utility\ITimeFactory;
 
 /**

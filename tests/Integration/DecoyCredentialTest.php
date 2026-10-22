@@ -14,7 +14,7 @@ use OCA\IntrusionDetection\Check\Checks\DecoyCredential\DecoyCredential;
 use OCA\IntrusionDetection\Config\GlobalSettings;
 use OCA\IntrusionDetection\Crypto\Fingerprinter;
 use OCA\IntrusionDetection\Db\BanMapper;
-use OCA\IntrusionDetection\Db\DecoyMapper;
+use OCA\IntrusionDetection\Decoy\Db\DecoyMapper;
 use OCA\IntrusionDetection\Decoy\DecoyFormat;
 use OCA\IntrusionDetection\Decoy\DecoyService;
 use OCA\IntrusionDetection\Definition\InvalidParamException;

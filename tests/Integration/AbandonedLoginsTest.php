@@ -13,10 +13,10 @@ use OCA\IntrusionDetection\Audit\AuditLogger;
 use OCA\IntrusionDetection\Check\Checks\StepUpFailed\StepUpFailed;
 use OCA\IntrusionDetection\Config\GlobalSettings;
 use OCA\IntrusionDetection\Confirm\AbandonedLogins;
+use OCA\IntrusionDetection\Confirm\Db\StepUpSessionMapper;
 use OCA\IntrusionDetection\Confirm\StepUpService;
 use OCA\IntrusionDetection\Db\BanMapper;
-use OCA\IntrusionDetection\Db\LoginHistoryMapper;
-use OCA\IntrusionDetection\Db\StepUpSessionMapper;
+use OCA\IntrusionDetection\LoginHistory\Db\LoginHistoryMapper;
 use OCA\IntrusionDetection\LoginHistory\LoginHistory;
 use OCA\IntrusionDetection\Migration\Version1000Date20261021220000;
 use OCA\IntrusionDetection\Net\SourceKey;
@@ -173,7 +173,7 @@ class AbandonedLoginsTest extends StepUpTestCase {
 	private function abandoned(): AbandonedLogins {
 		return new AbandonedLogins(
 			Server::get(StepUpSessionMapper::class),
-			Server::get(LoginHistoryMapper::class),
+			Server::get(LoginHistory::class),
 			$this->engine(),
 			Server::get(StepUpFailed::class),
 			$this->appSettings(), $this->checkSettings(),

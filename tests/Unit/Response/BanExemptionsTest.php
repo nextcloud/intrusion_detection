@@ -12,13 +12,13 @@ namespace OCA\IntrusionDetection\Tests\Unit\Response;
 use OC\Memcache\ArrayCache;
 use OCA\IntrusionDetection\Check\CheckRegistry;
 use OCA\IntrusionDetection\Config\AppSettings;
-use OCA\IntrusionDetection\Db\LoginHistoryMapper;
 use OCA\IntrusionDetection\Db\LoginMapper;
 use OCA\IntrusionDetection\Login\EstablishedAccounts;
 use OCA\IntrusionDetection\Net\ProtectedRanges;
 use OCA\IntrusionDetection\Net\SourceKey;
 use OCA\IntrusionDetection\Response\BanExemptions;
 use OCA\IntrusionDetection\Response\BanResult;
+use OCA\IntrusionDetection\Response\IAcceptedLogins;
 use OCA\IntrusionDetection\Response\ProxySuspect;
 use OCA\IntrusionDetection\Tests\Unit\Cache\FixedCaches;
 use OCP\IGroupManager;
@@ -28,14 +28,14 @@ use Test\TestCase;
 
 class BanExemptionsTest extends TestCase {
 	private LoginMapper&MockObject $logins;
-	private LoginHistoryMapper&MockObject $history;
+	private IAcceptedLogins&MockObject $history;
 	private ProxySuspect&MockObject $proxies;
 	private IGroupManager&MockObject $groups;
 
 	protected function setUp(): void {
 		parent::setUp();
 		$this->logins = $this->createMock(LoginMapper::class);
-		$this->history = $this->createMock(LoginHistoryMapper::class);
+		$this->history = $this->createMock(IAcceptedLogins::class);
 		$this->proxies = $this->createMock(ProxySuspect::class);
 		$this->groups = $this->createMock(IGroupManager::class);
 		$this->groups->method('isAdmin')->willReturnCallback(static fn (string $uid): bool => $uid === 'admin');

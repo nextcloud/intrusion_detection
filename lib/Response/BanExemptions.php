@@ -13,7 +13,6 @@ use OCA\IntrusionDetection\Cache\Caches;
 use OCA\IntrusionDetection\Check\CheckRegistry;
 use OCA\IntrusionDetection\Config\AppSettings;
 use OCA\IntrusionDetection\Db\KeyMatch;
-use OCA\IntrusionDetection\Db\LoginHistoryMapper;
 use OCA\IntrusionDetection\Db\LoginMapper;
 use OCA\IntrusionDetection\Login\EstablishedAccounts;
 use OCA\IntrusionDetection\Net\ProtectedRanges;
@@ -64,7 +63,7 @@ class BanExemptions {
 
 	public function __construct(
 		private readonly LoginMapper $logins,
-		private readonly LoginHistoryMapper $history,
+		private readonly IAcceptedLogins $history,
 		private readonly AppSettings $settings,
 		private readonly ProxySuspect $proxies,
 		private readonly ProtectedRanges $protected,

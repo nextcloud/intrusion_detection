@@ -10,12 +10,12 @@ declare(strict_types=1);
 namespace OCA\IntrusionDetection\Blocklist;
 
 use OCA\IntrusionDetection\Address\AddressCache;
+use OCA\IntrusionDetection\Blocklist\Db\BlocklistRangeMapper;
+use OCA\IntrusionDetection\Blocklist\Db\BlocklistStatMapper;
 use OCA\IntrusionDetection\Blocklist\Parser\ListFormatException;
 use OCA\IntrusionDetection\Blocklist\Parser\ParsedList;
 use OCA\IntrusionDetection\Check\Checks\BlocklistMatch\BlocklistMatch;
 use OCA\IntrusionDetection\Config\CheckSettings;
-use OCA\IntrusionDetection\Db\BlocklistRangeMapper;
-use OCA\IntrusionDetection\Db\BlocklistStatMapper;
 use OCA\IntrusionDetection\Net\RangeCodec;
 use OCP\AppFramework\Utility\ITimeFactory;
 use OCP\Http\Client\IClientService;

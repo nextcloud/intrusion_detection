@@ -12,14 +12,14 @@ namespace OCA\IntrusionDetection\Notification;
 use OCA\IntrusionDetection\Admin\CheckNames;
 use OCA\IntrusionDetection\Admin\StatusService;
 use OCA\IntrusionDetection\AppInfo\Application;
+use OCA\IntrusionDetection\Blocklist\Db\BlocklistStatMapper;
 use OCA\IntrusionDetection\Blocklist\SourceRepository;
 use OCA\IntrusionDetection\Check\CheckRegistry;
-use OCA\IntrusionDetection\Db\BlocklistStatMapper;
-use OCA\IntrusionDetection\Db\DigestMapper;
-use OCA\IntrusionDetection\Db\ProtectedAccountMapper;
 use OCA\IntrusionDetection\Definition\CheckDefinition;
 use OCA\IntrusionDetection\Definition\DigestSection;
 use OCA\IntrusionDetection\Detection\DetectionTotals;
+use OCA\IntrusionDetection\Notification\Db\DigestMapper;
+use OCA\IntrusionDetection\Response\AccountProtection;
 use OCP\AppFramework\Utility\ITimeFactory;
 use OCP\IDateTimeFormatter;
 use OCP\IL10N;
@@ -49,7 +49,7 @@ class Digest {
 	public function __construct(
 		private readonly DetectionTotals $totals,
 		private readonly DigestMapper $digests,
-		private readonly ProtectedAccountMapper $protectedAccounts,
+		private readonly AccountProtection $protectedAccounts,
 		private readonly BlocklistStatMapper $blocklistStats,
 		private readonly SourceRepository $blocklistSources,
 		private readonly StatusService $status,
@@ -113,7 +113,7 @@ class Digest {
 			shares: $this->digests->sharesForChecks($this->checksIn(DigestSection::Shares), $start, $end, self::TOP),
 			blocklists: $this->blocklists($start, $end),
 			protectedAccounts: array_map(static fn (array $row): array => ['uid' => $row['uid'], 'until' => $row['expires_at']],
-				$this->protectedAccounts->findActive($this->timeFactory->getTime(), self::TOP)),
+				$this->protectedAccounts->active(self::TOP)),
 			deniedByUsers: $this->digests->deniedByUsers($start, $end, self::VERDICT_LOOKBACK, self::TOP),
 		);
 	}

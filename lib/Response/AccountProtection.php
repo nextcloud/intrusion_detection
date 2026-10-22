@@ -11,7 +11,7 @@ namespace OCA\IntrusionDetection\Response;
 
 use OCA\IntrusionDetection\Audit\AuditLogger;
 use OCA\IntrusionDetection\Cache\Caches;
-use OCA\IntrusionDetection\Db\ProtectedAccountMapper;
+use OCA\IntrusionDetection\Response\Db\ProtectedAccountMapper;
 use OCP\AppFramework\Utility\ITimeFactory;
 
 /**
@@ -84,8 +84,8 @@ class AccountProtection {
 	/**
 	 * @return list<array{uid: string, reason: string, detection_id: ?int, created_at: int, expires_at: int}>
 	 */
-	public function active(): array {
-		return $this->mapper->findActive($this->timeFactory->getTime());
+	public function active(int $limit = 200): array {
+		return $this->mapper->findActive($this->timeFactory->getTime(), $limit);
 	}
 
 	/**

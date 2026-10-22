@@ -10,9 +10,9 @@ declare(strict_types=1);
 namespace OCA\IntrusionDetection\Command\Credentials;
 
 use OC\Core\Command\Base;
-use OCA\IntrusionDetection\Db\StaleTokenMapper;
 use OCA\IntrusionDetection\KnownDevice\DeviceLabel;
 use OCA\IntrusionDetection\Response\Tokens;
+use OCA\IntrusionDetection\StaleCredential\Db\StaleTokenMapper;
 use OCA\IntrusionDetection\StaleCredential\StaleCredentials;
 use OCA\IntrusionDetection\StaleCredential\StaleCredentialSweep;
 use OCP\AppFramework\Utility\ITimeFactory;

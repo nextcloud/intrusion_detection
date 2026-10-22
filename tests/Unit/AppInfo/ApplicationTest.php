@@ -48,10 +48,12 @@ use OCA\IntrusionDetection\Listener\StepUpChallengePassedListener;
 use OCA\IntrusionDetection\Listener\TrapNamesChangedListener;
 use OCA\IntrusionDetection\Listener\UntrustedSecondFactorListener;
 use OCA\IntrusionDetection\Listener\UserDeletedListener;
+use OCA\IntrusionDetection\LoginHistory\LoginHistory;
 use OCA\IntrusionDetection\Middleware\PayloadMiddleware;
 use OCA\IntrusionDetection\Middleware\SessionStateMiddleware;
 use OCA\IntrusionDetection\Notification\Notifier;
 use OCA\IntrusionDetection\Notification\ShareOwnerNotifier;
+use OCA\IntrusionDetection\Response\IAcceptedLogins;
 use OCA\IntrusionDetection\SetupCheck\AdminContactCheck;
 use OCA\IntrusionDetection\SetupCheck\AdminNetworksCheck;
 use OCA\IntrusionDetection\SetupCheck\ApprovalCheck;
@@ -174,7 +176,7 @@ class ApplicationTest extends TestCase {
 		$this->assertSame([Lexicon::class], $this->calls['registerConfigLexicon']);
 		$this->assertSame([Notifier::class, ShareOwnerNotifier::class, SecureAccountNotifier::class], $this->calls['registerNotifierService']);
 		$this->assertSame([IntrusionWidget::class], $this->calls['registerDashboardWidget']);
-		$this->assertSame([[ITrustedNetworks::class, TrustedNetworks::class], [IKnownDevices::class, KnownDevices::class]], $this->calls['registerServiceAlias']);
+		$this->assertSame([[ITrustedNetworks::class, TrustedNetworks::class], [IKnownDevices::class, KnownDevices::class], [IAcceptedLogins::class, LoginHistory::class]], $this->calls['registerServiceAlias']);
 		$setupChecks = $this->calls['registerSetupCheck'];
 		sort($setupChecks);
 		$expected = [

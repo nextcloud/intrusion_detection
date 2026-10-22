@@ -11,8 +11,8 @@ namespace OCA\IntrusionDetection\Share;
 
 use OCA\IntrusionDetection\Cache\Caches;
 use OCA\IntrusionDetection\Crypto\Fingerprinter;
-use OCA\IntrusionDetection\Db\FlagMapper;
 use OCA\IntrusionDetection\Net\SourceKey;
+use OCA\IntrusionDetection\Response\Db\FlagMapper;
 use OCA\IntrusionDetection\Response\FlaggedSources;
 use OCP\AppFramework\Utility\ITimeFactory;
 use OCP\Share\Exceptions\ShareNotFound;

@@ -48,10 +48,12 @@ use OCA\IntrusionDetection\Listener\StepUpChallengePassedListener;
 use OCA\IntrusionDetection\Listener\TrapNamesChangedListener;
 use OCA\IntrusionDetection\Listener\UntrustedSecondFactorListener;
 use OCA\IntrusionDetection\Listener\UserDeletedListener;
+use OCA\IntrusionDetection\LoginHistory\LoginHistory;
 use OCA\IntrusionDetection\Middleware\PayloadMiddleware;
 use OCA\IntrusionDetection\Middleware\SessionStateMiddleware;
 use OCA\IntrusionDetection\Notification\Notifier;
 use OCA\IntrusionDetection\Notification\ShareOwnerNotifier;
+use OCA\IntrusionDetection\Response\IAcceptedLogins;
 use OCA\IntrusionDetection\SetupCheck\AdminContactCheck;
 use OCA\IntrusionDetection\SetupCheck\AdminNetworksCheck;
 use OCA\IntrusionDetection\SetupCheck\ApprovalCheck;
@@ -203,6 +205,7 @@ class Application extends App implements IBootstrap {
 
 		$context->registerServiceAlias(ITrustedNetworks::class, TrustedNetworks::class);
 		$context->registerServiceAlias(IKnownDevices::class, KnownDevices::class);
+		$context->registerServiceAlias(IAcceptedLogins::class, LoginHistory::class);
 	}
 
 	#[\Override]

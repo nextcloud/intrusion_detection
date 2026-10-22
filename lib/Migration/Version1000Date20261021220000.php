@@ -11,9 +11,9 @@ namespace OCA\IntrusionDetection\Migration;
 
 use Closure;
 use OCA\IntrusionDetection\Audit\AuditLogger;
+use OCA\IntrusionDetection\Confirm\Db\StepUpSessionMapper;
 use OCA\IntrusionDetection\Confirm\StepUpService;
-use OCA\IntrusionDetection\Db\LoginHistoryMapper;
-use OCA\IntrusionDetection\Db\StepUpSessionMapper;
+use OCA\IntrusionDetection\LoginHistory\Db\LoginHistoryMapper;
 use OCA\IntrusionDetection\LoginHistory\LoginHistory;
 use OCP\AppFramework\Utility\ITimeFactory;
 use OCP\DB\ISchemaWrapper;

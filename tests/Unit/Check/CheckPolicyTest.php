@@ -10,19 +10,19 @@ declare(strict_types=1);
 namespace OCA\IntrusionDetection\Tests\Unit\Check;
 
 use OCA\IntrusionDetection\Check\CheckRegistry;
-use OCA\IntrusionDetection\Db\AlertMapper;
 use OCA\IntrusionDetection\Db\Ban;
 use OCA\IntrusionDetection\Db\Detection;
-use OCA\IntrusionDetection\Db\LoginHistoryMapper;
 use OCA\IntrusionDetection\Definition\ResponseType;
 use OCA\IntrusionDetection\Detection\DetectionDraft;
 use OCA\IntrusionDetection\Net\SourceKey;
+use OCA\IntrusionDetection\Notification\Db\AlertMapper;
 use OCA\IntrusionDetection\Notification\UserAlerts;
 use OCA\IntrusionDetection\Notification\UserMessages;
 use OCA\IntrusionDetection\Response\BanExemptions;
 use OCA\IntrusionDetection\Response\BanResult;
 use OCA\IntrusionDetection\Response\BanService;
 use OCA\IntrusionDetection\Response\Handlers\BanHandler;
+use OCA\IntrusionDetection\Response\IAcceptedLogins;
 use OCA\IntrusionDetection\Response\ResponseContext;
 use OCP\AppFramework\Utility\ITimeFactory;
 use OCP\IGroupManager;
@@ -73,21 +73,21 @@ class CheckPolicyTest extends TestCase {
 
 	#[DataProvider('checks')]
 	public function testAnAdministratorsLoginExemptsTheAddressExceptFromTrapsAndProbes(string $checkId): void {
-		$history = $this->createMock(LoginHistoryMapper::class);
+		$history = $this->createMock(IAcceptedLogins::class);
 		$history->method('acceptedUidsFrom')->willReturn(['admin']);
 		$groups = $this->createMock(IGroupManager::class);
 		$groups->method('isAdmin')->willReturn(true);
-		$exemptions = $this->build(BanExemptions::class, [LoginHistoryMapper::class => $history, IGroupManager::class => $groups]);
+		$exemptions = $this->build(BanExemptions::class, [IAcceptedLogins::class => $history, IGroupManager::class => $groups]);
 		$result = $exemptions->forAddress(SourceKey::fromIp('198.51.100.7'), time(), $checkId);
 		$this->assertSame(in_array($checkId, self::NEVER_TRUSTED, true) ? null : BanResult::SKIPPED_TRUSTED, $result?->outcome);
 	}
 
 	#[DataProvider('checks')]
 	public function testOnlyChecksAboutOneAccountHonourItsConfirmedLogins(string $checkId): void {
-		$history = $this->createMock(LoginHistoryMapper::class);
+		$history = $this->createMock(IAcceptedLogins::class);
 		$history->method('acceptedUidsFrom')->willReturn(['alice']);
 		$history->method('hasConfirmedLogin')->willReturn(true);
-		$exemptions = $this->build(BanExemptions::class, [LoginHistoryMapper::class => $history]);
+		$exemptions = $this->build(BanExemptions::class, [IAcceptedLogins::class => $history]);
 		$result = $exemptions->forAddress(SourceKey::fromIp('198.51.100.7'), time(), $checkId, 'alice');
 		$this->assertSame(in_array($checkId, self::ACCOUNT_SCOPED, true) ? BanResult::SKIPPED_TRUSTED : null, $result?->outcome);
 	}

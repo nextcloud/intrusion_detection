@@ -11,12 +11,12 @@ namespace OCA\IntrusionDetection\Guide;
 
 use OC\Authentication\Token\IProvider as PrivateTokenProvider;
 use OC\Authentication\Token\PublicKeyToken;
-use OCA\IntrusionDetection\Db\SecurityChangeMapper;
 use OCA\IntrusionDetection\Db\TokenOriginMapper;
 use OCA\IntrusionDetection\KnownDevice\DeviceLabel;
 use OCA\IntrusionDetection\Response\Tokens;
 use OCA\IntrusionDetection\ResponseDefinitions;
 use OCA\IntrusionDetection\SessionState\CurrentSession;
+use OCA\IntrusionDetection\Takeover\Db\SecurityChangeMapper;
 use OCA\IntrusionDetection\Takeover\SecurityChangeLog;
 use OCA\IntrusionDetection\Takeover\SecurityChangeType;
 use OCP\App\IAppManager;

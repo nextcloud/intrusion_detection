@@ -9,7 +9,6 @@ declare(strict_types=1);
 
 namespace OCA\IntrusionDetection\Incident\Sources;
 
-use OCA\IntrusionDetection\Db\LoginHistoryMapper;
 use OCA\IntrusionDetection\Incident\DataCategory;
 use OCA\IntrusionDetection\Incident\IncidentQuery;
 use OCA\IntrusionDetection\Incident\ITimelineSource;
@@ -27,7 +26,7 @@ class LoginSource implements ITimelineSource {
 	public const KIND = 'login';
 
 	public function __construct(
-		private readonly LoginHistoryMapper $history,
+		private readonly LoginHistory $history,
 	) {
 	}
 

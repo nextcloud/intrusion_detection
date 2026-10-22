@@ -10,8 +10,8 @@ declare(strict_types=1);
 namespace OCA\IntrusionDetection\TrustedNetwork;
 
 use OCA\IntrusionDetection\Audit\AuditLogger;
-use OCA\IntrusionDetection\Db\TrustedNetworkMapper;
 use OCA\IntrusionDetection\Net\SourceKey;
+use OCA\IntrusionDetection\TrustedNetwork\Db\TrustedNetworkMapper;
 use OCP\AppFramework\Utility\ITimeFactory;
 
 /**

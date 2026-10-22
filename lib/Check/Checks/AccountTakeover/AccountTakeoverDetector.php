@@ -10,10 +10,10 @@ declare(strict_types=1);
 namespace OCA\IntrusionDetection\Check\Checks\AccountTakeover;
 
 use OCA\IntrusionDetection\Config\CheckSettings;
-use OCA\IntrusionDetection\Db\SecurityChangeMapper;
 use OCA\IntrusionDetection\Detection\DetectionDraft;
 use OCA\IntrusionDetection\Net\RemoteAddressResolver;
 use OCA\IntrusionDetection\Response\ResponseEngine;
+use OCA\IntrusionDetection\Takeover\Db\SecurityChangeMapper;
 use OCA\IntrusionDetection\Takeover\RiskyLogins;
 use OCA\IntrusionDetection\Takeover\SecurityChangeLog;
 use OCA\IntrusionDetection\Takeover\SecurityChangeType;

@@ -11,8 +11,8 @@ namespace OCA\IntrusionDetection\Decoy;
 
 use OCA\IntrusionDetection\Audit\AuditLogger;
 use OCA\IntrusionDetection\Crypto\Fingerprinter;
-use OCA\IntrusionDetection\Db\Decoy;
-use OCA\IntrusionDetection\Db\DecoyMapper;
+use OCA\IntrusionDetection\Decoy\Db\Decoy;
+use OCA\IntrusionDetection\Decoy\Db\DecoyMapper;
 use OCA\IntrusionDetection\Definition\InvalidParamException;
 use OCA\IntrusionDetection\State\HotState;
 use OCA\IntrusionDetection\Traps\AccountNames;

@@ -14,8 +14,6 @@ use OCA\IntrusionDetection\Confirm\Methods\AdminApprovalMethod;
 use OCA\IntrusionDetection\Confirm\StepUpService;
 use OCA\IntrusionDetection\Db\DetectionFilter;
 use OCA\IntrusionDetection\Db\DetectionMapper;
-use OCA\IntrusionDetection\Db\LoginHistoryMapper;
-use OCA\IntrusionDetection\Db\SecurityChangeMapper;
 use OCA\IntrusionDetection\Guide\SecureAccountOverview;
 use OCA\IntrusionDetection\KnownDevice\DeviceLabel;
 use OCA\IntrusionDetection\LoginHistory\LoginHistory;
@@ -23,6 +21,7 @@ use OCA\IntrusionDetection\LoginHistory\LoginHistoryEntry;
 use OCA\IntrusionDetection\Notification\UserMessages;
 use OCA\IntrusionDetection\ResponseDefinitions;
 use OCA\IntrusionDetection\SessionState\CurrentSession;
+use OCA\IntrusionDetection\Takeover\Db\SecurityChangeMapper;
 use OCA\IntrusionDetection\WasThisYou\PersonalDetections;
 use OCA\IntrusionDetection\WasThisYou\Questions;
 use OCP\AppFramework\Utility\ITimeFactory;
@@ -63,7 +62,7 @@ class PersonalActivity {
 		private readonly DetectionMapper $detections,
 		private readonly Questions $questions,
 		private readonly PersonalDetections $personalDetections,
-		private readonly LoginHistoryMapper $loginHistory,
+		private readonly LoginHistory $loginHistory,
 		private readonly SecurityChangeMapper $changes,
 		private readonly FailedLoginStats $failedLogins,
 		private readonly UserMessages $messages,

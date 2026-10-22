@@ -13,7 +13,7 @@ use OCA\IntrusionDetection\Check\Checks\DecoyCredential\DecoyCredential;
 use OCA\IntrusionDetection\Check\Checks\ReservedName\ReservedName;
 use OCA\IntrusionDetection\Check\Checks\TrapUrl\TrapUrl;
 use OCA\IntrusionDetection\Config\CheckSettings;
-use OCA\IntrusionDetection\Db\Decoy;
+use OCA\IntrusionDetection\Decoy\Db\Decoy;
 use OCA\IntrusionDetection\Decoy\DecoyService;
 use OCA\IntrusionDetection\ResponseDefinitions;
 use OCA\IntrusionDetection\Traps\ReservedNames;

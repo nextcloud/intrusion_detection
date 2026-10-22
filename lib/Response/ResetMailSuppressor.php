@@ -10,7 +10,7 @@ declare(strict_types=1);
 namespace OCA\IntrusionDetection\Response;
 
 use OCA\IntrusionDetection\Cache\Caches;
-use OCA\IntrusionDetection\Db\ResetSuppressionMapper;
+use OCA\IntrusionDetection\Response\Db\ResetSuppressionMapper;
 use OCP\AppFramework\Utility\ITimeFactory;
 use OCP\Security\Events\PasswordResetRequestedEvent;
 

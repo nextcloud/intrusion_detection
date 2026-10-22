@@ -13,11 +13,9 @@ use OCA\IntrusionDetection\Audit\AuditLogger;
 use OCA\IntrusionDetection\Check\Checks\StepUpFailed\StepUpFailed;
 use OCA\IntrusionDetection\Config\AppSettings;
 use OCA\IntrusionDetection\Config\CheckSettings;
-use OCA\IntrusionDetection\Db\LoginHistoryMapper;
-use OCA\IntrusionDetection\Db\StepUpSessionMapper;
+use OCA\IntrusionDetection\Confirm\Db\StepUpSessionMapper;
 use OCA\IntrusionDetection\Detection\DetectionDraft;
 use OCA\IntrusionDetection\LoginHistory\LoginHistory;
-use OCA\IntrusionDetection\LoginHistory\LoginHistoryEntry;
 use OCA\IntrusionDetection\Net\SourceKey;
 use OCA\IntrusionDetection\Response\ResponseEngine;
 use OCP\AppFramework\Utility\ITimeFactory;
@@ -45,7 +43,7 @@ class AbandonedLogins {
 
 	public function __construct(
 		private readonly StepUpSessionMapper $sessions,
-		private readonly LoginHistoryMapper $history,
+		private readonly LoginHistory $history,
 		private readonly ResponseEngine $engine,
 		private readonly StepUpFailed $failedCheck,
 		private readonly AppSettings $appSettings,
@@ -81,7 +79,7 @@ class AbandonedLogins {
 	}
 
 	private function drop(string $uid, int $started): void {
-		$this->historyFailed($uid, $started);
+		$this->history->failPending($uid, $started);
 		$this->audit->log('login of %s ended while protection was off: it was left waiting for its confirmation', ['uid' => $uid]);
 	}
 
@@ -89,7 +87,7 @@ class AbandonedLogins {
 	 * @param list<string> $policies
 	 */
 	private function endOne(string $uid, ?string $ip, array $policies, int $started, int $deadline): void {
-		$sessionTokenId = $this->historyFailed($uid, $started)?->sessionTokenId;
+		$sessionTokenId = $this->history->failPending($uid, $started)?->sessionTokenId;
 		$draft = new DetectionDraft(
 			checkId: StepUpFailed::ID,
 			source: $ip === null ? null : SourceKey::tryFromIp($ip),
@@ -108,16 +106,5 @@ class AbandonedLogins {
 		);
 		$this->engine->handle($draft, $this->failedCheck->responsesFor($draft, $this->settings->responses(StepUpFailed::ID), []));
 		$this->audit->log('login of %s ended: it was left waiting for its confirmation', ['uid' => $uid]);
-	}
-
-	/**
-	 * The login history says the login failed.
-	 */
-	private function historyFailed(string $uid, int $started): ?LoginHistoryEntry {
-		$entry = $this->history->pendingAround($uid, $started);
-		if ($entry !== null) {
-			$this->history->setOutcome($entry->id, $uid, LoginHistory::CONFIRMED_BY_NONE, LoginHistory::STEP_UP_FAILED);
-		}
-		return $entry;
 	}
 }
