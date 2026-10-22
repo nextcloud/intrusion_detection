@@ -54,7 +54,7 @@ class NoSecretsKnownDeviceTest extends StepUpTestCase {
 			}
 		}
 
-		foreach (IntegrationTestCase::TABLES as $table) {
+		foreach (IntegrationTestCase::tables() as $table) {
 			$result = $this->db->getQueryBuilder()->select('*')->from($table)->executeQuery();
 			$this->assertClean(json_encode($result->fetchAll(), JSON_THROW_ON_ERROR), $secrets, $table);
 			$result->closeCursor();

@@ -87,7 +87,7 @@ class NoSecretsSessionTest extends AccountTestCase {
 		$controller->change($oldPassword, $secrets['new password'], $secrets['new password']);
 		$this->assertNotFalse(Server::get(IUserManager::class)->checkPassword($user->getUID(), $secrets['new password']), 'The scenario changed the password');
 
-		foreach (IntegrationTestCase::TABLES as $table) {
+		foreach (IntegrationTestCase::tables() as $table) {
 			$result = $this->db->getQueryBuilder()->select('*')->from($table)->executeQuery();
 			$this->assertClean(json_encode($result->fetchAll(), JSON_THROW_ON_ERROR), $secrets, $table);
 			$result->closeCursor();

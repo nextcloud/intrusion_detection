@@ -431,7 +431,7 @@ class IncidentReportTest extends LoginFailureTestCase {
 
 		$snapshot = function (): array {
 			$rows = [];
-			foreach (self::TABLES as $table) {
+			foreach (self::tables() as $table) {
 				$rows[$table] = $this->allRows($table);
 			}
 			$this->appConfig->clearCache();

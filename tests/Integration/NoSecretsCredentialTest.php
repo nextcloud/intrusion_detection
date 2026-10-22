@@ -73,7 +73,7 @@ class NoSecretsCredentialTest extends CredentialUseTestCase {
 			$secrets['credential key ' . $key] = substr($key, strlen(CredentialTracker::KEY_PREFIX));
 		}
 
-		foreach (IntegrationTestCase::TABLES as $table) {
+		foreach (IntegrationTestCase::tables() as $table) {
 			$result = $this->db->getQueryBuilder()->select('*')->from($table)->executeQuery();
 			$this->assertClean(json_encode($result->fetchAll(), JSON_THROW_ON_ERROR), $secrets, $table);
 			$result->closeCursor();

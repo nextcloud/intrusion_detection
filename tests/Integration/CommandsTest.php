@@ -49,7 +49,7 @@ class CommandsTest extends IntegrationTestCase {
 		$this->assertStringContainsString($expected, $output);
 		$this->assertStringContainsString(Simulate::TEST_ADDRESS, $output);
 		$this->assertStringContainsString('Responses that would run', $output);
-		foreach (self::TABLES as $table) {
+		foreach (self::tables() as $table) {
 			$qb = $this->db->getQueryBuilder();
 			$this->assertSame(0, (int)$qb->select($qb->func()->count('*'))->from($table)->executeQuery()->fetchOne(), $table . ' stays empty');
 		}

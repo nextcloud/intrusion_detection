@@ -35,7 +35,9 @@ enforces this on every test run.
 - **Each owner keeps its own retention.** The owner of a table implements
   `Db\IPurges` with its retention constant or setting; the cleanup job only
   runs the owners listed in `Cleanup::PURGES`, in order, each in its own
-  try/catch.
+  try/catch. `tests/Integration/TableOwnersTest.php` reads the app's tables
+  from the database schema and fails for a table without a purge owner and
+  an entry in `Privacy\UserDataCleanup`, unless it lists the reason.
 - **`Definition` uses nothing else of the app.** It holds what a check is
   made of: `CheckDefinition` with its texts, `Mode`, `Severity`,
   `ResponseType`, the parameter types, `Requirement`, `ProtectionLevel` and

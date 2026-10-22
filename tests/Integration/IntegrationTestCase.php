@@ -30,6 +30,7 @@ use OCP\AppFramework\Utility\ITimeFactory;
 use OCP\BackgroundJob\IJobList;
 use OCP\EventDispatcher\IEventDispatcher;
 use OCP\IAppConfig;
+use OCP\IConfig;
 use OCP\IDBConnection;
 use OCP\Server;
 use Test\TestCase;
@@ -42,8 +43,8 @@ use Test\TestCase;
  * the tests change; its own tests switch it on.
  */
 abstract class IntegrationTestCase extends TestCase {
-	/** Tables emptied before and after each test */
-	public const TABLES = ['ids_attempts', 'ids_logins', 'ids_detections', 'ids_bans', 'ids_flags', 'ids_blocklist_ranges', 'ids_blocklist_stats', 'ids_protected_accounts', 'ids_alerts', 'ids_decoys', 'ids_reset_suppressions', 'ids_token_origin', 'ids_approvals', 'ids_config_snapshot', 'ids_trusted_networks', 'ids_step_up_sessions', 'ids_known_devices', 'ids_login_history', 'ids_security_changes', 'ids_lock_links', 'ids_user_daily', 'ids_detection_accounts', 'ids_detection_hourly', 'ids_state'];
+	/** @var list<string>|null */
+	private static ?array $tables = null;
 
 	protected IDBConnection $db;
 	protected IAppConfig $appConfig;
@@ -135,9 +136,30 @@ abstract class IntegrationTestCase extends TestCase {
 		return [$checks, new SettingsEditor($appConfig, $checks, $this->appSettings(), Server::get(CheckRegistry::class), $prerequisites, Server::get(GlobalSettings::class), Server::get(IEventDispatcher::class), Server::get(AppState::class))];
 	}
 
+	/**
+	 * The app's tables, read from the database schema, without the table
+	 * prefix. Each test starts and ends with all of them empty.
+	 *
+	 * @return list<string>
+	 */
+	public static function tables(): array {
+		if (self::$tables === null) {
+			$prefix = Server::get(IConfig::class)->getSystemValueString('dbtableprefix', 'oc_');
+			self::$tables = [];
+			foreach (Server::get(IDBConnection::class)->createSchema()->getTables() as $table) {
+				$name = substr($table->getName(), strlen($prefix));
+				if (str_starts_with($table->getName(), $prefix . 'ids_')) {
+					self::$tables[] = $name;
+				}
+			}
+			sort(self::$tables);
+		}
+		return self::$tables;
+	}
+
 	private function reset(): void {
 		Server::get(IJobList::class)->remove(AlertMailJob::class);
-		foreach (static::TABLES as $table) {
+		foreach (self::tables() as $table) {
 			$this->db->getQueryBuilder()->delete($table)->executeStatement();
 		}
 		// What the services remember in the memory cache would outlive a test.

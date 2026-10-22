@@ -87,7 +87,7 @@ class BlocklistLoginListenerTest extends IntegrationTestCase {
 	public function testTheLoginNameAndPasswordAreStoredAndLoggedNowhere(): void {
 		$this->listener('198.51.100.7', new Verdict(0, '', ['list:spamhaus_drop_v4'], time() + 300))->handle(new AnyLoginFailedEvent(self::LOGIN, self::PASSWORD));
 		$this->assertSame(1, $this->countDetections());
-		foreach (self::TABLES as $table) {
+		foreach (self::tables() as $table) {
 			$qb = $this->db->getQueryBuilder();
 			$result = $qb->select('*')->from($table)->executeQuery();
 			$dump = json_encode($result->fetchAll());

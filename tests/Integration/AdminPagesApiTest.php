@@ -95,7 +95,7 @@ class AdminPagesApiTest extends IntegrationTestCase {
 			$this->assertStringNotContainsString('secret_hmac', $json, $name);
 		}
 		// And it is in no table.
-		foreach (self::TABLES as $table) {
+		foreach (self::tables() as $table) {
 			foreach ($this->db->getQueryBuilder()->select('*')->from($table)->executeQuery()->fetchAll() as $row) {
 				$this->assertStringNotContainsString($secret, json_encode($row, JSON_THROW_ON_ERROR), $table);
 			}
@@ -232,7 +232,7 @@ class AdminPagesApiTest extends IntegrationTestCase {
 		$this->assertSame('ids_detection_hourly', $stored['detection_totals']['where']);
 		$where = implode(', ', array_column($data['stored'], 'where'));
 		// ids_state holds the app's own versions and timestamps: nothing about an address or an account.
-		foreach (array_diff(self::TABLES, ['ids_state']) as $table) {
+		foreach (array_diff(self::tables(), ['ids_state']) as $table) {
 			$this->assertMatchesRegularExpression('/(^|, )' . $table . '(,|$)/', $where, 'Every table of the app is listed');
 		}
 		$outgoing = array_column($data['outgoing'], null, 'id');
@@ -257,7 +257,7 @@ class AdminPagesApiTest extends IntegrationTestCase {
 		$this->assertSame('secret', $values['password']['skipped']);
 		$this->assertArrayNotHasKey('normalised', $values['password'], 'Password fields are never shown');
 		$this->assertSame(Http::STATUS_BAD_REQUEST, $this->payload->test('  ')->getStatus());
-		foreach (self::TABLES as $table) {
+		foreach (self::tables() as $table) {
 			$this->assertSame(0, $this->rows($table), $table);
 		}
 	}
@@ -286,7 +286,7 @@ class AdminPagesApiTest extends IntegrationTestCase {
 		$this->assertTrue($result['acts']);
 		$this->assertContains('ban', array_column($result['responses'], 'type'));
 		$this->assertStringContainsString('4 hours', array_column($result['responses'], 'text', 'type')['ban']);
-		foreach (self::TABLES as $table) {
+		foreach (self::tables() as $table) {
 			$this->assertSame(0, $this->rows($table), $table);
 		}
 		$this->assertSame(TrapUrl::ID, $this->simulation->simulate(TrapUrl::ID)->getData()['check']);

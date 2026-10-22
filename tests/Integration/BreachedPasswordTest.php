@@ -445,7 +445,7 @@ class BreachedPasswordTest extends IntegrationTestCase {
 
 		// Tables: the app's own and its per-account values. Hex columns
 		// (merge keys) are lower-case, so the prefix is looked for as sent.
-		$tables = IntegrationTestCase::TABLES;
+		$tables = IntegrationTestCase::tables();
 		$rows = [];
 		foreach ($tables as $table) {
 			$result = $this->db->getQueryBuilder()->select('*')->from($table)->executeQuery();

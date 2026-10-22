@@ -141,7 +141,7 @@ class NoSecretsTest extends LoginFailureTestCase {
 		}
 
 		// Tables
-		foreach (IntegrationTestCase::TABLES as $table) {
+		foreach (IntegrationTestCase::tables() as $table) {
 			foreach ($this->allRows($table) as $row) {
 				$allowed = self::FINGERPRINT_COLUMNS[$table] ?? [];
 				foreach ($row as $column => $value) {
@@ -243,7 +243,7 @@ class NoSecretsTest extends LoginFailureTestCase {
 			$fingerprints[] = bin2hex($fingerprinter->name($input));
 		}
 
-		foreach (IntegrationTestCase::TABLES as $table) {
+		foreach (IntegrationTestCase::tables() as $table) {
 			foreach ($this->allRows($table) as $row) {
 				foreach ($row as $column => $value) {
 					$value = (string)$value;

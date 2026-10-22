@@ -71,7 +71,7 @@ class UserDeletedTest extends AccountTestCase {
 		$this->runQueuedCleanup();
 
 		$dump = '';
-		foreach (IntegrationTestCase::TABLES as $table) {
+		foreach (IntegrationTestCase::tables() as $table) {
 			$result = $this->db->getQueryBuilder()->select('*')->from($table)->executeQuery();
 			$dump .= json_encode($result->fetchAll(), JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
 			$result->closeCursor();
