@@ -87,6 +87,7 @@ use OCP\Group\Events\SubAdminAddedEvent;
 use OCP\Group\Events\UserAddedEvent;
 use OCP\Group\Events\UserRemovedEvent;
 use OCP\Security\Events\PasswordResetRequestedEvent;
+use OCP\SetupCheck\ISetupCheck;
 use OCP\Share\Events\ShareLinkAccessFailedEvent;
 use OCP\User\Events\PasswordUpdatedEvent;
 use OCP\User\Events\UserChangedEvent;
@@ -97,7 +98,12 @@ use OCP\User\Events\UserLoggedInWithCookieEvent;
 
 class Application extends App implements IBootstrap {
 	public const APP_ID = 'intrusion_detection';
-	/** Before core's and the other apps' login listeners, so that a new password required at login is asked for at once */
+	/**
+	 * Before core's and the other apps' login listeners, so that a new password
+	 * required at login is asked for at once. The listener priorities live
+	 * here: reading a listener's constant would load the listener on every
+	 * request.
+	 */
 	public const LOGIN_PRIORITY = 10;
 	/** After the other listeners of the events it watches */
 	public const ADMIN_CHANGE_PRIORITY = -100;
@@ -121,6 +127,16 @@ class Application extends App implements IBootstrap {
 		AdminNetworksCheck::class,
 		StaleCredentialsCheck::class,
 	];
+	/**
+	 * Setup checks registered with core only: they are no ProblemCheck, so the
+	 * status of the admin page leaves them out.
+	 *
+	 * @var list<class-string<ISetupCheck>>
+	 */
+	private const CORE_SETUP_CHECKS = [
+		BlocklistSyncCheck::class,
+		ApprovalCheck::class,
+	];
 
 	public function __construct(array $urlParams = []) {
 		parent::__construct(self::APP_ID, $urlParams);
@@ -132,22 +148,22 @@ class Application extends App implements IBootstrap {
 
 		// Request guards run in registration order, on every web request.
 		$context->registerRequestGuard(AddressGuard::class);
+		$context->registerRequestGuard(TrapUrlGuard::class);
+		$context->registerRequestGuard(PayloadGuard::class);
+		$context->registerRequestGuard(CredentialUseGuard::class);
 
+		$context->registerMiddleware(PayloadMiddleware::class, true);
+		// Global, so that it covers every app's controllers; it runs after core's two-factor middleware.
+		$context->registerMiddleware(SessionStateMiddleware::class, true);
+
+		// Listeners of one event run by priority, and with the same priority in registration order.
 		$context->registerEventListener(BanCreatedEvent::class, FirewallExportListener::class);
 		$context->registerEventListener(BanLiftedEvent::class, FirewallExportListener::class);
 		$context->registerEventListener(AnyLoginFailedEvent::class, BlocklistLoginListener::class);
-		$context->registerSetupCheck(BlocklistSyncCheck::class);
-		$context->registerRequestGuard(TrapUrlGuard::class);
 		$context->registerEventListener(AnyLoginFailedEvent::class, FailedLoginListener::class);
-		$context->registerNotifierService(Notifier::class);
-		$context->registerRequestGuard(PayloadGuard::class);
-		$context->registerMiddleware(PayloadMiddleware::class, true);
-		$context->registerDashboardWidget(IntrusionWidget::class);
-		$context->registerServiceAlias(ITrustedNetworks::class, TrustedNetworks::class);
 		$context->registerEventListener(ShareLinkAccessFailedEvent::class, ShareAccessFailedListener::class);
 		$context->registerEventListener(PasswordResetRequestedEvent::class, ResetRequestedListener::class);
 		$context->registerEventListener(LoginFlowV2GrantedEvent::class, LoginFlowGrantedListener::class);
-		$context->registerNotifierService(ShareOwnerNotifier::class);
 		$context->registerEventListener(PasswordUpdatedEvent::class, BreachResetListener::class);
 		$context->registerEventListener(TwoFactorProviderChallengeFailed::class, SecondFactorFailedListener::class);
 		$context->registerEventListener(AppPasswordCreatedEvent::class, AppPasswordCreatedListener::class);
@@ -156,17 +172,9 @@ class Application extends App implements IBootstrap {
 		$context->registerEventListener(SettingChangedEvent::class, TrapNamesChangedListener::class);
 		$context->registerEventListener(SabrePluginAddEvent::class, SabrePluginAddListener::class);
 		$context->registerEventListener(BeforeSabrePubliclyLoadedEvent::class, SabrePluginAddListener::class);
-		// Global, so that it covers every app's controllers; it runs after core's two-factor middleware.
-		$context->registerMiddleware(SessionStateMiddleware::class, true);
 		foreach ([UserAddedEvent::class, UserRemovedEvent::class, SubAdminAddedEvent::class, UserCreatedEvent::class, AppEnableEvent::class, AppDisableEvent::class, SettingChangedEvent::class] as $event) {
 			$context->registerEventListener($event, AdminChangeListener::class, self::ADMIN_CHANGE_PRIORITY);
 		}
-		$context->registerSetupCheck(ApprovalCheck::class);
-		foreach (self::SETUP_CHECKS as $setupCheck) {
-			$context->registerSetupCheck($setupCheck);
-		}
-		$context->registerRequestGuard(CredentialUseGuard::class);
-		$context->registerServiceAlias(IKnownDevices::class, KnownDevices::class);
 		// One listener runs the app's login listeners, each only when the login concerns it.
 		$context->registerEventListener(UserLoggedInEvent::class, LoginListener::class, self::LOGIN_PRIORITY);
 		$context->registerEventListener(UserLoggedInWithCookieEvent::class, LoginListener::class, self::LOGIN_PRIORITY);
@@ -182,7 +190,19 @@ class Application extends App implements IBootstrap {
 		foreach ([WasThisYouAnsweredEvent::class, DetectionCreatedEvent::class, PasswordUpdatedEvent::class] as $event) {
 			$context->registerEventListener($event, SecureGuideListener::class);
 		}
+
+		$context->registerNotifierService(Notifier::class);
+		$context->registerNotifierService(ShareOwnerNotifier::class);
 		$context->registerNotifierService(SecureAccountNotifier::class);
+
+		foreach ([...self::CORE_SETUP_CHECKS, ...self::SETUP_CHECKS] as $setupCheck) {
+			$context->registerSetupCheck($setupCheck);
+		}
+
+		$context->registerDashboardWidget(IntrusionWidget::class);
+
+		$context->registerServiceAlias(ITrustedNetworks::class, TrustedNetworks::class);
+		$context->registerServiceAlias(IKnownDevices::class, KnownDevices::class);
 	}
 
 	#[\Override]

@@ -9,8 +9,8 @@ declare(strict_types=1);
 
 namespace OCA\IntrusionDetection\SetupCheck;
 
-use OCA\IntrusionDetection\Net\ProxySuspect;
 use OCA\IntrusionDetection\Notification\AdminLinks;
+use OCA\IntrusionDetection\Response\ProxySuspect;
 use OCP\IL10N;
 use OCP\IURLGenerator;
 

@@ -20,7 +20,6 @@ use OCA\IntrusionDetection\Db\LoginHistoryMapper;
 use OCA\IntrusionDetection\Db\LoginMapper;
 use OCA\IntrusionDetection\Login\EstablishedAccounts;
 use OCA\IntrusionDetection\Net\ProtectedRanges;
-use OCA\IntrusionDetection\Net\ProxySuspect;
 use OCA\IntrusionDetection\Net\RangeCodec;
 use OCA\IntrusionDetection\Net\SourceKey;
 use OCP\ICacheFactory;

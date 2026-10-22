@@ -7,10 +7,11 @@ declare(strict_types=1);
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 
-namespace OCA\IntrusionDetection\Net;
+namespace OCA\IntrusionDetection\Response;
 
 use OCA\IntrusionDetection\Db\LoginMapper;
 use OCA\IntrusionDetection\Login\EstablishedAccounts;
+use OCA\IntrusionDetection\Net\SourceKey;
 use OCP\AppFramework\Utility\ITimeFactory;
 use OCP\IConfig;
 

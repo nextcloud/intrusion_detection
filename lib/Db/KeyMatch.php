@@ -9,6 +9,7 @@ declare(strict_types=1);
 
 namespace OCA\IntrusionDetection\Db;
 
+use OCA\IntrusionDetection\Net\Ipv6Networks;
 use OCP\DB\QueryBuilder\ICompositeExpression;
 use OCP\DB\QueryBuilder\IQueryBuilder;
 
@@ -38,6 +39,16 @@ final class KeyMatch {
 		public readonly array $exact,
 		public readonly array $patterns = [],
 	) {
+	}
+
+	/**
+	 * The /64 keys inside a /56 or /48 network key.
+	 *
+	 * @throws \InvalidArgumentException for any other key
+	 */
+	public static function slash64sIn(string $networkKey): self {
+		[$exact, $patterns] = Ipv6Networks::slash64Keys($networkKey);
+		return new self($exact, $patterns);
 	}
 
 	public function condition(IQueryBuilder $qb, string $column): ICompositeExpression {

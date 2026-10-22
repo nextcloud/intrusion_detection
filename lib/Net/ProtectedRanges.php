@@ -9,7 +9,6 @@ declare(strict_types=1);
 
 namespace OCA\IntrusionDetection\Net;
 
-use OCA\IntrusionDetection\AdminChange\WatchedSettings;
 use OCP\IAppConfig;
 
 /**
@@ -23,6 +22,9 @@ use OCP\IAppConfig;
  * no API that lists it.
  */
 class ProtectedRanges {
+	/** Where core keeps the brute-force allowlist */
+	public const BRUTEFORCE_APP = 'bruteForce';
+	public const BRUTEFORCE_PREFIX = 'whitelist_';
 	private const LOOPBACK = ['127.0.0.0/8', '::1/128'];
 
 	/** @var list<array{0: int, 1: string, 2: string}>|null */
@@ -48,9 +50,9 @@ class ProtectedRanges {
 		foreach ($this->servers->all() as $own) {
 			$inputs[] = $own->ip;
 		}
-		foreach ($this->appConfig->getKeys(WatchedSettings::BRUTEFORCE_APP) as $key) {
-			if (str_starts_with($key, WatchedSettings::BRUTEFORCE_PREFIX)) {
-				$inputs[] = $this->appConfig->getValueString(WatchedSettings::BRUTEFORCE_APP, $key);
+		foreach ($this->appConfig->getKeys(self::BRUTEFORCE_APP) as $key) {
+			if (str_starts_with($key, self::BRUTEFORCE_PREFIX)) {
+				$inputs[] = $this->appConfig->getValueString(self::BRUTEFORCE_APP, $key);
 			}
 		}
 		$compact = [];

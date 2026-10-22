@@ -17,6 +17,7 @@ use OCA\IntrusionDetection\Config\GlobalSettings;
 use OCA\IntrusionDetection\Config\Keys;
 use OCA\IntrusionDetection\Config\Settings;
 use OCA\IntrusionDetection\Definition\ResponseType;
+use OCA\IntrusionDetection\Net\ProtectedRanges;
 use OCP\IAppConfig;
 use OCP\IL10N;
 use Psr\Log\LoggerInterface;
@@ -47,8 +48,6 @@ class WatchedSettings {
 	public const SYSTEM_PREFIXES = ['overwrite', 'twofactor_enforced', 'intrusion_detection.'];
 	public const CORE_KEYS = ['shareapi_allow_links', 'shareapi_enforce_links_password'];
 	public const PASSWORD_POLICY_APP = 'password_policy';
-	public const BRUTEFORCE_APP = 'bruteForce';
-	public const BRUTEFORCE_PREFIX = 'whitelist_';
 	/** All allowlist entries together, as one setting */
 	public const BRUTEFORCE_ALLOWLIST = 'app:bruteForce:whitelist';
 	/** Keys core keeps for every app; app enabling is reported by its own event */
@@ -224,12 +223,12 @@ class WatchedSettings {
 	 * @return list<WatchedValue>
 	 */
 	private function bruteForce(): array {
-		$current = $this->appConfig->getAllValues(self::BRUTEFORCE_APP, self::BRUTEFORCE_PREFIX);
+		$current = $this->appConfig->getAllValues(ProtectedRanges::BRUTEFORCE_APP, ProtectedRanges::BRUTEFORCE_PREFIX);
 		$ranges = [];
 		$secret = false;
 		foreach ($current as $key => $value) {
 			$ranges[] = is_scalar($value) ? (string)$value : '';
-			$secret = $secret || $this->isSensitive(self::BRUTEFORCE_APP, (string)$key, $current);
+			$secret = $secret || $this->isSensitive(ProtectedRanges::BRUTEFORCE_APP, (string)$key, $current);
 		}
 		sort($ranges);
 		return [new WatchedValue(self::BRUTEFORCE_ALLOWLIST, $ranges, $secret, true)];

@@ -358,8 +358,8 @@ class BanService {
 		} else {
 			$key48 = Ipv6Networks::key($source, 48);
 			$key56 = Ipv6Networks::key($source, 56);
-			$in48 = Ipv6Networks::slash64Keys($key48);
-			$in56 = Ipv6Networks::slash64Keys($key56);
+			$in48 = KeyMatch::slash64sIn($key48);
+			$in56 = KeyMatch::slash64sIn($key56);
 			$candidates = [
 				[$key48, $in48, $in48, $netAfter * $netAfter, [$key48]],
 				[$key56, $in56, $in56, $netAfter, [$key56, $key48]],
