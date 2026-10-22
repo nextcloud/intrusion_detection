@@ -10,16 +10,14 @@ import NcNoteCard from '@nextcloud/vue/components/NcNoteCard'
 import AdminTabs from '../components/AdminTabs.vue'
 import MasterSwitch from '../components/MasterSwitch.vue'
 import StatusStrip from '../components/StatusStrip.vue'
-import TabContent from '../components/TabContent.vue'
 import { useAnnouncer } from '../composables/useAnnouncer.ts'
-import { visibleTabs } from '../extensions.ts'
+import { tabs } from '../extensions.ts'
 import { approvableGrants, decidableLogins, openDetectionId, state, useWaitingRequests } from '../store.ts'
 import { resolveLink } from '../utils/deepLinks.ts'
 import { APP_ID } from '../utils/format.ts'
 
-const tabs = computed(() => visibleTabs())
 const activeTab = ref('overview')
-const currentTab = computed(() => tabs.value.find((tab) => tab.id === activeTab.value) ?? tabs.value[0])
+const currentTab = computed(() => tabs.find((tab) => tab.id === activeTab.value) ?? tabs[0]!)
 const openCheckId = ref<string | null>(null)
 const { message } = useAnnouncer()
 
@@ -142,14 +140,13 @@ onBeforeUnmount(() => {
 		<div id="ids-tabs" :class="$style.page__tabs">
 			<AdminTabs v-model="activeTab" :tabs="tabs" :counts="counts" />
 			<div
-				v-if="currentTab"
 				:id="`ids-panel-${currentTab.id}`"
 				:class="$style.page__panel"
 				role="tabpanel"
 				:aria-labelledby="`ids-tab-${currentTab.id}`">
 				<NcNoteCard v-if="!state.status" type="error" :text="t(APP_ID, 'The status could not be loaded. Please reload the page.')" />
 				<KeepAlive>
-					<TabContent :key="currentTab.id" :tab="currentTab" />
+					<component :is="currentTab.component" :key="currentTab.id" />
 				</KeepAlive>
 			</div>
 		</div>

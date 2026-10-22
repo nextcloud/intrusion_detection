@@ -6,9 +6,7 @@
 import { flushPromises, mount } from '@vue/test-utils'
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 import { ref } from 'vue'
-import TabContent from '../components/TabContent.vue'
 import ProtectionTab from './ProtectionTab.vue'
-import { tabs } from '../extensions.ts'
 import { state } from '../store.ts'
 import { makeCheck } from '../tests/fixtures.ts'
 
@@ -49,10 +47,7 @@ describe('the Protection tab', () => {
 
 	test('the risk score card is an expert tool, shown below the checks', async () => {
 		state.settings = [{ name: 'risk_enabled', type: 'bool', default: true, min: null, max: null, choices: [], value: true, label: 'Risk score', help: '', unit: '', group: 'risk' }]
-		const tab = tabs.find((t) => t.id === 'protection')!
-		const wrapper = mount(TabContent, { props: { tab: { ...tab, component: ProtectionTab } }, attachTo: document.body })
-		await vi.dynamicImportSettled()
-		await flushPromises()
+		const wrapper = mount(ProtectionTab, { attachTo: document.body })
 		const html = wrapper.html()
 		expect(wrapper.find('[data-test="risk-score"]').exists()).toBe(true)
 		expect(html.indexOf('data-test="risk-score"')).toBeGreaterThan(html.lastIndexOf('data-test="check-row"'))

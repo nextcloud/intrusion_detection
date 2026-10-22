@@ -13,6 +13,7 @@ import NcEmptyContent from '@nextcloud/vue/components/NcEmptyContent'
 import NcIconSvgWrapper from '@nextcloud/vue/components/NcIconSvgWrapper'
 import CheckRow from '../components/checks/CheckRow.vue'
 import ProtectionLevelPicker from '../components/checks/ProtectionLevelPicker.vue'
+import RiskScoreSection from '../components/checks/RiskScoreSection.vue'
 import { state } from '../store.ts'
 import { APP_ID } from '../utils/format.ts'
 import { protectionGroups } from '../utils/protection.ts'
@@ -61,6 +62,8 @@ watch(openCheckId, async (checkId) => {
 					:open="openCheckId === check.id" />
 			</ul>
 		</section>
+
+		<RiskScoreSection />
 	</div>
 </template>
 

@@ -36,10 +36,10 @@ const FORMATS = [
 ]
 
 const snippetTabs: TabDefinition[] = [
-	{ id: 'nftables', name: () => 'nftables', icon: mdiShieldOutline, order: 1 },
-	{ id: 'ipset', name: () => 'ipset', icon: mdiShieldOutline, order: 2 },
-	{ id: 'fail2ban', name: () => 'fail2ban', icon: mdiFire, order: 3 },
-	{ id: 'systemd', name: () => 'systemd', icon: mdiTimerCogOutline, order: 4 },
+	{ id: 'nftables', name: () => 'nftables', icon: mdiShieldOutline },
+	{ id: 'ipset', name: () => 'ipset', icon: mdiShieldOutline },
+	{ id: 'fail2ban', name: () => 'fail2ban', icon: mdiFire },
+	{ id: 'systemd', name: () => 'systemd', icon: mdiTimerCogOutline },
 ]
 
 const SNIPPETS: Record<string, { ids: string[], intro: () => string }> = {

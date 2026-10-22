@@ -33,8 +33,8 @@ const error = ref<string | null>(null)
 const server = ref(props.paths.webServer === 'apache' || props.paths.webServer === 'apache_fpm' ? 'apache' : 'nginx')
 
 const serverTabs: TabDefinition[] = [
-	{ id: 'nginx', name: () => 'nginx', icon: mdiServerNetwork, order: 1 },
-	{ id: 'apache', name: () => 'Apache', icon: mdiServerNetwork, order: 2 },
+	{ id: 'nginx', name: () => 'nginx', icon: mdiServerNetwork },
+	{ id: 'apache', name: () => 'Apache', icon: mdiServerNetwork },
 ]
 
 /**

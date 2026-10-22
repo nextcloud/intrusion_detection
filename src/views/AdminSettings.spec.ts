@@ -3,9 +3,11 @@
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 
+import type { TabDefinition } from '../extensions.ts'
+
 import { enableAutoUnmount, flushPromises, mount } from '@vue/test-utils'
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
-import { defineComponent, h, inject } from 'vue'
+import { defineComponent } from 'vue'
 import AdminSettings from './AdminSettings.vue'
 import { fetchWaitingLogins } from '../services/api.ts'
 import { state, waitingLogins } from '../store.ts'
@@ -16,11 +18,17 @@ vi.mock('../services/api.ts', async (importOriginal) => ({
 	fetchWaitingLogins: vi.fn(() => Promise.resolve([])),
 }))
 
-const OpenCheck = defineComponent({
-	setup() {
-		const openCheck = inject<{ value: string | null }>('ids-open-check')
-		return () => h('div', { 'data-test': 'open-check' }, openCheck?.value ?? '')
-	},
+// Every tab shows which check a link opened.
+vi.mock('../extensions.ts', async (importOriginal) => {
+	const original = await importOriginal<{ tabs: TabDefinition[] }>()
+	const { defineComponent, h, inject } = await import('vue')
+	const OpenCheck = defineComponent({
+		setup() {
+			const openCheck = inject<{ value: string | null }>('ids-open-check')
+			return () => h('div', { 'data-test': 'open-check' }, openCheck?.value ?? '')
+		},
+	})
+	return { ...original, tabs: original.tabs.map((tab) => ({ ...tab, component: OpenCheck })) }
 })
 
 enableAutoUnmount(afterEach)
@@ -39,7 +47,7 @@ describe('the admin page', () => {
 
 	const mountPage = () => mount(AdminSettings, {
 		attachTo: document.body,
-		global: { stubs: { KeepAlive: defineComponent({ setup: (_, { slots }) => () => slots.default?.() }), TabContent: OpenCheck } },
+		global: { stubs: { KeepAlive: defineComponent({ setup: (_, { slots }) => () => slots.default?.() }) } },
 	})
 
 	const tabIds = (wrapper: ReturnType<typeof mountPage>) => wrapper.findAll('[role="tab"]').map((tab) => tab.attributes('data-tab'))

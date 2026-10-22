@@ -11,7 +11,6 @@ import { computed, useId } from 'vue'
 import NcButton from '@nextcloud/vue/components/NcButton'
 import NcLoadingIcon from '@nextcloud/vue/components/NcLoadingIcon'
 import { useAction } from '../composables/useAction.ts'
-import { statusSections } from '../extensions.ts'
 import { changeLearning, saveSettings } from '../store.ts'
 import { APP_ID, formatNumber } from '../utils/format.ts'
 
@@ -119,8 +118,6 @@ const turnOn = () => act('on', () => saveSettings({ protection_enabled: true }),
 		<p :class="$style.banner__muted">
 			{{ checksLine }}
 		</p>
-
-		<component :is="section" v-for="(section, index) in statusSections" :key="index" />
 	</section>
 </template>
 
