@@ -217,14 +217,14 @@ function clear() {
 .lookup {
 	display: flex;
 	flex-direction: column;
-	gap: calc(var(--default-grid-baseline) * 2);
+	gap: var(--ids-space-2);
 }
 
 .lookup__form {
 	display: flex;
 	max-width: 640px;
 	align-items: flex-end;
-	gap: calc(var(--default-grid-baseline) * 2);
+	gap: var(--ids-space-2);
 }
 
 .lookup__field {
@@ -237,17 +237,17 @@ function clear() {
 }
 
 .lookup__hint {
+	composes: muted from '../../styles/shared.module.css';
 	margin: 0;
-	color: var(--color-text-maxcontrast);
 	font-size: 0.9em;
 }
 
 .result {
 	display: flex;
 	flex-direction: column;
-	gap: calc(var(--default-grid-baseline) * 3);
-	margin-top: calc(var(--default-grid-baseline) * 2);
-	padding: calc(var(--default-grid-baseline) * 4);
+	gap: var(--ids-space-3);
+	margin-top: var(--ids-space-2);
+	padding: var(--ids-space-4);
 	border: 1px solid color-mix(in srgb, var(--color-primary-element) 35%, var(--color-border));
 	border-radius: var(--border-radius-large);
 	background-color: color-mix(in srgb, var(--color-primary-element) 5%, var(--color-main-background));
@@ -257,7 +257,7 @@ function clear() {
 	display: flex;
 	align-items: center;
 	justify-content: space-between;
-	gap: calc(var(--default-grid-baseline) * 2);
+	gap: var(--ids-space-2);
 }
 
 .result__title {
@@ -267,12 +267,8 @@ function clear() {
 }
 
 .result__subheading {
+	composes: eyebrow from '../../styles/shared.module.css';
 	margin: 0;
-	color: var(--color-text-maxcontrast);
-	font-size: 0.8em;
-	font-weight: 700;
-	letter-spacing: 0.06em;
-	text-transform: uppercase;
 }
 
 .result__muted {
@@ -281,12 +277,10 @@ function clear() {
 }
 
 .result__list {
+	composes: plainList from '../../styles/shared.module.css';
 	display: flex;
 	flex-direction: column;
-	gap: calc(var(--default-grid-baseline) * 2);
-	margin: 0;
-	padding: 0;
-	list-style: none;
+	gap: var(--ids-space-2);
 }
 
 .result__ban {
@@ -294,24 +288,24 @@ function clear() {
 	flex-wrap: wrap;
 	align-items: center;
 	justify-content: space-between;
-	gap: calc(var(--default-grid-baseline) * 2);
+	gap: var(--ids-space-2);
 }
 
 .result__banMain {
 	display: flex;
 	flex-wrap: wrap;
 	align-items: center;
-	gap: calc(var(--default-grid-baseline) * 2);
+	gap: var(--ids-space-2);
 }
 
 .result button.result__detection {
 	display: flex;
 	flex-wrap: wrap;
 	align-items: center;
-	gap: calc(var(--default-grid-baseline) * 3);
+	gap: var(--ids-space-3);
 	width: 100%;
 	margin: 0;
-	padding: calc(var(--default-grid-baseline) * 2);
+	padding: var(--ids-space-2);
 	border: none;
 	border-radius: var(--border-radius-element);
 	background: transparent;
@@ -326,7 +320,7 @@ function clear() {
 }
 
 .result button.result__detection:focus-visible {
-	outline: 2px solid var(--color-main-text);
+	outline: var(--ids-focus-ring);
 }
 
 .result__detectionName {

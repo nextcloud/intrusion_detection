@@ -182,7 +182,7 @@ function formLabel(form: PayloadForm): string {
 .result {
 	display: flex;
 	flex-direction: column;
-	gap: calc(var(--default-grid-baseline) * 3);
+	gap: var(--ids-space-3);
 }
 
 .verdict {
@@ -190,8 +190,8 @@ function formLabel(form: PayloadForm): string {
 	--verdict-text: var(--color-success-text);
 	display: flex;
 	align-items: flex-start;
-	gap: calc(var(--default-grid-baseline) * 3);
-	padding: calc(var(--default-grid-baseline) * 3) calc(var(--default-grid-baseline) * 4);
+	gap: var(--ids-space-3);
+	padding: var(--ids-space-3) var(--ids-space-4);
 	border: 1px solid color-mix(in srgb, var(--verdict-color) 35%, var(--color-border));
 	border-radius: var(--border-radius-large);
 	background-color: color-mix(in srgb, var(--verdict-color) 10%, var(--color-main-background));
@@ -226,25 +226,23 @@ function formLabel(form: PayloadForm): string {
 }
 
 .verdict__modes {
-	margin-top: calc(var(--default-grid-baseline) * 1) !important;
-	color: var(--color-text-maxcontrast);
+	composes: muted from '../../styles/shared.module.css';
+	margin-top: var(--ids-space-1) !important;
 	font-size: 0.92em;
 }
 
 .values {
+	composes: plainList from '../../styles/shared.module.css';
 	display: flex;
 	flex-direction: column;
-	gap: calc(var(--default-grid-baseline) * 3);
-	margin: 0;
-	padding: 0;
-	list-style: none;
+	gap: var(--ids-space-3);
 }
 
 .value {
 	display: flex;
 	flex-direction: column;
-	gap: calc(var(--default-grid-baseline) * 2);
-	padding: calc(var(--default-grid-baseline) * 3);
+	gap: var(--ids-space-2);
+	padding: var(--ids-space-3);
 	border: 1px solid var(--color-border);
 	border-radius: var(--border-radius-large);
 	background-color: var(--color-main-background);
@@ -259,14 +257,14 @@ function formLabel(form: PayloadForm): string {
 	flex-wrap: wrap;
 	align-items: center;
 	justify-content: space-between;
-	gap: calc(var(--default-grid-baseline) * 2);
+	gap: var(--ids-space-2);
 }
 
 .value__where {
 	display: inline-flex;
 	flex-wrap: wrap;
 	align-items: center;
-	gap: calc(var(--default-grid-baseline) * 2);
+	gap: var(--ids-space-2);
 	min-width: 0;
 }
 
@@ -279,7 +277,7 @@ function formLabel(form: PayloadForm): string {
 .meter {
 	display: inline-flex;
 	align-items: center;
-	gap: calc(var(--default-grid-baseline) * 2);
+	gap: var(--ids-space-2);
 }
 
 .meter__pips {
@@ -305,7 +303,7 @@ function formLabel(form: PayloadForm): string {
 }
 
 .meter__label {
-	color: var(--color-text-maxcontrast);
+	composes: muted from '../../styles/shared.module.css';
 	font-size: 0.85em;
 	font-variant-numeric: tabular-nums;
 	white-space: nowrap;
@@ -314,17 +312,17 @@ function formLabel(form: PayloadForm): string {
 .step {
 	display: grid;
 	grid-template-columns: minmax(0, 10em) minmax(0, 1fr);
-	gap: calc(var(--default-grid-baseline) * 3);
+	gap: var(--ids-space-3);
 	align-items: baseline;
 }
 
 .step__label {
-	color: var(--color-text-maxcontrast);
+	composes: muted from '../../styles/shared.module.css';
 	font-size: 0.85em;
 }
 
 .step__text {
-	padding: calc(var(--default-grid-baseline) * 1) calc(var(--default-grid-baseline) * 2);
+	padding: var(--ids-space-1) var(--ids-space-2);
 	border-radius: var(--border-radius-element);
 	background-color: var(--color-background-hover);
 	font-family: var(--font-face-monospace, ui-monospace, 'SFMono-Regular', Menlo, Consolas, monospace);
@@ -336,18 +334,14 @@ function formLabel(form: PayloadForm): string {
 .matches {
 	display: flex;
 	flex-direction: column;
-	gap: calc(var(--default-grid-baseline) * 1.5);
+	gap: var(--ids-space-1-5);
 }
 
 .matches__head {
+	composes: eyebrow from '../../styles/shared.module.css';
 	display: flex;
 	justify-content: space-between;
 	margin: 0;
-	color: var(--color-text-maxcontrast);
-	font-size: 0.8em;
-	font-weight: 700;
-	letter-spacing: 0.06em;
-	text-transform: uppercase;
 }
 
 .matches__total {
@@ -355,24 +349,22 @@ function formLabel(form: PayloadForm): string {
 }
 
 .matches__list {
+	composes: plainList from '../../styles/shared.module.css';
 	display: flex;
 	flex-direction: column;
-	gap: calc(var(--default-grid-baseline) * 1);
-	margin: 0;
-	padding: 0;
-	list-style: none;
+	gap: var(--ids-space-1);
 }
 
 .match {
 	display: flex;
 	align-items: flex-start;
-	gap: calc(var(--default-grid-baseline) * 3);
+	gap: var(--ids-space-3);
 }
 
 .match__weight {
 	flex: 0 0 auto;
 	min-width: 32px;
-	padding-inline: calc(var(--default-grid-baseline) * 1.5);
+	padding-inline: var(--ids-space-1-5);
 	border-radius: var(--border-radius-pill, 100px);
 	background-color: color-mix(in srgb, var(--color-error) 14%, var(--color-main-background));
 	color: var(--color-error-text);
@@ -397,26 +389,23 @@ function formLabel(form: PayloadForm): string {
 }
 
 .value__none {
+	composes: muted from '../../styles/shared.module.css';
 	margin: 0;
-	color: var(--color-text-maxcontrast);
 	font-size: 0.9em;
 }
 
 .skipped {
+	composes: plainList muted from '../../styles/shared.module.css';
 	display: flex;
 	flex-direction: column;
-	gap: calc(var(--default-grid-baseline) * 1);
-	margin: 0;
-	padding: 0;
-	list-style: none;
-	color: var(--color-text-maxcontrast);
+	gap: var(--ids-space-1);
 	font-size: 0.9em;
 }
 
 .skipped li {
 	display: flex;
 	flex-wrap: wrap;
-	gap: calc(var(--default-grid-baseline) * 2);
+	gap: var(--ids-space-2);
 }
 
 .skipped code {
@@ -427,7 +416,7 @@ function formLabel(form: PayloadForm): string {
 @media (max-width: 600px) {
 	.step {
 		grid-template-columns: minmax(0, 1fr);
-		gap: calc(var(--default-grid-baseline) * 1);
+		gap: var(--ids-space-1);
 	}
 }
 </style>

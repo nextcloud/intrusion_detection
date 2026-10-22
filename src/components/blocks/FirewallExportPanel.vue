@@ -240,26 +240,26 @@ function setFormat(id: string, on: boolean) {
 .skeleton {
 	display: flex;
 	flex-direction: column;
-	gap: calc(var(--default-grid-baseline) * 2);
+	gap: var(--ids-space-2);
 }
 
 .muted {
-	color: var(--color-text-maxcontrast);
+	composes: muted from '../../styles/shared.module.css';
 }
 
 .facts {
 	display: grid;
 	grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr));
-	gap: calc(var(--default-grid-baseline) * 3);
+	gap: var(--ids-space-3);
 	margin: 0;
 }
 
 .fact {
 	display: flex;
 	flex-direction: column;
-	gap: calc(var(--default-grid-baseline) * 1);
+	gap: var(--ids-space-1);
 	min-width: 0;
-	padding: calc(var(--default-grid-baseline) * 3) calc(var(--default-grid-baseline) * 4);
+	padding: var(--ids-space-3) var(--ids-space-4);
 	border-radius: var(--border-radius-large);
 	background-color: var(--color-background-hover);
 }
@@ -280,13 +280,13 @@ function setFormat(id: string, on: boolean) {
 .fact dd {
 	display: flex;
 	flex-direction: column;
-	gap: calc(var(--default-grid-baseline) / 2);
+	gap: var(--ids-space-half);
 	margin: 0;
 	font-weight: 600;
 }
 
 .fact__hint {
-	color: var(--color-text-maxcontrast);
+	composes: muted from '../../styles/shared.module.css';
 	font-size: 0.85em;
 	font-weight: normal;
 }
@@ -294,7 +294,7 @@ function setFormat(id: string, on: boolean) {
 .path {
 	display: inline-flex;
 	align-items: center;
-	gap: calc(var(--default-grid-baseline) * 1.5);
+	gap: var(--ids-space-1-5);
 	min-width: 0;
 }
 
@@ -309,12 +309,12 @@ function setFormat(id: string, on: boolean) {
 .files {
 	display: flex;
 	flex-wrap: wrap;
-	gap: calc(var(--default-grid-baseline) * 2);
+	gap: var(--ids-space-2);
 }
 
 .config {
-	margin: calc(var(--default-grid-baseline) * 2) 0;
-	padding: calc(var(--default-grid-baseline) * 2) calc(var(--default-grid-baseline) * 3);
+	margin: var(--ids-space-2) 0;
+	padding: var(--ids-space-2) var(--ids-space-3);
 	overflow-x: auto;
 	border-radius: var(--border-radius-element);
 	background-color: var(--color-background-hover);
@@ -330,7 +330,7 @@ function setFormat(id: string, on: boolean) {
 }
 
 .formats__legend {
-	margin-bottom: calc(var(--default-grid-baseline) * 2);
+	margin-bottom: var(--ids-space-2);
 	padding: 0;
 	font-weight: 700;
 }
@@ -338,11 +338,11 @@ function setFormat(id: string, on: boolean) {
 .formats__grid {
 	display: grid;
 	grid-template-columns: repeat(auto-fit, minmax(min(100%, 250px), 1fr));
-	gap: calc(var(--default-grid-baseline) * 2);
+	gap: var(--ids-space-2);
 }
 
 .format {
-	padding: calc(var(--default-grid-baseline) * 2) calc(var(--default-grid-baseline) * 3);
+	padding: var(--ids-space-2) var(--ids-space-3);
 	border: 1px solid var(--color-border);
 	border-radius: var(--border-radius-large);
 	transition: border-color 150ms ease, background-color 150ms ease;
@@ -360,7 +360,7 @@ function setFormat(id: string, on: boolean) {
 }
 
 .snippets {
-	padding-top: calc(var(--default-grid-baseline) * 3);
+	padding-top: var(--ids-space-3);
 	border-top: 1px solid var(--color-border);
 }
 
@@ -370,10 +370,10 @@ function setFormat(id: string, on: boolean) {
 }
 
 .snippets__panel {
-	margin-top: calc(var(--default-grid-baseline) * 3);
+	margin-top: var(--ids-space-3);
 	display: flex;
 	flex-direction: column;
-	gap: calc(var(--default-grid-baseline) * 3);
+	gap: var(--ids-space-3);
 }
 
 .snippets__intro {

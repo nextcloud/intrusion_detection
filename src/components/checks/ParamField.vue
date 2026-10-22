@@ -150,7 +150,7 @@ const textValue = computed({
 .field {
 	display: flex;
 	flex-direction: column;
-	gap: calc(var(--default-grid-baseline) * 1);
+	gap: var(--ids-space-1);
 	min-width: 0;
 }
 
@@ -169,7 +169,7 @@ const textValue = computed({
 .field__row {
 	display: flex;
 	align-items: center;
-	gap: calc(var(--default-grid-baseline) * 2);
+	gap: var(--ids-space-2);
 }
 
 .field__number {
@@ -179,7 +179,7 @@ const textValue = computed({
 }
 
 .field__unit {
-	color: var(--color-text-maxcontrast);
+	composes: muted from '../../styles/shared.module.css';
 }
 
 .field__select {
@@ -196,8 +196,8 @@ const textValue = computed({
 }
 
 .field__hint {
+	composes: muted from '../../styles/shared.module.css';
 	margin: 0;
-	color: var(--color-text-maxcontrast);
 	font-size: 0.9em;
 	line-height: 1.45;
 }

@@ -161,10 +161,10 @@ onBeforeUnmount(() => {
 .page {
 	display: flex;
 	flex-direction: column;
-	gap: calc(var(--default-grid-baseline) * 6);
+	gap: var(--ids-space-6);
 	width: min(1200px, 100% - var(--default-grid-baseline) * 14);
-	margin: calc(var(--default-grid-baseline) * 7);
-	padding-bottom: calc(var(--default-grid-baseline) * 10);
+	margin: var(--ids-space-7);
+	padding-bottom: var(--ids-space-10);
 }
 
 .page__header {
@@ -172,14 +172,14 @@ onBeforeUnmount(() => {
 	flex-wrap: wrap;
 	align-items: flex-start;
 	justify-content: space-between;
-	gap: calc(var(--default-grid-baseline) * 3);
+	gap: var(--ids-space-3);
 }
 
 .page__heading {
 	display: flex;
 	flex: 1 1 400px;
 	flex-direction: column;
-	gap: calc(var(--default-grid-baseline) * 2);
+	gap: var(--ids-space-2);
 	min-width: 0;
 }
 
@@ -188,7 +188,7 @@ onBeforeUnmount(() => {
 	flex-wrap: wrap;
 	align-items: center;
 	justify-content: space-between;
-	gap: calc(var(--default-grid-baseline) * 2) calc(var(--default-grid-baseline) * 4);
+	gap: var(--ids-space-2) var(--ids-space-4);
 }
 
 .page__strip {
@@ -205,22 +205,22 @@ onBeforeUnmount(() => {
 .page__tabs {
 	display: flex;
 	flex-direction: column;
-	gap: calc(var(--default-grid-baseline) * 5);
+	gap: var(--ids-space-5);
 	min-width: 0;
-	scroll-margin-top: calc(var(--default-grid-baseline) * 4);
+	scroll-margin-top: var(--ids-space-4);
 }
 
 .page__panel {
 	display: flex;
 	flex-direction: column;
-	gap: calc(var(--default-grid-baseline) * 5);
+	gap: var(--ids-space-5);
 	min-width: 0;
 }
 
 @media (max-width: 600px) {
 	.page {
-		width: calc(100% - var(--default-grid-baseline) * 8);
-		margin: calc(var(--default-grid-baseline) * 4);
+		width: calc(100% - var(--ids-space-8));
+		margin: var(--ids-space-4);
 	}
 }
 </style>

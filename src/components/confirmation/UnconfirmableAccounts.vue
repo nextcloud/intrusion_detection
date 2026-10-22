@@ -185,20 +185,20 @@ function download() {
 .coverage {
 	display: flex;
 	flex-direction: column;
-	gap: calc(var(--default-grid-baseline) * 3);
+	gap: var(--ids-space-3);
 }
 
 .figures {
 	display: grid;
 	grid-template-columns: repeat(auto-fit, minmax(min(100%, 240px), 1fr));
-	gap: calc(var(--default-grid-baseline) * 3);
+	gap: var(--ids-space-3);
 }
 
 .figure {
 	display: flex;
 	flex-direction: column;
-	gap: calc(var(--default-grid-baseline) * 1);
-	padding: calc(var(--default-grid-baseline) * 4);
+	gap: var(--ids-space-1);
+	padding: var(--ids-space-4);
 	border-radius: var(--border-radius-large);
 	background-color: var(--color-background-hover);
 }
@@ -214,7 +214,7 @@ function download() {
 .figure__value {
 	display: inline-flex;
 	align-items: center;
-	gap: calc(var(--default-grid-baseline) * 2);
+	gap: var(--ids-space-2);
 	font-size: 2em;
 	font-weight: 700;
 	line-height: 1.1;
@@ -225,7 +225,7 @@ function download() {
 }
 
 .figure__label {
-	color: var(--color-text-maxcontrast);
+	composes: muted from '../../styles/shared.module.css';
 }
 
 .text {
@@ -238,7 +238,7 @@ function download() {
 	display: flex;
 	flex-wrap: wrap;
 	align-items: center;
-	gap: calc(var(--default-grid-baseline) * 2);
+	gap: var(--ids-space-2);
 }
 
 .chevron {
@@ -258,7 +258,7 @@ function download() {
 .listWrap {
 	display: flex;
 	flex-direction: column;
-	gap: calc(var(--default-grid-baseline) * 2);
+	gap: var(--ids-space-2);
 }
 
 .table {
@@ -268,7 +268,7 @@ function download() {
 
 .table th,
 .table td {
-	padding: calc(var(--default-grid-baseline) * 2) calc(var(--default-grid-baseline) * 3);
+	padding: var(--ids-space-2) var(--ids-space-3);
 	border-bottom: 1px solid var(--color-border);
 	text-align: start;
 	vertical-align: top;
@@ -305,13 +305,13 @@ function download() {
 	}
 
 	.table tr {
-		padding-block: calc(var(--default-grid-baseline) * 2);
+		padding-block: var(--ids-space-2);
 		border-bottom: 1px solid var(--color-border);
 	}
 
 	.table th,
 	.table td {
-		padding: calc(var(--default-grid-baseline) * 0.5) 0;
+		padding: var(--ids-space-half) 0;
 		border: none;
 	}
 

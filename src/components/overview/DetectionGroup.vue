@@ -94,11 +94,11 @@ const title = computed(() => shared.value
 	grid-template-columns: 6em minmax(0, 1fr) 7.5em 7em 20px;
 	grid-template-areas: "severity main outcome time chevron";
 	align-items: center;
-	gap: calc(var(--default-grid-baseline) * 3);
+	gap: var(--ids-space-3);
 	width: 100%;
 	min-height: 56px;
 	margin: 0;
-	padding: calc(var(--default-grid-baseline) * 2) calc(var(--default-grid-baseline) * 3);
+	padding: var(--ids-space-2) var(--ids-space-3);
 	border: none;
 	border-radius: var(--border-radius-element);
 	background: transparent;
@@ -113,7 +113,7 @@ const title = computed(() => shared.value
 }
 
 .group button.group__summary:focus-visible {
-	outline: 2px solid var(--color-main-text);
+	outline: var(--ids-focus-ring);
 	outline-offset: -2px;
 }
 
@@ -135,10 +135,10 @@ const title = computed(() => shared.value
 }
 
 .group__facts {
+	composes: muted from '../../styles/shared.module.css';
 	display: flex;
 	flex-wrap: wrap;
-	gap: 0 calc(var(--default-grid-baseline) * 3);
-	color: var(--color-text-maxcontrast);
+	gap: 0 var(--ids-space-3);
 	font-size: 0.9em;
 }
 
@@ -170,8 +170,8 @@ const title = computed(() => shared.value
 }
 
 .group__items {
-	margin: 0 0 calc(var(--default-grid-baseline) * 2);
-	margin-inline-start: calc(var(--default-grid-baseline) * 6);
+	margin: 0 0 var(--ids-space-2);
+	margin-inline-start: var(--ids-space-6);
 	padding: 0;
 	border-inline-start: 2px solid var(--color-border);
 	list-style: none;
@@ -183,7 +183,7 @@ const title = computed(() => shared.value
 		grid-template-areas:
 			"severity time outcome chevron"
 			"main main main main";
-		gap: calc(var(--default-grid-baseline) * 1) calc(var(--default-grid-baseline) * 2);
+		gap: var(--ids-space-1) var(--ids-space-2);
 	}
 
 	.group .group__time {
@@ -191,7 +191,7 @@ const title = computed(() => shared.value
 	}
 
 	.group__items {
-		margin-inline-start: calc(var(--default-grid-baseline) * 2);
+		margin-inline-start: var(--ids-space-2);
 	}
 }
 

@@ -82,7 +82,7 @@ const buttons = computed(() => [
 
 <style module>
 .dialog {
-	margin: 0 0 calc(var(--default-grid-baseline) * 2);
+	margin: 0 0 var(--ids-space-2);
 	line-height: 1.5;
 }
 </style>

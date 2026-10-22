@@ -73,18 +73,16 @@ const canShowMore = computed(() => (activity.value?.hasMore ?? false) && persona
 }
 
 .day__heading {
+	composes: muted from '../../styles/shared.module.css';
 	margin: 0;
-	padding-block-end: var(--default-grid-baseline);
+	padding-block-end: var(--ids-space-1);
 	border-block-end: 1px solid var(--color-border);
-	color: var(--color-text-maxcontrast);
 	font-size: 0.92em;
 	font-weight: 600;
 }
 
 .day__list {
-	margin: 0;
-	padding: 0;
-	list-style: none;
+	composes: plainList from '../../styles/shared.module.css';
 }
 
 .more {

@@ -154,19 +154,17 @@ async function remove() {
 
 <style module>
 .list {
+	composes: plainList from '../../styles/shared.module.css';
 	display: flex;
 	flex-direction: column;
-	margin: 0;
-	padding: 0;
-	list-style: none;
 }
 
 .decoy {
 	display: flex;
 	flex-wrap: wrap;
 	align-items: center;
-	gap: calc(var(--default-grid-baseline) * 3);
-	padding-block: calc(var(--default-grid-baseline) * 3);
+	gap: var(--ids-space-3);
+	padding-block: var(--ids-space-3);
 	border-top: 1px solid var(--color-border);
 }
 
@@ -176,6 +174,7 @@ async function remove() {
 }
 
 .decoy__icon {
+	composes: muted from '../../styles/shared.module.css';
 	display: inline-flex;
 	flex: 0 0 auto;
 	align-items: center;
@@ -184,7 +183,6 @@ async function remove() {
 	height: 36px;
 	border-radius: 50%;
 	background-color: var(--color-background-dark);
-	color: var(--color-text-maxcontrast);
 }
 
 .decoy_used .decoy__icon {
@@ -196,7 +194,7 @@ async function remove() {
 	display: flex;
 	flex: 1 1 280px;
 	flex-direction: column;
-	gap: calc(var(--default-grid-baseline) / 2);
+	gap: var(--ids-space-half);
 	min-width: 0;
 }
 
@@ -206,10 +204,10 @@ async function remove() {
 }
 
 .decoy__meta {
+	composes: muted from '../../styles/shared.module.css';
 	display: flex;
 	flex-wrap: wrap;
-	gap: calc(var(--default-grid-baseline) * 1.5);
-	color: var(--color-text-maxcontrast);
+	gap: var(--ids-space-1-5);
 	font-size: 0.9em;
 }
 
@@ -227,7 +225,7 @@ async function remove() {
 .decoy__problem {
 	display: inline-flex;
 	align-items: center;
-	gap: calc(var(--default-grid-baseline) * 1);
+	gap: var(--ids-space-1);
 	color: var(--color-error-text);
 	font-size: 0.9em;
 	font-weight: 600;
@@ -237,18 +235,18 @@ async function remove() {
 	display: flex;
 	flex-direction: column;
 	align-items: flex-end;
-	gap: calc(var(--default-grid-baseline) / 2);
+	gap: var(--ids-space-half);
 }
 
 .decoy__last {
-	color: var(--color-text-maxcontrast);
+	composes: muted from '../../styles/shared.module.css';
 	font-size: 0.85em;
 }
 
 @media (max-width: 600px) {
 	.decoy__state {
 		align-items: flex-start;
-		margin-inline-start: calc(36px + var(--default-grid-baseline) * 3);
+		margin-inline-start: calc(36px + var(--ids-space-3));
 	}
 }
 </style>

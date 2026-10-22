@@ -90,18 +90,16 @@ function remove(network: TrustedNetwork) {
 
 <style module>
 .list {
+	composes: plainList from '../../styles/shared.module.css';
 	display: flex;
 	flex-direction: column;
-	margin: 0;
-	padding: 0;
-	list-style: none;
 }
 
 .network {
 	display: flex;
 	align-items: flex-start;
-	gap: calc(var(--default-grid-baseline) * 3);
-	padding-block: calc(var(--default-grid-baseline) * 3);
+	gap: var(--ids-space-3);
+	padding-block: var(--ids-space-3);
 	border-block-start: 1px solid var(--color-border);
 }
 
@@ -111,6 +109,7 @@ function remove(network: TrustedNetwork) {
 }
 
 .network__icon {
+	composes: muted from '../../styles/shared.module.css';
 	display: inline-flex;
 	flex: 0 0 auto;
 	align-items: center;
@@ -119,14 +118,13 @@ function remove(network: TrustedNetwork) {
 	height: 36px;
 	border-radius: 50%;
 	background-color: var(--color-background-dark);
-	color: var(--color-text-maxcontrast);
 }
 
 .network__main {
 	display: flex;
 	flex: 1 1 auto;
 	flex-direction: column;
-	gap: calc(var(--default-grid-baseline) * 0.5);
+	gap: var(--ids-space-half);
 	min-width: 0;
 }
 
@@ -138,8 +136,8 @@ function remove(network: TrustedNetwork) {
 }
 
 .network__meta {
+	composes: muted from '../../styles/shared.module.css';
 	margin: 0;
-	color: var(--color-text-maxcontrast);
 	font-size: 0.92em;
 	line-height: 1.5;
 }

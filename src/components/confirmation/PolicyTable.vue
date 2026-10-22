@@ -150,7 +150,7 @@ function setKnownDevice(policy: ConfirmationPolicy, on: boolean) {
 
 .table th,
 .table td {
-	padding: calc(var(--default-grid-baseline) * 3);
+	padding: var(--ids-space-3);
 	border-bottom: 1px solid var(--color-border);
 	text-align: start;
 	vertical-align: top;
@@ -159,7 +159,7 @@ function setKnownDevice(policy: ConfirmationPolicy, on: boolean) {
 }
 
 .table thead th {
-	padding-block: calc(var(--default-grid-baseline) * 2);
+	padding-block: var(--ids-space-2);
 	color: var(--color-text-maxcontrast);
 	font-size: 0.85em;
 	font-weight: 600;
@@ -184,19 +184,19 @@ function setKnownDevice(policy: ConfirmationPolicy, on: boolean) {
 }
 
 .why {
+	composes: muted from '../../styles/shared.module.css';
 	display: block;
-	margin-top: calc(var(--default-grid-baseline) * 1);
-	color: var(--color-text-maxcontrast);
+	margin-top: var(--ids-space-1);
 	font-size: 0.9em;
 	font-weight: normal;
 }
 
 .never {
+	composes: muted from '../../styles/shared.module.css';
 	display: inline-flex;
 	align-items: center;
-	gap: calc(var(--default-grid-baseline) * 1.5);
+	gap: var(--ids-space-1-5);
 	min-height: var(--default-clickable-area);
-	color: var(--color-text-maxcontrast);
 	font-size: 0.9em;
 }
 
@@ -206,7 +206,7 @@ function setKnownDevice(policy: ConfirmationPolicy, on: boolean) {
 }
 
 .effect {
-	margin: calc(var(--default-grid-baseline) * 1.5) 0 0;
+	margin: var(--ids-space-1-5) 0 0;
 	color: var(--color-text-maxcontrast);
 	font-size: 0.9em;
 }
@@ -235,7 +235,7 @@ function setKnownDevice(policy: ConfirmationPolicy, on: boolean) {
 	}
 
 	.table tr {
-		padding-block: calc(var(--default-grid-baseline) * 3);
+		padding-block: var(--ids-space-3);
 		border-bottom: 1px solid var(--color-border);
 	}
 
@@ -245,14 +245,14 @@ function setKnownDevice(policy: ConfirmationPolicy, on: boolean) {
 
 	.table th,
 	.table td {
-		padding: calc(var(--default-grid-baseline) * 1) 0;
+		padding: var(--ids-space-1) 0;
 		border: none !important;
 	}
 
 	.table td[data-label]::before {
 		content: attr(data-label);
 		display: block;
-		margin-bottom: calc(var(--default-grid-baseline) * 1);
+		margin-bottom: var(--ids-space-1);
 		color: var(--color-text-maxcontrast);
 		font-size: 0.8em;
 		font-weight: 700;

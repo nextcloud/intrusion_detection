@@ -208,21 +208,21 @@ function save(key: string, change: { add?: string[], remove?: string[], builtinE
 .columns {
 	display: grid;
 	grid-template-columns: repeat(auto-fit, minmax(min(100%, 420px), 1fr));
-	gap: calc(var(--default-grid-baseline) * 6);
+	gap: var(--ids-space-6);
 	align-items: start;
 }
 
 .column {
 	display: flex;
 	flex-direction: column;
-	gap: calc(var(--default-grid-baseline) * 4);
+	gap: var(--ids-space-4);
 	min-width: 0;
 }
 
 .switches {
 	display: flex;
 	flex-direction: column;
-	gap: calc(var(--default-grid-baseline) * 3);
+	gap: var(--ids-space-3);
 }
 
 .builtin {
@@ -233,7 +233,7 @@ function save(key: string, change: { add?: string[], remove?: string[], builtinE
 .builtin__list {
 	display: grid;
 	grid-template-columns: repeat(auto-fill, minmax(min(100%, 340px), 1fr));
-	gap: 0 calc(var(--default-grid-baseline) * 5);
+	gap: 0 var(--ids-space-5);
 	margin: 0;
 	padding: 0;
 }
@@ -241,8 +241,8 @@ function save(key: string, change: { add?: string[], remove?: string[], builtinE
 .builtin__item {
 	display: grid;
 	grid-template-columns: minmax(0, 9em) minmax(0, 1fr);
-	gap: calc(var(--default-grid-baseline) * 3);
-	padding-block: calc(var(--default-grid-baseline) * 2);
+	gap: var(--ids-space-3);
+	padding-block: var(--ids-space-2);
 	border-top: 1px solid var(--color-border);
 }
 
@@ -267,13 +267,13 @@ function save(key: string, change: { add?: string[], remove?: string[], builtinE
 .custom {
 	display: flex;
 	flex-direction: column;
-	gap: calc(var(--default-grid-baseline) * 3);
-	padding-top: calc(var(--default-grid-baseline) * 4);
+	gap: var(--ids-space-3);
+	padding-top: var(--ids-space-4);
 	border-top: 1px solid var(--color-border);
 }
 
 .snippets {
-	gap: calc(var(--default-grid-baseline) * 3);
+	gap: var(--ids-space-3);
 }
 
 .subheading {
@@ -289,17 +289,17 @@ function save(key: string, change: { add?: string[], remove?: string[], builtinE
 }
 
 .hint {
+	composes: muted from '../../styles/shared.module.css';
 	display: flex;
-	gap: calc(var(--default-grid-baseline) * 2);
+	gap: var(--ids-space-2);
 	margin: 0;
-	color: var(--color-text-maxcontrast);
 	font-size: 0.9em;
 }
 
 @media (max-width: 600px) {
 	.builtin__item {
 		grid-template-columns: minmax(0, 1fr);
-		gap: calc(var(--default-grid-baseline) * 1);
+		gap: var(--ids-space-1);
 	}
 }
 </style>

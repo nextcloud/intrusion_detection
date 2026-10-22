@@ -49,18 +49,18 @@ const checklistUrl = generateUrl('/apps/intrusion_detection/secure-account')
 .progress {
 	display: flex;
 	flex-direction: column;
-	gap: var(--default-grid-baseline);
-	margin-block-end: calc(var(--default-grid-baseline) * 3);
+	gap: var(--ids-space-1);
+	margin-block-end: var(--ids-space-3);
 }
 
 .progress__bar {
 	width: 100%;
-	height: calc(var(--default-grid-baseline) * 2);
+	height: var(--ids-space-2);
 	accent-color: var(--color-primary-element);
 }
 
 .progress__text {
+	composes: muted from '../../styles/shared.module.css';
 	margin: 0;
-	color: var(--color-text-maxcontrast);
 }
 </style>

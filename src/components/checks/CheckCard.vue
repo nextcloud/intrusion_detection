@@ -384,35 +384,35 @@ function sameList(a: string[], b: string[]): boolean {
 <style module>
 .card {
 	min-width: 0;
-	padding-top: calc(var(--default-grid-baseline) * 4);
+	padding-top: var(--ids-space-4);
 	border-top: 1px solid var(--color-border);
 }
 
 .card__inner {
 	display: flex;
 	flex-direction: column;
-	gap: calc(var(--default-grid-baseline) * 4);
+	gap: var(--ids-space-4);
 	min-width: 0;
 }
 
 .card__body {
 	display: grid;
 	grid-template-columns: minmax(0, 3fr) minmax(280px, 2fr);
-	gap: calc(var(--default-grid-baseline) * 6);
-	padding-top: calc(var(--default-grid-baseline) * 2);
+	gap: var(--ids-space-6);
+	padding-top: var(--ids-space-2);
 }
 
 .card__explain {
 	display: flex;
 	flex-direction: column;
-	gap: calc(var(--default-grid-baseline) * 4);
+	gap: var(--ids-space-4);
 	min-width: 0;
 }
 
 .card__facts {
 	display: grid;
 	grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-	gap: calc(var(--default-grid-baseline) * 4);
+	gap: var(--ids-space-4);
 }
 
 .section p {
@@ -421,26 +421,22 @@ function sameList(a: string[], b: string[]): boolean {
 }
 
 .section__heading {
-	margin: 0 0 calc(var(--default-grid-baseline) * 1);
-	color: var(--color-text-maxcontrast);
-	font-size: 0.8em;
-	font-weight: 700;
-	letter-spacing: 0.06em;
-	text-transform: uppercase;
+	composes: eyebrow from '../../styles/shared.module.css';
+	margin: 0 0 var(--ids-space-1);
 }
 
 .section__list {
 	display: flex;
 	flex-direction: column;
-	gap: calc(var(--default-grid-baseline) * 1.5);
+	gap: var(--ids-space-1-5);
 	margin: 0;
-	padding-inline-start: calc(var(--default-grid-baseline) * 5);
+	padding-inline-start: var(--ids-space-5);
 	list-style: disc;
 	line-height: 1.6;
 }
 
 .section__warning {
-	margin-top: calc(var(--default-grid-baseline) * 1) !important;
+	margin-top: var(--ids-space-1) !important;
 	color: var(--color-warning-text);
 	font-weight: 600;
 }
@@ -448,9 +444,9 @@ function sameList(a: string[], b: string[]): boolean {
 .card__configure {
 	display: flex;
 	flex-direction: column;
-	gap: calc(var(--default-grid-baseline) * 5);
+	gap: var(--ids-space-5);
 	align-self: start;
-	padding: calc(var(--default-grid-baseline) * 4);
+	padding: var(--ids-space-4);
 	border-radius: var(--border-radius-large);
 	background-color: var(--color-background-hover);
 }
@@ -458,7 +454,7 @@ function sameList(a: string[], b: string[]): boolean {
 .fieldset {
 	display: flex;
 	flex-direction: column;
-	gap: calc(var(--default-grid-baseline) * 3);
+	gap: var(--ids-space-3);
 	min-width: 0;
 	margin: 0;
 	padding: 0;
@@ -466,7 +462,7 @@ function sameList(a: string[], b: string[]): boolean {
 }
 
 .fieldset__legend {
-	margin-bottom: calc(var(--default-grid-baseline) * 2);
+	margin-bottom: var(--ids-space-2);
 	padding: 0;
 	font-size: 1em;
 	font-weight: 700;
@@ -475,14 +471,14 @@ function sameList(a: string[], b: string[]): boolean {
 .card__save {
 	display: flex;
 	flex-wrap: wrap;
-	gap: calc(var(--default-grid-baseline) * 2);
+	gap: var(--ids-space-2);
 }
 
 .card__footer {
 	display: flex;
 	flex-wrap: wrap;
-	gap: calc(var(--default-grid-baseline) * 2);
-	padding-top: calc(var(--default-grid-baseline) * 3);
+	gap: var(--ids-space-2);
+	padding-top: var(--ids-space-3);
 	border-top: 1px solid var(--color-border);
 }
 

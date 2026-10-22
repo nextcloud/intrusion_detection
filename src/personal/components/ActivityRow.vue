@@ -115,25 +115,25 @@ const answer = computed(() => {
 .row {
 	display: flex;
 	align-items: flex-start;
-	gap: calc(var(--default-grid-baseline) * 3);
-	padding-block: calc(var(--default-grid-baseline) * 2.5);
+	gap: var(--ids-space-3);
+	padding-block: var(--ids-space-2-5);
 }
 
 .row__icon {
+	composes: muted from '../../styles/shared.module.css';
 	display: inline-flex;
 	flex: 0 0 auto;
 	align-items: center;
 	justify-content: center;
 	width: 32px;
 	height: 32px;
-	color: var(--color-text-maxcontrast);
 }
 
 .row__main {
 	display: flex;
 	flex: 1 1 auto;
 	flex-direction: column;
-	gap: calc(var(--default-grid-baseline) * 0.5);
+	gap: var(--ids-space-half);
 	min-width: 0;
 }
 
@@ -141,7 +141,7 @@ const answer = computed(() => {
 	display: flex;
 	flex-wrap: wrap;
 	align-items: center;
-	gap: var(--default-grid-baseline) calc(var(--default-grid-baseline) * 2);
+	gap: var(--ids-space-1) var(--ids-space-2);
 	margin: 0;
 	line-height: 1.5;
 }
@@ -160,7 +160,7 @@ const answer = computed(() => {
 	display: flex;
 	flex-wrap: wrap;
 	align-items: baseline;
-	column-gap: calc(var(--default-grid-baseline) * 1.5);
+	column-gap: var(--ids-space-1-5);
 }
 
 .row__meta,
@@ -183,6 +183,6 @@ const answer = computed(() => {
 
 .row__part::before {
 	content: '·';
-	margin-inline-end: calc(var(--default-grid-baseline) * 1.5);
+	margin-inline-end: var(--ids-space-1-5);
 }
 </style>

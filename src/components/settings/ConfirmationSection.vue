@@ -271,19 +271,19 @@ async function showReasons() {
 .stack {
 	display: flex;
 	flex-direction: column;
-	gap: calc(var(--default-grid-baseline) * 5);
+	gap: var(--ids-space-5);
 }
 
 .skeleton {
 	display: flex;
 	flex-direction: column;
-	gap: calc(var(--default-grid-baseline) * 3);
+	gap: var(--ids-space-3);
 }
 
 .choice {
 	display: flex;
 	flex-direction: column;
-	gap: calc(var(--default-grid-baseline) * 1);
+	gap: var(--ids-space-1);
 	margin: 0;
 	padding: 0;
 	border: none;
@@ -293,31 +293,31 @@ async function showReasons() {
 	display: flex;
 	flex-wrap: wrap;
 	align-items: center;
-	gap: calc(var(--default-grid-baseline) * 2);
+	gap: var(--ids-space-2);
 	margin: 0;
-	padding: calc(var(--default-grid-baseline) * 2) calc(var(--default-grid-baseline) * 3);
+	padding: var(--ids-space-2) var(--ids-space-3);
 	border-radius: var(--border-radius-element);
 	background-color: var(--color-background-hover);
 	font-weight: 600;
 }
 
 .muted {
+	composes: muted from '../../styles/shared.module.css';
 	margin: 0;
-	color: var(--color-text-maxcontrast);
 }
 
 .switches {
 	display: flex;
 	flex-direction: column;
-	gap: calc(var(--default-grid-baseline) * 2);
-	padding-top: calc(var(--default-grid-baseline) * 4);
+	gap: var(--ids-space-2);
+	padding-top: var(--ids-space-4);
 	border-top: 1px solid var(--color-border);
 }
 
 .columns {
 	display: grid;
 	grid-template-columns: repeat(auto-fit, minmax(min(100%, 380px), 1fr));
-	gap: calc(var(--default-grid-baseline) * 5);
+	gap: var(--ids-space-5);
 	align-items: start;
 }
 
@@ -329,7 +329,7 @@ async function showReasons() {
 .networks {
 	display: flex;
 	flex-direction: column;
-	gap: calc(var(--default-grid-baseline) * 2);
-	padding-inline-start: calc(var(--default-grid-baseline) * 4);
+	gap: var(--ids-space-2);
+	padding-inline-start: var(--ids-space-4);
 }
 </style>

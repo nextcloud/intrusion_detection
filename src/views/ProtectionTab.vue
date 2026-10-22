@@ -71,32 +71,28 @@ watch(openCheckId, async (checkId) => {
 .protection {
 	display: flex;
 	flex-direction: column;
-	gap: calc(var(--default-grid-baseline) * 5);
+	gap: var(--ids-space-5);
 }
 
 .card {
+	composes: card from '../styles/shared.module.css';
 	min-width: 0;
-	padding: calc(var(--default-grid-baseline) * 5);
-	border: 1px solid var(--color-border);
-	border-radius: var(--border-radius-large);
-	background-color: var(--color-main-background);
+	padding: var(--ids-space-5);
 }
 
 .group__heading {
-	margin: 0 0 calc(var(--default-grid-baseline) * 1);
+	margin: 0 0 var(--ids-space-1);
 	font-size: 1.15em;
 	font-weight: 700;
 }
 
 .group__list {
-	margin: 0;
-	padding: 0;
-	list-style: none;
+	composes: plainList from '../styles/shared.module.css';
 }
 
 @media (max-width: 600px) {
 	.card {
-		padding: calc(var(--default-grid-baseline) * 3) calc(var(--default-grid-baseline) * 4);
+		padding: var(--ids-space-3) var(--ids-space-4);
 	}
 }
 </style>

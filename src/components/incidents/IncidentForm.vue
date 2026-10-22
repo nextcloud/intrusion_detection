@@ -266,15 +266,15 @@ if (props.initial) {
 .form {
 	display: flex;
 	flex-direction: column;
-	gap: calc(var(--default-grid-baseline) * 5);
-	padding-block-end: calc(var(--default-grid-baseline) * 3);
+	gap: var(--ids-space-5);
+	padding-block-end: var(--ids-space-3);
 }
 
 .form__row {
 	display: flex;
 	flex-wrap: wrap;
 	align-items: flex-end;
-	gap: calc(var(--default-grid-baseline) * 3) calc(var(--default-grid-baseline) * 5);
+	gap: var(--ids-space-3) var(--ids-space-5);
 }
 
 .form__choice {
@@ -297,7 +297,7 @@ if (props.initial) {
 .form__dates {
 	display: flex;
 	flex-wrap: wrap;
-	gap: calc(var(--default-grid-baseline) * 3);
+	gap: var(--ids-space-3);
 }
 
 .form__date {
@@ -315,12 +315,12 @@ if (props.initial) {
 	display: flex;
 	flex-wrap: wrap;
 	align-items: center;
-	gap: calc(var(--default-grid-baseline) * 3);
+	gap: var(--ids-space-3);
 }
 
 .form__hint {
+	composes: muted from '../../styles/shared.module.css';
 	margin: 0;
-	color: var(--color-text-maxcontrast);
 	font-size: 0.9em;
 }
 

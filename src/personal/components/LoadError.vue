@@ -41,7 +41,7 @@ defineEmits<{
 	flex-wrap: wrap;
 	align-items: center;
 	justify-content: space-between;
-	gap: calc(var(--default-grid-baseline) * 2);
+	gap: var(--ids-space-2);
 }
 
 .error p {

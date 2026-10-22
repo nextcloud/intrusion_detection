@@ -211,7 +211,7 @@ const pinned = computed(() => openDetectionId.value !== null && !detections.valu
 .detections {
 	display: flex;
 	flex-direction: column;
-	gap: calc(var(--default-grid-baseline) * 4);
+	gap: var(--ids-space-4);
 }
 
 .detections__head {
@@ -219,7 +219,7 @@ const pinned = computed(() => openDetectionId.value !== null && !detections.valu
 	flex-wrap: wrap;
 	align-items: baseline;
 	justify-content: space-between;
-	gap: calc(var(--default-grid-baseline) * 2);
+	gap: var(--ids-space-2);
 }
 
 .detections__heading {
@@ -229,7 +229,7 @@ const pinned = computed(() => openDetectionId.value !== null && !detections.valu
 }
 
 .detections__count {
-	color: var(--color-text-maxcontrast);
+	composes: muted from '../../styles/shared.module.css';
 	font-size: 0.9em;
 }
 
@@ -237,7 +237,7 @@ const pinned = computed(() => openDetectionId.value !== null && !detections.valu
 	display: grid;
 	grid-template-columns: repeat(auto-fill, minmax(min(100%, 170px), 1fr));
 	align-items: start;
-	gap: calc(var(--default-grid-baseline) * 3);
+	gap: var(--ids-space-3);
 }
 
 .filters .filter {
@@ -248,7 +248,7 @@ const pinned = computed(() => openDetectionId.value !== null && !detections.valu
 .filter_text {
 	display: flex;
 	flex-direction: column;
-	gap: calc(var(--default-grid-baseline) * 1);
+	gap: var(--ids-space-1);
 }
 
 .filter_text label {
@@ -266,9 +266,7 @@ const pinned = computed(() => openDetectionId.value !== null && !detections.valu
 }
 
 .detections__list {
-	margin: 0;
-	padding: 0;
-	list-style: none;
+	composes: plainList from '../../styles/shared.module.css';
 }
 
 .detections__list_pinned {
@@ -279,7 +277,7 @@ const pinned = computed(() => openDetectionId.value !== null && !detections.valu
 .detections__skeleton {
 	display: flex;
 	flex-direction: column;
-	gap: calc(var(--default-grid-baseline) * 2);
+	gap: var(--ids-space-2);
 }
 
 .detections__more {

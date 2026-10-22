@@ -116,10 +116,10 @@ const effectiveNote = computed(() => {
 .row {
 	display: flex;
 	flex-direction: column;
-	gap: calc(var(--default-grid-baseline) * 3);
-	padding-block: calc(var(--default-grid-baseline) * 4);
+	gap: var(--ids-space-3);
+	padding-block: var(--ids-space-4);
 	border-bottom: 1px solid var(--color-border);
-	scroll-margin-top: calc(var(--default-grid-baseline) * 4);
+	scroll-margin-top: var(--ids-space-4);
 }
 
 .row:last-child {
@@ -131,7 +131,7 @@ const effectiveNote = computed(() => {
 	flex-wrap: wrap;
 	align-items: center;
 	justify-content: space-between;
-	gap: calc(var(--default-grid-baseline) * 3);
+	gap: var(--ids-space-3);
 }
 
 .row__text {
@@ -150,17 +150,17 @@ const effectiveNote = computed(() => {
 }
 
 .row__summary {
-	margin: calc(var(--default-grid-baseline) / 2) 0 0;
-	color: var(--color-text-maxcontrast);
+	composes: muted from '../../styles/shared.module.css';
+	margin: var(--ids-space-half) 0 0;
 	line-height: 1.45;
 }
 
 .row__meta {
+	composes: muted from '../../styles/shared.module.css';
 	display: flex;
 	flex-wrap: wrap;
-	gap: 0 calc(var(--default-grid-baseline) * 3);
-	margin: calc(var(--default-grid-baseline) * 1) 0 0;
-	color: var(--color-text-maxcontrast);
+	gap: 0 var(--ids-space-3);
+	margin: var(--ids-space-1) 0 0;
 	font-size: 0.9em;
 }
 
@@ -172,7 +172,7 @@ const effectiveNote = computed(() => {
 .row__note {
 	display: inline-flex;
 	align-items: center;
-	gap: calc(var(--default-grid-baseline) * 1);
+	gap: var(--ids-space-1);
 	color: var(--color-warning-text);
 	font-weight: 600;
 }
@@ -181,16 +181,16 @@ const effectiveNote = computed(() => {
 	display: flex;
 	flex-wrap: wrap;
 	align-items: center;
-	gap: calc(var(--default-grid-baseline) * 2);
+	gap: var(--ids-space-2);
 }
 
 .row__controls button.row__customise {
 	display: inline-flex;
 	align-items: center;
-	gap: calc(var(--default-grid-baseline) * 1);
+	gap: var(--ids-space-1);
 	min-height: var(--default-clickable-area);
 	margin: 0;
-	padding-inline: calc(var(--default-grid-baseline) * 3) calc(var(--default-grid-baseline) * 2);
+	padding-inline: var(--ids-space-3) var(--ids-space-2);
 	border: none;
 	border-radius: var(--border-radius-element);
 	background: transparent;
@@ -204,7 +204,7 @@ const effectiveNote = computed(() => {
 }
 
 .row__controls button.row__customise:focus-visible {
-	outline: 2px solid var(--color-main-text);
+	outline: var(--ids-focus-ring);
 	outline-offset: 2px;
 }
 

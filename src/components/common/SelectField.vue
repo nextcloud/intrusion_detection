@@ -57,7 +57,7 @@ const selected = computed<SelectOption<T> | null>({
 .select {
 	display: flex;
 	flex-direction: column;
-	gap: calc(var(--default-grid-baseline) * 1);
+	gap: var(--ids-space-1);
 	min-width: 0;
 }
 

@@ -36,9 +36,9 @@ const label = computed(() => ({
 	--pill-tint: var(--color-text-maxcontrast);
 	display: inline-flex;
 	align-items: center;
-	gap: calc(var(--default-grid-baseline) * 1.5);
-	padding-block: calc(var(--default-grid-baseline) / 2);
-	padding-inline: calc(var(--default-grid-baseline) * 2);
+	gap: var(--ids-space-1-5);
+	padding-block: var(--ids-space-half);
+	padding-inline: var(--ids-space-2);
 	border: 1px solid color-mix(in srgb, var(--pill-tint) 40%, var(--color-main-background));
 	border-radius: var(--border-radius-pill, 100px);
 	background-color: color-mix(in srgb, var(--pill-tint) 16%, var(--color-main-background));

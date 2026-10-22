@@ -58,19 +58,19 @@ const note = computed(() => [
 }
 
 .manage__label {
-	padding-block-start: var(--default-grid-baseline);
+	padding-block-start: var(--ids-space-1);
 }
 
 .manage__note {
-	padding-block-end: var(--default-grid-baseline);
-	color: var(--color-text-maxcontrast);
+	composes: muted from '../../styles/shared.module.css';
+	padding-block-end: var(--ids-space-1);
 	font-weight: normal;
 }
 
 .manage__parts {
 	display: flex;
 	flex-direction: column;
-	gap: calc(var(--default-grid-baseline) * 6);
-	padding-block-start: calc(var(--default-grid-baseline) * 2);
+	gap: var(--ids-space-6);
+	padding-block-start: var(--ids-space-2);
 }
 </style>

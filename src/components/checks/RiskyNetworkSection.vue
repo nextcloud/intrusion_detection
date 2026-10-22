@@ -51,7 +51,7 @@ const settings = computed(() => state.settings.filter((s) => s.group === 'risky_
 .section {
 	display: flex;
 	flex-direction: column;
-	gap: calc(var(--default-grid-baseline) * 3);
+	gap: var(--ids-space-3);
 	min-width: 0;
 	margin: 0;
 	padding: 0;
@@ -59,14 +59,14 @@ const settings = computed(() => state.settings.filter((s) => s.group === 'risky_
 }
 
 .section__legend {
-	margin-bottom: calc(var(--default-grid-baseline) * 2);
+	margin-bottom: var(--ids-space-2);
 	padding: 0;
 	font-weight: 700;
 }
 
 .section__text {
+	composes: muted from '../../styles/shared.module.css';
 	margin: 0;
-	color: var(--color-text-maxcontrast);
 	line-height: 1.5;
 }
 </style>

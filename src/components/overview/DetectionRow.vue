@@ -103,11 +103,11 @@ const shown = computed(() => props.detection ?? detail.value?.detection ?? null)
 	grid-template-columns: 6em minmax(0, 1fr) 7.5em 7em 20px;
 	grid-template-areas: "severity main outcome time chevron";
 	align-items: center;
-	gap: calc(var(--default-grid-baseline) * 3);
+	gap: var(--ids-space-3);
 	width: 100%;
 	min-height: 56px;
 	margin: 0;
-	padding: calc(var(--default-grid-baseline) * 2) calc(var(--default-grid-baseline) * 3);
+	padding: var(--ids-space-2) var(--ids-space-3);
 	border: none;
 	border-radius: var(--border-radius-element);
 	background: transparent;
@@ -122,7 +122,7 @@ const shown = computed(() => props.detection ?? detail.value?.detection ?? null)
 }
 
 .row button.row__summary:focus-visible {
-	outline: 2px solid var(--color-main-text);
+	outline: var(--ids-focus-ring);
 	outline-offset: -2px;
 }
 
@@ -144,10 +144,10 @@ const shown = computed(() => props.detection ?? detail.value?.detection ?? null)
 }
 
 .row__facts {
+	composes: muted from '../../styles/shared.module.css';
 	display: flex;
 	flex-wrap: wrap;
-	gap: 0 calc(var(--default-grid-baseline) * 3);
-	color: var(--color-text-maxcontrast);
+	gap: 0 var(--ids-space-3);
 	font-size: 0.9em;
 }
 
@@ -179,14 +179,14 @@ const shown = computed(() => props.detection ?? detail.value?.detection ?? null)
 }
 
 .row__detail {
-	padding: calc(var(--default-grid-baseline) * 2) calc(var(--default-grid-baseline) * 4) calc(var(--default-grid-baseline) * 5);
+	padding: var(--ids-space-2) var(--ids-space-4) var(--ids-space-5);
 	animation: row-reveal 180ms ease;
 }
 
 .row__skeleton {
 	display: flex;
 	flex-direction: column;
-	gap: calc(var(--default-grid-baseline) * 3);
+	gap: var(--ids-space-3);
 }
 
 @keyframes row-reveal {
@@ -202,7 +202,7 @@ const shown = computed(() => props.detection ?? detail.value?.detection ?? null)
 		grid-template-areas:
 			"severity time outcome chevron"
 			"main main main main";
-		gap: calc(var(--default-grid-baseline) * 1) calc(var(--default-grid-baseline) * 2);
+		gap: var(--ids-space-1) var(--ids-space-2);
 	}
 
 	.row .row__time {
@@ -210,7 +210,7 @@ const shown = computed(() => props.detection ?? detail.value?.detection ?? null)
 	}
 
 	.row__detail {
-		padding-inline: calc(var(--default-grid-baseline) * 2);
+		padding-inline: var(--ids-space-2);
 	}
 }
 

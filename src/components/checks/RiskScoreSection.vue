@@ -45,8 +45,8 @@ const enabled = computed(() => state.settings.find((s) => s.name === 'risk_enabl
 
 <style module>
 .explanation {
+	composes: muted from '../../styles/shared.module.css';
 	margin: 0;
-	color: var(--color-text-maxcontrast);
 	line-height: 1.5;
 }
 </style>

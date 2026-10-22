@@ -482,26 +482,26 @@ const dismissButtons = computed(() => [
 .page {
 	display: flex;
 	flex-direction: column;
-	gap: calc(var(--default-grid-baseline) * 4);
+	gap: var(--ids-space-4);
 	box-sizing: border-box;
 	width: 100%;
 	max-width: 880px;
 	margin: 0 auto;
-	padding: calc(var(--default-grid-baseline) * 8) calc(var(--default-grid-baseline) * 4);
+	padding: var(--ids-space-8) var(--ids-space-4);
 }
 
 .page__skeleton {
 	display: flex;
 	flex-direction: column;
-	gap: calc(var(--default-grid-baseline) * 3);
+	gap: var(--ids-space-3);
 }
 
 .hero {
 	display: flex;
 	flex-wrap: wrap;
 	align-items: flex-start;
-	gap: calc(var(--default-grid-baseline) * 5);
-	padding: calc(var(--default-grid-baseline) * 6);
+	gap: var(--ids-space-5);
+	padding: var(--ids-space-6);
 	border: 1px solid var(--color-border);
 	border-radius: var(--border-radius-container, var(--border-radius-large));
 	background-color: color-mix(in srgb, var(--color-primary-element) 8%, var(--color-main-background));
@@ -531,7 +531,7 @@ const dismissButtons = computed(() => [
 	display: flex;
 	flex: 1 1 320px;
 	flex-direction: column;
-	gap: calc(var(--default-grid-baseline) * 2);
+	gap: var(--ids-space-2);
 	min-width: 0;
 }
 
@@ -550,9 +550,9 @@ const dismissButtons = computed(() => [
 .hero__progress {
 	display: flex;
 	flex-direction: column;
-	gap: calc(var(--default-grid-baseline) * 1.5);
+	gap: var(--ids-space-1-5);
 	max-width: 420px;
-	margin-block-start: calc(var(--default-grid-baseline) * 2);
+	margin-block-start: var(--ids-space-2);
 }
 
 .hero__count {
@@ -561,7 +561,7 @@ const dismissButtons = computed(() => [
 
 .hero__bar {
 	display: flex;
-	gap: calc(var(--default-grid-baseline) * 1);
+	gap: var(--ids-space-1);
 }
 
 .hero__segment {
@@ -581,12 +581,10 @@ const dismissButtons = computed(() => [
 }
 
 .steps {
+	composes: plainList from '../styles/shared.module.css';
 	display: flex;
 	flex-direction: column;
-	gap: calc(var(--default-grid-baseline) * 3);
-	margin: 0;
-	padding: 0;
-	list-style: none;
+	gap: var(--ids-space-3);
 }
 
 .text {
@@ -595,7 +593,7 @@ const dismissButtons = computed(() => [
 }
 
 .subheading {
-	margin: calc(var(--default-grid-baseline) * 2) 0 0;
+	margin: var(--ids-space-2) 0 0;
 	font-size: 1em;
 	font-weight: 600;
 }
@@ -603,26 +601,24 @@ const dismissButtons = computed(() => [
 .form {
 	display: flex;
 	flex-direction: column;
-	gap: calc(var(--default-grid-baseline) * 3);
+	gap: var(--ids-space-3);
 	max-width: 420px;
 }
 
 .list {
+	composes: plainList from '../styles/shared.module.css';
 	display: flex;
 	flex-direction: column;
-	margin: 0;
-	padding: 0;
 	border: 1px solid var(--color-border);
 	border-radius: var(--border-radius-element);
-	list-style: none;
 }
 
 .row {
 	display: flex;
 	flex-wrap: wrap;
 	align-items: center;
-	gap: calc(var(--default-grid-baseline) * 2) calc(var(--default-grid-baseline) * 3);
-	padding: calc(var(--default-grid-baseline) * 2) calc(var(--default-grid-baseline) * 3);
+	gap: var(--ids-space-2) var(--ids-space-3);
+	padding: var(--ids-space-2) var(--ids-space-3);
 	border-bottom: 1px solid var(--color-border);
 }
 
@@ -647,15 +643,15 @@ const dismissButtons = computed(() => [
 }
 
 .row__meta {
+	composes: muted from '../styles/shared.module.css';
 	display: flex;
 	flex-wrap: wrap;
-	gap: 0 calc(var(--default-grid-baseline) * 3);
-	color: var(--color-text-maxcontrast);
+	gap: 0 var(--ids-space-3);
 	font-size: 0.9em;
 }
 
 .badge {
-	padding-inline: calc(var(--default-grid-baseline) * 2);
+	padding-inline: var(--ids-space-2);
 	border-radius: var(--border-radius-element);
 	font-size: 0.85em;
 	font-weight: 600;
@@ -677,26 +673,26 @@ const dismissButtons = computed(() => [
 .confirm {
 	display: flex;
 	flex-wrap: wrap;
-	gap: calc(var(--default-grid-baseline) * 2);
+	gap: var(--ids-space-2);
 }
 
 .footer {
+	composes: muted from '../styles/shared.module.css';
 	display: flex;
 	flex-wrap: wrap;
 	align-items: center;
 	justify-content: space-between;
-	gap: calc(var(--default-grid-baseline) * 3);
-	padding: 0 calc(var(--default-grid-baseline) * 2);
-	color: var(--color-text-maxcontrast);
+	gap: var(--ids-space-3);
+	padding: 0 var(--ids-space-2);
 }
 
 @media (max-width: 600px) {
 	.page {
-		padding: calc(var(--default-grid-baseline) * 4);
+		padding: var(--ids-space-4);
 	}
 
 	.hero {
-		padding: calc(var(--default-grid-baseline) * 4);
+		padding: var(--ids-space-4);
 	}
 }
 </style>

@@ -88,26 +88,22 @@ function signed(points: number): string {
 .risk {
 	display: flex;
 	flex-direction: column;
-	gap: calc(var(--default-grid-baseline) * 2.5);
+	gap: var(--ids-space-2-5);
 	max-width: 520px;
-	padding: calc(var(--default-grid-baseline) * 4);
+	padding: var(--ids-space-4);
 	border: 1px solid var(--color-border);
 	border-radius: var(--border-radius-large);
 }
 
 .risk__heading {
+	composes: eyebrow from '../../styles/shared.module.css';
 	margin: 0;
-	color: var(--color-text-maxcontrast);
-	font-size: 0.8em;
-	font-weight: 700;
-	letter-spacing: 0.06em;
-	text-transform: uppercase;
 }
 
 .risk__summary {
 	display: flex;
 	align-items: center;
-	gap: calc(var(--default-grid-baseline) * 4);
+	gap: var(--ids-space-4);
 }
 
 .risk__score {
@@ -138,7 +134,7 @@ function signed(points: number): string {
 	display: flex;
 	flex: 1 1 auto;
 	flex-direction: column;
-	gap: calc(var(--default-grid-baseline) * 2);
+	gap: var(--ids-space-2);
 	min-width: 0;
 }
 
@@ -146,9 +142,9 @@ function signed(points: number): string {
 	display: inline-flex;
 	align-self: flex-start;
 	align-items: center;
-	gap: calc(var(--default-grid-baseline) * 1.5);
-	padding-block: calc(var(--default-grid-baseline) / 2);
-	padding-inline: calc(var(--default-grid-baseline) * 2);
+	gap: var(--ids-space-1-5);
+	padding-block: var(--ids-space-half);
+	padding-inline: var(--ids-space-2);
 	border-radius: var(--border-radius-pill, 100px);
 	background-color: var(--color-background-dark);
 	color: var(--color-text-maxcontrast);
@@ -214,7 +210,7 @@ function signed(points: number): string {
 .risk__limits {
 	display: flex;
 	flex-direction: column;
-	gap: calc(var(--default-grid-baseline) * 1.5);
+	gap: var(--ids-space-1-5);
 	margin: 0;
 	padding: 0;
 	list-style: none;
@@ -224,8 +220,8 @@ function signed(points: number): string {
 	display: flex;
 	align-items: baseline;
 	justify-content: space-between;
-	gap: calc(var(--default-grid-baseline) * 3);
-	padding-block-end: calc(var(--default-grid-baseline) * 1.5);
+	gap: var(--ids-space-3);
+	padding-block-end: var(--ids-space-1-5);
 	border-bottom: 1px solid var(--color-border);
 	overflow-wrap: anywhere;
 }
@@ -237,7 +233,7 @@ function signed(points: number): string {
 
 .risk__points {
 	flex: 0 0 auto;
-	padding-inline: calc(var(--default-grid-baseline) * 2);
+	padding-inline: var(--ids-space-2);
 	border-radius: var(--border-radius-pill, 100px);
 	background-color: color-mix(in srgb, var(--color-warning) 16%, var(--color-main-background));
 	color: var(--color-warning-text);
@@ -253,12 +249,12 @@ function signed(points: number): string {
 .risk__lowered {
 	display: flex;
 	flex-direction: column;
-	gap: calc(var(--default-grid-baseline) * 1.5);
+	gap: var(--ids-space-1-5);
 }
 
 .risk__muted {
+	composes: muted from '../../styles/shared.module.css';
 	margin: 0;
-	color: var(--color-text-maxcontrast);
 }
 
 .risk__instead {

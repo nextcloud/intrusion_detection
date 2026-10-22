@@ -122,24 +122,22 @@ watch(openDetectionId, async (id) => {
 .overview {
 	display: flex;
 	flex-direction: column;
-	gap: calc(var(--default-grid-baseline) * 5);
+	gap: var(--ids-space-5);
 }
 
 .overview__main {
 	display: flex;
 	flex-direction: column;
-	gap: calc(var(--default-grid-baseline) * 5);
+	gap: var(--ids-space-5);
 }
 
 .card {
+	composes: card from '../styles/shared.module.css';
 	display: flex;
 	flex-direction: column;
-	gap: calc(var(--default-grid-baseline) * 4);
+	gap: var(--ids-space-4);
 	min-width: 0;
-	padding: calc(var(--default-grid-baseline) * 5);
-	border: 1px solid var(--color-border);
-	border-radius: var(--border-radius-large);
-	background-color: var(--color-main-background);
+	padding: var(--ids-space-5);
 }
 
 .card__heading {
@@ -151,16 +149,16 @@ watch(openDetectionId, async (id) => {
 .card__skeleton {
 	display: flex;
 	flex-direction: column;
-	gap: calc(var(--default-grid-baseline) * 3);
+	gap: var(--ids-space-3);
 }
 
 .card__empty {
-	margin-block: calc(var(--default-grid-baseline) * 6) !important;
+	margin-block: var(--ids-space-6) !important;
 }
 
 @media (max-width: 600px) {
 	.card {
-		padding: calc(var(--default-grid-baseline) * 3);
+		padding: var(--ids-space-3);
 	}
 }
 </style>

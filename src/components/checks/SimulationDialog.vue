@@ -130,16 +130,16 @@ const buttons = computed(() => [
 .sim {
 	display: flex;
 	flex-direction: column;
-	gap: calc(var(--default-grid-baseline) * 5);
-	padding-bottom: calc(var(--default-grid-baseline) * 2);
+	gap: var(--ids-space-5);
+	padding-bottom: var(--ids-space-2);
 }
 
 .sim__intro {
 	display: flex;
 	align-items: flex-start;
-	gap: calc(var(--default-grid-baseline) * 2);
+	gap: var(--ids-space-2);
 	margin: 0;
-	padding: calc(var(--default-grid-baseline) * 3);
+	padding: var(--ids-space-3);
 	border-radius: var(--border-radius-large);
 	background-color: color-mix(in srgb, var(--color-info) 10%, var(--color-main-background));
 	color: var(--color-main-text);
@@ -154,13 +154,13 @@ const buttons = computed(() => [
 .sim__skeleton {
 	display: flex;
 	flex-direction: column;
-	gap: calc(var(--default-grid-baseline) * 2);
+	gap: var(--ids-space-2);
 }
 
 .sim__section {
 	display: flex;
 	flex-direction: column;
-	gap: calc(var(--default-grid-baseline) * 2);
+	gap: var(--ids-space-2);
 }
 
 .sim__head {
@@ -168,25 +168,21 @@ const buttons = computed(() => [
 	flex-wrap: wrap;
 	align-items: center;
 	justify-content: space-between;
-	gap: calc(var(--default-grid-baseline) * 2);
+	gap: var(--ids-space-2);
 }
 
 .sim__heading {
+	composes: eyebrow from '../../styles/shared.module.css';
 	margin: 0;
-	color: var(--color-text-maxcontrast);
-	font-size: 0.8em;
-	font-weight: 700;
-	letter-spacing: 0.06em;
-	text-transform: uppercase;
 }
 
 .sim__report {
 	display: flex;
 	flex-direction: column;
-	gap: calc(var(--default-grid-baseline) * 2);
+	gap: var(--ids-space-2);
 	margin: 0;
-	padding-block: calc(var(--default-grid-baseline) * 1);
-	padding-inline: calc(var(--default-grid-baseline) * 4) 0;
+	padding-block: var(--ids-space-1);
+	padding-inline: var(--ids-space-4) 0;
 	border-inline-start: 3px solid var(--color-primary-element);
 	line-height: 1.6;
 }
@@ -198,23 +194,21 @@ const buttons = computed(() => [
 }
 
 .sim__note {
-	color: var(--color-text-maxcontrast);
+	composes: muted from '../../styles/shared.module.css';
 }
 
 .sim__steps {
+	composes: plainList from '../../styles/shared.module.css';
 	display: flex;
 	flex-direction: column;
-	gap: calc(var(--default-grid-baseline) * 2);
-	margin: 0;
-	padding: 0;
-	list-style: none;
+	gap: var(--ids-space-2);
 }
 
 .sim__steps li {
 	display: flex;
 	align-items: flex-start;
-	gap: calc(var(--default-grid-baseline) * 2);
-	padding: calc(var(--default-grid-baseline) * 2) calc(var(--default-grid-baseline) * 3);
+	gap: var(--ids-space-2);
+	padding: var(--ids-space-2) var(--ids-space-3);
 	border-radius: var(--border-radius-large);
 	background-color: var(--color-background-hover);
 	line-height: 1.5;

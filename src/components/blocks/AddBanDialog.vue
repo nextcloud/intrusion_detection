@@ -189,8 +189,8 @@ async function submit() {
 .dialog {
 	display: flex;
 	flex-direction: column;
-	gap: calc(var(--default-grid-baseline) * 4);
-	padding-bottom: calc(var(--default-grid-baseline) * 2);
+	gap: var(--ids-space-4);
+	padding-bottom: var(--ids-space-2);
 }
 
 .dialog p {
@@ -201,21 +201,21 @@ async function submit() {
 .dialog__fieldset {
 	display: flex;
 	flex-direction: column;
-	gap: calc(var(--default-grid-baseline) * 2);
+	gap: var(--ids-space-2);
 	margin: 0;
 	padding: 0;
 	border: none;
 }
 
 .dialog__legend {
-	margin-bottom: calc(var(--default-grid-baseline) * 1);
+	margin-bottom: var(--ids-space-1);
 	padding: 0;
 	font-weight: 600;
 }
 
 .dialog__select {
 	max-width: 320px;
-	margin-inline-start: calc(var(--default-grid-baseline) * 9);
+	margin-inline-start: var(--ids-space-9);
 }
 
 .dialog__error {

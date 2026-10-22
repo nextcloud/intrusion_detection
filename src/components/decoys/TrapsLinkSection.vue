@@ -62,7 +62,7 @@ const summary = computed(() => {
 .link {
 	display: flex;
 	flex-direction: column;
-	gap: calc(var(--default-grid-baseline) * 2);
+	gap: var(--ids-space-2);
 	min-width: 0;
 	margin: 0;
 	padding: 0;
@@ -70,7 +70,7 @@ const summary = computed(() => {
 }
 
 .link__legend {
-	margin-bottom: calc(var(--default-grid-baseline) * 2);
+	margin-bottom: var(--ids-space-2);
 	padding: 0;
 	font-weight: 700;
 }

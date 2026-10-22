@@ -90,8 +90,8 @@ function change(change: { add?: string[], remove?: string[] }) {
 
 <style module>
 .note {
+	composes: muted from '../../styles/shared.module.css';
 	margin: 0;
-	color: var(--color-text-maxcontrast);
 	font-size: 0.9em;
 	line-height: 1.5;
 }

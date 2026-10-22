@@ -177,13 +177,13 @@ const activeOutgoing = computed(() => data.value?.outgoing.filter((item) => item
 .stack {
 	display: flex;
 	flex-direction: column;
-	gap: calc(var(--default-grid-baseline) * 5);
+	gap: var(--ids-space-5);
 }
 
 .skeleton {
 	display: flex;
 	flex-direction: column;
-	gap: calc(var(--default-grid-baseline) * 3);
+	gap: var(--ids-space-3);
 }
 
 .tableWrap {
@@ -199,7 +199,7 @@ const activeOutgoing = computed(() => data.value?.outgoing.filter((item) => item
 
 .table th,
 .table td {
-	padding: calc(var(--default-grid-baseline) * 3);
+	padding: var(--ids-space-3);
 	white-space: normal;
 	overflow-wrap: anywhere;
 	border-bottom: 1px solid var(--color-border);
@@ -209,7 +209,7 @@ const activeOutgoing = computed(() => data.value?.outgoing.filter((item) => item
 }
 
 .table thead th {
-	padding-block: calc(var(--default-grid-baseline) * 2);
+	padding-block: var(--ids-space-2);
 	color: var(--color-text-maxcontrast);
 	font-size: 0.85em;
 	font-weight: 600;
@@ -252,9 +252,9 @@ const activeOutgoing = computed(() => data.value?.outgoing.filter((item) => item
 }
 
 .users {
+	composes: muted from '../../styles/shared.module.css';
 	display: block;
-	margin-top: calc(var(--default-grid-baseline) * 1);
-	color: var(--color-text-maxcontrast);
+	margin-top: var(--ids-space-1);
 	font-size: 0.85em;
 	font-weight: normal;
 }
@@ -264,27 +264,25 @@ const activeOutgoing = computed(() => data.value?.outgoing.filter((item) => item
 }
 
 .where {
+	composes: muted from '../../styles/shared.module.css';
 	display: block;
 	overflow-wrap: normal;
-	color: var(--color-text-maxcontrast);
 	font-family: var(--font-face-monospace, ui-monospace, 'SFMono-Regular', Menlo, Consolas, monospace);
 	font-size: 0.85em;
 }
 
 .outgoing {
+	composes: plainList from '../../styles/shared.module.css';
 	display: grid;
 	grid-template-columns: repeat(auto-fit, minmax(min(100%, 340px), 1fr));
-	gap: calc(var(--default-grid-baseline) * 3);
-	margin: 0;
-	padding: 0;
-	list-style: none;
+	gap: var(--ids-space-3);
 }
 
 .outgoing__item {
 	display: flex;
 	flex-direction: column;
-	gap: calc(var(--default-grid-baseline) * 1.5);
-	padding: calc(var(--default-grid-baseline) * 4);
+	gap: var(--ids-space-1-5);
+	padding: var(--ids-space-4);
 	border-radius: var(--border-radius-large);
 	background-color: var(--color-background-hover);
 }
@@ -294,7 +292,7 @@ const activeOutgoing = computed(() => data.value?.outgoing.filter((item) => item
 	flex-wrap: wrap;
 	align-items: center;
 	justify-content: space-between;
-	gap: calc(var(--default-grid-baseline) * 2);
+	gap: var(--ids-space-2);
 }
 
 .outgoing__name {
@@ -310,15 +308,15 @@ const activeOutgoing = computed(() => data.value?.outgoing.filter((item) => item
 }
 
 .outgoing__items {
-	color: var(--color-text-maxcontrast);
+	composes: muted from '../../styles/shared.module.css';
 	font-size: 0.9em;
 }
 
 .gdpr {
 	display: flex;
 	align-items: flex-start;
-	gap: calc(var(--default-grid-baseline) * 4);
-	padding: calc(var(--default-grid-baseline) * 5);
+	gap: var(--ids-space-4);
+	padding: var(--ids-space-5);
 	border: 1px solid color-mix(in srgb, var(--color-info) 30%, var(--color-border));
 	border-radius: var(--border-radius-large);
 	background-color: color-mix(in srgb, var(--color-info) 8%, var(--color-main-background));
@@ -337,13 +335,13 @@ const activeOutgoing = computed(() => data.value?.outgoing.filter((item) => item
 }
 
 .gdpr__heading {
-	margin: 0 0 calc(var(--default-grid-baseline) * 2);
+	margin: 0 0 var(--ids-space-2);
 	font-size: 1.15em;
 	font-weight: 700;
 }
 
 .gdpr__text {
-	margin: 0 0 calc(var(--default-grid-baseline) * 2);
+	margin: 0 0 var(--ids-space-2);
 	max-width: 85ch;
 	line-height: 1.6;
 }
@@ -375,7 +373,7 @@ const activeOutgoing = computed(() => data.value?.outgoing.filter((item) => item
 	}
 
 	.table tr {
-		padding-block: calc(var(--default-grid-baseline) * 3);
+		padding-block: var(--ids-space-3);
 		border-bottom: 1px solid var(--color-border);
 	}
 
@@ -385,7 +383,7 @@ const activeOutgoing = computed(() => data.value?.outgoing.filter((item) => item
 
 	.table th,
 	.table td {
-		padding: calc(var(--default-grid-baseline) * 1) 0;
+		padding: var(--ids-space-1) 0;
 		border: none !important;
 	}
 
@@ -405,7 +403,7 @@ const activeOutgoing = computed(() => data.value?.outgoing.filter((item) => item
 
 	.gdpr {
 		flex-direction: column;
-		padding: calc(var(--default-grid-baseline) * 4);
+		padding: var(--ids-space-4);
 	}
 }
 </style>

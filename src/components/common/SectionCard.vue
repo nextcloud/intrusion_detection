@@ -58,9 +58,9 @@ const flat = inject('ids-flat-sections', false)
 .card {
 	display: flex;
 	flex-direction: column;
-	gap: calc(var(--default-grid-baseline) * 4);
+	gap: var(--ids-space-4);
 	min-width: 0;
-	padding: calc(var(--default-grid-baseline) * 5);
+	padding: var(--ids-space-5);
 	border: 1px solid var(--color-border);
 	border-radius: var(--border-radius-large);
 	background-color: var(--color-main-background);
@@ -71,14 +71,14 @@ const flat = inject('ids-flat-sections', false)
 	flex-wrap: wrap;
 	align-items: flex-start;
 	justify-content: space-between;
-	gap: calc(var(--default-grid-baseline) * 3);
+	gap: var(--ids-space-3);
 }
 
 .card__title {
 	display: flex;
 	flex: 1 1 280px;
 	align-items: flex-start;
-	gap: calc(var(--default-grid-baseline) * 3);
+	gap: var(--ids-space-3);
 	min-width: 0;
 }
 
@@ -106,9 +106,9 @@ const flat = inject('ids-flat-sections', false)
 }
 
 .card__description {
-	margin: calc(var(--default-grid-baseline) * 1) 0 0;
+	composes: muted from '../../styles/shared.module.css';
+	margin: var(--ids-space-1) 0 0;
 	max-width: 75ch;
-	color: var(--color-text-maxcontrast);
 	line-height: 1.5;
 }
 
@@ -116,11 +116,11 @@ const flat = inject('ids-flat-sections', false)
 	display: flex;
 	flex-wrap: wrap;
 	align-items: center;
-	gap: calc(var(--default-grid-baseline) * 2);
+	gap: var(--ids-space-2);
 }
 
 .card_flat {
-	gap: calc(var(--default-grid-baseline) * 3);
+	gap: var(--ids-space-3);
 	padding: 0;
 	border: none;
 	border-radius: 0;
@@ -133,7 +133,7 @@ const flat = inject('ids-flat-sections', false)
 
 @media (max-width: 600px) {
 	.card:not(.card_flat) {
-		padding: calc(var(--default-grid-baseline) * 3);
+		padding: var(--ids-space-3);
 	}
 }
 </style>

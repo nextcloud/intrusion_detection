@@ -262,7 +262,7 @@ function remove(entry: string) {
 .sigs {
 	display: flex;
 	flex-direction: column;
-	gap: calc(var(--default-grid-baseline) * 2);
+	gap: var(--ids-space-2);
 }
 
 .sigs__head {
@@ -270,19 +270,15 @@ function remove(entry: string) {
 	flex-wrap: wrap;
 	align-items: center;
 	justify-content: space-between;
-	gap: calc(var(--default-grid-baseline) * 2);
+	gap: var(--ids-space-2);
 }
 
 .sigs__heading {
+	composes: eyebrow from '../../styles/shared.module.css';
 	display: flex;
 	align-items: center;
-	gap: calc(var(--default-grid-baseline) * 1.5);
+	gap: var(--ids-space-1-5);
 	margin: 0;
-	color: var(--color-text-maxcontrast);
-	font-size: 0.8em;
-	font-weight: 700;
-	letter-spacing: 0.06em;
-	text-transform: uppercase;
 }
 
 .sigs__text {
@@ -291,14 +287,14 @@ function remove(entry: string) {
 }
 
 .muted {
-	color: var(--color-text-maxcontrast);
+	composes: muted from '../../styles/shared.module.css';
 	font-size: 0.9em;
 }
 
 .skeleton {
 	display: flex;
 	flex-direction: column;
-	gap: calc(var(--default-grid-baseline) * 1);
+	gap: var(--ids-space-1);
 }
 
 .group {
@@ -310,20 +306,20 @@ function remove(entry: string) {
 	display: flex;
 	flex-direction: column;
 	margin: 0;
-	padding: 0 calc(var(--default-grid-baseline) * 2) calc(var(--default-grid-baseline) * 2);
+	padding: 0 var(--ids-space-2) var(--ids-space-2);
 	list-style: none;
 }
 
 .sig {
 	display: flex;
 	align-items: center;
-	gap: calc(var(--default-grid-baseline) * 2);
-	padding-block: calc(var(--default-grid-baseline) * 1);
+	gap: var(--ids-space-2);
+	padding-block: var(--ids-space-1);
 	border-top: 1px solid var(--color-border);
 }
 
 .custom .sig {
-	padding-inline: calc(var(--default-grid-baseline) * 2);
+	padding-inline: var(--ids-space-2);
 }
 
 .sig_off .sig__text {
@@ -334,7 +330,7 @@ function remove(entry: string) {
 	display: flex;
 	flex: 1 1 auto;
 	flex-direction: column;
-	gap: calc(var(--default-grid-baseline) / 2);
+	gap: var(--ids-space-half);
 	min-width: 0;
 	line-height: 1.45;
 }
@@ -343,7 +339,7 @@ function remove(entry: string) {
 	display: flex;
 	flex-wrap: wrap;
 	align-items: center;
-	gap: calc(var(--default-grid-baseline) * 1.5);
+	gap: var(--ids-space-1-5);
 }
 
 .sig__meta code,
@@ -376,8 +372,8 @@ function remove(entry: string) {
 .custom {
 	display: flex;
 	flex-direction: column;
-	gap: calc(var(--default-grid-baseline) * 2);
-	padding-top: calc(var(--default-grid-baseline) * 2);
+	gap: var(--ids-space-2);
+	padding-top: var(--ids-space-2);
 }
 
 .custom__heading {
@@ -400,7 +396,7 @@ function remove(entry: string) {
 	display: flex;
 	flex-wrap: wrap;
 	align-items: flex-end;
-	gap: calc(var(--default-grid-baseline) * 2);
+	gap: var(--ids-space-2);
 }
 
 .custom__form .custom__weight {

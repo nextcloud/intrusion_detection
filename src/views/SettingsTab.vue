@@ -42,14 +42,14 @@ const sections = [
 .settings {
 	display: flex;
 	flex-direction: column;
-	gap: calc(var(--default-grid-baseline) * 10);
+	gap: var(--ids-space-10);
 }
 
 .section {
 	display: flex;
 	flex-direction: column;
-	gap: calc(var(--default-grid-baseline) * 3);
-	scroll-margin-top: calc(var(--default-grid-baseline) * 4);
+	gap: var(--ids-space-3);
+	scroll-margin-top: var(--ids-space-4);
 }
 
 .section__heading {

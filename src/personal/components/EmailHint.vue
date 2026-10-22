@@ -58,8 +58,8 @@ const hint = computed(() => personal.overview?.emailHint ?? null)
 .hint {
 	display: flex;
 	align-items: flex-start;
-	gap: calc(var(--default-grid-baseline) * 4);
-	padding: calc(var(--default-grid-baseline) * 5);
+	gap: var(--ids-space-4);
+	padding: var(--ids-space-5);
 	border: 1px solid color-mix(in srgb, var(--color-warning) 35%, var(--color-border));
 	border-radius: var(--border-radius-large);
 	background-color: color-mix(in srgb, var(--color-warning) 7%, var(--color-main-background));
@@ -80,7 +80,7 @@ const hint = computed(() => personal.overview?.emailHint ?? null)
 .hint__body {
 	display: flex;
 	flex-direction: column;
-	gap: calc(var(--default-grid-baseline) * 2);
+	gap: var(--ids-space-2);
 	min-width: 0;
 }
 
@@ -100,14 +100,14 @@ const hint = computed(() => personal.overview?.emailHint ?? null)
 .hint__actions {
 	display: flex;
 	flex-wrap: wrap;
-	gap: calc(var(--default-grid-baseline) * 2);
-	margin-block-start: calc(var(--default-grid-baseline) * 1);
+	gap: var(--ids-space-2);
+	margin-block-start: var(--ids-space-1);
 }
 
 @media (max-width: 480px) {
 	.hint {
 		flex-direction: column;
-		padding: calc(var(--default-grid-baseline) * 4);
+		padding: var(--ids-space-4);
 	}
 }
 </style>

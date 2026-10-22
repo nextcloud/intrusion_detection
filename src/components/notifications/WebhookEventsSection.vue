@@ -116,13 +116,13 @@ async function copy(className: string) {
 
 <style module>
 .hint {
+	composes: muted from '../../styles/shared.module.css';
 	margin: 0;
-	color: var(--color-text-maxcontrast);
 	line-height: 1.6;
 }
 
 .inline {
-	padding-inline: calc(var(--default-grid-baseline) * 1);
+	padding-inline: var(--ids-space-1);
 	border-radius: var(--border-radius-element);
 	background-color: var(--color-background-hover);
 	color: var(--color-main-text);
@@ -130,21 +130,19 @@ async function copy(className: string) {
 }
 
 .events {
+	composes: plainList from '../../styles/shared.module.css';
 	display: flex;
 	flex-direction: column;
-	margin: 0;
-	padding: 0;
 	border: 1px solid var(--color-border);
 	border-radius: var(--border-radius-large);
-	list-style: none;
 }
 
 .event {
 	display: flex;
 	flex-direction: column;
-	gap: calc(var(--default-grid-baseline) * 1);
+	gap: var(--ids-space-1);
 	min-width: 0;
-	padding: calc(var(--default-grid-baseline) * 3) calc(var(--default-grid-baseline) * 4);
+	padding: var(--ids-space-3) var(--ids-space-4);
 }
 
 .event + .event {
@@ -156,12 +154,12 @@ async function copy(className: string) {
 	flex-wrap: wrap;
 	align-items: center;
 	justify-content: space-between;
-	gap: calc(var(--default-grid-baseline) * 2);
+	gap: var(--ids-space-2);
 }
 
 .event__description {
+	composes: muted from '../../styles/shared.module.css';
 	margin: 0;
-	color: var(--color-text-maxcontrast);
 	line-height: 1.5;
 }
 
@@ -177,7 +175,7 @@ async function copy(className: string) {
 }
 
 .event__class code {
-	padding-inline: calc(var(--default-grid-baseline) * 2);
+	padding-inline: var(--ids-space-2);
 	overflow-wrap: anywhere;
 }
 
@@ -203,7 +201,7 @@ async function copy(className: string) {
 }
 
 .event__class button.copy:focus-visible {
-	outline: 2px solid var(--color-main-text);
+	outline: var(--ids-focus-ring);
 	outline-offset: -2px;
 }
 </style>

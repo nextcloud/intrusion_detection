@@ -41,7 +41,7 @@ useActivity()
 .sections {
 	display: flex;
 	flex-direction: column;
-	gap: calc(var(--default-grid-baseline) * 8);
+	gap: var(--ids-space-8);
 	max-width: 900px;
 }
 

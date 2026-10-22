@@ -147,9 +147,9 @@ function sendTest() {
 .facts {
 	display: flex;
 	flex-direction: column;
-	gap: calc(var(--default-grid-baseline) * 1);
+	gap: var(--ids-space-1);
 	margin: 0;
-	padding: calc(var(--default-grid-baseline) * 3) calc(var(--default-grid-baseline) * 4);
+	padding: var(--ids-space-3) var(--ids-space-4);
 	border-radius: var(--border-radius-element);
 	background-color: var(--color-background-hover);
 	list-style: none;
@@ -161,20 +161,20 @@ function sendTest() {
 }
 
 .muted {
-	color: var(--color-text-maxcontrast);
+	composes: muted from '../../styles/shared.module.css';
 }
 
 .row {
 	display: flex;
 	flex-wrap: wrap;
 	align-items: center;
-	gap: calc(var(--default-grid-baseline) * 3);
+	gap: var(--ids-space-3);
 }
 
 .hint {
+	composes: muted from '../../styles/shared.module.css';
 	flex: 1 1 260px;
 	margin: 0;
-	color: var(--color-text-maxcontrast);
 	font-size: 0.9em;
 }
 </style>

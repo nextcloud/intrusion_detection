@@ -212,14 +212,14 @@ defineExpose({ focus })
 .report {
 	display: flex;
 	flex-direction: column;
-	gap: calc(var(--default-grid-baseline) * 6);
+	gap: var(--ids-space-6);
 	min-width: 0;
 }
 
 .report__head {
 	display: flex;
 	flex-direction: column;
-	gap: calc(var(--default-grid-baseline) * 1);
+	gap: var(--ids-space-1);
 }
 
 .report__subject {
@@ -227,43 +227,43 @@ defineExpose({ focus })
 	font-size: 1.35em;
 	font-weight: 700;
 	overflow-wrap: anywhere;
-	scroll-margin-top: calc(var(--default-grid-baseline) * 4);
+	scroll-margin-top: var(--ids-space-4);
 }
 
 .report__subject:focus-visible {
-	outline: 2px solid var(--color-main-text);
+	outline: var(--ids-focus-ring);
 	outline-offset: 2px;
 	border-radius: var(--border-radius-element);
 }
 
 .report__period {
+	composes: muted from '../../styles/shared.module.css';
 	display: flex;
 	flex-wrap: wrap;
-	gap: calc(var(--default-grid-baseline) * 1.5);
+	gap: var(--ids-space-1-5);
 	margin: 0;
-	color: var(--color-text-maxcontrast);
 }
 
 .report__actions {
 	display: flex;
 	flex-wrap: wrap;
-	gap: calc(var(--default-grid-baseline) * 1);
-	margin-block-start: calc(var(--default-grid-baseline) * 2);
+	gap: var(--ids-space-1);
+	margin-block-start: var(--ids-space-2);
 }
 
 .report__notes {
+	composes: muted from '../../styles/shared.module.css';
 	display: flex;
 	flex-direction: column;
-	gap: calc(var(--default-grid-baseline) * 2);
-	padding-block-start: calc(var(--default-grid-baseline) * 4);
+	gap: var(--ids-space-2);
+	padding-block-start: var(--ids-space-4);
 	border-block-start: 1px solid var(--color-border);
-	color: var(--color-text-maxcontrast);
 }
 
 .report__notesHeading {
 	display: flex;
 	align-items: center;
-	gap: calc(var(--default-grid-baseline) * 2);
+	gap: var(--ids-space-2);
 	margin: 0;
 	color: var(--color-main-text);
 	font-size: 0.95em;
@@ -273,9 +273,9 @@ defineExpose({ focus })
 .report__noteList {
 	display: flex;
 	flex-direction: column;
-	gap: calc(var(--default-grid-baseline) * 1.5);
+	gap: var(--ids-space-1-5);
 	margin: 0;
-	padding-inline-start: calc(var(--default-grid-baseline) * 5);
+	padding-inline-start: var(--ids-space-5);
 	list-style: disc;
 	line-height: 1.5;
 }
@@ -283,7 +283,7 @@ defineExpose({ focus })
 .report__link {
 	display: inline-flex;
 	align-items: center;
-	gap: calc(var(--default-grid-baseline) * 1);
+	gap: var(--ids-space-1);
 	color: var(--color-primary-element-text-dark, var(--color-primary-element));
 	text-decoration: underline;
 }

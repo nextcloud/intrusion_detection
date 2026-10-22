@@ -183,19 +183,17 @@ function download() {
 .grid {
 	display: grid;
 	grid-template-columns: repeat(auto-fit, minmax(min(100%, 420px), 1fr));
-	gap: calc(var(--default-grid-baseline) * 5);
+	gap: var(--ids-space-5);
 	align-items: start;
 }
 
 .card {
+	composes: card from '../../styles/shared.module.css';
 	display: flex;
 	flex-direction: column;
-	gap: calc(var(--default-grid-baseline) * 3);
+	gap: var(--ids-space-3);
 	min-width: 0;
-	padding: calc(var(--default-grid-baseline) * 5);
-	border: 1px solid var(--color-border);
-	border-radius: var(--border-radius-large);
-	background-color: var(--color-main-background);
+	padding: var(--ids-space-5);
 }
 
 .card__heading {
@@ -211,7 +209,7 @@ function download() {
 
 .card__state {
 	margin: 0;
-	padding: calc(var(--default-grid-baseline) * 2) calc(var(--default-grid-baseline) * 3);
+	padding: var(--ids-space-2) var(--ids-space-3);
 	border-radius: var(--border-radius-element);
 	background-color: var(--color-background-hover);
 	font-weight: 600;
@@ -226,7 +224,7 @@ function download() {
 	display: flex;
 	flex-wrap: wrap;
 	align-items: flex-end;
-	gap: calc(var(--default-grid-baseline) * 2);
+	gap: var(--ids-space-2);
 }
 
 .card__hint {
@@ -247,7 +245,7 @@ function download() {
 
 @media (max-width: 600px) {
 	.card {
-		padding: calc(var(--default-grid-baseline) * 3);
+		padding: var(--ids-space-3);
 	}
 }
 </style>

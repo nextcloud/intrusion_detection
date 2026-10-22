@@ -145,8 +145,8 @@ const reenableButtons = computed(() => [
 .panel {
 	display: flex;
 	flex-direction: column;
-	gap: calc(var(--default-grid-baseline) * 2);
-	padding: calc(var(--default-grid-baseline) * 4);
+	gap: var(--ids-space-2);
+	padding: var(--ids-space-4);
 	border: 1px solid var(--color-border);
 	border-radius: var(--border-radius-large);
 	background-color: color-mix(in srgb, var(--color-primary-element) 6%, var(--color-main-background));
@@ -166,7 +166,7 @@ const reenableButtons = computed(() => [
 .panel__progress {
 	display: flex;
 	flex-direction: column;
-	gap: calc(var(--default-grid-baseline) * 1.5);
+	gap: var(--ids-space-1-5);
 	max-width: 520px;
 }
 
@@ -175,27 +175,25 @@ const reenableButtons = computed(() => [
 }
 
 .panel__muted {
+	composes: muted from '../../styles/shared.module.css';
 	display: flex;
 	flex-wrap: wrap;
-	gap: var(--default-grid-baseline);
-	color: var(--color-text-maxcontrast);
+	gap: var(--ids-space-1);
 	font-size: 0.9em;
 }
 
 .panel__steps {
+	composes: plainList from '../../styles/shared.module.css';
 	display: flex;
 	flex-wrap: wrap;
-	gap: calc(var(--default-grid-baseline) * 1.5);
-	margin: 0;
-	padding: 0;
-	list-style: none;
+	gap: var(--ids-space-1-5);
 }
 
 .panel__step {
 	display: inline-flex;
 	align-items: center;
-	gap: calc(var(--default-grid-baseline) * 1);
-	padding-inline: calc(var(--default-grid-baseline) * 2);
+	gap: var(--ids-space-1);
+	padding-inline: var(--ids-space-2);
 	border: 1px dashed var(--color-border-maxcontrast, var(--color-border));
 	border-radius: var(--border-radius-element);
 	color: var(--color-text-maxcontrast);
@@ -213,6 +211,6 @@ const reenableButtons = computed(() => [
 .panel__actions {
 	display: flex;
 	flex-wrap: wrap;
-	gap: calc(var(--default-grid-baseline) * 2);
+	gap: var(--ids-space-2);
 }
 </style>

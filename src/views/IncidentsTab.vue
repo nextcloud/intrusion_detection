@@ -263,7 +263,7 @@ watch(incidentRequest, (request) => {
 .tab {
 	display: flex;
 	flex-direction: column;
-	gap: calc(var(--default-grid-baseline) * 6);
+	gap: var(--ids-space-6);
 	container-type: inline-size;
 }
 
@@ -272,7 +272,7 @@ watch(incidentRequest, (request) => {
 	flex-wrap: wrap;
 	align-items: flex-start;
 	justify-content: space-between;
-	gap: calc(var(--default-grid-baseline) * 4);
+	gap: var(--ids-space-4);
 }
 
 .tab__intro {
@@ -287,16 +287,16 @@ watch(incidentRequest, (request) => {
 }
 
 .tab__description {
-	margin: calc(var(--default-grid-baseline) * 1) 0 0;
+	composes: muted from '../styles/shared.module.css';
+	margin: var(--ids-space-1) 0 0;
 	max-width: 75ch;
-	color: var(--color-text-maxcontrast);
 	line-height: 1.5;
 }
 
 .tab__layout {
 	display: grid;
 	grid-template-columns: minmax(0, 1fr);
-	gap: calc(var(--default-grid-baseline) * 6);
+	gap: var(--ids-space-6);
 }
 
 .tab__detail {
@@ -306,11 +306,11 @@ watch(incidentRequest, (request) => {
 .tab__skeleton {
 	display: flex;
 	flex-direction: column;
-	gap: calc(var(--default-grid-baseline) * 3);
+	gap: var(--ids-space-3);
 }
 
 .tab__retry {
-	margin-block-start: calc(var(--default-grid-baseline) * 2);
+	margin-block-start: var(--ids-space-2);
 }
 
 /* On narrow screens the list comes first and a report opens below it */
@@ -321,22 +321,22 @@ watch(incidentRequest, (request) => {
 @container (min-width: 820px) {
 	.tab__layout {
 		grid-template-columns: minmax(240px, 300px) minmax(0, 1fr);
-		gap: calc(var(--default-grid-baseline) * 8);
+		gap: var(--ids-space-8);
 	}
 
 	.tab__list {
 		position: sticky;
-		top: calc(var(--default-grid-baseline) * 2);
+		top: var(--ids-space-2);
 		align-self: start;
-		max-height: calc(100vh - var(--header-height, 50px) - var(--default-grid-baseline) * 8);
+		max-height: calc(100vh - var(--header-height, 50px) - var(--ids-space-8));
 		overflow-y: auto;
-		padding-inline-end: calc(var(--default-grid-baseline) * 4);
+		padding-inline-end: var(--ids-space-4);
 		border-inline-end: 1px solid var(--color-border);
 	}
 
 	.tab__placeholder {
 		display: flex;
-		margin-block-start: calc(var(--default-grid-baseline) * 10);
+		margin-block-start: var(--ids-space-10);
 	}
 }
 </style>

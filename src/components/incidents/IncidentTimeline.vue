@@ -142,7 +142,7 @@ function toggleAll() {
 .timeline {
 	display: flex;
 	flex-direction: column;
-	gap: calc(var(--default-grid-baseline) * 4);
+	gap: var(--ids-space-4);
 }
 
 .timeline__head {
@@ -150,7 +150,7 @@ function toggleAll() {
 	flex-wrap: wrap;
 	align-items: center;
 	justify-content: space-between;
-	gap: calc(var(--default-grid-baseline) * 2);
+	gap: var(--ids-space-2);
 }
 
 .timeline__heading {
@@ -162,17 +162,17 @@ function toggleAll() {
 .timeline__filters {
 	display: flex;
 	flex-wrap: wrap;
-	gap: calc(var(--default-grid-baseline) * 2);
+	gap: var(--ids-space-2);
 }
 
 .timeline__filters .chip {
 	display: inline-flex;
 	align-items: center;
-	gap: calc(var(--default-grid-baseline) * 1.5);
+	gap: var(--ids-space-1-5);
 	min-height: 34px;
 	margin: 0;
 	padding-block: 0;
-	padding-inline: calc(var(--default-grid-baseline) * 3);
+	padding-inline: var(--ids-space-3);
 	border: 1px solid var(--color-border);
 	border-radius: var(--border-radius-pill, 100px);
 	background-color: var(--color-main-background);
@@ -186,7 +186,7 @@ function toggleAll() {
 }
 
 .timeline__filters .chip:focus-visible {
-	outline: 2px solid var(--color-main-text);
+	outline: var(--ids-focus-ring);
 	outline-offset: 2px;
 }
 
@@ -199,7 +199,7 @@ function toggleAll() {
 
 .chip__count {
 	min-width: 20px;
-	padding-inline: calc(var(--default-grid-baseline) * 1.5);
+	padding-inline: var(--ids-space-1-5);
 	border-radius: 10px;
 	background-color: var(--color-background-dark);
 	color: var(--color-main-text);
@@ -212,7 +212,7 @@ function toggleAll() {
 .timeline__day {
 	display: flex;
 	flex-direction: column;
-	gap: calc(var(--default-grid-baseline) * 2);
+	gap: var(--ids-space-2);
 }
 
 .timeline__date {
@@ -220,26 +220,24 @@ function toggleAll() {
 	top: 0;
 	z-index: 2;
 	margin: 0;
-	padding-block: calc(var(--default-grid-baseline) * 1.5);
+	padding-block: var(--ids-space-1-5);
 	background-color: var(--color-main-background);
 	font-size: 0.95em;
 	font-weight: 700;
 }
 
 .timeline__list {
+	composes: plainList from '../../styles/shared.module.css';
 	position: relative;
 	display: flex;
 	flex-direction: column;
-	margin: 0;
-	padding: 0;
-	list-style: none;
 }
 
 /* The line that runs through the markers */
 .timeline__list::before {
 	content: '';
 	position: absolute;
-	inset-block: calc(var(--default-grid-baseline) * 4);
+	inset-block: var(--ids-space-4);
 	inset-inline-start: 17px;
 	width: 2px;
 	border-radius: 1px;

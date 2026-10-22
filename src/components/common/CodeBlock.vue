@@ -71,20 +71,20 @@ function copySnippet() {
 	display: flex;
 	align-items: center;
 	justify-content: space-between;
-	gap: calc(var(--default-grid-baseline) * 2);
+	gap: var(--ids-space-2);
 	min-height: 40px;
-	padding-block: calc(var(--default-grid-baseline) * 1);
-	padding-inline: calc(var(--default-grid-baseline) * 3) calc(var(--default-grid-baseline) * 1);
+	padding-block: var(--ids-space-1);
+	padding-inline: var(--ids-space-3) var(--ids-space-1);
 	border-bottom: 1px solid var(--color-border);
 }
 
 .code__file {
+	composes: muted from '../../styles/shared.module.css';
 	display: inline-flex;
 	flex: 1 1 auto;
 	align-items: center;
-	gap: calc(var(--default-grid-baseline) * 2);
+	gap: var(--ids-space-2);
 	min-width: 0;
-	color: var(--color-text-maxcontrast);
 	font-family: var(--font-face-monospace, ui-monospace, 'SFMono-Regular', Menlo, Consolas, monospace);
 	font-size: 0.85em;
 }
@@ -102,7 +102,7 @@ function copySnippet() {
 .code__body {
 	max-height: 360px;
 	margin: 0;
-	padding: calc(var(--default-grid-baseline) * 3) calc(var(--default-grid-baseline) * 4);
+	padding: var(--ids-space-3) var(--ids-space-4);
 	overflow: auto;
 	background-color: var(--color-main-background);
 	color: var(--color-main-text);
@@ -119,7 +119,7 @@ function copySnippet() {
 }
 
 .code__body:focus-visible {
-	outline: 2px solid var(--color-main-text);
+	outline: var(--ids-focus-ring);
 	outline-offset: -2px;
 }
 </style>

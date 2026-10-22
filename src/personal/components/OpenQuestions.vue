@@ -35,11 +35,9 @@ const questions = computed(() => (personal.activity?.questions ?? []).filter(isO
 
 <style module>
 .list {
+	composes: plainList from '../../styles/shared.module.css';
 	display: flex;
 	flex-direction: column;
-	gap: calc(var(--default-grid-baseline) * 3);
-	margin: 0;
-	padding: 0;
-	list-style: none;
+	gap: var(--ids-space-3);
 }
 </style>

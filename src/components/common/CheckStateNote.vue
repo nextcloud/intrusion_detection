@@ -50,10 +50,10 @@ const state = computed(() => {
 .note {
 	display: inline-flex;
 	align-items: center;
-	gap: calc(var(--default-grid-baseline) * 2);
+	gap: var(--ids-space-2);
 	min-height: 34px;
-	padding-block: calc(var(--default-grid-baseline) * 1);
-	padding-inline: calc(var(--default-grid-baseline) * 3) calc(var(--default-grid-baseline) * 2);
+	padding-block: var(--ids-space-1);
+	padding-inline: var(--ids-space-3) var(--ids-space-2);
 	border: 1px solid var(--color-border);
 	border-radius: var(--border-radius-pill, 100px);
 	color: var(--color-main-text);
@@ -67,7 +67,7 @@ const state = computed(() => {
 }
 
 .note:focus-visible {
-	outline: 2px solid var(--color-main-text);
+	outline: var(--ids-focus-ring);
 	outline-offset: 2px;
 }
 

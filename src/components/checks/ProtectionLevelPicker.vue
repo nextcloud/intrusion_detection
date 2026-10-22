@@ -81,13 +81,13 @@ function choose(value: ProtectionLevel) {
 .level {
 	display: flex;
 	flex-direction: column;
-	gap: calc(var(--default-grid-baseline) * 3);
+	gap: var(--ids-space-3);
 }
 
 .level__head {
 	display: flex;
 	align-items: center;
-	gap: calc(var(--default-grid-baseline) * 2);
+	gap: var(--ids-space-2);
 }
 
 .level__heading {
@@ -103,6 +103,6 @@ function choose(value: ProtectionLevel) {
 }
 
 .level__note {
-	color: var(--color-text-maxcontrast);
+	composes: muted from '../../styles/shared.module.css';
 }
 </style>

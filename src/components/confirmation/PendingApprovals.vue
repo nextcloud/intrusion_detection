@@ -138,19 +138,17 @@ function address(approval: LoginApproval): string {
 
 <style module>
 .list {
+	composes: plainList from '../../styles/shared.module.css';
 	display: flex;
 	flex-direction: column;
-	margin: 0;
-	padding: 0;
-	list-style: none;
 }
 
 .item {
 	display: flex;
 	flex-wrap: wrap;
 	align-items: center;
-	gap: calc(var(--default-grid-baseline) * 3);
-	padding-block: calc(var(--default-grid-baseline) * 3);
+	gap: var(--ids-space-3);
+	padding-block: var(--ids-space-3);
 	border-bottom: 1px solid var(--color-border);
 }
 
@@ -162,7 +160,7 @@ function address(approval: LoginApproval): string {
 	display: flex;
 	flex: 1 1 240px;
 	flex-direction: column;
-	gap: calc(var(--default-grid-baseline) * 0.5);
+	gap: var(--ids-space-half);
 	min-width: 0;
 }
 
@@ -186,14 +184,14 @@ function address(approval: LoginApproval): string {
 .item__actions {
 	display: flex;
 	flex-wrap: wrap;
-	gap: calc(var(--default-grid-baseline) * 2);
+	gap: var(--ids-space-2);
 }
 
 .dialog {
 	display: flex;
 	flex-direction: column;
-	gap: calc(var(--default-grid-baseline) * 3);
-	padding-bottom: calc(var(--default-grid-baseline) * 2);
+	gap: var(--ids-space-3);
+	padding-bottom: var(--ids-space-2);
 }
 
 .dialog p {

@@ -246,25 +246,23 @@ function openDetection(ban: Ban) {
 .blocks {
 	display: flex;
 	flex-direction: column;
-	gap: calc(var(--default-grid-baseline) * 5);
+	gap: var(--ids-space-5);
 }
 
 .blocks__explain {
 	display: grid;
 	grid-template-columns: repeat(auto-fit, minmax(min(100%, 380px), 1fr));
-	gap: calc(var(--default-grid-baseline) * 5);
+	gap: var(--ids-space-5);
 	align-items: start;
 }
 
 .card {
+	composes: card from '../styles/shared.module.css';
 	display: flex;
 	flex-direction: column;
-	gap: calc(var(--default-grid-baseline) * 4);
+	gap: var(--ids-space-4);
 	min-width: 0;
-	padding: calc(var(--default-grid-baseline) * 5);
-	border: 1px solid var(--color-border);
-	border-radius: var(--border-radius-large);
-	background-color: var(--color-main-background);
+	padding: var(--ids-space-5);
 }
 
 .card__head {
@@ -272,7 +270,7 @@ function openDetection(ban: Ban) {
 	flex-wrap: wrap;
 	align-items: flex-start;
 	justify-content: space-between;
-	gap: calc(var(--default-grid-baseline) * 3);
+	gap: var(--ids-space-3);
 }
 
 .card__heading {
@@ -282,8 +280,8 @@ function openDetection(ban: Ban) {
 }
 
 .card__muted {
-	margin: calc(var(--default-grid-baseline) * 1) 0 0;
-	color: var(--color-text-maxcontrast);
+	composes: muted from '../styles/shared.module.css';
+	margin: var(--ids-space-1) 0 0;
 }
 
 .card__text {
@@ -295,13 +293,13 @@ function openDetection(ban: Ban) {
 	display: flex;
 	flex-wrap: wrap;
 	align-items: center;
-	gap: calc(var(--default-grid-baseline) * 3);
+	gap: var(--ids-space-3);
 }
 
 .skeleton {
 	display: flex;
 	flex-direction: column;
-	gap: calc(var(--default-grid-baseline) * 2);
+	gap: var(--ids-space-2);
 }
 
 /* One row per block. The columns line up across rows, and Lift always stays in view. */
@@ -319,8 +317,8 @@ function openDetection(ban: Ban) {
 	grid-template-columns: minmax(11em, 1fr) minmax(0, 2fr) minmax(8em, auto) auto var(--default-clickable-area);
 	grid-template-areas: 'address reason until reference actions';
 	align-items: center;
-	gap: calc(var(--default-grid-baseline) * 1) calc(var(--default-grid-baseline) * 4);
-	padding-block: calc(var(--default-grid-baseline) * 2);
+	gap: var(--ids-space-1) var(--ids-space-4);
+	padding-block: var(--ids-space-2);
 	border-bottom: 1px solid var(--color-border);
 }
 
@@ -333,7 +331,7 @@ function openDetection(ban: Ban) {
 	display: flex;
 	flex-wrap: wrap;
 	align-items: center;
-	gap: calc(var(--default-grid-baseline) * 1) calc(var(--default-grid-baseline) * 2);
+	gap: var(--ids-space-1) var(--ids-space-2);
 	min-width: 0;
 }
 
@@ -351,7 +349,7 @@ function openDetection(ban: Ban) {
 }
 
 .ban__level {
-	color: var(--color-text-maxcontrast);
+	composes: muted from '../styles/shared.module.css';
 	font-size: 0.85em;
 }
 
@@ -367,7 +365,7 @@ function openDetection(ban: Ban) {
 }
 
 .ban_ended {
-	color: var(--color-text-maxcontrast);
+	composes: muted from '../styles/shared.module.css';
 }
 
 /* Narrow: two compact lines, the address and the time first, Lift on the right */
@@ -377,8 +375,8 @@ function openDetection(ban: Ban) {
 		grid-template-areas:
 			'address until actions'
 			'reason reference actions';
-		gap: calc(var(--default-grid-baseline) / 2) calc(var(--default-grid-baseline) * 3);
-		padding-block: calc(var(--default-grid-baseline) * 1.5);
+		gap: var(--ids-space-half) var(--ids-space-3);
+		padding-block: var(--ids-space-1-5);
 	}
 
 	.ban__until {
@@ -419,17 +417,17 @@ function openDetection(ban: Ban) {
 }
 
 .tag {
-	margin-inline-start: calc(var(--default-grid-baseline) * 2);
-	padding-inline: calc(var(--default-grid-baseline) * 1.5);
+	composes: muted from '../styles/shared.module.css';
+	margin-inline-start: var(--ids-space-2);
+	padding-inline: var(--ids-space-1-5);
 	border-radius: var(--border-radius-element);
 	background-color: var(--color-background-dark);
-	color: var(--color-text-maxcontrast);
 	font-size: 0.8em;
 }
 
 .note {
+	composes: muted from '../styles/shared.module.css';
 	display: block;
-	color: var(--color-text-maxcontrast);
 	font-size: 0.9em;
 }
 
@@ -461,7 +459,7 @@ function openDetection(ban: Ban) {
 
 @media (max-width: 600px) {
 	.card {
-		padding: calc(var(--default-grid-baseline) * 3);
+		padding: var(--ids-space-3);
 	}
 }
 </style>

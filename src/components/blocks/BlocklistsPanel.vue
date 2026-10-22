@@ -159,14 +159,14 @@ function observeWith(which: 'check' | 'networkCheck') {
 .skeleton {
 	display: flex;
 	flex-direction: column;
-	gap: calc(var(--default-grid-baseline) * 2);
+	gap: var(--ids-space-2);
 }
 
 .group {
 	display: flex;
 	flex-direction: column;
-	gap: calc(var(--default-grid-baseline) * 3);
-	padding-top: calc(var(--default-grid-baseline) * 4);
+	gap: var(--ids-space-3);
+	padding-top: var(--ids-space-4);
 	border-top: 1px solid var(--color-border);
 }
 
@@ -175,7 +175,7 @@ function observeWith(which: 'check' | 'networkCheck') {
 	flex-wrap: wrap;
 	align-items: flex-end;
 	justify-content: space-between;
-	gap: calc(var(--default-grid-baseline) * 3);
+	gap: var(--ids-space-3);
 }
 
 .group__head > :first-child {
@@ -185,30 +185,28 @@ function observeWith(which: 'check' | 'networkCheck') {
 .group__heading {
 	display: flex;
 	align-items: center;
-	gap: calc(var(--default-grid-baseline) * 2);
+	gap: var(--ids-space-2);
 	margin: 0;
 	font-size: 1em;
 	font-weight: 700;
 }
 
 .group__text {
-	margin: calc(var(--default-grid-baseline) * 1) 0 0;
+	composes: muted from '../../styles/shared.module.css';
+	margin: var(--ids-space-1) 0 0;
 	max-width: 80ch;
-	color: var(--color-text-maxcontrast);
 	line-height: 1.5;
 }
 
 .note__action {
-	margin-top: calc(var(--default-grid-baseline) * 2);
+	margin-top: var(--ids-space-2);
 }
 
 .group__list {
+	composes: plainList from '../../styles/shared.module.css';
 	display: grid;
 	grid-template-columns: repeat(auto-fill, minmax(min(100%, 460px), 1fr));
-	gap: calc(var(--default-grid-baseline) * 3);
+	gap: var(--ids-space-3);
 	align-items: start;
-	margin: 0;
-	padding: 0;
-	list-style: none;
 }
 </style>

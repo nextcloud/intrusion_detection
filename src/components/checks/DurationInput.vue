@@ -77,7 +77,7 @@ function emitValue() {
 .duration {
 	display: flex;
 	flex-direction: column;
-	gap: calc(var(--default-grid-baseline) * 1);
+	gap: var(--ids-space-1);
 }
 
 .duration__label {
@@ -87,7 +87,7 @@ function emitValue() {
 .duration__row {
 	display: flex;
 	align-items: center;
-	gap: calc(var(--default-grid-baseline) * 2);
+	gap: var(--ids-space-2);
 	max-width: 360px;
 }
 

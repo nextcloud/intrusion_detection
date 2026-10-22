@@ -32,13 +32,13 @@ withDefaults(defineProps<{
 .rows {
 	display: flex;
 	flex-direction: column;
-	gap: calc(var(--default-grid-baseline) * 4);
+	gap: var(--ids-space-4);
 }
 
 .row {
 	display: flex;
 	align-items: center;
-	gap: calc(var(--default-grid-baseline) * 3);
+	gap: var(--ids-space-3);
 }
 
 .row > :first-child {
@@ -50,6 +50,6 @@ withDefaults(defineProps<{
 	display: flex;
 	flex: 1 1 auto;
 	flex-direction: column;
-	gap: calc(var(--default-grid-baseline) * 2);
+	gap: var(--ids-space-2);
 }
 </style>

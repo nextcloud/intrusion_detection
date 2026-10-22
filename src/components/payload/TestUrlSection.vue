@@ -117,23 +117,19 @@ function tryExample(value: string) {
 .tester {
 	display: flex;
 	flex-direction: column;
-	gap: calc(var(--default-grid-baseline) * 2);
-	padding: calc(var(--default-grid-baseline) * 4);
+	gap: var(--ids-space-2);
+	padding: var(--ids-space-4);
 	border: 1px solid var(--color-border);
 	border-radius: var(--border-radius-large);
 	background-color: var(--color-background-hover);
 }
 
 .tester__heading {
+	composes: eyebrow from '../../styles/shared.module.css';
 	display: flex;
 	align-items: center;
-	gap: calc(var(--default-grid-baseline) * 1.5);
+	gap: var(--ids-space-1-5);
 	margin: 0;
-	color: var(--color-text-maxcontrast);
-	font-size: 0.8em;
-	font-weight: 700;
-	letter-spacing: 0.06em;
-	text-transform: uppercase;
 }
 
 .tester__text {
@@ -145,7 +141,7 @@ function tryExample(value: string) {
 	display: flex;
 	flex-wrap: wrap;
 	align-items: flex-start;
-	gap: calc(var(--default-grid-baseline) * 2);
+	gap: var(--ids-space-2);
 }
 
 .tester__form .tester__input {
@@ -159,11 +155,11 @@ function tryExample(value: string) {
 }
 
 .tester__examples {
+	composes: muted from '../../styles/shared.module.css';
 	display: flex;
 	flex-wrap: wrap;
 	align-items: center;
-	gap: calc(var(--default-grid-baseline) * 1.5);
-	color: var(--color-text-maxcontrast);
+	gap: var(--ids-space-1-5);
 	font-size: 0.9em;
 }
 
@@ -171,7 +167,7 @@ function tryExample(value: string) {
 	min-height: 28px;
 	margin: 0;
 	padding-block: 0;
-	padding-inline: calc(var(--default-grid-baseline) * 2.5);
+	padding-inline: var(--ids-space-2-5);
 	border: 1px solid var(--color-border);
 	border-radius: var(--border-radius-pill, 100px);
 	background-color: var(--color-main-background);
@@ -188,7 +184,7 @@ function tryExample(value: string) {
 }
 
 .tester__examples button.example:focus-visible {
-	outline: 2px solid var(--color-main-text);
+	outline: var(--ids-focus-ring);
 	outline-offset: 2px;
 }
 </style>

@@ -123,13 +123,11 @@ const turnOn = () => act('on', () => saveSettings({ protection_enabled: true }),
 
 <style module>
 .banner {
+	composes: card from '../styles/shared.module.css';
 	display: flex;
 	flex-direction: column;
-	gap: calc(var(--default-grid-baseline) * 4);
-	padding: calc(var(--default-grid-baseline) * 5);
-	border: 1px solid var(--color-border);
-	border-radius: var(--border-radius-large);
-	background-color: var(--color-main-background);
+	gap: var(--ids-space-4);
+	padding: var(--ids-space-5);
 }
 
 .banner__head {
@@ -137,7 +135,7 @@ const turnOn = () => act('on', () => saveSettings({ protection_enabled: true }),
 	flex-wrap: wrap;
 	align-items: center;
 	justify-content: space-between;
-	gap: calc(var(--default-grid-baseline) * 3);
+	gap: var(--ids-space-3);
 }
 
 .banner__heading {
@@ -150,19 +148,19 @@ const turnOn = () => act('on', () => saveSettings({ protection_enabled: true }),
 .banner__actions {
 	display: flex;
 	flex-wrap: wrap;
-	gap: calc(var(--default-grid-baseline) * 2);
+	gap: var(--ids-space-2);
 }
 
 .banner__muted {
+	composes: muted from '../styles/shared.module.css';
 	margin: 0;
-	color: var(--color-text-maxcontrast);
 	font-size: 0.92em;
 }
 
 .figures {
 	display: grid;
 	grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-	gap: calc(var(--default-grid-baseline) * 3);
+	gap: var(--ids-space-3);
 	margin: 0;
 }
 
@@ -170,7 +168,7 @@ const turnOn = () => act('on', () => saveSettings({ protection_enabled: true }),
 	display: flex;
 	flex-direction: column;
 	min-width: 0;
-	padding: calc(var(--default-grid-baseline) * 3) calc(var(--default-grid-baseline) * 4);
+	padding: var(--ids-space-3) var(--ids-space-4);
 	border-radius: var(--border-radius-large);
 	background-color: var(--color-background-hover);
 }
@@ -191,25 +189,25 @@ const turnOn = () => act('on', () => saveSettings({ protection_enabled: true }),
 }
 
 .figure__label {
-	color: var(--color-text-maxcontrast);
+	composes: muted from '../styles/shared.module.css';
 	font-size: 0.92em;
 	overflow-wrap: anywhere;
 }
 
 .figure__detail {
-	margin: calc(var(--default-grid-baseline) / 2) 0 0;
-	color: var(--color-text-maxcontrast);
+	composes: muted from '../styles/shared.module.css';
+	margin: var(--ids-space-half) 0 0;
 	font-size: 0.85em;
 }
 
 @media (max-width: 600px) {
 	.banner {
-		padding: calc(var(--default-grid-baseline) * 4);
+		padding: var(--ids-space-4);
 	}
 
 	.figures {
 		grid-template-columns: repeat(2, minmax(0, 1fr));
-		gap: calc(var(--default-grid-baseline) * 2);
+		gap: var(--ids-space-2);
 	}
 
 	.figure__value {

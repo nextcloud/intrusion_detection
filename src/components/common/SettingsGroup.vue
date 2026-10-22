@@ -130,18 +130,18 @@ function discard() {
 .group {
 	display: flex;
 	flex-direction: column;
-	gap: calc(var(--default-grid-baseline) * 4);
+	gap: var(--ids-space-4);
 }
 
 .group__fields {
 	display: grid;
 	grid-template-columns: repeat(auto-fill, minmax(min(100%, 240px), 1fr));
-	gap: calc(var(--default-grid-baseline) * 4) calc(var(--default-grid-baseline) * 5);
+	gap: var(--ids-space-4) var(--ids-space-5);
 }
 
 .group__save {
 	display: flex;
 	flex-wrap: wrap;
-	gap: calc(var(--default-grid-baseline) * 2);
+	gap: var(--ids-space-2);
 }
 </style>

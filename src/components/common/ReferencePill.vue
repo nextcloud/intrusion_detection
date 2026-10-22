@@ -60,7 +60,7 @@ async function copy() {
 }
 
 .reference__code {
-	padding-inline: calc(var(--default-grid-baseline) * 2);
+	padding-inline: var(--ids-space-2);
 	font-family: var(--font-face-monospace, ui-monospace, 'SFMono-Regular', Menlo, Consolas, monospace);
 	font-size: 0.9em;
 	letter-spacing: 0.04em;
@@ -98,7 +98,7 @@ async function copy() {
 }
 
 .reference button.reference__copy:focus-visible {
-	outline: 2px solid var(--color-main-text);
+	outline: var(--ids-focus-ring);
 	outline-offset: -2px;
 }
 </style>

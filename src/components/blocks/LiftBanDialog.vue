@@ -90,8 +90,8 @@ async function submit() {
 .dialog {
 	display: flex;
 	flex-direction: column;
-	gap: calc(var(--default-grid-baseline) * 3);
-	padding-bottom: calc(var(--default-grid-baseline) * 2);
+	gap: var(--ids-space-3);
+	padding-bottom: var(--ids-space-2);
 }
 
 .dialog p {

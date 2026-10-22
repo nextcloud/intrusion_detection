@@ -195,8 +195,8 @@ const denyButtons = computed(() => [
 .event {
 	display: flex;
 	flex-direction: column;
-	gap: calc(var(--default-grid-baseline) * 3);
-	padding: calc(var(--default-grid-baseline) * 4);
+	gap: var(--ids-space-3);
+	padding: var(--ids-space-4);
 	border: 1px solid color-mix(in srgb, var(--color-warning) 45%, var(--color-border));
 	border-radius: var(--border-radius-large);
 	background-color: var(--color-main-background);
@@ -205,7 +205,7 @@ const denyButtons = computed(() => [
 .event__head {
 	display: flex;
 	align-items: flex-start;
-	gap: calc(var(--default-grid-baseline) * 3);
+	gap: var(--ids-space-3);
 }
 
 .event__icon {
@@ -224,7 +224,7 @@ const denyButtons = computed(() => [
 	display: flex;
 	flex: 1 1 auto;
 	flex-direction: column;
-	gap: calc(var(--default-grid-baseline) * 1);
+	gap: var(--ids-space-1);
 	min-width: 0;
 }
 
@@ -237,32 +237,32 @@ const denyButtons = computed(() => [
 }
 
 .event__meta {
+	composes: muted from '../../styles/shared.module.css';
 	display: flex;
 	flex-wrap: wrap;
 	align-items: center;
-	gap: calc(var(--default-grid-baseline) * 1) calc(var(--default-grid-baseline) * 3);
+	gap: var(--ids-space-1) var(--ids-space-3);
 	margin: 0;
-	color: var(--color-text-maxcontrast);
 	font-size: 0.92em;
 }
 
 .event__address {
 	display: inline-flex;
 	align-items: center;
-	gap: calc(var(--default-grid-baseline) * 1);
+	gap: var(--ids-space-1);
 	font-variant-numeric: tabular-nums;
 	overflow-wrap: anywhere;
 }
 
 .question,
 .event__more {
-	margin-inline-start: calc(36px + var(--default-grid-baseline) * 3);
+	margin-inline-start: calc(36px + var(--ids-space-3));
 }
 
 .question {
 	display: flex;
 	flex-direction: column;
-	gap: calc(var(--default-grid-baseline) * 3);
+	gap: var(--ids-space-3);
 }
 
 .question__text,
@@ -273,24 +273,24 @@ const denyButtons = computed(() => [
 }
 
 .question__note {
-	color: var(--color-text-maxcontrast);
+	composes: muted from '../../styles/shared.module.css';
 	font-size: 0.92em;
 }
 
 .question__buttons {
 	display: flex;
 	flex-wrap: wrap;
-	gap: calc(var(--default-grid-baseline) * 2);
+	gap: var(--ids-space-2);
 }
 
 .dialog {
-	margin: 0 0 calc(var(--default-grid-baseline) * 2);
+	margin: 0 0 var(--ids-space-2);
 	line-height: 1.5;
 }
 
 @media (max-width: 480px) {
 	.event {
-		padding: calc(var(--default-grid-baseline) * 3);
+		padding: var(--ids-space-3);
 	}
 
 	.question,

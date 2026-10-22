@@ -49,7 +49,7 @@ defineProps<{
 .details {
 	display: flex;
 	flex-direction: column;
-	gap: calc(var(--default-grid-baseline) * 2);
+	gap: var(--ids-space-2);
 	max-width: 75ch;
 	line-height: 1.5;
 }
@@ -59,18 +59,18 @@ defineProps<{
 }
 
 .details__when {
-	color: var(--color-text-maxcontrast);
+	composes: muted from '../../styles/shared.module.css';
 }
 
 .details__heading {
-	margin: calc(var(--default-grid-baseline) * 1) 0 0;
+	margin: var(--ids-space-1) 0 0;
 	font-size: 0.95em;
 	font-weight: 600;
 }
 
 .details__list {
 	margin: 0;
-	padding-inline-start: calc(var(--default-grid-baseline) * 5);
+	padding-inline-start: var(--ids-space-5);
 	list-style: disc;
 }
 </style>
