@@ -15,6 +15,7 @@ use OCA\IntrusionDetection\AdminChange\Approvers;
 use OCA\IntrusionDetection\AdminChange\WatchedSettings;
 use OCA\IntrusionDetection\AppInfo\Application;
 use OCA\IntrusionDetection\Check\ICheck;
+use OCA\IntrusionDetection\Check\ISelectsResponses;
 use OCA\IntrusionDetection\Check\IValidatesParams;
 use OCA\IntrusionDetection\Config\GlobalSettings;
 use OCA\IntrusionDetection\Db\Detection;
@@ -27,6 +28,7 @@ use OCA\IntrusionDetection\Definition\InvalidParamException;
 use OCA\IntrusionDetection\Definition\Mode;
 use OCA\IntrusionDetection\Definition\ResponseType;
 use OCA\IntrusionDetection\Definition\Severity;
+use OCA\IntrusionDetection\Detection\DetectionDraft;
 use OCA\IntrusionDetection\Explain\DateFormatter;
 use OCA\IntrusionDetection\Explain\DetectionFacts;
 use OCA\IntrusionDetection\Explain\IExplainsDetection;
@@ -46,13 +48,14 @@ use Psr\Container\ContainerInterface;
  * approve every new administrator.
  *
  * The account a change was about is told only when its own administration
- * rights changed ({@see self::keepsFromUser()}).
+ * rights changed ({@see self::keepsFromUser()}). A grant held back for
+ * approval runs no response: the approval request tells the administrators.
  *
  * The detector is {@see AdminChangeDetector}; the events come from
  * {@see \OCA\IntrusionDetection\Listener\AdminChangeListener} and
  * {@see \OCA\IntrusionDetection\AdminChange\ConfigWatch}.
  */
-final class AdminChange implements ICheck, IExplainsDetection, IHeadlinesDetection, IValidatesParams, IExplainsToUser, IKeepsFromUser {
+final class AdminChange implements ICheck, IExplainsDetection, IHeadlinesDetection, IValidatesParams, IExplainsToUser, IKeepsFromUser, ISelectsResponses {
 	public const ID = 'admin_change';
 
 	public const KIND_ADMIN_GRANTED = 'admin_granted';
@@ -131,6 +134,11 @@ final class AdminChange implements ICheck, IExplainsDetection, IHeadlinesDetecti
 			self::KIND_SETTING_CHANGED => $l->t('Security setting changed: %s', [$this->label($facts->string('setting'), $l)]),
 			default => null,
 		};
+	}
+
+	#[\Override]
+	public function responsesFor(DetectionDraft $draft, array $configured, array $params): array {
+		return ($draft->facts['kind'] ?? null) === self::KIND_GRANT_REQUESTED && isset($draft->facts['approval']) ? [] : $configured;
 	}
 
 	#[\Override]

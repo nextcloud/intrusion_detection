@@ -56,7 +56,6 @@ class PasswordSprayingDetector {
 		private readonly FlaggedSources $flags,
 		private readonly Fingerprinter $fingerprinter,
 		private readonly Caches $caches,
-		private readonly PasswordSpraying $check,
 		private readonly RiskScorer $risk,
 	) {
 	}
@@ -80,7 +79,7 @@ class PasswordSprayingDetector {
 			merge: DetectionDraft::MERGE_SOURCE_USER,
 			userAgent: $login->userAgent,
 		);
-		return $this->engine->handle($draft, $this->check->responsesFor($draft, $this->settings->responses(PasswordSpraying::ID), []));
+		return $this->engine->handle($draft);
 	}
 
 	public function detect(#[\SensitiveParameter] AttemptRecord $attempt, ?string $userAgent, #[\SensitiveParameter] ?string $password): void {
@@ -151,7 +150,7 @@ class PasswordSprayingDetector {
 			$attempt->passwordCandidates,
 			array_map('bin2hex', $this->fingerprinter->passwordFlagFingerprints($password)),
 		));
-		$this->engine->handle($draft, $this->check->responsesFor($draft, $this->settings->responses(PasswordSpraying::ID), []));
+		$this->engine->handle($draft);
 		if (!$flags) {
 			$this->caches->shared(self::CACHE)?->set($seenKey, 1, $window);
 		}
@@ -176,9 +175,6 @@ class PasswordSprayingDetector {
 			facts: ['rule' => PasswordSpraying::RULE_FLAGGED, 'names' => $own->distinctNames],
 			merge: DetectionDraft::MERGE_SOURCE,
 			userAgent: $userAgent,
-		), array_values(array_filter(
-			$this->settings->responses(PasswordSpraying::ID),
-			static fn (ResponseType $r): bool => $r === ResponseType::Ban,
-		)));
+		));
 	}
 }

@@ -100,7 +100,8 @@ class AccountLock {
 					'ended' => array_slice($ended, 0, 50),
 					AdminAlerts::FACT_ALL_ADMINS => true,
 				],
-			), null, new ModeState(Mode::Protect, Mode::Protect));
+				mode: new ModeState(Mode::Protect, Mode::Protect),
+			));
 		} catch (\Throwable $e) {
 			$this->logger->error('Intrusion detection locked the account {uid} but could not record it', ['uid' => $uid, 'exception' => $e]);
 		}

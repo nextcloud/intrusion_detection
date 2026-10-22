@@ -73,10 +73,11 @@ class ResetProbingDetectorTest extends TestCase {
 			? new AttemptStats(failures: $this->requests, distinctNames: 1, distinctSources: $this->requests, first: time() - 60, last: time(), estimatedFailures: $this->requests * $this->sampleFactor, maxWeight: $this->sampleFactor)
 			: new AttemptStats(failures: 1, distinctNames: 1, distinctSources: 1));
 		$engine = $this->createMock(ResponseEngine::class);
-		$engine->method('handle')->willReturnCallback(function (DetectionDraft $draft, ?array $responses = null): ?Detection {
+		$check = new ResetProbing(DateFormatter::using($this->createMock(IDateTimeFormatter::class)));
+		$engine->method('handle')->willReturnCallback(function (DetectionDraft $draft) use ($check): ?Detection {
 			$this->assertSame(ResetProbing::RULE_FLOOD, $draft->facts['rule']);
 			$this->assertSame($this->requests * $this->sampleFactor, $draft->facts['requests']);
-			$this->handled[] = $responses ?? [];
+			$this->handled[] = $check->responsesFor($draft, self::ALL, []);
 			$this->drafts[] = $draft;
 			return null;
 		});
@@ -85,7 +86,7 @@ class ResetProbingDetectorTest extends TestCase {
 			$plain = array_map(static fn (array $l): int => $l[0], $limits);
 			return new RiskLimits($plain, $plain, array_map(static fn (array $l): int => $l[1], $limits), null);
 		});
-		return new ResetProbingDetector($settings, $attempts, $engine, new ResetProbing(DateFormatter::using($this->createMock(IDateTimeFormatter::class))), $risk);
+		return new ResetProbingDetector($settings, $attempts, $engine, $risk);
 	}
 
 	private function attempt(): AttemptRecord {

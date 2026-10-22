@@ -69,8 +69,9 @@ class PayloadResponder implements IDeferredResponder {
 			mergeWindow: 3600,
 			userAgent: $userAgent,
 			lure: $lure,
+			mode: $this->settings->anonymousMode(),
 		);
-		return $this->refusal($this->engine->handle($draft, null, $this->settings->anonymousMode()));
+		return $this->refusal($this->engine->handle($draft));
 	}
 
 	/**
@@ -90,8 +91,9 @@ class PayloadResponder implements IDeferredResponder {
 			mergeWindow: 3600,
 			userAgent: $userAgent,
 			lure: $lure,
+			mode: $this->settings->authenticatedMode(),
 		);
-		return $this->refusal($this->engine->handle($draft, null, $this->settings->authenticatedMode()));
+		return $this->refusal($this->engine->handle($draft));
 	}
 
 	/**

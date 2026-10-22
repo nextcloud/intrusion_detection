@@ -18,10 +18,14 @@ use OCA\IntrusionDetection\Config\AppSettings;
 use OCA\IntrusionDetection\Config\CheckSettings;
 use OCA\IntrusionDetection\Config\GlobalSettings;
 use OCA\IntrusionDetection\Config\Keys;
+use OCA\IntrusionDetection\Config\ModeState;
 use OCA\IntrusionDetection\Config\Prerequisites;
 use OCA\IntrusionDetection\Configure\SettingsEditor;
+use OCA\IntrusionDetection\Db\Detection;
 use OCA\IntrusionDetection\Db\DetectionMapper;
 use OCA\IntrusionDetection\Definition\Mode;
+use OCA\IntrusionDetection\Detection\DetectionDraft;
+use OCA\IntrusionDetection\Detection\DetectionService;
 use OCA\IntrusionDetection\Notification\AdminAlerts;
 use OCA\IntrusionDetection\Notification\ShareOwnerAlerts;
 use OCA\IntrusionDetection\Notification\UserAlerts;
@@ -119,6 +123,13 @@ abstract class IntegrationTestCase extends TestCase {
 
 	protected function appSettings(): AppSettings {
 		return Server::get(AppSettings::class);
+	}
+
+	/**
+	 * Store a detection as if its check acted, without running any response.
+	 */
+	protected function storeDetection(DetectionDraft $draft): Detection {
+		return Server::get(DetectionService::class)->record($draft, new ModeState(Mode::Protect, Mode::Protect))[0];
 	}
 
 	protected function settingsEditor(): SettingsEditor {

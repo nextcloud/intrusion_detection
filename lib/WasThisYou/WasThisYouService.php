@@ -73,7 +73,6 @@ class WasThisYouService {
 		private readonly DetectionMapper $detections,
 		private readonly Questions $questions,
 		private readonly ResponseEngine $engine,
-		private readonly UserDenied $deniedCheck,
 		private readonly AppSettings $appSettings,
 		private readonly CheckSettings $settings,
 		private readonly FlaggedSources $flags,
@@ -132,18 +131,15 @@ class WasThisYouService {
 				banLevel: self::BAN_LEVEL,
 				sessionTokenId: $sessions[0] ?? null,
 				tokenId: $tokenId,
+				// The account holder's own decision: learning mode does not hold it back.
+				mode: new ModeState($mode, $mode),
 			);
 			if ($weak && $this->weaklyDenied($draft)) {
 				$this->audit->log('%s answered "No, it was not me" about detection %s again from a session that proved only the password; nothing was recorded', ['uid' => $uid, 'detection' => $detection->getId()]);
 				return $detection;
 			}
-			// The account holder's own decision: learning mode does not hold it back.
 			// A weak "No" at the same time as another is merged into it.
-			$denial = $this->engine->handle(
-				$draft,
-				$this->deniedCheck->responsesFor($draft, $this->settings->responses(UserDenied::ID), []),
-				new ModeState($mode, $mode),
-			);
+			$denial = $this->engine->handle($draft);
 			if ($mode->acts() && !$weak) {
 				foreach (array_slice($sessions, 1) as $sessionTokenId) {
 					$this->sessionKiller->kill($uid, $sessionTokenId, null, $denial?->getId());

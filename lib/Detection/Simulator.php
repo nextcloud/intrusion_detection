@@ -10,7 +10,6 @@ declare(strict_types=1);
 namespace OCA\IntrusionDetection\Detection;
 
 use OCA\IntrusionDetection\Check\CheckRegistry;
-use OCA\IntrusionDetection\Check\ISelectsResponses;
 use OCA\IntrusionDetection\Check\ISimulatable;
 use OCA\IntrusionDetection\Config\CheckSettings;
 use OCA\IntrusionDetection\Definition\InvalidParamException;
@@ -18,6 +17,7 @@ use OCA\IntrusionDetection\Definition\ResponseType;
 use OCA\IntrusionDetection\Explain\CheckPresenter;
 use OCA\IntrusionDetection\Explain\NarrativeBuilder;
 use OCA\IntrusionDetection\Net\SourceKey;
+use OCA\IntrusionDetection\Response\ResponseEngine;
 use OCA\IntrusionDetection\ResponseDefinitions;
 use OCP\AppFramework\Utility\ITimeFactory;
 use OCP\IL10N;
@@ -37,6 +37,7 @@ class Simulator {
 		private readonly CheckRegistry $registry,
 		private readonly CheckSettings $settings,
 		private readonly DetectionService $detections,
+		private readonly ResponseEngine $engine,
 		private readonly NarrativeBuilder $narratives,
 		private readonly CheckPresenter $presenter,
 		private readonly ITimeFactory $timeFactory,
@@ -72,11 +73,7 @@ class Simulator {
 		$mode = $this->settings->modeState($id);
 		$draft = $check->simulate(SourceKey::fromIp(self::TEST_ADDRESS), $this->timeFactory->getTime(), $this->settings->params($id));
 		$detection = $this->detections->preview($draft, $mode);
-		$responses = $this->settings->responses($id);
-		if ($check instanceof ISelectsResponses) {
-			$responses = $check->responsesFor($draft, $responses, $this->settings->params($id));
-		}
-		usort($responses, static fn (ResponseType $a, ResponseType $b): int => $a->order() <=> $b->order());
+		$responses = $this->engine->responsesFor($draft);
 		$detection->setActionList(array_map(static fn (ResponseType $r): array => ['type' => $r->value, 'enforced' => false], $responses));
 		$narrative = $this->narratives->build($detection, $l);
 		$happens = $responses === [] ? [] : $this->presenter->happens($responses, $l, $this->settings->placeholderValues($id));

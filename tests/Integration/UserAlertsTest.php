@@ -215,11 +215,12 @@ class UserAlertsTest extends AccountTestCase {
 	public function testThroughTheEngineAMergedHitIsNotToldAgain(): void {
 		$user = $this->newUser('ids-notify', 'alice@example.com');
 		$draft = static fn (string $ip): DetectionDraft => new DetectionDraft(SecondFactorFailed::ID, SourceKey::fromIp($ip), $user->getUID(), merge: DetectionDraft::MERGE_SOURCE_USER);
-		$this->engine()->handle($draft('198.51.100.7'), [ResponseType::NotifyUser]);
-		$merged = $this->engine()->handle($draft('198.51.100.7'), [ResponseType::NotifyUser]);
+		$this->settingsEditor()->setResponses(SecondFactorFailed::ID, [ResponseType::NotifyUser]);
+		$this->engine()->handle($draft('198.51.100.7'));
+		$merged = $this->engine()->handle($draft('198.51.100.7'));
 		$this->assertSame(2, $merged?->getHits());
 		$this->assertTrue($merged->getActionList()[0]['enforced'], 'The merged hit keeps what the first one did');
-		$this->engine()->handle($draft('198.51.100.8'), [ResponseType::NotifyUser]);
+		$this->engine()->handle($draft('198.51.100.8'));
 		$this->assertCount(2, $this->notificationsFor($user->getUID(), UserAlerts::SUBJECT));
 	}
 
@@ -282,7 +283,8 @@ class UserAlertsTest extends AccountTestCase {
 	public function testTheResponseRunsLastAndIsOnlyEnforcedInProtect(): void {
 		$user = $this->newUser('ids-notify', 'alice@example.com');
 		$this->settingsEditor()->setMode(SecondFactorFailed::ID, Mode::Observe);
-		$this->engine()->handle(new DetectionDraft(SecondFactorFailed::ID, SourceKey::fromIp('198.51.100.7'), $user->getUID()), [ResponseType::NotifyUser]);
+		$this->settingsEditor()->setResponses(SecondFactorFailed::ID, [ResponseType::NotifyUser]);
+		$this->engine()->handle(new DetectionDraft(SecondFactorFailed::ID, SourceKey::fromIp('198.51.100.7'), $user->getUID()));
 		$this->assertSame([], $this->mailed, 'Observe tells nobody');
 	}
 

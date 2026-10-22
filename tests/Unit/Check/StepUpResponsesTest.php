@@ -32,7 +32,7 @@ class StepUpResponsesTest extends TestCase {
 		$check = new PasswordSpraying($this->dates());
 		$all = $check->definition()->defaultResponses;
 		$this->assertSame([ResponseType::Ban, ResponseType::FlagPassword, ResponseType::NotifyAdmin], $check->responsesFor($this->draft(PasswordSpraying::ID, PasswordSpraying::RULE_SPRAY), $all, []));
-		$this->assertSame([ResponseType::Ban, ResponseType::FlagPassword, ResponseType::NotifyAdmin], $check->responsesFor($this->draft(PasswordSpraying::ID, PasswordSpraying::RULE_FLAGGED), $all, []));
+		$this->assertSame([ResponseType::Ban], $check->responsesFor($this->draft(PasswordSpraying::ID, PasswordSpraying::RULE_FLAGGED), $all, []), 'An address joining a spray is only blocked');
 		$this->assertSame(
 			[ResponseType::StepUp, ResponseType::ForcePasswordChange, ResponseType::NotifyAdmin, ResponseType::NotifyUser],
 			$check->responsesFor($this->draft(PasswordSpraying::ID, PasswordSpraying::RULE_LOGIN), $all, []),

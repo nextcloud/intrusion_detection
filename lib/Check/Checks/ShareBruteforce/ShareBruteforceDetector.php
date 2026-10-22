@@ -64,7 +64,6 @@ class ShareBruteforceDetector {
 		private readonly CheckSettings $settings,
 		private readonly AttemptMapper $attempts,
 		private readonly ResponseEngine $engine,
-		private readonly ShareBruteforce $check,
 		private readonly ShareLinks $links,
 		private readonly RiskScorer $risk,
 		private readonly FederationPartners $partners,
@@ -93,7 +92,7 @@ class ShareBruteforceDetector {
 		if (self::reaches($ip->distinctNames, $ip->namesEstimate(), $limits->of('token_min'))) {
 			// A partner server is reported, never blocked ({@see ShareBruteforce::responsesFor()}).
 			$partner = $this->partners->isPartner($source) ? ['federation' => true] : [];
-			$this->handle(new DetectionDraft(
+			$this->engine->handle(new DetectionDraft(
 				checkId: ShareBruteforce::ID,
 				source: $source,
 				uid: $attempt->uid,
@@ -101,7 +100,7 @@ class ShareBruteforceDetector {
 				merge: DetectionDraft::MERGE_SOURCE,
 				userAgent: $userAgent,
 				lure: $attempt->lure,
-			), $params);
+			));
 			return;
 		}
 		if ($source->family !== 4 || $netFactor < 1) {
@@ -143,7 +142,7 @@ class ShareBruteforceDetector {
 			// One or two outdated links never get an address blocked, not even the one that tipped the network over; nor does a partner server.
 			$draft->spareSource();
 		}
-		$this->handle($draft, $params);
+		$this->engine->handle($draft);
 	}
 
 	public function wrongPassword(#[\SensitiveParameter] AttemptRecord $attempt, IShare $share, ?string $userAgent): void {
@@ -163,7 +162,7 @@ class ShareBruteforceDetector {
 		$sourceLimits = $this->risk->limits($source, ['password_min_per_source' => [(int)$params['password_min_per_source'], $fromSource->failures]]);
 		if ($sourceLimits->reached()) {
 			// About the address, not the account: the owner is told only of attacks from many addresses.
-			$this->handle(new DetectionDraft(
+			$this->engine->handle(new DetectionDraft(
 				checkId: ShareBruteforce::ID,
 				source: $source,
 				facts: [
@@ -175,13 +174,13 @@ class ShareBruteforceDetector {
 				shareId: $shareId,
 				merge: DetectionDraft::MERGE_SOURCE_SHARE,
 				userAgent: $userAgent,
-			), $params);
+			));
 		}
 
 		$onShare = $this->attempts->stats('share_id', [$shareId], $kinds, $attempt->time - (int)$params['password_share_window']);
 		$shareLimits = $this->risk->limits($source, ['password_min_per_share' => [(int)$params['password_min_per_share'], $onShare->failures]]);
 		if ($shareLimits->reached()) {
-			$this->handle(new DetectionDraft(
+			$this->engine->handle(new DetectionDraft(
 				checkId: ShareBruteforce::ID,
 				uid: $shareFacts['owner'],
 				facts: [
@@ -196,15 +195,8 @@ class ShareBruteforceDetector {
 				merge: DetectionDraft::MERGE_SHARE,
 				mergeWindow: self::SHARE_MERGE_WINDOW,
 				userAgent: $userAgent,
-			), $params);
+			));
 		}
-	}
-
-	/**
-	 * @param array<string, int|float|bool|string|list<string>> $params
-	 */
-	private function handle(DetectionDraft $draft, array $params): void {
-		$this->engine->handle($draft, $this->check->responsesFor($draft, $this->settings->responses(ShareBruteforce::ID), $params));
 	}
 
 	/**

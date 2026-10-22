@@ -66,11 +66,12 @@ class QueuedMailsTest extends AccountTestCase {
 
 	public function testAUserAlertIsQueuedInTheRequestAndSentByTheJobInTheUsersTimeZone(): void {
 		$user = $this->newUser('ids-queued', 'alice@example.com');
+		$this->settingsEditor()->setResponses(SecondFactorFailed::ID, [ResponseType::NotifyUser]);
 		Server::get(IUserConfig::class)->setValueString($user->getUID(), 'core', 'timezone', 'Pacific/Auckland');
 		$alerts = $this->alertsWith($this->slowMails());
 
 		$started = microtime(true);
-		$detection = $this->engineWith($alerts)->handle(new DetectionDraft(SecondFactorFailed::ID, SourceKey::fromIp('198.51.100.7'), $user->getUID()), [ResponseType::NotifyUser]);
+		$detection = $this->engineWith($alerts)->handle(new DetectionDraft(SecondFactorFailed::ID, SourceKey::fromIp('198.51.100.7'), $user->getUID()));
 		$request = microtime(true) - $started;
 
 		$this->assertNotNull($detection);
@@ -156,10 +157,11 @@ class QueuedMailsTest extends AccountTestCase {
 
 	public function testAJobForADetectionOrAccountThatIsGoneSendsNothing(): void {
 		$user = $this->newUser('ids-queued', 'alice@example.com');
+		$this->settingsEditor()->setResponses(SecondFactorFailed::ID, [ResponseType::NotifyUser]);
 		$alerts = $this->alertsWith($this->slowMails());
-		$detection = $this->engineWith($alerts)->handle(new DetectionDraft(SecondFactorFailed::ID, SourceKey::fromIp('198.51.100.7'), $user->getUID()), [ResponseType::NotifyUser]);
+		$detection = $this->engineWith($alerts)->handle(new DetectionDraft(SecondFactorFailed::ID, SourceKey::fromIp('198.51.100.7'), $user->getUID()));
 		$this->assertNotNull($detection);
-		$this->engineWith($alerts)->handle(new DetectionDraft(SecondFactorFailed::ID, SourceKey::fromIp('198.51.100.8'), $user->getUID()), [ResponseType::NotifyUser]);
+		$this->engineWith($alerts)->handle(new DetectionDraft(SecondFactorFailed::ID, SourceKey::fromIp('198.51.100.8'), $user->getUID()));
 		$this->assertCount(2, $this->queuedMails());
 
 		$qb = $this->db->getQueryBuilder();

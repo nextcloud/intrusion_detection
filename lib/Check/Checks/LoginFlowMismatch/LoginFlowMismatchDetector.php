@@ -40,7 +40,6 @@ class LoginFlowMismatchDetector {
 	public function __construct(
 		private readonly CheckSettings $settings,
 		private readonly ResponseEngine $engine,
-		private readonly LoginFlowMismatch $check,
 		private readonly AddressResolver $addressResolver,
 		private readonly FlaggedSources $flags,
 		private readonly RemoteAddressResolver $addresses,
@@ -86,7 +85,7 @@ class LoginFlowMismatchDetector {
 			severity: $trusted ? Severity::Low : $severity,
 			userAgent: $userAgent,
 		);
-		$this->engine->handle($draft, $this->check->responsesFor($draft, $this->settings->responses(LoginFlowMismatch::ID), $params));
+		$this->engine->handle($draft);
 	}
 
 	/**

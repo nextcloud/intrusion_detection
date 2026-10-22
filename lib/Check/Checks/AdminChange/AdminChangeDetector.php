@@ -19,7 +19,6 @@ use OCA\IntrusionDetection\Config\Keys;
 use OCA\IntrusionDetection\Config\ModeState;
 use OCA\IntrusionDetection\Db\Detection;
 use OCA\IntrusionDetection\Definition\Mode;
-use OCA\IntrusionDetection\Definition\ResponseType;
 use OCA\IntrusionDetection\Definition\Severity;
 use OCA\IntrusionDetection\Detection\DetectionDraft;
 use OCA\IntrusionDetection\Net\RemoteAddressResolver;
@@ -57,9 +56,8 @@ class AdminChangeDetector {
 	 * @param array<string, mixed> $facts what the change was about (group, app, approval …)
 	 * @param string $alertKey changes with the same key share one notification per hour
 	 * @param bool $withAddress record the address of the current request as the actor's
-	 * @param list<ResponseType>|null $responses run these instead of the configured ones
 	 */
-	public function record(string $kind, Severity $severity, string $actor, ?string $subject, array $facts, string $alertKey, ?ModeState $mode = null, bool $withAddress = true, ?array $responses = null): ?Detection {
+	public function record(string $kind, Severity $severity, string $actor, ?string $subject, array $facts, string $alertKey, ?ModeState $mode = null, bool $withAddress = true): ?Detection {
 		$facts = ['kind' => $kind, 'actor' => $actor] + $facts;
 		if ($subject !== null) {
 			$facts['targets'] = [$subject];
@@ -77,7 +75,8 @@ class AdminChangeDetector {
 			uid: $subject,
 			facts: $facts,
 			severity: $severity,
-		), $responses, $mode);
+			mode: $mode,
+		));
 	}
 
 	/**

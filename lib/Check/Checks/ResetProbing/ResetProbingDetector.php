@@ -44,7 +44,6 @@ class ResetProbingDetector {
 		private readonly CheckSettings $settings,
 		private readonly AttemptMapper $attempts,
 		private readonly ResponseEngine $engine,
-		private readonly ResetProbing $check,
 		private readonly RiskScorer $risk,
 	) {
 	}
@@ -77,7 +76,7 @@ class ResetProbingDetector {
 				] + $enumLimits->facts(),
 				merge: DetectionDraft::MERGE_SOURCE,
 				userAgent: $userAgent,
-			), $params);
+			));
 		}
 
 		$uid = $attempt->uid;
@@ -102,19 +101,16 @@ class ResetProbingDetector {
 				merge: DetectionDraft::MERGE_USER,
 				mergeWindow: max((int)$params['flood_window'], (int)$params['suppress_duration']),
 				userAgent: $userAgent,
-			), $params);
+			));
 		}
 	}
 
-	/**
-	 * @param array<string, int|float|bool|string|list<string>> $params
-	 */
-	private function handle(DetectionDraft $draft, array $params): void {
+	private function handle(DetectionDraft $draft): void {
 		if ($draft->uid !== null) {
 			// The person is told when the flood begins, not for every request that continues it.
 			$draft->runOnlyWhenNew(ResponseType::NotifyUser);
 		}
-		$this->engine->handle($draft, $this->check->responsesFor($draft, $this->settings->responses(ResetProbing::ID), $params));
+		$this->engine->handle($draft);
 	}
 
 	/**

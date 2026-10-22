@@ -161,7 +161,7 @@ class AdminChangeListener implements IEventListener {
 				$facts['expires_at'] = $approval->getExpiresAt();
 			}
 		}
-		$this->detector->record(AdminChange::KIND_GRANT_REQUESTED, Severity::High, $actor, $uid, facts: $facts, alertKey: AdminChange::KIND_GRANT_REQUESTED . ':' . $gid, responses: isset($facts['approval']) ? [] : null);
+		$this->detector->record(AdminChange::KIND_GRANT_REQUESTED, Severity::High, $actor, $uid, facts: $facts, alertKey: AdminChange::KIND_GRANT_REQUESTED . ':' . $gid);
 	}
 
 	private function userRemoved(IGroup $group, IUser $user): void {

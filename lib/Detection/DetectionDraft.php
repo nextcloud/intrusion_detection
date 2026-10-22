@@ -9,6 +9,7 @@ declare(strict_types=1);
 
 namespace OCA\IntrusionDetection\Detection;
 
+use OCA\IntrusionDetection\Config\ModeState;
 use OCA\IntrusionDetection\Definition\ResponseType;
 use OCA\IntrusionDetection\Definition\Severity;
 use OCA\IntrusionDetection\Net\SourceKey;
@@ -51,6 +52,7 @@ final class DetectionDraft {
 	 * @param ?int $sessionTokenId the id of the session token involved, for the kill_session response
 	 * @param ?int $tokenId the id of the app password or token involved, for the revoke_token response
 	 * @param bool $lure the request is a possible lure ({@see \OCA\IntrusionDetection\Net\FetchMetadata}): the ban response spares `$source`, for the checks that honour lures
+	 * @param ?ModeState $mode the mode to record and answer it in instead of the check's: for a check with a second mode, and for detections the check's mode must not hold back
 	 */
 	public function __construct(
 		public readonly string $checkId,
@@ -66,6 +68,7 @@ final class DetectionDraft {
 		public readonly ?int $sessionTokenId = null,
 		public readonly ?int $tokenId = null,
 		public readonly bool $lure = false,
+		public readonly ?ModeState $mode = null,
 	) {
 	}
 

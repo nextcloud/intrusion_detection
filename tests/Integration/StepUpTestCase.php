@@ -14,10 +14,7 @@ use OCA\IntrusionDetection\AdminChange\Approvers;
 use OCA\IntrusionDetection\AppInfo\Application;
 use OCA\IntrusionDetection\Audit\AuditLogger;
 use OCA\IntrusionDetection\Cache\Caches;
-use OCA\IntrusionDetection\Check\Checks\PasswordSpraying\PasswordSpraying;
 use OCA\IntrusionDetection\Check\Checks\PasswordSpraying\PasswordSprayingDetector;
-use OCA\IntrusionDetection\Check\Checks\StepUpFailed\StepUpFailed;
-use OCA\IntrusionDetection\Check\Checks\StepUpUnconfirmed\StepUpUnconfirmed;
 use OCA\IntrusionDetection\Confirm\ConfirmationPolicy;
 use OCA\IntrusionDetection\Confirm\Db\StepUpSessionMapper;
 use OCA\IntrusionDetection\Confirm\EmailCodes;
@@ -185,7 +182,6 @@ abstract class StepUpTestCase extends AccountTestCase {
 					Server::get(FlaggedSources::class),
 					Server::get(Fingerprinter::class),
 					Server::get(Caches::class),
-					Server::get(PasswordSpraying::class),
 					Server::get(RiskScorer::class),
 				),
 			]),
@@ -221,12 +217,9 @@ abstract class StepUpTestCase extends AccountTestCase {
 			$this->userSession,
 			$this->policy(),
 			$this->engine(),
-			$this->checkSettings(),
 			Server::get(UnconfirmedSessions::class),
 			$this->currentSession,
 			$this->addresses(),
-			Server::get(StepUpFailed::class),
-			Server::get(StepUpUnconfirmed::class),
 			Server::get(ITimeFactory::class),
 			Server::get(AuditLogger::class),
 			Server::get(LoggerInterface::class),

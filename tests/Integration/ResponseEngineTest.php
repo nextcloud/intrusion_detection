@@ -13,6 +13,7 @@ use OCA\IntrusionDetection\AppInfo\Application;
 use OCA\IntrusionDetection\Audit\AuditLogger;
 use OCA\IntrusionDetection\Cache\KeyLock;
 use OCA\IntrusionDetection\Check\CheckRegistry;
+use OCA\IntrusionDetection\Check\Checks\AccountTakeover\AccountTakeover;
 use OCA\IntrusionDetection\Check\Checks\ManualBlock\ManualBlock;
 use OCA\IntrusionDetection\Check\Checks\SharedAddress\SharedAddress;
 use OCA\IntrusionDetection\Config\GlobalSettings;
@@ -239,7 +240,8 @@ class ResponseEngineTest extends IntegrationTestCase {
 			Server::get(AuditLogger::class),
 			Server::get(LoggerInterface::class),
 		);
-		$detection = $engine->handle(new DetectionDraft(SharedAddress::ID, SourceKey::fromIp('198.51.100.7')), [ResponseType::LockLink]);
+		$this->settingsEditor()->setResponses(AccountTakeover::ID, [ResponseType::LockLink]);
+		$detection = $engine->handle(new DetectionDraft(AccountTakeover::ID, SourceKey::fromIp('198.51.100.7'), 'alice'));
 		$this->assertSame([['type' => 'lock_link', 'enforced' => false, 'note' => ResponseOutcome::NOTE_UNAVAILABLE]], $detection->getActionList());
 	}
 

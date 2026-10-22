@@ -55,6 +55,8 @@ final class PasswordSpraying implements ICheck, IExplainsDetection, ISimulatable
 
 	/** The responses of the failure rules */
 	public const FAILURE_RESPONSES = [ResponseType::Ban, ResponseType::FlagPassword, ResponseType::NotifyAdmin];
+	/** The responses of an address joining a spray already detected: the spray was flagged and told already */
+	public const JOINING_RESPONSES = [ResponseType::Ban];
 	/** The responses of a successful login with a flagged password */
 	public const LOGIN_RESPONSES = [ResponseType::StepUp, ResponseType::ForcePasswordChange, ResponseType::NotifyAdmin, ResponseType::NotifyUser];
 
@@ -103,7 +105,11 @@ final class PasswordSpraying implements ICheck, IExplainsDetection, ISimulatable
 
 	#[\Override]
 	public function responsesFor(DetectionDraft $draft, array $configured, array $params): array {
-		$allowed = ($draft->facts['rule'] ?? null) === self::RULE_LOGIN ? self::LOGIN_RESPONSES : self::FAILURE_RESPONSES;
+		$allowed = match ($draft->facts['rule'] ?? null) {
+			self::RULE_LOGIN => self::LOGIN_RESPONSES,
+			self::RULE_FLAGGED => self::JOINING_RESPONSES,
+			default => self::FAILURE_RESPONSES,
+		};
 		return array_values(array_filter($configured, static fn (ResponseType $r): bool => in_array($r, $allowed, true)));
 	}
 

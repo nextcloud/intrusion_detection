@@ -191,7 +191,7 @@ class LearningNoticesTest extends IntegrationTestCase {
 			$engine->handle(new DetectionDraft(ManualBlock::ID, SourceKey::fromIp($ip), facts: ['n' => $i]));
 		}
 		// A check set to Observe on purpose is not what learning held back.
-		$engine->handle(new DetectionDraft(ManualBlock::ID, SourceKey::fromIp('198.51.100.9')), null, new ModeState(Mode::Observe, Mode::Observe));
+		$engine->handle(new DetectionDraft(ManualBlock::ID, SourceKey::fromIp('198.51.100.9'), mode: new ModeState(Mode::Observe, Mode::Observe)));
 
 		$this->setLearningUntil(time() + 3600);
 		$this->assertTrue($this->notices->sendEndingNoticeIfDue());

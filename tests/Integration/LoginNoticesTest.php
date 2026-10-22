@@ -13,7 +13,6 @@ use OC\Core\Controller\LoginController;
 use OCA\IntrusionDetection\AppInfo\Application;
 use OCA\IntrusionDetection\Audit\AuditLogger;
 use OCA\IntrusionDetection\Check\Checks\StepUpRefused\StepUpRefused;
-use OCA\IntrusionDetection\Check\Checks\UserDenied\UserDenied;
 use OCA\IntrusionDetection\Config\UserKeys;
 use OCA\IntrusionDetection\Confirm\IConfirmationMethod;
 use OCA\IntrusionDetection\Controller\NoticeController;
@@ -190,7 +189,6 @@ class LoginNoticesTest extends StepUpTestCase {
 				Server::get(DetectionMapper::class),
 				Server::get(Questions::class),
 				$this->engine(),
-				Server::get(UserDenied::class),
 				$this->appSettings(), $this->checkSettings(),
 				Server::get(FlaggedSources::class),
 				Server::get(TrustedNetworks::class),

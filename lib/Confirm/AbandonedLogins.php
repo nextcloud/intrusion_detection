@@ -12,7 +12,6 @@ namespace OCA\IntrusionDetection\Confirm;
 use OCA\IntrusionDetection\Audit\AuditLogger;
 use OCA\IntrusionDetection\Check\Checks\StepUpFailed\StepUpFailed;
 use OCA\IntrusionDetection\Config\AppSettings;
-use OCA\IntrusionDetection\Config\CheckSettings;
 use OCA\IntrusionDetection\Confirm\Db\StepUpSessionMapper;
 use OCA\IntrusionDetection\Db\IPurges;
 use OCA\IntrusionDetection\Detection\DetectionDraft;
@@ -45,9 +44,7 @@ class AbandonedLogins implements IPurges {
 		private readonly StepUpSessionMapper $sessions,
 		private readonly LoginHistory $history,
 		private readonly ResponseEngine $engine,
-		private readonly StepUpFailed $failedCheck,
 		private readonly AppSettings $appSettings,
-		private readonly CheckSettings $settings,
 		private readonly AuditLogger $audit,
 		private readonly LoggerInterface $logger,
 	) {
@@ -106,7 +103,7 @@ class AbandonedLogins implements IPurges {
 			merge: DetectionDraft::MERGE_SOURCE_USER,
 			sessionTokenId: $sessionTokenId,
 		);
-		$this->engine->handle($draft, $this->failedCheck->responsesFor($draft, $this->settings->responses(StepUpFailed::ID), []));
+		$this->engine->handle($draft);
 		$this->audit->log('login of %s ended: it was left waiting for its confirmation', ['uid' => $uid]);
 	}
 }

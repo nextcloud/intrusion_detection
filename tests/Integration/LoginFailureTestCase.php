@@ -13,7 +13,6 @@ use OCA\IntrusionDetection\Cache\Caches;
 use OCA\IntrusionDetection\Check\Checks\AccountUnderAttack\AccountUnderAttackDetector;
 use OCA\IntrusionDetection\Check\Checks\CredentialStuffing\CredentialStuffingDetector;
 use OCA\IntrusionDetection\Check\Checks\DecoyCredential\DecoyCredentialDetector;
-use OCA\IntrusionDetection\Check\Checks\PasswordSpraying\PasswordSpraying;
 use OCA\IntrusionDetection\Check\Checks\PasswordSpraying\PasswordSprayingDetector;
 use OCA\IntrusionDetection\Check\Checks\ReservedName\ReservedNameDetector;
 use OCA\IntrusionDetection\Crypto\Fingerprinter;
@@ -90,7 +89,6 @@ abstract class LoginFailureTestCase extends IntegrationTestCase {
 				Server::get(FlaggedSources::class),
 				Server::get(Fingerprinter::class),
 				Server::get(Caches::class),
-				Server::get(PasswordSpraying::class),
 				Server::get(RiskScorer::class),
 			),
 			Server::get(AccountUnderAttackDetector::class),

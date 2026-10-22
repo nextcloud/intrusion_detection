@@ -227,7 +227,6 @@ class LoginFlowMismatchTest extends RequestEventTestCase {
 		return new LoginFlowMismatchDetector(
 			$this->checkSettings(),
 			Server::get(ResponseEngine::class),
-			Server::get(LoginFlowMismatch::class),
 			Server::get(AddressResolver::class),
 			Server::get(FlaggedSources::class),
 			$this->addresses,

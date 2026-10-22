@@ -196,17 +196,11 @@ class CredentialStuffingDetector {
 	}
 
 	private function recordDistributed(AttemptStats $instance, int $now): void {
-		// Only the notification applies to the attack as a whole: the blocks and
-		// flags are for the single addresses taking part, below.
-		$responses = array_values(array_filter(
-			$this->settings->responses(CredentialStuffing::ID),
-			static fn (ResponseType $r): bool => $r === ResponseType::NotifyAdmin,
-		));
 		$this->state->setInt(self::DISTRIBUTED_DETECTED_AT_STATE, $now);
 		$detection = $this->engine->handle(new DetectionDraft(
 			checkId: CredentialStuffing::ID,
 			facts: $this->facts(CredentialStuffing::RULE_DISTRIBUTED, $instance) + ['distributed' => true],
-		), $responses);
+		));
 		$this->state->setInt(self::DISTRIBUTED_DETECTION_STATE, $detection?->getId() ?? 0);
 	}
 

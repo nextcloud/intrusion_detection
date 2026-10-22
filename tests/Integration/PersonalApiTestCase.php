@@ -12,7 +12,6 @@ namespace OCA\IntrusionDetection\Tests\Integration;
 use OCA\IntrusionDetection\AppInfo\Application;
 use OCA\IntrusionDetection\Audit\AuditLogger;
 use OCA\IntrusionDetection\Check\Checks\SecondFactorFailed\SecondFactorFailed;
-use OCA\IntrusionDetection\Check\Checks\UserDenied\UserDenied;
 use OCA\IntrusionDetection\Controller\PersonalApiController;
 use OCA\IntrusionDetection\Db\Detection;
 use OCA\IntrusionDetection\Db\DetectionMapper;
@@ -64,15 +63,13 @@ abstract class PersonalApiTestCase extends StepUpTestCase {
 	}
 
 	protected function detection(IUser $user, string $ip): Detection {
-		$detection = $this->engine()->handle(new DetectionDraft(
+		return $this->storeDetection(new DetectionDraft(
 			checkId: SecondFactorFailed::ID,
 			source: SourceKey::fromIp($ip),
 			uid: $user->getUID(),
 			facts: [],
 			userAgent: 'Mozilla/5.0',
-		), []);
-		$this->assertNotNull($detection);
-		return $detection;
+		));
 	}
 
 	protected function trustedNetwork(IUser $user, string $ip): int {
@@ -101,7 +98,6 @@ abstract class PersonalApiTestCase extends StepUpTestCase {
 			Server::get(DetectionMapper::class),
 			Server::get(Questions::class),
 			$this->engine(),
-			Server::get(UserDenied::class),
 			$this->appSettings(), $this->checkSettings(),
 			Server::get(FlaggedSources::class),
 			Server::get(TrustedNetworks::class),

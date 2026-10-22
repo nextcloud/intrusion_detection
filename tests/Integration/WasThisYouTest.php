@@ -494,16 +494,14 @@ class WasThisYouTest extends StepUpTestCase {
 			// Off by default.
 			$this->appConfig->setValueString(Application::APP_ID, Keys::mode(BreachedPassword::ID), Mode::Protect->value);
 		}
-		$detection = $this->engine()->handle(new DetectionDraft(
+		return $this->storeDetection(new DetectionDraft(
 			checkId: $checkId,
 			source: SourceKey::fromIp(self::ATTACKER),
 			uid: $user->getUID(),
 			facts: $facts,
 			severity: $severity,
 			userAgent: 'Mozilla/5.0',
-		), []);
-		$this->assertNotNull($detection);
-		return $detection;
+		));
 	}
 
 	/**
@@ -540,7 +538,6 @@ class WasThisYouTest extends StepUpTestCase {
 			Server::get(DetectionMapper::class),
 			Server::get(Questions::class),
 			$this->engine(),
-			Server::get(UserDenied::class),
 			$this->appSettings(), $this->checkSettings(),
 			Server::get(FlaggedSources::class),
 			Server::get(TrustedNetworks::class),

@@ -174,8 +174,7 @@ class AbandonedLoginsTest extends StepUpTestCase {
 			Server::get(StepUpSessionMapper::class),
 			Server::get(LoginHistory::class),
 			$this->engine(),
-			Server::get(StepUpFailed::class),
-			$this->appSettings(), $this->checkSettings(),
+			$this->appSettings(),
 			Server::get(AuditLogger::class),
 			Server::get(LoggerInterface::class),
 		);

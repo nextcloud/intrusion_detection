@@ -10,6 +10,7 @@ declare(strict_types=1);
 namespace OCA\IntrusionDetection\Check\Checks\CredentialStuffing;
 
 use OCA\IntrusionDetection\Check\ICheck;
+use OCA\IntrusionDetection\Check\ISelectsResponses;
 use OCA\IntrusionDetection\Check\ISimulatable;
 use OCA\IntrusionDetection\Db\Detection;
 use OCA\IntrusionDetection\Definition\Category;
@@ -36,8 +37,11 @@ use OCP\IL10N;
  * Many different login names failing from one address or network, or a
  * flood of failures spread thinly over many addresses (a botnet).
  * The detector is {@see CredentialStuffingDetector}.
+ *
+ * A distributed attack only notifies: the blocks and flags are for the
+ * single addresses taking part, which its detector answers itself.
  */
-final class CredentialStuffing implements ICheck, IExplainsDetection, ISimulatable {
+final class CredentialStuffing implements ICheck, IExplainsDetection, ISimulatable, ISelectsResponses {
 	public const ID = 'credential_stuffing';
 
 	public const RULE_SOURCE = 'source';
@@ -89,6 +93,14 @@ final class CredentialStuffing implements ICheck, IExplainsDetection, ISimulatab
 			),
 			simulatable: true,
 		);
+	}
+
+	#[\Override]
+	public function responsesFor(DetectionDraft $draft, array $configured, array $params): array {
+		if (($draft->facts['rule'] ?? null) !== self::RULE_DISTRIBUTED) {
+			return $configured;
+		}
+		return array_values(array_filter($configured, static fn (ResponseType $r): bool => $r === ResponseType::NotifyAdmin));
 	}
 
 	#[\Override]

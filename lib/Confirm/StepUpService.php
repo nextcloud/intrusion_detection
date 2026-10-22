@@ -14,9 +14,7 @@ use OCA\IntrusionDetection\Check\Checks\StepUpFailed\StepUpFailed;
 use OCA\IntrusionDetection\Check\Checks\StepUpRefused\StepUpRefused;
 use OCA\IntrusionDetection\Check\Checks\StepUpRefusedClient\StepUpRefusedClient;
 use OCA\IntrusionDetection\Check\Checks\StepUpUnconfirmed\StepUpUnconfirmed;
-use OCA\IntrusionDetection\Config\CheckSettings;
 use OCA\IntrusionDetection\Db\Detection;
-use OCA\IntrusionDetection\Definition\ResponseType;
 use OCA\IntrusionDetection\Detection\DetectionDraft;
 use OCA\IntrusionDetection\LoginHistory\LoginHistory;
 use OCA\IntrusionDetection\Net\RemoteAddressResolver;
@@ -86,12 +84,9 @@ class StepUpService {
 		private readonly IUserSession $userSession,
 		private readonly ConfirmationPolicy $policy,
 		private readonly ResponseEngine $engine,
-		private readonly CheckSettings $settings,
 		private readonly UnconfirmedSessions $unconfirmed,
 		private readonly CurrentSession $currentSession,
 		private readonly RemoteAddressResolver $addresses,
-		private readonly StepUpFailed $failedCheck,
-		private readonly StepUpUnconfirmed $unconfirmedCheck,
 		private readonly ITimeFactory $timeFactory,
 		private readonly AuditLogger $audit,
 		private readonly LoggerInterface $logger,
@@ -272,7 +267,7 @@ class StepUpService {
 		);
 		// Before the responses, which may end the session and its markers with it.
 		$this->recordOutcome($stepUp->uid, LoginHistory::CONFIRMED_BY_NONE, LoginHistory::STEP_UP_FAILED);
-		$detection = $this->record($draft, $this->failedCheck->responsesFor($draft, $this->settings->responses(StepUpFailed::ID), []));
+		$detection = $this->record($draft);
 		$this->unconfirmed->forget($sessionId);
 		if ($this->userSession->isLoggedIn()) {
 			$this->state->remove(SessionState::STEP_UP);
@@ -324,7 +319,7 @@ class StepUpService {
 			merge: DetectionDraft::MERGE_SOURCE_USER,
 			userAgent: $login->userAgent,
 		);
-		$detection = $this->record($draft, $this->unconfirmedCheck->responsesFor($draft, $this->settings->responses(StepUpUnconfirmed::ID), []));
+		$detection = $this->record($draft);
 		$this->confirmation($login->uid(), self::CONFIRMED_BY_NONE, $policyIds, !$login->interactive);
 		$this->audit->log('login of %s allowed without confirmation (%s)', ['uid' => $login->uid(), 'reasons' => implode(', ', $policyIds)]);
 		return [self::ALLOWED, self::ids($detection)];
@@ -348,12 +343,10 @@ class StepUpService {
 	/**
 	 * Record a detection and run its responses. A failure is logged: the
 	 * decision about the login stands without its detection.
-	 *
-	 * @param list<ResponseType>|null $responses
 	 */
-	private function record(DetectionDraft $draft, ?array $responses = null): ?Detection {
+	private function record(DetectionDraft $draft): ?Detection {
 		try {
-			return $this->engine->handle($draft, $responses);
+			return $this->engine->handle($draft);
 		} catch (\Throwable $e) {
 			$this->logger->error('Intrusion detection could not record {check}', ['check' => $draft->checkId, 'exception' => $e]);
 			return null;
