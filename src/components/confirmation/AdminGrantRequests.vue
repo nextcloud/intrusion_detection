@@ -7,7 +7,6 @@
 import type { AdminGrantRequest } from '../../types.ts'
 
 import { mdiCheck, mdiClose } from '@mdi/js'
-import { showError, showSuccess } from '@nextcloud/dialogs'
 import { t } from '@nextcloud/l10n'
 import { computed, ref } from 'vue'
 import NcAvatar from '@nextcloud/vue/components/NcAvatar'
@@ -16,26 +15,19 @@ import NcDialog from '@nextcloud/vue/components/NcDialog'
 import NcIconSvgWrapper from '@nextcloud/vue/components/NcIconSvgWrapper'
 import NcLoadingIcon from '@nextcloud/vue/components/NcLoadingIcon'
 import TimeStamp from '../common/TimeStamp.vue'
-import { useAnnouncer } from '../../composables/useAnnouncer.ts'
-import { approveRequest, errorMessage, isCancelled, rejectRequest } from '../../services/api.ts'
-import { logger } from '../../services/logger.ts'
+import { useAction } from '../../composables/useAction.ts'
+import { decideAdminGrant } from '../../store.ts'
 import { APP_ID } from '../../utils/format.ts'
 
 const props = defineProps<{
 	requests: AdminGrantRequest[]
 }>()
 
-const emit = defineEmits<{
-	/** A request was decided; the list should be loaded again */
-	decided: []
-}>()
-
-const busy = ref<number | null>(null)
+const { busy, run } = useAction()
 /** Whether the busy request is being approved, for the spinner on the right button */
 const approving = ref(false)
 /** The request the approve dialog is about */
 const confirming = ref<AdminGrantRequest | null>(null)
-const { announce } = useAnnouncer()
 
 const open = computed({
 	get: () => confirming.value !== null,
@@ -59,26 +51,15 @@ const buttons = computed(() => [
  * @param request - The request
  * @param approve - Approve, or reject
  */
-async function decide(request: AdminGrantRequest, approve: boolean) {
-	busy.value = request.id
+function decide(request: AdminGrantRequest, approve: boolean) {
 	approving.value = approve
-	try {
-		await (approve ? approveRequest(request.id) : rejectRequest(request.id))
-		const done = approve
+	run('decide:' + request.id, () => decideAdminGrant(request.id, approve), {
+		done: approve
 			? t(APP_ID, '{user} is now an administrator.', { user: request.displayName }, undefined, opts)
-			: t(APP_ID, 'The request to make {user} an administrator was rejected. Nothing was changed.', { user: request.displayName }, undefined, opts)
-		showSuccess(done)
-		announce(done)
-		emit('decided')
-	} catch (error) {
-		if (!isCancelled(error)) {
-			logger.error('Could not decide on a new administrator', { error })
-			showError(errorMessage(error, t(APP_ID, 'That did not work. Please try again.')))
-			emit('decided')
-		}
-	} finally {
-		busy.value = null
-	}
+			: t(APP_ID, 'The request to make {user} an administrator was rejected. Nothing was changed.', { user: request.displayName }, undefined, opts),
+		toast: true,
+		fallback: t(APP_ID, 'That did not work. Please try again.'),
+	})
 }
 </script>
 
@@ -116,7 +97,7 @@ async function decide(request: AdminGrantRequest, approve: boolean) {
 							: t(APP_ID, 'Withdraw the request to make {user} an administrator', { user: request.displayName }, undefined, opts)"
 						@click="decide(request, false)">
 						<template #icon>
-							<NcLoadingIcon v-if="busy === request.id" :size="20" />
+							<NcLoadingIcon v-if="busy === 'decide:' + request.id" :size="20" />
 							<NcIconSvgWrapper v-else :path="mdiClose" />
 						</template>
 						{{ request.canApprove ? t(APP_ID, 'Reject') : t(APP_ID, 'Withdraw') }}
@@ -128,7 +109,7 @@ async function decide(request: AdminGrantRequest, approve: boolean) {
 						:aria-label="t(APP_ID, 'Approve the request to make {user} an administrator', { user: request.displayName }, undefined, opts)"
 						@click="confirming = request">
 						<template #icon>
-							<NcLoadingIcon v-if="busy === request.id && approving" :size="20" />
+							<NcLoadingIcon v-if="busy === 'decide:' + request.id && approving" :size="20" />
 							<NcIconSvgWrapper v-else :path="mdiCheck" />
 						</template>
 						{{ t(APP_ID, 'Approve') }}

@@ -189,12 +189,13 @@ export function update<T>(key: string, change: (data: T) => T | void): void {
 
 /**
  * Forget what components loaded and cancel every request. The resources a
- * store keeps stay, with their data. For tests, which start each case afresh.
+ * store keeps stay, with their data, but count as out of date. For tests,
+ * which start each case afresh.
  */
 export function clearResources(): void {
 	for (const [key, target] of entries) {
 		target.controller?.abort()
-		Object.assign(target, { sequence: target.sequence + 1, pending: null, controller: null, users: 0, shown: 0 })
+		Object.assign(target, { fetchedAt: 0, sequence: target.sequence + 1, pending: null, controller: null, users: 0, shown: 0 })
 		target.state.loading = false
 		if (!target.kept) {
 			entries.delete(key)
@@ -368,4 +369,51 @@ export function useResource<T>(key: MaybeRefOrGetter<string | null>, fetcher: (s
 		loading: computed(() => current.value?.state.loading ?? false),
 		reload: () => current.value === null ? Promise.resolve() : load(current.value, true),
 	}
+}
+
+/**
+ * A list with "Show more": the first page is a resource, and `loadMore`
+ * adds the next page to it. A page that arrives after the list was loaded
+ * anew, e.g. for other filters, is dropped.
+ *
+ * @param key - The key of the first page
+ * @param page - Loads the first page (for null), or the page after a list
+ * @param append - The list with the next page added
+ * @param options - Resource options
+ */
+export function usePagedResource<T>(
+	key: MaybeRefOrGetter<string | null>,
+	page: (list: T | null, signal: AbortSignal) => Promise<T>,
+	append: (list: T, next: T) => T,
+	options: ResourceOptions = {},
+): UsedResource<T> & { loadMore: () => Promise<void> } {
+	const list = useResource(key, (signal) => page(null, signal), options)
+	let controller: AbortController | null = null
+	watch(list.data, () => controller?.abort())
+	onBeforeUnmount(() => controller?.abort())
+
+	/**
+	 * Add the next page; throws when it could not be loaded.
+	 */
+	async function loadMore(): Promise<void> {
+		const current = list.data.value
+		if (current === null) {
+			return
+		}
+		controller?.abort()
+		controller = new AbortController()
+		const { signal } = controller
+		try {
+			const next = await page(current, signal)
+			if (list.data.value === current) {
+				list.data.value = append(current, next)
+			}
+		} catch (error) {
+			if (!signal.aborted) {
+				throw error
+			}
+		}
+	}
+
+	return { ...list, loadMore }
 }

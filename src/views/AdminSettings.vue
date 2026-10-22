@@ -13,7 +13,7 @@ import StatusStrip from '../components/StatusStrip.vue'
 import TabContent from '../components/TabContent.vue'
 import { useAnnouncer } from '../composables/useAnnouncer.ts'
 import { visibleTabs } from '../extensions.ts'
-import { approvableGrants, decidableLogins, openDetectionId, refreshAdminGrants, refreshWaitingLogins, state } from '../store.ts'
+import { approvableGrants, decidableLogins, openDetectionId, state, useWaitingRequests } from '../store.ts'
 import { resolveLink } from '../utils/deepLinks.ts'
 import { APP_ID } from '../utils/format.ts'
 
@@ -108,33 +108,15 @@ watch(activeTab, (tab) => {
 	}
 })
 
-/** Waiting logins and new administrators are looked up again this often; someone waits on the other side */
-const WAITING_REFRESH = 30_000
-let waitingTimer: ReturnType<typeof setInterval> | undefined
-
-/**
- * Look for waiting logins and new administrators, unless the page is in the background.
- */
-function lookForWaitingLogins() {
-	if (document.visibilityState !== 'hidden') {
-		refreshWaitingLogins()
-		refreshAdminGrants()
-	}
-}
+useWaitingRequests()
 
 onMounted(() => {
 	readHash()
 	window.addEventListener('hashchange', readHash)
-	refreshWaitingLogins()
-	refreshAdminGrants()
-	waitingTimer = setInterval(lookForWaitingLogins, WAITING_REFRESH)
-	document.addEventListener('visibilitychange', lookForWaitingLogins)
 })
 onBeforeUnmount(() => {
 	unmounted = true
 	window.removeEventListener('hashchange', readHash)
-	document.removeEventListener('visibilitychange', lookForWaitingLogins)
-	clearInterval(waitingTimer)
 })
 </script>
 

@@ -7,17 +7,15 @@
 import type { GlobalSetting, ParamValue } from '../../types.ts'
 import type { Segment } from '../../utils/format.ts'
 
-import { showError } from '@nextcloud/dialogs'
 import { t } from '@nextcloud/l10n'
-import { computed, reactive, ref, watch } from 'vue'
+import { computed, reactive, watch } from 'vue'
 import NcButton from '@nextcloud/vue/components/NcButton'
 import NcLoadingIcon from '@nextcloud/vue/components/NcLoadingIcon'
 import ParamField from '../checks/ParamField.vue'
 import ShowMore from './ShowMore.vue'
-import { useAnnouncer } from '../../composables/useAnnouncer.ts'
-import { ApiError, errorMessage, isCancelled, updateSettings } from '../../services/api.ts'
-import { logger } from '../../services/logger.ts'
-import { globalTypes, globalValues, refreshChecks, state } from '../../store.ts'
+import { useAction } from '../../composables/useAction.ts'
+import { ApiError } from '../../services/api.ts'
+import { globalTypes, globalValues, saveSettings } from '../../store.ts'
 import { APP_ID, fillTemplate } from '../../utils/format.ts'
 import { validateParam } from '../../utils/validate.ts'
 
@@ -35,8 +33,8 @@ defineSlots<{
 
 const draft = reactive<Record<string, unknown>>({})
 const serverErrors = reactive<Record<string, string>>({})
-const saving = ref(false)
-const { announce } = useAnnouncer()
+const { busy, run } = useAction()
+const saving = computed(() => busy.value !== null)
 
 watch(() => props.settings, (settings, old) => {
 	for (const setting of settings) {
@@ -76,29 +74,18 @@ async function save() {
 	if (hasErrors.value || changed.value.length === 0) {
 		return
 	}
-	saving.value = true
 	Object.keys(serverErrors).forEach((key) => delete serverErrors[key])
-	try {
-		const payload = await updateSettings(Object.fromEntries(changed.value.map((name) => [name, validation.value[name]!.value!])))
-		state.settings = payload.settings
-		state.templates = payload.templates
-		announce(t(APP_ID, 'Saved'))
-		// Check texts use these settings too.
-		refreshChecks().catch((error) => logger.error('Could not reload the checks', { error }))
-	} catch (error) {
-		if (isCancelled(error)) {
-			return
-		}
-		logger.error('Could not save the settings', { error })
-		if (error instanceof ApiError && error.param !== null && props.settings.some((s) => s.name === error.param)) {
-			serverErrors[error.param] = error.message
-		} else {
-			showError(errorMessage(error, t(APP_ID, 'The settings could not be saved. Please try again.')))
-		}
-		announce(errorMessage(error, t(APP_ID, 'The settings could not be saved.')))
-	} finally {
-		saving.value = false
-	}
+	await run('save', () => saveSettings(Object.fromEntries(changed.value.map((name) => [name, validation.value[name]!.value!]))), {
+		done: t(APP_ID, 'Saved'),
+		fallback: t(APP_ID, 'The settings could not be saved. Please try again.'),
+		handle: (error) => {
+			if (error instanceof ApiError && error.param !== null && props.settings.some((s) => s.name === error.param)) {
+				serverErrors[error.param] = error.message
+				return true
+			}
+			return false
+		},
+	})
 }
 
 /**

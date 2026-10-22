@@ -4,11 +4,9 @@
 -->
 
 <script setup lang="ts">
-import type { Privacy } from '../../types.ts'
-
 import { mdiCloudUploadOutline, mdiDatabaseOutline, mdiScaleBalance } from '@mdi/js'
 import { n, t } from '@nextcloud/l10n'
-import { computed, onActivated, onMounted, ref } from 'vue'
+import { computed } from 'vue'
 import NcIconSvgWrapper from '@nextcloud/vue/components/NcIconSvgWrapper'
 import NcNoteCard from '@nextcloud/vue/components/NcNoteCard'
 import LiveSentence from '../checks/LiveSentence.vue'
@@ -17,13 +15,11 @@ import SettingsGroup from '../common/SettingsGroup.vue'
 import ShowMore from '../common/ShowMore.vue'
 import SkeletonBlock from '../common/SkeletonBlock.vue'
 import StateBadge from '../common/StateBadge.vue'
-import { errorMessage, fetchPrivacy } from '../../services/api.ts'
-import { logger } from '../../services/logger.ts'
 import { state } from '../../store.ts'
+import { usePrivacy } from '../../stores/settings.ts'
 import { APP_ID } from '../../utils/format.ts'
 
-const data = ref<Privacy | null>(null)
-const loadError = ref<string | null>(null)
+const { data, error: loadError } = usePrivacy({ failure: () => t(APP_ID, 'The overview could not be loaded. Please reload the page.') })
 
 /**
  * "Stored by" with at most three check names.
@@ -40,22 +36,6 @@ function storedBy(checks: string[]): string {
 const retentionSettings = computed(() => state.settings.filter((s) => s.group === 'privacy'))
 const days = (name: string) => Number(state.settings.find((s) => s.name === name)?.value ?? 0)
 const activeOutgoing = computed(() => data.value?.outgoing.filter((item) => item.active).map((item) => item.name) ?? [])
-
-/**
- * Load the overview.
- */
-async function load() {
-	try {
-		data.value = await fetchPrivacy()
-		loadError.value = null
-	} catch (error) {
-		logger.error('Could not load the data overview', { error })
-		loadError.value = errorMessage(error, t(APP_ID, 'The overview could not be loaded. Please reload the page.'))
-	}
-}
-
-onMounted(load)
-onActivated(load)
 </script>
 
 <template>

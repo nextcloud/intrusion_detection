@@ -7,7 +7,7 @@
 import type { Blocklist } from '../../types.ts'
 
 import { mdiAlertCircleOutline, mdiAlertOutline, mdiCheckCircleOutline, mdiChevronDown, mdiCloudOutline, mdiDeleteOutline, mdiDownload, mdiIncognito, mdiOpenInNew, mdiShieldAlertOutline } from '@mdi/js'
-import { showError, showSuccess } from '@nextcloud/dialogs'
+import { showError } from '@nextcloud/dialogs'
 import { n, t } from '@nextcloud/l10n'
 import { computed, ref, useId, watch } from 'vue'
 import NcButton from '@nextcloud/vue/components/NcButton'
@@ -22,9 +22,9 @@ import MatchSparkline from '../common/MatchSparkline.vue'
 import ReferencePill from '../common/ReferencePill.vue'
 import StateBadge from '../common/StateBadge.vue'
 import TimeStamp from '../common/TimeStamp.vue'
-import { useAnnouncer } from '../../composables/useAnnouncer.ts'
-import { ApiError, errorMessage, isCancelled, removeBlocklist, syncBlocklist, updateBlocklist } from '../../services/api.ts'
-import { logger } from '../../services/logger.ts'
+import { useAction } from '../../composables/useAction.ts'
+import { ApiError } from '../../services/api.ts'
+import { changeBlocklist, deleteBlocklist, syncBlocklistNow } from '../../stores/blocks.ts'
 import { APP_ID, formatDuration, formatNumber } from '../../utils/format.ts'
 import { vRadioGroupName } from '../../utils/radioGroupName.ts'
 
@@ -37,18 +37,12 @@ const props = defineProps<{
 	maxInterval: number
 }>()
 
-const emit = defineEmits<{
-	updated: [list: Blocklist]
-	removed: [id: string]
-}>()
-
 const id = useId()
 const expanded = ref(false)
-const busy = ref<string | null>(null)
+const { busy, run } = useAction()
 const confirmRemove = ref(false)
 const interval = ref<number | string>(props.list.interval)
 const intervalError = ref<string | null>(null)
-const { announce } = useAnnouncer()
 
 watch(() => props.list.interval, (value) => {
 	interval.value = value
@@ -99,7 +93,7 @@ const totalMatches = computed(() => points.value.reduce((sum, p) => sum + p.valu
 const latestSample = computed(() => [...props.list.matches].sort((a, b) => b.day.localeCompare(a.day)).find((d) => d.sample.length > 0)?.sample ?? [])
 
 /**
- * Save a change of the list and tell the parent.
+ * Save a change of the list.
  *
  * @param key - What is saved, for the loading state
  * @param change - The change
@@ -108,25 +102,18 @@ const latestSample = computed(() => [...props.list.matches].sort((a, b) => b.day
  * @param change.interval - Seconds, 0 for the default
  * @param done - What to announce when it worked
  */
-async function save(key: string, change: { enabled?: boolean, mode?: string, interval?: number }, done: string) {
-	busy.value = key
-	try {
-		emit('updated', await updateBlocklist(props.list.id, change))
-		announce(done)
-		return true
-	} catch (error) {
-		if (!isCancelled(error)) {
-			logger.error('Could not change the list', { error })
+function save(key: string, change: { enabled?: boolean, mode?: string, interval?: number }, done: string) {
+	return run(key, () => changeBlocklist(props.list.id, change), {
+		done,
+		fallback: t(APP_ID, 'The list could not be changed. Please try again.'),
+		handle: (error) => {
 			if (key === 'interval' && error instanceof ApiError) {
 				intervalError.value = error.message
-			} else {
-				showError(errorMessage(error, t(APP_ID, 'The list could not be changed. Please try again.')))
+				return true
 			}
-		}
-		return false
-	} finally {
-		busy.value = null
-	}
+			return false
+		},
+	})
 }
 
 /**
@@ -185,13 +172,11 @@ async function saveInterval(reset: boolean) {
 }
 
 /**
- * Download the list now.
+ * Download the list now. A failed download is an error, the rest is news.
  */
 async function syncNow() {
-	busy.value = 'sync'
-	try {
-		const { result, list } = await syncBlocklist(props.list.id)
-		emit('updated', list)
+	await run('sync', async () => {
+		const result = await syncBlocklistNow(props.list.id)
 		const message = {
 			updated: n(APP_ID, '{list} was downloaded: %n range.', '{list} was downloaded: %n ranges.', result.ranges, { list: props.list.name }),
 			unchanged: t(APP_ID, '{list} has not changed since the last download.', { list: props.list.name }),
@@ -200,36 +185,26 @@ async function syncNow() {
 		}[result.outcome]
 		if (result.outcome === 'failed') {
 			showError(message)
-		} else {
-			showSuccess(message)
+			return ''
 		}
-		announce(message)
-	} catch (error) {
-		if (!isCancelled(error)) {
-			logger.error('Could not download the list', { error })
-			showError(errorMessage(error, t(APP_ID, 'The list could not be downloaded. Please try again.')))
-		}
-	} finally {
-		busy.value = null
-	}
+		return message
+	}, {
+		done: (message) => message,
+		toast: true,
+		fallback: t(APP_ID, 'The list could not be downloaded. Please try again.'),
+	})
 }
 
 /**
  * Remove the custom list, after the confirmation.
  */
 async function remove() {
-	busy.value = 'remove'
-	try {
-		await removeBlocklist(props.list.id)
+	const removed = await run('remove', () => deleteBlocklist(props.list.id), {
+		done: t(APP_ID, '{list} was removed.', { list: props.list.name }),
+		fallback: t(APP_ID, 'The list could not be removed. Please try again.'),
+	})
+	if (removed) {
 		confirmRemove.value = false
-		emit('removed', props.list.id)
-		announce(t(APP_ID, '{list} was removed.', { list: props.list.name }))
-	} catch (error) {
-		if (!isCancelled(error)) {
-			showError(errorMessage(error, t(APP_ID, 'The list could not be removed. Please try again.')))
-		}
-	} finally {
-		busy.value = null
 	}
 }
 </script>

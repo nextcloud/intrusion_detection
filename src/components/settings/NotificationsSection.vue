@@ -4,13 +4,13 @@
 -->
 
 <script setup lang="ts">
-import type { Notifications, TestAlertResult } from '../../types.ts'
+import type { TestAlertResult } from '../../types.ts'
 
 import { mdiAccountGroupOutline, mdiAlertCircleOutline, mdiBellOutline, mdiCheck, mdiCheckCircleOutline, mdiEmailOffOutline, mdiEmailOutline, mdiFormatListChecks, mdiMinus } from '@mdi/js'
-import { showError, showSuccess, showWarning } from '@nextcloud/dialogs'
+import { showSuccess, showWarning } from '@nextcloud/dialogs'
 import { n, t } from '@nextcloud/l10n'
 import { generateUrl } from '@nextcloud/router'
-import { computed, onActivated, onMounted, ref, watch } from 'vue'
+import { computed, ref, watch } from 'vue'
 import NcAvatar from '@nextcloud/vue/components/NcAvatar'
 import NcButton from '@nextcloud/vue/components/NcButton'
 import NcIconSvgWrapper from '@nextcloud/vue/components/NcIconSvgWrapper'
@@ -25,20 +25,19 @@ import SkeletonBlock from '../common/SkeletonBlock.vue'
 import StateBadge from '../common/StateBadge.vue'
 import DigestSection from '../notifications/DigestSection.vue'
 import WebhookEventsSection from '../notifications/WebhookEventsSection.vue'
-import { useAnnouncer } from '../../composables/useAnnouncer.ts'
-import { errorMessage, fetchNotifications, isCancelled, sendTestAlert, updateSettings } from '../../services/api.ts'
-import { logger } from '../../services/logger.ts'
-import { refreshChecks, state } from '../../store.ts'
+import { useAction } from '../../composables/useAction.ts'
+import { sendTestAlert } from '../../services/api.ts'
+import { saveSettings, state } from '../../store.ts'
+import { useNotifications } from '../../stores/settings.ts'
 import { APP_ID, fillTemplate } from '../../utils/format.ts'
 
-const data = ref<Notifications | null>(null)
-const loadError = ref<string | null>(null)
+const { data, error: loadError } = useNotifications({ failure: () => t(APP_ID, 'The notification settings could not be loaded. Please reload the page.') })
 const groups = ref<string[]>([])
 const severity = ref('high')
-const saving = ref(false)
-const testing = ref(false)
+const { busy, run } = useAction()
+const saving = computed(() => busy.value === 'save')
+const testing = computed(() => busy.value === 'test')
 const testResult = ref<TestAlertResult | null>(null)
-const { announce } = useAnnouncer()
 const mailSettingsUrl = generateUrl('/settings/admin/server')
 
 const savedGroups = computed<string[]>(() => {
@@ -80,40 +79,13 @@ const emailSentence = computed(() => {
 const notifying = computed(() => data.value?.checks.filter((c) => c.admin).length ?? 0)
 
 /**
- * Load who is notified.
- */
-async function load() {
-	try {
-		data.value = await fetchNotifications()
-		loadError.value = null
-	} catch (error) {
-		logger.error('Could not load the notifications', { error })
-		loadError.value = errorMessage(error, t(APP_ID, 'The notification settings could not be loaded. Please reload the page.'))
-	}
-}
-
-onMounted(load)
-onActivated(load)
-
-/**
  * Save the groups and the email severity.
  */
-async function save() {
-	saving.value = true
-	try {
-		const payload = await updateSettings({ notify_admin_group: groups.value, notify_admin_email_min_severity: severity.value })
-		state.settings = payload.settings
-		state.templates = payload.templates
-		await load()
-		announce(t(APP_ID, 'Saved'))
-	} catch (error) {
-		if (!isCancelled(error)) {
-			logger.error('Could not save the notification settings', { error })
-			showError(errorMessage(error, t(APP_ID, 'The settings could not be saved. Please try again.')))
-		}
-	} finally {
-		saving.value = false
-	}
+function save() {
+	run('save', () => saveSettings({ notify_admin_group: groups.value, notify_admin_email_min_severity: severity.value }), {
+		done: t(APP_ID, 'Saved'),
+		fallback: t(APP_ID, 'The settings could not be saved. Please try again.'),
+	})
 }
 
 const emailResult = computed(() => {
@@ -130,38 +102,20 @@ const emailResult = computed(() => {
 })
 
 /**
- * Send the test alert.
+ * Send the test alert. When the email part failed, that is a warning of its own.
  */
-async function test() {
-	testing.value = true
-	try {
+function test() {
+	run('test', async () => {
 		testResult.value = await sendTestAlert()
 		const sent = t(APP_ID, 'Test alert sent. Look at the bell at the top right.')
 		const email = emailResult.value
 		if (email === null || email.ok) {
-			const message = email === null ? sent : `${sent} ${email.text}`
-			showSuccess(message)
-			announce(message)
+			showSuccess(email === null ? sent : `${sent} ${email.text}`)
 		} else {
 			showSuccess(sent)
 			showWarning(email.text)
-			announce(`${sent} ${email.text}`)
 		}
-	} catch (error) {
-		if (!isCancelled(error)) {
-			logger.error('Could not send the test alert', { error })
-			showError(errorMessage(error, t(APP_ID, 'The test alert could not be sent. Please try again in a few minutes.')))
-		}
-	} finally {
-		testing.value = false
-	}
-}
-
-/**
- * Keep the check cards in step when someone opens one from here.
- */
-function openCheck() {
-	refreshChecks().catch((error) => logger.error('Could not reload the checks', { error }))
+	}, { fallback: t(APP_ID, 'The test alert could not be sent. Please try again in a few minutes.') })
 }
 </script>
 
@@ -316,7 +270,7 @@ function openCheck() {
 							<tbody>
 								<tr v-for="check in data.checks" :key="check.id" :class="{ [$style.row_off]: check.mode === 'off' }">
 									<th scope="row">
-										<a :href="`#checks/${check.id}`" :class="$style.checkLink" @click="openCheck">{{ check.name }}</a>
+										<a :href="`#checks/${check.id}`" :class="$style.checkLink">{{ check.name }}</a>
 										<StateBadge v-if="check.mode === 'off'">
 											{{ t(APP_ID, 'Off') }}
 										</StateBadge>

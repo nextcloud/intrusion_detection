@@ -4,12 +4,9 @@
 -->
 
 <script setup lang="ts">
-import type { DigestOverview } from '../../types.ts'
-
 import { mdiCalendarClockOutline, mdiEmailFastOutline } from '@mdi/js'
-import { showError, showSuccess } from '@nextcloud/dialogs'
 import { n, t } from '@nextcloud/l10n'
-import { computed, onMounted, ref, watch } from 'vue'
+import { computed } from 'vue'
 import NcButton from '@nextcloud/vue/components/NcButton'
 import NcIconSvgWrapper from '@nextcloud/vue/components/NcIconSvgWrapper'
 import NcLoadingIcon from '@nextcloud/vue/components/NcLoadingIcon'
@@ -18,19 +15,19 @@ import SectionCard from '../common/SectionCard.vue'
 import SettingsGroup from '../common/SettingsGroup.vue'
 import SkeletonBlock from '../common/SkeletonBlock.vue'
 import TimeStamp from '../common/TimeStamp.vue'
-import { useAnnouncer } from '../../composables/useAnnouncer.ts'
-import { errorMessage, fetchDigest, isCancelled, sendTestDigest } from '../../services/api.ts'
-import { logger } from '../../services/logger.ts'
+import { useAction } from '../../composables/useAction.ts'
+import { sendTestDigest } from '../../services/api.ts'
 import { state } from '../../store.ts'
+import { useDigest } from '../../stores/settings.ts'
 import { APP_ID } from '../../utils/format.ts'
 
 /** The settings this section edits */
 const SETTINGS = ['digest_frequency']
 
-const digest = ref<DigestOverview | null>(null)
-const loadFailed = ref(false)
-const sending = ref(false)
-const { announce } = useAnnouncer()
+const { data: digest, error } = useDigest()
+const loadFailed = computed(() => error.value !== null)
+const { busy, run } = useAction()
+const sending = computed(() => busy.value !== null)
 
 const settings = computed(() => state.settings.filter((s) => SETTINGS.includes(s.name)))
 
@@ -77,42 +74,15 @@ const recipients = computed(() => {
 })
 
 /**
- * Load who gets the digest and when.
- */
-async function load() {
-	try {
-		digest.value = await fetchDigest()
-		loadFailed.value = false
-	} catch (error) {
-		logger.error('Could not load the digest settings', { error })
-		loadFailed.value = true
-	}
-}
-
-/**
  * Send the digest of the period up to now to the current admin only.
  */
-async function sendTest() {
-	sending.value = true
-	try {
-		const { message } = await sendTestDigest()
-		showSuccess(message)
-		announce(message)
-	} catch (error) {
-		if (!isCancelled(error)) {
-			logger.error('Could not send a test digest', { error })
-			const message = errorMessage(error, t(APP_ID, 'The test digest could not be sent. Please try again.'))
-			showError(message)
-			announce(message)
-		}
-	} finally {
-		sending.value = false
-	}
+function sendTest() {
+	run('send', async () => (await sendTestDigest()).message, {
+		done: (message) => message,
+		toast: true,
+		fallback: t(APP_ID, 'The test digest could not be sent. Please try again.'),
+	})
 }
-
-// When to send changes with the settings, so the schedule is loaded again after a save.
-watch(() => settings.value.map((s) => s.value).join('|'), load)
-onMounted(load)
 </script>
 
 <template>

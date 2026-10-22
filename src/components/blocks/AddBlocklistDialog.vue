@@ -13,9 +13,9 @@ import NcDialog from '@nextcloud/vue/components/NcDialog'
 import NcNoteCard from '@nextcloud/vue/components/NcNoteCard'
 import NcTextField from '@nextcloud/vue/components/NcTextField'
 import SelectField from '../common/SelectField.vue'
-import { useAnnouncer } from '../../composables/useAnnouncer.ts'
-import { ApiError, createBlocklist, errorMessage, isCancelled } from '../../services/api.ts'
-import { logger } from '../../services/logger.ts'
+import { useAction } from '../../composables/useAction.ts'
+import { ApiError } from '../../services/api.ts'
+import { addBlocklist } from '../../stores/blocks.ts'
 import { APP_ID } from '../../utils/format.ts'
 import { httpsUrlProblem, listIdProblem } from '../../utils/validate.ts'
 
@@ -27,10 +27,6 @@ const props = defineProps<{
 	formats: string[]
 }>()
 
-const emit = defineEmits<{
-	added: [list: Blocklist]
-}>()
-
 const name = ref('')
 const address = ref('')
 const purpose = ref<ListPurpose>('deny')
@@ -38,9 +34,7 @@ const mode = ref<'observe' | 'protect'>('observe')
 const format = ref('cidr')
 const touched = ref({ name: false, address: false })
 const serverErrors = ref<Record<string, string>>({})
-const error = ref<string | null>(null)
-const busy = ref(false)
-const { announce } = useAnnouncer()
+const { busy, error, run } = useAction()
 
 watch(open, (value) => {
 	if (value) {
@@ -94,7 +88,7 @@ const FORMAT_LABELS: Record<string, () => string> = {
 
 const buttons = computed(() => [
 	{ label: t(APP_ID, 'Cancel'), callback: () => undefined },
-	{ label: t(APP_ID, 'Add list'), variant: 'primary' as const, type: 'submit' as const, disabled: !valid.value || busy.value, callback: () => false },
+	{ label: t(APP_ID, 'Add list'), variant: 'primary' as const, type: 'submit' as const, disabled: !valid.value || busy.value !== null, callback: () => false },
 ])
 
 /**
@@ -105,25 +99,21 @@ async function submit() {
 	if (!valid.value) {
 		return
 	}
-	busy.value = true
-	error.value = null
-	try {
-		const list = await createBlocklist({ id: name.value.trim(), url: address.value.trim(), purpose: purpose.value, format: format.value, mode: mode.value })
-		announce(t(APP_ID, '{list} was added and is downloaded within the next minutes.', { list: list.name }))
-		emit('added', list)
+	serverErrors.value = {}
+	const added = await run('add', () => addBlocklist({ id: name.value.trim(), url: address.value.trim(), purpose: purpose.value, format: format.value, mode: mode.value }), {
+		done: (list: Blocklist) => t(APP_ID, '{list} was added and is downloaded within the next minutes.', { list: list.name }),
+		fallback: t(APP_ID, 'The list could not be added. Please try again.'),
+		inline: true,
+		handle: (e) => {
+			if (e instanceof ApiError && (e.param === 'id' || e.param === 'url')) {
+				serverErrors.value = { [e.param]: e.message }
+				return true
+			}
+			return false
+		},
+	})
+	if (added) {
 		open.value = false
-	} catch (e) {
-		if (isCancelled(e)) {
-			return
-		}
-		logger.error('Could not add the list', { error: e })
-		if (e instanceof ApiError && (e.param === 'id' || e.param === 'url')) {
-			serverErrors.value = { [e.param]: e.message }
-		} else {
-			error.value = errorMessage(e, t(APP_ID, 'The list could not be added. Please try again.'))
-		}
-	} finally {
-		busy.value = false
 	}
 }
 </script>

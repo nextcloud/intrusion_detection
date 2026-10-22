@@ -7,7 +7,6 @@
 import type { LoginApproval } from '../../types.ts'
 
 import { mdiAccountClockOutline, mdiCheck, mdiClose } from '@mdi/js'
-import { showError, showSuccess } from '@nextcloud/dialogs'
 import { t } from '@nextcloud/l10n'
 import { computed, ref } from 'vue'
 import NcAvatar from '@nextcloud/vue/components/NcAvatar'
@@ -17,24 +16,17 @@ import NcIconSvgWrapper from '@nextcloud/vue/components/NcIconSvgWrapper'
 import NcLoadingIcon from '@nextcloud/vue/components/NcLoadingIcon'
 import EmptyNote from '../common/EmptyNote.vue'
 import TimeStamp from '../common/TimeStamp.vue'
-import { useAnnouncer } from '../../composables/useAnnouncer.ts'
-import { approveRequest, errorMessage, isCancelled, rejectRequest } from '../../services/api.ts'
-import { logger } from '../../services/logger.ts'
+import { useAction } from '../../composables/useAction.ts'
+import { decideLogin } from '../../store.ts'
 import { APP_ID } from '../../utils/format.ts'
 
 const props = defineProps<{
 	approvals: LoginApproval[]
 }>()
 
-const emit = defineEmits<{
-	/** A request was decided; the list should be loaded again */
-	decided: []
-}>()
-
-const busy = ref<number | null>(null)
+const { busy, run } = useAction()
 /** The request the approve dialog is about */
 const confirming = ref<LoginApproval | null>(null)
-const { announce } = useAnnouncer()
 
 const open = computed({
 	get: () => confirming.value !== null,
@@ -56,25 +48,14 @@ const buttons = computed(() => [
  * @param approval - The waiting login
  * @param approve - Approve, or reject
  */
-async function decide(approval: LoginApproval, approve: boolean) {
-	busy.value = approval.id
-	try {
-		await (approve ? approveRequest(approval.id) : rejectRequest(approval.id))
-		const done = approve
+function decide(approval: LoginApproval, approve: boolean) {
+	run('decide:' + approval.id, () => decideLogin(approval.id, approve), {
+		done: approve
 			? t(APP_ID, 'The login of {user} was approved. It continues by itself.', { user: approval.displayName }, undefined, opts)
-			: t(APP_ID, 'The login of {user} was rejected and is ended.', { user: approval.displayName }, undefined, opts)
-		showSuccess(done)
-		announce(done)
-		emit('decided')
-	} catch (error) {
-		if (!isCancelled(error)) {
-			logger.error('Could not decide on a login', { error })
-			showError(errorMessage(error, t(APP_ID, 'That did not work. Please try again.')))
-			emit('decided')
-		}
-	} finally {
-		busy.value = null
-	}
+			: t(APP_ID, 'The login of {user} was rejected and is ended.', { user: approval.displayName }, undefined, opts),
+		toast: true,
+		fallback: t(APP_ID, 'That did not work. Please try again.'),
+	})
 }
 
 /**
@@ -122,7 +103,7 @@ function address(approval: LoginApproval): string {
 							:aria-label="t(APP_ID, 'Reject the login of {user}', { user: approval.displayName }, undefined, opts)"
 							@click="decide(approval, false)">
 							<template #icon>
-								<NcLoadingIcon v-if="busy === approval.id" :size="20" />
+								<NcLoadingIcon v-if="busy === 'decide:' + approval.id" :size="20" />
 								<NcIconSvgWrapper v-else :path="mdiClose" />
 							</template>
 							{{ t(APP_ID, 'Reject') }}

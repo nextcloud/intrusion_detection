@@ -17,7 +17,6 @@ vi.mock('../../services/api.ts', async (importOriginal) => ({
 	...(await importOriginal<object>()),
 	fetchNotifications: vi.fn(),
 	sendTestAlert: vi.fn(),
-	fetchChecks: vi.fn(() => new Promise(() => {})),
 }))
 
 /**

@@ -16,7 +16,6 @@ vi.mock('../services/api.ts', async (importOriginal) => ({
 	...(await importOriginal<object>()),
 	fetchBans: vi.fn(),
 	fetchTraps: vi.fn(),
-	fetchChecks: vi.fn(() => new Promise(() => {})),
 }))
 
 const check = (id: string): CheckRef => ({ id, name: id, mode: { configured: 'protect', effective: 'protect', reason: null, missing: null, default: 'protect' } })

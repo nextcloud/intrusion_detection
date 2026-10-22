@@ -543,9 +543,10 @@ export function setConfirmationPreset(preset: ConfirmationPreset): Promise<Confi
  * @param limit - At most this many
  * @param after - The account the previous page ended with; empty for the first page
  * @param admins - Only administrators
+ * @param signal - Cancels the request
  */
-export function fetchUnconfirmableAccounts(limit = 50, after = '', admins = false): Promise<UnconfirmableAccount[]> {
-	return call<UnconfirmableAccount[]>('get', 'confirmation/accounts', { params: { limit, after, admins: admins ? 1 : 0 } })
+export function fetchUnconfirmableAccounts(limit = 50, after = '', admins = false, signal?: AbortSignal): Promise<UnconfirmableAccount[]> {
+	return call<UnconfirmableAccount[]>('get', 'confirmation/accounts', { params: { limit, after, admins: admins ? 1 : 0 }, signal })
 }
 
 /**

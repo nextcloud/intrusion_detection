@@ -6,16 +6,13 @@
 <script setup lang="ts">
 import type { Status } from '../types.ts'
 
-import { showError, showSuccess } from '@nextcloud/dialogs'
 import { n, t } from '@nextcloud/l10n'
-import { computed, ref, useId } from 'vue'
+import { computed, useId } from 'vue'
 import NcButton from '@nextcloud/vue/components/NcButton'
 import NcLoadingIcon from '@nextcloud/vue/components/NcLoadingIcon'
-import { useAnnouncer } from '../composables/useAnnouncer.ts'
+import { useAction } from '../composables/useAction.ts'
 import { statusSections } from '../extensions.ts'
-import { errorMessage, isCancelled, updateLearning, updateSettings } from '../services/api.ts'
-import { logger } from '../services/logger.ts'
-import { refreshChecks, refreshSettings, refreshStatus } from '../store.ts'
+import { changeLearning, saveSettings } from '../store.ts'
 import { APP_ID, formatNumber } from '../utils/format.ts'
 
 const props = defineProps<{
@@ -23,8 +20,7 @@ const props = defineProps<{
 }>()
 
 const id = useId()
-const busy = ref<string | null>(null)
-const { announce } = useAnnouncer()
+const { busy, run } = useAction()
 
 /** How many checks protect, observe or are off */
 const checksLine = computed(() => {
@@ -58,33 +54,19 @@ const figures = computed(() => {
 })
 
 /**
- * Run an action of the banner and reload what it changes.
+ * Run an action of the banner.
  *
  * @param id - Which action, for the loading state
- * @param action - The request
+ * @param action - The change
  * @param done - The message when it worked
  */
-async function run(id: string, action: () => Promise<unknown>, done: string) {
-	busy.value = id
-	try {
-		await action()
-		await Promise.all([refreshStatus(), refreshChecks(), refreshSettings()])
-		showSuccess(done)
-		announce(done)
-	} catch (error) {
-		if (isCancelled(error)) {
-			return
-		}
-		logger.error('Intrusion detection action failed', { error })
-		showError(errorMessage(error, t(APP_ID, 'That did not work. Please reload the page and try again.')))
-	} finally {
-		busy.value = null
-	}
+function act(id: string, action: () => Promise<void>, done: string) {
+	run(id, action, { done, toast: true, fallback: t(APP_ID, 'That did not work. Please reload the page and try again.') })
 }
 
-const startProtecting = () => run('protect', () => updateLearning('stop'), t(APP_ID, 'Protection is active. Checks set to Protect act from now on.'))
-const observeLonger = () => run('extend', () => updateLearning('extend', 7), t(APP_ID, 'Learning mode was extended by 7 days.'))
-const turnOn = () => run('on', () => updateSettings({ protection_enabled: true }), t(APP_ID, 'Intrusion detection is on.'))
+const startProtecting = () => act('protect', () => changeLearning('stop'), t(APP_ID, 'Protection is active. Checks set to Protect act from now on.'))
+const observeLonger = () => act('extend', () => changeLearning('extend', 7), t(APP_ID, 'Learning mode was extended by 7 days.'))
+const turnOn = () => act('on', () => saveSettings({ protection_enabled: true }), t(APP_ID, 'Intrusion detection is on.'))
 </script>
 
 <template>

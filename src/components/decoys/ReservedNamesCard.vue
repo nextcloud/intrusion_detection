@@ -12,9 +12,9 @@ import { computed, ref } from 'vue'
 import CheckStateNote from '../common/CheckStateNote.vue'
 import ListEditor from '../common/ListEditor.vue'
 import SectionCard from '../common/SectionCard.vue'
-import { useAnnouncer } from '../../composables/useAnnouncer.ts'
-import { errorMessage, isCancelled, updateReservedNames } from '../../services/api.ts'
-import { logger } from '../../services/logger.ts'
+import { useAction } from '../../composables/useAction.ts'
+import { errorMessage } from '../../services/api.ts'
+import { changeReservedNames } from '../../stores/blocks.ts'
 import { APP_ID } from '../../utils/format.ts'
 
 const props = defineProps<{
@@ -22,13 +22,8 @@ const props = defineProps<{
 	check: CheckRef
 }>()
 
-const emit = defineEmits<{
-	changed: [reserved: ReservedNames]
-}>()
-
-const busy = ref(false)
+const { busy, run } = useAction()
 const error = ref<string | null>(null)
-const { announce } = useAnnouncer()
 
 const problems = computed(() => Object.fromEntries(props.reserved.collisions.map((name) => [
 	name,
@@ -48,23 +43,19 @@ function validate(value: string): string | null {
  * @param change.add - Names to reserve
  * @param change.remove - Names to release
  */
-async function change(change: { add?: string[], remove?: string[] }) {
-	busy.value = true
+function change(change: { add?: string[], remove?: string[] }) {
+	const fallback = t(APP_ID, 'The names could not be saved. Please try again.')
 	error.value = null
-	try {
-		emit('changed', await updateReservedNames(change))
-		announce(change.add
+	run('names', () => changeReservedNames(change), {
+		done: change.add
 			? t(APP_ID, 'Reserved: {names}', { names: change.add.join(', ') }, undefined, { escape: false, sanitize: false })
-			: t(APP_ID, 'Released: {names}', { names: (change.remove ?? []).join(', ') }, undefined, { escape: false, sanitize: false }))
-	} catch (e) {
-		if (!isCancelled(e)) {
-			logger.error('Could not change the reserved names', { error: e })
-			error.value = errorMessage(e, t(APP_ID, 'The names could not be saved. Please try again.'))
-			announce(error.value)
-		}
-	} finally {
-		busy.value = false
-	}
+			: t(APP_ID, 'Released: {names}', { names: (change.remove ?? []).join(', ') }, undefined, { escape: false, sanitize: false }),
+		fallback,
+		handle: (e) => {
+			error.value = errorMessage(e, fallback)
+			return true
+		},
+	})
 }
 </script>
 
@@ -87,7 +78,7 @@ async function change(change: { add?: string[], remove?: string[] }) {
 			:problems="problems"
 			:emptyText="t(APP_ID, 'No name is reserved yet.')"
 			:max="reserved.max"
-			:busy="busy"
+			:busy="busy !== null"
 			:error="error"
 			@add="change({ add: $event })"
 			@remove="change({ remove: [$event] })" />

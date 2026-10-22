@@ -9,7 +9,7 @@ import { flushPromises, mount } from '@vue/test-utils'
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 import { nextTick } from 'vue'
 import ConfirmationSection from './ConfirmationSection.vue'
-import { approveRequest, fetchConfirmation, fetchSettings, fetchUnconfirmableAccounts, rejectRequest, setConfirmationPreset, updateSettings } from '../../services/api.ts'
+import { approveRequest, fetchConfirmation, fetchSettings, fetchUnconfirmableAccounts, fetchWaitingLogins, rejectRequest, setConfirmationPreset, updateSettings } from '../../services/api.ts'
 import { state } from '../../store.ts'
 
 vi.mock('@nextcloud/dialogs', () => ({ showError: vi.fn(), showSuccess: vi.fn() }))
@@ -17,13 +17,13 @@ vi.mock('@nextcloud/dialogs', () => ({ showError: vi.fn(), showSuccess: vi.fn() 
 vi.mock('../../services/api.ts', async (importOriginal) => ({
 	...(await importOriginal<object>()),
 	fetchConfirmation: vi.fn(),
+	fetchWaitingLogins: vi.fn(),
+	fetchSettings: vi.fn(),
 	fetchUnconfirmableAccounts: vi.fn(),
 	approveRequest: vi.fn(),
 	rejectRequest: vi.fn(),
 	updateSettings: vi.fn(),
 	setConfirmationPreset: vi.fn(),
-	fetchSettings: vi.fn(() => new Promise(() => {})),
-	fetchChecks: vi.fn(() => new Promise(() => {})),
 }))
 
 const mounted: { unmount: () => void }[] = []
@@ -73,6 +73,8 @@ function overview(overrides: Partial<ConfirmationOverview> = {}): ConfirmationOv
  */
 async function mountTab(value = overview()) {
 	vi.mocked(fetchConfirmation).mockResolvedValue(value)
+	vi.mocked(fetchWaitingLogins).mockResolvedValue(value.approvals)
+	vi.mocked(fetchSettings).mockResolvedValue({ settings: state.settings, templates: state.templates })
 	const wrapper = mount(ConfirmationSection, { attachTo: document.body })
 	mounted.push(wrapper)
 	await flushPromises()
@@ -96,6 +98,8 @@ describe('the login confirmation section', () => {
 	afterEach(() => {
 		mounted.splice(0).forEach((wrapper) => wrapper.unmount())
 		vi.mocked(fetchConfirmation).mockReset()
+		vi.mocked(fetchWaitingLogins).mockReset()
+		vi.mocked(fetchSettings).mockReset()
 		vi.mocked(fetchUnconfirmableAccounts).mockReset()
 		vi.mocked(approveRequest).mockReset()
 		vi.mocked(rejectRequest).mockReset()
@@ -122,7 +126,7 @@ describe('the login confirmation section', () => {
 	test('opening the tab counts the accounts again, and the text points to the choice that decides', async () => {
 		const wrapper = await mountTab()
 		expect(fetchConfirmation).toHaveBeenCalledTimes(1)
-		expect(fetchConfirmation).toHaveBeenCalledWith(true)
+		expect(fetchConfirmation).toHaveBeenCalledWith(true, expect.any(AbortSignal))
 		expect(wrapper.text()).toContain('your choice under "When a risky login cannot be confirmed" decides what happens')
 		expect(wrapper.text()).not.toContain('the table above')
 	})
@@ -218,7 +222,7 @@ describe('the login confirmation section', () => {
 		const wrapper = await mountTab()
 		await wrapper.findAll('button').find((b) => b.text() === 'Show accounts')!.trigger('click')
 		await flushPromises()
-		expect(fetchUnconfirmableAccounts).toHaveBeenCalledWith(50, '', false)
+		expect(fetchUnconfirmableAccounts).toHaveBeenCalledWith(50, '', false, expect.any(AbortSignal))
 		expect(wrapper.get('[data-test="accounts"]').text()).toContain('Carol')
 		expect(wrapper.get('[data-test="accounts"]').text()).toContain('staff')
 	})
@@ -231,12 +235,13 @@ describe('the login confirmation section', () => {
 		await flushPromises()
 		await wrapper.findAll('button').find((b) => b.text() === 'Show more')!.trigger('click')
 		await flushPromises()
-		expect(fetchUnconfirmableAccounts).toHaveBeenLastCalledWith(50, 'user49', false)
+		expect(fetchUnconfirmableAccounts).toHaveBeenLastCalledWith(50, 'user49', false, expect.any(AbortSignal))
 	})
 
 	test('approving a waiting login asks first, then the list is loaded again', async () => {
 		vi.mocked(approveRequest).mockResolvedValue({})
 		const wrapper = await mountTab()
+		vi.mocked(fetchWaitingLogins).mockClear()
 		const rows = wrapper.get('[data-test="approvals"]').findAll('li')
 		expect(rows[1]!.text()).toContain('Your own login: another administrator decides')
 		expect(rows[1]!.findAll('button')).toHaveLength(0)
@@ -250,7 +255,7 @@ describe('the login confirmation section', () => {
 		confirm!.click()
 		await flushPromises()
 		expect(approveRequest).toHaveBeenCalledWith(7)
-		expect(fetchConfirmation).toHaveBeenCalledTimes(2)
+		expect(fetchWaitingLogins).toHaveBeenCalledTimes(1)
 	})
 
 	test('rejecting needs no extra question', async () => {

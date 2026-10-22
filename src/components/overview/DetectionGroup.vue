@@ -25,7 +25,7 @@ const props = defineProps<{
 }>()
 
 const emit = defineEmits<{
-	lift: [ban: Ban, reload: () => Promise<void>]
+	lift: [ban: Ban]
 }>()
 
 const id = useId()
@@ -75,7 +75,7 @@ const title = computed(() => shared.value
 				:key="detection.id"
 				:detection="detection"
 				:open="openId === detection.id"
-				@lift="(ban, reload) => emit('lift', ban, reload)" />
+				@lift="emit('lift', $event)" />
 		</ul>
 	</li>
 </template>

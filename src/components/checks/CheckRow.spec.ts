@@ -14,7 +14,6 @@ import { makeCheck } from '../../tests/fixtures.ts'
 vi.mock('../../services/api.ts', async (importOriginal) => ({
 	...(await importOriginal<object>()),
 	updateCheck: vi.fn(),
-	fetchStatus: vi.fn(() => new Promise(() => {})),
 }))
 
 const mounted: { unmount: () => void }[] = []

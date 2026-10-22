@@ -15,9 +15,8 @@ import NcLoadingIcon from '@nextcloud/vue/components/NcLoadingIcon'
 import NcNoteCard from '@nextcloud/vue/components/NcNoteCard'
 import NcTextArea from '@nextcloud/vue/components/NcTextArea'
 import PayloadResult from './PayloadResult.vue'
-import { useAnnouncer } from '../../composables/useAnnouncer.ts'
-import { errorMessage, testPayload } from '../../services/api.ts'
-import { logger } from '../../services/logger.ts'
+import { useAction } from '../../composables/useAction.ts'
+import { testPayload } from '../../services/api.ts'
 import { APP_ID } from '../../utils/format.ts'
 
 defineProps<{
@@ -27,9 +26,7 @@ defineProps<{
 const id = useId()
 const input = ref('')
 const result = ref<PayloadTest | null>(null)
-const error = ref<string | null>(null)
-const busy = ref(false)
-const { announce } = useAnnouncer()
+const { busy, error, run } = useAction()
 
 const EXAMPLES = [
 	{ label: () => t(APP_ID, 'Classic SQL injection'), value: "/index.php/apps/files/?id=1' OR '1'='1" },
@@ -45,17 +42,16 @@ async function test() {
 		error.value = t(APP_ID, 'Paste a web address or a value to test.')
 		return
 	}
-	busy.value = true
-	error.value = null
-	try {
+	const tested = await run('test', async () => {
 		result.value = await testPayload(input.value)
-		announce(result.value.fires ? t(APP_ID, 'Result: would fire.') : t(APP_ID, 'Result: would not fire.'))
-	} catch (e) {
-		logger.error('Could not test the value', { error: e })
-		error.value = errorMessage(e, t(APP_ID, 'The test did not work. Please try again.'))
+		return result.value
+	}, {
+		done: (outcome: PayloadTest) => outcome.fires ? t(APP_ID, 'Result: would fire.') : t(APP_ID, 'Result: would not fire.'),
+		fallback: t(APP_ID, 'The test did not work. Please try again.'),
+		inline: true,
+	})
+	if (!tested) {
 		result.value = null
-	} finally {
-		busy.value = false
 	}
 }
 
@@ -89,9 +85,9 @@ function tryExample(value: string) {
 				:placeholder="t(APP_ID, 'e.g. {example}', { example: 'https://cloud.example.com/index.php/apps/foo/?id=1 UNION SELECT 1' }, undefined, { escape: false, sanitize: false })"
 				data-test="payload-input"
 				@keydown.enter.exact.prevent="test" />
-			<NcButton type="submit" variant="primary" :disabled="busy">
+			<NcButton type="submit" variant="primary" :disabled="busy !== null">
 				<template #icon>
-					<NcLoadingIcon v-if="busy" />
+					<NcLoadingIcon v-if="busy !== null" />
 					<NcIconSvgWrapper v-else :path="mdiTestTube" />
 				</template>
 				{{ t(APP_ID, 'Test') }}

@@ -7,7 +7,6 @@
 import type { Check, ParamValue } from '../../types.ts'
 
 import { mdiFilterVariant, mdiFlaskOutline, mdiOpenInNew, mdiRestore } from '@mdi/js'
-import { showError } from '@nextcloud/dialogs'
 import { t } from '@nextcloud/l10n'
 import { computed, inject, reactive, ref, watch } from 'vue'
 import NcButton from '@nextcloud/vue/components/NcButton'
@@ -19,11 +18,10 @@ import NcNoteCard from '@nextcloud/vue/components/NcNoteCard'
 import LiveSentence from './LiveSentence.vue'
 import ParamField from './ParamField.vue'
 import SimulationDialog from './SimulationDialog.vue'
-import { useAnnouncer } from '../../composables/useAnnouncer.ts'
+import { useAction } from '../../composables/useAction.ts'
 import { checkSections } from '../../extensions.ts'
-import { ApiError, errorMessage, isCancelled, resetCheck, updateCheck } from '../../services/api.ts'
-import { logger } from '../../services/logger.ts'
-import { detectionFilters, globalTypes, globalValues, refreshStatus, replaceCheck, state } from '../../store.ts'
+import { ApiError } from '../../services/api.ts'
+import { detectionFilters, globalTypes, globalValues, resetCheckToDefaults, saveCheck, state } from '../../store.ts'
 import { APP_ID, fillTemplate } from '../../utils/format.ts'
 import { validateParam } from '../../utils/validate.ts'
 
@@ -31,7 +29,6 @@ const props = defineProps<{
 	check: Check
 }>()
 
-const { announce } = useAnnouncer()
 const showTab = inject<(tab: string) => void>('ids-show-tab', () => {})
 
 const missingRequirement = computed(() => props.check.requirements.find((r) => !r.met) ?? null)
@@ -41,9 +38,9 @@ const missingRequirement = computed(() => props.check.requirements.find((r) => !
 const draft = reactive<Record<string, unknown>>({})
 const selected = ref<string[]>([])
 const serverErrors = reactive<Record<string, string>>({})
-const saving = ref(false)
+const { busy, run } = useAction()
+const saving = computed(() => busy.value === 'save')
 const resetOpen = ref(false)
-const resetting = ref(false)
 
 const savedResponses = computed(() => props.check.responses.filter((r) => r.selected).map((r) => r.type))
 
@@ -98,34 +95,37 @@ async function save() {
 	if (hasErrors.value) {
 		return
 	}
-	saving.value = true
 	Object.keys(serverErrors).forEach((key) => delete serverErrors[key])
-	try {
-		const params = Object.fromEntries(changedParams.value.map((name) => [name, validation.value[name]!.value!]))
-		const updated = await updateCheck(props.check.id, {
+	const params = Object.fromEntries(changedParams.value.map((name) => [name, validation.value[name]!.value!]))
+	await run('save', async () => {
+		const updated = await saveCheck(props.check.id, {
 			params,
 			responses: responsesChanged.value ? [...selected.value] : undefined,
 		})
-		for (const param of updated.params) {
-			draft[param.name] = param.value
-		}
-		selected.value = updated.responses.filter((r) => r.selected).map((r) => r.type)
-		replaceCheck(updated)
-		announce(t(APP_ID, 'Saved: {check}', { check: props.check.texts.name }))
-	} catch (error) {
-		if (isCancelled(error)) {
-			return
-		}
-		logger.error('Could not save the check', { error })
-		if (error instanceof ApiError && error.param !== null && props.check.params.some((p) => p.name === error.param)) {
-			serverErrors[error.param] = error.message
-		} else {
-			showError(errorMessage(error, t(APP_ID, 'The changes could not be saved. Please try again.')))
-		}
-		announce(errorMessage(error, t(APP_ID, 'The changes could not be saved.')))
-	} finally {
-		saving.value = false
+		takeSaved(updated)
+	}, {
+		done: t(APP_ID, 'Saved: {check}', { check: props.check.texts.name }),
+		fallback: t(APP_ID, 'The changes could not be saved. Please try again.'),
+		handle: (error) => {
+			if (error instanceof ApiError && error.param !== null && props.check.params.some((p) => p.name === error.param)) {
+				serverErrors[error.param] = error.message
+				return true
+			}
+			return false
+		},
+	})
+}
+
+/**
+ * Take the check as saved into the form.
+ *
+ * @param updated - The check as the server returned it
+ */
+function takeSaved(updated: Check) {
+	for (const param of updated.params) {
+		draft[param.name] = param.value
 	}
+	selected.value = updated.responses.filter((r) => r.selected).map((r) => r.type)
 }
 
 /**
@@ -143,24 +143,12 @@ function discard() {
  * Put the check back to its defaults, after the confirmation.
  */
 async function reset() {
-	resetting.value = true
-	try {
-		const updated = await resetCheck(props.check.id)
-		for (const param of updated.params) {
-			draft[param.name] = param.value
-		}
-		selected.value = updated.responses.filter((r) => r.selected).map((r) => r.type)
-		replaceCheck(updated)
+	const done = await run('reset', async () => takeSaved(await resetCheckToDefaults(props.check.id)), {
+		done: t(APP_ID, '{check} is back to its defaults.', { check: props.check.texts.name }),
+		fallback: t(APP_ID, 'The check could not be reset. Please try again.'),
+	})
+	if (done) {
 		resetOpen.value = false
-		announce(t(APP_ID, '{check} is back to its defaults.', { check: props.check.texts.name }))
-		refreshStatus()
-	} catch (error) {
-		if (!isCancelled(error)) {
-			logger.error('Could not reset the check', { error })
-			showError(errorMessage(error, t(APP_ID, 'The check could not be reset. Please try again.')))
-		}
-	} finally {
-		resetting.value = false
 	}
 }
 

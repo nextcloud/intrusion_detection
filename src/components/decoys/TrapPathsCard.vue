@@ -8,7 +8,6 @@ import type { TabDefinition } from '../../extensions.ts'
 import type { CheckRef, TrapPathList, TrapWebServer } from '../../types.ts'
 
 import { mdiServerNetwork, mdiSignDirection } from '@mdi/js'
-import { showError } from '@nextcloud/dialogs'
 import { n, t } from '@nextcloud/l10n'
 import { computed, ref } from 'vue'
 import NcCheckboxRadioSwitch from '@nextcloud/vue/components/NcCheckboxRadioSwitch'
@@ -19,9 +18,9 @@ import CodeBlock from '../common/CodeBlock.vue'
 import ListEditor from '../common/ListEditor.vue'
 import SectionCard from '../common/SectionCard.vue'
 import ShowMore from '../common/ShowMore.vue'
-import { useAnnouncer } from '../../composables/useAnnouncer.ts'
-import { errorMessage, isCancelled, updateTrapPaths } from '../../services/api.ts'
-import { logger } from '../../services/logger.ts'
+import { useAction } from '../../composables/useAction.ts'
+import { errorMessage } from '../../services/api.ts'
+import { changeTrapPaths } from '../../stores/blocks.ts'
 import { APP_ID } from '../../utils/format.ts'
 
 const props = defineProps<{
@@ -29,14 +28,9 @@ const props = defineProps<{
 	check: CheckRef
 }>()
 
-const emit = defineEmits<{
-	changed: [paths: TrapPathList]
-}>()
-
-const busy = ref<string | null>(null)
+const { busy, run } = useAction()
 const error = ref<string | null>(null)
 const server = ref(props.paths.webServer === 'apache' || props.paths.webServer === 'apache_fpm' ? 'apache' : 'nginx')
-const { announce } = useAnnouncer()
 
 const serverTabs: TabDefinition[] = [
 	{ id: 'nginx', name: () => 'nginx', icon: mdiServerNetwork, order: 1 },
@@ -93,26 +87,21 @@ function validate(value: string): string | null {
  * @param change.autodiscover - Trap the autodiscover path
  * @param done - What to announce
  */
-async function save(key: string, change: { add?: string[], remove?: string[], builtinEnabled?: boolean, autodiscover?: boolean }, done: string) {
-	busy.value = key
+function save(key: string, change: { add?: string[], remove?: string[], builtinEnabled?: boolean, autodiscover?: boolean }, done: string) {
+	const fallback = t(APP_ID, 'The trap paths could not be saved. Please try again.')
 	error.value = null
-	try {
-		emit('changed', await updateTrapPaths(change))
-		announce(done)
-	} catch (e) {
-		if (!isCancelled(e)) {
-			logger.error('Could not change the trap paths', { error: e })
-			const message = errorMessage(e, t(APP_ID, 'The trap paths could not be saved. Please try again.'))
-			if (key === 'list') {
-				error.value = message
-			} else {
-				showError(message)
+	run(key, () => changeTrapPaths(change), {
+		done,
+		fallback,
+		// A change of the list is shown at the list.
+		handle: (e) => {
+			if (key !== 'list') {
+				return false
 			}
-			announce(message)
-		}
-	} finally {
-		busy.value = null
-	}
+			error.value = errorMessage(e, fallback)
+			return true
+		},
+	})
 }
 </script>
 

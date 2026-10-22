@@ -4,7 +4,7 @@
 -->
 
 <script setup lang="ts">
-import type { Ban, Detection, DetectionDetail } from '../../types.ts'
+import type { Ban, Detection } from '../../types.ts'
 
 import { mdiChevronDown } from '@mdi/js'
 import { n, t } from '@nextcloud/l10n'
@@ -16,8 +16,7 @@ import SeverityPill from '../common/SeverityPill.vue'
 import SkeletonBlock from '../common/SkeletonBlock.vue'
 import TimeStamp from '../common/TimeStamp.vue'
 import DetectionNarrative from './DetectionNarrative.vue'
-import { errorMessage, fetchDetection } from '../../services/api.ts'
-import { logger } from '../../services/logger.ts'
+import { useDetection } from '../../stores/overview.ts'
 import { APP_ID } from '../../utils/format.ts'
 
 const props = defineProps<{
@@ -28,46 +27,21 @@ const props = defineProps<{
 }>()
 
 const emit = defineEmits<{
-	lift: [ban: Ban, reload: () => Promise<void>]
+	lift: [ban: Ban]
 }>()
 
 const id = useId()
 const expanded = ref(props.open ?? false)
-const detail = ref<DetectionDetail | null>(null)
-const error = ref<string | null>(null)
-const loading = ref(false)
-
 const rowId = computed(() => props.detection?.id ?? props.detectionId ?? 0)
-const shown = computed(() => props.detection ?? detail.value?.detection ?? null)
-
-/**
- * Load the narrative (again).
- */
-async function load() {
-	loading.value = true
-	error.value = null
-	try {
-		detail.value = await fetchDetection(rowId.value)
-	} catch (e) {
-		logger.error('Could not load the detection', { error: e })
-		error.value = errorMessage(e, t(APP_ID, 'The explanation could not be loaded. Please try again.'))
-	} finally {
-		loading.value = false
-	}
-}
-
+/** The narrative loads when the row is opened first, and stays */
+const opened = ref(expanded.value)
 watch(expanded, (open) => {
-	if (open && detail.value === null && !loading.value) {
-		load()
-	}
-}, { immediate: true })
-
-watch(() => props.detection?.lastSeenAt, () => {
-	detail.value = null
-	if (expanded.value) {
-		load()
-	}
+	opened.value ||= open
 })
+const { data: detail, error, loading } = useDetection(() => opened.value ? rowId.value : null, () => props.detection?.lastSeenAt, {
+	failure: () => t(APP_ID, 'The explanation could not be loaded. Please try again.'),
+})
+const shown = computed(() => props.detection ?? detail.value?.detection ?? null)
 </script>
 
 <template>
@@ -110,7 +84,7 @@ watch(() => props.detection?.lastSeenAt, () => {
 				<SkeletonBlock width="60%" />
 			</div>
 			<NcNoteCard v-else-if="error" type="error" :text="error" />
-			<DetectionNarrative v-else-if="detail" :detail="detail" @lift="(ban) => emit('lift', ban, load)" />
+			<DetectionNarrative v-else-if="detail" :detail="detail" @lift="emit('lift', $event)" />
 		</div>
 	</li>
 </template>

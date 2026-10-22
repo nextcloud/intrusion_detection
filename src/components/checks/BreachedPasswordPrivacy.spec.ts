@@ -13,7 +13,6 @@ vi.mock('../../services/api.ts', async (importOriginal) => ({
 	...(await importOriginal<object>()),
 	updateCheck: vi.fn(),
 	resetCheck: vi.fn(),
-	fetchStatus: vi.fn(() => new Promise(() => {})),
 }))
 
 describe('BreachedPasswordPrivacy', () => {

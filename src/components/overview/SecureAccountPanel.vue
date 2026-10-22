@@ -4,12 +4,11 @@
 -->
 
 <script setup lang="ts">
-import type { AccountGuide } from '../../secureAccountTypes.ts'
 import type { DetectionDetail } from '../../types.ts'
 
 import { mdiAccountLockOpenOutline, mdiCheck, mdiKeyOutline } from '@mdi/js'
 import { n, t } from '@nextcloud/l10n'
-import { computed, onMounted, ref } from 'vue'
+import { computed, ref } from 'vue'
 import NcButton from '@nextcloud/vue/components/NcButton'
 import NcDialog from '@nextcloud/vue/components/NcDialog'
 import NcIconSvgWrapper from '@nextcloud/vue/components/NcIconSvgWrapper'
@@ -17,21 +16,17 @@ import NcLoadingIcon from '@nextcloud/vue/components/NcLoadingIcon'
 import NcNoteCard from '@nextcloud/vue/components/NcNoteCard'
 import NcProgressBar from '@nextcloud/vue/components/NcProgressBar'
 import TimeStamp from '../common/TimeStamp.vue'
-import { useAnnouncer } from '../../composables/useAnnouncer.ts'
-import { errorMessage, isCancelled } from '../../services/api.ts'
-import { logger } from '../../services/logger.ts'
-import { confirmPasswordReset, fetchAccountGuide, reenableAccount } from '../../services/secureAccount.ts'
+import { useAction } from '../../composables/useAction.ts'
+import { confirmAccountPasswordReset, reenableLockedAccount, useAccountGuide } from '../../stores/overview.ts'
 import { APP_ID } from '../../utils/format.ts'
 
 const props = defineProps<{
 	detail: DetectionDetail
 }>()
 
-const guide = ref<AccountGuide | null>(null)
-const error = ref<string | null>(null)
-const busy = ref(false)
+const { data: guide } = useAccountGuide(() => props.detail.detection.id)
+const { busy, error, run } = useAction()
 const confirmReenable = ref(false)
-const { announce } = useAnnouncer()
 
 const progress = computed(() => guide.value?.progress ?? null)
 const percent = computed(() => progress.value && progress.value.total > 0 ? Math.round(progress.value.done / progress.value.total * 100) : 0)
@@ -51,36 +46,12 @@ const STEP_LABELS: Record<string, () => string> = {
 }
 
 /**
- * Load the account's state.
- */
-async function load() {
-	try {
-		guide.value = await fetchAccountGuide(props.detail.detection.id)
-	} catch (e) {
-		logger.error('Could not load the "Secure my account" state', { error: e })
-		error.value = errorMessage(e, t(APP_ID, 'The state of "Secure my account" could not be loaded.'))
-	}
-}
-
-/**
  * @param action - The change
  * @param done - What to announce
  * @param fallback - What to say when it fails
  */
-async function run(action: () => Promise<AccountGuide>, done: string, fallback: string) {
-	busy.value = true
-	error.value = null
-	try {
-		guide.value = await action()
-		announce(done)
-	} catch (e) {
-		if (!isCancelled(e)) {
-			logger.error('Could not change the account', { error: e })
-			error.value = errorMessage(e, fallback)
-		}
-	} finally {
-		busy.value = false
-	}
+function change(action: (detectionId: number) => Promise<void>, done: string, fallback: string) {
+	run('change', () => action(props.detail.detection.id), { done, fallback, inline: true })
 }
 
 const reenableButtons = computed(() => [
@@ -89,12 +60,10 @@ const reenableButtons = computed(() => [
 		label: t(APP_ID, 'Enable the account'),
 		variant: 'primary' as const,
 		callback: () => {
-			run(() => reenableAccount(props.detail.detection.id), t(APP_ID, 'The account was enabled again.'), t(APP_ID, 'The account could not be enabled. Please try again.'))
+			change(reenableLockedAccount, t(APP_ID, 'The account was enabled again.'), t(APP_ID, 'The account could not be enabled. Please try again.'))
 		},
 	},
 ])
-
-onMounted(load)
 </script>
 
 <template>
@@ -143,10 +112,10 @@ onMounted(load)
 			<NcButton
 				v-if="guide.canReenable"
 				variant="primary"
-				:disabled="busy"
+				:disabled="busy !== null"
 				@click="confirmReenable = true">
 				<template #icon>
-					<NcLoadingIcon v-if="busy" :size="20" />
+					<NcLoadingIcon v-if="busy !== null" :size="20" />
 					<NcIconSvgWrapper v-else :path="mdiAccountLockOpenOutline" />
 				</template>
 				{{ t(APP_ID, 'Re-enable and start Secure my account') }}
@@ -154,8 +123,8 @@ onMounted(load)
 			<NcButton
 				v-if="passwordWaits"
 				variant="secondary"
-				:disabled="busy"
-				@click="run(() => confirmPasswordReset(detail.detection.id), t(APP_ID, 'The password step is marked done.'), t(APP_ID, 'The step could not be marked. Please try again.'))">
+				:disabled="busy !== null"
+				@click="change(confirmAccountPasswordReset, t(APP_ID, 'The password step is marked done.'), t(APP_ID, 'The step could not be marked. Please try again.'))">
 				<template #icon>
 					<NcIconSvgWrapper :path="mdiKeyOutline" />
 				</template>

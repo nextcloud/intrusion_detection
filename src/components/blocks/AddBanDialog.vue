@@ -15,18 +15,13 @@ import NcTextArea from '@nextcloud/vue/components/NcTextArea'
 import NcTextField from '@nextcloud/vue/components/NcTextField'
 import DurationInput from '../checks/DurationInput.vue'
 import SelectField from '../common/SelectField.vue'
-import { useAnnouncer } from '../../composables/useAnnouncer.ts'
-import { addBan, ApiError, errorMessage, isCancelled } from '../../services/api.ts'
-import { logger } from '../../services/logger.ts'
-import { globalValues, refreshStatus, state } from '../../store.ts'
+import { useAction } from '../../composables/useAction.ts'
+import { ApiError } from '../../services/api.ts'
+import { banAdd, globalValues, state } from '../../store.ts'
 import { APP_ID, formatAddress, formatDuration } from '../../utils/format.ts'
 import { isCidr } from '../../utils/validate.ts'
 
 const open = defineModel<boolean>('open', { required: true })
-
-const emit = defineEmits<{
-	added: [ban: Ban]
-}>()
 
 const target = ref('')
 const length = ref<'level' | 'custom'>('level')
@@ -34,9 +29,7 @@ const level = ref(1)
 const duration = ref<number | string>(3600)
 const note = ref('')
 const errors = ref<Partial<Record<string, string>>>({})
-const error = ref<string | null>(null)
-const busy = ref(false)
-const { announce } = useAnnouncer()
+const { busy, error, run } = useAction()
 
 watch(open, (value) => {
 	if (value) {
@@ -93,7 +86,7 @@ const valid = computed(() => target.value.trim() !== '' && targetError.value ===
 
 const buttons = computed(() => [
 	{ label: t(APP_ID, 'Cancel'), callback: () => undefined },
-	{ label: t(APP_ID, 'Block address'), variant: 'primary' as const, type: 'submit' as const, disabled: !valid.value || busy.value, callback: () => false },
+	{ label: t(APP_ID, 'Block address'), variant: 'primary' as const, type: 'submit' as const, disabled: !valid.value || busy.value !== null, callback: () => false },
 ])
 
 /**
@@ -103,32 +96,26 @@ async function submit() {
 	if (!valid.value) {
 		return
 	}
-	busy.value = true
 	errors.value = {}
-	error.value = null
-	try {
-		const ban = await addBan({
-			target: target.value.trim(),
-			level: level.value,
-			duration: length.value === 'custom' && typeof duration.value === 'number' ? duration.value : undefined,
-			note: note.value.trim(),
-		})
-		announce(t(APP_ID, '{address} is blocked. Reference {reference}.', { address: formatAddress(ban.cidr), reference: ban.reference }))
-		emit('added', ban)
+	const added = await run('add', () => banAdd({
+		target: target.value.trim(),
+		level: level.value,
+		duration: length.value === 'custom' && typeof duration.value === 'number' ? duration.value : undefined,
+		note: note.value.trim(),
+	}), {
+		done: (ban: Ban) => t(APP_ID, '{address} is blocked. Reference {reference}.', { address: formatAddress(ban.cidr), reference: ban.reference }),
+		fallback: t(APP_ID, 'The address could not be blocked. Please try again.'),
+		inline: true,
+		handle: (e) => {
+			if (e instanceof ApiError && (e.param === 'target' || e.param === 'duration')) {
+				errors.value = { [e.param]: e.message }
+				return true
+			}
+			return false
+		},
+	})
+	if (added) {
 		open.value = false
-		refreshStatus()
-	} catch (e) {
-		if (isCancelled(e)) {
-			return
-		}
-		logger.error('Could not add the block', { error: e })
-		if (e instanceof ApiError && (e.param === 'target' || e.param === 'duration')) {
-			errors.value = { [e.param]: e.message }
-		} else {
-			error.value = errorMessage(e, t(APP_ID, 'The address could not be blocked. Please try again.'))
-		}
-	} finally {
-		busy.value = false
 	}
 }
 </script>

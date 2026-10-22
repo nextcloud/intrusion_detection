@@ -19,11 +19,6 @@ vi.mock('../../services/api.ts', async (importOriginal) => ({
 	updateBlocklist: vi.fn(),
 }))
 
-vi.mock('../../store.ts', async (importOriginal) => ({
-	...(await importOriginal<object>()),
-	refreshStatus: vi.fn(),
-}))
-
 const check = (id: string): CheckRef => ({ id, name: id, mode: { configured: 'observe', effective: 'observe', reason: null, missing: null, default: 'observe' } })
 
 /**
@@ -100,9 +95,12 @@ describe('the blocklists', () => {
 		const wrapper = await mountPanel({ check: off })
 		const note = wrapper.get('[data-test="deny-check-off"]')
 		expect(note.text()).toContain('are not downloaded')
+		vi.mocked(fetchBlocklists).mockClear().mockResolvedValue(structuredClone(lists))
 		await note.get('button').trigger('click')
 		await flushPromises()
 		expect(updateCheck).toHaveBeenCalledWith('blocklist', { mode: 'observe' })
+		// The store loads the lists again, with the check as it is now.
+		expect(fetchBlocklists).toHaveBeenCalledTimes(1)
 		expect(wrapper.find('[data-test="deny-check-off"]').exists()).toBe(false)
 	})
 

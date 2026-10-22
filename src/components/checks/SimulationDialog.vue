@@ -4,19 +4,18 @@
 -->
 
 <script setup lang="ts">
-import type { Check, Simulation } from '../../types.ts'
+import type { Check } from '../../types.ts'
 
 import { mdiArrowRightThin, mdiFlaskOutline } from '@mdi/js'
 import { t } from '@nextcloud/l10n'
-import { computed, ref, watch } from 'vue'
+import { computed } from 'vue'
 import NcDialog from '@nextcloud/vue/components/NcDialog'
 import NcIconSvgWrapper from '@nextcloud/vue/components/NcIconSvgWrapper'
 import NcNoteCard from '@nextcloud/vue/components/NcNoteCard'
 import SeverityPill from '../common/SeverityPill.vue'
 import SkeletonBlock from '../common/SkeletonBlock.vue'
 import StateBadge from '../common/StateBadge.vue'
-import { errorMessage, simulateCheck } from '../../services/api.ts'
-import { logger } from '../../services/logger.ts'
+import { useSimulation } from '../../stores/settings.ts'
 import { APP_ID } from '../../utils/format.ts'
 
 const open = defineModel<boolean>('open', { required: true })
@@ -25,31 +24,8 @@ const props = defineProps<{
 	check: Check
 }>()
 
-const result = ref<Simulation | null>(null)
-const error = ref<string | null>(null)
-const loading = ref(false)
-
-/**
- * Run the simulation on the server.
- */
-async function run() {
-	loading.value = true
-	error.value = null
-	try {
-		result.value = await simulateCheck(props.check.id)
-	} catch (e) {
-		logger.error('Could not simulate the check', { error: e })
-		error.value = errorMessage(e, t(APP_ID, 'The simulation did not work. Please try again.'))
-	} finally {
-		loading.value = false
-	}
-}
-
-watch(open, (value) => {
-	if (value) {
-		result.value = null
-		run()
-	}
+const { data: result, error, loading, reload } = useSimulation(() => open.value ? props.check.id : null, {
+	failure: () => t(APP_ID, 'The simulation did not work. Please try again.'),
 })
 
 const mode = computed(() => {
@@ -78,7 +54,7 @@ const buttons = computed(() => [
 		variant: 'secondary' as const,
 		disabled: loading.value,
 		callback: () => {
-			run()
+			reload()
 			return false
 		},
 	},

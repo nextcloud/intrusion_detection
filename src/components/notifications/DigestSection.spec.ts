@@ -10,7 +10,7 @@ import { flushPromises, mount } from '@vue/test-utils'
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 import DigestSection from './DigestSection.vue'
 import { ApiError, fetchDigest, sendTestDigest, updateSettings } from '../../services/api.ts'
-import { state } from '../../store.ts'
+import { saveSettings, state } from '../../store.ts'
 
 const mounted: { unmount: () => void }[] = []
 
@@ -21,7 +21,6 @@ vi.mock('../../services/api.ts', async (importOriginal) => ({
 	fetchDigest: vi.fn(),
 	sendTestDigest: vi.fn(),
 	updateSettings: vi.fn(),
-	fetchChecks: vi.fn(() => new Promise(() => {})),
 }))
 
 /**
@@ -135,8 +134,8 @@ describe('DigestSection', () => {
 	test('the schedule is loaded again when the frequency was saved', async () => {
 		await mountSection()
 		expect(fetchDigest).toHaveBeenCalledTimes(1)
-		state.settings = state.settings.map((s) => (s.name === 'digest_frequency' ? { ...s, value: 'daily' } : s))
-		await flushPromises()
+		vi.mocked(updateSettings).mockResolvedValue({ settings: state.settings.map((s) => (s.name === 'digest_frequency' ? { ...s, value: 'daily' } : s)), templates: {} })
+		await saveSettings({ digest_frequency: 'daily' })
 		expect(fetchDigest).toHaveBeenCalledTimes(2)
 	})
 })

@@ -4,11 +4,11 @@
 -->
 
 <script setup lang="ts">
-import type { Ban, LookupResult } from '../../types.ts'
+import type { Ban } from '../../types.ts'
 
 import { mdiClose, mdiFileDocumentAlertOutline, mdiLockOpenVariantOutline, mdiMagnify } from '@mdi/js'
 import { n, t } from '@nextcloud/l10n'
-import { computed, ref } from 'vue'
+import { computed, ref, watch } from 'vue'
 import NcButton from '@nextcloud/vue/components/NcButton'
 import NcIconSvgWrapper from '@nextcloud/vue/components/NcIconSvgWrapper'
 import NcLoadingIcon from '@nextcloud/vue/components/NcLoadingIcon'
@@ -19,19 +19,18 @@ import SeverityPill from '../common/SeverityPill.vue'
 import TimeStamp from '../common/TimeStamp.vue'
 import { useAnnouncer } from '../../composables/useAnnouncer.ts'
 import { useIncidentReport } from '../../composables/useIncidentReport.ts'
-import { errorMessage, lookup } from '../../services/api.ts'
-import { logger } from '../../services/logger.ts'
+import { useLookup } from '../../stores/overview.ts'
 import { APP_ID, formatAddress, outcomeLabel } from '../../utils/format.ts'
 
 const emit = defineEmits<{
 	openDetection: [id: number]
-	lift: [ban: Ban, reload: () => Promise<void>]
+	lift: [ban: Ban]
 }>()
 
 const query = ref('')
-const result = ref<LookupResult | null>(null)
-const error = ref<string | null>(null)
-const searching = ref(false)
+/** What was looked up; the result follows it, also after a block was lifted */
+const submitted = ref<string | null>(null)
+const { data: result, error, loading: searching, reload } = useLookup(submitted, { failure: () => t(APP_ID, 'The lookup did not work. Please try again.') })
 const { announce } = useAnnouncer()
 const { createReport } = useIncidentReport()
 
@@ -66,24 +65,31 @@ const heading = computed(() => {
 	}
 })
 
+/** A search the user started is announced once its result is in */
+let announceNext = false
+watch(result, (found) => {
+	if (announceNext && found !== null) {
+		announceNext = false
+		announce(found.kind === 'none' ? t(APP_ID, 'Nothing found.') : heading.value)
+	}
+})
+watch(error, () => {
+	announceNext = false
+})
+
 /**
  * Look up what was typed.
  */
-async function search() {
+function search() {
 	const q = query.value.trim()
 	if (q === '') {
 		return
 	}
-	searching.value = true
-	error.value = null
-	try {
-		result.value = await lookup(q)
-		announce(result.value.kind === 'none' ? t(APP_ID, 'Nothing found.') : heading.value)
-	} catch (e) {
-		logger.error('Lookup failed', { error: e })
-		error.value = errorMessage(e, t(APP_ID, 'The lookup did not work. Please try again.'))
-	} finally {
-		searching.value = false
+	announceNext = true
+	if (submitted.value === q) {
+		reload()
+	} else {
+		submitted.value = q
 	}
 }
 
@@ -92,8 +98,7 @@ async function search() {
  */
 function clear() {
 	query.value = ''
-	result.value = null
-	error.value = null
+	submitted.value = null
 }
 </script>
 
@@ -167,7 +172,7 @@ function clear() {
 							</span>
 						</span>
 						<span :class="$style.result__muted">{{ ban.checkName }}<template v-if="ban.note"> · {{ ban.note }}</template></span>
-						<NcButton v-if="ban.active" variant="secondary" @click="emit('lift', ban, search)">
+						<NcButton v-if="ban.active" variant="secondary" @click="emit('lift', ban)">
 							<template #icon>
 								<NcIconSvgWrapper :path="mdiLockOpenVariantOutline" />
 							</template>

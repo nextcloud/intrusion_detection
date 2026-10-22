@@ -12,8 +12,9 @@ import NcCheckboxRadioSwitch from '@nextcloud/vue/components/NcCheckboxRadioSwit
 import NcDialog from '@nextcloud/vue/components/NcDialog'
 import NcNoteCard from '@nextcloud/vue/components/NcNoteCard'
 import NcTextField from '@nextcloud/vue/components/NcTextField'
-import { ApiError, createDecoy, errorMessage, isCancelled } from '../../services/api.ts'
-import { logger } from '../../services/logger.ts'
+import { useAction } from '../../composables/useAction.ts'
+import { ApiError } from '../../services/api.ts'
+import { addDecoy } from '../../stores/blocks.ts'
 import { APP_ID } from '../../utils/format.ts'
 
 const open = defineModel<boolean>('open', { required: true })
@@ -26,8 +27,7 @@ const label = ref('')
 const loginName = ref('')
 const format = ref<DecoyFormat>('app-password')
 const serverErrors = ref<Record<string, string>>({})
-const error = ref<string | null>(null)
-const busy = ref(false)
+const { busy, error, run } = useAction()
 
 watch(open, (value) => {
 	if (value) {
@@ -64,7 +64,7 @@ const FORMATS: { value: DecoyFormat, label: () => string, text: () => string }[]
 
 const buttons = computed(() => [
 	{ label: t(APP_ID, 'Cancel'), callback: () => undefined },
-	{ label: t(APP_ID, 'Create decoy'), variant: 'primary' as const, type: 'submit' as const, disabled: !valid.value || busy.value, callback: () => false },
+	{ label: t(APP_ID, 'Create decoy'), variant: 'primary' as const, type: 'submit' as const, disabled: !valid.value || busy.value !== null, callback: () => false },
 ])
 
 /**
@@ -74,26 +74,22 @@ async function submit() {
 	if (!valid.value) {
 		return
 	}
-	busy.value = true
 	serverErrors.value = {}
-	error.value = null
-	try {
-		const created = await createDecoy({ label: label.value.trim(), loginName: loginName.value.trim(), format: format.value })
+	await run('create', async () => {
+		const created = await addDecoy({ label: label.value.trim(), loginName: loginName.value.trim(), format: format.value })
 		open.value = false
 		emit('created', created)
-	} catch (e) {
-		if (isCancelled(e)) {
-			return
-		}
-		logger.error('Could not create the decoy', { error: e })
-		if (e instanceof ApiError && (e.param === 'label' || e.param === 'login_name')) {
-			serverErrors.value = { [e.param]: e.message }
-		} else {
-			error.value = errorMessage(e, t(APP_ID, 'The decoy could not be created. Please try again.'))
-		}
-	} finally {
-		busy.value = false
-	}
+	}, {
+		fallback: t(APP_ID, 'The decoy could not be created. Please try again.'),
+		inline: true,
+		handle: (e) => {
+			if (e instanceof ApiError && (e.param === 'label' || e.param === 'login_name')) {
+				serverErrors.value = { [e.param]: e.message }
+				return true
+			}
+			return false
+		},
+	})
 }
 </script>
 

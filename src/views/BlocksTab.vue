@@ -4,11 +4,11 @@
 -->
 
 <script setup lang="ts">
-import type { Ban, Traps } from '../types.ts'
+import type { Ban } from '../types.ts'
 
 import { mdiLockOpenVariantOutline, mdiPlus, mdiShieldCheckOutline } from '@mdi/js'
 import { n, t } from '@nextcloud/l10n'
-import { computed, onActivated, onMounted, ref, watch } from 'vue'
+import { computed, ref } from 'vue'
 import NcButton from '@nextcloud/vue/components/NcButton'
 import NcCheckboxRadioSwitch from '@nextcloud/vue/components/NcCheckboxRadioSwitch'
 import NcIconSvgWrapper from '@nextcloud/vue/components/NcIconSvgWrapper'
@@ -27,95 +27,32 @@ import TimeStamp from '../components/common/TimeStamp.vue'
 import DecoyCredentials from '../components/decoys/DecoyCredentials.vue'
 import ReservedNamesCard from '../components/decoys/ReservedNamesCard.vue'
 import TrapPathsCard from '../components/decoys/TrapPathsCard.vue'
-import { errorMessage, fetchBans, fetchTraps } from '../services/api.ts'
-import { logger } from '../services/logger.ts'
-import { openDetectionId, refreshChecks, state } from '../store.ts'
+import { useAction } from '../composables/useAction.ts'
+import { openDetectionId, state } from '../store.ts'
+import { useBanList, useTraps } from '../stores/blocks.ts'
 import { APP_ID, formatAddress } from '../utils/format.ts'
 
-const PAGE = 50
-const bans = ref<Ban[]>([])
-const hasMore = ref(false)
-const activeCount = ref(0)
 const showAll = ref(false)
-const loading = ref(true)
-const loadingMore = ref(false)
-const error = ref<string | null>(null)
 const liftTarget = ref<Ban | null>(null)
 const adding = ref(false)
 
-const traps = ref<Traps | null>(null)
-const trapsError = ref<string | null>(null)
+const failure = () => t(APP_ID, 'The blocks could not be loaded. Please reload the page.')
+const { data: banList, error, loadMore: nextPage } = useBanList(showAll, { failure })
+const bans = computed(() => banList.value?.bans ?? [])
+const loading = computed(() => banList.value === null && error.value === null)
+const { busy: loadingMore, run } = useAction()
+
+const { data: traps, error: trapsError } = useTraps({ failure: () => t(APP_ID, 'The decoys could not be loaded. Please reload the page.') })
 
 const escalationSettings = computed(() => state.settings.filter((s) => ['ban_duration_1', 'ban_duration_2', 'ban_duration_3', 'ban_history_days', 'ban_net_after'].includes(s.name)))
 const valveSettings = computed(() => state.settings.filter((s) => s.name === 'ban_shared_ip_users'))
 
 /**
- * Load the first page.
+ * Add the next page of blocks.
  */
-async function load() {
-	loading.value = bans.value.length === 0
-	error.value = null
-	try {
-		const page = await fetchBans(showAll.value, PAGE, 0)
-		bans.value = page.bans
-		hasMore.value = page.hasMore
-		activeCount.value = page.activeCount
-	} catch (e) {
-		logger.error('Could not load the blocks', { error: e })
-		error.value = errorMessage(e, t(APP_ID, 'The blocks could not be loaded. Please reload the page.'))
-	} finally {
-		loading.value = false
-	}
+function loadMore() {
+	run('more', nextPage, { fallback: failure() })
 }
-
-/**
- * Append the next page.
- */
-async function loadMore() {
-	loadingMore.value = true
-	try {
-		const page = await fetchBans(showAll.value, PAGE, bans.value.length)
-		bans.value.push(...page.bans)
-		hasMore.value = page.hasMore
-	} catch (e) {
-		logger.error('Could not load more blocks', { error: e })
-	} finally {
-		loadingMore.value = false
-	}
-}
-
-/**
- * Load the decoys, reserved names and trap paths.
- */
-async function loadTraps() {
-	try {
-		traps.value = await fetchTraps()
-		trapsError.value = null
-	} catch (e) {
-		logger.error('Could not load the decoys', { error: e })
-		trapsError.value = errorMessage(e, t(APP_ID, 'The decoys could not be loaded. Please reload the page.'))
-	}
-}
-
-/**
- * The trap lists are also settings of their checks; keep the check cards in step.
- */
-function checksChanged() {
-	refreshChecks().catch((error) => logger.error('Could not reload the checks', { error }))
-}
-
-onMounted(() => {
-	load()
-	loadTraps()
-})
-onActivated(() => {
-	load()
-	loadTraps()
-})
-watch(showAll, () => {
-	bans.value = []
-	load()
-})
 
 /**
  * @param ban - A block
@@ -148,7 +85,7 @@ function openDetection(ban: Ban) {
 						{{ showAll ? t(APP_ID, 'All blocks') : t(APP_ID, 'Active blocks') }}
 					</h3>
 					<p :class="$style.card__muted">
-						{{ n(APP_ID, '%n address or network is blocked right now.', '%n addresses or networks are blocked right now.', activeCount) }}
+						{{ n(APP_ID, '%n address or network is blocked right now.', '%n addresses or networks are blocked right now.', banList?.activeCount ?? 0) }}
 					</p>
 				</div>
 				<div :class="$style.card__actions">
@@ -225,9 +162,9 @@ function openDetection(ban: Ban) {
 				</li>
 			</ul>
 
-			<div v-if="hasMore" :class="$style.more">
-				<NcButton variant="secondary" :disabled="loadingMore" @click="loadMore">
-					<template v-if="loadingMore" #icon>
+			<div v-if="banList?.hasMore" :class="$style.more">
+				<NcButton variant="secondary" :disabled="loadingMore !== null" @click="loadMore">
+					<template v-if="loadingMore !== null" #icon>
 						<NcLoadingIcon />
 					</template>
 					{{ t(APP_ID, 'Show more') }}
@@ -246,18 +183,15 @@ function openDetection(ban: Ban) {
 				id="blocks-decoys"
 				:decoys="traps.decoys"
 				:check="traps.decoyCheck"
-				:collisions="traps.decoyCollisions"
-				@changed="traps.decoys = $event" />
+				:collisions="traps.decoyCollisions" />
 			<ReservedNamesCard
 				id="blocks-reserved"
 				:reserved="traps.reservedNames"
-				:check="traps.reservedCheck"
-				@changed="traps.reservedNames = $event; checksChanged()" />
+				:check="traps.reservedCheck" />
 			<TrapPathsCard
 				id="blocks-trap-paths"
 				:paths="traps.trapPaths"
-				:check="traps.trapCheck"
-				@changed="traps.trapPaths = $event; checksChanged()" />
+				:check="traps.trapCheck" />
 		</template>
 
 		<FirewallExportPanel id="blocks-firewall" />
@@ -303,8 +237,8 @@ function openDetection(ban: Ban) {
 			</NcNoteCard>
 		</div>
 
-		<LiftBanDialog :ban="liftTarget" @close="liftTarget = null" @lifted="load" />
-		<AddBanDialog v-model:open="adding" @added="load" />
+		<LiftBanDialog :ban="liftTarget" @close="liftTarget = null" />
+		<AddBanDialog v-model:open="adding" />
 	</div>
 </template>
 

@@ -7,7 +7,6 @@
 import type { IncidentReport, IncidentRequest } from '../../types.ts'
 
 import { mdiDownload, mdiFileCodeOutline, mdiInformationOutline, mdiOpenInNew, mdiPencilOutline, mdiPrinterOutline } from '@mdi/js'
-import { showError } from '@nextcloud/dialogs'
 import { t } from '@nextcloud/l10n'
 import { computed, ref, useId } from 'vue'
 import NcButton from '@nextcloud/vue/components/NcButton'
@@ -17,9 +16,8 @@ import NcNoteCard from '@nextcloud/vue/components/NcNoteCard'
 import TimeStamp from '../common/TimeStamp.vue'
 import IncidentSummary from './IncidentSummary.vue'
 import IncidentTimeline from './IncidentTimeline.vue'
-import { useAnnouncer } from '../../composables/useAnnouncer.ts'
-import { downloadIncidentReport, errorMessage, isCancelled } from '../../services/api.ts'
-import { logger } from '../../services/logger.ts'
+import { useAction } from '../../composables/useAction.ts'
+import { downloadIncidentReport } from '../../services/api.ts'
 import { APP_ID } from '../../utils/format.ts'
 
 const props = defineProps<{
@@ -35,8 +33,7 @@ const emit = defineEmits<{
 
 const id = useId()
 const heading = ref<HTMLElement | null>(null)
-const downloading = ref<'json' | 'html' | 'print' | null>(null)
-const { announce } = useAnnouncer()
+const { busy: downloading, run } = useAction()
 
 const subject = computed(() => {
 	const value = props.report.subject
@@ -96,25 +93,18 @@ function print(html: string) {
  *
  * @param action - JSON, the HTML page, or print the HTML page
  */
-async function download(action: 'json' | 'html' | 'print') {
-	downloading.value = action
-	try {
+function download(action: 'json' | 'html' | 'print') {
+	run(action, async () => {
 		const { blob, filename } = await downloadIncidentReport(props.request, action === 'json' ? 'json' : 'html')
 		if (action === 'print') {
 			print(await blob.text())
 		} else {
 			save(blob, filename)
-			announce(t(APP_ID, 'The report was downloaded.'))
 		}
-	} catch (e) {
-		if (isCancelled(e)) {
-			return
-		}
-		logger.error('Could not download the incident report', { error: e })
-		showError(errorMessage(e, t(APP_ID, 'The report could not be downloaded. Please try again.')))
-	} finally {
-		downloading.value = null
-	}
+	}, {
+		done: action === 'print' ? undefined : t(APP_ID, 'The report was downloaded.'),
+		fallback: t(APP_ID, 'The report could not be downloaded. Please try again.'),
+	})
 }
 
 /**

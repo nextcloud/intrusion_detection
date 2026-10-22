@@ -7,16 +7,12 @@
 import type { ConfirmationOutcome, ConfirmationPolicy, ParamValue } from '../../types.ts'
 
 import { mdiLockOutline } from '@mdi/js'
-import { showError, showSuccess } from '@nextcloud/dialogs'
 import { t } from '@nextcloud/l10n'
-import { ref } from 'vue'
 import NcCheckboxRadioSwitch from '@nextcloud/vue/components/NcCheckboxRadioSwitch'
 import NcIconSvgWrapper from '@nextcloud/vue/components/NcIconSvgWrapper'
 import SelectField from '../common/SelectField.vue'
-import { useAnnouncer } from '../../composables/useAnnouncer.ts'
-import { errorMessage, isCancelled, updateSettings } from '../../services/api.ts'
-import { logger } from '../../services/logger.ts'
-import { state } from '../../store.ts'
+import { useAction } from '../../composables/useAction.ts'
+import { saveSettings, state } from '../../store.ts'
 import { APP_ID } from '../../utils/format.ts'
 
 const props = defineProps<{
@@ -24,17 +20,11 @@ const props = defineProps<{
 	outcomes: ConfirmationOutcome[]
 }>()
 
-const emit = defineEmits<{
-	/** A policy changed; carries the new list */
-	changed: [policies: ConfirmationPolicy[]]
-}>()
-
 const KNOWN_DEVICE_SETTING = 'step_up_known_device_ok_for'
 
-const busy = ref<string | null>(null)
+const { busy, run } = useAction()
 /** The texts are shown as text, never as HTML: no escaping needed */
 const opts = { escape: false, sanitize: false }
-const { announce } = useAnnouncer()
 
 /**
  * @param id - An outcome
@@ -44,29 +34,17 @@ function outcomeOf(id: string): ConfirmationOutcome | undefined {
 }
 
 /**
- * Save settings and put the changed policy in place.
+ * Save the settings of a policy.
  *
  * @param policy - The policy changed
  * @param change - The settings to save
- * @param updated - The policy as it is after saving
  */
-async function save(policy: ConfirmationPolicy, change: Record<string, ParamValue>, updated: ConfirmationPolicy) {
-	busy.value = policy.id
-	try {
-		const payload = await updateSettings(change)
-		state.settings = payload.settings
-		emit('changed', props.policies.map((p) => p.id === policy.id ? updated : p))
-		const done = t(APP_ID, 'Saved: {reason}', { reason: policy.label }, undefined, opts)
-		showSuccess(done)
-		announce(done)
-	} catch (error) {
-		if (!isCancelled(error)) {
-			logger.error('Could not save the confirmation policy', { error })
-			showError(errorMessage(error, t(APP_ID, 'The change could not be saved. Please try again.')))
-		}
-	} finally {
-		busy.value = null
-	}
+function save(policy: ConfirmationPolicy, change: Record<string, ParamValue>) {
+	run(policy.id, () => saveSettings(change), {
+		done: t(APP_ID, 'Saved: {reason}', { reason: policy.label }, undefined, opts),
+		toast: true,
+		fallback: t(APP_ID, 'The change could not be saved. Please try again.'),
+	})
 }
 
 /**
@@ -77,7 +55,7 @@ function setOutcome(policy: ConfirmationPolicy, outcome: string) {
 	if (outcome === policy.outcome) {
 		return
 	}
-	void save(policy, { [policy.setting]: outcome }, { ...policy, outcome })
+	save(policy, { [policy.setting]: outcome })
 }
 
 /**
@@ -90,7 +68,7 @@ function setKnownDevice(policy: ConfirmationPolicy, on: boolean) {
 	if (on) {
 		list.push(policy.id)
 	}
-	void save(policy, { [KNOWN_DEVICE_SETTING]: list }, { ...policy, knownDevice: on })
+	save(policy, { [KNOWN_DEVICE_SETTING]: list })
 }
 </script>
 

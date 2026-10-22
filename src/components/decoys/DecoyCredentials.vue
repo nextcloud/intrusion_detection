@@ -7,7 +7,6 @@
 import type { CheckRef, Decoy, NewDecoy } from '../../types.ts'
 
 import { mdiAlertCircleOutline, mdiDeleteOutline, mdiKeyChainVariant, mdiKeyVariant, mdiPlus } from '@mdi/js'
-import { showError } from '@nextcloud/dialogs'
 import { n, t } from '@nextcloud/l10n'
 import { computed, ref } from 'vue'
 import NcButton from '@nextcloud/vue/components/NcButton'
@@ -20,28 +19,24 @@ import StateBadge from '../common/StateBadge.vue'
 import TimeStamp from '../common/TimeStamp.vue'
 import CreateDecoyDialog from './CreateDecoyDialog.vue'
 import DecoySecretDialog from './DecoySecretDialog.vue'
+import { useAction } from '../../composables/useAction.ts'
 import { useAnnouncer } from '../../composables/useAnnouncer.ts'
-import { deleteDecoy, errorMessage, isCancelled } from '../../services/api.ts'
-import { logger } from '../../services/logger.ts'
 import { globalValues } from '../../store.ts'
+import { removeDecoy } from '../../stores/blocks.ts'
 import { APP_ID, formatDuration } from '../../utils/format.ts'
 
-const props = defineProps<{
+defineProps<{
 	decoys: Decoy[]
 	check: CheckRef
 	/** Login names of decoys that are accounts by now */
 	collisions: string[]
 }>()
 
-const emit = defineEmits<{
-	changed: [decoys: Decoy[]]
-}>()
-
 const creating = ref(false)
 /** The decoy just created, with its secret, until the secret dialog closes */
 const created = ref<NewDecoy | null>(null)
 const deleting = ref<Decoy | null>(null)
-const busy = ref(false)
+const { busy, run } = useAction()
 const { announce } = useAnnouncer()
 
 /** A used decoy secret blocks like a repeat offender */
@@ -51,7 +46,6 @@ const repeatBlock = computed(() => formatDuration(Number(globalValues.value.ban_
  * @param value - The new decoy and its secret
  */
 function onCreated(value: NewDecoy) {
-	emit('changed', [value.decoy, ...props.decoys])
 	created.value = value
 	announce(t(APP_ID, 'The decoy was created. Copy its secret now; it is shown only once.'))
 }
@@ -64,19 +58,12 @@ async function remove() {
 	if (decoy === null) {
 		return
 	}
-	busy.value = true
-	try {
-		await deleteDecoy(decoy.id)
-		emit('changed', props.decoys.filter((d) => d.id !== decoy.id))
+	const removed = await run('delete', () => removeDecoy(decoy.id), {
+		done: t(APP_ID, 'The decoy "{label}" was deleted.', { label: decoy.label }, undefined, { escape: false, sanitize: false }),
+		fallback: t(APP_ID, 'The decoy could not be deleted. Please try again.'),
+	})
+	if (removed) {
 		deleting.value = null
-		announce(t(APP_ID, 'The decoy "{label}" was deleted.', { label: decoy.label }, undefined, { escape: false, sanitize: false }))
-	} catch (error) {
-		if (!isCancelled(error)) {
-			logger.error('Could not delete the decoy', { error })
-			showError(errorMessage(error, t(APP_ID, 'The decoy could not be deleted. Please try again.')))
-		}
-	} finally {
-		busy.value = false
 	}
 }
 </script>
@@ -159,7 +146,7 @@ async function remove() {
 			:message="t(APP_ID, 'Anyone who uses it afterwards is treated like any other failed login. Remove it from where you planted it too.')"
 			:buttons="[
 				{ label: t(APP_ID, 'Cancel'), callback: () => { deleting = null } },
-				{ label: t(APP_ID, 'Delete decoy'), variant: 'error', disabled: busy, callback: () => { remove(); return false } },
+				{ label: t(APP_ID, 'Delete decoy'), variant: 'error', disabled: busy !== null, callback: () => { remove(); return false } },
 			]"
 			@update:open="!$event && (deleting = null)" />
 	</SectionCard>

@@ -9,7 +9,7 @@ import type { IncidentSubject } from '../utils/incidents.ts'
 
 import { mdiPlus, mdiShieldCheckOutline, mdiTextBoxSearchOutline } from '@mdi/js'
 import { n, t } from '@nextcloud/l10n'
-import { computed, nextTick, onActivated, onMounted, ref, watch } from 'vue'
+import { computed, nextTick, ref, watch } from 'vue'
 import NcButton from '@nextcloud/vue/components/NcButton'
 import NcDialog from '@nextcloud/vue/components/NcDialog'
 import NcEmptyContent from '@nextcloud/vue/components/NcEmptyContent'
@@ -20,24 +20,21 @@ import IncidentDetail from '../components/incidents/IncidentDetail.vue'
 import IncidentForm from '../components/incidents/IncidentForm.vue'
 import IncidentList from '../components/incidents/IncidentList.vue'
 import { useAnnouncer } from '../composables/useAnnouncer.ts'
-import { buildIncidentReport, errorMessage, fetchDetections, isCancelled, isRateLimited } from '../services/api.ts'
+import { buildIncidentReport, errorMessage, isCancelled, isRateLimited } from '../services/api.ts'
 import { logger } from '../services/logger.ts'
 import { incidentRequest } from '../store.ts'
+import { useRecentDetections } from '../stores/overview.ts'
 import { APP_ID } from '../utils/format.ts'
 import { incidentSubjects, requestKey, subjectKey } from '../utils/incidents.ts'
 
-/** The list covers the detections of this many days */
-const LIST_DAYS = 7
-/** At most this many detections are folded into the list; the most the API returns */
-const LIST_LIMIT = 100
 /** This many built reports are kept for this page view */
 const CACHE_SIZE = 10
 
-const subjects = ref<IncidentSubject[]>([])
-const listLoading = ref(true)
-const listError = ref<string | null>(null)
-const listHasMore = ref(false)
-let listLoaded = false
+const recent = useRecentDetections({ failure: () => t(APP_ID, 'The recent incidents could not be loaded.') })
+const subjects = computed<IncidentSubject[]>(() => incidentSubjects(recent.data.value?.detections ?? []))
+const listLoading = computed(() => recent.data.value === null && recent.error.value === null)
+const listError = recent.error
+const listHasMore = computed(() => recent.data.value?.hasMore ?? false)
 
 const detail = ref<InstanceType<typeof IncidentDetail> | null>(null)
 const report = ref<IncidentReport | null>(null)
@@ -64,32 +61,6 @@ const selected = computed(() => {
 })
 const nothingAtAll = computed(() => !listLoading.value && listError.value === null && subjects.value.length === 0
 	&& report.value === null && !loading.value && error.value === null)
-
-/**
- * Load the addresses and accounts of the recent detections.
- */
-async function loadList() {
-	try {
-		const since = Math.floor(Date.now() / 1000) - LIST_DAYS * 86400
-		const list = await fetchDetections({}, LIST_LIMIT, 0, since)
-		subjects.value = incidentSubjects(list.detections)
-		listHasMore.value = list.hasMore
-		listError.value = null
-	} catch (e) {
-		logger.error('Could not load the recent detections', { error: e })
-		listError.value = errorMessage(e, t(APP_ID, 'The recent incidents could not be loaded.'))
-	} finally {
-		listLoading.value = false
-		listLoaded = true
-	}
-}
-
-onMounted(loadList)
-onActivated(() => {
-	if (listLoaded) {
-		loadList()
-	}
-})
 
 /**
  * Show a built report and remember it for this page view.

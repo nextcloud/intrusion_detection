@@ -10,7 +10,7 @@ import type { IncidentRequest, IncidentSubjectType } from '../../types.ts'
 import { mdiFileChartOutline } from '@mdi/js'
 import { t } from '@nextcloud/l10n'
 import debounce from 'debounce'
-import { computed, ref, useId } from 'vue'
+import { computed, onBeforeUnmount, ref, useId } from 'vue'
 import NcButton from '@nextcloud/vue/components/NcButton'
 import NcDateTimePickerNative from '@nextcloud/vue/components/NcDateTimePickerNative'
 import NcIconSvgWrapper from '@nextcloud/vue/components/NcIconSvgWrapper'
@@ -89,16 +89,30 @@ const periodError = computed(() => {
 const subjectValid = computed(() => (type.value === 'user' ? account.value !== null : address.value.trim() !== '' && addressError.value === null))
 const valid = computed(() => subjectValid.value && periodError.value === null && (period.value !== 'custom' || (from.value !== null && to.value !== null)))
 
+/** Cancels the search under way, whose answer would be for older text */
+let searchController: AbortController | null = null
+
 const runSearch = debounce(async (term: string) => {
+	searchController?.abort()
+	const controller = new AbortController()
+	searchController = controller
+	let users: Awaited<ReturnType<typeof searchAccounts>> = []
 	try {
-		options.value = (await searchAccounts(term)).map((user) => ({ id: user.uid, user: user.uid, displayName: user.displayName, subname: user.email ?? user.uid }))
+		users = await searchAccounts(term, controller.signal)
 	} catch (error) {
-		logger.error('Could not search for accounts', { error })
-		options.value = []
-	} finally {
+		if (!controller.signal.aborted) {
+			logger.error('Could not search for accounts', { error })
+		}
+	}
+	if (controller === searchController) {
+		options.value = users.map((user) => ({ id: user.uid, user: user.uid, displayName: user.displayName, subname: user.email ?? user.uid }))
 		searching.value = false
 	}
 }, 250)
+onBeforeUnmount(() => {
+	runSearch.clear()
+	searchController?.abort()
+})
 
 /**
  * @param term - What was typed into the account picker

@@ -4,12 +4,11 @@
 -->
 
 <script setup lang="ts">
-import type { ConfirmationOverview, ConfirmationPolicy, ConfirmationPreset } from '../../types.ts'
+import type { ConfirmationPreset } from '../../types.ts'
 
 import { mdiAccountAlertOutline, mdiAccountClockOutline, mdiLaptop, mdiListStatus, mdiRefresh, mdiShieldAccountOutline, mdiTimerOutline } from '@mdi/js'
-import { showError } from '@nextcloud/dialogs'
 import { n, t } from '@nextcloud/l10n'
-import { computed, nextTick, onActivated, onBeforeUnmount, onDeactivated, onMounted, ref } from 'vue'
+import { computed, nextTick, ref } from 'vue'
 import NcButton from '@nextcloud/vue/components/NcButton'
 import NcCheckboxRadioSwitch from '@nextcloud/vue/components/NcCheckboxRadioSwitch'
 import NcIconSvgWrapper from '@nextcloud/vue/components/NcIconSvgWrapper'
@@ -23,14 +22,10 @@ import MethodSteps from '../confirmation/MethodSteps.vue'
 import PendingApprovals from '../confirmation/PendingApprovals.vue'
 import PolicyTable from '../confirmation/PolicyTable.vue'
 import UnconfirmableAccounts from '../confirmation/UnconfirmableAccounts.vue'
-import { useAnnouncer } from '../../composables/useAnnouncer.ts'
-import { errorMessage, fetchConfirmation, isCancelled, setConfirmationPreset, updateSettings } from '../../services/api.ts'
-import { logger } from '../../services/logger.ts'
-import { refreshSettings, state } from '../../store.ts'
+import { useAction } from '../../composables/useAction.ts'
+import { saveSettings, state, useWaitingLogins, waitingLogins } from '../../store.ts'
+import { chooseConfirmationPreset, useConfirmation } from '../../stores/settings.ts'
 import { APP_ID, formatNumber } from '../../utils/format.ts'
-
-/** Waiting logins are looked up again this often while the tab is open */
-const APPROVALS_REFRESH = 30_000
 
 const KNOWN_DEVICE = 'known_device_enabled'
 const ADMIN_APPROVAL = 'step_up_admin_approval'
@@ -43,14 +38,13 @@ const PRESETS: { value: ConfirmationPreset, label: () => string, description: ()
 	{ value: 'allow', label: () => t(APP_ID, 'Let it in and notify'), description: () => t(APP_ID, 'The user and you are told. With a leaked password, a new one is required.') },
 ]
 
-const data = ref<ConfirmationOverview | null>(null)
-const loadError = ref<string | null>(null)
-const refreshing = ref(false)
-const busy = ref<string | null>(null)
+const { data, error, loading: counting, reload: recount } = useConfirmation({ failure: () => t(APP_ID, 'The overview could not be loaded. Please reload the page.') })
+/** A failed reload keeps the overview shown */
+const loadError = computed(() => data.value === null ? error.value : null)
+const { loading: lookingForLogins, reload: lookForLogins } = useWaitingLogins()
+const { busy, run } = useAction()
 /** Whether the reasons table is shown */
 const reasonsOpen = ref(false)
-const { announce } = useAnnouncer()
-let timer: ReturnType<typeof setInterval> | undefined
 
 const switchOn = (name: string) => state.settings.find((s) => s.name === name)?.value === true
 const approvalOn = computed(() => switchOn(ADMIN_APPROVAL))
@@ -62,61 +56,18 @@ const noTrustedNetworks = computed(() => {
 })
 
 /**
- * Load the overview.
- */
-async function load() {
-	await fetchOverview(false)
-}
-
-/**
- * Load the overview with the accounts counted again.
- */
-async function recount() {
-	await fetchOverview(true)
-}
-
-/**
- * @param refresh - Whether to count the accounts again
- */
-async function fetchOverview(refresh: boolean) {
-	refreshing.value = true
-	try {
-		data.value = await fetchConfirmation(refresh)
-		loadError.value = null
-	} catch (error) {
-		logger.error('Could not load the confirmation overview', { error })
-		if (data.value === null) {
-			loadError.value = errorMessage(error, t(APP_ID, 'The overview could not be loaded. Please reload the page.'))
-		}
-	} finally {
-		refreshing.value = false
-	}
-}
-
-/**
  * Set what happens to every login that nothing can confirm.
  *
  * @param preset - The choice
  */
-async function choose(preset: ConfirmationPreset) {
+function choose(preset: ConfirmationPreset) {
 	if (data.value === null || preset === data.value.preset) {
 		return
 	}
-	busy.value = 'preset'
-	try {
-		const result = await setConfirmationPreset(preset)
-		data.value.preset = result.preset
-		data.value.policies = result.policies
-		announce(t(APP_ID, 'Saved'))
-		refreshSettings().catch((error) => logger.error('Could not reload the settings', { error }))
-	} catch (error) {
-		if (!isCancelled(error)) {
-			logger.error('Could not save the confirmation choice', { error })
-			showError(errorMessage(error, t(APP_ID, 'The change could not be saved. Please try again.')))
-		}
-	} finally {
-		busy.value = null
-	}
+	run('preset', () => chooseConfirmationPreset(preset), {
+		done: t(APP_ID, 'Saved'),
+		fallback: t(APP_ID, 'The change could not be saved. Please try again.'),
+	})
 }
 
 /**
@@ -125,24 +76,11 @@ async function choose(preset: ConfirmationPreset) {
  * @param name - The setting
  * @param on - Its new value
  */
-async function toggle(name: string, on: boolean) {
-	busy.value = name
-	try {
-		const payload = await updateSettings({ [name]: on })
-		state.settings = payload.settings
-		state.templates = payload.templates
-		announce(t(APP_ID, 'Saved'))
-		if (name === ADMIN_APPROVAL) {
-			await load()
-		}
-	} catch (error) {
-		if (!isCancelled(error)) {
-			logger.error('Could not save the confirmation setting', { error })
-			showError(errorMessage(error, t(APP_ID, 'The change could not be saved. Please try again.')))
-		}
-	} finally {
-		busy.value = null
-	}
+function toggle(name: string, on: boolean) {
+	run(name, () => saveSettings({ [name]: on }), {
+		done: t(APP_ID, 'Saved'),
+		fallback: t(APP_ID, 'The change could not be saved. Please try again.'),
+	})
 }
 
 /**
@@ -153,57 +91,6 @@ async function showReasons() {
 	await nextTick()
 	document.getElementById('settings-confirmation-reasons')?.scrollIntoView({ block: 'start', behavior: 'smooth' })
 }
-
-/**
- * @param policies - The reasons after a change
- */
-async function onPolicies(policies: ConfirmationPolicy[]) {
-	if (data.value) {
-		data.value.policies = policies
-	}
-	// The table changes single reasons, which can turn a preset into "custom".
-	await load()
-}
-
-/**
- * Look the waiting logins up again while the tab is visible.
- */
-function startTimer() {
-	stopTimer()
-	timer = setInterval(() => {
-		if (document.visibilityState === 'visible' && !refreshing.value) {
-			void load()
-		}
-	}, APPROVALS_REFRESH)
-}
-
-/**
- * Stop looking.
- */
-function stopTimer() {
-	if (timer !== undefined) {
-		clearInterval(timer)
-		timer = undefined
-	}
-}
-
-// Opening the tab counts the accounts again; the timer only looks for waiting logins.
-let justMounted = true
-onMounted(() => {
-	void recount()
-	startTimer()
-})
-onActivated(() => {
-	// Inside KeepAlive, the first activation comes with the mount.
-	if (justMounted) {
-		justMounted = false
-		return
-	}
-	void recount()
-	startTimer()
-})
-onDeactivated(stopTimer)
-onBeforeUnmount(stopTimer)
 </script>
 
 <template>
@@ -291,7 +178,7 @@ onBeforeUnmount(stopTimer)
 			</SectionCard>
 
 			<SectionCard
-				v-if="approvalOn || data.approvals.length > 0"
+				v-if="approvalOn || waitingLogins.length > 0"
 				id="settings-approvals"
 				level="h4"
 				:heading="t(APP_ID, 'Logins waiting for an administrator')"
@@ -302,15 +189,15 @@ onBeforeUnmount(stopTimer)
 						: t(APP_ID, 'Approval is off; these logins can still be decided until they expire.') }}
 				</template>
 				<template #actions>
-					<NcButton :disabled="refreshing" :aria-label="t(APP_ID, 'Look for waiting logins')" @click="load()">
+					<NcButton :disabled="lookingForLogins" :aria-label="t(APP_ID, 'Look for waiting logins')" @click="lookForLogins()">
 						<template #icon>
-							<NcLoadingIcon v-if="refreshing" :size="20" />
+							<NcLoadingIcon v-if="lookingForLogins" :size="20" />
 							<NcIconSvgWrapper v-else :path="mdiRefresh" />
 						</template>
 						{{ t(APP_ID, 'Refresh') }}
 					</NcButton>
 				</template>
-				<PendingApprovals :approvals="data.approvals" @decided="load()" />
+				<PendingApprovals :approvals="waitingLogins" />
 			</SectionCard>
 
 			<SectionCard
@@ -322,7 +209,7 @@ onBeforeUnmount(stopTimer)
 					{{ t(APP_ID, 'For each reason: whether a remembered device is enough, and what happens when the account has no way to confirm the login. Changes are saved at once.') }}
 				</template>
 				<ShowMore v-model:open="reasonsOpen" :label="t(APP_ID, 'Customise each reason')" data-test="reasons-toggle">
-					<PolicyTable :policies="data.policies" :outcomes="data.outcomes" @changed="onPolicies" />
+					<PolicyTable :policies="data.policies" :outcomes="data.outcomes" />
 				</ShowMore>
 			</SectionCard>
 
@@ -335,9 +222,9 @@ onBeforeUnmount(stopTimer)
 					{{ t(APP_ID, 'Active accounts are enabled accounts that logged in at least once. The counts are at most an hour old.') }}
 				</template>
 				<template #actions>
-					<NcButton :disabled="refreshing" @click="recount">
+					<NcButton :disabled="counting" @click="recount()">
 						<template #icon>
-							<NcLoadingIcon v-if="refreshing" :size="20" />
+							<NcLoadingIcon v-if="counting" :size="20" />
 							<NcIconSvgWrapper v-else :path="mdiRefresh" />
 						</template>
 						{{ t(APP_ID, 'Count again') }}

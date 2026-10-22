@@ -36,7 +36,7 @@ describe('LookupBox', () => {
 		const detail = makeDetail()
 		vi.mocked(lookup).mockResolvedValue({ kind: 'reference', query: 'k7q2mpxa', bans: detail.bans, detections: [detail.detection], user: null })
 		const wrapper = await search('k7q2mpxa')
-		expect(lookup).toHaveBeenCalledWith('k7q2mpxa')
+		expect(lookup).toHaveBeenCalledWith('k7q2mpxa', expect.any(AbortSignal))
 		const result = wrapper.get('[data-test="lookup-result"]')
 		expect(result.text()).toContain('Block K7Q2-MPXA')
 		expect(result.text()).toContain('203.0.113.7')
