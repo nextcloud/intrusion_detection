@@ -438,12 +438,20 @@ export interface ReservedNames {
 	max: number
 }
 
+/** A web server setup, as far as it decides which trap paths reach Nextcloud */
+export type TrapWebServer = 'nginx' | 'apache_fpm' | 'apache' | 'unknown'
+
 export interface TrapPathList {
 	builtinEnabled: boolean
-	builtin: { path: string, text: string }[]
+	/** answeredBy: the web servers that answer the path themselves unless the rule hands it to Nextcloud */
+	builtin: { path: string, text: string, answeredBy: ('nginx' | 'apache_fpm')[] }[]
 	autodiscover: boolean
 	autodiscoverPath: string
 	custom: string[]
+	/** The web server that served this page */
+	webServer: TrapWebServer
+	/** The enabled trap paths that reach Nextcloud on this web server only with the rule */
+	needRule: string[]
 	max: number
 	snippets: Snippet[]
 	snippetsSkipped: string[]

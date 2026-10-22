@@ -26,7 +26,7 @@ class ReservedNameTest extends LoginFailureTestCase {
 		$this->names = Server::get(ReservedNames::class);
 	}
 
-	public function testNothingIsReservedUntilAnAdminConfirms(): void {
+	public function testNoNameTripsWhileNothingIsReserved(): void {
 		$this->assertSame([], $this->names->list());
 		$this->failLogin('198.51.100.7', 'admin-' . 'nobody');
 		$this->assertSame([], $this->detectionsOf(ReservedName::ID));

@@ -56,7 +56,7 @@ final class ReservedName implements ICheck, IExplainsDetection, ISimulatable, IV
 			defaultMode: Mode::Protect,
 			severity: Severity::Low,
 			params: [
-				// Nothing is reserved until an administrator confirms the names.
+				// Empty by default; the install step reserves the suggested names that are not accounts.
 				new ParamDefinition('names', ParamType::StringList, [], itemPattern: ReservedNames::NAME_PATTERN, maxItems: ReservedNames::MAX_NAMES, maxItemLength: 64),
 			],
 			responses: [ResponseType::Ban, ResponseType::NotifyAdmin],
@@ -68,7 +68,7 @@ final class ReservedName implements ICheck, IExplainsDetection, ISimulatable, IV
 				shortName: $l->t('Decoy admin login'),
 				summary: $l->t('Someone tries to log in with a reserved name such as "admin" that no account uses.'),
 				detects: $l->t('Attack tools try common account names like "admin", "root" or "test" first. If no account on your server has such a name, nobody who belongs here ever types it, so an attempt with it is a sure sign of an attacker.'),
-				decides: $l->t('Fires at the first failed login with one of these names: {names}.'),
+				decides: $l->t('Fires at the first failed login with one of these names: {names}. Like decoy credentials, it acts during learning mode as well.'),
 				wrong: $l->t('Someone who really has an account with that name, for example one that appeared later through LDAP. Such names are skipped automatically and shown as a problem in the setup checks.'),
 				data: $l->t('Detections: the address, the reserved name that was tried, and the time.'),
 				params: [
@@ -76,6 +76,7 @@ final class ReservedName implements ICheck, IExplainsDetection, ISimulatable, IV
 				],
 			),
 			simulatable: true,
+			actsWhileLearning: true,
 		);
 	}
 

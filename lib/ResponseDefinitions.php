@@ -469,10 +469,12 @@ namespace OCA\IntrusionDetection;
  *
  * @psalm-type IntrusionDetectionTrapPaths = array{
  *     builtinEnabled: bool,
- *     builtin: list<array{path: string, text: string}>,
+ *     builtin: list<array{path: string, text: string, answeredBy: list<'nginx'|'apache_fpm'>}>,
  *     autodiscover: bool,
  *     autodiscoverPath: string,
  *     custom: list<string>,
+ *     webServer: 'nginx'|'apache_fpm'|'apache'|'unknown',
+ *     needRule: list<string>,
  *     max: int,
  *     snippets: list<IntrusionDetectionSnippet>,
  *     snippetsSkipped: list<string>,

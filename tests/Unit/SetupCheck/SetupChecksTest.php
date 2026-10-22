@@ -11,7 +11,10 @@ namespace OCA\IntrusionDetection\Tests\Unit\SetupCheck;
 
 use OCA\IntrusionDetection\Address\AddressResolver;
 use OCA\IntrusionDetection\Address\Verdict;
+use OCA\IntrusionDetection\Check\Checks\ReservedName;
+use OCA\IntrusionDetection\Check\Mode;
 use OCA\IntrusionDetection\Config\GlobalSettings;
+use OCA\IntrusionDetection\Config\ModeState;
 use OCA\IntrusionDetection\Config\Prerequisites;
 use OCA\IntrusionDetection\Config\Settings;
 use OCA\IntrusionDetection\Db\Detection;
@@ -152,7 +155,7 @@ class SetupChecksTest extends TestCase {
 	public function testTrapNamesThatBecameAccountsAreAnErrorWithALinkToTheTab(): void {
 		$collisions = $this->createMock(TrapNameCollisions::class);
 		$collisions->method('all')->willReturn(['admin', 'backup-svc', 'support']);
-		$check = new TrapNameCollisionCheck($this->l, $this->links, $collisions);
+		$check = new TrapNameCollisionCheck($this->l, $this->links, $collisions, $this->reservedNameSettings(Mode::Protect, []));
 		$finding = $check->finding($this->l);
 		$this->assertSame(Finding::LEVEL_ERROR, $finding?->level);
 		$this->assertStringContainsString('"admin", "backup-svc", "support" are reserved', (string)$finding?->text);
@@ -164,9 +167,32 @@ class SetupChecksTest extends TestCase {
 	}
 
 	public function testNoTrapNameCollision(): void {
-		$check = new TrapNameCollisionCheck($this->l, $this->links, $this->createMock(TrapNameCollisions::class));
+		$check = new TrapNameCollisionCheck($this->l, $this->links, $this->createMock(TrapNameCollisions::class), $this->reservedNameSettings(Mode::Protect, ['administrator']));
 		$this->assertNull($check->finding($this->l));
 		$this->assertSame(SetupResult::SUCCESS, $check->run()->getSeverity());
+	}
+
+	public function testNoReservedNameIsATipWhileTheCheckRuns(): void {
+		$check = new TrapNameCollisionCheck($this->l, $this->links, $this->createMock(TrapNameCollisions::class), $this->reservedNameSettings(Mode::Protect, []));
+		$finding = $check->finding($this->l);
+		$this->assertSame('reserved_names_empty', $finding?->id);
+		$this->assertSame(Finding::LEVEL_INFO, $finding?->level);
+		$this->assertStringContainsString('Add all', (string)$finding?->fix);
+		$this->assertSame('#blocks-reserved', $finding?->url);
+		$this->assertSame(SetupResult::INFO, $check->run()->getSeverity());
+
+		$off = new TrapNameCollisionCheck($this->l, $this->links, $this->createMock(TrapNameCollisions::class), $this->reservedNameSettings(Mode::Off, []));
+		$this->assertNull($off->finding($this->l), 'Nothing to say while the check is off');
+	}
+
+	/**
+	 * @param list<string> $names
+	 */
+	private function reservedNameSettings(Mode $mode, array $names): Settings&MockObject {
+		$settings = $this->createMock(Settings::class);
+		$settings->method('modeState')->with(ReservedName::ID)->willReturn(new ModeState($mode, $mode));
+		$settings->method('paramList')->with(ReservedName::ID, 'names')->willReturn($names);
+		return $settings;
 	}
 
 	public function testSharedAddressDetectionsOfTheLastWeek(): void {

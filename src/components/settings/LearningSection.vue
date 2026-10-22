@@ -104,7 +104,7 @@ async function download() {
 				{{ t(APP_ID, 'Learning mode') }}
 			</h4>
 			<p :class="$style.card__text">
-				{{ t(APP_ID, 'Checks set to Protect only record what they would block; earlier blocks, blocks you add by hand, a user\'s "No, it was not me" and decoys still block.') }}
+				{{ t(APP_ID, 'Checks set to Protect only record what they would block; earlier blocks, blocks you add by hand, a user\'s "No, it was not me", decoys and reserved names still block.') }}
 				{{ t(APP_ID, 'Alerts are still sent.') }}
 			</p>
 			<p :class="[$style.card__state, { [$style.card__state_on]: learning.active }]">

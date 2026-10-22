@@ -9,6 +9,8 @@ declare(strict_types=1);
 
 namespace OCA\IntrusionDetection\SetupCheck;
 
+use OCA\IntrusionDetection\Check\Checks\ReservedName;
+use OCA\IntrusionDetection\Config\Settings;
 use OCA\IntrusionDetection\Notification\AdminLinks;
 use OCA\IntrusionDetection\Traps\TrapNameCollisions;
 use OCP\IL10N;
@@ -19,12 +21,17 @@ use OCP\IL10N;
  * login, so the trap no longer works. Reads the stored lookup
  * ({@see TrapNameCollisions}), which the hourly job and every change of the
  * names refresh.
+ *
+ * Otherwise it points out that no name is reserved while the decoy admin
+ * account check runs, as on installs from before names were reserved at
+ * installation. That reads the list only, without looking names up.
  */
 class TrapNameCollisionCheck extends ProblemCheck {
 	public function __construct(
 		IL10N $l,
 		AdminLinks $links,
 		private readonly TrapNameCollisions $collisions,
+		private readonly Settings $settings,
 	) {
 		parent::__construct($l, $links);
 	}
@@ -43,7 +50,7 @@ class TrapNameCollisionCheck extends ProblemCheck {
 	public function finding(IL10N $l): ?Finding {
 		$names = $this->collisions->all();
 		if ($names === []) {
-			return null;
+			return $this->noReservedNames($l);
 		}
 		$quoted = implode(', ', array_map(static fn (string $n): string => '"' . $n . '"', $names));
 		return new Finding(
@@ -59,6 +66,21 @@ class TrapNameCollisionCheck extends ProblemCheck {
 			$l->t('Remove these names from the reserved names, or delete the decoys that use them, on the Blocks tab. Then choose names no account uses.'),
 			'#blocks-decoys',
 			$l->t('Open the decoys'),
+		);
+	}
+
+	private function noReservedNames(IL10N $l): ?Finding {
+		if (!$this->settings->modeState(ReservedName::ID)->runs() || $this->settings->paramList(ReservedName::ID, 'names') !== []) {
+			return null;
+		}
+		return new Finding(
+			'reserved_names_empty',
+			Finding::LEVEL_INFO,
+			$l->t('No login names are reserved yet'),
+			$l->t('The decoy admin account check blocks anyone who tries a name such as "administrator" or "root" that no account uses. No name is reserved, so it does nothing.'),
+			$l->t('Reserve the suggested names on the Blocks tab with "Add all", or run occ intrusion:reserved-names --add-suggested.'),
+			'#blocks-reserved',
+			$l->t('Open the reserved names'),
 		);
 	}
 }

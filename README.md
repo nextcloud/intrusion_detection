@@ -78,7 +78,7 @@ None of this shows up in an access log as anything unusual. All of it is visible
 
 ## 🔎 What it catches
 
-18 checks, in four groups. Most of them only work *because* they run inside Nextcloud.
+18 checks, in four groups. Most of them only work *because* they run inside Nextcloud. Their limits count over minutes and hours, so an attack spread thinly over days ("low and slow") stays below them; strong passwords and a second factor are the answer to that.
 
 ### Logins and passwords
 
@@ -113,8 +113,8 @@ None of this shows up in an access log as anything unusual. All of it is visible
 
 | Check | What it notices | Default | What happens |
 |---|---|---|---|
-| **Trap URLs** | A visitor who is not logged in asks for `/wp-login.php`, `/.env`, `/phpmyadmin` or another path no Nextcloud client ever requests. | Protect | Blocks the address at once. |
-| **Decoy admin account** | A login attempt with a name you reserved, such as `administrator` or `root`, that no account uses. | Protect | Blocks the address at once. |
+| **Trap URLs** | A visitor who is not logged in asks for `/wp-login.php`, `/.env`, `/phpmyadmin` or another path no Nextcloud client ever requests. | Protect | Blocks the address at once. Most paths reach Nextcloud as they are; hidden paths such as `/.env` on nginx, and `.php` paths on Apache with PHP-FPM, need a one-time web server rule from the Blocks tab. |
+| **Decoy admin account** | A login attempt with a reserved name, such as `administrator` or `root`, that no account uses. The app reserves the usual names when it is installed, leaving out existing accounts. | Protect | Blocks the address at once. |
 | **Decoy app passwords and tokens** | Someone uses a fake credential you planted, say in an old script or a wiki page. | Protect | Blocks the address for 7 days and tells the admins where the decoy was planted. Acts even in learning mode. |
 | **SQL injection and encoded payloads** | Database commands or base64-hidden attack code in web addresses and form fields. | Protect for visitors, Observe for logged-in users | Blocks the address. |
 | **Known bad addresses** | A request from a network on a blocklist you switched on, such as Spamhaus DROP. | Off (opt-in) | Refuses the request with an error page and a reference. |
@@ -143,7 +143,7 @@ None of this shows up in an access log as anything unusual. All of it is visible
 An app that blocks people has to be careful about *whom* it blocks.
 
 - **Off, Observe, Protect for every check.** Observe shows exactly what Protect would have done, so you can try a check before you trust it.
-- **Learning mode first.** When you first enable the app, it observes for 7 days. Checks set to Protect only record what they would block; earlier blocks, blocks you add by hand, a user's "No, it was not me" and decoys still act. You can end, extend or restart learning at any time.
+- **Learning mode first.** When you first enable the app, it observes for 7 days. Checks set to Protect only record what they would block; earlier blocks, blocks you add by hand, a user's "No, it was not me", decoys and reserved names still act. You can end, extend or restart learning at any time.
 - **Protection levels.** *Relaxed*, *Recommended* (the default) or *Strict* sets the limits of every check at once: Strict fires at half the usual counts with blocks twice as long, Relaxed the other way round. Modes and responses stay as they are, and every number can still be changed by hand.
 - **Shared addresses are never blocked automatically.** An address from which at least 5 different people with established accounts (at least 3 days old, or administrators) logged in successfully in the last 24 hours, such as an office network or a reverse proxy, is not blocked. You are told instead.
 - **Admins' own addresses are spared.** Checks never block an address an administrator logged in from in the last 7 days, except for trap URLs and injection probes. The admin page refuses to block your own address. Addresses on the brute-force allowlist and the server's own addresses are never blocked.
@@ -352,8 +352,9 @@ Then:
 
 1. **Let it learn.** The app starts in learning mode for 7 days and records what it would have done. Look at the Overview now and then. To act at once, run `occ intrusion:learning --stop`.
 2. **Check "Needs attention" and "Tips"** on the Overview. They tell you, for example, about admins without a second factor, a missing memory cache or a reverse proxy that is not set up as a trusted proxy.
-3. **Pick a protection level** on the Protection tab, and switch on blocklists or the breached-password check if you want them.
-4. **Optional:** set `intrusion_detection.export_dir` in `config.php` to feed your firewall, and set up the Webhooks app to forward events.
+3. **Route the trap paths** on nginx or on Apache with PHP-FPM: Blocks → Trap paths shows which paths your web server answers itself, and the rule that hands them to Nextcloud.
+4. **Pick a protection level** on the Protection tab, and switch on blocklists or the breached-password check if you want them.
+5. **Optional:** set `intrusion_detection.export_dir` in `config.php` to feed your firewall, and set up the Webhooks app to forward events.
 
 ## Requirements
 

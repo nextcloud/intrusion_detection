@@ -25,7 +25,7 @@ use OCA\IntrusionDetection\Config\Settings;
  * a directory backend provides.
  */
 class ReservedNames {
-	/** Offered on first setup; only those that are not accounts are suggested */
+	/** Reserved at installation and offered later, each only while it is not an account */
 	public const SUGGESTIONS = ['admin', 'administrator', 'root', 'nextcloud', 'owncloud', 'test', 'user', 'guest', 'support', 'webmaster'];
 	public const NAME_PATTERN = '/^[^\s\x00-\x1f\x7f]{1,64}$/u';
 	public const MAX_NAMES = 100;
@@ -67,6 +67,24 @@ class ReservedNames {
 		$this->settings->setParam(ReservedName::ID, 'names', $list);
 		$this->audit->log('reserved names %s added by %s', ['names' => implode(', ', $names), 'actor' => $actor]);
 		return $this->list();
+	}
+
+	/**
+	 * Reserve every suggested name that is not an account. The app does this
+	 * on its own at installation: it is written to the audit log and is no
+	 * administration change.
+	 *
+	 * @return list<string> the names reserved
+	 * @throws InvalidParamException when a name has become an account meanwhile
+	 */
+	public function reserveSuggestions(): array {
+		$names = $this->suggestions();
+		if ($names === []) {
+			return [];
+		}
+		$this->settings->setParam(ReservedName::ID, 'names', array_merge($this->list(), $names), reported: false);
+		$this->audit->log('reserved names %s added at installation', ['names' => implode(', ', $names)]);
+		return $names;
 	}
 
 	/**

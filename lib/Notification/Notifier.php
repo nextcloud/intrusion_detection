@@ -172,7 +172,7 @@ class Notifier implements INotifier {
 		$days = max(1, (int)($params['days'] ?? 7));
 		$message = [
 			$l->t('Intrusion detection is still learning and sends its alerts.'),
-			$l->t('Checks set to Protect only record what they would block; earlier blocks, blocks you add by hand, a user\'s "No, it was not me" and decoys still block.'),
+			$l->t('Checks set to Protect only record what they would block; earlier blocks, blocks you add by hand, a user\'s "No, it was not me", decoys and reserved names still block.'),
 			$detections === 0
 				? $l->n('In the last %n day it found nothing it would have acted on.', 'In the last %n days it found nothing it would have acted on.', $days)
 				: $l->n('In the last %n day it would have acted on %1$s detections and blocked %2$s addresses.', 'In the last %n days it would have acted on %1$s detections and blocked %2$s addresses.', $days, [(string)$detections, (string)$blocks]),

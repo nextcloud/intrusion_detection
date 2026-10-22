@@ -115,6 +115,7 @@ class CommandsTest extends IntegrationTestCase {
 		$this->assertSame(Command::SUCCESS, $code);
 		$this->assertStringContainsString('Your paths: /old-admin /backup/*', $output);
 		$this->assertStringContainsString('/wp-login.php', $output);
+		$this->assertStringContainsString('Reach Nextcloud only with the web server rule from the Blocks tab, on nginx: /.env /.git/ /.aws/ /.ds_store; on Apache with PHP-FPM: /wp-login.php /xmlrpc.php /adminer.php.', $output);
 		$this->assertSame(Command::INVALID, $this->runCommand(TrapPaths::class, ['--add' => ['/remote.php/x']])[0]);
 		[, $output] = $this->runCommand(TrapPaths::class, ['--remove' => ['/OLD-ADMIN']]);
 		$this->assertStringContainsString('Your paths: /backup/*', $output);

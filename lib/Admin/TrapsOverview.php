@@ -91,12 +91,26 @@ class TrapsOverview {
 	 */
 	public function trapPaths(IL10N $l): array {
 		$snippets = $this->snippets->all();
+		$builtinEnabled = $this->settings->paramBool(TrapUrl::ID, 'builtin_enabled');
+		$autodiscover = $this->settings->paramBool(TrapUrl::ID, 'autodiscover');
+		$custom = $this->settings->paramList(TrapUrl::ID, 'paths');
+		$webServer = TrapPaths::webServer(
+			is_string($_SERVER['SERVER_SOFTWARE'] ?? null) ? $_SERVER['SERVER_SOFTWARE'] : '',
+			PHP_SAPI,
+			getenv('front_controller_active') === 'true',
+		);
 		return [
-			'builtinEnabled' => $this->settings->paramBool(TrapUrl::ID, 'builtin_enabled'),
-			'builtin' => array_map(static fn (string $path): array => ['path' => $path, 'text' => self::explain($path, $l)], TrapPaths::BUILTIN),
-			'autodiscover' => $this->settings->paramBool(TrapUrl::ID, 'autodiscover'),
+			'builtinEnabled' => $builtinEnabled,
+			'builtin' => array_map(static fn (string $path): array => [
+				'path' => $path,
+				'text' => self::explain($path, $l),
+				'answeredBy' => TrapPaths::answeredBy($path),
+			], TrapPaths::BUILTIN),
+			'autodiscover' => $autodiscover,
 			'autodiscoverPath' => TrapPaths::AUTODISCOVER,
-			'custom' => $this->settings->paramList(TrapUrl::ID, 'paths'),
+			'custom' => $custom,
+			'webServer' => $webServer,
+			'needRule' => TrapPaths::needingRule($webServer, $builtinEnabled, $autodiscover, $custom),
 			'max' => TrapPaths::MAX_CUSTOM,
 			'snippets' => [
 				['id' => 'nginx', 'file' => $snippets['nginx']['file'], 'content' => $snippets['nginx']['content']],
