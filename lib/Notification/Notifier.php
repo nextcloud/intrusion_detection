@@ -305,7 +305,7 @@ class Notifier implements INotifier {
 	private function prepareUserDetection(INotification $notification, string $languageCode): INotification {
 		$detection = $this->detectionOf($notification);
 		$user = $detection->getUid() === null ? null : $this->userManager->get($detection->getUid());
-		if ($user === null || $user->getUID() !== $notification->getUser()) {
+		if ($user === null || $user->getUID() !== $notification->getUser() || !$this->userMessages->tellsUser($detection)) {
 			throw new AlreadyProcessedException();
 		}
 		$message = $this->userMessages->build($detection, $user, $languageCode);

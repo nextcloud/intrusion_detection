@@ -45,8 +45,17 @@ class PersonalDetections {
 	 */
 	public function forUser(IUser $user, int $limit = 50): array {
 		$since = $this->timeFactory->getTime() - $this->settings->getInt(GlobalSettings::RETENTION_DETECTIONS_DAYS) * 86400;
-		$list = $this->detections->findList(new DetectionFilter(uid: $user->getUID(), since: $since, limit: max(1, min(self::MAX, $limit))));
-		return array_map(fn (Detection $d): array => $this->present($d, $user), $list);
+		return array_map(fn (Detection $d): array => $this->present($d, $user), $this->find($user, $since, max(1, min(self::MAX, $limit))));
+	}
+
+	/**
+	 * The user's detections since a time that they are told about
+	 * ({@see UserMessages::tellsUser()}): of the newest `$limit`, those.
+	 *
+	 * @return list<Detection> newest first
+	 */
+	public function find(IUser $user, int $since, int $limit): array {
+		return $this->messages->toldToUser($this->detections->findList(new DetectionFilter(uid: $user->getUID(), since: $since, limit: $limit)));
 	}
 
 	/**

@@ -89,7 +89,7 @@ class PersonalOverview {
 		$since = $now - $this->settings->getInt(GlobalSettings::RETENTION_DETECTIONS_DAYS) * 86400;
 		$open = 0;
 		$recent = 0;
-		foreach ($this->detections->findList(new DetectionFilter(uid: $uid, since: $since, limit: PersonalDetections::MAX)) as $detection) {
+		foreach ($this->messages->toldToUser($this->detections->findList(new DetectionFilter(uid: $uid, since: $since, limit: PersonalDetections::MAX))) as $detection) {
 			if ($this->questions->isOpen($detection)) {
 				$open++;
 			}

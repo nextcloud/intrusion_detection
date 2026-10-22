@@ -335,6 +335,7 @@ class ComposerStaticInitIntrusionDetection
         'OCA\\IntrusionDetection\\Explain\\IExplainsDetection' => __DIR__ . '/..' . '/../lib/Explain/IExplainsDetection.php',
         'OCA\\IntrusionDetection\\Explain\\IExplainsToUser' => __DIR__ . '/..' . '/../lib/Explain/IExplainsToUser.php',
         'OCA\\IntrusionDetection\\Explain\\IHeadlinesDetection' => __DIR__ . '/..' . '/../lib/Explain/IHeadlinesDetection.php',
+        'OCA\\IntrusionDetection\\Explain\\IKeepsFromUser' => __DIR__ . '/..' . '/../lib/Explain/IKeepsFromUser.php',
         'OCA\\IntrusionDetection\\Explain\\Narrative' => __DIR__ . '/..' . '/../lib/Explain/Narrative.php',
         'OCA\\IntrusionDetection\\Explain\\NarrativeBuilder' => __DIR__ . '/..' . '/../lib/Explain/NarrativeBuilder.php',
         'OCA\\IntrusionDetection\\Explain\\TextRenderer' => __DIR__ . '/..' . '/../lib/Explain/TextRenderer.php',

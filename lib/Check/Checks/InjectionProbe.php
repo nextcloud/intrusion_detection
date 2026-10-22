@@ -27,6 +27,7 @@ use OCA\IntrusionDetection\Check\ResponseType;
 use OCA\IntrusionDetection\Check\Severity;
 use OCA\IntrusionDetection\Db\Detection;
 use OCA\IntrusionDetection\Explain\IExplainsDetection;
+use OCA\IntrusionDetection\Explain\IKeepsFromUser;
 use OCP\IL10N;
 
 /**
@@ -38,7 +39,7 @@ use OCP\IL10N;
  * work. The detector is {@see \OCA\IntrusionDetection\Guard\PayloadGuard};
  * the matching lives in {@see \OCA\IntrusionDetection\Check\Payload}.
  */
-final class InjectionProbe implements ICheck, IExplainsDetection {
+final class InjectionProbe implements ICheck, IExplainsDetection, IKeepsFromUser {
 	public const ID = 'injection_probe';
 
 	public const PARAM_AUTHENTICATED_MODE = 'authenticated_mode';
@@ -98,6 +99,16 @@ final class InjectionProbe implements ICheck, IExplainsDetection {
 				],
 			),
 		);
+	}
+
+	/**
+	 * A probe sent from a logged-in account is for the administrators to
+	 * judge: it may be a lure or an app, and telling the account would warn
+	 * someone who probes the server on purpose.
+	 */
+	#[\Override]
+	public function keepsFromUser(Detection $detection): bool {
+		return true;
 	}
 
 	#[\Override]

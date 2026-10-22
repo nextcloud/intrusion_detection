@@ -11,8 +11,6 @@ namespace OCA\IntrusionDetection\Controller;
 
 use OCA\IntrusionDetection\AppInfo\Application;
 use OCA\IntrusionDetection\Db\Detection;
-use OCA\IntrusionDetection\Db\DetectionFilter;
-use OCA\IntrusionDetection\Db\DetectionMapper;
 use OCA\IntrusionDetection\Http\LocalRedirect;
 use OCA\IntrusionDetection\Notification\LoginNotices;
 use OCA\IntrusionDetection\WasThisYou\AnswerException;
@@ -60,7 +58,6 @@ class NoticeController extends Controller {
 		IRequest $request,
 		private readonly IUserSession $userSession,
 		private readonly LoginNotices $notices,
-		private readonly DetectionMapper $detections,
 		private readonly PersonalDetections $personal,
 		private readonly WasThisYouService $answers,
 		private readonly IURLGenerator $urlGenerator,
@@ -138,7 +135,7 @@ class NoticeController extends Controller {
 				'denyAction' => $this->urlGenerator->linkToRoute(Application::APP_ID . '.Notice.deny', ['id' => $d->getId()]),
 				'confirmAction' => $this->urlGenerator->linkToRoute(Application::APP_ID . '.Notice.confirm', ['id' => $d->getId()]),
 			],
-			$this->detections->findList(new DetectionFilter(uid: $user->getUID(), since: $since, limit: self::MAX)),
+			$this->personal->find($user, $since, self::MAX),
 		);
 		Util::addStyle(Application::APP_ID, 'pages');
 		$response = new StandaloneTemplateResponse(Application::APP_ID, self::TEMPLATE, [

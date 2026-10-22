@@ -184,7 +184,6 @@ class LoginNoticesTest extends StepUpTestCase {
 			$request,
 			$this->userSession,
 			$this->notices(),
-			Server::get(DetectionMapper::class),
 			Server::get(PersonalDetections::class),
 			new WasThisYouService(
 				Server::get(DetectionMapper::class),

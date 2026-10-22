@@ -42,6 +42,8 @@ class PersonalOverviewTest extends TestCase {
 	private array $detections = [];
 	/** @var array<int, bool> detection id => open question */
 	private array $open = [];
+	/** @var list<int> ids of the detections kept from the user */
+	private array $kept = [];
 	private bool $passwordChange = false;
 	private ?int $protectedUntil = null;
 	private string $email = 'alice@example.com';
@@ -71,6 +73,12 @@ class PersonalOverviewTest extends TestCase {
 		$status = $this->statusFor(0);
 		$this->assertSame('info', $status['level']);
 		$this->assertSame('1 security event in the last 30 days. What happened and what Nextcloud did is listed below.', $status['headline'], 'Older events are not recent');
+	}
+
+	public function testEventsKeptFromTheUserAreNotCounted(): void {
+		$this->detection(1, self::NOW - 3600, false);
+		$this->kept = [1];
+		$this->assertSame('No unusual activity in the last 30 days', $this->statusFor(0)['headline']);
 	}
 
 	public function testOpenQuestionsComeFirst(): void {
@@ -196,6 +204,8 @@ class PersonalOverviewTest extends TestCase {
 		$time->method('getTime')->willReturn(self::NOW);
 		/** @var LoggerInterface&MockObject $logger */
 		$logger = $this->createMock(LoggerInterface::class);
+		$messages = $this->createMock(UserMessages::class);
+		$messages->method('toldToUser')->willReturnCallback(fn (array $list): array => array_values(array_filter($list, fn (Detection $d): bool => !in_array($d->getId(), $this->kept, true))));
 
 		return new PersonalOverview(
 			$this->createMock(FailedLoginStats::class),
@@ -205,7 +215,7 @@ class PersonalOverviewTest extends TestCase {
 			$protection,
 			$coverage,
 			$loader,
-			$this->createMock(UserMessages::class),
+			$messages,
 			$settings,
 			$formatter,
 			$urls,
