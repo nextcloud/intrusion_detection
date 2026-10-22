@@ -10,12 +10,13 @@ declare(strict_types=1);
 namespace OCA\IntrusionDetection\Tests\Integration;
 
 use OC\Memcache\ArrayCache;
+use OCA\IntrusionDetection\Cache\Caches;
+use OCA\IntrusionDetection\Cache\KeyLock;
 use OCA\IntrusionDetection\Check\CheckRegistry;
 use OCA\IntrusionDetection\Check\Checks\ManualBlock;
 use OCA\IntrusionDetection\Config\ModeState;
 use OCA\IntrusionDetection\Config\Settings;
 use OCA\IntrusionDetection\Db\DetectionMapper;
-use OCA\IntrusionDetection\Db\KeyLock;
 use OCA\IntrusionDetection\Definition\Mode;
 use OCA\IntrusionDetection\Detection\DetectionAccounts;
 use OCA\IntrusionDetection\Detection\DetectionDraft;
@@ -23,8 +24,8 @@ use OCA\IntrusionDetection\Detection\DetectionService;
 use OCA\IntrusionDetection\Detection\DetectionTotals;
 use OCA\IntrusionDetection\Net\SourceKey;
 use OCA\IntrusionDetection\Risk\RiskScorer;
+use OCA\IntrusionDetection\Tests\Unit\Cache\FixedCaches;
 use OCP\AppFramework\Utility\ITimeFactory;
-use OCP\ICacheFactory;
 use OCP\Server;
 use PHPUnit\Framework\Attributes\Group;
 
@@ -36,7 +37,7 @@ class DetectionLockTest extends IntegrationTestCase {
 	/** @var list<string> */
 	private array $locked = [];
 
-	private function service(?ICacheFactory $factory = null): DetectionService {
+	private function service(?Caches $factory = null): DetectionService {
 		$locked = &$this->locked;
 		$cache = new class($locked) extends ArrayCache {
 			/** @param list<string> $log */
@@ -57,9 +58,7 @@ class DetectionLockTest extends IntegrationTestCase {
 			}
 		};
 		if ($factory === null) {
-			$factory = $this->createMock(ICacheFactory::class);
-			$factory->method('isAvailable')->willReturn(true);
-			$factory->method('createDistributed')->with(KeyLock::PREFIX)->willReturn($cache);
+			$factory = new FixedCaches($cache);
 		}
 		return new DetectionService(
 			Server::get(DetectionMapper::class),
@@ -94,7 +93,7 @@ class DetectionLockTest extends IntegrationTestCase {
 	public function testWithoutAMemoryCacheAMergedHitTakesNoLockAndWritesNoLockRows(): void {
 		$protect = new ModeState(Mode::Protect, Mode::Protect);
 		$draft = new DetectionDraft(ManualBlock::ID, SourceKey::fromIp('198.51.100.8'), merge: DetectionDraft::MERGE_SOURCE);
-		$service = $this->service($this->createMock(ICacheFactory::class));
+		$service = $this->service(FixedCaches::none());
 		$service->record($draft, $protect);
 		$before = $this->db->getInner()->getStats()['executed'];
 		[$merged, $new] = $service->record($draft, $protect);

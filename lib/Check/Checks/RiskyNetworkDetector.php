@@ -9,8 +9,8 @@ declare(strict_types=1);
 
 namespace OCA\IntrusionDetection\Check\Checks;
 
-use OCA\IntrusionDetection\AppInfo\Application;
 use OCA\IntrusionDetection\Blocklist\SourceRepository;
+use OCA\IntrusionDetection\Cache\Caches;
 use OCA\IntrusionDetection\Config\Settings;
 use OCA\IntrusionDetection\Confirm\LoginContext;
 use OCA\IntrusionDetection\Db\Detection;
@@ -18,8 +18,6 @@ use OCA\IntrusionDetection\Detection\DetectionDraft;
 use OCA\IntrusionDetection\Response\ResponseEngine;
 use OCA\IntrusionDetection\Risk\NetworkAttributes;
 use OCP\AppFramework\Utility\ITimeFactory;
-use OCP\ICacheFactory;
-use OCP\IMemcache;
 
 /**
  * Records a password login from a hosting or Tor network as a
@@ -32,17 +30,16 @@ use OCP\IMemcache;
  * without touching the database again.
  */
 class RiskyNetworkDetector {
+	/** The namespace of its memory cache in {@see Caches} */
+	public const CACHE = 'risky-network';
 	public const MERGE_WINDOW = 86400;
-
-	private ?IMemcache $cache = null;
-	private bool $cacheInitialised = false;
 
 	public function __construct(
 		private readonly Settings $settings,
 		private readonly NetworkAttributes $networks,
 		private readonly SourceRepository $sources,
 		private readonly ResponseEngine $engine,
-		private readonly ICacheFactory $cacheFactory,
+		private readonly Caches $caches,
 		private readonly ITimeFactory $timeFactory,
 	) {
 	}
@@ -58,7 +55,7 @@ class RiskyNetworkDetector {
 		}
 		if (!$login->interactive) {
 			$key = 'rn:' . ($mode->acts() ? 'p' : 'o') . ':' . gmdate('Y-m-d', $this->timeFactory->getTime()) . ':' . hash('sha256', $login->uid() . "\0" . ($login->source?->ipKey ?? ''));
-			$cache = $this->cache();
+			$cache = $this->caches->shared(self::CACHE);
 			if ($cache !== null && !$cache->add($key, 1, self::MERGE_WINDOW)) {
 				return null;
 			}
@@ -81,19 +78,5 @@ class RiskyNetworkDetector {
 			mergeWindow: self::MERGE_WINDOW,
 			userAgent: $login->userAgent,
 		));
-	}
-
-	private function cache(): ?IMemcache {
-		if (!$this->cacheInitialised) {
-			$this->cacheInitialised = true;
-			$cache = match (true) {
-				$this->cacheFactory->isAvailable() => $this->cacheFactory->createDistributed(Application::APP_ID),
-				$this->cacheFactory->isLocalCacheAvailable() => $this->cacheFactory->createLocal(Application::APP_ID),
-				default => null,
-			};
-			// add() is atomic only on the memory-cache types.
-			$this->cache = $cache instanceof IMemcache ? $cache : null;
-		}
-		return $this->cache;
 	}
 }

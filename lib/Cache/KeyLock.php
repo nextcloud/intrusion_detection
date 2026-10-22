@@ -7,11 +7,7 @@ declare(strict_types=1);
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 
-namespace OCA\IntrusionDetection\Db;
-
-use OCA\IntrusionDetection\AppInfo\Application;
-use OCP\ICacheFactory;
-use OCP\IMemcache;
+namespace OCA\IntrusionDetection\Cache;
 
 /**
  * Runs a check-and-write under a lock per key, so parallel requests do not
@@ -29,12 +25,11 @@ use OCP\IMemcache;
 class KeyLock {
 	public const TTL = 5;
 	public const PAUSE_US = 25000;
-	public const PREFIX = Application::APP_ID . '-lock';
-
-	private IMemcache|null|false $cache = false;
+	/** The namespace of the locks in {@see Caches} */
+	public const CACHE = 'lock';
 
 	public function __construct(
-		private readonly ICacheFactory $cacheFactory,
+		private readonly Caches $caches,
 	) {
 	}
 
@@ -45,7 +40,7 @@ class KeyLock {
 	 * @return T
 	 */
 	public function run(string $scope, string $key, \Closure $work): mixed {
-		$cache = $this->cache();
+		$cache = $this->caches->shared(self::CACHE);
 		if ($cache === null) {
 			return $work();
 		}
@@ -62,16 +57,5 @@ class KeyLock {
 				$cache->remove($lock);
 			}
 		}
-	}
-
-	private function cache(): ?IMemcache {
-		if ($this->cache === false) {
-			$cache = $this->cacheFactory->isAvailable()
-				? $this->cacheFactory->createDistributed(self::PREFIX)
-				: ($this->cacheFactory->isLocalCacheAvailable() ? $this->cacheFactory->createLocal(self::PREFIX) : null);
-			// add() is atomic only on the memcache types.
-			$this->cache = $cache instanceof IMemcache ? $cache : null;
-		}
-		return $this->cache;
 	}
 }

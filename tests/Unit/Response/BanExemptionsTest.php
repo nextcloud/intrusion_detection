@@ -20,7 +20,7 @@ use OCA\IntrusionDetection\Net\SourceKey;
 use OCA\IntrusionDetection\Response\BanExemptions;
 use OCA\IntrusionDetection\Response\BanResult;
 use OCA\IntrusionDetection\Response\ProxySuspect;
-use OCP\ICacheFactory;
+use OCA\IntrusionDetection\Tests\Unit\Cache\FixedCaches;
 use OCP\IGroupManager;
 use OCP\Server;
 use PHPUnit\Framework\MockObject\MockObject;
@@ -88,11 +88,7 @@ class BanExemptionsTest extends TestCase {
 	private function exemptions(?ArrayCache $cache): BanExemptions {
 		$settings = $this->createMock(Settings::class);
 		$settings->method('getInt')->willReturn(5);
-		$factory = $this->createMock(ICacheFactory::class);
-		$factory->method('isLocalCacheAvailable')->willReturn($cache !== null);
-		if ($cache !== null) {
-			$factory->method('createLocal')->willReturn($cache);
-		}
+		$factory = new FixedCaches(null, $cache);
 		$accounts = $this->createMock(EstablishedAccounts::class);
 		$accounts->method('count')->willReturnCallback(static fn (array $uids): int => count($uids));
 		return new BanExemptions($this->logins, $this->history, $settings, $this->proxies, $this->createMock(ProtectedRanges::class), $this->groups, $factory, $accounts, Server::get(CheckRegistry::class));

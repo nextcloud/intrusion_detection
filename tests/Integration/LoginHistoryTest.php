@@ -11,8 +11,8 @@ namespace OCA\IntrusionDetection\Tests\Integration;
 
 use OC\Memcache\ArrayCache;
 use OCA\IntrusionDetection\BackgroundJob\Cleanup;
+use OCA\IntrusionDetection\Cache\Caches;
 use OCA\IntrusionDetection\Config\GlobalSettings;
-use OCA\IntrusionDetection\Config\Prerequisites;
 use OCA\IntrusionDetection\Confirm\SessionConfirmation;
 use OCA\IntrusionDetection\Confirm\StepUpPolicy;
 use OCA\IntrusionDetection\Db\LoginHistoryMapper;
@@ -29,10 +29,10 @@ use OCA\IntrusionDetection\Response\FlaggedSources;
 use OCA\IntrusionDetection\SessionState\RequestTarget;
 use OCA\IntrusionDetection\SessionState\Rules\LoginHistoryRule;
 use OCA\IntrusionDetection\SessionState\SessionState;
+use OCA\IntrusionDetection\Tests\Unit\Cache\FixedCaches;
 use OCP\AppFramework\Utility\ITimeFactory;
 use OCP\Authentication\TwoFactorAuth\IProvider;
 use OCP\Authentication\TwoFactorAuth\TwoFactorProviderChallengePassed;
-use OCP\ICacheFactory;
 use OCP\IUser;
 use OCP\Server;
 use OCP\User\Events\UserLoggedInEvent;
@@ -166,8 +166,7 @@ class LoginHistoryTest extends StepUpTestCase {
 	}
 
 	public function testAppsThatSendThePasswordAreRecordedOnceADayPerNetworkWithoutAMemoryCache(): void {
-		$factory = $this->createMock(ICacheFactory::class);
-		$factory->method('isAvailable')->willReturn(false);
+		$factory = FixedCaches::none();
 		$history = $this->historyWith($factory);
 		$this->basicAuth($this->alice);
 		for ($i = 0; $i < 3; $i++) {
@@ -190,9 +189,7 @@ class LoginHistoryTest extends StepUpTestCase {
 
 	public function testAppPasswordsAreRecordedOncePerTokenAndDayWithAMemoryCache(): void {
 		$cache = new ArrayCache();
-		$factory = $this->createMock(ICacheFactory::class);
-		$factory->method('isAvailable')->willReturn(true);
-		$factory->method('createDistributed')->willReturn($cache);
+		$factory = new FixedCaches($cache);
 		$history = $this->historyWith($factory);
 		$first = $this->token($this->alice, \OCP\Authentication\Token\IToken::PERMANENT_TOKEN, 'Desktop client');
 		$second = $this->token($this->alice, \OCP\Authentication\Token\IToken::PERMANENT_TOKEN, 'Phone');
@@ -288,8 +285,8 @@ class LoginHistoryTest extends StepUpTestCase {
 		return [$row->stepUp, $row->confirmedBy];
 	}
 
-	private function historyWith(ICacheFactory $factory): LoginHistory {
-		return new LoginHistory(Server::get(LoginHistoryMapper::class), $this->state, $this->currentSession, new LoginGate($factory, Server::get(Prerequisites::class), $this->session), Server::get(ITimeFactory::class));
+	private function historyWith(Caches $factory): LoginHistory {
+		return new LoginHistory(Server::get(LoginHistoryMapper::class), $this->state, $this->currentSession, new LoginGate($factory, $this->session), Server::get(ITimeFactory::class));
 	}
 
 	private function historyListener(?LoginHistory $history = null): LoginHistoryListener {

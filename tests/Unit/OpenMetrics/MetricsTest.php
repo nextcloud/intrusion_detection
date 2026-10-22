@@ -21,8 +21,8 @@ use OCA\IntrusionDetection\OpenMetrics\DetectionsMetric;
 use OCA\IntrusionDetection\OpenMetrics\GuardSecondsMetric;
 use OCA\IntrusionDetection\OpenMetrics\LearningModeMetric;
 use OCA\IntrusionDetection\Perf\GuardTimer;
-use OCP\ICache;
-use OCP\ICacheFactory;
+use OCA\IntrusionDetection\Tests\Unit\Cache\FixedCaches;
+use OCP\IMemcache;
 use OCP\OpenMetrics\Metric;
 use OCP\OpenMetrics\MetricValue;
 use Test\TestCase;
@@ -41,7 +41,7 @@ class MetricsTest extends TestCase {
 
 	public function testTheDetectionsTotalIsCachedForAMinute(): void {
 		$stored = null;
-		$cache = $this->createMock(ICache::class);
+		$cache = $this->createMock(IMemcache::class);
 		$cache->method('get')->willReturnCallback(static function () use (&$stored) {
 			return $stored;
 		});
@@ -50,8 +50,7 @@ class MetricsTest extends TestCase {
 			$stored = $value;
 			return true;
 		});
-		$factory = $this->createMock(ICacheFactory::class);
-		$factory->method('createLocal')->willReturn($cache);
+		$factory = new FixedCaches($cache);
 		$totals = $this->createMock(DetectionTotals::class);
 		$totals->expects($this->once())->method('totals')->willReturn([['check' => 'trap_url', 'severity' => 'low', 'enforced' => true, 'count' => 7]]);
 		$metric = new DetectionsMetric($totals, $factory);
@@ -64,13 +63,10 @@ class MetricsTest extends TestCase {
 		}
 	}
 
-	public function testTheDetectionsTotalIsSharedByAllServersWithADistributedCache(): void {
-		$cache = $this->createMock(ICache::class);
+	public function testTheDetectionsTotalComesFromTheCacheWhenThere(): void {
+		$cache = $this->createMock(IMemcache::class);
 		$cache->method('get')->willReturn([['check' => 'trap_url', 'severity' => 'low', 'enforced' => false, 'count' => 3]]);
-		$factory = $this->createMock(ICacheFactory::class);
-		$factory->method('isAvailable')->willReturn(true);
-		$factory->expects($this->once())->method('createDistributed')->willReturn($cache);
-		$factory->expects($this->never())->method('createLocal');
+		$factory = new FixedCaches($cache);
 		$totals = $this->createMock(DetectionTotals::class);
 		$totals->expects($this->never())->method('totals');
 		$this->assertSame(3, self::metrics(new DetectionsMetric($totals, $factory))[0]->value);

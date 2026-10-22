@@ -9,12 +9,10 @@ declare(strict_types=1);
 
 namespace OCA\IntrusionDetection\Response;
 
-use OCA\IntrusionDetection\AppInfo\Application;
 use OCA\IntrusionDetection\Audit\AuditLogger;
+use OCA\IntrusionDetection\Cache\Caches;
 use OCA\IntrusionDetection\Db\ProtectedAccountMapper;
 use OCP\AppFramework\Utility\ITimeFactory;
-use OCP\ICache;
-use OCP\ICacheFactory;
 
 /**
  * Accounts under extra protection: while an account is protected, every
@@ -26,16 +24,15 @@ use OCP\ICacheFactory;
  * on another web server with only a local cache is seen within that time.
  */
 class AccountProtection {
+	/** The namespace of its memory cache in {@see Caches} */
+	public const CACHE = 'protected-accounts';
 	public const REASON_UNDER_ATTACK = 'under_attack';
 	public const CACHE_TTL = 60;
-
-	private ?ICache $cache = null;
-	private bool $cacheInitialised = false;
 
 	public function __construct(
 		private readonly ProtectedAccountMapper $mapper,
 		private readonly ITimeFactory $timeFactory,
-		private readonly ICacheFactory $cacheFactory,
+		private readonly Caches $caches,
 		private readonly AuditLogger $audit,
 	) {
 	}
@@ -48,7 +45,7 @@ class AccountProtection {
 	public function protect(string $uid, int $until, string $reason = self::REASON_UNDER_ATTACK, ?int $detectionId = null): int {
 		$now = $this->timeFactory->getTime();
 		$this->mapper->protect($uid, $reason, $detectionId, $now, $until);
-		$this->cache()?->remove($this->key($uid));
+		$this->caches->shared(self::CACHE)?->remove($this->key($uid));
 		return $this->protectedUntil($uid) ?? $until;
 	}
 
@@ -65,7 +62,7 @@ class AccountProtection {
 	 */
 	public function protectedUntil(string $uid): ?int {
 		$now = $this->timeFactory->getTime();
-		$cache = $this->cache();
+		$cache = $this->caches->shared(self::CACHE);
 		$cached = $cache?->get($this->key($uid));
 		if (is_int($cached)) {
 			return $cached > $now ? $cached : null;
@@ -99,7 +96,7 @@ class AccountProtection {
 	public function end(string $uid, string $actor): bool {
 		$active = $this->get($uid) !== null;
 		$this->mapper->delete($uid);
-		$this->cache()?->remove($this->key($uid));
+		$this->caches->shared(self::CACHE)?->remove($this->key($uid));
 		if ($active) {
 			$this->audit->log('protection of account %s ended early by %s', ['uid' => $uid, 'actor' => $actor]);
 		}
@@ -108,17 +105,5 @@ class AccountProtection {
 
 	private function key(string $uid): string {
 		return 'prot:' . hash('sha256', $uid);
-	}
-
-	private function cache(): ?ICache {
-		if (!$this->cacheInitialised) {
-			$this->cacheInitialised = true;
-			if ($this->cacheFactory->isAvailable()) {
-				$this->cache = $this->cacheFactory->createDistributed(Application::APP_ID);
-			} elseif ($this->cacheFactory->isLocalCacheAvailable()) {
-				$this->cache = $this->cacheFactory->createLocal(Application::APP_ID);
-			}
-		}
-		return $this->cache;
 	}
 }

@@ -11,9 +11,9 @@ namespace OCA\IntrusionDetection\Tests\Unit\Login;
 
 use OC\Memcache\ArrayCache;
 use OCA\IntrusionDetection\Login\EstablishedAccounts;
+use OCA\IntrusionDetection\Tests\Unit\Cache\FixedCaches;
 use OCP\Config\IUserConfig;
 use OCP\Config\ValueType;
-use OCP\ICacheFactory;
 use OCP\IGroupManager;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\MockObject\MockObject;
@@ -94,11 +94,6 @@ class EstablishedAccountsTest extends TestCase {
 	}
 
 	private function accounts(?ArrayCache $cache): EstablishedAccounts {
-		$factory = $this->createMock(ICacheFactory::class);
-		$factory->method('isLocalCacheAvailable')->willReturn($cache !== null);
-		if ($cache !== null) {
-			$factory->method('createLocal')->willReturn($cache);
-		}
-		return new EstablishedAccounts($this->userConfig, $this->groups, $factory);
+		return new EstablishedAccounts($this->userConfig, $this->groups, new FixedCaches(null, $cache));
 	}
 }

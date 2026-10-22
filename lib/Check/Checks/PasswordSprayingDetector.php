@@ -9,7 +9,7 @@ declare(strict_types=1);
 
 namespace OCA\IntrusionDetection\Check\Checks;
 
-use OCA\IntrusionDetection\AppInfo\Application;
+use OCA\IntrusionDetection\Cache\Caches;
 use OCA\IntrusionDetection\Config\Settings;
 use OCA\IntrusionDetection\Confirm\LoginContext;
 use OCA\IntrusionDetection\Crypto\Fingerprinter;
@@ -23,8 +23,6 @@ use OCA\IntrusionDetection\Net\SourceKey;
 use OCA\IntrusionDetection\Response\FlaggedSources;
 use OCA\IntrusionDetection\Response\ResponseEngine;
 use OCA\IntrusionDetection\Risk\RiskScorer;
-use OCP\ICache;
-use OCP\ICacheFactory;
 
 /**
  * Detects password spraying (concept section 10.2) after each failed
@@ -47,10 +45,9 @@ use OCP\ICacheFactory;
  *   the same flag.
  */
 class PasswordSprayingDetector {
+	/** The namespace of its memory cache in {@see Caches} */
+	public const CACHE = 'password-spraying';
 	public const KINDS = [AttemptKind::PasswordLogin];
-
-	private ?ICache $cache = null;
-	private bool $cacheInitialised = false;
 
 	public function __construct(
 		private readonly Settings $settings,
@@ -58,7 +55,7 @@ class PasswordSprayingDetector {
 		private readonly ResponseEngine $engine,
 		private readonly FlaggedSources $flags,
 		private readonly Fingerprinter $fingerprinter,
-		private readonly ICacheFactory $cacheFactory,
+		private readonly Caches $caches,
 		private readonly PasswordSpraying $check,
 		private readonly RiskScorer $risk,
 	) {
@@ -109,7 +106,7 @@ class PasswordSprayingDetector {
 		// fingerprint and never stored.
 		$flags = $state->acts() && $this->settings->hasResponse(PasswordSpraying::ID, ResponseType::FlagPassword);
 		$seenKey = 'spray:' . hash('sha256', $attempt->passwordCandidates[0]);
-		if (!$flags && $this->cache()?->get($seenKey) !== null) {
+		if (!$flags && $this->caches->shared(self::CACHE)?->get($seenKey) !== null) {
 			if ($state->acts()) {
 				$this->banJoiningSource($attempt, $userAgent);
 			}
@@ -156,7 +153,7 @@ class PasswordSprayingDetector {
 		));
 		$this->engine->handle($draft, $this->check->responsesFor($draft, $this->settings->responses(PasswordSpraying::ID), []));
 		if (!$flags) {
-			$this->cache()?->set($seenKey, 1, $window);
+			$this->caches->shared(self::CACHE)?->set($seenKey, 1, $window);
 		}
 	}
 
@@ -183,17 +180,5 @@ class PasswordSprayingDetector {
 			$this->settings->responses(PasswordSpraying::ID),
 			static fn (ResponseType $r): bool => $r === ResponseType::Ban,
 		)));
-	}
-
-	private function cache(): ?ICache {
-		if (!$this->cacheInitialised) {
-			$this->cacheInitialised = true;
-			if ($this->cacheFactory->isAvailable()) {
-				$this->cache = $this->cacheFactory->createDistributed(Application::APP_ID);
-			} elseif ($this->cacheFactory->isLocalCacheAvailable()) {
-				$this->cache = $this->cacheFactory->createLocal(Application::APP_ID);
-			}
-		}
-		return $this->cache;
 	}
 }

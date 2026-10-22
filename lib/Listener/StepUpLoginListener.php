@@ -9,7 +9,7 @@ declare(strict_types=1);
 
 namespace OCA\IntrusionDetection\Listener;
 
-use OCA\IntrusionDetection\AppInfo\Application;
+use OCA\IntrusionDetection\Cache\Caches;
 use OCA\IntrusionDetection\Check\Checks\BreachedPassword;
 use OCA\IntrusionDetection\Check\Checks\BreachedPasswordDetector;
 use OCA\IntrusionDetection\Check\Checks\PasswordSprayingDetector;
@@ -28,8 +28,6 @@ use OCA\IntrusionDetection\Net\SourceKey;
 use OCA\IntrusionDetection\Response\FlaggedSources;
 use OCP\EventDispatcher\Event;
 use OCP\EventDispatcher\IEventListener;
-use OCP\ICache;
-use OCP\ICacheFactory;
 use OCP\IRequest;
 use OCP\ISession;
 use OCP\User\Events\UserLoggedInEvent;
@@ -69,13 +67,12 @@ use Psr\Log\LoggerInterface;
  * @template-implements IEventListener<UserLoggedInEvent|UserLoggedInWithCookieEvent>
  */
 class StepUpLoginListener implements IEventListener {
+	/** The namespace of its memory cache in {@see Caches} */
+	public const CACHE = 'step-up-clients';
 	/** Core's cookie with the id of the session a remember-me login renews */
 	public const SESSION_ID_COOKIE = 'nc_session_id';
 	/** How long the decision about an app sending the password is repeated */
 	public const CLIENT_DECISION_TTL = 60;
-
-	private ?ICache $cache = null;
-	private bool $cacheInitialised = false;
 
 	public function __construct(
 		private readonly Settings $settings,
@@ -88,7 +85,7 @@ class StepUpLoginListener implements IEventListener {
 		private readonly IRequest $request,
 		private readonly ISession $session,
 		private readonly ContainerInterface $container,
-		private readonly ICacheFactory $cacheFactory,
+		private readonly Caches $caches,
 		private readonly LoggerInterface $logger,
 	) {
 	}
@@ -166,7 +163,7 @@ class StepUpLoginListener implements IEventListener {
 		[$outcome, $recorded] = $stepUps->atLogin($login, $policies);
 		$linker->await($user->getUID(), [...$detections, ...$recorded]);
 		if ($clientKey !== null && in_array($outcome, StepUpService::REPEATABLE, true)) {
-			$this->clientCache()?->set($clientKey, [
+			$this->caches->shared(self::CACHE)?->set($clientKey, [
 				'outcome' => $outcome,
 				'policies' => array_map(static fn (StepUpPolicy $p): string => $p->value, $policies),
 			], self::CLIENT_DECISION_TTL);
@@ -180,7 +177,7 @@ class StepUpLoginListener implements IEventListener {
 	 * @return bool whether a decision was repeated
 	 */
 	private function repeatClientDecision(string $key, string $uid, ?SourceKey $source): bool {
-		$cached = $this->clientCache()?->get($key);
+		$cached = $this->caches->shared(self::CACHE)?->get($key);
 		if (!is_array($cached) || !in_array($cached['outcome'] ?? null, StepUpService::REPEATABLE, true) || !is_array($cached['policies'] ?? null)) {
 			return false;
 		}
@@ -204,18 +201,6 @@ class StepUpLoginListener implements IEventListener {
 			return null;
 		}
 		return 'stepup_client:' . hash('sha256', $uid . "\0" . $candidates[0] . "\0" . ($source?->ipKey ?? '-'));
-	}
-
-	private function clientCache(): ?ICache {
-		if (!$this->cacheInitialised) {
-			$this->cacheInitialised = true;
-			if ($this->cacheFactory->isAvailable()) {
-				$this->cache = $this->cacheFactory->createDistributed(Application::APP_ID);
-			} elseif ($this->cacheFactory->isLocalCacheAvailable()) {
-				$this->cache = $this->cacheFactory->createLocal(Application::APP_ID);
-			}
-		}
-		return $this->cache;
 	}
 
 	/**

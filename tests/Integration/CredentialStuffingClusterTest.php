@@ -13,10 +13,10 @@ use Doctrine\DBAL\Logging\DebugStack;
 use OC\AppConfig;
 use OC\DB\ConnectionAdapter;
 use OC\Memcache\ArrayCache;
+use OCA\IntrusionDetection\Cache\Caches;
 use OCA\IntrusionDetection\Check\Checks\CredentialStuffing;
 use OCA\IntrusionDetection\Check\Checks\CredentialStuffingDetector;
 use OCA\IntrusionDetection\Config\GlobalSettings;
-use OCA\IntrusionDetection\Config\Prerequisites;
 use OCA\IntrusionDetection\Config\Settings;
 use OCA\IntrusionDetection\Crypto\Fingerprinter;
 use OCA\IntrusionDetection\Db\AttemptKind;
@@ -24,8 +24,8 @@ use OCA\IntrusionDetection\Db\AttemptMapper;
 use OCA\IntrusionDetection\Db\StateMapper;
 use OCA\IntrusionDetection\Detection\AttemptRecord;
 use OCA\IntrusionDetection\Net\SourceKey;
+use OCA\IntrusionDetection\Tests\Unit\Cache\FixedCaches;
 use OCP\IAppConfig;
-use OCP\ICacheFactory;
 use OCP\Server;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Group;
@@ -182,21 +182,17 @@ class CredentialStuffingClusterTest extends LoginFailureTestCase {
 	private function servers(string $caches): array {
 		$servers = [];
 		for ($n = 0; $n < self::SERVERS; $n++) {
-			$factory = $this->createMock(ICacheFactory::class);
-			$factory->method('isAvailable')->willReturn($caches !== 'none');
-			$factory->method('isLocalCacheAvailable')->willReturn($caches !== 'none');
 			$local = new ArrayCache('local' . $n);
-			$factory->method('createLocal')->willReturn($local);
-			// Without memcache.distributed, core hands out the local cache as the distributed one.
-			$factory->method('createDistributed')->willReturn($caches === 'distributed' ? $this->distributed : $local);
-			$prerequisites = $this->createMock(Prerequisites::class);
-			$prerequisites->method('hasDistributedCache')->willReturn($caches === 'distributed');
+			$memory = match ($caches) {
+				'distributed' => new FixedCaches($this->distributed, $local, true),
+				'local' => new FixedCaches($local, $local),
+				default => FixedCaches::none(),
+			};
 
 			$settings = $this->freshSettings();
 			$settings->getInt(GlobalSettings::CS_DISTRIBUTED_UNTIL);
 			$servers[] = [$this->build(CredentialStuffingDetector::class, [
-				ICacheFactory::class => $factory,
-				Prerequisites::class => $prerequisites,
+				Caches::class => $memory,
 				Settings::class => $settings,
 			]), $settings];
 		}

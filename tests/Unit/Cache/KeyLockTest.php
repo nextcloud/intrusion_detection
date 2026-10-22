@@ -7,11 +7,10 @@ declare(strict_types=1);
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 
-namespace OCA\IntrusionDetection\Tests\Unit\Db;
+namespace OCA\IntrusionDetection\Tests\Unit\Cache;
 
 use OC\Memcache\ArrayCache;
-use OCA\IntrusionDetection\Db\KeyLock;
-use OCP\ICacheFactory;
+use OCA\IntrusionDetection\Cache\KeyLock;
 use Test\TestCase;
 
 class KeyLockTest extends TestCase {
@@ -22,13 +21,8 @@ class KeyLockTest extends TestCase {
 		$this->cache = new ArrayCache();
 	}
 
-	private function lock(bool $distributed = true, bool $local = true): KeyLock {
-		$factory = $this->createMock(ICacheFactory::class);
-		$factory->method('isAvailable')->willReturn($distributed);
-		$factory->method('isLocalCacheAvailable')->willReturn($local);
-		$factory->method('createDistributed')->with(KeyLock::PREFIX)->willReturn($this->cache);
-		$factory->method('createLocal')->with(KeyLock::PREFIX)->willReturn($this->cache);
-		return new KeyLock($factory);
+	private function lock(): KeyLock {
+		return new KeyLock(new FixedCaches($this->cache));
 	}
 
 	public function testTheWorkRunsUnderTheLockAndReleasesIt(): void {
@@ -50,17 +44,8 @@ class KeyLockTest extends TestCase {
 		$this->assertNull($this->cache->get('ban/' . md5('x')));
 	}
 
-	public function testOnlyTheLocalCacheIsUsedWithoutADistributedOne(): void {
-		$this->assertSame(1, $this->lock(false, true)->run('ban', 'x', fn (): int => $this->cache->get('ban/' . md5('x')) === null ? 0 : 1));
-	}
-
 	public function testWithoutAMemoryCacheTheWorkRunsUnlocked(): void {
-		$factory = $this->createMock(ICacheFactory::class);
-		$factory->method('isAvailable')->willReturn(false);
-		$factory->method('isLocalCacheAvailable')->willReturn(false);
-		$factory->expects($this->never())->method('createDistributed');
-		$factory->expects($this->never())->method('createLocal');
-		$this->assertSame(7, (new KeyLock($factory))->run('ban', 'x', static fn (): int => 7));
+		$this->assertSame(7, (new KeyLock(FixedCaches::none()))->run('ban', 'x', static fn (): int => 7));
 	}
 
 	public function testAStaleLockCostsOnePauseAndIsLeftAlone(): void {
@@ -82,10 +67,7 @@ class KeyLockTest extends TestCase {
 		$cache = $this->createMock(ArrayCache::class);
 		$cache->expects($this->once())->method('add')->with('ban/' . md5('x'), 1, KeyLock::TTL)->willReturn(true);
 		$cache->expects($this->once())->method('remove')->with('ban/' . md5('x'))->willReturn(true);
-		$factory = $this->createMock(ICacheFactory::class);
-		$factory->method('isAvailable')->willReturn(true);
-		$factory->method('createDistributed')->willReturn($cache);
-		(new KeyLock($factory))->run('ban', 'x', static fn () => null);
+		(new KeyLock(new FixedCaches($cache)))->run('ban', 'x', static fn () => null);
 		$this->assertLessThanOrEqual(10, KeyLock::TTL);
 	}
 }

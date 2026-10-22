@@ -23,11 +23,11 @@ use OCA\IntrusionDetection\Guard\CredentialUseGuard;
 use OCA\IntrusionDetection\Guard\RequestContext;
 use OCA\IntrusionDetection\Net\SourceKey;
 use OCA\IntrusionDetection\Perf\GuardTimer;
+use OCA\IntrusionDetection\Tests\Unit\Cache\FixedCaches;
 use OCP\AppFramework\Utility\ITimeFactory;
 use OCP\EventDispatcher\IEventDispatcher;
 use OCP\IAppConfig;
 use OCP\ICache;
-use OCP\ICacheFactory;
 use OCP\IConfig;
 use OCP\IRequest;
 use OCP\IRequestId;
@@ -87,11 +87,7 @@ class CredentialUseBenchmarkTest extends IntegrationTestCase {
 	}
 
 	private function guard(ICache $cache, bool $distributed): CredentialUseGuard {
-		$factory = $this->createMock(ICacheFactory::class);
-		$factory->method('isAvailable')->willReturn($distributed);
-		$factory->method('isLocalCacheAvailable')->willReturn(true);
-		$factory->method('createLocal')->willReturn($cache);
-		$factory->method('createDistributed')->willReturn($cache);
+		$factory = new FixedCaches($cache, $cache, $distributed);
 		$settings = new Settings(
 			Server::get(IAppConfig::class),
 			Server::get(CheckRegistry::class),

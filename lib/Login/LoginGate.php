@@ -9,11 +9,7 @@ declare(strict_types=1);
 
 namespace OCA\IntrusionDetection\Login;
 
-use OCA\IntrusionDetection\AppInfo\Application;
-use OCA\IntrusionDetection\Config\Prerequisites;
-use OCP\ICache;
-use OCP\ICacheFactory;
-use OCP\IMemcache;
+use OCA\IntrusionDetection\Cache\Caches;
 use OCP\ISession;
 
 /**
@@ -32,20 +28,17 @@ use OCP\ISession;
  *   database (a read, never a write).
  */
 class LoginGate {
+	/** The namespace of its memory cache in {@see Caches} */
+	public const CACHE = 'login';
 	public const INTERVAL = 3600;
-	public const PREFIX = Application::APP_ID . '-login';
 	/** Where core keeps the id of the token a request logged in with */
 	private const TOKEN_ID_KEY = 'token-id';
 
 	/** @var array<string, bool> by gate key */
 	private array $answers = [];
-	private bool $initialised = false;
-	private ?IMemcache $shared = null;
-	private ?ICache $local = null;
 
 	public function __construct(
-		private readonly ICacheFactory $cacheFactory,
-		private readonly Prerequisites $prerequisites,
+		private readonly Caches $caches,
 		private readonly ISession $session,
 	) {
 	}
@@ -60,15 +53,16 @@ class LoginGate {
 		if (isset($this->answers[$key])) {
 			return $this->answers[$key];
 		}
-		$this->initialise();
-		if ($this->shared === null) {
+		$shared = $this->caches->shared(self::CACHE);
+		if ($shared === null) {
 			return null;
 		}
-		if ($this->local !== null && $this->local->get($key) !== null) {
+		$local = $this->caches->isDistributed() ? $this->caches->local(self::CACHE) : null;
+		if ($local !== null && $local->get($key) !== null) {
 			return $this->answers[$key] = false;
 		}
-		$first = $this->shared->add($key, 1, self::INTERVAL);
-		$this->local?->set($key, 1, self::INTERVAL - $now % self::INTERVAL);
+		$first = $shared->add($key, 1, self::INTERVAL);
+		$local?->set($key, 1, self::INTERVAL - $now % self::INTERVAL);
 		return $this->answers[$key] = $first;
 	}
 
@@ -85,18 +79,4 @@ class LoginGate {
 		return is_int($id) || (is_string($id) && ctype_digit($id)) ? (int)$id : null;
 	}
 
-	private function initialise(): void {
-		if ($this->initialised) {
-			return;
-		}
-		$this->initialised = true;
-		$shared = $this->cacheFactory->isAvailable()
-			? $this->cacheFactory->createDistributed(self::PREFIX)
-			: ($this->cacheFactory->isLocalCacheAvailable() ? $this->cacheFactory->createLocal(self::PREFIX) : null);
-		// add() is atomic only on the memcache types.
-		$this->shared = $shared instanceof IMemcache ? $shared : null;
-		if ($this->shared !== null && $this->prerequisites->hasDistributedCache() && $this->cacheFactory->isLocalCacheAvailable()) {
-			$this->local = $this->cacheFactory->createLocal(self::PREFIX);
-		}
-	}
 }

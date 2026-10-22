@@ -16,7 +16,7 @@ enforces this on every test run.
 | features | `Check\Checks`, `Check\CredentialUse`, `Check\Payload`, `Address`, `AdminChange`, `Blocklist`, `Breach`, `Confirm`, `Decoy`, `Export`, `Guide`, `Incident`, `KnownDevice`, `Learning`, `LoginHistory`, `OpenMetrics`, `Privacy`, `Risk`, `SessionState`, `Share`, `StaleCredential`, `Takeover`, `Traps`, `TrustedNetwork`, `WasThisYou` | One check or one feature each: its definition, detection, texts and state. |
 | platform | `Check`, `Detection`, `Response`, `Explain`, `Event`, `Notification`, `Login` | The check registry and capability interfaces, recording detections, running responses, explanation texts, events and notifications. |
 | storage | `Db`, `Config` | Tables and mappers; settings, the config lexicon and its keys. |
-| kernel | `Definition`, `Net`, `Crypto`, `Audit`, `Http`, `ResponseDefinitions`, `Sensitive` | The shared vocabulary. Uses nothing above it. |
+| kernel | `Definition`, `Net`, `Crypto`, `Audit`, `Http`, `ResponseDefinitions`, `Sensitive`, `Cache` | The shared vocabulary and the memory caches. Uses nothing above it. |
 
 ## Rules
 
@@ -33,6 +33,11 @@ enforces this on every test run.
   database lives above it, as `Db\KeyMatch::slash64sIn()` or
   `Response\ProxySuspect` do.
 - **Per-user config keys** are declared once, in `Config\UserKeys`.
+- **Memory caches come from `Cache\Caches`**, one namespace per consumer,
+  declared by the consumer (its `CACHE` constant). `shared()` is the
+  distributed cache when one is configured, else the local one;
+  `isDistributed()` is the one answer to whether the cache is shared by all
+  web servers.
 - **The plain request path stays cheap.** Registries are lazy class-string
   lists (`CheckRegistry::CHECKS`, `ResponseEngine::HANDLERS`,
   `Application::SETUP_CHECKS`). Registering the app reads no constant of

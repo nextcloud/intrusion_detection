@@ -14,12 +14,13 @@ use OCA\IntrusionDetection\Address\AddressCache;
 use OCA\IntrusionDetection\Address\AddressResolver;
 use OCA\IntrusionDetection\AppInfo\Application;
 use OCA\IntrusionDetection\BackgroundJob\Cleanup;
+use OCA\IntrusionDetection\Cache\Caches;
+use OCA\IntrusionDetection\Cache\KeyLock;
 use OCA\IntrusionDetection\Check\CheckRegistry;
 use OCA\IntrusionDetection\Config\GlobalSettings;
 use OCA\IntrusionDetection\Config\Settings;
 use OCA\IntrusionDetection\Db\Ban;
 use OCA\IntrusionDetection\Db\BanMapper;
-use OCA\IntrusionDetection\Db\KeyLock;
 use OCA\IntrusionDetection\Db\LoginHistoryMapper;
 use OCA\IntrusionDetection\Db\LoginMapper;
 use OCA\IntrusionDetection\Db\StateMapper;
@@ -35,8 +36,8 @@ use OCA\IntrusionDetection\Response\BanResult;
 use OCA\IntrusionDetection\Response\BanService;
 use OCA\IntrusionDetection\Response\FlaggedSources;
 use OCA\IntrusionDetection\Response\ProxySuspect;
+use OCA\IntrusionDetection\Tests\Unit\Cache\FixedCaches;
 use OCP\AppFramework\Utility\ITimeFactory;
-use OCP\ICacheFactory;
 use OCP\IConfig;
 use OCP\IGroupManager;
 use OCP\IRequest;
@@ -615,10 +616,8 @@ class BanServiceTest extends IntegrationTestCase {
 		$this->assertSame(BanResult::BANNED, $this->freshService($this->lockCaches($cache))->ban(SourceKey::fromIp('198.51.100.7'), 'trap_url')->outcome);
 	}
 
-	private function lockCaches(ArrayCache $cache): ICacheFactory {
-		$factory = $this->createMock(ICacheFactory::class);
-		$factory->method('isAvailable')->willReturn(true);
-		$factory->method('createDistributed')->willReturn($cache);
+	private function lockCaches(ArrayCache $cache): Caches {
+		$factory = new FixedCaches($cache);
 		return $factory;
 	}
 
@@ -674,7 +673,7 @@ class BanServiceTest extends IntegrationTestCase {
 	 * The service with nothing cached from earlier tests (the allowlist and
 	 * server ranges are read once per instance).
 	 */
-	private function freshService(?ICacheFactory $lockCaches = null, ?StateMapper $state = null): BanService {
+	private function freshService(?Caches $lockCaches = null, ?StateMapper $state = null): BanService {
 		$ranges = new ProtectedRanges($this->appConfig, Server::get(ServerAddresses::class));
 		return new BanService(
 			$this->mapper,
@@ -685,12 +684,12 @@ class BanServiceTest extends IntegrationTestCase {
 				Server::get(ProxySuspect::class),
 				$ranges,
 				Server::get(IGroupManager::class),
-				Server::get(ICacheFactory::class),
+				Server::get(Caches::class),
 				Server::get(EstablishedAccounts::class),
 				Server::get(CheckRegistry::class),
 			),
 			Server::get(Settings::class),
-			$state === null ? Server::get(AddressCache::class) : new AddressCache(Server::get(ICacheFactory::class), $state),
+			$state === null ? Server::get(AddressCache::class) : new AddressCache(Server::get(Caches::class), $state),
 			Server::get(AddressResolver::class),
 			new RemoteAddressResolver($this->createMock(IRequest::class), Server::get(IThrottler::class), Server::get(ServerAddresses::class)),
 			$ranges,

@@ -12,6 +12,7 @@ namespace OCA\IntrusionDetection\Tests\Integration;
 use OC\DB\ConnectionAdapter;
 use OCA\IntrusionDetection\Admin\DetectionPresenter;
 use OCA\IntrusionDetection\AppInfo\Application;
+use OCA\IntrusionDetection\Cache\Caches;
 use OCA\IntrusionDetection\Check\Checks\AccountUnderAttack;
 use OCA\IntrusionDetection\Check\Checks\CredentialStuffing;
 use OCA\IntrusionDetection\Check\Checks\PasswordSpraying;
@@ -51,8 +52,6 @@ class RiskLimitsTest extends LoginFailureTestCase {
 
 	protected function setUp(): void {
 		parent::setUp();
-		// The tests' memory cache lives as long as the process: start from an empty one.
-		(new \ReflectionProperty(RiskScorer::class, 'cacheInitialised'))->setValue(Server::get(RiskScorer::class), false);
 		$this->settings->setGlobal(GlobalSettings::RISK_ENABLED, true);
 		$this->l = Server::get(IFactory::class)->get(Application::APP_ID, 'en');
 	}
@@ -95,7 +94,7 @@ class RiskLimitsTest extends LoginFailureTestCase {
 		}
 		$this->assertSame([], $this->detectionsOf(CredentialStuffing::ID), '9 failures earn 1 point: limits as configured');
 		// A minute later the stored facts are read again.
-		(new \ReflectionProperty(RiskScorer::class, 'cacheInitialised'))->setValue(Server::get(RiskScorer::class), false);
+		Server::get(Caches::class)->shared(RiskScorer::CACHE)?->clear();
 		$this->failLogin('198.51.100.7', 'user10');
 		$detections = $this->detectionsOf(CredentialStuffing::ID);
 		$this->assertCount(1, $detections);

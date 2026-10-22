@@ -9,11 +9,9 @@ declare(strict_types=1);
 
 namespace OCA\IntrusionDetection\Response;
 
-use OCA\IntrusionDetection\AppInfo\Application;
+use OCA\IntrusionDetection\Cache\Caches;
 use OCA\IntrusionDetection\Db\ResetSuppressionMapper;
 use OCP\AppFramework\Utility\ITimeFactory;
-use OCP\ICache;
-use OCP\ICacheFactory;
 use OCP\Security\Events\PasswordResetRequestedEvent;
 
 /**
@@ -30,19 +28,18 @@ use OCP\Security\Events\PasswordResetRequestedEvent;
  * seconds when a memory cache exists.
  */
 class ResetMailSuppressor {
+	/** The namespace of its memory cache in {@see Caches} */
+	public const CACHE = 'reset-mail';
 	public const CACHE_TTL = 60;
 	/** The longest time reset emails to one account are held back within one period */
 	public const MAX_SUPPRESSION = 86400;
 	/** A suppression and the time in which no new one can start */
 	public const PERIOD = 2 * 86400;
 
-	private ?ICache $cache = null;
-	private bool $cacheInitialised = false;
-
 	public function __construct(
 		private readonly ResetSuppressionMapper $mapper,
 		private readonly ITimeFactory $timeFactory,
-		private readonly ICacheFactory $cacheFactory,
+		private readonly Caches $caches,
 	) {
 	}
 
@@ -66,7 +63,7 @@ class ResetMailSuppressor {
 			return ['until' => $row['expiresAt'] ?? 0, 'latest' => $latest];
 		}
 		$this->mapper->suppress($uid, $detectionId, $now, min($until, $latest));
-		$this->cache()?->remove($this->key($uid));
+		$this->caches->shared(self::CACHE)?->remove($this->key($uid));
 		return ['until' => $this->suppressedUntil($uid) ?? min($until, $latest), 'latest' => $latest];
 	}
 
@@ -84,7 +81,7 @@ class ResetMailSuppressor {
 	 */
 	public function suppressedUntil(string $uid): ?int {
 		$now = $this->timeFactory->getTime();
-		$cache = $this->cache();
+		$cache = $this->caches->shared(self::CACHE);
 		$cached = $cache?->get($this->key($uid));
 		$until = is_int($cached) ? $cached : null;
 		if ($until === null) {
@@ -114,22 +111,10 @@ class ResetMailSuppressor {
 
 	public function end(string $uid): void {
 		$this->mapper->delete($uid);
-		$this->cache()?->remove($this->key($uid));
+		$this->caches->shared(self::CACHE)?->remove($this->key($uid));
 	}
 
 	private function key(string $uid): string {
 		return 'rsup:' . hash('sha256', $uid);
-	}
-
-	private function cache(): ?ICache {
-		if (!$this->cacheInitialised) {
-			$this->cacheInitialised = true;
-			if ($this->cacheFactory->isAvailable()) {
-				$this->cache = $this->cacheFactory->createDistributed(Application::APP_ID);
-			} elseif ($this->cacheFactory->isLocalCacheAvailable()) {
-				$this->cache = $this->cacheFactory->createLocal(Application::APP_ID);
-			}
-		}
-		return $this->cache;
 	}
 }

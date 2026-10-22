@@ -47,11 +47,11 @@ use OCA\IntrusionDetection\Response\PasswordChangeFlag;
 use OCA\IntrusionDetection\SessionState\RequestTarget;
 use OCA\IntrusionDetection\SessionState\Rules\StepUpRule;
 use OCA\IntrusionDetection\SessionState\SessionState;
+use OCA\IntrusionDetection\Tests\Unit\Cache\FixedCaches;
 use OCA\IntrusionDetection\TrustedNetwork\TrustedNetworks;
 use OCP\AppFramework\Controller;
 use OCP\AppFramework\OCSController;
 use OCP\Config\IUserConfig;
-use OCP\ICacheFactory;
 use OCP\IUser;
 use OCP\L10N\IFactory;
 use OCP\Server;
@@ -510,9 +510,7 @@ class StepUpTest extends StepUpTestCase {
 
 	public function testAnAppsDecisionIsRepeatedForAWhileWithoutTheChecks(): void {
 		$cache = new ArrayCache();
-		$factory = $this->createMock(ICacheFactory::class);
-		$factory->method('isAvailable')->willReturn(true);
-		$factory->method('createDistributed')->willReturn($cache);
+		$factory = new FixedCaches($cache);
 		$this->listenerCaches = $factory;
 		$this->settings->setGlobal(StepUpPolicy::ProtectedAccount->settingKey(), NoMethodOutcome::Refuse->value);
 		$this->give(StepUpPolicy::ProtectedAccount, $this->alice);

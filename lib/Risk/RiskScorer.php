@@ -11,8 +11,8 @@ namespace OCA\IntrusionDetection\Risk;
 
 use OCA\IntrusionDetection\Address\AddressCache;
 use OCA\IntrusionDetection\Address\Verdict;
-use OCA\IntrusionDetection\AppInfo\Application;
 use OCA\IntrusionDetection\Blocklist\BlocklistSource;
+use OCA\IntrusionDetection\Cache\Caches;
 use OCA\IntrusionDetection\Check\Checks\BlocklistMatch;
 use OCA\IntrusionDetection\Check\Checks\ReservedName;
 use OCA\IntrusionDetection\Check\Checks\TrapUrl;
@@ -27,8 +27,6 @@ use OCA\IntrusionDetection\Net\RemoteAddressResolver;
 use OCA\IntrusionDetection\Net\SourceKey;
 use OCA\IntrusionDetection\Response\FlaggedSources;
 use OCP\AppFramework\Utility\ITimeFactory;
-use OCP\ICache;
-use OCP\ICacheFactory;
 use Psr\Log\LoggerInterface;
 
 /**
@@ -54,6 +52,8 @@ use Psr\Log\LoggerInterface;
  * break the path it is asked on.
  */
 class RiskScorer {
+	/** The namespace of its memory cache in {@see Caches} */
+	public const CACHE = 'risk';
 	public const FAILURES_PER_STEP = 5;
 	public const MAX_FAILURE_STEPS = 3;
 	public const FAILURES_WINDOW = 3600;
@@ -75,9 +75,6 @@ class RiskScorer {
 	private const FAILURE_KINDS = [AttemptKind::PasswordLogin, AttemptKind::AppPassword];
 	private const CACHE_PREFIX = 'risk:';
 
-	private ?ICache $cache = null;
-	private bool $cacheInitialised = false;
-
 	public function __construct(
 		private readonly Settings $settings,
 		private readonly FlaggedSources $flags,
@@ -87,7 +84,7 @@ class RiskScorer {
 		private readonly AddressCache $addressCache,
 		private readonly RemoteAddressResolver $addresses,
 		private readonly AttackTools $tools,
-		private readonly ICacheFactory $cacheFactory,
+		private readonly Caches $caches,
 		private readonly ITimeFactory $timeFactory,
 		private readonly LoggerInterface $logger,
 	) {
@@ -149,14 +146,14 @@ class RiskScorer {
 		$key = self::CACHE_PREFIX . $source->ipKey;
 		if ($this->flags->flagAttackTool($source, $tool)) {
 			// The cached facts would miss a new tool for up to a minute.
-			$this->cache()?->remove($key);
+			$this->caches->shared(self::CACHE)?->remove($key);
 			return;
 		}
 		// The tool is known: the cached facts only miss this failure.
-		$cached = $this->cache()?->get($key);
+		$cached = $this->caches->shared(self::CACHE)?->get($key);
 		if (is_array($cached) && is_int($cached['failures'] ?? null)) {
 			$cached['failures']++;
-			$this->cache()?->set($key, $cached, self::CACHE_TTL);
+			$this->caches->shared(self::CACHE)?->set($key, $cached, self::CACHE_TTL);
 		}
 	}
 
@@ -221,7 +218,7 @@ class RiskScorer {
 	 */
 	private function storedFacts(SourceKey $source): array {
 		$key = self::CACHE_PREFIX . $source->ipKey;
-		$cached = $this->cache()?->get($key);
+		$cached = $this->caches->shared(self::CACHE)?->get($key);
 		if (is_array($cached) && array_key_exists('tool', $cached) && array_key_exists('flag', $cached)
 			&& is_array($cached['traps'] ?? null) && is_int($cached['failures'] ?? null)) {
 			return [
@@ -239,7 +236,7 @@ class RiskScorer {
 			'traps' => $this->detections->checksSeenFrom($source, self::TRAP_CHECKS, $now - self::TRAP_WINDOW),
 			'failures' => $this->attempts->stats('ip_key', [$source->ipKey], self::FAILURE_KINDS, $now - self::FAILURES_WINDOW)->failures,
 		];
-		$this->cache()?->set($key, $facts, self::CACHE_TTL);
+		$this->caches->shared(self::CACHE)?->set($key, $facts, self::CACHE_TTL);
 		return $facts;
 	}
 
@@ -262,17 +259,5 @@ class RiskScorer {
 	private function list(string $setting): array {
 		$value = $this->settings->global($setting);
 		return is_array($value) ? $value : [];
-	}
-
-	private function cache(): ?ICache {
-		if (!$this->cacheInitialised) {
-			$this->cacheInitialised = true;
-			if ($this->cacheFactory->isAvailable()) {
-				$this->cache = $this->cacheFactory->createDistributed(Application::APP_ID);
-			} elseif ($this->cacheFactory->isLocalCacheAvailable()) {
-				$this->cache = $this->cacheFactory->createLocal(Application::APP_ID);
-			}
-		}
-		return $this->cache;
 	}
 }

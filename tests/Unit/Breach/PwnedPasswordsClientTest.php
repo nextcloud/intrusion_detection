@@ -14,10 +14,11 @@ use GuzzleHttp\Psr7\Request;
 use OC\Memcache\ArrayCache;
 use OCA\IntrusionDetection\Blocklist\LimitedSink;
 use OCA\IntrusionDetection\Breach\PwnedPasswordsClient;
+use OCA\IntrusionDetection\Cache\Caches;
+use OCA\IntrusionDetection\Tests\Unit\Cache\FixedCaches;
 use OCP\Http\Client\IClient;
 use OCP\Http\Client\IClientService;
 use OCP\Http\Client\IResponse;
-use OCP\ICacheFactory;
 use OCP\Security\ICrypto;
 use OCP\Server;
 use PHPUnit\Framework\MockObject\MockObject;
@@ -39,8 +40,7 @@ class PwnedPasswordsClientTest extends TestCase {
 	private IClientService $clientService;
 	/** @var IClient&MockObject */
 	private IClient $client;
-	/** @var ICacheFactory&MockObject */
-	private ICacheFactory $cacheFactory;
+	private Caches $cacheFactory;
 	private ArrayCache $cache;
 	/** @var list<string> */
 	private array $logged = [];
@@ -58,9 +58,7 @@ class PwnedPasswordsClientTest extends TestCase {
 				return $this->cachedData;
 			}
 		};
-		$this->cacheFactory = $this->createMock(ICacheFactory::class);
-		$this->cacheFactory->method('isAvailable')->willReturn(true);
-		$this->cacheFactory->method('createDistributed')->willReturn($this->cache);
+		$this->cacheFactory = new FixedCaches($this->cache);
 	}
 
 	private function service(): PwnedPasswordsClient {
@@ -163,24 +161,16 @@ class PwnedPasswordsClientTest extends TestCase {
 	}
 
 	public function testCachesWithTheTtlOfADay(): void {
-		$cache = $this->createMock(\OCP\ICache::class);
+		$cache = $this->createMock(\OCP\IMemcache::class);
 		$cache->method('get')->willReturn(null);
 		$cache->expects($this->once())->method('set')->with($this->stringStartsWith('hibp:'), $this->isType('string'), 86400);
-		$factory = $this->createMock(ICacheFactory::class);
-		$factory->method('isAvailable')->willReturn(true);
-		$factory->method('createDistributed')->willReturn($cache);
+		$factory = new FixedCaches($cache);
 		$this->cacheFactory = $factory;
 		$this->answer(self::rangeBody(1));
 		$this->assertSame(1, $this->service()->count(self::PASSWORD));
 	}
 
-	public function testUsesTheLocalCacheWithoutADistributedOne(): void {
-		$factory = $this->createMock(ICacheFactory::class);
-		$factory->method('isAvailable')->willReturn(false);
-		$factory->method('isLocalCacheAvailable')->willReturn(true);
-		$factory->expects($this->never())->method('createDistributed');
-		$factory->expects($this->once())->method('createLocal')->willReturn($this->cache);
-		$this->cacheFactory = $factory;
+	public function testAskedOnceWithACache(): void {
 		$this->answer(self::rangeBody(3));
 		$service = $this->service();
 		$this->assertSame(3, $service->count(self::PASSWORD));
@@ -189,9 +179,7 @@ class PwnedPasswordsClientTest extends TestCase {
 	}
 
 	public function testWithoutAnyMemoryCacheEveryCheckAsks(): void {
-		$factory = $this->createMock(ICacheFactory::class);
-		$factory->method('isAvailable')->willReturn(false);
-		$factory->method('isLocalCacheAvailable')->willReturn(false);
+		$factory = FixedCaches::none();
 		$this->cacheFactory = $factory;
 		$this->answer(self::rangeBody(3));
 		$service = $this->service();

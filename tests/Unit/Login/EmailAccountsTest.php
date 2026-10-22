@@ -11,7 +11,7 @@ namespace OCA\IntrusionDetection\Tests\Unit\Login;
 
 use OC\Memcache\ArrayCache;
 use OCA\IntrusionDetection\Login\EmailAccounts;
-use OCP\ICacheFactory;
+use OCA\IntrusionDetection\Tests\Unit\Cache\FixedCaches;
 use OCP\IUser;
 use OCP\IUserManager;
 use Test\TestCase;
@@ -27,9 +27,7 @@ class EmailAccountsTest extends TestCase {
 	public function testRepeatedLookupsOfOneAddressAskCoreOnce(): void {
 		$users = $this->createMock(IUserManager::class);
 		$users->expects($this->once())->method('getByEmail')->with('Alice@Example.com')->willReturn([$this->user('alice', true)]);
-		$factory = $this->createMock(ICacheFactory::class);
-		$factory->method('isAvailable')->willReturn(true);
-		$factory->method('createDistributed')->willReturn(new ArrayCache());
+		$factory = new FixedCaches(new ArrayCache());
 		$accounts = new EmailAccounts($users, $factory);
 
 		$this->assertSame('alice', $accounts->only('Alice@Example.com'));
@@ -40,9 +38,7 @@ class EmailAccountsTest extends TestCase {
 		$users = $this->createMock(IUserManager::class);
 		$users->expects($this->exactly(2))->method('getByEmail')->willReturn([]);
 		$cache = new ArrayCache();
-		$factory = $this->createMock(ICacheFactory::class);
-		$factory->method('isAvailable')->willReturn(true);
-		$factory->method('createDistributed')->willReturn($cache);
+		$factory = new FixedCaches($cache);
 		$accounts = new EmailAccounts($users, $factory);
 
 		$this->assertNull($accounts->only('made-up@example.com'));
@@ -57,7 +53,7 @@ class EmailAccountsTest extends TestCase {
 			['old@example.com', [$this->user('c', false), $this->user('d', true)]],
 			['none@example.com', []],
 		]);
-		$accounts = new EmailAccounts($users, $this->createMock(ICacheFactory::class));
+		$accounts = new EmailAccounts($users, FixedCaches::none());
 
 		$this->assertNull($accounts->only('shared@example.com'));
 		$this->assertNull($accounts->only('old@example.com'));

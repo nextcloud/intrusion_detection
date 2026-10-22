@@ -13,6 +13,7 @@ use OC\Memcache\ArrayCache;
 use OCA\IntrusionDetection\Admin\CheckNames;
 use OCA\IntrusionDetection\Admin\IStatusContributor;
 use OCA\IntrusionDetection\Admin\StatusService;
+use OCA\IntrusionDetection\Cache\Caches;
 use OCA\IntrusionDetection\Check\CheckRegistry;
 use OCA\IntrusionDetection\Config\Prerequisites;
 use OCA\IntrusionDetection\Config\Settings;
@@ -21,8 +22,8 @@ use OCA\IntrusionDetection\Db\StatsMapper;
 use OCA\IntrusionDetection\Detection\DetectionTotals;
 use OCA\IntrusionDetection\Learning\LearningService;
 use OCA\IntrusionDetection\Perf\GuardTimer;
+use OCA\IntrusionDetection\Tests\Unit\Cache\FixedCaches;
 use OCP\AppFramework\Utility\ITimeFactory;
-use OCP\ICacheFactory;
 use OCP\IL10N;
 use OCP\L10N\IFactory;
 use OCP\Server;
@@ -53,7 +54,7 @@ class StatusServiceTest extends TestCase {
 	/**
 	 * @param class-string<StatusService> $class
 	 */
-	private function service(string $class = StatusService::class, ?ICacheFactory $cacheFactory = null, ?DetectionTotals $totals = null, ?StatsMapper $stats = null): StatusService {
+	private function service(string $class = StatusService::class, ?Caches $cacheFactory = null, ?DetectionTotals $totals = null, ?StatsMapper $stats = null): StatusService {
 		$registry = $this->createMock(CheckRegistry::class);
 		$registry->method('configurable')->willReturn([]);
 		$time = $this->createMock(ITimeFactory::class);
@@ -71,7 +72,7 @@ class StatusServiceTest extends TestCase {
 			$time,
 			$this->container,
 			$this->logger,
-			$cacheFactory ?? $this->createMock(ICacheFactory::class),
+			$cacheFactory ?? FixedCaches::none(),
 		);
 	}
 
@@ -91,9 +92,7 @@ class StatusServiceTest extends TestCase {
 
 	public function testTheNumbersAreKeptForAMinutePerLanguageAndTheProblemsAreReadLive(): void {
 		$cache = new ArrayCache();
-		$factory = $this->createMock(ICacheFactory::class);
-		$factory->method('isAvailable')->willReturn(true);
-		$factory->method('createDistributed')->with(StatusService::CACHE_PREFIX)->willReturn($cache);
+		$factory = new FixedCaches($cache);
 		$totals = $this->createMock(DetectionTotals::class);
 		$totals->expects($this->exactly(2))->method('perCheck')->with(1_790_000_000 - 86400)->willReturn([]);
 		$stats = $this->createMock(StatsMapper::class);

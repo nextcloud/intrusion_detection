@@ -9,12 +9,11 @@ declare(strict_types=1);
 
 namespace OCA\IntrusionDetection\Check\CredentialUse;
 
-use OCA\IntrusionDetection\AppInfo\Application;
+use OCA\IntrusionDetection\Cache\Caches;
 use OCA\IntrusionDetection\Check\Checks\TokenConcurrentUse;
 use OCA\IntrusionDetection\Config\Settings;
 use OCA\IntrusionDetection\Net\SourceKey;
 use OCP\ICache;
-use OCP\ICacheFactory;
 
 /**
  * Keeps each credential's {@see CredentialHistory} in the memory cache,
@@ -29,6 +28,8 @@ use OCP\ICacheFactory;
  * The common case costs one cache get and no write.
  */
 class CredentialTracker {
+	/** The namespace of its memory cache in {@see Caches} */
+	public const CACHE = 'credentials';
 	public const KEY_PREFIX = 'cu:';
 	/** Entries outlive the longest window by one refresh interval */
 	public const TTL = 3600 + CredentialHistory::REFRESH;
@@ -37,7 +38,7 @@ class CredentialTracker {
 	private bool $initialised = false;
 
 	public function __construct(
-		private readonly ICacheFactory $cacheFactory,
+		private readonly Caches $caches,
 		private readonly Settings $settings,
 	) {
 	}
@@ -102,11 +103,6 @@ class CredentialTracker {
 			return;
 		}
 		$this->initialised = true;
-		// Without a distributed cache configured, core hands out the local one.
-		if ($this->cacheFactory->isAvailable()) {
-			$this->cache = $this->cacheFactory->createDistributed(Application::APP_ID);
-		} elseif ($this->cacheFactory->isLocalCacheAvailable()) {
-			$this->cache = $this->cacheFactory->createLocal(Application::APP_ID);
-		}
+		$this->cache = $this->caches->shared(self::CACHE);
 	}
 }

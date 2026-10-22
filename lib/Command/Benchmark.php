@@ -11,10 +11,9 @@ namespace OCA\IntrusionDetection\Command;
 
 use OC\AppFramework\Http\Request;
 use OC\Core\Command\Base;
-use OCA\IntrusionDetection\AppInfo\Application;
+use OCA\IntrusionDetection\Cache\Caches;
 use OCA\IntrusionDetection\Check\CredentialUse\CredentialTracker;
 use OCA\IntrusionDetection\Check\CredentialUse\PresentedCredential;
-use OCA\IntrusionDetection\Config\Prerequisites;
 use OCA\IntrusionDetection\Crypto\Fingerprinter;
 use OCA\IntrusionDetection\Guard\AddressGuard;
 use OCA\IntrusionDetection\Guard\CredentialUseGuard;
@@ -24,7 +23,6 @@ use OCA\IntrusionDetection\Net\SourceKey;
 use OCA\IntrusionDetection\Perf\FreshRequestProbe;
 use OCP\AppFramework\Utility\ITimeFactory;
 use OCP\ICache;
-use OCP\ICacheFactory;
 use OCP\IConfig;
 use OCP\IRequest;
 use OCP\IRequestId;
@@ -56,6 +54,8 @@ use Symfony\Component\Console\Output\OutputInterface;
  * @psalm-import-type FreshRequestResult from FreshRequestProbe
  */
 class Benchmark extends Base {
+	/** The namespace of the measurement's memory cache in {@see Caches} */
+	public const CACHE = 'benchmark';
 	private const GUARDS = ['address', 'trap_url', 'injection_probe', 'credential_use'];
 	private const WARM_ADDRESS = '203.0.113.7';
 	public const FRESH_RUNS = 5;
@@ -66,8 +66,7 @@ class Benchmark extends Base {
 		private readonly PayloadGuard $payloadGuard,
 		private readonly CredentialUseGuard $credentialGuard,
 		private readonly CredentialTracker $tracker,
-		private readonly ICacheFactory $cacheFactory,
-		private readonly Prerequisites $prerequisites,
+		private readonly Caches $caches,
 		private readonly Fingerprinter $fingerprinter,
 		private readonly ITimeFactory $timeFactory,
 		private readonly IConfig $config,
@@ -207,14 +206,9 @@ class Benchmark extends Base {
 	 * @return array{0: ?ICache, 1: 'distributed'|'local'|'none'}
 	 */
 	private function benchmarkCache(): array {
-		$prefix = Application::APP_ID . '-benchmark';
-		if (!$this->prerequisites->hasMemoryCache()) {
-			return [null, 'none'];
-		}
-		// The same cache the check uses; core hands out the local one as
-		// the distributed cache when no distributed cache is configured.
-		$cache = $this->cacheFactory->isAvailable() ? $this->cacheFactory->createDistributed($prefix) : $this->cacheFactory->createLocal($prefix);
-		return [$cache, $this->prerequisites->hasDistributedCache() ? 'distributed' : 'local'];
+		// The same kind of cache the check uses, in a namespace of its own.
+		$cache = $this->caches->shared(self::CACHE);
+		return [$cache, $cache === null ? 'none' : $this->caches->kind()];
 	}
 
 	private function request(string $address, string $appPassword): IRequest {

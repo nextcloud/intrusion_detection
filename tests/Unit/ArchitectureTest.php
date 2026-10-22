@@ -23,7 +23,7 @@ class ArchitectureTest extends TestCase {
 
 	/** Bottom to top */
 	private const LAYERS = [
-		'kernel' => ['Definition', 'Net', 'Crypto', 'Audit', 'Http', 'ResponseDefinitions', 'Sensitive'],
+		'kernel' => ['Definition', 'Net', 'Crypto', 'Audit', 'Http', 'ResponseDefinitions', 'Sensitive', 'Cache'],
 		'storage' => ['Db', 'Config'],
 		'platform' => ['Check', 'Detection', 'Response', 'Explain', 'Event', 'Notification', 'Login'],
 		'features' => [
@@ -43,7 +43,7 @@ class ArchitectureTest extends TestCase {
 	private const CHECK_PARTS = ['Checks', 'CredentialUse', 'Payload'];
 
 	/** Generic namespaces, which must not name a check */
-	private const PLATFORM = ['Definition', 'Net', 'Crypto', 'Audit', 'Http', 'ResponseDefinitions', 'Sensitive', 'Db', 'Config',
+	private const PLATFORM = ['Definition', 'Net', 'Crypto', 'Audit', 'Http', 'ResponseDefinitions', 'Sensitive', 'Cache', 'Db', 'Config',
 		'Check', 'Detection', 'Response', 'Explain', 'Event', 'Notification', 'Login'];
 
 	/**

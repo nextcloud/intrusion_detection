@@ -9,11 +9,9 @@ declare(strict_types=1);
 
 namespace OCA\IntrusionDetection\Breach;
 
-use OCA\IntrusionDetection\AppInfo\Application;
 use OCA\IntrusionDetection\Blocklist\LimitedSink;
+use OCA\IntrusionDetection\Cache\Caches;
 use OCP\Http\Client\IClientService;
-use OCP\ICache;
-use OCP\ICacheFactory;
 use OCP\Security\ICrypto;
 use Psr\Log\LoggerInterface;
 
@@ -35,6 +33,8 @@ use Psr\Log\LoggerInterface;
  * - Fails open: a timeout, an error status or a malformed answer gives null.
  */
 class PwnedPasswordsClient {
+	/** The namespace of its memory cache in {@see Caches} */
+	public const CACHE = 'breach';
 	public const RANGE_URL = 'https://api.pwnedpasswords.com/range/';
 	/**
 	 * Seconds for the whole request, including the connection: the check
@@ -52,12 +52,9 @@ class PwnedPasswordsClient {
 	private const LINE = '/^([0-9A-F]{35}):(\d{1,12})$/';
 	private const CACHE_KEY_PREFIX = 'hibp:';
 
-	private ?ICache $cache = null;
-	private bool $cacheInitialised = false;
-
 	public function __construct(
 		private readonly IClientService $clientService,
-		private readonly ICacheFactory $cacheFactory,
+		private readonly Caches $caches,
 		private readonly ICrypto $crypto,
 		private readonly LoggerInterface $logger,
 	) {
@@ -157,7 +154,7 @@ class PwnedPasswordsClient {
 	 * @return ?array<string, int>
 	 */
 	private function readCache(#[\SensitiveParameter] string $prefix): ?array {
-		$cache = $this->cache();
+		$cache = $this->caches->shared(self::CACHE);
 		if ($cache === null) {
 			return null;
 		}
@@ -177,7 +174,7 @@ class PwnedPasswordsClient {
 	 * @param array<string, int> $range
 	 */
 	private function writeCache(#[\SensitiveParameter] string $prefix, array $range): void {
-		$cache = $this->cache();
+		$cache = $this->caches->shared(self::CACHE);
 		if ($cache === null) {
 			return;
 		}
@@ -196,17 +193,5 @@ class PwnedPasswordsClient {
 
 	private function cacheKey(#[\SensitiveParameter] string $prefix): string {
 		return self::CACHE_KEY_PREFIX . bin2hex(substr($this->crypto->calculateHMAC('intrusion_detection/hibp/' . $prefix), 0, 16));
-	}
-
-	private function cache(): ?ICache {
-		if (!$this->cacheInitialised) {
-			$this->cacheInitialised = true;
-			if ($this->cacheFactory->isAvailable()) {
-				$this->cache = $this->cacheFactory->createDistributed(Application::APP_ID);
-			} elseif ($this->cacheFactory->isLocalCacheAvailable()) {
-				$this->cache = $this->cacheFactory->createLocal(Application::APP_ID);
-			}
-		}
-		return $this->cache;
 	}
 }

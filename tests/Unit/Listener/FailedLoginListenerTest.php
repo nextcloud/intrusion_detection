@@ -25,6 +25,7 @@ use OCA\IntrusionDetection\Net\RemoteAddressResolver;
 use OCA\IntrusionDetection\Net\SourceKey;
 use OCA\IntrusionDetection\Personal\FailedLoginStats;
 use OCA\IntrusionDetection\Risk\RiskScorer;
+use OCA\IntrusionDetection\Tests\Unit\Cache\FixedCaches;
 use OCP\Authentication\Events\AnyLoginFailedEvent;
 use OCP\IRequest;
 use OCP\IUserManager;
@@ -120,9 +121,7 @@ class FailedLoginListenerTest extends TestCase {
 		$users = $this->createMock(IUserManager::class);
 		$users->method('getUserNameFromLoginName')->willReturnArgument(0);
 		$users->expects($this->never())->method('getByEmail');
-		$cached = $this->createMock(\OCP\ICacheFactory::class);
-		$cached->method('isAvailable')->willReturn(true);
-		$cached->method('createDistributed')->willReturn(new \OC\Memcache\ArrayCache());
+		$cached = new FixedCaches(new \OC\Memcache\ArrayCache());
 		$emails = new \OCA\IntrusionDetection\Login\EmailAccounts($users, $cached);
 
 		$listener = new FailedLoginListener(

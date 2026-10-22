@@ -13,6 +13,7 @@ use OC\Memcache\ArrayCache;
 use OCA\IntrusionDetection\AdminChange\Approvers;
 use OCA\IntrusionDetection\AppInfo\Application;
 use OCA\IntrusionDetection\BackgroundJob\StatusRefreshJob;
+use OCA\IntrusionDetection\Cache\Caches;
 use OCA\IntrusionDetection\Config\GlobalSettings;
 use OCA\IntrusionDetection\Config\Settings;
 use OCA\IntrusionDetection\Confirm\ConfirmationCoverage;
@@ -20,11 +21,11 @@ use OCA\IntrusionDetection\Notification\AdminLinks;
 use OCA\IntrusionDetection\SetupCheck\Finding;
 use OCA\IntrusionDetection\SetupCheck\UsersWithoutConfirmationCheck;
 use OCA\IntrusionDetection\StaleCredential\StaleCredentialSweep;
+use OCA\IntrusionDetection\Tests\Unit\Cache\FixedCaches;
 use OCA\IntrusionDetection\Traps\TrapNameCollisions;
 use OCP\AppFramework\Utility\ITimeFactory;
 use OCP\Authentication\TwoFactorAuth\IRegistry;
 use OCP\DB\QueryBuilder\IQueryBuilder;
-use OCP\ICacheFactory;
 use OCP\IGroupManager;
 use OCP\IUser;
 use OCP\IUserManager;
@@ -179,9 +180,8 @@ class ConfirmationCoverageTest extends IntegrationTestCase {
 		$this->appConfig->deleteKey(Application::APP_ID, GlobalSettings::COVERAGE_USERS);
 	}
 
-	private function cacheFactory(): ICacheFactory {
-		$factory = $this->createMock(ICacheFactory::class);
-		$factory->method('createDistributed')->willReturn($this->cache);
+	private function cacheFactory(): Caches {
+		$factory = new FixedCaches($this->cache);
 		return $factory;
 	}
 

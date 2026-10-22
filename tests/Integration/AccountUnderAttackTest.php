@@ -11,6 +11,7 @@ namespace OCA\IntrusionDetection\Tests\Integration;
 
 use OCA\IntrusionDetection\AppInfo\Application;
 use OCA\IntrusionDetection\Audit\AuditLogger;
+use OCA\IntrusionDetection\Cache\Caches;
 use OCA\IntrusionDetection\Check\Checks\AccountUnderAttack;
 use OCA\IntrusionDetection\Check\Checks\AccountUnderAttackDetector;
 use OCA\IntrusionDetection\Check\Checks\CredentialStuffing;
@@ -26,7 +27,6 @@ use OCA\IntrusionDetection\Net\SourceKey;
 use OCA\IntrusionDetection\Notification\UserAlerts;
 use OCA\IntrusionDetection\Response\AccountProtection;
 use OCP\AppFramework\Utility\ITimeFactory;
-use OCP\ICacheFactory;
 use OCP\IConfig;
 use OCP\L10N\IFactory;
 use OCP\Server;
@@ -212,6 +212,6 @@ class AccountUnderAttackTest extends LoginFailureTestCase {
 	}
 
 	private function freshProtection(): AccountProtection {
-		return new AccountProtection($this->protected, Server::get(ITimeFactory::class), Server::get(ICacheFactory::class), Server::get(AuditLogger::class));
+		return new AccountProtection($this->protected, Server::get(ITimeFactory::class), Server::get(Caches::class), Server::get(AuditLogger::class));
 	}
 }

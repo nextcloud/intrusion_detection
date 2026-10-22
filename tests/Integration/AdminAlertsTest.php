@@ -29,9 +29,9 @@ use OCA\IntrusionDetection\Notification\Mails;
 use OCA\IntrusionDetection\Notification\Notifier;
 use OCA\IntrusionDetection\Notification\UserMessages;
 use OCA\IntrusionDetection\Response\Handlers\NotifyAdminHandler;
+use OCA\IntrusionDetection\Tests\Unit\Cache\FixedCaches;
 use OCP\AppFramework\Utility\ITimeFactory;
 use OCP\Config\IUserConfig;
-use OCP\ICacheFactory;
 use OCP\IGroup;
 use OCP\IGroupManager;
 use OCP\IUser;
@@ -205,9 +205,7 @@ class AdminAlertsTest extends IntegrationTestCase {
 		$groups = $this->createMock(IGroupManager::class);
 		$groups->method('get')->willReturn($group);
 		$cache = new ArrayCache('ids-test-recipients');
-		$factory = $this->createMock(ICacheFactory::class);
-		$factory->method('isLocalCacheAvailable')->willReturn(true);
-		$factory->method('createLocal')->willReturn($cache);
+		$factory = new FixedCaches(null, $cache);
 		$recipients = new AdminRecipients(Server::get(Settings::class), $groups, $factory);
 		$alerts = new AdminAlerts(
 			Server::get(AlertMapper::class), $recipients, $this->notifications, $this->mails, Server::get(Settings::class),

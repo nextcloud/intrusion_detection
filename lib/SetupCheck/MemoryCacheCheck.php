@@ -10,7 +10,7 @@ declare(strict_types=1);
 namespace OCA\IntrusionDetection\SetupCheck;
 
 use OCA\IntrusionDetection\Address\AddressResolver;
-use OCA\IntrusionDetection\Config\Prerequisites;
+use OCA\IntrusionDetection\Cache\Caches;
 use OCA\IntrusionDetection\Net\SourceKey;
 use OCA\IntrusionDetection\Notification\AdminLinks;
 use OCP\IL10N;
@@ -28,7 +28,7 @@ class MemoryCacheCheck extends ProblemCheck {
 	public function __construct(
 		IL10N $l,
 		AdminLinks $links,
-		private readonly Prerequisites $prerequisites,
+		private readonly Caches $caches,
 		private readonly AddressResolver $resolver,
 		private readonly IURLGenerator $urlGenerator,
 	) {
@@ -47,7 +47,7 @@ class MemoryCacheCheck extends ProblemCheck {
 
 	#[\Override]
 	public function finding(IL10N $l): ?Finding {
-		if ($this->prerequisites->hasMemoryCache()) {
+		if ($this->caches->isAvailable()) {
 			return null;
 		}
 		$milliseconds = $this->measure();

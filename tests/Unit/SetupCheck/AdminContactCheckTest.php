@@ -18,8 +18,8 @@ use OCA\IntrusionDetection\Confirm\ConfirmationCoverage;
 use OCA\IntrusionDetection\Notification\AdminLinks;
 use OCA\IntrusionDetection\SetupCheck\AdminContactCheck;
 use OCA\IntrusionDetection\SetupCheck\Finding;
+use OCA\IntrusionDetection\Tests\Unit\Cache\FixedCaches;
 use OCP\Authentication\TwoFactorAuth\IRegistry;
-use OCP\ICacheFactory;
 use OCP\IDBConnection;
 use OCP\IGroupManager;
 use OCP\IUser;
@@ -128,8 +128,7 @@ class AdminContactCheckTest extends TestCase {
 
 	private function instance(Approvers $approvers, IRegistry $registry, bool $trustedNetworksOnly = false): AdminContactCheck {
 		$cache = new ArrayCache();
-		$cacheFactory = $this->createMock(ICacheFactory::class);
-		$cacheFactory->method('createDistributed')->willReturn($cache);
+		$cacheFactory = new FixedCaches($cache);
 		$coverage = new ConfirmationCoverage(
 			$this->createMock(IDBConnection::class),
 			$this->createMock(IUserManager::class),

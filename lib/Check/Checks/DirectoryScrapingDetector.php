@@ -9,7 +9,7 @@ declare(strict_types=1);
 
 namespace OCA\IntrusionDetection\Check\Checks;
 
-use OCA\IntrusionDetection\AppInfo\Application;
+use OCA\IntrusionDetection\Cache\Caches;
 use OCA\IntrusionDetection\Config\Settings;
 use OCA\IntrusionDetection\Definition\Mode;
 use OCA\IntrusionDetection\Definition\ResponseType;
@@ -20,8 +20,6 @@ use OCA\IntrusionDetection\Response\ResponseEngine;
 use OCA\IntrusionDetection\SessionState\CurrentSession;
 use OCA\IntrusionDetection\SessionState\SessionBlock;
 use OCP\AppFramework\Utility\ITimeFactory;
-use OCP\ICacheFactory;
-use OCP\IMemcache;
 use OCP\IRequest;
 use Psr\Container\ContainerInterface;
 
@@ -41,15 +39,14 @@ use Psr\Container\ContainerInterface;
  * Without a memory cache nothing is counted: the check is unavailable then.
  */
 class DirectoryScrapingDetector {
+	/** The namespace of its memory cache in {@see Caches} */
+	public const CACHE = 'directory-scraping';
 	public const KEY_PREFIX = 'scrape:';
-
-	private ?IMemcache $cache = null;
-	private bool $cacheInitialised = false;
 
 	public function __construct(
 		private readonly Settings $settings,
 		private readonly RequestContext $context,
-		private readonly ICacheFactory $cacheFactory,
+		private readonly Caches $caches,
 		private readonly ITimeFactory $timeFactory,
 		private readonly ContainerInterface $container,
 	) {
@@ -66,7 +63,7 @@ class DirectoryScrapingDetector {
 		if ($limitDefinition === null || !$this->runs()) {
 			return null;
 		}
-		$cache = $this->cache();
+		$cache = $this->caches->shared(self::CACHE);
 		if ($cache === null) {
 			return null;
 		}
@@ -134,20 +131,5 @@ class DirectoryScrapingDetector {
 	private function runs(): bool {
 		return ($this->context->verdict() !== null || $this->settings->isEnabled())
 			&& $this->settings->configuredMode(DirectoryScraping::ID) !== Mode::Off;
-	}
-
-	private function cache(): ?IMemcache {
-		if (!$this->cacheInitialised) {
-			$this->cacheInitialised = true;
-			// Without a distributed cache configured, core hands out the local one.
-			$cache = match (true) {
-				$this->cacheFactory->isAvailable() => $this->cacheFactory->createDistributed(Application::APP_ID),
-				$this->cacheFactory->isLocalCacheAvailable() => $this->cacheFactory->createLocal(Application::APP_ID),
-				default => null,
-			};
-			// inc() is atomic only on the memory-cache types.
-			$this->cache = $cache instanceof IMemcache ? $cache : null;
-		}
-		return $this->cache;
 	}
 }

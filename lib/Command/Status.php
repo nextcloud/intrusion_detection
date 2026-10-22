@@ -11,6 +11,7 @@ namespace OCA\IntrusionDetection\Command;
 
 use OC\Core\Command\Base;
 use OCA\IntrusionDetection\Blocklist\BlocklistOverview;
+use OCA\IntrusionDetection\Cache\Caches;
 use OCA\IntrusionDetection\Check\CheckRegistry;
 use OCA\IntrusionDetection\Config\Prerequisites;
 use OCA\IntrusionDetection\Config\Settings;
@@ -30,6 +31,7 @@ class Status extends Base {
 		private readonly CheckRegistry $registry,
 		private readonly LearningService $learning,
 		private readonly Prerequisites $prerequisites,
+		private readonly Caches $caches,
 		private readonly BanMapper $bans,
 		private readonly DetectionTotals $totals,
 		private readonly GuardTimer $timer,
@@ -64,7 +66,7 @@ class Status extends Base {
 			'learning_until' => $this->learning->until() > $now ? date('c', $this->learning->until()) : null,
 			'learning_days_left' => $this->learning->daysLeft(),
 			'checks' => $modes,
-			'memory_cache' => $this->prerequisites->hasDistributedCache() ? 'distributed' : ($this->prerequisites->hasMemoryCache() ? 'local' : 'none'),
+			'memory_cache' => $this->caches->kind(),
 			'mail' => $this->prerequisites->hasMail(),
 			'active_bans' => $this->bans->countActive($now),
 			'detections_24h' => array_sum(array_map(static fn (array $c): int => $c['enforced'] + $c['observed'], $last24h)),

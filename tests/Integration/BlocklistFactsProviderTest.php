@@ -33,8 +33,8 @@ use OCA\IntrusionDetection\Net\RemoteAddressResolver;
 use OCA\IntrusionDetection\Net\ServerAddresses;
 use OCA\IntrusionDetection\Net\SourceKey;
 use OCA\IntrusionDetection\Perf\GuardTimer;
+use OCA\IntrusionDetection\Tests\Unit\Cache\FixedCaches;
 use OCP\AppFramework\Utility\ITimeFactory;
-use OCP\ICacheFactory;
 use OCP\IConfig;
 use OCP\IDBConnection;
 use OCP\IRequest;
@@ -315,19 +315,14 @@ class BlocklistFactsProviderTest extends IntegrationTestCase {
 			new RemoteAddressResolver($this->createMock(IRequest::class), $throttler, Server::get(ServerAddresses::class)),
 			$context,
 			$this->time(),
-			new GuardTimer($this->createMock(ICacheFactory::class), $this->time()),
+			new GuardTimer(FixedCaches::none(), $this->time()),
 		);
 		return [$guard, $context, $resolver];
 	}
 
 	private function addressCache(bool $available): AddressCache {
 		$store = new \OC\Memcache\ArrayCache('ids-test-blocklist');
-		$factory = $this->createMock(ICacheFactory::class);
-		$factory->method('isAvailable')->willReturn($available);
-		$factory->method('isLocalCacheAvailable')->willReturn($available);
-		$factory->method('createDistributed')->willReturn($store);
-		$factory->method('createLocal')->willReturn($store);
-		return new AddressCache($factory, Server::get(StateMapper::class));
+		return new AddressCache($available ? new FixedCaches($store) : FixedCaches::none(), Server::get(StateMapper::class));
 	}
 
 	private function time(): ITimeFactory {

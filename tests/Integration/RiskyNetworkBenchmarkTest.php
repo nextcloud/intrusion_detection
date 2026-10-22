@@ -28,8 +28,8 @@ use OCA\IntrusionDetection\Net\RangeCodec;
 use OCA\IntrusionDetection\Net\RemoteAddressResolver;
 use OCA\IntrusionDetection\Net\ServerAddresses;
 use OCA\IntrusionDetection\Perf\GuardTimer;
+use OCA\IntrusionDetection\Tests\Unit\Cache\FixedCaches;
 use OCP\AppFramework\Utility\ITimeFactory;
-use OCP\ICacheFactory;
 use OCP\IConfig;
 use OCP\IRequest;
 use OCP\Security\Bruteforce\IThrottler;
@@ -106,11 +106,7 @@ class RiskyNetworkBenchmarkTest extends IntegrationTestCase {
 			Server::get(Settings::class)->setGlobal(GlobalSettings::BLOCKLIST_SOURCES, '[]');
 		}
 		$store = new ArrayCache();
-		$factory = $this->createMock(ICacheFactory::class);
-		$factory->method('isAvailable')->willReturn($cached);
-		$factory->method('isLocalCacheAvailable')->willReturn($cached);
-		$factory->method('createDistributed')->willReturn($store);
-		$factory->method('createLocal')->willReturn($store);
+		$factory = $cached ? new FixedCaches($store) : FixedCaches::none();
 		$addressCache = new AddressCache($factory, Server::get(StateMapper::class));
 		$settings = Server::get(Settings::class);
 		$provider = new BlocklistFactsProvider(
@@ -136,7 +132,7 @@ class RiskyNetworkBenchmarkTest extends IntegrationTestCase {
 			new RemoteAddressResolver($this->createMock(IRequest::class), Server::get(IThrottler::class), Server::get(ServerAddresses::class)),
 			$this->context,
 			Server::get(ITimeFactory::class),
-			new GuardTimer($this->createMock(ICacheFactory::class), Server::get(ITimeFactory::class)),
+			new GuardTimer(FixedCaches::none(), Server::get(ITimeFactory::class)),
 		);
 	}
 

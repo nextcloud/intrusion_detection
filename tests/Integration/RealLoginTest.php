@@ -13,6 +13,7 @@ use OC\Authentication\Login\Chain;
 use OC\Authentication\Login\LoginData;
 use OC\User\Session;
 use OCA\IntrusionDetection\AppInfo\Application;
+use OCA\IntrusionDetection\Cache\Caches;
 use OCA\IntrusionDetection\Check\Checks\StepUpFailed;
 use OCA\IntrusionDetection\Check\Checks\StepUpRefused;
 use OCA\IntrusionDetection\Check\Checks\StepUpRefusedClient;
@@ -46,7 +47,6 @@ use OCA\IntrusionDetection\SessionState\Rules\StepUpRule;
 use OCA\IntrusionDetection\SessionState\SessionState;
 use OCA\IntrusionDetection\Tests\BasicAuthServer;
 use OCP\AppFramework\Controller;
-use OCP\ICacheFactory;
 use OCP\IRequest;
 use OCP\ISession;
 use OCP\IUser;
@@ -109,7 +109,7 @@ class RealLoginTest extends IntegrationTestCase {
 			$this->request,
 			Server::get(ISession::class),
 			\OC::$server->getRegisteredAppContainer(Application::APP_ID),
-			Server::get(ICacheFactory::class),
+			Server::get(Caches::class),
 			Server::get(LoggerInterface::class),
 		));
 		$mails = $this->createMock(Mails::class);
@@ -194,12 +194,7 @@ class RealLoginTest extends IntegrationTestCase {
 		// A client with a cookie jar sends core's cookie test back from its second request on:
 		// still an app. Nothing is started for it, nothing fails later, and nobody is told again.
 		// The same address, decided afresh rather than repeated from the memory cache.
-		$caches = Server::get(ICacheFactory::class);
-		if ($caches->isAvailable()) {
-			$caches->createDistributed(Application::APP_ID)->clear();
-		} elseif ($caches->isLocalCacheAvailable()) {
-			$caches->createLocal(Application::APP_ID)->clear();
-		}
+		Server::get(Caches::class)->clear();
 		Server::get(Settings::class)->setGlobal(GlobalSettings::STEP_UP_ADMIN_APPROVAL, true);
 		$notices = $this->mailsOf('intrusion_detection.userNotice');
 		Server::get(Session::class)->logout();

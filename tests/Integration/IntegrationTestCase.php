@@ -11,17 +11,15 @@ namespace OCA\IntrusionDetection\Tests\Integration;
 
 use OCA\IntrusionDetection\AppInfo\Application;
 use OCA\IntrusionDetection\BackgroundJob\AlertMailJob;
+use OCA\IntrusionDetection\Cache\Caches;
 use OCA\IntrusionDetection\Check\Checks\AdminChange;
 use OCA\IntrusionDetection\Config\GlobalSettings;
 use OCA\IntrusionDetection\Config\Keys;
 use OCA\IntrusionDetection\Db\DetectionMapper;
 use OCA\IntrusionDetection\Definition\Mode;
-use OCA\IntrusionDetection\Login\EstablishedAccounts;
 use OCA\IntrusionDetection\Notification\AdminAlerts;
-use OCA\IntrusionDetection\Notification\AdminRecipients;
 use OCA\IntrusionDetection\Notification\ShareOwnerAlerts;
 use OCA\IntrusionDetection\Notification\UserAlerts;
-use OCA\IntrusionDetection\Response\BanExemptions;
 use OCP\AppFramework\Utility\ITimeFactory;
 use OCP\BackgroundJob\IJobList;
 use OCP\IAppConfig;
@@ -112,10 +110,8 @@ abstract class IntegrationTestCase extends TestCase {
 		foreach (static::TABLES as $table) {
 			$this->db->getQueryBuilder()->delete($table)->executeStatement();
 		}
-		// Facts these services remember in the memory cache would outlive a test.
-		foreach ([BanExemptions::class, AdminRecipients::class, EstablishedAccounts::class] as $class) {
-			self::invokePrivate(Server::get($class), 'cache')?->clear();
-		}
+		// What the services remember in the memory cache would outlive a test.
+		Server::get(Caches::class)->clear();
 		foreach ($this->appConfig->getKeys(Application::APP_ID) as $key) {
 			if ($key !== 'enabled' && $key !== 'installed_version' && $key !== 'types') {
 				$this->appConfig->deleteKey(Application::APP_ID, $key);

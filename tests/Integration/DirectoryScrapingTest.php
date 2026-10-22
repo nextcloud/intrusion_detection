@@ -14,6 +14,7 @@ use OC\Memcache\ArrayCache;
 use OCA\IntrusionDetection\Address\Verdict;
 use OCA\IntrusionDetection\AppInfo\Application;
 use OCA\IntrusionDetection\Audit\AuditLogger;
+use OCA\IntrusionDetection\Cache\Caches;
 use OCA\IntrusionDetection\Check\CheckRegistry;
 use OCA\IntrusionDetection\Check\Checks\DirectoryScraping;
 use OCA\IntrusionDetection\Check\Checks\DirectoryScrapingDetector;
@@ -41,11 +42,11 @@ use OCA\IntrusionDetection\SessionState\RequestTarget;
 use OCA\IntrusionDetection\SessionState\Rules\DirectoryScrapingRule;
 use OCA\IntrusionDetection\SessionState\SessionBlock;
 use OCA\IntrusionDetection\SessionState\SessionState;
+use OCA\IntrusionDetection\Tests\Unit\Cache\FixedCaches;
 use OCP\AppFramework\Controller;
 use OCP\AppFramework\Utility\ITimeFactory;
 use OCP\EventDispatcher\IEventDispatcher;
 use OCP\IAppConfig;
-use OCP\ICacheFactory;
 use OCP\IConfig;
 use OCP\IDBConnection;
 use OCP\IRequest;
@@ -221,11 +222,7 @@ class DirectoryScrapingTest extends IntegrationTestCase {
 			$this->assertSame('mode_unavailable', $e->reason);
 		}
 
-		$factory = $this->createMock(ICacheFactory::class);
-		$factory->method('isAvailable')->willReturn(false);
-		$factory->method('isLocalCacheAvailable')->willReturn(false);
-		$factory->expects($this->never())->method('createDistributed');
-		$factory->expects($this->never())->method('createLocal');
+		$factory = FixedCaches::none();
 		$queries = $this->queries();
 		for ($i = 0; $i < 12; $i++) {
 			$this->assertNull($this->detector($settings, $factory)->count('alice', DirectoryRoutes::GROUP_SEARCH));
@@ -277,7 +274,7 @@ class DirectoryScrapingTest extends IntegrationTestCase {
 		return new DirectoryScrapingRule($request, $userSession, $container);
 	}
 
-	private function detector(Settings $settings, ICacheFactory $factory): DirectoryScrapingDetector {
+	private function detector(Settings $settings, Caches $factory): DirectoryScrapingDetector {
 		$request = $this->request();
 		$time = $this->createMock(ITimeFactory::class);
 		$time->method('getTime')->willReturnCallback(fn (): int => $this->now);
@@ -319,19 +316,12 @@ class DirectoryScrapingTest extends IntegrationTestCase {
 		return $request;
 	}
 
-	private function cacheFactory(): ICacheFactory {
-		$factory = $this->createMock(ICacheFactory::class);
-		$factory->method('isAvailable')->willReturn(true);
-		$factory->method('isLocalCacheAvailable')->willReturn(true);
-		$factory->method('createDistributed')->willReturn($this->cache);
-		$factory->method('createLocal')->willReturn($this->cache);
-		return $factory;
+	private function cacheFactory(): Caches {
+		return new FixedCaches($this->cache);
 	}
 
 	private function settingsWith(bool $memoryCache): Settings {
-		$factory = $this->createMock(ICacheFactory::class);
-		$factory->method('isAvailable')->willReturn($memoryCache);
-		$factory->method('isLocalCacheAvailable')->willReturn($memoryCache);
+		$factory = $memoryCache ? new FixedCaches(new ArrayCache()) : FixedCaches::none();
 		return new Settings(
 			Server::get(IAppConfig::class),
 			Server::get(CheckRegistry::class),

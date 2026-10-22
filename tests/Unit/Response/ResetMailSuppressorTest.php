@@ -12,17 +12,15 @@ namespace OCA\IntrusionDetection\Tests\Unit\Response;
 use OC\Memcache\ArrayCache;
 use OCA\IntrusionDetection\Db\ResetSuppressionMapper;
 use OCA\IntrusionDetection\Response\ResetMailSuppressor;
+use OCA\IntrusionDetection\Tests\Unit\Cache\FixedCaches;
 use OCP\AppFramework\Utility\ITimeFactory;
-use OCP\ICacheFactory;
 use Test\TestCase;
 
 class ResetMailSuppressorTest extends TestCase {
 	public function testAnAccountWithoutSuppressionIsCachedAsZero(): void {
 		$mapper = $this->createMock(ResetSuppressionMapper::class);
 		$mapper->expects($this->once())->method('expiresAt')->with('alice')->willReturn(0);
-		$factory = $this->createMock(ICacheFactory::class);
-		$factory->method('isAvailable')->willReturn(true);
-		$factory->method('createDistributed')->willReturn(new ArrayCache());
+		$factory = new FixedCaches(new ArrayCache());
 		$time = $this->createMock(ITimeFactory::class);
 		$time->method('getTime')->willReturn(1_800_000_000);
 		$suppressor = new ResetMailSuppressor($mapper, $time, $factory);

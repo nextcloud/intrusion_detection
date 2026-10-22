@@ -9,6 +9,7 @@ declare(strict_types=1);
 
 namespace OCA\IntrusionDetection\Tests\Integration;
 
+use OCA\IntrusionDetection\Cache\Caches;
 use OCA\IntrusionDetection\Check\Checks\AccountUnderAttackDetector;
 use OCA\IntrusionDetection\Check\Checks\CredentialStuffingDetector;
 use OCA\IntrusionDetection\Check\Checks\DecoyCredentialDetector;
@@ -35,7 +36,6 @@ use OCA\IntrusionDetection\Response\FlaggedSources;
 use OCA\IntrusionDetection\Response\ResponseEngine;
 use OCA\IntrusionDetection\Risk\RiskScorer;
 use OCP\Authentication\Events\AnyLoginFailedEvent;
-use OCP\ICacheFactory;
 use OCP\IRequest;
 use OCP\IUser;
 use OCP\IUserManager;
@@ -83,7 +83,7 @@ abstract class LoginFailureTestCase extends IntegrationTestCase {
 				Server::get(FlaggedSources::class),
 				Server::get(BanService::class),
 				$addresses,
-				Server::get(ICacheFactory::class),
+				Server::get(Caches::class),
 				Server::get(RiskScorer::class),
 				Server::get(StateMapper::class),
 				Server::get(Prerequisites::class),
@@ -94,7 +94,7 @@ abstract class LoginFailureTestCase extends IntegrationTestCase {
 				Server::get(ResponseEngine::class),
 				Server::get(FlaggedSources::class),
 				Server::get(Fingerprinter::class),
-				Server::get(ICacheFactory::class),
+				Server::get(Caches::class),
 				Server::get(PasswordSpraying::class),
 				Server::get(RiskScorer::class),
 			),

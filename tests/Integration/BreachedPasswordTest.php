@@ -36,12 +36,12 @@ use OCA\IntrusionDetection\Notification\AdminAlerts;
 use OCA\IntrusionDetection\Notification\Notifier;
 use OCA\IntrusionDetection\Response\ResponseEngine;
 use OCA\IntrusionDetection\Tests\BasicAuthServer;
+use OCA\IntrusionDetection\Tests\Unit\Cache\FixedCaches;
 use OCP\AppFramework\Utility\ITimeFactory;
 use OCP\Config\IUserConfig;
 use OCP\Http\Client\IClient;
 use OCP\Http\Client\IClientService;
 use OCP\Http\Client\IResponse;
-use OCP\ICacheFactory;
 use OCP\IConfig;
 use OCP\IRequest;
 use OCP\IUser;
@@ -146,12 +146,7 @@ class BreachedPasswordTest extends IntegrationTestCase {
 		$clientService = $this->createMock(IClientService::class);
 		$clientService->method('newClient')->willReturn($client);
 		// Without a memory cache, every check that reaches the service is counted.
-		$cacheFactory = $this->createMock(ICacheFactory::class);
-		$cacheFactory->method('isAvailable')->willReturn($this->cache !== null);
-		$cacheFactory->method('isLocalCacheAvailable')->willReturn(false);
-		if ($this->cache !== null) {
-			$cacheFactory->method('createDistributed')->willReturn($this->cache);
-		}
+		$cacheFactory = $this->cache === null ? FixedCaches::none() : new FixedCaches($this->cache);
 		$time = $this->createMock(ITimeFactory::class);
 		$time->method('getTime')->willReturnCallback(fn (): int => $this->now);
 		$throttler = $this->createMock(IThrottler::class);

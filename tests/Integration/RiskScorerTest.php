@@ -13,6 +13,7 @@ use OC\DB\ConnectionAdapter;
 use OC\Memcache\ArrayCache;
 use OCA\IntrusionDetection\Address\AddressCache;
 use OCA\IntrusionDetection\Address\Verdict;
+use OCA\IntrusionDetection\Cache\Caches;
 use OCA\IntrusionDetection\Check\Checks\ReservedName;
 use OCA\IntrusionDetection\Check\Checks\TrapUrl;
 use OCA\IntrusionDetection\Config\GlobalSettings;
@@ -31,7 +32,6 @@ use OCA\IntrusionDetection\Risk\AttackTools;
 use OCA\IntrusionDetection\Risk\RiskAssessment;
 use OCA\IntrusionDetection\Risk\RiskScorer;
 use OCP\AppFramework\Utility\ITimeFactory;
-use OCP\ICacheFactory;
 use OCP\IDBConnection;
 use OCP\IRequest;
 use OCP\Security\Bruteforce\IThrottler;
@@ -263,12 +263,9 @@ class RiskScorerTest extends IntegrationTestCase {
 		return new AddressCache($this->factory(), Server::get(StateMapper::class));
 	}
 
-	private function factory(): ICacheFactory {
-		$factory = $this->createMock(ICacheFactory::class);
-		$factory->method('isAvailable')->willReturn($this->memory !== null);
-		$factory->method('isLocalCacheAvailable')->willReturn($this->memory !== null);
-		$factory->method('createDistributed')->willReturnCallback(fn (): ArrayCache => $this->memory ?? new ArrayCache());
-		$factory->method('createLocal')->willReturnCallback(fn (): ArrayCache => $this->memory ?? new ArrayCache());
+	private function factory(): Caches {
+		$factory = $this->createMock(Caches::class);
+		$factory->method('shared')->willReturnCallback(fn (): ?ArrayCache => $this->memory);
 		return $factory;
 	}
 

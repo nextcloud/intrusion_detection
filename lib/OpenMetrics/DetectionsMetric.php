@@ -10,9 +10,8 @@ declare(strict_types=1);
 namespace OCA\IntrusionDetection\OpenMetrics;
 
 use Generator;
-use OCA\IntrusionDetection\AppInfo\Application;
+use OCA\IntrusionDetection\Cache\Caches;
 use OCA\IntrusionDetection\Detection\DetectionTotals;
-use OCP\ICacheFactory;
 use OCP\OpenMetrics\IMetricFamily;
 use OCP\OpenMetrics\Metric;
 use OCP\OpenMetrics\MetricType;
@@ -25,12 +24,14 @@ use Override;
  * there is one, so frequent scrapes from several servers cost nothing.
  */
 class DetectionsMetric implements IMetricFamily {
+	/** The namespace of its memory cache in {@see Caches} */
+	public const CACHE = 'metrics';
 	public const CACHE_TTL = 60;
 	private const CACHE_KEY = 'detections_total';
 
 	public function __construct(
 		private readonly DetectionTotals $totals,
-		private readonly ICacheFactory $cacheFactory,
+		private readonly Caches $caches,
 	) {
 	}
 
@@ -56,13 +57,11 @@ class DetectionsMetric implements IMetricFamily {
 
 	#[Override]
 	public function metrics(): Generator {
-		$cache = $this->cacheFactory->isAvailable()
-			? $this->cacheFactory->createDistributed(Application::APP_ID . '-metrics')
-			: $this->cacheFactory->createLocal(Application::APP_ID . '-metrics');
-		$rows = $cache->get(self::CACHE_KEY);
+		$cache = $this->caches->shared(self::CACHE);
+		$rows = $cache?->get(self::CACHE_KEY);
 		if (!is_array($rows)) {
 			$rows = $this->totals->totals();
-			$cache->set(self::CACHE_KEY, $rows, self::CACHE_TTL);
+			$cache?->set(self::CACHE_KEY, $rows, self::CACHE_TTL);
 		}
 		if ($rows === []) {
 			yield new Metric(0);

@@ -11,11 +11,11 @@ namespace OCA\IntrusionDetection\Response;
 
 use OCA\IntrusionDetection\Address\AddressCache;
 use OCA\IntrusionDetection\Address\AddressResolver;
+use OCA\IntrusionDetection\Cache\KeyLock;
 use OCA\IntrusionDetection\Config\GlobalSettings;
 use OCA\IntrusionDetection\Config\Settings;
 use OCA\IntrusionDetection\Db\Ban;
 use OCA\IntrusionDetection\Db\BanMapper;
-use OCA\IntrusionDetection\Db\KeyLock;
 use OCA\IntrusionDetection\Db\KeyMatch;
 use OCA\IntrusionDetection\Event\TypedEvents;
 use OCA\IntrusionDetection\Net\Ipv6Networks;

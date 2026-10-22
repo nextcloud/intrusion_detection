@@ -10,13 +10,13 @@ declare(strict_types=1);
 namespace OCA\IntrusionDetection\Confirm;
 
 use OCA\IntrusionDetection\AdminChange\Approvers;
+use OCA\IntrusionDetection\Cache\Caches;
 use OCA\IntrusionDetection\Config\GlobalSettings;
 use OCA\IntrusionDetection\Config\Settings;
 use OCP\AppFramework\Utility\ITimeFactory;
 use OCP\Authentication\TwoFactorAuth\IRegistry;
 use OCP\DB\QueryBuilder\IQueryBuilder;
 use OCP\Group\Backend\INamedBackend;
-use OCP\ICacheFactory;
 use OCP\IDBConnection;
 use OCP\IGroupManager;
 use OCP\IUser;
@@ -36,6 +36,8 @@ use OCP\IUserManager;
  * by one and cached for CACHE_TTL.
  */
 class ConfirmationCoverage {
+	/** The namespace of its memory cache in {@see Caches} */
+	public const CACHE = 'coverage';
 	public const CACHE_TTL = 3600;
 	/** Backup codes alone are not a second factor */
 	public const BACKUP_CODES = 'backup_codes';
@@ -52,7 +54,7 @@ class ConfirmationCoverage {
 		private readonly IGroupManager $groupManager,
 		private readonly Approvers $approvers,
 		private readonly IRegistry $twoFactor,
-		private readonly ICacheFactory $cacheFactory,
+		private readonly Caches $caches,
 		private readonly Settings $settings,
 		private readonly ITimeFactory $timeFactory,
 	) {
@@ -91,8 +93,8 @@ class ConfirmationCoverage {
 	 * @return array{total: int, withoutEmail: list<string>, withoutSecondFactor: list<string>, withNeither: list<string>}
 	 */
 	public function admins(): array {
-		$cache = $this->cacheFactory->createDistributed('intrusion_detection_coverage');
-		$cached = $cache->get('admins');
+		$cache = $this->caches->shared(self::CACHE);
+		$cached = $cache?->get('admins');
 		if (is_array($cached) && is_int($cached['total'] ?? null)) {
 			/** @var array{total: int, withoutEmail: list<string>, withoutSecondFactor: list<string>, withNeither: list<string>} $cached */
 			return $cached;
@@ -115,7 +117,7 @@ class ConfirmationCoverage {
 			}
 		}
 		$result = ['total' => count($admins), 'withoutEmail' => $withoutEmail, 'withoutSecondFactor' => $withoutSecondFactor, 'withNeither' => $withNeither];
-		$cache->set('admins', $result, self::CACHE_TTL);
+		$cache?->set('admins', $result, self::CACHE_TTL);
 		return $result;
 	}
 
@@ -123,7 +125,7 @@ class ConfirmationCoverage {
 	 * Count again now, for example after the admin page asked for fresh numbers.
 	 */
 	public function refresh(): void {
-		$this->cacheFactory->createDistributed('intrusion_detection_coverage')->remove('admins');
+		$this->caches->shared(self::CACHE)?->remove('admins');
 		$this->recount();
 	}
 

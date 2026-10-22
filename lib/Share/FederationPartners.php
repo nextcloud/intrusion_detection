@@ -9,14 +9,12 @@ declare(strict_types=1);
 
 namespace OCA\IntrusionDetection\Share;
 
-use OCA\IntrusionDetection\AppInfo\Application;
+use OCA\IntrusionDetection\Cache\Caches;
 use OCA\IntrusionDetection\Crypto\Fingerprinter;
 use OCA\IntrusionDetection\Db\FlagMapper;
 use OCA\IntrusionDetection\Net\SourceKey;
 use OCA\IntrusionDetection\Response\FlaggedSources;
 use OCP\AppFramework\Utility\ITimeFactory;
-use OCP\ICacheFactory;
-use OCP\IMemcache;
 use OCP\Share\Exceptions\ShareNotFound;
 use OCP\Share\IManager as IShareManager;
 use OCP\Share\IShare;
@@ -39,6 +37,8 @@ use Psr\Container\ContainerInterface;
  * written only when it is missing or half expired.
  */
 class FederationPartners {
+	/** The namespace of its memory cache in {@see Caches} */
+	public const CACHE = 'federation';
 	/** Share types whose token only another server knows */
 	public const SHARE_TYPES = [IShare::TYPE_REMOTE, IShare::TYPE_REMOTE_GROUP];
 	/** An address stays a partner this long after it last opened a federated share */
@@ -47,14 +47,11 @@ class FederationPartners {
 	public const CHECK_EVERY = 3600;
 	public const REASON = 'federation';
 
-	private ?IMemcache $cache = null;
-	private bool $cacheInitialised = false;
-
 	public function __construct(
 		private readonly FlagMapper $flags,
 		private readonly Fingerprinter $fingerprinter,
 		private readonly ContainerInterface $container,
-		private readonly ICacheFactory $cacheFactory,
+		private readonly Caches $caches,
 		private readonly ITimeFactory $timeFactory,
 	) {
 	}
@@ -67,7 +64,7 @@ class FederationPartners {
 		if ($token === '') {
 			return;
 		}
-		$cache = $this->cache();
+		$cache = $this->caches->local(self::CACHE);
 		if ($cache !== null && !$cache->add('fed:' . $source->ipKey . ':' . $this->fingerprinter->credential($token), 1, self::CHECK_EVERY)) {
 			return;
 		}
@@ -104,14 +101,5 @@ class FederationPartners {
 
 	private static function key(SourceKey $source): string {
 		return 'fed:' . $source->ipKey;
-	}
-
-	private function cache(): ?IMemcache {
-		if (!$this->cacheInitialised) {
-			$this->cacheInitialised = true;
-			$cache = $this->cacheFactory->isLocalCacheAvailable() ? $this->cacheFactory->createLocal(Application::APP_ID) : null;
-			$this->cache = $cache instanceof IMemcache ? $cache : null;
-		}
-		return $this->cache;
 	}
 }

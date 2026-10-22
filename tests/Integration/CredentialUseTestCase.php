@@ -11,6 +11,7 @@ namespace OCA\IntrusionDetection\Tests\Integration;
 
 use OC\AppFramework\Http\Request;
 use OC\Memcache\ArrayCache;
+use OCA\IntrusionDetection\Cache\Caches;
 use OCA\IntrusionDetection\Check\CheckRegistry;
 use OCA\IntrusionDetection\Check\Checks\TokenConcurrentUseDetector;
 use OCA\IntrusionDetection\Check\CredentialUse\CredentialTracker;
@@ -31,13 +32,13 @@ use OCA\IntrusionDetection\SessionState\CurrentSession;
 use OCA\IntrusionDetection\SessionState\RequestTarget;
 use OCA\IntrusionDetection\SessionState\Rules\CredentialUseRule;
 use OCA\IntrusionDetection\SessionState\SessionState;
+use OCA\IntrusionDetection\Tests\Unit\Cache\FixedCaches;
 use OCP\AppFramework\Utility\ITimeFactory;
 use OCP\Authentication\Token\IProvider;
 use OCP\EventDispatcher\IEventDispatcher;
 use OCP\IAppConfig;
-use OCP\ICache;
-use OCP\ICacheFactory;
 use OCP\IConfig;
+use OCP\IMemcache;
 use OCP\IRequestId;
 use OCP\ISession;
 use OCP\IUser;
@@ -88,14 +89,8 @@ abstract class CredentialUseTestCase extends AccountTestCase {
 	/**
 	 * A factory that offers this cache as the local cache, or no memory cache at all.
 	 */
-	protected function cacheFactory(?ICache $cache): ICacheFactory {
-		$factory = $this->createMock(ICacheFactory::class);
-		$factory->method('isAvailable')->willReturn(false);
-		$factory->method('isLocalCacheAvailable')->willReturn($cache !== null);
-		if ($cache !== null) {
-			$factory->method('createLocal')->willReturn($cache);
-		}
-		return $factory;
+	protected function cacheFactory(?IMemcache $cache): Caches {
+		return new FixedCaches($cache, $cache);
 	}
 
 	/**

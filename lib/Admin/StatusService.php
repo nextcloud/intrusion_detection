@@ -9,6 +9,7 @@ declare(strict_types=1);
 
 namespace OCA\IntrusionDetection\Admin;
 
+use OCA\IntrusionDetection\Cache\Caches;
 use OCA\IntrusionDetection\Check\CheckRegistry;
 use OCA\IntrusionDetection\Config\Prerequisites;
 use OCA\IntrusionDetection\Config\Settings;
@@ -19,8 +20,6 @@ use OCA\IntrusionDetection\Learning\LearningService;
 use OCA\IntrusionDetection\Perf\GuardTimer;
 use OCA\IntrusionDetection\ResponseDefinitions;
 use OCP\AppFramework\Utility\ITimeFactory;
-use OCP\ICache;
-use OCP\ICacheFactory;
 use OCP\IL10N;
 use Psr\Container\ContainerInterface;
 use Psr\Log\LoggerInterface;
@@ -44,6 +43,8 @@ use Psr\Log\LoggerInterface;
  * @psalm-type Measured = array{last24h: array{detections: int, enforced: int, observed: int, blockedAddresses: int, wouldHaveBlocked: int, accounts: int, categories: list<IntrusionDetectionCategoryCount>}, activeBans: int, cost: ?IntrusionDetectionCost}
  */
 class StatusService {
+	/** The namespace of its memory cache in {@see Caches} */
+	public const CACHE = 'status';
 	/** @var list<class-string<IStatusContributor>> */
 	public const CONTRIBUTORS = [
 		SetupProblems::class,
@@ -56,10 +57,6 @@ class StatusService {
 	/** Above this average guard time the banner points to the likely cause */
 	public const SLOW_GUARD_MICROSECONDS = 1000;
 	public const CACHE_TTL = 60;
-	public const CACHE_PREFIX = 'intrusion_detection_status';
-
-	private ?ICache $cache = null;
-	private bool $cacheInitialised = false;
 
 	public function __construct(
 		private readonly Settings $settings,
@@ -74,7 +71,7 @@ class StatusService {
 		private readonly ITimeFactory $timeFactory,
 		private readonly ContainerInterface $container,
 		private readonly LoggerInterface $logger,
-		private readonly ICacheFactory $cacheFactory,
+		private readonly Caches $caches,
 	) {
 	}
 
@@ -112,10 +109,10 @@ class StatusService {
 			$modes[$this->settings->effectiveMode($check->id)->value]++;
 		}
 		$key = 'status:' . $l->getLanguageCode();
-		$measured = $this->cache()?->get($key);
+		$measured = $this->caches->shared(self::CACHE)?->get($key);
 		if (!is_array($measured) || !is_array($measured['last24h'] ?? null) || !is_int($measured['activeBans'] ?? null)) {
 			$measured = $this->measured($l);
-			$this->cache()?->set($key, $measured, self::CACHE_TTL);
+			$this->caches->shared(self::CACHE)?->set($key, $measured, self::CACHE_TTL);
 		}
 		/** @var Measured $measured */
 		[$problems, $extensions] = $this->problems($l, $measured['cost']);
@@ -126,7 +123,7 @@ class StatusService {
 			'last24h' => $measured['last24h'],
 			'activeBans' => $measured['activeBans'],
 			'prerequisites' => [
-				'memoryCache' => $this->prerequisites->hasDistributedCache() ? 'distributed' : ($this->prerequisites->hasMemoryCache() ? 'local' : 'none'),
+				'memoryCache' => $this->caches->kind(),
 				'mail' => $this->prerequisites->hasMail(),
 			],
 			'cost' => $measured['cost'],
@@ -208,18 +205,6 @@ class StatusService {
 			}
 		}
 		return [$problems, $extensions];
-	}
-
-	private function cache(): ?ICache {
-		if (!$this->cacheInitialised) {
-			$this->cacheInitialised = true;
-			if ($this->cacheFactory->isAvailable()) {
-				$this->cache = $this->cacheFactory->createDistributed(self::CACHE_PREFIX);
-			} elseif ($this->cacheFactory->isLocalCacheAvailable()) {
-				$this->cache = $this->cacheFactory->createLocal(self::CACHE_PREFIX);
-			}
-		}
-		return $this->cache;
 	}
 
 	/**

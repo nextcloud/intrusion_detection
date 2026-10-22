@@ -12,6 +12,7 @@ namespace OCA\IntrusionDetection\Tests\Integration;
 use OC\OpenMetrics\ExporterManager;
 use OCA\IntrusionDetection\AppInfo\Application;
 use OCA\IntrusionDetection\BackgroundJob\Cleanup;
+use OCA\IntrusionDetection\Cache\Caches;
 use OCA\IntrusionDetection\Config\GlobalSettings;
 use OCA\IntrusionDetection\Db\Approval;
 use OCA\IntrusionDetection\Db\ApprovalMapper;
@@ -80,7 +81,7 @@ class OpenMetricsTest extends IntegrationTestCase {
 	}
 
 	private function cleanCache(): void {
-		Server::get(\OCP\ICacheFactory::class)->createLocal(Application::APP_ID . '-metrics')->clear();
+		Server::get(Caches::class)->shared(DetectionsMetric::CACHE)?->clear();
 	}
 
 	public function testTheExportersAreRegisteredInInfoXml(): void {

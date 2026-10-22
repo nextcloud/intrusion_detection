@@ -27,12 +27,12 @@ use OCA\IntrusionDetection\Explain\NarrativeBuilder;
 use OCA\IntrusionDetection\Listener\ResetRequestedListener;
 use OCA\IntrusionDetection\Response\ResetMailSuppressor;
 use OCA\IntrusionDetection\Response\ResponseOutcome;
+use OCA\IntrusionDetection\Tests\Unit\Cache\FixedCaches;
 use OCP\AppFramework\Http\JSONResponse;
 use OCP\AppFramework\Services\IInitialState;
 use OCP\AppFramework\Utility\ITimeFactory;
 use OCP\Defaults;
 use OCP\Encryption\IManager as IEncryptionManager;
-use OCP\ICacheFactory;
 use OCP\IConfig;
 use OCP\IURLGenerator;
 use OCP\IUser;
@@ -331,7 +331,7 @@ class ResetProbingTest extends RequestEventTestCase {
 	 */
 	private function suppressor(?\Closure $clock = null): ResetMailSuppressor {
 		// Without a cache, so that suppressions set by one test are seen at once and not by the next.
-		$cacheFactory = $this->createMock(ICacheFactory::class);
+		$cacheFactory = FixedCaches::none();
 		$time = Server::get(ITimeFactory::class);
 		if ($clock !== null) {
 			$time = $this->createMock(ITimeFactory::class);

@@ -9,9 +9,7 @@ declare(strict_types=1);
 
 namespace OCA\IntrusionDetection\Login;
 
-use OCA\IntrusionDetection\AppInfo\Application;
-use OCP\ICache;
-use OCP\ICacheFactory;
+use OCA\IntrusionDetection\Cache\Caches;
 use OCP\IUser;
 use OCP\IUserManager;
 
@@ -25,14 +23,13 @@ use OCP\IUserManager;
  * address; the value holds only uids.
  */
 class EmailAccounts {
+	/** The namespace of its memory cache in {@see Caches} */
+	public const CACHE = 'email-accounts';
 	public const TTL = 60;
-
-	private ?ICache $cache = null;
-	private bool $cacheInitialised = false;
 
 	public function __construct(
 		private readonly IUserManager $userManager,
-		private readonly ICacheFactory $cacheFactory,
+		private readonly Caches $caches,
 	) {
 	}
 
@@ -49,7 +46,7 @@ class EmailAccounts {
 	 */
 	private function accounts(string $email): array {
 		$key = 'email:' . hash('sha256', mb_strtolower(trim($email)));
-		$cached = $this->cache()?->get($key);
+		$cached = $this->caches->shared(self::CACHE)?->get($key);
 		if (is_array($cached)) {
 			$accounts = [];
 			foreach ($cached as $account) {
@@ -61,20 +58,8 @@ class EmailAccounts {
 		}
 		$accounts = array_values(array_map(static fn (IUser $u): array => ['uid' => $u->getUID(), 'enabled' => $u->isEnabled()], $this->userManager->getByEmail($email)));
 		if ($accounts !== []) {
-			$this->cache()?->set($key, $accounts, self::TTL);
+			$this->caches->shared(self::CACHE)?->set($key, $accounts, self::TTL);
 		}
 		return $accounts;
-	}
-
-	private function cache(): ?ICache {
-		if (!$this->cacheInitialised) {
-			$this->cacheInitialised = true;
-			if ($this->cacheFactory->isAvailable()) {
-				$this->cache = $this->cacheFactory->createDistributed(Application::APP_ID);
-			} elseif ($this->cacheFactory->isLocalCacheAvailable()) {
-				$this->cache = $this->cacheFactory->createLocal(Application::APP_ID);
-			}
-		}
-		return $this->cache;
 	}
 }

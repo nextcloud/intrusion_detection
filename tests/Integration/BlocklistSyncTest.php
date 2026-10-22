@@ -30,11 +30,11 @@ use OCA\IntrusionDetection\Db\StateMapper;
 use OCA\IntrusionDetection\Definition\Mode;
 use OCA\IntrusionDetection\Net\SourceKey;
 use OCA\IntrusionDetection\SetupCheck\BlocklistSyncCheck;
+use OCA\IntrusionDetection\Tests\Unit\Cache\FixedCaches;
 use OCP\AppFramework\Utility\ITimeFactory;
 use OCP\Http\Client\IClient;
 use OCP\Http\Client\IClientService;
 use OCP\Http\Client\IResponse;
-use OCP\ICacheFactory;
 use OCP\IDBConnection;
 use OCP\IL10N;
 use OCP\Lock\ILockingProvider;
@@ -462,9 +462,7 @@ class BlocklistSyncTest extends IntegrationTestCase {
 	}
 
 	private function addressCache(): AddressCache {
-		$factory = $this->createMock(ICacheFactory::class);
-		$factory->method('isAvailable')->willReturn(false);
-		$factory->method('isLocalCacheAvailable')->willReturn(false);
+		$factory = FixedCaches::none();
 		return new AddressCache($factory, Server::get(StateMapper::class));
 	}
 

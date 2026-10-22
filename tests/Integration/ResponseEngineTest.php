@@ -11,6 +11,7 @@ namespace OCA\IntrusionDetection\Tests\Integration;
 
 use OCA\IntrusionDetection\AppInfo\Application;
 use OCA\IntrusionDetection\Audit\AuditLogger;
+use OCA\IntrusionDetection\Cache\KeyLock;
 use OCA\IntrusionDetection\Check\CheckRegistry;
 use OCA\IntrusionDetection\Check\Checks\ManualBlock;
 use OCA\IntrusionDetection\Check\Checks\SharedAddress;
@@ -19,7 +20,6 @@ use OCA\IntrusionDetection\Config\Settings;
 use OCA\IntrusionDetection\Db\BanMapper;
 use OCA\IntrusionDetection\Db\DetectionFilter;
 use OCA\IntrusionDetection\Db\DetectionMapper;
-use OCA\IntrusionDetection\Db\KeyLock;
 use OCA\IntrusionDetection\Db\LoginMapper;
 use OCA\IntrusionDetection\Definition\Mode;
 use OCA\IntrusionDetection\Definition\ResponseType;

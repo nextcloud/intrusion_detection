@@ -9,6 +9,7 @@ declare(strict_types=1);
 
 namespace OCA\IntrusionDetection\Tests\Unit\SetupCheck;
 
+use OC\Memcache\ArrayCache;
 use OCA\IntrusionDetection\Address\AddressResolver;
 use OCA\IntrusionDetection\Address\Verdict;
 use OCA\IntrusionDetection\Check\Checks\ReservedName;
@@ -33,6 +34,7 @@ use OCA\IntrusionDetection\SetupCheck\MemoryCacheCheck;
 use OCA\IntrusionDetection\SetupCheck\ReverseProxyCheck;
 use OCA\IntrusionDetection\SetupCheck\SharedAddressCheck;
 use OCA\IntrusionDetection\SetupCheck\TrapNameCollisionCheck;
+use OCA\IntrusionDetection\Tests\Unit\Cache\FixedCaches;
 use OCA\IntrusionDetection\Traps\TrapNameCollisions;
 use OCP\AppFramework\Utility\ITimeFactory;
 use OCP\IConfig;
@@ -126,30 +128,27 @@ class SetupChecksTest extends TestCase {
 	}
 
 	public function testWithoutAMemoryCacheTheCostIsMeasured(): void {
-		$prerequisites = $this->createMock(Prerequisites::class);
-		$prerequisites->method('hasMemoryCache')->willReturn(false);
+		$caches = FixedCaches::none();
 		$resolver = $this->createMock(AddressResolver::class);
 		$resolver->expects($this->exactly(3))->method('resolve')->willReturn(new Verdict(0, '', [], self::NOW + 300));
-		$finding = (new MemoryCacheCheck($this->l, $this->links, $prerequisites, $resolver, $this->urls))->finding($this->l);
+		$finding = (new MemoryCacheCheck($this->l, $this->links, $caches, $resolver, $this->urls))->finding($this->l);
 		$this->assertSame(Finding::LEVEL_INFO, $finding?->level);
 		$this->assertMatchesRegularExpression('/about \d+\.\d\d ms per request, measured just now/', (string)$finding?->text);
 	}
 
 	public function testAFailingMeasurementStillReportsTheMissingCache(): void {
-		$prerequisites = $this->createMock(Prerequisites::class);
-		$prerequisites->method('hasMemoryCache')->willReturn(false);
+		$caches = FixedCaches::none();
 		$resolver = $this->createMock(AddressResolver::class);
 		$resolver->method('resolve')->willThrowException(new \RuntimeException('db down'));
-		$finding = (new MemoryCacheCheck($this->l, $this->links, $prerequisites, $resolver, $this->urls))->finding($this->l);
+		$finding = (new MemoryCacheCheck($this->l, $this->links, $caches, $resolver, $this->urls))->finding($this->l);
 		$this->assertStringNotContainsString('ms per request', (string)$finding?->text);
 	}
 
 	public function testAMemoryCacheIsFine(): void {
-		$prerequisites = $this->createMock(Prerequisites::class);
-		$prerequisites->method('hasMemoryCache')->willReturn(true);
+		$caches = new FixedCaches(new ArrayCache());
 		$resolver = $this->createMock(AddressResolver::class);
 		$resolver->expects($this->never())->method('resolve');
-		$this->assertNull((new MemoryCacheCheck($this->l, $this->links, $prerequisites, $resolver, $this->urls))->finding($this->l));
+		$this->assertNull((new MemoryCacheCheck($this->l, $this->links, $caches, $resolver, $this->urls))->finding($this->l));
 	}
 
 	public function testTrapNamesThatBecameAccountsAreAnErrorWithALinkToTheTab(): void {

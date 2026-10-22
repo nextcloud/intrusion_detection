@@ -9,11 +9,9 @@ declare(strict_types=1);
 
 namespace OCA\IntrusionDetection\Address;
 
-use OCA\IntrusionDetection\AppInfo\Application;
+use OCA\IntrusionDetection\Cache\Caches;
 use OCA\IntrusionDetection\Db\StateMapper;
 use OCA\IntrusionDetection\Net\SourceKey;
-use OCP\ICache;
-use OCP\ICacheFactory;
 use OCP\IMemcache;
 
 /**
@@ -42,13 +40,15 @@ use OCP\IMemcache;
  * cached, and dropping the /64 entry drops them all.
  */
 class AddressCache {
+	/** The namespace of its memory cache in {@see Caches} */
+	public const CACHE = 'address';
 	public const VERSION_TTL = 30;
 	public const OK_TTL = 300;
 	/** The ids_state row of the version, without a distributed cache */
 	public const VERSION_STATE = 'verdict_version';
 	private const VERSION_KEY = 'addr:v';
 
-	private ?ICache $cache = null;
+	private ?IMemcache $cache = null;
 	private bool $distributed = false;
 	private bool $initialised = false;
 	private ?string $version = null;
@@ -56,7 +56,7 @@ class AddressCache {
 	private array $splits = [];
 
 	public function __construct(
-		private readonly ICacheFactory $cacheFactory,
+		private readonly Caches $caches,
 		private readonly StateMapper $state,
 	) {
 	}
@@ -139,7 +139,7 @@ class AddressCache {
 			$this->cache->set($this->addressKey($source, $split), $verdict->toArray(), $ttl);
 			return;
 		}
-		if (!$replace && $this->cache instanceof IMemcache) {
+		if (!$replace) {
 			$this->cache->add($this->key($source), $verdict->toArray(), $ttl);
 			return;
 		}
@@ -165,11 +165,9 @@ class AddressCache {
 		if ($this->distributed) {
 			// Lost (evicted or flushed): a fresh token, which no old verdict carries.
 			$version = $this->newVersion();
-			if ($this->cache instanceof IMemcache && !$this->cache->add(self::VERSION_KEY, $version)) {
+			if ($this->cache !== null && !$this->cache->add(self::VERSION_KEY, $version)) {
 				$other = $this->cache->get(self::VERSION_KEY);
 				$version = is_string($other) && $other !== '' ? $other : $version;
-			} elseif (!$this->cache instanceof IMemcache) {
-				$this->cache?->set(self::VERSION_KEY, $version);
 			}
 			return $this->version = $version;
 		}
@@ -190,13 +188,7 @@ class AddressCache {
 			return;
 		}
 		$this->initialised = true;
-		if ($this->cacheFactory->isAvailable()) {
-			$this->cache = $this->cacheFactory->createDistributed(Application::APP_ID);
-			// Without memcache.distributed, core hands out the local cache class here.
-			$this->distributed = !$this->cacheFactory->isLocalCacheAvailable()
-				|| $this->cacheFactory->createLocal(Application::APP_ID)::class !== $this->cache::class;
-		} elseif ($this->cacheFactory->isLocalCacheAvailable()) {
-			$this->cache = $this->cacheFactory->createLocal(Application::APP_ID);
-		}
+		$this->cache = $this->caches->shared(self::CACHE);
+		$this->distributed = $this->cache !== null && $this->caches->isDistributed();
 	}
 }

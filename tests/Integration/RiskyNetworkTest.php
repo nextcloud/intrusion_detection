@@ -14,6 +14,7 @@ use OCA\IntrusionDetection\Address\AddressCache;
 use OCA\IntrusionDetection\Address\Verdict;
 use OCA\IntrusionDetection\AppInfo\Application;
 use OCA\IntrusionDetection\Blocklist\SourceRepository;
+use OCA\IntrusionDetection\Cache\Caches;
 use OCA\IntrusionDetection\Check\Checks\RiskyNetwork;
 use OCA\IntrusionDetection\Check\Checks\RiskyNetworkDetector;
 use OCA\IntrusionDetection\Check\Checks\StepUpRefused;
@@ -37,10 +38,10 @@ use OCA\IntrusionDetection\Response\FlaggedSources;
 use OCA\IntrusionDetection\Risk\AttackTools;
 use OCA\IntrusionDetection\Risk\NetworkAttributes;
 use OCA\IntrusionDetection\Risk\RiskScorer;
+use OCA\IntrusionDetection\Tests\Unit\Cache\FixedCaches;
 use OCA\IntrusionDetection\TrustedNetwork\ITrustedNetworks;
 use OCA\IntrusionDetection\TrustedNetwork\TrustedNetworks;
 use OCP\AppFramework\Utility\ITimeFactory;
-use OCP\ICacheFactory;
 use OCP\IGroupManager;
 use OCP\IUser;
 use OCP\L10N\IFactory;
@@ -360,13 +361,9 @@ class RiskyNetworkTest extends StepUpTestCase {
 		);
 	}
 
-	private function memory(): ICacheFactory {
+	private function memory(): Caches {
 		$cache = new ArrayCache();
-		$factory = $this->createMock(ICacheFactory::class);
-		$factory->method('isAvailable')->willReturn(true);
-		$factory->method('isLocalCacheAvailable')->willReturn(true);
-		$factory->method('createDistributed')->willReturn($cache);
-		$factory->method('createLocal')->willReturn($cache);
+		$factory = new FixedCaches($cache);
 		return $factory;
 	}
 }

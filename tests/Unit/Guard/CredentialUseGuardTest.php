@@ -12,6 +12,7 @@ namespace OCA\IntrusionDetection\Tests\Unit\Guard;
 use OC\AppFramework\Http\Request;
 use OC\Memcache\ArrayCache;
 use OCA\IntrusionDetection\Address\Verdict;
+use OCA\IntrusionDetection\Cache\Caches;
 use OCA\IntrusionDetection\Check\Checks\TokenConcurrentUse;
 use OCA\IntrusionDetection\Check\CredentialUse\CredentialTracker;
 use OCA\IntrusionDetection\Check\CredentialUse\CredentialUse;
@@ -28,7 +29,6 @@ use OCA\IntrusionDetection\Net\SourceKey;
 use OCA\IntrusionDetection\Perf\GuardTimer;
 use OCA\IntrusionDetection\Tests\BasicAuthServer;
 use OCP\AppFramework\Utility\ITimeFactory;
-use OCP\ICacheFactory;
 use OCP\IConfig;
 use OCP\IRequest;
 use OCP\IRequestId;
@@ -46,13 +46,12 @@ class CredentialUseGuardTest extends TestCase {
 	private const COOKIE = 'oc1234567890';
 
 	private SpyCache $cache;
-	private ICacheFactory&MockObject $cacheFactory;
+	private Caches&MockObject $caches;
 	private Settings&MockObject $settings;
 	private ContainerInterface&MockObject $container;
 	private RemoteAddressResolver&MockObject $addresses;
 	private LoggerInterface&MockObject $logger;
 	private RequestContext $context;
-	private bool $distributed = false;
 	private bool $local = true;
 	private bool $disabled = false;
 	private string $mode = 'protect';
@@ -64,11 +63,8 @@ class CredentialUseGuardTest extends TestCase {
 	protected function setUp(): void {
 		parent::setUp();
 		$this->cache = new SpyCache();
-		$this->cacheFactory = $this->createMock(ICacheFactory::class);
-		$this->cacheFactory->method('isAvailable')->willReturnCallback(fn (): bool => $this->distributed);
-		$this->cacheFactory->method('isLocalCacheAvailable')->willReturnCallback(fn (): bool => $this->local);
-		$this->cacheFactory->method('createLocal')->willReturn($this->cache);
-		$this->cacheFactory->method('createDistributed')->willReturn($this->cache);
+		$this->caches = $this->createMock(Caches::class);
+		$this->caches->method('shared')->willReturnCallback(fn (): ?SpyCache => $this->local ? $this->cache : null);
 		$this->settings = $this->createMock(Settings::class);
 		$this->settings->method('configuredMode')->with(TokenConcurrentUse::ID)->willReturnCallback(fn (): Mode => Mode::from($this->mode));
 		$this->settings->method('isEnabled')->willReturn(true);
@@ -137,7 +133,7 @@ class CredentialUseGuardTest extends TestCase {
 	}
 
 	public function testRequestsWithoutCredentialsCostNoCacheOrSetting(): void {
-		$this->cacheFactory->expects($this->never())->method('isLocalCacheAvailable');
+		$this->caches->expects($this->never())->method('shared');
 		$this->settings->expects($this->never())->method('isEnabled');
 		$this->settings->expects($this->never())->method('configuredMode');
 		$guard = $this->guard();
@@ -149,8 +145,6 @@ class CredentialUseGuardTest extends TestCase {
 
 	public function testWithoutAMemoryCacheNothingIsReadAtAll(): void {
 		$this->local = false;
-		$this->cacheFactory->expects($this->never())->method('createLocal');
-		$this->cacheFactory->expects($this->never())->method('createDistributed');
 		$this->settings->expects($this->never())->method($this->anything());
 		$this->container->expects($this->never())->method('get');
 		$guard = $this->guard();
@@ -160,14 +154,6 @@ class CredentialUseGuardTest extends TestCase {
 		}
 		$this->assertSame(0, $this->cache->gets);
 		$this->assertNull($this->context->get(CredentialUseResolver::CONTEXT_KEY));
-	}
-
-	public function testADistributedCacheIsPreferred(): void {
-		$this->distributed = true;
-		$this->cacheFactory->expects($this->once())->method('createDistributed');
-		$this->cacheFactory->expects($this->never())->method('createLocal');
-		$this->guard()->check($this->basic('198.51.100.7'));
-		$this->assertSame(1, $this->cache->gets);
 	}
 
 	public function testOffAndTheEmergencySwitchSkipEverything(): void {
@@ -233,7 +219,7 @@ class CredentialUseGuardTest extends TestCase {
 	}
 
 	private function tracker(): CredentialTracker {
-		return new CredentialTracker($this->cacheFactory, $this->settings);
+		return new CredentialTracker($this->caches, $this->settings);
 	}
 
 	private function fingerprinter(): Fingerprinter {

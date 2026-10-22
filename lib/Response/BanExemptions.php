@@ -9,7 +9,7 @@ declare(strict_types=1);
 
 namespace OCA\IntrusionDetection\Response;
 
-use OCA\IntrusionDetection\AppInfo\Application;
+use OCA\IntrusionDetection\Cache\Caches;
 use OCA\IntrusionDetection\Check\CheckRegistry;
 use OCA\IntrusionDetection\Config\GlobalSettings;
 use OCA\IntrusionDetection\Config\Settings;
@@ -20,9 +20,7 @@ use OCA\IntrusionDetection\Login\EstablishedAccounts;
 use OCA\IntrusionDetection\Net\ProtectedRanges;
 use OCA\IntrusionDetection\Net\RangeCodec;
 use OCA\IntrusionDetection\Net\SourceKey;
-use OCP\ICacheFactory;
 use OCP\IGroupManager;
-use OCP\IMemcache;
 
 /**
  * Why an address or network must not be blocked automatically, asked only
@@ -57,14 +55,13 @@ use OCP\IMemcache;
  * REMEMBER seconds, so an address that keeps hitting costs few queries.
  */
 class BanExemptions {
+	/** The namespace of its memory cache in {@see Caches} */
+	public const CACHE = 'exemptions';
 	public const TRUSTED_LOGIN_DAYS = 7;
 	/** The facts of an address or network are remembered this long */
 	public const REMEMBER = 60;
 	/** At most this many different accounts are looked at for an address or network */
 	private const MAX_ACCOUNTS = 200;
-
-	private ?IMemcache $cache = null;
-	private bool $cacheInitialised = false;
 
 	public function __construct(
 		private readonly LoginMapper $logins,
@@ -73,7 +70,7 @@ class BanExemptions {
 		private readonly ProxySuspect $proxies,
 		private readonly ProtectedRanges $protected,
 		private readonly IGroupManager $groups,
-		private readonly ICacheFactory $cacheFactory,
+		private readonly Caches $caches,
 		private readonly EstablishedAccounts $accounts,
 		private readonly CheckRegistry $registry,
 	) {
@@ -131,7 +128,7 @@ class BanExemptions {
 	 * now: once per REMEMBER seconds with a memory cache, else every time.
 	 */
 	public function firstReport(SourceKey $source): bool {
-		$cache = $this->cache();
+		$cache = $this->caches->local(self::CACHE);
 		return $cache === null || $cache->add('ex:r:' . $source->ipKey, 1, self::REMEMBER);
 	}
 
@@ -205,7 +202,7 @@ class BanExemptions {
 	 * @return array{shared: int, proxy: int, admin: bool, private: bool, users: int}
 	 */
 	private function remembered(string $key, \Closure $load): array {
-		$cache = $this->cache();
+		$cache = $this->caches->local(self::CACHE);
 		$cached = $cache?->get('ex:' . $key);
 		if (is_array($cached) && is_int($cached['shared'] ?? null) && is_int($cached['proxy'] ?? null) && is_bool($cached['admin'] ?? null)
 			&& is_bool($cached['private'] ?? null) && is_int($cached['users'] ?? null)) {
@@ -214,14 +211,5 @@ class BanExemptions {
 		$facts = $load();
 		$cache?->set('ex:' . $key, $facts, self::REMEMBER);
 		return $facts;
-	}
-
-	private function cache(): ?IMemcache {
-		if (!$this->cacheInitialised) {
-			$this->cacheInitialised = true;
-			$cache = $this->cacheFactory->isLocalCacheAvailable() ? $this->cacheFactory->createLocal(Application::APP_ID) : null;
-			$this->cache = $cache instanceof IMemcache ? $cache : null;
-		}
-		return $this->cache;
 	}
 }

@@ -9,10 +9,9 @@ declare(strict_types=1);
 
 namespace OCA\IntrusionDetection\Check\Checks;
 
-use OCA\IntrusionDetection\AppInfo\Application;
+use OCA\IntrusionDetection\Cache\Caches;
 use OCA\IntrusionDetection\Config\GlobalSettings;
 use OCA\IntrusionDetection\Config\ModeState;
-use OCA\IntrusionDetection\Config\Prerequisites;
 use OCA\IntrusionDetection\Config\Settings;
 use OCA\IntrusionDetection\Db\AttemptKind;
 use OCA\IntrusionDetection\Db\AttemptMapper;
@@ -28,8 +27,6 @@ use OCA\IntrusionDetection\Response\BanService;
 use OCA\IntrusionDetection\Response\FlaggedSources;
 use OCA\IntrusionDetection\Response\ResponseEngine;
 use OCA\IntrusionDetection\Risk\RiskScorer;
-use OCP\ICacheFactory;
-use OCP\IMemcache;
 
 /**
  * Detects credential stuffing (concept section 10.1) after each failed login.
@@ -49,6 +46,8 @@ use OCP\IMemcache;
  *    3 failures for 2 names is blocked.
  */
 class CredentialStuffingDetector {
+	/** The namespace of its memory cache in {@see Caches} */
+	public const CACHE = 'credential-stuffing';
 	public const KINDS = [AttemptKind::PasswordLogin, AttemptKind::AppPassword];
 	public const DISTRIBUTED_WINDOW = 600;
 	/** At most one distributed detection per this many seconds while an attack lasts */
@@ -67,10 +66,6 @@ class CredentialStuffingDetector {
 	public const NET_MEMBER_MIN_FAILURES = 2;
 	public const NET_MEMBER_MIN_NAMES = 2;
 
-	private ?IMemcache $sharedCache = null;
-	private ?IMemcache $localCache = null;
-	private bool $cachesInitialised = false;
-
 	public function __construct(
 		private readonly Settings $settings,
 		private readonly AttemptMapper $attempts,
@@ -78,10 +73,9 @@ class CredentialStuffingDetector {
 		private readonly FlaggedSources $flags,
 		private readonly BanService $bans,
 		private readonly RemoteAddressResolver $addresses,
-		private readonly ICacheFactory $cacheFactory,
+		private readonly Caches $caches,
 		private readonly RiskScorer $risk,
 		private readonly StateMapper $state,
-		private readonly Prerequisites $prerequisites,
 	) {
 	}
 
@@ -248,11 +242,12 @@ class CredentialStuffingDetector {
 	private function evaluationDue(int $now): bool {
 		$period = intdiv($now, self::EVALUATE_EVERY);
 		$key = 'cs:eval:' . $period;
-		$this->initCaches();
-		if ($this->sharedCache !== null) {
-			return $this->sharedCache->add($key, 1, self::EVALUATE_EVERY);
+		$shared = $this->caches->isDistributed() ? $this->caches->shared(self::CACHE) : null;
+		if ($shared !== null) {
+			return $shared->add($key, 1, self::EVALUATE_EVERY);
 		}
-		if ($this->localCache !== null && !$this->localCache->add($key, 1, self::EVALUATE_EVERY)) {
+		$local = $this->caches->local(self::CACHE);
+		if ($local !== null && !$local->add($key, 1, self::EVALUATE_EVERY)) {
 			return false;
 		}
 		return $this->state->claim(self::EVALUATED_STATE, $period);
@@ -285,17 +280,4 @@ class CredentialStuffingDetector {
 		return ['min_failures' => [$failures, $stats->failures], 'min_names' => [$names, $stats->distinctNames]];
 	}
 
-	private function initCaches(): void {
-		if ($this->cachesInitialised) {
-			return;
-		}
-		$this->cachesInitialised = true;
-		// add() is atomic only on the memcache types.
-		$shared = $this->prerequisites->hasDistributedCache() ? $this->cacheFactory->createDistributed(Application::APP_ID) : null;
-		$this->sharedCache = $shared instanceof IMemcache ? $shared : null;
-		if ($this->sharedCache === null && $this->cacheFactory->isLocalCacheAvailable()) {
-			$local = $this->cacheFactory->createLocal(Application::APP_ID);
-			$this->localCache = $local instanceof IMemcache ? $local : null;
-		}
-	}
 }

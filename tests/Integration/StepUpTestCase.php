@@ -13,11 +13,11 @@ use OCA\IntrusionDetection\AdminChange\ApprovalService;
 use OCA\IntrusionDetection\AdminChange\Approvers;
 use OCA\IntrusionDetection\AppInfo\Application;
 use OCA\IntrusionDetection\Audit\AuditLogger;
+use OCA\IntrusionDetection\Cache\Caches;
 use OCA\IntrusionDetection\Check\Checks\PasswordSpraying;
 use OCA\IntrusionDetection\Check\Checks\PasswordSprayingDetector;
 use OCA\IntrusionDetection\Check\Checks\StepUpFailed;
 use OCA\IntrusionDetection\Check\Checks\StepUpUnconfirmed;
-use OCA\IntrusionDetection\Config\Prerequisites;
 use OCA\IntrusionDetection\Confirm\ConfirmationPolicy;
 use OCA\IntrusionDetection\Confirm\EmailCodes;
 use OCA\IntrusionDetection\Confirm\FamiliarLogin;
@@ -59,6 +59,7 @@ use OCA\IntrusionDetection\Risk\RiskScorer;
 use OCA\IntrusionDetection\SessionState\Rules\StepUpRule;
 use OCA\IntrusionDetection\SessionState\SessionState;
 use OCA\IntrusionDetection\Tests\BasicAuthServer;
+use OCA\IntrusionDetection\Tests\Unit\Cache\FixedCaches;
 use OCA\IntrusionDetection\TrustedNetwork\TrustedNetworks;
 use OCP\AppFramework\Utility\ITimeFactory;
 use OCP\Authentication\TwoFactorAuth\IChallengeRequester;
@@ -66,7 +67,6 @@ use OCP\Authentication\TwoFactorAuth\IProvider;
 use OCP\Authentication\TwoFactorAuth\IRegistry;
 use OCP\Authentication\TwoFactorAuth\TwoFactorProviderChallengePassed;
 use OCP\Config\IUserConfig;
-use OCP\ICacheFactory;
 use OCP\IConfig;
 use OCP\IRequest;
 use OCP\IURLGenerator;
@@ -104,7 +104,7 @@ abstract class StepUpTestCase extends AccountTestCase {
 	/** Whether core holds the login at the setup of a second factor */
 	protected bool $secondFactorSetupRequired = false;
 	/** The memory caches of the login listener; none by default */
-	protected ?ICacheFactory $listenerCaches = null;
+	protected ?Caches $listenerCaches = null;
 	protected bool $bypassListed = false;
 	/** @var IRequest&MockObject */
 	protected IRequest $request;
@@ -184,7 +184,7 @@ abstract class StepUpTestCase extends AccountTestCase {
 					$this->engine(),
 					Server::get(FlaggedSources::class),
 					Server::get(Fingerprinter::class),
-					Server::get(ICacheFactory::class),
+					Server::get(Caches::class),
 					Server::get(PasswordSpraying::class),
 					Server::get(RiskScorer::class),
 				),
@@ -194,11 +194,8 @@ abstract class StepUpTestCase extends AccountTestCase {
 		);
 	}
 
-	protected function noCaches(): ICacheFactory {
-		$factory = $this->createMock(ICacheFactory::class);
-		$factory->method('isAvailable')->willReturn(false);
-		$factory->method('isLocalCacheAvailable')->willReturn(false);
-		return $factory;
+	protected function noCaches(): Caches {
+		return FixedCaches::none();
 	}
 
 	/**
@@ -295,7 +292,7 @@ abstract class StepUpTestCase extends AccountTestCase {
 			Server::get(LoginHistoryMapper::class),
 			$this->state,
 			$this->currentSession,
-			new LoginGate(Server::get(ICacheFactory::class), Server::get(Prerequisites::class), $this->session),
+			new LoginGate(Server::get(Caches::class), $this->session),
 			Server::get(ITimeFactory::class),
 		);
 	}
