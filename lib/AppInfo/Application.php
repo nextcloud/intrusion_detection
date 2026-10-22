@@ -63,6 +63,7 @@ use OCA\IntrusionDetection\SetupCheck\MemoryCacheCheck;
 use OCA\IntrusionDetection\SetupCheck\ProblemCheck;
 use OCA\IntrusionDetection\SetupCheck\ReverseProxyCheck;
 use OCA\IntrusionDetection\SetupCheck\SharedAddressCheck;
+use OCA\IntrusionDetection\SetupCheck\StaleCredentialsCheck;
 use OCA\IntrusionDetection\SetupCheck\TrapNameCollisionCheck;
 use OCA\IntrusionDetection\SetupCheck\UsersWithoutConfirmationCheck;
 use OCA\IntrusionDetection\TrustedNetwork\ITrustedNetworks;
@@ -118,6 +119,7 @@ class Application extends App implements IBootstrap {
 		UsersWithoutConfirmationCheck::class,
 		AdminContactCheck::class,
 		AdminNetworksCheck::class,
+		StaleCredentialsCheck::class,
 	];
 
 	public function __construct(array $urlParams = []) {

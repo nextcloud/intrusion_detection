@@ -149,7 +149,7 @@ class SecureAccountOverview {
 	 * A browser session is named by its user agent; people recognise
 	 * "Firefox on Linux" as on the personal page, not the raw string.
 	 */
-	private static function browserName(IToken $token, IL10N $l): string {
+	public static function browserName(IToken $token, IL10N $l): string {
 		[$family, $platform] = DeviceLabel::parse($token->getName());
 		return $family === DeviceLabel::OTHER && $platform === DeviceLabel::OTHER ? Tokens::name($token) : DeviceLabel::translated($family, $platform, $l);
 	}

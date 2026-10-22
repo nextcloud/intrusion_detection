@@ -15,6 +15,7 @@ use OCA\IntrusionDetection\Confirm\UntrustedSecondFactors;
 use OCA\IntrusionDetection\Guide\SecureAccountGuide;
 use OCA\IntrusionDetection\Notification\LoginNotices;
 use OCA\IntrusionDetection\Response\PasswordChangeFlag;
+use OCA\IntrusionDetection\StaleCredential\StaleCredentialSweep;
 use OCP\Config\Lexicon\Entry;
 use OCP\Config\Lexicon\ILexicon;
 use OCP\Config\Lexicon\Strictness;
@@ -53,6 +54,7 @@ final class Lexicon implements ILexicon {
 			new Entry(UntrustedSecondFactors::USER_KEY, ValueType::ARRAY, [], 'second factors set up from a session whose login proved only the password: provider id => when, or when and until when'),
 			new Entry(EmailCodes::USER_KEY_MAILS, ValueType::ARRAY, [], 'when the last confirmation codes were sent to the account, to limit them per hour', lazy: true),
 			new Entry(SecureAccountGuide::USER_KEY, ValueType::STRING, '', 'progress through the "Secure my account" checklist (JSON)', lazy: true),
+			new Entry(StaleCredentialSweep::USER_KEY, ValueType::INT, 0, 'when the user was last reminded of app passwords and devices they have not used for 90 days (0: never)', lazy: true),
 		];
 	}
 }

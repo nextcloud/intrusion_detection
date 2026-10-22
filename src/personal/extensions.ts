@@ -23,6 +23,7 @@ export const personalSections = shallowReactive<PersonalSection[]>([
 	{ id: 'status', component: defineAsyncComponent(() => import('./components/StatusLine.vue')) },
 	{ id: 'email-hint', component: defineAsyncComponent(() => import('./components/EmailHint.vue')) },
 	{ id: 'questions', component: defineAsyncComponent(() => import('./components/OpenQuestions.vue')) },
+	{ id: 'stale-credentials', component: defineAsyncComponent(() => import('./components/StaleCredentials.vue')) },
 	{ id: 'activity', component: defineAsyncComponent(() => import('./components/ActivityTimeline.vue')) },
 	{ id: 'manage', component: defineAsyncComponent(() => import('./components/ManageSection.vue')) },
 ])

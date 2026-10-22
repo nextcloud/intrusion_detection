@@ -22,6 +22,7 @@ use OCA\IntrusionDetection\KnownDevice\KnownDevices;
 use OCA\IntrusionDetection\ResponseDefinitions;
 use OCA\IntrusionDetection\Risk\RiskAssessment;
 use OCA\IntrusionDetection\Risk\RiskScorer;
+use OCA\IntrusionDetection\StaleCredential\StaleCredentials;
 use OCA\IntrusionDetection\TrustedNetwork\TrustedNetworks;
 use OCP\IL10N;
 
@@ -239,6 +240,11 @@ class GlobalSettingsPresenter {
 			GlobalSettings::PERSONAL_PAGE_ENABLED => [new ParamText(
 				$l->t('Show users their security events'),
 				$l->t('Users see their security events, failed logins, recent logins, remembered devices and trusted networks in their own security settings, and can answer "Was this you?" there. When this is off, that part is hidden; notifications still reach them.'),
+			), self::GROUP_PRIVACY],
+			GlobalSettings::STALE_CREDENTIALS_REMOVE_DAYS => [new ParamText(
+				$l->t('Remove app passwords and devices unused for'),
+				$l->t('Once a day, app passwords and remembered browser logins that have not been used for this many days are removed, and each user is told once what was removed. 0 keeps them; otherwise at least %1$s days. Users are reminded, at most once a month, of those unused for %2$s days that are not removed yet.', [(string)GlobalSettings::STALE_CREDENTIALS_MIN_REMOVE_DAYS, (string)StaleCredentials::DAYS]),
+				$l->t('days'),
 			), self::GROUP_PRIVACY],
 			default => [new ParamText(ucfirst(str_replace('_', ' ', $name))), self::GROUP_OTHER],
 		};

@@ -427,6 +427,7 @@ class Settings {
 	public function validatedGlobal(string $name, mixed $value): int|float|bool|string|array {
 		$definition = $this->globalDefinition($name);
 		$value = $definition->validate($value, true);
+		GlobalSettings::checkRule($name, $value);
 		$owner = GlobalSettings::isInternal($name) ? null : GlobalSettings::validatedBy($name);
 		if ($owner !== null) {
 			$check = $this->registry->check($owner);

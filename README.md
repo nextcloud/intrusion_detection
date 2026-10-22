@@ -196,6 +196,8 @@ Apps that log in with an app password are never interrupted.
 
 **Account protection page.** Users also see their recent logins and security events of the last 30 days, the failed logins, their remembered devices and trusted networks, and a button to log out other browsers. Admins can hide this page.
 
+**Unused app passwords and devices.** An app password or a remembered browser login that nobody has used for 3 months is exactly what a thief finds and nobody notices. The same page lists them calmly, with name, type and last use, and users remove one or all of them after entering their password. Once a day Nextcloud looks for them and, when one is new since the last reminder, tells the user at most once a month: "You have 3 app passwords you haven't used for 3 months".
+
 ## 🧰 For admins
 
 Everything lives under **Administration settings → Intrusion detection**, in five tabs: Overview, Protection, Blocks, Settings and Incidents.
@@ -240,6 +242,8 @@ Everything lives under **Administration settings → Intrusion detection**, in f
 
 </details>
 
+**Unused app passwords and devices.** The Overview's tips count the app passwords and remembered browser logins nobody used for 90 days, and how many accounts have them. `occ intrusion:credentials:stale` lists them, for every account or one, and `--revoke` removes them and tells each user once. Automatic removal is off by default; "Remove app passwords and devices unused for … days" (at least 90) under Settings → Data and privacy removes them every day and tells each user once what was removed. Nextcloud itself ends remembered browser logins after 15 days without use unless `remember_login_cookie_lifetime` in `config.php` says otherwise, so the list is mostly app passwords.
+
 **Dashboard widget.** Logins waiting for your approval, the current status, the last 24 hours in numbers and the latest serious detections, right on the Nextcloud dashboard.
 
 **Webhooks.** With Nextcloud's Webhooks app, three typed events can go to a chat room, a ticket system or a SIEM: `DetectionCreatedEvent`, `BanCreatedEvent` and `BanLiftedEvent`. Payloads never contain passwords, tokens or other secrets; whether they include the attacking address is up to you.
@@ -248,7 +252,7 @@ Everything lives under **Administration settings → Intrusion detection**, in f
 
 **Audit log.** Blocks, lifts, setting changes, learning mode and incident reports are written to Nextcloud's audit log (with the Auditing / Logging app).
 
-**Command line.** 27 `occ` commands cover everything the admin page does, for hosters and scripts:
+**Command line.** 28 `occ` commands cover everything the admin page does, for hosters and scripts:
 
 ```sh
 occ intrusion:status                          # what it is doing right now
@@ -261,12 +265,13 @@ occ intrusion:bans:lift K7Q2-MPXA --note="Our own scanner"
 occ intrusion:detections:explain 2367
 occ intrusion:report --user=mia --format=html > mia.html
 occ intrusion:user mia                        # what applies to an account, and lift it
+occ intrusion:credentials:stale --revoke      # remove app passwords and devices unused for 90 days
 occ intrusion:export:write                    # write the firewall files now
 occ intrusion:benchmark                       # measure the cost per request
 ```
 
 <details>
-<summary><strong>All 27 commands</strong></summary>
+<summary><strong>All 28 commands</strong></summary>
 <br>
 
 | Command | Purpose |
@@ -298,6 +303,7 @@ occ intrusion:benchmark                       # measure the cost per request
 | `intrusion:approvals:decide` | Approve or reject such a request |
 | `intrusion:report` | Write the incident report of an account or an address |
 | `intrusion:users:no-confirmation` | List active accounts with neither a second factor nor an email address |
+| `intrusion:credentials:stale` | List the app passwords and remembered browsers nobody used for 90 days (`--days`, `--user`), and remove them with `--revoke` |
 
 </details>
 

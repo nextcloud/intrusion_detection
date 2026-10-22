@@ -19,6 +19,7 @@ use OCA\IntrusionDetection\Confirm\ConfirmationCoverage;
 use OCA\IntrusionDetection\Notification\AdminLinks;
 use OCA\IntrusionDetection\SetupCheck\Finding;
 use OCA\IntrusionDetection\SetupCheck\UsersWithoutConfirmationCheck;
+use OCA\IntrusionDetection\StaleCredential\StaleCredentialSweep;
 use OCA\IntrusionDetection\Traps\TrapNameCollisions;
 use OCP\AppFramework\Utility\ITimeFactory;
 use OCP\Authentication\TwoFactorAuth\IRegistry;
@@ -123,7 +124,7 @@ class ConfirmationCoverageTest extends IntegrationTestCase {
 		$this->assertSame($first['withoutMethod'] + 1, $coverage->users()['withoutMethod']);
 
 		$this->account('job');
-		self::invokePrivate(new StatusRefreshJob(Server::get(ITimeFactory::class), $coverage, Server::get(TrapNameCollisions::class), Server::get(LoggerInterface::class)), 'run', [null]);
+		self::invokePrivate(new StatusRefreshJob(Server::get(ITimeFactory::class), $coverage, Server::get(TrapNameCollisions::class), Server::get(StaleCredentialSweep::class), Server::get(LoggerInterface::class)), 'run', [null]);
 		$this->assertSame($first['withoutMethod'] + 2, $coverage->users()['withoutMethod']);
 	}
 

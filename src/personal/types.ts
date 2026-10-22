@@ -110,6 +110,15 @@ export interface LoggedOutElsewhere {
 	devices: number
 }
 
+/** An app password or remembered browser not used for 90 days; never its secret */
+export interface StaleCredential {
+	id: number
+	name: string
+	kind: 'app_password' | 'session'
+	/** Unix time in seconds */
+	lastUsed: number
+}
+
 export type ActivityKind = 'login' | 'change' | 'failed_logins' | 'event'
 
 /** One entry of the timeline; the field named by `kind` is set */
@@ -147,4 +156,5 @@ export interface ManageSummary {
 export interface PersonalState {
 	overview: PersonalOverview
 	manage: ManageSummary
+	staleCredentials: StaleCredential[]
 }

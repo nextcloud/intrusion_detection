@@ -12252,6 +12252,10 @@
         {
             "name": "simulation_api",
             "description": "\"Simulate\" on the check cards. Administrators only. A simulation only reads the settings: nothing is recorded, blocked or notified."
+        },
+        {
+            "name": "stale_credentials_api",
+            "description": "The current user's app passwords and remembered browsers that have not been used for 90 days, on their security page: list them and remove them. Only the user's own credentials are ever listed or removed, and only stale ones: any other id answers 404, like a missing one. Removing needs a recent password confirmation and is rate limited per user."
         }
     ]
 }

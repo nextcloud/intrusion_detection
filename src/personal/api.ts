@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 
-import type { KnownDevice, LoggedOutElsewhere, PersonalActivity, PersonalOverview, SecurityEvent, TrustedNetwork } from './types.ts'
+import type { KnownDevice, LoggedOutElsewhere, PersonalActivity, PersonalOverview, SecurityEvent, StaleCredential, TrustedNetwork } from './types.ts'
 
 import axios, { isAxiosError } from '@nextcloud/axios'
 import { ApiError, call, url, write } from '../services/api.ts'
@@ -66,3 +66,19 @@ export function removeTrustedNetwork(id: number): Promise<{ removed: number }> {
 }
 
 export const logOutElsewhere = () => call<LoggedOutElsewhere>(axios.post(url('personal/log-out-elsewhere'), {}, write))
+
+export const fetchStaleCredentials = () => call<StaleCredential[]>(axios.get(url('personal/stale-credentials')))
+
+/**
+ * Remove one unused app password or device, after a recent password confirmation.
+ *
+ * @param id - The credential
+ */
+export function removeStaleCredential(id: number): Promise<{ removed: number }> {
+	return call<{ removed: number }>(axios.delete(url(`personal/stale-credentials/${id}`), write))
+}
+
+/**
+ * Remove every unused app password and device, after a recent password confirmation.
+ */
+export const removeAllStaleCredentials = () => call<{ removed: number }>(axios.delete(url('personal/stale-credentials'), write))

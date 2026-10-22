@@ -321,6 +321,16 @@ final class LexiconData {
 			'pattern' => '/^[0-9a-f.:]{2,45}$/',
 			'maxItems' => 16,
 		],
+		'stale_credentials_remove_days' => [
+			'type' => 'int',
+			'default' => 0,
+			'min' => 0,
+			'max' => 3650,
+		],
+		'stale_credentials' => [
+			'type' => 'json',
+			'default' => '{}',
+		],
 	];
 
 	/** @var array<string, CheckSpec> */
@@ -1193,6 +1203,8 @@ final class LexiconData {
 		['trap_name_collisions', ValueType::STRING, '{}', 'intrusion detection: trap_name_collisions'],
 		['protection_level', ValueType::STRING, 'recommended', 'intrusion detection: protection_level'],
 		['server_addresses', ValueType::ARRAY, [], 'intrusion detection: server_addresses'],
+		['stale_credentials_remove_days', ValueType::INT, 0, 'intrusion detection: stale_credentials_remove_days'],
+		['stale_credentials', ValueType::STRING, '{}', 'intrusion detection: stale_credentials'],
 		['check_manual_mode', ValueType::STRING, 'protect', 'mode of the manual check'],
 		['check_manual_responses', ValueType::ARRAY, ['ban'], 'responses of the manual check'],
 		['check_shared_address_mode', ValueType::STRING, 'protect', 'mode of the shared_address check'],

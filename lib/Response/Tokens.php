@@ -107,7 +107,14 @@ class Tokens {
 	}
 
 	public static function name(IToken $token): string {
-		$name = trim((string)preg_replace('/[\x00-\x1f\x7f]+/u', ' ', $token->getName()));
+		return self::cleanName($token->getName());
+	}
+
+	/**
+	 * A token name without control characters, cut to MAX_NAME characters.
+	 */
+	public static function cleanName(string $name): string {
+		$name = trim((string)preg_replace('/[\x00-\x1f\x7f]+/u', ' ', $name));
 		return mb_strlen($name) > self::MAX_NAME ? mb_substr($name, 0, self::MAX_NAME - 1) . '…' : $name;
 	}
 }
