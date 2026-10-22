@@ -22,7 +22,6 @@ use OCA\IntrusionDetection\Migration\Version1000Date20261021220000;
 use OCA\IntrusionDetection\Net\SourceKey;
 use OCA\IntrusionDetection\Notification\UserAlerts;
 use OCA\IntrusionDetection\Response\FlaggedSources;
-use OCP\AppFramework\Utility\ITimeFactory;
 use OCP\DB\QueryBuilder\IQueryBuilder;
 use OCP\IUser;
 use OCP\Migration\IOutput;
@@ -50,9 +49,9 @@ class AbandonedLoginsTest extends StepUpTestCase {
 		$this->assertTrue($this->stepUp()?->isPending());
 		$historyId = Server::get(LoginHistoryMapper::class)->insert($this->alice->getUID(), time(), SourceKey::fromIp($this->remoteAddress), null, LoginHistory::METHOD_PASSWORD, false, 'none', LoginHistory::STEP_UP_PENDING, $token['id']);
 
-		$this->assertSame(0, $this->abandoned()->end(), 'Still within its deadline');
+		$this->assertSame(0, $this->abandoned()->purge(time()), 'Still within its deadline');
 		$this->moveDeadline(time() - 1);
-		$this->assertSame(1, $this->abandoned()->end());
+		$this->assertSame(1, $this->abandoned()->purge(time()));
 
 		$detection = $this->detectionsOf(StepUpFailed::ID)[0];
 		$this->assertSame(StepUpFailed::RULE_TIMEOUT, $detection->getExplanationData()['facts']['rule']);
@@ -63,7 +62,7 @@ class AbandonedLoginsTest extends StepUpTestCase {
 		$this->assertSame([$historyId, LoginHistory::STEP_UP_FAILED, 'none'], [$row->id, $row->stepUp, $row->confirmedBy]);
 
 		$this->assertSame(1, $this->unconfirmedRows(), 'Kept, so that the session cannot come back');
-		$this->assertSame(0, $this->abandoned()->end(), 'Once');
+		$this->assertSame(0, $this->abandoned()->purge(time()), 'Once');
 	}
 
 	public function testAnApprovalThatExtendsTheWaitMovesTheDeadline(): void {
@@ -74,7 +73,7 @@ class AbandonedLoginsTest extends StepUpTestCase {
 		$this->moveDeadline(time() - 1);
 		$stepUp->deadline = time() + 1800;
 		$this->service()->save($stepUp);
-		$this->assertSame(0, $this->abandoned()->end(), 'Still waiting for an administrator');
+		$this->assertSame(0, $this->abandoned()->purge(time()), 'Still waiting for an administrator');
 	}
 
 	public function testRefusedLoginsAndConfirmedOnesAreNotTouched(): void {
@@ -82,7 +81,7 @@ class AbandonedLoginsTest extends StepUpTestCase {
 		$this->startSession($bob);
 		$this->login($bob);
 		$this->assertSame(1, $this->unconfirmedRows(), 'Refused: remembered without a deadline');
-		$this->assertSame(0, $this->abandoned()->end());
+		$this->assertSame(0, $this->abandoned()->purge(time()));
 
 		$this->session->clear();
 		$this->startSession($this->alice);
@@ -90,7 +89,7 @@ class AbandonedLoginsTest extends StepUpTestCase {
 		$this->verifyController()->confirm((string)$this->lastCode($this->alice->getUID()));
 		$this->assertNull($this->stepUp());
 		$this->moveDeadline(time() - 1);
-		$this->assertSame(0, $this->abandoned()->end(), 'A confirmed login is forgotten');
+		$this->assertSame(0, $this->abandoned()->purge(time()), 'A confirmed login is forgotten');
 	}
 
 	public function testWhileProtectionIsOffALoginPastItsDeadlineIsDroppedSilently(): void {
@@ -100,7 +99,7 @@ class AbandonedLoginsTest extends StepUpTestCase {
 		$this->settingsEditor()->setGlobal(GlobalSettings::ENABLED, false);
 		$this->moveDeadline(time() - 1);
 
-		$this->assertSame(1, $this->abandoned()->end());
+		$this->assertSame(1, $this->abandoned()->purge(time()));
 		$this->assertSame([], $this->detectionsOf(StepUpFailed::ID), 'No detection');
 		$this->assertSame([], $this->notificationsFor($this->alice->getUID(), UserAlerts::SUBJECT), 'Nobody is told');
 		$row = Server::get(LoginHistoryMapper::class)->forUser($this->alice->getUID(), 0)[0];
@@ -108,7 +107,7 @@ class AbandonedLoginsTest extends StepUpTestCase {
 		$this->assertSame(1, $this->unconfirmedRows(), 'Kept, so that the session cannot come back');
 
 		$this->settingsEditor()->setGlobal(GlobalSettings::ENABLED, true);
-		$this->assertSame(0, $this->abandoned()->end(), 'Turning protection back on tells nobody days later');
+		$this->assertSame(0, $this->abandoned()->purge(time()), 'Turning protection back on tells nobody days later');
 		$this->assertSame([], $this->detectionsOf(StepUpFailed::ID));
 	}
 
@@ -142,7 +141,7 @@ class AbandonedLoginsTest extends StepUpTestCase {
 		$this->assertArrayHasKey($bob->getUID(), $deadlines);
 		$this->assertNull($deadlines[$bob->getUID()], 'A refused login keeps none, even next to a pending one');
 
-		$this->assertSame(0, $this->abandoned()->end(), 'Nothing is past its deadline yet');
+		$this->assertSame(0, $this->abandoned()->purge(time()), 'Nothing is past its deadline yet');
 		$this->assertSame([], $this->notificationsFor($carol->getUID(), UserAlerts::SUBJECT), 'Nobody is told about an old login');
 		$this->assertSame([], $this->detectionsOf(StepUpFailed::ID));
 	}
@@ -177,7 +176,6 @@ class AbandonedLoginsTest extends StepUpTestCase {
 			$this->engine(),
 			Server::get(StepUpFailed::class),
 			$this->appSettings(), $this->checkSettings(),
-			Server::get(ITimeFactory::class),
 			Server::get(AuditLogger::class),
 			Server::get(LoggerInterface::class),
 		);

@@ -9,7 +9,9 @@ declare(strict_types=1);
 
 namespace OCA\IntrusionDetection\LoginHistory;
 
+use OCA\IntrusionDetection\Config\AppSettings;
 use OCA\IntrusionDetection\Confirm\StepUpState;
+use OCA\IntrusionDetection\Db\IPurges;
 use OCA\IntrusionDetection\Db\KeyMatch;
 use OCA\IntrusionDetection\KnownDevice\KnownDevice;
 use OCA\IntrusionDetection\Login\LoginGate;
@@ -44,7 +46,7 @@ use OCP\AppFramework\Utility\ITimeFactory;
  *
  * Never a password, token or session id: only the token's database id.
  */
-class LoginHistory implements IAcceptedLogins {
+class LoginHistory implements IAcceptedLogins, IPurges {
 	/** The login form */
 	public const METHOD_PASSWORD = 'password';
 	/** An app or script sending the account's password (Basic auth) */
@@ -84,7 +86,16 @@ class LoginHistory implements IAcceptedLogins {
 		private readonly CurrentSession $currentSession,
 		private readonly LoginGate $gate,
 		private readonly ITimeFactory $timeFactory,
+		private readonly AppSettings $settings,
 	) {
+	}
+
+	/**
+	 * Delete the logins past the retention setting of the detections.
+	 */
+	#[\Override]
+	public function purge(int $now): int {
+		return $this->mapper->deleteOlderThan($now - $this->settings->retentionDays() * 86400);
 	}
 
 	/**

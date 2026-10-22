@@ -11,6 +11,7 @@ namespace OCA\IntrusionDetection\Response;
 
 use OCA\IntrusionDetection\Audit\AuditLogger;
 use OCA\IntrusionDetection\Cache\Caches;
+use OCA\IntrusionDetection\Db\IPurges;
 use OCA\IntrusionDetection\Response\Db\ProtectedAccountMapper;
 use OCP\AppFramework\Utility\ITimeFactory;
 
@@ -23,7 +24,7 @@ use OCP\AppFramework\Utility\ITimeFactory;
  * per account for CACHE_TTL seconds when a memory cache exists. A change made
  * on another web server with only a local cache is seen within that time.
  */
-class AccountProtection {
+class AccountProtection implements IPurges {
 	/** The namespace of its memory cache in {@see Caches} */
 	public const CACHE = 'protected-accounts';
 	public const REASON_UNDER_ATTACK = 'under_attack';
@@ -35,6 +36,14 @@ class AccountProtection {
 		private readonly Caches $caches,
 		private readonly AuditLogger $audit,
 	) {
+	}
+
+	/**
+	 * Delete the protections that ended.
+	 */
+	#[\Override]
+	public function purge(int $now): int {
+		return $this->mapper->deleteExpired($now);
 	}
 
 	/**

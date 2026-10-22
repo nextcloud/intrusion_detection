@@ -12,6 +12,7 @@ namespace OCA\IntrusionDetection\KnownDevice;
 use OCA\IntrusionDetection\Audit\AuditLogger;
 use OCA\IntrusionDetection\Config\AppSettings;
 use OCA\IntrusionDetection\Crypto\Fingerprinter;
+use OCA\IntrusionDetection\Db\IPurges;
 use OCA\IntrusionDetection\KnownDevice\Db\KnownDeviceMapper;
 use OCA\IntrusionDetection\Net\SourceKey;
 use OCA\IntrusionDetection\Notification\UserMessages;
@@ -37,7 +38,7 @@ use OCP\IUser;
  * An account has at most MAX_PER_USER devices; the least recently used
  * ones are dropped.
  */
-class KnownDevices implements IKnownDevices {
+class KnownDevices implements IKnownDevices, IPurges {
 	public const MAX_PER_USER = 50;
 	/** How long a device stays known after its last use */
 	public const DURATION = 180 * 86400;
@@ -57,6 +58,14 @@ class KnownDevices implements IKnownDevices {
 		private readonly ITimeFactory $timeFactory,
 		private readonly AuditLogger $audit,
 	) {
+	}
+
+	/**
+	 * Forget the devices unused for DURATION.
+	 */
+	#[\Override]
+	public function purge(int $now): int {
+		return $this->mapper->deleteUnusedSince($now - self::DURATION);
 	}
 
 	public function isEnabled(): bool {
@@ -188,10 +197,6 @@ class KnownDevices implements IKnownDevices {
 		unset($this->recognised[$uid]);
 		$this->cookie->clear();
 		$this->audit->log('known device of %s forgotten: a credential of the account was used from two networks at once (detection %s)', ['uid' => $uid, 'detection' => $detectionId]);
-	}
-
-	public function deleteExpired(): int {
-		return $this->mapper->deleteUnusedSince($this->timeFactory->getTime() - self::DURATION);
 	}
 
 	private function hmac(#[\SensitiveParameter] string $deviceId): string {

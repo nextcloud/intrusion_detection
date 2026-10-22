@@ -11,7 +11,9 @@ namespace OCA\IntrusionDetection\Takeover;
 
 use OCA\IntrusionDetection\AdminChange\ActorResolver;
 use OCA\IntrusionDetection\Check\Checks\AccountTakeover\AccountTakeoverDetector;
+use OCA\IntrusionDetection\Config\AppSettings;
 use OCA\IntrusionDetection\Confirm\EmailCodes;
+use OCA\IntrusionDetection\Db\IPurges;
 use OCA\IntrusionDetection\Net\RemoteAddressResolver;
 use OCA\IntrusionDetection\SessionState\CurrentSession;
 use OCA\IntrusionDetection\Takeover\Db\SecurityChangeMapper;
@@ -33,7 +35,7 @@ use Psr\Log\LoggerInterface;
  * is also kept encrypted for {@see self::ADDRESS_TTL}, so that the lock link
  * can reach it when the check fires a little after the change.
  */
-class SecurityChangeLog {
+class SecurityChangeLog implements IPurges {
 	public const VIA_SELF = 'self';
 	public const VIA_ADMIN = 'admin';
 	public const VIA_OCC = 'occ';
@@ -42,6 +44,11 @@ class SecurityChangeLog {
 
 	/** The encrypted previous email address is kept this long */
 	public const ADDRESS_TTL = 86400;
+	/**
+	 * Previous email addresses are forgotten for the changes of this period
+	 * before their time is up; older ones were forgotten by earlier runs.
+	 */
+	public const ADDRESS_LOOK_BACK = 7 * 86400;
 	/** Token names and provider ids are cut to this length */
 	public const MAX_DETAIL = 100;
 
@@ -56,7 +63,21 @@ class SecurityChangeLog {
 		private readonly ICrypto $crypto,
 		private readonly ITimeFactory $timeFactory,
 		private readonly LoggerInterface $logger,
+		private readonly AppSettings $settings,
 	) {
+	}
+
+	/**
+	 * Delete the changes past the retention setting of the detections, and
+	 * forget the previous email addresses past ADDRESS_TTL.
+	 *
+	 * @return int how many changes were deleted
+	 */
+	#[\Override]
+	public function purge(int $now): int {
+		$deleted = $this->mapper->deleteOlderThan($now - $this->settings->retentionDays() * 86400);
+		$this->mapper->forgetAddressesBefore($now - self::ADDRESS_TTL, $now - self::ADDRESS_TTL - self::ADDRESS_LOOK_BACK);
+		return $deleted;
 	}
 
 	/**

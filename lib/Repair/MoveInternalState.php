@@ -11,7 +11,6 @@ namespace OCA\IntrusionDetection\Repair;
 
 use OCA\IntrusionDetection\AdminChange\ConfigWatch;
 use OCA\IntrusionDetection\AppInfo\Application;
-use OCA\IntrusionDetection\BackgroundJob\Cleanup;
 use OCA\IntrusionDetection\Blocklist\StateStore;
 use OCA\IntrusionDetection\Check\Checks\CredentialStuffing\CredentialStuffingDetector;
 use OCA\IntrusionDetection\Configure\SettingsEditor;
@@ -19,6 +18,7 @@ use OCA\IntrusionDetection\Confirm\ConfirmationCoverage;
 use OCA\IntrusionDetection\Detection\DetectionTotals;
 use OCA\IntrusionDetection\Learning\LearningService;
 use OCA\IntrusionDetection\Notification\DigestSender;
+use OCA\IntrusionDetection\Response\BanService;
 use OCA\IntrusionDetection\StaleCredential\StaleCredentialSweep;
 use OCA\IntrusionDetection\State\AppState;
 use OCA\IntrusionDetection\Traps\TrapNameCollisions;
@@ -46,7 +46,7 @@ class MoveInternalState implements IRepairStep {
 		ConfigWatch::BASELINE_STATE,
 		DigestSender::STATE,
 		DetectionTotals::RETIRED_STATE,
-		Cleanup::BANS_FLAGGED_STATE,
+		BanService::BANS_FLAGGED_STATE,
 		ConfirmationCoverage::USERS_STATE,
 		TrapNameCollisions::STATE,
 		SettingsEditor::LEVEL_STATE,

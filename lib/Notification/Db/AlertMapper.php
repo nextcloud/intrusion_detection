@@ -10,6 +10,7 @@ declare(strict_types=1);
 namespace OCA\IntrusionDetection\Notification\Db;
 
 use OCA\IntrusionDetection\Db\BatchedDelete;
+use OCA\IntrusionDetection\Db\IPurges;
 use OCP\DB\QueryBuilder\IQueryBuilder;
 use OCP\IDBConnection;
 
@@ -19,8 +20,10 @@ use OCP\IDBConnection;
  * that only one web server can win, so an attack becomes one notification
  * with a counter rather than thousands.
  */
-class AlertMapper {
+class AlertMapper implements IPurges {
 	public const TABLE = 'ids_alerts';
+	/** Counters are kept as long as their notifications are likely to be read */
+	public const RETENTION = 30 * 86400;
 
 	public function __construct(
 		private readonly IDBConnection $db,
@@ -96,8 +99,9 @@ class AlertMapper {
 		];
 	}
 
-	public function deleteOlderThan(int $before): int {
-		return BatchedDelete::run($this->db, self::TABLE, 'id', 'last_at', static fn (IQueryBuilder $qb): IQueryBuilder => $qb->where($qb->expr()->lt('last_at', $qb->createNamedParameter($before, IQueryBuilder::PARAM_INT))));
+	#[\Override]
+	public function purge(int $now): int {
+		return BatchedDelete::run($this->db, self::TABLE, 'id', 'last_at', static fn (IQueryBuilder $qb): IQueryBuilder => $qb->where($qb->expr()->lt('last_at', $qb->createNamedParameter($now - self::RETENTION, IQueryBuilder::PARAM_INT))));
 	}
 
 	/**

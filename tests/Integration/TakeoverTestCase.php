@@ -198,6 +198,7 @@ abstract class TakeoverTestCase extends AccountTestCase {
 			Server::get(ICrypto::class),
 			Server::get(ITimeFactory::class),
 			Server::get(LoggerInterface::class),
+			$this->appSettings(),
 		);
 	}
 

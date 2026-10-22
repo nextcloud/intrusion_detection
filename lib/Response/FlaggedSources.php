@@ -10,6 +10,7 @@ declare(strict_types=1);
 namespace OCA\IntrusionDetection\Response;
 
 use OCA\IntrusionDetection\Db\Ban;
+use OCA\IntrusionDetection\Db\IPurges;
 use OCA\IntrusionDetection\Net\SourceKey;
 use OCA\IntrusionDetection\Response\Db\FlagMapper;
 use OCP\AppFramework\Utility\ITimeFactory;
@@ -25,7 +26,7 @@ use OCP\AppFramework\Utility\ITimeFactory;
  * A block that ends by itself flags its address or /24 (the cleanup job);
  * lifting a block removes the flag.
  */
-class FlaggedSources {
+class FlaggedSources implements IPurges {
 	public const REASON_ATTACK = 'attack';
 	public const REASON_BAN_EXPIRED = 'ban_expired';
 	public const REASON_DISTRIBUTED = 'distributed';
@@ -51,6 +52,14 @@ class FlaggedSources {
 		private readonly FlagMapper $mapper,
 		private readonly ITimeFactory $timeFactory,
 	) {
+	}
+
+	/**
+	 * Delete the flags that ended.
+	 */
+	#[\Override]
+	public function purge(int $now): int {
+		return $this->mapper->deleteExpired($now);
 	}
 
 	/**

@@ -653,7 +653,7 @@ class BanServiceTest extends IntegrationTestCase {
 		$this->assertSame(FlaggedSources::REASON_BAN_EXPIRED, $flags->sourceFlag(SourceKey::fromIp('2001:db8:1:2::77')));
 		$this->assertNull($flags->sourceFlag(SourceKey::fromIp('2001:db8:1:5::1')), 'Wider IPv6 networks are not flagged');
 		$this->assertNull($flags->sourceFlag(SourceKey::fromIp('198.51.100.99')), 'Its flag would have ended already');
-		$this->assertSame(time(), Server::get(AppState::class)->getInt(Cleanup::BANS_FLAGGED_STATE), 'Progress is kept');
+		$this->assertSame(time(), Server::get(AppState::class)->getInt(BanService::BANS_FLAGGED_STATE), 'Progress is kept');
 
 		$flags->unflagSource($ended);
 		self::invokePrivate(Server::get(Cleanup::class), 'run', [null]);
@@ -698,6 +698,7 @@ class BanServiceTest extends IntegrationTestCase {
 			Server::get(ITimeFactory::class),
 			Server::get(ISecureRandom::class),
 			Server::get(TypedEvents::class),
+			$state ?? Server::get(AppState::class),
 		);
 	}
 

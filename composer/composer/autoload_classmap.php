@@ -267,6 +267,7 @@ return array(
     'OCA\\IntrusionDetection\\Db\\DetectionAccountMapper' => $baseDir . '/../lib/Db/DetectionAccountMapper.php',
     'OCA\\IntrusionDetection\\Db\\DetectionFilter' => $baseDir . '/../lib/Db/DetectionFilter.php',
     'OCA\\IntrusionDetection\\Db\\DetectionMapper' => $baseDir . '/../lib/Db/DetectionMapper.php',
+    'OCA\\IntrusionDetection\\Db\\IPurges' => $baseDir . '/../lib/Db/IPurges.php',
     'OCA\\IntrusionDetection\\Db\\KeyMatch' => $baseDir . '/../lib/Db/KeyMatch.php',
     'OCA\\IntrusionDetection\\Db\\LoginMapper' => $baseDir . '/../lib/Db/LoginMapper.php',
     'OCA\\IntrusionDetection\\Db\\MultiRowInsert' => $baseDir . '/../lib/Db/MultiRowInsert.php',

@@ -9,8 +9,10 @@ declare(strict_types=1);
 
 namespace OCA\IntrusionDetection\Detection;
 
+use OCA\IntrusionDetection\Config\AppSettings;
 use OCA\IntrusionDetection\Db\Detection;
 use OCA\IntrusionDetection\Db\DetectionMapper;
+use OCA\IntrusionDetection\Db\IPurges;
 use OCA\IntrusionDetection\Db\StatsMapper;
 use OCA\IntrusionDetection\State\AppState;
 use OCP\DB\QueryBuilder\IQueryBuilder;
@@ -30,7 +32,7 @@ use OCP\IDBConnection;
  *   Detections themselves are deleted after their own retention, which
  *   changes no total.
  */
-class DetectionTotals {
+class DetectionTotals implements IPurges {
 	/** Detections deleted after their retention, counted per check, severity and enforcement, for the running total */
 	public const RETIRED_STATE = 'detections_retired';
 	public const TABLE = 'ids_detection_hourly';
@@ -41,7 +43,21 @@ class DetectionTotals {
 		private readonly IDBConnection $db,
 		private readonly DetectionMapper $mapper,
 		private readonly AppState $state,
+		private readonly AppSettings $settings,
 	) {
+	}
+
+	/**
+	 * Delete the detections past the retention setting, then fold the hours
+	 * past ROLLUP_DAYS into the running totals.
+	 *
+	 * @return int how many detections were deleted
+	 */
+	#[\Override]
+	public function purge(int $now): int {
+		$deleted = $this->deleteCreatedBefore($now - $this->settings->retentionDays() * 86400);
+		$this->retireBefore($now - self::ROLLUP_DAYS * 86400);
+		return $deleted;
 	}
 
 	/**

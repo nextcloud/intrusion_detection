@@ -282,6 +282,7 @@ class ComposerStaticInitIntrusionDetection
         'OCA\\IntrusionDetection\\Db\\DetectionAccountMapper' => __DIR__ . '/..' . '/../lib/Db/DetectionAccountMapper.php',
         'OCA\\IntrusionDetection\\Db\\DetectionFilter' => __DIR__ . '/..' . '/../lib/Db/DetectionFilter.php',
         'OCA\\IntrusionDetection\\Db\\DetectionMapper' => __DIR__ . '/..' . '/../lib/Db/DetectionMapper.php',
+        'OCA\\IntrusionDetection\\Db\\IPurges' => __DIR__ . '/..' . '/../lib/Db/IPurges.php',
         'OCA\\IntrusionDetection\\Db\\KeyMatch' => __DIR__ . '/..' . '/../lib/Db/KeyMatch.php',
         'OCA\\IntrusionDetection\\Db\\LoginMapper' => __DIR__ . '/..' . '/../lib/Db/LoginMapper.php',
         'OCA\\IntrusionDetection\\Db\\MultiRowInsert' => __DIR__ . '/..' . '/../lib/Db/MultiRowInsert.php',

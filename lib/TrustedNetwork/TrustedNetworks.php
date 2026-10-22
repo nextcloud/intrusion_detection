@@ -10,6 +10,7 @@ declare(strict_types=1);
 namespace OCA\IntrusionDetection\TrustedNetwork;
 
 use OCA\IntrusionDetection\Audit\AuditLogger;
+use OCA\IntrusionDetection\Db\IPurges;
 use OCA\IntrusionDetection\Net\SourceKey;
 use OCA\IntrusionDetection\TrustedNetwork\Db\TrustedNetworkMapper;
 use OCP\AppFramework\Utility\ITimeFactory;
@@ -24,7 +25,7 @@ use OCP\AppFramework\Utility\ITimeFactory;
  * Read only where a decision needs it (a flagged address at login, a login
  * request), with one indexed query.
  */
-class TrustedNetworks implements ITrustedNetworks {
+class TrustedNetworks implements ITrustedNetworks, IPurges {
 	/** Seconds a network stays trusted */
 	public const DURATION = 30 * 86400;
 
@@ -33,6 +34,14 @@ class TrustedNetworks implements ITrustedNetworks {
 		private readonly ITimeFactory $timeFactory,
 		private readonly AuditLogger $audit,
 	) {
+	}
+
+	/**
+	 * Delete the trusted networks whose time is up.
+	 */
+	#[\Override]
+	public function purge(int $now): int {
+		return $this->mapper->deleteExpired($now);
 	}
 
 	#[\Override]

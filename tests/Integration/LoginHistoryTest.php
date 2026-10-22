@@ -286,7 +286,7 @@ class LoginHistoryTest extends StepUpTestCase {
 	}
 
 	private function historyWith(Caches $factory): LoginHistory {
-		return new LoginHistory(Server::get(LoginHistoryMapper::class), $this->state, $this->currentSession, new LoginGate($factory, $this->session), Server::get(ITimeFactory::class));
+		return new LoginHistory(Server::get(LoginHistoryMapper::class), $this->state, $this->currentSession, new LoginGate($factory, $this->session), Server::get(ITimeFactory::class), $this->appSettings());
 	}
 
 	private function historyListener(?LoginHistory $history = null): LoginHistoryListener {

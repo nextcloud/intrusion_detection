@@ -15,12 +15,14 @@ use OCA\IntrusionDetection\Cache\KeyLock;
 use OCA\IntrusionDetection\Config\AppSettings;
 use OCA\IntrusionDetection\Db\Ban;
 use OCA\IntrusionDetection\Db\BanMapper;
+use OCA\IntrusionDetection\Db\IPurges;
 use OCA\IntrusionDetection\Db\KeyMatch;
 use OCA\IntrusionDetection\Event\TypedEvents;
 use OCA\IntrusionDetection\Net\Ipv6Networks;
 use OCA\IntrusionDetection\Net\ProtectedRanges;
 use OCA\IntrusionDetection\Net\RemoteAddressResolver;
 use OCA\IntrusionDetection\Net\SourceKey;
+use OCA\IntrusionDetection\State\AppState;
 use OCP\AppFramework\Utility\ITimeFactory;
 use OCP\Security\ISecureRandom;
 
@@ -46,14 +48,23 @@ use OCP\Security\ISecureRandom;
  * - Blocking many addresses at once ({@see banMany()}) costs one query for
  *   those blocked already, one escalation per network and one change of the
  *   cached verdicts.
+ * - Ended blocks are kept for escalation: BAN_HISTORY, or longer when the
+ *   history setting says so. Before they go, the addresses of the blocks
+ *   that ended since the last cleanup are flagged ({@see purge()}).
  */
-class BanService {
+class BanService implements IPurges {
 	/** References avoid characters that are easily confused: no 0, O, 1, I or l */
 	public const REFERENCE_CHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
 	/** The longest block by hand */
 	public const MAX_DURATION = 90 * 86400;
 	/** With a distributed cache, up to this many changed addresses get a new verdict each; more drop all verdicts at once */
 	public const REFRESH_MAX = 10;
+	/** Blocks that ended up to this time have been flagged */
+	public const BANS_FLAGGED_STATE = 'bans_flagged_until';
+	/** Ended blocks are kept this long at least, for escalation */
+	public const BAN_HISTORY = 30 * 86400;
+	/** Ended blocks flagged per cleanup at most */
+	public const ENDED_BANS_PER_RUN = 1000;
 	/** Ban keys per query, below every database's limit for a list */
 	private const KEYS_PER_QUERY = 500;
 
@@ -73,7 +84,18 @@ class BanService {
 		private readonly ITimeFactory $timeFactory,
 		private readonly ISecureRandom $random,
 		private readonly TypedEvents $events,
+		private readonly AppState $state,
 	) {
+	}
+
+	/**
+	 * Flag the addresses of the blocks that ended since the last cleanup,
+	 * then delete the blocks that ended longer ago than their history.
+	 */
+	#[\Override]
+	public function purge(int $now): int {
+		$this->flagEndedBans($now);
+		return $this->mapper->deleteEndedBefore($now - max(self::BAN_HISTORY, $this->settings->banHistoryDays() * 86400));
 	}
 
 	/**
@@ -487,5 +509,24 @@ class BanService {
 			throw new \InvalidArgumentException('IPv4 blocks cover one address or a /24');
 		}
 		return [$source->ip . '/32', Ban::SCOPE_IP, $source->ipKey];
+	}
+
+	/**
+	 * Flag the addresses of blocks that ended since the last run. At most
+	 * ENDED_BANS_PER_RUN per run; the rest follow at the next. Blocks that
+	 * ended longer ago than a flag lasts are skipped: their flag would have
+	 * ended too. The progress is only written when something ended.
+	 */
+	private function flagEndedBans(int $now): void {
+		$since = max($this->state->getInt(self::BANS_FLAGGED_STATE), $now - FlaggedSources::DURATION);
+		$ended = $this->mapper->findEndedBetween($since, $now, self::ENDED_BANS_PER_RUN);
+		if ($ended === []) {
+			return;
+		}
+		foreach ($ended as $ban) {
+			$this->flags->flagEndedBan($ban);
+		}
+		// Blocks that end in the same second as the last one flagged are looked at again; flagging is idempotent.
+		$this->state->setInt(self::BANS_FLAGGED_STATE, count($ended) < self::ENDED_BANS_PER_RUN ? $now : $ended[count($ended) - 1]->getExpiresAt() - 1);
 	}
 }

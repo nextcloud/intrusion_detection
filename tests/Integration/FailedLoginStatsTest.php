@@ -136,7 +136,7 @@ class FailedLoginStatsTest extends LoginFailureTestCase {
 		$stats->record('alice', SourceKey::fromIp('203.0.113.5'));
 		$this->now = self::LATE;
 		$stats->record('alice', SourceKey::fromIp('203.0.113.5'));
-		$this->assertSame(1, $stats->deleteExpired());
+		$this->assertSame(1, $stats->purge($this->now));
 		$this->assertSame(1, $this->rows(UserDailyMapper::TABLE));
 
 		$bob = $this->user('ids-fls-bob');

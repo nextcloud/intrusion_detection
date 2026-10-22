@@ -10,6 +10,7 @@ declare(strict_types=1);
 namespace OCA\IntrusionDetection\Response;
 
 use OCA\IntrusionDetection\Cache\Caches;
+use OCA\IntrusionDetection\Db\IPurges;
 use OCA\IntrusionDetection\Response\Db\ResetSuppressionMapper;
 use OCP\AppFramework\Utility\ITimeFactory;
 use OCP\Security\Events\PasswordResetRequestedEvent;
@@ -27,7 +28,7 @@ use OCP\Security\Events\PasswordResetRequestedEvent;
  * The check is one primary-key read, cached per account for CACHE_TTL
  * seconds when a memory cache exists.
  */
-class ResetMailSuppressor {
+class ResetMailSuppressor implements IPurges {
 	/** The namespace of its memory cache in {@see Caches} */
 	public const CACHE = 'reset-mail';
 	public const CACHE_TTL = 60;
@@ -41,6 +42,15 @@ class ResetMailSuppressor {
 		private readonly ITimeFactory $timeFactory,
 		private readonly Caches $caches,
 	) {
+	}
+
+	/**
+	 * Delete the suppressions whose period is over. A row is kept for its
+	 * whole PERIOD, so that a new suppression cannot start in it.
+	 */
+	#[\Override]
+	public function purge(int $now): int {
+		return $this->mapper->deleteExpired($now, $now - self::PERIOD);
 	}
 
 	/**
@@ -65,14 +75,6 @@ class ResetMailSuppressor {
 		$this->mapper->suppress($uid, $detectionId, $now, min($until, $latest));
 		$this->caches->shared(self::CACHE)?->remove($this->key($uid));
 		return ['until' => $this->suppressedUntil($uid) ?? min($until, $latest), 'latest' => $latest];
-	}
-
-	/**
-	 * Delete suppressions whose period is over, for the cleanup job.
-	 */
-	public function deleteExpired(): void {
-		$now = $this->timeFactory->getTime();
-		$this->mapper->deleteExpired($now, $now - self::PERIOD);
 	}
 
 	/**

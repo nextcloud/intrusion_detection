@@ -32,6 +32,10 @@ enforces this on every test run.
   with the helpers `KeyMatch`, `BatchedDelete` and `MultiRowInsert`. The
   daily failed-login counts stay too: their owner is the personal page,
   above the privacy cleanup that deletes them.
+- **Each owner keeps its own retention.** The owner of a table implements
+  `Db\IPurges` with its retention constant or setting; the cleanup job only
+  runs the owners listed in `Cleanup::PURGES`, in order, each in its own
+  try/catch.
 - **`Definition` uses nothing else of the app.** It holds what a check is
   made of: `CheckDefinition` with its texts, `Mode`, `Severity`,
   `ResponseType`, the parameter types, `Requirement`, `ProtectionLevel` and

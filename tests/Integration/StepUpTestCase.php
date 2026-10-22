@@ -294,6 +294,7 @@ abstract class StepUpTestCase extends AccountTestCase {
 			$this->currentSession,
 			new LoginGate(Server::get(Caches::class), $this->session),
 			Server::get(ITimeFactory::class),
+			$this->appSettings(),
 		);
 	}
 

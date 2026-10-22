@@ -12,6 +12,7 @@ namespace OCA\IntrusionDetection\Takeover;
 use OCA\IntrusionDetection\AppInfo\Application;
 use OCA\IntrusionDetection\Confirm\EmailCodes;
 use OCA\IntrusionDetection\Crypto\Fingerprinter;
+use OCA\IntrusionDetection\Db\IPurges;
 use OCA\IntrusionDetection\Explain\DateFormatter;
 use OCA\IntrusionDetection\Notification\MailContent;
 use OCA\IntrusionDetection\Notification\Mails;
@@ -44,7 +45,7 @@ use Psr\Log\LoggerInterface;
  *
  * @psalm-import-type SecurityChangeRow from SecurityChangeMapper
  */
-class LockLinks {
+class LockLinks implements IPurges {
 	public const TTL = 7 * 86400;
 	public const TOKEN_LENGTH = 43;
 	public const ROUTE = Application::APP_ID . '.LockLink.show';
@@ -73,6 +74,14 @@ class LockLinks {
 		private readonly ITimeFactory $timeFactory,
 		private readonly LoggerInterface $logger,
 	) {
+	}
+
+	/**
+	 * Delete the lock links that expired.
+	 */
+	#[\Override]
+	public function purge(int $now): int {
+		return $this->links->deleteExpired($now);
 	}
 
 	/**

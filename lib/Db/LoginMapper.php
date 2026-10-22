@@ -16,8 +16,10 @@ use OCP\IDBConnection;
  * Which accounts logged in successfully from which address, per hour
  * (ids_logins). Feeds the shared-address safety valve. Kept for 24 hours.
  */
-class LoginMapper {
+class LoginMapper implements IPurges {
 	public const TABLE = 'ids_logins';
+	/** Logins are kept this long, as far back as the safety valve looks */
+	public const RETENTION = 86400;
 
 	public function __construct(
 		private readonly IDBConnection $db,
@@ -89,6 +91,11 @@ class LoginMapper {
 		}
 		$result->closeCursor();
 		return $rows;
+	}
+
+	#[\Override]
+	public function purge(int $now): int {
+		return $this->deleteOlderThan(intdiv($now - self::RETENTION, 3600));
 	}
 
 	public function deleteOlderThan(int $beforeHour): int {

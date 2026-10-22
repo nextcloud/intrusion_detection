@@ -10,6 +10,7 @@ declare(strict_types=1);
 namespace OCA\IntrusionDetection\Personal;
 
 use OCA\IntrusionDetection\Config\AppSettings;
+use OCA\IntrusionDetection\Db\IPurges;
 use OCA\IntrusionDetection\Db\UserDailyMapper;
 use OCA\IntrusionDetection\Net\SourceKey;
 use OCA\IntrusionDetection\ResponseDefinitions;
@@ -31,7 +32,7 @@ use OCP\AppFramework\Utility\ITimeFactory;
  *
  * @psalm-import-type IntrusionDetectionFailedLogins from ResponseDefinitions
  */
-class FailedLoginStats {
+class FailedLoginStats implements IPurges {
 	public const DAYS = 30;
 	/** Rows are kept a little longer than shown, for the time zone shift */
 	public const RETENTION_DAYS = self::DAYS + 1;
@@ -46,6 +47,15 @@ class FailedLoginStats {
 		private readonly AppSettings $settings,
 		private readonly ITimeFactory $timeFactory,
 	) {
+	}
+
+	/**
+	 * Delete the days older than RETENTION_DAYS.
+	 */
+	#[\Override]
+	public function purge(int $now): int {
+		$today = intdiv($now, self::DAY) * self::DAY;
+		return $this->mapper->deleteBefore($today - self::RETENTION_DAYS * self::DAY);
 	}
 
 	/**
@@ -173,11 +183,6 @@ class FailedLoginStats {
 			}
 		}
 		return [array_values($days), $sources, $capped];
-	}
-
-	public function deleteExpired(): int {
-		$today = intdiv($this->timeFactory->getTime(), self::DAY) * self::DAY;
-		return $this->mapper->deleteBefore($today - self::RETENTION_DAYS * self::DAY);
 	}
 
 	/**

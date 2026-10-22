@@ -14,11 +14,11 @@ use OCA\IntrusionDetection\Check\Checks\StepUpFailed\StepUpFailed;
 use OCA\IntrusionDetection\Config\AppSettings;
 use OCA\IntrusionDetection\Config\CheckSettings;
 use OCA\IntrusionDetection\Confirm\Db\StepUpSessionMapper;
+use OCA\IntrusionDetection\Db\IPurges;
 use OCA\IntrusionDetection\Detection\DetectionDraft;
 use OCA\IntrusionDetection\LoginHistory\LoginHistory;
 use OCA\IntrusionDetection\Net\SourceKey;
 use OCA\IntrusionDetection\Response\ResponseEngine;
-use OCP\AppFramework\Utility\ITimeFactory;
 use Psr\Log\LoggerInterface;
 
 /**
@@ -37,7 +37,7 @@ use Psr\Log\LoggerInterface;
  * it ends the same way, but without a detection or a notice, so that
  * turning protection back on does not tell users days later.
  */
-class AbandonedLogins {
+class AbandonedLogins implements IPurges {
 	/** Logins ended per run */
 	public const BATCH = 200;
 
@@ -48,19 +48,21 @@ class AbandonedLogins {
 		private readonly StepUpFailed $failedCheck,
 		private readonly AppSettings $appSettings,
 		private readonly CheckSettings $settings,
-		private readonly ITimeFactory $timeFactory,
 		private readonly AuditLogger $audit,
 		private readonly LoggerInterface $logger,
 	) {
 	}
 
 	/**
+	 * End the logins left waiting past their deadline.
+	 *
 	 * @return int the logins ended, with or without a notice
 	 */
-	public function end(): int {
+	#[\Override]
+	public function purge(int $now): int {
 		$enabled = $this->appSettings->isEnabled();
 		$ended = 0;
-		foreach ($this->sessions->findAbandoned($this->timeFactory->getTime(), self::BATCH) as $row) {
+		foreach ($this->sessions->findAbandoned($now, self::BATCH) as $row) {
 			if (!$this->sessions->endWaiting($row['session_key'])) {
 				continue;
 			}

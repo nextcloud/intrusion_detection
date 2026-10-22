@@ -11,6 +11,7 @@ namespace OCA\IntrusionDetection\Confirm;
 
 use OCA\IntrusionDetection\Confirm\Db\StepUpSessionMapper;
 use OCA\IntrusionDetection\Crypto\Fingerprinter;
+use OCA\IntrusionDetection\Db\IPurges;
 use OCA\IntrusionDetection\State\HotState;
 use OCP\AppFramework\Utility\ITimeFactory;
 use OCP\IConfig;
@@ -30,7 +31,7 @@ use Psr\Log\LoggerInterface;
  * Normal logins cost nothing: the table is only read while an unconfirmed
  * session may exist, which a global setting tells without a query.
  */
-class UnconfirmedSessions {
+class UnconfirmedSessions implements IPurges {
 	/** Core's defaults for how long a remembered login and a session last */
 	public const DEFAULT_REMEMBER_LIFETIME = 15 * 86400;
 	public const DEFAULT_SESSION_LIFETIME = 86400;
@@ -43,6 +44,14 @@ class UnconfirmedSessions {
 		private readonly LoggerInterface $logger,
 		private readonly HotState $hotState,
 	) {
+	}
+
+	/**
+	 * Delete the remembered sessions whose time is up.
+	 */
+	#[\Override]
+	public function purge(int $now): int {
+		return $this->mapper->deleteExpired($now);
 	}
 
 	/**
