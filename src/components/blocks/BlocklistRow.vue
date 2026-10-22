@@ -19,9 +19,9 @@ import NcRadioGroup from '@nextcloud/vue/components/NcRadioGroup'
 import NcRadioGroupButton from '@nextcloud/vue/components/NcRadioGroupButton'
 import DurationInput from '../checks/DurationInput.vue'
 import MatchSparkline from '../common/MatchSparkline.vue'
-import ReferencePill from '../common/ReferencePill.vue'
 import StateBadge from '../common/StateBadge.vue'
 import TimeStamp from '../common/TimeStamp.vue'
+import BlocklistHistory from './BlocklistHistory.vue'
 import { useAction } from '../../composables/useAction.ts'
 import { ApiError } from '../../services/api.ts'
 import { changeBlocklist, deleteBlocklist, syncBlocklistNow } from '../../stores/blocks.ts'
@@ -90,7 +90,6 @@ const points = computed(() => {
 	})
 })
 const totalMatches = computed(() => points.value.reduce((sum, p) => sum + p.value, 0))
-const latestSample = computed(() => [...props.list.matches].sort((a, b) => b.day.localeCompare(a.day)).find((d) => d.sample.length > 0)?.sample ?? [])
 
 /**
  * Save a change of the list.
@@ -311,35 +310,7 @@ async function remove() {
 			:class="$style.row__collapse"
 			:inert="!expanded">
 			<div :class="$style.row__collapseInner">
-				<dl :class="$style.details">
-					<div>
-						<dt>{{ t(APP_ID, 'Downloaded from') }}</dt>
-						<dd><code :class="$style.url">{{ list.url }}</code></dd>
-					</div>
-					<div v-if="isDeny && list.reference">
-						<dt>{{ t(APP_ID, 'Reference on the error page') }}</dt>
-						<dd :class="$style.details__inline">
-							<ReferencePill :reference="list.reference" />
-							<span :class="$style.row__muted">{{ t(APP_ID, 'Visitors refused by this list see this reference, without the name of the list.') }}</span>
-						</dd>
-					</div>
-					<div v-if="list.lastSuccessAt">
-						<dt>{{ t(APP_ID, 'Last good version') }}</dt>
-						<dd>
-							<TimeStamp :timestamp="list.lastSuccessAt" />
-							<span v-if="list.skipped > 0" :class="$style.row__muted">
-								· {{ n(APP_ID, '%n line skipped as not an address range', '%n lines skipped as not address ranges', list.skipped) }}
-							</span>
-						</dd>
-					</div>
-					<div v-if="isDeny && latestSample.length > 0">
-						<dt>{{ t(APP_ID, 'Last matched addresses') }}</dt>
-						<dd :class="$style.sample">
-							<code v-for="address in latestSample.slice(0, 8)" :key="address">{{ address }}</code>
-							<span v-if="latestSample.length > 8" :class="$style.row__muted">{{ n(APP_ID, 'and %n more', 'and %n more', latestSample.length - 8) }}</span>
-						</dd>
-					</div>
-				</dl>
+				<BlocklistHistory :list="list" />
 
 				<form :class="$style.interval" @submit.prevent="saveInterval(false)">
 					<DurationInput
@@ -593,53 +564,6 @@ async function remove() {
 	min-height: 0;
 	overflow: hidden;
 	padding-inline-start: calc(36px + var(--ids-space-3));
-}
-
-.details {
-	display: grid;
-	grid-template-columns: repeat(auto-fit, minmax(min(100%, 280px), 1fr));
-	gap: var(--ids-space-3) var(--ids-space-5);
-	margin: 0;
-}
-
-.details dt {
-	margin-bottom: var(--ids-space-1);
-	color: var(--color-text-maxcontrast);
-	font-size: 0.8em;
-	font-weight: 700;
-	letter-spacing: 0.06em;
-	text-transform: uppercase;
-}
-
-.details dd {
-	margin: 0;
-}
-
-.details__inline {
-	display: flex;
-	flex-direction: column;
-	align-items: flex-start;
-	gap: var(--ids-space-1);
-}
-
-.url {
-	font-family: var(--font-face-monospace, ui-monospace, 'SFMono-Regular', Menlo, Consolas, monospace);
-	font-size: 0.9em;
-	overflow-wrap: anywhere;
-}
-
-.sample {
-	display: flex;
-	flex-wrap: wrap;
-	gap: var(--ids-space-1-5);
-}
-
-.sample code {
-	padding-inline: var(--ids-space-1-5);
-	border-radius: var(--border-radius-element);
-	background-color: var(--color-background-hover);
-	font-family: var(--font-face-monospace, ui-monospace, 'SFMono-Regular', Menlo, Consolas, monospace);
-	font-size: 0.85em;
 }
 
 .interval {

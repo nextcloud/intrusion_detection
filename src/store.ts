@@ -64,7 +64,7 @@ const grants = resource<AdminGrantRequest[]>('admin-grants', fetchAdminGrants, {
 /** What the server derives from the global settings */
 const FROM_SETTINGS = ['status', 'checks', 'protection-level', 'blocklists', 'confirmation', 'digest', 'firewall-export', 'notifications', 'privacy', 'webhook-events']
 /** What shows the mode or the settings of checks */
-export const FROM_CHECKS = ['status', 'blocklists', 'notifications', 'privacy', 'signatures', 'traps']
+const FROM_CHECKS = ['status', 'blocklists', 'notifications', 'privacy', 'signatures', 'traps']
 /** What shows blocks */
 const FROM_BANS = ['status', 'bans', 'detections', 'detection', 'lookup']
 

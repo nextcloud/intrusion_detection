@@ -4,20 +4,19 @@
 -->
 
 <script setup lang="ts">
-import type { GlobalSetting, ParamValue } from '../../types.ts'
+import type { GlobalSetting } from '../../types.ts'
 import type { Segment } from '../../utils/format.ts'
 
 import { t } from '@nextcloud/l10n'
-import { computed, reactive, watch } from 'vue'
+import { computed } from 'vue'
 import NcButton from '@nextcloud/vue/components/NcButton'
 import NcLoadingIcon from '@nextcloud/vue/components/NcLoadingIcon'
 import ParamField from '../checks/ParamField.vue'
 import ShowMore from './ShowMore.vue'
 import { useAction } from '../../composables/useAction.ts'
-import { ApiError } from '../../services/api.ts'
-import { globalTypes, globalValues, saveSettings } from '../../store.ts'
+import { useParamDraft } from '../../composables/useParamDraft.ts'
+import { saveSettings } from '../../store.ts'
 import { APP_ID, fillTemplate } from '../../utils/format.ts'
-import { validateParam } from '../../utils/validate.ts'
 
 const props = defineProps<{
 	/** The global settings this group edits */
@@ -31,40 +30,15 @@ defineSlots<{
 	default?: (props: { fill: (template: string) => Segment[], changed: string[] }) => unknown
 }>()
 
-const draft = reactive<Record<string, unknown>>({})
-const serverErrors = reactive<Record<string, string>>({})
+const { draft, errors, changed, hasErrors, values, types, changes, discard, clearServerErrors, showAtField } = useParamDraft(() => props.settings)
 const { busy, run } = useAction()
 const saving = computed(() => busy.value !== null)
-
-watch(() => props.settings, (settings, old) => {
-	for (const setting of settings) {
-		const before = old?.find((s) => s.name === setting.name)
-		// Unsaved edits survive when another group saves.
-		if (before === undefined || !(setting.name in draft) || JSON.stringify(draft[setting.name]) === JSON.stringify(before.value)) {
-			draft[setting.name] = setting.value
-		}
-	}
-}, { immediate: true })
-
-const validation = computed(() => Object.fromEntries(props.settings.map((s) => [s.name, validateParam(s, draft[s.name])])))
-const changed = computed(() => props.settings
-	.filter((s) => {
-		const value = validation.value[s.name]?.value
-		return value !== undefined && JSON.stringify(value) !== JSON.stringify(s.value)
-	})
-	.map((s) => s.name))
-const hasErrors = computed(() => props.settings.some((s) => validation.value[s.name]?.error))
-
-const values = computed<Record<string, ParamValue>>(() => ({
-	...globalValues.value,
-	...Object.fromEntries(props.settings.map((s) => [s.name, validation.value[s.name]?.value ?? s.value])),
-}))
 
 /**
  * @param template - A template with `{name}` placeholders
  */
 function fill(template: string): Segment[] {
-	return fillTemplate(template, values.value, globalTypes.value)
+	return fillTemplate(template, values.value, types.value)
 }
 
 /**
@@ -74,27 +48,12 @@ async function save() {
 	if (hasErrors.value || changed.value.length === 0) {
 		return
 	}
-	Object.keys(serverErrors).forEach((key) => delete serverErrors[key])
-	await run('save', () => saveSettings(Object.fromEntries(changed.value.map((name) => [name, validation.value[name]!.value!]))), {
+	clearServerErrors()
+	await run('save', () => saveSettings(changes()), {
 		done: t(APP_ID, 'Saved'),
 		fallback: t(APP_ID, 'The settings could not be saved. Please try again.'),
-		handle: (error) => {
-			if (error instanceof ApiError && error.param !== null && props.settings.some((s) => s.name === error.param)) {
-				serverErrors[error.param] = error.message
-				return true
-			}
-			return false
-		},
+		handle: showAtField,
 	})
-}
-
-/**
- * Throw away the unsaved changes.
- */
-function discard() {
-	for (const setting of props.settings) {
-		draft[setting.name] = setting.value
-	}
 }
 </script>
 
@@ -108,7 +67,7 @@ function discard() {
 					:key="setting.name"
 					v-model="draft[setting.name]"
 					:param="setting"
-					:error="validation[setting.name]?.error ?? serverErrors[setting.name] ?? null"
+					:error="errors[setting.name] ?? null"
 					:disabled="saving" />
 			</div>
 		</component>

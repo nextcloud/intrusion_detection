@@ -101,7 +101,7 @@ function url(path: string): string {
 	return generateOcsUrl('apps/intrusion_detection/api/v1/' + path)
 }
 
-export interface RequestOptions {
+interface RequestOptions {
 	/** Query parameters */
 	params?: Record<string, unknown>
 	/** The request body */

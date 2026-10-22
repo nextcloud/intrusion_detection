@@ -4,11 +4,11 @@
 -->
 
 <script setup lang="ts">
-import type { Check, ParamValue } from '../../types.ts'
+import type { Check } from '../../types.ts'
 
 import { mdiFilterVariant, mdiFlaskOutline, mdiOpenInNew, mdiRestore } from '@mdi/js'
 import { t } from '@nextcloud/l10n'
-import { computed, inject, reactive, ref, watch } from 'vue'
+import { computed, inject, ref, watch } from 'vue'
 import NcButton from '@nextcloud/vue/components/NcButton'
 import NcCheckboxRadioSwitch from '@nextcloud/vue/components/NcCheckboxRadioSwitch'
 import NcDialog from '@nextcloud/vue/components/NcDialog'
@@ -19,11 +19,10 @@ import LiveSentence from './LiveSentence.vue'
 import ParamField from './ParamField.vue'
 import SimulationDialog from './SimulationDialog.vue'
 import { useAction } from '../../composables/useAction.ts'
+import { sameList, useParamDraft } from '../../composables/useParamDraft.ts'
 import { checkSections } from '../../extensions.ts'
-import { ApiError } from '../../services/api.ts'
-import { detectionFilters, globalTypes, globalValues, resetCheckToDefaults, saveCheck, state } from '../../store.ts'
+import { detectionFilters, resetCheckToDefaults, saveCheck, state } from '../../store.ts'
 import { APP_ID, fillTemplate } from '../../utils/format.ts'
-import { validateParam } from '../../utils/validate.ts'
 
 const props = defineProps<{
 	check: Check
@@ -35,9 +34,8 @@ const missingRequirement = computed(() => props.check.requirements.find((r) => !
 
 /* Settings and responses: edited as a draft and saved together. */
 
-const draft = reactive<Record<string, unknown>>({})
+const { draft, errors, changed: changedParams, hasErrors, values, types, changes, take, discard: discardParams, clearServerErrors, showAtField } = useParamDraft(() => props.check.params)
 const selected = ref<string[]>([])
-const serverErrors = reactive<Record<string, string>>({})
 const { busy, run } = useAction()
 const saving = computed(() => busy.value === 'save')
 const resetOpen = ref(false)
@@ -45,42 +43,14 @@ const resetOpen = ref(false)
 const savedResponses = computed(() => props.check.responses.filter((r) => r.selected).map((r) => r.type))
 
 watch(() => props.check, (check, old) => {
-	for (const param of check.params) {
-		const before = old?.params.find((p) => p.name === param.name)
-		// Edits the admin has not saved yet survive a reload of the check (e.g. after a mode change).
-		if (before === undefined || !(param.name in draft) || same(draft[param.name], before.value)) {
-			draft[param.name] = param.value
-		}
-	}
+	// A choice the admin has not saved yet survives a reload of the check (e.g. after a mode change).
 	if (old === undefined || sameList(selected.value, old.responses.filter((r) => r.selected).map((r) => r.type))) {
 		selected.value = check.responses.filter((r) => r.selected).map((r) => r.type)
 	}
 }, { immediate: true })
 
-const validation = computed(() => Object.fromEntries(props.check.params.map((param) => [param.name, validateParam(param, draft[param.name])])))
-
-const errors = computed<Record<string, string | null>>(() => Object.fromEntries(props.check.params.map((param) => [
-	param.name,
-	validation.value[param.name]?.error ?? serverErrors[param.name] ?? null,
-])))
-
-const changedParams = computed(() => props.check.params
-	.filter((param) => {
-		const value = validation.value[param.name]?.value
-		return value !== undefined && !same(value, param.value)
-	})
-	.map((param) => param.name))
-
 const responsesChanged = computed(() => !sameList(selected.value, savedResponses.value))
-const hasErrors = computed(() => props.check.params.some((param) => validation.value[param.name]?.error))
 const dirty = computed(() => changedParams.value.length > 0 || responsesChanged.value || hasErrors.value)
-
-/** The live values: what is typed where valid, the saved value elsewhere */
-const values = computed<Record<string, ParamValue>>(() => ({
-	...globalValues.value,
-	...Object.fromEntries(props.check.params.map((param) => [param.name, validation.value[param.name]?.value ?? param.value])),
-}))
-const types = computed(() => ({ ...globalTypes.value, ...Object.fromEntries(props.check.params.map((p) => [p.name, p.type])) }))
 
 const decides = computed(() => fillTemplate(props.check.decidesTemplate, values.value, types.value))
 const happens = computed(() => props.check.responses
@@ -95,24 +65,17 @@ async function save() {
 	if (hasErrors.value) {
 		return
 	}
-	Object.keys(serverErrors).forEach((key) => delete serverErrors[key])
-	const params = Object.fromEntries(changedParams.value.map((name) => [name, validation.value[name]!.value!]))
+	clearServerErrors()
+	const params = changes()
 	await run('save', async () => {
-		const updated = await saveCheck(props.check.id, {
+		takeSaved(await saveCheck(props.check.id, {
 			params,
 			responses: responsesChanged.value ? [...selected.value] : undefined,
-		})
-		takeSaved(updated)
+		}))
 	}, {
 		done: t(APP_ID, 'Saved: {check}', { check: props.check.texts.name }),
 		fallback: t(APP_ID, 'The changes could not be saved. Please try again.'),
-		handle: (error) => {
-			if (error instanceof ApiError && error.param !== null && props.check.params.some((p) => p.name === error.param)) {
-				serverErrors[error.param] = error.message
-				return true
-			}
-			return false
-		},
+		handle: showAtField,
 	})
 }
 
@@ -122,9 +85,7 @@ async function save() {
  * @param updated - The check as the server returned it
  */
 function takeSaved(updated: Check) {
-	for (const param of updated.params) {
-		draft[param.name] = param.value
-	}
+	take(updated.params)
 	selected.value = updated.responses.filter((r) => r.selected).map((r) => r.type)
 }
 
@@ -132,11 +93,8 @@ function takeSaved(updated: Check) {
  * Throw away the unsaved changes.
  */
 function discard() {
-	for (const param of props.check.params) {
-		draft[param.name] = param.value
-	}
+	discardParams()
 	selected.value = [...savedResponses.value]
-	Object.keys(serverErrors).forEach((key) => delete serverErrors[key])
 }
 
 /**
@@ -173,22 +131,6 @@ const simulating = ref(false)
 const sectionsAfter = (after: string) => checkSections.filter((section) => section.after === after && (section.checks.length === 0 || section.checks.includes(props.check.id)))
 
 const learnMoreUrl = computed(() => state.docUrl ? `${state.docUrl}#check-${props.check.id}` : '')
-
-/**
- * @param a - A value
- * @param b - Another value
- */
-function same(a: unknown, b: unknown): boolean {
-	return Array.isArray(a) && Array.isArray(b) ? sameList(a.map(String), b.map(String)) : a === b
-}
-
-/**
- * @param a - A list
- * @param b - Another list
- */
-function sameList(a: string[], b: string[]): boolean {
-	return a.length === b.length && a.every((item) => b.includes(item))
-}
 </script>
 
 <template>

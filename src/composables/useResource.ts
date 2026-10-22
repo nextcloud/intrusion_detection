@@ -46,7 +46,7 @@ interface Entry<T> {
 }
 
 /** Data older than this is loaded again when a component shows it again */
-export const STALE_AFTER = 30_000
+const STALE_AFTER = 30_000
 
 const entries = new Map<string, Entry<unknown>>()
 
