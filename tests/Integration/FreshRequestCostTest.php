@@ -9,7 +9,11 @@ declare(strict_types=1);
 
 namespace OCA\IntrusionDetection\Tests\Integration;
 
+use OCA\IntrusionDetection\AppInfo\Application;
+use OCA\IntrusionDetection\Config\Keys;
+use OCA\IntrusionDetection\Config\LexiconData;
 use OCA\IntrusionDetection\Db\LoginMapper;
+use OCA\IntrusionDetection\Definition\Mode;
 use OCA\IntrusionDetection\LoginHistory\Db\LoginHistoryMapper;
 use OCA\IntrusionDetection\Perf\FreshRequestProbe;
 use OCP\IUser;
@@ -63,11 +67,22 @@ class FreshRequestCostTest extends IntegrationTestCase {
 		$this->assertSame(1, count(Server::get(LoginMapper::class)->distinctUidsForIp('4:203.0.113.71', 0, 100)) + count(Server::get(LoginMapper::class)->distinctUidsForIp('203.0.113.71', 0, 100)));
 	}
 
+	public function testAFailedLoginWithEveryCheckOffLoadsLittleAndQueriesLittle(): void {
+		foreach (array_keys(LexiconData::CHECKS) as $id) {
+			$this->appConfig->setValueString(Application::APP_ID, Keys::mode($id), Mode::Off->value);
+		}
+		/** @var array{classes: list<string>, queries: int} $result */
+		$result = $this->runFresh('failed-login.php');
+
+		$this->assertLessThanOrEqual(56, count($result['classes']), implode("\n", $result['classes']));
+		$this->assertLessThanOrEqual(2, $result['queries']);
+	}
+
 	/**
-	 * @return array{afterBoot: list<string>, lexicon: array{classes: list<string>, queries: int}, firstLogin: array{classes: list<string>, queries: int}, repeatedLogin: array{classes: list<string>, queries: int}, davPlugin: array{classes: list<string>, queries: int}}
+	 * @return array<string, mixed>
 	 */
-	private function runFresh(): array {
-		$script = dirname(__DIR__) . '/fixtures/fresh/login-request.php';
+	private function runFresh(string $fixture = 'login-request.php'): array {
+		$script = dirname(__DIR__) . '/fixtures/fresh/' . $fixture;
 		$process = proc_open([PHP_BINARY, $script, FreshRequestProbe::serverRoot(), self::UID], [1 => ['pipe', 'w'], 2 => ['pipe', 'w']], $pipes);
 		$this->assertIsResource($process);
 		$output = (string)stream_get_contents($pipes[1]);

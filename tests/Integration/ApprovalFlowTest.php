@@ -64,6 +64,7 @@ class ApprovalFlowTest extends AdminChangeTestCase {
 		$this->assertTrue($facts['reverted']);
 		$this->assertSame($approval->getId(), $facts['approval']);
 		$this->assertSame([], $this->notificationsWithSubject(AdminAlerts::SUBJECT), 'The approval request is the only notification');
+		$this->assertSame([], $detection->getActionList(), 'No response runs for a held-back grant');
 
 		$asked = $this->notificationsWithSubject(Notifier::SUBJECT_APPROVAL_REQUESTED);
 		$askedUsers = array_map(static fn (INotification $n): string => $n->getUser(), $asked);
