@@ -9,6 +9,8 @@ declare(strict_types=1);
 
 namespace OCA\IntrusionDetection\Check;
 
+use OCA\IntrusionDetection\Definition\CheckDefinition;
+
 /**
  * A check: its definition, and (in the implementing class) the code that
  * detects what the definition describes.

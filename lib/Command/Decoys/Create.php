@@ -10,9 +10,9 @@ declare(strict_types=1);
 namespace OCA\IntrusionDetection\Command\Decoys;
 
 use OC\Core\Command\Base;
-use OCA\IntrusionDetection\Check\InvalidParamException;
 use OCA\IntrusionDetection\Decoy\DecoyFormat;
 use OCA\IntrusionDetection\Decoy\DecoyService;
+use OCA\IntrusionDetection\Definition\InvalidParamException;
 use OCP\IL10N;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Input\InputOption;

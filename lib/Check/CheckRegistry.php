@@ -9,6 +9,8 @@ declare(strict_types=1);
 
 namespace OCA\IntrusionDetection\Check;
 
+use OCA\IntrusionDetection\Definition\CheckDefinition;
+use OCA\IntrusionDetection\Definition\InvalidParamException;
 use Psr\Container\ContainerInterface;
 
 /**

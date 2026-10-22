@@ -10,6 +10,7 @@ declare(strict_types=1);
 namespace OCA\IntrusionDetection\Confirm;
 
 use OCA\IntrusionDetection\AppInfo\Application;
+use OCA\IntrusionDetection\Config\UserKeys;
 use OCA\IntrusionDetection\Explain\TextRenderer;
 use OCA\IntrusionDetection\Notification\MailContent;
 use OCA\IntrusionDetection\Notification\Mails;
@@ -45,8 +46,6 @@ class EmailCodes {
 	public const RESEND_WINDOW = 600;
 	public const MAX_MAILS = 5;
 	public const MAIL_WINDOW = 3600;
-	/** When the account's recent codes were sent */
-	public const USER_KEY_MAILS = 'code_mails';
 
 	public const VERIFIED = 'verified';
 	public const WRONG = 'wrong';
@@ -97,7 +96,7 @@ class EmailCodes {
 		if (!$this->mails->send($user, $this->mail($user, $state, $code))) {
 			return false;
 		}
-		$this->userConfig->setValueArray($user->getUID(), Application::APP_ID, self::USER_KEY_MAILS, [...$sent, $this->timeFactory->getTime()], lazy: true);
+		$this->userConfig->setValueArray($user->getUID(), Application::APP_ID, UserKeys::CODE_MAILS, [...$sent, $this->timeFactory->getTime()], lazy: true);
 		$state->codeHash = $this->hasher->hash($code);
 		$state->codeExpires = $this->timeFactory->getTime() + self::TTL;
 		return true;
@@ -192,7 +191,7 @@ class EmailCodes {
 	 */
 	private function recentMails(string $uid): array {
 		$since = $this->timeFactory->getTime() - self::MAIL_WINDOW;
-		$sent = $this->userConfig->getValueArray($uid, Application::APP_ID, self::USER_KEY_MAILS, lazy: true);
+		$sent = $this->userConfig->getValueArray($uid, Application::APP_ID, UserKeys::CODE_MAILS, lazy: true);
 		return array_values(array_filter($sent, static fn (mixed $at): bool => is_int($at) && $at > $since));
 	}
 

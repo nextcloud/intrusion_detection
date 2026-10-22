@@ -10,9 +10,9 @@ declare(strict_types=1);
 namespace OCA\IntrusionDetection\Tests\Integration;
 
 use OCA\IntrusionDetection\Check\Checks\ReservedName;
-use OCA\IntrusionDetection\Check\InvalidParamException;
-use OCA\IntrusionDetection\Check\Mode;
 use OCA\IntrusionDetection\Db\BanMapper;
+use OCA\IntrusionDetection\Definition\InvalidParamException;
+use OCA\IntrusionDetection\Definition\Mode;
 use OCA\IntrusionDetection\Traps\ReservedNames;
 use OCP\Server;
 use PHPUnit\Framework\Attributes\Group;

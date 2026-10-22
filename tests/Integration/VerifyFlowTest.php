@@ -11,6 +11,7 @@ namespace OCA\IntrusionDetection\Tests\Integration;
 
 use OCA\IntrusionDetection\AppInfo\Application;
 use OCA\IntrusionDetection\Check\Checks\StepUpFailed;
+use OCA\IntrusionDetection\Config\UserKeys;
 use OCA\IntrusionDetection\Confirm\EmailCodes;
 use OCA\IntrusionDetection\Confirm\IConfirmationMethod;
 use OCA\IntrusionDetection\Confirm\StepUpService;
@@ -168,7 +169,7 @@ class VerifyFlowTest extends StepUpTestCase {
 	}
 
 	public function testAfterFiveCodesInAnHourTheLoginWaitsWithoutANewOne(): void {
-		Server::get(IUserConfig::class)->setValueArray($this->alice->getUID(), Application::APP_ID, EmailCodes::USER_KEY_MAILS, array_fill(0, EmailCodes::MAX_MAILS, time() - 60), lazy: true);
+		Server::get(IUserConfig::class)->setValueArray($this->alice->getUID(), Application::APP_ID, UserKeys::CODE_MAILS, array_fill(0, EmailCodes::MAX_MAILS, time() - 60), lazy: true);
 		$this->pendingLogin();
 		$this->assertSame([IConfirmationMethod::EMAIL_CODE], $this->stepUp()?->methods, 'Still held: never let through for lack of a code');
 		$this->assertNull($this->stepUp()?->codeHash);

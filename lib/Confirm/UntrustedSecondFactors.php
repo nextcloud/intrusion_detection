@@ -10,6 +10,7 @@ declare(strict_types=1);
 namespace OCA\IntrusionDetection\Confirm;
 
 use OCA\IntrusionDetection\AppInfo\Application;
+use OCA\IntrusionDetection\Config\UserKeys;
 use OCP\AppFramework\Utility\ITimeFactory;
 use OCP\Config\IUserConfig;
 use OCP\IUserSession;
@@ -34,7 +35,6 @@ use OCP\IUserSession;
  * by itself, provider id => ['at' => when it was set up, 'until' => when it counts].
  */
 class UntrustedSecondFactors {
-	public const USER_KEY = 'untrusted_second_factors';
 	/** Marks kept per account; older ones are dropped first */
 	public const MAX = 20;
 	/** How long a provider set up from a session that proved only the password does not count */
@@ -104,7 +104,7 @@ class UntrustedSecondFactors {
 	private function stored(string $uid): array {
 		$now = $this->timeFactory->getTime();
 		$marks = [];
-		foreach ($this->userConfig->getValueArray($uid, Application::APP_ID, self::USER_KEY) as $id => $mark) {
+		foreach ($this->userConfig->getValueArray($uid, Application::APP_ID, UserKeys::UNTRUSTED_SECOND_FACTORS) as $id => $mark) {
 			if (!is_string($id)) {
 				continue;
 			}
@@ -123,9 +123,9 @@ class UntrustedSecondFactors {
 	 */
 	private function store(string $uid, array $marks): void {
 		if ($marks === []) {
-			$this->userConfig->deleteUserConfig($uid, Application::APP_ID, self::USER_KEY);
+			$this->userConfig->deleteUserConfig($uid, Application::APP_ID, UserKeys::UNTRUSTED_SECOND_FACTORS);
 			return;
 		}
-		$this->userConfig->setValueArray($uid, Application::APP_ID, self::USER_KEY, $marks);
+		$this->userConfig->setValueArray($uid, Application::APP_ID, UserKeys::UNTRUSTED_SECOND_FACTORS, $marks);
 	}
 }

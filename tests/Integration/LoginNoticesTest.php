@@ -14,6 +14,7 @@ use OCA\IntrusionDetection\AppInfo\Application;
 use OCA\IntrusionDetection\Audit\AuditLogger;
 use OCA\IntrusionDetection\Check\Checks\StepUpRefused;
 use OCA\IntrusionDetection\Check\Checks\UserDenied;
+use OCA\IntrusionDetection\Config\UserKeys;
 use OCA\IntrusionDetection\Confirm\IConfirmationMethod;
 use OCA\IntrusionDetection\Controller\NoticeController;
 use OCA\IntrusionDetection\Db\DetectionMapper;
@@ -67,7 +68,7 @@ class LoginNoticesTest extends StepUpTestCase {
 		$this->assertSame($detection->getCreatedAt(), $since);
 		$this->assertNotSame([], $this->notificationsFor($this->bob->getUID()), 'The notification as for everyone');
 
-		$this->assertTrue(Server::get(IUserConfig::class)->hasKey($this->bob->getUID(), Application::APP_ID, LoginNotices::USER_KEY));
+		$this->assertTrue(Server::get(IUserConfig::class)->hasKey($this->bob->getUID(), Application::APP_ID, UserKeys::LOGIN_NOTICE_SINCE));
 		$this->notices()->remember($this->bob->getUID(), $since + 100);
 		$this->assertSame($since, $this->notices()->since($this->bob->getUID()), 'The oldest one is kept');
 	}

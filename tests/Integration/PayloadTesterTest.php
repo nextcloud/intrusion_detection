@@ -10,10 +10,10 @@ declare(strict_types=1);
 namespace OCA\IntrusionDetection\Tests\Integration;
 
 use OCA\IntrusionDetection\Check\Checks\InjectionProbe;
-use OCA\IntrusionDetection\Check\Mode;
 use OCA\IntrusionDetection\Check\Payload\PayloadTester;
 use OCA\IntrusionDetection\Command\Payload\Test;
 use OCA\IntrusionDetection\Config\Settings;
+use OCA\IntrusionDetection\Definition\Mode;
 use OCP\IL10N;
 use OCP\L10N\IFactory;
 use OCP\Server;

@@ -11,11 +11,11 @@ namespace OCA\IntrusionDetection\Notification;
 
 use OCA\IntrusionDetection\AppInfo\Application;
 use OCA\IntrusionDetection\Check\CheckRegistry;
-use OCA\IntrusionDetection\Check\Severity;
 use OCA\IntrusionDetection\Config\GlobalSettings;
 use OCA\IntrusionDetection\Config\Settings;
 use OCA\IntrusionDetection\Db\AlertMapper;
 use OCA\IntrusionDetection\Db\Detection;
+use OCA\IntrusionDetection\Definition\Severity;
 use OCA\IntrusionDetection\Explain\DetectionHeadline;
 use OCA\IntrusionDetection\Explain\NarrativeBuilder;
 use OCP\AppFramework\Utility\ITimeFactory;

@@ -10,15 +10,16 @@ declare(strict_types=1);
 namespace OCA\IntrusionDetection\Config;
 
 use OCA\IntrusionDetection\Check\Checks\AdminChange;
-use OCA\IntrusionDetection\Check\InvalidParamException;
 use OCA\IntrusionDetection\Check\IValidatesParams;
-use OCA\IntrusionDetection\Check\ParamDefinition;
-use OCA\IntrusionDetection\Check\ParamPreset;
-use OCA\IntrusionDetection\Check\ParamType;
 use OCA\IntrusionDetection\Confirm\Methods\KnownDeviceMethod;
 use OCA\IntrusionDetection\Confirm\NoMethodOutcome;
 use OCA\IntrusionDetection\Confirm\StepUpPolicy;
 use OCA\IntrusionDetection\Confirm\StepUpReasons;
+use OCA\IntrusionDetection\Definition\InvalidParamException;
+use OCA\IntrusionDetection\Definition\ParamDefinition;
+use OCA\IntrusionDetection\Definition\ParamPreset;
+use OCA\IntrusionDetection\Definition\ParamType;
+use OCA\IntrusionDetection\Definition\ProtectionLevel;
 use OCA\IntrusionDetection\Net\ServerAddresses;
 
 /**

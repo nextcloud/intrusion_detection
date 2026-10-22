@@ -9,10 +9,10 @@ declare(strict_types=1);
 
 namespace OCA\IntrusionDetection\Tests\Unit\Dav;
 
-use OCA\IntrusionDetection\Check\Mode;
 use OCA\IntrusionDetection\Config\ModeState;
 use OCA\IntrusionDetection\Config\Settings;
 use OCA\IntrusionDetection\Dav\FederatedShareUsePlugin;
+use OCA\IntrusionDetection\Definition\Mode;
 use OCA\IntrusionDetection\Listener\SabrePluginAddListener;
 use OCA\IntrusionDetection\Net\RemoteAddressResolver;
 use OCA\IntrusionDetection\Net\SourceKey;

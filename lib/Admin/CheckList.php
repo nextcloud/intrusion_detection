@@ -9,10 +9,10 @@ declare(strict_types=1);
 
 namespace OCA\IntrusionDetection\Admin;
 
-use OCA\IntrusionDetection\Check\Category;
-use OCA\IntrusionDetection\Check\CheckDefinition;
 use OCA\IntrusionDetection\Check\CheckRegistry;
 use OCA\IntrusionDetection\Db\StatsMapper;
+use OCA\IntrusionDetection\Definition\Category;
+use OCA\IntrusionDetection\Definition\CheckDefinition;
 use OCA\IntrusionDetection\Detection\DetectionTotals;
 use OCA\IntrusionDetection\Explain\CheckPresenter;
 use OCA\IntrusionDetection\ResponseDefinitions;

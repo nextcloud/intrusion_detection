@@ -11,11 +11,12 @@ namespace OCA\IntrusionDetection\Tests\Integration;
 
 use OCA\IntrusionDetection\AppInfo\Application;
 use OCA\IntrusionDetection\Audit\AuditLogger;
-use OCA\IntrusionDetection\Check\InvalidParamException;
 use OCA\IntrusionDetection\Command\Credentials\Stale;
 use OCA\IntrusionDetection\Config\GlobalSettings;
+use OCA\IntrusionDetection\Config\UserKeys;
 use OCA\IntrusionDetection\Controller\StaleCredentialsApiController;
 use OCA\IntrusionDetection\Db\StaleTokenMapper;
+use OCA\IntrusionDetection\Definition\InvalidParamException;
 use OCA\IntrusionDetection\Notification\Notifier;
 use OCA\IntrusionDetection\SetupCheck\Finding;
 use OCA\IntrusionDetection\SetupCheck\StaleCredentialsCheck;
@@ -185,7 +186,7 @@ class StaleCredentialsTest extends AccountTestCase {
 		$reminders = $this->notificationsFor($user->getUID(), StaleCredentialNotices::SUBJECT_REMINDER);
 		$this->assertCount(1, $reminders);
 		$this->assertSame(['appPasswords' => 2, 'sessions' => 0, 'days' => 90], $reminders[0]->getSubjectParameters());
-		$this->assertSame($this->now, Server::get(IUserConfig::class)->getValueInt($user->getUID(), Application::APP_ID, StaleCredentialSweep::USER_KEY));
+		$this->assertSame($this->now, Server::get(IUserConfig::class)->getValueInt($user->getUID(), Application::APP_ID, UserKeys::STALE_CREDENTIALS_NOTIFIED_AT));
 		$this->assertSame('You have 2 app passwords you haven\'t used for 3 months', $this->prepared($reminders[0])->getParsedSubject());
 
 		$this->assertNull($this->sweep()->runIfDue(), 'once a day');

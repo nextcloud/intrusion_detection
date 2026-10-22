@@ -9,7 +9,7 @@ declare(strict_types=1);
 
 namespace OCA\IntrusionDetection\Config;
 
-use OCA\IntrusionDetection\Check\Requirement;
+use OCA\IntrusionDetection\Definition\Requirement;
 use OCP\ICacheFactory;
 use OCP\IConfig;
 

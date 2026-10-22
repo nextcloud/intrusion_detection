@@ -33,7 +33,7 @@ class FreshRequestBenchmarkTest extends IntegrationTestCase {
 			|| str_starts_with($class, 'OCA\\IntrusionDetection\\Confirm\\')
 			|| str_starts_with($class, 'OCA\\IntrusionDetection\\Explain\\')));
 		$this->assertSame([], $checks, 'no check, step-up reason or explanation class is loaded');
-		$this->assertNotContains('OCA\\IntrusionDetection\\Check\\CheckDefinition', $result['classes']);
+		$this->assertNotContains('OCA\\IntrusionDetection\\Definition\\CheckDefinition', $result['classes']);
 		$this->assertContains('OCA\\IntrusionDetection\\Config\\LexiconData', $result['classes']);
 		$this->assertLessThanOrEqual(self::MAX_APP_CLASSES, $result['app_classes'], implode(', ', $result['classes']));
 		$this->assertLessThan(self::SETTINGS_BUDGET_US, $result['settings_us']);

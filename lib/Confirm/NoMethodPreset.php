@@ -9,8 +9,8 @@ declare(strict_types=1);
 
 namespace OCA\IntrusionDetection\Confirm;
 
-use OCA\IntrusionDetection\Check\InvalidParamException;
 use OCA\IntrusionDetection\Config\Settings;
+use OCA\IntrusionDetection\Definition\InvalidParamException;
 
 /**
  * The one choice on the admin page for logins that need extra confirmation

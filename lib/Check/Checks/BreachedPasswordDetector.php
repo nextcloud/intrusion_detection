@@ -12,6 +12,7 @@ namespace OCA\IntrusionDetection\Check\Checks;
 use OCA\IntrusionDetection\AppInfo\Application;
 use OCA\IntrusionDetection\Breach\PwnedPasswordsClient;
 use OCA\IntrusionDetection\Config\Settings;
+use OCA\IntrusionDetection\Config\UserKeys;
 use OCA\IntrusionDetection\Detection\DetectionDraft;
 use OCA\IntrusionDetection\Net\RemoteAddressResolver;
 use OCA\IntrusionDetection\Response\ResponseEngine;
@@ -35,8 +36,6 @@ use OCP\IUser;
  * count in the list (a count can identify a password).
  */
 class BreachedPasswordDetector {
-	public const KEY_CHECKED_AT = 'breach_checked_at';
-	public const KEY_BREACHED = 'breached';
 
 	/** @var array<string, ?bool> results of this request, per account */
 	private array $results = [];
@@ -57,14 +56,14 @@ class BreachedPasswordDetector {
 	 * the check's mode is now.
 	 */
 	public function isBreached(IUser|string $user): bool {
-		return $this->userConfig->getValueBool(self::uid($user), Application::APP_ID, self::KEY_BREACHED, false, true);
+		return $this->userConfig->getValueBool(self::uid($user), Application::APP_ID, UserKeys::BREACHED, false, true);
 	}
 
 	/**
 	 * When the account's current password was last checked, or null.
 	 */
 	public function checkedAt(IUser|string $user): ?int {
-		$checkedAt = $this->userConfig->getValueInt(self::uid($user), Application::APP_ID, self::KEY_CHECKED_AT, 0, true);
+		$checkedAt = $this->userConfig->getValueInt(self::uid($user), Application::APP_ID, UserKeys::BREACH_CHECKED_AT, 0, true);
 		return $checkedAt > 0 ? $checkedAt : null;
 	}
 
@@ -110,11 +109,11 @@ class BreachedPasswordDetector {
 			return null;
 		}
 		$found = $count >= $this->settings->paramInt(BreachedPassword::ID, 'min_count');
-		$this->userConfig->setValueInt($uid, Application::APP_ID, self::KEY_CHECKED_AT, $this->timeFactory->getTime(), true);
+		$this->userConfig->setValueInt($uid, Application::APP_ID, UserKeys::BREACH_CHECKED_AT, $this->timeFactory->getTime(), true);
 		if ($found) {
-			$this->userConfig->setValueBool($uid, Application::APP_ID, self::KEY_BREACHED, true, true);
+			$this->userConfig->setValueBool($uid, Application::APP_ID, UserKeys::BREACHED, true, true);
 		} else {
-			$this->userConfig->deleteUserConfig($uid, Application::APP_ID, self::KEY_BREACHED);
+			$this->userConfig->deleteUserConfig($uid, Application::APP_ID, UserKeys::BREACHED);
 		}
 		$this->results[$uid] = $found;
 
@@ -138,8 +137,8 @@ class BreachedPasswordDetector {
 	 */
 	public function reset(IUser|string $user): void {
 		$uid = self::uid($user);
-		$this->userConfig->deleteUserConfig($uid, Application::APP_ID, self::KEY_CHECKED_AT);
-		$this->userConfig->deleteUserConfig($uid, Application::APP_ID, self::KEY_BREACHED);
+		$this->userConfig->deleteUserConfig($uid, Application::APP_ID, UserKeys::BREACH_CHECKED_AT);
+		$this->userConfig->deleteUserConfig($uid, Application::APP_ID, UserKeys::BREACHED);
 		unset($this->results[$uid]);
 	}
 

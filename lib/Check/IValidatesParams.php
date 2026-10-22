@@ -9,6 +9,8 @@ declare(strict_types=1);
 
 namespace OCA\IntrusionDetection\Check;
 
+use OCA\IntrusionDetection\Definition\InvalidParamException;
+
 /**
  * A check with rules for its parameters beyond type and range, for example
  * "a reserved name must not be an existing account". Settings calls it on

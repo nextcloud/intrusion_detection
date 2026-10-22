@@ -11,10 +11,10 @@ namespace OCA\IntrusionDetection\Tests\Unit\Takeover;
 
 use OCA\IntrusionDetection\Check\Checks\AccountLocked;
 use OCA\IntrusionDetection\Check\Checks\AccountTakeover;
-use OCA\IntrusionDetection\Check\Mode;
-use OCA\IntrusionDetection\Check\ResponseType;
-use OCA\IntrusionDetection\Check\Severity;
 use OCA\IntrusionDetection\Db\Detection;
+use OCA\IntrusionDetection\Definition\Mode;
+use OCA\IntrusionDetection\Definition\ResponseType;
+use OCA\IntrusionDetection\Definition\Severity;
 use OCA\IntrusionDetection\Explain\DateFormatter;
 use OCA\IntrusionDetection\Takeover\SecurityChangeType;
 use OCP\IDateTimeFormatter;

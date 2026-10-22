@@ -10,9 +10,9 @@ declare(strict_types=1);
 namespace OCA\IntrusionDetection\Event;
 
 use OCA\IntrusionDetection\Check\Checks\CredentialStuffing;
-use OCA\IntrusionDetection\Check\Severity;
 use OCA\IntrusionDetection\Db\Ban;
 use OCA\IntrusionDetection\Db\Detection;
+use OCA\IntrusionDetection\Definition\Severity;
 use OCA\IntrusionDetection\ResponseDefinitions;
 use OCP\AppFramework\Utility\ITimeFactory;
 use OCP\EventDispatcher\IWebhookCompatibleEvent;

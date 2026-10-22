@@ -7,7 +7,7 @@ declare(strict_types=1);
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 
-namespace OCA\IntrusionDetection\Check;
+namespace OCA\IntrusionDetection\Definition;
 
 /**
  * How a check runs: not at all, recording only, or acting.

@@ -11,6 +11,7 @@ namespace OCA\IntrusionDetection\Guide;
 
 use OC\Authentication\TwoFactorAuth\ProviderLoader;
 use OCA\IntrusionDetection\AppInfo\Application;
+use OCA\IntrusionDetection\Config\UserKeys;
 use OCP\AppFramework\Utility\ITimeFactory;
 use OCP\Authentication\TwoFactorAuth\IRegistry;
 use OCP\Config\IUserConfig;
@@ -37,7 +38,6 @@ use Psr\Log\LoggerInterface;
  * - sessions, email, shares, files: the user confirms they checked them.
  */
 class SecureAccountGuide {
-	public const USER_KEY = 'secure_guide';
 
 	public const STEP_PASSWORD = 'password';
 	public const STEP_SESSIONS = 'sessions';
@@ -107,7 +107,7 @@ class SecureAccountGuide {
 	 * @return ?array{v: int, started: int, event: int, reason: string, detection: ?int, done: array<string, int>, closed: ?int, closedBy: ?string}
 	 */
 	public function state(string $uid): ?array {
-		$raw = $this->userConfig->getValueString($uid, Application::APP_ID, self::USER_KEY, '', true);
+		$raw = $this->userConfig->getValueString($uid, Application::APP_ID, UserKeys::SECURE_GUIDE, '', true);
 		$data = $raw === '' ? null : json_decode($raw, true);
 		if (!is_array($data) || !is_int($data['started'] ?? null)) {
 			return null;
@@ -268,7 +268,7 @@ class SecureAccountGuide {
 	 * @param array{v: int, started: int, event: int, reason: string, detection: ?int, done: array<string, int>, closed: ?int, closedBy: ?string} $state
 	 */
 	private function save(string $uid, array $state): void {
-		$this->userConfig->setValueString($uid, Application::APP_ID, self::USER_KEY, json_encode($state, JSON_THROW_ON_ERROR), true);
+		$this->userConfig->setValueString($uid, Application::APP_ID, UserKeys::SECURE_GUIDE, json_encode($state, JSON_THROW_ON_ERROR), true);
 	}
 
 	/**

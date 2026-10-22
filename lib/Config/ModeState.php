@@ -9,8 +9,8 @@ declare(strict_types=1);
 
 namespace OCA\IntrusionDetection\Config;
 
-use OCA\IntrusionDetection\Check\Mode;
-use OCA\IntrusionDetection\Check\Requirement;
+use OCA\IntrusionDetection\Definition\Mode;
+use OCA\IntrusionDetection\Definition\Requirement;
 
 /**
  * The mode a check is set to, the mode it runs in, and why they differ.

@@ -10,7 +10,7 @@ declare(strict_types=1);
 namespace OCA\IntrusionDetection\Command;
 
 use OC\Core\Command\Base;
-use OCA\IntrusionDetection\Check\InvalidParamException;
+use OCA\IntrusionDetection\Definition\InvalidParamException;
 use OCA\IntrusionDetection\Traps\ReservedNames as ReservedNamesService;
 use OCP\IL10N;
 use Symfony\Component\Console\Input\InputInterface;

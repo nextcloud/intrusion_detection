@@ -10,10 +10,10 @@ declare(strict_types=1);
 namespace OCA\IntrusionDetection\Tests\Unit\Check\Payload;
 
 use OCA\IntrusionDetection\Check\Checks\InjectionProbe;
-use OCA\IntrusionDetection\Check\Mode;
 use OCA\IntrusionDetection\Check\Payload\PayloadSettings;
 use OCA\IntrusionDetection\Config\ModeState;
 use OCA\IntrusionDetection\Config\Settings;
+use OCA\IntrusionDetection\Definition\Mode;
 use PHPUnit\Framework\Attributes\DataProvider;
 use Test\TestCase;
 

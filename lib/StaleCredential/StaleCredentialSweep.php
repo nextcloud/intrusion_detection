@@ -12,6 +12,7 @@ namespace OCA\IntrusionDetection\StaleCredential;
 use OCA\IntrusionDetection\AppInfo\Application;
 use OCA\IntrusionDetection\Config\GlobalSettings;
 use OCA\IntrusionDetection\Config\Settings;
+use OCA\IntrusionDetection\Config\UserKeys;
 use OCA\IntrusionDetection\Db\StaleTokenMapper;
 use OCP\AppFramework\Utility\ITimeFactory;
 use OCP\Config\IUserConfig;
@@ -37,7 +38,6 @@ use Psr\Log\LoggerInterface;
  * next days. The hourly status job runs it once every RUN_EVERY seconds.
  */
 class StaleCredentialSweep {
-	public const USER_KEY = 'stale_credentials_notified_at';
 	public const REMIND_EVERY = 30 * 86400;
 	/** Accounts read per query */
 	public const PAGE = 1000;
@@ -84,7 +84,7 @@ class StaleCredentialSweep {
 		$removeDays = $this->removeDays();
 		$removeBefore = $removeDays === 0 ? null : $now - $removeDays * 86400;
 		/** @var array<string, int> $remindedAt */
-		$remindedAt = $this->userConfig->getValuesByUsers(Application::APP_ID, self::USER_KEY, ValueType::INT);
+		$remindedAt = $this->userConfig->getValuesByUsers(Application::APP_ID, UserKeys::STALE_CREDENTIALS_NOTIFIED_AT, ValueType::INT);
 		$reminded = 0;
 		$removed = 0;
 		$after = null;
@@ -106,7 +106,7 @@ class StaleCredentialSweep {
 						continue;
 					}
 					$this->notices->remind($uid, $account['appPasswords'], $account['sessions']);
-					$this->userConfig->setValueInt($uid, Application::APP_ID, self::USER_KEY, $now);
+					$this->userConfig->setValueInt($uid, Application::APP_ID, UserKeys::STALE_CREDENTIALS_NOTIFIED_AT, $now);
 					$reminded++;
 				} catch (\Throwable $e) {
 					$this->logger->error('Intrusion detection could not handle the unused app passwords and devices of {uid}', ['uid' => $uid, 'exception' => $e]);

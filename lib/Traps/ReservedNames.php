@@ -11,8 +11,8 @@ namespace OCA\IntrusionDetection\Traps;
 
 use OCA\IntrusionDetection\Audit\AuditLogger;
 use OCA\IntrusionDetection\Check\Checks\ReservedName;
-use OCA\IntrusionDetection\Check\InvalidParamException;
 use OCA\IntrusionDetection\Config\Settings;
+use OCA\IntrusionDetection\Definition\InvalidParamException;
 
 /**
  * The reserved login names of the `reserved_name` check.

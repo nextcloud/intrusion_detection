@@ -10,6 +10,7 @@ declare(strict_types=1);
 namespace OCA\IntrusionDetection\Notification;
 
 use OCA\IntrusionDetection\AppInfo\Application;
+use OCA\IntrusionDetection\Config\UserKeys;
 use OCA\IntrusionDetection\Db\KnownDeviceMapper;
 use OCA\IntrusionDetection\KnownDevice\KnownDevice;
 use OCA\IntrusionDetection\KnownDevice\KnownDevices;
@@ -32,7 +33,6 @@ use OCP\Config\IUserConfig;
  * - Continuing clears it.
  */
 class LoginNotices {
-	public const USER_KEY = 'login_notice_since';
 
 	public function __construct(
 		private readonly IUserConfig $userConfig,
@@ -49,7 +49,7 @@ class LoginNotices {
 	public function remember(string $uid, int $at): void {
 		$since = $this->since($uid);
 		if ($since === null || $at < $since) {
-			$this->userConfig->setValueInt($uid, Application::APP_ID, self::USER_KEY, $at);
+			$this->userConfig->setValueInt($uid, Application::APP_ID, UserKeys::LOGIN_NOTICE_SINCE, $at);
 		}
 	}
 
@@ -57,7 +57,7 @@ class LoginNotices {
 	 * When the oldest event not shown yet happened, or null.
 	 */
 	public function since(string $uid): ?int {
-		$since = $this->userConfig->getValueInt($uid, Application::APP_ID, self::USER_KEY);
+		$since = $this->userConfig->getValueInt($uid, Application::APP_ID, UserKeys::LOGIN_NOTICE_SINCE);
 		return $since > 0 ? $since : null;
 	}
 
@@ -91,6 +91,6 @@ class LoginNotices {
 	 */
 	public function done(string $uid): void {
 		$this->state->remove(SessionState::LOGIN_NOTICE);
-		$this->userConfig->deleteUserConfig($uid, Application::APP_ID, self::USER_KEY);
+		$this->userConfig->deleteUserConfig($uid, Application::APP_ID, UserKeys::LOGIN_NOTICE_SINCE);
 	}
 }

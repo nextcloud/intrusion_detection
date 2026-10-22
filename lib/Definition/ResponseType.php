@@ -7,10 +7,8 @@ declare(strict_types=1);
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 
-namespace OCA\IntrusionDetection\Check;
+namespace OCA\IntrusionDetection\Definition;
 
-use OCA\IntrusionDetection\Explain\TextRenderer;
-use OCA\IntrusionDetection\Response\FlaggedSources;
 use OCP\IL10N;
 
 /**
@@ -77,20 +75,6 @@ enum ResponseType: string {
 			self::NotifyAdmin => $l->t('Notify the administrators.'),
 			self::NotifyUser => $l->t('Tell the affected user, with "Was this you?" where it applies.'),
 			self::NotifyShareOwner => $l->t('Tell the owner of the share.'),
-		};
-	}
-
-	/**
-	 * The response in the "What happens" text of the admin page: like
-	 * {@see self::describe()}, but with the settings it depends on as `{name}`
-	 * placeholders, which the page fills in while the admin types.
-	 */
-	public function happens(IL10N $l): string {
-		return match ($this) {
-			self::Ban => $l->t('The address is blocked for {ban_duration_1} ({ban_duration_2} if it is blocked again within {ban_history_days} days, then {ban_duration_3}).'),
-			self::FlagSource => $l->t('Successful logins from the address need extra confirmation for %s.', [TextRenderer::duration(FlaggedSources::DURATION, $l)]),
-			self::FlagPassword => $l->t('Logins with the guessed password need extra confirmation for %s.', [TextRenderer::duration(min(FlaggedSources::DURATION, FlaggedSources::PASSWORD_FLAG_MAX_DURATION), $l)]),
-			default => $this->describe($l),
 		};
 	}
 }

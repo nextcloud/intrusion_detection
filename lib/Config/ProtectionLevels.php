@@ -10,12 +10,13 @@ declare(strict_types=1);
 namespace OCA\IntrusionDetection\Config;
 
 use OCA\IntrusionDetection\Check\CheckRegistry;
-use OCA\IntrusionDetection\Check\InvalidParamException;
+use OCA\IntrusionDetection\Definition\InvalidParamException;
+use OCA\IntrusionDetection\Definition\ProtectionLevel;
 
 /**
  * Sets every check limit and block duration to a protection level in one
  * go. Which parameters a level changes, and how, is declared on their
- * definitions ({@see \OCA\IntrusionDetection\Check\ParamPreset}); modes and
+ * definitions ({@see \OCA\IntrusionDetection\Definition\ParamPreset}); modes and
  * responses are never touched.
  *
  * Every value goes through the same validation as a change by hand, all of

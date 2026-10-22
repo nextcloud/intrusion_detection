@@ -10,11 +10,11 @@ declare(strict_types=1);
 namespace OCA\IntrusionDetection\Confirm\Reasons;
 
 use OCA\IntrusionDetection\Check\Checks\RiskyNetwork;
-use OCA\IntrusionDetection\Check\ResponseType;
 use OCA\IntrusionDetection\Config\Settings;
 use OCA\IntrusionDetection\Confirm\IStepUpReason;
 use OCA\IntrusionDetection\Confirm\LoginContext;
 use OCA\IntrusionDetection\Confirm\StepUpPolicy;
+use OCA\IntrusionDetection\Definition\ResponseType;
 use OCA\IntrusionDetection\Risk\NetworkAttributes;
 
 /**

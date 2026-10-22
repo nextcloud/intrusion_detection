@@ -14,16 +14,14 @@ use OC\Memcache\ArrayCache;
 use OCA\IntrusionDetection\Admin\LookupService;
 use OCA\IntrusionDetection\AppInfo\Application;
 use OCA\IntrusionDetection\Check\Checks\BreachedPassword;
-use OCA\IntrusionDetection\Check\Checks\BreachedPasswordDetector;
 use OCA\IntrusionDetection\Check\Checks\PasswordSpraying;
 use OCA\IntrusionDetection\Check\Checks\StepUpFailed;
 use OCA\IntrusionDetection\Check\Checks\StepUpRefused;
 use OCA\IntrusionDetection\Check\Checks\StepUpRefusedClient;
 use OCA\IntrusionDetection\Check\Checks\StepUpUnconfirmed;
-use OCA\IntrusionDetection\Check\Mode;
-use OCA\IntrusionDetection\Check\ResponseType;
 use OCA\IntrusionDetection\Config\GlobalSettings;
 use OCA\IntrusionDetection\Config\Keys;
+use OCA\IntrusionDetection\Config\UserKeys;
 use OCA\IntrusionDetection\Confirm\IConfirmationMethod;
 use OCA\IntrusionDetection\Confirm\LoginDetections;
 use OCA\IntrusionDetection\Confirm\NoMethodOutcome;
@@ -37,6 +35,8 @@ use OCA\IntrusionDetection\Db\Approval;
 use OCA\IntrusionDetection\Db\ApprovalMapper;
 use OCA\IntrusionDetection\Db\LoginHistoryMapper;
 use OCA\IntrusionDetection\Db\StepUpSessionMapper;
+use OCA\IntrusionDetection\Definition\Mode;
+use OCA\IntrusionDetection\Definition\ResponseType;
 use OCA\IntrusionDetection\LoginHistory\LoginHistory;
 use OCA\IntrusionDetection\Net\SourceKey;
 use OCA\IntrusionDetection\Notification\AdminAlerts;
@@ -727,8 +727,8 @@ class StepUpTest extends StepUpTestCase {
 	private function breached(IUser $user): void {
 		$this->appConfig->setValueString(Application::APP_ID, Keys::mode(BreachedPassword::ID), Mode::Protect->value);
 		$userConfig = Server::get(IUserConfig::class);
-		$userConfig->setValueBool($user->getUID(), Application::APP_ID, BreachedPasswordDetector::KEY_BREACHED, true, true);
+		$userConfig->setValueBool($user->getUID(), Application::APP_ID, UserKeys::BREACHED, true, true);
 		// Checked recently, so the login does not contact the breach list.
-		$userConfig->setValueInt($user->getUID(), Application::APP_ID, BreachedPasswordDetector::KEY_CHECKED_AT, time(), true);
+		$userConfig->setValueInt($user->getUID(), Application::APP_ID, UserKeys::BREACH_CHECKED_AT, time(), true);
 	}
 }

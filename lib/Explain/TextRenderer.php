@@ -9,10 +9,10 @@ declare(strict_types=1);
 
 namespace OCA\IntrusionDetection\Explain;
 
-use OCA\IntrusionDetection\Check\CheckDefinition;
-use OCA\IntrusionDetection\Check\ParamDefinition;
-use OCA\IntrusionDetection\Check\ParamType;
 use OCA\IntrusionDetection\Config\GlobalSettings;
+use OCA\IntrusionDetection\Definition\CheckDefinition;
+use OCA\IntrusionDetection\Definition\ParamDefinition;
+use OCA\IntrusionDetection\Definition\ParamType;
 use OCP\IL10N;
 
 /**

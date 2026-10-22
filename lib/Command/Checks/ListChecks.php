@@ -11,8 +11,8 @@ namespace OCA\IntrusionDetection\Command\Checks;
 
 use OC\Core\Command\Base;
 use OCA\IntrusionDetection\Check\CheckRegistry;
-use OCA\IntrusionDetection\Check\ResponseType;
 use OCA\IntrusionDetection\Config\Settings;
+use OCA\IntrusionDetection\Definition\ResponseType;
 use OCP\IL10N;
 use Symfony\Component\Console\Helper\Table;
 use Symfony\Component\Console\Input\InputInterface;

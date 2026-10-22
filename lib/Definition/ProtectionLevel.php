@@ -7,7 +7,7 @@ declare(strict_types=1);
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 
-namespace OCA\IntrusionDetection\Config;
+namespace OCA\IntrusionDetection\Definition;
 
 /**
  * The protection level: one choice that sets the limits of every check and

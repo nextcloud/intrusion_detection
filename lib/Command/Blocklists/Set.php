@@ -11,8 +11,8 @@ namespace OCA\IntrusionDetection\Command\Blocklists;
 
 use OC\Core\Command\Base;
 use OCA\IntrusionDetection\Blocklist\SourceEditor;
-use OCA\IntrusionDetection\Check\InvalidParamException;
-use OCA\IntrusionDetection\Check\ParamDefinition;
+use OCA\IntrusionDetection\Definition\InvalidParamException;
+use OCA\IntrusionDetection\Definition\ParamDefinition;
 use OCP\L10N\IFactory;
 use Symfony\Component\Console\Input\InputArgument;
 use Symfony\Component\Console\Input\InputInterface;

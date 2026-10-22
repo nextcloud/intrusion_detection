@@ -11,9 +11,9 @@ namespace OCA\IntrusionDetection\Admin;
 
 use OCA\IntrusionDetection\AppInfo\Application;
 use OCA\IntrusionDetection\Check\CheckRegistry;
-use OCA\IntrusionDetection\Check\ResponseType;
 use OCA\IntrusionDetection\Config\GlobalSettings;
 use OCA\IntrusionDetection\Config\Settings;
+use OCA\IntrusionDetection\Definition\ResponseType;
 use OCA\IntrusionDetection\ResponseDefinitions;
 use OCP\App\IAppManager;
 use OCP\AppFramework\Utility\ITimeFactory;

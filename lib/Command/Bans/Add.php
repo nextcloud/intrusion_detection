@@ -11,8 +11,8 @@ namespace OCA\IntrusionDetection\Command\Bans;
 
 use OC\Core\Command\Base;
 use OCA\IntrusionDetection\Audit\AuditLogger;
-use OCA\IntrusionDetection\Check\InvalidParamException;
-use OCA\IntrusionDetection\Check\ParamDefinition;
+use OCA\IntrusionDetection\Definition\InvalidParamException;
+use OCA\IntrusionDetection\Definition\ParamDefinition;
 use OCA\IntrusionDetection\Response\BanService;
 use Symfony\Component\Console\Input\InputArgument;
 use Symfony\Component\Console\Input\InputInterface;

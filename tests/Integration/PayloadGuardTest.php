@@ -12,7 +12,6 @@ namespace OCA\IntrusionDetection\Tests\Integration;
 use OC\AppFramework\Http\Request;
 use OCA\IntrusionDetection\AppInfo\Application;
 use OCA\IntrusionDetection\Check\Checks\InjectionProbe;
-use OCA\IntrusionDetection\Check\Mode;
 use OCA\IntrusionDetection\Check\Payload\CustomSignatures;
 use OCA\IntrusionDetection\Check\Payload\PayloadInspector;
 use OCA\IntrusionDetection\Check\Payload\PayloadResponder;
@@ -25,6 +24,7 @@ use OCA\IntrusionDetection\Db\BanMapper;
 use OCA\IntrusionDetection\Db\Detection;
 use OCA\IntrusionDetection\Db\DetectionFilter;
 use OCA\IntrusionDetection\Db\DetectionMapper;
+use OCA\IntrusionDetection\Definition\Mode;
 use OCA\IntrusionDetection\Explain\NarrativeBuilder;
 use OCA\IntrusionDetection\Guard\AddressGuard;
 use OCA\IntrusionDetection\Guard\DeferredHits;
@@ -462,7 +462,7 @@ class PayloadGuardTest extends IntegrationTestCase {
 	}
 
 	public function testASlowCustomSignatureCannotBeSaved(): void {
-		$this->expectException(\OCA\IntrusionDetection\Check\InvalidParamException::class);
+		$this->expectException(\OCA\IntrusionDetection\Definition\InvalidParamException::class);
 		$this->settings->setParam(InjectionProbe::ID, InjectionProbe::PARAM_CUSTOM, ['(a+)+$']);
 	}
 

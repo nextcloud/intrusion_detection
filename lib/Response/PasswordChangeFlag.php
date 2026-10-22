@@ -10,6 +10,7 @@ declare(strict_types=1);
 namespace OCA\IntrusionDetection\Response;
 
 use OCA\IntrusionDetection\AppInfo\Application;
+use OCA\IntrusionDetection\Config\UserKeys;
 use OCP\AppFramework\Utility\ITimeFactory;
 use OCP\Config\IUserConfig;
 
@@ -19,7 +20,6 @@ use OCP\Config\IUserConfig;
  * comes with the account's other settings that core loads at login.
  */
 class PasswordChangeFlag {
-	public const USER_KEY = 'force_password_change';
 
 	public function __construct(
 		private readonly IUserConfig $userConfig,
@@ -35,7 +35,7 @@ class PasswordChangeFlag {
 	 * When the new password was required, or null if it is not.
 	 */
 	public function requiredSince(string $uid): ?int {
-		$since = $this->userConfig->getValueInt($uid, Application::APP_ID, self::USER_KEY);
+		$since = $this->userConfig->getValueInt($uid, Application::APP_ID, UserKeys::FORCE_PASSWORD_CHANGE);
 		return $since > 0 ? $since : null;
 	}
 
@@ -48,7 +48,7 @@ class PasswordChangeFlag {
 			return $since;
 		}
 		$now = $this->timeFactory->getTime();
-		$this->userConfig->setValueInt($uid, Application::APP_ID, self::USER_KEY, $now);
+		$this->userConfig->setValueInt($uid, Application::APP_ID, UserKeys::FORCE_PASSWORD_CHANGE, $now);
 		return $now;
 	}
 
@@ -59,7 +59,7 @@ class PasswordChangeFlag {
 		if (!$this->isRequired($uid)) {
 			return false;
 		}
-		$this->userConfig->deleteUserConfig($uid, Application::APP_ID, self::USER_KEY);
+		$this->userConfig->deleteUserConfig($uid, Application::APP_ID, UserKeys::FORCE_PASSWORD_CHANGE);
 		return true;
 	}
 }

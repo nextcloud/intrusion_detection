@@ -9,13 +9,14 @@ declare(strict_types=1);
 
 namespace OCA\IntrusionDetection\Explain;
 
-use OCA\IntrusionDetection\Check\CheckDefinition;
-use OCA\IntrusionDetection\Check\DataKind;
-use OCA\IntrusionDetection\Check\ParamDefinition;
-use OCA\IntrusionDetection\Check\Requirement;
-use OCA\IntrusionDetection\Check\ResponseType;
 use OCA\IntrusionDetection\Config\Prerequisites;
 use OCA\IntrusionDetection\Config\Settings;
+use OCA\IntrusionDetection\Definition\CheckDefinition;
+use OCA\IntrusionDetection\Definition\DataKind;
+use OCA\IntrusionDetection\Definition\ParamDefinition;
+use OCA\IntrusionDetection\Definition\Requirement;
+use OCA\IntrusionDetection\Definition\ResponseType;
+use OCA\IntrusionDetection\Response\FlaggedSources;
 use OCA\IntrusionDetection\ResponseDefinitions;
 use OCP\IL10N;
 
@@ -63,7 +64,7 @@ class CheckPresenter {
 				'type' => $r->value,
 				'label' => $r->describe($l),
 				// A template like `decides`, filled in by the page as settings change.
-				'happens' => $r->happens($l),
+				'happens' => self::responseHappens($r, $l),
 				'order' => $r->order(),
 				'selected' => in_array($r, $responses, true),
 				'default' => in_array($r, $check->defaultResponses, true),
@@ -101,6 +102,20 @@ class CheckPresenter {
 		usort($responses, static fn (ResponseType $a, ResponseType $b): int => $a->order() <=> $b->order());
 		return $responses === []
 			? [$l->t('Nothing is done; detections are only recorded.')]
-			: array_map(fn (ResponseType $r): string => $values === [] ? $r->describe($l) : $this->renderer->fill($r->happens($l), $values, $l), $responses);
+			: array_map(fn (ResponseType $r): string => $values === [] ? $r->describe($l) : $this->renderer->fill(self::responseHappens($r, $l), $values, $l), $responses);
+	}
+
+	/**
+	 * A response in the "What happens" text of the admin page: like
+	 * {@see ResponseType::describe()}, but with the settings it depends on as
+	 * `{name}` placeholders, which the page fills in while the admin types.
+	 */
+	private static function responseHappens(ResponseType $response, IL10N $l): string {
+		return match ($response) {
+			ResponseType::Ban => $l->t('The address is blocked for {ban_duration_1} ({ban_duration_2} if it is blocked again within {ban_history_days} days, then {ban_duration_3}).'),
+			ResponseType::FlagSource => $l->t('Successful logins from the address need extra confirmation for %s.', [TextRenderer::duration(FlaggedSources::DURATION, $l)]),
+			ResponseType::FlagPassword => $l->t('Logins with the guessed password need extra confirmation for %s.', [TextRenderer::duration(min(FlaggedSources::DURATION, FlaggedSources::PASSWORD_FLAG_MAX_DURATION), $l)]),
+			default => $response->describe($l),
+		};
 	}
 }

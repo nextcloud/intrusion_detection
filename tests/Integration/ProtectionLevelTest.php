@@ -12,13 +12,13 @@ namespace OCA\IntrusionDetection\Tests\Integration;
 use OCA\IntrusionDetection\Admin\SettingsTransfer;
 use OCA\IntrusionDetection\AppInfo\Application;
 use OCA\IntrusionDetection\Check\Checks\CredentialStuffing;
-use OCA\IntrusionDetection\Check\Mode;
-use OCA\IntrusionDetection\Check\ResponseType;
 use OCA\IntrusionDetection\Config\GlobalSettings;
-use OCA\IntrusionDetection\Config\ProtectionLevel;
 use OCA\IntrusionDetection\Config\ProtectionLevels;
 use OCA\IntrusionDetection\Config\Settings;
 use OCA\IntrusionDetection\Controller\AdminApiController;
+use OCA\IntrusionDetection\Definition\Mode;
+use OCA\IntrusionDetection\Definition\ProtectionLevel;
+use OCA\IntrusionDetection\Definition\ResponseType;
 use OCP\AppFramework\Http;
 use OCP\IUserManager;
 use OCP\IUserSession;
@@ -98,7 +98,7 @@ class ProtectionLevelTest extends IntegrationTestCase {
 	}
 
 	public function testCustomCannotBeApplied(): void {
-		$this->expectException(\OCA\IntrusionDetection\Check\InvalidParamException::class);
+		$this->expectException(\OCA\IntrusionDetection\Definition\InvalidParamException::class);
 		$this->levels->apply(ProtectionLevel::Custom);
 	}
 

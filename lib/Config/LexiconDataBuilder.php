@@ -10,10 +10,10 @@ declare(strict_types=1);
 namespace OCA\IntrusionDetection\Config;
 
 use OCA\IntrusionDetection\Check\CheckRegistry;
-use OCA\IntrusionDetection\Check\ParamDefinition;
-use OCA\IntrusionDetection\Check\ParamType;
-use OCA\IntrusionDetection\Check\Requirement;
-use OCA\IntrusionDetection\Check\ResponseType;
+use OCA\IntrusionDetection\Definition\ParamDefinition;
+use OCA\IntrusionDetection\Definition\ParamType;
+use OCA\IntrusionDetection\Definition\Requirement;
+use OCA\IntrusionDetection\Definition\ResponseType;
 use OCP\Config\ValueType;
 
 /**

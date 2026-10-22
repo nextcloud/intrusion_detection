@@ -16,14 +16,15 @@ use OCA\IntrusionDetection\AppInfo\Application;
 use OCA\IntrusionDetection\Breach\PwnedPasswordsClient;
 use OCA\IntrusionDetection\Check\Checks\BreachedPassword;
 use OCA\IntrusionDetection\Check\Checks\BreachedPasswordDetector;
-use OCA\IntrusionDetection\Check\Mode;
-use OCA\IntrusionDetection\Check\ResponseType;
 use OCA\IntrusionDetection\Command\User as UserCommand;
 use OCA\IntrusionDetection\Config\Lexicon;
 use OCA\IntrusionDetection\Config\Settings;
+use OCA\IntrusionDetection\Config\UserKeys;
 use OCA\IntrusionDetection\Db\Detection;
 use OCA\IntrusionDetection\Db\DetectionFilter;
 use OCA\IntrusionDetection\Db\DetectionMapper;
+use OCA\IntrusionDetection\Definition\Mode;
+use OCA\IntrusionDetection\Definition\ResponseType;
 use OCA\IntrusionDetection\Explain\CheckPresenter;
 use OCA\IntrusionDetection\Explain\NarrativeBuilder;
 use OCA\IntrusionDetection\Listener\BreachedPasswordListener;
@@ -106,8 +107,8 @@ class BreachedPasswordTest extends IntegrationTestCase {
 	}
 
 	protected function tearDown(): void {
-		Server::get(IUserConfig::class)->deleteUserConfig($this->user->getUID(), Application::APP_ID, BreachedPasswordDetector::KEY_CHECKED_AT);
-		Server::get(IUserConfig::class)->deleteUserConfig($this->user->getUID(), Application::APP_ID, BreachedPasswordDetector::KEY_BREACHED);
+		Server::get(IUserConfig::class)->deleteUserConfig($this->user->getUID(), Application::APP_ID, UserKeys::BREACH_CHECKED_AT);
+		Server::get(IUserConfig::class)->deleteUserConfig($this->user->getUID(), Application::APP_ID, UserKeys::BREACHED);
 		$this->user->delete();
 		parent::tearDown();
 	}
@@ -389,8 +390,8 @@ class BreachedPasswordTest extends IntegrationTestCase {
 		foreach (Server::get(Lexicon::class)->getUserConfigs() as $entry) {
 			$keys[$entry->getKey()] = $entry->isLazy();
 		}
-		$this->assertTrue($keys[BreachedPasswordDetector::KEY_CHECKED_AT] ?? false, 'declared and lazy');
-		$this->assertTrue($keys[BreachedPasswordDetector::KEY_BREACHED] ?? false, 'declared and lazy');
+		$this->assertTrue($keys[UserKeys::BREACH_CHECKED_AT] ?? false, 'declared and lazy');
+		$this->assertTrue($keys[UserKeys::BREACHED] ?? false, 'declared and lazy');
 	}
 
 	public function testExplainsItselfToAdminsAndTheUser(): void {
