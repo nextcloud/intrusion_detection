@@ -5,12 +5,12 @@
 
 <script setup lang="ts">
 import type { TabDefinition } from '../../extensions.ts'
-import type { CheckRef, TrapPathList } from '../../types.ts'
+import type { CheckRef, TrapPathList, TrapWebServer } from '../../types.ts'
 
 import { mdiServerNetwork, mdiSignDirection } from '@mdi/js'
 import { showError } from '@nextcloud/dialogs'
 import { n, t } from '@nextcloud/l10n'
-import { ref } from 'vue'
+import { computed, ref } from 'vue'
 import NcCheckboxRadioSwitch from '@nextcloud/vue/components/NcCheckboxRadioSwitch'
 import NcNoteCard from '@nextcloud/vue/components/NcNoteCard'
 import AdminTabs from '../AdminTabs.vue'
@@ -24,7 +24,7 @@ import { errorMessage, isCancelled, updateTrapPaths } from '../../services/api.t
 import { logger } from '../../services/logger.ts'
 import { APP_ID } from '../../utils/format.ts'
 
-defineProps<{
+const props = defineProps<{
 	paths: TrapPathList
 	check: CheckRef
 }>()
@@ -35,13 +35,38 @@ const emit = defineEmits<{
 
 const busy = ref<string | null>(null)
 const error = ref<string | null>(null)
-const server = ref('nginx')
+const server = ref(props.paths.webServer === 'apache' || props.paths.webServer === 'apache_fpm' ? 'apache' : 'nginx')
 const { announce } = useAnnouncer()
 
 const serverTabs: TabDefinition[] = [
 	{ id: 'nginx', name: () => 'nginx', icon: mdiServerNetwork, order: 1 },
 	{ id: 'apache', name: () => 'Apache', icon: mdiServerNetwork, order: 2 },
 ]
+
+/**
+ * @param webServer - A web server setup
+ */
+function serverName(webServer: TrapWebServer): string {
+	return webServer === 'nginx' ? 'nginx' : (webServer === 'apache_fpm' ? t(APP_ID, 'Apache with PHP-FPM') : 'Apache')
+}
+
+/**
+ * @param answeredBy - The web servers that answer a built-in path themselves
+ */
+function ruleNote(answeredBy: TrapPathList['builtin'][number]['answeredBy']): string {
+	return t(APP_ID, 'Needs the web server rule on {servers}.', { servers: answeredBy.map(serverName).join(', ') }, undefined, { escape: false, sanitize: false })
+}
+
+const thisServer = computed(() => {
+	const { webServer, needRule } = props.paths
+	if (webServer === 'unknown') {
+		return null
+	}
+	if (needRule.length === 0) {
+		return t(APP_ID, 'On this server ({server}), your trap paths reach Nextcloud without the rule.', { server: serverName(webServer) }, undefined, { escape: false, sanitize: false })
+	}
+	return n(APP_ID, 'On this server ({server}), %n trap path reaches Nextcloud only with the rule: {paths}', 'On this server ({server}), %n trap paths reach Nextcloud only with the rule: {paths}', needRule.length, { server: serverName(webServer), paths: needRule.join(' ') }, { escape: false, sanitize: false })
+})
 
 /**
  * @param value - A path as typed
@@ -131,7 +156,10 @@ async function save(key: string, change: { add?: string[], remove?: string[], bu
 					<dl :class="$style.builtin__list">
 						<div v-for="item in paths.builtin" :key="item.path" :class="$style.builtin__item">
 							<dt><code>{{ item.path }}</code></dt>
-							<dd>{{ item.text }}</dd>
+							<dd>
+								{{ item.text }}
+								<span v-if="item.answeredBy.length > 0" :class="$style.builtin__rule">{{ ruleNote(item.answeredBy) }}</span>
+							</dd>
 						</div>
 					</dl>
 				</ShowMore>
@@ -159,7 +187,10 @@ async function save(key: string, change: { add?: string[], remove?: string[], bu
 					{{ t(APP_ID, 'Route the trap paths to Nextcloud') }}
 				</h4>
 				<p :class="$style.text">
-					{{ t(APP_ID, 'Most of these paths never reach Nextcloud, because the web server answers them itself. Hand exactly these paths to Nextcloud, which then blocks the scanner.') }}
+					{{ t(APP_ID, 'Most trap paths reach Nextcloud on their own. Two common setups answer some of them first: nginx answers hidden paths such as /.env, and Apache with PHP-FPM answers .php paths such as /wp-login.php. This rule hands exactly the trap paths to Nextcloud, which then blocks the scanner.') }}
+				</p>
+				<p v-if="thisServer" :class="$style.text" data-test="trap-this-server">
+					<strong>{{ thisServer }}</strong>
 				</p>
 				<ShowMore :label="t(APP_ID, 'Show the web server configuration')" data-test="trap-snippets">
 					<AdminTabs v-model="server" :tabs="serverTabs" />
@@ -237,6 +268,11 @@ async function save(key: string, change: { add?: string[], remove?: string[], bu
 	color: var(--color-text-maxcontrast);
 	font-size: 0.92em;
 	line-height: 1.45;
+}
+
+.builtin__rule {
+	display: block;
+	color: var(--color-main-text);
 }
 
 .custom {

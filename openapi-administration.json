@@ -3537,6 +3537,8 @@
                     "autodiscover",
                     "autodiscoverPath",
                     "custom",
+                    "webServer",
+                    "needRule",
                     "max",
                     "snippets",
                     "snippetsSkipped"
@@ -3551,7 +3553,8 @@
                             "type": "object",
                             "required": [
                                 "path",
-                                "text"
+                                "text",
+                                "answeredBy"
                             ],
                             "properties": {
                                 "path": {
@@ -3559,6 +3562,16 @@
                                 },
                                 "text": {
                                     "type": "string"
+                                },
+                                "answeredBy": {
+                                    "type": "array",
+                                    "items": {
+                                        "type": "string",
+                                        "enum": [
+                                            "nginx",
+                                            "apache_fpm"
+                                        ]
+                                    }
                                 }
                             }
                         }
@@ -3570,6 +3583,21 @@
                         "type": "string"
                     },
                     "custom": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        }
+                    },
+                    "webServer": {
+                        "type": "string",
+                        "enum": [
+                            "nginx",
+                            "apache_fpm",
+                            "apache",
+                            "unknown"
+                        ]
+                    },
+                    "needRule": {
                         "type": "array",
                         "items": {
                             "type": "string"

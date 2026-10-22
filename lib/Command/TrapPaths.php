@@ -66,6 +66,10 @@ class TrapPaths extends Base {
 			'autodiscover' => $this->settings->paramBool(TrapUrl::ID, 'autodiscover'),
 			'custom' => $this->settings->paramList(TrapUrl::ID, 'paths'),
 		];
+		$data['need_rule'] = [];
+		foreach ([TrapPathList::SERVER_NGINX, TrapPathList::SERVER_APACHE_FPM] as $server) {
+			$data['need_rule'][$server] = TrapPathList::needingRule($server, $data['builtin_enabled'], $data['autodiscover'], $data['custom']);
+		}
 		if ($input->getOption('output') !== self::OUTPUT_FORMAT_PLAIN) {
 			$this->writeArrayInOutputFormat($input, $output, $data);
 			return self::SUCCESS;
@@ -74,6 +78,15 @@ class TrapPaths extends Base {
 		$output->writeln(TrapPathList::AUTODISCOVER . ': ' . ($data['autodiscover'] ? 'on' : 'off')
 			. ' (switch with occ intrusion:checks:set trap_url -p autodiscover=on)');
 		$output->writeln($data['custom'] === [] ? 'No paths of your own.' : 'Your paths: ' . implode(' ', $data['custom']));
+		$need = [];
+		foreach ([TrapPathList::SERVER_NGINX => 'on nginx', TrapPathList::SERVER_APACHE_FPM => 'on Apache with PHP-FPM'] as $server => $label) {
+			if ($data['need_rule'][$server] !== []) {
+				$need[] = $label . ': ' . implode(' ', $data['need_rule'][$server]);
+			}
+		}
+		if ($need !== []) {
+			$output->writeln('Reach Nextcloud only with the web server rule from the Blocks tab, ' . implode('; ', $need) . '.');
+		}
 		return self::SUCCESS;
 	}
 }

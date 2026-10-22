@@ -16,11 +16,11 @@ use OCP\IURLGenerator;
 /**
  * Web server snippets that hand requests for the trap paths to Nextcloud.
  *
- * Most trap paths never reach PHP: the web server answers "not found" for
- * files that do not exist, and Nextcloud's recommended configurations refuse
- * hidden files such as /.env early. These snippets route exactly the enabled
- * trap paths to index.php, which keeps the original request URI, so the trap
- * guard sees them.
+ * Some trap paths never reach PHP: the documented nginx configuration
+ * refuses hidden paths such as /.env, and Apache with PHP-FPM lets PHP-FPM
+ * answer .php files that do not exist ({@see TrapPaths::answeredBy()}).
+ * These snippets route exactly the enabled trap paths to index.php, which
+ * keeps the original request URI, so the trap guard sees them.
  *
  * Only entries made of letters, digits and `/._~-` (plus a trailing `*`) are
  * put into a snippet, so an entry can never change the meaning of the web

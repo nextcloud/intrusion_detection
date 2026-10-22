@@ -182,4 +182,72 @@ class TrapPathsTest extends TestCase {
 			$this->assertFalse(TrapPaths::isNextcloudPath('/index.php' . $entry), $entry);
 		}
 	}
+
+	/**
+	 * Which built-in paths need the web server rule, as measured with
+	 * Nextcloud's .htaccess on Apache with PHP-FPM, and as Nextcloud's
+	 * documented nginx configuration routes them. Every path that is not
+	 * listed reached index.php with its original request URI on both.
+	 */
+	public function testTheBuiltInPathsThatTheStockWebServersAnswerThemselves(): void {
+		$answered = [];
+		foreach (TrapPaths::BUILTIN as $path) {
+			foreach (TrapPaths::answeredBy($path) as $server) {
+				$answered[$server][] = $path;
+			}
+		}
+		$this->assertSame([
+			TrapPaths::SERVER_APACHE_FPM => ['/wp-login.php', '/xmlrpc.php', '/adminer.php'],
+			TrapPaths::SERVER_NGINX => ['/.env', '/.git/', '/.aws/', '/.ds_store'],
+		], $answered);
+		$this->assertSame([], TrapPaths::answeredBy(TrapPaths::AUTODISCOVER));
+	}
+
+	/**
+	 * @return array<string, array{string, list<string>}>
+	 */
+	public static function customEntries(): array {
+		return [
+			'plain path' => ['/old-admin', []],
+			'prefix' => ['/backup/*', []],
+			'hidden file' => ['/.htpasswd', [TrapPaths::SERVER_NGINX]],
+			'hidden folder as a prefix' => ['/.svn/*', [TrapPaths::SERVER_NGINX]],
+			'php script' => ['/old/setup.php', [TrapPaths::SERVER_APACHE_FPM]],
+			'hidden php script' => ['/.cache.php', [TrapPaths::SERVER_NGINX, TrapPaths::SERVER_APACHE_FPM]],
+			'php in a folder name' => ['/php/info', []],
+		];
+	}
+
+	/**
+	 * @param list<string> $servers
+	 */
+	#[DataProvider('customEntries')]
+	public function testCustomEntriesAreClassifiedTheSameWay(string $entry, array $servers): void {
+		$this->assertSame($servers, TrapPaths::answeredBy($entry));
+	}
+
+	/**
+	 * @return array<string, array{string, string, bool, string}>
+	 */
+	public static function webServers(): array {
+		return [
+			'nginx' => ['nginx/1.26.2', 'fpm-fcgi', false, TrapPaths::SERVER_NGINX],
+			'Apache with PHP-FPM' => ['Apache/2.4.62 (Debian)', 'fpm-fcgi', false, TrapPaths::SERVER_APACHE_FPM],
+			'Apache with PHP-FPM and pretty URLs' => ['Apache', 'fpm-fcgi', true, TrapPaths::SERVER_APACHE],
+			'Apache with mod_php' => ['Apache/2.4.62 (Ubuntu)', 'apache2handler', false, TrapPaths::SERVER_APACHE],
+			'another server' => ['Caddy/v2', 'fpm-fcgi', false, TrapPaths::SERVER_UNKNOWN],
+			'command line' => ['', 'cli', false, TrapPaths::SERVER_UNKNOWN],
+		];
+	}
+
+	public function testTheEnabledEntriesThatNeedTheRule(): void {
+		$this->assertSame(['/.env', '/.git/', '/.aws/', '/.ds_store', '/.svn/*'], TrapPaths::needingRule(TrapPaths::SERVER_NGINX, true, true, ['/old-admin', '/.svn/*']));
+		$this->assertSame(['/setup.php'], TrapPaths::needingRule(TrapPaths::SERVER_APACHE_FPM, false, true, ['/setup.php', '/.svn/*']));
+		$this->assertSame([], TrapPaths::needingRule(TrapPaths::SERVER_APACHE, true, true, ['/setup.php', '/.svn/*']));
+	}
+
+	#[DataProvider('webServers')]
+	public function testTheWebServerOfARequest(string $software, string $sapi, bool $prettyUrls, string $expected): void {
+		$this->assertSame($expected, TrapPaths::webServer($software, $sapi, $prettyUrls));
+	}
 }
