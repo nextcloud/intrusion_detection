@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 
-import { flushPromises, mount } from '@vue/test-utils'
+import { enableAutoUnmount, flushPromises, mount } from '@vue/test-utils'
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 import { defineComponent, h, inject } from 'vue'
 import AdminSettings from './AdminSettings.vue'
@@ -22,6 +22,8 @@ const OpenCheck = defineComponent({
 		return () => h('div', { 'data-test': 'open-check' }, openCheck?.value ?? '')
 	},
 })
+
+enableAutoUnmount(afterEach)
 
 describe('the admin page', () => {
 	beforeEach(() => {
@@ -117,6 +119,22 @@ describe('the admin page', () => {
 		mountPage()
 		await navigate('#settings-privacy')
 		expect(section.scrollIntoView).toHaveBeenCalled()
+	})
+
+	test('a section that is still missing is no longer looked for once the page is gone', async () => {
+		vi.useFakeTimers()
+		try {
+			const wrapper = mountPage()
+			window.history.replaceState(null, '', '#settings-privacy')
+			window.dispatchEvent(new HashChangeEvent('hashchange'))
+			await vi.advanceTimersByTimeAsync(250)
+			wrapper.unmount()
+			const lookups = vi.spyOn(document, 'getElementById')
+			await vi.advanceTimersByTimeAsync(3000)
+			expect(lookups).not.toHaveBeenCalledWith('settings-privacy')
+		} finally {
+			vi.useRealTimers()
+		}
 	})
 
 	test('"things need attention" leads to the list on the overview', async () => {
