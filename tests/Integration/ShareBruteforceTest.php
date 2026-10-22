@@ -9,6 +9,8 @@ declare(strict_types=1);
 
 namespace OCA\IntrusionDetection\Tests\Integration;
 
+use OC\Session\Memory;
+use OCA\DAV\Connector\LegacyPublicAuth;
 use OCA\Files_Sharing\Controller\ShareController;
 use OCA\IntrusionDetection\AppInfo\Application;
 use OCA\IntrusionDetection\Audit\AuditLogger;
@@ -19,6 +21,7 @@ use OCA\IntrusionDetection\Check\ResponseType;
 use OCA\IntrusionDetection\Config\GlobalSettings;
 use OCA\IntrusionDetection\Controller\ShareAlertController;
 use OCA\IntrusionDetection\Crypto\Fingerprinter;
+use OCA\IntrusionDetection\Dav\FederatedShareUsePlugin;
 use OCA\IntrusionDetection\Db\AttemptKind;
 use OCA\IntrusionDetection\Db\AttemptMapper;
 use OCA\IntrusionDetection\Db\BanMapper;
@@ -33,10 +36,12 @@ use OCA\IntrusionDetection\Notification\Mails;
 use OCA\IntrusionDetection\Notification\ShareOwnerAlerts;
 use OCA\IntrusionDetection\Notification\ShareOwnerNotifier;
 use OCA\IntrusionDetection\Notification\UserMessages;
+use OCA\IntrusionDetection\Share\FederationPartners;
 use OCA\IntrusionDetection\Share\ShareLinks;
 use OCP\AppFramework\Http;
 use OCP\AppFramework\Utility\ITimeFactory;
 use OCP\DB\QueryBuilder\IQueryBuilder;
+use OCP\EventDispatcher\IEventDispatcher;
 use OCP\IRequest;
 use OCP\IURLGenerator;
 use OCP\IUser;
@@ -46,6 +51,7 @@ use OCP\L10N\IFactory;
 use OCP\Notification\AlreadyProcessedException;
 use OCP\Notification\IManager as INotificationManager;
 use OCP\Notification\INotification;
+use OCP\Security\Bruteforce\IThrottler;
 use OCP\Server;
 use OCP\Share\Events\ShareLinkAccessFailedEvent;
 use OCP\Share\Exceptions\ShareNotFound;
@@ -54,6 +60,12 @@ use OCP\Share\IShare;
 use PHPUnit\Framework\Attributes\Group;
 use Psr\Container\ContainerInterface;
 use Psr\Log\LoggerInterface;
+use Sabre\DAV\Auth\Plugin as AuthPlugin;
+use Sabre\DAV\Exception\NotAuthenticated;
+use Sabre\DAV\Server as DavServer;
+use Sabre\DAV\SimpleCollection;
+use Sabre\HTTP\Request;
+use Sabre\HTTP\Response;
 
 /**
  * Share link attacks (concept section 10.9), driven through the real share
@@ -232,6 +244,68 @@ class ShareBruteforceTest extends RequestEventTestCase {
 		$this->assertSame([], $this->bans->findActiveForKeys(['198.51.100.7'], time()));
 		$l = Server::get(IFactory::class)->get(Application::APP_ID, 'en');
 		$this->assertStringContainsString('opened while logged in as alice', implode(' ', Server::get(NarrativeBuilder::class)->build($detections[0], $l)->happened));
+	}
+
+	public function testAPartnerServerThatSyncsDeletedFederatedSharesIsReportedButNotBlocked(): void {
+		$owner = $this->user('ids-federation-owner');
+		$live = $this->federatedShare($owner);
+		$this->assertSame(207, $this->propfind('203.0.113.80', $live->getToken()), 'The partner syncs a federated share that still exists');
+
+		// Federated shares that were deleted here without telling the partner, for example with their owner's account.
+		for ($i = 1; $i <= 10; $i++) {
+			$this->assertSame(401, $this->propfind('203.0.113.80', 'deletedFederatedShare' . $i));
+		}
+
+		$detections = $this->detectionsOf(ShareBruteforce::ID);
+		$this->assertCount(1, $detections, 'It is reported');
+		$this->assertSame([], $this->bans->findActiveForKeys(['203.0.113.80'], time()), 'but the partner is not blocked');
+		$this->assertSame([ResponseType::NotifyAdmin->value], array_column($detections[0]->getActionList(), 'type'));
+		$this->assertTrue($detections[0]->getExplanationData()['facts']['federation']);
+		$this->assertSame(207, $this->propfind('203.0.113.80', $live->getToken()), 'and its federated share keeps working');
+
+		$l = Server::get(IFactory::class)->get(Application::APP_ID, 'en');
+		$this->assertStringContainsString('The address opened a federated share of this server within the last day', implode(' ', Server::get(NarrativeBuilder::class)->build($detections[0], $l)->happened));
+	}
+
+	public function testAStrangerGuessingTokensOverPublicWebdavIsBlocked(): void {
+		$this->federatedShare($this->user('ids-federation-owner'));
+		for ($i = 1; $i <= 10; $i++) {
+			$this->assertSame(401, $this->propfind('198.51.100.7', 'guessedToken' . $i));
+		}
+		$detections = $this->detectionsOf(ShareBruteforce::ID);
+		$this->assertCount(1, $detections);
+		$this->assertArrayNotHasKey('federation', $detections[0]->getExplanationData()['facts']);
+		$this->assertNotSame([], $this->bans->findActiveForKeys(['198.51.100.7'], time()));
+	}
+
+	public function testOpeningAPublicLinkDoesNotMakeAnAddressAPartner(): void {
+		$share = $this->linkShare($this->user('ids-share-owner'), self::SHARE_PASSWORD);
+		$this->assertSame(207, $this->propfind('198.51.100.7', $share->getToken(), self::SHARE_PASSWORD), 'Anyone may know a public link');
+		for ($i = 1; $i <= 10; $i++) {
+			$this->propfind('198.51.100.7', 'guessedToken' . $i);
+		}
+		$this->assertFalse(Server::get(FederationPartners::class)->isPartner(SourceKey::fromIp('198.51.100.7')));
+		$this->assertNotSame([], $this->bans->findActiveForKeys(['198.51.100.7'], time()));
+	}
+
+	public function testANetworkDetectionNeverBlocksAPartnerServerInIt(): void {
+		$live = $this->federatedShare($this->user('ids-federation-owner'));
+		$this->propfind('198.51.100.1', $live->getToken());
+		$n = 0;
+		foreach (['198.51.100.1' => 10, '198.51.100.2' => 10, '198.51.100.3' => 9] as $ip => $tokens) {
+			for ($i = 0; $i < $tokens; $i++) {
+				$this->storeUnknownToken(SourceKey::fromIp($ip), 'netPartnerToken' . $n++, 1);
+			}
+		}
+		$this->openUnknownLink('198.51.100.60', 'oneOutdatedLink');
+		$detections = $this->detectionsOf(ShareBruteforce::ID);
+		$this->assertCount(1, $detections);
+		$this->assertSame([], $this->bans->findActiveForKeys(['198.51.100.1'], time()), 'The partner server is not blocked');
+		$this->assertNotSame([], $this->bans->findActiveForKeys(['198.51.100.2'], time()));
+		$this->assertNotSame([], $this->bans->findActiveForKeys(['198.51.100.3'], time()));
+		$facts = $detections[0]->getExplanationData()['facts'];
+		$this->assertSame(ShareBruteforce::RULE_TOKENS_NETWORK, $facts['rule']);
+		$this->assertSame(1, $facts['partners']);
 	}
 
 	public function testIpv6IsCountedPerSlash64(): void {
@@ -487,6 +561,35 @@ class ShareBruteforceTest extends RequestEventTestCase {
 		$this->assertFalse($controller->isValidToken());
 		// What PublicShareMiddleware does for every share page route with an unknown token.
 		$controller->shareNotFound();
+	}
+
+	/**
+	 * A PROPFIND to /public.php/webdav/ the way another server syncs a
+	 * federated share: the share's token as the user name.
+	 *
+	 * @return int the HTTP status
+	 */
+	private function propfind(string $ip, string $token, string $password = ''): int {
+		$this->remoteAddress = $ip;
+		$auth = new LegacyPublicAuth($this->request, Server::get(IShareManager::class), new Memory(), $this->createMock(IThrottler::class), $this->createMock(IUserSession::class), Server::get(IEventDispatcher::class));
+		$server = new DavServer(new SimpleCollection('root'));
+		$server->setBaseUri('/');
+		$server->addPlugin(new AuthPlugin($auth));
+		$server->addPlugin(new FederatedShareUsePlugin($this->addresses, Server::get(FederationPartners::class), Server::get(LoggerInterface::class)));
+		$request = new Request('PROPFIND', '/', [
+			'Authorization' => 'Basic ' . base64_encode($token . ':' . $password),
+			'Depth' => '0',
+			'User-Agent' => 'Nextcloud Server Crawler',
+		]);
+		$response = new Response();
+		$server->httpRequest = $request;
+		$server->httpResponse = $response;
+		try {
+			$server->invokeMethod($request, $response, false);
+		} catch (NotAuthenticated) {
+			return Http::STATUS_UNAUTHORIZED;
+		}
+		return $response->getStatus();
 	}
 
 	private function enterWrongPassword(string $ip, IShare $share): void {

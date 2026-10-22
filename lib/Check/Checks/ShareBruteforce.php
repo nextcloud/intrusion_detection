@@ -43,6 +43,9 @@ use Psr\Container\ContainerInterface;
  * Token guessing and password guessing from one address block that
  * address. Password guessing on one share from any addresses tells the
  * people who manage the share ({@see userNotice()}) and the admins.
+ * Unknown tokens opened while logged in, or from a server this one shares
+ * files with ({@see \OCA\IntrusionDetection\Share\FederationPartners}),
+ * are reported but never block the address.
  */
 final class ShareBruteforce implements ICheck, IExplainsDetection, IExplainsToUser, ISimulatable, ISelectsResponses {
 	public const ID = 'share_bruteforce';
@@ -83,15 +86,15 @@ final class ShareBruteforce implements ICheck, IExplainsDetection, IExplainsToUs
 			responses: [ResponseType::Ban, ResponseType::NotifyAdmin, ResponseType::NotifyShareOwner],
 			defaultResponses: [ResponseType::Ban, ResponseType::NotifyAdmin, ResponseType::NotifyShareOwner],
 			cost: CostClass::OnFailureOnly,
-			stores: [DataKind::FailedAttempts, DataKind::Detections, DataKind::Bans],
+			stores: [DataKind::FailedAttempts, DataKind::Detections, DataKind::Bans, DataKind::Flags],
 			texts: static fn (IL10N $l): CheckTexts => new CheckTexts(
 				name: $l->t('Share link attacks'),
 				shortName: $l->t('Share link attack'),
 				summary: $l->t('Someone tries share links at random, or guesses the password of a share.'),
 				detects: $l->t('A share link works like a secret address: whoever knows it can open the share. Attackers try random links in the hope of finding shared files, or try one password after the other on a link that is protected by a password.'),
 				decides: $l->t('Fires when one address opens {token_min} different share links that do not exist within {token_window}; a whole /24 network is held to {net_factor} times this number. One or two outdated links never count. It also fires when one address enters {password_min_per_source} wrong passwords for one share within {password_source_window}, and when one share gets {password_min_per_share} wrong passwords from any number of addresses within {password_share_window}. The first two block the address; the last one tells the person who shared the link. Administrators are notified of each of them, if you choose so below.'),
-				wrong: $l->t('Someone with old bookmarks to deleted shares, or a link checker that walks through many outdated links. People behind one office address who mistype a share\'s password many times: the person who shared it can send them the password again. When the server is flooded with failed attempts, only one in ten unknown links is recorded and the numbers are estimates, so nobody with one or two outdated links is affected. Unknown links opened while logged in are counted and reported, with the account, but never block the address, and a browser that opens links for another website or an email does not get its address blocked.'),
-				data: $l->t('Failed share accesses: the address, a fingerprint of the link (never the link itself), the share for wrong passwords, and the time, deleted after 1 hour. Detections keep the share\'s id and the accounts that manage it, never its name or link.'),
+				wrong: $l->t('Someone with old bookmarks to deleted shares, or a link checker that walks through many outdated links. People behind one office address who mistype a share\'s password many times: the person who shared it can send them the password again. When the server is flooded with failed attempts, only one in ten unknown links is recorded and the numbers are estimates, so nobody with one or two outdated links is affected. Unknown links opened while logged in are counted and reported, with the account, but never block the address, and a browser that opens links for another website or an email does not get its address blocked. A server your users share files with may keep opening federated shares that were deleted here, for example together with the account that shared them: an address that opened a federated share of this server within the last day is reported, but never blocked.'),
+				data: $l->t('Failed share accesses: the address, a fingerprint of the link (never the link itself), the share for wrong passwords, and the time, deleted after 1 hour. Detections keep the share\'s id and the accounts that manage it, never its name or link. Addresses that opened a federated share of this server, kept at most 1 day after the last time.'),
 			),
 			simulatable: true,
 		);
@@ -99,14 +102,16 @@ final class ShareBruteforce implements ICheck, IExplainsDetection, IExplainsToUs
 
 	/**
 	 * A link a logged-in user opened is reported, never a reason to block:
-	 * the account is known, and blocking would lock its owner out.
+	 * the account is known, and blocking would lock its owner out. The same
+	 * for links a partner server opened: blocking it would cut off the
+	 * federated shares it still has.
 	 */
 	#[\Override]
 	public function responsesFor(DetectionDraft $draft, array $configured, array $params): array {
 		$rule = $draft->facts['rule'] ?? null;
 		$allowed = $rule === self::RULE_PASSWORD_SHARE ? self::SHARE_RESPONSES : self::SOURCE_RESPONSES;
-		$loggedIn = ($draft->facts['loggedIn'] ?? false) === true;
-		return array_values(array_filter($configured, static fn (ResponseType $r): bool => in_array($r, $allowed, true) && !($loggedIn && $r === ResponseType::Ban)));
+		$spared = ($draft->facts['loggedIn'] ?? false) === true || ($draft->facts['federation'] ?? false) === true;
+		return array_values(array_filter($configured, static fn (ResponseType $r): bool => in_array($r, $allowed, true) && !($spared && $r === ResponseType::Ban)));
 	}
 
 	#[\Override]
@@ -158,6 +163,17 @@ final class ShareBruteforce implements ICheck, IExplainsDetection, IExplainsToUs
 		}
 		if ($facts->bool('loggedIn') && $detection->getUid() !== null) {
 			$sentences[] = $l->t('The most recent of these links was opened while logged in as %s. Links opened while logged in are reported, but never block the address.', [$detection->getUid()]);
+		}
+		if ($facts->bool('federation')) {
+			$sentences[] = $l->t('The address opened a federated share of this server within the last day: it belongs to a server your users share files with, which may still open federated shares that were deleted here. Such an address is reported, but never blocked.');
+		}
+		$partners = $facts->int('partners');
+		if ($partners > 0) {
+			$sentences[] = $l->n(
+				'%n address of the network opened a federated share of this server within the last day and was not blocked.',
+				'%n addresses of the network opened a federated share of this server within the last day and were not blocked.',
+				$partners,
+			);
 		}
 		$factor = $facts->int('sampleFactor', 1);
 		if ($factor > 1) {

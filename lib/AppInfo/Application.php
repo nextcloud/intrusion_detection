@@ -80,6 +80,7 @@ use OCP\Authentication\TwoFactorAuth\TwoFactorProviderChallengeFailed;
 use OCP\Authentication\TwoFactorAuth\TwoFactorProviderChallengePassed;
 use OCP\Authentication\TwoFactorAuth\TwoFactorProviderForUserRegistered;
 use OCP\Authentication\TwoFactorAuth\TwoFactorProviderForUserUnregistered;
+use OCP\BeforeSabrePubliclyLoadedEvent;
 use OCP\Group\Events\SubAdminAddedEvent;
 use OCP\Group\Events\UserAddedEvent;
 use OCP\Group\Events\UserRemovedEvent;
@@ -150,6 +151,7 @@ class Application extends App implements IBootstrap {
 		$context->registerEventListener(UserDeletedEvent::class, UserDeletedListener::class);
 		$context->registerEventListener(SettingChangedEvent::class, TrapNamesChangedListener::class);
 		$context->registerEventListener(SabrePluginAddEvent::class, SabrePluginAddListener::class);
+		$context->registerEventListener(BeforeSabrePubliclyLoadedEvent::class, SabrePluginAddListener::class);
 		// Global, so that it covers every app's controllers; it runs after core's two-factor middleware.
 		$context->registerMiddleware(SessionStateMiddleware::class, true);
 		foreach ([UserAddedEvent::class, UserRemovedEvent::class, SubAdminAddedEvent::class, UserCreatedEvent::class, AppEnableEvent::class, AppDisableEvent::class, SettingChangedEvent::class] as $event) {

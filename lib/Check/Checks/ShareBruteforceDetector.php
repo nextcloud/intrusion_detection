@@ -18,6 +18,7 @@ use OCA\IntrusionDetection\Detection\DetectionDraft;
 use OCA\IntrusionDetection\Net\SourceKey;
 use OCA\IntrusionDetection\Response\ResponseEngine;
 use OCA\IntrusionDetection\Risk\RiskScorer;
+use OCA\IntrusionDetection\Share\FederationPartners;
 use OCA\IntrusionDetection\Share\ShareLinks;
 use OCP\Share\IShare;
 
@@ -41,6 +42,11 @@ use OCP\Share\IShare;
  * and attempts that may have been lures never make an address of the
  * network a target.
  *
+ * Unknown tokens from the address of a server this one shares files with
+ * ({@see FederationPartners}) count and are reported, but never block that
+ * address: partner servers still open federated shares that were deleted
+ * here without telling them.
+ *
  * Under a flood the recorder keeps one unknown token in FLOOD_SAMPLE; only a
  * kept one is evaluated, and each kept row counts with its stored weight.
  * However the numbers are scaled, an address with at most STALE_TOLERANCE
@@ -61,6 +67,7 @@ class ShareBruteforceDetector {
 		private readonly ShareBruteforce $check,
 		private readonly ShareLinks $links,
 		private readonly RiskScorer $risk,
+		private readonly FederationPartners $partners,
 	) {
 	}
 
@@ -84,11 +91,13 @@ class ShareBruteforceDetector {
 		$ip = $this->attempts->stats('ip_key', [$source->ipKey], $kinds, $since);
 		$limits = $this->risk->limits($source, ['token_min' => [$minTokens, $ip->namesEstimate()]]);
 		if (self::reaches($ip->distinctNames, $ip->namesEstimate(), $limits->of('token_min'))) {
+			// A partner server is reported, never blocked ({@see ShareBruteforce::responsesFor()}).
+			$partner = $this->partners->isPartner($source) ? ['federation' => true] : [];
 			$this->handle(new DetectionDraft(
 				checkId: ShareBruteforce::ID,
 				source: $source,
 				uid: $attempt->uid,
-				facts: $this->tokenFacts(ShareBruteforce::RULE_TOKENS, $ip) + $loggedIn + $limits->facts(),
+				facts: $this->tokenFacts(ShareBruteforce::RULE_TOKENS, $ip) + $loggedIn + $partner + $limits->facts(),
 				merge: DetectionDraft::MERGE_SOURCE,
 				userAgent: $userAgent,
 				lure: $attempt->lure,
@@ -106,25 +115,32 @@ class ShareBruteforceDetector {
 		if (!self::reaches($net->distinctNames, $net->namesEstimate(), $netLimits->of('token_min'))) {
 			return;
 		}
+		$targets = [];
+		foreach ($this->attempts->distinctNamesPerSource('net_key', $source->netKey, $kinds, $since, self::MAX_NET_TARGETS) as $ipKey => $tokens) {
+			$target = $tokens > self::STALE_TOLERANCE ? SourceKey::tryFromIpKey($ipKey) : null;
+			if ($target !== null) {
+				$targets[$target->ipKey] = $target;
+			}
+		}
+		$partners = $this->partners->among(array_values($targets));
+		foreach ($partners as $partner) {
+			unset($targets[$partner]);
+		}
 		$draft = new DetectionDraft(
 			checkId: ShareBruteforce::ID,
 			source: $source,
 			uid: $attempt->uid,
-			facts: $this->tokenFacts(ShareBruteforce::RULE_TOKENS_NETWORK, $net) + ['net' => $source->netKey] + $loggedIn + $netLimits->facts(),
+			facts: $this->tokenFacts(ShareBruteforce::RULE_TOKENS_NETWORK, $net) + ['net' => $source->netKey] + $loggedIn
+				+ ($partners === [] ? [] : ['partners' => count($partners)]) + $netLimits->facts(),
 			merge: DetectionDraft::MERGE_SOURCE,
 			userAgent: $userAgent,
 			lure: $attempt->lure,
 		);
-		$sourceIsTarget = false;
-		foreach ($this->attempts->distinctNamesPerSource('net_key', $source->netKey, $kinds, $since, self::MAX_NET_TARGETS) as $ipKey => $tokens) {
-			$target = $tokens > self::STALE_TOLERANCE ? SourceKey::tryFromIpKey($ipKey) : null;
-			if ($target !== null) {
-				$draft->addBanTarget($target);
-				$sourceIsTarget = $sourceIsTarget || $target->ipKey === $source->ipKey;
-			}
+		foreach ($targets as $target) {
+			$draft->addBanTarget($target);
 		}
-		if (!$sourceIsTarget) {
-			// One or two outdated links never get an address blocked, not even the one that tipped the network over.
+		if (!isset($targets[$source->ipKey])) {
+			// One or two outdated links never get an address blocked, not even the one that tipped the network over; nor does a partner server.
 			$draft->spareSource();
 		}
 		$this->handle($draft, $params);

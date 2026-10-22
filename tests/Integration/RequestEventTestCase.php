@@ -130,6 +130,30 @@ abstract class RequestEventTestCase extends IntegrationTestCase {
 	}
 
 	/**
+	 * A federated share of a folder of the user with a user of another
+	 * server, stored the way the federated share provider stores it.
+	 */
+	protected function federatedShare(IUser $owner, string $sharedWith = 'partner-user@cloud.partner.example'): IShare {
+		$qb = $this->db->getQueryBuilder();
+		$qb->insert('share')->values([
+			'share_type' => $qb->createNamedParameter(IShare::TYPE_REMOTE, IQueryBuilder::PARAM_INT),
+			'share_with' => $qb->createNamedParameter($sharedWith),
+			'uid_owner' => $qb->createNamedParameter($owner->getUID()),
+			'uid_initiator' => $qb->createNamedParameter($owner->getUID()),
+			'item_type' => $qb->createNamedParameter('folder'),
+			'item_source' => $qb->createNamedParameter('434343'),
+			'file_source' => $qb->createNamedParameter(434343, IQueryBuilder::PARAM_INT),
+			'file_target' => $qb->createNamedParameter('/Project'),
+			'permissions' => $qb->createNamedParameter(Constants::PERMISSION_READ, IQueryBuilder::PARAM_INT),
+			'stime' => $qb->createNamedParameter(time(), IQueryBuilder::PARAM_INT),
+			'token' => $qb->createNamedParameter(Server::get(ISecureRandom::class)->generate(15, ISecureRandom::CHAR_HUMAN_READABLE)),
+		])->executeStatement();
+		$id = $qb->getLastInsertId();
+		$this->shareIds[] = $id;
+		return Server::get(IShareManager::class)->getShareById('ocFederatedSharing:' . $id);
+	}
+
+	/**
 	 * @return list<Detection>
 	 */
 	protected function detectionsOf(string $checkId): array {

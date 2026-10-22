@@ -151,8 +151,8 @@ class PrivacyOverview {
 			],
 			DataKind::Flags => [
 				'name' => $l->t('Marked addresses and accounts'),
-				'what' => $l->t('Addresses after an attack, accounts under attack, fingerprints of passwords that were tried against many accounts, and the name of an attack tool an address used for a failed login.'),
-				'why' => $l->t('So that a successful login after an attack needs extra confirmation, and for the address risk score.'),
+				'what' => $l->t('Addresses after an attack, accounts under attack, fingerprints of passwords that were tried against many accounts, the name of an attack tool an address used for a failed login, and addresses that opened a federated share of this server.'),
+				'why' => $l->t('So that a successful login after an attack needs extra confirmation, for the address risk score, and so that a server your users share files with is never blocked for opening shares that were deleted here.'),
 				'retention' => $l->t('%1$s; password fingerprints %2$s; attack tools %3$s', [
 					TextRenderer::duration(FlaggedSources::DURATION, $l),
 					TextRenderer::duration(min(FlaggedSources::DURATION, FlaggedSources::PASSWORD_FLAG_MAX_DURATION), $l),

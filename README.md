@@ -106,7 +106,7 @@ None of this shows up in an access log as anything unusual. All of it is visible
 
 | Check | What it notices | Default | What happens |
 |---|---|---|---|
-| **Share link attacks** | One address opens 10 share links that don't exist within 10 minutes, or keeps guessing the password of one share. | Protect | Blocks the address. When one share's password is guessed from many addresses, the person who shared it is told. |
+| **Share link attacks** | One address opens 10 share links that don't exist within 10 minutes, or keeps guessing the password of one share. | Protect | Blocks the address. When one share's password is guessed from many addresses, the person who shared it is told. A server that opened a federated share of yours within the last day is only reported. |
 | **Password reset abuse** | One address asks "Forgot password" for many different accounts, or one person is flooded with reset emails. | Protect | Blocks the probing address, or pauses reset emails to the flooded account and tells the person. |
 
 ### Scanning and probing
