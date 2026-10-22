@@ -13,10 +13,12 @@ use OCA\IntrusionDetection\AppInfo\Application;
 use OCA\IntrusionDetection\Check\ResponseType;
 use OCA\IntrusionDetection\Config\GlobalSettings;
 use OCA\IntrusionDetection\Config\ModeState;
+use OCA\IntrusionDetection\Config\Prerequisites;
 use OCA\IntrusionDetection\Config\Settings;
 use OCA\IntrusionDetection\Db\AttemptKind;
 use OCA\IntrusionDetection\Db\AttemptMapper;
 use OCA\IntrusionDetection\Db\AttemptStats;
+use OCA\IntrusionDetection\Db\StateMapper;
 use OCA\IntrusionDetection\Detection\AttemptRecord;
 use OCA\IntrusionDetection\Detection\DetectionDraft;
 use OCA\IntrusionDetection\Net\RemoteAddressResolver;
@@ -39,8 +41,10 @@ use OCP\IMemcache;
  *    has. Both are lowered for an address with an elevated or high risk
  *    score ({@see RiskScorer::limits()}).
  * 2. Distributed: the whole server has at least the distributed numbers of
- *    failures, addresses and names within 10 minutes. That records one
- *    detection per 30 minutes while it lasts. During it, and for an hour
+ *    failures, addresses and names within 10 minutes. One web server
+ *    evaluates this for all, once every EVALUATE_EVERY seconds
+ *    ({@see evaluationDue()}). It records one detection per 30 minutes
+ *    while it lasts. During it, and for an hour
  *    after, every failing address is flagged; during it, every address with
  *    3 failures for 2 names is blocked.
  */
@@ -53,16 +57,19 @@ class CredentialStuffingDetector {
 	public const DISTRIBUTED_FLAG_AFTER = 3600;
 	public const MEMBER_MIN_FAILURES = 3;
 	public const MEMBER_MIN_NAMES = 2;
-	/** With a memory cache, each web server evaluates the instance-wide numbers at most this often */
+	/** The instance-wide numbers are evaluated once per period of this many seconds, on one web server */
 	public const EVALUATE_EVERY = 30;
+	/** The ids_state row that holds the last period claimed for that evaluation, without a distributed cache */
+	public const EVALUATED_STATE = 'cs_evaluated';
 	/** A network detection blocks at most this many of its addresses */
 	public const MAX_NET_TARGETS = 256;
 	/** A network detection blocks those of its addresses that failed this often for this many names */
 	public const NET_MEMBER_MIN_FAILURES = 2;
 	public const NET_MEMBER_MIN_NAMES = 2;
 
-	private ?IMemcache $cache = null;
-	private bool $cacheInitialised = false;
+	private ?IMemcache $sharedCache = null;
+	private ?IMemcache $localCache = null;
+	private bool $cachesInitialised = false;
 
 	public function __construct(
 		private readonly Settings $settings,
@@ -73,6 +80,8 @@ class CredentialStuffingDetector {
 		private readonly RemoteAddressResolver $addresses,
 		private readonly ICacheFactory $cacheFactory,
 		private readonly RiskScorer $risk,
+		private readonly StateMapper $state,
+		private readonly Prerequisites $prerequisites,
 	) {
 	}
 
@@ -163,19 +172,21 @@ class CredentialStuffingDetector {
 		$now = $attempt->time;
 		$until = $this->settings->getInt(GlobalSettings::CS_DISTRIBUTED_UNTIL);
 
-		if ($this->evaluationDue($now)) {
-			$instance = $this->attempts->instanceStats(self::KINDS, $now - self::DISTRIBUTED_WINDOW);
-			if ($instance->failures >= (int)$params['distributed_min_failures']
-				&& $instance->distinctSources >= (int)$params['distributed_min_sources']
-				&& $instance->distinctNames >= (int)$params['distributed_min_names']) {
-				// Written at most once a minute, not on every failure.
-				if ($until < $now + self::DISTRIBUTED_WINDOW - 60) {
-					$until = $now + self::DISTRIBUTED_WINDOW;
-					$this->settings->setGlobal(GlobalSettings::CS_DISTRIBUTED_UNTIL, $until);
-				}
-				if ($now - $this->settings->getInt(GlobalSettings::CS_DISTRIBUTED_DETECTED_AT) >= self::DISTRIBUTED_DEDUPE) {
-					$this->recordDistributed($instance, $now);
-				}
+		$since = $now - self::DISTRIBUTED_WINDOW;
+		if ($this->evaluationDue($now) && $this->attempts->instanceReaches(
+			self::KINDS,
+			$since,
+			(int)$params['distributed_min_failures'],
+			(int)$params['distributed_min_sources'],
+			(int)$params['distributed_min_names'],
+		)) {
+			// Written at most once a minute, not on every failure.
+			if ($until < $now + self::DISTRIBUTED_WINDOW - 60) {
+				$until = $now + self::DISTRIBUTED_WINDOW;
+				$this->settings->setGlobal(GlobalSettings::CS_DISTRIBUTED_UNTIL, $until);
+			}
+			if ($now - $this->settings->getInt(GlobalSettings::CS_DISTRIBUTED_DETECTED_AT) >= self::DISTRIBUTED_DEDUPE) {
+				$this->recordDistributed($this->attempts->instanceStats(self::KINDS, $since), $now);
 			}
 		}
 
@@ -226,22 +237,25 @@ class CredentialStuffingDetector {
 	}
 
 	/**
-	 * The instance-wide numbers are evaluated at most every EVALUATE_EVERY
-	 * seconds: per web server with a memory cache, else instance-wide through
-	 * a stored time. Without a cache, requests that run at the same moment
-	 * may each evaluate once; there is never one evaluation per failure.
+	 * The instance-wide numbers are evaluated once per EVALUATE_EVERY-second
+	 * period, by the first failure of the period on any web server, so the
+	 * cost of the count does not grow with the number of web servers:
+	 * - with a distributed cache, by the request whose add() of the
+	 *   period's key succeeds;
+	 * - otherwise by the request that claims the period in ids_state. A
+	 *   local cache lets each web server try that claim once per period.
 	 */
 	private function evaluationDue(int $now): bool {
-		$cache = $this->cache();
-		if ($cache !== null) {
-			return $cache->add('cs:eval', 1, self::EVALUATE_EVERY);
+		$period = intdiv($now, self::EVALUATE_EVERY);
+		$key = 'cs:eval:' . $period;
+		$this->initCaches();
+		if ($this->sharedCache !== null) {
+			return $this->sharedCache->add($key, 1, self::EVALUATE_EVERY);
 		}
-		$last = $this->settings->getInt(GlobalSettings::CS_EVALUATED_AT);
-		if ($last <= $now && $now - $last < self::EVALUATE_EVERY) {
+		if ($this->localCache !== null && !$this->localCache->add($key, 1, self::EVALUATE_EVERY)) {
 			return false;
 		}
-		$this->settings->setGlobal(GlobalSettings::CS_EVALUATED_AT, $now);
-		return true;
+		return $this->state->claim(self::EVALUATED_STATE, $period);
 	}
 
 	/**
@@ -271,13 +285,17 @@ class CredentialStuffingDetector {
 		return ['min_failures' => [$failures, $stats->failures], 'min_names' => [$names, $stats->distinctNames]];
 	}
 
-	private function cache(): ?IMemcache {
-		if (!$this->cacheInitialised) {
-			$this->cacheInitialised = true;
-			$cache = $this->cacheFactory->isLocalCacheAvailable() ? $this->cacheFactory->createLocal(Application::APP_ID) : null;
-			// add() is atomic only on the memcache types.
-			$this->cache = $cache instanceof IMemcache ? $cache : null;
+	private function initCaches(): void {
+		if ($this->cachesInitialised) {
+			return;
 		}
-		return $this->cache;
+		$this->cachesInitialised = true;
+		// add() is atomic only on the memcache types.
+		$shared = $this->prerequisites->hasDistributedCache() ? $this->cacheFactory->createDistributed(Application::APP_ID) : null;
+		$this->sharedCache = $shared instanceof IMemcache ? $shared : null;
+		if ($this->sharedCache === null && $this->cacheFactory->isLocalCacheAvailable()) {
+			$local = $this->cacheFactory->createLocal(Application::APP_ID);
+			$this->localCache = $local instanceof IMemcache ? $local : null;
+		}
 	}
 }

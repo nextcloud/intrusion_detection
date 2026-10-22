@@ -142,11 +142,6 @@ final class LexiconData {
 			'default' => 0,
 			'min' => 0,
 		],
-		'cs_evaluated_at' => [
-			'type' => 'int',
-			'default' => 0,
-			'min' => 0,
-		],
 		'decoy_count' => [
 			'type' => 'int',
 			'default' => 0,
@@ -1156,7 +1151,6 @@ final class LexiconData {
 		['cs_distributed_until', ValueType::INT, 0, 'intrusion detection: cs_distributed_until'],
 		['cs_distributed_detected_at', ValueType::INT, 0, 'intrusion detection: cs_distributed_detected_at'],
 		['cs_distributed_detection', ValueType::INT, 0, 'intrusion detection: cs_distributed_detection'],
-		['cs_evaluated_at', ValueType::INT, 0, 'intrusion detection: cs_evaluated_at'],
 		['decoy_count', ValueType::INT, 0, 'intrusion detection: decoy_count'],
 		['admin_change_require_approval', ValueType::BOOL, false, 'intrusion detection: admin_change_require_approval'],
 		['config_watch_baseline', ValueType::INT, 0, 'intrusion detection: config_watch_baseline'],

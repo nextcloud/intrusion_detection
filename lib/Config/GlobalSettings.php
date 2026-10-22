@@ -61,8 +61,6 @@ final class GlobalSettings {
 	public const CS_DISTRIBUTED_DETECTED_AT = 'cs_distributed_detected_at';
 	/** Internal: the detection of the running distributed attack */
 	public const CS_DISTRIBUTED_DETECTION = 'cs_distributed_detection';
-	/** Internal: when the instance-wide credential stuffing numbers were last evaluated, where no memory cache exists */
-	public const CS_EVALUATED_AT = 'cs_evaluated_at';
 	/** Internal: how many decoy credentials exist, so failed logins skip the lookup while there are none */
 	public const DECOY_COUNT = 'decoy_count';
 	/** A second administrator must approve every new administrator */
@@ -143,7 +141,6 @@ final class GlobalSettings {
 				new ParamDefinition(self::CS_DISTRIBUTED_UNTIL, ParamType::Int, 0, min: 0),
 				new ParamDefinition(self::CS_DISTRIBUTED_DETECTED_AT, ParamType::Int, 0, min: 0),
 				new ParamDefinition(self::CS_DISTRIBUTED_DETECTION, ParamType::Int, 0, min: 0),
-				new ParamDefinition(self::CS_EVALUATED_AT, ParamType::Int, 0, min: 0),
 				new ParamDefinition(self::DECOY_COUNT, ParamType::Int, 0, min: 0),
 				new ParamDefinition(self::ADMIN_CHANGE_REQUIRE_APPROVAL, ParamType::Bool, false),
 				new ParamDefinition(self::CONFIG_WATCH_BASELINE, ParamType::Int, 0, min: 0),
@@ -202,7 +199,7 @@ final class GlobalSettings {
 		return in_array($name, [
 			self::INSTALLED_AT, self::LEARNING_NOTICE_SENT, self::ATTEMPTS_FLOOD_UNTIL,
 			self::BLOCKLIST_STATE,
-			self::CS_DISTRIBUTED_UNTIL, self::CS_DISTRIBUTED_DETECTED_AT, self::CS_DISTRIBUTED_DETECTION, self::CS_EVALUATED_AT,
+			self::CS_DISTRIBUTED_UNTIL, self::CS_DISTRIBUTED_DETECTED_AT, self::CS_DISTRIBUTED_DETECTION,
 			self::DECOY_COUNT,
 			self::CONFIG_WATCH_BASELINE,
 			self::DIGEST_STATE,

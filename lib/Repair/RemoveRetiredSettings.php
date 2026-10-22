@@ -33,12 +33,14 @@ use Psr\Log\LoggerInterface;
  *
  * `history_retention_days` is merged into `retention_detections_days` by
  * {@see Version1000Date20261022100000}, which logs the result; here it is
- * only deleted.
+ * only deleted, as are the internal values in RETIRED_STATE.
  *
  * Runs after every upgrade and does nothing once the values are gone.
  */
 class RemoveRetiredSettings implements IRepairStep {
 	public const HISTORY_RETENTION_DAYS = 'history_retention_days';
+	/** Internal values the app no longer keeps in the app config */
+	public const RETIRED_STATE = ['cs_evaluated_at'];
 
 	public function __construct(
 		private readonly IAppConfig $appConfig,
@@ -90,7 +92,7 @@ class RemoveRetiredSettings implements IRepairStep {
 	#[\Override]
 	public function run(IOutput $output): void {
 		$retired = self::retired();
-		$stored = array_intersect($this->appConfig->getKeys(Application::APP_ID), [...array_keys($retired), self::HISTORY_RETENTION_DAYS]);
+		$stored = array_intersect($this->appConfig->getKeys(Application::APP_ID), [...array_keys($retired), self::HISTORY_RETENTION_DAYS, ...self::RETIRED_STATE]);
 		if ($stored === []) {
 			return;
 		}
