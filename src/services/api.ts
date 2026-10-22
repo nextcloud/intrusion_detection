@@ -5,6 +5,7 @@
 
 import type { OCSResponse } from '@nextcloud/typings/ocs'
 import type {
+	AdminGrantRequest,
 	Ban,
 	BanList,
 	Blocklist,
@@ -456,7 +457,15 @@ export function fetchUnconfirmableAccounts(limit = 50, after = '', admins = fals
 }
 
 /**
- * Approve a request: for a login, the waiting login continues.
+ * The accounts that wait to become administrators, oldest first.
+ */
+export function fetchAdminGrants(): Promise<AdminGrantRequest[]> {
+	return call<AdminGrantRequest[]>(axios.get(url('approvals/admin-grants')))
+}
+
+/**
+ * Approve a request: for a login, the waiting login continues; for a new
+ * administrator, the account joins the group. Needs the password.
  *
  * @param id - The request
  */
@@ -465,10 +474,11 @@ export function approveRequest(id: number): Promise<unknown> {
 }
 
 /**
- * Reject a request: for a login, the waiting login ends.
+ * Reject a request: for a login, the waiting login ends; for a new
+ * administrator, nothing changes. Refusing needs no password.
  *
  * @param id - The request
  */
 export function rejectRequest(id: number): Promise<unknown> {
-	return call<unknown>(axios.post(url(`approvals/${id}/reject`), {}, write))
+	return call<unknown>(axios.post(url(`approvals/${id}/reject`)))
 }

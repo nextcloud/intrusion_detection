@@ -10,6 +10,7 @@ declare(strict_types=1);
 namespace OCA\IntrusionDetection\Notification;
 
 use OCA\IntrusionDetection\AppInfo\Application;
+use OCA\IntrusionDetection\Db\Approval;
 use OCP\IURLGenerator;
 
 /**
@@ -37,6 +38,16 @@ class AdminLinks {
 
 	public function approval(int $id): string {
 		return $this->adminPage() . '#approval-' . $id;
+	}
+
+	/**
+	 * Where an administrator decides on a request: the waiting logins in the
+	 * settings, or the request's own card on the overview.
+	 */
+	public function decide(Approval $approval): string {
+		return $approval->getKind() === Approval::KIND_LOGIN
+			? $this->adminPage() . '#settings-approvals'
+			: $this->approval((int)$approval->getId());
 	}
 
 	public function icon(): string {

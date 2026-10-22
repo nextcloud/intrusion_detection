@@ -119,7 +119,7 @@ class AdminChangeSource implements ITimelineSource {
 		$details = [$l->t('Requested by %1$s at %2$s.', [AdminChange::actorName($approval->getRequestedBy(), $l), $this->dates->dateTime($approval->getCreatedAt())])];
 		if (!$decided) {
 			$details[] = $l->t('It waits for a decision until %s.', [$this->dates->dateTime($approval->getExpiresAt())]);
-			return $this->approvalEntry($approval, $approval->getCreatedAt(), $l->t('Request waiting for approval: %s', [$what]), $details, $l, $l->t('A request for approval is still waiting. Decide it with occ intrusion:approvals:decide, or let it expire.'));
+			return $this->approvalEntry($approval, $approval->getCreatedAt(), $l->t('Request waiting for approval: %s', [$what]), $details, $l, $l->t('A request for approval is still waiting. Decide it on the Overview tab or with occ intrusion:approvals:decide, or let it expire.'));
 		}
 		$decider = AdminChange::actorName((string)$approval->getDecidedBy(), $l);
 		$title = match ($approval->getStatus()) {

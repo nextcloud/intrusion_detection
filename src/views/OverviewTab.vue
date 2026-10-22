@@ -14,6 +14,7 @@ import NcIconSvgWrapper from '@nextcloud/vue/components/NcIconSvgWrapper'
 import NcNoteCard from '@nextcloud/vue/components/NcNoteCard'
 import LiftBanDialog from '../components/blocks/LiftBanDialog.vue'
 import SkeletonBlock from '../components/common/SkeletonBlock.vue'
+import AdminGrantRequests from '../components/confirmation/AdminGrantRequests.vue'
 import PendingApprovals from '../components/confirmation/PendingApprovals.vue'
 import DetectionChart from '../components/overview/DetectionChart.vue'
 import DetectionList from '../components/overview/DetectionList.vue'
@@ -22,7 +23,7 @@ import ProblemList from '../components/ProblemList.vue'
 import StatusBanner from '../components/StatusBanner.vue'
 import { errorMessage, fetchDailyStats } from '../services/api.ts'
 import { logger } from '../services/logger.ts'
-import { decidableLogins, openDetectionId, refreshWaitingLogins, state } from '../store.ts'
+import { adminGrants, decidableLogins, openDetectionId, refreshAdminGrants, refreshWaitingLogins, state } from '../store.ts'
 import { APP_ID } from '../utils/format.ts'
 
 const stats = ref<DailyStats | null>(null)
@@ -90,11 +91,16 @@ watch(openDetectionId, async (id) => {
 		<StatusBanner v-if="state.status" :status="state.status" />
 
 		<ProblemList
-			v-if="problems.length > 0 || decidableLogins.length > 0"
+			v-if="problems.length > 0 || decidableLogins.length > 0 || adminGrants.length > 0"
 			id="overview-attention"
 			:problems="problems">
-			<template v-if="decidableLogins.length > 0" #default>
-				<PendingApprovals :approvals="decidableLogins" data-test="overview-waiting" @decided="refreshWaitingLogins" />
+			<template v-if="decidableLogins.length > 0 || adminGrants.length > 0" #default>
+				<AdminGrantRequests v-if="adminGrants.length > 0" :requests="adminGrants" @decided="refreshAdminGrants" />
+				<PendingApprovals
+					v-if="decidableLogins.length > 0"
+					:approvals="decidableLogins"
+					data-test="overview-waiting"
+					@decided="refreshWaitingLogins" />
 			</template>
 		</ProblemList>
 

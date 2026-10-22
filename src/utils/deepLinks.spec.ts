@@ -19,6 +19,10 @@ describe('links of the admin page', () => {
 		expect(resolveLink('#detection-42')).toEqual({ tab: 'overview', check: null, section: null, detection: 42 })
 	})
 
+	test('a request for a new administrator opens on the overview, at its card', () => {
+		expect(resolveLink('#approval-7')).toEqual({ tab: 'overview', check: null, section: 'approval-7', detection: null })
+	})
+
 	test('the links of the former tabs land where their content is now', () => {
 		expect(resolveLink('#checks')).toMatchObject({ tab: 'protection', check: null })
 		expect(resolveLink('#checks/admin_change')).toMatchObject({ tab: 'protection', check: 'admin_change', section: null })

@@ -623,6 +623,18 @@ namespace OCA\IntrusionDetection;
  *     expiresAt: int,
  * }
  *
+ * @psalm-type IntrusionDetectionAdminGrantRequest = array{
+ *     id: int,
+ *     uid: string,
+ *     displayName: string,
+ *     group: string,
+ *     requestedBy: string,
+ *     requesterName: string,
+ *     createdAt: int,
+ *     expiresAt: int,
+ *     canApprove: bool,
+ * }
+ *
  * @psalm-type IntrusionDetectionPersonalDetection = array{
  *     id: int,
  *     check: string,

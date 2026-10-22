@@ -6,8 +6,8 @@
 import { flushPromises, mount } from '@vue/test-utils'
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 import OverviewTab from './OverviewTab.vue'
-import { approveRequest, fetchDailyStats, fetchDetections, fetchWaitingLogins, lookup, rejectRequest } from '../services/api.ts'
-import { incidentRequest, state, waitingLogins } from '../store.ts'
+import { approveRequest, fetchAdminGrants, fetchDailyStats, fetchDetections, fetchWaitingLogins, lookup, rejectRequest } from '../services/api.ts'
+import { adminGrants, incidentRequest, state, waitingLogins } from '../store.ts'
 import { makeStatus } from '../tests/fixtures.ts'
 
 vi.mock('../services/api.ts', async (importOriginal) => ({
@@ -15,6 +15,7 @@ vi.mock('../services/api.ts', async (importOriginal) => ({
 	fetchDailyStats: vi.fn(),
 	fetchDetections: vi.fn(),
 	fetchWaitingLogins: vi.fn(() => Promise.resolve([])),
+	fetchAdminGrants: vi.fn(() => Promise.resolve([])),
 	approveRequest: vi.fn(),
 	rejectRequest: vi.fn(),
 	lookup: vi.fn(),
@@ -47,6 +48,9 @@ describe('the overview', () => {
 		state.status = null
 		incidentRequest.value = null
 		waitingLogins.value = []
+		adminGrants.value = []
+		vi.mocked(approveRequest).mockReset()
+		vi.mocked(rejectRequest).mockReset()
 		vi.mocked(fetchDailyStats).mockReset()
 		vi.mocked(lookup).mockReset()
 		document.body.innerHTML = ''
@@ -101,6 +105,51 @@ describe('the overview', () => {
 		expect(approveRequest).not.toHaveBeenCalled()
 		expect(fetchWaitingLogins).toHaveBeenCalled()
 		expect(wrapper.find('#overview-attention').exists()).toBe(false)
+	})
+
+	test('an account waiting to become an administrator needs attention; approving asks first', async () => {
+		state.status = makeStatus({ state: 'protecting', problems: [] })
+		adminGrants.value = [
+			{ id: 7, uid: 'bob', displayName: 'Bob Builder', group: 'admin', requestedBy: 'alice', requesterName: 'Alice Liddell', createdAt: 1_760_000_000, expiresAt: 1_760_604_800, canApprove: true },
+		]
+		vi.mocked(approveRequest).mockResolvedValue({})
+		vi.mocked(fetchAdminGrants).mockResolvedValue([])
+		const { wrapper } = await mountOverview()
+		const card = wrapper.get('#overview-attention').get('#approval-7')
+		expect(card.text()).toContain('Alice Liddell asks to make Bob Builder an administrator')
+		expect(card.findAll('button').map((b) => b.text())).toEqual(['Reject', 'Approve'])
+
+		await card.findAll('button')[1]!.trigger('click')
+		await flushPromises()
+		expect(approveRequest).not.toHaveBeenCalled()
+		const dialog = document.body.querySelector('[role="dialog"]')
+		expect(dialog?.textContent).toContain('Make Bob Builder an administrator?')
+		const approve = [...dialog!.querySelectorAll('button')].find((b) => b.textContent?.trim() === 'Approve')
+		approve!.click()
+		await flushPromises()
+		expect(approveRequest).toHaveBeenCalledWith(7)
+		expect(fetchAdminGrants).toHaveBeenCalled()
+		expect(wrapper.find('#overview-attention').exists()).toBe(false)
+	})
+
+	test('a request for a new administrator is rejected in one click, and the one who asked can only withdraw it', async () => {
+		state.status = makeStatus({ state: 'protecting', problems: [] })
+		adminGrants.value = [
+			{ id: 7, uid: 'bob', displayName: 'Bob Builder', group: 'admin', requestedBy: 'alice', requesterName: 'Alice Liddell', createdAt: 1_760_000_000, expiresAt: 1_760_604_800, canApprove: true },
+			{ id: 8, uid: 'dave', displayName: 'Dave', group: 'admin', requestedBy: 'admin', requesterName: 'Admin', createdAt: 1_760_000_100, expiresAt: 1_760_604_900, canApprove: false },
+		]
+		vi.mocked(rejectRequest).mockResolvedValue({})
+		vi.mocked(fetchAdminGrants).mockResolvedValue([])
+		const { wrapper } = await mountOverview()
+		const own = wrapper.get('#approval-8')
+		expect(own.text()).toContain('Your request: another administrator approves')
+		expect(own.findAll('button').map((b) => b.text())).toEqual(['Withdraw'])
+
+		await wrapper.get('#approval-7').findAll('button')[0]!.trigger('click')
+		await flushPromises()
+		expect(rejectRequest).toHaveBeenCalledWith(7)
+		expect(approveRequest).not.toHaveBeenCalled()
+		expect(document.body.querySelector('[role="dialog"]')).toBeNull()
 	})
 
 	test('nothing asks for attention while the defaults fit', async () => {

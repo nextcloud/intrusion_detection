@@ -13,12 +13,12 @@ use OCA\IntrusionDetection\AppInfo\Application;
 use OCA\IntrusionDetection\Audit\AuditLogger;
 use OCA\IntrusionDetection\Db\Approval;
 use OCA\IntrusionDetection\Db\ApprovalMapper;
+use OCA\IntrusionDetection\Notification\AdminLinks;
 use OCA\IntrusionDetection\Notification\Notifier;
 use OCP\AppFramework\Db\DoesNotExistException;
 use OCP\AppFramework\Utility\ITimeFactory;
 use OCP\IGroup;
 use OCP\IGroupManager;
-use OCP\IURLGenerator;
 use OCP\IUser;
 use OCP\IUserManager;
 use OCP\Notification\IManager as INotificationManager;
@@ -26,8 +26,7 @@ use Psr\Log\LoggerInterface;
 
 /**
  * Requests for the approval of a second administrator, and the rules for
- * deciding them, in one place for the admin page, the notification actions
- * and occ:
+ * deciding them, in one place for the admin page and occ:
  *
  * - only a pending request that has not expired can be decided;
  * - the deciding account must be an enabled member of the admin group;
@@ -68,7 +67,7 @@ class ApprovalService {
 		private readonly IGroupManager $groupManager,
 		private readonly IUserManager $userManager,
 		private readonly INotificationManager $notifications,
-		private readonly IURLGenerator $urlGenerator,
+		private readonly AdminLinks $links,
 		private readonly AuditLogger $audit,
 		private readonly ITimeFactory $timeFactory,
 		private readonly LoggerInterface $logger,
@@ -393,13 +392,12 @@ class ApprovalService {
 				->setDateTime(new \DateTime('@' . $now))
 				->setObject(self::OBJECT_TYPE, (string)$approval->getId())
 				->setSubject(Notifier::SUBJECT_APPROVAL_REQUESTED, ['approval' => (int)$approval->getId()]);
-			foreach ([Notifier::ACTION_APPROVE => 'approve', Notifier::ACTION_REJECT => 'reject'] as $label => $route) {
-				$action = $notification->createAction();
-				$action->setLabel($label)
-					->setLink($this->urlGenerator->linkToOCSRouteAbsolute(Application::APP_ID . '.Approval.' . $route, ['id' => (int)$approval->getId()]), 'POST')
-					->setPrimary($label === Notifier::ACTION_APPROVE);
-				$notification->addAction($action);
-			}
+			// Approving needs the password, which no notification can ask: the admin page decides.
+			$action = $notification->createAction();
+			$action->setLabel(Notifier::ACTION_REVIEW)
+				->setLink($this->links->decide($approval), 'WEB')
+				->setPrimary(true);
+			$notification->addAction($action);
 			$this->notifications->notify($notification);
 		}
 	}

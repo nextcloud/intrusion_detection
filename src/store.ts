@@ -3,11 +3,11 @@
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 
-import type { Category, Check, DetectionFilters, GlobalSetting, IncidentRequest, InitialState, LoginApproval, ParamType, ParamValue, ProtectionLevel, Status } from './types.ts'
+import type { AdminGrantRequest, Category, Check, DetectionFilters, GlobalSetting, IncidentRequest, InitialState, LoginApproval, ParamType, ParamValue, ProtectionLevel, Status } from './types.ts'
 
 import { loadState } from '@nextcloud/initial-state'
 import { computed, reactive, ref } from 'vue'
-import { fetchChecks, fetchProtectionLevel, fetchSettings, fetchStatus, fetchWaitingLogins } from './services/api.ts'
+import { fetchAdminGrants, fetchChecks, fetchProtectionLevel, fetchSettings, fetchStatus, fetchWaitingLogins } from './services/api.ts'
 import { logger } from './services/logger.ts'
 import { APP_ID } from './utils/format.ts'
 
@@ -52,6 +52,23 @@ export async function refreshWaitingLogins(): Promise<void> {
 		waitingLogins.value = await fetchWaitingLogins()
 	} catch (error) {
 		logger.error('Could not load the waiting logins', { error })
+	}
+}
+
+/** The accounts that wait to become administrators, oldest first */
+export const adminGrants = ref<AdminGrantRequest[]>([])
+
+/** The requests for a new administrator this administrator may approve */
+export const approvableGrants = computed(() => adminGrants.value.filter((request) => request.canApprove))
+
+/**
+ * Reload the accounts that wait to become administrators; on failure the last list stays.
+ */
+export async function refreshAdminGrants(): Promise<void> {
+	try {
+		adminGrants.value = await fetchAdminGrants()
+	} catch (error) {
+		logger.error('Could not load the requests for new administrators', { error })
 	}
 }
 

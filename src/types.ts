@@ -682,6 +682,20 @@ export interface LoginApproval {
 	canDecide: boolean
 }
 
+/** An account waiting to become an administrator until another administrator approves */
+export interface AdminGrantRequest {
+	id: number
+	uid: string
+	displayName: string
+	group: string
+	requestedBy: string
+	requesterName: string
+	createdAt: number
+	expiresAt: number
+	/** Whether this administrator may approve: neither the one who asked nor the account */
+	canApprove: boolean
+}
+
 /** The outcome of every reason at once; "custom" when they were set per reason */
 export type ConfirmationPreset = 'recommended' | 'refuse' | 'allow'
 

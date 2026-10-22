@@ -49,8 +49,10 @@ class Notifier implements INotifier {
 
 	public const ACTION_PROTECT = 'protect';
 	public const ACTION_EXTEND = 'extend';
+	/** Opens the admin page, where an administrator decides on a request for approval */
+	public const ACTION_REVIEW = 'review';
+	/** The action of requests stored with separate approve and reject actions; shown as the review action */
 	public const ACTION_APPROVE = 'approve';
-	public const ACTION_REJECT = 'reject';
 	/** "Was this you?" on the user's own notification */
 	public const ACTION_DENY = 'deny';
 	public const ACTION_CONFIRM = 'confirm';
@@ -218,19 +220,9 @@ class Notifier implements INotifier {
 				->setParsedMessage(implode(' ', [
 					$l->t('A second administrator must approve new administrators, so %s was not added yet.', [$account]),
 					$l->t('Approve only if you know about this change. If you did not expect it, reject it and check the account of the one who asked: it may have been taken over.'),
-					$l->t('The request expires at %s. Deciding needs your password.', [$expires]),
+					$l->t('The request expires at %s. Approving needs your password, so you decide on the admin page.', [$expires]),
 				]));
-			foreach ($notification->getActions() as $action) {
-				$label = match ($action->getLabel()) {
-					self::ACTION_APPROVE => $l->t('Approve'),
-					self::ACTION_REJECT => $l->t('Reject'),
-					default => null,
-				};
-				if ($label !== null) {
-					$action->setParsedLabel($label);
-					$notification->addParsedAction($action);
-				}
-			}
+			$this->addReviewAction($notification, $approval, $l->t('Review the request'));
 		} elseif ($subjectId === self::SUBJECT_APPROVAL_PENDING) {
 			$notification->setParsedSubject($l->t('%s is not an administrator yet', [$account]))
 				->setParsedMessage($l->t('A second administrator must approve new administrators, so %1$s was taken out of the admin group again. The other administrators were asked to approve; the request expires at %2$s.', [$account, $expires]));
@@ -271,19 +263,29 @@ class Notifier implements INotifier {
 			->setParsedMessage(implode(' ', [
 				$l->t('%1$s logged in from the address %2$s with the correct password. The login needs extra confirmation, and the account has no other way to give it.', [$account, $address]),
 				$l->t('Approve only if you know it is really %s, for example because they asked you. If you did not expect it, reject it: someone else may know the password.', [$account]),
-				$l->t('The request expires at %s. Deciding needs your password.', [$expires]),
+				$l->t('The request expires at %s. Approving needs your password, so you decide on the admin page.', [$expires]),
 			]))
-			->setLink($this->links->adminPage() . '#settings-approvals');
-		// Deciding needs the password, which the notification cannot ask: one
-		// button opens the admin page. The notifications app shows every web
-		// link as a primary button, so a Reject link would look like Approve.
+			->setLink($this->links->decide($approval));
+		$this->addReviewAction($notification, $approval, $l->t('Review the login'));
+		return $notification;
+	}
+
+	/**
+	 * Approving needs the password, which no notification can ask, neither
+	 * on the web nor in the clients: one button opens the admin page, where
+	 * the administrator decides. The notifications app shows every web link
+	 * as a primary button, so a Reject link would look like Approve.
+	 */
+	private function addReviewAction(INotification $notification, Approval $approval, string $label): void {
 		foreach ($notification->getActions() as $action) {
-			if ($action->getLabel() === self::ACTION_APPROVE) {
-				$action->setParsedLabel($l->t('Review the login'))->setLink($this->links->adminPage() . '#settings-approvals', 'WEB');
+			if (in_array($action->getLabel(), [self::ACTION_REVIEW, self::ACTION_APPROVE], true)) {
+				$action->setParsedLabel($label)
+					->setLink($this->links->decide($approval), 'WEB')
+					->setPrimary(true);
 				$notification->addParsedAction($action);
+				return;
 			}
 		}
-		return $notification;
 	}
 
 	private function prepareProtectionStarted(INotification $notification, IL10N $l): INotification {
