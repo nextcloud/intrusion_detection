@@ -237,6 +237,15 @@ final class LexiconData {
 				'allow_force_change',
 			],
 		],
+		'step_up_no_method_admin_outside_networks' => [
+			'type' => 'choice',
+			'default' => 'refuse',
+			'choices' => [
+				'refuse',
+				'allow_notify',
+				'allow_force_change',
+			],
+		],
 		'detections_retired' => [
 			'type' => 'json',
 			'default' => '{}',
@@ -250,7 +259,7 @@ final class LexiconData {
 				'risk_high',
 			],
 			'pattern' => '/^(flagged_source|protected_account|risky_network|risk_high)$/',
-			'maxItems' => 6,
+			'maxItems' => 7,
 		],
 		'step_up_admin_approval' => [
 			'type' => 'bool',
@@ -268,6 +277,10 @@ final class LexiconData {
 			'type' => 'cidr_list',
 			'default' => [],
 			'maxItems' => 100,
+		],
+		'admin_trusted_networks_only' => [
+			'type' => 'bool',
+			'default' => false,
 		],
 		'risky_network_exempt_groups' => [
 			'type' => 'string_list',
@@ -1165,12 +1178,14 @@ final class LexiconData {
 		['step_up_no_method_breached_password', ValueType::STRING, 'allow_force_change', 'intrusion detection: step_up_no_method_breached_password'],
 		['step_up_no_method_risky_network', ValueType::STRING, 'allow_notify', 'intrusion detection: step_up_no_method_risky_network'],
 		['step_up_no_method_risk_high', ValueType::STRING, 'refuse', 'intrusion detection: step_up_no_method_risk_high'],
+		['step_up_no_method_admin_outside_networks', ValueType::STRING, 'refuse', 'intrusion detection: step_up_no_method_admin_outside_networks'],
 		['detections_retired', ValueType::STRING, '{}', 'intrusion detection: detections_retired'],
 		['step_up_known_device_ok_for', ValueType::ARRAY, ['flagged_source', 'protected_account', 'risky_network', 'risk_high'], 'intrusion detection: step_up_known_device_ok_for'],
 		['step_up_admin_approval', ValueType::BOOL, false, 'intrusion detection: step_up_admin_approval'],
 		['known_device_enabled', ValueType::BOOL, true, 'intrusion detection: known_device_enabled'],
 		['risk_enabled', ValueType::BOOL, true, 'intrusion detection: risk_enabled'],
 		['risky_network_office_networks', ValueType::ARRAY, [], 'intrusion detection: risky_network_office_networks'],
+		['admin_trusted_networks_only', ValueType::BOOL, false, 'intrusion detection: admin_trusted_networks_only'],
 		['risky_network_exempt_groups', ValueType::ARRAY, [], 'intrusion detection: risky_network_exempt_groups'],
 		['personal_page_enabled', ValueType::BOOL, true, 'intrusion detection: personal_page_enabled'],
 		['bans_flagged_until', ValueType::INT, 0, 'intrusion detection: bans_flagged_until'],

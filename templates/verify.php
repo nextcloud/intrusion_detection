@@ -8,7 +8,7 @@ declare(strict_types=1);
  */
 
 /** @var \OCP\IL10N $l */
-/** @var array{mode: string, title: string, lead: string, logout_url: string, login_url: string, requesttoken: string, why?: ?string, error?: ?string, notice?: ?string, hasCode?: bool, attemptsLeft?: ?string, canResend?: bool, secondFactor?: bool, askAdmin?: bool, waiting?: bool, canRemember?: bool, rememberFor?: string, confirmAction?: string, resendAction?: string, secondFactorAction?: string, askAdminAction?: string, waitingUrl?: string, redirect_url?: string, reference?: ?string, expires?: string, codeUrl?: string, statusUrl?: string, pollInterval?: int, continueAction?: string, cancelAction?: string} $_ */
+/** @var array{mode: string, title: string, lead: string, logout_url: string, login_url: string, requesttoken: string, why?: ?string, error?: ?string, notice?: ?string, hasCode?: bool, attemptsLeft?: ?string, canResend?: bool, secondFactor?: bool, askAdmin?: bool, waiting?: bool, canRemember?: bool, rememberHint?: string, confirmAction?: string, resendAction?: string, secondFactorAction?: string, askAdminAction?: string, waitingUrl?: string, redirect_url?: string, reference?: ?string, expires?: string, codeUrl?: string, statusUrl?: string, pollInterval?: int, continueAction?: string, cancelAction?: string} $_ */
 $mode = $_['mode'];
 $error = $_['error'] ?? null;
 $notice = $_['notice'] ?? null;
@@ -52,7 +52,7 @@ $described = $error !== null ? 'ids-verify-error' : null;
 					<div class="ids-page__remember">
 						<input id="ids-verify-remember" type="checkbox" name="remember" value="1" aria-describedby="ids-verify-remember-hint">
 						<label for="ids-verify-remember"><?php p($l->t('Remember this device')); ?></label>
-						<p class="ids-page__meta" id="ids-verify-remember-hint"><?php p($l->t('Only on your own device. For %s, logins from this browser are confirmed without asking again, unless your password itself is at risk.', [$_['rememberFor'] ?? ''])); ?></p>
+						<p class="ids-page__meta" id="ids-verify-remember-hint"><?php p($_['rememberHint'] ?? ''); ?></p>
 					</div>
 				<?php endif; ?>
 				<button class="primary ids-page__submit" type="submit"><?php p($l->t('Confirm and continue')); ?></button>
@@ -115,7 +115,7 @@ $described = $error !== null ? 'ids-verify-error' : null;
 				<div class="ids-page__remember">
 					<input id="ids-verify-remember" type="checkbox" name="remember" value="1" aria-describedby="ids-verify-remember-hint">
 					<label for="ids-verify-remember"><?php p($l->t('Remember this device')); ?></label>
-					<p class="ids-page__meta" id="ids-verify-remember-hint"><?php p($l->t('Only on your own device. For %s, logins from this browser are confirmed without asking again, unless your password itself is at risk.', [$_['rememberFor'] ?? ''])); ?></p>
+					<p class="ids-page__meta" id="ids-verify-remember-hint"><?php p($_['rememberHint'] ?? ''); ?></p>
 				</div>
 			<?php endif; ?>
 			<button class="ids-page__secondary ids-page__check" type="submit"><?php p($l->t('Check now')); ?></button>
@@ -135,6 +135,9 @@ $described = $error !== null ? 'ids-verify-error' : null;
 			<?php p($l->t('If you did not just log in, someone knows your password. Cancel this login, then change your password.')); ?>
 		</p>
 	<?php elseif ($mode === 'refused'): ?>
+		<?php if (($_['why'] ?? null) !== null): ?>
+			<p class="ids-page__hint"><?php p($_['why']); ?></p>
+		<?php endif; ?>
 		<?php if (($_['reference'] ?? null) !== null): ?>
 			<p class="ids-page__hint">
 				<?php p($l->t('Give your administrator this reference, so that they can see what happened:')); ?> <span class="ids-page__reference"><?php p($_['reference']); ?></span>

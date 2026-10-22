@@ -133,6 +133,7 @@ None of this shows up in an access log as anything unusual. All of it is visible
 | **Stolen app password or session** | One app password or session is used from two networks at the same time. | Protect (needs a memory cache) | Asks the user "Was this you?" and tells the admins. Revoking the credential can be switched on. |
 | **Admin change alerts** | Someone got administrator rights, an app was switched on or off, or a watched security setting changed (also in `config.php`). | Protect | Tells every admin, including the one who made the change. A second admin's approval for new admins can be switched on. |
 | **Directory scraping** | A logged-in account reads the user directory faster than a person could. | Protect (needs a memory cache) | Answers the account's directory requests with "too many requests" for a while, and tells the admins. |
+| **Administrators outside the trusted networks** | An administrator (the admin group or delegated administration) logs in with the password from outside your trusted networks (office, VPN). | Off (opt-in) | Asks for the second factor, an email code or another admin's approval; a remembered device is not enough. Apps that send the password are refused; apps with app passwords are not affected. |
 
 <img src="screenshots/admin-change.gif" alt="Animation: in the account management, Omar Haddad is added to the admin group. Seconds later, the Intrusion detection widget on the admin's dashboard shows 'Admin change · omar'." width="960">
 
@@ -170,7 +171,7 @@ Security works better when the account owner can say "that wasn't me". Users fin
 **Login confirmation.** When a password login looks risky, for example because the account is under attack, the address took part in an attack, or the password was sprayed or breached, Nextcloud asks for one more proof before letting the login in:
 
 1. the user's **second factor**, if they have one;
-2. a **remembered device**: after a confirmed login, users can tick "Remember this device" (kept 180 days after last use; never enough when the password itself is at risk);
+2. a **remembered device**: after a confirmed login, users can tick "Remember this device" (kept 180 days after last use; never enough when the password itself is at risk, or for an administrator outside the trusted networks);
 3. a 6-digit **email code**, valid for 10 minutes, with 5 tries;
 4. optionally, **approval by an administrator** (off by default).
 
@@ -226,6 +227,8 @@ Everything lives under **Administration settings → Intrusion detection**, in f
 **Blocklists.** Spamhaus DROP (IPv4 and IPv6) and FireHOL level 1, plus network lists for Amazon Web Services, Google Cloud, Oracle Cloud, DigitalOcean and Tor exit nodes. All are off until you switch them on; you can add your own `https://` lists.
 
 **Firewall export.** Write the active blocks to files your firewall reads, so blocked addresses are dropped before they reach the web server: `bans.txt`, an nftables script (`bans.nft`), an `ipset restore` script (`bans.ipset`) and an append-only `bans.log` for fail2ban. The admin page shows ready-made nftables, ipset, fail2ban and systemd snippets. The export directory can only be set in `config.php` (`intrusion_detection.export_dir`), and the app never runs a firewall command itself.
+
+**Administrators from trusted networks only.** One switch in the login confirmation settings: a password login of an administrator from outside your trusted networks (office, VPN) then needs the second factor, an email code or, if you switched it on, another admin's approval. A remembered device is not enough, because the point is the network. Apps with app passwords are not affected. "Needs attention" warns you when the list of trusted networks is empty, or when an administrator has neither an email address nor a second factor, so nobody is locked out by surprise. `occ` keeps working from the server.
 
 **Notifications and digest.** Admins in the chosen groups get a notification at most once per check, address and hour, and an email for severity High and above. A weekly digest (Monday 08:00, or daily, or off) sums up how each check did and what is still open.
 
@@ -371,6 +374,13 @@ Then:
 <br>
 
 It is built not to. An address from which at least 5 different people with accounts at least 3 days old logged in successfully in the last 24 hours is never blocked automatically; you are notified instead. You can change that number, put addresses on the brute-force allowlist, or set a check to Observe. Blocks expire on their own and can be lifted with the reference the user sees.
+</details>
+
+<details>
+<summary><strong>I made administrators log in from trusted networks only and locked myself out. Now what?</strong></summary>
+<br>
+
+Log in from a trusted network, or turn the switch off on the server with `occ config:app:set intrusion_detection admin_trusted_networks_only --value=false`. `occ` is never asked for a confirmation.
 </details>
 
 <details>

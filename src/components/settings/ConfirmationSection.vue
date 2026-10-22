@@ -16,6 +16,7 @@ import NcIconSvgWrapper from '@nextcloud/vue/components/NcIconSvgWrapper'
 import NcLoadingIcon from '@nextcloud/vue/components/NcLoadingIcon'
 import NcNoteCard from '@nextcloud/vue/components/NcNoteCard'
 import SectionCard from '../common/SectionCard.vue'
+import SettingsGroup from '../common/SettingsGroup.vue'
 import ShowMore from '../common/ShowMore.vue'
 import SkeletonBlock from '../common/SkeletonBlock.vue'
 import MethodSteps from '../confirmation/MethodSteps.vue'
@@ -33,6 +34,8 @@ const APPROVALS_REFRESH = 30_000
 
 const KNOWN_DEVICE = 'known_device_enabled'
 const ADMIN_APPROVAL = 'step_up_admin_approval'
+const ADMIN_NETWORKS = 'admin_trusted_networks_only'
+const TRUSTED_NETWORKS = 'risky_network_office_networks'
 
 const PRESETS: { value: ConfirmationPreset, label: () => string, description: () => string }[] = [
 	{ value: 'recommended', label: () => t(APP_ID, 'Recommended'), description: () => t(APP_ID, 'Refuse it when an attack is likely; otherwise let it in and tell the user and you.') },
@@ -51,6 +54,12 @@ let timer: ReturnType<typeof setInterval> | undefined
 
 const switchOn = (name: string) => state.settings.find((s) => s.name === name)?.value === true
 const approvalOn = computed(() => switchOn(ADMIN_APPROVAL))
+const adminNetworksOn = computed(() => switchOn(ADMIN_NETWORKS))
+const trustedNetworks = computed(() => state.settings.filter((s) => s.name === TRUSTED_NETWORKS))
+const noTrustedNetworks = computed(() => {
+	const value = trustedNetworks.value[0]?.value
+	return !Array.isArray(value) || value.length === 0
+})
 
 /**
  * Load the overview.
@@ -256,6 +265,28 @@ onBeforeUnmount(stopTimer)
 						@update:modelValue="toggle(ADMIN_APPROVAL, $event)">
 						{{ t(APP_ID, 'Administrators can approve logins') }}
 					</NcCheckboxRadioSwitch>
+					<div data-test="admin-networks">
+						<NcCheckboxRadioSwitch
+							type="switch"
+							:modelValue="adminNetworksOn"
+							:loading="busy === ADMIN_NETWORKS"
+							:disabled="busy !== null"
+							:description="t(APP_ID, 'Password logins of administrators from anywhere else need a second factor, an email code or another administrator\'s approval; a remembered device is not enough. Apps with app passwords are not affected.')"
+							@update:modelValue="toggle(ADMIN_NETWORKS, $event)">
+							{{ t(APP_ID, 'Administrators log in from trusted networks only') }}
+						</NcCheckboxRadioSwitch>
+					</div>
+					<div v-if="adminNetworksOn" :class="$style.networks" data-test="admin-networks-details">
+						<NcNoteCard
+							v-if="noTrustedNetworks"
+							type="warning"
+							data-test="admin-networks-empty"
+							:text="t(APP_ID, 'There are no trusted networks yet, so every administrator login from anywhere needs confirmation.')" />
+						<SettingsGroup v-if="trustedNetworks.length > 0" :settings="trustedNetworks" />
+						<p :class="$style.muted">
+							{{ t(APP_ID, 'Locked out? Run "occ config:app:set intrusion_detection admin_trusted_networks_only --value=false" on the server.') }}
+						</p>
+					</div>
 				</div>
 			</SectionCard>
 
@@ -406,5 +437,12 @@ onBeforeUnmount(stopTimer)
 .limits {
 	margin: 0;
 	line-height: 1.5;
+}
+
+.networks {
+	display: flex;
+	flex-direction: column;
+	gap: calc(var(--default-grid-baseline) * 2);
+	padding-inline-start: calc(var(--default-grid-baseline) * 4);
 }
 </style>

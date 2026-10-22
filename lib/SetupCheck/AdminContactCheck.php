@@ -9,6 +9,8 @@ declare(strict_types=1);
 
 namespace OCA\IntrusionDetection\SetupCheck;
 
+use OCA\IntrusionDetection\Config\GlobalSettings;
+use OCA\IntrusionDetection\Config\Settings;
 use OCA\IntrusionDetection\Confirm\ConfirmationCoverage;
 use OCA\IntrusionDetection\Notification\AdminLinks;
 use OCP\IL10N;
@@ -23,6 +25,10 @@ use OCP\IL10N;
  * - warning: some administrators lack one of them, or none has an email address;
  * - fine otherwise.
  *
+ * While administrators log in from the trusted networks only, the
+ * administrators with neither are named: their logins from elsewhere
+ * cannot be confirmed with a code or a second factor.
+ *
  * The administrators are checked through {@see ConfirmationCoverage}, which
  * caches the result for an hour.
  */
@@ -34,6 +40,7 @@ class AdminContactCheck extends ProblemCheck {
 		IL10N $l,
 		AdminLinks $links,
 		private readonly ConfirmationCoverage $coverage,
+		private readonly Settings $settings,
 	) {
 		parent::__construct($l, $links);
 	}
@@ -58,12 +65,13 @@ class AdminContactCheck extends ProblemCheck {
 			return null;
 		}
 		$fix = $l->t('Add an email address and set up a second factor for every administrator, in their personal settings.');
+		$outside = $this->outsideNetworks($admins['withNeither'], $l);
 		if (count($admins['withNeither']) === $total) {
 			return new Finding(
 				'admin_contact',
 				Finding::LEVEL_ERROR,
 				$l->t('No administrator can be reached or confirmed'),
-				$l->t('No administrator has an email address or a second factor. Security alerts can only be seen inside Nextcloud, where an intruder in an administrator account sees them too, and a stolen password is enough to take over the server.'),
+				implode(' ', array_filter([$l->t('No administrator has an email address or a second factor. Security alerts can only be seen inside Nextcloud, where an intruder in an administrator account sees them too, and a stolen password is enough to take over the server.'), $outside])),
 				$fix,
 				'#settings-confirmation',
 				$l->t('Open the login confirmation settings'),
@@ -89,6 +97,9 @@ class AdminContactCheck extends ProblemCheck {
 				[$this->names($withoutSecondFactor, $l)],
 			);
 		}
+		if ($outside !== null) {
+			$problems[] = $outside;
+		}
 		return new Finding(
 			'admin_contact',
 			Finding::LEVEL_WARNING,
@@ -97,6 +108,24 @@ class AdminContactCheck extends ProblemCheck {
 			$fix,
 			'#settings-confirmation',
 			$l->t('Open the login confirmation settings'),
+		);
+	}
+
+	/**
+	 * The sentence naming the administrators who cannot confirm a login from
+	 * outside the trusted networks, or null.
+	 *
+	 * @param list<string> $withNeither
+	 */
+	private function outsideNetworks(array $withNeither, IL10N $l): ?string {
+		if ($withNeither === [] || !$this->settings->getBool(GlobalSettings::ADMIN_TRUSTED_NETWORKS_ONLY)) {
+			return null;
+		}
+		return $l->n(
+			'Administrators log in from trusted networks only, but %n administrator has neither an email address nor a second factor to confirm a login from anywhere else: %s.',
+			'Administrators log in from trusted networks only, but %n administrators have neither an email address nor a second factor to confirm a login from anywhere else: %s.',
+			count($withNeither),
+			[$this->names($withNeither, $l)],
 		);
 	}
 

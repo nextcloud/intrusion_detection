@@ -76,8 +76,8 @@ class ConfirmationApiTest extends StepUpTestCase {
 		$data = $this->confirmationApi()->index(true)->getData();
 		$this->assertSame(['second_factor', 'known_device', 'email_code', 'admin_approval'], array_column($data['methods'], 'id'));
 		$this->assertSame('on', $data['methods'][3]['state']);
-		$this->assertSame(['flagged_source', 'sprayed_password', 'protected_account', 'breached_password', 'risky_network', 'risk_high'], array_column($data['policies'], 'id'));
-		$this->assertSame([true, false, true, false, true, true], array_column($data['policies'], 'knownDeviceAllowed'));
+		$this->assertSame(['flagged_source', 'sprayed_password', 'protected_account', 'breached_password', 'risky_network', 'risk_high', 'admin_outside_networks'], array_column($data['policies'], 'id'));
+		$this->assertSame([true, false, true, false, true, true, false], array_column($data['policies'], 'knownDeviceAllowed'));
 		$this->assertSame(['refuse', 'allow_notify', 'allow_force_change'], array_column($data['outcomes'], 'id'));
 		$this->assertCount(1, $data['approvals']);
 		$this->assertSame($bob->getUID(), $data['approvals'][0]['uid']);

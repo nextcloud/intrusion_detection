@@ -51,7 +51,7 @@ class GlobalSettingsPresenter {
 	public const GROUP_OTHER = 'other';
 	/** The address risk score, shown in its card on the Protection tab */
 	public const GROUP_RISK = 'risk';
-	/** Office networks and exempt groups, shown in the card of the hosting and Tor networks check */
+	/** Trusted networks and exempt groups, shown in the card of the hosting and Tor networks check */
 	public const GROUP_RISKY_NETWORK = 'risky_network';
 
 	/** Changed through the learning mode endpoint only, so every change is explained and audited as such */
@@ -112,7 +112,7 @@ class GlobalSettingsPresenter {
 					TextRenderer::duration(TrustedNetworks::DURATION, $l),
 				]),
 				'knownDeviceTime' => $l->t('A remembered browser that is not used for %s is forgotten.', [TextRenderer::duration(KnownDevices::DURATION, $l)]),
-				'riskPoints' => $l->t('Points: %1$s for an attack tool or scripting library on a failed login in the last 24 hours, %2$s for a Tor exit node, %3$s for a cloud hosting network, %4$s for a blocklist that only observes, %5$s for a trap URL or reserved name in the last 24 hours, %6$s for an address marked after an attack, %7$s for every %8$s failed logins in the last hour (at most %9$s times), and %10$s for an office network.', [
+				'riskPoints' => $l->t('Points: %1$s for an attack tool or scripting library on a failed login in the last 24 hours, %2$s for a Tor exit node, %3$s for a cloud hosting network, %4$s for a blocklist that only observes, %5$s for a trap URL or reserved name in the last 24 hours, %6$s for an address marked after an attack, %7$s for every %8$s failed logins in the last hour (at most %9$s times), and %10$s for a trusted network.', [
 					(string)RiskScorer::POINTS[RiskAssessment::FACT_ATTACK_TOOL],
 					(string)RiskScorer::POINTS[RiskAssessment::FACT_TOR],
 					(string)RiskScorer::POINTS[RiskAssessment::FACT_HOSTING],
@@ -210,7 +210,7 @@ class GlobalSettingsPresenter {
 			), self::GROUP_NOTIFICATIONS],
 			GlobalSettings::STEP_UP_KNOWN_DEVICE_OK_FOR => [new ParamText(
 				$l->t('Remembered devices confirm these logins'),
-				$l->t('The reasons for which a browser the user chose to remember confirms a login without asking. A device never confirms a login whose password is being tried by attackers or is known from a breach.'),
+				$l->t('The reasons for which a browser the user chose to remember confirms a login without asking. A device never confirms a login whose password is being tried by attackers or is known from a breach, nor an administrator\'s login from outside the trusted networks.'),
 			), self::GROUP_STEP_UP],
 			GlobalSettings::STEP_UP_ADMIN_APPROVAL => [new ParamText(
 				$l->t('An administrator can approve logins'),
@@ -225,9 +225,13 @@ class GlobalSettingsPresenter {
 				$l->t('When it is off, every check uses its plain limits, and a high score never asks for confirmation.'),
 			), self::GROUP_RISK],
 			GlobalSettings::RISKY_NETWORK_OFFICE_NETWORKS => [new ParamText(
-				$l->t('Office networks'),
-				$l->t('Your own networks and VPN, as addresses or ranges such as 203.0.113.0/24. Logins from them never count as risky, and they lower the risk score.'),
+				$l->t('Trusted networks (office, VPN)'),
+				$l->t('Your own networks and VPN, as addresses or ranges such as 203.0.113.0/24. Logins from them never count as risky, they lower the risk score, and administrators may log in from them when "Administrators log in from trusted networks only" is on.'),
 			), self::GROUP_RISKY_NETWORK],
+			GlobalSettings::ADMIN_TRUSTED_NETWORKS_ONLY => [new ParamText(
+				$l->t('Administrators log in from trusted networks only'),
+				$l->t('A password login of an administrator (the admin group or delegated administration) from outside the trusted networks must be confirmed with a second factor, an email code or, when it is on, another administrator\'s approval; a remembered device is not enough. Apps that send the password cannot confirm, so they are refused. For an account without any way to confirm, your choice for risky logins that cannot be confirmed decides. Apps with app passwords are not affected. Locked out? Run "occ config:app:set intrusion_detection admin_trusted_networks_only --value=false" on the server.'),
+			), self::GROUP_STEP_UP],
 			GlobalSettings::RISKY_NETWORK_EXEMPT_GROUPS => [new ParamText(
 				$l->t('Exempt groups'),
 				$l->t('Members of these groups may log in from hosting and Tor networks without extra confirmation, for example service accounts.'),

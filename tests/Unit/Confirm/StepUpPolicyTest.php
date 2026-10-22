@@ -41,6 +41,7 @@ class StepUpPolicyTest extends TestCase {
 			'breached_password' => [StepUpPolicy::BreachedPassword, NoMethodOutcome::AllowForceChange],
 			'risky_network' => [StepUpPolicy::RiskyNetwork, NoMethodOutcome::AllowNotify],
 			'risk_high' => [StepUpPolicy::RiskHigh, NoMethodOutcome::Refuse],
+			'admin_outside_networks' => [StepUpPolicy::AdminOutsideNetworks, NoMethodOutcome::Refuse],
 		];
 	}
 
@@ -53,7 +54,7 @@ class StepUpPolicyTest extends TestCase {
 	public function testEveryPolicyWithAReasonHasItsSettingWithTheDefault(): void {
 		$globals = new GlobalSettings();
 		$this->assertSame(
-			[StepUpPolicy::FlaggedSource, StepUpPolicy::SprayedPassword, StepUpPolicy::ProtectedAccount, StepUpPolicy::BreachedPassword, StepUpPolicy::RiskyNetwork, StepUpPolicy::RiskHigh],
+			[StepUpPolicy::FlaggedSource, StepUpPolicy::SprayedPassword, StepUpPolicy::ProtectedAccount, StepUpPolicy::BreachedPassword, StepUpPolicy::RiskyNetwork, StepUpPolicy::RiskHigh, StepUpPolicy::AdminOutsideNetworks],
 			StepUpReasons::policies(),
 		);
 		foreach (StepUpReasons::PROVIDERS as $class) {
