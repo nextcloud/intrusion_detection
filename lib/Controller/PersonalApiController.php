@@ -116,9 +116,9 @@ class PersonalApiController extends OCSController {
 	 * @param int $id the event
 	 * @return DataResponse<Http::STATUS_OK, IntrusionDetectionPersonalDetection, array{}>|DataResponse<Http::STATUS_BAD_REQUEST|Http::STATUS_FORBIDDEN|Http::STATUS_NOT_FOUND|Http::STATUS_CONFLICT, IntrusionDetectionAnswerError, array{}>
 	 *
-	 * 200: The answer was taken; from a session whose login proved only the password, the administrators were told and the event stays open (no verdict)
+	 * 200: The answer was taken; from a session whose login proved only the password, or with an app password, the administrators were told and the event stays open (no verdict)
 	 * 400: The event does not ask
-	 * 403: The answer cannot be given from this session
+	 * 403: The answer cannot be given from this session: its login was not confirmed
 	 * 404: There is no such event of the current user
 	 * 409: The event was answered already
 	 */
@@ -130,7 +130,7 @@ class PersonalApiController extends OCSController {
 		try {
 			return new DataResponse($this->detections->present($this->answers->deny($user, $id), $user));
 		} catch (AnswerException $e) {
-			return $this->error($e);
+			return $this->error($e, false);
 		}
 	}
 
@@ -142,7 +142,7 @@ class PersonalApiController extends OCSController {
 	 *
 	 * 200: The answer was taken
 	 * 400: The event does not ask
-	 * 403: This session may not answer "Yes" (it is the session the event is about)
+	 * 403: This session may not answer "Yes": it is an app password, its login proved no more than the password, or it is the session the event is about
 	 * 404: There is no such event of the current user
 	 * 409: The event was answered already
 	 */
@@ -155,7 +155,7 @@ class PersonalApiController extends OCSController {
 		try {
 			return new DataResponse($this->detections->present($this->answers->confirm($user, $id), $user));
 		} catch (AnswerException $e) {
-			return $this->error($e);
+			return $this->error($e, true);
 		}
 	}
 
@@ -445,12 +445,14 @@ class PersonalApiController extends OCSController {
 	/**
 	 * @return DataResponse<Http::STATUS_BAD_REQUEST|Http::STATUS_FORBIDDEN|Http::STATUS_NOT_FOUND|Http::STATUS_CONFLICT, IntrusionDetectionAnswerError, array{}>
 	 */
-	private function error(AnswerException $e): DataResponse {
+	private function error(AnswerException $e, bool $yes): DataResponse {
 		[$status, $message] = match ($e->reason) {
 			AnswerException::NOT_FOUND => [Http::STATUS_NOT_FOUND, $this->l->t('This event does not exist, or it is not about your account.')],
 			AnswerException::NOT_ASKED => [Http::STATUS_BAD_REQUEST, $this->l->t('This event does not need an answer.')],
 			AnswerException::ANSWERED => [Http::STATUS_CONFLICT, $this->l->t('This event was answered already.')],
-			default => [Http::STATUS_FORBIDDEN, $this->l->t('For your safety, "Yes, it was me" cannot be answered from the session this event is about, or from a login that was not confirmed. Answer from another device or a confirmed login.')],
+			default => [Http::STATUS_FORBIDDEN, $yes
+				? $this->l->t('For your safety, "Yes, it was me" can only be answered in a browser, after a login with your second factor or an email code, or from a device you remembered. It cannot be answered from the session this event is about.')
+				: $this->l->t('For your safety, "No, it was not me" cannot be answered from a login that was not confirmed. Answer from another device, or after a login with your second factor or an email code.')],
 		};
 		return new DataResponse(['reason' => $e->reason, 'message' => $message], $status);
 	}

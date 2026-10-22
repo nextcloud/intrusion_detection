@@ -62,7 +62,7 @@ final class UserDenied implements ICheck, IExplainsDetection, IExplainsToUser, I
 				shortName: $l->t('User said "not me"'),
 				summary: $l->t('A user answered "No, it was not me" about a security event of their account.'),
 				detects: $l->t('Users are asked "Was this you?" about logins and other events that may have been someone else. When they answer no, someone else has used their account or their password.'),
-				decides: $l->t('Ends the sessions and app passwords linked to the event, requires a new password when the event involved the password, blocks the address at the second level unless the answer comes from that very address, and marks its network, so that logins from there need extra confirmation for %s. When the answer comes from a session whose login proved no more than the password, it only tells the administrators, and the question stays open until the user answers after a login that proved more.', [TextRenderer::duration(FlaggedSources::DURATION, $l)]),
+				decides: $l->t('Ends the sessions and app passwords linked to the event, requires a new password when the event involved the password, blocks the address at the second level unless the answer comes from that very address, and marks its network, so that logins from there need extra confirmation for %s. When the answer comes from a session whose login proved no more than the password, or from a Nextcloud app with its app password, it only tells the administrators, and the question stays open until the user answers after a login that proved more.', [TextRenderer::duration(FlaggedSources::DURATION, $l)]),
 				wrong: $l->t('A user who does not recognise their own login, for example from a new phone. They lose that session and log in again. Lift the block if needed.'),
 				data: $l->t('Detections: the account, the event the answer was about and what was done.'),
 			),
@@ -101,7 +101,7 @@ final class UserDenied implements ICheck, IExplainsDetection, IExplainsToUser, I
 			$this->dates->dateTime($facts->int('detectedAt', $detection->getCreatedAt())),
 		])];
 		if ($facts->bool('weakSession')) {
-			$sentences[] = $l->t('The answer came from a session whose login proved no more than the password, so nothing was ended or blocked, and the question stays open for the user. Check with the user that they answered themselves.');
+			$sentences[] = $l->t('The answer came from a session whose login proved no more than the password, or from a Nextcloud app with its app password, so nothing was ended or blocked, and the question stays open for the user. Check with the user that they answered themselves.');
 		}
 		$network = $facts->string('network');
 		if ($network !== '') {

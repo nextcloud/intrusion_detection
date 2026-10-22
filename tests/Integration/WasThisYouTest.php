@@ -236,16 +236,14 @@ class WasThisYouTest extends StepUpTestCase {
 		$this->startSession($this->alice);
 		$this->state->set(SessionState::CONFIRMATION, ['uid' => $this->alice->getUID(), 'by' => 'none', 'policies' => [StepUpPolicy::FlaggedSource->value], 'at' => time()]);
 		$this->assertAnswerFails(AnswerException::SESSION_NOT_ALLOWED, fn () => $this->answers()->deny($this->alice, $detection->getId()), 'A login let in without a confirmation');
+		$refused = $this->controller()->deny($detection->getId());
+		$this->assertSame(Http::STATUS_FORBIDDEN, $refused->getStatus());
+		$this->assertStringStartsWith('For your safety, "No, it was not me" cannot be answered from a login that was not confirmed.', $refused->getData()['message'], 'The message is about "No"');
 
 		$this->session->clear();
 		$this->startSession($this->alice);
 		$this->state->set(SessionState::STEP_UP, (new StepUpState($this->alice->getUID(), StepUpState::PENDING, ['flagged_source'], time(), time() + 900))->toArray());
 		$this->assertAnswerFails(AnswerException::SESSION_NOT_ALLOWED, fn () => $this->answers()->deny($this->alice, $detection->getId()), 'A login that waits for its confirmation');
-
-		$this->session->clear();
-		$this->startSession($this->alice);
-		$this->session->set('app_password', 'xxx');
-		$this->assertAnswerFails(AnswerException::SESSION_NOT_ALLOWED, fn () => $this->answers()->deny($this->alice, $detection->getId()), 'An app password');
 		$this->assertNull(Server::get(DetectionMapper::class)->findById($detection->getId())->getUserVerdict());
 		$this->assertSame([], $this->detectionsOf(UserDenied::ID));
 	}
@@ -275,6 +273,53 @@ class WasThisYouTest extends StepUpTestCase {
 		$this->assertNull(Server::get(FlaggedSources::class)->sourceFlag(SourceKey::fromIp(self::ATTACKER)), 'Nothing is marked');
 		$this->assertFalse(Server::get(PasswordChangeFlag::class)->isRequired($this->alice->getUID()), 'No new password: whoever answered may know it');
 		$this->assertTrue(Server::get(TrustedNetworks::class)->isTrusted($this->alice->getUID(), SourceKey::fromIp(self::ATTACKER)));
+	}
+
+	public function testTheAppsAnswerNoWithTheirAppPasswordAndOnlyTellTheAdministrators(): void {
+		$suspicious = $this->token($this->alice, IToken::TEMPORARY_TOKEN, 'The attacker\'s session');
+		$detection = $this->detection(SecondFactorFailed::ID, $this->alice, ['sessionTokenId' => $suspicious['id']]);
+		$phone = $this->appPasswordSession($this->alice);
+
+		$response = $this->controller()->deny($detection->getId());
+
+		$this->assertSame(Http::STATUS_OK, $response->getStatus(), 'The app shows no error');
+		$this->assertSame($detection->getId(), $response->getData()['id']);
+		$this->assertNull($response->getData()['verdict'], 'The question stays open');
+		$this->assertTrue($response->getData()['asks']);
+		$this->assertNull(Server::get(DetectionMapper::class)->findById($detection->getId())->getUserVerdict());
+		$this->assertSame([], $this->answered);
+		$denials = $this->detectionsOf(UserDenied::ID);
+		$this->assertCount(1, $denials);
+		$this->assertTrue($denials[0]->getExplanationData()['facts']['weakSession']);
+		$this->assertCount(1, $this->notificationsFor('admin', AdminAlerts::SUBJECT), 'The administrators are told');
+		$this->assertTrue($this->tokenExists($suspicious['id']), 'No session is ended');
+		$this->assertTrue($this->tokenExists($phone['id']), 'Nor the app password that answered');
+		$this->assertSame([], Server::get(BanMapper::class)->findActiveForKeys([SourceKey::fromIp(self::ATTACKER)->ipKey], time()), 'Nothing is blocked');
+		$this->assertNull(Server::get(FlaggedSources::class)->sourceFlag(SourceKey::fromIp(self::ATTACKER)), 'Nothing is marked');
+		$this->assertFalse(Server::get(PasswordChangeFlag::class)->isRequired($this->alice->getUID()));
+
+		$this->assertSame(Http::STATUS_OK, $this->controller()->deny($detection->getId())->getStatus(), 'Pressed again');
+		$this->assertSame(1, $this->detectionsOf(UserDenied::ID)[0]->getHits(), 'Only the first is recorded');
+		$this->assertCount(1, $this->notificationsFor('admin', AdminAlerts::SUBJECT));
+
+		$this->prove($this->alice);
+		$other = $this->detection(SecondFactorFailed::ID, $this->alice);
+		$this->assertSame(Http::STATUS_OK, $this->controller()->deny($other->getId())->getStatus());
+		$this->assertNull(Server::get(DetectionMapper::class)->findById($other->getId())->getUserVerdict(), 'A proof in its session makes an app password no more than the password');
+	}
+
+	public function testTheAppsCannotAnswerYesWithTheirAppPassword(): void {
+		$detection = $this->detection(SecondFactorFailed::ID, $this->alice);
+		$this->appPasswordSession($this->alice);
+		$this->prove($this->alice);
+
+		$refused = $this->controller()->confirm($detection->getId());
+
+		$this->assertSame(Http::STATUS_FORBIDDEN, $refused->getStatus());
+		$this->assertSame(AnswerException::SESSION_NOT_ALLOWED, $refused->getData()['reason']);
+		$this->assertStringStartsWith('For your safety, "Yes, it was me" can only be answered in a browser,', $refused->getData()['message'], 'The app can show why');
+		$this->assertNull(Server::get(DetectionMapper::class)->findById($detection->getId())->getUserVerdict());
+		$this->assertSame([], Server::get(TrustedNetworks::class)->forUser($this->alice->getUID()), 'No network is trusted');
 	}
 
 	public function testAProvenAnswerAfterAWeakNoDecides(): void {
@@ -469,6 +514,20 @@ class WasThisYouTest extends StepUpTestCase {
 	private function provenSession(IUser $user): array {
 		$token = $this->startSession($user);
 		$this->prove($user);
+		return $token;
+	}
+
+	/**
+	 * A request of a Nextcloud app, logged in with its app password.
+	 *
+	 * @return array{id: int, secret: string}
+	 */
+	private function appPasswordSession(IUser $user): array {
+		$token = $this->token($user, IToken::PERMANENT_TOKEN, 'Phone');
+		$this->session->id = bin2hex(random_bytes(16));
+		$this->session->set('app_password', $token['secret']);
+		$this->session->set('token-id', $token['id']);
+		$this->sessionUser = $user;
 		return $token;
 	}
 

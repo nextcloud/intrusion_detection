@@ -53,6 +53,26 @@ class SessionConfirmationTest extends TestCase {
 		$this->assertTrue($this->confirmation()->isUnconfirmed('alice'));
 	}
 
+	public function testAnAppPasswordCountsAsThePasswordForANo(): void {
+		$this->session->set('app_password', 'xxx');
+		$this->assertSame(SessionConfirmation::PASSWORD, $this->confirmation()->denialLevel('alice'));
+		$this->confirmation()->proved('alice', 'second_factor');
+		$this->assertSame(SessionConfirmation::PASSWORD, $this->confirmation()->denialLevel('alice'), 'Never more than the password');
+		$this->assertSame(SessionConfirmation::UNCONFIRMED, $this->confirmation()->level('alice'), 'Everything else still asks for more');
+
+		$this->state->set(SessionState::CONFIRMATION, ['uid' => 'alice', 'by' => 'none', 'policies' => [], 'at' => 1]);
+		$this->assertSame(SessionConfirmation::UNCONFIRMED, $this->confirmation()->denialLevel('alice'), 'Let in without a confirmation');
+		$this->state->remove(SessionState::CONFIRMATION);
+		$this->state->set(SessionState::STEP_UP, (new StepUpState('alice', StepUpState::PENDING, ['flagged_source'], 1, 2))->toArray());
+		$this->assertSame(SessionConfirmation::UNCONFIRMED, $this->confirmation()->denialLevel('alice'), 'Waiting for its confirmation');
+	}
+
+	public function testABrowserSessionAnswersNoWithTheLevelOfItsLogin(): void {
+		$this->assertSame(SessionConfirmation::PASSWORD, $this->confirmation()->denialLevel('alice'));
+		$this->confirmation()->proved('alice', 'second_factor');
+		$this->assertSame(SessionConfirmation::PROVEN, $this->confirmation()->denialLevel('alice'));
+	}
+
 	public function testAConfirmationOrAProofOfTheLogin(): void {
 		foreach (SessionConfirmation::PROOFS as $by) {
 			$this->state->set(SessionState::CONFIRMATION, ['uid' => 'alice', 'by' => $by, 'policies' => [], 'at' => 1]);
