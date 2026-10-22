@@ -40,6 +40,12 @@ class RuleResponsesTest extends TestCase {
 		$this->assertSame([], $check->responsesFor($this->draft(ShareBruteforce::ID, ShareBruteforce::RULE_PASSWORD_SHARE), [ResponseType::Ban], []), 'A response the admin switched off stays off');
 	}
 
+	public function testUnknownLinksOfAPartnerServerAreReportedButNeverBlock(): void {
+		$check = new ShareBruteforce(DateFormatter::using($this->createMock(IDateTimeFormatter::class)), $this->createMock(ContainerInterface::class));
+		$partner = new DetectionDraft(ShareBruteforce::ID, facts: ['rule' => ShareBruteforce::RULE_TOKENS, 'federation' => true]);
+		$this->assertSame([ResponseType::NotifyAdmin], $check->responsesFor($partner, [ResponseType::Ban, ResponseType::NotifyAdmin, ResponseType::NotifyShareOwner], []));
+	}
+
 	public function testResetRules(): void {
 		$check = new ResetProbing(DateFormatter::using($this->createMock(IDateTimeFormatter::class)));
 		$all = [ResponseType::Ban, ResponseType::SuppressResetMail, ResponseType::NotifyAdmin, ResponseType::NotifyUser];
