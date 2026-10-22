@@ -22,6 +22,7 @@ use OCA\IntrusionDetection\Detection\DetectionService;
 use OCA\IntrusionDetection\Net\SourceKey;
 use OCA\IntrusionDetection\Notification\AdminNotices;
 use OCA\IntrusionDetection\Notification\LoginNotices;
+use OCA\IntrusionDetection\Notification\MailQueue;
 use OCA\IntrusionDetection\Notification\Mails;
 use OCA\IntrusionDetection\Notification\Notifier;
 use OCA\IntrusionDetection\Notification\UserAlerts;
@@ -68,6 +69,7 @@ class UserAlertsTest extends AccountTestCase {
 			['type' => ResponseType::RevokeToken->value, 'enforced' => true, 'ref' => ['token' => ['id' => 8, 'name' => 'Restore access at https://evil.example']]],
 		], userAgent: $phishing);
 		$this->alerts()->notify($detection);
+		$this->runQueuedMails($this->alerts());
 
 		$mail = $this->mailed[0][1];
 		$this->assertStringEndsWith(', from the address 198.51.100.7. Device: Firefox on Windows.', (string)$mail->paragraphs[count($mail->paragraphs) - 1]);
@@ -91,10 +93,14 @@ class UserAlertsTest extends AccountTestCase {
 
 		$result = $this->alerts()->notify($detection);
 
-		$this->assertSame(['bell' => UserAlerts::BELL_SENT, 'email' => UserAlerts::EMAIL_SENT, 'admins' => 0], $result);
+		$this->assertSame(['bell' => UserAlerts::BELL_SENT, 'email' => UserAlerts::EMAIL_QUEUED, 'admins' => 0], $result);
 		$bells = $this->notificationsFor($user->getUID(), UserAlerts::SUBJECT);
 		$this->assertCount(1, $bells);
 		$this->assertSame(['detection' => $detection->getId()], $bells[0]->getSubjectParameters(), 'The notification carries only the id');
+		$this->assertSame([], $this->mailed, 'The email is not sent in the request');
+		$this->assertSame([['kind' => MailQueue::KIND_USER, 'detection' => $detection->getId(), 'uid' => $user->getUID()]], $this->queuedMails(), 'Only ids are queued');
+		$this->assertSame(1, $this->runQueuedMails($this->alerts()));
+		$this->assertSame([], $this->queuedMails());
 		$this->assertCount(1, $this->mailed);
 		$mail = $this->mailed[0][1];
 		$this->assertSame('Security notice: Someone entered your password, but not your second factor', $mail->subject);
@@ -163,6 +169,7 @@ class UserAlertsTest extends AccountTestCase {
 		$detection = $this->detection($user, SecondFactorFailed::ID);
 		$first = $this->alerts()->notify($detection);
 		$repeat = $this->alerts()->notify($detection, false);
+		$this->runQueuedMails($this->alerts());
 		$this->assertSame(UserAlerts::BELL_SENT, $first['bell'] ?? null);
 		$this->assertSame(['bell' => UserAlerts::BELL_AGGREGATED, 'email' => UserAlerts::EMAIL_AGGREGATED, 'admins' => 0], $repeat, 'Later hits of the same detection only count');
 		$this->assertCount(1, $this->notificationsFor($user->getUID(), UserAlerts::SUBJECT));
@@ -170,11 +177,13 @@ class UserAlertsTest extends AccountTestCase {
 
 		// Another check is told separately.
 		$this->alerts()->notify($this->detection($user, AccountUnderAttack::ID, ip: null));
+		$this->runQueuedMails($this->alerts());
 		$this->assertCount(2, $this->mailed);
 
 		// The next hour, again.
 		$this->now += 3600;
 		$this->alerts()->notify($this->detection($user, SecondFactorFailed::ID), false);
+		$this->runQueuedMails($this->alerts());
 		$this->assertCount(3, $this->mailed);
 	}
 
@@ -190,6 +199,7 @@ class UserAlertsTest extends AccountTestCase {
 			array_map(static fn ($n): string => $n->getObjectId(), $bells),
 		);
 		$this->assertCount(2, $bells, 'One bell for each detection, each with its own answer');
+		$this->runQueuedMails($this->alerts());
 		$this->assertCount(2, $this->mailed);
 
 		// An attack from many addresses stays a few notifications.
@@ -197,6 +207,7 @@ class UserAlertsTest extends AccountTestCase {
 			$this->alerts()->notify($this->detection($user, SecondFactorFailed::ID, ip: '198.51.100.' . $i));
 		}
 		$this->assertCount(UserAlerts::MAX_DETECTIONS_PER_INTERVAL, $this->notificationsFor($user->getUID(), UserAlerts::SUBJECT));
+		$this->runQueuedMails($this->alerts());
 		$this->assertCount(UserAlerts::MAX_DETECTIONS_PER_INTERVAL, $this->mailed);
 	}
 
@@ -217,9 +228,11 @@ class UserAlertsTest extends AccountTestCase {
 		$this->alerts()->notify($this->detection($user, AccountUnderAttack::ID, ip: null));
 		$this->now += 6 * 3600;
 		$this->alerts()->notify($this->detection($user, AccountUnderAttack::ID, ip: null), false);
+		$this->runQueuedMails($this->alerts());
 		$this->assertCount(1, $this->mailed);
 		$this->now += 86400;
 		$this->alerts()->notify($this->detection($user, AccountUnderAttack::ID, ip: null));
+		$this->runQueuedMails($this->alerts());
 		$this->assertCount(2, $this->mailed);
 	}
 
@@ -244,8 +257,12 @@ class UserAlertsTest extends AccountTestCase {
 	public function testAFailingMailServerIsTreatedLikeAMissingAddress(): void {
 		$user = $this->newUser('ids-notify', 'alice@example.com');
 		$this->mailWorks = false;
-		$result = $this->alerts()->notify($this->detection($user, SecondFactorFailed::ID));
-		$this->assertSame(UserAlerts::EMAIL_FAILED, $result['email'] ?? null);
+		$detection = $this->detection($user, SecondFactorFailed::ID);
+		$result = $this->alerts()->notify($detection);
+		$this->assertSame(UserAlerts::EMAIL_QUEUED, $result['email'] ?? null);
+		$this->assertSame([], $this->notificationsFor('admin', AdminNotices::SUBJECT_USER_UNREACHABLE));
+		$this->runQueuedMails($this->alerts());
+		$this->assertSame($detection->getCreatedAt(), Server::get(LoginNotices::class)->since($user->getUID()), 'Shown at the next login');
 		$notices = $this->notificationsFor('admin', AdminNotices::SUBJECT_USER_UNREACHABLE);
 		$this->assertCount(1, $notices);
 		$this->assertSame(AdminNotices::REASON_MAIL_FAILED, $notices[0]->getSubjectParameters()['reason']);
@@ -297,6 +314,7 @@ class UserAlertsTest extends AccountTestCase {
 			$time,
 			Server::get(LoginNotices::class),
 			Server::get(Questions::class),
+			Server::get(MailQueue::class),
 		);
 	}
 }

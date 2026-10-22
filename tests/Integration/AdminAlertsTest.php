@@ -24,6 +24,7 @@ use OCA\IntrusionDetection\Notification\AdminAlerts;
 use OCA\IntrusionDetection\Notification\AdminLinks;
 use OCA\IntrusionDetection\Notification\AdminRecipients;
 use OCA\IntrusionDetection\Notification\MailContent;
+use OCA\IntrusionDetection\Notification\MailQueue;
 use OCA\IntrusionDetection\Notification\Mails;
 use OCA\IntrusionDetection\Notification\Notifier;
 use OCA\IntrusionDetection\Notification\UserMessages;
@@ -84,6 +85,7 @@ class AdminAlertsTest extends IntegrationTestCase {
 			Server::get(UserMessages::class),
 			Server::get(AdminLinks::class),
 			Server::get(ITimeFactory::class),
+			Server::get(MailQueue::class),
 		);
 	}
 
@@ -109,7 +111,7 @@ class AdminAlertsTest extends IntegrationTestCase {
 		$alerts = new AdminAlerts(
 			Server::get(AlertMapper::class), $recipients, $this->notifications, $this->mails, Server::get(Settings::class),
 			Server::get(NarrativeBuilder::class), Server::get(CheckRegistry::class), Server::get(UserMessages::class),
-			Server::get(AdminLinks::class), Server::get(ITimeFactory::class),
+			Server::get(AdminLinks::class), Server::get(ITimeFactory::class), Server::get(MailQueue::class),
 		);
 		// The first hit sends the bell and the email, with one lookup.
 		$this->assertSame(2, $alerts->alert($this->detection('198.51.100.7', Severity::Critical))['recipients']);
@@ -128,10 +130,14 @@ class AdminAlertsTest extends IntegrationTestCase {
 	}
 
 	public function testSevereDetectionsAreEmailedOncePerCheckAndHour(): void {
-		$first = $this->alerts->alert($this->detection('198.51.100.7', Severity::High));
+		$detection = $this->detection('198.51.100.7', Severity::High);
+		$first = $this->alerts->alert($detection);
 		$second = $this->alerts->alert($this->detection('198.51.100.8', Severity::Critical));
-		$this->assertSame(AdminAlerts::EMAIL_SENT, $first['email']);
+		$this->assertSame(AdminAlerts::EMAIL_QUEUED, $first['email']);
 		$this->assertSame(AdminAlerts::EMAIL_LIMITED, $second['email']);
+		$this->assertSame([], $this->mailed, 'Not in the request');
+		$this->assertSame([['kind' => MailQueue::KIND_ADMIN, 'detection' => $detection->getId()]], $this->queuedMails(), 'One email per check and hour');
+		$this->assertSame(1, $this->runQueuedMails(admins: $this->alerts));
 		// bob has no email address: he only gets the bell.
 		$this->assertSame(['alice'], array_column($this->mailed, 0));
 		$this->assertCount(4, $this->sent);
@@ -172,7 +178,7 @@ class AdminAlertsTest extends IntegrationTestCase {
 
 	public function testTheEmailSeverityIsASetting(): void {
 		Server::get(Settings::class)->setGlobal(GlobalSettings::NOTIFY_ADMIN_EMAIL_MIN_SEVERITY, 'medium');
-		$this->assertSame(AdminAlerts::EMAIL_SENT, $this->alerts->alert($this->detection('198.51.100.7', Severity::Medium))['email']);
+		$this->assertSame(AdminAlerts::EMAIL_QUEUED, $this->alerts->alert($this->detection('198.51.100.7', Severity::Medium))['email']);
 		Server::get(Settings::class)->setGlobal(GlobalSettings::NOTIFY_ADMIN_EMAIL_MIN_SEVERITY, 'never');
 		$this->assertSame(AdminAlerts::EMAIL_BELOW_SEVERITY, $this->alerts->alert($this->detection('198.51.100.9', Severity::Critical))['email']);
 	}
@@ -183,14 +189,14 @@ class AdminAlertsTest extends IntegrationTestCase {
 		$alerts = new AdminAlerts(
 			Server::get(AlertMapper::class), $recipients, $this->notifications, $this->mails, Server::get(Settings::class),
 			Server::get(NarrativeBuilder::class), Server::get(CheckRegistry::class), Server::get(UserMessages::class),
-			Server::get(AdminLinks::class), Server::get(ITimeFactory::class),
+			Server::get(AdminLinks::class), Server::get(ITimeFactory::class), Server::get(MailQueue::class),
 		);
 		$result = $alerts->alert($this->detection('198.51.100.7', Severity::Critical));
 		$this->assertSame(AdminAlerts::EMAIL_NO_ADDRESS, $result['email']);
 		$this->assertCount(1, $this->sent);
 		$this->assertSame([], $this->mailed);
 		// The email slot is not used up, so the next admin with an address still gets one.
-		$this->assertSame(AdminAlerts::EMAIL_SENT, $this->alerts->alert($this->detection('198.51.100.8', Severity::Critical))['email']);
+		$this->assertSame(AdminAlerts::EMAIL_QUEUED, $this->alerts->alert($this->detection('198.51.100.8', Severity::Critical))['email']);
 	}
 
 	public function testAdminsWithoutEmailAreNotLookedUpAgainForAMinute(): void {
@@ -206,7 +212,7 @@ class AdminAlertsTest extends IntegrationTestCase {
 		$alerts = new AdminAlerts(
 			Server::get(AlertMapper::class), $recipients, $this->notifications, $this->mails, Server::get(Settings::class),
 			Server::get(NarrativeBuilder::class), Server::get(CheckRegistry::class), Server::get(UserMessages::class),
-			Server::get(AdminLinks::class), Server::get(ITimeFactory::class),
+			Server::get(AdminLinks::class), Server::get(ITimeFactory::class), Server::get(MailQueue::class),
 		);
 		$this->assertSame(AdminAlerts::EMAIL_NO_ADDRESS, $alerts->alert($this->detection('198.51.100.7', Severity::Critical))['email']);
 		for ($i = 0; $i < 5; $i++) {
@@ -220,9 +226,11 @@ class AdminAlertsTest extends IntegrationTestCase {
 		$alerts = new AdminAlerts(
 			Server::get(AlertMapper::class), $this->recipients, $this->notifications, $mails, Server::get(Settings::class),
 			Server::get(NarrativeBuilder::class), Server::get(CheckRegistry::class), Server::get(UserMessages::class),
-			Server::get(AdminLinks::class), Server::get(ITimeFactory::class),
+			Server::get(AdminLinks::class), Server::get(ITimeFactory::class), Server::get(MailQueue::class),
 		);
-		$this->assertSame(AdminAlerts::EMAIL_FAILED, $alerts->alert($this->detection('198.51.100.7', Severity::Critical))['email']);
+		$this->assertSame(AdminAlerts::EMAIL_QUEUED, $alerts->alert($this->detection('198.51.100.7', Severity::Critical))['email']);
+		$this->runQueuedMails(admins: $alerts);
+		$this->assertSame([], $this->queuedMails(), 'A failed email is not retried');
 
 		$sentences = Server::get(NotifyAdminHandler::class)->describeAction(
 			['type' => 'notify_admin', 'enforced' => true, 'ref' => ['email' => AdminAlerts::EMAIL_FAILED]],

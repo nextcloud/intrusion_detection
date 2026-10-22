@@ -81,6 +81,7 @@ class TokenConcurrentUseTest extends CredentialUseTestCase {
 		$this->assertSame([ResponseType::NotifyAdmin->value => true, ResponseType::NotifyUser->value => true], $actions, 'By default: tell the user and the admins, revoke nothing');
 		$this->assertTrue($this->tokenExists($token['id']));
 		$this->assertCount(1, $this->notificationsFor($user->getUID()));
+		$this->sendQueuedMails();
 		$this->assertCount(1, $this->mailed);
 		$mail = json_encode(get_object_vars($this->mailed[0][1]), JSON_THROW_ON_ERROR | JSON_UNESCAPED_UNICODE);
 		$this->assertStringContainsString('Your app password \\"Desktop client on laptop\\" was used from two different networks at the same time: ' . self::HOME . ' and ' . self::AWAY, $mail, 'The name the user gave it');

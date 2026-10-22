@@ -21,6 +21,7 @@ use OCA\IntrusionDetection\Notification\AdminAlerts;
 use OCA\IntrusionDetection\Notification\AdminLinks;
 use OCA\IntrusionDetection\Notification\AdminRecipients;
 use OCA\IntrusionDetection\Notification\MailContent;
+use OCA\IntrusionDetection\Notification\MailQueue;
 use OCA\IntrusionDetection\Notification\Mails;
 use OCA\IntrusionDetection\Notification\UserMessages;
 use OCP\AppFramework\Utility\ITimeFactory;
@@ -68,7 +69,7 @@ class AdminChangeAlertsTest extends IntegrationTestCase {
 		$this->alerts = new AdminAlerts(
 			Server::get(AlertMapper::class), $recipients, $notifications, $mails, Server::get(Settings::class),
 			Server::get(NarrativeBuilder::class), Server::get(CheckRegistry::class), Server::get(UserMessages::class),
-			Server::get(AdminLinks::class), Server::get(ITimeFactory::class),
+			Server::get(AdminLinks::class), Server::get(ITimeFactory::class), Server::get(MailQueue::class),
 		);
 	}
 
@@ -76,7 +77,9 @@ class AdminChangeAlertsTest extends IntegrationTestCase {
 		$result = $this->alerts->alert($this->change(AdminChange::KIND_ADMIN_GRANTED, Severity::High, 'admin_granted:admin'));
 		$this->assertSame([true], $this->withAdminGroup, 'The admin group is always included');
 		$this->assertSame(['alice', 'carol'], array_map(static fn (INotification $n): string => $n->getUser(), $this->sent));
-		$this->assertSame(AdminAlerts::EMAIL_SENT, $result['email']);
+		$this->assertSame(AdminAlerts::EMAIL_QUEUED, $result['email']);
+		$this->runQueuedMails(admins: $this->alerts);
+		$this->assertSame([true, true], $this->withAdminGroup, 'The admin group is always included, also when the email is sent');
 		$this->assertSame(['alice'], array_column($this->mailed, 0), 'The actor gets the email too; carol has no address');
 		$this->assertSame('Intrusion detection: bob was made an administrator', $this->mailed[0][1]->subject);
 	}
@@ -84,8 +87,10 @@ class AdminChangeAlertsTest extends IntegrationTestCase {
 	public function testDifferentSevereChangesWithinTheHourAreEachEmailed(): void {
 		$first = $this->alerts->alert($this->change(AdminChange::KIND_SETTING_CHANGED, Severity::High, 'setting:system:trusted_proxies'));
 		$second = $this->alerts->alert($this->change(AdminChange::KIND_ADMIN_GRANTED, Severity::High, 'admin_granted:admin'));
-		$this->assertSame(AdminAlerts::EMAIL_SENT, $first['email']);
-		$this->assertSame(AdminAlerts::EMAIL_SENT, $second['email'], 'A new administrator is not hidden behind an earlier change');
+		$this->assertSame(AdminAlerts::EMAIL_QUEUED, $first['email']);
+		$this->assertSame(AdminAlerts::EMAIL_QUEUED, $second['email'], 'A new administrator is not hidden behind an earlier change');
+		$this->assertSame(2, $this->runQueuedMails(admins: $this->alerts));
+		$this->assertCount(2, $this->mailed);
 		$this->assertCount(4, $this->sent);
 	}
 

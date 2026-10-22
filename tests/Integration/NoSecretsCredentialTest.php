@@ -83,6 +83,9 @@ class NoSecretsCredentialTest extends CredentialUseTestCase {
 			$prepared = Server::get(Notifier::class)->prepare($notification, 'en');
 			$this->assertClean(json_encode($notification->getSubjectParameters()) . $prepared->getParsedSubject() . $prepared->getParsedMessage() . $prepared->getLink(), $secrets, 'notification');
 		}
+		$this->assertNotSame([], $this->queuedMails());
+		$this->assertClean(json_encode($this->queuedMails(), JSON_THROW_ON_ERROR), $secrets, 'queued emails');
+		$this->sendQueuedMails();
 		$this->assertNotSame([], $this->mailed);
 		foreach ($this->mailed as [, $mail]) {
 			$this->assertClean(json_encode(get_object_vars($mail), JSON_THROW_ON_ERROR), $secrets, 'email');

@@ -29,6 +29,7 @@ use OCA\IntrusionDetection\Notification\AdminAlerts;
 use OCA\IntrusionDetection\Notification\AdminLinks;
 use OCA\IntrusionDetection\Notification\AdminRecipients;
 use OCA\IntrusionDetection\Notification\MailContent;
+use OCA\IntrusionDetection\Notification\MailQueue;
 use OCA\IntrusionDetection\Notification\UserMessages;
 use OCA\IntrusionDetection\Response\Handlers\KillSessionHandler;
 use OCA\IntrusionDetection\Response\Handlers\LockLinkHandler;
@@ -146,7 +147,13 @@ abstract class TakeoverTestCase extends AccountTestCase {
 			Server::get(UserMessages::class),
 			Server::get(AdminLinks::class),
 			Server::get(ITimeFactory::class),
+			Server::get(MailQueue::class),
 		);
+	}
+
+	#[\Override]
+	protected function sendQueuedMails(): int {
+		return $this->runQueuedMails($this->userAlerts(), $this->adminAlerts());
 	}
 
 	protected function takeoverEngine(): ResponseEngine {

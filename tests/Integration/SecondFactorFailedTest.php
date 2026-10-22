@@ -120,10 +120,12 @@ class SecondFactorFailedTest extends AccountTestCase {
 		$this->assertTrue($actions['ban']['enforced']);
 		$this->assertSame(PasswordChangeService::STATE_REQUIRED, $actions['force_password_change']['ref']['state']);
 		$this->assertTrue(Server::get(PasswordChangeFlag::class)->isRequired($this->user->getUID()));
-		$this->assertSame(UserAlerts::EMAIL_SENT, $actions['notify_user']['ref']['email']);
+		$this->assertSame(UserAlerts::EMAIL_QUEUED, $actions['notify_user']['ref']['email']);
 
 		// The user is told what happened and what was done.
 		$this->assertCount(1, $this->notificationsFor($this->user->getUID(), UserAlerts::SUBJECT));
+		$this->assertSame([], $this->mailed, 'Not in the request');
+		$this->sendQueuedMails();
 		$this->assertCount(1, $this->mailed);
 		[$to, $mail] = $this->mailed[0];
 		$this->assertSame($this->user->getUID(), $to);
@@ -159,6 +161,7 @@ class SecondFactorFailedTest extends AccountTestCase {
 		$this->assertFalse($this->tokenExists($second['id']));
 		$kill = array_column($detections[0]->getActionList(), null, 'type')['kill_session'];
 		$this->assertSame($second['id'], $kill['ref']['session']['id']);
+		$this->sendQueuedMails();
 		$this->assertCount(1, $this->mailed, 'The user is told once within the hour');
 	}
 

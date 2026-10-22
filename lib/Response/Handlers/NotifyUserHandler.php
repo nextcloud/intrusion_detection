@@ -51,6 +51,8 @@ class NotifyUserHandler implements IResponseHandler, IDescribesAction {
 		$ref = is_array($action['ref'] ?? null) ? $action['ref'] : [];
 		$sentences = [match ($ref['email'] ?? null) {
 			UserAlerts::EMAIL_SENT => $l->t('The user was told with a notification and an email.'),
+			UserAlerts::EMAIL_QUEUED => $l->t('The user was told with a notification, and an email to them was queued.'),
+			UserAlerts::EMAIL_LIMITED => $l->t('The user was told with a notification only: the limit of emails to users within the hour was reached. They see it again at their next login.'),
 			UserAlerts::EMAIL_NO_ADDRESS => $l->t('The user was told with a notification only: they have no email address.'),
 			UserAlerts::EMAIL_FAILED => $l->t('The user was told with a notification; the email could not be sent.'),
 			default => $l->t('The user was told with a notification.'),

@@ -56,16 +56,24 @@ class NotifyShareOwnerHandler implements IResponseHandler, IDescribesAction {
 	public function describeAction(array $action, IL10N $l, DateFormatter $dates): array {
 		$ref = is_array($action['ref'] ?? null) ? $action['ref'] : [];
 		$recipients = array_values(array_filter((array)($ref['recipients'] ?? []), 'is_string'));
-		$emails = (int)($ref['emails'] ?? 0);
 		$sentences = [$l->n(
 			'Told %s, who manages the share, with a notification that offers "Open share settings" and "Disable link".',
 			'Told %s, who manage the share, with a notification that offers "Open share settings" and "Disable link".',
 			count($recipients),
 			[implode(', ', $recipients)],
 		)];
-		$sentences[] = $emails > 0
-			? $l->n('%n email was sent as well.', '%n emails were sent as well.', $emails)
-			: $l->t('No email was sent: there is no email address, or sending failed.');
+		if (isset($ref['emails'])) {
+			$emails = (int)$ref['emails'];
+			$sentences[] = $emails > 0
+				? $l->n('%n email was sent as well.', '%n emails were sent as well.', $emails)
+				: $l->t('No email was sent: there is no email address, or sending failed.');
+			return $sentences;
+		}
+		$sentences[] = match ($ref['email'] ?? null) {
+			ShareOwnerAlerts::EMAIL_QUEUED => $l->t('An email was queued as well.'),
+			ShareOwnerAlerts::EMAIL_LIMITED => $l->t('No email was sent: the limit of emails to users within the hour was reached.'),
+			default => $l->t('No email was sent: there is no email address.'),
+		};
 		return $sentences;
 	}
 }
