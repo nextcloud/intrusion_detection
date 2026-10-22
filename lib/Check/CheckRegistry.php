@@ -87,6 +87,13 @@ class CheckRegistry {
 	}
 
 	/**
+	 * The definition of a check, or null for an id no check has.
+	 */
+	public function find(string $id): ?CheckDefinition {
+		return $this->all()[$id] ?? null;
+	}
+
+	/**
 	 * The check object, for callers that run its detector.
 	 *
 	 * @template T of ICheck

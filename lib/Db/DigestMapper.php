@@ -132,16 +132,20 @@ class DigestMapper {
 	}
 
 	/**
-	 * Detections of one check per account in the period, most first.
+	 * Detections of the checks per account in the period, most first.
 	 *
+	 * @param list<string> $checkIds
 	 * @return list<array{uid: string, detections: int}>
 	 */
-	public function accountsForCheck(string $checkId, int $since, int $until, int $limit): array {
+	public function accountsForChecks(array $checkIds, int $since, int $until, int $limit): array {
+		if ($checkIds === []) {
+			return [];
+		}
 		$qb = $this->db->getQueryBuilder();
 		$qb->select('uid')
 			->selectAlias($qb->func()->count('*'), 'n')
 			->from(DetectionMapper::TABLE)
-			->where($qb->expr()->eq('check_id', $qb->createNamedParameter($checkId)))
+			->where($qb->expr()->in('check_id', $qb->createNamedParameter($checkIds, IQueryBuilder::PARAM_STR_ARRAY)))
 			->andWhere($qb->expr()->gte('created_at', $qb->createNamedParameter($since, IQueryBuilder::PARAM_INT)))
 			->andWhere($qb->expr()->lt('created_at', $qb->createNamedParameter($until, IQueryBuilder::PARAM_INT)))
 			->andWhere($qb->expr()->isNotNull('uid'))
@@ -159,17 +163,21 @@ class DigestMapper {
 	}
 
 	/**
-	 * Detections of one check per share in the period, most first.
+	 * Detections of the checks per share in the period, most first.
 	 *
+	 * @param list<string> $checkIds
 	 * @return list<array{shareId: int, owner: ?string, detections: int}>
 	 */
-	public function sharesForCheck(string $checkId, int $since, int $until, int $limit): array {
+	public function sharesForChecks(array $checkIds, int $since, int $until, int $limit): array {
+		if ($checkIds === []) {
+			return [];
+		}
 		$qb = $this->db->getQueryBuilder();
 		$qb->select('share_id')
 			->selectAlias($qb->func()->max('uid'), 'owner')
 			->selectAlias($qb->func()->count('*'), 'n')
 			->from(DetectionMapper::TABLE)
-			->where($qb->expr()->eq('check_id', $qb->createNamedParameter($checkId)))
+			->where($qb->expr()->in('check_id', $qb->createNamedParameter($checkIds, IQueryBuilder::PARAM_STR_ARRAY)))
 			->andWhere($qb->expr()->gte('created_at', $qb->createNamedParameter($since, IQueryBuilder::PARAM_INT)))
 			->andWhere($qb->expr()->lt('created_at', $qb->createNamedParameter($until, IQueryBuilder::PARAM_INT)))
 			->andWhere($qb->expr()->isNotNull('share_id'))
@@ -191,15 +199,19 @@ class DigestMapper {
 	}
 
 	/**
-	 * The detections of one check in the period, newest first, at most MAX_ROWS.
+	 * The detections of the checks in the period, newest first, at most MAX_ROWS.
 	 *
+	 * @param list<string> $checkIds
 	 * @return list<Detection>
 	 */
-	public function detectionsOfCheck(string $checkId, int $since, int $until): array {
+	public function detectionsOfChecks(array $checkIds, int $since, int $until): array {
+		if ($checkIds === []) {
+			return [];
+		}
 		$qb = $this->db->getQueryBuilder();
 		$qb->select('*')
 			->from(DetectionMapper::TABLE)
-			->where($qb->expr()->eq('check_id', $qb->createNamedParameter($checkId)))
+			->where($qb->expr()->in('check_id', $qb->createNamedParameter($checkIds, IQueryBuilder::PARAM_STR_ARRAY)))
 			->andWhere($qb->expr()->gte('created_at', $qb->createNamedParameter($since, IQueryBuilder::PARAM_INT)))
 			->andWhere($qb->expr()->lt('created_at', $qb->createNamedParameter($until, IQueryBuilder::PARAM_INT)))
 			->orderBy('created_at', 'DESC')

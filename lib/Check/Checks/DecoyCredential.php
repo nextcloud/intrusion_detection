@@ -16,6 +16,7 @@ use OCA\IntrusionDetection\Definition\CheckDefinition;
 use OCA\IntrusionDetection\Definition\CheckTexts;
 use OCA\IntrusionDetection\Definition\CostClass;
 use OCA\IntrusionDetection\Definition\DataKind;
+use OCA\IntrusionDetection\Definition\DigestSection;
 use OCA\IntrusionDetection\Definition\Mode;
 use OCA\IntrusionDetection\Definition\ResponseType;
 use OCA\IntrusionDetection\Definition\Severity;
@@ -66,6 +67,7 @@ final class DecoyCredential implements ICheck, IExplainsDetection {
 				data: $l->t('Decoys: the label, the optional account name and a keyed fingerprint of the secret. The secret itself is shown once and never stored. Detections: the address, the decoy\'s label and the time.'),
 			),
 			actsWhileLearning: true,
+			digestSection: DigestSection::Decoys,
 		);
 	}
 

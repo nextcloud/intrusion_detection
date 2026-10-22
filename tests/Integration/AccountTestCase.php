@@ -148,6 +148,7 @@ abstract class AccountTestCase extends IntegrationTestCase {
 			Server::get(LoginNotices::class),
 			Server::get(Questions::class),
 			Server::get(MailQueue::class),
+			Server::get(CheckRegistry::class),
 		);
 	}
 

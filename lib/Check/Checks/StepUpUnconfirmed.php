@@ -68,6 +68,7 @@ final class StepUpUnconfirmed implements ICheck, IExplainsDetection, IExplainsTo
 				data: $l->t('Detections: the account, the address and the reasons.'),
 			),
 			internal: true,
+			userAlertInterval: 86400,
 		);
 	}
 

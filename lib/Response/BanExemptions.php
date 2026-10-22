@@ -10,9 +10,7 @@ declare(strict_types=1);
 namespace OCA\IntrusionDetection\Response;
 
 use OCA\IntrusionDetection\AppInfo\Application;
-use OCA\IntrusionDetection\Check\Checks\AccountUnderAttack;
-use OCA\IntrusionDetection\Check\Checks\InjectionProbe;
-use OCA\IntrusionDetection\Check\Checks\TrapUrl;
+use OCA\IntrusionDetection\Check\CheckRegistry;
 use OCA\IntrusionDetection\Config\GlobalSettings;
 use OCA\IntrusionDetection\Config\Settings;
 use OCA\IntrusionDetection\Db\KeyMatch;
@@ -41,14 +39,16 @@ use OCP\IMemcache;
  *   logged in from within TRUSTED_LOGIN_DAYS. On a small server behind such
  *   a proxy every visitor, and so every attack, seems to come from it.
  * - Its people: an administrator logged in from it within
- *   TRUSTED_LOGIN_DAYS, or, for a check about one account (ACCOUNT_CHECKS),
+ *   TRUSTED_LOGIN_DAYS, or, for a check about one account
+ *   (CheckDefinition::$confirmedLoginsExempt),
  *   that account confirmed a login from it (a second factor, an email code,
  *   admin approval or a remembered device). Requests from such an address
  *   that look like an attack are more likely a misconfigured client. A
  *   confirmed login never exempts an address from blocks for attacks on
  *   other accounts: anyone can make an account confirm a login, for example
- *   by registering one. Trap URLs and injection probes (NEVER_TRUSTED) are
- *   no client's mistake, so these logins never exempt from them.
+ *   by registering one. Trap URLs and injection probes are no client's
+ *   mistake, so these logins never exempt from them
+ *   (CheckDefinition::$trustedLoginsExempt).
  * - For networks also: the network contains loopback, the server's own
  *   address or an address on the brute-force allowlist.
  *
@@ -60,10 +60,6 @@ class BanExemptions {
 	public const TRUSTED_LOGIN_DAYS = 7;
 	/** The facts of an address or network are remembered this long */
 	public const REMEMBER = 60;
-	/** Checks no login exempts an address from */
-	public const NEVER_TRUSTED = [TrapUrl::ID, InjectionProbe::ID];
-	/** Checks about one account, whose confirmed logins exempt their address */
-	public const ACCOUNT_CHECKS = [AccountUnderAttack::ID];
 	/** At most this many different accounts are looked at for an address or network */
 	private const MAX_ACCOUNTS = 200;
 
@@ -79,6 +75,7 @@ class BanExemptions {
 		private readonly IGroupManager $groups,
 		private readonly ICacheFactory $cacheFactory,
 		private readonly EstablishedAccounts $accounts,
+		private readonly CheckRegistry $registry,
 	) {
 	}
 
@@ -154,13 +151,14 @@ class BanExemptions {
 		if ($facts['admin'] && $facts['private'] && $unconfigured) {
 			return new BanResult(BanResult::SKIPPED_PROXY, sharedUsers: $facts['users']);
 		}
-		if (in_array($checkId, self::NEVER_TRUSTED, true)) {
+		$check = $this->registry->find($checkId);
+		if ($check !== null && !$check->trustedLoginsExempt) {
 			return null;
 		}
 		if ($facts['admin']) {
 			return new BanResult(BanResult::SKIPPED_TRUSTED);
 		}
-		if ($uid !== null && in_array($checkId, self::ACCOUNT_CHECKS, true)
+		if ($uid !== null && $check !== null && $check->confirmedLoginsExempt
 			&& $this->history->hasConfirmedLogin($uid, $column, $keys, $now - self::TRUSTED_LOGIN_DAYS * 86400)) {
 			return new BanResult(BanResult::SKIPPED_TRUSTED);
 		}

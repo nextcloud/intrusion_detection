@@ -17,6 +17,7 @@ use OCA\IntrusionDetection\Definition\CheckDefinition;
 use OCA\IntrusionDetection\Definition\CheckTexts;
 use OCA\IntrusionDetection\Definition\CostClass;
 use OCA\IntrusionDetection\Definition\DataKind;
+use OCA\IntrusionDetection\Definition\DigestSection;
 use OCA\IntrusionDetection\Definition\Mode;
 use OCA\IntrusionDetection\Definition\ParamDefinition;
 use OCA\IntrusionDetection\Definition\ParamPreset;
@@ -83,6 +84,9 @@ final class AccountUnderAttack implements ICheck, IExplainsDetection, IExplainsT
 				],
 			),
 			simulatable: true,
+			confirmedLoginsExempt: true,
+			userAlertInterval: 86400,
+			digestSection: DigestSection::Accounts,
 		);
 	}
 

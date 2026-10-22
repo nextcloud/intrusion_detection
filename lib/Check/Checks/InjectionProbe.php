@@ -98,6 +98,8 @@ final class InjectionProbe implements ICheck, IExplainsDetection, IKeepsFromUser
 					'custom_signatures' => new ParamText($l->t('Your own signatures')),
 				],
 			),
+			honoursLure: true,
+			trustedLoginsExempt: false,
 		);
 	}
 

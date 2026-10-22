@@ -10,6 +10,7 @@ declare(strict_types=1);
 namespace OCA\IntrusionDetection\Tests\Unit\Response;
 
 use OC\Memcache\ArrayCache;
+use OCA\IntrusionDetection\Check\CheckRegistry;
 use OCA\IntrusionDetection\Config\Settings;
 use OCA\IntrusionDetection\Db\LoginHistoryMapper;
 use OCA\IntrusionDetection\Db\LoginMapper;
@@ -21,6 +22,7 @@ use OCA\IntrusionDetection\Response\BanResult;
 use OCA\IntrusionDetection\Response\ProxySuspect;
 use OCP\ICacheFactory;
 use OCP\IGroupManager;
+use OCP\Server;
 use PHPUnit\Framework\MockObject\MockObject;
 use Test\TestCase;
 
@@ -93,6 +95,6 @@ class BanExemptionsTest extends TestCase {
 		}
 		$accounts = $this->createMock(EstablishedAccounts::class);
 		$accounts->method('count')->willReturnCallback(static fn (array $uids): int => count($uids));
-		return new BanExemptions($this->logins, $this->history, $settings, $this->proxies, $this->createMock(ProtectedRanges::class), $this->groups, $factory, $accounts);
+		return new BanExemptions($this->logins, $this->history, $settings, $this->proxies, $this->createMock(ProtectedRanges::class), $this->groups, $factory, $accounts, Server::get(CheckRegistry::class));
 	}
 }

@@ -14,6 +14,7 @@ use OCA\IntrusionDetection\Db\AlertMapper;
 use OCA\IntrusionDetection\Db\Ban;
 use OCA\IntrusionDetection\Db\Detection;
 use OCA\IntrusionDetection\Db\LoginHistoryMapper;
+use OCA\IntrusionDetection\Definition\ResponseType;
 use OCA\IntrusionDetection\Detection\DetectionDraft;
 use OCA\IntrusionDetection\Net\SourceKey;
 use OCA\IntrusionDetection\Notification\UserAlerts;
@@ -118,6 +119,10 @@ class CheckPolicyTest extends TestCase {
 		} catch (\RuntimeException) {
 		}
 		$this->assertSame([intdiv($now, in_array($checkId, self::DAILY_USER_ALERTS, true) ? 86400 : 3600)], $buckets);
+	}
+
+	public function testAReportOfAHeldBackBlockCanNeverBlockAndReportAgain(): void {
+		$this->assertFalse(Server::get(CheckRegistry::class)->get('shared_address')->allowsResponse(ResponseType::Ban));
 	}
 
 	/**

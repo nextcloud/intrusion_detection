@@ -305,6 +305,7 @@ class ComposerStaticInitIntrusionDetection
         'OCA\\IntrusionDetection\\Definition\\CheckTexts' => __DIR__ . '/..' . '/../lib/Definition/CheckTexts.php',
         'OCA\\IntrusionDetection\\Definition\\CostClass' => __DIR__ . '/..' . '/../lib/Definition/CostClass.php',
         'OCA\\IntrusionDetection\\Definition\\DataKind' => __DIR__ . '/..' . '/../lib/Definition/DataKind.php',
+        'OCA\\IntrusionDetection\\Definition\\DigestSection' => __DIR__ . '/..' . '/../lib/Definition/DigestSection.php',
         'OCA\\IntrusionDetection\\Definition\\InvalidParamException' => __DIR__ . '/..' . '/../lib/Definition/InvalidParamException.php',
         'OCA\\IntrusionDetection\\Definition\\Mode' => __DIR__ . '/..' . '/../lib/Definition/Mode.php',
         'OCA\\IntrusionDetection\\Definition\\ParamDefinition' => __DIR__ . '/..' . '/../lib/Definition/ParamDefinition.php',

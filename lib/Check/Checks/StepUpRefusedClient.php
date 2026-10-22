@@ -65,6 +65,7 @@ final class StepUpRefusedClient implements ICheck, IExplainsDetection, IExplains
 				data: $l->t('Detections: the account, the address and the reasons, one per account, address and day.'),
 			),
 			internal: true,
+			userAlertInterval: 86400,
 		);
 	}
 

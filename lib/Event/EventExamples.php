@@ -9,7 +9,6 @@ declare(strict_types=1);
 
 namespace OCA\IntrusionDetection\Event;
 
-use OCA\IntrusionDetection\Check\Checks\CredentialStuffing;
 use OCA\IntrusionDetection\Db\Ban;
 use OCA\IntrusionDetection\Db\Detection;
 use OCA\IntrusionDetection\Definition\Severity;
@@ -31,6 +30,7 @@ class EventExamples {
 	public const EXAMPLE_REFERENCE = 'K7Q2MPXA';
 	public const EXAMPLE_DETECTION = 42;
 	public const EXAMPLE_BAN = 7;
+	public const EXAMPLE_CHECK = 'credential_stuffing';
 
 	public function __construct(
 		private readonly EventPayloads $payloads,
@@ -88,7 +88,7 @@ class EventExamples {
 	private function detection(int $now): Detection {
 		$detection = new Detection();
 		$detection->setId(self::EXAMPLE_DETECTION);
-		$detection->setCheckId(CredentialStuffing::ID);
+		$detection->setCheckId(self::EXAMPLE_CHECK);
 		$detection->setSeverity(Severity::Medium->value);
 		$detection->setEnforced(true);
 		$detection->setIp(self::EXAMPLE_IP);
@@ -116,7 +116,7 @@ class EventExamples {
 		$ban->setCidr(self::EXAMPLE_IP . '/32');
 		$ban->setScope(Ban::SCOPE_IP);
 		$ban->setLevel(1);
-		$ban->setCheckId(CredentialStuffing::ID);
+		$ban->setCheckId(self::EXAMPLE_CHECK);
 		$ban->setDetectionId(self::EXAMPLE_DETECTION);
 		$ban->setCreatedAt($now);
 		$ban->setExpiresAt($now + 14400);

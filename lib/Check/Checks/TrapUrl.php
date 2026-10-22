@@ -77,6 +77,8 @@ final class TrapUrl implements ICheck, IExplainsDetection, ISimulatable, IValida
 				],
 			),
 			simulatable: true,
+			honoursLure: true,
+			trustedLoginsExempt: false,
 		);
 	}
 

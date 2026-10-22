@@ -200,7 +200,12 @@ class UserMessages {
 		return is_object($check) ? $check : null;
 	}
 
-	private function notice(Detection $detection, IL10N $l): UserNotice {
+	/**
+	 * What the detection's check tells a person about it.
+	 *
+	 * @param IL10N $l in the reader's language
+	 */
+	public function notice(Detection $detection, IL10N $l): UserNotice {
 		$check = $this->check($detection);
 		if ($check instanceof IExplainsToUser) {
 			return $check->userNotice($detection, $l);

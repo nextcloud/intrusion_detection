@@ -10,7 +10,6 @@ declare(strict_types=1);
 namespace OCA\IntrusionDetection\Notification;
 
 use OCA\IntrusionDetection\AppInfo\Application;
-use OCA\IntrusionDetection\Check\Checks\ShareBruteforce;
 use OCA\IntrusionDetection\Db\Detection;
 use OCA\IntrusionDetection\Share\ShareLinks;
 use OCP\AppFramework\Utility\ITimeFactory;
@@ -44,7 +43,6 @@ class ShareOwnerAlerts {
 
 	public function __construct(
 		private readonly ShareLinks $links,
-		private readonly ShareBruteforce $check,
 		private readonly IUserManager $userManager,
 		private readonly INotificationManager $notifications,
 		private readonly Mails $mails,
@@ -122,7 +120,7 @@ class ShareOwnerAlerts {
 	public function mailFor(Detection $detection, IShare $share, IUser $user): MailContent {
 		$l = $this->messages->l10nFor($user);
 		return $this->messages->asReader($user, $l, function () use ($detection, $share, $l): MailContent {
-			$notice = $this->check->userNotice($detection, $l);
+			$notice = $this->messages->notice($detection, $l);
 			$paragraphs = $notice->message;
 			if ($this->links->isLink($share)) {
 				$paragraphs[] = $l->t('You can change the password or turn the link off in the sharing settings of the file, or with "Disable link" in the notification inside Nextcloud.');

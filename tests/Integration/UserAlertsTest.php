@@ -10,6 +10,7 @@ declare(strict_types=1);
 namespace OCA\IntrusionDetection\Tests\Integration;
 
 use OCA\IntrusionDetection\AppInfo\Application;
+use OCA\IntrusionDetection\Check\CheckRegistry;
 use OCA\IntrusionDetection\Check\Checks\AccountUnderAttack;
 use OCA\IntrusionDetection\Check\Checks\SecondFactorFailed;
 use OCA\IntrusionDetection\Config\ModeState;
@@ -315,6 +316,7 @@ class UserAlertsTest extends AccountTestCase {
 			Server::get(LoginNotices::class),
 			Server::get(Questions::class),
 			Server::get(MailQueue::class),
+			Server::get(CheckRegistry::class),
 		);
 	}
 }

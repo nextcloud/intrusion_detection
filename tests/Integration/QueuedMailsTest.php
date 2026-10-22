@@ -195,6 +195,7 @@ class QueuedMailsTest extends AccountTestCase {
 			Server::get(LoginNotices::class),
 			Server::get(Questions::class),
 			$queue ?? Server::get(MailQueue::class),
+			Server::get(CheckRegistry::class),
 		);
 	}
 

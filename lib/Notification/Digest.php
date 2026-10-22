@@ -13,12 +13,12 @@ use OCA\IntrusionDetection\Admin\CheckNames;
 use OCA\IntrusionDetection\Admin\StatusService;
 use OCA\IntrusionDetection\AppInfo\Application;
 use OCA\IntrusionDetection\Blocklist\SourceRepository;
-use OCA\IntrusionDetection\Check\Checks\AccountUnderAttack;
-use OCA\IntrusionDetection\Check\Checks\DecoyCredential;
-use OCA\IntrusionDetection\Check\Checks\ShareBruteforce;
+use OCA\IntrusionDetection\Check\CheckRegistry;
 use OCA\IntrusionDetection\Db\BlocklistStatMapper;
 use OCA\IntrusionDetection\Db\DigestMapper;
 use OCA\IntrusionDetection\Db\ProtectedAccountMapper;
+use OCA\IntrusionDetection\Definition\CheckDefinition;
+use OCA\IntrusionDetection\Definition\DigestSection;
 use OCA\IntrusionDetection\Detection\DetectionTotals;
 use OCP\AppFramework\Utility\ITimeFactory;
 use OCP\IDateTimeFormatter;
@@ -58,6 +58,7 @@ class Digest {
 		private readonly IDateTimeFormatter $dateFormatter,
 		private readonly AdminLinks $links,
 		private readonly ITimeFactory $timeFactory,
+		private readonly CheckRegistry $registry,
 	) {
 	}
 
@@ -107,9 +108,9 @@ class Digest {
 				'checks' => $checksBySource[$source['ip']] ?? [],
 				'bans' => $bansBySource[$source['ip']] ?? 0,
 			], $sources),
-			accounts: $this->digests->accountsForCheck(AccountUnderAttack::ID, $start, $end, self::TOP),
+			accounts: $this->digests->accountsForChecks($this->checksIn(DigestSection::Accounts), $start, $end, self::TOP),
 			decoys: $this->decoys($start, $end),
-			shares: $this->digests->sharesForCheck(ShareBruteforce::ID, $start, $end, self::TOP),
+			shares: $this->digests->sharesForChecks($this->checksIn(DigestSection::Shares), $start, $end, self::TOP),
 			blocklists: $this->blocklists($start, $end),
 			protectedAccounts: array_map(static fn (array $row): array => ['uid' => $row['uid'], 'until' => $row['expires_at']],
 				$this->protectedAccounts->findActive($this->timeFactory->getTime(), self::TOP)),
@@ -359,11 +360,20 @@ class Digest {
 	}
 
 	/**
+	 * The checks whose detections a section of the digest lists.
+	 *
+	 * @return list<string>
+	 */
+	private function checksIn(DigestSection $section): array {
+		return array_keys(array_filter($this->registry->all(), static fn (CheckDefinition $check): bool => $check->digestSection === $section));
+	}
+
+	/**
 	 * @return list<array{label: string, detections: int, addresses: int, lastAt: int}>
 	 */
 	private function decoys(int $start, int $end): array {
 		$decoys = [];
-		foreach ($this->digests->detectionsOfCheck(DecoyCredential::ID, $start, $end) as $detection) {
+		foreach ($this->digests->detectionsOfChecks($this->checksIn(DigestSection::Decoys), $start, $end) as $detection) {
 			$facts = $detection->getExplanationData()['facts'] ?? [];
 			$facts = is_array($facts) ? $facts : [];
 			$key = (string)($facts['decoy'] ?? '');

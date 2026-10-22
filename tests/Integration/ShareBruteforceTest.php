@@ -464,7 +464,6 @@ class ShareBruteforceTest extends RequestEventTestCase {
 		CapturingNotificationApp::$notifications = [];
 		$alerts = new ShareOwnerAlerts(
 			Server::get(ShareLinks::class),
-			Server::get(ShareBruteforce::class),
 			Server::get(IUserManager::class),
 			Server::get(INotificationManager::class),
 			$mails,

@@ -14,6 +14,7 @@ use OCA\IntrusionDetection\Address\AddressCache;
 use OCA\IntrusionDetection\Address\AddressResolver;
 use OCA\IntrusionDetection\AppInfo\Application;
 use OCA\IntrusionDetection\BackgroundJob\Cleanup;
+use OCA\IntrusionDetection\Check\CheckRegistry;
 use OCA\IntrusionDetection\Config\GlobalSettings;
 use OCA\IntrusionDetection\Config\Settings;
 use OCA\IntrusionDetection\Db\Ban;
@@ -686,6 +687,7 @@ class BanServiceTest extends IntegrationTestCase {
 				Server::get(IGroupManager::class),
 				Server::get(ICacheFactory::class),
 				Server::get(EstablishedAccounts::class),
+				Server::get(CheckRegistry::class),
 			),
 			Server::get(Settings::class),
 			$state === null ? Server::get(AddressCache::class) : new AddressCache(Server::get(ICacheFactory::class), $state),

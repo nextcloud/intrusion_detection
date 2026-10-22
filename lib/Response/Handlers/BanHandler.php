@@ -9,10 +9,7 @@ declare(strict_types=1);
 
 namespace OCA\IntrusionDetection\Response\Handlers;
 
-use OCA\IntrusionDetection\Check\Checks\InjectionProbe;
-use OCA\IntrusionDetection\Check\Checks\ShareBruteforce;
 use OCA\IntrusionDetection\Check\Checks\SharedAddress;
-use OCA\IntrusionDetection\Check\Checks\TrapUrl;
 use OCA\IntrusionDetection\Db\Ban;
 use OCA\IntrusionDetection\Definition\ResponseType;
 use OCA\IntrusionDetection\Detection\DetectionDraft;
@@ -39,14 +36,13 @@ use Psr\Container\ContainerInterface;
  * lure ({@see \OCA\IntrusionDetection\Net\FetchMetadata}): a browser that
  * fetched a URL for another site's page or an email. Anyone could have caused
  * it, so it is recorded, but blocking it would let any page lock its visitors
- * out. Only the checks a plain link can trigger honour lures (LURE_CHECKS);
+ * out. Only the checks a plain link can trigger honour lures
+ * ({@see \OCA\IntrusionDetection\Definition\CheckDefinition::$honoursLure});
  * failed logins and wrong share passwords never come from a lure.
  */
 class BanHandler implements IResponseHandler, IDescribesAction {
 	/** At most this many blocks are listed in the action; the rest are counted */
 	public const MAX_LISTED = 20;
-	/** The checks whose detections may spare the address of a lure */
-	public const LURE_CHECKS = [TrapUrl::ID, InjectionProbe::ID, ShareBruteforce::ID];
 
 	public function __construct(
 		private readonly BanService $bans,
@@ -68,7 +64,7 @@ class BanHandler implements IResponseHandler, IDescribesAction {
 		$draft = $context->draft;
 		$listed = [];
 		$counts = ['banned' => 0, 'already' => 0, 'skipped' => 0, 'lure' => 0, 'trusted' => 0, 'proxy' => 0];
-		$lure = $draft->lure && in_array($draft->checkId, self::LURE_CHECKS, true) ? $draft->source : null;
+		$lure = $draft->lure && $context->definition->honoursLure ? $draft->source : null;
 		$targets = [];
 		foreach ($draft->banTargets() as $target) {
 			if ($lure !== null && $target->ipKey === $lure->ipKey) {
@@ -81,7 +77,7 @@ class BanHandler implements IResponseHandler, IDescribesAction {
 		foreach ($results as $ipKey => $result) {
 			$target = $targets[$ipKey] ?? null;
 			if ($target !== null && ($result->outcome === BanResult::SKIPPED_SHARED || $result->outcome === BanResult::SKIPPED_PROXY)
-				&& $draft->checkId !== SharedAddress::ID && $this->bans->firstReport($target)) {
+				&& $this->bans->firstReport($target)) {
 				$this->reportShared($draft, $target, $result->sharedUsers, $result->outcome === BanResult::SKIPPED_PROXY);
 			}
 			$this->count($result, $draft, $counts, $listed);

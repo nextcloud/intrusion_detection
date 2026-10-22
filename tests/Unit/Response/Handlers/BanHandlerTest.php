@@ -9,6 +9,7 @@ declare(strict_types=1);
 
 namespace OCA\IntrusionDetection\Tests\Unit\Response\Handlers;
 
+use OCA\IntrusionDetection\Check\CheckRegistry;
 use OCA\IntrusionDetection\Check\Checks\InjectionProbe;
 use OCA\IntrusionDetection\Check\Checks\ShareBruteforce;
 use OCA\IntrusionDetection\Check\Checks\SharedAddress;
@@ -212,12 +213,8 @@ class BanHandlerTest extends TestCase {
 	private function context(?DetectionDraft $draft = null): ResponseContext {
 		$detection = new Detection();
 		$detection->setId(5);
-		return new ResponseContext(
-			$draft ?? new DetectionDraft(checkId: 'trap_url', source: SourceKey::fromIp('198.51.100.7')),
-			$detection,
-			(new TrapUrl($this->dates))->definition(),
-			true,
-		);
+		$draft ??= new DetectionDraft(checkId: 'trap_url', source: SourceKey::fromIp('198.51.100.7'));
+		return new ResponseContext($draft, $detection, Server::get(CheckRegistry::class)->get($draft->checkId), true);
 	}
 
 	private function ban(): Ban {

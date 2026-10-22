@@ -18,6 +18,7 @@ use OCA\IntrusionDetection\Definition\CheckDefinition;
 use OCA\IntrusionDetection\Definition\CheckTexts;
 use OCA\IntrusionDetection\Definition\CostClass;
 use OCA\IntrusionDetection\Definition\DataKind;
+use OCA\IntrusionDetection\Definition\DigestSection;
 use OCA\IntrusionDetection\Definition\Mode;
 use OCA\IntrusionDetection\Definition\ParamDefinition;
 use OCA\IntrusionDetection\Definition\ParamPreset;
@@ -97,6 +98,8 @@ final class ShareBruteforce implements ICheck, IExplainsDetection, IExplainsToUs
 				data: $l->t('Failed share accesses: the address, a fingerprint of the link (never the link itself), the share for wrong passwords, and the time, deleted after 1 hour. Detections keep the share\'s id and the accounts that manage it, never its name or link. Addresses that opened a federated share of this server, kept at most 1 day after the last time.'),
 			),
 			simulatable: true,
+			honoursLure: true,
+			digestSection: DigestSection::Shares,
 		);
 	}
 

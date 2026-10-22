@@ -290,6 +290,7 @@ return array(
     'OCA\\IntrusionDetection\\Definition\\CheckTexts' => $baseDir . '/../lib/Definition/CheckTexts.php',
     'OCA\\IntrusionDetection\\Definition\\CostClass' => $baseDir . '/../lib/Definition/CostClass.php',
     'OCA\\IntrusionDetection\\Definition\\DataKind' => $baseDir . '/../lib/Definition/DataKind.php',
+    'OCA\\IntrusionDetection\\Definition\\DigestSection' => $baseDir . '/../lib/Definition/DigestSection.php',
     'OCA\\IntrusionDetection\\Definition\\InvalidParamException' => $baseDir . '/../lib/Definition/InvalidParamException.php',
     'OCA\\IntrusionDetection\\Definition\\Mode' => $baseDir . '/../lib/Definition/Mode.php',
     'OCA\\IntrusionDetection\\Definition\\ParamDefinition' => $baseDir . '/../lib/Definition/ParamDefinition.php',

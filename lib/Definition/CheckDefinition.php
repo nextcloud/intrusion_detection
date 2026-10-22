@@ -19,6 +19,9 @@ use OCP\IL10N;
  * explanation texts.
  */
 final class CheckDefinition {
+	/** How often a user is told about detections of a check, in seconds, unless it says otherwise */
+	public const USER_ALERT_INTERVAL = 3600;
+
 	/** @var array<string, ParamDefinition> */
 	private array $paramsByName = [];
 
@@ -29,6 +32,15 @@ final class CheckDefinition {
 	 * @param list<DataKind> $stores
 	 * @param list<Requirement> $requirements
 	 * @param \Closure(IL10N): CheckTexts $texts
+	 * @param bool $honoursLure a plain link can trigger the check, so a detection from a lure (a browser
+	 *                          that fetched a URL for another site's page or an email) does not block the
+	 *                          address of the request
+	 * @param bool $trustedLoginsExempt an address an administrator logged in from recently is not blocked;
+	 *                                  false for checks no client's mistake can trigger
+	 * @param bool $confirmedLoginsExempt the check is about one account, and an address that account
+	 *                                    confirmed a login from recently is not blocked
+	 * @param int $userAlertInterval the affected user is told about this check at most once per this many seconds
+	 * @param ?DigestSection $digestSection the digest section that lists the check's detections
 	 */
 	public function __construct(
 		public readonly string $id,
@@ -46,6 +58,11 @@ final class CheckDefinition {
 		public readonly bool $internal = false,
 		public readonly bool $actsWhileLearning = false,
 		public readonly bool $simulatable = false,
+		public readonly bool $honoursLure = false,
+		public readonly bool $trustedLoginsExempt = true,
+		public readonly bool $confirmedLoginsExempt = false,
+		public readonly int $userAlertInterval = self::USER_ALERT_INTERVAL,
+		public readonly ?DigestSection $digestSection = null,
 	) {
 		if (!preg_match('/^[a-z][a-z0-9_]{2,31}$/', $id)) {
 			throw new \InvalidArgumentException('Invalid check id: ' . $id);

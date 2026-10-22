@@ -10,11 +10,10 @@ declare(strict_types=1);
 namespace OCA\IntrusionDetection\Notification;
 
 use OCA\IntrusionDetection\AppInfo\Application;
-use OCA\IntrusionDetection\Check\Checks\AccountUnderAttack;
-use OCA\IntrusionDetection\Check\Checks\StepUpRefusedClient;
-use OCA\IntrusionDetection\Check\Checks\StepUpUnconfirmed;
+use OCA\IntrusionDetection\Check\CheckRegistry;
 use OCA\IntrusionDetection\Db\AlertMapper;
 use OCA\IntrusionDetection\Db\Detection;
+use OCA\IntrusionDetection\Definition\CheckDefinition;
 use OCA\IntrusionDetection\Definition\Severity;
 use OCA\IntrusionDetection\WasThisYou\Questions;
 use OCP\AppFramework\Utility\ITimeFactory;
@@ -28,9 +27,9 @@ use OCP\Notification\IManager as INotificationManager;
  * ({@see MailQueue}) and sent by {@see self::sendMail()} from a background
  * job, never in the request that caused the detection.
  *
- * Aggregated per check and user per interval (an hour; a day for an
- * account under attack): later hits of a detection the user was told about
- * only raise a counter. A different detection in the same interval that
+ * Aggregated per check and user per interval (the check's
+ * {@see CheckDefinition::$userAlertInterval}): later hits of a detection
+ * the user was told about only raise a counter. A different detection in the same interval that
  * waits for a "Was this you?" answer (from another address, or after an
  * answer) is told on its own, so it can be answered, up to
  * MAX_DETECTIONS_PER_INTERVAL detections.
@@ -52,9 +51,6 @@ class UserAlerts {
 	public const FURTHER_KEY_PREFIX = '@userd:';
 	/** At most this many different detections of one check are told per user and interval */
 	public const MAX_DETECTIONS_PER_INTERVAL = 3;
-	public const DEFAULT_INTERVAL = 3600;
-	/** @var array<string, int> checks that tell their users less often */
-	public const INTERVALS = [AccountUnderAttack::ID => 86400, StepUpRefusedClient::ID => 86400, StepUpUnconfirmed::ID => 86400];
 	/** Users without email: the administrators are told from this severity on */
 	public const UNREACHABLE_MIN_SEVERITY = Severity::High;
 
@@ -79,6 +75,7 @@ class UserAlerts {
 		private readonly LoginNotices $loginNotices,
 		private readonly Questions $questions,
 		private readonly MailQueue $queue,
+		private readonly CheckRegistry $registry,
 	) {
 	}
 
@@ -102,7 +99,7 @@ class UserAlerts {
 			return null;
 		}
 		$now = $this->timeFactory->getTime();
-		$interval = self::INTERVALS[$detection->getCheckId()] ?? self::DEFAULT_INTERVAL;
+		$interval = $this->registry->find($detection->getCheckId())?->userAlertInterval ?? CheckDefinition::USER_ALERT_INTERVAL;
 		$bucket = intdiv($now, $interval);
 		[, $first] = $this->alerts->hit($detection->getCheckId(), self::KEY_PREFIX . $uid, $bucket, $detection->getId(), $now);
 		if (!$first && !$this->tellsFurther($detection, $isNew, $uid, $bucket, $now)) {
