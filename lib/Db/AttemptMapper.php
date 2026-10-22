@@ -24,6 +24,9 @@ class AttemptMapper {
 	private const DELETE_BATCH = 5000;
 	private const DELETE_MAX_BATCHES = 200;
 
+	/** {@see instanceReaches()} counts at most this many attempts first */
+	public const SAMPLE_ROWS = 5000;
+
 	/** Columns an aggregate may group on, each the first column of an index */
 	private const KEY_COLUMNS = ['ip_key', 'net_key', 'pw_fp', 'uid', 'share_id', 'name_hmac'];
 
@@ -97,6 +100,45 @@ class AttemptMapper {
 		$qb->where($qb->expr()->gte('created_at', $qb->createNamedParameter($since, IQueryBuilder::PARAM_INT)));
 		$this->whereKinds($qb, $kinds);
 		return $this->fetchStats($qb);
+	}
+
+	/**
+	 * Whether the attempts of the given kinds since a time reach the given
+	 * numbers of failures, distinct addresses and distinct login names,
+	 * instance-wide.
+	 *
+	 * The numbers are counted over at most SAMPLE_ROWS attempts (or
+	 * `$failures`, if more) first, so that the answer during an attack does
+	 * not cost a count over every attempt. Only when those fall short while
+	 * there are more attempts do the counts over all of them decide.
+	 *
+	 * @param list<AttemptKind> $kinds
+	 */
+	public function instanceReaches(array $kinds, int $since, int $failures, int $sources, int $names): bool {
+		$limit = max(self::SAMPLE_ROWS, $failures);
+		$qb = $this->db->getQueryBuilder();
+		$sample = $this->db->getQueryBuilder();
+		$sample->select('ip_key', 'name_hmac')
+			->from(self::TABLE)
+			->where($sample->expr()->gte('created_at', $qb->createNamedParameter($since, IQueryBuilder::PARAM_INT)))
+			->setMaxResults($limit);
+		$this->whereKinds($sample, $kinds, $qb);
+		$qb->select($qb->func()->count('*', 'failures'))
+			->selectAlias($qb->createFunction('COUNT(DISTINCT ' . $qb->getColumnName('ip_key') . ')'), 'sources')
+			->selectAlias($qb->createFunction('COUNT(DISTINCT ' . $qb->getColumnName('name_hmac') . ')'), 'names')
+			->from($qb->createFunction('(' . $sample->getSQL() . ')'), 'sample');
+		$result = $qb->executeQuery();
+		$row = $result->fetch();
+		$result->closeCursor();
+		$counted = (int)($row['failures'] ?? 0);
+		if ($counted >= $failures && (int)($row['sources'] ?? 0) >= $sources && (int)($row['names'] ?? 0) >= $names) {
+			return true;
+		}
+		if ($counted < $limit) {
+			return false;
+		}
+		$all = $this->instanceStats($kinds, $since);
+		return $all->failures >= $failures && $all->distinctSources >= $sources && $all->distinctNames >= $names;
 	}
 
 	/**
@@ -345,10 +387,11 @@ class AttemptMapper {
 
 	/**
 	 * @param list<AttemptKind> $kinds
+	 * @param ?IQueryBuilder $params the query that holds the parameters, when `$qb` is a subquery of it
 	 */
-	private function whereKinds(IQueryBuilder $qb, array $kinds): void {
+	private function whereKinds(IQueryBuilder $qb, array $kinds, ?IQueryBuilder $params = null): void {
 		if ($kinds !== []) {
-			$qb->andWhere($qb->expr()->in('kind', $qb->createNamedParameter(
+			$qb->andWhere($qb->expr()->in('kind', ($params ?? $qb)->createNamedParameter(
 				array_map(static fn (AttemptKind $k): int => $k->value, $kinds),
 				IQueryBuilder::PARAM_INT_ARRAY,
 			)));

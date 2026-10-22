@@ -15,6 +15,7 @@ use OCA\IntrusionDetection\Check\Checks\DecoyCredentialDetector;
 use OCA\IntrusionDetection\Check\Checks\PasswordSpraying;
 use OCA\IntrusionDetection\Check\Checks\PasswordSprayingDetector;
 use OCA\IntrusionDetection\Check\Checks\ReservedNameDetector;
+use OCA\IntrusionDetection\Config\Prerequisites;
 use OCA\IntrusionDetection\Config\Settings;
 use OCA\IntrusionDetection\Crypto\Fingerprinter;
 use OCA\IntrusionDetection\Db\AttemptKind;
@@ -22,6 +23,7 @@ use OCA\IntrusionDetection\Db\AttemptMapper;
 use OCA\IntrusionDetection\Db\Detection;
 use OCA\IntrusionDetection\Db\DetectionFilter;
 use OCA\IntrusionDetection\Db\DetectionMapper;
+use OCA\IntrusionDetection\Db\StateMapper;
 use OCA\IntrusionDetection\Detection\AttemptRecorder;
 use OCA\IntrusionDetection\Listener\FailedLoginListener;
 use OCA\IntrusionDetection\Net\RemoteAddressResolver;
@@ -83,6 +85,8 @@ abstract class LoginFailureTestCase extends IntegrationTestCase {
 				$addresses,
 				Server::get(ICacheFactory::class),
 				Server::get(RiskScorer::class),
+				Server::get(StateMapper::class),
+				Server::get(Prerequisites::class),
 			),
 			new PasswordSprayingDetector(
 				$this->settings,

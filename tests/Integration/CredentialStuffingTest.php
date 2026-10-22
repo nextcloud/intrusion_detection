@@ -13,12 +13,10 @@ use OCA\IntrusionDetection\Address\AddressResolver;
 use OCA\IntrusionDetection\AppInfo\Application;
 use OCA\IntrusionDetection\Check\Checks\AccountUnderAttack;
 use OCA\IntrusionDetection\Check\Checks\CredentialStuffing;
-use OCA\IntrusionDetection\Check\Checks\CredentialStuffingDetector;
 use OCA\IntrusionDetection\Check\Checks\PasswordSpraying;
 use OCA\IntrusionDetection\Check\Checks\SharedAddress;
 use OCA\IntrusionDetection\Check\Mode;
 use OCA\IntrusionDetection\Config\GlobalSettings;
-use OCA\IntrusionDetection\Db\AttemptKind;
 use OCA\IntrusionDetection\Db\BanMapper;
 use OCA\IntrusionDetection\Db\FlagMapper;
 use OCA\IntrusionDetection\Db\LoginHistoryMapper;
@@ -286,44 +284,5 @@ class CredentialStuffingTest extends LoginFailureTestCase {
 		}
 		$this->assertSame(0, $this->rows('ids_flags'));
 		$this->assertSame(0, $this->rows('ids_bans'));
-	}
-
-	public function testWithoutAMemoryCacheTheInstanceIsEvaluatedOnceEvery30Seconds(): void {
-		$cacheFactory = $this->createMock(\OCP\ICacheFactory::class);
-		$cacheFactory->method('isLocalCacheAvailable')->willReturn(false);
-		$detector = new CredentialStuffingDetector(
-			$this->settings,
-			$this->attempts,
-			Server::get(\OCA\IntrusionDetection\Response\ResponseEngine::class),
-			Server::get(\OCA\IntrusionDetection\Response\FlaggedSources::class),
-			Server::get(\OCA\IntrusionDetection\Response\BanService::class),
-			Server::get(\OCA\IntrusionDetection\Net\RemoteAddressResolver::class),
-			$cacheFactory,
-			Server::get(\OCA\IntrusionDetection\Risk\RiskScorer::class),
-		);
-		$recorder = Server::get(\OCA\IntrusionDetection\Detection\AttemptRecorder::class);
-		$fail = static fn (string $ip, string $name) => $detector->detect($recorder->record(AttemptKind::PasswordLogin, \OCA\IntrusionDetection\Net\SourceKey::fromIp($ip), $name, null, null, 'wrong'), null);
-		$this->settings->setParam(CredentialStuffing::ID, 'min_failures', 1000);
-
-		$fail('192.0.2.30', 'first');
-		$evaluatedAt = $this->settings->getInt(GlobalSettings::CS_EVALUATED_AT);
-		$this->assertGreaterThanOrEqual(time() - 5, $evaluatedAt);
-
-		// A distributed attack starts now; it is noticed at the next evaluation, not at once.
-		for ($i = 0; $i < 99; $i++) {
-			$this->storeAttempt('192.0.2.' . ($i % 25 + 1), 'victim' . ($i % 25), at: time() - 60);
-		}
-		$db = Server::get(\OCP\IDBConnection::class);
-		$queries = $db->getInner()->getStats()['executed'];
-		$fail('192.0.2.31', 'second');
-		$withoutEvaluation = $db->getInner()->getStats()['executed'] - $queries;
-		$this->assertSame($evaluatedAt, $this->settings->getInt(GlobalSettings::CS_EVALUATED_AT));
-		$this->assertSame(0, $this->settings->getInt(GlobalSettings::CS_DISTRIBUTED_UNTIL), 'not evaluated within 30 seconds');
-
-		$this->appConfig->setValueInt(Application::APP_ID, GlobalSettings::CS_EVALUATED_AT, time() - CredentialStuffingDetector::EVALUATE_EVERY);
-		$queries = $db->getInner()->getStats()['executed'];
-		$fail('192.0.2.32', 'third');
-		$this->assertGreaterThan($withoutEvaluation, $db->getInner()->getStats()['executed'] - $queries, 'the evaluation costs queries of its own');
-		$this->assertGreaterThan(time(), $this->settings->getInt(GlobalSettings::CS_DISTRIBUTED_UNTIL));
 	}
 }

@@ -51,6 +51,13 @@ class RemoveRetiredSettingsTest extends IntegrationTestCase {
 		$this->assertSame([], $this->logged);
 	}
 
+	public function testRetiredInternalValuesAreOnlyDeleted(): void {
+		$this->appConfig->setValueMixed(Application::APP_ID, 'cs_evaluated_at', (string)time());
+		$this->repair();
+		$this->assertNotContains('cs_evaluated_at', $this->appConfig->getKeys(Application::APP_ID));
+		$this->assertSame([], $this->logged);
+	}
+
 	public function testItIsIdempotent(): void {
 		$this->appConfig->setValueMixed(Application::APP_ID, 'flag_duration', '3600');
 		$this->repair();
