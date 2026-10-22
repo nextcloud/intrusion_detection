@@ -11,10 +11,10 @@ namespace OCA\IntrusionDetection\Tests\Unit\Admin;
 
 use OCA\IntrusionDetection\Admin\CheckList;
 use OCA\IntrusionDetection\Check\CheckRegistry;
+use OCA\IntrusionDetection\Config\CheckSettings;
 use OCA\IntrusionDetection\Config\GlobalSettings;
 use OCA\IntrusionDetection\Config\ModeState;
 use OCA\IntrusionDetection\Config\Prerequisites;
-use OCA\IntrusionDetection\Config\Settings;
 use OCA\IntrusionDetection\Db\StatsMapper;
 use OCA\IntrusionDetection\Definition\Category;
 use OCA\IntrusionDetection\Definition\CheckDefinition;
@@ -46,7 +46,7 @@ class CheckListTest extends TestCase {
 		$registry = $this->createMock(CheckRegistry::class);
 		$registry->method('configurable')->willReturn(['trap_check' => $traps, 'login_check' => $login]);
 
-		$settings = $this->createMock(Settings::class);
+		$settings = $this->createMock(CheckSettings::class);
 		$settings->method('placeholderValues')->willReturn(['min_failures' => 12, 'window' => 900, 'ban_duration_1' => 14400]);
 		$settings->method('modeState')->willReturn(new ModeState(Mode::Protect, Mode::Observe, ModeState::REASON_LEARNING));
 		$settings->method('responses')->willReturn([ResponseType::NotifyAdmin, ResponseType::Ban]);

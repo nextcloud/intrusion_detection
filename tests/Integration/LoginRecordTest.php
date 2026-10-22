@@ -11,7 +11,6 @@ namespace OCA\IntrusionDetection\Tests\Integration;
 
 use OC\Memcache\ArrayCache;
 use OCA\IntrusionDetection\Cache\Caches;
-use OCA\IntrusionDetection\Config\Settings;
 use OCA\IntrusionDetection\Db\LoginMapper;
 use OCA\IntrusionDetection\Listener\LoginRecordListener;
 use OCA\IntrusionDetection\Login\LoginGate;
@@ -87,7 +86,7 @@ class LoginRecordTest extends IntegrationTestCase {
 		$addresses = $this->createMock(RemoteAddressResolver::class);
 		$addresses->method('current')->willReturn(SourceKey::fromIp($ip));
 		$addresses->method('isBypassListed')->willReturn(false);
-		return new LoginRecordListener(Server::get(Settings::class), Server::get(LoginMapper::class), $addresses, Server::get(ITimeFactory::class), Server::get(LoggerInterface::class), new LoginGate($factory, $this->createMock(ISession::class)));
+		return new LoginRecordListener($this->appSettings(), Server::get(LoginMapper::class), $addresses, Server::get(ITimeFactory::class), Server::get(LoggerInterface::class), new LoginGate($factory, $this->createMock(ISession::class)));
 	}
 
 	private function lastId(): int {

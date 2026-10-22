@@ -12,7 +12,7 @@ namespace OCA\IntrusionDetection\Tests\Integration;
 use OCA\IntrusionDetection\AppInfo\Application;
 use OCA\IntrusionDetection\Blocklist\StateStore;
 use OCA\IntrusionDetection\Check\Checks\CredentialStuffingDetector;
-use OCA\IntrusionDetection\Config\Settings;
+use OCA\IntrusionDetection\Configure\SettingsEditor;
 use OCA\IntrusionDetection\Definition\ProtectionLevel;
 use OCA\IntrusionDetection\Learning\LearningService;
 use OCA\IntrusionDetection\Notification\DigestSender;
@@ -40,7 +40,7 @@ class MoveInternalStateTest extends IntegrationTestCase {
 		$this->appConfig->setValueInt($app, CredentialStuffingDetector::DISTRIBUTED_UNTIL_STATE, self::NOW + 600);
 		$this->appConfig->setValueInt($app, CredentialStuffingDetector::DISTRIBUTED_DETECTION_STATE, 42);
 		$this->appConfig->setValueString($app, DigestSender::STATE, '{"period":1799999000,"sentAt":1799999100,"result":"sent","recipients":2,"failed":0,"withoutEmail":0}');
-		$this->appConfig->setValueString($app, Settings::LEVEL_STATE, ProtectionLevel::Strict->value);
+		$this->appConfig->setValueString($app, SettingsEditor::LEVEL_STATE, ProtectionLevel::Strict->value);
 		$this->appConfig->setValueInt($app, HotState::DECOY_COUNT, 2);
 
 		$this->repair();
@@ -55,7 +55,7 @@ class MoveInternalStateTest extends IntegrationTestCase {
 		$this->assertSame(42, $state->getInt(CredentialStuffingDetector::DISTRIBUTED_DETECTION_STATE));
 		$this->assertSame(3, Server::get(StateStore::class)->get('corp')->version);
 		$this->assertSame(['period' => 1799999000, 'sentAt' => 1799999100, 'result' => 'sent', 'recipients' => 2, 'failed' => 0], Server::get(DigestSender::class)->overview(null)['last']);
-		$this->assertSame(ProtectionLevel::Strict, Server::get(Settings::class)->protectionLevel());
+		$this->assertSame(ProtectionLevel::Strict, $this->settingsEditor()->protectionLevel());
 	}
 
 	public function testAValueAlreadyMovedIsKeptAndARepeatChangesNothing(): void {

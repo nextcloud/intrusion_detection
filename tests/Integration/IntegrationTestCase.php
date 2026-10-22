@@ -12,16 +12,23 @@ namespace OCA\IntrusionDetection\Tests\Integration;
 use OCA\IntrusionDetection\AppInfo\Application;
 use OCA\IntrusionDetection\BackgroundJob\AlertMailJob;
 use OCA\IntrusionDetection\Cache\Caches;
+use OCA\IntrusionDetection\Check\CheckRegistry;
 use OCA\IntrusionDetection\Check\Checks\AdminChange;
+use OCA\IntrusionDetection\Config\AppSettings;
+use OCA\IntrusionDetection\Config\CheckSettings;
 use OCA\IntrusionDetection\Config\GlobalSettings;
 use OCA\IntrusionDetection\Config\Keys;
+use OCA\IntrusionDetection\Config\Prerequisites;
+use OCA\IntrusionDetection\Configure\SettingsEditor;
 use OCA\IntrusionDetection\Db\DetectionMapper;
 use OCA\IntrusionDetection\Definition\Mode;
 use OCA\IntrusionDetection\Notification\AdminAlerts;
 use OCA\IntrusionDetection\Notification\ShareOwnerAlerts;
 use OCA\IntrusionDetection\Notification\UserAlerts;
+use OCA\IntrusionDetection\State\AppState;
 use OCP\AppFramework\Utility\ITimeFactory;
 use OCP\BackgroundJob\IJobList;
+use OCP\EventDispatcher\IEventDispatcher;
 use OCP\IAppConfig;
 use OCP\IDBConnection;
 use OCP\Server;
@@ -103,6 +110,29 @@ abstract class IntegrationTestCase extends TestCase {
 		}
 		usort($jobs, static fn (array $a, array $b): int => (int)$a['id'] <=> (int)$b['id']);
 		return $jobs;
+	}
+
+	protected function checkSettings(): CheckSettings {
+		return Server::get(CheckSettings::class);
+	}
+
+	protected function appSettings(): AppSettings {
+		return Server::get(AppSettings::class);
+	}
+
+	protected function settingsEditor(): SettingsEditor {
+		return Server::get(SettingsEditor::class);
+	}
+
+	/**
+	 * The check settings and their editor of a server with these prerequisites.
+	 *
+	 * @return array{CheckSettings, SettingsEditor}
+	 */
+	protected function settingsOn(Prerequisites $prerequisites): array {
+		$appConfig = Server::get(IAppConfig::class);
+		$checks = new CheckSettings($appConfig, $this->appSettings(), $prerequisites);
+		return [$checks, new SettingsEditor($appConfig, $checks, $this->appSettings(), Server::get(CheckRegistry::class), $prerequisites, Server::get(GlobalSettings::class), Server::get(IEventDispatcher::class), Server::get(AppState::class))];
 	}
 
 	private function reset(): void {

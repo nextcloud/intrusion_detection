@@ -10,7 +10,7 @@ declare(strict_types=1);
 namespace OCA\IntrusionDetection\Tests\Unit\BackgroundJob;
 
 use OCA\IntrusionDetection\BackgroundJob\Cleanup;
-use OCA\IntrusionDetection\Config\Settings;
+use OCA\IntrusionDetection\Config\AppSettings;
 use OCA\IntrusionDetection\Db\AlertMapper;
 use OCA\IntrusionDetection\Db\AttemptMapper;
 use OCA\IntrusionDetection\Db\BanMapper;
@@ -52,9 +52,9 @@ class CleanupTest extends TestCase {
 		);
 		$stats = $this->createMock(FailedLoginStats::class);
 		$stats->expects($this->once())->method('deleteExpired');
-		$settings = $this->createMock(Settings::class);
-		$settings->method('getInt')->willReturn(30);
-		$settings->expects($this->never())->method('setGlobal');
+		$settings = $this->createMock(AppSettings::class);
+		$settings->method('retentionDays')->willReturn(30);
+		$settings->method('banHistoryDays')->willReturn(30);
 		$logger = $this->createMock(LoggerInterface::class);
 		$failed = [];
 		$logger->method('error')->willReturnCallback(static function (string $message, array $context) use (&$failed): void {

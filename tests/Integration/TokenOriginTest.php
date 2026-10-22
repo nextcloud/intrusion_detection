@@ -129,7 +129,7 @@ class TokenOriginTest extends AccountTestCase {
 		$request = $this->createMock(IRequest::class);
 		$request->method('getRemoteAddress')->willReturnCallback(fn (): string => $this->remoteAddress);
 		return new AppPasswordCreatedListener(
-			$this->settings,
+			$this->appSettings(),
 			$this->origins,
 			$this->currentSession,
 			$request,

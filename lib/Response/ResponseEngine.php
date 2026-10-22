@@ -11,8 +11,8 @@ namespace OCA\IntrusionDetection\Response;
 
 use OCA\IntrusionDetection\Audit\AuditLogger;
 use OCA\IntrusionDetection\Check\CheckRegistry;
+use OCA\IntrusionDetection\Config\CheckSettings;
 use OCA\IntrusionDetection\Config\ModeState;
-use OCA\IntrusionDetection\Config\Settings;
 use OCA\IntrusionDetection\Db\Detection;
 use OCA\IntrusionDetection\Definition\ResponseType;
 use OCA\IntrusionDetection\Detection\DetectionDraft;
@@ -58,7 +58,7 @@ class ResponseEngine {
 
 	public function __construct(
 		private readonly CheckRegistry $registry,
-		private readonly Settings $settings,
+		private readonly CheckSettings $settings,
 		private readonly DetectionService $detections,
 		private readonly ContainerInterface $container,
 		private readonly TypedEvents $events,

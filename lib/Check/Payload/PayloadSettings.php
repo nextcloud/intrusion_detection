@@ -10,8 +10,8 @@ declare(strict_types=1);
 namespace OCA\IntrusionDetection\Check\Payload;
 
 use OCA\IntrusionDetection\Check\Checks\InjectionProbe;
+use OCA\IntrusionDetection\Config\CheckSettings;
 use OCA\IntrusionDetection\Config\ModeState;
-use OCA\IntrusionDetection\Config\Settings;
 use OCA\IntrusionDetection\Definition\Mode;
 
 /**
@@ -24,7 +24,7 @@ use OCA\IntrusionDetection\Definition\Mode;
  */
 class PayloadSettings {
 	public function __construct(
-		private readonly Settings $settings,
+		private readonly CheckSettings $settings,
 	) {
 	}
 

@@ -11,8 +11,7 @@ namespace OCA\IntrusionDetection\Confirm\Methods;
 
 use OCA\IntrusionDetection\AdminChange\ApprovalService;
 use OCA\IntrusionDetection\AdminChange\Approvers;
-use OCA\IntrusionDetection\Config\GlobalSettings;
-use OCA\IntrusionDetection\Config\Settings;
+use OCA\IntrusionDetection\Config\AppSettings;
 use OCA\IntrusionDetection\Confirm\IConfirmationMethod;
 use OCA\IntrusionDetection\Confirm\StepUpPolicy;
 use OCA\IntrusionDetection\Confirm\StepUpState;
@@ -55,7 +54,7 @@ class AdminApprovalMethod implements IConfirmationMethod {
 		private readonly ApprovalService $approvals,
 		private readonly ApprovalMapper $mapper,
 		private readonly Approvers $approvers,
-		private readonly Settings $settings,
+		private readonly AppSettings $settings,
 		private readonly ITimeFactory $timeFactory,
 	) {
 	}
@@ -67,7 +66,7 @@ class AdminApprovalMethod implements IConfirmationMethod {
 
 	#[\Override]
 	public function isAvailable(IUser $user, StepUpPolicy $policy): bool {
-		if (!$this->settings->getBool(GlobalSettings::STEP_UP_ADMIN_APPROVAL)) {
+		if (!$this->settings->stepUpAdminApproval()) {
 			return false;
 		}
 		$uid = $user->getUID();

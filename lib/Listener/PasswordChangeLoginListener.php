@@ -9,7 +9,7 @@ declare(strict_types=1);
 
 namespace OCA\IntrusionDetection\Listener;
 
-use OCA\IntrusionDetection\Config\Settings;
+use OCA\IntrusionDetection\Config\AppSettings;
 use OCA\IntrusionDetection\Login\InteractiveLogin;
 use OCA\IntrusionDetection\Response\PasswordChangeService;
 use OCA\IntrusionDetection\SessionState\Rules\PasswordChangeRule;
@@ -40,7 +40,7 @@ use Psr\Log\LoggerInterface;
  */
 class PasswordChangeLoginListener implements IEventListener {
 	public function __construct(
-		private readonly Settings $settings,
+		private readonly AppSettings $settings,
 		private readonly PasswordChangeService $passwords,
 		private readonly SessionState $state,
 		private readonly IRequest $request,

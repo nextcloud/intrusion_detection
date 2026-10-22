@@ -10,7 +10,7 @@ declare(strict_types=1);
 namespace OCA\IntrusionDetection\Tests\Unit\Traps;
 
 use OCA\IntrusionDetection\Check\Checks\TrapUrl;
-use OCA\IntrusionDetection\Config\Settings;
+use OCA\IntrusionDetection\Config\CheckSettings;
 use OCA\IntrusionDetection\Traps\TrapPaths;
 use OCA\IntrusionDetection\Traps\TrapPathSnippets;
 use OCP\IURLGenerator;
@@ -22,7 +22,7 @@ class TrapPathSnippetsTest extends TestCase {
 	 * @param list<string> $custom
 	 */
 	private function snippets(bool $builtin, bool $autodiscover, array $custom, string $webRoot = ''): TrapPathSnippets {
-		$settings = $this->createMock(Settings::class);
+		$settings = $this->createMock(CheckSettings::class);
 		$settings->method('paramBool')->willReturnMap([
 			[TrapUrl::ID, 'builtin_enabled', $builtin],
 			[TrapUrl::ID, 'autodiscover', $autodiscover],

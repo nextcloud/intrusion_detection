@@ -10,8 +10,7 @@ declare(strict_types=1);
 namespace OCA\IntrusionDetection\Tests\Unit\SetupCheck;
 
 use OCA\IntrusionDetection\Admin\SetupProblems;
-use OCA\IntrusionDetection\Config\GlobalSettings;
-use OCA\IntrusionDetection\Config\Settings;
+use OCA\IntrusionDetection\Config\AppSettings;
 use OCA\IntrusionDetection\Notification\AdminLinks;
 use OCA\IntrusionDetection\SetupCheck\AdminNetworksCheck;
 use OCP\L10N\IFactory;
@@ -45,9 +44,9 @@ class AdminNetworksCheckTest extends TestCase {
 	 * @param list<string> $networks
 	 */
 	private function check(bool $on, array $networks): SetupResult {
-		$settings = $this->createMock(Settings::class);
-		$settings->method('getBool')->willReturnCallback(static fn (string $name): bool => $name === GlobalSettings::ADMIN_TRUSTED_NETWORKS_ONLY && $on);
-		$settings->method('global')->willReturnCallback(static fn (string $name): array => $name === GlobalSettings::RISKY_NETWORK_OFFICE_NETWORKS ? $networks : []);
+		$settings = $this->createMock(AppSettings::class);
+		$settings->method('adminTrustedNetworksOnly')->willReturn($on);
+		$settings->method('riskyNetworkOfficeNetworks')->willReturn($networks);
 		$links = $this->createMock(AdminLinks::class);
 		$links->method('adminPage')->willReturn('https://cloud.example.com/settings/admin/intrusion_detection');
 		return (new AdminNetworksCheck(Server::get(IFactory::class)->get('intrusion_detection', 'en'), $links, $settings))->run();

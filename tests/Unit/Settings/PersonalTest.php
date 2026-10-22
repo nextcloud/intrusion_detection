@@ -9,8 +9,7 @@ declare(strict_types=1);
 
 namespace OCA\IntrusionDetection\Tests\Unit\Settings;
 
-use OCA\IntrusionDetection\Config\GlobalSettings;
-use OCA\IntrusionDetection\Config\Settings;
+use OCA\IntrusionDetection\Config\AppSettings;
 use OCA\IntrusionDetection\Notification\UserLinks;
 use OCA\IntrusionDetection\Personal\ManageSummary;
 use OCA\IntrusionDetection\Personal\PersonalOverview;
@@ -25,8 +24,8 @@ use PHPUnit\Framework\MockObject\MockObject;
 use Test\TestCase;
 
 class PersonalTest extends TestCase {
-	/** @var Settings&MockObject */
-	private Settings $settings;
+	/** @var AppSettings&MockObject */
+	private AppSettings $settings;
 	/** @var IInitialState&MockObject */
 	private IInitialState $state;
 	/** @var PersonalOverview&MockObject */
@@ -36,9 +35,9 @@ class PersonalTest extends TestCase {
 
 	protected function setUp(): void {
 		parent::setUp();
-		$this->settings = $this->createMock(Settings::class);
+		$this->settings = $this->createMock(AppSettings::class);
 		$this->settings->method('isEnabled')->willReturnCallback(fn (): bool => $this->master);
-		$this->settings->method('getBool')->willReturnCallback(fn (string $name): bool => $name === GlobalSettings::PERSONAL_PAGE_ENABLED ? $this->page : false);
+		$this->settings->method('personalPageSwitchedOn')->willReturnCallback(fn (): bool => $this->page);
 		$this->settings->method('personalPageEnabled')->willReturnCallback(fn (): bool => $this->master && $this->page);
 		$this->state = $this->createMock(IInitialState::class);
 		$this->overview = $this->createMock(PersonalOverview::class);

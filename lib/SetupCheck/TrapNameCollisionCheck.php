@@ -10,7 +10,7 @@ declare(strict_types=1);
 namespace OCA\IntrusionDetection\SetupCheck;
 
 use OCA\IntrusionDetection\Check\Checks\ReservedName;
-use OCA\IntrusionDetection\Config\Settings;
+use OCA\IntrusionDetection\Config\CheckSettings;
 use OCA\IntrusionDetection\Notification\AdminLinks;
 use OCA\IntrusionDetection\Traps\TrapNameCollisions;
 use OCP\IL10N;
@@ -31,7 +31,7 @@ class TrapNameCollisionCheck extends ProblemCheck {
 		IL10N $l,
 		AdminLinks $links,
 		private readonly TrapNameCollisions $collisions,
-		private readonly Settings $settings,
+		private readonly CheckSettings $settings,
 	) {
 		parent::__construct($l, $links);
 	}

@@ -12,7 +12,7 @@ namespace OCA\IntrusionDetection\Listener;
 use OCA\IntrusionDetection\AppInfo\Application;
 use OCA\IntrusionDetection\Check\CredentialUse\CredentialUse;
 use OCA\IntrusionDetection\Check\CredentialUse\CredentialUseResolver;
-use OCA\IntrusionDetection\Config\Settings;
+use OCA\IntrusionDetection\Config\AppSettings;
 use OCA\IntrusionDetection\Confirm\UnconfirmedSessions;
 use OCA\IntrusionDetection\Guard\DeferredHits;
 use OCA\IntrusionDetection\Guard\RequestContext;
@@ -58,7 +58,7 @@ class LoginListener implements IEventListener {
 	public const PRIORITY = Application::LOGIN_PRIORITY;
 
 	public function __construct(
-		private readonly Settings $settings,
+		private readonly AppSettings $settings,
 		private readonly HotState $hotState,
 		private readonly RequestContext $context,
 		private readonly RemoteAddressResolver $addresses,

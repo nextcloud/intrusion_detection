@@ -16,7 +16,6 @@ use OCA\IntrusionDetection\AdminChange\GrantPermit;
 use OCA\IntrusionDetection\AppInfo\Application;
 use OCA\IntrusionDetection\Check\Checks\AdminChange;
 use OCA\IntrusionDetection\Config\GlobalSettings;
-use OCA\IntrusionDetection\Config\Settings;
 use OCA\IntrusionDetection\Db\Approval;
 use OCA\IntrusionDetection\Db\ApprovalMapper;
 use OCA\IntrusionDetection\Definition\InvalidParamException;
@@ -301,8 +300,8 @@ class ApprovalFlowTest extends AdminChangeTestCase {
 
 	public function testApprovalCanBeSwitchedOnWithTwoAdmins(): void {
 		$this->requireApproval(false);
-		Server::get(Settings::class)->setGlobal(GlobalSettings::ADMIN_CHANGE_REQUIRE_APPROVAL, true);
-		$this->assertTrue(Server::get(Settings::class)->getBool(GlobalSettings::ADMIN_CHANGE_REQUIRE_APPROVAL));
+		$this->settingsEditor()->setGlobal(GlobalSettings::ADMIN_CHANGE_REQUIRE_APPROVAL, true);
+		$this->assertTrue($this->appSettings()->adminChangeRequireApproval());
 	}
 
 	public function testApprovalCannotBeSwitchedOnWithFewerThanTwoAdmins(): void {
@@ -312,14 +311,14 @@ class ApprovalFlowTest extends AdminChangeTestCase {
 		$approvers->method('count')->willReturn(1);
 		$this->overwriteService(\OCA\IntrusionDetection\AdminChange\Approvers::class, $approvers);
 		try {
-			Server::get(Settings::class)->setGlobal(GlobalSettings::ADMIN_CHANGE_REQUIRE_APPROVAL, true);
+			$this->settingsEditor()->setGlobal(GlobalSettings::ADMIN_CHANGE_REQUIRE_APPROVAL, true);
 			$this->fail('One administrator cannot switch approval on');
 		} catch (InvalidParamException $e) {
 			$this->assertSame('too_few_admins', $e->reason);
 		} finally {
 			$this->restoreService(\OCA\IntrusionDetection\AdminChange\Approvers::class);
 		}
-		$this->assertFalse(Server::get(Settings::class)->getBool(GlobalSettings::ADMIN_CHANGE_REQUIRE_APPROVAL));
+		$this->assertFalse($this->appSettings()->adminChangeRequireApproval());
 		$this->assertFalse($check->validateParam(GlobalSettings::ADMIN_CHANGE_REQUIRE_APPROVAL, false), 'Switching it off is always possible');
 	}
 

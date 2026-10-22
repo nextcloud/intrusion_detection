@@ -11,8 +11,9 @@ namespace OCA\IntrusionDetection\Learning;
 
 use OCA\IntrusionDetection\AppInfo\Application;
 use OCA\IntrusionDetection\Audit\AuditLogger;
+use OCA\IntrusionDetection\Config\AppSettings;
 use OCA\IntrusionDetection\Config\GlobalSettings;
-use OCA\IntrusionDetection\Config\Settings;
+use OCA\IntrusionDetection\Configure\SettingsEditor;
 use OCA\IntrusionDetection\Notification\LearningNotices;
 use OCA\IntrusionDetection\State\AppState;
 use OCP\AppFramework\Utility\ITimeFactory;
@@ -47,7 +48,8 @@ class LearningService {
 	public const MAX_DAYS = 30;
 
 	public function __construct(
-		private readonly Settings $settings,
+		private readonly AppSettings $settings,
+		private readonly SettingsEditor $editor,
 		private readonly ITimeFactory $timeFactory,
 		private readonly AuditLogger $audit,
 		private readonly INotificationManager $notifications,
@@ -125,7 +127,7 @@ class LearningService {
 		}
 		$protecting = !$this->isActive();
 		$before = $this->until();
-		$this->settings->setGlobal(GlobalSettings::LEARNING_UNTIL, $until, reported: $until > $before);
+		$this->editor->setGlobal(GlobalSettings::LEARNING_UNTIL, $until, reported: $until > $before);
 		if ($protecting) {
 			$this->state->setInt(self::STARTED_STATE, $this->timeFactory->getTime());
 		}
@@ -142,7 +144,7 @@ class LearningService {
 		if ($this->until() === 0) {
 			return;
 		}
-		$this->settings->setGlobal(GlobalSettings::LEARNING_UNTIL, 0, reported: false);
+		$this->editor->setGlobal(GlobalSettings::LEARNING_UNTIL, 0, reported: false);
 		$this->audit->log('learning mode ended by %s', ['actor' => $actor]);
 	}
 
@@ -150,7 +152,7 @@ class LearningService {
 	 * Start the first learning period when the app is installed.
 	 */
 	public function startAtInstall(int $now): void {
-		$this->settings->setGlobal(GlobalSettings::LEARNING_UNTIL, $now + GlobalSettings::LEARNING_DEFAULT_PERIOD, reported: false);
+		$this->editor->setGlobal(GlobalSettings::LEARNING_UNTIL, $now + GlobalSettings::LEARNING_DEFAULT_PERIOD, reported: false);
 		$this->state->setInt(self::STARTED_STATE, $now);
 		$this->audit->log('learning mode started for %s days at installation', ['days' => intdiv(GlobalSettings::LEARNING_DEFAULT_PERIOD, 86400)]);
 	}
@@ -166,7 +168,7 @@ class LearningService {
 		if ($until === 0 || $until > $this->timeFactory->getTime()) {
 			return false;
 		}
-		$this->settings->setGlobal(GlobalSettings::LEARNING_UNTIL, 0, reported: false);
+		$this->editor->setGlobal(GlobalSettings::LEARNING_UNTIL, 0, reported: false);
 		$this->dismissEndingNotice();
 		$this->audit->log('learning mode ended automatically; protection is active', []);
 		return true;

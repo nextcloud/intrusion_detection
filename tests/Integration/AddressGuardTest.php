@@ -15,7 +15,6 @@ use OCA\IntrusionDetection\AppInfo\Application;
 use OCA\IntrusionDetection\Cache\Caches;
 use OCA\IntrusionDetection\Cache\KeyLock;
 use OCA\IntrusionDetection\Config\GlobalSettings;
-use OCA\IntrusionDetection\Config\Settings;
 use OCA\IntrusionDetection\Guard\AddressGuard;
 use OCA\IntrusionDetection\Guard\RequestContext;
 use OCA\IntrusionDetection\Net\RemoteAddressResolver;
@@ -140,7 +139,7 @@ class AddressGuardTest extends IntegrationTestCase {
 		$bans = new BanService(
 			Server::get(\OCA\IntrusionDetection\Db\BanMapper::class),
 			Server::get(\OCA\IntrusionDetection\Response\BanExemptions::class),
-			Server::get(Settings::class),
+			$this->appSettings(),
 			$addressCache,
 			Server::get(AddressResolver::class),
 			$addresses,
@@ -157,7 +156,7 @@ class AddressGuardTest extends IntegrationTestCase {
 		}
 		$guard = new AddressGuard(
 			$config,
-			Server::get(Settings::class),
+			$this->appSettings(),
 			$addressCache,
 			Server::get(AddressResolver::class),
 			$addresses,

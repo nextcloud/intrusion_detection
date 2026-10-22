@@ -12,8 +12,7 @@ namespace OCA\IntrusionDetection\Tests\Unit\SetupCheck;
 use OC\Memcache\ArrayCache;
 use OCA\IntrusionDetection\Admin\SetupProblems;
 use OCA\IntrusionDetection\AdminChange\Approvers;
-use OCA\IntrusionDetection\Config\GlobalSettings;
-use OCA\IntrusionDetection\Config\Settings;
+use OCA\IntrusionDetection\Config\AppSettings;
 use OCA\IntrusionDetection\Confirm\ConfirmationCoverage;
 use OCA\IntrusionDetection\Notification\AdminLinks;
 use OCA\IntrusionDetection\SetupCheck\AdminContactCheck;
@@ -141,8 +140,8 @@ class AdminContactCheckTest extends TestCase {
 		);
 		$links = $this->createMock(AdminLinks::class);
 		$links->method('adminPage')->willReturn('https://cloud.example.com/settings/admin/intrusion_detection');
-		$settings = $this->createMock(Settings::class);
-		$settings->method('getBool')->willReturnCallback(static fn (string $name): bool => $name === GlobalSettings::ADMIN_TRUSTED_NETWORKS_ONLY && $trustedNetworksOnly);
+		$settings = $this->createMock(AppSettings::class);
+		$settings->method('adminTrustedNetworksOnly')->willReturn($trustedNetworksOnly);
 		return new AdminContactCheck(Server::get(IFactory::class)->get('intrusion_detection', 'en'), $links, $coverage, $settings);
 	}
 }

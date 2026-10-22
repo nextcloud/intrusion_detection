@@ -10,8 +10,7 @@ declare(strict_types=1);
 namespace OCA\IntrusionDetection\Notification;
 
 use OCA\IntrusionDetection\Cache\Caches;
-use OCA\IntrusionDetection\Config\GlobalSettings;
-use OCA\IntrusionDetection\Config\Settings;
+use OCA\IntrusionDetection\Config\AppSettings;
 use OCP\IGroupManager;
 use OCP\IUser;
 
@@ -31,7 +30,7 @@ class AdminRecipients {
 	public const REMEMBER_WITHOUT_EMAIL = 60;
 
 	public function __construct(
-		private readonly Settings $settings,
+		private readonly AppSettings $settings,
 		private readonly IGroupManager $groupManager,
 		private readonly Caches $caches,
 	) {
@@ -76,8 +75,7 @@ class AdminRecipients {
 	 * @return list<string>
 	 */
 	private function groups(bool $withAdminGroup): array {
-		$groups = $this->settings->global(GlobalSettings::NOTIFY_ADMIN_GROUP);
-		$groups = is_array($groups) ? array_map('strval', $groups) : [];
+		$groups = $this->settings->notifyAdminGroups();
 		if ($withAdminGroup && !in_array(self::ADMIN_GROUP, $groups, true)) {
 			$groups[] = self::ADMIN_GROUP;
 		}

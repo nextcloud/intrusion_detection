@@ -12,10 +12,11 @@ namespace OCA\IntrusionDetection\Check\Checks;
 use OCA\IntrusionDetection\AdminChange\ActorResolver;
 use OCA\IntrusionDetection\AdminChange\DisplayValue;
 use OCA\IntrusionDetection\AdminChange\WatchedSettings;
+use OCA\IntrusionDetection\Config\AppSettings;
+use OCA\IntrusionDetection\Config\CheckSettings;
 use OCA\IntrusionDetection\Config\GlobalSettings;
 use OCA\IntrusionDetection\Config\Keys;
 use OCA\IntrusionDetection\Config\ModeState;
-use OCA\IntrusionDetection\Config\Settings;
 use OCA\IntrusionDetection\Db\Detection;
 use OCA\IntrusionDetection\Definition\Mode;
 use OCA\IntrusionDetection\Definition\ResponseType;
@@ -44,7 +45,8 @@ use OCP\AppFramework\Utility\ITimeFactory;
 class AdminChangeDetector {
 	public function __construct(
 		private readonly ResponseEngine $engine,
-		private readonly Settings $settings,
+		private readonly AppSettings $appSettings,
+		private readonly CheckSettings $settings,
 		private readonly ActorResolver $actors,
 		private readonly RemoteAddressResolver $addresses,
 		private readonly ITimeFactory $timeFactory,
@@ -155,7 +157,7 @@ class AdminChangeDetector {
 	 * A change that switches the app or this check off, or starts learning
 	 * mode, is reported as the check stood before, so the change that silences
 	 * it is still told. As this check only notifies, learning mode does not
-	 * silence it ({@see Settings::actsWhileLearning()}).
+	 * silence it ({@see CheckSettings::actsWhileLearning()}).
 	 *
 	 * @param int|float|bool|string|list<string> $old
 	 */
@@ -163,10 +165,10 @@ class AdminChangeDetector {
 		$configured = $name === Keys::mode(AdminChange::ID)
 			? (is_string($old) ? Mode::tryFrom($old) : null) ?? Mode::Protect
 			: $this->settings->configuredMode(AdminChange::ID);
-		$enabled = $name === GlobalSettings::ENABLED ? $old === true : $this->settings->isEnabled();
+		$enabled = $name === GlobalSettings::ENABLED ? $old === true : $this->appSettings->isEnabled();
 		$learning = $name === GlobalSettings::LEARNING_UNTIL
 			? is_int($old) && $old > $this->timeFactory->getTime()
-			: $this->settings->isLearning();
+			: $this->appSettings->isLearning();
 		if (!$enabled) {
 			return new ModeState($configured, Mode::Off, ModeState::REASON_DISABLED);
 		}

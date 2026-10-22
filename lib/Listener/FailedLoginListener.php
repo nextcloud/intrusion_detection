@@ -17,7 +17,8 @@ use OCA\IntrusionDetection\Check\Checks\DecoyCredentialDetector;
 use OCA\IntrusionDetection\Check\Checks\PasswordSpraying;
 use OCA\IntrusionDetection\Check\Checks\PasswordSprayingDetector;
 use OCA\IntrusionDetection\Check\Checks\ReservedNameDetector;
-use OCA\IntrusionDetection\Config\Settings;
+use OCA\IntrusionDetection\Config\AppSettings;
+use OCA\IntrusionDetection\Config\CheckSettings;
 use OCA\IntrusionDetection\Db\AttemptKind;
 use OCA\IntrusionDetection\Detection\AttemptRecorder;
 use OCA\IntrusionDetection\Login\EmailAccounts;
@@ -61,7 +62,8 @@ class FailedLoginListener implements IEventListener {
 	public const MAX_LOGIN_NAME = 255;
 
 	public function __construct(
-		private readonly Settings $settings,
+		private readonly AppSettings $appSettings,
+		private readonly CheckSettings $settings,
 		private readonly RemoteAddressResolver $addresses,
 		private readonly AttemptRecorder $recorder,
 		private readonly DecoyCredentialDetector $decoys,
@@ -84,7 +86,7 @@ class FailedLoginListener implements IEventListener {
 			return;
 		}
 		try {
-			if (!$this->settings->isEnabled()) {
+			if (!$this->appSettings->isEnabled()) {
 				return;
 			}
 			$source = $this->addresses->current();

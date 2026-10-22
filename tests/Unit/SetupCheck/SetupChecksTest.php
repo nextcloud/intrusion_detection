@@ -13,9 +13,9 @@ use OC\Memcache\ArrayCache;
 use OCA\IntrusionDetection\Address\AddressResolver;
 use OCA\IntrusionDetection\Address\Verdict;
 use OCA\IntrusionDetection\Check\Checks\ReservedName;
+use OCA\IntrusionDetection\Config\CheckSettings;
 use OCA\IntrusionDetection\Config\ModeState;
 use OCA\IntrusionDetection\Config\Prerequisites;
-use OCA\IntrusionDetection\Config\Settings;
 use OCA\IntrusionDetection\Db\Detection;
 use OCA\IntrusionDetection\Db\DetectionFilter;
 use OCA\IntrusionDetection\Db\DetectionMapper;
@@ -187,8 +187,8 @@ class SetupChecksTest extends TestCase {
 	/**
 	 * @param list<string> $names
 	 */
-	private function reservedNameSettings(Mode $mode, array $names): Settings&MockObject {
-		$settings = $this->createMock(Settings::class);
+	private function reservedNameSettings(Mode $mode, array $names): CheckSettings&MockObject {
+		$settings = $this->createMock(CheckSettings::class);
 		$settings->method('modeState')->with(ReservedName::ID)->willReturn(new ModeState($mode, $mode));
 		$settings->method('paramList')->with(ReservedName::ID, 'names')->willReturn($names);
 		return $settings;

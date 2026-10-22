@@ -13,8 +13,8 @@ use OCA\IntrusionDetection\AdminChange\ActorResolver;
 use OCA\IntrusionDetection\AdminChange\AdminGrantGate;
 use OCA\IntrusionDetection\AdminChange\GrantPermit;
 use OCA\IntrusionDetection\Check\Checks\AdminChange;
-use OCA\IntrusionDetection\Config\GlobalSettings;
-use OCA\IntrusionDetection\Config\Settings;
+use OCA\IntrusionDetection\Config\AppSettings;
+use OCA\IntrusionDetection\Config\CheckSettings;
 use OCA\IntrusionDetection\Definition\Mode;
 use OCP\IGroup;
 use OCP\IUser;
@@ -74,14 +74,15 @@ class AdminGrantGateTest extends TestCase {
 	}
 
 	private function gate(bool $required = true, Mode $mode = Mode::Protect, bool $enabled = true, bool $commandLine = false, bool $console = false): AdminGrantGate {
-		$settings = $this->createMock(Settings::class);
-		$settings->method('getBool')->willReturnCallback(static fn (string $name): bool => $name === GlobalSettings::ADMIN_CHANGE_REQUIRE_APPROVAL && $required);
-		$settings->method('isEnabled')->willReturn($enabled);
+		$appSettings = $this->createMock(AppSettings::class);
+		$appSettings->method('adminChangeRequireApproval')->willReturn($required);
+		$appSettings->method('isEnabled')->willReturn($enabled);
+		$settings = $this->createMock(CheckSettings::class);
 		$settings->method('configuredMode')->willReturn($mode);
 		$actors = $this->createMock(ActorResolver::class);
 		$actors->method('isCommandLine')->willReturn($commandLine);
 		$actors->method('isConsole')->willReturn($console);
-		return new AdminGrantGate($settings, $actors, $this->permit);
+		return new AdminGrantGate($appSettings, $settings, $actors, $this->permit);
 	}
 
 	/**

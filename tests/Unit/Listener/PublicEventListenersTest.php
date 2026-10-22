@@ -12,8 +12,8 @@ namespace OCA\IntrusionDetection\Tests\Unit\Listener;
 use OCA\IntrusionDetection\Check\Checks\LoginFlowMismatchDetector;
 use OCA\IntrusionDetection\Check\Checks\ResetProbingDetector;
 use OCA\IntrusionDetection\Check\Checks\ShareBruteforceDetector;
+use OCA\IntrusionDetection\Config\CheckSettings;
 use OCA\IntrusionDetection\Config\ModeState;
-use OCA\IntrusionDetection\Config\Settings;
 use OCA\IntrusionDetection\Db\AttemptKind;
 use OCA\IntrusionDetection\Definition\Mode;
 use OCA\IntrusionDetection\Detection\AttemptRecord;
@@ -46,8 +46,8 @@ use Test\TestCase;
 class PublicEventListenersTest extends TestCase {
 	private const TOKEN = 'SecretShareToken42';
 
-	/** @var Settings&MockObject */
-	private Settings $settings;
+	/** @var CheckSettings&MockObject */
+	private CheckSettings $settings;
 	/** @var RemoteAddressResolver&MockObject */
 	private RemoteAddressResolver $addresses;
 	/** @var AttemptRecorder&MockObject */
@@ -57,7 +57,7 @@ class PublicEventListenersTest extends TestCase {
 
 	protected function setUp(): void {
 		parent::setUp();
-		$this->settings = $this->createMock(Settings::class);
+		$this->settings = $this->createMock(CheckSettings::class);
 		$this->addresses = $this->createMock(RemoteAddressResolver::class);
 		$this->addresses->method('current')->willReturn(SourceKey::fromIp('198.51.100.7'));
 		$this->recorder = $this->createMock(AttemptRecorder::class);

@@ -13,7 +13,7 @@ use OCA\IntrusionDetection\Admin\CheckList;
 use OCA\IntrusionDetection\Admin\GlobalSettingsPresenter;
 use OCA\IntrusionDetection\Admin\StatusService;
 use OCA\IntrusionDetection\AppInfo\Application;
-use OCA\IntrusionDetection\Config\Settings;
+use OCA\IntrusionDetection\Configure\SettingsEditor;
 use OCA\IntrusionDetection\Net\RemoteAddressResolver;
 use OCP\AppFramework\Http\TemplateResponse;
 use OCP\AppFramework\Services\IInitialState;
@@ -35,7 +35,7 @@ class Admin implements ISettings {
 		private readonly IInitialState $initialState,
 		private readonly IURLGenerator $urlGenerator,
 		private readonly IL10N $l,
-		private readonly Settings $settings,
+		private readonly SettingsEditor $settings,
 	) {
 	}
 

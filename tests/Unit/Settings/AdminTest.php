@@ -12,7 +12,7 @@ namespace OCA\IntrusionDetection\Tests\Unit\Settings;
 use OCA\IntrusionDetection\Admin\CheckList;
 use OCA\IntrusionDetection\Admin\GlobalSettingsPresenter;
 use OCA\IntrusionDetection\Admin\StatusService;
-use OCA\IntrusionDetection\Config\Settings;
+use OCA\IntrusionDetection\Configure\SettingsEditor;
 use OCA\IntrusionDetection\Definition\ProtectionLevel;
 use OCA\IntrusionDetection\Net\RemoteAddressResolver;
 use OCA\IntrusionDetection\Net\SourceKey;
@@ -42,7 +42,7 @@ class AdminTest extends TestCase {
 				&& array_key_exists('docUrl', $data),
 		));
 
-		$values = $this->createMock(Settings::class);
+		$values = $this->createMock(SettingsEditor::class);
 		$values->method('protectionLevel')->willReturn(ProtectionLevel::Strict);
 
 		$admin = new Admin($status, $checks, $settings, $addresses, $state, $this->createMock(IURLGenerator::class), $this->createMock(IL10N::class), $values);

@@ -14,7 +14,7 @@ use OCA\IntrusionDetection\Config\GlobalSettings;
 use OCA\IntrusionDetection\Config\Keys;
 use OCA\IntrusionDetection\Config\Lexicon;
 use OCA\IntrusionDetection\Config\LexiconData;
-use OCA\IntrusionDetection\Config\LexiconDataBuilder;
+use OCA\IntrusionDetection\Configure\LexiconDataBuilder;
 use OCP\Config\Lexicon\Entry;
 use OCP\Config\Lexicon\Preset;
 use OCP\Config\ValueType;
@@ -83,22 +83,5 @@ class LexiconDataTest extends TestCase {
 		$this->assertSame(LexiconData::CHECKS, constant($class . '::CHECKS'));
 		$this->assertSame(LexiconData::GLOBALS, constant($class . '::GLOBALS'));
 		$this->assertSame(LexiconData::ENTRIES, constant($class . '::ENTRIES'));
-	}
-
-	public function testOnlyItemValidatorsNeedTheFullDefinition(): void {
-		$withValidator = [];
-		foreach (LexiconData::GLOBALS as $name => $spec) {
-			if (isset($spec['validator'])) {
-				$withValidator[] = $name;
-			}
-		}
-		foreach (LexiconData::CHECKS as $id => $check) {
-			foreach ($check['params'] as $name => $spec) {
-				if (isset($spec['validator'])) {
-					$withValidator[] = $id . '.' . $name;
-				}
-			}
-		}
-		$this->assertSame(['injection_probe.custom_signatures'], $withValidator);
 	}
 }

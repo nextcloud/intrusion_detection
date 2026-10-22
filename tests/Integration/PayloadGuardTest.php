@@ -19,7 +19,6 @@ use OCA\IntrusionDetection\Check\Payload\PayloadSettings;
 use OCA\IntrusionDetection\Check\Payload\PendingHit;
 use OCA\IntrusionDetection\Check\Payload\RequestParts;
 use OCA\IntrusionDetection\Config\GlobalSettings;
-use OCA\IntrusionDetection\Config\Settings;
 use OCA\IntrusionDetection\Db\BanMapper;
 use OCA\IntrusionDetection\Db\Detection;
 use OCA\IntrusionDetection\Db\DetectionFilter;
@@ -74,12 +73,10 @@ class PayloadGuardTest extends IntegrationTestCase {
 	private array $shutdown = [];
 	private ?IUser $sessionUser = null;
 	private PayloadResponder $responder;
-	private Settings $settings;
 
 	protected function setUp(): void {
 		parent::setUp();
 		$this->context = new RequestContext();
-		$this->settings = Server::get(Settings::class);
 		$shutdown = &$this->shutdown;
 		$this->responder = new class(Server::get(ResponseEngine::class), Server::get(PayloadSettings::class), $this->context, Server::get(ITimeFactory::class), $this->container(), Server::get(LoggerInterface::class), $shutdown) extends PayloadResponder {
 			/** @param list<\Closure> $shutdown */
@@ -322,7 +319,7 @@ class PayloadGuardTest extends IntegrationTestCase {
 	}
 
 	public function testAHitDecidedAtTheLoginIsRefusedBeforeTheController(): void {
-		$this->settings->setParam(InjectionProbe::ID, InjectionProbe::PARAM_AUTHENTICATED_MODE, 'protect');
+		$this->settingsEditor()->setParam(InjectionProbe::ID, InjectionProbe::PARAM_AUTHENTICATED_MODE, 'protect');
 		$this->decide('/ocs/v2.php/apps/foo?id=1%20UNION%20SELECT%201', '/ocs/v2.php', [], [], ['Authorization' => 'Basic ' . base64_encode('bob:app-password')]);
 		(new PayloadLoginListener($this->context, $this->container(), Server::get(LoggerInterface::class)))
 			->handle(new UserLoggedInEvent($this->user('bob'), 'bob', null, false));
@@ -354,7 +351,7 @@ class PayloadGuardTest extends IntegrationTestCase {
 	}
 
 	public function testProtectForLoggedInUsersBlocks(): void {
-		$this->settings->setParam(InjectionProbe::ID, InjectionProbe::PARAM_AUTHENTICATED_MODE, 'protect');
+		$this->settingsEditor()->setParam(InjectionProbe::ID, InjectionProbe::PARAM_AUTHENTICATED_MODE, 'protect');
 		$this->decide('/index.php/apps/foo?id=1%20UNION%20SELECT%201', '/index.php', [], [$this->sessionCookie() => 'abc']);
 		$decision = $this->responder->resolve($this->user('alice'));
 		$this->assertNotNull($decision);
@@ -363,7 +360,7 @@ class PayloadGuardTest extends IntegrationTestCase {
 	}
 
 	public function testLoggedInUsersCanBeIgnored(): void {
-		$this->settings->setParam(InjectionProbe::ID, InjectionProbe::PARAM_AUTHENTICATED_MODE, 'off');
+		$this->settingsEditor()->setParam(InjectionProbe::ID, InjectionProbe::PARAM_AUTHENTICATED_MODE, 'off');
 		$this->decide('/index.php/apps/foo?id=1%20UNION%20SELECT%201', '/index.php', [], [$this->sessionCookie() => 'abc']);
 		$this->assertNull($this->responder->resolve($this->user('alice')));
 		$this->assertSame([], $this->detections());
@@ -374,15 +371,15 @@ class PayloadGuardTest extends IntegrationTestCase {
 	}
 
 	public function testTheChecksModeIsTheCeilingForLoggedInUsers(): void {
-		$this->settings->setMode(InjectionProbe::ID, Mode::Observe);
-		$this->settings->setParam(InjectionProbe::ID, InjectionProbe::PARAM_AUTHENTICATED_MODE, 'protect');
+		$this->settingsEditor()->setMode(InjectionProbe::ID, Mode::Observe);
+		$this->settingsEditor()->setParam(InjectionProbe::ID, InjectionProbe::PARAM_AUTHENTICATED_MODE, 'protect');
 		$this->decide('/index.php/apps/foo?id=1%20UNION%20SELECT%201', '/index.php', [], [$this->sessionCookie() => 'abc']);
 		$this->assertNull($this->responder->resolve($this->user('alice')));
 		$this->assertFalse($this->onlyDetection()->isEnforced());
 	}
 
 	public function testOffDoesNothing(): void {
-		$this->settings->setMode(InjectionProbe::ID, Mode::Off);
+		$this->settingsEditor()->setMode(InjectionProbe::ID, Mode::Off);
 		$inspector = $this->createMock(PayloadInspector::class);
 		$inspector->expects($this->never())->method('inspect');
 		$this->assertNull($this->decide('/index.php/apps/foo?id=1%20UNION%20SELECT%201', '/index.php', inspector: $inspector));
@@ -405,12 +402,12 @@ class PayloadGuardTest extends IntegrationTestCase {
 	}
 
 	public function testObserveAndLearningModeDoNotBlock(): void {
-		$this->settings->setMode(InjectionProbe::ID, Mode::Observe);
+		$this->settingsEditor()->setMode(InjectionProbe::ID, Mode::Observe);
 		$this->assertNull($this->decide('/index.php/apps/foo?id=1%20UNION%20SELECT%201', '/index.php'));
 		$this->assertFalse($this->onlyDetection()->isEnforced());
 
 		$this->db->getQueryBuilder()->delete('ids_detections')->executeStatement();
-		$this->settings->setMode(InjectionProbe::ID, Mode::Protect);
+		$this->settingsEditor()->setMode(InjectionProbe::ID, Mode::Protect);
 		$this->appConfig->setValueInt(Application::APP_ID, GlobalSettings::LEARNING_UNTIL, time() + 3600);
 		$this->assertNull($this->decide('/index.php/apps/foo?id=1%20UNION%20SELECT%201', '/index.php'));
 		$this->assertSame('learning', $this->onlyDetection()->getExplanationData()['mode']['reason']);
@@ -439,7 +436,7 @@ class PayloadGuardTest extends IntegrationTestCase {
 	}
 
 	public function testAProbeLoggedInUsersMakeForAnotherSiteDoesNotBlockTheirAddress(): void {
-		$this->settings->setParam(InjectionProbe::ID, InjectionProbe::PARAM_AUTHENTICATED_MODE, 'protect');
+		$this->settingsEditor()->setParam(InjectionProbe::ID, InjectionProbe::PARAM_AUTHENTICATED_MODE, 'protect');
 		$lure = ['Sec-Fetch-Site' => 'cross-site', 'Sec-Fetch-Dest' => 'image'];
 		$this->assertNull($this->decide('/index.php/apps/foo?id=1%20UNION%20SELECT%201', '/index.php', cookies: [$this->sessionCookie() => 'x'], headers: $lure));
 		$this->assertNull($this->responder->resolve($this->user('alice')));
@@ -448,7 +445,7 @@ class PayloadGuardTest extends IntegrationTestCase {
 	}
 
 	public function testCustomAndDisabledSignaturesFromTheSettings(): void {
-		$this->settings->setParam(InjectionProbe::ID, InjectionProbe::PARAM_CUSTOM, ['dbms_pipe\.receive_message']);
+		$this->settingsEditor()->setParam(InjectionProbe::ID, InjectionProbe::PARAM_CUSTOM, ['dbms_pipe\.receive_message']);
 		$this->assertNotNull($this->decide('/index.php/apps/foo?id=DBMS_PIPE.RECEIVE_MESSAGE(%27a%27,5)', '/index.php'));
 		$this->assertSame([CustomSignatures::idFor('dbms_pipe\.receive_message')], array_values(array_filter(
 			$this->onlyDetection()->getExplanationData()['facts']['signatures'],
@@ -456,14 +453,14 @@ class PayloadGuardTest extends IntegrationTestCase {
 		)));
 
 		$this->resetTables();
-		$this->settings->setParam(InjectionProbe::ID, InjectionProbe::PARAM_DISABLED, ['sql_union_select']);
+		$this->settingsEditor()->setParam(InjectionProbe::ID, InjectionProbe::PARAM_DISABLED, ['sql_union_select']);
 		$this->assertNull($this->decide('/index.php/apps/foo?id=1%20UNION%20SELECT%201', '/index.php'));
 		$this->assertSame([], $this->detections());
 	}
 
 	public function testASlowCustomSignatureCannotBeSaved(): void {
 		$this->expectException(\OCA\IntrusionDetection\Definition\InvalidParamException::class);
-		$this->settings->setParam(InjectionProbe::ID, InjectionProbe::PARAM_CUSTOM, ['(a+)+$']);
+		$this->settingsEditor()->setParam(InjectionProbe::ID, InjectionProbe::PARAM_CUSTOM, ['(a+)+$']);
 	}
 
 	public function testTheGuardFailsOpen(): void {

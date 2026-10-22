@@ -10,7 +10,7 @@ declare(strict_types=1);
 namespace OCA\IntrusionDetection\Traps;
 
 use OCA\IntrusionDetection\Check\Checks\TrapUrl;
-use OCA\IntrusionDetection\Config\Settings;
+use OCA\IntrusionDetection\Config\CheckSettings;
 use OCP\IURLGenerator;
 
 /**
@@ -30,7 +30,7 @@ class TrapPathSnippets {
 	private const SAFE_ENTRY = '#^/[a-z0-9/._~-]{0,199}\*?$#';
 
 	public function __construct(
-		private readonly Settings $settings,
+		private readonly CheckSettings $settings,
 		private readonly IURLGenerator $urlGenerator,
 	) {
 	}

@@ -85,7 +85,7 @@ class ShareBruteforceTest extends RequestEventTestCase {
 		$this->bans = Server::get(BanMapper::class);
 		$this->attempts = Server::get(AttemptMapper::class);
 		$this->listen(ShareLinkAccessFailedEvent::class, new ShareAccessFailedListener(
-			$this->settings,
+			$this->checkSettings(),
 			$this->addresses,
 			Server::get(AttemptRecorder::class),
 			Server::get(ShareBruteforceDetector::class),
@@ -96,7 +96,7 @@ class ShareBruteforceTest extends RequestEventTestCase {
 	}
 
 	public function testOneOrTwoOutdatedLinksNeverFire(): void {
-		$this->settings->setParam(ShareBruteforce::ID, 'token_min', 3);
+		$this->settingsEditor()->setParam(ShareBruteforce::ID, 'token_min', 3);
 		for ($i = 0; $i < 5; $i++) {
 			$this->openUnknownLink('198.51.100.7', 'outdatedLinkAaaa');
 			$this->openUnknownLink('198.51.100.7', 'outdatedLinkBbbb');
@@ -109,7 +109,7 @@ class ShareBruteforceTest extends RequestEventTestCase {
 	}
 
 	public function testTokensThatDifferOnlyInCaseAreDifferentGuesses(): void {
-		$this->settings->setParam(ShareBruteforce::ID, 'token_min', 3);
+		$this->settingsEditor()->setParam(ShareBruteforce::ID, 'token_min', 3);
 		foreach (['caseToken', 'CaseToken', 'CASETOKEN'] as $token) {
 			$this->openUnknownLink('198.51.100.7', $token);
 		}
@@ -220,7 +220,7 @@ class ShareBruteforceTest extends RequestEventTestCase {
 		$session = $this->createMock(IUserSession::class);
 		$session->method('getUser')->willReturn($user);
 		$this->listen(ShareLinkAccessFailedEvent::class, new ShareAccessFailedListener(
-			$this->settings, $this->addresses, Server::get(AttemptRecorder::class), Server::get(ShareBruteforceDetector::class),
+			$this->checkSettings(), $this->addresses, Server::get(AttemptRecorder::class), Server::get(ShareBruteforceDetector::class),
 			$this->request, $session, Server::get(LoggerInterface::class),
 		));
 		for ($i = 1; $i <= 10; $i++) {
@@ -537,7 +537,7 @@ class ShareBruteforceTest extends RequestEventTestCase {
 	}
 
 	public function testOffSkipsAllWork(): void {
-		$this->settings->setMode(ShareBruteforce::ID, Mode::Off);
+		$this->settingsEditor()->setMode(ShareBruteforce::ID, Mode::Off);
 		for ($i = 1; $i <= 12; $i++) {
 			$this->openUnknownLink('198.51.100.7', 'offToken' . $i);
 		}
@@ -546,7 +546,7 @@ class ShareBruteforceTest extends RequestEventTestCase {
 	}
 
 	public function testObserveRecordsWhatItWouldHaveDone(): void {
-		$this->settings->setGlobal(GlobalSettings::LEARNING_UNTIL, time() + 86400);
+		$this->settingsEditor()->setGlobal(GlobalSettings::LEARNING_UNTIL, time() + 86400);
 		for ($i = 1; $i <= 10; $i++) {
 			$this->openUnknownLink('198.51.100.7', 'learningToken' . $i);
 		}

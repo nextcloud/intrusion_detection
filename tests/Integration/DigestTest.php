@@ -17,7 +17,6 @@ use OCA\IntrusionDetection\Check\Checks\ShareBruteforce;
 use OCA\IntrusionDetection\Check\Checks\TrapUrl;
 use OCA\IntrusionDetection\Config\GlobalSettings;
 use OCA\IntrusionDetection\Config\Prerequisites;
-use OCA\IntrusionDetection\Config\Settings;
 use OCA\IntrusionDetection\Db\AlertMapper;
 use OCA\IntrusionDetection\Db\Ban;
 use OCA\IntrusionDetection\Db\BanMapper;
@@ -60,7 +59,6 @@ class DigestTest extends IntegrationTestCase {
 	private const DUE = 1792396800;
 	private const DAY = 86400;
 
-	private Settings $settings;
 	private int $now = self::DUE + 1800;
 	/** @var list<IUser> */
 	private array $admins = [];
@@ -71,7 +69,6 @@ class DigestTest extends IntegrationTestCase {
 
 	protected function setUp(): void {
 		parent::setUp();
-		$this->settings = Server::get(Settings::class);
 		$this->admins = [$this->admin('alice', 'alice@example.com'), $this->admin('bob', null), $this->admin('carol', 'not an address')];
 		$this->logger = $this->createMock(LoggerInterface::class);
 	}
@@ -172,13 +169,13 @@ class DigestTest extends IntegrationTestCase {
 	}
 
 	public function testLearningModeAndProblemsAreShownOnTop(): void {
-		$this->settings->setGlobal(GlobalSettings::LEARNING_UNTIL, time() + 3 * self::DAY + 3600);
+		$this->settingsEditor()->setGlobal(GlobalSettings::LEARNING_UNTIL, time() + 3 * self::DAY + 3600);
 		$content = $this->digest()->content($this->digest()->report($this->schedule(), self::DUE), self::l10n(), new \DateTimeZone('UTC'));
 		$this->assertSame('Learning: 4 days left', $content->notes[0]['label']);
 		$this->assertSame(IEMailTemplate::NOTE_INFO, $content->notes[0]['type']);
 
-		$this->settings->setGlobal(GlobalSettings::LEARNING_UNTIL, 0);
-		$this->settings->setGlobal(GlobalSettings::ENABLED, false);
+		$this->settingsEditor()->setGlobal(GlobalSettings::LEARNING_UNTIL, 0);
+		$this->settingsEditor()->setGlobal(GlobalSettings::ENABLED, false);
 		$content = $this->digest()->content($this->digest()->report($this->schedule(), self::DUE), self::l10n(), new \DateTimeZone('UTC'));
 		$this->assertSame('Off', $content->notes[0]['label']);
 		$this->assertSame(IEMailTemplate::NOTE_WARNING, $content->notes[0]['type']);
@@ -284,9 +281,9 @@ class DigestTest extends IntegrationTestCase {
 	}
 
 	public function testOffLateAndBeforeInstallationNothingIsSent(): void {
-		$this->settings->setGlobal(GlobalSettings::DIGEST_FREQUENCY, 'off');
+		$this->settingsEditor()->setGlobal(GlobalSettings::DIGEST_FREQUENCY, 'off');
 		$this->assertSame(DigestSender::RESULT_OFF, $this->sender()->sendIfDue());
-		$this->settings->setGlobal(GlobalSettings::DIGEST_FREQUENCY, 'weekly');
+		$this->settingsEditor()->setGlobal(GlobalSettings::DIGEST_FREQUENCY, 'weekly');
 
 		$this->now = self::DUE + DigestSchedule::GRACE + 1;
 		$this->assertSame(DigestSender::RESULT_NOT_DUE, $this->sender()->sendIfDue(), 'cron did not run for half a day: this digest is skipped');
@@ -300,7 +297,7 @@ class DigestTest extends IntegrationTestCase {
 	public function testDailyDigestsAreDueEveryDay(): void {
 		$this->now = self::DUE + self::DAY + 600;
 		$this->assertSame(DigestSender::RESULT_NOT_DUE, $this->sender()->sendIfDue(), 'Tuesday is not a weekly digest day');
-		$this->settings->setGlobal(GlobalSettings::DIGEST_FREQUENCY, 'daily');
+		$this->settingsEditor()->setGlobal(GlobalSettings::DIGEST_FREQUENCY, 'daily');
 		$this->insertDetection(CredentialStuffing::ID, '198.51.100.7', null, self::DUE + 3600);
 		$this->assertSame(DigestSender::RESULT_SENT, $this->sender()->sendIfDue());
 		$this->assertSame('Intrusion detection daily summary: 1 detection', $this->mailed[0][1]->subject);
@@ -332,7 +329,7 @@ class DigestTest extends IntegrationTestCase {
 	}
 
 	private function schedule(): DigestSchedule {
-		return new DigestSchedule((string)$this->settings->global(GlobalSettings::DIGEST_FREQUENCY), new \DateTimeZone('UTC'));
+		return new DigestSchedule($this->appSettings()->digestFrequency(), new \DateTimeZone('UTC'));
 	}
 
 	/**
@@ -366,7 +363,7 @@ class DigestTest extends IntegrationTestCase {
 		$timezone = $this->createMock(IDateTimeZone::class);
 		$timezone->method('getDefaultTimeZone')->willReturn(new \DateTimeZone('UTC'));
 		return new DigestSender(
-			$this->settings,
+			$this->appSettings(),
 			$this->digest(),
 			$recipients,
 			$mails,

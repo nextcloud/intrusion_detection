@@ -11,7 +11,6 @@ namespace OCA\IntrusionDetection\Tests\Integration;
 
 use OCA\IntrusionDetection\Audit\AuditLogger;
 use OCA\IntrusionDetection\BackgroundJob\Cleanup;
-use OCA\IntrusionDetection\Config\Settings;
 use OCA\IntrusionDetection\Confirm\UnconfirmedSessions;
 use OCA\IntrusionDetection\Crypto\Fingerprinter;
 use OCA\IntrusionDetection\Db\StepUpSessionMapper;
@@ -129,7 +128,4 @@ class TrustedNetworksTest extends IntegrationTestCase {
 		return new TrustedNetworks(Server::get(TrustedNetworkMapper::class), $time, Server::get(AuditLogger::class));
 	}
 
-	private function settings(): Settings {
-		return Server::get(Settings::class);
-	}
 }

@@ -12,7 +12,6 @@ namespace OCA\IntrusionDetection\Tests\Integration;
 use OCA\IntrusionDetection\Check\Checks\InjectionProbe;
 use OCA\IntrusionDetection\Check\Payload\PayloadTester;
 use OCA\IntrusionDetection\Command\Payload\Test;
-use OCA\IntrusionDetection\Config\Settings;
 use OCA\IntrusionDetection\Definition\Mode;
 use OCP\IL10N;
 use OCP\L10N\IFactory;
@@ -71,8 +70,8 @@ class PayloadTesterTest extends IntegrationTestCase {
 		$this->assertFalse($result['fires']);
 		$this->assertSame([], $result['values']);
 
-		Server::get(Settings::class)->setMode(InjectionProbe::ID, Mode::Observe);
-		Server::get(Settings::class)->setParam(InjectionProbe::ID, InjectionProbe::PARAM_MIN_WEIGHT, 7);
+		$this->settingsEditor()->setMode(InjectionProbe::ID, Mode::Observe);
+		$this->settingsEditor()->setParam(InjectionProbe::ID, InjectionProbe::PARAM_MIN_WEIGHT, 7);
 		$result = $this->tester->test('/x?id=1%20UNION%20SELECT%201', $this->l);
 		$this->assertFalse($result['fires']);
 		$this->assertSame(7, $result['minWeight']);

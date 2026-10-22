@@ -141,7 +141,7 @@ abstract class TakeoverTestCase extends AccountTestCase {
 			Server::get(AdminRecipients::class),
 			Server::get(INotificationManager::class),
 			$this->mails,
-			$this->settings,
+			$this->appSettings(),
 			Server::get(NarrativeBuilder::class),
 			Server::get(CheckRegistry::class),
 			Server::get(UserMessages::class),
@@ -159,7 +159,7 @@ abstract class TakeoverTestCase extends AccountTestCase {
 	protected function takeoverEngine(): ResponseEngine {
 		return new ResponseEngine(
 			Server::get(CheckRegistry::class),
-			$this->settings,
+			$this->checkSettings(),
 			Server::get(DetectionService::class),
 			new OverridingContainer([
 				KillSessionHandler::class => new KillSessionHandler($this->sessionKiller()),
@@ -175,7 +175,7 @@ abstract class TakeoverTestCase extends AccountTestCase {
 
 	protected function detector(): AccountTakeoverDetector {
 		return new AccountTakeoverDetector(
-			$this->settings,
+			$this->checkSettings(),
 			Server::get(SecurityChangeMapper::class),
 			new RiskyLogins(new OverridingContainer([UnconfirmedLoginSignal::class => new UnconfirmedLoginSignal($this->state, $this->currentSession)]), Server::get(LoggerInterface::class)),
 			$this->takeoverEngine(),
@@ -203,7 +203,7 @@ abstract class TakeoverTestCase extends AccountTestCase {
 
 	protected function listener(): SecurityChangeListener {
 		return new SecurityChangeListener(
-			$this->settings,
+			$this->appSettings(),
 			$this->changeLog(),
 			Server::get(SecurityChangeMapper::class),
 			Server::get(ResetTracker::class),

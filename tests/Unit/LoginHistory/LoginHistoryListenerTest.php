@@ -9,7 +9,7 @@ declare(strict_types=1);
 
 namespace OCA\IntrusionDetection\Tests\Unit\LoginHistory;
 
-use OCA\IntrusionDetection\Config\Settings;
+use OCA\IntrusionDetection\Config\AppSettings;
 use OCA\IntrusionDetection\Confirm\IConfirmationMethod;
 use OCA\IntrusionDetection\Confirm\SessionConfirmation;
 use OCA\IntrusionDetection\KnownDevice\KnownDevice;
@@ -129,7 +129,7 @@ class LoginHistoryListenerTest extends TestCase {
 		$request->method('getRemoteAddress')->willReturn('198.51.100.7');
 		$throttler = $this->createMock(IThrottler::class);
 		$throttler->method('isBypassListed')->willReturnCallback(fn (): bool => $this->bypass);
-		$settings = $this->createMock(Settings::class);
+		$settings = $this->createMock(AppSettings::class);
 		$settings->method('isEnabled')->willReturn(true);
 
 		$history = $this->createMock(LoginHistory::class);

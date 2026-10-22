@@ -11,7 +11,7 @@ namespace OCA\IntrusionDetection\Listener;
 
 use OCA\IntrusionDetection\Check\Checks\ResetProbing;
 use OCA\IntrusionDetection\Check\Checks\ResetProbingDetector;
-use OCA\IntrusionDetection\Config\Settings;
+use OCA\IntrusionDetection\Config\CheckSettings;
 use OCA\IntrusionDetection\Db\AttemptKind;
 use OCA\IntrusionDetection\Detection\AttemptRecorder;
 use OCA\IntrusionDetection\Login\EmailAccounts;
@@ -44,7 +44,7 @@ class ResetRequestedListener implements IEventListener {
 	public const MAX_INPUT = 255;
 
 	public function __construct(
-		private readonly Settings $settings,
+		private readonly CheckSettings $settings,
 		private readonly RemoteAddressResolver $addresses,
 		private readonly AttemptRecorder $recorder,
 		private readonly ResetProbingDetector $detector,

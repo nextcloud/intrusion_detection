@@ -20,8 +20,8 @@ use OCA\IntrusionDetection\Admin\StatusService;
 use OCA\IntrusionDetection\Audit\AuditLogger;
 use OCA\IntrusionDetection\Check\CheckRegistry;
 use OCA\IntrusionDetection\Config\GlobalSettings;
-use OCA\IntrusionDetection\Config\ProtectionLevels;
-use OCA\IntrusionDetection\Config\Settings;
+use OCA\IntrusionDetection\Configure\ProtectionLevels;
+use OCA\IntrusionDetection\Configure\SettingsEditor;
 use OCA\IntrusionDetection\Db\BanMapper;
 use OCA\IntrusionDetection\Db\DetectionFilter;
 use OCA\IntrusionDetection\Db\DetectionMapper;
@@ -88,7 +88,7 @@ class AdminApiController extends OCSController {
 		private readonly IUserSession $userSession,
 		private readonly ITimeFactory $timeFactory,
 		private readonly CheckRegistry $registry,
-		private readonly Settings $settings,
+		private readonly SettingsEditor $settings,
 		private readonly StatusService $status,
 		private readonly CheckList $checks,
 		private readonly DetectionMapper $detectionMapper,

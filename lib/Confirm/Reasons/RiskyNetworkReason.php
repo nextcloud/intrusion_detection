@@ -10,7 +10,7 @@ declare(strict_types=1);
 namespace OCA\IntrusionDetection\Confirm\Reasons;
 
 use OCA\IntrusionDetection\Check\Checks\RiskyNetwork;
-use OCA\IntrusionDetection\Config\Settings;
+use OCA\IntrusionDetection\Config\CheckSettings;
 use OCA\IntrusionDetection\Confirm\IStepUpReason;
 use OCA\IntrusionDetection\Confirm\LoginContext;
 use OCA\IntrusionDetection\Confirm\StepUpPolicy;
@@ -26,7 +26,7 @@ use OCA\IntrusionDetection\Risk\NetworkAttributes;
  */
 class RiskyNetworkReason implements IStepUpReason {
 	public function __construct(
-		private readonly Settings $settings,
+		private readonly CheckSettings $settings,
 		private readonly NetworkAttributes $networks,
 	) {
 	}

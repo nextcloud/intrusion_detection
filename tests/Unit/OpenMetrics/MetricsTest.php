@@ -14,7 +14,7 @@ use OCA\IntrusionDetection\Blocklist\ListFormat;
 use OCA\IntrusionDetection\Blocklist\ListState;
 use OCA\IntrusionDetection\Blocklist\SourceRepository;
 use OCA\IntrusionDetection\Blocklist\StateStore;
-use OCA\IntrusionDetection\Config\Settings;
+use OCA\IntrusionDetection\Config\AppSettings;
 use OCA\IntrusionDetection\Detection\DetectionTotals;
 use OCA\IntrusionDetection\OpenMetrics\BlocklistRangesMetric;
 use OCA\IntrusionDetection\OpenMetrics\DetectionsMetric;
@@ -88,7 +88,7 @@ class MetricsTest extends TestCase {
 	}
 
 	public function testLearningMode(): void {
-		$settings = $this->createMock(Settings::class);
+		$settings = $this->createMock(AppSettings::class);
 		$settings->method('isLearning')->willReturnOnConsecutiveCalls(true, false);
 		$metric = new LearningModeMetric($settings);
 		$this->assertTrue(self::metrics($metric)[0]->value);

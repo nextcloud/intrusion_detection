@@ -9,8 +9,7 @@ declare(strict_types=1);
 
 namespace OCA\IntrusionDetection\Export;
 
-use OCA\IntrusionDetection\Config\GlobalSettings;
-use OCA\IntrusionDetection\Config\Settings;
+use OCA\IntrusionDetection\Config\AppSettings;
 
 /**
  * Configuration snippets the admin page shows next to the firewall export,
@@ -40,7 +39,7 @@ class FirewallSnippets {
 
 	public function __construct(
 		private readonly ExportDirectory $directory,
-		private readonly Settings $settings,
+		private readonly AppSettings $settings,
 	) {
 	}
 
@@ -202,7 +201,7 @@ class FirewallSnippets {
 	 */
 	public function fail2banJail(): string {
 		$file = $this->dir() . '/bans.log';
-		$bantime = $this->settings->getInt(GlobalSettings::BAN_DURATION_1);
+		$bantime = $this->settings->banDurations()[1];
 		return <<<CONF
 			[nextcloud-ids]
 			enabled  = true

@@ -11,7 +11,6 @@ namespace OCA\IntrusionDetection\Tests\Integration;
 
 use OCA\IntrusionDetection\Address\AddressResolver;
 use OCA\IntrusionDetection\Check\Checks\TrapUrl;
-use OCA\IntrusionDetection\Config\Settings;
 use OCA\IntrusionDetection\Db\BanMapper;
 use OCA\IntrusionDetection\Db\DetectionFilter;
 use OCA\IntrusionDetection\Db\DetectionMapper;
@@ -47,7 +46,6 @@ class TrapUrlGuardTest extends IntegrationTestCase {
 	/** What a browser sends for an image another site embeds */
 	private const LURE = ['Sec-Fetch-Site' => 'cross-site', 'Sec-Fetch-Mode' => 'no-cors', 'Sec-Fetch-Dest' => 'image'];
 
-	private Settings $settings;
 	private DetectionMapper $detections;
 	private RequestContext $context;
 	private TrapResponder $responder;
@@ -57,7 +55,6 @@ class TrapUrlGuardTest extends IntegrationTestCase {
 
 	protected function setUp(): void {
 		parent::setUp();
-		$this->settings = Server::get(Settings::class);
 		$this->detections = Server::get(DetectionMapper::class);
 		$this->context = new RequestContext();
 		$shutdown = &$this->shutdown;
@@ -94,7 +91,7 @@ class TrapUrlGuardTest extends IntegrationTestCase {
 	}
 
 	public function testHitsFromOneSourceAreMergedWithinTheHour(): void {
-		$this->settings->setMode(TrapUrl::ID, Mode::Observe);
+		$this->settingsEditor()->setMode(TrapUrl::ID, Mode::Observe);
 		$guard = $this->guard();
 		$this->assertNull($guard->check($this->request('/.env')));
 		$this->assertNull($guard->check($this->request('/.git/config')));
@@ -165,24 +162,24 @@ class TrapUrlGuardTest extends IntegrationTestCase {
 	}
 
 	public function testCustomPathsAndTheirValidation(): void {
-		$this->settings->setParam(TrapUrl::ID, 'paths', ['/Old-Admin', '/backup/*']);
-		$this->assertSame(['/old-admin', '/backup/*'], $this->settings->paramList(TrapUrl::ID, 'paths'));
+		$this->settingsEditor()->setParam(TrapUrl::ID, 'paths', ['/Old-Admin', '/backup/*']);
+		$this->assertSame(['/old-admin', '/backup/*'], $this->checkSettings()->paramList(TrapUrl::ID, 'paths'));
 		$this->assertNotNull($this->guard()->check($this->request('/backup/db.sql', ip: '198.51.100.8')));
 		$this->assertNotNull($this->guard()->check($this->request('/OLD-ADMIN', ip: '198.51.100.9')));
 
 		$this->expectException(InvalidParamException::class);
-		$this->settings->setParam(TrapUrl::ID, 'paths', ['/apps/*']);
+		$this->settingsEditor()->setParam(TrapUrl::ID, 'paths', ['/apps/*']);
 	}
 
 	public function testTheBuiltInListCanBeSwitchedOff(): void {
-		$this->settings->setParam(TrapUrl::ID, 'builtin_enabled', false);
+		$this->settingsEditor()->setParam(TrapUrl::ID, 'builtin_enabled', false);
 		$this->assertNull($this->guard()->check($this->request('/wp-login.php')));
 		$this->assertSame(0, $this->detections->count(new DetectionFilter()));
 	}
 
 	public function testACustomPathCoveringABuiltInOneStillFiresWithTheBuiltInListOff(): void {
-		$this->settings->setParam(TrapUrl::ID, 'builtin_enabled', false);
-		$this->settings->setParam(TrapUrl::ID, 'paths', ['/wp-login.php']);
+		$this->settingsEditor()->setParam(TrapUrl::ID, 'builtin_enabled', false);
+		$this->settingsEditor()->setParam(TrapUrl::ID, 'paths', ['/wp-login.php']);
 		$this->assertNotNull($this->guard()->check($this->request('/wp-login.php')));
 		$detection = $this->detections->findList(new DetectionFilter(checkIds: [TrapUrl::ID]))[0];
 		$this->assertSame('/wp-login.php', $detection->getExplanationData()['facts']['trap']);
@@ -210,10 +207,10 @@ class TrapUrlGuardTest extends IntegrationTestCase {
 	}
 
 	public function testOffAndTheMasterSwitchSkipTheCheck(): void {
-		$this->settings->setMode(TrapUrl::ID, Mode::Off);
+		$this->settingsEditor()->setMode(TrapUrl::ID, Mode::Off);
 		$this->assertNull($this->guard()->check($this->request('/wp-login.php')));
-		$this->settings->setMode(TrapUrl::ID, Mode::Protect);
-		$this->settings->setGlobal('protection_enabled', false);
+		$this->settingsEditor()->setMode(TrapUrl::ID, Mode::Protect);
+		$this->settingsEditor()->setGlobal('protection_enabled', false);
 		$this->assertNull($this->guard()->check($this->request('/wp-login.php')));
 		$this->assertSame(0, $this->detections->count(new DetectionFilter()));
 	}
@@ -231,7 +228,7 @@ class TrapUrlGuardTest extends IntegrationTestCase {
 		return new TrapUrlGuard(
 			Server::get(IConfig::class),
 			Server::get(IAppConfig::class),
-			$this->settings,
+			$this->appSettings(), $this->checkSettings(),
 			new RemoteAddressResolver($this->createMock(IRequest::class), Server::get(IThrottler::class), Server::get(ServerAddresses::class)),
 			$container ?? $this->container(),
 			Server::get(GuardTimer::class),

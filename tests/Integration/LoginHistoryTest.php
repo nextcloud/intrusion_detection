@@ -108,7 +108,7 @@ class LoginHistoryTest extends StepUpTestCase {
 		$this->loginAndRecord($bob);
 		$this->assertSame([LoginHistory::STEP_UP_REFUSED, 'none'], $this->outcome($bob));
 
-		$this->settings->setGlobal(StepUpPolicy::FlaggedSource->settingKey(), 'allow_notify');
+		$this->settingsEditor()->setGlobal(StepUpPolicy::FlaggedSource->settingKey(), 'allow_notify');
 		$this->session->clear();
 		$this->startSession($bob);
 		$this->loginAndRecord($bob);
@@ -256,7 +256,7 @@ class LoginHistoryTest extends StepUpTestCase {
 		$this->assertCount(2, $mapper->forAddress('203.0.113.5', $now - 86400), 'Both accounts from the address');
 		$this->assertCount(3, $mapper->forAddress('203.0.113.0/24', $now - 86400), 'The whole network');
 
-		$this->settings->setGlobal(GlobalSettings::RETENTION_DETECTIONS_DAYS, 30);
+		$this->settingsEditor()->setGlobal(GlobalSettings::RETENTION_DETECTIONS_DAYS, 30);
 		$this->invokePrivate(Server::get(Cleanup::class), 'run', [null]);
 		$this->assertCount(2, $mapper->forUser($this->alice->getUID(), 0), 'Older than the retention: deleted');
 
@@ -291,7 +291,7 @@ class LoginHistoryTest extends StepUpTestCase {
 
 	private function historyListener(?LoginHistory $history = null): LoginHistoryListener {
 		return new LoginHistoryListener(
-			$this->settings,
+			$this->appSettings(),
 			new InteractiveLogin($this->request),
 			$this->addresses(),
 			$this->request,

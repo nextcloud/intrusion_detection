@@ -33,8 +33,8 @@ class PasswordSprayingTest extends LoginFailureTestCase {
 		parent::setUp();
 		$this->bans = Server::get(BanMapper::class);
 		$this->flags = Server::get(FlaggedSources::class);
-		$this->settings->setMode(CredentialStuffing::ID, Mode::Off);
-		$this->settings->setMode(AccountUnderAttack::ID, Mode::Off);
+		$this->settingsEditor()->setMode(CredentialStuffing::ID, Mode::Off);
+		$this->settingsEditor()->setMode(AccountUnderAttack::ID, Mode::Off);
 	}
 
 	public function testOnePasswordAgainstManyAccountsBlocksTheSprayersAndFlagsThePassword(): void {
@@ -160,7 +160,7 @@ class PasswordSprayingTest extends LoginFailureTestCase {
 	}
 
 	public function testObserveFlagsNothingAndBlocksNothing(): void {
-		$this->settings->setMode(PasswordSpraying::ID, Mode::Observe);
+		$this->settingsEditor()->setMode(PasswordSpraying::ID, Mode::Observe);
 		$this->spray(6);
 		$detections = $this->detectionsOf(PasswordSpraying::ID);
 		$this->assertNotSame([], $detections);
@@ -170,7 +170,7 @@ class PasswordSprayingTest extends LoginFailureTestCase {
 	}
 
 	public function testOnceASprayIsSeenFurtherAttemptsAreNotCountedAgain(): void {
-		$this->settings->setMode(PasswordSpraying::ID, Mode::Observe);
+		$this->settingsEditor()->setMode(PasswordSpraying::ID, Mode::Observe);
 		$this->spray(6);
 		$detector = (new \ReflectionProperty($this->listener, 'spraying'))->getValue($this->listener);
 		$this->assertInstanceOf(\OCA\IntrusionDetection\Check\Checks\PasswordSprayingDetector::class, $detector);
@@ -183,7 +183,7 @@ class PasswordSprayingTest extends LoginFailureTestCase {
 	}
 
 	public function testOffSkipsTheWork(): void {
-		$this->settings->setMode(PasswordSpraying::ID, Mode::Off);
+		$this->settingsEditor()->setMode(PasswordSpraying::ID, Mode::Off);
 		$this->spray(6);
 		$this->assertSame(0, $this->rows('ids_attempts'));
 		$this->assertSame(0, $this->rows('ids_detections'));

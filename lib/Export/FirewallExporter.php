@@ -9,8 +9,7 @@ declare(strict_types=1);
 
 namespace OCA\IntrusionDetection\Export;
 
-use OCA\IntrusionDetection\Config\GlobalSettings;
-use OCA\IntrusionDetection\Config\Settings;
+use OCA\IntrusionDetection\Config\AppSettings;
 use OCA\IntrusionDetection\Db\Ban;
 use OCA\IntrusionDetection\Db\BanMapper;
 use OCA\IntrusionDetection\Net\ProtectedRanges;
@@ -57,7 +56,7 @@ class FirewallExporter {
 
 	public function __construct(
 		private readonly ExportDirectory $directory,
-		private readonly Settings $settings,
+		private readonly AppSettings $settings,
 		private readonly BanMapper $bans,
 		private readonly AppState $state,
 		private readonly ProtectedRanges $protected,
@@ -71,9 +70,9 @@ class FirewallExporter {
 	 * @return list<ExportFormat>
 	 */
 	public function formats(): array {
-		$values = $this->settings->global(GlobalSettings::EXPORT_FORMATS);
+		$values = $this->settings->exportFormats();
 		$formats = [];
-		foreach (is_array($values) ? $values : [] as $value) {
+		foreach ($values as $value) {
 			$format = ExportFormat::tryFrom($value);
 			if ($format !== null) {
 				$formats[] = $format;

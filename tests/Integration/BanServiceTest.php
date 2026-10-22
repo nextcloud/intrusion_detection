@@ -18,7 +18,6 @@ use OCA\IntrusionDetection\Cache\Caches;
 use OCA\IntrusionDetection\Cache\KeyLock;
 use OCA\IntrusionDetection\Check\CheckRegistry;
 use OCA\IntrusionDetection\Config\GlobalSettings;
-use OCA\IntrusionDetection\Config\Settings;
 use OCA\IntrusionDetection\Db\Ban;
 use OCA\IntrusionDetection\Db\BanMapper;
 use OCA\IntrusionDetection\Db\LoginHistoryMapper;
@@ -680,7 +679,7 @@ class BanServiceTest extends IntegrationTestCase {
 			new BanExemptions(
 				Server::get(LoginMapper::class),
 				Server::get(LoginHistoryMapper::class),
-				Server::get(Settings::class),
+				$this->appSettings(),
 				Server::get(ProxySuspect::class),
 				$ranges,
 				Server::get(IGroupManager::class),
@@ -688,7 +687,7 @@ class BanServiceTest extends IntegrationTestCase {
 				Server::get(EstablishedAccounts::class),
 				Server::get(CheckRegistry::class),
 			),
-			Server::get(Settings::class),
+			$this->appSettings(),
 			$state === null ? Server::get(AddressCache::class) : new AddressCache(Server::get(Caches::class), $state),
 			Server::get(AddressResolver::class),
 			new RemoteAddressResolver($this->createMock(IRequest::class), Server::get(IThrottler::class), Server::get(ServerAddresses::class)),

@@ -10,7 +10,7 @@ declare(strict_types=1);
 namespace OCA\IntrusionDetection\Check\Checks;
 
 use OCA\IntrusionDetection\Cache\Caches;
-use OCA\IntrusionDetection\Config\Settings;
+use OCA\IntrusionDetection\Config\CheckSettings;
 use OCA\IntrusionDetection\Confirm\LoginContext;
 use OCA\IntrusionDetection\Crypto\Fingerprinter;
 use OCA\IntrusionDetection\Db\AttemptKind;
@@ -50,7 +50,7 @@ class PasswordSprayingDetector {
 	public const KINDS = [AttemptKind::PasswordLogin];
 
 	public function __construct(
-		private readonly Settings $settings,
+		private readonly CheckSettings $settings,
 		private readonly AttemptMapper $attempts,
 		private readonly ResponseEngine $engine,
 		private readonly FlaggedSources $flags,

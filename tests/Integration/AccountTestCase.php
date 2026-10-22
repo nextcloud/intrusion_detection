@@ -12,7 +12,6 @@ namespace OCA\IntrusionDetection\Tests\Integration;
 use OC\Authentication\Token\IProvider as PrivateTokenProvider;
 use OCA\IntrusionDetection\Audit\AuditLogger;
 use OCA\IntrusionDetection\Check\CheckRegistry;
-use OCA\IntrusionDetection\Config\Settings;
 use OCA\IntrusionDetection\Db\AlertMapper;
 use OCA\IntrusionDetection\Db\TokenOriginMapper;
 use OCA\IntrusionDetection\Detection\DetectionService;
@@ -50,7 +49,6 @@ use Psr\Log\LoggerInterface;
  * are captured; emails are captured instead of sent.
  */
 abstract class AccountTestCase extends IntegrationTestCase {
-	protected Settings $settings;
 	protected PrivateTokenProvider $tokens;
 	protected TestSession $session;
 	protected CurrentSession $currentSession;
@@ -67,7 +65,6 @@ abstract class AccountTestCase extends IntegrationTestCase {
 
 	protected function setUp(): void {
 		parent::setUp();
-		$this->settings = Server::get(Settings::class);
 		$this->tokens = Server::get(PrivateTokenProvider::class);
 		$this->session = new TestSession();
 		$this->currentSession = new CurrentSession($this->session, Server::get(IProvider::class), Server::get(LoggerInterface::class));
@@ -178,7 +175,7 @@ abstract class AccountTestCase extends IntegrationTestCase {
 	protected function engine(): ResponseEngine {
 		return new ResponseEngine(
 			Server::get(CheckRegistry::class),
-			$this->settings,
+			$this->checkSettings(),
 			Server::get(DetectionService::class),
 			new OverridingContainer([
 				KillSessionHandler::class => new KillSessionHandler($this->sessionKiller()),

@@ -11,7 +11,7 @@ namespace OCA\IntrusionDetection\Listener;
 
 use OCA\IntrusionDetection\Check\Checks\ShareBruteforce;
 use OCA\IntrusionDetection\Check\Checks\ShareBruteforceDetector;
-use OCA\IntrusionDetection\Config\Settings;
+use OCA\IntrusionDetection\Config\CheckSettings;
 use OCA\IntrusionDetection\Db\AttemptKind;
 use OCA\IntrusionDetection\Detection\AttemptRecorder;
 use OCA\IntrusionDetection\Net\FetchMetadata;
@@ -40,7 +40,7 @@ use Psr\Log\LoggerInterface;
  */
 class ShareAccessFailedListener implements IEventListener {
 	public function __construct(
-		private readonly Settings $settings,
+		private readonly CheckSettings $settings,
 		private readonly RemoteAddressResolver $addresses,
 		private readonly AttemptRecorder $recorder,
 		private readonly ShareBruteforceDetector $detector,

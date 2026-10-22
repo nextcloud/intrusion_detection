@@ -11,7 +11,7 @@ namespace OCA\IntrusionDetection\Check\CredentialUse;
 
 use OCA\IntrusionDetection\Cache\Caches;
 use OCA\IntrusionDetection\Check\Checks\TokenConcurrentUse;
-use OCA\IntrusionDetection\Config\Settings;
+use OCA\IntrusionDetection\Config\CheckSettings;
 use OCA\IntrusionDetection\Net\SourceKey;
 use OCP\ICache;
 
@@ -39,7 +39,7 @@ class CredentialTracker {
 
 	public function __construct(
 		private readonly Caches $caches,
-		private readonly Settings $settings,
+		private readonly CheckSettings $settings,
 	) {
 	}
 

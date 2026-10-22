@@ -10,7 +10,7 @@ declare(strict_types=1);
 namespace OCA\IntrusionDetection\Traps;
 
 use OCA\IntrusionDetection\Check\Checks\ReservedName;
-use OCA\IntrusionDetection\Config\Settings;
+use OCA\IntrusionDetection\Config\CheckSettings;
 use OCA\IntrusionDetection\Db\DecoyMapper;
 use OCA\IntrusionDetection\State\AppState;
 use OCP\AppFramework\Utility\ITimeFactory;
@@ -26,7 +26,7 @@ class TrapNameCollisions {
 	/** Reserved names and decoy login names that are accounts by now, with when they were looked up */
 	public const STATE = 'trap_name_collisions';
 	public function __construct(
-		private readonly Settings $settings,
+		private readonly CheckSettings $settings,
 		private readonly DecoyMapper $decoys,
 		private readonly AccountNames $accounts,
 		private readonly ITimeFactory $timeFactory,

@@ -18,7 +18,6 @@ use OCA\IntrusionDetection\Check\Checks\BreachedPassword;
 use OCA\IntrusionDetection\Check\Checks\BreachedPasswordDetector;
 use OCA\IntrusionDetection\Command\User as UserCommand;
 use OCA\IntrusionDetection\Config\Lexicon;
-use OCA\IntrusionDetection\Config\Settings;
 use OCA\IntrusionDetection\Config\UserKeys;
 use OCA\IntrusionDetection\Db\Detection;
 use OCA\IntrusionDetection\Db\DetectionFilter;
@@ -74,7 +73,6 @@ class BreachedPasswordTest extends IntegrationTestCase {
 	public const PASSWORD = 'P@ssw0rd';
 	public const SUFFIX = '2DC183F740EE76F27B78EB39C8AD972A757';
 
-	protected Settings $settings;
 	protected DetectionMapper $detections;
 	protected IUser $user;
 	/** @var list<string> the requested URLs */
@@ -97,7 +95,6 @@ class BreachedPasswordTest extends IntegrationTestCase {
 
 	protected function setUp(): void {
 		parent::setUp();
-		$this->settings = Server::get(Settings::class);
 		$this->detections = Server::get(DetectionMapper::class);
 		$this->now = time();
 		$uid = 'ids-breach-' . bin2hex(random_bytes(4));
@@ -153,7 +150,7 @@ class BreachedPasswordTest extends IntegrationTestCase {
 		$throttler->method('isBypassListed')->willReturnCallback(fn (): bool => $this->bypassListed);
 
 		return new BreachedPasswordDetector(
-			$this->settings,
+			$this->checkSettings(),
 			new PwnedPasswordsClient($clientService, $cacheFactory, Server::get(ICrypto::class), $this->logger()),
 			Server::get(IUserConfig::class),
 			Server::get(ResponseEngine::class),
@@ -182,13 +179,13 @@ class BreachedPasswordTest extends IntegrationTestCase {
 		$container = $this->createMock(ContainerInterface::class);
 		$container->method('get')->with(BreachedPasswordDetector::class)->willReturn($detector);
 		$request = $this->request();
-		$listener = new BreachedPasswordListener($this->settings, new InteractiveLogin($request), $request, $container, $this->logger());
+		$listener = new BreachedPasswordListener($this->checkSettings(), new InteractiveLogin($request), $request, $container, $this->logger());
 		$listener->handle(new UserLoggedInEvent($this->user, $this->user->getUID(), $password, $tokenLogin));
 		return $detector;
 	}
 
 	protected function protect(): void {
-		$this->settings->setMode(BreachedPassword::ID, Mode::Protect);
+		$this->settingsEditor()->setMode(BreachedPassword::ID, Mode::Protect);
 	}
 
 	/**
@@ -199,7 +196,7 @@ class BreachedPasswordTest extends IntegrationTestCase {
 	}
 
 	public function testIsOffByDefaultAndThenSendsNothing(): void {
-		$this->assertSame(Mode::Off, $this->settings->configuredMode(BreachedPassword::ID));
+		$this->assertSame(Mode::Off, $this->checkSettings()->configuredMode(BreachedPassword::ID));
 		$this->login();
 		$this->assertSame([], $this->requests, 'Off sends nothing');
 		$this->assertNull($this->detector()->checkedAt($this->user));
@@ -232,7 +229,7 @@ class BreachedPasswordTest extends IntegrationTestCase {
 
 	public function testAPasswordBelowTheCountIsNotBreached(): void {
 		$this->protect();
-		$this->settings->setParam(BreachedPassword::ID, 'min_count', 10);
+		$this->settingsEditor()->setParam(BreachedPassword::ID, 'min_count', 10);
 		$this->listCount = 9;
 		$this->login();
 		$this->assertCount(1, $this->requests);
@@ -342,7 +339,7 @@ class BreachedPasswordTest extends IntegrationTestCase {
 	}
 
 	public function testObserveRecordsWithoutActing(): void {
-		$this->settings->setMode(BreachedPassword::ID, Mode::Observe);
+		$this->settingsEditor()->setMode(BreachedPassword::ID, Mode::Observe);
 		$this->login();
 		$detections = $this->breachDetections();
 		$this->assertCount(1, $detections);
@@ -425,7 +422,7 @@ class BreachedPasswordTest extends IntegrationTestCase {
 		};
 		$this->cache = $cache;
 		$this->protect();
-		$this->settings->setResponses(BreachedPassword::ID, [ResponseType::StepUp, ResponseType::ForcePasswordChange, ResponseType::NotifyAdmin, ResponseType::NotifyUser]);
+		$this->settingsEditor()->setResponses(BreachedPassword::ID, [ResponseType::StepUp, ResponseType::ForcePasswordChange, ResponseType::NotifyAdmin, ResponseType::NotifyUser]);
 
 		// SHA-1 EDB0E576C4E745D575F45B5DD8DD1EF7F6070FA0
 		$password = 'Secret-Breached-Password-7e3b';

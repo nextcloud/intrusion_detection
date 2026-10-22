@@ -10,7 +10,7 @@ declare(strict_types=1);
 namespace OCA\IntrusionDetection\OpenMetrics;
 
 use Generator;
-use OCA\IntrusionDetection\Config\Settings;
+use OCA\IntrusionDetection\Config\AppSettings;
 use OCP\OpenMetrics\IMetricFamily;
 use OCP\OpenMetrics\Metric;
 use OCP\OpenMetrics\MetricType;
@@ -21,7 +21,7 @@ use Override;
  */
 class LearningModeMetric implements IMetricFamily {
 	public function __construct(
-		private readonly Settings $settings,
+		private readonly AppSettings $settings,
 	) {
 	}
 

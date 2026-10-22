@@ -15,8 +15,9 @@ use OCA\IntrusionDetection\Admin\IStatusContributor;
 use OCA\IntrusionDetection\Admin\StatusService;
 use OCA\IntrusionDetection\Cache\Caches;
 use OCA\IntrusionDetection\Check\CheckRegistry;
+use OCA\IntrusionDetection\Config\AppSettings;
+use OCA\IntrusionDetection\Config\CheckSettings;
 use OCA\IntrusionDetection\Config\Prerequisites;
-use OCA\IntrusionDetection\Config\Settings;
 use OCA\IntrusionDetection\Db\BanMapper;
 use OCA\IntrusionDetection\Db\StatsMapper;
 use OCA\IntrusionDetection\Detection\DetectionTotals;
@@ -33,7 +34,7 @@ use Psr\Log\LoggerInterface;
 use Test\TestCase;
 
 class StatusServiceTest extends TestCase {
-	private Settings&MockObject $settings;
+	private AppSettings&MockObject $settings;
 	private LearningService&MockObject $learning;
 	private GuardTimer&MockObject $timer;
 	private ContainerInterface&MockObject $container;
@@ -42,7 +43,7 @@ class StatusServiceTest extends TestCase {
 
 	protected function setUp(): void {
 		parent::setUp();
-		$this->settings = $this->createMock(Settings::class);
+		$this->settings = $this->createMock(AppSettings::class);
 		$this->settings->method('isEnabled')->willReturn(true);
 		$this->learning = $this->createMock(LearningService::class);
 		$this->timer = $this->createMock(GuardTimer::class);
@@ -61,6 +62,7 @@ class StatusServiceTest extends TestCase {
 		$time->method('getTime')->willReturn(1_790_000_000);
 		return new $class(
 			$this->settings,
+			$this->createMock(CheckSettings::class),
 			$registry,
 			new CheckNames($registry),
 			$this->learning,

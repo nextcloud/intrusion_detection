@@ -230,19 +230,19 @@ class AccountTakeoverTest extends TakeoverTestCase {
 	}
 
 	public function testThePointsAreConfigurable(): void {
-		$this->settings->setParam(AccountTakeover::ID, 'points_app_password_created', 0);
+		$this->settingsEditor()->setParam(AccountTakeover::ID, 'points_app_password_created', 0);
 		$user = $this->newUser('ids-to', 'owner@example.com');
 		$this->loginAs($user, true);
 		$user->setSystemEMailAddress('attacker@evil.example');
 		$this->appPassword($user);
 		$this->assertNull($this->takeover($user), 'App passwords count 0 now');
-		$this->settings->setParam(AccountTakeover::ID, AccountTakeover::PARAM_MIN_POINTS, 2);
+		$this->settingsEditor()->setParam(AccountTakeover::ID, AccountTakeover::PARAM_MIN_POINTS, 2);
 		$this->appPassword($user);
 		$this->assertNotNull($this->takeover($user));
 	}
 
 	public function testTheProtectionMasterSwitchStopsTheLog(): void {
-		$this->settings->setGlobal(GlobalSettings::ENABLED, false);
+		$this->settingsEditor()->setGlobal(GlobalSettings::ENABLED, false);
 		$user = $this->newUser('ids-to', 'owner@example.com');
 		$this->loginAs($user, true);
 		$user->setSystemEMailAddress('attacker@evil.example');

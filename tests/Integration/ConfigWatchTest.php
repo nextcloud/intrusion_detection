@@ -20,7 +20,6 @@ use OCA\IntrusionDetection\Check\CheckRegistry;
 use OCA\IntrusionDetection\Check\Checks\AdminChange;
 use OCA\IntrusionDetection\Config\GlobalSettings;
 use OCA\IntrusionDetection\Config\Keys;
-use OCA\IntrusionDetection\Config\Settings;
 use OCA\IntrusionDetection\Crypto\Fingerprinter;
 use OCA\IntrusionDetection\Db\ConfigSnapshotMapper;
 use OCA\IntrusionDetection\Definition\Mode;
@@ -73,7 +72,7 @@ class ConfigWatchTest extends AdminChangeTestCase {
 	}
 
 	private function watchedSettings(): WatchedSettings {
-		return new WatchedSettings($this->systemConfig, Server::get(IAppConfig::class), Server::get(Settings::class), Server::get(CheckRegistry::class), new GlobalSettings(), Server::get(LoggerInterface::class));
+		return new WatchedSettings($this->systemConfig, Server::get(IAppConfig::class), $this->appSettings(), $this->checkSettings(), Server::get(CheckRegistry::class), new GlobalSettings(), Server::get(LoggerInterface::class));
 	}
 
 	protected function tearDown(): void {
@@ -229,7 +228,7 @@ class ConfigWatchTest extends AdminChangeTestCase {
 	public function testOwnSettingsChangedThroughTheAppAreNotReportedTwice(): void {
 		Server::get(ConfigWatch::class)->run();
 		$this->assertSame([], $this->adminChanges());
-		Server::get(Settings::class)->setParam('credential_stuffing', 'min_names', 7);
+		$this->settingsEditor()->setParam('credential_stuffing', 'min_names', 7);
 		$this->assertCount(1, $this->adminChanges(), 'Reported by the app at once');
 		$this->assertSame(0, Server::get(ConfigWatch::class)->run(), 'The watch has nothing left to report');
 	}

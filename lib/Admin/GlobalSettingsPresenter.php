@@ -10,8 +10,8 @@ declare(strict_types=1);
 namespace OCA\IntrusionDetection\Admin;
 
 use OCA\IntrusionDetection\AdminChange\ApprovalService;
+use OCA\IntrusionDetection\Config\AppSettings;
 use OCA\IntrusionDetection\Config\GlobalSettings;
-use OCA\IntrusionDetection\Config\Settings;
 use OCA\IntrusionDetection\Confirm\EmailCodes;
 use OCA\IntrusionDetection\Confirm\Methods\AdminApprovalMethod;
 use OCA\IntrusionDetection\Confirm\StepUpPolicy;
@@ -60,7 +60,7 @@ class GlobalSettingsPresenter {
 
 	public function __construct(
 		private readonly GlobalSettings $globals,
-		private readonly Settings $settings,
+		private readonly AppSettings $settings,
 	) {
 	}
 
@@ -91,7 +91,7 @@ class GlobalSettingsPresenter {
 			}
 			[$text, $group] = $this->describe($name, $l);
 			$settings[] = array_merge($definition->toArray(), [
-				'value' => $this->settings->global($name),
+				'value' => $this->settings->value($name),
 				'label' => $text->label,
 				'help' => $text->help,
 				'unit' => $text->unit,

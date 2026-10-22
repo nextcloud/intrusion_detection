@@ -11,7 +11,7 @@ namespace OCA\IntrusionDetection\Listener;
 
 use OCA\IntrusionDetection\Check\Checks\BreachedPassword;
 use OCA\IntrusionDetection\Check\Checks\BreachedPasswordDetector;
-use OCA\IntrusionDetection\Config\Settings;
+use OCA\IntrusionDetection\Config\CheckSettings;
 use OCA\IntrusionDetection\Login\InteractiveLogin;
 use OCP\EventDispatcher\Event;
 use OCP\EventDispatcher\IEventListener;
@@ -30,7 +30,7 @@ use Psr\Log\LoggerInterface;
  */
 class BreachedPasswordListener implements IEventListener {
 	public function __construct(
-		private readonly Settings $settings,
+		private readonly CheckSettings $settings,
 		private readonly InteractiveLogin $interactive,
 		private readonly IRequest $request,
 		private readonly ContainerInterface $container,

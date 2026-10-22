@@ -14,7 +14,6 @@ use OCA\IntrusionDetection\AppInfo\Application;
 use OCA\IntrusionDetection\Check\Checks\ManualBlock;
 use OCA\IntrusionDetection\Check\Checks\SharedAddress;
 use OCA\IntrusionDetection\Config\GlobalSettings;
-use OCA\IntrusionDetection\Config\Settings;
 use OCA\IntrusionDetection\Controller\AdminApiController;
 use OCA\IntrusionDetection\Db\AttemptKind;
 use OCA\IntrusionDetection\Db\AttemptMapper;
@@ -298,11 +297,10 @@ class AdminApiTest extends IntegrationTestCase {
 
 		$this->appConfig->setValueInt(Application::APP_ID, GlobalSettings::LEARNING_UNTIL, time() + 86400);
 		$this->controller->resetSettings();
-		$settings = Server::get(Settings::class);
-		$this->assertSame(14400, $settings->getInt(GlobalSettings::BAN_DURATION_1));
-		$this->assertSame(3, $settings->getInt(GlobalSettings::BAN_NET_AFTER));
+		$this->assertSame(14400, $this->appSettings()->banDurations()[1]);
+		$this->assertSame(3, $this->appSettings()->banNetAfter());
 		// Learning mode is not a setting and survives the reset.
-		$this->assertTrue($settings->isLearning());
+		$this->assertTrue($this->appSettings()->isLearning());
 	}
 
 	public function testLearningModeThroughTheApi(): void {

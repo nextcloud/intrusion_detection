@@ -9,7 +9,7 @@ declare(strict_types=1);
 
 namespace OCA\IntrusionDetection\Check\Checks;
 
-use OCA\IntrusionDetection\Config\Settings;
+use OCA\IntrusionDetection\Config\CheckSettings;
 use OCA\IntrusionDetection\Decoy\DecoyService;
 use OCA\IntrusionDetection\Definition\Severity;
 use OCA\IntrusionDetection\Detection\DetectionDraft;
@@ -24,7 +24,7 @@ use OCA\IntrusionDetection\Response\ResponseEngine;
  */
 class DecoyCredentialDetector {
 	public function __construct(
-		private readonly Settings $settings,
+		private readonly CheckSettings $settings,
 		private readonly DecoyService $decoys,
 		private readonly ResponseEngine $engine,
 	) {

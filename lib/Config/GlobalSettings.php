@@ -9,12 +9,6 @@ declare(strict_types=1);
 
 namespace OCA\IntrusionDetection\Config;
 
-use OCA\IntrusionDetection\Check\Checks\AdminChange;
-use OCA\IntrusionDetection\Check\IValidatesParams;
-use OCA\IntrusionDetection\Confirm\Methods\KnownDeviceMethod;
-use OCA\IntrusionDetection\Confirm\NoMethodOutcome;
-use OCA\IntrusionDetection\Confirm\StepUpPolicy;
-use OCA\IntrusionDetection\Confirm\StepUpReasons;
 use OCA\IntrusionDetection\Definition\InvalidParamException;
 use OCA\IntrusionDetection\Definition\ParamDefinition;
 use OCA\IntrusionDetection\Definition\ParamPreset;
@@ -77,6 +71,28 @@ final class GlobalSettings {
 	/** The removal takes at least this many days without use */
 	public const STALE_CREDENTIALS_MIN_REMOVE_DAYS = 90;
 
+	/**
+	 * What happens by default to a login that needs extra confirmation when
+	 * nothing can confirm it, by step-up policy
+	 * ({@see \OCA\IntrusionDetection\Confirm\StepUpPolicy}); each has
+	 * the setting {@see self::stepUpNoMethod()}.
+	 */
+	public const STEP_UP_NO_METHOD_DEFAULTS = [
+		'flagged_source' => 'refuse',
+		'sprayed_password' => 'refuse',
+		'protected_account' => 'allow_notify',
+		'breached_password' => 'allow_force_change',
+		'risky_network' => 'allow_notify',
+		'risk_high' => 'refuse',
+		'admin_outside_networks' => 'refuse',
+	];
+	/** The choices of those settings ({@see \OCA\IntrusionDetection\Confirm\NoMethodOutcome}) */
+	public const NO_METHOD_OUTCOMES = ['refuse', 'allow_notify', 'allow_force_change'];
+	/** The policies for which a remembered device confirms a login by default */
+	public const STEP_UP_KNOWN_DEVICE_DEFAULT = ['flagged_source', 'protected_account', 'risky_network', 'risk_high'];
+	/** The policies that setting may name: every one but a sprayed or breached password and an administrator outside the trusted networks */
+	public const STEP_UP_KNOWN_DEVICE_PATTERN = '/^(flagged_source|protected_account|risky_network|risk_high)$/';
+
 	/** Seconds in the learning period that starts when the app is first enabled */
 	public const LEARNING_DEFAULT_PERIOD = 7 * 86400;
 
@@ -107,10 +123,11 @@ final class GlobalSettings {
 				new ParamDefinition(self::DIGEST_FREQUENCY, ParamType::Choice, 'weekly', choices: ['off', 'daily', 'weekly']),
 				new ParamDefinition(self::EVENTS_INCLUDE_IP, ParamType::Bool, true),
 				...array_map(
-					static fn (StepUpPolicy $p): ParamDefinition => new ParamDefinition($p->settingKey(), ParamType::Choice, $p->defaultOutcome()->value, choices: NoMethodOutcome::values()),
-					StepUpReasons::policies(),
+					static fn (string $policy, string $outcome): ParamDefinition => new ParamDefinition(self::stepUpNoMethod($policy), ParamType::Choice, $outcome, choices: self::NO_METHOD_OUTCOMES),
+					array_keys(self::STEP_UP_NO_METHOD_DEFAULTS),
+					self::STEP_UP_NO_METHOD_DEFAULTS,
 				),
-				new ParamDefinition(self::STEP_UP_KNOWN_DEVICE_OK_FOR, ParamType::StringList, KnownDeviceMethod::DEFAULT_POLICIES, itemPattern: KnownDeviceMethod::POLICY_PATTERN, maxItems: count(StepUpPolicy::cases())),
+				new ParamDefinition(self::STEP_UP_KNOWN_DEVICE_OK_FOR, ParamType::StringList, self::STEP_UP_KNOWN_DEVICE_DEFAULT, itemPattern: self::STEP_UP_KNOWN_DEVICE_PATTERN, maxItems: count(self::STEP_UP_NO_METHOD_DEFAULTS)),
 				new ParamDefinition(self::STEP_UP_ADMIN_APPROVAL, ParamType::Bool, false),
 				new ParamDefinition(self::KNOWN_DEVICE_ENABLED, ParamType::Bool, true),
 				new ParamDefinition(self::RISK_ENABLED, ParamType::Bool, true),
@@ -133,16 +150,11 @@ final class GlobalSettings {
 	}
 
 	/**
-	 * The check whose rules a global setting must also pass when it is written,
-	 * for settings that belong to one check.
-	 *
-	 * @return ?class-string<IValidatesParams>
+	 * The setting that holds what happens to a login of a step-up policy
+	 * that nothing can confirm.
 	 */
-	public static function validatedBy(string $name): ?string {
-		return match ($name) {
-			self::ADMIN_CHANGE_REQUIRE_APPROVAL => AdminChange::class,
-			default => null,
-		};
+	public static function stepUpNoMethod(string $policy): string {
+		return 'step_up_no_method_' . $policy;
 	}
 
 	/**

@@ -134,7 +134,7 @@ class StepUpTest extends StepUpTestCase {
 
 	public function testSwitchingTheStepUpResponseOffStopsTheConfirmation(): void {
 		$this->give(StepUpPolicy::SprayedPassword, $this->alice);
-		$this->settings->setResponses(PasswordSpraying::ID, [ResponseType::Ban, ResponseType::FlagPassword, ResponseType::NotifyAdmin]);
+		$this->settingsEditor()->setResponses(PasswordSpraying::ID, [ResponseType::Ban, ResponseType::FlagPassword, ResponseType::NotifyAdmin]);
 		$this->login($this->alice);
 		$this->assertNull($this->stepUp());
 	}
@@ -205,7 +205,7 @@ class StepUpTest extends StepUpTestCase {
 
 	public function testNothingIsAskedWhileIntrusionDetectionIsOff(): void {
 		$this->give(StepUpPolicy::FlaggedSource, $this->alice);
-		$this->settings->setGlobal(GlobalSettings::ENABLED, false);
+		$this->settingsEditor()->setGlobal(GlobalSettings::ENABLED, false);
 		$this->login($this->alice);
 		$this->assertNull($this->stepUp());
 	}
@@ -310,7 +310,7 @@ class StepUpTest extends StepUpTestCase {
 	}
 
 	public function testAllowAndNotifyLetsTheLoginInAndTellsUserAndAdministrators(): void {
-		$this->settings->setGlobal(StepUpPolicy::FlaggedSource->settingKey(), 'allow_notify');
+		$this->settingsEditor()->setGlobal(StepUpPolicy::FlaggedSource->settingKey(), 'allow_notify');
 		$bob = $this->user('ids-stepup-notify', null);
 		$this->give(StepUpPolicy::FlaggedSource, $bob);
 		$this->login($bob);
@@ -337,7 +337,7 @@ class StepUpTest extends StepUpTestCase {
 	}
 
 	public function testOneRefusingReasonRefusesEvenWhenAnotherAllows(): void {
-		$this->settings->setGlobal(StepUpPolicy::ProtectedAccount->settingKey(), NoMethodOutcome::Refuse->value);
+		$this->settingsEditor()->setGlobal(StepUpPolicy::ProtectedAccount->settingKey(), NoMethodOutcome::Refuse->value);
 		$bob = $this->user('ids-stepup-two', null);
 		$this->give(StepUpPolicy::BreachedPassword, $bob);
 		$this->give(StepUpPolicy::ProtectedAccount, $bob);
@@ -347,7 +347,7 @@ class StepUpTest extends StepUpTestCase {
 	}
 
 	public function testAClientWithACookieJarStaysAnAppAndStartsNothing(): void {
-		$this->settings->setGlobal(GlobalSettings::STEP_UP_ADMIN_APPROVAL, true);
+		$this->settingsEditor()->setGlobal(GlobalSettings::STEP_UP_ADMIN_APPROVAL, true);
 		$this->give(StepUpPolicy::ProtectedAccount, $this->alice);
 		$this->basicAuth($this->alice);
 		$this->login($this->alice);
@@ -395,7 +395,7 @@ class StepUpTest extends StepUpTestCase {
 	}
 
 	public function testAppsOfAnAccountWhoseAdministratorsCanApproveAreRefused(): void {
-		$this->settings->setGlobal(GlobalSettings::STEP_UP_ADMIN_APPROVAL, true);
+		$this->settingsEditor()->setGlobal(GlobalSettings::STEP_UP_ADMIN_APPROVAL, true);
 		$bob = $this->user('ids-stepup-approvable', null);
 		$this->give(StepUpPolicy::ProtectedAccount, $bob);
 		$this->basicAuth($bob);
@@ -512,7 +512,7 @@ class StepUpTest extends StepUpTestCase {
 		$cache = new ArrayCache();
 		$factory = new FixedCaches($cache);
 		$this->listenerCaches = $factory;
-		$this->settings->setGlobal(StepUpPolicy::ProtectedAccount->settingKey(), NoMethodOutcome::Refuse->value);
+		$this->settingsEditor()->setGlobal(StepUpPolicy::ProtectedAccount->settingKey(), NoMethodOutcome::Refuse->value);
 		$this->give(StepUpPolicy::ProtectedAccount, $this->alice);
 		$this->basicAuth($this->alice);
 		for ($i = 0; $i < 3; $i++) {
@@ -559,7 +559,7 @@ class StepUpTest extends StepUpTestCase {
 	}
 
 	public function testAProtectedAccountIsNeverRefusedFromAFamiliarPlace(): void {
-		$this->settings->setGlobal(StepUpPolicy::ProtectedAccount->settingKey(), NoMethodOutcome::Refuse->value);
+		$this->settingsEditor()->setGlobal(StepUpPolicy::ProtectedAccount->settingKey(), NoMethodOutcome::Refuse->value);
 		$bob = $this->user('ids-stepup-home', null);
 		$this->give(StepUpPolicy::ProtectedAccount, $bob);
 		$history = Server::get(LoginHistoryMapper::class);
@@ -595,7 +595,7 @@ class StepUpTest extends StepUpTestCase {
 	}
 
 	public function testAppsSendingThePasswordAreRefusedAndTheUserIsToldOnceADay(): void {
-		$this->settings->setGlobal(StepUpPolicy::ProtectedAccount->settingKey(), NoMethodOutcome::Refuse->value);
+		$this->settingsEditor()->setGlobal(StepUpPolicy::ProtectedAccount->settingKey(), NoMethodOutcome::Refuse->value);
 		$this->give(StepUpPolicy::ProtectedAccount, $this->alice);
 		$this->basicAuth($this->alice);
 		$this->login($this->alice);
@@ -616,7 +616,7 @@ class StepUpTest extends StepUpTestCase {
 	}
 
 	public function testRefusedAppsAreOneDetectionPerAddress(): void {
-		$this->settings->setGlobal(StepUpPolicy::ProtectedAccount->settingKey(), NoMethodOutcome::Refuse->value);
+		$this->settingsEditor()->setGlobal(StepUpPolicy::ProtectedAccount->settingKey(), NoMethodOutcome::Refuse->value);
 		$this->give(StepUpPolicy::ProtectedAccount, $this->alice);
 		$this->basicAuth($this->alice);
 		foreach (['198.51.100.7', '203.0.113.9'] as $address) {
@@ -696,7 +696,7 @@ class StepUpTest extends StepUpTestCase {
 	}
 
 	public function testDetectionsOfTheLoginAreLinkedToItsSessionAtTheFirstRequest(): void {
-		$this->settings->setGlobal(StepUpPolicy::FlaggedSource->settingKey(), 'allow_notify');
+		$this->settingsEditor()->setGlobal(StepUpPolicy::FlaggedSource->settingKey(), 'allow_notify');
 		$bob = $this->user('ids-stepup-link', null);
 		$this->give(StepUpPolicy::FlaggedSource, $bob);
 		$token = $this->startSession($bob);

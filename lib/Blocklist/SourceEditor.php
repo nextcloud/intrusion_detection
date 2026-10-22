@@ -12,7 +12,7 @@ namespace OCA\IntrusionDetection\Blocklist;
 use OCA\IntrusionDetection\Address\AddressCache;
 use OCA\IntrusionDetection\Audit\AuditLogger;
 use OCA\IntrusionDetection\Config\GlobalSettings;
-use OCA\IntrusionDetection\Config\Settings;
+use OCA\IntrusionDetection\Configure\SettingsEditor;
 use OCA\IntrusionDetection\Definition\InvalidParamException;
 
 /**
@@ -25,7 +25,7 @@ class SourceEditor {
 	public function __construct(
 		private readonly SourceRepository $sources,
 		private readonly UrlPolicy $urlPolicy,
-		private readonly Settings $settings,
+		private readonly SettingsEditor $settings,
 		private readonly AddressCache $addressCache,
 		private readonly AuditLogger $audit,
 	) {

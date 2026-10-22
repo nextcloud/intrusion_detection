@@ -16,12 +16,12 @@ use OCP\Config\ValueType;
  * check registry; do not edit. A unit test fails when it is out of date
  * and rewrites it with `IDS_WRITE_LEXICON_DATA=1`.
  *
- * The config lexicon and the reads of {@see Settings} use this data, so that
+ * The config lexicon, {@see AppSettings} and {@see CheckSettings} use this data, so that
  * a plain request builds no check and no setting definition: core asks the
  * lexicon on the first app config read of every request. ENTRIES holds the
  * lexicon's entries ready to use, with their value types.
  *
- * @psalm-type ParamSpec = array{type: string, default: int|float|bool|string|list<string>, min?: int|float, max?: int|float, choices?: list<string>, pattern?: string, maxItems?: int, maxItemLength?: int, validator?: true}
+ * @psalm-type ParamSpec = array{type: string, default: int|float|bool|string|list<string>, min?: int|float, max?: int|float, choices?: list<string>, pattern?: string, maxItems?: int, maxItemLength?: int}
  * @psalm-type CheckSpec = array{mode: string, responses: list<string>, allowed: list<string>, requirements: list<string>, learning: bool, onlyNotifies: bool, params: array<string, ParamSpec>}
  * @psalm-type EntrySpec = array{0: string, 1: ValueType, 2: int|float|bool|string|list<string>, 3: string} key, value type, default and description
  */
@@ -559,7 +559,6 @@ final class LexiconData {
 					'default' => [],
 					'maxItems' => 50,
 					'maxItemLength' => 300,
-					'validator' => true,
 				],
 			],
 		],

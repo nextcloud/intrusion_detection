@@ -12,7 +12,7 @@ namespace OCA\IntrusionDetection\Command\Checks;
 use OC\Core\Command\Base;
 use OCA\IntrusionDetection\Audit\AuditLogger;
 use OCA\IntrusionDetection\Check\CheckRegistry;
-use OCA\IntrusionDetection\Config\Settings;
+use OCA\IntrusionDetection\Configure\SettingsEditor;
 use OCA\IntrusionDetection\Definition\InvalidParamException;
 use OCA\IntrusionDetection\Definition\Mode;
 use OCA\IntrusionDetection\Definition\ResponseType;
@@ -29,7 +29,7 @@ use Symfony\Component\Console\Output\OutputInterface;
 class Set extends Base {
 	public function __construct(
 		private readonly CheckRegistry $registry,
-		private readonly Settings $settings,
+		private readonly SettingsEditor $settings,
 		private readonly AuditLogger $audit,
 		private readonly IL10N $l,
 	) {

@@ -191,7 +191,7 @@ class LoginNoticesTest extends StepUpTestCase {
 				Server::get(Questions::class),
 				$this->engine(),
 				Server::get(UserDenied::class),
-				$this->settings,
+				$this->appSettings(), $this->checkSettings(),
 				Server::get(FlaggedSources::class),
 				Server::get(TrustedNetworks::class),
 				$this->sessionKiller(),

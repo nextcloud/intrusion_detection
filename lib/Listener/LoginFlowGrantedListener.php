@@ -11,7 +11,7 @@ namespace OCA\IntrusionDetection\Listener;
 
 use OCA\IntrusionDetection\Check\Checks\LoginFlowMismatch;
 use OCA\IntrusionDetection\Check\Checks\LoginFlowMismatchDetector;
-use OCA\IntrusionDetection\Config\Settings;
+use OCA\IntrusionDetection\Config\CheckSettings;
 use OCA\IntrusionDetection\Net\RemoteAddressResolver;
 use OCP\Authentication\Events\LoginFlowV2GrantedEvent;
 use OCP\EventDispatcher\Event;
@@ -29,7 +29,7 @@ use Psr\Log\LoggerInterface;
  */
 class LoginFlowGrantedListener implements IEventListener {
 	public function __construct(
-		private readonly Settings $settings,
+		private readonly CheckSettings $settings,
 		private readonly RemoteAddressResolver $addresses,
 		private readonly LoginFlowMismatchDetector $detector,
 		private readonly IRequest $request,

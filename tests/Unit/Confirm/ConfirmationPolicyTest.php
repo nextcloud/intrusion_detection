@@ -9,7 +9,7 @@ declare(strict_types=1);
 
 namespace OCA\IntrusionDetection\Tests\Unit\Confirm;
 
-use OCA\IntrusionDetection\Config\Settings;
+use OCA\IntrusionDetection\Config\AppSettings;
 use OCA\IntrusionDetection\Confirm\ConfirmationPolicy;
 use OCA\IntrusionDetection\Confirm\EmailCodes;
 use OCA\IntrusionDetection\Confirm\IConfirmationMethod;
@@ -192,15 +192,8 @@ class ConfirmationPolicyTest extends TestCase {
 	}
 
 	private function policy(IConfirmationMethod ...$methods): ConfirmationPolicy {
-		$settings = $this->createMock(Settings::class);
-		$settings->method('global')->willReturnCallback(function (string $name): string {
-			foreach (StepUpPolicy::cases() as $p) {
-				if ($p->settingKey() === $name) {
-					return $this->outcomes[$p->value] ?? $p->defaultOutcome()->value;
-				}
-			}
-			return '';
-		});
+		$settings = $this->createMock(AppSettings::class);
+		$settings->method('stepUpNoMethod')->willReturnCallback(fn (string $policy): string => $this->outcomes[$policy] ?? StepUpPolicy::from($policy)->defaultOutcome()->value);
 		$byClass = [];
 		foreach ($methods as $i => $method) {
 			$byClass['method' . $i] = $method;
@@ -213,7 +206,7 @@ class ConfirmationPolicyTest extends TestCase {
 			 */
 			public function __construct(
 				private array $list,
-				Settings $settings,
+				AppSettings $settings,
 				ContainerInterface $container,
 				LoggerInterface $logger,
 			) {

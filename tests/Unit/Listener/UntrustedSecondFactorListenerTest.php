@@ -9,7 +9,7 @@ declare(strict_types=1);
 
 namespace OCA\IntrusionDetection\Tests\Unit\Listener;
 
-use OCA\IntrusionDetection\Config\Settings;
+use OCA\IntrusionDetection\Config\AppSettings;
 use OCA\IntrusionDetection\Confirm\UntrustedSecondFactors;
 use OCA\IntrusionDetection\Listener\UntrustedSecondFactorListener;
 use OCP\Authentication\TwoFactorAuth\IProvider;
@@ -45,8 +45,8 @@ class UntrustedSecondFactorListenerTest extends TestCase {
 		return new UntrustedSecondFactorListener($this->settings($enabled), $untrusted, $this->createMock(LoggerInterface::class));
 	}
 
-	private function settings(bool $enabled): Settings {
-		$settings = $this->createMock(Settings::class);
+	private function settings(bool $enabled): AppSettings {
+		$settings = $this->createMock(AppSettings::class);
 		$settings->method('isEnabled')->willReturn($enabled);
 		return $settings;
 	}

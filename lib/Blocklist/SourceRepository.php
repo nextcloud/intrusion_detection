@@ -9,8 +9,7 @@ declare(strict_types=1);
 
 namespace OCA\IntrusionDetection\Blocklist;
 
-use OCA\IntrusionDetection\Config\GlobalSettings;
-use OCA\IntrusionDetection\Config\Settings;
+use OCA\IntrusionDetection\Config\AppSettings;
 use OCA\IntrusionDetection\Crypto\Fingerprinter;
 use OCA\IntrusionDetection\Response\BanService;
 
@@ -33,7 +32,7 @@ class SourceRepository {
 	private array $sources = [];
 
 	public function __construct(
-		private readonly Settings $settings,
+		private readonly AppSettings $settings,
 		private readonly Fingerprinter $fingerprinter,
 	) {
 	}
@@ -42,7 +41,7 @@ class SourceRepository {
 	 * @return array<string, BlocklistSource> keyed by id, the built-in lists first
 	 */
 	public function all(): array {
-		$raw = (string)$this->settings->global(GlobalSettings::BLOCKLIST_SOURCES);
+		$raw = $this->settings->blocklistSources();
 		if ($raw !== $this->loadedFrom) {
 			$this->sources = self::fromStored($raw);
 			$this->loadedFrom = $raw;

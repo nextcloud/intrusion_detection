@@ -10,8 +10,8 @@ declare(strict_types=1);
 namespace OCA\IntrusionDetection\AdminChange;
 
 use OCA\IntrusionDetection\Check\Checks\AdminChange;
-use OCA\IntrusionDetection\Config\GlobalSettings;
-use OCA\IntrusionDetection\Config\Settings;
+use OCA\IntrusionDetection\Config\AppSettings;
+use OCA\IntrusionDetection\Config\CheckSettings;
 use OCA\IntrusionDetection\Definition\Mode;
 use OCP\IGroup;
 use OCP\IUser;
@@ -46,7 +46,8 @@ class AdminGrantGate {
 	private ?array $permitFacts = null;
 
 	public function __construct(
-		private readonly Settings $settings,
+		private readonly AppSettings $appSettings,
+		private readonly CheckSettings $settings,
 		private readonly ActorResolver $actors,
 		private readonly GrantPermit $permit,
 	) {
@@ -83,8 +84,8 @@ class AdminGrantGate {
 	}
 
 	public function isRequired(): bool {
-		return $this->settings->getBool(GlobalSettings::ADMIN_CHANGE_REQUIRE_APPROVAL)
-			&& $this->settings->isEnabled()
+		return $this->appSettings->adminChangeRequireApproval()
+			&& $this->appSettings->isEnabled()
 			&& $this->settings->configuredMode(AdminChange::ID) === Mode::Protect;
 	}
 

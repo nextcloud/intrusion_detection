@@ -11,8 +11,7 @@ namespace OCA\IntrusionDetection\Response;
 
 use OCA\IntrusionDetection\Cache\Caches;
 use OCA\IntrusionDetection\Check\CheckRegistry;
-use OCA\IntrusionDetection\Config\GlobalSettings;
-use OCA\IntrusionDetection\Config\Settings;
+use OCA\IntrusionDetection\Config\AppSettings;
 use OCA\IntrusionDetection\Db\KeyMatch;
 use OCA\IntrusionDetection\Db\LoginHistoryMapper;
 use OCA\IntrusionDetection\Db\LoginMapper;
@@ -66,7 +65,7 @@ class BanExemptions {
 	public function __construct(
 		private readonly LoginMapper $logins,
 		private readonly LoginHistoryMapper $history,
-		private readonly Settings $settings,
+		private readonly AppSettings $settings,
 		private readonly ProxySuspect $proxies,
 		private readonly ProtectedRanges $protected,
 		private readonly IGroupManager $groups,
@@ -189,7 +188,7 @@ class BanExemptions {
 	 * @param list<string> $uids
 	 */
 	private function sharedUsers(array $uids, int $now): int {
-		$threshold = $this->settings->getInt(GlobalSettings::BAN_SHARED_IP_USERS);
+		$threshold = $this->settings->banSharedIpUsers();
 		if ($threshold <= 0 || count($uids) < $threshold) {
 			return 0;
 		}

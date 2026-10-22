@@ -15,7 +15,6 @@ use OCA\IntrusionDetection\Blocklist\SourceRepository;
 use OCA\IntrusionDetection\Check\CheckRegistry;
 use OCA\IntrusionDetection\Check\Checks\BlocklistMatch;
 use OCA\IntrusionDetection\Config\GlobalSettings;
-use OCA\IntrusionDetection\Config\Settings;
 use OCA\IntrusionDetection\Db\DetectionFilter;
 use OCA\IntrusionDetection\Db\DetectionMapper;
 use OCA\IntrusionDetection\Definition\Mode;
@@ -38,15 +37,13 @@ class BlocklistLoginListenerTest extends IntegrationTestCase {
 	private const PASSWORD = 'Sup3r-Secret-Passw0rd!';
 	private const LOGIN = 'alice-secret-login';
 
-	private Settings $settings;
 	/** @var list<string> */
 	private array $logLines = [];
 
 	protected function setUp(): void {
 		parent::setUp();
-		$this->settings = Server::get(Settings::class);
-		$this->settings->setMode(BlocklistMatch::ID, Mode::Protect);
-		$this->settings->setGlobal(GlobalSettings::BLOCKLIST_SOURCES, json_encode([
+		$this->settingsEditor()->setMode(BlocklistMatch::ID, Mode::Protect);
+		$this->settingsEditor()->setGlobal(GlobalSettings::BLOCKLIST_SOURCES, json_encode([
 			['id' => 'spamhaus_drop_v4', 'enabled' => true, 'mode' => 'observe'],
 		]));
 	}
@@ -76,7 +73,7 @@ class BlocklistLoginListenerTest extends IntegrationTestCase {
 	}
 
 	public function testNothingRunsWhileTheCheckIsOff(): void {
-		$this->settings->setMode(BlocklistMatch::ID, Mode::Off);
+		$this->settingsEditor()->setMode(BlocklistMatch::ID, Mode::Off);
 		$this->listener('198.51.100.7', new Verdict(0, '', ['list:spamhaus_drop_v4'], time() + 300))->handle(new AnyLoginFailedEvent(self::LOGIN, self::PASSWORD));
 		$this->assertSame(0, $this->countDetections());
 	}
@@ -132,7 +129,7 @@ class BlocklistLoginListenerTest extends IntegrationTestCase {
 			}
 		};
 		return new BlocklistLoginListener(
-			$this->settings,
+			$this->checkSettings(),
 			new RemoteAddressResolver($request, $throttler, Server::get(ServerAddresses::class)),
 			$context,
 			Server::get(AddressCache::class),

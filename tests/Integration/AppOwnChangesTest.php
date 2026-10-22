@@ -14,7 +14,6 @@ use OCA\IntrusionDetection\AdminChange\WatchedSettings;
 use OCA\IntrusionDetection\AppInfo\Application;
 use OCA\IntrusionDetection\Audit\AuditLogger;
 use OCA\IntrusionDetection\Config\GlobalSettings;
-use OCA\IntrusionDetection\Config\Settings;
 use OCA\IntrusionDetection\Definition\Severity;
 use OCA\IntrusionDetection\Learning\LearningLimitException;
 use OCA\IntrusionDetection\Learning\LearningService;
@@ -69,7 +68,7 @@ class AppOwnChangesTest extends AdminChangeTestCase {
 		// The period is over: the hourly job ends it.
 		$later = $this->createMock(ITimeFactory::class);
 		$later->method('getTime')->willReturn($learning->until() + 60);
-		$expiring = new LearningService(Server::get(Settings::class), $later, Server::get(AuditLogger::class), Server::get(INotificationManager::class), Server::get(AppState::class));
+		$expiring = new LearningService($this->appSettings(), $this->settingsEditor(), $later, Server::get(AuditLogger::class), Server::get(INotificationManager::class), Server::get(AppState::class));
 		$this->assertTrue($expiring->expireIfDue());
 		$this->assertFalse($learning->isActive());
 
@@ -173,7 +172,7 @@ class AppOwnChangesTest extends AdminChangeTestCase {
 	}
 
 	public function testOtherSettingsChangedThroughTheAppAreStillReported(): void {
-		Server::get(Settings::class)->setGlobal(GlobalSettings::EVENTS_INCLUDE_IP, false);
+		$this->settingsEditor()->setGlobal(GlobalSettings::EVENTS_INCLUDE_IP, false);
 		$changes = $this->adminChanges();
 		$this->assertCount(1, $changes);
 		$this->assertSame(WatchedSettings::ownKey(GlobalSettings::EVENTS_INCLUDE_IP), $this->facts($changes[0])['setting']);

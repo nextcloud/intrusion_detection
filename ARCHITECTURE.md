@@ -14,8 +14,8 @@ enforces this on every test run.
 | adapters | `AppInfo`, `Listener`, `Guard`, `Middleware`, `Dav`, `Controller`, `Command`, `BackgroundJob`, `Settings`, `SetupCheck`, `Dashboard`, `Repair`, `Migration`, `Perf` | Turning core's events, requests, routes, jobs and occ calls into calls of the layers below. Thin. |
 | pages | `Admin`, `Personal` | What the admin and personal pages show, built from the features. |
 | features | `Check\Checks`, `Check\CredentialUse`, `Check\Payload`, `Address`, `AdminChange`, `Blocklist`, `Breach`, `Confirm`, `Decoy`, `Export`, `Guide`, `Incident`, `KnownDevice`, `Learning`, `LoginHistory`, `OpenMetrics`, `Privacy`, `Risk`, `SessionState`, `Share`, `StaleCredential`, `Takeover`, `Traps`, `TrustedNetwork`, `WasThisYou` | One check or one feature each: its definition, detection, texts and state. |
-| platform | `Check`, `Detection`, `Response`, `Explain`, `Event`, `Notification`, `Login` | The check registry and capability interfaces, recording detections, running responses, explanation texts, events and notifications. |
-| storage | `Db`, `Config` | Tables and mappers; settings, the config lexicon and its keys. |
+| platform | `Check`, `Configure`, `Detection`, `Response`, `Explain`, `Event`, `Notification`, `Login` | The check registry and capability interfaces, validated settings writes, recording detections, running responses, explanation texts, events and notifications. |
+| storage | `Db`, `Config` | Tables and mappers; reading the settings, the config lexicon and its keys. |
 | kernel | `Definition`, `Net`, `Crypto`, `Audit`, `Http`, `ResponseDefinitions`, `Sensitive`, `Cache`, `State` | The shared vocabulary, the memory caches and the app's internal state. Uses nothing above it. |
 
 ## Rules
@@ -33,6 +33,12 @@ enforces this on every test run.
   database lives above it, as `Db\KeyMatch::slash64sIn()` or
   `Response\ProxySuspect` do.
 - **Per-user config keys** are declared once, in `Config\UserKeys`.
+- **Reading settings builds no definition.** `Config\CheckSettings` (modes,
+  parameters, responses) and `Config\AppSettings` (typed getters of the
+  global settings) read with the static `LexiconData` only. Writes go
+  through `Configure\SettingsEditor`, the one place that validates against
+  `CheckRegistry` and dispatches `SettingChangedEvent`. A global setting that
+  belongs to a check is listed in that check's `CheckDefinition::$globals`.
 - **Memory caches come from `Cache\Caches`**, one namespace per consumer,
   declared by the consumer (its `CACHE` constant). `shared()` is the
   distributed cache when one is configured, else the local one;

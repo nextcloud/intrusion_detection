@@ -17,7 +17,6 @@ use OCA\IntrusionDetection\Cache\Caches;
 use OCA\IntrusionDetection\Check\Checks\ReservedName;
 use OCA\IntrusionDetection\Check\Checks\TrapUrl;
 use OCA\IntrusionDetection\Config\GlobalSettings;
-use OCA\IntrusionDetection\Config\Settings;
 use OCA\IntrusionDetection\Db\AttemptKind;
 use OCA\IntrusionDetection\Db\AttemptMapper;
 use OCA\IntrusionDetection\Db\Detection;
@@ -48,14 +47,12 @@ use Psr\Log\LoggerInterface;
 class RiskScorerTest extends IntegrationTestCase {
 	private const IP = '198.51.100.7';
 
-	private Settings $settings;
 	private RequestContext $context;
 	private ?ArrayCache $memory = null;
 
 	protected function setUp(): void {
 		parent::setUp();
-		$this->settings = Server::get(Settings::class);
-		$this->settings->setGlobal(GlobalSettings::RISK_ENABLED, true);
+		$this->settingsEditor()->setGlobal(GlobalSettings::RISK_ENABLED, true);
 		$this->context = new RequestContext();
 	}
 
@@ -143,7 +140,7 @@ class RiskScorerTest extends IntegrationTestCase {
 	}
 
 	public function testAnOfficeNetworkTakesTenPointsOff(): void {
-		$this->settings->setGlobal(GlobalSettings::RISKY_NETWORK_OFFICE_NETWORKS, ['198.51.100.0/24']);
+		$this->settingsEditor()->setGlobal(GlobalSettings::RISKY_NETWORK_OFFICE_NETWORKS, ['198.51.100.0/24']);
 		$this->context->setVerdict(new Verdict(0, '', ['tor', 'hosting']));
 		$risk = $this->scorer()->score(SourceKey::fromIp(self::IP));
 		$this->assertSame(-7, $risk->score);
@@ -167,7 +164,7 @@ class RiskScorerTest extends IntegrationTestCase {
 		$this->assertSame(3, $risk->lower(10), 'A quarter, rounded up');
 		$this->assertSame(2, $risk->lower(5), 'Limits never go below 2');
 
-		$this->settings->setGlobal(GlobalSettings::RISKY_NETWORK_OFFICE_NETWORKS, ['198.51.100.7']);
+		$this->settingsEditor()->setGlobal(GlobalSettings::RISKY_NETWORK_OFFICE_NETWORKS, ['198.51.100.7']);
 		$this->assertSame(5, $this->scorer()->score($source)->score);
 	}
 
@@ -181,7 +178,7 @@ class RiskScorerTest extends IntegrationTestCase {
 	}
 
 	public function testOffItIsNeutralAndAsksNothing(): void {
-		$this->settings->setGlobal(GlobalSettings::RISK_ENABLED, false);
+		$this->settingsEditor()->setGlobal(GlobalSettings::RISK_ENABLED, false);
 		$this->context->setVerdict(new Verdict(0, '', ['tor']));
 		$source = SourceKey::fromIp(self::IP);
 		$queries = $this->queries();
@@ -231,7 +228,7 @@ class RiskScorerTest extends IntegrationTestCase {
 		$logger = $this->createMock(LoggerInterface::class);
 		$logger->expects($this->once())->method('error');
 		$scorer = new RiskScorer(
-			$this->settings, $flags, Server::get(AttemptMapper::class), Server::get(DetectionMapper::class), $this->context,
+			$this->appSettings(), $flags, Server::get(AttemptMapper::class), Server::get(DetectionMapper::class), $this->context,
 			$this->addressCache(), $this->addresses(), new AttackTools(), $this->factory(), Server::get(ITimeFactory::class), $logger,
 		);
 		$this->assertEquals(RiskAssessment::neutral(), $scorer->score(SourceKey::fromIp(self::IP)));
@@ -239,7 +236,7 @@ class RiskScorerTest extends IntegrationTestCase {
 
 	private function scorer(): RiskScorer {
 		return new RiskScorer(
-			$this->settings,
+			$this->appSettings(),
 			Server::get(FlaggedSources::class),
 			Server::get(AttemptMapper::class),
 			Server::get(DetectionMapper::class),

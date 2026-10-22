@@ -12,8 +12,8 @@ namespace OCA\IntrusionDetection\AdminChange;
 use OCA\IntrusionDetection\AppInfo\Application;
 use OCA\IntrusionDetection\Check\Checks\AdminChange;
 use OCA\IntrusionDetection\Check\Checks\AdminChangeDetector;
+use OCA\IntrusionDetection\Config\CheckSettings;
 use OCA\IntrusionDetection\Config\ModeState;
-use OCA\IntrusionDetection\Config\Settings;
 use OCA\IntrusionDetection\Crypto\Fingerprinter;
 use OCA\IntrusionDetection\Db\ConfigSnapshotMapper;
 use OCA\IntrusionDetection\Definition\Mode;
@@ -51,7 +51,7 @@ class ConfigWatch {
 		private readonly ConfigSnapshotMapper $snapshots,
 		private readonly Fingerprinter $fingerprinter,
 		private readonly AdminChangeDetector $detector,
-		private readonly Settings $settings,
+		private readonly CheckSettings $settings,
 		private readonly ITimeFactory $timeFactory,
 		private readonly IAppManager $appManager,
 		private readonly AppState $state,

@@ -10,8 +10,8 @@ declare(strict_types=1);
 namespace OCA\IntrusionDetection\StaleCredential;
 
 use OCA\IntrusionDetection\AppInfo\Application;
+use OCA\IntrusionDetection\Config\AppSettings;
 use OCA\IntrusionDetection\Config\GlobalSettings;
-use OCA\IntrusionDetection\Config\Settings;
 use OCA\IntrusionDetection\Config\UserKeys;
 use OCA\IntrusionDetection\Db\StaleTokenMapper;
 use OCA\IntrusionDetection\State\AppState;
@@ -54,7 +54,7 @@ class StaleCredentialSweep {
 		private readonly StaleTokenMapper $mapper,
 		private readonly StaleCredentials $credentials,
 		private readonly StaleCredentialNotices $notices,
-		private readonly Settings $settings,
+		private readonly AppSettings $settings,
 		private readonly AppState $state,
 		private readonly IUserConfig $userConfig,
 		private readonly IUserManager $userManager,
@@ -125,7 +125,7 @@ class StaleCredentialSweep {
 	 * Days without use after which the daily job removes a credential; 0 when it does not.
 	 */
 	public function removeDays(): int {
-		$days = $this->settings->getInt(GlobalSettings::STALE_CREDENTIALS_REMOVE_DAYS);
+		$days = $this->settings->staleCredentialsRemoveDays();
 		return $days === 0 ? 0 : max(GlobalSettings::STALE_CREDENTIALS_MIN_REMOVE_DAYS, $days);
 	}
 

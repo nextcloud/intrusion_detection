@@ -11,7 +11,7 @@ namespace OCA\IntrusionDetection\Confirm\Reasons;
 
 use OCA\IntrusionDetection\Check\Checks\BreachedPassword;
 use OCA\IntrusionDetection\Check\Checks\BreachedPasswordDetector;
-use OCA\IntrusionDetection\Config\Settings;
+use OCA\IntrusionDetection\Config\CheckSettings;
 use OCA\IntrusionDetection\Confirm\IStepUpReason;
 use OCA\IntrusionDetection\Confirm\LoginContext;
 use OCA\IntrusionDetection\Confirm\StepUpPolicy;
@@ -26,7 +26,7 @@ use Psr\Container\ContainerInterface;
  */
 class BreachedPasswordReason implements IStepUpReason {
 	public function __construct(
-		private readonly Settings $settings,
+		private readonly CheckSettings $settings,
 		private readonly ContainerInterface $container,
 	) {
 	}

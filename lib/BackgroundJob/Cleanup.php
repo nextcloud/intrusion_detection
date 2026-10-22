@@ -9,8 +9,7 @@ declare(strict_types=1);
 
 namespace OCA\IntrusionDetection\BackgroundJob;
 
-use OCA\IntrusionDetection\Config\GlobalSettings;
-use OCA\IntrusionDetection\Config\Settings;
+use OCA\IntrusionDetection\Config\AppSettings;
 use OCA\IntrusionDetection\Confirm\AbandonedLogins;
 use OCA\IntrusionDetection\Db\AlertMapper;
 use OCA\IntrusionDetection\Db\AttemptMapper;
@@ -66,7 +65,7 @@ class Cleanup extends TimedJob {
 		private readonly LoginMapper $logins,
 		private readonly BanMapper $bans,
 		private readonly FlagMapper $flags,
-		private readonly Settings $settings,
+		private readonly AppSettings $settings,
 		private readonly ProtectedAccountMapper $protectedAccounts,
 		private readonly AlertMapper $alerts,
 		private readonly ResetMailSuppressor $resetMails,
@@ -93,7 +92,7 @@ class Cleanup extends TimedJob {
 	#[\Override]
 	protected function run(mixed $argument): void {
 		$now = $this->time->getTime();
-		$retainedSince = $now - $this->settings->getInt(GlobalSettings::RETENTION_DETECTIONS_DAYS) * 86400;
+		$retainedSince = $now - $this->settings->retentionDays() * 86400;
 		$steps = [
 			// Before ended blocks are deleted below.
 			'ended_bans' => fn () => $this->flagEndedBans($now),
@@ -102,7 +101,7 @@ class Cleanup extends TimedJob {
 			'logins' => fn (): int => $this->logins->deleteOlderThan(intdiv($now - 86400, 3600)),
 			'detections' => fn (): int => $this->detectionTotals->deleteCreatedBefore($retainedSince),
 			'detection_totals' => fn (): int => $this->detectionTotals->retireBefore($now - DetectionTotals::ROLLUP_DAYS * 86400),
-			'bans' => fn (): int => $this->bans->deleteEndedBefore($now - max(self::BAN_HISTORY, $this->settings->getInt(GlobalSettings::BAN_HISTORY_DAYS) * 86400)),
+			'bans' => fn (): int => $this->bans->deleteEndedBefore($now - max(self::BAN_HISTORY, $this->settings->banHistoryDays() * 86400)),
 			'flags' => fn (): int => $this->flags->deleteExpired($now),
 			'protected_accounts' => fn (): int => $this->protectedAccounts->deleteExpired($now),
 			'alerts' => fn (): int => $this->alerts->deleteOlderThan($now - self::ALERT_RETENTION),

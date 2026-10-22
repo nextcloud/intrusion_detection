@@ -13,7 +13,6 @@ use OC\Memcache\ArrayCache;
 use OCA\IntrusionDetection\Check\CheckRegistry;
 use OCA\IntrusionDetection\Check\Checks\CredentialStuffing;
 use OCA\IntrusionDetection\Config\GlobalSettings;
-use OCA\IntrusionDetection\Config\Settings;
 use OCA\IntrusionDetection\Db\AlertMapper;
 use OCA\IntrusionDetection\Db\Detection;
 use OCA\IntrusionDetection\Db\DetectionMapper;
@@ -79,7 +78,7 @@ class AdminAlertsTest extends IntegrationTestCase {
 			$this->recipients,
 			$this->notifications,
 			$this->mails,
-			Server::get(Settings::class),
+			$this->appSettings(),
 			Server::get(NarrativeBuilder::class),
 			Server::get(CheckRegistry::class),
 			Server::get(UserMessages::class),
@@ -109,7 +108,7 @@ class AdminAlertsTest extends IntegrationTestCase {
 		$recipients = $this->createMock(AdminRecipients::class);
 		$recipients->expects($this->once())->method('users')->willReturn([$this->admin('alice', 'alice@example.com'), $this->admin('bob', null)]);
 		$alerts = new AdminAlerts(
-			Server::get(AlertMapper::class), $recipients, $this->notifications, $this->mails, Server::get(Settings::class),
+			Server::get(AlertMapper::class), $recipients, $this->notifications, $this->mails, $this->appSettings(),
 			Server::get(NarrativeBuilder::class), Server::get(CheckRegistry::class), Server::get(UserMessages::class),
 			Server::get(AdminLinks::class), Server::get(ITimeFactory::class), Server::get(MailQueue::class),
 		);
@@ -177,9 +176,9 @@ class AdminAlertsTest extends IntegrationTestCase {
 	}
 
 	public function testTheEmailSeverityIsASetting(): void {
-		Server::get(Settings::class)->setGlobal(GlobalSettings::NOTIFY_ADMIN_EMAIL_MIN_SEVERITY, 'medium');
+		$this->settingsEditor()->setGlobal(GlobalSettings::NOTIFY_ADMIN_EMAIL_MIN_SEVERITY, 'medium');
 		$this->assertSame(AdminAlerts::EMAIL_QUEUED, $this->alerts->alert($this->detection('198.51.100.7', Severity::Medium))['email']);
-		Server::get(Settings::class)->setGlobal(GlobalSettings::NOTIFY_ADMIN_EMAIL_MIN_SEVERITY, 'never');
+		$this->settingsEditor()->setGlobal(GlobalSettings::NOTIFY_ADMIN_EMAIL_MIN_SEVERITY, 'never');
 		$this->assertSame(AdminAlerts::EMAIL_BELOW_SEVERITY, $this->alerts->alert($this->detection('198.51.100.9', Severity::Critical))['email']);
 	}
 
@@ -187,7 +186,7 @@ class AdminAlertsTest extends IntegrationTestCase {
 		$recipients = $this->createMock(AdminRecipients::class);
 		$recipients->method('users')->willReturn([$this->admin('carol', null)]);
 		$alerts = new AdminAlerts(
-			Server::get(AlertMapper::class), $recipients, $this->notifications, $this->mails, Server::get(Settings::class),
+			Server::get(AlertMapper::class), $recipients, $this->notifications, $this->mails, $this->appSettings(),
 			Server::get(NarrativeBuilder::class), Server::get(CheckRegistry::class), Server::get(UserMessages::class),
 			Server::get(AdminLinks::class), Server::get(ITimeFactory::class), Server::get(MailQueue::class),
 		);
@@ -206,9 +205,9 @@ class AdminAlertsTest extends IntegrationTestCase {
 		$groups->method('get')->willReturn($group);
 		$cache = new ArrayCache('ids-test-recipients');
 		$factory = new FixedCaches(null, $cache);
-		$recipients = new AdminRecipients(Server::get(Settings::class), $groups, $factory);
+		$recipients = new AdminRecipients($this->appSettings(), $groups, $factory);
 		$alerts = new AdminAlerts(
-			Server::get(AlertMapper::class), $recipients, $this->notifications, $this->mails, Server::get(Settings::class),
+			Server::get(AlertMapper::class), $recipients, $this->notifications, $this->mails, $this->appSettings(),
 			Server::get(NarrativeBuilder::class), Server::get(CheckRegistry::class), Server::get(UserMessages::class),
 			Server::get(AdminLinks::class), Server::get(ITimeFactory::class), Server::get(MailQueue::class),
 		);
@@ -222,7 +221,7 @@ class AdminAlertsTest extends IntegrationTestCase {
 		$mails = $this->createMock(Mails::class);
 		$mails->method('send')->willReturn(false);
 		$alerts = new AdminAlerts(
-			Server::get(AlertMapper::class), $this->recipients, $this->notifications, $mails, Server::get(Settings::class),
+			Server::get(AlertMapper::class), $this->recipients, $this->notifications, $mails, $this->appSettings(),
 			Server::get(NarrativeBuilder::class), Server::get(CheckRegistry::class), Server::get(UserMessages::class),
 			Server::get(AdminLinks::class), Server::get(ITimeFactory::class), Server::get(MailQueue::class),
 		);

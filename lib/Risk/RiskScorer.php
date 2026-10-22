@@ -16,8 +16,7 @@ use OCA\IntrusionDetection\Cache\Caches;
 use OCA\IntrusionDetection\Check\Checks\BlocklistMatch;
 use OCA\IntrusionDetection\Check\Checks\ReservedName;
 use OCA\IntrusionDetection\Check\Checks\TrapUrl;
-use OCA\IntrusionDetection\Config\GlobalSettings;
-use OCA\IntrusionDetection\Config\Settings;
+use OCA\IntrusionDetection\Config\AppSettings;
 use OCA\IntrusionDetection\Db\AttemptKind;
 use OCA\IntrusionDetection\Db\AttemptMapper;
 use OCA\IntrusionDetection\Db\DetectionMapper;
@@ -76,7 +75,7 @@ class RiskScorer {
 	private const CACHE_PREFIX = 'risk:';
 
 	public function __construct(
-		private readonly Settings $settings,
+		private readonly AppSettings $settings,
 		private readonly FlaggedSources $flags,
 		private readonly AttemptMapper $attempts,
 		private readonly DetectionMapper $detections,
@@ -91,7 +90,7 @@ class RiskScorer {
 	}
 
 	public function isEnabled(): bool {
-		return $this->settings->getBool(GlobalSettings::RISK_ENABLED);
+		return $this->settings->riskEnabled();
 	}
 
 	public function score(SourceKey $source): RiskAssessment {
@@ -193,7 +192,7 @@ class RiskScorer {
 			$add(RiskAssessment::FACT_FAILURES, (string)$facts['failures'], $steps);
 		}
 
-		$office = RangeCodec::firstContaining($this->list(GlobalSettings::RISKY_NETWORK_OFFICE_NETWORKS), $source);
+		$office = RangeCodec::firstContaining($this->settings->riskyNetworkOfficeNetworks(), $source);
 		if ($office !== null) {
 			$add(RiskAssessment::FACT_OFFICE, $office);
 		}
@@ -251,13 +250,5 @@ class RiskScorer {
 			}
 		}
 		return true;
-	}
-
-	/**
-	 * @return list<string>
-	 */
-	private function list(string $setting): array {
-		$value = $this->settings->global($setting);
-		return is_array($value) ? $value : [];
 	}
 }

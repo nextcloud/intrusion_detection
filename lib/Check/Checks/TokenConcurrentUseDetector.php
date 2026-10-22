@@ -11,7 +11,7 @@ namespace OCA\IntrusionDetection\Check\Checks;
 
 use OCA\IntrusionDetection\Check\CredentialUse\CredentialSwitch;
 use OCA\IntrusionDetection\Check\CredentialUse\PresentedCredential;
-use OCA\IntrusionDetection\Config\Settings;
+use OCA\IntrusionDetection\Config\CheckSettings;
 use OCA\IntrusionDetection\Db\Detection;
 use OCA\IntrusionDetection\Detection\DetectionDraft;
 use OCA\IntrusionDetection\KnownDevice\IKnownDevices;
@@ -34,7 +34,7 @@ class TokenConcurrentUseDetector {
 	public const MERGE_WINDOW = 3600;
 
 	public function __construct(
-		private readonly Settings $settings,
+		private readonly CheckSettings $settings,
 		private readonly ResponseEngine $engine,
 		private readonly Tokens $tokens,
 		private readonly IKnownDevices $knownDevices,

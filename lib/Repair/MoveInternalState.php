@@ -14,7 +14,7 @@ use OCA\IntrusionDetection\AppInfo\Application;
 use OCA\IntrusionDetection\BackgroundJob\Cleanup;
 use OCA\IntrusionDetection\Blocklist\StateStore;
 use OCA\IntrusionDetection\Check\Checks\CredentialStuffingDetector;
-use OCA\IntrusionDetection\Config\Settings;
+use OCA\IntrusionDetection\Configure\SettingsEditor;
 use OCA\IntrusionDetection\Confirm\ConfirmationCoverage;
 use OCA\IntrusionDetection\Detection\DetectionTotals;
 use OCA\IntrusionDetection\Learning\LearningService;
@@ -49,7 +49,7 @@ class MoveInternalState implements IRepairStep {
 		Cleanup::BANS_FLAGGED_STATE,
 		ConfirmationCoverage::USERS_STATE,
 		TrapNameCollisions::STATE,
-		Settings::LEVEL_STATE,
+		SettingsEditor::LEVEL_STATE,
 		StaleCredentialSweep::STATE,
 	];
 

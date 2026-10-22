@@ -11,8 +11,10 @@ namespace OCA\IntrusionDetection\Admin;
 
 use OCA\IntrusionDetection\AppInfo\Application;
 use OCA\IntrusionDetection\Check\CheckRegistry;
+use OCA\IntrusionDetection\Config\AppSettings;
+use OCA\IntrusionDetection\Config\CheckSettings;
 use OCA\IntrusionDetection\Config\GlobalSettings;
-use OCA\IntrusionDetection\Config\Settings;
+use OCA\IntrusionDetection\Configure\SettingsEditor;
 use OCA\IntrusionDetection\Definition\ResponseType;
 use OCA\IntrusionDetection\ResponseDefinitions;
 use OCP\App\IAppManager;
@@ -31,7 +33,9 @@ class SettingsTransfer {
 
 	public function __construct(
 		private readonly CheckRegistry $registry,
-		private readonly Settings $settings,
+		private readonly AppSettings $appSettings,
+		private readonly CheckSettings $settings,
+		private readonly SettingsEditor $editor,
 		private readonly GlobalSettings $globals,
 		private readonly GlobalSettingsPresenter $presenter,
 		private readonly IAppManager $appManager,
@@ -46,7 +50,7 @@ class SettingsTransfer {
 		$settings = [];
 		foreach (array_keys($this->globals->all()) as $name) {
 			if ($this->presenter->isEditable($name)) {
-				$settings[$name] = $this->settings->global($name);
+				$settings[$name] = $this->appSettings->value($name);
 			}
 		}
 		$checks = [];
@@ -71,13 +75,13 @@ class SettingsTransfer {
 	 */
 	public function resetAll(): void {
 		foreach ($this->registry->configurable() as $check) {
-			$this->settings->resetCheck($check->id);
+			$this->editor->resetCheck($check->id);
 		}
 		foreach (array_keys($this->globals->all()) as $name) {
 			if ($this->presenter->isEditable($name)) {
-				$this->settings->resetGlobal($name);
+				$this->editor->resetGlobal($name);
 			}
 		}
-		$this->settings->resetProtectionLevel();
+		$this->editor->resetProtectionLevel();
 	}
 }

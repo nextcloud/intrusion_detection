@@ -11,7 +11,7 @@ namespace OCA\IntrusionDetection\Command\Checks;
 
 use OC\Core\Command\Base;
 use OCA\IntrusionDetection\Check\CheckRegistry;
-use OCA\IntrusionDetection\Config\Settings;
+use OCA\IntrusionDetection\Config\CheckSettings;
 use OCA\IntrusionDetection\Definition\ResponseType;
 use OCP\IL10N;
 use Symfony\Component\Console\Helper\Table;
@@ -22,7 +22,7 @@ use Symfony\Component\Console\Output\OutputInterface;
 class ListChecks extends Base {
 	public function __construct(
 		private readonly CheckRegistry $registry,
-		private readonly Settings $settings,
+		private readonly CheckSettings $settings,
 		private readonly IL10N $l,
 	) {
 		parent::__construct();

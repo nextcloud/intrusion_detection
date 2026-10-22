@@ -11,7 +11,7 @@ namespace OCA\IntrusionDetection\Tests\Unit\Response;
 
 use OC\Memcache\ArrayCache;
 use OCA\IntrusionDetection\Check\CheckRegistry;
-use OCA\IntrusionDetection\Config\Settings;
+use OCA\IntrusionDetection\Config\AppSettings;
 use OCA\IntrusionDetection\Db\LoginHistoryMapper;
 use OCA\IntrusionDetection\Db\LoginMapper;
 use OCA\IntrusionDetection\Login\EstablishedAccounts;
@@ -86,8 +86,8 @@ class BanExemptionsTest extends TestCase {
 	}
 
 	private function exemptions(?ArrayCache $cache): BanExemptions {
-		$settings = $this->createMock(Settings::class);
-		$settings->method('getInt')->willReturn(5);
+		$settings = $this->createMock(AppSettings::class);
+		$settings->method('banSharedIpUsers')->willReturn(5);
 		$factory = new FixedCaches(null, $cache);
 		$accounts = $this->createMock(EstablishedAccounts::class);
 		$accounts->method('count')->willReturnCallback(static fn (array $uids): int => count($uids));

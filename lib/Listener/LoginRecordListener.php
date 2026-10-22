@@ -9,7 +9,7 @@ declare(strict_types=1);
 
 namespace OCA\IntrusionDetection\Listener;
 
-use OCA\IntrusionDetection\Config\Settings;
+use OCA\IntrusionDetection\Config\AppSettings;
 use OCA\IntrusionDetection\Db\LoginMapper;
 use OCA\IntrusionDetection\Login\LoginGate;
 use OCA\IntrusionDetection\Net\RemoteAddressResolver;
@@ -34,7 +34,7 @@ use Psr\Log\LoggerInterface;
  */
 class LoginRecordListener implements IEventListener {
 	public function __construct(
-		private readonly Settings $settings,
+		private readonly AppSettings $settings,
 		private readonly LoginMapper $logins,
 		private readonly RemoteAddressResolver $addresses,
 		private readonly ITimeFactory $timeFactory,

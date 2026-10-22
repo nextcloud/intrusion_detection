@@ -281,7 +281,7 @@ class UserAlertsTest extends AccountTestCase {
 
 	public function testTheResponseRunsLastAndIsOnlyEnforcedInProtect(): void {
 		$user = $this->newUser('ids-notify', 'alice@example.com');
-		$this->settings->setMode(SecondFactorFailed::ID, Mode::Observe);
+		$this->settingsEditor()->setMode(SecondFactorFailed::ID, Mode::Observe);
 		$this->engine()->handle(new DetectionDraft(SecondFactorFailed::ID, SourceKey::fromIp('198.51.100.7'), $user->getUID()), [ResponseType::NotifyUser]);
 		$this->assertSame([], $this->mailed, 'Observe tells nobody');
 	}

@@ -270,7 +270,7 @@ class SecureAccountGuideTest extends AccountTestCase {
 			$this->guide,
 			new SecureAccountOverview($this->guide, Server::get(SecurityChangeMapper::class), Server::get(\OCA\IntrusionDetection\Db\TokenOriginMapper::class), $this->tokens, $this->currentSession, Server::get(\OCP\Share\IManager::class), Server::get(\OCP\App\IAppManager::class), Server::get(IURLGenerator::class), Server::get(ITimeFactory::class), Server::get(LoggerInterface::class)),
 			Server::get(SecurityChangeMapper::class),
-			$this->settings,
+			$this->appSettings(),
 			Server::get(ITimeFactory::class),
 			Server::get(PersonalOverview::class),
 			Server::get(LogOutElsewhere::class),

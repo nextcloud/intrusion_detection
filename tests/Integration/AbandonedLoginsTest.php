@@ -97,7 +97,7 @@ class AbandonedLoginsTest extends StepUpTestCase {
 		$token = $this->startSession($this->alice);
 		$this->login($this->alice);
 		$historyId = Server::get(LoginHistoryMapper::class)->insert($this->alice->getUID(), time(), SourceKey::fromIp($this->remoteAddress), null, LoginHistory::METHOD_PASSWORD, false, 'none', LoginHistory::STEP_UP_PENDING, $token['id']);
-		$this->settings->setGlobal(GlobalSettings::ENABLED, false);
+		$this->settingsEditor()->setGlobal(GlobalSettings::ENABLED, false);
 		$this->moveDeadline(time() - 1);
 
 		$this->assertSame(1, $this->abandoned()->end());
@@ -107,7 +107,7 @@ class AbandonedLoginsTest extends StepUpTestCase {
 		$this->assertSame([$historyId, LoginHistory::STEP_UP_FAILED], [$row->id, $row->stepUp]);
 		$this->assertSame(1, $this->unconfirmedRows(), 'Kept, so that the session cannot come back');
 
-		$this->settings->setGlobal(GlobalSettings::ENABLED, true);
+		$this->settingsEditor()->setGlobal(GlobalSettings::ENABLED, true);
 		$this->assertSame(0, $this->abandoned()->end(), 'Turning protection back on tells nobody days later');
 		$this->assertSame([], $this->detectionsOf(StepUpFailed::ID));
 	}
@@ -176,7 +176,7 @@ class AbandonedLoginsTest extends StepUpTestCase {
 			Server::get(LoginHistoryMapper::class),
 			$this->engine(),
 			Server::get(StepUpFailed::class),
-			$this->settings,
+			$this->appSettings(), $this->checkSettings(),
 			Server::get(ITimeFactory::class),
 			Server::get(AuditLogger::class),
 			Server::get(LoggerInterface::class),

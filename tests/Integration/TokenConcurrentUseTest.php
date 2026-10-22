@@ -18,7 +18,6 @@ use OCA\IntrusionDetection\Check\CredentialUse\CredentialUseResolver;
 use OCA\IntrusionDetection\Config\GlobalSettings;
 use OCA\IntrusionDetection\Config\ModeState;
 use OCA\IntrusionDetection\Config\Prerequisites;
-use OCA\IntrusionDetection\Config\Settings;
 use OCA\IntrusionDetection\Db\Detection;
 use OCA\IntrusionDetection\Db\DetectionFilter;
 use OCA\IntrusionDetection\Db\DetectionMapper;
@@ -34,9 +33,7 @@ use OCA\IntrusionDetection\Explain\TextRenderer;
 use OCA\IntrusionDetection\Notification\UserMessages;
 use OCA\IntrusionDetection\SessionState\Rules\CredentialUseRule;
 use OCA\IntrusionDetection\SessionState\SessionStateRules;
-use OCP\AppFramework\Utility\ITimeFactory;
 use OCP\Authentication\Token\IToken;
-use OCP\EventDispatcher\IEventDispatcher;
 use OCP\IAppConfig;
 use OCP\IConfig;
 use OCP\L10N\IFactory;
@@ -89,7 +86,7 @@ class TokenConcurrentUseTest extends CredentialUseTestCase {
 	}
 
 	public function testTheAppPasswordCanBeRevokedAtOnce(): void {
-		$this->settings->setResponses(TokenConcurrentUse::ID, [ResponseType::RevokeToken, ResponseType::NotifyUser]);
+		$this->settingsEditor()->setResponses(TokenConcurrentUse::ID, [ResponseType::RevokeToken, ResponseType::NotifyUser]);
 		$user = $this->newUser('ids-cu', 'cu@example.com');
 		$token = $this->token($user, IToken::PERMANENT_TOKEN, 'Phone');
 		$child = $this->token($user, IToken::PERMANENT_TOKEN, 'Created with the phone');
@@ -124,7 +121,7 @@ class TokenConcurrentUseTest extends CredentialUseTestCase {
 	}
 
 	public function testABrowserSessionUsedFromTwoNetworksIsReportedAndCanBeEnded(): void {
-		$this->settings->setResponses(TokenConcurrentUse::ID, [ResponseType::RevokeToken, ResponseType::NotifyUser]);
+		$this->settingsEditor()->setResponses(TokenConcurrentUse::ID, [ResponseType::RevokeToken, ResponseType::NotifyUser]);
 		$user = $this->newUser('ids-cu', 'cu@example.com');
 		$session = $this->token($user, IToken::TEMPORARY_TOKEN, self::FIREFOX);
 
@@ -213,8 +210,8 @@ class TokenConcurrentUseTest extends CredentialUseTestCase {
 	}
 
 	public function testObserveRecordsWhatWouldHaveBeenDone(): void {
-		$this->settings->setMode(TokenConcurrentUse::ID, Mode::Observe);
-		$this->settings->setResponses(TokenConcurrentUse::ID, [ResponseType::RevokeToken, ResponseType::NotifyAdmin, ResponseType::NotifyUser]);
+		$this->settingsEditor()->setMode(TokenConcurrentUse::ID, Mode::Observe);
+		$this->settingsEditor()->setResponses(TokenConcurrentUse::ID, [ResponseType::RevokeToken, ResponseType::NotifyAdmin, ResponseType::NotifyUser]);
 		$user = $this->newUser('ids-cu', 'cu@example.com');
 		$token = $this->token($user, IToken::PERMANENT_TOKEN, 'Phone');
 		$this->pingPong($this->basic($user->getUID(), $token['secret']), [], $this->appPasswordLogin($user, $token));
@@ -231,12 +228,12 @@ class TokenConcurrentUseTest extends CredentialUseTestCase {
 	public function testOffAndLearningMode(): void {
 		$user = $this->newUser('ids-cu');
 		$token = $this->token($user, IToken::PERMANENT_TOKEN, 'Phone');
-		$this->settings->setMode(TokenConcurrentUse::ID, Mode::Off);
+		$this->settingsEditor()->setMode(TokenConcurrentUse::ID, Mode::Off);
 		$this->pingPong($this->basic($user->getUID(), $token['secret']), [], $this->appPasswordLogin($user, $token));
 		$this->assertSame([], $this->detectionsOf(TokenConcurrentUse::ID));
 		$this->assertSame([], $this->cachedKeys(), 'Off: nothing is tracked');
 
-		$this->settings->setMode(TokenConcurrentUse::ID, Mode::Protect);
+		$this->settingsEditor()->setMode(TokenConcurrentUse::ID, Mode::Protect);
 		Server::get(IAppConfig::class)->setValueInt(Application::APP_ID, GlobalSettings::LEARNING_UNTIL, time() + 86400);
 		$this->pingPong($this->basic($user->getUID(), $token['secret']), [], $this->appPasswordLogin($user, $token));
 		$detection = $this->only();
@@ -260,28 +257,21 @@ class TokenConcurrentUseTest extends CredentialUseTestCase {
 	}
 
 	public function testUnavailableWithoutAMemoryCache(): void {
-		$settings = new Settings(
-			Server::get(IAppConfig::class),
-			Server::get(CheckRegistry::class),
-			Server::get(ITimeFactory::class),
-			new Prerequisites($this->cacheFactory(null), Server::get(IConfig::class)),
-			Server::get(GlobalSettings::class),
-			Server::get(IEventDispatcher::class),
-			Server::get(\OCA\IntrusionDetection\State\AppState::class),
-		);
+		$prerequisites = new Prerequisites($this->cacheFactory(null), Server::get(IConfig::class));
+		[$settings, $editor] = $this->settingsOn($prerequisites);
 		$state = $settings->modeState(TokenConcurrentUse::ID);
 		$this->assertSame(Mode::Protect, $state->configured);
 		$this->assertSame(Mode::Off, $state->effective);
 		$this->assertSame(ModeState::REASON_REQUIREMENT, $state->reason);
 		$this->assertSame(Requirement::MemoryCache, $state->missing);
 		try {
-			$settings->setMode(TokenConcurrentUse::ID, Mode::Observe);
+			$editor->setMode(TokenConcurrentUse::ID, Mode::Observe);
 			$this->fail('Cannot be switched on');
 		} catch (InvalidParamException $e) {
 			$this->assertSame('mode_unavailable', $e->reason);
 			$this->assertSame(['why' => 'memory_cache'], $e->details);
 		}
-		$presented = (new CheckPresenter($settings, new Prerequisites($this->cacheFactory(null), Server::get(IConfig::class)), Server::get(TextRenderer::class)))
+		$presented = (new CheckPresenter($settings, $prerequisites, Server::get(TextRenderer::class)))
 			->present(Server::get(CheckRegistry::class)->get(TokenConcurrentUse::ID), Server::get(IFactory::class)->get(Application::APP_ID, 'en'));
 		$this->assertSame([['id' => 'memory_cache', 'met' => false, 'text' => Requirement::MemoryCache->describe(Server::get(IFactory::class)->get(Application::APP_ID, 'en'))]], $presented['requirements']);
 		$this->assertStringContainsString('With APCu only, each web server sees only its own requests', $presented['cost']['text']);

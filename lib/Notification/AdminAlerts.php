@@ -11,8 +11,7 @@ namespace OCA\IntrusionDetection\Notification;
 
 use OCA\IntrusionDetection\AppInfo\Application;
 use OCA\IntrusionDetection\Check\CheckRegistry;
-use OCA\IntrusionDetection\Config\GlobalSettings;
-use OCA\IntrusionDetection\Config\Settings;
+use OCA\IntrusionDetection\Config\AppSettings;
 use OCA\IntrusionDetection\Db\AlertMapper;
 use OCA\IntrusionDetection\Db\Detection;
 use OCA\IntrusionDetection\Definition\Severity;
@@ -65,7 +64,7 @@ class AdminAlerts {
 		private readonly AdminRecipients $recipients,
 		private readonly INotificationManager $notifications,
 		private readonly Mails $mails,
-		private readonly Settings $settings,
+		private readonly AppSettings $settings,
 		private readonly NarrativeBuilder $narratives,
 		private readonly CheckRegistry $registry,
 		private readonly UserMessages $messages,
@@ -171,7 +170,7 @@ class AdminAlerts {
 	 * @param \Closure(): list<IUser> $recipients
 	 */
 	private function email(Detection $detection, \Closure $recipients, bool $allAdmins, int $bucket, int $now): string {
-		$minimum = Severity::tryFrom((string)$this->settings->global(GlobalSettings::NOTIFY_ADMIN_EMAIL_MIN_SEVERITY));
+		$minimum = Severity::tryFrom($this->settings->notifyAdminEmailMinSeverity());
 		$severity = Severity::tryFrom($detection->getSeverity());
 		if ($minimum === null || $severity === null || !$severity->atLeast($minimum)) {
 			return self::EMAIL_BELOW_SEVERITY;

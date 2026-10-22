@@ -13,9 +13,10 @@ use OC\SystemConfig;
 use OCA\IntrusionDetection\Admin\GlobalSettingsPresenter;
 use OCA\IntrusionDetection\AppInfo\Application;
 use OCA\IntrusionDetection\Check\CheckRegistry;
+use OCA\IntrusionDetection\Config\AppSettings;
+use OCA\IntrusionDetection\Config\CheckSettings;
 use OCA\IntrusionDetection\Config\GlobalSettings;
 use OCA\IntrusionDetection\Config\Keys;
-use OCA\IntrusionDetection\Config\Settings;
 use OCA\IntrusionDetection\Definition\ResponseType;
 use OCA\IntrusionDetection\Net\ProtectedRanges;
 use OCP\IAppConfig;
@@ -58,7 +59,8 @@ class WatchedSettings {
 	public function __construct(
 		private readonly SystemConfig $systemConfig,
 		private readonly IAppConfig $appConfig,
-		private readonly Settings $settings,
+		private readonly AppSettings $appSettings,
+		private readonly CheckSettings $settings,
 		private readonly CheckRegistry $registry,
 		private readonly GlobalSettings $globals,
 		private readonly LoggerInterface $logger,
@@ -178,7 +180,7 @@ class WatchedSettings {
 				}
 			}
 		}
-		$label = (new GlobalSettingsPresenter($this->globals, $this->settings))->label($name, $l);
+		$label = (new GlobalSettingsPresenter($this->globals, $this->appSettings))->label($name, $l);
 		return $l->t('Intrusion detection: %s', [$label ?? $name]);
 	}
 
@@ -259,7 +261,7 @@ class WatchedSettings {
 		$stored = $this->appConfig->getAllValues(Application::APP_ID);
 		$values = [];
 		foreach (array_keys($this->globals->all()) as $name) {
-			$values[] = self::ownValue($name, $this->settings->global($name), $stored[$name] ?? null);
+			$values[] = self::ownValue($name, $this->appSettings->value($name), $stored[$name] ?? null);
 		}
 		foreach ($this->registry->all() as $check) {
 			$values[] = self::ownValue(Keys::mode($check->id), $this->settings->configuredMode($check->id)->value, $stored[Keys::mode($check->id)] ?? null);

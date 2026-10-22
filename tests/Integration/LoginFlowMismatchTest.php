@@ -54,7 +54,7 @@ class LoginFlowMismatchTest extends RequestEventTestCase {
 		$this->user = $this->user('ids-flow');
 		$this->trustedNetworks = Server::get(ITrustedNetworks::class);
 		$this->listen(LoginFlowV2GrantedEvent::class, new LoginFlowGrantedListener(
-			$this->settings,
+			$this->checkSettings(),
 			$this->addresses,
 			$this->detector(),
 			$this->request,
@@ -113,7 +113,7 @@ class LoginFlowMismatchTest extends RequestEventTestCase {
 	}
 
 	public function testMediumCanDisconnectTheDeviceWhenSwitchedOn(): void {
-		$this->settings->setParam(LoginFlowMismatch::ID, 'medium_revoke', true);
+		$this->settingsEditor()->setParam(LoginFlowMismatch::ID, 'medium_revoke', true);
 		$detection = $this->grant('203.0.113.5', '198.51.100.7');
 		$this->assertArrayHasKey(ResponseType::RevokeToken->value, $this->actions($detection));
 	}
@@ -169,13 +169,13 @@ class LoginFlowMismatchTest extends RequestEventTestCase {
 	}
 
 	public function testOffSkipsAllWork(): void {
-		$this->settings->setMode(LoginFlowMismatch::ID, Mode::Off);
+		$this->settingsEditor()->setMode(LoginFlowMismatch::ID, Mode::Off);
 		$this->grant('203.0.113.5', '198.51.100.7', 0, false);
 		$this->assertSame([], $this->detectionsOf(LoginFlowMismatch::ID));
 	}
 
 	public function testObserveRecordsWhatItWouldHaveDone(): void {
-		$this->settings->setGlobal(GlobalSettings::LEARNING_UNTIL, time() + 86400);
+		$this->settingsEditor()->setGlobal(GlobalSettings::LEARNING_UNTIL, time() + 86400);
 		$detection = $this->grant('203.0.113.5', '198.51.100.7');
 		$this->assertFalse($detection->isEnforced());
 		foreach ($detection->getActionList() as $action) {
@@ -225,7 +225,7 @@ class LoginFlowMismatchTest extends RequestEventTestCase {
 
 	private function detector(): LoginFlowMismatchDetector {
 		return new LoginFlowMismatchDetector(
-			$this->settings,
+			$this->checkSettings(),
 			Server::get(ResponseEngine::class),
 			Server::get(LoginFlowMismatch::class),
 			Server::get(AddressResolver::class),

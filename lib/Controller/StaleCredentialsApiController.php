@@ -10,7 +10,7 @@ declare(strict_types=1);
 namespace OCA\IntrusionDetection\Controller;
 
 use OCA\IntrusionDetection\AppInfo\Application;
-use OCA\IntrusionDetection\Config\Settings;
+use OCA\IntrusionDetection\Config\AppSettings;
 use OCA\IntrusionDetection\ResponseDefinitions;
 use OCA\IntrusionDetection\StaleCredential\StaleCredentialNotices;
 use OCA\IntrusionDetection\StaleCredential\StaleCredentials;
@@ -47,7 +47,7 @@ class StaleCredentialsApiController extends OCSController {
 		private readonly IUserSession $userSession,
 		private readonly StaleCredentials $credentials,
 		private readonly StaleCredentialNotices $notices,
-		private readonly Settings $settings,
+		private readonly AppSettings $settings,
 		private readonly IL10N $l,
 	) {
 		parent::__construct(Application::APP_ID, $request);

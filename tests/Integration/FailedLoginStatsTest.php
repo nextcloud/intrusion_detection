@@ -50,7 +50,7 @@ class FailedLoginStatsTest extends LoginFailureTestCase {
 	}
 
 	public function testNothingIsCountedWhileUsersDoNotHaveThePage(): void {
-		$this->settings->setGlobal(GlobalSettings::PERSONAL_PAGE_ENABLED, false);
+		$this->settingsEditor()->setGlobal(GlobalSettings::PERSONAL_PAGE_ENABLED, false);
 		$alice = $this->user('ids-fls-off');
 		$this->failLogin('203.0.113.5', $alice->getUID());
 		$this->assertSame(0, $this->rows(UserDailyMapper::TABLE));
@@ -180,7 +180,7 @@ class FailedLoginStatsTest extends LoginFailureTestCase {
 		};
 		$time = $this->createMock(ITimeFactory::class);
 		$time->method('getTime')->willReturnCallback(fn (): int => $this->now);
-		return new FailedLoginStats($mapper, $this->settings, $time);
+		return new FailedLoginStats($mapper, $this->appSettings(), $time);
 	}
 
 	/**

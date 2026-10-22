@@ -27,7 +27,7 @@ class NoSecretsRiskTest extends LoginFailureTestCase {
 	private const SECRET = 'Unguessable-Secret-Pa55word-4711';
 
 	public function testThePasswordAppearsInNoTableAndNoExplanation(): void {
-		$this->settings->setGlobal(GlobalSettings::RISK_ENABLED, true);
+		$this->settingsEditor()->setGlobal(GlobalSettings::RISK_ENABLED, true);
 		$this->userAgent = 'python-requests/2.31';
 		for ($i = 1; $i <= 5; $i++) {
 			$this->failLogin('198.51.100.7', 'user' . $i, self::SECRET);

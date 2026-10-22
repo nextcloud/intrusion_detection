@@ -11,8 +11,8 @@ namespace OCA\IntrusionDetection\Tests\Unit\Check\Payload;
 
 use OCA\IntrusionDetection\Check\Checks\InjectionProbe;
 use OCA\IntrusionDetection\Check\Payload\PayloadSettings;
+use OCA\IntrusionDetection\Config\CheckSettings;
 use OCA\IntrusionDetection\Config\ModeState;
-use OCA\IntrusionDetection\Config\Settings;
 use OCA\IntrusionDetection\Definition\Mode;
 use PHPUnit\Framework\Attributes\DataProvider;
 use Test\TestCase;
@@ -36,7 +36,7 @@ class PayloadSettingsTest extends TestCase {
 
 	#[DataProvider('modes')]
 	public function testAuthenticatedMode(ModeState $check, string $chosen, Mode $effective, ?string $reason): void {
-		$settings = $this->createMock(Settings::class);
+		$settings = $this->createMock(CheckSettings::class);
 		$settings->method('modeState')->with(InjectionProbe::ID)->willReturn($check);
 		$settings->method('param')->with(InjectionProbe::ID, InjectionProbe::PARAM_AUTHENTICATED_MODE)->willReturn($chosen);
 		$state = (new PayloadSettings($settings))->authenticatedMode();
@@ -45,7 +45,7 @@ class PayloadSettingsTest extends TestCase {
 	}
 
 	public function testRulesComeFromTheSettings(): void {
-		$settings = $this->createMock(Settings::class);
+		$settings = $this->createMock(CheckSettings::class);
 		$settings->method('paramInt')->willReturnMap([
 			[InjectionProbe::ID, InjectionProbe::PARAM_MIN_WEIGHT, 4],
 			[InjectionProbe::ID, InjectionProbe::PARAM_MAX_BYTES, 2048],

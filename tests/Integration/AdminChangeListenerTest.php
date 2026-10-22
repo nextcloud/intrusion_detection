@@ -237,7 +237,7 @@ class AdminChangeListenerTest extends AdminChangeTestCase {
 	}
 
 	public function testTheWholeChainThroughSettingsAndTheRegisteredListener(): void {
-		Server::get(\OCA\IntrusionDetection\Config\Settings::class)->setParam('credential_stuffing', 'window', 900);
+		$this->settingsEditor()->setParam('credential_stuffing', 'window', 900);
 		$changes = $this->adminChanges();
 		$this->assertCount(1, $changes);
 		$facts = $this->facts($changes[0]);

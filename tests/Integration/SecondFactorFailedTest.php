@@ -48,7 +48,7 @@ class SecondFactorFailedTest extends AccountTestCase {
 		parent::setUp();
 		$this->detections = Server::get(DetectionMapper::class);
 		$this->detector = new SecondFactorFailedDetector(
-			$this->settings,
+			$this->checkSettings(),
 			Server::get(AttemptRecorder::class),
 			Server::get(AttemptMapper::class),
 			Server::get(FlaggedSources::class),
@@ -193,7 +193,7 @@ class SecondFactorFailedTest extends AccountTestCase {
 	}
 
 	public function testObserveRecordsWhatWouldHaveBeenDoneAndTouchesNothing(): void {
-		$this->settings->setMode(SecondFactorFailed::ID, Mode::Observe);
+		$this->settingsEditor()->setMode(SecondFactorFailed::ID, Mode::Observe);
 		$pending = $this->startSession($this->user);
 		$this->userSession->expects($this->never())->method('logout');
 		$this->failChallenge();
@@ -208,7 +208,7 @@ class SecondFactorFailedTest extends AccountTestCase {
 	}
 
 	public function testOffRecordsNothing(): void {
-		$this->settings->setMode(SecondFactorFailed::ID, Mode::Off);
+		$this->settingsEditor()->setMode(SecondFactorFailed::ID, Mode::Off);
 		$this->startSession($this->user);
 		for ($i = 0; $i < 5; $i++) {
 			$this->assertFalse($this->failChallenge());

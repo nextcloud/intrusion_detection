@@ -61,7 +61,7 @@ class ResetProbingTest extends RequestEventTestCase {
 		parent::setUp();
 		$this->bans = Server::get(BanMapper::class);
 		$this->listen(PasswordResetRequestedEvent::class, new ResetRequestedListener(
-			$this->settings,
+			$this->checkSettings(),
 			$this->addresses,
 			Server::get(AttemptRecorder::class),
 			Server::get(ResetProbingDetector::class),
@@ -94,7 +94,7 @@ class ResetProbingTest extends RequestEventTestCase {
 	}
 
 	public function testAFloodHoldsBackFurtherEmailsWithTheSameAnswer(): void {
-		$this->settings->setParam(ResetProbing::ID, 'flood_min_requests', 3);
+		$this->settingsEditor()->setParam(ResetProbing::ID, 'flood_min_requests', 3);
 		$victim = $this->user('ids-reset-victim', 'victim@example.com');
 		$first = $this->askForReset('203.0.113.1', $victim->getUID());
 		$this->askForReset('203.0.113.2', 'victim@example.com');
@@ -141,7 +141,7 @@ class ResetProbingTest extends RequestEventTestCase {
 	}
 
 	public function testOnceTheTimeIsUsedUpTheResponseSaysEmailsAreSentAgain(): void {
-		$this->settings->setParam(ResetProbing::ID, 'flood_min_requests', 3);
+		$this->settingsEditor()->setParam(ResetProbing::ID, 'flood_min_requests', 3);
 		$victim = $this->user('ids-reset-victim', 'victim@example.com');
 		Server::get(ResetSuppressionMapper::class)->suppress($victim->getUID(), null, time() - ResetMailSuppressor::MAX_SUPPRESSION - 60, time() - 60);
 		for ($i = 1; $i <= 3; $i++) {
@@ -209,7 +209,7 @@ class ResetProbingTest extends RequestEventTestCase {
 	}
 
 	public function testOffSkipsAllWork(): void {
-		$this->settings->setMode(ResetProbing::ID, Mode::Off);
+		$this->settingsEditor()->setMode(ResetProbing::ID, Mode::Off);
 		$victim = $this->user('ids-reset-victim', 'victim@example.com');
 		$this->suppressor()->suppress($victim->getUID(), time() + 3600);
 		for ($i = 0; $i < 6; $i++) {
@@ -221,7 +221,7 @@ class ResetProbingTest extends RequestEventTestCase {
 	}
 
 	public function testObserveRecordsWhatItWouldHaveDone(): void {
-		$this->settings->setGlobal(GlobalSettings::LEARNING_UNTIL, time() + 86400);
+		$this->settingsEditor()->setGlobal(GlobalSettings::LEARNING_UNTIL, time() + 86400);
 		$victim = $this->user('ids-reset-victim', 'victim@example.com');
 		for ($i = 1; $i <= 5; $i++) {
 			$this->askForReset('203.0.113.' . $i, $victim->getUID());

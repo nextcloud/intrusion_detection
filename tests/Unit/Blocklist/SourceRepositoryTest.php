@@ -13,8 +13,7 @@ use OCA\IntrusionDetection\Blocklist\BlocklistSource;
 use OCA\IntrusionDetection\Blocklist\BuiltinSources;
 use OCA\IntrusionDetection\Blocklist\ListFormat;
 use OCA\IntrusionDetection\Blocklist\SourceRepository;
-use OCA\IntrusionDetection\Config\GlobalSettings;
-use OCA\IntrusionDetection\Config\Settings;
+use OCA\IntrusionDetection\Config\AppSettings;
 use OCA\IntrusionDetection\Crypto\Fingerprinter;
 use OCP\AppFramework\Utility\ITimeFactory;
 use OCP\IConfig;
@@ -26,8 +25,8 @@ class SourceRepositoryTest extends TestCase {
 
 	protected function setUp(): void {
 		parent::setUp();
-		$settings = $this->createMock(Settings::class);
-		$settings->method('global')->willReturnCallback(fn (string $name): string => $name === GlobalSettings::BLOCKLIST_SOURCES ? $this->stored : '');
+		$settings = $this->createMock(AppSettings::class);
+		$settings->method('blocklistSources')->willReturnCallback(fn (): string => $this->stored);
 		$config = $this->createMock(IConfig::class);
 		$config->method('getSystemValueString')->willReturn('instance-secret');
 		$this->repository = new SourceRepository($settings, new Fingerprinter($config, $this->createMock(ITimeFactory::class)));

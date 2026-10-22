@@ -12,8 +12,7 @@ namespace OCA\IntrusionDetection\Response;
 use OCA\IntrusionDetection\Address\AddressCache;
 use OCA\IntrusionDetection\Address\AddressResolver;
 use OCA\IntrusionDetection\Cache\KeyLock;
-use OCA\IntrusionDetection\Config\GlobalSettings;
-use OCA\IntrusionDetection\Config\Settings;
+use OCA\IntrusionDetection\Config\AppSettings;
 use OCA\IntrusionDetection\Db\Ban;
 use OCA\IntrusionDetection\Db\BanMapper;
 use OCA\IntrusionDetection\Db\KeyMatch;
@@ -64,7 +63,7 @@ class BanService {
 	public function __construct(
 		private readonly BanMapper $mapper,
 		private readonly BanExemptions $exemptions,
-		private readonly Settings $settings,
+		private readonly AppSettings $settings,
 		private readonly AddressCache $addressCache,
 		private readonly AddressResolver $resolver,
 		private readonly RemoteAddressResolver $addresses,
@@ -322,7 +321,7 @@ class BanService {
 	}
 
 	private function levelFor(string $banKey, int $now, ?int $forceLevel): int {
-		$historyDays = $this->settings->getInt(GlobalSettings::BAN_HISTORY_DAYS);
+		$historyDays = $this->settings->banHistoryDays();
 		$earlier = $this->mapper->countSince($banKey, $now - $historyDays * 86400);
 		$level = match (true) {
 			$earlier === 0 => 1,
@@ -346,7 +345,7 @@ class BanService {
 	 * for IPv4; the /48, else the /56, for IPv6.
 	 */
 	private function escalate(SourceKey $source, string $checkId, ?int $detectionId, ?string $uid, int $now): ?Ban {
-		$netAfter = $this->settings->getInt(GlobalSettings::BAN_NET_AFTER);
+		$netAfter = $this->settings->banNetAfter();
 		if ($netAfter < 1) {
 			return null;
 		}

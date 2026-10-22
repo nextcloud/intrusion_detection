@@ -14,8 +14,9 @@ use Psr\Log\LoggerInterface;
 
 /**
  * The reasons why a password login needs extra confirmation, in order.
- * Adding a reason means adding its provider to PROVIDERS; its policy then
- * gets its "no method" setting automatically.
+ * Adding a reason means adding its provider to PROVIDERS, and its policy's
+ * default outcome without a method to
+ * {@see \OCA\IntrusionDetection\Config\GlobalSettings::STEP_UP_NO_METHOD_DEFAULTS}.
  *
  * A provider that fails is logged and treated as not applying: a broken
  * reason must not lock everybody out.

@@ -16,8 +16,8 @@ use OCA\IntrusionDetection\Check\CheckRegistry;
 use OCA\IntrusionDetection\Check\Checks\CredentialStuffing;
 use OCA\IntrusionDetection\Config\GlobalSettings;
 use OCA\IntrusionDetection\Config\Keys;
-use OCA\IntrusionDetection\Config\ProtectionLevels;
-use OCA\IntrusionDetection\Config\Settings;
+use OCA\IntrusionDetection\Configure\ProtectionLevels;
+use OCA\IntrusionDetection\Configure\SettingsEditor;
 use OCA\IntrusionDetection\Controller\AdminApiController;
 use OCA\IntrusionDetection\Definition\Mode;
 use OCA\IntrusionDetection\Definition\ProtectionLevel;
@@ -51,14 +51,12 @@ class SettingChangesTest extends IntegrationTestCase {
 		'admin_trusted_networks_only', 'risky_network_exempt_groups', 'personal_page_enabled', 'stale_credentials_remove_days',
 	];
 
-	private Settings $settings;
 	/** @var list<array{0: string, 1: mixed, 2: mixed, 3: bool}> */
 	private array $events = [];
 	private \Closure $listener;
 
 	protected function setUp(): void {
 		parent::setUp();
-		$this->settings = Server::get(Settings::class);
 		$this->listener = function (SettingChangedEvent $event): void {
 			$this->events[] = [$event->getKey(), $event->getOldValue(), $event->getNewValue(), $event->isReported()];
 		};
@@ -73,19 +71,19 @@ class SettingChangesTest extends IntegrationTestCase {
 
 	public function testEveryWriteReportsTheEffectiveValuesBeforeAndAfter(): void {
 		$check = CredentialStuffing::ID;
-		$defaultResponses = array_map(static fn (ResponseType $r): string => $r->value, $this->settings->responses($check));
+		$defaultResponses = array_map(static fn (ResponseType $r): string => $r->value, $this->checkSettings()->responses($check));
 
-		$this->settings->setGlobal(GlobalSettings::BAN_DURATION_1, 7200);
-		$this->settings->setGlobal(GlobalSettings::BAN_DURATION_1, 7200);
-		$this->settings->setGlobal(GlobalSettings::EVENTS_INCLUDE_IP, false, reported: false);
-		$this->settings->setParam($check, 'window', 900);
-		$this->settings->setParam($check, 'window', 1200, reported: false);
-		$this->settings->setMode($check, Mode::Observe);
-		$this->settings->setResponses($check, [ResponseType::NotifyAdmin]);
-		$this->settings->resetParam($check, 'window');
-		$this->settings->resetGlobal(GlobalSettings::BAN_DURATION_1);
-		$this->settings->resetGlobal(GlobalSettings::EVENTS_INCLUDE_IP);
-		$this->settings->resetCheck($check);
+		$this->settingsEditor()->setGlobal(GlobalSettings::BAN_DURATION_1, 7200);
+		$this->settingsEditor()->setGlobal(GlobalSettings::BAN_DURATION_1, 7200);
+		$this->settingsEditor()->setGlobal(GlobalSettings::EVENTS_INCLUDE_IP, false, reported: false);
+		$this->settingsEditor()->setParam($check, 'window', 900);
+		$this->settingsEditor()->setParam($check, 'window', 1200, reported: false);
+		$this->settingsEditor()->setMode($check, Mode::Observe);
+		$this->settingsEditor()->setResponses($check, [ResponseType::NotifyAdmin]);
+		$this->settingsEditor()->resetParam($check, 'window');
+		$this->settingsEditor()->resetGlobal(GlobalSettings::BAN_DURATION_1);
+		$this->settingsEditor()->resetGlobal(GlobalSettings::EVENTS_INCLUDE_IP);
+		$this->settingsEditor()->resetCheck($check);
 
 		$this->assertSame([
 			['ban_duration_1', 14400, 7200, true],
@@ -100,12 +98,12 @@ class SettingChangesTest extends IntegrationTestCase {
 			['check_credential_stuffing_mode', 'observe', 'protect', true],
 			['check_credential_stuffing_responses', ['notify_admin'], $defaultResponses, true],
 		], $this->events);
-		$this->assertSame(ProtectionLevel::Custom, $this->settings->protectionLevel(), 'a block duration changed by hand');
+		$this->assertSame(ProtectionLevel::Custom, $this->settingsEditor()->protectionLevel(), 'a block duration changed by hand');
 	}
 
 	public function testSeveralValuesTogetherReportEachChange(): void {
-		$changes = $this->settings->updateCheck(CredentialStuffing::ID, Mode::Observe, ['window' => 600, 'min_failures' => 25], [ResponseType::NotifyAdmin]);
-		$globals = $this->settings->updateGlobals([GlobalSettings::BAN_DURATION_1 => 14400, GlobalSettings::BAN_DURATION_2 => 3600, GlobalSettings::DIGEST_FREQUENCY => 'daily']);
+		$changes = $this->settingsEditor()->updateCheck(CredentialStuffing::ID, Mode::Observe, ['window' => 600, 'min_failures' => 25], [ResponseType::NotifyAdmin]);
+		$globals = $this->settingsEditor()->updateGlobals([GlobalSettings::BAN_DURATION_1 => 14400, GlobalSettings::BAN_DURATION_2 => 3600, GlobalSettings::DIGEST_FREQUENCY => 'daily']);
 
 		$this->assertSame(['mode' => 'observe', 'params' => ['min_failures' => 25], 'responses' => ['notify_admin']], $changes);
 		$this->assertSame([GlobalSettings::BAN_DURATION_2 => 3600, GlobalSettings::DIGEST_FREQUENCY => 'daily'], $globals);
@@ -116,7 +114,7 @@ class SettingChangesTest extends IntegrationTestCase {
 			['ban_duration_2', 86400, 3600, true],
 			['digest_frequency', 'weekly', 'daily', true],
 		], $this->events);
-		$this->assertSame(ProtectionLevel::Custom, $this->settings->protectionLevel(), 'a limit changed by hand');
+		$this->assertSame(ProtectionLevel::Custom, $this->settingsEditor()->protectionLevel(), 'a limit changed by hand');
 	}
 
 	public function testAProtectionLevelReportsEachValueButNotTheLevel(): void {
@@ -124,8 +122,8 @@ class SettingChangesTest extends IntegrationTestCase {
 
 		$this->assertContains(['check_credential_stuffing_min_failures', 10, 5, true], $this->events);
 		$this->assertContains(['ban_duration_1', 14400, 28800, true], $this->events);
-		$this->assertSame([], array_values(array_filter($this->events, static fn (array $e): bool => $e[0] === Settings::LEVEL_STATE)));
-		$this->assertSame(ProtectionLevel::Strict, $this->settings->protectionLevel());
+		$this->assertSame([], array_values(array_filter($this->events, static fn (array $e): bool => $e[0] === SettingsEditor::LEVEL_STATE)));
+		$this->assertSame(ProtectionLevel::Strict, $this->settingsEditor()->protectionLevel());
 	}
 
 	public function testTheLearningPeriodIsReportedOnlyWhenItStartsOrIsExtended(): void {

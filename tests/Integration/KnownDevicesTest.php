@@ -103,12 +103,12 @@ class KnownDevicesTest extends StepUpTestCase {
 
 	public function testTheSettingsDecideWhetherADeviceCounts(): void {
 		$this->rememberDevice();
-		$this->settings->setGlobal(GlobalSettings::STEP_UP_KNOWN_DEVICE_OK_FOR, ['protected_account']);
+		$this->settingsEditor()->setGlobal(GlobalSettings::STEP_UP_KNOWN_DEVICE_OK_FOR, ['protected_account']);
 		$this->freshLogin();
 		$this->assertSame(['email_code'], $this->stepUp()?->methods);
 
-		$this->settings->setGlobal(GlobalSettings::STEP_UP_KNOWN_DEVICE_OK_FOR, ['flagged_source']);
-		$this->settings->setGlobal(GlobalSettings::KNOWN_DEVICE_ENABLED, false);
+		$this->settingsEditor()->setGlobal(GlobalSettings::STEP_UP_KNOWN_DEVICE_OK_FOR, ['flagged_source']);
+		$this->settingsEditor()->setGlobal(GlobalSettings::KNOWN_DEVICE_ENABLED, false);
 		$this->freshLogin();
 		$this->assertSame(['email_code'], $this->stepUp()?->methods, 'Switched off: no device is recognised');
 		$page = $this->verifyController()->show();

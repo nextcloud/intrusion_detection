@@ -69,11 +69,11 @@ class NoSecretsStepUpTest extends StepUpTestCase {
 		$sessionIds[] = $this->startSession($bob)['secret'];
 		$this->login($bob);
 		$this->verifyController()->show();
-		$this->settings->setGlobal(StepUpPolicy::FlaggedSource->settingKey(), 'allow_notify');
+		$this->settingsEditor()->setGlobal(StepUpPolicy::FlaggedSource->settingKey(), 'allow_notify');
 		$sessionIds[] = $this->startSession($bob)['secret'];
 		$this->login($bob);
 		$this->rule()->check($this->state, RequestTarget::dav('GET', '/'));
-		$this->settings->setGlobal(StepUpPolicy::FlaggedSource->settingKey(), 'refuse');
+		$this->settingsEditor()->setGlobal(StepUpPolicy::FlaggedSource->settingKey(), 'refuse');
 		$this->basicAuth($alice);
 		$this->session->clear();
 		$this->session->id = $sessionIds[] = bin2hex(random_bytes(32));

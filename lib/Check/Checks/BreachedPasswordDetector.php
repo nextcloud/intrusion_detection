@@ -11,7 +11,7 @@ namespace OCA\IntrusionDetection\Check\Checks;
 
 use OCA\IntrusionDetection\AppInfo\Application;
 use OCA\IntrusionDetection\Breach\PwnedPasswordsClient;
-use OCA\IntrusionDetection\Config\Settings;
+use OCA\IntrusionDetection\Config\CheckSettings;
 use OCA\IntrusionDetection\Config\UserKeys;
 use OCA\IntrusionDetection\Detection\DetectionDraft;
 use OCA\IntrusionDetection\Net\RemoteAddressResolver;
@@ -41,7 +41,7 @@ class BreachedPasswordDetector {
 	private array $results = [];
 
 	public function __construct(
-		private readonly Settings $settings,
+		private readonly CheckSettings $settings,
 		private readonly PwnedPasswordsClient $client,
 		private readonly IUserConfig $userConfig,
 		private readonly ResponseEngine $engine,

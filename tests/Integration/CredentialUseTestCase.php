@@ -12,13 +12,9 @@ namespace OCA\IntrusionDetection\Tests\Integration;
 use OC\AppFramework\Http\Request;
 use OC\Memcache\ArrayCache;
 use OCA\IntrusionDetection\Cache\Caches;
-use OCA\IntrusionDetection\Check\CheckRegistry;
 use OCA\IntrusionDetection\Check\Checks\TokenConcurrentUseDetector;
 use OCA\IntrusionDetection\Check\CredentialUse\CredentialTracker;
 use OCA\IntrusionDetection\Check\CredentialUse\CredentialUseResolver;
-use OCA\IntrusionDetection\Config\GlobalSettings;
-use OCA\IntrusionDetection\Config\Prerequisites;
-use OCA\IntrusionDetection\Config\Settings;
 use OCA\IntrusionDetection\Crypto\Fingerprinter;
 use OCA\IntrusionDetection\Guard\CredentialUseGuard;
 use OCA\IntrusionDetection\Guard\RequestContext;
@@ -35,8 +31,6 @@ use OCA\IntrusionDetection\SessionState\SessionState;
 use OCA\IntrusionDetection\Tests\Unit\Cache\FixedCaches;
 use OCP\AppFramework\Utility\ITimeFactory;
 use OCP\Authentication\Token\IProvider;
-use OCP\EventDispatcher\IEventDispatcher;
-use OCP\IAppConfig;
 use OCP\IConfig;
 use OCP\IMemcache;
 use OCP\IRequestId;
@@ -73,16 +67,7 @@ abstract class CredentialUseTestCase extends AccountTestCase {
 	protected function setUp(): void {
 		parent::setUp();
 		$this->cache = new ArrayCache();
-		$this->settings = new Settings(
-			Server::get(IAppConfig::class),
-			Server::get(CheckRegistry::class),
-			Server::get(ITimeFactory::class),
-			new Prerequisites($this->cacheFactory($this->cache), Server::get(IConfig::class)),
-			Server::get(GlobalSettings::class),
-			Server::get(IEventDispatcher::class),
-			Server::get(\OCA\IntrusionDetection\State\AppState::class),
-		);
-		$this->tracker = new CredentialTracker($this->cacheFactory($this->cache), $this->settings);
+		$this->tracker = new CredentialTracker($this->cacheFactory($this->cache), $this->checkSettings());
 		$this->now = time();
 		$this->cookieName = Server::get(IConfig::class)->getSystemValueString('instanceid');
 	}
@@ -117,7 +102,7 @@ abstract class CredentialUseTestCase extends AccountTestCase {
 		$container = new TestContainer();
 		$logger = $this->logger();
 
-		$guard = new TestCredentialUseGuard(Server::get(IConfig::class), $this->settings, new Fingerprinter(Server::get(IConfig::class), $time), $this->tracker, $context, $time, $container, $logger, Server::get(GuardTimer::class));
+		$guard = new TestCredentialUseGuard(Server::get(IConfig::class), $this->appSettings(), $this->checkSettings(), new Fingerprinter(Server::get(IConfig::class), $time), $this->tracker, $context, $time, $container, $logger, Server::get(GuardTimer::class));
 		$knownDevices = new class($this->forgotten) implements IKnownDevices {
 			/** @param list<array{string, int}> $calls */
 			public function __construct(
@@ -136,7 +121,7 @@ abstract class CredentialUseTestCase extends AccountTestCase {
 			CredentialTracker::class => $this->tracker,
 			ITimeFactory::class => $time,
 			RemoteAddressResolver::class => new RemoteAddressResolver($request, Server::get(IThrottler::class), Server::get(ServerAddresses::class)),
-			TokenConcurrentUseDetector::class => new TokenConcurrentUseDetector($this->settings, $this->engine(), Server::get(Tokens::class), $knownDevices),
+			TokenConcurrentUseDetector::class => new TokenConcurrentUseDetector($this->checkSettings(), $this->engine(), Server::get(Tokens::class), $knownDevices),
 			CredentialUseResolver::class => new CredentialUseResolver($context, $request, Server::get(IConfig::class), $container, $logger),
 		];
 

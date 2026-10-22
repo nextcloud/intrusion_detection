@@ -11,7 +11,6 @@ namespace OCA\IntrusionDetection\Tests\Integration;
 
 use OCA\IntrusionDetection\Check\CheckRegistry;
 use OCA\IntrusionDetection\Check\Checks\AdminChange;
-use OCA\IntrusionDetection\Config\Settings;
 use OCA\IntrusionDetection\Db\AlertMapper;
 use OCA\IntrusionDetection\Db\Detection;
 use OCA\IntrusionDetection\Db\DetectionMapper;
@@ -67,7 +66,7 @@ class AdminChangeAlertsTest extends IntegrationTestCase {
 			return [$this->admin('alice', 'alice@example.com'), $this->admin('carol', null)];
 		});
 		$this->alerts = new AdminAlerts(
-			Server::get(AlertMapper::class), $recipients, $notifications, $mails, Server::get(Settings::class),
+			Server::get(AlertMapper::class), $recipients, $notifications, $mails, $this->appSettings(),
 			Server::get(NarrativeBuilder::class), Server::get(CheckRegistry::class), Server::get(UserMessages::class),
 			Server::get(AdminLinks::class), Server::get(ITimeFactory::class), Server::get(MailQueue::class),
 		);

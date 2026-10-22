@@ -9,8 +9,7 @@ declare(strict_types=1);
 
 namespace OCA\IntrusionDetection\Event;
 
-use OCA\IntrusionDetection\Config\GlobalSettings;
-use OCA\IntrusionDetection\Config\Settings;
+use OCA\IntrusionDetection\Config\AppSettings;
 use OCA\IntrusionDetection\Db\Ban;
 use OCA\IntrusionDetection\Db\Detection;
 use OCA\IntrusionDetection\Notification\AdminLinks;
@@ -36,7 +35,7 @@ class EventPayloads {
 	public const MAX_BANS = 20;
 
 	public function __construct(
-		private readonly Settings $settings,
+		private readonly AppSettings $settings,
 		private readonly AdminLinks $links,
 		private readonly LoggerInterface $logger,
 	) {
@@ -126,7 +125,7 @@ class EventPayloads {
 	 * @return array<string, mixed>
 	 */
 	private function withIp(array $payload, string $key, ?string $value): array {
-		if ($this->settings->getBool(GlobalSettings::EVENTS_INCLUDE_IP)) {
+		if ($this->settings->eventsIncludeIp()) {
 			$payload[$key] = $value;
 		}
 		return $payload;

@@ -228,7 +228,7 @@ class StaleCredentialsTest extends AccountTestCase {
 	}
 
 	public function testAutomaticRemovalRemovesWhatIsOlderThanTheSettingAndTellsTheUserOnce(): void {
-		$this->settings->setGlobal(GlobalSettings::STALE_CREDENTIALS_REMOVE_DAYS, 120);
+		$this->settingsEditor()->setGlobal(GlobalSettings::STALE_CREDENTIALS_REMOVE_DAYS, 120);
 		$user = $this->newUser('stale-remove');
 		$gone = $this->credential($user, IToken::PERMANENT_TOKEN, 'Thunderbird', 130);
 		$goneBrowser = $this->credential($user, IToken::TEMPORARY_TOKEN, 'Firefox', 200, IToken::REMEMBER);
@@ -257,14 +257,14 @@ class StaleCredentialsTest extends AccountTestCase {
 
 	public function testAutomaticRemovalNeedsAtLeast90Days(): void {
 		try {
-			$this->settings->setGlobal(GlobalSettings::STALE_CREDENTIALS_REMOVE_DAYS, 30);
+			$this->settingsEditor()->setGlobal(GlobalSettings::STALE_CREDENTIALS_REMOVE_DAYS, 30);
 			$this->fail('30 days were accepted');
 		} catch (InvalidParamException $e) {
 			$this->assertSame('zero_or_at_least', $e->reason);
 		}
-		$this->settings->setGlobal(GlobalSettings::STALE_CREDENTIALS_REMOVE_DAYS, 90);
+		$this->settingsEditor()->setGlobal(GlobalSettings::STALE_CREDENTIALS_REMOVE_DAYS, 90);
 		$this->assertSame(90, $this->sweep()->removeDays());
-		$this->settings->setGlobal(GlobalSettings::STALE_CREDENTIALS_REMOVE_DAYS, 0);
+		$this->settingsEditor()->setGlobal(GlobalSettings::STALE_CREDENTIALS_REMOVE_DAYS, 0);
 		$this->assertSame(0, $this->sweep()->removeDays());
 	}
 
@@ -348,7 +348,7 @@ class StaleCredentialsTest extends AccountTestCase {
 		foreach (Server::get(StaleTokenMapper::class)->tokens($this->now - 90 * self::DAY, $user->getUID(), 0, 10) as $row) {
 			$this->assertSame(['id', 'uid', 'name', 'type', 'lastActivity'], array_keys($row));
 		}
-		$this->settings->setGlobal(GlobalSettings::STALE_CREDENTIALS_REMOVE_DAYS, 90);
+		$this->settingsEditor()->setGlobal(GlobalSettings::STALE_CREDENTIALS_REMOVE_DAYS, 90);
 		$this->sweep()->run();
 		$notifications = $this->notificationsFor($user->getUID());
 		$this->assertNotEmpty($notifications);
@@ -395,7 +395,7 @@ class StaleCredentialsTest extends AccountTestCase {
 			Server::get(StaleTokenMapper::class),
 			$this->credentials(),
 			new StaleCredentialNotices(Server::get(INotificationManager::class), $time),
-			$this->settings,
+			$this->appSettings(),
 			Server::get(AppState::class),
 			Server::get(IUserConfig::class),
 			Server::get(IUserManager::class),
@@ -410,7 +410,7 @@ class StaleCredentialsTest extends AccountTestCase {
 			$this->userSession,
 			$this->credentials(),
 			new StaleCredentialNotices(Server::get(INotificationManager::class), $this->time()),
-			$this->settings,
+			$this->appSettings(),
 			$this->l(),
 		);
 	}

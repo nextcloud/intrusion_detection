@@ -166,7 +166,7 @@ abstract class StepUpTestCase extends AccountTestCase {
 
 	protected function listener(): StepUpLoginListener {
 		return new StepUpLoginListener(
-			$this->settings,
+			$this->appSettings(), $this->checkSettings(),
 			new InteractiveLogin($this->request),
 			$this->addresses(),
 			Server::get(Fingerprinter::class),
@@ -179,7 +179,7 @@ abstract class StepUpTestCase extends AccountTestCase {
 				StepUpService::class => $this->service(),
 				LoginDetections::class => $this->linker(),
 				PasswordSprayingDetector::class => new PasswordSprayingDetector(
-					$this->settings,
+					$this->checkSettings(),
 					Server::get(AttemptMapper::class),
 					$this->engine(),
 					Server::get(FlaggedSources::class),
@@ -221,7 +221,7 @@ abstract class StepUpTestCase extends AccountTestCase {
 			$this->userSession,
 			$this->policy(),
 			$this->engine(),
-			$this->settings,
+			$this->checkSettings(),
 			Server::get(UnconfirmedSessions::class),
 			$this->currentSession,
 			$this->addresses(),
@@ -237,15 +237,15 @@ abstract class StepUpTestCase extends AccountTestCase {
 	}
 
 	protected function policy(): ConfirmationPolicy {
-		return new ConfirmationPolicy($this->settings, new OverridingContainer([
+		return new ConfirmationPolicy($this->appSettings(), new OverridingContainer([
 			SecondFactorMethod::class => $this->secondFactorMethod(),
-			KnownDeviceMethod::class => new KnownDeviceMethod($this->knownDevices(), $this->settings),
+			KnownDeviceMethod::class => new KnownDeviceMethod($this->knownDevices(), $this->appSettings()),
 			EmailCodeMethod::class => new EmailCodeMethod($this->codes()),
 			AdminApprovalMethod::class => new AdminApprovalMethod(
 				Server::get(ApprovalService::class),
 				Server::get(ApprovalMapper::class),
 				Server::get(Approvers::class),
-				$this->settings,
+				$this->appSettings(),
 				Server::get(ITimeFactory::class),
 			),
 		]), Server::get(LoggerInterface::class));
@@ -279,7 +279,7 @@ abstract class StepUpTestCase extends AccountTestCase {
 				Server::get(KnownDeviceMapper::class),
 				$cookie,
 				Server::get(Fingerprinter::class),
-				$this->settings,
+				$this->appSettings(),
 				Server::get(ITimeFactory::class),
 				Server::get(AuditLogger::class),
 			);

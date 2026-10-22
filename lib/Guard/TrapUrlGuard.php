@@ -11,8 +11,9 @@ namespace OCA\IntrusionDetection\Guard;
 
 use OCA\IntrusionDetection\AppInfo\Application;
 use OCA\IntrusionDetection\Check\Checks\TrapUrl;
+use OCA\IntrusionDetection\Config\AppSettings;
+use OCA\IntrusionDetection\Config\CheckSettings;
 use OCA\IntrusionDetection\Config\Keys;
-use OCA\IntrusionDetection\Config\Settings;
 use OCA\IntrusionDetection\Detection\Explanation;
 use OCA\IntrusionDetection\Login\BasicCredentials;
 use OCA\IntrusionDetection\Net\FetchMetadata;
@@ -52,7 +53,8 @@ class TrapUrlGuard implements IRequestGuard {
 	public function __construct(
 		private readonly IConfig $config,
 		private readonly IAppConfig $appConfig,
-		private readonly Settings $settings,
+		private readonly AppSettings $appSettings,
+		private readonly CheckSettings $settings,
 		private readonly RemoteAddressResolver $addresses,
 		private readonly ContainerInterface $container,
 		private readonly GuardTimer $timer,
@@ -83,7 +85,7 @@ class TrapUrlGuard implements IRequestGuard {
 			return null;
 		}
 		$trap = $this->match($path);
-		if ($trap === null || !$this->settings->isEnabled()) {
+		if ($trap === null || !$this->appSettings->isEnabled()) {
 			return null;
 		}
 		return $this->trapped($request, $path, $trap);

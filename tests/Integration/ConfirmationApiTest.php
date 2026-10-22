@@ -65,7 +65,7 @@ class ConfirmationApiTest extends StepUpTestCase {
 	}
 
 	public function testTheOverviewDescribesMethodsReasonsAccountsAndWaitingLogins(): void {
-		$this->settings->setGlobal(GlobalSettings::STEP_UP_ADMIN_APPROVAL, true);
+		$this->settingsEditor()->setGlobal(GlobalSettings::STEP_UP_ADMIN_APPROVAL, true);
 		Server::get(FlaggedSources::class)->flagSource(SourceKey::fromIp($this->remoteAddress), FlaggedSources::REASON_ATTACK);
 		$bob = $this->user('ids-api-bob', null);
 		$this->startSession($bob);
@@ -88,7 +88,7 @@ class ConfirmationApiTest extends StepUpTestCase {
 	}
 
 	public function testWaitingLoginsAreListedLive(): void {
-		$this->settings->setGlobal(GlobalSettings::STEP_UP_ADMIN_APPROVAL, true);
+		$this->settingsEditor()->setGlobal(GlobalSettings::STEP_UP_ADMIN_APPROVAL, true);
 		$this->sessionUser = Server::get(IUserManager::class)->get('admin');
 		$this->assertSame([], $this->confirmationApi()->waiting()->getData());
 
@@ -111,18 +111,18 @@ class ConfirmationApiTest extends StepUpTestCase {
 		$this->assertSame('refuse', $data['preset']);
 		$this->assertSame(['refuse'], array_values(array_unique(array_column($data['policies'], 'outcome'))));
 		foreach (StepUpPolicy::cases() as $policy) {
-			$this->assertSame('refuse', $this->settings->global($policy->settingKey()), $policy->value);
+			$this->assertSame('refuse', $this->appSettings()->stepUpNoMethod($policy->value), $policy->value);
 		}
 
 		$this->confirmationApi()->setPreset('allow');
-		$this->assertSame('allow_force_change', $this->settings->global(StepUpPolicy::BreachedPassword->settingKey()));
-		$this->assertSame('allow_notify', $this->settings->global(StepUpPolicy::FlaggedSource->settingKey()));
+		$this->assertSame('allow_force_change', $this->appSettings()->value(StepUpPolicy::BreachedPassword->settingKey()));
+		$this->assertSame('allow_notify', $this->appSettings()->value(StepUpPolicy::FlaggedSource->settingKey()));
 
-		$this->settings->setGlobal(StepUpPolicy::RiskHigh->settingKey(), NoMethodOutcome::Refuse->value);
+		$this->settingsEditor()->setGlobal(StepUpPolicy::RiskHigh->settingKey(), NoMethodOutcome::Refuse->value);
 		$this->assertSame('custom', $this->confirmationApi()->index()->getData()['preset'], 'A change of one reason makes it custom');
 
 		$this->assertSame(Http::STATUS_BAD_REQUEST, $this->confirmationApi()->setPreset('custom')->getStatus());
-		$this->assertSame('refuse', $this->settings->global(StepUpPolicy::RiskHigh->settingKey()), 'A refused preset saves nothing');
+		$this->assertSame('refuse', $this->appSettings()->value(StepUpPolicy::RiskHigh->settingKey()), 'A refused preset saves nothing');
 	}
 
 	public function testUsersListAndRemoveTheirOwnDevices(): void {
@@ -186,7 +186,7 @@ class ConfirmationApiTest extends StepUpTestCase {
 			Server::get(SecureAccountGuide::class),
 			Server::get(SecureAccountOverview::class),
 			Server::get(SecurityChangeMapper::class),
-			$this->settings,
+			$this->appSettings(),
 			Server::get(ITimeFactory::class),
 			Server::get(PersonalOverview::class),
 			Server::get(LogOutElsewhere::class),

@@ -9,8 +9,7 @@ declare(strict_types=1);
 
 namespace OCA\IntrusionDetection\SetupCheck;
 
-use OCA\IntrusionDetection\Config\GlobalSettings;
-use OCA\IntrusionDetection\Config\Settings;
+use OCA\IntrusionDetection\Config\AppSettings;
 use OCA\IntrusionDetection\Notification\AdminLinks;
 use OCP\IL10N;
 
@@ -24,7 +23,7 @@ class AdminNetworksCheck extends ProblemCheck {
 	public function __construct(
 		IL10N $l,
 		AdminLinks $links,
-		private readonly Settings $settings,
+		private readonly AppSettings $settings,
 	) {
 		parent::__construct($l, $links);
 	}
@@ -36,18 +35,17 @@ class AdminNetworksCheck extends ProblemCheck {
 
 	#[\Override]
 	protected function fine(): string {
-		return $this->settings->getBool(GlobalSettings::ADMIN_TRUSTED_NETWORKS_ONLY)
+		return $this->settings->adminTrustedNetworksOnly()
 			? $this->l->t('Administrators log in from the trusted networks only.')
 			: $this->l->t('Administrators may log in from any network.');
 	}
 
 	#[\Override]
 	public function finding(IL10N $l): ?Finding {
-		if (!$this->settings->getBool(GlobalSettings::ADMIN_TRUSTED_NETWORKS_ONLY)) {
+		if (!$this->settings->adminTrustedNetworksOnly()) {
 			return null;
 		}
-		$networks = $this->settings->global(GlobalSettings::RISKY_NETWORK_OFFICE_NETWORKS);
-		if (is_array($networks) && $networks !== []) {
+		if ($this->settings->riskyNetworkOfficeNetworks() !== []) {
 			return null;
 		}
 		return new Finding(

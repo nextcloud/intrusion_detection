@@ -34,7 +34,7 @@ class NoSecretsCredentialTest extends CredentialUseTestCase {
 	public function testNoCredentialOrCredentialKeyLeavesTheMemoryCache(): void {
 		$logFile = $this->logFile();
 		$logOffset = is_file($logFile) ? (int)filesize($logFile) : 0;
-		$this->settings->setResponses(TokenConcurrentUse::ID, [ResponseType::RevokeToken, ResponseType::NotifyAdmin, ResponseType::NotifyUser]);
+		$this->settingsEditor()->setResponses(TokenConcurrentUse::ID, [ResponseType::RevokeToken, ResponseType::NotifyAdmin, ResponseType::NotifyUser]);
 		$user = $this->newUser('ids-secret', 'secret@example.com');
 		$password = 'A-long-test-password-' . $user->getUID();
 		$appPassword = $this->token($user, IToken::PERMANENT_TOKEN, 'Desktop client');

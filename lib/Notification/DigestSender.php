@@ -9,9 +9,8 @@ declare(strict_types=1);
 
 namespace OCA\IntrusionDetection\Notification;
 
-use OCA\IntrusionDetection\Config\GlobalSettings;
+use OCA\IntrusionDetection\Config\AppSettings;
 use OCA\IntrusionDetection\Config\Prerequisites;
-use OCA\IntrusionDetection\Config\Settings;
 use OCA\IntrusionDetection\Db\AlertMapper;
 use OCA\IntrusionDetection\ResponseDefinitions;
 use OCA\IntrusionDetection\State\AppState;
@@ -52,7 +51,7 @@ class DigestSender {
 	public const TEST_FAILED = 'failed';
 
 	public function __construct(
-		private readonly Settings $settings,
+		private readonly AppSettings $settings,
 		private readonly Digest $digest,
 		private readonly AdminRecipients $recipients,
 		private readonly Mails $mails,
@@ -68,7 +67,7 @@ class DigestSender {
 	}
 
 	public function schedule(): DigestSchedule {
-		return new DigestSchedule((string)$this->settings->global(GlobalSettings::DIGEST_FREQUENCY), $this->dateTimeZone->getDefaultTimeZone());
+		return new DigestSchedule($this->settings->digestFrequency(), $this->dateTimeZone->getDefaultTimeZone());
 	}
 
 	/**

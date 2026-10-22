@@ -12,7 +12,7 @@ namespace OCA\IntrusionDetection\Detection;
 use OCA\IntrusionDetection\Check\CheckRegistry;
 use OCA\IntrusionDetection\Check\ISelectsResponses;
 use OCA\IntrusionDetection\Check\ISimulatable;
-use OCA\IntrusionDetection\Config\Settings;
+use OCA\IntrusionDetection\Config\CheckSettings;
 use OCA\IntrusionDetection\Definition\InvalidParamException;
 use OCA\IntrusionDetection\Definition\ResponseType;
 use OCA\IntrusionDetection\Explain\CheckPresenter;
@@ -35,7 +35,7 @@ class Simulator {
 
 	public function __construct(
 		private readonly CheckRegistry $registry,
-		private readonly Settings $settings,
+		private readonly CheckSettings $settings,
 		private readonly DetectionService $detections,
 		private readonly NarrativeBuilder $narratives,
 		private readonly CheckPresenter $presenter,

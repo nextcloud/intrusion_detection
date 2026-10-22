@@ -19,7 +19,7 @@ use OCA\IntrusionDetection\AdminChange\GrantPermit;
 use OCA\IntrusionDetection\AppInfo\Application;
 use OCA\IntrusionDetection\Check\Checks\AdminChange;
 use OCA\IntrusionDetection\Check\Checks\AdminChangeDetector;
-use OCA\IntrusionDetection\Config\Settings;
+use OCA\IntrusionDetection\Config\CheckSettings;
 use OCA\IntrusionDetection\Definition\Severity;
 use OCA\IntrusionDetection\Event\SettingChangedEvent;
 use OCA\IntrusionDetection\Net\RemoteAddressResolver;
@@ -72,7 +72,7 @@ class AdminChangeListener implements IEventListener {
 	private array $reportedRemovals = [];
 
 	public function __construct(
-		private readonly Settings $settings,
+		private readonly CheckSettings $settings,
 		private readonly AdminChangeDetector $detector,
 		private readonly AdminGrantGate $gate,
 		private readonly ApprovalService $approvals,

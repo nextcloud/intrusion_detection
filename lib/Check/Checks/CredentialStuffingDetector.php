@@ -10,8 +10,8 @@ declare(strict_types=1);
 namespace OCA\IntrusionDetection\Check\Checks;
 
 use OCA\IntrusionDetection\Cache\Caches;
+use OCA\IntrusionDetection\Config\CheckSettings;
 use OCA\IntrusionDetection\Config\ModeState;
-use OCA\IntrusionDetection\Config\Settings;
 use OCA\IntrusionDetection\Db\AttemptKind;
 use OCA\IntrusionDetection\Db\AttemptMapper;
 use OCA\IntrusionDetection\Db\AttemptStats;
@@ -72,7 +72,7 @@ class CredentialStuffingDetector {
 	public const NET_MEMBER_MIN_NAMES = 2;
 
 	public function __construct(
-		private readonly Settings $settings,
+		private readonly CheckSettings $settings,
 		private readonly AttemptMapper $attempts,
 		private readonly ResponseEngine $engine,
 		private readonly FlaggedSources $flags,

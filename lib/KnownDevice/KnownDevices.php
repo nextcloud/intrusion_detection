@@ -10,8 +10,7 @@ declare(strict_types=1);
 namespace OCA\IntrusionDetection\KnownDevice;
 
 use OCA\IntrusionDetection\Audit\AuditLogger;
-use OCA\IntrusionDetection\Config\GlobalSettings;
-use OCA\IntrusionDetection\Config\Settings;
+use OCA\IntrusionDetection\Config\AppSettings;
 use OCA\IntrusionDetection\Crypto\Fingerprinter;
 use OCA\IntrusionDetection\Db\KnownDeviceMapper;
 use OCA\IntrusionDetection\Net\SourceKey;
@@ -54,14 +53,14 @@ class KnownDevices implements IKnownDevices {
 		private readonly KnownDeviceMapper $mapper,
 		private readonly DeviceCookie $cookie,
 		private readonly Fingerprinter $fingerprinter,
-		private readonly Settings $settings,
+		private readonly AppSettings $settings,
 		private readonly ITimeFactory $timeFactory,
 		private readonly AuditLogger $audit,
 	) {
 	}
 
 	public function isEnabled(): bool {
-		return $this->settings->getBool(GlobalSettings::KNOWN_DEVICE_ENABLED);
+		return $this->settings->knownDeviceEnabled();
 	}
 
 	/**

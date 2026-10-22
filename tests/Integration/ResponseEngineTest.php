@@ -16,7 +16,6 @@ use OCA\IntrusionDetection\Check\CheckRegistry;
 use OCA\IntrusionDetection\Check\Checks\ManualBlock;
 use OCA\IntrusionDetection\Check\Checks\SharedAddress;
 use OCA\IntrusionDetection\Config\GlobalSettings;
-use OCA\IntrusionDetection\Config\Settings;
 use OCA\IntrusionDetection\Db\BanMapper;
 use OCA\IntrusionDetection\Db\DetectionFilter;
 use OCA\IntrusionDetection\Db\DetectionMapper;
@@ -56,14 +55,12 @@ class ResponseEngineTest extends IntegrationTestCase {
 	use CreatesAccounts;
 
 	private ResponseEngine $engine;
-	private Settings $settings;
 	private DetectionMapper $detections;
 	private BanMapper $bans;
 
 	protected function setUp(): void {
 		parent::setUp();
 		$this->engine = Server::get(ResponseEngine::class);
-		$this->settings = Server::get(Settings::class);
 		$this->detections = Server::get(DetectionMapper::class);
 		$this->bans = Server::get(BanMapper::class);
 	}
@@ -85,7 +82,7 @@ class ResponseEngineTest extends IntegrationTestCase {
 	}
 
 	public function testObserveRecordsWhatWouldHaveBeenDone(): void {
-		$this->settings->setMode(ManualBlock::ID, Mode::Observe);
+		$this->settingsEditor()->setMode(ManualBlock::ID, Mode::Observe);
 		$detection = $this->engine->handle($this->draft('198.51.100.7'));
 		$this->assertFalse($detection->isEnforced());
 		$this->assertSame([['type' => 'ban', 'enforced' => false]], $detection->getActionList());
@@ -111,7 +108,7 @@ class ResponseEngineTest extends IntegrationTestCase {
 	}
 
 	public function testOffRecordsNothing(): void {
-		$this->settings->setMode(ManualBlock::ID, Mode::Off);
+		$this->settingsEditor()->setMode(ManualBlock::ID, Mode::Off);
 		$this->assertNull($this->engine->handle($this->draft('198.51.100.7')));
 		$this->assertSame(0, $this->detections->count(new DetectionFilter()));
 	}
@@ -151,11 +148,11 @@ class ResponseEngineTest extends IntegrationTestCase {
 		};
 		$this->engine = new ResponseEngine(
 			Server::get(CheckRegistry::class),
-			$this->settings,
+			$this->checkSettings(),
 			new DetectionService(
 				$counting,
 				Server::get(CheckRegistry::class),
-				$this->settings,
+				$this->checkSettings(),
 				Server::get(ITimeFactory::class),
 				Server::get(RiskScorer::class),
 				Server::get(DetectionAccounts::class),
@@ -197,7 +194,7 @@ class ResponseEngineTest extends IntegrationTestCase {
 		};
 		$engine = new ResponseEngine(
 			Server::get(CheckRegistry::class),
-			$this->settings,
+			$this->checkSettings(),
 			Server::get(DetectionService::class),
 			new OverridingContainer([BanHandler::class => $handler]),
 			Server::get(TypedEvents::class),
@@ -235,7 +232,7 @@ class ResponseEngineTest extends IntegrationTestCase {
 	public function testAResponseWithoutAHandlerIsRecordedAsUnavailable(): void {
 		$engine = new ResponseEngine(
 			Server::get(CheckRegistry::class),
-			$this->settings,
+			$this->checkSettings(),
 			Server::get(DetectionService::class),
 			new OverridingContainer([LockLinkHandler::class => new \stdClass()]),
 			Server::get(TypedEvents::class),

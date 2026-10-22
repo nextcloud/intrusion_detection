@@ -7,111 +7,52 @@ declare(strict_types=1);
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 
-namespace OCA\IntrusionDetection\Config;
+namespace OCA\IntrusionDetection\Configure;
 
 use OCA\IntrusionDetection\AppInfo\Application;
 use OCA\IntrusionDetection\Check\CheckRegistry;
 use OCA\IntrusionDetection\Check\IValidatesParams;
+use OCA\IntrusionDetection\Config\AppSettings;
+use OCA\IntrusionDetection\Config\CheckSettings;
+use OCA\IntrusionDetection\Config\GlobalSettings;
+use OCA\IntrusionDetection\Config\Keys;
+use OCA\IntrusionDetection\Config\Prerequisites;
 use OCA\IntrusionDetection\Definition\InvalidParamException;
 use OCA\IntrusionDetection\Definition\Mode;
 use OCA\IntrusionDetection\Definition\ParamDefinition;
 use OCA\IntrusionDetection\Definition\ParamType;
 use OCA\IntrusionDetection\Definition\ProtectionLevel;
-use OCA\IntrusionDetection\Definition\Requirement;
 use OCA\IntrusionDetection\Definition\ResponseType;
 use OCA\IntrusionDetection\Event\SettingChangedEvent;
 use OCA\IntrusionDetection\State\AppState;
-use OCP\AppFramework\Utility\ITimeFactory;
 use OCP\EventDispatcher\IEventDispatcher;
 use OCP\IAppConfig;
 
 /**
- * Typed, validated access to every setting of the app.
+ * Validated writes of every setting of the app, and the protection level
+ * the limits were last set to.
  *
- * Reads never throw: a stored value that no longer validates (for example
- * after a definition's range changed) falls back to the default. Writes
- * validate and throw {@see InvalidParamException}. Every write dispatches a
- * {@see SettingChangedEvent} when the effective value changed.
- *
- * Reads take the definitions from {@see LexiconData}, so that reading a
- * setting builds no check and no other setting. Writes validate against the
- * full definitions of the check registry and the global settings.
- *
- * @psalm-import-type CheckSpec from LexiconData
- * @psalm-import-type ParamSpec from LexiconData
+ * Writes validate against the full definitions of the check registry and
+ * the global settings, and throw {@see InvalidParamException}. Every write
+ * dispatches a {@see SettingChangedEvent} when the effective value changed.
  */
-class Settings {
+class SettingsEditor {
 	/** The protection level the limits were last set to, see {@see ProtectionLevels}; recommended when unset */
 	public const LEVEL_STATE = 'protection_level';
 
-	/** @var array<string, ParamDefinition> read definitions by config key */
-	private array $definitions = [];
 	/** While a protection level is applied, its own writes do not make it "custom" */
 	private bool $applyingLevel = false;
 
 	public function __construct(
 		private readonly IAppConfig $appConfig,
+		private readonly CheckSettings $checks,
+		private readonly AppSettings $settings,
 		private readonly CheckRegistry $registry,
-		private readonly ITimeFactory $timeFactory,
 		private readonly Prerequisites $prerequisites,
 		private readonly GlobalSettings $globals,
 		private readonly IEventDispatcher $dispatcher,
 		private readonly AppState $state,
 	) {
-	}
-
-	public function isEnabled(): bool {
-		return $this->getBool(GlobalSettings::ENABLED);
-	}
-
-	/**
-	 * Whether users see their security events in their own security settings.
-	 */
-	public function personalPageEnabled(): bool {
-		return $this->isEnabled() && $this->getBool(GlobalSettings::PERSONAL_PAGE_ENABLED);
-	}
-
-	public function learningUntil(): int {
-		return $this->getInt(GlobalSettings::LEARNING_UNTIL);
-	}
-
-	public function isLearning(): bool {
-		return $this->learningUntil() > $this->timeFactory->getTime();
-	}
-
-	/**
-	 * The mode the admin chose for a check.
-	 */
-	public function configuredMode(string $checkId): Mode {
-		$default = Mode::from($this->check($checkId)['mode']);
-		$raw = $this->appConfig->getValueString(Application::APP_ID, Keys::mode($checkId), $default->value);
-		return Mode::tryFrom($raw) ?? $default;
-	}
-
-	/**
-	 * The mode a check runs in right now, after the master switch, learning
-	 * mode and missing prerequisites are applied.
-	 */
-	public function modeState(string $checkId): ModeState {
-		$check = $this->check($checkId);
-		$configured = $this->configuredMode($checkId);
-		if (!$this->isEnabled()) {
-			return new ModeState($configured, Mode::Off, ModeState::REASON_DISABLED);
-		}
-		foreach ($check['requirements'] as $value) {
-			$requirement = Requirement::from($value);
-			if (!$this->prerequisites->isMet($requirement)) {
-				return new ModeState($configured, Mode::Off, ModeState::REASON_REQUIREMENT, $requirement);
-			}
-		}
-		if ($configured === Mode::Protect && $this->isLearning() && !self::specActsWhileLearning($check)) {
-			return new ModeState($configured, Mode::Observe, ModeState::REASON_LEARNING);
-		}
-		return new ModeState($configured, $configured);
-	}
-
-	public function effectiveMode(string $checkId): Mode {
-		return $this->modeState($checkId)->effective;
 	}
 
 	/**
@@ -120,7 +61,7 @@ class Settings {
 	 */
 	public function setMode(string $checkId, Mode $mode): bool {
 		$this->assertModeAvailable($checkId, $mode);
-		$old = $this->configuredMode($checkId);
+		$old = $this->checks->configuredMode($checkId);
 		$this->appConfig->setValueString(Application::APP_ID, Keys::mode($checkId), $mode->value);
 		return $this->changed(Keys::mode($checkId), $old->value, $mode->value);
 	}
@@ -174,47 +115,6 @@ class Settings {
 	}
 
 	/**
-	 * @return int|float|bool|string|list<string>
-	 */
-	public function param(string $checkId, string $name): int|float|bool|string|array {
-		$key = Keys::param($checkId, $name);
-		$definition = $this->definitions[$key] ??= self::fromSpec($name, $this->check($checkId)['params'][$name] ?? null)
-			?? $this->registry->get($checkId)->param($name);
-		return $this->read($key, $definition);
-	}
-
-	public function paramInt(string $checkId, string $name): int {
-		return (int)$this->param($checkId, $name);
-	}
-
-	public function paramFloat(string $checkId, string $name): float {
-		return (float)$this->param($checkId, $name);
-	}
-
-	public function paramBool(string $checkId, string $name): bool {
-		return (bool)$this->param($checkId, $name);
-	}
-
-	/**
-	 * @return list<string>
-	 */
-	public function paramList(string $checkId, string $name): array {
-		$value = $this->param($checkId, $name);
-		return is_array($value) ? $value : [];
-	}
-
-	/**
-	 * @return array<string, int|float|bool|string|list<string>> every parameter of the check with its current value
-	 */
-	public function params(string $checkId): array {
-		$values = [];
-		foreach (array_keys($this->check($checkId)['params']) as $name) {
-			$values[$name] = $this->param($checkId, $name);
-		}
-		return $values;
-	}
-
-	/**
 	 * @param bool $reported false for a change the app makes on its own and
 	 *                       writes to the audit log itself: it is no administration change
 	 * @return bool whether the value changed
@@ -246,37 +146,16 @@ class Settings {
 	 */
 	private function writeParam(string $checkId, string $name, int|float|bool|string|array $value, bool $reported = true): bool {
 		$definition = $this->registry->get($checkId)->param($name);
-		$old = $this->param($checkId, $name);
+		$old = $this->checks->param($checkId, $name);
 		$this->write(Keys::param($checkId, $name), $definition, $value);
-		return $this->presetChanged($definition, $this->changed(Keys::param($checkId, $name), $old, $this->param($checkId, $name), $reported));
+		return $this->presetChanged($definition, $this->changed(Keys::param($checkId, $name), $old, $this->checks->param($checkId, $name), $reported));
 	}
 
 	public function resetParam(string $checkId, string $name): void {
 		$definition = $this->registry->get($checkId)->param($name);
-		$old = $this->param($checkId, $name);
+		$old = $this->checks->param($checkId, $name);
 		$this->appConfig->deleteKey(Application::APP_ID, Keys::param($checkId, $name));
-		$this->presetChanged($definition, $this->changed(Keys::param($checkId, $name), $old, $this->param($checkId, $name)));
-	}
-
-	/**
-	 * @return list<ResponseType>
-	 */
-	public function responses(string $checkId): array {
-		$check = $this->check($checkId);
-		$raw = $this->appConfig->getValueArray(Application::APP_ID, Keys::responses($checkId), $check['responses']);
-		$responses = [];
-		foreach ($raw as $value) {
-			$response = is_string($value) ? ResponseType::tryFrom($value) : null;
-			// Responses the check no longer allows are dropped rather than run.
-			if ($response !== null && in_array($response->value, $check['allowed'], true)) {
-				$responses[] = $response;
-			}
-		}
-		return $responses;
-	}
-
-	public function hasResponse(string $checkId, ResponseType $response): bool {
-		return in_array($response, $this->responses($checkId), true);
+		$this->presetChanged($definition, $this->changed(Keys::param($checkId, $name), $old, $this->checks->param($checkId, $name)));
 	}
 
 	/**
@@ -318,7 +197,7 @@ class Settings {
 	 * @return list<string>
 	 */
 	private function responseValues(string $checkId): array {
-		return array_map(static fn (ResponseType $r): string => $r->value, $this->responses($checkId));
+		return array_map(static fn (ResponseType $r): string => $r->value, $this->checks->responses($checkId));
 	}
 
 	/**
@@ -326,45 +205,19 @@ class Settings {
 	 */
 	public function resetCheck(string $checkId): void {
 		$check = $this->registry->get($checkId);
-		$oldMode = $this->configuredMode($checkId)->value;
+		$oldMode = $this->checks->configuredMode($checkId)->value;
 		$oldResponses = $this->responseValues($checkId);
-		$oldParams = $this->params($checkId);
+		$oldParams = $this->checks->params($checkId);
 		$this->appConfig->deleteKey(Application::APP_ID, Keys::mode($checkId));
 		$this->appConfig->deleteKey(Application::APP_ID, Keys::responses($checkId));
 		foreach ($check->params as $param) {
 			$this->appConfig->deleteKey(Application::APP_ID, Keys::param($checkId, $param->name));
 		}
-		$this->changed(Keys::mode($checkId), $oldMode, $this->configuredMode($checkId)->value);
+		$this->changed(Keys::mode($checkId), $oldMode, $this->checks->configuredMode($checkId)->value);
 		$this->changed(Keys::responses($checkId), $oldResponses, $this->responseValues($checkId));
-		foreach ($this->params($checkId) as $name => $value) {
+		foreach ($this->checks->params($checkId) as $name => $value) {
 			$this->presetChanged($check->param($name), $this->changed(Keys::param($checkId, $name), $oldParams[$name], $value));
 		}
-	}
-
-	/**
-	 * @return int|float|bool|string|list<string>
-	 */
-	public function global(string $name): int|float|bool|string|array {
-		$definition = $this->definitions[$name] ??= self::fromSpec($name, LexiconData::GLOBALS[$name] ?? null) ?? $this->globalDefinition($name);
-		return $this->read($name, $definition);
-	}
-
-	public function getInt(string $name): int {
-		return (int)$this->global($name);
-	}
-
-	public function getBool(string $name): bool {
-		return (bool)$this->global($name);
-	}
-
-	/**
-	 * A ParamType::Json setting, decoded. Invalid stored JSON reads as empty.
-	 *
-	 * @return array<array-key, mixed>
-	 */
-	public function getJson(string $name): array {
-		$decoded = json_decode((string)$this->global($name), true);
-		return is_array($decoded) ? $decoded : [];
 	}
 
 	/**
@@ -394,7 +247,7 @@ class Settings {
 		$changes = [];
 		foreach ($validated as $name => $value) {
 			if ($this->writeGlobal($name, $value)) {
-				$changes[$name] = $this->global($name);
+				$changes[$name] = $this->settings->value($name);
 			}
 		}
 		return $changes;
@@ -404,15 +257,15 @@ class Settings {
 	 * Put a global setting back to its default.
 	 */
 	public function resetGlobal(string $name): bool {
-		$this->globalDefinition($name);
-		$old = $this->global($name);
+		$definition = $this->globalDefinition($name);
+		$old = $this->settings->value($name);
 		$this->appConfig->deleteKey(Application::APP_ID, $name);
-		return $this->presetChanged($this->globalDefinition($name), $this->changed($name, $old, $this->global($name)));
+		return $this->presetChanged($definition, $this->changed($name, $old, $this->settings->value($name)));
 	}
 
 	/**
 	 * A global setting's value as it would be saved: validated by its
-	 * definition and by the check that owns it.
+	 * definition and by the check it belongs to, if any.
 	 *
 	 * @return int|float|bool|string|list<string>
 	 * @throws InvalidParamException
@@ -421,11 +274,12 @@ class Settings {
 		$definition = $this->globalDefinition($name);
 		$value = $definition->validate($value, true);
 		GlobalSettings::checkRule($name, $value);
-		$owner = GlobalSettings::validatedBy($name);
-		if ($owner !== null) {
-			$check = $this->registry->check($owner);
-			if ($check instanceof IValidatesParams) {
-				$value = $definition->validate($check->validateParam($name, $value), true);
+		foreach ($this->registry->all() as $id => $owner) {
+			if (in_array($name, $owner->globals, true)) {
+				$check = $this->registry->check($this->registry->classOf($id));
+				if ($check instanceof IValidatesParams) {
+					$value = $definition->validate($check->validateParam($name, $value), true);
+				}
 			}
 		}
 		return $value;
@@ -436,9 +290,9 @@ class Settings {
 	 */
 	private function writeGlobal(string $name, int|float|bool|string|array $value, bool $reported = true): bool {
 		$definition = $this->globalDefinition($name);
-		$old = $this->global($name);
+		$old = $this->settings->value($name);
 		$this->write($name, $definition, $value);
-		return $this->presetChanged($definition, $this->changed($name, $old, $this->global($name), $reported));
+		return $this->presetChanged($definition, $this->changed($name, $old, $this->settings->value($name), $reported));
 	}
 
 	/**
@@ -508,36 +362,6 @@ class Settings {
 	}
 
 	/**
-	 * Ban durations in seconds for the escalation levels 1, 2 and 3.
-	 *
-	 * @return array{1: int, 2: int, 3: int}
-	 */
-	public function banDurations(): array {
-		return [
-			1 => $this->getInt(GlobalSettings::BAN_DURATION_1),
-			2 => $this->getInt(GlobalSettings::BAN_DURATION_2),
-			3 => $this->getInt(GlobalSettings::BAN_DURATION_3),
-		];
-	}
-
-	/**
-	 * Values for the `{name}` placeholders of explanation texts: the check's
-	 * parameters, and every global setting.
-	 *
-	 * @return array<string, int|float|bool|string|list<string>>
-	 */
-	public function placeholderValues(?string $checkId = null): array {
-		$values = [];
-		foreach ($this->globals->all() as $name => $definition) {
-			$values[$name] = $this->read($name, $definition);
-		}
-		if ($checkId !== null) {
-			$values = array_merge($values, $this->params($checkId));
-		}
-		return $values;
-	}
-
-	/**
 	 * @param int|float|bool|string|list<string> $old
 	 * @param int|float|bool|string|list<string> $new
 	 */
@@ -550,70 +374,8 @@ class Settings {
 	}
 
 	/**
-	 * Whether a check set to Protect acts during learning mode: checks that
-	 * only notify always do, and so do decoys and reserved names.
+	 * @param int|float|bool|string|list<string> $value
 	 */
-	public function actsWhileLearning(string $checkId): bool {
-		return self::specActsWhileLearning($this->check($checkId));
-	}
-
-	/**
-	 * @param CheckSpec $check
-	 */
-	private static function specActsWhileLearning(array $check): bool {
-		return $check['onlyNotifies'] || $check['learning'];
-	}
-
-	/**
-	 * @return CheckSpec
-	 * @throws InvalidParamException for an unknown check
-	 */
-	private function check(string $checkId): array {
-		return LexiconData::CHECKS[$checkId] ?? throw new InvalidParamException('unknown_check', ['check' => $checkId]);
-	}
-
-	/**
-	 * A definition to read with, built from its static data; null when its
-	 * items need a validator of their own, which only the full definition has.
-	 *
-	 * @param ?ParamSpec $spec
-	 */
-	private static function fromSpec(string $name, ?array $spec): ?ParamDefinition {
-		if ($spec === null || isset($spec['validator'])) {
-			return null;
-		}
-		return new ParamDefinition(
-			$name,
-			ParamType::from($spec['type']),
-			$spec['default'],
-			$spec['min'] ?? null,
-			$spec['max'] ?? null,
-			$spec['choices'] ?? [],
-			$spec['pattern'] ?? null,
-			$spec['maxItems'] ?? 200,
-			$spec['maxItemLength'] ?? 255,
-		);
-	}
-
-	/**
-	 * @return int|float|bool|string|list<string>
-	 */
-	private function read(string $key, ParamDefinition $definition): int|float|bool|string|array {
-		$app = Application::APP_ID;
-		$value = match ($definition->type) {
-			ParamType::Int, ParamType::Duration => $this->appConfig->getValueInt($app, $key, (int)$definition->default),
-			ParamType::Float => $this->appConfig->getValueFloat($app, $key, (float)$definition->default),
-			ParamType::Bool => $this->appConfig->getValueBool($app, $key, (bool)$definition->default),
-			ParamType::Choice, ParamType::Json => $this->appConfig->getValueString($app, $key, (string)$definition->default),
-			ParamType::StringList, ParamType::CidrList => array_values($this->appConfig->getValueArray($app, $key, (array)$definition->default)),
-		};
-		try {
-			return $definition->validate($value);
-		} catch (InvalidParamException) {
-			return $definition->default;
-		}
-	}
-
 	private function write(string $key, ParamDefinition $definition, int|float|bool|string|array $value): void {
 		$app = Application::APP_ID;
 		match ($definition->type) {

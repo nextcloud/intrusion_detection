@@ -10,8 +10,7 @@ declare(strict_types=1);
 namespace OCA\IntrusionDetection\Personal;
 
 use OC\Authentication\TwoFactorAuth\ProviderLoader;
-use OCA\IntrusionDetection\Config\GlobalSettings;
-use OCA\IntrusionDetection\Config\Settings;
+use OCA\IntrusionDetection\Config\AppSettings;
 use OCA\IntrusionDetection\Confirm\ConfirmationCoverage;
 use OCA\IntrusionDetection\Db\DetectionFilter;
 use OCA\IntrusionDetection\Db\DetectionMapper;
@@ -58,7 +57,7 @@ class PersonalOverview {
 		private readonly ConfirmationCoverage $coverage,
 		private readonly ProviderLoader $providers,
 		private readonly UserMessages $messages,
-		private readonly Settings $settings,
+		private readonly AppSettings $settings,
 		private readonly IDateTimeFormatter $formatter,
 		private readonly IURLGenerator $urlGenerator,
 		private readonly ITimeFactory $timeFactory,
@@ -86,7 +85,7 @@ class PersonalOverview {
 	public function status(IUser $user, IL10N $l, \DateTimeZone $timeZone, int $failedLogins): array {
 		$uid = $user->getUID();
 		$now = $this->timeFactory->getTime();
-		$since = $now - $this->settings->getInt(GlobalSettings::RETENTION_DETECTIONS_DAYS) * 86400;
+		$since = $now - $this->settings->retentionDays() * 86400;
 		$open = 0;
 		$recent = 0;
 		foreach ($this->messages->toldToUser($this->detections->findList(new DetectionFilter(uid: $uid, since: $since, limit: PersonalDetections::MAX))) as $detection) {

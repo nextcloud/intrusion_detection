@@ -11,8 +11,8 @@ namespace OCA\IntrusionDetection\Tests\Unit\Confirm;
 
 use OCA\IntrusionDetection\AdminChange\ApprovalService;
 use OCA\IntrusionDetection\AdminChange\Approvers;
+use OCA\IntrusionDetection\Config\AppSettings;
 use OCA\IntrusionDetection\Config\GlobalSettings;
-use OCA\IntrusionDetection\Config\Settings;
 use OCA\IntrusionDetection\Confirm\ConfirmationPolicy;
 use OCA\IntrusionDetection\Confirm\EmailCodes;
 use OCA\IntrusionDetection\Confirm\IConfirmationMethod;
@@ -50,7 +50,7 @@ class ConfirmationOrderTest extends TestCase {
 	private bool $approval = false;
 	private bool $otherApprovers = true;
 	/** @var list<string> */
-	private array $knownDeviceOk = KnownDeviceMethod::DEFAULT_POLICIES;
+	private array $knownDeviceOk = GlobalSettings::STEP_UP_KNOWN_DEVICE_DEFAULT;
 	private ?Approval $requested = null;
 
 	/**
@@ -75,7 +75,7 @@ class ConfirmationOrderTest extends TestCase {
 		$policy = $this->policy();
 		$user = $this->user();
 		foreach (StepUpPolicy::cases() as $reason) {
-			$deviceCounts = $device && in_array($reason->value, KnownDeviceMethod::DEFAULT_POLICIES, true);
+			$deviceCounts = $device && in_array($reason->value, GlobalSettings::STEP_UP_KNOWN_DEVICE_DEFAULT, true);
 			$expected = array_keys(array_filter([
 				IConfirmationMethod::SECOND_FACTOR => $secondFactor,
 				IConfirmationMethod::KNOWN_DEVICE => $deviceCounts,
@@ -236,11 +236,11 @@ class ConfirmationOrderTest extends TestCase {
 		return $row;
 	}
 
-	private function settings(): Settings {
-		$settings = $this->createMock(Settings::class);
-		$settings->method('global')->willReturnCallback(fn (string $name): array|string => $name === GlobalSettings::STEP_UP_KNOWN_DEVICE_OK_FOR ? $this->knownDeviceOk : '');
-		$settings->method('getBool')->willReturnCallback(fn (string $name): bool => $name === GlobalSettings::STEP_UP_ADMIN_APPROVAL && $this->approval);
-		$settings->method('getInt')->willReturn(1800);
+	private function settings(): AppSettings {
+		$settings = $this->createMock(AppSettings::class);
+		$settings->method('stepUpKnownDeviceOkFor')->willReturnCallback(fn (): array => $this->knownDeviceOk);
+		$settings->method('stepUpAdminApproval')->willReturnCallback(fn (): bool => $this->approval);
+		$settings->method('stepUpNoMethod')->willReturn('');
 		return $settings;
 	}
 

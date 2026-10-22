@@ -16,7 +16,8 @@ use OC\Memcache\ArrayCache;
 use OCA\IntrusionDetection\Cache\Caches;
 use OCA\IntrusionDetection\Check\Checks\CredentialStuffing;
 use OCA\IntrusionDetection\Check\Checks\CredentialStuffingDetector;
-use OCA\IntrusionDetection\Config\Settings;
+use OCA\IntrusionDetection\Config\AppSettings;
+use OCA\IntrusionDetection\Config\CheckSettings;
 use OCA\IntrusionDetection\Crypto\Fingerprinter;
 use OCA\IntrusionDetection\Db\AttemptKind;
 use OCA\IntrusionDetection\Db\AttemptMapper;
@@ -46,7 +47,7 @@ class CredentialStuffingClusterTest extends LoginFailureTestCase {
 		$this->distributed = new ArrayCache('distributed');
 		// A time early in a period, so that the period cannot end during the test.
 		$this->now = intdiv(time(), CredentialStuffingDetector::EVALUATE_EVERY) * CredentialStuffingDetector::EVALUATE_EVERY + 1;
-		$this->settings->setParam(CredentialStuffing::ID, 'min_failures', 1000);
+		$this->settingsEditor()->setParam(CredentialStuffing::ID, 'min_failures', 1000);
 	}
 
 	protected function tearDown(): void {
@@ -150,11 +151,11 @@ class CredentialStuffingClusterTest extends LoginFailureTestCase {
 	}
 
 	/**
-	 * @param list<array{0: CredentialStuffingDetector, 1: Settings}> $servers
+	 * @param list<CredentialStuffingDetector> $servers
 	 */
 	private function failOnEach(array $servers, int $time): void {
 		$fingerprinter = Server::get(Fingerprinter::class);
-		foreach ($servers as $n => [$detector]) {
+		foreach ($servers as $n => $detector) {
 			$detector->detect(new AttemptRecord(
 				AttemptKind::PasswordLogin,
 				SourceKey::fromIp('198.51.100.' . ($n + 1)),
@@ -174,7 +175,7 @@ class CredentialStuffingClusterTest extends LoginFailureTestCase {
 	 * app config before any of them changed it, as concurrent requests do.
 	 *
 	 * @param 'distributed'|'local'|'none' $caches
-	 * @return list<array{0: CredentialStuffingDetector, 1: Settings}>
+	 * @return list<CredentialStuffingDetector>
 	 */
 	private function servers(string $caches): array {
 		$servers = [];
@@ -186,20 +187,15 @@ class CredentialStuffingClusterTest extends LoginFailureTestCase {
 				default => FixedCaches::none(),
 			};
 
-			$settings = $this->freshSettings();
-			$servers[] = [$this->build(CredentialStuffingDetector::class, [
+			$appConfig = $this->build(AppConfig::class, []);
+			$appSettings = $this->build(AppSettings::class, [IAppConfig::class => $appConfig]);
+			$servers[] = $this->build(CredentialStuffingDetector::class, [
 				Caches::class => $memory,
-				Settings::class => $settings,
-			]), $settings];
+				AppSettings::class => $appSettings,
+				CheckSettings::class => $this->build(CheckSettings::class, [IAppConfig::class => $appConfig, AppSettings::class => $appSettings]),
+			]);
 		}
 		return $servers;
-	}
-
-	/**
-	 * Settings over an app config of their own, as a new request has.
-	 */
-	private function freshSettings(): Settings {
-		return $this->build(Settings::class, [IAppConfig::class => $this->build(AppConfig::class, [])]);
 	}
 
 	/**

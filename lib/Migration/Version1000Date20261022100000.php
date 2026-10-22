@@ -11,8 +11,9 @@ namespace OCA\IntrusionDetection\Migration;
 
 use Closure;
 use OCA\IntrusionDetection\AppInfo\Application;
+use OCA\IntrusionDetection\Config\AppSettings;
 use OCA\IntrusionDetection\Config\GlobalSettings;
-use OCA\IntrusionDetection\Config\Settings;
+use OCA\IntrusionDetection\Configure\SettingsEditor;
 use OCA\IntrusionDetection\Repair\RemoveRetiredSettings;
 use OCP\IAppConfig;
 use OCP\Migration\IOutput;
@@ -34,7 +35,8 @@ class Version1000Date20261022100000 extends SimpleMigrationStep {
 	public function __construct(
 		private readonly IAppConfig $appConfig,
 		private readonly GlobalSettings $globals,
-		private readonly Settings $settings,
+		private readonly AppSettings $settings,
+		private readonly SettingsEditor $editor,
 		private readonly LoggerInterface $logger,
 	) {
 	}
@@ -46,14 +48,14 @@ class Version1000Date20261022100000 extends SimpleMigrationStep {
 			? $this->appConfig->getAllValues(Application::APP_ID)[$key] ?? null
 			: null;
 		$historyDays = is_numeric($history) ? (int)$history : self::HISTORY_RETENTION_DEFAULT;
-		$detectionsDays = $this->settings->getInt(GlobalSettings::RETENTION_DETECTIONS_DAYS);
+		$detectionsDays = $this->settings->retentionDays();
 		if ($historyDays === $detectionsDays) {
 			return;
 		}
 
 		$days = max((int)($this->globals->get(GlobalSettings::RETENTION_DETECTIONS_DAYS)?->min ?? 1), min($historyDays, $detectionsDays));
 		if ($days !== $detectionsDays) {
-			$this->settings->setGlobal(GlobalSettings::RETENTION_DETECTIONS_DAYS, $days, false);
+			$this->editor->setGlobal(GlobalSettings::RETENTION_DETECTIONS_DAYS, $days, false);
 			$message = sprintf('Intrusion detection: Keep records for is now %d days: the login history was kept %d days, and the shorter period wins.', $days, $historyDays);
 		} else {
 			$message = sprintf('Intrusion detection: Keep records for stays %d days, now also for the login history, which was kept %d days: the shorter period wins.', $days, $historyDays);

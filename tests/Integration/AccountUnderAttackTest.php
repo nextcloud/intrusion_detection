@@ -40,8 +40,8 @@ class AccountUnderAttackTest extends LoginFailureTestCase {
 	protected function setUp(): void {
 		parent::setUp();
 		$this->protected = Server::get(ProtectedAccountMapper::class);
-		$this->settings->setMode(CredentialStuffing::ID, Mode::Off);
-		$this->settings->setMode(PasswordSpraying::ID, Mode::Off);
+		$this->settingsEditor()->setMode(CredentialStuffing::ID, Mode::Off);
+		$this->settingsEditor()->setMode(PasswordSpraying::ID, Mode::Off);
 		// A fresh account per test: the protection is cached per account for a minute.
 		$this->uid = 'ids-aua-' . bin2hex(random_bytes(4));
 		$this->user($this->uid);
@@ -113,7 +113,7 @@ class AccountUnderAttackTest extends LoginFailureTestCase {
 	}
 
 	public function testBlockingAddressesIsOptionalAndNeedsRepeatedFailures(): void {
-		$this->settings->setResponses(AccountUnderAttack::ID, [ResponseType::ProtectAccount, ResponseType::Ban]);
+		$this->settingsEditor()->setResponses(AccountUnderAttack::ID, [ResponseType::ProtectAccount, ResponseType::Ban]);
 		// Five addresses guess four passwords each, four more fail once.
 		for ($i = 1; $i <= 5; $i++) {
 			for ($guess = 1; $guess <= 4; $guess++) {
@@ -167,7 +167,7 @@ class AccountUnderAttackTest extends LoginFailureTestCase {
 	}
 
 	public function testObserveProtectsNothing(): void {
-		$this->settings->setMode(AccountUnderAttack::ID, Mode::Observe);
+		$this->settingsEditor()->setMode(AccountUnderAttack::ID, Mode::Observe);
 		$this->attack(10, 5);
 		$this->assertFalse($this->detectionsOf(AccountUnderAttack::ID)[0]->isEnforced());
 		$this->assertNull($this->protected->find($this->uid));

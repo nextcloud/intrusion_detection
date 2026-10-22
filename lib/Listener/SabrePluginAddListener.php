@@ -11,7 +11,7 @@ namespace OCA\IntrusionDetection\Listener;
 
 use OCA\DAV\Events\SabrePluginAddEvent;
 use OCA\IntrusionDetection\Check\Checks\ShareBruteforce;
-use OCA\IntrusionDetection\Config\Settings;
+use OCA\IntrusionDetection\Config\CheckSettings;
 use OCA\IntrusionDetection\Dav\FederatedShareUsePlugin;
 use OCA\IntrusionDetection\Dav\GuardDecisionPlugin;
 use OCA\IntrusionDetection\Dav\SessionStatePlugin;
@@ -55,7 +55,7 @@ class SabrePluginAddListener implements IEventListener {
 	private function addPublicPlugins(BeforeSabrePubliclyLoadedEvent $event): void {
 		try {
 			$server = $event->getServer();
-			if ($server instanceof \Sabre\DAV\Server && $this->container->get(Settings::class)->modeState(ShareBruteforce::ID)->runs()) {
+			if ($server instanceof \Sabre\DAV\Server && $this->container->get(CheckSettings::class)->modeState(ShareBruteforce::ID)->runs()) {
 				$server->addPlugin($this->container->get(FederatedShareUsePlugin::class));
 			}
 		} catch (\Throwable $e) {

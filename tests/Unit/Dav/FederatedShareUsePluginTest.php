@@ -9,8 +9,8 @@ declare(strict_types=1);
 
 namespace OCA\IntrusionDetection\Tests\Unit\Dav;
 
+use OCA\IntrusionDetection\Config\CheckSettings;
 use OCA\IntrusionDetection\Config\ModeState;
-use OCA\IntrusionDetection\Config\Settings;
 use OCA\IntrusionDetection\Dav\FederatedShareUsePlugin;
 use OCA\IntrusionDetection\Definition\Mode;
 use OCA\IntrusionDetection\Listener\SabrePluginAddListener;
@@ -41,11 +41,11 @@ class FederatedShareUsePluginTest extends TestCase {
 
 	#[DataProvider('modes')]
 	public function testThePublicWebdavServerGetsThePluginWhileTheCheckRuns(Mode $mode, bool $added): void {
-		$settings = $this->createMock(Settings::class);
+		$settings = $this->createMock(CheckSettings::class);
 		$settings->method('modeState')->willReturn(new ModeState($mode, $mode));
 		$plugin = $this->plugin($this->createMock(FederationPartners::class));
 		$container = $this->createMock(ContainerInterface::class);
-		$container->method('get')->willReturnCallback(static fn (string $class): object => $class === Settings::class ? $settings : $plugin);
+		$container->method('get')->willReturnCallback(static fn (string $class): object => $class === CheckSettings::class ? $settings : $plugin);
 
 		$server = new SabreServer();
 		(new SabrePluginAddListener($container, $this->createMock(LoggerInterface::class)))->handle(new BeforeSabrePubliclyLoadedEvent($server));

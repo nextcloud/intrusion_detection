@@ -10,8 +10,7 @@ declare(strict_types=1);
 namespace OCA\IntrusionDetection\Tests\Unit\Controller;
 
 use OCA\IntrusionDetection\Audit\AuditLogger;
-use OCA\IntrusionDetection\Config\GlobalSettings;
-use OCA\IntrusionDetection\Config\Settings;
+use OCA\IntrusionDetection\Config\AppSettings;
 use OCA\IntrusionDetection\Controller\DigestApiController;
 use OCA\IntrusionDetection\Controller\EventsApiController;
 use OCA\IntrusionDetection\Event\EventExamples;
@@ -99,8 +98,8 @@ class DigestApiControllerTest extends TestCase {
 	}
 
 	public function testTheEventsFollowTheAddressSetting(): void {
-		$settings = $this->createMock(Settings::class);
-		$settings->method('getBool')->with(GlobalSettings::EVENTS_INCLUDE_IP)->willReturn(false);
+		$settings = $this->createMock(AppSettings::class);
+		$settings->method('eventsIncludeIp')->willReturn(false);
 		$apps = $this->createMock(IAppManager::class);
 		$apps->method('isEnabledForAnyone')->with('webhook_listeners')->willReturn(true);
 		$examples = $this->createMock(EventExamples::class);

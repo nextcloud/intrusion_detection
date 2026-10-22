@@ -12,7 +12,7 @@ namespace OCA\IntrusionDetection\Admin;
 use OCA\IntrusionDetection\Check\Checks\DecoyCredential;
 use OCA\IntrusionDetection\Check\Checks\ReservedName;
 use OCA\IntrusionDetection\Check\Checks\TrapUrl;
-use OCA\IntrusionDetection\Config\Settings;
+use OCA\IntrusionDetection\Config\CheckSettings;
 use OCA\IntrusionDetection\Db\Decoy;
 use OCA\IntrusionDetection\Decoy\DecoyService;
 use OCA\IntrusionDetection\ResponseDefinitions;
@@ -38,7 +38,7 @@ class TrapsOverview {
 		private readonly ReservedNames $reservedNames,
 		private readonly TrapNameCollisions $collisions,
 		private readonly TrapPathSnippets $snippets,
-		private readonly Settings $settings,
+		private readonly CheckSettings $settings,
 		private readonly CheckSummary $checks,
 	) {
 	}

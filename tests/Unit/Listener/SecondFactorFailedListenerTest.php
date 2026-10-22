@@ -10,7 +10,7 @@ declare(strict_types=1);
 namespace OCA\IntrusionDetection\Tests\Unit\Listener;
 
 use OCA\IntrusionDetection\Check\Checks\SecondFactorFailedDetector;
-use OCA\IntrusionDetection\Config\Settings;
+use OCA\IntrusionDetection\Config\AppSettings;
 use OCA\IntrusionDetection\Listener\SecondFactorFailedListener;
 use OCA\IntrusionDetection\Net\RemoteAddressResolver;
 use OCA\IntrusionDetection\Net\SourceKey;
@@ -23,8 +23,8 @@ use Psr\Log\LoggerInterface;
 use Test\TestCase;
 
 class SecondFactorFailedListenerTest extends TestCase {
-	/** @var Settings&MockObject */
-	private Settings $settings;
+	/** @var AppSettings&MockObject */
+	private AppSettings $settings;
 	/** @var RemoteAddressResolver&MockObject */
 	private RemoteAddressResolver $addresses;
 	/** @var SecondFactorFailedDetector&MockObject */
@@ -35,7 +35,7 @@ class SecondFactorFailedListenerTest extends TestCase {
 
 	protected function setUp(): void {
 		parent::setUp();
-		$this->settings = $this->createMock(Settings::class);
+		$this->settings = $this->createMock(AppSettings::class);
 		$this->addresses = $this->createMock(RemoteAddressResolver::class);
 		$this->addresses->method('current')->willReturn(SourceKey::fromIp('198.51.100.7'));
 		$this->detector = $this->createMock(SecondFactorFailedDetector::class);

@@ -52,7 +52,7 @@ class RiskLimitsTest extends LoginFailureTestCase {
 
 	protected function setUp(): void {
 		parent::setUp();
-		$this->settings->setGlobal(GlobalSettings::RISK_ENABLED, true);
+		$this->settingsEditor()->setGlobal(GlobalSettings::RISK_ENABLED, true);
 		$this->l = Server::get(IFactory::class)->get(Application::APP_ID, 'en');
 	}
 
@@ -108,7 +108,7 @@ class RiskLimitsTest extends LoginFailureTestCase {
 	}
 
 	public function testWithTheScoreOffThePlainLimitsApply(): void {
-		$this->settings->setGlobal(GlobalSettings::RISK_ENABLED, false);
+		$this->settingsEditor()->setGlobal(GlobalSettings::RISK_ENABLED, false);
 		for ($i = 1; $i <= 9; $i++) {
 			$this->failLogin('198.51.100.7', 'user' . $i);
 		}
@@ -173,7 +173,7 @@ class RiskLimitsTest extends LoginFailureTestCase {
 		$this->failLogin('198.51.100.60', 'someone');
 		$counts = [];
 		foreach ([false, true, false, true] as $i => $on) {
-			$this->settings->setGlobal(GlobalSettings::RISK_ENABLED, $on);
+			$this->settingsEditor()->setGlobal(GlobalSettings::RISK_ENABLED, $on);
 			$counts[] = $this->queriesFor(fn () => $this->failLogin('198.51.100.7' . $i, 'someone'));
 		}
 		$this->assertSame([$counts[0], $counts[0], $counts[0], $counts[0]], $counts, 'The score is only computed close to a limit');

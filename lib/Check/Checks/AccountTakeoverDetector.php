@@ -9,7 +9,7 @@ declare(strict_types=1);
 
 namespace OCA\IntrusionDetection\Check\Checks;
 
-use OCA\IntrusionDetection\Config\Settings;
+use OCA\IntrusionDetection\Config\CheckSettings;
 use OCA\IntrusionDetection\Db\SecurityChangeMapper;
 use OCA\IntrusionDetection\Detection\DetectionDraft;
 use OCA\IntrusionDetection\Net\RemoteAddressResolver;
@@ -44,7 +44,7 @@ class AccountTakeoverDetector {
 	public const MAX_FACT_CHANGES = 20;
 
 	public function __construct(
-		private readonly Settings $settings,
+		private readonly CheckSettings $settings,
 		private readonly SecurityChangeMapper $changes,
 		private readonly RiskyLogins $riskyLogins,
 		private readonly ResponseEngine $engine,

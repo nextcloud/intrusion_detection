@@ -14,7 +14,7 @@ use OCA\IntrusionDetection\Check\Checks\StepUpFailed;
 use OCA\IntrusionDetection\Check\Checks\StepUpRefused;
 use OCA\IntrusionDetection\Check\Checks\StepUpRefusedClient;
 use OCA\IntrusionDetection\Check\Checks\StepUpUnconfirmed;
-use OCA\IntrusionDetection\Config\Settings;
+use OCA\IntrusionDetection\Config\CheckSettings;
 use OCA\IntrusionDetection\Db\Detection;
 use OCA\IntrusionDetection\Definition\ResponseType;
 use OCA\IntrusionDetection\Detection\DetectionDraft;
@@ -86,7 +86,7 @@ class StepUpService {
 		private readonly IUserSession $userSession,
 		private readonly ConfirmationPolicy $policy,
 		private readonly ResponseEngine $engine,
-		private readonly Settings $settings,
+		private readonly CheckSettings $settings,
 		private readonly UnconfirmedSessions $unconfirmed,
 		private readonly CurrentSession $currentSession,
 		private readonly RemoteAddressResolver $addresses,

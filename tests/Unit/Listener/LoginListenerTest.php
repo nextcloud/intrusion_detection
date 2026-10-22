@@ -14,7 +14,7 @@ use OCA\IntrusionDetection\Check\CredentialUse\CredentialUseResolver;
 use OCA\IntrusionDetection\Check\CredentialUse\PresentedCredential;
 use OCA\IntrusionDetection\Check\Payload\PayloadResponder;
 use OCA\IntrusionDetection\Check\Payload\PendingHit;
-use OCA\IntrusionDetection\Config\Settings;
+use OCA\IntrusionDetection\Config\AppSettings;
 use OCA\IntrusionDetection\Guard\RequestContext;
 use OCA\IntrusionDetection\Listener\BreachedPasswordListener;
 use OCA\IntrusionDetection\Listener\CredentialUseLoginListener;
@@ -46,7 +46,7 @@ class LoginListenerTest extends TestCase {
 	/** @var list<string> the listeners built, in order */
 	private array $built = [];
 	private RequestContext $context;
-	private Settings&MockObject $settings;
+	private AppSettings&MockObject $settings;
 	private LoginGate&MockObject $gate;
 	private ?bool $first = true;
 	private int $sessionsUntil = 0;
@@ -57,7 +57,7 @@ class LoginListenerTest extends TestCase {
 	protected function setUp(): void {
 		parent::setUp();
 		$this->context = new RequestContext();
-		$this->settings = $this->createMock(Settings::class);
+		$this->settings = $this->createMock(AppSettings::class);
 		$this->settings->method('isEnabled')->willReturn(true);
 		$this->gate = $this->createMock(LoginGate::class);
 		$this->gate->method('isFirst')->willReturnCallback(fn (): ?bool => $this->first);
@@ -160,7 +160,7 @@ class LoginListenerTest extends TestCase {
 	}
 
 	public function testNothingRunsWhileProtectionIsOff(): void {
-		$settings = $this->createMock(Settings::class);
+		$settings = $this->createMock(AppSettings::class);
 		$settings->method('isEnabled')->willReturn(false);
 		$this->settings = $settings;
 		$this->listener()->handle($this->login(false));

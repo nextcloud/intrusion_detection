@@ -11,8 +11,8 @@ namespace OCA\IntrusionDetection\Detection;
 
 use OCA\IntrusionDetection\Cache\KeyLock;
 use OCA\IntrusionDetection\Check\CheckRegistry;
+use OCA\IntrusionDetection\Config\CheckSettings;
 use OCA\IntrusionDetection\Config\ModeState;
-use OCA\IntrusionDetection\Config\Settings;
 use OCA\IntrusionDetection\Db\Detection;
 use OCA\IntrusionDetection\Db\DetectionMapper;
 use OCA\IntrusionDetection\Definition\Severity;
@@ -37,7 +37,7 @@ class DetectionService {
 	public function __construct(
 		private readonly DetectionMapper $mapper,
 		private readonly CheckRegistry $registry,
-		private readonly Settings $settings,
+		private readonly CheckSettings $settings,
 		private readonly ITimeFactory $timeFactory,
 		private readonly RiskScorer $risk,
 		private readonly DetectionAccounts $accounts,

@@ -9,6 +9,7 @@ declare(strict_types=1);
 
 namespace OCA\IntrusionDetection\Confirm;
 
+use OCA\IntrusionDetection\Config\GlobalSettings;
 use OCP\IL10N;
 
 /**
@@ -39,11 +40,7 @@ enum StepUpPolicy: string {
 	 * What happens by default when no confirmation method is available.
 	 */
 	public function defaultOutcome(): NoMethodOutcome {
-		return match ($this) {
-			self::BreachedPassword => NoMethodOutcome::AllowForceChange,
-			self::RiskyNetwork, self::ProtectedAccount => NoMethodOutcome::AllowNotify,
-			default => NoMethodOutcome::Refuse,
-		};
+		return NoMethodOutcome::from(GlobalSettings::STEP_UP_NO_METHOD_DEFAULTS[$this->value]);
 	}
 
 	/**
@@ -66,7 +63,7 @@ enum StepUpPolicy: string {
 	 * The global setting that holds the outcome without a method.
 	 */
 	public function settingKey(): string {
-		return 'step_up_no_method_' . $this->value;
+		return GlobalSettings::stepUpNoMethod($this->value);
 	}
 
 	/**

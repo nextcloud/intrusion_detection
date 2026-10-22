@@ -9,7 +9,7 @@ declare(strict_types=1);
 
 namespace OCA\IntrusionDetection\Check\Checks;
 
-use OCA\IntrusionDetection\Config\Settings;
+use OCA\IntrusionDetection\Config\CheckSettings;
 use OCA\IntrusionDetection\Db\AttemptKind;
 use OCA\IntrusionDetection\Db\AttemptMapper;
 use OCA\IntrusionDetection\Definition\ResponseType;
@@ -41,7 +41,7 @@ class ResetProbingDetector {
 	public const MAX_TARGETS = 20;
 
 	public function __construct(
-		private readonly Settings $settings,
+		private readonly CheckSettings $settings,
 		private readonly AttemptMapper $attempts,
 		private readonly ResponseEngine $engine,
 		private readonly ResetProbing $check,

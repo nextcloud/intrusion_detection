@@ -11,7 +11,8 @@ namespace OCA\IntrusionDetection\Traps;
 
 use OCA\IntrusionDetection\Audit\AuditLogger;
 use OCA\IntrusionDetection\Check\Checks\ReservedName;
-use OCA\IntrusionDetection\Config\Settings;
+use OCA\IntrusionDetection\Config\CheckSettings;
+use OCA\IntrusionDetection\Configure\SettingsEditor;
 use OCA\IntrusionDetection\Definition\InvalidParamException;
 
 /**
@@ -31,7 +32,8 @@ class ReservedNames {
 	public const MAX_NAMES = 100;
 
 	public function __construct(
-		private readonly Settings $settings,
+		private readonly CheckSettings $settings,
+		private readonly SettingsEditor $editor,
 		private readonly AccountNames $accounts,
 		private readonly AuditLogger $audit,
 	) {
@@ -64,7 +66,7 @@ class ReservedNames {
 	 */
 	public function add(array $names, string $actor): array {
 		$list = array_values(array_unique(array_merge($this->list(), array_map(AccountNames::normalise(...), $names))));
-		$this->settings->setParam(ReservedName::ID, 'names', $list);
+		$this->editor->setParam(ReservedName::ID, 'names', $list);
 		$this->audit->log('reserved names %s added by %s', ['names' => implode(', ', $names), 'actor' => $actor]);
 		return $this->list();
 	}
@@ -82,7 +84,7 @@ class ReservedNames {
 		if ($names === []) {
 			return [];
 		}
-		$this->settings->setParam(ReservedName::ID, 'names', array_merge($this->list(), $names), reported: false);
+		$this->editor->setParam(ReservedName::ID, 'names', array_merge($this->list(), $names), reported: false);
 		$this->audit->log('reserved names %s added at installation', ['names' => implode(', ', $names)]);
 		return $names;
 	}
@@ -94,7 +96,7 @@ class ReservedNames {
 	public function remove(array $names, string $actor): array {
 		$remove = array_map(AccountNames::normalise(...), $names);
 		$list = array_values(array_filter($this->list(), static fn (string $n): bool => !in_array($n, $remove, true)));
-		$this->settings->setParam(ReservedName::ID, 'names', $list);
+		$this->editor->setParam(ReservedName::ID, 'names', $list);
 		$this->audit->log('reserved names %s removed by %s', ['names' => implode(', ', $names), 'actor' => $actor]);
 		return $this->list();
 	}
@@ -115,7 +117,7 @@ class ReservedNames {
 		$remove = array_map(AccountNames::normalise(...), $remove);
 		$collisions = $this->collisions();
 		$kept = array_filter($this->list(), static fn (string $n): bool => !in_array($n, $remove, true) && !in_array($n, $collisions, true));
-		$this->settings->setParam(ReservedName::ID, 'names', array_values(array_unique(array_merge($kept, $add))));
+		$this->editor->setParam(ReservedName::ID, 'names', array_values(array_unique(array_merge($kept, $add))));
 		$this->audit->log('reserved names changed by %s: added %s, removed %s', [
 			'actor' => $actor,
 			'added' => implode(', ', $add),

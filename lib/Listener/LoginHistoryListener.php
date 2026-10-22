@@ -9,7 +9,7 @@ declare(strict_types=1);
 
 namespace OCA\IntrusionDetection\Listener;
 
-use OCA\IntrusionDetection\Config\Settings;
+use OCA\IntrusionDetection\Config\AppSettings;
 use OCA\IntrusionDetection\Confirm\IConfirmationMethod;
 use OCA\IntrusionDetection\Confirm\SessionConfirmation;
 use OCA\IntrusionDetection\KnownDevice\KnownDevices;
@@ -41,7 +41,7 @@ use Psr\Log\LoggerInterface;
  */
 class LoginHistoryListener implements IEventListener {
 	public function __construct(
-		private readonly Settings $settings,
+		private readonly AppSettings $settings,
 		private readonly InteractiveLogin $interactive,
 		private readonly RemoteAddressResolver $addresses,
 		private readonly IRequest $request,

@@ -12,7 +12,8 @@ namespace OCA\IntrusionDetection\Controller;
 use OCA\IntrusionDetection\Admin\TrapsOverview;
 use OCA\IntrusionDetection\Audit\AuditLogger;
 use OCA\IntrusionDetection\Check\Checks\TrapUrl;
-use OCA\IntrusionDetection\Config\Settings;
+use OCA\IntrusionDetection\Config\CheckSettings;
+use OCA\IntrusionDetection\Configure\SettingsEditor;
 use OCA\IntrusionDetection\Decoy\DecoyFormat;
 use OCA\IntrusionDetection\Decoy\DecoyService;
 use OCA\IntrusionDetection\Definition\InvalidParamException;
@@ -55,7 +56,8 @@ class DecoyApiController extends AdminOCSController {
 		private readonly TrapsOverview $overview,
 		private readonly DecoyService $decoys,
 		private readonly ReservedNames $reservedNames,
-		private readonly Settings $settings,
+		private readonly CheckSettings $settings,
+		private readonly SettingsEditor $editor,
 		private readonly AuditLogger $audit,
 	) {
 		parent::__construct($request, $l, $userSession);
@@ -198,7 +200,7 @@ class DecoyApiController extends AdminOCSController {
 			$params['autodiscover'] = $autodiscover;
 		}
 		try {
-			$changes = $this->settings->updateCheck(TrapUrl::ID, null, $params, null);
+			$changes = $this->editor->updateCheck(TrapUrl::ID, null, $params, null);
 		} catch (InvalidParamException $e) {
 			return $this->invalid($e);
 		}

@@ -113,7 +113,7 @@ class RiskyNetworkTest extends StepUpTestCase {
 	}
 
 	public function testAnOfficeNetworkIsNeverRisky(): void {
-		$this->settings->setGlobal(GlobalSettings::RISKY_NETWORK_OFFICE_NETWORKS, ['198.51.100.0/24']);
+		$this->settingsEditor()->setGlobal(GlobalSettings::RISKY_NETWORK_OFFICE_NETWORKS, ['198.51.100.0/24']);
 		$this->network(['hosting']);
 		$this->login($this->alice);
 		$this->assertNull($this->stepUp());
@@ -123,7 +123,7 @@ class RiskyNetworkTest extends StepUpTestCase {
 	public function testMembersOfAnExemptGroupAreNotAsked(): void {
 		$group = Server::get(IGroupManager::class)->createGroup('ids-service-accounts');
 		$group?->addUser($this->alice);
-		$this->settings->setGlobal(GlobalSettings::RISKY_NETWORK_EXEMPT_GROUPS, ['ids-service-accounts']);
+		$this->settingsEditor()->setGlobal(GlobalSettings::RISKY_NETWORK_EXEMPT_GROUPS, ['ids-service-accounts']);
 		$this->network(['hosting']);
 		$this->login($this->alice);
 		$this->assertNull($this->stepUp());
@@ -160,7 +160,7 @@ class RiskyNetworkTest extends StepUpTestCase {
 	}
 
 	public function testThePolicyCanRefuseInstead(): void {
-		$this->settings->setGlobal(StepUpPolicy::RiskyNetwork->settingKey(), 'refuse');
+		$this->settingsEditor()->setGlobal(StepUpPolicy::RiskyNetwork->settingKey(), 'refuse');
 		$bob = $this->user('ids-risky-refuse', null);
 		$this->network(['hosting']);
 		$this->login($bob);
@@ -169,7 +169,7 @@ class RiskyNetworkTest extends StepUpTestCase {
 	}
 
 	public function testObserveRecordsAndAsksNothing(): void {
-		$this->settings->setMode(RiskyNetwork::ID, Mode::Observe);
+		$this->settingsEditor()->setMode(RiskyNetwork::ID, Mode::Observe);
 		$this->network(['hosting']);
 		$this->login($this->alice);
 		$this->assertNull($this->stepUp());
@@ -179,7 +179,7 @@ class RiskyNetworkTest extends StepUpTestCase {
 	}
 
 	public function testWithoutTheStepUpResponseItIsOnlyRecorded(): void {
-		$this->settings->setResponses(RiskyNetwork::ID, [ResponseType::NotifyAdmin]);
+		$this->settingsEditor()->setResponses(RiskyNetwork::ID, [ResponseType::NotifyAdmin]);
 		$this->network(['hosting']);
 		$this->login($this->alice);
 		$this->assertNull($this->stepUp());
@@ -187,7 +187,7 @@ class RiskyNetworkTest extends StepUpTestCase {
 	}
 
 	public function testTheUserCanBeToldInTheirWords(): void {
-		$this->settings->setResponses(RiskyNetwork::ID, [ResponseType::StepUp, ResponseType::NotifyUser]);
+		$this->settingsEditor()->setResponses(RiskyNetwork::ID, [ResponseType::StepUp, ResponseType::NotifyUser]);
 		$this->network(['tor']);
 		$this->login($this->alice);
 		$this->assertCount(1, $this->notificationsFor($this->alice->getUID(), UserAlerts::SUBJECT));
@@ -256,16 +256,16 @@ class RiskyNetworkTest extends StepUpTestCase {
 	}
 
 	public function testAHighRiskScoreAsksForConfirmation(): void {
-		$this->settings->setGlobal(GlobalSettings::RISK_ENABLED, true);
-		$this->settings->setMode(RiskyNetwork::ID, Mode::Off);
+		$this->settingsEditor()->setGlobal(GlobalSettings::RISK_ENABLED, true);
+		$this->settingsEditor()->setMode(RiskyNetwork::ID, Mode::Off);
 		$this->network(['tor', 'hosting', 'list:watch']);
 		$this->login($this->alice);
 		$this->assertSame([StepUpPolicy::RiskHigh->value], $this->stepUp()?->policies, 'Score 5: high');
 	}
 
 	public function testAHighRiskScoreDoesNotAskWhileLearningOrFromATrustedNetwork(): void {
-		$this->settings->setGlobal(GlobalSettings::RISK_ENABLED, true);
-		$this->settings->setMode(RiskyNetwork::ID, Mode::Off);
+		$this->settingsEditor()->setGlobal(GlobalSettings::RISK_ENABLED, true);
+		$this->settingsEditor()->setMode(RiskyNetwork::ID, Mode::Off);
 		$this->network(['tor', 'hosting', 'list:watch']);
 		$this->appConfig->setValueInt(Application::APP_ID, GlobalSettings::LEARNING_UNTIL, time() + 86400);
 		$this->login($this->alice);
@@ -284,7 +284,7 @@ class RiskyNetworkTest extends StepUpTestCase {
 	}
 
 	public function testAHighRiskScoreWithoutAWayToConfirmIsRefused(): void {
-		$this->settings->setGlobal(GlobalSettings::RISK_ENABLED, true);
+		$this->settingsEditor()->setGlobal(GlobalSettings::RISK_ENABLED, true);
 		Server::get(FlaggedSources::class)->flagAttackTool(SourceKey::fromIp($this->remoteAddress), 'hydra');
 		Server::get(FlaggedSources::class)->flagNetwork(SourceKey::fromIp($this->remoteAddress), FlaggedSources::REASON_USER_DENIED);
 		$this->context->setVerdict(new Verdict());
@@ -295,11 +295,11 @@ class RiskyNetworkTest extends StepUpTestCase {
 	}
 
 	public function testAnElevatedScoreOrTheScoreOffDoesNotAsk(): void {
-		$this->settings->setMode(RiskyNetwork::ID, Mode::Off);
+		$this->settingsEditor()->setMode(RiskyNetwork::ID, Mode::Off);
 		$this->network(['tor', 'hosting']);
 		$this->login($this->alice);
 		$this->assertNull($this->stepUp(), 'Off');
-		$this->settings->setGlobal(GlobalSettings::RISK_ENABLED, true);
+		$this->settingsEditor()->setGlobal(GlobalSettings::RISK_ENABLED, true);
 		$this->session->id = null;
 		$this->login($this->alice);
 		$this->assertNull($this->stepUp(), 'Score 3 is elevated, not high');
@@ -316,15 +316,15 @@ class RiskyNetworkTest extends StepUpTestCase {
 	protected function stepUpReasons(): StepUpReasons {
 		$networks = $this->networks();
 		return new StepUpReasons(new OverridingContainer([
-			RiskyNetworkReason::class => new RiskyNetworkReason($this->settings, $networks),
-			RiskHighReason::class => new RiskHighReason($this->scorer(), $this->settings, Server::get(ITrustedNetworks::class)),
+			RiskyNetworkReason::class => new RiskyNetworkReason($this->checkSettings(), $networks),
+			RiskHighReason::class => new RiskHighReason($this->scorer(), $this->appSettings(), Server::get(ITrustedNetworks::class)),
 		]), Server::get(LoggerInterface::class));
 	}
 
 	#[\Override]
 	protected function listenerServices(): array {
 		$this->detector ??= new RiskyNetworkDetector(
-			$this->settings,
+			$this->checkSettings(),
 			$this->networks(),
 			Server::get(SourceRepository::class),
 			$this->engine(),
@@ -336,7 +336,7 @@ class RiskyNetworkTest extends StepUpTestCase {
 
 	private function networks(): NetworkAttributes {
 		return new NetworkAttributes(
-			$this->settings,
+			$this->appSettings(),
 			$this->context,
 			Server::get(AddressCache::class),
 			$this->addresses(),
@@ -347,7 +347,7 @@ class RiskyNetworkTest extends StepUpTestCase {
 
 	private function scorer(): RiskScorer {
 		return new RiskScorer(
-			$this->settings,
+			$this->appSettings(),
 			Server::get(FlaggedSources::class),
 			Server::get(AttemptMapper::class),
 			Server::get(DetectionMapper::class),

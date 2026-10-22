@@ -11,7 +11,7 @@ namespace OCA\IntrusionDetection\Perf;
 
 use OC\AppFramework\Http\Request;
 use OC\DB\Connection;
-use OCA\IntrusionDetection\Config\Settings;
+use OCA\IntrusionDetection\Config\AppSettings;
 use OCA\IntrusionDetection\Guard\AddressGuard;
 use OCA\IntrusionDetection\Guard\CredentialUseGuard;
 use OCA\IntrusionDetection\Guard\PayloadGuard;
@@ -56,7 +56,7 @@ final class FreshRequestProbe {
 		$queriesBefore = self::queries();
 
 		$start = hrtime(true);
-		Server::get(Settings::class)->isEnabled();
+		Server::get(AppSettings::class)->isEnabled();
 		$settingsDone = hrtime(true);
 		foreach ([AddressGuard::class, TrapUrlGuard::class, PayloadGuard::class, CredentialUseGuard::class] as $class) {
 			Server::get($class)->check($request);

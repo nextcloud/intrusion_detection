@@ -18,7 +18,6 @@ use OCA\IntrusionDetection\Blocklist\SourceEditor;
 use OCA\IntrusionDetection\Blocklist\SourceRepository;
 use OCA\IntrusionDetection\Blocklist\UrlPolicy;
 use OCA\IntrusionDetection\Config\GlobalSettings;
-use OCA\IntrusionDetection\Config\Settings;
 use OCA\IntrusionDetection\Db\BlocklistStatMapper;
 use OCA\IntrusionDetection\Definition\InvalidParamException;
 use OCA\IntrusionDetection\State\AppState;
@@ -109,7 +108,7 @@ class SourceEditorTest extends IntegrationTestCase {
 		for ($i = count(Server::get(SourceRepository::class)->all()); $i < SourceRepository::MAX_SOURCES; $i++) {
 			$stored[] = ['id' => 'list_' . $i, 'url' => 'https://lists.example.org/' . $i, 'purpose' => 'deny'];
 		}
-		Server::get(Settings::class)->setGlobal(GlobalSettings::BLOCKLIST_SOURCES, json_encode($stored));
+		$this->settingsEditor()->setGlobal(GlobalSettings::BLOCKLIST_SOURCES, json_encode($stored));
 		$this->expectExceptionObject(new InvalidParamException('too_many_lists', ['max' => SourceRepository::MAX_SOURCES]));
 		$this->editor()->set('one_more', ['url' => 'https://lists.example.org/more', 'purpose' => 'deny'], 'admin');
 	}
@@ -136,6 +135,6 @@ class SourceEditorTest extends IntegrationTestCase {
 		$audit->method('log')->willReturnCallback(function (string $message, array $parameters = []): void {
 			$this->audited[] = [$message, $parameters];
 		});
-		return new SourceEditor(Server::get(SourceRepository::class), Server::get(UrlPolicy::class), Server::get(Settings::class), Server::get(AddressCache::class), $audit);
+		return new SourceEditor(Server::get(SourceRepository::class), Server::get(UrlPolicy::class), $this->settingsEditor(), Server::get(AddressCache::class), $audit);
 	}
 }

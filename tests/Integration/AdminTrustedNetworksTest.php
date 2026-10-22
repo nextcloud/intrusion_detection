@@ -52,8 +52,8 @@ class AdminTrustedNetworksTest extends StepUpTestCase {
 		parent::setUp();
 		$this->admin = $this->user('ids-adminnet', 'admin@example.com');
 		Server::get(IGroupManager::class)->get('admin')?->addUser($this->admin);
-		$this->settings->setGlobal(GlobalSettings::ADMIN_TRUSTED_NETWORKS_ONLY, true);
-		$this->settings->setGlobal(GlobalSettings::RISKY_NETWORK_OFFICE_NETWORKS, [self::OFFICE]);
+		$this->settingsEditor()->setGlobal(GlobalSettings::ADMIN_TRUSTED_NETWORKS_ONLY, true);
+		$this->settingsEditor()->setGlobal(GlobalSettings::RISKY_NETWORK_OFFICE_NETWORKS, [self::OFFICE]);
 		$this->remoteAddress = self::OUTSIDE;
 	}
 
@@ -73,7 +73,7 @@ class AdminTrustedNetworksTest extends StepUpTestCase {
 		// A fresh reason per login, so that delegations made by the test are seen.
 		return new StepUpReasons(new OverridingContainer([
 			AdminOutsideNetworksReason::class => new AdminOutsideNetworksReason(
-				$this->settings,
+				$this->appSettings(),
 				Server::get(IGroupManager::class),
 				new DelegatedGroups(Server::get(AuthorizedGroupMapper::class), Server::get(LoggerInterface::class)),
 			),
@@ -181,7 +181,7 @@ class AdminTrustedNetworksTest extends StepUpTestCase {
 	}
 
 	public function testWithTheSwitchOffNothingChanges(): void {
-		$this->settings->setGlobal(GlobalSettings::ADMIN_TRUSTED_NETWORKS_ONLY, false);
+		$this->settingsEditor()->setGlobal(GlobalSettings::ADMIN_TRUSTED_NETWORKS_ONLY, false);
 		$this->login($this->admin);
 		$this->assertNull($this->stepUp());
 
@@ -192,7 +192,7 @@ class AdminTrustedNetworksTest extends StepUpTestCase {
 	}
 
 	public function testWithoutTrustedNetworksEveryAdministratorLoginMustConfirm(): void {
-		$this->settings->setGlobal(GlobalSettings::RISKY_NETWORK_OFFICE_NETWORKS, []);
+		$this->settingsEditor()->setGlobal(GlobalSettings::RISKY_NETWORK_OFFICE_NETWORKS, []);
 		$this->remoteAddress = self::INSIDE;
 		$this->login($this->admin);
 		$this->assertSame(StepUpState::PENDING, $this->stepUp()?->status);

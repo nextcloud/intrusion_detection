@@ -89,7 +89,7 @@ class NoSecretsPersonalTest extends PersonalApiTestCase {
 
 	private function failedLoginListener(): FailedLoginListener {
 		return new FailedLoginListener(
-			$this->settings,
+			$this->appSettings(), $this->checkSettings(),
 			$this->addresses(),
 			Server::get(AttemptRecorder::class),
 			Server::get(DecoyCredentialDetector::class),

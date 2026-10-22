@@ -41,6 +41,8 @@ final class CheckDefinition {
 	 *                                    confirmed a login from recently is not blocked
 	 * @param int $userAlertInterval the affected user is told about this check at most once per this many seconds
 	 * @param ?DigestSection $digestSection the digest section that lists the check's detections
+	 * @param list<string> $globals global settings that belong to the check: a write of one passes the
+	 *                              check's own validation of its parameters too
 	 */
 	public function __construct(
 		public readonly string $id,
@@ -63,6 +65,7 @@ final class CheckDefinition {
 		public readonly bool $confirmedLoginsExempt = false,
 		public readonly int $userAlertInterval = self::USER_ALERT_INTERVAL,
 		public readonly ?DigestSection $digestSection = null,
+		public readonly array $globals = [],
 	) {
 		if (!preg_match('/^[a-z][a-z0-9_]{2,31}$/', $id)) {
 			throw new \InvalidArgumentException('Invalid check id: ' . $id);

@@ -14,7 +14,8 @@ use OCA\IntrusionDetection\Check\Checks\BreachedPassword;
 use OCA\IntrusionDetection\Check\Checks\BreachedPasswordDetector;
 use OCA\IntrusionDetection\Check\Checks\PasswordSprayingDetector;
 use OCA\IntrusionDetection\Check\Checks\RiskyNetworkDetector;
-use OCA\IntrusionDetection\Config\Settings;
+use OCA\IntrusionDetection\Config\AppSettings;
+use OCA\IntrusionDetection\Config\CheckSettings;
 use OCA\IntrusionDetection\Confirm\LoginContext;
 use OCA\IntrusionDetection\Confirm\LoginDetections;
 use OCA\IntrusionDetection\Confirm\StepUpPolicy;
@@ -75,7 +76,8 @@ class StepUpLoginListener implements IEventListener {
 	public const CLIENT_DECISION_TTL = 60;
 
 	public function __construct(
-		private readonly Settings $settings,
+		private readonly AppSettings $appSettings,
+		private readonly CheckSettings $settings,
 		private readonly InteractiveLogin $interactive,
 		private readonly RemoteAddressResolver $addresses,
 		private readonly Fingerprinter $fingerprinter,
@@ -96,7 +98,7 @@ class StepUpLoginListener implements IEventListener {
 			return;
 		}
 		try {
-			if (!$this->settings->isEnabled()) {
+			if (!$this->appSettings->isEnabled()) {
 				return;
 			}
 			if ($event instanceof UserLoggedInWithCookieEvent) {

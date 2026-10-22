@@ -291,7 +291,7 @@ class PasswordChangeTest extends AccountTestCase {
 	private function loginListener(): PasswordChangeLoginListener {
 		$request = $this->createMock(IRequest::class);
 		$request->method('getHeader')->willReturnCallback(fn (string $name): string => $this->headers[$name] ?? '');
-		return new PasswordChangeLoginListener($this->settings, $this->passwords, $this->state, $request, new InteractiveLogin($request), Server::get(LoggerInterface::class));
+		return new PasswordChangeLoginListener($this->appSettings(), $this->passwords, $this->state, $request, new InteractiveLogin($request), Server::get(LoggerInterface::class));
 	}
 
 	private function controller(): PasswordChangeController {

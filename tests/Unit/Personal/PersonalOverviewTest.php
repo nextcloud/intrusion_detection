@@ -10,7 +10,7 @@ declare(strict_types=1);
 namespace OCA\IntrusionDetection\Tests\Unit\Personal;
 
 use OC\Authentication\TwoFactorAuth\ProviderLoader;
-use OCA\IntrusionDetection\Config\Settings;
+use OCA\IntrusionDetection\Config\AppSettings;
 use OCA\IntrusionDetection\Confirm\ConfirmationCoverage;
 use OCA\IntrusionDetection\Db\Detection;
 use OCA\IntrusionDetection\Db\DetectionMapper;
@@ -193,8 +193,8 @@ class PersonalOverviewTest extends TestCase {
 			}
 			return $this->providers;
 		});
-		$settings = $this->createMock(Settings::class);
-		$settings->method('getInt')->willReturn(90);
+		$settings = $this->createMock(AppSettings::class);
+		$settings->method('retentionDays')->willReturn(90);
 		$formatter = $this->createMock(IDateTimeFormatter::class);
 		$formatter->method('formatTime')->willReturnCallback(static fn (int $ts): string => 'time:' . $ts);
 		$formatter->method('formatDateTime')->willReturnCallback(static fn (int $ts): string => 'date:' . $ts);

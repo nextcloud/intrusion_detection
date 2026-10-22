@@ -138,7 +138,7 @@ class QueuedMailsTest extends AccountTestCase {
 
 		// Above the cap, a user is told inside Nextcloud and at the next login.
 		$user = $this->newUser('ids-queued', 'alice@example.com');
-		[$detection] = Server::get(DetectionService::class)->record(new DetectionDraft(SecondFactorFailed::ID, SourceKey::fromIp('198.51.100.7'), $user->getUID()), $this->settings->modeState(SecondFactorFailed::ID));
+		[$detection] = Server::get(DetectionService::class)->record(new DetectionDraft(SecondFactorFailed::ID, SourceKey::fromIp('198.51.100.7'), $user->getUID()), $this->checkSettings()->modeState(SecondFactorFailed::ID));
 		$result = $this->alertsWith($this->mails, $queue)->notify($detection);
 		$this->assertSame(['bell' => UserAlerts::BELL_SENT, 'email' => UserAlerts::EMAIL_LIMITED, 'admins' => 0], $result);
 		$this->assertCount(1, $this->notificationsFor($user->getUID(), UserAlerts::SUBJECT));
@@ -202,7 +202,7 @@ class QueuedMailsTest extends AccountTestCase {
 	private function engineWith(UserAlerts $alerts): ResponseEngine {
 		return new ResponseEngine(
 			Server::get(CheckRegistry::class),
-			$this->settings,
+			$this->checkSettings(),
 			Server::get(DetectionService::class),
 			new OverridingContainer([NotifyUserHandler::class => new NotifyUserHandler($alerts)]),
 			Server::get(TypedEvents::class),

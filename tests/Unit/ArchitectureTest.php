@@ -25,7 +25,7 @@ class ArchitectureTest extends TestCase {
 	private const LAYERS = [
 		'kernel' => ['Definition', 'Net', 'Crypto', 'Audit', 'Http', 'ResponseDefinitions', 'Sensitive', 'Cache', 'State'],
 		'storage' => ['Db', 'Config'],
-		'platform' => ['Check', 'Detection', 'Response', 'Explain', 'Event', 'Notification', 'Login'],
+		'platform' => ['Check', 'Configure', 'Detection', 'Response', 'Explain', 'Event', 'Notification', 'Login'],
 		'features' => [
 			'Check\\Checks', 'Check\\CredentialUse', 'Check\\Payload',
 			'Address', 'AdminChange', 'Blocklist', 'Breach', 'Confirm', 'Decoy', 'Export', 'Guide', 'Incident', 'KnownDevice',
@@ -44,7 +44,7 @@ class ArchitectureTest extends TestCase {
 
 	/** Generic namespaces, which must not name a check */
 	private const PLATFORM = ['Definition', 'Net', 'Crypto', 'Audit', 'Http', 'ResponseDefinitions', 'Sensitive', 'Cache', 'State', 'Db', 'Config',
-		'Check', 'Detection', 'Response', 'Explain', 'Event', 'Notification', 'Login'];
+		'Check', 'Configure', 'Detection', 'Response', 'Explain', 'Event', 'Notification', 'Login'];
 
 	/**
 	 * Today's dependencies that point upward. Entries may only be removed.
@@ -63,8 +63,6 @@ class ArchitectureTest extends TestCase {
 		'Check\\Checks' => ['Admin', 'Guard'],
 		'Check\\CredentialUse' => ['Guard'],
 		'Check\\Payload' => ['Guard'],
-		// Settings needs the registry and dispatches change events; GlobalSettings defines step-up settings (settings split).
-		'Config' => ['Check', 'Check\\Checks', 'Confirm', 'Event'],
 		// Mappers whose value objects live in their feature (mappers into features).
 		'Db' => ['KnownDevice', 'LoginHistory'],
 		// The risk scorer adds to detections and narratives (pipeline).
@@ -93,7 +91,6 @@ class ArchitectureTest extends TestCase {
 	 */
 	private const NAMES_A_CHECK = [
 		'Check/CheckRegistry.php' => 'the list of all checks',
-		'Config/GlobalSettings.php' => 'a global setting validated by its check (settings split)',
 		'Notification/Notifier.php' => 'approval notifications name the actor like the admin-change check (feature slices)',
 		'Response/Handlers/BanHandler.php' => 'a held-back block is reported as a shared-address detection (pipeline)',
 		'Response/Handlers/RateLimitHandler.php' => 'the action names the directory-scraping group (pipeline)',

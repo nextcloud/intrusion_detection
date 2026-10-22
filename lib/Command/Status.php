@@ -13,8 +13,9 @@ use OC\Core\Command\Base;
 use OCA\IntrusionDetection\Blocklist\BlocklistOverview;
 use OCA\IntrusionDetection\Cache\Caches;
 use OCA\IntrusionDetection\Check\CheckRegistry;
+use OCA\IntrusionDetection\Config\AppSettings;
+use OCA\IntrusionDetection\Config\CheckSettings;
 use OCA\IntrusionDetection\Config\Prerequisites;
-use OCA\IntrusionDetection\Config\Settings;
 use OCA\IntrusionDetection\Db\BanMapper;
 use OCA\IntrusionDetection\Definition\Mode;
 use OCA\IntrusionDetection\Detection\DetectionTotals;
@@ -27,7 +28,8 @@ use Symfony\Component\Console\Output\OutputInterface;
 
 class Status extends Base {
 	public function __construct(
-		private readonly Settings $settings,
+		private readonly AppSettings $appSettings,
+		private readonly CheckSettings $settings,
 		private readonly CheckRegistry $registry,
 		private readonly LearningService $learning,
 		private readonly Prerequisites $prerequisites,
@@ -62,7 +64,7 @@ class Status extends Base {
 		$lists = array_values(array_filter($this->blocklists->lists(), static fn (array $l): bool => $l['enabled']));
 
 		$status = [
-			'state' => !$this->settings->isEnabled() ? 'off' : ($this->learning->isActive() ? 'learning' : 'protecting'),
+			'state' => !$this->appSettings->isEnabled() ? 'off' : ($this->learning->isActive() ? 'learning' : 'protecting'),
 			'learning_until' => $this->learning->until() > $now ? date('c', $this->learning->until()) : null,
 			'learning_days_left' => $this->learning->daysLeft(),
 			'checks' => $modes,

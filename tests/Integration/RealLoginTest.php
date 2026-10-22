@@ -19,7 +19,6 @@ use OCA\IntrusionDetection\Check\Checks\StepUpRefused;
 use OCA\IntrusionDetection\Check\Checks\StepUpRefusedClient;
 use OCA\IntrusionDetection\Check\Checks\StepUpUnconfirmed;
 use OCA\IntrusionDetection\Config\GlobalSettings;
-use OCA\IntrusionDetection\Config\Settings;
 use OCA\IntrusionDetection\Confirm\NoMethodOutcome;
 use OCA\IntrusionDetection\Confirm\StepUpPolicy;
 use OCA\IntrusionDetection\Confirm\StepUpReasons;
@@ -99,7 +98,7 @@ class RealLoginTest extends IntegrationTestCase {
 		$addresses = new RemoteAddressResolver($this->request, Server::get(IThrottler::class), Server::get(ServerAddresses::class));
 		$this->overwriteService(RemoteAddressResolver::class, $addresses);
 		$this->overwriteService(StepUpLoginListener::class, new StepUpLoginListener(
-			Server::get(Settings::class),
+			$this->appSettings(), $this->checkSettings(),
 			new InteractiveLogin($this->request),
 			$addresses,
 			Server::get(Fingerprinter::class),
@@ -119,7 +118,7 @@ class RealLoginTest extends IntegrationTestCase {
 		});
 		$this->overwriteService(Mails::class, $mails);
 		Server::get(AccountProtection::class)->protect($this->user->getUID(), time() + 3600);
-		Server::get(Settings::class)->setGlobal(StepUpPolicy::ProtectedAccount->settingKey(), NoMethodOutcome::Refuse->value);
+		$this->settingsEditor()->setGlobal(StepUpPolicy::ProtectedAccount->settingKey(), NoMethodOutcome::Refuse->value);
 	}
 
 	protected function tearDown(): void {
@@ -181,7 +180,7 @@ class RealLoginTest extends IntegrationTestCase {
 		// where the setting would let a login in that nothing can confirm. Another address, so
 		// that the decision about the app above is not repeated.
 		$this->remoteAddress = '198.51.100.10';
-		Server::get(Settings::class)->setGlobal(StepUpPolicy::ProtectedAccount->settingKey(), NoMethodOutcome::AllowNotify->value);
+		$this->settingsEditor()->setGlobal(StepUpPolicy::ProtectedAccount->settingKey(), NoMethodOutcome::AllowNotify->value);
 		$this->user->setEMailAddress('real-login@example.com');
 		Server::get(Session::class)->logout();
 		Server::get(ISession::class)->clear();
@@ -195,7 +194,7 @@ class RealLoginTest extends IntegrationTestCase {
 		// still an app. Nothing is started for it, nothing fails later, and nobody is told again.
 		// The same address, decided afresh rather than repeated from the memory cache.
 		Server::get(Caches::class)->clear();
-		Server::get(Settings::class)->setGlobal(GlobalSettings::STEP_UP_ADMIN_APPROVAL, true);
+		$this->settingsEditor()->setGlobal(GlobalSettings::STEP_UP_ADMIN_APPROVAL, true);
 		$notices = $this->mailsOf('intrusion_detection.userNotice');
 		Server::get(Session::class)->logout();
 		Server::get(ISession::class)->clear();

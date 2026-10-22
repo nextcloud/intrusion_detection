@@ -10,8 +10,7 @@ declare(strict_types=1);
 namespace OCA\IntrusionDetection\Tests\Unit\Confirm;
 
 use OCA\IntrusionDetection\AdminChange\DelegatedGroups;
-use OCA\IntrusionDetection\Config\GlobalSettings;
-use OCA\IntrusionDetection\Config\Settings;
+use OCA\IntrusionDetection\Config\AppSettings;
 use OCA\IntrusionDetection\Confirm\LoginContext;
 use OCA\IntrusionDetection\Confirm\Methods\KnownDeviceMethod;
 use OCA\IntrusionDetection\Confirm\Reasons\AdminOutsideNetworksReason;
@@ -25,7 +24,7 @@ use PHPUnit\Framework\MockObject\MockObject;
 use Test\TestCase;
 
 class AdminOutsideNetworksReasonTest extends TestCase {
-	private Settings&MockObject $settings;
+	private AppSettings&MockObject $settings;
 	private IGroupManager&MockObject $groups;
 	private DelegatedGroups&MockObject $delegated;
 	private bool $on = true;
@@ -34,9 +33,9 @@ class AdminOutsideNetworksReasonTest extends TestCase {
 
 	protected function setUp(): void {
 		parent::setUp();
-		$this->settings = $this->createMock(Settings::class);
-		$this->settings->method('getBool')->willReturnCallback(fn (string $name): bool => $name === GlobalSettings::ADMIN_TRUSTED_NETWORKS_ONLY && $this->on);
-		$this->settings->method('global')->willReturnCallback(fn (string $name): array => $name === GlobalSettings::RISKY_NETWORK_OFFICE_NETWORKS ? $this->networks : []);
+		$this->settings = $this->createMock(AppSettings::class);
+		$this->settings->method('adminTrustedNetworksOnly')->willReturnCallback(fn (): bool => $this->on);
+		$this->settings->method('riskyNetworkOfficeNetworks')->willReturnCallback(fn (): array => $this->networks);
 		$this->groups = $this->createMock(IGroupManager::class);
 		$this->delegated = $this->createMock(DelegatedGroups::class);
 	}
@@ -50,7 +49,7 @@ class AdminOutsideNetworksReasonTest extends TestCase {
 
 	public function testNothingIsReadWhileTheSwitchIsOff(): void {
 		$this->on = false;
-		$this->settings->expects($this->never())->method('global');
+		$this->settings->expects($this->never())->method('riskyNetworkOfficeNetworks');
 		$this->groups->expects($this->never())->method('isInGroup');
 		$this->delegated->expects($this->never())->method('all');
 		$this->assertFalse($this->reason()->applies($this->login('203.0.113.9')));

@@ -9,8 +9,8 @@ declare(strict_types=1);
 
 namespace OCA\IntrusionDetection\Explain;
 
+use OCA\IntrusionDetection\Config\CheckSettings;
 use OCA\IntrusionDetection\Config\Prerequisites;
-use OCA\IntrusionDetection\Config\Settings;
 use OCA\IntrusionDetection\Definition\CheckDefinition;
 use OCA\IntrusionDetection\Definition\DataKind;
 use OCA\IntrusionDetection\Definition\ParamDefinition;
@@ -28,7 +28,7 @@ use OCP\IL10N;
  */
 class CheckPresenter {
 	public function __construct(
-		private readonly Settings $settings,
+		private readonly CheckSettings $settings,
 		private readonly Prerequisites $prerequisites,
 		private readonly TextRenderer $renderer,
 	) {
@@ -95,7 +95,7 @@ class CheckPresenter {
 	 * "What happens": the selected responses as sentences, in the order they run.
 	 *
 	 * @param list<ResponseType> $responses
-	 * @param array<string, int|float|bool|string|list<string>> $values placeholder values, see {@see Settings::placeholderValues()}
+	 * @param array<string, int|float|bool|string|list<string>> $values placeholder values, see {@see CheckSettings::placeholderValues()}
 	 * @return list<string>
 	 */
 	public function happens(array $responses, IL10N $l, array $values = []): array {

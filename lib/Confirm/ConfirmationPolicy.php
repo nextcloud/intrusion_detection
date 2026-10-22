@@ -9,7 +9,7 @@ declare(strict_types=1);
 
 namespace OCA\IntrusionDetection\Confirm;
 
-use OCA\IntrusionDetection\Config\Settings;
+use OCA\IntrusionDetection\Config\AppSettings;
 use OCP\IUser;
 use Psr\Container\ContainerInterface;
 use Psr\Log\LoggerInterface;
@@ -35,7 +35,7 @@ class ConfirmationPolicy {
 	private ?array $methods = null;
 
 	public function __construct(
-		private readonly Settings $settings,
+		private readonly AppSettings $settings,
 		private readonly ContainerInterface $container,
 		private readonly LoggerInterface $logger,
 	) {
@@ -114,7 +114,7 @@ class ConfirmationPolicy {
 	 * The configured outcome for a policy when no method is available.
 	 */
 	public function noMethodOutcome(StepUpPolicy $policy): NoMethodOutcome {
-		$value = (string)$this->settings->global($policy->settingKey());
+		$value = $this->settings->stepUpNoMethod($policy->value);
 		return NoMethodOutcome::tryFrom($value) ?? $policy->defaultOutcome();
 	}
 

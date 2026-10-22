@@ -12,7 +12,7 @@ namespace OCA\IntrusionDetection\Guard;
 use OCA\IntrusionDetection\Address\AddressCache;
 use OCA\IntrusionDetection\Address\AddressResolver;
 use OCA\IntrusionDetection\Address\Verdict;
-use OCA\IntrusionDetection\Config\Settings;
+use OCA\IntrusionDetection\Config\AppSettings;
 use OCA\IntrusionDetection\Net\RemoteAddressResolver;
 use OCA\IntrusionDetection\Net\SourceKey;
 use OCA\IntrusionDetection\Perf\GuardTimer;
@@ -34,7 +34,7 @@ class AddressGuard implements IRequestGuard {
 
 	public function __construct(
 		private readonly IConfig $config,
-		private readonly Settings $settings,
+		private readonly AppSettings $settings,
 		private readonly AddressCache $cache,
 		private readonly AddressResolver $resolver,
 		private readonly RemoteAddressResolver $addresses,

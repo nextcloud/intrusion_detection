@@ -15,7 +15,6 @@ use OCA\IntrusionDetection\Command\Blocklists\Set;
 use OCA\IntrusionDetection\Command\Blocklists\Sync;
 use OCA\IntrusionDetection\Command\Export\Write;
 use OCA\IntrusionDetection\Config\GlobalSettings;
-use OCA\IntrusionDetection\Config\Settings;
 use OCA\IntrusionDetection\Db\BanMapper;
 use OCA\IntrusionDetection\Export\ExportDirectory;
 use OCA\IntrusionDetection\Export\ExportException;
@@ -85,7 +84,7 @@ class BlocklistCommandsTest extends IntegrationTestCase {
 		$config->method('getSystemValueString')->willReturnArgument(1);
 		$exporter = new FirewallExporter(
 			new ExportDirectory($config),
-			Server::get(Settings::class),
+			$this->appSettings(),
 			Server::get(BanMapper::class),
 			Server::get(AppState::class),
 			Server::get(ProtectedRanges::class),
@@ -97,7 +96,7 @@ class BlocklistCommandsTest extends IntegrationTestCase {
 		$this->assertSame(Command::FAILURE, $tester->execute([]));
 		$this->assertStringContainsString('No export format is switched on', $tester->getDisplay());
 
-		Server::get(Settings::class)->setGlobal(GlobalSettings::EXPORT_FORMATS, ['nft']);
+		$this->settingsEditor()->setGlobal(GlobalSettings::EXPORT_FORMATS, ['nft']);
 		$this->assertSame(Command::FAILURE, $tester->execute([]));
 		$this->assertStringContainsString(Write::describe(ExportException::NOT_CONFIGURED), $tester->getDisplay());
 	}

@@ -11,7 +11,8 @@ namespace OCA\IntrusionDetection\Confirm;
 
 use OCA\IntrusionDetection\Audit\AuditLogger;
 use OCA\IntrusionDetection\Check\Checks\StepUpFailed;
-use OCA\IntrusionDetection\Config\Settings;
+use OCA\IntrusionDetection\Config\AppSettings;
+use OCA\IntrusionDetection\Config\CheckSettings;
 use OCA\IntrusionDetection\Db\LoginHistoryMapper;
 use OCA\IntrusionDetection\Db\StepUpSessionMapper;
 use OCA\IntrusionDetection\Detection\DetectionDraft;
@@ -47,7 +48,8 @@ class AbandonedLogins {
 		private readonly LoginHistoryMapper $history,
 		private readonly ResponseEngine $engine,
 		private readonly StepUpFailed $failedCheck,
-		private readonly Settings $settings,
+		private readonly AppSettings $appSettings,
+		private readonly CheckSettings $settings,
 		private readonly ITimeFactory $timeFactory,
 		private readonly AuditLogger $audit,
 		private readonly LoggerInterface $logger,
@@ -58,7 +60,7 @@ class AbandonedLogins {
 	 * @return int the logins ended, with or without a notice
 	 */
 	public function end(): int {
-		$enabled = $this->settings->isEnabled();
+		$enabled = $this->appSettings->isEnabled();
 		$ended = 0;
 		foreach ($this->sessions->findAbandoned($this->timeFactory->getTime(), self::BATCH) as $row) {
 			if (!$this->sessions->endWaiting($row['session_key'])) {

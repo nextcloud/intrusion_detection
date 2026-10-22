@@ -12,9 +12,9 @@ namespace OCA\IntrusionDetection\WasThisYou;
 use OCA\IntrusionDetection\AppInfo\Application;
 use OCA\IntrusionDetection\Audit\AuditLogger;
 use OCA\IntrusionDetection\Check\Checks\UserDenied;
-use OCA\IntrusionDetection\Config\GlobalSettings;
+use OCA\IntrusionDetection\Config\AppSettings;
+use OCA\IntrusionDetection\Config\CheckSettings;
 use OCA\IntrusionDetection\Config\ModeState;
-use OCA\IntrusionDetection\Config\Settings;
 use OCA\IntrusionDetection\Confirm\SessionConfirmation;
 use OCA\IntrusionDetection\Db\Detection;
 use OCA\IntrusionDetection\Db\DetectionMapper;
@@ -74,7 +74,8 @@ class WasThisYouService {
 		private readonly Questions $questions,
 		private readonly ResponseEngine $engine,
 		private readonly UserDenied $deniedCheck,
-		private readonly Settings $settings,
+		private readonly AppSettings $appSettings,
+		private readonly CheckSettings $settings,
 		private readonly FlaggedSources $flags,
 		private readonly TrustedNetworks $trustedNetworks,
 		private readonly SessionKiller $sessionKiller,
@@ -110,7 +111,7 @@ class WasThisYouService {
 
 		$denial = null;
 		$mode = $this->settings->configuredMode(UserDenied::ID);
-		if ($this->settings->isEnabled() && $mode !== Mode::Off) {
+		if ($this->appSettings->isEnabled() && $mode !== Mode::Off) {
 			$draft = new DetectionDraft(
 				checkId: UserDenied::ID,
 				source: $source,
@@ -127,7 +128,7 @@ class WasThisYouService {
 					'tokenId' => $tokenId,
 				],
 				merge: $weak ? DetectionDraft::MERGE_SUBJECT : DetectionDraft::MERGE_NONE,
-				mergeWindow: $this->settings->getInt(GlobalSettings::RETENTION_DETECTIONS_DAYS) * 86400,
+				mergeWindow: $this->appSettings->retentionDays() * 86400,
 				banLevel: self::BAN_LEVEL,
 				sessionTokenId: $sessions[0] ?? null,
 				tokenId: $tokenId,

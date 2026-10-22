@@ -102,7 +102,7 @@ abstract class PersonalApiTestCase extends StepUpTestCase {
 			Server::get(Questions::class),
 			$this->engine(),
 			Server::get(UserDenied::class),
-			$this->settings,
+			$this->appSettings(), $this->checkSettings(),
 			Server::get(FlaggedSources::class),
 			Server::get(TrustedNetworks::class),
 			$this->sessionKiller(),
@@ -114,7 +114,7 @@ abstract class PersonalApiTestCase extends StepUpTestCase {
 			Server::get(AuditLogger::class),
 			Server::get(ITimeFactory::class),
 		);
-		$detections = new PersonalDetections(Server::get(DetectionMapper::class), Server::get(UserMessages::class), Server::get(Questions::class), $answers, $this->settings, Server::get(ITimeFactory::class));
+		$detections = new PersonalDetections(Server::get(DetectionMapper::class), Server::get(UserMessages::class), Server::get(Questions::class), $answers, $this->appSettings(), Server::get(ITimeFactory::class));
 		return new PersonalApiController(
 			$this->request,
 			$this->userSession,
@@ -128,7 +128,7 @@ abstract class PersonalApiTestCase extends StepUpTestCase {
 			Server::get(SecureAccountGuide::class),
 			Server::get(SecureAccountOverview::class),
 			Server::get(SecurityChangeMapper::class),
-			$this->settings,
+			$this->appSettings(),
 			Server::get(ITimeFactory::class),
 			Server::get(PersonalOverview::class),
 			new LogOutElsewhere(Server::get(Tokens::class), $this->currentSession, $this->knownDevices(), $this->session, Server::get(AuditLogger::class)),
@@ -141,7 +141,7 @@ abstract class PersonalApiTestCase extends StepUpTestCase {
 				Server::get(FailedLoginStats::class),
 				Server::get(UserMessages::class),
 				$this->currentSession,
-				$this->settings,
+				$this->appSettings(),
 				Server::get(ITimeFactory::class),
 			),
 		);

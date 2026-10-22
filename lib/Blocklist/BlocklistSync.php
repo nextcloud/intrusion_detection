@@ -13,7 +13,7 @@ use OCA\IntrusionDetection\Address\AddressCache;
 use OCA\IntrusionDetection\Blocklist\Parser\ListFormatException;
 use OCA\IntrusionDetection\Blocklist\Parser\ParsedList;
 use OCA\IntrusionDetection\Check\Checks\BlocklistMatch;
-use OCA\IntrusionDetection\Config\Settings;
+use OCA\IntrusionDetection\Config\CheckSettings;
 use OCA\IntrusionDetection\Db\BlocklistRangeMapper;
 use OCA\IntrusionDetection\Db\BlocklistStatMapper;
 use OCA\IntrusionDetection\Net\RangeCodec;
@@ -70,7 +70,7 @@ class BlocklistSync {
 		private readonly BlocklistStatMapper $stats,
 		private readonly IClientService $clientService,
 		private readonly UrlPolicy $urlPolicy,
-		private readonly Settings $settings,
+		private readonly CheckSettings $settings,
 		private readonly AddressCache $addressCache,
 		private readonly ILockingProvider $locking,
 		private readonly ITimeFactory $timeFactory,

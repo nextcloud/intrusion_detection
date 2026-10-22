@@ -12,8 +12,7 @@ namespace OCA\IntrusionDetection\Risk;
 use OCA\IntrusionDetection\Address\AddressCache;
 use OCA\IntrusionDetection\Address\Verdict;
 use OCA\IntrusionDetection\Blocklist\BlocklistSource;
-use OCA\IntrusionDetection\Config\GlobalSettings;
-use OCA\IntrusionDetection\Config\Settings;
+use OCA\IntrusionDetection\Config\AppSettings;
 use OCA\IntrusionDetection\Confirm\LoginContext;
 use OCA\IntrusionDetection\Guard\RequestContext;
 use OCA\IntrusionDetection\Net\RangeCodec;
@@ -37,7 +36,7 @@ class NetworkAttributes {
 	private ?\WeakMap $answers = null;
 
 	public function __construct(
-		private readonly Settings $settings,
+		private readonly AppSettings $settings,
 		private readonly RequestContext $context,
 		private readonly AddressCache $addressCache,
 		private readonly RemoteAddressResolver $addresses,
@@ -70,10 +69,10 @@ class NetworkAttributes {
 		if ($attributes === []) {
 			return null;
 		}
-		if (RangeCodec::firstContaining($this->list(GlobalSettings::RISKY_NETWORK_OFFICE_NETWORKS), $source) !== null) {
+		if (RangeCodec::firstContaining($this->settings->riskyNetworkOfficeNetworks(), $source) !== null) {
 			return null;
 		}
-		foreach ($this->list(GlobalSettings::RISKY_NETWORK_EXEMPT_GROUPS) as $group) {
+		foreach ($this->settings->riskyNetworkExemptGroups() as $group) {
 			if ($this->groupManager->isInGroup($login->uid(), $group)) {
 				return null;
 			}
@@ -100,13 +99,5 @@ class NetworkAttributes {
 			return null;
 		}
 		return $this->context->verdict() ?? $this->addressCache->get($current);
-	}
-
-	/**
-	 * @return list<string>
-	 */
-	private function list(string $setting): array {
-		$value = $this->settings->global($setting);
-		return is_array($value) ? $value : [];
 	}
 }

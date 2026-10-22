@@ -19,7 +19,6 @@ use OCA\IntrusionDetection\Blocklist\StateStore;
 use OCA\IntrusionDetection\Check\Checks\BlocklistMatch;
 use OCA\IntrusionDetection\Check\Checks\RiskyNetwork;
 use OCA\IntrusionDetection\Config\GlobalSettings;
-use OCA\IntrusionDetection\Config\Settings;
 use OCA\IntrusionDetection\Db\Ban;
 use OCA\IntrusionDetection\Db\BanMapper;
 use OCA\IntrusionDetection\Db\BlocklistRangeMapper;
@@ -49,15 +48,13 @@ use Psr\Log\LoggerInterface;
 class BlocklistFactsProviderTest extends IntegrationTestCase {
 	private const NOW = 1792490400;
 
-	private Settings $settings;
 	/** @var list<string> lists the provider looked up */
 	private array $queried = [];
 
 	protected function setUp(): void {
 		parent::setUp();
-		$this->settings = Server::get(Settings::class);
-		$this->settings->setMode(BlocklistMatch::ID, Mode::Protect);
-		$this->settings->setGlobal(GlobalSettings::BLOCKLIST_SOURCES, json_encode([
+		$this->settingsEditor()->setMode(BlocklistMatch::ID, Mode::Protect);
+		$this->settingsEditor()->setGlobal(GlobalSettings::BLOCKLIST_SOURCES, json_encode([
 			['id' => 'drop', 'url' => 'https://lists.example.org/drop.txt', 'purpose' => 'deny', 'mode' => 'protect', 'enabled' => true],
 			['id' => 'watch', 'url' => 'https://lists.example.org/watch.txt', 'purpose' => 'deny', 'mode' => 'observe', 'enabled' => true],
 			['id' => 'cloud', 'url' => 'https://lists.example.org/cloud.txt', 'purpose' => 'hosting', 'enabled' => true],
@@ -92,16 +89,16 @@ class BlocklistFactsProviderTest extends IntegrationTestCase {
 	}
 
 	public function testAttributeListsAreSkippedWhileNothingUsesThem(): void {
-		$this->settings->setMode(RiskyNetwork::ID, Mode::Off);
-		$this->settings->setGlobal(GlobalSettings::RISK_ENABLED, false);
+		$this->settingsEditor()->setMode(RiskyNetwork::ID, Mode::Off);
+		$this->settingsEditor()->setGlobal(GlobalSettings::RISK_ENABLED, false);
 		$this->assertSame([], $this->provider()->facts(SourceKey::fromIp('192.0.2.77'))->attributes);
 		$this->assertNotContains('cloud', $this->queried);
 		$this->assertNotContains('exits', $this->queried);
 
-		$this->settings->setGlobal(GlobalSettings::RISK_ENABLED, true);
+		$this->settingsEditor()->setGlobal(GlobalSettings::RISK_ENABLED, true);
 		$this->assertSame(['hosting', 'net:cloud', 'tor', 'net:exits'], $this->provider()->facts(SourceKey::fromIp('192.0.2.77'))->attributes, 'The risk score uses them');
-		$this->settings->setGlobal(GlobalSettings::RISK_ENABLED, false);
-		$this->settings->setMode(RiskyNetwork::ID, Mode::Observe);
+		$this->settingsEditor()->setGlobal(GlobalSettings::RISK_ENABLED, false);
+		$this->settingsEditor()->setMode(RiskyNetwork::ID, Mode::Observe);
 		$this->assertSame(['hosting', 'net:cloud', 'tor', 'net:exits'], $this->provider()->facts(SourceKey::fromIp('192.0.2.77'))->attributes, 'The check uses them');
 	}
 
@@ -169,7 +166,7 @@ class BlocklistFactsProviderTest extends IntegrationTestCase {
 	}
 
 	public function testBlocklistsAreNotLookedUpWhileTheCheckIsOff(): void {
-		$this->settings->setMode(BlocklistMatch::ID, Mode::Off);
+		$this->settingsEditor()->setMode(BlocklistMatch::ID, Mode::Off);
 		$facts = $this->provider()->facts(SourceKey::fromIp('198.51.100.7'));
 		$this->assertSame(0, $facts->denyUntil);
 		$this->assertSame(['cloud', 'exits'], $this->queried, 'Only the attribute lists');
@@ -282,7 +279,7 @@ class BlocklistFactsProviderTest extends IntegrationTestCase {
 			Server::get(StateStore::class),
 			$ranges,
 			Server::get(BlocklistStatMapper::class),
-			$this->settings,
+			$this->appSettings(), $this->checkSettings(),
 			$this->addressCache($withCache),
 			$this->time(),
 			Server::get(LoggerInterface::class),
@@ -309,7 +306,7 @@ class BlocklistFactsProviderTest extends IntegrationTestCase {
 		$cache = $this->addressCache(false);
 		$guard = new AddressGuard(
 			$config,
-			$this->settings,
+			$this->appSettings(),
 			$cache,
 			$resolver,
 			new RemoteAddressResolver($this->createMock(IRequest::class), $throttler, Server::get(ServerAddresses::class)),

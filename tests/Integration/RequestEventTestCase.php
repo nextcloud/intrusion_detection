@@ -9,7 +9,6 @@ declare(strict_types=1);
 
 namespace OCA\IntrusionDetection\Tests\Integration;
 
-use OCA\IntrusionDetection\Config\Settings;
 use OCA\IntrusionDetection\Db\Detection;
 use OCA\IntrusionDetection\Db\DetectionFilter;
 use OCA\IntrusionDetection\Db\DetectionMapper;
@@ -40,7 +39,6 @@ use PHPUnit\Framework\MockObject\MockObject;
  * the command line the request has no address, so they return at once.
  */
 abstract class RequestEventTestCase extends IntegrationTestCase {
-	protected Settings $settings;
 	protected DetectionMapper $detections;
 	/** @var IRequest&MockObject */
 	protected IRequest $request;
@@ -57,7 +55,6 @@ abstract class RequestEventTestCase extends IntegrationTestCase {
 
 	protected function setUp(): void {
 		parent::setUp();
-		$this->settings = Server::get(Settings::class);
 		$this->detections = Server::get(DetectionMapper::class);
 		$this->request = $this->createMock(IRequest::class);
 		$this->request->method('getRemoteAddress')->willReturnCallback(fn (): string => $this->remoteAddress);

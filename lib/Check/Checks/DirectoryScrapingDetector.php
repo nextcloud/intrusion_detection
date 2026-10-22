@@ -10,7 +10,8 @@ declare(strict_types=1);
 namespace OCA\IntrusionDetection\Check\Checks;
 
 use OCA\IntrusionDetection\Cache\Caches;
-use OCA\IntrusionDetection\Config\Settings;
+use OCA\IntrusionDetection\Config\AppSettings;
+use OCA\IntrusionDetection\Config\CheckSettings;
 use OCA\IntrusionDetection\Definition\Mode;
 use OCA\IntrusionDetection\Definition\ResponseType;
 use OCA\IntrusionDetection\Detection\DetectionDraft;
@@ -44,7 +45,8 @@ class DirectoryScrapingDetector {
 	public const KEY_PREFIX = 'scrape:';
 
 	public function __construct(
-		private readonly Settings $settings,
+		private readonly AppSettings $appSettings,
+		private readonly CheckSettings $settings,
 		private readonly RequestContext $context,
 		private readonly Caches $caches,
 		private readonly ITimeFactory $timeFactory,
@@ -129,7 +131,7 @@ class DirectoryScrapingDetector {
 	 * memory cache are applied when a limit is reached.
 	 */
 	private function runs(): bool {
-		return ($this->context->verdict() !== null || $this->settings->isEnabled())
+		return ($this->context->verdict() !== null || $this->appSettings->isEnabled())
 			&& $this->settings->configuredMode(DirectoryScraping::ID) !== Mode::Off;
 	}
 }

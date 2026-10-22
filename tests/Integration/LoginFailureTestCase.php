@@ -16,7 +16,6 @@ use OCA\IntrusionDetection\Check\Checks\DecoyCredentialDetector;
 use OCA\IntrusionDetection\Check\Checks\PasswordSpraying;
 use OCA\IntrusionDetection\Check\Checks\PasswordSprayingDetector;
 use OCA\IntrusionDetection\Check\Checks\ReservedNameDetector;
-use OCA\IntrusionDetection\Config\Settings;
 use OCA\IntrusionDetection\Crypto\Fingerprinter;
 use OCA\IntrusionDetection\Db\AttemptKind;
 use OCA\IntrusionDetection\Db\AttemptMapper;
@@ -49,7 +48,6 @@ use Psr\Log\LoggerInterface;
  */
 abstract class LoginFailureTestCase extends IntegrationTestCase {
 	protected FailedLoginListener $listener;
-	protected Settings $settings;
 	protected DetectionMapper $detections;
 	protected AttemptMapper $attempts;
 	/** @var IRequest&MockObject */
@@ -61,7 +59,6 @@ abstract class LoginFailureTestCase extends IntegrationTestCase {
 
 	protected function setUp(): void {
 		parent::setUp();
-		$this->settings = Server::get(Settings::class);
 		$this->detections = Server::get(DetectionMapper::class);
 		$this->attempts = Server::get(AttemptMapper::class);
 		$this->request = $this->createMock(IRequest::class);
@@ -69,14 +66,14 @@ abstract class LoginFailureTestCase extends IntegrationTestCase {
 		$this->request->method('getHeader')->willReturnCallback(fn (string $name): string => $name === 'User-Agent' ? $this->userAgent : '');
 		$addresses = new RemoteAddressResolver($this->request, Server::get(IThrottler::class), Server::get(ServerAddresses::class));
 		$this->listener = new FailedLoginListener(
-			$this->settings,
+			$this->appSettings(), $this->checkSettings(),
 			$addresses,
 			$this->attemptRecorder(),
 			Server::get(DecoyCredentialDetector::class),
 			Server::get(ReservedNameDetector::class),
 			// Built per test, so the memory-cache state of one test cannot leak into the next.
 			new CredentialStuffingDetector(
-				$this->settings,
+				$this->checkSettings(),
 				$this->attempts,
 				Server::get(ResponseEngine::class),
 				Server::get(FlaggedSources::class),
@@ -87,7 +84,7 @@ abstract class LoginFailureTestCase extends IntegrationTestCase {
 				Server::get(AppState::class),
 			),
 			new PasswordSprayingDetector(
-				$this->settings,
+				$this->checkSettings(),
 				$this->attempts,
 				Server::get(ResponseEngine::class),
 				Server::get(FlaggedSources::class),

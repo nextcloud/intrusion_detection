@@ -13,10 +13,11 @@ use OCA\IntrusionDetection\AdminChange\ActorResolver;
 use OCA\IntrusionDetection\AdminChange\WatchedSettings;
 use OCA\IntrusionDetection\Check\Checks\AdminChange;
 use OCA\IntrusionDetection\Check\Checks\AdminChangeDetector;
+use OCA\IntrusionDetection\Config\AppSettings;
+use OCA\IntrusionDetection\Config\CheckSettings;
 use OCA\IntrusionDetection\Config\GlobalSettings;
 use OCA\IntrusionDetection\Config\Keys;
 use OCA\IntrusionDetection\Config\ModeState;
-use OCA\IntrusionDetection\Config\Settings;
 use OCA\IntrusionDetection\Definition\Mode;
 use OCA\IntrusionDetection\Definition\Severity;
 use OCA\IntrusionDetection\Detection\DetectionDraft;
@@ -143,14 +144,15 @@ class AdminChangeDetectorTest extends TestCase {
 	 */
 	#[DataProvider('modesBefore')]
 	public function testTheModeBeforeAChange(string $name, int|float|bool|string|array $old, Mode $configuredNow, bool $enabledNow, bool $learningNow, Mode $effective, ?string $reason, bool $actsWhileLearning = false): void {
-		$settings = $this->createMock(Settings::class);
+		$settings = $this->createMock(CheckSettings::class);
 		$settings->method('actsWhileLearning')->with(AdminChange::ID)->willReturn($actsWhileLearning);
 		$settings->method('configuredMode')->willReturn($configuredNow);
-		$settings->method('isEnabled')->willReturn($enabledNow);
-		$settings->method('isLearning')->willReturn($learningNow);
+		$appSettings = $this->createMock(AppSettings::class);
+		$appSettings->method('isEnabled')->willReturn($enabledNow);
+		$appSettings->method('isLearning')->willReturn($learningNow);
 		$time = $this->createMock(ITimeFactory::class);
 		$time->method('getTime')->willReturn(self::NOW);
-		$detector = new AdminChangeDetector($this->createMock(ResponseEngine::class), $settings, $this->createMock(ActorResolver::class), $this->createMock(RemoteAddressResolver::class), $time);
+		$detector = new AdminChangeDetector($this->createMock(ResponseEngine::class), $appSettings, $settings, $this->createMock(ActorResolver::class), $this->createMock(RemoteAddressResolver::class), $time);
 		$mode = $detector->modeBefore($name, $old);
 		$this->assertSame($effective, $mode->effective);
 		$this->assertSame($reason, $mode->reason);
@@ -163,6 +165,6 @@ class AdminChangeDetectorTest extends TestCase {
 		$addresses->method('current')->willReturn(SourceKey::fromIp('198.51.100.7'));
 		$time = $this->createMock(ITimeFactory::class);
 		$time->method('getTime')->willReturn(self::NOW);
-		return new AdminChangeDetector($engine, $this->createMock(Settings::class), $actors, $addresses, $time);
+		return new AdminChangeDetector($engine, $this->createMock(AppSettings::class), $this->createMock(CheckSettings::class), $actors, $addresses, $time);
 	}
 }

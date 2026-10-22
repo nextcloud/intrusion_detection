@@ -11,8 +11,9 @@ namespace OCA\IntrusionDetection\Admin;
 
 use OCA\IntrusionDetection\Cache\Caches;
 use OCA\IntrusionDetection\Check\CheckRegistry;
+use OCA\IntrusionDetection\Config\AppSettings;
+use OCA\IntrusionDetection\Config\CheckSettings;
 use OCA\IntrusionDetection\Config\Prerequisites;
-use OCA\IntrusionDetection\Config\Settings;
 use OCA\IntrusionDetection\Db\BanMapper;
 use OCA\IntrusionDetection\Db\StatsMapper;
 use OCA\IntrusionDetection\Detection\DetectionTotals;
@@ -59,7 +60,8 @@ class StatusService {
 	public const CACHE_TTL = 60;
 
 	public function __construct(
-		private readonly Settings $settings,
+		private readonly AppSettings $appSettings,
+		private readonly CheckSettings $settings,
 		private readonly CheckRegistry $registry,
 		private readonly CheckNames $names,
 		private readonly LearningService $learning,
@@ -79,7 +81,7 @@ class StatusService {
 	 * @return 'protecting'|'learning'|'off'
 	 */
 	public function state(): string {
-		if (!$this->settings->isEnabled()) {
+		if (!$this->appSettings->isEnabled()) {
 			return self::STATE_OFF;
 		}
 		return $this->learning->isActive() ? self::STATE_LEARNING : self::STATE_PROTECTING;

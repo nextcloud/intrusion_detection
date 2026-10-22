@@ -9,8 +9,7 @@ declare(strict_types=1);
 
 namespace OCA\IntrusionDetection\Personal;
 
-use OCA\IntrusionDetection\Config\GlobalSettings;
-use OCA\IntrusionDetection\Config\Settings;
+use OCA\IntrusionDetection\Config\AppSettings;
 use OCA\IntrusionDetection\Confirm\Methods\AdminApprovalMethod;
 use OCA\IntrusionDetection\Confirm\StepUpService;
 use OCA\IntrusionDetection\Db\DetectionFilter;
@@ -69,7 +68,7 @@ class PersonalActivity {
 		private readonly FailedLoginStats $failedLogins,
 		private readonly UserMessages $messages,
 		private readonly CurrentSession $currentSession,
-		private readonly Settings $settings,
+		private readonly AppSettings $settings,
 		private readonly ITimeFactory $timeFactory,
 	) {
 	}
@@ -94,7 +93,7 @@ class PersonalActivity {
 		// Open questions are listed however old they are, newest first; the rest by the timeline's window.
 		$questions = [];
 		$askingChecks = $this->questions->askingCheckIds();
-		$retained = $now - $this->settings->getInt(GlobalSettings::RETENTION_DETECTIONS_DAYS) * 86400;
+		$retained = $now - $this->settings->retentionDays() * 86400;
 		for ($page = 0; $page < self::QUESTION_PAGES && count($questions) < self::MAX_QUESTIONS; $page++) {
 			// Some checks ask for some of their detections only: those are read past, a page at a time.
 			$unanswered = $this->detections->findList(new DetectionFilter(
@@ -198,7 +197,7 @@ class PersonalActivity {
 	 * session, and an administrator's approval when those are on, last.
 	 */
 	public function waitedOutBefore(): int {
-		$approval = $this->settings->getBool(GlobalSettings::STEP_UP_ADMIN_APPROVAL) ? AdminApprovalMethod::TTL : 0;
+		$approval = $this->settings->stepUpAdminApproval() ? AdminApprovalMethod::TTL : 0;
 		return $this->timeFactory->getTime() - StepUpService::SESSION_TTL - $approval;
 	}
 

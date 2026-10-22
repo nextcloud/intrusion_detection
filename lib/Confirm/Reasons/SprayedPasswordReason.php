@@ -10,7 +10,7 @@ declare(strict_types=1);
 namespace OCA\IntrusionDetection\Confirm\Reasons;
 
 use OCA\IntrusionDetection\Check\Checks\PasswordSpraying;
-use OCA\IntrusionDetection\Config\Settings;
+use OCA\IntrusionDetection\Config\CheckSettings;
 use OCA\IntrusionDetection\Confirm\IStepUpReason;
 use OCA\IntrusionDetection\Confirm\LoginContext;
 use OCA\IntrusionDetection\Confirm\StepUpPolicy;
@@ -23,7 +23,7 @@ use OCA\IntrusionDetection\Definition\ResponseType;
  */
 class SprayedPasswordReason implements IStepUpReason {
 	public function __construct(
-		private readonly Settings $settings,
+		private readonly CheckSettings $settings,
 	) {
 	}
 

@@ -15,7 +15,6 @@ use OCA\IntrusionDetection\Cache\KeyLock;
 use OCA\IntrusionDetection\Check\CheckRegistry;
 use OCA\IntrusionDetection\Check\Checks\ManualBlock;
 use OCA\IntrusionDetection\Config\ModeState;
-use OCA\IntrusionDetection\Config\Settings;
 use OCA\IntrusionDetection\Db\DetectionMapper;
 use OCA\IntrusionDetection\Definition\Mode;
 use OCA\IntrusionDetection\Detection\DetectionAccounts;
@@ -63,7 +62,7 @@ class DetectionLockTest extends IntegrationTestCase {
 		return new DetectionService(
 			Server::get(DetectionMapper::class),
 			Server::get(CheckRegistry::class),
-			Server::get(Settings::class),
+			$this->checkSettings(),
 			Server::get(ITimeFactory::class),
 			Server::get(RiskScorer::class),
 			Server::get(DetectionAccounts::class),

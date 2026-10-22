@@ -9,8 +9,7 @@ declare(strict_types=1);
 
 namespace OCA\IntrusionDetection\Personal;
 
-use OCA\IntrusionDetection\Config\GlobalSettings;
-use OCA\IntrusionDetection\Config\Settings;
+use OCA\IntrusionDetection\Config\AppSettings;
 use OCA\IntrusionDetection\Db\UserDailyMapper;
 use OCA\IntrusionDetection\Net\SourceKey;
 use OCA\IntrusionDetection\ResponseDefinitions;
@@ -44,7 +43,7 @@ class FailedLoginStats {
 
 	public function __construct(
 		private readonly UserDailyMapper $mapper,
-		private readonly Settings $settings,
+		private readonly AppSettings $settings,
 		private readonly ITimeFactory $timeFactory,
 	) {
 	}
@@ -53,7 +52,7 @@ class FailedLoginStats {
 	 * Whether failures are counted: only while users have the page.
 	 */
 	public function isEnabled(): bool {
-		return $this->settings->getBool(GlobalSettings::PERSONAL_PAGE_ENABLED);
+		return $this->settings->personalPageSwitchedOn();
 	}
 
 	/**

@@ -51,7 +51,7 @@ class ReservedNameTest extends LoginFailureTestCase {
 			$this->assertSame('existing_user', $e->reason);
 		}
 		$this->expectException(InvalidParamException::class);
-		$this->settings->setParam(ReservedName::ID, 'names', ['root', 'support']);
+		$this->settingsEditor()->setParam(ReservedName::ID, 'names', ['root', 'support']);
 	}
 
 	public function testAnAttemptWithAReservedNameBlocksTheSourceAndIsNotCounted(): void {
@@ -65,7 +65,7 @@ class ReservedNameTest extends LoginFailureTestCase {
 	}
 
 	public function testRepeatedAttemptsFromOneSourceAreOneDetection(): void {
-		$this->settings->setMode(ReservedName::ID, Mode::Observe);
+		$this->settingsEditor()->setMode(ReservedName::ID, Mode::Observe);
 		$this->names->add(['administrator'], 'test');
 		for ($i = 0; $i < 4; $i++) {
 			$this->failLogin('198.51.100.7', 'administrator');
@@ -87,7 +87,7 @@ class ReservedNameTest extends LoginFailureTestCase {
 
 	public function testOffSkipsTheCheck(): void {
 		$this->names->add(['root'], 'test');
-		$this->settings->setMode(ReservedName::ID, Mode::Off);
+		$this->settingsEditor()->setMode(ReservedName::ID, Mode::Off);
 		$this->failLogin('198.51.100.7', 'root');
 		$this->assertSame(0, $this->rows('ids_detections'));
 	}

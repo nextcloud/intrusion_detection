@@ -143,7 +143,7 @@ class DecoyCredentialTest extends LoginFailureTestCase {
 
 	public function testOffSkipsTheCheck(): void {
 		[, $secret] = $this->decoys->create('label', null, DecoyFormat::AppPassword, 'admin');
-		$this->settings->setMode(DecoyCredential::ID, Mode::Off);
+		$this->settingsEditor()->setMode(DecoyCredential::ID, Mode::Off);
 		$this->failLogin('198.51.100.7', 'x', $secret);
 		$this->assertSame([], $this->detectionsOf(DecoyCredential::ID));
 	}

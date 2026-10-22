@@ -12,7 +12,6 @@ namespace OCA\IntrusionDetection\Tests\Integration;
 use OCA\IntrusionDetection\AppInfo\Application;
 use OCA\IntrusionDetection\Check\Checks\CredentialStuffing;
 use OCA\IntrusionDetection\Config\GlobalSettings;
-use OCA\IntrusionDetection\Config\Settings;
 use OCA\IntrusionDetection\Db\Ban;
 use OCA\IntrusionDetection\Db\Detection;
 use OCA\IntrusionDetection\Event\BanCreatedEvent;
@@ -36,11 +35,8 @@ use Psr\Log\LoggerInterface;
 class EventPayloadsTest extends IntegrationTestCase {
 	private const SECRETS = ['Secret-Password-5f5f', 'SecretShareTokenQ7', 'Qx7Kp-Zt3Wm-Rb8Nc-Jd2Hf-Ls9Gy', 'admin-note-secret', 'recipient-uid-secret'];
 
-	private Settings $settings;
-
 	protected function setUp(): void {
 		parent::setUp();
-		$this->settings = Server::get(Settings::class);
 	}
 
 	public function testTheEventsAreWebhookCompatible(): void {
@@ -95,7 +91,7 @@ class EventPayloadsTest extends IntegrationTestCase {
 	}
 
 	public function testTheAddressIsLeftOutWhenConfigured(): void {
-		$this->settings->setGlobal(GlobalSettings::EVENTS_INCLUDE_IP, false);
+		$this->settingsEditor()->setGlobal(GlobalSettings::EVENTS_INCLUDE_IP, false);
 		$detection = (new DetectionCreatedEvent($this->detection()))->getWebhookSerializable();
 		$created = (new BanCreatedEvent($this->ban()))->getWebhookSerializable();
 		$lifted = (new BanLiftedEvent($this->ban()))->getWebhookSerializable();
@@ -140,7 +136,7 @@ class EventPayloadsTest extends IntegrationTestCase {
 		$links->method('detection')->willThrowException(new \RuntimeException('no router'));
 		$logger = $this->createMock(LoggerInterface::class);
 		$logger->expects($this->once())->method('error');
-		$payloads = new EventPayloads($this->settings, $links, $logger);
+		$payloads = new EventPayloads($this->appSettings(), $links, $logger);
 		$this->assertSame(['type' => 'detection'], (new DetectionCreatedEvent($this->detection(), $payloads))->getWebhookSerializable());
 	}
 
@@ -180,7 +176,7 @@ class EventPayloadsTest extends IntegrationTestCase {
 		$this->assertSame(EventExamples::EXAMPLE_IP, $detection['ip']);
 		$this->assertSame('K7Q2-MPXA', $detection['actions'][0]['bans'][0]['reference']);
 
-		$this->settings->setGlobal(GlobalSettings::EVENTS_INCLUDE_IP, false);
+		$this->settingsEditor()->setGlobal(GlobalSettings::EVENTS_INCLUDE_IP, false);
 		$examples = Server::get(EventExamples::class)->all($l);
 		$this->assertStringNotContainsString(EventExamples::EXAMPLE_IP, json_encode($examples, JSON_THROW_ON_ERROR));
 	}

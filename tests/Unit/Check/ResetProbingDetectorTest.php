@@ -11,8 +11,8 @@ namespace OCA\IntrusionDetection\Tests\Unit\Check;
 
 use OCA\IntrusionDetection\Check\Checks\ResetProbing;
 use OCA\IntrusionDetection\Check\Checks\ResetProbingDetector;
+use OCA\IntrusionDetection\Config\CheckSettings;
 use OCA\IntrusionDetection\Config\ModeState;
-use OCA\IntrusionDetection\Config\Settings;
 use OCA\IntrusionDetection\Db\AttemptKind;
 use OCA\IntrusionDetection\Db\AttemptMapper;
 use OCA\IntrusionDetection\Db\AttemptStats;
@@ -64,7 +64,7 @@ class ResetProbingDetectorTest extends TestCase {
 	}
 
 	private function detector(): ResetProbingDetector {
-		$settings = $this->createMock(Settings::class);
+		$settings = $this->createMock(CheckSettings::class);
 		$settings->method('modeState')->willReturn(new ModeState(Mode::Protect, Mode::Protect));
 		$settings->method('params')->willReturn(['enum_min_inputs' => 5, 'enum_window' => 600, 'flood_min_requests' => 5, 'flood_window' => 3600, 'suppress_duration' => 3600]);
 		$settings->method('responses')->willReturn(self::ALL);

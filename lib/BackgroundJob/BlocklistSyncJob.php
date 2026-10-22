@@ -12,7 +12,7 @@ namespace OCA\IntrusionDetection\BackgroundJob;
 use OCA\IntrusionDetection\Blocklist\BlocklistSync;
 use OCA\IntrusionDetection\Blocklist\SourceRepository;
 use OCA\IntrusionDetection\Blocklist\StateStore;
-use OCA\IntrusionDetection\Config\Settings;
+use OCA\IntrusionDetection\Config\AppSettings;
 use OCP\AppFramework\Utility\ITimeFactory;
 use OCP\BackgroundJob\TimedJob;
 
@@ -32,7 +32,7 @@ class BlocklistSyncJob extends TimedJob {
 		private readonly BlocklistSync $sync,
 		private readonly SourceRepository $sources,
 		private readonly StateStore $states,
-		private readonly Settings $settings,
+		private readonly AppSettings $settings,
 	) {
 		parent::__construct($time);
 		$this->setInterval($this->interval());

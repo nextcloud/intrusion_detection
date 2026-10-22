@@ -11,10 +11,8 @@ namespace OCA\IntrusionDetection\Tests\Integration;
 
 use OCA\IntrusionDetection\AppInfo\Application;
 use OCA\IntrusionDetection\Config\GlobalSettings;
-use OCA\IntrusionDetection\Config\Settings;
 use OCA\IntrusionDetection\Repair\RemoveRetiredSettings;
 use OCP\Migration\IOutput;
-use OCP\Server;
 use PHPUnit\Framework\Attributes\Group;
 use Psr\Log\LoggerInterface;
 
@@ -43,11 +41,11 @@ class RemoveRetiredSettingsTest extends IntegrationTestCase {
 	}
 
 	public function testTheOldHistoryPeriodIsOnlyDeleted(): void {
-		$this->settings()->setGlobal(GlobalSettings::RETENTION_DETECTIONS_DAYS, 180);
+		$this->settingsEditor()->setGlobal(GlobalSettings::RETENTION_DETECTIONS_DAYS, 180);
 		$this->appConfig->setValueMixed(Application::APP_ID, RemoveRetiredSettings::HISTORY_RETENTION_DAYS, '30');
 		$this->repair();
 		$this->assertNotContains(RemoveRetiredSettings::HISTORY_RETENTION_DAYS, $this->appConfig->getKeys(Application::APP_ID));
-		$this->assertSame(180, $this->settings()->getInt(GlobalSettings::RETENTION_DETECTIONS_DAYS), 'The migration merges the periods, once');
+		$this->assertSame(180, $this->appSettings()->retentionDays(), 'The migration merges the periods, once');
 		$this->assertSame([], $this->logged);
 	}
 
@@ -78,7 +76,4 @@ class RemoveRetiredSettingsTest extends IntegrationTestCase {
 		$step->run($this->createMock(IOutput::class));
 	}
 
-	private function settings(): Settings {
-		return Server::get(Settings::class);
-	}
 }

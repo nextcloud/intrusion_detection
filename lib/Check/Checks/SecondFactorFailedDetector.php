@@ -9,7 +9,7 @@ declare(strict_types=1);
 
 namespace OCA\IntrusionDetection\Check\Checks;
 
-use OCA\IntrusionDetection\Config\Settings;
+use OCA\IntrusionDetection\Config\CheckSettings;
 use OCA\IntrusionDetection\Db\AttemptKind;
 use OCA\IntrusionDetection\Db\AttemptMapper;
 use OCA\IntrusionDetection\Detection\AttemptRecorder;
@@ -43,7 +43,7 @@ class SecondFactorFailedDetector {
 	public const HOUR = 3600;
 
 	public function __construct(
-		private readonly Settings $settings,
+		private readonly CheckSettings $settings,
 		private readonly AttemptRecorder $recorder,
 		private readonly AttemptMapper $attempts,
 		private readonly FlaggedSources $flags,

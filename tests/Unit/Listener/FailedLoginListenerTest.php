@@ -14,8 +14,9 @@ use OCA\IntrusionDetection\Check\Checks\CredentialStuffingDetector;
 use OCA\IntrusionDetection\Check\Checks\DecoyCredentialDetector;
 use OCA\IntrusionDetection\Check\Checks\PasswordSprayingDetector;
 use OCA\IntrusionDetection\Check\Checks\ReservedNameDetector;
+use OCA\IntrusionDetection\Config\AppSettings;
+use OCA\IntrusionDetection\Config\CheckSettings;
 use OCA\IntrusionDetection\Config\ModeState;
-use OCA\IntrusionDetection\Config\Settings;
 use OCA\IntrusionDetection\Db\AttemptKind;
 use OCA\IntrusionDetection\Definition\Mode;
 use OCA\IntrusionDetection\Detection\AttemptRecord;
@@ -54,8 +55,9 @@ class FailedLoginListenerTest extends TestCase {
 	}
 
 	public function testAFailingDetectorIsLoggedAndTheOthersStillRun(): void {
-		$settings = $this->createMock(Settings::class);
-		$settings->method('isEnabled')->willReturn(true);
+		$appSettings = $this->createMock(AppSettings::class);
+		$appSettings->method('isEnabled')->willReturn(true);
+		$settings = $this->createMock(CheckSettings::class);
 		$settings->method('modeState')->willReturn(new ModeState(Mode::Protect, Mode::Protect));
 		$addresses = $this->createMock(RemoteAddressResolver::class);
 		$addresses->method('current')->willReturn(SourceKey::fromIp('198.51.100.7'));
@@ -74,7 +76,7 @@ class FailedLoginListenerTest extends TestCase {
 		));
 
 		$listener = new FailedLoginListener(
-			$settings, $addresses, $recorder, $this->createMock(DecoyCredentialDetector::class), $this->createMock(ReservedNameDetector::class),
+			$appSettings, $settings, $addresses, $recorder, $this->createMock(DecoyCredentialDetector::class), $this->createMock(ReservedNameDetector::class),
 			$stuffing, $spraying, $accountUnderAttack, $this->createMock(RiskScorer::class),
 			$this->createMock(IUserManager::class), $this->createMock(IRequest::class), $logger,
 			$this->createMock(FailedLoginStats::class),
@@ -84,8 +86,9 @@ class FailedLoginListenerTest extends TestCase {
 	}
 
 	public function testABypassListedSourceIsIgnoredEntirely(): void {
-		$settings = $this->createMock(Settings::class);
-		$settings->method('isEnabled')->willReturn(true);
+		$appSettings = $this->createMock(AppSettings::class);
+		$appSettings->method('isEnabled')->willReturn(true);
+		$settings = $this->createMock(CheckSettings::class);
 		$addresses = $this->createMock(RemoteAddressResolver::class);
 		$addresses->method('current')->willReturn(SourceKey::fromIp('198.51.100.7'));
 		$addresses->method('isBypassListed')->willReturn(true);
@@ -97,7 +100,7 @@ class FailedLoginListenerTest extends TestCase {
 		$reserved->expects($this->never())->method('detect');
 
 		$listener = new FailedLoginListener(
-			$settings, $addresses, $recorder, $decoys, $reserved,
+			$appSettings, $settings, $addresses, $recorder, $decoys, $reserved,
 			$this->createMock(CredentialStuffingDetector::class), $this->createMock(PasswordSprayingDetector::class), $this->createMock(AccountUnderAttackDetector::class),
 			$this->createMock(RiskScorer::class),
 			$this->createMock(IUserManager::class), $this->createMock(IRequest::class), $this->createMock(LoggerInterface::class),
@@ -108,8 +111,9 @@ class FailedLoginListenerTest extends TestCase {
 	}
 
 	public function testAnEmailIsOnlyLookedUpForTheChecksThatCountPerAccountEvenWithAMemoryCache(): void {
-		$settings = $this->createMock(Settings::class);
-		$settings->method('isEnabled')->willReturn(true);
+		$appSettings = $this->createMock(AppSettings::class);
+		$appSettings->method('isEnabled')->willReturn(true);
+		$settings = $this->createMock(CheckSettings::class);
 		$settings->method('modeState')->willReturnCallback(static fn (string $id): ModeState => $id === \OCA\IntrusionDetection\Check\Checks\AccountUnderAttack::ID
 			? new ModeState(Mode::Off, Mode::Off)
 			: new ModeState(Mode::Protect, Mode::Protect));
@@ -125,7 +129,7 @@ class FailedLoginListenerTest extends TestCase {
 		$emails = new \OCA\IntrusionDetection\Login\EmailAccounts($users, $cached);
 
 		$listener = new FailedLoginListener(
-			$settings, $addresses, $recorder, $this->createMock(DecoyCredentialDetector::class), $this->createMock(ReservedNameDetector::class),
+			$appSettings, $settings, $addresses, $recorder, $this->createMock(DecoyCredentialDetector::class), $this->createMock(ReservedNameDetector::class),
 			$this->createMock(CredentialStuffingDetector::class), $this->createMock(PasswordSprayingDetector::class), $this->createMock(AccountUnderAttackDetector::class),
 			$this->createMock(RiskScorer::class), $users, $this->createMock(IRequest::class), $this->createMock(LoggerInterface::class),
 			$this->createMock(FailedLoginStats::class), $emails,

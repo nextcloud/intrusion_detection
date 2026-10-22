@@ -23,7 +23,6 @@ use OCA\IntrusionDetection\Blocklist\SyncResult;
 use OCA\IntrusionDetection\Blocklist\UrlPolicy;
 use OCA\IntrusionDetection\Check\Checks\BlocklistMatch;
 use OCA\IntrusionDetection\Config\GlobalSettings;
-use OCA\IntrusionDetection\Config\Settings;
 use OCA\IntrusionDetection\Db\BlocklistRangeMapper;
 use OCA\IntrusionDetection\Db\BlocklistStatMapper;
 use OCA\IntrusionDetection\Definition\Mode;
@@ -57,12 +56,10 @@ class BlocklistSyncTest extends IntegrationTestCase {
 	/** @var list<array{url: string, options: array<string, mixed>}> */
 	private array $requests = [];
 	private ?\Closure $duringWrite = null;
-	private Settings $settings;
 
 	protected function setUp(): void {
 		parent::setUp();
-		$this->settings = Server::get(Settings::class);
-		$this->settings->setMode(BlocklistMatch::ID, Mode::Protect);
+		$this->settingsEditor()->setMode(BlocklistMatch::ID, Mode::Protect);
 		$this->setSources([
 			['id' => 'office_block', 'url' => self::URL, 'purpose' => 'deny', 'mode' => 'protect', 'enabled' => true],
 		]);
@@ -311,7 +308,7 @@ class BlocklistSyncTest extends IntegrationTestCase {
 		$results = $this->sync()->syncDue();
 		$this->assertSame(['tor_copy'], array_map(static fn (SyncResult $r): string => $r->listId, $results), 'Only the hourly list is due');
 
-		$this->settings->setMode(BlocklistMatch::ID, Mode::Off);
+		$this->settingsEditor()->setMode(BlocklistMatch::ID, Mode::Off);
 		$this->now += 86400;
 		$this->respond(self::TOR_URL, 200, "198.51.100.9\n");
 		$results = $this->sync()->syncDue();
@@ -366,7 +363,7 @@ class BlocklistSyncTest extends IntegrationTestCase {
 	 * @param list<array<string, mixed>> $sources
 	 */
 	private function setSources(array $sources): void {
-		$this->settings->setGlobal(GlobalSettings::BLOCKLIST_SOURCES, json_encode($sources));
+		$this->settingsEditor()->setGlobal(GlobalSettings::BLOCKLIST_SOURCES, json_encode($sources));
 	}
 
 	/**
@@ -419,7 +416,7 @@ class BlocklistSyncTest extends IntegrationTestCase {
 			Server::get(BlocklistStatMapper::class),
 			$clientService,
 			Server::get(UrlPolicy::class),
-			$this->settings,
+			$this->checkSettings(),
 			$this->addressCache(),
 			$locking ?? Server::get(ILockingProvider::class),
 			$this->time(),
@@ -442,7 +439,7 @@ class BlocklistSyncTest extends IntegrationTestCase {
 			$this->states(),
 			$this->ranges(),
 			Server::get(BlocklistStatMapper::class),
-			$this->settings,
+			$this->appSettings(), $this->checkSettings(),
 			$this->addressCache(),
 			$this->time(),
 			Server::get(LoggerInterface::class),

@@ -9,8 +9,7 @@ declare(strict_types=1);
 
 namespace OCA\IntrusionDetection\Confirm\Methods;
 
-use OCA\IntrusionDetection\Config\GlobalSettings;
-use OCA\IntrusionDetection\Config\Settings;
+use OCA\IntrusionDetection\Config\AppSettings;
 use OCA\IntrusionDetection\Confirm\IConfirmationMethod;
 use OCA\IntrusionDetection\Confirm\StepUpPolicy;
 use OCA\IntrusionDetection\Confirm\StepUpState;
@@ -32,14 +31,10 @@ use OCP\IUser;
 class KnownDeviceMethod implements IConfirmationMethod {
 	/** @var list<StepUpPolicy> */
 	public const NEVER = [StepUpPolicy::SprayedPassword, StepUpPolicy::BreachedPassword, StepUpPolicy::AdminOutsideNetworks];
-	/** @var list<string> */
-	public const DEFAULT_POLICIES = ['flagged_source', 'protected_account', 'risky_network', 'risk_high'];
-	/** The policies the setting may name: every one but NEVER */
-	public const POLICY_PATTERN = '/^(flagged_source|protected_account|risky_network|risk_high)$/';
 
 	public function __construct(
 		private readonly KnownDevices $devices,
-		private readonly Settings $settings,
+		private readonly AppSettings $settings,
 	) {
 	}
 
@@ -78,7 +73,6 @@ class KnownDeviceMethod implements IConfirmationMethod {
 		if (in_array($policy, self::NEVER, true)) {
 			return false;
 		}
-		$allowed = $this->settings->global(GlobalSettings::STEP_UP_KNOWN_DEVICE_OK_FOR);
-		return is_array($allowed) && in_array($policy->value, $allowed, true);
+		return in_array($policy->value, $this->settings->stepUpKnownDeviceOkFor(), true);
 	}
 }

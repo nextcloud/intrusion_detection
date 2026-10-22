@@ -12,12 +12,9 @@ namespace OCA\IntrusionDetection\Tests\Integration;
 use OC\AppFramework\Http\Request;
 use OC\Memcache\ArrayCache;
 use OCA\IntrusionDetection\Address\Verdict;
-use OCA\IntrusionDetection\Check\CheckRegistry;
 use OCA\IntrusionDetection\Check\CredentialUse\CredentialTracker;
 use OCA\IntrusionDetection\Check\CredentialUse\PresentedCredential;
-use OCA\IntrusionDetection\Config\GlobalSettings;
 use OCA\IntrusionDetection\Config\Prerequisites;
-use OCA\IntrusionDetection\Config\Settings;
 use OCA\IntrusionDetection\Crypto\Fingerprinter;
 use OCA\IntrusionDetection\Guard\CredentialUseGuard;
 use OCA\IntrusionDetection\Guard\RequestContext;
@@ -25,8 +22,6 @@ use OCA\IntrusionDetection\Net\SourceKey;
 use OCA\IntrusionDetection\Perf\GuardTimer;
 use OCA\IntrusionDetection\Tests\Unit\Cache\FixedCaches;
 use OCP\AppFramework\Utility\ITimeFactory;
-use OCP\EventDispatcher\IEventDispatcher;
-use OCP\IAppConfig;
 use OCP\ICache;
 use OCP\IConfig;
 use OCP\IRequest;
@@ -88,17 +83,10 @@ class CredentialUseBenchmarkTest extends IntegrationTestCase {
 
 	private function guard(ICache $cache, bool $distributed): CredentialUseGuard {
 		$factory = new FixedCaches($cache, $cache, $distributed);
-		$settings = new Settings(
-			Server::get(IAppConfig::class),
-			Server::get(CheckRegistry::class),
-			Server::get(ITimeFactory::class),
-			new Prerequisites($factory, Server::get(IConfig::class)),
-			Server::get(GlobalSettings::class),
-			Server::get(IEventDispatcher::class),
-			Server::get(\OCA\IntrusionDetection\State\AppState::class),
-		);
+		[$settings] = $this->settingsOn(new Prerequisites($factory, Server::get(IConfig::class)));
 		return new CredentialUseGuard(
 			Server::get(IConfig::class),
+			$this->appSettings(),
 			$settings,
 			Server::get(Fingerprinter::class),
 			$this->tracker = new CredentialTracker($factory, $settings),

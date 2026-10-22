@@ -7,9 +7,12 @@ declare(strict_types=1);
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 
-namespace OCA\IntrusionDetection\Config;
+namespace OCA\IntrusionDetection\Configure;
 
 use OCA\IntrusionDetection\Check\CheckRegistry;
+use OCA\IntrusionDetection\Config\GlobalSettings;
+use OCA\IntrusionDetection\Config\Keys;
+use OCA\IntrusionDetection\Config\LexiconData;
 use OCA\IntrusionDetection\Definition\ParamDefinition;
 use OCA\IntrusionDetection\Definition\ParamType;
 use OCA\IntrusionDetection\Definition\Requirement;
@@ -98,7 +101,7 @@ final class LexiconDataBuilder {
 	 * The source of LexiconData.php.
 	 */
 	public function source(): string {
-		$header = file_get_contents(__DIR__ . '/LexiconData.php');
+		$header = file_get_contents(__DIR__ . '/../Config/LexiconData.php');
 		$start = is_string($header) ? strpos($header, "\tpublic const GLOBALS") : false;
 		if (!is_string($header) || $start === false) {
 			throw new \RuntimeException('LexiconData.php has no GLOBALS constant');
@@ -135,9 +138,6 @@ final class LexiconDataBuilder {
 		}
 		if ($definition->maxItemLength !== 255) {
 			$spec['maxItemLength'] = $definition->maxItemLength;
-		}
-		if ($definition->itemValidator !== null) {
-			$spec['validator'] = true;
 		}
 		return $spec;
 	}

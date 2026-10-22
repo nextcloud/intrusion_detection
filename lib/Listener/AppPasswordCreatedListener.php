@@ -9,7 +9,7 @@ declare(strict_types=1);
 
 namespace OCA\IntrusionDetection\Listener;
 
-use OCA\IntrusionDetection\Config\Settings;
+use OCA\IntrusionDetection\Config\AppSettings;
 use OCA\IntrusionDetection\Db\TokenOriginMapper;
 use OCA\IntrusionDetection\SessionState\CurrentSession;
 use OCP\AppFramework\Utility\ITimeFactory;
@@ -31,7 +31,7 @@ use Psr\Log\LoggerInterface;
  */
 class AppPasswordCreatedListener implements IEventListener {
 	public function __construct(
-		private readonly Settings $settings,
+		private readonly AppSettings $settings,
 		private readonly TokenOriginMapper $origins,
 		private readonly CurrentSession $currentSession,
 		private readonly IRequest $request,

@@ -100,7 +100,7 @@ class PersonalActivityTest extends PersonalApiTestCase {
 		$this->assertSame(LoginHistory::STEP_UP_PENDING, $steps[$recent], 'it may still be confirmed');
 		$this->assertSame([$recent => 'pending', $old => 'failed'], array_column($api->logins()->getData(), 'stepUp', 'id'));
 
-		$this->settings->setGlobal(GlobalSettings::STEP_UP_ADMIN_APPROVAL, true);
+		$this->settingsEditor()->setGlobal(GlobalSettings::STEP_UP_ADMIN_APPROVAL, true);
 		$this->assertSame([$recent => 'pending', $old => 'pending'], array_column($api->logins()->getData(), 'stepUp', 'id'), 'an administrator may still approve it');
 	}
 

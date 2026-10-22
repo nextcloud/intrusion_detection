@@ -12,7 +12,7 @@ namespace OCA\IntrusionDetection\Listener;
 use OC\Authentication\TwoFactorAuth\Manager as TwoFactorManager;
 use OC\Core\Events\BeforePasswordResetEvent;
 use OC\Core\Events\PasswordResetEvent;
-use OCA\IntrusionDetection\Config\Settings;
+use OCA\IntrusionDetection\Config\AppSettings;
 use OCA\IntrusionDetection\Db\SecurityChangeMapper;
 use OCA\IntrusionDetection\Response\Tokens;
 use OCA\IntrusionDetection\Takeover\ResetTracker;
@@ -59,7 +59,7 @@ class SecurityChangeListener implements IEventListener {
 	private const BACKUP_CODES = 'backup_codes';
 
 	public function __construct(
-		private readonly Settings $settings,
+		private readonly AppSettings $settings,
 		private readonly SecurityChangeLog $log,
 		private readonly SecurityChangeMapper $changes,
 		private readonly ResetTracker $resets,

@@ -15,7 +15,6 @@ use OCA\IntrusionDetection\BackgroundJob\LearningModeJob;
 use OCA\IntrusionDetection\Check\Checks\ManualBlock;
 use OCA\IntrusionDetection\Config\GlobalSettings;
 use OCA\IntrusionDetection\Config\ModeState;
-use OCA\IntrusionDetection\Config\Settings;
 use OCA\IntrusionDetection\Db\DetectionMapper;
 use OCA\IntrusionDetection\Definition\Mode;
 use OCA\IntrusionDetection\Detection\DetectionDraft;
@@ -48,7 +47,6 @@ class LearningNoticesTest extends IntegrationTestCase {
 	private int $dismissed = 0;
 	private LearningNotices $notices;
 	private LearningService $learning;
-	private Settings $settings;
 	private string $groupId;
 	/** @var list<IUser> */
 	private array $users = [];
@@ -65,8 +63,7 @@ class LearningNoticesTest extends IntegrationTestCase {
 			$this->assertSame(LearningNotices::OBJECT_TYPE, $n->getObjectType());
 			$this->dismissed++;
 		});
-		$this->settings = Server::get(Settings::class);
-		$this->learning = new LearningService($this->settings, Server::get(ITimeFactory::class), Server::get(AuditLogger::class), $this->notifications, Server::get(AppState::class));
+		$this->learning = new LearningService($this->appSettings(), $this->settingsEditor(), Server::get(ITimeFactory::class), Server::get(AuditLogger::class), $this->notifications, Server::get(AppState::class));
 
 		// The administrators are the members of the configured groups, enabled ones only.
 		$this->groupId = 'ids-admins-' . bin2hex(random_bytes(3));
@@ -77,7 +74,7 @@ class LearningNoticesTest extends IntegrationTestCase {
 			$this->users[] = $user;
 		}
 		$this->users[2]->setEnabled(false);
-		$this->settings->setGlobal(GlobalSettings::NOTIFY_ADMIN_GROUP, [$this->groupId]);
+		$this->settingsEditor()->setGlobal(GlobalSettings::NOTIFY_ADMIN_GROUP, [$this->groupId]);
 
 		$this->notices = new LearningNotices(
 			$this->learning,

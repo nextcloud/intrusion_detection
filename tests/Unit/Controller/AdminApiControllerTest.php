@@ -20,8 +20,8 @@ use OCA\IntrusionDetection\Admin\StatusService;
 use OCA\IntrusionDetection\Audit\AuditLogger;
 use OCA\IntrusionDetection\Check\CheckRegistry;
 use OCA\IntrusionDetection\Config\GlobalSettings;
-use OCA\IntrusionDetection\Config\ProtectionLevels;
-use OCA\IntrusionDetection\Config\Settings;
+use OCA\IntrusionDetection\Configure\ProtectionLevels;
+use OCA\IntrusionDetection\Configure\SettingsEditor;
 use OCA\IntrusionDetection\Controller\AdminApiController;
 use OCA\IntrusionDetection\Db\Ban;
 use OCA\IntrusionDetection\Db\BanMapper;
@@ -68,7 +68,7 @@ class AdminApiControllerTest extends TestCase {
 	private const CHECK = 'test_check';
 
 	private CheckRegistry&MockObject $registry;
-	private Settings&MockObject $settings;
+	private SettingsEditor&MockObject $settings;
 	private CheckList&MockObject $checks;
 	private DetectionMapper&MockObject $detectionMapper;
 	private DetectionPresenter&MockObject $detections;
@@ -105,7 +105,7 @@ class AdminApiControllerTest extends TestCase {
 			default => throw new InvalidParamException('unknown_check', ['check' => $id]),
 		});
 
-		$this->settings = $this->createMock(Settings::class);
+		$this->settings = $this->createMock(SettingsEditor::class);
 		$this->status = $this->createMock(StatusService::class);
 		$this->checks = $this->createMock(CheckList::class);
 		$this->checks->method('one')->willReturn(['id' => self::CHECK]);

@@ -13,8 +13,8 @@ use OCA\IntrusionDetection\Admin\SettingsTransfer;
 use OCA\IntrusionDetection\AppInfo\Application;
 use OCA\IntrusionDetection\Check\Checks\CredentialStuffing;
 use OCA\IntrusionDetection\Config\GlobalSettings;
-use OCA\IntrusionDetection\Config\ProtectionLevels;
-use OCA\IntrusionDetection\Config\Settings;
+use OCA\IntrusionDetection\Configure\ProtectionLevels;
+use OCA\IntrusionDetection\Configure\SettingsEditor;
 use OCA\IntrusionDetection\Controller\AdminApiController;
 use OCA\IntrusionDetection\Definition\Mode;
 use OCA\IntrusionDetection\Definition\ProtectionLevel;
@@ -32,69 +32,67 @@ use PHPUnit\Framework\Attributes\Group;
  */
 #[Group('DB')]
 class ProtectionLevelTest extends IntegrationTestCase {
-	private Settings $settings;
 	private ProtectionLevels $levels;
 
 	protected function setUp(): void {
 		parent::setUp();
-		$this->settings = Server::get(Settings::class);
 		$this->levels = Server::get(ProtectionLevels::class);
 	}
 
 	public function testStrictHalvesTheLimitsAndLengthensBlocksButKeepsModesAndResponses(): void {
-		$this->settings->updateCheck(CredentialStuffing::ID, Mode::Observe, [], [ResponseType::NotifyAdmin]);
+		$this->settingsEditor()->updateCheck(CredentialStuffing::ID, Mode::Observe, [], [ResponseType::NotifyAdmin]);
 
 		$changes = $this->levels->apply(ProtectionLevel::Strict);
 
-		$this->assertSame(ProtectionLevel::Strict, $this->settings->protectionLevel());
-		$this->assertSame(5, $this->settings->paramInt(CredentialStuffing::ID, 'min_failures'));
-		$this->assertSame(3, $this->settings->paramInt(CredentialStuffing::ID, 'min_names'), 'half of 5, rounded');
-		$this->assertSame(600, $this->settings->paramInt(CredentialStuffing::ID, 'window'), 'windows stay');
-		$this->assertSame(28800, $this->settings->getInt(GlobalSettings::BAN_DURATION_1));
-		$this->assertSame(Mode::Observe, $this->settings->configuredMode(CredentialStuffing::ID));
-		$this->assertSame([ResponseType::NotifyAdmin], $this->settings->responses(CredentialStuffing::ID));
+		$this->assertSame(ProtectionLevel::Strict, $this->settingsEditor()->protectionLevel());
+		$this->assertSame(5, $this->checkSettings()->paramInt(CredentialStuffing::ID, 'min_failures'));
+		$this->assertSame(3, $this->checkSettings()->paramInt(CredentialStuffing::ID, 'min_names'), 'half of 5, rounded');
+		$this->assertSame(600, $this->checkSettings()->paramInt(CredentialStuffing::ID, 'window'), 'windows stay');
+		$this->assertSame(28800, $this->appSettings()->banDurations()[1]);
+		$this->assertSame(Mode::Observe, $this->checkSettings()->configuredMode(CredentialStuffing::ID));
+		$this->assertSame([ResponseType::NotifyAdmin], $this->checkSettings()->responses(CredentialStuffing::ID));
 		$this->assertSame(5, $changes['checks'][CredentialStuffing::ID]['min_failures']);
 		$this->assertSame(28800, $changes['settings'][GlobalSettings::BAN_DURATION_1]);
-		$this->assertArrayNotHasKey(Settings::LEVEL_STATE, $changes['settings'], 'the level is internal state; the changed values are the change');
+		$this->assertArrayNotHasKey(SettingsEditor::LEVEL_STATE, $changes['settings'], 'the level is internal state; the changed values are the change');
 	}
 
 	public function testRelaxedDoublesTheLimitsWithinTheirRangeAndRecommendedRestoresTheDefaults(): void {
 		$this->levels->apply(ProtectionLevel::Relaxed);
-		$this->assertSame(20, $this->settings->paramInt(CredentialStuffing::ID, 'min_failures'));
-		$this->assertSame(7200, $this->settings->getInt(GlobalSettings::BAN_DURATION_1));
-		$this->assertSame(10, $this->settings->paramInt('second_factor_failed', 'max_failures_hour'));
-		$this->assertSame(6, $this->settings->paramInt('second_factor_failed', 'max_failures'));
+		$this->assertSame(20, $this->checkSettings()->paramInt(CredentialStuffing::ID, 'min_failures'));
+		$this->assertSame(7200, $this->appSettings()->banDurations()[1]);
+		$this->assertSame(10, $this->checkSettings()->paramInt('second_factor_failed', 'max_failures_hour'));
+		$this->assertSame(6, $this->checkSettings()->paramInt('second_factor_failed', 'max_failures'));
 
 		$this->levels->apply(ProtectionLevel::Recommended);
-		$this->assertSame(ProtectionLevel::Recommended, $this->settings->protectionLevel());
-		$this->assertSame(10, $this->settings->paramInt(CredentialStuffing::ID, 'min_failures'));
-		$this->assertSame(14400, $this->settings->getInt(GlobalSettings::BAN_DURATION_1));
+		$this->assertSame(ProtectionLevel::Recommended, $this->settingsEditor()->protectionLevel());
+		$this->assertSame(10, $this->checkSettings()->paramInt(CredentialStuffing::ID, 'min_failures'));
+		$this->assertSame(14400, $this->appSettings()->banDurations()[1]);
 	}
 
 	public function testAManualChangeOfALimitMakesTheLevelCustom(): void {
 		$this->levels->apply(ProtectionLevel::Strict);
-		$this->settings->updateCheck(CredentialStuffing::ID, null, ['window' => 900], null);
-		$this->assertSame(ProtectionLevel::Strict, $this->settings->protectionLevel(), 'a time window is not part of the level');
+		$this->settingsEditor()->updateCheck(CredentialStuffing::ID, null, ['window' => 900], null);
+		$this->assertSame(ProtectionLevel::Strict, $this->settingsEditor()->protectionLevel(), 'a time window is not part of the level');
 
-		$this->settings->updateCheck(CredentialStuffing::ID, null, ['min_failures' => 7], null);
-		$this->assertSame(ProtectionLevel::Custom, $this->settings->protectionLevel());
+		$this->settingsEditor()->updateCheck(CredentialStuffing::ID, null, ['min_failures' => 7], null);
+		$this->assertSame(ProtectionLevel::Custom, $this->settingsEditor()->protectionLevel());
 	}
 
 	public function testAManualChangeOfABlockDurationOrAResetMakesTheLevelCustom(): void {
 		$this->levels->apply(ProtectionLevel::Relaxed);
-		$this->settings->updateGlobals([GlobalSettings::BAN_DURATION_2 => 3600]);
-		$this->assertSame(ProtectionLevel::Custom, $this->settings->protectionLevel());
+		$this->settingsEditor()->updateGlobals([GlobalSettings::BAN_DURATION_2 => 3600]);
+		$this->assertSame(ProtectionLevel::Custom, $this->settingsEditor()->protectionLevel());
 
 		$this->levels->apply(ProtectionLevel::Strict);
-		$this->settings->resetCheck(CredentialStuffing::ID);
-		$this->assertSame(ProtectionLevel::Custom, $this->settings->protectionLevel());
+		$this->settingsEditor()->resetCheck(CredentialStuffing::ID);
+		$this->assertSame(ProtectionLevel::Custom, $this->settingsEditor()->protectionLevel());
 	}
 
 	public function testResettingEverythingIsTheRecommendedLevel(): void {
 		$this->levels->apply(ProtectionLevel::Strict);
 		Server::get(SettingsTransfer::class)->resetAll();
-		$this->assertSame(ProtectionLevel::Recommended, $this->settings->protectionLevel());
-		$this->assertSame(10, $this->settings->paramInt(CredentialStuffing::ID, 'min_failures'));
+		$this->assertSame(ProtectionLevel::Recommended, $this->settingsEditor()->protectionLevel());
+		$this->assertSame(10, $this->checkSettings()->paramInt(CredentialStuffing::ID, 'min_failures'));
 	}
 
 	public function testCustomCannotBeApplied(): void {
@@ -119,11 +117,11 @@ class ProtectionLevelTest extends IntegrationTestCase {
 
 			$this->assertSame(Http::STATUS_BAD_REQUEST, $controller->updateProtectionLevel('custom')->getStatus());
 			$this->assertSame(Http::STATUS_BAD_REQUEST, $controller->updateProtectionLevel('paranoid')->getStatus());
-			$this->assertSame(ProtectionLevel::Strict, $this->settings->protectionLevel(), 'a refused level changes nothing');
+			$this->assertSame(ProtectionLevel::Strict, $this->settingsEditor()->protectionLevel(), 'a refused level changes nothing');
 
 			// The level is changed through its own endpoint only, and not shown as a setting.
-			$this->assertSame(Http::STATUS_BAD_REQUEST, $controller->updateSettings([Settings::LEVEL_STATE => 'relaxed'])->getStatus());
-			$this->assertNotContains(Settings::LEVEL_STATE, array_column($controller->settings()->getData()['settings'], 'name'));
+			$this->assertSame(Http::STATUS_BAD_REQUEST, $controller->updateSettings([SettingsEditor::LEVEL_STATE => 'relaxed'])->getStatus());
+			$this->assertNotContains(SettingsEditor::LEVEL_STATE, array_column($controller->settings()->getData()['settings'], 'name'));
 		} finally {
 			Server::get(IUserSession::class)->setUser(null);
 			$admin->delete();

@@ -10,7 +10,7 @@ declare(strict_types=1);
 namespace OCA\IntrusionDetection\Listener;
 
 use OCA\IntrusionDetection\Check\Checks\SecondFactorFailedDetector;
-use OCA\IntrusionDetection\Config\Settings;
+use OCA\IntrusionDetection\Config\AppSettings;
 use OCA\IntrusionDetection\Net\RemoteAddressResolver;
 use OCP\Authentication\TwoFactorAuth\TwoFactorProviderChallengeFailed;
 use OCP\EventDispatcher\Event;
@@ -27,7 +27,7 @@ use Psr\Log\LoggerInterface;
  */
 class SecondFactorFailedListener implements IEventListener {
 	public function __construct(
-		private readonly Settings $settings,
+		private readonly AppSettings $settings,
 		private readonly RemoteAddressResolver $addresses,
 		private readonly SecondFactorFailedDetector $detector,
 		private readonly IRequest $request,

@@ -39,11 +39,4 @@ enum NoMethodOutcome: string {
 			self::AllowForceChange => $l->t('The login goes ahead, but the user must choose a new password first.'),
 		};
 	}
-
-	/**
-	 * @return list<string>
-	 */
-	public static function values(): array {
-		return array_map(static fn (self $o): string => $o->value, self::cases());
-	}
 }

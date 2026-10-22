@@ -51,7 +51,7 @@ class AdminApprovalTest extends StepUpTestCase {
 	protected function setUp(): void {
 		parent::setUp();
 		$this->bob = $this->user('ids-approval', null);
-		$this->settings->setGlobal(GlobalSettings::STEP_UP_ADMIN_APPROVAL, true);
+		$this->settingsEditor()->setGlobal(GlobalSettings::STEP_UP_ADMIN_APPROVAL, true);
 		Server::get(FlaggedSources::class)->flagSource(SourceKey::fromIp($this->remoteAddress), FlaggedSources::REASON_ATTACK);
 	}
 
@@ -246,7 +246,7 @@ class AdminApprovalTest extends StepUpTestCase {
 	}
 
 	public function testOffByDefault(): void {
-		$this->settings->setGlobal(GlobalSettings::STEP_UP_ADMIN_APPROVAL, false);
+		$this->settingsEditor()->setGlobal(GlobalSettings::STEP_UP_ADMIN_APPROVAL, false);
 		$this->startSession($this->bob);
 		$this->login($this->bob);
 		$this->assertSame(StepUpState::REFUSED, $this->stepUp()?->status);

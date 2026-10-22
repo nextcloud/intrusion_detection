@@ -11,7 +11,7 @@ namespace OCA\IntrusionDetection\Check\Checks;
 
 use OCA\IntrusionDetection\Blocklist\SourceRepository;
 use OCA\IntrusionDetection\Cache\Caches;
-use OCA\IntrusionDetection\Config\Settings;
+use OCA\IntrusionDetection\Config\CheckSettings;
 use OCA\IntrusionDetection\Confirm\LoginContext;
 use OCA\IntrusionDetection\Db\Detection;
 use OCA\IntrusionDetection\Detection\DetectionDraft;
@@ -35,7 +35,7 @@ class RiskyNetworkDetector {
 	public const MERGE_WINDOW = 86400;
 
 	public function __construct(
-		private readonly Settings $settings,
+		private readonly CheckSettings $settings,
 		private readonly NetworkAttributes $networks,
 		private readonly SourceRepository $sources,
 		private readonly ResponseEngine $engine,

@@ -7,9 +7,10 @@ declare(strict_types=1);
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 
-namespace OCA\IntrusionDetection\Config;
+namespace OCA\IntrusionDetection\Configure;
 
 use OCA\IntrusionDetection\Check\CheckRegistry;
+use OCA\IntrusionDetection\Config\GlobalSettings;
 use OCA\IntrusionDetection\Definition\InvalidParamException;
 use OCA\IntrusionDetection\Definition\ProtectionLevel;
 
@@ -26,7 +27,7 @@ class ProtectionLevels {
 	public function __construct(
 		private readonly CheckRegistry $registry,
 		private readonly GlobalSettings $globals,
-		private readonly Settings $settings,
+		private readonly SettingsEditor $editor,
 	) {
 	}
 
@@ -64,19 +65,19 @@ class ProtectionLevels {
 	 */
 	public function apply(ProtectionLevel $level): array {
 		if ($level === ProtectionLevel::Custom) {
-			throw new InvalidParamException('not_a_choice', ['param' => Settings::LEVEL_STATE, 'choices' => implode(', ', array_map(static fn (ProtectionLevel $l): string => $l->value, ProtectionLevel::choosable()))]);
+			throw new InvalidParamException('not_a_choice', ['param' => SettingsEditor::LEVEL_STATE, 'choices' => implode(', ', array_map(static fn (ProtectionLevel $l): string => $l->value, ProtectionLevel::choosable()))]);
 		}
 		$values = $this->values($level);
 		$checks = [];
 		foreach ($values['checks'] as $checkId => $params) {
 			foreach ($params as $name => $value) {
-				$checks[$checkId][$name] = (int)$this->settings->validatedParam($checkId, $name, $value);
+				$checks[$checkId][$name] = (int)$this->editor->validatedParam($checkId, $name, $value);
 			}
 		}
 		$settings = [];
 		foreach ($values['settings'] as $name => $value) {
-			$settings[$name] = (int)$this->settings->validatedGlobal($name, $value);
+			$settings[$name] = (int)$this->editor->validatedGlobal($name, $value);
 		}
-		return $this->settings->applyProtectionLevel($level, $checks, $settings);
+		return $this->editor->applyProtectionLevel($level, $checks, $settings);
 	}
 }

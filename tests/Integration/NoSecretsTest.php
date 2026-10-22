@@ -93,7 +93,7 @@ class NoSecretsTest extends LoginFailureTestCase {
 		$admin = Server::get(IUserManager::class)->get('admin');
 		$this->adminEmail = $admin?->getSystemEMailAddress();
 		$admin?->setSystemEMailAddress('admin@example.com');
-		$this->settings->setGlobal(GlobalSettings::NOTIFY_ADMIN_EMAIL_MIN_SEVERITY, 'low');
+		$this->settingsEditor()->setGlobal(GlobalSettings::NOTIFY_ADMIN_EMAIL_MIN_SEVERITY, 'low');
 	}
 
 	protected function tearDown(): void {
@@ -207,8 +207,8 @@ class NoSecretsTest extends LoginFailureTestCase {
 			$inputs['probe' . $i] = 'secret-probe-' . $i . '@example.org';
 		}
 
-		$shares = new ShareAccessFailedListener($this->settings, new RemoteAddressResolver($this->request, Server::get(IThrottler::class), Server::get(ServerAddresses::class)), Server::get(AttemptRecorder::class), Server::get(ShareBruteforceDetector::class), $this->request, Server::get(IUserSession::class), $this->listenerLogger());
-		$resets = new ResetRequestedListener($this->settings, new RemoteAddressResolver($this->request, Server::get(IThrottler::class), Server::get(ServerAddresses::class)), Server::get(AttemptRecorder::class), Server::get(ResetProbingDetector::class), Server::get(ResetMailSuppressor::class), Server::get(IUserManager::class), $this->request, $this->listenerLogger(), Server::get(\OCA\IntrusionDetection\Login\EmailAccounts::class));
+		$shares = new ShareAccessFailedListener($this->checkSettings(), new RemoteAddressResolver($this->request, Server::get(IThrottler::class), Server::get(ServerAddresses::class)), Server::get(AttemptRecorder::class), Server::get(ShareBruteforceDetector::class), $this->request, Server::get(IUserSession::class), $this->listenerLogger());
+		$resets = new ResetRequestedListener($this->checkSettings(), new RemoteAddressResolver($this->request, Server::get(IThrottler::class), Server::get(ServerAddresses::class)), Server::get(AttemptRecorder::class), Server::get(ResetProbingDetector::class), Server::get(ResetMailSuppressor::class), Server::get(IUserManager::class), $this->request, $this->listenerLogger(), Server::get(\OCA\IntrusionDetection\Login\EmailAccounts::class));
 
 		$this->remoteAddress = '198.51.100.7';
 		for ($i = 1; $i <= 10; $i++) {

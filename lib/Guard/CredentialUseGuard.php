@@ -14,7 +14,8 @@ use OCA\IntrusionDetection\Check\CredentialUse\CredentialTracker;
 use OCA\IntrusionDetection\Check\CredentialUse\CredentialUse;
 use OCA\IntrusionDetection\Check\CredentialUse\CredentialUseResolver;
 use OCA\IntrusionDetection\Check\CredentialUse\PresentedCredential;
-use OCA\IntrusionDetection\Config\Settings;
+use OCA\IntrusionDetection\Config\AppSettings;
+use OCA\IntrusionDetection\Config\CheckSettings;
 use OCA\IntrusionDetection\Crypto\Fingerprinter;
 use OCA\IntrusionDetection\Definition\Mode;
 use OCA\IntrusionDetection\Net\RemoteAddressResolver;
@@ -51,7 +52,8 @@ class CredentialUseGuard implements IRequestGuard {
 
 	public function __construct(
 		private readonly IConfig $config,
-		private readonly Settings $settings,
+		private readonly AppSettings $appSettings,
+		private readonly CheckSettings $settings,
 		private readonly Fingerprinter $fingerprinter,
 		private readonly CredentialTracker $tracker,
 		private readonly RequestContext $context,
@@ -66,7 +68,7 @@ class CredentialUseGuard implements IRequestGuard {
 	 * The same guard on another tracker, for measurements.
 	 */
 	public function withTracker(CredentialTracker $tracker): self {
-		return new self($this->config, $this->settings, $this->fingerprinter, $tracker, $this->context, $this->timeFactory, $this->container, $this->logger, $this->timer);
+		return new self($this->config, $this->appSettings, $this->settings, $this->fingerprinter, $tracker, $this->context, $this->timeFactory, $this->container, $this->logger, $this->timer);
 	}
 
 	#[\Override]
@@ -122,7 +124,7 @@ class CredentialUseGuard implements IRequestGuard {
 	 * the response engine applies the effective mode.
 	 */
 	private function runs(): bool {
-		return ($this->context->verdict() !== null || $this->settings->isEnabled())
+		return ($this->context->verdict() !== null || $this->appSettings->isEnabled())
 			&& $this->settings->configuredMode(TokenConcurrentUse::ID) !== Mode::Off;
 	}
 

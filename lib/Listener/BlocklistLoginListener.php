@@ -13,7 +13,7 @@ use OCA\IntrusionDetection\Address\AddressCache;
 use OCA\IntrusionDetection\Blocklist\SourceRepository;
 use OCA\IntrusionDetection\Check\CheckRegistry;
 use OCA\IntrusionDetection\Check\Checks\BlocklistMatch;
-use OCA\IntrusionDetection\Config\Settings;
+use OCA\IntrusionDetection\Config\CheckSettings;
 use OCA\IntrusionDetection\Guard\RequestContext;
 use OCA\IntrusionDetection\Net\RemoteAddressResolver;
 use OCA\IntrusionDetection\Response\ResponseEngine;
@@ -35,7 +35,7 @@ use Psr\Log\LoggerInterface;
  */
 class BlocklistLoginListener implements IEventListener {
 	public function __construct(
-		private readonly Settings $settings,
+		private readonly CheckSettings $settings,
 		private readonly RemoteAddressResolver $addresses,
 		private readonly RequestContext $context,
 		private readonly AddressCache $cache,
