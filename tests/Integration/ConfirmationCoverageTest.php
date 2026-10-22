@@ -11,16 +11,14 @@ namespace OCA\IntrusionDetection\Tests\Integration;
 
 use OC\Memcache\ArrayCache;
 use OCA\IntrusionDetection\AdminChange\Approvers;
-use OCA\IntrusionDetection\AppInfo\Application;
 use OCA\IntrusionDetection\BackgroundJob\StatusRefreshJob;
 use OCA\IntrusionDetection\Cache\Caches;
-use OCA\IntrusionDetection\Config\GlobalSettings;
-use OCA\IntrusionDetection\Config\Settings;
 use OCA\IntrusionDetection\Confirm\ConfirmationCoverage;
 use OCA\IntrusionDetection\Notification\AdminLinks;
 use OCA\IntrusionDetection\SetupCheck\Finding;
 use OCA\IntrusionDetection\SetupCheck\UsersWithoutConfirmationCheck;
 use OCA\IntrusionDetection\StaleCredential\StaleCredentialSweep;
+use OCA\IntrusionDetection\State\AppState;
 use OCA\IntrusionDetection\Tests\Unit\Cache\FixedCaches;
 use OCA\IntrusionDetection\Traps\TrapNameCollisions;
 use OCP\AppFramework\Utility\ITimeFactory;
@@ -119,7 +117,7 @@ class ConfirmationCoverageTest extends IntegrationTestCase {
 
 		$queries = $this->db->getInner()->getStats()['executed'];
 		$this->assertSame($first, $this->coverage()->users(), 'Stored, also for a new request');
-		$this->assertSame(0, $this->db->getInner()->getStats()['executed'] - $queries, 'Reading the counts costs no query');
+		$this->assertSame(1, $this->db->getInner()->getStats()['executed'] - $queries, 'Reading the counts costs one read of the stored counts, no count');
 
 		$coverage->refresh();
 		$this->assertSame($first['withoutMethod'] + 1, $coverage->users()['withoutMethod']);
@@ -132,9 +130,9 @@ class ConfirmationCoverageTest extends IntegrationTestCase {
 	public function testCountsOlderThanAnHourAreCountedAgain(): void {
 		$this->coverage()->users();
 		$this->account('late');
-		$stored = json_decode($this->appConfig->getValueString(Application::APP_ID, GlobalSettings::COVERAGE_USERS), true);
+		$stored = Server::get(AppState::class)->getJson(ConfirmationCoverage::USERS_STATE);
 		$stale = ['withoutMethod' => 0, 'active' => 0, 'countedAt' => time() - ConfirmationCoverage::CACHE_TTL - 60];
-		$this->appConfig->setValueString(Application::APP_ID, GlobalSettings::COVERAGE_USERS, json_encode($stale));
+		Server::get(AppState::class)->setJson(ConfirmationCoverage::USERS_STATE, $stale);
 
 		$counts = $this->coverage()->users();
 
@@ -148,7 +146,7 @@ class ConfirmationCoverageTest extends IntegrationTestCase {
 		$this->fakeAccounts(10_000);
 		$userManager = $this->createMock(IUserManager::class);
 		$userManager->expects($this->never())->method($this->anything());
-		$coverage = new ConfirmationCoverage($this->db, $userManager, $this->createMock(IGroupManager::class), $this->createMock(Approvers::class), $this->createMock(IRegistry::class), $this->cacheFactory(), Server::get(Settings::class), Server::get(ITimeFactory::class));
+		$coverage = new ConfirmationCoverage($this->db, $userManager, $this->createMock(IGroupManager::class), $this->createMock(Approvers::class), $this->createMock(IRegistry::class), $this->cacheFactory(), Server::get(ITimeFactory::class), Server::get(AppState::class));
 
 		$start = hrtime(true);
 		$counts = $coverage->users();
@@ -171,13 +169,13 @@ class ConfirmationCoverageTest extends IntegrationTestCase {
 			Server::get(Approvers::class),
 			Server::get(IRegistry::class),
 			$this->cacheFactory(),
-			Server::get(Settings::class),
 			Server::get(ITimeFactory::class),
+			Server::get(AppState::class),
 		);
 	}
 
 	private function forgetCounts(): void {
-		$this->appConfig->deleteKey(Application::APP_ID, GlobalSettings::COVERAGE_USERS);
+		Server::get(AppState::class)->delete(ConfirmationCoverage::USERS_STATE);
 	}
 
 	private function cacheFactory(): Caches {

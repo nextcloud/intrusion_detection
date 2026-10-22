@@ -14,6 +14,7 @@ use OCA\IntrusionDetection\Config\GlobalSettings;
 use OCA\IntrusionDetection\Config\Settings;
 use OCA\IntrusionDetection\Config\UserKeys;
 use OCA\IntrusionDetection\Db\StaleTokenMapper;
+use OCA\IntrusionDetection\State\AppState;
 use OCP\AppFramework\Utility\ITimeFactory;
 use OCP\Config\IUserConfig;
 use OCP\Config\ValueType;
@@ -38,6 +39,8 @@ use Psr\Log\LoggerInterface;
  * next days. The hourly status job runs it once every RUN_EVERY seconds.
  */
 class StaleCredentialSweep {
+	/** How many app passwords and remembered browsers were not used for 90 days, and of how many accounts, with when they were counted and when the daily look last ran */
+	public const STATE = 'stale_credentials';
 	public const REMIND_EVERY = 30 * 86400;
 	/** Accounts read per query */
 	public const PAGE = 1000;
@@ -52,6 +55,7 @@ class StaleCredentialSweep {
 		private readonly StaleCredentials $credentials,
 		private readonly StaleCredentialNotices $notices,
 		private readonly Settings $settings,
+		private readonly AppState $state,
 		private readonly IUserConfig $userConfig,
 		private readonly IUserManager $userManager,
 		private readonly ITimeFactory $timeFactory,
@@ -65,7 +69,7 @@ class StaleCredentialSweep {
 	 * @return ?array{accounts: int, credentials: int, reminded: int, removed: int} null when it was not due
 	 */
 	public function runIfDue(): ?array {
-		$ranAt = $this->settings->getJson(GlobalSettings::STALE_CREDENTIALS)['ranAt'] ?? 0;
+		$ranAt = $this->state->getJson(self::STATE)['ranAt'] ?? 0;
 		if ($this->timeFactory->getTime() - (is_int($ranAt) ? $ranAt : 0) < self::RUN_EVERY) {
 			$this->recount();
 			return null;
@@ -146,7 +150,7 @@ class StaleCredentialSweep {
 	 * @return array{credentials: int, accounts: int, countedAt: int}
 	 */
 	public function counts(): array {
-		$stored = $this->settings->getJson(GlobalSettings::STALE_CREDENTIALS);
+		$stored = $this->state->getJson(self::STATE);
 		if (is_int($stored['credentials'] ?? null) && is_int($stored['accounts'] ?? null) && is_int($stored['countedAt'] ?? null)
 			&& $this->timeFactory->getTime() - $stored['countedAt'] <= self::COUNT_TTL) {
 			return ['credentials' => $stored['credentials'], 'accounts' => $stored['accounts'], 'countedAt' => $stored['countedAt']];
@@ -162,8 +166,8 @@ class StaleCredentialSweep {
 	 */
 	public function recount(?int $ranAt = null): array {
 		$counts = $this->mapper->count($this->credentials->cutoff()) + ['countedAt' => $this->timeFactory->getTime()];
-		$ranAt ??= $this->settings->getJson(GlobalSettings::STALE_CREDENTIALS)['ranAt'] ?? 0;
-		$this->settings->setGlobal(GlobalSettings::STALE_CREDENTIALS, $counts + ['ranAt' => is_int($ranAt) ? $ranAt : 0]);
+		$ranAt ??= $this->state->getJson(self::STATE)['ranAt'] ?? 0;
+		$this->state->setJson(self::STATE, $counts + ['ranAt' => is_int($ranAt) ? $ranAt : 0]);
 		return $counts;
 	}
 }

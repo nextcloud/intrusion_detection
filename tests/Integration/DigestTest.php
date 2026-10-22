@@ -33,6 +33,7 @@ use OCA\IntrusionDetection\Notification\DigestSender;
 use OCA\IntrusionDetection\Notification\MailContent;
 use OCA\IntrusionDetection\Notification\Mails;
 use OCA\IntrusionDetection\Notification\UserMessages;
+use OCA\IntrusionDetection\State\AppState;
 use OCP\AppFramework\Utility\ITimeFactory;
 use OCP\Config\IUserConfig;
 use OCP\IDateTimeZone;
@@ -243,7 +244,7 @@ class DigestTest extends IntegrationTestCase {
 	public function testOnlyAdminsWithAnEmailAddressGetIt(): void {
 		$this->assertSame(DigestSender::RESULT_SENT, $this->sender()->sendIfDue());
 		$this->assertSame(['alice'], array_column($this->mailed, 0));
-		$state = $this->settings->getJson(GlobalSettings::DIGEST_STATE);
+		$state = Server::get(AppState::class)->getJson(DigestSender::STATE);
 		$this->assertSame(['period' => self::DUE, 'sentAt' => $this->now, 'result' => 'sent', 'recipients' => 1, 'failed' => 0, 'withoutEmail' => 2], $state);
 
 		$overview = $this->sender()->overview($this->admins[1]);
@@ -266,7 +267,7 @@ class DigestTest extends IntegrationTestCase {
 		$this->now += 3600;
 		$this->assertSame(DigestSender::RESULT_ALREADY_SENT, $this->sender()->sendIfDue());
 		// Another web server whose settings cache has not seen the new state yet still finds the claim.
-		$this->settings->setGlobal(GlobalSettings::DIGEST_STATE, '{}');
+		Server::get(AppState::class)->setJson(DigestSender::STATE, []);
 		$this->assertSame(DigestSender::RESULT_ALREADY_SENT, $this->sender()->sendIfDue());
 		$this->assertCount(1, $this->mailed);
 	}
@@ -291,7 +292,7 @@ class DigestTest extends IntegrationTestCase {
 		$this->assertSame(DigestSender::RESULT_NOT_DUE, $this->sender()->sendIfDue(), 'cron did not run for half a day: this digest is skipped');
 
 		$this->now = self::DUE + 1800;
-		$this->settings->setGlobal(GlobalSettings::INSTALLED_AT, self::DUE + 60);
+		Server::get(AppState::class)->setInt(AppState::INSTALLED_AT, self::DUE + 60);
 		$this->assertSame(DigestSender::RESULT_NOT_DUE, $this->sender()->sendIfDue(), 'no digest for a week before the app was installed');
 		$this->assertSame([], $this->mailed);
 	}
@@ -310,7 +311,7 @@ class DigestTest extends IntegrationTestCase {
 		$this->mailWorks = false;
 		$this->logger->expects($this->once())->method('error');
 		$this->assertSame(DigestSender::RESULT_FAILED, $this->sender()->sendIfDue());
-		$this->assertSame('failed', $this->settings->getJson(GlobalSettings::DIGEST_STATE)['result']);
+		$this->assertSame('failed', Server::get(AppState::class)->getJson(DigestSender::STATE)['result']);
 	}
 
 	public function testTheTestDigestGoesOnlyToTheAdminWhoAskedAndChangesNothing(): void {
@@ -322,7 +323,7 @@ class DigestTest extends IntegrationTestCase {
 		$this->assertSame('Test', $content->notes[0]['label']);
 		$this->assertStringContainsString('sent only to you', $content->notes[0]['text']);
 		$this->assertStringContainsString('1 detection in this period.', implode(' ', $content->paragraphs), 'the period up to now');
-		$this->assertSame([], $this->settings->getJson(GlobalSettings::DIGEST_STATE));
+		$this->assertSame([], Server::get(AppState::class)->getJson(DigestSender::STATE));
 
 		$this->assertSame(DigestSender::TEST_NO_ADDRESS, $this->sender()->sendTest($this->admins[1]));
 		$this->assertCount(1, $this->mailed);
@@ -376,6 +377,7 @@ class DigestTest extends IntegrationTestCase {
 			Server::get(Prerequisites::class),
 			$time,
 			$this->logger,
+			Server::get(AppState::class),
 		);
 	}
 

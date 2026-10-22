@@ -21,7 +21,6 @@ use OCA\IntrusionDetection\Check\Checks\ResetProbingDetector;
 use OCA\IntrusionDetection\Check\Checks\ShareBruteforce;
 use OCA\IntrusionDetection\Check\Checks\ShareBruteforceDetector;
 use OCA\IntrusionDetection\Config\GlobalSettings;
-use OCA\IntrusionDetection\Config\Settings;
 use OCA\IntrusionDetection\Crypto\Fingerprinter;
 use OCA\IntrusionDetection\Db\AttemptKind;
 use OCA\IntrusionDetection\Db\AttemptMapper;
@@ -33,6 +32,7 @@ use OCA\IntrusionDetection\Net\SourceKey;
 use OCA\IntrusionDetection\Response\FlaggedSources;
 use OCA\IntrusionDetection\Risk\RiskAssessment;
 use OCA\IntrusionDetection\Risk\RiskScorer;
+use OCA\IntrusionDetection\State\HotState;
 use OCP\AppFramework\Utility\ITimeFactory;
 use OCP\IDBConnection;
 use OCP\IL10N;
@@ -184,7 +184,7 @@ class RiskLimitsTest extends LoginFailureTestCase {
 	 */
 	#[\Override]
 	protected function attemptRecorder(): AttemptRecorder {
-		return new class(Server::get(AttemptMapper::class), Server::get(Fingerprinter::class), Server::get(Settings::class), Server::get(ITimeFactory::class)) extends AttemptRecorder {
+		return new class(Server::get(AttemptMapper::class), Server::get(Fingerprinter::class), Server::get(ITimeFactory::class), Server::get(HotState::class)) extends AttemptRecorder {
 			#[\Override]
 			protected function oneIn(int $n): bool {
 				return false;

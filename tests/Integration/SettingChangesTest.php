@@ -124,7 +124,7 @@ class SettingChangesTest extends IntegrationTestCase {
 
 		$this->assertContains(['check_credential_stuffing_min_failures', 10, 5, true], $this->events);
 		$this->assertContains(['ban_duration_1', 14400, 28800, true], $this->events);
-		$this->assertSame([], array_values(array_filter($this->events, static fn (array $e): bool => $e[0] === GlobalSettings::PROTECTION_LEVEL)));
+		$this->assertSame([], array_values(array_filter($this->events, static fn (array $e): bool => $e[0] === Settings::LEVEL_STATE)));
 		$this->assertSame(ProtectionLevel::Strict, $this->settings->protectionLevel());
 	}
 

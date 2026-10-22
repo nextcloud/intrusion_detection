@@ -9,10 +9,9 @@ declare(strict_types=1);
 
 namespace OCA\IntrusionDetection\Confirm;
 
-use OCA\IntrusionDetection\Config\GlobalSettings;
-use OCA\IntrusionDetection\Config\Settings;
 use OCA\IntrusionDetection\Crypto\Fingerprinter;
 use OCA\IntrusionDetection\Db\StepUpSessionMapper;
+use OCA\IntrusionDetection\State\HotState;
 use OCP\AppFramework\Utility\ITimeFactory;
 use OCP\IConfig;
 use Psr\Log\LoggerInterface;
@@ -39,10 +38,10 @@ class UnconfirmedSessions {
 	public function __construct(
 		private readonly StepUpSessionMapper $mapper,
 		private readonly Fingerprinter $fingerprinter,
-		private readonly Settings $settings,
 		private readonly IConfig $config,
 		private readonly ITimeFactory $timeFactory,
 		private readonly LoggerInterface $logger,
+		private readonly HotState $hotState,
 	) {
 	}
 
@@ -61,8 +60,8 @@ class UnconfirmedSessions {
 			$pending?->ip,
 			$pending === null ? [] : $pending->policies,
 		);
-		if ($this->settings->getInt(GlobalSettings::STEP_UP_SESSIONS_UNTIL) < $expires) {
-			$this->settings->setGlobal(GlobalSettings::STEP_UP_SESSIONS_UNTIL, $expires);
+		if ($this->hotState->stepUpSessionsUntil() < $expires) {
+			$this->hotState->setStepUpSessionsUntil($expires);
 		}
 	}
 
@@ -110,14 +109,14 @@ class UnconfirmedSessions {
 	 * Whether any unconfirmed session may still exist, without a query.
 	 */
 	public function mayExist(): bool {
-		return self::mayExistIn($this->settings, $this->timeFactory->getTime());
+		return self::mayExistIn($this->hotState, $this->timeFactory->getTime());
 	}
 
 	/**
 	 * The same, for callers that have not built this service.
 	 */
-	public static function mayExistIn(Settings $settings, int $now): bool {
-		return $settings->getInt(GlobalSettings::STEP_UP_SESSIONS_UNTIL) > $now;
+	public static function mayExistIn(HotState $hotState, int $now): bool {
+		return $hotState->stepUpSessionsUntil() > $now;
 	}
 
 	/**

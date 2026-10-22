@@ -15,7 +15,6 @@ use OCA\IntrusionDetection\Config\GlobalSettings;
 use OCA\IntrusionDetection\Config\Settings;
 use OCA\IntrusionDetection\Db\Ban;
 use OCA\IntrusionDetection\Db\BanMapper;
-use OCA\IntrusionDetection\Db\StateMapper;
 use OCA\IntrusionDetection\Event\BanCreatedEvent;
 use OCA\IntrusionDetection\Event\BanLiftedEvent;
 use OCA\IntrusionDetection\Export\ExportDirectory;
@@ -24,6 +23,7 @@ use OCA\IntrusionDetection\Export\FirewallExporter;
 use OCA\IntrusionDetection\Listener\FirewallExportListener;
 use OCA\IntrusionDetection\Net\ProtectedRanges;
 use OCA\IntrusionDetection\Net\ServerAddresses;
+use OCA\IntrusionDetection\State\AppState;
 use OCA\IntrusionDetection\Tests\Unit\Export\ExportDirectoryTest;
 use OCP\AppFramework\Utility\ITimeFactory;
 use OCP\BackgroundJob\IJobList;
@@ -343,7 +343,7 @@ class FirewallExporterTest extends IntegrationTestCase {
 			new ExportDirectory($config),
 			$this->settings,
 			Server::get(BanMapper::class),
-			Server::get(StateMapper::class),
+			Server::get(AppState::class),
 			new ProtectedRanges($this->appConfig, Server::get(ServerAddresses::class)),
 			$this->time(),
 			Server::get(ISecureRandom::class),

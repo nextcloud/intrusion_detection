@@ -20,6 +20,7 @@ use OCA\IntrusionDetection\Definition\ProtectionLevel;
 use OCA\IntrusionDetection\Definition\Requirement;
 use OCA\IntrusionDetection\Definition\ResponseType;
 use OCA\IntrusionDetection\Event\SettingChangedEvent;
+use OCA\IntrusionDetection\State\AppState;
 use OCP\AppFramework\Utility\ITimeFactory;
 use OCP\EventDispatcher\IEventDispatcher;
 use OCP\IAppConfig;
@@ -29,9 +30,8 @@ use OCP\IAppConfig;
  *
  * Reads never throw: a stored value that no longer validates (for example
  * after a definition's range changed) falls back to the default. Writes
- * validate and throw {@see InvalidParamException}. Every write of a setting
- * that is not internal state dispatches a {@see SettingChangedEvent} when the
- * effective value changed.
+ * validate and throw {@see InvalidParamException}. Every write dispatches a
+ * {@see SettingChangedEvent} when the effective value changed.
  *
  * Reads take the definitions from {@see LexiconData}, so that reading a
  * setting builds no check and no other setting. Writes validate against the
@@ -41,6 +41,9 @@ use OCP\IAppConfig;
  * @psalm-import-type ParamSpec from LexiconData
  */
 class Settings {
+	/** The protection level the limits were last set to, see {@see ProtectionLevels}; recommended when unset */
+	public const LEVEL_STATE = 'protection_level';
+
 	/** @var array<string, ParamDefinition> read definitions by config key */
 	private array $definitions = [];
 	/** While a protection level is applied, its own writes do not make it "custom" */
@@ -53,6 +56,7 @@ class Settings {
 		private readonly Prerequisites $prerequisites,
 		private readonly GlobalSettings $globals,
 		private readonly IEventDispatcher $dispatcher,
+		private readonly AppState $state,
 	) {
 	}
 
@@ -366,16 +370,11 @@ class Settings {
 	/**
 	 * @param bool $reported false for a change the app makes on its own or
 	 *                       writes to the audit log itself: it is no administration change
-	 * @return bool whether the value changed (always false for internal state)
+	 * @return bool whether the value changed
 	 * @throws InvalidParamException
 	 */
 	public function setGlobal(string $name, mixed $value, bool $reported = true): bool {
-		$value = $this->validatedGlobal($name, $value);
-		if (GlobalSettings::isInternal($name)) {
-			$this->write($name, $this->globalDefinition($name), $value);
-			return false;
-		}
-		return $this->writeGlobal($name, $value, $reported);
+		return $this->writeGlobal($name, $this->validatedGlobal($name, $value), $reported);
 	}
 
 	/**
@@ -390,9 +389,6 @@ class Settings {
 		$validated = [];
 		foreach ($values as $name => $value) {
 			$name = (string)$name;
-			if (GlobalSettings::isInternal($name)) {
-				throw new InvalidParamException('unknown_param', ['param' => $name]);
-			}
 			$validated[$name] = $this->validatedGlobal($name, $value);
 		}
 		$changes = [];
@@ -409,10 +405,6 @@ class Settings {
 	 */
 	public function resetGlobal(string $name): bool {
 		$this->globalDefinition($name);
-		if (GlobalSettings::isInternal($name)) {
-			$this->appConfig->deleteKey(Application::APP_ID, $name);
-			return false;
-		}
 		$old = $this->global($name);
 		$this->appConfig->deleteKey(Application::APP_ID, $name);
 		return $this->presetChanged($this->globalDefinition($name), $this->changed($name, $old, $this->global($name)));
@@ -429,7 +421,7 @@ class Settings {
 		$definition = $this->globalDefinition($name);
 		$value = $definition->validate($value, true);
 		GlobalSettings::checkRule($name, $value);
-		$owner = GlobalSettings::isInternal($name) ? null : GlobalSettings::validatedBy($name);
+		$owner = GlobalSettings::validatedBy($name);
 		if ($owner !== null) {
 			$check = $this->registry->check($owner);
 			if ($check instanceof IValidatesParams) {
@@ -453,14 +445,21 @@ class Settings {
 	 * The protection level the limits were last set to.
 	 */
 	public function protectionLevel(): ProtectionLevel {
-		return ProtectionLevel::tryFrom((string)$this->global(GlobalSettings::PROTECTION_LEVEL)) ?? ProtectionLevel::Recommended;
+		return ProtectionLevel::tryFrom($this->state->get(self::LEVEL_STATE) ?? '') ?? ProtectionLevel::Recommended;
+	}
+
+	/**
+	 * Every limit is at its default again.
+	 */
+	public function resetProtectionLevel(): void {
+		$this->state->delete(self::LEVEL_STATE);
 	}
 
 	/**
 	 * Write the values of a protection level, and the level. The values are
 	 * validated already ({@see ProtectionLevels}), so nothing is refused.
-	 * The level itself is internal state: the values are the changes, and
-	 * each of them is reported as such.
+	 * The level itself is internal state ({@see AppState}): the values are
+	 * the changes, and each of them is reported as such.
 	 *
 	 * @param array<string, array<string, int>> $checkParams validated values by check id and parameter name
 	 * @param array<string, int> $globals validated values by global setting name
@@ -485,7 +484,7 @@ class Settings {
 		} finally {
 			$this->applyingLevel = false;
 		}
-		$this->setGlobal(GlobalSettings::PROTECTION_LEVEL, $level->value);
+		$this->state->set(self::LEVEL_STATE, $level->value);
 		return $changes;
 	}
 
@@ -496,7 +495,7 @@ class Settings {
 	 */
 	private function presetChanged(ParamDefinition $definition, bool $changed): bool {
 		if ($changed && $definition->preset !== null && !$this->applyingLevel && $this->protectionLevel() !== ProtectionLevel::Custom) {
-			$this->setGlobal(GlobalSettings::PROTECTION_LEVEL, ProtectionLevel::Custom->value);
+			$this->state->set(self::LEVEL_STATE, ProtectionLevel::Custom->value);
 		}
 		return $changed;
 	}
@@ -530,9 +529,7 @@ class Settings {
 	public function placeholderValues(?string $checkId = null): array {
 		$values = [];
 		foreach ($this->globals->all() as $name => $definition) {
-			if (!GlobalSettings::isInternal($name)) {
-				$values[$name] = $this->read($name, $definition);
-			}
+			$values[$name] = $this->read($name, $definition);
 		}
 		if ($checkId !== null) {
 			$values = array_merge($values, $this->params($checkId));

@@ -13,7 +13,6 @@ use OC\Memcache\ArrayCache;
 use OCA\IntrusionDetection\Address\AddressResolver;
 use OCA\IntrusionDetection\Address\Verdict;
 use OCA\IntrusionDetection\Check\Checks\ReservedName;
-use OCA\IntrusionDetection\Config\GlobalSettings;
 use OCA\IntrusionDetection\Config\ModeState;
 use OCA\IntrusionDetection\Config\Prerequisites;
 use OCA\IntrusionDetection\Config\Settings;
@@ -34,6 +33,7 @@ use OCA\IntrusionDetection\SetupCheck\MemoryCacheCheck;
 use OCA\IntrusionDetection\SetupCheck\ReverseProxyCheck;
 use OCA\IntrusionDetection\SetupCheck\SharedAddressCheck;
 use OCA\IntrusionDetection\SetupCheck\TrapNameCollisionCheck;
+use OCA\IntrusionDetection\State\AppState;
 use OCA\IntrusionDetection\Tests\Unit\Cache\FixedCaches;
 use OCA\IntrusionDetection\Traps\TrapNameCollisions;
 use OCP\AppFramework\Utility\ITimeFactory;
@@ -223,12 +223,12 @@ class SetupChecksTest extends TestCase {
 	private function learningCheck(bool $active, int $startedAt, int $installedAt = 0): LearningModeCheck {
 		$learning = $this->createMock(LearningService::class);
 		$learning->method('isActive')->willReturn($active);
-		$settings = $this->createMock(Settings::class);
-		$settings->method('getInt')->willReturnMap([
-			[GlobalSettings::LEARNING_STARTED_AT, $startedAt],
-			[GlobalSettings::INSTALLED_AT, $installedAt],
+		$state = $this->createMock(AppState::class);
+		$state->method('getInt')->willReturnMap([
+			[LearningService::STARTED_STATE, $startedAt],
+			[AppState::INSTALLED_AT, $installedAt],
 		]);
-		return new LearningModeCheck($this->l, $this->links, $learning, $settings, $this->time);
+		return new LearningModeCheck($this->l, $this->links, $learning, $this->time, $state);
 	}
 
 	public function testLearningForMoreThanTwoWeeks(): void {

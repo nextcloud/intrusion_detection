@@ -9,8 +9,7 @@ declare(strict_types=1);
 
 namespace OCA\IntrusionDetection\Repair;
 
-use OCA\IntrusionDetection\Config\GlobalSettings;
-use OCA\IntrusionDetection\Config\Settings;
+use OCA\IntrusionDetection\State\AppState;
 use OCA\IntrusionDetection\Traps\ReservedNames;
 use OCP\Migration\IOutput;
 use OCP\Migration\IRepairStep;
@@ -24,9 +23,9 @@ use Psr\Log\LoggerInterface;
  */
 class ReserveSuggestedNames implements IRepairStep {
 	public function __construct(
-		private readonly Settings $settings,
 		private readonly ReservedNames $names,
 		private readonly LoggerInterface $logger,
+		private readonly AppState $state,
 	) {
 	}
 
@@ -37,7 +36,7 @@ class ReserveSuggestedNames implements IRepairStep {
 
 	#[\Override]
 	public function run(IOutput $output): void {
-		if ($this->settings->getInt(GlobalSettings::INSTALLED_AT) !== 0) {
+		if ($this->state->getInt(AppState::INSTALLED_AT) !== 0) {
 			return;
 		}
 		try {

@@ -13,6 +13,7 @@ use OCA\IntrusionDetection\Address\AddressResolver;
 use OCA\IntrusionDetection\AppInfo\Application;
 use OCA\IntrusionDetection\Check\Checks\AccountUnderAttack;
 use OCA\IntrusionDetection\Check\Checks\CredentialStuffing;
+use OCA\IntrusionDetection\Check\Checks\CredentialStuffingDetector;
 use OCA\IntrusionDetection\Check\Checks\PasswordSpraying;
 use OCA\IntrusionDetection\Check\Checks\SharedAddress;
 use OCA\IntrusionDetection\Config\GlobalSettings;
@@ -23,6 +24,7 @@ use OCA\IntrusionDetection\Db\LoginMapper;
 use OCA\IntrusionDetection\Definition\Mode;
 use OCA\IntrusionDetection\Explain\NarrativeBuilder;
 use OCA\IntrusionDetection\Net\SourceKey;
+use OCA\IntrusionDetection\State\AppState;
 use OCP\Config\IUserConfig;
 use OCP\L10N\IFactory;
 use OCP\Server;
@@ -221,7 +223,7 @@ class CredentialStuffingTest extends LoginFailureTestCase {
 		));
 		$this->assertCount(1, $distributed);
 		$this->assertNull($distributed[0]->getIp());
-		$this->assertGreaterThan(time(), $this->settings->getInt(GlobalSettings::CS_DISTRIBUTED_UNTIL));
+		$this->assertGreaterThan(time(), Server::get(AppState::class)->getInt(CredentialStuffingDetector::DISTRIBUTED_UNTIL_STATE));
 		// 192.0.2.1 failed 5 times for 2 or more names: blocked, with the distributed detection as reason.
 		$ban = $this->bans->findActiveForKeys(['192.0.2.1'], time())[0] ?? null;
 		$this->assertNotNull($ban);
@@ -236,8 +238,8 @@ class CredentialStuffingTest extends LoginFailureTestCase {
 	}
 
 	public function testDuringADistributedAttackEveryFailingAddressIsFlaggedButOnlyRepeatOffendersBlocked(): void {
-		$this->appConfig->setValueInt(Application::APP_ID, GlobalSettings::CS_DISTRIBUTED_UNTIL, time() + 300);
-		$this->appConfig->setValueInt(Application::APP_ID, GlobalSettings::CS_DISTRIBUTED_DETECTED_AT, time());
+		Server::get(AppState::class)->setInt(CredentialStuffingDetector::DISTRIBUTED_UNTIL_STATE, time() + 300);
+		Server::get(AppState::class)->setInt(CredentialStuffingDetector::DISTRIBUTED_DETECTED_AT_STATE, time());
 		$this->failLogin('192.0.2.200', 'someone');
 		$this->assertNotSame([], Server::get(FlagMapper::class)->active(['ip:192.0.2.200'], time()));
 		$this->assertSame([], $this->bans->findActiveForKeys(['192.0.2.200'], time()), 'One failure is not enough for a block');
@@ -249,8 +251,8 @@ class CredentialStuffingTest extends LoginFailureTestCase {
 	}
 
 	public function testASharedAddressInADistributedAttackIsReportedInsteadOfBlocked(): void {
-		$this->appConfig->setValueInt(Application::APP_ID, GlobalSettings::CS_DISTRIBUTED_UNTIL, time() + 300);
-		$this->appConfig->setValueInt(Application::APP_ID, GlobalSettings::CS_DISTRIBUTED_DETECTED_AT, time());
+		Server::get(AppState::class)->setInt(CredentialStuffingDetector::DISTRIBUTED_UNTIL_STATE, time() + 300);
+		Server::get(AppState::class)->setInt(CredentialStuffingDetector::DISTRIBUTED_DETECTED_AT_STATE, time());
 		$source = SourceKey::fromIp('192.0.2.210');
 		foreach (['alice', 'bob', 'carol', 'dave', 'erin'] as $name) {
 			$uid = $this->user('ids-' . $name . '-' . bin2hex(random_bytes(3)))->getUID();
@@ -267,7 +269,7 @@ class CredentialStuffingTest extends LoginFailureTestCase {
 	}
 
 	public function testAfterADistributedAttackFailingAddressesStayFlaggedForAnHour(): void {
-		$this->appConfig->setValueInt(Application::APP_ID, GlobalSettings::CS_DISTRIBUTED_UNTIL, time() - 600);
+		Server::get(AppState::class)->setInt(CredentialStuffingDetector::DISTRIBUTED_UNTIL_STATE, time() - 600);
 		$this->failLogin('192.0.2.201', 'a');
 		$this->failLogin('192.0.2.201', 'b');
 		$this->failLogin('192.0.2.201', 'c');
@@ -277,8 +279,8 @@ class CredentialStuffingTest extends LoginFailureTestCase {
 
 	public function testTheDistributedRuleOnlyObservesInObserveMode(): void {
 		$this->settings->setMode(CredentialStuffing::ID, Mode::Observe);
-		$this->appConfig->setValueInt(Application::APP_ID, GlobalSettings::CS_DISTRIBUTED_UNTIL, time() + 300);
-		$this->appConfig->setValueInt(Application::APP_ID, GlobalSettings::CS_DISTRIBUTED_DETECTED_AT, time());
+		Server::get(AppState::class)->setInt(CredentialStuffingDetector::DISTRIBUTED_UNTIL_STATE, time() + 300);
+		Server::get(AppState::class)->setInt(CredentialStuffingDetector::DISTRIBUTED_DETECTED_AT_STATE, time());
 		for ($i = 0; $i < 3; $i++) {
 			$this->failLogin('192.0.2.202', 'n' . $i);
 		}

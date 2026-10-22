@@ -21,13 +21,13 @@ use OCA\IntrusionDetection\Config\Settings;
 use OCA\IntrusionDetection\Db\BanMapper;
 use OCA\IntrusionDetection\Db\BlocklistRangeMapper;
 use OCA\IntrusionDetection\Db\BlocklistStatMapper;
-use OCA\IntrusionDetection\Db\StateMapper;
 use OCA\IntrusionDetection\Guard\AddressGuard;
 use OCA\IntrusionDetection\Guard\RequestContext;
 use OCA\IntrusionDetection\Net\RangeCodec;
 use OCA\IntrusionDetection\Net\RemoteAddressResolver;
 use OCA\IntrusionDetection\Net\ServerAddresses;
 use OCA\IntrusionDetection\Perf\GuardTimer;
+use OCA\IntrusionDetection\State\AppState;
 use OCA\IntrusionDetection\Tests\Unit\Cache\FixedCaches;
 use OCP\AppFramework\Utility\ITimeFactory;
 use OCP\IConfig;
@@ -107,7 +107,7 @@ class RiskyNetworkBenchmarkTest extends IntegrationTestCase {
 		}
 		$store = new ArrayCache();
 		$factory = $cached ? new FixedCaches($store) : FixedCaches::none();
-		$addressCache = new AddressCache($factory, Server::get(StateMapper::class));
+		$addressCache = new AddressCache($factory, Server::get(AppState::class));
 		$settings = Server::get(Settings::class);
 		$provider = new BlocklistFactsProvider(
 			new SourceRepository($settings, Server::get(\OCA\IntrusionDetection\Crypto\Fingerprinter::class)),

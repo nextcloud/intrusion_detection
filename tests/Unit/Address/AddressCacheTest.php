@@ -12,8 +12,8 @@ namespace OCA\IntrusionDetection\Tests\Unit\Address;
 use OC\Memcache\ArrayCache;
 use OCA\IntrusionDetection\Address\AddressCache;
 use OCA\IntrusionDetection\Address\Verdict;
-use OCA\IntrusionDetection\Db\StateMapper;
 use OCA\IntrusionDetection\Net\SourceKey;
+use OCA\IntrusionDetection\State\AppState;
 use OCA\IntrusionDetection\Tests\Unit\Cache\FixedCaches;
 use Test\TestCase;
 
@@ -142,8 +142,8 @@ class AddressCacheTest extends TestCase {
 		return new AddressCache($caches, $this->state());
 	}
 
-	private function state(): StateMapper {
-		$state = $this->createMock(StateMapper::class);
+	private function state(): AppState {
+		$state = $this->createMock(AppState::class);
 		$state->method('get')->willReturnCallback(fn (string $name): ?string => $name === AddressCache::VERSION_STATE ? $this->storedVersion : null);
 		$state->method('set')->willReturnCallback(function (string $name, string $value): void {
 			$this->assertSame(AddressCache::VERSION_STATE, $name);

@@ -9,9 +9,7 @@ declare(strict_types=1);
 
 namespace OCA\IntrusionDetection\Net;
 
-use OCA\IntrusionDetection\AppInfo\Application;
-use OCA\IntrusionDetection\Config\GlobalSettings;
-use OCP\IAppConfig;
+use OCA\IntrusionDetection\State\HotState;
 
 /**
  * This server's own addresses, which are never blocked: the one the current
@@ -25,7 +23,7 @@ class ServerAddresses {
 	public const MAX_REMEMBERED = 16;
 
 	public function __construct(
-		private readonly IAppConfig $appConfig,
+		private readonly HotState $hotState,
 	) {
 	}
 
@@ -43,7 +41,7 @@ class ServerAddresses {
 			return;
 		}
 		array_unshift($known, $own->ip);
-		$this->appConfig->setValueArray(Application::APP_ID, GlobalSettings::SERVER_ADDRESSES, array_slice($known, 0, self::MAX_REMEMBERED));
+		$this->hotState->setServerAddresses(array_slice($known, 0, self::MAX_REMEMBERED));
 	}
 
 	public function contains(SourceKey $source): bool {
@@ -82,7 +80,6 @@ class ServerAddresses {
 	 * @return list<string>
 	 */
 	private function remembered(): array {
-		$stored = $this->appConfig->getValueArray(Application::APP_ID, GlobalSettings::SERVER_ADDRESSES, []);
-		return array_values(array_filter($stored, 'is_string'));
+		return $this->hotState->serverAddresses();
 	}
 }

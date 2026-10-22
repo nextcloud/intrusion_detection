@@ -13,7 +13,6 @@ use OCA\IntrusionDetection\AppInfo\Application;
 use OCA\IntrusionDetection\Check\Checks\CredentialStuffing;
 use OCA\IntrusionDetection\Check\Checks\InjectionProbe;
 use OCA\IntrusionDetection\Check\Checks\TrapUrl;
-use OCA\IntrusionDetection\Config\GlobalSettings;
 use OCA\IntrusionDetection\Controller\AdminApiController;
 use OCA\IntrusionDetection\Controller\BlocklistApiController;
 use OCA\IntrusionDetection\Controller\DecoyApiController;
@@ -22,6 +21,8 @@ use OCA\IntrusionDetection\Controller\PayloadApiController;
 use OCA\IntrusionDetection\Controller\PrivacyApiController;
 use OCA\IntrusionDetection\Controller\SimulationApiController;
 use OCA\IntrusionDetection\Detection\Simulator;
+use OCA\IntrusionDetection\Learning\LearningService;
+use OCA\IntrusionDetection\State\AppState;
 use OCA\IntrusionDetection\Traps\TrapNameCollisions;
 use OCP\AppFramework\Http;
 use OCP\AppFramework\OCS\OCSNotFoundException;
@@ -314,14 +315,14 @@ class AdminPagesApiTest extends IntegrationTestCase {
 
 	public function testLearningRemembersWhenItStarted(): void {
 		$this->admin->updateLearning('start', 7);
-		$started = $this->appConfig->getValueInt(Application::APP_ID, GlobalSettings::LEARNING_STARTED_AT);
+		$started = Server::get(AppState::class)->getInt(LearningService::STARTED_STATE);
 		$this->assertEqualsWithDelta(time(), $started, 5);
 		$this->admin->updateLearning('extend', 7);
-		$this->assertSame($started, $this->appConfig->getValueInt(Application::APP_ID, GlobalSettings::LEARNING_STARTED_AT), 'Extending keeps the start');
+		$this->assertSame($started, Server::get(AppState::class)->getInt(LearningService::STARTED_STATE), 'Extending keeps the start');
 		$this->admin->updateLearning('stop');
-		$this->appConfig->setValueInt(Application::APP_ID, GlobalSettings::LEARNING_STARTED_AT, 1);
+		Server::get(AppState::class)->setInt(LearningService::STARTED_STATE, 1);
 		$this->admin->updateLearning('extend', 3);
-		$this->assertEqualsWithDelta(time(), $this->appConfig->getValueInt(Application::APP_ID, GlobalSettings::LEARNING_STARTED_AT), 5, 'Extending a finished period starts a new one');
+		$this->assertEqualsWithDelta(time(), Server::get(AppState::class)->getInt(LearningService::STARTED_STATE), 5, 'Extending a finished period starts a new one');
 	}
 
 	/**

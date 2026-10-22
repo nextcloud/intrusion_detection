@@ -10,12 +10,11 @@ declare(strict_types=1);
 namespace OCA\IntrusionDetection\Decoy;
 
 use OCA\IntrusionDetection\Audit\AuditLogger;
-use OCA\IntrusionDetection\Config\GlobalSettings;
-use OCA\IntrusionDetection\Config\Settings;
 use OCA\IntrusionDetection\Crypto\Fingerprinter;
 use OCA\IntrusionDetection\Db\Decoy;
 use OCA\IntrusionDetection\Db\DecoyMapper;
 use OCA\IntrusionDetection\Definition\InvalidParamException;
+use OCA\IntrusionDetection\State\HotState;
 use OCA\IntrusionDetection\Traps\AccountNames;
 use OCA\IntrusionDetection\Traps\TrapNameCollisions;
 use OCP\AppFramework\Db\DoesNotExistException;
@@ -40,10 +39,10 @@ class DecoyService {
 		private readonly Fingerprinter $fingerprinter,
 		private readonly ISecureRandom $random,
 		private readonly AccountNames $accounts,
-		private readonly Settings $settings,
 		private readonly AuditLogger $audit,
 		private readonly ITimeFactory $timeFactory,
 		private readonly TrapNameCollisions $collisions,
+		private readonly HotState $hotState,
 	) {
 	}
 
@@ -115,7 +114,7 @@ class DecoyService {
 	 * @return ?array{0: Decoy, 1: bool}
 	 */
 	public function match(#[\SensitiveParameter] ?string $password, string $loginName): ?array {
-		if ($this->settings->getInt(GlobalSettings::DECOY_COUNT) === 0) {
+		if ($this->hotState->decoyCount() === 0) {
 			return null;
 		}
 		$secretHmac = $password === null || $password === '' ? null : bin2hex($this->fingerprinter->decoy($password));
@@ -148,7 +147,7 @@ class DecoyService {
 	}
 
 	private function updateCount(): void {
-		$this->settings->setGlobal(GlobalSettings::DECOY_COUNT, $this->mapper->countAll());
+		$this->hotState->setDecoyCount($this->mapper->countAll());
 		$this->collisions->refresh();
 	}
 }

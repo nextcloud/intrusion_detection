@@ -16,7 +16,7 @@ enforces this on every test run.
 | features | `Check\Checks`, `Check\CredentialUse`, `Check\Payload`, `Address`, `AdminChange`, `Blocklist`, `Breach`, `Confirm`, `Decoy`, `Export`, `Guide`, `Incident`, `KnownDevice`, `Learning`, `LoginHistory`, `OpenMetrics`, `Privacy`, `Risk`, `SessionState`, `Share`, `StaleCredential`, `Takeover`, `Traps`, `TrustedNetwork`, `WasThisYou` | One check or one feature each: its definition, detection, texts and state. |
 | platform | `Check`, `Detection`, `Response`, `Explain`, `Event`, `Notification`, `Login` | The check registry and capability interfaces, recording detections, running responses, explanation texts, events and notifications. |
 | storage | `Db`, `Config` | Tables and mappers; settings, the config lexicon and its keys. |
-| kernel | `Definition`, `Net`, `Crypto`, `Audit`, `Http`, `ResponseDefinitions`, `Sensitive`, `Cache` | The shared vocabulary and the memory caches. Uses nothing above it. |
+| kernel | `Definition`, `Net`, `Crypto`, `Audit`, `Http`, `ResponseDefinitions`, `Sensitive`, `Cache`, `State` | The shared vocabulary, the memory caches and the app's internal state. Uses nothing above it. |
 
 ## Rules
 
@@ -38,6 +38,11 @@ enforces this on every test run.
   distributed cache when one is configured, else the local one;
   `isDistributed()` is the one answer to whether the cache is shared by all
   web servers.
+- **Internal state is no setting.** What the app records for itself lives in
+  `State\AppState` (the `ids_state` table), each name declared by the class
+  that owns it (for example `DigestSender::STATE`). Only the few small values
+  that requests read often stay in the app config, in `State\HotState`. The
+  app config holds the settings an administrator chooses.
 - **The plain request path stays cheap.** Registries are lazy class-string
   lists (`CheckRegistry::CHECKS`, `ResponseEngine::HANDLERS`,
   `Application::SETUP_CHECKS`). Registering the app reads no constant of

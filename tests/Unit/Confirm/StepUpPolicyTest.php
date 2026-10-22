@@ -72,7 +72,6 @@ class StepUpPolicyTest extends TestCase {
 			$this->assertSame(['refuse', 'allow_notify', 'allow_force_change'], $definition->choices);
 			$this->assertLessThanOrEqual(64, strlen($policy->settingKey()));
 		}
-		$this->assertTrue(GlobalSettings::isInternal(GlobalSettings::STEP_UP_SESSIONS_UNTIL));
 	}
 
 	public function testReasonsAreDescribedInPlainWords(): void {

@@ -54,7 +54,7 @@ class SettingsReadTest extends TestCase {
 		$this->prerequisites->method('isMet')->willReturn(true);
 		$time = $this->createMock(ITimeFactory::class);
 		$time->method('getTime')->willReturn(1_800_000_000);
-		$this->settings = new Settings($this->appConfig, $this->registry, $time, $this->prerequisites, $this->globals, $this->createMock(IEventDispatcher::class));
+		$this->settings = new Settings($this->appConfig, $this->registry, $time, $this->prerequisites, $this->globals, $this->createMock(IEventDispatcher::class), $this->createMock(\OCA\IntrusionDetection\State\AppState::class));
 	}
 
 	public function testCommonReadsBuildNoDefinitions(): void {
@@ -88,7 +88,7 @@ class SettingsReadTest extends TestCase {
 		$prerequisites->method('isMet')->willReturn(false);
 		$time = $this->createMock(ITimeFactory::class);
 		$time->method('getTime')->willReturn(1_800_000_000);
-		$settings = new Settings($this->appConfig, $this->registry, $time, $prerequisites, $this->globals, $this->createMock(IEventDispatcher::class));
+		$settings = new Settings($this->appConfig, $this->registry, $time, $prerequisites, $this->globals, $this->createMock(IEventDispatcher::class), $this->createMock(\OCA\IntrusionDetection\State\AppState::class));
 		$this->assertSame(ModeState::REASON_REQUIREMENT, $settings->modeState(DirectoryScraping::ID)->reason);
 
 		$this->stored[GlobalSettings::LEARNING_UNTIL] = 1_800_000_100;

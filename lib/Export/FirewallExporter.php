@@ -13,8 +13,8 @@ use OCA\IntrusionDetection\Config\GlobalSettings;
 use OCA\IntrusionDetection\Config\Settings;
 use OCA\IntrusionDetection\Db\Ban;
 use OCA\IntrusionDetection\Db\BanMapper;
-use OCA\IntrusionDetection\Db\StateMapper;
 use OCA\IntrusionDetection\Net\ProtectedRanges;
+use OCA\IntrusionDetection\State\AppState;
 use OCP\AppFramework\Utility\ITimeFactory;
 use OCP\Security\ISecureRandom;
 use Psr\Log\LoggerInterface;
@@ -59,7 +59,7 @@ class FirewallExporter {
 		private readonly ExportDirectory $directory,
 		private readonly Settings $settings,
 		private readonly BanMapper $bans,
-		private readonly StateMapper $state,
+		private readonly AppState $state,
 		private readonly ProtectedRanges $protected,
 		private readonly ITimeFactory $timeFactory,
 		private readonly ISecureRandom $random,

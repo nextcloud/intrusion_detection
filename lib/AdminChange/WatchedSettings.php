@@ -30,7 +30,7 @@ use Psr\Log\LoggerInterface;
  *   overwrite* settings, brute-force protection, debug and log level, 2FA
  *   enforcement, the admin address ranges, and this app's own entries;
  * - app config: the brute-force allowlist, sharing by link, the password
- *   policy, and this app's settings (effective values, internal state left out).
+ *   policy, and this app's settings (effective values).
  *
  * Keys are "system:<config.php key>" and "app:<app id>:<key>". A value is
  * secret when Nextcloud masks it: config.php values that the filtered read
@@ -251,17 +251,15 @@ class WatchedSettings {
 	}
 
 	/**
-	 * Every setting this app defines (internal state left out), see {@see self::ownValue()}.
+	 * Every setting this app defines, see {@see self::ownValue()}.
 	 *
 	 * @return list<WatchedValue>
 	 */
 	private function ownSettings(): array {
 		$stored = $this->appConfig->getAllValues(Application::APP_ID);
 		$values = [];
-		foreach ($this->globals->all() as $name => $definition) {
-			if (!GlobalSettings::isInternal($name)) {
-				$values[] = self::ownValue($name, $this->settings->global($name), $stored[$name] ?? null);
-			}
+		foreach (array_keys($this->globals->all()) as $name) {
+			$values[] = self::ownValue($name, $this->settings->global($name), $stored[$name] ?? null);
 		}
 		foreach ($this->registry->all() as $check) {
 			$values[] = self::ownValue(Keys::mode($check->id), $this->settings->configuredMode($check->id)->value, $stored[Keys::mode($check->id)] ?? null);

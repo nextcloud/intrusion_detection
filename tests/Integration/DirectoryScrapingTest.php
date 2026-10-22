@@ -329,6 +329,7 @@ class DirectoryScrapingTest extends IntegrationTestCase {
 			new Prerequisites($factory, Server::get(IConfig::class)),
 			Server::get(GlobalSettings::class),
 			Server::get(IEventDispatcher::class),
+			Server::get(\OCA\IntrusionDetection\State\AppState::class),
 		);
 	}
 }

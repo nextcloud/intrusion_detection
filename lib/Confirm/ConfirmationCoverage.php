@@ -11,8 +11,7 @@ namespace OCA\IntrusionDetection\Confirm;
 
 use OCA\IntrusionDetection\AdminChange\Approvers;
 use OCA\IntrusionDetection\Cache\Caches;
-use OCA\IntrusionDetection\Config\GlobalSettings;
-use OCA\IntrusionDetection\Config\Settings;
+use OCA\IntrusionDetection\State\AppState;
 use OCP\AppFramework\Utility\ITimeFactory;
 use OCP\Authentication\TwoFactorAuth\IRegistry;
 use OCP\DB\QueryBuilder\IQueryBuilder;
@@ -36,6 +35,8 @@ use OCP\IUserManager;
  * by one and cached for CACHE_TTL.
  */
 class ConfirmationCoverage {
+	/** The counts of active accounts and of those without a way to confirm a login, with when they were counted */
+	public const USERS_STATE = 'coverage_users';
 	/** The namespace of its memory cache in {@see Caches} */
 	public const CACHE = 'coverage';
 	public const CACHE_TTL = 3600;
@@ -55,8 +56,8 @@ class ConfirmationCoverage {
 		private readonly Approvers $approvers,
 		private readonly IRegistry $twoFactor,
 		private readonly Caches $caches,
-		private readonly Settings $settings,
 		private readonly ITimeFactory $timeFactory,
+		private readonly AppState $state,
 	) {
 	}
 
@@ -67,7 +68,7 @@ class ConfirmationCoverage {
 	 * @return array{withoutMethod: int, active: int, countedAt: int}
 	 */
 	public function users(): array {
-		$stored = $this->settings->getJson(GlobalSettings::COVERAGE_USERS);
+		$stored = $this->state->getJson(self::USERS_STATE);
 		if (is_int($stored['withoutMethod'] ?? null) && is_int($stored['active'] ?? null) && is_int($stored['countedAt'] ?? null)
 			&& $this->timeFactory->getTime() - $stored['countedAt'] <= self::CACHE_TTL) {
 			return ['withoutMethod' => $stored['withoutMethod'], 'active' => $stored['active'], 'countedAt' => $stored['countedAt']];
@@ -82,7 +83,7 @@ class ConfirmationCoverage {
 	 */
 	public function recount(): array {
 		$counts = ['withoutMethod' => $this->count(true), 'active' => $this->count(false), 'countedAt' => $this->timeFactory->getTime()];
-		$this->settings->setGlobal(GlobalSettings::COVERAGE_USERS, $counts);
+		$this->state->setJson(self::USERS_STATE, $counts);
 		return $counts;
 	}
 

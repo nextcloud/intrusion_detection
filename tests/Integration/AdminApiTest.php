@@ -23,6 +23,7 @@ use OCA\IntrusionDetection\Db\Detection;
 use OCA\IntrusionDetection\Db\DetectionMapper;
 use OCA\IntrusionDetection\Detection\DetectionTotals;
 use OCA\IntrusionDetection\Response\BanService;
+use OCA\IntrusionDetection\State\AppState;
 use OCP\AppFramework\Http;
 use OCP\IUserManager;
 use OCP\IUserSession;
@@ -287,13 +288,13 @@ class AdminApiTest extends IntegrationTestCase {
 		$this->assertSame(Http::STATUS_OK, $response->getStatus());
 		$settings = array_column($response->getData()['settings'], 'value', 'name');
 		$this->assertSame(7200, $settings[GlobalSettings::BAN_DURATION_1]);
-		$this->assertArrayNotHasKey(GlobalSettings::INSTALLED_AT, $settings);
+		$this->assertArrayNotHasKey(AppState::INSTALLED_AT, $settings);
 		$this->assertArrayNotHasKey(GlobalSettings::LEARNING_UNTIL, $settings);
 		$this->assertArrayHasKey('escalation', $response->getData()['templates']);
 
 		$export = $this->controller->exportSettings()->getData();
 		$this->assertSame(7200, $export['settings'][GlobalSettings::BAN_DURATION_1]);
-		$this->assertArrayNotHasKey(GlobalSettings::INSTALLED_AT, $export['settings']);
+		$this->assertArrayNotHasKey(AppState::INSTALLED_AT, $export['settings']);
 
 		$this->appConfig->setValueInt(Application::APP_ID, GlobalSettings::LEARNING_UNTIL, time() + 86400);
 		$this->controller->resetSettings();

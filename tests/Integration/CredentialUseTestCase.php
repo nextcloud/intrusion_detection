@@ -80,6 +80,7 @@ abstract class CredentialUseTestCase extends AccountTestCase {
 			new Prerequisites($this->cacheFactory($this->cache), Server::get(IConfig::class)),
 			Server::get(GlobalSettings::class),
 			Server::get(IEventDispatcher::class),
+			Server::get(\OCA\IntrusionDetection\State\AppState::class),
 		);
 		$this->tracker = new CredentialTracker($this->cacheFactory($this->cache), $this->settings);
 		$this->now = time();

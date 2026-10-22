@@ -39,6 +39,7 @@ use OCA\IntrusionDetection\Notification\ShareOwnerNotifier;
 use OCA\IntrusionDetection\Notification\UserMessages;
 use OCA\IntrusionDetection\Share\FederationPartners;
 use OCA\IntrusionDetection\Share\ShareLinks;
+use OCA\IntrusionDetection\State\HotState;
 use OCP\AppFramework\Http;
 use OCP\AppFramework\Utility\ITimeFactory;
 use OCP\DB\QueryBuilder\IQueryBuilder;
@@ -324,7 +325,7 @@ class ShareBruteforceTest extends RequestEventTestCase {
 		for ($i = 1; $i <= 4; $i++) {
 			$this->storeUnknownToken($source, 'beforeToken' . $i, 1);
 		}
-		$this->settings->setGlobal(GlobalSettings::ATTEMPTS_FLOOD_UNTIL, time() + 600);
+		Server::get(HotState::class)->setAttemptsFloodUntil(time() + 600);
 		$detector->unknownToken($this->kept($source), null);
 		$this->assertSame([], $this->detectionsOf(ShareBruteforce::ID), '4 links stay 4 when a flood starts');
 
@@ -336,8 +337,8 @@ class ShareBruteforceTest extends RequestEventTestCase {
 	}
 
 	public function testTheRecorderStoresTheWeightOfASampledAttempt(): void {
-		$this->settings->setGlobal(GlobalSettings::ATTEMPTS_FLOOD_UNTIL, time() + 600);
-		$recorder = new class(Server::get(AttemptMapper::class), Server::get(Fingerprinter::class), $this->settings, Server::get(\OCP\AppFramework\Utility\ITimeFactory::class)) extends AttemptRecorder {
+		Server::get(HotState::class)->setAttemptsFloodUntil(time() + 600);
+		$recorder = new class(Server::get(AttemptMapper::class), Server::get(Fingerprinter::class), Server::get(\OCP\AppFramework\Utility\ITimeFactory::class), Server::get(HotState::class)) extends AttemptRecorder {
 			protected function oneIn(int $n): bool {
 				return $n === AttemptRecorder::FLOOD_SAMPLE;
 			}
@@ -350,7 +351,7 @@ class ShareBruteforceTest extends RequestEventTestCase {
 	}
 
 	public function testUnderAFloodCountsAreEstimatedButTwoLinksStillNeverFire(): void {
-		$this->settings->setGlobal(GlobalSettings::ATTEMPTS_FLOOD_UNTIL, time() + 600);
+		Server::get(HotState::class)->setAttemptsFloodUntil(time() + 600);
 		$detector = Server::get(ShareBruteforceDetector::class);
 		$source = SourceKey::fromIp('198.51.100.7');
 

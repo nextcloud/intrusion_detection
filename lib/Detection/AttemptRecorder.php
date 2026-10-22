@@ -9,12 +9,11 @@ declare(strict_types=1);
 
 namespace OCA\IntrusionDetection\Detection;
 
-use OCA\IntrusionDetection\Config\GlobalSettings;
-use OCA\IntrusionDetection\Config\Settings;
 use OCA\IntrusionDetection\Crypto\Fingerprinter;
 use OCA\IntrusionDetection\Db\AttemptKind;
 use OCA\IntrusionDetection\Db\AttemptMapper;
 use OCA\IntrusionDetection\Net\SourceKey;
+use OCA\IntrusionDetection\State\HotState;
 use OCP\AppFramework\Utility\ITimeFactory;
 
 /**
@@ -36,8 +35,8 @@ class AttemptRecorder {
 	public function __construct(
 		private readonly AttemptMapper $mapper,
 		private readonly Fingerprinter $fingerprinter,
-		private readonly Settings $settings,
 		private readonly ITimeFactory $timeFactory,
+		private readonly HotState $hotState,
 	) {
 	}
 
@@ -83,7 +82,7 @@ class AttemptRecorder {
 	 * the row as its weight, which the counts of {@see AttemptMapper} use.
 	 */
 	public function sampleFactor(AttemptKind $kind, int $now): int {
-		return self::isSampledKind($kind) && $this->settings->getInt(GlobalSettings::ATTEMPTS_FLOOD_UNTIL) > $now ? self::FLOOD_SAMPLE : 1;
+		return self::isSampledKind($kind) && $this->hotState->attemptsFloodUntil() > $now ? self::FLOOD_SAMPLE : 1;
 	}
 
 	/**

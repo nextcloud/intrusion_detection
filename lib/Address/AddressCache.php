@@ -10,8 +10,8 @@ declare(strict_types=1);
 namespace OCA\IntrusionDetection\Address;
 
 use OCA\IntrusionDetection\Cache\Caches;
-use OCA\IntrusionDetection\Db\StateMapper;
 use OCA\IntrusionDetection\Net\SourceKey;
+use OCA\IntrusionDetection\State\AppState;
 use OCP\IMemcache;
 
 /**
@@ -57,7 +57,7 @@ class AddressCache {
 
 	public function __construct(
 		private readonly Caches $caches,
-		private readonly StateMapper $state,
+		private readonly AppState $state,
 	) {
 	}
 

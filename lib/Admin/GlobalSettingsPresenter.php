@@ -69,7 +69,6 @@ class GlobalSettingsPresenter {
 	 */
 	public function isEditable(string $name): bool {
 		return $this->globals->get($name) !== null
-			&& !GlobalSettings::isInternal($name)
 			&& !in_array($name, self::MANAGED_ELSEWHERE, true);
 	}
 

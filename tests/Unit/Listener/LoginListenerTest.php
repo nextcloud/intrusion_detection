@@ -14,7 +14,6 @@ use OCA\IntrusionDetection\Check\CredentialUse\CredentialUseResolver;
 use OCA\IntrusionDetection\Check\CredentialUse\PresentedCredential;
 use OCA\IntrusionDetection\Check\Payload\PayloadResponder;
 use OCA\IntrusionDetection\Check\Payload\PendingHit;
-use OCA\IntrusionDetection\Config\GlobalSettings;
 use OCA\IntrusionDetection\Config\Settings;
 use OCA\IntrusionDetection\Guard\RequestContext;
 use OCA\IntrusionDetection\Listener\BreachedPasswordListener;
@@ -28,6 +27,7 @@ use OCA\IntrusionDetection\Listener\StepUpLoginListener;
 use OCA\IntrusionDetection\Login\LoginGate;
 use OCA\IntrusionDetection\Net\RemoteAddressResolver;
 use OCA\IntrusionDetection\Net\SourceKey;
+use OCA\IntrusionDetection\State\HotState;
 use OCP\AppFramework\Utility\ITimeFactory;
 use OCP\EventDispatcher\Event;
 use OCP\EventDispatcher\IEventListener;
@@ -59,7 +59,6 @@ class LoginListenerTest extends TestCase {
 		$this->context = new RequestContext();
 		$this->settings = $this->createMock(Settings::class);
 		$this->settings->method('isEnabled')->willReturn(true);
-		$this->settings->method('getInt')->willReturnCallback(fn (string $name): int => $name === GlobalSettings::STEP_UP_SESSIONS_UNTIL ? $this->sessionsUntil : 0);
 		$this->gate = $this->createMock(LoginGate::class);
 		$this->gate->method('isFirst')->willReturnCallback(fn (): ?bool => $this->first);
 		$this->server = $_SERVER;
@@ -87,7 +86,9 @@ class LoginListenerTest extends TestCase {
 				};
 			});
 		}
-		return new LoginListener($this->settings, $this->context, $addresses, $this->gate, $request, $time, $container, $this->createMock(LoggerInterface::class));
+		$hotState = $this->createMock(HotState::class);
+		$hotState->method('stepUpSessionsUntil')->willReturnCallback(fn (): int => $this->sessionsUntil);
+		return new LoginListener($this->settings, $hotState, $this->context, $addresses, $this->gate, $request, $time, $container, $this->createMock(LoggerInterface::class));
 	}
 
 	private function login(bool $token): UserLoggedInEvent {

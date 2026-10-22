@@ -24,7 +24,6 @@ use OCA\IntrusionDetection\Db\Ban;
 use OCA\IntrusionDetection\Db\BanMapper;
 use OCA\IntrusionDetection\Db\BlocklistRangeMapper;
 use OCA\IntrusionDetection\Db\BlocklistStatMapper;
-use OCA\IntrusionDetection\Db\StateMapper;
 use OCA\IntrusionDetection\Definition\Mode;
 use OCA\IntrusionDetection\Guard\AddressGuard;
 use OCA\IntrusionDetection\Guard\RequestContext;
@@ -33,6 +32,7 @@ use OCA\IntrusionDetection\Net\RemoteAddressResolver;
 use OCA\IntrusionDetection\Net\ServerAddresses;
 use OCA\IntrusionDetection\Net\SourceKey;
 use OCA\IntrusionDetection\Perf\GuardTimer;
+use OCA\IntrusionDetection\State\AppState;
 use OCA\IntrusionDetection\Tests\Unit\Cache\FixedCaches;
 use OCP\AppFramework\Utility\ITimeFactory;
 use OCP\IConfig;
@@ -322,7 +322,7 @@ class BlocklistFactsProviderTest extends IntegrationTestCase {
 
 	private function addressCache(bool $available): AddressCache {
 		$store = new \OC\Memcache\ArrayCache('ids-test-blocklist');
-		return new AddressCache($available ? new FixedCaches($store) : FixedCaches::none(), Server::get(StateMapper::class));
+		return new AddressCache($available ? new FixedCaches($store) : FixedCaches::none(), Server::get(AppState::class));
 	}
 
 	private function time(): ITimeFactory {

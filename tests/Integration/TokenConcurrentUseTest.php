@@ -267,6 +267,7 @@ class TokenConcurrentUseTest extends CredentialUseTestCase {
 			new Prerequisites($this->cacheFactory(null), Server::get(IConfig::class)),
 			Server::get(GlobalSettings::class),
 			Server::get(IEventDispatcher::class),
+			Server::get(\OCA\IntrusionDetection\State\AppState::class),
 		);
 		$state = $settings->modeState(TokenConcurrentUse::ID);
 		$this->assertSame(Mode::Protect, $state->configured);

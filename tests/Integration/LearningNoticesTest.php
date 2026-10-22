@@ -26,6 +26,7 @@ use OCA\IntrusionDetection\Notification\AdminRecipients;
 use OCA\IntrusionDetection\Notification\LearningNotices;
 use OCA\IntrusionDetection\Notification\Notifier;
 use OCA\IntrusionDetection\Response\ResponseEngine;
+use OCA\IntrusionDetection\State\AppState;
 use OCP\AppFramework\Utility\ITimeFactory;
 use OCP\IGroupManager;
 use OCP\IUser;
@@ -65,7 +66,7 @@ class LearningNoticesTest extends IntegrationTestCase {
 			$this->dismissed++;
 		});
 		$this->settings = Server::get(Settings::class);
-		$this->learning = new LearningService($this->settings, Server::get(ITimeFactory::class), Server::get(AuditLogger::class), $this->notifications);
+		$this->learning = new LearningService($this->settings, Server::get(ITimeFactory::class), Server::get(AuditLogger::class), $this->notifications, Server::get(AppState::class));
 
 		// The administrators are the members of the configured groups, enabled ones only.
 		$this->groupId = 'ids-admins-' . bin2hex(random_bytes(3));
@@ -79,13 +80,13 @@ class LearningNoticesTest extends IntegrationTestCase {
 		$this->settings->setGlobal(GlobalSettings::NOTIFY_ADMIN_GROUP, [$this->groupId]);
 
 		$this->notices = new LearningNotices(
-			$this->settings,
 			$this->learning,
 			Server::get(AdminRecipients::class),
 			$this->notifications,
 			Server::get(DetectionMapper::class),
 			Server::get(AdminLinks::class),
 			Server::get(ITimeFactory::class),
+			Server::get(AppState::class),
 		);
 	}
 
@@ -204,6 +205,6 @@ class LearningNoticesTest extends IntegrationTestCase {
 
 	private function setLearningUntil(int $until): void {
 		$this->appConfig->setValueInt(Application::APP_ID, GlobalSettings::LEARNING_UNTIL, $until);
-		$this->appConfig->setValueInt(Application::APP_ID, GlobalSettings::LEARNING_NOTICE_SENT, 0);
+		Server::get(AppState::class)->setInt(LearningService::NOTICE_STATE, 0);
 	}
 }

@@ -23,6 +23,7 @@ use OCA\IntrusionDetection\SetupCheck\StaleCredentialsCheck;
 use OCA\IntrusionDetection\StaleCredential\StaleCredentialNotices;
 use OCA\IntrusionDetection\StaleCredential\StaleCredentials;
 use OCA\IntrusionDetection\StaleCredential\StaleCredentialSweep;
+use OCA\IntrusionDetection\State\AppState;
 use OCP\AppFramework\Http;
 use OCP\AppFramework\Http\Attribute\PasswordConfirmationRequired;
 use OCP\AppFramework\Utility\ITimeFactory;
@@ -395,6 +396,7 @@ class StaleCredentialsTest extends AccountTestCase {
 			$this->credentials(),
 			new StaleCredentialNotices(Server::get(INotificationManager::class), $time),
 			$this->settings,
+			Server::get(AppState::class),
 			Server::get(IUserConfig::class),
 			Server::get(IUserManager::class),
 			$time,

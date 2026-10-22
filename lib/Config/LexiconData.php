@@ -37,11 +37,6 @@ final class LexiconData {
 			'default' => 0,
 			'min' => 0,
 		],
-		'learning_notice_sent' => [
-			'type' => 'int',
-			'default' => 0,
-			'min' => 0,
-		],
 		'ban_duration_1' => [
 			'type' => 'duration',
 			'default' => 14400,
@@ -84,16 +79,6 @@ final class LexiconData {
 			'min' => 7,
 			'max' => 730,
 		],
-		'installed_at' => [
-			'type' => 'int',
-			'default' => 0,
-			'min' => 0,
-		],
-		'attempts_flood_until' => [
-			'type' => 'int',
-			'default' => 0,
-			'min' => 0,
-		],
 		'export_formats' => [
 			'type' => 'string_list',
 			'default' => [],
@@ -103,10 +88,6 @@ final class LexiconData {
 		'blocklist_sources' => [
 			'type' => 'json',
 			'default' => '[]',
-		],
-		'blocklist_state' => [
-			'type' => 'json',
-			'default' => '{}',
 		],
 		'notify_admin_group' => [
 			'type' => 'string_list',
@@ -127,34 +108,9 @@ final class LexiconData {
 				'never',
 			],
 		],
-		'cs_distributed_until' => [
-			'type' => 'int',
-			'default' => 0,
-			'min' => 0,
-		],
-		'cs_distributed_detected_at' => [
-			'type' => 'int',
-			'default' => 0,
-			'min' => 0,
-		],
-		'cs_distributed_detection' => [
-			'type' => 'int',
-			'default' => 0,
-			'min' => 0,
-		],
-		'decoy_count' => [
-			'type' => 'int',
-			'default' => 0,
-			'min' => 0,
-		],
 		'admin_change_require_approval' => [
 			'type' => 'bool',
 			'default' => false,
-		],
-		'config_watch_baseline' => [
-			'type' => 'int',
-			'default' => 0,
-			'min' => 0,
 		],
 		'digest_frequency' => [
 			'type' => 'choice',
@@ -165,23 +121,9 @@ final class LexiconData {
 				'weekly',
 			],
 		],
-		'digest_state' => [
-			'type' => 'json',
-			'default' => '{}',
-		],
 		'events_include_ip' => [
 			'type' => 'bool',
 			'default' => true,
-		],
-		'learning_started_at' => [
-			'type' => 'int',
-			'default' => 0,
-			'min' => 0,
-		],
-		'step_up_sessions_until' => [
-			'type' => 'int',
-			'default' => 0,
-			'min' => 0,
 		],
 		'step_up_no_method_flagged_source' => [
 			'type' => 'choice',
@@ -246,10 +188,6 @@ final class LexiconData {
 				'allow_force_change',
 			],
 		],
-		'detections_retired' => [
-			'type' => 'json',
-			'default' => '{}',
-		],
 		'step_up_known_device_ok_for' => [
 			'type' => 'string_list',
 			'default' => [
@@ -292,44 +230,11 @@ final class LexiconData {
 			'type' => 'bool',
 			'default' => true,
 		],
-		'bans_flagged_until' => [
-			'type' => 'int',
-			'default' => 0,
-			'min' => 0,
-		],
-		'coverage_users' => [
-			'type' => 'json',
-			'default' => '{}',
-		],
-		'trap_name_collisions' => [
-			'type' => 'json',
-			'default' => '{}',
-		],
-		'protection_level' => [
-			'type' => 'choice',
-			'default' => 'recommended',
-			'choices' => [
-				'recommended',
-				'strict',
-				'relaxed',
-				'custom',
-			],
-		],
-		'server_addresses' => [
-			'type' => 'string_list',
-			'default' => [],
-			'pattern' => '/^[0-9a-f.:]{2,45}$/',
-			'maxItems' => 16,
-		],
 		'stale_credentials_remove_days' => [
 			'type' => 'int',
 			'default' => 0,
 			'min' => 0,
 			'max' => 3650,
-		],
-		'stale_credentials' => [
-			'type' => 'json',
-			'default' => '{}',
 		],
 	];
 
@@ -1156,7 +1061,6 @@ final class LexiconData {
 	public const ENTRIES = [
 		['protection_enabled', ValueType::BOOL, true, 'intrusion detection: protection_enabled'],
 		['learning_until', ValueType::INT, 0, 'intrusion detection: learning_until'],
-		['learning_notice_sent', ValueType::INT, 0, 'intrusion detection: learning_notice_sent'],
 		['ban_duration_1', ValueType::INT, 14400, 'intrusion detection: ban_duration_1'],
 		['ban_duration_2', ValueType::INT, 86400, 'intrusion detection: ban_duration_2'],
 		['ban_duration_3', ValueType::INT, 604800, 'intrusion detection: ban_duration_3'],
@@ -1164,24 +1068,13 @@ final class LexiconData {
 		['ban_net_after', ValueType::INT, 3, 'intrusion detection: ban_net_after'],
 		['ban_shared_ip_users', ValueType::INT, 5, 'intrusion detection: ban_shared_ip_users'],
 		['retention_detections_days', ValueType::INT, 90, 'intrusion detection: retention_detections_days'],
-		['installed_at', ValueType::INT, 0, 'intrusion detection: installed_at'],
-		['attempts_flood_until', ValueType::INT, 0, 'intrusion detection: attempts_flood_until'],
 		['export_formats', ValueType::ARRAY, [], 'intrusion detection: export_formats'],
 		['blocklist_sources', ValueType::STRING, '[]', 'intrusion detection: blocklist_sources'],
-		['blocklist_state', ValueType::STRING, '{}', 'intrusion detection: blocklist_state'],
 		['notify_admin_group', ValueType::ARRAY, ['admin'], 'intrusion detection: notify_admin_group'],
 		['notify_admin_email_min_severity', ValueType::STRING, 'high', 'intrusion detection: notify_admin_email_min_severity'],
-		['cs_distributed_until', ValueType::INT, 0, 'intrusion detection: cs_distributed_until'],
-		['cs_distributed_detected_at', ValueType::INT, 0, 'intrusion detection: cs_distributed_detected_at'],
-		['cs_distributed_detection', ValueType::INT, 0, 'intrusion detection: cs_distributed_detection'],
-		['decoy_count', ValueType::INT, 0, 'intrusion detection: decoy_count'],
 		['admin_change_require_approval', ValueType::BOOL, false, 'intrusion detection: admin_change_require_approval'],
-		['config_watch_baseline', ValueType::INT, 0, 'intrusion detection: config_watch_baseline'],
 		['digest_frequency', ValueType::STRING, 'weekly', 'intrusion detection: digest_frequency'],
-		['digest_state', ValueType::STRING, '{}', 'intrusion detection: digest_state'],
 		['events_include_ip', ValueType::BOOL, true, 'intrusion detection: events_include_ip'],
-		['learning_started_at', ValueType::INT, 0, 'intrusion detection: learning_started_at'],
-		['step_up_sessions_until', ValueType::INT, 0, 'intrusion detection: step_up_sessions_until'],
 		['step_up_no_method_flagged_source', ValueType::STRING, 'refuse', 'intrusion detection: step_up_no_method_flagged_source'],
 		['step_up_no_method_sprayed_password', ValueType::STRING, 'refuse', 'intrusion detection: step_up_no_method_sprayed_password'],
 		['step_up_no_method_protected_account', ValueType::STRING, 'allow_notify', 'intrusion detection: step_up_no_method_protected_account'],
@@ -1189,7 +1082,6 @@ final class LexiconData {
 		['step_up_no_method_risky_network', ValueType::STRING, 'allow_notify', 'intrusion detection: step_up_no_method_risky_network'],
 		['step_up_no_method_risk_high', ValueType::STRING, 'refuse', 'intrusion detection: step_up_no_method_risk_high'],
 		['step_up_no_method_admin_outside_networks', ValueType::STRING, 'refuse', 'intrusion detection: step_up_no_method_admin_outside_networks'],
-		['detections_retired', ValueType::STRING, '{}', 'intrusion detection: detections_retired'],
 		['step_up_known_device_ok_for', ValueType::ARRAY, ['flagged_source', 'protected_account', 'risky_network', 'risk_high'], 'intrusion detection: step_up_known_device_ok_for'],
 		['step_up_admin_approval', ValueType::BOOL, false, 'intrusion detection: step_up_admin_approval'],
 		['known_device_enabled', ValueType::BOOL, true, 'intrusion detection: known_device_enabled'],
@@ -1198,13 +1090,11 @@ final class LexiconData {
 		['admin_trusted_networks_only', ValueType::BOOL, false, 'intrusion detection: admin_trusted_networks_only'],
 		['risky_network_exempt_groups', ValueType::ARRAY, [], 'intrusion detection: risky_network_exempt_groups'],
 		['personal_page_enabled', ValueType::BOOL, true, 'intrusion detection: personal_page_enabled'],
-		['bans_flagged_until', ValueType::INT, 0, 'intrusion detection: bans_flagged_until'],
-		['coverage_users', ValueType::STRING, '{}', 'intrusion detection: coverage_users'],
-		['trap_name_collisions', ValueType::STRING, '{}', 'intrusion detection: trap_name_collisions'],
-		['protection_level', ValueType::STRING, 'recommended', 'intrusion detection: protection_level'],
-		['server_addresses', ValueType::ARRAY, [], 'intrusion detection: server_addresses'],
 		['stale_credentials_remove_days', ValueType::INT, 0, 'intrusion detection: stale_credentials_remove_days'],
-		['stale_credentials', ValueType::STRING, '{}', 'intrusion detection: stale_credentials'],
+		['decoy_count', ValueType::INT, 0, 'intrusion detection: decoy_count'],
+		['step_up_sessions_until', ValueType::INT, 0, 'intrusion detection: step_up_sessions_until'],
+		['attempts_flood_until', ValueType::INT, 0, 'intrusion detection: attempts_flood_until'],
+		['server_addresses', ValueType::ARRAY, [], 'intrusion detection: server_addresses'],
 		['check_manual_mode', ValueType::STRING, 'protect', 'mode of the manual check'],
 		['check_manual_responses', ValueType::ARRAY, ['ban'], 'responses of the manual check'],
 		['check_shared_address_mode', ValueType::STRING, 'protect', 'mode of the shared_address check'],

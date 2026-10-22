@@ -49,7 +49,7 @@ class ProtectionLevels {
 		$settings = [];
 		foreach ($this->globals->all() as $name => $definition) {
 			$value = $definition->presetValue($level);
-			if ($value !== null && !GlobalSettings::isInternal($name)) {
+			if ($value !== null) {
 				$settings[$name] = $value;
 			}
 		}
@@ -64,7 +64,7 @@ class ProtectionLevels {
 	 */
 	public function apply(ProtectionLevel $level): array {
 		if ($level === ProtectionLevel::Custom) {
-			throw new InvalidParamException('not_a_choice', ['param' => GlobalSettings::PROTECTION_LEVEL, 'choices' => implode(', ', array_map(static fn (ProtectionLevel $l): string => $l->value, ProtectionLevel::choosable()))]);
+			throw new InvalidParamException('not_a_choice', ['param' => Settings::LEVEL_STATE, 'choices' => implode(', ', array_map(static fn (ProtectionLevel $l): string => $l->value, ProtectionLevel::choosable()))]);
 		}
 		$values = $this->values($level);
 		$checks = [];

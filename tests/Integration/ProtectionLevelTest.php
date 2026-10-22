@@ -55,7 +55,7 @@ class ProtectionLevelTest extends IntegrationTestCase {
 		$this->assertSame([ResponseType::NotifyAdmin], $this->settings->responses(CredentialStuffing::ID));
 		$this->assertSame(5, $changes['checks'][CredentialStuffing::ID]['min_failures']);
 		$this->assertSame(28800, $changes['settings'][GlobalSettings::BAN_DURATION_1]);
-		$this->assertArrayNotHasKey(GlobalSettings::PROTECTION_LEVEL, $changes['settings'], 'the level is internal state; the changed values are the change');
+		$this->assertArrayNotHasKey(Settings::LEVEL_STATE, $changes['settings'], 'the level is internal state; the changed values are the change');
 	}
 
 	public function testRelaxedDoublesTheLimitsWithinTheirRangeAndRecommendedRestoresTheDefaults(): void {
@@ -122,8 +122,8 @@ class ProtectionLevelTest extends IntegrationTestCase {
 			$this->assertSame(ProtectionLevel::Strict, $this->settings->protectionLevel(), 'a refused level changes nothing');
 
 			// The level is changed through its own endpoint only, and not shown as a setting.
-			$this->assertSame(Http::STATUS_BAD_REQUEST, $controller->updateSettings([GlobalSettings::PROTECTION_LEVEL => 'relaxed'])->getStatus());
-			$this->assertNotContains(GlobalSettings::PROTECTION_LEVEL, array_column($controller->settings()->getData()['settings'], 'name'));
+			$this->assertSame(Http::STATUS_BAD_REQUEST, $controller->updateSettings([Settings::LEVEL_STATE => 'relaxed'])->getStatus());
+			$this->assertNotContains(Settings::LEVEL_STATE, array_column($controller->settings()->getData()['settings'], 'name'));
 		} finally {
 			Server::get(IUserSession::class)->setUser(null);
 			$admin->delete();

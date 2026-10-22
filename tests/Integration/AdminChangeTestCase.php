@@ -32,6 +32,7 @@ use OCA\IntrusionDetection\Definition\Mode;
 use OCA\IntrusionDetection\Listener\AdminChangeListener;
 use OCA\IntrusionDetection\Net\RemoteAddressResolver;
 use OCA\IntrusionDetection\Response\ResponseEngine;
+use OCA\IntrusionDetection\State\AppState;
 use OCP\AppFramework\Utility\ITimeFactory;
 use OCP\EventDispatcher\Event;
 use OCP\IAppConfig;
@@ -154,7 +155,7 @@ abstract class AdminChangeTestCase extends IntegrationTestCase {
 	}
 
 	protected function configWatch(WatchedSettings $watched, ?ITimeFactory $time = null, ?\OCP\App\IAppManager $appManager = null): ConfigWatch {
-		return new ConfigWatch($watched, Server::get(ConfigSnapshotMapper::class), Server::get(Fingerprinter::class), $this->detector, Server::get(Settings::class), $time ?? Server::get(ITimeFactory::class), $appManager ?? Server::get(\OCP\App\IAppManager::class));
+		return new ConfigWatch($watched, Server::get(ConfigSnapshotMapper::class), Server::get(Fingerprinter::class), $this->detector, Server::get(Settings::class), $time ?? Server::get(ITimeFactory::class), $appManager ?? Server::get(\OCP\App\IAppManager::class), Server::get(AppState::class));
 	}
 
 	protected function requireApproval(bool $on = true): void {

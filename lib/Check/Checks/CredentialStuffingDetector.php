@@ -10,13 +10,11 @@ declare(strict_types=1);
 namespace OCA\IntrusionDetection\Check\Checks;
 
 use OCA\IntrusionDetection\Cache\Caches;
-use OCA\IntrusionDetection\Config\GlobalSettings;
 use OCA\IntrusionDetection\Config\ModeState;
 use OCA\IntrusionDetection\Config\Settings;
 use OCA\IntrusionDetection\Db\AttemptKind;
 use OCA\IntrusionDetection\Db\AttemptMapper;
 use OCA\IntrusionDetection\Db\AttemptStats;
-use OCA\IntrusionDetection\Db\StateMapper;
 use OCA\IntrusionDetection\Definition\ResponseType;
 use OCA\IntrusionDetection\Detection\AttemptRecord;
 use OCA\IntrusionDetection\Detection\DetectionDraft;
@@ -27,6 +25,7 @@ use OCA\IntrusionDetection\Response\BanService;
 use OCA\IntrusionDetection\Response\FlaggedSources;
 use OCA\IntrusionDetection\Response\ResponseEngine;
 use OCA\IntrusionDetection\Risk\RiskScorer;
+use OCA\IntrusionDetection\State\AppState;
 
 /**
  * Detects credential stuffing (concept section 10.1) after each failed login.
@@ -58,8 +57,14 @@ class CredentialStuffingDetector {
 	public const MEMBER_MIN_NAMES = 2;
 	/** The instance-wide numbers are evaluated once per period of this many seconds, on one web server */
 	public const EVALUATE_EVERY = 30;
-	/** The ids_state row that holds the last period claimed for that evaluation, without a distributed cache */
+	/** The last period claimed for that evaluation, without a distributed cache */
 	public const EVALUATED_STATE = 'cs_evaluated';
+	/** Until when a distributed attack counts as running */
+	public const DISTRIBUTED_UNTIL_STATE = 'cs_distributed_until';
+	/** When the running distributed attack was last recorded as a detection */
+	public const DISTRIBUTED_DETECTED_AT_STATE = 'cs_distributed_detected_at';
+	/** The detection of the running distributed attack */
+	public const DISTRIBUTED_DETECTION_STATE = 'cs_distributed_detection';
 	/** A network detection blocks at most this many of its addresses */
 	public const MAX_NET_TARGETS = 256;
 	/** A network detection blocks those of its addresses that failed this often for this many names */
@@ -75,7 +80,7 @@ class CredentialStuffingDetector {
 		private readonly RemoteAddressResolver $addresses,
 		private readonly Caches $caches,
 		private readonly RiskScorer $risk,
-		private readonly StateMapper $state,
+		private readonly AppState $state,
 	) {
 	}
 
@@ -164,7 +169,7 @@ class CredentialStuffingDetector {
 	 */
 	private function distributed(#[\SensitiveParameter] AttemptRecord $attempt, ModeState $state, array $params, ?AttemptStats $ipStats): void {
 		$now = $attempt->time;
-		$until = $this->settings->getInt(GlobalSettings::CS_DISTRIBUTED_UNTIL);
+		$until = $this->state->getInt(self::DISTRIBUTED_UNTIL_STATE);
 
 		$since = $now - self::DISTRIBUTED_WINDOW;
 		if ($this->evaluationDue($now) && $this->attempts->instanceReaches(
@@ -177,9 +182,9 @@ class CredentialStuffingDetector {
 			// Written at most once a minute, not on every failure.
 			if ($until < $now + self::DISTRIBUTED_WINDOW - 60) {
 				$until = $now + self::DISTRIBUTED_WINDOW;
-				$this->settings->setGlobal(GlobalSettings::CS_DISTRIBUTED_UNTIL, $until);
+				$this->state->setInt(self::DISTRIBUTED_UNTIL_STATE, $until);
 			}
-			if ($now - $this->settings->getInt(GlobalSettings::CS_DISTRIBUTED_DETECTED_AT) >= self::DISTRIBUTED_DEDUPE) {
+			if ($now - $this->state->getInt(self::DISTRIBUTED_DETECTED_AT_STATE) >= self::DISTRIBUTED_DEDUPE) {
 				$this->recordDistributed($this->attempts->instanceStats(self::KINDS, $since), $now);
 			}
 		}
@@ -196,12 +201,12 @@ class CredentialStuffingDetector {
 			$this->settings->responses(CredentialStuffing::ID),
 			static fn (ResponseType $r): bool => $r === ResponseType::NotifyAdmin,
 		));
-		$this->settings->setGlobal(GlobalSettings::CS_DISTRIBUTED_DETECTED_AT, $now);
+		$this->state->setInt(self::DISTRIBUTED_DETECTED_AT_STATE, $now);
 		$detection = $this->engine->handle(new DetectionDraft(
 			checkId: CredentialStuffing::ID,
 			facts: $this->facts(CredentialStuffing::RULE_DISTRIBUTED, $instance) + ['distributed' => true],
 		), $responses);
-		$this->settings->setGlobal(GlobalSettings::CS_DISTRIBUTED_DETECTION, $detection?->getId() ?? 0);
+		$this->state->setInt(self::DISTRIBUTED_DETECTION_STATE, $detection?->getId() ?? 0);
 	}
 
 	/**
@@ -213,7 +218,7 @@ class CredentialStuffingDetector {
 			return;
 		}
 		$now = $attempt->time;
-		$detectionId = $this->settings->getInt(GlobalSettings::CS_DISTRIBUTED_DETECTION) ?: null;
+		$detectionId = $this->state->getInt(self::DISTRIBUTED_DETECTION_STATE) ?: null;
 		$responses = $this->settings->responses(CredentialStuffing::ID);
 		if (in_array(ResponseType::FlagSource, $responses, true)) {
 			$this->flags->flagSource($attempt->source, FlaggedSources::REASON_DISTRIBUTED, $detectionId, $until + self::DISTRIBUTED_FLAG_AFTER - $now);

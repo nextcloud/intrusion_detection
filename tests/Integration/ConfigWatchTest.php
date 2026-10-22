@@ -28,6 +28,7 @@ use OCA\IntrusionDetection\Definition\Severity;
 use OCA\IntrusionDetection\Explain\NarrativeBuilder;
 use OCA\IntrusionDetection\Notification\AdminAlerts;
 use OCA\IntrusionDetection\Notification\Notifier;
+use OCA\IntrusionDetection\State\AppState;
 use OCP\App\IAppManager;
 use OCP\IAppConfig;
 use OCP\IConfig;
@@ -85,14 +86,14 @@ class ConfigWatchTest extends AdminChangeTestCase {
 	public function testTheFirstRunOnlyRecordsTheBaseline(): void {
 		$this->assertSame(0, $this->watch->run());
 		$this->assertSame([], $this->adminChanges());
-		$this->assertGreaterThan(0, Server::get(Settings::class)->getInt(GlobalSettings::CONFIG_WATCH_BASELINE));
+		$this->assertGreaterThan(0, Server::get(AppState::class)->getInt(ConfigWatch::BASELINE_STATE));
 		$snapshot = $this->snapshot();
 		$this->assertSame('["cloud.example.com"]', $snapshot[WatchedSettings::systemKey('trusted_domains')]['display_value']);
 		$this->assertNull($snapshot[WatchedSettings::systemKey('trusted_proxies')]['display_value']);
 		$this->assertArrayHasKey(WatchedSettings::systemKey('overwritehost'), $snapshot, 'Fixed keys are watched even when not set');
 		$this->assertArrayNotHasKey(WatchedSettings::systemKey('secret'), $snapshot, 'Only the watched keys');
 		$this->assertArrayHasKey(WatchedSettings::ownKey(Keys::mode('credential_stuffing')), $snapshot);
-		$this->assertArrayNotHasKey(WatchedSettings::ownKey(GlobalSettings::INSTALLED_AT), $snapshot, 'Internal state is not watched');
+		$this->assertArrayNotHasKey(WatchedSettings::ownKey(AppState::INSTALLED_AT), $snapshot, 'Internal state is not watched');
 	}
 
 	public function testAChangeIsOneDetectionAndOnlyOnce(): void {
@@ -268,7 +269,7 @@ class ConfigWatchTest extends AdminChangeTestCase {
 		$this->watch->run();
 		$this->appConfig->setValueString(Application::APP_ID, Keys::mode(AdminChange::ID), Mode::Off->value);
 		$this->assertSame(0, $this->watch->run());
-		$this->assertSame(0, Server::get(Settings::class)->getInt(GlobalSettings::CONFIG_WATCH_BASELINE));
+		$this->assertSame(0, Server::get(AppState::class)->getInt(ConfigWatch::BASELINE_STATE));
 
 		$this->system['trusted_proxies'] = [];
 		$this->appConfig->setValueString(Application::APP_ID, Keys::mode(AdminChange::ID), Mode::Protect->value);

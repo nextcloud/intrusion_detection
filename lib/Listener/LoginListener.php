@@ -19,6 +19,7 @@ use OCA\IntrusionDetection\Guard\RequestContext;
 use OCA\IntrusionDetection\Login\InteractiveLogin;
 use OCA\IntrusionDetection\Login\LoginGate;
 use OCA\IntrusionDetection\Net\RemoteAddressResolver;
+use OCA\IntrusionDetection\State\HotState;
 use OCP\AppFramework\Utility\ITimeFactory;
 use OCP\EventDispatcher\Event;
 use OCP\EventDispatcher\IEventListener;
@@ -58,6 +59,7 @@ class LoginListener implements IEventListener {
 
 	public function __construct(
 		private readonly Settings $settings,
+		private readonly HotState $hotState,
 		private readonly RequestContext $context,
 		private readonly RemoteAddressResolver $addresses,
 		private readonly LoginGate $gate,
@@ -146,7 +148,7 @@ class LoginListener implements IEventListener {
 	 * Whether a returning session could resume a login that was never confirmed.
 	 */
 	private function resumable(): bool {
-		return UnconfirmedSessions::mayExistIn($this->settings, $this->timeFactory->getTime());
+		return UnconfirmedSessions::mayExistIn($this->hotState, $this->timeFactory->getTime());
 	}
 
 	/**

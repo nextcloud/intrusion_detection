@@ -26,10 +26,10 @@ use OCA\IntrusionDetection\Config\GlobalSettings;
 use OCA\IntrusionDetection\Config\Settings;
 use OCA\IntrusionDetection\Db\BlocklistRangeMapper;
 use OCA\IntrusionDetection\Db\BlocklistStatMapper;
-use OCA\IntrusionDetection\Db\StateMapper;
 use OCA\IntrusionDetection\Definition\Mode;
 use OCA\IntrusionDetection\Net\SourceKey;
 use OCA\IntrusionDetection\SetupCheck\BlocklistSyncCheck;
+use OCA\IntrusionDetection\State\AppState;
 use OCA\IntrusionDetection\Tests\Unit\Cache\FixedCaches;
 use OCP\AppFramework\Utility\ITimeFactory;
 use OCP\Http\Client\IClient;
@@ -70,7 +70,7 @@ class BlocklistSyncTest extends IntegrationTestCase {
 
 	public function testASyncWritesANewVersionAndSwitchesToIt(): void {
 		$this->respond(self::URL, 200, $this->fixture('custom.txt'), ['Last-Modified' => 'Tue, 20 Oct 2026 08:00:00 GMT', 'ETag' => '"abc"']);
-		$cacheVersion = Server::get(StateMapper::class)->get(AddressCache::VERSION_STATE);
+		$cacheVersion = Server::get(AppState::class)->get(AddressCache::VERSION_STATE);
 
 		[$result] = $this->sync()->sync();
 
@@ -82,7 +82,7 @@ class BlocklistSyncTest extends IntegrationTestCase {
 		$this->assertSame($this->now, $state->successAt);
 		$this->assertSame('Tue, 20 Oct 2026 08:00:00 GMT', $state->lastModified);
 		$this->assertSame(3, $this->ranges()->countVersion('office_block', 1));
-		$this->assertNotSame($cacheVersion, Server::get(StateMapper::class)->get(AddressCache::VERSION_STATE), 'Cached verdicts are invalidated');
+		$this->assertNotSame($cacheVersion, Server::get(AppState::class)->get(AddressCache::VERSION_STATE), 'Cached verdicts are invalidated');
 	}
 
 	public function testTheDownloadIsLimitedAndRefusesLocalRedirects(): void {
@@ -463,7 +463,7 @@ class BlocklistSyncTest extends IntegrationTestCase {
 
 	private function addressCache(): AddressCache {
 		$factory = FixedCaches::none();
-		return new AddressCache($factory, Server::get(StateMapper::class));
+		return new AddressCache($factory, Server::get(AppState::class));
 	}
 
 	private function time(): ITimeFactory {

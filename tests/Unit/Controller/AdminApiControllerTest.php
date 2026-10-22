@@ -117,7 +117,7 @@ class AdminApiControllerTest extends TestCase {
 		$this->bans->method('present')->willReturn(['id' => 1]);
 		$this->learning = $this->createMock(LearningService::class);
 		$this->globalSettings = $this->createMock(GlobalSettingsPresenter::class);
-		$this->globalSettings->method('isEditable')->willReturnCallback(static fn (string $name): bool => !GlobalSettings::isInternal($name) && $name !== GlobalSettings::LEARNING_UNTIL);
+		$this->globalSettings->method('isEditable')->willReturnCallback(static fn (string $name): bool => $name !== GlobalSettings::LEARNING_UNTIL);
 		$this->globalSettings->method('present')->willReturn(['settings' => [], 'templates' => []]);
 		$this->transfer = $this->createMock(SettingsTransfer::class);
 		$this->addresses = $this->createMock(RemoteAddressResolver::class);
@@ -397,7 +397,7 @@ class AdminApiControllerTest extends TestCase {
 
 	public function testSettingsRefuseInternalAndUnknownKeys(): void {
 		$this->settings->expects($this->never())->method('updateGlobals');
-		foreach ([GlobalSettings::ATTEMPTS_FLOOD_UNTIL, GlobalSettings::INSTALLED_AT, GlobalSettings::LEARNING_UNTIL, 'no_such_setting'] as $name) {
+		foreach (['attempts_flood_until', 'installed_at', GlobalSettings::LEARNING_UNTIL, 'no_such_setting'] as $name) {
 			$response = $this->controller->updateSettings([$name => 1]);
 			$this->assertSame(Http::STATUS_BAD_REQUEST, $response->getStatus(), $name);
 			$this->assertSame($name, $response->getData()['param']);

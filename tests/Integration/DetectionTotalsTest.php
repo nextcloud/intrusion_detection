@@ -56,7 +56,7 @@ class DetectionTotalsTest extends IntegrationTestCase {
 		}
 		$queries = $this->db->getInner()->getStats()['executed'];
 		$this->assertSame(20, Server::get(DetectionTotals::class)->totals()[0]['count']);
-		$this->assertLessThanOrEqual(1, $this->db->getInner()->getStats()['executed'] - $queries);
+		$this->assertLessThanOrEqual(2, $this->db->getInner()->getStats()['executed'] - $queries, 'the hourly table and the running total of deleted detections');
 	}
 
 	public function testOldHoursAreFoldedIntoTheRunningTotal(): void {

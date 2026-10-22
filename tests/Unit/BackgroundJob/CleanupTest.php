@@ -27,6 +27,8 @@ use OCA\IntrusionDetection\Detection\AttemptRecorder;
 use OCA\IntrusionDetection\Detection\DetectionTotals;
 use OCA\IntrusionDetection\KnownDevice\KnownDevices;
 use OCA\IntrusionDetection\Personal\FailedLoginStats;
+use OCA\IntrusionDetection\State\AppState;
+use OCA\IntrusionDetection\State\HotState;
 use OCA\IntrusionDetection\Takeover\SecurityChangeLog;
 use OCP\AppFramework\Utility\ITimeFactory;
 use Psr\Log\LoggerInterface;
@@ -51,7 +53,7 @@ class CleanupTest extends TestCase {
 		$stats = $this->createMock(FailedLoginStats::class);
 		$stats->expects($this->once())->method('deleteExpired');
 		$settings = $this->createMock(Settings::class);
-		$settings->method('getInt')->willReturnCallback(static fn (string $name): int => $name === \OCA\IntrusionDetection\Config\GlobalSettings::ATTEMPTS_FLOOD_UNTIL ? 0 : 30);
+		$settings->method('getInt')->willReturn(30);
 		$settings->expects($this->never())->method('setGlobal');
 		$logger = $this->createMock(LoggerInterface::class);
 		$failed = [];
@@ -66,6 +68,7 @@ class CleanupTest extends TestCase {
 			$this->createMock(DetectionTotals::class), $this->createMock(KnownDevices::class), $this->createMock(LoginHistoryMapper::class),
 			$changes, $this->createMock(LockLinkMapper::class), $stats,
 			$this->createMock(\OCA\IntrusionDetection\Confirm\AbandonedLogins::class), $this->createMock(\OCA\IntrusionDetection\Response\FlaggedSources::class), $logger,
+			$this->createMock(AppState::class), $this->createMock(HotState::class),
 		);
 		self::invokePrivate($job, 'run', [null]);
 		$this->assertSame(['attempts: deadlock'], $failed);
@@ -75,12 +78,11 @@ class CleanupTest extends TestCase {
 		$mapper = $this->createMock(AttemptMapper::class);
 		$mapper->expects($this->exactly(60))->method('insert');
 		$mapper->expects($this->never())->method('deleteOlderThan');
-		$settings = $this->createMock(Settings::class);
 		$fingerprinter = $this->createMock(\OCA\IntrusionDetection\Crypto\Fingerprinter::class);
 		$fingerprinter->method('name')->willReturn('n');
 		$time = $this->createMock(ITimeFactory::class);
 		$time->method('getTime')->willReturn(self::NOW);
-		$recorder = new AttemptRecorder($mapper, $fingerprinter, $settings, $time);
+		$recorder = new AttemptRecorder($mapper, $fingerprinter, $time, $this->createMock(HotState::class));
 		for ($i = 0; $i < 60; $i++) {
 			$recorder->record(\OCA\IntrusionDetection\Db\AttemptKind::PasswordReset, \OCA\IntrusionDetection\Net\SourceKey::fromIp('203.0.113.7'), 'alice');
 		}

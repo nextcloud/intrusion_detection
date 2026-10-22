@@ -23,7 +23,7 @@ class ArchitectureTest extends TestCase {
 
 	/** Bottom to top */
 	private const LAYERS = [
-		'kernel' => ['Definition', 'Net', 'Crypto', 'Audit', 'Http', 'ResponseDefinitions', 'Sensitive', 'Cache'],
+		'kernel' => ['Definition', 'Net', 'Crypto', 'Audit', 'Http', 'ResponseDefinitions', 'Sensitive', 'Cache', 'State'],
 		'storage' => ['Db', 'Config'],
 		'platform' => ['Check', 'Detection', 'Response', 'Explain', 'Event', 'Notification', 'Login'],
 		'features' => [
@@ -43,7 +43,7 @@ class ArchitectureTest extends TestCase {
 	private const CHECK_PARTS = ['Checks', 'CredentialUse', 'Payload'];
 
 	/** Generic namespaces, which must not name a check */
-	private const PLATFORM = ['Definition', 'Net', 'Crypto', 'Audit', 'Http', 'ResponseDefinitions', 'Sensitive', 'Cache', 'Db', 'Config',
+	private const PLATFORM = ['Definition', 'Net', 'Crypto', 'Audit', 'Http', 'ResponseDefinitions', 'Sensitive', 'Cache', 'State', 'Db', 'Config',
 		'Check', 'Detection', 'Response', 'Explain', 'Event', 'Notification', 'Login'];
 
 	/**
@@ -72,8 +72,6 @@ class ArchitectureTest extends TestCase {
 		'Explain' => ['Risk'],
 		// Incident reports reuse the admin page's detection presenter and check names.
 		'Incident' => ['Admin'],
-		// ServerAddresses keeps its state in app config (app state).
-		'Net' => ['Config'],
 		// Feature notifications live in Notification (feature slices).
 		'Notification' => ['Admin', 'BackgroundJob', 'Blocklist', 'Check\\Checks', 'KnownDevice', 'Learning', 'SessionState', 'Share', 'WasThisYou'],
 		'OpenMetrics' => ['Perf'],

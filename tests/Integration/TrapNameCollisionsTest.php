@@ -15,6 +15,7 @@ use OCA\IntrusionDetection\Db\DecoyMapper;
 use OCA\IntrusionDetection\Decoy\DecoyFormat;
 use OCA\IntrusionDetection\Decoy\DecoyService;
 use OCA\IntrusionDetection\SetupCheck\TrapNameCollisionCheck;
+use OCA\IntrusionDetection\State\AppState;
 use OCA\IntrusionDetection\Traps\AccountNames;
 use OCA\IntrusionDetection\Traps\TrapNameCollisions;
 use OCP\AppFramework\Utility\ITimeFactory;
@@ -37,7 +38,7 @@ class TrapNameCollisionsTest extends IntegrationTestCase {
 	}
 
 	public function testChangingTheNamesLooksThemUpAndReadingDoesNot(): void {
-		$this->appConfig->setValueString('intrusion_detection', 'trap_name_collisions', json_encode(['reserved' => ['stale'], 'decoys' => [], 'checkedAt' => 1]));
+		Server::get(AppState::class)->setJson(TrapNameCollisions::STATE, ['reserved' => ['stale'], 'decoys' => [], 'checkedAt' => 1]);
 		Server::get(Settings::class)->setParam(ReservedName::ID, 'names', ['root', self::UID]);
 		$this->assertSame([], Server::get(TrapNameCollisions::class)->all(), 'looked up again when the names changed');
 
@@ -45,7 +46,7 @@ class TrapNameCollisionsTest extends IntegrationTestCase {
 		Server::get(IUserManager::class)->createUser(self::UID, 'A-long-test-password-' . self::UID);
 		$accounts = $this->createMock(AccountNames::class);
 		$accounts->expects($this->never())->method('exists');
-		$reading = new TrapNameCollisions(Server::get(Settings::class), Server::get(DecoyMapper::class), $accounts, Server::get(ITimeFactory::class));
+		$reading = new TrapNameCollisions(Server::get(Settings::class), Server::get(DecoyMapper::class), $accounts, Server::get(ITimeFactory::class), Server::get(AppState::class));
 		$this->assertSame([], $reading->all(), 'the stored result, without a lookup');
 		$l = Server::get(\OCP\L10N\IFactory::class)->get('intrusion_detection', 'en');
 		$this->assertNull((new TrapNameCollisionCheck($l, Server::get(\OCA\IntrusionDetection\Notification\AdminLinks::class), $reading, Server::get(Settings::class)))->finding($l));
@@ -56,7 +57,7 @@ class TrapNameCollisionsTest extends IntegrationTestCase {
 
 	public function testCreatingADecoyLooksTheNamesUp(): void {
 		Server::get(IUserManager::class)->createUser(self::UID, 'A-long-test-password-' . self::UID);
-		$this->appConfig->setValueString('intrusion_detection', 'trap_name_collisions', json_encode(['reserved' => [], 'decoys' => [], 'checkedAt' => 1]));
+		Server::get(AppState::class)->setJson(TrapNameCollisions::STATE, ['reserved' => [], 'decoys' => [], 'checkedAt' => 1]);
 		$this->db->insertIfNotExist('*PREFIX*ids_decoys', ['label' => 'old', 'login_name' => self::UID, 'secret_hmac' => str_repeat('a', 64), 'format' => 'app_password', 'created_by' => 'admin', 'created_at' => 1, 'trigger_count' => 0], ['secret_hmac']);
 		$this->assertSame([], Server::get(TrapNameCollisions::class)->all());
 

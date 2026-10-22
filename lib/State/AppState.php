@@ -7,21 +7,27 @@ declare(strict_types=1);
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 
-namespace OCA\IntrusionDetection\Db;
+namespace OCA\IntrusionDetection\State;
 
 use OCP\DB\QueryBuilder\IQueryBuilder;
 use OCP\IDBConnection;
 
 /**
- * Internal state the app writes often (ids_state, one row per name): the
- * cache version of the address verdicts, the state of the firewall export,
- * the last period claimed by a task that runs once for all web servers.
+ * The internal state of the app, in ids_state (one row per name): what the
+ * app records for itself, such as the last digest sent or the progress of a
+ * cleanup, and the last period claimed by a task that runs once for all web
+ * servers. Each name is declared by the class that owns it.
+ *
  * Kept out of the app config, because every app config write drops core's
  * cached app config of the web server, and because these values are only
- * read where they are needed, never on every request.
+ * read where they are needed, never on every request. Every read goes to
+ * the database, so a long-running process sees what others wrote. The few
+ * small values requests read often are in {@see HotState}.
  */
-class StateMapper {
+class AppState {
 	public const TABLE = 'ids_state';
+	/** When the app was first installed; 0 before */
+	public const INSTALLED_AT = 'installed_at';
 	/** A claimed period is stored zero-padded to this length, so that periods compare as strings */
 	private const PERIOD_DIGITS = 20;
 
@@ -51,6 +57,24 @@ class StateMapper {
 		}
 		// A missing row, or (on MySQL) an unchanged value; another request may insert it meanwhile.
 		$this->db->insertIgnoreConflict(self::TABLE, ['name' => $name, 'value' => $value]);
+	}
+
+	public function delete(string $name): void {
+		$qb = $this->db->getQueryBuilder();
+		$qb->delete(self::TABLE)
+			->where($qb->expr()->eq('name', $qb->createNamedParameter($name)));
+		$qb->executeStatement();
+	}
+
+	/**
+	 * A stored number; 0 when there is none.
+	 */
+	public function getInt(string $name): int {
+		return (int)($this->get($name) ?? 0);
+	}
+
+	public function setInt(string $name, int $value): void {
+		$this->set($name, (string)$value);
 	}
 
 	/**

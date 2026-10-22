@@ -14,6 +14,7 @@ use OCA\IntrusionDetection\Definition\ParamDefinition;
 use OCA\IntrusionDetection\Definition\ParamType;
 use OCA\IntrusionDetection\Definition\Requirement;
 use OCA\IntrusionDetection\Definition\ResponseType;
+use OCA\IntrusionDetection\State\HotState;
 use OCP\Config\ValueType;
 
 /**
@@ -69,8 +70,9 @@ final class LexiconDataBuilder {
 
 	/**
 	 * Every app config key with its value type, default and description, in
-	 * the order of the config lexicon: the global settings, then per check
-	 * its mode, its responses and its parameters.
+	 * the order of the config lexicon: the global settings, the internal
+	 * state in {@see HotState}, then per check its mode, its responses and
+	 * its parameters.
 	 *
 	 * @return list<EntrySpec>
 	 */
@@ -78,6 +80,9 @@ final class LexiconDataBuilder {
 		$entries = [];
 		foreach ($this->globals() as $name => $spec) {
 			$entries[] = [$name, ParamType::from($spec['type'])->valueType(), $spec['default'], 'intrusion detection: ' . $name];
+		}
+		foreach (HotState::LEXICON as $key => [$type, $default]) {
+			$entries[] = [$key, $type, $default, 'intrusion detection: ' . $key];
 		}
 		foreach ($this->checks() as $id => $check) {
 			$entries[] = [Keys::mode($id), ValueType::STRING, $check['mode'], 'mode of the ' . $id . ' check'];

@@ -20,6 +20,7 @@ use OCA\IntrusionDetection\Decoy\DecoyService;
 use OCA\IntrusionDetection\Definition\InvalidParamException;
 use OCA\IntrusionDetection\Definition\Mode;
 use OCA\IntrusionDetection\Explain\NarrativeBuilder;
+use OCA\IntrusionDetection\State\HotState;
 use OCP\L10N\IFactory;
 use OCP\Server;
 use PHPUnit\Framework\Attributes\Group;
@@ -50,10 +51,10 @@ class DecoyCredentialTest extends LoginFailureTestCase {
 			$this->assertNotContains($appSecret, $row);
 			$this->assertNotContains($tokenSecret, $row);
 		}
-		$this->assertSame(2, $this->settings->getInt(GlobalSettings::DECOY_COUNT));
+		$this->assertSame(2, Server::get(HotState::class)->decoyCount());
 
 		$this->decoys->delete($appPassword->getId(), 'admin');
-		$this->assertSame(1, $this->settings->getInt(GlobalSettings::DECOY_COUNT));
+		$this->assertSame(1, Server::get(HotState::class)->decoyCount());
 		$this->assertCount(1, $this->decoys->list());
 	}
 

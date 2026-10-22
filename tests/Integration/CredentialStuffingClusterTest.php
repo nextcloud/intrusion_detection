@@ -16,14 +16,13 @@ use OC\Memcache\ArrayCache;
 use OCA\IntrusionDetection\Cache\Caches;
 use OCA\IntrusionDetection\Check\Checks\CredentialStuffing;
 use OCA\IntrusionDetection\Check\Checks\CredentialStuffingDetector;
-use OCA\IntrusionDetection\Config\GlobalSettings;
 use OCA\IntrusionDetection\Config\Settings;
 use OCA\IntrusionDetection\Crypto\Fingerprinter;
 use OCA\IntrusionDetection\Db\AttemptKind;
 use OCA\IntrusionDetection\Db\AttemptMapper;
-use OCA\IntrusionDetection\Db\StateMapper;
 use OCA\IntrusionDetection\Detection\AttemptRecord;
 use OCA\IntrusionDetection\Net\SourceKey;
+use OCA\IntrusionDetection\State\AppState;
 use OCA\IntrusionDetection\Tests\Unit\Cache\FixedCaches;
 use OCP\IAppConfig;
 use OCP\Server;
@@ -95,9 +94,7 @@ class CredentialStuffingClusterTest extends LoginFailureTestCase {
 		$facts = array_values($distributed)[0]->getExplanationData()['facts'];
 		$this->assertSame(120, $facts['failures']);
 		$this->assertSame(25, $facts['sources']);
-		foreach ($this->servers($caches) as [, $settings]) {
-			$this->assertSame($this->now + CredentialStuffingDetector::DISTRIBUTED_WINDOW, $settings->getInt(GlobalSettings::CS_DISTRIBUTED_UNTIL));
-		}
+		$this->assertSame($this->now + CredentialStuffingDetector::DISTRIBUTED_WINDOW, Server::get(AppState::class)->getInt(CredentialStuffingDetector::DISTRIBUTED_UNTIL_STATE));
 	}
 
 	#[DataProvider('caches')]
@@ -109,15 +106,15 @@ class CredentialStuffingClusterTest extends LoginFailureTestCase {
 			$this->storeAttempt('192.0.2.' . ($i % 25 + 1), 'victim' . ($i % 25), at: $this->now + 5);
 		}
 		$this->failOnEach($servers, $this->now + 10);
-		$this->assertSame(0, $this->freshSettings()->getInt(GlobalSettings::CS_DISTRIBUTED_UNTIL), 'Not counted again within the period');
+		$this->assertSame(0, Server::get(AppState::class)->getInt(CredentialStuffingDetector::DISTRIBUTED_UNTIL_STATE), 'Not counted again within the period');
 
 		$next = $this->now + CredentialStuffingDetector::EVALUATE_EVERY;
 		$this->failOnEach($servers, $next);
-		$this->assertSame($next + CredentialStuffingDetector::DISTRIBUTED_WINDOW, $this->freshSettings()->getInt(GlobalSettings::CS_DISTRIBUTED_UNTIL));
+		$this->assertSame($next + CredentialStuffingDetector::DISTRIBUTED_WINDOW, Server::get(AppState::class)->getInt(CredentialStuffingDetector::DISTRIBUTED_UNTIL_STATE));
 	}
 
 	public function testAPeriodIsClaimedOnceAndNeverAfterALaterOne(): void {
-		$state = Server::get(StateMapper::class);
+		$state = Server::get(AppState::class);
 		$this->assertTrue($state->claim('test', 9), 'The first claim creates the row');
 		$this->assertFalse($state->claim('test', 9));
 		$this->assertTrue($state->claim('test', 10), 'One more digit still compares as a larger number');
@@ -190,7 +187,6 @@ class CredentialStuffingClusterTest extends LoginFailureTestCase {
 			};
 
 			$settings = $this->freshSettings();
-			$settings->getInt(GlobalSettings::CS_DISTRIBUTED_UNTIL);
 			$servers[] = [$this->build(CredentialStuffingDetector::class, [
 				Caches::class => $memory,
 				Settings::class => $settings,

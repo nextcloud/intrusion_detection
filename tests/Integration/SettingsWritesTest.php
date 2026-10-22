@@ -20,6 +20,7 @@ use OCA\IntrusionDetection\Definition\InvalidParamException;
 use OCA\IntrusionDetection\Definition\Mode;
 use OCA\IntrusionDetection\Definition\ResponseType;
 use OCA\IntrusionDetection\Event\SettingChangedEvent;
+use OCA\IntrusionDetection\State\AppState;
 use OCP\EventDispatcher\IEventDispatcher;
 use OCP\IUserManager;
 use OCP\Server;
@@ -97,7 +98,7 @@ class SettingsWritesTest extends IntegrationTestCase {
 
 	public function testInternalStateIsNoGlobalChange(): void {
 		$this->expectException(InvalidParamException::class);
-		$this->settings->updateGlobals([GlobalSettings::INSTALLED_AT => 2]);
+		$this->settings->updateGlobals([AppState::INSTALLED_AT => 2]);
 	}
 
 	public function testOccSavesNothingWhenOneValueIsRefused(): void {

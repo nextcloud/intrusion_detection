@@ -12,12 +12,12 @@ namespace OCA\IntrusionDetection\AdminChange;
 use OCA\IntrusionDetection\AppInfo\Application;
 use OCA\IntrusionDetection\Check\Checks\AdminChange;
 use OCA\IntrusionDetection\Check\Checks\AdminChangeDetector;
-use OCA\IntrusionDetection\Config\GlobalSettings;
 use OCA\IntrusionDetection\Config\ModeState;
 use OCA\IntrusionDetection\Config\Settings;
 use OCA\IntrusionDetection\Crypto\Fingerprinter;
 use OCA\IntrusionDetection\Db\ConfigSnapshotMapper;
 use OCA\IntrusionDetection\Definition\Mode;
+use OCA\IntrusionDetection\State\AppState;
 use OCP\App\IAppManager;
 use OCP\AppFramework\Utility\ITimeFactory;
 
@@ -41,6 +41,8 @@ use OCP\AppFramework\Utility\ITimeFactory;
  *   holds the version of the last run).
  */
 class ConfigWatch {
+	/** When the watched settings were first recorded; 0 until then */
+	public const BASELINE_STATE = 'config_watch_baseline';
 	/** Snapshot row that holds the app version of the last run */
 	public const META_VERSION = 'meta:app_version';
 
@@ -52,6 +54,7 @@ class ConfigWatch {
 		private readonly Settings $settings,
 		private readonly ITimeFactory $timeFactory,
 		private readonly IAppManager $appManager,
+		private readonly AppState $state,
 	) {
 	}
 
@@ -60,14 +63,14 @@ class ConfigWatch {
 	 */
 	public function run(): int {
 		if ($this->settings->configuredMode(AdminChange::ID) === Mode::Off) {
-			if ($this->settings->getInt(GlobalSettings::CONFIG_WATCH_BASELINE) !== 0) {
-				$this->settings->setGlobal(GlobalSettings::CONFIG_WATCH_BASELINE, 0);
+			if ($this->state->getInt(self::BASELINE_STATE) !== 0) {
+				$this->state->setInt(self::BASELINE_STATE, 0);
 			}
 			return 0;
 		}
 
 		$now = $this->timeFactory->getTime();
-		$baseline = $this->settings->getInt(GlobalSettings::CONFIG_WATCH_BASELINE) === 0;
+		$baseline = $this->state->getInt(self::BASELINE_STATE) === 0;
 		$current = $this->watched->read();
 		$snapshot = $this->snapshots->all();
 		$version = $this->appManager->getAppVersion(Application::APP_ID);
@@ -126,7 +129,7 @@ class ConfigWatch {
 			$this->snapshots->store(self::META_VERSION, $versionHash, DisplayValue::encode($version), $now);
 		}
 		if ($baseline) {
-			$this->settings->setGlobal(GlobalSettings::CONFIG_WATCH_BASELINE, $now);
+			$this->state->setInt(self::BASELINE_STATE, $now);
 			return 0;
 		}
 
@@ -161,7 +164,7 @@ class ConfigWatch {
 	 * @param int|float|bool|string|list<string> $new
 	 */
 	public function ownSettingRecorded(string $name, int|float|bool|string|array $new): void {
-		if ($this->settings->getInt(GlobalSettings::CONFIG_WATCH_BASELINE) === 0) {
+		if ($this->state->getInt(self::BASELINE_STATE) === 0) {
 			return;
 		}
 		$value = $this->watched->ownCurrent($name, $new);

@@ -22,7 +22,6 @@ use OCA\IntrusionDetection\Db\AttemptKind;
 use OCA\IntrusionDetection\Db\AttemptMapper;
 use OCA\IntrusionDetection\Db\Detection;
 use OCA\IntrusionDetection\Db\DetectionMapper;
-use OCA\IntrusionDetection\Db\StateMapper;
 use OCA\IntrusionDetection\Guard\RequestContext;
 use OCA\IntrusionDetection\Net\RemoteAddressResolver;
 use OCA\IntrusionDetection\Net\ServerAddresses;
@@ -31,6 +30,7 @@ use OCA\IntrusionDetection\Response\FlaggedSources;
 use OCA\IntrusionDetection\Risk\AttackTools;
 use OCA\IntrusionDetection\Risk\RiskAssessment;
 use OCA\IntrusionDetection\Risk\RiskScorer;
+use OCA\IntrusionDetection\State\AppState;
 use OCP\AppFramework\Utility\ITimeFactory;
 use OCP\IDBConnection;
 use OCP\IRequest;
@@ -260,7 +260,7 @@ class RiskScorerTest extends IntegrationTestCase {
 	}
 
 	private function addressCache(): AddressCache {
-		return new AddressCache($this->factory(), Server::get(StateMapper::class));
+		return new AddressCache($this->factory(), Server::get(AppState::class));
 	}
 
 	private function factory(): Caches {

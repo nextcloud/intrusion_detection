@@ -16,7 +16,6 @@ use OCA\IntrusionDetection\Cache\Caches;
 use OCA\IntrusionDetection\Cache\KeyLock;
 use OCA\IntrusionDetection\Config\GlobalSettings;
 use OCA\IntrusionDetection\Config\Settings;
-use OCA\IntrusionDetection\Db\StateMapper;
 use OCA\IntrusionDetection\Guard\AddressGuard;
 use OCA\IntrusionDetection\Guard\RequestContext;
 use OCA\IntrusionDetection\Net\RemoteAddressResolver;
@@ -24,6 +23,7 @@ use OCA\IntrusionDetection\Net\ServerAddresses;
 use OCA\IntrusionDetection\Net\SourceKey;
 use OCA\IntrusionDetection\Perf\GuardTimer;
 use OCA\IntrusionDetection\Response\BanService;
+use OCA\IntrusionDetection\State\AppState;
 use OCA\IntrusionDetection\Tests\Unit\Cache\FixedCaches;
 use OCP\AppFramework\Utility\ITimeFactory;
 use OCP\IConfig;
@@ -131,7 +131,7 @@ class AddressGuardTest extends IntegrationTestCase {
 	 */
 	private function guard(string $cache, ?IConfig $config = null, ?IThrottler $throttler = null, ?RequestContext $context = null): array {
 		$factory = $this->cacheFactory($cache);
-		$addressCache = new AddressCache($factory, Server::get(StateMapper::class));
+		$addressCache = new AddressCache($factory, Server::get(AppState::class));
 		$time = Server::get(ITimeFactory::class);
 		$throttler ??= $this->createMock(IThrottler::class);
 		$request = $this->createMock(\OCP\IRequest::class);

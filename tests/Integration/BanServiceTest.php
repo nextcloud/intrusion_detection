@@ -23,7 +23,6 @@ use OCA\IntrusionDetection\Db\Ban;
 use OCA\IntrusionDetection\Db\BanMapper;
 use OCA\IntrusionDetection\Db\LoginHistoryMapper;
 use OCA\IntrusionDetection\Db\LoginMapper;
-use OCA\IntrusionDetection\Db\StateMapper;
 use OCA\IntrusionDetection\Event\TypedEvents;
 use OCA\IntrusionDetection\Login\EstablishedAccounts;
 use OCA\IntrusionDetection\Net\ProtectedRanges;
@@ -36,6 +35,7 @@ use OCA\IntrusionDetection\Response\BanResult;
 use OCA\IntrusionDetection\Response\BanService;
 use OCA\IntrusionDetection\Response\FlaggedSources;
 use OCA\IntrusionDetection\Response\ProxySuspect;
+use OCA\IntrusionDetection\State\AppState;
 use OCA\IntrusionDetection\Tests\Unit\Cache\FixedCaches;
 use OCP\AppFramework\Utility\ITimeFactory;
 use OCP\IConfig;
@@ -238,9 +238,9 @@ class BanServiceTest extends IntegrationTestCase {
 
 	public function testLiftEndsTheBanAndInvalidatesTheCache(): void {
 		$result = $this->bans->ban(SourceKey::fromIp('198.51.100.7'), 'trap_url');
-		$versionBefore = Server::get(StateMapper::class)->get(AddressCache::VERSION_STATE);
+		$versionBefore = Server::get(AppState::class)->get(AddressCache::VERSION_STATE);
 		$this->bans->lift($result->ban, 'admin', 'false alarm');
-		$this->assertNotSame($versionBefore, Server::get(StateMapper::class)->get(AddressCache::VERSION_STATE));
+		$this->assertNotSame($versionBefore, Server::get(AppState::class)->get(AddressCache::VERSION_STATE));
 		$stored = $this->mapper->findById($result->ban->getId());
 		$this->assertNotNull($stored->getLiftedAt());
 		$this->assertSame('admin', $stored->getLiftedBy());
@@ -587,7 +587,7 @@ class BanServiceTest extends IntegrationTestCase {
 	}
 
 	public function testManyAddressesAreBlockedWithOneEscalationPerNetworkAndOneVersion(): void {
-		$state = Server::get(StateMapper::class);
+		$state = Server::get(AppState::class);
 		$targets = [];
 		for ($i = 1; $i <= 6; $i++) {
 			$targets[] = SourceKey::fromIp('198.51.100.' . $i);
@@ -653,7 +653,7 @@ class BanServiceTest extends IntegrationTestCase {
 		$this->assertSame(FlaggedSources::REASON_BAN_EXPIRED, $flags->sourceFlag(SourceKey::fromIp('2001:db8:1:2::77')));
 		$this->assertNull($flags->sourceFlag(SourceKey::fromIp('2001:db8:1:5::1')), 'Wider IPv6 networks are not flagged');
 		$this->assertNull($flags->sourceFlag(SourceKey::fromIp('198.51.100.99')), 'Its flag would have ended already');
-		$this->assertSame(time(), $this->appConfig->getValueInt(Application::APP_ID, GlobalSettings::BANS_FLAGGED_UNTIL), 'Progress is kept');
+		$this->assertSame(time(), Server::get(AppState::class)->getInt(Cleanup::BANS_FLAGGED_STATE), 'Progress is kept');
 
 		$flags->unflagSource($ended);
 		self::invokePrivate(Server::get(Cleanup::class), 'run', [null]);
@@ -673,7 +673,7 @@ class BanServiceTest extends IntegrationTestCase {
 	 * The service with nothing cached from earlier tests (the allowlist and
 	 * server ranges are read once per instance).
 	 */
-	private function freshService(?Caches $lockCaches = null, ?StateMapper $state = null): BanService {
+	private function freshService(?Caches $lockCaches = null, ?AppState $state = null): BanService {
 		$ranges = new ProtectedRanges($this->appConfig, Server::get(ServerAddresses::class));
 		return new BanService(
 			$this->mapper,
@@ -704,9 +704,9 @@ class BanServiceTest extends IntegrationTestCase {
 	/**
 	 * The state table, counting the writes of the verdict version.
 	 */
-	private function countingState(int &$writes): StateMapper {
-		$real = Server::get(StateMapper::class);
-		$state = $this->createMock(StateMapper::class);
+	private function countingState(int &$writes): AppState {
+		$real = Server::get(AppState::class);
+		$state = $this->createMock(AppState::class);
 		$state->method('get')->willReturnCallback(static fn (string $name): ?string => $real->get($name));
 		$state->method('set')->willReturnCallback(static function (string $name, string $value) use ($real, &$writes): void {
 			$writes++;

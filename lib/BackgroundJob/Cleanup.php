@@ -30,6 +30,8 @@ use OCA\IntrusionDetection\KnownDevice\KnownDevices;
 use OCA\IntrusionDetection\Personal\FailedLoginStats;
 use OCA\IntrusionDetection\Response\FlaggedSources;
 use OCA\IntrusionDetection\Response\ResetMailSuppressor;
+use OCA\IntrusionDetection\State\AppState;
+use OCA\IntrusionDetection\State\HotState;
 use OCA\IntrusionDetection\Takeover\SecurityChangeLog;
 use OCP\AppFramework\Utility\ITimeFactory;
 use OCP\BackgroundJob\IJob;
@@ -42,6 +44,8 @@ use Psr\Log\LoggerInterface;
  * that fails is logged without skipping the others.
  */
 class Cleanup extends TimedJob {
+	/** Blocks that ended up to this time have been flagged */
+	public const BANS_FLAGGED_STATE = 'bans_flagged_until';
 	/** Ended bans are kept this long, for escalation */
 	public const BAN_HISTORY = 30 * 86400;
 	/** Alert counters are kept as long as their notifications are likely to be read */
@@ -78,6 +82,8 @@ class Cleanup extends TimedJob {
 		private readonly AbandonedLogins $abandonedLogins,
 		private readonly FlaggedSources $flaggedSources,
 		private readonly LoggerInterface $logger,
+		private readonly AppState $state,
+		private readonly HotState $hotState,
 	) {
 		parent::__construct($time);
 		$this->setInterval(300);
@@ -132,7 +138,7 @@ class Cleanup extends TimedJob {
 	 * when something ended.
 	 */
 	private function flagEndedBans(int $now): void {
-		$since = max($this->settings->getInt(GlobalSettings::BANS_FLAGGED_UNTIL), $now - FlaggedSources::DURATION);
+		$since = max($this->state->getInt(self::BANS_FLAGGED_STATE), $now - FlaggedSources::DURATION);
 		$ended = $this->bans->findEndedBetween($since, $now, self::ENDED_BANS_PER_RUN);
 		if ($ended === []) {
 			return;
@@ -141,16 +147,16 @@ class Cleanup extends TimedJob {
 			$this->flaggedSources->flagEndedBan($ban);
 		}
 		// Blocks that end in the same second as the last one flagged are looked at again; flagging is idempotent.
-		$this->settings->setGlobal(GlobalSettings::BANS_FLAGGED_UNTIL, count($ended) < self::ENDED_BANS_PER_RUN ? $now : $ended[count($ended) - 1]->getExpiresAt() - 1);
+		$this->state->setInt(self::BANS_FLAGGED_STATE, count($ended) < self::ENDED_BANS_PER_RUN ? $now : $ended[count($ended) - 1]->getExpiresAt() - 1);
 	}
 
 	private function updateFloodState(int $now): void {
 		$flooded = $this->attempts->hasMoreThan(AttemptRecorder::FLOOD_ROWS);
-		$until = $this->settings->getInt(GlobalSettings::ATTEMPTS_FLOOD_UNTIL);
+		$until = $this->hotState->attemptsFloodUntil();
 		if ($flooded) {
-			$this->settings->setGlobal(GlobalSettings::ATTEMPTS_FLOOD_UNTIL, $now + 600);
+			$this->hotState->setAttemptsFloodUntil($now + 600);
 		} elseif ($until > 0) {
-			$this->settings->setGlobal(GlobalSettings::ATTEMPTS_FLOOD_UNTIL, 0);
+			$this->hotState->setAttemptsFloodUntil(0);
 		}
 	}
 }

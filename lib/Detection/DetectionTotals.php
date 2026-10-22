@@ -9,11 +9,10 @@ declare(strict_types=1);
 
 namespace OCA\IntrusionDetection\Detection;
 
-use OCA\IntrusionDetection\Config\GlobalSettings;
-use OCA\IntrusionDetection\Config\Settings;
 use OCA\IntrusionDetection\Db\Detection;
 use OCA\IntrusionDetection\Db\DetectionMapper;
 use OCA\IntrusionDetection\Db\StatsMapper;
+use OCA\IntrusionDetection\State\AppState;
 use OCP\DB\QueryBuilder\IQueryBuilder;
 use OCP\IDBConnection;
 
@@ -32,6 +31,8 @@ use OCP\IDBConnection;
  *   changes no total.
  */
 class DetectionTotals {
+	/** Detections deleted after their retention, counted per check, severity and enforcement, for the running total */
+	public const RETIRED_STATE = 'detections_retired';
 	public const TABLE = 'ids_detection_hourly';
 	/** Hours kept for the per-day chart, which shows up to 90 local days */
 	public const ROLLUP_DAYS = 100;
@@ -39,7 +40,7 @@ class DetectionTotals {
 	public function __construct(
 		private readonly IDBConnection $db,
 		private readonly DetectionMapper $mapper,
-		private readonly Settings $settings,
+		private readonly AppState $state,
 	) {
 	}
 
@@ -96,7 +97,7 @@ class DetectionTotals {
 		}
 		ksort($retired);
 		// Written before the rows go: an interruption may count them twice, never lose them.
-		$this->settings->setGlobal(GlobalSettings::DETECTIONS_RETIRED, $retired);
+		$this->state->setJson(self::RETIRED_STATE, $retired);
 		$delete = $this->db->getQueryBuilder();
 		$delete->delete(self::TABLE)
 			->where($delete->expr()->lt('hour', $delete->createNamedParameter($beforeHour, IQueryBuilder::PARAM_INT)))
@@ -288,7 +289,7 @@ class DetectionTotals {
 	 */
 	private function retired(): array {
 		$retired = [];
-		foreach ($this->settings->getJson(GlobalSettings::DETECTIONS_RETIRED) as $key => $count) {
+		foreach ($this->state->getJson(self::RETIRED_STATE) as $key => $count) {
 			if (is_string($key) && is_int($count) && $count > 0) {
 				$retired[$key] = $count;
 			}

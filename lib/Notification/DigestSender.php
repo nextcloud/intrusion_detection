@@ -14,6 +14,7 @@ use OCA\IntrusionDetection\Config\Prerequisites;
 use OCA\IntrusionDetection\Config\Settings;
 use OCA\IntrusionDetection\Db\AlertMapper;
 use OCA\IntrusionDetection\ResponseDefinitions;
+use OCA\IntrusionDetection\State\AppState;
 use OCP\AppFramework\Utility\ITimeFactory;
 use OCP\IDateTimeZone;
 use OCP\IUser;
@@ -32,6 +33,8 @@ use Psr\Log\LoggerInterface;
  * @psalm-import-type IntrusionDetectionDigest from ResponseDefinitions
  */
 class DigestSender {
+	/** The last digest sent, for the admin page */
+	public const STATE = 'digest_state';
 	public const CLAIM_CHECK = 'digest';
 	public const CLAIM_SOURCE = '@digest';
 	/** Admins without email listed by name on the admin page */
@@ -60,6 +63,7 @@ class DigestSender {
 		private readonly Prerequisites $prerequisites,
 		private readonly ITimeFactory $timeFactory,
 		private readonly LoggerInterface $logger,
+		private readonly AppState $state,
 	) {
 	}
 
@@ -80,10 +84,10 @@ class DigestSender {
 			return self::RESULT_OFF;
 		}
 		// No digest for a period that ended before the app was installed.
-		if (!$schedule->isWithinGrace($due, $now) || $due < $this->settings->getInt(GlobalSettings::INSTALLED_AT)) {
+		if (!$schedule->isWithinGrace($due, $now) || $due < $this->state->getInt(AppState::INSTALLED_AT)) {
 			return self::RESULT_NOT_DUE;
 		}
-		if ((int)($this->settings->getJson(GlobalSettings::DIGEST_STATE)['period'] ?? 0) >= $due) {
+		if ((int)($this->state->getJson(self::STATE)['period'] ?? 0) >= $due) {
 			return self::RESULT_ALREADY_SENT;
 		}
 		[, $first] = $this->alerts->hit(self::CLAIM_CHECK, self::CLAIM_SOURCE, intdiv($due, 3600), null, $now);
@@ -117,14 +121,14 @@ class DigestSender {
 			}
 		}
 
-		$this->settings->setGlobal(GlobalSettings::DIGEST_STATE, json_encode([
+		$this->state->setJson(self::STATE, [
 			'period' => $due,
 			'sentAt' => $now,
 			'result' => $result,
 			'recipients' => $sent,
 			'failed' => $failed,
 			'withoutEmail' => count($withoutEmail),
-		], JSON_THROW_ON_ERROR));
+		]);
 		if ($result === self::RESULT_FAILED) {
 			$this->logger->error('Intrusion detection could not send the admin digest to any of {count} recipients', ['count' => $failed]);
 		}
@@ -155,7 +159,7 @@ class DigestSender {
 		$schedule = $this->schedule();
 		$now = $this->timeFactory->getTime();
 		[$withEmail, $withoutEmail] = $this->splitRecipients();
-		$state = $this->settings->getJson(GlobalSettings::DIGEST_STATE);
+		$state = $this->state->getJson(self::STATE);
 		$listed = array_slice($withoutEmail, 0, self::MAX_LISTED);
 		return [
 			'frequency' => $schedule->isOff() ? DigestSchedule::OFF : $schedule->frequency,

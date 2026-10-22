@@ -14,6 +14,7 @@ use OCA\IntrusionDetection\Audit\AuditLogger;
 use OCA\IntrusionDetection\Config\GlobalSettings;
 use OCA\IntrusionDetection\Config\Settings;
 use OCA\IntrusionDetection\Notification\LearningNotices;
+use OCA\IntrusionDetection\State\AppState;
 use OCP\AppFramework\Utility\ITimeFactory;
 use OCP\Notification\IManager as INotificationManager;
 
@@ -38,6 +39,10 @@ use OCP\Notification\IManager as INotificationManager;
  * it was about the period before.
  */
 class LearningService {
+	/** When the running learning period started */
+	public const STARTED_STATE = 'learning_started_at';
+	/** When the "learning ends tomorrow" notice was sent for the running period; 0 before */
+	public const NOTICE_STATE = 'learning_notice_sent';
 	public const MIN_DAYS = 1;
 	public const MAX_DAYS = 30;
 
@@ -46,6 +51,7 @@ class LearningService {
 		private readonly ITimeFactory $timeFactory,
 		private readonly AuditLogger $audit,
 		private readonly INotificationManager $notifications,
+		private readonly AppState $state,
 	) {
 	}
 
@@ -95,8 +101,8 @@ class LearningService {
 		if (!$this->isActive()) {
 			return 0;
 		}
-		$started = $this->settings->getInt(GlobalSettings::LEARNING_STARTED_AT);
-		return $started > 0 ? $started : $this->settings->getInt(GlobalSettings::INSTALLED_AT);
+		$started = $this->state->getInt(self::STARTED_STATE);
+		return $started > 0 ? $started : $this->state->getInt(AppState::INSTALLED_AT);
 	}
 
 	/**
@@ -121,9 +127,9 @@ class LearningService {
 		$before = $this->until();
 		$this->settings->setGlobal(GlobalSettings::LEARNING_UNTIL, $until, reported: $until > $before);
 		if ($protecting) {
-			$this->settings->setGlobal(GlobalSettings::LEARNING_STARTED_AT, $this->timeFactory->getTime());
+			$this->state->setInt(self::STARTED_STATE, $this->timeFactory->getTime());
 		}
-		$this->settings->setGlobal(GlobalSettings::LEARNING_NOTICE_SENT, 0);
+		$this->state->setInt(self::NOTICE_STATE, 0);
 		$this->dismissEndingNotice();
 		return $until;
 	}
@@ -145,7 +151,7 @@ class LearningService {
 	 */
 	public function startAtInstall(int $now): void {
 		$this->settings->setGlobal(GlobalSettings::LEARNING_UNTIL, $now + GlobalSettings::LEARNING_DEFAULT_PERIOD, reported: false);
-		$this->settings->setGlobal(GlobalSettings::LEARNING_STARTED_AT, $now);
+		$this->state->setInt(self::STARTED_STATE, $now);
 		$this->audit->log('learning mode started for %s days at installation', ['days' => intdiv(GlobalSettings::LEARNING_DEFAULT_PERIOD, 86400)]);
 	}
 
@@ -171,7 +177,7 @@ class LearningService {
 	 * learning period, which nobody started, extended or ended since.
 	 */
 	public function isEndingNoticePending(): bool {
-		return $this->isActive() && $this->settings->getInt(GlobalSettings::LEARNING_NOTICE_SENT) > 0;
+		return $this->isActive() && $this->state->getInt(self::NOTICE_STATE) > 0;
 	}
 
 	/**

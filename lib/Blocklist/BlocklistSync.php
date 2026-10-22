@@ -140,7 +140,6 @@ class BlocklistSync {
 			return;
 		}
 		try {
-			$this->states->reload();
 			$this->cleanupLocked($this->timeFactory->getTime());
 		} finally {
 			$this->locking->releaseLock(self::LOCK, ILockingProvider::LOCK_EXCLUSIVE);
@@ -158,7 +157,6 @@ class BlocklistSync {
 			return array_map(static fn (BlocklistSource $s): SyncResult => new SyncResult($s->id, SyncResult::SKIPPED), $sources);
 		}
 		try {
-			$this->states->reload();
 			$results = [];
 			$switched = false;
 			foreach ($sources as $source) {

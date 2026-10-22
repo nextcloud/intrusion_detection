@@ -20,6 +20,7 @@ use OCA\IntrusionDetection\Learning\LearningLimitException;
 use OCA\IntrusionDetection\Learning\LearningService;
 use OCA\IntrusionDetection\Repair\ReserveSuggestedNames;
 use OCA\IntrusionDetection\Repair\StartLearningMode;
+use OCA\IntrusionDetection\State\AppState;
 use OCA\IntrusionDetection\Traps\ReservedNames;
 use OCP\AppFramework\Utility\ITimeFactory;
 use OCP\EventDispatcher\IEventDispatcher;
@@ -54,7 +55,7 @@ class AppOwnChangesTest extends AdminChangeTestCase {
 	}
 
 	public function testAFreshInstallAndOneLearningPeriodAreNoAdministrationChanges(): void {
-		$this->assertSame(0, Server::get(Settings::class)->getInt(GlobalSettings::INSTALLED_AT), 'A fresh install');
+		$this->assertSame(0, Server::get(AppState::class)->getInt(AppState::INSTALLED_AT), 'A fresh install');
 		Server::get(ReserveSuggestedNames::class)->run($this->createMock(IOutput::class));
 		Server::get(StartLearningMode::class)->run($this->createMock(IOutput::class));
 		$reserved = Server::get(ReservedNames::class)->list();
@@ -68,7 +69,7 @@ class AppOwnChangesTest extends AdminChangeTestCase {
 		// The period is over: the hourly job ends it.
 		$later = $this->createMock(ITimeFactory::class);
 		$later->method('getTime')->willReturn($learning->until() + 60);
-		$expiring = new LearningService(Server::get(Settings::class), $later, Server::get(AuditLogger::class), Server::get(INotificationManager::class));
+		$expiring = new LearningService(Server::get(Settings::class), $later, Server::get(AuditLogger::class), Server::get(INotificationManager::class), Server::get(AppState::class));
 		$this->assertTrue($expiring->expireIfDue());
 		$this->assertFalse($learning->isActive());
 
@@ -116,12 +117,12 @@ class AppOwnChangesTest extends AdminChangeTestCase {
 
 	public function testOneLearningPeriodLastsAtMostThirtyDaysFromItsStart(): void {
 		$started = time() - 10 * 86400;
-		$this->appConfig->setValueInt(Application::APP_ID, GlobalSettings::LEARNING_STARTED_AT, $started);
+		Server::get(AppState::class)->setInt(LearningService::STARTED_STATE, $started);
 		$this->appConfig->setValueInt(Application::APP_ID, GlobalSettings::LEARNING_UNTIL, time() + 86400);
 		$learning = Server::get(LearningService::class);
 
 		$learning->start(7, $this->alice);
-		$this->assertSame($started, Server::get(Settings::class)->getInt(GlobalSettings::LEARNING_STARTED_AT), 'Starting again keeps the period\'s start');
+		$this->assertSame($started, Server::get(AppState::class)->getInt(LearningService::STARTED_STATE), 'Starting again keeps the period\'s start');
 		$this->assertSame($started + 30 * 86400, $learning->latestUntil());
 		$learning->extend(13, $this->alice);
 		$this->assertSame($started + 30 * 86400, $learning->until(), 'Up to the limit');
@@ -140,7 +141,7 @@ class AppOwnChangesTest extends AdminChangeTestCase {
 		// After the end, a new period has its own start.
 		$learning->stop('occ');
 		$learning->start(30, 'occ');
-		$this->assertEqualsWithDelta(time(), Server::get(Settings::class)->getInt(GlobalSettings::LEARNING_STARTED_AT), 5);
+		$this->assertEqualsWithDelta(time(), Server::get(AppState::class)->getInt(LearningService::STARTED_STATE), 5);
 	}
 
 	/**
