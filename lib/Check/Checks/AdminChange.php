@@ -30,8 +30,11 @@ use OCA\IntrusionDetection\Db\Detection;
 use OCA\IntrusionDetection\Explain\DateFormatter;
 use OCA\IntrusionDetection\Explain\DetectionFacts;
 use OCA\IntrusionDetection\Explain\IExplainsDetection;
+use OCA\IntrusionDetection\Explain\IExplainsToUser;
 use OCA\IntrusionDetection\Explain\IHeadlinesDetection;
+use OCA\IntrusionDetection\Explain\IKeepsFromUser;
 use OCA\IntrusionDetection\Explain\TextRenderer;
+use OCA\IntrusionDetection\Explain\UserNotice;
 use OCP\IL10N;
 use Psr\Container\ContainerInterface;
 
@@ -42,11 +45,14 @@ use Psr\Container\ContainerInterface;
  * of the watched security settings. Optionally, a second administrator must
  * approve every new administrator.
  *
+ * The account a change was about is told only when its own administration
+ * rights changed ({@see self::keepsFromUser()}).
+ *
  * The detector is {@see AdminChangeDetector}; the events come from
  * {@see \OCA\IntrusionDetection\Listener\AdminChangeListener} and
  * {@see \OCA\IntrusionDetection\AdminChange\ConfigWatch}.
  */
-final class AdminChange implements ICheck, IExplainsDetection, IHeadlinesDetection, IValidatesParams {
+final class AdminChange implements ICheck, IExplainsDetection, IHeadlinesDetection, IValidatesParams, IExplainsToUser, IKeepsFromUser {
 	public const ID = 'admin_change';
 
 	public const KIND_ADMIN_GRANTED = 'admin_granted';
@@ -192,6 +198,36 @@ final class AdminChange implements ICheck, IExplainsDetection, IHeadlinesDetecti
 		}
 		$sentences[] = $l->t('It happened at %s.', [$this->dates->dateTime($detection->getCreatedAt())]);
 		return $sentences;
+	}
+
+	/**
+	 * Told only when the account's own administration rights changed. Its
+	 * creation is no security event for its new owner, a request that waits
+	 * for approval has not changed anything yet, and the other changes are
+	 * about no account.
+	 */
+	#[\Override]
+	public function keepsFromUser(Detection $detection): bool {
+		return !in_array(DetectionFacts::of($detection)->string('kind'), [self::KIND_ADMIN_GRANTED, self::KIND_ADMIN_REMOVED, self::KIND_SUBADMIN_GRANTED], true);
+	}
+
+	#[\Override]
+	public function userNotice(Detection $detection, IL10N $l): UserNotice {
+		$facts = DetectionFacts::of($detection);
+		$group = $facts->string('group');
+		$delegated = $facts->list('delegated') !== [];
+		$advice = [$l->t('If you did not expect this, ask your administrators about it.')];
+		return match ($facts->string('kind')) {
+			self::KIND_ADMIN_GRANTED => $delegated
+				? new UserNotice($l->t('You got administration rights'), [$l->t('You were added to the group "%s", which has administration rights for some settings.', [$group])], $advice)
+				: new UserNotice($l->t('You were made an administrator'), [$l->t('An administrator made you an administrator. You can now manage all accounts and settings.')], $advice),
+			self::KIND_ADMIN_REMOVED => $delegated
+				? new UserNotice($l->t('You left a group with administration rights'), [$l->t('You were removed from the group "%s", which has administration rights for some settings.', [$group])], $advice)
+				: new UserNotice($l->t('You are no longer an administrator'), [$l->t('An administrator removed you from the administrators.')], $advice),
+			self::KIND_SUBADMIN_GRANTED => new UserNotice($l->t('You were made a group administrator'), [$l->t('An administrator made you a group administrator of "%s". You can now manage the accounts of that group.', [$group])], $advice),
+			self::KIND_USER_CREATED => new UserNotice($l->t('Your account was created'), [$l->t('An administrator created your account.')], $advice),
+			default => new UserNotice($l->t('Your administration rights changed'), [$l->t('An administrator changed the administration rights of your account.')], $advice),
+		};
 	}
 
 	/**

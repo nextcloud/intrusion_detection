@@ -16,6 +16,7 @@ use OCA\IntrusionDetection\Check\ResponseType;
 use OCA\IntrusionDetection\Db\Detection;
 use OCA\IntrusionDetection\Explain\DateFormatter;
 use OCA\IntrusionDetection\Explain\IExplainsToUser;
+use OCA\IntrusionDetection\Explain\IKeepsFromUser;
 use OCA\IntrusionDetection\Explain\UserNotice;
 use OCA\IntrusionDetection\KnownDevice\DeviceLabel;
 use OCA\IntrusionDetection\Response\PasswordChangeService;
@@ -172,16 +173,40 @@ class UserMessages {
 		};
 	}
 
-	private function notice(Detection $detection, IL10N $l): UserNotice {
+	/**
+	 * Whether the affected user is told about a detection at all: only when
+	 * its check has words for them ({@see IExplainsToUser}) and does not
+	 * keep this one from them ({@see IKeepsFromUser}).
+	 */
+	public function tellsUser(Detection $detection): bool {
+		$check = $this->check($detection);
+		return $check instanceof IExplainsToUser && !($check instanceof IKeepsFromUser && $check->keepsFromUser($detection));
+	}
+
+	/**
+	 * @param list<Detection> $detections
+	 * @return list<Detection> those the user is told about, in the same order
+	 */
+	public function toldToUser(array $detections): array {
+		return array_values(array_filter($detections, $this->tellsUser(...)));
+	}
+
+	private function check(Detection $detection): ?object {
 		try {
 			$check = $this->container->get($this->registry->classOf($detection->getCheckId()));
 		} catch (InvalidParamException) {
-			$check = null;
+			return null;
 		}
+		return is_object($check) ? $check : null;
+	}
+
+	private function notice(Detection $detection, IL10N $l): UserNotice {
+		$check = $this->check($detection);
 		if ($check instanceof IExplainsToUser) {
 			return $check->userNotice($detection, $l);
 		}
-		return new UserNotice($l->t('Unusual activity on your account'), [$l->t('Nextcloud noticed unusual activity on your account.')]);
+		// The user's own lists leave such detections out, see tellsUser().
+		return new UserNotice($l->t('Security event on your account'), [$l->t('Nextcloud recorded a security event for your account.')]);
 	}
 
 	private function when(Detection $detection, IL10N $l): string {

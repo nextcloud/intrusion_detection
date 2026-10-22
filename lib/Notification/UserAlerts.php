@@ -86,12 +86,12 @@ class UserAlerts {
 
 	/**
 	 * @param bool $isNew whether the detection was created by this hit, rather than merged into
-	 * @return ?array{bell: string, email: string, admins: int} null when the detection's account does not exist (any more)
+	 * @return ?array{bell: string, email: string, admins: int} null when the detection's account does not exist (any more), or is not told about it
 	 */
 	public function notify(Detection $detection, bool $isNew = true): ?array {
 		$uid = $detection->getUid();
 		$user = $uid === null ? null : $this->userManager->get($uid);
-		if ($uid === null || $user === null || !$user->isEnabled()) {
+		if ($uid === null || $user === null || !$user->isEnabled() || !$this->messages->tellsUser($detection)) {
 			return null;
 		}
 		$now = $this->timeFactory->getTime();

@@ -22,7 +22,9 @@ use OCA\IntrusionDetection\Db\Detection;
 use OCA\IntrusionDetection\Explain\DateFormatter;
 use OCA\IntrusionDetection\Explain\DetectionFacts;
 use OCA\IntrusionDetection\Explain\IExplainsDetection;
+use OCA\IntrusionDetection\Explain\IExplainsToUser;
 use OCA\IntrusionDetection\Explain\IHeadlinesDetection;
+use OCA\IntrusionDetection\Explain\UserNotice;
 use OCP\IL10N;
 
 /**
@@ -32,7 +34,7 @@ use OCP\IL10N;
  * learning mode, since locking was the owner's own decision, and tells all
  * administrators, who are the only ones who can unlock the account.
  */
-final class AccountLocked implements ICheck, IExplainsDetection, IHeadlinesDetection {
+final class AccountLocked implements ICheck, IExplainsDetection, IHeadlinesDetection, IExplainsToUser {
 	public const ID = 'account_locked';
 
 	public function __construct(
@@ -68,6 +70,23 @@ final class AccountLocked implements ICheck, IExplainsDetection, IHeadlinesDetec
 	#[\Override]
 	public function headline(Detection $detection, IL10N $l): ?string {
 		return $l->t('The account %s was locked by the owner of its previous email address', [(string)$detection->getUid()]);
+	}
+
+	#[\Override]
+	public function userNotice(Detection $detection, IL10N $l): UserNotice {
+		$sentTo = DetectionFacts::of($detection)->string('sentTo');
+		return new UserNotice(
+			$l->t('Your account was locked'),
+			[
+				$sentTo !== ''
+					? $l->t('Your account was locked with the link that Nextcloud sent to your previous email address %s after it was changed.', [$sentTo])
+					: $l->t('Your account was locked with the link that Nextcloud sent to your previous email address after it was changed.'),
+				$l->t('All your sessions and app passwords were ended, and your account was disabled until an administrator enabled it again.'),
+			],
+			[
+				$l->t('Check the email address of your account and your devices and sessions in your security settings, and change your password.'),
+			],
+		);
 	}
 
 	#[\Override]

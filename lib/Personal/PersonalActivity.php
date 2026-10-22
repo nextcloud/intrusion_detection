@@ -106,7 +106,7 @@ class PersonalActivity {
 				answered: false,
 			));
 			foreach ($unanswered as $detection) {
-				if (count($questions) < self::MAX_QUESTIONS && $this->questions->isOpen($detection)) {
+				if (count($questions) < self::MAX_QUESTIONS && $this->questions->isOpen($detection) && $this->messages->tellsUser($detection)) {
 					$questions[] = $this->personalDetections->present($detection, $user);
 				}
 			}
@@ -117,7 +117,7 @@ class PersonalActivity {
 		$found = $this->detections->findList(new DetectionFilter(uid: $uid, since: $since, limit: PersonalDetections::MAX));
 		$events = 0;
 		foreach ($found as $detection) {
-			if ($this->questions->isOpen($detection)) {
+			if ($this->questions->isOpen($detection) || !$this->messages->tellsUser($detection)) {
 				continue;
 			}
 			if ($events > $limit) {

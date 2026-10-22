@@ -320,6 +320,7 @@ return array(
     'OCA\\IntrusionDetection\\Explain\\IExplainsDetection' => $baseDir . '/../lib/Explain/IExplainsDetection.php',
     'OCA\\IntrusionDetection\\Explain\\IExplainsToUser' => $baseDir . '/../lib/Explain/IExplainsToUser.php',
     'OCA\\IntrusionDetection\\Explain\\IHeadlinesDetection' => $baseDir . '/../lib/Explain/IHeadlinesDetection.php',
+    'OCA\\IntrusionDetection\\Explain\\IKeepsFromUser' => $baseDir . '/../lib/Explain/IKeepsFromUser.php',
     'OCA\\IntrusionDetection\\Explain\\Narrative' => $baseDir . '/../lib/Explain/Narrative.php',
     'OCA\\IntrusionDetection\\Explain\\NarrativeBuilder' => $baseDir . '/../lib/Explain/NarrativeBuilder.php',
     'OCA\\IntrusionDetection\\Explain\\TextRenderer' => $baseDir . '/../lib/Explain/TextRenderer.php',
