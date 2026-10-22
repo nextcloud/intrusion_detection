@@ -9,8 +9,8 @@ declare(strict_types=1);
 
 namespace OCA\IntrusionDetection\Confirm\Reasons;
 
-use OCA\IntrusionDetection\Check\Checks\BreachedPassword;
-use OCA\IntrusionDetection\Check\Checks\BreachedPasswordDetector;
+use OCA\IntrusionDetection\Check\Checks\BreachedPassword\BreachedPassword;
+use OCA\IntrusionDetection\Check\Checks\BreachedPassword\BreachedPasswordDetector;
 use OCA\IntrusionDetection\Config\CheckSettings;
 use OCA\IntrusionDetection\Confirm\IStepUpReason;
 use OCA\IntrusionDetection\Confirm\LoginContext;

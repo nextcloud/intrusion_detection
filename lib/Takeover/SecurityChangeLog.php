@@ -10,7 +10,7 @@ declare(strict_types=1);
 namespace OCA\IntrusionDetection\Takeover;
 
 use OCA\IntrusionDetection\AdminChange\ActorResolver;
-use OCA\IntrusionDetection\Check\Checks\AccountTakeoverDetector;
+use OCA\IntrusionDetection\Check\Checks\AccountTakeover\AccountTakeoverDetector;
 use OCA\IntrusionDetection\Confirm\EmailCodes;
 use OCA\IntrusionDetection\Db\SecurityChangeMapper;
 use OCA\IntrusionDetection\Net\RemoteAddressResolver;

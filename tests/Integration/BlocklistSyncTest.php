@@ -21,7 +21,7 @@ use OCA\IntrusionDetection\Blocklist\StateStore;
 use OCA\IntrusionDetection\Blocklist\SyncFailure;
 use OCA\IntrusionDetection\Blocklist\SyncResult;
 use OCA\IntrusionDetection\Blocklist\UrlPolicy;
-use OCA\IntrusionDetection\Check\Checks\BlocklistMatch;
+use OCA\IntrusionDetection\Check\Checks\BlocklistMatch\BlocklistMatch;
 use OCA\IntrusionDetection\Config\GlobalSettings;
 use OCA\IntrusionDetection\Db\BlocklistRangeMapper;
 use OCA\IntrusionDetection\Db\BlocklistStatMapper;

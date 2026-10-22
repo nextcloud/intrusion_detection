@@ -10,7 +10,7 @@ declare(strict_types=1);
 namespace OCA\IntrusionDetection\Tests\Integration;
 
 use OCA\IntrusionDetection\Admin\CheckList;
-use OCA\IntrusionDetection\Check\Checks\DecoyCredential;
+use OCA\IntrusionDetection\Check\Checks\DecoyCredential\DecoyCredential;
 use OCA\IntrusionDetection\Config\ModeState;
 use OCA\IntrusionDetection\Db\Detection;
 use OCA\IntrusionDetection\Db\DetectionMapper;

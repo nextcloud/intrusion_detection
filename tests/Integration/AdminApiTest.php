@@ -11,8 +11,8 @@ namespace OCA\IntrusionDetection\Tests\Integration;
 
 use OCA\IntrusionDetection\Admin\DetectionPresenter;
 use OCA\IntrusionDetection\AppInfo\Application;
-use OCA\IntrusionDetection\Check\Checks\ManualBlock;
-use OCA\IntrusionDetection\Check\Checks\SharedAddress;
+use OCA\IntrusionDetection\Check\Checks\ManualBlock\ManualBlock;
+use OCA\IntrusionDetection\Check\Checks\SharedAddress\SharedAddress;
 use OCA\IntrusionDetection\Config\GlobalSettings;
 use OCA\IntrusionDetection\Controller\AdminApiController;
 use OCA\IntrusionDetection\Db\AttemptKind;

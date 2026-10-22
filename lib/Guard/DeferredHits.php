@@ -9,7 +9,7 @@ declare(strict_types=1);
 
 namespace OCA\IntrusionDetection\Guard;
 
-use OCA\IntrusionDetection\Check\Payload\PayloadResponder;
+use OCA\IntrusionDetection\Check\Checks\InjectionProbe\PayloadResponder;
 use OCA\IntrusionDetection\Traps\TrapResponder;
 use OCP\IUser;
 use OCP\Security\Guard\GuardDecision;

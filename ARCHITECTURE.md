@@ -13,13 +13,17 @@ enforces this on every test run.
 | --- | --- | --- |
 | adapters | `AppInfo`, `Listener`, `Guard`, `Middleware`, `Dav`, `Controller`, `Command`, `BackgroundJob`, `Settings`, `SetupCheck`, `Dashboard`, `Repair`, `Migration`, `Perf` | Turning core's events, requests, routes, jobs and occ calls into calls of the layers below. Thin. |
 | pages | `Admin`, `Personal` | What the admin and personal pages show, built from the features. |
-| features | `Check\Checks`, `Check\CredentialUse`, `Check\Payload`, `Address`, `AdminChange`, `Blocklist`, `Breach`, `Confirm`, `Decoy`, `Export`, `Guide`, `Incident`, `KnownDevice`, `Learning`, `LoginHistory`, `OpenMetrics`, `Privacy`, `Risk`, `SessionState`, `Share`, `StaleCredential`, `Takeover`, `Traps`, `TrustedNetwork`, `WasThisYou` | One check or one feature each: its definition, detection, texts and state. |
+| features | `Check\Checks`, `Address`, `AdminChange`, `Blocklist`, `Breach`, `Confirm`, `Decoy`, `Export`, `Guide`, `Incident`, `KnownDevice`, `Learning`, `LoginHistory`, `OpenMetrics`, `Privacy`, `Risk`, `SessionState`, `Share`, `StaleCredential`, `Takeover`, `Traps`, `TrustedNetwork`, `WasThisYou` | One check or one feature each: its definition, detection, texts and state. |
 | platform | `Check`, `Configure`, `Detection`, `Response`, `Explain`, `Event`, `Notification`, `Login` | The check registry and capability interfaces, validated settings writes, recording detections, running responses, explanation texts, events and notifications. |
 | storage | `Db`, `Config` | Tables and mappers; reading the settings, the config lexicon and its keys. |
 | kernel | `Definition`, `Net`, `Crypto`, `Audit`, `Http`, `ResponseDefinitions`, `Sensitive`, `Cache`, `State` | The shared vocabulary, the memory caches and the app's internal state. Uses nothing above it. |
 
 ## Rules
 
+- **One folder per check.** `Check/Checks/<Name>/` holds the check's
+  definition and texts (`<Name>`), its detector (`<Name>Detector`) and the
+  classes only that check uses, such as the payload matching of
+  `InjectionProbe` or the credential tracking of `TokenConcurrentUse`.
 - **`Definition` uses nothing else of the app.** It holds what a check is
   made of: `CheckDefinition` with its texts, `Mode`, `Severity`,
   `ResponseType`, the parameter types, `Requirement`, `ProtectionLevel` and

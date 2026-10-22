@@ -13,7 +13,7 @@ use OCA\IntrusionDetection\AdminChange\ConfigWatch;
 use OCA\IntrusionDetection\AppInfo\Application;
 use OCA\IntrusionDetection\BackgroundJob\Cleanup;
 use OCA\IntrusionDetection\Blocklist\StateStore;
-use OCA\IntrusionDetection\Check\Checks\CredentialStuffingDetector;
+use OCA\IntrusionDetection\Check\Checks\CredentialStuffing\CredentialStuffingDetector;
 use OCA\IntrusionDetection\Configure\SettingsEditor;
 use OCA\IntrusionDetection\Confirm\ConfirmationCoverage;
 use OCA\IntrusionDetection\Detection\DetectionTotals;

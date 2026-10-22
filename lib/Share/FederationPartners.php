@@ -29,7 +29,7 @@ use Psr\Container\ContainerInterface;
  * A partner server keeps opening federated shares that were deleted here
  * without telling it, for example with their owner's account or after
  * their files left the trash bin. Unknown share links from a partner are
- * reported, but never block it ({@see \OCA\IntrusionDetection\Check\Checks\ShareBruteforce}).
+ * reported, but never block it ({@see \OCA\IntrusionDetection\Check\Checks\ShareBruteforce\ShareBruteforce}).
  *
  * The mark is a flag of its own (`fed:` and the address key in ids_flags),
  * which only the share link check reads. With a memory cache, a token is

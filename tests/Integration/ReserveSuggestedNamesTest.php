@@ -9,7 +9,7 @@ declare(strict_types=1);
 
 namespace OCA\IntrusionDetection\Tests\Integration;
 
-use OCA\IntrusionDetection\Check\Checks\ReservedName;
+use OCA\IntrusionDetection\Check\Checks\ReservedName\ReservedName;
 use OCA\IntrusionDetection\Db\BanMapper;
 use OCA\IntrusionDetection\Learning\LearningService;
 use OCA\IntrusionDetection\Repair\ReserveSuggestedNames;

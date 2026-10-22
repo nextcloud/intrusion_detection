@@ -9,11 +9,11 @@ declare(strict_types=1);
 
 namespace OCA\IntrusionDetection\Tests\Unit\Listener;
 
-use OCA\IntrusionDetection\Check\Checks\AccountUnderAttackDetector;
-use OCA\IntrusionDetection\Check\Checks\CredentialStuffingDetector;
-use OCA\IntrusionDetection\Check\Checks\DecoyCredentialDetector;
-use OCA\IntrusionDetection\Check\Checks\PasswordSprayingDetector;
-use OCA\IntrusionDetection\Check\Checks\ReservedNameDetector;
+use OCA\IntrusionDetection\Check\Checks\AccountUnderAttack\AccountUnderAttackDetector;
+use OCA\IntrusionDetection\Check\Checks\CredentialStuffing\CredentialStuffingDetector;
+use OCA\IntrusionDetection\Check\Checks\DecoyCredential\DecoyCredentialDetector;
+use OCA\IntrusionDetection\Check\Checks\PasswordSpraying\PasswordSprayingDetector;
+use OCA\IntrusionDetection\Check\Checks\ReservedName\ReservedNameDetector;
 use OCA\IntrusionDetection\Config\AppSettings;
 use OCA\IntrusionDetection\Config\CheckSettings;
 use OCA\IntrusionDetection\Config\ModeState;
@@ -114,7 +114,7 @@ class FailedLoginListenerTest extends TestCase {
 		$appSettings = $this->createMock(AppSettings::class);
 		$appSettings->method('isEnabled')->willReturn(true);
 		$settings = $this->createMock(CheckSettings::class);
-		$settings->method('modeState')->willReturnCallback(static fn (string $id): ModeState => $id === \OCA\IntrusionDetection\Check\Checks\AccountUnderAttack::ID
+		$settings->method('modeState')->willReturnCallback(static fn (string $id): ModeState => $id === \OCA\IntrusionDetection\Check\Checks\AccountUnderAttack\AccountUnderAttack::ID
 			? new ModeState(Mode::Off, Mode::Off)
 			: new ModeState(Mode::Protect, Mode::Protect));
 		$addresses = $this->createMock(RemoteAddressResolver::class);

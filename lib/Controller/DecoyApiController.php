@@ -11,7 +11,7 @@ namespace OCA\IntrusionDetection\Controller;
 
 use OCA\IntrusionDetection\Admin\TrapsOverview;
 use OCA\IntrusionDetection\Audit\AuditLogger;
-use OCA\IntrusionDetection\Check\Checks\TrapUrl;
+use OCA\IntrusionDetection\Check\Checks\TrapUrl\TrapUrl;
 use OCA\IntrusionDetection\Config\CheckSettings;
 use OCA\IntrusionDetection\Configure\SettingsEditor;
 use OCA\IntrusionDetection\Decoy\DecoyFormat;

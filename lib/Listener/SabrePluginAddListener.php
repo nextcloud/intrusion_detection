@@ -10,7 +10,7 @@ declare(strict_types=1);
 namespace OCA\IntrusionDetection\Listener;
 
 use OCA\DAV\Events\SabrePluginAddEvent;
-use OCA\IntrusionDetection\Check\Checks\ShareBruteforce;
+use OCA\IntrusionDetection\Check\Checks\ShareBruteforce\ShareBruteforce;
 use OCA\IntrusionDetection\Config\CheckSettings;
 use OCA\IntrusionDetection\Dav\FederatedShareUsePlugin;
 use OCA\IntrusionDetection\Dav\GuardDecisionPlugin;

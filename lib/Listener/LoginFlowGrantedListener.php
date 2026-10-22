@@ -9,8 +9,8 @@ declare(strict_types=1);
 
 namespace OCA\IntrusionDetection\Listener;
 
-use OCA\IntrusionDetection\Check\Checks\LoginFlowMismatch;
-use OCA\IntrusionDetection\Check\Checks\LoginFlowMismatchDetector;
+use OCA\IntrusionDetection\Check\Checks\LoginFlowMismatch\LoginFlowMismatch;
+use OCA\IntrusionDetection\Check\Checks\LoginFlowMismatch\LoginFlowMismatchDetector;
 use OCA\IntrusionDetection\Config\CheckSettings;
 use OCA\IntrusionDetection\Net\RemoteAddressResolver;
 use OCP\Authentication\Events\LoginFlowV2GrantedEvent;

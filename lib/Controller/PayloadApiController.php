@@ -10,8 +10,8 @@ declare(strict_types=1);
 namespace OCA\IntrusionDetection\Controller;
 
 use OCA\IntrusionDetection\Admin\SignaturePresenter;
-use OCA\IntrusionDetection\Check\Payload\CustomSignatures;
-use OCA\IntrusionDetection\Check\Payload\PayloadTester;
+use OCA\IntrusionDetection\Check\Checks\InjectionProbe\CustomSignatures;
+use OCA\IntrusionDetection\Check\Checks\InjectionProbe\PayloadTester;
 use OCA\IntrusionDetection\ResponseDefinitions;
 use OCP\AppFramework\Http;
 use OCP\AppFramework\Http\Attribute\ApiRoute;

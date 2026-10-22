@@ -10,8 +10,8 @@ declare(strict_types=1);
 namespace OCA\IntrusionDetection\Tests\Integration;
 
 use OCA\IntrusionDetection\AppInfo\Application;
-use OCA\IntrusionDetection\Check\Checks\AccountLocked;
-use OCA\IntrusionDetection\Check\Checks\AccountTakeover;
+use OCA\IntrusionDetection\Check\Checks\AccountLocked\AccountLocked;
+use OCA\IntrusionDetection\Check\Checks\AccountTakeover\AccountTakeover;
 use OCA\IntrusionDetection\Controller\LockLinkController;
 use OCA\IntrusionDetection\Controller\SecureAccountAdminController;
 use OCA\IntrusionDetection\Db\Detection;

@@ -9,7 +9,7 @@ declare(strict_types=1);
 
 namespace OCA\IntrusionDetection\Tests\Unit\Listener;
 
-use OCA\IntrusionDetection\Check\Checks\SecondFactorFailedDetector;
+use OCA\IntrusionDetection\Check\Checks\SecondFactorFailed\SecondFactorFailedDetector;
 use OCA\IntrusionDetection\Config\AppSettings;
 use OCA\IntrusionDetection\Listener\SecondFactorFailedListener;
 use OCA\IntrusionDetection\Net\RemoteAddressResolver;

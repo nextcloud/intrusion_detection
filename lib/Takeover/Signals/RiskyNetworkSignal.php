@@ -9,8 +9,8 @@ declare(strict_types=1);
 
 namespace OCA\IntrusionDetection\Takeover\Signals;
 
-use OCA\IntrusionDetection\Check\Checks\RiskyNetwork;
-use OCA\IntrusionDetection\Check\Checks\RiskyNetworkDetector;
+use OCA\IntrusionDetection\Check\Checks\RiskyNetwork\RiskyNetwork;
+use OCA\IntrusionDetection\Check\Checks\RiskyNetwork\RiskyNetworkDetector;
 use OCA\IntrusionDetection\Confirm\LoginDetections;
 use OCA\IntrusionDetection\Db\DetectionFilter;
 use OCA\IntrusionDetection\Db\DetectionMapper;

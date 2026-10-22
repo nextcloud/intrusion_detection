@@ -16,7 +16,7 @@ use OC\Core\Controller\LoginController;
 use OC\Core\Controller\OCJSController;
 use OC\Core\Controller\TwoFactorChallengeController;
 use OC\Session\Memory;
-use OCA\IntrusionDetection\Check\Checks\StepUpFailed;
+use OCA\IntrusionDetection\Check\Checks\StepUpFailed\StepUpFailed;
 use OCA\IntrusionDetection\Confirm\LoginDetections;
 use OCA\IntrusionDetection\Confirm\SecondFactorSetup;
 use OCA\IntrusionDetection\Confirm\StepUpService;

@@ -9,7 +9,7 @@ declare(strict_types=1);
 
 namespace OCA\IntrusionDetection\Response\Handlers;
 
-use OCA\IntrusionDetection\Check\Checks\DirectoryScraping;
+use OCA\IntrusionDetection\Check\Checks\DirectoryScraping\DirectoryScraping;
 use OCA\IntrusionDetection\Definition\ResponseType;
 use OCA\IntrusionDetection\Explain\DateFormatter;
 use OCA\IntrusionDetection\Explain\IDescribesAction;
@@ -21,7 +21,7 @@ use OCP\IL10N;
 /**
  * Records that the account's requests of one kind are refused until the
  * end of the counting window. The refusal itself happens on each request,
- * where the counter is ({@see \OCA\IntrusionDetection\Check\Checks\DirectoryScrapingDetector}),
+ * where the counter is ({@see \OCA\IntrusionDetection\Check\Checks\DirectoryScraping\DirectoryScrapingDetector}),
  * as long as the check acts with this response; nothing is stored here.
  */
 class RateLimitHandler implements IResponseHandler, IDescribesAction {

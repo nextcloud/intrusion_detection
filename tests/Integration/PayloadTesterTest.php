@@ -9,8 +9,8 @@ declare(strict_types=1);
 
 namespace OCA\IntrusionDetection\Tests\Integration;
 
-use OCA\IntrusionDetection\Check\Checks\InjectionProbe;
-use OCA\IntrusionDetection\Check\Payload\PayloadTester;
+use OCA\IntrusionDetection\Check\Checks\InjectionProbe\InjectionProbe;
+use OCA\IntrusionDetection\Check\Checks\InjectionProbe\PayloadTester;
 use OCA\IntrusionDetection\Command\Payload\Test;
 use OCA\IntrusionDetection\Definition\Mode;
 use OCP\IL10N;

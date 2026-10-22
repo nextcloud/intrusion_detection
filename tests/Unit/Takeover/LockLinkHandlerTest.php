@@ -9,7 +9,7 @@ declare(strict_types=1);
 
 namespace OCA\IntrusionDetection\Tests\Unit\Takeover;
 
-use OCA\IntrusionDetection\Check\Checks\AccountTakeover;
+use OCA\IntrusionDetection\Check\Checks\AccountTakeover\AccountTakeover;
 use OCA\IntrusionDetection\Db\Detection;
 use OCA\IntrusionDetection\Detection\DetectionDraft;
 use OCA\IntrusionDetection\Explain\DateFormatter;

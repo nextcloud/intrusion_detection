@@ -10,9 +10,9 @@ declare(strict_types=1);
 namespace OCA\IntrusionDetection\Tests\Integration;
 
 use OCA\IntrusionDetection\AppInfo\Application;
-use OCA\IntrusionDetection\Check\Checks\AccountUnderAttack;
-use OCA\IntrusionDetection\Check\Checks\CredentialStuffing;
-use OCA\IntrusionDetection\Check\Checks\PasswordSpraying;
+use OCA\IntrusionDetection\Check\Checks\AccountUnderAttack\AccountUnderAttack;
+use OCA\IntrusionDetection\Check\Checks\CredentialStuffing\CredentialStuffing;
+use OCA\IntrusionDetection\Check\Checks\PasswordSpraying\PasswordSpraying;
 use OCA\IntrusionDetection\Crypto\Fingerprinter;
 use OCA\IntrusionDetection\Db\BanMapper;
 use OCA\IntrusionDetection\Definition\Mode;
@@ -173,7 +173,7 @@ class PasswordSprayingTest extends LoginFailureTestCase {
 		$this->settingsEditor()->setMode(PasswordSpraying::ID, Mode::Observe);
 		$this->spray(6);
 		$detector = (new \ReflectionProperty($this->listener, 'spraying'))->getValue($this->listener);
-		$this->assertInstanceOf(\OCA\IntrusionDetection\Check\Checks\PasswordSprayingDetector::class, $detector);
+		$this->assertInstanceOf(\OCA\IntrusionDetection\Check\Checks\PasswordSpraying\PasswordSprayingDetector::class, $detector);
 		$attempt = Server::get(\OCA\IntrusionDetection\Detection\AttemptRecorder::class)->record(\OCA\IntrusionDetection\Db\AttemptKind::PasswordLogin, \OCA\IntrusionDetection\Net\SourceKey::fromIp('198.51.100.50'), 'user50', null, null, self::SPRAYED);
 
 		$db = Server::get(\OCP\IDBConnection::class);

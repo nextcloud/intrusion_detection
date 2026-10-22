@@ -29,7 +29,8 @@ class FreshRequestBenchmarkTest extends IntegrationTestCase {
 		$this->assertSame(\OC::$SERVERROOT, FreshRequestProbe::serverRoot());
 		$this->assertNotNull($result, 'the probe ran in a new PHP process');
 
-		$checks = array_values(array_filter($result['classes'], static fn (string $class): bool => str_starts_with($class, 'OCA\\IntrusionDetection\\Check\\Checks\\')
+		// The guards' own classes live in their check's folder; the check and its detector must not load.
+		$checks = array_values(array_filter($result['classes'], static fn (string $class): bool => preg_match('/^OCA\\\\IntrusionDetection\\\\Check\\\\Checks\\\\(\\w+)\\\\\\1(Detector)?$/', $class) === 1
 			|| str_starts_with($class, 'OCA\\IntrusionDetection\\Confirm\\')
 			|| str_starts_with($class, 'OCA\\IntrusionDetection\\Explain\\')));
 		$this->assertSame([], $checks, 'no check, step-up reason or explanation class is loaded');

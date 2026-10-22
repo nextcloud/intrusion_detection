@@ -10,7 +10,7 @@ declare(strict_types=1);
 namespace OCA\IntrusionDetection\Command;
 
 use OC\Core\Command\Base;
-use OCA\IntrusionDetection\Check\Checks\BreachedPasswordDetector;
+use OCA\IntrusionDetection\Check\Checks\BreachedPassword\BreachedPasswordDetector;
 use OCA\IntrusionDetection\KnownDevice\KnownDevices;
 use OCA\IntrusionDetection\Response\AccountProtection;
 use OCA\IntrusionDetection\Response\PasswordChangeService;

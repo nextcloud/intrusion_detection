@@ -9,7 +9,7 @@ declare(strict_types=1);
 
 namespace OCA\IntrusionDetection\SessionState\Rules;
 
-use OCA\IntrusionDetection\Check\Checks\DirectoryScrapingDetector;
+use OCA\IntrusionDetection\Check\Checks\DirectoryScraping\DirectoryScrapingDetector;
 use OCA\IntrusionDetection\Sensitive\DirectoryRoutes;
 use OCA\IntrusionDetection\SessionState\ISessionStateRule;
 use OCA\IntrusionDetection\SessionState\RequestTarget;

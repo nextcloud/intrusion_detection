@@ -9,7 +9,7 @@ declare(strict_types=1);
 
 namespace OCA\IntrusionDetection\Traps;
 
-use OCA\IntrusionDetection\Check\Checks\ReservedName;
+use OCA\IntrusionDetection\Check\Checks\ReservedName\ReservedName;
 use OCA\IntrusionDetection\Config\CheckSettings;
 use OCA\IntrusionDetection\Db\DecoyMapper;
 use OCA\IntrusionDetection\State\AppState;

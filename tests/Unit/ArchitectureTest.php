@@ -27,7 +27,7 @@ class ArchitectureTest extends TestCase {
 		'storage' => ['Db', 'Config'],
 		'platform' => ['Check', 'Configure', 'Detection', 'Response', 'Explain', 'Event', 'Notification', 'Login'],
 		'features' => [
-			'Check\\Checks', 'Check\\CredentialUse', 'Check\\Payload',
+			'Check\\Checks',
 			'Address', 'AdminChange', 'Blocklist', 'Breach', 'Confirm', 'Decoy', 'Export', 'Guide', 'Incident', 'KnownDevice',
 			'Learning', 'LoginHistory', 'OpenMetrics', 'Privacy', 'Risk', 'SessionState', 'Share', 'StaleCredential', 'Takeover',
 			'Traps', 'TrustedNetwork', 'WasThisYou',
@@ -38,9 +38,6 @@ class ArchitectureTest extends TestCase {
 			'Migration', 'Perf', 'Repair', 'Settings', 'SetupCheck',
 		],
 	];
-
-	/** Namespaces below Check that are units of their own */
-	private const CHECK_PARTS = ['Checks', 'CredentialUse', 'Payload'];
 
 	/** Generic namespaces, which must not name a check */
 	private const PLATFORM = ['Definition', 'Net', 'Crypto', 'Audit', 'Http', 'ResponseDefinitions', 'Sensitive', 'Cache', 'State', 'Db', 'Config',
@@ -61,8 +58,6 @@ class ArchitectureTest extends TestCase {
 		'Check' => ['Check\\Checks'],
 		// Check names and the request context live in Admin and Guard (feature slices, login package).
 		'Check\\Checks' => ['Admin', 'Guard'],
-		'Check\\CredentialUse' => ['Guard'],
-		'Check\\Payload' => ['Guard'],
 		// Mappers whose value objects live in their feature (mappers into features).
 		'Db' => ['KnownDevice', 'LoginHistory'],
 		// The risk scorer adds to detections and narratives (pipeline).
@@ -202,7 +197,7 @@ class ArchitectureTest extends TestCase {
 
 	private static function unitOf(string $class): string {
 		$parts = explode('\\', substr($class, strlen(self::APP)));
-		if ($parts[0] === 'Check' && count($parts) > 2 && in_array($parts[1], self::CHECK_PARTS, true)) {
+		if ($parts[0] === 'Check' && count($parts) > 2 && $parts[1] === 'Checks') {
 			return 'Check\\' . $parts[1];
 		}
 		return $parts[0];
