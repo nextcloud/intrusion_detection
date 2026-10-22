@@ -183,7 +183,7 @@ class StaleCredentialsTest extends AccountTestCase {
 		$this->credential($user, IToken::TEMPORARY_TOKEN, 'Firefox', 80, IToken::REMEMBER);
 
 		$this->sweep()->run();
-		$reminders = $this->notificationsFor($user->getUID(), StaleCredentialNotices::SUBJECT_REMINDER);
+		$reminders = $this->notificationsFor($user->getUID(), Notifier::SUBJECT_STALE_REMINDER);
 		$this->assertCount(1, $reminders);
 		$this->assertSame(['appPasswords' => 2, 'sessions' => 0, 'days' => 90], $reminders[0]->getSubjectParameters());
 		$this->assertSame($this->now, Server::get(IUserConfig::class)->getValueInt($user->getUID(), Application::APP_ID, UserKeys::STALE_CREDENTIALS_NOTIFIED_AT));
@@ -192,19 +192,19 @@ class StaleCredentialsTest extends AccountTestCase {
 		$this->assertNull($this->sweep()->runIfDue(), 'once a day');
 		$this->now += 29 * self::DAY;
 		$this->sweep()->run();
-		$this->assertCount(1, $this->notificationsFor($user->getUID(), StaleCredentialNotices::SUBJECT_REMINDER), 'not again within 30 days');
+		$this->assertCount(1, $this->notificationsFor($user->getUID(), Notifier::SUBJECT_STALE_REMINDER), 'not again within 30 days');
 
 		// The browser became stale 10 days after the reminder, but within the month.
 		$this->now += 2 * self::DAY;
 		$this->assertNotNull($this->sweep()->runIfDue());
-		$reminders = $this->notificationsFor($user->getUID(), StaleCredentialNotices::SUBJECT_REMINDER);
+		$reminders = $this->notificationsFor($user->getUID(), Notifier::SUBJECT_STALE_REMINDER);
 		$this->assertCount(2, $reminders, 'after a month, with a credential that became unused since');
 		$this->assertSame(['appPasswords' => 2, 'sessions' => 1, 'days' => 90], $reminders[1]->getSubjectParameters());
 		$this->assertSame('You have 3 app passwords and devices you haven\'t used for 3 months', $this->prepared($reminders[1])->getParsedSubject());
 
 		$this->now += 40 * self::DAY;
 		$this->sweep()->run();
-		$this->assertCount(2, $this->notificationsFor($user->getUID(), StaleCredentialNotices::SUBJECT_REMINDER), 'nothing new: no reminder');
+		$this->assertCount(2, $this->notificationsFor($user->getUID(), Notifier::SUBJECT_STALE_REMINDER), 'nothing new: no reminder');
 	}
 
 	public function testDisabledAccountsAreNotReminded(): void {
@@ -223,7 +223,7 @@ class StaleCredentialsTest extends AccountTestCase {
 
 		$this->assertSame(0, $result['removed']);
 		$this->assertTrue($this->tokenExists($old));
-		$this->assertSame([], $this->notificationsFor($user->getUID(), StaleCredentialNotices::SUBJECT_REMOVED));
+		$this->assertSame([], $this->notificationsFor($user->getUID(), Notifier::SUBJECT_STALE_REMOVED));
 	}
 
 	public function testAutomaticRemovalRemovesWhatIsOlderThanTheSettingAndTellsTheUserOnce(): void {
@@ -241,7 +241,7 @@ class StaleCredentialsTest extends AccountTestCase {
 		$this->assertFalse($this->tokenExists($goneBrowser));
 		$this->assertTrue($this->tokenExists($kept));
 		$this->assertTrue($this->tokenExists($fresh));
-		$notices = $this->notificationsFor($user->getUID(), StaleCredentialNotices::SUBJECT_REMOVED);
+		$notices = $this->notificationsFor($user->getUID(), Notifier::SUBJECT_STALE_REMOVED);
 		$this->assertCount(1, $notices);
 		$this->assertSame(['appPasswords' => 1, 'sessions' => 1, 'days' => 120, 'names' => ['Thunderbird', 'Firefox']], $notices[0]->getSubjectParameters());
 		$prepared = $this->prepared($notices[0]);
@@ -250,7 +250,7 @@ class StaleCredentialsTest extends AccountTestCase {
 		$this->assertTrue($this->wasAudited('the daily job removed 2 app passwords and devices of ' . $user->getUID() . ' unused for 120 days'));
 
 		$this->sweep()->run();
-		$this->assertCount(1, $this->notificationsFor($user->getUID(), StaleCredentialNotices::SUBJECT_REMOVED), 'told once');
+		$this->assertCount(1, $this->notificationsFor($user->getUID(), Notifier::SUBJECT_STALE_REMOVED), 'told once');
 		$this->assertTrue($this->tokenExists($kept));
 	}
 
@@ -330,7 +330,7 @@ class StaleCredentialsTest extends AccountTestCase {
 		$this->assertFalse($this->tokenExists($old));
 		$this->assertTrue($this->tokenExists($fresh));
 		$this->assertTrue($this->tokenExists($theirs));
-		$this->assertCount(1, $this->notificationsFor($user->getUID(), StaleCredentialNotices::SUBJECT_REMOVED));
+		$this->assertCount(1, $this->notificationsFor($user->getUID(), Notifier::SUBJECT_STALE_REMOVED));
 		$this->assertNoSecret($output . $json);
 	}
 

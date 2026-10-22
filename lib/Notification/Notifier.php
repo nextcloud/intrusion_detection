@@ -19,7 +19,6 @@ use OCA\IntrusionDetection\Db\DetectionMapper;
 use OCA\IntrusionDetection\Explain\DateFormatter;
 use OCA\IntrusionDetection\Explain\NarrativeBuilder;
 use OCA\IntrusionDetection\Learning\LearningService;
-use OCA\IntrusionDetection\StaleCredential\StaleCredentialNotices;
 use OCA\IntrusionDetection\WasThisYou\Questions;
 use OCP\AppFramework\Db\DoesNotExistException;
 use OCP\IL10N;
@@ -47,6 +46,10 @@ class Notifier implements INotifier {
 	public const SUBJECT_APPROVAL_PENDING = 'approval_pending';
 	/** To the administrator who asked, once the request was decided or expired */
 	public const SUBJECT_APPROVAL_DECIDED = 'approval_decided';
+	/** To a user who has app passwords or devices they have not used for 90 days */
+	public const SUBJECT_STALE_REMINDER = 'stale_credentials';
+	/** To a user whose unused app passwords or devices were removed */
+	public const SUBJECT_STALE_REMOVED = 'stale_credentials_removed';
 
 	public const ACTION_PROTECT = 'protect';
 	public const ACTION_EXTEND = 'extend';
@@ -111,8 +114,8 @@ class Notifier implements INotifier {
 			AdminNotices::SUBJECT_PASSWORD_EXTERNAL => $this->preparePasswordExternal($notification, $l),
 			self::SUBJECT_APPROVAL_REQUESTED, self::SUBJECT_APPROVAL_PENDING, self::SUBJECT_APPROVAL_DECIDED => $this->prepareApproval($notification, $l),
 			TestAlert::SUBJECT => $this->prepareTestAlert($notification, $l),
-			StaleCredentialNotices::SUBJECT_REMINDER => $this->prepareStaleReminder($notification, $l),
-			StaleCredentialNotices::SUBJECT_REMOVED => $this->prepareStaleRemoved($notification, $l),
+			self::SUBJECT_STALE_REMINDER => $this->prepareStaleReminder($notification, $l),
+			self::SUBJECT_STALE_REMOVED => $this->prepareStaleRemoved($notification, $l),
 			default => throw new UnknownNotificationException(),
 		};
 	}
