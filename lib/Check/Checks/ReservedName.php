@@ -56,7 +56,7 @@ final class ReservedName implements ICheck, IExplainsDetection, ISimulatable, IV
 			defaultMode: Mode::Protect,
 			severity: Severity::Low,
 			params: [
-				// Nothing is reserved until an administrator confirms the names.
+				// Empty by default; the install step reserves the suggested names that are not accounts.
 				new ParamDefinition('names', ParamType::StringList, [], itemPattern: ReservedNames::NAME_PATTERN, maxItems: ReservedNames::MAX_NAMES, maxItemLength: 64),
 			],
 			responses: [ResponseType::Ban, ResponseType::NotifyAdmin],

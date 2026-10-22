@@ -114,7 +114,7 @@ None of this shows up in an access log as anything unusual. All of it is visible
 | Check | What it notices | Default | What happens |
 |---|---|---|---|
 | **Trap URLs** | A visitor who is not logged in asks for `/wp-login.php`, `/.env`, `/phpmyadmin` or another path no Nextcloud client ever requests. | Protect | Blocks the address at once. |
-| **Decoy admin account** | A login attempt with a name you reserved, such as `administrator` or `root`, that no account uses. | Protect | Blocks the address at once. |
+| **Decoy admin account** | A login attempt with a reserved name, such as `administrator` or `root`, that no account uses. The app reserves the usual names when it is installed, leaving out existing accounts. | Protect | Blocks the address at once. |
 | **Decoy app passwords and tokens** | Someone uses a fake credential you planted, say in an old script or a wiki page. | Protect | Blocks the address for 7 days and tells the admins where the decoy was planted. Acts even in learning mode. |
 | **SQL injection and encoded payloads** | Database commands or base64-hidden attack code in web addresses and form fields. | Protect for visitors, Observe for logged-in users | Blocks the address. |
 | **Known bad addresses** | A request from a network on a blocklist you switched on, such as Spamhaus DROP. | Off (opt-in) | Refuses the request with an error page and a reference. |

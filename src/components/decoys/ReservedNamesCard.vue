@@ -85,7 +85,7 @@ async function change(change: { add?: string[], remove?: string[] }) {
 			:suggestions="reserved.suggestions"
 			:suggestionsLabel="t(APP_ID, 'Common names no account here uses:')"
 			:problems="problems"
-			:emptyText="t(APP_ID, 'No name is reserved yet. Nothing is reserved until you choose it.')"
+			:emptyText="t(APP_ID, 'No name is reserved yet.')"
 			:max="reserved.max"
 			:busy="busy"
 			:error="error"

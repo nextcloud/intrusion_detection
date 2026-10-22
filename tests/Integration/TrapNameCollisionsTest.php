@@ -48,7 +48,7 @@ class TrapNameCollisionsTest extends IntegrationTestCase {
 		$reading = new TrapNameCollisions(Server::get(Settings::class), Server::get(DecoyMapper::class), $accounts, Server::get(ITimeFactory::class));
 		$this->assertSame([], $reading->all(), 'the stored result, without a lookup');
 		$l = Server::get(\OCP\L10N\IFactory::class)->get('intrusion_detection', 'en');
-		$this->assertNull((new TrapNameCollisionCheck($l, Server::get(\OCA\IntrusionDetection\Notification\AdminLinks::class), $reading))->finding($l));
+		$this->assertNull((new TrapNameCollisionCheck($l, Server::get(\OCA\IntrusionDetection\Notification\AdminLinks::class), $reading, Server::get(Settings::class)))->finding($l));
 
 		$this->assertSame([self::UID], Server::get(TrapNameCollisions::class)->refresh()['reserved']);
 		$this->assertSame([self::UID], $reading->all());

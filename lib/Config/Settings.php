@@ -210,11 +210,13 @@ class Settings {
 	}
 
 	/**
+	 * @param bool $reported false for a change the app makes on its own and
+	 *                       writes to the audit log itself: it is no administration change
 	 * @return bool whether the value changed
 	 * @throws InvalidParamException
 	 */
-	public function setParam(string $checkId, string $name, mixed $value): bool {
-		return $this->writeParam($checkId, $name, $this->validatedParam($checkId, $name, $value));
+	public function setParam(string $checkId, string $name, mixed $value, bool $reported = true): bool {
+		return $this->writeParam($checkId, $name, $this->validatedParam($checkId, $name, $value), $reported);
 	}
 
 	/**
@@ -237,11 +239,11 @@ class Settings {
 	/**
 	 * @param int|float|bool|string|list<string> $value validated
 	 */
-	private function writeParam(string $checkId, string $name, int|float|bool|string|array $value): bool {
+	private function writeParam(string $checkId, string $name, int|float|bool|string|array $value, bool $reported = true): bool {
 		$definition = $this->registry->get($checkId)->param($name);
 		$old = $this->param($checkId, $name);
 		$this->write(Keys::param($checkId, $name), $definition, $value);
-		return $this->presetChanged($definition, $this->changed(Keys::param($checkId, $name), $old, $this->param($checkId, $name)));
+		return $this->presetChanged($definition, $this->changed(Keys::param($checkId, $name), $old, $this->param($checkId, $name), $reported));
 	}
 
 	public function resetParam(string $checkId, string $name): void {

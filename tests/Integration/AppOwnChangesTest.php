@@ -18,7 +18,9 @@ use OCA\IntrusionDetection\Config\GlobalSettings;
 use OCA\IntrusionDetection\Config\Settings;
 use OCA\IntrusionDetection\Learning\LearningLimitException;
 use OCA\IntrusionDetection\Learning\LearningService;
+use OCA\IntrusionDetection\Repair\ReserveSuggestedNames;
 use OCA\IntrusionDetection\Repair\StartLearningMode;
+use OCA\IntrusionDetection\Traps\ReservedNames;
 use OCP\AppFramework\Utility\ITimeFactory;
 use OCP\EventDispatcher\IEventDispatcher;
 use OCP\Log\Audit\CriticalActionPerformedEvent;
@@ -53,7 +55,10 @@ class AppOwnChangesTest extends AdminChangeTestCase {
 
 	public function testAFreshInstallAndOneLearningPeriodAreNoAdministrationChanges(): void {
 		$this->assertSame(0, Server::get(Settings::class)->getInt(GlobalSettings::INSTALLED_AT), 'A fresh install');
+		Server::get(ReserveSuggestedNames::class)->run($this->createMock(IOutput::class));
 		Server::get(StartLearningMode::class)->run($this->createMock(IOutput::class));
+		$reserved = Server::get(ReservedNames::class)->list();
+		$this->assertNotSame([], $reserved);
 		$learning = Server::get(LearningService::class);
 		$this->assertTrue($learning->isActive());
 
@@ -71,6 +76,7 @@ class AppOwnChangesTest extends AdminChangeTestCase {
 		$this->assertSame([], $this->adminChanges());
 		$this->assertSame([], CapturingNotificationApp::$notifications);
 		$this->assertSame([
+			'Intrusion detection: reserved names ' . implode(', ', $reserved) . ' added at installation',
 			'Intrusion detection: learning mode started for 7 days at installation',
 			'Intrusion detection: learning mode ended automatically; protection is active',
 		], self::$audit);
