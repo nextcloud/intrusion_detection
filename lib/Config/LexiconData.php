@@ -505,7 +505,7 @@ final class LexiconData {
 				'notify_admin',
 			],
 			'requirements' => [],
-			'learning' => false,
+			'learning' => true,
 			'onlyNotifies' => false,
 			'params' => [
 				'names' => [

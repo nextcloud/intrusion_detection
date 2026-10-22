@@ -552,7 +552,7 @@ class Settings {
 
 	/**
 	 * Whether a check set to Protect acts during learning mode: checks that
-	 * only notify always do, and so do decoys.
+	 * only notify always do, and so do decoys and reserved names.
 	 */
 	public function actsWhileLearning(string $checkId): bool {
 		return self::specActsWhileLearning($this->check($checkId));

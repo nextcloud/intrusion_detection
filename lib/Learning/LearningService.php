@@ -19,7 +19,7 @@ use OCP\Notification\IManager as INotificationManager;
 
 /**
  * Learning mode: while it lasts, every check set to Protect only observes,
- * except checks that only notify and (by default) decoys. It starts for seven days when the app is
+ * except checks that only notify, decoys and reserved names. It starts for seven days when the app is
  * installed and can be started again for 1 to 30 days at any time.
  *
  * Starting, extending and ending it is written to the audit log with who

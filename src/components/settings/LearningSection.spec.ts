@@ -43,7 +43,7 @@ describe('the learning mode and other settings', () => {
 
 	test('learning mode says what still blocks', () => {
 		const text = mount(LearningSection).text()
-		expect(text).toContain('Checks set to Protect only record what they would block; earlier blocks, blocks you add by hand, a user\'s "No, it was not me" and decoys still block.')
+		expect(text).toContain('Checks set to Protect only record what they would block; earlier blocks, blocks you add by hand, a user\'s "No, it was not me", decoys and reserved names still block.')
 		expect(text).toContain('Alerts are still sent.')
 	})
 })

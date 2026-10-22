@@ -60,7 +60,7 @@ class LearningModeCheck extends ProblemCheck {
 			'learning_long',
 			Finding::LEVEL_INFO,
 			$l->t('Learning mode is still on'),
-			$l->n('Learning mode has been on for %n day.', 'Learning mode has been on for %n days.', $days) . ' ' . $l->t('Checks set to Protect only record what they would block; earlier blocks, blocks you add by hand, a user\'s "No, it was not me" and decoys still block.'),
+			$l->n('Learning mode has been on for %n day.', 'Learning mode has been on for %n days.', $days) . ' ' . $l->t('Checks set to Protect only record what they would block; earlier blocks, blocks you add by hand, a user\'s "No, it was not me", decoys and reserved names still block.'),
 			$l->t('Look through the recent detections. If they show no false alarms, start protecting.'),
 			'#settings-learning',
 			$l->t('Open learning mode'),

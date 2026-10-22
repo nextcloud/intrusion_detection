@@ -65,13 +65,13 @@ class ReserveSuggestedNamesTest extends LoginFailureTestCase {
 		$this->assertNotContains('root', $reserved, 'An account of another user backend');
 	}
 
-	public function testALoginWithAReservedNameIsRecordedWhileLearningAndBlockedAfterwards(): void {
+	public function testALoginWithAReservedNameIsBlockedRightAfterInstallationEvenWhileLearning(): void {
 		$this->install();
 		$this->assertTrue(Server::get(LearningService::class)->isActive());
 
 		$this->failLogin('203.0.113.150', 'administrator');
 		$this->assertCount(1, $this->detectionsOf(ReservedName::ID));
-		$this->assertSame(0, $this->rows('ids_bans'), 'Learning mode only records it');
+		$this->assertCount(1, Server::get(BanMapper::class)->findActiveForKeys(['203.0.113.150'], time()), 'Reserved names act during learning, like decoys');
 
 		Server::get(LearningService::class)->stop('test');
 		$this->failLogin('203.0.113.151', 'Administrator');

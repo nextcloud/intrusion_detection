@@ -171,7 +171,7 @@ class LearningNoticesTest extends IntegrationTestCase {
 		$this->setLearningUntil(time() + 3600);
 		$this->notices->sendEndingNoticeIfDue();
 		$message = Server::get(Notifier::class)->prepare($this->sent[0], 'en')->getParsedMessage();
-		$this->assertStringContainsString('earlier blocks, blocks you add by hand, a user\'s "No, it was not me" and decoys still block.', $message);
+		$this->assertStringContainsString('earlier blocks, blocks you add by hand, a user\'s "No, it was not me", decoys and reserved names still block.', $message);
 		$this->assertStringNotContainsString('blocks nothing', $message);
 	}
 
