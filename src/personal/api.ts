@@ -5,19 +5,25 @@
 
 import type { KnownDevice, LoggedOutElsewhere, PersonalActivity, PersonalOverview, SecurityEvent, StaleCredential, TrustedNetwork } from './types.ts'
 
-import axios, { isAxiosError } from '@nextcloud/axios'
-import { ApiError, call, url, write } from '../services/api.ts'
+import { isAxiosError } from '@nextcloud/axios'
+import { ApiError, call } from '../services/api.ts'
 
-export const fetchOverview = () => call<PersonalOverview>(axios.get(url('personal/overview')))
+/**
+ * @param signal - Cancels the request
+ */
+export function fetchOverview(signal?: AbortSignal): Promise<PersonalOverview> {
+	return call<PersonalOverview>('get', 'personal/overview', { signal })
+}
 
 /**
  * The open questions and the timeline.
  *
  * @param limit - At most this many timeline entries, newest first
  * @param days - How far back
+ * @param signal - Cancels the request
  */
-export function fetchActivity(limit: number, days = 30): Promise<PersonalActivity> {
-	return call<PersonalActivity>(axios.get(url('personal/activity'), { params: { days, limit } }))
+export function fetchActivity(limit: number, days = 30, signal?: AbortSignal): Promise<PersonalActivity> {
+	return call<PersonalActivity>('get', 'personal/activity', { params: { days, limit }, signal })
 }
 
 /**
@@ -26,7 +32,7 @@ export function fetchActivity(limit: number, days = 30): Promise<PersonalActivit
  * @param id - The event
  */
 export function denyEvent(id: number): Promise<SecurityEvent> {
-	return call<SecurityEvent>(axios.post(url(`personal/detections/${id}/deny`)))
+	return call<SecurityEvent>('post', `personal/detections/${id}/deny`)
 }
 
 /**
@@ -35,7 +41,7 @@ export function denyEvent(id: number): Promise<SecurityEvent> {
  * @param id - The event
  */
 export function confirmEvent(id: number): Promise<SecurityEvent> {
-	return call<SecurityEvent>(axios.post(url(`personal/detections/${id}/confirm`), {}, write))
+	return call<SecurityEvent>('post', `personal/detections/${id}/confirm`, { data: {}, confirm: true })
 }
 
 /**
@@ -47,27 +53,42 @@ export function isRefusedFromThisSession(error: unknown): boolean {
 	return error instanceof ApiError && isAxiosError(error.cause) && error.cause.response?.status === 403
 }
 
-export const fetchKnownDevices = () => call<KnownDevice[]>(axios.get(url('personal/known-devices')))
+/**
+ * @param signal - Cancels the request
+ */
+export function fetchKnownDevices(signal?: AbortSignal): Promise<KnownDevice[]> {
+	return call<KnownDevice[]>('get', 'personal/known-devices', { signal })
+}
 
 /**
  * @param id - The device
  */
 export function removeKnownDevice(id: number): Promise<{ removed: number }> {
-	return call<{ removed: number }>(axios.delete(url(`personal/known-devices/${id}`)))
+	return call<{ removed: number }>('delete', `personal/known-devices/${id}`)
 }
 
-export const fetchTrustedNetworks = () => call<TrustedNetwork[]>(axios.get(url('personal/trusted-networks')))
+/**
+ * @param signal - Cancels the request
+ */
+export function fetchTrustedNetworks(signal?: AbortSignal): Promise<TrustedNetwork[]> {
+	return call<TrustedNetwork[]>('get', 'personal/trusted-networks', { signal })
+}
 
 /**
  * @param id - The entry
  */
 export function removeTrustedNetwork(id: number): Promise<{ removed: number }> {
-	return call<{ removed: number }>(axios.delete(url(`personal/trusted-networks/${id}`)))
+	return call<{ removed: number }>('delete', `personal/trusted-networks/${id}`)
 }
 
-export const logOutElsewhere = () => call<LoggedOutElsewhere>(axios.post(url('personal/log-out-elsewhere'), {}, write))
+export const logOutElsewhere = () => call<LoggedOutElsewhere>('post', 'personal/log-out-elsewhere', { data: {}, confirm: true })
 
-export const fetchStaleCredentials = () => call<StaleCredential[]>(axios.get(url('personal/stale-credentials')))
+/**
+ * @param signal - Cancels the request
+ */
+export function fetchStaleCredentials(signal?: AbortSignal): Promise<StaleCredential[]> {
+	return call<StaleCredential[]>('get', 'personal/stale-credentials', { signal })
+}
 
 /**
  * Remove one unused app password or device, after a recent password confirmation.
@@ -75,10 +96,10 @@ export const fetchStaleCredentials = () => call<StaleCredential[]>(axios.get(url
  * @param id - The credential
  */
 export function removeStaleCredential(id: number): Promise<{ removed: number }> {
-	return call<{ removed: number }>(axios.delete(url(`personal/stale-credentials/${id}`), write))
+	return call<{ removed: number }>('delete', `personal/stale-credentials/${id}`, { confirm: true })
 }
 
 /**
  * Remove every unused app password and device, after a recent password confirmation.
  */
-export const removeAllStaleCredentials = () => call<{ removed: number }>(axios.delete(url('personal/stale-credentials'), write))
+export const removeAllStaleCredentials = () => call<{ removed: number }>('delete', 'personal/stale-credentials', { confirm: true })

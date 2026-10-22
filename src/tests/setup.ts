@@ -3,6 +3,8 @@
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 
+import { afterEach } from 'vitest'
+
 // The parts of the Nextcloud page and of a browser that jsdom does not provide.
 
 window.OC = {
@@ -38,3 +40,7 @@ if (!('innerText' in HTMLElement.prototype)) {
 		},
 	})
 }
+
+// Every test starts without data loaded by an earlier one. Imported late, so
+// that it is the module the test file uses, with its mocks.
+afterEach(async () => (await import('../composables/useResource.ts')).clearResources())

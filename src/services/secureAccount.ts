@@ -3,55 +3,36 @@
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 
-import type { OCSResponse } from '@nextcloud/typings/ocs'
 import type { AccountGuide, SecureAccount, SecureAccountProgress, SecureAccountStepId } from '../secureAccountTypes.ts'
 
 import axios, { isAxiosError } from '@nextcloud/axios'
 import { PwdConfirmationMode } from '@nextcloud/password-confirmation'
 import { generateOcsUrl, generateUrl } from '@nextcloud/router'
-import { ApiError } from './api.ts'
+import { ApiError, call } from './api.ts'
 
 /**
- * @param path - Path below the app's API
+ * @param signal - Cancels the request
  */
-function url(path: string): string {
-	return generateOcsUrl('apps/intrusion_detection/api/v1/' + path)
+export function fetchSecureAccount(signal?: AbortSignal): Promise<SecureAccount> {
+	return call<SecureAccount>('get', 'personal/secure-account', { signal })
 }
 
 /**
- * Run an OCS request and unwrap the envelope; errors the server explained become `ApiError`.
- *
- * @param request - The request
+ * @param signal - Cancels the request
  */
-async function call<T>(request: Promise<{ data: OCSResponse<T> }>): Promise<T> {
-	try {
-		const { data } = await request
-		return data.ocs.data
-	} catch (error) {
-		if (isAxiosError(error) && error.response?.data?.ocs) {
-			const ocs = (error.response.data as OCSResponse<{ message?: string }>).ocs
-			const message = ocs.data?.message || ocs.meta.message
-			if (message) {
-				throw new ApiError(message, null, { cause: error })
-			}
-		}
-		throw error
-	}
+export function fetchSecureAccountProgress(signal?: AbortSignal): Promise<SecureAccountProgress> {
+	return call<SecureAccountProgress>('get', 'personal/secure-account/progress', { signal })
 }
 
-export const fetchSecureAccount = () => call<SecureAccount>(axios.get(url('personal/secure-account')))
+export const startSecureAccount = () => call<SecureAccount>('post', 'personal/secure-account')
 
-export const fetchSecureAccountProgress = () => call<SecureAccountProgress>(axios.get(url('personal/secure-account/progress')))
-
-export const startSecureAccount = () => call<SecureAccount>(axios.post(url('personal/secure-account')))
-
-export const dismissSecureAccount = () => call<SecureAccount>(axios.delete(url('personal/secure-account')))
+export const dismissSecureAccount = () => call<SecureAccount>('delete', 'personal/secure-account')
 
 /**
  * @param step - A step the user checks themselves
  */
 export function completeStep(step: SecureAccountStepId): Promise<SecureAccount> {
-	return call<SecureAccount>(axios.post(url('personal/secure-account/steps/' + step)))
+	return call<SecureAccount>('post', 'personal/secure-account/steps/' + step)
 }
 
 /**
@@ -89,21 +70,22 @@ export async function changePassword(oldPassword: string, newPassword: string): 
 
 /**
  * @param detectionId - A detection about the account
+ * @param signal - Cancels the request
  */
-export function fetchAccountGuide(detectionId: number): Promise<AccountGuide> {
-	return call<AccountGuide>(axios.get(url('detections/' + detectionId + '/secure-account')))
+export function fetchAccountGuide(detectionId: number, signal?: AbortSignal): Promise<AccountGuide> {
+	return call<AccountGuide>('get', 'detections/' + detectionId + '/secure-account', { signal })
 }
 
 /**
  * @param detectionId - The detection of the lock
  */
 export function reenableAccount(detectionId: number): Promise<AccountGuide> {
-	return call<AccountGuide>(axios.post(url('detections/' + detectionId + '/reenable'), {}, { confirmPassword: PwdConfirmationMode.Lax }))
+	return call<AccountGuide>('post', 'detections/' + detectionId + '/reenable', { data: {}, confirm: true })
 }
 
 /**
  * @param detectionId - A detection about the account
  */
 export function confirmPasswordReset(detectionId: number): Promise<AccountGuide> {
-	return call<AccountGuide>(axios.post(url('detections/' + detectionId + '/secure-account/password'), {}, { confirmPassword: PwdConfirmationMode.Lax }))
+	return call<AccountGuide>('post', 'detections/' + detectionId + '/secure-account/password', { data: {}, confirm: true })
 }

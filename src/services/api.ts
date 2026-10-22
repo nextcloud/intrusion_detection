@@ -94,42 +94,83 @@ export function errorMessage(error: unknown, fallback: string): string {
 	return error instanceof ApiError ? error.message : fallback
 }
 
-/** Writes need a recent password confirmation; the page asks for it when needed. */
-export const write = { confirmPassword: PwdConfirmationMode.Lax }
-
 /**
  * @param path - Path below the app's API
  */
-export function url(path: string): string {
+function url(path: string): string {
 	return generateOcsUrl('apps/intrusion_detection/api/v1/' + path)
 }
 
+export interface RequestOptions {
+	/** Query parameters */
+	params?: Record<string, unknown>
+	/** The request body */
+	data?: unknown
+	/** The request needs a recent password confirmation; the page asks for it when needed */
+	confirm?: boolean
+	/** Cancels the request */
+	signal?: AbortSignal
+}
+
 /**
- * Run a request and unwrap the OCS envelope; errors become `ApiError` where the server explained them.
+ * Send a request to the app's API and unwrap the OCS envelope; errors
+ * become `ApiError` where the server explained them.
  *
- * @param request - The request
+ * @param method - The HTTP method
+ * @param path - Path below the app's API
+ * @param options - Parameters, body, password confirmation and cancellation
  */
-export async function call<T>(request: Promise<{ data: OCSResponse<T> }>): Promise<T> {
+export async function call<T>(method: 'get' | 'post' | 'put' | 'delete', path: string, options: RequestOptions = {}): Promise<T> {
+	const { params, data, confirm, signal } = options
 	try {
-		const { data } = await request
-		return data.ocs.data
+		const response = await axios.request<OCSResponse<T>>({
+			method,
+			url: url(path),
+			params,
+			data,
+			signal,
+			...(confirm ? { confirmPassword: PwdConfirmationMode.Lax } : {}),
+		})
+		return response.data.ocs.data
 	} catch (error) {
-		if (isAxiosError(error) && error.response?.data?.ocs) {
-			const ocs = (error.response.data as OCSResponse<{ message?: string, param?: string | null }>).ocs
-			const message = ocs.data?.message || ocs.meta.message
-			if (message) {
-				throw new ApiError(message, ocs.data?.param ?? null, { cause: error })
-			}
-		}
-		throw error
+		throw explained(error)
 	}
 }
 
-export const fetchStatus = () => call<Status>(axios.get(url('status')))
+type OcsError = OCSResponse<{ message?: string, param?: string | null } | undefined>['ocs']
 
-export const fetchChecks = () => call<CheckList>(axios.get(url('checks')))
+/**
+ * The error as `ApiError` when the OCS answer explains it, else as it is.
+ *
+ * @param error - What a request threw
+ * @param ocs - The OCS envelope of the answer; read from the error when not given
+ */
+function explained(error: unknown, ocs?: OcsError): unknown {
+	const body = ocs ?? (isAxiosError(error) ? (error.response?.data as { ocs?: OcsError } | undefined)?.ocs : undefined)
+	const message = body?.data?.message || body?.meta?.message
+	return message ? new ApiError(message, body?.data?.param ?? null, { cause: error }) : error
+}
 
-export const fetchProtectionLevel = () => call<{ level: ProtectionLevel }>(axios.get(url('protection-level')))
+/**
+ * @param signal - Cancels the request
+ */
+export function fetchStatus(signal?: AbortSignal): Promise<Status> {
+	return call<Status>('get', 'status', { signal })
+}
+
+/**
+ * @param signal - Cancels the request
+ */
+export function fetchChecks(signal?: AbortSignal): Promise<CheckList> {
+	return call<CheckList>('get', 'checks', { signal })
+}
+
+/**
+ * @param signal - Cancels the request
+ */
+export function fetchProtectionLevel(signal?: AbortSignal): Promise<{ level: ProtectionLevel }> {
+	return call<{ level: ProtectionLevel }>('get', 'protection-level', { signal })
+}
 
 /**
  * Set every check limit and block duration to a level.
@@ -137,7 +178,7 @@ export const fetchProtectionLevel = () => call<{ level: ProtectionLevel }>(axios
  * @param level - The level
  */
 export function updateProtectionLevel(level: Exclude<ProtectionLevel, 'custom'>): Promise<{ level: ProtectionLevel, checks: CheckList }> {
-	return call<{ level: ProtectionLevel, checks: CheckList }>(axios.put(url('protection-level'), { level }, write))
+	return call<{ level: ProtectionLevel, checks: CheckList }>('put', 'protection-level', { data: { level }, confirm: true })
 }
 
 /**
@@ -148,14 +189,14 @@ export function updateProtectionLevel(level: Exclude<ProtectionLevel, 'custom'>)
  * @param change.params - New setting values by name
  */
 export function updateCheck(id: string, change: { mode?: Mode, responses?: string[], params?: Record<string, ParamValue> }): Promise<Check> {
-	return call<Check>(axios.put(url('checks/' + encodeURIComponent(id)), change, write))
+	return call<Check>('put', 'checks/' + encodeURIComponent(id), { data: change, confirm: true })
 }
 
 /**
  * @param id - The check id
  */
 export function resetCheck(id: string): Promise<Check> {
-	return call<Check>(axios.post(url('checks/' + encodeURIComponent(id) + '/reset'), {}, write))
+	return call<Check>('post', 'checks/' + encodeURIComponent(id) + '/reset', { data: {}, confirm: true })
 }
 
 /**
@@ -163,32 +204,36 @@ export function resetCheck(id: string): Promise<Check> {
  * @param limit - Page size
  * @param offset - Page start
  * @param since - Only detections since this Unix time
+ * @param signal - Cancels the request
  */
-export function fetchDetections(filters: Partial<DetectionFilters>, limit = 25, offset = 0, since = 0): Promise<DetectionList> {
-	return call<DetectionList>(axios.get(url('detections'), { params: { ...filters, limit, offset, since } }))
+export function fetchDetections(filters: Partial<DetectionFilters>, limit = 25, offset = 0, since = 0, signal?: AbortSignal): Promise<DetectionList> {
+	return call<DetectionList>('get', 'detections', { params: { ...filters, limit, offset, since }, signal })
 }
 
 /**
  * @param id - The detection id
+ * @param signal - Cancels the request
  */
-export function fetchDetection(id: number): Promise<DetectionDetail> {
-	return call<DetectionDetail>(axios.get(url('detections/' + id)))
+export function fetchDetection(id: number, signal?: AbortSignal): Promise<DetectionDetail> {
+	return call<DetectionDetail>('get', 'detections/' + id, { signal })
 }
 
 /**
  * @param days - How many days
+ * @param signal - Cancels the request
  */
-export function fetchDailyStats(days = 30): Promise<DailyStats> {
-	return call<DailyStats>(axios.get(url('stats/daily'), { params: { days } }))
+export function fetchDailyStats(days = 30, signal?: AbortSignal): Promise<DailyStats> {
+	return call<DailyStats>('get', 'stats/daily', { params: { days }, signal })
 }
 
 /**
  * @param all - Also ended and lifted blocks
  * @param limit - Page size
  * @param offset - Page start
+ * @param signal - Cancels the request
  */
-export function fetchBans(all = false, limit = 50, offset = 0): Promise<BanList> {
-	return call<BanList>(axios.get(url('bans'), { params: { all: all ? 1 : 0, limit, offset } }))
+export function fetchBans(all = false, limit = 50, offset = 0, signal?: AbortSignal): Promise<BanList> {
+	return call<BanList>('get', 'bans', { params: { all: all ? 1 : 0, limit, offset }, signal })
 }
 
 /**
@@ -199,7 +244,7 @@ export function fetchBans(all = false, limit = 50, offset = 0): Promise<BanList>
  * @param ban.note - Why
  */
 export function addBan(ban: { target: string, level: number, duration?: number, note: string }): Promise<Ban> {
-	return call<Ban>(axios.post(url('bans'), ban, write))
+	return call<Ban>('post', 'bans', { data: ban, confirm: true })
 }
 
 /**
@@ -207,14 +252,15 @@ export function addBan(ban: { target: string, level: number, duration?: number, 
  * @param note - Why it is lifted
  */
 export function liftBan(id: number, note: string): Promise<Ban> {
-	return call<Ban>(axios.delete(url('bans/' + id), { data: { note }, ...write }))
+	return call<Ban>('delete', 'bans/' + id, { data: { note }, confirm: true })
 }
 
 /**
  * @param q - A reference, an address or an account
+ * @param signal - Cancels the request
  */
-export function lookup(q: string): Promise<LookupResult> {
-	return call<LookupResult>(axios.get(url('lookup'), { params: { q } }))
+export function lookup(q: string, signal?: AbortSignal): Promise<LookupResult> {
+	return call<LookupResult>('get', 'lookup', { params: { q }, signal })
 }
 
 /**
@@ -222,38 +268,64 @@ export function lookup(q: string): Promise<LookupResult> {
  * @param days - For start and extend
  */
 export function updateLearning(action: 'start' | 'extend' | 'stop', days = 7): Promise<Learning> {
-	return call<Learning>(axios.put(url('learning'), { action, days }, write))
+	return call<Learning>('put', 'learning', { data: { action, days }, confirm: true })
 }
 
-export const fetchSettings = () => call<SettingsPayload>(axios.get(url('settings')))
+/**
+ * @param signal - Cancels the request
+ */
+export function fetchSettings(signal?: AbortSignal): Promise<SettingsPayload> {
+	return call<SettingsPayload>('get', 'settings', { signal })
+}
 
 /**
  * @param values - New values by setting name
  */
 export function updateSettings(values: Record<string, ParamValue>): Promise<SettingsPayload> {
-	return call<SettingsPayload>(axios.put(url('settings'), { values }, write))
+	return call<SettingsPayload>('put', 'settings', { data: { values }, confirm: true })
 }
 
-export const resetSettings = () => call<SettingsPayload>(axios.post(url('settings/reset'), {}, write))
+export const resetSettings = () => call<SettingsPayload>('post', 'settings/reset', { data: {}, confirm: true })
 
-export const exportSettings = () => call<Record<string, unknown>>(axios.get(url('settings/export')))
+export const exportSettings = () => call<Record<string, unknown>>('get', 'settings/export')
 
-export const fetchDigest = () => call<DigestOverview>(axios.get(url('digest')))
+/**
+ * @param signal - Cancels the request
+ */
+export function fetchDigest(signal?: AbortSignal): Promise<DigestOverview> {
+	return call<DigestOverview>('get', 'digest', { signal })
+}
 
-export const sendTestDigest = () => call<{ message: string }>(axios.post(url('digest/test'), {}, write))
+export const sendTestDigest = () => call<{ message: string }>('post', 'digest/test', { data: {}, confirm: true })
 
-export const fetchWebhookEvents = () => call<WebhookEvents>(axios.get(url('events')))
+/**
+ * @param signal - Cancels the request
+ */
+export function fetchWebhookEvents(signal?: AbortSignal): Promise<WebhookEvents> {
+	return call<WebhookEvents>('get', 'events', { signal })
+}
 
 /**
  * @param id - The check id
+ * @param signal - Cancels the request
  */
-export function simulateCheck(id: string): Promise<Simulation> {
-	return call<Simulation>(axios.get(url('checks/' + encodeURIComponent(id) + '/simulation')))
+export function simulateCheck(id: string, signal?: AbortSignal): Promise<Simulation> {
+	return call<Simulation>('get', 'checks/' + encodeURIComponent(id) + '/simulation', { signal })
 }
 
-export const fetchExport = () => call<FirewallExport>(axios.get(url('export')))
+/**
+ * @param signal - Cancels the request
+ */
+export function fetchExport(signal?: AbortSignal): Promise<FirewallExport> {
+	return call<FirewallExport>('get', 'export', { signal })
+}
 
-export const fetchBlocklists = () => call<Blocklists>(axios.get(url('blocklists')))
+/**
+ * @param signal - Cancels the request
+ */
+export function fetchBlocklists(signal?: AbortSignal): Promise<Blocklists> {
+	return call<Blocklists>('get', 'blocklists', { signal })
+}
 
 /**
  * @param list - The new list
@@ -266,7 +338,7 @@ export const fetchBlocklists = () => call<Blocklists>(axios.get(url('blocklists'
 export function createBlocklist(list: { id: string, url: string, purpose: string, format: string, mode: string }): Promise<Blocklist> {
 	const { format, ...rest } = list
 	// "format" would choose the OCS response format
-	return call<Blocklist>(axios.post(url('blocklists'), { ...rest, fileFormat: format }, write))
+	return call<Blocklist>('post', 'blocklists', { data: { ...rest, fileFormat: format }, confirm: true })
 }
 
 /**
@@ -277,24 +349,29 @@ export function createBlocklist(list: { id: string, url: string, purpose: string
  * @param change.interval - Seconds between downloads, 0 for the default
  */
 export function updateBlocklist(id: string, change: { enabled?: boolean, mode?: string, interval?: number }): Promise<Blocklist> {
-	return call<Blocklist>(axios.put(url('blocklists/' + encodeURIComponent(id)), change, write))
+	return call<Blocklist>('put', 'blocklists/' + encodeURIComponent(id), { data: change, confirm: true })
 }
 
 /**
  * @param id - The list
  */
 export function removeBlocklist(id: string): Promise<{ removed: string }> {
-	return call<{ removed: string }>(axios.delete(url('blocklists/' + encodeURIComponent(id)), write))
+	return call<{ removed: string }>('delete', 'blocklists/' + encodeURIComponent(id), { confirm: true })
 }
 
 /**
  * @param id - The list
  */
 export function syncBlocklist(id: string): Promise<{ result: SyncResult, list: Blocklist }> {
-	return call<{ result: SyncResult, list: Blocklist }>(axios.post(url('blocklists/' + encodeURIComponent(id) + '/sync'), {}, write))
+	return call<{ result: SyncResult, list: Blocklist }>('post', 'blocklists/' + encodeURIComponent(id) + '/sync', { data: {}, confirm: true })
 }
 
-export const fetchTraps = () => call<Traps>(axios.get(url('decoys')))
+/**
+ * @param signal - Cancels the request
+ */
+export function fetchTraps(signal?: AbortSignal): Promise<Traps> {
+	return call<Traps>('get', 'decoys', { signal })
+}
 
 /**
  * @param decoy - The decoy to create
@@ -304,14 +381,14 @@ export const fetchTraps = () => call<Traps>(axios.get(url('decoys')))
  */
 export function createDecoy(decoy: { label: string, loginName: string, format: DecoyFormat }): Promise<NewDecoy> {
 	// "format" would choose the OCS response format
-	return call<NewDecoy>(axios.post(url('decoys'), { label: decoy.label, loginName: decoy.loginName, secretFormat: decoy.format }, write))
+	return call<NewDecoy>('post', 'decoys', { data: { label: decoy.label, loginName: decoy.loginName, secretFormat: decoy.format }, confirm: true })
 }
 
 /**
  * @param id - The decoy
  */
 export function deleteDecoy(id: number): Promise<{ deleted: number }> {
-	return call<{ deleted: number }>(axios.delete(url('decoys/' + id), write))
+	return call<{ deleted: number }>('delete', 'decoys/' + id, { confirm: true })
 }
 
 /**
@@ -320,7 +397,7 @@ export function deleteDecoy(id: number): Promise<{ deleted: number }> {
  * @param change.remove - Names to release
  */
 export function updateReservedNames(change: { add?: string[], remove?: string[] }): Promise<ReservedNames> {
-	return call<ReservedNames>(axios.put(url('reserved-names'), change, write))
+	return call<ReservedNames>('put', 'reserved-names', { data: change, confirm: true })
 }
 
 /**
@@ -331,29 +408,44 @@ export function updateReservedNames(change: { add?: string[], remove?: string[] 
  * @param change.autodiscover - Trap the autodiscover path
  */
 export function updateTrapPaths(change: { add?: string[], remove?: string[], builtinEnabled?: boolean, autodiscover?: boolean }): Promise<TrapPathList> {
-	return call<TrapPathList>(axios.put(url('trap-paths'), change, write))
+	return call<TrapPathList>('put', 'trap-paths', { data: change, confirm: true })
 }
 
-export const fetchNotifications = () => call<Notifications>(axios.get(url('notifications')))
+/**
+ * @param signal - Cancels the request
+ */
+export function fetchNotifications(signal?: AbortSignal): Promise<Notifications> {
+	return call<Notifications>('get', 'notifications', { signal })
+}
 
-export const sendTestAlert = () => call<TestAlertResult>(axios.post(url('notifications/test'), {}, write))
+export const sendTestAlert = () => call<TestAlertResult>('post', 'notifications/test', { data: {}, confirm: true })
 
-export const fetchPrivacy = () => call<Privacy>(axios.get(url('privacy')))
+/**
+ * @param signal - Cancels the request
+ */
+export function fetchPrivacy(signal?: AbortSignal): Promise<Privacy> {
+	return call<Privacy>('get', 'privacy', { signal })
+}
 
-export const fetchSignatures = () => call<Signatures>(axios.get(url('payload/signatures')))
+/**
+ * @param signal - Cancels the request
+ */
+export function fetchSignatures(signal?: AbortSignal): Promise<Signatures> {
+	return call<Signatures>('get', 'payload/signatures', { signal })
+}
 
 /**
  * @param entries - Custom signatures to check before saving
  */
 export function checkSignatures(entries: string[]): Promise<{ entries: CustomSignature[] }> {
-	return call<{ entries: CustomSignature[] }>(axios.post(url('payload/signatures/check'), { entries }))
+	return call<{ entries: CustomSignature[] }>('post', 'payload/signatures/check', { data: { entries } })
 }
 
 /**
  * @param input - A URL or a value
  */
 export function testPayload(input: string): Promise<PayloadTest> {
-	return call<PayloadTest>(axios.post(url('payload/test'), { input }))
+	return call<PayloadTest>('post', 'payload/test', { data: { input } })
 }
 
 /**
@@ -378,7 +470,7 @@ function incidentParams(request: IncidentRequest): Record<string, string | numbe
  * @param request - Subject and period
  */
 export function buildIncidentReport(request: IncidentRequest): Promise<IncidentReport> {
-	return call<IncidentReport>(axios.post(url('incidents/report'), incidentParams(request), write))
+	return call<IncidentReport>('post', 'incidents/report', { data: incidentParams(request), confirm: true })
 }
 
 /**
@@ -390,24 +482,20 @@ export function buildIncidentReport(request: IncidentRequest): Promise<IncidentR
  */
 export async function downloadIncidentReport(request: IncidentRequest, output: 'json' | 'html'): Promise<{ blob: Blob, filename: string }> {
 	try {
-		const response = await axios.post<Blob>(url('incidents/report/download'), { ...incidentParams(request), output }, { ...write, responseType: 'blob' })
+		const response = await axios.post<Blob>(url('incidents/report/download'), { ...incidentParams(request), output }, { confirmPassword: PwdConfirmationMode.Lax, responseType: 'blob' })
 		const disposition = String(response.headers['content-disposition'] ?? '')
 		const match = disposition.match(/filename="?([^";]+)"?/)
 		return { blob: response.data, filename: match?.[1] ?? 'incident-report.' + output }
 	} catch (error) {
 		// Errors arrive as a blob too; read the OCS message out of it.
 		if (isAxiosError(error) && error.response?.data instanceof Blob) {
+			let ocs: unknown
 			try {
-				const ocs = JSON.parse(await error.response.data.text())?.ocs
-				const message = ocs?.data?.message || ocs?.meta?.message
-				if (message) {
-					throw new ApiError(message, ocs?.data?.param ?? null, { cause: error })
-				}
-			} catch (parsed) {
-				if (parsed instanceof ApiError) {
-					throw parsed
-				}
+				ocs = JSON.parse(await error.response.data.text())?.ocs
+			} catch {
+				throw error
 			}
+			throw explained(error, ocs as OcsError | undefined)
 		}
 		throw error
 	}
@@ -418,24 +506,28 @@ export async function downloadIncidentReport(request: IncidentRequest, output: '
  * the account picker. Uses the provisioning API, which administrators may use.
  *
  * @param search - What was typed
+ * @param signal - Cancels the request
  */
-export async function searchAccounts(search: string): Promise<{ uid: string, displayName: string, email: string | null }[]> {
-	const { data } = await axios.get<OCSResponse<{ users: Record<string, { id: string, displayname?: string, email?: string | null }> | [] }>>(generateOcsUrl('cloud/users/details'), { params: { search, limit: 10 } })
+export async function searchAccounts(search: string, signal?: AbortSignal): Promise<{ uid: string, displayName: string, email: string | null }[]> {
+	const { data } = await axios.get<OCSResponse<{ users: Record<string, { id: string, displayname?: string, email?: string | null }> | [] }>>(generateOcsUrl('cloud/users/details'), { params: { search, limit: 10 }, signal })
 	return Object.values(data.ocs.data.users ?? {}).map((user) => ({ uid: user.id, displayName: user.displayname || user.id, email: user.email ?? null }))
 }
 
 /**
  * @param refresh - Count the accounts again instead of using the counts of the last hour
+ * @param signal - Cancels the request
  */
-export function fetchConfirmation(refresh = false): Promise<ConfirmationOverview> {
-	return call<ConfirmationOverview>(axios.get(url('confirmation'), { params: refresh ? { refresh: 1 } : {} }))
+export function fetchConfirmation(refresh = false, signal?: AbortSignal): Promise<ConfirmationOverview> {
+	return call<ConfirmationOverview>('get', 'confirmation', { params: refresh ? { refresh: 1 } : {}, signal })
 }
 
 /**
  * The logins that wait for an administrator, read live.
+ *
+ * @param signal - Cancels the request
  */
-export function fetchWaitingLogins(): Promise<LoginApproval[]> {
-	return call<LoginApproval[]>(axios.get(url('confirmation/waiting')))
+export function fetchWaitingLogins(signal?: AbortSignal): Promise<LoginApproval[]> {
+	return call<LoginApproval[]>('get', 'confirmation/waiting', { signal })
 }
 
 /**
@@ -444,7 +536,7 @@ export function fetchWaitingLogins(): Promise<LoginApproval[]> {
  * @param preset - recommended, refuse or allow
  */
 export function setConfirmationPreset(preset: ConfirmationPreset): Promise<ConfirmationPresetResult> {
-	return call<ConfirmationPresetResult>(axios.put(url('confirmation/preset'), { preset }, write))
+	return call<ConfirmationPresetResult>('put', 'confirmation/preset', { data: { preset }, confirm: true })
 }
 
 /**
@@ -453,14 +545,16 @@ export function setConfirmationPreset(preset: ConfirmationPreset): Promise<Confi
  * @param admins - Only administrators
  */
 export function fetchUnconfirmableAccounts(limit = 50, after = '', admins = false): Promise<UnconfirmableAccount[]> {
-	return call<UnconfirmableAccount[]>(axios.get(url('confirmation/accounts'), { params: { limit, after, admins: admins ? 1 : 0 } }))
+	return call<UnconfirmableAccount[]>('get', 'confirmation/accounts', { params: { limit, after, admins: admins ? 1 : 0 } })
 }
 
 /**
  * The accounts that wait to become administrators, oldest first.
+ *
+ * @param signal - Cancels the request
  */
-export function fetchAdminGrants(): Promise<AdminGrantRequest[]> {
-	return call<AdminGrantRequest[]>(axios.get(url('approvals/admin-grants')))
+export function fetchAdminGrants(signal?: AbortSignal): Promise<AdminGrantRequest[]> {
+	return call<AdminGrantRequest[]>('get', 'approvals/admin-grants', { signal })
 }
 
 /**
@@ -470,7 +564,7 @@ export function fetchAdminGrants(): Promise<AdminGrantRequest[]> {
  * @param id - The request
  */
 export function approveRequest(id: number): Promise<unknown> {
-	return call<unknown>(axios.post(url(`approvals/${id}/approve`), {}, write))
+	return call<unknown>('post', `approvals/${id}/approve`, { data: {}, confirm: true })
 }
 
 /**
@@ -480,5 +574,5 @@ export function approveRequest(id: number): Promise<unknown> {
  * @param id - The request
  */
 export function rejectRequest(id: number): Promise<unknown> {
-	return call<unknown>(axios.post(url(`approvals/${id}/reject`)))
+	return call<unknown>('post', `approvals/${id}/reject`)
 }
