@@ -37,24 +37,27 @@ use OCP\Notification\IManager as INotificationManager;
 /**
  * The answers to "Was this you?" (concept section 11.8). Only ever about
  * the answering user's own detections, one answer per detection. Neither
- * answer is taken from an app password or from a session whose own login
- * is unconfirmed ({@see SessionConfirmation}).
+ * answer is taken from a session whose own login is unconfirmed
+ * ({@see SessionConfirmation}).
  *
  * - "No, it was not me" ends the sessions and app passwords linked to the
  *   detection, requires a new password when the password was involved,
  *   blocks the address at the second level (unless the answer comes from
  *   that address), marks its network, and tells the administrators
  *   (detection `user_denied`, high). From a session whose login proved no
- *   more than the password, which an attacker could have, the
- *   administrators are told, but nothing else is done: the question stays
- *   open, with its notification, until a session that proved more answers
- *   it. Such a "No" never claims the answer, so it cannot silence the
- *   account holder, and it keeps the remembered devices. Only the first
- *   one per detection is recorded; later ones change nothing.
+ *   more than the password, or with an app password (the Nextcloud apps
+ *   answer the notification with theirs), which an attacker could have
+ *   too, the administrators are told, but nothing else is done: the
+ *   question stays open, with its notification, until a session that
+ *   proved more answers it. Such a "No" never claims the answer, so it
+ *   cannot silence the account holder, and it keeps the remembered
+ *   devices. Only the first one per detection is recorded; later ones
+ *   change nothing.
  * - "Yes, it was me" (the controller asks for the password first) needs a
- *   session whose login proved more than the password, and not the
- *   session the detection is about: an attacker in the account must not
- *   vouch for themselves. It trusts the detection's network for the user.
+ *   browser session whose login proved more than the password, and not
+ *   the session the detection is about: an attacker in the account must
+ *   not vouch for themselves. It trusts the detection's network for the
+ *   user.
  *
  * Detections that involve two addresses ({@see Questions::TWO_SOURCES})
  * never block, mark or trust a network on an answer.
@@ -92,7 +95,7 @@ class WasThisYouService {
 	public function deny(IUser $user, int $detectionId): Detection {
 		$detection = $this->ownOpen($user, $detectionId);
 		$uid = $user->getUID();
-		$level = $this->confirmation->level($uid);
+		$level = $this->confirmation->denialLevel($uid);
 		if ($level === SessionConfirmation::UNCONFIRMED) {
 			throw new AnswerException(AnswerException::SESSION_NOT_ALLOWED);
 		}

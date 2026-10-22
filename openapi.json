@@ -1076,7 +1076,7 @@
                 ],
                 "responses": {
                     "200": {
-                        "description": "The answer was taken; from a session whose login proved only the password, the administrators were told and the event stays open (no verdict)",
+                        "description": "The answer was taken; from a session whose login proved only the password, or with an app password, the administrators were told and the event stays open (no verdict)",
                         "content": {
                             "application/json": {
                                 "schema": {
@@ -1136,7 +1136,7 @@
                         }
                     },
                     "403": {
-                        "description": "The answer cannot be given from this session",
+                        "description": "The answer cannot be given from this session: its login was not confirmed",
                         "content": {
                             "application/json": {
                                 "schema": {
@@ -1356,7 +1356,7 @@
                         }
                     },
                     "403": {
-                        "description": "This session may not answer \"Yes\" (it is the session the event is about)",
+                        "description": "This session may not answer \"Yes\": it is an app password, its login proved no more than the password, or it is the session the event is about",
                         "content": {
                             "application/json": {
                                 "schema": {
