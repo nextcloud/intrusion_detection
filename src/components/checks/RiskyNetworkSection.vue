@@ -31,7 +31,7 @@ const settings = computed(() => state.settings.filter((s) => s.group === 'risky_
 		</legend>
 		<SettingsGroup v-if="settings.length > 0" :settings="settings" />
 		<p v-if="checkOff" :class="$style.section__text">
-			{{ t(APP_ID, 'This check is off. The office networks still lower the risk score of their addresses.') }}
+			{{ t(APP_ID, 'This check is off. The trusted networks still lower the risk score of their addresses.') }}
 		</p>
 		<p :class="$style.section__text">
 			{{ t(APP_ID, 'Which hosting providers and Tor exit nodes count is set by the network lists. They are all off until you switch one on.') }}

@@ -53,6 +53,7 @@ use OCA\IntrusionDetection\Middleware\SessionStateMiddleware;
 use OCA\IntrusionDetection\Notification\Notifier;
 use OCA\IntrusionDetection\Notification\ShareOwnerNotifier;
 use OCA\IntrusionDetection\SetupCheck\AdminContactCheck;
+use OCA\IntrusionDetection\SetupCheck\AdminNetworksCheck;
 use OCA\IntrusionDetection\SetupCheck\ApprovalCheck;
 use OCA\IntrusionDetection\SetupCheck\BlocklistSyncCheck;
 use OCA\IntrusionDetection\SetupCheck\BruteForceProtectionCheck;
@@ -116,6 +117,7 @@ class Application extends App implements IBootstrap {
 		LearningModeCheck::class,
 		UsersWithoutConfirmationCheck::class,
 		AdminContactCheck::class,
+		AdminNetworksCheck::class,
 	];
 
 	public function __construct(array $urlParams = []) {

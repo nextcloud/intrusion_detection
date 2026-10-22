@@ -164,6 +164,26 @@ describe('the login confirmation section', () => {
 		expect(updateSettings).toHaveBeenCalledWith({ known_device_enabled: false })
 	})
 
+	test('administrators from trusted networks only: off by default, and once on, the networks and a warning while there are none', async () => {
+		state.settings.push(setting('admin_trusted_networks_only', 'bool', false), { ...setting('risky_network_office_networks', 'cidr_list', []), label: 'Trusted networks (office, VPN)', group: 'risky_network' })
+		vi.mocked(updateSettings).mockResolvedValue({ settings: [...state.settings.filter((s) => s.name !== 'admin_trusted_networks_only'), setting('admin_trusted_networks_only', 'bool', true)], templates: {} })
+		const wrapper = await mountTab()
+		expect(wrapper.get('[data-test="admin-networks"]').text()).toContain('Administrators log in from trusted networks only')
+		expect(wrapper.find('[data-test="admin-networks-details"]').exists()).toBe(false)
+
+		await wrapper.get('[data-test="admin-networks"] input').setValue(true)
+		await flushPromises()
+		expect(updateSettings).toHaveBeenCalledWith({ admin_trusted_networks_only: true })
+		const details = wrapper.get('[data-test="admin-networks-details"]')
+		expect(details.get('[data-test="admin-networks-empty"]').text()).toContain('There are no trusted networks yet, so every administrator login from anywhere needs confirmation.')
+		expect(details.text()).toContain('Trusted networks (office, VPN)')
+		expect(details.text()).toContain('occ config:app:set intrusion_detection admin_trusted_networks_only --value=false')
+
+		state.settings = state.settings.map((s) => s.name === 'risky_network_office_networks' ? { ...s, value: ['192.0.2.0/24'] } : s)
+		await nextTick()
+		expect(wrapper.find('[data-test="admin-networks-empty"]').exists()).toBe(false)
+	})
+
 	test('shows the methods in the order they are tried, with their state', async () => {
 		const wrapper = await mountTab()
 		await wrapper.get('[data-test="confirmation-more"] button').trigger('click')

@@ -105,7 +105,7 @@ class RiskExplainer {
 			RiskAssessment::FACT_TRAP => $l->t('trap or reserved name in the last 24 hours'),
 			RiskAssessment::FACT_FLAGGED => $l->t('marked after an attack'),
 			RiskAssessment::FACT_FAILURES => $l->n('%n failed login in the last hour', '%n failed logins in the last hour', (int)$detail),
-			RiskAssessment::FACT_OFFICE => $l->t('office network %s', [$detail]),
+			RiskAssessment::FACT_OFFICE => $l->t('trusted network %s', [$detail]),
 			default => $part['fact'],
 		};
 	}

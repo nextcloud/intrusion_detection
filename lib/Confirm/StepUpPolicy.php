@@ -32,6 +32,8 @@ enum StepUpPolicy: string {
 	case RiskyNetwork = 'risky_network';
 	/** The address has a high risk score */
 	case RiskHigh = 'risk_high';
+	/** An administrator logs in from outside the trusted networks */
+	case AdminOutsideNetworks = 'admin_outside_networks';
 
 	/**
 	 * What happens by default when no confirmation method is available.
@@ -78,6 +80,7 @@ enum StepUpPolicy: string {
 			self::BreachedPassword => $l->t('Login with a password from a data breach'),
 			self::RiskyNetwork => $l->t('Login from a hosting or Tor network'),
 			self::RiskHigh => $l->t('Login from an address with a high risk score'),
+			self::AdminOutsideNetworks => $l->t('Administrator login from outside the trusted networks'),
 		};
 	}
 
@@ -93,6 +96,7 @@ enum StepUpPolicy: string {
 			self::BreachedPassword => $l->t('the password is on a public list of leaked passwords'),
 			self::RiskyNetwork => $l->t('the address belongs to a hosting provider or the Tor network'),
 			self::RiskHigh => $l->t('the address has a high risk score'),
+			self::AdminOutsideNetworks => $l->t('administrators may log in only from the trusted networks, and this address is outside them'),
 		};
 	}
 
@@ -123,6 +127,7 @@ enum StepUpPolicy: string {
 			self::BreachedPassword => $l->t('The password must change anyway, and refusing would lock people out without an attack.'),
 			self::RiskyNetwork => $l->t('Hosting networks are suspicious, not evidence.'),
 			self::RiskHigh => $l->t('Many signs of an attack come together at this address.'),
+			self::AdminOutsideNetworks => $l->t('You chose that administrators log in from the trusted networks only.'),
 		};
 	}
 }

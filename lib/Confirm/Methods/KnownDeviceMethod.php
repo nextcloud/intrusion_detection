@@ -24,13 +24,14 @@ use OCP\IUser;
  * silently, without asking anything.
  *
  * A device proves who holds the device, not that the password is still
- * safe. So it never confirms a login whose password is being sprayed or is
- * known from a breach (NEVER), and the other policies accept it only as
- * `step_up_known_device_ok_for` says.
+ * safe, nor where the login comes from. So it never confirms a login whose
+ * password is being sprayed or is known from a breach, nor an
+ * administrator's login from outside the trusted networks (NEVER), and the
+ * other policies accept it only as `step_up_known_device_ok_for` says.
  */
 class KnownDeviceMethod implements IConfirmationMethod {
 	/** @var list<StepUpPolicy> */
-	public const NEVER = [StepUpPolicy::SprayedPassword, StepUpPolicy::BreachedPassword];
+	public const NEVER = [StepUpPolicy::SprayedPassword, StepUpPolicy::BreachedPassword, StepUpPolicy::AdminOutsideNetworks];
 	/** @var list<string> */
 	public const DEFAULT_POLICIES = ['flagged_source', 'protected_account', 'risky_network', 'risk_high'];
 	/** The policies the setting may name: every one but NEVER */

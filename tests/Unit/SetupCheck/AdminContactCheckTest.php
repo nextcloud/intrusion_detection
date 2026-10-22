@@ -12,6 +12,8 @@ namespace OCA\IntrusionDetection\Tests\Unit\SetupCheck;
 use OC\Memcache\ArrayCache;
 use OCA\IntrusionDetection\Admin\SetupProblems;
 use OCA\IntrusionDetection\AdminChange\Approvers;
+use OCA\IntrusionDetection\Config\GlobalSettings;
+use OCA\IntrusionDetection\Config\Settings;
 use OCA\IntrusionDetection\Confirm\ConfirmationCoverage;
 use OCA\IntrusionDetection\Notification\AdminLinks;
 use OCA\IntrusionDetection\SetupCheck\AdminContactCheck;
@@ -84,6 +86,18 @@ class AdminContactCheckTest extends TestCase {
 		$this->assertSame(Finding::LEVEL_ERROR, $check->finding($l)?->level, 'The second run uses the cached result');
 	}
 
+	public function testAdministratorsWhoCannotConfirmFromOutsideTheTrustedNetworksAreNamed(): void {
+		$admins = [['alice', 'alice@example.com', ['totp' => true]], ['bob', null, []]];
+		$this->assertStringNotContainsString('trusted networks', (string)$this->check($admins)->getDescription(), 'Not while the switch is off');
+
+		$result = $this->check($admins, true);
+		$this->assertSame(SetupResult::WARNING, $result->getSeverity());
+		$this->assertStringContainsString('Administrators log in from trusted networks only, but 1 administrator has neither an email address nor a second factor to confirm a login from anywhere else: bob.', (string)$result->getDescription());
+
+		$this->assertStringContainsString('2 administrators have neither', (string)$this->check([['alice', null, []], ['bob', null, []]], true)->getDescription());
+		$this->assertSame(SetupResult::SUCCESS, $this->check([['alice', 'alice@example.com', ['totp' => true]]], true)->getSeverity());
+	}
+
 	public function testItIsShownUnderTheStatusBanner(): void {
 		$this->assertContains(AdminContactCheck::class, SetupProblems::CHECKS);
 	}
@@ -91,7 +105,7 @@ class AdminContactCheckTest extends TestCase {
 	/**
 	 * @param list<array{string, ?string, array<string, bool>}> $admins
 	 */
-	private function check(array $admins): SetupResult {
+	private function check(array $admins, bool $trustedNetworksOnly = false): SetupResult {
 		$users = [];
 		$states = [];
 		foreach ($admins as [$uid, $email, $providers]) {
@@ -102,7 +116,7 @@ class AdminContactCheckTest extends TestCase {
 		$approvers->method('all')->willReturn($users);
 		$registry = $this->createMock(IRegistry::class);
 		$registry->method('getProviderStates')->willReturnCallback(static fn (IUser $u): array => $states[$u->getUID()]);
-		return $this->instance($approvers, $registry)->run();
+		return $this->instance($approvers, $registry, $trustedNetworksOnly)->run();
 	}
 
 	private function admin(string $uid, ?string $email): IUser {
@@ -112,7 +126,7 @@ class AdminContactCheckTest extends TestCase {
 		return $user;
 	}
 
-	private function instance(Approvers $approvers, IRegistry $registry): AdminContactCheck {
+	private function instance(Approvers $approvers, IRegistry $registry, bool $trustedNetworksOnly = false): AdminContactCheck {
 		$cache = new ArrayCache();
 		$cacheFactory = $this->createMock(ICacheFactory::class);
 		$cacheFactory->method('createDistributed')->willReturn($cache);
@@ -128,6 +142,8 @@ class AdminContactCheckTest extends TestCase {
 		);
 		$links = $this->createMock(AdminLinks::class);
 		$links->method('adminPage')->willReturn('https://cloud.example.com/settings/admin/intrusion_detection');
-		return new AdminContactCheck(Server::get(IFactory::class)->get('intrusion_detection', 'en'), $links, $coverage);
+		$settings = $this->createMock(Settings::class);
+		$settings->method('getBool')->willReturnCallback(static fn (string $name): bool => $name === GlobalSettings::ADMIN_TRUSTED_NETWORKS_ONLY && $trustedNetworksOnly);
+		return new AdminContactCheck(Server::get(IFactory::class)->get('intrusion_detection', 'en'), $links, $coverage, $settings);
 	}
 }

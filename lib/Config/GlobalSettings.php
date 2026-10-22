@@ -91,8 +91,10 @@ final class GlobalSettings {
 
 	/** Whether the address risk score lowers limits and asks for confirmation (concept section 10.18) */
 	public const RISK_ENABLED = 'risk_enabled';
-	/** Networks whose addresses are never risky: the company's own networks and VPN */
+	/** The trusted networks: the company's own networks and VPN, whose addresses are never risky */
 	public const RISKY_NETWORK_OFFICE_NETWORKS = 'risky_network_office_networks';
+	/** Whether a password login of an administrator from outside the trusted networks needs extra confirmation */
+	public const ADMIN_TRUSTED_NETWORKS_ONLY = 'admin_trusted_networks_only';
 	/** Groups whose members may log in from hosting and Tor networks without extra confirmation */
 	public const RISKY_NETWORK_EXEMPT_GROUPS = 'risky_network_exempt_groups';
 	/** Whether users see the intrusion detection part of their security settings */
@@ -159,6 +161,7 @@ final class GlobalSettings {
 				new ParamDefinition(self::KNOWN_DEVICE_ENABLED, ParamType::Bool, true),
 				new ParamDefinition(self::RISK_ENABLED, ParamType::Bool, true),
 				new ParamDefinition(self::RISKY_NETWORK_OFFICE_NETWORKS, ParamType::CidrList, [], maxItems: 100),
+				new ParamDefinition(self::ADMIN_TRUSTED_NETWORKS_ONLY, ParamType::Bool, false),
 				new ParamDefinition(self::RISKY_NETWORK_EXEMPT_GROUPS, ParamType::StringList, [], itemPattern: '/^[^\x00-\x1f\x7f]{1,255}$/u', maxItems: 20),
 				new ParamDefinition(self::PERSONAL_PAGE_ENABLED, ParamType::Bool, true),
 				new ParamDefinition(self::BANS_FLAGGED_UNTIL, ParamType::Int, 0, min: 0),

@@ -345,11 +345,15 @@ class VerifyController extends Controller {
 		}
 		$because = StepUpPolicy::describeAll($stepUp->policies, $this->l);
 		$safeRedirect = LocalRedirect::isSafe($redirectUrl, self::EXCLUDED) ? $redirectUrl : '';
+		$outsideNetworks = $stepUp->policies === [StepUpPolicy::AdminOutsideNetworks->value];
 		$response = $this->render(self::MODE_CODE, [
 			'title' => $this->l->t('Confirm it\'s you'),
-			'lead' => $hasCode && $stepUp->codeHash !== null
-				? $this->l->t('We noticed unusual activity around your login, so we need to confirm it\'s you. We sent a 6-digit code to %1$s. It is valid for %2$s.', [$masked, $valid])
-				: $this->l->t('We noticed unusual activity around your login, so we need to confirm it\'s you.'),
+			'lead' => match (true) {
+				$outsideNetworks && $hasCode && $stepUp->codeHash !== null => $this->l->t('You logged in from outside your trusted networks, so we need to confirm it\'s you. We sent a 6-digit code to %1$s. It is valid for %2$s.', [$masked, $valid]),
+				$outsideNetworks => $this->l->t('You logged in from outside your trusted networks, so we need to confirm it\'s you.'),
+				$hasCode && $stepUp->codeHash !== null => $this->l->t('We noticed unusual activity around your login, so we need to confirm it\'s you. We sent a 6-digit code to %1$s. It is valid for %2$s.', [$masked, $valid]),
+				default => $this->l->t('We noticed unusual activity around your login, so we need to confirm it\'s you.'),
+			},
 			'why' => $because === '' ? null : $this->l->t('This login needs it because %s.', [$because]),
 			'error' => $error,
 			'notice' => $notice,
@@ -360,7 +364,7 @@ class VerifyController extends Controller {
 			'askAdmin' => $this->approvalMethod($user, $stepUp) !== null,
 			'waiting' => $stepUp->approvalId !== null,
 			'canRemember' => $this->knownDevices->isEnabled(),
-			'rememberFor' => TextRenderer::duration(KnownDevices::DURATION, $this->l),
+			'rememberHint' => $this->rememberHint($stepUp),
 			'confirmAction' => $this->urlGenerator->linkToRoute(Application::APP_ID . '.Verify.confirm'),
 			'resendAction' => $this->urlGenerator->linkToRoute(Application::APP_ID . '.Verify.resend'),
 			'secondFactorAction' => $this->urlGenerator->linkToRoute(Application::APP_ID . '.Verify.secondFactor'),
@@ -392,7 +396,7 @@ class VerifyController extends Controller {
 			'hasCode' => $stepUp->hasMethod(IConfirmationMethod::EMAIL_CODE),
 			'codeUrl' => $this->urlGenerator->linkToRoute(Application::APP_ID . '.Verify.show', array_filter(['use' => self::MODE_CODE, 'redirect_url' => $safeRedirect])),
 			'canRemember' => $this->knownDevices->isEnabled(),
-			'rememberFor' => TextRenderer::duration(KnownDevices::DURATION, $this->l),
+			'rememberHint' => $this->rememberHint($stepUp),
 			'statusUrl' => $this->urlGenerator->linkToRoute(Application::APP_ID . '.Verify.approvalStatus'),
 			'pollInterval' => self::POLL_INTERVAL,
 			'continueAction' => $this->urlGenerator->linkToRoute(Application::APP_ID . '.Verify.continueApproval'),
@@ -402,9 +406,11 @@ class VerifyController extends Controller {
 	}
 
 	private function refusedPage(StepUpState $stepUp): StandaloneTemplateResponse {
+		$because = StepUpPolicy::describeAll($stepUp->policies, $this->l);
 		$response = $this->render(self::MODE_REFUSED, [
 			'title' => $this->l->t('This login needs extra confirmation'),
 			'lead' => $this->l->t('Your account has no email address or second factor that could confirm it, so this login cannot continue.'),
+			'why' => $because === '' ? null : $this->l->t('This login needs it because %s.', [$because]),
 			'reference' => $stepUp->reference,
 		]);
 		$response->setStatus(Http::STATUS_FORBIDDEN);
@@ -421,6 +427,13 @@ class VerifyController extends Controller {
 			'logout_url' => $this->urlGenerator->getLogoutUrl(),
 			'login_url' => $this->urlGenerator->linkToRoute('core.login.showLoginForm'),
 		], $params), 'guest');
+	}
+
+	private function rememberHint(StepUpState $stepUp): string {
+		$for = TextRenderer::duration(KnownDevices::DURATION, $this->l);
+		return in_array(StepUpPolicy::AdminOutsideNetworks->value, $stepUp->policies, true)
+			? $this->l->t('Only on your own device. For %s, logins from this browser are confirmed without asking again, unless your password itself is at risk or you log in from outside your trusted networks.', [$for])
+			: $this->l->t('Only on your own device. For %s, logins from this browser are confirmed without asking again, unless your password itself is at risk.', [$for]);
 	}
 
 	private function secondFactorMethod(IUser $user, StepUpState $stepUp): ?SecondFactorMethod {
