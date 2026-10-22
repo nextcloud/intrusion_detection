@@ -5,7 +5,6 @@
 
 <script setup lang="ts">
 import { mdiLogoutVariant } from '@mdi/js'
-import { showError, showSuccess } from '@nextcloud/dialogs'
 import { n, t } from '@nextcloud/l10n'
 import { computed, ref } from 'vue'
 import NcButton from '@nextcloud/vue/components/NcButton'
@@ -13,51 +12,36 @@ import NcDialog from '@nextcloud/vue/components/NcDialog'
 import NcIconSvgWrapper from '@nextcloud/vue/components/NcIconSvgWrapper'
 import NcLoadingIcon from '@nextcloud/vue/components/NcLoadingIcon'
 import SectionCard from '../../components/common/SectionCard.vue'
-import { useAnnouncer } from '../../composables/useAnnouncer.ts'
-import { errorMessage, isCancelled } from '../../services/api.ts'
-import { logger } from '../../services/logger.ts'
+import { useAction } from '../../composables/useAction.ts'
 import { APP_ID } from '../../utils/format.ts'
-import { logOutElsewhere } from '../api.ts'
-import { personal } from '../store.ts'
+import { logOutOtherBrowsers } from '../store.ts'
 
 const dialog = ref(false)
-const busy = ref(false)
-const { announce } = useAnnouncer()
+const { busy, run } = useAction()
 
 /**
  * End the other sessions, after the password.
  */
-async function run() {
+function logOut() {
 	dialog.value = false
-	busy.value = true
-	try {
-		const result = await logOutElsewhere()
-		const message = result.sessions === 0
-			? t(APP_ID, 'No other browser was logged in.')
-			: n(APP_ID, 'Logged out of %n other browser.', 'Logged out of %n other browsers.', result.sessions)
-		const devices = result.devices > 0
-			? ' ' + n(APP_ID, '%n remembered device was forgotten.', '%n remembered devices were forgotten.', result.devices)
-			: ''
-		showSuccess(message + devices)
-		announce(message + devices)
-		personal.devicesVersion++
-		personal.manage.otherBrowsers = 0
-	} catch (error) {
-		if (isCancelled(error)) {
-			return
-		}
-		logger.error('Could not log out everywhere else', { error })
-		const message = errorMessage(error, t(APP_ID, 'The other sessions could not be ended. Please try again.'))
-		showError(message)
-		announce(message)
-	} finally {
-		busy.value = false
-	}
+	run('log-out', logOutOtherBrowsers, {
+		done: (result) => {
+			const message = result.sessions === 0
+				? t(APP_ID, 'No other browser was logged in.')
+				: n(APP_ID, 'Logged out of %n other browser.', 'Logged out of %n other browsers.', result.sessions)
+			const devices = result.devices > 0
+				? ' ' + n(APP_ID, '%n remembered device was forgotten.', '%n remembered devices were forgotten.', result.devices)
+				: ''
+			return message + devices
+		},
+		toast: true,
+		fallback: t(APP_ID, 'The other sessions could not be ended. Please try again.'),
+	})
 }
 
 const buttons = computed(() => [
 	{ label: t(APP_ID, 'Cancel'), callback: () => undefined },
-	{ label: t(APP_ID, 'Log out other browsers'), variant: 'error' as const, callback: () => { run() } },
+	{ label: t(APP_ID, 'Log out other browsers'), variant: 'error' as const, callback: () => { logOut() } },
 ])
 </script>
 
@@ -73,11 +57,11 @@ const buttons = computed(() => [
 		<div>
 			<NcButton
 				variant="error"
-				:disabled="busy"
+				:disabled="busy !== null"
 				data-test="log-out-elsewhere-button"
 				@click="dialog = true">
 				<template #icon>
-					<NcLoadingIcon v-if="busy" :size="20" />
+					<NcLoadingIcon v-if="busy !== null" :size="20" />
 					<NcIconSvgWrapper v-else :path="mdiLogoutVariant" />
 				</template>
 				{{ t(APP_ID, 'Log out other browsers') }}

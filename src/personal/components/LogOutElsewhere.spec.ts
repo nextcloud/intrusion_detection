@@ -38,7 +38,7 @@ async function runFromDialog() {
 
 describe('LogOutElsewhere', () => {
 	beforeEach(() => {
-		personal.devicesVersion = 0
+		personal.manage = { devices: 1, networks: 0, otherBrowsers: 2 }
 	})
 
 	afterEach(() => {
@@ -54,12 +54,12 @@ describe('LogOutElsewhere', () => {
 		expect(wrapper.text()).toContain('Unlike "Revoke all other sessions" above, your apps and app passwords stay connected.')
 	})
 
-	test('asks first, then logs out the other browsers and reloads the devices', async () => {
+	test('asks first, then logs out the other browsers', async () => {
 		vi.mocked(logOutElsewhere).mockResolvedValue({ sessions: 2, devices: 1 })
 		await runFromDialog()
 		expect(logOutElsewhere).toHaveBeenCalledTimes(1)
 		expect(showSuccess).toHaveBeenCalledWith('Logged out of 2 other browsers. 1 remembered device was forgotten.')
-		expect(personal.devicesVersion).toBe(1)
+		expect(personal.manage.otherBrowsers).toBe(0)
 	})
 
 	test('does nothing when the password dialog is closed', async () => {
@@ -73,6 +73,6 @@ describe('LogOutElsewhere', () => {
 		vi.mocked(logOutElsewhere).mockRejectedValue(new ApiError('This can only be done from a browser session, not with an app password.'))
 		await runFromDialog()
 		expect(showError).toHaveBeenCalledWith('This can only be done from a browser session, not with an app password.')
-		expect(personal.devicesVersion).toBe(0)
+		expect(personal.manage.otherBrowsers).toBe(2)
 	})
 })

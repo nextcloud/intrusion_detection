@@ -6,16 +6,16 @@
 import { showSuccess } from '@nextcloud/dialogs'
 import { enableAutoUnmount, flushPromises, mount } from '@vue/test-utils'
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
-import { nextTick } from 'vue'
 import TrustedNetworks from './TrustedNetworks.vue'
-import { overview, trustedNetwork } from '../../tests/personalFixtures.ts'
-import { fetchTrustedNetworks, removeTrustedNetwork } from '../api.ts'
-import { personal } from '../store.ts'
+import { overview, securityEvent, trustedNetwork } from '../../tests/personalFixtures.ts'
+import { confirmEvent, fetchTrustedNetworks, removeTrustedNetwork } from '../api.ts'
+import { answerEvent, personal } from '../store.ts'
 
 vi.mock('@nextcloud/dialogs', () => ({ showError: vi.fn(), showSuccess: vi.fn() }))
 
 vi.mock('../api.ts', async (importOriginal) => ({
 	...(await importOriginal<object>()),
+	confirmEvent: vi.fn(),
 	fetchTrustedNetworks: vi.fn(),
 	removeTrustedNetwork: vi.fn(),
 }))
@@ -51,10 +51,10 @@ describe('TrustedNetworks', () => {
 
 	test('loads again after an answer elsewhere on the page', async () => {
 		vi.mocked(fetchTrustedNetworks).mockResolvedValueOnce([]).mockResolvedValueOnce([trustedNetwork(5)])
+		vi.mocked(confirmEvent).mockResolvedValue(securityEvent(1, { verdict: 'confirmed', verdictAt: 1 }))
 		const wrapper = mount(TrustedNetworks)
 		await flushPromises()
-		personal.networksVersion++
-		await nextTick()
+		await answerEvent(1, 'confirm')
 		await flushPromises()
 		expect(wrapper.find('[data-test="network-5"]').exists()).toBe(true)
 	})

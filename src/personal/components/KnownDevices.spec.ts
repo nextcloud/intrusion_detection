@@ -6,17 +6,17 @@
 import { showError, showSuccess } from '@nextcloud/dialogs'
 import { enableAutoUnmount, flushPromises, mount } from '@vue/test-utils'
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
-import { nextTick } from 'vue'
 import KnownDevices from './KnownDevices.vue'
 import { knownDevice, overview } from '../../tests/personalFixtures.ts'
-import { fetchKnownDevices, removeKnownDevice } from '../api.ts'
-import { personal } from '../store.ts'
+import { fetchKnownDevices, logOutElsewhere, removeKnownDevice } from '../api.ts'
+import { logOutOtherBrowsers, personal } from '../store.ts'
 
 vi.mock('@nextcloud/dialogs', () => ({ showError: vi.fn(), showSuccess: vi.fn() }))
 
 vi.mock('../api.ts', async (importOriginal) => ({
 	...(await importOriginal<object>()),
 	fetchKnownDevices: vi.fn(),
+	logOutElsewhere: vi.fn(),
 	removeKnownDevice: vi.fn(),
 }))
 
@@ -71,13 +71,13 @@ describe('KnownDevices', () => {
 		expect(wrapper.find('[data-test="device-1"]').exists()).toBe(true)
 	})
 
-	test('is left out without devices, and says when they could not be loaded', async () => {
+	test('is left out without devices, and says when they could not be loaded after logging out elsewhere', async () => {
 		vi.mocked(fetchKnownDevices).mockResolvedValueOnce([]).mockRejectedValueOnce(new Error('offline'))
+		vi.mocked(logOutElsewhere).mockResolvedValue({ sessions: 1, devices: 0 })
 		const wrapper = mount(KnownDevices)
 		await flushPromises()
 		expect(wrapper.find('[data-test="known-devices"]').exists()).toBe(false)
-		personal.devicesVersion++
-		await nextTick()
+		await logOutOtherBrowsers()
 		await flushPromises()
 		expect(fetchKnownDevices).toHaveBeenCalledTimes(2)
 		expect(wrapper.get('[data-test="load-error"]').text()).toContain('could not be loaded')

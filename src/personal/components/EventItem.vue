@@ -7,7 +7,6 @@
 import type { SecurityEvent } from '../types.ts'
 
 import { mdiAccountQuestionOutline, mdiMapMarkerOutline } from '@mdi/js'
-import { showError, showSuccess } from '@nextcloud/dialogs'
 import { t } from '@nextcloud/l10n'
 import { computed, ref, useId } from 'vue'
 import NcButton from '@nextcloud/vue/components/NcButton'
@@ -17,12 +16,12 @@ import NcLoadingIcon from '@nextcloud/vue/components/NcLoadingIcon'
 import ShowMore from '../../components/common/ShowMore.vue'
 import TimeStamp from '../../components/common/TimeStamp.vue'
 import EventDetails from './EventDetails.vue'
+import { useAction } from '../../composables/useAction.ts'
 import { useAnnouncer } from '../../composables/useAnnouncer.ts'
-import { ApiError, errorMessage, isCancelled } from '../../services/api.ts'
-import { logger } from '../../services/logger.ts'
+import { ApiError } from '../../services/api.ts'
 import { APP_ID } from '../../utils/format.ts'
-import { confirmEvent, denyEvent, isRefusedFromThisSession } from '../api.ts'
-import { personal, refreshOverview } from '../store.ts'
+import { isRefusedFromThisSession } from '../api.ts'
+import { answerEvent, personal } from '../store.ts'
 
 /** An open "Was this you?" question, with its answers */
 const props = defineProps<{
@@ -30,8 +29,6 @@ const props = defineProps<{
 }>()
 
 const emit = defineEmits<{
-	/** The event with its answer */
-	answered: [event: SecurityEvent]
 	/** The event changed elsewhere; the list should be loaded again */
 	stale: []
 }>()
@@ -40,7 +37,7 @@ const id = useId()
 const { announce } = useAnnouncer()
 const timeZone = computed(() => personal.overview?.timezone)
 
-const busy = ref<'confirm' | 'deny' | null>(null)
+const { busy, run } = useAction()
 const denyDialog = ref(false)
 /** Why "Yes" cannot be taken from this session, shown instead of sending it */
 const yesDialog = ref(false)
@@ -53,69 +50,52 @@ const canConfirm = computed(() => props.event.canConfirm && !refused.value)
 /**
  * "Yes, it was me", after the password.
  */
-async function confirm() {
-	busy.value = 'confirm'
-	try {
-		const event = await confirmEvent(props.event.id)
-		announce(t(APP_ID, 'Thank you. You confirmed that it was you.'))
-		showSuccess(t(APP_ID, 'Thank you. The network of this event is now trusted for a while.'))
-		personal.networksVersion++
-		personal.manage.networks = Math.max(personal.manage.networks, 1)
-		emit('answered', event)
-		refreshOverview()
-	} catch (error) {
-		failed(error)
-	} finally {
-		busy.value = null
-	}
+function confirm() {
+	run('confirm', () => answerEvent(props.event.id, 'confirm'), {
+		done: t(APP_ID, 'Thank you. The network of this event is now trusted for a while.'),
+		toast: true,
+		fallback: t(APP_ID, 'Your answer could not be saved. Please try again.'),
+		handle: refusedOrStale,
+	})
 }
 
 /**
- * "No, it was not me", after the dialog.
+ * "No, it was not me", after the dialog. From a session that proved only
+ * the password, the administrators are told and the question stays open.
  */
-async function deny() {
+function deny() {
 	denyDialog.value = false
-	busy.value = 'deny'
-	try {
-		const event = await denyEvent(props.event.id)
-		if (event.verdict === null) {
-			toldOnly.value = true
+	run('deny', async () => {
+		const event = await answerEvent(props.event.id, 'deny')
+		toldOnly.value = event.verdict === null
+		if (toldOnly.value) {
 			announce(t(APP_ID, 'Your administrators were told. The question stays open.'))
-			return
 		}
-		announce(t(APP_ID, 'Thank you. Your answer was recorded and your administrators were told.'))
-		showSuccess(t(APP_ID, 'Thank you. Your answer was recorded and your administrators were told.'))
-		personal.networksVersion++
-		emit('answered', event)
-		refreshOverview()
-	} catch (error) {
-		failed(error)
-	} finally {
-		busy.value = null
-	}
+	}, {
+		done: () => toldOnly.value ? '' : t(APP_ID, 'Thank you. Your answer was recorded and your administrators were told.'),
+		toast: true,
+		fallback: t(APP_ID, 'Your answer could not be saved. Please try again.'),
+		handle: refusedOrStale,
+	})
 }
 
 /**
+ * A refused "Yes" opens the dialog that explains it. An answer the server
+ * explained (answered elsewhere, no longer asked) loads the list again.
+ *
  * @param error - What an answer threw
+ * @return whether the refusal was shown
  */
-function failed(error: unknown) {
-	if (isCancelled(error)) {
-		return
-	}
+function refusedOrStale(error: unknown): boolean {
 	if (isRefusedFromThisSession(error)) {
 		refused.value = true
 		yesDialog.value = true
-		announce(t(APP_ID, 'This answer cannot be given from this session.'))
-		return
+		return true
 	}
-	logger.error('Could not answer "Was this you?"', { error })
-	const message = errorMessage(error, t(APP_ID, 'Your answer could not be saved. Please try again.'))
-	showError(message)
-	announce(message)
 	if (error instanceof ApiError) {
-		// Answered elsewhere already, or no longer asked.
 		emit('stale')
 	}
+	return false
 }
 
 const denyButtons = computed(() => [

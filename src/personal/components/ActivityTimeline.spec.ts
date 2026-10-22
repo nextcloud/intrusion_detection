@@ -8,7 +8,7 @@ import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 import ActivityTimeline from './ActivityTimeline.vue'
 import { activity, activityItem, login, NOW, securityChange, securityEvent } from '../../tests/personalFixtures.ts'
 import { fetchActivity } from '../api.ts'
-import { ACTIVITY_PAGE, personal } from '../store.ts'
+import { ACTIVITY_PAGE, personal, reloadActivity } from '../store.ts'
 
 vi.mock('../api.ts', async (importOriginal) => ({
 	...(await importOriginal<object>()),
@@ -20,7 +20,6 @@ enableAutoUnmount(afterEach)
 describe('ActivityTimeline', () => {
 	beforeEach(() => {
 		personal.activity = null
-		personal.activityError = null
 		personal.activityLimit = ACTIVITY_PAGE
 	})
 
@@ -75,7 +74,7 @@ describe('ActivityTimeline', () => {
 		await wrapper.get('[data-test="show-more"]').trigger('click')
 		await flushPromises()
 
-		expect(fetchActivity).toHaveBeenCalledWith(ACTIVITY_PAGE * 2)
+		expect(fetchActivity).toHaveBeenCalledWith(ACTIVITY_PAGE * 2, 30, expect.any(AbortSignal))
 		expect(personal.activityLimit).toBe(ACTIVITY_PAGE * 2)
 		expect(wrapper.find('[data-test="activity-login-2"]').exists()).toBe(true)
 		expect(wrapper.find('[data-test="show-more"]').exists()).toBe(false)
@@ -97,13 +96,14 @@ describe('ActivityTimeline', () => {
 	})
 
 	test('says when the activity could not be loaded, and tries again', async () => {
-		personal.activityError = 'Your recent activity could not be loaded. Please try again.'
+		vi.mocked(fetchActivity).mockRejectedValueOnce(new Error('offline'))
+		await reloadActivity()
 		vi.mocked(fetchActivity).mockResolvedValue(activity({ items: [activityItem({ login: login(1) })] }))
 		const wrapper = mount(ActivityTimeline)
 		expect(wrapper.get('[data-test="load-error"]').text()).toContain('could not be loaded')
 		await wrapper.get('[data-test="load-error"] button').trigger('click')
 		await flushPromises()
-		expect(fetchActivity).toHaveBeenCalledWith(ACTIVITY_PAGE)
+		expect(fetchActivity).toHaveBeenLastCalledWith(ACTIVITY_PAGE, 30, expect.any(AbortSignal))
 		expect(wrapper.find('[data-test="activity-login-1"]').exists()).toBe(true)
 	})
 })

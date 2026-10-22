@@ -4,7 +4,7 @@
 -->
 
 <script setup lang="ts">
-import type { SecureAccount, SecureAccountStepId } from '../secureAccountTypes.ts'
+import type { SecureAccountStepId } from '../secureAccountTypes.ts'
 
 import {
 	mdiCheck,
@@ -20,7 +20,7 @@ import {
 	mdiTwoFactorAuthentication,
 } from '@mdi/js'
 import { n, t } from '@nextcloud/l10n'
-import { computed, onMounted, ref, watch } from 'vue'
+import { computed, ref, watch } from 'vue'
 import NcAppContent from '@nextcloud/vue/components/NcAppContent'
 import NcButton from '@nextcloud/vue/components/NcButton'
 import NcContent from '@nextcloud/vue/components/NcContent'
@@ -33,28 +33,29 @@ import NcPasswordField from '@nextcloud/vue/components/NcPasswordField'
 import SkeletonBlock from '../components/common/SkeletonBlock.vue'
 import TimeStamp from '../components/common/TimeStamp.vue'
 import StepCard from '../components/secure/StepCard.vue'
+import { useAction } from '../composables/useAction.ts'
 import { useAnnouncer } from '../composables/useAnnouncer.ts'
-import { errorMessage, isCancelled } from '../services/api.ts'
-import { logger } from '../services/logger.ts'
 import {
-	changePassword,
-	completeStep,
-	deleteShare,
-	dismissSecureAccount,
-	fetchSecureAccount,
-	revokeSession,
-	startSecureAccount,
-} from '../services/secureAccount.ts'
+	changeAccountPassword,
+	completeChecklistStep,
+	deleteAccountShare,
+	dismissChecklist,
+	revokeAccountSession,
+	startChecklist,
+	useSecureAccount,
+} from '../stores/secureAccount.ts'
 import { APP_ID } from '../utils/format.ts'
 
-const data = ref<SecureAccount | null>(null)
-const loadError = ref<string | null>(null)
-const busy = ref<string | null>(null)
-const stepError = ref<{ step: string, message: string } | null>(null)
+const { data, error } = useSecureAccount({ failure: () => t(APP_ID, 'The checklist could not be loaded. Please reload the page.') })
+/** A failed reload after a change keeps the checklist shown */
+const loadError = computed(() => data.value === null ? error.value : null)
+const { busy, error: changeError, run: runChange } = useAction()
+/** The change that ran last, whose error is shown at its step */
+const lastChange = ref('')
 const confirmDismiss = ref(false)
 const oldPassword = ref('')
 const newPassword = ref('')
-const { message: announcement, announce } = useAnnouncer()
+const { message: announcement } = useAnnouncer()
 
 const progress = computed(() => data.value?.progress ?? null)
 const finished = computed(() => progress.value !== null && !progress.value.active && progress.value.closedBy === 'done')
@@ -99,50 +100,23 @@ const STEP_TEXTS: Record<SecureAccountStepId, { heading: () => string, icon: str
 }
 
 /**
- * Load the checklist (again).
- */
-async function load() {
-	loadError.value = null
-	try {
-		data.value = await fetchSecureAccount()
-	} catch (e) {
-		logger.error('Could not load the checklist', { error: e })
-		loadError.value = errorMessage(e, t(APP_ID, 'The checklist could not be loaded. Please reload the page.'))
-	}
-}
-
-/**
- * Run a change and show the checklist as it is afterwards.
+ * Run a change; the checklist then shows as it is afterwards.
  *
  * @param key - What is busy, for the loading state of its button
  * @param action - The change
  * @param fallback - What to say when it fails
  * @param done - What to announce when it worked
  */
-async function run(key: string, action: () => Promise<SecureAccount | void>, fallback: string, done?: string) {
-	busy.value = key
-	stepError.value = null
-	try {
-		const result = await action()
-		data.value = result ?? await fetchSecureAccount()
-		if (done) {
-			announce(done)
-		}
-	} catch (e) {
-		if (!isCancelled(e)) {
-			logger.error('Could not update the checklist', { error: e })
-			stepError.value = { step: key, message: errorMessage(e, fallback) }
-		}
-	} finally {
-		busy.value = null
-	}
+function run(key: string, action: () => Promise<void>, fallback: string, done?: string) {
+	lastChange.value = key
+	return runChange(key, action, { done, fallback, inline: true })
 }
 
 /**
  * @param step - The step the user checked
  */
 function confirmStep(step: SecureAccountStepId) {
-	run('step:' + step, () => completeStep(step), t(APP_ID, 'The step could not be saved. Please try again.'), t(APP_ID, 'Step done.'))
+	run('step:' + step, () => completeChecklistStep(step), t(APP_ID, 'The step could not be saved. Please try again.'), t(APP_ID, 'Step done.'))
 }
 
 /**
@@ -150,7 +124,7 @@ function confirmStep(step: SecureAccountStepId) {
  */
 function submitPassword() {
 	run('step:password', async () => {
-		await changePassword(oldPassword.value, newPassword.value)
+		await changeAccountPassword(oldPassword.value, newPassword.value)
 		oldPassword.value = ''
 		newPassword.value = ''
 	}, t(APP_ID, 'Your password could not be changed. Check your current password and try again.'), t(APP_ID, 'Your password was changed.'))
@@ -161,7 +135,7 @@ function submitPassword() {
  * @param name - Its name, for the announcement
  */
 function revoke(id: number, name: string) {
-	run('session:' + id, () => revokeSession(id), t(APP_ID, 'It could not be revoked. Please try again.'), t(APP_ID, '"{name}" was revoked.', { name }))
+	run('session:' + id, () => revokeAccountSession(id), t(APP_ID, 'It could not be revoked. Please try again.'), t(APP_ID, '"{name}" was revoked.', { name }))
 }
 
 /**
@@ -169,7 +143,7 @@ function revoke(id: number, name: string) {
  * @param name - The shared item, for the announcement
  */
 function removeShare(id: string, name: string) {
-	run('share:' + id, () => deleteShare(id), t(APP_ID, 'The share could not be deleted. Please try again.'), t(APP_ID, 'The share of "{name}" was deleted.', { name }))
+	run('share:' + id, () => deleteAccountShare(id), t(APP_ID, 'The share could not be deleted. Please try again.'), t(APP_ID, 'The share of "{name}" was deleted.', { name }))
 }
 
 /**
@@ -178,11 +152,11 @@ function removeShare(id: string, name: string) {
  * @param id - The step
  */
 function errorFor(id: SecureAccountStepId): string | null {
-	const key = stepError.value?.step ?? ''
+	const key = lastChange.value
 	const mine = key === 'step:' + id
 		|| (id === 'sessions' && key.startsWith('session:'))
 		|| (id === 'shares' && key.startsWith('share:'))
-	return mine ? stepError.value!.message : null
+	return mine ? changeError.value : null
 }
 
 /**
@@ -208,12 +182,10 @@ const dismissButtons = computed(() => [
 		label: t(APP_ID, 'Close the checklist'),
 		variant: 'primary' as const,
 		callback: () => {
-			run('dismiss', dismissSecureAccount, t(APP_ID, 'The checklist could not be closed. Please try again.'), t(APP_ID, 'The checklist was closed.'))
+			run('dismiss', dismissChecklist, t(APP_ID, 'The checklist could not be closed. Please try again.'), t(APP_ID, 'The checklist was closed.'))
 		},
 	},
 ])
-
-onMounted(load)
 </script>
 
 <template>
@@ -270,7 +242,7 @@ onMounted(load)
 							</div>
 						</div>
 						<div v-if="!progress.active" :class="$style.hero__actions">
-							<NcButton variant="primary" :disabled="busy !== null" @click="run('start', startSecureAccount, t(APP_ID, 'The checklist could not be started. Please try again.'))">
+							<NcButton variant="primary" :disabled="busy !== null" @click="run('start', startChecklist, t(APP_ID, 'The checklist could not be started. Please try again.'))">
 								<template #icon>
 									<NcLoadingIcon v-if="busy === 'start'" :size="20" />
 									<NcIconSvgWrapper v-else :path="mdiShieldAccountOutline" />
@@ -493,7 +465,7 @@ onMounted(load)
 							{{ t(APP_ID, 'Close the checklist') }}
 						</NcButton>
 					</footer>
-					<NcNoteCard v-if="stepError && stepError.step === 'dismiss'" type="error" :text="stepError.message" />
+					<NcNoteCard v-if="changeError && lastChange === 'dismiss'" type="error" :text="changeError" />
 				</template>
 
 				<NcDialog

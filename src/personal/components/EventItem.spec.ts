@@ -12,8 +12,8 @@ import { AxiosError, AxiosHeaders } from 'axios'
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 import EventItem from './EventItem.vue'
 import { ApiError } from '../../services/api.ts'
-import { overview, securityEvent } from '../../tests/personalFixtures.ts'
-import { confirmEvent, denyEvent, fetchOverview } from '../api.ts'
+import { activity, overview, securityEvent } from '../../tests/personalFixtures.ts'
+import { confirmEvent, denyEvent, fetchActivity, fetchOverview } from '../api.ts'
 import { personal } from '../store.ts'
 
 vi.mock('@nextcloud/dialogs', () => ({ showError: vi.fn(), showSuccess: vi.fn() }))
@@ -22,6 +22,7 @@ vi.mock('../api.ts', async (importOriginal) => ({
 	...(await importOriginal<object>()),
 	confirmEvent: vi.fn(),
 	denyEvent: vi.fn(),
+	fetchActivity: vi.fn(),
 	fetchOverview: vi.fn(),
 }))
 
@@ -57,7 +58,9 @@ function bodyButton(text: string): HTMLButtonElement | undefined {
 describe('EventItem', () => {
 	beforeEach(() => {
 		personal.overview = overview()
-		personal.networksVersion = 0
+		personal.activity = activity({ questions: [securityEvent(1, { asks: true, canConfirm: true })] })
+		personal.manage = { devices: 0, networks: 0, otherBrowsers: 0 }
+		vi.mocked(fetchActivity).mockResolvedValue(activity())
 		vi.mocked(fetchOverview).mockResolvedValue(overview({ status: { level: 'ok', headline: 'Refreshed', items: [] } }))
 	})
 
@@ -92,9 +95,9 @@ describe('EventItem', () => {
 		await wrapper.get('[data-test="confirm"]').trigger('click')
 		await flushPromises()
 		expect(confirmEvent).toHaveBeenCalledWith(1)
-		expect(wrapper.emitted('answered')).toEqual([[answered]])
 		expect(showSuccess).toHaveBeenCalled()
-		expect(personal.networksVersion).toBe(1)
+		expect(personal.activity?.questions).toEqual([])
+		expect(personal.manage.networks).toBe(1)
 		expect(personal.overview?.status.headline).toBe('Refreshed')
 	})
 
@@ -104,7 +107,7 @@ describe('EventItem', () => {
 		await wrapper.get('[data-test="confirm"]').trigger('click')
 		await flushPromises()
 		expect(showError).not.toHaveBeenCalled()
-		expect(wrapper.emitted('answered')).toBeUndefined()
+		expect(personal.activity?.questions).toHaveLength(1)
 		expect(wrapper.find('[data-test="confirm"]').exists()).toBe(true)
 	})
 
@@ -156,7 +159,8 @@ describe('EventItem', () => {
 		bodyButton('It was not me')!.click()
 		await flushPromises()
 		expect(denyEvent).toHaveBeenCalledWith(1)
-		expect(wrapper.emitted('answered')).toEqual([[answered]])
+		expect(personal.activity?.questions).toEqual([])
+		expect(fetchActivity).toHaveBeenCalled()
 	})
 
 	test('"No" from a session that proved only the password keeps the question open', async () => {
@@ -168,7 +172,7 @@ describe('EventItem', () => {
 		bodyButton('It was not me')!.click()
 		await flushPromises()
 		expect(denyEvent).toHaveBeenCalledWith(1)
-		expect(wrapper.emitted('answered')).toBeUndefined()
+		expect(personal.activity?.questions).toHaveLength(1)
 		expect(showSuccess).not.toHaveBeenCalled()
 		expect(wrapper.get('[data-test="told-only"]').text()).toContain('answer "No" again after a login with your second factor')
 		expect(wrapper.find('[data-test="deny"]').exists()).toBe(false)

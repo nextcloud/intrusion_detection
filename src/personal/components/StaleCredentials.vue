@@ -7,7 +7,6 @@
 import type { StaleCredential } from '../types.ts'
 
 import { mdiDeleteOutline, mdiKeyOutline, mdiWeb } from '@mdi/js'
-import { showError, showSuccess } from '@nextcloud/dialogs'
 import { n, t } from '@nextcloud/l10n'
 import { computed, ref } from 'vue'
 import NcButton from '@nextcloud/vue/components/NcButton'
@@ -16,17 +15,14 @@ import NcIconSvgWrapper from '@nextcloud/vue/components/NcIconSvgWrapper'
 import NcLoadingIcon from '@nextcloud/vue/components/NcLoadingIcon'
 import SectionCard from '../../components/common/SectionCard.vue'
 import TimeStamp from '../../components/common/TimeStamp.vue'
-import { useAnnouncer } from '../../composables/useAnnouncer.ts'
-import { errorMessage, isCancelled } from '../../services/api.ts'
-import { logger } from '../../services/logger.ts'
+import { useAction } from '../../composables/useAction.ts'
 import { APP_ID } from '../../utils/format.ts'
-import { removeAllStaleCredentials, removeStaleCredential } from '../api.ts'
-import { personal } from '../store.ts'
+import { personal, removeUnusedCredential, removeUnusedCredentials } from '../store.ts'
 
+const { busy, run } = useAction()
 /** The credential being removed, or 'all' */
-const removing = ref<number | 'all' | null>(null)
+const removing = computed(() => busy.value === null || busy.value === 'all' ? busy.value : Number(busy.value))
 const confirmAll = ref(false)
-const { announce } = useAnnouncer()
 const credentials = computed(() => personal.staleCredentials)
 const timeZone = computed(() => personal.overview?.timezone)
 
@@ -42,46 +38,24 @@ function kindLabel(credential: StaleCredential): string {
  *
  * @param credential - The credential
  */
-async function remove(credential: StaleCredential) {
-	removing.value = credential.id
-	try {
-		await removeStaleCredential(credential.id)
-		personal.staleCredentials = personal.staleCredentials.filter((c) => c.id !== credential.id)
-		const message = t(APP_ID, '{name} was removed.', { name: credential.name })
-		showSuccess(message)
-		announce(message)
-	} catch (error) {
-		if (isCancelled(error)) {
-			return
-		}
-		logger.error('Could not remove an unused app password or device', { error })
-		showError(errorMessage(error, t(APP_ID, 'It could not be removed. Please try again.')))
-	} finally {
-		removing.value = null
-	}
+function remove(credential: StaleCredential) {
+	run(String(credential.id), () => removeUnusedCredential(credential.id), {
+		done: t(APP_ID, '{name} was removed.', { name: credential.name }),
+		toast: true,
+		fallback: t(APP_ID, 'It could not be removed. Please try again.'),
+	})
 }
 
 /**
  * Remove them all, after the confirmation and the password.
  */
-async function removeAll() {
+function removeAll() {
 	confirmAll.value = false
-	removing.value = 'all'
-	try {
-		const { removed } = await removeAllStaleCredentials()
-		personal.staleCredentials = []
-		const message = n(APP_ID, '%n unused app password or device was removed.', '%n unused app passwords and devices were removed.', removed)
-		showSuccess(message)
-		announce(message)
-	} catch (error) {
-		if (isCancelled(error)) {
-			return
-		}
-		logger.error('Could not remove the unused app passwords and devices', { error })
-		showError(errorMessage(error, t(APP_ID, 'They could not be removed. Please try again.')))
-	} finally {
-		removing.value = null
-	}
+	run('all', removeUnusedCredentials, {
+		done: (removed) => n(APP_ID, '%n unused app password or device was removed.', '%n unused app passwords and devices were removed.', removed),
+		toast: true,
+		fallback: t(APP_ID, 'They could not be removed. Please try again.'),
+	})
 }
 
 const buttons = computed(() => [

@@ -7,30 +7,22 @@
 import type { TrustedNetwork } from '../types.ts'
 
 import { mdiDeleteOutline, mdiLanConnect } from '@mdi/js'
-import { showError, showSuccess } from '@nextcloud/dialogs'
 import { t } from '@nextcloud/l10n'
-import { computed, onMounted, ref, watch } from 'vue'
+import { computed } from 'vue'
 import NcButton from '@nextcloud/vue/components/NcButton'
 import NcIconSvgWrapper from '@nextcloud/vue/components/NcIconSvgWrapper'
 import NcLoadingIcon from '@nextcloud/vue/components/NcLoadingIcon'
 import SectionCard from '../../components/common/SectionCard.vue'
 import LoadError from './LoadError.vue'
 import SkeletonRows from './SkeletonRows.vue'
-import { useAnnouncer } from '../../composables/useAnnouncer.ts'
-import { errorMessage } from '../../services/api.ts'
-import { logger } from '../../services/logger.ts'
+import { useAction } from '../../composables/useAction.ts'
 import { APP_ID } from '../../utils/format.ts'
-import { fetchTrustedNetworks, removeTrustedNetwork } from '../api.ts'
-import { personal } from '../store.ts'
+import { forgetNetwork, personal, useTrustedNetworks } from '../store.ts'
 import { date } from '../time.ts'
-import { useRemoteList } from '../useRemoteList.ts'
 
-const { items: networks, error, load } = useRemoteList<TrustedNetwork>(
-	fetchTrustedNetworks,
-	() => t(APP_ID, 'Your trusted networks could not be loaded. Please try again.'),
-)
-const removing = ref<number | null>(null)
-const { announce } = useAnnouncer()
+const { data: networks, error, reload: load } = useTrustedNetworks({ failure: () => t(APP_ID, 'Your trusted networks could not be loaded. Please try again.') })
+const { busy, run } = useAction()
+const removing = computed(() => busy.value === null ? null : Number(busy.value))
 const timeZone = computed(() => personal.overview?.timezone)
 /** Shown while loading, and while there is a network or an error */
 const shown = computed(() => networks.value === null || networks.value.length > 0 || error.value !== null)
@@ -40,25 +32,13 @@ const shown = computed(() => networks.value === null || networks.value.length > 
  *
  * @param network - The entry
  */
-async function remove(network: TrustedNetwork) {
-	removing.value = network.id
-	try {
-		await removeTrustedNetwork(network.id)
-		networks.value = (networks.value ?? []).filter((n) => n.id !== network.id)
-		personal.manage.networks = networks.value.length
-		const message = t(APP_ID, 'The network {network} is no longer trusted.', { network: network.network })
-		showSuccess(message)
-		announce(message)
-	} catch (e) {
-		logger.error('Could not remove a trusted network', { error: e })
-		showError(errorMessage(e, t(APP_ID, 'The network could not be removed. Please try again.')))
-	} finally {
-		removing.value = null
-	}
+function remove(network: TrustedNetwork) {
+	run(String(network.id), () => forgetNetwork(network.id), {
+		done: t(APP_ID, 'The network {network} is no longer trusted.', { network: network.network }),
+		toast: true,
+		fallback: t(APP_ID, 'The network could not be removed. Please try again.'),
+	})
 }
-
-watch(() => personal.networksVersion, load)
-onMounted(load)
 </script>
 
 <template>

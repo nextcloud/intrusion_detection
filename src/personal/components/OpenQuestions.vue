@@ -4,29 +4,15 @@
 -->
 
 <script setup lang="ts">
-import type { SecurityEvent } from '../types.ts'
-
 import { t } from '@nextcloud/l10n'
 import { computed } from 'vue'
 import SectionCard from '../../components/common/SectionCard.vue'
 import EventItem from './EventItem.vue'
 import { APP_ID } from '../../utils/format.ts'
 import { isOpenQuestion } from '../activity.ts'
-import { loadActivity, personal } from '../store.ts'
+import { personal, reloadActivity } from '../store.ts'
 
 const questions = computed(() => (personal.activity?.questions ?? []).filter(isOpenQuestion))
-
-/**
- * The answered question leaves at once; the timeline then has it with its answer.
- *
- * @param event - The event as the server returned it
- */
-function answered(event: SecurityEvent) {
-	if (personal.activity !== null) {
-		personal.activity.questions = personal.activity.questions.filter((e) => e.id !== event.id)
-	}
-	loadActivity()
-}
 </script>
 
 <template>
@@ -42,8 +28,7 @@ function answered(event: SecurityEvent) {
 				v-for="event in questions"
 				:key="event.id"
 				:event="event"
-				@answered="answered"
-				@stale="loadActivity()" />
+				@stale="reloadActivity()" />
 		</ul>
 	</SectionCard>
 </template>
