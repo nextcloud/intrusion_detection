@@ -50,6 +50,7 @@ class NotifyAdminHandler implements IResponseHandler, IDescribesAction {
 		$sentences = [$l->n('%n administrator was notified.', '%n administrators were notified.', $recipients)];
 		$sentences[] = match ($ref['email'] ?? null) {
 			AdminAlerts::EMAIL_SENT => $l->t('An email was sent as well.'),
+			AdminAlerts::EMAIL_QUEUED => $l->t('An email was queued as well.'),
 			AdminAlerts::EMAIL_LIMITED => $l->t('No email was sent, because one was already sent for this check within the hour.'),
 			AdminAlerts::EMAIL_NO_ADDRESS => $l->t('No email was sent, because no administrator has an email address. They only see the notification inside Nextcloud.'),
 			AdminAlerts::EMAIL_FAILED => $l->t('The email could not be sent. Check the email settings; the administrators only see the notification inside Nextcloud.'),

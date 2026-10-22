@@ -27,13 +27,20 @@ use OCP\Share\IShare;
  *
  * Called once per detection; repeated wrong passwords for the same share
  * merge into that detection, and the notification shows its current count.
- * The notification and its actions carry only the detection id.
+ * The notification and its actions carry only the detection id. The email
+ * is queued ({@see MailQueue}) and sent by {@see self::sendMail()} from a
+ * background job, to the people who manage the share at that moment.
  */
 class ShareOwnerAlerts {
 	public const SUBJECT = 'share_attacked';
 	public const OBJECT_TYPE = 'share_alert';
 	public const ACTION_OPEN = 'open';
 	public const ACTION_DISABLE = 'disable';
+
+	public const EMAIL_QUEUED = 'queued';
+	/** Not emailed: the hour's cap of emails to users was reached */
+	public const EMAIL_LIMITED = 'limited';
+	public const EMAIL_NO_ADDRESS = 'no_address';
 
 	public function __construct(
 		private readonly ShareLinks $links,
@@ -44,28 +51,61 @@ class ShareOwnerAlerts {
 		private readonly UserMessages $messages,
 		private readonly IURLGenerator $urlGenerator,
 		private readonly ITimeFactory $timeFactory,
+		private readonly MailQueue $queue,
 	) {
 	}
 
 	/**
-	 * @return array{recipients: list<string>, emails: int}
+	 * @return array{recipients: list<string>, email: self::EMAIL_*}
 	 */
 	public function alert(Detection $detection, IShare $share): array {
 		$now = $this->timeFactory->getTime();
 		$recipients = [];
-		$emails = 0;
-		foreach ($this->links->managers($share) as $uid) {
-			$user = $this->userManager->get($uid);
-			if ($user === null || !$user->isEnabled()) {
-				continue;
-			}
+		$withAddress = false;
+		foreach ($this->managers($share) as $user) {
 			$this->notify($user, $detection, $share, $now);
-			$recipients[] = $uid;
+			$recipients[] = $user->getUID();
+			$withAddress = $withAddress || (string)$user->getEMailAddress() !== '';
+		}
+		$email = match (true) {
+			!$withAddress => self::EMAIL_NO_ADDRESS,
+			$this->queue->shareOwners($detection->getId()) => self::EMAIL_QUEUED,
+			default => self::EMAIL_LIMITED,
+		};
+		return ['recipients' => $recipients, 'email' => $email];
+	}
+
+	/**
+	 * Send the queued email about a detection to the people who manage its share.
+	 *
+	 * @return int how many emails were handed to the mail server
+	 */
+	public function sendMail(Detection $detection): int {
+		$share = $this->links->find($detection);
+		if ($share === null) {
+			return 0;
+		}
+		$sent = 0;
+		foreach ($this->managers($share) as $user) {
 			if ($this->mails->send($user, $this->mailFor($detection, $share, $user))) {
-				$emails++;
+				$sent++;
 			}
 		}
-		return ['recipients' => $recipients, 'emails' => $emails];
+		return $sent;
+	}
+
+	/**
+	 * @return list<IUser> the enabled accounts that manage the share
+	 */
+	private function managers(IShare $share): array {
+		$users = [];
+		foreach ($this->links->managers($share) as $uid) {
+			$user = $this->userManager->get($uid);
+			if ($user !== null && $user->isEnabled()) {
+				$users[] = $user;
+			}
+		}
+		return $users;
 	}
 
 	/**

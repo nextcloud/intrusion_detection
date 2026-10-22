@@ -72,6 +72,8 @@ class AccountTakeoverTest extends TakeoverTestCase {
 		[$address, $mail] = $this->sentTo[0];
 		$this->assertSame('owner@example.com', $address, 'The lock link goes to the previous address');
 		$this->assertMatchesRegularExpression('#/apps/intrusion_detection/lock/\d+/[A-Za-z0-9]{43}$#', (string)$mail->buttonUrl);
+		$this->assertSame([], $this->mailed, 'Only the lock link is sent in the request');
+		$this->sendQueuedMails();
 		$this->assertSame([$user->getUID()], array_values(array_unique(array_column($this->mailed, 0))), 'The user is told at the current address');
 
 		$text = implode(' ', Server::get(NarrativeBuilder::class)->build($detection, Server::get(IFactory::class)->get(Application::APP_ID, 'en'))->done);

@@ -24,7 +24,9 @@ use OCP\Notification\IManager as INotificationManager;
 /**
  * Tells the affected user about a detection (concept section 11.1): a
  * notification and an email, both built by {@see UserMessages}, linking only
- * to the user's own security settings.
+ * to the user's own security settings. The email is queued
+ * ({@see MailQueue}) and sent by {@see self::sendMail()} from a background
+ * job, never in the request that caused the detection.
  *
  * Aggregated per check and user per interval (an hour; a day for an
  * account under attack): later hits of a detection the user was told about
@@ -38,7 +40,8 @@ use OCP\Notification\IManager as INotificationManager;
  * known device ({@see LoginNotices}), and for severe detections the
  * administrators are told that the user could only be reached inside
  * Nextcloud. Further ways to reach such users belong in
- * {@see self::unreachable()}.
+ * {@see self::unreachable()}. Users not emailed because the hour's cap
+ * across all accounts was reached see the event at their next login too.
  */
 class UserAlerts {
 	public const SUBJECT = 'user_detection';
@@ -58,6 +61,9 @@ class UserAlerts {
 	public const BELL_SENT = 'sent';
 	public const BELL_AGGREGATED = 'aggregated';
 	public const EMAIL_SENT = 'sent';
+	public const EMAIL_QUEUED = 'queued';
+	/** Not emailed: the hour's cap of emails to users was reached */
+	public const EMAIL_LIMITED = 'limited';
 	public const EMAIL_AGGREGATED = 'aggregated';
 	public const EMAIL_NO_ADDRESS = 'no_address';
 	public const EMAIL_FAILED = 'failed';
@@ -72,6 +78,7 @@ class UserAlerts {
 		private readonly ITimeFactory $timeFactory,
 		private readonly LoginNotices $loginNotices,
 		private readonly Questions $questions,
+		private readonly MailQueue $queue,
 	) {
 	}
 
@@ -110,14 +117,30 @@ class UserAlerts {
 			->setSubject(self::SUBJECT, ['detection' => $detection->getId()]);
 		$this->notifications->notify($notification);
 
-		$address = (string)$user->getEMailAddress();
-		if ($address === '') {
-			$email = self::EMAIL_NO_ADDRESS;
-		} else {
-			$email = $this->mails->send($user, $this->messages->mail($detection, $user)) ? self::EMAIL_SENT : self::EMAIL_FAILED;
+		if ((string)$user->getEMailAddress() === '') {
+			return ['bell' => self::BELL_SENT, 'email' => self::EMAIL_NO_ADDRESS, 'admins' => $this->unreachable($detection, $uid, self::EMAIL_NO_ADDRESS)];
 		}
-		$admins = $email === self::EMAIL_SENT ? 0 : $this->unreachable($detection, $uid, $email);
-		return ['bell' => self::BELL_SENT, 'email' => $email, 'admins' => $admins];
+		if (!$this->queue->user($detection->getId(), $uid)) {
+			$this->loginNotices->remember($uid, $detection->getCreatedAt());
+			return ['bell' => self::BELL_SENT, 'email' => self::EMAIL_LIMITED, 'admins' => 0];
+		}
+		return ['bell' => self::BELL_SENT, 'email' => self::EMAIL_QUEUED, 'admins' => 0];
+	}
+
+	/**
+	 * Send the queued email about a detection to its account. When it cannot
+	 * be sent, the user is treated as reachable inside Nextcloud only.
+	 */
+	public function sendMail(Detection $detection, string $uid): void {
+		$user = $this->userManager->get($uid);
+		if ($user === null || !$user->isEnabled() || $detection->getUid() !== $uid) {
+			return;
+		}
+		if ((string)$user->getEMailAddress() === '') {
+			$this->unreachable($detection, $uid, self::EMAIL_NO_ADDRESS);
+		} elseif (!$this->mails->send($user, $this->messages->mail($detection, $user))) {
+			$this->unreachable($detection, $uid, self::EMAIL_FAILED);
+		}
 	}
 
 	/**

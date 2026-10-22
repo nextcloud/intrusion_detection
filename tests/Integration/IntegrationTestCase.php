@@ -10,13 +10,20 @@ declare(strict_types=1);
 namespace OCA\IntrusionDetection\Tests\Integration;
 
 use OCA\IntrusionDetection\AppInfo\Application;
+use OCA\IntrusionDetection\BackgroundJob\AlertMailJob;
 use OCA\IntrusionDetection\Check\Checks\AdminChange;
 use OCA\IntrusionDetection\Check\Mode;
 use OCA\IntrusionDetection\Config\GlobalSettings;
 use OCA\IntrusionDetection\Config\Keys;
+use OCA\IntrusionDetection\Db\DetectionMapper;
 use OCA\IntrusionDetection\Login\EstablishedAccounts;
+use OCA\IntrusionDetection\Notification\AdminAlerts;
 use OCA\IntrusionDetection\Notification\AdminRecipients;
+use OCA\IntrusionDetection\Notification\ShareOwnerAlerts;
+use OCA\IntrusionDetection\Notification\UserAlerts;
 use OCA\IntrusionDetection\Response\BanExemptions;
+use OCP\AppFramework\Utility\ITimeFactory;
+use OCP\BackgroundJob\IJobList;
 use OCP\IAppConfig;
 use OCP\IDBConnection;
 use OCP\Server;
@@ -52,7 +59,56 @@ abstract class IntegrationTestCase extends TestCase {
 		parent::tearDown();
 	}
 
+	/**
+	 * The arguments of the queued alert emails, oldest first.
+	 *
+	 * @return list<mixed>
+	 */
+	protected function queuedMails(): array {
+		return array_column($this->alertMailJobs(), 'argument');
+	}
+
+	/**
+	 * Run the queued alert email jobs as cron would, with these senders
+	 * (the app's own where none is given).
+	 *
+	 * @return int how many jobs ran
+	 */
+	protected function runQueuedMails(?UserAlerts $users = null, ?AdminAlerts $admins = null, ?ShareOwnerAlerts $shareOwners = null): int {
+		$jobList = Server::get(IJobList::class);
+		$queued = $this->alertMailJobs();
+		foreach ($queued as ['id' => $id, 'argument' => $argument]) {
+			$job = new AlertMailJob(
+				Server::get(ITimeFactory::class),
+				Server::get(DetectionMapper::class),
+				$users ?? Server::get(UserAlerts::class),
+				$admins ?? Server::get(AdminAlerts::class),
+				$shareOwners ?? Server::get(ShareOwnerAlerts::class),
+			);
+			$job->setId($id);
+			$job->setArgument($argument);
+			$job->start($jobList);
+		}
+		return count($queued);
+	}
+
+	/**
+	 * The job list builds every job of a class on one shared instance, so
+	 * each one's id and argument are read as it comes.
+	 *
+	 * @return list<array{id: string, argument: mixed}>
+	 */
+	private function alertMailJobs(): array {
+		$jobs = [];
+		foreach (Server::get(IJobList::class)->getJobsIterator(AlertMailJob::class, null, 0) as $job) {
+			$jobs[] = ['id' => (string)$job->getId(), 'argument' => $job->getArgument()];
+		}
+		usort($jobs, static fn (array $a, array $b): int => (int)$a['id'] <=> (int)$b['id']);
+		return $jobs;
+	}
+
 	private function reset(): void {
+		Server::get(IJobList::class)->remove(AlertMailJob::class);
 		foreach (static::TABLES as $table) {
 			$this->db->getQueryBuilder()->delete($table)->executeStatement();
 		}

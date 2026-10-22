@@ -20,6 +20,7 @@ use OCA\IntrusionDetection\Event\TypedEvents;
 use OCA\IntrusionDetection\Notification\AdminNotices;
 use OCA\IntrusionDetection\Notification\LoginNotices;
 use OCA\IntrusionDetection\Notification\MailContent;
+use OCA\IntrusionDetection\Notification\MailQueue;
 use OCA\IntrusionDetection\Notification\Mails;
 use OCA\IntrusionDetection\Notification\UserAlerts;
 use OCA\IntrusionDetection\Notification\UserMessages;
@@ -146,7 +147,17 @@ abstract class AccountTestCase extends IntegrationTestCase {
 			Server::get(ITimeFactory::class),
 			Server::get(LoginNotices::class),
 			Server::get(Questions::class),
+			Server::get(MailQueue::class),
 		);
+	}
+
+	/**
+	 * Run the queued alert emails, the users' through the captured mails.
+	 *
+	 * @return int how many ran
+	 */
+	protected function sendQueuedMails(): int {
+		return $this->runQueuedMails($this->userAlerts());
 	}
 
 	protected function sessionKiller(): SessionKiller {

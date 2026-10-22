@@ -32,6 +32,7 @@ use OCA\IntrusionDetection\Explain\NarrativeBuilder;
 use OCA\IntrusionDetection\Listener\ShareAccessFailedListener;
 use OCA\IntrusionDetection\Net\SourceKey;
 use OCA\IntrusionDetection\Notification\MailContent;
+use OCA\IntrusionDetection\Notification\MailQueue;
 use OCA\IntrusionDetection\Notification\Mails;
 use OCA\IntrusionDetection\Notification\ShareOwnerAlerts;
 use OCA\IntrusionDetection\Notification\ShareOwnerNotifier;
@@ -470,11 +471,15 @@ class ShareBruteforceTest extends RequestEventTestCase {
 			Server::get(UserMessages::class),
 			Server::get(IURLGenerator::class),
 			Server::get(ITimeFactory::class),
+			Server::get(MailQueue::class),
 		);
 		$result = $alerts->alert($detection, $share);
 
-		$this->assertSame(['recipients' => [$creator->getUID(), $fileOwner->getUID()], 'emails' => 1], $result);
+		$this->assertSame(['recipients' => [$creator->getUID(), $fileOwner->getUID()], 'email' => ShareOwnerAlerts::EMAIL_QUEUED], $result);
 		$this->assertSame([$creator->getUID(), $fileOwner->getUID()], array_map(static fn (INotification $n): string => $n->getUser(), $this->notifications(ShareOwnerAlerts::SUBJECT)));
+		$this->assertSame([], $mailed, 'Not in the request');
+		$this->assertSame([['kind' => MailQueue::KIND_SHARE_OWNER, 'detection' => $detection->getId()]], $this->queuedMails(), 'One email job per detection, with ids only');
+		$this->runQueuedMails(shareOwners: $alerts);
 		$this->assertSame([$creator->getUID()], array_keys($mailed), 'Only the person with an email address gets an email');
 		$mail = $mailed[$creator->getUID()];
 		$this->assertSame('Someone is trying to guess the password of your share', $mail->subject);

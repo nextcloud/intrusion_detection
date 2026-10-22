@@ -31,7 +31,9 @@ use OCP\Notification\IManager as INotificationManager;
  *   in that hour only raise the counter it shows (the notifier reads it live).
  * - Email: only for detections of at least `notify_admin_email_min_severity`,
  *   and at most one per check and hour. Admins without an email address get
- *   the bell only.
+ *   the bell only. The email is queued ({@see MailQueue}) and sent by
+ *   {@see self::sendMail()} from a background job, to the administrators of
+ *   that moment.
  *
  * A detection with the fact {@see self::FACT_ALERT_KEY} is aggregated per
  * check and that key (bell and email), so that different kinds of changes
@@ -52,6 +54,7 @@ class AdminAlerts {
 	public const BELL_SENT = 'sent';
 	public const BELL_AGGREGATED = 'aggregated';
 	public const EMAIL_SENT = 'sent';
+	public const EMAIL_QUEUED = 'queued';
 	public const EMAIL_LIMITED = 'limited';
 	public const EMAIL_BELOW_SEVERITY = 'below_severity';
 	public const EMAIL_NO_ADDRESS = 'no_address';
@@ -68,6 +71,7 @@ class AdminAlerts {
 		private readonly UserMessages $messages,
 		private readonly AdminLinks $links,
 		private readonly ITimeFactory $timeFactory,
+		private readonly MailQueue $queue,
 	) {
 	}
 
@@ -182,8 +186,7 @@ class AdminAlerts {
 		if ($this->recipients->knownWithoutEmail($allAdmins)) {
 			return self::EMAIL_NO_ADDRESS;
 		}
-		$withAddress = array_values(array_filter($recipients(), static fn (IUser $u): bool => (string)$u->getEMailAddress() !== ''));
-		if ($withAddress === []) {
+		if (self::withAddress($recipients()) === []) {
 			$this->recipients->rememberWithoutEmail($allAdmins);
 			return self::EMAIL_NO_ADDRESS;
 		}
@@ -191,13 +194,33 @@ class AdminAlerts {
 		if (!$first) {
 			return self::EMAIL_LIMITED;
 		}
+		$this->queue->admins($detection->getId());
+		return self::EMAIL_QUEUED;
+	}
+
+	/**
+	 * Send the queued alert email about a detection to every administrator
+	 * with an email address.
+	 *
+	 * @return int how many emails were handed to the mail server
+	 */
+	public function sendMail(Detection $detection): int {
+		$allAdmins = ($detection->getExplanationData()['facts'][self::FACT_ALL_ADMINS] ?? false) === true;
 		$sent = 0;
-		foreach ($withAddress as $user) {
+		foreach (self::withAddress($this->recipients->users($allAdmins)) as $user) {
 			if ($this->mails->send($user, $this->mailFor($detection, $user))) {
 				$sent++;
 			}
 		}
-		return $sent > 0 ? self::EMAIL_SENT : self::EMAIL_FAILED;
+		return $sent;
+	}
+
+	/**
+	 * @param list<IUser> $users
+	 * @return list<IUser>
+	 */
+	private static function withAddress(array $users): array {
+		return array_values(array_filter($users, static fn (IUser $u): bool => (string)$u->getEMailAddress() !== ''));
 	}
 
 	/**
