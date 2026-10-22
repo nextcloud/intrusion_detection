@@ -23,6 +23,9 @@ const currentTab = computed(() => tabs.value.find((tab) => tab.id === activeTab.
 const openCheckId = ref<string | null>(null)
 const { message } = useAnnouncer()
 
+/** Set when the page goes away, so that pending section lookups stop */
+let unmounted = false
+
 const counts = computed(() => ({ blocks: state.status?.activeBans ?? 0 }))
 
 /**
@@ -32,8 +35,11 @@ const counts = computed(() => ({ blocks: state.status?.activeBans ?? 0 }))
  * @param section - The element id of the section, e.g. "settings-privacy"
  */
 async function scrollToSection(section: string) {
-	for (let attempt = 0; attempt < 20; attempt++) {
+	for (let attempt = 0; attempt < 20 && !unmounted; attempt++) {
 		await nextTick()
+		if (unmounted) {
+			return
+		}
 		const element = document.getElementById(section)
 		if (element) {
 			element.scrollIntoView({ block: 'start', behavior: 'smooth' })
@@ -125,6 +131,7 @@ onMounted(() => {
 	document.addEventListener('visibilitychange', lookForWaitingLogins)
 })
 onBeforeUnmount(() => {
+	unmounted = true
 	window.removeEventListener('hashchange', readHash)
 	document.removeEventListener('visibilitychange', lookForWaitingLogins)
 	clearInterval(waitingTimer)
