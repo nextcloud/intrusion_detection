@@ -34,6 +34,7 @@ final class InvalidParamException extends \InvalidArgumentException {
 			'not_a_boolean' => $l->t('"%s" must be on or off.', [$param]),
 			'not_a_duration' => $l->t('Use seconds, or a number with s, m, h or d, for example 10m.'),
 			'too_small' => $l->t('"%1$s" must be at least %2$s.', [$param, (string)($this->details['min'] ?? '')]),
+			'zero_or_at_least' => $l->t('"%1$s" must be 0 (off) or at least %2$s.', [$param, (string)($this->details['min'] ?? '')]),
 			'too_large' => $l->t('"%1$s" must be at most %2$s.', [$param, (string)($this->details['max'] ?? '')]),
 			'not_a_choice' => $l->t('"%1$s" must be one of: %2$s.', [$param, (string)($this->details['choices'] ?? '')]),
 			'not_a_list' => $l->t('"%s" must be a list.', [$param]),

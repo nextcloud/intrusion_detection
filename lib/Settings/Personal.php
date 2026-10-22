@@ -13,6 +13,7 @@ use OCA\IntrusionDetection\AppInfo\Application;
 use OCA\IntrusionDetection\Config\Settings;
 use OCA\IntrusionDetection\Personal\ManageSummary;
 use OCA\IntrusionDetection\Personal\PersonalOverview;
+use OCA\IntrusionDetection\StaleCredential\StaleCredentials;
 use OCP\AppFramework\Http\TemplateResponse;
 use OCP\AppFramework\Services\IInitialState;
 use OCP\IL10N;
@@ -23,8 +24,9 @@ use OCP\Util;
 /**
  * The user's own security events in personal settings → Security, right
  * after core's list of devices and sessions (concept section 15.1). The
- * overview and what "Manage" offers come with the page; the activity and
- * the lists are loaded from the personal API.
+ * overview, what "Manage" offers and the app passwords and devices unused
+ * for 90 days come with the page; the activity and the lists are loaded
+ * from the personal API.
  * Nothing is shown while `personal_page_enabled` is off.
  */
 class Personal implements ISettings {
@@ -38,6 +40,7 @@ class Personal implements ISettings {
 		private readonly IInitialState $initialState,
 		private readonly IL10N $l,
 		private readonly ManageSummary $manage,
+		private readonly StaleCredentials $staleCredentials,
 	) {
 	}
 
@@ -54,6 +57,7 @@ class Personal implements ISettings {
 		$this->initialState->provideInitialState('personal', [
 			'overview' => $this->overview->get($user, $this->l),
 			'manage' => $this->manage->forUser($user->getUID(), $this->l),
+			'staleCredentials' => $this->staleCredentials->forUser($user->getUID(), $this->l),
 		]);
 		Util::addStyle(Application::APP_ID, 'settings-personal');
 		Util::addScript(Application::APP_ID, 'settings-personal');

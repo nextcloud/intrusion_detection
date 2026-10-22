@@ -19,6 +19,7 @@ use OCA\IntrusionDetection\Db\DetectionMapper;
 use OCA\IntrusionDetection\Explain\DateFormatter;
 use OCA\IntrusionDetection\Explain\NarrativeBuilder;
 use OCA\IntrusionDetection\Learning\LearningService;
+use OCA\IntrusionDetection\StaleCredential\StaleCredentialNotices;
 use OCA\IntrusionDetection\WasThisYou\Questions;
 use OCP\AppFramework\Db\DoesNotExistException;
 use OCP\IL10N;
@@ -110,6 +111,8 @@ class Notifier implements INotifier {
 			AdminNotices::SUBJECT_PASSWORD_EXTERNAL => $this->preparePasswordExternal($notification, $l),
 			self::SUBJECT_APPROVAL_REQUESTED, self::SUBJECT_APPROVAL_PENDING, self::SUBJECT_APPROVAL_DECIDED => $this->prepareApproval($notification, $l),
 			TestAlert::SUBJECT => $this->prepareTestAlert($notification, $l),
+			StaleCredentialNotices::SUBJECT_REMINDER => $this->prepareStaleReminder($notification, $l),
+			StaleCredentialNotices::SUBJECT_REMOVED => $this->prepareStaleRemoved($notification, $l),
 			default => throw new UnknownNotificationException(),
 		};
 	}
@@ -373,6 +376,49 @@ class Notifier implements INotifier {
 		} catch (DoesNotExistException) {
 			throw new AlreadyProcessedException();
 		}
+	}
+
+	/**
+	 * "You have 3 app passwords you haven't used for 3 months", from the
+	 * counts the reminder carries.
+	 */
+	private function prepareStaleReminder(INotification $notification, IL10N $l): INotification {
+		$params = $notification->getSubjectParameters();
+		$apps = max(0, (int)($params['appPasswords'] ?? 0));
+		$sessions = max(0, (int)($params['sessions'] ?? 0));
+		$subject = match (true) {
+			$sessions === 0 => $l->n('You have %n app password you haven\'t used for 3 months', 'You have %n app passwords you haven\'t used for 3 months', $apps),
+			$apps === 0 => $l->n('You are still logged in on %n browser you haven\'t used for 3 months', 'You are still logged in on %n browsers you haven\'t used for 3 months', $sessions),
+			default => $l->n('You have %n app password or device you haven\'t used for 3 months', 'You have %n app passwords and devices you haven\'t used for 3 months', $apps + $sessions),
+		};
+		$notification->setParsedSubject($subject)
+			->setParsedMessage($l->t('If someone else had one of them, it would be easy to miss. Remove the ones you no longer need in your security settings.'))
+			->setLink($this->userLinks->securityPage());
+		return $notification;
+	}
+
+	/**
+	 * What the daily job removed, with the names the credentials had.
+	 */
+	private function prepareStaleRemoved(INotification $notification, IL10N $l): INotification {
+		$params = $notification->getSubjectParameters();
+		$apps = max(0, (int)($params['appPasswords'] ?? 0));
+		$sessions = max(0, (int)($params['sessions'] ?? 0));
+		$days = (string)max(0, (int)($params['days'] ?? 0));
+		$subject = match (true) {
+			$sessions === 0 => $l->n('Removed %n app password you had not used for %s days', 'Removed %n app passwords you had not used for %s days', $apps, [$days]),
+			$apps === 0 => $l->n('Logged out %n browser you had not used for %s days', 'Logged out %n browsers you had not used for %s days', $sessions, [$days]),
+			default => $l->n('Removed %n app password or device you had not used for %s days', 'Removed %n app passwords and devices you had not used for %s days', $apps + $sessions, [$days]),
+		};
+		$names = array_values(array_filter(array_map(static fn (mixed $name): string => is_string($name) ? $name : '', (array)($params['names'] ?? [])), static fn (string $name): bool => $name !== ''));
+		$message = $l->t('An app that still needs access asks you to log in again.');
+		if ($names !== []) {
+			$message = $l->t('Removed: %s.', [implode(', ', $names)]) . ' ' . $message;
+		}
+		$notification->setParsedSubject($subject)
+			->setParsedMessage($message)
+			->setLink($this->userLinks->securityPage());
+		return $notification;
 	}
 
 	private function prepareTestAlert(INotification $notification, IL10N $l): INotification {

@@ -15,6 +15,7 @@ use OCA\IntrusionDetection\Notification\UserLinks;
 use OCA\IntrusionDetection\Personal\ManageSummary;
 use OCA\IntrusionDetection\Personal\PersonalOverview;
 use OCA\IntrusionDetection\Settings\Personal;
+use OCA\IntrusionDetection\StaleCredential\StaleCredentials;
 use OCP\AppFramework\Services\IInitialState;
 use OCP\IL10N;
 use OCP\IUser;
@@ -47,7 +48,8 @@ class PersonalTest extends TestCase {
 		$this->overview->method('get')->willReturn(['status' => ['level' => 'ok']]);
 		$this->state->expects($this->once())->method('provideInitialState')->with('personal', $this->callback(
 			static fn (array $data): bool => $data['overview'] === ['status' => ['level' => 'ok']]
-				&& $data['manage'] === ['devices' => 1, 'networks' => 0, 'otherBrowsers' => 2],
+				&& $data['manage'] === ['devices' => 1, 'networks' => 0, 'otherBrowsers' => 2]
+				&& $data['staleCredentials'] === [['id' => 7, 'name' => 'Thunderbird', 'kind' => 'app_password', 'lastUsed' => 1000]],
 		));
 
 		$response = $this->personal()->getForm();
@@ -92,6 +94,8 @@ class PersonalTest extends TestCase {
 		$session->method('getUser')->willReturn($this->createMock(IUser::class));
 		$manage = $this->createMock(ManageSummary::class);
 		$manage->method('forUser')->willReturn(['devices' => 1, 'networks' => 0, 'otherBrowsers' => 2]);
-		return new Personal($this->settings, $this->overview, $session, $this->state, $this->createMock(IL10N::class), $manage);
+		$stale = $this->createMock(StaleCredentials::class);
+		$stale->method('forUser')->willReturn([['id' => 7, 'name' => 'Thunderbird', 'kind' => 'app_password', 'lastUsed' => 1000]]);
+		return new Personal($this->settings, $this->overview, $session, $this->state, $this->createMock(IL10N::class), $manage, $stale);
 	}
 }

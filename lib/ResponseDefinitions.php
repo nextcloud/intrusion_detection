@@ -847,6 +847,13 @@ namespace OCA\IntrusionDetection;
  *     devices: int,
  * }
  *
+ * @psalm-type IntrusionDetectionStaleCredential = array{
+ *     id: int,
+ *     name: string,
+ *     kind: 'app_password'|'session',
+ *     lastUsed: int,
+ * }
+ *
  * @psalm-type IntrusionDetectionSecurityChange = array{
  *     id: int,
  *     type: string,

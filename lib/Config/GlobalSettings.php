@@ -10,6 +10,7 @@ declare(strict_types=1);
 namespace OCA\IntrusionDetection\Config;
 
 use OCA\IntrusionDetection\Check\Checks\AdminChange;
+use OCA\IntrusionDetection\Check\InvalidParamException;
 use OCA\IntrusionDetection\Check\IValidatesParams;
 use OCA\IntrusionDetection\Check\ParamDefinition;
 use OCA\IntrusionDetection\Check\ParamPreset;
@@ -109,6 +110,12 @@ final class GlobalSettings {
 	public const PROTECTION_LEVEL = 'protection_level';
 	/** Internal: this server's own addresses seen in web requests, for cron and occ */
 	public const SERVER_ADDRESSES = 'server_addresses';
+	/** Days without use after which the daily job removes app passwords and remembered browsers; 0 keeps them */
+	public const STALE_CREDENTIALS_REMOVE_DAYS = 'stale_credentials_remove_days';
+	/** The removal takes at least this many days without use */
+	public const STALE_CREDENTIALS_MIN_REMOVE_DAYS = 90;
+	/** Internal: how many app passwords and remembered browsers were not used for 90 days, and of how many accounts, with when they were counted and when the daily look last ran */
+	public const STALE_CREDENTIALS = 'stale_credentials';
 
 	/** Seconds in the learning period that starts when the app is first enabled */
 	public const LEARNING_DEFAULT_PERIOD = 7 * 86400;
@@ -169,6 +176,8 @@ final class GlobalSettings {
 				new ParamDefinition(self::TRAP_NAME_COLLISIONS, ParamType::Json, '{}'),
 				new ParamDefinition(self::PROTECTION_LEVEL, ParamType::Choice, ProtectionLevel::Recommended->value, choices: array_map(static fn (ProtectionLevel $level): string => $level->value, ProtectionLevel::cases())),
 				new ParamDefinition(self::SERVER_ADDRESSES, ParamType::StringList, [], itemPattern: '/^[0-9a-f.:]{2,45}$/', maxItems: ServerAddresses::MAX_REMEMBERED),
+				new ParamDefinition(self::STALE_CREDENTIALS_REMOVE_DAYS, ParamType::Int, 0, min: 0, max: 3650),
+				new ParamDefinition(self::STALE_CREDENTIALS, ParamType::Json, '{}'),
 			];
 			$this->definitions = [];
 			foreach ($list as $definition) {
@@ -196,6 +205,18 @@ final class GlobalSettings {
 	}
 
 	/**
+	 * A rule a value must pass besides its definition's type and range.
+	 *
+	 * @param int|float|bool|string|list<string> $value valid for its definition
+	 * @throws InvalidParamException
+	 */
+	public static function checkRule(string $name, int|float|bool|string|array $value): void {
+		if ($name === self::STALE_CREDENTIALS_REMOVE_DAYS && $value !== 0 && $value < self::STALE_CREDENTIALS_MIN_REMOVE_DAYS) {
+			throw new InvalidParamException('zero_or_at_least', ['param' => $name, 'min' => self::STALE_CREDENTIALS_MIN_REMOVE_DAYS]);
+		}
+	}
+
+	/**
 	 * Settings that hold internal state and are never set by an admin.
 	 */
 	public static function isInternal(string $name): bool {
@@ -214,6 +235,7 @@ final class GlobalSettings {
 			self::TRAP_NAME_COLLISIONS,
 			self::PROTECTION_LEVEL,
 			self::SERVER_ADDRESSES,
+			self::STALE_CREDENTIALS,
 		], true);
 	}
 }

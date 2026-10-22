@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 
-import type { ManageSummary, PersonalActivity, PersonalOverview, PersonalState } from './types.ts'
+import type { ManageSummary, PersonalActivity, PersonalOverview, PersonalState, StaleCredential } from './types.ts'
 
 import { loadState } from '@nextcloud/initial-state'
 import { t } from '@nextcloud/l10n'
@@ -26,6 +26,8 @@ export const ACTIVITY_MAX = 100
 export const personal = reactive({
 	overview: null as PersonalOverview | null,
 	manage: { devices: 0, networks: 0, otherBrowsers: 0 } as ManageSummary,
+	/** App passwords and remembered browsers not used for 90 days */
+	staleCredentials: [] as StaleCredential[],
 	/** The open questions and the timeline; null until loaded */
 	activity: null as PersonalActivity | null,
 	activityError: null as string | null,
@@ -45,6 +47,7 @@ export function initPersonalState(): void {
 	if (state !== null) {
 		personal.overview = state.overview
 		personal.manage = state.manage
+		personal.staleCredentials = state.staleCredentials ?? []
 	}
 }
 
