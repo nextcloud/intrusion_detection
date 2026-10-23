@@ -73,4 +73,25 @@ class TextRenderer {
 		}
 		return $l->n('%n second', '%n seconds', $seconds);
 	}
+
+	/**
+	 * A count for a sentence, as "about 120" when it was estimated from
+	 * sampled attempts (a sample factor above 1).
+	 */
+	public static function estimated(int $count, ?int $sampleFactor, IL10N $l): string {
+		return ($sampleFactor ?? 1) > 1 ? $l->t('about %s', [(string)$count]) : (string)$count;
+	}
+
+	/**
+	 * "3 of them exist: alice, bob, carol." for the accounts an attack tried,
+	 * or null when none of them exists.
+	 *
+	 * @param ?list<string> $targets
+	 */
+	public static function targets(?array $targets, IL10N $l): ?string {
+		if ($targets === null || $targets === []) {
+			return null;
+		}
+		return $l->n('%n of them exists: %s.', '%n of them exist: %s.', count($targets), [implode(', ', $targets)]);
+	}
 }

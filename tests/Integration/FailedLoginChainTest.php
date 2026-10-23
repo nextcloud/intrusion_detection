@@ -15,6 +15,7 @@ use OCA\IntrusionDetection\Check\Checks\BlocklistMatch\BlocklistMatch;
 use OCA\IntrusionDetection\Check\Checks\CredentialStuffing\CredentialStuffing;
 use OCA\IntrusionDetection\Check\Checks\DecoyCredential\DecoyCredential;
 use OCA\IntrusionDetection\Check\Checks\PasswordSpraying\PasswordSpraying;
+use OCA\IntrusionDetection\Check\Checks\PasswordSpraying\PasswordSprayingRule;
 use OCA\IntrusionDetection\Check\Checks\ReservedName\ReservedName;
 use OCA\IntrusionDetection\Config\GlobalSettings;
 use OCA\IntrusionDetection\Db\Detection;
@@ -110,8 +111,8 @@ class FailedLoginChainTest extends LoginFailureTestCase {
 		}
 		ksort($byRule);
 		$this->assertSame([
-			PasswordSpraying::RULE_FLAGGED => ['ban'],
-			PasswordSpraying::RULE_SPRAY => ['ban', 'flag_password', 'notify_admin'],
+			PasswordSprayingRule::Flagged->value => ['ban'],
+			PasswordSprayingRule::Spray->value => ['ban', 'flag_password', 'notify_admin'],
 		], $byRule);
 	}
 

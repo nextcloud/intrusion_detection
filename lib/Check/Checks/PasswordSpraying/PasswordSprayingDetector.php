@@ -18,6 +18,7 @@ use OCA\IntrusionDetection\Db\AttemptMapper;
 use OCA\IntrusionDetection\Db\Detection;
 use OCA\IntrusionDetection\Definition\ResponseType;
 use OCA\IntrusionDetection\Detection\AttemptRecord;
+use OCA\IntrusionDetection\Detection\CommonFacts;
 use OCA\IntrusionDetection\Detection\DetectionDraft;
 use OCA\IntrusionDetection\Login\LoginContext;
 use OCA\IntrusionDetection\Net\SourceKey;
@@ -117,17 +118,20 @@ class PasswordSprayingDetector implements IDetector {
 		$draft = new DetectionDraft(
 			checkId: PasswordSpraying::ID,
 			source: $attempt->source,
-			facts: [
-				'rule' => PasswordSpraying::RULE_SPRAY,
-				'failures' => $stats->failures,
-				'names' => $stats->distinctNames,
-				'sources' => $stats->distinctSources,
-				'banTargets' => count($targets),
-				'listed' => count($perSource),
-				'first' => $stats->first,
-				'last' => $stats->last,
-				'targets' => $this->attempts->distinctUids('pw_fp', $attempt->passwordCandidates, self::KINDS, $since, 20),
-			] + $limits->facts(),
+			facts: new PasswordSprayingFacts(
+				rule: PasswordSprayingRule::Spray,
+				failures: $stats->failures,
+				names: $stats->distinctNames,
+				sources: $stats->distinctSources,
+				banTargets: count($targets),
+				listed: count($perSource),
+				common: new CommonFacts(
+					first: $stats->first,
+					last: $stats->last,
+					targets: $this->attempts->distinctUids('pw_fp', $attempt->passwordCandidates, self::KINDS, $since, 20),
+					risk: $limits->facts(),
+				),
+			),
 			merge: DetectionDraft::MERGE_SOURCE,
 			userAgent: $userAgent,
 		);
@@ -162,7 +166,7 @@ class PasswordSprayingDetector implements IDetector {
 			checkId: PasswordSpraying::ID,
 			source: $login->source,
 			uid: $login->uid(),
-			facts: ['rule' => PasswordSpraying::RULE_LOGIN, 'client' => !$login->interactive],
+			facts: new PasswordSprayingFacts(rule: PasswordSprayingRule::Login, client: !$login->interactive),
 			merge: DetectionDraft::MERGE_SOURCE_USER,
 			userAgent: $login->userAgent,
 		)];
@@ -186,7 +190,7 @@ class PasswordSprayingDetector implements IDetector {
 		yield new DetectionDraft(
 			checkId: PasswordSpraying::ID,
 			source: $attempt->source,
-			facts: ['rule' => PasswordSpraying::RULE_FLAGGED, 'names' => $own->distinctNames],
+			facts: new PasswordSprayingFacts(rule: PasswordSprayingRule::Flagged, names: $own->distinctNames),
 			merge: DetectionDraft::MERGE_SOURCE,
 			userAgent: $userAgent,
 		);

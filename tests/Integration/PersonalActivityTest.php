@@ -11,6 +11,8 @@ namespace OCA\IntrusionDetection\Tests\Integration;
 
 use OCA\IntrusionDetection\AppInfo\Application;
 use OCA\IntrusionDetection\Check\Checks\PasswordSpraying\PasswordSpraying;
+use OCA\IntrusionDetection\Check\Checks\PasswordSpraying\PasswordSprayingFacts;
+use OCA\IntrusionDetection\Check\Checks\PasswordSpraying\PasswordSprayingRule;
 use OCA\IntrusionDetection\Config\GlobalSettings;
 use OCA\IntrusionDetection\Db\DetectionMapper;
 use OCA\IntrusionDetection\Detection\DetectionDraft;
@@ -126,7 +128,7 @@ class PersonalActivityTest extends PersonalApiTestCase {
 		$this->setCreatedAt($open->getId(), time() - 86400 * 40);
 		// Password spraying asks only for a login with the sprayed password, not for a flagged one.
 		for ($i = 0; $i < PersonalActivity::MAX_QUESTIONS + 20; $i++) {
-			$this->engine()->handle(new DetectionDraft(PasswordSpraying::ID, SourceKey::fromIp('198.51.100.' . (10 + $i)), $this->alice->getUID(), ['rule' => PasswordSpraying::RULE_FLAGGED]), []);
+			$this->engine()->handle(new DetectionDraft(PasswordSpraying::ID, SourceKey::fromIp('198.51.100.' . (10 + $i)), $this->alice->getUID(), new PasswordSprayingFacts(rule: PasswordSprayingRule::Flagged)), []);
 		}
 		$this->startSession($this->alice);
 		$this->assertSame([$open->getId()], array_column($this->controller()->activity()->getData()['questions'], 'id'));

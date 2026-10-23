@@ -21,8 +21,9 @@ use Test\TestCase;
  *
  * Fact keys are the top-level keys of the arrays that become a detection's
  * facts: the `facts:` argument (of a detection draft or a permit), arrays
- * assigned or added to `$facts`, `$facts[...]` writes, and the arrays that
- * methods named `...facts()` return. Keys may be strings or class constants.
+ * assigned or added to `$facts`, `$facts[...]` writes, the arrays that
+ * methods named `...facts()` return, and those that the `toArray()` of a
+ * facts class (`...Facts.php`) returns. Keys may be strings or class constants.
  */
 class DetectionFactKeysTest extends TestCase {
 	/** Words that make a key look like it holds an account */
@@ -121,7 +122,8 @@ class DetectionFactKeysTest extends TestCase {
 				}
 				foreach ($method->getParameters() as $parameter) {
 					$type = $parameter->getType();
-					if ($parameter->getName() === 'facts' && $type instanceof \ReflectionNamedType && $type->getName() === 'array') {
+					$types = $type instanceof \ReflectionUnionType ? $type->getTypes() : [$type];
+					if ($parameter->getName() === 'facts' && in_array('array', array_map(static fn (mixed $t): ?string => $t instanceof \ReflectionNamedType ? $t->getName() : null, $types), true)) {
 						$name = $method->isConstructor() ? $reflection->getShortName() : $method->getName();
 						$positions[$name][] = $parameter->getPosition();
 					}
@@ -246,7 +248,8 @@ class DetectionFactKeysTest extends TestCase {
 			}
 
 			$line = $context['file'] . ':' . (is_array($token) ? $token[2] : '?');
-			if (is_array($token) && $token[0] === T_FUNCTION && is_array($tokens[$i + 1]) && preg_match('/(^f|F)acts$/', $tokens[$i + 1][1]) === 1) {
+			if (is_array($token) && $token[0] === T_FUNCTION && is_array($tokens[$i + 1])
+				&& (preg_match('/(^f|F)acts$/', $tokens[$i + 1][1]) === 1 || ($tokens[$i + 1][1] === 'toArray' && str_ends_with($path, 'Facts.php')))) {
 				$factsMethodDepth = $depth + 1;
 			} elseif ($factsMethodDepth !== null && is_array($token) && $token[0] === T_RETURN) {
 				self::keysOfExpression($tokens, $i + 1, $context, $line, $keys);
@@ -284,6 +287,10 @@ class DetectionFactKeysTest extends TestCase {
 		$count = count($tokens);
 		for ($i = $start; $i < $count; $i++) {
 			$text = is_array($tokens[$i]) ? $tokens[$i][1] : $tokens[$i];
+			if ($text === '(' && ($tokens[$i + 1] ?? null) === '[') {
+				// An array literal as a call's first argument, as in FactValues::recorded([...]).
+				continue;
+			}
 			if ($text === '[' || $text === '(') {
 				$depth++;
 				continue;

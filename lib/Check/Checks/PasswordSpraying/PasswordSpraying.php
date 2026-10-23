@@ -25,6 +25,7 @@ use OCA\IntrusionDetection\Definition\ParamText;
 use OCA\IntrusionDetection\Definition\ParamType;
 use OCA\IntrusionDetection\Definition\ResponseType;
 use OCA\IntrusionDetection\Definition\Severity;
+use OCA\IntrusionDetection\Detection\CommonFacts;
 use OCA\IntrusionDetection\Detection\DetectionDraft;
 use OCA\IntrusionDetection\Explain\DateFormatter;
 use OCA\IntrusionDetection\Explain\DetectionFacts;
@@ -41,17 +42,12 @@ use OCP\IL10N;
  * The detector is {@see PasswordSprayingDetector}.
  *
  * A successful login with a flagged password is a detection of its own
- * (rule `login_success`) with its own responses: the login needs extra
+ * ({@see PasswordSprayingRule::Login}) with its own responses: the login needs extra
  * confirmation, the user is told and must choose a new password. The
  * failure rules only block and flag.
  */
 final class PasswordSpraying implements ICheck, IExplainsDetection, ISimulatable, ISelectsResponses, IExplainsToUser, IAsksWasThisYou {
 	public const ID = 'password_spraying';
-
-	public const RULE_SPRAY = 'spray';
-	public const RULE_FLAGGED = 'flagged_password';
-	/** A successful login with a flagged password */
-	public const RULE_LOGIN = 'login_success';
 
 	/** The responses of the failure rules */
 	public const FAILURE_RESPONSES = [ResponseType::Ban, ResponseType::FlagPassword, ResponseType::NotifyAdmin];
@@ -105,9 +101,9 @@ final class PasswordSpraying implements ICheck, IExplainsDetection, ISimulatable
 
 	#[\Override]
 	public function responsesFor(DetectionDraft $draft, array $configured, array $params): array {
-		$allowed = match ($draft->facts['rule'] ?? null) {
-			self::RULE_LOGIN => self::LOGIN_RESPONSES,
-			self::RULE_FLAGGED => self::JOINING_RESPONSES,
+		$allowed = match (PasswordSprayingFacts::fromArray($draft->facts)->rule) {
+			PasswordSprayingRule::Login => self::LOGIN_RESPONSES,
+			PasswordSprayingRule::Flagged => self::JOINING_RESPONSES,
 			default => self::FAILURE_RESPONSES,
 		};
 		return array_values(array_filter($configured, static fn (ResponseType $r): bool => in_array($r, $allowed, true)));
@@ -115,7 +111,7 @@ final class PasswordSpraying implements ICheck, IExplainsDetection, ISimulatable
 
 	#[\Override]
 	public function asksWasThisYou(Detection $detection): bool {
-		return DetectionFacts::of($detection)->string('rule') === self::RULE_LOGIN;
+		return PasswordSprayingFacts::fromArray(DetectionFacts::of($detection)->facts)->rule === PasswordSprayingRule::Login;
 	}
 
 	#[\Override]
@@ -143,41 +139,44 @@ final class PasswordSpraying implements ICheck, IExplainsDetection, ISimulatable
 
 	#[\Override]
 	public function narrative(Detection $detection, IL10N $l): array {
-		$facts = DetectionFacts::of($detection);
-		if ($facts->string('rule') === self::RULE_LOGIN) {
-			$sentences = [$facts->bool('client')
-				? $l->t('At %1$s an app or script logged in as %2$s from %3$s with a password that is being tried against many accounts right now.', [$this->dates->dateTime($facts->first), (string)$detection->getUid(), (string)$detection->getIp()])
-				: $l->t('At %1$s %2$s logged in from %3$s with a password that is being tried against many accounts right now.', [$this->dates->dateTime($facts->first), (string)$detection->getUid(), (string)$detection->getIp()])];
+		$stored = DetectionFacts::of($detection);
+		$facts = PasswordSprayingFacts::fromArray($stored->facts);
+		if ($facts->rule === PasswordSprayingRule::Login) {
+			$sentences = [$facts->client === true
+				? $l->t('At %1$s an app or script logged in as %2$s from %3$s with a password that is being tried against many accounts right now.', [$this->dates->dateTime($stored->first), (string)$detection->getUid(), (string)$detection->getIp()])
+				: $l->t('At %1$s %2$s logged in from %3$s with a password that is being tried against many accounts right now.', [$this->dates->dateTime($stored->first), (string)$detection->getUid(), (string)$detection->getIp()])];
 			if ($detection->getHits() > 1) {
 				$sentences[] = $l->n('It logged in with it %n time within the hour.', 'It logged in with it %n times within the hour.', $detection->getHits());
 			}
 			$sentences[] = $l->t('Attackers know this password, so the account holder must confirm such logins and choose a new one.');
 			return $sentences;
 		}
-		if ($facts->string('rule') === self::RULE_FLAGGED) {
-			$names = $facts->int('names');
+		if ($facts->rule === PasswordSprayingRule::Flagged) {
+			$names = $facts->names ?? 0;
 			return [$names > 0
 				? $l->t('The address %1$s tried a password that is being tried against many accounts right now, for %2$s accounts itself, so it was treated as part of that attack.', [(string)$detection->getIp(), (string)$names])
 				: $l->t('The address %s tried a password that is being tried against many accounts right now, so it was treated as part of that attack at once.', [(string)$detection->getIp()])];
 		}
+		$sources = $facts->sources ?? 0;
+		$banTargets = $facts->banTargets ?? 0;
 		$sentences = [
 			$l->t('Between %1$s and %2$s one password was tried against %3$s different accounts, from %4$s different addresses.', [
-				$this->dates->dateTime($facts->first),
-				$this->dates->time($facts->last),
-				(string)$facts->int('names'),
-				(string)$facts->int('sources'),
+				$this->dates->dateTime($stored->first),
+				$this->dates->time($stored->last),
+				(string)($facts->names ?? 0),
+				(string)$sources,
 			]),
 		];
-		$targets = $facts->targetsSentence($l);
+		$targets = TextRenderer::targets($facts->common->targets, $l);
 		if ($targets !== null) {
 			$sentences[] = $targets;
 		}
 		$sentences[] = $l->t('The limit at that time was %1$s accounts within %2$s.', [
-			(string)$facts->threshold('min_names'),
-			TextRenderer::duration($facts->threshold('window', 3600), $l),
+			(string)$stored->threshold('min_names'),
+			TextRenderer::duration($stored->threshold('window', 3600), $l),
 		]);
-		$listed = $facts->int('listed', $facts->int('banTargets'));
-		$spared = $listed - $facts->int('banTargets');
+		$listed = $facts->listed ?? $banTargets;
+		$spared = $listed - $banTargets;
 		if ($spared > 0) {
 			$sentences[] = $l->n(
 				'%n address tried it for only one account and was not blocked: that may be a person who mistyped.',
@@ -185,8 +184,8 @@ final class PasswordSpraying implements ICheck, IExplainsDetection, ISimulatable
 				$spared,
 			);
 		}
-		$unbanned = $facts->int('sources') - $listed;
-		if ($facts->int('banTargets') > 0 && $unbanned > 0) {
+		$unbanned = $sources - $listed;
+		if ($banTargets > 0 && $unbanned > 0) {
 			$sentences[] = $l->n(
 				'%n more address tried it, but one detection blocks at most %s addresses.',
 				'%n more addresses tried it, but one detection blocks at most %s addresses.',
@@ -204,16 +203,14 @@ final class PasswordSpraying implements ICheck, IExplainsDetection, ISimulatable
 		return new DetectionDraft(
 			checkId: self::ID,
 			source: $source,
-			facts: [
-				'rule' => self::RULE_SPRAY,
-				'failures' => $names,
-				'names' => $names,
-				'sources' => $names,
-				'banTargets' => $names,
-				'first' => $now - (int)($params['window'] ?? 3600) + 60,
-				'last' => $now,
-				'simulated' => true,
-			],
+			facts: new PasswordSprayingFacts(
+				rule: PasswordSprayingRule::Spray,
+				failures: $names,
+				names: $names,
+				sources: $names,
+				banTargets: $names,
+				common: new CommonFacts(first: $now - (int)($params['window'] ?? 3600) + 60, last: $now, simulated: true),
+			),
 			merge: DetectionDraft::MERGE_SOURCE,
 		);
 	}

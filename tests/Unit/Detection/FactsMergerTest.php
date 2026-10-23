@@ -15,7 +15,7 @@ use Test\TestCase;
 
 class FactsMergerTest extends TestCase {
 	public function testEachKindOfFactIsMergedItsOwnWay(): void {
-		$merged = FactsMerger::merge(
+		$merged = FactsMerger::byShape(
 			['rule' => 'spray', 'first' => 100, 'last' => 200, 'targets' => ['alice', 'bob'], 'failures' => 7, 'risk' => ['score' => 10], 'old' => 'kept'],
 			['rule' => 'flagged', 'first' => 150, 'last' => 300, 'targets' => ['bob', 'carol'], 'failures' => 9, 'risk' => ['score' => 40], 'lastSource' => '198.51.100.8'],
 		);
@@ -30,24 +30,24 @@ class FactsMergerTest extends TestCase {
 	}
 
 	public function testAnEarlierFirstIsNotMovedForward(): void {
-		$this->assertSame(['first' => 100, 'last' => 500], FactsMerger::merge(['first' => 100, 'last' => 500], ['first' => 400, 'last' => 450]));
+		$this->assertSame(['first' => 100, 'last' => 500], FactsMerger::byShape(['first' => 100, 'last' => 500], ['first' => 400, 'last' => 450]));
 	}
 
 	public function testListsAreBounded(): void {
 		$old = array_map(static fn (int $i): string => 'user' . $i, range(1, Explanation::MAX_TARGETS));
-		$merged = FactsMerger::merge(['targets' => $old, 'lists' => range(1, 40)], ['targets' => ['newcomer'], 'lists' => range(30, 80)]);
+		$merged = FactsMerger::byShape(['targets' => $old, 'lists' => range(1, 40)], ['targets' => ['newcomer'], 'lists' => range(30, 80)]);
 		$this->assertSame($old, $merged['targets']);
 		$this->assertCount(FactsMerger::MAX_LIST, $merged['lists']);
 		$this->assertSame(range(1, FactsMerger::MAX_LIST), $merged['lists']);
 	}
 
 	public function testListsOfStructuresAreJoinedByValue(): void {
-		$merged = FactsMerger::merge(['delegated' => [['group' => 'a']]], ['delegated' => [['group' => 'a'], ['group' => 'b']]]);
+		$merged = FactsMerger::byShape(['delegated' => [['group' => 'a']]], ['delegated' => [['group' => 'a'], ['group' => 'b']]]);
 		$this->assertSame([['group' => 'a'], ['group' => 'b']], $merged['delegated']);
 	}
 
 	public function testAListReplacedByAScalarTakesTheLatest(): void {
-		$this->assertSame(['targets' => 'x'], FactsMerger::merge(['targets' => ['a']], ['targets' => 'x']));
-		$this->assertSame(['first' => 'later'], FactsMerger::merge(['first' => 5], ['first' => 'later']));
+		$this->assertSame(['targets' => 'x'], FactsMerger::byShape(['targets' => ['a']], ['targets' => 'x']));
+		$this->assertSame(['first' => 'later'], FactsMerger::byShape(['first' => 5], ['first' => 'later']));
 	}
 }

@@ -13,8 +13,9 @@ use OCA\IntrusionDetection\Check\CheckRegistry;
 use OCA\IntrusionDetection\Check\ISimulatable;
 use OCA\IntrusionDetection\Db\Detection;
 use OCA\IntrusionDetection\Detection\DetectionDraft;
-use OCA\IntrusionDetection\Detection\Explanation;
 use OCA\IntrusionDetection\Detection\FactsMerger;
+use OCA\IntrusionDetection\Detection\IFacts;
+use OCA\IntrusionDetection\Detection\IMergeableFacts;
 use OCA\IntrusionDetection\Explain\DateFormatter;
 use OCA\IntrusionDetection\Explain\IAsksWasThisYou;
 use OCA\IntrusionDetection\Explain\IExplainsDetection;
@@ -82,6 +83,23 @@ class StoredDetectionsTest extends TestCase {
 		$this->assertSame(self::canonical($merged), self::canonical(self::merge($checkId, $stored, $hit)));
 	}
 
+	/**
+	 * @param array<string, mixed> $stored
+	 * @param array<string, mixed> $hit
+	 * @param array<string, mixed> $merged
+	 */
+	#[DataProvider('merges')]
+	public function testTheFactsClassKeepsTheStoredShape(string $checkId, array $stored, array $hit, array $merged): void {
+		$class = self::factsClass($checkId);
+		if ($class === null) {
+			$this->markTestSkipped($checkId . ' has no facts class');
+		}
+		$this->assertTrue(is_a($class, IMergeableFacts::class, true), 'The facts of a check whose hits merge declare how');
+		foreach ([$stored, $hit, $merged] as $facts) {
+			$this->assertSame(self::canonical($facts), self::canonical($class::fromArray($facts)->toArray()));
+		}
+	}
+
 	public function testASimulationStoresTheFactsItDidBefore(): void {
 		$this->assertSame(self::fixture('simulations.json'), $this->simulations());
 	}
@@ -94,7 +112,18 @@ class StoredDetectionsTest extends TestCase {
 	 * @return array<string, mixed>
 	 */
 	public static function merge(string $checkId, array $stored, array $hit): array {
-		return FactsMerger::merge($stored, Explanation::facts(new DetectionDraft(checkId: $checkId, facts: $hit)));
+		$class = self::factsClass($checkId);
+		return FactsMerger::merge($stored, new DetectionDraft(checkId: $checkId, facts: $class === null ? $hit : $class::fromArray($hit)));
+	}
+
+	/**
+	 * The facts class of a check, `<Name>Facts` in its folder.
+	 *
+	 * @return ?class-string<IFacts>
+	 */
+	public static function factsClass(string $checkId): ?string {
+		$class = Server::get(CheckRegistry::class)->classOf($checkId) . 'Facts';
+		return class_exists($class) ? $class : null;
 	}
 
 	/**

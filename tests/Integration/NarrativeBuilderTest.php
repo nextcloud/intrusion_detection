@@ -11,6 +11,7 @@ namespace OCA\IntrusionDetection\Tests\Integration;
 
 use OCA\IntrusionDetection\Check\CheckRegistry;
 use OCA\IntrusionDetection\Check\Checks\PasswordSpraying\PasswordSpraying;
+use OCA\IntrusionDetection\Check\Checks\PasswordSpraying\PasswordSprayingRule;
 use OCA\IntrusionDetection\Check\Checks\SharedAddress\SharedAddress;
 use OCA\IntrusionDetection\Config\ModeState;
 use OCA\IntrusionDetection\Db\Detection;
@@ -77,7 +78,7 @@ class NarrativeBuilderTest extends TestCase {
 	}
 
 	public function testTheChecksOwnSentencesAreFollowedByTheRiskScore(): void {
-		$facts = ['rule' => PasswordSpraying::RULE_FLAGGED, 'names' => 3];
+		$facts = ['rule' => PasswordSprayingRule::Flagged->value, 'names' => 3];
 		$plain = $this->builder->build(self::detection(PasswordSpraying::ID, $facts), $this->l);
 		$risky = $this->builder->build(self::detection(PasswordSpraying::ID, $facts + [
 			'risk' => ['score' => 40, 'tier' => 'elevated', 'factor' => 0.5, 'parts' => [['fact' => 'failures', 'points' => 40, 'detail' => '30']], 'tiers' => ['elevated' => 30, 'high' => 60]],

@@ -19,11 +19,11 @@ use OCP\IL10N;
  */
 final class DetectionFacts {
 	/**
-	 * @param array<array-key, mixed> $facts
+	 * @param array<array-key, mixed> $facts the stored facts, for the facts class of the check
 	 * @param array<array-key, mixed> $thresholds
 	 */
 	private function __construct(
-		private readonly array $facts,
+		public readonly array $facts,
 		private readonly array $thresholds,
 		public readonly int $first,
 		public readonly int $last,

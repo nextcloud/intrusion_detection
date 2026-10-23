@@ -15,6 +15,8 @@ use OCA\IntrusionDetection\Admin\LookupService;
 use OCA\IntrusionDetection\AppInfo\Application;
 use OCA\IntrusionDetection\Check\Checks\BreachedPassword\BreachedPassword;
 use OCA\IntrusionDetection\Check\Checks\PasswordSpraying\PasswordSpraying;
+use OCA\IntrusionDetection\Check\Checks\PasswordSpraying\PasswordSprayingFacts;
+use OCA\IntrusionDetection\Check\Checks\PasswordSpraying\PasswordSprayingRule;
 use OCA\IntrusionDetection\Check\Checks\StepUpFailed\StepUpFailed;
 use OCA\IntrusionDetection\Check\Checks\StepUpRefused\StepUpRefused;
 use OCA\IntrusionDetection\Check\Checks\StepUpRefusedClient\StepUpRefusedClient;
@@ -114,8 +116,7 @@ class StepUpTest extends StepUpTestCase {
 		$this->login($this->alice);
 		$detections = $this->detectionsOf(PasswordSpraying::ID);
 		$this->assertCount(1, $detections);
-		$facts = $detections[0]->getExplanationData()['facts'];
-		$this->assertSame(PasswordSpraying::RULE_LOGIN, $facts['rule']);
+		$this->assertSame(PasswordSprayingRule::Login, PasswordSprayingFacts::fromArray($detections[0]->getExplanationData()['facts'])->rule);
 		$this->assertSame($this->alice->getUID(), $detections[0]->getUid());
 		$types = array_column($detections[0]->getActionList(), 'enforced', 'type');
 		$this->assertSame(['force_password_change' => true, 'step_up' => true, 'notify_admin' => true, 'notify_user' => true], $types, 'The login responses only: no block for a successful login');

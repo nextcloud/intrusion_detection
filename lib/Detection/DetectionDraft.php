@@ -21,6 +21,8 @@ use OCA\IntrusionDetection\Net\SourceKey;
  * the thresholds in force, the measured values, the targets, and anything
  * else needed to explain the detection later. Facts must never contain a
  * password, a fingerprint, a decoy secret, a share token or a credential.
+ * A check gives them as its facts class ({@see IFacts}); a check without
+ * one gives an array, which merges by the shape of its values.
  */
 final class DetectionDraft {
 	public const MERGE_NONE = 'none';
@@ -35,6 +37,10 @@ final class DetectionDraft {
 	/** Per account and the detection the draft is about (`facts['detection']`) */
 	public const MERGE_SUBJECT = 'subject';
 
+	/** @var array<string, mixed> the facts as the detection stores them */
+	public readonly array $facts;
+	/** The facts as the check's facts class, when they were given as one */
+	public readonly ?IFacts $typedFacts;
 	/** @var list<SourceKey> */
 	private array $extraBanTargets = [];
 	private bool $banSource = true;
@@ -46,7 +52,7 @@ final class DetectionDraft {
 	private array $onlyWhenNew = [];
 
 	/**
-	 * @param array<string, mixed> $facts
+	 * @param IFacts|array<string, mixed> $facts
 	 * @param self::MERGE_* $merge which repeated hits within `$mergeWindow` update one row (hits of different `rule` facts never do)
 	 * @param ?int $banLevel force at least this escalation level when banning
 	 * @param ?int $sessionTokenId the id of the session token involved, for the kill_session response
@@ -59,7 +65,7 @@ final class DetectionDraft {
 		public readonly string $checkId,
 		public readonly ?SourceKey $source = null,
 		public readonly ?string $uid = null,
-		public readonly array $facts = [],
+		IFacts|array $facts = [],
 		public readonly ?Severity $severity = null,
 		public readonly ?int $shareId = null,
 		public readonly string $merge = self::MERGE_NONE,
@@ -72,6 +78,8 @@ final class DetectionDraft {
 		public readonly ?ModeState $mode = null,
 		public readonly bool $final = false,
 	) {
+		$this->facts = $facts instanceof IFacts ? $facts->toArray() : $facts;
+		$this->typedFacts = $facts instanceof IFacts ? $facts : null;
 	}
 
 	/**

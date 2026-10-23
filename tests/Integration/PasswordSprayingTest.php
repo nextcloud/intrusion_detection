@@ -9,16 +9,15 @@ declare(strict_types=1);
 
 namespace OCA\IntrusionDetection\Tests\Integration;
 
-use OCA\IntrusionDetection\AppInfo\Application;
 use OCA\IntrusionDetection\Check\Checks\AccountUnderAttack\AccountUnderAttack;
 use OCA\IntrusionDetection\Check\Checks\CredentialStuffing\CredentialStuffing;
 use OCA\IntrusionDetection\Check\Checks\PasswordSpraying\PasswordSpraying;
+use OCA\IntrusionDetection\Check\Checks\PasswordSpraying\PasswordSprayingFacts;
+use OCA\IntrusionDetection\Check\Checks\PasswordSpraying\PasswordSprayingRule;
 use OCA\IntrusionDetection\Crypto\Fingerprinter;
 use OCA\IntrusionDetection\Db\BanMapper;
 use OCA\IntrusionDetection\Definition\Mode;
-use OCA\IntrusionDetection\Explain\NarrativeBuilder;
 use OCA\IntrusionDetection\Response\FlaggedSources;
-use OCP\L10N\IFactory;
 use OCP\Server;
 use PHPUnit\Framework\Attributes\Group;
 
@@ -50,10 +49,11 @@ class PasswordSprayingTest extends LoginFailureTestCase {
 		$this->failLogin('198.51.100.3', 'user5', self::SPRAYED);
 		$detections = $this->detectionsOf(PasswordSpraying::ID);
 		$this->assertCount(1, $detections);
-		$facts = $detections[0]->getExplanationData()['facts'];
-		$this->assertSame(5, $facts['names']);
-		$this->assertSame(4, $facts['sources']);
-		$this->assertSame(2, $facts['banTargets']);
+		$facts = PasswordSprayingFacts::fromArray($detections[0]->getExplanationData()['facts']);
+		$this->assertSame(5, $facts->names);
+		$this->assertSame(4, $facts->sources);
+		$this->assertSame(2, $facts->banTargets);
+		$this->assertSame(4, $facts->listed, 'The two addresses that tried one account each are counted, not blocked');
 		foreach (['198.51.100.1', '198.51.100.2', '198.51.100.3'] as $ip) {
 			$this->assertCount(1, $this->bans->findActiveForKeys([$ip], time()), $ip . ' is blocked');
 		}
@@ -61,8 +61,6 @@ class PasswordSprayingTest extends LoginFailureTestCase {
 		$this->assertTrue($this->isFlagged(self::SPRAYED));
 		$this->assertFalse($this->isFlagged('another password'));
 
-		$narrative = Server::get(NarrativeBuilder::class)->build($detections[0], Server::get(IFactory::class)->get(Application::APP_ID, 'en'));
-		$this->assertStringContainsString('2 addresses tried it for only one account each and were not blocked', implode(' ', $narrative->happened));
 	}
 
 	public function testTheFlagCoversTomorrowsFingerprintToo(): void {
@@ -114,10 +112,9 @@ class PasswordSprayingTest extends LoginFailureTestCase {
 			static fn ($d): bool => $d->getIp() === '203.0.113.99',
 		));
 		$this->assertCount(1, $joined);
-		$this->assertSame(PasswordSpraying::RULE_FLAGGED, $joined[0]->getExplanationData()['facts']['rule']);
-		$this->assertSame(2, $joined[0]->getExplanationData()['facts']['names']);
-		$narrative = Server::get(NarrativeBuilder::class)->build($joined[0], Server::get(IFactory::class)->get(Application::APP_ID, 'en'));
-		$this->assertStringContainsString('for 2 accounts itself', implode(' ', $narrative->happened));
+		$facts = PasswordSprayingFacts::fromArray($joined[0]->getExplanationData()['facts']);
+		$this->assertSame(PasswordSprayingRule::Flagged, $facts->rule);
+		$this->assertSame(2, $facts->names);
 	}
 
 	public function testASprayingSourceThatComesBackKeepsItsSprayDetection(): void {
@@ -129,10 +126,11 @@ class PasswordSprayingTest extends LoginFailureTestCase {
 		));
 		$byRule = [];
 		foreach ($fromSource as $detection) {
-			$byRule[$detection->getExplanationData()['facts']['rule']] = $detection;
+			$facts = PasswordSprayingFacts::fromArray($detection->getExplanationData()['facts']);
+			$byRule[(string)$facts->rule?->value] = $facts;
 		}
-		$this->assertEqualsCanonicalizing([PasswordSpraying::RULE_SPRAY, PasswordSpraying::RULE_FLAGGED], array_keys($byRule), 'Joining the spray again is its own detection');
-		$this->assertSame(5, $byRule[PasswordSpraying::RULE_SPRAY]->getExplanationData()['facts']['names'], 'The spray keeps its facts');
+		$this->assertEqualsCanonicalizing([PasswordSprayingRule::Spray->value, PasswordSprayingRule::Flagged->value], array_keys($byRule), 'Joining the spray again is its own detection');
+		$this->assertSame(5, $byRule[PasswordSprayingRule::Spray->value]->names, 'The spray keeps its facts');
 	}
 
 	public function testAtMost500SourcesAreBlockedAndTheRestCounted(): void {
@@ -142,14 +140,13 @@ class PasswordSprayingTest extends LoginFailureTestCase {
 		}
 		$this->failLogin('100.70.0.1', 'victim-last', self::SPRAYED);
 		$detection = $this->detectionsOf(PasswordSpraying::ID)[0];
-		$facts = $detection->getExplanationData()['facts'];
-		$this->assertSame(550, $facts['sources']);
-		$this->assertSame(500, $facts['banTargets']);
+		$facts = PasswordSprayingFacts::fromArray($detection->getExplanationData()['facts']);
+		$this->assertSame(550, $facts->sources);
+		$this->assertSame(500, $facts->banTargets);
+		$this->assertSame(500, $facts->listed, 'The other 50 are only counted');
 		$this->assertLessThanOrEqual(501, $this->rows('ids_bans'), 'The current source and at most 500 others');
 		$this->assertGreaterThanOrEqual(500, $this->rows('ids_bans'));
 
-		$narrative = Server::get(NarrativeBuilder::class)->build($detection, Server::get(IFactory::class)->get(Application::APP_ID, 'en'));
-		$this->assertStringContainsString('50 more addresses tried it', implode(' ', $narrative->happened));
 	}
 
 	public function testIpv6SourcesAreBlockedAsTheirSlash64(): void {

@@ -76,7 +76,7 @@ class DetectionService {
 			}
 			$explanation = $existing->getExplanationData();
 			$explanation['last'] = $now;
-			$explanation['facts'] = FactsMerger::merge(is_array($explanation['facts'] ?? null) ? $explanation['facts'] : [], Explanation::facts($draft));
+			$explanation['facts'] = FactsMerger::merge(is_array($explanation['facts'] ?? null) ? $explanation['facts'] : [], $draft);
 			$existing->setExplanationData($explanation);
 			$this->mapper->update($existing);
 			// Only what changes from here on is written again (the actions).
