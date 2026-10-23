@@ -13,7 +13,8 @@
 <h1 align="center">Intrusion detection for Nextcloud</h1>
 
 <p align="center">
-  <strong>Stops the password and stolen-login attacks that brute-force protection misses,<br>and explains every decision in plain words.</strong>
+  <strong>The Nextcloud-aware companion to fail2ban, CrowdSec and your web application firewall.</strong><br>
+  Stops the password and stolen-login attacks that brute-force protection misses,<br>and explains every decision in plain words.
 </p>
 
 <p align="center">
@@ -28,6 +29,7 @@
 </picture>
 
 - **Sees what a firewall can't.** Your Nextcloud knows accounts, app passwords, second factors, share links and login requests. This app uses that to catch password spraying across hundreds of addresses, a correct password followed by a failed second factor, a phished "connect a device" request and an account being taken over.
+- **Works with your firewall.** Keep fail2ban, CrowdSec or your web application firewall: they block cheaply at the edge, and this app adds what only Nextcloud knows. Its firewall export lets fail2ban, nftables or ipset enforce its blocks before requests reach PHP.
 - **Answers in proportion.** It blocks an address for hours, asks for one more proof at login, ends a session or requires a new password. Every check can be set to Off, Observe or Protect.
 - **Brings your users in.** "Was this you?" lets people tell Nextcloud that something was not them, and a short checklist helps them secure their account.
 - **Explains itself.** Every detection says what happened, why it counted as an attack and what Nextcloud did, with the real numbers filled in.
@@ -407,7 +409,7 @@ No, it complements them. They block cheaply at the edge; this app sees accounts,
 <summary><strong>We log in with SAML or OpenID Connect. Is it still useful?</strong></summary>
 <br>
 
-Partly. When your identity provider checks the passwords, the password-guessing checks see little. Share link attacks, trap URLs, decoys, admin change alerts, blocklists and the other checks of requests that reach Nextcloud work as usual.
+Yes. Most checks watch what reaches Nextcloud, not how people log in, so they work as usual: share link attacks, trap URLs, decoy app passwords, stolen app passwords and sessions, login request phishing, admin change alerts and blocklists. Only the password-guessing checks have less to do, because your identity provider checks the passwords.
 </details>
 
 <details>

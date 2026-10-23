@@ -7,8 +7,10 @@
       xsi:noNamespaceSchemaLocation="https://apps.nextcloud.com/schema/apps/info.xsd">
     <id>intrusion_detection</id>
     <name>Intrusion detection</name>
-    <summary>Recognises attacks on logins, shares and accounts, and answers them with graduated, explained responses.</summary>
+    <summary>The Nextcloud-aware companion to fail2ban, CrowdSec and WAFs: recognises and answers attacks on logins, shares and accounts.</summary>
     <description><![CDATA[Nextcloud's brute-force protection slows down guessing from one address. This app recognises the attacks it cannot see: botnets that send one attempt per address, one password tried against every account, stolen app passwords, phishing login requests and more.
+
+It works alongside fail2ban, CrowdSec or a web application firewall. They block cheaply at the edge; this app sees accounts, passwords, second factors and share links, which they cannot. Its firewall export lets fail2ban, nftables or ipset enforce its blocks before requests reach PHP.
 
 Every check can be switched between Off, Observe and Protect, every threshold is configurable, and every detection explains in plain language why it happened and what Nextcloud did. Normal requests cost a few memory-cache lookups.]]></description>
     <version>1.0.3</version>
@@ -29,6 +31,12 @@ Every check can be switched between Off, Observe and Protect, every threshold is
     <website>https://github.com/nextcloud/intrusion_detection</website>
     <bugs>https://github.com/nextcloud/intrusion_detection/issues</bugs>
     <repository type="git">https://github.com/nextcloud/intrusion_detection.git</repository>
+    <screenshot>https://raw.githubusercontent.com/nextcloud/intrusion_detection/main/screenshots/overview-light.png</screenshot>
+    <screenshot>https://raw.githubusercontent.com/nextcloud/intrusion_detection/main/screenshots/detection-explained.png</screenshot>
+    <screenshot>https://raw.githubusercontent.com/nextcloud/intrusion_detection/main/screenshots/blocks.png</screenshot>
+    <screenshot>https://raw.githubusercontent.com/nextcloud/intrusion_detection/main/screenshots/was-this-you.gif</screenshot>
+    <screenshot>https://raw.githubusercontent.com/nextcloud/intrusion_detection/main/screenshots/secure-account.png</screenshot>
+    <screenshot>https://raw.githubusercontent.com/nextcloud/intrusion_detection/main/screenshots/privacy.png</screenshot>
 
     <dependencies>
         <nextcloud min-version="36" max-version="36"/>
