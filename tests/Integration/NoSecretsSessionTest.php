@@ -23,11 +23,11 @@ use OCA\IntrusionDetection\Guide\SecureAccountNotifier;
 use OCA\IntrusionDetection\Http\LocalRedirect;
 use OCA\IntrusionDetection\Listener\AppPasswordCreatedListener;
 use OCA\IntrusionDetection\Listener\Login\PasswordChangeStep;
+use OCA\IntrusionDetection\Login\SessionMarkers;
 use OCA\IntrusionDetection\Net\SourceKey;
 use OCA\IntrusionDetection\Notification\Notifier;
 use OCA\IntrusionDetection\Response\FlaggedSources;
 use OCA\IntrusionDetection\Response\PasswordChangeService;
-use OCA\IntrusionDetection\SessionState\SessionState;
 use OCA\IntrusionDetection\Signal\SecondFactorFailure;
 use OCA\IntrusionDetection\Tests\LoginSteps;
 use OCP\AppFramework\Utility\ITimeFactory;
@@ -79,7 +79,7 @@ class NoSecretsSessionTest extends AccountTestCase {
 
 		// The next login changes the password on the page.
 		$this->startSession($user);
-		$state = new SessionState($this->session, Server::get(LoggerInterface::class));
+		$state = new SessionMarkers($this->session, Server::get(LoggerInterface::class));
 		$passwords = Server::get(PasswordChangeService::class);
 		LoginSteps::listener([PasswordChangeStep::class => new PasswordChangeStep($passwords, $state)], $this->appSettings(), $request)
 			->handle(new UserLoggedInEvent($user, $user->getUID(), $oldPassword, false));
@@ -110,7 +110,7 @@ class NoSecretsSessionTest extends AccountTestCase {
 		foreach (Server::get(DetectionMapper::class)->findList(new DetectionFilter()) as $detection) {
 			$this->assertClean(json_encode(Server::get(NarrativeBuilder::class)->build($detection, $l)->toArray()), $secrets, 'narrative');
 		}
-		$this->assertClean(json_encode($this->session->get(SessionState::SESSION_KEY)), $secrets, 'session state');
+		$this->assertClean(json_encode($this->session->get(SessionMarkers::SESSION_KEY)), $secrets, 'session state');
 		$this->assertClean(is_file($logFile) ? (string)file_get_contents($logFile, false, null, $logOffset) : '', $secrets, 'server log');
 	}
 

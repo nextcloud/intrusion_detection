@@ -12,10 +12,10 @@ namespace OCA\IntrusionDetection\Tests\Unit\Dav;
 use OCA\IntrusionDetection\Dav\GuardDecisionPlugin;
 use OCA\IntrusionDetection\Dav\SessionStatePlugin;
 use OCA\IntrusionDetection\Login\RequestContext;
+use OCA\IntrusionDetection\Login\SessionMarkers;
 use OCA\IntrusionDetection\SessionState\ISessionStateRule;
 use OCA\IntrusionDetection\SessionState\RequestTarget;
 use OCA\IntrusionDetection\SessionState\SessionBlock;
-use OCA\IntrusionDetection\SessionState\SessionState;
 use OCA\IntrusionDetection\SessionState\SessionStateRules;
 use OCP\IRequest;
 use OCP\ISession;
@@ -107,7 +107,7 @@ class RefusalsAreSentTest extends TestCase {
 			) {
 			}
 
-			public function check(SessionState $state, RequestTarget $target): ?SessionBlock {
+			public function check(SessionMarkers $state, RequestTarget $target): ?SessionBlock {
 				return $this->block;
 			}
 		};
@@ -120,6 +120,6 @@ class RefusalsAreSentTest extends TestCase {
 		};
 		$userSession = $this->createMock(IUserSession::class);
 		$userSession->method('isLoggedIn')->willReturn(true);
-		return new SessionStatePlugin($rules, new SessionState($this->createMock(ISession::class), $this->createMock(LoggerInterface::class)), $userSession, $this->createMock(LoggerInterface::class));
+		return new SessionStatePlugin($rules, new SessionMarkers($this->createMock(ISession::class), $this->createMock(LoggerInterface::class)), $userSession, $this->createMock(LoggerInterface::class));
 	}
 }

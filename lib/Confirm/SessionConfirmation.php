@@ -10,7 +10,7 @@ declare(strict_types=1);
 namespace OCA\IntrusionDetection\Confirm;
 
 use OCA\IntrusionDetection\Login\CoreSession;
-use OCA\IntrusionDetection\SessionState\SessionState;
+use OCA\IntrusionDetection\Login\SessionMarkers;
 use OCP\AppFramework\Utility\ITimeFactory;
 
 /**
@@ -35,7 +35,7 @@ class SessionConfirmation {
 	public const PROVEN = 'proven';
 
 	public function __construct(
-		private readonly SessionState $state,
+		private readonly SessionMarkers $state,
 		private readonly CoreSession $coreSession,
 		private readonly ITimeFactory $timeFactory,
 	) {
@@ -77,7 +77,7 @@ class SessionConfirmation {
 	 * @param IConfirmationMethod::SECOND_FACTOR|IConfirmationMethod::KNOWN_DEVICE $by
 	 */
 	public function proved(string $uid, string $by): void {
-		$this->state->set(SessionState::PROOF, ['uid' => $uid, 'by' => $by, 'at' => $this->timeFactory->getTime()]);
+		$this->state->set(SessionMarkers::PROOF, ['uid' => $uid, 'by' => $by, 'at' => $this->timeFactory->getTime()]);
 	}
 
 	/**

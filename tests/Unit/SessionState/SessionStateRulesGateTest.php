@@ -13,10 +13,10 @@ use OCA\IntrusionDetection\Check\Checks\TokenConcurrentUse\CredentialUse;
 use OCA\IntrusionDetection\Check\Checks\TokenConcurrentUse\CredentialUseResolver;
 use OCA\IntrusionDetection\Check\Checks\TokenConcurrentUse\PresentedCredential;
 use OCA\IntrusionDetection\Login\RequestContext;
+use OCA\IntrusionDetection\Login\SessionMarkers;
 use OCA\IntrusionDetection\SessionState\ISessionStateRule;
 use OCA\IntrusionDetection\SessionState\RequestTarget;
 use OCA\IntrusionDetection\SessionState\Rules;
-use OCA\IntrusionDetection\SessionState\SessionState;
 use OCA\IntrusionDetection\SessionState\SessionStateRules;
 use OCP\IRequest;
 use OCP\ISession;
@@ -65,7 +65,7 @@ class SessionStateRulesGateTest extends TestCase {
 	 */
 	public static function busyRequests(): iterable {
 		yield 'session state' => [static function (self $test): RequestTarget {
-			$test->session[SessionState::SESSION_KEY] = [SessionState::LOGIN_NOTICE => ['since' => 1]];
+			$test->session[SessionMarkers::SESSION_KEY] = [SessionMarkers::LOGIN_NOTICE => ['since' => 1]];
 			return RequestTarget::dav('PROPFIND', '/remote.php/dav/files/alice/');
 		}];
 		yield 'a credential to learn about' => [static function (self $test): RequestTarget {
@@ -109,9 +109,9 @@ class SessionStateRulesGateTest extends TestCase {
 		$this->assertNull($rules->checkDav($this->state(), strtolower($target->httpMethod), $target->uri));
 	}
 
-	private function state(): SessionState {
+	private function state(): SessionMarkers {
 		$session = $this->createMock(ISession::class);
 		$session->method('get')->willReturnCallback(fn (string $key): mixed => $this->session[$key] ?? null);
-		return new SessionState($session, $this->createMock(LoggerInterface::class));
+		return new SessionMarkers($session, $this->createMock(LoggerInterface::class));
 	}
 }

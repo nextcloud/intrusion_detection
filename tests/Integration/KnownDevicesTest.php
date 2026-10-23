@@ -20,10 +20,10 @@ use OCA\IntrusionDetection\KnownDevice\Db\KnownDeviceMapper;
 use OCA\IntrusionDetection\KnownDevice\DeviceCookie;
 use OCA\IntrusionDetection\KnownDevice\KnownDevices;
 use OCA\IntrusionDetection\Listener\KnownDeviceListener;
+use OCA\IntrusionDetection\Login\SessionMarkers;
 use OCA\IntrusionDetection\Net\SourceKey;
 use OCA\IntrusionDetection\Privacy\UserDataCleanup;
 use OCA\IntrusionDetection\Response\FlaggedSources;
-use OCA\IntrusionDetection\SessionState\SessionState;
 use OCP\AppFramework\Http\StandaloneTemplateResponse;
 use OCP\AppFramework\Utility\ITimeFactory;
 use OCP\IUser;
@@ -87,7 +87,7 @@ class KnownDevicesTest extends StepUpTestCase {
 		$this->mailed = [];
 		$this->freshLogin(StepUpState::PENDING, expectPending: false);
 		$this->assertNull($this->stepUp(), 'Nothing is asked');
-		$this->assertSame('known_device', $this->state->get(SessionState::CONFIRMATION)['by'] ?? null);
+		$this->assertSame('known_device', $this->state->get(SessionMarkers::CONFIRMATION)['by'] ?? null);
 		$this->assertSame([], $this->mailed, 'No code is sent');
 	}
 

@@ -13,10 +13,10 @@ use OC\Core\Controller\CssController;
 use OC\Core\Controller\LoginController;
 use OC\Core\Controller\TwoFactorChallengeController;
 use OCA\IntrusionDetection\Controller\PasswordChangeController;
+use OCA\IntrusionDetection\Login\SessionMarkers;
 use OCA\IntrusionDetection\Response\PasswordChangeFlag;
 use OCA\IntrusionDetection\SessionState\RequestTarget;
 use OCA\IntrusionDetection\SessionState\Rules\PasswordChangeRule;
-use OCA\IntrusionDetection\SessionState\SessionState;
 use OCP\AppFramework\Controller;
 use OCP\AppFramework\Http\Attribute\PublicPage;
 use OCP\AppFramework\Http\DataResponse;
@@ -32,7 +32,7 @@ use Test\TestCase;
 class PasswordChangeRuleTest extends TestCase {
 	/** @var array<string, mixed> */
 	private array $sessionData = [];
-	private SessionState $state;
+	private SessionMarkers $state;
 	/** @var PasswordChangeFlag&MockObject */
 	private PasswordChangeFlag $flag;
 	private PasswordChangeRule $rule;
@@ -48,7 +48,7 @@ class PasswordChangeRuleTest extends TestCase {
 		$session->method('remove')->willReturnCallback(function (string $key): void {
 			unset($this->sessionData[$key]);
 		});
-		$this->state = new SessionState($session, $this->createMock(LoggerInterface::class));
+		$this->state = new SessionMarkers($session, $this->createMock(LoggerInterface::class));
 		$this->flag = $this->createMock(PasswordChangeFlag::class);
 		$this->flag->method('isRequired')->willReturnCallback(fn (): bool => $this->required);
 		$user = $this->createMock(IUser::class);
@@ -108,13 +108,13 @@ class PasswordChangeRuleTest extends TestCase {
 	}
 
 	public function testAMarkerOfAnotherAccountIsDropped(): void {
-		$this->state->set(SessionState::PASSWORD_CHANGE, ['uid' => 'bob', 'mode' => PasswordChangeRule::MODE_REDIRECT]);
+		$this->state->set(SessionMarkers::PASSWORD_CHANGE, ['uid' => 'bob', 'mode' => PasswordChangeRule::MODE_REDIRECT]);
 		$this->assertNull($this->rule->check($this->state, $this->app(new SomeController(), 'index')));
 		$this->assertTrue($this->state->isEmpty());
 	}
 
 	private function mark(string $mode): void {
-		$this->state->set(SessionState::PASSWORD_CHANGE, ['uid' => 'alice', 'mode' => $mode, 'since' => 1]);
+		$this->state->set(SessionMarkers::PASSWORD_CHANGE, ['uid' => 'alice', 'mode' => $mode, 'since' => 1]);
 	}
 
 	private function app(Controller $controller, string $method, string $httpMethod = 'GET'): RequestTarget {

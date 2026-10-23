@@ -35,6 +35,7 @@ use OCA\IntrusionDetection\Event\TypedEvents;
 use OCA\IntrusionDetection\Explain\NarrativeBuilder;
 use OCA\IntrusionDetection\Login\CoreSession;
 use OCA\IntrusionDetection\Login\RequestContext;
+use OCA\IntrusionDetection\Login\SessionMarkers;
 use OCA\IntrusionDetection\Net\RemoteAddressResolver;
 use OCA\IntrusionDetection\Net\ServerAddresses;
 use OCA\IntrusionDetection\Response\ResponseEngine;
@@ -42,7 +43,6 @@ use OCA\IntrusionDetection\Sensitive\DirectoryRoutes;
 use OCA\IntrusionDetection\SessionState\RequestTarget;
 use OCA\IntrusionDetection\SessionState\Rules\DirectoryScrapingRule;
 use OCA\IntrusionDetection\SessionState\SessionBlock;
-use OCA\IntrusionDetection\SessionState\SessionState;
 use OCA\IntrusionDetection\Tests\Unit\Cache\FixedCaches;
 use OCP\AppFramework\Controller;
 use OCP\AppFramework\Utility\ITimeFactory;
@@ -250,8 +250,8 @@ class DirectoryScrapingTest extends IntegrationTestCase {
 		return $connection->getInner()->getStats()['executed'];
 	}
 
-	private function state(): SessionState {
-		return new SessionState($this->createMock(ISession::class), $this->createMock(LoggerInterface::class));
+	private function state(): SessionMarkers {
+		return new SessionMarkers($this->createMock(ISession::class), $this->createMock(LoggerInterface::class));
 	}
 
 	private function appTarget(): RequestTarget {

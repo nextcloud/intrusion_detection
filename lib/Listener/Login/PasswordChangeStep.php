@@ -9,9 +9,9 @@ declare(strict_types=1);
 
 namespace OCA\IntrusionDetection\Listener\Login;
 
+use OCA\IntrusionDetection\Login\SessionMarkers;
 use OCA\IntrusionDetection\Response\PasswordChangeService;
 use OCA\IntrusionDetection\SessionState\Rules\PasswordChangeRule;
-use OCA\IntrusionDetection\SessionState\SessionState;
 
 /**
  * At each login of an account that must choose a new password, marks the
@@ -24,7 +24,7 @@ use OCA\IntrusionDetection\SessionState\SessionState;
 class PasswordChangeStep implements ILoginStep {
 	public function __construct(
 		private readonly PasswordChangeService $passwords,
-		private readonly SessionState $state,
+		private readonly SessionMarkers $state,
 	) {
 	}
 
@@ -43,6 +43,6 @@ class PasswordChangeStep implements ILoginStep {
 			$this->passwords->external($facts->user);
 			return;
 		}
-		$this->state->set(SessionState::PASSWORD_CHANGE, ['uid' => $facts->uid(), 'mode' => PasswordChangeRule::modeFor($facts->kind), 'since' => $since]);
+		$this->state->set(SessionMarkers::PASSWORD_CHANGE, ['uid' => $facts->uid(), 'mode' => PasswordChangeRule::modeFor($facts->kind), 'since' => $since]);
 	}
 }

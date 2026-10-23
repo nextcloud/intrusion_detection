@@ -35,6 +35,7 @@ use OCA\IntrusionDetection\Db\DetectionMapper;
 use OCA\IntrusionDetection\Login\CoreSession;
 use OCA\IntrusionDetection\Login\LoginClassifier;
 use OCA\IntrusionDetection\Login\RequestContext;
+use OCA\IntrusionDetection\Login\SessionMarkers;
 use OCA\IntrusionDetection\LoginHistory\Db\LoginHistoryMapper;
 use OCA\IntrusionDetection\LoginHistory\LoginHistory;
 use OCA\IntrusionDetection\Net\RemoteAddressResolver;
@@ -46,7 +47,6 @@ use OCA\IntrusionDetection\Response\AccountProtection;
 use OCA\IntrusionDetection\Response\FlaggedSources;
 use OCA\IntrusionDetection\SessionState\RequestTarget;
 use OCA\IntrusionDetection\SessionState\Rules\StepUpRule;
-use OCA\IntrusionDetection\SessionState\SessionState;
 use OCA\IntrusionDetection\Tests\BasicAuthServer;
 use OCP\AppFramework\Controller;
 use OCP\IRequest;
@@ -138,7 +138,7 @@ class RealLoginTest extends IntegrationTestCase {
 		$result = Server::get(Chain::class)->process(new LoginData($this->request, $this->user->getUID(), self::PASSWORD, false));
 		$this->assertTrue($result->isSuccess(), 'The password was right');
 
-		$stepUp = StepUpState::fromArray(Server::get(SessionState::class)->get(SessionState::STEP_UP) ?? []);
+		$stepUp = StepUpState::fromArray(Server::get(SessionMarkers::class)->get(SessionMarkers::STEP_UP) ?? []);
 		$this->assertNotNull($stepUp, 'The app\'s own listener marked the session');
 		$this->assertSame(StepUpState::REFUSED, $stepUp->status, 'No email address and no second factor: refused, as configured');
 		$this->assertSame(['protected_account'], $stepUp->policies);
@@ -156,7 +156,7 @@ class RealLoginTest extends IntegrationTestCase {
 			$this->headers = [$header => $value];
 			$result = Server::get(Chain::class)->process(new LoginData($this->request, $this->user->getUID(), self::PASSWORD, false));
 			$this->assertTrue($result->isSuccess());
-			$stepUp = StepUpState::fromArray(Server::get(SessionState::class)->get(SessionState::STEP_UP) ?? []);
+			$stepUp = StepUpState::fromArray(Server::get(SessionMarkers::class)->get(SessionMarkers::STEP_UP) ?? []);
 			$this->assertSame(StepUpState::REFUSED, $stepUp?->status, 'Held back like any login form, with ' . $header);
 			$history = Server::get(LoginHistoryMapper::class)->forUser($this->user->getUID(), 0);
 			$this->assertSame([LoginHistory::METHOD_PASSWORD, LoginHistory::STEP_UP_REFUSED], [$history[0]->method, $history[0]->stepUp]);
@@ -171,7 +171,7 @@ class RealLoginTest extends IntegrationTestCase {
 		$this->path = '/files/' . $this->user->getUID();
 		$this->assertTrue(Server::get(Session::class)->logClientIn($this->user->getUID(), self::PASSWORD, $this->request, Server::get(IThrottler::class)));
 
-		$stepUp = StepUpState::fromArray(Server::get(SessionState::class)->get(SessionState::STEP_UP) ?? []);
+		$stepUp = StepUpState::fromArray(Server::get(SessionMarkers::class)->get(SessionMarkers::STEP_UP) ?? []);
 		$this->assertSame(StepUpState::REFUSED_CLIENT, $stepUp?->status);
 		$this->assertCount(1, Server::get(DetectionMapper::class)->findList(new DetectionFilter(checkIds: [StepUpRefusedClient::ID], uid: $this->user->getUID())));
 		$history = Server::get(LoginHistoryMapper::class)->forUser($this->user->getUID(), 0);
@@ -187,7 +187,7 @@ class RealLoginTest extends IntegrationTestCase {
 		Server::get(Session::class)->logout();
 		Server::get(ISession::class)->clear();
 		$this->assertTrue(Server::get(Session::class)->logClientIn($this->user->getUID(), self::PASSWORD, $this->request, Server::get(IThrottler::class)));
-		$stepUp = StepUpState::fromArray(Server::get(SessionState::class)->get(SessionState::STEP_UP) ?? []);
+		$stepUp = StepUpState::fromArray(Server::get(SessionMarkers::class)->get(SessionMarkers::STEP_UP) ?? []);
 		$this->assertSame(StepUpState::REFUSED_CLIENT, $stepUp?->status, 'The password over Basic auth does not get around the email code');
 		$this->assertSame([], Server::get(DetectionMapper::class)->findList(new DetectionFilter(checkIds: [StepUpUnconfirmed::ID], uid: $this->user->getUID())), 'Not let in unconfirmed');
 		$this->assertSame([], $this->codeMails(), 'No code: an app cannot enter it');
@@ -202,7 +202,7 @@ class RealLoginTest extends IntegrationTestCase {
 		Server::get(ISession::class)->clear();
 		$this->cookies[StepUpService::COOKIE_TEST] = 'test';
 		$this->assertTrue(Server::get(Session::class)->logClientIn($this->user->getUID(), self::PASSWORD, $this->request, Server::get(IThrottler::class)));
-		$stepUp = StepUpState::fromArray(Server::get(SessionState::class)->get(SessionState::STEP_UP) ?? []);
+		$stepUp = StepUpState::fromArray(Server::get(SessionMarkers::class)->get(SessionMarkers::STEP_UP) ?? []);
 		$this->assertSame(StepUpState::REFUSED_CLIENT, $stepUp?->status, 'Basic auth is an app whatever cookies it sends');
 		$this->assertSame([], $this->codeMails(), 'No code');
 		$this->assertSame(0, Server::get(ApprovalMapper::class)->countPendingFor(Approval::KIND_LOGIN, $this->user->getUID(), time()), 'No approval request');
@@ -216,9 +216,9 @@ class RealLoginTest extends IntegrationTestCase {
 		Server::get(Session::class)->logout();
 		Server::get(ISession::class)->clear();
 		$this->assertTrue(Server::get(Session::class)->logClientIn($this->user->getUID(), self::PASSWORD, $this->request, Server::get(IThrottler::class)));
-		$state = Server::get(SessionState::class);
-		$this->assertNull($state->get(SessionState::STEP_UP), 'A protected account does not lock out its calendar app at home');
-		$this->assertTrue($state->get(SessionState::CONFIRMATION)[LoginConfirmation::CLIENT_ONLY] ?? false);
+		$state = Server::get(SessionMarkers::class);
+		$this->assertNull($state->get(SessionMarkers::STEP_UP), 'A protected account does not lock out its calendar app at home');
+		$this->assertTrue($state->get(SessionMarkers::CONFIRMATION)[LoginConfirmation::CLIENT_ONLY] ?? false);
 		$rule = Server::get(StepUpRule::class);
 		$this->assertNull($rule->check($state, RequestTarget::dav('PROPFIND', '/remote.php/dav/files/' . $this->user->getUID())));
 		$page = $rule->check($state, RequestTarget::app($this->createMock(Controller::class), 'index', 'GET', '/index.php/apps/files/'));

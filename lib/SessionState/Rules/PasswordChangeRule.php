@@ -15,11 +15,11 @@ use OCA\IntrusionDetection\AppInfo\Application;
 use OCA\IntrusionDetection\Controller\PasswordChangeController;
 use OCA\IntrusionDetection\Controller\VerifyController;
 use OCA\IntrusionDetection\Login\LoginKind;
+use OCA\IntrusionDetection\Login\SessionMarkers;
 use OCA\IntrusionDetection\Response\PasswordChangeFlag;
 use OCA\IntrusionDetection\SessionState\ISessionStateRule;
 use OCA\IntrusionDetection\SessionState\RequestTarget;
 use OCA\IntrusionDetection\SessionState\SessionBlock;
-use OCA\IntrusionDetection\SessionState\SessionState;
 use OCP\Authentication\TwoFactorAuth\ALoginSetupController;
 use OCP\IURLGenerator;
 use OCP\IUserSession;
@@ -69,14 +69,14 @@ class PasswordChangeRule implements ISessionStateRule {
 	}
 
 	#[\Override]
-	public function check(SessionState $state, RequestTarget $target): ?SessionBlock {
-		$marker = $state->get(SessionState::PASSWORD_CHANGE);
+	public function check(SessionMarkers $state, RequestTarget $target): ?SessionBlock {
+		$marker = $state->get(SessionMarkers::PASSWORD_CHANGE);
 		if ($marker === null || (!$target->dav && self::isExempt($target))) {
 			return null;
 		}
 		$uid = $this->userSession->getUser()?->getUID();
 		if ($uid === null || $uid !== ($marker['uid'] ?? null) || !$this->flag->isRequired($uid)) {
-			$state->remove(SessionState::PASSWORD_CHANGE);
+			$state->remove(SessionMarkers::PASSWORD_CHANGE);
 			return null;
 		}
 		$redirect = ($marker['mode'] ?? null) === self::MODE_REDIRECT

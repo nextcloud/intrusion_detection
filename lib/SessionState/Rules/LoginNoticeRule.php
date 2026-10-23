@@ -15,10 +15,10 @@ use OCA\IntrusionDetection\AppInfo\Application;
 use OCA\IntrusionDetection\Controller\NoticeController;
 use OCA\IntrusionDetection\Controller\PasswordChangeController;
 use OCA\IntrusionDetection\Controller\VerifyController;
+use OCA\IntrusionDetection\Login\SessionMarkers;
 use OCA\IntrusionDetection\SessionState\ISessionStateRule;
 use OCA\IntrusionDetection\SessionState\RequestTarget;
 use OCA\IntrusionDetection\SessionState\SessionBlock;
-use OCA\IntrusionDetection\SessionState\SessionState;
 use OCP\Authentication\TwoFactorAuth\ALoginSetupController;
 use OCP\IRequest;
 use OCP\IURLGenerator;
@@ -40,8 +40,8 @@ class LoginNoticeRule implements ISessionStateRule {
 	}
 
 	#[\Override]
-	public function check(SessionState $state, RequestTarget $target): ?SessionBlock {
-		if (!isset($state->all()[SessionState::LOGIN_NOTICE]) || $target->dav || !$this->isPageNavigation($target)) {
+	public function check(SessionMarkers $state, RequestTarget $target): ?SessionBlock {
+		if (!isset($state->all()[SessionMarkers::LOGIN_NOTICE]) || $target->dav || !$this->isPageNavigation($target)) {
 			return null;
 		}
 		if ($target->isPublicPage()

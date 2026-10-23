@@ -14,11 +14,11 @@ use OCA\IntrusionDetection\Confirm\StepUpPolicy;
 use OCA\IntrusionDetection\Db\DetectionFilter;
 use OCA\IntrusionDetection\Db\DetectionMapper;
 use OCA\IntrusionDetection\Explain\NarrativeBuilder;
+use OCA\IntrusionDetection\Login\SessionMarkers;
 use OCA\IntrusionDetection\Net\SourceKey;
 use OCA\IntrusionDetection\Notification\Notifier;
 use OCA\IntrusionDetection\Response\FlaggedSources;
 use OCA\IntrusionDetection\SessionState\RequestTarget;
-use OCA\IntrusionDetection\SessionState\SessionState;
 use OCP\IConfig;
 use OCP\L10N\IFactory;
 use OCP\Server;
@@ -48,7 +48,7 @@ class NoSecretsStepUpTest extends StepUpTestCase {
 		// Confirmed after a wrong code and a new one.
 		$sessionIds[] = $this->startSession($alice)['secret'];
 		$this->login($alice);
-		$stateDuringStepUp = json_encode($this->session->get(SessionState::SESSION_KEY), JSON_THROW_ON_ERROR);
+		$stateDuringStepUp = json_encode($this->session->get(SessionMarkers::SESSION_KEY), JSON_THROW_ON_ERROR);
 		$this->verifyController()->confirm('000000');
 		$this->verifyController()->resend();
 		$this->verifyController()->confirm('730264');

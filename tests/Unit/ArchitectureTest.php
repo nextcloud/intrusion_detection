@@ -64,7 +64,7 @@ class ArchitectureTest extends TestCase {
 		// Incident reports reuse the admin page's detection presenter and check names.
 		'Incident' => ['Admin'],
 		// Feature notifications live in Notification (feature slices).
-		'Notification' => ['Admin', 'BackgroundJob', 'Blocklist', 'Check\\Checks', 'KnownDevice', 'Learning', 'SessionState', 'Share', 'WasThisYou'],
+		'Notification' => ['Admin', 'BackgroundJob', 'Blocklist', 'Check\\Checks', 'KnownDevice', 'Learning', 'Share', 'WasThisYou'],
 		'OpenMetrics' => ['Perf'],
 		// The privacy cleanup schedules its job by class.
 		'Privacy' => ['BackgroundJob'],

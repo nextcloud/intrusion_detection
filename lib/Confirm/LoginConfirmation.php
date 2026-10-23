@@ -9,8 +9,8 @@ declare(strict_types=1);
 
 namespace OCA\IntrusionDetection\Confirm;
 
+use OCA\IntrusionDetection\Login\SessionMarkers;
 use OCA\IntrusionDetection\LoginHistory\LoginHistory;
-use OCA\IntrusionDetection\SessionState\SessionState;
 
 /**
  * Where the confirmation of one session's login stands, in one status
@@ -19,9 +19,9 @@ use OCA\IntrusionDetection\SessionState\SessionState;
  * step-up, the step-up itself ({@see StepUpState}).
  *
  * The session keeps it in three markers, in this precedence: the step-up
- * ({@see SessionState::STEP_UP}), the confirmation of a login that needed
- * one ({@see SessionState::CONFIRMATION}, `by` a method or `none`), and the
- * proof of a login that needed none ({@see SessionState::PROOF}).
+ * ({@see SessionMarkers::STEP_UP}), the confirmation of a login that needed
+ * one ({@see SessionMarkers::CONFIRMATION}, `by` a method or `none`), and the
+ * proof of a login that needed none ({@see SessionMarkers::PROOF}).
  */
 final class LoginConfirmation {
 	/** The confirmation methods that prove more than the password */
@@ -83,14 +83,14 @@ final class LoginConfirmation {
 	 * The confirmation of an account's login from the session's markers,
 	 * as the app has stored them since its first release.
 	 *
-	 * @param array<string, mixed> $markers all of the session's markers ({@see SessionState::all()})
+	 * @param array<string, mixed> $markers all of the session's markers ({@see SessionMarkers::all()})
 	 */
 	public static function fromMarkers(array $markers, string $uid): self {
-		$stepUp = is_array($markers[SessionState::STEP_UP] ?? null) ? StepUpState::fromArray($markers[SessionState::STEP_UP]) : null;
+		$stepUp = is_array($markers[SessionMarkers::STEP_UP] ?? null) ? StepUpState::fromArray($markers[SessionMarkers::STEP_UP]) : null;
 		if ($stepUp !== null && $stepUp->uid === $uid) {
 			return self::ofStepUp($stepUp);
 		}
-		$confirmation = $markers[SessionState::CONFIRMATION] ?? null;
+		$confirmation = $markers[SessionMarkers::CONFIRMATION] ?? null;
 		if (is_array($confirmation) && ($confirmation['uid'] ?? null) === $uid) {
 			$by = $confirmation['by'] ?? null;
 			$policies = is_array($confirmation['policies'] ?? null) ? array_values(array_filter($confirmation['policies'], 'is_string')) : [];
@@ -102,7 +102,7 @@ final class LoginConfirmation {
 				return self::confirmed($uid, $by, $policies, $at);
 			}
 		}
-		$proof = $markers[SessionState::PROOF] ?? null;
+		$proof = $markers[SessionMarkers::PROOF] ?? null;
 		if (is_array($proof) && ($proof['uid'] ?? null) === $uid && is_string($proof['by'] ?? null) && in_array($proof['by'], self::PROOFS, true)) {
 			return self::proven($uid, $proof['by'], is_int($proof['at'] ?? null) ? $proof['at'] : 0);
 		}
@@ -117,15 +117,15 @@ final class LoginConfirmation {
 	 */
 	public function toMarker(): ?array {
 		return match ($this->status) {
-			ConfirmationStatus::Pending, ConfirmationStatus::Refused, ConfirmationStatus::RefusedClient, ConfirmationStatus::Resumed => $this->stepUp === null ? null : [SessionState::STEP_UP, $this->stepUp->toArray()],
-			ConfirmationStatus::Confirmed, ConfirmationStatus::AllowedUnconfirmed => [SessionState::CONFIRMATION, array_filter([
+			ConfirmationStatus::Pending, ConfirmationStatus::Refused, ConfirmationStatus::RefusedClient, ConfirmationStatus::Resumed => $this->stepUp === null ? null : [SessionMarkers::STEP_UP, $this->stepUp->toArray()],
+			ConfirmationStatus::Confirmed, ConfirmationStatus::AllowedUnconfirmed => [SessionMarkers::CONFIRMATION, array_filter([
 				'uid' => $this->uid,
 				'by' => $this->method,
 				'policies' => $this->policies,
 				'at' => $this->since,
 				self::CLIENT_ONLY => $this->clientOnly ?: null,
 			], static fn (mixed $v): bool => $v !== null)],
-			ConfirmationStatus::Proven => [SessionState::PROOF, ['uid' => $this->uid, 'by' => $this->method, 'at' => $this->since]],
+			ConfirmationStatus::Proven => [SessionMarkers::PROOF, ['uid' => $this->uid, 'by' => $this->method, 'at' => $this->since]],
 			ConfirmationStatus::None => null,
 		};
 	}

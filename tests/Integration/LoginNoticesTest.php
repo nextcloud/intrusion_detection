@@ -19,13 +19,13 @@ use OCA\IntrusionDetection\Controller\NoticeController;
 use OCA\IntrusionDetection\Db\DetectionMapper;
 use OCA\IntrusionDetection\Http\LocalRedirect;
 use OCA\IntrusionDetection\KnownDevice\Db\KnownDeviceMapper;
+use OCA\IntrusionDetection\Login\SessionMarkers;
 use OCA\IntrusionDetection\Net\SourceKey;
 use OCA\IntrusionDetection\Notification\AdminNotices;
 use OCA\IntrusionDetection\Notification\LoginNotices;
 use OCA\IntrusionDetection\Response\FlaggedSources;
 use OCA\IntrusionDetection\SessionState\RequestTarget;
 use OCA\IntrusionDetection\SessionState\Rules\LoginNoticeRule;
-use OCA\IntrusionDetection\SessionState\SessionState;
 use OCA\IntrusionDetection\TrustedNetwork\TrustedNetworks;
 use OCA\IntrusionDetection\WasThisYou\PersonalDetections;
 use OCA\IntrusionDetection\WasThisYou\Questions;
@@ -76,20 +76,20 @@ class LoginNoticesTest extends StepUpTestCase {
 		$this->refusedLogin();
 		$this->session->clear();
 		$this->notices()->atLogin($this->bob->getUID(), null);
-		$this->assertNotNull($this->state->get(SessionState::LOGIN_NOTICE), 'Without any known device: the next login');
+		$this->assertNotNull($this->state->get(SessionMarkers::LOGIN_NOTICE), 'Without any known device: the next login');
 
 		$this->session->clear();
 		Server::get(KnownDeviceMapper::class)->insert($this->bob->getUID(), str_repeat('a', 64), 'firefox', 'linux', 'Firefox on Linux', null, time());
 		$this->notices()->atLogin($this->bob->getUID(), null);
-		$this->assertNull($this->state->get(SessionState::LOGIN_NOTICE), 'Not on a device the user never confirmed: it may be the attacker');
+		$this->assertNull($this->state->get(SessionMarkers::LOGIN_NOTICE), 'Not on a device the user never confirmed: it may be the attacker');
 
 		$device = Server::get(KnownDeviceMapper::class)->find($this->bob->getUID(), str_repeat('a', 64), 0);
 		$this->notices()->atLogin($this->bob->getUID(), $device);
-		$this->assertNotNull($this->state->get(SessionState::LOGIN_NOTICE), 'On a known device');
+		$this->assertNotNull($this->state->get(SessionMarkers::LOGIN_NOTICE), 'On a known device');
 	}
 
 	public function testOnlyPageNavigationsAreSentToTheNotice(): void {
-		$this->state->set(SessionState::LOGIN_NOTICE, ['uid' => $this->bob->getUID(), 'since' => 1]);
+		$this->state->set(SessionMarkers::LOGIN_NOTICE, ['uid' => $this->bob->getUID(), 'since' => 1]);
 		$page = $this->createMock(Controller::class);
 		$this->headers['Accept'] = 'text/html,application/xhtml+xml';
 		$this->method = 'GET';
@@ -123,7 +123,7 @@ class LoginNoticesTest extends StepUpTestCase {
 		$this->assertInstanceOf(RedirectResponse::class, $response);
 		$this->assertStringEndsWith('/index.php/apps/files/', $response->getRedirectURL());
 		$this->assertNull($this->notices()->since($this->bob->getUID()));
-		$this->assertNull($this->state->get(SessionState::LOGIN_NOTICE));
+		$this->assertNull($this->state->get(SessionMarkers::LOGIN_NOTICE));
 		$this->assertInstanceOf(RedirectResponse::class, $this->controller()->show(), 'Nothing left to show');
 	}
 

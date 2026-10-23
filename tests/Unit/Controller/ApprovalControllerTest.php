@@ -22,7 +22,7 @@ use OCA\IntrusionDetection\Confirm\StepUpState;
 use OCA\IntrusionDetection\Controller\ApprovalController;
 use OCA\IntrusionDetection\Db\Approval;
 use OCA\IntrusionDetection\Login\CoreSession;
-use OCA\IntrusionDetection\SessionState\SessionState;
+use OCA\IntrusionDetection\Login\SessionMarkers;
 use OCP\AppFramework\Http;
 use OCP\AppFramework\Http\Attribute\NoAdminRequired;
 use OCP\AppFramework\Http\Attribute\NoCSRFRequired;
@@ -249,13 +249,13 @@ class ApprovalControllerTest extends TestCase {
 		$session = $this->userSession();
 		$l = $this->createMock(IL10N::class);
 		$l->method('t')->willReturnArgument(0);
-		$state = $this->createMock(SessionState::class);
+		$state = $this->createMock(SessionMarkers::class);
 		$state->method('get')->willReturnCallback(fn (string $name): ?array => match ($name) {
-			SessionState::CONFIRMATION => $this->confirmation,
-			SessionState::STEP_UP => $this->stepUp,
+			SessionMarkers::CONFIRMATION => $this->confirmation,
+			SessionMarkers::STEP_UP => $this->stepUp,
 			default => null,
 		});
-		$state->method('all')->willReturnCallback(fn (): array => array_filter([SessionState::CONFIRMATION => $this->confirmation, SessionState::STEP_UP => $this->stepUp], static fn (?array $marker): bool => $marker !== null));
+		$state->method('all')->willReturnCallback(fn (): array => array_filter([SessionMarkers::CONFIRMATION => $this->confirmation, SessionMarkers::STEP_UP => $this->stepUp], static fn (?array $marker): bool => $marker !== null));
 		$phpSession = $this->createMock(ISession::class);
 		$phpSession->method('exists')->willReturnCallback(fn (string $key): bool => $key === 'app_password' && $this->appPassword);
 		$confirmation = new SessionConfirmation($state, new CoreSession($phpSession, $this->createMock(\OCP\Authentication\Token\IProvider::class), $this->createMock(LoggerInterface::class)), $this->createMock(ITimeFactory::class));

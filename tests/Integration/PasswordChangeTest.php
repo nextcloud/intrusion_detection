@@ -16,11 +16,11 @@ use OCA\IntrusionDetection\Http\LocalRedirect;
 use OCA\IntrusionDetection\Listener\Login\PasswordChangeStep;
 use OCA\IntrusionDetection\Listener\LoginListener;
 use OCA\IntrusionDetection\Listener\PasswordUpdatedListener;
+use OCA\IntrusionDetection\Login\SessionMarkers;
 use OCA\IntrusionDetection\Notification\AdminNotices;
 use OCA\IntrusionDetection\Response\PasswordChangeFlag;
 use OCA\IntrusionDetection\Response\PasswordChangeService;
 use OCA\IntrusionDetection\SessionState\Rules\PasswordChangeRule;
-use OCA\IntrusionDetection\SessionState\SessionState;
 use OCA\IntrusionDetection\Tests\BasicAuthServer;
 use OCA\IntrusionDetection\Tests\LoginSteps;
 use OCP\AppFramework\Http;
@@ -52,7 +52,7 @@ class PasswordChangeTest extends AccountTestCase {
 
 	private PasswordChangeService $passwords;
 	private PasswordChangeFlag $flag;
-	private SessionState $state;
+	private SessionMarkers $state;
 	private IUser $user;
 	private string $password;
 	/** @var array<string, string> */
@@ -64,7 +64,7 @@ class PasswordChangeTest extends AccountTestCase {
 		parent::setUp();
 		$this->passwords = Server::get(PasswordChangeService::class);
 		$this->flag = Server::get(PasswordChangeFlag::class);
-		$this->state = new SessionState($this->session, Server::get(LoggerInterface::class));
+		$this->state = new SessionMarkers($this->session, Server::get(LoggerInterface::class));
 		$this->user = $this->newUser('ids-pw', 'pw@example.com');
 		$this->password = 'A-long-test-password-' . $this->user->getUID();
 		$this->policy = static function (ValidatePasswordPolicyEvent $event): void {
@@ -153,7 +153,7 @@ class PasswordChangeTest extends AccountTestCase {
 		$this->loginListener()->handle($cookie
 			? new UserLoggedInWithCookieEvent($this->user, null)
 			: new UserLoggedInEvent($this->user, $this->user->getUID(), 'irrelevant', $tokenLogin));
-		$marker = $this->state->get(SessionState::PASSWORD_CHANGE);
+		$marker = $this->state->get(SessionMarkers::PASSWORD_CHANGE);
 		$this->assertSame($mode, $marker['mode'] ?? null);
 		if ($mode !== null) {
 			$this->assertSame($this->user->getUID(), $marker['uid']);
@@ -180,7 +180,7 @@ class PasswordChangeTest extends AccountTestCase {
 	}
 
 	public function testWithoutARequirementThePageContinuesAtOnce(): void {
-		$this->state->set(SessionState::PASSWORD_CHANGE, ['uid' => $this->user->getUID(), 'mode' => PasswordChangeRule::MODE_REDIRECT]);
+		$this->state->set(SessionMarkers::PASSWORD_CHANGE, ['uid' => $this->user->getUID(), 'mode' => PasswordChangeRule::MODE_REDIRECT]);
 		$response = $this->controller()->show('/apps/files/');
 		$this->assertInstanceOf(RedirectResponse::class, $response);
 		$this->assertStringEndsWith('/apps/files/', $response->getRedirectURL());
@@ -286,7 +286,7 @@ class PasswordChangeTest extends AccountTestCase {
 		$this->passwords->require($this->user->getUID());
 		$this->startSession($this->user);
 		$this->loginListener()->handle(new UserLoggedInEvent($this->user, $this->user->getUID(), $this->password, false));
-		$this->assertNotNull($this->state->get(SessionState::PASSWORD_CHANGE));
+		$this->assertNotNull($this->state->get(SessionMarkers::PASSWORD_CHANGE));
 	}
 
 	private function loginListener(): LoginListener {

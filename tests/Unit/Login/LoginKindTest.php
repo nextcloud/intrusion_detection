@@ -25,11 +25,11 @@ use OCA\IntrusionDetection\Login\LoginClassifier;
 use OCA\IntrusionDetection\Login\LoginGate;
 use OCA\IntrusionDetection\Login\LoginKind;
 use OCA\IntrusionDetection\Login\RequestContext;
+use OCA\IntrusionDetection\Login\SessionMarkers;
 use OCA\IntrusionDetection\LoginHistory\LoginHistory;
 use OCA\IntrusionDetection\Net\RemoteAddressResolver;
 use OCA\IntrusionDetection\Net\SourceKey;
 use OCA\IntrusionDetection\Response\PasswordChangeService;
-use OCA\IntrusionDetection\SessionState\SessionState;
 use OCA\IntrusionDetection\State\HotState;
 use OCA\IntrusionDetection\Tests\BasicAuthServer;
 use OCA\IntrusionDetection\Tests\LoginSteps;
@@ -260,10 +260,10 @@ class LoginKindTest extends TestCase {
 		$session->method('set')->willReturnCallback(static function (string $key, mixed $value) use (&$stored): void {
 			$stored[$key] = $value;
 		});
-		$state = new SessionState($session, $this->createMock(LoggerInterface::class));
+		$state = new SessionMarkers($session, $this->createMock(LoggerInterface::class));
 		$built = [];
 		$this->runLogin($event, [PasswordChangeStep::class => new PasswordChangeStep($passwords, $state)], $built);
-		$marker = $state->get(SessionState::PASSWORD_CHANGE);
+		$marker = $state->get(SessionMarkers::PASSWORD_CHANGE);
 		return is_string($marker['mode'] ?? null) ? $marker['mode'] : null;
 	}
 

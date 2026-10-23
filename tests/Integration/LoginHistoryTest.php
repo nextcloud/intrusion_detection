@@ -18,6 +18,7 @@ use OCA\IntrusionDetection\Confirm\StepUpPolicy;
 use OCA\IntrusionDetection\Listener\Login\HistoryStep;
 use OCA\IntrusionDetection\Listener\Login\KnownDeviceStep;
 use OCA\IntrusionDetection\Listener\LoginListener;
+use OCA\IntrusionDetection\Login\SessionMarkers;
 use OCA\IntrusionDetection\LoginHistory\Db\LoginHistoryMapper;
 use OCA\IntrusionDetection\LoginHistory\LoginHistory;
 use OCA\IntrusionDetection\LoginHistory\LoginHistoryEntry;
@@ -26,7 +27,6 @@ use OCA\IntrusionDetection\Privacy\UserDataCleanup;
 use OCA\IntrusionDetection\Response\FlaggedSources;
 use OCA\IntrusionDetection\SessionState\RequestTarget;
 use OCA\IntrusionDetection\SessionState\Rules\LoginHistoryRule;
-use OCA\IntrusionDetection\SessionState\SessionState;
 use OCA\IntrusionDetection\Tests\Unit\Cache\FixedCaches;
 use OCP\AppFramework\Utility\ITimeFactory;
 use OCP\IUser;
@@ -67,7 +67,7 @@ class LoginHistoryTest extends StepUpTestCase {
 
 		$this->historyRule()->check($this->state, RequestTarget::dav('PROPFIND', '/'));
 		$this->assertSame($token['id'], $this->historyOf($this->alice)[0]->sessionTokenId);
-		$this->assertNull($this->state->get(SessionState::LOGIN_HISTORY), 'Linked once; the session has nothing left to check');
+		$this->assertNull($this->state->get(SessionMarkers::LOGIN_HISTORY), 'Linked once; the session has nothing left to check');
 		$this->assertTrue($this->state->isEmpty());
 	}
 

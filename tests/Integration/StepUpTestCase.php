@@ -52,6 +52,7 @@ use OCA\IntrusionDetection\Listener\Login\StepUpStep;
 use OCA\IntrusionDetection\Listener\LoginListener;
 use OCA\IntrusionDetection\Login\LoginGate;
 use OCA\IntrusionDetection\Login\RequestContext;
+use OCA\IntrusionDetection\Login\SessionMarkers;
 use OCA\IntrusionDetection\LoginHistory\Db\LoginHistoryMapper;
 use OCA\IntrusionDetection\LoginHistory\LoginHistory;
 use OCA\IntrusionDetection\Net\RemoteAddressResolver;
@@ -60,7 +61,6 @@ use OCA\IntrusionDetection\Notification\MailReach;
 use OCA\IntrusionDetection\Notification\UserMessages;
 use OCA\IntrusionDetection\Response\FlaggedSources;
 use OCA\IntrusionDetection\SessionState\Rules\StepUpRule;
-use OCA\IntrusionDetection\SessionState\SessionState;
 use OCA\IntrusionDetection\Signal\SignalDispatcher;
 use OCA\IntrusionDetection\Tests\BasicAuthServer;
 use OCA\IntrusionDetection\Tests\LoginSteps;
@@ -113,7 +113,7 @@ abstract class StepUpTestCase extends AccountTestCase {
 	protected bool $bypassListed = false;
 	/** @var IRequest&MockObject */
 	protected IRequest $request;
-	protected SessionState $state;
+	protected SessionMarkers $state;
 	/** @var IChallengeRequester&MockObject */
 	protected IChallengeRequester $challenges;
 	/** @var list<array{string, int}> device cookies set: value and expiry */
@@ -123,7 +123,7 @@ abstract class StepUpTestCase extends AccountTestCase {
 
 	protected function setUp(): void {
 		parent::setUp();
-		$this->state = new SessionState($this->session, Server::get(LoggerInterface::class));
+		$this->state = new SessionMarkers($this->session, Server::get(LoggerInterface::class));
 		$this->request = $this->createMock(IRequest::class);
 		$this->request->method('getRemoteAddress')->willReturnCallback(fn (): string => $this->remoteAddress);
 		$this->request->method('getHeader')->willReturnCallback(fn (string $name): string => $this->headers[$name] ?? '');

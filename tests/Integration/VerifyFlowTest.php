@@ -18,11 +18,11 @@ use OCA\IntrusionDetection\Confirm\StepUpService;
 use OCA\IntrusionDetection\Confirm\StepUpState;
 use OCA\IntrusionDetection\Controller\VerifyController;
 use OCA\IntrusionDetection\Db\BanMapper;
+use OCA\IntrusionDetection\Login\SessionMarkers;
 use OCA\IntrusionDetection\Net\SourceKey;
 use OCA\IntrusionDetection\Notification\UserAlerts;
 use OCA\IntrusionDetection\Response\FlaggedSources;
 use OCA\IntrusionDetection\SessionState\RequestTarget;
-use OCA\IntrusionDetection\SessionState\SessionState;
 use OCP\AppFramework\Http;
 use OCP\AppFramework\Http\Attribute\BruteForceProtection;
 use OCP\AppFramework\Http\Attribute\NoCSRFRequired;
@@ -77,7 +77,7 @@ class VerifyFlowTest extends StepUpTestCase {
 		$this->assertInstanceOf(RedirectResponse::class, $response);
 		$this->assertStringEndsWith('/index.php/apps/files/?dir=/Photos', $response->getRedirectURL());
 		$this->assertNull($this->stepUp());
-		$this->assertSame('email_code', $this->state->get(SessionState::CONFIRMATION)['by'] ?? null);
+		$this->assertSame('email_code', $this->state->get(SessionMarkers::CONFIRMATION)['by'] ?? null);
 		$this->assertSame(0, $this->unconfirmedRows());
 		$this->assertNull($this->rule()->check($this->state, RequestTarget::dav('PROPFIND', '/')), 'The session may continue');
 		$this->assertSame([], $this->detectionsOf(StepUpFailed::ID));
@@ -139,12 +139,12 @@ class VerifyFlowTest extends StepUpTestCase {
 	public function testParallelRequestsGetNoMoreThanFiveTriesBetweenThem(): void {
 		$this->pendingLogin();
 		// Every request read the session before any of them saved it.
-		$loaded = $this->state->get(SessionState::STEP_UP);
+		$loaded = $this->state->get(SessionMarkers::STEP_UP);
 		$this->assertNotNull($loaded);
 		$statuses = [];
 		foreach (['000000', '000000', '000000', '000000', '000000', '482915', '000000'] as $code) {
 			$this->sessionUser = $this->alice;
-			$this->state->set(SessionState::STEP_UP, $loaded);
+			$this->state->set(SessionMarkers::STEP_UP, $loaded);
 			$response = $this->verifyController()->confirm($code);
 			$statuses[] = $response instanceof RedirectResponse ? $response->getRedirectURL() : $response->getStatus();
 		}
@@ -153,7 +153,7 @@ class VerifyFlowTest extends StepUpTestCase {
 			$this->assertIsString($status, 'Request ' . ($i + 5) . ' gets no try');
 			$this->assertStringContainsString('/verify/ended?reason=attempts', $status);
 		}
-		$this->assertNull($this->state->get(SessionState::CONFIRMATION), 'Not even the right code got in');
+		$this->assertNull($this->state->get(SessionMarkers::CONFIRMATION), 'Not even the right code got in');
 		$this->assertCount(1, $this->detectionsOf(StepUpFailed::ID));
 	}
 
@@ -281,7 +281,7 @@ class VerifyFlowTest extends StepUpTestCase {
 		$this->assertSame('/index.php/login/challenge?redirect_url=back', $response->getRedirectURL());
 		$this->passChallenge($this->alice);
 		$this->assertNull($this->stepUp());
-		$this->assertSame('second_factor', $this->state->get(SessionState::CONFIRMATION)['by'] ?? null);
+		$this->assertSame('second_factor', $this->state->get(SessionMarkers::CONFIRMATION)['by'] ?? null);
 	}
 
 	public function testTheEndpointsAreProtected(): void {

@@ -22,8 +22,8 @@ use OCA\IntrusionDetection\Confirm\StepUpPolicy;
 use OCA\IntrusionDetection\Confirm\StepUpReasons;
 use OCA\IntrusionDetection\Confirm\StepUpState;
 use OCA\IntrusionDetection\Controller\VerifyController;
+use OCA\IntrusionDetection\Login\SessionMarkers;
 use OCA\IntrusionDetection\Net\SourceKey;
-use OCA\IntrusionDetection\SessionState\SessionState;
 use OCP\AppFramework\Http\StandaloneTemplateResponse;
 use OCP\IGroupManager;
 use OCP\IUser;
@@ -160,7 +160,7 @@ class AdminTrustedNetworksTest extends StepUpTestCase {
 		$this->basicAuth($this->admin);
 		$this->login($this->admin);
 		$this->assertSame(StepUpState::REFUSED_CLIENT, $this->stepUp()?->status);
-		$this->assertNull($this->state->get(SessionState::CONFIRMATION));
+		$this->assertNull($this->state->get(SessionMarkers::CONFIRMATION));
 		$detections = $this->detectionsOf(StepUpRefusedClient::ID);
 		$this->assertCount(1, $detections);
 		$l = Server::get(IFactory::class)->get(Application::APP_ID, 'en');

@@ -37,6 +37,7 @@ use OCA\IntrusionDetection\Guide\SecureAccountGuide;
 use OCA\IntrusionDetection\Guide\SecureAccountOverview;
 use OCA\IntrusionDetection\KnownDevice\Db\KnownDeviceMapper;
 use OCA\IntrusionDetection\KnownDevice\KnownDevices;
+use OCA\IntrusionDetection\Login\SessionMarkers;
 use OCA\IntrusionDetection\LoginHistory\LoginHistory;
 use OCA\IntrusionDetection\Net\SourceKey;
 use OCA\IntrusionDetection\Notification\AdminAlerts;
@@ -48,7 +49,6 @@ use OCA\IntrusionDetection\Personal\PersonalActivity;
 use OCA\IntrusionDetection\Personal\PersonalOverview;
 use OCA\IntrusionDetection\Response\FlaggedSources;
 use OCA\IntrusionDetection\Response\PasswordChangeFlag;
-use OCA\IntrusionDetection\SessionState\SessionState;
 use OCA\IntrusionDetection\Takeover\Db\SecurityChangeMapper;
 use OCA\IntrusionDetection\Tests\Unit\Controller\AnswersLikeTheApi;
 use OCA\IntrusionDetection\TrustedNetwork\TrustedNetworks;
@@ -214,7 +214,7 @@ class WasThisYouTest extends StepUpTestCase {
 	public function testYesIsRefusedFromSessionsThatCannotVouch(): void {
 		$detection = $this->detection(SecondFactorFailed::ID, $this->alice);
 		$this->startSession($this->alice);
-		$this->state->set(SessionState::CONFIRMATION, ['uid' => $this->alice->getUID(), 'by' => 'none', 'policies' => [StepUpPolicy::FlaggedSource->value], 'at' => time()]);
+		$this->state->set(SessionMarkers::CONFIRMATION, ['uid' => $this->alice->getUID(), 'by' => 'none', 'policies' => [StepUpPolicy::FlaggedSource->value], 'at' => time()]);
 		$this->assertAnswerFails(AnswerException::SESSION_NOT_ALLOWED, fn () => $this->answers()->confirm($this->alice, $detection->getId()), 'A login nothing confirmed');
 
 		$this->startSession($this->alice);
@@ -237,7 +237,7 @@ class WasThisYouTest extends StepUpTestCase {
 	public function testNoIsRefusedFromUnconfirmedSessions(): void {
 		$detection = $this->detection(SecondFactorFailed::ID, $this->alice);
 		$this->startSession($this->alice);
-		$this->state->set(SessionState::CONFIRMATION, ['uid' => $this->alice->getUID(), 'by' => 'none', 'policies' => [StepUpPolicy::FlaggedSource->value], 'at' => time()]);
+		$this->state->set(SessionMarkers::CONFIRMATION, ['uid' => $this->alice->getUID(), 'by' => 'none', 'policies' => [StepUpPolicy::FlaggedSource->value], 'at' => time()]);
 		$this->assertAnswerFails(AnswerException::SESSION_NOT_ALLOWED, fn () => $this->answers()->deny($this->alice, $detection->getId()), 'A login let in without a confirmation');
 		$refused = $this->answer(fn () => $this->controller()->deny($detection->getId()));
 		$this->assertSame(Http::STATUS_FORBIDDEN, $refused->getStatus());
@@ -245,7 +245,7 @@ class WasThisYouTest extends StepUpTestCase {
 
 		$this->session->clear();
 		$this->startSession($this->alice);
-		$this->state->set(SessionState::STEP_UP, (new StepUpState($this->alice->getUID(), StepUpState::PENDING, ['flagged_source'], time(), time() + 900))->toArray());
+		$this->state->set(SessionMarkers::STEP_UP, (new StepUpState($this->alice->getUID(), StepUpState::PENDING, ['flagged_source'], time(), time() + 900))->toArray());
 		$this->assertAnswerFails(AnswerException::SESSION_NOT_ALLOWED, fn () => $this->answers()->deny($this->alice, $detection->getId()), 'A login that waits for its confirmation');
 		$this->assertNull(Server::get(DetectionMapper::class)->findById($detection->getId())->getUserVerdict());
 		$this->assertSame([], $this->detectionsOf(UserDenied::ID));

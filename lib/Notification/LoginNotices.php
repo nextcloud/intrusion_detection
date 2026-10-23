@@ -14,7 +14,7 @@ use OCA\IntrusionDetection\Config\UserKeys;
 use OCA\IntrusionDetection\KnownDevice\Db\KnownDeviceMapper;
 use OCA\IntrusionDetection\KnownDevice\KnownDevice;
 use OCA\IntrusionDetection\KnownDevice\KnownDevices;
-use OCA\IntrusionDetection\SessionState\SessionState;
+use OCA\IntrusionDetection\Login\SessionMarkers;
 use OCP\AppFramework\Utility\ITimeFactory;
 use OCP\Config\IUserConfig;
 
@@ -36,7 +36,7 @@ class LoginNotices {
 
 	public function __construct(
 		private readonly IUserConfig $userConfig,
-		private readonly SessionState $state,
+		private readonly SessionMarkers $state,
 		private readonly KnownDeviceMapper $devices,
 		private readonly ITimeFactory $timeFactory,
 	) {
@@ -74,7 +74,7 @@ class LoginNotices {
 		if ($device === null && $this->devices->forUser($uid, $now - KnownDevices::DURATION, 1) !== []) {
 			return;
 		}
-		$this->state->set(SessionState::LOGIN_NOTICE, ['uid' => $uid, 'since' => $since]);
+		$this->state->set(SessionMarkers::LOGIN_NOTICE, ['uid' => $uid, 'since' => $since]);
 	}
 
 	/**
@@ -82,7 +82,7 @@ class LoginNotices {
 	 * null when the session has no notice for the account.
 	 */
 	public function shownSince(string $uid): ?int {
-		$marker = $this->state->get(SessionState::LOGIN_NOTICE);
+		$marker = $this->state->get(SessionMarkers::LOGIN_NOTICE);
 		return $marker !== null && ($marker['uid'] ?? null) === $uid && is_int($marker['since'] ?? null) ? $marker['since'] : null;
 	}
 
@@ -90,7 +90,7 @@ class LoginNotices {
 	 * The user saw the notice and continued.
 	 */
 	public function done(string $uid): void {
-		$this->state->remove(SessionState::LOGIN_NOTICE);
+		$this->state->remove(SessionMarkers::LOGIN_NOTICE);
 		$this->userConfig->deleteUserConfig($uid, Application::APP_ID, UserKeys::LOGIN_NOTICE_SINCE);
 	}
 }

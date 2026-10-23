@@ -20,13 +20,13 @@ use OCA\IntrusionDetection\Confirm\StepUpPolicy;
 use OCA\IntrusionDetection\Confirm\StepUpService;
 use OCA\IntrusionDetection\Db\DetectionFilter;
 use OCA\IntrusionDetection\Db\DetectionMapper;
+use OCA\IntrusionDetection\Login\SessionMarkers;
 use OCA\IntrusionDetection\LoginHistory\Db\LoginHistoryMapper;
 use OCA\IntrusionDetection\LoginHistory\LoginHistory;
 use OCA\IntrusionDetection\Net\SourceKey;
 use OCA\IntrusionDetection\Response\AccountProtection;
 use OCA\IntrusionDetection\Response\FlaggedSources;
 use OCA\IntrusionDetection\SessionState\RequestTarget;
-use OCA\IntrusionDetection\SessionState\SessionState;
 use OCP\DB\QueryBuilder\IQueryBuilder;
 use OCP\IUser;
 use OCP\Server;
@@ -186,8 +186,8 @@ class LoginConfirmationTransitionsTest extends StepUpTestCase {
 		$this->flagSource();
 		$this->startSession($this->alice);
 		$this->loginThroughTheApp($this->alice);
-		$marker = $this->state->get(SessionState::STEP_UP) ?? [];
-		$this->state->set(SessionState::STEP_UP, ['deadline' => time() - 1] + $marker);
+		$marker = $this->state->get(SessionMarkers::STEP_UP) ?? [];
+		$this->state->set(SessionMarkers::STEP_UP, ['deadline' => time() - 1] + $marker);
 		$this->assertNotNull($this->rule()->check($this->state, RequestTarget::dav('PROPFIND', '/')));
 		$this->assertSame($this->expected(history: ['failed', 'none'], detections: ['step_up_failed:timeout'], loggedIn: false), $this->snapshot($this->alice));
 	}
@@ -310,7 +310,7 @@ class LoginConfirmationTransitionsTest extends StepUpTestCase {
 	 */
 	private function snapshot(IUser $user): array {
 		$uid = $user->getUID();
-		$confirmation = $this->state->get(SessionState::CONFIRMATION);
+		$confirmation = $this->state->get(SessionMarkers::CONFIRMATION);
 		$history = Server::get(LoginHistoryMapper::class)->forUser($uid, 0);
 		$detections = [];
 		foreach (array_reverse(Server::get(DetectionMapper::class)->findList(new DetectionFilter(uid: $uid, limit: 20))) as $detection) {
@@ -318,9 +318,9 @@ class LoginConfirmationTransitionsTest extends StepUpTestCase {
 			$detections[] = $detection->getCheckId() . (is_string($rule) ? ':' . $rule : '');
 		}
 		return [
-			'stepUp' => $this->state->get(SessionState::STEP_UP)['status'] ?? null,
+			'stepUp' => $this->state->get(SessionMarkers::STEP_UP)['status'] ?? null,
 			'confirmation' => $confirmation === null ? null : [$confirmation['by'] ?? null, ($confirmation[LoginConfirmation::CLIENT_ONLY] ?? false) === true],
-			'proof' => $this->state->get(SessionState::PROOF)['by'] ?? null,
+			'proof' => $this->state->get(SessionMarkers::PROOF)['by'] ?? null,
 			'rows' => $this->unconfirmedRowsOf($uid),
 			'history' => $history === [] ? null : [$history[0]->stepUp, $history[0]->confirmedBy],
 			'detections' => $detections,

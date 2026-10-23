@@ -10,12 +10,12 @@ declare(strict_types=1);
 namespace OCA\IntrusionDetection\Tests\Unit\Middleware;
 
 use OCA\IntrusionDetection\Dav\SessionStatePlugin;
+use OCA\IntrusionDetection\Login\SessionMarkers;
 use OCA\IntrusionDetection\Middleware\SessionBlockedException;
 use OCA\IntrusionDetection\Middleware\SessionStateMiddleware;
 use OCA\IntrusionDetection\SessionState\ISessionStateRule;
 use OCA\IntrusionDetection\SessionState\RequestTarget;
 use OCA\IntrusionDetection\SessionState\SessionBlock;
-use OCA\IntrusionDetection\SessionState\SessionState;
 use OCA\IntrusionDetection\SessionState\SessionStateRules;
 use OCP\AppFramework\Controller;
 use OCP\AppFramework\Http;
@@ -44,7 +44,7 @@ class RateLimitAnswerTest extends TestCase {
 	protected function setUp(): void {
 		parent::setUp();
 		$rule = new class implements ISessionStateRule {
-			public function check(SessionState $state, RequestTarget $target): ?SessionBlock {
+			public function check(SessionMarkers $state, RequestTarget $target): ?SessionBlock {
 				return SessionBlock::rateLimited('directory_rate_limited', 'Too many requests of this kind. Try again later.', 240);
 			}
 		};
@@ -105,7 +105,7 @@ class RateLimitAnswerTest extends TestCase {
 	public function testWebDavGets429WithoutAnExceptionToLog(): void {
 		$userSession = $this->createMock(IUserSession::class);
 		$userSession->method('isLoggedIn')->willReturn(true);
-		$plugin = new SessionStatePlugin($this->rules, new SessionState($this->createMock(ISession::class), $this->createMock(LoggerInterface::class)), $userSession, $this->createMock(LoggerInterface::class));
+		$plugin = new SessionStatePlugin($this->rules, new SessionMarkers($this->createMock(ISession::class), $this->createMock(LoggerInterface::class)), $userSession, $this->createMock(LoggerInterface::class));
 		$request = $this->createMock(RequestInterface::class);
 		$request->method('getMethod')->willReturn('REPORT');
 		$request->method('getUrl')->willReturn('/remote.php/dav/principals/users/');
@@ -134,7 +134,7 @@ class RateLimitAnswerTest extends TestCase {
 		$userSession->method('isLoggedIn')->willReturn(true);
 		return new SessionStateMiddleware(
 			$this->rules,
-			new SessionState($this->createMock(ISession::class), $this->createMock(LoggerInterface::class)),
+			new SessionMarkers($this->createMock(ISession::class), $this->createMock(LoggerInterface::class)),
 			$userSession,
 			$request,
 			$this->createMock(LoggerInterface::class),

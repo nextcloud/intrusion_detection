@@ -21,11 +21,11 @@ use OCA\IntrusionDetection\Confirm\StepUpState;
 use OCA\IntrusionDetection\Controller\VerifyController;
 use OCA\IntrusionDetection\Db\Approval;
 use OCA\IntrusionDetection\Db\ApprovalMapper;
+use OCA\IntrusionDetection\Login\SessionMarkers;
 use OCA\IntrusionDetection\Net\SourceKey;
 use OCA\IntrusionDetection\Notification\Notifier;
 use OCA\IntrusionDetection\Response\FlaggedSources;
 use OCA\IntrusionDetection\SessionState\RequestTarget;
-use OCA\IntrusionDetection\SessionState\SessionState;
 use OCP\AppFramework\Http\Attribute\NoCSRFRequired;
 use OCP\AppFramework\Http\Attribute\UserRateLimit;
 use OCP\AppFramework\Http\JSONResponse;
@@ -106,7 +106,7 @@ class AdminApprovalTest extends StepUpTestCase {
 		$this->assertInstanceOf(RedirectResponse::class, $response);
 		$this->assertStringEndsWith('/index.php/apps/files/', $response->getRedirectURL());
 		$this->assertNull($this->stepUp());
-		$this->assertSame('admin_approval', $this->state->get(SessionState::CONFIRMATION)['by'] ?? null);
+		$this->assertSame('admin_approval', $this->state->get(SessionMarkers::CONFIRMATION)['by'] ?? null);
 		$this->assertNull($this->rule()->check($this->state, RequestTarget::dav('PROPFIND', '/')));
 		$this->assertCount(1, $this->deviceCookiesSet, 'Remembered, as chosen');
 

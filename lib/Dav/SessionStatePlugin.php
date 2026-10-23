@@ -9,7 +9,7 @@ declare(strict_types=1);
 
 namespace OCA\IntrusionDetection\Dav;
 
-use OCA\IntrusionDetection\SessionState\SessionState;
+use OCA\IntrusionDetection\Login\SessionMarkers;
 use OCA\IntrusionDetection\SessionState\SessionStateRules;
 use OCP\IUserSession;
 use Psr\Log\LoggerInterface;
@@ -36,7 +36,7 @@ class SessionStatePlugin extends ServerPlugin {
 
 	public function __construct(
 		private readonly SessionStateRules $rules,
-		private readonly SessionState $state,
+		private readonly SessionMarkers $state,
 		private readonly IUserSession $userSession,
 		private readonly LoggerInterface $logger,
 	) {

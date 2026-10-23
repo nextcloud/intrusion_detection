@@ -17,7 +17,7 @@ use OCA\IntrusionDetection\Confirm\SecondFactorSetup;
 use OCA\IntrusionDetection\Confirm\SessionConfirmation;
 use OCA\IntrusionDetection\Confirm\StepUpState;
 use OCA\IntrusionDetection\Login\CoreSession;
-use OCA\IntrusionDetection\SessionState\SessionState;
+use OCA\IntrusionDetection\Login\SessionMarkers;
 use OCP\AppFramework\Utility\ITimeFactory;
 use OCP\Authentication\Token\IProvider as TokenProvider;
 use OCP\Authentication\TwoFactorAuth\IProvider;
@@ -27,12 +27,12 @@ use Test\TestCase;
 
 class SessionConfirmationTest extends TestCase {
 	private Memory $session;
-	private SessionState $state;
+	private SessionMarkers $state;
 
 	protected function setUp(): void {
 		parent::setUp();
 		$this->session = new Memory();
-		$this->state = new SessionState($this->session, $this->createMock(LoggerInterface::class));
+		$this->state = new SessionMarkers($this->session, $this->createMock(LoggerInterface::class));
 	}
 
 	public function testALoginThatNeededNothingProvedThePassword(): void {
@@ -40,12 +40,12 @@ class SessionConfirmationTest extends TestCase {
 	}
 
 	public function testAPendingRefusedOrUnconfirmedLoginIsUnconfirmed(): void {
-		$this->state->set(SessionState::STEP_UP, (new StepUpState('alice', StepUpState::PENDING, ['flagged_source'], 1, 2))->toArray());
+		$this->state->set(SessionMarkers::STEP_UP, (new StepUpState('alice', StepUpState::PENDING, ['flagged_source'], 1, 2))->toArray());
 		$this->assertTrue($this->confirmation()->isUnconfirmed('alice'));
 		$this->assertSame(SessionConfirmation::PASSWORD, $this->confirmation()->level('bob'), 'Another account\'s marker says nothing');
 
-		$this->state->remove(SessionState::STEP_UP);
-		$this->state->set(SessionState::CONFIRMATION, ['uid' => 'alice', 'by' => 'none', 'policies' => [], 'at' => 1]);
+		$this->state->remove(SessionMarkers::STEP_UP);
+		$this->state->set(SessionMarkers::CONFIRMATION, ['uid' => 'alice', 'by' => 'none', 'policies' => [], 'at' => 1]);
 		$this->confirmation()->proved('alice', 'second_factor');
 		$this->assertTrue($this->confirmation()->isUnconfirmed('alice'), 'Let in without a confirmation, whatever came later');
 	}
@@ -63,10 +63,10 @@ class SessionConfirmationTest extends TestCase {
 		$this->assertSame(SessionConfirmation::PASSWORD, $this->confirmation()->denialLevel('alice'), 'Never more than the password');
 		$this->assertSame(SessionConfirmation::UNCONFIRMED, $this->confirmation()->level('alice'), 'Everything else still asks for more');
 
-		$this->state->set(SessionState::CONFIRMATION, ['uid' => 'alice', 'by' => 'none', 'policies' => [], 'at' => 1]);
+		$this->state->set(SessionMarkers::CONFIRMATION, ['uid' => 'alice', 'by' => 'none', 'policies' => [], 'at' => 1]);
 		$this->assertSame(SessionConfirmation::UNCONFIRMED, $this->confirmation()->denialLevel('alice'), 'Let in without a confirmation');
-		$this->state->remove(SessionState::CONFIRMATION);
-		$this->state->set(SessionState::STEP_UP, (new StepUpState('alice', StepUpState::PENDING, ['flagged_source'], 1, 2))->toArray());
+		$this->state->remove(SessionMarkers::CONFIRMATION);
+		$this->state->set(SessionMarkers::STEP_UP, (new StepUpState('alice', StepUpState::PENDING, ['flagged_source'], 1, 2))->toArray());
 		$this->assertSame(SessionConfirmation::UNCONFIRMED, $this->confirmation()->denialLevel('alice'), 'Waiting for its confirmation');
 	}
 
@@ -78,10 +78,10 @@ class SessionConfirmationTest extends TestCase {
 
 	public function testAConfirmationOrAProofOfTheLogin(): void {
 		foreach (LoginConfirmation::PROOFS as $by) {
-			$this->state->set(SessionState::CONFIRMATION, ['uid' => 'alice', 'by' => $by, 'policies' => [], 'at' => 1]);
+			$this->state->set(SessionMarkers::CONFIRMATION, ['uid' => 'alice', 'by' => $by, 'policies' => [], 'at' => 1]);
 			$this->assertTrue($this->confirmation()->isProven('alice'), $by);
 		}
-		$this->state->remove(SessionState::CONFIRMATION);
+		$this->state->remove(SessionMarkers::CONFIRMATION);
 		$this->confirmation()->proved('alice', 'known_device');
 		$this->assertTrue($this->confirmation()->isProven('alice'));
 		$this->assertFalse($this->confirmation()->isProven('bob'));

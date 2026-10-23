@@ -9,8 +9,8 @@ declare(strict_types=1);
 
 namespace OCA\IntrusionDetection\Listener;
 
+use OCA\IntrusionDetection\Login\SessionMarkers;
 use OCA\IntrusionDetection\Response\PasswordChangeService;
-use OCA\IntrusionDetection\SessionState\SessionState;
 use OCP\EventDispatcher\Event;
 use OCP\EventDispatcher\IEventListener;
 use OCP\IUserSession;
@@ -28,7 +28,7 @@ use Psr\Log\LoggerInterface;
 class PasswordUpdatedListener implements IEventListener {
 	public function __construct(
 		private readonly PasswordChangeService $passwords,
-		private readonly SessionState $state,
+		private readonly SessionMarkers $state,
 		private readonly IUserSession $userSession,
 		private readonly LoggerInterface $logger,
 	) {
@@ -43,7 +43,7 @@ class PasswordUpdatedListener implements IEventListener {
 			$uid = $event->getUser()->getUID();
 			$this->passwords->clear($uid, 'password changed');
 			if ($this->userSession->getUser()?->getUID() === $uid) {
-				$this->state->remove(SessionState::PASSWORD_CHANGE);
+				$this->state->remove(SessionMarkers::PASSWORD_CHANGE);
 			}
 		} catch (\Throwable $e) {
 			$this->logger->error('Intrusion detection could not lift a required password change', ['exception' => $e]);

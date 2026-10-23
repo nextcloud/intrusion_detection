@@ -12,6 +12,7 @@ namespace OCA\IntrusionDetection\SessionState;
 use OCA\IntrusionDetection\Check\Checks\TokenConcurrentUse\CredentialUse;
 use OCA\IntrusionDetection\Check\Checks\TokenConcurrentUse\CredentialUseResolver;
 use OCA\IntrusionDetection\Login\RequestContext;
+use OCA\IntrusionDetection\Login\SessionMarkers;
 use OCA\IntrusionDetection\Sensitive\DirectoryRoutes;
 use OCA\IntrusionDetection\SessionState\Rules\DirectoryScrapingRule;
 use OCP\IRequest;
@@ -56,7 +57,7 @@ class SessionStateRules {
 	 *
 	 * @var array<class-string<ISessionStateRule>, string>
 	 */
-	public const FAIL_CLOSED = [Rules\StepUpRule::class => SessionState::STEP_UP];
+	public const FAIL_CLOSED = [Rules\StepUpRule::class => SessionMarkers::STEP_UP];
 
 	/** @var list<ISessionStateRule>|null */
 	private ?array $rules = null;
@@ -71,7 +72,7 @@ class SessionStateRules {
 	) {
 	}
 
-	public function check(SessionState $state, RequestTarget $target): ?SessionBlock {
+	public function check(SessionMarkers $state, RequestTarget $target): ?SessionBlock {
 		if ($this->nothingToCheck($state, fn (): ?string => DirectoryScrapingRule::group($target, $this->request))) {
 			return null;
 		}
@@ -102,7 +103,7 @@ class SessionStateRules {
 	 * The rules for a WebDAV request. Most have nothing to check, and then
 	 * neither the request target nor a rule is built.
 	 */
-	public function checkDav(SessionState $state, string $method, string $uri): ?SessionBlock {
+	public function checkDav(SessionMarkers $state, string $method, string $uri): ?SessionBlock {
 		if ($this->nothingToCheck($state, fn (): ?string => DirectoryRoutes::davGroup(strtoupper($method), $uri, $this->request->getHeader('Depth')))) {
 			return null;
 		}
@@ -112,7 +113,7 @@ class SessionStateRules {
 	/**
 	 * @param ISessionStateRule|class-string<ISessionStateRule> $rule
 	 */
-	private function failsClosed(ISessionStateRule|string $rule, SessionState $state): bool {
+	private function failsClosed(ISessionStateRule|string $rule, SessionMarkers $state): bool {
 		foreach (self::FAIL_CLOSED as $class => $marker) {
 			if ($rule instanceof $class || $rule === $class) {
 				try {
@@ -133,7 +134,7 @@ class SessionStateRules {
 	 *
 	 * @param \Closure(): ?string $directoryGroup the directory group the request reads
 	 */
-	private function nothingToCheck(SessionState $state, \Closure $directoryGroup): bool {
+	private function nothingToCheck(SessionMarkers $state, \Closure $directoryGroup): bool {
 		if ($this->classes() !== self::RULES) {
 			return false;
 		}

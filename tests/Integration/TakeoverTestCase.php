@@ -21,6 +21,7 @@ use OCA\IntrusionDetection\Explain\DateFormatter;
 use OCA\IntrusionDetection\Explain\NarrativeBuilder;
 use OCA\IntrusionDetection\Guide\SecureAccountGuide;
 use OCA\IntrusionDetection\Listener\SecurityChangeListener;
+use OCA\IntrusionDetection\Login\SessionMarkers;
 use OCA\IntrusionDetection\Net\RemoteAddressResolver;
 use OCA\IntrusionDetection\Net\ServerAddresses;
 use OCA\IntrusionDetection\Notification\AdminAlerts;
@@ -37,7 +38,6 @@ use OCA\IntrusionDetection\Response\Handlers\NotifyAdminHandler;
 use OCA\IntrusionDetection\Response\Handlers\NotifyUserHandler;
 use OCA\IntrusionDetection\Response\ResponseEngine;
 use OCA\IntrusionDetection\Response\Tokens;
-use OCA\IntrusionDetection\SessionState\SessionState;
 use OCA\IntrusionDetection\Takeover\AccountLock;
 use OCA\IntrusionDetection\Takeover\Db\LockLinkMapper;
 use OCA\IntrusionDetection\Takeover\Db\SecurityChangeMapper;
@@ -77,7 +77,7 @@ abstract class TakeoverTestCase extends AccountTestCase {
 	protected string $actor = 'self';
 	/** @var ActorResolver&MockObject */
 	protected ActorResolver $actors;
-	protected SessionState $state;
+	protected SessionMarkers $state;
 	/** @var list<array{string, MailContent}> emails sent to an address that is not the account's own */
 	protected array $sentTo = [];
 	/** @var array<class-string<Event>, callable> */
@@ -88,7 +88,7 @@ abstract class TakeoverTestCase extends AccountTestCase {
 		$this->actors = $this->createMock(ActorResolver::class);
 		$this->actors->method('isConsole')->willReturnCallback(fn (): bool => $this->actor === 'occ');
 		$this->actors->method('isCommandLine')->willReturnCallback(fn (): bool => in_array($this->actor, ['occ', 'cron'], true));
-		$this->state = new SessionState($this->session, Server::get(LoggerInterface::class));
+		$this->state = new SessionMarkers($this->session, Server::get(LoggerInterface::class));
 		$this->mails->method('sendTo')->willReturnCallback(function (string $address, string $name, MailContent $content): bool {
 			$this->sentTo[] = [$address, $content];
 			return true;
@@ -238,7 +238,7 @@ abstract class TakeoverTestCase extends AccountTestCase {
 	 */
 	protected function loginAs(IUser $user, bool $risky, ?int $at = null): array {
 		$token = $this->startSession($user);
-		$this->state->set(SessionState::CONFIRMATION, [
+		$this->state->set(SessionMarkers::CONFIRMATION, [
 			'uid' => $user->getUID(),
 			'by' => $risky ? 'none' : 'second_factor',
 			'policies' => ['flagged_source'],

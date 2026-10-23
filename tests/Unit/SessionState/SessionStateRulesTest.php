@@ -11,10 +11,10 @@ namespace OCA\IntrusionDetection\Tests\Unit\SessionState;
 
 use OC\Session\Memory;
 use OCA\IntrusionDetection\Confirm\StepUpState;
+use OCA\IntrusionDetection\Login\SessionMarkers;
 use OCA\IntrusionDetection\SessionState\RequestTarget;
 use OCA\IntrusionDetection\SessionState\Rules\PasswordChangeRule;
 use OCA\IntrusionDetection\SessionState\Rules\StepUpRule;
-use OCA\IntrusionDetection\SessionState\SessionState;
 use OCA\IntrusionDetection\SessionState\SessionStateRules;
 use Psr\Container\ContainerInterface;
 use Psr\Log\LoggerInterface;
@@ -24,11 +24,11 @@ use Test\TestCase;
  * Rules fail open, except the step-up rule while a step-up is pending.
  */
 class SessionStateRulesTest extends TestCase {
-	private SessionState $state;
+	private SessionMarkers $state;
 
 	protected function setUp(): void {
 		parent::setUp();
-		$this->state = new SessionState(new Memory(), $this->createMock(LoggerInterface::class));
+		$this->state = new SessionMarkers(new Memory(), $this->createMock(LoggerInterface::class));
 	}
 
 	public function testABrokenStepUpRuleBlocksWhileAStepUpIsPending(): void {
@@ -56,12 +56,12 @@ class SessionStateRulesTest extends TestCase {
 	public function testOtherBrokenRulesLetTheRequestPass(): void {
 		$broken = $this->createMock(PasswordChangeRule::class);
 		$broken->method('check')->willThrowException(new \RuntimeException('broken'));
-		$this->state->set(SessionState::PASSWORD_CHANGE, ['uid' => 'alice', 'mode' => 'redirect', 'since' => 1]);
+		$this->state->set(SessionMarkers::PASSWORD_CHANGE, ['uid' => 'alice', 'mode' => 'redirect', 'since' => 1]);
 		$this->assertNull($this->rules([PasswordChangeRule::class => $broken], [PasswordChangeRule::class])->check($this->state, RequestTarget::dav('GET', '/')));
 	}
 
 	private function pending(): void {
-		$this->state->set(SessionState::STEP_UP, (new StepUpState('alice', StepUpState::PENDING, ['flagged_source'], 1, 2))->toArray());
+		$this->state->set(SessionMarkers::STEP_UP, (new StepUpState('alice', StepUpState::PENDING, ['flagged_source'], 1, 2))->toArray());
 	}
 
 	/**

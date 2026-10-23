@@ -11,7 +11,7 @@ namespace OCA\IntrusionDetection\Takeover\Signals;
 
 use OCA\IntrusionDetection\Confirm\LoginConfirmation;
 use OCA\IntrusionDetection\Login\CoreSession;
-use OCA\IntrusionDetection\SessionState\SessionState;
+use OCA\IntrusionDetection\Login\SessionMarkers;
 use OCA\IntrusionDetection\Takeover\IRiskyLoginSignal;
 use OCA\IntrusionDetection\Takeover\RiskyLogin;
 
@@ -20,7 +20,7 @@ use OCA\IntrusionDetection\Takeover\RiskyLogin;
  * and still waits for it (a change made at a page the pending login may
  * reach, such as core's second-factor setup) or the policies let it in
  * without one (`confirmed_by = none`). How the
- * login was confirmed is kept in the session ({@see SessionState::CONFIRMATION});
+ * login was confirmed is kept in the session ({@see SessionMarkers::CONFIRMATION});
  * a login confirmed with a second factor or an email code is not risky.
  *
  * Only the current request's session is known here, so a change made with
@@ -28,7 +28,7 @@ use OCA\IntrusionDetection\Takeover\RiskyLogin;
  */
 class UnconfirmedLoginSignal implements IRiskyLoginSignal {
 	public function __construct(
-		private readonly SessionState $state,
+		private readonly SessionMarkers $state,
 		private readonly CoreSession $coreSession,
 	) {
 	}

@@ -12,8 +12,8 @@ namespace OCA\IntrusionDetection\Controller;
 use OC\User\Session;
 use OCA\IntrusionDetection\AppInfo\Application;
 use OCA\IntrusionDetection\Http\LocalRedirect;
+use OCA\IntrusionDetection\Login\SessionMarkers;
 use OCA\IntrusionDetection\Response\PasswordChangeService;
-use OCA\IntrusionDetection\SessionState\SessionState;
 use OCP\AppFramework\Controller;
 use OCP\AppFramework\Http;
 use OCP\AppFramework\Http\Attribute\BruteForceProtection;
@@ -58,7 +58,7 @@ class PasswordChangeController extends Controller {
 		private readonly IUserSession $userSession,
 		private readonly IUserManager $userManager,
 		private readonly PasswordChangeService $passwords,
-		private readonly SessionState $state,
+		private readonly SessionMarkers $state,
 		private readonly IURLGenerator $urlGenerator,
 		private readonly IL10N $l,
 		private readonly LocalRedirect $redirect,
@@ -125,7 +125,7 @@ class PasswordChangeController extends Controller {
 			$this->userSession->updateSessionTokenPassword($newPassword);
 		}
 		$this->passwords->clear($user->getUID(), 'password changed on the password page');
-		$this->state->remove(SessionState::PASSWORD_CHANGE);
+		$this->state->remove(SessionMarkers::PASSWORD_CHANGE);
 		return new RedirectResponse($this->target($redirect_url));
 	}
 
@@ -136,12 +136,12 @@ class PasswordChangeController extends Controller {
 	 */
 	private function stillRequired(IUser $user): bool {
 		if (!$this->passwords->isRequired($user->getUID())) {
-			$this->state->remove(SessionState::PASSWORD_CHANGE);
+			$this->state->remove(SessionMarkers::PASSWORD_CHANGE);
 			return false;
 		}
 		if (!$user->canChangePassword()) {
 			$this->passwords->external($user);
-			$this->state->remove(SessionState::PASSWORD_CHANGE);
+			$this->state->remove(SessionMarkers::PASSWORD_CHANGE);
 			return false;
 		}
 		return true;

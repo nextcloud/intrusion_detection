@@ -14,11 +14,11 @@ use OCA\IntrusionDetection\Db\IPurges;
 use OCA\IntrusionDetection\Db\KeyMatch;
 use OCA\IntrusionDetection\Login\CoreSession;
 use OCA\IntrusionDetection\Login\LoginKind;
+use OCA\IntrusionDetection\Login\SessionMarkers;
 use OCA\IntrusionDetection\LoginHistory\Db\LoginHistoryMapper;
 use OCA\IntrusionDetection\Net\SourceKey;
 use OCA\IntrusionDetection\Notification\UserMessages;
 use OCA\IntrusionDetection\Response\IAcceptedLogins;
-use OCA\IntrusionDetection\SessionState\SessionState;
 use OCP\AppFramework\Utility\ITimeFactory;
 
 /**
@@ -78,7 +78,7 @@ class LoginHistory implements IAcceptedLogins, IPurges {
 
 	public function __construct(
 		private readonly LoginHistoryMapper $mapper,
-		private readonly SessionState $state,
+		private readonly SessionMarkers $state,
 		private readonly CoreSession $coreSession,
 		private readonly ITimeFactory $timeFactory,
 		private readonly AppSettings $settings,
@@ -140,7 +140,7 @@ class LoginHistory implements IAcceptedLogins, IPurges {
 			$tokenId,
 		);
 		if ($browser) {
-			$this->state->set(SessionState::LOGIN_HISTORY, ['uid' => $uid, 'id' => $id, 'linked' => false]);
+			$this->state->set(SessionMarkers::LOGIN_HISTORY, ['uid' => $uid, 'id' => $id, 'linked' => false]);
 		}
 		return $id;
 	}
@@ -181,7 +181,7 @@ class LoginHistory implements IAcceptedLogins, IPurges {
 		if ($tokenId !== null) {
 			$this->mapper->setSessionToken($id, (string)$uid, $tokenId);
 		}
-		$this->state->remove(SessionState::LOGIN_HISTORY);
+		$this->state->remove(SessionMarkers::LOGIN_HISTORY);
 	}
 
 	/**
@@ -248,7 +248,7 @@ class LoginHistory implements IAcceptedLogins, IPurges {
 	 * it is linked, then by the session's token.
 	 */
 	private function rowOf(string $uid): ?int {
-		$marker = $this->state->get(SessionState::LOGIN_HISTORY);
+		$marker = $this->state->get(SessionMarkers::LOGIN_HISTORY);
 		if ($marker !== null) {
 			return ($marker['uid'] ?? null) === $uid && is_int($marker['id'] ?? null) ? $marker['id'] : null;
 		}

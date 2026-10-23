@@ -11,6 +11,7 @@ namespace OCA\IntrusionDetection\Tests\Unit\Middleware;
 
 use OCA\IntrusionDetection\Dav\SessionStatePlugin;
 use OCA\IntrusionDetection\Login\RequestContext;
+use OCA\IntrusionDetection\Login\SessionMarkers;
 use OCA\IntrusionDetection\Middleware\SessionBlockedException;
 use OCA\IntrusionDetection\Middleware\SessionStateMiddleware;
 use OCA\IntrusionDetection\Response\PasswordChangeFlag;
@@ -20,7 +21,6 @@ use OCA\IntrusionDetection\SessionState\Rules\CredentialUseRule;
 use OCA\IntrusionDetection\SessionState\Rules\PasswordChangeRule;
 use OCA\IntrusionDetection\SessionState\Rules\StepUpRule;
 use OCA\IntrusionDetection\SessionState\SessionBlock;
-use OCA\IntrusionDetection\SessionState\SessionState;
 use OCA\IntrusionDetection\SessionState\SessionStateRules;
 use OCP\AppFramework\Controller;
 use OCP\AppFramework\Http\DataResponse;
@@ -56,7 +56,7 @@ class SessionStateMiddlewareTest extends TestCase {
 	private bool $loggedIn = true;
 	private string $accept = 'text/html,application/xhtml+xml';
 	private string $method = 'GET';
-	private SessionState $state;
+	private SessionMarkers $state;
 	private SessionStateRules $rules;
 	private IUserSession $userSession;
 
@@ -70,7 +70,7 @@ class SessionStateMiddlewareTest extends TestCase {
 		$session->method('set')->willReturnCallback(function (string $key, mixed $value): void {
 			$this->sessionData[$key] = $value;
 		});
-		$this->state = new SessionState($session, $this->createMock(LoggerInterface::class));
+		$this->state = new SessionMarkers($session, $this->createMock(LoggerInterface::class));
 		$this->flag = $this->createMock(PasswordChangeFlag::class);
 		$this->flag->method('isRequired')->willReturn(true);
 		$user = $this->createMock(IUser::class);
@@ -228,7 +228,7 @@ class SessionStateMiddlewareTest extends TestCase {
 	}
 
 	private function mark(string $mode): void {
-		$this->sessionData[SessionState::SESSION_KEY] = [SessionState::PASSWORD_CHANGE => ['uid' => 'alice', 'mode' => $mode, 'since' => 1]];
+		$this->sessionData[SessionMarkers::SESSION_KEY] = [SessionMarkers::PASSWORD_CHANGE => ['uid' => 'alice', 'mode' => $mode, 'since' => 1]];
 	}
 
 	private function blockedResponse(Controller $controller): \OCP\AppFramework\Http\Response {

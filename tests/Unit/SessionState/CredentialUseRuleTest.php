@@ -18,10 +18,10 @@ use OCA\IntrusionDetection\Listener\Login\CredentialUseStep;
 use OCA\IntrusionDetection\Listener\LoginListener;
 use OCA\IntrusionDetection\Login\LoginGate;
 use OCA\IntrusionDetection\Login\RequestContext;
+use OCA\IntrusionDetection\Login\SessionMarkers;
 use OCA\IntrusionDetection\Net\RemoteAddressResolver;
 use OCA\IntrusionDetection\SessionState\RequestTarget;
 use OCA\IntrusionDetection\SessionState\Rules\CredentialUseRule;
-use OCA\IntrusionDetection\SessionState\SessionState;
 use OCA\IntrusionDetection\State\HotState;
 use OCA\IntrusionDetection\Tests\LoginSteps;
 use OCP\IRequest;
@@ -96,7 +96,7 @@ class CredentialUseRuleTest extends TestCase {
 		return LoginSteps::listener([CredentialUseStep::class => new CredentialUseStep($this->resolver)], $settings, $this->createMock(IRequest::class), $this->context, $addresses, $this->createMock(LoginGate::class), $logger ?? $this->createMock(LoggerInterface::class), $this->createMock(HotState::class));
 	}
 
-	private function state(): SessionState {
-		return new SessionState($this->createMock(ISession::class), $this->createMock(LoggerInterface::class));
+	private function state(): SessionMarkers {
+		return new SessionMarkers($this->createMock(ISession::class), $this->createMock(LoggerInterface::class));
 	}
 }

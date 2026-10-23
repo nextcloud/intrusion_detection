@@ -22,13 +22,13 @@ use OCA\IntrusionDetection\Listener\Login\CredentialUseStep;
 use OCA\IntrusionDetection\Listener\LoginListener;
 use OCA\IntrusionDetection\Login\CoreSession;
 use OCA\IntrusionDetection\Login\RequestContext;
+use OCA\IntrusionDetection\Login\SessionMarkers;
 use OCA\IntrusionDetection\Net\RemoteAddressResolver;
 use OCA\IntrusionDetection\Net\ServerAddresses;
 use OCA\IntrusionDetection\Perf\GuardTimer;
 use OCA\IntrusionDetection\Response\Tokens;
 use OCA\IntrusionDetection\SessionState\RequestTarget;
 use OCA\IntrusionDetection\SessionState\Rules\CredentialUseRule;
-use OCA\IntrusionDetection\SessionState\SessionState;
 use OCA\IntrusionDetection\Signal\SignalDispatcher;
 use OCA\IntrusionDetection\Tests\LoginSteps;
 use OCA\IntrusionDetection\Tests\Unit\Cache\FixedCaches;
@@ -134,7 +134,7 @@ abstract class CredentialUseTestCase extends AccountTestCase {
 		}
 		if ($rule && $this->sessionUser !== null) {
 			$rule = new CredentialUseRule($context, $container);
-			$this->assertNull($rule->check(new SessionState($session, $logger), RequestTarget::dav('PROPFIND', '/remote.php/dav/files/x/')), 'The rule never blocks');
+			$this->assertNull($rule->check(new SessionMarkers($session, $logger), RequestTarget::dav('PROPFIND', '/remote.php/dav/files/x/')), 'The rule never blocks');
 		}
 		foreach ($guard->shutdown as $callback) {
 			$callback();

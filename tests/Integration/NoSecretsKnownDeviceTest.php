@@ -10,10 +10,10 @@ declare(strict_types=1);
 namespace OCA\IntrusionDetection\Tests\Integration;
 
 use OCA\IntrusionDetection\AppInfo\Application;
+use OCA\IntrusionDetection\Login\SessionMarkers;
 use OCA\IntrusionDetection\Net\SourceKey;
 use OCA\IntrusionDetection\Notification\Notifier;
 use OCA\IntrusionDetection\Response\FlaggedSources;
-use OCA\IntrusionDetection\SessionState\SessionState;
 use OCP\IConfig;
 use OCP\L10N\IFactory;
 use OCP\Server;
@@ -41,8 +41,8 @@ class NoSecretsKnownDeviceTest extends StepUpTestCase {
 		$this->session->clear();
 		$secrets['session 2'] = $this->startSession($alice)['secret'];
 		$this->login($alice);
-		$this->assertSame('known_device', $this->state->get(SessionState::CONFIRMATION)['by'] ?? null, 'The scenario used the device');
-		$state = json_encode($this->session->get(SessionState::SESSION_KEY), JSON_THROW_ON_ERROR);
+		$this->assertSame('known_device', $this->state->get(SessionMarkers::CONFIRMATION)['by'] ?? null, 'The scenario used the device');
+		$state = json_encode($this->session->get(SessionMarkers::SESSION_KEY), JSON_THROW_ON_ERROR);
 		$list = json_encode($this->knownDevices()->forUser($alice->getUID(), Server::get(IFactory::class)->get(Application::APP_ID, 'en')), JSON_THROW_ON_ERROR);
 		$this->knownDevices()->remember($alice, null, null);
 		$this->knownDevices()->forgetCurrentDevice($alice->getUID(), 1);

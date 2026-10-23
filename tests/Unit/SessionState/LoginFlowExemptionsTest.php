@@ -19,13 +19,13 @@ use OCA\IntrusionDetection\Confirm\StepUpState;
 use OCA\IntrusionDetection\Controller\NoticeController;
 use OCA\IntrusionDetection\Controller\PasswordChangeController;
 use OCA\IntrusionDetection\Controller\VerifyController;
+use OCA\IntrusionDetection\Login\SessionMarkers;
 use OCA\IntrusionDetection\Response\PasswordChangeFlag;
 use OCA\IntrusionDetection\SessionState\ISessionStateRule;
 use OCA\IntrusionDetection\SessionState\RequestTarget;
 use OCA\IntrusionDetection\SessionState\Rules\LoginNoticeRule;
 use OCA\IntrusionDetection\SessionState\Rules\PasswordChangeRule;
 use OCA\IntrusionDetection\SessionState\Rules\StepUpRule;
-use OCA\IntrusionDetection\SessionState\SessionState;
 use OCP\AppFramework\Controller;
 use OCP\AppFramework\OCSController;
 use OCP\AppFramework\Utility\ITimeFactory;
@@ -48,12 +48,12 @@ class LoginFlowExemptionsTest extends TestCase {
 	private const NOW = 1_800_000_000;
 	private const PASS = 'pass';
 
-	private SessionState $state;
+	private SessionMarkers $state;
 	private bool $setupRequired = false;
 
 	protected function setUp(): void {
 		parent::setUp();
-		$this->state = new SessionState(new Memory(), $this->createMock(LoggerInterface::class));
+		$this->state = new SessionMarkers(new Memory(), $this->createMock(LoggerInterface::class));
 	}
 
 	/**
@@ -108,7 +108,7 @@ class LoginFlowExemptionsTest extends TestCase {
 		$this->setupRequired = $setupRequired;
 		$answers = [];
 		foreach (self::pages() as $name => [$class, $method, $httpMethod]) {
-			$this->state = new SessionState(new Memory(), $this->createMock(LoggerInterface::class));
+			$this->state = new SessionMarkers(new Memory(), $this->createMock(LoggerInterface::class));
 			$rule = $this->mark($marker);
 			$block = $rule->check($this->state, $this->target($class, $method, $httpMethod));
 			$answers[$name] = $block === null ? self::PASS : $block->error;
@@ -121,18 +121,18 @@ class LoginFlowExemptionsTest extends TestCase {
 			case 'pending':
 			case 'refused':
 			case 'refused_client':
-				$this->state->set(SessionState::STEP_UP, (new StepUpState('alice', $marker, ['flagged_source'], self::NOW - 60, $marker === 'pending' ? self::NOW + 840 : 0, '198.51.100.7', ['email_code']))->toArray());
+				$this->state->set(SessionMarkers::STEP_UP, (new StepUpState('alice', $marker, ['flagged_source'], self::NOW - 60, $marker === 'pending' ? self::NOW + 840 : 0, '198.51.100.7', ['email_code']))->toArray());
 				return $this->stepUpRule();
 			case 'client_only':
-				$this->state->set(SessionState::CONFIRMATION, ['uid' => 'alice', 'by' => 'none', 'policies' => ['protected_account'], 'at' => self::NOW - 60, 'client' => true]);
+				$this->state->set(SessionMarkers::CONFIRMATION, ['uid' => 'alice', 'by' => 'none', 'policies' => ['protected_account'], 'at' => self::NOW - 60, 'client' => true]);
 				return $this->stepUpRule();
 			case 'password_change':
-				$this->state->set(SessionState::PASSWORD_CHANGE, ['uid' => 'alice', 'mode' => PasswordChangeRule::MODE_REDIRECT, 'since' => self::NOW - 60]);
+				$this->state->set(SessionMarkers::PASSWORD_CHANGE, ['uid' => 'alice', 'mode' => PasswordChangeRule::MODE_REDIRECT, 'since' => self::NOW - 60]);
 				$flag = $this->createMock(PasswordChangeFlag::class);
 				$flag->method('isRequired')->willReturn(true);
 				return new PasswordChangeRule($flag, $this->userSession(), $this->urls());
 			default:
-				$this->state->set(SessionState::LOGIN_NOTICE, ['uid' => 'alice', 'since' => self::NOW - 60]);
+				$this->state->set(SessionMarkers::LOGIN_NOTICE, ['uid' => 'alice', 'since' => self::NOW - 60]);
 				$request = $this->createMock(IRequest::class);
 				$request->method('getHeader')->willReturnCallback(static fn (string $name): string => $name === 'Accept' ? 'text/html' : '');
 				return new LoginNoticeRule($request, $this->urls());

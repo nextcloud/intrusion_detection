@@ -39,6 +39,7 @@ use OCA\IntrusionDetection\Db\Approval;
 use OCA\IntrusionDetection\Db\ApprovalMapper;
 use OCA\IntrusionDetection\Definition\Mode;
 use OCA\IntrusionDetection\Definition\ResponseType;
+use OCA\IntrusionDetection\Login\SessionMarkers;
 use OCA\IntrusionDetection\LoginHistory\Db\LoginHistoryMapper;
 use OCA\IntrusionDetection\LoginHistory\LoginHistory;
 use OCA\IntrusionDetection\Net\SourceKey;
@@ -49,7 +50,6 @@ use OCA\IntrusionDetection\Response\FlaggedSources;
 use OCA\IntrusionDetection\Response\PasswordChangeFlag;
 use OCA\IntrusionDetection\SessionState\RequestTarget;
 use OCA\IntrusionDetection\SessionState\Rules\StepUpRule;
-use OCA\IntrusionDetection\SessionState\SessionState;
 use OCA\IntrusionDetection\Tests\Unit\Cache\FixedCaches;
 use OCA\IntrusionDetection\TrustedNetwork\TrustedNetworks;
 use OCP\AppFramework\Controller;
@@ -80,7 +80,7 @@ class StepUpTest extends StepUpTestCase {
 		$this->assertNull($this->stepUp());
 		$this->assertSame([], $this->mailed);
 		$this->assertSame(0, $this->unconfirmedRows());
-		$this->assertNull($this->state->get(SessionState::CONFIRMATION));
+		$this->assertNull($this->state->get(SessionMarkers::CONFIRMATION));
 	}
 
 	/**
@@ -123,7 +123,7 @@ class StepUpTest extends StepUpTestCase {
 		$this->assertSame(['force_password_change' => true, 'step_up' => true, 'notify_admin' => true, 'notify_user' => true], $types, 'The login responses only: no block for a successful login');
 		$this->assertTrue(Server::get(PasswordChangeFlag::class)->isRequired($this->alice->getUID()));
 		$this->assertCount(1, $this->notificationsFor($this->alice->getUID(), UserAlerts::SUBJECT));
-		$this->assertSame(['uid' => $this->alice->getUID(), 'ids' => [$detections[0]->getId()]], $this->state->get(SessionState::LOGIN_DETECTIONS), 'Linked to the session at its first request');
+		$this->assertSame(['uid' => $this->alice->getUID(), 'ids' => [$detections[0]->getId()]], $this->state->get(SessionMarkers::LOGIN_DETECTIONS), 'Linked to the session at its first request');
 	}
 
 	public function testAReasonOfAnObservingCheckDoesNotAsk(): void {
@@ -150,11 +150,11 @@ class StepUpTest extends StepUpTestCase {
 		$this->assertSame([IConfirmationMethod::SECOND_FACTOR], $stepUp->methods);
 		$this->assertTrue($stepUp->secondFactorRequested);
 		$this->assertSame([], $this->mailed, 'No code: the second factor is asked instead');
-		$this->assertNull($this->state->get(SessionState::CONFIRMATION));
+		$this->assertNull($this->state->get(SessionMarkers::CONFIRMATION));
 
 		$this->passChallenge($this->alice);
 		$this->assertNull($this->stepUp());
-		$this->assertSame('second_factor', $this->state->get(SessionState::CONFIRMATION)['by'] ?? null);
+		$this->assertSame('second_factor', $this->state->get(SessionMarkers::CONFIRMATION)['by'] ?? null);
 		$this->assertSame(0, $this->unconfirmedRows());
 	}
 
@@ -188,10 +188,10 @@ class StepUpTest extends StepUpTestCase {
 		$this->login($this->alice);
 		$this->assertSame([IConfirmationMethod::EMAIL_CODE], $this->stepUp()?->methods, 'Not offered for a week');
 		$this->session->clear();
-		$this->state->set(SessionState::CONFIRMATION, ['uid' => $this->alice->getUID(), 'by' => 'none', 'policies' => [], 'at' => time()]);
+		$this->state->set(SessionMarkers::CONFIRMATION, ['uid' => $this->alice->getUID(), 'by' => 'none', 'policies' => [], 'at' => time()]);
 		$this->untrustedSecondFactors()->registered($this->alice->getUID(), 'totp');
 		$this->assertArrayHasKey('totp', $this->untrustedSecondFactors()->marks($this->alice->getUID()), 'Let in without a confirmation');
-		$this->state->set(SessionState::CONFIRMATION, ['uid' => $this->alice->getUID(), 'by' => 'email_code', 'policies' => [], 'at' => time()]);
+		$this->state->set(SessionMarkers::CONFIRMATION, ['uid' => $this->alice->getUID(), 'by' => 'email_code', 'policies' => [], 'at' => time()]);
 		$this->untrustedSecondFactors()->registered($this->alice->getUID(), 'totp');
 		$this->assertSame([], $this->untrustedSecondFactors()->marks($this->alice->getUID()), 'Set up again from a confirmed session');
 	}
@@ -318,12 +318,12 @@ class StepUpTest extends StepUpTestCase {
 		$this->login($bob);
 
 		$this->assertNull($this->stepUp());
-		$this->assertSame('none', $this->state->get(SessionState::CONFIRMATION)['by'] ?? null, 'The session counts as unconfirmed');
+		$this->assertSame('none', $this->state->get(SessionMarkers::CONFIRMATION)['by'] ?? null, 'The session counts as unconfirmed');
 		$detection = $this->detectionsOf(StepUpUnconfirmed::ID)[0];
 		$this->assertSame(['notify_admin', 'notify_user'], array_column($detection->getActionList(), 'type'));
 		$this->assertCount(1, $this->notificationsFor($bob->getUID(), UserAlerts::SUBJECT));
 		$this->assertFalse(Server::get(PasswordChangeFlag::class)->isRequired($bob->getUID()));
-		$this->assertSame([$detection->getId()], $this->state->get(SessionState::LOGIN_DETECTIONS)['ids'] ?? null);
+		$this->assertSame([$detection->getId()], $this->state->get(SessionMarkers::LOGIN_DETECTIONS)['ids'] ?? null);
 	}
 
 	public function testAllowAndForceChangeRequiresANewPassword(): void {
@@ -389,7 +389,7 @@ class StepUpTest extends StepUpTestCase {
 		$this->basicAuth($this->alice);
 		$this->login($this->alice);
 		$this->assertSame(StepUpState::REFUSED_CLIENT, $this->stepUp()?->status, 'The login form would ask for the code: the app must use an app password');
-		$this->assertNull($this->state->get(SessionState::CONFIRMATION), 'Never let in unconfirmed');
+		$this->assertNull($this->state->get(SessionMarkers::CONFIRMATION), 'Never let in unconfirmed');
 		$this->assertSame([], $this->detectionsOf(StepUpUnconfirmed::ID));
 		$this->assertCount(1, $this->detectionsOf(StepUpRefusedClient::ID));
 		$this->assertNull($this->lastCode($this->alice->getUID()), 'No code: an app cannot enter it');
@@ -414,7 +414,7 @@ class StepUpTest extends StepUpTestCase {
 
 		$this->login($this->alice);
 		$this->assertNull($this->stepUp(), 'From the familiar network the app keeps working');
-		$this->assertSame('none', $this->state->get(SessionState::CONFIRMATION)['by'] ?? null);
+		$this->assertSame('none', $this->state->get(SessionMarkers::CONFIRMATION)['by'] ?? null);
 		$this->assertNull($this->lastCode($this->alice->getUID()), 'No code is ever sent for an app');
 		$detection = $this->detectionsOf(StepUpUnconfirmed::ID)[0];
 		$this->assertContains('notify_admin', array_column($detection->getActionList(), 'type'), 'Allowed with a notice, as configured');
@@ -432,7 +432,7 @@ class StepUpTest extends StepUpTestCase {
 		$this->basicAuth($this->alice);
 		$this->login($this->alice);
 		$this->assertNull($this->stepUp());
-		$this->assertTrue($this->state->get(SessionState::CONFIRMATION)[LoginConfirmation::CLIENT_ONLY] ?? false);
+		$this->assertTrue($this->state->get(SessionMarkers::CONFIRMATION)[LoginConfirmation::CLIENT_ONLY] ?? false);
 
 		$this->assertNull($this->rule()->check($this->state, RequestTarget::dav('PROPFIND', '/remote.php/dav/files/')), 'WebDAV works');
 		$this->assertNull($this->rule()->check($this->state, RequestTarget::app($this->createMock(OCSController::class), 'index', 'GET', '/ocs/v2.php/cloud/user')), 'OCS works');
@@ -555,7 +555,7 @@ class StepUpTest extends StepUpTestCase {
 		$this->give(StepUpPolicy::ProtectedAccount, $bob);
 		$this->login($bob);
 		$this->assertNull($this->stepUp(), 'Guessing alone must not lock the account holder out');
-		$this->assertSame('none', $this->state->get(SessionState::CONFIRMATION)['by'] ?? null);
+		$this->assertSame('none', $this->state->get(SessionMarkers::CONFIRMATION)['by'] ?? null);
 		$detection = $this->detectionsOf(StepUpUnconfirmed::ID)[0];
 		$this->assertContains('notify_admin', array_column($detection->getActionList(), 'type'));
 	}
@@ -570,7 +570,7 @@ class StepUpTest extends StepUpTestCase {
 
 		$this->login($bob);
 		$this->assertNull($this->stepUp(), 'From where the account holder logged in yesterday: allowed with a notice');
-		$this->assertSame('none', $this->state->get(SessionState::CONFIRMATION)['by'] ?? null);
+		$this->assertSame('none', $this->state->get(SessionMarkers::CONFIRMATION)['by'] ?? null);
 
 		$this->session->clear();
 		$this->session->id = null;
@@ -708,7 +708,7 @@ class StepUpTest extends StepUpTestCase {
 		$this->assertNull($this->rule()->check($this->state, \OCA\IntrusionDetection\SessionState\RequestTarget::dav('GET', '/')));
 		$linked = Server::get(\OCA\IntrusionDetection\Db\DetectionMapper::class)->findById($detection->getId());
 		$this->assertSame([$token['id']], $linked->getExplanationData()['facts'][LoginDetections::FACT]);
-		$this->assertNull($this->state->get(SessionState::LOGIN_DETECTIONS), 'Once');
+		$this->assertNull($this->state->get(SessionMarkers::LOGIN_DETECTIONS), 'Once');
 	}
 
 	private function give(StepUpPolicy $policy, IUser $user): void {

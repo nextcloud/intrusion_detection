@@ -19,10 +19,10 @@ use OCA\IntrusionDetection\Confirm\SecondFactorSetup;
 use OCA\IntrusionDetection\Confirm\StepUpService;
 use OCA\IntrusionDetection\Confirm\StepUpState;
 use OCA\IntrusionDetection\Controller\VerifyController;
+use OCA\IntrusionDetection\Login\SessionMarkers;
 use OCA\IntrusionDetection\SessionState\ISessionStateRule;
 use OCA\IntrusionDetection\SessionState\RequestTarget;
 use OCA\IntrusionDetection\SessionState\SessionBlock;
-use OCA\IntrusionDetection\SessionState\SessionState;
 use OCP\AppFramework\OCSController;
 use OCP\AppFramework\Utility\ITimeFactory;
 use OCP\Authentication\TwoFactorAuth\ALoginSetupController;
@@ -81,17 +81,17 @@ class StepUpRule implements ISessionStateRule {
 	}
 
 	#[\Override]
-	public function check(SessionState $state, RequestTarget $target): ?SessionBlock {
+	public function check(SessionMarkers $state, RequestTarget $target): ?SessionBlock {
 		$all = $state->all();
-		if (($all[SessionState::CONFIRMATION][LoginConfirmation::CLIENT_ONLY] ?? false) === true
+		if (($all[SessionMarkers::CONFIRMATION][LoginConfirmation::CLIENT_ONLY] ?? false) === true
 			&& !$target->dav && !$target->isController(OCSController::class)
 			&& !$target->isController(LoginController::class, 'logout') && !$target->isPublicResource()) {
 			return new SessionBlock(self::ERROR_CLIENT_ONLY, self::DAV_HEADER, self::MESSAGE_CLIENT_ONLY);
 		}
-		if (!isset($all[SessionState::STEP_UP]) && !isset($all[SessionState::LOGIN_DETECTIONS])) {
+		if (!isset($all[SessionMarkers::STEP_UP]) && !isset($all[SessionMarkers::LOGIN_DETECTIONS])) {
 			return null;
 		}
-		$waiting = $state->get(SessionState::LOGIN_DETECTIONS);
+		$waiting = $state->get(SessionMarkers::LOGIN_DETECTIONS);
 		if ($waiting !== null) {
 			try {
 				$this->container->get(LoginDetections::class)->link($waiting, $this->userSession->getUser()?->getUID());
@@ -100,13 +100,13 @@ class StepUpRule implements ISessionStateRule {
 				$this->logger->error('Intrusion detection could not link the detections of a login to its session', ['exception' => $e]);
 			}
 		}
-		$data = $state->get(SessionState::STEP_UP);
+		$data = $state->get(SessionMarkers::STEP_UP);
 		if ($data === null) {
 			return null;
 		}
 		$stepUp = StepUpState::fromArray($data);
 		if ($stepUp === null || $stepUp->uid !== $this->userSession->getUser()?->getUID()) {
-			$state->remove(SessionState::STEP_UP);
+			$state->remove(SessionMarkers::STEP_UP);
 			return null;
 		}
 

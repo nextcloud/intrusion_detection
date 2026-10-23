@@ -7,7 +7,7 @@ declare(strict_types=1);
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 
-namespace OCA\IntrusionDetection\SessionState;
+namespace OCA\IntrusionDetection\Login;
 
 use OCP\ISession;
 use Psr\Log\LoggerInterface;
@@ -20,7 +20,7 @@ use Psr\Log\LoggerInterface;
  * checks on normal requests cheap. Writes need an open session; where core
  * has closed it already, they fail and are logged, never thrown.
  */
-class SessionState {
+class SessionMarkers {
 	public const SESSION_KEY = 'intrusion_detection.state';
 
 	/** A new password must be chosen before anything else (concept section 11.7) */

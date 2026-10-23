@@ -18,12 +18,12 @@ use OCA\IntrusionDetection\Db\Detection;
 use OCA\IntrusionDetection\Detection\DetectionDraft;
 use OCA\IntrusionDetection\Login\CoreSession;
 use OCA\IntrusionDetection\Login\LoginContext;
+use OCA\IntrusionDetection\Login\SessionMarkers;
 use OCA\IntrusionDetection\LoginHistory\LoginHistory;
 use OCA\IntrusionDetection\Net\RemoteAddressResolver;
 use OCA\IntrusionDetection\Net\SourceKey;
 use OCA\IntrusionDetection\Response\ResponseEngine;
 use OCA\IntrusionDetection\SessionState\Rules\StepUpRule;
-use OCA\IntrusionDetection\SessionState\SessionState;
 use OCP\AppFramework\Utility\ITimeFactory;
 use OCP\IRequest;
 use OCP\IUserSession;
@@ -52,7 +52,7 @@ use Psr\Log\LoggerInterface;
  * while every reason allows that ({@see StepUpPolicy::allowsFamiliarApps()}):
  * then, as for accounts without any method, the policies decide.
  *
- * How a login was confirmed is kept in the session ({@see SessionState::CONFIRMATION}:
+ * How a login was confirmed is kept in the session ({@see SessionMarkers::CONFIRMATION}:
  * none, second_factor, known_device, email_code, admin_approval), for later
  * decisions about the session, and in the login history.
  * Unconfirmed sessions are also remembered on the server
@@ -66,7 +66,7 @@ class StepUpService {
 	public const COOKIE_TEST = 'cookie_test';
 
 	public function __construct(
-		private readonly SessionState $state,
+		private readonly SessionMarkers $state,
 		private readonly IUserSession $userSession,
 		private readonly ConfirmationPolicy $policy,
 		private readonly ResponseEngine $engine,
@@ -184,12 +184,12 @@ class StepUpService {
 	 * The step-up of the current session, if any.
 	 */
 	public function current(): ?StepUpState {
-		$data = $this->state->get(SessionState::STEP_UP);
+		$data = $this->state->get(SessionMarkers::STEP_UP);
 		return $data === null ? null : StepUpState::fromArray($data);
 	}
 
 	public function save(StepUpState $stepUp): bool {
-		$saved = $this->state->set(SessionState::STEP_UP, $stepUp->toArray());
+		$saved = $this->state->set(SessionMarkers::STEP_UP, $stepUp->toArray());
 		if ($saved && $stepUp->isPending()) {
 			$sessionId = $this->sessionId();
 			if ($sessionId !== '') {
@@ -203,7 +203,7 @@ class StepUpService {
 	 * The login was confirmed: the session may continue.
 	 */
 	public function complete(StepUpState $stepUp, string $method): void {
-		$this->state->remove(SessionState::STEP_UP);
+		$this->state->remove(SessionMarkers::STEP_UP);
 		$this->confirmation(LoginConfirmation::confirmed($stepUp->uid, $method, $stepUp->policies, $this->timeFactory->getTime()));
 		$this->unconfirmed->forget($this->sessionId());
 		$this->recordOutcome($stepUp->uid, $method, LoginHistory::STEP_UP_CONFIRMED);
@@ -217,7 +217,7 @@ class StepUpService {
 	public function abandon(StepUpState $stepUp): void {
 		$this->recordOutcome($stepUp->uid, LoginHistory::CONFIRMED_BY_NONE, LoginHistory::STEP_UP_FAILED);
 		$this->unconfirmed->forget($this->sessionId());
-		$this->state->remove(SessionState::STEP_UP);
+		$this->state->remove(SessionMarkers::STEP_UP);
 		if ($this->userSession->isLoggedIn()) {
 			$this->userSession->logout();
 		}
@@ -254,7 +254,7 @@ class StepUpService {
 		$detection = $this->record($draft);
 		$this->unconfirmed->forget($sessionId);
 		if ($this->userSession->isLoggedIn()) {
-			$this->state->remove(SessionState::STEP_UP);
+			$this->state->remove(SessionMarkers::STEP_UP);
 			$this->userSession->logout();
 		}
 		$this->audit->log('login of %s ended: not confirmed (%s)', ['uid' => $stepUp->uid, 'rule' => $rule]);
@@ -353,7 +353,7 @@ class StepUpService {
 	 * @param bool $resumable whether the session could come back without its state, and must be remembered
 	 */
 	private function mark(StepUpState $stepUp, bool $resumable = true): LoginConfirmation {
-		if (!$this->state->set(SessionState::STEP_UP, $stepUp->toArray())) {
+		if (!$this->state->set(SessionMarkers::STEP_UP, $stepUp->toArray())) {
 			// Without a writable session the login cannot be held back; the error is logged by the session state.
 			return LoginConfirmation::ofStepUp($stepUp);
 		}
