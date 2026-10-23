@@ -23,6 +23,7 @@ use OCA\IntrusionDetection\Definition\Mode;
 use OCA\IntrusionDetection\Definition\ParamDefinition;
 use OCA\IntrusionDetection\Definition\ParamPreset;
 use OCA\IntrusionDetection\Definition\ParamType;
+use OCA\IntrusionDetection\Definition\Requirement;
 use OCA\IntrusionDetection\Definition\ResponseType;
 use OCA\IntrusionDetection\Definition\Severity;
 use OCA\IntrusionDetection\Detection\CommonFacts;
@@ -83,6 +84,7 @@ final class ShareBruteforce implements ICheck, IExplainsDetection, IExplainsToUs
 			responses: [ResponseType::Ban, ResponseType::NotifyAdmin, ResponseType::NotifyShareOwner],
 			defaultResponses: [ResponseType::Ban, ResponseType::NotifyAdmin, ResponseType::NotifyShareOwner],
 			cost: CostClass::OnFailureOnly,
+			requirements: [Requirement::ShareAccessEvent],
 			stores: [DataKind::FailedAttempts, DataKind::Detections, DataKind::Bans, DataKind::Flags],
 			texts: static fn (IL10N $l): CheckTexts => new CheckTexts(
 				name: $l->t('Share link attacks'),

@@ -16,6 +16,7 @@ use OCA\IntrusionDetection\Check\Checks\TokenConcurrentUse\CredentialUse;
 use OCA\IntrusionDetection\Check\Checks\TokenConcurrentUse\CredentialUseResolver;
 use OCA\IntrusionDetection\Check\Checks\TokenConcurrentUse\TokenConcurrentUse;
 use OCA\IntrusionDetection\Check\Checks\TokenConcurrentUse\TokenConcurrentUseFacts;
+use OCA\IntrusionDetection\Config\CoreHooks;
 use OCA\IntrusionDetection\Config\GlobalSettings;
 use OCA\IntrusionDetection\Config\ModeState;
 use OCA\IntrusionDetection\Config\Prerequisites;
@@ -256,7 +257,7 @@ class TokenConcurrentUseTest extends CredentialUseTestCase {
 	}
 
 	public function testUnavailableWithoutAMemoryCache(): void {
-		$prerequisites = new Prerequisites($this->cacheFactory(null), Server::get(IConfig::class));
+		$prerequisites = new Prerequisites($this->cacheFactory(null), Server::get(IConfig::class), new CoreHooks());
 		[$settings, $editor] = $this->settingsOn($prerequisites);
 		$state = $settings->modeState(TokenConcurrentUse::ID);
 		$this->assertSame(Mode::Protect, $state->configured);
@@ -272,7 +273,11 @@ class TokenConcurrentUseTest extends CredentialUseTestCase {
 		}
 		$presented = (new CheckPresenter($settings, $prerequisites, Server::get(TextRenderer::class)))
 			->present(Server::get(CheckRegistry::class)->get(TokenConcurrentUse::ID), Server::get(IFactory::class)->get(Application::APP_ID, 'en'));
-		$this->assertSame([['id' => 'memory_cache', 'met' => false, 'text' => Requirement::MemoryCache->describe(Server::get(IFactory::class)->get(Application::APP_ID, 'en'))]], $presented['requirements']);
+		$en = Server::get(IFactory::class)->get(Application::APP_ID, 'en');
+		$this->assertSame([
+			['id' => 'memory_cache', 'met' => false, 'text' => Requirement::MemoryCache->describe($en)],
+			['id' => 'request_guards', 'met' => true, 'text' => Requirement::RequestGuards->describe($en)],
+		], $presented['requirements']);
 		$this->assertStringContainsString('With APCu only, each web server sees only its own requests', $presented['cost']['text']);
 
 		$this->tracker = new CredentialTracker($this->cacheFactory(null), $settings);

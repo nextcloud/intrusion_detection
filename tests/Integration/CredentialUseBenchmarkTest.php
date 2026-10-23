@@ -14,6 +14,7 @@ use OC\Memcache\ArrayCache;
 use OCA\IntrusionDetection\Address\Verdict;
 use OCA\IntrusionDetection\Check\Checks\TokenConcurrentUse\CredentialTracker;
 use OCA\IntrusionDetection\Check\Checks\TokenConcurrentUse\PresentedCredential;
+use OCA\IntrusionDetection\Config\CoreHooks;
 use OCA\IntrusionDetection\Config\Prerequisites;
 use OCA\IntrusionDetection\Crypto\Fingerprinter;
 use OCA\IntrusionDetection\Guard\CredentialUseGuard;
@@ -83,7 +84,7 @@ class CredentialUseBenchmarkTest extends IntegrationTestCase {
 
 	private function guard(ICache $cache, bool $distributed): CredentialUseGuard {
 		$factory = new FixedCaches($cache, $cache, $distributed);
-		[$settings] = $this->settingsOn(new Prerequisites($factory, Server::get(IConfig::class)));
+		[$settings] = $this->settingsOn(new Prerequisites($factory, Server::get(IConfig::class), new CoreHooks()));
 		return new CredentialUseGuard(
 			Server::get(IConfig::class),
 			$this->appSettings(),

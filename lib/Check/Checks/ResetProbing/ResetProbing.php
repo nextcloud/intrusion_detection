@@ -22,6 +22,7 @@ use OCA\IntrusionDetection\Definition\Mode;
 use OCA\IntrusionDetection\Definition\ParamDefinition;
 use OCA\IntrusionDetection\Definition\ParamPreset;
 use OCA\IntrusionDetection\Definition\ParamType;
+use OCA\IntrusionDetection\Definition\Requirement;
 use OCA\IntrusionDetection\Definition\ResponseType;
 use OCA\IntrusionDetection\Definition\Severity;
 use OCA\IntrusionDetection\Detection\CommonFacts;
@@ -68,6 +69,7 @@ final class ResetProbing implements ICheck, IExplainsDetection, IExplainsToUser,
 			responses: [ResponseType::Ban, ResponseType::SuppressResetMail, ResponseType::NotifyAdmin, ResponseType::NotifyUser],
 			defaultResponses: [ResponseType::Ban, ResponseType::SuppressResetMail, ResponseType::NotifyAdmin, ResponseType::NotifyUser],
 			cost: CostClass::OnFailureOnly,
+			requirements: [Requirement::ResetEvent],
 			stores: [DataKind::FailedAttempts, DataKind::Detections, DataKind::Bans, DataKind::ResetSuppressions],
 			texts: static fn (IL10N $l): CheckTexts => new CheckTexts(
 				name: $l->t('Password reset abuse'),

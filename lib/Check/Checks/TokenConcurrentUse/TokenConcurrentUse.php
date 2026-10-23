@@ -85,7 +85,7 @@ final class TokenConcurrentUse implements ICheck, IExplainsDetection, IExplainsT
 				],
 				cost: $l->t('A cache write only when the network changes, or every five minutes. With APCu only, each web server sees only its own requests, so uses on two different web servers are not noticed.'),
 			),
-			requirements: [Requirement::MemoryCache],
+			requirements: [Requirement::MemoryCache, Requirement::RequestGuards],
 		);
 	}
 

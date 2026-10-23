@@ -59,6 +59,7 @@ use OCA\IntrusionDetection\SetupCheck\ApprovalCheck;
 use OCA\IntrusionDetection\SetupCheck\BlocklistSyncCheck;
 use OCA\IntrusionDetection\SetupCheck\BruteForceProtectionCheck;
 use OCA\IntrusionDetection\SetupCheck\ConfigLockCheck;
+use OCA\IntrusionDetection\SetupCheck\CoreHooksCheck;
 use OCA\IntrusionDetection\SetupCheck\DecoySecretCheck;
 use OCA\IntrusionDetection\SetupCheck\GuardsDisabledCheck;
 use OCA\IntrusionDetection\SetupCheck\LearningModeCheck;
@@ -133,6 +134,7 @@ class Application extends App implements IBootstrap {
 		ConfigLockCheck::class,
 		DecoySecretCheck::class,
 		GuardsDisabledCheck::class,
+		CoreHooksCheck::class,
 	];
 	/**
 	 * Setup checks registered with core only: they are no ProblemCheck, so the
@@ -153,11 +155,14 @@ class Application extends App implements IBootstrap {
 	public function register(IRegistrationContext $context): void {
 		$context->registerConfigLexicon(Lexicon::class);
 
-		// Request guards run in registration order, on every web request.
-		$context->registerRequestGuard(AddressGuard::class);
-		$context->registerRequestGuard(TrapUrlGuard::class);
-		$context->registerRequestGuard(PayloadGuard::class);
-		$context->registerRequestGuard(CredentialUseGuard::class);
+		// Request guards run in registration order, on every web request. A
+		// server without them gets the rest of the app, and CoreHooksCheck says what is missing.
+		if (method_exists($context, 'registerRequestGuard')) {
+			$context->registerRequestGuard(AddressGuard::class);
+			$context->registerRequestGuard(TrapUrlGuard::class);
+			$context->registerRequestGuard(PayloadGuard::class);
+			$context->registerRequestGuard(CredentialUseGuard::class);
+		}
 
 		$context->registerMiddleware(PayloadMiddleware::class, true);
 		// Global, so that it covers every app's controllers; it runs after core's two-factor middleware.

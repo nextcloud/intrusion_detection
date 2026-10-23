@@ -15,6 +15,7 @@ use OCA\IntrusionDetection\Cache\Caches;
 use OCA\IntrusionDetection\Check\CheckRegistry;
 use OCA\IntrusionDetection\Config\AppSettings;
 use OCA\IntrusionDetection\Config\CheckSettings;
+use OCA\IntrusionDetection\Config\CoreHooks;
 use OCA\IntrusionDetection\Config\Prerequisites;
 use OCA\IntrusionDetection\Db\BanMapper;
 use OCA\IntrusionDetection\Definition\Mode;
@@ -43,6 +44,7 @@ class Status extends Base {
 		private readonly FirewallExporter $exporter,
 		private readonly BlocklistOverview $blocklists,
 		private readonly IConfig $config,
+		private readonly CoreHooks $hooks,
 	) {
 		parent::__construct();
 	}
@@ -83,6 +85,7 @@ class Status extends Base {
 			'blocklists_stale' => count(array_filter($lists, static fn (array $l): bool => $l['stale'])),
 			'locked' => $this->appSettings->isLocked(),
 			'guards' => $this->config->getSystemValueBool(AddressGuard::DISABLE_SWITCH, false) ? 'off' : 'on',
+			'core_hooks_missing' => $this->hooks->missing(),
 		];
 
 		if ($input->getOption('output') !== self::OUTPUT_FORMAT_PLAIN) {
@@ -95,6 +98,9 @@ class Status extends Base {
 			'learning' => sprintf('<info>Learning:</info> %d day(s) left, until %s. Checks set to Protect only observe.', $status['learning_days_left'], $status['learning_until']),
 			default => '<info>Protecting.</info>',
 		});
+		if ($status['core_hooks_missing'] !== []) {
+			$output->writeln(sprintf('<error>Nextcloud server lacks:</error> %s. The parts of intrusion detection that use them do nothing; see the setup checks.', implode(', ', $status['core_hooks_missing'])));
+		}
 		if ($status['guards'] === 'off') {
 			$output->writeln('<error>Request guards off:</error> "intrusion_detection.disable_guards" is set in config.php, so no request is checked for blocks, blocklists, trap URLs, injection probes or stolen credentials.');
 		}

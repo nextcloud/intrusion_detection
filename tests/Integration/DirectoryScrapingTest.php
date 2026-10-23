@@ -20,6 +20,7 @@ use OCA\IntrusionDetection\Check\Checks\DirectoryScraping\DirectoryCounter;
 use OCA\IntrusionDetection\Check\Checks\DirectoryScraping\DirectoryScraping;
 use OCA\IntrusionDetection\Check\Checks\DirectoryScraping\DirectoryScrapingFacts;
 use OCA\IntrusionDetection\Config\CheckSettings;
+use OCA\IntrusionDetection\Config\CoreHooks;
 use OCA\IntrusionDetection\Config\GlobalSettings;
 use OCA\IntrusionDetection\Config\ModeState;
 use OCA\IntrusionDetection\Config\Prerequisites;
@@ -209,7 +210,7 @@ class DirectoryScrapingTest extends IntegrationTestCase {
 	}
 
 	public function testUnavailableWithoutAMemoryCache(): void {
-		[$settings, $editor] = $this->settingsOn(new Prerequisites(FixedCaches::none(), Server::get(IConfig::class)));
+		[$settings, $editor] = $this->settingsOn(new Prerequisites(FixedCaches::none(), Server::get(IConfig::class), new CoreHooks()));
 		$state = $settings->modeState(DirectoryScraping::ID);
 		$this->assertSame(Mode::Off, $state->effective);
 		$this->assertSame(ModeState::REASON_REQUIREMENT, $state->reason);
@@ -321,7 +322,7 @@ class DirectoryScrapingTest extends IntegrationTestCase {
 	}
 
 	private function settingsWith(bool $memoryCache): CheckSettings {
-		return $this->settingsOn(new Prerequisites($memoryCache ? new FixedCaches(new ArrayCache()) : FixedCaches::none(), Server::get(IConfig::class)))[0];
+		return $this->settingsOn(new Prerequisites($memoryCache ? new FixedCaches(new ArrayCache()) : FixedCaches::none(), Server::get(IConfig::class), new CoreHooks()))[0];
 	}
 }
 

@@ -21,6 +21,7 @@ use OCA\IntrusionDetection\Definition\ParamDefinition;
 use OCA\IntrusionDetection\Definition\ParamPreset;
 use OCA\IntrusionDetection\Definition\ParamText;
 use OCA\IntrusionDetection\Definition\ParamType;
+use OCA\IntrusionDetection\Definition\Requirement;
 use OCA\IntrusionDetection\Definition\ResponseType;
 use OCA\IntrusionDetection\Definition\Severity;
 use OCA\IntrusionDetection\Explain\DetectionFacts;
@@ -78,6 +79,7 @@ final class InjectionProbe implements ICheck, IExplainsDetection, IKeepsFromUser
 			responses: [ResponseType::Ban, ResponseType::NotifyAdmin],
 			defaultResponses: [ResponseType::Ban],
 			cost: CostClass::EveryRequestScan,
+			requirements: [Requirement::RequestGuards],
 			stores: [DataKind::Detections, DataKind::RequestExcerpts, DataKind::Bans],
 			texts: static fn (IL10N $l): CheckTexts => new CheckTexts(
 				name: $l->t('SQL injection and encoded payloads'),

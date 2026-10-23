@@ -23,6 +23,7 @@ use OCA\IntrusionDetection\Definition\Mode;
 use OCA\IntrusionDetection\Definition\ParamDefinition;
 use OCA\IntrusionDetection\Definition\ParamText;
 use OCA\IntrusionDetection\Definition\ParamType;
+use OCA\IntrusionDetection\Definition\Requirement;
 use OCA\IntrusionDetection\Definition\ResponseType;
 use OCA\IntrusionDetection\Definition\Severity;
 use OCA\IntrusionDetection\Detection\CommonFacts;
@@ -62,6 +63,7 @@ final class TrapUrl implements ICheck, IExplainsDetection, ISimulatable, IValida
 			responses: [ResponseType::Ban, ResponseType::NotifyAdmin],
 			defaultResponses: [ResponseType::Ban],
 			cost: CostClass::EveryRequestTiny,
+			requirements: [Requirement::RequestGuards],
 			stores: [DataKind::Detections, DataKind::Bans],
 			texts: static fn (IL10N $l): CheckTexts => new CheckTexts(
 				name: $l->t('Trap URLs'),

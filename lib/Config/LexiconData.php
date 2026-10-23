@@ -454,7 +454,9 @@ final class LexiconData {
 				'ban',
 				'notify_admin',
 			],
-			'requirements' => [],
+			'requirements' => [
+				'request_guards',
+			],
 			'learning' => false,
 			'onlyNotifies' => false,
 			'params' => [
@@ -499,7 +501,9 @@ final class LexiconData {
 				'ban',
 				'notify_admin',
 			],
-			'requirements' => [],
+			'requirements' => [
+				'request_guards',
+			],
 			'learning' => false,
 			'onlyNotifies' => false,
 			'params' => [
@@ -574,7 +578,9 @@ final class LexiconData {
 				'notify_admin',
 				'notify_share_owner',
 			],
-			'requirements' => [],
+			'requirements' => [
+				'share_access_event',
+			],
 			'learning' => false,
 			'onlyNotifies' => false,
 			'params' => [
@@ -636,7 +642,9 @@ final class LexiconData {
 				'notify_admin',
 				'notify_user',
 			],
-			'requirements' => [],
+			'requirements' => [
+				'reset_event',
+			],
 			'learning' => false,
 			'onlyNotifies' => false,
 			'params' => [
@@ -684,7 +692,9 @@ final class LexiconData {
 				'notify_admin',
 				'notify_user',
 			],
-			'requirements' => [],
+			'requirements' => [
+				'login_flow_event',
+			],
 			'learning' => false,
 			'onlyNotifies' => false,
 			'params' => [
@@ -792,6 +802,7 @@ final class LexiconData {
 			],
 			'requirements' => [
 				'memory_cache',
+				'request_guards',
 			],
 			'learning' => false,
 			'onlyNotifies' => false,

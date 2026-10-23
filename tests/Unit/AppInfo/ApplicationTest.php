@@ -59,6 +59,7 @@ use OCA\IntrusionDetection\SetupCheck\ApprovalCheck;
 use OCA\IntrusionDetection\SetupCheck\BlocklistSyncCheck;
 use OCA\IntrusionDetection\SetupCheck\BruteForceProtectionCheck;
 use OCA\IntrusionDetection\SetupCheck\ConfigLockCheck;
+use OCA\IntrusionDetection\SetupCheck\CoreHooksCheck;
 use OCA\IntrusionDetection\SetupCheck\DecoySecretCheck;
 use OCA\IntrusionDetection\SetupCheck\GuardsDisabledCheck;
 use OCA\IntrusionDetection\SetupCheck\LearningModeCheck;
@@ -182,7 +183,7 @@ class ApplicationTest extends TestCase {
 		$setupChecks = $this->calls['registerSetupCheck'];
 		sort($setupChecks);
 		$expected = [
-			AdminContactCheck::class, AdminNetworksCheck::class, ApprovalCheck::class, BlocklistSyncCheck::class, BruteForceProtectionCheck::class, ConfigLockCheck::class, DecoySecretCheck::class, GuardsDisabledCheck::class,
+			AdminContactCheck::class, AdminNetworksCheck::class, ApprovalCheck::class, BlocklistSyncCheck::class, BruteForceProtectionCheck::class, ConfigLockCheck::class, CoreHooksCheck::class, DecoySecretCheck::class, GuardsDisabledCheck::class,
 			LearningModeCheck::class, MailCheck::class, MemoryCacheCheck::class, ReverseProxyCheck::class, SharedAddressCheck::class,
 			StaleCredentialsCheck::class, TrapNameCollisionCheck::class, UsersWithoutConfirmationCheck::class,
 		];

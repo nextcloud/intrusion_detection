@@ -20,6 +20,7 @@ class Prerequisites {
 	public function __construct(
 		private readonly Caches $caches,
 		private readonly IConfig $config,
+		private readonly CoreHooks $hooks,
 	) {
 	}
 
@@ -27,6 +28,10 @@ class Prerequisites {
 		return match ($requirement) {
 			Requirement::MemoryCache => $this->caches->isAvailable(),
 			Requirement::Mail => $this->hasMail(),
+			Requirement::RequestGuards => $this->hooks->has(CoreHooks::REQUEST_GUARDS),
+			Requirement::ShareAccessEvent => $this->hooks->has(CoreHooks::SHARE_ACCESS_EVENT),
+			Requirement::ResetEvent => $this->hooks->has(CoreHooks::RESET_EVENT),
+			Requirement::LoginFlowEvent => $this->hooks->has(CoreHooks::LOGIN_FLOW_EVENT),
 		};
 	}
 

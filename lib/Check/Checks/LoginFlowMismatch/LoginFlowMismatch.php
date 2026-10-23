@@ -20,6 +20,7 @@ use OCA\IntrusionDetection\Definition\DataKind;
 use OCA\IntrusionDetection\Definition\Mode;
 use OCA\IntrusionDetection\Definition\ParamDefinition;
 use OCA\IntrusionDetection\Definition\ParamType;
+use OCA\IntrusionDetection\Definition\Requirement;
 use OCA\IntrusionDetection\Definition\ResponseType;
 use OCA\IntrusionDetection\Definition\Severity;
 use OCA\IntrusionDetection\Detection\DetectionDraft;
@@ -56,6 +57,7 @@ final class LoginFlowMismatch implements ICheck, IExplainsDetection, IExplainsTo
 			responses: [ResponseType::RevokeToken, ResponseType::NotifyAdmin, ResponseType::NotifyUser],
 			defaultResponses: [ResponseType::RevokeToken, ResponseType::NotifyAdmin, ResponseType::NotifyUser],
 			cost: CostClass::OnLoginOnly,
+			requirements: [Requirement::LoginFlowEvent],
 			stores: [DataKind::Detections],
 			texts: static fn (IL10N $l): CheckTexts => new CheckTexts(
 				name: $l->t('Login request phishing'),
