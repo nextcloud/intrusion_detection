@@ -225,8 +225,12 @@ class Notifier implements INotifier {
 			return $this->prepareSettingsApproval($notification, $approval, $l, $expires, $requester);
 		}
 
+		$group = (string)$approval->getGroupId();
+		$delegated = $group !== AdminRecipients::ADMIN_GROUP;
 		if ($subjectId === self::SUBJECT_APPROVAL_REQUESTED) {
-			$notification->setParsedSubject($l->t('%1$s asks to make %2$s an administrator', [$requester, $account]))
+			$notification->setParsedSubject($delegated
+				? $l->t('%1$s asks to add %2$s to the group "%3$s", which has administration rights', [$requester, $account, $group])
+				: $l->t('%1$s asks to make %2$s an administrator', [$requester, $account]))
 				->setParsedMessage(implode(' ', [
 					$l->t('A second administrator must approve new administrators, so %s was not added yet.', [$account]),
 					$l->t('Approve only if you know about this change. If you did not expect it, reject it and check the account of the one who asked: it may have been taken over.'),
@@ -234,21 +238,25 @@ class Notifier implements INotifier {
 				]));
 			$this->addReviewAction($notification, $approval, $l->t('Review the request'));
 		} elseif ($subjectId === self::SUBJECT_APPROVAL_PENDING) {
-			$notification->setParsedSubject($l->t('%s is not an administrator yet', [$account]))
-				->setParsedMessage($l->t('A second administrator must approve new administrators, so %1$s was taken out of the admin group again. The other administrators were asked to approve; the request expires at %2$s.', [$account, $expires]));
+			$notification->setParsedSubject($delegated
+				? $l->t('%1$s is not in the group "%2$s" yet', [$account, $group])
+				: $l->t('%s is not an administrator yet', [$account]))
+				->setParsedMessage($delegated
+					? $l->t('A second administrator must approve new administrators, so %1$s was taken out of the group "%2$s" again. The other administrators were asked to approve; the request expires at %3$s.', [$account, $group, $expires])
+					: $l->t('A second administrator must approve new administrators, so %1$s was taken out of the admin group again. The other administrators were asked to approve; the request expires at %2$s.', [$account, $expires]));
 		} else {
 			$decider = AdminChange::actorName((string)$approval->getDecidedBy(), $l);
 			[$subject, $message] = match ($approval->getStatus()) {
 				Approval::STATUS_APPROVED => [
-					$l->t('%s is now an administrator', [$account]),
+					$delegated ? $l->t('%1$s is now in the group "%2$s"', [$account, $group]) : $l->t('%s is now an administrator', [$account]),
 					$l->t('%s approved your request.', [$decider]),
 				],
 				Approval::STATUS_REJECTED => [
-					$l->t('Your request to make %s an administrator was rejected', [$account]),
+					$delegated ? $l->t('Your request to add %1$s to the group "%2$s" was rejected', [$account, $group]) : $l->t('Your request to make %s an administrator was rejected', [$account]),
 					$l->t('%s rejected it. Nothing was changed.', [$decider]),
 				],
 				default => [
-					$l->t('Your request to make %s an administrator expired', [$account]),
+					$delegated ? $l->t('Your request to add %1$s to the group "%2$s" expired', [$account, $group]) : $l->t('Your request to make %s an administrator expired', [$account]),
 					$l->t('No other administrator approved it in time. Nothing was changed. Ask again if it is still needed.'),
 				],
 			};

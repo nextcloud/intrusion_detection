@@ -37,6 +37,7 @@ use OCP\GroupInterface;
 use OCP\IGroup;
 use OCP\IGroupManager;
 use OCP\IUserManager;
+use OCP\L10N\IFactory;
 use OCP\Notification\AlreadyProcessedException;
 use OCP\Notification\IManager as INotificationManager;
 use OCP\Notification\INotification;
@@ -111,6 +112,34 @@ class ApprovalFlowTest extends AdminChangeTestCase {
 			$stored->addAction($action);
 		}
 		$this->assertReviewedOnTheAdminPage(Server::get(Notifier::class)->prepare($stored, 'en'), $id);
+	}
+
+	public function testAnAdditionToAGroupWithDelegatedAdminSettingsWaitsToo(): void {
+		$this->delegate('ids-ac-delegates');
+		$this->act($this->alice);
+		$this->addAsWeb('ids-ac-delegates', $this->bob);
+
+		$this->assertFalse($this->inGroup('ids-ac-delegates', $this->bob), 'Taken out again');
+		[$approval] = $this->approvals->list(true);
+		$this->assertSame('ids-ac-delegates', $approval->getGroupId());
+		[$detection] = $this->adminChanges();
+		$this->assertSame(AdminChange::KIND_GRANT_REQUESTED, $this->facts($detection)['kind']);
+		$this->assertSame(['Users'], $this->facts($detection)['delegated']);
+		$this->assertSame('Approval needed: ' . $this->bob . ' to join "ids-ac-delegates", which has administration rights', Server::get(AdminAlerts::class)->headline($detection, Server::get(IFactory::class)->get(Application::APP_ID, 'en')));
+
+		$asked = array_values(array_filter($this->notificationsWithSubject(Notifier::SUBJECT_APPROVAL_REQUESTED), fn (INotification $n): bool => $n->getUser() === $this->carol));
+		$this->assertSame($this->alice . ' asks to add ' . $this->bob . ' to the group "ids-ac-delegates", which has administration rights', Server::get(Notifier::class)->prepare($asked[0], 'en')->getParsedSubject());
+
+		$this->approvals->approve((int)$approval->getId(), $this->carol, ApprovalService::VIA_WEB);
+		$this->assertTrue($this->inGroup('ids-ac-delegates', $this->bob));
+	}
+
+	public function testOrdinaryGroupsDoNotWait(): void {
+		$this->createGroup('ids-ac-plain');
+		$this->act($this->alice);
+		$this->addAsWeb('ids-ac-plain', $this->bob);
+		$this->assertTrue($this->inGroup('ids-ac-plain', $this->bob));
+		$this->assertSame([], $this->approvals->list(true));
 	}
 
 	public function testAnotherAddOfTheSameAccountReusesTheRequest(): void {
@@ -442,6 +471,15 @@ class ApprovalFlowTest extends AdminChangeTestCase {
 		}
 		$this->assertFalse($this->appSettings()->adminChangeRequireApproval());
 		$this->assertFalse($check->validateParam(GlobalSettings::ADMIN_CHANGE_REQUIRE_APPROVAL, false), 'Switching it off is always possible');
+	}
+
+	private function delegate(string $gid): void {
+		$this->createGroup($gid);
+		$qb = $this->db->getQueryBuilder();
+		$qb->insert('authorized_groups')
+			->values(['group_id' => $qb->createNamedParameter($gid), 'class' => $qb->createNamedParameter(\OCA\Settings\Settings\Admin\Users::class)])
+			->executeStatement();
+		$this->rebuild();
 	}
 
 	private function requestBob(): int {

@@ -48,9 +48,10 @@ use Psr\Log\LoggerInterface;
  * - this app's own settings changed through the app, except changes of the
  *   learning period that do not start it ({@see \OCA\IntrusionDetection\Learning\LearningService}).
  *
- * With four-eyes approval on, an account added to the admin group from the
- * web interface or the provisioning API is taken out again at once and a
- * request for approval is created; see {@see AdminGrantGate}. This listener
+ * With four-eyes approval on, an account added to the admin group, or to a
+ * group with delegated administration settings, from the web interface or
+ * the provisioning API is taken out again at once and a request for
+ * approval is created; see {@see AdminGrantGate}. This listener
  * is registered with a low priority, so the other listeners of the addition
  * have finished before it is taken back, and the removal's listeners clean
  * up after them.
@@ -113,11 +114,11 @@ class AdminChangeListener implements IEventListener {
 		if ($gid !== Approvers::ADMIN_GROUP && $delegated === null) {
 			return;
 		}
-		$decision = $this->decide($group, $user);
+		$decision = $this->decide($group, $user, $delegated !== null);
 		$actor = $this->actors->actor();
 
 		if ($decision === AdminGrantGate::NEEDS_APPROVAL) {
-			$this->holdForApproval($group, $user, $actor);
+			$this->holdForApproval($group, $user, $actor, $delegated);
 			return;
 		}
 		if (!$this->runs()) {
@@ -137,15 +138,16 @@ class AdminChangeListener implements IEventListener {
 
 	/**
 	 * The gate's decision. When the gate fails on an addition to the admin
-	 * group, the addition waits for approval like any other: an error must
-	 * not let a new administrator in.
+	 * group or a group with delegated administration settings, the addition
+	 * waits for approval like any other: an error must not let a new
+	 * administrator in.
 	 */
-	private function decide(IGroup $group, IUser $user): string {
+	private function decide(IGroup $group, IUser $user, bool $delegated): string {
 		try {
 			return $this->gate->decide($group, $user);
 		} catch (\Throwable $e) {
 			$this->logger->error('Intrusion detection could not decide whether {uid} may join {gid} without approval; the addition waits for approval', ['uid' => $user->getUID(), 'gid' => $group->getGID(), 'exception' => $e]);
-			return $group->getGID() === Approvers::ADMIN_GROUP ? AdminGrantGate::NEEDS_APPROVAL : AdminGrantGate::NOT_NEEDED;
+			return $group->getGID() === Approvers::ADMIN_GROUP || $delegated ? AdminGrantGate::NEEDS_APPROVAL : AdminGrantGate::NOT_NEEDED;
 		}
 	}
 
@@ -156,7 +158,10 @@ class AdminChangeListener implements IEventListener {
 	 * decision. Without a request (too many pending, or the revert failed)
 	 * the administrators are alerted as usual.
 	 */
-	private function holdForApproval(IGroup $group, IUser $user, string $actor): void {
+	/**
+	 * @param ?list<string> $delegated the delegated administration settings of the group; null for the admin group
+	 */
+	private function holdForApproval(IGroup $group, IUser $user, string $actor, ?array $delegated): void {
 		$uid = $user->getUID();
 		$gid = $group->getGID();
 		$this->permit->beginRevert($uid, $gid);
@@ -170,6 +175,9 @@ class AdminChangeListener implements IEventListener {
 		$reverted = !$group->inGroup($user);
 
 		$facts = ['group' => $gid, 'reverted' => $reverted, 'revert_failed' => !$reverted];
+		if ($delegated !== null) {
+			$facts['delegated'] = $delegated;
+		}
 		if ($reverted) {
 			$approval = $this->approvals->request($user, $group, $actor, $this->addresses->current()?->ip);
 			if ($approval !== null) {

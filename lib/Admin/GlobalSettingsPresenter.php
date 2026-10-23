@@ -215,7 +215,7 @@ class GlobalSettingsPresenter {
 			), self::GROUP_NOTIFICATIONS],
 			GlobalSettings::ADMIN_CHANGE_REQUIRE_APPROVAL => [new ParamText(
 				$l->t('A second administrator approves new administrators'),
-				$l->t('Someone added to the admin group through the web interface or the API is taken out again until another administrator approves. A request nobody approves within %s is dropped, and the requester is told. occ and directory-backed groups are not held back, only reported. Needs at least two administrators.', [TextRenderer::duration(ApprovalService::TTL, $l)]),
+				$l->t('Someone added to the admin group, or to a group with delegated administration settings, through the web interface or the API is taken out again until another administrator approves. A request nobody approves within %s is dropped, and the requester is told. occ and directory-backed groups are not held back, only reported. Needs at least two administrators.', [TextRenderer::duration(ApprovalService::TTL, $l)]),
 			), self::GROUP_APPROVALS],
 			GlobalSettings::DIGEST_FREQUENCY => [new ParamText(
 				$l->t('Send the digest'),

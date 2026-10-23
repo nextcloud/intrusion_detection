@@ -45,4 +45,9 @@ describe('the requests that wait for a second administrator', () => {
 		expect(text).toContain('Alice asks for a change: Switch intrusion detection off.')
 		expect(text).not.toContain('Group')
 	})
+
+	test('a group with delegated administration settings is named as such', () => {
+		const text = mount(AdminGrantRequests, { props: { requests: [request({ group: 'helpdesk' })] } }).text()
+		expect(text).toContain('Alice asks to add Bob to the group helpdesk, which has administration rights')
+	})
 })

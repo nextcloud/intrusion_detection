@@ -137,13 +137,14 @@ abstract class AdminChangeTestCase extends IntegrationTestCase {
 	protected function rebuild(?ITimeFactory $time = null, ?ResponseEngine $engine = null, ?AdminGrantGate $gate = null): void {
 		$time ??= Server::get(ITimeFactory::class);
 		$this->signals = $this->dispatcher([AdminChangeDetector::class => new AdminChangeDetector($this->actors, Server::get(RemoteAddressResolver::class))], $engine);
-		$this->gate = $gate ?? new AdminGrantGate($this->appSettings(), $this->checkSettings(), $this->actors, Server::get(GrantPermit::class), Server::get(IGroupManager::class));
+		$delegated = new DelegatedGroups(Server::get(\OC\Settings\AuthorizedGroupMapper::class), Server::get(LoggerInterface::class));
+		$this->gate = $gate ?? new AdminGrantGate($this->appSettings(), $this->checkSettings(), $this->actors, Server::get(GrantPermit::class), Server::get(IGroupManager::class), $delegated);
 		$this->listener = new AdminChangeListener(
 			$this->signals,
 			$this->gate,
 			Server::get(ApprovalService::class),
 			Server::get(GrantPermit::class),
-			new DelegatedGroups(Server::get(\OC\Settings\AuthorizedGroupMapper::class), Server::get(LoggerInterface::class)),
+			$delegated,
 			$this->configWatch(Server::get(WatchedSettings::class), $time),
 			$this->actors,
 			Server::get(RemoteAddressResolver::class),

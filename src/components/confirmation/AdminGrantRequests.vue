@@ -79,6 +79,9 @@ function decide(request: AdminGrantRequest, approve: boolean) {
 					<span v-if="request.kind === 'settings'" :class="$style.item__name">
 						{{ t(APP_ID, '{requester} asks for a change: {change}', { requester: request.requesterName, change: request.change ?? '' }) }}
 					</span>
+					<span v-else-if="request.group !== 'admin'" :class="$style.item__name">
+						{{ t(APP_ID, '{requester} asks to add {user} to the group {group}, which has administration rights', { requester: request.requesterName, user: request.displayName, group: request.group }) }}
+					</span>
 					<span v-else :class="$style.item__name">
 						{{ t(APP_ID, '{requester} asks to make {user} an administrator', { requester: request.requesterName, user: request.displayName }) }}
 					</span>

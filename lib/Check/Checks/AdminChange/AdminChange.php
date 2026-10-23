@@ -102,7 +102,7 @@ final class AdminChange implements ICheck, IExplainsDetection, IHeadlinesDetecti
 				shortName: $l->t('Admin change'),
 				summary: $l->t('Someone got administrator rights, an app was switched on or off, or a security setting changed.'),
 				detects: $l->t('An intruder who gets into an administrator account usually makes themselves at home: they give a second account administrator rights, switch on an app, or weaken a security setting so that the next step is easier. This check tells every administrator about such changes, including the one who made them. If that account was taken over, its owner still learns what was done in their name.'),
-				decides: $l->t('Fires on every change: an account added to the admin group or to a group with delegated administration settings, a group administrator appointed, an account created by an administrator, an app switched on or off, and every change of the watched security settings. Changes in config.php are found by a check every 5 minutes. A second administrator must approve new administrators: {admin_change_require_approval}. A request for approval expires after %s.', [TextRenderer::duration(ApprovalService::TTL, $l)]),
+				decides: $l->t('Fires on every change: an account added to the admin group or to a group with delegated administration settings, a group administrator appointed, an account created by an administrator, an app switched on or off, and every change of the watched security settings. Changes in config.php are found by a check every 5 minutes. A second administrator must approve new administrators, also members added to a group with delegated administration settings: {admin_change_require_approval}. A request for approval expires after %s.', [TextRenderer::duration(ApprovalService::TTL, $l)]),
 				wrong: $l->t('It reports changes, not attacks: most of them are your own work. Every administrator gets them, so that nobody has to wonder whether a change was planned. With approval switched on, administrators added on the command line (occ) and memberships that come from a user directory such as LDAP do not wait for approval: whoever can run occ already controls the server, and Nextcloud cannot undo a membership the directory sets. Both are still reported.'),
 				data: $l->t('Detections: who changed what and when, with the old and the new value. Values that Nextcloud treats as secret are never stored or shown; a keyed fingerprint tells that they changed. Requests for approval: who asked, for whom, the decision and who made it, kept 90 days after the decision.'),
 			),
@@ -170,7 +170,9 @@ final class AdminChange implements ICheck, IExplainsDetection, IHeadlinesDetecti
 			self::KIND_ADMIN_GRANTED => ($facts->delegated ?? []) !== []
 				? $l->t('%1$s got administration rights through the group "%2$s"', [$subject, $facts->group ?? ''])
 				: $l->t('%s was made an administrator', [$subject]),
-			self::KIND_GRANT_REQUESTED => $l->t('Approval needed: %s to become an administrator', [$subject]),
+			self::KIND_GRANT_REQUESTED => ($facts->delegated ?? []) !== []
+				? $l->t('Approval needed: %1$s to join "%2$s", which has administration rights', [$subject, $facts->group ?? ''])
+				: $l->t('Approval needed: %s to become an administrator', [$subject]),
 			self::KIND_ADMIN_REMOVED => ($facts->delegated ?? []) !== []
 				? $l->t('%1$s left the group "%2$s", which has administration rights', [$subject, $facts->group ?? ''])
 				: $l->t('%s is no longer an administrator', [$subject]),
@@ -209,11 +211,17 @@ final class AdminChange implements ICheck, IExplainsDetection, IHeadlinesDetecti
 				$sentences = array_merge($sentences, $this->exemption($facts->exempt ?? '', $l));
 				break;
 			case self::KIND_GRANT_REQUESTED:
-				$sentences[] = $l->t('%1$s tried to make %2$s an administrator.', [$actor, $subject]);
+				$sentences[] = $delegated !== []
+					? $l->t('%1$s tried to add %2$s to the group "%3$s", which has these administration settings: %4$s.', [$actor, $subject, $group, implode(', ', $delegated)])
+					: $l->t('%1$s tried to make %2$s an administrator.', [$actor, $subject]);
 				if ($facts->revertFailed === true) {
-					$sentences[] = $l->t('A second administrator must approve new administrators, but Nextcloud could not take %s out of the admin group again. Check the members of the admin group now.', [$subject]);
+					$sentences[] = $delegated !== []
+						? $l->t('A second administrator must approve new administrators, but Nextcloud could not take %1$s out of the group "%2$s" again. Check the members of that group now.', [$subject, $group])
+						: $l->t('A second administrator must approve new administrators, but Nextcloud could not take %s out of the admin group again. Check the members of the admin group now.', [$subject]);
 				} else {
-					$sentences[] = $l->t('A second administrator must approve new administrators, so %s was taken out of the admin group again at once.', [$subject]);
+					$sentences[] = $delegated !== []
+						? $l->t('A second administrator must approve new administrators, so %1$s was taken out of the group "%2$s" again at once.', [$subject, $group])
+						: $l->t('A second administrator must approve new administrators, so %s was taken out of the admin group again at once.', [$subject]);
 					$sentences[] = $facts->approval !== null
 						? $l->t('The request waits for the approval of another administrator until %s. Neither the one who asked nor the account itself can approve it.', [$this->dates->dateTime($facts->expiresAt ?? 0)])
 						: $l->t('Too many requests are already waiting, so this one was not stored. Decide the open requests, then add the account again.');

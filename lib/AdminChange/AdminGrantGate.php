@@ -19,8 +19,9 @@ use OCP\IGroupManager;
 use OCP\IUser;
 
 /**
- * Decides whether an account just added to the admin group must wait for the
- * approval of a second administrator (concept section 10.15).
+ * Decides whether an account just added to the admin group, or to a group
+ * with delegated administration settings ({@see DelegatedGroups}), must
+ * wait for the approval of a second administrator (concept section 10.15).
  *
  * Core cannot veto an addition (BeforeUserAddedEvent has no way to stop it),
  * so an addition that needs approval is taken back at once and turned into
@@ -55,6 +56,7 @@ class AdminGrantGate {
 		private readonly ActorResolver $actors,
 		private readonly GrantPermit $permit,
 		private readonly IGroupManager $groupManager,
+		private readonly DelegatedGroups $delegated,
 	) {
 	}
 
@@ -66,7 +68,7 @@ class AdminGrantGate {
 		if ($this->permitFacts !== null) {
 			return self::APPROVED;
 		}
-		if ($group->getGID() !== Approvers::ADMIN_GROUP || !$this->isRequired()) {
+		if (!$this->isRequired() || !$this->givesAdminRights($group->getGID())) {
 			return self::NOT_NEEDED;
 		}
 		if ($this->isDirectoryBacked($group, $user)) {
@@ -86,6 +88,14 @@ class AdminGrantGate {
 	 */
 	public function permitFacts(): array {
 		return $this->permitFacts ?? [];
+	}
+
+	/**
+	 * Whether joining the group gives administration rights: the admin
+	 * group, or a group with delegated administration settings.
+	 */
+	public function givesAdminRights(string $gid): bool {
+		return $gid === Approvers::ADMIN_GROUP || $this->delegated->of($gid) !== null;
 	}
 
 	public function isRequired(): bool {

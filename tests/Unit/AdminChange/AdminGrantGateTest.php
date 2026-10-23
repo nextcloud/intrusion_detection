@@ -11,6 +11,7 @@ namespace OCA\IntrusionDetection\Tests\Unit\AdminChange;
 
 use OCA\IntrusionDetection\AdminChange\ActorResolver;
 use OCA\IntrusionDetection\AdminChange\AdminGrantGate;
+use OCA\IntrusionDetection\AdminChange\DelegatedGroups;
 use OCA\IntrusionDetection\AdminChange\GrantPermit;
 use OCA\IntrusionDetection\Check\Checks\AdminChange\AdminChange;
 use OCA\IntrusionDetection\Config\AppSettings;
@@ -37,6 +38,10 @@ class AdminGrantGateTest extends TestCase {
 
 	public function testOtherGroupsNeverNeedApproval(): void {
 		$this->assertSame(AdminGrantGate::NOT_NEEDED, $this->gate()->decide($this->group('delegated-admins'), $this->user('bob')));
+	}
+
+	public function testAGroupWithDelegatedAdminSettingsNeedsApprovalToo(): void {
+		$this->assertSame(AdminGrantGate::NEEDS_APPROVAL, $this->gate()->decide($this->group('helpdesk'), $this->user('bob')));
 	}
 
 	public function testNothingIsNeededWhileTheSettingIsOff(): void {
@@ -98,7 +103,9 @@ class AdminGrantGateTest extends TestCase {
 		}
 		$groupManager = $this->createMock(IGroupManager::class);
 		$groupManager->method('getBackends')->willReturn($backends);
-		return new AdminGrantGate($appSettings, $settings, $actors, $this->permit, $groupManager);
+		$delegated = $this->createMock(DelegatedGroups::class);
+		$delegated->method('of')->willReturnCallback(static fn (string $gid): ?array => $gid === 'helpdesk' ? ['Users'] : null);
+		return new AdminGrantGate($appSettings, $settings, $actors, $this->permit, $groupManager, $delegated);
 	}
 
 	/**
