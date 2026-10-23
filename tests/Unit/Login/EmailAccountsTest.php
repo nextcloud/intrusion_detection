@@ -10,10 +10,12 @@ declare(strict_types=1);
 namespace OCA\IntrusionDetection\Tests\Unit\Login;
 
 use OC\Memcache\ArrayCache;
+use OCA\IntrusionDetection\Crypto\Fingerprinter;
 use OCA\IntrusionDetection\Login\EmailAccounts;
 use OCA\IntrusionDetection\Tests\Unit\Cache\FixedCaches;
 use OCP\IUser;
 use OCP\IUserManager;
+use OCP\Server;
 use Test\TestCase;
 
 class EmailAccountsTest extends TestCase {
@@ -28,7 +30,7 @@ class EmailAccountsTest extends TestCase {
 		$users = $this->createMock(IUserManager::class);
 		$users->expects($this->once())->method('getByEmail')->with('Alice@Example.com')->willReturn([$this->user('alice', true)]);
 		$factory = new FixedCaches(new ArrayCache());
-		$accounts = new EmailAccounts($users, $factory);
+		$accounts = new EmailAccounts($users, $factory, Server::get(Fingerprinter::class));
 
 		$this->assertSame('alice', $accounts->only('Alice@Example.com'));
 		$this->assertSame('alice', $accounts->only('alice@example.com '), 'the same address, from the cache');
@@ -39,11 +41,11 @@ class EmailAccountsTest extends TestCase {
 		$users->expects($this->exactly(2))->method('getByEmail')->willReturn([]);
 		$cache = new ArrayCache();
 		$factory = new FixedCaches($cache);
-		$accounts = new EmailAccounts($users, $factory);
+		$accounts = new EmailAccounts($users, $factory, Server::get(Fingerprinter::class));
 
 		$this->assertNull($accounts->only('made-up@example.com'));
 		$this->assertNull($accounts->only('made-up@example.com'), 'asked again');
-		$this->assertNull($cache->get('email:' . hash('sha256', 'made-up@example.com')));
+		$this->assertNull($cache->get('email:' . Server::get(Fingerprinter::class)->lookup('made-up@example.com')));
 	}
 
 	public function testOnlyOneAccountCountsAndDisabledOnesOptionally(): void {
@@ -53,7 +55,7 @@ class EmailAccountsTest extends TestCase {
 			['old@example.com', [$this->user('c', false), $this->user('d', true)]],
 			['none@example.com', []],
 		]);
-		$accounts = new EmailAccounts($users, FixedCaches::none());
+		$accounts = new EmailAccounts($users, FixedCaches::none(), Server::get(Fingerprinter::class));
 
 		$this->assertNull($accounts->only('shared@example.com'));
 		$this->assertNull($accounts->only('old@example.com'));

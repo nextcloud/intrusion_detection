@@ -103,6 +103,15 @@ class FingerprinterTest extends TestCase {
 		$this->assertMatchesRegularExpression('/^[A-Za-z0-9_-]{16}$/', $key);
 	}
 
+	public function testLookupKeysAreKeyedAndKeepThePartsApart(): void {
+		$key = $this->fingerprinter('one')->lookup('alice', '4:198.51.100.7');
+		$this->assertMatchesRegularExpression('/^[0-9a-f]{64}$/', $key);
+		$this->assertSame($key, $this->fingerprinter('one')->lookup('alice', '4:198.51.100.7'));
+		$this->assertNotSame($key, $this->fingerprinter('two')->lookup('alice', '4:198.51.100.7'), 'Without config.php a guess cannot be confirmed');
+		$this->assertNotSame(hash('sha256', "alice\04:198.51.100.7"), $key);
+		$this->assertNotSame($this->fingerprinter('one')->lookup('ab', 'c'), $this->fingerprinter('one')->lookup('a', 'bc'));
+	}
+
 	public function testMissingSecretIsRefused(): void {
 		$this->expectException(\RuntimeException::class);
 		$this->fingerprinter('')->password('x');

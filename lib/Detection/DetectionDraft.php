@@ -10,6 +10,7 @@ declare(strict_types=1);
 namespace OCA\IntrusionDetection\Detection;
 
 use OCA\IntrusionDetection\Config\ModeState;
+use OCA\IntrusionDetection\Crypto\Fingerprinter;
 use OCA\IntrusionDetection\Definition\ResponseType;
 use OCA\IntrusionDetection\Definition\Severity;
 use OCA\IntrusionDetection\Net\SourceKey;
@@ -176,7 +177,12 @@ final class DetectionDraft {
 		return array_values($unique);
 	}
 
-	public function mergeKey(): ?string {
+	/**
+	 * The key that tells which stored detection a hit joins: a keyed hash
+	 * ({@see Fingerprinter::lookup()}) of the check, its rule and the merge
+	 * subject, or null when the detection is never merged.
+	 */
+	public function mergeKey(Fingerprinter $fingerprinter): ?string {
 		$parts = match ($this->merge) {
 			self::MERGE_SOURCE => [$this->source?->ipKey],
 			self::MERGE_USER => [$this->uid],
@@ -194,6 +200,6 @@ final class DetectionDraft {
 		$rule = $this->facts['rule'] ?? null;
 		$scope = is_string($rule) ? $this->checkId . "\0rule:" . $rule : $this->checkId;
 		// Hashed, so the key fits the column whatever the inputs are.
-		return hash('sha256', $scope . "\0" . implode("\0", $parts));
+		return $fingerprinter->lookup($scope, ...$parts);
 	}
 }

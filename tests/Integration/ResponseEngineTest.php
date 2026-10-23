@@ -20,6 +20,7 @@ use OCA\IntrusionDetection\Check\Checks\CredentialStuffing\CredentialStuffingRul
 use OCA\IntrusionDetection\Check\Checks\ManualBlock\ManualBlock;
 use OCA\IntrusionDetection\Check\Checks\SharedAddress\SharedAddress;
 use OCA\IntrusionDetection\Config\GlobalSettings;
+use OCA\IntrusionDetection\Crypto\Fingerprinter;
 use OCA\IntrusionDetection\Db\BanMapper;
 use OCA\IntrusionDetection\Db\DetectionFilter;
 use OCA\IntrusionDetection\Db\DetectionMapper;
@@ -163,6 +164,7 @@ class ResponseEngineTest extends IntegrationTestCase {
 				Server::get(DetectionAccounts::class),
 				Server::get(DetectionTotals::class),
 				Server::get(KeyLock::class),
+				Server::get(Fingerprinter::class),
 			),
 			Server::get(ContainerInterface::class),
 			Server::get(TypedEvents::class),

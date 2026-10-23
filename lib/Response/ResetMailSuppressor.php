@@ -10,6 +10,7 @@ declare(strict_types=1);
 namespace OCA\IntrusionDetection\Response;
 
 use OCA\IntrusionDetection\Cache\Caches;
+use OCA\IntrusionDetection\Crypto\Fingerprinter;
 use OCA\IntrusionDetection\Db\IPurges;
 use OCA\IntrusionDetection\Response\Db\ResetSuppressionMapper;
 use OCP\AppFramework\Utility\ITimeFactory;
@@ -41,6 +42,7 @@ class ResetMailSuppressor implements IPurges {
 		private readonly ResetSuppressionMapper $mapper,
 		private readonly ITimeFactory $timeFactory,
 		private readonly Caches $caches,
+		private readonly Fingerprinter $fingerprinter,
 	) {
 	}
 
@@ -103,6 +105,6 @@ class ResetMailSuppressor implements IPurges {
 	}
 
 	private function key(string $uid): string {
-		return 'rsup:' . hash('sha256', $uid);
+		return 'rsup:' . $this->fingerprinter->lookup($uid);
 	}
 }

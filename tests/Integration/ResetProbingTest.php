@@ -18,6 +18,7 @@ use OCA\IntrusionDetection\Check\Checks\ResetProbing\ResetProbing;
 use OCA\IntrusionDetection\Check\Checks\ResetProbing\ResetProbingFacts;
 use OCA\IntrusionDetection\Check\Checks\ResetProbing\ResetProbingRule;
 use OCA\IntrusionDetection\Config\GlobalSettings;
+use OCA\IntrusionDetection\Crypto\Fingerprinter;
 use OCA\IntrusionDetection\Db\AttemptMapper;
 use OCA\IntrusionDetection\Db\BanMapper;
 use OCA\IntrusionDetection\Definition\Mode;
@@ -373,7 +374,7 @@ class ResetProbingTest extends RequestEventTestCase {
 			$time = $this->createMock(ITimeFactory::class);
 			$time->method('getTime')->willReturnCallback($clock);
 		}
-		return new ResetMailSuppressor(Server::get(ResetSuppressionMapper::class), $time, $cacheFactory);
+		return new ResetMailSuppressor(Server::get(ResetSuppressionMapper::class), $time, $cacheFactory, Server::get(Fingerprinter::class));
 	}
 
 	protected function user(string $prefix, ?string $email = null): IUser {

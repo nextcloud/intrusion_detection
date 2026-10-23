@@ -11,6 +11,7 @@ namespace OCA\IntrusionDetection\Response;
 
 use OCA\IntrusionDetection\Audit\AuditLogger;
 use OCA\IntrusionDetection\Cache\Caches;
+use OCA\IntrusionDetection\Crypto\Fingerprinter;
 use OCA\IntrusionDetection\Db\IPurges;
 use OCA\IntrusionDetection\Response\Db\ProtectedAccountMapper;
 use OCP\AppFramework\Utility\ITimeFactory;
@@ -35,6 +36,7 @@ class AccountProtection implements IPurges {
 		private readonly ITimeFactory $timeFactory,
 		private readonly Caches $caches,
 		private readonly AuditLogger $audit,
+		private readonly Fingerprinter $fingerprinter,
 	) {
 	}
 
@@ -113,6 +115,6 @@ class AccountProtection implements IPurges {
 	}
 
 	private function key(string $uid): string {
-		return 'prot:' . hash('sha256', $uid);
+		return 'prot:' . $this->fingerprinter->lookup($uid);
 	}
 }

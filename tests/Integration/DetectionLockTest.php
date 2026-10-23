@@ -15,6 +15,7 @@ use OCA\IntrusionDetection\Cache\KeyLock;
 use OCA\IntrusionDetection\Check\CheckRegistry;
 use OCA\IntrusionDetection\Check\Checks\ManualBlock\ManualBlock;
 use OCA\IntrusionDetection\Config\ModeState;
+use OCA\IntrusionDetection\Crypto\Fingerprinter;
 use OCA\IntrusionDetection\Db\DetectionMapper;
 use OCA\IntrusionDetection\Definition\Mode;
 use OCA\IntrusionDetection\Detection\DetectionAccounts;
@@ -68,6 +69,7 @@ class DetectionLockTest extends IntegrationTestCase {
 			Server::get(DetectionAccounts::class),
 			Server::get(DetectionTotals::class),
 			new KeyLock($factory),
+			Server::get(Fingerprinter::class),
 		);
 	}
 
@@ -80,7 +82,7 @@ class DetectionLockTest extends IntegrationTestCase {
 		$this->assertFalse($new);
 		$this->assertSame($first->getId(), $second->getId());
 		$this->assertSame(2, $second->getHits());
-		$path = 'detection/' . md5((string)$draft->mergeKey());
+		$path = 'detection/' . md5((string)$draft->mergeKey(Server::get(Fingerprinter::class)));
 		$this->assertSame(['acquire ' . $path . ' ' . KeyLock::TTL, 'release ' . $path, 'acquire ' . $path . ' ' . KeyLock::TTL, 'release ' . $path], $this->locked);
 	}
 

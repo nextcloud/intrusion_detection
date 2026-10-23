@@ -10,6 +10,7 @@ declare(strict_types=1);
 namespace OCA\IntrusionDetection\Login;
 
 use OCA\IntrusionDetection\Cache\Caches;
+use OCA\IntrusionDetection\Crypto\Fingerprinter;
 
 /**
  * Apps and WebDAV clients log in with every request. The gate lets the
@@ -37,6 +38,7 @@ class LoginGate {
 	public function __construct(
 		private readonly Caches $caches,
 		private readonly CoreSession $coreSession,
+		private readonly Fingerprinter $fingerprinter,
 	) {
 	}
 
@@ -46,7 +48,7 @@ class LoginGate {
 	 */
 	public function isFirst(string $uid, string $ipKey, int $now): ?bool {
 		$tokenId = $this->coreSession->loginTokenId();
-		$key = hash('sha256', $uid . "\0" . ($tokenId === null ? 'password' : (string)$tokenId) . "\0" . $ipKey) . ':' . intdiv($now, self::INTERVAL);
+		$key = $this->fingerprinter->lookup($uid, $tokenId === null ? 'password' : (string)$tokenId, $ipKey) . ':' . intdiv($now, self::INTERVAL);
 		if (isset($this->answers[$key])) {
 			return $this->answers[$key];
 		}

@@ -577,6 +577,7 @@ class WasThisYouTest extends StepUpTestCase {
 			Server::get(AuditLogger::class),
 			Server::get(ITimeFactory::class),
 			Server::get(LockLinks::class),
+			Server::get(\OCA\IntrusionDetection\Crypto\Fingerprinter::class),
 		);
 	}
 

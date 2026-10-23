@@ -10,6 +10,7 @@ declare(strict_types=1);
 namespace OCA\IntrusionDetection\Tests;
 
 use OCA\IntrusionDetection\Config\AppSettings;
+use OCA\IntrusionDetection\Crypto\Fingerprinter;
 use OCA\IntrusionDetection\Listener\Login\ILoginStep;
 use OCA\IntrusionDetection\Listener\LoginListener;
 use OCA\IntrusionDetection\Login\CoreSession;
@@ -65,7 +66,7 @@ final class LoginSteps {
 				return isset($this->services[$id]);
 			}
 		};
-		return new class($settings, $hotState ?? Server::get(HotState::class), $context, $gate ?? new LoginGate(FixedCaches::none(), Server::get(CoreSession::class)), Server::get(ITimeFactory::class), $container, $logger ?? Server::get(LoggerInterface::class), array_keys($steps)) extends LoginListener {
+		return new class($settings, $hotState ?? Server::get(HotState::class), $context, $gate ?? new LoginGate(FixedCaches::none(), Server::get(CoreSession::class), Server::get(Fingerprinter::class)), Server::get(ITimeFactory::class), $container, $logger ?? Server::get(LoggerInterface::class), array_keys($steps)) extends LoginListener {
 			/**
 			 * @param list<class-string<ILoginStep>> $only
 			 */

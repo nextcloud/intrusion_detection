@@ -13,6 +13,7 @@ use OCA\IntrusionDetection\Cache\KeyLock;
 use OCA\IntrusionDetection\Check\CheckRegistry;
 use OCA\IntrusionDetection\Config\CheckSettings;
 use OCA\IntrusionDetection\Config\ModeState;
+use OCA\IntrusionDetection\Crypto\Fingerprinter;
 use OCA\IntrusionDetection\Db\Detection;
 use OCA\IntrusionDetection\Db\DetectionMapper;
 use OCA\IntrusionDetection\Definition\Severity;
@@ -43,6 +44,7 @@ class DetectionService {
 		private readonly DetectionAccounts $accounts,
 		private readonly DetectionTotals $totals,
 		private readonly KeyLock $locks,
+		private readonly Fingerprinter $fingerprinter,
 	) {
 	}
 
@@ -50,7 +52,7 @@ class DetectionService {
 	 * @return array{0: Detection, 1: bool} the stored detection, and whether it is new
 	 */
 	public function record(DetectionDraft $draft, ModeState $mode): array {
-		$mergeKey = $draft->mergeKey();
+		$mergeKey = $draft->mergeKey($this->fingerprinter);
 		if ($mergeKey === null) {
 			return $this->recordUnlocked($draft, $mode);
 		}
@@ -103,7 +105,7 @@ class DetectionService {
 	 * was answered; a later hit starts a new one.
 	 */
 	public function mergeTarget(DetectionDraft $draft, ModeState $mode): ?Detection {
-		$mergeKey = $draft->mergeKey();
+		$mergeKey = $draft->mergeKey($this->fingerprinter);
 		if ($mergeKey === null) {
 			return null;
 		}
@@ -131,7 +133,7 @@ class DetectionService {
 		$detection->setNetKey($draft->source?->netKey);
 		$detection->setUid($draft->uid);
 		$detection->setShareId($draft->shareId);
-		$detection->setMergeKey($draft->mergeKey());
+		$detection->setMergeKey($draft->mergeKey($this->fingerprinter));
 		$explanation = Explanation::build(
 			$draft,
 			$mode,

@@ -10,11 +10,13 @@ declare(strict_types=1);
 namespace OCA\IntrusionDetection\Tests\Unit\Login;
 
 use OC\Memcache\ArrayCache;
+use OCA\IntrusionDetection\Crypto\Fingerprinter;
 use OCA\IntrusionDetection\Login\CoreSession;
 use OCA\IntrusionDetection\Login\LoginGate;
 use OCA\IntrusionDetection\Tests\Unit\Cache\FixedCaches;
 use OCP\Authentication\Token\IProvider;
 use OCP\ISession;
+use OCP\Server;
 use Psr\Log\LoggerInterface;
 use Test\TestCase;
 
@@ -56,7 +58,7 @@ class LoginGateTest extends TestCase {
 		$caches = $distributed ? new FixedCaches($this->shared, $local, true) : new FixedCaches($local, $local);
 		$session = $this->createMock(ISession::class);
 		$session->method('get')->willReturnCallback(fn (string $key): ?int => $key === 'token-id' ? $this->tokenId : null);
-		return new LoginGate($caches, new CoreSession($session, $this->createMock(IProvider::class), $this->createMock(LoggerInterface::class)));
+		return new LoginGate($caches, new CoreSession($session, $this->createMock(IProvider::class), $this->createMock(LoggerInterface::class)), Server::get(Fingerprinter::class));
 	}
 
 	public function testOneDistributedRoundTripPerCredentialAddressAndHourOnEachServer(): void {
@@ -99,7 +101,7 @@ class LoginGateTest extends TestCase {
 	}
 
 	public function testWithoutAMemoryCacheItCannotTell(): void {
-		$gate = new LoginGate(FixedCaches::none(), $this->createMock(CoreSession::class));
+		$gate = new LoginGate(FixedCaches::none(), $this->createMock(CoreSession::class), Server::get(Fingerprinter::class));
 		$this->assertNull($gate->isFirst('alice', '4:203.0.113.5', self::HOUR));
 	}
 }

@@ -201,6 +201,7 @@ class LoginNoticesTest extends StepUpTestCase {
 				Server::get(AuditLogger::class),
 				Server::get(ITimeFactory::class),
 				Server::get(\OCA\IntrusionDetection\Takeover\LockLinks::class),
+				Server::get(\OCA\IntrusionDetection\Crypto\Fingerprinter::class),
 			),
 			Server::get(IURLGenerator::class),
 			Server::get(LocalRedirect::class),

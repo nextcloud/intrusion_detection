@@ -207,7 +207,7 @@ abstract class StepUpTestCase extends AccountTestCase {
 			HistoryStep::class => new HistoryStep($history ?? $this->history()),
 		];
 		$steps = array_map(fn (string $class): ILoginStep => $services[$class] ?? Server::get($class), array_combine($steps, $steps));
-		return LoginSteps::listener($steps, $this->appSettings(), $this->request, $context, $this->addresses(), new LoginGate($this->listenerCaches ?? $this->noCaches(), $this->coreSession));
+		return LoginSteps::listener($steps, $this->appSettings(), $this->request, $context, $this->addresses(), new LoginGate($this->listenerCaches ?? $this->noCaches(), $this->coreSession, Server::get(Fingerprinter::class)));
 	}
 
 	protected function assessment(): LoginAssessment {

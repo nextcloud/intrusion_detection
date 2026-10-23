@@ -11,6 +11,7 @@ namespace OCA\IntrusionDetection\Tests\Integration;
 
 use OC\Memcache\ArrayCache;
 use OCA\IntrusionDetection\Cache\Caches;
+use OCA\IntrusionDetection\Crypto\Fingerprinter;
 use OCA\IntrusionDetection\Db\LoginMapper;
 use OCA\IntrusionDetection\Listener\Login\RecordStep;
 use OCA\IntrusionDetection\Listener\LoginListener;
@@ -76,19 +77,19 @@ class LoginRecordTest extends IntegrationTestCase {
 			}
 		};
 		$factory = new FixedCaches($cache);
-		$gate = new LoginGate($factory, $this->createMock(CoreSession::class));
+		$gate = new LoginGate($factory, $this->createMock(CoreSession::class), Server::get(Fingerprinter::class));
 		$this->assertTrue($gate->isFirst('alice', '4:203.0.113.42', 7200));
 		$this->assertTrue($gate->isFirst('alice', '4:203.0.113.42', 7200), 'the same answer for the second asker of the request');
 		$this->assertSame(1, $cache->adds);
-		$this->assertFalse((new LoginGate($factory, $this->createMock(CoreSession::class)))->isFirst('alice', '4:203.0.113.42', 7300), 'the next request');
-		$this->assertTrue((new LoginGate($factory, $this->createMock(CoreSession::class)))->isFirst('alice', '4:203.0.113.42', 10800), 'the next hour');
+		$this->assertFalse((new LoginGate($factory, $this->createMock(CoreSession::class), Server::get(Fingerprinter::class)))->isFirst('alice', '4:203.0.113.42', 7300), 'the next request');
+		$this->assertTrue((new LoginGate($factory, $this->createMock(CoreSession::class), Server::get(Fingerprinter::class)))->isFirst('alice', '4:203.0.113.42', 10800), 'the next hour');
 	}
 
 	private function listener(Caches $factory, string $ip): LoginListener {
 		$addresses = $this->createMock(RemoteAddressResolver::class);
 		$addresses->method('current')->willReturn(SourceKey::fromIp($ip));
 		$addresses->method('isBypassListed')->willReturn(false);
-		return LoginSteps::listener([RecordStep::class => new RecordStep(Server::get(LoginMapper::class), Server::get(ITimeFactory::class))], $this->appSettings(), $this->createMock(IRequest::class), addresses: $addresses, gate: new LoginGate($factory, $this->createMock(CoreSession::class)));
+		return LoginSteps::listener([RecordStep::class => new RecordStep(Server::get(LoginMapper::class), Server::get(ITimeFactory::class))], $this->appSettings(), $this->createMock(IRequest::class), addresses: $addresses, gate: new LoginGate($factory, $this->createMock(CoreSession::class), Server::get(Fingerprinter::class)));
 	}
 
 	private function lastId(): int {

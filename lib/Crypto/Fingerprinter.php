@@ -137,6 +137,16 @@ class Fingerprinter {
 		return hash_hmac('sha256', $token, $this->key('lock_link'));
 	}
 
+	/**
+	 * 64 hex characters: a keyed hash of identifiers (an account, an email
+	 * address, an IP address) for a memory-cache key or a stored lookup key,
+	 * so that whoever reads the cache or the database cannot confirm a
+	 * guessed value without config.php. The parts are joined with NUL bytes.
+	 */
+	public function lookup(#[\SensitiveParameter] string ...$parts): string {
+		return hash_hmac('sha256', implode("\0", $parts), $this->key('lookup'));
+	}
+
 	private function passwordForDay(#[\SensitiveParameter] string $password, string $day): string {
 		return substr(hash_hmac('sha256', $password, $this->key('password/' . $day), true), 0, 16);
 	}

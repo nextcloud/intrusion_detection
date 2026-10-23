@@ -13,6 +13,7 @@ use OCA\IntrusionDetection\Address\Verdict;
 use OCA\IntrusionDetection\Cache\Caches;
 use OCA\IntrusionDetection\Config\AppSettings;
 use OCA\IntrusionDetection\Config\CheckSettings;
+use OCA\IntrusionDetection\Crypto\Fingerprinter;
 use OCA\IntrusionDetection\Definition\Mode;
 use OCA\IntrusionDetection\Definition\ResponseType;
 use OCA\IntrusionDetection\Detection\DetectionDraft;
@@ -53,6 +54,7 @@ class DirectoryCounter {
 		private readonly Caches $caches,
 		private readonly ITimeFactory $timeFactory,
 		private readonly ContainerInterface $container,
+		private readonly Fingerprinter $fingerprinter,
 	) {
 	}
 
@@ -73,7 +75,7 @@ class DirectoryCounter {
 		}
 		$now = $this->timeFactory->getTime();
 		$bucket = intdiv($now, DirectoryScraping::WINDOW);
-		$key = self::KEY_PREFIX . $group . ':' . $bucket . ':' . hash('sha256', $uid);
+		$key = self::KEY_PREFIX . $group . ':' . $bucket . ':' . $this->fingerprinter->lookup($uid);
 		$count = $cache->inc($key);
 		if (!is_int($count)) {
 			return null;

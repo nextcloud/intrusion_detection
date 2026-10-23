@@ -17,6 +17,7 @@ use OCA\IntrusionDetection\Config\AppSettings;
 use OCA\IntrusionDetection\Config\CheckSettings;
 use OCA\IntrusionDetection\Config\ModeState;
 use OCA\IntrusionDetection\Confirm\SessionConfirmation;
+use OCA\IntrusionDetection\Crypto\Fingerprinter;
 use OCA\IntrusionDetection\Db\Detection;
 use OCA\IntrusionDetection\Db\DetectionMapper;
 use OCA\IntrusionDetection\Definition\Mode;
@@ -90,6 +91,7 @@ class WasThisYouService {
 		private readonly AuditLogger $audit,
 		private readonly ITimeFactory $timeFactory,
 		private readonly LockLinks $lockLinks,
+		private readonly Fingerprinter $fingerprinter,
 	) {
 	}
 
@@ -204,7 +206,7 @@ class WasThisYouService {
 	 * Whether a weak "No" about the same detection was recorded already.
 	 */
 	private function weaklyDenied(DetectionDraft $draft): bool {
-		$key = $draft->mergeKey();
+		$key = $draft->mergeKey($this->fingerprinter);
 		return $key !== null && $this->detections->findMergeable($key, $this->timeFactory->getTime() - $draft->mergeWindow) !== null;
 	}
 

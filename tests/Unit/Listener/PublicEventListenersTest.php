@@ -204,7 +204,7 @@ class PublicEventListenersTest extends TestCase {
 			$user->method('isEnabled')->willReturn(true);
 			$users->method('get')->willReturnMap([[$existingUid, $user]]);
 		}
-		return new ResetRequestedListener($this->dispatcher($detector), $this->addresses, $this->recorder, $suppressor, $users, $this->createMock(IRequest::class), $this->logger, new \OCA\IntrusionDetection\Login\EmailAccounts($users, FixedCaches::none()), $this->createMock(KnownDevices::class), $this->createMock(IAcceptedLogins::class), $this->createMock(ITimeFactory::class));
+		return new ResetRequestedListener($this->dispatcher($detector), $this->addresses, $this->recorder, $suppressor, $users, $this->createMock(IRequest::class), $this->logger, new \OCA\IntrusionDetection\Login\EmailAccounts($users, FixedCaches::none(), \OCP\Server::get(\OCA\IntrusionDetection\Crypto\Fingerprinter::class)), $this->createMock(KnownDevices::class), $this->createMock(IAcceptedLogins::class), $this->createMock(ITimeFactory::class));
 	}
 
 	private function flowListener(LoginFlowMismatchDetector $detector): LoginFlowGrantedListener {

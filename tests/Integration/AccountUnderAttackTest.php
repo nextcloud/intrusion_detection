@@ -212,6 +212,6 @@ class AccountUnderAttackTest extends LoginFailureTestCase {
 	}
 
 	private function freshProtection(): AccountProtection {
-		return new AccountProtection($this->protected, Server::get(ITimeFactory::class), Server::get(Caches::class), Server::get(AuditLogger::class));
+		return new AccountProtection($this->protected, Server::get(ITimeFactory::class), Server::get(Caches::class), Server::get(AuditLogger::class), Server::get(Fingerprinter::class));
 	}
 }

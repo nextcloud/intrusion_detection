@@ -24,6 +24,7 @@ use OCA\IntrusionDetection\Config\CoreHooks;
 use OCA\IntrusionDetection\Config\GlobalSettings;
 use OCA\IntrusionDetection\Config\ModeState;
 use OCA\IntrusionDetection\Config\Prerequisites;
+use OCA\IntrusionDetection\Crypto\Fingerprinter;
 use OCA\IntrusionDetection\Db\Detection;
 use OCA\IntrusionDetection\Db\DetectionFilter;
 use OCA\IntrusionDetection\Db\DetectionMapper;
@@ -302,6 +303,7 @@ class DirectoryScrapingTest extends IntegrationTestCase {
 				IRequest::class => $request,
 				CoreSession::class => $coreSession,
 			]),
+			Server::get(Fingerprinter::class),
 		);
 	}
 

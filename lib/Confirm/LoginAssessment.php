@@ -73,7 +73,7 @@ class LoginAssessment {
 	 */
 	public function passwordLogin(IUser $user, #[\SensitiveParameter] string $password, bool $interactive, ?SourceKey $source, ?string $userAgent): LoginConfirmation {
 		$candidates = array_map('bin2hex', $this->fingerprinter->passwordCandidates($password));
-		$clientKey = $interactive ? null : self::clientKey($user->getUID(), $candidates, $source);
+		$clientKey = $interactive ? null : $this->clientKey($user->getUID(), $candidates, $source);
 		$repeated = $clientKey === null ? null : $this->repeatClientDecision($clientKey, $user->getUID(), $source);
 		if ($repeated !== null) {
 			return $repeated;
@@ -157,10 +157,10 @@ class LoginAssessment {
 	 *
 	 * @param list<string> $candidates
 	 */
-	private static function clientKey(string $uid, array $candidates, ?SourceKey $source): ?string {
+	private function clientKey(string $uid, array $candidates, ?SourceKey $source): ?string {
 		if ($candidates === []) {
 			return null;
 		}
-		return 'stepup_client:' . hash('sha256', $uid . "\0" . $candidates[0] . "\0" . ($source?->ipKey ?? '-'));
+		return 'stepup_client:' . $this->fingerprinter->lookup($uid, $candidates[0], $source?->ipKey ?? '-');
 	}
 }

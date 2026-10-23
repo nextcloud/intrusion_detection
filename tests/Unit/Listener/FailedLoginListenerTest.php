@@ -11,6 +11,7 @@ namespace OCA\IntrusionDetection\Tests\Unit\Listener;
 
 use OCA\IntrusionDetection\Check\Checks\AccountUnderAttack\AccountUnderAttackDetector;
 use OCA\IntrusionDetection\Config\AppSettings;
+use OCA\IntrusionDetection\Crypto\Fingerprinter;
 use OCA\IntrusionDetection\Db\AttemptKind;
 use OCA\IntrusionDetection\Detection\AttemptRecord;
 use OCA\IntrusionDetection\Detection\AttemptRecorder;
@@ -28,6 +29,7 @@ use OCA\IntrusionDetection\Tests\Unit\Cache\FixedCaches;
 use OCP\Authentication\Events\AnyLoginFailedEvent;
 use OCP\IRequest;
 use OCP\IUserManager;
+use OCP\Server;
 use PHPUnit\Framework\Attributes\DataProvider;
 use Psr\Log\LoggerInterface;
 use Test\TestCase;
@@ -130,7 +132,7 @@ class FailedLoginListenerTest extends TestCase {
 			$appSettings, $addresses, $dispatcher, $recorder, $this->createMock(RiskScorer::class),
 			$users, $this->createMock(IRequest::class), $this->createMock(LoggerInterface::class),
 			$this->createMock(FailedLoginStats::class),
-			new EmailAccounts($users, new FixedCaches(new \OC\Memcache\ArrayCache())),
+			new EmailAccounts($users, new FixedCaches(new \OC\Memcache\ArrayCache()), Server::get(Fingerprinter::class)),
 		);
 	}
 }

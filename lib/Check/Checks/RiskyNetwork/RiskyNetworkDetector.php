@@ -12,6 +12,7 @@ namespace OCA\IntrusionDetection\Check\Checks\RiskyNetwork;
 use OCA\IntrusionDetection\Blocklist\SourceRepository;
 use OCA\IntrusionDetection\Cache\Caches;
 use OCA\IntrusionDetection\Config\ModeState;
+use OCA\IntrusionDetection\Crypto\Fingerprinter;
 use OCA\IntrusionDetection\Detection\DetectionDraft;
 use OCA\IntrusionDetection\Risk\NetworkAttributes;
 use OCA\IntrusionDetection\Signal\IDetector;
@@ -41,6 +42,7 @@ class RiskyNetworkDetector implements IDetector {
 		private readonly SourceRepository $sources,
 		private readonly Caches $caches,
 		private readonly ITimeFactory $timeFactory,
+		private readonly Fingerprinter $fingerprinter,
 	) {
 	}
 
@@ -56,7 +58,7 @@ class RiskyNetworkDetector implements IDetector {
 			return [];
 		}
 		if (!$login->interactive) {
-			$key = 'rn:' . ($mode->acts() ? 'p' : 'o') . ':' . gmdate('Y-m-d', $this->timeFactory->getTime()) . ':' . hash('sha256', $login->uid() . "\0" . ($login->source?->ipKey ?? ''));
+			$key = 'rn:' . ($mode->acts() ? 'p' : 'o') . ':' . gmdate('Y-m-d', $this->timeFactory->getTime()) . ':' . $this->fingerprinter->lookup($login->uid(), $login->source?->ipKey ?? '');
 			$cache = $this->caches->shared(self::CACHE);
 			if ($cache !== null && !$cache->add($key, 1, self::MERGE_WINDOW)) {
 				return [];

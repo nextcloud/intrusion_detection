@@ -10,6 +10,7 @@ declare(strict_types=1);
 namespace OCA\IntrusionDetection\Login;
 
 use OCA\IntrusionDetection\Cache\Caches;
+use OCA\IntrusionDetection\Crypto\Fingerprinter;
 use OCP\IUser;
 use OCP\IUserManager;
 
@@ -30,6 +31,7 @@ class EmailAccounts {
 	public function __construct(
 		private readonly IUserManager $userManager,
 		private readonly Caches $caches,
+		private readonly Fingerprinter $fingerprinter,
 	) {
 	}
 
@@ -45,7 +47,7 @@ class EmailAccounts {
 	 * @return list<array{uid: string, enabled: bool}>
 	 */
 	private function accounts(string $email): array {
-		$key = 'email:' . hash('sha256', mb_strtolower(trim($email)));
+		$key = 'email:' . $this->fingerprinter->lookup(mb_strtolower(trim($email)));
 		$cached = $this->caches->shared(self::CACHE)?->get($key);
 		if (is_array($cached)) {
 			$accounts = [];

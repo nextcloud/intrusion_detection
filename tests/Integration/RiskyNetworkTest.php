@@ -27,6 +27,7 @@ use OCA\IntrusionDetection\Confirm\Reasons\RiskHighReason;
 use OCA\IntrusionDetection\Confirm\Reasons\RiskyNetworkReason;
 use OCA\IntrusionDetection\Confirm\StepUpPolicy;
 use OCA\IntrusionDetection\Confirm\StepUpReasons;
+use OCA\IntrusionDetection\Crypto\Fingerprinter;
 use OCA\IntrusionDetection\Db\AttemptMapper;
 use OCA\IntrusionDetection\Db\DetectionMapper;
 use OCA\IntrusionDetection\Definition\Mode;
@@ -324,6 +325,7 @@ class RiskyNetworkTest extends StepUpTestCase {
 			Server::get(SourceRepository::class),
 			$this->memory(),
 			Server::get(ITimeFactory::class),
+			Server::get(Fingerprinter::class),
 		);
 		return [RiskyNetworkDetector::class => $this->detector];
 	}
