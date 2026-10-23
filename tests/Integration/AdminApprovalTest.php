@@ -64,8 +64,7 @@ class AdminApprovalTest extends StepUpTestCase {
 		$this->assertSame(Approval::KIND_LOGIN, $approval->getKind());
 		$this->assertSame($this->bob->getUID(), $approval->getSubjectUid());
 		$this->assertSame($this->remoteAddress, $approval->getIp());
-		$this->assertSame($approval->getExpiresAt(), $stepUp->deadline, 'The login may wait as long as the request');
-		$this->assertGreaterThan($stepUp->started + LoginConfirmations::SESSION_TTL, $stepUp->deadline);
+		$this->assertSame(max($stepUp->started + LoginConfirmations::SESSION_TTL, $approval->getExpiresAt()), $stepUp->deadline, 'The login may wait as long as the request');
 		$this->assertSame([], $this->detectionsOf(StepUpRefused::ID), 'Not refused');
 
 		$this->assertNotSame([], $this->notificationsFor(self::ADMIN, Notifier::SUBJECT_APPROVAL_REQUESTED), 'The administrators are asked');
@@ -192,8 +191,14 @@ class AdminApprovalTest extends StepUpTestCase {
 		$this->waitingLogin();
 		$stepUp = $this->stepUp();
 		$this->assertNotNull($stepUp);
-		$this->assertSame($this->approval()->getExpiresAt(), $stepUp->deadline);
+		$this->assertSame(max($stepUp->started + LoginConfirmations::SESSION_TTL, $this->approval()->getExpiresAt()), $stepUp->deadline);
 		$this->assertLessThan($stepUp->started + LoginConfirmations::SESSION_TTL + AdminApprovalMethod::TTL, $stepUp->deadline + 1, 'Never beyond the login\'s own time plus one approval');
+	}
+
+	public function testAnAdministratorIsAskedForTenMinutesAtMost(): void {
+		$this->waitingLogin();
+		$approval = $this->approval();
+		$this->assertSame(600, $approval->getExpiresAt() - $approval->getCreatedAt(), 'Out-of-band requests wait ten minutes at most');
 	}
 
 	public function testTheUserCanGiveUpWaiting(): void {

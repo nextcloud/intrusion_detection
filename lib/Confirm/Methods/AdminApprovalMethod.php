@@ -40,7 +40,7 @@ use OCP\IUser;
  */
 class AdminApprovalMethod implements IConfirmationMethod {
 	/** Seconds a login waits for an administrator's approval */
-	public const TTL = 1800;
+	public const TTL = 600;
 
 	public const STATUS_NONE = 'none';
 	public const STATUS_PENDING = 'pending';
