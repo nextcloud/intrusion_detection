@@ -51,6 +51,7 @@ Think of it as *Entra ID Protection for your own server*: identity-aware threat 
 - [Getting started](#-getting-started)
 - [Requirements](#requirements)
 - [FAQ](#-faq)
+- [Documentation](#documentation)
 - [Contributing and security](#contributing-and-security)
 
 ## 🎯 Why
@@ -348,16 +349,24 @@ A plain request in a new PHP process loads none of the checks and at most 45 of 
 
 **You need Nextcloud 36** (in development) with the core changes this app hooks into. They are open as draft pull requests: [#65735](https://github.com/nextcloud/server/pull/65735), [#65736](https://github.com/nextcloud/server/pull/65736), [#65737](https://github.com/nextcloud/server/pull/65737), [#65738](https://github.com/nextcloud/server/pull/65738), [#65739](https://github.com/nextcloud/server/pull/65739), [#65740](https://github.com/nextcloud/server/pull/65740) and [#65741](https://github.com/nextcloud/server/pull/65741), plus one more small change to the DAV app.
 
-Install from source:
+Install it from the app store: in Nextcloud under Apps → Security, or with
+`php occ app:install intrusion_detection`. The app store package is signed and
+holds only the files the app needs to run.
+
+Until a release is on the app store, build the same package yourself, on a
+machine with Node.js and npm, and unpack it into the apps folder:
 
 ```sh
-cd /path/to/nextcloud/apps
-git clone https://github.com/nextcloud/intrusion_detection.git intrusion_detection
+git clone https://github.com/nextcloud/intrusion_detection.git
 cd intrusion_detection
-npm ci && npm run build
-cd ../..
-php occ app:enable intrusion_detection
+make build appstore
+tar -xzf build/artifacts/intrusion_detection.tar.gz -C /path/to/nextcloud/apps
+php /path/to/nextcloud/occ app:enable intrusion_detection
 ```
+
+Don't run the app from a git checkout in the apps folder of a production
+server: that puts `.git`, the sources, the tests and the build tools where
+the web server can reach them.
 
 Then:
 
@@ -419,10 +428,17 @@ Yes. Most checks watch what reaches Nextcloud, not how people log in, so they wo
 With a memory cache, a few microseconds; see [Light on resources](#-light-on-resources). Run `occ intrusion:benchmark` on your own server to see the numbers.
 </details>
 
+## Documentation
+
+- [Security policy](SECURITY.md): reporting, supported versions, dependency updates
+- [Browser security](docs/browser-security.md)
+- [Resource limits](docs/limits.md)
+- [Functionality that needs care](docs/dangerous-functionality.md)
+
 ## Contributing and security
 
 - **Bugs and ideas:** please open an issue at [github.com/nextcloud/intrusion_detection/issues](https://github.com/nextcloud/intrusion_detection/issues). Pull requests are welcome; see the [Nextcloud contribution guidelines](https://github.com/nextcloud/.github/blob/master/CONTRIBUTING.md).
-- **Security issues:** please do **not** open an issue. Report them through [HackerOne](https://hackerone.com/nextcloud), as described in the [Nextcloud security policy](https://nextcloud.com/security/).
+- **Security issues:** please do **not** open an issue. Report them through [HackerOne](https://hackerone.com/nextcloud), as described in [SECURITY.md](SECURITY.md).
 
 ## License
 
