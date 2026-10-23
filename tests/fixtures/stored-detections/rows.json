@@ -1,0 +1,1308 @@
+{
+	"account_locked": {
+		"changed": {
+			"detection": {"id": 41, "checkId": "account_locked", "severity": "high", "enforced": true, "ip": "203.0.113.5", "netKey": "4:203.0.113.0/24", "uid": "alice", "shareId": null, "hits": 1, "createdAt": 1789999700, "lastSeenAt": 1790000000, "actions": [], "explanation": {"v": 1, "check": "account_locked", "mode": {"configured": "protect", "effective": "protect", "reason": null}, "thresholds": [], "facts": {"link": 7, "sentTo": "a***@example.com", "newAddress": "m***@example.org", "changedAt": 1789996400, "changedFrom": "198.51.100.7", "takeoverDetection": 12, "tokensEnded": 3, "ended": [{"id": 1, "name": "Firefox"}], "alert_all_admins": true}, "first": 1789999700, "last": 1790000000}},
+			"reads": {
+				"narrative": [
+					"The account of alice was locked by the owner of the previous email address a***@example.com, with the link Nextcloud had sent there.",
+					"The address was changed to m***@example.org at date:1789996400 from 198.51.100.7.",
+					"The link was used from 203.0.113.5.",
+					"3 sessions and app passwords were ended, and the account was disabled.",
+					"Talk to the user another way than by email before you enable the account again. Then use \"Re-enable and start Secure my account\", and correct the email address in the account management if needed."
+				],
+				"headline": "The account alice was locked by the owner of its previous email address",
+				"userNotice": {
+					"subject": "Your account was locked",
+					"message": ["Your account was locked with the link that Nextcloud sent to your previous email address a***@example.com after it was changed.", "All your sessions and app passwords were ended, and your account was disabled until an administrator enabled it again."],
+					"advice": ["Check the email address of your account and your devices and sessions in your security settings, and change your password."]
+				}
+			}
+		},
+		"removed": {
+			"detection": {"id": 41, "checkId": "account_locked", "severity": "high", "enforced": true, "ip": null, "netKey": "4:203.0.113.0/24", "uid": "alice", "shareId": null, "hits": 1, "createdAt": 1789999700, "lastSeenAt": 1790000000, "actions": [], "explanation": {"v": 1, "check": "account_locked", "mode": {"configured": "protect", "effective": "protect", "reason": null}, "thresholds": [], "facts": {"link": 7, "sentTo": "a***@example.com", "newAddress": null, "changedAt": 1789999900, "changedFrom": null, "takeoverDetection": null, "tokensEnded": 1, "ended": [], "alert_all_admins": true}, "first": 1789999700, "last": 1790000000}},
+			"reads": {
+				"narrative": [
+					"The account of alice was locked by the owner of the previous email address a***@example.com, with the link Nextcloud had sent there.",
+					"The address was removed at date:1789999900.",
+					"1 session or app password was ended, and the account was disabled.",
+					"Talk to the user another way than by email before you enable the account again. Then use \"Re-enable and start Secure my account\", and correct the email address in the account management if needed."
+				],
+				"headline": "The account alice was locked by the owner of its previous email address",
+				"userNotice": {
+					"subject": "Your account was locked",
+					"message": ["Your account was locked with the link that Nextcloud sent to your previous email address a***@example.com after it was changed.", "All your sessions and app passwords were ended, and your account was disabled until an administrator enabled it again."],
+					"advice": ["Check the email address of your account and your devices and sessions in your security settings, and change your password."]
+				}
+			}
+		},
+		"changed without address": {
+			"detection": {"id": 41, "checkId": "account_locked", "severity": "high", "enforced": true, "ip": "203.0.113.5", "netKey": "4:203.0.113.0/24", "uid": "alice", "shareId": null, "hits": 1, "createdAt": 1789999700, "lastSeenAt": 1790000000, "actions": [], "explanation": {"v": 1, "check": "account_locked", "mode": {"configured": "protect", "effective": "protect", "reason": null}, "thresholds": [], "facts": {"link": 7, "sentTo": "a***@example.com", "newAddress": "m***@example.org", "changedAt": 1789999900, "changedFrom": null, "takeoverDetection": null, "tokensEnded": 2, "ended": [], "alert_all_admins": true}, "first": 1789999700, "last": 1790000000}},
+			"reads": {
+				"narrative": [
+					"The account of alice was locked by the owner of the previous email address a***@example.com, with the link Nextcloud had sent there.",
+					"The address was changed to m***@example.org at date:1789999900.",
+					"The link was used from 203.0.113.5.",
+					"2 sessions and app passwords were ended, and the account was disabled.",
+					"Talk to the user another way than by email before you enable the account again. Then use \"Re-enable and start Secure my account\", and correct the email address in the account management if needed."
+				],
+				"headline": "The account alice was locked by the owner of its previous email address",
+				"userNotice": {
+					"subject": "Your account was locked",
+					"message": ["Your account was locked with the link that Nextcloud sent to your previous email address a***@example.com after it was changed.", "All your sessions and app passwords were ended, and your account was disabled until an administrator enabled it again."],
+					"advice": ["Check the email address of your account and your devices and sessions in your security settings, and change your password."]
+				}
+			}
+		},
+		"old row": {
+			"detection": {"id": 41, "checkId": "account_locked", "severity": "high", "enforced": true, "ip": "203.0.113.5", "netKey": "4:203.0.113.0/24", "uid": "alice", "shareId": null, "hits": 1, "createdAt": 1789999700, "lastSeenAt": 1790000000, "actions": [], "explanation": {"v": 1, "check": "account_locked", "mode": {"configured": "protect", "effective": "protect", "reason": null}, "thresholds": [], "facts": [], "first": 1789999700, "last": 1790000000}},
+			"reads": {
+				"narrative": [
+					"The account of alice was locked by the owner of the previous email address , with the link Nextcloud had sent there.",
+					"The link was used from 203.0.113.5.",
+					"0 sessions and app passwords were ended, and the account was disabled.",
+					"Talk to the user another way than by email before you enable the account again. Then use \"Re-enable and start Secure my account\", and correct the email address in the account management if needed."
+				],
+				"headline": "The account alice was locked by the owner of its previous email address",
+				"userNotice": {
+					"subject": "Your account was locked",
+					"message": ["Your account was locked with the link that Nextcloud sent to your previous email address after it was changed.", "All your sessions and app passwords were ended, and your account was disabled until an administrator enabled it again."],
+					"advice": ["Check the email address of your account and your devices and sessions in your security settings, and change your password."]
+				}
+			}
+		}
+	},
+	"account_takeover": {
+		"both rules": {
+			"detection": {"id": 41, "checkId": "account_takeover", "severity": "high", "enforced": true, "ip": "203.0.113.5", "netKey": "4:203.0.113.0/24", "uid": "alice", "shareId": null, "hits": 1, "createdAt": 1789999700, "lastSeenAt": 1790000000, "actions": [], "explanation": {"v": 1, "check": "account_takeover", "mode": {"configured": "protect", "effective": "protect", "reason": null}, "thresholds": {"window": 3600, "min_points": 3, "window_any": 1800, "min_points_any": 5}, "facts": {"rules": ["any_session", "risky_login"], "anyPoints": 6, "sessionPoints": 4, "riskyLoginAt": 1789998800, "riskyLoginReason": "risky_network", "riskyLoginPolicies": ["new_network"], "changes": [{"id": 3, "type": "email_changed", "points": 2, "at": 1789999100, "ip": "203.0.113.5", "old": "a***@example.com", "new": "m***@example.org"}, {"id": 4, "type": "second_factor_removed", "points": 3, "at": 1789999400, "ip": null, "old": null, "new": null}, {"id": 5, "type": "email_changed", "points": 2, "at": 1789999500, "ip": null, "old": "m***@example.org", "new": null}, {"id": 6, "type": "email_changed", "points": 1, "at": 1789999600, "ip": null, "old": null, "new": "x***@example.net"}, {"id": 7, "type": "retired_type", "points": 1, "at": 1789999700, "ip": null, "old": null, "new": null}], "emailChangeId": 3, "emailChangedAt": 1789999100, "previousAddress": "a***@example.com", "userHasEmail": false, "sessionTokenId": 77, "first": 1789999100, "last": 1789999700}, "first": 1789999700, "last": 1790000000}},
+			"reads": {
+				"narrative": [
+					"These security changes were made to the account alice:",
+					"Email address changed from a***@example.com to m***@example.org, at date:1789999100 from 203.0.113.5 (2 points).",
+					"Second factor removed, at date:1789999400 (3 points).",
+					"Email address m***@example.org removed, at date:1789999500 (2 points).",
+					"Email address x***@example.net added, at date:1789999600 (1 point).",
+					"Security change, at date:1789999700 (1 point).",
+					"The session they were made in started with a risky login at date:1789998800: it needed extra confirmation and was let in without one.",
+					"Together they count 4 points. The limit at that time was 3 points within 1 hour after a risky login.",
+					"The changes from all sessions count 6 points. The limit at that time was 5 points within 30 minutes.",
+					"The account has no email address now. You may be the only one who can reach its owner outside the account, which may be in someone else's hands."
+				],
+				"userNotice": {
+					"subject": "Important changes to your account",
+					"message": ["Several security settings of your account were changed within a short time: Email address changed, Second factor removed.", "If you made these changes, there is nothing to do.", "If you did not, someone else may be using your account."],
+					"advice": ["If it was not you, answer \"No, it was not me\". Nextcloud then ends the sessions involved and guides you through securing your account.", "Check your email address, your second factor and your devices in your security settings."]
+				},
+				"asksWasThisYou": true
+			}
+		},
+		"any session, old row": {
+			"detection": {"id": 41, "checkId": "account_takeover", "severity": "high", "enforced": true, "ip": "203.0.113.5", "netKey": "4:203.0.113.0/24", "uid": "alice", "shareId": null, "hits": 1, "createdAt": 1789999700, "lastSeenAt": 1790000000, "actions": [], "explanation": {"v": 1, "check": "account_takeover", "mode": {"configured": "protect", "effective": "protect", "reason": null}, "thresholds": [], "facts": {"rules": ["any_session"], "anyPoints": 5, "changes": [{"id": 9, "type": "password_changed", "points": 1, "at": 1789999940, "ip": "198.51.100.9"}]}, "first": 1789999700, "last": 1790000000}},
+			"reads": {
+				"narrative": [
+					"These security changes were made to the account alice:",
+					"Password changed, at date:1789999940 from 198.51.100.9 (1 point).",
+					"The changes from all sessions count 5 points. The limit at that time was 5 points within 30 minutes."
+				],
+				"userNotice": {
+					"subject": "Important changes to your account",
+					"message": ["Several security settings of your account were changed within a short time: Password changed.", "If you made these changes, there is nothing to do.", "If you did not, someone else may be using your account."],
+					"advice": ["If it was not you, answer \"No, it was not me\". Nextcloud then ends the sessions involved and guides you through securing your account.", "Check your email address, your second factor and your devices in your security settings."]
+				},
+				"asksWasThisYou": true
+			}
+		},
+		"no changes": {
+			"detection": {"id": 41, "checkId": "account_takeover", "severity": "high", "enforced": true, "ip": "203.0.113.5", "netKey": "4:203.0.113.0/24", "uid": "alice", "shareId": null, "hits": 1, "createdAt": 1789999700, "lastSeenAt": 1790000000, "actions": [], "explanation": {"v": 1, "check": "account_takeover", "mode": {"configured": "protect", "effective": "protect", "reason": null}, "thresholds": [], "facts": {"rules": ["risky_login"], "sessionPoints": 3, "riskyLoginAt": 1789999900, "userHasEmail": true}, "first": 1789999700, "last": 1790000000}},
+			"reads": {
+				"narrative": [
+					"These security changes were made to the account alice:",
+					"The session they were made in started with a risky login at date:1789999900: it needed extra confirmation and was let in without one.",
+					"Together they count 3 points. The limit at that time was 3 points within 1 hour after a risky login."
+				],
+				"userNotice": {
+					"subject": "Important changes to your account",
+					"message": ["Several security settings of your account were changed within a short time.", "If you made these changes, there is nothing to do.", "If you did not, someone else may be using your account."],
+					"advice": ["If it was not you, answer \"No, it was not me\". Nextcloud then ends the sessions involved and guides you through securing your account.", "Check your email address, your second factor and your devices in your security settings."]
+				},
+				"asksWasThisYou": true
+			}
+		}
+	},
+	"account_under_attack": {
+		"full": {
+			"detection": {"id": 41, "checkId": "account_under_attack", "severity": "high", "enforced": true, "ip": null, "netKey": "4:203.0.113.0/24", "uid": "alice", "shareId": null, "hits": 1, "createdAt": 1789999700, "lastSeenAt": 1790000000, "actions": [{"type": "protect_account", "enforced": true, "ref": {"until": 1790003600}}], "explanation": {"v": 1, "check": "account_under_attack", "mode": {"configured": "protect", "effective": "protect", "reason": null}, "thresholds": {"window": 3600, "min_failures": 10, "min_sources": 5, "ban_min_failures": 5}, "facts": {"failures": 30, "sources": 12, "first": 1789998200, "last": 1789999990, "lastSource": "198.51.100.20", "risk": {"score": 45, "tier": "elevated", "factors": [{"id": "failures", "value": "30", "points": 2}]}, "loweredLimits": {"min_names": {"plain": 5, "effective": 3}}}, "first": 1789999700, "last": 1790000000}},
+			"reads": {
+				"narrative": [
+					"Between date:1789998200 and time:1789999990 the account alice had 30 failed logins from 12 different addresses.",
+					"The limit at that time was 10 failures from 5 addresses within 1 hour.",
+					"The most recent attempt came from 198.51.100.20."
+				],
+				"userNotice": {
+					"subject": "Someone is trying to guess your password",
+					"message": ["Someone is trying to guess your password from many different places.", "Your account is safe as long as your password is strong.", "Until date:1790003600, logins with your password need an extra confirmation. Apps and devices that use an app password keep working."],
+					"advice": []
+				}
+			}
+		},
+		"old row": {
+			"detection": {"id": 41, "checkId": "account_under_attack", "severity": "high", "enforced": true, "ip": null, "netKey": "4:203.0.113.0/24", "uid": "alice", "shareId": null, "hits": 1, "createdAt": 1789999700, "lastSeenAt": 1790000000, "actions": [], "explanation": {"facts": {"failures": 11}}},
+			"reads": {
+				"narrative": [
+					"Between date:1789999700 and time:1790000000 the account alice had 11 failed logins from 0 different addresses.",
+					"The limit at that time was 0 failures from 0 addresses within 1 hour."
+				],
+				"userNotice": {
+					"subject": "Someone is trying to guess your password",
+					"message": ["Someone is trying to guess your password from many different places.", "Your account is safe as long as your password is strong."],
+					"advice": []
+				}
+			}
+		}
+	},
+	"admin_change": {
+		"granted through group": {
+			"detection": {"id": 41, "checkId": "admin_change", "severity": "high", "enforced": true, "ip": "203.0.113.5", "netKey": "4:203.0.113.0/24", "uid": "alice", "shareId": null, "hits": 1, "createdAt": 1789999700, "lastSeenAt": 1790000000, "actions": [], "explanation": {"v": 1, "check": "admin_change", "mode": {"configured": "protect", "effective": "protect", "reason": null}, "thresholds": [], "facts": {"kind": "admin_granted", "actor": "root", "group": "ids-team", "delegated": ["Users", "Sharing"], "requested_by": "carol", "approved_by": "dave", "exempt": "occ", "targets": ["alice"], "actor_ip": "192.0.2.4", "alert_key": "admin:alice", "alert_all_admins": true}, "first": 1789999700, "last": 1790000000}},
+			"reads": {
+				"narrative": [
+					"root added alice to the group \"ids-team\", which has these administration settings: Users, Sharing.",
+					"carol asked for it, and dave approved it.",
+					"It was done on the command line (occ), so it did not wait for the approval of a second administrator: whoever can run occ already controls the server. It is reported all the same.",
+					"The change came from the address 192.0.2.4.",
+					"It happened at date:1789999700."
+				],
+				"headline": "alice got administration rights through the group \"ids-team\"",
+				"userNotice": {
+					"subject": "You got administration rights",
+					"message": ["You were added to the group \"ids-team\", which has administration rights for some settings."],
+					"advice": ["If you did not expect this, ask your administrators about it."]
+				},
+				"keepsFromUser": false
+			}
+		},
+		"granted": {
+			"detection": {"id": 41, "checkId": "admin_change", "severity": "high", "enforced": true, "ip": "203.0.113.5", "netKey": "4:203.0.113.0/24", "uid": "alice", "shareId": null, "hits": 1, "createdAt": 1789999700, "lastSeenAt": 1790000000, "actions": [], "explanation": {"v": 1, "check": "admin_change", "mode": {"configured": "protect", "effective": "protect", "reason": null}, "thresholds": [], "facts": {"kind": "admin_granted", "actor": "occ", "targets": ["alice"], "exempt": "cron", "alert_key": "admin:alice", "alert_all_admins": true}, "first": 1789999700, "last": 1790000000}},
+			"reads": {
+				"narrative": [
+					"Someone on the command line (occ) made alice an administrator.",
+					"It was done by a background job on the command line, so it did not wait for the approval of a second administrator: whoever can start it already controls the server. It is reported all the same.",
+					"It happened at date:1789999700."
+				],
+				"headline": "alice was made an administrator",
+				"userNotice": {
+					"subject": "You were made an administrator",
+					"message": ["An administrator made you an administrator. You can now manage all accounts and settings."],
+					"advice": ["If you did not expect this, ask your administrators about it."]
+				},
+				"keepsFromUser": false
+			}
+		},
+		"granted from directory": {
+			"detection": {"id": 41, "checkId": "admin_change", "severity": "high", "enforced": true, "ip": "203.0.113.5", "netKey": "4:203.0.113.0/24", "uid": "alice", "shareId": null, "hits": 1, "createdAt": 1789999700, "lastSeenAt": 1790000000, "actions": [], "explanation": {"v": 1, "check": "admin_change", "mode": {"configured": "protect", "effective": "protect", "reason": null}, "thresholds": [], "facts": {"kind": "admin_granted", "actor": "cron", "exempt": "directory", "approved_by": "dave", "targets": ["alice"]}, "first": 1789999700, "last": 1790000000}},
+			"reads": {
+				"narrative": [
+					"A background job made alice an administrator.",
+					"Someone who was not logged in asked for it, and dave approved it.",
+					"The membership comes from a user directory such as LDAP, so it did not wait for the approval of a second administrator: Nextcloud cannot undo a membership that the directory sets. If it is wrong, change it in the directory.",
+					"It happened at date:1789999700."
+				],
+				"headline": "alice was made an administrator",
+				"userNotice": {
+					"subject": "You were made an administrator",
+					"message": ["An administrator made you an administrator. You can now manage all accounts and settings."],
+					"advice": ["If you did not expect this, ask your administrators about it."]
+				},
+				"keepsFromUser": false
+			}
+		},
+		"requested": {
+			"detection": {"id": 41, "checkId": "admin_change", "severity": "high", "enforced": true, "ip": "203.0.113.5", "netKey": "4:203.0.113.0/24", "uid": "alice", "shareId": null, "hits": 1, "createdAt": 1789999700, "lastSeenAt": 1790000000, "actions": [], "explanation": {"v": 1, "check": "admin_change", "mode": {"configured": "protect", "effective": "protect", "reason": null}, "thresholds": [], "facts": {"kind": "admin_grant_requested", "actor": "carol", "approval": 5, "expires_at": 1790086400, "targets": ["alice"], "alert_key": "admin:alice", "alert_all_admins": true}, "first": 1789999700, "last": 1790000000}},
+			"reads": {
+				"narrative": [
+					"carol tried to make alice an administrator.",
+					"A second administrator must approve new administrators, so alice was taken out of the admin group again at once.",
+					"The request waits for the approval of another administrator until date:1790086400. Neither the one who asked nor the account itself can approve it.",
+					"It happened at date:1789999700."
+				],
+				"headline": "Approval needed: alice to become an administrator",
+				"userNotice": {
+					"subject": "Your administration rights changed",
+					"message": ["An administrator changed the administration rights of your account."],
+					"advice": ["If you did not expect this, ask your administrators about it."]
+				},
+				"keepsFromUser": true
+			}
+		},
+		"requested, revert failed": {
+			"detection": {"id": 41, "checkId": "admin_change", "severity": "high", "enforced": true, "ip": "203.0.113.5", "netKey": "4:203.0.113.0/24", "uid": "alice", "shareId": null, "hits": 1, "createdAt": 1789999700, "lastSeenAt": 1790000000, "actions": [], "explanation": {"v": 1, "check": "admin_change", "mode": {"configured": "protect", "effective": "protect", "reason": null}, "thresholds": [], "facts": {"kind": "admin_grant_requested", "actor": "carol", "revert_failed": true, "targets": ["alice"]}, "first": 1789999700, "last": 1790000000}},
+			"reads": {
+				"narrative": [
+					"carol tried to make alice an administrator.",
+					"A second administrator must approve new administrators, but Nextcloud could not take alice out of the admin group again. Check the members of the admin group now.",
+					"It happened at date:1789999700."
+				],
+				"headline": "Approval needed: alice to become an administrator",
+				"userNotice": {
+					"subject": "Your administration rights changed",
+					"message": ["An administrator changed the administration rights of your account."],
+					"advice": ["If you did not expect this, ask your administrators about it."]
+				},
+				"keepsFromUser": true
+			}
+		},
+		"requested, not stored": {
+			"detection": {"id": 41, "checkId": "admin_change", "severity": "high", "enforced": true, "ip": "203.0.113.5", "netKey": "4:203.0.113.0/24", "uid": "alice", "shareId": null, "hits": 1, "createdAt": 1789999700, "lastSeenAt": 1790000000, "actions": [], "explanation": {"v": 1, "check": "admin_change", "mode": {"configured": "protect", "effective": "protect", "reason": null}, "thresholds": [], "facts": {"kind": "admin_grant_requested", "actor": "", "targets": ["alice"]}, "first": 1789999700, "last": 1790000000}},
+			"reads": {
+				"narrative": [
+					"Someone who was not logged in tried to make alice an administrator.",
+					"A second administrator must approve new administrators, so alice was taken out of the admin group again at once.",
+					"Too many requests are already waiting, so this one was not stored. Decide the open requests, then add the account again.",
+					"It happened at date:1789999700."
+				],
+				"headline": "Approval needed: alice to become an administrator",
+				"userNotice": {
+					"subject": "Your administration rights changed",
+					"message": ["An administrator changed the administration rights of your account."],
+					"advice": ["If you did not expect this, ask your administrators about it."]
+				},
+				"keepsFromUser": true
+			}
+		},
+		"removed through group": {
+			"detection": {"id": 41, "checkId": "admin_change", "severity": "high", "enforced": true, "ip": "203.0.113.5", "netKey": "4:203.0.113.0/24", "uid": "alice", "shareId": null, "hits": 1, "createdAt": 1789999700, "lastSeenAt": 1790000000, "actions": [], "explanation": {"v": 1, "check": "admin_change", "mode": {"configured": "protect", "effective": "protect", "reason": null}, "thresholds": [], "facts": {"kind": "admin_removed", "actor": "root", "group": "ids-team", "delegated": ["Users"], "targets": ["alice"]}, "first": 1789999700, "last": 1790000000}},
+			"reads": {
+				"narrative": [
+					"root removed alice from the group \"ids-team\", which has these administration settings: Users.",
+					"It happened at date:1789999700."
+				],
+				"headline": "alice left the group \"ids-team\", which has administration rights",
+				"userNotice": {
+					"subject": "You left a group with administration rights",
+					"message": ["You were removed from the group \"ids-team\", which has administration rights for some settings."],
+					"advice": ["If you did not expect this, ask your administrators about it."]
+				},
+				"keepsFromUser": false
+			}
+		},
+		"removed": {
+			"detection": {"id": 41, "checkId": "admin_change", "severity": "high", "enforced": true, "ip": "203.0.113.5", "netKey": "4:203.0.113.0/24", "uid": "alice", "shareId": null, "hits": 1, "createdAt": 1789999700, "lastSeenAt": 1790000000, "actions": [], "explanation": {"v": 1, "check": "admin_change", "mode": {"configured": "protect", "effective": "protect", "reason": null}, "thresholds": [], "facts": {"kind": "admin_removed", "actor": "root", "targets": ["alice"]}, "first": 1789999700, "last": 1790000000}},
+			"reads": {
+				"narrative": [
+					"root removed alice from the administrators.",
+					"It happened at date:1789999700."
+				],
+				"headline": "alice is no longer an administrator",
+				"userNotice": {
+					"subject": "You are no longer an administrator",
+					"message": ["An administrator removed you from the administrators."],
+					"advice": ["If you did not expect this, ask your administrators about it."]
+				},
+				"keepsFromUser": false
+			}
+		},
+		"subadmin": {
+			"detection": {"id": 41, "checkId": "admin_change", "severity": "high", "enforced": true, "ip": "203.0.113.5", "netKey": "4:203.0.113.0/24", "uid": "alice", "shareId": null, "hits": 1, "createdAt": 1789999700, "lastSeenAt": 1790000000, "actions": [], "explanation": {"v": 1, "check": "admin_change", "mode": {"configured": "protect", "effective": "protect", "reason": null}, "thresholds": [], "facts": {"kind": "subadmin_granted", "actor": "root", "group": "sales", "targets": ["alice"]}, "first": 1789999700, "last": 1790000000}},
+			"reads": {
+				"narrative": [
+					"root made alice a group administrator of \"sales\". Group administrators manage the accounts of their group.",
+					"It happened at date:1789999700."
+				],
+				"headline": "alice was made a group administrator of \"sales\"",
+				"userNotice": {
+					"subject": "You were made a group administrator",
+					"message": ["An administrator made you a group administrator of \"sales\". You can now manage the accounts of that group."],
+					"advice": ["If you did not expect this, ask your administrators about it."]
+				},
+				"keepsFromUser": false
+			}
+		},
+		"user created": {
+			"detection": {"id": 41, "checkId": "admin_change", "severity": "high", "enforced": true, "ip": "203.0.113.5", "netKey": "4:203.0.113.0/24", "uid": "alice", "shareId": null, "hits": 1, "createdAt": 1789999700, "lastSeenAt": 1790000000, "actions": [], "explanation": {"v": 1, "check": "admin_change", "mode": {"configured": "protect", "effective": "protect", "reason": null}, "thresholds": [], "facts": {"kind": "user_created", "actor": "unknown", "targets": ["alice"], "actor_ip": "192.0.2.4"}, "first": 1789999700, "last": 1790000000}},
+			"reads": {
+				"narrative": [
+					"Someone who was not logged in created the account alice.",
+					"The change came from the address 192.0.2.4.",
+					"It happened at date:1789999700."
+				],
+				"headline": "The account alice was created",
+				"userNotice": {
+					"subject": "Your account was created",
+					"message": ["An administrator created your account."],
+					"advice": ["If you did not expect this, ask your administrators about it."]
+				},
+				"keepsFromUser": true
+			}
+		},
+		"deleted account": {
+			"detection": {"id": 41, "checkId": "admin_change", "severity": "high", "enforced": true, "ip": "203.0.113.5", "netKey": "4:203.0.113.0/24", "uid": null, "shareId": null, "hits": 1, "createdAt": 1789999700, "lastSeenAt": 1790000000, "actions": [], "explanation": {"v": 1, "check": "admin_change", "mode": {"configured": "protect", "effective": "protect", "reason": null}, "thresholds": [], "facts": {"kind": "user_created", "actor": "root", "targets": ["bob"]}, "first": 1789999700, "last": 1790000000}},
+			"reads": {
+				"narrative": [
+					"root created the account bob.",
+					"It happened at date:1789999700."
+				],
+				"headline": "The account bob was created",
+				"userNotice": {
+					"subject": "Your account was created",
+					"message": ["An administrator created your account."],
+					"advice": ["If you did not expect this, ask your administrators about it."]
+				},
+				"keepsFromUser": true
+			}
+		},
+		"app enabled for groups": {
+			"detection": {"id": 41, "checkId": "admin_change", "severity": "high", "enforced": true, "ip": "203.0.113.5", "netKey": "4:203.0.113.0/24", "uid": null, "shareId": null, "hits": 1, "createdAt": 1789999700, "lastSeenAt": 1790000000, "actions": [], "explanation": {"v": 1, "check": "admin_change", "mode": {"configured": "protect", "effective": "protect", "reason": null}, "thresholds": [], "facts": {"kind": "app_enabled", "actor": "root", "app": "files_external", "groups": ["admin", "staff"]}, "first": 1789999700, "last": 1790000000}},
+			"reads": {
+				"narrative": [
+					"root switched on the app \"files_external\" for the groups admin, staff.",
+					"It happened at date:1789999700."
+				],
+				"headline": "The app \"files_external\" was switched on",
+				"userNotice": {
+					"subject": "Your administration rights changed",
+					"message": ["An administrator changed the administration rights of your account."],
+					"advice": ["If you did not expect this, ask your administrators about it."]
+				},
+				"keepsFromUser": true
+			}
+		},
+		"app enabled": {
+			"detection": {"id": 41, "checkId": "admin_change", "severity": "high", "enforced": true, "ip": "203.0.113.5", "netKey": "4:203.0.113.0/24", "uid": null, "shareId": null, "hits": 1, "createdAt": 1789999700, "lastSeenAt": 1790000000, "actions": [], "explanation": {"v": 1, "check": "admin_change", "mode": {"configured": "protect", "effective": "protect", "reason": null}, "thresholds": [], "facts": {"kind": "app_enabled", "actor": "root", "app": "files_external"}, "first": 1789999700, "last": 1790000000}},
+			"reads": {
+				"narrative": [
+					"root switched on the app \"files_external\" for everyone.",
+					"It happened at date:1789999700."
+				],
+				"headline": "The app \"files_external\" was switched on",
+				"userNotice": {
+					"subject": "Your administration rights changed",
+					"message": ["An administrator changed the administration rights of your account."],
+					"advice": ["If you did not expect this, ask your administrators about it."]
+				},
+				"keepsFromUser": true
+			}
+		},
+		"own app disabled": {
+			"detection": {"id": 41, "checkId": "admin_change", "severity": "high", "enforced": true, "ip": "203.0.113.5", "netKey": "4:203.0.113.0/24", "uid": null, "shareId": null, "hits": 1, "createdAt": 1789999700, "lastSeenAt": 1790000000, "actions": [], "explanation": {"v": 1, "check": "admin_change", "mode": {"configured": "protect", "effective": "protect", "reason": null}, "thresholds": [], "facts": {"kind": "app_disabled", "actor": "root", "app": "intrusion_detection"}, "first": 1789999700, "last": 1790000000}},
+			"reads": {
+				"narrative": [
+					"root switched off the app \"intrusion_detection\".",
+					"This switches off intrusion detection itself: nothing is watched or blocked any more until it is switched on again.",
+					"It happened at date:1789999700."
+				],
+				"headline": "The app \"intrusion_detection\" was switched off",
+				"userNotice": {
+					"subject": "Your administration rights changed",
+					"message": ["An administrator changed the administration rights of your account."],
+					"advice": ["If you did not expect this, ask your administrators about it."]
+				},
+				"keepsFromUser": true
+			}
+		},
+		"secret setting by watch": {
+			"detection": {"id": 41, "checkId": "admin_change", "severity": "high", "enforced": true, "ip": "203.0.113.5", "netKey": "4:203.0.113.0/24", "uid": null, "shareId": null, "hits": 1, "createdAt": 1789999700, "lastSeenAt": 1790000000, "actions": [], "explanation": {"v": 1, "check": "admin_change", "mode": {"configured": "protect", "effective": "protect", "reason": null}, "thresholds": [], "facts": {"kind": "setting_changed", "actor": "unknown", "setting": "system:secret", "secret": true, "watch": true, "alert_key": "setting:system:secret", "alert_all_admins": true}, "first": 1789999700, "last": 1790000000}},
+			"reads": {
+				"narrative": [
+					"The regular check of the security settings found that \"secret in config.php\" changed. Its value is secret, so it is neither stored nor shown.",
+					"Nextcloud cannot tell who made this change: config.php and some settings can be changed without going through Nextcloud, for example by editing the file or with occ.",
+					"It happened at date:1789999700."
+				],
+				"headline": "Security setting changed: secret in config.php",
+				"userNotice": {
+					"subject": "Your administration rights changed",
+					"message": ["An administrator changed the administration rights of your account."],
+					"advice": ["If you did not expect this, ask your administrators about it."]
+				},
+				"keepsFromUser": true
+			}
+		},
+		"setting": {
+			"detection": {"id": 41, "checkId": "admin_change", "severity": "high", "enforced": true, "ip": "203.0.113.5", "netKey": "4:203.0.113.0/24", "uid": null, "shareId": null, "hits": 1, "createdAt": 1789999700, "lastSeenAt": 1790000000, "actions": [], "explanation": {"v": 1, "check": "admin_change", "mode": {"configured": "protect", "effective": "protect", "reason": null}, "thresholds": [], "facts": {"kind": "setting_changed", "actor": "root", "setting": "system:trusted_proxies", "secret": false, "watch": false, "old": null, "new": ["10.0.0.1", "10.0.0.2"], "actor_ip": "192.0.2.4"}, "first": 1789999700, "last": 1790000000}},
+			"reads": {
+				"narrative": [
+					"root changed \"trusted_proxies in config.php\" from not set to \"10.0.0.1, 10.0.0.2\".",
+					"The change came from the address 192.0.2.4.",
+					"It happened at date:1789999700."
+				],
+				"headline": "Security setting changed: trusted_proxies in config.php",
+				"userNotice": {
+					"subject": "Your administration rights changed",
+					"message": ["An administrator changed the administration rights of your account."],
+					"advice": ["If you did not expect this, ask your administrators about it."]
+				},
+				"keepsFromUser": true
+			}
+		},
+		"setting values": {
+			"detection": {"id": 41, "checkId": "admin_change", "severity": "high", "enforced": true, "ip": "203.0.113.5", "netKey": "4:203.0.113.0/24", "uid": null, "shareId": null, "hits": 1, "createdAt": 1789999700, "lastSeenAt": 1790000000, "actions": [], "explanation": {"v": 1, "check": "admin_change", "mode": {"configured": "protect", "effective": "protect", "reason": null}, "thresholds": [], "facts": {"kind": "setting_changed", "actor": "root", "setting": "", "secret": false, "watch": true, "old": true, "new": ""}, "first": 1789999700, "last": 1790000000}},
+			"reads": {
+				"narrative": [
+					"The regular check of the security settings found that \"a setting\" changed from on to empty.",
+					"Nextcloud cannot tell who made this change: config.php and some settings can be changed without going through Nextcloud, for example by editing the file or with occ.",
+					"It happened at date:1789999700."
+				],
+				"headline": "Security setting changed: a setting",
+				"userNotice": {
+					"subject": "Your administration rights changed",
+					"message": ["An administrator changed the administration rights of your account."],
+					"advice": ["If you did not expect this, ask your administrators about it."]
+				},
+				"keepsFromUser": true
+			}
+		},
+		"setting other values": {
+			"detection": {"id": 41, "checkId": "admin_change", "severity": "high", "enforced": true, "ip": "203.0.113.5", "netKey": "4:203.0.113.0/24", "uid": null, "shareId": null, "hits": 1, "createdAt": 1789999700, "lastSeenAt": 1790000000, "actions": [], "explanation": {"v": 1, "check": "admin_change", "mode": {"configured": "protect", "effective": "protect", "reason": null}, "thresholds": [], "facts": {"kind": "setting_changed", "actor": "root", "setting": "app:intrusion_detection:enabled", "secret": false, "watch": false, "old": [], "new": "yes"}, "first": 1789999700, "last": 1790000000}},
+			"reads": {
+				"narrative": [
+					"root changed \"Intrusion detection: enabled\" from none to \"yes\".",
+					"It happened at date:1789999700."
+				],
+				"headline": "Security setting changed: Intrusion detection: enabled",
+				"userNotice": {
+					"subject": "Your administration rights changed",
+					"message": ["An administrator changed the administration rights of your account."],
+					"advice": ["If you did not expect this, ask your administrators about it."]
+				},
+				"keepsFromUser": true
+			}
+		},
+		"unknown kind": {
+			"detection": {"id": 41, "checkId": "admin_change", "severity": "high", "enforced": true, "ip": "203.0.113.5", "netKey": "4:203.0.113.0/24", "uid": null, "shareId": null, "hits": 1, "createdAt": 1789999700, "lastSeenAt": 1790000000, "actions": [], "explanation": {"v": 1, "check": "admin_change", "mode": {"configured": "protect", "effective": "protect", "reason": null}, "thresholds": [], "facts": {"kind": "retired_kind", "actor": "root"}, "first": 1789999700, "last": 1790000000}},
+			"reads": {
+				"narrative": [
+					"An administration setting was changed.",
+					"It happened at date:1789999700."
+				],
+				"headline": null,
+				"userNotice": {
+					"subject": "Your administration rights changed",
+					"message": ["An administrator changed the administration rights of your account."],
+					"advice": ["If you did not expect this, ask your administrators about it."]
+				},
+				"keepsFromUser": true
+			}
+		}
+	},
+	"blocklist_match": {
+		"two lists": {
+			"detection": {"id": 41, "checkId": "blocklist_match", "severity": "high", "enforced": true, "ip": "203.0.113.5", "netKey": "4:203.0.113.0/24", "uid": null, "shareId": null, "hits": 3, "createdAt": 1789999700, "lastSeenAt": 1790000000, "actions": [], "explanation": {"v": 1, "check": "blocklist_match", "mode": {"configured": "protect", "effective": "protect", "reason": null}, "thresholds": [], "facts": {"lists": ["a", "b"], "listNames": ["Spamhaus DROP", "FireHOL"], "trigger": "failed_login"}, "first": 1789999700, "last": 1790000000}},
+			"reads": {
+				"narrative": [
+					"A login failed from 203.0.113.5, an address on these blocklists: Spamhaus DROP, FireHOL.",
+					"It happened 3 times.",
+					"Requests from this address were not refused, because the list is set to Observe, or because the check only observes."
+				]
+			}
+		},
+		"old row": {
+			"detection": {"id": 41, "checkId": "blocklist_match", "severity": "high", "enforced": true, "ip": "203.0.113.5", "netKey": "4:203.0.113.0/24", "uid": null, "shareId": null, "hits": 1, "createdAt": 1789999700, "lastSeenAt": 1790000000, "actions": [], "explanation": {"v": 1, "check": "blocklist_match", "mode": {"configured": "protect", "effective": "protect", "reason": null}, "thresholds": [], "facts": {"lists": ["a"]}, "first": 1789999700, "last": 1790000000}},
+			"reads": {
+				"narrative": [
+					"A login failed from 203.0.113.5, an address on these blocklists: .",
+					"Requests from this address were not refused, because the list is set to Observe, or because the check only observes."
+				]
+			}
+		}
+	},
+	"breached_password": {
+		"with address": {
+			"detection": {"id": 41, "checkId": "breached_password", "severity": "high", "enforced": true, "ip": "203.0.113.5", "netKey": "4:203.0.113.0/24", "uid": "alice", "shareId": null, "hits": 3, "createdAt": 1789999700, "lastSeenAt": 1790000000, "actions": [], "explanation": {"v": 1, "check": "breached_password", "mode": {"configured": "protect", "effective": "protect", "reason": null}, "thresholds": {"min_count": 2, "recheck_days": 30}, "facts": {"trigger": "login"}, "first": 1789999700, "last": 1790000000}},
+			"reads": {
+				"narrative": [
+					"At date:1789999700 the account alice logged in from 203.0.113.5 with a password that appears in the public list of leaked passwords.",
+					"It was found again 2 times that day.",
+					"The limit at that time was a count of at least 2 in the list. How often it appears is not stored, because that number could identify the password.",
+					"The password was never sent anywhere: only the first 5 characters of its SHA-1 hash left the server, and the comparison happened on the server."
+				],
+				"userNotice": {
+					"subject": "Your password appears in lists of leaked passwords",
+					"message": ["The password you logged in with appears in public lists of leaked passwords.", "This has nothing to do with Nextcloud: someone used the same password on another website whose data was stolen. But attackers try the passwords on these lists first.", "Please change your password to one that you use nowhere else."],
+					"advice": []
+				}
+			}
+		},
+		"without address": {
+			"detection": {"id": 41, "checkId": "breached_password", "severity": "high", "enforced": true, "ip": null, "netKey": "4:203.0.113.0/24", "uid": "alice", "shareId": null, "hits": 1, "createdAt": 1789999700, "lastSeenAt": 1790000000, "actions": [{"type": "force_password_change", "enforced": true}], "explanation": {"v": 1, "check": "breached_password", "mode": {"configured": "protect", "effective": "protect", "reason": null}, "thresholds": [], "facts": {"trigger": "login"}, "first": 1789999700, "last": 1790000000}},
+			"reads": {
+				"narrative": [
+					"At date:1789999700 the account alice logged in with a password that appears in the public list of leaked passwords.",
+					"The limit at that time was a count of at least 1 in the list. How often it appears is not stored, because that number could identify the password.",
+					"The password was never sent anywhere: only the first 5 characters of its SHA-1 hash left the server, and the comparison happened on the server."
+				],
+				"userNotice": {
+					"subject": "Your password appears in lists of leaked passwords",
+					"message": ["The password you logged in with appears in public lists of leaked passwords.", "This has nothing to do with Nextcloud: someone used the same password on another website whose data was stolen. But attackers try the passwords on these lists first.", "You will be asked to choose a new password. Choose one that you use nowhere else."],
+					"advice": []
+				}
+			}
+		}
+	},
+	"credential_stuffing": {
+		"source": {
+			"detection": {"id": 41, "checkId": "credential_stuffing", "severity": "high", "enforced": true, "ip": "203.0.113.5", "netKey": "4:203.0.113.0/24", "uid": null, "shareId": null, "hits": 1, "createdAt": 1789999700, "lastSeenAt": 1790000000, "actions": [], "explanation": {"v": 1, "check": "credential_stuffing", "mode": {"configured": "protect", "effective": "protect", "reason": null}, "thresholds": {"window": 600, "min_failures": 10, "min_names": 5, "net_factor": 3}, "facts": {"rule": "source", "failures": 14, "names": 6, "sources": 1, "first": 1789999500, "last": 1789999980, "targets": ["alice", "bob"], "risk": {"score": 45, "tier": "elevated", "factors": [{"id": "failures", "value": "30", "points": 2}]}, "loweredLimits": {"min_names": {"plain": 5, "effective": 3}}}, "first": 1789999700, "last": 1790000000}},
+			"reads": {
+				"narrative": [
+					"Between date:1789999500 and time:1789999980 the address 203.0.113.5 failed to log in 14 times, trying 6 different accounts.",
+					"2 of them exist: alice, bob.",
+					"The limit at that time was 10 failures for 5 accounts within 10 minutes."
+				]
+			}
+		},
+		"network": {
+			"detection": {"id": 41, "checkId": "credential_stuffing", "severity": "high", "enforced": true, "ip": "203.0.113.5", "netKey": "4:203.0.113.0/24", "uid": null, "shareId": null, "hits": 1, "createdAt": 1789999700, "lastSeenAt": 1790000000, "actions": [], "explanation": {"v": 1, "check": "credential_stuffing", "mode": {"configured": "protect", "effective": "protect", "reason": null}, "thresholds": {"window": 300, "min_failures": 10, "min_names": 5, "net_factor": 4}, "facts": {"rule": "network", "failures": 40, "names": 20, "sources": 7, "first": 1789999500, "last": 1789999980, "net": "4:198.51.100.0/24", "targets": []}, "first": 1789999700, "last": 1790000000}},
+			"reads": {
+				"narrative": [
+					"Between date:1789999500 and time:1789999980 the network 4:198.51.100.0/24 failed to log in 40 times from 7 addresses, trying 20 different accounts.",
+					"The limit for a network at that time was 40 failures for 20 accounts within 5 minutes."
+				]
+			}
+		},
+		"distributed": {
+			"detection": {"id": 41, "checkId": "credential_stuffing", "severity": "high", "enforced": true, "ip": null, "netKey": "4:203.0.113.0/24", "uid": null, "shareId": null, "hits": 1, "createdAt": 1789999700, "lastSeenAt": 1790000000, "actions": [], "explanation": {"v": 1, "check": "credential_stuffing", "mode": {"configured": "protect", "effective": "protect", "reason": null}, "thresholds": {"distributed_min_failures": 500, "distributed_min_sources": 100, "distributed_min_names": 100}, "facts": {"rule": "distributed", "failures": 900, "names": 300, "sources": 250, "first": 1789999410, "last": 1790000000, "distributed": true}, "first": 1789999700, "last": 1790000000}},
+			"reads": {
+				"narrative": [
+					"Between date:1789999410 and time:1790000000 the whole server saw 900 failed logins from 250 different addresses, trying 300 different accounts. This is a botnet spreading its attempts thin.",
+					"The limit at that time was 500 failures from 100 addresses for 100 accounts within 10 minutes.",
+					"While the attack lasts, and for an hour after it, successful logins from every address that fails need extra confirmation, and addresses that fail 3 times for 2 accounts are blocked."
+				]
+			}
+		},
+		"old row": {
+			"detection": {"id": 41, "checkId": "credential_stuffing", "severity": "high", "enforced": true, "ip": "203.0.113.5", "netKey": "4:203.0.113.0/24", "uid": null, "shareId": null, "hits": 1, "createdAt": 1789999700, "lastSeenAt": 1790000000, "actions": [], "explanation": {"v": 1, "check": "credential_stuffing", "mode": {"configured": "protect", "effective": "protect", "reason": null}, "thresholds": [], "facts": {"failures": 12, "names": 5}, "first": 1789999700, "last": 1790000000}},
+			"reads": {
+				"narrative": [
+					"Between date:1789999700 and time:1790000000 the address 203.0.113.5 failed to log in 12 times, trying 5 different accounts.",
+					"The limit at that time was 0 failures for 0 accounts within 10 minutes."
+				]
+			}
+		}
+	},
+	"decoy_credential": {
+		"secret": {
+			"detection": {"id": 41, "checkId": "decoy_credential", "severity": "high", "enforced": true, "ip": "203.0.113.5", "netKey": "4:203.0.113.0/24", "uid": null, "shareId": null, "hits": 2, "createdAt": 1789999700, "lastSeenAt": 1790000000, "actions": [], "explanation": {"v": 1, "check": "decoy_credential", "mode": {"configured": "protect", "effective": "protect", "reason": null}, "thresholds": [], "facts": {"decoy": 3, "label": "wiki admin", "format": "password", "match": "secret"}, "first": 1789999700, "last": 1790000000}},
+			"reads": {
+				"narrative": [
+					"The address 203.0.113.5 used the decoy credential \"wiki admin\".",
+					"It was planted on purpose and is never used legitimately, so whoever used it found it where it was placed.",
+					"It was used 2 times between date:1789999700 and time:1790000000."
+				]
+			}
+		},
+		"login name": {
+			"detection": {"id": 41, "checkId": "decoy_credential", "severity": "high", "enforced": true, "ip": "203.0.113.5", "netKey": "4:203.0.113.0/24", "uid": null, "shareId": null, "hits": 1, "createdAt": 1789999700, "lastSeenAt": 1790000000, "actions": [], "explanation": {"v": 1, "check": "decoy_credential", "mode": {"configured": "protect", "effective": "protect", "reason": null}, "thresholds": [], "facts": {"decoy": 3, "label": "wiki admin", "format": "password", "match": "login_name"}, "first": 1789999700, "last": 1790000000}},
+			"reads": {
+				"narrative": [
+					"The address 203.0.113.5 tried to log in with the account name of the decoy \"wiki admin\", but not with its secret.",
+					"Someone has seen where the decoy is planted, or guessed the name. This is a weaker sign than using the secret."
+				]
+			}
+		}
+	},
+	"directory_scraping": {
+		"search": {
+			"detection": {"id": 41, "checkId": "directory_scraping", "severity": "high", "enforced": true, "ip": "203.0.113.5", "netKey": "4:203.0.113.0/24", "uid": "alice", "shareId": null, "hits": 3, "createdAt": 1789999700, "lastSeenAt": 1790000000, "actions": [], "explanation": {"v": 1, "check": "directory_scraping", "mode": {"configured": "protect", "effective": "protect", "reason": null}, "thresholds": [], "facts": {"group": "search", "count": 230, "limit": 200, "window": 600, "until": 1790000300}, "first": 1789999700, "last": 1790000000}},
+			"reads": {
+				"narrative": [
+					"The account alice made 230 searches for people within 10 minutes, from 203.0.113.5. The limit at that time was 200.",
+					"People do not read the directory this fast. The account may be used to copy the list of people on this server, by someone who got into it or by its owner.",
+					"It went above a limit again 2 more times within the hour."
+				],
+				"headline": "alice is reading the user directory unusually fast",
+				"userNotice": {
+					"subject": "Unusually many searches from your account",
+					"message": ["Your account searched for people or opened profiles much faster than a person does. Further requests of this kind are refused for a few minutes."],
+					"advice": ["If you did not do this, change your password now and check your devices and app passwords in your security settings."]
+				}
+			}
+		},
+		"old row": {
+			"detection": {"id": 41, "checkId": "directory_scraping", "severity": "high", "enforced": true, "ip": "203.0.113.5", "netKey": "4:203.0.113.0/24", "uid": "alice", "shareId": null, "hits": 1, "createdAt": 1789999700, "lastSeenAt": 1790000000, "actions": [], "explanation": {"v": 1, "check": "directory_scraping", "mode": {"configured": "protect", "effective": "protect", "reason": null}, "thresholds": [], "facts": {"group": "profile", "count": 1200, "limit": 1000}, "first": 1789999700, "last": 1790000000}},
+			"reads": {
+				"narrative": [
+					"The account alice made 1200 requests for profiles and avatars within 10 minutes, from 203.0.113.5. The limit at that time was 1000.",
+					"People do not read the directory this fast. The account may be used to copy the list of people on this server, by someone who got into it or by its owner."
+				],
+				"headline": "alice is reading the user directory unusually fast",
+				"userNotice": {
+					"subject": "Unusually many searches from your account",
+					"message": ["Your account searched for people or opened profiles much faster than a person does. Further requests of this kind are refused for a few minutes."],
+					"advice": ["If you did not do this, change your password now and check your devices and app passwords in your security settings."]
+				}
+			}
+		}
+	},
+	"injection_probe": {
+		"form, logged in": {
+			"detection": {"id": 41, "checkId": "injection_probe", "severity": "high", "enforced": true, "ip": "203.0.113.5", "netKey": "4:203.0.113.0/24", "uid": "alice", "shareId": null, "hits": 2, "createdAt": 1789999700, "lastSeenAt": 1790000000, "actions": [], "explanation": {"v": 1, "check": "injection_probe", "mode": {"configured": "protect", "effective": "protect", "reason": null}, "thresholds": [], "facts": {"location": "form", "param": "q", "signatures": ["sql_union", "sql_comment"], "weights": {"sql_union": 3, "sql_comment": 1}, "weight": 4, "minWeight": 3, "encoding": "base64", "excerpt": "' UNION SELECT", "otherParams": ["id", "sort"], "signaturesVersion": 4, "authenticated": true, "credential": "session"}, "first": 1789999700, "last": 1790000000}},
+			"reads": {
+				"narrative": [
+					"The address 203.0.113.5 sent a request in which the form field \"q\" matched these signatures: sql_union (3), sql_comment (1). Their total weight was 4; the limit was 3.",
+					"The value was hidden in base64; it matched after decoding.",
+					"The suspicious part read: “' UNION SELECT”",
+					"These parameters matched as well: id, sort.",
+					"The request came from the logged-in account alice. Check whether this account is being used to probe the server.",
+					"Requests like this came 2 times within the hour."
+				],
+				"keepsFromUser": true
+			}
+		},
+		"path": {
+			"detection": {"id": 41, "checkId": "injection_probe", "severity": "high", "enforced": true, "ip": "203.0.113.5", "netKey": "4:203.0.113.0/24", "uid": null, "shareId": null, "hits": 1, "createdAt": 1789999700, "lastSeenAt": 1790000000, "actions": [], "explanation": {"v": 1, "check": "injection_probe", "mode": {"configured": "protect", "effective": "protect", "reason": null}, "thresholds": [], "facts": {"location": "path", "param": "", "signatures": ["traversal"], "weights": {"traversal": 5}, "weight": 5, "minWeight": 3, "encoding": "base64_twice", "excerpt": "", "otherParams": [], "signaturesVersion": 4, "authenticated": false, "credential": null}, "first": 1789999700, "last": 1790000000}},
+			"reads": {
+				"narrative": [
+					"The address 203.0.113.5 sent a request in which the path of the web address matched these signatures: traversal (5). Their total weight was 5; the limit was 3.",
+					"The value was hidden in base64 twice; it matched after decoding it two times.",
+					"The request was not logged in."
+				],
+				"keepsFromUser": true
+			}
+		},
+		"old row": {
+			"detection": {"id": 41, "checkId": "injection_probe", "severity": "high", "enforced": true, "ip": null, "netKey": "4:203.0.113.0/24", "uid": null, "shareId": null, "hits": 1, "createdAt": 1789999700, "lastSeenAt": 1790000000, "actions": [], "explanation": {"v": 1, "check": "injection_probe", "mode": {"configured": "protect", "effective": "protect", "reason": null}, "thresholds": [], "facts": {"location": "query", "param": "id"}, "first": 1789999700, "last": 1790000000}},
+			"reads": {
+				"narrative": [
+					"The address ? sent a request in which the parameter \"id\" of the web address matched these signatures: none. Their total weight was 0; the limit was 0.",
+					"The value matched as it was sent, after URL decoding.",
+					"The request was not logged in."
+				],
+				"keepsFromUser": true
+			}
+		}
+	},
+	"login_flow_mismatch": {
+		"initiator blocked": {
+			"detection": {"id": 41, "checkId": "login_flow_mismatch", "severity": "high", "enforced": true, "ip": "203.0.113.5", "netKey": "4:203.0.113.0/24", "uid": "alice", "shareId": null, "hits": 1, "createdAt": 1789999700, "lastSeenAt": 1790000000, "actions": [{"type": "revoke_token", "enforced": true}], "explanation": {"v": 1, "check": "login_flow_mismatch", "mode": {"configured": "protect", "effective": "protect", "reason": null}, "thresholds": [], "facts": {"rule": "initiator_blocked", "initiator": "198.51.100.2", "granter": "203.0.113.5", "age": 40, "startedAt": 1789999960, "client": "Nextcloud Files (iOS)", "tokenId": 12, "trusted": false, "first": 1789999960, "last": 1790000000}, "first": 1789999700, "last": 1790000000}},
+			"reads": {
+				"narrative": [
+					"The account alice approved a login request for the new device \"Nextcloud Files (iOS)\".",
+					"The request was started from 198.51.100.2, an address that was blocked at that time, and approved from 203.0.113.5."
+				],
+				"userNotice": {
+					"subject": "A new device was connected to your account",
+					"message": ["A new device was connected to your account: Unknown browser on iOS.", "The request came from 198.51.100.2, you approved it from 203.0.113.5.", "Nextcloud disconnected the device again to be safe. If it was yours, connect it once more."],
+					"advice": []
+				},
+				"asksWasThisYou": false
+			}
+		},
+		"initiator flagged": {
+			"detection": {"id": 41, "checkId": "login_flow_mismatch", "severity": "high", "enforced": true, "ip": "203.0.113.5", "netKey": "4:203.0.113.0/24", "uid": "alice", "shareId": null, "hits": 1, "createdAt": 1789999700, "lastSeenAt": 1790000000, "actions": [], "explanation": {"v": 1, "check": "login_flow_mismatch", "mode": {"configured": "protect", "effective": "protect", "reason": null}, "thresholds": [], "facts": {"rule": "initiator_flagged", "initiator": "198.51.100.2", "granter": "203.0.113.5", "age": 40, "startedAt": 1789999960, "client": "", "tokenId": 12, "trusted": false, "first": 1789999960, "last": 1790000000}, "first": 1789999700, "last": 1790000000}},
+			"reads": {
+				"narrative": [
+					"The account alice approved a login request for the new device \"\".",
+					"The request was started from 198.51.100.2, an address that was marked as attacking at that time, and approved from 203.0.113.5."
+				],
+				"userNotice": {
+					"subject": "A new device was connected to your account",
+					"message": ["A new device was connected to your account.", "The request came from 198.51.100.2, you approved it from 203.0.113.5.", "If this was not you, remove the device in your security settings and change your password."],
+					"advice": []
+				},
+				"asksWasThisYou": false
+			}
+		},
+		"other network, trusted": {
+			"detection": {"id": 41, "checkId": "login_flow_mismatch", "severity": "medium", "enforced": true, "ip": "203.0.113.5", "netKey": "4:203.0.113.0/24", "uid": "alice", "shareId": null, "hits": 1, "createdAt": 1789999700, "lastSeenAt": 1790000000, "actions": [], "explanation": {"v": 1, "check": "login_flow_mismatch", "mode": {"configured": "protect", "effective": "protect", "reason": null}, "thresholds": [], "facts": {"rule": "other_network", "initiator": "198.51.100.2", "granter": "203.0.113.5", "age": 40, "startedAt": 1789999960, "client": "Mozilla/5.0 (Linux; Android 14) Nextcloud-android/3.29.0", "tokenId": 12, "trusted": true, "first": 1789999960, "last": 1790000000}, "first": 1789999700, "last": 1790000000}},
+			"reads": {
+				"narrative": [
+					"The account alice approved a login request for the new device \"Mozilla/5.0 (Linux; Android 14) Nextcloud-android/3.29.0\".",
+					"The request was started from 198.51.100.2 and approved from 203.0.113.5, which is in another network.",
+					"The request was started in a network the person confirmed as their own, so it counts as low and was only recorded."
+				],
+				"userNotice": {
+					"subject": "A new device was connected to your account",
+					"message": ["A new device was connected to your account: Nextcloud Android app on Android.", "The request came from 198.51.100.2, you approved it from 203.0.113.5.", "If this was not you, remove the device in your security settings and change your password."],
+					"advice": []
+				},
+				"asksWasThisYou": true
+			}
+		},
+		"too old": {
+			"detection": {"id": 41, "checkId": "login_flow_mismatch", "severity": "medium", "enforced": true, "ip": "203.0.113.5", "netKey": "4:203.0.113.0/24", "uid": "alice", "shareId": null, "hits": 1, "createdAt": 1789999700, "lastSeenAt": 1790000000, "actions": [], "explanation": {"v": 1, "check": "login_flow_mismatch", "mode": {"configured": "protect", "effective": "protect", "reason": null}, "thresholds": {"max_age": 900, "medium_revoke": false}, "facts": {"rule": "too_old", "initiator": "198.51.100.2", "granter": "203.0.113.5", "age": 1800, "startedAt": 1789998200, "client": "Desktop", "tokenId": 12, "trusted": false, "first": 1789998200, "last": 1790000000}, "first": 1789999700, "last": 1790000000}},
+			"reads": {
+				"narrative": [
+					"The account alice approved a login request for the new device \"Desktop\".",
+					"The request was approved 30 minutes after it was started. The limit at that time was 15 minutes.",
+					"It was started from 198.51.100.2 and approved from 203.0.113.5."
+				],
+				"userNotice": {
+					"subject": "A new device was connected to your account",
+					"message": ["A new device was connected to your account.", "The request came from 198.51.100.2, you approved it from 203.0.113.5.", "It was approved 30 minutes after it was started. Real devices are usually approved within a minute or two.", "If this was not you, remove the device in your security settings and change your password."],
+					"advice": []
+				},
+				"asksWasThisYou": true
+			}
+		},
+		"too old, unknown initiator": {
+			"detection": {"id": 41, "checkId": "login_flow_mismatch", "severity": "low", "enforced": true, "ip": "203.0.113.5", "netKey": "4:203.0.113.0/24", "uid": "alice", "shareId": null, "hits": 1, "createdAt": 1789999700, "lastSeenAt": 1790000000, "actions": [], "explanation": {"v": 1, "check": "login_flow_mismatch", "mode": {"configured": "protect", "effective": "protect", "reason": null}, "thresholds": [], "facts": {"rule": "too_old", "initiator": null, "granter": "203.0.113.5", "age": 700, "startedAt": 1789999300, "client": "Desktop", "tokenId": 12, "trusted": false, "first": 1789999300, "last": 1790000000}, "first": 1789999700, "last": 1790000000}},
+			"reads": {
+				"narrative": [
+					"The account alice approved a login request for the new device \"Desktop\".",
+					"The request was approved 700 seconds after it was started. The limit at that time was 10 minutes.",
+					"It was approved from 203.0.113.5; where it was started is not known."
+				],
+				"userNotice": {
+					"subject": "A new device was connected to your account",
+					"message": ["A new device was connected to your account.", "You approved the request from 203.0.113.5.", "It was approved 700 seconds after it was started. Real devices are usually approved within a minute or two.", "If this was not you, remove the device in your security settings and change your password."],
+					"advice": []
+				},
+				"asksWasThisYou": false
+			}
+		},
+		"other family": {
+			"detection": {"id": 41, "checkId": "login_flow_mismatch", "severity": "low", "enforced": true, "ip": "203.0.113.5", "netKey": "4:203.0.113.0/24", "uid": "alice", "shareId": null, "hits": 1, "createdAt": 1789999700, "lastSeenAt": 1790000000, "actions": [], "explanation": {"v": 1, "check": "login_flow_mismatch", "mode": {"configured": "protect", "effective": "protect", "reason": null}, "thresholds": [], "facts": {"rule": "other_family", "initiator": "2001:db8::1", "granter": "203.0.113.5", "age": 40, "startedAt": 1789999960, "client": "Desktop", "tokenId": 12, "trusted": false, "first": 1789999960, "last": 1790000000}, "first": 1789999700, "last": 1790000000}},
+			"reads": {
+				"narrative": [
+					"The account alice approved a login request for the new device \"Desktop\".",
+					"The request was started from 2001:db8::1 and approved from 203.0.113.5. One of them is IPv4 and the other IPv6, which is normal for devices that use both, so this was only recorded."
+				],
+				"userNotice": {
+					"subject": "A new device was connected to your account",
+					"message": ["A new device was connected to your account.", "The request came from 2001:db8::1, you approved it from 203.0.113.5.", "If this was not you, remove the device in your security settings and change your password."],
+					"advice": []
+				},
+				"asksWasThisYou": false
+			}
+		}
+	},
+	"password_spraying": {
+		"spray": {
+			"detection": {"id": 41, "checkId": "password_spraying", "severity": "high", "enforced": true, "ip": "203.0.113.5", "netKey": "4:203.0.113.0/24", "uid": null, "shareId": null, "hits": 1, "createdAt": 1789999700, "lastSeenAt": 1790000000, "actions": [], "explanation": {"v": 1, "check": "password_spraying", "mode": {"configured": "protect", "effective": "protect", "reason": null}, "thresholds": {"window": 1800, "min_names": 5}, "facts": {"rule": "spray", "failures": 40, "names": 25, "sources": 9, "banTargets": 4, "listed": 7, "first": 1789998500, "last": 1789999970, "targets": ["alice", "bob", "carol"], "risk": {"score": 45, "tier": "elevated", "factors": [{"id": "failures", "value": "30", "points": 2}]}, "loweredLimits": {"min_names": {"plain": 5, "effective": 3}}}, "first": 1789999700, "last": 1790000000}},
+			"reads": {
+				"narrative": [
+					"Between date:1789998500 and time:1789999970 one password was tried against 25 different accounts, from 9 different addresses.",
+					"3 of them exist: alice, bob, carol.",
+					"The limit at that time was 5 accounts within 30 minutes.",
+					"3 addresses tried it for only one account each and were not blocked: those may be people who mistyped.",
+					"2 more addresses tried it, but one detection blocks at most 500 addresses.",
+					"The password itself is never stored. Nextcloud keeps only a keyed fingerprint of it, to recognise it again."
+				],
+				"userNotice": {
+					"subject": "Your password is on attackers' lists",
+					"message": ["Someone logged in to your account with a password that attackers are trying against many accounts on this server right now.", "That does not mean that Nextcloud leaked it: attackers try common passwords and passwords stolen from other websites. But they know this one."],
+					"advice": ["Change your password to one that you use nowhere else.", "If the login was not you, also answer \"No, it was not me\"."]
+				},
+				"asksWasThisYou": false
+			}
+		},
+		"spray, old row": {
+			"detection": {"id": 41, "checkId": "password_spraying", "severity": "high", "enforced": true, "ip": "203.0.113.5", "netKey": "4:203.0.113.0/24", "uid": null, "shareId": null, "hits": 1, "createdAt": 1789999700, "lastSeenAt": 1790000000, "actions": [], "explanation": {"v": 1, "check": "password_spraying", "mode": {"configured": "protect", "effective": "protect", "reason": null}, "thresholds": [], "facts": {"rule": "spray", "failures": 40, "names": 25, "sources": 9, "banTargets": 4, "first": 1789998500, "last": 1789999970}, "first": 1789999700, "last": 1790000000}},
+			"reads": {
+				"narrative": [
+					"Between date:1789998500 and time:1789999970 one password was tried against 25 different accounts, from 9 different addresses.",
+					"The limit at that time was 0 accounts within 1 hour.",
+					"5 more addresses tried it, but one detection blocks at most 500 addresses.",
+					"The password itself is never stored. Nextcloud keeps only a keyed fingerprint of it, to recognise it again."
+				],
+				"userNotice": {
+					"subject": "Your password is on attackers' lists",
+					"message": ["Someone logged in to your account with a password that attackers are trying against many accounts on this server right now.", "That does not mean that Nextcloud leaked it: attackers try common passwords and passwords stolen from other websites. But they know this one."],
+					"advice": ["Change your password to one that you use nowhere else.", "If the login was not you, also answer \"No, it was not me\"."]
+				},
+				"asksWasThisYou": false
+			}
+		},
+		"spray, nobody blocked": {
+			"detection": {"id": 41, "checkId": "password_spraying", "severity": "high", "enforced": true, "ip": "203.0.113.5", "netKey": "4:203.0.113.0/24", "uid": null, "shareId": null, "hits": 1, "createdAt": 1789999700, "lastSeenAt": 1790000000, "actions": [], "explanation": {"v": 1, "check": "password_spraying", "mode": {"configured": "protect", "effective": "protect", "reason": null}, "thresholds": [], "facts": {"rule": "spray", "failures": 6, "names": 5, "sources": 3, "banTargets": 0, "listed": 3}, "first": 1789999700, "last": 1790000000}},
+			"reads": {
+				"narrative": [
+					"Between date:1789999700 and time:1790000000 one password was tried against 5 different accounts, from 3 different addresses.",
+					"The limit at that time was 0 accounts within 1 hour.",
+					"3 addresses tried it for only one account each and were not blocked: those may be people who mistyped.",
+					"The password itself is never stored. Nextcloud keeps only a keyed fingerprint of it, to recognise it again."
+				],
+				"userNotice": {
+					"subject": "Your password is on attackers' lists",
+					"message": ["Someone logged in to your account with a password that attackers are trying against many accounts on this server right now.", "That does not mean that Nextcloud leaked it: attackers try common passwords and passwords stolen from other websites. But they know this one."],
+					"advice": ["Change your password to one that you use nowhere else.", "If the login was not you, also answer \"No, it was not me\"."]
+				},
+				"asksWasThisYou": false
+			}
+		},
+		"flagged": {
+			"detection": {"id": 41, "checkId": "password_spraying", "severity": "high", "enforced": true, "ip": "203.0.113.5", "netKey": "4:203.0.113.0/24", "uid": null, "shareId": null, "hits": 1, "createdAt": 1789999700, "lastSeenAt": 1790000000, "actions": [], "explanation": {"v": 1, "check": "password_spraying", "mode": {"configured": "protect", "effective": "protect", "reason": null}, "thresholds": [], "facts": {"rule": "flagged_password", "names": 3}, "first": 1789999700, "last": 1790000000}},
+			"reads": {
+				"narrative": [
+					"The address 203.0.113.5 tried a password that is being tried against many accounts right now, for 3 accounts itself, so it was treated as part of that attack."
+				],
+				"userNotice": {
+					"subject": "Your password is on attackers' lists",
+					"message": ["Someone logged in to your account with a password that attackers are trying against many accounts on this server right now.", "That does not mean that Nextcloud leaked it: attackers try common passwords and passwords stolen from other websites. But they know this one."],
+					"advice": ["Change your password to one that you use nowhere else.", "If the login was not you, also answer \"No, it was not me\"."]
+				},
+				"asksWasThisYou": false
+			}
+		},
+		"flagged at once": {
+			"detection": {"id": 41, "checkId": "password_spraying", "severity": "high", "enforced": true, "ip": "203.0.113.5", "netKey": "4:203.0.113.0/24", "uid": null, "shareId": null, "hits": 1, "createdAt": 1789999700, "lastSeenAt": 1790000000, "actions": [], "explanation": {"v": 1, "check": "password_spraying", "mode": {"configured": "protect", "effective": "protect", "reason": null}, "thresholds": [], "facts": {"rule": "flagged_password"}, "first": 1789999700, "last": 1790000000}},
+			"reads": {
+				"narrative": [
+					"The address 203.0.113.5 tried a password that is being tried against many accounts right now, so it was treated as part of that attack at once."
+				],
+				"userNotice": {
+					"subject": "Your password is on attackers' lists",
+					"message": ["Someone logged in to your account with a password that attackers are trying against many accounts on this server right now.", "That does not mean that Nextcloud leaked it: attackers try common passwords and passwords stolen from other websites. But they know this one."],
+					"advice": ["Change your password to one that you use nowhere else.", "If the login was not you, also answer \"No, it was not me\"."]
+				},
+				"asksWasThisYou": false
+			}
+		},
+		"login by a client": {
+			"detection": {"id": 41, "checkId": "password_spraying", "severity": "high", "enforced": true, "ip": "203.0.113.5", "netKey": "4:203.0.113.0/24", "uid": "alice", "shareId": null, "hits": 2, "createdAt": 1789999700, "lastSeenAt": 1790000000, "actions": [{"type": "force_password_change", "enforced": true}], "explanation": {"v": 1, "check": "password_spraying", "mode": {"configured": "protect", "effective": "protect", "reason": null}, "thresholds": [], "facts": {"rule": "login_success", "client": true}, "first": 1789999700, "last": 1790000000}},
+			"reads": {
+				"narrative": [
+					"At date:1789999700 an app or script logged in as alice from 203.0.113.5 with a password that is being tried against many accounts right now.",
+					"It logged in with it 2 times within the hour.",
+					"Attackers know this password, so the account holder must confirm such logins and choose a new one."
+				],
+				"userNotice": {
+					"subject": "Your password is on attackers' lists",
+					"message": ["Someone logged in to your account with a password that attackers are trying against many accounts on this server right now.", "That does not mean that Nextcloud leaked it: attackers try common passwords and passwords stolen from other websites. But they know this one."],
+					"advice": ["You will be asked to choose a new password. Choose one that you use nowhere else.", "If the login was not you, also answer \"No, it was not me\"."]
+				},
+				"asksWasThisYou": true
+			}
+		},
+		"login": {
+			"detection": {"id": 41, "checkId": "password_spraying", "severity": "high", "enforced": true, "ip": "203.0.113.5", "netKey": "4:203.0.113.0/24", "uid": "alice", "shareId": null, "hits": 1, "createdAt": 1789999700, "lastSeenAt": 1790000000, "actions": [], "explanation": {"v": 1, "check": "password_spraying", "mode": {"configured": "protect", "effective": "protect", "reason": null}, "thresholds": [], "facts": {"rule": "login_success", "client": false}, "first": 1789999700, "last": 1790000000}},
+			"reads": {
+				"narrative": [
+					"At date:1789999700 alice logged in from 203.0.113.5 with a password that is being tried against many accounts right now.",
+					"Attackers know this password, so the account holder must confirm such logins and choose a new one."
+				],
+				"userNotice": {
+					"subject": "Your password is on attackers' lists",
+					"message": ["Someone logged in to your account with a password that attackers are trying against many accounts on this server right now.", "That does not mean that Nextcloud leaked it: attackers try common passwords and passwords stolen from other websites. But they know this one."],
+					"advice": ["Change your password to one that you use nowhere else.", "If the login was not you, also answer \"No, it was not me\"."]
+				},
+				"asksWasThisYou": true
+			}
+		},
+		"no rule": {
+			"detection": {"id": 41, "checkId": "password_spraying", "severity": "high", "enforced": true, "ip": "203.0.113.5", "netKey": "4:203.0.113.0/24", "uid": "alice", "shareId": null, "hits": 1, "createdAt": 1789999700, "lastSeenAt": 1790000000, "actions": [], "explanation": {"v": 1, "check": "password_spraying", "mode": {"configured": "protect", "effective": "protect", "reason": null}, "thresholds": [], "facts": [], "first": 1789999700, "last": 1790000000}},
+			"reads": {
+				"narrative": [
+					"Between date:1789999700 and time:1790000000 one password was tried against 0 different accounts, from 0 different addresses.",
+					"The limit at that time was 0 accounts within 1 hour.",
+					"The password itself is never stored. Nextcloud keeps only a keyed fingerprint of it, to recognise it again."
+				],
+				"userNotice": {
+					"subject": "Your password is on attackers' lists",
+					"message": ["Someone logged in to your account with a password that attackers are trying against many accounts on this server right now.", "That does not mean that Nextcloud leaked it: attackers try common passwords and passwords stolen from other websites. But they know this one."],
+					"advice": ["Change your password to one that you use nowhere else.", "If the login was not you, also answer \"No, it was not me\"."]
+				},
+				"asksWasThisYou": false
+			}
+		}
+	},
+	"reserved_name": {
+		"name": {
+			"detection": {"id": 41, "checkId": "reserved_name", "severity": "high", "enforced": true, "ip": "203.0.113.5", "netKey": "4:203.0.113.0/24", "uid": null, "shareId": null, "hits": 4, "createdAt": 1789999700, "lastSeenAt": 1790000000, "actions": [], "explanation": {"v": 1, "check": "reserved_name", "mode": {"configured": "protect", "effective": "protect", "reason": null}, "thresholds": [], "facts": {"name": "admin"}, "first": 1789999700, "last": 1790000000}},
+			"reads": {
+				"narrative": [
+					"The address 203.0.113.5 tried to log in as \"admin\", a reserved name that no account uses.",
+					"It tried 4 times between date:1789999700 and time:1790000000."
+				]
+			}
+		},
+		"old row": {
+			"detection": {"id": 41, "checkId": "reserved_name", "severity": "high", "enforced": true, "ip": "203.0.113.5", "netKey": "4:203.0.113.0/24", "uid": null, "shareId": null, "hits": 1, "createdAt": 1789999700, "lastSeenAt": 1790000000, "actions": [], "explanation": {"v": 1, "check": "reserved_name", "mode": {"configured": "protect", "effective": "protect", "reason": null}, "thresholds": [], "facts": [], "first": 1789999700, "last": 1790000000}},
+			"reads": {
+				"narrative": [
+					"The address 203.0.113.5 tried to log in as \"\", a reserved name that no account uses."
+				]
+			}
+		}
+	},
+	"reset_probing": {
+		"enumeration, sampled": {
+			"detection": {"id": 41, "checkId": "reset_probing", "severity": "high", "enforced": true, "ip": "203.0.113.5", "netKey": "4:203.0.113.0/24", "uid": null, "shareId": null, "hits": 1, "createdAt": 1789999700, "lastSeenAt": 1790000000, "actions": [], "explanation": {"v": 1, "check": "reset_probing", "mode": {"configured": "protect", "effective": "protect", "reason": null}, "thresholds": {"enum_window": 600, "enum_min_inputs": 5, "flood_window": 3600, "flood_min_requests": 10}, "facts": {"rule": "enumeration", "inputs": 24, "requests": 30, "sampleFactor": 3, "targets": ["alice"], "first": 1789999500, "last": 1789999995, "risk": {"score": 45, "tier": "elevated", "factors": [{"id": "failures", "value": "30", "points": 2}]}, "loweredLimits": {"min_names": {"plain": 5, "effective": 3}}}, "first": 1789999700, "last": 1790000000}},
+			"reads": {
+				"narrative": [
+					"Between date:1789999500 and time:1789999995 the address 203.0.113.5 asked for password resets for about 24 different names or email addresses (about 30 requests).",
+					"1 of them exists: alice.",
+					"The limit at that time was 5 different names or addresses within 10 minutes.",
+					"The server was receiving so many failed attempts that only one in 3 reset requests was recorded. The numbers are estimates from those."
+				],
+				"userNotice": {
+					"subject": "Someone asked for many password reset emails for your account",
+					"message": ["Someone asked for password reset emails for your account 30 times within 1 hour.", "Your password has not been changed.", "If it was not you, ignore these emails: nobody can use them without access to your mailbox."],
+					"advice": []
+				}
+			}
+		},
+		"flood, held back": {
+			"detection": {"id": 41, "checkId": "reset_probing", "severity": "high", "enforced": true, "ip": null, "netKey": "4:203.0.113.0/24", "uid": "alice", "shareId": null, "hits": 1, "createdAt": 1789999700, "lastSeenAt": 1790000000, "actions": [{"type": "suppress_reset_mail", "enforced": true, "ref": {"until": 1790001800, "latest": 1790007200}}], "explanation": {"v": 1, "check": "reset_probing", "mode": {"configured": "protect", "effective": "protect", "reason": null}, "thresholds": {"flood_window": 3600, "flood_min_requests": 10}, "facts": {"rule": "flood", "requests": 12, "sources": 4, "sampleFactor": 1, "lastSource": "198.51.100.40", "first": 1789998000, "last": 1789999995}, "first": 1789999700, "last": 1790000000}},
+			"reads": {
+				"narrative": [
+					"Between date:1789998000 and time:1789999995 someone asked 12 times for password reset emails for the account alice, from 4 different addresses.",
+					"The limit at that time was 10 requests for one account within 1 hour.",
+					"The most recent request came from 198.51.100.40."
+				],
+				"userNotice": {
+					"subject": "Someone asked for many password reset emails for your account",
+					"message": ["Someone asked for password reset emails for your account 12 times within 1 hour.", "Nextcloud stopped sending them until date:1790001800.", "If someone keeps asking, they stay held back until date:1790007200 at the latest, never longer.", "Your password has not been changed.", "If it was you, wait until then and try again."],
+					"advice": []
+				}
+			}
+		},
+		"flood": {
+			"detection": {"id": 41, "checkId": "reset_probing", "severity": "high", "enforced": true, "ip": null, "netKey": "4:203.0.113.0/24", "uid": "alice", "shareId": null, "hits": 1, "createdAt": 1789999700, "lastSeenAt": 1790000000, "actions": [], "explanation": {"v": 1, "check": "reset_probing", "mode": {"configured": "protect", "effective": "protect", "reason": null}, "thresholds": [], "facts": {"rule": "flood", "requests": 1, "sources": 1}, "first": 1789999700, "last": 1790000000}},
+			"reads": {
+				"narrative": [
+					"Between date:1789999700 and time:1790000000 someone asked 1 times for password reset emails for the account alice, from 1 different addresses.",
+					"The limit at that time was 0 requests for one account within 1 hour."
+				],
+				"userNotice": {
+					"subject": "Someone asked for many password reset emails for your account",
+					"message": ["Someone asked for password reset emails for your account 1 time within 1 hour.", "Your password has not been changed.", "If it was not you, ignore these emails: nobody can use them without access to your mailbox."],
+					"advice": []
+				}
+			}
+		},
+		"old row": {
+			"detection": {"id": 41, "checkId": "reset_probing", "severity": "high", "enforced": true, "ip": "203.0.113.5", "netKey": "4:203.0.113.0/24", "uid": null, "shareId": null, "hits": 1, "createdAt": 1789999700, "lastSeenAt": 1790000000, "actions": [], "explanation": {"v": 1, "check": "reset_probing", "mode": {"configured": "protect", "effective": "protect", "reason": null}, "thresholds": [], "facts": {"inputs": 6}, "first": 1789999700, "last": 1790000000}},
+			"reads": {
+				"narrative": [
+					"Between date:1789999700 and time:1790000000 the address 203.0.113.5 asked for password resets for 6 different names or email addresses (0 requests).",
+					"The limit at that time was 0 different names or addresses within 10 minutes."
+				],
+				"userNotice": {
+					"subject": "Someone asked for many password reset emails for your account",
+					"message": ["Someone asked for password reset emails for your account 0 times within 1 hour.", "Your password has not been changed.", "If it was not you, ignore these emails: nobody can use them without access to your mailbox."],
+					"advice": []
+				}
+			}
+		}
+	},
+	"risky_network": {
+		"tor": {
+			"detection": {"id": 41, "checkId": "risky_network", "severity": "high", "enforced": true, "ip": "203.0.113.5", "netKey": "4:203.0.113.0/24", "uid": "alice", "shareId": null, "hits": 1, "createdAt": 1789999700, "lastSeenAt": 1790000000, "actions": [], "explanation": {"v": 1, "check": "risky_network", "mode": {"configured": "protect", "effective": "protect", "reason": null}, "thresholds": [], "facts": {"attributes": ["tor"], "lists": [], "listNames": [], "client": false}, "first": 1789999700, "last": 1790000000}},
+			"reads": {
+				"narrative": [
+					"The account alice logged in with its password from 203.0.113.5, a Tor exit node.",
+					"Such logins are suspicious, not proof of an attack: attackers often use rented servers or Tor, but so do some VPNs."
+				],
+				"userNotice": {
+					"subject": "Login from a hosting or Tor network",
+					"message": ["Someone logged in to your account with your password from 203.0.113.5, an address of the Tor network."],
+					"advice": ["If this was you, for example through a VPN, there is nothing to do. If it was not you, change your password now and check your devices in your security settings."]
+				}
+			}
+		},
+		"hosting by a client": {
+			"detection": {"id": 41, "checkId": "risky_network", "severity": "high", "enforced": true, "ip": "203.0.113.5", "netKey": "4:203.0.113.0/24", "uid": "alice", "shareId": null, "hits": 2, "createdAt": 1789999700, "lastSeenAt": 1790000000, "actions": [], "explanation": {"v": 1, "check": "risky_network", "mode": {"configured": "protect", "effective": "protect", "reason": null}, "thresholds": [], "facts": {"attributes": ["hosting"], "lists": ["aws"], "listNames": ["Amazon AWS"], "client": true, "sessionTokenIds": [5]}, "first": 1789999700, "last": 1790000000}},
+			"reads": {
+				"narrative": [
+					"The account alice logged in with its password from 203.0.113.5, an address of a cloud or hosting provider (Amazon AWS).",
+					"It was an app or a script that sends the password with its requests, not the login page.",
+					"Such logins are suspicious, not proof of an attack: attackers often use rented servers or Tor, but so do some VPNs.",
+					"It happened 2 times within a day."
+				],
+				"userNotice": {
+					"subject": "Login from a hosting or Tor network",
+					"message": ["Someone logged in to your account with your password from 203.0.113.5, an address of a cloud or hosting provider."],
+					"advice": ["If this was you, for example through a VPN, there is nothing to do. If it was not you, change your password now and check your devices in your security settings."]
+				}
+			}
+		},
+		"hosting": {
+			"detection": {"id": 41, "checkId": "risky_network", "severity": "high", "enforced": true, "ip": "203.0.113.5", "netKey": "4:203.0.113.0/24", "uid": "alice", "shareId": null, "hits": 1, "createdAt": 1789999700, "lastSeenAt": 1790000000, "actions": [], "explanation": {"v": 1, "check": "risky_network", "mode": {"configured": "protect", "effective": "protect", "reason": null}, "thresholds": [], "facts": {"attributes": ["hosting"], "lists": [], "listNames": [], "client": false}, "first": 1789999700, "last": 1790000000}},
+			"reads": {
+				"narrative": [
+					"The account alice logged in with its password from 203.0.113.5, an address of a cloud or hosting provider.",
+					"Such logins are suspicious, not proof of an attack: attackers often use rented servers or Tor, but so do some VPNs."
+				],
+				"userNotice": {
+					"subject": "Login from a hosting or Tor network",
+					"message": ["Someone logged in to your account with your password from 203.0.113.5, an address of a cloud or hosting provider."],
+					"advice": ["If this was you, for example through a VPN, there is nothing to do. If it was not you, change your password now and check your devices in your security settings."]
+				}
+			}
+		}
+	},
+	"second_factor_failed": {
+		"all rules": {
+			"detection": {"id": 41, "checkId": "second_factor_failed", "severity": "high", "enforced": true, "ip": "203.0.113.5", "netKey": "4:203.0.113.0/24", "uid": "alice", "shareId": null, "hits": 2, "createdAt": 1789999700, "lastSeenAt": 1790000000, "actions": [], "explanation": {"v": 1, "check": "second_factor_failed", "mode": {"configured": "protect", "effective": "protect", "reason": null}, "thresholds": {"max_failures": 3, "max_failures_hour": 5}, "facts": {"provider": "totp", "providerName": "TOTP (Authenticator app)", "loginFailures": 3, "hourFailures": 6, "rules": ["flagged", "login", "hour"], "flag": "distributed", "sessionTokenId": 31, "first": 1789999970, "last": 1789999970}, "first": 1789999700, "last": 1790000000}},
+			"reads": {
+				"narrative": [
+					"alice entered the correct password from 203.0.113.5, but the second factor (TOTP (Authenticator app)) failed.",
+					"It failed 3 times in that login, and 6 times for this account within the hour.",
+					"The address had been flagged after an earlier attack, so the first failure was enough.",
+					"The limit at that time was 3 failures in one login.",
+					"The limit at that time was 5 failures for one account within an hour.",
+					"Whoever did this knows the password of the account.",
+					"It happened 2 times between date:1789999700 and time:1790000000."
+				],
+				"userNotice": {
+					"subject": "Someone entered your password, but not your second factor",
+					"message": ["Someone logged in to your account with your correct password, but could not confirm it with your second factor (TOTP (Authenticator app)).", "If this was you and you mistyped your code a few times, there is no harm done.", "If it was not you, someone knows your password. Your second factor stopped them."],
+					"advice": ["Choose a new password when you are asked at your next login, and do not use it anywhere else.", "If it was not you, also check your devices and sessions in your security settings."]
+				}
+			}
+		},
+		"old row": {
+			"detection": {"id": 41, "checkId": "second_factor_failed", "severity": "high", "enforced": true, "ip": "203.0.113.5", "netKey": "4:203.0.113.0/24", "uid": "alice", "shareId": null, "hits": 1, "createdAt": 1789999700, "lastSeenAt": 1790000000, "actions": [], "explanation": {"v": 1, "check": "second_factor_failed", "mode": {"configured": "protect", "effective": "protect", "reason": null}, "thresholds": [], "facts": {"provider": "totp", "loginFailures": 1}, "first": 1789999700, "last": 1790000000}},
+			"reads": {
+				"narrative": [
+					"alice entered the correct password from 203.0.113.5, but the second factor (totp) failed.",
+					"It failed 1 time in that login, and 0 times for this account within the hour.",
+					"Whoever did this knows the password of the account."
+				],
+				"userNotice": {
+					"subject": "Someone entered your password, but not your second factor",
+					"message": ["Someone logged in to your account with your correct password, but could not confirm it with your second factor (totp).", "If this was you and you mistyped your code a few times, there is no harm done.", "If it was not you, someone knows your password. Your second factor stopped them."],
+					"advice": ["Choose a new password when you are asked at your next login, and do not use it anywhere else.", "If it was not you, also check your devices and sessions in your security settings."]
+				}
+			}
+		},
+		"no provider": {
+			"detection": {"id": 41, "checkId": "second_factor_failed", "severity": "high", "enforced": true, "ip": "203.0.113.5", "netKey": "4:203.0.113.0/24", "uid": "alice", "shareId": null, "hits": 1, "createdAt": 1789999700, "lastSeenAt": 1790000000, "actions": [], "explanation": {"v": 1, "check": "second_factor_failed", "mode": {"configured": "protect", "effective": "protect", "reason": null}, "thresholds": [], "facts": {"loginFailures": 1, "hourFailures": 1, "rules": []}, "first": 1789999700, "last": 1790000000}},
+			"reads": {
+				"narrative": [
+					"alice entered the correct password from 203.0.113.5, but the second factor () failed.",
+					"It failed 1 time in that login, and 1 times for this account within the hour.",
+					"Whoever did this knows the password of the account."
+				],
+				"userNotice": {
+					"subject": "Someone entered your password, but not your second factor",
+					"message": ["Someone logged in to your account with your correct password, but could not confirm it with your second factor.", "If this was you and you mistyped your code a few times, there is no harm done.", "If it was not you, someone knows your password. Your second factor stopped them."],
+					"advice": ["Choose a new password when you are asked at your next login, and do not use it anywhere else.", "If it was not you, also check your devices and sessions in your security settings."]
+				}
+			}
+		}
+	},
+	"share_bruteforce": {
+		"tokens, sampled, logged in": {
+			"detection": {"id": 41, "checkId": "share_bruteforce", "severity": "high", "enforced": true, "ip": "203.0.113.5", "netKey": "4:203.0.113.0/24", "uid": "alice", "shareId": null, "hits": 1, "createdAt": 1789999700, "lastSeenAt": 1790000000, "actions": [], "explanation": {"v": 1, "check": "share_bruteforce", "mode": {"configured": "protect", "effective": "protect", "reason": null}, "thresholds": {"token_window": 600, "token_min": 10, "net_factor": 3}, "facts": {"rule": "tokens", "tokens": 40, "attempts": 60, "sources": 1, "sampleFactor": 2, "first": 1789999500, "last": 1789999999, "loggedIn": true, "federation": true, "risk": {"score": 45, "tier": "elevated", "factors": [{"id": "failures", "value": "30", "points": 2}]}, "loweredLimits": {"min_names": {"plain": 5, "effective": 3}}}, "first": 1789999700, "last": 1790000000}},
+			"reads": {
+				"narrative": [
+					"Between date:1789999500 and time:1789999999 the address 203.0.113.5 tried about 40 different share links that do not exist (about 60 attempts).",
+					"The limit at that time was 10 links within 10 minutes.",
+					"The most recent of these links was opened while logged in as alice. Links opened while logged in are reported, but never block the address.",
+					"The address opened a federated share of this server within the last day: it belongs to a server your users share files with, which may still open federated shares that were deleted here. Such an address is reported, but never blocked.",
+					"The server was receiving so many failed attempts that only one in 2 unknown links was recorded. The numbers are estimates from those."
+				],
+				"userNotice": {
+					"subject": "Someone is trying to guess the password of your share",
+					"message": ["Someone was trying to guess the password of one of your shares (0 wrong passwords within 1 hour). The share no longer exists."],
+					"advice": []
+				}
+			}
+		},
+		"tokens network": {
+			"detection": {"id": 41, "checkId": "share_bruteforce", "severity": "high", "enforced": true, "ip": "203.0.113.5", "netKey": "4:203.0.113.0/24", "uid": null, "shareId": null, "hits": 1, "createdAt": 1789999700, "lastSeenAt": 1790000000, "actions": [], "explanation": {"v": 1, "check": "share_bruteforce", "mode": {"configured": "protect", "effective": "protect", "reason": null}, "thresholds": {"token_window": 600, "token_min": 10, "net_factor": 4}, "facts": {"rule": "tokens_network", "tokens": 90, "attempts": 95, "sources": 6, "sampleFactor": 1, "first": 1789999500, "last": 1789999999, "net": "4:198.51.100.0/24", "partners": 2}, "first": 1789999700, "last": 1790000000}},
+			"reads": {
+				"narrative": [
+					"Between date:1789999500 and time:1789999999 the network 4:198.51.100.0/24 tried 90 different share links that do not exist, from 6 addresses.",
+					"The limit for a network at that time was 40 links within 10 minutes.",
+					"2 addresses of the network opened a federated share of this server within the last day and were not blocked."
+				],
+				"userNotice": {
+					"subject": "Someone is trying to guess the password of your share",
+					"message": ["Someone was trying to guess the password of one of your shares (0 wrong passwords within 1 hour). The share no longer exists."],
+					"advice": []
+				}
+			}
+		},
+		"password from one address": {
+			"detection": {"id": 41, "checkId": "share_bruteforce", "severity": "high", "enforced": true, "ip": "203.0.113.5", "netKey": "4:203.0.113.0/24", "uid": null, "shareId": 987654, "hits": 1, "createdAt": 1789999700, "lastSeenAt": 1790000000, "actions": [], "explanation": {"v": 1, "check": "share_bruteforce", "mode": {"configured": "protect", "effective": "protect", "reason": null}, "thresholds": {"password_source_window": 600, "password_min_per_source": 10}, "facts": {"rule": "password_source", "failures": 12, "first": 1789999600, "last": 1789999998, "owner": "alice", "managers": ["alice", "bob"], "share": "ocinternal:987654", "shareType": 3, "targets": ["alice", "bob"]}, "first": 1789999700, "last": 1790000000}},
+			"reads": {
+				"narrative": [
+					"Between date:1789999600 and time:1789999998 the address 203.0.113.5 entered 12 wrong passwords for a share of alice (share 987654).",
+					"The limit at that time was 10 wrong passwords for one share within 10 minutes."
+				],
+				"userNotice": {
+					"subject": "Someone is trying to guess the password of your share",
+					"message": ["Someone was trying to guess the password of one of your shares (12 wrong passwords within 10 minutes). The share no longer exists."],
+					"advice": []
+				}
+			}
+		},
+		"password from many addresses": {
+			"detection": {"id": 41, "checkId": "share_bruteforce", "severity": "high", "enforced": true, "ip": null, "netKey": "4:203.0.113.0/24", "uid": "alice", "shareId": 987654, "hits": 1, "createdAt": 1789999700, "lastSeenAt": 1790000000, "actions": [], "explanation": {"v": 1, "check": "share_bruteforce", "mode": {"configured": "protect", "effective": "protect", "reason": null}, "thresholds": {"password_share_window": 3600, "password_min_per_share": 20}, "facts": {"rule": "password_share", "failures": 30, "sources": 8, "first": 1789997000, "last": 1789999998, "lastSource": "198.51.100.77", "owner": "alice", "managers": ["alice"], "share": "ocinternal:987654", "shareType": 3, "targets": ["alice"]}, "first": 1789999700, "last": 1790000000}},
+			"reads": {
+				"narrative": [
+					"Between date:1789997000 and time:1789999998 a share of alice (share 987654) got 30 wrong passwords from 8 different addresses.",
+					"The limit at that time was 20 wrong passwords for one share within 1 hour, from any number of addresses.",
+					"The most recent attempt came from 198.51.100.77."
+				],
+				"userNotice": {
+					"subject": "Someone is trying to guess the password of your share",
+					"message": ["Someone was trying to guess the password of one of your shares (30 wrong passwords within 1 hour). The share no longer exists."],
+					"advice": []
+				}
+			}
+		},
+		"password, owner gone": {
+			"detection": {"id": 41, "checkId": "share_bruteforce", "severity": "high", "enforced": true, "ip": null, "netKey": "4:203.0.113.0/24", "uid": null, "shareId": 987654, "hits": 1, "createdAt": 1789999700, "lastSeenAt": 1790000000, "actions": [], "explanation": {"v": 1, "check": "share_bruteforce", "mode": {"configured": "protect", "effective": "protect", "reason": null}, "thresholds": [], "facts": {"rule": "password_share", "failures": 1, "sources": 1, "owner": null, "managers": [], "share": "ocinternal:987654", "shareType": 3, "targets": []}, "first": 1789999700, "last": 1790000000}},
+			"reads": {
+				"narrative": [
+					"Between date:1789999700 and time:1790000000 a share of  (share 987654) got 1 wrong passwords from 1 different addresses.",
+					"The limit at that time was 0 wrong passwords for one share within 1 hour, from any number of addresses."
+				],
+				"userNotice": {
+					"subject": "Someone is trying to guess the password of your share",
+					"message": ["Someone was trying to guess the password of one of your shares (1 wrong password within 1 hour). The share no longer exists."],
+					"advice": []
+				}
+			}
+		},
+		"old row": {
+			"detection": {"id": 41, "checkId": "share_bruteforce", "severity": "high", "enforced": true, "ip": "203.0.113.5", "netKey": "4:203.0.113.0/24", "uid": null, "shareId": null, "hits": 1, "createdAt": 1789999700, "lastSeenAt": 1790000000, "actions": [], "explanation": {"v": 1, "check": "share_bruteforce", "mode": {"configured": "protect", "effective": "protect", "reason": null}, "thresholds": [], "facts": {"tokens": 12, "attempts": 12}, "first": 1789999700, "last": 1790000000}},
+			"reads": {
+				"narrative": [
+					"Between date:1789999700 and time:1790000000 the address 203.0.113.5 tried 12 different share links that do not exist (12 attempts).",
+					"The limit at that time was 0 links within 10 minutes."
+				],
+				"userNotice": {
+					"subject": "Someone is trying to guess the password of your share",
+					"message": ["Someone was trying to guess the password of one of your shares (0 wrong passwords within 1 hour). The share no longer exists."],
+					"advice": []
+				}
+			}
+		}
+	},
+	"token_concurrent_use": {
+		"named session": {
+			"detection": {"id": 41, "checkId": "token_concurrent_use", "severity": "high", "enforced": true, "ip": "203.0.113.5", "netKey": "4:203.0.113.0/24", "uid": "alice", "shareId": null, "hits": 3, "createdAt": 1789999700, "lastSeenAt": 1790000000, "actions": [], "explanation": {"v": 1, "check": "token_concurrent_use", "mode": {"configured": "protect", "effective": "protect", "reason": null}, "thresholds": {"window": 900, "min_switches": 3}, "facts": {"ip1": "198.51.100.3", "net1": "4:198.51.100.0/24", "ip2": "203.0.113.5", "net2": "4:203.0.113.0/24", "family": 4, "switches": 4, "first": 1789999875, "last": 1790000000, "kind": "session", "scheme": "cookie", "tokenName": "Mozilla/5.0 (X11; Linux x86_64; rv:131.0) Gecko/20100101 Firefox/131.0", "tokenId": null, "sessionTokenId": 55}, "first": 1789999700, "last": 1790000000}},
+			"reads": {
+				"narrative": [
+					"The logged-in browser session \"Mozilla/5.0 (X11; Linux x86_64; rv:131.0) Gecko/20100101 Firefox/131.0\" of the account alice was used from two different networks at the same time: 198.51.100.3 and 203.0.113.5.",
+					"It switched between these two networks 4 times within 3 minutes. The limit at that time was 3 switches within 15 minutes.",
+					"It logged in successfully, so whoever used it from the other network had a working copy.",
+					"It happened again 2 more times within the hour."
+				],
+				"userNotice": {
+					"subject": "Your session was used from two places at once",
+					"message": ["Your logged-in session (Firefox on Linux) was used from two different networks at the same time: 198.51.100.3 and 203.0.113.5.", "This happens when someone copied it from your browser."],
+					"advice": ["If this was not you, answer \"No, it was not me\": the session is then ended. Log out of all other sessions in your security settings and change your password."]
+				},
+				"asksWasThisYou": true
+			}
+		},
+		"session": {
+			"detection": {"id": 41, "checkId": "token_concurrent_use", "severity": "high", "enforced": true, "ip": "203.0.113.5", "netKey": "4:203.0.113.0/24", "uid": "alice", "shareId": null, "hits": 1, "createdAt": 1789999700, "lastSeenAt": 1790000000, "actions": [], "explanation": {"v": 1, "check": "token_concurrent_use", "mode": {"configured": "protect", "effective": "protect", "reason": null}, "thresholds": [], "facts": {"ip1": "198.51.100.3", "ip2": "203.0.113.5", "switches": 1, "first": 1789999970, "last": 1790000000, "kind": "session", "tokenName": ""}, "first": 1789999700, "last": 1790000000}},
+			"reads": {
+				"narrative": [
+					"A logged-in browser session of the account alice was used from two different networks at the same time: 198.51.100.3 and 203.0.113.5.",
+					"It switched between these two networks 1 time within 30 seconds. The limit at that time was 3 switches within 15 minutes.",
+					"It logged in successfully, so whoever used it from the other network had a working copy."
+				],
+				"userNotice": {
+					"subject": "Your session was used from two places at once",
+					"message": ["Your logged-in session was used from two different networks at the same time: 198.51.100.3 and 203.0.113.5.", "This happens when someone copied it from your browser."],
+					"advice": ["If this was not you, answer \"No, it was not me\": the session is then ended. Log out of all other sessions in your security settings and change your password."]
+				},
+				"asksWasThisYou": true
+			}
+		},
+		"password": {
+			"detection": {"id": 41, "checkId": "token_concurrent_use", "severity": "high", "enforced": true, "ip": "203.0.113.5", "netKey": "4:203.0.113.0/24", "uid": "alice", "shareId": null, "hits": 1, "createdAt": 1789999700, "lastSeenAt": 1790000000, "actions": [], "explanation": {"v": 1, "check": "token_concurrent_use", "mode": {"configured": "protect", "effective": "protect", "reason": null}, "thresholds": [], "facts": {"ip1": "198.51.100.3", "ip2": "203.0.113.5", "switches": 3, "first": 1789999970, "last": 1789999970, "kind": "password", "scheme": "basic", "tokenName": "", "tokenId": null, "sessionTokenId": null}, "first": 1789999700, "last": 1790000000}},
+			"reads": {
+				"narrative": [
+					"The password of the account alice was sent by an app from two different networks at the same time: 198.51.100.3 and 203.0.113.5.",
+					"It switched between these two networks 3 times within 1 second. The limit at that time was 3 switches within 15 minutes.",
+					"It logged in successfully, so whoever used it from the other network had a working copy."
+				],
+				"userNotice": {
+					"subject": "Your password was used from two places at once",
+					"message": ["Your password was sent by an app from two different networks at the same time: 198.51.100.3 and 203.0.113.5.", "This happens when someone else knows your password."],
+					"advice": ["If this was not you, change your password now and use app passwords for your apps."]
+				},
+				"asksWasThisYou": true
+			}
+		},
+		"named app password": {
+			"detection": {"id": 41, "checkId": "token_concurrent_use", "severity": "high", "enforced": true, "ip": "203.0.113.5", "netKey": "4:203.0.113.0/24", "uid": "alice", "shareId": null, "hits": 1, "createdAt": 1789999700, "lastSeenAt": 1790000000, "actions": [], "explanation": {"v": 1, "check": "token_concurrent_use", "mode": {"configured": "protect", "effective": "protect", "reason": null}, "thresholds": [], "facts": {"ip1": "198.51.100.3", "ip2": "203.0.113.5", "switches": 3, "first": 1789999400, "last": 1790000000, "kind": "app_password", "scheme": "basic", "tokenName": "Thunderbird", "tokenId": 9, "sessionTokenId": null}, "first": 1789999700, "last": 1790000000}},
+			"reads": {
+				"narrative": [
+					"The app password \"Thunderbird\" of the account alice was used from two different networks at the same time: 198.51.100.3 and 203.0.113.5.",
+					"It switched between these two networks 3 times within 10 minutes. The limit at that time was 3 switches within 15 minutes.",
+					"It logged in successfully, so whoever used it from the other network had a working copy."
+				],
+				"userNotice": {
+					"subject": "Your app password was used from two places at once",
+					"message": ["Your app password \"Thunderbird\" was used from two different networks at the same time: 198.51.100.3 and 203.0.113.5.", "This happens when someone copied it, for example from a computer or a backup."],
+					"advice": ["If this was not you, answer \"No, it was not me\": the app password is then revoked and the sessions created with it end. Connect your own devices again afterwards and change your password."]
+				},
+				"asksWasThisYou": true
+			}
+		},
+		"app password": {
+			"detection": {"id": 41, "checkId": "token_concurrent_use", "severity": "high", "enforced": true, "ip": "203.0.113.5", "netKey": "4:203.0.113.0/24", "uid": "alice", "shareId": null, "hits": 1, "createdAt": 1789999700, "lastSeenAt": 1790000000, "actions": [], "explanation": {"v": 1, "check": "token_concurrent_use", "mode": {"configured": "protect", "effective": "protect", "reason": null}, "thresholds": [], "facts": {"ip1": "198.51.100.3", "ip2": "203.0.113.5", "switches": 3, "kind": "app_password", "tokenName": ""}, "first": 1789999700, "last": 1790000000}},
+			"reads": {
+				"narrative": [
+					"An app password of the account alice was used from two different networks at the same time: 198.51.100.3 and 203.0.113.5.",
+					"It switched between these two networks 3 times within 1 second. The limit at that time was 3 switches within 15 minutes.",
+					"It logged in successfully, so whoever used it from the other network had a working copy."
+				],
+				"userNotice": {
+					"subject": "Your app password was used from two places at once",
+					"message": ["One of your app passwords was used from two different networks at the same time: 198.51.100.3 and 203.0.113.5.", "This happens when someone copied it, for example from a computer or a backup."],
+					"advice": ["If this was not you, answer \"No, it was not me\": the app password is then revoked and the sessions created with it end. Connect your own devices again afterwards and change your password."]
+				},
+				"asksWasThisYou": true
+			}
+		}
+	},
+	"trap_url": {
+		"path": {
+			"detection": {"id": 41, "checkId": "trap_url", "severity": "high", "enforced": true, "ip": "203.0.113.5", "netKey": "4:203.0.113.0/24", "uid": null, "shareId": null, "hits": 5, "createdAt": 1789999700, "lastSeenAt": 1790000000, "actions": [], "explanation": {"v": 1, "check": "trap_url", "mode": {"configured": "protect", "effective": "protect", "reason": null}, "thresholds": [], "facts": {"path": "/wp-login.php", "trap": "/wp-login.php", "method": "GET"}, "first": 1789999700, "last": 1790000000}},
+			"reads": {
+				"narrative": [
+					"The address 203.0.113.5 requested /wp-login.php without being logged in. No Nextcloud client ever requests this path.",
+					"It requested trap paths 5 times between date:1789999700 and time:1790000000."
+				]
+			}
+		},
+		"old row": {
+			"detection": {"id": 41, "checkId": "trap_url", "severity": "high", "enforced": true, "ip": "203.0.113.5", "netKey": "4:203.0.113.0/24", "uid": null, "shareId": null, "hits": 1, "createdAt": 1789999700, "lastSeenAt": 1790000000, "actions": [], "explanation": {"v": 1, "check": "trap_url", "mode": {"configured": "protect", "effective": "protect", "reason": null}, "thresholds": [], "facts": [], "first": 1789999700, "last": 1790000000}},
+			"reads": {
+				"narrative": [
+					"The address 203.0.113.5 requested  without being logged in. No Nextcloud client ever requests this path."
+				]
+			}
+		}
+	},
+	"user_denied": {
+		"weak": {
+			"detection": {"id": 41, "checkId": "user_denied", "severity": "high", "enforced": true, "ip": "203.0.113.5", "netKey": "4:203.0.113.0/24", "uid": "alice", "shareId": null, "hits": 1, "createdAt": 1789999700, "lastSeenAt": 1790000000, "actions": [], "explanation": {"v": 1, "check": "user_denied", "mode": {"configured": "protect", "effective": "protect", "reason": null}, "thresholds": [], "facts": {"detection": 17, "check": "risky_network", "detectedAt": 1789992800, "passwordInvolved": true, "answeredFromSource": false, "network": null, "weakSession": true, "sessionTokenIds": [3, 4], "tokenId": null}, "first": 1789999700, "last": 1790000000}},
+			"reads": {
+				"narrative": [
+					"alice answered \"No, it was not me\" about detection 17 (Hosting and Tor networks, at date:1789992800).",
+					"The answer came from a session whose login proved no more than the password, or from a Nextcloud app with its app password, so nothing was ended or blocked, and the question stays open for the user. Check with the user that they answered themselves."
+				],
+				"userNotice": {
+					"subject": "You said it was not you",
+					"message": ["You answered \"No, it was not me\" about an event on your account at date:1789992800."],
+					"advice": ["Check your devices and sessions in your security settings, and change your password if you have not been asked to already."]
+				}
+			}
+		},
+		"with network": {
+			"detection": {"id": 41, "checkId": "user_denied", "severity": "high", "enforced": true, "ip": "203.0.113.5", "netKey": "4:203.0.113.0/24", "uid": "alice", "shareId": null, "hits": 1, "createdAt": 1789999700, "lastSeenAt": 1790000000, "actions": [], "explanation": {"v": 1, "check": "user_denied", "mode": {"configured": "protect", "effective": "protect", "reason": null}, "thresholds": [], "facts": {"detection": 18, "check": "password_spraying", "detectedAt": 1789992800, "passwordInvolved": false, "answeredFromSource": true, "network": "4:198.51.100.0/24", "weakSession": false, "sessionTokenIds": [], "tokenId": 6}, "first": 1789999700, "last": 1790000000}},
+			"reads": {
+				"narrative": [
+					"alice answered \"No, it was not me\" about detection 18 (Password spraying, at date:1789992800).",
+					"Logins from the network 4:198.51.100.0/24 need extra confirmation for a while."
+				],
+				"userNotice": {
+					"subject": "You said it was not you",
+					"message": ["You answered \"No, it was not me\" about an event on your account at date:1789992800."],
+					"advice": ["Check your devices and sessions in your security settings, and change your password if you have not been asked to already."]
+				}
+			}
+		},
+		"old row": {
+			"detection": {"id": 41, "checkId": "user_denied", "severity": "high", "enforced": true, "ip": "203.0.113.5", "netKey": "4:203.0.113.0/24", "uid": "alice", "shareId": null, "hits": 1, "createdAt": 1789999700, "lastSeenAt": 1790000000, "actions": [], "explanation": {"v": 1, "check": "user_denied", "mode": {"configured": "protect", "effective": "protect", "reason": null}, "thresholds": [], "facts": {"detection": 19, "check": "retired_check"}, "first": 1789999700, "last": 1790000000}},
+			"reads": {
+				"narrative": [
+					"alice answered \"No, it was not me\" about detection 19 (retired_check, at date:1789999700)."
+				],
+				"userNotice": {
+					"subject": "You said it was not you",
+					"message": ["You answered \"No, it was not me\" about an event on your account at date:1789999700."],
+					"advice": ["Check your devices and sessions in your security settings, and change your password if you have not been asked to already."]
+				}
+			}
+		}
+	}
+}

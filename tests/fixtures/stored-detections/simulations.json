@@ -1,0 +1,9 @@
+{
+	"account_under_attack": {"failures": 10, "first": 1789996460, "last": 1790000000, "lastSource": "203.0.113.5", "simulated": true, "sources": 5},
+	"credential_stuffing": {"failures": 10, "first": 1789999460, "last": 1790000000, "names": 5, "rule": "source", "simulated": true, "sources": 1},
+	"password_spraying": {"banTargets": 5, "failures": 5, "first": 1789996460, "last": 1790000000, "names": 5, "rule": "spray", "simulated": true, "sources": 5},
+	"reserved_name": {"name": "admin", "simulated": true},
+	"reset_probing": {"first": 1789999460, "inputs": 5, "last": 1790000000, "requests": 5, "rule": "enumeration", "sampleFactor": 1, "simulated": true, "targets": ["alice"]},
+	"share_bruteforce": {"attempts": 10, "first": 1789999460, "last": 1790000000, "rule": "tokens", "sampleFactor": 1, "simulated": true, "tokens": 10},
+	"trap_url": {"path": "/wp-login.php", "simulated": true, "trap": "/wp-login.php"}
+}
