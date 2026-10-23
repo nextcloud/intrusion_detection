@@ -9,6 +9,7 @@ declare(strict_types=1);
 
 namespace OCA\IntrusionDetection\Controller;
 
+use OCA\IntrusionDetection\AdminChange\ActorResolver;
 use OCA\IntrusionDetection\Audit\AuditLogger;
 use OCA\IntrusionDetection\Notification\DigestSender;
 use OCA\IntrusionDetection\ResponseDefinitions;
@@ -35,11 +36,12 @@ class DigestApiController extends AdminOCSController {
 	public function __construct(
 		IRequest $request,
 		IL10N $l,
-		IUserSession $userSession,
+		ActorResolver $actors,
+		private readonly IUserSession $userSession,
 		private readonly DigestSender $digests,
 		private readonly AuditLogger $audit,
 	) {
-		parent::__construct($request, $l, $userSession);
+		parent::__construct($request, $l, $actors);
 	}
 
 	/**

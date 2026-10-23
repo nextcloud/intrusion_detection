@@ -9,6 +9,7 @@ declare(strict_types=1);
 
 namespace OCA\IntrusionDetection\Controller;
 
+use OCA\IntrusionDetection\AdminChange\ActorResolver;
 use OCA\IntrusionDetection\Incident\IncidentQuery;
 use OCA\IntrusionDetection\Incident\IncidentReports;
 use OCA\IntrusionDetection\Incident\InvalidIncidentQuery;
@@ -24,7 +25,6 @@ use OCP\AppFramework\Http\DataResponse;
 use OCP\AppFramework\Utility\ITimeFactory;
 use OCP\IL10N;
 use OCP\IRequest;
-use OCP\IUserSession;
 
 /**
  * The incident report on the Incidents tab.
@@ -45,11 +45,11 @@ class IncidentApiController extends AdminOCSController {
 	public function __construct(
 		IRequest $request,
 		IL10N $l,
-		IUserSession $userSession,
+		ActorResolver $actors,
 		private readonly IncidentReports $reports,
 		private readonly ITimeFactory $timeFactory,
 	) {
-		parent::__construct($request, $l, $userSession);
+		parent::__construct($request, $l, $actors);
 	}
 
 	/**

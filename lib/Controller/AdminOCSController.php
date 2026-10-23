@@ -9,6 +9,7 @@ declare(strict_types=1);
 
 namespace OCA\IntrusionDetection\Controller;
 
+use OCA\IntrusionDetection\AdminChange\ActorResolver;
 use OCA\IntrusionDetection\AppInfo\Application;
 use OCA\IntrusionDetection\Middleware\ApiErrorMiddleware;
 use OCA\IntrusionDetection\ResponseDefinitions;
@@ -19,7 +20,6 @@ use OCP\AppFramework\OCS\OCSNotFoundException;
 use OCP\AppFramework\OCSController;
 use OCP\IL10N;
 use OCP\IRequest;
-use OCP\IUserSession;
 
 /**
  * Shared parts of the admin page's controllers: who is acting, and errors
@@ -36,13 +36,13 @@ abstract class AdminOCSController extends OCSController {
 	public function __construct(
 		IRequest $request,
 		protected readonly IL10N $l,
-		protected readonly IUserSession $userSession,
+		private readonly ActorResolver $actors,
 	) {
 		parent::__construct(Application::APP_ID, $request);
 	}
 
 	protected function actor(): string {
-		return $this->userSession->getUser()?->getUID() ?? 'unknown';
+		return $this->actors->user();
 	}
 
 	/**

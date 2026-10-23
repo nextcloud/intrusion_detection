@@ -10,6 +10,7 @@ declare(strict_types=1);
 namespace OCA\IntrusionDetection\Tests\Integration;
 
 use OCA\IntrusionDetection\Admin\ConfirmationOverview;
+use OCA\IntrusionDetection\AdminChange\ActorResolver;
 use OCA\IntrusionDetection\AppInfo\Application;
 use OCA\IntrusionDetection\Audit\AuditLogger;
 use OCA\IntrusionDetection\Config\GlobalSettings;
@@ -167,7 +168,7 @@ class ConfirmationApiTest extends StepUpTestCase {
 		return new ConfirmationApiController(
 			$this->request,
 			Server::get(IFactory::class)->get(Application::APP_ID, 'en'),
-			$this->userSession,
+			new ActorResolver($this->userSession),
 			Server::get(ConfirmationOverview::class),
 			Server::get(ConfirmationCoverage::class),
 			Server::get(NoMethodPreset::class),

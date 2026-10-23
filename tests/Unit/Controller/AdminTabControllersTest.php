@@ -12,6 +12,7 @@ namespace OCA\IntrusionDetection\Tests\Unit\Controller;
 use OCA\IntrusionDetection\Admin\BlocklistPresenter;
 use OCA\IntrusionDetection\Admin\NotificationOverview;
 use OCA\IntrusionDetection\Admin\TrapsOverview;
+use OCA\IntrusionDetection\AdminChange\ActorResolver;
 use OCA\IntrusionDetection\Audit\AuditLogger;
 use OCA\IntrusionDetection\Blocklist\BlocklistSource;
 use OCA\IntrusionDetection\Blocklist\BlocklistSync;
@@ -74,7 +75,7 @@ class AdminTabControllersTest extends TestCase {
 		$sync = $this->createMock(BlocklistSync::class);
 		$presenter = $this->createMock(BlocklistPresenter::class);
 		$presenter->method('list')->willReturn(['id' => 'corp']);
-		$controller = new BlocklistApiController($this->createMock(IRequest::class), $this->l, $this->session, $presenter, $editor, $sources, $sync, $this->audit);
+		$controller = new BlocklistApiController($this->createMock(IRequest::class), $this->l, new ActorResolver($this->session), $presenter, $editor, $sources, $sync, $this->audit);
 		return [$controller, $editor, $sync];
 	}
 
@@ -130,7 +131,7 @@ class AdminTabControllersTest extends TestCase {
 		$reserved = $this->createMock(ReservedNames::class);
 		$overview = $this->createMock(TrapsOverview::class);
 		$overview->method('trapPaths')->willReturn(['custom' => []]);
-		$controller = new DecoyApiController($this->createMock(IRequest::class), $this->l, $this->session, $overview, $this->createMock(DecoyService::class), $reserved, $settings, $editor, $this->audit);
+		$controller = new DecoyApiController($this->createMock(IRequest::class), $this->l, new ActorResolver($this->session), $overview, $this->createMock(DecoyService::class), $reserved, $settings, $editor, $this->audit);
 		return [$controller, $settings, $editor, $reserved];
 	}
 
@@ -174,7 +175,7 @@ class AdminTabControllersTest extends TestCase {
 		$alert = $this->createMock(TestAlert::class);
 		$alert->expects($this->once())->method('send')->with($this->session->getUser())->willReturn(['bell' => true, 'email' => 'sent', 'address' => 'alice@example.org']);
 		$this->audit->expects($this->once())->method('log')->with('test alert sent to %s: email %s', ['actor' => 'alice', 'email' => 'sent']);
-		$controller = new NotificationApiController($this->createMock(IRequest::class), $this->l, $this->session, $this->createMock(NotificationOverview::class), $alert, $this->audit);
+		$controller = new NotificationApiController($this->createMock(IRequest::class), $this->l, new ActorResolver($this->session), $this->session, $this->createMock(NotificationOverview::class), $alert, $this->audit);
 		$this->assertSame('sent', $this->answer(fn () => $controller->test())->getData()['email']);
 	}
 

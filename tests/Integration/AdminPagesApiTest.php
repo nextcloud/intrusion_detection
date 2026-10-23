@@ -13,12 +13,13 @@ use OCA\IntrusionDetection\AppInfo\Application;
 use OCA\IntrusionDetection\Check\Checks\CredentialStuffing\CredentialStuffing;
 use OCA\IntrusionDetection\Check\Checks\InjectionProbe\InjectionProbe;
 use OCA\IntrusionDetection\Check\Checks\TrapUrl\TrapUrl;
-use OCA\IntrusionDetection\Controller\AdminApiController;
 use OCA\IntrusionDetection\Controller\BlocklistApiController;
+use OCA\IntrusionDetection\Controller\CheckApiController;
 use OCA\IntrusionDetection\Controller\DecoyApiController;
 use OCA\IntrusionDetection\Controller\NotificationApiController;
 use OCA\IntrusionDetection\Controller\PayloadApiController;
 use OCA\IntrusionDetection\Controller\PrivacyApiController;
+use OCA\IntrusionDetection\Controller\SettingsApiController;
 use OCA\IntrusionDetection\Controller\SimulationApiController;
 use OCA\IntrusionDetection\Detection\Simulator;
 use OCA\IntrusionDetection\Learning\LearningService;
@@ -26,6 +27,7 @@ use OCA\IntrusionDetection\State\AppState;
 use OCA\IntrusionDetection\Tests\Unit\Controller\AnswersLikeTheApi;
 use OCA\IntrusionDetection\Traps\TrapNameCollisions;
 use OCP\AppFramework\Http;
+use OCP\AppFramework\IAppContainer;
 use OCP\AppFramework\OCS\OCSNotFoundException;
 use OCP\IUserManager;
 use OCP\IUserSession;
@@ -49,7 +51,7 @@ class AdminPagesApiTest extends IntegrationTestCase {
 	private PayloadApiController $payload;
 	private SimulationApiController $simulation;
 	private NotificationApiController $notifications;
-	private AdminApiController $admin;
+	private IAppContainer $container;
 
 	protected function setUp(): void {
 		parent::setUp();
@@ -67,7 +69,7 @@ class AdminPagesApiTest extends IntegrationTestCase {
 		$this->payload = $container->get(PayloadApiController::class);
 		$this->simulation = $container->get(SimulationApiController::class);
 		$this->notifications = $container->get(NotificationApiController::class);
-		$this->admin = $container->get(AdminApiController::class);
+		$this->container = $container;
 	}
 
 	protected function tearDown(): void {
@@ -137,7 +139,7 @@ class AdminPagesApiTest extends IntegrationTestCase {
 		$this->assertSame([], $this->decoys->index()->getData()['reservedNames']['collisions'], 'Pages read the stored lookup');
 		Server::get(TrapNameCollisions::class)->refresh();
 		$this->assertSame(['ids_root2'], $this->decoys->index()->getData()['reservedNames']['collisions']);
-		$problems = array_column($this->admin->status()->getData()['problems'], null, 'id');
+		$problems = array_column($this->container->get(CheckApiController::class)->status()->getData()['problems'], null, 'id');
 		$this->assertSame('error', $problems['trap_name_collision']['level']);
 		$this->assertSame('#blocks-decoys', $problems['trap_name_collision']['url']);
 		$this->assertNotEmpty($problems['trap_name_collision']['fix']);
@@ -243,7 +245,7 @@ class AdminPagesApiTest extends IntegrationTestCase {
 		$this->assertCount(2, $data['gdpr']);
 
 		// The page fills the retention placeholders live from the settings it has.
-		$settings = array_column($this->admin->settings()->getData()['settings'], 'name');
+		$settings = array_column($this->container->get(SettingsApiController::class)->settings()->getData()['settings'], 'name');
 		foreach ($data['stored'] as $row) {
 			preg_match_all('/\{([a-z0-9_]+)\}/', $row['retention'], $m);
 			foreach ($m[1] as $placeholder) {
@@ -275,7 +277,7 @@ class AdminPagesApiTest extends IntegrationTestCase {
 		$this->assertSame('matches_everything', $checked['.*']['problem']);
 		$this->assertSame(Http::STATUS_BAD_REQUEST, $this->payload->checkSignatures(array_fill(0, 51, 'x'))->getStatus());
 
-		$this->admin->updateCheck(InjectionProbe::ID, null, null, ['disabled_signatures' => ['sql_sleep'], 'custom_signatures' => ['2:union\s+distinct']]);
+		$this->container->get(CheckApiController::class)->updateCheck(InjectionProbe::ID, null, null, ['disabled_signatures' => ['sql_sleep'], 'custom_signatures' => ['2:union\s+distinct']]);
 		$catalog = $this->payload->signatures()->getData();
 		$this->assertFalse(array_column($catalog['signatures'], null, 'id')['sql_sleep']['enabled']);
 		$this->assertSame('sql', array_column($catalog['signatures'], null, 'id')['sql_sleep']['group']);
@@ -317,14 +319,14 @@ class AdminPagesApiTest extends IntegrationTestCase {
 	}
 
 	public function testLearningRemembersWhenItStarted(): void {
-		$this->admin->updateLearning('start', 7);
+		$this->container->get(SettingsApiController::class)->updateLearning('start', 7);
 		$started = Server::get(AppState::class)->getInt(LearningService::STARTED_STATE);
 		$this->assertEqualsWithDelta(time(), $started, 5);
-		$this->admin->updateLearning('extend', 7);
+		$this->container->get(SettingsApiController::class)->updateLearning('extend', 7);
 		$this->assertSame($started, Server::get(AppState::class)->getInt(LearningService::STARTED_STATE), 'Extending keeps the start');
-		$this->admin->updateLearning('stop');
+		$this->container->get(SettingsApiController::class)->updateLearning('stop');
 		Server::get(AppState::class)->setInt(LearningService::STARTED_STATE, 1);
-		$this->admin->updateLearning('extend', 3);
+		$this->container->get(SettingsApiController::class)->updateLearning('extend', 3);
 		$this->assertEqualsWithDelta(time(), Server::get(AppState::class)->getInt(LearningService::STARTED_STATE), 5, 'Extending a finished period starts a new one');
 	}
 
@@ -335,10 +337,10 @@ class AdminPagesApiTest extends IntegrationTestCase {
 	 */
 	private function everyRead(): array {
 		return [
-			'status' => $this->admin->status()->getData(),
-			'checks' => $this->admin->checks()->getData(),
-			'settings' => $this->admin->settings()->getData(),
-			'export settings' => $this->admin->exportSettings()->getData(),
+			'status' => $this->container->get(CheckApiController::class)->status()->getData(),
+			'checks' => $this->container->get(CheckApiController::class)->checks()->getData(),
+			'settings' => $this->container->get(SettingsApiController::class)->settings()->getData(),
+			'export settings' => $this->container->get(SettingsApiController::class)->exportSettings()->getData(),
 			'decoys' => $this->decoys->index()->getData(),
 			'blocklists' => $this->blocklists->lists()->getData(),
 			'export' => $this->blocklists->export()->getData(),

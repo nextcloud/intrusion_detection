@@ -9,6 +9,7 @@ declare(strict_types=1);
 
 namespace OCA\IntrusionDetection\Tests\Integration;
 
+use OCA\IntrusionDetection\AdminChange\ActorResolver;
 use OCA\IntrusionDetection\AppInfo\Application;
 use OCA\IntrusionDetection\Check\Checks\AccountLocked\AccountLocked;
 use OCA\IntrusionDetection\Check\Checks\AccountTakeover\AccountTakeover;
@@ -261,7 +262,7 @@ class LockLinkTest extends TakeoverTestCase {
 		return new SecureAccountAdminController(
 			$this->request(),
 			Server::get(IFactory::class)->get(Application::APP_ID, 'en'),
-			$this->userSession,
+			new ActorResolver($this->userSession),
 			Server::get(DetectionMapper::class),
 			Server::get(SecureAccountGuide::class),
 			$this->accountLock(),

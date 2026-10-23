@@ -9,14 +9,17 @@ declare(strict_types=1);
 
 namespace OCA\IntrusionDetection\Tests\Unit\Controller;
 
-use OCA\IntrusionDetection\Controller\AdminApiController;
+use OCA\IntrusionDetection\Controller\BanApiController;
 use OCA\IntrusionDetection\Controller\BlocklistApiController;
+use OCA\IntrusionDetection\Controller\CheckApiController;
 use OCA\IntrusionDetection\Controller\ConfirmationApiController;
 use OCA\IntrusionDetection\Controller\DecoyApiController;
+use OCA\IntrusionDetection\Controller\DetectionApiController;
 use OCA\IntrusionDetection\Controller\IncidentApiController;
 use OCA\IntrusionDetection\Controller\NotificationApiController;
 use OCA\IntrusionDetection\Controller\PayloadApiController;
 use OCA\IntrusionDetection\Controller\PrivacyApiController;
+use OCA\IntrusionDetection\Controller\SettingsApiController;
 use OCA\IntrusionDetection\Controller\SimulationApiController;
 use OCP\AppFramework\Http\Attribute\ApiRoute;
 use OCP\AppFramework\Http\Attribute\AuthorizedAdminSetting;
@@ -58,7 +61,10 @@ class AdminControllersTest extends TestCase {
 
 	public static function controllers(): array {
 		return [
-			[AdminApiController::class],
+			[CheckApiController::class],
+			[DetectionApiController::class],
+			[BanApiController::class],
+			[SettingsApiController::class],
 			[BlocklistApiController::class],
 			[DecoyApiController::class],
 			[NotificationApiController::class],

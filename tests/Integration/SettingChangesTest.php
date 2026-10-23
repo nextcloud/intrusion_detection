@@ -18,7 +18,8 @@ use OCA\IntrusionDetection\Config\GlobalSettings;
 use OCA\IntrusionDetection\Config\Keys;
 use OCA\IntrusionDetection\Configure\ProtectionLevels;
 use OCA\IntrusionDetection\Configure\SettingsEditor;
-use OCA\IntrusionDetection\Controller\AdminApiController;
+use OCA\IntrusionDetection\Controller\CheckApiController;
+use OCA\IntrusionDetection\Controller\SettingsApiController;
 use OCA\IntrusionDetection\Definition\Mode;
 use OCA\IntrusionDetection\Definition\ProtectionLevel;
 use OCA\IntrusionDetection\Definition\ResponseType;
@@ -147,17 +148,17 @@ class SettingChangesTest extends IntegrationTestCase {
 			$users->createUser('ids_admin', 'Ids-Test-Password-2026');
 		}
 		Server::get(IUserSession::class)->setUser($users->get('ids_admin'));
-		$controller = (new Application())->getContainer()->get(AdminApiController::class);
+		$container = (new Application())->getContainer();
 
-		$tooShort = $this->answer(fn () => $controller->updateSettings([GlobalSettings::BAN_DURATION_1 => 60]));
+		$tooShort = $this->answer(fn () => $container->get(SettingsApiController::class)->updateSettings([GlobalSettings::BAN_DURATION_1 => 60]));
 		$this->assertSame(Http::STATUS_BAD_REQUEST, $tooShort->getStatus());
 		$this->assertSame(['message' => '"ban_duration_1" must be at least 300.', 'param' => 'ban_duration_1', 'reason' => 'too_small'], $tooShort->getData());
 
-		$notZero = $this->answer(fn () => $controller->updateSettings([GlobalSettings::STALE_CREDENTIALS_REMOVE_DAYS => 30]));
+		$notZero = $this->answer(fn () => $container->get(SettingsApiController::class)->updateSettings([GlobalSettings::STALE_CREDENTIALS_REMOVE_DAYS => 30]));
 		$this->assertSame(['message' => '"stale_credentials_remove_days" must be 0 (off) or at least 90.', 'param' => 'stale_credentials_remove_days', 'reason' => 'zero_or_at_least'], $notZero->getData());
 
 		foreach (['installed_at', 'protection_level', 'decoy_count', 'learning_until', 'no_such_setting'] as $name) {
-			$unknown = $this->answer(fn () => $controller->updateSettings([$name => 1]));
+			$unknown = $this->answer(fn () => $container->get(SettingsApiController::class)->updateSettings([$name => 1]));
 			$this->assertSame(['message' => 'This check has no setting "' . $name . '".', 'param' => $name, 'reason' => 'unknown_param'], $unknown->getData(), $name);
 		}
 
@@ -165,14 +166,14 @@ class SettingChangesTest extends IntegrationTestCase {
 		$approvers->method('count')->willReturn(1);
 		$this->overwriteService(Approvers::class, $approvers);
 		try {
-			$refused = $this->answer(fn () => $controller->updateSettings([GlobalSettings::ADMIN_CHANGE_REQUIRE_APPROVAL => true]));
+			$refused = $this->answer(fn () => $container->get(SettingsApiController::class)->updateSettings([GlobalSettings::ADMIN_CHANGE_REQUIRE_APPROVAL => true]));
 		} finally {
 			$this->restoreService(Approvers::class);
 		}
 		$this->assertSame('too_few_admins', $refused->getData()['reason']);
 		$this->assertSame(GlobalSettings::ADMIN_CHANGE_REQUIRE_APPROVAL, $refused->getData()['param']);
 
-		$check = $this->answer(fn () => $controller->updateCheck(CredentialStuffing::ID, null, null, ['min_failures' => 1]));
+		$check = $this->answer(fn () => $container->get(CheckApiController::class)->updateCheck(CredentialStuffing::ID, null, null, ['min_failures' => 1]));
 		$this->assertSame(['message' => '"min_failures" must be at least 3.', 'param' => 'min_failures', 'reason' => 'too_small'], $check->getData());
 		$this->assertSame([], $this->events, 'nothing refused was saved');
 	}

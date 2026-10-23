@@ -10,6 +10,7 @@ declare(strict_types=1);
 namespace OCA\IntrusionDetection\Controller;
 
 use OCA\IntrusionDetection\Admin\PrivacyOverview;
+use OCA\IntrusionDetection\AdminChange\ActorResolver;
 use OCA\IntrusionDetection\ResponseDefinitions;
 use OCP\AppFramework\Http;
 use OCP\AppFramework\Http\Attribute\ApiRoute;
@@ -17,7 +18,6 @@ use OCP\AppFramework\Http\Attribute\OpenAPI;
 use OCP\AppFramework\Http\DataResponse;
 use OCP\IL10N;
 use OCP\IRequest;
-use OCP\IUserSession;
 
 /**
  * The "Data and privacy" tab. Administrators only.
@@ -29,10 +29,10 @@ class PrivacyApiController extends AdminOCSController {
 	public function __construct(
 		IRequest $request,
 		IL10N $l,
-		IUserSession $userSession,
+		ActorResolver $actors,
 		private readonly PrivacyOverview $overview,
 	) {
-		parent::__construct($request, $l, $userSession);
+		parent::__construct($request, $l, $actors);
 	}
 
 	/**

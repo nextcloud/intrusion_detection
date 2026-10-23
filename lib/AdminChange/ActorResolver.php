@@ -35,6 +35,15 @@ class ActorResolver {
 		if ($this->isCommandLine()) {
 			return self::CRON;
 		}
+		return $this->user();
+	}
+
+	/**
+	 * The logged-in user of a request, whatever the process.
+	 *
+	 * @return string a uid, or UNKNOWN
+	 */
+	public function user(): string {
 		return $this->userSession->getUser()?->getUID() ?? self::UNKNOWN;
 	}
 

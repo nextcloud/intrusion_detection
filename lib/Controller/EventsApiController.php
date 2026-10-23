@@ -9,6 +9,7 @@ declare(strict_types=1);
 
 namespace OCA\IntrusionDetection\Controller;
 
+use OCA\IntrusionDetection\AdminChange\ActorResolver;
 use OCA\IntrusionDetection\Config\AppSettings;
 use OCA\IntrusionDetection\Event\EventExamples;
 use OCA\IntrusionDetection\Event\TypedEvents;
@@ -20,7 +21,6 @@ use OCP\AppFramework\Http\Attribute\OpenAPI;
 use OCP\AppFramework\Http\DataResponse;
 use OCP\IL10N;
 use OCP\IRequest;
-use OCP\IUserSession;
 
 /**
  * The admin page's API for the typed events that webhooks can receive.
@@ -33,12 +33,12 @@ class EventsApiController extends AdminOCSController {
 	public function __construct(
 		IRequest $request,
 		IL10N $l,
-		IUserSession $userSession,
+		ActorResolver $actors,
 		private readonly EventExamples $examples,
 		private readonly AppSettings $settings,
 		private readonly IAppManager $appManager,
 	) {
-		parent::__construct($request, $l, $userSession);
+		parent::__construct($request, $l, $actors);
 	}
 
 	/**

@@ -10,6 +10,7 @@ declare(strict_types=1);
 namespace OCA\IntrusionDetection\Tests\Unit\Controller;
 
 use OCA\IntrusionDetection\Admin\ConfirmationOverview;
+use OCA\IntrusionDetection\AdminChange\ActorResolver;
 use OCA\IntrusionDetection\Audit\AuditLogger;
 use OCA\IntrusionDetection\Confirm\ConfirmationCoverage;
 use OCA\IntrusionDetection\Confirm\NoMethodPreset;
@@ -50,7 +51,7 @@ class ConfirmationApiControllerTest extends TestCase {
 		$this->controller = new ConfirmationApiController(
 			$this->createMock(IRequest::class),
 			Server::get(IFactory::class)->get('intrusion_detection', 'en'),
-			$session,
+			new ActorResolver($session),
 			$this->overview,
 			$this->createMock(ConfirmationCoverage::class),
 			$this->preset,

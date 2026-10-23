@@ -15,7 +15,8 @@ use OCA\IntrusionDetection\Check\Checks\CredentialStuffing\CredentialStuffing;
 use OCA\IntrusionDetection\Config\GlobalSettings;
 use OCA\IntrusionDetection\Configure\ProtectionLevels;
 use OCA\IntrusionDetection\Configure\SettingsEditor;
-use OCA\IntrusionDetection\Controller\AdminApiController;
+use OCA\IntrusionDetection\Controller\CheckApiController;
+use OCA\IntrusionDetection\Controller\SettingsApiController;
 use OCA\IntrusionDetection\Definition\Mode;
 use OCA\IntrusionDetection\Definition\ProtectionLevel;
 use OCA\IntrusionDetection\Definition\ResponseType;
@@ -108,23 +109,23 @@ class ProtectionLevelTest extends IntegrationTestCase {
 		$admin = $users->get('ids_level_admin') ?? $users->createUser('ids_level_admin', 'Ids-Test-Password-2026');
 		Server::get(IUserSession::class)->setUser($admin);
 		try {
-			$controller = (new Application())->getContainer()->get(AdminApiController::class);
-			$this->assertSame(['level' => 'recommended'], $controller->protectionLevel()->getData());
+			$container = (new Application())->getContainer();
+			$this->assertSame(['level' => 'recommended'], $container->get(CheckApiController::class)->protectionLevel()->getData());
 
-			$response = $controller->updateProtectionLevel('strict');
+			$response = $container->get(CheckApiController::class)->updateProtectionLevel('strict');
 			$this->assertSame(Http::STATUS_OK, $response->getStatus());
 			$data = $response->getData();
 			$this->assertSame('strict', $data['level']);
 			$check = array_values(array_filter($data['checks']['checks'], static fn (array $c): bool => $c['id'] === CredentialStuffing::ID))[0];
 			$this->assertSame(5, array_column($check['params'], 'value', 'name')['min_failures']);
 
-			$this->assertSame(Http::STATUS_BAD_REQUEST, $this->answer(fn () => $controller->updateProtectionLevel('custom'))->getStatus());
-			$this->assertSame(Http::STATUS_BAD_REQUEST, $this->answer(fn () => $controller->updateProtectionLevel('paranoid'))->getStatus());
+			$this->assertSame(Http::STATUS_BAD_REQUEST, $this->answer(fn () => $container->get(CheckApiController::class)->updateProtectionLevel('custom'))->getStatus());
+			$this->assertSame(Http::STATUS_BAD_REQUEST, $this->answer(fn () => $container->get(CheckApiController::class)->updateProtectionLevel('paranoid'))->getStatus());
 			$this->assertSame(ProtectionLevel::Strict, $this->settingsEditor()->protectionLevel(), 'a refused level changes nothing');
 
 			// The level is changed through its own endpoint only, and not shown as a setting.
-			$this->assertSame(Http::STATUS_BAD_REQUEST, $this->answer(fn () => $controller->updateSettings([SettingsEditor::LEVEL_STATE => 'relaxed']))->getStatus());
-			$this->assertNotContains(SettingsEditor::LEVEL_STATE, array_column($controller->settings()->getData()['settings'], 'name'));
+			$this->assertSame(Http::STATUS_BAD_REQUEST, $this->answer(fn () => $container->get(SettingsApiController::class)->updateSettings([SettingsEditor::LEVEL_STATE => 'relaxed']))->getStatus());
+			$this->assertNotContains(SettingsEditor::LEVEL_STATE, array_column($container->get(SettingsApiController::class)->settings()->getData()['settings'], 'name'));
 		} finally {
 			Server::get(IUserSession::class)->setUser(null);
 			$admin->delete();

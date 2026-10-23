@@ -9,6 +9,7 @@ declare(strict_types=1);
 
 namespace OCA\IntrusionDetection\Tests\Unit\Controller;
 
+use OCA\IntrusionDetection\AdminChange\ActorResolver;
 use OCA\IntrusionDetection\Audit\AuditLogger;
 use OCA\IntrusionDetection\Config\AppSettings;
 use OCA\IntrusionDetection\Controller\DigestApiController;
@@ -106,12 +107,12 @@ class DigestApiControllerTest extends TestCase {
 		$apps->method('isEnabledForAnyone')->with('webhook_listeners')->willReturn(true);
 		$examples = $this->createMock(EventExamples::class);
 		$examples->method('all')->willReturn([]);
-		$controller = new EventsApiController($this->createMock(IRequest::class), $this->l, $this->userSession, $examples, $settings, $apps);
+		$controller = new EventsApiController($this->createMock(IRequest::class), $this->l, new ActorResolver($this->userSession), $examples, $settings, $apps);
 		$this->assertSame(['includeIp' => false, 'webhooksEnabled' => true, 'events' => []], $controller->events()->getData());
 	}
 
 	private function controller(): DigestApiController {
-		return new DigestApiController($this->createMock(IRequest::class), $this->l, $this->userSession, $this->sender, $this->audit);
+		return new DigestApiController($this->createMock(IRequest::class), $this->l, new ActorResolver($this->userSession), $this->userSession, $this->sender, $this->audit);
 	}
 
 	private function user(string $uid, ?string $email): IUser {

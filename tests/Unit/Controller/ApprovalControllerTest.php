@@ -14,6 +14,7 @@ use OC\AppFramework\Middleware\Security\PasswordConfirmationMiddleware;
 use OC\AppFramework\Utility\ControllerMethodReflector;
 use OC\Authentication\Token\IProvider;
 use OC\User\Manager;
+use OCA\IntrusionDetection\AdminChange\ActorResolver;
 use OCA\IntrusionDetection\AdminChange\ApprovalException;
 use OCA\IntrusionDetection\AdminChange\ApprovalService;
 use OCA\IntrusionDetection\Confirm\SessionConfirmation;
@@ -258,6 +259,6 @@ class ApprovalControllerTest extends TestCase {
 		$confirmation = new SessionConfirmation($state, $phpSession, $this->createMock(ITimeFactory::class));
 		$time = $this->createMock(ITimeFactory::class);
 		$time->method('getTime')->willReturn(self::NOW);
-		return new ApprovalController($this->createMock(IRequest::class), $l, $session, $service, $confirmation, $this->userManager, $time);
+		return new ApprovalController($this->createMock(IRequest::class), $l, new ActorResolver($session), $session, $service, $confirmation, $this->userManager, $time);
 	}
 }

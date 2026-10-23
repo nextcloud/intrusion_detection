@@ -10,6 +10,7 @@ declare(strict_types=1);
 namespace OCA\IntrusionDetection\Controller;
 
 use OCA\IntrusionDetection\Admin\SignaturePresenter;
+use OCA\IntrusionDetection\AdminChange\ActorResolver;
 use OCA\IntrusionDetection\Check\Checks\InjectionProbe\CustomSignatures;
 use OCA\IntrusionDetection\Check\Checks\InjectionProbe\PayloadTester;
 use OCA\IntrusionDetection\ResponseDefinitions;
@@ -20,7 +21,6 @@ use OCP\AppFramework\Http\Attribute\UserRateLimit;
 use OCP\AppFramework\Http\DataResponse;
 use OCP\IL10N;
 use OCP\IRequest;
-use OCP\IUserSession;
 
 /**
  * The signatures of the injection probe check and "Test a URL".
@@ -40,11 +40,11 @@ class PayloadApiController extends AdminOCSController {
 	public function __construct(
 		IRequest $request,
 		IL10N $l,
-		IUserSession $userSession,
+		ActorResolver $actors,
 		private readonly SignaturePresenter $signatures,
 		private readonly PayloadTester $tester,
 	) {
-		parent::__construct($request, $l, $userSession);
+		parent::__construct($request, $l, $actors);
 	}
 
 	/**

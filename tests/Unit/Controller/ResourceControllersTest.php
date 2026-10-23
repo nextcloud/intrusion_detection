@@ -17,12 +17,16 @@ use OCA\IntrusionDetection\Admin\GlobalSettingsPresenter;
 use OCA\IntrusionDetection\Admin\LookupService;
 use OCA\IntrusionDetection\Admin\SettingsTransfer;
 use OCA\IntrusionDetection\Admin\StatusService;
+use OCA\IntrusionDetection\AdminChange\ActorResolver;
 use OCA\IntrusionDetection\Audit\AuditLogger;
 use OCA\IntrusionDetection\Check\CheckRegistry;
 use OCA\IntrusionDetection\Config\GlobalSettings;
 use OCA\IntrusionDetection\Configure\ProtectionLevels;
 use OCA\IntrusionDetection\Configure\SettingsEditor;
-use OCA\IntrusionDetection\Controller\AdminApiController;
+use OCA\IntrusionDetection\Controller\BanApiController;
+use OCA\IntrusionDetection\Controller\CheckApiController;
+use OCA\IntrusionDetection\Controller\DetectionApiController;
+use OCA\IntrusionDetection\Controller\SettingsApiController;
 use OCA\IntrusionDetection\Db\Ban;
 use OCA\IntrusionDetection\Db\BanMapper;
 use OCA\IntrusionDetection\Db\DetectionFilter;
@@ -45,14 +49,6 @@ use OCA\IntrusionDetection\Response\BanRefusedException;
 use OCA\IntrusionDetection\Response\BanService;
 use OCP\AppFramework\Db\DoesNotExistException;
 use OCP\AppFramework\Http;
-use OCP\AppFramework\Http\Attribute\ApiRoute;
-use OCP\AppFramework\Http\Attribute\AuthorizedAdminSetting;
-use OCP\AppFramework\Http\Attribute\NoAdminRequired;
-use OCP\AppFramework\Http\Attribute\NoCSRFRequired;
-use OCP\AppFramework\Http\Attribute\OpenAPI;
-use OCP\AppFramework\Http\Attribute\PasswordConfirmationRequired;
-use OCP\AppFramework\Http\Attribute\PublicPage;
-use OCP\AppFramework\Http\Attribute\SubAdminRequired;
 use OCP\AppFramework\OCS\OCSNotFoundException;
 use OCP\AppFramework\Utility\ITimeFactory;
 use OCP\IL10N;
@@ -64,7 +60,10 @@ use OCP\Server;
 use PHPUnit\Framework\MockObject\MockObject;
 use Test\TestCase;
 
-class AdminApiControllerTest extends TestCase {
+/**
+ * The admin page's resource controllers: checks, detections, blocks and settings.
+ */
+class ResourceControllersTest extends TestCase {
 	use AnswersLikeTheApi;
 
 	private const CHECK = 'test_check';
@@ -85,7 +84,10 @@ class AdminApiControllerTest extends TestCase {
 	private ProtectionLevels&MockObject $levels;
 	private StatusService&MockObject $status;
 	private CheckDefinition $check;
-	private AdminApiController $controller;
+	private CheckApiController $checkApi;
+	private DetectionApiController $detectionApi;
+	private BanApiController $banApi;
+	private SettingsApiController $settingsApi;
 
 	protected function setUp(): void {
 		parent::setUp();
@@ -127,30 +129,12 @@ class AdminApiControllerTest extends TestCase {
 		$this->audit = $this->createMock(AuditLogger::class);
 		$this->levels = $this->createMock(ProtectionLevels::class);
 
-		$this->controller = new AdminApiController(
-			$this->createMock(IRequest::class),
-			$l,
-			$session,
-			$time,
-			$this->registry,
-			$this->settings,
-			$this->status,
-			$this->checks,
-			$this->detectionMapper,
-			$this->detections,
-			$this->createMock(DailyStats::class),
-			$this->banMapper,
-			$this->banService,
-			$this->bans,
-			$this->createMock(LookupService::class),
-			$this->learning,
-			$this->globalSettings,
-			new GlobalSettings(),
-			$this->transfer,
-			$this->addresses,
-			$this->audit,
-			$this->levels,
-		);
+		$actors = new ActorResolver($session);
+		$request = $this->createMock(IRequest::class);
+		$this->checkApi = new CheckApiController($request, $l, $actors, $this->registry, $this->settings, $this->status, $this->checks, $this->levels, $this->audit);
+		$this->detectionApi = new DetectionApiController($request, $l, $actors, $this->detectionMapper, $this->detections, $this->createMock(DailyStats::class), $this->createMock(LookupService::class));
+		$this->banApi = new BanApiController($request, $l, $actors, $time, $this->banMapper, $this->banService, $this->bans, $this->addresses, $this->audit);
+		$this->settingsApi = new SettingsApiController($request, $l, $actors, $this->status, $this->settings, $this->learning, $this->globalSettings, new GlobalSettings(), $this->transfer, $this->audit);
 	}
 
 	private static function definition(string $id, bool $internal = false): CheckDefinition {
@@ -172,53 +156,13 @@ class AdminApiControllerTest extends TestCase {
 		);
 	}
 
-	public function testTheApiIsForAdministratorsOnly(): void {
-		$class = new \ReflectionClass(AdminApiController::class);
-		$openApi = $class->getAttributes(OpenAPI::class);
-		$this->assertCount(1, $openApi);
-		$this->assertSame(OpenAPI::SCOPE_ADMINISTRATION, $openApi[0]->getArguments()['scope']);
-		foreach ($class->getAttributes() as $attribute) {
-			$this->assertNotContains($attribute->getName(), [NoAdminRequired::class, SubAdminRequired::class, PublicPage::class, AuthorizedAdminSetting::class]);
-		}
-		foreach ($this->routes() as $method) {
-			foreach ([NoAdminRequired::class, SubAdminRequired::class, PublicPage::class, AuthorizedAdminSetting::class, NoCSRFRequired::class] as $forbidden) {
-				$this->assertSame([], $method->getAttributes($forbidden), $method->getName() . ' must not carry ' . $forbidden);
-			}
-		}
-	}
-
-	public function testEveryWriteNeedsPasswordConfirmation(): void {
-		$writes = 0;
-		foreach ($this->routes() as $method) {
-			$verb = $method->getAttributes(ApiRoute::class)[0]->getArguments()['verb'];
-			$confirmation = $method->getAttributes(PasswordConfirmationRequired::class);
-			if ($verb === 'GET') {
-				$this->assertSame([], $confirmation, $method->getName() . ' only reads');
-			} else {
-				$writes++;
-				$this->assertCount(1, $confirmation, $method->getName() . ' changes something and needs password confirmation');
-			}
-		}
-		$this->assertSame(8, $writes);
-	}
-
-	public function testRoutesAreVersionedApiRoutes(): void {
-		$urls = [];
-		foreach ($this->routes() as $method) {
-			$url = $method->getAttributes(ApiRoute::class)[0]->getArguments()['url'];
-			$this->assertStringStartsWith('/api/v1/', $url);
-			$urls[] = $method->getAttributes(ApiRoute::class)[0]->getArguments()['verb'] . ' ' . $url;
-		}
-		$this->assertCount(19, array_unique($urls));
-	}
-
 	public function testUpdateCheckValidatesEverythingBeforeSaving(): void {
 		$this->settings->expects($this->never())->method('setMode');
 		$this->settings->expects($this->never())->method('setParam');
 		$this->settings->expects($this->never())->method('updateCheck');
 		$this->audit->expects($this->never())->method('log');
 
-		$response = $this->answer(fn () => $this->controller->updateCheck(self::CHECK, 'observe', ['ban'], ['window' => 600, 'min_failures' => 2]));
+		$response = $this->answer(fn () => $this->checkApi->updateCheck(self::CHECK, 'observe', ['ban'], ['window' => 600, 'min_failures' => 2]));
 
 		$this->assertSame(Http::STATUS_BAD_REQUEST, $response->getStatus());
 		$this->assertSame(['message' => '"min_failures" must be at least 3.', 'param' => 'min_failures', 'reason' => 'too_small'], $response->getData());
@@ -233,27 +177,27 @@ class AdminApiControllerTest extends TestCase {
 			fn (array $p): bool => $p['check'] === self::CHECK && $p['actor'] === 'alice' && str_contains((string)$p['change'], '"min_failures":20') && !str_contains((string)$p['change'], 'window'),
 		));
 
-		$response = $this->answer(fn () => $this->controller->updateCheck(self::CHECK, 'observe', ['ban', 'notify_admin'], ['window' => '10m', 'min_failures' => 20]));
+		$response = $this->answer(fn () => $this->checkApi->updateCheck(self::CHECK, 'observe', ['ban', 'notify_admin'], ['window' => '10m', 'min_failures' => 20]));
 		$this->assertSame(Http::STATUS_OK, $response->getStatus());
 	}
 
 	public function testAChangeThatChangesNothingIsNotAudited(): void {
 		$this->settings->method('updateCheck')->willReturn([]);
 		$this->audit->expects($this->never())->method('log');
-		$this->assertSame(Http::STATUS_OK, $this->answer(fn () => $this->controller->updateCheck(self::CHECK, 'protect'))->getStatus());
+		$this->assertSame(Http::STATUS_OK, $this->answer(fn () => $this->checkApi->updateCheck(self::CHECK, 'protect'))->getStatus());
 	}
 
 	public function testUpdateCheckRefusesUnknownResponsesAndModes(): void {
 		$this->settings->expects($this->never())->method('setResponses');
-		$this->assertSame('unknown_response', $this->answer(fn () => $this->controller->updateCheck(self::CHECK, null, ['kill_session']))->getData()['reason']);
-		$this->assertSame('unknown_response', $this->answer(fn () => $this->controller->updateCheck(self::CHECK, null, [['nested']]))->getData()['reason']);
-		$this->assertSame('unknown_mode', $this->answer(fn () => $this->controller->updateCheck(self::CHECK, 'everything'))->getData()['reason']);
-		$this->assertSame('unknown_param', $this->answer(fn () => $this->controller->updateCheck(self::CHECK, null, null, ['nope' => 1]))->getData()['reason']);
+		$this->assertSame('unknown_response', $this->answer(fn () => $this->checkApi->updateCheck(self::CHECK, null, ['kill_session']))->getData()['reason']);
+		$this->assertSame('unknown_response', $this->answer(fn () => $this->checkApi->updateCheck(self::CHECK, null, [['nested']]))->getData()['reason']);
+		$this->assertSame('unknown_mode', $this->answer(fn () => $this->checkApi->updateCheck(self::CHECK, 'everything'))->getData()['reason']);
+		$this->assertSame('unknown_param', $this->answer(fn () => $this->checkApi->updateCheck(self::CHECK, null, null, ['nope' => 1]))->getData()['reason']);
 	}
 
 	public function testUpdateCheckExplainsAMissingRequirement(): void {
 		$this->settings->method('updateCheck')->willThrowException(new InvalidParamException('mode_unavailable', ['why' => 'memory_cache']));
-		$response = $this->answer(fn () => $this->controller->updateCheck(self::CHECK, 'protect'));
+		$response = $this->answer(fn () => $this->checkApi->updateCheck(self::CHECK, 'protect'));
 		$this->assertSame(Http::STATUS_BAD_REQUEST, $response->getStatus());
 		$this->assertStringContainsString('Needs a memory cache', $response->getData()['message']);
 	}
@@ -261,29 +205,29 @@ class AdminApiControllerTest extends TestCase {
 	public function testInternalAndUnknownChecksAreNotConfigurable(): void {
 		foreach (['internal_one', 'no_such_check'] as $id) {
 			try {
-				$this->controller->updateCheck($id, 'off');
+				$this->checkApi->updateCheck($id, 'off');
 				$this->fail('Expected a 404 for ' . $id);
 			} catch (OCSNotFoundException) {
 				$this->addToAssertionCount(1);
 			}
 		}
 		$this->expectException(OCSNotFoundException::class);
-		$this->controller->resetCheck('internal_one');
+		$this->checkApi->resetCheck('internal_one');
 	}
 
 	public function testResetCheckIsAudited(): void {
 		$this->settings->expects($this->once())->method('resetCheck')->with(self::CHECK);
 		$this->audit->expects($this->once())->method('log')->with('check %s reset to defaults by %s', ['check' => self::CHECK, 'actor' => 'alice']);
-		$this->assertSame(Http::STATUS_OK, $this->answer(fn () => $this->controller->resetCheck(self::CHECK))->getStatus());
+		$this->assertSame(Http::STATUS_OK, $this->answer(fn () => $this->checkApi->resetCheck(self::CHECK))->getStatus());
 	}
 
 	public function testDetectionFiltersAreValidatedAndPassedOn(): void {
-		$this->assertSame('severity', $this->answer(fn () => $this->controller->detections(severity: 'huge'))->getData()['param']);
-		$this->assertSame('address', $this->answer(fn () => $this->controller->detections(address: 'not-an-ip'))->getData()['param']);
-		$this->assertSame('mode', $this->answer(fn () => $this->controller->detections(mode: 'maybe'))->getData()['param']);
-		$this->assertSame('limit', $this->answer(fn () => $this->controller->detections(limit: 101))->getData()['param']);
-		$this->assertSame('check', $this->answer(fn () => $this->controller->detections(check: 'Bad Id'))->getData()['param']);
-		$this->assertSame('offset', $this->answer(fn () => $this->controller->detections(offset: -1))->getData()['param']);
+		$this->assertSame('severity', $this->answer(fn () => $this->detectionApi->detections(severity: 'huge'))->getData()['param']);
+		$this->assertSame('address', $this->answer(fn () => $this->detectionApi->detections(address: 'not-an-ip'))->getData()['param']);
+		$this->assertSame('mode', $this->answer(fn () => $this->detectionApi->detections(mode: 'maybe'))->getData()['param']);
+		$this->assertSame('limit', $this->answer(fn () => $this->detectionApi->detections(limit: 101))->getData()['param']);
+		$this->assertSame('check', $this->answer(fn () => $this->detectionApi->detections(check: 'Bad Id'))->getData()['param']);
+		$this->assertSame('offset', $this->answer(fn () => $this->detectionApi->detections(offset: -1))->getData()['param']);
 
 		$captured = null;
 		$this->detectionMapper->method('findList')->willReturnCallback(function (DetectionFilter $filter) use (&$captured): array {
@@ -293,7 +237,7 @@ class AdminApiControllerTest extends TestCase {
 		$this->detectionMapper->expects($this->never())->method('count');
 		$this->detections->method('rows')->willReturn([]);
 
-		$response = $this->controller->detections('a_check, other_check', 'high,critical', ' bob ', '2001:DB8::1', 'observed', 1_789_000_000, 10, 20);
+		$response = $this->detectionApi->detections('a_check, other_check', 'high,critical', ' bob ', '2001:DB8::1', 'observed', 1_789_000_000, 10, 20);
 
 		$this->assertSame(['detections' => [], 'hasMore' => false], $response->getData());
 		$this->assertInstanceOf(DetectionFilter::class, $captured);
@@ -310,36 +254,36 @@ class AdminApiControllerTest extends TestCase {
 	public function testAMissingDetectionIsNotFound(): void {
 		$this->detectionMapper->method('findById')->willThrowException(new DoesNotExistException(''));
 		$this->expectException(OCSNotFoundException::class);
-		$this->controller->detection(5);
+		$this->detectionApi->detection(5);
 	}
 
 	public function testAddBanValidatesItsInput(): void {
 		$this->banService->expects($this->never())->method('banManually');
-		$this->assertSame('level', $this->answer(fn () => $this->controller->addBan('203.0.113.7', 4))->getData()['param']);
-		$this->assertSame('duration', $this->answer(fn () => $this->controller->addBan('203.0.113.7', 1, 60))->getData()['param']);
-		$this->assertSame('duration', $this->answer(fn () => $this->controller->addBan('203.0.113.7', 1, 91 * 86400))->getData()['param']);
-		$this->assertSame('note', $this->answer(fn () => $this->controller->addBan('203.0.113.7', 1, null, str_repeat('x', 256)))->getData()['param']);
-		$this->assertSame('target', $this->answer(fn () => $this->controller->addBan('example.com'))->getData()['param']);
-		$this->assertSame('target', $this->answer(fn () => $this->controller->addBan('203.0.113.0/abc'))->getData()['param']);
+		$this->assertSame('level', $this->answer(fn () => $this->banApi->addBan('203.0.113.7', 4))->getData()['param']);
+		$this->assertSame('duration', $this->answer(fn () => $this->banApi->addBan('203.0.113.7', 1, 60))->getData()['param']);
+		$this->assertSame('duration', $this->answer(fn () => $this->banApi->addBan('203.0.113.7', 1, 91 * 86400))->getData()['param']);
+		$this->assertSame('note', $this->answer(fn () => $this->banApi->addBan('203.0.113.7', 1, null, str_repeat('x', 256)))->getData()['param']);
+		$this->assertSame('target', $this->answer(fn () => $this->banApi->addBan('example.com'))->getData()['param']);
+		$this->assertSame('target', $this->answer(fn () => $this->banApi->addBan('203.0.113.0/abc'))->getData()['param']);
 	}
 
 	public function testAddBanNeverBlocksTheAdminsOwnAddressOrNetwork(): void {
 		$this->banService->expects($this->never())->method('banManually');
-		$this->assertStringContainsString('your own address', $this->answer(fn () => $this->controller->addBan('192.0.2.10'))->getData()['message']);
-		$this->assertStringContainsString('your own address', $this->answer(fn () => $this->controller->addBan('192.0.2.0/24'))->getData()['message']);
+		$this->assertStringContainsString('your own address', $this->answer(fn () => $this->banApi->addBan('192.0.2.10'))->getData()['message']);
+		$this->assertStringContainsString('your own address', $this->answer(fn () => $this->banApi->addBan('192.0.2.0/24'))->getData()['message']);
 	}
 
 	public function testAddBanRefusesTheServerAndTheAllowlist(): void {
 		$this->addresses->method('isNeverBlocked')->willReturnCallback(static fn (SourceKey $s): bool => $s->isLoopback());
 		$this->addresses->method('isBypassListed')->willReturnCallback(static fn (SourceKey $s): bool => $s->ip === '198.51.100.1');
 		$this->banService->expects($this->never())->method('banManually');
-		$this->assertStringContainsString('never blocked', $this->answer(fn () => $this->controller->addBan('127.0.0.1'))->getData()['message']);
-		$this->assertStringContainsString('allowlist', $this->answer(fn () => $this->controller->addBan('198.51.100.1'))->getData()['message']);
+		$this->assertStringContainsString('never blocked', $this->answer(fn () => $this->banApi->addBan('127.0.0.1'))->getData()['message']);
+		$this->assertStringContainsString('allowlist', $this->answer(fn () => $this->banApi->addBan('198.51.100.1'))->getData()['message']);
 	}
 
 	public function testAddBanRefusesANetworkAroundTheAllowlist(): void {
 		$this->banService->method('banManually')->willThrowException(new BanRefusedException('198.51.100.0/24'));
-		$response = $this->answer(fn () => $this->controller->addBan('198.51.100.0/24'));
+		$response = $this->answer(fn () => $this->banApi->addBan('198.51.100.0/24'));
 		$this->assertSame('target', $response->getData()['param']);
 		$this->assertStringContainsString('198.51.100.0/24 contains this server, a loopback address or an address on the brute-force allowlist', $response->getData()['message']);
 	}
@@ -350,13 +294,13 @@ class AdminApiControllerTest extends TestCase {
 		$ban->setCidr('203.0.113.7/32');
 		$this->banService->expects($this->once())->method('banManually')->with('203.0.113.7', 2, 'alice', 'scanner', 7200)->willReturn($ban);
 		$this->audit->expects($this->once())->method('log')->with('block %s (%s) added by %s: %s', ['reference' => 'K7Q2-MPXA', 'cidr' => '203.0.113.7/32', 'actor' => 'alice', 'note' => 'scanner']);
-		$this->assertSame(Http::STATUS_OK, $this->answer(fn () => $this->controller->addBan(' 203.0.113.7 ', 2, 7200, ' scanner '))->getStatus());
+		$this->assertSame(Http::STATUS_OK, $this->answer(fn () => $this->banApi->addBan(' 203.0.113.7 ', 2, 7200, ' scanner '))->getStatus());
 	}
 
 	public function testLiftBanNeedsANote(): void {
 		$this->banService->expects($this->never())->method('lift');
-		$this->assertSame('note', $this->answer(fn () => $this->controller->liftBan(1, '  '))->getData()['param']);
-		$this->assertSame('note', $this->answer(fn () => $this->controller->liftBan(1, str_repeat('x', 256)))->getData()['param']);
+		$this->assertSame('note', $this->answer(fn () => $this->banApi->liftBan(1, '  '))->getData()['param']);
+		$this->assertSame('note', $this->answer(fn () => $this->banApi->liftBan(1, str_repeat('x', 256)))->getData()['param']);
 	}
 
 	public function testLiftBanLiftsOnceAndAudits(): void {
@@ -366,7 +310,7 @@ class AdminApiControllerTest extends TestCase {
 		$this->banMapper->method('findById')->with(3)->willReturn($ban);
 		$this->banService->expects($this->once())->method('lift')->with($ban, 'alice', 'false positive');
 		$this->audit->expects($this->once())->method('log')->with('block %s (%s) lifted by %s: %s', $this->anything());
-		$this->assertSame(Http::STATUS_OK, $this->answer(fn () => $this->controller->liftBan(3, 'false positive'))->getStatus());
+		$this->assertSame(Http::STATUS_OK, $this->answer(fn () => $this->banApi->liftBan(3, 'false positive'))->getStatus());
 	}
 
 	public function testLiftingALiftedBanChangesNothing(): void {
@@ -375,31 +319,31 @@ class AdminApiControllerTest extends TestCase {
 		$this->banMapper->method('findById')->willReturn($ban);
 		$this->banService->expects($this->never())->method('lift');
 		$this->audit->expects($this->never())->method('log');
-		$this->assertSame(Http::STATUS_OK, $this->answer(fn () => $this->controller->liftBan(3, 'again'))->getStatus());
+		$this->assertSame(Http::STATUS_OK, $this->answer(fn () => $this->banApi->liftBan(3, 'again'))->getStatus());
 	}
 
 	public function testLiftingAMissingBanIsNotFound(): void {
 		$this->banMapper->method('findById')->willThrowException(new DoesNotExistException(''));
 		$this->expectException(OCSNotFoundException::class);
-		$this->controller->liftBan(3, 'note');
+		$this->banApi->liftBan(3, 'note');
 	}
 
 	public function testLearningModeActions(): void {
 		$this->learning->expects($this->once())->method('start')->with(14, 'alice');
 		$this->learning->expects($this->once())->method('extend')->with(7, 'alice');
 		$this->learning->expects($this->once())->method('stop')->with('alice');
-		$this->assertSame(Http::STATUS_OK, $this->answer(fn () => $this->controller->updateLearning('start', 14))->getStatus());
-		$this->assertSame(Http::STATUS_OK, $this->answer(fn () => $this->controller->updateLearning('extend', 7))->getStatus());
-		$this->assertSame(Http::STATUS_OK, $this->answer(fn () => $this->controller->updateLearning('stop'))->getStatus());
-		$this->assertSame('days', $this->answer(fn () => $this->controller->updateLearning('start', 31))->getData()['param']);
-		$this->assertSame('days', $this->answer(fn () => $this->controller->updateLearning('extend', 0))->getData()['param']);
-		$this->assertSame('action', $this->answer(fn () => $this->controller->updateLearning('forever'))->getData()['param']);
+		$this->assertSame(Http::STATUS_OK, $this->answer(fn () => $this->settingsApi->updateLearning('start', 14))->getStatus());
+		$this->assertSame(Http::STATUS_OK, $this->answer(fn () => $this->settingsApi->updateLearning('extend', 7))->getStatus());
+		$this->assertSame(Http::STATUS_OK, $this->answer(fn () => $this->settingsApi->updateLearning('stop'))->getStatus());
+		$this->assertSame('days', $this->answer(fn () => $this->settingsApi->updateLearning('start', 31))->getData()['param']);
+		$this->assertSame('days', $this->answer(fn () => $this->settingsApi->updateLearning('extend', 0))->getData()['param']);
+		$this->assertSame('action', $this->answer(fn () => $this->settingsApi->updateLearning('forever'))->getData()['param']);
 	}
 
 	public function testSettingsRefuseInternalAndUnknownKeys(): void {
 		$this->settings->expects($this->never())->method('updateGlobals');
 		foreach (['attempts_flood_until', 'installed_at', GlobalSettings::LEARNING_UNTIL, 'no_such_setting'] as $name) {
-			$response = $this->answer(fn () => $this->controller->updateSettings([$name => 1]));
+			$response = $this->answer(fn () => $this->settingsApi->updateSettings([$name => 1]));
 			$this->assertSame(Http::STATUS_BAD_REQUEST, $response->getStatus(), $name);
 			$this->assertSame($name, $response->getData()['param']);
 		}
@@ -407,7 +351,7 @@ class AdminApiControllerTest extends TestCase {
 
 	public function testSettingsValidateEverythingBeforeSaving(): void {
 		$this->settings->expects($this->never())->method('updateGlobals');
-		$response = $this->answer(fn () => $this->controller->updateSettings([GlobalSettings::BAN_DURATION_1 => '2h', GlobalSettings::BAN_NET_AFTER => 1]));
+		$response = $this->answer(fn () => $this->settingsApi->updateSettings([GlobalSettings::BAN_DURATION_1 => '2h', GlobalSettings::BAN_NET_AFTER => 1]));
 		$this->assertSame(Http::STATUS_BAD_REQUEST, $response->getStatus());
 		$this->assertSame(GlobalSettings::BAN_NET_AFTER, $response->getData()['param']);
 	}
@@ -423,7 +367,7 @@ class AdminApiControllerTest extends TestCase {
 			$logged[] = [$message, $params];
 		});
 
-		$this->controller->updateSettings([GlobalSettings::ENABLED => false, GlobalSettings::BAN_DURATION_1 => '2h']);
+		$this->settingsApi->updateSettings([GlobalSettings::ENABLED => false, GlobalSettings::BAN_DURATION_1 => '2h']);
 
 		$this->assertSame([GlobalSettings::ENABLED => false, GlobalSettings::BAN_DURATION_1 => 7200], $saved);
 		$this->assertSame(['intrusion detection turned %s by %s', ['state' => 'off', 'actor' => 'alice']], $logged[0]);
@@ -433,7 +377,7 @@ class AdminApiControllerTest extends TestCase {
 	public function testResetAllIsAudited(): void {
 		$this->transfer->expects($this->once())->method('resetAll');
 		$this->audit->expects($this->once())->method('log')->with('all settings reset to defaults by %s', ['actor' => 'alice']);
-		$this->controller->resetSettings();
+		$this->settingsApi->resetSettings();
 	}
 
 	public function testTheProtectionLevelIsAppliedAndAudited(): void {
@@ -442,7 +386,7 @@ class AdminApiControllerTest extends TestCase {
 		$this->settings->method('protectionLevel')->willReturn(ProtectionLevel::Strict);
 		$this->checks->method('all')->willReturn(['checks' => [], 'categories' => []]);
 		$this->audit->expects($this->once())->method('log')->with('protection level set to %s by %s: %s', ['level' => 'strict', 'actor' => 'alice', 'change' => json_encode($changes)]);
-		$response = $this->controller->updateProtectionLevel('strict');
+		$response = $this->checkApi->updateProtectionLevel('strict');
 		$this->assertSame(Http::STATUS_OK, $response->getStatus());
 		$this->assertSame('strict', $response->getData()['level']);
 	}
@@ -450,21 +394,7 @@ class AdminApiControllerTest extends TestCase {
 	public function testCustomAndUnknownLevelsAreRefusedBeforeAnythingChanges(): void {
 		$this->levels->expects($this->never())->method('apply');
 		$this->audit->expects($this->never())->method('log');
-		$this->assertSame(Http::STATUS_BAD_REQUEST, $this->answer(fn () => $this->controller->updateProtectionLevel('custom'))->getStatus());
-		$this->assertSame(Http::STATUS_BAD_REQUEST, $this->answer(fn () => $this->controller->updateProtectionLevel('paranoid'))->getStatus());
-	}
-
-	/**
-	 * @return list<\ReflectionMethod>
-	 */
-	private function routes(): array {
-		$routes = [];
-		foreach ((new \ReflectionClass(AdminApiController::class))->getMethods(\ReflectionMethod::IS_PUBLIC) as $method) {
-			if ($method->getAttributes(ApiRoute::class) !== []) {
-				$routes[] = $method;
-			}
-		}
-		$this->assertNotEmpty($routes);
-		return $routes;
+		$this->assertSame(Http::STATUS_BAD_REQUEST, $this->answer(fn () => $this->checkApi->updateProtectionLevel('custom'))->getStatus());
+		$this->assertSame(Http::STATUS_BAD_REQUEST, $this->answer(fn () => $this->checkApi->updateProtectionLevel('paranoid'))->getStatus());
 	}
 }

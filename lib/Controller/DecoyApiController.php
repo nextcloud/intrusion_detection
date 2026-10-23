@@ -10,6 +10,7 @@ declare(strict_types=1);
 namespace OCA\IntrusionDetection\Controller;
 
 use OCA\IntrusionDetection\Admin\TrapsOverview;
+use OCA\IntrusionDetection\AdminChange\ActorResolver;
 use OCA\IntrusionDetection\Audit\AuditLogger;
 use OCA\IntrusionDetection\Check\Checks\TrapUrl\TrapUrl;
 use OCA\IntrusionDetection\Config\CheckSettings;
@@ -27,7 +28,6 @@ use OCP\AppFramework\Http\DataResponse;
 use OCP\AppFramework\OCS\OCSNotFoundException;
 use OCP\IL10N;
 use OCP\IRequest;
-use OCP\IUserSession;
 
 /**
  * The Decoys tab: decoy credentials, reserved names and trap paths.
@@ -50,7 +50,7 @@ class DecoyApiController extends AdminOCSController {
 	public function __construct(
 		IRequest $request,
 		IL10N $l,
-		IUserSession $userSession,
+		ActorResolver $actors,
 		private readonly TrapsOverview $overview,
 		private readonly DecoyService $decoys,
 		private readonly ReservedNames $reservedNames,
@@ -58,7 +58,7 @@ class DecoyApiController extends AdminOCSController {
 		private readonly SettingsEditor $editor,
 		private readonly AuditLogger $audit,
 	) {
-		parent::__construct($request, $l, $userSession);
+		parent::__construct($request, $l, $actors);
 	}
 
 	/**

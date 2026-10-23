@@ -9,6 +9,7 @@ declare(strict_types=1);
 
 namespace OCA\IntrusionDetection\Controller;
 
+use OCA\IntrusionDetection\AdminChange\ActorResolver;
 use OCA\IntrusionDetection\Detection\Simulator;
 use OCA\IntrusionDetection\ResponseDefinitions;
 use OCP\AppFramework\Http;
@@ -19,7 +20,6 @@ use OCP\AppFramework\Http\DataResponse;
 use OCP\AppFramework\OCS\OCSNotFoundException;
 use OCP\IL10N;
 use OCP\IRequest;
-use OCP\IUserSession;
 
 /**
  * "Simulate" on the check cards. Administrators only. A simulation only
@@ -32,10 +32,10 @@ class SimulationApiController extends AdminOCSController {
 	public function __construct(
 		IRequest $request,
 		IL10N $l,
-		IUserSession $userSession,
+		ActorResolver $actors,
 		private readonly Simulator $simulator,
 	) {
-		parent::__construct($request, $l, $userSession);
+		parent::__construct($request, $l, $actors);
 	}
 
 	/**

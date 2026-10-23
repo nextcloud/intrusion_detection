@@ -14,7 +14,10 @@ use OCA\IntrusionDetection\AppInfo\Application;
 use OCA\IntrusionDetection\Check\Checks\ManualBlock\ManualBlock;
 use OCA\IntrusionDetection\Check\Checks\SharedAddress\SharedAddress;
 use OCA\IntrusionDetection\Config\GlobalSettings;
-use OCA\IntrusionDetection\Controller\AdminApiController;
+use OCA\IntrusionDetection\Controller\BanApiController;
+use OCA\IntrusionDetection\Controller\CheckApiController;
+use OCA\IntrusionDetection\Controller\DetectionApiController;
+use OCA\IntrusionDetection\Controller\SettingsApiController;
 use OCA\IntrusionDetection\Db\AttemptKind;
 use OCA\IntrusionDetection\Db\AttemptMapper;
 use OCA\IntrusionDetection\Db\BanMapper;
@@ -25,6 +28,7 @@ use OCA\IntrusionDetection\Response\BanService;
 use OCA\IntrusionDetection\State\AppState;
 use OCA\IntrusionDetection\Tests\Unit\Controller\AnswersLikeTheApi;
 use OCP\AppFramework\Http;
+use OCP\AppFramework\IAppContainer;
 use OCP\IUserManager;
 use OCP\IUserSession;
 use OCP\Server;
@@ -41,7 +45,7 @@ class AdminApiTest extends IntegrationTestCase {
 	private const SECRET_FINGERPRINT = '0123456789abcdef0123456789abcdef';
 	private const SECRET_NAME_HMAC = 'fedcba9876543210fedcba9876543210';
 
-	private AdminApiController $controller;
+	private IAppContainer $container;
 	private DetectionMapper $detections;
 	private BanMapper $bans;
 	private BanService $banService;
@@ -57,7 +61,7 @@ class AdminApiTest extends IntegrationTestCase {
 		}
 		// The acting admin, without setting up a file system.
 		Server::get(IUserSession::class)->setUser($userManager->get('ids_admin'));
-		$this->controller = (new Application())->getContainer()->get(AdminApiController::class);
+		$this->container = (new Application())->getContainer();
 		$this->detections = Server::get(DetectionMapper::class);
 		$this->bans = Server::get(BanMapper::class);
 		$this->banService = Server::get(BanService::class);
@@ -80,7 +84,7 @@ class AdminApiTest extends IntegrationTestCase {
 		$this->insertDetection(ManualBlock::ID, 'medium', false, '198.51.100.2', null, actions: [['type' => 'notify_admin', 'enforced' => false]]);
 		$this->insertDetection(ManualBlock::ID, 'medium', true, '198.51.100.3', null, createdAt: time() - 3 * 86400);
 
-		$status = $this->controller->status()->getData();
+		$status = $this->container->get(CheckApiController::class)->status()->getData();
 
 		$this->assertSame('protecting', $status['state']);
 		$this->assertSame(3, $status['last24h']['detections']);
@@ -99,16 +103,16 @@ class AdminApiTest extends IntegrationTestCase {
 
 	public function testStatusShowsLearningAndOff(): void {
 		$this->appConfig->setValueInt(Application::APP_ID, GlobalSettings::LEARNING_UNTIL, time() + 2 * 86400 + 60);
-		$status = $this->controller->status()->getData();
+		$status = $this->container->get(CheckApiController::class)->status()->getData();
 		$this->assertSame('learning', $status['state']);
 		$this->assertSame(3, $status['learning']['daysLeft']);
 
 		$this->appConfig->setValueBool(Application::APP_ID, GlobalSettings::ENABLED, false);
-		$this->assertSame('off', $this->controller->status()->getData()['state']);
+		$this->assertSame('off', $this->container->get(CheckApiController::class)->status()->getData()['state']);
 	}
 
 	public function testChecksListOnlyConfigurableChecks(): void {
-		$ids = array_column($this->controller->checks()->getData()['checks'], 'id');
+		$ids = array_column($this->container->get(CheckApiController::class)->checks()->getData()['checks'], 'id');
 		$this->assertNotContains(ManualBlock::ID, $ids);
 		$this->assertNotContains(SharedAddress::ID, $ids);
 	}
@@ -120,25 +124,25 @@ class AdminApiTest extends IntegrationTestCase {
 		$this->insertDetection(SharedAddress::ID, 'high', false, '198.51.100.7', 'ids_alice', createdAt: time() - 30);
 
 		$queries = $this->db->getInner()->getStats()['executed'];
-		$page = $this->controller->detections(limit: 2, offset: 1)->getData();
+		$page = $this->container->get(DetectionApiController::class)->detections(limit: 2, offset: 1)->getData();
 		$this->assertTrue($page['hasMore']);
 		$this->assertCount(2, $page['detections']);
 		// Newest first: the shared-address one is second newest.
 		$this->assertSame('198.51.100.7', $page['detections'][0]['ip']);
 		$this->assertSame(1, $this->db->getInner()->getStats()['executed'] - $queries, 'one query for the page, no count');
-		$last = $this->controller->detections(limit: 2, offset: 4)->getData();
+		$last = $this->container->get(DetectionApiController::class)->detections(limit: 2, offset: 4)->getData();
 		$this->assertCount(2, $last['detections']);
 		$this->assertFalse($last['hasMore']);
 
-		$this->assertCount(1, $this->controller->detections(check: SharedAddress::ID)->getData()['detections']);
-		$this->assertCount(1, $this->controller->detections(severity: 'high,critical')->getData()['detections']);
-		$this->assertCount(1, $this->controller->detections(mode: 'observed')->getData()['detections']);
-		$this->assertCount(5, $this->controller->detections(mode: 'enforced')->getData()['detections']);
-		$this->assertCount(1, $this->controller->detections(user: 'ids_alice')->getData()['detections']);
-		$this->assertCount(1, $this->controller->detections(address: '203.0.113.3')->getData()['detections']);
-		$this->assertCount(3, $this->controller->detections(since: time() - 90)->getData()['detections']);
+		$this->assertCount(1, $this->container->get(DetectionApiController::class)->detections(check: SharedAddress::ID)->getData()['detections']);
+		$this->assertCount(1, $this->container->get(DetectionApiController::class)->detections(severity: 'high,critical')->getData()['detections']);
+		$this->assertCount(1, $this->container->get(DetectionApiController::class)->detections(mode: 'observed')->getData()['detections']);
+		$this->assertCount(5, $this->container->get(DetectionApiController::class)->detections(mode: 'enforced')->getData()['detections']);
+		$this->assertCount(1, $this->container->get(DetectionApiController::class)->detections(user: 'ids_alice')->getData()['detections']);
+		$this->assertCount(1, $this->container->get(DetectionApiController::class)->detections(address: '203.0.113.3')->getData()['detections']);
+		$this->assertCount(3, $this->container->get(DetectionApiController::class)->detections(since: time() - 90)->getData()['detections']);
 
-		$row = $this->controller->detections(check: SharedAddress::ID)->getData()['detections'][0];
+		$row = $this->container->get(DetectionApiController::class)->detections(check: SharedAddress::ID)->getData()['detections'][0];
 		$this->assertSame('Shared address not blocked', $row['checkName']);
 		$this->assertSame('internal', $row['category']);
 		$this->assertSame('Shared address not blocked from 198.51.100.7. Only recorded, as the check observes.', $row['summary']);
@@ -156,7 +160,7 @@ class AdminApiTest extends IntegrationTestCase {
 			'nested' => ['nameHmac' => self::SECRET_NAME_HMAC, 'value' => self::SECRET_FINGERPRINT],
 		]);
 
-		$response = $this->controller->detection((int)$detection->getId());
+		$response = $this->container->get(DetectionApiController::class)->detection((int)$detection->getId());
 		$detail = $response->getData();
 		$json = (string)json_encode($detail);
 
@@ -176,7 +180,7 @@ class AdminApiTest extends IntegrationTestCase {
 
 	public function testAttemptsAreNotShownForOlderDetections(): void {
 		$detection = $this->insertDetection(ManualBlock::ID, 'medium', true, '203.0.113.7', null, createdAt: time() - 7200);
-		$detail = $this->controller->detection((int)$detection->getId())->getData();
+		$detail = $this->container->get(DetectionApiController::class)->detection((int)$detection->getId())->getData();
 		$this->assertFalse($detail['attemptsAvailable']);
 		$this->assertSame([], $detail['attempts']);
 	}
@@ -184,9 +188,9 @@ class AdminApiTest extends IntegrationTestCase {
 	public function testDetectionListsNeverContainSecrets(): void {
 		$this->insertDetection(ManualBlock::ID, 'medium', true, '203.0.113.7', null, facts: ['pw_fp' => self::SECRET_FINGERPRINT]);
 		$json = (string)json_encode([
-			$this->controller->detections()->getData(),
-			$this->controller->lookup('203.0.113.7')->getData(),
-			$this->controller->status()->getData(),
+			$this->container->get(DetectionApiController::class)->detections()->getData(),
+			$this->container->get(DetectionApiController::class)->lookup('203.0.113.7')->getData(),
+			$this->container->get(CheckApiController::class)->status()->getData(),
 		]);
 		$this->assertStringNotContainsString(self::SECRET_FINGERPRINT, $json);
 	}
@@ -199,7 +203,7 @@ class AdminApiTest extends IntegrationTestCase {
 		$reference = $ban->getDisplayReference();
 
 		foreach ([$reference, strtolower($reference), str_replace('-', '', $reference), ' ' . strtolower(str_replace('-', ' ', $reference)) . ' '] as $query) {
-			$result = $this->controller->lookup($query)->getData();
+			$result = $this->container->get(DetectionApiController::class)->lookup($query)->getData();
 			$this->assertSame('reference', $result['kind'], $query);
 			$this->assertSame($ban->getId(), $result['bans'][0]['id']);
 			$this->assertSame($detection->getId(), $result['detections'][0]['id']);
@@ -211,24 +215,24 @@ class AdminApiTest extends IntegrationTestCase {
 		$this->insertDetection(ManualBlock::ID, 'medium', true, '203.0.113.7', null);
 		$this->insertDetection(ManualBlock::ID, 'medium', true, '203.0.113.7', null, createdAt: time() - 40 * 86400);
 
-		$result = $this->controller->lookup('203.0.113.7')->getData();
+		$result = $this->container->get(DetectionApiController::class)->lookup('203.0.113.7')->getData();
 
 		$this->assertSame('address', $result['kind']);
 		$this->assertSame(['203.0.113.0/24'], array_column($result['bans'], 'cidr'));
 		$this->assertCount(1, $result['detections']);
-		$this->assertSame([], $this->controller->lookup('198.51.100.1')->getData()['bans']);
+		$this->assertSame([], $this->container->get(DetectionApiController::class)->lookup('198.51.100.1')->getData()['bans']);
 	}
 
 	public function testLookupByUser(): void {
 		$this->insertDetection(SharedAddress::ID, 'high', true, null, 'ids_alice');
-		$result = $this->controller->lookup('ids_alice')->getData();
+		$result = $this->container->get(DetectionApiController::class)->lookup('ids_alice')->getData();
 		$this->assertSame('user', $result['kind']);
 		$this->assertSame(['uid' => 'ids_alice', 'displayName' => 'Alice Liddell'], $result['user']);
 		$this->assertCount(1, $result['detections']);
 
-		$this->assertSame('none', $this->controller->lookup('nobody-here')->getData()['kind']);
-		$this->assertSame('none', $this->controller->lookup('ZZZZ-ZZZZ')->getData()['kind']);
-		$this->assertSame('none', $this->controller->lookup('')->getData()['kind']);
+		$this->assertSame('none', $this->container->get(DetectionApiController::class)->lookup('nobody-here')->getData()['kind']);
+		$this->assertSame('none', $this->container->get(DetectionApiController::class)->lookup('ZZZZ-ZZZZ')->getData()['kind']);
+		$this->assertSame('none', $this->container->get(DetectionApiController::class)->lookup('')->getData()['kind']);
 	}
 
 	public function testDailyStatsFillEveryDay(): void {
@@ -237,7 +241,7 @@ class AdminApiTest extends IntegrationTestCase {
 		$this->insertDetection(SharedAddress::ID, 'high', true, '203.0.113.9', null, createdAt: time() - 2 * 86400);
 		$this->insertDetection(ManualBlock::ID, 'medium', true, '203.0.113.7', null, createdAt: time() - 40 * 86400);
 
-		$days = $this->controller->dailyStats(30)->getData()['days'];
+		$days = $this->container->get(DetectionApiController::class)->dailyStats(30)->getData()['days'];
 
 		$this->assertCount(30, $days);
 		$today = end($days);
@@ -247,7 +251,7 @@ class AdminApiTest extends IntegrationTestCase {
 		$this->assertSame(3, array_sum(array_map(static fn (array $d): int => $d['enforced'] + $d['observed'], $days)));
 		// Consecutive local days.
 		$this->assertSame(86400, $days[1]['start'] - $days[0]['start']);
-		$this->assertCount(90, $this->controller->dailyStats(500)->getData()['days']);
+		$this->assertCount(90, $this->container->get(DetectionApiController::class)->dailyStats(500)->getData()['days']);
 	}
 
 	public function testBanListAndLifting(): void {
@@ -256,27 +260,27 @@ class AdminApiTest extends IntegrationTestCase {
 		$ended = $this->banService->banManually('203.0.113.9', 1, 'test', null);
 		$this->banService->lift($ended, 'test', 'done');
 
-		$list = $this->controller->bans()->getData();
+		$list = $this->container->get(BanApiController::class)->bans()->getData();
 		$this->assertSame(2, $list['activeCount']);
 		$this->assertCount(2, $list['bans']);
 		$this->assertFalse($list['hasMore']);
 		$this->assertTrue($list['bans'][0]['active']);
 		$this->assertSame('Blocked by an administrator', $list['bans'][0]['checkName']);
 
-		$this->assertCount(3, $this->controller->bans(true)->getData()['bans']);
-		$page = $this->controller->bans(true, 2)->getData();
+		$this->assertCount(3, $this->container->get(BanApiController::class)->bans(true)->getData()['bans']);
+		$page = $this->container->get(BanApiController::class)->bans(true, 2)->getData();
 		$this->assertCount(2, $page['bans']);
 		$this->assertTrue($page['hasMore']);
 
-		$lifted = $this->controller->liftBan((int)$active->getId(), 'false alarm')->getData();
+		$lifted = $this->container->get(BanApiController::class)->liftBan((int)$active->getId(), 'false alarm')->getData();
 		$this->assertFalse($lifted['active']);
 		$this->assertSame('ids_admin', $lifted['liftedBy']);
 		$this->assertSame('false alarm', $lifted['liftNote']);
-		$this->assertSame(1, $this->controller->bans()->getData()['activeCount']);
+		$this->assertSame(1, $this->container->get(BanApiController::class)->bans()->getData()['activeCount']);
 	}
 
 	public function testManualBlockThroughTheApi(): void {
-		$response = $this->controller->addBan('2001:db8:1:2::7', 2, null, 'scanner');
+		$response = $this->container->get(BanApiController::class)->addBan('2001:db8:1:2::7', 2, null, 'scanner');
 		$this->assertSame(Http::STATUS_OK, $response->getStatus());
 		$ban = $response->getData();
 		$this->assertSame('2001:db8:1:2::/64', $ban['cidr']);
@@ -286,7 +290,7 @@ class AdminApiTest extends IntegrationTestCase {
 	}
 
 	public function testSettingsRoundTripExportAndReset(): void {
-		$response = $this->controller->updateSettings([GlobalSettings::BAN_DURATION_1 => '2h', GlobalSettings::BAN_NET_AFTER => 4]);
+		$response = $this->container->get(SettingsApiController::class)->updateSettings([GlobalSettings::BAN_DURATION_1 => '2h', GlobalSettings::BAN_NET_AFTER => 4]);
 		$this->assertSame(Http::STATUS_OK, $response->getStatus());
 		$settings = array_column($response->getData()['settings'], 'value', 'name');
 		$this->assertSame(7200, $settings[GlobalSettings::BAN_DURATION_1]);
@@ -294,12 +298,12 @@ class AdminApiTest extends IntegrationTestCase {
 		$this->assertArrayNotHasKey(GlobalSettings::LEARNING_UNTIL, $settings);
 		$this->assertArrayHasKey('escalation', $response->getData()['templates']);
 
-		$export = $this->controller->exportSettings()->getData();
+		$export = $this->container->get(SettingsApiController::class)->exportSettings()->getData();
 		$this->assertSame(7200, $export['settings'][GlobalSettings::BAN_DURATION_1]);
 		$this->assertArrayNotHasKey(AppState::INSTALLED_AT, $export['settings']);
 
 		$this->appConfig->setValueInt(Application::APP_ID, GlobalSettings::LEARNING_UNTIL, time() + 86400);
-		$this->controller->resetSettings();
+		$this->container->get(SettingsApiController::class)->resetSettings();
 		$this->assertSame(14400, $this->appSettings()->banDurations()[1]);
 		$this->assertSame(3, $this->appSettings()->banNetAfter());
 		// Learning mode is not a setting and survives the reset.
@@ -307,19 +311,19 @@ class AdminApiTest extends IntegrationTestCase {
 	}
 
 	public function testLearningModeThroughTheApi(): void {
-		$learning = $this->controller->updateLearning('start', 3)->getData();
+		$learning = $this->container->get(SettingsApiController::class)->updateLearning('start', 3)->getData();
 		$this->assertTrue($learning['active']);
 		$this->assertSame(3, $learning['daysLeft']);
-		$this->assertFalse($this->controller->updateLearning('stop')->getData()['active']);
+		$this->assertFalse($this->container->get(SettingsApiController::class)->updateLearning('stop')->getData()['active']);
 	}
 
 	public function testTheApiExplainsTheLimitOfThirtyDays(): void {
-		$this->controller->updateLearning('start', 25);
-		$response = $this->answer(fn () => $this->controller->updateLearning('extend', 7));
+		$this->container->get(SettingsApiController::class)->updateLearning('start', 25);
+		$response = $this->answer(fn () => $this->container->get(SettingsApiController::class)->updateLearning('extend', 7));
 		$this->assertSame(Http::STATUS_BAD_REQUEST, $response->getStatus());
 		$this->assertSame('learning_limit', $response->getData()['reason']);
 		$this->assertStringContainsString('Learning mode lasts at most 30 days in all, so that protection cannot stay off for long.', $response->getData()['message']);
-		$this->assertSame(25, $this->controller->updateLearning('extend', 5)->getData()['daysLeft'] - 5, 'Up to the limit');
+		$this->assertSame(25, $this->container->get(SettingsApiController::class)->updateLearning('extend', 5)->getData()['daysLeft'] - 5, 'Up to the limit');
 	}
 
 	public function testScrubKeepsOrdinaryFacts(): void {

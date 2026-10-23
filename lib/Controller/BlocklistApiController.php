@@ -10,6 +10,7 @@ declare(strict_types=1);
 namespace OCA\IntrusionDetection\Controller;
 
 use OCA\IntrusionDetection\Admin\BlocklistPresenter;
+use OCA\IntrusionDetection\AdminChange\ActorResolver;
 use OCA\IntrusionDetection\Audit\AuditLogger;
 use OCA\IntrusionDetection\Blocklist\BlocklistSource;
 use OCA\IntrusionDetection\Blocklist\BlocklistSync;
@@ -25,7 +26,6 @@ use OCP\AppFramework\Http\DataResponse;
 use OCP\AppFramework\OCS\OCSNotFoundException;
 use OCP\IL10N;
 use OCP\IRequest;
-use OCP\IUserSession;
 
 /**
  * The firewall export and the blocklists on the Blocks tab. Administrators
@@ -46,14 +46,14 @@ class BlocklistApiController extends AdminOCSController {
 	public function __construct(
 		IRequest $request,
 		IL10N $l,
-		IUserSession $userSession,
+		ActorResolver $actors,
 		private readonly BlocklistPresenter $presenter,
 		private readonly SourceEditor $editor,
 		private readonly SourceRepository $sources,
 		private readonly BlocklistSync $sync,
 		private readonly AuditLogger $audit,
 	) {
-		parent::__construct($request, $l, $userSession);
+		parent::__construct($request, $l, $actors);
 	}
 
 	/**

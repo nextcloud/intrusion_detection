@@ -9,6 +9,7 @@ declare(strict_types=1);
 
 namespace OCA\IntrusionDetection\Tests\Unit\Controller;
 
+use OCA\IntrusionDetection\AdminChange\ActorResolver;
 use OCA\IntrusionDetection\Audit\AuditLogger;
 use OCA\IntrusionDetection\Controller\IncidentApiController;
 use OCA\IntrusionDetection\Incident\IncidentQuery;
@@ -72,7 +73,7 @@ class IncidentApiControllerTest extends TestCase {
 		$this->controller = new IncidentApiController(
 			$this->createMock(IRequest::class),
 			$this->l,
-			$session,
+			new ActorResolver($session),
 			new IncidentReports($this->builder, $this->renderer, $this->audit),
 			$time,
 		);

@@ -10,6 +10,7 @@ declare(strict_types=1);
 namespace OCA\IntrusionDetection\Controller;
 
 use OCA\IntrusionDetection\Admin\ConfirmationOverview;
+use OCA\IntrusionDetection\AdminChange\ActorResolver;
 use OCA\IntrusionDetection\Audit\AuditLogger;
 use OCA\IntrusionDetection\Confirm\ConfirmationCoverage;
 use OCA\IntrusionDetection\Confirm\NoMethodPreset;
@@ -21,7 +22,6 @@ use OCP\AppFramework\Http\Attribute\PasswordConfirmationRequired;
 use OCP\AppFramework\Http\DataResponse;
 use OCP\IL10N;
 use OCP\IRequest;
-use OCP\IUserSession;
 
 /**
  * Login confirmation on the admin page. Its settings are changed through
@@ -40,13 +40,13 @@ class ConfirmationApiController extends AdminOCSController {
 	public function __construct(
 		IRequest $request,
 		IL10N $l,
-		IUserSession $userSession,
+		ActorResolver $actors,
 		private readonly ConfirmationOverview $overview,
 		private readonly ConfirmationCoverage $coverage,
 		private readonly NoMethodPreset $preset,
 		private readonly AuditLogger $audit,
 	) {
-		parent::__construct($request, $l, $userSession);
+		parent::__construct($request, $l, $actors);
 	}
 
 	/**

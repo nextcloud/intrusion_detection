@@ -54,13 +54,14 @@ class ApprovalController extends AdminOCSController {
 	public function __construct(
 		IRequest $request,
 		IL10N $l,
-		IUserSession $userSession,
+		ActorResolver $actors,
+		private readonly IUserSession $userSession,
 		private readonly ApprovalService $approvals,
 		private readonly SessionConfirmation $confirmation,
 		private readonly IUserManager $userManager,
 		private readonly ITimeFactory $timeFactory,
 	) {
-		parent::__construct($request, $l, $userSession);
+		parent::__construct($request, $l, $actors);
 	}
 
 	/**
