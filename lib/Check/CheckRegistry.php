@@ -11,10 +11,15 @@ namespace OCA\IntrusionDetection\Check;
 
 use OCA\IntrusionDetection\Definition\CheckDefinition;
 use OCA\IntrusionDetection\Definition\InvalidParamException;
+use OCA\IntrusionDetection\Signal\FailedLogin;
+use OCA\IntrusionDetection\Signal\FailedLoginAttempt;
+use OCA\IntrusionDetection\Signal\IDetector;
+use OCA\IntrusionDetection\Signal\ISignal;
 use Psr\Container\ContainerInterface;
 
 /**
- * All checks the app knows. Adding a check means adding its class to CHECKS.
+ * All checks the app knows, and the detectors of each signal. Adding a check
+ * means adding its class to CHECKS, and its detector to DETECTORS.
  */
 class CheckRegistry {
 	/** @var list<class-string<ICheck>> */
@@ -45,6 +50,29 @@ class CheckRegistry {
 		Checks\DirectoryScraping\DirectoryScraping::class,
 		Checks\AccountTakeover\AccountTakeover::class,
 		Checks\AccountLocked\AccountLocked::class,
+	];
+
+	/**
+	 * The detectors of each signal, by the id of their check, in the order
+	 * they run ({@see \OCA\IntrusionDetection\Signal\SignalDispatcher}). The
+	 * ids are spelled out so that a signal whose checks are off loads no
+	 * check and no detector. A decoy and a reserved name answer a failed login
+	 * on their own, so nothing after them runs; a listed address is recorded
+	 * whatever else the login was.
+	 *
+	 * @var array<class-string<ISignal>, array<string, class-string<IDetector>>>
+	 */
+	public const DETECTORS = [
+		FailedLogin::class => [
+			'blocklist_match' => Checks\BlocklistMatch\BlocklistMatchDetector::class,
+			'decoy_credential' => Checks\DecoyCredential\DecoyCredentialDetector::class,
+			'reserved_name' => Checks\ReservedName\ReservedNameDetector::class,
+		],
+		FailedLoginAttempt::class => [
+			'password_spraying' => Checks\PasswordSpraying\PasswordSprayingDetector::class,
+			'credential_stuffing' => Checks\CredentialStuffing\CredentialStuffingDetector::class,
+			'account_under_attack' => Checks\AccountUnderAttack\AccountUnderAttackDetector::class,
+		],
 	];
 
 	/** @var array<string, CheckDefinition>|null */

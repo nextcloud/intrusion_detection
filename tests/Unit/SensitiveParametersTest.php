@@ -14,6 +14,7 @@ use OCA\IntrusionDetection\Crypto\Fingerprinter;
 use OCA\IntrusionDetection\Db\AttemptKind;
 use OCA\IntrusionDetection\Detection\AttemptRecord;
 use OCA\IntrusionDetection\Net\SourceKey;
+use OCA\IntrusionDetection\Signal\ISignal;
 use Test\TestCase;
 
 /**
@@ -41,7 +42,48 @@ class SensitiveParametersTest extends TestCase {
 				}
 			}
 		}
+		$this->assertGreaterThanOrEqual(4, $checked);
+	}
+
+	public function testEveryParameterThatTakesASignalIsSensitive(): void {
+		$checked = 0;
+		foreach (self::appClasses() as $class) {
+			foreach ((new \ReflectionClass($class))->getMethods() as $method) {
+				foreach ($method->getParameters() as $parameter) {
+					$type = $parameter->getType();
+					if ($type instanceof \ReflectionNamedType && !$type->isBuiltin() && is_a($type->getName(), ISignal::class, true)) {
+						$checked++;
+						$this->assertNotSame([], $parameter->getAttributes(\SensitiveParameter::class), $class . '::' . $method->getName() . '($' . $parameter->getName() . ') must be #[\SensitiveParameter]');
+					}
+				}
+			}
+		}
 		$this->assertGreaterThanOrEqual(8, $checked);
+	}
+
+	public function testASignalWithASecretHidesItFromDumps(): void {
+		$checked = 0;
+		foreach (self::appClasses() as $class) {
+			$reflection = new \ReflectionClass($class);
+			if (!$reflection->implementsInterface(ISignal::class) || $reflection->isInterface()) {
+				continue;
+			}
+			$secrets = array_filter($reflection->getConstructor()?->getParameters() ?? [], static fn (\ReflectionParameter $p): bool => $p->getAttributes(\SensitiveParameter::class) !== []);
+			if ($secrets === []) {
+				continue;
+			}
+			$checked++;
+			$this->assertTrue($reflection->hasMethod('__debugInfo') && $reflection->getMethod('__debugInfo')->getDeclaringClass()->getName() === $class, $class . ' carries a secret and must define __debugInfo()');
+		}
+		$this->assertGreaterThanOrEqual(2, $checked);
+	}
+
+	/**
+	 * @return list<class-string>
+	 */
+	private static function appClasses(): array {
+		$classmap = require __DIR__ . '/../../composer/composer/autoload_classmap.php';
+		return array_values(array_filter(array_keys($classmap), static fn (string $class): bool => str_starts_with($class, 'OCA\\IntrusionDetection\\') && (class_exists($class) || interface_exists($class))));
 	}
 
 	public function testEverySecretTheFingerprinterTakesIsSensitive(): void {

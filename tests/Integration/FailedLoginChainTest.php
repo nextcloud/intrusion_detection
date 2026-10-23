@@ -9,10 +9,7 @@ declare(strict_types=1);
 
 namespace OCA\IntrusionDetection\Tests\Integration;
 
-use OCA\IntrusionDetection\Address\AddressCache;
 use OCA\IntrusionDetection\Address\Verdict;
-use OCA\IntrusionDetection\Blocklist\SourceRepository;
-use OCA\IntrusionDetection\Check\CheckRegistry;
 use OCA\IntrusionDetection\Check\Checks\AccountUnderAttack\AccountUnderAttack;
 use OCA\IntrusionDetection\Check\Checks\BlocklistMatch\BlocklistMatch;
 use OCA\IntrusionDetection\Check\Checks\CredentialStuffing\CredentialStuffing;
@@ -24,18 +21,10 @@ use OCA\IntrusionDetection\Db\Detection;
 use OCA\IntrusionDetection\Decoy\DecoyFormat;
 use OCA\IntrusionDetection\Decoy\DecoyService;
 use OCA\IntrusionDetection\Definition\Mode;
-use OCA\IntrusionDetection\Guard\RequestContext;
-use OCA\IntrusionDetection\Listener\BlocklistLoginListener;
-use OCA\IntrusionDetection\Net\RemoteAddressResolver;
-use OCA\IntrusionDetection\Net\ServerAddresses;
-use OCA\IntrusionDetection\Response\ResponseEngine;
 use OCA\IntrusionDetection\Traps\ReservedNames;
-use OCP\Authentication\Events\AnyLoginFailedEvent;
-use OCP\Security\Bruteforce\IThrottler;
 use OCP\Server;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Group;
-use Psr\Log\LoggerInterface;
 
 /**
  * The order of the failed-login chain: a decoy, and then a reserved name,
@@ -99,9 +88,8 @@ class FailedLoginChainTest extends LoginFailureTestCase {
 			['id' => 'spamhaus_drop_v4', 'enabled' => true, 'mode' => 'observe'],
 		]));
 		[, $secret] = Server::get(DecoyService::class)->create('old backup script', null, DecoyFormat::AppPassword, 'admin');
-		$context = new RequestContext();
-		$context->setVerdict(new Verdict(0, '', ['list:spamhaus_drop_v4'], time() + 300));
-		$this->failLoginEverywhere('198.51.100.7', 'anyone', $secret, $context);
+		$this->requestContext->setVerdict(new Verdict(0, '', ['list:spamhaus_drop_v4'], time() + 300));
+		$this->failLogin('198.51.100.7', 'anyone', $secret);
 
 		$this->assertCount(1, $this->detectionsOf(BlocklistMatch::ID));
 		$this->assertCount(1, $this->detectionsOf(DecoyCredential::ID));
@@ -142,26 +130,6 @@ class FailedLoginChainTest extends LoginFailureTestCase {
 		));
 		$this->assertCount(1, $distributed);
 		$this->assertSame(['notify_admin'], self::actionTypes($distributed[0]));
-	}
-
-	/**
-	 * A failed login as core reports it, to every listener of the app.
-	 */
-	private function failLoginEverywhere(string $ip, string $loginName, #[\SensitiveParameter] string $password, RequestContext $context): void {
-		$this->remoteAddress = $ip;
-		$event = new AnyLoginFailedEvent($loginName, $password);
-		(new BlocklistLoginListener(
-			$this->checkSettings(),
-			new RemoteAddressResolver($this->request, Server::get(IThrottler::class), Server::get(ServerAddresses::class)),
-			$context,
-			Server::get(AddressCache::class),
-			Server::get(CheckRegistry::class),
-			Server::get(SourceRepository::class),
-			Server::get(ResponseEngine::class),
-			$this->request,
-			Server::get(LoggerInterface::class),
-		))->handle($event);
-		$this->listener->handle($event);
 	}
 
 	/**

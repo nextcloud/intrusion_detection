@@ -29,7 +29,6 @@ use OCA\IntrusionDetection\KnownDevice\IKnownDevices;
 use OCA\IntrusionDetection\KnownDevice\KnownDevices;
 use OCA\IntrusionDetection\Listener\AdminChangeListener;
 use OCA\IntrusionDetection\Listener\AppPasswordCreatedListener;
-use OCA\IntrusionDetection\Listener\BlocklistLoginListener;
 use OCA\IntrusionDetection\Listener\BreachResetListener;
 use OCA\IntrusionDetection\Listener\FailedLoginListener;
 use OCA\IntrusionDetection\Listener\FirewallExportListener;
@@ -131,7 +130,7 @@ class ApplicationTest extends TestCase {
 		}
 		ksort($byEvent);
 		$expected = [
-			AnyLoginFailedEvent::class => [[BlocklistLoginListener::class, 0], [FailedLoginListener::class, 0]],
+			AnyLoginFailedEvent::class => [[FailedLoginListener::class, 0]],
 			AppDisableEvent::class => [[AdminChangeListener::class, -100]],
 			AppEnableEvent::class => [[AdminChangeListener::class, -100]],
 			AppPasswordCreatedEvent::class => [[AppPasswordCreatedListener::class, 0], [SecurityChangeListener::class, 0]],

@@ -25,7 +25,7 @@ class ArchitectureTest extends TestCase {
 	private const LAYERS = [
 		'kernel' => ['Definition', 'Net', 'Crypto', 'Audit', 'Http', 'ResponseDefinitions', 'Sensitive', 'Cache', 'State'],
 		'storage' => ['Db', 'Config'],
-		'platform' => ['Check', 'Configure', 'Detection', 'Response', 'Explain', 'Event', 'Notification', 'Login'],
+		'platform' => ['Check', 'Configure', 'Detection', 'Response', 'Signal', 'Explain', 'Event', 'Notification', 'Login'],
 		'features' => [
 			'Check\\Checks',
 			'Address', 'AdminChange', 'Blocklist', 'Breach', 'Confirm', 'Decoy', 'Export', 'Guide', 'Incident', 'KnownDevice',
@@ -41,7 +41,7 @@ class ArchitectureTest extends TestCase {
 
 	/** Generic namespaces, which must not name a check */
 	private const PLATFORM = ['Definition', 'Net', 'Crypto', 'Audit', 'Http', 'ResponseDefinitions', 'Sensitive', 'Cache', 'State', 'Db', 'Config',
-		'Check', 'Configure', 'Detection', 'Response', 'Explain', 'Event', 'Notification', 'Login'];
+		'Check', 'Configure', 'Detection', 'Response', 'Signal', 'Explain', 'Event', 'Notification', 'Login'];
 
 	/**
 	 * Today's dependencies that point upward. Entries may only be removed.

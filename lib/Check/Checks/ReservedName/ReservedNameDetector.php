@@ -9,42 +9,44 @@ declare(strict_types=1);
 
 namespace OCA\IntrusionDetection\Check\Checks\ReservedName;
 
-use OCA\IntrusionDetection\Config\CheckSettings;
+use OCA\IntrusionDetection\Config\ModeState;
 use OCA\IntrusionDetection\Detection\DetectionDraft;
-use OCA\IntrusionDetection\Net\SourceKey;
-use OCA\IntrusionDetection\Response\ResponseEngine;
+use OCA\IntrusionDetection\Signal\FailedLogin;
+use OCA\IntrusionDetection\Signal\IDetector;
+use OCA\IntrusionDetection\Signal\ISignal;
 use OCA\IntrusionDetection\Traps\ReservedNames;
 
 /**
  * Detects failed logins with a reserved name (concept section 10.7).
  * Repeated attempts from one address within an hour are one detection.
+ * A reserved name answers the failed login on its own: it is not counted
+ * as an attempt.
+ *
+ * @template-implements IDetector<FailedLogin>
  */
-class ReservedNameDetector {
+class ReservedNameDetector implements IDetector {
 	public function __construct(
-		private readonly CheckSettings $settings,
 		private readonly ReservedNames $names,
-		private readonly ResponseEngine $engine,
 	) {
 	}
 
 	/**
-	 * @return bool whether the login name was a reserved name
+	 * @param FailedLogin $signal
+	 * @return list<DetectionDraft>
 	 */
-	public function detect(SourceKey $source, string $loginName, ?string $userAgent): bool {
-		if (!$this->settings->modeState(ReservedName::ID)->runs()) {
-			return false;
-		}
-		$name = $this->names->match($loginName);
+	#[\Override]
+	public function detect(#[\SensitiveParameter] ISignal $signal, ModeState $mode): iterable {
+		$name = $this->names->match($signal->loginName);
 		if ($name === null) {
-			return false;
+			return [];
 		}
-		$this->engine->handle(new DetectionDraft(
+		return [new DetectionDraft(
 			checkId: ReservedName::ID,
-			source: $source,
+			source: $signal->source,
 			facts: ['name' => $name],
 			merge: DetectionDraft::MERGE_SOURCE,
-			userAgent: $userAgent,
-		));
-		return true;
+			userAgent: $signal->userAgent,
+			final: true,
+		)];
 	}
 }

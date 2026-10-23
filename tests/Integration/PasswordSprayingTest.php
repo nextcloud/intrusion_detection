@@ -172,13 +172,13 @@ class PasswordSprayingTest extends LoginFailureTestCase {
 	public function testOnceASprayIsSeenFurtherAttemptsAreNotCountedAgain(): void {
 		$this->settingsEditor()->setMode(PasswordSpraying::ID, Mode::Observe);
 		$this->spray(6);
-		$detector = (new \ReflectionProperty($this->listener, 'spraying'))->getValue($this->listener);
-		$this->assertInstanceOf(\OCA\IntrusionDetection\Check\Checks\PasswordSpraying\PasswordSprayingDetector::class, $detector);
+		$detector = Server::get(\OCA\IntrusionDetection\Check\Checks\PasswordSpraying\PasswordSprayingDetector::class);
 		$attempt = Server::get(\OCA\IntrusionDetection\Detection\AttemptRecorder::class)->record(\OCA\IntrusionDetection\Db\AttemptKind::PasswordLogin, \OCA\IntrusionDetection\Net\SourceKey::fromIp('198.51.100.50'), 'user50', null, null, self::SPRAYED);
 
 		$db = Server::get(\OCP\IDBConnection::class);
 		$queries = $db->getInner()->getStats()['executed'];
-		$detector->detect($attempt, null, self::SPRAYED);
+		$drafts = iterator_to_array($detector->detect(new \OCA\IntrusionDetection\Signal\FailedLoginAttempt($attempt, self::SPRAYED, null), $this->checkSettings()->modeState(PasswordSpraying::ID)));
+		$this->assertSame([], $drafts);
 		$this->assertSame(1, $db->getInner()->getStats()['executed'] - $queries, 'only the flag lookup; the spray is not counted again');
 	}
 

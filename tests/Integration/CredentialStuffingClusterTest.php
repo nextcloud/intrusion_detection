@@ -23,6 +23,8 @@ use OCA\IntrusionDetection\Db\AttemptKind;
 use OCA\IntrusionDetection\Db\AttemptMapper;
 use OCA\IntrusionDetection\Detection\AttemptRecord;
 use OCA\IntrusionDetection\Net\SourceKey;
+use OCA\IntrusionDetection\Response\ResponseEngine;
+use OCA\IntrusionDetection\Signal\FailedLoginAttempt;
 use OCA\IntrusionDetection\State\AppState;
 use OCA\IntrusionDetection\Tests\Unit\Cache\FixedCaches;
 use OCP\IAppConfig;
@@ -155,8 +157,9 @@ class CredentialStuffingClusterTest extends LoginFailureTestCase {
 	 */
 	private function failOnEach(array $servers, int $time): void {
 		$fingerprinter = Server::get(Fingerprinter::class);
+		$engine = Server::get(ResponseEngine::class);
 		foreach ($servers as $n => $detector) {
-			$detector->detect(new AttemptRecord(
+			$drafts = $detector->detect(new FailedLoginAttempt(new AttemptRecord(
 				AttemptKind::PasswordLogin,
 				SourceKey::fromIp('198.51.100.' . ($n + 1)),
 				bin2hex($fingerprinter->name('someone' . $n)),
@@ -166,7 +169,10 @@ class CredentialStuffingClusterTest extends LoginFailureTestCase {
 				[],
 				$time,
 				true,
-			), null);
+			), null, null), $this->checkSettings()->modeState(CredentialStuffing::ID));
+			while ($drafts->valid()) {
+				$drafts->send($engine->handle($drafts->current()));
+			}
 		}
 	}
 

@@ -67,14 +67,16 @@ class FreshRequestCostTest extends IntegrationTestCase {
 		$this->assertSame(1, count(Server::get(LoginMapper::class)->distinctUidsForIp('4:203.0.113.71', 0, 100)) + count(Server::get(LoginMapper::class)->distinctUidsForIp('203.0.113.71', 0, 100)));
 	}
 
-	public function testAFailedLoginWithEveryCheckOffLoadsLittleAndQueriesLittle(): void {
+	public function testAFailedLoginWithEveryCheckOffLoadsNoDetector(): void {
 		foreach (array_keys(LexiconData::CHECKS) as $id) {
 			$this->appConfig->setValueString(Application::APP_ID, Keys::mode($id), Mode::Off->value);
 		}
 		/** @var array{classes: list<string>, queries: int} $result */
 		$result = $this->runFresh('failed-login.php');
 
-		$this->assertLessThanOrEqual(56, count($result['classes']), implode("\n", $result['classes']));
+		$detectors = array_values(array_filter($result['classes'], static fn (string $c): bool => str_ends_with($c, 'Detector')));
+		$this->assertSame([], $detectors, 'a check that is off loads no detector');
+		$this->assertLessThanOrEqual(43, count($result['classes']), implode("\n", $result['classes']));
 		$this->assertLessThanOrEqual(2, $result['queries']);
 	}
 

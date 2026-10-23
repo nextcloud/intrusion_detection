@@ -21,10 +21,8 @@ use OCA\IntrusionDetection\Definition\DataKind;
 use OCA\IntrusionDetection\Definition\Mode;
 use OCA\IntrusionDetection\Definition\ResponseType;
 use OCA\IntrusionDetection\Definition\Severity;
-use OCA\IntrusionDetection\Detection\DetectionDraft;
 use OCA\IntrusionDetection\Explain\IExplainsDetection;
 use OCA\IntrusionDetection\Explain\TextRenderer;
-use OCA\IntrusionDetection\Net\SourceKey;
 use OCP\IL10N;
 
 /**
@@ -76,24 +74,6 @@ final class BlocklistMatch implements ICheck, IExplainsDetection {
 			}
 		}
 		return $ids;
-	}
-
-	/**
-	 * The detection for a failed login from an address on the given lists.
-	 * The names are stored, so the explanation still reads well after a list
-	 * was removed.
-	 *
-	 * @param array<string, string> $lists names keyed by list id
-	 */
-	public function failedLoginDraft(SourceKey $source, array $lists, ?string $userAgent): DetectionDraft {
-		return new DetectionDraft(
-			checkId: self::ID,
-			source: $source,
-			facts: ['lists' => array_keys($lists), 'listNames' => array_values($lists), 'trigger' => 'failed_login'],
-			merge: DetectionDraft::MERGE_SOURCE,
-			mergeWindow: 3600,
-			userAgent: $userAgent,
-		);
 	}
 
 	#[\Override]

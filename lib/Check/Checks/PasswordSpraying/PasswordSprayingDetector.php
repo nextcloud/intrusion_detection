@@ -11,6 +11,7 @@ namespace OCA\IntrusionDetection\Check\Checks\PasswordSpraying;
 
 use OCA\IntrusionDetection\Cache\Caches;
 use OCA\IntrusionDetection\Config\CheckSettings;
+use OCA\IntrusionDetection\Config\ModeState;
 use OCA\IntrusionDetection\Confirm\LoginContext;
 use OCA\IntrusionDetection\Crypto\Fingerprinter;
 use OCA\IntrusionDetection\Db\AttemptKind;
@@ -23,6 +24,9 @@ use OCA\IntrusionDetection\Net\SourceKey;
 use OCA\IntrusionDetection\Response\FlaggedSources;
 use OCA\IntrusionDetection\Response\ResponseEngine;
 use OCA\IntrusionDetection\Risk\RiskScorer;
+use OCA\IntrusionDetection\Signal\FailedLoginAttempt;
+use OCA\IntrusionDetection\Signal\IDetector;
+use OCA\IntrusionDetection\Signal\ISignal;
 
 /**
  * Detects password spraying (concept section 10.2) after each failed
@@ -43,8 +47,10 @@ use OCA\IntrusionDetection\Risk\RiskScorer;
  *   (extra confirmation, telling the user, a new password). Whether the
  *   login needs confirmation is decided by the step-up reasons, which read
  *   the same flag.
+ *
+ * @template-implements IDetector<FailedLoginAttempt>
  */
-class PasswordSprayingDetector {
+class PasswordSprayingDetector implements IDetector {
 	/** The namespace of its memory cache in {@see Caches} */
 	public const CACHE = 'password-spraying';
 	public const KINDS = [AttemptKind::PasswordLogin];
@@ -82,17 +88,21 @@ class PasswordSprayingDetector {
 		return $this->engine->handle($draft);
 	}
 
-	public function detect(#[\SensitiveParameter] AttemptRecord $attempt, ?string $userAgent, #[\SensitiveParameter] ?string $password): void {
+	/**
+	 * @param FailedLoginAttempt $signal
+	 * @return \Generator<int, DetectionDraft, ?Detection, void>
+	 */
+	#[\Override]
+	public function detect(#[\SensitiveParameter] ISignal $signal, ModeState $mode): \Generator {
+		$attempt = $signal->attempt;
+		$password = $signal->password;
+		$userAgent = $signal->userAgent;
 		if ($attempt->kind !== AttemptKind::PasswordLogin || $attempt->passwordCandidates === [] || $password === null || $password === '') {
-			return;
-		}
-		$state = $this->settings->modeState(PasswordSpraying::ID);
-		if (!$state->runs()) {
 			return;
 		}
 
 		if ($this->flags->isPasswordFlagged($attempt->passwordCandidates)) {
-			$this->banJoiningSource($attempt, $userAgent);
+			yield from $this->banJoiningSource($attempt, $userAgent);
 			return;
 		}
 
@@ -103,11 +113,11 @@ class PasswordSprayingDetector {
 		// per spray and window is enough, later addresses are blocked singly,
 		// without counting the spray again. The cache key is derived from the
 		// fingerprint and never stored.
-		$flags = $state->acts() && $this->settings->hasResponse(PasswordSpraying::ID, ResponseType::FlagPassword);
+		$flags = $mode->acts() && $this->settings->hasResponse(PasswordSpraying::ID, ResponseType::FlagPassword);
 		$seenKey = 'spray:' . hash('sha256', $attempt->passwordCandidates[0]);
 		if (!$flags && $this->caches->shared(self::CACHE)?->get($seenKey) !== null) {
-			if ($state->acts()) {
-				$this->banJoiningSource($attempt, $userAgent);
+			if ($mode->acts()) {
+				yield from $this->banJoiningSource($attempt, $userAgent);
 			}
 			return;
 		}
@@ -150,7 +160,7 @@ class PasswordSprayingDetector {
 			$attempt->passwordCandidates,
 			array_map('bin2hex', $this->fingerprinter->passwordFlagFingerprints($password)),
 		));
-		$this->engine->handle($draft);
+		yield $draft;
 		if (!$flags) {
 			$this->caches->shared(self::CACHE)?->set($seenKey, 1, $window);
 		}
@@ -162,19 +172,21 @@ class PasswordSprayingDetector {
 	 * addresses of the spray, without evaluating the whole spray again.
 	 * Someone who mistyped their own password, which happens to be the
 	 * sprayed one, is no target.
+	 *
+	 * @return \Generator<int, DetectionDraft, ?Detection, void>
 	 */
-	private function banJoiningSource(#[\SensitiveParameter] AttemptRecord $attempt, ?string $userAgent): void {
+	private function banJoiningSource(#[\SensitiveParameter] AttemptRecord $attempt, ?string $userAgent): \Generator {
 		$window = $this->settings->paramInt(PasswordSpraying::ID, 'window');
 		$own = $this->attempts->statsForSourceWithPasswords($attempt->source->ipKey, $attempt->passwordCandidates, self::KINDS, $attempt->time - $window);
 		if ($own->distinctNames < PasswordSpraying::MIN_NAMES_TO_BLOCK) {
 			return;
 		}
-		$this->engine->handle(new DetectionDraft(
+		yield new DetectionDraft(
 			checkId: PasswordSpraying::ID,
 			source: $attempt->source,
 			facts: ['rule' => PasswordSpraying::RULE_FLAGGED, 'names' => $own->distinctNames],
 			merge: DetectionDraft::MERGE_SOURCE,
 			userAgent: $userAgent,
-		));
+		);
 	}
 }

@@ -29,7 +29,6 @@ use OCA\IntrusionDetection\KnownDevice\IKnownDevices;
 use OCA\IntrusionDetection\KnownDevice\KnownDevices;
 use OCA\IntrusionDetection\Listener\AdminChangeListener;
 use OCA\IntrusionDetection\Listener\AppPasswordCreatedListener;
-use OCA\IntrusionDetection\Listener\BlocklistLoginListener;
 use OCA\IntrusionDetection\Listener\BreachResetListener;
 use OCA\IntrusionDetection\Listener\FailedLoginListener;
 use OCA\IntrusionDetection\Listener\FirewallExportListener;
@@ -161,7 +160,6 @@ class Application extends App implements IBootstrap {
 		// Listeners of one event run by priority, and with the same priority in registration order.
 		$context->registerEventListener(BanCreatedEvent::class, FirewallExportListener::class);
 		$context->registerEventListener(BanLiftedEvent::class, FirewallExportListener::class);
-		$context->registerEventListener(AnyLoginFailedEvent::class, BlocklistLoginListener::class);
 		$context->registerEventListener(AnyLoginFailedEvent::class, FailedLoginListener::class);
 		$context->registerEventListener(ShareLinkAccessFailedEvent::class, ShareAccessFailedListener::class);
 		$context->registerEventListener(PasswordResetRequestedEvent::class, ResetRequestedListener::class);

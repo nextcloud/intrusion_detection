@@ -53,6 +53,7 @@ final class DetectionDraft {
 	 * @param ?int $tokenId the id of the app password or token involved, for the revoke_token response
 	 * @param bool $lure the request is a possible lure ({@see \OCA\IntrusionDetection\Net\FetchMetadata}): the ban response spares `$source`, for the checks that honour lures
 	 * @param ?ModeState $mode the mode to record and answer it in instead of the check's: for a check with a second mode, and for detections the check's mode must not hold back
+	 * @param bool $final the detection answers its signal on its own: the detectors after this one do not run ({@see \OCA\IntrusionDetection\Signal\SignalDispatcher})
 	 */
 	public function __construct(
 		public readonly string $checkId,
@@ -69,6 +70,7 @@ final class DetectionDraft {
 		public readonly ?int $tokenId = null,
 		public readonly bool $lure = false,
 		public readonly ?ModeState $mode = null,
+		public readonly bool $final = false,
 	) {
 	}
 

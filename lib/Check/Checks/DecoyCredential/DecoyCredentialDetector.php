@@ -9,43 +9,44 @@ declare(strict_types=1);
 
 namespace OCA\IntrusionDetection\Check\Checks\DecoyCredential;
 
-use OCA\IntrusionDetection\Config\CheckSettings;
+use OCA\IntrusionDetection\Config\ModeState;
 use OCA\IntrusionDetection\Decoy\DecoyService;
 use OCA\IntrusionDetection\Definition\Severity;
 use OCA\IntrusionDetection\Detection\DetectionDraft;
-use OCA\IntrusionDetection\Net\SourceKey;
-use OCA\IntrusionDetection\Response\ResponseEngine;
+use OCA\IntrusionDetection\Signal\FailedLogin;
+use OCA\IntrusionDetection\Signal\IDetector;
+use OCA\IntrusionDetection\Signal\ISignal;
 
 /**
  * Detects the use of a decoy credential (concept section 10.6) in a failed
  * login: the attempted password is looked up by its fingerprint, whatever
  * the login name. A decoy's login name with another password is a weaker
  * hit: high instead of critical, and blocked with the usual escalation.
+ * A decoy answers the failed login on its own: nothing else runs.
+ *
+ * @template-implements IDetector<FailedLogin>
  */
-class DecoyCredentialDetector {
+class DecoyCredentialDetector implements IDetector {
 	public function __construct(
-		private readonly CheckSettings $settings,
 		private readonly DecoyService $decoys,
-		private readonly ResponseEngine $engine,
 	) {
 	}
 
 	/**
-	 * @return bool whether a decoy was used
+	 * @param FailedLogin $signal
+	 * @return list<DetectionDraft>
 	 */
-	public function detect(SourceKey $source, string $loginName, #[\SensitiveParameter] ?string $password, ?string $userAgent): bool {
-		if (!$this->settings->modeState(DecoyCredential::ID)->runs()) {
-			return false;
-		}
-		$match = $this->decoys->match($password, $loginName);
+	#[\Override]
+	public function detect(#[\SensitiveParameter] ISignal $signal, ModeState $mode): iterable {
+		$match = $this->decoys->match($signal->password, $signal->loginName);
 		if ($match === null) {
-			return false;
+			return [];
 		}
 		[$decoy, $bySecret] = $match;
 		$this->decoys->triggered($decoy);
-		$this->engine->handle(new DetectionDraft(
+		return [new DetectionDraft(
 			checkId: DecoyCredential::ID,
-			source: $source,
+			source: $signal->source,
 			facts: [
 				'decoy' => $decoy->getId(),
 				'label' => $decoy->getLabel(),
@@ -55,8 +56,8 @@ class DecoyCredentialDetector {
 			severity: $bySecret ? Severity::Critical : Severity::High,
 			merge: DetectionDraft::MERGE_SOURCE,
 			banLevel: $bySecret ? DecoyCredential::BAN_LEVEL : null,
-			userAgent: $userAgent,
-		));
-		return true;
+			userAgent: $signal->userAgent,
+			final: true,
+		)];
 	}
 }

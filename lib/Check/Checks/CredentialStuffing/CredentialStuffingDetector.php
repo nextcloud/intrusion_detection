@@ -16,6 +16,7 @@ use OCA\IntrusionDetection\Config\ModeState;
 use OCA\IntrusionDetection\Db\AttemptKind;
 use OCA\IntrusionDetection\Db\AttemptMapper;
 use OCA\IntrusionDetection\Db\AttemptStats;
+use OCA\IntrusionDetection\Db\Detection;
 use OCA\IntrusionDetection\Definition\ResponseType;
 use OCA\IntrusionDetection\Detection\AttemptRecord;
 use OCA\IntrusionDetection\Detection\DetectionDraft;
@@ -24,8 +25,10 @@ use OCA\IntrusionDetection\Net\SourceKey;
 use OCA\IntrusionDetection\Response\BanResult;
 use OCA\IntrusionDetection\Response\BanService;
 use OCA\IntrusionDetection\Response\FlaggedSources;
-use OCA\IntrusionDetection\Response\ResponseEngine;
 use OCA\IntrusionDetection\Risk\RiskScorer;
+use OCA\IntrusionDetection\Signal\FailedLoginAttempt;
+use OCA\IntrusionDetection\Signal\IDetector;
+use OCA\IntrusionDetection\Signal\ISignal;
 use OCA\IntrusionDetection\State\AppState;
 
 /**
@@ -43,9 +46,12 @@ use OCA\IntrusionDetection\State\AppState;
  *    ({@see evaluationDue()}). It records one detection per 30 minutes
  *    while it lasts. During it, and for an hour
  *    after, every failing address is flagged; during it, every address with
- *    3 failures for 2 names is blocked.
+ *    3 failures for 2 names is blocked. These blocks and flags belong to the
+ *    detection of the attack, so they are made here, while the check acts.
+ *
+ * @template-implements IDetector<FailedLoginAttempt>
  */
-class CredentialStuffingDetector {
+class CredentialStuffingDetector implements IDetector {
 	/** The namespace of its memory cache in {@see Caches} */
 	public const CACHE = 'credential-stuffing';
 	public const KINDS = [AttemptKind::PasswordLogin, AttemptKind::AppPassword];
@@ -75,7 +81,6 @@ class CredentialStuffingDetector {
 	public function __construct(
 		private readonly CheckSettings $settings,
 		private readonly AttemptMapper $attempts,
-		private readonly ResponseEngine $engine,
 		private readonly FlaggedSources $flags,
 		private readonly BanService $bans,
 		private readonly RemoteAddressResolver $addresses,
@@ -85,12 +90,15 @@ class CredentialStuffingDetector {
 	) {
 	}
 
-	public function detect(#[\SensitiveParameter] AttemptRecord $attempt, ?string $userAgent): void {
+	/**
+	 * @param FailedLoginAttempt $signal
+	 * @return \Generator<int, DetectionDraft, ?Detection, void>
+	 */
+	#[\Override]
+	public function detect(#[\SensitiveParameter] ISignal $signal, ModeState $mode): \Generator {
+		$attempt = $signal->attempt;
+		$userAgent = $signal->userAgent;
 		if (!in_array($attempt->kind, self::KINDS, true)) {
-			return;
-		}
-		$state = $this->settings->modeState(CredentialStuffing::ID);
-		if (!$state->runs()) {
 			return;
 		}
 		$params = $this->settings->params(CredentialStuffing::ID);
@@ -105,7 +113,7 @@ class CredentialStuffingDetector {
 		$ip = $this->attempts->stats('ip_key', [$source->ipKey], self::KINDS, $since);
 		$limits = $this->risk->limits($source, self::limits($ip, $minFailures, $minNames));
 		if ($limits->reached()) {
-			$this->engine->handle(new DetectionDraft(
+			yield new DetectionDraft(
 				checkId: CredentialStuffing::ID,
 				source: $source,
 				facts: $this->facts(CredentialStuffing::RULE_SOURCE, $ip) + [
@@ -113,7 +121,7 @@ class CredentialStuffingDetector {
 				] + $limits->facts(),
 				merge: DetectionDraft::MERGE_SOURCE,
 				userAgent: $userAgent,
-			));
+			);
 		} elseif ($source->family === 4 && $factor > 0) {
 			$net = $this->attempts->stats('net_key', [$source->netKey], self::KINDS, $since);
 			$netLimits = $net->distinctSources > 1 ? $this->risk->limits($source, self::limits($net, $minFailures * $factor, $minNames * $factor)) : null;
@@ -129,11 +137,11 @@ class CredentialStuffingDetector {
 					userAgent: $userAgent,
 				);
 				$this->addNetworkTargets($draft, $since);
-				$this->engine->handle($draft);
+				yield $draft;
 			}
 		}
 
-		$this->distributed($attempt, $state, $params, $window === self::DISTRIBUTED_WINDOW ? $ip : null);
+		yield from $this->distributed($attempt, $mode, $params, $window === self::DISTRIBUTED_WINDOW ? $ip : null);
 	}
 
 	/**
@@ -167,8 +175,9 @@ class CredentialStuffingDetector {
 
 	/**
 	 * @param array<string, int|float|bool|string|list<string>> $params
+	 * @return \Generator<int, DetectionDraft, ?Detection, void>
 	 */
-	private function distributed(#[\SensitiveParameter] AttemptRecord $attempt, ModeState $state, array $params, ?AttemptStats $ipStats): void {
+	private function distributed(#[\SensitiveParameter] AttemptRecord $attempt, ModeState $state, array $params, ?AttemptStats $ipStats): \Generator {
 		$now = $attempt->time;
 		$until = $this->state->getInt(self::DISTRIBUTED_UNTIL_STATE);
 
@@ -186,29 +195,35 @@ class CredentialStuffingDetector {
 				$this->state->setInt(self::DISTRIBUTED_UNTIL_STATE, $until);
 			}
 			if ($now - $this->state->getInt(self::DISTRIBUTED_DETECTED_AT_STATE) >= self::DISTRIBUTED_DEDUPE) {
-				$this->recordDistributed($this->attempts->instanceStats(self::KINDS, $since), $now);
+				yield from $this->recordDistributed($this->attempts->instanceStats(self::KINDS, $since), $now);
 			}
 		}
 
 		if ($now < $until + self::DISTRIBUTED_FLAG_AFTER) {
-			$this->member($attempt, $state, $until, $ipStats);
+			yield from $this->member($attempt, $state, $until, $ipStats);
 		}
 	}
 
-	private function recordDistributed(AttemptStats $instance, int $now): void {
+	/**
+	 * @return \Generator<int, DetectionDraft, ?Detection, void>
+	 */
+	private function recordDistributed(AttemptStats $instance, int $now): \Generator {
 		$this->state->setInt(self::DISTRIBUTED_DETECTED_AT_STATE, $now);
-		$detection = $this->engine->handle(new DetectionDraft(
+		$detection = yield new DetectionDraft(
 			checkId: CredentialStuffing::ID,
 			facts: $this->facts(CredentialStuffing::RULE_DISTRIBUTED, $instance) + ['distributed' => true],
-		));
+		);
 		$this->state->setInt(self::DISTRIBUTED_DETECTION_STATE, $detection?->getId() ?? 0);
 	}
 
 	/**
 	 * An address failing during a distributed attack: flag it, and block it
-	 * once it failed 3 times for 2 names.
+	 * once it failed 3 times for 2 names. An address many people log in from
+	 * is reported instead.
+	 *
+	 * @return \Generator<int, DetectionDraft, ?Detection, void>
 	 */
-	private function member(#[\SensitiveParameter] AttemptRecord $attempt, ModeState $state, int $until, ?AttemptStats $ipStats): void {
+	private function member(#[\SensitiveParameter] AttemptRecord $attempt, ModeState $state, int $until, ?AttemptStats $ipStats): \Generator {
 		if (!$state->acts() || $this->addresses->isNeverBlocked($attempt->source)) {
 			return;
 		}
@@ -225,7 +240,7 @@ class CredentialStuffingDetector {
 		if (self::reaches($stats, self::MEMBER_MIN_FAILURES, self::MEMBER_MIN_NAMES)) {
 			$result = $this->bans->ban($attempt->source, CredentialStuffing::ID, $detectionId);
 			if (($result->outcome === BanResult::SKIPPED_SHARED || $result->outcome === BanResult::SKIPPED_PROXY) && $this->bans->firstReport($attempt->source)) {
-				$this->engine->handle(SharedAddress::draft($attempt->source, $result->sharedUsers, CredentialStuffing::ID, $result->outcome === BanResult::SKIPPED_PROXY));
+				yield SharedAddress::draft($attempt->source, $result->sharedUsers, CredentialStuffing::ID, $result->outcome === BanResult::SKIPPED_PROXY);
 			}
 		}
 	}
