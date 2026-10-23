@@ -26,10 +26,10 @@ class StepUpSessionMapper {
 	}
 
 	/**
-	 * @param ?int $deadline until when a pending login may wait; null for a refused one
+	 * @param ?int $deadline until when a pending login may wait, or a refused one is kept
 	 * @param list<string> $policies
 	 */
-	public function record(string $sessionKey, string $uid, int $now, int $expiresAt, ?int $deadline = null, ?string $ip = null, array $policies = []): void {
+	public function record(string $sessionKey, string $uid, int $now, int $expiresAt, ?int $deadline = null, ?string $ip = null, array $policies = [], bool $refused = false): void {
 		$policyList = $policies === [] ? null : substr(implode(',', $policies), 0, 255);
 		$qb = $this->db->getQueryBuilder();
 		$qb->update(self::TABLE)
@@ -39,6 +39,7 @@ class StepUpSessionMapper {
 			->set('ip', $qb->createNamedParameter($ip))
 			->set('policies', $qb->createNamedParameter($policyList))
 			->set('attempts', $qb->createNamedParameter(0, IQueryBuilder::PARAM_INT))
+			->set('refused', $qb->createNamedParameter($refused ? 1 : 0, IQueryBuilder::PARAM_INT))
 			->where($qb->expr()->eq('session_key', $qb->createNamedParameter($sessionKey)));
 		if ($qb->executeStatement() > 0) {
 			return;
@@ -52,6 +53,7 @@ class StepUpSessionMapper {
 			'ip' => $ip,
 			'policies' => $policyList,
 			'attempts' => 0,
+			'refused' => $refused ? 1 : 0,
 		]);
 	}
 
@@ -94,13 +96,13 @@ class StepUpSessionMapper {
 	}
 
 	/**
-	 * Pending logins whose deadline has passed, oldest first.
+	 * Pending and refused logins whose deadline has passed, oldest first.
 	 *
-	 * @return list<array{session_key: string, uid: string, created_at: int, deadline: int, ip: ?string, policies: list<string>}>
+	 * @return list<array{session_key: string, uid: string, created_at: int, deadline: int, ip: ?string, policies: list<string>, refused: bool}>
 	 */
 	public function findAbandoned(int $now, int $limit): array {
 		$qb = $this->db->getQueryBuilder();
-		$qb->select('session_key', 'uid', 'created_at', 'deadline', 'ip', 'policies')
+		$qb->select('session_key', 'uid', 'created_at', 'deadline', 'ip', 'policies', 'refused')
 			->from(self::TABLE)
 			->where($qb->expr()->lte('deadline', $qb->createNamedParameter($now, IQueryBuilder::PARAM_INT)))
 			->andWhere($qb->expr()->gt('expires_at', $qb->createNamedParameter($now, IQueryBuilder::PARAM_INT)))
@@ -116,6 +118,7 @@ class StepUpSessionMapper {
 				'deadline' => (int)$row['deadline'],
 				'ip' => $row['ip'] === null ? null : (string)$row['ip'],
 				'policies' => $row['policies'] === null || $row['policies'] === '' ? [] : explode(',', (string)$row['policies']),
+				'refused' => (int)$row['refused'] === 1,
 			];
 		}
 		$result->closeCursor();

@@ -55,7 +55,7 @@ class UnconfirmedSessions implements IPurges {
 	}
 
 	/**
-	 * @param ?StepUpState $pending a login that waits for its confirmation, which a background job ends at its deadline
+	 * @param ?StepUpState $pending a login that waits for its confirmation, or a refused one, which a background job ends at its deadline
 	 */
 	public function remember(#[\SensitiveParameter] string $sessionId, string $uid, ?StepUpState $pending = null): void {
 		$now = $this->timeFactory->getTime();
@@ -68,6 +68,7 @@ class UnconfirmedSessions implements IPurges {
 			$pending?->deadline,
 			$pending?->ip,
 			$pending === null ? [] : $pending->policies,
+			$pending?->status === ConfirmationStatus::Refused,
 		);
 		if ($this->hotState->stepUpSessionsUntil() < $expires) {
 			$this->hotState->setStepUpSessionsUntil($expires);

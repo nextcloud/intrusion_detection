@@ -99,6 +99,7 @@ class RouteTableTest extends TestCase {
 		'POST /verify/approval' => 'ignore user session user-limit:5/600',
 		'POST /verify/approval/cancel' => 'ignore user session user-limit:10/600',
 		'POST /verify/approval/continue' => 'ignore user session user-limit:60/600',
+		'POST /verify/end' => 'ignore user session user-limit:10/600',
 		'POST /verify/resend' => 'ignore user session user-limit:10/600',
 		'POST /verify/second-factor' => 'ignore user session user-limit:10/600',
 		'PUT /api/v1/blocklists/{id}' => 'administration admin password',

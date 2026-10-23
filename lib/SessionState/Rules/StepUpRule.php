@@ -38,8 +38,11 @@ use Psr\Log\LoggerInterface;
  *
  * - A login that is not confirmed within {@see LoginConfirmations::SESSION_TTL} is failed
  *   here, on its next request: the session ends.
- * - A refused login can only open the verify page, which says why and ends it.
- * - A refused app login (Basic auth) is refused for every request.
+ * - A refused login can only open the verify page, which says why, and
+ *   leave it; its session ends then, or on its first request after
+ *   {@see LoginConfirmations::REFUSED_TTL}.
+ * - A refused app login (Basic auth) is refused, and its session ended, at
+ *   its first request.
  * - A session that an app sending the password opened while a reason
  *   applied, and that was let in unconfirmed, serves apps only: WebDAV and
  *   OCS. Core gives such a login a browser session when it sends core's
@@ -60,6 +63,7 @@ class StepUpRule implements ISessionStateRule {
 	public const DAV_HEADER = 'X-Nextcloud-Step-Up';
 	public const ROUTE = Application::APP_ID . '.Verify.show';
 	public const ENDED_ROUTE = Application::APP_ID . '.Verify.ended';
+	public const LOGIN_ROUTE = 'core.login.showLoginForm';
 
 	public const MESSAGE_CLIENT = 'This login needs extra confirmation that apps cannot give. Log in with a browser, or use an app password.';
 	public const MESSAGE_PENDING = 'This login waits for its extra confirmation. Confirm it in the browser where you logged in, or use an app password.';
@@ -117,8 +121,16 @@ class StepUpRule implements ISessionStateRule {
 			}
 			return $this->block(self::ERROR, $this->urlGenerator->linkToRoute(self::ENDED_ROUTE, ['reason' => $rule->value]), self::MESSAGE_ENDED);
 		}
-		if ($stepUp->status === ConfirmationStatus::RefusedClient) {
-			return $this->block(self::ERROR, null, self::MESSAGE_CLIENT);
+		if ($stepUp->status === ConfirmationStatus::RefusedClient
+			|| ($stepUp->status === ConfirmationStatus::Refused && $stepUp->deadline > 0 && $this->timeFactory->getTime() >= $stepUp->deadline)) {
+			try {
+				$this->container->get(LoginConfirmations::class)->endRefused();
+			} catch (\Throwable $e) {
+				$this->logger->error('Intrusion detection could not end a refused login', ['exception' => $e]);
+			}
+			return $stepUp->status === ConfirmationStatus::RefusedClient
+				? $this->block(self::ERROR, null, self::MESSAGE_CLIENT)
+				: $this->block(self::ERROR_REFUSED, $this->urlGenerator->linkToRoute(self::LOGIN_ROUTE), self::MESSAGE_REFUSED);
 		}
 		if (!$target->dav && $this->isExempt($stepUp, $target)) {
 			return null;
@@ -144,7 +156,7 @@ class StepUpRule implements ISessionStateRule {
 			return true;
 		}
 		if ($stepUp->status === ConfirmationStatus::Refused) {
-			return $target->isRoute(LoginFlowRoute::Verify) && $target->isMethod('show');
+			return $target->isRoute(LoginFlowRoute::Verify) && ($target->isMethod('show') || $target->isMethod('end'));
 		}
 		return $target->isRoute(LoginFlowRoute::Verify, LoginFlowRoute::SecondFactorChallenge)
 			|| ($target->isRoute(LoginFlowRoute::SecondFactorSetup) && $this->mustSetUpSecondFactor());

@@ -75,14 +75,25 @@ class AbandonedLoginsTest extends StepUpTestCase {
 		$this->assertSame(0, $this->abandoned()->purge(time()), 'Still waiting for an administrator');
 	}
 
-	public function testRefusedLoginsAndConfirmedOnesAreNotTouched(): void {
+	public function testARefusedLoginLeftAloneIsEndedQuietlyAfterItsTime(): void {
 		$bob = $this->user('ids-abandoned-bob', null);
-		$this->startSession($bob);
+		$token = $this->startSession($bob);
 		$this->login($bob);
-		$this->assertSame(1, $this->unconfirmedRows(), 'Refused: remembered without a deadline');
-		$this->assertSame(0, $this->abandoned()->purge(time()));
+		$this->assertSame(1, $this->unconfirmedRows(), 'Refused: remembered with the time to read why');
+		Server::get(LoginHistoryMapper::class)->insert($bob->getUID(), time(), SourceKey::fromIp($this->remoteAddress), null, LoginHistory::METHOD_PASSWORD, false, 'none', LoginHistory::STEP_UP_REFUSED, $token['id']);
+		$this->assertSame(0, $this->abandoned()->purge(time()), 'Still within its time');
 
-		$this->session->clear();
+		$this->moveDeadline(time() - 1);
+		$this->assertSame(1, $this->abandoned()->purge(time()));
+		$this->assertFalse($this->tokenExists($token['id']), 'Its session is ended');
+		$this->assertSame([], $this->detectionsOf(StepUpFailed::ID), 'It was refused, not failed');
+		$this->assertCount(1, $this->notificationsFor($bob->getUID(), UserAlerts::SUBJECT), 'Told once, at the refusal');
+		$this->assertSame(LoginHistory::STEP_UP_REFUSED, Server::get(LoginHistoryMapper::class)->forUser($bob->getUID(), 0)[0]->stepUp);
+		$this->assertSame(1, $this->unconfirmedRows(), 'Kept, so that the session cannot come back');
+		$this->assertSame(0, $this->abandoned()->purge(time()), 'Once');
+	}
+
+	public function testConfirmedLoginsAreNotTouched(): void {
 		$this->startSession($this->alice);
 		$this->login($this->alice);
 		$this->verifyController()->confirm((string)$this->lastCode($this->alice->getUID()));

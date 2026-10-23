@@ -27,6 +27,10 @@ use Psr\Log\LoggerInterface;
  * The session's row stays, without its deadline, so that the session
  * cannot come back unconfirmed.
  *
+ * A refused login past its deadline loses its session the same way,
+ * without a detection: the refusal was recorded and told already
+ * ({@see LoginConfirmations::refusedLeft()}).
+ *
  * While protection is off, a login past its deadline is dropped silently:
  * it ends the same way, but without a detection or a notice, so that
  * turning protection back on does not tell users days later.
@@ -44,7 +48,7 @@ class AbandonedLogins implements IPurges {
 	}
 
 	/**
-	 * End the logins left waiting past their deadline.
+	 * End the logins left waiting, or refused, past their deadline.
 	 *
 	 * @return int the logins ended, with or without a notice
 	 */
@@ -57,11 +61,15 @@ class AbandonedLogins implements IPurges {
 				continue;
 			}
 			try {
-				$stepUp = new StepUpState($row['uid'], ConfirmationStatus::Pending, $row['policies'], $row['created_at'], $row['deadline'], $row['ip']);
-				$this->confirmations->abandoned($stepUp, $enabled);
+				$stepUp = new StepUpState($row['uid'], $row['refused'] ? ConfirmationStatus::Refused : ConfirmationStatus::Pending, $row['policies'], $row['created_at'], $row['deadline'], $row['ip']);
+				if ($row['refused']) {
+					$this->confirmations->refusedLeft($stepUp);
+				} else {
+					$this->confirmations->abandoned($stepUp, $enabled);
+				}
 				$ended++;
 			} catch (\Throwable $e) {
-				$this->logger->error('Intrusion detection could not end a login that waited for its confirmation', ['exception' => $e]);
+				$this->logger->error('Intrusion detection could not end a login that waited for its confirmation or was refused', ['exception' => $e]);
 			}
 		}
 		return $ended;

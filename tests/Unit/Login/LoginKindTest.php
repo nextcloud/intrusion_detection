@@ -11,6 +11,7 @@ namespace OCA\IntrusionDetection\Tests\Unit\Login;
 
 use OCA\IntrusionDetection\Check\Checks\TokenConcurrentUse\PresentedCredential;
 use OCA\IntrusionDetection\Config\AppSettings;
+use OCA\IntrusionDetection\Listener\Login\AdminSessionStep;
 use OCA\IntrusionDetection\Listener\Login\BreachStep;
 use OCA\IntrusionDetection\Listener\Login\HistoryStep;
 use OCA\IntrusionDetection\Listener\Login\ILoginStep;
@@ -73,7 +74,7 @@ class LoginKindTest extends TestCase {
 	 * @return iterable<string, array{0: array{event: string, password?: ?string, method?: string, path?: string, authorization?: string, basic?: array{string, string}, cookie?: bool}, 1: array{kind: string, steps: list<string>, history: array{?string, bool}, passwordChange: ?string, interactive: ?string, presented: ?string}}>
 	 */
 	public static function logins(): iterable {
-		$browser = ['stepUp', 'record', 'breach', 'passwordChange', 'knownDevice', 'history', 'notice'];
+		$browser = ['stepUp', 'adminSession', 'record', 'breach', 'passwordChange', 'knownDevice', 'history', 'notice'];
 		$sso = ['record', 'passwordChange', 'knownDevice', 'history', 'notice'];
 		yield 'login form' => [
 			['event' => 'login', 'password' => 'secret'],
@@ -117,23 +118,23 @@ class LoginKindTest extends TestCase {
 		];
 		yield 'lowercase bearer: core restored the session from its cookie' => [
 			['event' => 'token', 'method' => 'GET', 'path' => '/apps/files/', 'authorization' => 'bearer token', 'cookie' => true],
-			['kind' => 'restored_session', 'steps' => ['record', 'passwordChange'], 'history' => [null, false], 'passwordChange' => 'redirect', 'interactive' => null, 'presented' => 'bearer'],
+			['kind' => 'restored_session', 'steps' => ['adminSession', 'record', 'passwordChange'], 'history' => [null, false], 'passwordChange' => 'redirect', 'interactive' => null, 'presented' => 'bearer'],
 		];
 		yield 'browser session restored from its token' => [
 			['event' => 'token', 'method' => 'GET', 'path' => '/apps/files/', 'cookie' => true],
-			['kind' => 'restored_session', 'steps' => ['record', 'passwordChange'], 'history' => [null, false], 'passwordChange' => 'redirect', 'interactive' => null, 'presented' => 'session'],
+			['kind' => 'restored_session', 'steps' => ['adminSession', 'record', 'passwordChange'], 'history' => [null, false], 'passwordChange' => 'redirect', 'interactive' => null, 'presented' => 'session'],
 		];
 		yield 'a Basic header PHP did not pass on' => [
 			['event' => 'token', 'method' => 'GET', 'path' => '/apps/files/', 'authorization' => 'Basic YWxpY2U6YXBw'],
-			['kind' => 'restored_session', 'steps' => ['record', 'passwordChange'], 'history' => [null, false], 'passwordChange' => 'redirect', 'interactive' => null, 'presented' => 'basic'],
+			['kind' => 'restored_session', 'steps' => ['adminSession', 'record', 'passwordChange'], 'history' => [null, false], 'passwordChange' => 'redirect', 'interactive' => null, 'presented' => 'basic'],
 		];
 		yield 'remember-me cookie' => [
 			['event' => 'cookie', 'method' => 'GET', 'path' => '/apps/files/', 'cookie' => true],
-			['kind' => 'remember_me_cookie', 'steps' => ['passwordChange', 'history'], 'history' => ['cookie', true], 'passwordChange' => 'redirect', 'interactive' => null, 'presented' => 'session'],
+			['kind' => 'remember_me_cookie', 'steps' => ['adminSession', 'passwordChange', 'history'], 'history' => ['cookie', true], 'passwordChange' => 'redirect', 'interactive' => null, 'presented' => 'session'],
 		];
 		yield 'remember-me cookie with Basic credentials' => [
 			['event' => 'cookie', 'method' => 'GET', 'path' => '/apps/files/', 'authorization' => 'Basic YWxpY2U6YXBw', 'basic' => ['alice', 'app'], 'cookie' => true],
-			['kind' => 'remember_me_cookie', 'steps' => ['passwordChange', 'history'], 'history' => ['cookie', true], 'passwordChange' => 'redirect', 'interactive' => null, 'presented' => 'basic'],
+			['kind' => 'remember_me_cookie', 'steps' => ['adminSession', 'passwordChange', 'history'], 'history' => ['cookie', true], 'passwordChange' => 'redirect', 'interactive' => null, 'presented' => 'basic'],
 		];
 	}
 
@@ -167,11 +168,11 @@ class LoginKindTest extends TestCase {
 	 * @return iterable<string, array{0: array{event: string, password?: ?string, method?: string, path?: string, authorization?: string, basic?: array{string, string}, cookie?: bool}, 1: list<string>}>
 	 */
 	public static function returningSessions(): iterable {
-		yield 'login form' => [['event' => 'login', 'password' => 'secret'], ['stepUp', 'record', 'breach', 'passwordChange', 'knownDevice', 'history', 'notice']];
+		yield 'login form' => [['event' => 'login', 'password' => 'secret'], ['stepUp', 'adminSession', 'record', 'breach', 'passwordChange', 'knownDevice', 'history', 'notice']];
 		yield 'app password over Basic auth' => [['event' => 'token', 'method' => 'PROPFIND', 'authorization' => 'Basic YWxpY2U6YXBw', 'basic' => ['alice', 'app']], ['stepUp', 'record', 'history']];
 		yield 'Bearer token' => [['event' => 'token', 'method' => 'GET', 'authorization' => 'Bearer token'], ['stepUp', 'record', 'history']];
-		yield 'browser session restored from its token' => [['event' => 'token', 'method' => 'GET', 'cookie' => true], ['stepUp', 'record', 'passwordChange']];
-		yield 'remember-me cookie' => [['event' => 'cookie', 'method' => 'GET', 'cookie' => true], ['stepUp', 'passwordChange', 'history']];
+		yield 'browser session restored from its token' => [['event' => 'token', 'method' => 'GET', 'cookie' => true], ['stepUp', 'adminSession', 'record', 'passwordChange']];
+		yield 'remember-me cookie' => [['event' => 'cookie', 'method' => 'GET', 'cookie' => true], ['stepUp', 'adminSession', 'passwordChange', 'history']];
 	}
 
 	/**
@@ -222,6 +223,7 @@ class LoginKindTest extends TestCase {
 		$this->runLogin($event, [], $built);
 		$names = [
 			StepUpStep::class => 'stepUp',
+			AdminSessionStep::class => 'adminSession',
 			RecordStep::class => 'record',
 			BreachStep::class => 'breach',
 			PasswordChangeStep::class => 'passwordChange',

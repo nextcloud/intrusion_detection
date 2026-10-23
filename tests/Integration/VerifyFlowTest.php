@@ -25,6 +25,7 @@ use OCA\IntrusionDetection\Net\SourceKey;
 use OCA\IntrusionDetection\Notification\UserAlerts;
 use OCA\IntrusionDetection\Response\FlaggedSources;
 use OCA\IntrusionDetection\SessionState\RequestTarget;
+use OCA\IntrusionDetection\SessionState\Rules\StepUpRule;
 use OCP\AppFramework\Http;
 use OCP\AppFramework\Http\Attribute\BruteForceProtection;
 use OCP\AppFramework\Http\Attribute\NoCSRFRequired;
@@ -258,9 +259,45 @@ class VerifyFlowTest extends StepUpTestCase {
 		$this->assertStringContainsString('Your account has no email address or second factor that could confirm it, so this login cannot continue.', $html);
 		$this->assertSame(1, substr_count($html, 'This login needs extra confirmation'), 'The lead does not repeat the title');
 		$this->assertMatchesRegularExpression('/Give your administrator this reference, so that they can see what happened:\s*<span class="ids-page__reference">' . preg_quote($reference, '/') . '</', $html);
-		$this->assertNull($this->sessionUser, 'The refused session ends once it was told');
+		$this->assertNotNull($this->sessionUser, 'Showing the page changes nothing');
+		$this->assertStringContainsString('name="requesttoken"', $html, 'Leaving is a form');
+
+		$ended = $this->verifyController()->end();
+		$this->assertInstanceOf(RedirectResponse::class, $ended);
+		$this->assertSame(Server::get(IURLGenerator::class)->linkToRoute('core.login.showLoginForm'), $ended->getRedirectURL());
+		$this->assertNull($this->sessionUser, 'The refused session ends when it is left');
 		$this->assertSame(0, $this->unconfirmedRows());
 		$this->assertInstanceOf(RedirectResponse::class, $this->verifyController()->confirm('482915'), 'Nothing to confirm any more');
+	}
+
+	public function testARefusedLoginEndsOnItsFirstRequestAfterItsTimeWithoutANewDetection(): void {
+		$bob = $this->user('ids-verify-refused-late', null);
+		$this->token = $this->startSession($bob);
+		$this->login($bob);
+		$stepUp = $this->stepUp();
+		$this->assertSame(ConfirmationStatus::Refused, $stepUp?->status);
+		$this->assertGreaterThan(time(), $stepUp->deadline, 'A few minutes to read why');
+		$this->service()->update($stepUp->withDeadline(time() - 1));
+
+		$block = $this->rule()->check($this->state, RequestTarget::app($this->verifyController(), 'show', 'GET', '/index.php/apps/intrusion_detection/verify'));
+		$this->assertNotNull($block);
+		$this->assertNull($this->sessionUser);
+		$this->assertFalse($this->tokenExists($this->token['id']));
+		$this->assertSame([], $this->detectionsOf(StepUpFailed::ID), 'It was refused, not failed');
+	}
+
+	public function testAnAppRefusedAtItsLoginLosesItsSessionAtOnce(): void {
+		$bob = $this->user('ids-verify-refused-app', 'bob@example.com');
+		Server::get(\OCA\IntrusionDetection\Response\AccountProtection::class)->protect($bob->getUID(), time() + 3600);
+		$this->token = $this->startSession($bob);
+		$this->basicAuth($bob);
+		$this->login($bob);
+		$this->assertSame(ConfirmationStatus::RefusedClient, $this->stepUp()?->status);
+
+		$block = $this->rule()->check($this->state, RequestTarget::dav('PROPFIND', '/remote.php/dav/files/'));
+		$this->assertSame(StepUpRule::MESSAGE_CLIENT, $block?->message, 'Told why');
+		$this->assertNull($this->sessionUser, 'Nothing is left to come back to');
+		$this->assertFalse($this->tokenExists($this->token['id']));
 	}
 
 	public function testTheEndedPageOnlySaysWhyWithAFixedText(): void {

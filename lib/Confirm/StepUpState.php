@@ -51,6 +51,14 @@ final class StepUpState {
 		return $this->status === ConfirmationStatus::Pending;
 	}
 
+	/**
+	 * Whether it ends at its deadline: a login that waits, or a refused one
+	 * that was given the time to read why.
+	 */
+	public function hasDeadline(): bool {
+		return $this->isPending() || ($this->status === ConfirmationStatus::Refused && $this->deadline > 0);
+	}
+
 	public function hasMethod(string $id): bool {
 		return in_array($id, $this->methods, true);
 	}

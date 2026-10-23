@@ -27,6 +27,7 @@ use OCA\IntrusionDetection\LoginHistory\LoginHistory;
 use OCA\IntrusionDetection\Net\RemoteAddressResolver;
 use OCA\IntrusionDetection\Net\SourceKey;
 use OCA\IntrusionDetection\Response\ResponseEngine;
+use OCA\IntrusionDetection\Response\Tokens;
 use OCP\AppFramework\Utility\ITimeFactory;
 use OCP\IRequest;
 use OCP\IUserSession;
@@ -60,13 +61,18 @@ use Psr\Log\LoggerInterface;
  *
  * From pending, a login is confirmed (complete()), fails (fail(), also for
  * a login left waiting past its deadline: abandoned()), or is given up
- * (abandon()). A refused login ends once it was told why (endRefused()). A
+ * (abandon()). A refused login ends when it leaves the verify page
+ * (endRefused()), at the latest REFUSED_TTL after the refusal, on its next
+ * request or by the background job (refusedLeft()); an app refused at its
+ * login has no page to see and ends at its first refused request. A
  * session whose login was never confirmed and that comes back without its
  * state is marked resumed, and fails on its next request.
  */
 class LoginConfirmations {
 	/** Seconds a login may wait for its confirmation before it is ended */
 	public const SESSION_TTL = 900;
+	/** Seconds a refused login keeps its session, to show why, before it is ended */
+	public const REFUSED_TTL = 300;
 	/** Core creates a session token for a Basic auth login only when the client sends this cookie */
 	public const COOKIE_TEST = 'cookie_test';
 
@@ -83,6 +89,7 @@ class LoginConfirmations {
 		private readonly LoginHistory $history,
 		private readonly FamiliarLogin $familiar,
 		private readonly IRequest $request,
+		private readonly Tokens $tokens,
 	) {
 	}
 
@@ -157,7 +164,7 @@ class LoginConfirmations {
 			ConfirmationStatus::Refused,
 			$policyIds,
 			$now,
-			0,
+			$now + self::REFUSED_TTL,
 			$login->source?->ip,
 			reference: $detection === null ? null : StepUpReference::of($detection->getId()),
 			detectionId: $detection?->getId(),
@@ -279,12 +286,31 @@ class LoginConfirmations {
 	}
 
 	/**
-	 * End a refused login after it was shown why.
+	 * End the session of a refused login.
 	 */
 	public function endRefused(): void {
 		$this->store->forget();
-		if ($this->userSession->isLoggedIn()) {
-			$this->userSession->logout();
+		$uid = $this->userSession->getUser()?->getUID();
+		if ($uid === null) {
+			return;
+		}
+		$tokenId = $this->coreSession->tokenId();
+		$this->store->removeStepUp();
+		$this->userSession->logout();
+		if ($tokenId !== null) {
+			$this->tokens->invalidate($uid, $tokenId);
+		}
+	}
+
+	/**
+	 * A refused login whose session made no request since its time ran
+	 * out, ended by the background job: its session token is found through
+	 * the login history. The refusal was recorded and told already.
+	 */
+	public function refusedLeft(StepUpState $stepUp): void {
+		$tokenId = $this->history->refusedAround($stepUp->uid, $stepUp->started)?->sessionTokenId;
+		if ($tokenId !== null && $this->tokens->invalidate($stepUp->uid, $tokenId) !== null) {
+			$this->audit->log('session of %s ended: its login was refused', ['uid' => $stepUp->uid]);
 		}
 	}
 

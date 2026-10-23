@@ -505,6 +505,7 @@ return array(
     'OCA\\IntrusionDetection\\Migration\\Version1000Date20261021220000' => $baseDir . '/../lib/Migration/Version1000Date20261021220000.php',
     'OCA\\IntrusionDetection\\Migration\\Version1000Date20261021230000' => $baseDir . '/../lib/Migration/Version1000Date20261021230000.php',
     'OCA\\IntrusionDetection\\Migration\\Version1000Date20261022100000' => $baseDir . '/../lib/Migration/Version1000Date20261022100000.php',
+    'OCA\\IntrusionDetection\\Migration\\Version1000Date20261023100000' => $baseDir . '/../lib/Migration/Version1000Date20261023100000.php',
     'OCA\\IntrusionDetection\\Migration\\Version1000Date20261023110000' => $baseDir . '/../lib/Migration/Version1000Date20261023110000.php',
     'OCA\\IntrusionDetection\\Net\\FetchMetadata' => $baseDir . '/../lib/Net/FetchMetadata.php',
     'OCA\\IntrusionDetection\\Net\\Ipv6Networks' => $baseDir . '/../lib/Net/Ipv6Networks.php',

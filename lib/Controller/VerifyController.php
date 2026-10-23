@@ -111,9 +111,7 @@ class VerifyController extends Controller implements ILoginFlowPage {
 			return $this->continue($redirect_url);
 		}
 		if ($stepUp->status === ConfirmationStatus::Refused) {
-			$response = $this->refusedPage($stepUp);
-			$this->flow->endRefused();
-			return $response;
+			return $this->refusedPage($stepUp);
 		}
 		if (!$stepUp->isPending()) {
 			return $this->continue($redirect_url);
@@ -261,6 +259,21 @@ class VerifyController extends Controller implements ILoginFlowPage {
 	}
 
 	/**
+	 * Leave the page of a refused login: its session ends.
+	 */
+	#[NoAdminRequired]
+	#[UseSession]
+	#[UserRateLimit(limit: 10, period: 600)]
+	#[FrontpageRoute(verb: 'POST', url: '/verify/end')]
+	public function end(): RedirectResponse {
+		[, $stepUp] = $this->current();
+		if ($stepUp?->status === ConfirmationStatus::Refused) {
+			$this->flow->endRefused();
+		}
+		return new RedirectResponse($this->urlGenerator->linkToRoute('core.login.showLoginForm'));
+	}
+
+	/**
 	 * Where a login ends that could not be confirmed. It shows nothing but a
 	 * fixed text for the reason, so it may be public: the session is gone.
 	 */
@@ -397,6 +410,7 @@ class VerifyController extends Controller implements ILoginFlowPage {
 			'lead' => $this->l->t('Your account has no email address or second factor that could confirm it, so this login cannot continue.'),
 			'why' => $because === '' ? null : $this->l->t('This login needs it because %s.', [$because]),
 			'reference' => $stepUp->reference,
+			'endAction' => $this->urlGenerator->linkToRoute(Application::APP_ID . '.Verify.end'),
 		]);
 		$response->setStatus(Http::STATUS_FORBIDDEN);
 		return $response;

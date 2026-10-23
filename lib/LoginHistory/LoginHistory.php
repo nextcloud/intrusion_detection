@@ -224,11 +224,18 @@ class LoginHistory implements IAcceptedLogins, IPurges {
 	 * @return ?LoginHistoryEntry its row, or null when none waits
 	 */
 	public function failPending(string $uid, int $started): ?LoginHistoryEntry {
-		$entry = $this->mapper->pendingAround($uid, $started);
+		$entry = $this->mapper->stepUpAround($uid, $started, self::STEP_UP_PENDING);
 		if ($entry !== null) {
 			$this->mapper->setOutcome($entry->id, $uid, self::CONFIRMED_BY_NONE, self::STEP_UP_FAILED);
 		}
 		return $entry;
+	}
+
+	/**
+	 * The row of a refused login that started at `$started`, or null.
+	 */
+	public function refusedAround(string $uid, int $started): ?LoginHistoryEntry {
+		return $this->mapper->stepUpAround($uid, $started, self::STEP_UP_REFUSED);
 	}
 
 	#[\Override]

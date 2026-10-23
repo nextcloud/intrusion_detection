@@ -75,7 +75,7 @@ class LoginConfirmationTransitionsTest extends StepUpTestCase {
 		$this->flagSource();
 		$this->startSession($this->bob);
 		$this->loginThroughTheApp($this->bob);
-		$this->assertSame($this->expected(stepUp: 'refused', rows: ['kept'], history: ['refused', 'none'], detections: ['step_up_refused']), $this->snapshot($this->bob));
+		$this->assertSame($this->expected(stepUp: 'refused', rows: ['waiting'], history: ['refused', 'none'], detections: ['step_up_refused']), $this->snapshot($this->bob), 'Remembered until it is ended');
 	}
 
 	public function testARefusedAppWithCoresCookieTestIsRemembered(): void {
@@ -203,11 +203,13 @@ class LoginConfirmationTransitionsTest extends StepUpTestCase {
 		$this->assertSame($this->expected(history: ['failed', 'none'], loggedIn: false), $this->snapshot($this->bob));
 	}
 
-	public function testARefusedLoginEndsOnceItWasShownWhy(): void {
+	public function testARefusedLoginEndsWhenItLeavesThePageThatShowsWhy(): void {
 		$this->flagSource();
 		$this->startSession($this->bob);
 		$this->loginThroughTheApp($this->bob);
 		$this->verifyController()->show();
+		$this->assertSame($this->expected(stepUp: 'refused', rows: ['waiting'], history: ['refused', 'none'], detections: ['step_up_refused']), $this->snapshot($this->bob), 'Showing changes nothing');
+		$this->verifyController()->end();
 		$this->assertSame($this->expected(history: ['refused', 'none'], detections: ['step_up_refused'], loggedIn: false), $this->snapshot($this->bob));
 	}
 

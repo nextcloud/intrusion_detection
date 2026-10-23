@@ -57,7 +57,7 @@ class LoginConfirmationStore {
 		if ($this->markers->set($marker[0], $marker[1]) && $confirmation->stepUp !== null && $resumable) {
 			$sessionId = $this->sessionId();
 			if ($sessionId !== '') {
-				$this->unconfirmed->remember($sessionId, $confirmation->uid, $confirmation->stepUp->isPending() ? $confirmation->stepUp : null);
+				$this->unconfirmed->remember($sessionId, $confirmation->uid, $confirmation->stepUp->hasDeadline() ? $confirmation->stepUp : null);
 			}
 		}
 		return $confirmation;

@@ -210,14 +210,14 @@ class LoginHistoryMapper {
 	private const AROUND_ROWS = 20;
 
 	/**
-	 * The row of a login that still waits for its confirmation, recorded
-	 * around when it started. Only the login with a step-up nearest to that
-	 * time counts, so that a refused login next to a pending one of the
-	 * same account is not taken for it. The session's row and the history
+	 * The row of a login with this step-up outcome (`pending`, `refused`),
+	 * recorded around when it started. Only the login with a step-up
+	 * nearest to that time counts, so that a refused login next to a
+	 * pending one of the same account is not taken for the other. The session's row and the history
 	 * share no key: the session is kept only as a keyed fingerprint of its
 	 * id, the history by its token.
 	 */
-	public function pendingAround(string $uid, int $started): ?LoginHistoryEntry {
+	public function stepUpAround(string $uid, int $started, string $stepUp): ?LoginHistoryEntry {
 		$qb = $this->db->getQueryBuilder();
 		$qb->select(...self::COLUMNS)
 			->from(self::TABLE)
@@ -237,7 +237,7 @@ class LoginHistoryMapper {
 			}
 		}
 		$result->closeCursor();
-		return $nearest !== null && $nearest->stepUp === 'pending' ? $nearest : null;
+		return $nearest !== null && $nearest->stepUp === $stepUp ? $nearest : null;
 	}
 
 	/**

@@ -28,7 +28,7 @@ use OCP\Migration\SimpleMigrationStep;
  * that parallel requests cannot share one count in the PHP session.
  *
  * Pending logins remembered before their deadline was kept are found by
- * the login history ({@see LoginHistoryMapper::pendingAround()}); refused
+ * the login history ({@see LoginHistoryMapper::stepUpAround()}); refused
  * and ended logins keep no deadline. One still within
  * {@see LoginConfirmations::SESSION_TTL} of its start gets that deadline, so that the
  * background job ends it as usual. One already past it ends quietly, as
@@ -78,7 +78,7 @@ class Version1000Date20261021220000 extends SimpleMigrationStep {
 			$rows = $this->sessions->findWithoutDeadline($now, $after, self::BATCH);
 			foreach ($rows as $row) {
 				$after = $row['session_key'];
-				$entry = $this->history->pendingAround($row['uid'], $row['created_at']);
+				$entry = $this->history->stepUpAround($row['uid'], $row['created_at'], LoginHistory::STEP_UP_PENDING);
 				if ($entry === null) {
 					continue;
 				}
