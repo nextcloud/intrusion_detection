@@ -159,7 +159,7 @@ class IncidentApiControllerTest extends TestCase {
 	public function testAnUnknownDocumentKindIsRefused(): void {
 		$this->audit->expects($this->never())->method('log');
 		foreach (['pdf', 'screen', ''] as $output) {
-			$response = $this->controller->download($output, 'alice');
+			$response = $this->answer(fn () => $this->controller->download($output, 'alice'));
 			$this->assertSame(Http::STATUS_BAD_REQUEST, $response->getStatus());
 			$this->assertSame('output', $response->getData()['param']);
 		}

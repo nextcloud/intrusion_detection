@@ -21,6 +21,8 @@ final class InvalidIncidentQuery extends \InvalidArgumentException {
 	public const RANGE_ORDER = 'range_order';
 	public const RANGE_TOO_LONG = 'range_too_long';
 	public const SUBJECT = 'subject';
+	/** The kind of document is neither JSON nor HTML */
+	public const OUTPUT = 'invalid_output';
 
 	public function __construct(
 		public readonly string $reason,
@@ -36,6 +38,7 @@ final class InvalidIncidentQuery extends \InvalidArgumentException {
 			self::INVALID_USER => 'user',
 			self::INVALID_ADDRESS => 'address',
 			self::SUBJECT => 'subject',
+			self::OUTPUT => 'output',
 			default => 'since',
 		};
 	}
@@ -47,6 +50,7 @@ final class InvalidIncidentQuery extends \InvalidArgumentException {
 			self::RANGE_ORDER => $l->t('The start of the period must be before its end.'),
 			self::RANGE_TOO_LONG => $l->t('A report covers at most %s days. Choose a shorter period.', [(string)intdiv(IncidentQuery::MAX_PERIOD, 86400)]),
 			self::SUBJECT => $l->t('Choose either an account or an address.'),
+			self::OUTPUT => $l->t('Choose JSON or HTML.'),
 			default => $l->t('The period is not valid.'),
 		};
 	}

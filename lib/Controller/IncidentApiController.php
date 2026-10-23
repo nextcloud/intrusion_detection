@@ -100,11 +100,8 @@ class IncidentApiController extends AdminOCSController {
 		$format = match ($output) {
 			'json' => ReportFormat::Json,
 			'html' => ReportFormat::Html,
-			default => null,
+			default => throw new InvalidIncidentQuery(InvalidIncidentQuery::OUTPUT),
 		};
-		if ($format === null) {
-			return $this->error($this->l->t('Choose JSON or HTML.'), 'output', 'invalid_output');
-		}
 		$query = $this->query($user, $address, $since, $until);
 		$document = $this->reports->document($query, $format, $this->actor(), $this->l);
 		/** @var 'application/json; charset=utf-8'|'text/html; charset=utf-8' $contentType */
