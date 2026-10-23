@@ -11,7 +11,13 @@ namespace OCA\IntrusionDetection\Tests\Integration;
 
 use OCA\IntrusionDetection\AppInfo\Application;
 use OCA\IntrusionDetection\Audit\AuditLogger;
+use OCA\IntrusionDetection\Breach\PwnedPasswordsClient;
+use OCA\IntrusionDetection\Check\Checks\BreachedPassword\BreachedPassword;
+use OCA\IntrusionDetection\Check\Checks\BreachedPassword\NewPasswords;
+use OCA\IntrusionDetection\Config\CheckSettings;
+use OCA\IntrusionDetection\Config\Keys;
 use OCA\IntrusionDetection\Controller\PasswordChangeController;
+use OCA\IntrusionDetection\Definition\Mode;
 use OCA\IntrusionDetection\Http\LocalRedirect;
 use OCA\IntrusionDetection\Listener\Login\PasswordChangeStep;
 use OCA\IntrusionDetection\Listener\LoginListener;
@@ -20,13 +26,16 @@ use OCA\IntrusionDetection\Login\SessionMarkers;
 use OCA\IntrusionDetection\Notification\AdminNotices;
 use OCA\IntrusionDetection\Response\PasswordChangeFlag;
 use OCA\IntrusionDetection\Response\PasswordChangeService;
+use OCA\IntrusionDetection\Response\Tokens;
 use OCA\IntrusionDetection\SessionState\RequestTarget;
 use OCA\IntrusionDetection\SessionState\Rules\PasswordChangeRule;
 use OCA\IntrusionDetection\Tests\BasicAuthServer;
 use OCA\IntrusionDetection\Tests\LoginSteps;
+use OCP\App\IAppManager;
 use OCP\AppFramework\Http;
 use OCP\AppFramework\Http\RedirectResponse;
 use OCP\AppFramework\Http\StandaloneTemplateResponse;
+use OCP\Authentication\Token\IToken;
 use OCP\EventDispatcher\IEventDispatcher;
 use OCP\HintException;
 use OCP\IRequest;
@@ -60,6 +69,9 @@ class PasswordChangeTest extends AccountTestCase {
 	private array $headers = [];
 	/** @var \Closure(ValidatePasswordPolicyEvent): void */
 	private \Closure $policy;
+	private bool $passwordPolicy = false;
+	private ?int $breachCount = 0;
+	private int $breachAsked = 0;
 
 	protected function setUp(): void {
 		parent::setUp();
@@ -225,7 +237,7 @@ class PasswordChangeTest extends AccountTestCase {
 		return [
 			'empty' => ['', '', 'Enter a new password.'],
 			'not repeated the same' => ['A-brand-new-password-1', 'A-brand-new-password-2', 'The two new passwords are not the same. Type the new password twice.'],
-			'the policy refuses it' => ['short', 'short', 'Passwords must be at least 12 characters <long>.'],
+			'the policy refuses it' => ['short-pass', 'short-pass', 'Passwords must be at least 12 characters <long>.'],
 		];
 	}
 
@@ -241,12 +253,63 @@ class PasswordChangeTest extends AccountTestCase {
 
 	public function testThePolicyMessageIsShownEscaped(): void {
 		$this->requireAndMark();
-		$response = $this->controller()->change($this->password, 'short', 'short');
+		$response = $this->controller()->change($this->password, 'short-pass', 'short-pass');
 		$this->assertInstanceOf(StandaloneTemplateResponse::class, $response);
 		$html = $response->render();
 		$this->assertStringContainsString('Passwords must be at least 12 characters &lt;long&gt;.', $html);
 		$this->assertStringNotContainsString('<long>', $html);
 		$this->assertStringContainsString('role="alert"', $html);
+	}
+
+	public function testWithoutAPasswordPolicyTheNewPasswordNeedsEightCharacters(): void {
+		$this->requireAndMark();
+		$response = $this->controller()->change($this->password, 'Ab1-xyz', 'Ab1-xyz');
+		$this->assertSame('Use at least 8 characters.', $this->errorOf($response));
+		$this->assertTrue($this->flag->isRequired($this->user->getUID()));
+
+		$this->passwordPolicy = true;
+		$response = $this->controller()->change($this->password, 'Ab1-xyz', 'Ab1-xyz');
+		$this->assertSame('Passwords must be at least 12 characters <long>.', $this->errorOf($response), 'The password policy decides where it runs');
+	}
+
+	public function testAPasswordFromADataBreachIsRefusedWhileTheBreachCheckRuns(): void {
+		$this->appConfig->setValueString(Application::APP_ID, Keys::mode(BreachedPassword::ID), Mode::Protect->value);
+		$this->requireAndMark();
+		$this->breachCount = 3;
+		$response = $this->controller()->change($this->password, 'A-leaked-password-2026', 'A-leaked-password-2026');
+		$this->assertSame('This password appears in published data breaches. Choose another one.', $this->errorOf($response));
+		$this->assertTrue($this->flag->isRequired($this->user->getUID()));
+
+		$this->breachCount = null;
+		$this->assertInstanceOf(RedirectResponse::class, $this->controller()->change($this->password, 'A-leaked-password-2026', 'A-leaked-password-2026'), 'When the list cannot be asked, the password policy alone decides');
+	}
+
+	public function testWithTheBreachCheckOffTheListIsNotAsked(): void {
+		$this->appConfig->setValueString(Application::APP_ID, Keys::mode(BreachedPassword::ID), Mode::Off->value);
+		$this->requireAndMark();
+		$this->breachCount = 3;
+		$this->assertInstanceOf(RedirectResponse::class, $this->controller()->change($this->password, 'A-brand-new-password-1', 'A-brand-new-password-1'));
+		$this->assertSame(0, $this->breachAsked);
+	}
+
+	public function testTheOtherBrowsersCanBeLoggedOutWithTheChange(): void {
+		$this->requireAndMark();
+		$other = $this->token($this->user, IToken::TEMPORARY_TOKEN, 'Chrome on Windows');
+		$app = $this->token($this->user, IToken::PERMANENT_TOKEN, 'Calendar app');
+		$page = $this->controller()->show();
+		$this->assertStringContainsString('name="logoutOthers"', $page->render());
+
+		$this->assertInstanceOf(RedirectResponse::class, $this->controller()->change($this->password, 'A-brand-new-password-1', 'A-brand-new-password-1', logoutOthers: true));
+		$this->assertFalse($this->tokenExists($other['id']), 'Another browser that may be the intruder\'s');
+		$this->assertTrue($this->tokenExists($app['id']), 'App passwords keep working, as the page says');
+		$this->assertNotNull($this->sessionUser, 'This browser goes on');
+	}
+
+	public function testWithoutAskingTheOtherBrowsersStay(): void {
+		$this->requireAndMark();
+		$other = $this->token($this->user, IToken::TEMPORARY_TOKEN, 'Chrome on Windows');
+		$this->controller()->change($this->password, 'A-brand-new-password-1', 'A-brand-new-password-1', logoutOthers: false);
+		$this->assertTrue($this->tokenExists($other['id']));
 	}
 
 	public function testTheCurrentPasswordCannotBeChosenAgain(): void {
@@ -319,6 +382,13 @@ class PasswordChangeTest extends AccountTestCase {
 
 	private function controller(): PasswordChangeController {
 		$this->sessionUser ??= $this->user;
+		$apps = $this->createMock(IAppManager::class);
+		$apps->method('isEnabledForAnyone')->willReturnCallback(fn (string $app): bool => $app === 'password_policy' && $this->passwordPolicy);
+		$client = $this->createMock(PwnedPasswordsClient::class);
+		$client->method('count')->willReturnCallback(function (): ?int {
+			$this->breachAsked++;
+			return $this->breachCount;
+		});
 		return new PasswordChangeController(
 			$this->createMock(IRequest::class),
 			$this->userSession,
@@ -328,6 +398,10 @@ class PasswordChangeTest extends AccountTestCase {
 			Server::get(IURLGenerator::class),
 			Server::get(IFactory::class)->get(Application::APP_ID, 'en'),
 			Server::get(LocalRedirect::class),
+			$apps,
+			new NewPasswords(Server::get(CheckSettings::class), $client),
+			Server::get(Tokens::class),
+			$this->coreSession,
 		);
 	}
 

@@ -83,7 +83,7 @@ class NoSecretsSessionTest extends AccountTestCase {
 		$passwords = Server::get(PasswordChangeService::class);
 		LoginSteps::listener([PasswordChangeStep::class => new PasswordChangeStep($passwords, $state)], $this->appSettings(), $request)
 			->handle(new UserLoggedInEvent($user, $user->getUID(), $oldPassword, false));
-		$controller = new PasswordChangeController($request, $this->userSession, Server::get(IUserManager::class), $passwords, $state, Server::get(IURLGenerator::class), Server::get(IFactory::class)->get(Application::APP_ID, 'en'), Server::get(LocalRedirect::class));
+		$controller = new PasswordChangeController($request, $this->userSession, Server::get(IUserManager::class), $passwords, $state, Server::get(IURLGenerator::class), Server::get(IFactory::class)->get(Application::APP_ID, 'en'), Server::get(LocalRedirect::class), Server::get(\OCP\App\IAppManager::class), Server::get(\OCA\IntrusionDetection\Check\Checks\BreachedPassword\NewPasswords::class), Server::get(\OCA\IntrusionDetection\Response\Tokens::class), $this->coreSession);
 		$controller->change($secrets['wrong password'], $secrets['new password'], $secrets['new password']);
 		$controller->change($oldPassword, $secrets['new password'], $secrets['new password']);
 		$this->assertNotFalse(Server::get(IUserManager::class)->checkPassword($user->getUID(), $secrets['new password']), 'The scenario changed the password');

@@ -120,6 +120,7 @@ class ComposerStaticInitIntrusionDetection
         'OCA\\IntrusionDetection\\Check\\Checks\\BreachedPassword\\BreachedPassword' => __DIR__ . '/..' . '/../lib/Check/Checks/BreachedPassword/BreachedPassword.php',
         'OCA\\IntrusionDetection\\Check\\Checks\\BreachedPassword\\BreachedPasswordDetector' => __DIR__ . '/..' . '/../lib/Check/Checks/BreachedPassword/BreachedPasswordDetector.php',
         'OCA\\IntrusionDetection\\Check\\Checks\\BreachedPassword\\BreachedPasswordFacts' => __DIR__ . '/..' . '/../lib/Check/Checks/BreachedPassword/BreachedPasswordFacts.php',
+        'OCA\\IntrusionDetection\\Check\\Checks\\BreachedPassword\\NewPasswords' => __DIR__ . '/..' . '/../lib/Check/Checks/BreachedPassword/NewPasswords.php',
         'OCA\\IntrusionDetection\\Check\\Checks\\CredentialStuffing\\CredentialStuffing' => __DIR__ . '/..' . '/../lib/Check/Checks/CredentialStuffing/CredentialStuffing.php',
         'OCA\\IntrusionDetection\\Check\\Checks\\CredentialStuffing\\CredentialStuffingDetector' => __DIR__ . '/..' . '/../lib/Check/Checks/CredentialStuffing/CredentialStuffingDetector.php',
         'OCA\\IntrusionDetection\\Check\\Checks\\CredentialStuffing\\CredentialStuffingFacts' => __DIR__ . '/..' . '/../lib/Check/Checks/CredentialStuffing/CredentialStuffingFacts.php',

@@ -105,6 +105,7 @@ return array(
     'OCA\\IntrusionDetection\\Check\\Checks\\BreachedPassword\\BreachedPassword' => $baseDir . '/../lib/Check/Checks/BreachedPassword/BreachedPassword.php',
     'OCA\\IntrusionDetection\\Check\\Checks\\BreachedPassword\\BreachedPasswordDetector' => $baseDir . '/../lib/Check/Checks/BreachedPassword/BreachedPasswordDetector.php',
     'OCA\\IntrusionDetection\\Check\\Checks\\BreachedPassword\\BreachedPasswordFacts' => $baseDir . '/../lib/Check/Checks/BreachedPassword/BreachedPasswordFacts.php',
+    'OCA\\IntrusionDetection\\Check\\Checks\\BreachedPassword\\NewPasswords' => $baseDir . '/../lib/Check/Checks/BreachedPassword/NewPasswords.php',
     'OCA\\IntrusionDetection\\Check\\Checks\\CredentialStuffing\\CredentialStuffing' => $baseDir . '/../lib/Check/Checks/CredentialStuffing/CredentialStuffing.php',
     'OCA\\IntrusionDetection\\Check\\Checks\\CredentialStuffing\\CredentialStuffingDetector' => $baseDir . '/../lib/Check/Checks/CredentialStuffing/CredentialStuffingDetector.php',
     'OCA\\IntrusionDetection\\Check\\Checks\\CredentialStuffing\\CredentialStuffingFacts' => $baseDir . '/../lib/Check/Checks/CredentialStuffing/CredentialStuffingFacts.php',
