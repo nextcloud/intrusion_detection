@@ -21,7 +21,7 @@ const props = defineProps<{
 	/** Detections that read the same, newest first */
 	detections: Detection[]
 	/** A detection to open, e.g. from a link */
-	openId?: number | null
+	openId?: string | null
 }>()
 
 const emit = defineEmits<{
@@ -29,7 +29,7 @@ const emit = defineEmits<{
 }>()
 
 const id = useId()
-const contains = (detectionId: number | null | undefined) => typeof detectionId === 'number' && props.detections.some((d) => d.id === detectionId)
+const contains = (detectionId: string | null | undefined) => typeof detectionId === 'string' && props.detections.some((d) => d.id === detectionId)
 const expanded = ref(contains(props.openId))
 watch(() => props.openId, (openId) => {
 	if (contains(openId)) {

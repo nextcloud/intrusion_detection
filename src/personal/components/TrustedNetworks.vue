@@ -22,7 +22,6 @@ import { date } from '../time.ts'
 
 const { data: networks, error, reload: load } = useTrustedNetworks({ failure: () => t(APP_ID, 'Your trusted networks could not be loaded. Please try again.') })
 const { busy, run } = useAction()
-const removing = computed(() => busy.value === null ? null : Number(busy.value))
 const timeZone = computed(() => personal.overview?.timezone)
 /** Shown while loading, and while there is a network or an error */
 const shown = computed(() => networks.value === null || networks.value.length > 0 || error.value !== null)
@@ -33,7 +32,7 @@ const shown = computed(() => networks.value === null || networks.value.length > 
  * @param network - The entry
  */
 function remove(network: TrustedNetwork) {
-	run(String(network.id), () => forgetNetwork(network.id), {
+	run(network.id, () => forgetNetwork(network.id), {
 		done: t(APP_ID, 'The network {network} is no longer trusted.', { network: network.network }),
 		toast: true,
 		fallback: t(APP_ID, 'The network could not be removed. Please try again.'),
@@ -75,11 +74,11 @@ function remove(network: TrustedNetwork) {
 					variant="tertiary"
 					:aria-label="t(APP_ID, 'Stop trusting {network}', { network: network.network })"
 					:title="t(APP_ID, 'Remove')"
-					:disabled="removing !== null"
+					:disabled="busy !== null"
 					data-test="remove-network"
 					@click="remove(network)">
 					<template #icon>
-						<NcLoadingIcon v-if="removing === network.id" :size="20" />
+						<NcLoadingIcon v-if="busy === network.id" :size="20" />
 						<NcIconSvgWrapper v-else :path="mdiDeleteOutline" />
 					</template>
 				</NcButton>

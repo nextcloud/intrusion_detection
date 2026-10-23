@@ -85,7 +85,7 @@ describe('the admin page', () => {
 
 	test('looks for waiting logins and counts them in the header', async () => {
 		state.status = makeStatus({ problems: [] })
-		vi.mocked(fetchWaitingLogins).mockResolvedValue([{ id: 7, uid: 'alice', displayName: 'Alice', ip: null, createdAt: 1, expiresAt: 2, canDecide: true }])
+		vi.mocked(fetchWaitingLogins).mockResolvedValue([{ id: '7', uid: 'alice', displayName: 'Alice', ip: null, createdAt: 1, expiresAt: 2, canDecide: true }])
 		const wrapper = mountPage()
 		await flushPromises()
 		expect(fetchWaitingLogins).toHaveBeenCalled()

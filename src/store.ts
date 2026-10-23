@@ -117,7 +117,7 @@ export const state = reactive({
 export const detectionFilters = reactive<DetectionFilters>({ check: '', severity: '', user: '', address: '', mode: '' })
 
 /** A detection to open in the overview, from a link or another tab */
-export const openDetectionId = ref<number | null>(null)
+export const openDetectionId = ref<string | null>(null)
 
 /** An incident report to build on the Incidents tab, e.g. from "Incident report for this address" */
 export const incidentRequest = ref<IncidentRequest | null>(null)
@@ -195,7 +195,7 @@ export function useWaitingRequests(): void {
  * @param id - The request
  * @param approve - Approve, or reject
  */
-export async function decideLogin(id: number, approve: boolean): Promise<void> {
+export async function decideLogin(id: string, approve: boolean): Promise<void> {
 	try {
 		await (approve ? approveRequest(id) : rejectRequest(id))
 		waitingLogins.value = waitingLogins.value.filter((approval) => approval.id !== id)
@@ -210,7 +210,7 @@ export async function decideLogin(id: number, approve: boolean): Promise<void> {
  * @param id - The request
  * @param approve - Approve, or reject
  */
-export async function decideAdminGrant(id: number, approve: boolean): Promise<void> {
+export async function decideAdminGrant(id: string, approve: boolean): Promise<void> {
 	try {
 		await (approve ? approveRequest(id) : rejectRequest(id))
 		adminGrants.value = adminGrants.value.filter((request) => request.id !== id)
@@ -343,7 +343,7 @@ export async function banAdd(ban: { target: string, level: number, duration?: nu
  * @param id - The block
  * @param note - Why it is lifted
  */
-export async function banLift(id: number, note: string): Promise<Ban> {
+export async function banLift(id: string, note: string): Promise<Ban> {
 	const lifted = await liftBan(id, note)
 	await invalidate(...FROM_BANS)
 	return lifted

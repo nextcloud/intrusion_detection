@@ -22,7 +22,7 @@ vi.mock('../../services/api.ts', async (importOriginal) => ({
  * @param checkId - Its check
  */
 function detection(id: number, checkId = 'credential_stuffing'): Detection {
-	return { ...makeDetail().detection, id, checkId, lastSeenAt: 1_760_000_000 + id }
+	return { ...makeDetail().detection, id: String(id), checkId, lastSeenAt: 1_760_000_000 + id }
 }
 
 /**

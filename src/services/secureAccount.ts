@@ -72,21 +72,21 @@ export async function changePassword(oldPassword: string, newPassword: string): 
  * @param detectionId - A detection about the account
  * @param signal - Cancels the request
  */
-export function fetchAccountGuide(detectionId: number, signal?: AbortSignal): Promise<AccountGuide> {
+export function fetchAccountGuide(detectionId: string, signal?: AbortSignal): Promise<AccountGuide> {
 	return call<AccountGuide>('get', 'detections/' + detectionId + '/secure-account', { signal })
 }
 
 /**
  * @param detectionId - The detection of the lock
  */
-export function reenableAccount(detectionId: number): Promise<AccountGuide> {
+export function reenableAccount(detectionId: string): Promise<AccountGuide> {
 	return call<AccountGuide>('post', 'detections/' + detectionId + '/reenable', { data: {}, confirm: true })
 }
 
 /**
  * @param detectionId - A detection about the account
  */
-export function confirmPasswordReset(detectionId: number): Promise<AccountGuide> {
+export function confirmPasswordReset(detectionId: string): Promise<AccountGuide> {
 	return call<AccountGuide>('post', 'detections/' + detectionId + '/secure-account/password', { data: {}, confirm: true })
 }
 
@@ -95,6 +95,6 @@ export function confirmPasswordReset(detectionId: number): Promise<AccountGuide>
  *
  * @param detectionId - A detection about the account
  */
-export function endAccountSessions(detectionId: number): Promise<{ ended: number }> {
+export function endAccountSessions(detectionId: string): Promise<{ ended: number }> {
 	return call<{ ended: number }>('post', 'detections/' + detectionId + '/sessions/end', { data: {}, confirm: true })
 }

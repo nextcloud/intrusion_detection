@@ -65,8 +65,8 @@ function overview(overrides: Partial<ConfirmationOverview> = {}): ConfirmationOv
 }
 
 const WAITING: LoginApproval[] = [
-	{ id: 7, uid: 'alice', displayName: 'Alice Liddell', ip: '203.0.113.7', createdAt: 1_760_000_000, expiresAt: 1_760_001_800, canDecide: true },
-	{ id: 8, uid: 'admin', displayName: 'The Admin', ip: '203.0.113.8', createdAt: 1_760_000_000, expiresAt: 1_760_001_800, canDecide: false },
+	{ id: '7', uid: 'alice', displayName: 'Alice Liddell', ip: '203.0.113.7', createdAt: 1_760_000_000, expiresAt: 1_760_001_800, canDecide: true },
+	{ id: '8', uid: 'admin', displayName: 'The Admin', ip: '203.0.113.8', createdAt: 1_760_000_000, expiresAt: 1_760_001_800, canDecide: false },
 ]
 
 /**
@@ -256,7 +256,7 @@ describe('the login confirmation section', () => {
 		expect(document.body.textContent).toContain('Approve only if you know it is really them')
 		confirm!.click()
 		await flushPromises()
-		expect(approveRequest).toHaveBeenCalledWith(7)
+		expect(approveRequest).toHaveBeenCalledWith('7')
 		expect(fetchWaitingLogins).toHaveBeenCalledTimes(1)
 	})
 
@@ -265,7 +265,7 @@ describe('the login confirmation section', () => {
 		const wrapper = await mountTab()
 		await wrapper.get('[data-test="approvals"]').findAll('button').find((b) => b.text() === 'Reject')!.trigger('click')
 		await flushPromises()
-		expect(rejectRequest).toHaveBeenCalledWith(7)
+		expect(rejectRequest).toHaveBeenCalledWith('7')
 	})
 
 	test('says so when no login is waiting', async () => {

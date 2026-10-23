@@ -7,6 +7,7 @@ import type { PersonalActivity } from './types.ts'
 
 import { flushPromises } from '@vue/test-utils'
 import { afterEach, describe, expect, test, vi } from 'vitest'
+import { snowflake } from '../tests/fixtures.ts'
 import { activity, overview, securityEvent } from '../tests/personalFixtures.ts'
 import { confirmEvent, fetchActivity, fetchKnownDevices, fetchOverview, fetchStaleCredentials, logOutElsewhere } from './api.ts'
 import { answerEvent, logOutOtherBrowsers, personal, reloadActivity } from './store.ts'
@@ -39,7 +40,7 @@ describe('the personal store', () => {
 		void reloadActivity()
 
 		vi.mocked(confirmEvent).mockResolvedValue({ ...question, verdict: 'confirmed', verdictAt: 1 })
-		await answerEvent(1, 'confirm')
+		await answerEvent(snowflake(1), 'confirm')
 		late(activity({ questions: [question] }))
 		await flushPromises()
 		expect(personal.activity?.questions).toEqual([])

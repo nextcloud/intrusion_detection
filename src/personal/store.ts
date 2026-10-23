@@ -134,7 +134,7 @@ export function showMoreActivity(): Promise<void> {
  * @param answer - "Yes, it was me" or "No, it was not me"
  * @return the event as the server has it now; without a verdict when the answer only told the administrators
  */
-export async function answerEvent(id: number, answer: 'confirm' | 'deny'): Promise<SecurityEvent> {
+export async function answerEvent(id: string, answer: 'confirm' | 'deny'): Promise<SecurityEvent> {
 	const event = await (answer === 'confirm' ? confirmEvent(id) : denyEvent(id))
 	if (event.verdict === null) {
 		return event
@@ -163,7 +163,7 @@ export function useKnownDevices(options: ResourceOptions = {}) {
  *
  * @param id - The device
  */
-export async function forgetDevice(id: number): Promise<void> {
+export async function forgetDevice(id: string): Promise<void> {
 	await removeKnownDevice(id)
 	update<KnownDevice[]>('personal-devices', (devices) => {
 		const left = devices.filter((device) => device.id !== id)
@@ -186,7 +186,7 @@ export function useTrustedNetworks(options: ResourceOptions = {}) {
  *
  * @param id - The entry
  */
-export async function forgetNetwork(id: number): Promise<void> {
+export async function forgetNetwork(id: string): Promise<void> {
 	await removeTrustedNetwork(id)
 	update<TrustedNetwork[]>('personal-networks', (networks) => {
 		const left = networks.filter((network) => network.id !== id)

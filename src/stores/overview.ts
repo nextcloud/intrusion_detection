@@ -51,7 +51,7 @@ export function useRecentDetections(options: ResourceOptions = {}) {
  * @param seen - When it was last seen, if known
  * @param options - Resource options
  */
-export function useDetection(id: MaybeRefOrGetter<number | null>, seen: MaybeRefOrGetter<number | undefined>, options: ResourceOptions = {}) {
+export function useDetection(id: MaybeRefOrGetter<string | null>, seen: MaybeRefOrGetter<number | undefined>, options: ResourceOptions = {}) {
 	return useResource(() => {
 		const detection = toValue(id)
 		const version = toValue(seen)
@@ -87,14 +87,14 @@ export function useLookup(query: MaybeRefOrGetter<string | null>, options: Resou
  * @param detectionId - A detection about the account
  * @param options - Resource options
  */
-export function useAccountGuide(detectionId: MaybeRefOrGetter<number>, options: ResourceOptions = {}) {
+export function useAccountGuide(detectionId: MaybeRefOrGetter<string>, options: ResourceOptions = {}) {
 	return useResource(() => 'account-guide:' + toValue(detectionId), (signal) => fetchAccountGuide(toValue(detectionId), signal), options)
 }
 
 /**
  * @param detectionId - The detection of the lock
  */
-export async function reenableLockedAccount(detectionId: number): Promise<void> {
+export async function reenableLockedAccount(detectionId: string): Promise<void> {
 	const guide = await reenableAccount(detectionId)
 	update<AccountGuide>('account-guide:' + detectionId, () => guide)
 }
@@ -104,7 +104,7 @@ export async function reenableLockedAccount(detectionId: number): Promise<void> 
  *
  * @param detectionId - A detection about the account
  */
-export async function confirmAccountPasswordReset(detectionId: number): Promise<void> {
+export async function confirmAccountPasswordReset(detectionId: string): Promise<void> {
 	const guide = await confirmPasswordReset(detectionId)
 	update<AccountGuide>('account-guide:' + detectionId, () => guide)
 }
@@ -114,6 +114,6 @@ export async function confirmAccountPasswordReset(detectionId: number): Promise<
  *
  * @param detectionId - A detection about the account
  */
-export async function logOutAccountEverywhere(detectionId: number): Promise<void> {
+export async function logOutAccountEverywhere(detectionId: string): Promise<void> {
 	await endAccountSessions(detectionId)
 }

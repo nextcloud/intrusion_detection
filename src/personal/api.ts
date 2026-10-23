@@ -30,7 +30,7 @@ export function fetchActivity(limit: number, days = 30, signal?: AbortSignal): P
  *
  * @param id - The event
  */
-export function denyEvent(id: number): Promise<SecurityEvent> {
+export function denyEvent(id: string): Promise<SecurityEvent> {
 	return call<SecurityEvent>('post', `personal/detections/${id}/deny`)
 }
 
@@ -39,7 +39,7 @@ export function denyEvent(id: number): Promise<SecurityEvent> {
  *
  * @param id - The event
  */
-export function confirmEvent(id: number): Promise<SecurityEvent> {
+export function confirmEvent(id: string): Promise<SecurityEvent> {
 	return call<SecurityEvent>('post', `personal/detections/${id}/confirm`, { data: {}, confirm: true })
 }
 
@@ -62,8 +62,8 @@ export function fetchKnownDevices(signal?: AbortSignal): Promise<KnownDevice[]> 
 /**
  * @param id - The device
  */
-export function removeKnownDevice(id: number): Promise<{ removed: number }> {
-	return call<{ removed: number }>('delete', `personal/known-devices/${id}`)
+export function removeKnownDevice(id: string): Promise<{ removed: string }> {
+	return call<{ removed: string }>('delete', `personal/known-devices/${id}`)
 }
 
 /**
@@ -76,8 +76,8 @@ export function fetchTrustedNetworks(signal?: AbortSignal): Promise<TrustedNetwo
 /**
  * @param id - The entry
  */
-export function removeTrustedNetwork(id: number): Promise<{ removed: number }> {
-	return call<{ removed: number }>('delete', `personal/trusted-networks/${id}`)
+export function removeTrustedNetwork(id: string): Promise<{ removed: string }> {
+	return call<{ removed: string }>('delete', `personal/trusted-networks/${id}`)
 }
 
 export const logOutElsewhere = () => call<LoggedOutElsewhere>('post', 'personal/log-out-elsewhere', { data: {}, confirm: true })

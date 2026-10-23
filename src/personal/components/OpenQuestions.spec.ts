@@ -6,6 +6,7 @@
 import { enableAutoUnmount, flushPromises, mount } from '@vue/test-utils'
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 import OpenQuestions from './OpenQuestions.vue'
+import { snowflake } from '../../tests/fixtures.ts'
 import { activity, activityItem, NOW, overview, securityEvent } from '../../tests/personalFixtures.ts'
 import { confirmEvent, fetchActivity, fetchOverview } from '../api.ts'
 import { personal } from '../store.ts'
@@ -44,8 +45,8 @@ describe('OpenQuestions', () => {
 		const wrapper = mount(OpenQuestions)
 
 		expect(wrapper.get('h3').text()).toBe('Was this you?')
-		expect(wrapper.find('[data-test="event-1"] [data-test="question"]').exists()).toBe(true)
-		expect(wrapper.find('[data-test="event-2"]').exists()).toBe(false)
+		expect(wrapper.find(`[data-test="event-${snowflake(1)}"] [data-test="question"]`).exists()).toBe(true)
+		expect(wrapper.find(`[data-test="event-${snowflake(2)}"]`).exists()).toBe(false)
 	})
 
 	test('an answered question leaves, and the timeline then has it with its answer', async () => {

@@ -167,8 +167,8 @@ describe('IncidentsTab', () => {
 	test('lists the addresses and accounts of the last 7 days with status, severity and time; nothing is built until one is chosen', async () => {
 		vi.mocked(fetchDetections).mockResolvedValue({
 			detections: [
-				detection({ id: 1, ip: '203.0.113.7', severity: 'high', enforced: true, outcome: 'acted', lastSeenAt: AT }),
-				detection({ id: 2, ip: null, uid: 'alice', severity: 'low', enforced: false, outcome: 'observed', checkName: 'Admin change alerts', lastSeenAt: AT - 60 }),
+				detection({ id: '1', ip: '203.0.113.7', severity: 'high', enforced: true, outcome: 'acted', lastSeenAt: AT }),
+				detection({ id: '2', ip: null, uid: 'alice', severity: 'low', enforced: false, outcome: 'observed', checkName: 'Admin change alerts', lastSeenAt: AT - 60 }),
 			],
 			hasMore: false,
 		})
@@ -324,7 +324,7 @@ describe('IncidentsTab', () => {
 
 		beforeEach(() => {
 			vi.mocked(fetchDetections).mockResolvedValue({
-				detections: [detection({ id: 1, ip: A.value, lastSeenAt: AT }), detection({ id: 2, ip: B.value, lastSeenAt: AT - 60 })],
+				detections: [detection({ id: '1', ip: A.value, lastSeenAt: AT }), detection({ id: '2', ip: B.value, lastSeenAt: AT - 60 })],
 				hasMore: false,
 			})
 		})

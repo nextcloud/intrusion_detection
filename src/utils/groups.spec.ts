@@ -14,7 +14,7 @@ import { commonSummary, groupDetections, groupSpan, highestSeverity } from './gr
  * @param overrides - Fields to change
  */
 function detection(id: number, overrides: Partial<Detection> = {}): Detection {
-	return { ...makeDetail().detection, id, ...overrides }
+	return { ...makeDetail().detection, id: String(id), ...overrides }
 }
 
 const adminChange = (id: number, overrides: Partial<Detection> = {}) => detection(id, { checkId: 'admin_change', checkName: 'Admin change alerts', ip: null, uid: null, enforced: false, severity: 'low', ...overrides })
@@ -23,7 +23,7 @@ describe('grouping the detection list', () => {
 	test('folds a run of detections that read the same into one entry', () => {
 		const entries = groupDetections([adminChange(20), adminChange(19), adminChange(18), detection(17), adminChange(16)])
 		expect(entries.map((e) => e.type)).toEqual(['group', 'single', 'single'])
-		expect(entries[0]!.type === 'group' && entries[0]!.detections.map((d) => d.id)).toEqual([20, 19, 18])
+		expect(entries[0]!.type === 'group' && entries[0]!.detections.map((d) => d.id)).toEqual(['20', '19', '18'])
 	})
 
 	test('keeps detections apart that differ in address, account or outcome', () => {

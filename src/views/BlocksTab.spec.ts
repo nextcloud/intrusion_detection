@@ -76,8 +76,8 @@ describe('the Blocks tab', () => {
 	})
 
 	test('lists each block in one row with a bare address, the time it ends and a Lift button', async () => {
-		const ban = (overrides: Partial<Ban>): Ban => ({ id: 1, reference: 'K7Q2-MPXA', cidr: '203.0.113.7/32', scope: 'ip', level: 1, checkId: 'manual_block', checkName: 'Blocked by an administrator', detectionId: null, createdBy: 'admin', note: 'Scanner', createdAt: 1_760_000_000, expiresAt: 1_760_086_400, liftedAt: null, liftedBy: null, liftNote: null, active: true, ...overrides })
-		vi.mocked(fetchBans).mockResolvedValue({ bans: [ban({}), ban({ id: 2, cidr: '198.51.100.0/24', scope: 'net', reference: 'AB12-CD34' })], hasMore: false, activeCount: 2, limits: { minDuration: 300, maxDuration: 7776000, maxNote: 255, levelDurations: [14400, 86400, 604800] } })
+		const ban = (overrides: Partial<Ban>): Ban => ({ id: '1', reference: 'K7Q2-MPXA', cidr: '203.0.113.7/32', scope: 'ip', level: 1, checkId: 'manual_block', checkName: 'Blocked by an administrator', detectionId: null, createdBy: 'admin', note: 'Scanner', createdAt: 1_760_000_000, expiresAt: 1_760_086_400, liftedAt: null, liftedBy: null, liftNote: null, active: true, ...overrides })
+		vi.mocked(fetchBans).mockResolvedValue({ bans: [ban({}), ban({ id: '2', cidr: '198.51.100.0/24', scope: 'net', reference: 'AB12-CD34' })], hasMore: false, activeCount: 2, limits: { minDuration: 300, maxDuration: 7776000, maxNote: 255, levelDurations: [14400, 86400, 604800] } })
 		const wrapper = await mountTab()
 		const rows = wrapper.findAll('[data-test="ban-row"]')
 		expect(rows).toHaveLength(2)

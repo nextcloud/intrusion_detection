@@ -7,7 +7,7 @@ import { mount } from '@vue/test-utils'
 import { describe, expect, test, vi } from 'vitest'
 import DetectionNarrative from './DetectionNarrative.vue'
 import { incidentRequest } from '../../store.ts'
-import { makeDetail } from '../../tests/fixtures.ts'
+import { makeDetail, snowflake } from '../../tests/fixtures.ts'
 
 /**
  * @param text - The button's text
@@ -74,7 +74,7 @@ describe('DetectionNarrative', () => {
 	test('"Lift block" asks the parent to lift the active block', async () => {
 		const wrapper = mount(DetectionNarrative, { props: { detail: makeDetail() } })
 		await button(wrapper, 'Lift block')!.trigger('click')
-		expect(wrapper.emitted('lift')?.[0]?.[0]).toMatchObject({ id: 7, reference: 'K7Q2-MPXA' })
+		expect(wrapper.emitted('lift')?.[0]?.[0]).toMatchObject({ id: snowflake(7), reference: 'K7Q2-MPXA' })
 	})
 
 	test('"Show attempts" lists the attempts of the last hour', async () => {

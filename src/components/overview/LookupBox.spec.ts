@@ -7,7 +7,7 @@ import { flushPromises, mount } from '@vue/test-utils'
 import { afterEach, describe, expect, test, vi } from 'vitest'
 import LookupBox from './LookupBox.vue'
 import { lookup } from '../../services/api.ts'
-import { makeDetail } from '../../tests/fixtures.ts'
+import { makeDetail, snowflake } from '../../tests/fixtures.ts'
 
 vi.mock('../../services/api.ts', async (importOriginal) => ({
 	...(await importOriginal<object>()),
@@ -44,10 +44,10 @@ describe('LookupBox', () => {
 		expect(result.text()).toContain('Credential stuffing')
 
 		await result.findAll('button').find((b) => b.text() === 'Lift block')!.trigger('click')
-		expect(wrapper.emitted('lift')?.[0]?.[0]).toMatchObject({ id: 7 })
+		expect(wrapper.emitted('lift')?.[0]?.[0]).toMatchObject({ id: snowflake(7) })
 
 		await result.findAll('button').find((b) => b.text().includes('Credential stuffing'))!.trigger('click')
-		expect(wrapper.emitted('openDetection')?.[0]).toEqual([42])
+		expect(wrapper.emitted('openDetection')?.[0]).toEqual([snowflake(42)])
 	})
 
 	test('an address that is not blocked says so', async () => {

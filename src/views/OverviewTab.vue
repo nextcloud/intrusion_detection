@@ -42,7 +42,7 @@ const quiet = computed(() => stats.value !== null && stats.value.days.every((day
  *
  * @param id - The detection id
  */
-function openDetection(id: number) {
+function openDetection(id: string) {
 	openDetectionId.value = id
 }
 

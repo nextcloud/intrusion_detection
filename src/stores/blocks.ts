@@ -139,7 +139,7 @@ export async function addDecoy(decoy: { label: string, loginName: string, format
 /**
  * @param id - The decoy
  */
-export async function removeDecoy(id: number): Promise<void> {
+export async function removeDecoy(id: string): Promise<void> {
 	await deleteDecoy(id)
 	update<Traps>('traps', (traps) => {
 		traps.decoys = traps.decoys.filter((d) => d.id !== id)

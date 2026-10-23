@@ -16,7 +16,7 @@ vi.mock('@nextcloud/dialogs', () => ({ showError: vi.fn(), showSuccess: vi.fn() 
  */
 function request(request: Partial<AdminGrantRequest>): AdminGrantRequest {
 	return {
-		id: 1,
+		id: '1',
 		kind: 'admin_grant',
 		change: null,
 		uid: 'bob',

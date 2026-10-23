@@ -23,7 +23,7 @@ import { APP_ID, formatAddress, outcomeLabel } from '../../utils/format.ts'
 import { n, t } from '../../utils/l10n.ts'
 
 const emit = defineEmits<{
-	openDetection: [id: number]
+	openDetection: [id: string]
 	lift: [ban: Ban]
 }>()
 

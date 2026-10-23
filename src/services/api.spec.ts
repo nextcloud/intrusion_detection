@@ -49,8 +49,8 @@ describe('a request', () => {
 describe('a decision on a request for approval', () => {
 	test('approving asks for the password, rejecting does not', async () => {
 		vi.mocked(axios.request).mockClear()
-		await approveRequest(7)
-		await rejectRequest(7)
+		await approveRequest('7')
+		await rejectRequest('7')
 		const [[approve], [reject]] = vi.mocked(axios.request).mock.calls as unknown as [[{ method: string, url: string, confirmPassword?: unknown }], [{ method: string, url: string, confirmPassword?: unknown }]]
 		expect(approve).toMatchObject({ method: 'post', confirmPassword: PwdConfirmationMode.Lax })
 		expect(approve.url).toMatch(/\/approvals\/7\/approve$/)

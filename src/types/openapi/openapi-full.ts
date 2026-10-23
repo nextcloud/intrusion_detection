@@ -1386,8 +1386,7 @@ export type components = {
             note: string | null;
         };
         AdminGrantRequest: {
-            /** Format: int64 */
-            id: number;
+            id: string;
             /** @enum {string} */
             kind: "admin_grant" | "settings";
             change: string | null;
@@ -1403,8 +1402,7 @@ export type components = {
             canApprove: boolean;
         };
         Approval: {
-            /** Format: int64 */
-            id: number;
+            id: string;
             kind: string;
             subject: string;
             requestedBy: string;
@@ -1427,8 +1425,7 @@ export type components = {
             createdAt: number;
         };
         Ban: {
-            /** Format: int64 */
-            id: number;
+            id: string;
             reference: string;
             cidr: string;
             scope: string;
@@ -1436,8 +1433,7 @@ export type components = {
             level: number;
             checkId: string;
             checkName: string;
-            /** Format: int64 */
-            detectionId: number | null;
+            detectionId: string | null;
             createdBy: string | null;
             note: string | null;
             /** Format: int64 */
@@ -1687,8 +1683,7 @@ export type components = {
             };
         };
         Decoy: {
-            /** Format: int64 */
-            id: number;
+            id: string;
             label: string;
             loginName: string | null;
             format: string;
@@ -1701,8 +1696,7 @@ export type components = {
             triggerCount: number;
         };
         Detection: {
-            /** Format: int64 */
-            id: number;
+            id: string;
             checkId: string;
             checkName: string;
             category: string;
@@ -1946,8 +1940,7 @@ export type components = {
             };
         };
         KnownDevice: {
-            /** Format: int64 */
-            id: number;
+            id: string;
             label: string;
             family: string;
             platform: string;
@@ -1976,8 +1969,7 @@ export type components = {
             devices: number;
         };
         Login: {
-            /** Format: int64 */
-            id: number;
+            id: string;
             /** Format: int64 */
             createdAt: number;
             ip: string | null;
@@ -1991,8 +1983,7 @@ export type components = {
             device: string;
         };
         LoginApproval: {
-            /** Format: int64 */
-            id: number;
+            id: string;
             uid: string;
             displayName: string;
             ip: string | null;
@@ -2135,8 +2126,7 @@ export type components = {
             event: components["schemas"]["PersonalDetection"] | null;
         };
         PersonalDetection: {
-            /** Format: int64 */
-            id: number;
+            id: string;
             check: string;
             /** @enum {string} */
             severity: "low" | "medium" | "high" | "critical";
@@ -2296,8 +2286,7 @@ export type components = {
             /** Format: int64 */
             eventAt: number | null;
             reason: string | null;
-            /** Format: int64 */
-            detectionId: number | null;
+            detectionId: string | null;
             /** Format: int64 */
             closedAt: number | null;
             closedBy: string | null;
@@ -2345,8 +2334,7 @@ export type components = {
             userConfirms: boolean;
         };
         SecurityChange: {
-            /** Format: int64 */
-            id: number;
+            id: string;
             type: string;
             label: string;
             via: string;
@@ -2540,15 +2528,13 @@ export type components = {
             };
         };
         TrustedNetwork: {
-            /** Format: int64 */
-            id: number;
+            id: string;
             network: string;
             /** Format: int64 */
             createdAt: number;
             /** Format: int64 */
             expiresAt: number;
-            /** Format: int64 */
-            detectionId: number | null;
+            detectionId: string | null;
         };
         UnconfirmableAccount: {
             uid: string;
@@ -2589,7 +2575,7 @@ export interface operations {
             };
             path: {
                 /** @description A detection about the account */
-                id: number;
+                id: string;
             };
             cookie?: never;
         };
@@ -2784,7 +2770,7 @@ export interface operations {
             };
             path: {
                 /** @description the request */
-                id: number;
+                id: string;
             };
             cookie?: never;
         };
@@ -2876,7 +2862,7 @@ export interface operations {
             };
             path: {
                 /** @description the request */
-                id: number;
+                id: string;
             };
             cookie?: never;
         };
@@ -3128,7 +3114,7 @@ export interface operations {
             };
             path: {
                 /** @description The block id */
-                id: number;
+                id: string;
             };
             cookie?: never;
         };
@@ -4595,7 +4581,7 @@ export interface operations {
             };
             path: {
                 /** @description The decoy */
-                id: number;
+                id: string;
             };
             cookie?: never;
         };
@@ -4611,8 +4597,7 @@ export interface operations {
                         ocs: {
                             meta: components["schemas"]["OCSMeta"];
                             data: {
-                                /** Format: int64 */
-                                deleted: number;
+                                deleted: string;
                             };
                         };
                     };
@@ -4938,7 +4923,7 @@ export interface operations {
             };
             path: {
                 /** @description The detection id */
-                id: number;
+                id: string;
             };
             cookie?: never;
         };
@@ -5897,7 +5882,7 @@ export interface operations {
             };
             path: {
                 /** @description The detection */
-                id: number;
+                id: string;
             };
             cookie?: never;
         };
@@ -5970,7 +5955,7 @@ export interface operations {
             };
             path: {
                 /** @description The detection of the lock */
-                id: number;
+                id: string;
             };
             cookie?: never;
         };
@@ -6057,7 +6042,7 @@ export interface operations {
             };
             path: {
                 /** @description A detection of the account */
-                id: number;
+                id: string;
             };
             cookie?: never;
         };
@@ -6706,7 +6691,7 @@ export interface operations {
             };
             path: {
                 /** @description the event */
-                id: number;
+                id: string;
             };
             cookie?: never;
         };
@@ -6807,7 +6792,7 @@ export interface operations {
             };
             path: {
                 /** @description the event */
-                id: number;
+                id: string;
             };
             cookie?: never;
         };
@@ -6967,7 +6952,7 @@ export interface operations {
             };
             path: {
                 /** @description the entry */
-                id: number;
+                id: string;
             };
             cookie?: never;
         };
@@ -6983,8 +6968,7 @@ export interface operations {
                         ocs: {
                             meta: components["schemas"]["OCSMeta"];
                             data: {
-                                /** Format: int64 */
-                                removed: number;
+                                removed: string;
                             };
                         };
                     };
@@ -7093,7 +7077,7 @@ export interface operations {
             };
             path: {
                 /** @description the device */
-                id: number;
+                id: string;
             };
             cookie?: never;
         };
@@ -7109,8 +7093,7 @@ export interface operations {
                         ocs: {
                             meta: components["schemas"]["OCSMeta"];
                             data: {
-                                /** Format: int64 */
-                                removed: number;
+                                removed: string;
                             };
                         };
                     };
@@ -7722,7 +7705,7 @@ export interface operations {
             };
             path: {
                 /** @description The detection from the notification */
-                detectionId: number;
+                detectionId: string;
             };
             cookie?: never;
         };

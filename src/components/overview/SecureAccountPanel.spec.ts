@@ -43,7 +43,7 @@ function guide(overrides: Partial<AccountGuide> = {}): AccountGuide {
 			startedAt: AT,
 			eventAt: AT,
 			reason: 'denied',
-			detectionId: 42,
+			detectionId: '42',
 			closedAt: null,
 			closedBy: null,
 			done: 4,

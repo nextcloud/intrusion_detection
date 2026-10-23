@@ -6,6 +6,8 @@
 import type { ActivityItem, KnownDevice, Login, PersonalActivity, PersonalOverview, SecurityEvent, TrustedNetwork } from '../personal/types.ts'
 import type { SecurityChange } from '../secureAccountTypes.ts'
 
+import { snowflake } from './fixtures.ts'
+
 /** 2026-10-21 12:00 UTC */
 export const NOW = Date.UTC(2026, 9, 21, 12, 0) / 1000
 
@@ -40,7 +42,7 @@ export function overview(overrides: Partial<PersonalOverview> = {}): PersonalOve
  */
 export function securityEvent(id: number, overrides: Partial<SecurityEvent> = {}): SecurityEvent {
 	return {
-		id,
+		id: snowflake(id),
 		check: 'second_factor_failed',
 		severity: 'high',
 		enforced: true,
@@ -67,7 +69,7 @@ export function securityEvent(id: number, overrides: Partial<SecurityEvent> = {}
  */
 export function login(id: number, overrides: Partial<Login> = {}): Login {
 	return {
-		id,
+		id: snowflake(id),
 		createdAt: NOW - 600 * id,
 		ip: '198.51.100.' + id,
 		network: '198.51.100.0/24',
@@ -88,7 +90,7 @@ export function login(id: number, overrides: Partial<Login> = {}): Login {
  */
 export function knownDevice(id: number, overrides: Partial<KnownDevice> = {}): KnownDevice {
 	return {
-		id,
+		id: snowflake(id),
 		label: 'Firefox on Linux',
 		family: 'firefox',
 		platform: 'linux',
@@ -106,11 +108,11 @@ export function knownDevice(id: number, overrides: Partial<KnownDevice> = {}): K
  */
 export function trustedNetwork(id: number, overrides: Partial<TrustedNetwork> = {}): TrustedNetwork {
 	return {
-		id,
+		id: snowflake(id),
 		network: '203.0.113.0/24',
 		createdAt: NOW - 86400,
 		expiresAt: NOW + 29 * 86400,
-		detectionId: 4,
+		detectionId: snowflake(4),
 		...overrides,
 	}
 }
@@ -121,7 +123,7 @@ export function trustedNetwork(id: number, overrides: Partial<TrustedNetwork> = 
  */
 export function securityChange(id: number, overrides: Partial<SecurityChange> = {}): SecurityChange {
 	return {
-		id,
+		id: snowflake(id),
 		type: 'password_changed',
 		label: 'Password changed',
 		via: 'self',

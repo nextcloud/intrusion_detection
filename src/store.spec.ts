@@ -29,7 +29,7 @@ vi.mock('./services/api.ts', async (importOriginal) => ({
  * @param id - The request
  */
 function approval(id: number): LoginApproval {
-	return { id, uid: 'alice', displayName: 'Alice', ip: null, createdAt: 1, expiresAt: 2, canDecide: true }
+	return { id: String(id), uid: 'alice', displayName: 'Alice', ip: null, createdAt: 1, expiresAt: 2, canDecide: true }
 }
 
 describe('the admin store', () => {
@@ -86,8 +86,8 @@ describe('the admin store', () => {
 		vi.mocked(fetchWaitingLogins).mockReturnValue(new Promise((resolve) => {
 			answer = resolve
 		}))
-		await decideLogin(7, true)
-		expect(waitingLogins.value.map((a) => a.id)).toEqual([8])
+		await decideLogin('7', true)
+		expect(waitingLogins.value.map((a) => a.id)).toEqual(['8'])
 		expect(fetchWaitingLogins).toHaveBeenCalledTimes(1)
 		answer([])
 		await flushPromises()

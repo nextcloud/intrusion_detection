@@ -52,7 +52,7 @@ const STEP_LABELS: Record<string, () => string> = {
  * @param done - What to announce
  * @param fallback - What to say when it fails
  */
-function change(action: (detectionId: number) => Promise<void>, done: string, fallback: string) {
+function change(action: (detectionId: string) => Promise<void>, done: string, fallback: string) {
 	run('change', () => action(props.detail.detection.id), { done, fallback, inline: true })
 }
 

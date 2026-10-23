@@ -22,7 +22,7 @@ import { n, t } from '../../utils/l10n.ts'
 const props = defineProps<{
 	/** The row as listed; without it, the row loads itself from `detectionId` */
 	detection?: Detection
-	detectionId?: number
+	detectionId?: string
 	open?: boolean
 }>()
 

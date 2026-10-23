@@ -12,6 +12,7 @@ import { AxiosError, AxiosHeaders } from 'axios'
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 import EventItem from './EventItem.vue'
 import { ApiError } from '../../services/api.ts'
+import { snowflake } from '../../tests/fixtures.ts'
 import { activity, overview, securityEvent } from '../../tests/personalFixtures.ts'
 import { confirmEvent, denyEvent, fetchActivity, fetchOverview } from '../api.ts'
 import { personal } from '../store.ts'
@@ -95,7 +96,7 @@ describe('EventItem', () => {
 		const wrapper = mountItem(securityEvent(1, { asks: true, canConfirm: true }))
 		await wrapper.get('[data-test="confirm"]').trigger('click')
 		await flushPromises()
-		expect(confirmEvent).toHaveBeenCalledWith(1)
+		expect(confirmEvent).toHaveBeenCalledWith(snowflake(1))
 		expect(showSuccess).toHaveBeenCalled()
 		expect(personal.activity?.questions).toEqual([])
 		expect(personal.manage.networks).toBe(1)
@@ -159,7 +160,7 @@ describe('EventItem', () => {
 		await flushPromises()
 		bodyButton('It was not me')!.click()
 		await flushPromises()
-		expect(denyEvent).toHaveBeenCalledWith(1)
+		expect(denyEvent).toHaveBeenCalledWith(snowflake(1))
 		expect(personal.activity?.questions).toEqual([])
 		expect(fetchActivity).toHaveBeenCalled()
 	})
@@ -172,7 +173,7 @@ describe('EventItem', () => {
 		await flushPromises()
 		bodyButton('It was not me')!.click()
 		await flushPromises()
-		expect(denyEvent).toHaveBeenCalledWith(1)
+		expect(denyEvent).toHaveBeenCalledWith(snowflake(1))
 		expect(personal.activity?.questions).toHaveLength(1)
 		expect(showSuccess).not.toHaveBeenCalled()
 		expect(wrapper.get('[data-test="told-only"]').text()).toContain('answer "No" again after a login with your second factor')

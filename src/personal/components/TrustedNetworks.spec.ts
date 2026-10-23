@@ -7,6 +7,7 @@ import { showSuccess } from '@nextcloud/dialogs'
 import { enableAutoUnmount, flushPromises, mount } from '@vue/test-utils'
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 import TrustedNetworks from './TrustedNetworks.vue'
+import { snowflake } from '../../tests/fixtures.ts'
 import { overview, securityEvent, trustedNetwork } from '../../tests/personalFixtures.ts'
 import { confirmEvent, fetchTrustedNetworks, removeTrustedNetwork } from '../api.ts'
 import { answerEvent, personal } from '../store.ts'
@@ -35,15 +36,15 @@ describe('TrustedNetworks', () => {
 
 	test('lists the networks with since and until, and removes one', async () => {
 		vi.mocked(fetchTrustedNetworks).mockResolvedValue([trustedNetwork(4)])
-		vi.mocked(removeTrustedNetwork).mockResolvedValue({ removed: 4 })
+		vi.mocked(removeTrustedNetwork).mockResolvedValue({ removed: snowflake(4) })
 		const wrapper = mount(TrustedNetworks)
 		await flushPromises()
-		const row = wrapper.get('[data-test="network-4"]')
+		const row = wrapper.get(`[data-test="network-${snowflake(4)}"]`)
 		expect(row.text()).toContain('203.0.113.0/24')
 		expect(row.text()).toContain('Trusted since October 20, 2026, until November 19, 2026')
 		await row.get('[data-test="remove-network"]').trigger('click')
 		await flushPromises()
-		expect(removeTrustedNetwork).toHaveBeenCalledWith(4)
+		expect(removeTrustedNetwork).toHaveBeenCalledWith(snowflake(4))
 		expect(showSuccess).toHaveBeenCalledWith('The network 203.0.113.0/24 is no longer trusted.')
 		expect(wrapper.find('[data-test="trusted-networks"]').exists(), 'Left out once empty').toBe(false)
 		expect(personal.manage.networks).toBe(0)
@@ -54,9 +55,9 @@ describe('TrustedNetworks', () => {
 		vi.mocked(confirmEvent).mockResolvedValue(securityEvent(1, { verdict: 'confirmed', verdictAt: 1 }))
 		const wrapper = mount(TrustedNetworks)
 		await flushPromises()
-		await answerEvent(1, 'confirm')
+		await answerEvent(snowflake(1), 'confirm')
 		await flushPromises()
-		expect(wrapper.find('[data-test="network-5"]').exists()).toBe(true)
+		expect(wrapper.find(`[data-test="network-${snowflake(5)}"]`).exists()).toBe(true)
 	})
 
 	test('explains a failure', async () => {

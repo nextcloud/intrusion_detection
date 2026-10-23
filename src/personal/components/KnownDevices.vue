@@ -24,7 +24,6 @@ import { date } from '../time.ts'
 
 const { data: devices, error, reload: load } = useKnownDevices({ failure: () => t(APP_ID, 'Your remembered devices could not be loaded. Please try again.') })
 const { busy, run } = useAction()
-const removing = computed(() => busy.value === null ? null : Number(busy.value))
 const timeZone = computed(() => personal.overview?.timezone)
 /** Shown while loading, and while there is a device or an error */
 const shown = computed(() => devices.value === null || devices.value.length > 0 || error.value !== null)
@@ -45,7 +44,7 @@ function iconOf(device: KnownDevice): string {
  * @param device - The device
  */
 function remove(device: KnownDevice) {
-	run(String(device.id), () => forgetDevice(device.id), {
+	run(device.id, () => forgetDevice(device.id), {
 		done: t(APP_ID, '{device} is no longer remembered.', { device: device.label }),
 		toast: true,
 		fallback: t(APP_ID, 'The device could not be removed. Please try again.'),
@@ -94,11 +93,11 @@ function remove(device: KnownDevice) {
 					variant="tertiary"
 					:aria-label="t(APP_ID, 'Remove {device}', { device: device.label })"
 					:title="t(APP_ID, 'Remove')"
-					:disabled="removing !== null"
+					:disabled="busy !== null"
 					data-test="remove-device"
 					@click="remove(device)">
 					<template #icon>
-						<NcLoadingIcon v-if="removing === device.id" :size="20" />
+						<NcLoadingIcon v-if="busy === device.id" :size="20" />
 						<NcIconSvgWrapper v-else :path="mdiDeleteOutline" />
 					</template>
 				</NcButton>

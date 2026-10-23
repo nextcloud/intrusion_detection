@@ -216,7 +216,7 @@ export function fetchDetections(filters: Partial<DetectionFilters>, limit = 25, 
  * @param id - The detection id
  * @param signal - Cancels the request
  */
-export function fetchDetection(id: number, signal?: AbortSignal): Promise<DetectionDetail> {
+export function fetchDetection(id: string, signal?: AbortSignal): Promise<DetectionDetail> {
 	return call<DetectionDetail>('get', 'detections/' + id, { signal })
 }
 
@@ -253,7 +253,7 @@ export function addBan(ban: { target: string, level: number, duration?: number, 
  * @param id - The block id
  * @param note - Why it is lifted
  */
-export function liftBan(id: number, note: string): Promise<Ban> {
+export function liftBan(id: string, note: string): Promise<Ban> {
 	return call<Ban>('delete', 'bans/' + id, { data: { note }, confirm: true })
 }
 
@@ -391,8 +391,8 @@ export function createDecoy(decoy: { label: string, loginName: string, format: D
 /**
  * @param id - The decoy
  */
-export function deleteDecoy(id: number): Promise<{ deleted: number }> {
-	return call<{ deleted: number }>('delete', 'decoys/' + id, { confirm: true })
+export function deleteDecoy(id: string): Promise<{ deleted: string }> {
+	return call<{ deleted: string }>('delete', 'decoys/' + id, { confirm: true })
 }
 
 /**
@@ -568,7 +568,7 @@ export function fetchAdminGrants(signal?: AbortSignal): Promise<AdminGrantReques
  *
  * @param id - The request
  */
-export function approveRequest(id: number): Promise<unknown> {
+export function approveRequest(id: string): Promise<unknown> {
 	return call<unknown>('post', `approvals/${id}/approve`, { data: {}, confirm: true })
 }
 
@@ -578,6 +578,6 @@ export function approveRequest(id: number): Promise<unknown> {
  *
  * @param id - The request
  */
-export function rejectRequest(id: number): Promise<unknown> {
+export function rejectRequest(id: string): Promise<unknown> {
 	return call<unknown>('post', `approvals/${id}/reject`)
 }

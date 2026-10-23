@@ -23,7 +23,7 @@ vi.mock('../../services/api.ts', async (importOriginal) => ({
 const SECRET = 'wJxeW-bj8eB-R5koJ-357nA-sRcxw'
 
 const created: NewDecoy = {
-	decoy: { id: 3, label: 'Old backup script on nas01', loginName: 'backup-svc', format: 'app-password', createdBy: 'admin', createdAt: 1_790_000_000, lastTriggeredAt: null, triggerCount: 0 },
+	decoy: { id: '3', label: 'Old backup script on nas01', loginName: 'backup-svc', format: 'app-password', createdBy: 'admin', createdAt: 1_790_000_000, lastTriggeredAt: null, triggerCount: 0 },
 	secret: SECRET,
 }
 
