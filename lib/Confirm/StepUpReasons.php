@@ -20,7 +20,9 @@ use Psr\Log\LoggerInterface;
  * {@see \OCA\IntrusionDetection\Config\GlobalSettings::STEP_UP_NO_METHOD_DEFAULTS}.
  *
  * A provider that fails is logged and treated as not applying: a broken
- * reason must not lock everybody out.
+ * reason must not lock everybody out. The one exception is an explicit
+ * rule ({@see StepUpPolicy::isExplicitRule()}): it applies when it cannot
+ * be evaluated, so that an error never lets a login around it.
  */
 class StepUpReasons {
 	/** @var list<class-string<IStepUpReason>> */
@@ -59,13 +61,14 @@ class StepUpReasons {
 	/**
 	 * The policies of every reason that applies to the login.
 	 *
+	 * @param bool $explicitOnly only the explicit rules, as on the brute-force allowlist
 	 * @return list<StepUpPolicy>
 	 */
-	public function collect(LoginContext $login): array {
+	public function collect(LoginContext $login, bool $explicitOnly = false): array {
 		$policies = [];
 		foreach ($this->providers() as $class) {
 			$policy = $class::policy();
-			if (in_array($policy, $policies, true)) {
+			if (in_array($policy, $policies, true) || ($explicitOnly && !$policy->isExplicitRule())) {
 				continue;
 			}
 			try {
@@ -75,6 +78,9 @@ class StepUpReasons {
 				}
 			} catch (\Throwable $e) {
 				$this->logger->error('Intrusion detection could not evaluate the step-up reason {reason}', ['reason' => $policy->value, 'exception' => $e]);
+				if ($policy->isExplicitRule()) {
+					$policies[] = $policy;
+				}
 			}
 		}
 		return $policies;

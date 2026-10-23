@@ -9,12 +9,14 @@ declare(strict_types=1);
 
 namespace OCA\IntrusionDetection\Listener\Login;
 
+use OCA\IntrusionDetection\Confirm\ConfirmationStatus;
 use OCA\IntrusionDetection\Confirm\LoginAssessment;
 use OCA\IntrusionDetection\Login\LoginKind;
 
 /**
  * Decides whether a login with the password needs extra confirmation
- * ({@see LoginAssessment}), and checks a session that comes back while
+ * ({@see LoginAssessment}); from an address on the brute-force allowlist
+ * by the explicit rules only. It checks a session that comes back while
  * unconfirmed sessions may exist. First, so that a new password it
  * requires is picked up by the password change step at once, and the
  * history records how the login was confirmed.
@@ -37,9 +39,13 @@ class StepUpStep implements ILoginStep {
 			return;
 		}
 		$password = $facts->event->getPassword();
-		if ($password === null || $facts->isBypassListed()) {
+		if ($password === null) {
 			return;
 		}
-		$facts->confirmation = $this->assessment->passwordLogin($facts->user, $password, $facts->kind !== LoginKind::ClientPassword, $facts->source, $facts->userAgent);
+		$allowlisted = $facts->isBypassListed();
+		$confirmation = $this->assessment->passwordLogin($facts->user, $password, $facts->kind !== LoginKind::ClientPassword, $facts->source, $facts->userAgent, $allowlisted);
+		if (!$allowlisted || $confirmation->status !== ConfirmationStatus::None) {
+			$facts->confirmation = $confirmation;
+		}
 	}
 }

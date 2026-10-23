@@ -19,15 +19,23 @@ use OCA\IntrusionDetection\Config\GlobalSettings;
 use OCA\IntrusionDetection\Confirm\Administrators;
 use OCA\IntrusionDetection\Confirm\ConfirmationStatus;
 use OCA\IntrusionDetection\Confirm\IConfirmationMethod;
+use OCA\IntrusionDetection\Confirm\LoginAssessment;
+use OCA\IntrusionDetection\Confirm\LoginConfirmations;
+use OCA\IntrusionDetection\Confirm\LoginDetections;
 use OCA\IntrusionDetection\Confirm\Reasons\AdminOutsideNetworksReason;
 use OCA\IntrusionDetection\Confirm\StepUpPolicy;
 use OCA\IntrusionDetection\Confirm\StepUpReasons;
+use OCA\IntrusionDetection\Confirm\UnconfirmedSessions;
 use OCA\IntrusionDetection\Controller\VerifyController;
+use OCA\IntrusionDetection\Crypto\Fingerprinter;
 use OCA\IntrusionDetection\Login\SessionMarkers;
 use OCA\IntrusionDetection\Net\SourceKey;
+use OCA\IntrusionDetection\Response\FlaggedSources;
+use OCA\IntrusionDetection\Signal\SignalDispatcher;
 use OCP\AppFramework\Http\StandaloneTemplateResponse;
 use OCP\IGroupManager;
 use OCP\IUser;
+use OCP\IUserSession;
 use OCP\L10N\IFactory;
 use OCP\Server;
 use PHPUnit\Framework\Attributes\Group;
@@ -48,6 +56,7 @@ class AdminTrustedNetworksTest extends StepUpTestCase {
 	private array $delegations = [];
 	/** @var list<string> */
 	private array $groups = [];
+	private bool $brokenConfirmations = false;
 
 	protected function setUp(): void {
 		parent::setUp();
@@ -78,6 +87,31 @@ class AdminTrustedNetworksTest extends StepUpTestCase {
 				new Administrators(Server::get(IGroupManager::class), new DelegatedGroups(Server::get(AuthorizedGroupMapper::class), Server::get(LoggerInterface::class))),
 			),
 		]), Server::get(LoggerInterface::class));
+	}
+
+	#[\Override]
+	protected function assessment(): LoginAssessment {
+		if (!$this->brokenConfirmations) {
+			return parent::assessment();
+		}
+		$broken = $this->createMock(LoginConfirmations::class);
+		$broken->method('atLogin')->willThrowException(new \RuntimeException('The database is gone'));
+		return new LoginAssessment(
+			Server::get(Fingerprinter::class),
+			Server::get(FlaggedSources::class),
+			$this->stepUpReasons(),
+			Server::get(UnconfirmedSessions::class),
+			$this->coreSession,
+			$this->request,
+			new OverridingContainer([
+				LoginConfirmations::class => $broken,
+				LoginDetections::class => $this->linker(),
+				SignalDispatcher::class => $this->dispatcher([], $this->engine()),
+				IUserSession::class => $this->userSession,
+			]),
+			$this->noCaches(),
+			Server::get(LoggerInterface::class),
+		);
 	}
 
 	public function testAnAdministratorOutsideTheTrustedNetworksMustConfirm(): void {
@@ -196,6 +230,40 @@ class AdminTrustedNetworksTest extends StepUpTestCase {
 		$this->basicAuth($this->admin);
 		$this->login($this->admin);
 		$this->assertSame(ConfirmationStatus::RefusedClient, $this->stepUp()?->status, 'A network of "Yes, it was me" is no trusted network');
+	}
+
+	public function testAnAddressOnTheBruteForceAllowlistOutsideTheNetworksStillMustConfirm(): void {
+		$this->bypassListed = true;
+		$this->login($this->admin);
+		$this->assertSame(ConfirmationStatus::Pending, $this->stepUp()?->status, 'The allowlist spares throttling, not the rule');
+		$this->assertSame([StepUpPolicy::AdminOutsideNetworks->value], $this->stepUp()?->policies);
+
+		$this->session->clear();
+		$this->remoteAddress = self::INSIDE;
+		$this->login($this->admin);
+		$this->assertNull($this->stepUp());
+	}
+
+	public function testOtherReasonsStaySkippedOnTheAllowlist(): void {
+		$this->bypassListed = true;
+		$bob = $this->user('ids-adminnet-allowlisted', 'bob@example.com');
+		Server::get(\OCA\IntrusionDetection\Response\AccountProtection::class)->protect($bob->getUID(), time() + 3600);
+		$this->login($bob);
+		$this->assertNull($this->stepUp());
+		$this->assertNull($this->state->get(SessionMarkers::CONFIRMATION));
+	}
+
+	public function testALoginTheRuleCannotDecideIsEnded(): void {
+		$this->brokenConfirmations = true;
+		$this->login($this->admin);
+		$this->assertNull($this->sessionUser, 'An error must not let an administrator in from outside unconfirmed');
+	}
+
+	public function testAnErrorElsewhereInsideTheNetworksLetsTheLoginIn(): void {
+		$this->brokenConfirmations = true;
+		$this->remoteAddress = self::INSIDE;
+		$this->login($this->admin);
+		$this->assertNotNull($this->sessionUser);
 	}
 
 	public function testAppPasswordsFromOutsideAreNotAffected(): void {

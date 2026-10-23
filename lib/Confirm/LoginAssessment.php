@@ -21,6 +21,7 @@ use OCA\IntrusionDetection\Signal\SignalDispatcher;
 use OCA\IntrusionDetection\Signal\SuccessfulLogin;
 use OCP\IRequest;
 use OCP\IUser;
+use OCP\IUserSession;
 use Psr\Container\ContainerInterface;
 use Psr\Log\LoggerInterface;
 
@@ -38,6 +39,12 @@ use Psr\Log\LoggerInterface;
  * started for it. A session that comes back through its remember-me
  * cookie or its session token is checked against the unconfirmed
  * sessions, so that a login that was never confirmed cannot be resumed.
+ *
+ * An address on the brute-force allowlist is checked against the explicit
+ * rules only ({@see StepUpPolicy::isExplicitRule()}), and without the
+ * login's signals. When deciding fails while an explicit rule applies, or
+ * cannot be told, the login is ended: an error must not let it around the
+ * rule.
  *
  * An app or script that sends the password does so on every request. Its
  * decision is repeated for CLIENT_DECISION_TTL seconds per account,
@@ -71,7 +78,18 @@ class LoginAssessment {
 	 * A login with the account's password, from a person ($interactive) or
 	 * from an app or script that sent it with Basic auth.
 	 */
-	public function passwordLogin(IUser $user, #[\SensitiveParameter] string $password, bool $interactive, ?SourceKey $source, ?string $userAgent): LoginConfirmation {
+	public function passwordLogin(IUser $user, #[\SensitiveParameter] string $password, bool $interactive, ?SourceKey $source, ?string $userAgent, bool $allowlisted = false): LoginConfirmation {
+		try {
+			return $this->decide($user, $password, $interactive, $source, $userAgent, $allowlisted);
+		} catch (\Throwable $e) {
+			if ($this->explicitRuleMayApply(new LoginContext($user, $source, $interactive, $userAgent, [], false))) {
+				$this->container->get(IUserSession::class)->logout();
+			}
+			throw $e;
+		}
+	}
+
+	private function decide(IUser $user, #[\SensitiveParameter] string $password, bool $interactive, ?SourceKey $source, ?string $userAgent, bool $allowlisted): LoginConfirmation {
 		$candidates = array_map('bin2hex', $this->fingerprinter->passwordCandidates($password));
 		$clientKey = $interactive ? null : $this->clientKey($user->getUID(), $candidates, $source);
 		$repeated = $clientKey === null ? null : $this->repeatClientDecision($clientKey, $user->getUID(), $source);
@@ -79,6 +97,9 @@ class LoginAssessment {
 			return $repeated;
 		}
 		$login = new LoginContext($user, $source, $interactive, $userAgent, $candidates, $this->flags->loginFlags($source, $candidates));
+		if ($allowlisted) {
+			return $this->stepUps()->atLogin($login, $this->reasons->collect($login, true))[0];
+		}
 
 		$detections = [];
 		try {
@@ -137,6 +158,17 @@ class LoginAssessment {
 			return null;
 		}
 		return $this->stepUps()->repeatClient($uid, $source, $status, array_values(array_filter($cached['policies'], 'is_string')));
+	}
+
+	/**
+	 * Whether an explicit rule applies to the login, or cannot be told.
+	 */
+	private function explicitRuleMayApply(LoginContext $login): bool {
+		try {
+			return $this->reasons->collect($login, true) !== [];
+		} catch (\Throwable) {
+			return true;
+		}
 	}
 
 	/**

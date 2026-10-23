@@ -60,6 +60,16 @@ enum StepUpPolicy: string {
 	}
 
 	/**
+	 * Whether the reason is an access rule an administrator chose rather
+	 * than a sign of an attack. Such a rule holds on the brute-force
+	 * allowlist too, and it fails closed: when it cannot be evaluated, it
+	 * applies.
+	 */
+	public function isExplicitRule(): bool {
+		return $this === self::AdminOutsideNetworks;
+	}
+
+	/**
 	 * The outcome without a method that lets the login in: with a notice,
 	 * and for a leaked password also with a forced password change.
 	 */
