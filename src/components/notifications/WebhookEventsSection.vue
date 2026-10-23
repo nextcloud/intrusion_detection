@@ -5,7 +5,6 @@
 
 <script setup lang="ts">
 import { mdiCheck, mdiContentCopy, mdiWebhook } from '@mdi/js'
-import { t } from '@nextcloud/l10n'
 import { computed, ref } from 'vue'
 import NcIconSvgWrapper from '@nextcloud/vue/components/NcIconSvgWrapper'
 import NcNoteCard from '@nextcloud/vue/components/NcNoteCard'
@@ -18,6 +17,7 @@ import { useAnnouncer } from '../../composables/useAnnouncer.ts'
 import { state } from '../../store.ts'
 import { useWebhookEvents } from '../../stores/settings.ts'
 import { APP_ID } from '../../utils/format.ts'
+import { t } from '../../utils/l10n.ts'
 
 const { data: events, error } = useWebhookEvents()
 const loadFailed = computed(() => error.value !== null)

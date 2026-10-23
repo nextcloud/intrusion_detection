@@ -7,7 +7,6 @@
 import type { Check, PayloadTest } from '../../types.ts'
 
 import { mdiTestTube } from '@mdi/js'
-import { t } from '@nextcloud/l10n'
 import { ref, useId } from 'vue'
 import NcButton from '@nextcloud/vue/components/NcButton'
 import NcIconSvgWrapper from '@nextcloud/vue/components/NcIconSvgWrapper'
@@ -18,6 +17,7 @@ import PayloadResult from './PayloadResult.vue'
 import { useAction } from '../../composables/useAction.ts'
 import { testPayload } from '../../services/api.ts'
 import { APP_ID } from '../../utils/format.ts'
+import { t } from '../../utils/l10n.ts'
 
 defineProps<{
 	check: Check
@@ -82,7 +82,7 @@ function tryExample(value: string) {
 				resize="vertical"
 				spellcheck="false"
 				autocomplete="off"
-				:placeholder="t(APP_ID, 'e.g. {example}', { example: 'https://cloud.example.com/index.php/apps/foo/?id=1 UNION SELECT 1' }, undefined, { escape: false, sanitize: false })"
+				:placeholder="t(APP_ID, 'e.g. {example}', { example: 'https://cloud.example.com/index.php/apps/foo/?id=1 UNION SELECT 1' })"
 				data-test="payload-input"
 				@keydown.enter.exact.prevent="test" />
 			<NcButton type="submit" variant="primary" :disabled="busy !== null">

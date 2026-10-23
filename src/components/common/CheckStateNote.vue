@@ -7,12 +7,12 @@
 import type { CheckRef } from '../../types.ts'
 
 import { mdiArrowRight } from '@mdi/js'
-import { t } from '@nextcloud/l10n'
 import { computed } from 'vue'
 import NcIconSvgWrapper from '@nextcloud/vue/components/NcIconSvgWrapper'
 import StateBadge from './StateBadge.vue'
 import { modeLabel } from '../../store.ts'
 import { APP_ID } from '../../utils/format.ts'
+import { t } from '../../utils/l10n.ts'
 
 const props = defineProps<{
 	check: CheckRef

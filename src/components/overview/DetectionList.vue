@@ -7,7 +7,6 @@
 import type { Ban } from '../../types.ts'
 
 import { mdiClose, mdiShieldCheckOutline } from '@mdi/js'
-import { n, t } from '@nextcloud/l10n'
 import debounce from 'debounce'
 import { computed, onBeforeUnmount, ref, useId, watch } from 'vue'
 import NcButton from '@nextcloud/vue/components/NcButton'
@@ -25,6 +24,7 @@ import { detectionFilters, openDetectionId, state } from '../../store.ts'
 import { useDetectionList } from '../../stores/overview.ts'
 import { APP_ID } from '../../utils/format.ts'
 import { groupDetections } from '../../utils/groups.ts'
+import { n, t } from '../../utils/l10n.ts'
 
 const emit = defineEmits<{
 	lift: [ban: Ban]

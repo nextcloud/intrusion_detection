@@ -8,7 +8,6 @@ import type { IncidentReport, IncidentRequest } from '../types.ts'
 import type { IncidentSubject } from '../utils/incidents.ts'
 
 import { mdiPlus, mdiShieldCheckOutline, mdiTextBoxSearchOutline } from '@mdi/js'
-import { n, t } from '@nextcloud/l10n'
 import { computed, nextTick, ref, watch } from 'vue'
 import NcButton from '@nextcloud/vue/components/NcButton'
 import NcDialog from '@nextcloud/vue/components/NcDialog'
@@ -26,6 +25,7 @@ import { incidentRequest } from '../store.ts'
 import { useRecentDetections } from '../stores/overview.ts'
 import { APP_ID } from '../utils/format.ts'
 import { incidentSubjects, requestKey, subjectKey } from '../utils/incidents.ts'
+import { n, t } from '../utils/l10n.ts'
 
 /** This many built reports are kept for this page view */
 const CACHE_SIZE = 10

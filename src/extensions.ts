@@ -7,9 +7,9 @@ import type { Component } from 'vue'
 import type { DetectionDetail } from './types.ts'
 
 import { mdiCogOutline, mdiFileDocumentAlertOutline, mdiShieldCheckOutline, mdiShieldLockOutline, mdiViewDashboardOutline } from '@mdi/js'
-import { t } from '@nextcloud/l10n'
 import { defineAsyncComponent, shallowReactive } from 'vue'
 import { APP_ID } from './utils/format.ts'
+import { t } from './utils/l10n.ts'
 
 /**
  * The tabs of the admin page, and the sections that join other components

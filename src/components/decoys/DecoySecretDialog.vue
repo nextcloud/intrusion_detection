@@ -7,7 +7,6 @@
 import type { NewDecoy } from '../../types.ts'
 
 import { mdiAlertOutline, mdiCheck, mdiContentCopy, mdiFileDocumentOutline, mdiFolderNetworkOutline, mdiNoteTextOutline, mdiScriptTextOutline } from '@mdi/js'
-import { t } from '@nextcloud/l10n'
 import { computed, ref, watch } from 'vue'
 import NcButton from '@nextcloud/vue/components/NcButton'
 import NcCheckboxRadioSwitch from '@nextcloud/vue/components/NcCheckboxRadioSwitch'
@@ -15,6 +14,7 @@ import NcDialog from '@nextcloud/vue/components/NcDialog'
 import NcIconSvgWrapper from '@nextcloud/vue/components/NcIconSvgWrapper'
 import { useCopy } from '../../composables/useCopy.ts'
 import { APP_ID } from '../../utils/format.ts'
+import { t } from '../../utils/l10n.ts'
 
 /**
  * The secret of a new decoy, shown this once. The parent hands it over and

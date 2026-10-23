@@ -7,7 +7,6 @@
 import type { TabDefinition } from '../../extensions.ts'
 
 import { mdiAlertCircleOutline, mdiCheckCircleOutline, mdiFire, mdiLockOutline, mdiPauseCircleOutline, mdiServerSecurity, mdiShieldOutline, mdiTimerCogOutline } from '@mdi/js'
-import { n, t } from '@nextcloud/l10n'
 import { computed, ref } from 'vue'
 import NcCheckboxRadioSwitch from '@nextcloud/vue/components/NcCheckboxRadioSwitch'
 import NcIconSvgWrapper from '@nextcloud/vue/components/NcIconSvgWrapper'
@@ -23,6 +22,7 @@ import { useAction } from '../../composables/useAction.ts'
 import { saveSettings, state } from '../../store.ts'
 import { useFirewallExport } from '../../stores/blocks.ts'
 import { APP_ID } from '../../utils/format.ts'
+import { n, t } from '../../utils/l10n.ts'
 
 const { data: exportState, error: loadError } = useFirewallExport({ failure: () => t(APP_ID, 'The firewall export could not be loaded. Please reload the page.') })
 const { busy: saving, run } = useAction()

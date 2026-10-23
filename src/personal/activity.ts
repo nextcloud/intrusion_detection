@@ -6,8 +6,8 @@
 import type { SecurityChange } from '../secureAccountTypes.ts'
 import type { ActivityItem, Login, SecurityEvent } from './types.ts'
 
-import { t } from '@nextcloud/l10n'
 import { APP_ID } from '../utils/format.ts'
+import { t } from '../utils/l10n.ts'
 import { calendarDay } from './time.ts'
 
 export interface ActivityDay {
@@ -158,10 +158,10 @@ export function changedBy(change: SecurityChange): string | null {
  */
 export function changeValues(change: SecurityChange): string | null {
 	if (change.previous && change.new) {
-		return t(APP_ID, 'from {previous} to {new}', { previous: change.previous, new: change.new }, { escape: false })
+		return t(APP_ID, 'from {previous} to {new}', { previous: change.previous, new: change.new })
 	}
 	if (change.previous) {
-		return t(APP_ID, 'from {previous}', { previous: change.previous }, { escape: false })
+		return t(APP_ID, 'from {previous}', { previous: change.previous })
 	}
 	return change.new ?? change.detail
 }

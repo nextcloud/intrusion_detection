@@ -7,13 +7,14 @@
 import type { IncidentEntry as Entry, IncidentReport } from '../../types.ts'
 
 import { mdiTimelineClockOutline } from '@mdi/js'
-import { getCanonicalLocale, n, t } from '@nextcloud/l10n'
+import { getCanonicalLocale } from '@nextcloud/l10n'
 import { computed, ref, watch } from 'vue'
 import NcButton from '@nextcloud/vue/components/NcButton'
 import NcIconSvgWrapper from '@nextcloud/vue/components/NcIconSvgWrapper'
 import EmptyNote from '../common/EmptyNote.vue'
 import IncidentEntry from './IncidentEntry.vue'
 import { APP_ID, formatNumber } from '../../utils/format.ts'
+import { n, t } from '../../utils/l10n.ts'
 import { kindIcon } from './kinds.ts'
 
 const props = defineProps<{

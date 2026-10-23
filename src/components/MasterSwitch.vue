@@ -4,13 +4,13 @@
 -->
 
 <script setup lang="ts">
-import { t } from '@nextcloud/l10n'
 import { computed, ref } from 'vue'
 import NcCheckboxRadioSwitch from '@nextcloud/vue/components/NcCheckboxRadioSwitch'
 import NcDialog from '@nextcloud/vue/components/NcDialog'
 import { useAction } from '../composables/useAction.ts'
 import { saveSettings, state } from '../store.ts'
 import { APP_ID } from '../utils/format.ts'
+import { t } from '../utils/l10n.ts'
 
 const { busy, run } = useAction()
 const confirmOff = ref(false)

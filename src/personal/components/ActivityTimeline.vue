@@ -4,7 +4,6 @@
 -->
 
 <script setup lang="ts">
-import { t } from '@nextcloud/l10n'
 import { computed, useId } from 'vue'
 import NcButton from '@nextcloud/vue/components/NcButton'
 import NcLoadingIcon from '@nextcloud/vue/components/NcLoadingIcon'
@@ -12,6 +11,7 @@ import SectionCard from '../../components/common/SectionCard.vue'
 import ActivityRow from './ActivityRow.vue'
 import LoadError from './LoadError.vue'
 import { APP_ID } from '../../utils/format.ts'
+import { t } from '../../utils/l10n.ts'
 import { dayLabel, groupByDay, hasNews } from '../activity.ts'
 import { ACTIVITY_MAX, personal, reloadActivity, showMoreActivity } from '../store.ts'
 

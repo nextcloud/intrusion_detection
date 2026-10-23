@@ -6,13 +6,13 @@
 <script setup lang="ts">
 import type { Status } from '../types.ts'
 
-import { n, t } from '@nextcloud/l10n'
 import { computed, useId } from 'vue'
 import NcButton from '@nextcloud/vue/components/NcButton'
 import NcLoadingIcon from '@nextcloud/vue/components/NcLoadingIcon'
 import { useAction } from '../composables/useAction.ts'
 import { changeLearning, saveSettings } from '../store.ts'
 import { APP_ID, formatNumber } from '../utils/format.ts'
+import { n, t } from '../utils/l10n.ts'
 
 const props = defineProps<{
 	status: Status

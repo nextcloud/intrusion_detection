@@ -4,12 +4,12 @@
 -->
 
 <script setup lang="ts">
-import { t } from '@nextcloud/l10n'
 import ConfirmationSection from '../components/settings/ConfirmationSection.vue'
 import LearningSection from '../components/settings/LearningSection.vue'
 import NotificationsSection from '../components/settings/NotificationsSection.vue'
 import PrivacySection from '../components/settings/PrivacySection.vue'
 import { APP_ID } from '../utils/format.ts'
+import { t } from '../utils/l10n.ts'
 
 /**
  * The sections of the Settings tab. Their ids are deep-link targets.

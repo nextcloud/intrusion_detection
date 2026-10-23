@@ -5,11 +5,11 @@
 
 <script setup lang="ts">
 import { mdiRefresh } from '@mdi/js'
-import { t } from '@nextcloud/l10n'
 import NcButton from '@nextcloud/vue/components/NcButton'
 import NcIconSvgWrapper from '@nextcloud/vue/components/NcIconSvgWrapper'
 import NcNoteCard from '@nextcloud/vue/components/NcNoteCard'
 import { APP_ID } from '../../utils/format.ts'
+import { t } from '../../utils/l10n.ts'
 
 defineProps<{
 	/** What went wrong and what to do */

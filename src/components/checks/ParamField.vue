@@ -6,7 +6,6 @@
 <script setup lang="ts">
 import type { Param } from '../../types.ts'
 
-import { t } from '@nextcloud/l10n'
 import { computed, useId } from 'vue'
 import NcCheckboxRadioSwitch from '@nextcloud/vue/components/NcCheckboxRadioSwitch'
 import NcTextArea from '@nextcloud/vue/components/NcTextArea'
@@ -14,6 +13,7 @@ import NcTextField from '@nextcloud/vue/components/NcTextField'
 import SelectField from '../common/SelectField.vue'
 import DurationInput from './DurationInput.vue'
 import { APP_ID, formatDuration, formatNumber, formatValue } from '../../utils/format.ts'
+import { t } from '../../utils/l10n.ts'
 
 /** The field's raw value: what the admin typed, validated by the parent */
 const model = defineModel<unknown>({ required: true })

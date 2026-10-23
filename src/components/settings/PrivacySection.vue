@@ -5,7 +5,6 @@
 
 <script setup lang="ts">
 import { mdiCloudUploadOutline, mdiDatabaseOutline, mdiScaleBalance } from '@mdi/js'
-import { n, t } from '@nextcloud/l10n'
 import { computed } from 'vue'
 import NcIconSvgWrapper from '@nextcloud/vue/components/NcIconSvgWrapper'
 import NcNoteCard from '@nextcloud/vue/components/NcNoteCard'
@@ -18,6 +17,7 @@ import StateBadge from '../common/StateBadge.vue'
 import { state } from '../../store.ts'
 import { usePrivacy } from '../../stores/settings.ts'
 import { APP_ID } from '../../utils/format.ts'
+import { n, t } from '../../utils/l10n.ts'
 
 const { data, error: loadError } = usePrivacy({ failure: () => t(APP_ID, 'The overview could not be loaded. Please reload the page.') })
 
@@ -28,9 +28,9 @@ const { data, error: loadError } = usePrivacy({ failure: () => t(APP_ID, 'The ov
  */
 function storedBy(checks: string[]): string {
 	const names = checks.length > 3
-		? n(APP_ID, '{names} and %n more', '{names} and %n more', checks.length - 3, { names: checks.slice(0, 3).join(', ') }, { escape: false, sanitize: false })
+		? n(APP_ID, '{names} and %n more', '{names} and %n more', checks.length - 3, { names: checks.slice(0, 3).join(', ') })
 		: checks.join(', ')
-	return t(APP_ID, 'Stored by: {checks}', { checks: names }, undefined, { escape: false, sanitize: false })
+	return t(APP_ID, 'Stored by: {checks}', { checks: names })
 }
 
 const retentionSettings = computed(() => state.settings.filter((s) => s.group === 'privacy'))
@@ -122,7 +122,7 @@ const activeOutgoing = computed(() => data.value?.outgoing.filter((item) => item
 						{{ t(APP_ID, 'Nothing is sent to other services.') }}
 					</template>
 					<template v-else>
-						{{ t(APP_ID, 'Only these contact other services: {names}.', { names: activeOutgoing.join(', ') }, undefined, { escape: false, sanitize: false }) }}
+						{{ t(APP_ID, 'Only these contact other services: {names}.', { names: activeOutgoing.join(', ') }) }}
 					</template>
 				</p>
 				<ul :class="$style.outgoing">

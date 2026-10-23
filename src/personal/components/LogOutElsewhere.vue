@@ -5,7 +5,6 @@
 
 <script setup lang="ts">
 import { mdiLogoutVariant } from '@mdi/js'
-import { n, t } from '@nextcloud/l10n'
 import { computed, ref } from 'vue'
 import NcButton from '@nextcloud/vue/components/NcButton'
 import NcDialog from '@nextcloud/vue/components/NcDialog'
@@ -14,6 +13,7 @@ import NcLoadingIcon from '@nextcloud/vue/components/NcLoadingIcon'
 import SectionCard from '../../components/common/SectionCard.vue'
 import { useAction } from '../../composables/useAction.ts'
 import { APP_ID } from '../../utils/format.ts'
+import { n, t } from '../../utils/l10n.ts'
 import { logOutOtherBrowsers } from '../store.ts'
 
 const dialog = ref(false)

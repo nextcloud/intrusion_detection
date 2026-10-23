@@ -8,7 +8,6 @@ import type { NcSelectUsersModel } from '@nextcloud/vue/components/NcSelectUsers
 import type { IncidentRequest, IncidentSubjectType } from '../../types.ts'
 
 import { mdiFileChartOutline } from '@mdi/js'
-import { t } from '@nextcloud/l10n'
 import debounce from 'debounce'
 import { computed, onBeforeUnmount, ref, useId } from 'vue'
 import NcButton from '@nextcloud/vue/components/NcButton'
@@ -22,6 +21,7 @@ import NcTextField from '@nextcloud/vue/components/NcTextField'
 import { searchAccounts } from '../../services/api.ts'
 import { logger } from '../../services/logger.ts'
 import { APP_ID } from '../../utils/format.ts'
+import { t } from '../../utils/l10n.ts'
 import { vRadioGroupName } from '../../utils/radioGroupName.ts'
 import { isCidr } from '../../utils/validate.ts'
 

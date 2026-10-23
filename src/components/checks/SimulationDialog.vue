@@ -7,7 +7,6 @@
 import type { Check } from '../../types.ts'
 
 import { mdiArrowRightThin, mdiFlaskOutline } from '@mdi/js'
-import { t } from '@nextcloud/l10n'
 import { computed } from 'vue'
 import NcDialog from '@nextcloud/vue/components/NcDialog'
 import NcIconSvgWrapper from '@nextcloud/vue/components/NcIconSvgWrapper'
@@ -18,6 +17,7 @@ import StateBadge from '../common/StateBadge.vue'
 import { modeLabel } from '../../store.ts'
 import { useSimulation } from '../../stores/settings.ts'
 import { APP_ID } from '../../utils/format.ts'
+import { t } from '../../utils/l10n.ts'
 
 const open = defineModel<boolean>('open', { required: true })
 

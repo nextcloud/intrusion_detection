@@ -6,11 +6,11 @@
 <script setup lang="ts">
 import type { Blocklist } from '../../types.ts'
 
-import { n, t } from '@nextcloud/l10n'
 import { computed } from 'vue'
 import ReferencePill from '../common/ReferencePill.vue'
 import TimeStamp from '../common/TimeStamp.vue'
 import { APP_ID } from '../../utils/format.ts'
+import { n, t } from '../../utils/l10n.ts'
 
 /** Where a list comes from and what its downloads brought */
 const props = defineProps<{

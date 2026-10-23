@@ -5,11 +5,11 @@
 
 <script setup lang="ts">
 import { mdiCheck, mdiContentCopy } from '@mdi/js'
-import { t } from '@nextcloud/l10n'
 import { ref } from 'vue'
 import NcIconSvgWrapper from '@nextcloud/vue/components/NcIconSvgWrapper'
 import { useAnnouncer } from '../../composables/useAnnouncer.ts'
 import { APP_ID } from '../../utils/format.ts'
+import { t } from '../../utils/l10n.ts'
 
 const props = defineProps<{
 	reference: string

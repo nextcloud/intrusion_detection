@@ -8,7 +8,6 @@ import type { Notifications, TestAlertResult } from '../../types.ts'
 
 import { mdiAccountGroupOutline, mdiAlertCircleOutline, mdiBellOutline, mdiCheckCircleOutline, mdiEmailOffOutline, mdiEmailOutline } from '@mdi/js'
 import { showSuccess, showWarning } from '@nextcloud/dialogs'
-import { n, t } from '@nextcloud/l10n'
 import { computed, ref, watch } from 'vue'
 import NcAvatar from '@nextcloud/vue/components/NcAvatar'
 import NcButton from '@nextcloud/vue/components/NcButton'
@@ -23,6 +22,7 @@ import { useAction } from '../../composables/useAction.ts'
 import { sendTestAlert } from '../../services/api.ts'
 import { saveSettings, severityLabel, state } from '../../store.ts'
 import { APP_ID, fillTemplate } from '../../utils/format.ts'
+import { n, t } from '../../utils/l10n.ts'
 
 /** "Who is notified": the groups, the email threshold, who that is now, and a test alert */
 defineProps<{
@@ -87,7 +87,7 @@ const emailResult = computed(() => {
 		return null
 	}
 	return {
-		sent: { ok: true, text: t(APP_ID, 'Email sent to {address}. It can take a minute to arrive.', { address: result.address ?? '' }, undefined, { escape: false, sanitize: false }) },
+		sent: { ok: true, text: t(APP_ID, 'Email sent to {address}. It can take a minute to arrive.', { address: result.address ?? '' }) },
 		no_address: { ok: false, text: t(APP_ID, 'No email: your account has no email address. Add one in your personal settings.') },
 		no_mail: { ok: false, text: t(APP_ID, 'No email: this server cannot send emails yet. Set up email in the basic settings.') },
 		failed: { ok: false, text: t(APP_ID, 'The email could not be sent. The server log has the details.') },

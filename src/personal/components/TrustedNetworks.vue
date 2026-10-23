@@ -7,7 +7,6 @@
 import type { TrustedNetwork } from '../types.ts'
 
 import { mdiDeleteOutline, mdiLanConnect } from '@mdi/js'
-import { t } from '@nextcloud/l10n'
 import { computed } from 'vue'
 import NcButton from '@nextcloud/vue/components/NcButton'
 import NcIconSvgWrapper from '@nextcloud/vue/components/NcIconSvgWrapper'
@@ -17,6 +16,7 @@ import LoadError from './LoadError.vue'
 import SkeletonRows from './SkeletonRows.vue'
 import { useAction } from '../../composables/useAction.ts'
 import { APP_ID } from '../../utils/format.ts'
+import { t } from '../../utils/l10n.ts'
 import { forgetNetwork, personal, useTrustedNetworks } from '../store.ts'
 import { date } from '../time.ts'
 

@@ -7,10 +7,10 @@
 import type { ConfirmationMethod, ConfirmationMethodId } from '../../types.ts'
 
 import { mdiAccountCheckOutline, mdiAlertOutline, mdiCheckCircleOutline, mdiCloseCircleOutline, mdiEmailOutline, mdiLaptop, mdiTwoFactorAuthentication } from '@mdi/js'
-import { t } from '@nextcloud/l10n'
 import NcIconSvgWrapper from '@nextcloud/vue/components/NcIconSvgWrapper'
 import StateBadge from '../common/StateBadge.vue'
 import { APP_ID } from '../../utils/format.ts'
+import { t } from '../../utils/l10n.ts'
 
 defineProps<{
 	/** In the order they are tried */

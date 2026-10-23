@@ -7,7 +7,6 @@
 import type { Ban, Detection } from '../../types.ts'
 
 import { mdiChevronDown } from '@mdi/js'
-import { n, t } from '@nextcloud/l10n'
 import { computed, ref, useId, watch } from 'vue'
 import NcIconSvgWrapper from '@nextcloud/vue/components/NcIconSvgWrapper'
 import OutcomeBadge from '../common/OutcomeBadge.vue'
@@ -16,6 +15,7 @@ import TimeStamp from '../common/TimeStamp.vue'
 import DetectionRow from './DetectionRow.vue'
 import { APP_ID, formatNumber } from '../../utils/format.ts'
 import { commonSummary, groupSpan, highestSeverity } from '../../utils/groups.ts'
+import { n, t } from '../../utils/l10n.ts'
 
 const props = defineProps<{
 	/** Detections that read the same, newest first */
@@ -41,7 +41,7 @@ const first = computed(() => props.detections[0]!)
 const shared = computed(() => commonSummary(props.detections))
 /** The sentence every detection of the group shares, else "17 × Admin change alerts" */
 const title = computed(() => shared.value
-	?? t(APP_ID, '{count} × {check}', { count: formatNumber(props.detections.length), check: first.value.checkName }, undefined, { escape: false, sanitize: false }))
+	?? t(APP_ID, '{count} × {check}', { count: formatNumber(props.detections.length), check: first.value.checkName }))
 </script>
 
 <template>

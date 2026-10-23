@@ -7,7 +7,6 @@
 import type { IncidentReport, IncidentRequest } from '../../types.ts'
 
 import { mdiDownload, mdiFileCodeOutline, mdiInformationOutline, mdiOpenInNew, mdiPencilOutline, mdiPrinterOutline } from '@mdi/js'
-import { t } from '@nextcloud/l10n'
 import { computed, ref, useId } from 'vue'
 import NcButton from '@nextcloud/vue/components/NcButton'
 import NcIconSvgWrapper from '@nextcloud/vue/components/NcIconSvgWrapper'
@@ -19,6 +18,7 @@ import IncidentTimeline from './IncidentTimeline.vue'
 import { useAction } from '../../composables/useAction.ts'
 import { downloadIncidentReport } from '../../services/api.ts'
 import { APP_ID } from '../../utils/format.ts'
+import { t } from '../../utils/l10n.ts'
 
 const props = defineProps<{
 	report: IncidentReport

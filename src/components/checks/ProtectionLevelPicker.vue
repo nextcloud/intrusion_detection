@@ -6,7 +6,6 @@
 <script setup lang="ts">
 import type { ProtectionLevel } from '../../types.ts'
 
-import { t } from '@nextcloud/l10n'
 import { computed, useId } from 'vue'
 import NcLoadingIcon from '@nextcloud/vue/components/NcLoadingIcon'
 import NcRadioGroup from '@nextcloud/vue/components/NcRadioGroup'
@@ -14,6 +13,7 @@ import NcRadioGroupButton from '@nextcloud/vue/components/NcRadioGroupButton'
 import { useAction } from '../../composables/useAction.ts'
 import { chooseProtectionLevel, state } from '../../store.ts'
 import { APP_ID } from '../../utils/format.ts'
+import { t } from '../../utils/l10n.ts'
 import { vRadioGroupName } from '../../utils/radioGroupName.ts'
 
 type Choosable = Exclude<ProtectionLevel, 'custom'>

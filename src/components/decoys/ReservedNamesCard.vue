@@ -7,7 +7,6 @@
 import type { CheckRef, ReservedNames } from '../../types.ts'
 
 import { mdiAccountCancelOutline } from '@mdi/js'
-import { t } from '@nextcloud/l10n'
 import { computed, ref } from 'vue'
 import CheckStateNote from '../common/CheckStateNote.vue'
 import ListEditor from '../common/ListEditor.vue'
@@ -16,6 +15,7 @@ import { useAction } from '../../composables/useAction.ts'
 import { errorMessage } from '../../services/api.ts'
 import { changeReservedNames } from '../../stores/blocks.ts'
 import { APP_ID } from '../../utils/format.ts'
+import { t } from '../../utils/l10n.ts'
 import { isLoginName } from '../../utils/validate.ts'
 
 const props = defineProps<{
@@ -49,8 +49,8 @@ function change(change: { add?: string[], remove?: string[] }) {
 	error.value = null
 	run('names', () => changeReservedNames(change), {
 		done: change.add
-			? t(APP_ID, 'Reserved: {names}', { names: change.add.join(', ') }, undefined, { escape: false, sanitize: false })
-			: t(APP_ID, 'Released: {names}', { names: (change.remove ?? []).join(', ') }, undefined, { escape: false, sanitize: false }),
+			? t(APP_ID, 'Reserved: {names}', { names: change.add.join(', ') })
+			: t(APP_ID, 'Released: {names}', { names: (change.remove ?? []).join(', ') }),
 		fallback,
 		handle: (e) => {
 			error.value = errorMessage(e, fallback)

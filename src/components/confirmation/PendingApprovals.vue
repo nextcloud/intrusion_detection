@@ -7,7 +7,6 @@
 import type { LoginApproval } from '../../types.ts'
 
 import { mdiAccountClockOutline, mdiCheck, mdiClose } from '@mdi/js'
-import { t } from '@nextcloud/l10n'
 import { computed, ref } from 'vue'
 import NcAvatar from '@nextcloud/vue/components/NcAvatar'
 import NcButton from '@nextcloud/vue/components/NcButton'
@@ -19,6 +18,7 @@ import TimeStamp from '../common/TimeStamp.vue'
 import { useAction } from '../../composables/useAction.ts'
 import { decideLogin } from '../../store.ts'
 import { APP_ID } from '../../utils/format.ts'
+import { t } from '../../utils/l10n.ts'
 
 const props = defineProps<{
 	approvals: LoginApproval[]
@@ -37,8 +37,6 @@ const open = computed({
 	},
 })
 
-const opts = { escape: false, sanitize: false }
-
 const buttons = computed(() => [
 	{ label: t(APP_ID, 'Cancel'), callback: () => undefined },
 	{ label: t(APP_ID, 'Approve login'), variant: 'primary' as const, callback: () => { void decide(confirming.value!, true) } },
@@ -51,8 +49,8 @@ const buttons = computed(() => [
 function decide(approval: LoginApproval, approve: boolean) {
 	run('decide:' + approval.id, () => decideLogin(approval.id, approve), {
 		done: approve
-			? t(APP_ID, 'The login of {user} was approved. It continues by itself.', { user: approval.displayName }, undefined, opts)
-			: t(APP_ID, 'The login of {user} was rejected and is ended.', { user: approval.displayName }, undefined, opts),
+			? t(APP_ID, 'The login of {user} was approved. It continues by itself.', { user: approval.displayName })
+			: t(APP_ID, 'The login of {user} was rejected and is ended.', { user: approval.displayName }),
 		toast: true,
 		fallback: t(APP_ID, 'That did not work. Please try again.'),
 	})
@@ -88,7 +86,7 @@ function address(approval: LoginApproval): string {
 				<div :class="$style.item__text">
 					<span :class="$style.item__name">{{ approval.displayName }} <span :class="$style.item__uid">{{ approval.uid }}</span></span>
 					<span :class="$style.item__meta">
-						{{ t(APP_ID, 'From {address}', { address: address(approval) }, undefined, opts) }} ·
+						{{ t(APP_ID, 'From {address}', { address: address(approval) }) }} ·
 						{{ t(APP_ID, 'asked') }} <TimeStamp :timestamp="approval.createdAt" /> ·
 						{{ t(APP_ID, 'expires') }} <TimeStamp :timestamp="approval.expiresAt" />
 					</span>
@@ -100,7 +98,7 @@ function address(approval: LoginApproval): string {
 					<template v-else>
 						<NcButton
 							:disabled="busy !== null"
-							:aria-label="t(APP_ID, 'Reject the login of {user}', { user: approval.displayName }, undefined, opts)"
+							:aria-label="t(APP_ID, 'Reject the login of {user}', { user: approval.displayName })"
 							@click="decide(approval, false)">
 							<template #icon>
 								<NcLoadingIcon v-if="busy === 'decide:' + approval.id" :size="20" />
@@ -111,7 +109,7 @@ function address(approval: LoginApproval): string {
 						<NcButton
 							variant="primary"
 							:disabled="busy !== null"
-							:aria-label="t(APP_ID, 'Approve the login of {user}', { user: approval.displayName }, undefined, opts)"
+							:aria-label="t(APP_ID, 'Approve the login of {user}', { user: approval.displayName })"
 							@click="confirming = approval">
 							<template #icon>
 								<NcIconSvgWrapper :path="mdiCheck" />
@@ -125,11 +123,11 @@ function address(approval: LoginApproval): string {
 
 		<NcDialog
 			v-model:open="open"
-			:name="t(APP_ID, 'Approve the login of {user}?', { user: confirming?.displayName ?? '' }, undefined, opts)"
+			:name="t(APP_ID, 'Approve the login of {user}?', { user: confirming?.displayName ?? '' })"
 			:buttons="buttons"
 			size="normal">
 			<div :class="$style.dialog">
-				<p>{{ t(APP_ID, 'Someone logged in as {user} from {address} with the correct password. Approving lets this login in without any other confirmation.', { user: confirming?.uid ?? '', address: confirming ? address(confirming) : '' }, undefined, opts) }}</p>
+				<p>{{ t(APP_ID, 'Someone logged in as {user} from {address} with the correct password. Approving lets this login in without any other confirmation.', { user: confirming?.uid ?? '', address: confirming ? address(confirming) : '' }) }}</p>
 				<p><strong>{{ t(APP_ID, 'Approve only if you know it is really them, for example because they asked you. If you did not expect it, reject it: someone else may know the password.') }}</strong></p>
 			</div>
 		</NcDialog>

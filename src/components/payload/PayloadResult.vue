@@ -7,11 +7,11 @@
 import type { Mode, PayloadForm, PayloadTest, PayloadValue } from '../../types.ts'
 
 import { mdiShieldAlertOutline, mdiShieldCheckOutline } from '@mdi/js'
-import { n, t } from '@nextcloud/l10n'
 import { computed } from 'vue'
 import NcIconSvgWrapper from '@nextcloud/vue/components/NcIconSvgWrapper'
 import StateBadge from '../common/StateBadge.vue'
 import { APP_ID } from '../../utils/format.ts'
+import { n, t } from '../../utils/l10n.ts'
 
 const props = defineProps<{
 	result: PayloadTest

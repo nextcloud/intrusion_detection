@@ -6,9 +6,9 @@
 <script setup lang="ts">
 import type { Risk } from '../../types.ts'
 
-import { t } from '@nextcloud/l10n'
 import { computed } from 'vue'
 import { APP_ID } from '../../utils/format.ts'
+import { t } from '../../utils/l10n.ts'
 
 const props = defineProps<{
 	risk: Risk

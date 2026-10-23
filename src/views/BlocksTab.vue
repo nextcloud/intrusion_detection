@@ -7,7 +7,6 @@
 import type { Ban } from '../types.ts'
 
 import { mdiLockOpenVariantOutline, mdiPlus, mdiShieldCheckOutline } from '@mdi/js'
-import { n, t } from '@nextcloud/l10n'
 import { computed, ref } from 'vue'
 import NcButton from '@nextcloud/vue/components/NcButton'
 import NcCheckboxRadioSwitch from '@nextcloud/vue/components/NcCheckboxRadioSwitch'
@@ -31,6 +30,7 @@ import { useAction } from '../composables/useAction.ts'
 import { openDetectionId, state } from '../store.ts'
 import { useBanList, useTraps } from '../stores/blocks.ts'
 import { APP_ID, formatAddress } from '../utils/format.ts'
+import { n, t } from '../utils/l10n.ts'
 
 const showAll = ref(false)
 const liftTarget = ref<Ban | null>(null)

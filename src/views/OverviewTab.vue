@@ -7,7 +7,6 @@
 import type { Ban } from '../types.ts'
 
 import { mdiShieldCheckOutline } from '@mdi/js'
-import { t } from '@nextcloud/l10n'
 import { computed, nextTick, ref, watch } from 'vue'
 import NcEmptyContent from '@nextcloud/vue/components/NcEmptyContent'
 import NcIconSvgWrapper from '@nextcloud/vue/components/NcIconSvgWrapper'
@@ -24,6 +23,7 @@ import StatusBanner from '../components/StatusBanner.vue'
 import { adminGrants, decidableLogins, openDetectionId, state } from '../store.ts'
 import { useDailyStats } from '../stores/overview.ts'
 import { APP_ID } from '../utils/format.ts'
+import { t } from '../utils/l10n.ts'
 
 const { data: stats, error: statsError } = useDailyStats({ failure: () => t(APP_ID, 'The chart could not be loaded.') })
 const liftTarget = ref<Ban | null>(null)

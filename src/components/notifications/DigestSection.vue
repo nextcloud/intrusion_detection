@@ -5,7 +5,6 @@
 
 <script setup lang="ts">
 import { mdiCalendarClockOutline, mdiEmailFastOutline } from '@mdi/js'
-import { n, t } from '@nextcloud/l10n'
 import { computed } from 'vue'
 import NcButton from '@nextcloud/vue/components/NcButton'
 import NcIconSvgWrapper from '@nextcloud/vue/components/NcIconSvgWrapper'
@@ -20,6 +19,7 @@ import { sendTestDigest } from '../../services/api.ts'
 import { state } from '../../store.ts'
 import { useDigest } from '../../stores/settings.ts'
 import { APP_ID } from '../../utils/format.ts'
+import { n, t } from '../../utils/l10n.ts'
 
 /** The settings this section edits */
 const SETTINGS = ['digest_frequency']
@@ -38,7 +38,7 @@ const withoutEmailNames = computed(() => {
 	}
 	const names = value.withoutEmail.map((user) => user.displayName || user.uid)
 	const more = value.withoutEmailCount - names.length
-	return more > 0 ? t(APP_ID, '{names} and {count} more', { names: names.join(', '), count: more }, undefined, { escape: false, sanitize: false }) : names.join(', ')
+	return more > 0 ? t(APP_ID, '{names} and {count} more', { names: names.join(', '), count: more }) : names.join(', ')
 })
 
 const last = computed(() => {
@@ -70,7 +70,7 @@ const recipients = computed(() => {
 	if (value.withoutEmailCount === 0) {
 		return goes
 	}
-	return goes + ' ' + n(APP_ID, '{names} has no email address and gets none.', '{names} have no email address and get none.', value.withoutEmailCount, { names: withoutEmailNames.value }, { escape: false, sanitize: false })
+	return goes + ' ' + n(APP_ID, '{names} has no email address and gets none.', '{names} have no email address and get none.', value.withoutEmailCount, { names: withoutEmailNames.value })
 })
 
 /**

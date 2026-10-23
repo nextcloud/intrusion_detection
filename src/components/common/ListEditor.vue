@@ -5,13 +5,13 @@
 
 <script setup lang="ts">
 import { mdiAlertCircleOutline, mdiClose, mdiPlus } from '@mdi/js'
-import { n, t } from '@nextcloud/l10n'
 import { computed, ref, useId, watch } from 'vue'
 import NcButton from '@nextcloud/vue/components/NcButton'
 import NcIconSvgWrapper from '@nextcloud/vue/components/NcIconSvgWrapper'
 import NcLoadingIcon from '@nextcloud/vue/components/NcLoadingIcon'
 import NcTextField from '@nextcloud/vue/components/NcTextField'
 import { APP_ID } from '../../utils/format.ts'
+import { n, t } from '../../utils/l10n.ts'
 
 const props = withDefaults(defineProps<{
 	/** The entries */
@@ -70,7 +70,7 @@ const draftError = computed(() => {
 		return null
 	}
 	if (props.items.includes(value.value)) {
-		return t(APP_ID, '"{item}" is in the list already.', { item: value.value }, undefined, { escape: false, sanitize: false })
+		return t(APP_ID, '"{item}" is in the list already.', { item: value.value })
 	}
 	if (props.items.length >= props.max) {
 		return n(APP_ID, 'The list can have at most %n entry.', 'The list can have at most %n entries.', props.max)
@@ -112,7 +112,7 @@ function add() {
 					type="button"
 					:class="$style.chip__remove"
 					:disabled="busy"
-					:aria-label="t(APP_ID, 'Remove {item}', { item }, undefined, { escape: false, sanitize: false })"
+					:aria-label="t(APP_ID, 'Remove {item}', { item })"
 					@click="emit('remove', item)">
 					<NcIconSvgWrapper inline :path="mdiClose" :size="16" />
 				</button>
@@ -156,7 +156,7 @@ function add() {
 						type="button"
 						:class="$style.suggestion"
 						:disabled="busy"
-						:aria-label="t(APP_ID, 'Add {item}', { item: suggestion }, undefined, { escape: false, sanitize: false })"
+						:aria-label="t(APP_ID, 'Add {item}', { item: suggestion })"
 						@click="emit('add', [suggestion])">
 						<NcIconSvgWrapper inline :path="mdiPlus" :size="16" />
 						<code>{{ suggestion }}</code>

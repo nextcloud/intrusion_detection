@@ -7,7 +7,6 @@
 import type { Check, Signature } from '../../types.ts'
 
 import { mdiClose, mdiPlus, mdiRegex } from '@mdi/js'
-import { n, t } from '@nextcloud/l10n'
 import { computed, ref, useId, watch } from 'vue'
 import NcButton from '@nextcloud/vue/components/NcButton'
 import NcCheckboxRadioSwitch from '@nextcloud/vue/components/NcCheckboxRadioSwitch'
@@ -24,6 +23,7 @@ import { ApiError, checkSignatures, errorMessage } from '../../services/api.ts'
 import { saveCheck } from '../../store.ts'
 import { useSignatures } from '../../stores/settings.ts'
 import { APP_ID } from '../../utils/format.ts'
+import { n, t } from '../../utils/l10n.ts'
 
 const props = defineProps<{
 	check: Check
@@ -209,7 +209,7 @@ function remove(entry: string) {
 						</span>
 						<NcButton
 							variant="tertiary"
-							:aria-label="t(APP_ID, 'Remove signature {pattern}', { pattern: custom.pattern }, undefined, { escape: false, sanitize: false })"
+							:aria-label="t(APP_ID, 'Remove signature {pattern}', { pattern: custom.pattern })"
 							:disabled="busy !== null"
 							@click="remove(custom.entry)">
 							<template #icon>
@@ -236,7 +236,7 @@ function remove(entry: string) {
 						:label="t(APP_ID, 'Regular expression')"
 						spellcheck="false"
 						autocomplete="off"
-						:placeholder="t(APP_ID, 'e.g. {example}', { example: 'union\\s+distinct\\s+select' }, undefined, { escape: false, sanitize: false })"
+						:placeholder="t(APP_ID, 'e.g. {example}', { example: 'union\\s+distinct\\s+select' })"
 						:maxlength="catalog.maxLength"
 						:disabled="busy !== null"
 						:error="(patternError ?? localProblem) !== null"

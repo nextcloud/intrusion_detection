@@ -5,12 +5,12 @@
 
 <script setup lang="ts">
 import { mdiShieldAccountOutline } from '@mdi/js'
-import { t } from '@nextcloud/l10n'
 import { generateUrl } from '@nextcloud/router'
 import { computed } from 'vue'
 import NcButton from '@nextcloud/vue/components/NcButton'
 import SectionCard from '../../components/common/SectionCard.vue'
 import { APP_ID } from '../../utils/format.ts'
+import { t } from '../../utils/l10n.ts'
 import { useSecureAccountProgress } from '../store.ts'
 
 // A failure shows nothing here: the rest of the section still shows, and the checklist page has its own errors.

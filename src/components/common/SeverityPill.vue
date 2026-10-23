@@ -6,10 +6,10 @@
 <script setup lang="ts">
 import type { Severity } from '../../types.ts'
 
-import { t } from '@nextcloud/l10n'
 import { computed } from 'vue'
 import { severityLabel } from '../../store.ts'
 import { APP_ID } from '../../utils/format.ts'
+import { t } from '../../utils/l10n.ts'
 
 const props = defineProps<{
 	severity: Severity

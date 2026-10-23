@@ -7,7 +7,6 @@
 import type { Check } from '../../types.ts'
 
 import { mdiAlertOutline, mdiChevronDown } from '@mdi/js'
-import { n, t } from '@nextcloud/l10n'
 import { computed, ref, useId, watch } from 'vue'
 import NcIconSvgWrapper from '@nextcloud/vue/components/NcIconSvgWrapper'
 import NcLoadingIcon from '@nextcloud/vue/components/NcLoadingIcon'
@@ -16,6 +15,7 @@ import ModeSwitch from './ModeSwitch.vue'
 import { useCheckMode } from '../../composables/useCheckMode.ts'
 import { modeLabel } from '../../store.ts'
 import { APP_ID } from '../../utils/format.ts'
+import { n, t } from '../../utils/l10n.ts'
 
 const props = defineProps<{
 	check: Check

@@ -7,7 +7,6 @@
 import type { ConfirmationPreset } from '../../types.ts'
 
 import { mdiAccountAlertOutline, mdiAccountClockOutline, mdiLaptop, mdiListStatus, mdiRefresh, mdiShieldAccountOutline, mdiTimerOutline } from '@mdi/js'
-import { n, t } from '@nextcloud/l10n'
 import { computed, nextTick, ref } from 'vue'
 import NcButton from '@nextcloud/vue/components/NcButton'
 import NcCheckboxRadioSwitch from '@nextcloud/vue/components/NcCheckboxRadioSwitch'
@@ -26,6 +25,7 @@ import { useAction } from '../../composables/useAction.ts'
 import { saveSettings, state, useWaitingLogins, waitingLogins } from '../../store.ts'
 import { chooseConfirmationPreset, useConfirmation } from '../../stores/settings.ts'
 import { APP_ID, formatNumber } from '../../utils/format.ts'
+import { n, t } from '../../utils/l10n.ts'
 
 const KNOWN_DEVICE = 'known_device_enabled'
 const ADMIN_APPROVAL = 'step_up_admin_approval'

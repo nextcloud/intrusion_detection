@@ -5,12 +5,12 @@
 
 <script setup lang="ts">
 import { mdiCheck, mdiContentCopy, mdiFileDocumentOutline } from '@mdi/js'
-import { t } from '@nextcloud/l10n'
 import { useId } from 'vue'
 import NcButton from '@nextcloud/vue/components/NcButton'
 import NcIconSvgWrapper from '@nextcloud/vue/components/NcIconSvgWrapper'
 import { useCopy } from '../../composables/useCopy.ts'
 import { APP_ID } from '../../utils/format.ts'
+import { t } from '../../utils/l10n.ts'
 
 const props = defineProps<{
 	/** The text to show and copy */

@@ -7,13 +7,13 @@
 import type { Notifications } from '../../types.ts'
 
 import { mdiCheck, mdiFormatListChecks, mdiMinus } from '@mdi/js'
-import { n, t } from '@nextcloud/l10n'
 import { computed } from 'vue'
 import NcIconSvgWrapper from '@nextcloud/vue/components/NcIconSvgWrapper'
 import SectionCard from '../common/SectionCard.vue'
 import ShowMore from '../common/ShowMore.vue'
 import StateBadge from '../common/StateBadge.vue'
 import { APP_ID } from '../../utils/format.ts'
+import { n, t } from '../../utils/l10n.ts'
 
 /** Which checks notify the administrators and the affected user */
 const props = defineProps<{

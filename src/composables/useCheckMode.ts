@@ -5,10 +5,10 @@
 
 import type { Check, Mode } from '../types.ts'
 
-import { t } from '@nextcloud/l10n'
 import { computed, ref, watch } from 'vue'
 import { modeLabel, saveCheck } from '../store.ts'
 import { APP_ID } from '../utils/format.ts'
+import { t } from '../utils/l10n.ts'
 import { useAction } from './useAction.ts'
 
 /**

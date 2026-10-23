@@ -5,8 +5,8 @@
 
 import type { Param, ParamValue } from '../types.ts'
 
-import { t } from '@nextcloud/l10n'
 import { APP_ID, formatDuration, formatNumber, formatValue } from './format.ts'
+import { t } from './l10n.ts'
 
 export interface Validation {
 	/** The value in its canonical type, when valid */

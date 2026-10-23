@@ -5,8 +5,8 @@
 
 import type { Detection, Severity } from '../types.ts'
 
-import { n, t } from '@nextcloud/l10n'
 import { APP_ID } from './format.ts'
+import { n, t } from './l10n.ts'
 
 export type DetectionEntry
 	= { type: 'single', key: string, detection: Detection }

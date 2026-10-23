@@ -8,7 +8,6 @@ import type { TabDefinition } from '../../extensions.ts'
 import type { CheckRef, TrapPathList, TrapWebServer } from '../../types.ts'
 
 import { mdiServerNetwork, mdiSignDirection } from '@mdi/js'
-import { n, t } from '@nextcloud/l10n'
 import { computed, ref } from 'vue'
 import NcCheckboxRadioSwitch from '@nextcloud/vue/components/NcCheckboxRadioSwitch'
 import NcNoteCard from '@nextcloud/vue/components/NcNoteCard'
@@ -22,6 +21,7 @@ import { useAction } from '../../composables/useAction.ts'
 import { errorMessage } from '../../services/api.ts'
 import { changeTrapPaths } from '../../stores/blocks.ts'
 import { APP_ID } from '../../utils/format.ts'
+import { n, t } from '../../utils/l10n.ts'
 
 const props = defineProps<{
 	paths: TrapPathList
@@ -48,7 +48,7 @@ function serverName(webServer: TrapWebServer): string {
  * @param answeredBy - The web servers that answer a built-in path themselves
  */
 function ruleNote(answeredBy: TrapPathList['builtin'][number]['answeredBy']): string {
-	return t(APP_ID, 'Needs the web server rule on {servers}.', { servers: answeredBy.map(serverName).join(', ') }, undefined, { escape: false, sanitize: false })
+	return t(APP_ID, 'Needs the web server rule on {servers}.', { servers: answeredBy.map(serverName).join(', ') })
 }
 
 const thisServer = computed(() => {
@@ -57,9 +57,9 @@ const thisServer = computed(() => {
 		return null
 	}
 	if (needRule.length === 0) {
-		return t(APP_ID, 'On this server ({server}), your trap paths reach Nextcloud without the rule.', { server: serverName(webServer) }, undefined, { escape: false, sanitize: false })
+		return t(APP_ID, 'On this server ({server}), your trap paths reach Nextcloud without the rule.', { server: serverName(webServer) })
 	}
-	return n(APP_ID, 'On this server ({server}), %n trap path reaches Nextcloud only with the rule: {paths}', 'On this server ({server}), %n trap paths reach Nextcloud only with the rule: {paths}', needRule.length, { server: serverName(webServer), paths: needRule.join(' ') }, { escape: false, sanitize: false })
+	return n(APP_ID, 'On this server ({server}), %n trap path reaches Nextcloud only with the rule: {paths}', 'On this server ({server}), %n trap paths reach Nextcloud only with the rule: {paths}', needRule.length, { server: serverName(webServer), paths: needRule.join(' ') })
 })
 
 /**
@@ -162,15 +162,15 @@ function save(key: string, change: { add?: string[], remove?: string[], builtinE
 					<ListEditor
 						:items="paths.custom"
 						:label="t(APP_ID, 'Add a path')"
-						:placeholder="t(APP_ID, 'e.g. {example}', { example: '/old-admin/*' }, undefined, { escape: false, sanitize: false })"
+						:placeholder="t(APP_ID, 'e.g. {example}', { example: '/old-admin/*' })"
 						:validate="validate"
 						:normalise="(value) => value.trim().toLowerCase()"
 						:emptyText="t(APP_ID, 'None yet. A path matches exactly, or as a prefix when it ends with *.')"
 						:max="paths.max"
 						:busy="busy === 'list'"
 						:error="error"
-						@add="save('list', { add: $event }, t(APP_ID, 'Added: {paths}', { paths: $event.join(', ') }, undefined, { escape: false, sanitize: false }))"
-						@remove="save('list', { remove: [$event] }, t(APP_ID, 'Removed: {path}', { path: $event }, undefined, { escape: false, sanitize: false }))" />
+						@add="save('list', { add: $event }, t(APP_ID, 'Added: {paths}', { paths: $event.join(', ') }))"
+						@remove="save('list', { remove: [$event] }, t(APP_ID, 'Removed: {path}', { path: $event }))" />
 				</div>
 			</div>
 			<div :class="[$style.column, $style.snippets]">
@@ -195,7 +195,7 @@ function save(key: string, change: { add?: string[], remove?: string[], builtinE
 						</template>
 					</div>
 					<NcNoteCard v-if="paths.snippetsSkipped.length > 0" type="info">
-						{{ t(APP_ID, 'These paths contain characters that are not put into a web server configuration automatically: {paths}. Add them by hand if you need them.', { paths: paths.snippetsSkipped.join(' ') }, undefined, { escape: false, sanitize: false }) }}
+						{{ t(APP_ID, 'These paths contain characters that are not put into a web server configuration automatically: {paths}. Add them by hand if you need them.', { paths: paths.snippetsSkipped.join(' ') }) }}
 					</NcNoteCard>
 					<p :class="$style.hint">
 						{{ t(APP_ID, 'The snippet changes when you change the paths above. Reload the web server after you update it.') }}

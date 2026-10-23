@@ -6,7 +6,6 @@
 <script setup lang="ts">
 import type { Blocklist, ListPurpose } from '../../types.ts'
 
-import { t } from '@nextcloud/l10n'
 import { computed, ref, watch } from 'vue'
 import NcCheckboxRadioSwitch from '@nextcloud/vue/components/NcCheckboxRadioSwitch'
 import NcDialog from '@nextcloud/vue/components/NcDialog'
@@ -18,6 +17,7 @@ import { ApiError } from '../../services/api.ts'
 import { modeLabel } from '../../store.ts'
 import { addBlocklist } from '../../stores/blocks.ts'
 import { APP_ID } from '../../utils/format.ts'
+import { t } from '../../utils/l10n.ts'
 import { httpsUrlProblem, listIdProblem } from '../../utils/validate.ts'
 
 const open = defineModel<boolean>('open', { required: true })
@@ -149,7 +149,7 @@ async function submit() {
 			<NcTextField
 				v-model="address"
 				:label="t(APP_ID, 'Address of the list')"
-				:placeholder="t(APP_ID, 'e.g. {example}', { example: 'https://example.org/blocklist.txt' }, undefined, { escape: false, sanitize: false })"
+				:placeholder="t(APP_ID, 'e.g. {example}', { example: 'https://example.org/blocklist.txt' })"
 				type="url"
 				autocomplete="off"
 				spellcheck="false"

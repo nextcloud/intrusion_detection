@@ -7,7 +7,6 @@
 import type { CheckRef, Decoy, DecoyLimits, NewDecoy } from '../../types.ts'
 
 import { mdiAlertCircleOutline, mdiDeleteOutline, mdiKeyChainVariant, mdiKeyVariant, mdiPlus } from '@mdi/js'
-import { n, t } from '@nextcloud/l10n'
 import { computed, ref } from 'vue'
 import NcButton from '@nextcloud/vue/components/NcButton'
 import NcDialog from '@nextcloud/vue/components/NcDialog'
@@ -24,6 +23,7 @@ import { useAnnouncer } from '../../composables/useAnnouncer.ts'
 import { globalValues } from '../../store.ts'
 import { removeDecoy } from '../../stores/blocks.ts'
 import { APP_ID, formatDuration } from '../../utils/format.ts'
+import { n, t } from '../../utils/l10n.ts'
 
 defineProps<{
 	decoys: Decoy[]
@@ -60,7 +60,7 @@ async function remove() {
 		return
 	}
 	const removed = await run('delete', () => removeDecoy(decoy.id), {
-		done: t(APP_ID, 'The decoy "{label}" was deleted.', { label: decoy.label }, undefined, { escape: false, sanitize: false }),
+		done: t(APP_ID, 'The decoy "{label}" was deleted.', { label: decoy.label }),
 		fallback: t(APP_ID, 'The decoy could not be deleted. Please try again.'),
 	})
 	if (removed) {
@@ -107,7 +107,7 @@ async function remove() {
 						<span :class="$style.decoy__created">
 							<span>{{ t(APP_ID, 'created') }}</span>
 							<TimeStamp :timestamp="decoy.createdAt" short />
-							<span v-if="decoy.createdBy">{{ t(APP_ID, 'by {admin}', { admin: decoy.createdBy }, undefined, { escape: false, sanitize: false }) }}</span>
+							<span v-if="decoy.createdBy">{{ t(APP_ID, 'by {admin}', { admin: decoy.createdBy }) }}</span>
 						</span>
 					</span>
 					<span v-if="decoy.loginName && collisions.includes(decoy.loginName)" :class="$style.decoy__problem">
@@ -129,7 +129,7 @@ async function remove() {
 				</div>
 				<NcButton
 					variant="tertiary"
-					:aria-label="t(APP_ID, 'Delete the decoy {label}', { label: decoy.label }, undefined, { escape: false, sanitize: false })"
+					:aria-label="t(APP_ID, 'Delete the decoy {label}', { label: decoy.label })"
 					:title="t(APP_ID, 'Delete')"
 					@click="deleting = decoy">
 					<template #icon>

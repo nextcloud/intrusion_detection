@@ -7,7 +7,6 @@
 import type { DetectionDetail } from '../../types.ts'
 
 import { mdiAccountLockOpenOutline, mdiCheck, mdiKeyOutline } from '@mdi/js'
-import { n, t } from '@nextcloud/l10n'
 import { computed, ref } from 'vue'
 import NcButton from '@nextcloud/vue/components/NcButton'
 import NcDialog from '@nextcloud/vue/components/NcDialog'
@@ -19,6 +18,7 @@ import TimeStamp from '../common/TimeStamp.vue'
 import { useAction } from '../../composables/useAction.ts'
 import { confirmAccountPasswordReset, reenableLockedAccount, useAccountGuide } from '../../stores/overview.ts'
 import { APP_ID } from '../../utils/format.ts'
+import { n, t } from '../../utils/l10n.ts'
 
 const props = defineProps<{
 	detail: DetectionDetail

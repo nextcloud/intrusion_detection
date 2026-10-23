@@ -3,9 +3,9 @@
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 
-import { t } from '@nextcloud/l10n'
 import { onBeforeUnmount, ref } from 'vue'
 import { APP_ID } from '../utils/format.ts'
+import { t } from '../utils/l10n.ts'
 import { useAnnouncer } from './useAnnouncer.ts'
 
 /**

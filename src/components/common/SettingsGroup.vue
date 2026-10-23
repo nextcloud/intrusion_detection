@@ -7,7 +7,6 @@
 import type { GlobalSetting } from '../../types.ts'
 import type { Segment } from '../../utils/format.ts'
 
-import { t } from '@nextcloud/l10n'
 import { computed } from 'vue'
 import NcButton from '@nextcloud/vue/components/NcButton'
 import NcLoadingIcon from '@nextcloud/vue/components/NcLoadingIcon'
@@ -17,6 +16,7 @@ import { useAction } from '../../composables/useAction.ts'
 import { useParamDraft } from '../../composables/useParamDraft.ts'
 import { saveSettings } from '../../store.ts'
 import { APP_ID, fillTemplate } from '../../utils/format.ts'
+import { t } from '../../utils/l10n.ts'
 
 const props = defineProps<{
 	/** The global settings this group edits */

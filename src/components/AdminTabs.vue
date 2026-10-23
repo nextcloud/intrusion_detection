@@ -7,12 +7,12 @@
 import type { TabDefinition } from '../extensions.ts'
 
 import { mdiChevronDown } from '@mdi/js'
-import { t } from '@nextcloud/l10n'
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import NcActionButton from '@nextcloud/vue/components/NcActionButton'
 import NcActions from '@nextcloud/vue/components/NcActions'
 import NcIconSvgWrapper from '@nextcloud/vue/components/NcIconSvgWrapper'
 import { APP_ID } from '../utils/format.ts'
+import { t } from '../utils/l10n.ts'
 
 const active = defineModel<string>({ required: true })
 

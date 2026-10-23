@@ -7,7 +7,6 @@
 import type { Ban } from '../../types.ts'
 
 import { mdiClose, mdiFileDocumentAlertOutline, mdiLockOpenVariantOutline, mdiMagnify } from '@mdi/js'
-import { n, t } from '@nextcloud/l10n'
 import { computed, ref, watch } from 'vue'
 import NcButton from '@nextcloud/vue/components/NcButton'
 import NcIconSvgWrapper from '@nextcloud/vue/components/NcIconSvgWrapper'
@@ -21,6 +20,7 @@ import { useAnnouncer } from '../../composables/useAnnouncer.ts'
 import { useIncidentReport } from '../../composables/useIncidentReport.ts'
 import { useLookup } from '../../stores/overview.ts'
 import { APP_ID, formatAddress, outcomeLabel } from '../../utils/format.ts'
+import { n, t } from '../../utils/l10n.ts'
 
 const emit = defineEmits<{
 	openDetection: [id: number]

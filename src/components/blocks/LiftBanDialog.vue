@@ -6,7 +6,6 @@
 <script setup lang="ts">
 import type { Ban } from '../../types.ts'
 
-import { t } from '@nextcloud/l10n'
 import { computed, ref, watch } from 'vue'
 import NcDialog from '@nextcloud/vue/components/NcDialog'
 import NcNoteCard from '@nextcloud/vue/components/NcNoteCard'
@@ -14,6 +13,7 @@ import NcTextArea from '@nextcloud/vue/components/NcTextArea'
 import { useAction } from '../../composables/useAction.ts'
 import { banLift } from '../../store.ts'
 import { APP_ID, formatAddress } from '../../utils/format.ts'
+import { t } from '../../utils/l10n.ts'
 
 const props = defineProps<{
 	ban: Ban | null

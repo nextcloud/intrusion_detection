@@ -4,13 +4,13 @@
 -->
 
 <script setup lang="ts">
-import { n, t } from '@nextcloud/l10n'
 import { computed, reactive, ref, watchEffect } from 'vue'
 import ShowMore from '../../components/common/ShowMore.vue'
 import KnownDevices from './KnownDevices.vue'
 import LogOutElsewhere from './LogOutElsewhere.vue'
 import TrustedNetworks from './TrustedNetworks.vue'
 import { APP_ID } from '../../utils/format.ts'
+import { n, t } from '../../utils/l10n.ts'
 import { personal } from '../store.ts'
 
 /** Collapsed until the user opens it; its lists load then */

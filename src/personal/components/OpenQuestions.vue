@@ -4,11 +4,11 @@
 -->
 
 <script setup lang="ts">
-import { t } from '@nextcloud/l10n'
 import { computed } from 'vue'
 import SectionCard from '../../components/common/SectionCard.vue'
 import EventItem from './EventItem.vue'
 import { APP_ID } from '../../utils/format.ts'
+import { t } from '../../utils/l10n.ts'
 import { isOpenQuestion } from '../activity.ts'
 import { personal, reloadActivity } from '../store.ts'
 

@@ -7,7 +7,6 @@
 import type { AdminGrantRequest } from '../../types.ts'
 
 import { mdiCheck, mdiClose } from '@mdi/js'
-import { t } from '@nextcloud/l10n'
 import { computed, ref } from 'vue'
 import NcAvatar from '@nextcloud/vue/components/NcAvatar'
 import NcButton from '@nextcloud/vue/components/NcButton'
@@ -18,6 +17,7 @@ import TimeStamp from '../common/TimeStamp.vue'
 import { useAction } from '../../composables/useAction.ts'
 import { decideAdminGrant } from '../../store.ts'
 import { APP_ID } from '../../utils/format.ts'
+import { t } from '../../utils/l10n.ts'
 
 const props = defineProps<{
 	requests: AdminGrantRequest[]
@@ -38,8 +38,6 @@ const open = computed({
 	},
 })
 
-const opts = { escape: false, sanitize: false }
-
 const buttons = computed(() => [
 	{ label: t(APP_ID, 'Cancel'), callback: () => undefined },
 	{ label: t(APP_ID, 'Approve'), variant: 'primary' as const, callback: () => { void decide(confirming.value!, true) } },
@@ -55,8 +53,8 @@ function decide(request: AdminGrantRequest, approve: boolean) {
 	approving.value = approve
 	run('decide:' + request.id, () => decideAdminGrant(request.id, approve), {
 		done: approve
-			? t(APP_ID, '{user} is now an administrator.', { user: request.displayName }, undefined, opts)
-			: t(APP_ID, 'The request to make {user} an administrator was rejected. Nothing was changed.', { user: request.displayName }, undefined, opts),
+			? t(APP_ID, '{user} is now an administrator.', { user: request.displayName })
+			: t(APP_ID, 'The request to make {user} an administrator was rejected. Nothing was changed.', { user: request.displayName }),
 		toast: true,
 		fallback: t(APP_ID, 'That did not work. Please try again.'),
 	})
@@ -78,10 +76,10 @@ function decide(request: AdminGrantRequest, approve: boolean) {
 					disableMenu />
 				<div :class="$style.item__text">
 					<span :class="$style.item__name">
-						{{ t(APP_ID, '{requester} asks to make {user} an administrator', { requester: request.requesterName, user: request.displayName }, undefined, opts) }}
+						{{ t(APP_ID, '{requester} asks to make {user} an administrator', { requester: request.requesterName, user: request.displayName }) }}
 					</span>
 					<span :class="$style.item__meta">
-						{{ t(APP_ID, 'Group {group}', { group: request.group }, undefined, opts) }} ·
+						{{ t(APP_ID, 'Group {group}', { group: request.group }) }} ·
 						{{ t(APP_ID, 'asked') }} <TimeStamp :timestamp="request.createdAt" /> ·
 						{{ t(APP_ID, 'expires') }} <TimeStamp :timestamp="request.expiresAt" />
 					</span>
@@ -93,8 +91,8 @@ function decide(request: AdminGrantRequest, approve: boolean) {
 					<NcButton
 						:disabled="busy !== null"
 						:aria-label="request.canApprove
-							? t(APP_ID, 'Reject the request to make {user} an administrator', { user: request.displayName }, undefined, opts)
-							: t(APP_ID, 'Withdraw the request to make {user} an administrator', { user: request.displayName }, undefined, opts)"
+							? t(APP_ID, 'Reject the request to make {user} an administrator', { user: request.displayName })
+							: t(APP_ID, 'Withdraw the request to make {user} an administrator', { user: request.displayName })"
 						@click="decide(request, false)">
 						<template #icon>
 							<NcLoadingIcon v-if="busy === 'decide:' + request.id" :size="20" />
@@ -106,7 +104,7 @@ function decide(request: AdminGrantRequest, approve: boolean) {
 						v-if="request.canApprove"
 						variant="primary"
 						:disabled="busy !== null"
-						:aria-label="t(APP_ID, 'Approve the request to make {user} an administrator', { user: request.displayName }, undefined, opts)"
+						:aria-label="t(APP_ID, 'Approve the request to make {user} an administrator', { user: request.displayName })"
 						@click="confirming = request">
 						<template #icon>
 							<NcLoadingIcon v-if="busy === 'decide:' + request.id && approving" :size="20" />
@@ -120,11 +118,11 @@ function decide(request: AdminGrantRequest, approve: boolean) {
 
 		<NcDialog
 			v-model:open="open"
-			:name="t(APP_ID, 'Make {user} an administrator?', { user: confirming?.displayName ?? '' }, undefined, opts)"
+			:name="t(APP_ID, 'Make {user} an administrator?', { user: confirming?.displayName ?? '' })"
 			:buttons="buttons"
 			size="normal">
 			<div :class="$style.dialog">
-				<p>{{ t(APP_ID, '{requester} asked to add {user} to the group {group}. Approving gives the account its administration rights at once.', { requester: confirming?.requesterName ?? '', user: confirming?.uid ?? '', group: confirming?.group ?? '' }, undefined, opts) }}</p>
+				<p>{{ t(APP_ID, '{requester} asked to add {user} to the group {group}. Approving gives the account its administration rights at once.', { requester: confirming?.requesterName ?? '', user: confirming?.uid ?? '', group: confirming?.group ?? '' }) }}</p>
 				<p><strong>{{ t(APP_ID, 'Approve only if you know about this change. If you did not expect it, reject it and check the account of the one who asked: it may have been taken over.') }}</strong></p>
 				<p>{{ t(APP_ID, 'Approving needs your password.') }}</p>
 			</div>

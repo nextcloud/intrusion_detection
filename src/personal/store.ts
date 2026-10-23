@@ -7,12 +7,12 @@ import type { ResourceOptions } from '../composables/useResource.ts'
 import type { KnownDevice, LoggedOutElsewhere, ManageSummary, PersonalActivity, PersonalOverview, PersonalState, SecurityEvent, StaleCredential, TrustedNetwork } from './types.ts'
 
 import { loadState } from '@nextcloud/initial-state'
-import { t } from '@nextcloud/l10n'
 import { reactive, ref } from 'vue'
 import { invalidate, resource, update, useResource } from '../composables/useResource.ts'
 import { errorMessage } from '../services/api.ts'
 import { fetchSecureAccountProgress } from '../services/secureAccount.ts'
 import { APP_ID } from '../utils/format.ts'
+import { t } from '../utils/l10n.ts'
 import {
 	confirmEvent,
 	denyEvent,

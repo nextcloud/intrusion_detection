@@ -7,12 +7,12 @@
 import type { SecureAccountProgress } from '../../secureAccountTypes.ts'
 
 import { mdiShieldAccountOutline, mdiShieldCheckOutline } from '@mdi/js'
-import { n, t } from '@nextcloud/l10n'
 import { computed } from 'vue'
 import NcButton from '@nextcloud/vue/components/NcButton'
 import NcIconSvgWrapper from '@nextcloud/vue/components/NcIconSvgWrapper'
 import NcLoadingIcon from '@nextcloud/vue/components/NcLoadingIcon'
 import { APP_ID } from '../../utils/format.ts'
+import { n, t } from '../../utils/l10n.ts'
 
 /** The top of "Secure my account": why, how far, and starting it */
 const props = defineProps<{

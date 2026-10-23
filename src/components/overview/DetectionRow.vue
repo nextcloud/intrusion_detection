@@ -7,7 +7,6 @@
 import type { Ban, Detection } from '../../types.ts'
 
 import { mdiChevronDown } from '@mdi/js'
-import { n, t } from '@nextcloud/l10n'
 import { computed, ref, useId, watch } from 'vue'
 import NcIconSvgWrapper from '@nextcloud/vue/components/NcIconSvgWrapper'
 import NcNoteCard from '@nextcloud/vue/components/NcNoteCard'
@@ -18,6 +17,7 @@ import TimeStamp from '../common/TimeStamp.vue'
 import DetectionNarrative from './DetectionNarrative.vue'
 import { useDetection } from '../../stores/overview.ts'
 import { APP_ID } from '../../utils/format.ts'
+import { n, t } from '../../utils/l10n.ts'
 
 const props = defineProps<{
 	/** The row as listed; without it, the row loads itself from `detectionId` */

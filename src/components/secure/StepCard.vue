@@ -5,10 +5,10 @@
 
 <script setup lang="ts">
 import { mdiCheck, mdiChevronDown, mdiMinus } from '@mdi/js'
-import { t } from '@nextcloud/l10n'
 import { computed, useId } from 'vue'
 import NcIconSvgWrapper from '@nextcloud/vue/components/NcIconSvgWrapper'
 import { APP_ID } from '../../utils/format.ts'
+import { t } from '../../utils/l10n.ts'
 
 /** Whether the step is open; the checklist keeps one step open at a time */
 const expanded = defineModel<boolean>('open', { default: false })

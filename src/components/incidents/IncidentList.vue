@@ -6,7 +6,6 @@
 <script setup lang="ts">
 import type { IncidentSubject } from '../../utils/incidents.ts'
 
-import { n, t } from '@nextcloud/l10n'
 import { useId } from 'vue'
 import NcNoteCard from '@nextcloud/vue/components/NcNoteCard'
 import OutcomeBadge from '../common/OutcomeBadge.vue'
@@ -14,6 +13,7 @@ import SeverityPill from '../common/SeverityPill.vue'
 import SkeletonBlock from '../common/SkeletonBlock.vue'
 import TimeStamp from '../common/TimeStamp.vue'
 import { APP_ID } from '../../utils/format.ts'
+import { n, t } from '../../utils/l10n.ts'
 
 defineProps<{
 	subjects: IncidentSubject[]

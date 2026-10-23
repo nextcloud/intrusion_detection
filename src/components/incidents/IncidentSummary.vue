@@ -6,11 +6,11 @@
 <script setup lang="ts">
 import type { IncidentSummary } from '../../types.ts'
 
-import { n, t } from '@nextcloud/l10n'
 import { computed, useId } from 'vue'
 import NcNoteCard from '@nextcloud/vue/components/NcNoteCard'
 import TimeStamp from '../common/TimeStamp.vue'
 import { APP_ID, formatNumber } from '../../utils/format.ts'
+import { n, t } from '../../utils/l10n.ts'
 
 const props = defineProps<{
 	summary: IncidentSummary

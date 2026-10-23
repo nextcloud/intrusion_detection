@@ -6,7 +6,6 @@
 <script setup lang="ts">
 import type { Ban, BanLimits } from '../../types.ts'
 
-import { t } from '@nextcloud/l10n'
 import { computed, ref, watch } from 'vue'
 import NcCheckboxRadioSwitch from '@nextcloud/vue/components/NcCheckboxRadioSwitch'
 import NcDialog from '@nextcloud/vue/components/NcDialog'
@@ -19,6 +18,7 @@ import { useAction } from '../../composables/useAction.ts'
 import { ApiError } from '../../services/api.ts'
 import { banAdd, state } from '../../store.ts'
 import { APP_ID, formatAddress, formatDuration } from '../../utils/format.ts'
+import { t } from '../../utils/l10n.ts'
 import { isCidr } from '../../utils/validate.ts'
 
 const open = defineModel<boolean>('open', { required: true })

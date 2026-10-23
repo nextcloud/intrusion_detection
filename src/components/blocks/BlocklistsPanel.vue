@@ -7,7 +7,6 @@
 import type { CheckRef } from '../../types.ts'
 
 import { mdiCloudOutline, mdiPlaylistRemove, mdiPlus, mdiShieldAlertOutline } from '@mdi/js'
-import { t } from '@nextcloud/l10n'
 import { computed, ref } from 'vue'
 import NcButton from '@nextcloud/vue/components/NcButton'
 import NcIconSvgWrapper from '@nextcloud/vue/components/NcIconSvgWrapper'
@@ -21,6 +20,7 @@ import { useAction } from '../../composables/useAction.ts'
 import { modeLabel, saveCheck, state } from '../../store.ts'
 import { useBlocklists } from '../../stores/blocks.ts'
 import { APP_ID } from '../../utils/format.ts'
+import { t } from '../../utils/l10n.ts'
 
 const { data, error: loadError } = useBlocklists({ failure: () => t(APP_ID, 'The lists could not be loaded. Please reload the page.') })
 const adding = ref(false)

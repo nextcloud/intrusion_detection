@@ -7,7 +7,6 @@
 import type { SecurityEvent } from '../types.ts'
 
 import { mdiAccountQuestionOutline, mdiMapMarkerOutline } from '@mdi/js'
-import { t } from '@nextcloud/l10n'
 import { computed, ref, useId } from 'vue'
 import NcButton from '@nextcloud/vue/components/NcButton'
 import NcDialog from '@nextcloud/vue/components/NcDialog'
@@ -20,6 +19,7 @@ import { useAction } from '../../composables/useAction.ts'
 import { useAnnouncer } from '../../composables/useAnnouncer.ts'
 import { ApiError } from '../../services/api.ts'
 import { APP_ID } from '../../utils/format.ts'
+import { t } from '../../utils/l10n.ts'
 import { isRefusedFromThisSession } from '../api.ts'
 import { answerEvent, personal } from '../store.ts'
 

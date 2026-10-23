@@ -7,13 +7,13 @@
 import type { ActivityItem, Login } from '../types.ts'
 
 import { mdiAccountCancelOutline, mdiAccountCheckOutline, mdiApplicationOutline, mdiCellphone, mdiCheckCircleOutline, mdiLaptop, mdiLockAlertOutline, mdiShieldEditOutline, mdiShieldOutline } from '@mdi/js'
-import { n, t } from '@nextcloud/l10n'
 import { computed } from 'vue'
 import NcIconSvgWrapper from '@nextcloud/vue/components/NcIconSvgWrapper'
 import ShowMore from '../../components/common/ShowMore.vue'
 import StateBadge from '../../components/common/StateBadge.vue'
 import EventDetails from './EventDetails.vue'
 import { APP_ID } from '../../utils/format.ts'
+import { n, t } from '../../utils/l10n.ts'
 import { changedBy, changeValues, confirmationLabel, methodLabel } from '../activity.ts'
 import { clock, dateTime } from '../time.ts'
 
@@ -37,7 +37,7 @@ const row = computed(() => {
 	if (login) {
 		return {
 			icon: loginIcon(login),
-			title: t(APP_ID, 'Login with {device}', { device: login.device }, { escape: false }),
+			title: t(APP_ID, 'Login with {device}', { device: login.device }),
 			values: null,
 			meta: [login.ip, methodLabel(login), confirmationLabel(login)],
 		}
@@ -47,7 +47,7 @@ const row = computed(() => {
 			icon: mdiShieldEditOutline,
 			title: change.label,
 			values: changeValues(change),
-			meta: [changedBy(change), change.address ? t(APP_ID, 'from {address}', { address: change.address }, { escape: false }) : null],
+			meta: [changedBy(change), change.address ? t(APP_ID, 'from {address}', { address: change.address }) : null],
 		}
 	}
 	if (failedLogins) {

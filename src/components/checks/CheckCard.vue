@@ -7,7 +7,6 @@
 import type { Check } from '../../types.ts'
 
 import { mdiFilterVariant, mdiFlaskOutline, mdiOpenInNew, mdiRestore } from '@mdi/js'
-import { t } from '@nextcloud/l10n'
 import { computed, inject, ref, watch } from 'vue'
 import NcButton from '@nextcloud/vue/components/NcButton'
 import NcCheckboxRadioSwitch from '@nextcloud/vue/components/NcCheckboxRadioSwitch'
@@ -23,6 +22,7 @@ import { sameList, useParamDraft } from '../../composables/useParamDraft.ts'
 import { checkSections } from '../../extensions.ts'
 import { detectionFilters, resetCheckToDefaults, saveCheck, state } from '../../store.ts'
 import { APP_ID, fillTemplate } from '../../utils/format.ts'
+import { t } from '../../utils/l10n.ts'
 
 const props = defineProps<{
 	check: Check

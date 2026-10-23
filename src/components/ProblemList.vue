@@ -7,10 +7,10 @@
 import type { Problem } from '../types.ts'
 
 import { mdiAlertCircleOutline, mdiAlertOutline, mdiChevronDown, mdiInformationOutline, mdiWrenchOutline } from '@mdi/js'
-import { t } from '@nextcloud/l10n'
 import { ref, useId, watch } from 'vue'
 import NcIconSvgWrapper from '@nextcloud/vue/components/NcIconSvgWrapper'
 import { APP_ID } from '../utils/format.ts'
+import { t } from '../utils/l10n.ts'
 
 const props = defineProps<{
 	problems: Problem[]

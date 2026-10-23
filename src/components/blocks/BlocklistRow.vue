@@ -8,7 +8,6 @@ import type { Blocklist } from '../../types.ts'
 
 import { mdiAlertCircleOutline, mdiAlertOutline, mdiCheckCircleOutline, mdiChevronDown, mdiCloudOutline, mdiDeleteOutline, mdiDownload, mdiIncognito, mdiOpenInNew, mdiShieldAlertOutline } from '@mdi/js'
 import { showError } from '@nextcloud/dialogs'
-import { n, t } from '@nextcloud/l10n'
 import { computed, ref, useId, watch } from 'vue'
 import NcButton from '@nextcloud/vue/components/NcButton'
 import NcCheckboxRadioSwitch from '@nextcloud/vue/components/NcCheckboxRadioSwitch'
@@ -27,6 +26,7 @@ import { ApiError } from '../../services/api.ts'
 import { modeLabel } from '../../store.ts'
 import { changeBlocklist, deleteBlocklist, syncBlocklistNow } from '../../stores/blocks.ts'
 import { APP_ID, formatDuration, formatNumber } from '../../utils/format.ts'
+import { n, t } from '../../utils/l10n.ts'
 import { vRadioGroupName } from '../../utils/radioGroupName.ts'
 
 const props = defineProps<{

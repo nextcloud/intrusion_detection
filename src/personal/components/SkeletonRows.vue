@@ -4,9 +4,9 @@
 -->
 
 <script setup lang="ts">
-import { t } from '@nextcloud/l10n'
 import SkeletonBlock from '../../components/common/SkeletonBlock.vue'
 import { APP_ID } from '../../utils/format.ts'
+import { t } from '../../utils/l10n.ts'
 
 withDefaults(defineProps<{
 	rows?: number

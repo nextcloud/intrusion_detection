@@ -7,7 +7,6 @@
 import type { Ban, DetectionDetail } from '../../types.ts'
 
 import { mdiChevronDown, mdiContentCopy, mdiFileDocumentAlertOutline, mdiFormatListBulleted, mdiLockOpenVariantOutline } from '@mdi/js'
-import { t } from '@nextcloud/l10n'
 import { computed, ref, useId } from 'vue'
 import NcButton from '@nextcloud/vue/components/NcButton'
 import NcIconSvgWrapper from '@nextcloud/vue/components/NcIconSvgWrapper'
@@ -18,6 +17,7 @@ import { useAnnouncer } from '../../composables/useAnnouncer.ts'
 import { useIncidentReport } from '../../composables/useIncidentReport.ts'
 import { detectionSections } from '../../extensions.ts'
 import { APP_ID, formatAddress } from '../../utils/format.ts'
+import { t } from '../../utils/l10n.ts'
 
 const props = defineProps<{
 	detail: DetectionDetail

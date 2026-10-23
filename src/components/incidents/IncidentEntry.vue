@@ -7,13 +7,14 @@
 import type { IncidentEntry } from '../../types.ts'
 
 import { mdiChevronDown } from '@mdi/js'
-import { getCanonicalLocale, t } from '@nextcloud/l10n'
+import { getCanonicalLocale } from '@nextcloud/l10n'
 import { computed, useId } from 'vue'
 import NcIconSvgWrapper from '@nextcloud/vue/components/NcIconSvgWrapper'
 import OutcomeBadge from '../common/OutcomeBadge.vue'
 import SeverityPill from '../common/SeverityPill.vue'
 import TimeStamp from '../common/TimeStamp.vue'
 import { APP_ID } from '../../utils/format.ts'
+import { t } from '../../utils/l10n.ts'
 import { kindIcon } from './kinds.ts'
 
 const expanded = defineModel<boolean>('expanded', { default: false })

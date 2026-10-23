@@ -7,7 +7,6 @@
 import type { Ref } from 'vue'
 
 import { mdiShieldOutline } from '@mdi/js'
-import { t } from '@nextcloud/l10n'
 import { computed, inject, nextTick, ref, watch } from 'vue'
 import NcEmptyContent from '@nextcloud/vue/components/NcEmptyContent'
 import NcIconSvgWrapper from '@nextcloud/vue/components/NcIconSvgWrapper'
@@ -16,6 +15,7 @@ import ProtectionLevelPicker from '../components/checks/ProtectionLevelPicker.vu
 import RiskScoreSection from '../components/checks/RiskScoreSection.vue'
 import { state } from '../store.ts'
 import { APP_ID } from '../utils/format.ts'
+import { t } from '../utils/l10n.ts'
 import { protectionGroups } from '../utils/protection.ts'
 
 const openCheckId = inject<Ref<string | null>>('ids-open-check', ref(null))

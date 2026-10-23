@@ -18,7 +18,6 @@ import {
 	mdiShieldCheckOutline,
 	mdiTwoFactorAuthentication,
 } from '@mdi/js'
-import { t } from '@nextcloud/l10n'
 import { computed, ref, watch } from 'vue'
 import NcAppContent from '@nextcloud/vue/components/NcAppContent'
 import NcButton from '@nextcloud/vue/components/NcButton'
@@ -45,6 +44,7 @@ import {
 	useSecureAccount,
 } from '../stores/secureAccount.ts'
 import { APP_ID } from '../utils/format.ts'
+import { t } from '../utils/l10n.ts'
 
 const { data, error } = useSecureAccount({ failure: () => t(APP_ID, 'The checklist could not be loaded. Please reload the page.') })
 /** A failed reload after a change keeps the checklist shown */

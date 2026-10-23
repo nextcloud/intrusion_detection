@@ -6,9 +6,10 @@
 <script setup lang="ts">
 import type { Day } from '../../types.ts'
 
-import { getCanonicalLocale, n, t } from '@nextcloud/l10n'
+import { getCanonicalLocale } from '@nextcloud/l10n'
 import { computed, onBeforeUnmount, onMounted, ref, useId } from 'vue'
 import { APP_ID, formatNumber } from '../../utils/format.ts'
+import { n, t } from '../../utils/l10n.ts'
 
 const props = defineProps<{
 	days: Day[]

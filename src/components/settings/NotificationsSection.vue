@@ -4,7 +4,6 @@
 -->
 
 <script setup lang="ts">
-import { t } from '@nextcloud/l10n'
 import { generateUrl } from '@nextcloud/router'
 import NcNoteCard from '@nextcloud/vue/components/NcNoteCard'
 import SkeletonBlock from '../common/SkeletonBlock.vue'
@@ -14,6 +13,7 @@ import NotificationRecipients from '../notifications/NotificationRecipients.vue'
 import WebhookEventsSection from '../notifications/WebhookEventsSection.vue'
 import { useNotifications } from '../../stores/settings.ts'
 import { APP_ID } from '../../utils/format.ts'
+import { t } from '../../utils/l10n.ts'
 
 const { data, error: loadError } = useNotifications({ failure: () => t(APP_ID, 'The notification settings could not be loaded. Please reload the page.') })
 const mailSettingsUrl = generateUrl('/settings/admin/server')

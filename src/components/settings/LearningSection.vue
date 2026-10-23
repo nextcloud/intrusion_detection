@@ -5,7 +5,6 @@
 
 <script setup lang="ts">
 import { mdiDownload, mdiRestore } from '@mdi/js'
-import { n, t } from '@nextcloud/l10n'
 import { computed, ref } from 'vue'
 import NcButton from '@nextcloud/vue/components/NcButton'
 import NcDialog from '@nextcloud/vue/components/NcDialog'
@@ -18,6 +17,7 @@ import { useAction } from '../../composables/useAction.ts'
 import { exportSettings } from '../../services/api.ts'
 import { changeLearning, resetAllSettings, state } from '../../store.ts'
 import { APP_ID } from '../../utils/format.ts'
+import { n, t } from '../../utils/l10n.ts'
 
 const { busy, run } = useAction()
 const days = ref(7)

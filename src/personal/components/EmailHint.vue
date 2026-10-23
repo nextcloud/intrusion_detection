@@ -5,11 +5,11 @@
 
 <script setup lang="ts">
 import { mdiEmailOutline, mdiTwoFactorAuthentication } from '@mdi/js'
-import { t } from '@nextcloud/l10n'
 import { computed, useId } from 'vue'
 import NcButton from '@nextcloud/vue/components/NcButton'
 import NcIconSvgWrapper from '@nextcloud/vue/components/NcIconSvgWrapper'
 import { APP_ID } from '../../utils/format.ts'
+import { t } from '../../utils/l10n.ts'
 import { personal } from '../store.ts'
 
 const id = useId()

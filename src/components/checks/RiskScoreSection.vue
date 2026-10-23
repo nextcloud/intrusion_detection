@@ -5,13 +5,13 @@
 
 <script setup lang="ts">
 import { mdiCheck, mdiClose, mdiGauge } from '@mdi/js'
-import { t } from '@nextcloud/l10n'
 import { computed } from 'vue'
 import SectionCard from '../common/SectionCard.vue'
 import SettingsGroup from '../common/SettingsGroup.vue'
 import StateBadge from '../common/StateBadge.vue'
 import { state } from '../../store.ts'
 import { APP_ID } from '../../utils/format.ts'
+import { t } from '../../utils/l10n.ts'
 
 const settings = computed(() => state.settings.filter((s) => s.group === 'risk'))
 const enabled = computed(() => state.settings.find((s) => s.name === 'risk_enabled')?.value !== false)

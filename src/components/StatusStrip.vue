@@ -7,10 +7,11 @@
 import type { Status } from '../types.ts'
 
 import { mdiAlertOutline } from '@mdi/js'
-import { getCanonicalLocale, n, t } from '@nextcloud/l10n'
+import { getCanonicalLocale } from '@nextcloud/l10n'
 import { computed } from 'vue'
 import NcIconSvgWrapper from '@nextcloud/vue/components/NcIconSvgWrapper'
 import { APP_ID } from '../utils/format.ts'
+import { n, t } from '../utils/l10n.ts'
 import { statusIcon } from '../utils/status.ts'
 
 const props = defineProps<{

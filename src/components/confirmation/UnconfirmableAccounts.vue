@@ -8,7 +8,6 @@ import type { ConfirmationOverview } from '../../types.ts'
 
 import { mdiAlertOutline, mdiCheckCircleOutline, mdiChevronDown, mdiDownload } from '@mdi/js'
 import { showError } from '@nextcloud/dialogs'
-import { n, t } from '@nextcloud/l10n'
 import { computed, ref, watch } from 'vue'
 import NcButton from '@nextcloud/vue/components/NcButton'
 import NcCheckboxRadioSwitch from '@nextcloud/vue/components/NcCheckboxRadioSwitch'
@@ -18,6 +17,7 @@ import TimeStamp from '../common/TimeStamp.vue'
 import { useAction } from '../../composables/useAction.ts'
 import { allUnconfirmableAccounts, useUnconfirmableAccounts } from '../../stores/settings.ts'
 import { APP_ID, formatNumber } from '../../utils/format.ts'
+import { n, t } from '../../utils/l10n.ts'
 
 const props = defineProps<{
 	users: ConfirmationOverview['users']

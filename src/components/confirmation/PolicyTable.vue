@@ -7,13 +7,13 @@
 import type { ConfirmationOutcome, ConfirmationPolicy, ParamValue } from '../../types.ts'
 
 import { mdiLockOutline } from '@mdi/js'
-import { t } from '@nextcloud/l10n'
 import NcCheckboxRadioSwitch from '@nextcloud/vue/components/NcCheckboxRadioSwitch'
 import NcIconSvgWrapper from '@nextcloud/vue/components/NcIconSvgWrapper'
 import SelectField from '../common/SelectField.vue'
 import { useAction } from '../../composables/useAction.ts'
 import { saveSettings, state } from '../../store.ts'
 import { APP_ID } from '../../utils/format.ts'
+import { t } from '../../utils/l10n.ts'
 
 const props = defineProps<{
 	policies: ConfirmationPolicy[]
@@ -24,7 +24,6 @@ const KNOWN_DEVICE_SETTING = 'step_up_known_device_ok_for'
 
 const { busy, run } = useAction()
 /** The texts are shown as text, never as HTML: no escaping needed */
-const opts = { escape: false, sanitize: false }
 
 /**
  * @param id - An outcome
@@ -41,7 +40,7 @@ function outcomeOf(id: string): ConfirmationOutcome | undefined {
  */
 function save(policy: ConfirmationPolicy, change: Record<string, ParamValue>) {
 	run(policy.id, () => saveSettings(change), {
-		done: t(APP_ID, 'Saved: {reason}', { reason: policy.label }, undefined, opts),
+		done: t(APP_ID, 'Saved: {reason}', { reason: policy.label }),
 		toast: true,
 		fallback: t(APP_ID, 'The change could not be saved. Please try again.'),
 	})
@@ -98,7 +97,7 @@ function setKnownDevice(policy: ConfirmationPolicy, on: boolean) {
 					<th scope="row">
 						<span :class="$style.reason">{{ policy.label }}</span>
 						<span :class="$style.why">
-							{{ t(APP_ID, 'Default: {outcome}. {why}', { outcome: outcomeOf(policy.default)?.label ?? policy.default, why: policy.why }, undefined, opts) }}
+							{{ t(APP_ID, 'Default: {outcome}. {why}', { outcome: outcomeOf(policy.default)?.label ?? policy.default, why: policy.why }) }}
 						</span>
 					</th>
 					<td :data-label="t(APP_ID, 'A remembered device confirms it')">
@@ -120,9 +119,9 @@ function setKnownDevice(policy: ConfirmationPolicy, on: boolean) {
 						<SelectField
 							:class="$style.select"
 							:modelValue="policy.outcome"
-							:label="t(APP_ID, 'If nothing can confirm: {reason}', { reason: policy.label }, undefined, opts)"
+							:label="t(APP_ID, 'If nothing can confirm: {reason}', { reason: policy.label })"
 							hideLabel
-							:options="outcomes.map((outcome) => ({ value: outcome.id, label: outcome.id === policy.default ? t(APP_ID, '{outcome} (default)', { outcome: outcome.label }, undefined, opts) : outcome.label }))"
+							:options="outcomes.map((outcome) => ({ value: outcome.id, label: outcome.id === policy.default ? t(APP_ID, '{outcome} (default)', { outcome: outcome.label }) : outcome.label }))"
 							:disabled="busy !== null"
 							:aria-describedby="`ids-outcome-${policy.id}-text`"
 							@update:modelValue="setOutcome(policy, $event)" />

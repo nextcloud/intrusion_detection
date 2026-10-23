@@ -4,7 +4,6 @@
 -->
 
 <script setup lang="ts">
-import { t } from '@nextcloud/l10n'
 import { computed, nextTick, onBeforeUnmount, onMounted, provide, ref, watch } from 'vue'
 import NcNoteCard from '@nextcloud/vue/components/NcNoteCard'
 import AdminTabs from '../components/AdminTabs.vue'
@@ -15,6 +14,7 @@ import { tabs } from '../extensions.ts'
 import { approvableGrants, decidableLogins, openDetectionId, state, useWaitingRequests } from '../store.ts'
 import { resolveLink } from '../utils/deepLinks.ts'
 import { APP_ID } from '../utils/format.ts'
+import { t } from '../utils/l10n.ts'
 
 const activeTab = ref('overview')
 const currentTab = computed(() => tabs.find((tab) => tab.id === activeTab.value) ?? tabs[0]!)

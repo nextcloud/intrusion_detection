@@ -5,7 +5,8 @@
 
 import type { Choice, DetectionOutcome, ParamType, ParamValue } from '../types.ts'
 
-import { getCanonicalLocale, n, t } from '@nextcloud/l10n'
+import { getCanonicalLocale } from '@nextcloud/l10n'
+import { n, t } from './l10n.ts'
 
 export const APP_ID = 'intrusion_detection'
 

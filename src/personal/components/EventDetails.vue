@@ -6,8 +6,8 @@
 <script setup lang="ts">
 import type { SecurityEvent } from '../types.ts'
 
-import { t } from '@nextcloud/l10n'
 import { APP_ID } from '../../utils/format.ts'
+import { t } from '../../utils/l10n.ts'
 
 defineProps<{
 	event: SecurityEvent

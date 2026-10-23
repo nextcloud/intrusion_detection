@@ -7,7 +7,6 @@
 import type { StaleCredential } from '../types.ts'
 
 import { mdiDeleteOutline, mdiKeyOutline, mdiWeb } from '@mdi/js'
-import { n, t } from '@nextcloud/l10n'
 import { computed, ref } from 'vue'
 import NcButton from '@nextcloud/vue/components/NcButton'
 import NcDialog from '@nextcloud/vue/components/NcDialog'
@@ -17,6 +16,7 @@ import SectionCard from '../../components/common/SectionCard.vue'
 import TimeStamp from '../../components/common/TimeStamp.vue'
 import { useAction } from '../../composables/useAction.ts'
 import { APP_ID } from '../../utils/format.ts'
+import { n, t } from '../../utils/l10n.ts'
 import { personal, removeUnusedCredential, removeUnusedCredentials } from '../store.ts'
 
 const { busy, run } = useAction()
