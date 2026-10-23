@@ -20,8 +20,11 @@ use Psr\Log\LoggerInterface;
  * session-state middleware (AppFramework) and the WebDAV plugin ask for.
  * Requests of visitors are not looked at.
  *
- * It never throws. An error lets the request pass: a broken check must not
- * lock everybody out.
+ * It never throws. An error lets the request pass, so that a broken check
+ * does not lock everybody out, except while the session's login waits for
+ * its confirmation or was refused: then the request is blocked
+ * ({@see SessionStateRules::onError()}), so that an error never lets an
+ * unconfirmed login through.
  */
 class SessionGate {
 	public function __construct(
@@ -44,7 +47,7 @@ class SessionGate {
 			return $this->rules->check($this->markers, RequestTarget::app($controller, $methodName, $this->request->getMethod(), $this->request->getRequestUri()));
 		} catch (\Throwable $e) {
 			$this->logger->error('Intrusion detection could not check the session state', ['exception' => $e]);
-			return null;
+			return $this->rules->onError($this->markers);
 		}
 	}
 
@@ -59,7 +62,7 @@ class SessionGate {
 			return $this->rules->checkDav($this->markers, $method, $uri);
 		} catch (\Throwable $e) {
 			$this->logger->error('Intrusion detection could not check the session state of a WebDAV request', ['exception' => $e]);
-			return null;
+			return $this->rules->onError($this->markers);
 		}
 	}
 }

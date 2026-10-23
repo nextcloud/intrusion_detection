@@ -50,8 +50,8 @@ use Psr\Log\LoggerInterface;
  * loaded only when something is pending. Detections recorded at login are
  * linked to the session here, on its first request. Unlike other rules,
  * this one does not fail open: errors while ending a login keep the
- * request blocked, and so does {@see SessionStateRules} when the rule
- * fails while a step-up is pending.
+ * request blocked, and so does the gate ({@see SessionStateRules::onError()})
+ * when the rule or the gate itself fails while a step-up is pending.
  */
 class StepUpRule implements ISessionStateRule {
 	public const ERROR = 'step_up_required';

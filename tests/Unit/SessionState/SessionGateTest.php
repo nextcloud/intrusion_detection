@@ -10,8 +10,10 @@ declare(strict_types=1);
 namespace OCA\IntrusionDetection\Tests\Unit\SessionState;
 
 use OC\Session\Memory;
+use OCA\IntrusionDetection\Confirm\StepUpState;
 use OCA\IntrusionDetection\Login\RequestContext;
 use OCA\IntrusionDetection\Login\SessionMarkers;
+use OCA\IntrusionDetection\SessionState\Rules\StepUpRule;
 use OCA\IntrusionDetection\SessionState\SessionGate;
 use OCA\IntrusionDetection\SessionState\SessionStateRules;
 use OCP\AppFramework\Controller;
@@ -29,6 +31,7 @@ class SessionGateTest extends TestCase {
 	private SessionMarkers $markers;
 	private bool $loggedIn = true;
 	private bool $broken = false;
+	private bool $sessionBroken = false;
 
 	protected function setUp(): void {
 		parent::setUp();
@@ -48,9 +51,20 @@ class SessionGateTest extends TestCase {
 		$this->assertNull($this->gate()->decideDav('PROPFIND', '/remote.php/dav/files/alice/'));
 	}
 
+	public function testAnErrorBeforeTheRulesRunBlocksAPendingStepUp(): void {
+		$this->markers->set(SessionMarkers::STEP_UP, (new StepUpState('alice', StepUpState::PENDING, ['flagged_source'], 1, 2))->toArray());
+		$this->sessionBroken = true;
+		$this->assertSame(StepUpRule::ERROR, $this->gate()->decide($this->createMock(Controller::class), 'index')?->error);
+		$this->assertSame(StepUpRule::ERROR, $this->gate()->decideDav('PROPFIND', '/remote.php/dav/files/alice/')?->error);
+
+		$this->sessionBroken = false;
+		$this->broken = true;
+		$this->assertSame(StepUpRule::ERROR, $this->gate()->decide($this->createMock(Controller::class), 'index')?->error, 'Also when building the target fails');
+	}
+
 	private function gate(): SessionGate {
 		$userSession = $this->createMock(IUserSession::class);
-		$userSession->method('isLoggedIn')->willReturnCallback(fn (): bool => $this->loggedIn);
+		$userSession->method('isLoggedIn')->willReturnCallback(fn (): bool => $this->sessionBroken ? throw new \RuntimeException('session backend gone') : $this->loggedIn);
 		$request = $this->createMock(IRequest::class);
 		$request->method('getMethod')->willReturn('GET');
 		$request->method('getRequestUri')->willReturnCallback(fn (): string => $this->broken ? throw new \RuntimeException('broken request') : '/index.php/apps/files/');
