@@ -84,6 +84,21 @@ class LockLinkMapper {
 	}
 
 	/**
+	 * End the unused links sent about a detection now.
+	 *
+	 * @return int how many links ended
+	 */
+	public function revokeForDetection(int $detectionId, int $now): int {
+		$qb = $this->db->getQueryBuilder();
+		$qb->update(self::TABLE)
+			->set('expires_at', $qb->createNamedParameter($now, IQueryBuilder::PARAM_INT))
+			->where($qb->expr()->eq('detection_id', $qb->createNamedParameter($detectionId, IQueryBuilder::PARAM_INT)))
+			->andWhere($qb->expr()->isNull('used_at'))
+			->andWhere($qb->expr()->gt('expires_at', $qb->createNamedParameter($now, IQueryBuilder::PARAM_INT)));
+		return $qb->executeStatement();
+	}
+
+	/**
 	 * The newest used link of the account, if any: the account was locked with it.
 	 *
 	 * @return ?LockLinkRow

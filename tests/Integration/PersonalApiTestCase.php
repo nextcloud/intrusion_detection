@@ -108,6 +108,7 @@ abstract class PersonalApiTestCase extends StepUpTestCase {
 			Server::get(IEventDispatcher::class),
 			Server::get(AuditLogger::class),
 			Server::get(ITimeFactory::class),
+			Server::get(\OCA\IntrusionDetection\Takeover\LockLinks::class),
 		);
 		$detections = new PersonalDetections(Server::get(DetectionMapper::class), Server::get(UserMessages::class), Server::get(Questions::class), $answers, $this->appSettings(), Server::get(ITimeFactory::class));
 		return new PersonalApiController(

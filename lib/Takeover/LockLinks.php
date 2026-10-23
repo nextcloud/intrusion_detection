@@ -36,7 +36,8 @@ use Psr\Log\LoggerInterface;
  * - The token has about 256 bits (43 random letters and digits). Only a
  *   keyed fingerprint of it is stored; it is never logged, and it appears
  *   in nothing but the one email.
- * - A link works once and expires after {@see self::TTL}.
+ * - A link works once and expires after {@see self::TTL}, or as soon as the
+ *   account holder answers "Yes, it was me" about its detection.
  * - It can only lock the account, never unlock it or change anything else,
  *   so its worst misuse (someone who reads the old mailbox locks the
  *   account) is visible to the administrators and reversible.
@@ -130,6 +131,17 @@ class LockLinks implements IPurges {
 			return [self::EXPIRED, $link];
 		}
 		return [self::VALID, $link];
+	}
+
+	/**
+	 * End the open links sent about a detection, once the account holder
+	 * said the takeover was them: whoever reads the old mailbox must no
+	 * longer be able to lock the account.
+	 *
+	 * @return int how many links ended
+	 */
+	public function revokeForDetection(int $detectionId): int {
+		return $this->links->revokeForDetection($detectionId, $this->timeFactory->getTime());
 	}
 
 	/**

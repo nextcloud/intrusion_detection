@@ -29,6 +29,7 @@ use OCA\IntrusionDetection\Notification\UserAlerts;
 use OCA\IntrusionDetection\Response\FlaggedSources;
 use OCA\IntrusionDetection\Response\ResponseEngine;
 use OCA\IntrusionDetection\Response\SessionKiller;
+use OCA\IntrusionDetection\Takeover\LockLinks;
 use OCA\IntrusionDetection\TrustedNetwork\TrustedNetworks;
 use OCP\AppFramework\Db\DoesNotExistException;
 use OCP\AppFramework\Utility\ITimeFactory;
@@ -59,7 +60,8 @@ use OCP\Notification\IManager as INotificationManager;
  *   browser session whose login proved more than the password, and not
  *   the session the detection is about: an attacker in the account must
  *   not vouch for themselves. It trusts the detection's network for the
- *   user.
+ *   user, and ends the lock link sent about the detection
+ *   ({@see LockLinks}).
  *
  * Detections that involve two addresses ({@see Questions::TWO_SOURCES})
  * never block, mark or trust a network on an answer.
@@ -87,6 +89,7 @@ class WasThisYouService {
 		private readonly IEventDispatcher $dispatcher,
 		private readonly AuditLogger $audit,
 		private readonly ITimeFactory $timeFactory,
+		private readonly LockLinks $lockLinks,
 	) {
 	}
 
@@ -178,6 +181,9 @@ class WasThisYouService {
 		}
 		$this->finish($detection, $user, Detection::VERDICT_CONFIRMED);
 		$this->audit->log('%s answered "Yes, it was me" about detection %s (%s)', ['uid' => $user->getUID(), 'detection' => $detection->getId(), 'check' => $detection->getCheckId()]);
+		if ($this->lockLinks->revokeForDetection($detection->getId()) > 0) {
+			$this->audit->log('the lock link sent to the previous email address of %s about detection %s no longer works', ['uid' => $user->getUID(), 'detection' => $detection->getId()]);
+		}
 		return $detection;
 	}
 

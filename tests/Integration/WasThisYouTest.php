@@ -26,6 +26,7 @@ use OCA\IntrusionDetection\Confirm\LoginDetections;
 use OCA\IntrusionDetection\Confirm\StepUpPolicy;
 use OCA\IntrusionDetection\Confirm\StepUpState;
 use OCA\IntrusionDetection\Controller\PersonalApiController;
+use OCA\IntrusionDetection\Crypto\Fingerprinter;
 use OCA\IntrusionDetection\Db\BanMapper;
 use OCA\IntrusionDetection\Db\Detection;
 use OCA\IntrusionDetection\Db\DetectionMapper;
@@ -50,7 +51,9 @@ use OCA\IntrusionDetection\Personal\PersonalActivity;
 use OCA\IntrusionDetection\Personal\PersonalOverview;
 use OCA\IntrusionDetection\Response\FlaggedSources;
 use OCA\IntrusionDetection\Response\PasswordChangeFlag;
+use OCA\IntrusionDetection\Takeover\Db\LockLinkMapper;
 use OCA\IntrusionDetection\Takeover\Db\SecurityChangeMapper;
+use OCA\IntrusionDetection\Takeover\LockLinks;
 use OCA\IntrusionDetection\Tests\Unit\Controller\AnswersLikeTheApi;
 use OCA\IntrusionDetection\TrustedNetwork\TrustedNetworks;
 use OCA\IntrusionDetection\WasThisYou\AnswerException;
@@ -407,6 +410,26 @@ class WasThisYouTest extends StepUpTestCase {
 		$this->assertNull($this->stepUp(), 'A login from the trusted network is not asked again');
 	}
 
+	public function testYesEndsTheLockLinkSentToThePreviousAddress(): void {
+		$detection = $this->detection(SecondFactorFailed::ID, $this->alice);
+		$other = $this->detection(SecondFactorFailed::ID, $this->alice);
+		$token = str_repeat('a', LockLinks::TOKEN_LENGTH);
+		$hash = Server::get(Fingerprinter::class)->lockToken($token);
+		$mapper = Server::get(LockLinkMapper::class);
+		$link = $mapper->insert($this->alice->getUID(), $hash, 'o***@example.com', $detection->getId(), null, time(), time() + LockLinks::TTL);
+		$otherLink = $mapper->insert($this->alice->getUID(), $hash, 'o***@example.com', $other->getId(), null, time(), time() + LockLinks::TTL);
+		$links = Server::get(LockLinks::class);
+		$this->assertSame(LockLinks::VALID, $links->check($link, $token)[0]);
+
+		$this->provenSession($this->alice);
+		$this->answers()->confirm($this->alice, $detection->getId());
+
+		$this->assertSame(LockLinks::EXPIRED, $links->check($link, $token)[0], 'Whoever reads the old mailbox can no longer lock the account');
+		$this->assertFalse($links->use($link, null));
+		$this->assertSame(LockLinks::VALID, $links->check($otherLink, $token)[0], 'The link of another detection still works');
+		$this->assertTrue($this->wasAudited('no longer works'));
+	}
+
 	public function testTheNotificationOffersBothAnswersUntilOneIsGiven(): void {
 		$detection = $this->detection(SecondFactorFailed::ID, $this->alice);
 		$plain = $this->detection(BreachedPassword::ID, $this->alice);
@@ -553,6 +576,7 @@ class WasThisYouTest extends StepUpTestCase {
 			Server::get(IEventDispatcher::class),
 			Server::get(AuditLogger::class),
 			Server::get(ITimeFactory::class),
+			Server::get(LockLinks::class),
 		);
 	}
 
