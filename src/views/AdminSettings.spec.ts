@@ -120,6 +120,23 @@ describe('the admin page', () => {
 		expect(activeTab(wrapper)).toBe('settings')
 	})
 
+	test('a malformed link opens the overview, and later links still work', async () => {
+		window.history.replaceState(null, '', '#%E0')
+		const wrapper = mountPage()
+		await flushPromises()
+		expect(activeTab(wrapper)).toBe('overview')
+		const errors = vi.fn()
+		window.addEventListener('error', errors)
+		try {
+			await navigate('#protection/%E0%A4%A')
+			expect(errors).not.toHaveBeenCalled()
+			await navigate('#incidents')
+			expect(activeTab(wrapper)).toBe('incidents')
+		} finally {
+			window.removeEventListener('error', errors)
+		}
+	})
+
 	test('a link to a section scrolls to it', async () => {
 		const section = document.createElement('div')
 		section.id = 'settings-privacy'

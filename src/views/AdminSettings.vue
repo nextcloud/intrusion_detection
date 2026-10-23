@@ -96,7 +96,14 @@ function showAttention() {
  * Deep links: #protection, #protection/credential_stuffing, #settings-privacy, #detection-42, …
  */
 function readHash() {
-	follow(decodeURIComponent(window.location.hash.slice(1)))
+	let link: string
+	try {
+		link = decodeURIComponent(window.location.hash.slice(1))
+	} catch {
+		// A malformed escape such as `#%E0` is a link the page does not know
+		return
+	}
+	follow(link)
 }
 
 watch(activeTab, (tab) => {
