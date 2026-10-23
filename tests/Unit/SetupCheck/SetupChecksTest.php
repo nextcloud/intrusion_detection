@@ -43,6 +43,7 @@ use OCP\IURLGenerator;
 use OCP\L10N\IFactory;
 use OCP\Server;
 use OCP\SetupCheck\SetupResult;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\MockObject\MockObject;
 use Test\TestCase;
 
@@ -122,9 +123,47 @@ class SetupChecksTest extends TestCase {
 	public function testMailMissing(): void {
 		$prerequisites = $this->createMock(Prerequisites::class);
 		$prerequisites->method('hasMail')->willReturnOnConsecutiveCalls(true, false);
-		$check = new MailCheck($this->l, $this->links, $prerequisites, $this->urls);
+		$check = new MailCheck($this->l, $this->links, $prerequisites, $this->urls, $this->mailConfig([]));
 		$this->assertNull($check->finding($this->l));
-		$this->assertSame(Finding::LEVEL_WARNING, $check->finding($this->l)?->level);
+		$this->assertSame('mail_missing', $check->finding($this->l)?->id);
+	}
+
+	/**
+	 * @return array<string, array{array<string, mixed>, bool}>
+	 */
+	public static function mailServers(): array {
+		return [
+			'a local mail server' => [['mail_smtphost' => 'localhost', 'mail_smtpport' => 25], false],
+			'the default host' => [[], false],
+			'another host, STARTTLS if offered' => [['mail_smtphost' => 'smtp.example.com', 'mail_smtpport' => 587], true],
+			'another host, SSL/TLS' => [['mail_smtphost' => 'smtp.example.com', 'mail_smtpport' => 465, 'mail_smtpsecure' => 'ssl'], false],
+			'another host, port 465' => [['mail_smtphost' => 'smtp.example.com', 'mail_smtpport' => 465], false],
+			'another host, certificate not checked' => [['mail_smtphost' => 'smtp.example.com', 'mail_smtpport' => 465, 'mail_smtpsecure' => 'ssl', 'mail_smtpstreamoptions' => ['ssl' => ['verify_peer' => false]]], true],
+			'sendmail' => [['mail_smtpmode' => 'sendmail', 'mail_smtphost' => 'smtp.example.com'], false],
+		];
+	}
+
+	/**
+	 * @param array<string, mixed> $values
+	 */
+	#[DataProvider('mailServers')]
+	public function testMailToAnotherHostWithoutEnforcedTls(array $values, bool $warns): void {
+		$prerequisites = $this->createMock(Prerequisites::class);
+		$prerequisites->method('hasMail')->willReturn(true);
+		$finding = (new MailCheck($this->l, $this->links, $prerequisites, $this->urls, $this->mailConfig($values)))->finding($this->l);
+		$this->assertSame($warns ? 'mail_without_tls' : null, $finding?->id);
+	}
+
+	/**
+	 * @param array<string, mixed> $values
+	 */
+	private function mailConfig(array $values): IConfig {
+		$config = $this->createMock(IConfig::class);
+		$read = static fn (string $key, mixed $default = ''): mixed => $values[$key] ?? $default;
+		$config->method('getSystemValue')->willReturnCallback($read);
+		$config->method('getSystemValueString')->willReturnCallback($read);
+		$config->method('getSystemValueInt')->willReturnCallback($read);
+		return $config;
 	}
 
 	public function testWithoutAMemoryCacheTheCostIsMeasured(): void {
