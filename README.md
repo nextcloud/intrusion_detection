@@ -407,7 +407,7 @@ No, it complements them. They block cheaply at the edge; this app sees accounts,
 <summary><strong>We log in with SAML or OpenID Connect. Is it still useful?</strong></summary>
 <br>
 
-Partly. When your identity provider checks the passwords, the password-guessing checks see little. Share link attacks, trap URLs, decoys, admin change alerts, blocklists and the other checks of requests that reach Nextcloud work as usual.
+Yes. Most checks watch what reaches Nextcloud, not how people log in, so they work as usual: share link attacks, trap URLs, decoy app passwords, stolen app passwords and sessions, login request phishing, admin change alerts and blocklists. Only the password-guessing checks have less to do, because your identity provider checks the passwords.
 </details>
 
 <details>
