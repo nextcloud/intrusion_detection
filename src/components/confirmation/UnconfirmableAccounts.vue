@@ -16,6 +16,7 @@ import NcLoadingIcon from '@nextcloud/vue/components/NcLoadingIcon'
 import TimeStamp from '../common/TimeStamp.vue'
 import { useAction } from '../../composables/useAction.ts'
 import { allUnconfirmableAccounts, useUnconfirmableAccounts } from '../../stores/settings.ts'
+import { csvCell } from '../../utils/csv.ts'
 import { APP_ID, formatNumber } from '../../utils/format.ts'
 import { n, t } from '../../utils/l10n.ts'
 
@@ -51,15 +52,6 @@ const total = computed(() => adminsOnly.value ? props.admins.withNeither.length 
  */
 function loadMore() {
 	run('more', nextPage, { fallback: failure() })
-}
-
-/**
- * @param value - A cell
- */
-function csvCell(value: string): string {
-	// A leading formula character would run in a spreadsheet.
-	const safe = /^[=+\-@\t\r]/.test(value) ? `'${value}` : value
-	return `"${safe.replaceAll('"', '""')}"`
 }
 
 /**
