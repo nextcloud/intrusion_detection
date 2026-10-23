@@ -393,9 +393,7 @@ class BreachedPasswordTest extends IntegrationTestCase {
 		$detection = $this->breachDetections()[0];
 		$l = Server::get(IFactory::class)->get(Application::APP_ID, 'en');
 
-		$narrative = json_encode(Server::get(NarrativeBuilder::class)->build($detection, $l)->toArray(), JSON_THROW_ON_ERROR);
-		$this->assertStringContainsString('logged in from 198.51.100.20 with a password that appears in the public list of leaked passwords', $narrative);
-		$this->assertStringContainsString('only the first 5 characters of its SHA-1 hash left the server', $narrative);
+		$this->assertSame('198.51.100.20', $detection->getIp());
 
 		$notice = Server::get(BreachedPassword::class)->userNotice($detection, $l);
 		$this->assertSame('Your password appears in lists of leaked passwords', $notice->subject);

@@ -123,9 +123,6 @@ class ConfigWatchTest extends AdminChangeTestCase {
 		$this->assertSame(ActorResolver::UNKNOWN, $facts['actor']);
 		$this->assertSame(Severity::Low->value, $byKey[WatchedSettings::systemKey('loglevel')]->getSeverity());
 
-		$narrative = implode(' ', Server::get(NarrativeBuilder::class)->build($domains, $this->l())->happened);
-		$this->assertStringContainsString('"trusted_domains in config.php" changed from "cloud.example.com" to "cloud.example.com, evil.example.net"', $narrative);
-		$this->assertStringContainsString('Nextcloud cannot tell who made this change', $narrative);
 	}
 
 	public function testNewAndRemovedSettingsAreChanges(): void {

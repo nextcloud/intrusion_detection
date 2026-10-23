@@ -152,7 +152,7 @@ class LoginFlowMismatchTest extends RequestEventTestCase {
 		$this->trustedNetworks->method('isTrusted')->willReturnCallback(fn (string $uid, SourceKey $source): bool => $uid === $this->user->getUID() && $source->netKey === '203.0.113.0/24');
 		$detection = $this->detectWithoutCore('203.0.113.5', '198.51.100.7');
 		$this->assertSame(Severity::Low->value, $detection->getSeverity());
-		$this->assertTrue($detection->getExplanationData()['facts']['trusted']);
+		$this->assertTrue(LoginFlowMismatchFacts::fromArray($detection->getExplanationData()['facts'])->trusted);
 		$this->assertSame([], $detection->getActionList());
 
 		Server::get(BanService::class)->ban(SourceKey::fromIp('203.0.113.6'), 'manual');

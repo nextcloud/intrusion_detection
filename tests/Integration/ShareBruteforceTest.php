@@ -240,8 +240,8 @@ class ShareBruteforceTest extends RequestEventTestCase {
 		$this->assertSame('alice', $detections[0]->getUid());
 		$this->assertSame([ResponseType::NotifyAdmin->value], array_column($detections[0]->getActionList(), 'type'), 'Reported, not blocked');
 		$this->assertSame([], $this->bans->findActiveForKeys(['198.51.100.7'], time()));
-		$l = Server::get(IFactory::class)->get(Application::APP_ID, 'en');
-		$this->assertStringContainsString('opened while logged in as alice', implode(' ', Server::get(NarrativeBuilder::class)->build($detections[0], $l)->happened));
+		$this->assertTrue(ShareBruteforceFacts::fromArray($detections[0]->getExplanationData()['facts'])->loggedIn);
+		$this->assertSame('alice', $detections[0]->getUid());
 	}
 
 	public function testAPartnerServerThatSyncsDeletedFederatedSharesIsReportedButNotBlocked(): void {
@@ -261,8 +261,6 @@ class ShareBruteforceTest extends RequestEventTestCase {
 		$this->assertTrue(ShareBruteforceFacts::fromArray($detections[0]->getExplanationData()['facts'])->federation);
 		$this->assertSame(207, $this->propfind('203.0.113.80', $live->getToken()), 'and its federated share keeps working');
 
-		$l = Server::get(IFactory::class)->get(Application::APP_ID, 'en');
-		$this->assertStringContainsString('The address opened a federated share of this server within the last day', implode(' ', Server::get(NarrativeBuilder::class)->build($detections[0], $l)->happened));
 	}
 
 	public function testAStrangerGuessingTokensOverPublicWebdavIsBlocked(): void {

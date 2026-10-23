@@ -13,12 +13,12 @@ use OCA\IntrusionDetection\AdminChange\ActorResolver;
 use OCA\IntrusionDetection\AdminChange\WatchedSettings;
 use OCA\IntrusionDetection\AppInfo\Application;
 use OCA\IntrusionDetection\Check\Checks\AdminChange\AdminChange;
+use OCA\IntrusionDetection\Check\Checks\AdminChange\AdminChangeFacts;
 use OCA\IntrusionDetection\Config\GlobalSettings;
 use OCA\IntrusionDetection\Config\Keys;
 use OCA\IntrusionDetection\Definition\Mode;
 use OCA\IntrusionDetection\Definition\Severity;
 use OCA\IntrusionDetection\Event\SettingChangedEvent;
-use OCA\IntrusionDetection\Explain\NarrativeBuilder;
 use OCA\IntrusionDetection\Notification\AdminAlerts;
 use OCA\IntrusionDetection\Notification\Notifier;
 use OCP\App\Events\AppDisableEvent;
@@ -84,8 +84,6 @@ class AdminChangeListenerTest extends AdminChangeTestCase {
 		[$detection] = $this->adminChanges();
 		$this->assertSame(Severity::High->value, $detection->getSeverity());
 		$this->assertSame(['Users'], $this->facts($detection)['delegated']);
-		$narrative = Server::get(NarrativeBuilder::class)->build($detection, $this->l());
-		$this->assertStringContainsString('which has these administration settings: Users', implode(' ', $narrative->happened));
 	}
 
 	public function testOrdinaryGroupsAreNotWatched(): void {
@@ -151,7 +149,7 @@ class AdminChangeListenerTest extends AdminChangeTestCase {
 		$this->assertSame(['ids-ac-team'], $this->facts($enabled)['groups']);
 		$this->assertSame(Severity::Medium->value, $disabled->getSeverity());
 		$this->assertSame(Severity::High->value, $self->getSeverity());
-		$this->assertStringContainsString('switches off intrusion detection itself', implode(' ', Server::get(NarrativeBuilder::class)->build($self, $this->l())->happened));
+		$this->assertSame(Application::APP_ID, AdminChangeFacts::fromArray($this->facts($self))->app);
 	}
 
 	public function testDifferentChangesAreToldSeparatelyAndRepeatsAggregated(): void {

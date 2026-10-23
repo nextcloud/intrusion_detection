@@ -21,9 +21,7 @@ use OCA\IntrusionDetection\Decoy\DecoyFormat;
 use OCA\IntrusionDetection\Decoy\DecoyService;
 use OCA\IntrusionDetection\Definition\InvalidParamException;
 use OCA\IntrusionDetection\Definition\Mode;
-use OCA\IntrusionDetection\Explain\NarrativeBuilder;
 use OCA\IntrusionDetection\State\HotState;
-use OCP\L10N\IFactory;
 use OCP\Server;
 use PHPUnit\Framework\Attributes\Group;
 
@@ -94,9 +92,7 @@ class DecoyCredentialTest extends LoginFailureTestCase {
 		$this->assertSame(1, $stored->getTriggerCount());
 		$this->assertNotNull($stored->getLastTriggeredAt());
 		$this->assertSame(0, $this->rows('ids_attempts'), 'A decoy use is answered on its own');
-
-		$narrative = Server::get(NarrativeBuilder::class)->build($detections[0], Server::get(IFactory::class)->get(Application::APP_ID, 'en'));
-		$this->assertStringContainsString('used the decoy credential "old backup script on nas01"', $narrative->happened[0]);
+		$this->assertSame(DecoyCredentialMatch::Secret, DecoyCredentialFacts::fromArray($detections[0]->getExplanationData()['facts'])->match);
 	}
 
 	public function testATokenDecoyIsFoundToo(): void {

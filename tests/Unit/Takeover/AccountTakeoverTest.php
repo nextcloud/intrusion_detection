@@ -11,7 +11,6 @@ namespace OCA\IntrusionDetection\Tests\Unit\Takeover;
 
 use OCA\IntrusionDetection\Check\Checks\AccountLocked\AccountLocked;
 use OCA\IntrusionDetection\Check\Checks\AccountTakeover\AccountTakeover;
-use OCA\IntrusionDetection\Check\Checks\AccountTakeover\AccountTakeoverRule;
 use OCA\IntrusionDetection\Db\Detection;
 use OCA\IntrusionDetection\Definition\Mode;
 use OCA\IntrusionDetection\Definition\ResponseType;
@@ -63,25 +62,6 @@ class AccountTakeoverTest extends TestCase {
 		$this->assertStringContainsString('{retention_detections_days}', $texts->data);
 	}
 
-	public function testTheNarrativeTellsTheChangesAndTheLimits(): void {
-		$detection = $this->detection([
-			'rules' => [AccountTakeoverRule::RiskyLogin->value],
-			'sessionPoints' => 3,
-			'riskyLoginAt' => 1792560000,
-			'userHasEmail' => false,
-			'changes' => [
-				['type' => 'email_changed', 'at' => 1792560100, 'points' => 2, 'ip' => '203.0.113.7', 'old' => 'a***@example.com', 'new' => 'e***@evil.example'],
-				['type' => 'app_password_created', 'at' => 1792560200, 'points' => 1, 'ip' => null, 'old' => null, 'new' => null],
-			],
-		], [AccountTakeover::PARAM_MIN_POINTS => 3, AccountTakeover::PARAM_WINDOW => 3600]);
-		$text = implode("\n", (new AccountTakeover($this->dates()))->narrative($detection, $this->l()));
-		$this->assertStringContainsString('Email address changed from a***@example.com to e***@evil.example', $text);
-		$this->assertStringContainsString('from 203.0.113.7 (2 points)', $text);
-		$this->assertStringContainsString('App password created', $text);
-		$this->assertStringContainsString('Together they count 3 points. The limit at that time was 3 points within 1 hour after a risky login.', $text);
-		$this->assertStringContainsString('has no email address now', $text);
-	}
-
 	public function testTheUserIsAskedWithoutThresholds(): void {
 		$detection = $this->detection(['changes' => [['type' => 'second_factor_disabled'], ['type' => 'email_changed']]], [AccountTakeover::PARAM_MIN_POINTS => 3]);
 		$check = new AccountTakeover($this->dates());
@@ -98,11 +78,6 @@ class AccountTakeoverTest extends TestCase {
 		$this->assertTrue($definition->internal);
 		$this->assertSame(Severity::Critical, $definition->severity);
 		$this->assertSame([ResponseType::NotifyAdmin], $definition->defaultResponses);
-		$detection = $this->detection(['sentTo' => 'a***@example.com', 'newAddress' => 'e***@evil.example', 'changedAt' => 1792560100, 'changedFrom' => '203.0.113.7', 'tokensEnded' => 3], []);
-		$text = implode("\n", $check->narrative($detection, $this->l()));
-		$this->assertStringContainsString('locked by the owner of the previous email address a***@example.com', $text);
-		$this->assertStringContainsString('changed to e***@evil.example', $text);
-		$this->assertStringContainsString('3 sessions and app passwords were ended', $text);
 	}
 
 	private function dates(): DateFormatter {

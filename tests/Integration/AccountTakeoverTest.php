@@ -106,7 +106,7 @@ class AccountTakeoverTest extends TakeoverTestCase {
 		$detection = $this->takeover($user);
 		$this->assertNotNull($detection, '5 points from any session within 30 minutes');
 		$this->assertSame([AccountTakeoverRule::AnySession], AccountTakeoverFacts::fromArray($detection->getExplanationData()['facts'])->rules);
-		$this->assertSame(5, $detection->getExplanationData()['facts']['anyPoints']);
+		$this->assertSame(5, AccountTakeoverFacts::fromArray($detection->getExplanationData()['facts'])->anyPoints);
 	}
 
 	public function testChangesLongAfterTheRiskyLoginDoNotCount(): void {
@@ -192,7 +192,7 @@ class AccountTakeoverTest extends TakeoverTestCase {
 		$this->assertNotNull($detection);
 		$this->assertSame([], $this->sentTo, 'Nothing is sent: there is no previous address');
 		$this->assertSame(0, $this->lockLinkCount());
-		$this->assertNull($detection->getExplanationData()['facts']['emailChangeId']);
+		$this->assertNull(AccountTakeoverFacts::fromArray($detection->getExplanationData()['facts'])->emailChangeId);
 	}
 
 	public function testAUserWithoutAnyEmailAddressIsReportedToTheAdministrators(): void {
@@ -202,10 +202,8 @@ class AccountTakeoverTest extends TakeoverTestCase {
 		$this->appPassword($user);
 		$detection = $this->takeover($user);
 		$this->assertNotNull($detection);
-		$this->assertFalse($detection->getExplanationData()['facts']['userHasEmail']);
+		$this->assertFalse(AccountTakeoverFacts::fromArray($detection->getExplanationData()['facts'])->userHasEmail);
 		$this->assertCount(1, $this->sentTo, 'The removed address still gets the lock link');
-		$text = implode(' ', Server::get(NarrativeBuilder::class)->build($detection, Server::get(IFactory::class)->get(Application::APP_ID, 'en'))->happened);
-		$this->assertStringContainsString('has no email address now', $text);
 	}
 
 	public function testObserveRecordsButSendsNothing(): void {

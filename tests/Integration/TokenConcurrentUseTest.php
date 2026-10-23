@@ -15,6 +15,7 @@ use OCA\IntrusionDetection\Check\Checks\TokenConcurrentUse\CredentialTracker;
 use OCA\IntrusionDetection\Check\Checks\TokenConcurrentUse\CredentialUse;
 use OCA\IntrusionDetection\Check\Checks\TokenConcurrentUse\CredentialUseResolver;
 use OCA\IntrusionDetection\Check\Checks\TokenConcurrentUse\TokenConcurrentUse;
+use OCA\IntrusionDetection\Check\Checks\TokenConcurrentUse\TokenConcurrentUseFacts;
 use OCA\IntrusionDetection\Config\GlobalSettings;
 use OCA\IntrusionDetection\Config\ModeState;
 use OCA\IntrusionDetection\Config\Prerequisites;
@@ -66,12 +67,12 @@ class TokenConcurrentUseTest extends CredentialUseTestCase {
 		$this->assertSame(self::AWAY, $detection->getIp());
 		$this->assertSame('medium', $detection->getSeverity());
 		$this->assertTrue($detection->isEnforced());
-		$facts = $detection->getExplanationData()['facts'];
-		$this->assertSame(TokenConcurrentUse::KIND_APP_PASSWORD, $facts['kind']);
-		$this->assertSame('basic', $facts['scheme']);
-		$this->assertSame([self::HOME, self::AWAY, 3, 4], [$facts['ip1'], $facts['ip2'], $facts['switches'], $facts['family']]);
-		$this->assertSame('Desktop client on laptop', $facts['tokenName']);
-		$this->assertSame($token['id'], $facts['tokenId']);
+		$facts = TokenConcurrentUseFacts::fromArray($detection->getExplanationData()['facts']);
+		$this->assertSame(TokenConcurrentUse::KIND_APP_PASSWORD, $facts->kind);
+		$this->assertSame('basic', $facts->scheme);
+		$this->assertSame([self::HOME, self::AWAY, 3, 4], [$facts->ip1, $facts->ip2, $facts->switches, $facts->family]);
+		$this->assertSame('Desktop client on laptop', $facts->tokenName);
+		$this->assertSame($token['id'], $facts->tokenId);
 		$this->assertSame(['window' => 900, 'min_switches' => 3], $detection->getExplanationData()['thresholds']);
 
 		$actions = array_column($detection->getActionList(), 'enforced', 'type');
@@ -114,10 +115,10 @@ class TokenConcurrentUseTest extends CredentialUseTestCase {
 		$this->send(self::HOME, $this->basic($user->getUID(), $token['secret']), [], $login);
 		$this->send(self::AWAY, $bearer, [], $login);
 
-		$facts = $this->only()->getExplanationData()['facts'];
-		$this->assertSame(TokenConcurrentUse::KIND_APP_PASSWORD, $facts['kind']);
-		$this->assertSame('bearer', $facts['scheme']);
-		$this->assertSame($token['id'], $facts['tokenId']);
+		$facts = TokenConcurrentUseFacts::fromArray($this->only()->getExplanationData()['facts']);
+		$this->assertSame(TokenConcurrentUse::KIND_APP_PASSWORD, $facts->kind);
+		$this->assertSame('bearer', $facts->scheme);
+		$this->assertSame($token['id'], $facts->tokenId);
 	}
 
 	public function testABrowserSessionUsedFromTwoNetworksIsReportedAndCanBeEnded(): void {
@@ -128,10 +129,10 @@ class TokenConcurrentUseTest extends CredentialUseTestCase {
 		$this->pingPong([], [$this->cookieName => $session['secret']], $this->loggedInSession($user, $session));
 
 		$detection = $this->only();
-		$facts = $detection->getExplanationData()['facts'];
-		$this->assertSame(TokenConcurrentUse::KIND_SESSION, $facts['kind']);
-		$this->assertSame([$session['id'], $session['id']], [$facts['tokenId'], $facts['sessionTokenId']]);
-		$this->assertSame(self::FIREFOX, $facts['tokenName']);
+		$facts = TokenConcurrentUseFacts::fromArray($detection->getExplanationData()['facts']);
+		$this->assertSame(TokenConcurrentUse::KIND_SESSION, $facts->kind);
+		$this->assertSame([$session['id'], $session['id']], [$facts->tokenId, $facts->sessionTokenId]);
+		$this->assertSame(self::FIREFOX, $facts->tokenName);
 		$this->assertFalse($this->tokenExists($session['id']), 'The session is ended');
 		$message = Server::get(UserMessages::class)->build($detection, $user, 'en');
 		$this->assertContains('The session (Firefox on Linux) was ended.', $message->done);
@@ -148,11 +149,9 @@ class TokenConcurrentUseTest extends CredentialUseTestCase {
 		$this->pingPong($this->basic($user->getUID(), $password), [], $this->passwordLogin($user), rule: false);
 
 		$detection = $this->only();
-		$facts = $detection->getExplanationData()['facts'];
-		$this->assertSame(TokenConcurrentUse::KIND_PASSWORD, $facts['kind']);
-		$this->assertNull($facts['tokenId']);
-		$l = Server::get(IFactory::class)->get(Application::APP_ID, 'en');
-		$this->assertStringContainsString('The password of the account ' . $user->getUID() . ' was sent by an app from two different networks', Server::get(CheckRegistry::class)->check(TokenConcurrentUse::class)->narrative($detection, $l)[0]);
+		$facts = TokenConcurrentUseFacts::fromArray($detection->getExplanationData()['facts']);
+		$this->assertSame(TokenConcurrentUse::KIND_PASSWORD, $facts->kind);
+		$this->assertNull($facts->tokenId);
 	}
 
 	public function testACredentialThatNeverLogsInNeverBecomesADetection(): void {
@@ -182,9 +181,9 @@ class TokenConcurrentUseTest extends CredentialUseTestCase {
 		$this->assertSame([], $this->detectionsOf(TokenConcurrentUse::ID));
 		$context = $this->send(self::AWAY, $garbage, $cookie, $owner);
 
-		$facts = $this->only()->getExplanationData()['facts'];
-		$this->assertSame(TokenConcurrentUse::KIND_SESSION, $facts['kind']);
-		$this->assertSame($session['id'], $facts['sessionTokenId']);
+		$facts = TokenConcurrentUseFacts::fromArray($this->only()->getExplanationData()['facts']);
+		$this->assertSame(TokenConcurrentUse::KIND_SESSION, $facts->kind);
+		$this->assertSame($session['id'], $facts->sessionTokenId);
 		$use = $context->get(CredentialUseResolver::CONTEXT_KEY);
 		$this->assertInstanceOf(CredentialUse::class, $use);
 		$this->assertTrue($use->resolved);

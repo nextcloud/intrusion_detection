@@ -12,6 +12,7 @@ namespace OCA\IntrusionDetection\Tests\Integration;
 use OCA\IntrusionDetection\Address\AddressResolver;
 use OCA\IntrusionDetection\Check\Checks\TrapUrl\TrapResponder;
 use OCA\IntrusionDetection\Check\Checks\TrapUrl\TrapUrl;
+use OCA\IntrusionDetection\Check\Checks\TrapUrl\TrapUrlFacts;
 use OCA\IntrusionDetection\Db\BanMapper;
 use OCA\IntrusionDetection\Db\DetectionFilter;
 use OCA\IntrusionDetection\Db\DetectionMapper;
@@ -86,8 +87,8 @@ class TrapUrlGuardTest extends IntegrationTestCase {
 		$this->assertEqualsWithDelta(14400, $decision->getRetryAfter(), 5);
 
 		$detection = $this->detections->findList(new DetectionFilter(checkIds: [TrapUrl::ID]))[0];
-		$this->assertSame('/wp-login.php', $detection->getExplanationData()['facts']['path']);
-		$this->assertSame('GET', $detection->getExplanationData()['facts']['method']);
+		$this->assertSame('/wp-login.php', TrapUrlFacts::fromArray($detection->getExplanationData()['facts'])->path);
+		$this->assertSame('GET', TrapUrlFacts::fromArray($detection->getExplanationData()['facts'])->method);
 	}
 
 	public function testHitsFromOneSourceAreMergedWithinTheHour(): void {
@@ -182,7 +183,7 @@ class TrapUrlGuardTest extends IntegrationTestCase {
 		$this->settingsEditor()->setParam(TrapUrl::ID, 'paths', ['/wp-login.php']);
 		$this->assertNotNull($this->guard()->check($this->request('/wp-login.php')));
 		$detection = $this->detections->findList(new DetectionFilter(checkIds: [TrapUrl::ID]))[0];
-		$this->assertSame('/wp-login.php', $detection->getExplanationData()['facts']['trap']);
+		$this->assertSame('/wp-login.php', TrapUrlFacts::fromArray($detection->getExplanationData()['facts'])->trap);
 		$this->assertNull($this->guard()->check($this->request('/.env', ip: '198.51.100.8')), 'Other built-in paths stay off');
 	}
 

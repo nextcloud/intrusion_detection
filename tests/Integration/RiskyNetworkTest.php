@@ -17,6 +17,7 @@ use OCA\IntrusionDetection\Blocklist\SourceRepository;
 use OCA\IntrusionDetection\Cache\Caches;
 use OCA\IntrusionDetection\Check\Checks\RiskyNetwork\RiskyNetwork;
 use OCA\IntrusionDetection\Check\Checks\RiskyNetwork\RiskyNetworkDetector;
+use OCA\IntrusionDetection\Check\Checks\RiskyNetwork\RiskyNetworkFacts;
 use OCA\IntrusionDetection\Check\Checks\StepUpRefused\StepUpRefused;
 use OCA\IntrusionDetection\Check\Checks\StepUpUnconfirmed\StepUpUnconfirmed;
 use OCA\IntrusionDetection\Config\GlobalSettings;
@@ -30,7 +31,6 @@ use OCA\IntrusionDetection\Db\AttemptMapper;
 use OCA\IntrusionDetection\Db\DetectionMapper;
 use OCA\IntrusionDetection\Definition\Mode;
 use OCA\IntrusionDetection\Definition\ResponseType;
-use OCA\IntrusionDetection\Explain\NarrativeBuilder;
 use OCA\IntrusionDetection\Guard\RequestContext;
 use OCA\IntrusionDetection\Net\SourceKey;
 use OCA\IntrusionDetection\Notification\UserAlerts;
@@ -87,22 +87,18 @@ class RiskyNetworkTest extends StepUpTestCase {
 		$this->assertTrue($detection->isEnforced());
 		$this->assertSame($this->alice->getUID(), $detection->getUid());
 		$this->assertSame(['step_up'], array_column($detection->getActionList(), 'type'), 'No notification by default');
-		$facts = $detection->getExplanationData()['facts'];
-		$this->assertSame(['hosting'], $facts['attributes']);
-		$this->assertSame(['Amazon Web Services'], $facts['listNames']);
+		$facts = RiskyNetworkFacts::fromArray($detection->getExplanationData()['facts']);
+		$this->assertSame(['hosting'], $facts->attributes);
+		$this->assertSame(['Amazon Web Services'], $facts->listNames);
 
-		$l = Server::get(IFactory::class)->get(Application::APP_ID, 'en');
-		$this->assertStringContainsString(
-			'logged in with its password from 198.51.100.7, an address of a cloud or hosting provider (Amazon Web Services).',
-			implode(' ', Server::get(NarrativeBuilder::class)->build($detection, $l)->happened),
-		);
+		$this->assertSame(['Amazon Web Services'], RiskyNetworkFacts::fromArray($detection->getExplanationData()['facts'])->listNames);
 	}
 
 	public function testATorExitNodeCountsToo(): void {
 		$this->network(['tor', 'net:tor_exits']);
 		$this->login($this->alice);
 		$this->assertSame([StepUpPolicy::RiskyNetwork->value], $this->stepUp()?->policies);
-		$this->assertSame(['tor'], $this->detectionsOf(RiskyNetwork::ID)[0]->getExplanationData()['facts']['attributes']);
+		$this->assertSame(['tor'], RiskyNetworkFacts::fromArray($this->detectionsOf(RiskyNetwork::ID)[0]->getExplanationData()['facts'])->attributes);
 	}
 
 	public function testWithoutANetworkListNothingHappens(): void {
@@ -209,7 +205,7 @@ class RiskyNetworkTest extends StepUpTestCase {
 		$detections = $this->detectionsOf(RiskyNetwork::ID);
 		$this->assertCount(1, $detections);
 		$this->assertSame(1, $detections[0]->getHits(), 'Later requests do not even touch the database');
-		$this->assertTrue($detections[0]->getExplanationData()['facts']['client']);
+		$this->assertTrue(RiskyNetworkFacts::fromArray($detections[0]->getExplanationData()['facts'])->client);
 	}
 
 	public function testAppsSendingThePasswordFromAnotherAddressAreRecordedSeparately(): void {

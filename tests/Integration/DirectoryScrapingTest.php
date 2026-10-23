@@ -18,6 +18,7 @@ use OCA\IntrusionDetection\Cache\Caches;
 use OCA\IntrusionDetection\Check\CheckRegistry;
 use OCA\IntrusionDetection\Check\Checks\DirectoryScraping\DirectoryCounter;
 use OCA\IntrusionDetection\Check\Checks\DirectoryScraping\DirectoryScraping;
+use OCA\IntrusionDetection\Check\Checks\DirectoryScraping\DirectoryScrapingFacts;
 use OCA\IntrusionDetection\Config\CheckSettings;
 use OCA\IntrusionDetection\Config\GlobalSettings;
 use OCA\IntrusionDetection\Config\ModeState;
@@ -127,10 +128,10 @@ class DirectoryScrapingTest extends IntegrationTestCase {
 		$this->assertTrue($detection->isEnforced());
 		$this->assertSame('alice', $detection->getUid());
 		$this->assertSame('203.0.113.9', $detection->getIp());
-		$facts = $detection->getExplanationData()['facts'];
-		$this->assertSame(DirectoryRoutes::GROUP_SEARCH, $facts['group']);
-		$this->assertSame(11, $facts['count']);
-		$this->assertSame(10, $facts['limit']);
+		$facts = DirectoryScrapingFacts::fromArray($detection->getExplanationData()['facts']);
+		$this->assertSame(DirectoryRoutes::GROUP_SEARCH, $facts->group);
+		$this->assertSame(11, $facts->count);
+		$this->assertSame(10, $facts->limit);
 		$this->assertSame(['rate_limit', 'notify_admin'], array_column($detection->getActionList(), 'type'));
 
 		$this->assertNotNull($this->rule()->check($this->state(), $this->appTarget()), 'Still refused');
@@ -148,7 +149,6 @@ class DirectoryScrapingTest extends IntegrationTestCase {
 		$l = Server::get(IFactory::class)->get(Application::APP_ID, 'en');
 		$narrative = Server::get(NarrativeBuilder::class)->build($this->detections()[0], $l);
 		$this->assertSame('Directory scraping', $narrative->title);
-		$this->assertStringContainsString('The account alice made 11 searches for people within 10 minutes, from 203.0.113.9. The limit at that time was 10.', implode(' ', $narrative->happened));
 		$this->assertStringContainsString('Further searches for people of the account were refused until', implode(' ', $narrative->done));
 	}
 

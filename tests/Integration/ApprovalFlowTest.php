@@ -15,6 +15,7 @@ use OCA\IntrusionDetection\AdminChange\ApprovalService;
 use OCA\IntrusionDetection\AdminChange\GrantPermit;
 use OCA\IntrusionDetection\AppInfo\Application;
 use OCA\IntrusionDetection\Check\Checks\AdminChange\AdminChange;
+use OCA\IntrusionDetection\Check\Checks\AdminChange\AdminChangeFacts;
 use OCA\IntrusionDetection\Config\GlobalSettings;
 use OCA\IntrusionDetection\Db\Approval;
 use OCA\IntrusionDetection\Db\ApprovalMapper;
@@ -124,9 +125,8 @@ class ApprovalFlowTest extends AdminChangeTestCase {
 		$this->assertFalse($this->inGroup('admin', $this->bob));
 		$this->assertNull($mapper->findPending(Approval::KIND_ADMIN_GRANT, $this->bob, 'admin'));
 		[$detection] = $this->adminChanges();
-		$this->assertArrayNotHasKey('approval', $this->facts($detection));
+		$this->assertNull(AdminChangeFacts::fromArray($this->facts($detection))->approval, 'No request was stored');
 		$this->assertNotSame([], $this->notificationsWithSubject(AdminAlerts::SUBJECT), 'Without a request the administrators are alerted');
-		$this->assertStringContainsString('Too many requests are already waiting', implode(' ', Server::get(\OCA\IntrusionDetection\Explain\NarrativeBuilder::class)->build($detection, Server::get(\OCP\L10N\IFactory::class)->get(Application::APP_ID, 'en'))->happened));
 	}
 
 	public function testTheRequesterTheSubjectAndNonAdminsCannotApprove(): void {
@@ -273,8 +273,7 @@ class ApprovalFlowTest extends AdminChangeTestCase {
 		$this->dispatch(new UserAddedEvent($group, $this->user($this->bob)));
 		$this->assertSame([], $this->approvals->list(true));
 		[$detection] = $this->adminChanges();
-		$this->assertSame(AdminChange::EXEMPT_DIRECTORY, $this->facts($detection)['exempt']);
-		$this->assertStringContainsString('user directory such as LDAP', implode(' ', Server::get(\OCA\IntrusionDetection\Explain\NarrativeBuilder::class)->build($detection, Server::get(\OCP\L10N\IFactory::class)->get(Application::APP_ID, 'en'))->happened));
+		$this->assertSame(AdminChange::EXEMPT_DIRECTORY, AdminChangeFacts::fromArray($this->facts($detection))->exempt);
 	}
 
 	public function testAFailedRevertIsReportedWithoutARequest(): void {

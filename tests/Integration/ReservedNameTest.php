@@ -10,6 +10,7 @@ declare(strict_types=1);
 namespace OCA\IntrusionDetection\Tests\Integration;
 
 use OCA\IntrusionDetection\Check\Checks\ReservedName\ReservedName;
+use OCA\IntrusionDetection\Check\Checks\ReservedName\ReservedNameFacts;
 use OCA\IntrusionDetection\Db\BanMapper;
 use OCA\IntrusionDetection\Definition\InvalidParamException;
 use OCA\IntrusionDetection\Definition\Mode;
@@ -59,7 +60,7 @@ class ReservedNameTest extends LoginFailureTestCase {
 		$this->failLogin('198.51.100.7', ' Root ');
 		$detections = $this->detectionsOf(ReservedName::ID);
 		$this->assertCount(1, $detections);
-		$this->assertSame('root', $detections[0]->getExplanationData()['facts']['name']);
+		$this->assertSame('root', ReservedNameFacts::fromArray($detections[0]->getExplanationData()['facts'])->name);
 		$this->assertCount(1, Server::get(BanMapper::class)->findActiveForKeys(['198.51.100.7'], time()));
 		$this->assertSame(0, $this->rows('ids_attempts'), 'A reserved-name attempt is answered on its own');
 	}
