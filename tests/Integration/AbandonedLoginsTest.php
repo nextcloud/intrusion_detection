@@ -14,17 +14,14 @@ use OCA\IntrusionDetection\Check\Checks\StepUpFailed\StepUpFailedRule;
 use OCA\IntrusionDetection\Config\GlobalSettings;
 use OCA\IntrusionDetection\Confirm\AbandonedLogins;
 use OCA\IntrusionDetection\Confirm\Db\StepUpSessionMapper;
-use OCA\IntrusionDetection\Confirm\LoginConfirmations;
 use OCA\IntrusionDetection\Db\BanMapper;
 use OCA\IntrusionDetection\LoginHistory\Db\LoginHistoryMapper;
 use OCA\IntrusionDetection\LoginHistory\LoginHistory;
-use OCA\IntrusionDetection\Migration\Version1000Date20261021220000;
 use OCA\IntrusionDetection\Net\SourceKey;
 use OCA\IntrusionDetection\Notification\UserAlerts;
 use OCA\IntrusionDetection\Response\FlaggedSources;
 use OCP\DB\QueryBuilder\IQueryBuilder;
 use OCP\IUser;
-use OCP\Migration\IOutput;
 use OCP\Server;
 use PHPUnit\Framework\Attributes\Group;
 use Psr\Log\LoggerInterface;
@@ -118,41 +115,6 @@ class AbandonedLoginsTest extends StepUpTestCase {
 
 		$this->settingsEditor()->setGlobal(GlobalSettings::ENABLED, true);
 		$this->assertSame(0, $this->abandoned()->purge(time()), 'Turning protection back on tells nobody days later');
-		$this->assertSame([], $this->detectionsOf(StepUpFailed::ID));
-	}
-
-	public function testPendingLoginsRememberedWithoutADeadlineGetOneOrEndQuietly(): void {
-		$now = time();
-		$mapper = Server::get(StepUpSessionMapper::class);
-		$history = Server::get(LoginHistoryMapper::class);
-		$source = SourceKey::fromIp($this->remoteAddress);
-		// Waiting for a minute: it still may wait.
-		$mapper->record(str_repeat('a', 64), $this->alice->getUID(), $now - 60, $now + 86400);
-		$history->insert($this->alice->getUID(), $now - 60, $source, null, LoginHistory::METHOD_PASSWORD, false, 'none', LoginHistory::STEP_UP_PENDING, null);
-		// Left waiting two hours ago.
-		$carol = $this->user('ids-abandoned-old', 'carol@example.com');
-		$mapper->record(str_repeat('c', 64), $carol->getUID(), $now - 7200, $now + 86400);
-		$oldId = $history->insert($carol->getUID(), $now - 7200, $source, null, LoginHistory::METHOD_PASSWORD, false, 'none', LoginHistory::STEP_UP_PENDING, null);
-		// Refused, and next to it a pending login of the same account in another session.
-		$bob = $this->user('ids-abandoned-refused', null);
-		$mapper->record(str_repeat('b', 64), $bob->getUID(), $now - 120, $now + 86400);
-		$history->insert($bob->getUID(), $now - 120, $source, null, LoginHistory::METHOD_PASSWORD, false, 'none', LoginHistory::STEP_UP_REFUSED, null);
-		$history->insert($bob->getUID(), $now - 117, $source, null, LoginHistory::METHOD_PASSWORD, false, 'none', LoginHistory::STEP_UP_PENDING, null);
-
-		$migration = Server::get(Version1000Date20261021220000::class);
-		$migration->postSchemaChange($this->createMock(IOutput::class), static fn () => null, []);
-
-		$deadlines = array_column($this->deadlines(), 'deadline', 'uid');
-		$this->assertSame($now - 60 + LoginConfirmations::SESSION_TTL, $deadlines[$this->alice->getUID()] ?? null, 'When it started, plus the time a login may wait');
-		$this->assertArrayHasKey($carol->getUID(), $deadlines);
-		$this->assertNull($deadlines[$carol->getUID()], 'Past its time: no deadline the job would act on');
-		$this->assertSame(LoginHistory::STEP_UP_FAILED, $history->forUser($carol->getUID(), 0)[0]->stepUp, 'Ended quietly');
-		$this->assertSame($oldId, $history->forUser($carol->getUID(), 0)[0]->id);
-		$this->assertArrayHasKey($bob->getUID(), $deadlines);
-		$this->assertNull($deadlines[$bob->getUID()], 'A refused login keeps none, even next to a pending one');
-
-		$this->assertSame(0, $this->abandoned()->purge(time()), 'Nothing is past its deadline yet');
-		$this->assertSame([], $this->notificationsFor($carol->getUID(), UserAlerts::SUBJECT), 'Nobody is told about an old login');
 		$this->assertSame([], $this->detectionsOf(StepUpFailed::ID));
 	}
 

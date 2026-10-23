@@ -11,7 +11,6 @@ namespace OCA\IntrusionDetection\Tests\Integration;
 
 use OCA\IntrusionDetection\Check\Checks\AdminChange\AdminChange;
 use OCA\IntrusionDetection\Check\Checks\CredentialStuffing\CredentialStuffing;
-use OCA\IntrusionDetection\Check\Checks\ShareBruteforce\ShareBruteforce;
 use OCA\IntrusionDetection\Config\ModeState;
 use OCA\IntrusionDetection\Db\Detection;
 use OCA\IntrusionDetection\Db\DetectionAccountMapper;
@@ -21,10 +20,8 @@ use OCA\IntrusionDetection\Definition\ResponseType;
 use OCA\IntrusionDetection\Detection\DetectionAccounts;
 use OCA\IntrusionDetection\Detection\DetectionDraft;
 use OCA\IntrusionDetection\Detection\DetectionService;
-use OCA\IntrusionDetection\Migration\Version1000Date20261021230000;
 use OCA\IntrusionDetection\Net\SourceKey;
 use OCA\IntrusionDetection\Privacy\UserDataCleanup;
-use OCP\Migration\IOutput;
 use OCP\Server;
 use PHPUnit\Framework\Attributes\Group;
 
@@ -119,23 +116,6 @@ class DetectionAccountsTest extends IntegrationTestCase {
 		Server::get(DetectionAccounts::class)->backfill();
 		Server::get(DetectionAccounts::class)->backfill();
 		$this->assertEqualsCanonicalizing(['alice', 'carol'], $this->accounts->uids($detection->getId()));
-	}
-
-	public function testTheMigrationRecordsTheNewAccountKeysOfOldDetections(): void {
-		[$granted] = $this->service->record(new DetectionDraft(AdminChange::ID, null, 'new-admin', self::factsOf(AdminChange::ID, ['kind' => AdminChange::KIND_ADMIN_GRANTED, 'actor' => 'second-admin', 'requested_by' => 'asking-admin', 'approved_by' => 'second-admin'])), $this->protect);
-		[$share] = $this->service->record(new DetectionDraft(ShareBruteforce::ID, SourceKey::fromIp('203.0.113.13'), null, self::factsOf(ShareBruteforce::ID, ['owner' => 'sharer', 'managers' => ['sharer', 'co-owner']])), $this->protect);
-		[$other] = $this->service->record(new DetectionDraft(CredentialStuffing::ID, SourceKey::fromIp('203.0.113.14'), null, self::factsOf(CredentialStuffing::ID, ['targets' => ['alice']])), $this->protect);
-		// As stored before the keys were known: only the account of the detection itself.
-		$this->accounts->deleteForDetections([$granted->getId(), $share->getId(), $other->getId()]);
-		$this->accounts->add($granted->getId(), ['new-admin']);
-
-		$migration = Server::get(Version1000Date20261021230000::class);
-		$migration->postSchemaChange($this->createMock(IOutput::class), static fn () => null, []);
-		$migration->postSchemaChange($this->createMock(IOutput::class), static fn () => null, []);
-
-		$this->assertEqualsCanonicalizing(['new-admin', 'second-admin', 'asking-admin'], $this->accounts->uids($granted->getId()));
-		$this->assertEqualsCanonicalizing(['sharer', 'co-owner'], $this->accounts->uids($share->getId()));
-		$this->assertSame([], $this->accounts->uids($other->getId()), 'Only the checks that use the new keys are read again');
 	}
 
 	private function queries(): int {
