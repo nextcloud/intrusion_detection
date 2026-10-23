@@ -33,9 +33,9 @@ export function validateParam(param: Pick<Param, 'type' | 'min' | 'max' | 'choic
 		case 'bool':
 			return typeof raw === 'boolean' ? { value: raw } : { error: t(APP_ID, 'Choose on or off.') }
 		case 'choice':
-			return typeof raw === 'string' && param.choices.includes(raw)
+			return typeof raw === 'string' && param.choices.some((choice) => choice.value === raw)
 				? { value: raw }
-				: { error: t(APP_ID, 'Choose one of: {choices}.', { choices: param.choices.join(', ') }) }
+				: { error: t(APP_ID, 'Choose one of: {choices}.', { choices: param.choices.map((choice) => choice.label).join(', ') }) }
 		case 'string_list':
 			return validateList(raw, () => true)
 		case 'cidr_list':
@@ -149,6 +149,17 @@ export function httpsUrlProblem(value: string): string | null {
 		return t(APP_ID, 'The address is too long or contains spaces.')
 	}
 	return null
+}
+
+/**
+ * Whether a login name has no spaces or control characters and is at most this long.
+ *
+ * @param value - The name as typed
+ * @param maxLength - The longest name the server takes
+ */
+export function isLoginName(value: string, maxLength: number): boolean {
+	// eslint-disable-next-line no-control-regex
+	return value.length > 0 && [...value].length <= maxLength && !/[\s\u0000-\u001F\u007F]/u.test(value)
 }
 
 /**

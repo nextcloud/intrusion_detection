@@ -35,7 +35,7 @@ describe('the admin store', () => {
 	beforeEach(() => {
 		vi.mocked(fetchStatus).mockResolvedValue(makeStatus())
 		vi.mocked(fetchProtectionLevel).mockResolvedValue({ level: 'custom' })
-		vi.mocked(fetchBans).mockResolvedValue({ bans: [], hasMore: false, activeCount: 0 })
+		vi.mocked(fetchBans).mockResolvedValue({ bans: [], hasMore: false, activeCount: 0, limits: { minDuration: 300, maxDuration: 7776000, maxNote: 255, levelDurations: [14400, 86400, 604800] } })
 	})
 
 	afterEach(() => {

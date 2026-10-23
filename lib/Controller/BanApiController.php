@@ -68,6 +68,7 @@ class BanApiController extends AdminOCSController {
 			'bans' => $this->bans->presentAll(array_slice($bans, 0, $limit), $this->l),
 			'hasMore' => count($bans) > $limit,
 			'activeCount' => $this->banMapper->countActive($now),
+			'limits' => $this->banService->limits(),
 		]);
 	}
 

@@ -14,6 +14,7 @@ use OCA\IntrusionDetection\Config\AppSettings;
 use OCA\IntrusionDetection\Config\GlobalSettings;
 use OCA\IntrusionDetection\Confirm\EmailCodes;
 use OCA\IntrusionDetection\Confirm\Methods\AdminApprovalMethod;
+use OCA\IntrusionDetection\Confirm\NoMethodOutcome;
 use OCA\IntrusionDetection\Confirm\StepUpPolicy;
 use OCA\IntrusionDetection\Confirm\StepUpService;
 use OCA\IntrusionDetection\Definition\ParamText;
@@ -91,6 +92,7 @@ class GlobalSettingsPresenter {
 			}
 			[$text, $group] = $this->describe($name, $l);
 			$settings[] = array_merge($definition->toArray(), [
+				'choices' => $definition->choiceLabels($l, $this->choiceLabels($l)),
 				'value' => $this->settings->value($name),
 				'label' => $text->label,
 				'help' => $text->help,
@@ -133,6 +135,23 @@ class GlobalSettingsPresenter {
 				]),
 			],
 		];
+	}
+
+	/**
+	 * The labels of the choices of global settings that are no mode or severity.
+	 *
+	 * @return array<string, string>
+	 */
+	private function choiceLabels(IL10N $l): array {
+		$labels = [
+			'never' => $l->t('Never'),
+			'daily' => $l->t('Daily'),
+			'weekly' => $l->t('Weekly'),
+		];
+		foreach (NoMethodOutcome::cases() as $outcome) {
+			$labels[$outcome->value] = $outcome->label($l);
+		}
+		return $labels;
 	}
 
 	/**

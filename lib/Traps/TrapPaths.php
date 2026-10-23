@@ -59,7 +59,9 @@ final class TrapPaths {
 
 	public const MAX_PATH = 1024;
 	public const MAX_CUSTOM = 100;
-	public const CUSTOM_PATTERN = '#^/[\x21-\x7e]{0,199}$#';
+	/** The longest custom path */
+	public const MAX_CUSTOM_LENGTH = 200;
+	public const CUSTOM_PATTERN = '#^/[\x21-\x7e]{0,' . (self::MAX_CUSTOM_LENGTH - 1) . '}$#';
 
 	/**
 	 * The path of a request URI relative to the web root: without query and

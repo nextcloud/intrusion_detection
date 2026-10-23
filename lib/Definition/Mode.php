@@ -9,6 +9,8 @@ declare(strict_types=1);
 
 namespace OCA\IntrusionDetection\Definition;
 
+use OCP\IL10N;
+
 /**
  * How a check runs: not at all, recording only, or acting.
  */
@@ -23,5 +25,13 @@ enum Mode: string {
 
 	public function acts(): bool {
 		return $this === self::Protect;
+	}
+
+	public function label(IL10N $l): string {
+		return match ($this) {
+			self::Off => $l->t('Off'),
+			self::Observe => $l->t('Observe'),
+			self::Protect => $l->t('Protect'),
+		};
 	}
 }

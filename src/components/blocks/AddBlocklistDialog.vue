@@ -15,6 +15,7 @@ import NcTextField from '@nextcloud/vue/components/NcTextField'
 import SelectField from '../common/SelectField.vue'
 import { useAction } from '../../composables/useAction.ts'
 import { ApiError } from '../../services/api.ts'
+import { modeLabel } from '../../store.ts'
 import { addBlocklist } from '../../stores/blocks.ts'
 import { APP_ID } from '../../utils/format.ts'
 import { httpsUrlProblem, listIdProblem } from '../../utils/validate.ts'
@@ -188,7 +189,7 @@ async function submit() {
 					value="observe"
 					name="ids-list-mode"
 					:description="t(APP_ID, 'Recommended at first: matches are only counted, so you can see what the list would block.')">
-					{{ t(APP_ID, 'Observe') }}
+					{{ modeLabel('observe') }}
 				</NcCheckboxRadioSwitch>
 				<NcCheckboxRadioSwitch
 					v-model="mode"
@@ -196,7 +197,7 @@ async function submit() {
 					value="protect"
 					name="ids-list-mode"
 					:description="t(APP_ID, 'Requests from listed addresses get an error page with a reference.')">
-					{{ t(APP_ID, 'Protect') }}
+					{{ modeLabel('protect') }}
 				</NcCheckboxRadioSwitch>
 			</fieldset>
 

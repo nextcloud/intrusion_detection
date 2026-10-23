@@ -13,7 +13,7 @@ import NcTextArea from '@nextcloud/vue/components/NcTextArea'
 import NcTextField from '@nextcloud/vue/components/NcTextField'
 import SelectField from '../common/SelectField.vue'
 import DurationInput from './DurationInput.vue'
-import { APP_ID, choiceLabel, formatDuration, formatNumber, formatValue } from '../../utils/format.ts'
+import { APP_ID, formatDuration, formatNumber, formatValue } from '../../utils/format.ts'
 
 /** The field's raw value: what the admin typed, validated by the parent */
 const model = defineModel<unknown>({ required: true })
@@ -52,7 +52,7 @@ const range = computed(() => {
 
 const hint = computed(() => [
 	range.value,
-	t(APP_ID, 'default {value}', { value: typeof props.param.default === 'number' && props.param.type === 'int' ? formatNumber(props.param.default) : formatValue(props.param.default, props.param.type) }),
+	t(APP_ID, 'default {value}', { value: typeof props.param.default === 'number' && props.param.type === 'int' ? formatNumber(props.param.default) : formatValue(props.param.default, props.param.type, props.param.choices) }),
 ].filter(Boolean).join(' · '))
 
 const listText = computed({
@@ -61,8 +61,6 @@ const listText = computed({
 		model.value = value
 	},
 })
-
-const choices = computed(() => props.param.choices.map((choice) => ({ value: choice, label: choiceLabel(choice) })))
 
 const textValue = computed({
 	// Whole numbers are shown with digit groups, as in the hints and sentences
@@ -99,7 +97,7 @@ const textValue = computed({
 				v-model="textValue"
 				:class="$style.field__select"
 				:label="param.label"
-				:options="choices"
+				:options="param.choices"
 				:disabled="disabled"
 				:aria-describedby="hintId" />
 

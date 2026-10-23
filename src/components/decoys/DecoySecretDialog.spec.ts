@@ -83,7 +83,7 @@ describe('DecoySecretDialog', () => {
 	test('after the dialog closes, the secret is nowhere on the page', async () => {
 		vi.mocked(createDecoy).mockResolvedValue({ ...created })
 		const wrapper = mount(DecoyCredentials, {
-			props: { decoys: [], check: { id: 'decoy_credential', name: 'Decoys', mode: { configured: 'protect', effective: 'protect', reason: null, missing: null, default: 'protect' } }, collisions: [] },
+			props: { decoys: [], check: { id: 'decoy_credential', name: 'Decoys', mode: { configured: 'protect', effective: 'protect', reason: null, missing: null, default: 'protect' } }, collisions: [], limits: { labelMaxLength: 200, loginNameMaxLength: 64 } },
 			attachTo: document.body,
 		})
 		// The create dialog hands the new decoy over, as after a successful request.

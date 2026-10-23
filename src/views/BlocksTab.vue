@@ -183,7 +183,8 @@ function openDetection(ban: Ban) {
 				id="blocks-decoys"
 				:decoys="traps.decoys"
 				:check="traps.decoyCheck"
-				:collisions="traps.decoyCollisions" />
+				:collisions="traps.decoyCollisions"
+				:limits="traps.limits" />
 			<ReservedNamesCard
 				id="blocks-reserved"
 				:reserved="traps.reservedNames"
@@ -238,7 +239,7 @@ function openDetection(ban: Ban) {
 		</div>
 
 		<LiftBanDialog :ban="liftTarget" @close="liftTarget = null" />
-		<AddBanDialog v-model:open="adding" />
+		<AddBanDialog v-model:open="adding" :limits="banList?.limits ?? null" />
 	</div>
 </template>
 

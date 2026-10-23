@@ -28,7 +28,9 @@ use OCA\IntrusionDetection\Definition\InvalidParamException;
 class ReservedNames {
 	/** Reserved at installation and offered later, each only while it is not an account */
 	public const SUGGESTIONS = ['admin', 'administrator', 'root', 'nextcloud', 'owncloud', 'test', 'user', 'guest', 'support', 'webmaster'];
-	public const NAME_PATTERN = '/^[^\s\x00-\x1f\x7f]{1,64}$/u';
+	/** The longest name */
+	public const MAX_LENGTH = 64;
+	public const NAME_PATTERN = '/^[^\s\x00-\x1f\x7f]{1,' . self::MAX_LENGTH . '}$/u';
 	public const MAX_NAMES = 100;
 
 	public function __construct(

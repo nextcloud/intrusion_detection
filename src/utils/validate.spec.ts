@@ -3,12 +3,12 @@
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 
-import type { Param } from '../types.ts'
+import type { Choice, Param } from '../types.ts'
 
 import { describe, expect, test } from 'vitest'
-import { httpsUrlProblem, isCidr, listIdProblem, validateParam } from './validate.ts'
+import { httpsUrlProblem, isCidr, isLoginName, listIdProblem, validateParam } from './validate.ts'
 
-const rules = (type: Param['type'], min: number | null = null, max: number | null = null, choices: string[] = []) => ({ type, min, max, choices })
+const rules = (type: Param['type'], min: number | null = null, max: number | null = null, choices: Choice[] = []) => ({ type, min, max, choices })
 
 describe('validateParam', () => {
 	test('whole numbers within the range', () => {
@@ -44,9 +44,17 @@ describe('validateParam', () => {
 	test('switches and choices', () => {
 		expect(validateParam(rules('bool'), true)).toEqual({ value: true })
 		expect(validateParam(rules('bool'), 'yes').error).toBeDefined()
-		const choice = rules('choice', null, null, ['off', 'daily', 'weekly'])
+		const choice = rules('choice', null, null, [{ value: 'off', label: 'Off' }, { value: 'daily', label: 'Daily' }, { value: 'weekly', label: 'Weekly' }])
 		expect(validateParam(choice, 'daily')).toEqual({ value: 'daily' })
-		expect(validateParam(choice, 'hourly').error).toBe('Choose one of: off, daily, weekly.')
+		expect(validateParam(choice, 'hourly').error).toBe('Choose one of: Off, Daily, Weekly.')
+	})
+
+	test('login names have no spaces or control characters and are at most as long as the server takes', () => {
+		expect(isLoginName('ids_alice', 64)).toBe(true)
+		expect(isLoginName('x'.repeat(64), 64)).toBe(true)
+		expect(isLoginName('x'.repeat(65), 64)).toBe(false)
+		expect(isLoginName('has space', 64)).toBe(false)
+		expect(isLoginName('', 64)).toBe(false)
 	})
 
 	test('lists are entered one per line, trimmed and without duplicates', () => {

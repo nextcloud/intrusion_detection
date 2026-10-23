@@ -6,10 +6,9 @@
 <script setup lang="ts">
 import type { Mode } from '../../types.ts'
 
-import { t } from '@nextcloud/l10n'
 import NcRadioGroup from '@nextcloud/vue/components/NcRadioGroup'
 import NcRadioGroupButton from '@nextcloud/vue/components/NcRadioGroupButton'
-import { APP_ID } from '../../utils/format.ts'
+import { modeLabel } from '../../store.ts'
 import { vRadioGroupName } from '../../utils/radioGroupName.ts'
 
 const mode = defineModel<Mode>({ required: true })
@@ -22,11 +21,7 @@ defineProps<{
 	disabled?: boolean
 }>()
 
-const modes: { value: Mode, label: () => string }[] = [
-	{ value: 'off', label: () => t(APP_ID, 'Off') },
-	{ value: 'observe', label: () => t(APP_ID, 'Observe') },
-	{ value: 'protect', label: () => t(APP_ID, 'Protect') },
-]
+const modes: Mode[] = ['off', 'observe', 'protect']
 </script>
 
 <template>
@@ -38,10 +33,10 @@ const modes: { value: Mode, label: () => string }[] = [
 		hideLabel>
 		<NcRadioGroupButton
 			v-for="option in modes"
-			:key="option.value"
-			:value="option.value"
-			:label="option.label()"
-			:disabled="disabled || (onlyOff && option.value !== 'off')" />
+			:key="option"
+			:value="option"
+			:label="modeLabel(option)"
+			:disabled="disabled || (onlyOff && option !== 'off')" />
 	</NcRadioGroup>
 </template>
 

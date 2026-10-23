@@ -42,6 +42,8 @@ describe('formatValue', () => {
 		expect(formatValue(0.333333, 'float')).toBe('0.33')
 		expect(formatValue(600, 'duration')).toBe('10 minutes')
 		expect(formatValue(600, 'int')).toBe('600')
+		expect(formatValue('observe', 'choice', [{ value: 'observe', label: 'Observe' }])).toBe('Observe')
+		expect(formatValue('daily', 'choice', [])).toBe('daily')
 	})
 })
 

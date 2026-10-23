@@ -10,6 +10,7 @@ import type {
 	Category,
 	Check,
 	CheckList,
+	Choice,
 	DetectionFilters,
 	GlobalSetting,
 	IncidentRequest,
@@ -62,7 +63,7 @@ const waiting = resource<LoginApproval[]>('waiting-logins', fetchWaitingLogins, 
 const grants = resource<AdminGrantRequest[]>('admin-grants', fetchAdminGrants, { keep: true })
 
 /** What the server derives from the global settings */
-const FROM_SETTINGS = ['status', 'checks', 'protection-level', 'blocklists', 'confirmation', 'digest', 'firewall-export', 'notifications', 'privacy', 'webhook-events']
+const FROM_SETTINGS = ['status', 'checks', 'protection-level', 'bans', 'blocklists', 'confirmation', 'digest', 'firewall-export', 'notifications', 'privacy', 'webhook-events']
 /** What shows the mode or the settings of checks */
 const FROM_CHECKS = ['status', 'blocklists', 'notifications', 'privacy', 'signatures', 'traps']
 /** What shows blocks */
@@ -83,7 +84,7 @@ export const state = reactive({
 		return checkList.data?.checks ?? []
 	},
 	set checks(value: Check[]) {
-		checkList.data = { checks: value, categories: checkList.data?.categories ?? [] }
+		checkList.data = { checks: value, categories: checkList.data?.categories ?? [], modes: checkList.data?.modes ?? [], severities: checkList.data?.severities ?? [] }
 	},
 	get categories(): Category[] {
 		return checkList.data?.categories ?? []
@@ -120,9 +121,28 @@ export const openDetectionId = ref<number | null>(null)
 /** An incident report to build on the Incidents tab, e.g. from "Incident report for this address" */
 export const incidentRequest = ref<IncidentRequest | null>(null)
 
-/** Values and types of the global settings, for `{name}` placeholders in texts */
+/** Values, types and choices of the global settings, for `{name}` placeholders in texts */
 export const globalValues = computed<Record<string, ParamValue>>(() => Object.fromEntries(state.settings.map((s) => [s.name, s.value])))
 export const globalTypes = computed<Record<string, ParamType>>(() => Object.fromEntries(state.settings.map((s) => [s.name, s.type])))
+export const globalChoices = computed<Record<string, Choice[]>>(() => Object.fromEntries(state.settings.map((s) => [s.name, s.choices])))
+
+/**
+ * The label of a mode, as the server sends it with the checks.
+ *
+ * @param mode - The mode
+ */
+export function modeLabel(mode: Mode): string {
+	return checkList.data?.modes.find((choice) => choice.value === mode)?.label ?? mode
+}
+
+/**
+ * The label of a severity, as the server sends it with the checks.
+ *
+ * @param severity - The severity
+ */
+export function severityLabel(severity: string): string {
+	return checkList.data?.severities.find((choice) => choice.value === severity)?.label ?? severity
+}
 
 /** The logins that wait for an administrator, oldest first */
 export const waitingLogins = computed<LoginApproval[]>({

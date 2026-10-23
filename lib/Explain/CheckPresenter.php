@@ -70,6 +70,7 @@ class CheckPresenter {
 				'default' => in_array($r, $check->defaultResponses, true),
 			], $check->responses),
 			'params' => array_map(fn (ParamDefinition $param): array => array_merge($param->toArray(), [
+				'choices' => $param->choiceLabels($l),
 				'value' => $this->settings->param($check->id, $param->name),
 				'label' => $texts->param($param->name)->label,
 				'help' => $texts->param($param->name)->help,

@@ -57,7 +57,7 @@ async function mountSection(value = overview()) {
 describe('DigestSection', () => {
 	beforeEach(() => {
 		state.settings = [
-			{ name: 'digest_frequency', type: 'choice', default: 'weekly', min: null, max: null, choices: ['off', 'daily', 'weekly'], value: 'weekly', label: 'Send the digest', help: '', unit: '', group: 'notifications' },
+			{ name: 'digest_frequency', type: 'choice', default: 'weekly', min: null, max: null, choices: [{ value: 'off', label: 'Off' }, { value: 'daily', label: 'Daily' }, { value: 'weekly', label: 'Weekly' }], value: 'weekly', label: 'Send the digest', help: '', unit: '', group: 'notifications' },
 			{ name: 'notify_admin_group', type: 'string_list', default: ['admin'], min: null, max: null, choices: [], value: ['admin'], label: 'Notify these groups', help: '', unit: '', group: 'notifications' },
 		]
 	})

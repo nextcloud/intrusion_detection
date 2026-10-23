@@ -329,6 +329,20 @@ class BanService implements IPurges {
 	}
 
 	/**
+	 * The limits of a block by hand, and the durations of the levels.
+	 *
+	 * @return array{minDuration: int, maxDuration: int, maxNote: int, levelDurations: list<int>}
+	 */
+	public function limits(): array {
+		return [
+			'minDuration' => self::MIN_DURATION,
+			'maxDuration' => self::MAX_DURATION,
+			'maxNote' => self::MAX_NOTE,
+			'levelDurations' => [$this->durationFor(1), $this->durationFor(2), $this->durationFor(3)],
+		];
+	}
+
+	/**
 	 * Duration in seconds of a ban at the given level.
 	 */
 	public function durationFor(int $level): int {

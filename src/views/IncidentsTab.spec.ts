@@ -26,6 +26,12 @@ vi.mock('../services/api.ts', async (importOriginal) => ({
 	searchAccounts: vi.fn(() => Promise.resolve([])),
 }))
 
+// The labels come with the checks, which this tab does not load.
+vi.mock('../store.ts', async (importOriginal) => ({
+	...(await importOriginal<object>()),
+	severityLabel: (severity: string) => ({ high: 'High' } as Record<string, string>)[severity] ?? severity,
+}))
+
 const AT = Date.UTC(2026, 9, 20, 10, 2) / 1000
 
 /**

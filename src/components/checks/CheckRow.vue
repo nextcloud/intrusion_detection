@@ -13,7 +13,8 @@ import NcIconSvgWrapper from '@nextcloud/vue/components/NcIconSvgWrapper'
 import NcLoadingIcon from '@nextcloud/vue/components/NcLoadingIcon'
 import CheckCard from './CheckCard.vue'
 import ModeSwitch from './ModeSwitch.vue'
-import { modeLabel, useCheckMode } from '../../composables/useCheckMode.ts'
+import { useCheckMode } from '../../composables/useCheckMode.ts'
+import { modeLabel } from '../../store.ts'
 import { APP_ID } from '../../utils/format.ts'
 
 const props = defineProps<{

@@ -55,6 +55,7 @@ class TrapsOverview {
 			'decoyCollisions' => $this->decoys->loginNameCollisions(),
 			'reservedNames' => $this->reservedNames(),
 			'trapPaths' => $this->trapPaths($l),
+			'limits' => ['labelMaxLength' => DecoyService::MAX_LABEL, 'loginNameMaxLength' => DecoyService::MAX_LOGIN_NAME],
 		];
 	}
 
@@ -83,6 +84,7 @@ class TrapsOverview {
 			'suggestions' => $this->reservedNames->suggestions(),
 			'collisions' => $this->collisions->reserved(),
 			'max' => ReservedNames::MAX_NAMES,
+			'limits' => ['maxLength' => ReservedNames::MAX_LENGTH],
 		];
 	}
 
@@ -112,6 +114,7 @@ class TrapsOverview {
 			'webServer' => $webServer,
 			'needRule' => TrapPaths::needingRule($webServer, $builtinEnabled, $autodiscover, $custom),
 			'max' => TrapPaths::MAX_CUSTOM,
+			'limits' => ['maxLength' => TrapPaths::MAX_CUSTOM_LENGTH, 'nextcloudSegments' => TrapPaths::NEXTCLOUD_SEGMENTS],
 			'snippets' => [
 				['id' => 'nginx', 'file' => $snippets['nginx']['file'], 'content' => $snippets['nginx']['content']],
 				['id' => 'apache', 'file' => $snippets['apache']['file'], 'content' => $snippets['apache']['content']],

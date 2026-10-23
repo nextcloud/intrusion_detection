@@ -69,10 +69,12 @@ function validate(value: string): string | null {
 	if (!value.startsWith('/')) {
 		return t(APP_ID, 'A path starts with /, for example /old-admin.')
 	}
-	if (!/^\/[\x21-\x7E]{0,199}$/.test(value)) {
-		return t(APP_ID, 'A path has no spaces and at most 200 characters.')
+	const { maxLength, nextcloudSegments } = props.paths.limits
+	if (value.length > maxLength || !/^\/[\x21-\x7E]*$/.test(value)) {
+		return t(APP_ID, 'A path has no spaces and at most {max} characters.', { max: maxLength })
 	}
-	if (/^\/(index\.php|remote\.php|public\.php|ocs|apps|core|s|login|status\.php|\.well-known)(\/|$)/.test(value)) {
+	const path = value.toLowerCase().replace(/^\/index\.php(?=\/)/, '')
+	if (nextcloudSegments.includes(path.slice(1).split('/')[0]!)) {
 		return t(APP_ID, 'Nextcloud uses this path itself, so legitimate clients would be blocked.')
 	}
 	return null

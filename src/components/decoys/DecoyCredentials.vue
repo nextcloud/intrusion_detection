@@ -4,7 +4,7 @@
 -->
 
 <script setup lang="ts">
-import type { CheckRef, Decoy, NewDecoy } from '../../types.ts'
+import type { CheckRef, Decoy, DecoyLimits, NewDecoy } from '../../types.ts'
 
 import { mdiAlertCircleOutline, mdiDeleteOutline, mdiKeyChainVariant, mdiKeyVariant, mdiPlus } from '@mdi/js'
 import { n, t } from '@nextcloud/l10n'
@@ -30,6 +30,7 @@ defineProps<{
 	check: CheckRef
 	/** Login names of decoys that are accounts by now */
 	collisions: string[]
+	limits: DecoyLimits
 }>()
 
 const creating = ref(false)
@@ -138,7 +139,7 @@ async function remove() {
 			</li>
 		</ul>
 
-		<CreateDecoyDialog v-model:open="creating" @created="onCreated" />
+		<CreateDecoyDialog v-model:open="creating" :limits="limits" @created="onCreated" />
 		<DecoySecretDialog v-model:created="created" />
 		<NcDialog
 			:open="deleting !== null"

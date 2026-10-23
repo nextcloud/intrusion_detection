@@ -7,16 +7,9 @@ import type { Check, Mode } from '../types.ts'
 
 import { t } from '@nextcloud/l10n'
 import { computed, ref, watch } from 'vue'
-import { saveCheck } from '../store.ts'
+import { modeLabel, saveCheck } from '../store.ts'
 import { APP_ID } from '../utils/format.ts'
 import { useAction } from './useAction.ts'
-
-/**
- * @param value - A mode
- */
-export function modeLabel(value: Mode): string {
-	return { off: t(APP_ID, 'Off'), observe: t(APP_ID, 'Observe'), protect: t(APP_ID, 'Protect') }[value]
-}
 
 /**
  * The Off / Observe / Protect choice of a check: saved at once,

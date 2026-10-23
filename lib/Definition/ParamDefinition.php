@@ -9,6 +9,8 @@ declare(strict_types=1);
 
 namespace OCA\IntrusionDetection\Definition;
 
+use OCP\IL10N;
+
 /**
  * One configurable parameter of a check, with its type, default and allowed range.
  *
@@ -88,6 +90,20 @@ final class ParamDefinition {
 			ParamType::CidrList => $this->validateCidrList($value),
 			ParamType::Json => $this->validateJson($value),
 		};
+	}
+
+	/**
+	 * The choices with the labels people read: modes and severities by
+	 * their own labels, other values by the labels given, or as they are.
+	 *
+	 * @param array<string, string> $labels labels of other values
+	 * @return list<array{value: string, label: string}>
+	 */
+	public function choiceLabels(IL10N $l, array $labels = []): array {
+		return array_map(static fn (string $choice): array => [
+			'value' => $choice,
+			'label' => Mode::tryFrom($choice)?->label($l) ?? Severity::tryFrom($choice)?->label($l) ?? $labels[$choice] ?? $choice,
+		], $this->choices);
 	}
 
 	/**

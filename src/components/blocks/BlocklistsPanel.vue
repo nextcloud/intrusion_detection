@@ -18,7 +18,7 @@ import SkeletonBlock from '../common/SkeletonBlock.vue'
 import AddBlocklistDialog from './AddBlocklistDialog.vue'
 import BlocklistRow from './BlocklistRow.vue'
 import { useAction } from '../../composables/useAction.ts'
-import { saveCheck, state } from '../../store.ts'
+import { modeLabel, saveCheck, state } from '../../store.ts'
 import { useBlocklists } from '../../stores/blocks.ts'
 import { APP_ID } from '../../utils/format.ts'
 
@@ -46,7 +46,7 @@ function observeWith(which: 'check' | 'networkCheck') {
 	}
 	const check: CheckRef = data.value[which]
 	run('observe', () => saveCheck(check.id, { mode: 'observe' }), {
-		done: t(APP_ID, 'Saved: {check} is set to {mode}.', { check: check.name, mode: t(APP_ID, 'Observe') }),
+		done: t(APP_ID, 'Saved: {check} is set to {mode}.', { check: check.name, mode: modeLabel('observe') }),
 		fallback: t(APP_ID, 'The mode could not be changed. Please try again.'),
 	})
 }

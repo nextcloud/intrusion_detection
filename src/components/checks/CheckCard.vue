@@ -34,7 +34,7 @@ const missingRequirement = computed(() => props.check.requirements.find((r) => !
 
 /* Settings and responses: edited as a draft and saved together. */
 
-const { draft, errors, changed: changedParams, hasErrors, values, types, changes, take, discard: discardParams, clearServerErrors, showAtField } = useParamDraft(() => props.check.params)
+const { draft, errors, changed: changedParams, hasErrors, values, types, choices, changes, take, discard: discardParams, clearServerErrors, showAtField } = useParamDraft(() => props.check.params)
 const selected = ref<string[]>([])
 const { busy, run } = useAction()
 const saving = computed(() => busy.value === 'save')
@@ -52,11 +52,11 @@ watch(() => props.check, (check, old) => {
 const responsesChanged = computed(() => !sameList(selected.value, savedResponses.value))
 const dirty = computed(() => changedParams.value.length > 0 || responsesChanged.value || hasErrors.value)
 
-const decides = computed(() => fillTemplate(props.check.decidesTemplate, values.value, types.value))
+const decides = computed(() => fillTemplate(props.check.decidesTemplate, values.value, types.value, choices.value))
 const happens = computed(() => props.check.responses
 	.filter((r) => selected.value.includes(r.type))
 	.sort((a, b) => a.order - b.order)
-	.map((r) => ({ type: r.type, segments: fillTemplate(r.happens, values.value, types.value) })))
+	.map((r) => ({ type: r.type, segments: fillTemplate(r.happens, values.value, types.value, choices.value) })))
 
 /**
  * Save the changed settings and responses.

@@ -15,6 +15,7 @@ import NcNoteCard from '@nextcloud/vue/components/NcNoteCard'
 import SeverityPill from '../common/SeverityPill.vue'
 import SkeletonBlock from '../common/SkeletonBlock.vue'
 import StateBadge from '../common/StateBadge.vue'
+import { modeLabel } from '../../store.ts'
 import { useSimulation } from '../../stores/settings.ts'
 import { APP_ID } from '../../utils/format.ts'
 
@@ -34,18 +35,18 @@ const mode = computed(() => {
 		return null
 	}
 	if (!current.runs) {
-		return { type: 'warning' as const, text: t(APP_ID, 'Off'), note: t(APP_ID, 'This check is off, so in reality nothing would be recorded. This is what it would report once it is on.') }
+		return { type: 'warning' as const, text: modeLabel('off'), note: t(APP_ID, 'This check is off, so in reality nothing would be recorded. This is what it would report once it is on.') }
 	}
 	if (!current.acts) {
 		return {
 			type: 'info' as const,
-			text: current.modeReason === 'learning' ? t(APP_ID, 'Observing while learning') : t(APP_ID, 'Observe'),
+			text: current.modeReason === 'learning' ? t(APP_ID, 'Observing while learning') : modeLabel('observe'),
 			note: current.modeReason === 'learning'
 				? t(APP_ID, 'Learning mode is on, so the detection would only be recorded. Once protection starts, these responses run:')
 				: t(APP_ID, 'The check is set to Observe, so the detection would only be recorded. In Protect mode these responses run:'),
 		}
 	}
-	return { type: 'success' as const, text: t(APP_ID, 'Protect'), note: null }
+	return { type: 'success' as const, text: modeLabel('protect'), note: null }
 })
 
 const buttons = computed(() => [

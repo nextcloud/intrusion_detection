@@ -4,7 +4,7 @@
 -->
 
 <script setup lang="ts">
-import type { Ban } from '../../types.ts'
+import type { Ban, BanLimits } from '../../types.ts'
 
 import { t } from '@nextcloud/l10n'
 import { computed, ref, watch } from 'vue'
@@ -17,11 +17,16 @@ import DurationInput from '../checks/DurationInput.vue'
 import SelectField from '../common/SelectField.vue'
 import { useAction } from '../../composables/useAction.ts'
 import { ApiError } from '../../services/api.ts'
-import { banAdd, globalValues, state } from '../../store.ts'
+import { banAdd, state } from '../../store.ts'
 import { APP_ID, formatAddress, formatDuration } from '../../utils/format.ts'
 import { isCidr } from '../../utils/validate.ts'
 
 const open = defineModel<boolean>('open', { required: true })
+
+const props = defineProps<{
+	/** The server's limits; the dialog waits for them */
+	limits: BanLimits | null
+}>()
 
 const target = ref('')
 const length = ref<'level' | 'custom'>('level')
@@ -51,13 +56,13 @@ watch(duration, () => {
 	errors.value = { ...errors.value, duration: undefined }
 })
 
-const levels = computed(() => [1, 2, 3].map((value) => ({
-	value,
-	label: {
-		1: t(APP_ID, 'First block: {duration}', { duration: formatDuration(Number(globalValues.value.ban_duration_1 ?? 14400)) }),
-		2: t(APP_ID, 'Second block: {duration}', { duration: formatDuration(Number(globalValues.value.ban_duration_2 ?? 86400)) }),
-		3: t(APP_ID, 'Repeat offender: {duration}', { duration: formatDuration(Number(globalValues.value.ban_duration_3 ?? 604800)) }),
-	}[value]!,
+const levels = computed(() => (props.limits?.levelDurations ?? []).map((seconds, index) => ({
+	value: index + 1,
+	label: [
+		t(APP_ID, 'First block: {duration}', { duration: formatDuration(seconds) }),
+		t(APP_ID, 'Second block: {duration}', { duration: formatDuration(seconds) }),
+		t(APP_ID, 'Repeat offender: {duration}', { duration: formatDuration(seconds) }),
+	][index]!,
 })))
 
 const targetError = computed(() => {
@@ -76,13 +81,14 @@ const durationError = computed(() => {
 	if (typeof seconds !== 'number') {
 		return t(APP_ID, 'Enter a whole number.')
 	}
-	if (seconds < 300 || seconds > 90 * 86400) {
+	if (props.limits !== null && (seconds < props.limits.minDuration || seconds > props.limits.maxDuration)) {
 		return t(APP_ID, 'A block lasts from 5 minutes to 90 days.')
 	}
 	return errors.value.duration ?? null
 })
 
-const valid = computed(() => target.value.trim() !== '' && targetError.value === null && durationError.value === null && note.value.length <= 255)
+const noteTooLong = computed(() => props.limits !== null && note.value.trim().length > props.limits.maxNote)
+const valid = computed(() => props.limits !== null && target.value.trim() !== '' && targetError.value === null && durationError.value === null && !noteTooLong.value)
 
 const buttons = computed(() => [
 	{ label: t(APP_ID, 'Cancel'), callback: () => undefined },
@@ -177,7 +183,7 @@ async function submit() {
 				v-model="note"
 				:label="t(APP_ID, 'Note (optional)')"
 				:helperText="t(APP_ID, 'Why the address is blocked, for other administrators. Kept with the block and in the audit log.')"
-				:error="note.length > 255"
+				:error="noteTooLong"
 				resize="vertical" />
 
 			<NcNoteCard v-if="error" type="error" :text="error" />

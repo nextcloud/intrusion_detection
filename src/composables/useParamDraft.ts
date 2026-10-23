@@ -3,11 +3,11 @@
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 
-import type { Param, ParamType, ParamValue } from '../types.ts'
+import type { Choice, Param, ParamType, ParamValue } from '../types.ts'
 
 import { computed, reactive, watch } from 'vue'
 import { ApiError } from '../services/api.ts'
-import { globalTypes, globalValues } from '../store.ts'
+import { globalChoices, globalTypes, globalValues } from '../store.ts'
 import { validateParam } from '../utils/validate.ts'
 
 /**
@@ -72,6 +72,7 @@ export function useParamDraft(params: () => Param[]) {
 		...Object.fromEntries(params().map((param) => [param.name, validation.value[param.name]?.value ?? param.value])),
 	}))
 	const types = computed<Record<string, ParamType>>(() => ({ ...globalTypes.value, ...Object.fromEntries(params().map((p) => [p.name, p.type])) }))
+	const choices = computed<Record<string, Choice[]>>(() => ({ ...globalChoices.value, ...Object.fromEntries(params().map((p) => [p.name, p.choices])) }))
 
 	/**
 	 * The changed values, to save.
@@ -120,5 +121,5 @@ export function useParamDraft(params: () => Param[]) {
 		clearServerErrors()
 	}
 
-	return { draft, errors, changed, hasErrors, values, types, changes, take, discard, clearServerErrors, showAtField }
+	return { draft, errors, changed, hasErrors, values, types, choices, changes, take, discard, clearServerErrors, showAtField }
 }

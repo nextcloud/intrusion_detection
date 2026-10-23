@@ -9,6 +9,8 @@ declare(strict_types=1);
 
 namespace OCA\IntrusionDetection\Definition;
 
+use OCP\IL10N;
+
 enum Severity: string {
 	case Low = 'low';
 	case Medium = 'medium';
@@ -26,5 +28,14 @@ enum Severity: string {
 
 	public function atLeast(self $other): bool {
 		return $this->rank() >= $other->rank();
+	}
+
+	public function label(IL10N $l): string {
+		return match ($this) {
+			self::Low => $l->t('Low'),
+			self::Medium => $l->t('Medium'),
+			self::High => $l->t('High'),
+			self::Critical => $l->t('Critical'),
+		};
 	}
 }

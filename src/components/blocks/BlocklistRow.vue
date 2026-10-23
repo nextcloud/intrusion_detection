@@ -24,6 +24,7 @@ import TimeStamp from '../common/TimeStamp.vue'
 import BlocklistHistory from './BlocklistHistory.vue'
 import { useAction } from '../../composables/useAction.ts'
 import { ApiError } from '../../services/api.ts'
+import { modeLabel } from '../../store.ts'
 import { changeBlocklist, deleteBlocklist, syncBlocklistNow } from '../../stores/blocks.ts'
 import { APP_ID, formatDuration, formatNumber } from '../../utils/format.ts'
 import { vRadioGroupName } from '../../utils/radioGroupName.ts'
@@ -293,8 +294,8 @@ async function remove() {
 					:label="t(APP_ID, 'What a match does for {list}', { list: list.name })"
 					hideLabel
 					@update:modelValue="setMode">
-					<NcRadioGroupButton value="observe" :label="t(APP_ID, 'Observe')" :disabled="busy !== null" />
-					<NcRadioGroupButton value="protect" :label="t(APP_ID, 'Protect')" :disabled="busy !== null" />
+					<NcRadioGroupButton value="observe" :label="modeLabel('observe')" :disabled="busy !== null" />
+					<NcRadioGroupButton value="protect" :label="modeLabel('protect')" :disabled="busy !== null" />
 				</NcRadioGroup>
 				<div v-if="countsMatches || totalMatches > 0" :class="$style.row__matches">
 					<MatchSparkline :points="points" :label="t(APP_ID, 'Matches of {list} per day', { list: list.name })" />

@@ -34,7 +34,7 @@ const mounted: { unmount: () => void }[] = []
  * @param value - Its value
  */
 function setting(name: string, type: GlobalSetting['type'], value: GlobalSetting['value']): GlobalSetting {
-	return { name, type, default: value, min: type === 'duration' ? 60 : null, max: type === 'duration' ? 86400 * 180 : null, choices: type === 'choice' ? ['refuse', 'allow_notify', 'allow_force_change'] : [], value, label: `Label of ${name}`, help: '', unit: '', group: 'step_up' }
+	return { name, type, default: value, min: type === 'duration' ? 60 : null, max: type === 'duration' ? 86400 * 180 : null, choices: type === 'choice' ? [{ value: 'refuse', label: 'Refuse the login' }, { value: 'allow_notify', label: 'Allow it and tell the user and you' }, { value: 'allow_force_change', label: 'Allow it and require a new password' }] : [], value, label: `Label of ${name}`, help: '', unit: '', group: 'step_up' }
 }
 
 /**

@@ -34,11 +34,11 @@ class ApiResponsesTest extends IntegrationTestCase {
 	/** Status and top-level keys of the reads, by route */
 	private const READS = [
 		'GET /api/v1/status' => [200, ['state', 'learning', 'checks', 'last24h', 'activeBans', 'prerequisites', 'cost', 'costSampleRate', 'problems', 'extensions']],
-		'GET /api/v1/checks' => [200, ['checks', 'categories']],
+		'GET /api/v1/checks' => [200, ['checks', 'categories', 'modes', 'severities']],
 		'GET /api/v1/protection-level' => [200, ['level']],
 		'GET /api/v1/detections' => [200, ['detections', 'hasMore']],
 		'GET /api/v1/stats/daily' => [200, ['days', 'timezone']],
-		'GET /api/v1/bans' => [200, ['bans', 'hasMore', 'activeCount']],
+		'GET /api/v1/bans' => [200, ['bans', 'hasMore', 'activeCount', 'limits']],
 		'GET /api/v1/lookup' => [200, ['kind', 'query', 'bans', 'detections', 'user']],
 		'GET /api/v1/learning' => [200, ['active', 'until', 'daysLeft', 'minDays', 'maxDays']],
 		'GET /api/v1/settings' => [200, ['settings', 'templates']],
@@ -50,7 +50,7 @@ class ApiResponsesTest extends IntegrationTestCase {
 		'GET /api/v1/confirmation' => [200, ['methods', 'policies', 'preset', 'outcomes', 'users', 'admins', 'approvers', 'approvals']],
 		'GET /api/v1/confirmation/waiting' => [200, []],
 		'GET /api/v1/confirmation/accounts' => [200, []],
-		'GET /api/v1/decoys' => [200, ['decoys', 'decoyCheck', 'reservedCheck', 'trapCheck', 'decoyCollisions', 'reservedNames', 'trapPaths']],
+		'GET /api/v1/decoys' => [200, ['decoys', 'decoyCheck', 'reservedCheck', 'trapCheck', 'decoyCollisions', 'reservedNames', 'trapPaths', 'limits']],
 		'GET /api/v1/digest' => [200, ['frequency', 'timezone', 'nextDue', 'last', 'recipients', 'withoutEmail', 'withoutEmailCount', 'mailConfigured', 'viewerHasEmail']],
 		'GET /api/v1/events' => [200, ['includeIp', 'webhooksEnabled', 'events']],
 		'GET /api/v1/notifications' => [200, ['recipients', 'recipientLimit', 'mail', 'me', 'checks']],

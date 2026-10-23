@@ -30,7 +30,7 @@ defineSlots<{
 	default?: (props: { fill: (template: string) => Segment[], changed: string[] }) => unknown
 }>()
 
-const { draft, errors, changed, hasErrors, values, types, changes, discard, clearServerErrors, showAtField } = useParamDraft(() => props.settings)
+const { draft, errors, changed, hasErrors, values, types, choices, changes, discard, clearServerErrors, showAtField } = useParamDraft(() => props.settings)
 const { busy, run } = useAction()
 const saving = computed(() => busy.value !== null)
 
@@ -38,7 +38,7 @@ const saving = computed(() => busy.value !== null)
  * @param template - A template with `{name}` placeholders
  */
 function fill(template: string): Segment[] {
-	return fillTemplate(template, values.value, types.value)
+	return fillTemplate(template, values.value, types.value, choices.value)
 }
 
 /**

@@ -11,6 +11,7 @@ import { t } from '@nextcloud/l10n'
 import { computed } from 'vue'
 import NcIconSvgWrapper from '@nextcloud/vue/components/NcIconSvgWrapper'
 import StateBadge from './StateBadge.vue'
+import { modeLabel } from '../../store.ts'
 import { APP_ID } from '../../utils/format.ts'
 
 const props = defineProps<{
@@ -21,12 +22,12 @@ const state = computed(() => {
 	const { effective, configured, reason } = props.check.mode
 	// Learning mode is shown once in the status strip; here the check keeps its own mode.
 	if (effective === 'protect' || (reason === 'learning' && configured === 'protect')) {
-		return { type: 'success' as const, text: t(APP_ID, 'Protect') }
+		return { type: 'success' as const, text: modeLabel('protect') }
 	}
 	if (effective === 'observe') {
-		return { type: 'info' as const, text: t(APP_ID, 'Observe') }
+		return { type: 'info' as const, text: modeLabel('observe') }
 	}
-	return { type: 'warning' as const, text: t(APP_ID, 'Off') }
+	return { type: 'warning' as const, text: modeLabel('off') }
 })
 </script>
 

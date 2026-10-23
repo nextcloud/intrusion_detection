@@ -4,7 +4,7 @@
 -->
 
 <script setup lang="ts">
-import type { DecoyFormat, NewDecoy } from '../../types.ts'
+import type { DecoyFormat, DecoyLimits, NewDecoy } from '../../types.ts'
 
 import { t } from '@nextcloud/l10n'
 import { computed, ref, watch } from 'vue'
@@ -16,8 +16,13 @@ import { useAction } from '../../composables/useAction.ts'
 import { ApiError } from '../../services/api.ts'
 import { addDecoy } from '../../stores/blocks.ts'
 import { APP_ID } from '../../utils/format.ts'
+import { isLoginName } from '../../utils/validate.ts'
 
 const open = defineModel<boolean>('open', { required: true })
+
+const props = defineProps<{
+	limits: DecoyLimits
+}>()
 
 const emit = defineEmits<{
 	created: [created: NewDecoy]
@@ -40,17 +45,16 @@ watch(open, (value) => {
 })
 
 const labelError = computed(() => {
-	if (label.value.length > 200) {
-		return t(APP_ID, 'The label can have at most 200 characters.')
+	if (label.value.length > props.limits.labelMaxLength) {
+		return t(APP_ID, 'The label can have at most {max} characters.', { max: props.limits.labelMaxLength })
 	}
 	return serverErrors.value.label ?? null
 })
 
 const loginNameError = computed(() => {
 	const value = loginName.value.trim()
-	// eslint-disable-next-line no-control-regex
-	if (value !== '' && !/^[^\s\u0000-\u001F\u007F]{1,64}$/u.test(value)) {
-		return t(APP_ID, 'A login name has no spaces and at most 64 characters.')
+	if (value !== '' && !isLoginName(value, props.limits.loginNameMaxLength)) {
+		return t(APP_ID, 'A login name has no spaces and at most {max} characters.', { max: props.limits.loginNameMaxLength })
 	}
 	return serverErrors.value.login_name ?? null
 })

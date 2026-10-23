@@ -8,18 +8,14 @@ import type { Severity } from '../../types.ts'
 
 import { t } from '@nextcloud/l10n'
 import { computed } from 'vue'
+import { severityLabel } from '../../store.ts'
 import { APP_ID } from '../../utils/format.ts'
 
 const props = defineProps<{
 	severity: Severity
 }>()
 
-const label = computed(() => ({
-	low: t(APP_ID, 'Low'),
-	medium: t(APP_ID, 'Medium'),
-	high: t(APP_ID, 'High'),
-	critical: t(APP_ID, 'Critical'),
-})[props.severity] ?? props.severity)
+const label = computed(() => severityLabel(props.severity))
 </script>
 
 <template>

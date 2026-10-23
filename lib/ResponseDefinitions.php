@@ -10,13 +10,18 @@ declare(strict_types=1);
 namespace OCA\IntrusionDetection;
 
 /**
+ * @psalm-type IntrusionDetectionChoice = array{
+ *     value: string,
+ *     label: string,
+ * }
+ *
  * @psalm-type IntrusionDetectionParam = array{
  *     name: string,
  *     type: string,
  *     default: int|float|bool|string|list<string>,
  *     min: int|float|null,
  *     max: int|float|null,
- *     choices: list<string>,
+ *     choices: list<IntrusionDetectionChoice>,
  *     value: int|float|bool|string|list<string>,
  *     label: string,
  *     help: string,
@@ -95,6 +100,8 @@ namespace OCA\IntrusionDetection;
  * @psalm-type IntrusionDetectionCheckList = array{
  *     checks: list<IntrusionDetectionCheck>,
  *     categories: list<IntrusionDetectionCategory>,
+ *     modes: list<IntrusionDetectionChoice>,
+ *     severities: list<IntrusionDetectionChoice>,
  * }
  *
  * @psalm-type IntrusionDetectionProtectionLevel = array{
@@ -215,10 +222,18 @@ namespace OCA\IntrusionDetection;
  *     active: bool,
  * }
  *
+ * @psalm-type IntrusionDetectionBanLimits = array{
+ *     minDuration: int,
+ *     maxDuration: int,
+ *     maxNote: int,
+ *     levelDurations: list<int>,
+ * }
+ *
  * @psalm-type IntrusionDetectionBanList = array{
  *     bans: list<IntrusionDetectionBan>,
  *     hasMore: bool,
  *     activeCount: int,
+ *     limits: IntrusionDetectionBanLimits,
  * }
  *
  * @psalm-type IntrusionDetectionAction = array{
@@ -276,7 +291,7 @@ namespace OCA\IntrusionDetection;
  *     default: int|float|bool|string|list<string>,
  *     min: int|float|null,
  *     max: int|float|null,
- *     choices: list<string>,
+ *     choices: list<IntrusionDetectionChoice>,
  *     value: int|float|bool|string|list<string>,
  *     label: string,
  *     help: string,
@@ -465,6 +480,7 @@ namespace OCA\IntrusionDetection;
  *     suggestions: list<string>,
  *     collisions: list<string>,
  *     max: int,
+ *     limits: array{maxLength: int},
  * }
  *
  * @psalm-type IntrusionDetectionTrapPaths = array{
@@ -476,6 +492,7 @@ namespace OCA\IntrusionDetection;
  *     webServer: 'nginx'|'apache_fpm'|'apache'|'unknown',
  *     needRule: list<string>,
  *     max: int,
+ *     limits: array{maxLength: int, nextcloudSegments: list<string>},
  *     snippets: list<IntrusionDetectionSnippet>,
  *     snippetsSkipped: list<string>,
  * }
@@ -488,6 +505,7 @@ namespace OCA\IntrusionDetection;
  *     decoyCollisions: list<string>,
  *     reservedNames: IntrusionDetectionReservedNames,
  *     trapPaths: IntrusionDetectionTrapPaths,
+ *     limits: array{labelMaxLength: int, loginNameMaxLength: int},
  * }
  *
  * @psalm-type IntrusionDetectionRecipient = array{

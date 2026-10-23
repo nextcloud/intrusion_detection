@@ -32,7 +32,9 @@ use OCP\Security\ISecureRandom;
  */
 class DecoyService {
 	public const MAX_LABEL = 200;
-	public const LOGIN_NAME_PATTERN = '/^[^\s\x00-\x1f\x7f]{1,64}$/u';
+	/** The longest login name */
+	public const MAX_LOGIN_NAME = 64;
+	public const LOGIN_NAME_PATTERN = '/^[^\s\x00-\x1f\x7f]{1,' . self::MAX_LOGIN_NAME . '}$/u';
 
 	public function __construct(
 		private readonly DecoyMapper $mapper,

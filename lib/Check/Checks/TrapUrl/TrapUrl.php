@@ -56,7 +56,7 @@ final class TrapUrl implements ICheck, IExplainsDetection, ISimulatable, IValida
 			params: [
 				new ParamDefinition('builtin_enabled', ParamType::Bool, true),
 				new ParamDefinition('autodiscover', ParamType::Bool, false),
-				new ParamDefinition('paths', ParamType::StringList, [], itemPattern: TrapPaths::CUSTOM_PATTERN, maxItems: TrapPaths::MAX_CUSTOM, maxItemLength: 200),
+				new ParamDefinition('paths', ParamType::StringList, [], itemPattern: TrapPaths::CUSTOM_PATTERN, maxItems: TrapPaths::MAX_CUSTOM, maxItemLength: TrapPaths::MAX_CUSTOM_LENGTH),
 			],
 			responses: [ResponseType::Ban, ResponseType::NotifyAdmin],
 			defaultResponses: [ResponseType::Ban],

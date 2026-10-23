@@ -293,12 +293,43 @@
                     }
                 }
             },
+            "BanLimits": {
+                "type": "object",
+                "required": [
+                    "minDuration",
+                    "maxDuration",
+                    "maxNote",
+                    "levelDurations"
+                ],
+                "properties": {
+                    "minDuration": {
+                        "type": "integer",
+                        "format": "int64"
+                    },
+                    "maxDuration": {
+                        "type": "integer",
+                        "format": "int64"
+                    },
+                    "maxNote": {
+                        "type": "integer",
+                        "format": "int64"
+                    },
+                    "levelDurations": {
+                        "type": "array",
+                        "items": {
+                            "type": "integer",
+                            "format": "int64"
+                        }
+                    }
+                }
+            },
             "BanList": {
                 "type": "object",
                 "required": [
                     "bans",
                     "hasMore",
-                    "activeCount"
+                    "activeCount",
+                    "limits"
                 ],
                 "properties": {
                     "bans": {
@@ -313,6 +344,9 @@
                     "activeCount": {
                         "type": "integer",
                         "format": "int64"
+                    },
+                    "limits": {
+                        "$ref": "#/components/schemas/BanLimits"
                     }
                 }
             },
@@ -604,7 +638,9 @@
                 "type": "object",
                 "required": [
                     "checks",
-                    "categories"
+                    "categories",
+                    "modes",
+                    "severities"
                 ],
                 "properties": {
                     "checks": {
@@ -617,6 +653,18 @@
                         "type": "array",
                         "items": {
                             "$ref": "#/components/schemas/Category"
+                        }
+                    },
+                    "modes": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/Choice"
+                        }
+                    },
+                    "severities": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/Choice"
                         }
                     }
                 }
@@ -751,6 +799,21 @@
                         "type": "string"
                     },
                     "data": {
+                        "type": "string"
+                    }
+                }
+            },
+            "Choice": {
+                "type": "object",
+                "required": [
+                    "value",
+                    "label"
+                ],
+                "properties": {
+                    "value": {
+                        "type": "string"
+                    },
+                    "label": {
                         "type": "string"
                     }
                 }
@@ -1670,7 +1733,7 @@
                     "choices": {
                         "type": "array",
                         "items": {
-                            "type": "string"
+                            "$ref": "#/components/schemas/Choice"
                         }
                     },
                     "value": {
@@ -2445,7 +2508,7 @@
                     "choices": {
                         "type": "array",
                         "items": {
-                            "type": "string"
+                            "$ref": "#/components/schemas/Choice"
                         }
                     },
                     "value": {
@@ -2874,7 +2937,8 @@
                     "names",
                     "suggestions",
                     "collisions",
-                    "max"
+                    "max",
+                    "limits"
                 ],
                 "properties": {
                     "names": {
@@ -2898,6 +2962,18 @@
                     "max": {
                         "type": "integer",
                         "format": "int64"
+                    },
+                    "limits": {
+                        "type": "object",
+                        "required": [
+                            "maxLength"
+                        ],
+                        "properties": {
+                            "maxLength": {
+                                "type": "integer",
+                                "format": "int64"
+                            }
+                        }
                     }
                 }
             },
@@ -3540,6 +3616,7 @@
                     "webServer",
                     "needRule",
                     "max",
+                    "limits",
                     "snippets",
                     "snippetsSkipped"
                 ],
@@ -3607,6 +3684,25 @@
                         "type": "integer",
                         "format": "int64"
                     },
+                    "limits": {
+                        "type": "object",
+                        "required": [
+                            "maxLength",
+                            "nextcloudSegments"
+                        ],
+                        "properties": {
+                            "maxLength": {
+                                "type": "integer",
+                                "format": "int64"
+                            },
+                            "nextcloudSegments": {
+                                "type": "array",
+                                "items": {
+                                    "type": "string"
+                                }
+                            }
+                        }
+                    },
                     "snippets": {
                         "type": "array",
                         "items": {
@@ -3630,7 +3726,8 @@
                     "trapCheck",
                     "decoyCollisions",
                     "reservedNames",
-                    "trapPaths"
+                    "trapPaths",
+                    "limits"
                 ],
                 "properties": {
                     "decoys": {
@@ -3707,6 +3804,23 @@
                     },
                     "trapPaths": {
                         "$ref": "#/components/schemas/TrapPaths"
+                    },
+                    "limits": {
+                        "type": "object",
+                        "required": [
+                            "labelMaxLength",
+                            "loginNameMaxLength"
+                        ],
+                        "properties": {
+                            "labelMaxLength": {
+                                "type": "integer",
+                                "format": "int64"
+                            },
+                            "loginNameMaxLength": {
+                                "type": "integer",
+                                "format": "int64"
+                            }
+                        }
                     }
                 }
             },

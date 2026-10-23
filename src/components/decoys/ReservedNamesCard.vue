@@ -16,6 +16,7 @@ import { useAction } from '../../composables/useAction.ts'
 import { errorMessage } from '../../services/api.ts'
 import { changeReservedNames } from '../../stores/blocks.ts'
 import { APP_ID } from '../../utils/format.ts'
+import { isLoginName } from '../../utils/validate.ts'
 
 const props = defineProps<{
 	reserved: ReservedNames
@@ -34,8 +35,8 @@ const problems = computed(() => Object.fromEntries(props.reserved.collisions.map
  * @param value - A name as typed
  */
 function validate(value: string): string | null {
-	// eslint-disable-next-line no-control-regex
-	return /^[^\s\u0000-\u001F\u007F]{1,64}$/u.test(value) ? null : t(APP_ID, 'A login name has no spaces and at most 64 characters.')
+	const max = props.reserved.limits.maxLength
+	return isLoginName(value, max) ? null : t(APP_ID, 'A login name has no spaces and at most {max} characters.', { max })
 }
 
 /**

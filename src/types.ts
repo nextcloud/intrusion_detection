@@ -10,13 +10,19 @@ export type Severity = 'low' | 'medium' | 'high' | 'critical'
 export type ParamType = 'int' | 'duration' | 'float' | 'bool' | 'choice' | 'string_list' | 'cidr_list'
 export type ParamValue = number | boolean | string | string[]
 
+/** A value to choose, with the label people read */
+export interface Choice {
+	value: string
+	label: string
+}
+
 export interface Param {
 	name: string
 	type: ParamType
 	default: ParamValue
 	min: number | null
 	max: number | null
-	choices: string[]
+	choices: Choice[]
 	value: ParamValue
 	label: string
 	help: string
@@ -91,6 +97,8 @@ export interface Category {
 export interface CheckList {
 	checks: Check[]
 	categories: Category[]
+	modes: Choice[]
+	severities: Choice[]
 }
 
 export interface Learning {
@@ -195,10 +203,19 @@ export interface Ban {
 	active: boolean
 }
 
+/** The limits of a block by hand, and the durations of the escalation levels */
+export interface BanLimits {
+	minDuration: number
+	maxDuration: number
+	maxNote: number
+	levelDurations: number[]
+}
+
 export interface BanList {
 	bans: Ban[]
 	hasMore: boolean
 	activeCount: number
+	limits: BanLimits
 }
 
 export interface RiskPart {
@@ -436,6 +453,7 @@ export interface ReservedNames {
 	suggestions: string[]
 	collisions: string[]
 	max: number
+	limits: { maxLength: number }
 }
 
 /** A web server setup, as far as it decides which trap paths reach Nextcloud */
@@ -453,6 +471,8 @@ export interface TrapPathList {
 	/** The enabled trap paths that reach Nextcloud on this web server only with the rule */
 	needRule: string[]
 	max: number
+	/** nextcloudSegments: the first path segments Nextcloud uses itself */
+	limits: { maxLength: number, nextcloudSegments: string[] }
 	snippets: Snippet[]
 	snippetsSkipped: string[]
 }
@@ -465,6 +485,13 @@ export interface Traps {
 	decoyCollisions: string[]
 	reservedNames: ReservedNames
 	trapPaths: TrapPathList
+	limits: DecoyLimits
+}
+
+/** The limits of a new decoy */
+export interface DecoyLimits {
+	labelMaxLength: number
+	loginNameMaxLength: number
 }
 
 export interface Recipient {

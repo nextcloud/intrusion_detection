@@ -21,7 +21,7 @@ import SectionCard from '../common/SectionCard.vue'
 import SelectField from '../common/SelectField.vue'
 import { useAction } from '../../composables/useAction.ts'
 import { sendTestAlert } from '../../services/api.ts'
-import { saveSettings, state } from '../../store.ts'
+import { saveSettings, severityLabel, state } from '../../store.ts'
 import { APP_ID, fillTemplate } from '../../utils/format.ts'
 
 /** "Who is notified": the groups, the email threshold, who that is now, and a test alert */
@@ -62,14 +62,13 @@ const SEVERITIES = [
 ]
 
 const emailSentence = computed(() => {
-	const label = { low: t(APP_ID, 'every severity'), medium: t(APP_ID, 'Medium'), high: t(APP_ID, 'High'), critical: t(APP_ID, 'Critical') }[severity.value]
-	if (label === undefined) {
+	if (severity.value === 'never') {
 		return [{ text: t(APP_ID, 'No emails are sent. Alerts appear only as notifications in Nextcloud.') }]
 	}
 	const template = severity.value === 'low'
 		? t(APP_ID, 'Every detection with a notification is also emailed, at most once per check and hour.')
 		: t(APP_ID, 'Detections of severity {severity} or higher are also emailed, at most once per check and hour. The others appear only as notifications in Nextcloud.')
-	return fillTemplate(template, { severity: label })
+	return fillTemplate(template, { severity: severityLabel(severity.value) })
 })
 
 /**

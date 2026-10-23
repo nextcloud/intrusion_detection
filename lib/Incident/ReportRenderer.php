@@ -11,6 +11,7 @@ namespace OCA\IntrusionDetection\Incident;
 
 use OCA\IntrusionDetection\Admin\DetectionPresenter;
 use OCA\IntrusionDetection\AppInfo\Application;
+use OCA\IntrusionDetection\Definition\Severity;
 use OCP\IDateTimeFormatter;
 use OCP\IDateTimeZone;
 use OCP\IL10N;
@@ -171,12 +172,6 @@ class ReportRenderer {
 	}
 
 	private function severity(string $severity, IL10N $l): string {
-		return match ($severity) {
-			'low' => $l->t('Low'),
-			'medium' => $l->t('Medium'),
-			'high' => $l->t('High'),
-			'critical' => $l->t('Critical'),
-			default => $severity,
-		};
+		return Severity::tryFrom($severity)?->label($l) ?? $severity;
 	}
 }
