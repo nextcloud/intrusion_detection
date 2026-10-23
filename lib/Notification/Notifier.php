@@ -127,8 +127,8 @@ class Notifier implements INotifier {
 
 	private function prepareDetection(INotification $notification, IL10N $l): INotification {
 		$params = $notification->getSubjectParameters();
-		$alert = $this->alerts->find((int)($params['alert'] ?? 0));
-		$detectionId = $alert['detection_id'] ?? (int)($params['detection'] ?? 0);
+		$alert = $this->alerts->find(self::id($params, 'alert'));
+		$detectionId = $alert['detection_id'] ?? self::id($params, 'detection');
 		try {
 			$detection = $this->detections->findById($detectionId);
 		} catch (DoesNotExistException) {
@@ -169,7 +169,7 @@ class Notifier implements INotifier {
 			$notification->setRichSubject($richSubject, $richParams);
 		}
 		$notification->setParsedMessage(implode(' ', $message))
-			->setLink($this->links->detection($detection->getId()));
+			->setLink($this->links->detection((string)$detection->getId()));
 		return $notification;
 	}
 
@@ -211,7 +211,7 @@ class Notifier implements INotifier {
 
 	private function prepareApproval(INotification $notification, IL10N $l): INotification {
 		try {
-			$approval = $this->approvals->findById((int)($notification->getSubjectParameters()['approval'] ?? 0));
+			$approval = $this->approvals->findById(self::id($notification->getSubjectParameters(), 'approval'));
 		} catch (DoesNotExistException) {
 			throw new AlreadyProcessedException();
 		}
@@ -267,7 +267,7 @@ class Notifier implements INotifier {
 			};
 			$notification->setParsedSubject($subject)->setParsedMessage($message);
 		}
-		$notification->setLink($this->links->approval((int)$approval->getId()));
+		$notification->setLink($this->links->approval((string)$approval->getId()));
 		return $notification;
 	}
 
@@ -302,7 +302,7 @@ class Notifier implements INotifier {
 			};
 			$notification->setParsedSubject($subject)->setParsedMessage(implode(' ', [$message, $change]));
 		}
-		$notification->setLink($this->links->approval((int)$approval->getId()));
+		$notification->setLink($this->links->approval((string)$approval->getId()));
 		return $notification;
 	}
 
@@ -377,7 +377,7 @@ class Notifier implements INotifier {
 			$deny = $notification->createAction();
 			$deny->setLabel(self::ACTION_DENY)
 				->setParsedLabel($l->t('No, it was not me'))
-				->setLink($this->urlGenerator->linkToOCSRouteAbsolute(Application::APP_ID . '.PersonalApi.deny', ['id' => $detection->getId()]), 'POST')
+				->setLink($this->urlGenerator->linkToOCSRouteAbsolute(Application::APP_ID . '.PersonalApi.deny', ['id' => (string)$detection->getId()]), 'POST')
 				->setPrimary(true);
 			$notification->addParsedAction($deny);
 			// "Yes" needs the password first, which the notification cannot ask: it opens the security page.
@@ -407,7 +407,7 @@ class Notifier implements INotifier {
 		$notification->setParsedSubject($l->t('%s could only be told inside Nextcloud', [$uid]))
 			->setRichSubject($l->t('{user} could only be told inside Nextcloud'), ['user' => ['type' => 'user', 'id' => $uid, 'name' => $uid]])
 			->setParsedMessage($message . ' ' . $l->t('If it matters, reach out to them another way.'))
-			->setLink($this->links->detection($detection->getId()));
+			->setLink($this->links->detection((string)$detection->getId()));
 		return $notification;
 	}
 
@@ -419,11 +419,11 @@ class Notifier implements INotifier {
 		if ($user === null) {
 			throw new AlreadyProcessedException();
 		}
-		$detectionId = (int)($params['detection'] ?? 0);
+		$detectionId = self::id($params, 'detection');
 		$notification->setParsedSubject($l->t('Reset the password of %s in the external directory', [$uid]))
 			->setRichSubject($l->t('Reset the password of {user} in the external directory'), ['user' => ['type' => 'user', 'id' => $uid, 'name' => $uid]])
 			->setParsedMessage($l->t('Intrusion detection wanted %1$s to choose a new password, but their password is managed outside Nextcloud (%2$s), so Nextcloud cannot ask for a new one. Reset the password in that directory, or ask the user to change it there.', [$uid, $user->getBackendClassName()]))
-			->setLink($detectionId > 0 ? $this->links->detection($detectionId) : $this->links->adminPage());
+			->setLink($detectionId !== '0' ? $this->links->detection($detectionId) : $this->links->adminPage());
 		return $notification;
 	}
 
@@ -439,7 +439,7 @@ class Notifier implements INotifier {
 
 	private function detectionOf(INotification $notification): Detection {
 		try {
-			return $this->detections->findById((int)($notification->getSubjectParameters()['detection'] ?? 0));
+			return $this->detections->findById(self::id($notification->getSubjectParameters(), 'detection'));
 		} catch (DoesNotExistException) {
 			throw new AlreadyProcessedException();
 		}
@@ -486,6 +486,16 @@ class Notifier implements INotifier {
 			->setParsedMessage($message)
 			->setLink($this->userLinks->securityPage());
 		return $notification;
+	}
+
+	/**
+	 * An id among the subject parameters, "0" when there is none.
+	 *
+	 * @param array<array-key, mixed> $params
+	 */
+	private static function id(array $params, string $key): string {
+		$id = $params[$key] ?? null;
+		return is_string($id) && $id !== '' ? $id : '0';
 	}
 
 	private function prepareTestAlert(INotification $notification, IL10N $l): INotification {

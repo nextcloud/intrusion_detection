@@ -60,7 +60,7 @@ class OpenMetricsTest extends IntegrationTestCase {
 		$detection->setUid($uid);
 		$detection->setExplanationData([]);
 		$detection->setActionList([]);
-		$detection->setCreatedAt($createdAt);
+		$detection->setCreatedTime($createdAt);
 		$detection->setLastSeenAt($createdAt);
 		$detection->setHits(1);
 		Server::get(DetectionTotals::class)->created(Server::get(DetectionMapper::class)->insert($detection));
@@ -173,7 +173,7 @@ class OpenMetricsTest extends IntegrationTestCase {
 			$approval->setSubjectUid('ids-metric-' . $i);
 			$approval->setRequestedBy('admin');
 			$approval->setStatus($status);
-			$approval->setCreatedAt(time());
+			$approval->setCreatedTime(time());
 			$approval->setExpiresAt(time() + 3600);
 			Server::get(ApprovalMapper::class)->insert($approval);
 		}

@@ -29,7 +29,7 @@ class ApprovalCountTest extends IntegrationTestCase {
 			$approval->setSubjectUid('user' . $i);
 			$approval->setRequestedBy('admin');
 			$approval->setStatus(Approval::STATUS_PENDING);
-			$approval->setCreatedAt($now - 100);
+			$approval->setCreatedTime($now - 100);
 			$approval->setExpiresAt($expiresAt);
 			$mapper->insert($approval);
 		}

@@ -90,7 +90,7 @@ class QueuedMailsTest extends AccountTestCase {
 		$this->assertSame(['alice@example.com' => $user->getDisplayName()], $message->getTo());
 		$this->assertSame('Security notice: Someone entered your password, but not your second factor', $message->getSubject());
 		$body = str_replace("\u{202F}", ' ', $message->getPlainBody());
-		$when = Server::get(IDateTimeFormatter::class)->formatDateTime($detection->getCreatedAt(), 'long', 'short', new \DateTimeZone('Pacific/Auckland'), Server::get(IFactory::class)->get(Application::APP_ID, 'en'));
+		$when = Server::get(IDateTimeFormatter::class)->formatDateTime($detection->getCreatedTime(), 'long', 'short', new \DateTimeZone('Pacific/Auckland'), Server::get(IFactory::class)->get(Application::APP_ID, 'en'));
 		$this->assertStringContainsString('This happened on ' . str_replace("\u{202F}", ' ', $when) . ', from the address 198.51.100.7.', $body, 'In the user\'s time zone');
 		$this->assertStringContainsString('/settings/user/security#intrusion-detection', $body);
 		$this->assertSame($this->mailOf($user->getUID(), $detection->getId()), $body, 'The same email as built in the request');
@@ -130,18 +130,18 @@ class QueuedMailsTest extends AccountTestCase {
 		// An attacker walks 150 accounts within the hour.
 		$queued = 0;
 		for ($i = 1; $i <= 150; $i++) {
-			$queued += $queue->user(1000000 + $i, 'walked-' . $i, Severity::Medium) ? 1 : 0;
+			$queued += $queue->user((string)(1000000 + $i), 'walked-' . $i, Severity::Medium) ? 1 : 0;
 		}
 		$this->assertSame($shared, $queued, 'Lesser detections leave the reserve alone');
-		$this->assertFalse($queue->shareOwners(1000001, Severity::Low), 'Share owners count against the same cap');
+		$this->assertFalse($queue->shareOwners('1000001', Severity::Low), 'Share owners count against the same cap');
 
 		// A takeover notice still gets out, until the reserve is used up too.
 		$severe = 0;
 		for ($i = 1; $i <= MailQueue::RESERVED_FOR_SEVERE + 5; $i++) {
-			$severe += $queue->user(3000000 + $i, 'taken-' . $i, $i % 2 === 0 ? Severity::Critical : Severity::High) ? 1 : 0;
+			$severe += $queue->user((string)(3000000 + $i), 'taken-' . $i, $i % 2 === 0 ? Severity::Critical : Severity::High) ? 1 : 0;
 		}
 		$this->assertSame(MailQueue::RESERVED_FOR_SEVERE, $severe);
-		$this->assertFalse($queue->shareOwners(1000002, Severity::Critical));
+		$this->assertFalse($queue->shareOwners('1000002', Severity::Critical));
 		$this->assertCount(MailQueue::MAX_USER_MAILS_PER_HOUR, $this->queuedMails(), 'At most the cap of jobs');
 
 		// Above the cap, a user is told inside Nextcloud and at the next login.
@@ -150,16 +150,16 @@ class QueuedMailsTest extends AccountTestCase {
 		$result = $this->alertsWith($this->mails, $queue)->notify($detection);
 		$this->assertSame(['bell' => UserAlerts::BELL_SENT, 'email' => UserAlerts::EMAIL_LIMITED, 'admins' => 0], $result);
 		$this->assertCount(1, $this->notificationsFor($user->getUID(), UserAlerts::SUBJECT));
-		$this->assertSame($detection->getCreatedAt(), Server::get(LoginNotices::class)->since($user->getUID()));
+		$this->assertSame($detection->getCreatedTime(), Server::get(LoginNotices::class)->since($user->getUID()));
 		$this->assertCount(MailQueue::MAX_USER_MAILS_PER_HOUR, $this->queuedMails());
 
 		// The administrators' alert is not capped here: it has its own hourly limit.
-		$queue->admins(1000001);
+		$queue->admins('1000001');
 		$this->assertCount(MailQueue::MAX_USER_MAILS_PER_HOUR + 1, $this->queuedMails());
 
 		// The next hour, users are emailed again.
 		$now += 3600;
-		$this->assertTrue($queue->user(2000000, 'walked-next-hour', Severity::Low));
+		$this->assertTrue($queue->user('2000000', 'walked-next-hour', Severity::Low));
 	}
 
 	public function testAJobForADetectionOrAccountThatIsGoneSendsNothing(): void {
@@ -183,7 +183,7 @@ class QueuedMailsTest extends AccountTestCase {
 	/**
 	 * The plain text of the email about a detection as it is built now.
 	 */
-	private function mailOf(string $uid, int $detectionId): string {
+	private function mailOf(string $uid, string $detectionId): string {
 		$this->delivered = [];
 		$user = Server::get(IUserManager::class)->get($uid);
 		$this->assertNotNull($user);

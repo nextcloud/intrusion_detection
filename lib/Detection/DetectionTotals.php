@@ -17,6 +17,7 @@ use OCA\IntrusionDetection\Db\StatsMapper;
 use OCA\IntrusionDetection\State\AppState;
 use OCP\DB\QueryBuilder\IQueryBuilder;
 use OCP\IDBConnection;
+use OCP\Snowflake\ISnowflakeGenerator;
 
 /**
  * Running totals of the detections, per hour, check, severity and
@@ -44,6 +45,7 @@ class DetectionTotals implements IPurges {
 		private readonly DetectionMapper $mapper,
 		private readonly AppState $state,
 		private readonly PurgeRetention $retention,
+		private readonly ISnowflakeGenerator $snowflakes,
 	) {
 	}
 
@@ -64,7 +66,7 @@ class DetectionTotals implements IPurges {
 	 * Count a new detection.
 	 */
 	public function created(Detection $detection): void {
-		$this->add('created', intdiv((int)$detection->getCreatedAt(), 3600), (string)$detection->getCheckId(), (string)$detection->getSeverity(), $detection->isEnforced());
+		$this->add('created', intdiv((int)$detection->getCreatedTime(), 3600), (string)$detection->getCheckId(), (string)$detection->getSeverity(), $detection->isEnforced());
 	}
 
 	/**
@@ -255,6 +257,7 @@ class DetectionTotals implements IPurges {
 			return;
 		}
 		$inserted = $this->db->insertIgnoreConflict(self::TABLE, [
+			'id' => $this->snowflakes->nextId(),
 			'hour' => $hour,
 			'check_id' => $checkId,
 			'severity' => $severity,

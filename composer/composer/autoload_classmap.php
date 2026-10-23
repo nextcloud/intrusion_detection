@@ -320,6 +320,7 @@ return array(
     'OCA\\IntrusionDetection\\Db\\Ban' => $baseDir . '/../lib/Db/Ban.php',
     'OCA\\IntrusionDetection\\Db\\BanMapper' => $baseDir . '/../lib/Db/BanMapper.php',
     'OCA\\IntrusionDetection\\Db\\BatchedDelete' => $baseDir . '/../lib/Db/BatchedDelete.php',
+    'OCA\\IntrusionDetection\\Db\\CreatedTimeColumn' => $baseDir . '/../lib/Db/CreatedTimeColumn.php',
     'OCA\\IntrusionDetection\\Db\\Detection' => $baseDir . '/../lib/Db/Detection.php',
     'OCA\\IntrusionDetection\\Db\\DetectionAccountMapper' => $baseDir . '/../lib/Db/DetectionAccountMapper.php',
     'OCA\\IntrusionDetection\\Db\\DetectionFilter' => $baseDir . '/../lib/Db/DetectionFilter.php',

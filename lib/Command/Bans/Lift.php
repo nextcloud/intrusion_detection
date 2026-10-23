@@ -73,7 +73,7 @@ class Lift extends Base {
 	private function find(string $target): array {
 		if (ctype_digit($target)) {
 			try {
-				return [$this->mapper->findById((int)$target)];
+				return [$this->mapper->findById($target)];
 			} catch (DoesNotExistException) {
 				return [];
 			}

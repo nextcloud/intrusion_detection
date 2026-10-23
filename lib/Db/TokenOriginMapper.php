@@ -142,7 +142,7 @@ class TokenOriginMapper implements IPurges {
 
 	#[\Override]
 	public function purge(int $now): int {
-		return BatchedDelete::run($this->db, self::TABLE, 'token_id', 'created_at', static fn (IQueryBuilder $qb): IQueryBuilder => $qb->where($qb->expr()->lt('created_at', $qb->createNamedParameter($now - self::RETENTION, IQueryBuilder::PARAM_INT))));
+		return BatchedDelete::run($this->db, self::TABLE, 'token_id', 'created_at', static fn (IQueryBuilder $qb): IQueryBuilder => $qb->where($qb->expr()->lt('created_at', $qb->createNamedParameter($now - self::RETENTION, IQueryBuilder::PARAM_INT))), IQueryBuilder::PARAM_INT_ARRAY);
 	}
 
 	/**

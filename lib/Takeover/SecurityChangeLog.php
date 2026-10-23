@@ -84,7 +84,7 @@ class SecurityChangeLog implements IPurges {
 	/**
 	 * @param ?string $oldAddress the previous email address, for email changes
 	 * @param ?string $newAddress the new email address, for email changes
-	 * @return int the id of the recorded change
+	 * @return string the id of the recorded change
 	 */
 	public function record(
 		string $uid,
@@ -93,7 +93,7 @@ class SecurityChangeLog implements IPurges {
 		?string $newAddress = null,
 		?int $refId = null,
 		?string $detail = null,
-	): int {
+	): string {
 		[$via, $actor] = $this->actor($uid);
 		$sessionTokenId = $this->actors->isCommandLine() ? null : $this->coreSession->tokenId();
 		$source = $this->addresses->current();

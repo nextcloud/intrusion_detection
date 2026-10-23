@@ -99,7 +99,7 @@ class AccountTakeoverTest extends TestCase {
 		$detection = new Detection();
 		$detection->setUid('alice');
 		$detection->setCheckId(AccountTakeover::ID);
-		$detection->setCreatedAt(1792560200);
+		$detection->setCreatedTime(1792560200);
 		$detection->setLastSeenAt(1792560200);
 		$detection->setHits(1);
 		$detection->setExplanationData(['facts' => $facts, 'thresholds' => $thresholds]);

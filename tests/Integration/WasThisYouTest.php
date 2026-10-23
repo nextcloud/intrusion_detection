@@ -119,7 +119,7 @@ class WasThisYouTest extends StepUpTestCase {
 		$this->startSession($bob);
 		foreach (['deny', 'confirm'] as $answer) {
 			$this->assertAnswerFails(AnswerException::NOT_FOUND, fn () => $this->answers()->{$answer}($bob, $hers->getId()), 'Another account\'s detection looks like a missing one');
-			$this->assertAnswerFails(AnswerException::NOT_FOUND, fn () => $this->answers()->{$answer}($bob, 999999999));
+			$this->assertAnswerFails(AnswerException::NOT_FOUND, fn () => $this->answers()->{$answer}($bob, '999999999'));
 		}
 		$this->startSession($this->alice);
 		$breach = $this->detection(BreachedPassword::ID, $this->alice);
@@ -416,8 +416,8 @@ class WasThisYouTest extends StepUpTestCase {
 		$token = str_repeat('a', LockLinks::TOKEN_LENGTH);
 		$hash = Server::get(Fingerprinter::class)->lockToken($token);
 		$mapper = Server::get(LockLinkMapper::class);
-		$link = $mapper->insert($this->alice->getUID(), $hash, 'o***@example.com', $detection->getId(), null, time(), time() + LockLinks::TTL);
-		$otherLink = $mapper->insert($this->alice->getUID(), $hash, 'o***@example.com', $other->getId(), null, time(), time() + LockLinks::TTL);
+		$link = $mapper->insert($this->alice->getUID(), $hash, 'o***@example.com', $detection->getId(), null, time() + LockLinks::TTL);
+		$otherLink = $mapper->insert($this->alice->getUID(), $hash, 'o***@example.com', $other->getId(), null, time() + LockLinks::TTL);
 		$links = Server::get(LockLinks::class);
 		$this->assertSame(LockLinks::VALID, $links->check($link, $token)[0]);
 
@@ -477,7 +477,7 @@ class WasThisYouTest extends StepUpTestCase {
 		$bob = $this->user('ids-wty-bob3', 'bob@example.com');
 		$detection = $this->detection(SecondFactorFailed::ID, $this->alice);
 		$this->provenSession($this->alice);
-		$this->assertSame(Http::STATUS_NOT_FOUND, $this->answer(fn () => $this->controller()->deny(999999999))->getStatus());
+		$this->assertSame(Http::STATUS_NOT_FOUND, $this->answer(fn () => $this->controller()->deny('999999999'))->getStatus());
 		$response = $this->controller()->confirm($detection->getId());
 		$this->assertSame(Http::STATUS_OK, $response->getStatus());
 		$this->assertSame('confirmed', $response->getData()['verdict']);

@@ -54,7 +54,7 @@ use PHPUnit\Framework\Attributes\Group;
 #[Group('DB')]
 class LockLinkTest extends TakeoverTestCase {
 	private IUser $user;
-	private int $linkId;
+	private string $linkId;
 	private string $token;
 	/** @var array{id: int, secret: string} */
 	private array $appPassword;
@@ -68,7 +68,7 @@ class LockLinkTest extends TakeoverTestCase {
 		Server::get(IEventDispatcher::class)->dispatchTyped(new AppPasswordCreatedEvent($this->tokens->getTokenById($this->appPassword['id'])));
 		$this->assertCount(1, $this->sentTo, 'The takeover sent the lock link');
 		preg_match('#/lock/(\d+)/([A-Za-z0-9]+)$#', (string)$this->sentTo[0][1]->buttonUrl, $match);
-		$this->linkId = (int)$match[1];
+		$this->linkId = $match[1];
 		$this->token = $match[2];
 		// The visitor of the link is not logged in.
 		$this->sessionUser = null;
@@ -161,7 +161,7 @@ class LockLinkTest extends TakeoverTestCase {
 	public function testWrongLinksAreThrottledAndLookTheSame(): void {
 		$controller = $this->controller();
 		$wrongToken = $controller->show($this->linkId, strrev($this->token));
-		$unknown = $controller->show($this->linkId + 1000, $this->token);
+		$unknown = $controller->show('1', $this->token);
 		$garbage = $controller->lock($this->linkId, 'short', 'x');
 		foreach ([$wrongToken, $unknown, $garbage] as $response) {
 			$this->assertSame(Http::STATUS_NOT_FOUND, $response->getStatus());
@@ -272,7 +272,7 @@ class LockLinkTest extends TakeoverTestCase {
 		$this->assertFalse($this->reloadUser()->isEnabled());
 
 		$this->expectException(OCSNotFoundException::class);
-		$this->adminController()->show(999999999);
+		$this->adminController()->show('999999999');
 	}
 
 	private function controller(?LockLinks $links = null, ?AccountLock $accountLock = null): LockLinkController {

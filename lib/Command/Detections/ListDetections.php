@@ -65,7 +65,7 @@ class ListDetections extends Base {
 		$table = new Table($output);
 		$table->setHeaders(['Id', 'When', 'Check', 'Severity', 'Address', 'Account', 'Hits', 'Acted']);
 		foreach ($detections as $d) {
-			$table->addRow([$d->getId(), date('Y-m-d H:i', $d->getCreatedAt()), $d->getCheckId(), $d->getSeverity(), $d->getIp() ?? '', $d->getUid() ?? '', $d->getHits(), $d->isEnforced() ? 'yes' : 'would have']);
+			$table->addRow([$d->getId(), date('Y-m-d H:i', $d->getCreatedTime()), $d->getCheckId(), $d->getSeverity(), $d->getIp() ?? '', $d->getUid() ?? '', $d->getHits(), $d->isEnforced() ? 'yes' : 'would have']);
 		}
 		$table->render();
 		return self::SUCCESS;

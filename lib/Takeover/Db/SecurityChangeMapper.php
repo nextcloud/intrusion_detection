@@ -12,11 +12,12 @@ namespace OCA\IntrusionDetection\Takeover\Db;
 use OCA\IntrusionDetection\Db\BatchedDelete;
 use OCP\DB\QueryBuilder\IQueryBuilder;
 use OCP\IDBConnection;
+use OCP\Snowflake\ISnowflakeGenerator;
 
 /**
  * The security change log of accounts (ids_security_changes).
  *
- * @psalm-type SecurityChangeRow = array{id: int, uid: string, type: string, via: string, actor_uid: ?string, old_value_hint: ?string, new_value_hint: ?string, ref_id: ?int, detail: ?string, session_token_id: ?int, ip: ?string, created_at: int}
+ * @psalm-type SecurityChangeRow = array{id: string, uid: string, type: string, via: string, actor_uid: ?string, old_value_hint: ?string, new_value_hint: ?string, ref_id: ?int, detail: ?string, session_token_id: ?int, ip: ?string, created_at: int}
  */
 class SecurityChangeMapper {
 	public const TABLE = 'ids_security_changes';
@@ -24,22 +25,24 @@ class SecurityChangeMapper {
 
 	public function __construct(
 		private readonly IDBConnection $db,
+		private readonly ISnowflakeGenerator $snowflakes,
 	) {
 	}
 
 	/**
 	 * @param array{uid: string, type: string, via: string, actor_uid: ?string, old_value_hint: ?string, new_value_hint: ?string, notify_to: ?string, ref_id: ?int, detail: ?string, session_token_id: ?int, ip: ?string, created_at: int} $row
-	 * @return int the id of the new row
+	 * @return string the id of the new row
 	 */
-	public function insert(array $row): int {
+	public function insert(array $row): string {
+		$id = $this->snowflakes->nextId();
 		$qb = $this->db->getQueryBuilder();
-		$values = [];
+		$values = ['id' => $qb->createNamedParameter($id)];
 		foreach ($row as $column => $value) {
 			$type = is_int($value) ? IQueryBuilder::PARAM_INT : ($value === null ? IQueryBuilder::PARAM_NULL : IQueryBuilder::PARAM_STR);
 			$values[$column] = $qb->createNamedParameter($value, $type);
 		}
 		$qb->insert(self::TABLE)->values($values)->executeStatement();
-		return $qb->getLastInsertId();
+		return $id;
 	}
 
 	/**
@@ -102,22 +105,22 @@ class SecurityChangeMapper {
 	/**
 	 * @return ?SecurityChangeRow
 	 */
-	public function find(int $id): ?array {
+	public function find(string $id): ?array {
 		$qb = $this->db->getQueryBuilder();
 		$qb->select(...self::COLUMNS)
 			->from(self::TABLE)
-			->where($qb->expr()->eq('id', $qb->createNamedParameter($id, IQueryBuilder::PARAM_INT)));
+			->where($qb->expr()->eq('id', $qb->createNamedParameter($id)));
 		return $this->fetch($qb)[0] ?? null;
 	}
 
 	/**
 	 * The encrypted previous email address of one change, while it is kept.
 	 */
-	public function notifyTo(int $id): ?string {
+	public function notifyTo(string $id): ?string {
 		$qb = $this->db->getQueryBuilder();
 		$qb->select('notify_to')
 			->from(self::TABLE)
-			->where($qb->expr()->eq('id', $qb->createNamedParameter($id, IQueryBuilder::PARAM_INT)));
+			->where($qb->expr()->eq('id', $qb->createNamedParameter($id)));
 		$result = $qb->executeQuery();
 		$value = $result->fetchOne();
 		$result->closeCursor();
@@ -165,7 +168,7 @@ class SecurityChangeMapper {
 			$qb = $this->db->getQueryBuilder();
 			$qb->update(self::TABLE)
 				->set('notify_to', $qb->createNamedParameter(null, IQueryBuilder::PARAM_NULL))
-				->where($qb->expr()->in('id', $qb->createNamedParameter($ids, IQueryBuilder::PARAM_INT_ARRAY)));
+				->where($qb->expr()->in('id', $qb->createNamedParameter($ids, IQueryBuilder::PARAM_STR_ARRAY)));
 			$forgotten += $qb->executeStatement();
 		}
 		return $forgotten;
@@ -183,7 +186,7 @@ class SecurityChangeMapper {
 		$rows = [];
 		while ($row = $result->fetch()) {
 			$rows[] = [
-				'id' => (int)$row['id'],
+				'id' => (string)$row['id'],
 				'uid' => (string)$row['uid'],
 				'type' => (string)$row['type'],
 				'via' => (string)$row['via'],

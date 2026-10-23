@@ -92,7 +92,7 @@ class AdminApprovalTest extends StepUpTestCase {
 
 	public function testTheLoginContinuesOnlyOnceAnotherAdministratorApproved(): void {
 		$this->waitingLogin();
-		$id = (int)$this->stepUp()?->approvalId;
+		$id = (string)$this->stepUp()?->approvalId;
 
 		$this->assertRefused(ApprovalException::SUBJECT, fn () => Server::get(ApprovalService::class)->approve($id, $this->bob->getUID(), ApprovalService::VIA_WEB), 'Nobody approves their own login');
 		$this->assertRefused(ApprovalException::NOT_ADMIN, fn () => Server::get(ApprovalService::class)->approve($id, $this->user('ids-approval-other', null)->getUID(), ApprovalService::VIA_WEB), 'Only administrators decide');
@@ -115,7 +115,7 @@ class AdminApprovalTest extends StepUpTestCase {
 
 	public function testARejectedLoginEnds(): void {
 		$this->waitingLogin();
-		Server::get(ApprovalService::class)->reject((int)$this->stepUp()?->approvalId, self::ADMIN, ApprovalService::VIA_WEB);
+		Server::get(ApprovalService::class)->reject((string)$this->stepUp()?->approvalId, self::ADMIN, ApprovalService::VIA_WEB);
 		$this->assertSame('rejected', $this->approvalStatus()->getData()['status']);
 
 		$response = $this->verifyController()->continueApproval();
@@ -130,7 +130,7 @@ class AdminApprovalTest extends StepUpTestCase {
 
 	public function testAnExpiredRequestEndsTheLogin(): void {
 		$this->waitingLogin();
-		$id = (int)$this->stepUp()?->approvalId;
+		$id = (string)$this->stepUp()?->approvalId;
 		$qb = $this->db->getQueryBuilder();
 		$qb->update(ApprovalMapper::TABLE)->set('expires_at', $qb->createNamedParameter(time() - 1))->executeStatement();
 		$this->assertSame('expired', $this->approvalStatus()->getData()['status']);
@@ -145,7 +145,7 @@ class AdminApprovalTest extends StepUpTestCase {
 	public function testARejectedLoginCannotAskAgain(): void {
 		$this->waitingLogin();
 		$asked = count($this->notificationsFor(self::ADMIN, Notifier::SUBJECT_APPROVAL_REQUESTED));
-		Server::get(ApprovalService::class)->reject((int)$this->stepUp()?->approvalId, self::ADMIN, ApprovalService::VIA_WEB);
+		Server::get(ApprovalService::class)->reject((string)$this->stepUp()?->approvalId, self::ADMIN, ApprovalService::VIA_WEB);
 
 		$response = $this->verifyController()->requestApproval();
 		$this->assertInstanceOf(RedirectResponse::class, $response, 'Asking again after a rejection ends the login');
@@ -198,12 +198,12 @@ class AdminApprovalTest extends StepUpTestCase {
 	public function testAnAdministratorIsAskedForTenMinutesAtMost(): void {
 		$this->waitingLogin();
 		$approval = $this->approval();
-		$this->assertSame(600, $approval->getExpiresAt() - $approval->getCreatedAt(), 'Out-of-band requests wait ten minutes at most');
+		$this->assertSame(600, $approval->getExpiresAt() - $approval->getCreatedTime(), 'Out-of-band requests wait ten minutes at most');
 	}
 
 	public function testTheUserCanGiveUpWaiting(): void {
 		$this->waitingLogin();
-		$id = (int)$this->stepUp()?->approvalId;
+		$id = (string)$this->stepUp()?->approvalId;
 		$response = $this->verifyController()->cancelApproval();
 		$this->assertInstanceOf(RedirectResponse::class, $response);
 		$this->assertNull($this->sessionUser);
@@ -270,7 +270,7 @@ class AdminApprovalTest extends StepUpTestCase {
 		$this->assertSame('WEB', $actions[0]->getRequestType());
 		$this->assertStringEndsWith('#settings-approvals', $actions[0]->getLink());
 
-		Server::get(ApprovalService::class)->approve((int)$this->stepUp()?->approvalId, self::ADMIN, ApprovalService::VIA_WEB);
+		Server::get(ApprovalService::class)->approve((string)$this->stepUp()?->approvalId, self::ADMIN, ApprovalService::VIA_WEB);
 		$this->expectException(AlreadyProcessedException::class);
 		Server::get(Notifier::class)->prepare(clone $notification, 'en');
 	}

@@ -99,7 +99,7 @@ class LoginConfirmations {
 	 * Decide a successful password login with these reasons.
 	 *
 	 * @param list<StepUpPolicy> $policies
-	 * @return array{0: LoginConfirmation, 1: list<int>} the decision, and the detections it recorded
+	 * @return array{0: LoginConfirmation, 1: list<string>} the decision, and the detections it recorded
 	 */
 	public function atLogin(LoginContext $login, array $policies): array {
 		if ($policies === []) {
@@ -130,7 +130,7 @@ class LoginConfirmations {
 				mergeWindow: 86400,
 				userAgent: $login->userAgent,
 			));
-			$refused = new StepUpState($uid, ConfirmationStatus::RefusedClient, $policyIds, $now, 0, $login->source?->ip, detectionId: $detection?->getId());
+			$refused = new StepUpState($uid, ConfirmationStatus::RefusedClient, $policyIds, $now, 0, $login->source?->ip, detectionId: $detection === null ? null : (string)$detection->getId());
 			return [$this->store->put(LoginConfirmation::ofStepUp($refused), $this->clientResumable()), self::ids($detection)];
 		}
 
@@ -168,8 +168,8 @@ class LoginConfirmations {
 			$now,
 			$now + self::REFUSED_TTL,
 			$login->source?->ip,
-			reference: $detection === null ? null : StepUpReference::of($detection->getId()),
-			detectionId: $detection?->getId(),
+			reference: $detection === null ? null : StepUpReference::of((string)$detection->getId()),
+			detectionId: $detection === null ? null : (string)$detection->getId(),
 		)));
 		$this->audit->log('login of %s refused: it needed extra confirmation (%s), and nothing could confirm it', ['uid' => $uid, 'reasons' => implode(', ', $policyIds)]);
 		return [$refused, self::ids($detection)];
@@ -342,7 +342,7 @@ class LoginConfirmations {
 	 * ({@see \OCA\IntrusionDetection\SessionState\Rules\StepUpRule}).
 	 *
 	 * @param list<string> $policyIds
-	 * @return array{0: LoginConfirmation, 1: list<int>}
+	 * @return array{0: LoginConfirmation, 1: list<string>}
 	 */
 	private function allow(LoginContext $login, array $policyIds, NoMethodDecision $decision): array {
 		$draft = new DetectionDraft(
@@ -421,9 +421,9 @@ class LoginConfirmations {
 	}
 
 	/**
-	 * @return list<int>
+	 * @return list<string>
 	 */
 	private static function ids(?Detection $detection): array {
-		return $detection === null ? [] : [$detection->getId()];
+		return $detection === null ? [] : [(string)$detection->getId()];
 	}
 }

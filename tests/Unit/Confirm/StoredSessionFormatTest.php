@@ -50,15 +50,20 @@ class StoredSessionFormatTest extends TestCase {
 			'reference' => null,
 			'detection' => null,
 			'secondFactor' => false,
-			'approval' => 41,
+			'approval' => '470938541726507049',
 		];
 	}
 
 	public function testAStoredStepUpReadsBackUnchanged(): void {
-		$refused = array_replace(self::pending(), ['status' => 'refused', 'deadline' => 0, 'methods' => [], 'codeHash' => null, 'codeExpires' => 0, 'attempts' => 0, 'resends' => [], 'reference' => 'SAAA-AAB3', 'detection' => 98, 'approval' => null]);
+		$refused = array_replace(self::pending(), ['status' => 'refused', 'deadline' => 0, 'methods' => [], 'codeHash' => null, 'codeExpires' => 0, 'attempts' => 0, 'resends' => [], 'reference' => 'SAPC-J6DR-FLNJ-DC', 'detection' => '470938541726507106', 'approval' => null]);
 		foreach ([self::pending(), $refused] as $stored) {
 			$this->assertSame($stored, StepUpState::fromArray($stored)?->toArray());
 		}
+	}
+
+	public function testIdsStoredAsNumbersBeforeSnowflakeIdsStillRead(): void {
+		$state = StepUpState::fromArray(array_replace(self::pending(), ['detection' => 98, 'approval' => 41]));
+		$this->assertSame(['98', '41'], [$state?->detectionId, $state?->approvalId]);
 	}
 
 	/**

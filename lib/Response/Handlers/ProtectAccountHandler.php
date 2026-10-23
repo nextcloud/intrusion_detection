@@ -54,7 +54,7 @@ class ProtectAccountHandler implements IResponseHandler, IDescribesAction {
 			$uid,
 			$this->timeFactory->getTime() + $duration,
 			AccountProtection::REASON_UNDER_ATTACK,
-			$context->detection->getId(),
+			(string)$context->detection->getId(),
 		);
 		return ResponseOutcome::done(['uid' => $uid, 'until' => $until]);
 	}

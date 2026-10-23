@@ -128,7 +128,7 @@ class AdminChangeAlertsTest extends IntegrationTestCase {
 			AdminAlerts::FACT_ALL_ADMINS => true,
 		]]);
 		$detection->setActionList([]);
-		$detection->setCreatedAt(time());
+		$detection->setCreatedTime(time());
 		$detection->setLastSeenAt(time());
 		$detection->setHits(1);
 		return Server::get(DetectionMapper::class)->insert($detection);

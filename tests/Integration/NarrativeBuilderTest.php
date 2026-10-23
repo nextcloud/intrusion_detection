@@ -134,15 +134,14 @@ class NarrativeBuilderTest extends TestCase {
 	 * @param list<array<string, mixed>> $actions
 	 */
 	private static function detection(string $checkId, array $facts, int $hits = 1, ?string $uid = 'alice', array $actions = [], bool $enforced = true, ?string $reason = null): Detection {
-		$detection = new Detection();
-		$detection->setId(41);
+		$detection = Detection::fromRow(['id' => '41']);
 		$detection->setCheckId($checkId);
 		$detection->setSeverity('high');
 		$detection->setEnforced($enforced);
 		$detection->setIp('203.0.113.5');
 		$detection->setUid($uid);
 		$detection->setHits($hits);
-		$detection->setCreatedAt(self::NOW - 300);
+		$detection->setCreatedTime(self::NOW - 300);
 		$detection->setLastSeenAt(self::NOW);
 		$detection->setActionList($actions);
 		$detection->setExplanationData(['mode' => ['configured' => 'protect', 'effective' => 'protect', 'reason' => $reason], 'facts' => $facts]);

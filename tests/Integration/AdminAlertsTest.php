@@ -164,7 +164,7 @@ class AdminAlertsTest extends IntegrationTestCase {
 		$config->setValueString('ids-alert-berlin', 'core', 'timezone', 'Europe/Berlin');
 		$detection = $this->detection('198.51.100.7', Severity::Critical);
 		// Monday, October 12, 2026, 08:00 to 08:05 UTC.
-		$detection->setCreatedAt(1791792000);
+		$detection->setCreatedTime(1791792000);
 		$detection->setLastSeenAt(1791792300);
 
 		try {
@@ -291,7 +291,7 @@ class AdminAlertsTest extends IntegrationTestCase {
 		$detection->setIp($ip);
 		$detection->setExplanationData(['facts' => ['rule' => 'source', 'failures' => 10, 'names' => 5], 'thresholds' => ['min_failures' => 10, 'min_names' => 5, 'window' => 600]]);
 		$detection->setActionList([['type' => 'ban', 'enforced' => true]]);
-		$detection->setCreatedAt(time());
+		$detection->setCreatedTime(time());
 		$detection->setLastSeenAt(time());
 		$detection->setHits(1);
 		return Server::get(DetectionMapper::class)->insert($detection);

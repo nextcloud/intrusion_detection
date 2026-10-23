@@ -40,6 +40,7 @@ use OCP\IDBConnection;
 use OCP\IRequest;
 use OCP\Security\Bruteforce\IThrottler;
 use OCP\Server;
+use OCP\Snowflake\ISnowflakeGenerator;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Group;
 use Psr\Container\ContainerInterface;
@@ -240,7 +241,7 @@ class BlocklistFactsProviderTest extends IntegrationTestCase {
 		$ban->setBanKey('198.51.100.7');
 		$ban->setLevel(1);
 		$ban->setCheckId('trap_url');
-		$ban->setCreatedAt(self::NOW);
+		$ban->setCreatedTime(self::NOW);
 		$ban->setExpiresAt(self::NOW + 14400);
 		Server::get(BanMapper::class)->insert($ban);
 		[, , $resolver] = $this->guard();
@@ -266,7 +267,7 @@ class BlocklistFactsProviderTest extends IntegrationTestCase {
 				IDBConnection $db,
 				private readonly BlocklistFactsProviderTest $test,
 			) {
-				parent::__construct($db);
+				parent::__construct($db, Server::get(ISnowflakeGenerator::class));
 			}
 
 			#[\Override]

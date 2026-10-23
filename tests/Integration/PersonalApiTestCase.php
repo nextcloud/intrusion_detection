@@ -71,12 +71,12 @@ abstract class PersonalApiTestCase extends StepUpTestCase {
 		));
 	}
 
-	protected function trustedNetwork(IUser $user, string $ip): int {
+	protected function trustedNetwork(IUser $user, string $ip): string {
 		Server::get(TrustedNetworks::class)->trust($user->getUID(), SourceKey::fromIp($ip));
 		return Server::get(TrustedNetworks::class)->forUser($user->getUID())[0]['id'];
 	}
 
-	protected function rememberDevice(IUser $user): int {
+	protected function rememberDevice(IUser $user): string {
 		$this->assertTrue($this->knownDevices()->remember($user, SourceKey::fromIp($this->remoteAddress), 'Firefox/131.0 (X11; Linux)'));
 		$this->nextRequest();
 		$list = $this->knownDevices()->forUser($user->getUID(), Server::get(IFactory::class)->get(Application::APP_ID, 'en'));

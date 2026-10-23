@@ -83,11 +83,11 @@ class ConfirmationOverview {
 		foreach (array_reverse($this->approvals->list(true, self::MAX_APPROVALS, Approval::KIND_LOGIN)) as $approval) {
 			$uid = $approval->getSubjectUid();
 			$list[] = [
-				'id' => (int)$approval->getId(),
+				'id' => (string)$approval->getId(),
 				'uid' => $uid,
 				'displayName' => $this->userManager->getDisplayName($uid) ?? $uid,
 				'ip' => $approval->getIp(),
-				'createdAt' => $approval->getCreatedAt(),
+				'createdAt' => $approval->getCreatedTime(),
 				'expiresAt' => $approval->getExpiresAt(),
 				'canDecide' => $uid !== $viewer,
 			];

@@ -35,7 +35,7 @@ final class DetectionFacts {
 		return new self(
 			is_array($explanation['facts'] ?? null) ? $explanation['facts'] : [],
 			is_array($explanation['thresholds'] ?? null) ? $explanation['thresholds'] : [],
-			(int)($explanation['facts']['first'] ?? $explanation['first'] ?? $detection->getCreatedAt()),
+			(int)($explanation['facts']['first'] ?? $explanation['first'] ?? $detection->getCreatedTime()),
 			(int)($explanation['facts']['last'] ?? $explanation['last'] ?? $detection->getLastSeenAt()),
 		);
 	}

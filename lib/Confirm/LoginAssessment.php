@@ -105,7 +105,7 @@ class LoginAssessment {
 		try {
 			$dispatcher = $this->container->get(SignalDispatcher::class);
 			foreach ($dispatcher->dispatch(new SuccessfulLogin($login))->detections as $detection) {
-				$detections[] = $detection->getId();
+				$detections[] = (string)$detection->getId();
 			}
 			if ($interactive) {
 				// The check remembers the account for this request, so the breach step does not ask again.

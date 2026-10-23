@@ -11,6 +11,7 @@ namespace OCA\IntrusionDetection\Db;
 
 use OCP\DB\QueryBuilder\IQueryBuilder;
 use OCP\IDBConnection;
+use OCP\Snowflake\ISnowflakeGenerator;
 
 /**
  * Failed logins per account and UTC day (ids_user_daily), one row per
@@ -22,6 +23,7 @@ class UserDailyMapper {
 
 	public function __construct(
 		private readonly IDBConnection $db,
+		private readonly ISnowflakeGenerator $snowflakes,
 	) {
 	}
 
@@ -54,6 +56,7 @@ class UserDailyMapper {
 	 */
 	public function insert(string $uid, int $day, string $hours, string $sources, int $now): bool {
 		return $this->db->insertIgnoreConflict(self::TABLE, [
+			'id' => $this->snowflakes->nextId(),
 			'uid' => $uid,
 			'day' => $day,
 			'failed_logins' => 1,

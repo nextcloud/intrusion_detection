@@ -108,13 +108,13 @@ abstract class CredentialUseTestCase extends AccountTestCase {
 
 		$guard = new TestCredentialUseGuard(Server::get(IConfig::class), $this->appSettings(), $this->checkSettings(), new Fingerprinter(Server::get(IConfig::class), $time), $this->tracker, $context, $time, $container, $logger, Server::get(GuardTimer::class));
 		$knownDevices = new class($this->forgotten) implements IKnownDevices {
-			/** @param list<array{string, int}> $calls */
+			/** @param list<array{string, string}> $calls */
 			public function __construct(
 				private array &$calls,
 			) {
 			}
 
-			public function forgetCurrentDevice(string $uid, int $detectionId): void {
+			public function forgetCurrentDevice(string $uid, string $detectionId): void {
 				$this->calls[] = [$uid, $detectionId];
 			}
 		};

@@ -59,13 +59,11 @@ class CheckPolicyTest extends TestCase {
 		$source = SourceKey::fromIp('198.51.100.7');
 		$bans = $this->createMock(BanService::class);
 		$bans->method('batch')->willReturnCallback(static fn (\Closure $work): mixed => $work());
-		$ban = new Ban();
-		$ban->setId(9);
+		$ban = Ban::fromRow(['id' => '9']);
 		$ban->setCidr('198.51.100.7/32');
 		$bans->method('banMany')->willReturn([$source->ipKey => new BanResult(BanResult::BANNED, $ban)]);
 		$handler = $this->build(BanHandler::class, [BanService::class => $bans]);
-		$detection = new Detection();
-		$detection->setId(5);
+		$detection = Detection::fromRow(['id' => '5']);
 		$draft = new DetectionDraft(checkId: $checkId, source: $source, lure: true);
 		$outcome = $handler->apply(new ResponseContext($draft, $detection, Server::get(CheckRegistry::class)->get($checkId), true));
 		$this->assertSame(in_array($checkId, self::LURES, true) ? 1 : 0, $outcome->ref['counts']['lure']);
@@ -110,8 +108,7 @@ class CheckPolicyTest extends TestCase {
 			throw new \RuntimeException('enough');
 		});
 		$userAlerts = $this->build(UserAlerts::class, [AlertMapper::class => $alerts, IUserManager::class => $users, UserMessages::class => $messages, ITimeFactory::class => $time]);
-		$detection = new Detection();
-		$detection->setId(5);
+		$detection = Detection::fromRow(['id' => '5']);
 		$detection->setCheckId($checkId);
 		$detection->setUid('alice');
 		try {

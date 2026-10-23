@@ -16,6 +16,7 @@ use OCA\IntrusionDetection\Detection\DetectionTotals;
 use OCA\IntrusionDetection\LoginHistory\LoginHistory;
 use OCA\IntrusionDetection\Takeover\SecurityChangeLog;
 use OCP\Server;
+use OCP\Snowflake\ISnowflakeGenerator;
 use PHPUnit\Framework\Attributes\Group;
 
 /**
@@ -64,6 +65,7 @@ class RetentionDelayTest extends IntegrationTestCase {
 	private function detectionAt(int $at): void {
 		$qb = $this->db->getQueryBuilder();
 		$qb->insert('ids_detections')->values([
+			'id' => $qb->createNamedParameter(Server::get(ISnowflakeGenerator::class)->nextId()),
 			'check_id' => $qb->createNamedParameter('trap_url'),
 			'severity' => $qb->createNamedParameter('low'),
 			'created_at' => $qb->createNamedParameter($at),

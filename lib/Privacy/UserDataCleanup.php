@@ -107,7 +107,7 @@ class UserDataCleanup {
 				->executeStatement();
 		}
 		$this->deleteCounters($uid);
-		if ($this->accounts->detectionIds($uid, 0, 1) !== []) {
+		if ($this->accounts->detectionIds($uid, '0', 1) !== []) {
 			$this->jobList->add(UserDetectionsCleanupJob::class, ['uid' => $uid, 'upTo' => $this->detections->lastId()]);
 		}
 	}
@@ -130,10 +130,10 @@ class UserDataCleanup {
 	 * the accounts recorded per detection ({@see DetectionAccounts}), not by
 	 * searching the JSON of every row.
 	 *
-	 * @param int $after the detection id the last call ended with
-	 * @return ?int the detection id to go on after, or null when all are done
+	 * @param string $after the detection id the last call ended with
+	 * @return ?string the detection id to go on after, or null when all are done
 	 */
-	public function scrubDetections(string $uid, int $upTo, int $after = 0, int $maxBatches = PHP_INT_MAX): ?int {
+	public function scrubDetections(string $uid, string $upTo, string $after = '0', int $maxBatches = PHP_INT_MAX): ?string {
 		for ($batch = 0; $batch < $maxBatches; $batch++) {
 			$ids = $this->accounts->detectionIds($uid, $after, self::BATCH, $upTo);
 			if ($ids !== []) {
@@ -147,7 +147,7 @@ class UserDataCleanup {
 					$this->db->rollBack();
 					throw $e;
 				}
-				$after = max($ids);
+				$after = $ids[array_key_last($ids)];
 			}
 			if (count($ids) < self::BATCH) {
 				$this->accounts->deleteForUid($uid, $upTo);

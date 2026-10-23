@@ -12,6 +12,7 @@ namespace OCA\IntrusionDetection\TrustedNetwork\Db;
 use OCA\IntrusionDetection\Db\BatchedDelete;
 use OCP\DB\QueryBuilder\IQueryBuilder;
 use OCP\IDBConnection;
+use OCP\Snowflake\ISnowflakeGenerator;
 
 /**
  * The networks users confirmed as their own (ids_trusted_networks), one row
@@ -22,24 +23,26 @@ class TrustedNetworkMapper {
 
 	public function __construct(
 		private readonly IDBConnection $db,
+		private readonly ISnowflakeGenerator $snowflakes,
 	) {
 	}
 
 	/**
 	 * Trust a network until a time, or move an existing entry to that time.
 	 */
-	public function trust(string $uid, string $netKey, ?int $detectionId, int $now, int $expiresAt): void {
+	public function trust(string $uid, string $netKey, ?string $detectionId, int $now, int $expiresAt): void {
 		$qb = $this->db->getQueryBuilder();
 		$qb->update(self::TABLE)
 			->set('expires_at', $qb->createNamedParameter($expiresAt, IQueryBuilder::PARAM_INT))
 			->set('created_at', $qb->createNamedParameter($now, IQueryBuilder::PARAM_INT))
-			->set('detection_id', $qb->createNamedParameter($detectionId, $detectionId === null ? IQueryBuilder::PARAM_NULL : IQueryBuilder::PARAM_INT))
+			->set('detection_id', $qb->createNamedParameter($detectionId))
 			->where($qb->expr()->eq('uid', $qb->createNamedParameter($uid)))
 			->andWhere($qb->expr()->eq('net_key', $qb->createNamedParameter($netKey)));
 		if ($qb->executeStatement() > 0) {
 			return;
 		}
 		$this->db->insertIgnoreConflict(self::TABLE, [
+			'id' => $this->snowflakes->nextId(),
 			'uid' => $uid,
 			'net_key' => $netKey,
 			'created_at' => $now,
@@ -63,7 +66,7 @@ class TrustedNetworkMapper {
 	}
 
 	/**
-	 * @return list<array{id: int, net_key: string, created_at: int, expires_at: int, detection_id: ?int}> the account's active entries, newest first
+	 * @return list<array{id: string, net_key: string, created_at: int, expires_at: int, detection_id: ?string}> the account's active entries, newest first
 	 */
 	public function findActive(string $uid, int $now, int $limit = 100): array {
 		$qb = $this->db->getQueryBuilder();
@@ -78,11 +81,11 @@ class TrustedNetworkMapper {
 		$rows = [];
 		while ($row = $result->fetch()) {
 			$rows[] = [
-				'id' => (int)$row['id'],
+				'id' => (string)$row['id'],
 				'net_key' => (string)$row['net_key'],
 				'created_at' => (int)$row['created_at'],
 				'expires_at' => (int)$row['expires_at'],
-				'detection_id' => $row['detection_id'] === null ? null : (int)$row['detection_id'],
+				'detection_id' => $row['detection_id'] === null ? null : (string)$row['detection_id'],
 			];
 		}
 		$result->closeCursor();
@@ -92,11 +95,11 @@ class TrustedNetworkMapper {
 	/**
 	 * @return ?string the network of the account's entry, null when the account has no such entry
 	 */
-	public function delete(string $uid, int $id): ?string {
+	public function delete(string $uid, string $id): ?string {
 		$qb = $this->db->getQueryBuilder();
 		$qb->select('net_key')
 			->from(self::TABLE)
-			->where($qb->expr()->eq('id', $qb->createNamedParameter($id, IQueryBuilder::PARAM_INT)))
+			->where($qb->expr()->eq('id', $qb->createNamedParameter($id)))
 			->andWhere($qb->expr()->eq('uid', $qb->createNamedParameter($uid)));
 		$result = $qb->executeQuery();
 		$netKey = $result->fetchOne();
@@ -106,7 +109,7 @@ class TrustedNetworkMapper {
 		}
 		$delete = $this->db->getQueryBuilder();
 		$delete->delete(self::TABLE)
-			->where($delete->expr()->eq('id', $delete->createNamedParameter($id, IQueryBuilder::PARAM_INT)))
+			->where($delete->expr()->eq('id', $delete->createNamedParameter($id)))
 			->andWhere($delete->expr()->eq('uid', $delete->createNamedParameter($uid)))
 			->executeStatement();
 		return (string)$netKey;

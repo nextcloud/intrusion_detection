@@ -9,7 +9,7 @@ declare(strict_types=1);
 
 namespace OCA\IntrusionDetection\Decoy\Db;
 
-use OCP\AppFramework\Db\Entity;
+use OCP\AppFramework\Db\SnowflakeAwareEntity;
 use OCP\DB\Types;
 
 /**
@@ -26,20 +26,17 @@ use OCP\DB\Types;
  * @method void setLabel(string $label)
  * @method ?string getCreatedBy()
  * @method void setCreatedBy(?string $createdBy)
- * @method int getCreatedAt()
- * @method void setCreatedAt(int $createdAt)
  * @method ?int getLastTriggeredAt()
  * @method void setLastTriggeredAt(?int $lastTriggeredAt)
  * @method int getTriggerCount()
  * @method void setTriggerCount(int $triggerCount)
  */
-class Decoy extends Entity implements \JsonSerializable {
+class Decoy extends SnowflakeAwareEntity implements \JsonSerializable {
 	protected ?string $loginName = null;
 	protected ?string $secretHmac = null;
 	protected ?string $format = null;
 	protected ?string $label = null;
 	protected ?string $createdBy = null;
-	protected ?int $createdAt = null;
 	protected ?int $lastTriggeredAt = null;
 	protected ?int $triggerCount = null;
 
@@ -49,7 +46,6 @@ class Decoy extends Entity implements \JsonSerializable {
 		$this->addType('format', Types::STRING);
 		$this->addType('label', Types::STRING);
 		$this->addType('createdBy', Types::STRING);
-		$this->addType('createdAt', Types::BIGINT);
 		$this->addType('lastTriggeredAt', Types::BIGINT);
 		$this->addType('triggerCount', Types::INTEGER);
 	}
@@ -60,12 +56,12 @@ class Decoy extends Entity implements \JsonSerializable {
 	#[\Override]
 	public function jsonSerialize(): array {
 		return [
-			'id' => $this->getId(),
+			'id' => (string)$this->getId(),
 			'label' => $this->label,
 			'loginName' => $this->loginName,
 			'format' => $this->format,
 			'createdBy' => $this->createdBy,
-			'createdAt' => $this->createdAt,
+			'createdAt' => $this->getCreatedAt()?->getTimestamp() ?? 0,
 			'lastTriggeredAt' => $this->lastTriggeredAt,
 			'triggerCount' => $this->triggerCount ?? 0,
 		];

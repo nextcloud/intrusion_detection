@@ -504,7 +504,7 @@ class ShareBruteforceTest extends RequestEventTestCase {
 		$response = $this->controllerFor($owner)->disable($detection->getId());
 		$this->assertSame(['status' => ShareLinks::ALREADY_GONE], $response->getData(), 'Doing it again is harmless');
 		$this->assertSame(Http::STATUS_NOT_FOUND, $this->controllerFor($stranger)->disable($detection->getId())->getStatus(), 'Strangers do not even learn that the link is gone');
-		$this->assertSame(Http::STATUS_NOT_FOUND, $this->controllerFor($owner)->disable($detection->getId() + 1000)->getStatus());
+		$this->assertSame(Http::STATUS_NOT_FOUND, $this->controllerFor($owner)->disable('1')->getStatus());
 
 		// The notification about a link that is gone disappears.
 		$notification = Server::get(\OCP\Notification\IManager::class)->createNotification();

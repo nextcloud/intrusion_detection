@@ -40,7 +40,7 @@ class AccountSessionsTest extends AccountTestCase {
 		$bob = $this->newUser('ids-sessions-other');
 		$other = $this->token($bob, IToken::TEMPORARY_TOKEN, 'Firefox on Linux');
 
-		$response = $this->controller()->end($this->detectionAbout($alice->getUID())->getId());
+		$response = $this->controller()->end((string)$this->detectionAbout($alice->getUID())->getId());
 
 		$this->assertSame(Http::STATUS_OK, $response->getStatus());
 		$this->assertSame(['ended' => 2], $response->getData());
@@ -51,7 +51,7 @@ class AccountSessionsTest extends AccountTestCase {
 
 	public function testADetectionAboutNoAccountHasNothingToEnd(): void {
 		$this->expectException(OCSNotFoundException::class);
-		$this->controller()->end($this->detectionAbout(null)->getId());
+		$this->controller()->end((string)$this->detectionAbout(null)->getId());
 	}
 
 	public function testItNeedsTheAdministratorsPassword(): void {
@@ -81,7 +81,7 @@ class AccountSessionsTest extends AccountTestCase {
 		$detection->setUid($uid);
 		$detection->setExplanationData(['v' => 1, 'check' => 'password_spraying', 'facts' => []]);
 		$detection->setActionList([]);
-		$detection->setCreatedAt(time());
+		$detection->setCreatedTime(time());
 		$detection->setLastSeenAt(time());
 		$detection->setHits(1);
 		return Server::get(DetectionMapper::class)->insert($detection);

@@ -86,7 +86,7 @@ class PersonalOverview {
 			if ($this->questions->isOpen($detection)) {
 				$open++;
 			}
-			if ($detection->getCreatedAt() >= $now - self::RECENT_DAYS * 86400) {
+			if ($detection->getCreatedTime() >= $now - self::RECENT_DAYS * 86400) {
 				$recent++;
 			}
 		}

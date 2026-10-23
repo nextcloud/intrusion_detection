@@ -212,15 +212,13 @@ class BanHandlerTest extends TestCase {
 	}
 
 	private function context(?DetectionDraft $draft = null): ResponseContext {
-		$detection = new Detection();
-		$detection->setId(5);
+		$detection = Detection::fromRow(['id' => '5']);
 		$draft ??= new DetectionDraft(checkId: 'trap_url', source: SourceKey::fromIp('198.51.100.7'));
 		return new ResponseContext($draft, $detection, Server::get(CheckRegistry::class)->get($draft->checkId), true);
 	}
 
 	private function ban(): Ban {
-		$ban = new Ban();
-		$ban->setId(9);
+		$ban = Ban::fromRow(['id' => '9']);
 		$ban->setReference('BAAAAAAB');
 		$ban->setCidr('198.51.100.7/32');
 		$ban->setLevel(1);

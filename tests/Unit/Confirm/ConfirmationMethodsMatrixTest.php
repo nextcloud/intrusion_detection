@@ -187,7 +187,7 @@ class ConfirmationMethodsMatrixTest extends TestCase {
 
 	private function devices(): KnownDevices {
 		$devices = $this->createMock(KnownDevices::class);
-		$devices->method('recognise')->willReturn(($this->account['deviceHere'] ?? false) ? new KnownDevice(1, 'alice', 'firefox', 'linux', 'Firefox on Linux', null, 1, 1) : null);
+		$devices->method('recognise')->willReturn(($this->account['deviceHere'] ?? false) ? new KnownDevice('1', 'alice', 'firefox', 'linux', 'Firefox on Linux', null, 1, 1) : null);
 		$devices->method('hasDevices')->willReturn(($this->account['deviceHere'] ?? false) || ($this->account['deviceElsewhere'] ?? false));
 		return $devices;
 	}

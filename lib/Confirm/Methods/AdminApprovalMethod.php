@@ -88,7 +88,7 @@ class AdminApprovalMethod implements IConfirmationMethod {
 		if ($approval === null) {
 			return new MethodStart(self::UNAVAILABLE, $state);
 		}
-		return new MethodStart(self::PENDING, $state->withApproval($approval->getId(), $approval->getExpiresAt()));
+		return new MethodStart(self::PENDING, $state->withApproval((string)$approval->getId(), $approval->getExpiresAt()));
 	}
 
 	/**

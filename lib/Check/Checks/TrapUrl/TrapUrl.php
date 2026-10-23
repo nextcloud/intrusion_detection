@@ -111,7 +111,7 @@ final class TrapUrl implements ICheck, IExplainsDetection, ISimulatable, IValida
 		])];
 		if ($detection->getHits() > 1) {
 			$sentences[] = $l->n('It requested trap paths %n time between %1$s and %2$s.', 'It requested trap paths %n times between %1$s and %2$s.', $detection->getHits(), [
-				$this->dates->dateTime($detection->getCreatedAt()),
+				$this->dates->dateTime($detection->getCreatedTime()),
 				$this->dates->time($detection->getLastSeenAt()),
 			]);
 		}

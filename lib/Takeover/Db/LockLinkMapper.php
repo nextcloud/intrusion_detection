@@ -12,54 +12,57 @@ namespace OCA\IntrusionDetection\Takeover\Db;
 use OCA\IntrusionDetection\Db\BatchedDelete;
 use OCP\DB\QueryBuilder\IQueryBuilder;
 use OCP\IDBConnection;
+use OCP\Snowflake\ISnowflakeGenerator;
 
 /**
  * One-time lock links (ids_lock_links). A link is stored with a keyed
  * fingerprint of its token, never the token itself.
  *
- * @psalm-type LockLinkRow = array{id: int, uid: string, token_hash: string, sent_to_hint: string, detection_id: ?int, change_id: ?int, created_at: int, expires_at: int, used_at: ?int, used_ip: ?string}
+ * @psalm-type LockLinkRow = array{id: string, uid: string, token_hash: string, sent_to_hint: string, detection_id: ?string, change_id: ?string, expires_at: int, used_at: ?int, used_ip: ?string}
  */
 class LockLinkMapper {
 	public const TABLE = 'ids_lock_links';
 
 	public function __construct(
 		private readonly IDBConnection $db,
+		private readonly ISnowflakeGenerator $snowflakes,
 	) {
 	}
 
-	public function insert(string $uid, string $tokenHash, string $sentToHint, ?int $detectionId, ?int $changeId, int $now, int $expiresAt): int {
+	public function insert(string $uid, string $tokenHash, string $sentToHint, ?string $detectionId, ?string $changeId, int $expiresAt): string {
+		$id = $this->snowflakes->nextId();
 		$qb = $this->db->getQueryBuilder();
 		$qb->insert(self::TABLE)->values([
+			'id' => $qb->createNamedParameter($id),
 			'uid' => $qb->createNamedParameter($uid),
 			'token_hash' => $qb->createNamedParameter($tokenHash),
 			'sent_to_hint' => $qb->createNamedParameter($sentToHint),
-			'detection_id' => $qb->createNamedParameter($detectionId, $detectionId === null ? IQueryBuilder::PARAM_NULL : IQueryBuilder::PARAM_INT),
-			'change_id' => $qb->createNamedParameter($changeId, $changeId === null ? IQueryBuilder::PARAM_NULL : IQueryBuilder::PARAM_INT),
-			'created_at' => $qb->createNamedParameter($now, IQueryBuilder::PARAM_INT),
+			'detection_id' => $qb->createNamedParameter($detectionId),
+			'change_id' => $qb->createNamedParameter($changeId),
 			'expires_at' => $qb->createNamedParameter($expiresAt, IQueryBuilder::PARAM_INT),
 		])->executeStatement();
-		return $qb->getLastInsertId();
+		return $id;
 	}
 
 	/**
 	 * @return ?LockLinkRow
 	 */
-	public function find(int $id): ?array {
+	public function find(string $id): ?array {
 		$qb = $this->db->getQueryBuilder();
 		$qb->select('*')
 			->from(self::TABLE)
-			->where($qb->expr()->eq('id', $qb->createNamedParameter($id, IQueryBuilder::PARAM_INT)));
+			->where($qb->expr()->eq('id', $qb->createNamedParameter($id)));
 		$result = $qb->executeQuery();
 		$row = $result->fetch();
 		$result->closeCursor();
 		return is_array($row) ? self::row($row) : null;
 	}
 
-	public function existsForDetection(int $detectionId): bool {
+	public function existsForDetection(string $detectionId): bool {
 		$qb = $this->db->getQueryBuilder();
 		$qb->select('id')
 			->from(self::TABLE)
-			->where($qb->expr()->eq('detection_id', $qb->createNamedParameter($detectionId, IQueryBuilder::PARAM_INT)))
+			->where($qb->expr()->eq('detection_id', $qb->createNamedParameter($detectionId)))
 			->setMaxResults(1);
 		$result = $qb->executeQuery();
 		$found = $result->fetchOne() !== false;
@@ -72,12 +75,12 @@ class LockLinkMapper {
 	 *
 	 * @return bool whether this call used it
 	 */
-	public function use(int $id, int $now, ?string $ip): bool {
+	public function use(string $id, int $now, ?string $ip): bool {
 		$qb = $this->db->getQueryBuilder();
 		$qb->update(self::TABLE)
 			->set('used_at', $qb->createNamedParameter($now, IQueryBuilder::PARAM_INT))
 			->set('used_ip', $qb->createNamedParameter($ip, $ip === null ? IQueryBuilder::PARAM_NULL : IQueryBuilder::PARAM_STR))
-			->where($qb->expr()->eq('id', $qb->createNamedParameter($id, IQueryBuilder::PARAM_INT)))
+			->where($qb->expr()->eq('id', $qb->createNamedParameter($id)))
 			->andWhere($qb->expr()->isNull('used_at'))
 			->andWhere($qb->expr()->gt('expires_at', $qb->createNamedParameter($now, IQueryBuilder::PARAM_INT)));
 		return $qb->executeStatement() === 1;
@@ -88,11 +91,11 @@ class LockLinkMapper {
 	 *
 	 * @return int how many links ended
 	 */
-	public function revokeForDetection(int $detectionId, int $now): int {
+	public function revokeForDetection(string $detectionId, int $now): int {
 		$qb = $this->db->getQueryBuilder();
 		$qb->update(self::TABLE)
 			->set('expires_at', $qb->createNamedParameter($now, IQueryBuilder::PARAM_INT))
-			->where($qb->expr()->eq('detection_id', $qb->createNamedParameter($detectionId, IQueryBuilder::PARAM_INT)))
+			->where($qb->expr()->eq('detection_id', $qb->createNamedParameter($detectionId)))
 			->andWhere($qb->expr()->isNull('used_at'))
 			->andWhere($qb->expr()->gt('expires_at', $qb->createNamedParameter($now, IQueryBuilder::PARAM_INT)));
 		return $qb->executeStatement();
@@ -127,13 +130,12 @@ class LockLinkMapper {
 	 */
 	private static function row(array $row): array {
 		return [
-			'id' => (int)$row['id'],
+			'id' => (string)$row['id'],
 			'uid' => (string)$row['uid'],
 			'token_hash' => (string)$row['token_hash'],
 			'sent_to_hint' => (string)$row['sent_to_hint'],
-			'detection_id' => $row['detection_id'] === null ? null : (int)$row['detection_id'],
-			'change_id' => $row['change_id'] === null ? null : (int)$row['change_id'],
-			'created_at' => (int)$row['created_at'],
+			'detection_id' => $row['detection_id'] === null ? null : (string)$row['detection_id'],
+			'change_id' => $row['change_id'] === null ? null : (string)$row['change_id'],
 			'expires_at' => (int)$row['expires_at'],
 			'used_at' => $row['used_at'] === null ? null : (int)$row['used_at'],
 			'used_ip' => $row['used_ip'] === null ? null : (string)$row['used_ip'],

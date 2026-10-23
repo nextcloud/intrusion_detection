@@ -143,7 +143,7 @@ class RetentionTest extends IntegrationTestCase {
 	}
 
 	/**
-	 * @return array<int, ?string>
+	 * @return array<array-key, ?string>
 	 */
 	private function notifyTo(): array {
 		$qb = $this->db->getQueryBuilder();
@@ -151,7 +151,7 @@ class RetentionTest extends IntegrationTestCase {
 		$result = $qb->executeQuery();
 		$rows = [];
 		while ($row = $result->fetch()) {
-			$rows[(int)$row['id']] = $row['notify_to'] === null ? null : (string)$row['notify_to'];
+			$rows[(string)$row['id']] = $row['notify_to'] === null ? null : (string)$row['notify_to'];
 		}
 		$result->closeCursor();
 		return $rows;

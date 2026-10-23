@@ -27,11 +27,11 @@ class ApprovalMapper extends QBMapper {
 	/**
 	 * @throws DoesNotExistException
 	 */
-	public function findById(int $id): Approval {
+	public function findById(string $id): Approval {
 		$qb = $this->db->getQueryBuilder();
 		$qb->select('*')
 			->from(self::TABLE)
-			->where($qb->expr()->eq('id', $qb->createNamedParameter($id, IQueryBuilder::PARAM_INT)));
+			->where($qb->expr()->eq('id', $qb->createNamedParameter($id)));
 		return $this->findEntity($qb);
 	}
 
@@ -187,13 +187,13 @@ class ApprovalMapper extends QBMapper {
 	 *
 	 * @return bool whether this call decided it
 	 */
-	public function decide(int $id, string $status, ?string $decidedBy, int $now): bool {
+	public function decide(string $id, string $status, ?string $decidedBy, int $now): bool {
 		$qb = $this->db->getQueryBuilder();
 		$qb->update(self::TABLE)
 			->set('status', $qb->createNamedParameter($status))
 			->set('decided_by', $qb->createNamedParameter($decidedBy))
 			->set('decided_at', $qb->createNamedParameter($now, IQueryBuilder::PARAM_INT))
-			->where($qb->expr()->eq('id', $qb->createNamedParameter($id, IQueryBuilder::PARAM_INT)))
+			->where($qb->expr()->eq('id', $qb->createNamedParameter($id)))
 			->andWhere($qb->expr()->eq('status', $qb->createNamedParameter(Approval::STATUS_PENDING)))
 			->andWhere($status === Approval::STATUS_EXPIRED
 				? $qb->expr()->lte('expires_at', $qb->createNamedParameter($now, IQueryBuilder::PARAM_INT))
@@ -207,13 +207,13 @@ class ApprovalMapper extends QBMapper {
 	 *
 	 * @return bool whether this call reopened it
 	 */
-	public function reopen(int $id, string $decidedBy): bool {
+	public function reopen(string $id, string $decidedBy): bool {
 		$qb = $this->db->getQueryBuilder();
 		$qb->update(self::TABLE)
 			->set('status', $qb->createNamedParameter(Approval::STATUS_PENDING))
 			->set('decided_by', $qb->createNamedParameter(null))
 			->set('decided_at', $qb->createNamedParameter(null))
-			->where($qb->expr()->eq('id', $qb->createNamedParameter($id, IQueryBuilder::PARAM_INT)))
+			->where($qb->expr()->eq('id', $qb->createNamedParameter($id)))
 			->andWhere($qb->expr()->eq('status', $qb->createNamedParameter(Approval::STATUS_APPROVED)))
 			->andWhere($qb->expr()->eq('decided_by', $qb->createNamedParameter($decidedBy)));
 		return $qb->executeStatement() === 1;

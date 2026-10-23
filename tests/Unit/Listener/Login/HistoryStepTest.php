@@ -101,7 +101,7 @@ class HistoryStepTest extends TestCase {
 	}
 
 	public function testAnInteractiveLoginRecognisesItsDeviceAndMayShowTheNotice(): void {
-		$this->device = new KnownDevice(3, 'alice', 'firefox', 'linux', 'Firefox on Linux', null, 1, 1);
+		$this->device = new KnownDevice('3', 'alice', 'firefox', 'linux', 'Firefox on Linux', null, 1, 1);
 		$this->listener()->handle(new UserLoggedInEvent($this->user(), 'alice', 'secret', false));
 		$this->assertSame([['alice', LoginHistory::METHOD_PASSWORD, true, true]], $this->recorded);
 		$this->assertSame(['alice'], $this->noticed);

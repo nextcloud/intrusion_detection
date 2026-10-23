@@ -17,6 +17,7 @@ use OCA\IntrusionDetection\Net\SourceKey;
 use OCP\DB\QueryBuilder\ICompositeExpression;
 use OCP\DB\QueryBuilder\IQueryBuilder;
 use OCP\IDBConnection;
+use OCP\Snowflake\ISnowflakeGenerator;
 
 /**
  * The login history (ids_login_history): one row per successful login,
@@ -32,16 +33,19 @@ class LoginHistoryMapper {
 
 	public function __construct(
 		private readonly IDBConnection $db,
+		private readonly ISnowflakeGenerator $snowflakes,
 	) {
 	}
 
 	/**
-	 * @return int the id of the new row
+	 * @return string the id of the new row
 	 */
-	public function insert(string $uid, int $now, ?SourceKey $source, ?string $userAgent, string $method, bool $knownDevice, string $confirmedBy, ?string $stepUp, ?int $sessionTokenId): int {
+	public function insert(string $uid, int $now, ?SourceKey $source, ?string $userAgent, string $method, bool $knownDevice, string $confirmedBy, ?string $stepUp, ?int $sessionTokenId): string {
+		$id = $this->snowflakes->nextId();
 		$qb = $this->db->getQueryBuilder();
 		$qb->insert(self::TABLE)
 			->values([
+				'id' => $qb->createNamedParameter($id),
 				'uid' => $qb->createNamedParameter($uid),
 				'created_at' => $qb->createNamedParameter($now, IQueryBuilder::PARAM_INT),
 				'ip' => $qb->createNamedParameter($source?->ip),
@@ -54,18 +58,18 @@ class LoginHistoryMapper {
 				'session_token_id' => $qb->createNamedParameter($sessionTokenId, $sessionTokenId === null ? IQueryBuilder::PARAM_NULL : IQueryBuilder::PARAM_INT),
 			])
 			->executeStatement();
-		return $qb->getLastInsertId();
+		return $id;
 	}
 
 	/**
 	 * How the login of a row was confirmed, once that is known.
 	 */
-	public function setOutcome(int $id, string $uid, string $confirmedBy, ?string $stepUp): void {
+	public function setOutcome(string $id, string $uid, string $confirmedBy, ?string $stepUp): void {
 		$qb = $this->db->getQueryBuilder();
 		$qb->update(self::TABLE)
 			->set('confirmed_by', $qb->createNamedParameter($confirmedBy))
 			->set('step_up', $qb->createNamedParameter($stepUp))
-			->where($qb->expr()->eq('id', $qb->createNamedParameter($id, IQueryBuilder::PARAM_INT)))
+			->where($qb->expr()->eq('id', $qb->createNamedParameter($id)))
 			->andWhere($qb->expr()->eq('uid', $qb->createNamedParameter($uid)))
 			->executeStatement();
 	}
@@ -73,22 +77,22 @@ class LoginHistoryMapper {
 	/**
 	 * A login without extra confirmation passed core's second factor.
 	 */
-	public function setSecondFactor(int $id, string $uid): void {
+	public function setSecondFactor(string $id, string $uid): void {
 		$qb = $this->db->getQueryBuilder();
 		$qb->update(self::TABLE)
 			->set('confirmed_by', $qb->createNamedParameter('second_factor'))
-			->where($qb->expr()->eq('id', $qb->createNamedParameter($id, IQueryBuilder::PARAM_INT)))
+			->where($qb->expr()->eq('id', $qb->createNamedParameter($id)))
 			->andWhere($qb->expr()->eq('uid', $qb->createNamedParameter($uid)))
 			->andWhere($qb->expr()->eq('confirmed_by', $qb->createNamedParameter('none')))
 			->andWhere($qb->expr()->isNull('step_up'))
 			->executeStatement();
 	}
 
-	public function setSessionToken(int $id, string $uid, int $tokenId): void {
+	public function setSessionToken(string $id, string $uid, int $tokenId): void {
 		$qb = $this->db->getQueryBuilder();
 		$qb->update(self::TABLE)
 			->set('session_token_id', $qb->createNamedParameter($tokenId, IQueryBuilder::PARAM_INT))
-			->where($qb->expr()->eq('id', $qb->createNamedParameter($id, IQueryBuilder::PARAM_INT)))
+			->where($qb->expr()->eq('id', $qb->createNamedParameter($id)))
 			->andWhere($qb->expr()->eq('uid', $qb->createNamedParameter($uid)))
 			->executeStatement();
 	}
@@ -121,7 +125,7 @@ class LoginHistoryMapper {
 	 * The newest login of the account since a time that the session token
 	 * is linked to.
 	 */
-	public function idForSessionToken(string $uid, int $tokenId, int $since): ?int {
+	public function idForSessionToken(string $uid, int $tokenId, int $since): ?string {
 		$qb = $this->db->getQueryBuilder();
 		$qb->select('id')
 			->from(self::TABLE)
@@ -133,7 +137,7 @@ class LoginHistoryMapper {
 		$result = $qb->executeQuery();
 		$id = $result->fetchOne();
 		$result->closeCursor();
-		return $id === false ? null : (int)$id;
+		return $id === false ? null : (string)$id;
 	}
 
 	/**

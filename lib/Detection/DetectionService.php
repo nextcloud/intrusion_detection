@@ -32,7 +32,7 @@ use OCP\AppFramework\Utility\ITimeFactory;
  * lowered a limit with. Merged hits do not compute it again.
  */
 class DetectionService {
-	/** @var array<int, list<string>> the accounts recorded for detections in this request */
+	/** @var array<array-key, list<string>> the accounts recorded for detections in this request, by detection id */
 	private array $recorded = [];
 
 	public function __construct(
@@ -87,14 +87,14 @@ class DetectionService {
 				$this->totals->raised($existing, $now);
 			}
 			// The merged facts may name accounts the detection did not name before.
-			$this->recorded[$existing->getId()] = $this->accounts->recordChange($existing, $accountsBefore);
+			$this->recorded[(string)$existing->getId()] = $this->accounts->recordChange($existing, $accountsBefore);
 			return [$existing, false];
 		}
 
 		$detection = $this->mapper->insert($this->build($draft, $mode, $now, true));
 		$detection->resetUpdatedFields();
 		$this->totals->created($detection);
-		$this->recorded[$detection->getId()] = $this->accounts->recordNew($detection);
+		$this->recorded[(string)$detection->getId()] = $this->accounts->recordNew($detection);
 		return [$detection, true];
 	}
 
@@ -147,7 +147,7 @@ class DetectionService {
 		}
 		$detection->setExplanationData($explanation);
 		$detection->setActionList([]);
-		$detection->setCreatedAt($now);
+		$detection->setCreatedTime($now);
 		$detection->setLastSeenAt($now);
 		$detection->setHits(1);
 		return $detection;
@@ -166,6 +166,6 @@ class DetectionService {
 		}
 		$this->mapper->update($detection);
 		$detection->resetUpdatedFields();
-		$this->recorded[$detection->getId()] = $this->accounts->recordChange($detection, $this->recorded[$detection->getId()] ?? null);
+		$this->recorded[(string)$detection->getId()] = $this->accounts->recordChange($detection, $this->recorded[(string)$detection->getId()] ?? null);
 	}
 }

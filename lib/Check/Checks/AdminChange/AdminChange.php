@@ -261,7 +261,7 @@ final class AdminChange implements ICheck, IExplainsDetection, IHeadlinesDetecti
 		if ($ip !== '') {
 			$sentences[] = $l->t('The change came from the address %s.', [$ip]);
 		}
-		$sentences[] = $l->t('It happened at %s.', [$this->dates->dateTime($detection->getCreatedAt())]);
+		$sentences[] = $l->t('It happened at %s.', [$this->dates->dateTime($detection->getCreatedTime())]);
 		return $sentences;
 	}
 

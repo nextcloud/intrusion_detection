@@ -32,6 +32,7 @@ use OCA\IntrusionDetection\Takeover\Db\LockLinkMapper;
 use OCA\IntrusionDetection\Takeover\Db\SecurityChangeMapper;
 use OCP\BackgroundJob\IJobList;
 use OCP\Server;
+use OCP\Snowflake\ISnowflakeGenerator;
 use OCP\User\Events\UserDeletedEvent;
 use PHPUnit\Framework\Attributes\Group;
 use Psr\Log\LoggerInterface;
@@ -112,8 +113,8 @@ class UserDeletedTest extends AccountTestCase {
 		$this->assertSame($few, $this->db->getInner()->getStats()['executed'] - $queries, 'No query per detection in the deletion');
 
 		$upTo = Server::get(DetectionMapper::class)->lastId();
-		$this->assertSame(0, $cleanup->scrubDetections('many-user', $upTo, 0, 0), 'nothing done without a batch');
-		$after = $cleanup->scrubDetections('many-user', $upTo, 0, 1);
+		$this->assertSame('0', $cleanup->scrubDetections('many-user', $upTo, '0', 0), 'nothing done without a batch');
+		$after = $cleanup->scrubDetections('many-user', $upTo, '0', 1);
 		$this->assertNotNull($after, 'one batch, more to do');
 		$this->assertNull($cleanup->scrubDetections('many-user', $upTo, $after, 1));
 		$this->runQueuedCleanup();
@@ -122,7 +123,7 @@ class UserDeletedTest extends AccountTestCase {
 		$this->assertStringNotContainsString('many-user', $dump);
 		$this->assertStringNotContainsString('few-user', $dump);
 		$this->assertSame($count, substr_count($dump, 'kept-user'));
-		$this->assertSame([], Server::get(\OCA\IntrusionDetection\Db\DetectionAccountMapper::class)->detectionIds('many-user', 0, 10));
+		$this->assertSame([], Server::get(\OCA\IntrusionDetection\Db\DetectionAccountMapper::class)->detectionIds('many-user', '0', 10));
 	}
 
 	public function testANewAccountWithTheNameOfADeletedOneKeepsItsDetections(): void {
@@ -155,6 +156,7 @@ class UserDeletedTest extends AccountTestCase {
 		foreach (['gone-user', 'kept-user'] as $uid) {
 			$qb = $this->db->getQueryBuilder();
 			$qb->insert('ids_approvals')->values([
+				'id' => $qb->createNamedParameter(Server::get(ISnowflakeGenerator::class)->nextId()),
 				'kind' => $qb->createNamedParameter('admin_grant'),
 				'subject_uid' => $qb->createNamedParameter($uid),
 				'requested_by' => $qb->createNamedParameter('admin'),
@@ -186,7 +188,7 @@ class UserDeletedTest extends AccountTestCase {
 		$now = time();
 		foreach (['gone-user', 'kept-user'] as $uid) {
 			Server::get(SecurityChangeMapper::class)->insert(['uid' => $uid, 'type' => 'email_changed', 'via' => 'self', 'actor_uid' => $uid, 'old_value_hint' => 'o***@example.com', 'new_value_hint' => null, 'notify_to' => 'encrypted', 'ref_id' => null, 'detail' => null, 'session_token_id' => null, 'ip' => null, 'created_at' => $now]);
-			Server::get(LockLinkMapper::class)->insert($uid, str_repeat('c', 64), 'o***@example.com', null, null, $now, $now + 3600);
+			Server::get(LockLinkMapper::class)->insert($uid, str_repeat('c', 64), 'o***@example.com', null, null, $now + 3600);
 		}
 
 		Server::get(UserDataCleanup::class)->deleteUser('gone-user');

@@ -181,7 +181,7 @@ class AdminChangeListener implements IEventListener {
 		if ($reverted) {
 			$approval = $this->approvals->request($user, $group, $actor, $this->addresses->current()?->ip);
 			if ($approval !== null) {
-				$facts['approval'] = (int)$approval->getId();
+				$facts['approval'] = (string)$approval->getId();
 				$facts['expires_at'] = $approval->getExpiresAt();
 			}
 		}

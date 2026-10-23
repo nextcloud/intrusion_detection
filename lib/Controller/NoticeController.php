@@ -100,7 +100,7 @@ class NoticeController extends Controller implements ILoginFlowPage {
 	#[NoAdminRequired]
 	#[UserRateLimit(limit: 20, period: 600)]
 	#[FrontpageRoute(verb: 'POST', url: '/notice/{id}/deny', requirements: ['id' => '\d+'])]
-	public function deny(int $id, string $redirect_url = ''): Response {
+	public function deny(string $id, string $redirect_url = ''): Response {
 		return $this->answer($id, $redirect_url, false);
 	}
 
@@ -108,11 +108,11 @@ class NoticeController extends Controller implements ILoginFlowPage {
 	#[PasswordConfirmationRequired]
 	#[UserRateLimit(limit: 20, period: 600)]
 	#[FrontpageRoute(verb: 'POST', url: '/notice/{id}/confirm', requirements: ['id' => '\d+'])]
-	public function confirm(int $id, string $redirect_url = ''): Response {
+	public function confirm(string $id, string $redirect_url = ''): Response {
 		return $this->answer($id, $redirect_url, true);
 	}
 
-	private function answer(int $id, string $redirectUrl, bool $yes): Response {
+	private function answer(string $id, string $redirectUrl, bool $yes): Response {
 		$user = $this->userSession->getUser();
 		if ($user === null || $this->notices->shownSince($user->getUID()) === null) {
 			return $this->continue($redirectUrl);

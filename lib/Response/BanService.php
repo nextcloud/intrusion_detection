@@ -108,7 +108,7 @@ class BanService implements IPurges {
 	/**
 	 * @param ?string $uid the account the detection is about, for the exemptions of checks about one account
 	 */
-	public function ban(SourceKey $source, string $checkId, ?int $detectionId = null, ?int $forceLevel = null, ?string $uid = null): BanResult {
+	public function ban(SourceKey $source, string $checkId, ?string $detectionId = null, ?int $forceLevel = null, ?string $uid = null): BanResult {
 		return $this->banMany([$source], $checkId, $detectionId, $forceLevel, $uid)[$source->ipKey];
 	}
 
@@ -122,7 +122,7 @@ class BanService implements IPurges {
 	 * @param ?string $uid the account the detection is about, for the exemptions of checks about one account
 	 * @return array<string, BanResult> by ip key; a network block by escalation is in the result of the address that caused it
 	 */
-	public function banMany(array $sources, string $checkId, ?int $detectionId = null, ?int $forceLevel = null, ?string $uid = null): array {
+	public function banMany(array $sources, string $checkId, ?string $detectionId = null, ?int $forceLevel = null, ?string $uid = null): array {
 		$results = [];
 		$candidates = [];
 		foreach ($sources as $source) {
@@ -215,7 +215,7 @@ class BanService implements IPurges {
 	 *
 	 * @param ?string $uid the account the detection is about, for the exemptions of checks about one account
 	 */
-	public function banNetwork(SourceKey $member, string $checkId, ?int $detectionId = null, ?string $uid = null): BanResult {
+	public function banNetwork(SourceKey $member, string $checkId, ?string $detectionId = null, ?string $uid = null): BanResult {
 		if ($member->family !== 4) {
 			return new BanResult(BanResult::SKIPPED_NEVER);
 		}
@@ -299,7 +299,7 @@ class BanService implements IPurges {
 	 * @throws InvalidBanException for a note that is too long, before the block is looked up
 	 * @throws DoesNotExistException
 	 */
-	public function liftById(int $id, string $actor, string $note): Ban {
+	public function liftById(string $id, string $actor, string $note): Ban {
 		self::note($note);
 		$ban = $this->mapper->findById($id);
 		$this->lift($ban, $actor, $note);
@@ -353,7 +353,7 @@ class BanService implements IPurges {
 	/**
 	 * Block one address under its lock, or raise its own active block.
 	 */
-	private function banLocked(SourceKey $source, string $checkId, ?int $detectionId, ?int $forceLevel, int $level, int $now): BanResult {
+	private function banLocked(SourceKey $source, string $checkId, ?string $detectionId, ?int $forceLevel, int $level, int $now): BanResult {
 		$scope = $source->family === 6 ? Ban::SCOPE_NET : Ban::SCOPE_IP;
 		$cidr = $scope === Ban::SCOPE_NET ? $source->ipKey : $source->ip . '/32';
 		return $this->locks->run('ban', $source->ipKey, function () use ($source, $scope, $cidr, $checkId, $detectionId, $forceLevel, $level, $now): BanResult {
@@ -423,7 +423,7 @@ class BanService implements IPurges {
 	 * Block the network once enough of its addresses are blocked: the /24
 	 * for IPv4; the /48, else the /56, for IPv6.
 	 */
-	private function escalate(SourceKey $source, string $checkId, ?int $detectionId, ?string $uid, int $now): ?Ban {
+	private function escalate(SourceKey $source, string $checkId, ?string $detectionId, ?string $uid, int $now): ?Ban {
 		$netAfter = $this->settings->banNetAfter();
 		if ($netAfter < 1) {
 			return null;
@@ -470,7 +470,7 @@ class BanService implements IPurges {
 		string $banKey,
 		int $level,
 		string $checkId,
-		?int $detectionId,
+		?string $detectionId,
 		int $now,
 		int $expiresAt,
 		?string $createdBy = null,
@@ -486,7 +486,7 @@ class BanService implements IPurges {
 		$ban->setDetectionId($detectionId);
 		$ban->setCreatedBy($createdBy);
 		$ban->setNote($note === null ? null : mb_substr($note, 0, 255));
-		$ban->setCreatedAt($now);
+		$ban->setCreatedTime($now);
 		$ban->setExpiresAt($expiresAt);
 		$ban = $this->mapper->insert($ban);
 		$this->changed($ban, false);

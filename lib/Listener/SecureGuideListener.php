@@ -43,12 +43,12 @@ class SecureGuideListener implements IEventListener {
 			if ($event instanceof WasThisYouAnsweredEvent && $event->isDenied()) {
 				$detection = $event->getDetection();
 				if ($detection->getUid() !== null) {
-					$this->guide->start($detection->getUid(), SecureAccountGuide::REASON_DENIED, $detection->getId(), $detection->getCreatedAt());
+					$this->guide->start($detection->getUid(), SecureAccountGuide::REASON_DENIED, (string)$detection->getId(), $detection->getCreatedTime());
 				}
 			} elseif ($event instanceof DetectionCreatedEvent) {
 				$detection = $event->getDetection();
 				if ($detection->getUid() !== null && $detection->isEnforced() && in_array($detection->getCheckId(), self::STARTING_CHECKS, true)) {
-					$this->guide->start($detection->getUid(), SecureAccountGuide::REASON_DETECTION, $detection->getId(), $detection->getCreatedAt());
+					$this->guide->start($detection->getUid(), SecureAccountGuide::REASON_DETECTION, (string)$detection->getId(), $detection->getCreatedTime());
 				}
 			} elseif ($event instanceof PasswordUpdatedEvent) {
 				$this->guide->passwordChanged($event->getUser()->getUID());

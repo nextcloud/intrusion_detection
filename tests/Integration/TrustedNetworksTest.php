@@ -37,7 +37,7 @@ class TrustedNetworksTest extends IntegrationTestCase {
 	public function testANetworkIsTrustedForTheUserForTheConfiguredTime(): void {
 		$networks = $this->networks();
 		$this->assertInstanceOf(TrustedNetworks::class, Server::get(ITrustedNetworks::class), 'The real implementation is registered');
-		$until = $networks->trust('alice', SourceKey::fromIp('203.0.113.7'), 42);
+		$until = $networks->trust('alice', SourceKey::fromIp('203.0.113.7'), '42');
 		$this->assertSame($this->now + 30 * 86400, $until);
 		$this->assertTrue($networks->isTrusted('alice', SourceKey::fromIp('203.0.113.250')), 'The whole /24');
 		$this->assertFalse($networks->isTrusted('alice', SourceKey::fromIp('203.0.114.7')));
@@ -57,11 +57,11 @@ class TrustedNetworksTest extends IntegrationTestCase {
 		$networks = $this->networks();
 		$networks->trust('alice', SourceKey::fromIp('203.0.113.7'));
 		$this->now += 86400;
-		$until = $networks->trust('alice', SourceKey::fromIp('203.0.113.8'), 7);
+		$until = $networks->trust('alice', SourceKey::fromIp('203.0.113.8'), '7');
 		$list = $networks->forUser('alice');
 		$this->assertCount(1, $list);
 		$this->assertSame($until, $list[0]['expiresAt']);
-		$this->assertSame(7, $list[0]['detectionId']);
+		$this->assertSame('7', $list[0]['detectionId']);
 	}
 
 	public function testUsersRemoveOnlyTheirOwnEntries(): void {

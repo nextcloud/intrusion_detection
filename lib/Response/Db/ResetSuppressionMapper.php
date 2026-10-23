@@ -29,14 +29,14 @@ class ResetSuppressionMapper {
 	 * Suppress until a time, or extend a suppression that would end earlier.
 	 * One that already lasts longer stays as it is.
 	 */
-	public function suppress(string $uid, ?int $detectionId, int $now, int $expiresAt): void {
+	public function suppress(string $uid, ?string $detectionId, int $now, int $expiresAt): void {
 		$qb = $this->db->getQueryBuilder();
 		$qb->update(self::TABLE)
 			->set('expires_at', $qb->createNamedParameter($expiresAt, IQueryBuilder::PARAM_INT))
 			->where($qb->expr()->eq('uid', $qb->createNamedParameter($uid)))
 			->andWhere($qb->expr()->lt('expires_at', $qb->createNamedParameter($expiresAt, IQueryBuilder::PARAM_INT)));
 		if ($detectionId !== null) {
-			$qb->set('detection_id', $qb->createNamedParameter($detectionId, IQueryBuilder::PARAM_INT));
+			$qb->set('detection_id', $qb->createNamedParameter($detectionId));
 		}
 		if ($qb->executeStatement() > 0) {
 			return;
@@ -100,7 +100,6 @@ class ResetSuppressionMapper {
 			static fn (IQueryBuilder $qb): IQueryBuilder => $qb
 				->where($qb->expr()->lte('expires_at', $qb->createNamedParameter($now, IQueryBuilder::PARAM_INT)))
 				->andWhere($qb->expr()->lt('created_at', $qb->createNamedParameter($startedBefore, IQueryBuilder::PARAM_INT))),
-			IQueryBuilder::PARAM_STR_ARRAY,
 		);
 	}
 }

@@ -29,7 +29,7 @@ class ProtectedAccountMapper {
 	 * Protect an account until a time, or extend a protection that would end
 	 * earlier. A protection that already lasts longer stays as it is.
 	 */
-	public function protect(string $uid, string $reason, ?int $detectionId, int $now, int $expiresAt): void {
+	public function protect(string $uid, string $reason, ?string $detectionId, int $now, int $expiresAt): void {
 		$qb = $this->db->getQueryBuilder();
 		$qb->update(self::TABLE)
 			->set('expires_at', $qb->createNamedParameter($expiresAt, IQueryBuilder::PARAM_INT))
@@ -37,7 +37,7 @@ class ProtectedAccountMapper {
 			->where($qb->expr()->eq('uid', $qb->createNamedParameter($uid)))
 			->andWhere($qb->expr()->lt('expires_at', $qb->createNamedParameter($expiresAt, IQueryBuilder::PARAM_INT)));
 		if ($detectionId !== null) {
-			$qb->set('detection_id', $qb->createNamedParameter($detectionId, IQueryBuilder::PARAM_INT));
+			$qb->set('detection_id', $qb->createNamedParameter($detectionId));
 		}
 		if ($qb->executeStatement() > 0) {
 			return;
@@ -52,7 +52,7 @@ class ProtectedAccountMapper {
 	}
 
 	/**
-	 * @return ?array{uid: string, reason: string, detection_id: ?int, created_at: int, expires_at: int}
+	 * @return ?array{uid: string, reason: string, detection_id: ?string, created_at: int, expires_at: int}
 	 */
 	public function find(string $uid): ?array {
 		$qb = $this->db->getQueryBuilder();
@@ -66,7 +66,7 @@ class ProtectedAccountMapper {
 	}
 
 	/**
-	 * @return list<array{uid: string, reason: string, detection_id: ?int, created_at: int, expires_at: int}> active protections, ending soonest first
+	 * @return list<array{uid: string, reason: string, detection_id: ?string, created_at: int, expires_at: int}> active protections, ending soonest first
 	 */
 	public function findActive(int $now, int $limit = 200): array {
 		$qb = $this->db->getQueryBuilder();
@@ -92,18 +92,18 @@ class ProtectedAccountMapper {
 	}
 
 	public function deleteExpired(int $now): int {
-		return BatchedDelete::run($this->db, self::TABLE, 'uid', 'expires_at', static fn (IQueryBuilder $qb): IQueryBuilder => $qb->where($qb->expr()->lte('expires_at', $qb->createNamedParameter($now, IQueryBuilder::PARAM_INT))), IQueryBuilder::PARAM_STR_ARRAY);
+		return BatchedDelete::run($this->db, self::TABLE, 'uid', 'expires_at', static fn (IQueryBuilder $qb): IQueryBuilder => $qb->where($qb->expr()->lte('expires_at', $qb->createNamedParameter($now, IQueryBuilder::PARAM_INT))));
 	}
 
 	/**
 	 * @param array<string, mixed> $row
-	 * @return array{uid: string, reason: string, detection_id: ?int, created_at: int, expires_at: int}
+	 * @return array{uid: string, reason: string, detection_id: ?string, created_at: int, expires_at: int}
 	 */
 	private static function row(array $row): array {
 		return [
 			'uid' => (string)$row['uid'],
 			'reason' => (string)$row['reason'],
-			'detection_id' => $row['detection_id'] === null ? null : (int)$row['detection_id'],
+			'detection_id' => $row['detection_id'] === null ? null : (string)$row['detection_id'],
 			'created_at' => (int)$row['created_at'],
 			'expires_at' => (int)$row['expires_at'],
 		];

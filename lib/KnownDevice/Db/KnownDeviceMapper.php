@@ -13,6 +13,7 @@ use OCA\IntrusionDetection\Db\BatchedDelete;
 use OCA\IntrusionDetection\KnownDevice\KnownDevice;
 use OCP\DB\QueryBuilder\IQueryBuilder;
 use OCP\IDBConnection;
+use OCP\Snowflake\ISnowflakeGenerator;
 
 /**
  * The remembered browsers (ids_known_devices), one row per account and
@@ -24,6 +25,7 @@ class KnownDeviceMapper {
 
 	public function __construct(
 		private readonly IDBConnection $db,
+		private readonly ISnowflakeGenerator $snowflakes,
 	) {
 	}
 
@@ -46,6 +48,7 @@ class KnownDeviceMapper {
 
 	public function insert(string $uid, string $deviceHmac, string $family, string $platform, string $label, ?string $netKey, int $now): void {
 		$this->db->insertIgnoreConflict(self::TABLE, [
+			'id' => $this->snowflakes->nextId(),
 			'uid' => $uid,
 			'device_hmac' => $deviceHmac,
 			'family' => $family,
@@ -57,11 +60,11 @@ class KnownDeviceMapper {
 		]);
 	}
 
-	public function touch(int $id, int $now): void {
+	public function touch(string $id, int $now): void {
 		$qb = $this->db->getQueryBuilder();
 		$qb->update(self::TABLE)
 			->set('last_seen_at', $qb->createNamedParameter($now, IQueryBuilder::PARAM_INT))
-			->where($qb->expr()->eq('id', $qb->createNamedParameter($id, IQueryBuilder::PARAM_INT)))
+			->where($qb->expr()->eq('id', $qb->createNamedParameter($id)))
 			->executeStatement();
 	}
 
@@ -101,7 +104,7 @@ class KnownDeviceMapper {
 		$result = $qb->executeQuery();
 		$ids = [];
 		while (($id = $result->fetchOne()) !== false) {
-			$ids[] = (int)$id;
+			$ids[] = (string)$id;
 		}
 		$result->closeCursor();
 		// An account has at most a few more than $keep rows, so they are sorted out here.
@@ -111,17 +114,17 @@ class KnownDeviceMapper {
 		}
 		$delete = $this->db->getQueryBuilder();
 		$delete->delete(self::TABLE)
-			->where($delete->expr()->in('id', $delete->createNamedParameter($ids, IQueryBuilder::PARAM_INT_ARRAY)));
+			->where($delete->expr()->in('id', $delete->createNamedParameter($ids, IQueryBuilder::PARAM_STR_ARRAY)));
 		return $delete->executeStatement();
 	}
 
 	/**
 	 * @return bool whether the account had this device
 	 */
-	public function delete(string $uid, int $id): bool {
+	public function delete(string $uid, string $id): bool {
 		$qb = $this->db->getQueryBuilder();
 		$qb->delete(self::TABLE)
-			->where($qb->expr()->eq('id', $qb->createNamedParameter($id, IQueryBuilder::PARAM_INT)))
+			->where($qb->expr()->eq('id', $qb->createNamedParameter($id)))
 			->andWhere($qb->expr()->eq('uid', $qb->createNamedParameter($uid)));
 		return $qb->executeStatement() > 0;
 	}

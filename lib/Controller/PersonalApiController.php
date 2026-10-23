@@ -112,7 +112,7 @@ class PersonalApiController extends OCSController {
 	/**
 	 * Answer "No, it was not me": end the sessions linked to the event, block its address and tell the administrators
 	 *
-	 * @param int $id the event
+	 * @param string $id the event
 	 * @return DataResponse<Http::STATUS_OK, IntrusionDetectionPersonalDetection, array{}>|DataResponse<Http::STATUS_BAD_REQUEST|Http::STATUS_FORBIDDEN|Http::STATUS_NOT_FOUND|Http::STATUS_CONFLICT, IntrusionDetectionError, array{}>
 	 *
 	 * 200: The answer was taken; from a session whose login proved only the password, or with an app password, the administrators were told and the event stays open (no verdict)
@@ -124,7 +124,7 @@ class PersonalApiController extends OCSController {
 	#[NoAdminRequired]
 	#[UserRateLimit(limit: 20, period: 600)]
 	#[ApiRoute(verb: 'POST', url: '/api/v1/personal/detections/{id}/deny', requirements: ['id' => '\d+'])]
-	public function deny(int $id): DataResponse {
+	public function deny(string $id): DataResponse {
 		$user = $this->user();
 		return new DataResponse($this->detections->present($this->answers->deny($user, $id), $user));
 	}
@@ -132,7 +132,7 @@ class PersonalApiController extends OCSController {
 	/**
 	 * Answer "Yes, it was me": trust the event's network for a while
 	 *
-	 * @param int $id the event
+	 * @param string $id the event
 	 * @return DataResponse<Http::STATUS_OK, IntrusionDetectionPersonalDetection, array{}>|DataResponse<Http::STATUS_BAD_REQUEST|Http::STATUS_FORBIDDEN|Http::STATUS_NOT_FOUND|Http::STATUS_CONFLICT, IntrusionDetectionError, array{}>
 	 *
 	 * 200: The answer was taken
@@ -145,7 +145,7 @@ class PersonalApiController extends OCSController {
 	#[PasswordConfirmationRequired]
 	#[UserRateLimit(limit: 20, period: 600)]
 	#[ApiRoute(verb: 'POST', url: '/api/v1/personal/detections/{id}/confirm', requirements: ['id' => '\d+'])]
-	public function confirm(int $id): DataResponse {
+	public function confirm(string $id): DataResponse {
 		$user = $this->user();
 		return new DataResponse($this->detections->present($this->answers->confirm($user, $id), $user));
 	}
@@ -169,8 +169,8 @@ class PersonalApiController extends OCSController {
 	/**
 	 * Stop trusting one of the current user's networks
 	 *
-	 * @param int $id the entry
-	 * @return DataResponse<Http::STATUS_OK, array{removed: int}, array{}>|DataResponse<Http::STATUS_NOT_FOUND, IntrusionDetectionError, array{}>
+	 * @param string $id the entry
+	 * @return DataResponse<Http::STATUS_OK, array{removed: string}, array{}>|DataResponse<Http::STATUS_NOT_FOUND, IntrusionDetectionError, array{}>
 	 * @throws OCSNotFoundException The security page is switched off
 	 *
 	 * 200: Removed
@@ -179,7 +179,7 @@ class PersonalApiController extends OCSController {
 	#[NoAdminRequired]
 	#[UserRateLimit(limit: 20, period: 600)]
 	#[ApiRoute(verb: 'DELETE', url: '/api/v1/personal/trusted-networks/{id}', requirements: ['id' => '\d+'])]
-	public function removeTrustedNetwork(int $id): DataResponse {
+	public function removeTrustedNetwork(string $id): DataResponse {
 		$this->requirePage();
 		$uid = $this->user()->getUID();
 		if (!$this->trustedNetworks->remove($uid, $id)) {
@@ -209,8 +209,8 @@ class PersonalApiController extends OCSController {
 	 *
 	 * Its logins are asked for a confirmation again where needed.
 	 *
-	 * @param int $id the device
-	 * @return DataResponse<Http::STATUS_OK, array{removed: int}, array{}>|DataResponse<Http::STATUS_NOT_FOUND, IntrusionDetectionError, array{}>
+	 * @param string $id the device
+	 * @return DataResponse<Http::STATUS_OK, array{removed: string}, array{}>|DataResponse<Http::STATUS_NOT_FOUND, IntrusionDetectionError, array{}>
 	 * @throws OCSNotFoundException The security page is switched off
 	 *
 	 * 200: Forgotten
@@ -219,7 +219,7 @@ class PersonalApiController extends OCSController {
 	#[NoAdminRequired]
 	#[UserRateLimit(limit: 20, period: 600)]
 	#[ApiRoute(verb: 'DELETE', url: '/api/v1/personal/known-devices/{id}', requirements: ['id' => '\d+'])]
-	public function removeKnownDevice(int $id): DataResponse {
+	public function removeKnownDevice(string $id): DataResponse {
 		$this->requirePage();
 		if (!$this->knownDevices->remove($this->user()->getUID(), $id)) {
 			return $this->error($this->l->t('This device is not one of your remembered devices.'), AnswerException::NOT_FOUND, Http::STATUS_NOT_FOUND);

@@ -96,7 +96,7 @@ class DetectionSummaryTest extends TestCase {
 		$detection->setActionList($actions);
 		$detection->setExplanationData(['facts' => $facts, 'mode' => ['reason' => $reason]]);
 		$detection->setHits(1);
-		$detection->setCreatedAt(1_790_000_000);
+		$detection->setCreatedTime(1_790_000_000);
 		$detection->setLastSeenAt(1_790_000_000);
 		return $detection;
 	}

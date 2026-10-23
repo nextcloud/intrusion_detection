@@ -130,7 +130,7 @@ class ApiResponsesTest extends IntegrationTestCase {
 			],
 			'missing detection' => [
 				'GET /api/v1/detections/{id}',
-				['id' => 999999],
+				['id' => '999999'],
 				['status' => 404, 'message' => '', 'data' => ['message' => 'This detection does not exist (any more).', 'param' => null, 'reason' => 'not_found']],
 			],
 			'ban level' => [
@@ -170,17 +170,17 @@ class ApiResponsesTest extends IntegrationTestCase {
 			],
 			'lift without note' => [
 				'DELETE /api/v1/bans/{id}',
-				['id' => 1, 'note' => ' '],
+				['id' => '1', 'note' => ' '],
 				['status' => 400, 'message' => '', 'data' => ['message' => 'Please say why the block is lifted. The note is kept with the block and in the audit log.', 'param' => 'note', 'reason' => 'required']],
 			],
 			'lift long note' => [
 				'DELETE /api/v1/bans/{id}',
-				['id' => 1, 'note' => str_repeat('x', 256)],
+				['id' => '1', 'note' => str_repeat('x', 256)],
 				['status' => 400, 'message' => '', 'data' => ['message' => 'The note can have at most 255 characters.', 'param' => 'note', 'reason' => 'too_long']],
 			],
 			'lift missing ban' => [
 				'DELETE /api/v1/bans/{id}',
-				['id' => 999999, 'note' => 'gone'],
+				['id' => '999999', 'note' => 'gone'],
 				['status' => 404, 'message' => '', 'data' => ['message' => 'This block does not exist (any more).', 'param' => null, 'reason' => 'not_found']],
 			],
 			'learning action' => [
@@ -210,12 +210,12 @@ class ApiResponsesTest extends IntegrationTestCase {
 			],
 			'approve missing' => [
 				'POST /api/v1/approvals/{id}/approve',
-				['id' => 999999],
+				['id' => '999999'],
 				['status' => 404, 'message' => '', 'data' => ['message' => 'There is no such request.', 'param' => null, 'reason' => 'not_found']],
 			],
 			'reject missing' => [
 				'POST /api/v1/approvals/{id}/reject',
-				['id' => 999999],
+				['id' => '999999'],
 				['status' => 404, 'message' => '', 'data' => ['message' => 'There is no such request.', 'param' => null, 'reason' => 'not_found']],
 			],
 			'blocklist exists' => [
@@ -260,7 +260,7 @@ class ApiResponsesTest extends IntegrationTestCase {
 			],
 			'decoy missing' => [
 				'DELETE /api/v1/decoys/{id}',
-				['id' => 999999],
+				['id' => '999999'],
 				['status' => 404, 'message' => '', 'data' => ['message' => 'This decoy does not exist (any more).', 'param' => null, 'reason' => 'not_found']],
 			],
 			'reserved name invalid' => [
@@ -315,12 +315,12 @@ class ApiResponsesTest extends IntegrationTestCase {
 			],
 			'secure account missing' => [
 				'GET /api/v1/detections/{id}/secure-account',
-				['id' => 999999],
+				['id' => '999999'],
 				['status' => 404, 'message' => '', 'data' => ['message' => 'This detection does not exist (any more).', 'param' => null, 'reason' => 'not_found']],
 			],
 			'reenable missing' => [
 				'POST /api/v1/detections/{id}/reenable',
-				['id' => 999999],
+				['id' => '999999'],
 				['status' => 404, 'message' => '', 'data' => ['message' => 'This detection does not exist (any more).', 'param' => null, 'reason' => 'not_found']],
 			],
 			'simulation missing' => [
@@ -345,12 +345,12 @@ class ApiResponsesTest extends IntegrationTestCase {
 			],
 			'personal deny missing' => [
 				'POST /api/v1/personal/detections/{id}/deny',
-				['id' => 999999],
+				['id' => '999999'],
 				['status' => 404, 'message' => '', 'data' => ['message' => 'This event does not exist, or it is not about your account.', 'param' => null, 'reason' => 'not_found']],
 			],
 			'personal confirm missing' => [
 				'POST /api/v1/personal/detections/{id}/confirm',
-				['id' => 999999],
+				['id' => '999999'],
 				['status' => 404, 'message' => '', 'data' => ['message' => 'This event does not exist, or it is not about your account.', 'param' => null, 'reason' => 'not_found']],
 			],
 			'stale credential missing' => [

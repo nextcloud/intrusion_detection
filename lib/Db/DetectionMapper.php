@@ -74,11 +74,11 @@ class DetectionMapper extends QBMapper {
 	/**
 	 * @throws DoesNotExistException
 	 */
-	public function findById(int $id): Detection {
+	public function findById(string $id): Detection {
 		$qb = $this->db->getQueryBuilder();
 		$qb->select('*')
 			->from(self::TABLE)
-			->where($qb->expr()->eq('id', $qb->createNamedParameter($id, IQueryBuilder::PARAM_INT)));
+			->where($qb->expr()->eq('id', $qb->createNamedParameter($id)));
 		return $this->findEntity($qb);
 	}
 
@@ -107,19 +107,19 @@ class DetectionMapper extends QBMapper {
 	}
 
 	/**
-	 * The id of the latest detection, 0 without any.
+	 * The id of the latest detection, "0" without any.
 	 */
-	public function lastId(): int {
+	public function lastId(): string {
 		$qb = $this->db->getQueryBuilder();
 		$qb->select($qb->func()->max('id'))->from(self::TABLE);
 		$result = $qb->executeQuery();
-		$id = (int)$result->fetchOne();
+		$id = $result->fetchOne();
 		$result->closeCursor();
-		return $id;
+		return $id === false || $id === null ? '0' : (string)$id;
 	}
 
 	/**
-	 * @param list<int> $ids
+	 * @param list<string> $ids
 	 * @return list<Detection> in id order
 	 */
 	public function findByIds(array $ids): array {
@@ -129,7 +129,7 @@ class DetectionMapper extends QBMapper {
 		$qb = $this->db->getQueryBuilder();
 		$qb->select('*')
 			->from(self::TABLE)
-			->where($qb->expr()->in('id', $qb->createNamedParameter($ids, IQueryBuilder::PARAM_INT_ARRAY)))
+			->where($qb->expr()->in('id', $qb->createNamedParameter($ids, IQueryBuilder::PARAM_STR_ARRAY)))
 			->orderBy('id', 'ASC');
 		return $this->findEntities($qb);
 	}
@@ -141,12 +141,12 @@ class DetectionMapper extends QBMapper {
 	 * @param Detection::VERDICT_* $verdict
 	 * @return bool whether this answer was recorded
 	 */
-	public function setVerdict(int $id, string $uid, string $verdict, int $now): bool {
+	public function setVerdict(string $id, string $uid, string $verdict, int $now): bool {
 		$qb = $this->db->getQueryBuilder();
 		$qb->update(self::TABLE)
 			->set('user_verdict', $qb->createNamedParameter($verdict))
 			->set('verdict_at', $qb->createNamedParameter($now, IQueryBuilder::PARAM_INT))
-			->where($qb->expr()->eq('id', $qb->createNamedParameter($id, IQueryBuilder::PARAM_INT)))
+			->where($qb->expr()->eq('id', $qb->createNamedParameter($id)))
 			->andWhere($qb->expr()->eq('uid', $qb->createNamedParameter($uid)))
 			->andWhere($qb->expr()->isNull('user_verdict'));
 		return $qb->executeStatement() === 1;
@@ -221,12 +221,12 @@ class DetectionMapper extends QBMapper {
 		if ($after === null) {
 			return;
 		}
-		$createdAt = $qb->createNamedParameter((int)$after->getCreatedAt(), IQueryBuilder::PARAM_INT);
+		$createdAt = $qb->createNamedParameter((int)$after->getCreatedTime(), IQueryBuilder::PARAM_INT);
 		$qb->andWhere($qb->expr()->orX(
 			$qb->expr()->gt('d.created_at', $createdAt),
 			$qb->expr()->andX(
 				$qb->expr()->eq('d.created_at', $createdAt),
-				$qb->expr()->gt('d.id', $qb->createNamedParameter((int)$after->getId(), IQueryBuilder::PARAM_INT)),
+				$qb->expr()->gt('d.id', $qb->createNamedParameter((string)$after->getId())),
 			),
 		));
 	}
@@ -252,7 +252,7 @@ class DetectionMapper extends QBMapper {
 			beforeDelete: function (array $ids): void {
 				$qb = $this->db->getQueryBuilder();
 				$qb->delete(DetectionAccountMapper::TABLE)
-					->where($qb->expr()->in('detection_id', $qb->createNamedParameter($ids, IQueryBuilder::PARAM_INT_ARRAY)))
+					->where($qb->expr()->in('detection_id', $qb->createNamedParameter($ids, IQueryBuilder::PARAM_STR_ARRAY)))
 					->executeStatement();
 			},
 		);
@@ -287,7 +287,7 @@ class DetectionMapper extends QBMapper {
 			$qb->andWhere($expr->lte('created_at', $qb->createNamedParameter($filter->until, IQueryBuilder::PARAM_INT)));
 		}
 		if ($filter->afterId !== null) {
-			$qb->andWhere($expr->gt('id', $qb->createNamedParameter($filter->afterId, IQueryBuilder::PARAM_INT)));
+			$qb->andWhere($expr->gt('id', $qb->createNamedParameter($filter->afterId)));
 		}
 		if ($filter->answered !== null) {
 			$qb->andWhere($filter->answered ? $expr->isNotNull('user_verdict') : $expr->isNull('user_verdict'));

@@ -51,7 +51,7 @@ class FlagSourceHandlerTest extends TestCase {
 
 	private function context(): ResponseContext {
 		$detection = new Detection();
-		$detection->setId(5);
+		$detection->generateId();
 		$draft = new DetectionDraft(checkId: 'blocklist_match', source: SourceKey::fromIp('198.51.100.7'));
 		return new ResponseContext($draft, $detection, Server::get(CheckRegistry::class)->get($draft->checkId), true);
 	}

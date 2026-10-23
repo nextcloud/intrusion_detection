@@ -70,7 +70,7 @@ class ApprovalFlowTest extends AdminChangeTestCase {
 		$this->assertSame($this->alice, $approval->getRequestedBy());
 		$this->assertSame('admin', $approval->getGroupId());
 		$this->assertSame(Approval::STATUS_PENDING, $approval->getStatus());
-		$this->assertSame(604800, $approval->getExpiresAt() - $approval->getCreatedAt());
+		$this->assertSame(604800, $approval->getExpiresAt() - $approval->getCreatedTime());
 
 		[$detection] = $this->adminChanges();
 		$facts = $this->facts($detection);
@@ -90,7 +90,7 @@ class ApprovalFlowTest extends AdminChangeTestCase {
 
 		$prepared = Server::get(Notifier::class)->prepare($asked[0], 'en');
 		$this->assertSame($this->alice . ' asks to make ' . $this->bob . ' an administrator', $prepared->getParsedSubject());
-		$this->assertReviewedOnTheAdminPage($prepared, (int)$approval->getId());
+		$this->assertReviewedOnTheAdminPage($prepared, (string)$approval->getId());
 		$this->assertSame(['WEB'], array_map(static fn ($a): string => $a->getRequestType(), $asked[0]->getActions()), 'Only a link is stored');
 	}
 
@@ -98,7 +98,7 @@ class ApprovalFlowTest extends AdminChangeTestCase {
 		$this->act($this->alice);
 		$this->addAsWeb('admin', $this->bob);
 		[$approval] = $this->approvals->list(true);
-		$id = (int)$approval->getId();
+		$id = (string)$approval->getId();
 
 		$stored = Server::get(INotificationManager::class)->createNotification();
 		$stored->setApp(Application::APP_ID)
@@ -130,7 +130,7 @@ class ApprovalFlowTest extends AdminChangeTestCase {
 		$asked = array_values(array_filter($this->notificationsWithSubject(Notifier::SUBJECT_APPROVAL_REQUESTED), fn (INotification $n): bool => $n->getUser() === $this->carol));
 		$this->assertSame($this->alice . ' asks to add ' . $this->bob . ' to the group "ids-ac-delegates", which has administration rights', Server::get(Notifier::class)->prepare($asked[0], 'en')->getParsedSubject());
 
-		$this->approvals->approve((int)$approval->getId(), $this->carol, ApprovalService::VIA_WEB);
+		$this->approvals->approve((string)$approval->getId(), $this->carol, ApprovalService::VIA_WEB);
 		$this->assertTrue($this->inGroup('ids-ac-delegates', $this->bob));
 	}
 
@@ -158,7 +158,7 @@ class ApprovalFlowTest extends AdminChangeTestCase {
 			$approval->setRequestedBy($this->alice);
 			$approval->setGroupId('admin');
 			$approval->setStatus(Approval::STATUS_PENDING);
-			$approval->setCreatedAt(time());
+			$approval->setCreatedTime(time());
 			$approval->setExpiresAt(time() + 3600);
 			$mapper->insert($approval);
 		}
@@ -252,9 +252,9 @@ class ApprovalFlowTest extends AdminChangeTestCase {
 		$approval->setRequestedBy($this->alice);
 		$approval->setPayload(json_encode(['op' => HeldChanges::CHECK, 'check' => 'no_such_check', 'mode' => 'off']));
 		$approval->setStatus(Approval::STATUS_PENDING);
-		$approval->setCreatedAt(time());
+		$approval->setCreatedTime(time());
 		$approval->setExpiresAt(time() + 3600);
-		$id = (int)Server::get(ApprovalMapper::class)->insert($approval)->getId();
+		$id = (string)Server::get(ApprovalMapper::class)->insert($approval)->getId();
 		try {
 			$this->approvals->approve($id, $this->carol, ApprovalService::VIA_WEB);
 			$this->fail('The change cannot be made');
@@ -280,7 +280,7 @@ class ApprovalFlowTest extends AdminChangeTestCase {
 			$approval->setSubjectUid('ids-ac-filler-' . $i);
 			$approval->setRequestedBy('ids-ac-filler-' . $i);
 			$approval->setStatus(Approval::STATUS_PENDING);
-			$approval->setCreatedAt(time());
+			$approval->setCreatedTime(time());
 			$approval->setExpiresAt(time() + 3600);
 			$mapper->insert($approval);
 		}
@@ -482,14 +482,14 @@ class ApprovalFlowTest extends AdminChangeTestCase {
 		$this->rebuild();
 	}
 
-	private function requestBob(): int {
+	private function requestBob(): string {
 		$this->act($this->alice);
 		$this->addAsWeb('admin', $this->bob);
 		[$approval] = $this->approvals->list(true);
-		return (int)$approval->getId();
+		return (string)$approval->getId();
 	}
 
-	private function expire(int $id): void {
+	private function expire(string $id): void {
 		$approval = Server::get(ApprovalMapper::class)->findById($id);
 		$approval->setExpiresAt(time() - 1);
 		Server::get(ApprovalMapper::class)->update($approval);
@@ -499,7 +499,7 @@ class ApprovalFlowTest extends AdminChangeTestCase {
 	 * Approving needs the password, which no notification can ask: the one
 	 * button opens the request on the admin page, also in the clients.
 	 */
-	private function assertReviewedOnTheAdminPage(INotification $prepared, int $id): void {
+	private function assertReviewedOnTheAdminPage(INotification $prepared, string $id): void {
 		$this->assertStringContainsString('Approving needs your password', $prepared->getParsedMessage());
 		$this->assertStringEndsWith('/settings/admin/intrusion_detection#approval-' . $id, $prepared->getLink());
 		$actions = $prepared->getParsedActions();

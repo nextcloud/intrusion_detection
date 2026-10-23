@@ -80,11 +80,11 @@ class BanMapper extends QBMapper {
 	/**
 	 * @throws DoesNotExistException
 	 */
-	public function findById(int $id): Ban {
+	public function findById(string $id): Ban {
 		$qb = $this->db->getQueryBuilder();
 		$qb->select('*')
 			->from(self::TABLE)
-			->where($qb->expr()->eq('id', $qb->createNamedParameter($id, IQueryBuilder::PARAM_INT)));
+			->where($qb->expr()->eq('id', $qb->createNamedParameter($id)));
 		return $this->findEntity($qb);
 	}
 
@@ -183,7 +183,7 @@ class BanMapper extends QBMapper {
 		$result = $qb->executeQuery();
 		$row = $result->fetch();
 		$result->closeCursor();
-		return is_array($row) ? (int)$row['n'] . ':' . (int)$row['last_id'] . ':' . (string)$row['expiry_sum'] : '0';
+		return is_array($row) ? (int)$row['n'] . ':' . (string)$row['last_id'] . ':' . (string)$row['expiry_sum'] : '0';
 	}
 
 	/**

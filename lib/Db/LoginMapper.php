@@ -11,6 +11,7 @@ namespace OCA\IntrusionDetection\Db;
 
 use OCP\DB\QueryBuilder\IQueryBuilder;
 use OCP\IDBConnection;
+use OCP\Snowflake\ISnowflakeGenerator;
 
 /**
  * Which accounts logged in successfully from which address, per hour
@@ -23,6 +24,7 @@ class LoginMapper implements IPurges {
 
 	public function __construct(
 		private readonly IDBConnection $db,
+		private readonly ISnowflakeGenerator $snowflakes,
 	) {
 	}
 
@@ -31,6 +33,7 @@ class LoginMapper implements IPurges {
 	 */
 	public function record(string $ipKey, string $netKey, string $uid, int $hour): void {
 		$this->db->insertIgnoreConflict(self::TABLE, [
+			'id' => $this->snowflakes->nextId(),
 			'ip_key' => $ipKey,
 			'net_key' => $netKey,
 			'uid' => $uid,

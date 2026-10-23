@@ -27,7 +27,7 @@ final readonly class AccountTakeoverFacts implements IMergeableFacts {
 	 * @param ?string $riskyLoginReason why it was risky
 	 * @param list<string> $riskyLoginPolicies the step-up policies it needed
 	 * @param list<array<array-key, mixed>> $changes the changes: id, type, points, at, ip, old and new
-	 * @param ?int $emailChangeId the first change of the email address, when it had one before
+	 * @param ?string $emailChangeId the first change of the email address, when it had one before
 	 * @param ?int $emailChangedAt when it was changed
 	 * @param ?string $previousAddress the masked address before
 	 * @param ?bool $userHasEmail the account has an email address now
@@ -41,7 +41,7 @@ final readonly class AccountTakeoverFacts implements IMergeableFacts {
 		public ?string $riskyLoginReason = null,
 		public array $riskyLoginPolicies = [],
 		public array $changes = [],
-		public ?int $emailChangeId = null,
+		public ?string $emailChangeId = null,
 		public ?int $emailChangedAt = null,
 		public ?string $previousAddress = null,
 		public ?bool $userHasEmail = null,
@@ -62,7 +62,7 @@ final readonly class AccountTakeoverFacts implements IMergeableFacts {
 			FactValues::string($stored, 'riskyLoginReason'),
 			FactValues::strings($stored, 'riskyLoginPolicies') ?? [],
 			self::changes(FactValues::array($stored, 'changes')),
-			FactValues::int($stored, 'emailChangeId'),
+			FactValues::string($stored, 'emailChangeId'),
 			FactValues::int($stored, 'emailChangedAt'),
 			FactValues::string($stored, 'previousAddress'),
 			FactValues::bool($stored, 'userHasEmail'),

@@ -79,7 +79,7 @@ class SecureAccountGuide {
 	 * @param self::REASON_* $reason
 	 * @param ?int $eventAt when the suspicious event happened; now if unknown
 	 */
-	public function start(string $uid, string $reason, ?int $detectionId = null, ?int $eventAt = null): void {
+	public function start(string $uid, string $reason, ?string $detectionId = null, ?int $eventAt = null): void {
 		$now = $this->timeFactory->getTime();
 		$state = $this->state($uid);
 		$wasOpen = $state !== null && $state['closed'] === null;
@@ -99,7 +99,7 @@ class SecureAccountGuide {
 	/**
 	 * The stored state, or null when the guide was never started.
 	 *
-	 * @return ?array{v: int, started: int, event: int, reason: string, detection: ?int, done: array<string, int>, closed: ?int, closedBy: ?string}
+	 * @return ?array{v: int, started: int, event: int, reason: string, detection: ?string, done: array<string, int>, closed: ?int, closedBy: ?string}
 	 */
 	public function state(string $uid): ?array {
 		$raw = $this->userConfig->getValueString($uid, Application::APP_ID, UserKeys::SECURE_GUIDE, '', true);
@@ -118,7 +118,7 @@ class SecureAccountGuide {
 			'started' => $data['started'],
 			'event' => is_int($data['event'] ?? null) ? $data['event'] : $data['started'],
 			'reason' => is_string($data['reason'] ?? null) ? $data['reason'] : self::REASON_SELF,
-			'detection' => is_int($data['detection'] ?? null) ? $data['detection'] : null,
+			'detection' => is_string($data['detection'] ?? null) ? $data['detection'] : null,
 			'done' => $done,
 			'closed' => is_int($data['closed'] ?? null) ? $data['closed'] : null,
 			'closedBy' => is_string($data['closedBy'] ?? null) ? $data['closedBy'] : null,
@@ -173,7 +173,7 @@ class SecureAccountGuide {
 	/**
 	 * The guide as the pages show it.
 	 *
-	 * @return array{active: bool, startedAt: ?int, eventAt: ?int, reason: ?string, detectionId: ?int, closedAt: ?int, closedBy: ?string, done: int, total: int, steps: list<array{id: SecureAccountGuide::STEP_*, done: bool, doneAt: ?int, skipped: bool, managed: bool, userConfirms: bool}>}
+	 * @return array{active: bool, startedAt: ?int, eventAt: ?int, reason: ?string, detectionId: ?string, closedAt: ?int, closedBy: ?string, done: int, total: int, steps: list<array{id: SecureAccountGuide::STEP_*, done: bool, doneAt: ?int, skipped: bool, managed: bool, userConfirms: bool}>}
 	 */
 	public function progress(IUser $user): array {
 		$state = $this->state($user->getUID());
@@ -215,8 +215,8 @@ class SecureAccountGuide {
 	}
 
 	/**
-	 * @param array{v: int, started: int, event: int, reason: string, detection: ?int, done: array<string, int>, closed: ?int, closedBy: ?string} $state
-	 * @return array{v: int, started: int, event: int, reason: string, detection: ?int, done: array<string, int>, closed: ?int, closedBy: ?string}
+	 * @param array{v: int, started: int, event: int, reason: string, detection: ?string, done: array<string, int>, closed: ?int, closedBy: ?string} $state
+	 * @return array{v: int, started: int, event: int, reason: string, detection: ?string, done: array<string, int>, closed: ?int, closedBy: ?string}
 	 */
 	private function closeIfComplete(string $uid, array $state): array {
 		$user = $this->userManager->get($uid);
@@ -234,7 +234,7 @@ class SecureAccountGuide {
 	}
 
 	/**
-	 * @param array{v: int, started: int, event: int, reason: string, detection: ?int, done: array<string, int>, closed: ?int, closedBy: ?string} $state
+	 * @param array{v: int, started: int, event: int, reason: string, detection: ?string, done: array<string, int>, closed: ?int, closedBy: ?string} $state
 	 */
 	private function save(string $uid, array $state): void {
 		$this->userConfig->setValueString($uid, Application::APP_ID, UserKeys::SECURE_GUIDE, json_encode($state, JSON_THROW_ON_ERROR), true);

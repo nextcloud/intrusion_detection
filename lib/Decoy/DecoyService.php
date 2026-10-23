@@ -81,18 +81,17 @@ class DecoyService {
 		$decoy->setSecretHmac($secretHmac);
 		$decoy->setFormat($format->value);
 		$decoy->setCreatedBy(mb_substr($actor, 0, 64));
-		$decoy->setCreatedAt($this->timeFactory->getTime());
 		$decoy->setTriggerCount(0);
 		$decoy = $this->mapper->insert($decoy);
 		$this->updateCount();
-		$this->audit->log('decoy credential %s ("%s") created by %s', ['id' => $decoy->getId(), 'label' => $label, 'actor' => $actor]);
+		$this->audit->log('decoy credential %s ("%s") created by %s', ['id' => (string)$decoy->getId(), 'label' => $label, 'actor' => $actor]);
 		return [$decoy, $secret];
 	}
 
 	/**
 	 * @throws DoesNotExistException
 	 */
-	public function delete(int $id, string $actor): Decoy {
+	public function delete(string $id, string $actor): Decoy {
 		$decoy = $this->mapper->findById($id);
 		$this->mapper->delete($decoy);
 		$this->updateCount();
@@ -144,7 +143,7 @@ class DecoyService {
 	}
 
 	public function triggered(Decoy $decoy): void {
-		$this->mapper->markTriggered($decoy->getId(), $this->timeFactory->getTime());
+		$this->mapper->markTriggered((string)$decoy->getId(), $this->timeFactory->getTime());
 	}
 
 	/**

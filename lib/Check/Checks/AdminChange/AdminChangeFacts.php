@@ -28,7 +28,7 @@ final readonly class AdminChangeFacts implements IFacts {
 	 * @param ?string $group the group of a membership change
 	 * @param ?list<string> $delegated the administration settings delegated to that group
 	 * @param ?string $exempt why a new administrator did not wait for approval, one of AdminChange::EXEMPT_*
-	 * @param ?int $approval the id of the approval request
+	 * @param ?string $approval the id of the approval request
 	 * @param ?int $expiresAt when that request expires
 	 * @param ?string $requestedBy who asked for an approved change
 	 * @param ?string $approvedBy who approved it
@@ -53,7 +53,7 @@ final readonly class AdminChangeFacts implements IFacts {
 		public ?string $group = null,
 		public ?array $delegated = null,
 		public ?string $exempt = null,
-		public ?int $approval = null,
+		public ?string $approval = null,
 		public ?int $expiresAt = null,
 		public ?string $requestedBy = null,
 		public ?string $approvedBy = null,
@@ -85,7 +85,7 @@ final readonly class AdminChangeFacts implements IFacts {
 			FactValues::string($stored, 'group'),
 			FactValues::strings($stored, 'delegated'),
 			FactValues::string($stored, 'exempt'),
-			FactValues::int($stored, 'approval'),
+			FactValues::string($stored, 'approval'),
 			FactValues::int($stored, 'expires_at'),
 			FactValues::string($stored, 'requested_by'),
 			FactValues::string($stored, 'approved_by'),

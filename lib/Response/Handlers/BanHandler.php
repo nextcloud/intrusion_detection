@@ -74,7 +74,7 @@ class BanHandler implements IResponseHandler, IDescribesAction {
 			}
 			$targets[$target->ipKey] = $target;
 		}
-		$results = $targets === [] ? [] : $this->bans->banMany(array_values($targets), $draft->checkId, $context->detection->getId(), $draft->banLevel, $draft->uid);
+		$results = $targets === [] ? [] : $this->bans->banMany(array_values($targets), $draft->checkId, (string)$context->detection->getId(), $draft->banLevel, $draft->uid);
 		foreach ($results as $ipKey => $result) {
 			$target = $targets[$ipKey] ?? null;
 			if ($target !== null && ($result->outcome === BanResult::SKIPPED_SHARED || $result->outcome === BanResult::SKIPPED_PROXY)
@@ -84,7 +84,7 @@ class BanHandler implements IResponseHandler, IDescribesAction {
 			$this->count($result, $draft, $counts, $listed);
 		}
 		foreach ($draft->networkBanTargets() as $member) {
-			$this->count($this->bans->banNetwork($member, $draft->checkId, $context->detection->getId(), $draft->uid), $draft, $counts, $listed);
+			$this->count($this->bans->banNetwork($member, $draft->checkId, (string)$context->detection->getId(), $draft->uid), $draft, $counts, $listed);
 		}
 		$ref = ['bans' => array_values($listed), 'counts' => $counts];
 		if ($counts['banned'] === 0 && $counts['already'] === 0) {
@@ -95,7 +95,7 @@ class BanHandler implements IResponseHandler, IDescribesAction {
 
 	/**
 	 * @param array<string, int> $counts
-	 * @param array<int, array{id: int, reference: string, cidr: string, level: int, forced: bool, until: int}> $listed
+	 * @param array<int, array{id: string, reference: string, cidr: string, level: int, forced: bool, until: int}> $listed
 	 */
 	private function count(BanResult $result, DetectionDraft $draft, array &$counts, array &$listed): void {
 		if ($result->ban === null) {
@@ -109,7 +109,7 @@ class BanHandler implements IResponseHandler, IDescribesAction {
 		$counts[$result->outcome === BanResult::ALREADY ? 'already' : 'banned']++;
 		foreach ([$result->ban, $result->netBan] as $ban) {
 			if ($ban !== null && count($listed) < self::MAX_LISTED) {
-				$listed[$ban->getId()] = $this->listed($ban, $draft);
+				$listed[(string)$ban->getId()] = $this->listed($ban, $draft);
 			}
 		}
 	}
@@ -168,11 +168,11 @@ class BanHandler implements IResponseHandler, IDescribesAction {
 	}
 
 	/**
-	 * @return array{id: int, reference: string, cidr: string, level: int, forced: bool, until: int}
+	 * @return array{id: string, reference: string, cidr: string, level: int, forced: bool, until: int}
 	 */
 	private function listed(Ban $ban, DetectionDraft $draft): array {
 		return [
-			'id' => $ban->getId(),
+			'id' => (string)$ban->getId(),
 			'reference' => $ban->getDisplayReference(),
 			'cidr' => $ban->getCidr(),
 			'level' => $ban->getLevel(),

@@ -99,7 +99,7 @@ class ApprovalController extends AdminOCSController {
 		$viewer = $this->userSession->getUser()?->getUID() ?? '';
 		$now = $this->timeFactory->getTime();
 		$requests = array_merge($this->approvals->list(true, 200, Approval::KIND_ADMIN_GRANT), $this->approvals->list(true, 200, Approval::KIND_SETTINGS));
-		usort($requests, static fn (Approval $a, Approval $b): int => [$a->getCreatedAt(), (int)$a->getId()] <=> [$b->getCreatedAt(), (int)$b->getId()]);
+		usort($requests, static fn (Approval $a, Approval $b): int => [$a->getCreatedTime(), $a->getId()] <=> [$b->getCreatedTime(), $b->getId()]);
 		$list = [];
 		foreach ($requests as $approval) {
 			if ($approval->getExpiresAt() <= $now) {
@@ -109,7 +109,7 @@ class ApprovalController extends AdminOCSController {
 			$requester = $approval->getRequestedBy();
 			$settings = $approval->getKind() === Approval::KIND_SETTINGS;
 			$list[] = [
-				'id' => (int)$approval->getId(),
+				'id' => (string)$approval->getId(),
 				'kind' => $settings ? Approval::KIND_SETTINGS : Approval::KIND_ADMIN_GRANT,
 				'change' => $settings ? $this->adminChange->heldChange($approval->heldChange(), $this->l) : null,
 				'uid' => $uid,
@@ -117,7 +117,7 @@ class ApprovalController extends AdminOCSController {
 				'group' => (string)$approval->getGroupId(),
 				'requestedBy' => $requester,
 				'requesterName' => ActorResolver::isPerson($requester) ? ($this->userManager->getDisplayName($requester) ?? $requester) : AdminChange::actorName($requester, $this->l),
-				'createdAt' => $approval->getCreatedAt(),
+				'createdAt' => $approval->getCreatedTime(),
 				'expiresAt' => $approval->getExpiresAt(),
 				'canApprove' => $viewer !== $uid && $viewer !== $requester,
 			];
@@ -133,7 +133,7 @@ class ApprovalController extends AdminOCSController {
 	 * needs a login that proved more than the password: a client that sends
 	 * the password confirms it with every request.
 	 *
-	 * @param int $id the request
+	 * @param string $id the request
 	 * @return DataResponse<Http::STATUS_OK, IntrusionDetectionApproval, array{}>|DataResponse<Http::STATUS_BAD_REQUEST|Http::STATUS_FORBIDDEN|Http::STATUS_NOT_FOUND, IntrusionDetectionError, array{}>
 	 *
 	 * 200: Approved
@@ -144,7 +144,7 @@ class ApprovalController extends AdminOCSController {
 	#[ApiRoute(verb: 'POST', url: '/api/v1/approvals/{id}/approve', requirements: ['id' => '\d+'])]
 	#[PasswordConfirmationRequired]
 	#[UserRateLimit(limit: 10, period: 60)]
-	public function approve(int $id): DataResponse {
+	public function approve(string $id): DataResponse {
 		$decider = $this->decider();
 		if ($this->confirmation->isUnconfirmed($decider)) {
 			throw new ApprovalException(ApprovalException::UNCONFIRMED);
@@ -158,7 +158,7 @@ class ApprovalController extends AdminOCSController {
 	/**
 	 * Reject a request: nothing changes, and the one who asked is told
 	 *
-	 * @param int $id the request
+	 * @param string $id the request
 	 * @return DataResponse<Http::STATUS_OK, IntrusionDetectionApproval, array{}>|DataResponse<Http::STATUS_BAD_REQUEST|Http::STATUS_FORBIDDEN|Http::STATUS_NOT_FOUND, IntrusionDetectionError, array{}>
 	 *
 	 * 200: Rejected
@@ -168,7 +168,7 @@ class ApprovalController extends AdminOCSController {
 	 */
 	#[ApiRoute(verb: 'POST', url: '/api/v1/approvals/{id}/reject', requirements: ['id' => '\d+'])]
 	#[UserRateLimit(limit: 10, period: 60)]
-	public function reject(int $id): DataResponse {
+	public function reject(string $id): DataResponse {
 		return new DataResponse($this->approvals->reject($id, $this->decider(), ApprovalService::VIA_WEB)->jsonSerialize());
 	}
 

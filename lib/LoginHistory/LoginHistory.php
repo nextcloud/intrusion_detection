@@ -122,9 +122,9 @@ class LoginHistory implements IAcceptedLogins, IPurges {
 	 * @param string $confirmedBy how the login was confirmed ({@see self::CONFIRMED_BY})
 	 * @param ?self::STEP_UP_* $stepUp the step-up's outcome at login, null when nothing was needed
 	 * @param ?bool $firstOfTheHour the {@see \OCA\IntrusionDetection\Login\LoginGate}'s answer for an app; null when it cannot tell
-	 * @return ?int the new row, or null when the login was recorded recently
+	 * @return ?string the new row, or null when the login was recorded recently
 	 */
-	public function record(string $uid, string $method, ?SourceKey $source, ?string $userAgent, bool $knownDevice, bool $browser, string $confirmedBy = self::CONFIRMED_BY_NONE, ?string $stepUp = null, ?bool $firstOfTheHour = null): ?int {
+	public function record(string $uid, string $method, ?SourceKey $source, ?string $userAgent, bool $knownDevice, bool $browser, string $confirmedBy = self::CONFIRMED_BY_NONE, ?string $stepUp = null, ?bool $firstOfTheHour = null): ?string {
 		$now = $this->timeFactory->getTime();
 		$tokenId = $browser ? null : $this->coreSession->loginTokenId();
 		if (!$browser && ($firstOfTheHour === false || $this->mapper->existsSince($uid, $method, $tokenId, $source?->netKey, $now - self::HISTORY_INTERVAL))) {
@@ -176,7 +176,7 @@ class LoginHistory implements IAcceptedLogins, IPurges {
 	 */
 	public function linkSession(?string $currentUid): void {
 		$this->linker->link(SessionMarkers::LOGIN_HISTORY, $currentUid, function (array $marker, int $tokenId): void {
-			if (is_int($marker['id'] ?? null)) {
+			if (is_string($marker['id'] ?? null)) {
 				$this->mapper->setSessionToken($marker['id'], (string)$marker['uid'], $tokenId);
 			}
 		});
@@ -252,10 +252,10 @@ class LoginHistory implements IAcceptedLogins, IPurges {
 	 * The row of the current session's login: from the session marker until
 	 * it is linked, then by the session's token.
 	 */
-	private function rowOf(string $uid): ?int {
+	private function rowOf(string $uid): ?string {
 		$marker = $this->state->get(SessionMarkers::LOGIN_HISTORY);
 		if ($marker !== null) {
-			return ($marker['uid'] ?? null) === $uid && is_int($marker['id'] ?? null) ? $marker['id'] : null;
+			return ($marker['uid'] ?? null) === $uid && is_string($marker['id'] ?? null) ? $marker['id'] : null;
 		}
 		$tokenId = $this->coreSession->tokenId();
 		return $tokenId === null ? null : $this->mapper->idForSessionToken($uid, $tokenId, $this->timeFactory->getTime() - self::SESSION_LOOKBACK);

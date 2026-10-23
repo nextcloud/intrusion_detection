@@ -68,7 +68,7 @@ class AccountLock {
 	 *
 	 * @return LockLinks::VALID|LockLinks::USED|LockLinks::EXPIRED|LockLinks::INVALID|self::LOCKED|self::SESSIONS_ENDED what happened: LOCKED or SESSIONS_ENDED, or why not
 	 */
-	public function lock(int $linkId, #[\SensitiveParameter] string $token): string {
+	public function lock(string $linkId, #[\SensitiveParameter] string $token): string {
 		[$state, $link] = $this->links->check($linkId, $token);
 		if ($state !== LockLinks::VALID || $link === null) {
 			return $state;
@@ -122,9 +122,9 @@ class AccountLock {
 			return self::NOT_LOCKED;
 		}
 		$user->setEnabled(true);
-		$this->passwords->require($user->getUID(), $detection->getId(), AccountLocked::ID);
-		$this->guide->start($user->getUID(), SecureAccountGuide::REASON_REENABLED, $detection->getId(), $detection->getCreatedAt());
-		$this->audit->log('account %s enabled again by %s after it was locked with the lock link (detection %s)', ['uid' => $user->getUID(), 'actor' => $actor, 'detection' => $detection->getId()]);
+		$this->passwords->require($user->getUID(), (string)$detection->getId(), AccountLocked::ID);
+		$this->guide->start($user->getUID(), SecureAccountGuide::REASON_REENABLED, (string)$detection->getId(), $detection->getCreatedTime());
+		$this->audit->log('account %s enabled again by %s after it was locked with the lock link (detection %s)', ['uid' => $user->getUID(), 'actor' => $actor, 'detection' => (string)$detection->getId()]);
 		return self::REENABLED;
 	}
 }

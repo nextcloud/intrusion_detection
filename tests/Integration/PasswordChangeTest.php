@@ -94,10 +94,10 @@ class PasswordChangeTest extends AccountTestCase {
 	}
 
 	public function testRequiringSetsTheFlagOnce(): void {
-		$this->assertSame(PasswordChangeService::STATE_REQUIRED, $this->passwords->require($this->user->getUID(), 42));
+		$this->assertSame(PasswordChangeService::STATE_REQUIRED, $this->passwords->require($this->user->getUID(), '42'));
 		$since = $this->flag->requiredSince($this->user->getUID());
 		$this->assertNotNull($since);
-		$this->passwords->require($this->user->getUID(), 43);
+		$this->passwords->require($this->user->getUID(), '43');
 		$this->assertSame($since, $this->flag->requiredSince($this->user->getUID()), 'An earlier requirement is kept');
 		$this->assertSame(PasswordChangeService::STATE_NO_USER, $this->passwords->require('no-such-user-' . $this->user->getUID()));
 	}
@@ -110,14 +110,14 @@ class PasswordChangeTest extends AccountTestCase {
 		$users->method('get')->willReturn($external);
 		$service = new PasswordChangeService($this->flag, $users, Server::get(AdminNotices::class), Server::get(AuditLogger::class));
 
-		$this->assertSame(PasswordChangeService::STATE_EXTERNAL, $service->require('ldap-alice', 7, 'second_factor_failed'));
+		$this->assertSame(PasswordChangeService::STATE_EXTERNAL, $service->require('ldap-alice', '7', 'second_factor_failed'));
 		$this->assertFalse($this->flag->isRequired('ldap-alice'), 'No requirement the user cannot meet');
 		$notices = $this->notificationsFor('admin', AdminNotices::SUBJECT_PASSWORD_EXTERNAL);
 		$this->assertCount(1, $notices);
-		$this->assertSame(['uid' => 'ldap-alice', 'detection' => 7], $notices[0]->getSubjectParameters());
+		$this->assertSame(['uid' => 'ldap-alice', 'detection' => '7'], $notices[0]->getSubjectParameters());
 
 		// Aggregated: once per account and hour.
-		$service->require('ldap-alice', 8, 'second_factor_failed');
+		$service->require('ldap-alice', '8', 'second_factor_failed');
 		$this->assertCount(1, $this->notificationsFor('admin', AdminNotices::SUBJECT_PASSWORD_EXTERNAL));
 	}
 

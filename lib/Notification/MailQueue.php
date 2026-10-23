@@ -62,7 +62,7 @@ class MailQueue {
 	 *
 	 * @return bool false when the hour's cap is reached and nothing was queued
 	 */
-	public function user(int $detectionId, string $uid, Severity $severity): bool {
+	public function user(string $detectionId, string $uid, Severity $severity): bool {
 		return $this->underCap($severity) && $this->add(self::KIND_USER, $detectionId, $uid);
 	}
 
@@ -71,21 +71,21 @@ class MailQueue {
 	 *
 	 * @return bool false when the hour's cap is reached and nothing was queued
 	 */
-	public function shareOwners(int $detectionId, Severity $severity): bool {
+	public function shareOwners(string $detectionId, Severity $severity): bool {
 		return $this->underCap($severity) && $this->add(self::KIND_SHARE_OWNER, $detectionId, null);
 	}
 
 	/**
 	 * Queue the alert email about a detection to the administrators.
 	 */
-	public function admins(int $detectionId): void {
+	public function admins(string $detectionId): void {
 		$this->add(self::KIND_ADMIN, $detectionId, null);
 	}
 
 	/**
 	 * @param self::KIND_* $kind
 	 */
-	private function add(string $kind, int $detectionId, ?string $uid): bool {
+	private function add(string $kind, string $detectionId, ?string $uid): bool {
 		$argument = ['kind' => $kind, 'detection' => $detectionId];
 		if ($uid !== null) {
 			$argument['uid'] = $uid;

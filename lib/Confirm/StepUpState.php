@@ -40,10 +40,10 @@ final class StepUpState {
 		public readonly int $attempts = 0,
 		public readonly array $resends = [],
 		public readonly ?string $reference = null,
-		public readonly ?int $detectionId = null,
+		public readonly ?string $detectionId = null,
 		public readonly bool $secondFactorRequested = false,
 		/** The request for an administrator's approval of this login */
-		public readonly ?int $approvalId = null,
+		public readonly ?string $approvalId = null,
 	) {
 	}
 
@@ -95,7 +95,7 @@ final class StepUpState {
 	/**
 	 * An administrator was asked; the login may wait as long as the request.
 	 */
-	public function withApproval(int $approvalId, int $expiresAt): self {
+	public function withApproval(string $approvalId, int $expiresAt): self {
 		return $this->copy(['approvalId' => $approvalId, 'deadline' => max($this->deadline, $expiresAt)]);
 	}
 
@@ -160,9 +160,9 @@ final class StepUpState {
 			self::int($data['attempts'] ?? 0),
 			self::ints($data['resends'] ?? []),
 			is_string($data['reference'] ?? null) ? $data['reference'] : null,
-			is_int($data['detection'] ?? null) ? $data['detection'] : null,
+			self::id($data['detection'] ?? null),
 			($data['secondFactor'] ?? false) === true,
-			is_int($data['approval'] ?? null) ? $data['approval'] : null,
+			self::id($data['approval'] ?? null),
 		);
 	}
 
@@ -182,5 +182,12 @@ final class StepUpState {
 
 	private static function int(mixed $value): int {
 		return is_int($value) ? $value : 0;
+	}
+
+	/**
+	 * A detection or approval id; sessions from before snowflake ids keep it as an int.
+	 */
+	private static function id(mixed $value): ?string {
+		return is_string($value) || is_int($value) ? (string)$value : null;
 	}
 }

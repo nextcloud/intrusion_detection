@@ -160,7 +160,7 @@ class AdminApiTest extends IntegrationTestCase {
 			'nested' => ['nameHmac' => self::SECRET_NAME_HMAC, 'value' => self::SECRET_FINGERPRINT],
 		]);
 
-		$response = $this->container->get(DetectionApiController::class)->detection((int)$detection->getId());
+		$response = $this->container->get(DetectionApiController::class)->detection((string)$detection->getId());
 		$detail = $response->getData();
 		$json = (string)json_encode($detail);
 
@@ -180,7 +180,7 @@ class AdminApiTest extends IntegrationTestCase {
 
 	public function testAttemptsAreNotShownForOlderDetections(): void {
 		$detection = $this->insertDetection(ManualBlock::ID, 'medium', true, '203.0.113.7', null, createdAt: time() - 7200);
-		$detail = $this->container->get(DetectionApiController::class)->detection((int)$detection->getId())->getData();
+		$detail = $this->container->get(DetectionApiController::class)->detection((string)$detection->getId())->getData();
 		$this->assertFalse($detail['attemptsAvailable']);
 		$this->assertSame([], $detail['attempts']);
 	}
@@ -198,7 +198,7 @@ class AdminApiTest extends IntegrationTestCase {
 	public function testLookupByReferenceInAnyForm(): void {
 		$detection = $this->insertDetection(ManualBlock::ID, 'medium', true, '203.0.113.7', null);
 		$ban = $this->banService->banManually('203.0.113.7', 1, 'test', null);
-		$ban->setDetectionId((int)$detection->getId());
+		$ban->setDetectionId((string)$detection->getId());
 		$this->bans->update($ban);
 		$reference = $ban->getDisplayReference();
 
@@ -272,7 +272,7 @@ class AdminApiTest extends IntegrationTestCase {
 		$this->assertCount(2, $page['bans']);
 		$this->assertTrue($page['hasMore']);
 
-		$lifted = $this->container->get(BanApiController::class)->liftBan((int)$active->getId(), 'false alarm')->getData();
+		$lifted = $this->container->get(BanApiController::class)->liftBan((string)$active->getId(), 'false alarm')->getData();
 		$this->assertFalse($lifted['active']);
 		$this->assertSame('ids_admin', $lifted['liftedBy']);
 		$this->assertSame('false alarm', $lifted['liftNote']);
@@ -348,7 +348,7 @@ class AdminApiTest extends IntegrationTestCase {
 		$detection->setUid($uid);
 		$detection->setExplanationData(['v' => 1, 'check' => $checkId, 'mode' => ['configured' => 'protect', 'effective' => $enforced ? 'protect' : 'observe', 'reason' => null], 'facts' => $facts]);
 		$detection->setActionList($actions);
-		$detection->setCreatedAt($createdAt);
+		$detection->setCreatedTime($createdAt);
 		$detection->setLastSeenAt($createdAt);
 		$detection->setHits(1);
 		$detection = $this->detections->insert($detection);

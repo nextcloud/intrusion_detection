@@ -63,7 +63,7 @@ class ResetMailSuppressor implements IPurges {
 	 * @return array{until: int, latest: int} when the suppression ends now (in the past once
 	 *                                        the period's time is used up), and when at the latest
 	 */
-	public function suppress(string $uid, int $until, ?int $detectionId = null): array {
+	public function suppress(string $uid, int $until, ?string $detectionId = null): array {
 		$now = $this->timeFactory->getTime();
 		$row = $this->mapper->find($uid);
 		if ($row !== null && $row['createdAt'] <= $now - self::PERIOD) {

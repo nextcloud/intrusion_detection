@@ -106,7 +106,7 @@ class UserAlertsTest extends AccountTestCase {
 		$this->assertCount(1, $this->mailed);
 		$mail = $this->mailed[0][1];
 		$this->assertSame('Security notice: Someone entered your password, but not your second factor', $mail->subject);
-		$when = Server::get(IDateTimeFormatter::class)->formatDateTime($detection->getCreatedAt(), 'long', 'short', new \DateTimeZone('Pacific/Auckland'), Server::get(IFactory::class)->get(Application::APP_ID, 'en'));
+		$when = Server::get(IDateTimeFormatter::class)->formatDateTime($detection->getCreatedTime(), 'long', 'short', new \DateTimeZone('Pacific/Auckland'), Server::get(IFactory::class)->get(Application::APP_ID, 'en'));
 		$whenParagraph = (string)($mail->paragraphs[count($mail->paragraphs) - 1] ?? '');
 		$this->assertSame('This happened on ' . $when . ', from the address 198.51.100.7.', $whenParagraph, 'In the user\'s time zone, and no unknown device');
 		$this->assertStringNotContainsString('script', json_encode($mail, JSON_THROW_ON_ERROR), 'The user agent is never shown as it was sent');
@@ -134,7 +134,7 @@ class UserAlertsTest extends AccountTestCase {
 		$detection = $this->detection($user, AccountUnderAttack::ID, [
 			['type' => ResponseType::ProtectAccount->value, 'enforced' => true, 'ref' => ['until' => $monday]],
 		]);
-		$detection->setCreatedAt($monday - 3600);
+		$detection->setCreatedTime($monday - 3600);
 
 		// ICU puts a narrow no-break space before "PM".
 		$text = str_replace("\u{202F}", ' ', implode(' ', Server::get(UserMessages::class)->mail($detection, $user)->paragraphs));
@@ -265,7 +265,7 @@ class UserAlertsTest extends AccountTestCase {
 		$this->assertSame(UserAlerts::EMAIL_QUEUED, $result['email'] ?? null);
 		$this->assertSame([], $this->notificationsFor('admin', AdminNotices::SUBJECT_USER_UNREACHABLE));
 		$this->runQueuedMails($this->alerts());
-		$this->assertSame($detection->getCreatedAt(), Server::get(LoginNotices::class)->since($user->getUID()), 'Shown at the next login');
+		$this->assertSame($detection->getCreatedTime(), Server::get(LoginNotices::class)->since($user->getUID()), 'Shown at the next login');
 		$notices = $this->notificationsFor('admin', AdminNotices::SUBJECT_USER_UNREACHABLE);
 		$this->assertCount(1, $notices);
 		$this->assertSame(AdminNotices::REASON_MAIL_FAILED, $notices[0]->getSubjectParameters()['reason']);

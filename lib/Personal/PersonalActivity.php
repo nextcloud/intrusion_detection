@@ -123,10 +123,10 @@ class PersonalActivity {
 			}
 			$events++;
 			$entries[] = [
-				'at' => $detection->getCreatedAt(),
+				'at' => $detection->getCreatedTime(),
 				'kind' => 'event',
-				'id' => $detection->getId(),
-				'make' => fn (): array => self::item('event-' . $detection->getId(), 'event', $detection->getCreatedAt(), $day($detection->getCreatedAt()), event: $this->personalDetections->present($detection, $user)),
+				'id' => (string)$detection->getId(),
+				'make' => fn (): array => self::item('event-' . (string)$detection->getId(), 'event', $detection->getCreatedTime(), $day($detection->getCreatedTime()), event: $this->personalDetections->present($detection, $user)),
 			];
 		}
 		// Older events than the oldest one read may exist.

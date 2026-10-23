@@ -118,7 +118,7 @@ class IntrusionWidget implements IAPIWidgetV2, IConditionalWidget, IIconWidget, 
 			return new WidgetItems();
 		}
 		// With the id of the newest detection the client has, only newer detections are new items.
-		$afterId = $since !== null && ctype_digit($since) ? (int)$since : null;
+		$afterId = $since !== null && ctype_digit($since) ? $since : null;
 		$items = [];
 		if ($afterId === null) {
 			// Waiting logins are read live: a user waits on the other side.
@@ -208,7 +208,7 @@ class IntrusionWidget implements IAPIWidgetV2, IConditionalWidget, IIconWidget, 
 		return new WidgetItem(
 			$title,
 			implode(' · ', $parts),
-			$this->pageUrl() . '#detection-' . $detection->getId(),
+			$this->pageUrl() . '#detection-' . (string)$detection->getId(),
 			$this->itemIcon(match (Severity::tryFrom($detection->getSeverity())) {
 				Severity::Critical => 'widget-detection-critical.svg',
 				Severity::High => 'widget-detection-high.svg',

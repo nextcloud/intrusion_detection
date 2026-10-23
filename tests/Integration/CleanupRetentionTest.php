@@ -14,6 +14,7 @@ use OCA\IntrusionDetection\Config\GlobalSettings;
 use OCA\IntrusionDetection\LoginHistory\LoginHistory;
 use OCA\IntrusionDetection\State\HotState;
 use OCP\Server;
+use OCP\Snowflake\ISnowflakeGenerator;
 use PHPUnit\Framework\Attributes\Group;
 
 /**
@@ -25,6 +26,8 @@ use PHPUnit\Framework\Attributes\Group;
 class CleanupRetentionTest extends IntegrationTestCase {
 	private const MARGIN = 600;
 	private const DAY = 86400;
+	/** The tables whose rows have a snowflake id */
+	private const SNOWFLAKE_TABLES = ['ids_attempts', 'ids_logins', 'ids_detections', 'ids_detection_hourly', 'ids_bans', 'ids_alerts', 'ids_trusted_networks', 'ids_known_devices', 'ids_login_history', 'ids_security_changes', 'ids_lock_links', 'ids_user_daily'];
 
 	public function testEveryTableKeepsItsRowsForTheirRetentionOnly(): void {
 		$now = time();
@@ -47,7 +50,7 @@ class CleanupRetentionTest extends IntegrationTestCase {
 			'ids_known_devices' => fn (int $at, string $mark): array => ['uid' => $mark, 'device_hmac' => $mark, 'created_at' => $at, 'last_seen_at' => $at],
 			'ids_login_history' => fn (int $at, string $mark): array => ['uid' => $mark, 'created_at' => $at, 'method' => 'password', 'confirmed_by' => 'none'],
 			'ids_security_changes' => fn (int $at, string $mark): array => ['uid' => $mark, 'type' => 'email', 'via' => 'self', 'created_at' => $at],
-			'ids_lock_links' => fn (int $at, string $mark): array => ['uid' => $mark, 'token_hash' => $mark, 'sent_to_hint' => 'a***@example.com', 'created_at' => $at - self::DAY, 'expires_at' => $at],
+			'ids_lock_links' => fn (int $at, string $mark): array => ['uid' => $mark, 'token_hash' => $mark, 'sent_to_hint' => 'a***@example.com', 'expires_at' => $at],
 			'ids_user_daily' => fn (int $at, string $mark): array => ['uid' => $mark, 'day' => $at, 'updated_at' => $at],
 			'ids_blocklist_stats' => fn (int $at, string $mark): array => ['list_id' => $mark, 'day' => gmdate('Y-m-d', $at), 'matches' => 1, 'sample' => '[]'],
 		];
@@ -134,6 +137,9 @@ class CleanupRetentionTest extends IntegrationTestCase {
 	 * @param array<string, int|string|null> $row
 	 */
 	private function insert(string $table, array $row): void {
+		if (in_array($table, self::SNOWFLAKE_TABLES, true)) {
+			$row['id'] = Server::get(ISnowflakeGenerator::class)->nextId();
+		}
 		$qb = $this->db->getQueryBuilder();
 		$qb->insert($table);
 		foreach ($row as $column => $value) {

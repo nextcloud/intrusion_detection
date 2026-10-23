@@ -85,7 +85,7 @@ final class StepUpRefused implements ICheck, IExplainsDetection, IExplainsToUser
 				(string)$detection->getIp(),
 				StepUpPolicy::describeAll($facts->policies, $l),
 			]),
-			$l->t('The account has no second factor and no email address that could confirm it, so the login was refused. The person was shown the reference %s.', [StepUpReference::of($detection->getId())]),
+			$l->t('The account has no second factor and no email address that could confirm it, so the login was refused. The person was shown the reference %s.', [StepUpReference::of((string)$detection->getId())]),
 		];
 		if ($detection->getHits() > 1) {
 			$sentences[] = $l->n('It was refused %n time within the hour.', 'It was refused %n times within the hour.', $detection->getHits());
@@ -103,7 +103,7 @@ final class StepUpRefused implements ICheck, IExplainsDetection, IExplainsToUser
 				$l->t('Your account has no email address or second factor to confirm it with, so the login was refused.'),
 			],
 			[
-				$l->t('If this was you, ask your administrator for help and give them the reference %s. With an email address or a second factor, you can confirm such logins yourself.', [StepUpReference::of($detection->getId())]),
+				$l->t('If this was you, ask your administrator for help and give them the reference %s. With an email address or a second factor, you can confirm such logins yourself.', [StepUpReference::of((string)$detection->getId())]),
 				$l->t('If it was not you, someone knows your password: change it, and answer "No, it was not me".'),
 			],
 		);

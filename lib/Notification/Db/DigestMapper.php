@@ -233,7 +233,7 @@ class DigestMapper {
 	 * period. Only detections of the last `$lookback` seconds before the
 	 * period are considered, as long as they can be answered.
 	 *
-	 * @return list<array{id: int, uid: string, checkId: string, verdictAt: int}> newest answer first
+	 * @return list<array{id: string, uid: string, checkId: string, verdictAt: int}> newest answer first
 	 */
 	public function deniedByUsers(int $since, int $until, int $lookback, int $limit): array {
 		$qb = $this->db->getQueryBuilder();
@@ -250,7 +250,7 @@ class DigestMapper {
 		$result = $qb->executeQuery();
 		while ($row = $result->fetch()) {
 			$rows[] = [
-				'id' => (int)$row['id'],
+				'id' => (string)$row['id'],
 				'uid' => (string)$row['uid'],
 				'checkId' => (string)$row['check_id'],
 				'verdictAt' => (int)$row['verdict_at'],

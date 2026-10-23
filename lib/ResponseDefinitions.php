@@ -166,7 +166,7 @@ namespace OCA\IntrusionDetection;
  * }
  *
  * @psalm-type IntrusionDetectionDetection = array{
- *     id: int,
+ *     id: string,
  *     checkId: string,
  *     checkName: string,
  *     category: string,
@@ -204,14 +204,14 @@ namespace OCA\IntrusionDetection;
  * }
  *
  * @psalm-type IntrusionDetectionBan = array{
- *     id: int,
+ *     id: string,
  *     reference: string,
  *     cidr: string,
  *     scope: string,
  *     level: int,
  *     checkId: string,
  *     checkName: string,
- *     detectionId: ?int,
+ *     detectionId: ?string,
  *     createdBy: ?string,
  *     note: ?string,
  *     createdAt: int,
@@ -462,7 +462,7 @@ namespace OCA\IntrusionDetection;
  * }
  *
  * @psalm-type IntrusionDetectionDecoy = array{
- *     id: int,
+ *     id: string,
  *     label: string,
  *     loginName: ?string,
  *     format: string,
@@ -633,7 +633,7 @@ namespace OCA\IntrusionDetection;
  * }
  *
  * @psalm-type IntrusionDetectionApproval = array{
- *     id: int,
+ *     id: string,
  *     kind: string,
  *     subject: string,
  *     requestedBy: string,
@@ -647,7 +647,7 @@ namespace OCA\IntrusionDetection;
  * }
  *
  * @psalm-type IntrusionDetectionAdminGrantRequest = array{
- *     id: int,
+ *     id: string,
  *     kind: 'admin_grant'|'settings',
  *     change: ?string,
  *     uid: string,
@@ -661,7 +661,7 @@ namespace OCA\IntrusionDetection;
  * }
  *
  * @psalm-type IntrusionDetectionPersonalDetection = array{
- *     id: int,
+ *     id: string,
  *     check: string,
  *     severity: 'low'|'medium'|'high'|'critical',
  *     enforced: bool,
@@ -681,11 +681,11 @@ namespace OCA\IntrusionDetection;
  * }
  *
  * @psalm-type IntrusionDetectionTrustedNetwork = array{
- *     id: int,
+ *     id: string,
  *     network: string,
  *     createdAt: int,
  *     expiresAt: int,
- *     detectionId: ?int,
+ *     detectionId: ?string,
  * }
  *
  * @psalm-type IntrusionDetectionIncidentEntry = array{
@@ -762,7 +762,7 @@ namespace OCA\IntrusionDetection;
  * }
  *
  * @psalm-type IntrusionDetectionLoginApproval = array{
- *     id: int,
+ *     id: string,
  *     uid: string,
  *     displayName: string,
  *     ip: ?string,
@@ -795,7 +795,7 @@ namespace OCA\IntrusionDetection;
  * }
  *
  * @psalm-type IntrusionDetectionKnownDevice = array{
- *     id: int,
+ *     id: string,
  *     label: string,
  *     family: string,
  *     platform: string,
@@ -806,7 +806,7 @@ namespace OCA\IntrusionDetection;
  * }
  *
  * @psalm-type IntrusionDetectionLogin = array{
- *     id: int,
+ *     id: string,
  *     createdAt: int,
  *     ip: ?string,
  *     network: ?string,
@@ -872,7 +872,7 @@ namespace OCA\IntrusionDetection;
  * }
  *
  * @psalm-type IntrusionDetectionSecurityChange = array{
- *     id: int,
+ *     id: string,
  *     type: string,
  *     label: string,
  *     via: string,
@@ -921,7 +921,7 @@ namespace OCA\IntrusionDetection;
  *     startedAt: ?int,
  *     eventAt: ?int,
  *     reason: ?string,
- *     detectionId: ?int,
+ *     detectionId: ?string,
  *     closedAt: ?int,
  *     closedBy: ?string,
  *     done: int,

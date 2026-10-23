@@ -181,7 +181,7 @@ class IncidentReportTest extends LoginFailureTestCase {
 			$this->assertStringNotContainsString('203.0.113.50', json_encode($entry->toArray(), JSON_THROW_ON_ERROR), 'nothing about another address');
 		}
 		$detection = $report->entries[1];
-		$this->assertSame(CredentialStuffing::ID, Server::get(\OCA\IntrusionDetection\Db\DetectionMapper::class)->findById((int)$detection->ref['id'])->getCheckId());
+		$this->assertSame(CredentialStuffing::ID, Server::get(\OCA\IntrusionDetection\Db\DetectionMapper::class)->findById($detection->ref['id'])->getCheckId());
 		$this->assertTrue($detection->enforced);
 		$this->assertSame('acted', $detection->outcome, 'the address was blocked');
 		$this->assertNull($report->entries[0]->outcome, 'only detections have an outcome');
@@ -218,7 +218,7 @@ class IncidentReportTest extends LoginFailureTestCase {
 		$approval->setGroupId('admin');
 		$approval->setStatus(Approval::STATUS_REJECTED);
 		$approval->setDecidedBy('admin');
-		$approval->setCreatedAt(time() - 600);
+		$approval->setCreatedTime(time() - 600);
 		$approval->setDecidedAt(time() - 60);
 		$approval->setExpiresAt(time() + 3600);
 		Server::get(ApprovalMapper::class)->insert($approval);
@@ -267,7 +267,7 @@ class IncidentReportTest extends LoginFailureTestCase {
 		$approval->setRequestedBy($this->other);
 		$approval->setGroupId('admin');
 		$approval->setStatus(Approval::STATUS_PENDING);
-		$approval->setCreatedAt(time() - 10);
+		$approval->setCreatedTime(time() - 10);
 		$approval->setExpiresAt(time() + 3600);
 		Server::get(ApprovalMapper::class)->insert($approval);
 
@@ -287,7 +287,7 @@ class IncidentReportTest extends LoginFailureTestCase {
 		$detection->setSeverity('medium');
 		$detection->setEnforced(true);
 		$detection->setExplanationData([]);
-		$detection->setCreatedAt(time());
+		$detection->setCreatedTime(time());
 		$detection->setLastSeenAt(time());
 		$detection->setHits(1);
 		$detection->setActionList([
@@ -319,7 +319,7 @@ class IncidentReportTest extends LoginFailureTestCase {
 		$detection->setIp('198.51.100.21');
 		$detection->setExplanationData([]);
 		$detection->setActionList([['type' => 'notify_admin', 'enforced' => true, 'ref' => ['admins' => 1, 'emails' => 0]]]);
-		$detection->setCreatedAt(time() - 60);
+		$detection->setCreatedTime(time() - 60);
 		$detection->setLastSeenAt(time() - 60);
 		$detection->setHits(1);
 		Server::get(\OCA\IntrusionDetection\Db\DetectionMapper::class)->insert($detection);

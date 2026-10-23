@@ -33,7 +33,7 @@ class FlagMapper {
 	 *
 	 * @return bool whether the flag was written
 	 */
-	public function flag(string $flagKey, string $reason, int $expiresAt, ?int $detectionId, ?int $now = null): bool {
+	public function flag(string $flagKey, string $reason, int $expiresAt, ?string $detectionId, ?int $now = null): bool {
 		$extendBelow = $now === null ? $expiresAt : $now + intdiv(max(0, $expiresAt - $now), 2);
 		$select = $this->db->getQueryBuilder();
 		$select->select('expires_at')
@@ -95,6 +95,6 @@ class FlagMapper {
 	}
 
 	public function deleteExpired(int $now): int {
-		return BatchedDelete::run($this->db, self::TABLE, 'flag_key', 'expires_at', static fn (IQueryBuilder $qb): IQueryBuilder => $qb->where($qb->expr()->lte('expires_at', $qb->createNamedParameter($now, IQueryBuilder::PARAM_INT))), IQueryBuilder::PARAM_STR_ARRAY);
+		return BatchedDelete::run($this->db, self::TABLE, 'flag_key', 'expires_at', static fn (IQueryBuilder $qb): IQueryBuilder => $qb->where($qb->expr()->lte('expires_at', $qb->createNamedParameter($now, IQueryBuilder::PARAM_INT))));
 	}
 }

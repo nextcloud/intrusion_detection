@@ -19,7 +19,7 @@ use OCA\IntrusionDetection\Detection\IMergeableFacts;
  */
 final readonly class UserDeniedFacts implements IMergeableFacts {
 	/**
-	 * @param int $detection the id of the answered detection
+	 * @param string $detection the id of the answered detection
 	 * @param string $check its check
 	 * @param ?int $detectedAt when it was detected
 	 * @param bool $passwordInvolved the password was involved
@@ -29,7 +29,7 @@ final readonly class UserDeniedFacts implements IMergeableFacts {
 	 * @param ?int $tokenId the app password the answer revokes
 	 */
 	public function __construct(
-		public int $detection = 0,
+		public string $detection = '',
 		public string $check = '',
 		public ?int $detectedAt = null,
 		public bool $passwordInvolved = false,
@@ -46,7 +46,7 @@ final readonly class UserDeniedFacts implements IMergeableFacts {
 	 */
 	public static function fromArray(array $stored): self {
 		return new self(
-			FactValues::int($stored, 'detection') ?? 0,
+			FactValues::string($stored, 'detection') ?? '',
 			FactValues::string($stored, 'check') ?? '',
 			FactValues::int($stored, 'detectedAt'),
 			FactValues::bool($stored, 'passwordInvolved') ?? false,

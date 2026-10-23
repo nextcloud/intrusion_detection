@@ -276,7 +276,7 @@ class RiskScorerTest extends IntegrationTestCase {
 		$detection->setNetKey($source->netKey);
 		$detection->setExplanationData([]);
 		$detection->setActionList([]);
-		$detection->setCreatedAt($lastSeen - 7200);
+		$detection->setCreatedTime($lastSeen - 7200);
 		$detection->setLastSeenAt($lastSeen);
 		$detection->setHits(1);
 		Server::get(DetectionMapper::class)->insert($detection);

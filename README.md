@@ -267,7 +267,7 @@ occ intrusion:checks:explain credential_stuffing
 occ intrusion:simulate password_spraying      # what a check would do, without recording anything
 occ intrusion:bans:list
 occ intrusion:bans:lift K7Q2-MPXA --note="Our own scanner"
-occ intrusion:detections:explain 2367
+occ intrusion:detections:explain 470938541726507008
 occ intrusion:report --user=mia --format=html > mia.html
 occ intrusion:user mia                        # what applies to an account, and lift it
 occ intrusion:credentials:stale --revoke      # remove app passwords and devices unused for 90 days

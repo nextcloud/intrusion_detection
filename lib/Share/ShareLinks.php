@@ -115,7 +115,7 @@ class ShareLinks {
 	 *
 	 * @return self::DISABLED|self::ALREADY_GONE|self::NOT_FOUND
 	 */
-	public function disable(int $detectionId, string $actorUid): string {
+	public function disable(string $detectionId, string $actorUid): string {
 		try {
 			$detection = $this->detections->findById($detectionId);
 		} catch (DoesNotExistException) {

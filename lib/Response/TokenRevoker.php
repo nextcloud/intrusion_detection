@@ -31,7 +31,7 @@ class TokenRevoker {
 	/**
 	 * @return array{token: ?array{id: int, name: string}, tokens: list<array{id: int, name: string}>}
 	 */
-	public function revoke(string $uid, int $tokenId, ?int $detectionId = null): array {
+	public function revoke(string $uid, int $tokenId, ?string $detectionId = null): array {
 		$token = $this->tokens->invalidate($uid, $tokenId);
 		$children = [];
 		foreach ($this->origins->createdBy($uid, $tokenId, self::MAX_CHILDREN) as $childId) {

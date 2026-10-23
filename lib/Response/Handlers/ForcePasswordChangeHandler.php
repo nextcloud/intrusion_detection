@@ -39,7 +39,7 @@ class ForcePasswordChangeHandler implements IResponseHandler, IDescribesAction {
 		if ($uid === null) {
 			return ResponseOutcome::skipped(ResponseOutcome::NOTE_NOTHING_TO_DO);
 		}
-		$state = $this->passwords->require($uid, $context->detection->getId(), $context->definition->id);
+		$state = $this->passwords->require($uid, (string)$context->detection->getId(), $context->definition->id);
 		if ($state === PasswordChangeService::STATE_NO_USER) {
 			return ResponseOutcome::skipped(ResponseOutcome::NOTE_NOTHING_TO_DO);
 		}

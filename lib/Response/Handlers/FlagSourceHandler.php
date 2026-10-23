@@ -45,7 +45,7 @@ class FlagSourceHandler implements IResponseHandler, IDescribesAction {
 		$until = 0;
 		$flagged = 0;
 		foreach ($targets as $target) {
-			$expires = $this->flags->flagSource($target, FlaggedSources::REASON_ATTACK, $context->detection->getId());
+			$expires = $this->flags->flagSource($target, FlaggedSources::REASON_ATTACK, (string)$context->detection->getId());
 			if ($expires !== null) {
 				$until = $expires;
 				$flagged++;
@@ -53,7 +53,7 @@ class FlagSourceHandler implements IResponseHandler, IDescribesAction {
 		}
 		$networksFlagged = 0;
 		foreach ($networks as $member) {
-			if ($this->flags->flagNetwork($member, FlaggedSources::REASON_ATTACK, $context->detection->getId())) {
+			if ($this->flags->flagNetwork($member, FlaggedSources::REASON_ATTACK, (string)$context->detection->getId())) {
 				$networksFlagged++;
 			}
 		}

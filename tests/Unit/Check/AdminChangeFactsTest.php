@@ -28,8 +28,8 @@ class AdminChangeFactsTest extends TestCase {
 	public static function producedFacts(): array {
 		return [
 			'granted through a group' => [['group' => 'ids-team', 'delegated' => ['Users', 'Sharing'], 'exempt' => AdminChange::EXEMPT_OCC]],
-			'granted after approval' => [['group' => 'admin', 'approval' => 7, 'requested_by' => 'carol', 'approved_by' => 'dave']],
-			'held for approval' => [['group' => 'admin', 'reverted' => true, 'revert_failed' => false, 'approval' => 7, 'expires_at' => 1790000000]],
+			'granted after approval' => [['group' => 'admin', 'approval' => '7', 'requested_by' => 'carol', 'approved_by' => 'dave']],
+			'held for approval' => [['group' => 'admin', 'reverted' => true, 'revert_failed' => false, 'approval' => '7', 'expires_at' => 1790000000]],
 			'app switched on' => [['app' => 'files_external', 'groups' => ['staff']]],
 			'setting' => [AdminChangeDetector::settingChange('system:trusted_proxies', null, ['10.0.0.1'], false, 'root', false, 1790000000)->facts],
 			'secret setting' => [AdminChangeDetector::settingChange('system:secret', 'a', 'b', true, ActorResolver::UNKNOWN, true, 1790000000)->facts],

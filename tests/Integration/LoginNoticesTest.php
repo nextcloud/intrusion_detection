@@ -64,7 +64,7 @@ class LoginNoticesTest extends StepUpTestCase {
 		$since = $this->notices()->since($this->bob->getUID());
 		$this->assertNotNull($since, 'No email address: remembered for the next login');
 		$detection = $this->detectionsOf(StepUpRefused::ID)[0];
-		$this->assertSame($detection->getCreatedAt(), $since);
+		$this->assertSame($detection->getCreatedTime(), $since);
 		$this->assertNotSame([], $this->notificationsFor($this->bob->getUID()), 'The notification as for everyone');
 
 		$this->assertTrue(Server::get(IUserConfig::class)->hasKey($this->bob->getUID(), Application::APP_ID, UserKeys::LOGIN_NOTICE_SINCE));

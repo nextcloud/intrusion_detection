@@ -59,7 +59,7 @@ class DetectionAccountsTest extends IntegrationTestCase {
 			'approved_by' => 'second-admin',
 		])), $this->protect);
 		$this->assertEqualsCanonicalizing(['new-admin', 'second-admin', 'asking-admin'], $this->accounts->uids($detection->getId()));
-		$this->assertSame([$detection->getId()], $this->accounts->detectionIds('asking-admin', 0, 10), 'Deleting the requester finds the detection');
+		$this->assertSame([$detection->getId()], $this->accounts->detectionIds('asking-admin', '0', 10), 'Deleting the requester finds the detection');
 	}
 
 	public function testRecordingMergingAndActionsAddTheirAccounts(): void {
@@ -94,19 +94,19 @@ class DetectionAccountsTest extends IntegrationTestCase {
 		$mapper = Server::get(DetectionMapper::class);
 		$this->assertSame(['bob'], $mapper->findById($attack->getId())->getExplanationData()['facts']['targets']);
 		$this->assertNull($mapper->findById($change->getId())->getExplanationData()['facts']['actor']);
-		$this->assertSame([], $this->accounts->detectionIds('alice', 0, 100));
-		$this->assertCount(52, $this->accounts->detectionIds('bob', 0, 100));
+		$this->assertSame([], $this->accounts->detectionIds('alice', '0', 100));
+		$this->assertCount(52, $this->accounts->detectionIds('bob', '0', 100));
 	}
 
 	public function testRetentionDeletesTheAccountsWithTheirDetections(): void {
 		[$old] = $this->service->record(new DetectionDraft(CredentialStuffing::ID, SourceKey::fromIp('203.0.113.10'), null, self::factsOf(CredentialStuffing::ID, ['targets' => ['alice']])), $this->protect);
 		$mapper = Server::get(DetectionMapper::class);
-		$old->setCreatedAt(1000);
+		$old->setCreatedTime(1000);
 		$mapper->update($old);
 		[$kept] = $this->service->record(new DetectionDraft(CredentialStuffing::ID, SourceKey::fromIp('203.0.113.11'), null, self::factsOf(CredentialStuffing::ID, ['targets' => ['alice']])), $this->protect);
 
 		$this->assertSame(1, $mapper->deleteCreatedBefore(2000));
-		$this->assertSame([$kept->getId()], $this->accounts->detectionIds('alice', 0, 10));
+		$this->assertSame([$kept->getId()], $this->accounts->detectionIds('alice', '0', 10));
 	}
 
 	private function queries(): int {

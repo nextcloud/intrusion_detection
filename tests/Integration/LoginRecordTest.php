@@ -56,14 +56,14 @@ class LoginRecordTest extends IntegrationTestCase {
 		$queries = $this->queries();
 		$listener->handle($this->event('alice'));
 		$this->assertSame(2, $this->queries() - $queries, 'a read and the insert');
-		$id = $this->lastId();
+		$rows = $this->rows();
 		$queries = $this->queries();
 		for ($i = 0; $i < 3; $i++) {
 			$listener->handle($this->event('alice'));
 		}
 		$this->assertSame(3, $this->queries() - $queries, 'a read each, no insert');
 		$listener->handle($this->event('bob'));
-		$this->assertSame($id + 1, $this->lastId(), 'no insert that skipped the row used up an id');
+		$this->assertSame($rows + 1, $this->rows(), 'one row more, for the other account');
 		$this->assertSame(2, count(Server::get(LoginMapper::class)->distinctUidsForIp('203.0.113.41', 0, 100)));
 	}
 
@@ -92,13 +92,13 @@ class LoginRecordTest extends IntegrationTestCase {
 		return LoginSteps::listener([RecordStep::class => new RecordStep(Server::get(LoginMapper::class), Server::get(ITimeFactory::class))], $this->appSettings(), $this->createMock(IRequest::class), addresses: $addresses, gate: new LoginGate($factory, $this->createMock(CoreSession::class), Server::get(Fingerprinter::class)));
 	}
 
-	private function lastId(): int {
+	private function rows(): int {
 		$qb = $this->db->getQueryBuilder();
-		$qb->select($qb->func()->max('id'))->from(LoginMapper::TABLE);
+		$qb->select($qb->func()->count('*'))->from(LoginMapper::TABLE);
 		$result = $qb->executeQuery();
-		$id = (int)$result->fetchOne();
+		$rows = (int)$result->fetchOne();
 		$result->closeCursor();
-		return $id;
+		return $rows;
 	}
 
 	private function event(string $uid): UserLoggedInEvent {

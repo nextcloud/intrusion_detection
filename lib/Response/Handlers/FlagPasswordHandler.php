@@ -45,7 +45,7 @@ class FlagPasswordHandler implements IResponseHandler, IDescribesAction {
 		}
 		$until = 0;
 		foreach ($fingerprints as $fingerprint) {
-			$until = max($until, $this->flags->flagPassword($fingerprint, $context->detection->getId()));
+			$until = max($until, $this->flags->flagPassword($fingerprint, (string)$context->detection->getId()));
 		}
 		return ResponseOutcome::done(['until' => $until]);
 	}

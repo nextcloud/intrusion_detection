@@ -40,7 +40,7 @@ class KillSessionHandler implements IResponseHandler, IDescribesAction {
 		if ($draft->uid === null || ($draft->sessionTokenId === null && $draft->source === null)) {
 			return ResponseOutcome::skipped(ResponseOutcome::NOTE_NOTHING_TO_DO);
 		}
-		$result = $this->killer->kill($draft->uid, $draft->sessionTokenId, $draft->source?->ip, $context->detection->getId());
+		$result = $this->killer->kill($draft->uid, $draft->sessionTokenId, $draft->source?->ip, (string)$context->detection->getId());
 		if ($result['session'] === null && $result['tokens'] === []) {
 			// Already ended, e.g. by an earlier hit of a merged detection: keep what that one recorded.
 			return ResponseOutcome::skipped(ResponseOutcome::NOTE_NOTHING_TO_DO);

@@ -89,9 +89,9 @@ class LockLinks implements IPurges {
 	 * Email the previous address of an email change a lock link, once per
 	 * detection.
 	 *
-	 * @return array{state: self::SENT|self::ALREADY_SENT|self::NO_PREVIOUS_ADDRESS|self::MAIL_FAILED, sentTo?: string, link?: int}
+	 * @return array{state: self::SENT|self::ALREADY_SENT|self::NO_PREVIOUS_ADDRESS|self::MAIL_FAILED, sentTo?: string, link?: string}
 	 */
-	public function send(IUser $user, int $changeId, int $detectionId): array {
+	public function send(IUser $user, string $changeId, string $detectionId): array {
 		if ($this->links->existsForDetection($detectionId)) {
 			return ['state' => self::ALREADY_SENT];
 		}
@@ -103,7 +103,7 @@ class LockLinks implements IPurges {
 		$token = $this->random->generate(self::TOKEN_LENGTH, ISecureRandom::CHAR_ALPHANUMERIC);
 		$now = $this->timeFactory->getTime();
 		$hint = EmailCodes::mask($address);
-		$id = $this->links->insert($user->getUID(), $this->fingerprinter->lockToken($token), $hint, $detectionId, $changeId, $now, $now + self::TTL);
+		$id = $this->links->insert($user->getUID(), $this->fingerprinter->lockToken($token), $hint, $detectionId, $changeId, $now + self::TTL);
 		$url = $this->urlGenerator->linkToRouteAbsolute(self::ROUTE, ['id' => $id, 'token' => $token]);
 		$sent = $this->mails->sendTo($address, $user->getDisplayName(), $this->mail($user, $change, $url), $user->getUID());
 		return ['state' => $sent ? self::SENT : self::MAIL_FAILED, 'sentTo' => $hint, 'link' => $id];
@@ -113,9 +113,9 @@ class LockLinks implements IPurges {
 	 * What state a link is in, if the token is the link's. A wrong token is
 	 * indistinguishable from a link that does not exist.
 	 *
-	 * @return array{0: self::VALID|self::USED|self::EXPIRED|self::INVALID, 1: ?array{id: int, uid: string, sent_to_hint: string, detection_id: ?int, change_id: ?int, created_at: int, expires_at: int, used_at: ?int}}
+	 * @return array{0: self::VALID|self::USED|self::EXPIRED|self::INVALID, 1: ?array{id: string, uid: string, sent_to_hint: string, detection_id: ?string, change_id: ?string, expires_at: int, used_at: ?int}}
 	 */
-	public function check(int $id, #[\SensitiveParameter] string $token): array {
+	public function check(string $id, #[\SensitiveParameter] string $token): array {
 		if (strlen($token) !== self::TOKEN_LENGTH || !ctype_alnum($token)) {
 			return [self::INVALID, null];
 		}
@@ -140,18 +140,18 @@ class LockLinks implements IPurges {
 	 *
 	 * @return int how many links ended
 	 */
-	public function revokeForDetection(int $detectionId): int {
+	public function revokeForDetection(string $detectionId): int {
 		return $this->links->revokeForDetection($detectionId, $this->timeFactory->getTime());
 	}
 
 	/**
 	 * Use a valid link: only the first of concurrent requests succeeds.
 	 */
-	public function use(int $id, ?string $ip): bool {
+	public function use(string $id, ?string $ip): bool {
 		return $this->links->use($id, $this->timeFactory->getTime(), $ip);
 	}
 
-	private function previousAddress(int $changeId): ?string {
+	private function previousAddress(string $changeId): ?string {
 		$encrypted = $this->changes->notifyTo($changeId);
 		if ($encrypted === null) {
 			return null;

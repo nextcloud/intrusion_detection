@@ -25,7 +25,7 @@ use Symfony\Component\Console\Output\BufferedOutput;
  */
 #[Group('DB')]
 class ApprovalCommandsTest extends AdminChangeTestCase {
-	private int $id;
+	private string $id;
 
 	protected function setUp(): void {
 		parent::setUp();
@@ -33,7 +33,7 @@ class ApprovalCommandsTest extends AdminChangeTestCase {
 		$this->act($this->alice);
 		$this->addAsWeb('admin', $this->bob);
 		[$approval] = Server::get(ApprovalService::class)->list(true);
-		$this->id = (int)$approval->getId();
+		$this->id = (string)$approval->getId();
 	}
 
 	public function testTheListShowsPendingRequests(): void {

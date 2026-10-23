@@ -191,7 +191,7 @@ class IntrusionWidgetTest extends TestCase {
 
 		$items = $this->widget->getItemsV2('admin', '8', 7);
 
-		$this->assertSame(8, $filter?->afterId);
+		$this->assertSame('8', $filter?->afterId);
 		$this->assertSame(7, $filter?->limit);
 		$this->assertSame(['9'], array_map(static fn ($item): string => $item->getSinceId(), $items->getItems()));
 		$this->assertSame('', $items->getEmptyContentMessage());
@@ -237,9 +237,8 @@ class IntrusionWidgetTest extends TestCase {
 	}
 
 	private static function detection(int $id, string $checkId, bool $enforced, string $severity = 'high'): Detection {
-		$detection = new Detection();
+		$detection = Detection::fromRow(['id' => (string)$id]);
 		$detection->setSeverity($severity);
-		$detection->setId($id);
 		$detection->setCheckId($checkId);
 		$detection->setEnforced($enforced);
 		$detection->setIp('198.51.100.7');

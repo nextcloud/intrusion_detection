@@ -57,7 +57,7 @@ class ShareOwnerNotifier implements INotifier {
 		}
 		$l = $this->l10nFactory->get(Application::APP_ID, $languageCode);
 		try {
-			$detection = $this->detections->findById((int)($notification->getSubjectParameters()['detection'] ?? 0));
+			$detection = $this->detections->findById((string)($notification->getSubjectParameters()['detection'] ?? '0'));
 		} catch (DoesNotExistException) {
 			throw new AlreadyProcessedException();
 		}

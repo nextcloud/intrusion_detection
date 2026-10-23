@@ -58,7 +58,7 @@ class Create extends Base {
 			$this->writeArrayInOutputFormat($input, $output, $decoy->jsonSerialize() + ['secret' => $secret]);
 			return self::SUCCESS;
 		}
-		$output->writeln('Decoy ' . $decoy->getId() . ' ("' . $decoy->getLabel() . '") created.');
+		$output->writeln('Decoy ' . (string)$decoy->getId() . ' ("' . $decoy->getLabel() . '") created.');
 		$output->writeln('');
 		$output->writeln('  Secret:       <info>' . $secret . '</info>');
 		if ($decoy->getLoginName() !== null) {

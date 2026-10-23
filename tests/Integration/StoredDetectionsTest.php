@@ -200,8 +200,7 @@ class StoredDetectionsTest extends TestCase {
 	 * @param array<string, mixed> $row
 	 */
 	public static function detection(array $row): Detection {
-		$detection = new Detection();
-		$detection->setId($row['id']);
+		$detection = Detection::fromRow(['id' => (string)$row['id']]);
 		$detection->setCheckId($row['checkId']);
 		$detection->setSeverity($row['severity']);
 		$detection->setEnforced($row['enforced']);
@@ -210,7 +209,7 @@ class StoredDetectionsTest extends TestCase {
 		$detection->setUid($row['uid']);
 		$detection->setShareId($row['shareId']);
 		$detection->setHits($row['hits']);
-		$detection->setCreatedAt($row['createdAt']);
+		$detection->setCreatedTime($row['createdAt']);
 		$detection->setLastSeenAt($row['lastSeenAt']);
 		$detection->setActionList($row['actions']);
 		$detection->setExplanationData($row['explanation']);

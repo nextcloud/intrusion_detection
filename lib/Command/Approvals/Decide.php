@@ -54,7 +54,7 @@ class Decide extends Base {
 			return self::INVALID;
 		}
 		$id = (string)$input->getArgument('id');
-		if (!preg_match('/^\d{1,18}$/', $id)) {
+		if (!preg_match('/^\d{1,20}$/', $id)) {
 			$output->writeln('<error>The id must be a number.</error>');
 			return self::INVALID;
 		}
@@ -67,8 +67,8 @@ class Decide extends Base {
 
 		try {
 			$approval = $approve
-				? $this->approvals->approve((int)$id, (string)$as, ApprovalService::VIA_OCC)
-				: $this->approvals->reject((int)$id, $as, ApprovalService::VIA_OCC);
+				? $this->approvals->approve($id, (string)$as, ApprovalService::VIA_OCC)
+				: $this->approvals->reject($id, $as, ApprovalService::VIA_OCC);
 		} catch (ApprovalException $e) {
 			$output->writeln('<error>' . $e->describe($this->l) . '</error>');
 			return self::FAILURE;

@@ -52,7 +52,7 @@ class SuppressResetMailHandler implements IResponseHandler, IDescribesAction {
 			? $this->settings->paramInt($context->definition->id, 'suppress_duration')
 			: self::DEFAULT_DURATION;
 		$now = $this->timeFactory->getTime();
-		['until' => $until, 'latest' => $latest] = $this->suppressor->suppress($uid, $now + $duration, $context->detection->getId());
+		['until' => $until, 'latest' => $latest] = $this->suppressor->suppress($uid, $now + $duration, (string)$context->detection->getId());
 		$ref = ['uid' => $uid, 'until' => $until, 'latest' => $latest];
 		return $until > $now ? ResponseOutcome::done($ref) : ResponseOutcome::skipped(ResponseOutcome::NOTE_HELD_BACK, $ref);
 	}

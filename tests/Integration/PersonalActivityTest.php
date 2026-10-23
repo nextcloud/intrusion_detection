@@ -56,8 +56,8 @@ class PersonalActivityTest extends PersonalApiTestCase {
 		$now = time();
 		$open = $this->detection($this->alice, '203.0.113.10');
 		$answered = $this->detection($this->alice, '203.0.113.11');
-		$this->setCreatedAt($open->getId(), $now - 86400 * 40);
-		$this->setCreatedAt($answered->getId(), $now - 3600);
+		$this->setCreatedTime($open->getId(), $now - 86400 * 40);
+		$this->setCreatedTime($answered->getId(), $now - 3600);
 		Server::get(DetectionMapper::class)->setVerdict($answered->getId(), $this->alice->getUID(), 'confirmed', $now - 3000);
 		$login = $this->loginAt($this->alice, $now - 7200, '198.51.100.7');
 		$change = $this->change($this->alice, $now - 600);
@@ -109,7 +109,7 @@ class PersonalActivityTest extends PersonalApiTestCase {
 	public function testAnOldOpenQuestionIsListedBehindManyNewerDetections(): void {
 		$now = time();
 		$open = $this->detection($this->alice, '203.0.113.10');
-		$this->setCreatedAt($open->getId(), $now - 86400 * 40);
+		$this->setCreatedTime($open->getId(), $now - 86400 * 40);
 		$mapper = Server::get(DetectionMapper::class);
 		for ($i = 0; $i < PersonalDetections::MAX + 20; $i++) {
 			$answered = $this->detection($this->alice, '203.0.113.' . (100 + $i % 100));
@@ -125,7 +125,7 @@ class PersonalActivityTest extends PersonalApiTestCase {
 
 	public function testDetectionsOfAnAskingCheckThatDoNotAskDoNotHideAnOpenQuestion(): void {
 		$open = $this->detection($this->alice, '203.0.113.10');
-		$this->setCreatedAt($open->getId(), time() - 86400 * 40);
+		$this->setCreatedTime($open->getId(), time() - 86400 * 40);
 		// Password spraying asks only for a login with the sprayed password, not for a flagged one.
 		for ($i = 0; $i < PersonalActivity::MAX_QUESTIONS + 20; $i++) {
 			$this->engine()->handle(new DetectionDraft(PasswordSpraying::ID, SourceKey::fromIp('198.51.100.' . (10 + $i)), $this->alice->getUID(), new PasswordSprayingFacts(rule: PasswordSprayingRule::Flagged)), []);
@@ -225,11 +225,11 @@ class PersonalActivityTest extends PersonalApiTestCase {
 		return new ManageSummary($this->knownDevices(), Server::get(TrustedNetworks::class), Server::get(Tokens::class), $this->coreSession);
 	}
 
-	private function loginAt(IUser $user, int $at, string $ip): int {
+	private function loginAt(IUser $user, int $at, string $ip): string {
 		return Server::get(LoginHistoryMapper::class)->insert($user->getUID(), $at, SourceKey::fromIp($ip), 'Mozilla/5.0 (X11; Linux x86_64) Firefox/131.0', LoginHistory::METHOD_PASSWORD, false, 'none', null, null);
 	}
 
-	private function change(IUser $user, int $at, ?string $ip = null): int {
+	private function change(IUser $user, int $at, ?string $ip = null): string {
 		return Server::get(SecurityChangeMapper::class)->insert([
 			'uid' => $user->getUID(),
 			'type' => 'password_changed',
@@ -246,7 +246,7 @@ class PersonalActivityTest extends PersonalApiTestCase {
 		]);
 	}
 
-	private function setCreatedAt(int $id, int $at): void {
+	private function setCreatedTime(string $id, int $at): void {
 		$qb = Server::get(IDBConnection::class)->getQueryBuilder();
 		$qb->update(DetectionMapper::TABLE)
 			->set('created_at', $qb->createNamedParameter($at))

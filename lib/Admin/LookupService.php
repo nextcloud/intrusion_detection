@@ -88,14 +88,15 @@ class LookupService {
 				}
 				return $result;
 			} catch (DoesNotExistException) {
-				// Not a block; it may be a refused login, or an account name.
+				// Not a block; it may be an account name.
 			}
-			$refusal = $this->refusal($query);
-			if ($refusal !== null) {
-				$result['kind'] = 'reference';
-				$result['detections'] = [$this->detections->row($refusal, $l)];
-				return $result;
-			}
+		}
+
+		$refusal = $this->refusal($query);
+		if ($refusal !== null) {
+			$result['kind'] = 'reference';
+			$result['detections'] = [$this->detections->row($refusal, $l)];
+			return $result;
 		}
 
 		$source = SourceKey::tryFromIp(explode('/', $query, 2)[0]);

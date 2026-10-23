@@ -108,15 +108,15 @@ class DecoyApiController extends AdminOCSController {
 	 *
 	 * Anyone who uses it afterwards is treated like any other failed login.
 	 *
-	 * @param int $id The decoy
-	 * @return DataResponse<Http::STATUS_OK, array{deleted: int}, array{}>
+	 * @param string $id The decoy
+	 * @return DataResponse<Http::STATUS_OK, array{deleted: string}, array{}>
 	 * @throws OCSNotFoundException The decoy does not exist
 	 *
 	 * 200: Decoy deleted
 	 */
 	#[ApiRoute(verb: 'DELETE', url: '/api/v1/decoys/{id}', requirements: ['id' => '\d+'])]
 	#[PasswordConfirmationRequired]
-	public function delete(int $id): DataResponse {
+	public function delete(string $id): DataResponse {
 		$this->found(fn () => $this->decoys->delete($id, $this->actor()), $this->l->t('This decoy does not exist (any more).'));
 		return new DataResponse(['deleted' => $id]);
 	}

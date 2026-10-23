@@ -46,7 +46,7 @@ class SessionKiller {
 	/**
 	 * @return array{session: ?array{id: int, name: string}, tokens: list<array{id: int, name: string}>, loggedOut: bool}
 	 */
-	public function kill(string $uid, ?int $sessionTokenId, ?string $ip, ?int $detectionId = null): array {
+	public function kill(string $uid, ?int $sessionTokenId, ?string $ip, ?string $detectionId = null): array {
 		$session = null;
 		$loggedOut = false;
 		if ($sessionTokenId !== null) {

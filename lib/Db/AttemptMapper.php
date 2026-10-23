@@ -11,6 +11,7 @@ namespace OCA\IntrusionDetection\Db;
 
 use OCP\DB\QueryBuilder\IQueryBuilder;
 use OCP\IDBConnection;
+use OCP\Snowflake\ISnowflakeGenerator;
 
 /**
  * Failed attempts (ids_attempts), the baseline store for every counter.
@@ -32,6 +33,7 @@ class AttemptMapper {
 
 	public function __construct(
 		private readonly IDBConnection $db,
+		private readonly ISnowflakeGenerator $snowflakes,
 	) {
 	}
 
@@ -53,6 +55,7 @@ class AttemptMapper {
 		$qb = $this->db->getQueryBuilder();
 		$qb->insert(self::TABLE)
 			->values([
+				'id' => $qb->createNamedParameter($this->snowflakes->nextId()),
 				'kind' => $qb->createNamedParameter($kind->value, IQueryBuilder::PARAM_INT),
 				'ip_key' => $qb->createNamedParameter($ipKey),
 				'net_key' => $qb->createNamedParameter($netKey),

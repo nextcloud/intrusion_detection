@@ -123,7 +123,7 @@ class UserTextsTest extends TestCase {
 		$detection = new Detection();
 		$detection->setCheckId($checkId);
 		$detection->setUid('alice');
-		$detection->setCreatedAt(time());
+		$detection->setCreatedTime(time());
 		$detection->setExplanationData(['facts' => $facts]);
 		return $detection;
 	}

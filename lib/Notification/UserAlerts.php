@@ -102,7 +102,7 @@ class UserAlerts {
 		$now = $this->timeFactory->getTime();
 		$interval = $this->registry->find($detection->getCheckId())?->userAlertInterval ?? CheckDefinition::USER_ALERT_INTERVAL;
 		$bucket = intdiv($now, $interval);
-		[, $first] = $this->alerts->hit($detection->getCheckId(), self::KEY_PREFIX . $uid, $bucket, $detection->getId(), $now);
+		[, $first] = $this->alerts->hit($detection->getCheckId(), self::KEY_PREFIX . $uid, $bucket, (string)$detection->getId(), $now);
 		if (!$first && !$this->tellsFurther($detection, $isNew, $uid, $bucket, $now)) {
 			return ['bell' => self::BELL_AGGREGATED, 'email' => self::EMAIL_AGGREGATED, 'admins' => 0];
 		}
@@ -112,14 +112,14 @@ class UserAlerts {
 			->setUser($uid)
 			->setDateTime(new \DateTime('@' . $now))
 			->setObject(self::OBJECT_TYPE, (string)$detection->getId())
-			->setSubject(self::SUBJECT, ['detection' => $detection->getId()]);
+			->setSubject(self::SUBJECT, ['detection' => (string)$detection->getId()]);
 		$this->notifications->notify($notification);
 
 		if (!$this->reach->hasAddress($user)) {
 			return ['bell' => self::BELL_SENT, 'email' => self::EMAIL_NO_ADDRESS, 'admins' => $this->unreachable($detection, $uid, self::EMAIL_NO_ADDRESS)];
 		}
-		if (!$this->queue->user($detection->getId(), $uid, Severity::from($detection->getSeverity()))) {
-			$this->loginNotices->remember($uid, $detection->getCreatedAt());
+		if (!$this->queue->user((string)$detection->getId(), $uid, Severity::from($detection->getSeverity()))) {
+			$this->loginNotices->remember($uid, $detection->getCreatedTime());
 			return ['bell' => self::BELL_SENT, 'email' => self::EMAIL_LIMITED, 'admins' => 0];
 		}
 		return ['bell' => self::BELL_SENT, 'email' => self::EMAIL_QUEUED, 'admins' => 0];
@@ -149,7 +149,7 @@ class UserAlerts {
 		if (!$isNew || !$this->questions->isOpen($detection)) {
 			return false;
 		}
-		[$counterId] = $this->alerts->hit($detection->getCheckId(), self::FURTHER_KEY_PREFIX . $uid, $bucket, $detection->getId(), $now);
+		[$counterId] = $this->alerts->hit($detection->getCheckId(), self::FURTHER_KEY_PREFIX . $uid, $bucket, (string)$detection->getId(), $now);
 		$hits = $this->alerts->find($counterId)['hits'] ?? PHP_INT_MAX;
 		return $hits < self::MAX_DETECTIONS_PER_INTERVAL;
 	}
@@ -162,14 +162,14 @@ class UserAlerts {
 	 * @return int how many administrators were notified
 	 */
 	private function unreachable(Detection $detection, string $uid, string $email): int {
-		$this->loginNotices->remember($uid, $detection->getCreatedAt());
+		$this->loginNotices->remember($uid, $detection->getCreatedTime());
 		$severity = Severity::tryFrom($detection->getSeverity());
 		if ($severity === null || !$severity->atLeast(self::UNREACHABLE_MIN_SEVERITY)) {
 			return 0;
 		}
 		return $this->adminNotices->userUnreachable(
 			$uid,
-			$detection->getId(),
+			(string)$detection->getId(),
 			$detection->getCheckId(),
 			$email === self::EMAIL_NO_ADDRESS ? AdminNotices::REASON_NO_ADDRESS : AdminNotices::REASON_MAIL_FAILED,
 		);

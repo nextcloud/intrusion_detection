@@ -92,8 +92,8 @@ class DetectionSource implements ITimelineSource {
 		}
 		$followUp = $enforced ? null : $l->t('Some detections were only observed, so Nextcloud did nothing about them. Decide whether they need action, for example blocking an address or asking the account owner to change their password.');
 		return new TimelineEntry(
-			id: 'detection:' . (int)$detection->getId(),
-			at: $detection->getCreatedAt(),
+			id: 'detection:' . (string)$detection->getId(),
+			at: $detection->getCreatedTime(),
 			kind: self::KIND,
 			group: $group,
 			title: $this->headlines->custom($detection, $l) ?? $group,
@@ -108,7 +108,7 @@ class DetectionSource implements ITimelineSource {
 			categories: DataCategory::forCheck($checkId),
 			followUp: $followUp,
 			measures: $this->measures->of($detection, $l),
-			lastSeenAt: $detection->getLastSeenAt() > $detection->getCreatedAt() ? $detection->getLastSeenAt() : null,
+			lastSeenAt: $detection->getLastSeenAt() > $detection->getCreatedTime() ? $detection->getLastSeenAt() : null,
 			outcome: DetectionPresenter::outcome($detection),
 		);
 	}

@@ -34,12 +34,12 @@ class Delete extends Base {
 	#[\Override]
 	protected function execute(InputInterface $input, OutputInterface $output): int {
 		try {
-			$decoy = $this->decoys->delete((int)$input->getArgument('id'), 'occ');
+			$decoy = $this->decoys->delete((string)$input->getArgument('id'), 'occ');
 		} catch (DoesNotExistException) {
 			$output->writeln('<error>There is no such decoy.</error>');
 			return self::FAILURE;
 		}
-		$output->writeln('Deleted decoy ' . $decoy->getId() . ' ("' . $decoy->getLabel() . '").');
+		$output->writeln('Deleted decoy ' . (string)$decoy->getId() . ' ("' . $decoy->getLabel() . '").');
 		return self::SUCCESS;
 	}
 }

@@ -87,13 +87,13 @@ class AdminAlerts {
 	}
 
 	/**
-	 * @return array{alert: int, hits: int, bell: string, email: string, recipients: int}
+	 * @return array{alert: string, hits: int, bell: string, email: string, recipients: int}
 	 */
 	public function alert(Detection $detection): array {
 		$now = $this->timeFactory->getTime();
 		$bucket = intdiv($now, 3600);
 		$checkId = $detection->getCheckId();
-		[$alertId, $first] = $this->alerts->hit($checkId, self::sourceKey($detection), $bucket, $detection->getId(), $now);
+		[$alertId, $first] = $this->alerts->hit($checkId, self::sourceKey($detection), $bucket, (string)$detection->getId(), $now);
 		// Group members are only looked up when a notification or an email is sent.
 		$recipients = null;
 		$allAdmins = self::reachesAdminGroup($detection);
@@ -113,10 +113,10 @@ class AdminAlerts {
 				$notification->setApp(Application::APP_ID)
 					->setUser($user->getUID())
 					->setDateTime(new \DateTime('@' . $now))
-					->setObject(self::OBJECT_TYPE, (string)$alertId)
+					->setObject(self::OBJECT_TYPE, $alertId)
 					->setSubject(self::SUBJECT, [
 						'alert' => $alertId,
-						'detection' => $detection->getId(),
+						'detection' => (string)$detection->getId(),
 						'check' => $checkId,
 					]);
 				$this->notifications->notify($notification);
@@ -206,14 +206,14 @@ class AdminAlerts {
 			$this->recipients->rememberWithoutEmail($allAdmins);
 			return self::EMAIL_NO_ADDRESS;
 		}
-		[, $first] = $this->alerts->hit($detection->getCheckId(), $mailKey, $bucket, $detection->getId(), $now);
+		[, $first] = $this->alerts->hit($detection->getCheckId(), $mailKey, $bucket, (string)$detection->getId(), $now);
 		if (!$first) {
 			return self::EMAIL_LIMITED;
 		}
 		if ($sendNow) {
 			return $this->sendMail($detection) > 0 ? self::EMAIL_SENT : self::EMAIL_FAILED;
 		}
-		$this->queue->admins($detection->getId());
+		$this->queue->admins((string)$detection->getId());
 		return self::EMAIL_QUEUED;
 	}
 
@@ -298,7 +298,7 @@ class AdminAlerts {
 				listHeading: $detection->isEnforced() ? $l->t('What Nextcloud did:') : $l->t('What Nextcloud would have done:'),
 				listItems: $narrative->done,
 				buttonText: $l->t('Open intrusion detection'),
-				buttonUrl: $this->links->detection($detection->getId()),
+				buttonUrl: $this->links->detection((string)$detection->getId()),
 				language: $l->getLanguageCode(),
 			);
 		});

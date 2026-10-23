@@ -111,7 +111,7 @@ final class SecondFactorFailed implements ICheck, IExplainsDetection, IExplainsT
 		$sentences[] = $l->t('Whoever did this knows the password of the account.');
 		if ($detection->getHits() > 1) {
 			$sentences[] = $l->n('It happened %n time between %1$s and %2$s.', 'It happened %n times between %1$s and %2$s.', $detection->getHits(), [
-				$this->dates->dateTime($detection->getCreatedAt()),
+				$this->dates->dateTime($detection->getCreatedTime()),
 				$this->dates->time($detection->getLastSeenAt()),
 			]);
 		}

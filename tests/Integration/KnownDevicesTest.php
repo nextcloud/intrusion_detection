@@ -181,10 +181,10 @@ class KnownDevicesTest extends StepUpTestCase {
 	public function testACredentialUsedFromTwoNetworksForgetsTheCurrentDevice(): void {
 		$this->rememberDevice();
 		$this->deviceCookiesSet = [];
-		$this->knownDevices()->forgetCurrentDevice($this->alice->getUID(), 99);
+		$this->knownDevices()->forgetCurrentDevice($this->alice->getUID(), '99');
 		$this->assertSame(0, $this->deviceRows());
 		$this->assertSame(1, $this->deviceCookiesSet[0][1] ?? null, 'The cookie is cleared');
-		$this->knownDevices()->forgetCurrentDevice($this->alice->getUID(), 99);
+		$this->knownDevices()->forgetCurrentDevice($this->alice->getUID(), '99');
 		$this->assertCount(1, $this->deviceCookiesSet, 'Nothing left to forget');
 	}
 

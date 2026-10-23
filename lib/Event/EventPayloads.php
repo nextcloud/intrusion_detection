@@ -47,15 +47,15 @@ class EventPayloads {
 	public function detection(Detection $detection): array {
 		return $this->safely(fn (): array => $this->withIp([
 			'type' => self::TYPE_DETECTION,
-			'detectionId' => $detection->getId(),
+			'detectionId' => (string)$detection->getId(),
 			'checkId' => $detection->getCheckId(),
 			'severity' => $detection->getSeverity(),
 			'enforced' => $detection->isEnforced(),
 		], 'ip', $detection->getIp()) + [
 			'uid' => $detection->getUid(),
 			'actions' => array_map(self::action(...), $detection->getActionList()),
-			'time' => $detection->getCreatedAt(),
-			'link' => $this->links->detection($detection->getId()),
+			'time' => $detection->getCreatedTime(),
+			'link' => $this->links->detection((string)$detection->getId()),
 		], self::TYPE_DETECTION);
 	}
 
@@ -67,7 +67,7 @@ class EventPayloads {
 			'raised' => $raised,
 			'level' => $ban->getLevel(),
 			'createdBy' => $ban->getCreatedBy(),
-			'time' => $ban->getCreatedAt(),
+			'time' => $ban->getCreatedTime(),
 			'expiresAt' => $ban->getExpiresAt(),
 		], self::TYPE_BAN_CREATED);
 	}

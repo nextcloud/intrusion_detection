@@ -407,7 +407,7 @@ class DigestTest extends IntegrationTestCase {
 		$manual->setBanKey('192.0.2.99');
 		$manual->setLevel(1);
 		$manual->setCheckId('manual');
-		$manual->setCreatedAt($week + 4 * self::DAY);
+		$manual->setCreatedTime($week + 4 * self::DAY);
 		$manual->setExpiresAt($week + 5 * self::DAY);
 		Server::get(BanMapper::class)->insert($manual);
 
@@ -448,7 +448,7 @@ class DigestTest extends IntegrationTestCase {
 		$detection->setShareId($shareId);
 		$detection->setExplanationData(['facts' => $facts]);
 		$detection->setActionList([['type' => 'ban', 'enforced' => $enforced]]);
-		$detection->setCreatedAt($at);
+		$detection->setCreatedTime($at);
 		$detection->setLastSeenAt($at);
 		$detection->setHits(1);
 		$detection = Server::get(DetectionMapper::class)->insert($detection);
@@ -465,7 +465,7 @@ class DigestTest extends IntegrationTestCase {
 		$ban->setLevel(1);
 		$ban->setCheckId($detection->getCheckId());
 		$ban->setDetectionId($detection->getId());
-		$ban->setCreatedAt($at);
+		$ban->setCreatedTime($at);
 		$ban->setExpiresAt($at + 14400);
 		Server::get(BanMapper::class)->insert($ban);
 	}

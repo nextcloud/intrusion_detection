@@ -79,7 +79,7 @@ class LoginSource implements ITimelineSource {
 			details: $details,
 			address: $row->ip,
 			accounts: [$row->uid],
-			ref: ['type' => 'login', 'id' => (string)$row->id],
+			ref: ['type' => 'login', 'id' => $row->id],
 			categories: $gotIn ? [DataCategory::AccountContent] : [],
 			followUp: $unconfirmed ? $l->t('This login was let in although nothing could confirm it. Ask the account owner whether it was them.') : null,
 		);

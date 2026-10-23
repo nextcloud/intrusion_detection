@@ -25,6 +25,11 @@ use OCP\Migration\SimpleMigrationStep;
  * stored, only their keyed fingerprints. Addresses of the blocklists are 32
  * lower-case hex characters (16 bytes, IPv4 as IPv4-mapped), so string order
  * is address order on every database.
+ *
+ * Every `id` is a snowflake id that the app generates
+ * ({@see \OCP\Snowflake\ISnowflakeGenerator}), so it also tells when the row
+ * was created. The columns that refer to them, `detection_id` and
+ * `change_id`, are BIGINT as well.
  */
 #[CreateTable(table: 'ids_attempts', description: 'Failed login, share and reset attempts, kept for one hour')]
 #[CreateTable(table: 'ids_logins', description: 'Which accounts logged in from which address per hour, kept for one day')]
@@ -61,7 +66,7 @@ class Version1000Date20261023000000 extends SimpleMigrationStep {
 
 		if (!$schema->hasTable('ids_attempts')) {
 			$table = $schema->createTable('ids_attempts');
-			$table->addColumn('id', Types::BIGINT, ['autoincrement' => true, 'notnull' => true, 'unsigned' => true]);
+			$table->addColumn('id', Types::BIGINT, ['notnull' => true, 'unsigned' => true]);
 			$table->addColumn('kind', Types::SMALLINT, ['notnull' => true, 'unsigned' => true]);
 			$table->addColumn('ip_key', Types::STRING, ['notnull' => true, 'length' => 64]);
 			$table->addColumn('net_key', Types::STRING, ['notnull' => true, 'length' => 64]);
@@ -85,7 +90,7 @@ class Version1000Date20261023000000 extends SimpleMigrationStep {
 
 		if (!$schema->hasTable('ids_logins')) {
 			$table = $schema->createTable('ids_logins');
-			$table->addColumn('id', Types::BIGINT, ['autoincrement' => true, 'notnull' => true, 'unsigned' => true]);
+			$table->addColumn('id', Types::BIGINT, ['notnull' => true, 'unsigned' => true]);
 			$table->addColumn('ip_key', Types::STRING, ['notnull' => true, 'length' => 64]);
 			$table->addColumn('net_key', Types::STRING, ['notnull' => true, 'length' => 64]);
 			$table->addColumn('uid', Types::STRING, ['notnull' => true, 'length' => 64]);
@@ -100,7 +105,7 @@ class Version1000Date20261023000000 extends SimpleMigrationStep {
 
 		if (!$schema->hasTable('ids_detections')) {
 			$table = $schema->createTable('ids_detections');
-			$table->addColumn('id', Types::BIGINT, ['autoincrement' => true, 'notnull' => true, 'unsigned' => true]);
+			$table->addColumn('id', Types::BIGINT, ['notnull' => true, 'unsigned' => true]);
 			$table->addColumn('check_id', Types::STRING, ['notnull' => true, 'length' => 32]);
 			$table->addColumn('severity', Types::STRING, ['notnull' => true, 'length' => 8]);
 			// Oracle cannot store a non-null boolean, so the column is nullable.
@@ -129,7 +134,7 @@ class Version1000Date20261023000000 extends SimpleMigrationStep {
 
 		if (!$schema->hasTable('ids_bans')) {
 			$table = $schema->createTable('ids_bans');
-			$table->addColumn('id', Types::BIGINT, ['autoincrement' => true, 'notnull' => true, 'unsigned' => true]);
+			$table->addColumn('id', Types::BIGINT, ['notnull' => true, 'unsigned' => true]);
 			$table->addColumn('reference', Types::STRING, ['notnull' => true, 'length' => 8]);
 			// "range" is a reserved word in MySQL 8.
 			$table->addColumn('cidr', Types::STRING, ['notnull' => true, 'length' => 64]);
@@ -175,7 +180,7 @@ class Version1000Date20261023000000 extends SimpleMigrationStep {
 
 		if (!$schema->hasTable('ids_alerts')) {
 			$table = $schema->createTable('ids_alerts');
-			$table->addColumn('id', Types::BIGINT, ['autoincrement' => true, 'notnull' => true, 'unsigned' => true]);
+			$table->addColumn('id', Types::BIGINT, ['notnull' => true, 'unsigned' => true]);
 			$table->addColumn('check_id', Types::STRING, ['notnull' => true, 'length' => 32]);
 			// An ip key, "u:" plus a uid, "instance", or "@mail" for the email limit.
 			$table->addColumn('source_key', Types::STRING, ['notnull' => true, 'length' => 80]);
@@ -196,13 +201,12 @@ class Version1000Date20261023000000 extends SimpleMigrationStep {
 
 		if (!$schema->hasTable('ids_decoys')) {
 			$table = $schema->createTable('ids_decoys');
-			$table->addColumn('id', Types::BIGINT, ['autoincrement' => true, 'notnull' => true, 'unsigned' => true]);
+			$table->addColumn('id', Types::BIGINT, ['notnull' => true, 'unsigned' => true]);
 			$table->addColumn('login_name', Types::STRING, ['notnull' => false, 'length' => 64]);
 			$table->addColumn('secret_hmac', Types::STRING, ['notnull' => true, 'length' => 64]);
 			$table->addColumn('format', Types::STRING, ['notnull' => true, 'length' => 16]);
 			$table->addColumn('label', Types::STRING, ['notnull' => true, 'length' => 200]);
 			$table->addColumn('created_by', Types::STRING, ['notnull' => false, 'length' => 64]);
-			$table->addColumn('created_at', Types::BIGINT, ['notnull' => true, 'unsigned' => true]);
 			$table->addColumn('last_triggered_at', Types::BIGINT, ['notnull' => false, 'unsigned' => true]);
 			$table->addColumn('trigger_count', Types::INTEGER, ['notnull' => true, 'unsigned' => true, 'default' => 0]);
 			$table->setPrimaryKey(['id']);
@@ -227,7 +231,7 @@ class Version1000Date20261023000000 extends SimpleMigrationStep {
 
 		if (!$schema->hasTable('ids_trusted_networks')) {
 			$table = $schema->createTable('ids_trusted_networks');
-			$table->addColumn('id', Types::BIGINT, ['autoincrement' => true, 'notnull' => true, 'unsigned' => true]);
+			$table->addColumn('id', Types::BIGINT, ['notnull' => true, 'unsigned' => true]);
 			$table->addColumn('uid', Types::STRING, ['notnull' => true, 'length' => 64]);
 			// The /24 (IPv4) or /64 (IPv6) network.
 			$table->addColumn('net_key', Types::STRING, ['notnull' => true, 'length' => 64]);
@@ -274,7 +278,7 @@ class Version1000Date20261023000000 extends SimpleMigrationStep {
 
 		if (!$schema->hasTable('ids_blocklist_ranges')) {
 			$table = $schema->createTable('ids_blocklist_ranges');
-			$table->addColumn('id', Types::BIGINT, ['autoincrement' => true, 'notnull' => true, 'unsigned' => true]);
+			$table->addColumn('id', Types::BIGINT, ['notnull' => true, 'unsigned' => true]);
 			$table->addColumn('list_id', Types::STRING, ['notnull' => true, 'length' => 32]);
 			$table->addColumn('version', Types::INTEGER, ['notnull' => true, 'unsigned' => true]);
 			$table->addColumn('family', Types::SMALLINT, ['notnull' => true, 'unsigned' => true]);
@@ -290,7 +294,7 @@ class Version1000Date20261023000000 extends SimpleMigrationStep {
 
 		if (!$schema->hasTable('ids_blocklist_stats')) {
 			$table = $schema->createTable('ids_blocklist_stats');
-			$table->addColumn('id', Types::BIGINT, ['autoincrement' => true, 'notnull' => true, 'unsigned' => true]);
+			$table->addColumn('id', Types::BIGINT, ['notnull' => true, 'unsigned' => true]);
 			$table->addColumn('list_id', Types::STRING, ['notnull' => true, 'length' => 32]);
 			$table->addColumn('day', Types::STRING, ['notnull' => true, 'length' => 10]);
 			$table->addColumn('matches', Types::BIGINT, ['notnull' => true, 'unsigned' => true, 'default' => 0]);
@@ -301,7 +305,7 @@ class Version1000Date20261023000000 extends SimpleMigrationStep {
 
 		if (!$schema->hasTable('ids_known_devices')) {
 			$table = $schema->createTable('ids_known_devices');
-			$table->addColumn('id', Types::BIGINT, ['autoincrement' => true, 'notnull' => true, 'unsigned' => true]);
+			$table->addColumn('id', Types::BIGINT, ['notnull' => true, 'unsigned' => true]);
 			$table->addColumn('uid', Types::STRING, ['notnull' => true, 'length' => 64]);
 			// Hex of a keyed HMAC of the random device id in the cookie; never the id itself.
 			$table->addColumn('device_hmac', Types::STRING, ['notnull' => true, 'length' => 64]);
@@ -320,7 +324,7 @@ class Version1000Date20261023000000 extends SimpleMigrationStep {
 
 		if (!$schema->hasTable('ids_login_history')) {
 			$table = $schema->createTable('ids_login_history');
-			$table->addColumn('id', Types::BIGINT, ['autoincrement' => true, 'notnull' => true, 'unsigned' => true]);
+			$table->addColumn('id', Types::BIGINT, ['notnull' => true, 'unsigned' => true]);
 			$table->addColumn('uid', Types::STRING, ['notnull' => true, 'length' => 64]);
 			$table->addColumn('created_at', Types::BIGINT, ['notnull' => true, 'unsigned' => true]);
 			$table->addColumn('ip', Types::STRING, ['notnull' => false, 'length' => 45]);
@@ -345,7 +349,7 @@ class Version1000Date20261023000000 extends SimpleMigrationStep {
 
 		if (!$schema->hasTable('ids_security_changes')) {
 			$table = $schema->createTable('ids_security_changes');
-			$table->addColumn('id', Types::BIGINT, ['autoincrement' => true, 'notnull' => true, 'unsigned' => true]);
+			$table->addColumn('id', Types::BIGINT, ['notnull' => true, 'unsigned' => true]);
 			$table->addColumn('uid', Types::STRING, ['notnull' => true, 'length' => 64]);
 			$table->addColumn('type', Types::STRING, ['notnull' => true, 'length' => 32]);
 			// self, admin, occ, reset or system: only "self" counts towards the takeover check.
@@ -369,14 +373,13 @@ class Version1000Date20261023000000 extends SimpleMigrationStep {
 
 		if (!$schema->hasTable('ids_lock_links')) {
 			$table = $schema->createTable('ids_lock_links');
-			$table->addColumn('id', Types::BIGINT, ['autoincrement' => true, 'notnull' => true, 'unsigned' => true]);
+			$table->addColumn('id', Types::BIGINT, ['notnull' => true, 'unsigned' => true]);
 			$table->addColumn('uid', Types::STRING, ['notnull' => true, 'length' => 64]);
 			// Hex keyed fingerprint of the token.
 			$table->addColumn('token_hash', Types::STRING, ['notnull' => true, 'length' => 64]);
 			$table->addColumn('sent_to_hint', Types::STRING, ['notnull' => true, 'length' => 255]);
 			$table->addColumn('detection_id', Types::BIGINT, ['notnull' => false, 'unsigned' => true]);
 			$table->addColumn('change_id', Types::BIGINT, ['notnull' => false, 'unsigned' => true]);
-			$table->addColumn('created_at', Types::BIGINT, ['notnull' => true, 'unsigned' => true]);
 			$table->addColumn('expires_at', Types::BIGINT, ['notnull' => true, 'unsigned' => true]);
 			$table->addColumn('used_at', Types::BIGINT, ['notnull' => false, 'unsigned' => true]);
 			$table->addColumn('used_ip', Types::STRING, ['notnull' => false, 'length' => 45]);
@@ -388,7 +391,7 @@ class Version1000Date20261023000000 extends SimpleMigrationStep {
 
 		if (!$schema->hasTable('ids_approvals')) {
 			$table = $schema->createTable('ids_approvals');
-			$table->addColumn('id', Types::BIGINT, ['autoincrement' => true, 'notnull' => true, 'unsigned' => true]);
+			$table->addColumn('id', Types::BIGINT, ['notnull' => true, 'unsigned' => true]);
 			$table->addColumn('kind', Types::STRING, ['notnull' => true, 'length' => 16]);
 			$table->addColumn('subject_uid', Types::STRING, ['notnull' => true, 'length' => 64]);
 			// A uid, or "occ", "cron" or "unknown" when no user made the request.
@@ -421,7 +424,7 @@ class Version1000Date20261023000000 extends SimpleMigrationStep {
 
 		if (!$schema->hasTable('ids_user_daily')) {
 			$table = $schema->createTable('ids_user_daily');
-			$table->addColumn('id', Types::BIGINT, ['autoincrement' => true, 'notnull' => true, 'unsigned' => true]);
+			$table->addColumn('id', Types::BIGINT, ['notnull' => true, 'unsigned' => true]);
 			$table->addColumn('uid', Types::STRING, ['notnull' => true, 'length' => 64]);
 			// The start of the day in UTC, as a timestamp.
 			$table->addColumn('day', Types::BIGINT, ['notnull' => true, 'unsigned' => true]);
@@ -447,7 +450,7 @@ class Version1000Date20261023000000 extends SimpleMigrationStep {
 
 		if (!$schema->hasTable('ids_detection_hourly')) {
 			$table = $schema->createTable('ids_detection_hourly');
-			$table->addColumn('id', Types::BIGINT, ['autoincrement' => true, 'notnull' => true, 'unsigned' => true]);
+			$table->addColumn('id', Types::BIGINT, ['notnull' => true, 'unsigned' => true]);
 			// Unix time / 3600 of the hour.
 			$table->addColumn('hour', Types::BIGINT, ['notnull' => true, 'unsigned' => true]);
 			$table->addColumn('check_id', Types::STRING, ['notnull' => true, 'length' => 32]);

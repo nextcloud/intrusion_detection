@@ -190,7 +190,7 @@ final class DetectionDraft {
 			self::MERGE_SHARE => [$this->shareId === null ? null : (string)$this->shareId],
 			self::MERGE_SOURCE_SHARE => [$this->source?->ipKey, $this->shareId === null ? null : (string)$this->shareId],
 			self::MERGE_TOKEN => [$this->uid, ($this->tokenId ?? $this->sessionTokenId) === null ? null : (string)($this->tokenId ?? $this->sessionTokenId)],
-			self::MERGE_SUBJECT => [$this->uid, is_int($this->facts['detection'] ?? null) ? (string)$this->facts['detection'] : null],
+			self::MERGE_SUBJECT => [$this->uid, is_string($this->facts['detection'] ?? null) && $this->facts['detection'] !== '' ? $this->facts['detection'] : null],
 			default => null,
 		};
 		if ($parts === null || in_array(null, $parts, true)) {

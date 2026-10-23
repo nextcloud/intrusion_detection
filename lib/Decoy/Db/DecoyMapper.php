@@ -13,6 +13,7 @@ use OCP\AppFramework\Db\DoesNotExistException;
 use OCP\AppFramework\Db\QBMapper;
 use OCP\DB\QueryBuilder\IQueryBuilder;
 use OCP\IDBConnection;
+use OCP\Snowflake\ISnowflakeGenerator;
 
 /**
  * @template-extends QBMapper<Decoy>
@@ -20,7 +21,10 @@ use OCP\IDBConnection;
 class DecoyMapper extends QBMapper {
 	public const TABLE = 'ids_decoys';
 
-	public function __construct(IDBConnection $db) {
+	public function __construct(
+		IDBConnection $db,
+		private readonly ISnowflakeGenerator $snowflakes,
+	) {
 		parent::__construct($db, self::TABLE, Decoy::class);
 	}
 
@@ -57,11 +61,11 @@ class DecoyMapper extends QBMapper {
 	/**
 	 * @throws DoesNotExistException
 	 */
-	public function findById(int $id): Decoy {
+	public function findById(string $id): Decoy {
 		$qb = $this->db->getQueryBuilder();
 		$qb->select('*')
 			->from(self::TABLE)
-			->where($qb->expr()->eq('id', $qb->createNamedParameter($id, IQueryBuilder::PARAM_INT)));
+			->where($qb->expr()->eq('id', $qb->createNamedParameter($id)));
 		return $this->findEntity($qb);
 	}
 
@@ -72,20 +76,19 @@ class DecoyMapper extends QBMapper {
 		$qb = $this->db->getQueryBuilder();
 		$qb->select('*')
 			->from(self::TABLE)
-			->orderBy('created_at', 'DESC')
-			->addOrderBy('id', 'DESC')
+			->orderBy('id', 'DESC')
 			->setMaxResults($limit);
 		return $this->findEntities($qb);
 	}
 
 	/**
-	 * How many decoys were created before a time.
+	 * How many decoys were created before a time, which their ids tell.
 	 */
 	public function countCreatedBefore(int $before): int {
 		$qb = $this->db->getQueryBuilder();
 		$qb->select($qb->func()->count('*'))
 			->from(self::TABLE)
-			->where($qb->expr()->lt('created_at', $qb->createNamedParameter($before, IQueryBuilder::PARAM_INT)));
+			->where($qb->expr()->lt('id', $qb->createNamedParameter($this->snowflakes->minForTimeId($before))));
 		$result = $qb->executeQuery();
 		$count = (int)$result->fetchOne();
 		$result->closeCursor();
@@ -118,12 +121,12 @@ class DecoyMapper extends QBMapper {
 	/**
 	 * Count one use, in a single statement so concurrent uses all count.
 	 */
-	public function markTriggered(int $id, int $now): void {
+	public function markTriggered(string $id, int $now): void {
 		$qb = $this->db->getQueryBuilder();
 		$qb->update(self::TABLE)
 			->set('trigger_count', $qb->func()->add('trigger_count', $qb->createNamedParameter(1, IQueryBuilder::PARAM_INT)))
 			->set('last_triggered_at', $qb->createNamedParameter($now, IQueryBuilder::PARAM_INT))
-			->where($qb->expr()->eq('id', $qb->createNamedParameter($id, IQueryBuilder::PARAM_INT)))
+			->where($qb->expr()->eq('id', $qb->createNamedParameter($id)))
 			->executeStatement();
 	}
 }

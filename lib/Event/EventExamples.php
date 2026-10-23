@@ -28,8 +28,8 @@ use OCP\IL10N;
 class EventExamples {
 	public const EXAMPLE_IP = '203.0.113.7';
 	public const EXAMPLE_REFERENCE = 'K7Q2MPXA';
-	public const EXAMPLE_DETECTION = 42;
-	public const EXAMPLE_BAN = 7;
+	public const EXAMPLE_DETECTION = '470938541726507008';
+	public const EXAMPLE_BAN = '470938541726508033';
 	public const EXAMPLE_CHECK = 'credential_stuffing';
 
 	public function __construct(
@@ -86,8 +86,7 @@ class EventExamples {
 	}
 
 	private function detection(int $now): Detection {
-		$detection = new Detection();
-		$detection->setId(self::EXAMPLE_DETECTION);
+		$detection = Detection::fromRow(['id' => self::EXAMPLE_DETECTION]);
 		$detection->setCheckId(self::EXAMPLE_CHECK);
 		$detection->setSeverity(Severity::Medium->value);
 		$detection->setEnforced(true);
@@ -103,22 +102,21 @@ class EventExamples {
 			['type' => 'flag_source', 'enforced' => true, 'ref' => ['until' => $now + 86400]],
 			['type' => 'notify_admin', 'enforced' => true, 'ref' => ['recipients' => 2, 'bell' => 'sent', 'email' => 'below_severity']],
 		]);
-		$detection->setCreatedAt($now);
+		$detection->setCreatedTime($now);
 		$detection->setLastSeenAt($now);
 		$detection->setHits(1);
 		return $detection;
 	}
 
 	private function ban(int $now): Ban {
-		$ban = new Ban();
-		$ban->setId(self::EXAMPLE_BAN);
+		$ban = Ban::fromRow(['id' => self::EXAMPLE_BAN]);
 		$ban->setReference(self::EXAMPLE_REFERENCE);
 		$ban->setCidr(self::EXAMPLE_IP . '/32');
 		$ban->setScope(Ban::SCOPE_IP);
 		$ban->setLevel(1);
 		$ban->setCheckId(self::EXAMPLE_CHECK);
 		$ban->setDetectionId(self::EXAMPLE_DETECTION);
-		$ban->setCreatedAt($now);
+		$ban->setCreatedTime($now);
 		$ban->setExpiresAt($now + 14400);
 		return $ban;
 	}

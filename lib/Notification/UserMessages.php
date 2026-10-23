@@ -215,7 +215,7 @@ class UserMessages {
 	}
 
 	private function when(Detection $detection, IL10N $l): string {
-		$time = $this->dates->dateTime($detection->getCreatedAt());
+		$time = $this->dates->dateTime($detection->getCreatedTime());
 		$ip = $detection->getIp();
 		$userAgent = $detection->getExplanationData()['userAgent'] ?? null;
 		$device = DeviceLabel::describe(is_string($userAgent) ? $userAgent : null, $l);

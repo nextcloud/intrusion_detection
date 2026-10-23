@@ -45,7 +45,7 @@ class NoSecretsKnownDeviceTest extends StepUpTestCase {
 		$state = json_encode($this->session->get(SessionMarkers::SESSION_KEY), JSON_THROW_ON_ERROR);
 		$list = json_encode($this->knownDevices()->forUser($alice->getUID(), Server::get(IFactory::class)->get(Application::APP_ID, 'en')), JSON_THROW_ON_ERROR);
 		$this->knownDevices()->remember($alice, null, null);
-		$this->knownDevices()->forgetCurrentDevice($alice->getUID(), 1);
+		$this->knownDevices()->forgetCurrentDevice($alice->getUID(), '1');
 
 		$this->assertNotSame([], $this->deviceCookiesSet);
 		foreach ($this->deviceCookiesSet as $i => [$value]) {

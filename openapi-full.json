@@ -97,8 +97,7 @@
                 ],
                 "properties": {
                     "id": {
-                        "type": "integer",
-                        "format": "int64"
+                        "type": "string"
                     },
                     "kind": {
                         "type": "string",
@@ -156,8 +155,7 @@
                 ],
                 "properties": {
                     "id": {
-                        "type": "integer",
-                        "format": "int64"
+                        "type": "string"
                     },
                     "kind": {
                         "type": "string"
@@ -245,8 +243,7 @@
                 ],
                 "properties": {
                     "id": {
-                        "type": "integer",
-                        "format": "int64"
+                        "type": "string"
                     },
                     "reference": {
                         "type": "string"
@@ -268,8 +265,7 @@
                         "type": "string"
                     },
                     "detectionId": {
-                        "type": "integer",
-                        "format": "int64",
+                        "type": "string",
                         "nullable": true
                     },
                     "createdBy": {
@@ -1191,8 +1187,7 @@
                 ],
                 "properties": {
                     "id": {
-                        "type": "integer",
-                        "format": "int64"
+                        "type": "string"
                     },
                     "label": {
                         "type": "string"
@@ -1245,8 +1240,7 @@
                 ],
                 "properties": {
                     "id": {
-                        "type": "integer",
-                        "format": "int64"
+                        "type": "string"
                     },
                     "checkId": {
                         "type": "string"
@@ -2288,8 +2282,7 @@
                 ],
                 "properties": {
                     "id": {
-                        "type": "integer",
-                        "format": "int64"
+                        "type": "string"
                     },
                     "label": {
                         "type": "string"
@@ -2382,8 +2375,7 @@
                 ],
                 "properties": {
                     "id": {
-                        "type": "integer",
-                        "format": "int64"
+                        "type": "string"
                     },
                     "createdAt": {
                         "type": "integer",
@@ -2435,8 +2427,7 @@
                 ],
                 "properties": {
                     "id": {
-                        "type": "integer",
-                        "format": "int64"
+                        "type": "string"
                     },
                     "uid": {
                         "type": "string"
@@ -3114,8 +3105,7 @@
                 ],
                 "properties": {
                     "id": {
-                        "type": "integer",
-                        "format": "int64"
+                        "type": "string"
                     },
                     "check": {
                         "type": "string"
@@ -3766,8 +3756,7 @@
                         "nullable": true
                     },
                     "detectionId": {
-                        "type": "integer",
-                        "format": "int64",
+                        "type": "string",
                         "nullable": true
                     },
                     "closedAt": {
@@ -3949,8 +3938,7 @@
                 ],
                 "properties": {
                     "id": {
-                        "type": "integer",
-                        "format": "int64"
+                        "type": "string"
                     },
                     "type": {
                         "type": "string"
@@ -4701,8 +4689,7 @@
                 ],
                 "properties": {
                     "id": {
-                        "type": "integer",
-                        "format": "int64"
+                        "type": "string"
                     },
                     "network": {
                         "type": "string"
@@ -4716,8 +4703,7 @@
                         "format": "int64"
                     },
                     "detectionId": {
-                        "type": "integer",
-                        "format": "int64",
+                        "type": "string",
                         "nullable": true
                     }
                 }
@@ -4827,8 +4813,8 @@
                         "description": "A detection about the account",
                         "required": true,
                         "schema": {
-                            "type": "integer",
-                            "format": "int64"
+                            "type": "string",
+                            "pattern": "^\\d+$"
                         }
                     },
                     {
@@ -5265,8 +5251,8 @@
                         "description": "the request",
                         "required": true,
                         "schema": {
-                            "type": "integer",
-                            "format": "int64"
+                            "type": "string",
+                            "pattern": "^\\d+$"
                         }
                     },
                     {
@@ -5480,8 +5466,8 @@
                         "description": "the request",
                         "required": true,
                         "schema": {
-                            "type": "integer",
-                            "format": "int64"
+                            "type": "string",
+                            "pattern": "^\\d+$"
                         }
                     },
                     {
@@ -6032,8 +6018,8 @@
                         "description": "The block id",
                         "required": true,
                         "schema": {
-                            "type": "integer",
-                            "format": "int64"
+                            "type": "string",
+                            "pattern": "^\\d+$"
                         }
                     },
                     {
@@ -9185,8 +9171,8 @@
                         "description": "The decoy",
                         "required": true,
                         "schema": {
-                            "type": "integer",
-                            "format": "int64"
+                            "type": "string",
+                            "pattern": "^\\d+$"
                         }
                     },
                     {
@@ -9228,8 +9214,7 @@
                                                     ],
                                                     "properties": {
                                                         "deleted": {
-                                                            "type": "integer",
-                                                            "format": "int64"
+                                                            "type": "string"
                                                         }
                                                     }
                                                 }
@@ -9941,8 +9926,8 @@
                         "description": "The detection id",
                         "required": true,
                         "schema": {
-                            "type": "integer",
-                            "format": "int64"
+                            "type": "string",
+                            "pattern": "^\\d+$"
                         }
                     },
                     {
@@ -11945,8 +11930,8 @@
                         "description": "The detection",
                         "required": true,
                         "schema": {
-                            "type": "integer",
-                            "format": "int64"
+                            "type": "string",
+                            "pattern": "^\\d+$"
                         }
                     },
                     {
@@ -12101,8 +12086,8 @@
                         "description": "The detection of the lock",
                         "required": true,
                         "schema": {
-                            "type": "integer",
-                            "format": "int64"
+                            "type": "string",
+                            "pattern": "^\\d+$"
                         }
                     },
                     {
@@ -12287,8 +12272,8 @@
                         "description": "A detection of the account",
                         "required": true,
                         "schema": {
-                            "type": "integer",
-                            "format": "int64"
+                            "type": "string",
+                            "pattern": "^\\d+$"
                         }
                     },
                     {
@@ -13690,8 +13675,8 @@
                         "description": "the event",
                         "required": true,
                         "schema": {
-                            "type": "integer",
-                            "format": "int64"
+                            "type": "string",
+                            "pattern": "^\\d+$"
                         }
                     },
                     {
@@ -13910,8 +13895,8 @@
                         "description": "the event",
                         "required": true,
                         "schema": {
-                            "type": "integer",
-                            "format": "int64"
+                            "type": "string",
+                            "pattern": "^\\d+$"
                         }
                     },
                     {
@@ -14261,8 +14246,8 @@
                         "description": "the entry",
                         "required": true,
                         "schema": {
-                            "type": "integer",
-                            "format": "int64"
+                            "type": "string",
+                            "pattern": "^\\d+$"
                         }
                     },
                     {
@@ -14304,8 +14289,7 @@
                                                     ],
                                                     "properties": {
                                                         "removed": {
-                                                            "type": "integer",
-                                                            "format": "int64"
+                                                            "type": "string"
                                                         }
                                                     }
                                                 }
@@ -14557,8 +14541,8 @@
                         "description": "the device",
                         "required": true,
                         "schema": {
-                            "type": "integer",
-                            "format": "int64"
+                            "type": "string",
+                            "pattern": "^\\d+$"
                         }
                     },
                     {
@@ -14600,8 +14584,7 @@
                                                     ],
                                                     "properties": {
                                                         "removed": {
-                                                            "type": "integer",
-                                                            "format": "int64"
+                                                            "type": "string"
                                                         }
                                                     }
                                                 }
@@ -15943,8 +15926,8 @@
                         "description": "The detection from the notification",
                         "required": true,
                         "schema": {
-                            "type": "integer",
-                            "format": "int64"
+                            "type": "string",
+                            "pattern": "^\\d+$"
                         }
                     },
                     {

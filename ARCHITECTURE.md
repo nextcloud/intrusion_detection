@@ -42,6 +42,11 @@ enforces this on every test run.
   with the helpers `KeyMatch`, `BatchedDelete` and `MultiRowInsert`. The
   daily failed-login counts stay too: their owner is the personal page,
   above the privacy cleanup that deletes them.
+- **Ids are snowflakes.** Every `id` column holds a snowflake id the app
+  generates: entities extend `SnowflakeAwareEntity`, and raw inserts take
+  one from `ISnowflakeGenerator`. Ids, and the columns that refer to them,
+  are strings in PHP, in the API and in the frontend, as a snowflake does
+  not fit into a JavaScript number.
 - **Each owner keeps its own retention.** The owner of a table implements
   `Db\IPurges` with its retention constant or setting; the cleanup job only
   runs the owners listed in `Cleanup::PURGES`, in order, each in its own

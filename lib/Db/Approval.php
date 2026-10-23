@@ -9,7 +9,7 @@ declare(strict_types=1);
 
 namespace OCA\IntrusionDetection\Db;
 
-use OCP\AppFramework\Db\Entity;
+use OCP\AppFramework\Db\SnowflakeAwareEntity;
 use OCP\DB\Types;
 
 /**
@@ -30,8 +30,8 @@ use OCP\DB\Types;
  * @method void setStatus(string $status)
  * @method ?string getDecidedBy()
  * @method void setDecidedBy(?string $decidedBy)
- * @method int getCreatedAt()
- * @method void setCreatedAt(int $createdAt)
+ * @method int getCreatedTime() when it was created, as a Unix time
+ * @method void setCreatedTime(int $createdTime)
  * @method ?int getDecidedAt()
  * @method void setDecidedAt(?int $decidedAt)
  * @method int getExpiresAt()
@@ -41,7 +41,9 @@ use OCP\DB\Types;
  *
  * @psalm-type HeldChange = array{op: string, values?: array<string, mixed>, check?: string, mode?: ?string, responses?: ?list<mixed>, params?: array<string, mixed>}
  */
-class Approval extends Entity implements \JsonSerializable {
+class Approval extends SnowflakeAwareEntity implements \JsonSerializable {
+	use CreatedTimeColumn;
+
 	public const KIND_ADMIN_GRANT = 'admin_grant';
 	/** A login that nothing else could confirm; requested by the account itself */
 	public const KIND_LOGIN = 'login';
@@ -60,7 +62,7 @@ class Approval extends Entity implements \JsonSerializable {
 	protected ?string $ip = null;
 	protected ?string $status = null;
 	protected ?string $decidedBy = null;
-	protected ?int $createdAt = null;
+	protected ?int $createdTime = null;
 	protected ?int $decidedAt = null;
 	protected ?int $expiresAt = null;
 	protected ?string $payload = null;
@@ -73,7 +75,7 @@ class Approval extends Entity implements \JsonSerializable {
 		$this->addType('ip', Types::STRING);
 		$this->addType('status', Types::STRING);
 		$this->addType('decidedBy', Types::STRING);
-		$this->addType('createdAt', Types::BIGINT);
+		$this->addType('createdTime', Types::BIGINT);
 		$this->addType('decidedAt', Types::BIGINT);
 		$this->addType('expiresAt', Types::BIGINT);
 		$this->addType('payload', Types::TEXT);
@@ -98,7 +100,7 @@ class Approval extends Entity implements \JsonSerializable {
 	#[\Override]
 	public function jsonSerialize(): array {
 		return [
-			'id' => $this->getId(),
+			'id' => (string)$this->getId(),
 			'kind' => $this->kind,
 			'subject' => $this->subjectUid,
 			'requestedBy' => $this->requestedBy,
@@ -106,7 +108,7 @@ class Approval extends Entity implements \JsonSerializable {
 			'ip' => $this->ip,
 			'status' => $this->status,
 			'decidedBy' => $this->decidedBy,
-			'createdAt' => $this->createdAt,
+			'createdAt' => $this->createdTime,
 			'decidedAt' => $this->decidedAt,
 			'expiresAt' => $this->expiresAt,
 		];

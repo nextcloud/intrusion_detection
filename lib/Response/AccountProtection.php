@@ -53,7 +53,7 @@ class AccountProtection implements IPurges {
 	 *
 	 * @return int when the protection ends now
 	 */
-	public function protect(string $uid, int $until, string $reason = self::REASON_UNDER_ATTACK, ?int $detectionId = null): int {
+	public function protect(string $uid, int $until, string $reason = self::REASON_UNDER_ATTACK, ?string $detectionId = null): int {
 		$now = $this->timeFactory->getTime();
 		$this->mapper->protect($uid, $reason, $detectionId, $now, $until);
 		$this->caches->shared(self::CACHE)?->remove($this->key($uid));
@@ -85,7 +85,7 @@ class AccountProtection implements IPurges {
 	}
 
 	/**
-	 * @return ?array{uid: string, reason: string, detection_id: ?int, created_at: int, expires_at: int} the active protection
+	 * @return ?array{uid: string, reason: string, detection_id: ?string, created_at: int, expires_at: int} the active protection
 	 */
 	public function get(string $uid): ?array {
 		$row = $this->mapper->find($uid);
@@ -93,7 +93,7 @@ class AccountProtection implements IPurges {
 	}
 
 	/**
-	 * @return list<array{uid: string, reason: string, detection_id: ?int, created_at: int, expires_at: int}>
+	 * @return list<array{uid: string, reason: string, detection_id: ?string, created_at: int, expires_at: int}>
 	 */
 	public function active(int $limit = 200): array {
 		return $this->mapper->findActive($this->timeFactory->getTime(), $limit);

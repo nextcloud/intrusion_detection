@@ -45,7 +45,7 @@ class PersonalOverviewTest extends TestCase {
 	private array $detections = [];
 	/** @var array<int, bool> detection id => open question */
 	private array $open = [];
-	/** @var list<int> ids of the detections kept from the user */
+	/** @var list<string> ids of the detections kept from the user */
 	private array $kept = [];
 	private bool $passwordChange = false;
 	private ?int $protectedUntil = null;
@@ -80,7 +80,7 @@ class PersonalOverviewTest extends TestCase {
 
 	public function testEventsKeptFromTheUserAreNotCounted(): void {
 		$this->detection(1, self::NOW - 3600, false);
-		$this->kept = [1];
+		$this->kept = ['1'];
 		$this->assertSame('No unusual activity in the last 30 days', $this->statusFor(0)['headline']);
 	}
 
@@ -149,9 +149,8 @@ class PersonalOverviewTest extends TestCase {
 	}
 
 	private function detection(int $id, int $createdAt, bool $open): void {
-		$detection = new Detection();
-		$detection->setId($id);
-		$detection->setCreatedAt($createdAt);
+		$detection = Detection::fromRow(['id' => (string)$id]);
+		$detection->setCreatedTime($createdAt);
 		$this->detections[] = $detection;
 		$this->open[$id] = $open;
 	}

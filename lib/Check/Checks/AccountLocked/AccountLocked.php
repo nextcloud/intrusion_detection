@@ -50,12 +50,12 @@ final class AccountLocked implements ICheck, IExplainsDetection, IHeadlinesDetec
 	 * The detection of a lock link that was used. It is recorded and told
 	 * whatever the check's mode: the account holder locked their account.
 	 *
-	 * @param ?int $takeoverDetection the detection the link was sent for
+	 * @param ?string $takeoverDetection the detection the link was sent for
 	 * @param ?array<string, mixed> $change the email change the link was sent for
 	 * @param list<array{id: int, name: string}> $ended the sessions and app passwords that were ended
 	 * @param bool $keptEnabled the account was the last enabled administrator and stayed enabled
 	 */
-	public static function draft(?SourceKey $source, string $uid, int $linkId, string $sentTo, ?int $takeoverDetection, ?array $change, array $ended, bool $keptEnabled = false): DetectionDraft {
+	public static function draft(?SourceKey $source, string $uid, string $linkId, string $sentTo, ?string $takeoverDetection, ?array $change, array $ended, bool $keptEnabled = false): DetectionDraft {
 		return new DetectionDraft(
 			checkId: self::ID,
 			source: $source,

@@ -45,11 +45,11 @@ class ListDecoys extends Base {
 		$table->setHeaders(['Id', 'Label', 'Account name', 'Format', 'Created', 'By', 'Last used', 'Uses']);
 		foreach ($decoys as $decoy) {
 			$table->addRow([
-				$decoy->getId(),
+				(string)$decoy->getId(),
 				$decoy->getLabel(),
 				$decoy->getLoginName() ?? '',
 				$decoy->getFormat(),
-				date('Y-m-d H:i', $decoy->getCreatedAt()),
+				$decoy->getCreatedAt()?->format('Y-m-d H:i') ?? '',
 				$decoy->getCreatedBy() ?? '',
 				$decoy->getLastTriggeredAt() === null ? 'never' : date('Y-m-d H:i', $decoy->getLastTriggeredAt()),
 				$decoy->getTriggerCount(),

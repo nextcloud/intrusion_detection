@@ -20,24 +20,24 @@ use OCA\IntrusionDetection\Notification\AdminAlerts;
  */
 final readonly class AccountLockedFacts implements IFacts {
 	/**
-	 * @param int $link the id of the lock link
+	 * @param string $link the id of the lock link
 	 * @param string $sentTo the masked address it was sent to
 	 * @param ?string $newAddress the masked new address, null when it was removed
 	 * @param ?int $changedAt when the address was changed
 	 * @param ?string $changedFrom the address of the change
-	 * @param ?int $takeoverDetection the detection the link was sent for
+	 * @param ?string $takeoverDetection the detection the link was sent for
 	 * @param int $tokensEnded the sessions and app passwords that were ended
 	 * @param list<array{id: int, name: string}> $ended the first of them
 	 * @param ?bool $allAdmins every administrator is told
 	 * @param ?bool $keptEnabled the account was the last enabled administrator and stayed enabled
 	 */
 	public function __construct(
-		public int $link = 0,
+		public string $link = '',
 		public string $sentTo = '',
 		public ?string $newAddress = null,
 		public ?int $changedAt = null,
 		public ?string $changedFrom = null,
-		public ?int $takeoverDetection = null,
+		public ?string $takeoverDetection = null,
 		public int $tokensEnded = 0,
 		public array $ended = [],
 		public ?bool $allAdmins = null,
@@ -51,12 +51,12 @@ final readonly class AccountLockedFacts implements IFacts {
 	 */
 	public static function fromArray(array $stored): self {
 		return new self(
-			FactValues::int($stored, 'link') ?? 0,
+			FactValues::string($stored, 'link') ?? '',
 			FactValues::string($stored, 'sentTo') ?? '',
 			FactValues::string($stored, 'newAddress'),
 			FactValues::int($stored, 'changedAt'),
 			FactValues::string($stored, 'changedFrom'),
-			FactValues::int($stored, 'takeoverDetection'),
+			FactValues::string($stored, 'takeoverDetection'),
 			FactValues::int($stored, 'tokensEnded') ?? 0,
 			self::ended(FactValues::array($stored, 'ended')),
 			FactValues::bool($stored, AdminAlerts::FACT_ALL_ADMINS),

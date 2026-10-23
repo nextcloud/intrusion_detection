@@ -132,14 +132,14 @@ class DetectionApiController extends AdminOCSController {
 	 * attempts of its source while they are still kept (one hour), and the
 	 * blocks that cover its address now.
 	 *
-	 * @param int $id The detection id
+	 * @param string $id The detection id
 	 * @return DataResponse<Http::STATUS_OK, IntrusionDetectionDetectionDetail, array{}>
 	 * @throws OCSNotFoundException The detection does not exist
 	 *
 	 * 200: Detection returned
 	 */
 	#[ApiRoute(verb: 'GET', url: '/api/v1/detections/{id}', requirements: ['id' => '\d+'])]
-	public function detection(int $id): DataResponse {
+	public function detection(string $id): DataResponse {
 		$detection = $this->found(fn () => $this->detectionMapper->findById($id), $this->l->t('This detection does not exist (any more).'));
 		return new DataResponse($this->detections->detail($detection, $this->l));
 	}

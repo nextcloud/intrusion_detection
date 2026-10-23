@@ -79,7 +79,7 @@ class TokenConcurrentUseDetector implements IDetector {
 			tokenId: $tokenId,
 		);
 		if ($detection !== null && $detection->isEnforced()) {
-			$this->knownDevices->forgetCurrentDevice($uid, $detection->getId());
+			$this->knownDevices->forgetCurrentDevice($uid, (string)$detection->getId());
 		}
 	}
 }

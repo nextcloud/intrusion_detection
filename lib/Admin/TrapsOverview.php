@@ -64,12 +64,12 @@ class TrapsOverview {
 	 */
 	public static function decoy(Decoy $decoy): array {
 		return [
-			'id' => $decoy->getId(),
+			'id' => (string)$decoy->getId(),
 			'label' => $decoy->getLabel(),
 			'loginName' => $decoy->getLoginName(),
 			'format' => $decoy->getFormat(),
 			'createdBy' => $decoy->getCreatedBy(),
-			'createdAt' => $decoy->getCreatedAt(),
+			'createdAt' => $decoy->getCreatedAt()?->getTimestamp() ?? 0,
 			'lastTriggeredAt' => $decoy->getLastTriggeredAt(),
 			'triggerCount' => $decoy->getTriggerCount(),
 		];

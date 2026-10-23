@@ -55,7 +55,7 @@ class TrustedNetworks implements ITrustedNetworks, IPurges {
 	 *
 	 * @return int when the trust ends
 	 */
-	public function trust(string $uid, SourceKey $source, ?int $detectionId = null): int {
+	public function trust(string $uid, SourceKey $source, ?string $detectionId = null): int {
 		$now = $this->timeFactory->getTime();
 		$until = $now + self::DURATION;
 		$this->mapper->trust($uid, $source->netKey, $detectionId, $now, $until);
@@ -64,7 +64,7 @@ class TrustedNetworks implements ITrustedNetworks, IPurges {
 	}
 
 	/**
-	 * @return list<array{id: int, network: string, createdAt: int, expiresAt: int, detectionId: ?int}> the account's trusted networks, newest first
+	 * @return list<array{id: string, network: string, createdAt: int, expiresAt: int, detectionId: ?string}> the account's trusted networks, newest first
 	 */
 	public function forUser(string $uid, int $limit = 100): array {
 		return array_map(static fn (array $row): array => [
@@ -81,7 +81,7 @@ class TrustedNetworks implements ITrustedNetworks, IPurges {
 	 *
 	 * @return bool whether the account had it
 	 */
-	public function remove(string $uid, int $id): bool {
+	public function remove(string $uid, string $id): bool {
 		$network = $this->mapper->delete($uid, $id);
 		if ($network === null) {
 			return false;

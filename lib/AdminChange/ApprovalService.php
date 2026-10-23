@@ -115,7 +115,7 @@ class ApprovalService {
 		$approval->setGroupId($group->getGID());
 		$approval->setIp($ip);
 		$approval->setStatus(Approval::STATUS_PENDING);
-		$approval->setCreatedAt($now);
+		$approval->setCreatedTime($now);
 		$approval->setExpiresAt($now + self::TTL);
 		$approval = $this->mapper->insert($approval);
 
@@ -123,7 +123,7 @@ class ApprovalService {
 			'subject' => $subject->getUID(),
 			'group' => $group->getGID(),
 			'requester' => $requester,
-			'approval' => $approval->getId(),
+			'approval' => (string)$approval->getId(),
 		]);
 		$this->notifyApprovers($approval);
 		if (ActorResolver::isPerson($requester)) {
@@ -156,12 +156,12 @@ class ApprovalService {
 		$approval->setIp($this->addresses->current()?->ip);
 		$approval->setPayload(json_encode($change, JSON_THROW_ON_ERROR));
 		$approval->setStatus(Approval::STATUS_PENDING);
-		$approval->setCreatedAt($now);
+		$approval->setCreatedTime($now);
 		$approval->setExpiresAt($now + self::TTL);
 		$approval = $this->mapper->insert($approval);
 		$this->audit->log('approval requested: settings change by %s (request %s): %s', [
 			'requester' => $requester,
-			'approval' => $approval->getId(),
+			'approval' => (string)$approval->getId(),
 			'change' => (string)$approval->getPayload(),
 		]);
 		$this->notifyApprovers($approval);
@@ -191,13 +191,13 @@ class ApprovalService {
 		$approval->setRequestedBy($uid);
 		$approval->setIp($ip);
 		$approval->setStatus(Approval::STATUS_PENDING);
-		$approval->setCreatedAt($now);
+		$approval->setCreatedTime($now);
 		$approval->setExpiresAt($now + $ttl);
 		$approval = $this->mapper->insert($approval);
 		$this->audit->log('approval requested: login of %s from %s (request %s)', [
 			'subject' => $uid,
 			'ip' => $ip ?? '-',
-			'approval' => $approval->getId(),
+			'approval' => (string)$approval->getId(),
 		]);
 		$this->notifyApprovers($approval);
 		return $approval;
@@ -208,7 +208,7 @@ class ApprovalService {
 	 *
 	 * @return bool whether a pending request was withdrawn
 	 */
-	public function withdrawLogin(int $id, string $uid): bool {
+	public function withdrawLogin(string $id, string $uid): bool {
 		try {
 			$approval = $this->mapper->findById($id);
 		} catch (DoesNotExistException) {
@@ -226,7 +226,7 @@ class ApprovalService {
 	/**
 	 * @throws ApprovalException
 	 */
-	public function find(int $id): Approval {
+	public function find(string $id): Approval {
 		try {
 			return $this->mapper->findById($id);
 		} catch (DoesNotExistException) {
@@ -248,7 +248,7 @@ class ApprovalService {
 	 * @param string $decider the uid of the approving administrator
 	 * @throws ApprovalException
 	 */
-	public function approve(int $id, string $decider, string $via): Approval {
+	public function approve(string $id, string $decider, string $via): Approval {
 		$approval = $this->decidable($id);
 		$this->assertMayDecide($approval, $decider);
 		if ($decider === $approval->getRequestedBy()) {
@@ -264,11 +264,11 @@ class ApprovalService {
 		$group = $this->groupManager->get((string)$approval->getGroupId()) ?? throw new ApprovalException(ApprovalException::GROUP_MISSING);
 
 		$now = $this->timeFactory->getTime();
-		if (!$this->mapper->decide((int)$approval->getId(), Approval::STATUS_APPROVED, $decider, $now)) {
+		if (!$this->mapper->decide((string)$approval->getId(), Approval::STATUS_APPROVED, $decider, $now)) {
 			throw new ApprovalException(ApprovalException::NOT_PENDING);
 		}
 		$this->audit->log('approval %s approved by %s via %s: %s joins %s, asked by %s', [
-			'approval' => $approval->getId(),
+			'approval' => (string)$approval->getId(),
 			'decider' => $decider,
 			'via' => $via,
 			'subject' => $approval->getSubjectUid(),
@@ -277,7 +277,7 @@ class ApprovalService {
 		]);
 
 		$this->permit->allow($user->getUID(), $group->getGID(), facts: [
-			'approval' => (int)$approval->getId(),
+			'approval' => (string)$approval->getId(),
 			'requested_by' => $approval->getRequestedBy(),
 			'approved_by' => $decider,
 		]);
@@ -296,11 +296,11 @@ class ApprovalService {
 	 * @throws ApprovalException
 	 */
 	private function approveLogin(Approval $approval, string $decider, string $via): Approval {
-		if (!$this->mapper->decide((int)$approval->getId(), Approval::STATUS_APPROVED, $decider, $this->timeFactory->getTime())) {
+		if (!$this->mapper->decide((string)$approval->getId(), Approval::STATUS_APPROVED, $decider, $this->timeFactory->getTime())) {
 			throw new ApprovalException(ApprovalException::NOT_PENDING);
 		}
 		$this->audit->log('approval %s approved by %s via %s: login of %s from %s', [
-			'approval' => $approval->getId(),
+			'approval' => (string)$approval->getId(),
 			'decider' => $decider,
 			'via' => $via,
 			'subject' => $approval->getSubjectUid(),
@@ -313,11 +313,11 @@ class ApprovalService {
 	 * @throws ApprovalException
 	 */
 	private function approveSettings(Approval $approval, string $decider, string $via): Approval {
-		if (!$this->mapper->decide((int)$approval->getId(), Approval::STATUS_APPROVED, $decider, $this->timeFactory->getTime())) {
+		if (!$this->mapper->decide((string)$approval->getId(), Approval::STATUS_APPROVED, $decider, $this->timeFactory->getTime())) {
 			throw new ApprovalException(ApprovalException::NOT_PENDING);
 		}
 		$this->audit->log('approval %s approved by %s via %s: settings change asked by %s', [
-			'approval' => $approval->getId(),
+			'approval' => (string)$approval->getId(),
 			'decider' => $decider,
 			'via' => $via,
 			'requester' => $approval->getRequestedBy(),
@@ -337,9 +337,9 @@ class ApprovalService {
 	 * @throws ApprovalException always
 	 */
 	private function notCarriedOut(Approval $approval, string $decider, \Throwable $e): never {
-		$this->mapper->reopen((int)$approval->getId(), $decider);
-		$this->logger->error('Intrusion detection could not carry out approval {approval}; it waits again', ['approval' => $approval->getId(), 'exception' => $e]);
-		$this->audit->log('approval %s by %s could not be carried out and waits again', ['approval' => $approval->getId(), 'decider' => $decider]);
+		$this->mapper->reopen((string)$approval->getId(), $decider);
+		$this->logger->error('Intrusion detection could not carry out approval {approval}; it waits again', ['approval' => (string)$approval->getId(), 'exception' => $e]);
+		$this->audit->log('approval %s by %s could not be carried out and waits again', ['approval' => (string)$approval->getId(), 'decider' => $decider]);
 		throw new ApprovalException(ApprovalException::NOT_CARRIED_OUT);
 	}
 
@@ -350,17 +350,17 @@ class ApprovalService {
 	 * @param ?string $decider the uid of the rejecting administrator; null for occ without --as
 	 * @throws ApprovalException
 	 */
-	public function reject(int $id, ?string $decider, string $via): Approval {
+	public function reject(string $id, ?string $decider, string $via): Approval {
 		$approval = $this->decidable($id);
 		if ($decider !== null) {
 			$this->assertMayDecide($approval, $decider);
 		}
-		if (!$this->mapper->decide((int)$approval->getId(), Approval::STATUS_REJECTED, $decider ?? ActorResolver::OCC, $this->timeFactory->getTime())) {
+		if (!$this->mapper->decide((string)$approval->getId(), Approval::STATUS_REJECTED, $decider ?? ActorResolver::OCC, $this->timeFactory->getTime())) {
 			throw new ApprovalException(ApprovalException::NOT_PENDING);
 		}
 		if ($approval->getKind() === Approval::KIND_LOGIN) {
 			$this->audit->log('approval %s rejected by %s via %s: login of %s from %s', [
-				'approval' => $approval->getId(),
+				'approval' => (string)$approval->getId(),
 				'decider' => $decider ?? ActorResolver::OCC,
 				'via' => $via,
 				'subject' => $approval->getSubjectUid(),
@@ -368,14 +368,14 @@ class ApprovalService {
 			]);
 		} elseif ($approval->getKind() === Approval::KIND_SETTINGS) {
 			$this->audit->log('approval %s rejected by %s via %s: settings change asked by %s is not made', [
-				'approval' => $approval->getId(),
+				'approval' => (string)$approval->getId(),
 				'decider' => $decider ?? ActorResolver::OCC,
 				'via' => $via,
 				'requester' => $approval->getRequestedBy(),
 			]);
 		} else {
 			$this->audit->log('approval %s rejected by %s via %s: %s does not join %s, asked by %s', [
-				'approval' => $approval->getId(),
+				'approval' => (string)$approval->getId(),
 				'decider' => $decider ?? ActorResolver::OCC,
 				'via' => $via,
 				'subject' => $approval->getSubjectUid(),
@@ -409,7 +409,7 @@ class ApprovalService {
 	 *
 	 * @throws ApprovalException
 	 */
-	private function decidable(int $id): Approval {
+	private function decidable(string $id): Approval {
 		$approval = $this->find($id);
 		if (!$approval->isPending()) {
 			throw new ApprovalException(ApprovalException::NOT_PENDING);
@@ -435,23 +435,23 @@ class ApprovalService {
 	}
 
 	private function expire(Approval $approval, int $now): bool {
-		if (!$this->mapper->decide((int)$approval->getId(), Approval::STATUS_EXPIRED, null, $now)) {
+		if (!$this->mapper->decide((string)$approval->getId(), Approval::STATUS_EXPIRED, null, $now)) {
 			return false;
 		}
 		if ($approval->getKind() === Approval::KIND_LOGIN) {
 			$this->audit->log('approval %s expired: login of %s from %s', [
-				'approval' => $approval->getId(),
+				'approval' => (string)$approval->getId(),
 				'subject' => $approval->getSubjectUid(),
 				'ip' => $approval->getIp() ?? '-',
 			]);
 		} elseif ($approval->getKind() === Approval::KIND_SETTINGS) {
 			$this->audit->log('approval %s expired: settings change asked by %s was not made', [
-				'approval' => $approval->getId(),
+				'approval' => (string)$approval->getId(),
 				'requester' => $approval->getRequestedBy(),
 			]);
 		} else {
 			$this->audit->log('approval %s expired: %s did not join %s, asked by %s', [
-				'approval' => $approval->getId(),
+				'approval' => (string)$approval->getId(),
 				'subject' => $approval->getSubjectUid(),
 				'group' => $approval->getGroupId(),
 				'requester' => $approval->getRequestedBy(),
@@ -465,7 +465,7 @@ class ApprovalService {
 	 * After a decision: remove the open notifications and tell the one who asked.
 	 */
 	private function finish(Approval $approval): Approval {
-		$approval = $this->find((int)$approval->getId());
+		$approval = $this->find((string)$approval->getId());
 		try {
 			$notification = $this->notifications->createNotification();
 			$notification->setApp(Application::APP_ID)
@@ -494,7 +494,7 @@ class ApprovalService {
 				->setUser($user->getUID())
 				->setDateTime(new \DateTime('@' . $now))
 				->setObject(self::OBJECT_TYPE, (string)$approval->getId())
-				->setSubject(Notifier::SUBJECT_APPROVAL_REQUESTED, ['approval' => (int)$approval->getId()]);
+				->setSubject(Notifier::SUBJECT_APPROVAL_REQUESTED, ['approval' => (string)$approval->getId()]);
 			// Approving needs the password, which no notification can ask: the admin page decides.
 			$action = $notification->createAction();
 			$action->setLabel(Notifier::ACTION_REVIEW)
@@ -511,7 +511,7 @@ class ApprovalService {
 			->setUser($uid)
 			->setDateTime(new \DateTime('@' . $this->timeFactory->getTime()))
 			->setObject($objectType, (string)$approval->getId())
-			->setSubject($subject, ['approval' => (int)$approval->getId()]);
+			->setSubject($subject, ['approval' => (string)$approval->getId()]);
 		$this->notifications->notify($notification);
 	}
 }

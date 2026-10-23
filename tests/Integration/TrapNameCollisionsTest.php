@@ -20,6 +20,7 @@ use OCA\IntrusionDetection\Traps\TrapNameCollisions;
 use OCP\AppFramework\Utility\ITimeFactory;
 use OCP\IUserManager;
 use OCP\Server;
+use OCP\Snowflake\ISnowflakeGenerator;
 use PHPUnit\Framework\Attributes\Group;
 
 /**
@@ -57,7 +58,7 @@ class TrapNameCollisionsTest extends IntegrationTestCase {
 	public function testCreatingADecoyLooksTheNamesUp(): void {
 		Server::get(IUserManager::class)->createUser(self::UID, 'A-long-test-password-' . self::UID);
 		Server::get(AppState::class)->setJson(TrapNameCollisions::STATE, ['reserved' => [], 'decoys' => [], 'checkedAt' => 1]);
-		$this->db->insertIfNotExist('*PREFIX*ids_decoys', ['label' => 'old', 'login_name' => self::UID, 'secret_hmac' => str_repeat('a', 64), 'format' => 'app_password', 'created_by' => 'admin', 'created_at' => 1, 'trigger_count' => 0], ['secret_hmac']);
+		$this->db->insertIfNotExist('*PREFIX*ids_decoys', ['id' => Server::get(ISnowflakeGenerator::class)->nextId(), 'label' => 'old', 'login_name' => self::UID, 'secret_hmac' => str_repeat('a', 64), 'format' => 'app_password', 'created_by' => 'admin', 'trigger_count' => 0], ['secret_hmac']);
 		$this->assertSame([], Server::get(TrapNameCollisions::class)->all());
 
 		Server::get(DecoyService::class)->create('new', null, DecoyFormat::AppPassword, 'admin');

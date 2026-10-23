@@ -98,7 +98,7 @@ class BanApiController extends AdminOCSController {
 	/**
 	 * Lift a block
 	 *
-	 * @param int $id The block id
+	 * @param string $id The block id
 	 * @param string $note Why the block is lifted
 	 * @return DataResponse<Http::STATUS_OK, IntrusionDetectionBan, array{}>|DataResponse<Http::STATUS_BAD_REQUEST, IntrusionDetectionError, array{}>
 	 * @throws OCSNotFoundException The block does not exist
@@ -108,7 +108,7 @@ class BanApiController extends AdminOCSController {
 	 */
 	#[ApiRoute(verb: 'DELETE', url: '/api/v1/bans/{id}', requirements: ['id' => '\d+'])]
 	#[PasswordConfirmationRequired]
-	public function liftBan(int $id, string $note = ''): DataResponse {
+	public function liftBan(string $id, string $note = ''): DataResponse {
 		if (trim($note) === '') {
 			return $this->error($this->l->t('Please say why the block is lifted. The note is kept with the block and in the audit log.'), 'note', 'required');
 		}

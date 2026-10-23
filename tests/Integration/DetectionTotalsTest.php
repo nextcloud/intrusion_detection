@@ -128,7 +128,7 @@ class DetectionTotalsTest extends IntegrationTestCase {
 		$detection->setEnforced($enforced);
 		$detection->setExplanationData([]);
 		$detection->setActionList([]);
-		$detection->setCreatedAt($createdAt);
+		$detection->setCreatedTime($createdAt);
 		$detection->setLastSeenAt($createdAt);
 		$detection->setHits(1);
 		$detection = Server::get(DetectionMapper::class)->insert($detection);

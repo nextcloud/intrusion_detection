@@ -19,12 +19,12 @@ use OCA\IntrusionDetection\Detection\IMergeableFacts;
  */
 final readonly class DecoyCredentialFacts implements IMergeableFacts {
 	/**
-	 * @param int $decoy the id of the decoy
+	 * @param string $decoy the id of the decoy
 	 * @param string $label its label
 	 * @param string $format the format of its secret
 	 */
 	public function __construct(
-		public int $decoy = 0,
+		public string $decoy = '',
 		public string $label = '',
 		public string $format = '',
 		public ?DecoyCredentialMatch $match = null,
@@ -37,7 +37,7 @@ final readonly class DecoyCredentialFacts implements IMergeableFacts {
 	 */
 	public static function fromArray(array $stored): self {
 		return new self(
-			FactValues::int($stored, 'decoy') ?? 0,
+			FactValues::string($stored, 'decoy') ?? '',
 			FactValues::string($stored, 'label') ?? '',
 			FactValues::string($stored, 'format') ?? '',
 			DecoyCredentialMatch::tryFrom((string)FactValues::string($stored, 'match')),

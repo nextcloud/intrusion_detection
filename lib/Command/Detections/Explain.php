@@ -38,7 +38,7 @@ class Explain extends Base {
 	#[\Override]
 	protected function execute(InputInterface $input, OutputInterface $output): int {
 		try {
-			$detection = $this->mapper->findById((int)$input->getArgument('id'));
+			$detection = $this->mapper->findById((string)$input->getArgument('id'));
 		} catch (DoesNotExistException) {
 			$output->writeln('<error>There is no such detection.</error>');
 			return self::FAILURE;

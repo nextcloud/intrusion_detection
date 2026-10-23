@@ -48,7 +48,7 @@ class DecoyCredentialDetector implements IDetector {
 			checkId: DecoyCredential::ID,
 			source: $signal->source,
 			facts: new DecoyCredentialFacts(
-				decoy: $decoy->getId(),
+				decoy: (string)$decoy->getId(),
 				label: $decoy->getLabel(),
 				format: $decoy->getFormat(),
 				match: $bySecret ? DecoyCredentialMatch::Secret : DecoyCredentialMatch::LoginName,

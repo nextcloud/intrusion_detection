@@ -65,11 +65,11 @@ class PersonalDetections {
 		$asks = $this->questions->asks($detection);
 		$open = $asks && $detection->getUserVerdict() === null;
 		return [
-			'id' => $detection->getId(),
+			'id' => (string)$detection->getId(),
 			'check' => $detection->getCheckId(),
 			'severity' => $detection->getSeverity(),
 			'enforced' => $detection->isEnforced(),
-			'createdAt' => $detection->getCreatedAt(),
+			'createdAt' => $detection->getCreatedTime(),
 			'lastSeenAt' => $detection->getLastSeenAt(),
 			'hits' => $detection->getHits(),
 			'subject' => $message->subject,

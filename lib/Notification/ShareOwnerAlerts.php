@@ -69,7 +69,7 @@ class ShareOwnerAlerts {
 		}
 		$email = match (true) {
 			!$withAddress => self::EMAIL_NO_ADDRESS,
-			$this->queue->shareOwners($detection->getId(), Severity::from($detection->getSeverity())) => self::EMAIL_QUEUED,
+			$this->queue->shareOwners((string)$detection->getId(), Severity::from($detection->getSeverity())) => self::EMAIL_QUEUED,
 			default => self::EMAIL_LIMITED,
 		};
 		return ['recipients' => $recipients, 'email' => $email];
@@ -112,10 +112,10 @@ class ShareOwnerAlerts {
 	 * Remove the notification about a detection for everyone, e.g. after the
 	 * link was disabled.
 	 */
-	public function dismiss(int $detectionId): void {
+	public function dismiss(string $detectionId): void {
 		$notification = $this->notifications->createNotification();
 		$notification->setApp(Application::APP_ID)
-			->setObject(self::OBJECT_TYPE, (string)$detectionId);
+			->setObject(self::OBJECT_TYPE, $detectionId);
 		$this->notifications->markProcessed($notification);
 	}
 
@@ -145,7 +145,7 @@ class ShareOwnerAlerts {
 			->setUser($user->getUID())
 			->setDateTime(new \DateTime('@' . $now))
 			->setObject(self::OBJECT_TYPE, (string)$detection->getId())
-			->setSubject(self::SUBJECT, ['detection' => $detection->getId()]);
+			->setSubject(self::SUBJECT, ['detection' => (string)$detection->getId()]);
 		$open = $notification->createAction();
 		$open->setLabel(self::ACTION_OPEN)
 			->setLink($this->links->settingsLink($share), 'WEB')
@@ -154,7 +154,7 @@ class ShareOwnerAlerts {
 		if ($this->links->isLink($share)) {
 			$disable = $notification->createAction();
 			$disable->setLabel(self::ACTION_DISABLE)
-				->setLink($this->urlGenerator->linkToOCSRouteAbsolute(Application::APP_ID . '.ShareAlert.disable', ['detectionId' => $detection->getId()]), 'POST');
+				->setLink($this->urlGenerator->linkToOCSRouteAbsolute(Application::APP_ID . '.ShareAlert.disable', ['detectionId' => (string)$detection->getId()]), 'POST');
 			$notification->addAction($disable);
 		}
 		$this->notifications->notify($notification);

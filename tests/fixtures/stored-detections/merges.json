@@ -1,9 +1,9 @@
 {
 	"account_takeover": [
 		{
-			"stored": {"rules": ["any_session"], "anyPoints": 5, "sessionPoints": 0, "riskyLoginAt": null, "riskyLoginReason": null, "riskyLoginPolicies": [], "changes": [{"id": 1, "type": "password_changed", "points": 1, "at": 1789999100, "ip": null, "old": null, "new": null}], "emailChangeId": null, "emailChangedAt": null, "previousAddress": null, "userHasEmail": true, "sessionTokenId": 7, "first": 1789999100, "last": 1789999100, "risk": {"score": 0}, "sessionTokenIds": [7]},
-			"hit": {"rules": ["risky_login", "any_session"], "anyPoints": 7, "sessionPoints": 4, "riskyLoginAt": 1789999000, "riskyLoginReason": "risky_network", "riskyLoginPolicies": ["new_network"], "changes": [{"id": 1, "type": "password_changed", "points": 1, "at": 1789999100, "ip": null, "old": null, "new": null}, {"id": 2, "type": "email_changed", "points": 2, "at": 1789999900, "ip": "203.0.113.5", "old": "a***@example.com", "new": "m***@example.org"}], "emailChangeId": 2, "emailChangedAt": 1789999900, "previousAddress": "a***@example.com", "userHasEmail": true, "sessionTokenId": 7, "first": 1789999100, "last": 1789999900},
-			"merged": {"rules": ["any_session", "risky_login"], "anyPoints": 7, "sessionPoints": 4, "riskyLoginAt": 1789999000, "riskyLoginReason": "risky_network", "riskyLoginPolicies": ["new_network"], "changes": [{"id": 1, "type": "password_changed", "points": 1, "at": 1789999100, "ip": null, "old": null, "new": null}, {"id": 2, "type": "email_changed", "points": 2, "at": 1789999900, "ip": "203.0.113.5", "old": "a***@example.com", "new": "m***@example.org"}], "emailChangeId": 2, "emailChangedAt": 1789999900, "previousAddress": "a***@example.com", "userHasEmail": true, "sessionTokenId": 7, "first": 1789999100, "last": 1789999900, "risk": {"score": 0}, "sessionTokenIds": [7]}
+			"stored": {"rules": ["any_session"], "anyPoints": 5, "sessionPoints": 0, "riskyLoginAt": null, "riskyLoginReason": null, "riskyLoginPolicies": [], "changes": [{"id": "470938541726507009", "type": "password_changed", "points": 1, "at": 1789999100, "ip": null, "old": null, "new": null}], "emailChangeId": null, "emailChangedAt": null, "previousAddress": null, "userHasEmail": true, "sessionTokenId": 7, "first": 1789999100, "last": 1789999100, "risk": {"score": 0}, "sessionTokenIds": [7]},
+			"hit": {"rules": ["risky_login", "any_session"], "anyPoints": 7, "sessionPoints": 4, "riskyLoginAt": 1789999000, "riskyLoginReason": "risky_network", "riskyLoginPolicies": ["new_network"], "changes": [{"id": "470938541726507009", "type": "password_changed", "points": 1, "at": 1789999100, "ip": null, "old": null, "new": null}, {"id": "470938541726507010", "type": "email_changed", "points": 2, "at": 1789999900, "ip": "203.0.113.5", "old": "a***@example.com", "new": "m***@example.org"}], "emailChangeId": "470938541726507010", "emailChangedAt": 1789999900, "previousAddress": "a***@example.com", "userHasEmail": true, "sessionTokenId": 7, "first": 1789999100, "last": 1789999900},
+			"merged": {"rules": ["any_session", "risky_login"], "anyPoints": 7, "sessionPoints": 4, "riskyLoginAt": 1789999000, "riskyLoginReason": "risky_network", "riskyLoginPolicies": ["new_network"], "changes": [{"id": "470938541726507009", "type": "password_changed", "points": 1, "at": 1789999100, "ip": null, "old": null, "new": null}, {"id": "470938541726507010", "type": "email_changed", "points": 2, "at": 1789999900, "ip": "203.0.113.5", "old": "a***@example.com", "new": "m***@example.org"}], "emailChangeId": "470938541726507010", "emailChangedAt": 1789999900, "previousAddress": "a***@example.com", "userHasEmail": true, "sessionTokenId": 7, "first": 1789999100, "last": 1789999900, "risk": {"score": 0}, "sessionTokenIds": [7]}
 		}
 	],
 	"account_under_attack": [
@@ -41,9 +41,9 @@
 	],
 	"decoy_credential": [
 		{
-			"stored": {"decoy": 3, "label": "wiki admin", "format": "password", "match": "login_name"},
-			"hit": {"decoy": 3, "label": "wiki admin", "format": "password", "match": "secret"},
-			"merged": {"decoy": 3, "label": "wiki admin", "format": "password", "match": "secret"}
+			"stored": {"decoy": "470938541726507011", "label": "wiki admin", "format": "password", "match": "login_name"},
+			"hit": {"decoy": "470938541726507011", "label": "wiki admin", "format": "password", "match": "secret"},
+			"merged": {"decoy": "470938541726507011", "label": "wiki admin", "format": "password", "match": "secret"}
 		}
 	],
 	"directory_scraping": [
@@ -218,9 +218,9 @@
 	],
 	"user_denied": [
 		{
-			"stored": {"detection": 17, "check": "risky_network", "detectedAt": 1789992800, "passwordInvolved": true, "answeredFromSource": false, "network": null, "weakSession": true, "sessionTokenIds": [3, 4], "tokenId": null},
-			"hit": {"detection": 17, "check": "risky_network", "detectedAt": 1789992800, "passwordInvolved": true, "answeredFromSource": true, "network": null, "weakSession": true, "sessionTokenIds": [4, 5], "tokenId": 2},
-			"merged": {"detection": 17, "check": "risky_network", "detectedAt": 1789992800, "passwordInvolved": true, "answeredFromSource": true, "network": null, "weakSession": true, "sessionTokenIds": [3, 4, 5], "tokenId": 2}
+			"stored": {"detection": "470938541726507025", "check": "risky_network", "detectedAt": 1789992800, "passwordInvolved": true, "answeredFromSource": false, "network": null, "weakSession": true, "sessionTokenIds": [3, 4], "tokenId": null},
+			"hit": {"detection": "470938541726507025", "check": "risky_network", "detectedAt": 1789992800, "passwordInvolved": true, "answeredFromSource": true, "network": null, "weakSession": true, "sessionTokenIds": [4, 5], "tokenId": 2},
+			"merged": {"detection": "470938541726507025", "check": "risky_network", "detectedAt": 1789992800, "passwordInvolved": true, "answeredFromSource": true, "network": null, "weakSession": true, "sessionTokenIds": [3, 4, 5], "tokenId": 2}
 		}
 	]
 }

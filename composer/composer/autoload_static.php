@@ -335,6 +335,7 @@ class ComposerStaticInitIntrusionDetection
         'OCA\\IntrusionDetection\\Db\\Ban' => __DIR__ . '/..' . '/../lib/Db/Ban.php',
         'OCA\\IntrusionDetection\\Db\\BanMapper' => __DIR__ . '/..' . '/../lib/Db/BanMapper.php',
         'OCA\\IntrusionDetection\\Db\\BatchedDelete' => __DIR__ . '/..' . '/../lib/Db/BatchedDelete.php',
+        'OCA\\IntrusionDetection\\Db\\CreatedTimeColumn' => __DIR__ . '/..' . '/../lib/Db/CreatedTimeColumn.php',
         'OCA\\IntrusionDetection\\Db\\Detection' => __DIR__ . '/..' . '/../lib/Db/Detection.php',
         'OCA\\IntrusionDetection\\Db\\DetectionAccountMapper' => __DIR__ . '/..' . '/../lib/Db/DetectionAccountMapper.php',
         'OCA\\IntrusionDetection\\Db\\DetectionFilter' => __DIR__ . '/..' . '/../lib/Db/DetectionFilter.php',

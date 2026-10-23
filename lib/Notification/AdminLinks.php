@@ -32,11 +32,11 @@ class AdminLinks {
 		return $this->urlGenerator->getAbsoluteURL($path);
 	}
 
-	public function detection(int $id): string {
+	public function detection(string $id): string {
 		return $this->adminPage() . '#detection-' . $id;
 	}
 
-	public function approval(int $id): string {
+	public function approval(string $id): string {
 		return $this->adminPage() . '#approval-' . $id;
 	}
 
@@ -47,7 +47,7 @@ class AdminLinks {
 	public function decide(Approval $approval): string {
 		return $approval->getKind() === Approval::KIND_LOGIN
 			? $this->adminPage() . '#settings-approvals'
-			: $this->approval((int)$approval->getId());
+			: $this->approval((string)$approval->getId());
 	}
 
 	public function icon(): string {

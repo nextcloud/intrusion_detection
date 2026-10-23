@@ -323,7 +323,7 @@ class FirewallExporterTest extends IntegrationTestCase {
 		$ban->setBanKey(explode('/', $cidr)[0]);
 		$ban->setLevel(1);
 		$ban->setCheckId('trap_url');
-		$ban->setCreatedAt($this->now);
+		$ban->setCreatedTime($this->now);
 		$ban->setExpiresAt($this->now + $duration);
 		return Server::get(BanMapper::class)->insert($ban);
 	}

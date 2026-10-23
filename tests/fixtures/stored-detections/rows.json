@@ -1,7 +1,7 @@
 {
 	"account_locked": {
 		"changed": {
-			"detection": {"id": 41, "checkId": "account_locked", "severity": "high", "enforced": true, "ip": "203.0.113.5", "netKey": "4:203.0.113.0/24", "uid": "alice", "shareId": null, "hits": 1, "createdAt": 1789999700, "lastSeenAt": 1790000000, "actions": [], "explanation": {"v": 1, "check": "account_locked", "mode": {"configured": "protect", "effective": "protect", "reason": null}, "thresholds": [], "facts": {"link": 7, "sentTo": "a***@example.com", "newAddress": "m***@example.org", "changedAt": 1789996400, "changedFrom": "198.51.100.7", "takeoverDetection": 12, "tokensEnded": 3, "ended": [{"id": 1, "name": "Firefox"}], "alert_all_admins": true}, "first": 1789999700, "last": 1790000000}},
+			"detection": {"id": "470938541726507049", "checkId": "account_locked", "severity": "high", "enforced": true, "ip": "203.0.113.5", "netKey": "4:203.0.113.0/24", "uid": "alice", "shareId": null, "hits": 1, "createdAt": 1789999700, "lastSeenAt": 1790000000, "actions": [], "explanation": {"v": 1, "check": "account_locked", "mode": {"configured": "protect", "effective": "protect", "reason": null}, "thresholds": [], "facts": {"link": "470938541726507015", "sentTo": "a***@example.com", "newAddress": "m***@example.org", "changedAt": 1789996400, "changedFrom": "198.51.100.7", "takeoverDetection": "470938541726507020", "tokensEnded": 3, "ended": [{"id": 1, "name": "Firefox"}], "alert_all_admins": true}, "first": 1789999700, "last": 1790000000}},
 			"reads": {
 				"narrative": [
 					"The account of alice was locked by the owner of the previous email address a***@example.com, with the link Nextcloud had sent there.",
@@ -19,7 +19,7 @@
 			}
 		},
 		"removed": {
-			"detection": {"id": 41, "checkId": "account_locked", "severity": "high", "enforced": true, "ip": null, "netKey": "4:203.0.113.0/24", "uid": "alice", "shareId": null, "hits": 1, "createdAt": 1789999700, "lastSeenAt": 1790000000, "actions": [], "explanation": {"v": 1, "check": "account_locked", "mode": {"configured": "protect", "effective": "protect", "reason": null}, "thresholds": [], "facts": {"link": 7, "sentTo": "a***@example.com", "newAddress": null, "changedAt": 1789999900, "changedFrom": null, "takeoverDetection": null, "tokensEnded": 1, "ended": [], "alert_all_admins": true}, "first": 1789999700, "last": 1790000000}},
+			"detection": {"id": "470938541726507049", "checkId": "account_locked", "severity": "high", "enforced": true, "ip": null, "netKey": "4:203.0.113.0/24", "uid": "alice", "shareId": null, "hits": 1, "createdAt": 1789999700, "lastSeenAt": 1790000000, "actions": [], "explanation": {"v": 1, "check": "account_locked", "mode": {"configured": "protect", "effective": "protect", "reason": null}, "thresholds": [], "facts": {"link": "470938541726507015", "sentTo": "a***@example.com", "newAddress": null, "changedAt": 1789999900, "changedFrom": null, "takeoverDetection": null, "tokensEnded": 1, "ended": [], "alert_all_admins": true}, "first": 1789999700, "last": 1790000000}},
 			"reads": {
 				"narrative": [
 					"The account of alice was locked by the owner of the previous email address a***@example.com, with the link Nextcloud had sent there.",
@@ -36,7 +36,7 @@
 			}
 		},
 		"changed without address": {
-			"detection": {"id": 41, "checkId": "account_locked", "severity": "high", "enforced": true, "ip": "203.0.113.5", "netKey": "4:203.0.113.0/24", "uid": "alice", "shareId": null, "hits": 1, "createdAt": 1789999700, "lastSeenAt": 1790000000, "actions": [], "explanation": {"v": 1, "check": "account_locked", "mode": {"configured": "protect", "effective": "protect", "reason": null}, "thresholds": [], "facts": {"link": 7, "sentTo": "a***@example.com", "newAddress": "m***@example.org", "changedAt": 1789999900, "changedFrom": null, "takeoverDetection": null, "tokensEnded": 2, "ended": [], "alert_all_admins": true}, "first": 1789999700, "last": 1790000000}},
+			"detection": {"id": "470938541726507049", "checkId": "account_locked", "severity": "high", "enforced": true, "ip": "203.0.113.5", "netKey": "4:203.0.113.0/24", "uid": "alice", "shareId": null, "hits": 1, "createdAt": 1789999700, "lastSeenAt": 1790000000, "actions": [], "explanation": {"v": 1, "check": "account_locked", "mode": {"configured": "protect", "effective": "protect", "reason": null}, "thresholds": [], "facts": {"link": "470938541726507015", "sentTo": "a***@example.com", "newAddress": "m***@example.org", "changedAt": 1789999900, "changedFrom": null, "takeoverDetection": null, "tokensEnded": 2, "ended": [], "alert_all_admins": true}, "first": 1789999700, "last": 1790000000}},
 			"reads": {
 				"narrative": [
 					"The account of alice was locked by the owner of the previous email address a***@example.com, with the link Nextcloud had sent there.",
@@ -54,7 +54,7 @@
 			}
 		},
 		"old row": {
-			"detection": {"id": 41, "checkId": "account_locked", "severity": "high", "enforced": true, "ip": "203.0.113.5", "netKey": "4:203.0.113.0/24", "uid": "alice", "shareId": null, "hits": 1, "createdAt": 1789999700, "lastSeenAt": 1790000000, "actions": [], "explanation": {"v": 1, "check": "account_locked", "mode": {"configured": "protect", "effective": "protect", "reason": null}, "thresholds": [], "facts": [], "first": 1789999700, "last": 1790000000}},
+			"detection": {"id": "470938541726507049", "checkId": "account_locked", "severity": "high", "enforced": true, "ip": "203.0.113.5", "netKey": "4:203.0.113.0/24", "uid": "alice", "shareId": null, "hits": 1, "createdAt": 1789999700, "lastSeenAt": 1790000000, "actions": [], "explanation": {"v": 1, "check": "account_locked", "mode": {"configured": "protect", "effective": "protect", "reason": null}, "thresholds": [], "facts": [], "first": 1789999700, "last": 1790000000}},
 			"reads": {
 				"narrative": [
 					"The account of alice was locked by the owner of the previous email address , with the link Nextcloud had sent there.",
@@ -73,7 +73,7 @@
 	},
 	"account_takeover": {
 		"both rules": {
-			"detection": {"id": 41, "checkId": "account_takeover", "severity": "high", "enforced": true, "ip": "203.0.113.5", "netKey": "4:203.0.113.0/24", "uid": "alice", "shareId": null, "hits": 1, "createdAt": 1789999700, "lastSeenAt": 1790000000, "actions": [], "explanation": {"v": 1, "check": "account_takeover", "mode": {"configured": "protect", "effective": "protect", "reason": null}, "thresholds": {"window": 3600, "min_points": 3, "window_any": 1800, "min_points_any": 5}, "facts": {"rules": ["any_session", "risky_login"], "anyPoints": 6, "sessionPoints": 4, "riskyLoginAt": 1789998800, "riskyLoginReason": "risky_network", "riskyLoginPolicies": ["new_network"], "changes": [{"id": 3, "type": "email_changed", "points": 2, "at": 1789999100, "ip": "203.0.113.5", "old": "a***@example.com", "new": "m***@example.org"}, {"id": 4, "type": "second_factor_removed", "points": 3, "at": 1789999400, "ip": null, "old": null, "new": null}, {"id": 5, "type": "email_changed", "points": 2, "at": 1789999500, "ip": null, "old": "m***@example.org", "new": null}, {"id": 6, "type": "email_changed", "points": 1, "at": 1789999600, "ip": null, "old": null, "new": "x***@example.net"}, {"id": 7, "type": "retired_type", "points": 1, "at": 1789999700, "ip": null, "old": null, "new": null}], "emailChangeId": 3, "emailChangedAt": 1789999100, "previousAddress": "a***@example.com", "userHasEmail": false, "sessionTokenId": 77, "first": 1789999100, "last": 1789999700}, "first": 1789999700, "last": 1790000000}},
+			"detection": {"id": "470938541726507049", "checkId": "account_takeover", "severity": "high", "enforced": true, "ip": "203.0.113.5", "netKey": "4:203.0.113.0/24", "uid": "alice", "shareId": null, "hits": 1, "createdAt": 1789999700, "lastSeenAt": 1790000000, "actions": [], "explanation": {"v": 1, "check": "account_takeover", "mode": {"configured": "protect", "effective": "protect", "reason": null}, "thresholds": {"window": 3600, "min_points": 3, "window_any": 1800, "min_points_any": 5}, "facts": {"rules": ["any_session", "risky_login"], "anyPoints": 6, "sessionPoints": 4, "riskyLoginAt": 1789998800, "riskyLoginReason": "risky_network", "riskyLoginPolicies": ["new_network"], "changes": [{"id": "470938541726507011", "type": "email_changed", "points": 2, "at": 1789999100, "ip": "203.0.113.5", "old": "a***@example.com", "new": "m***@example.org"}, {"id": "470938541726507012", "type": "second_factor_removed", "points": 3, "at": 1789999400, "ip": null, "old": null, "new": null}, {"id": "470938541726507013", "type": "email_changed", "points": 2, "at": 1789999500, "ip": null, "old": "m***@example.org", "new": null}, {"id": "470938541726507014", "type": "email_changed", "points": 1, "at": 1789999600, "ip": null, "old": null, "new": "x***@example.net"}, {"id": "470938541726507015", "type": "retired_type", "points": 1, "at": 1789999700, "ip": null, "old": null, "new": null}], "emailChangeId": "470938541726507011", "emailChangedAt": 1789999100, "previousAddress": "a***@example.com", "userHasEmail": false, "sessionTokenId": 77, "first": 1789999100, "last": 1789999700}, "first": 1789999700, "last": 1790000000}},
 			"reads": {
 				"narrative": [
 					"These security changes were made to the account alice:",
@@ -96,7 +96,7 @@
 			}
 		},
 		"any session, old row": {
-			"detection": {"id": 41, "checkId": "account_takeover", "severity": "high", "enforced": true, "ip": "203.0.113.5", "netKey": "4:203.0.113.0/24", "uid": "alice", "shareId": null, "hits": 1, "createdAt": 1789999700, "lastSeenAt": 1790000000, "actions": [], "explanation": {"v": 1, "check": "account_takeover", "mode": {"configured": "protect", "effective": "protect", "reason": null}, "thresholds": [], "facts": {"rules": ["any_session"], "anyPoints": 5, "changes": [{"id": 9, "type": "password_changed", "points": 1, "at": 1789999940, "ip": "198.51.100.9"}]}, "first": 1789999700, "last": 1790000000}},
+			"detection": {"id": "470938541726507049", "checkId": "account_takeover", "severity": "high", "enforced": true, "ip": "203.0.113.5", "netKey": "4:203.0.113.0/24", "uid": "alice", "shareId": null, "hits": 1, "createdAt": 1789999700, "lastSeenAt": 1790000000, "actions": [], "explanation": {"v": 1, "check": "account_takeover", "mode": {"configured": "protect", "effective": "protect", "reason": null}, "thresholds": [], "facts": {"rules": ["any_session"], "anyPoints": 5, "changes": [{"id": "470938541726507017", "type": "password_changed", "points": 1, "at": 1789999940, "ip": "198.51.100.9"}]}, "first": 1789999700, "last": 1790000000}},
 			"reads": {
 				"narrative": [
 					"These security changes were made to the account alice:",
@@ -112,7 +112,7 @@
 			}
 		},
 		"no changes": {
-			"detection": {"id": 41, "checkId": "account_takeover", "severity": "high", "enforced": true, "ip": "203.0.113.5", "netKey": "4:203.0.113.0/24", "uid": "alice", "shareId": null, "hits": 1, "createdAt": 1789999700, "lastSeenAt": 1790000000, "actions": [], "explanation": {"v": 1, "check": "account_takeover", "mode": {"configured": "protect", "effective": "protect", "reason": null}, "thresholds": [], "facts": {"rules": ["risky_login"], "sessionPoints": 3, "riskyLoginAt": 1789999900, "userHasEmail": true}, "first": 1789999700, "last": 1790000000}},
+			"detection": {"id": "470938541726507049", "checkId": "account_takeover", "severity": "high", "enforced": true, "ip": "203.0.113.5", "netKey": "4:203.0.113.0/24", "uid": "alice", "shareId": null, "hits": 1, "createdAt": 1789999700, "lastSeenAt": 1790000000, "actions": [], "explanation": {"v": 1, "check": "account_takeover", "mode": {"configured": "protect", "effective": "protect", "reason": null}, "thresholds": [], "facts": {"rules": ["risky_login"], "sessionPoints": 3, "riskyLoginAt": 1789999900, "userHasEmail": true}, "first": 1789999700, "last": 1790000000}},
 			"reads": {
 				"narrative": [
 					"These security changes were made to the account alice:",
@@ -130,7 +130,7 @@
 	},
 	"account_under_attack": {
 		"full": {
-			"detection": {"id": 41, "checkId": "account_under_attack", "severity": "high", "enforced": true, "ip": null, "netKey": "4:203.0.113.0/24", "uid": "alice", "shareId": null, "hits": 1, "createdAt": 1789999700, "lastSeenAt": 1790000000, "actions": [{"type": "protect_account", "enforced": true, "ref": {"until": 1790003600}}], "explanation": {"v": 1, "check": "account_under_attack", "mode": {"configured": "protect", "effective": "protect", "reason": null}, "thresholds": {"window": 3600, "min_failures": 10, "min_sources": 5, "ban_min_failures": 5}, "facts": {"failures": 30, "sources": 12, "first": 1789998200, "last": 1789999990, "lastSource": "198.51.100.20", "risk": {"score": 45, "tier": "elevated", "factors": [{"id": "failures", "value": "30", "points": 2}]}, "loweredLimits": {"min_names": {"plain": 5, "effective": 3}}}, "first": 1789999700, "last": 1790000000}},
+			"detection": {"id": "470938541726507049", "checkId": "account_under_attack", "severity": "high", "enforced": true, "ip": null, "netKey": "4:203.0.113.0/24", "uid": "alice", "shareId": null, "hits": 1, "createdAt": 1789999700, "lastSeenAt": 1790000000, "actions": [{"type": "protect_account", "enforced": true, "ref": {"until": 1790003600}}], "explanation": {"v": 1, "check": "account_under_attack", "mode": {"configured": "protect", "effective": "protect", "reason": null}, "thresholds": {"window": 3600, "min_failures": 10, "min_sources": 5, "ban_min_failures": 5}, "facts": {"failures": 30, "sources": 12, "first": 1789998200, "last": 1789999990, "lastSource": "198.51.100.20", "risk": {"score": 45, "tier": "elevated", "factors": [{"id": "failures", "value": "30", "points": 2}]}, "loweredLimits": {"min_names": {"plain": 5, "effective": 3}}}, "first": 1789999700, "last": 1790000000}},
 			"reads": {
 				"narrative": [
 					"Between date:1789998200 and time:1789999990 the account alice had 30 failed logins from 12 different addresses.",
@@ -145,7 +145,7 @@
 			}
 		},
 		"old row": {
-			"detection": {"id": 41, "checkId": "account_under_attack", "severity": "high", "enforced": true, "ip": null, "netKey": "4:203.0.113.0/24", "uid": "alice", "shareId": null, "hits": 1, "createdAt": 1789999700, "lastSeenAt": 1790000000, "actions": [], "explanation": {"facts": {"failures": 11}}},
+			"detection": {"id": "470938541726507049", "checkId": "account_under_attack", "severity": "high", "enforced": true, "ip": null, "netKey": "4:203.0.113.0/24", "uid": "alice", "shareId": null, "hits": 1, "createdAt": 1789999700, "lastSeenAt": 1790000000, "actions": [], "explanation": {"facts": {"failures": 11}}},
 			"reads": {
 				"narrative": [
 					"Between date:1789999700 and time:1790000000 the account alice had 11 failed logins from 0 different addresses.",
@@ -161,7 +161,7 @@
 	},
 	"admin_change": {
 		"granted through group": {
-			"detection": {"id": 41, "checkId": "admin_change", "severity": "high", "enforced": true, "ip": "203.0.113.5", "netKey": "4:203.0.113.0/24", "uid": "alice", "shareId": null, "hits": 1, "createdAt": 1789999700, "lastSeenAt": 1790000000, "actions": [], "explanation": {"v": 1, "check": "admin_change", "mode": {"configured": "protect", "effective": "protect", "reason": null}, "thresholds": [], "facts": {"kind": "admin_granted", "actor": "root", "group": "ids-team", "delegated": ["Users", "Sharing"], "requested_by": "carol", "approved_by": "dave", "exempt": "occ", "targets": ["alice"], "actor_ip": "192.0.2.4", "alert_key": "admin:alice", "alert_all_admins": true}, "first": 1789999700, "last": 1790000000}},
+			"detection": {"id": "470938541726507049", "checkId": "admin_change", "severity": "high", "enforced": true, "ip": "203.0.113.5", "netKey": "4:203.0.113.0/24", "uid": "alice", "shareId": null, "hits": 1, "createdAt": 1789999700, "lastSeenAt": 1790000000, "actions": [], "explanation": {"v": 1, "check": "admin_change", "mode": {"configured": "protect", "effective": "protect", "reason": null}, "thresholds": [], "facts": {"kind": "admin_granted", "actor": "root", "group": "ids-team", "delegated": ["Users", "Sharing"], "requested_by": "carol", "approved_by": "dave", "exempt": "occ", "targets": ["alice"], "actor_ip": "192.0.2.4", "alert_key": "admin:alice", "alert_all_admins": true}, "first": 1789999700, "last": 1790000000}},
 			"reads": {
 				"narrative": [
 					"root added alice to the group \"ids-team\", which has these administration settings: Users, Sharing.",
@@ -180,7 +180,7 @@
 			}
 		},
 		"granted": {
-			"detection": {"id": 41, "checkId": "admin_change", "severity": "high", "enforced": true, "ip": "203.0.113.5", "netKey": "4:203.0.113.0/24", "uid": "alice", "shareId": null, "hits": 1, "createdAt": 1789999700, "lastSeenAt": 1790000000, "actions": [], "explanation": {"v": 1, "check": "admin_change", "mode": {"configured": "protect", "effective": "protect", "reason": null}, "thresholds": [], "facts": {"kind": "admin_granted", "actor": "occ", "targets": ["alice"], "exempt": "cron", "alert_key": "admin:alice", "alert_all_admins": true}, "first": 1789999700, "last": 1790000000}},
+			"detection": {"id": "470938541726507049", "checkId": "admin_change", "severity": "high", "enforced": true, "ip": "203.0.113.5", "netKey": "4:203.0.113.0/24", "uid": "alice", "shareId": null, "hits": 1, "createdAt": 1789999700, "lastSeenAt": 1790000000, "actions": [], "explanation": {"v": 1, "check": "admin_change", "mode": {"configured": "protect", "effective": "protect", "reason": null}, "thresholds": [], "facts": {"kind": "admin_granted", "actor": "occ", "targets": ["alice"], "exempt": "cron", "alert_key": "admin:alice", "alert_all_admins": true}, "first": 1789999700, "last": 1790000000}},
 			"reads": {
 				"narrative": [
 					"Someone on the command line (occ) made alice an administrator.",
@@ -197,7 +197,7 @@
 			}
 		},
 		"granted from directory": {
-			"detection": {"id": 41, "checkId": "admin_change", "severity": "high", "enforced": true, "ip": "203.0.113.5", "netKey": "4:203.0.113.0/24", "uid": "alice", "shareId": null, "hits": 1, "createdAt": 1789999700, "lastSeenAt": 1790000000, "actions": [], "explanation": {"v": 1, "check": "admin_change", "mode": {"configured": "protect", "effective": "protect", "reason": null}, "thresholds": [], "facts": {"kind": "admin_granted", "actor": "cron", "exempt": "directory", "approved_by": "dave", "targets": ["alice"]}, "first": 1789999700, "last": 1790000000}},
+			"detection": {"id": "470938541726507049", "checkId": "admin_change", "severity": "high", "enforced": true, "ip": "203.0.113.5", "netKey": "4:203.0.113.0/24", "uid": "alice", "shareId": null, "hits": 1, "createdAt": 1789999700, "lastSeenAt": 1790000000, "actions": [], "explanation": {"v": 1, "check": "admin_change", "mode": {"configured": "protect", "effective": "protect", "reason": null}, "thresholds": [], "facts": {"kind": "admin_granted", "actor": "cron", "exempt": "directory", "approved_by": "dave", "targets": ["alice"]}, "first": 1789999700, "last": 1790000000}},
 			"reads": {
 				"narrative": [
 					"A background job made alice an administrator.",
@@ -215,7 +215,7 @@
 			}
 		},
 		"requested": {
-			"detection": {"id": 41, "checkId": "admin_change", "severity": "high", "enforced": true, "ip": "203.0.113.5", "netKey": "4:203.0.113.0/24", "uid": "alice", "shareId": null, "hits": 1, "createdAt": 1789999700, "lastSeenAt": 1790000000, "actions": [], "explanation": {"v": 1, "check": "admin_change", "mode": {"configured": "protect", "effective": "protect", "reason": null}, "thresholds": [], "facts": {"kind": "admin_grant_requested", "actor": "carol", "approval": 5, "expires_at": 1790086400, "targets": ["alice"], "alert_key": "admin:alice", "alert_all_admins": true}, "first": 1789999700, "last": 1790000000}},
+			"detection": {"id": "470938541726507049", "checkId": "admin_change", "severity": "high", "enforced": true, "ip": "203.0.113.5", "netKey": "4:203.0.113.0/24", "uid": "alice", "shareId": null, "hits": 1, "createdAt": 1789999700, "lastSeenAt": 1790000000, "actions": [], "explanation": {"v": 1, "check": "admin_change", "mode": {"configured": "protect", "effective": "protect", "reason": null}, "thresholds": [], "facts": {"kind": "admin_grant_requested", "actor": "carol", "approval": "470938541726507013", "expires_at": 1790086400, "targets": ["alice"], "alert_key": "admin:alice", "alert_all_admins": true}, "first": 1789999700, "last": 1790000000}},
 			"reads": {
 				"narrative": [
 					"carol tried to make alice an administrator.",
@@ -233,7 +233,7 @@
 			}
 		},
 		"requested, revert failed": {
-			"detection": {"id": 41, "checkId": "admin_change", "severity": "high", "enforced": true, "ip": "203.0.113.5", "netKey": "4:203.0.113.0/24", "uid": "alice", "shareId": null, "hits": 1, "createdAt": 1789999700, "lastSeenAt": 1790000000, "actions": [], "explanation": {"v": 1, "check": "admin_change", "mode": {"configured": "protect", "effective": "protect", "reason": null}, "thresholds": [], "facts": {"kind": "admin_grant_requested", "actor": "carol", "revert_failed": true, "targets": ["alice"]}, "first": 1789999700, "last": 1790000000}},
+			"detection": {"id": "470938541726507049", "checkId": "admin_change", "severity": "high", "enforced": true, "ip": "203.0.113.5", "netKey": "4:203.0.113.0/24", "uid": "alice", "shareId": null, "hits": 1, "createdAt": 1789999700, "lastSeenAt": 1790000000, "actions": [], "explanation": {"v": 1, "check": "admin_change", "mode": {"configured": "protect", "effective": "protect", "reason": null}, "thresholds": [], "facts": {"kind": "admin_grant_requested", "actor": "carol", "revert_failed": true, "targets": ["alice"]}, "first": 1789999700, "last": 1790000000}},
 			"reads": {
 				"narrative": [
 					"carol tried to make alice an administrator.",
@@ -250,7 +250,7 @@
 			}
 		},
 		"requested, not stored": {
-			"detection": {"id": 41, "checkId": "admin_change", "severity": "high", "enforced": true, "ip": "203.0.113.5", "netKey": "4:203.0.113.0/24", "uid": "alice", "shareId": null, "hits": 1, "createdAt": 1789999700, "lastSeenAt": 1790000000, "actions": [], "explanation": {"v": 1, "check": "admin_change", "mode": {"configured": "protect", "effective": "protect", "reason": null}, "thresholds": [], "facts": {"kind": "admin_grant_requested", "actor": "", "targets": ["alice"]}, "first": 1789999700, "last": 1790000000}},
+			"detection": {"id": "470938541726507049", "checkId": "admin_change", "severity": "high", "enforced": true, "ip": "203.0.113.5", "netKey": "4:203.0.113.0/24", "uid": "alice", "shareId": null, "hits": 1, "createdAt": 1789999700, "lastSeenAt": 1790000000, "actions": [], "explanation": {"v": 1, "check": "admin_change", "mode": {"configured": "protect", "effective": "protect", "reason": null}, "thresholds": [], "facts": {"kind": "admin_grant_requested", "actor": "", "targets": ["alice"]}, "first": 1789999700, "last": 1790000000}},
 			"reads": {
 				"narrative": [
 					"Someone who was not logged in tried to make alice an administrator.",
@@ -268,7 +268,7 @@
 			}
 		},
 		"removed through group": {
-			"detection": {"id": 41, "checkId": "admin_change", "severity": "high", "enforced": true, "ip": "203.0.113.5", "netKey": "4:203.0.113.0/24", "uid": "alice", "shareId": null, "hits": 1, "createdAt": 1789999700, "lastSeenAt": 1790000000, "actions": [], "explanation": {"v": 1, "check": "admin_change", "mode": {"configured": "protect", "effective": "protect", "reason": null}, "thresholds": [], "facts": {"kind": "admin_removed", "actor": "root", "group": "ids-team", "delegated": ["Users"], "targets": ["alice"]}, "first": 1789999700, "last": 1790000000}},
+			"detection": {"id": "470938541726507049", "checkId": "admin_change", "severity": "high", "enforced": true, "ip": "203.0.113.5", "netKey": "4:203.0.113.0/24", "uid": "alice", "shareId": null, "hits": 1, "createdAt": 1789999700, "lastSeenAt": 1790000000, "actions": [], "explanation": {"v": 1, "check": "admin_change", "mode": {"configured": "protect", "effective": "protect", "reason": null}, "thresholds": [], "facts": {"kind": "admin_removed", "actor": "root", "group": "ids-team", "delegated": ["Users"], "targets": ["alice"]}, "first": 1789999700, "last": 1790000000}},
 			"reads": {
 				"narrative": [
 					"root removed alice from the group \"ids-team\", which has these administration settings: Users.",
@@ -284,7 +284,7 @@
 			}
 		},
 		"removed": {
-			"detection": {"id": 41, "checkId": "admin_change", "severity": "high", "enforced": true, "ip": "203.0.113.5", "netKey": "4:203.0.113.0/24", "uid": "alice", "shareId": null, "hits": 1, "createdAt": 1789999700, "lastSeenAt": 1790000000, "actions": [], "explanation": {"v": 1, "check": "admin_change", "mode": {"configured": "protect", "effective": "protect", "reason": null}, "thresholds": [], "facts": {"kind": "admin_removed", "actor": "root", "targets": ["alice"]}, "first": 1789999700, "last": 1790000000}},
+			"detection": {"id": "470938541726507049", "checkId": "admin_change", "severity": "high", "enforced": true, "ip": "203.0.113.5", "netKey": "4:203.0.113.0/24", "uid": "alice", "shareId": null, "hits": 1, "createdAt": 1789999700, "lastSeenAt": 1790000000, "actions": [], "explanation": {"v": 1, "check": "admin_change", "mode": {"configured": "protect", "effective": "protect", "reason": null}, "thresholds": [], "facts": {"kind": "admin_removed", "actor": "root", "targets": ["alice"]}, "first": 1789999700, "last": 1790000000}},
 			"reads": {
 				"narrative": [
 					"root removed alice from the administrators.",
@@ -300,7 +300,7 @@
 			}
 		},
 		"subadmin": {
-			"detection": {"id": 41, "checkId": "admin_change", "severity": "high", "enforced": true, "ip": "203.0.113.5", "netKey": "4:203.0.113.0/24", "uid": "alice", "shareId": null, "hits": 1, "createdAt": 1789999700, "lastSeenAt": 1790000000, "actions": [], "explanation": {"v": 1, "check": "admin_change", "mode": {"configured": "protect", "effective": "protect", "reason": null}, "thresholds": [], "facts": {"kind": "subadmin_granted", "actor": "root", "group": "sales", "targets": ["alice"]}, "first": 1789999700, "last": 1790000000}},
+			"detection": {"id": "470938541726507049", "checkId": "admin_change", "severity": "high", "enforced": true, "ip": "203.0.113.5", "netKey": "4:203.0.113.0/24", "uid": "alice", "shareId": null, "hits": 1, "createdAt": 1789999700, "lastSeenAt": 1790000000, "actions": [], "explanation": {"v": 1, "check": "admin_change", "mode": {"configured": "protect", "effective": "protect", "reason": null}, "thresholds": [], "facts": {"kind": "subadmin_granted", "actor": "root", "group": "sales", "targets": ["alice"]}, "first": 1789999700, "last": 1790000000}},
 			"reads": {
 				"narrative": [
 					"root made alice a group administrator of \"sales\". Group administrators manage the accounts of their group.",
@@ -316,7 +316,7 @@
 			}
 		},
 		"user created": {
-			"detection": {"id": 41, "checkId": "admin_change", "severity": "high", "enforced": true, "ip": "203.0.113.5", "netKey": "4:203.0.113.0/24", "uid": "alice", "shareId": null, "hits": 1, "createdAt": 1789999700, "lastSeenAt": 1790000000, "actions": [], "explanation": {"v": 1, "check": "admin_change", "mode": {"configured": "protect", "effective": "protect", "reason": null}, "thresholds": [], "facts": {"kind": "user_created", "actor": "unknown", "targets": ["alice"], "actor_ip": "192.0.2.4"}, "first": 1789999700, "last": 1790000000}},
+			"detection": {"id": "470938541726507049", "checkId": "admin_change", "severity": "high", "enforced": true, "ip": "203.0.113.5", "netKey": "4:203.0.113.0/24", "uid": "alice", "shareId": null, "hits": 1, "createdAt": 1789999700, "lastSeenAt": 1790000000, "actions": [], "explanation": {"v": 1, "check": "admin_change", "mode": {"configured": "protect", "effective": "protect", "reason": null}, "thresholds": [], "facts": {"kind": "user_created", "actor": "unknown", "targets": ["alice"], "actor_ip": "192.0.2.4"}, "first": 1789999700, "last": 1790000000}},
 			"reads": {
 				"narrative": [
 					"Someone who was not logged in created the account alice.",
@@ -333,7 +333,7 @@
 			}
 		},
 		"deleted account": {
-			"detection": {"id": 41, "checkId": "admin_change", "severity": "high", "enforced": true, "ip": "203.0.113.5", "netKey": "4:203.0.113.0/24", "uid": null, "shareId": null, "hits": 1, "createdAt": 1789999700, "lastSeenAt": 1790000000, "actions": [], "explanation": {"v": 1, "check": "admin_change", "mode": {"configured": "protect", "effective": "protect", "reason": null}, "thresholds": [], "facts": {"kind": "user_created", "actor": "root", "targets": ["bob"]}, "first": 1789999700, "last": 1790000000}},
+			"detection": {"id": "470938541726507049", "checkId": "admin_change", "severity": "high", "enforced": true, "ip": "203.0.113.5", "netKey": "4:203.0.113.0/24", "uid": null, "shareId": null, "hits": 1, "createdAt": 1789999700, "lastSeenAt": 1790000000, "actions": [], "explanation": {"v": 1, "check": "admin_change", "mode": {"configured": "protect", "effective": "protect", "reason": null}, "thresholds": [], "facts": {"kind": "user_created", "actor": "root", "targets": ["bob"]}, "first": 1789999700, "last": 1790000000}},
 			"reads": {
 				"narrative": [
 					"root created the account bob.",
@@ -349,7 +349,7 @@
 			}
 		},
 		"app enabled for groups": {
-			"detection": {"id": 41, "checkId": "admin_change", "severity": "high", "enforced": true, "ip": "203.0.113.5", "netKey": "4:203.0.113.0/24", "uid": null, "shareId": null, "hits": 1, "createdAt": 1789999700, "lastSeenAt": 1790000000, "actions": [], "explanation": {"v": 1, "check": "admin_change", "mode": {"configured": "protect", "effective": "protect", "reason": null}, "thresholds": [], "facts": {"kind": "app_enabled", "actor": "root", "app": "files_external", "groups": ["admin", "staff"]}, "first": 1789999700, "last": 1790000000}},
+			"detection": {"id": "470938541726507049", "checkId": "admin_change", "severity": "high", "enforced": true, "ip": "203.0.113.5", "netKey": "4:203.0.113.0/24", "uid": null, "shareId": null, "hits": 1, "createdAt": 1789999700, "lastSeenAt": 1790000000, "actions": [], "explanation": {"v": 1, "check": "admin_change", "mode": {"configured": "protect", "effective": "protect", "reason": null}, "thresholds": [], "facts": {"kind": "app_enabled", "actor": "root", "app": "files_external", "groups": ["admin", "staff"]}, "first": 1789999700, "last": 1790000000}},
 			"reads": {
 				"narrative": [
 					"root switched on the app \"files_external\" for the groups admin, staff.",
@@ -365,7 +365,7 @@
 			}
 		},
 		"app enabled": {
-			"detection": {"id": 41, "checkId": "admin_change", "severity": "high", "enforced": true, "ip": "203.0.113.5", "netKey": "4:203.0.113.0/24", "uid": null, "shareId": null, "hits": 1, "createdAt": 1789999700, "lastSeenAt": 1790000000, "actions": [], "explanation": {"v": 1, "check": "admin_change", "mode": {"configured": "protect", "effective": "protect", "reason": null}, "thresholds": [], "facts": {"kind": "app_enabled", "actor": "root", "app": "files_external"}, "first": 1789999700, "last": 1790000000}},
+			"detection": {"id": "470938541726507049", "checkId": "admin_change", "severity": "high", "enforced": true, "ip": "203.0.113.5", "netKey": "4:203.0.113.0/24", "uid": null, "shareId": null, "hits": 1, "createdAt": 1789999700, "lastSeenAt": 1790000000, "actions": [], "explanation": {"v": 1, "check": "admin_change", "mode": {"configured": "protect", "effective": "protect", "reason": null}, "thresholds": [], "facts": {"kind": "app_enabled", "actor": "root", "app": "files_external"}, "first": 1789999700, "last": 1790000000}},
 			"reads": {
 				"narrative": [
 					"root switched on the app \"files_external\" for everyone.",
@@ -381,7 +381,7 @@
 			}
 		},
 		"own app disabled": {
-			"detection": {"id": 41, "checkId": "admin_change", "severity": "high", "enforced": true, "ip": "203.0.113.5", "netKey": "4:203.0.113.0/24", "uid": null, "shareId": null, "hits": 1, "createdAt": 1789999700, "lastSeenAt": 1790000000, "actions": [], "explanation": {"v": 1, "check": "admin_change", "mode": {"configured": "protect", "effective": "protect", "reason": null}, "thresholds": [], "facts": {"kind": "app_disabled", "actor": "root", "app": "intrusion_detection"}, "first": 1789999700, "last": 1790000000}},
+			"detection": {"id": "470938541726507049", "checkId": "admin_change", "severity": "high", "enforced": true, "ip": "203.0.113.5", "netKey": "4:203.0.113.0/24", "uid": null, "shareId": null, "hits": 1, "createdAt": 1789999700, "lastSeenAt": 1790000000, "actions": [], "explanation": {"v": 1, "check": "admin_change", "mode": {"configured": "protect", "effective": "protect", "reason": null}, "thresholds": [], "facts": {"kind": "app_disabled", "actor": "root", "app": "intrusion_detection"}, "first": 1789999700, "last": 1790000000}},
 			"reads": {
 				"narrative": [
 					"root switched off the app \"intrusion_detection\".",
@@ -398,7 +398,7 @@
 			}
 		},
 		"secret setting by watch": {
-			"detection": {"id": 41, "checkId": "admin_change", "severity": "high", "enforced": true, "ip": "203.0.113.5", "netKey": "4:203.0.113.0/24", "uid": null, "shareId": null, "hits": 1, "createdAt": 1789999700, "lastSeenAt": 1790000000, "actions": [], "explanation": {"v": 1, "check": "admin_change", "mode": {"configured": "protect", "effective": "protect", "reason": null}, "thresholds": [], "facts": {"kind": "setting_changed", "actor": "unknown", "setting": "system:secret", "secret": true, "watch": true, "alert_key": "setting:system:secret", "alert_all_admins": true}, "first": 1789999700, "last": 1790000000}},
+			"detection": {"id": "470938541726507049", "checkId": "admin_change", "severity": "high", "enforced": true, "ip": "203.0.113.5", "netKey": "4:203.0.113.0/24", "uid": null, "shareId": null, "hits": 1, "createdAt": 1789999700, "lastSeenAt": 1790000000, "actions": [], "explanation": {"v": 1, "check": "admin_change", "mode": {"configured": "protect", "effective": "protect", "reason": null}, "thresholds": [], "facts": {"kind": "setting_changed", "actor": "unknown", "setting": "system:secret", "secret": true, "watch": true, "alert_key": "setting:system:secret", "alert_all_admins": true}, "first": 1789999700, "last": 1790000000}},
 			"reads": {
 				"narrative": [
 					"The regular check of the security settings found that \"secret in config.php\" changed. Its value is secret, so it is neither stored nor shown.",
@@ -416,7 +416,7 @@
 			}
 		},
 		"setting": {
-			"detection": {"id": 41, "checkId": "admin_change", "severity": "high", "enforced": true, "ip": "203.0.113.5", "netKey": "4:203.0.113.0/24", "uid": null, "shareId": null, "hits": 1, "createdAt": 1789999700, "lastSeenAt": 1790000000, "actions": [], "explanation": {"v": 1, "check": "admin_change", "mode": {"configured": "protect", "effective": "protect", "reason": null}, "thresholds": [], "facts": {"kind": "setting_changed", "actor": "root", "setting": "system:trusted_proxies", "secret": false, "watch": false, "old": null, "new": ["10.0.0.1", "10.0.0.2"], "actor_ip": "192.0.2.4"}, "first": 1789999700, "last": 1790000000}},
+			"detection": {"id": "470938541726507049", "checkId": "admin_change", "severity": "high", "enforced": true, "ip": "203.0.113.5", "netKey": "4:203.0.113.0/24", "uid": null, "shareId": null, "hits": 1, "createdAt": 1789999700, "lastSeenAt": 1790000000, "actions": [], "explanation": {"v": 1, "check": "admin_change", "mode": {"configured": "protect", "effective": "protect", "reason": null}, "thresholds": [], "facts": {"kind": "setting_changed", "actor": "root", "setting": "system:trusted_proxies", "secret": false, "watch": false, "old": null, "new": ["10.0.0.1", "10.0.0.2"], "actor_ip": "192.0.2.4"}, "first": 1789999700, "last": 1790000000}},
 			"reads": {
 				"narrative": [
 					"root changed \"trusted_proxies in config.php\" from not set to \"10.0.0.1, 10.0.0.2\".",
@@ -433,7 +433,7 @@
 			}
 		},
 		"setting values": {
-			"detection": {"id": 41, "checkId": "admin_change", "severity": "high", "enforced": true, "ip": "203.0.113.5", "netKey": "4:203.0.113.0/24", "uid": null, "shareId": null, "hits": 1, "createdAt": 1789999700, "lastSeenAt": 1790000000, "actions": [], "explanation": {"v": 1, "check": "admin_change", "mode": {"configured": "protect", "effective": "protect", "reason": null}, "thresholds": [], "facts": {"kind": "setting_changed", "actor": "root", "setting": "", "secret": false, "watch": true, "old": true, "new": ""}, "first": 1789999700, "last": 1790000000}},
+			"detection": {"id": "470938541726507049", "checkId": "admin_change", "severity": "high", "enforced": true, "ip": "203.0.113.5", "netKey": "4:203.0.113.0/24", "uid": null, "shareId": null, "hits": 1, "createdAt": 1789999700, "lastSeenAt": 1790000000, "actions": [], "explanation": {"v": 1, "check": "admin_change", "mode": {"configured": "protect", "effective": "protect", "reason": null}, "thresholds": [], "facts": {"kind": "setting_changed", "actor": "root", "setting": "", "secret": false, "watch": true, "old": true, "new": ""}, "first": 1789999700, "last": 1790000000}},
 			"reads": {
 				"narrative": [
 					"The regular check of the security settings found that \"a setting\" changed from on to empty.",
@@ -450,7 +450,7 @@
 			}
 		},
 		"setting other values": {
-			"detection": {"id": 41, "checkId": "admin_change", "severity": "high", "enforced": true, "ip": "203.0.113.5", "netKey": "4:203.0.113.0/24", "uid": null, "shareId": null, "hits": 1, "createdAt": 1789999700, "lastSeenAt": 1790000000, "actions": [], "explanation": {"v": 1, "check": "admin_change", "mode": {"configured": "protect", "effective": "protect", "reason": null}, "thresholds": [], "facts": {"kind": "setting_changed", "actor": "root", "setting": "app:intrusion_detection:enabled", "secret": false, "watch": false, "old": [], "new": "yes"}, "first": 1789999700, "last": 1790000000}},
+			"detection": {"id": "470938541726507049", "checkId": "admin_change", "severity": "high", "enforced": true, "ip": "203.0.113.5", "netKey": "4:203.0.113.0/24", "uid": null, "shareId": null, "hits": 1, "createdAt": 1789999700, "lastSeenAt": 1790000000, "actions": [], "explanation": {"v": 1, "check": "admin_change", "mode": {"configured": "protect", "effective": "protect", "reason": null}, "thresholds": [], "facts": {"kind": "setting_changed", "actor": "root", "setting": "app:intrusion_detection:enabled", "secret": false, "watch": false, "old": [], "new": "yes"}, "first": 1789999700, "last": 1790000000}},
 			"reads": {
 				"narrative": [
 					"root changed \"Intrusion detection: enabled\" from none to \"yes\".",
@@ -466,7 +466,7 @@
 			}
 		},
 		"unknown kind": {
-			"detection": {"id": 41, "checkId": "admin_change", "severity": "high", "enforced": true, "ip": "203.0.113.5", "netKey": "4:203.0.113.0/24", "uid": null, "shareId": null, "hits": 1, "createdAt": 1789999700, "lastSeenAt": 1790000000, "actions": [], "explanation": {"v": 1, "check": "admin_change", "mode": {"configured": "protect", "effective": "protect", "reason": null}, "thresholds": [], "facts": {"kind": "retired_kind", "actor": "root"}, "first": 1789999700, "last": 1790000000}},
+			"detection": {"id": "470938541726507049", "checkId": "admin_change", "severity": "high", "enforced": true, "ip": "203.0.113.5", "netKey": "4:203.0.113.0/24", "uid": null, "shareId": null, "hits": 1, "createdAt": 1789999700, "lastSeenAt": 1790000000, "actions": [], "explanation": {"v": 1, "check": "admin_change", "mode": {"configured": "protect", "effective": "protect", "reason": null}, "thresholds": [], "facts": {"kind": "retired_kind", "actor": "root"}, "first": 1789999700, "last": 1790000000}},
 			"reads": {
 				"narrative": [
 					"An administration setting was changed.",
@@ -484,7 +484,7 @@
 	},
 	"blocklist_match": {
 		"two lists": {
-			"detection": {"id": 41, "checkId": "blocklist_match", "severity": "high", "enforced": true, "ip": "203.0.113.5", "netKey": "4:203.0.113.0/24", "uid": null, "shareId": null, "hits": 3, "createdAt": 1789999700, "lastSeenAt": 1790000000, "actions": [], "explanation": {"v": 1, "check": "blocklist_match", "mode": {"configured": "protect", "effective": "protect", "reason": null}, "thresholds": [], "facts": {"lists": ["a", "b"], "listNames": ["Spamhaus DROP", "FireHOL"], "trigger": "failed_login"}, "first": 1789999700, "last": 1790000000}},
+			"detection": {"id": "470938541726507049", "checkId": "blocklist_match", "severity": "high", "enforced": true, "ip": "203.0.113.5", "netKey": "4:203.0.113.0/24", "uid": null, "shareId": null, "hits": 3, "createdAt": 1789999700, "lastSeenAt": 1790000000, "actions": [], "explanation": {"v": 1, "check": "blocklist_match", "mode": {"configured": "protect", "effective": "protect", "reason": null}, "thresholds": [], "facts": {"lists": ["a", "b"], "listNames": ["Spamhaus DROP", "FireHOL"], "trigger": "failed_login"}, "first": 1789999700, "last": 1790000000}},
 			"reads": {
 				"narrative": [
 					"A login failed from 203.0.113.5, an address on these blocklists: Spamhaus DROP, FireHOL.",
@@ -494,7 +494,7 @@
 			}
 		},
 		"old row": {
-			"detection": {"id": 41, "checkId": "blocklist_match", "severity": "high", "enforced": true, "ip": "203.0.113.5", "netKey": "4:203.0.113.0/24", "uid": null, "shareId": null, "hits": 1, "createdAt": 1789999700, "lastSeenAt": 1790000000, "actions": [], "explanation": {"v": 1, "check": "blocklist_match", "mode": {"configured": "protect", "effective": "protect", "reason": null}, "thresholds": [], "facts": {"lists": ["a"]}, "first": 1789999700, "last": 1790000000}},
+			"detection": {"id": "470938541726507049", "checkId": "blocklist_match", "severity": "high", "enforced": true, "ip": "203.0.113.5", "netKey": "4:203.0.113.0/24", "uid": null, "shareId": null, "hits": 1, "createdAt": 1789999700, "lastSeenAt": 1790000000, "actions": [], "explanation": {"v": 1, "check": "blocklist_match", "mode": {"configured": "protect", "effective": "protect", "reason": null}, "thresholds": [], "facts": {"lists": ["a"]}, "first": 1789999700, "last": 1790000000}},
 			"reads": {
 				"narrative": [
 					"A login failed from 203.0.113.5, an address on these blocklists: .",
@@ -505,7 +505,7 @@
 	},
 	"breached_password": {
 		"with address": {
-			"detection": {"id": 41, "checkId": "breached_password", "severity": "high", "enforced": true, "ip": "203.0.113.5", "netKey": "4:203.0.113.0/24", "uid": "alice", "shareId": null, "hits": 3, "createdAt": 1789999700, "lastSeenAt": 1790000000, "actions": [], "explanation": {"v": 1, "check": "breached_password", "mode": {"configured": "protect", "effective": "protect", "reason": null}, "thresholds": {"min_count": 2, "recheck_days": 30}, "facts": {"trigger": "login"}, "first": 1789999700, "last": 1790000000}},
+			"detection": {"id": "470938541726507049", "checkId": "breached_password", "severity": "high", "enforced": true, "ip": "203.0.113.5", "netKey": "4:203.0.113.0/24", "uid": "alice", "shareId": null, "hits": 3, "createdAt": 1789999700, "lastSeenAt": 1790000000, "actions": [], "explanation": {"v": 1, "check": "breached_password", "mode": {"configured": "protect", "effective": "protect", "reason": null}, "thresholds": {"min_count": 2, "recheck_days": 30}, "facts": {"trigger": "login"}, "first": 1789999700, "last": 1790000000}},
 			"reads": {
 				"narrative": [
 					"At date:1789999700 the account alice logged in from 203.0.113.5 with a password that appears in the public list of leaked passwords.",
@@ -521,7 +521,7 @@
 			}
 		},
 		"without address": {
-			"detection": {"id": 41, "checkId": "breached_password", "severity": "high", "enforced": true, "ip": null, "netKey": "4:203.0.113.0/24", "uid": "alice", "shareId": null, "hits": 1, "createdAt": 1789999700, "lastSeenAt": 1790000000, "actions": [{"type": "force_password_change", "enforced": true}], "explanation": {"v": 1, "check": "breached_password", "mode": {"configured": "protect", "effective": "protect", "reason": null}, "thresholds": [], "facts": {"trigger": "login"}, "first": 1789999700, "last": 1790000000}},
+			"detection": {"id": "470938541726507049", "checkId": "breached_password", "severity": "high", "enforced": true, "ip": null, "netKey": "4:203.0.113.0/24", "uid": "alice", "shareId": null, "hits": 1, "createdAt": 1789999700, "lastSeenAt": 1790000000, "actions": [{"type": "force_password_change", "enforced": true}], "explanation": {"v": 1, "check": "breached_password", "mode": {"configured": "protect", "effective": "protect", "reason": null}, "thresholds": [], "facts": {"trigger": "login"}, "first": 1789999700, "last": 1790000000}},
 			"reads": {
 				"narrative": [
 					"At date:1789999700 the account alice logged in with a password that appears in the public list of leaked passwords.",
@@ -538,7 +538,7 @@
 	},
 	"credential_stuffing": {
 		"source": {
-			"detection": {"id": 41, "checkId": "credential_stuffing", "severity": "high", "enforced": true, "ip": "203.0.113.5", "netKey": "4:203.0.113.0/24", "uid": null, "shareId": null, "hits": 1, "createdAt": 1789999700, "lastSeenAt": 1790000000, "actions": [], "explanation": {"v": 1, "check": "credential_stuffing", "mode": {"configured": "protect", "effective": "protect", "reason": null}, "thresholds": {"window": 600, "min_failures": 10, "min_names": 5, "net_factor": 3}, "facts": {"rule": "source", "failures": 14, "names": 6, "sources": 1, "first": 1789999500, "last": 1789999980, "targets": ["alice", "bob"], "risk": {"score": 45, "tier": "elevated", "factors": [{"id": "failures", "value": "30", "points": 2}]}, "loweredLimits": {"min_names": {"plain": 5, "effective": 3}}}, "first": 1789999700, "last": 1790000000}},
+			"detection": {"id": "470938541726507049", "checkId": "credential_stuffing", "severity": "high", "enforced": true, "ip": "203.0.113.5", "netKey": "4:203.0.113.0/24", "uid": null, "shareId": null, "hits": 1, "createdAt": 1789999700, "lastSeenAt": 1790000000, "actions": [], "explanation": {"v": 1, "check": "credential_stuffing", "mode": {"configured": "protect", "effective": "protect", "reason": null}, "thresholds": {"window": 600, "min_failures": 10, "min_names": 5, "net_factor": 3}, "facts": {"rule": "source", "failures": 14, "names": 6, "sources": 1, "first": 1789999500, "last": 1789999980, "targets": ["alice", "bob"], "risk": {"score": 45, "tier": "elevated", "factors": [{"id": "failures", "value": "30", "points": 2}]}, "loweredLimits": {"min_names": {"plain": 5, "effective": 3}}}, "first": 1789999700, "last": 1790000000}},
 			"reads": {
 				"narrative": [
 					"Between date:1789999500 and time:1789999980 the address 203.0.113.5 failed to log in 14 times, trying 6 different accounts.",
@@ -548,7 +548,7 @@
 			}
 		},
 		"network": {
-			"detection": {"id": 41, "checkId": "credential_stuffing", "severity": "high", "enforced": true, "ip": "203.0.113.5", "netKey": "4:203.0.113.0/24", "uid": null, "shareId": null, "hits": 1, "createdAt": 1789999700, "lastSeenAt": 1790000000, "actions": [], "explanation": {"v": 1, "check": "credential_stuffing", "mode": {"configured": "protect", "effective": "protect", "reason": null}, "thresholds": {"window": 300, "min_failures": 10, "min_names": 5, "net_factor": 4}, "facts": {"rule": "network", "failures": 40, "names": 20, "sources": 7, "first": 1789999500, "last": 1789999980, "net": "4:198.51.100.0/24", "targets": []}, "first": 1789999700, "last": 1790000000}},
+			"detection": {"id": "470938541726507049", "checkId": "credential_stuffing", "severity": "high", "enforced": true, "ip": "203.0.113.5", "netKey": "4:203.0.113.0/24", "uid": null, "shareId": null, "hits": 1, "createdAt": 1789999700, "lastSeenAt": 1790000000, "actions": [], "explanation": {"v": 1, "check": "credential_stuffing", "mode": {"configured": "protect", "effective": "protect", "reason": null}, "thresholds": {"window": 300, "min_failures": 10, "min_names": 5, "net_factor": 4}, "facts": {"rule": "network", "failures": 40, "names": 20, "sources": 7, "first": 1789999500, "last": 1789999980, "net": "4:198.51.100.0/24", "targets": []}, "first": 1789999700, "last": 1790000000}},
 			"reads": {
 				"narrative": [
 					"Between date:1789999500 and time:1789999980 the network 4:198.51.100.0/24 failed to log in 40 times from 7 addresses, trying 20 different accounts.",
@@ -557,7 +557,7 @@
 			}
 		},
 		"distributed": {
-			"detection": {"id": 41, "checkId": "credential_stuffing", "severity": "high", "enforced": true, "ip": null, "netKey": "4:203.0.113.0/24", "uid": null, "shareId": null, "hits": 1, "createdAt": 1789999700, "lastSeenAt": 1790000000, "actions": [], "explanation": {"v": 1, "check": "credential_stuffing", "mode": {"configured": "protect", "effective": "protect", "reason": null}, "thresholds": {"distributed_min_failures": 500, "distributed_min_sources": 100, "distributed_min_names": 100}, "facts": {"rule": "distributed", "failures": 900, "names": 300, "sources": 250, "first": 1789999410, "last": 1790000000, "distributed": true}, "first": 1789999700, "last": 1790000000}},
+			"detection": {"id": "470938541726507049", "checkId": "credential_stuffing", "severity": "high", "enforced": true, "ip": null, "netKey": "4:203.0.113.0/24", "uid": null, "shareId": null, "hits": 1, "createdAt": 1789999700, "lastSeenAt": 1790000000, "actions": [], "explanation": {"v": 1, "check": "credential_stuffing", "mode": {"configured": "protect", "effective": "protect", "reason": null}, "thresholds": {"distributed_min_failures": 500, "distributed_min_sources": 100, "distributed_min_names": 100}, "facts": {"rule": "distributed", "failures": 900, "names": 300, "sources": 250, "first": 1789999410, "last": 1790000000, "distributed": true}, "first": 1789999700, "last": 1790000000}},
 			"reads": {
 				"narrative": [
 					"Between date:1789999410 and time:1790000000 the whole server saw 900 failed logins from 250 different addresses, trying 300 different accounts. This is a botnet spreading its attempts thin.",
@@ -567,7 +567,7 @@
 			}
 		},
 		"old row": {
-			"detection": {"id": 41, "checkId": "credential_stuffing", "severity": "high", "enforced": true, "ip": "203.0.113.5", "netKey": "4:203.0.113.0/24", "uid": null, "shareId": null, "hits": 1, "createdAt": 1789999700, "lastSeenAt": 1790000000, "actions": [], "explanation": {"v": 1, "check": "credential_stuffing", "mode": {"configured": "protect", "effective": "protect", "reason": null}, "thresholds": [], "facts": {"failures": 12, "names": 5}, "first": 1789999700, "last": 1790000000}},
+			"detection": {"id": "470938541726507049", "checkId": "credential_stuffing", "severity": "high", "enforced": true, "ip": "203.0.113.5", "netKey": "4:203.0.113.0/24", "uid": null, "shareId": null, "hits": 1, "createdAt": 1789999700, "lastSeenAt": 1790000000, "actions": [], "explanation": {"v": 1, "check": "credential_stuffing", "mode": {"configured": "protect", "effective": "protect", "reason": null}, "thresholds": [], "facts": {"failures": 12, "names": 5}, "first": 1789999700, "last": 1790000000}},
 			"reads": {
 				"narrative": [
 					"Between date:1789999700 and time:1790000000 the address 203.0.113.5 failed to log in 12 times, trying 5 different accounts.",
@@ -578,7 +578,7 @@
 	},
 	"decoy_credential": {
 		"secret": {
-			"detection": {"id": 41, "checkId": "decoy_credential", "severity": "high", "enforced": true, "ip": "203.0.113.5", "netKey": "4:203.0.113.0/24", "uid": null, "shareId": null, "hits": 2, "createdAt": 1789999700, "lastSeenAt": 1790000000, "actions": [], "explanation": {"v": 1, "check": "decoy_credential", "mode": {"configured": "protect", "effective": "protect", "reason": null}, "thresholds": [], "facts": {"decoy": 3, "label": "wiki admin", "format": "password", "match": "secret"}, "first": 1789999700, "last": 1790000000}},
+			"detection": {"id": "470938541726507049", "checkId": "decoy_credential", "severity": "high", "enforced": true, "ip": "203.0.113.5", "netKey": "4:203.0.113.0/24", "uid": null, "shareId": null, "hits": 2, "createdAt": 1789999700, "lastSeenAt": 1790000000, "actions": [], "explanation": {"v": 1, "check": "decoy_credential", "mode": {"configured": "protect", "effective": "protect", "reason": null}, "thresholds": [], "facts": {"decoy": "470938541726507011", "label": "wiki admin", "format": "password", "match": "secret"}, "first": 1789999700, "last": 1790000000}},
 			"reads": {
 				"narrative": [
 					"The address 203.0.113.5 used the decoy credential \"wiki admin\".",
@@ -588,7 +588,7 @@
 			}
 		},
 		"login name": {
-			"detection": {"id": 41, "checkId": "decoy_credential", "severity": "high", "enforced": true, "ip": "203.0.113.5", "netKey": "4:203.0.113.0/24", "uid": null, "shareId": null, "hits": 1, "createdAt": 1789999700, "lastSeenAt": 1790000000, "actions": [], "explanation": {"v": 1, "check": "decoy_credential", "mode": {"configured": "protect", "effective": "protect", "reason": null}, "thresholds": [], "facts": {"decoy": 3, "label": "wiki admin", "format": "password", "match": "login_name"}, "first": 1789999700, "last": 1790000000}},
+			"detection": {"id": "470938541726507049", "checkId": "decoy_credential", "severity": "high", "enforced": true, "ip": "203.0.113.5", "netKey": "4:203.0.113.0/24", "uid": null, "shareId": null, "hits": 1, "createdAt": 1789999700, "lastSeenAt": 1790000000, "actions": [], "explanation": {"v": 1, "check": "decoy_credential", "mode": {"configured": "protect", "effective": "protect", "reason": null}, "thresholds": [], "facts": {"decoy": "470938541726507011", "label": "wiki admin", "format": "password", "match": "login_name"}, "first": 1789999700, "last": 1790000000}},
 			"reads": {
 				"narrative": [
 					"The address 203.0.113.5 tried to log in with the account name of the decoy \"wiki admin\", but not with its secret.",
@@ -599,7 +599,7 @@
 	},
 	"directory_scraping": {
 		"search": {
-			"detection": {"id": 41, "checkId": "directory_scraping", "severity": "high", "enforced": true, "ip": "203.0.113.5", "netKey": "4:203.0.113.0/24", "uid": "alice", "shareId": null, "hits": 3, "createdAt": 1789999700, "lastSeenAt": 1790000000, "actions": [], "explanation": {"v": 1, "check": "directory_scraping", "mode": {"configured": "protect", "effective": "protect", "reason": null}, "thresholds": [], "facts": {"group": "search", "count": 230, "limit": 200, "window": 600, "until": 1790000300}, "first": 1789999700, "last": 1790000000}},
+			"detection": {"id": "470938541726507049", "checkId": "directory_scraping", "severity": "high", "enforced": true, "ip": "203.0.113.5", "netKey": "4:203.0.113.0/24", "uid": "alice", "shareId": null, "hits": 3, "createdAt": 1789999700, "lastSeenAt": 1790000000, "actions": [], "explanation": {"v": 1, "check": "directory_scraping", "mode": {"configured": "protect", "effective": "protect", "reason": null}, "thresholds": [], "facts": {"group": "search", "count": 230, "limit": 200, "window": 600, "until": 1790000300}, "first": 1789999700, "last": 1790000000}},
 			"reads": {
 				"narrative": [
 					"The account alice made 230 searches for people within 10 minutes, from 203.0.113.5. The limit at that time was 200.",
@@ -615,7 +615,7 @@
 			}
 		},
 		"old row": {
-			"detection": {"id": 41, "checkId": "directory_scraping", "severity": "high", "enforced": true, "ip": "203.0.113.5", "netKey": "4:203.0.113.0/24", "uid": "alice", "shareId": null, "hits": 1, "createdAt": 1789999700, "lastSeenAt": 1790000000, "actions": [], "explanation": {"v": 1, "check": "directory_scraping", "mode": {"configured": "protect", "effective": "protect", "reason": null}, "thresholds": [], "facts": {"group": "profile", "count": 1200, "limit": 1000}, "first": 1789999700, "last": 1790000000}},
+			"detection": {"id": "470938541726507049", "checkId": "directory_scraping", "severity": "high", "enforced": true, "ip": "203.0.113.5", "netKey": "4:203.0.113.0/24", "uid": "alice", "shareId": null, "hits": 1, "createdAt": 1789999700, "lastSeenAt": 1790000000, "actions": [], "explanation": {"v": 1, "check": "directory_scraping", "mode": {"configured": "protect", "effective": "protect", "reason": null}, "thresholds": [], "facts": {"group": "profile", "count": 1200, "limit": 1000}, "first": 1789999700, "last": 1790000000}},
 			"reads": {
 				"narrative": [
 					"The account alice made 1200 requests for profiles and avatars within 10 minutes, from 203.0.113.5. The limit at that time was 1000.",
@@ -632,7 +632,7 @@
 	},
 	"injection_probe": {
 		"form, logged in": {
-			"detection": {"id": 41, "checkId": "injection_probe", "severity": "high", "enforced": true, "ip": "203.0.113.5", "netKey": "4:203.0.113.0/24", "uid": "alice", "shareId": null, "hits": 2, "createdAt": 1789999700, "lastSeenAt": 1790000000, "actions": [], "explanation": {"v": 1, "check": "injection_probe", "mode": {"configured": "protect", "effective": "protect", "reason": null}, "thresholds": [], "facts": {"location": "form", "param": "q", "signatures": ["sql_union", "sql_comment"], "weights": {"sql_union": 3, "sql_comment": 1}, "weight": 4, "minWeight": 3, "encoding": "base64", "excerpt": "' UNION SELECT", "otherParams": ["id", "sort"], "signaturesVersion": 4, "authenticated": true, "credential": "session"}, "first": 1789999700, "last": 1790000000}},
+			"detection": {"id": "470938541726507049", "checkId": "injection_probe", "severity": "high", "enforced": true, "ip": "203.0.113.5", "netKey": "4:203.0.113.0/24", "uid": "alice", "shareId": null, "hits": 2, "createdAt": 1789999700, "lastSeenAt": 1790000000, "actions": [], "explanation": {"v": 1, "check": "injection_probe", "mode": {"configured": "protect", "effective": "protect", "reason": null}, "thresholds": [], "facts": {"location": "form", "param": "q", "signatures": ["sql_union", "sql_comment"], "weights": {"sql_union": 3, "sql_comment": 1}, "weight": 4, "minWeight": 3, "encoding": "base64", "excerpt": "' UNION SELECT", "otherParams": ["id", "sort"], "signaturesVersion": 4, "authenticated": true, "credential": "session"}, "first": 1789999700, "last": 1790000000}},
 			"reads": {
 				"narrative": [
 					"The address 203.0.113.5 sent a request in which the form field \"q\" matched these signatures: sql_union (3), sql_comment (1). Their total weight was 4; the limit was 3.",
@@ -646,7 +646,7 @@
 			}
 		},
 		"path": {
-			"detection": {"id": 41, "checkId": "injection_probe", "severity": "high", "enforced": true, "ip": "203.0.113.5", "netKey": "4:203.0.113.0/24", "uid": null, "shareId": null, "hits": 1, "createdAt": 1789999700, "lastSeenAt": 1790000000, "actions": [], "explanation": {"v": 1, "check": "injection_probe", "mode": {"configured": "protect", "effective": "protect", "reason": null}, "thresholds": [], "facts": {"location": "path", "param": "", "signatures": ["traversal"], "weights": {"traversal": 5}, "weight": 5, "minWeight": 3, "encoding": "base64_twice", "excerpt": "", "otherParams": [], "signaturesVersion": 4, "authenticated": false, "credential": null}, "first": 1789999700, "last": 1790000000}},
+			"detection": {"id": "470938541726507049", "checkId": "injection_probe", "severity": "high", "enforced": true, "ip": "203.0.113.5", "netKey": "4:203.0.113.0/24", "uid": null, "shareId": null, "hits": 1, "createdAt": 1789999700, "lastSeenAt": 1790000000, "actions": [], "explanation": {"v": 1, "check": "injection_probe", "mode": {"configured": "protect", "effective": "protect", "reason": null}, "thresholds": [], "facts": {"location": "path", "param": "", "signatures": ["traversal"], "weights": {"traversal": 5}, "weight": 5, "minWeight": 3, "encoding": "base64_twice", "excerpt": "", "otherParams": [], "signaturesVersion": 4, "authenticated": false, "credential": null}, "first": 1789999700, "last": 1790000000}},
 			"reads": {
 				"narrative": [
 					"The address 203.0.113.5 sent a request in which the path of the web address matched these signatures: traversal (5). Their total weight was 5; the limit was 3.",
@@ -670,7 +670,7 @@
 			}
 		},
 		"old row": {
-			"detection": {"id": 41, "checkId": "injection_probe", "severity": "high", "enforced": true, "ip": null, "netKey": "4:203.0.113.0/24", "uid": null, "shareId": null, "hits": 1, "createdAt": 1789999700, "lastSeenAt": 1790000000, "actions": [], "explanation": {"v": 1, "check": "injection_probe", "mode": {"configured": "protect", "effective": "protect", "reason": null}, "thresholds": [], "facts": {"location": "query", "param": "id"}, "first": 1789999700, "last": 1790000000}},
+			"detection": {"id": "470938541726507049", "checkId": "injection_probe", "severity": "high", "enforced": true, "ip": null, "netKey": "4:203.0.113.0/24", "uid": null, "shareId": null, "hits": 1, "createdAt": 1789999700, "lastSeenAt": 1790000000, "actions": [], "explanation": {"v": 1, "check": "injection_probe", "mode": {"configured": "protect", "effective": "protect", "reason": null}, "thresholds": [], "facts": {"location": "query", "param": "id"}, "first": 1789999700, "last": 1790000000}},
 			"reads": {
 				"narrative": [
 					"The address ? sent a request in which the parameter \"id\" of the web address matched these signatures: none. Their total weight was 0; the limit was 0.",
@@ -683,7 +683,7 @@
 	},
 	"login_flow_mismatch": {
 		"initiator blocked": {
-			"detection": {"id": 41, "checkId": "login_flow_mismatch", "severity": "high", "enforced": true, "ip": "203.0.113.5", "netKey": "4:203.0.113.0/24", "uid": "alice", "shareId": null, "hits": 1, "createdAt": 1789999700, "lastSeenAt": 1790000000, "actions": [{"type": "revoke_token", "enforced": true}], "explanation": {"v": 1, "check": "login_flow_mismatch", "mode": {"configured": "protect", "effective": "protect", "reason": null}, "thresholds": [], "facts": {"rule": "initiator_blocked", "initiator": "198.51.100.2", "granter": "203.0.113.5", "age": 40, "startedAt": 1789999960, "client": "Nextcloud Files (iOS)", "tokenId": 12, "trusted": false, "first": 1789999960, "last": 1790000000}, "first": 1789999700, "last": 1790000000}},
+			"detection": {"id": "470938541726507049", "checkId": "login_flow_mismatch", "severity": "high", "enforced": true, "ip": "203.0.113.5", "netKey": "4:203.0.113.0/24", "uid": "alice", "shareId": null, "hits": 1, "createdAt": 1789999700, "lastSeenAt": 1790000000, "actions": [{"type": "revoke_token", "enforced": true}], "explanation": {"v": 1, "check": "login_flow_mismatch", "mode": {"configured": "protect", "effective": "protect", "reason": null}, "thresholds": [], "facts": {"rule": "initiator_blocked", "initiator": "198.51.100.2", "granter": "203.0.113.5", "age": 40, "startedAt": 1789999960, "client": "Nextcloud Files (iOS)", "tokenId": 12, "trusted": false, "first": 1789999960, "last": 1790000000}, "first": 1789999700, "last": 1790000000}},
 			"reads": {
 				"narrative": [
 					"The account alice approved a login request for the new device \"Nextcloud Files (iOS)\".",
@@ -698,7 +698,7 @@
 			}
 		},
 		"initiator flagged": {
-			"detection": {"id": 41, "checkId": "login_flow_mismatch", "severity": "high", "enforced": true, "ip": "203.0.113.5", "netKey": "4:203.0.113.0/24", "uid": "alice", "shareId": null, "hits": 1, "createdAt": 1789999700, "lastSeenAt": 1790000000, "actions": [], "explanation": {"v": 1, "check": "login_flow_mismatch", "mode": {"configured": "protect", "effective": "protect", "reason": null}, "thresholds": [], "facts": {"rule": "initiator_flagged", "initiator": "198.51.100.2", "granter": "203.0.113.5", "age": 40, "startedAt": 1789999960, "client": "", "tokenId": 12, "trusted": false, "first": 1789999960, "last": 1790000000}, "first": 1789999700, "last": 1790000000}},
+			"detection": {"id": "470938541726507049", "checkId": "login_flow_mismatch", "severity": "high", "enforced": true, "ip": "203.0.113.5", "netKey": "4:203.0.113.0/24", "uid": "alice", "shareId": null, "hits": 1, "createdAt": 1789999700, "lastSeenAt": 1790000000, "actions": [], "explanation": {"v": 1, "check": "login_flow_mismatch", "mode": {"configured": "protect", "effective": "protect", "reason": null}, "thresholds": [], "facts": {"rule": "initiator_flagged", "initiator": "198.51.100.2", "granter": "203.0.113.5", "age": 40, "startedAt": 1789999960, "client": "", "tokenId": 12, "trusted": false, "first": 1789999960, "last": 1790000000}, "first": 1789999700, "last": 1790000000}},
 			"reads": {
 				"narrative": [
 					"The account alice approved a login request for the new device \"\".",
@@ -713,7 +713,7 @@
 			}
 		},
 		"other network, trusted": {
-			"detection": {"id": 41, "checkId": "login_flow_mismatch", "severity": "medium", "enforced": true, "ip": "203.0.113.5", "netKey": "4:203.0.113.0/24", "uid": "alice", "shareId": null, "hits": 1, "createdAt": 1789999700, "lastSeenAt": 1790000000, "actions": [], "explanation": {"v": 1, "check": "login_flow_mismatch", "mode": {"configured": "protect", "effective": "protect", "reason": null}, "thresholds": [], "facts": {"rule": "other_network", "initiator": "198.51.100.2", "granter": "203.0.113.5", "age": 40, "startedAt": 1789999960, "client": "Mozilla/5.0 (Linux; Android 14) Nextcloud-android/3.29.0", "tokenId": 12, "trusted": true, "first": 1789999960, "last": 1790000000}, "first": 1789999700, "last": 1790000000}},
+			"detection": {"id": "470938541726507049", "checkId": "login_flow_mismatch", "severity": "medium", "enforced": true, "ip": "203.0.113.5", "netKey": "4:203.0.113.0/24", "uid": "alice", "shareId": null, "hits": 1, "createdAt": 1789999700, "lastSeenAt": 1790000000, "actions": [], "explanation": {"v": 1, "check": "login_flow_mismatch", "mode": {"configured": "protect", "effective": "protect", "reason": null}, "thresholds": [], "facts": {"rule": "other_network", "initiator": "198.51.100.2", "granter": "203.0.113.5", "age": 40, "startedAt": 1789999960, "client": "Mozilla/5.0 (Linux; Android 14) Nextcloud-android/3.29.0", "tokenId": 12, "trusted": true, "first": 1789999960, "last": 1790000000}, "first": 1789999700, "last": 1790000000}},
 			"reads": {
 				"narrative": [
 					"The account alice approved a login request for the new device \"Mozilla/5.0 (Linux; Android 14) Nextcloud-android/3.29.0\".",
@@ -729,7 +729,7 @@
 			}
 		},
 		"too old": {
-			"detection": {"id": 41, "checkId": "login_flow_mismatch", "severity": "medium", "enforced": true, "ip": "203.0.113.5", "netKey": "4:203.0.113.0/24", "uid": "alice", "shareId": null, "hits": 1, "createdAt": 1789999700, "lastSeenAt": 1790000000, "actions": [], "explanation": {"v": 1, "check": "login_flow_mismatch", "mode": {"configured": "protect", "effective": "protect", "reason": null}, "thresholds": {"max_age": 900, "medium_revoke": false}, "facts": {"rule": "too_old", "initiator": "198.51.100.2", "granter": "203.0.113.5", "age": 1800, "startedAt": 1789998200, "client": "Desktop", "tokenId": 12, "trusted": false, "first": 1789998200, "last": 1790000000}, "first": 1789999700, "last": 1790000000}},
+			"detection": {"id": "470938541726507049", "checkId": "login_flow_mismatch", "severity": "medium", "enforced": true, "ip": "203.0.113.5", "netKey": "4:203.0.113.0/24", "uid": "alice", "shareId": null, "hits": 1, "createdAt": 1789999700, "lastSeenAt": 1790000000, "actions": [], "explanation": {"v": 1, "check": "login_flow_mismatch", "mode": {"configured": "protect", "effective": "protect", "reason": null}, "thresholds": {"max_age": 900, "medium_revoke": false}, "facts": {"rule": "too_old", "initiator": "198.51.100.2", "granter": "203.0.113.5", "age": 1800, "startedAt": 1789998200, "client": "Desktop", "tokenId": 12, "trusted": false, "first": 1789998200, "last": 1790000000}, "first": 1789999700, "last": 1790000000}},
 			"reads": {
 				"narrative": [
 					"The account alice approved a login request for the new device \"Desktop\".",
@@ -745,7 +745,7 @@
 			}
 		},
 		"too old, unknown initiator": {
-			"detection": {"id": 41, "checkId": "login_flow_mismatch", "severity": "low", "enforced": true, "ip": "203.0.113.5", "netKey": "4:203.0.113.0/24", "uid": "alice", "shareId": null, "hits": 1, "createdAt": 1789999700, "lastSeenAt": 1790000000, "actions": [], "explanation": {"v": 1, "check": "login_flow_mismatch", "mode": {"configured": "protect", "effective": "protect", "reason": null}, "thresholds": [], "facts": {"rule": "too_old", "initiator": null, "granter": "203.0.113.5", "age": 700, "startedAt": 1789999300, "client": "Desktop", "tokenId": 12, "trusted": false, "first": 1789999300, "last": 1790000000}, "first": 1789999700, "last": 1790000000}},
+			"detection": {"id": "470938541726507049", "checkId": "login_flow_mismatch", "severity": "low", "enforced": true, "ip": "203.0.113.5", "netKey": "4:203.0.113.0/24", "uid": "alice", "shareId": null, "hits": 1, "createdAt": 1789999700, "lastSeenAt": 1790000000, "actions": [], "explanation": {"v": 1, "check": "login_flow_mismatch", "mode": {"configured": "protect", "effective": "protect", "reason": null}, "thresholds": [], "facts": {"rule": "too_old", "initiator": null, "granter": "203.0.113.5", "age": 700, "startedAt": 1789999300, "client": "Desktop", "tokenId": 12, "trusted": false, "first": 1789999300, "last": 1790000000}, "first": 1789999700, "last": 1790000000}},
 			"reads": {
 				"narrative": [
 					"The account alice approved a login request for the new device \"Desktop\".",
@@ -761,7 +761,7 @@
 			}
 		},
 		"other family": {
-			"detection": {"id": 41, "checkId": "login_flow_mismatch", "severity": "low", "enforced": true, "ip": "203.0.113.5", "netKey": "4:203.0.113.0/24", "uid": "alice", "shareId": null, "hits": 1, "createdAt": 1789999700, "lastSeenAt": 1790000000, "actions": [], "explanation": {"v": 1, "check": "login_flow_mismatch", "mode": {"configured": "protect", "effective": "protect", "reason": null}, "thresholds": [], "facts": {"rule": "other_family", "initiator": "2001:db8::1", "granter": "203.0.113.5", "age": 40, "startedAt": 1789999960, "client": "Desktop", "tokenId": 12, "trusted": false, "first": 1789999960, "last": 1790000000}, "first": 1789999700, "last": 1790000000}},
+			"detection": {"id": "470938541726507049", "checkId": "login_flow_mismatch", "severity": "low", "enforced": true, "ip": "203.0.113.5", "netKey": "4:203.0.113.0/24", "uid": "alice", "shareId": null, "hits": 1, "createdAt": 1789999700, "lastSeenAt": 1790000000, "actions": [], "explanation": {"v": 1, "check": "login_flow_mismatch", "mode": {"configured": "protect", "effective": "protect", "reason": null}, "thresholds": [], "facts": {"rule": "other_family", "initiator": "2001:db8::1", "granter": "203.0.113.5", "age": 40, "startedAt": 1789999960, "client": "Desktop", "tokenId": 12, "trusted": false, "first": 1789999960, "last": 1790000000}, "first": 1789999700, "last": 1790000000}},
 			"reads": {
 				"narrative": [
 					"The account alice approved a login request for the new device \"Desktop\".",
@@ -778,7 +778,7 @@
 	},
 	"password_spraying": {
 		"spray": {
-			"detection": {"id": 41, "checkId": "password_spraying", "severity": "high", "enforced": true, "ip": "203.0.113.5", "netKey": "4:203.0.113.0/24", "uid": null, "shareId": null, "hits": 1, "createdAt": 1789999700, "lastSeenAt": 1790000000, "actions": [], "explanation": {"v": 1, "check": "password_spraying", "mode": {"configured": "protect", "effective": "protect", "reason": null}, "thresholds": {"window": 1800, "min_names": 5}, "facts": {"rule": "spray", "failures": 40, "names": 25, "sources": 9, "banTargets": 4, "listed": 7, "first": 1789998500, "last": 1789999970, "targets": ["alice", "bob", "carol"], "risk": {"score": 45, "tier": "elevated", "factors": [{"id": "failures", "value": "30", "points": 2}]}, "loweredLimits": {"min_names": {"plain": 5, "effective": 3}}}, "first": 1789999700, "last": 1790000000}},
+			"detection": {"id": "470938541726507049", "checkId": "password_spraying", "severity": "high", "enforced": true, "ip": "203.0.113.5", "netKey": "4:203.0.113.0/24", "uid": null, "shareId": null, "hits": 1, "createdAt": 1789999700, "lastSeenAt": 1790000000, "actions": [], "explanation": {"v": 1, "check": "password_spraying", "mode": {"configured": "protect", "effective": "protect", "reason": null}, "thresholds": {"window": 1800, "min_names": 5}, "facts": {"rule": "spray", "failures": 40, "names": 25, "sources": 9, "banTargets": 4, "listed": 7, "first": 1789998500, "last": 1789999970, "targets": ["alice", "bob", "carol"], "risk": {"score": 45, "tier": "elevated", "factors": [{"id": "failures", "value": "30", "points": 2}]}, "loweredLimits": {"min_names": {"plain": 5, "effective": 3}}}, "first": 1789999700, "last": 1790000000}},
 			"reads": {
 				"narrative": [
 					"Between date:1789998500 and time:1789999970 one password was tried against 25 different accounts, from 9 different addresses.",
@@ -797,7 +797,7 @@
 			}
 		},
 		"spray, old row": {
-			"detection": {"id": 41, "checkId": "password_spraying", "severity": "high", "enforced": true, "ip": "203.0.113.5", "netKey": "4:203.0.113.0/24", "uid": null, "shareId": null, "hits": 1, "createdAt": 1789999700, "lastSeenAt": 1790000000, "actions": [], "explanation": {"v": 1, "check": "password_spraying", "mode": {"configured": "protect", "effective": "protect", "reason": null}, "thresholds": [], "facts": {"rule": "spray", "failures": 40, "names": 25, "sources": 9, "banTargets": 4, "first": 1789998500, "last": 1789999970}, "first": 1789999700, "last": 1790000000}},
+			"detection": {"id": "470938541726507049", "checkId": "password_spraying", "severity": "high", "enforced": true, "ip": "203.0.113.5", "netKey": "4:203.0.113.0/24", "uid": null, "shareId": null, "hits": 1, "createdAt": 1789999700, "lastSeenAt": 1790000000, "actions": [], "explanation": {"v": 1, "check": "password_spraying", "mode": {"configured": "protect", "effective": "protect", "reason": null}, "thresholds": [], "facts": {"rule": "spray", "failures": 40, "names": 25, "sources": 9, "banTargets": 4, "first": 1789998500, "last": 1789999970}, "first": 1789999700, "last": 1790000000}},
 			"reads": {
 				"narrative": [
 					"Between date:1789998500 and time:1789999970 one password was tried against 25 different accounts, from 9 different addresses.",
@@ -814,7 +814,7 @@
 			}
 		},
 		"spray, nobody blocked": {
-			"detection": {"id": 41, "checkId": "password_spraying", "severity": "high", "enforced": true, "ip": "203.0.113.5", "netKey": "4:203.0.113.0/24", "uid": null, "shareId": null, "hits": 1, "createdAt": 1789999700, "lastSeenAt": 1790000000, "actions": [], "explanation": {"v": 1, "check": "password_spraying", "mode": {"configured": "protect", "effective": "protect", "reason": null}, "thresholds": [], "facts": {"rule": "spray", "failures": 6, "names": 5, "sources": 3, "banTargets": 0, "listed": 3}, "first": 1789999700, "last": 1790000000}},
+			"detection": {"id": "470938541726507049", "checkId": "password_spraying", "severity": "high", "enforced": true, "ip": "203.0.113.5", "netKey": "4:203.0.113.0/24", "uid": null, "shareId": null, "hits": 1, "createdAt": 1789999700, "lastSeenAt": 1790000000, "actions": [], "explanation": {"v": 1, "check": "password_spraying", "mode": {"configured": "protect", "effective": "protect", "reason": null}, "thresholds": [], "facts": {"rule": "spray", "failures": 6, "names": 5, "sources": 3, "banTargets": 0, "listed": 3}, "first": 1789999700, "last": 1790000000}},
 			"reads": {
 				"narrative": [
 					"Between date:1789999700 and time:1790000000 one password was tried against 5 different accounts, from 3 different addresses.",
@@ -831,7 +831,7 @@
 			}
 		},
 		"flagged": {
-			"detection": {"id": 41, "checkId": "password_spraying", "severity": "high", "enforced": true, "ip": "203.0.113.5", "netKey": "4:203.0.113.0/24", "uid": null, "shareId": null, "hits": 1, "createdAt": 1789999700, "lastSeenAt": 1790000000, "actions": [], "explanation": {"v": 1, "check": "password_spraying", "mode": {"configured": "protect", "effective": "protect", "reason": null}, "thresholds": [], "facts": {"rule": "flagged_password", "names": 3}, "first": 1789999700, "last": 1790000000}},
+			"detection": {"id": "470938541726507049", "checkId": "password_spraying", "severity": "high", "enforced": true, "ip": "203.0.113.5", "netKey": "4:203.0.113.0/24", "uid": null, "shareId": null, "hits": 1, "createdAt": 1789999700, "lastSeenAt": 1790000000, "actions": [], "explanation": {"v": 1, "check": "password_spraying", "mode": {"configured": "protect", "effective": "protect", "reason": null}, "thresholds": [], "facts": {"rule": "flagged_password", "names": 3}, "first": 1789999700, "last": 1790000000}},
 			"reads": {
 				"narrative": [
 					"The address 203.0.113.5 tried a password that is being tried against many accounts right now, for 3 accounts itself, so it was treated as part of that attack."
@@ -845,7 +845,7 @@
 			}
 		},
 		"flagged at once": {
-			"detection": {"id": 41, "checkId": "password_spraying", "severity": "high", "enforced": true, "ip": "203.0.113.5", "netKey": "4:203.0.113.0/24", "uid": null, "shareId": null, "hits": 1, "createdAt": 1789999700, "lastSeenAt": 1790000000, "actions": [], "explanation": {"v": 1, "check": "password_spraying", "mode": {"configured": "protect", "effective": "protect", "reason": null}, "thresholds": [], "facts": {"rule": "flagged_password"}, "first": 1789999700, "last": 1790000000}},
+			"detection": {"id": "470938541726507049", "checkId": "password_spraying", "severity": "high", "enforced": true, "ip": "203.0.113.5", "netKey": "4:203.0.113.0/24", "uid": null, "shareId": null, "hits": 1, "createdAt": 1789999700, "lastSeenAt": 1790000000, "actions": [], "explanation": {"v": 1, "check": "password_spraying", "mode": {"configured": "protect", "effective": "protect", "reason": null}, "thresholds": [], "facts": {"rule": "flagged_password"}, "first": 1789999700, "last": 1790000000}},
 			"reads": {
 				"narrative": [
 					"The address 203.0.113.5 tried a password that is being tried against many accounts right now, so it was treated as part of that attack at once."
@@ -859,7 +859,7 @@
 			}
 		},
 		"login by a client": {
-			"detection": {"id": 41, "checkId": "password_spraying", "severity": "high", "enforced": true, "ip": "203.0.113.5", "netKey": "4:203.0.113.0/24", "uid": "alice", "shareId": null, "hits": 2, "createdAt": 1789999700, "lastSeenAt": 1790000000, "actions": [{"type": "force_password_change", "enforced": true}], "explanation": {"v": 1, "check": "password_spraying", "mode": {"configured": "protect", "effective": "protect", "reason": null}, "thresholds": [], "facts": {"rule": "login_success", "client": true}, "first": 1789999700, "last": 1790000000}},
+			"detection": {"id": "470938541726507049", "checkId": "password_spraying", "severity": "high", "enforced": true, "ip": "203.0.113.5", "netKey": "4:203.0.113.0/24", "uid": "alice", "shareId": null, "hits": 2, "createdAt": 1789999700, "lastSeenAt": 1790000000, "actions": [{"type": "force_password_change", "enforced": true}], "explanation": {"v": 1, "check": "password_spraying", "mode": {"configured": "protect", "effective": "protect", "reason": null}, "thresholds": [], "facts": {"rule": "login_success", "client": true}, "first": 1789999700, "last": 1790000000}},
 			"reads": {
 				"narrative": [
 					"At date:1789999700 an app or script logged in as alice from 203.0.113.5 with a password that is being tried against many accounts right now.",
@@ -875,7 +875,7 @@
 			}
 		},
 		"login": {
-			"detection": {"id": 41, "checkId": "password_spraying", "severity": "high", "enforced": true, "ip": "203.0.113.5", "netKey": "4:203.0.113.0/24", "uid": "alice", "shareId": null, "hits": 1, "createdAt": 1789999700, "lastSeenAt": 1790000000, "actions": [], "explanation": {"v": 1, "check": "password_spraying", "mode": {"configured": "protect", "effective": "protect", "reason": null}, "thresholds": [], "facts": {"rule": "login_success", "client": false}, "first": 1789999700, "last": 1790000000}},
+			"detection": {"id": "470938541726507049", "checkId": "password_spraying", "severity": "high", "enforced": true, "ip": "203.0.113.5", "netKey": "4:203.0.113.0/24", "uid": "alice", "shareId": null, "hits": 1, "createdAt": 1789999700, "lastSeenAt": 1790000000, "actions": [], "explanation": {"v": 1, "check": "password_spraying", "mode": {"configured": "protect", "effective": "protect", "reason": null}, "thresholds": [], "facts": {"rule": "login_success", "client": false}, "first": 1789999700, "last": 1790000000}},
 			"reads": {
 				"narrative": [
 					"At date:1789999700 alice logged in from 203.0.113.5 with a password that is being tried against many accounts right now.",
@@ -890,7 +890,7 @@
 			}
 		},
 		"no rule": {
-			"detection": {"id": 41, "checkId": "password_spraying", "severity": "high", "enforced": true, "ip": "203.0.113.5", "netKey": "4:203.0.113.0/24", "uid": "alice", "shareId": null, "hits": 1, "createdAt": 1789999700, "lastSeenAt": 1790000000, "actions": [], "explanation": {"v": 1, "check": "password_spraying", "mode": {"configured": "protect", "effective": "protect", "reason": null}, "thresholds": [], "facts": [], "first": 1789999700, "last": 1790000000}},
+			"detection": {"id": "470938541726507049", "checkId": "password_spraying", "severity": "high", "enforced": true, "ip": "203.0.113.5", "netKey": "4:203.0.113.0/24", "uid": "alice", "shareId": null, "hits": 1, "createdAt": 1789999700, "lastSeenAt": 1790000000, "actions": [], "explanation": {"v": 1, "check": "password_spraying", "mode": {"configured": "protect", "effective": "protect", "reason": null}, "thresholds": [], "facts": [], "first": 1789999700, "last": 1790000000}},
 			"reads": {
 				"narrative": [
 					"Between date:1789999700 and time:1790000000 one password was tried against 0 different accounts, from 0 different addresses.",
@@ -908,7 +908,7 @@
 	},
 	"reserved_name": {
 		"name": {
-			"detection": {"id": 41, "checkId": "reserved_name", "severity": "high", "enforced": true, "ip": "203.0.113.5", "netKey": "4:203.0.113.0/24", "uid": null, "shareId": null, "hits": 4, "createdAt": 1789999700, "lastSeenAt": 1790000000, "actions": [], "explanation": {"v": 1, "check": "reserved_name", "mode": {"configured": "protect", "effective": "protect", "reason": null}, "thresholds": [], "facts": {"name": "admin"}, "first": 1789999700, "last": 1790000000}},
+			"detection": {"id": "470938541726507049", "checkId": "reserved_name", "severity": "high", "enforced": true, "ip": "203.0.113.5", "netKey": "4:203.0.113.0/24", "uid": null, "shareId": null, "hits": 4, "createdAt": 1789999700, "lastSeenAt": 1790000000, "actions": [], "explanation": {"v": 1, "check": "reserved_name", "mode": {"configured": "protect", "effective": "protect", "reason": null}, "thresholds": [], "facts": {"name": "admin"}, "first": 1789999700, "last": 1790000000}},
 			"reads": {
 				"narrative": [
 					"The address 203.0.113.5 tried to log in as \"admin\", a reserved name that no account uses.",
@@ -917,7 +917,7 @@
 			}
 		},
 		"old row": {
-			"detection": {"id": 41, "checkId": "reserved_name", "severity": "high", "enforced": true, "ip": "203.0.113.5", "netKey": "4:203.0.113.0/24", "uid": null, "shareId": null, "hits": 1, "createdAt": 1789999700, "lastSeenAt": 1790000000, "actions": [], "explanation": {"v": 1, "check": "reserved_name", "mode": {"configured": "protect", "effective": "protect", "reason": null}, "thresholds": [], "facts": [], "first": 1789999700, "last": 1790000000}},
+			"detection": {"id": "470938541726507049", "checkId": "reserved_name", "severity": "high", "enforced": true, "ip": "203.0.113.5", "netKey": "4:203.0.113.0/24", "uid": null, "shareId": null, "hits": 1, "createdAt": 1789999700, "lastSeenAt": 1790000000, "actions": [], "explanation": {"v": 1, "check": "reserved_name", "mode": {"configured": "protect", "effective": "protect", "reason": null}, "thresholds": [], "facts": [], "first": 1789999700, "last": 1790000000}},
 			"reads": {
 				"narrative": [
 					"The address 203.0.113.5 tried to log in as \"\", a reserved name that no account uses."
@@ -927,7 +927,7 @@
 	},
 	"reset_probing": {
 		"enumeration, sampled": {
-			"detection": {"id": 41, "checkId": "reset_probing", "severity": "high", "enforced": true, "ip": "203.0.113.5", "netKey": "4:203.0.113.0/24", "uid": null, "shareId": null, "hits": 1, "createdAt": 1789999700, "lastSeenAt": 1790000000, "actions": [], "explanation": {"v": 1, "check": "reset_probing", "mode": {"configured": "protect", "effective": "protect", "reason": null}, "thresholds": {"enum_window": 600, "enum_min_inputs": 5, "flood_window": 3600, "flood_min_requests": 10}, "facts": {"rule": "enumeration", "inputs": 24, "requests": 30, "sampleFactor": 3, "targets": ["alice"], "first": 1789999500, "last": 1789999995, "risk": {"score": 45, "tier": "elevated", "factors": [{"id": "failures", "value": "30", "points": 2}]}, "loweredLimits": {"min_names": {"plain": 5, "effective": 3}}}, "first": 1789999700, "last": 1790000000}},
+			"detection": {"id": "470938541726507049", "checkId": "reset_probing", "severity": "high", "enforced": true, "ip": "203.0.113.5", "netKey": "4:203.0.113.0/24", "uid": null, "shareId": null, "hits": 1, "createdAt": 1789999700, "lastSeenAt": 1790000000, "actions": [], "explanation": {"v": 1, "check": "reset_probing", "mode": {"configured": "protect", "effective": "protect", "reason": null}, "thresholds": {"enum_window": 600, "enum_min_inputs": 5, "flood_window": 3600, "flood_min_requests": 10}, "facts": {"rule": "enumeration", "inputs": 24, "requests": 30, "sampleFactor": 3, "targets": ["alice"], "first": 1789999500, "last": 1789999995, "risk": {"score": 45, "tier": "elevated", "factors": [{"id": "failures", "value": "30", "points": 2}]}, "loweredLimits": {"min_names": {"plain": 5, "effective": 3}}}, "first": 1789999700, "last": 1790000000}},
 			"reads": {
 				"narrative": [
 					"Between date:1789999500 and time:1789999995 the address 203.0.113.5 asked for password resets for about 24 different names or email addresses (about 30 requests).",
@@ -943,7 +943,7 @@
 			}
 		},
 		"flood, held back": {
-			"detection": {"id": 41, "checkId": "reset_probing", "severity": "high", "enforced": true, "ip": null, "netKey": "4:203.0.113.0/24", "uid": "alice", "shareId": null, "hits": 1, "createdAt": 1789999700, "lastSeenAt": 1790000000, "actions": [{"type": "suppress_reset_mail", "enforced": true, "ref": {"until": 1790001800, "latest": 1790007200}}], "explanation": {"v": 1, "check": "reset_probing", "mode": {"configured": "protect", "effective": "protect", "reason": null}, "thresholds": {"flood_window": 3600, "flood_min_requests": 10}, "facts": {"rule": "flood", "requests": 12, "sources": 4, "sampleFactor": 1, "lastSource": "198.51.100.40", "first": 1789998000, "last": 1789999995}, "first": 1789999700, "last": 1790000000}},
+			"detection": {"id": "470938541726507049", "checkId": "reset_probing", "severity": "high", "enforced": true, "ip": null, "netKey": "4:203.0.113.0/24", "uid": "alice", "shareId": null, "hits": 1, "createdAt": 1789999700, "lastSeenAt": 1790000000, "actions": [{"type": "suppress_reset_mail", "enforced": true, "ref": {"until": 1790001800, "latest": 1790007200}}], "explanation": {"v": 1, "check": "reset_probing", "mode": {"configured": "protect", "effective": "protect", "reason": null}, "thresholds": {"flood_window": 3600, "flood_min_requests": 10}, "facts": {"rule": "flood", "requests": 12, "sources": 4, "sampleFactor": 1, "lastSource": "198.51.100.40", "first": 1789998000, "last": 1789999995}, "first": 1789999700, "last": 1790000000}},
 			"reads": {
 				"narrative": [
 					"Between date:1789998000 and time:1789999995 someone asked 12 times for password reset emails for the account alice, from 4 different addresses.",
@@ -958,7 +958,7 @@
 			}
 		},
 		"flood": {
-			"detection": {"id": 41, "checkId": "reset_probing", "severity": "high", "enforced": true, "ip": null, "netKey": "4:203.0.113.0/24", "uid": "alice", "shareId": null, "hits": 1, "createdAt": 1789999700, "lastSeenAt": 1790000000, "actions": [], "explanation": {"v": 1, "check": "reset_probing", "mode": {"configured": "protect", "effective": "protect", "reason": null}, "thresholds": [], "facts": {"rule": "flood", "requests": 1, "sources": 1}, "first": 1789999700, "last": 1790000000}},
+			"detection": {"id": "470938541726507049", "checkId": "reset_probing", "severity": "high", "enforced": true, "ip": null, "netKey": "4:203.0.113.0/24", "uid": "alice", "shareId": null, "hits": 1, "createdAt": 1789999700, "lastSeenAt": 1790000000, "actions": [], "explanation": {"v": 1, "check": "reset_probing", "mode": {"configured": "protect", "effective": "protect", "reason": null}, "thresholds": [], "facts": {"rule": "flood", "requests": 1, "sources": 1}, "first": 1789999700, "last": 1790000000}},
 			"reads": {
 				"narrative": [
 					"Between date:1789999700 and time:1790000000 someone asked 1 times for password reset emails for the account alice, from 1 different addresses.",
@@ -972,7 +972,7 @@
 			}
 		},
 		"old row": {
-			"detection": {"id": 41, "checkId": "reset_probing", "severity": "high", "enforced": true, "ip": "203.0.113.5", "netKey": "4:203.0.113.0/24", "uid": null, "shareId": null, "hits": 1, "createdAt": 1789999700, "lastSeenAt": 1790000000, "actions": [], "explanation": {"v": 1, "check": "reset_probing", "mode": {"configured": "protect", "effective": "protect", "reason": null}, "thresholds": [], "facts": {"inputs": 6}, "first": 1789999700, "last": 1790000000}},
+			"detection": {"id": "470938541726507049", "checkId": "reset_probing", "severity": "high", "enforced": true, "ip": "203.0.113.5", "netKey": "4:203.0.113.0/24", "uid": null, "shareId": null, "hits": 1, "createdAt": 1789999700, "lastSeenAt": 1790000000, "actions": [], "explanation": {"v": 1, "check": "reset_probing", "mode": {"configured": "protect", "effective": "protect", "reason": null}, "thresholds": [], "facts": {"inputs": 6}, "first": 1789999700, "last": 1790000000}},
 			"reads": {
 				"narrative": [
 					"Between date:1789999700 and time:1790000000 the address 203.0.113.5 asked for password resets for 6 different names or email addresses (0 requests).",
@@ -988,7 +988,7 @@
 	},
 	"risky_network": {
 		"tor": {
-			"detection": {"id": 41, "checkId": "risky_network", "severity": "high", "enforced": true, "ip": "203.0.113.5", "netKey": "4:203.0.113.0/24", "uid": "alice", "shareId": null, "hits": 1, "createdAt": 1789999700, "lastSeenAt": 1790000000, "actions": [], "explanation": {"v": 1, "check": "risky_network", "mode": {"configured": "protect", "effective": "protect", "reason": null}, "thresholds": [], "facts": {"attributes": ["tor"], "lists": [], "listNames": [], "client": false}, "first": 1789999700, "last": 1790000000}},
+			"detection": {"id": "470938541726507049", "checkId": "risky_network", "severity": "high", "enforced": true, "ip": "203.0.113.5", "netKey": "4:203.0.113.0/24", "uid": "alice", "shareId": null, "hits": 1, "createdAt": 1789999700, "lastSeenAt": 1790000000, "actions": [], "explanation": {"v": 1, "check": "risky_network", "mode": {"configured": "protect", "effective": "protect", "reason": null}, "thresholds": [], "facts": {"attributes": ["tor"], "lists": [], "listNames": [], "client": false}, "first": 1789999700, "last": 1790000000}},
 			"reads": {
 				"narrative": [
 					"The account alice logged in with its password from 203.0.113.5, a Tor exit node.",
@@ -1002,7 +1002,7 @@
 			}
 		},
 		"hosting by a client": {
-			"detection": {"id": 41, "checkId": "risky_network", "severity": "high", "enforced": true, "ip": "203.0.113.5", "netKey": "4:203.0.113.0/24", "uid": "alice", "shareId": null, "hits": 2, "createdAt": 1789999700, "lastSeenAt": 1790000000, "actions": [], "explanation": {"v": 1, "check": "risky_network", "mode": {"configured": "protect", "effective": "protect", "reason": null}, "thresholds": [], "facts": {"attributes": ["hosting"], "lists": ["aws"], "listNames": ["Amazon AWS"], "client": true, "sessionTokenIds": [5]}, "first": 1789999700, "last": 1790000000}},
+			"detection": {"id": "470938541726507049", "checkId": "risky_network", "severity": "high", "enforced": true, "ip": "203.0.113.5", "netKey": "4:203.0.113.0/24", "uid": "alice", "shareId": null, "hits": 2, "createdAt": 1789999700, "lastSeenAt": 1790000000, "actions": [], "explanation": {"v": 1, "check": "risky_network", "mode": {"configured": "protect", "effective": "protect", "reason": null}, "thresholds": [], "facts": {"attributes": ["hosting"], "lists": ["aws"], "listNames": ["Amazon AWS"], "client": true, "sessionTokenIds": [5]}, "first": 1789999700, "last": 1790000000}},
 			"reads": {
 				"narrative": [
 					"The account alice logged in with its password from 203.0.113.5, an address of a cloud or hosting provider (Amazon AWS).",
@@ -1018,7 +1018,7 @@
 			}
 		},
 		"hosting": {
-			"detection": {"id": 41, "checkId": "risky_network", "severity": "high", "enforced": true, "ip": "203.0.113.5", "netKey": "4:203.0.113.0/24", "uid": "alice", "shareId": null, "hits": 1, "createdAt": 1789999700, "lastSeenAt": 1790000000, "actions": [], "explanation": {"v": 1, "check": "risky_network", "mode": {"configured": "protect", "effective": "protect", "reason": null}, "thresholds": [], "facts": {"attributes": ["hosting"], "lists": [], "listNames": [], "client": false}, "first": 1789999700, "last": 1790000000}},
+			"detection": {"id": "470938541726507049", "checkId": "risky_network", "severity": "high", "enforced": true, "ip": "203.0.113.5", "netKey": "4:203.0.113.0/24", "uid": "alice", "shareId": null, "hits": 1, "createdAt": 1789999700, "lastSeenAt": 1790000000, "actions": [], "explanation": {"v": 1, "check": "risky_network", "mode": {"configured": "protect", "effective": "protect", "reason": null}, "thresholds": [], "facts": {"attributes": ["hosting"], "lists": [], "listNames": [], "client": false}, "first": 1789999700, "last": 1790000000}},
 			"reads": {
 				"narrative": [
 					"The account alice logged in with its password from 203.0.113.5, an address of a cloud or hosting provider.",
@@ -1034,7 +1034,7 @@
 	},
 	"second_factor_failed": {
 		"all rules": {
-			"detection": {"id": 41, "checkId": "second_factor_failed", "severity": "high", "enforced": true, "ip": "203.0.113.5", "netKey": "4:203.0.113.0/24", "uid": "alice", "shareId": null, "hits": 2, "createdAt": 1789999700, "lastSeenAt": 1790000000, "actions": [], "explanation": {"v": 1, "check": "second_factor_failed", "mode": {"configured": "protect", "effective": "protect", "reason": null}, "thresholds": {"max_failures": 3, "max_failures_hour": 5}, "facts": {"provider": "totp", "providerName": "TOTP (Authenticator app)", "loginFailures": 3, "hourFailures": 6, "rules": ["flagged", "login", "hour"], "flag": "distributed", "sessionTokenId": 31, "first": 1789999970, "last": 1789999970}, "first": 1789999700, "last": 1790000000}},
+			"detection": {"id": "470938541726507049", "checkId": "second_factor_failed", "severity": "high", "enforced": true, "ip": "203.0.113.5", "netKey": "4:203.0.113.0/24", "uid": "alice", "shareId": null, "hits": 2, "createdAt": 1789999700, "lastSeenAt": 1790000000, "actions": [], "explanation": {"v": 1, "check": "second_factor_failed", "mode": {"configured": "protect", "effective": "protect", "reason": null}, "thresholds": {"max_failures": 3, "max_failures_hour": 5}, "facts": {"provider": "totp", "providerName": "TOTP (Authenticator app)", "loginFailures": 3, "hourFailures": 6, "rules": ["flagged", "login", "hour"], "flag": "distributed", "sessionTokenId": 31, "first": 1789999970, "last": 1789999970}, "first": 1789999700, "last": 1790000000}},
 			"reads": {
 				"narrative": [
 					"alice entered the correct password from 203.0.113.5, but the second factor (TOTP (Authenticator app)) failed.",
@@ -1053,7 +1053,7 @@
 			}
 		},
 		"old row": {
-			"detection": {"id": 41, "checkId": "second_factor_failed", "severity": "high", "enforced": true, "ip": "203.0.113.5", "netKey": "4:203.0.113.0/24", "uid": "alice", "shareId": null, "hits": 1, "createdAt": 1789999700, "lastSeenAt": 1790000000, "actions": [], "explanation": {"v": 1, "check": "second_factor_failed", "mode": {"configured": "protect", "effective": "protect", "reason": null}, "thresholds": [], "facts": {"provider": "totp", "loginFailures": 1}, "first": 1789999700, "last": 1790000000}},
+			"detection": {"id": "470938541726507049", "checkId": "second_factor_failed", "severity": "high", "enforced": true, "ip": "203.0.113.5", "netKey": "4:203.0.113.0/24", "uid": "alice", "shareId": null, "hits": 1, "createdAt": 1789999700, "lastSeenAt": 1790000000, "actions": [], "explanation": {"v": 1, "check": "second_factor_failed", "mode": {"configured": "protect", "effective": "protect", "reason": null}, "thresholds": [], "facts": {"provider": "totp", "loginFailures": 1}, "first": 1789999700, "last": 1790000000}},
 			"reads": {
 				"narrative": [
 					"alice entered the correct password from 203.0.113.5, but the second factor (totp) failed.",
@@ -1068,7 +1068,7 @@
 			}
 		},
 		"no provider": {
-			"detection": {"id": 41, "checkId": "second_factor_failed", "severity": "high", "enforced": true, "ip": "203.0.113.5", "netKey": "4:203.0.113.0/24", "uid": "alice", "shareId": null, "hits": 1, "createdAt": 1789999700, "lastSeenAt": 1790000000, "actions": [], "explanation": {"v": 1, "check": "second_factor_failed", "mode": {"configured": "protect", "effective": "protect", "reason": null}, "thresholds": [], "facts": {"loginFailures": 1, "hourFailures": 1, "rules": []}, "first": 1789999700, "last": 1790000000}},
+			"detection": {"id": "470938541726507049", "checkId": "second_factor_failed", "severity": "high", "enforced": true, "ip": "203.0.113.5", "netKey": "4:203.0.113.0/24", "uid": "alice", "shareId": null, "hits": 1, "createdAt": 1789999700, "lastSeenAt": 1790000000, "actions": [], "explanation": {"v": 1, "check": "second_factor_failed", "mode": {"configured": "protect", "effective": "protect", "reason": null}, "thresholds": [], "facts": {"loginFailures": 1, "hourFailures": 1, "rules": []}, "first": 1789999700, "last": 1790000000}},
 			"reads": {
 				"narrative": [
 					"alice entered the correct password from 203.0.113.5, but the second factor () failed.",
@@ -1085,7 +1085,7 @@
 	},
 	"share_bruteforce": {
 		"tokens, sampled, logged in": {
-			"detection": {"id": 41, "checkId": "share_bruteforce", "severity": "high", "enforced": true, "ip": "203.0.113.5", "netKey": "4:203.0.113.0/24", "uid": "alice", "shareId": null, "hits": 1, "createdAt": 1789999700, "lastSeenAt": 1790000000, "actions": [], "explanation": {"v": 1, "check": "share_bruteforce", "mode": {"configured": "protect", "effective": "protect", "reason": null}, "thresholds": {"token_window": 600, "token_min": 10, "net_factor": 3}, "facts": {"rule": "tokens", "tokens": 40, "attempts": 60, "sources": 1, "sampleFactor": 2, "first": 1789999500, "last": 1789999999, "loggedIn": true, "federation": true, "risk": {"score": 45, "tier": "elevated", "factors": [{"id": "failures", "value": "30", "points": 2}]}, "loweredLimits": {"min_names": {"plain": 5, "effective": 3}}}, "first": 1789999700, "last": 1790000000}},
+			"detection": {"id": "470938541726507049", "checkId": "share_bruteforce", "severity": "high", "enforced": true, "ip": "203.0.113.5", "netKey": "4:203.0.113.0/24", "uid": "alice", "shareId": null, "hits": 1, "createdAt": 1789999700, "lastSeenAt": 1790000000, "actions": [], "explanation": {"v": 1, "check": "share_bruteforce", "mode": {"configured": "protect", "effective": "protect", "reason": null}, "thresholds": {"token_window": 600, "token_min": 10, "net_factor": 3}, "facts": {"rule": "tokens", "tokens": 40, "attempts": 60, "sources": 1, "sampleFactor": 2, "first": 1789999500, "last": 1789999999, "loggedIn": true, "federation": true, "risk": {"score": 45, "tier": "elevated", "factors": [{"id": "failures", "value": "30", "points": 2}]}, "loweredLimits": {"min_names": {"plain": 5, "effective": 3}}}, "first": 1789999700, "last": 1790000000}},
 			"reads": {
 				"narrative": [
 					"Between date:1789999500 and time:1789999999 the address 203.0.113.5 tried about 40 different share links that do not exist (about 60 attempts).",
@@ -1102,7 +1102,7 @@
 			}
 		},
 		"tokens network": {
-			"detection": {"id": 41, "checkId": "share_bruteforce", "severity": "high", "enforced": true, "ip": "203.0.113.5", "netKey": "4:203.0.113.0/24", "uid": null, "shareId": null, "hits": 1, "createdAt": 1789999700, "lastSeenAt": 1790000000, "actions": [], "explanation": {"v": 1, "check": "share_bruteforce", "mode": {"configured": "protect", "effective": "protect", "reason": null}, "thresholds": {"token_window": 600, "token_min": 10, "net_factor": 4}, "facts": {"rule": "tokens_network", "tokens": 90, "attempts": 95, "sources": 6, "sampleFactor": 1, "first": 1789999500, "last": 1789999999, "net": "4:198.51.100.0/24", "partners": 2}, "first": 1789999700, "last": 1790000000}},
+			"detection": {"id": "470938541726507049", "checkId": "share_bruteforce", "severity": "high", "enforced": true, "ip": "203.0.113.5", "netKey": "4:203.0.113.0/24", "uid": null, "shareId": null, "hits": 1, "createdAt": 1789999700, "lastSeenAt": 1790000000, "actions": [], "explanation": {"v": 1, "check": "share_bruteforce", "mode": {"configured": "protect", "effective": "protect", "reason": null}, "thresholds": {"token_window": 600, "token_min": 10, "net_factor": 4}, "facts": {"rule": "tokens_network", "tokens": 90, "attempts": 95, "sources": 6, "sampleFactor": 1, "first": 1789999500, "last": 1789999999, "net": "4:198.51.100.0/24", "partners": 2}, "first": 1789999700, "last": 1790000000}},
 			"reads": {
 				"narrative": [
 					"Between date:1789999500 and time:1789999999 the network 4:198.51.100.0/24 tried 90 different share links that do not exist, from 6 addresses.",
@@ -1117,7 +1117,7 @@
 			}
 		},
 		"password from one address": {
-			"detection": {"id": 41, "checkId": "share_bruteforce", "severity": "high", "enforced": true, "ip": "203.0.113.5", "netKey": "4:203.0.113.0/24", "uid": null, "shareId": 987654, "hits": 1, "createdAt": 1789999700, "lastSeenAt": 1790000000, "actions": [], "explanation": {"v": 1, "check": "share_bruteforce", "mode": {"configured": "protect", "effective": "protect", "reason": null}, "thresholds": {"password_source_window": 600, "password_min_per_source": 10}, "facts": {"rule": "password_source", "failures": 12, "first": 1789999600, "last": 1789999998, "owner": "alice", "managers": ["alice", "bob"], "share": "ocinternal:987654", "shareType": 3, "targets": ["alice", "bob"]}, "first": 1789999700, "last": 1790000000}},
+			"detection": {"id": "470938541726507049", "checkId": "share_bruteforce", "severity": "high", "enforced": true, "ip": "203.0.113.5", "netKey": "4:203.0.113.0/24", "uid": null, "shareId": 987654, "hits": 1, "createdAt": 1789999700, "lastSeenAt": 1790000000, "actions": [], "explanation": {"v": 1, "check": "share_bruteforce", "mode": {"configured": "protect", "effective": "protect", "reason": null}, "thresholds": {"password_source_window": 600, "password_min_per_source": 10}, "facts": {"rule": "password_source", "failures": 12, "first": 1789999600, "last": 1789999998, "owner": "alice", "managers": ["alice", "bob"], "share": "ocinternal:987654", "shareType": 3, "targets": ["alice", "bob"]}, "first": 1789999700, "last": 1790000000}},
 			"reads": {
 				"narrative": [
 					"Between date:1789999600 and time:1789999998 the address 203.0.113.5 entered 12 wrong passwords for a share of alice (share 987654).",
@@ -1131,7 +1131,7 @@
 			}
 		},
 		"password from many addresses": {
-			"detection": {"id": 41, "checkId": "share_bruteforce", "severity": "high", "enforced": true, "ip": null, "netKey": "4:203.0.113.0/24", "uid": "alice", "shareId": 987654, "hits": 1, "createdAt": 1789999700, "lastSeenAt": 1790000000, "actions": [], "explanation": {"v": 1, "check": "share_bruteforce", "mode": {"configured": "protect", "effective": "protect", "reason": null}, "thresholds": {"password_share_window": 3600, "password_min_per_share": 20}, "facts": {"rule": "password_share", "failures": 30, "sources": 8, "first": 1789997000, "last": 1789999998, "lastSource": "198.51.100.77", "owner": "alice", "managers": ["alice"], "share": "ocinternal:987654", "shareType": 3, "targets": ["alice"]}, "first": 1789999700, "last": 1790000000}},
+			"detection": {"id": "470938541726507049", "checkId": "share_bruteforce", "severity": "high", "enforced": true, "ip": null, "netKey": "4:203.0.113.0/24", "uid": "alice", "shareId": 987654, "hits": 1, "createdAt": 1789999700, "lastSeenAt": 1790000000, "actions": [], "explanation": {"v": 1, "check": "share_bruteforce", "mode": {"configured": "protect", "effective": "protect", "reason": null}, "thresholds": {"password_share_window": 3600, "password_min_per_share": 20}, "facts": {"rule": "password_share", "failures": 30, "sources": 8, "first": 1789997000, "last": 1789999998, "lastSource": "198.51.100.77", "owner": "alice", "managers": ["alice"], "share": "ocinternal:987654", "shareType": 3, "targets": ["alice"]}, "first": 1789999700, "last": 1790000000}},
 			"reads": {
 				"narrative": [
 					"Between date:1789997000 and time:1789999998 a share of alice (share 987654) got 30 wrong passwords from 8 different addresses.",
@@ -1146,7 +1146,7 @@
 			}
 		},
 		"password, owner gone": {
-			"detection": {"id": 41, "checkId": "share_bruteforce", "severity": "high", "enforced": true, "ip": null, "netKey": "4:203.0.113.0/24", "uid": null, "shareId": 987654, "hits": 1, "createdAt": 1789999700, "lastSeenAt": 1790000000, "actions": [], "explanation": {"v": 1, "check": "share_bruteforce", "mode": {"configured": "protect", "effective": "protect", "reason": null}, "thresholds": [], "facts": {"rule": "password_share", "failures": 1, "sources": 1, "owner": null, "managers": [], "share": "ocinternal:987654", "shareType": 3, "targets": []}, "first": 1789999700, "last": 1790000000}},
+			"detection": {"id": "470938541726507049", "checkId": "share_bruteforce", "severity": "high", "enforced": true, "ip": null, "netKey": "4:203.0.113.0/24", "uid": null, "shareId": 987654, "hits": 1, "createdAt": 1789999700, "lastSeenAt": 1790000000, "actions": [], "explanation": {"v": 1, "check": "share_bruteforce", "mode": {"configured": "protect", "effective": "protect", "reason": null}, "thresholds": [], "facts": {"rule": "password_share", "failures": 1, "sources": 1, "owner": null, "managers": [], "share": "ocinternal:987654", "shareType": 3, "targets": []}, "first": 1789999700, "last": 1790000000}},
 			"reads": {
 				"narrative": [
 					"Between date:1789999700 and time:1790000000 a share of  (share 987654) got 1 wrong passwords from 1 different addresses.",
@@ -1160,7 +1160,7 @@
 			}
 		},
 		"old row": {
-			"detection": {"id": 41, "checkId": "share_bruteforce", "severity": "high", "enforced": true, "ip": "203.0.113.5", "netKey": "4:203.0.113.0/24", "uid": null, "shareId": null, "hits": 1, "createdAt": 1789999700, "lastSeenAt": 1790000000, "actions": [], "explanation": {"v": 1, "check": "share_bruteforce", "mode": {"configured": "protect", "effective": "protect", "reason": null}, "thresholds": [], "facts": {"tokens": 12, "attempts": 12}, "first": 1789999700, "last": 1790000000}},
+			"detection": {"id": "470938541726507049", "checkId": "share_bruteforce", "severity": "high", "enforced": true, "ip": "203.0.113.5", "netKey": "4:203.0.113.0/24", "uid": null, "shareId": null, "hits": 1, "createdAt": 1789999700, "lastSeenAt": 1790000000, "actions": [], "explanation": {"v": 1, "check": "share_bruteforce", "mode": {"configured": "protect", "effective": "protect", "reason": null}, "thresholds": [], "facts": {"tokens": 12, "attempts": 12}, "first": 1789999700, "last": 1790000000}},
 			"reads": {
 				"narrative": [
 					"Between date:1789999700 and time:1790000000 the address 203.0.113.5 tried 12 different share links that do not exist (12 attempts).",
@@ -1176,7 +1176,7 @@
 	},
 	"step_up_failed": {
 		"wrong codes": {
-			"detection": {"id": 41, "checkId": "step_up_failed", "severity": "high", "enforced": true, "ip": "203.0.113.5", "netKey": "4:203.0.113.0/24", "uid": "alice", "shareId": null, "hits": 1, "createdAt": 1789999700, "lastSeenAt": 1790000000, "actions": [], "explanation": {"v": 1, "check": "step_up_failed", "mode": {"configured": "protect", "effective": "protect", "reason": null}, "thresholds": [], "facts": {"rule": "attempts", "policies": ["flagged_source", "risky_network"], "attempts": 3, "started": 1789999650, "ttl": 900, "sessionTokenId": 31}, "first": 1789999700, "last": 1790000000}},
+			"detection": {"id": "470938541726507049", "checkId": "step_up_failed", "severity": "high", "enforced": true, "ip": "203.0.113.5", "netKey": "4:203.0.113.0/24", "uid": "alice", "shareId": null, "hits": 1, "createdAt": 1789999700, "lastSeenAt": 1790000000, "actions": [], "explanation": {"v": 1, "check": "step_up_failed", "mode": {"configured": "protect", "effective": "protect", "reason": null}, "thresholds": [], "facts": {"rule": "attempts", "policies": ["flagged_source", "risky_network"], "attempts": 3, "started": 1789999650, "ttl": 900, "sessionTokenId": 31}, "first": 1789999700, "last": 1790000000}},
 			"reads": {
 				"narrative": [
 					"At date:1789999650 alice logged in from 203.0.113.5 with the correct password. The login needed extra confirmation, because the address or its network took part in an attack; the address belongs to a hosting provider or the Tor network.",
@@ -1191,7 +1191,7 @@
 			}
 		},
 		"not in time": {
-			"detection": {"id": 41, "checkId": "step_up_failed", "severity": "high", "enforced": true, "ip": "203.0.113.5", "netKey": "4:203.0.113.0/24", "uid": "alice", "shareId": null, "hits": 2, "createdAt": 1789999700, "lastSeenAt": 1790000000, "actions": [], "explanation": {"v": 1, "check": "step_up_failed", "mode": {"configured": "protect", "effective": "protect", "reason": null}, "thresholds": [], "facts": {"rule": "timeout", "policies": ["risk_high"], "attempts": 0, "started": 1789999000, "ttl": 900, "sessionTokenId": 31}, "first": 1789999700, "last": 1790000000}},
+			"detection": {"id": "470938541726507049", "checkId": "step_up_failed", "severity": "high", "enforced": true, "ip": "203.0.113.5", "netKey": "4:203.0.113.0/24", "uid": "alice", "shareId": null, "hits": 2, "createdAt": 1789999700, "lastSeenAt": 1790000000, "actions": [], "explanation": {"v": 1, "check": "step_up_failed", "mode": {"configured": "protect", "effective": "protect", "reason": null}, "thresholds": [], "facts": {"rule": "timeout", "policies": ["risk_high"], "attempts": 0, "started": 1789999000, "ttl": 900, "sessionTokenId": 31}, "first": 1789999700, "last": 1790000000}},
 			"reads": {
 				"narrative": [
 					"At date:1789999000 alice logged in from 203.0.113.5 with the correct password. The login needed extra confirmation, because the address has a high risk score.",
@@ -1206,7 +1206,7 @@
 			}
 		},
 		"left waiting": {
-			"detection": {"id": 41, "checkId": "step_up_failed", "severity": "high", "enforced": true, "ip": "203.0.113.5", "netKey": "4:203.0.113.0/24", "uid": "alice", "shareId": null, "hits": 1, "createdAt": 1789999700, "lastSeenAt": 1790000000, "actions": [], "explanation": {"v": 1, "check": "step_up_failed", "mode": {"configured": "protect", "effective": "protect", "reason": null}, "thresholds": [], "facts": {"rule": "timeout", "policies": ["breached_password"], "attempts": 0, "started": 1789999000, "ttl": 600, "sessionTokenId": null, "abandoned": true}, "first": 1789999700, "last": 1790000000}},
+			"detection": {"id": "470938541726507049", "checkId": "step_up_failed", "severity": "high", "enforced": true, "ip": "203.0.113.5", "netKey": "4:203.0.113.0/24", "uid": "alice", "shareId": null, "hits": 1, "createdAt": 1789999700, "lastSeenAt": 1790000000, "actions": [], "explanation": {"v": 1, "check": "step_up_failed", "mode": {"configured": "protect", "effective": "protect", "reason": null}, "thresholds": [], "facts": {"rule": "timeout", "policies": ["breached_password"], "attempts": 0, "started": 1789999000, "ttl": 600, "sessionTokenId": null, "abandoned": true}, "first": 1789999700, "last": 1790000000}},
 			"reads": {
 				"narrative": [
 					"At date:1789999000 alice logged in from 203.0.113.5 with the correct password. The login needed extra confirmation, because the password is on a public list of leaked passwords.",
@@ -1221,7 +1221,7 @@
 			}
 		},
 		"resumed": {
-			"detection": {"id": 41, "checkId": "step_up_failed", "severity": "high", "enforced": true, "ip": "203.0.113.5", "netKey": "4:203.0.113.0/24", "uid": "alice", "shareId": null, "hits": 1, "createdAt": 1789999700, "lastSeenAt": 1790000000, "actions": [], "explanation": {"v": 1, "check": "step_up_failed", "mode": {"configured": "protect", "effective": "protect", "reason": null}, "thresholds": [], "facts": {"rule": "resumed", "policies": [], "attempts": 0, "started": 1789999700, "ttl": 900, "sessionTokenId": 31}, "first": 1789999700, "last": 1790000000}},
+			"detection": {"id": "470938541726507049", "checkId": "step_up_failed", "severity": "high", "enforced": true, "ip": "203.0.113.5", "netKey": "4:203.0.113.0/24", "uid": "alice", "shareId": null, "hits": 1, "createdAt": 1789999700, "lastSeenAt": 1790000000, "actions": [], "explanation": {"v": 1, "check": "step_up_failed", "mode": {"configured": "protect", "effective": "protect", "reason": null}, "thresholds": [], "facts": {"rule": "resumed", "policies": [], "attempts": 0, "started": 1789999700, "ttl": 900, "sessionTokenId": 31}, "first": 1789999700, "last": 1790000000}},
 			"reads": {
 				"narrative": [
 					"At date:1789999700 alice logged in from 203.0.113.5 with the correct password. The login needed extra confirmation.",
@@ -1236,7 +1236,7 @@
 			}
 		},
 		"rejected": {
-			"detection": {"id": 41, "checkId": "step_up_failed", "severity": "high", "enforced": true, "ip": "203.0.113.5", "netKey": "4:203.0.113.0/24", "uid": "alice", "shareId": null, "hits": 1, "createdAt": 1789999700, "lastSeenAt": 1790000000, "actions": [], "explanation": {"v": 1, "check": "step_up_failed", "mode": {"configured": "protect", "effective": "protect", "reason": null}, "thresholds": [], "facts": {"rule": "rejected", "policies": ["protected_account"], "attempts": 0, "started": 1789999600, "ttl": 900, "sessionTokenId": 31}, "first": 1789999700, "last": 1790000000}},
+			"detection": {"id": "470938541726507049", "checkId": "step_up_failed", "severity": "high", "enforced": true, "ip": "203.0.113.5", "netKey": "4:203.0.113.0/24", "uid": "alice", "shareId": null, "hits": 1, "createdAt": 1789999700, "lastSeenAt": 1790000000, "actions": [], "explanation": {"v": 1, "check": "step_up_failed", "mode": {"configured": "protect", "effective": "protect", "reason": null}, "thresholds": [], "facts": {"rule": "rejected", "policies": ["protected_account"], "attempts": 0, "started": 1789999600, "ttl": 900, "sessionTokenId": 31}, "first": 1789999700, "last": 1790000000}},
 			"reads": {
 				"narrative": [
 					"At date:1789999600 alice logged in from 203.0.113.5 with the correct password. The login needed extra confirmation, because someone is guessing the account's password.",
@@ -1251,7 +1251,7 @@
 			}
 		},
 		"old row": {
-			"detection": {"id": 41, "checkId": "step_up_failed", "severity": "high", "enforced": true, "ip": "203.0.113.5", "netKey": "4:203.0.113.0/24", "uid": "alice", "shareId": null, "hits": 1, "createdAt": 1789999700, "lastSeenAt": 1790000000, "actions": [], "explanation": {"v": 1, "check": "step_up_failed", "mode": {"configured": "protect", "effective": "protect", "reason": null}, "thresholds": [], "facts": {"rule": "attempts", "policies": ["flagged_source", "retired_policy"], "attempts": 5}, "first": 1789999700, "last": 1790000000}},
+			"detection": {"id": "470938541726507049", "checkId": "step_up_failed", "severity": "high", "enforced": true, "ip": "203.0.113.5", "netKey": "4:203.0.113.0/24", "uid": "alice", "shareId": null, "hits": 1, "createdAt": 1789999700, "lastSeenAt": 1790000000, "actions": [], "explanation": {"v": 1, "check": "step_up_failed", "mode": {"configured": "protect", "effective": "protect", "reason": null}, "thresholds": [], "facts": {"rule": "attempts", "policies": ["flagged_source", "retired_policy"], "attempts": 5}, "first": 1789999700, "last": 1790000000}},
 			"reads": {
 				"narrative": [
 					"At date:1789999700 alice logged in from 203.0.113.5 with the correct password. The login needed extra confirmation, because the address or its network took part in an attack.",
@@ -1268,32 +1268,32 @@
 	},
 	"step_up_refused": {
 		"refused": {
-			"detection": {"id": 41, "checkId": "step_up_refused", "severity": "medium", "enforced": true, "ip": "203.0.113.5", "netKey": "4:203.0.113.0/24", "uid": "alice", "shareId": null, "hits": 2, "createdAt": 1789999700, "lastSeenAt": 1790000000, "actions": [], "explanation": {"v": 1, "check": "step_up_refused", "mode": {"configured": "protect", "effective": "protect", "reason": null}, "thresholds": [], "facts": {"policies": ["flagged_source", "risk_high"]}, "first": 1789999700, "last": 1790000000}},
+			"detection": {"id": "470938541726507049", "checkId": "step_up_refused", "severity": "medium", "enforced": true, "ip": "203.0.113.5", "netKey": "4:203.0.113.0/24", "uid": "alice", "shareId": null, "hits": 2, "createdAt": 1789999700, "lastSeenAt": 1790000000, "actions": [], "explanation": {"v": 1, "check": "step_up_refused", "mode": {"configured": "protect", "effective": "protect", "reason": null}, "thresholds": [], "facts": {"policies": ["flagged_source", "risk_high"]}, "first": 1789999700, "last": 1790000000}},
 			"reads": {
 				"narrative": [
 					"At date:1789999700 alice logged in from 203.0.113.5 with the correct password. The login needed extra confirmation, because the address or its network took part in an attack; the address has a high risk score.",
-					"The account has no second factor and no email address that could confirm it, so the login was refused. The person was shown the reference SAAA-AABK.",
+					"The account has no second factor and no email address that could confirm it, so the login was refused. The person was shown the reference SAPC-J6DR-FLNJ-BK.",
 					"It was refused 2 times within the hour."
 				],
 				"userNotice": {
 					"subject": "A login to your account was refused",
 					"message": ["Someone logged in to your account with your correct password. The login needed extra confirmation because the address or its network took part in an attack; the address has a high risk score.", "Your account has no email address or second factor to confirm it with, so the login was refused."],
-					"advice": ["If this was you, ask your administrator for help and give them the reference SAAA-AABK. With an email address or a second factor, you can confirm such logins yourself.", "If it was not you, someone knows your password: change it, and answer \"No, it was not me\"."]
+					"advice": ["If this was you, ask your administrator for help and give them the reference SAPC-J6DR-FLNJ-BK. With an email address or a second factor, you can confirm such logins yourself.", "If it was not you, someone knows your password: change it, and answer \"No, it was not me\"."]
 				},
 				"asksWasThisYou": true
 			}
 		},
 		"linked to its session": {
-			"detection": {"id": 41, "checkId": "step_up_refused", "severity": "medium", "enforced": true, "ip": "203.0.113.5", "netKey": "4:203.0.113.0/24", "uid": "alice", "shareId": null, "hits": 1, "createdAt": 1789999700, "lastSeenAt": 1790000000, "actions": [], "explanation": {"v": 1, "check": "step_up_refused", "mode": {"configured": "protect", "effective": "protect", "reason": null}, "thresholds": [], "facts": {"policies": ["protected_account"], "sessionTokenIds": [7]}, "first": 1789999700, "last": 1790000000}},
+			"detection": {"id": "470938541726507049", "checkId": "step_up_refused", "severity": "medium", "enforced": true, "ip": "203.0.113.5", "netKey": "4:203.0.113.0/24", "uid": "alice", "shareId": null, "hits": 1, "createdAt": 1789999700, "lastSeenAt": 1790000000, "actions": [], "explanation": {"v": 1, "check": "step_up_refused", "mode": {"configured": "protect", "effective": "protect", "reason": null}, "thresholds": [], "facts": {"policies": ["protected_account"], "sessionTokenIds": [7]}, "first": 1789999700, "last": 1790000000}},
 			"reads": {
 				"narrative": [
 					"At date:1789999700 alice logged in from 203.0.113.5 with the correct password. The login needed extra confirmation, because someone is guessing the account's password.",
-					"The account has no second factor and no email address that could confirm it, so the login was refused. The person was shown the reference SAAA-AABK."
+					"The account has no second factor and no email address that could confirm it, so the login was refused. The person was shown the reference SAPC-J6DR-FLNJ-BK."
 				],
 				"userNotice": {
 					"subject": "A login to your account was refused",
 					"message": ["Someone logged in to your account with your correct password. The login needed extra confirmation because someone is guessing the account's password.", "Your account has no email address or second factor to confirm it with, so the login was refused."],
-					"advice": ["If this was you, ask your administrator for help and give them the reference SAAA-AABK. With an email address or a second factor, you can confirm such logins yourself.", "If it was not you, someone knows your password: change it, and answer \"No, it was not me\"."]
+					"advice": ["If this was you, ask your administrator for help and give them the reference SAPC-J6DR-FLNJ-BK. With an email address or a second factor, you can confirm such logins yourself.", "If it was not you, someone knows your password: change it, and answer \"No, it was not me\"."]
 				},
 				"asksWasThisYou": true
 			}
@@ -1303,7 +1303,7 @@
 			"reads": {
 				"narrative": [
 					"At date:1789999700 alice logged in from 203.0.113.5 with the correct password. The login needed extra confirmation, because administrators may log in only from the trusted networks, and this address is outside them.",
-					"The account has no second factor and no email address that could confirm it, so the login was refused. The person was shown the reference SAAA-AABK."
+					"The account has no second factor and no email address that could confirm it, so the login was refused. The person was shown the reference SAAA-AAAA-AAAA-BK."
 				],
 				"userNotice": {
 					"subject": "A login to your account was refused",
@@ -1312,7 +1312,7 @@
 						"Your account has no email address or second factor to confirm it with, so the login was refused."
 					],
 					"advice": [
-						"If this was you, ask your administrator for help and give them the reference SAAA-AABK. With an email address or a second factor, you can confirm such logins yourself.",
+						"If this was you, ask your administrator for help and give them the reference SAAA-AAAA-AAAA-BK. With an email address or a second factor, you can confirm such logins yourself.",
 						"If it was not you, someone knows your password: change it, and answer \"No, it was not me\"."
 					]
 				},
@@ -1320,16 +1320,16 @@
 			}
 		},
 		"old row": {
-			"detection": {"id": 41, "checkId": "step_up_refused", "severity": "medium", "enforced": true, "ip": "203.0.113.5", "netKey": "4:203.0.113.0/24", "uid": "alice", "shareId": null, "hits": 1, "createdAt": 1789999700, "lastSeenAt": 1790000000, "actions": [], "explanation": {"v": 1, "check": "step_up_refused", "mode": {"configured": "protect", "effective": "protect", "reason": null}, "thresholds": [], "facts": {"policies": ["retired_policy"]}, "first": 1789999700, "last": 1790000000}},
+			"detection": {"id": "470938541726507049", "checkId": "step_up_refused", "severity": "medium", "enforced": true, "ip": "203.0.113.5", "netKey": "4:203.0.113.0/24", "uid": "alice", "shareId": null, "hits": 1, "createdAt": 1789999700, "lastSeenAt": 1790000000, "actions": [], "explanation": {"v": 1, "check": "step_up_refused", "mode": {"configured": "protect", "effective": "protect", "reason": null}, "thresholds": [], "facts": {"policies": ["retired_policy"]}, "first": 1789999700, "last": 1790000000}},
 			"reads": {
 				"narrative": [
 					"At date:1789999700 alice logged in from 203.0.113.5 with the correct password. The login needed extra confirmation, because .",
-					"The account has no second factor and no email address that could confirm it, so the login was refused. The person was shown the reference SAAA-AABK."
+					"The account has no second factor and no email address that could confirm it, so the login was refused. The person was shown the reference SAPC-J6DR-FLNJ-BK."
 				],
 				"userNotice": {
 					"subject": "A login to your account was refused",
 					"message": ["Someone logged in to your account with your correct password. The login needed extra confirmation because .", "Your account has no email address or second factor to confirm it with, so the login was refused."],
-					"advice": ["If this was you, ask your administrator for help and give them the reference SAAA-AABK. With an email address or a second factor, you can confirm such logins yourself.", "If it was not you, someone knows your password: change it, and answer \"No, it was not me\"."]
+					"advice": ["If this was you, ask your administrator for help and give them the reference SAPC-J6DR-FLNJ-BK. With an email address or a second factor, you can confirm such logins yourself.", "If it was not you, someone knows your password: change it, and answer \"No, it was not me\"."]
 				},
 				"asksWasThisYou": true
 			}
@@ -1337,7 +1337,7 @@
 	},
 	"step_up_refused_client": {
 		"could confirm in a browser": {
-			"detection": {"id": 41, "checkId": "step_up_refused_client", "severity": "low", "enforced": true, "ip": "203.0.113.5", "netKey": "4:203.0.113.0/24", "uid": "alice", "shareId": null, "hits": 3, "createdAt": 1789999700, "lastSeenAt": 1790000000, "actions": [], "explanation": {"v": 1, "check": "step_up_refused_client", "mode": {"configured": "protect", "effective": "protect", "reason": null}, "thresholds": [], "facts": {"policies": ["risky_network"], "inBrowser": true}, "first": 1789999700, "last": 1790000000}},
+			"detection": {"id": "470938541726507049", "checkId": "step_up_refused_client", "severity": "low", "enforced": true, "ip": "203.0.113.5", "netKey": "4:203.0.113.0/24", "uid": "alice", "shareId": null, "hits": 3, "createdAt": 1789999700, "lastSeenAt": 1790000000, "actions": [], "explanation": {"v": 1, "check": "step_up_refused_client", "mode": {"configured": "protect", "effective": "protect", "reason": null}, "thresholds": [], "facts": {"policies": ["risky_network"], "inBrowser": true}, "first": 1789999700, "last": 1790000000}},
 			"reads": {
 				"narrative": [
 					"At date:1789999700 an app or script logged in as alice from 203.0.113.5 with the account's password. Logins with the password needed extra confirmation, because the address belongs to a hosting provider or the Tor network, and apps cannot give one, so the request was refused.",
@@ -1353,7 +1353,7 @@
 			}
 		},
 		"no way to confirm": {
-			"detection": {"id": 41, "checkId": "step_up_refused_client", "severity": "low", "enforced": true, "ip": "203.0.113.5", "netKey": "4:203.0.113.0/24", "uid": "alice", "shareId": null, "hits": 1, "createdAt": 1789999700, "lastSeenAt": 1790000000, "actions": [], "explanation": {"v": 1, "check": "step_up_refused_client", "mode": {"configured": "protect", "effective": "protect", "reason": null}, "thresholds": [], "facts": {"policies": ["breached_password"], "inBrowser": false, "sessionTokenIds": [9]}, "first": 1789999700, "last": 1790000000}},
+			"detection": {"id": "470938541726507049", "checkId": "step_up_refused_client", "severity": "low", "enforced": true, "ip": "203.0.113.5", "netKey": "4:203.0.113.0/24", "uid": "alice", "shareId": null, "hits": 1, "createdAt": 1789999700, "lastSeenAt": 1790000000, "actions": [], "explanation": {"v": 1, "check": "step_up_refused_client", "mode": {"configured": "protect", "effective": "protect", "reason": null}, "thresholds": [], "facts": {"policies": ["breached_password"], "inBrowser": false, "sessionTokenIds": [9]}, "first": 1789999700, "last": 1790000000}},
 			"reads": {
 				"narrative": [
 					"At date:1789999700 an app or script logged in as alice from 203.0.113.5 with the account's password. Logins with the password needed extra confirmation, because the password is on a public list of leaked passwords, and apps cannot give one, so the request was refused."
@@ -1386,7 +1386,7 @@
 			}
 		},
 		"old row": {
-			"detection": {"id": 41, "checkId": "step_up_refused_client", "severity": "low", "enforced": true, "ip": "203.0.113.5", "netKey": "4:203.0.113.0/24", "uid": "alice", "shareId": null, "hits": 1, "createdAt": 1789999700, "lastSeenAt": 1790000000, "actions": [], "explanation": {"v": 1, "check": "step_up_refused_client", "mode": {"configured": "protect", "effective": "protect", "reason": null}, "thresholds": [], "facts": {"policies": ["flagged_source"]}, "first": 1789999700, "last": 1790000000}},
+			"detection": {"id": "470938541726507049", "checkId": "step_up_refused_client", "severity": "low", "enforced": true, "ip": "203.0.113.5", "netKey": "4:203.0.113.0/24", "uid": "alice", "shareId": null, "hits": 1, "createdAt": 1789999700, "lastSeenAt": 1790000000, "actions": [], "explanation": {"v": 1, "check": "step_up_refused_client", "mode": {"configured": "protect", "effective": "protect", "reason": null}, "thresholds": [], "facts": {"policies": ["flagged_source"]}, "first": 1789999700, "last": 1790000000}},
 			"reads": {
 				"narrative": [
 					"At date:1789999700 an app or script logged in as alice from 203.0.113.5 with the account's password. Logins with the password needed extra confirmation, because the address or its network took part in an attack, and apps cannot give one, so the request was refused."
@@ -1402,7 +1402,7 @@
 	},
 	"step_up_unconfirmed": {
 		"browser": {
-			"detection": {"id": 41, "checkId": "step_up_unconfirmed", "severity": "medium", "enforced": true, "ip": "203.0.113.5", "netKey": "4:203.0.113.0/24", "uid": "alice", "shareId": null, "hits": 2, "createdAt": 1789999700, "lastSeenAt": 1790000000, "actions": [], "explanation": {"v": 1, "check": "step_up_unconfirmed", "mode": {"configured": "protect", "effective": "protect", "reason": null}, "thresholds": [], "facts": {"policies": ["breached_password"], "client": false, "notify": true, "forceChange": true}, "first": 1789999700, "last": 1790000000}},
+			"detection": {"id": "470938541726507049", "checkId": "step_up_unconfirmed", "severity": "medium", "enforced": true, "ip": "203.0.113.5", "netKey": "4:203.0.113.0/24", "uid": "alice", "shareId": null, "hits": 2, "createdAt": 1789999700, "lastSeenAt": 1790000000, "actions": [], "explanation": {"v": 1, "check": "step_up_unconfirmed", "mode": {"configured": "protect", "effective": "protect", "reason": null}, "thresholds": [], "facts": {"policies": ["breached_password"], "client": false, "notify": true, "forceChange": true}, "first": 1789999700, "last": 1790000000}},
 			"reads": {
 				"narrative": [
 					"At date:1789999700 alice logged in from 203.0.113.5 with the correct password. The login needed extra confirmation, because the password is on a public list of leaked passwords.",
@@ -1418,7 +1418,7 @@
 			}
 		},
 		"app": {
-			"detection": {"id": 41, "checkId": "step_up_unconfirmed", "severity": "medium", "enforced": true, "ip": "203.0.113.5", "netKey": "4:203.0.113.0/24", "uid": "alice", "shareId": null, "hits": 1, "createdAt": 1789999700, "lastSeenAt": 1790000000, "actions": [], "explanation": {"v": 1, "check": "step_up_unconfirmed", "mode": {"configured": "protect", "effective": "protect", "reason": null}, "thresholds": [], "facts": {"policies": ["sprayed_password", "risk_high"], "client": true, "notify": true, "forceChange": false, "sessionTokenIds": [12]}, "first": 1789999700, "last": 1790000000}},
+			"detection": {"id": "470938541726507049", "checkId": "step_up_unconfirmed", "severity": "medium", "enforced": true, "ip": "203.0.113.5", "netKey": "4:203.0.113.0/24", "uid": "alice", "shareId": null, "hits": 1, "createdAt": 1789999700, "lastSeenAt": 1790000000, "actions": [], "explanation": {"v": 1, "check": "step_up_unconfirmed", "mode": {"configured": "protect", "effective": "protect", "reason": null}, "thresholds": [], "facts": {"policies": ["sprayed_password", "risk_high"], "client": true, "notify": true, "forceChange": false, "sessionTokenIds": [12]}, "first": 1789999700, "last": 1790000000}},
 			"reads": {
 				"narrative": [
 					"At date:1789999700 an app or script logged in as alice from 203.0.113.5 with the account's password. The login needed extra confirmation, because attackers are trying the password against many accounts right now; the address has a high risk score.",
@@ -1455,7 +1455,7 @@
 			}
 		},
 		"old row": {
-			"detection": {"id": 41, "checkId": "step_up_unconfirmed", "severity": "medium", "enforced": true, "ip": "203.0.113.5", "netKey": "4:203.0.113.0/24", "uid": "alice", "shareId": null, "hits": 1, "createdAt": 1789999700, "lastSeenAt": 1790000000, "actions": [], "explanation": {"v": 1, "check": "step_up_unconfirmed", "mode": {"configured": "protect", "effective": "protect", "reason": null}, "thresholds": [], "facts": {"policies": ["retired_policy"]}, "first": 1789999700, "last": 1790000000}},
+			"detection": {"id": "470938541726507049", "checkId": "step_up_unconfirmed", "severity": "medium", "enforced": true, "ip": "203.0.113.5", "netKey": "4:203.0.113.0/24", "uid": "alice", "shareId": null, "hits": 1, "createdAt": 1789999700, "lastSeenAt": 1790000000, "actions": [], "explanation": {"v": 1, "check": "step_up_unconfirmed", "mode": {"configured": "protect", "effective": "protect", "reason": null}, "thresholds": [], "facts": {"policies": ["retired_policy"]}, "first": 1789999700, "last": 1790000000}},
 			"reads": {
 				"narrative": [
 					"At date:1789999700 alice logged in from 203.0.113.5 with the correct password. The login needed extra confirmation, because .",
@@ -1472,7 +1472,7 @@
 	},
 	"token_concurrent_use": {
 		"named session": {
-			"detection": {"id": 41, "checkId": "token_concurrent_use", "severity": "high", "enforced": true, "ip": "203.0.113.5", "netKey": "4:203.0.113.0/24", "uid": "alice", "shareId": null, "hits": 3, "createdAt": 1789999700, "lastSeenAt": 1790000000, "actions": [], "explanation": {"v": 1, "check": "token_concurrent_use", "mode": {"configured": "protect", "effective": "protect", "reason": null}, "thresholds": {"window": 900, "min_switches": 3}, "facts": {"ip1": "198.51.100.3", "net1": "4:198.51.100.0/24", "ip2": "203.0.113.5", "net2": "4:203.0.113.0/24", "family": 4, "switches": 4, "first": 1789999875, "last": 1790000000, "kind": "session", "scheme": "cookie", "tokenName": "Mozilla/5.0 (X11; Linux x86_64; rv:131.0) Gecko/20100101 Firefox/131.0", "tokenId": null, "sessionTokenId": 55}, "first": 1789999700, "last": 1790000000}},
+			"detection": {"id": "470938541726507049", "checkId": "token_concurrent_use", "severity": "high", "enforced": true, "ip": "203.0.113.5", "netKey": "4:203.0.113.0/24", "uid": "alice", "shareId": null, "hits": 3, "createdAt": 1789999700, "lastSeenAt": 1790000000, "actions": [], "explanation": {"v": 1, "check": "token_concurrent_use", "mode": {"configured": "protect", "effective": "protect", "reason": null}, "thresholds": {"window": 900, "min_switches": 3}, "facts": {"ip1": "198.51.100.3", "net1": "4:198.51.100.0/24", "ip2": "203.0.113.5", "net2": "4:203.0.113.0/24", "family": 4, "switches": 4, "first": 1789999875, "last": 1790000000, "kind": "session", "scheme": "cookie", "tokenName": "Mozilla/5.0 (X11; Linux x86_64; rv:131.0) Gecko/20100101 Firefox/131.0", "tokenId": null, "sessionTokenId": 55}, "first": 1789999700, "last": 1790000000}},
 			"reads": {
 				"narrative": [
 					"The logged-in browser session \"Mozilla/5.0 (X11; Linux x86_64; rv:131.0) Gecko/20100101 Firefox/131.0\" of the account alice was used from two different networks at the same time: 198.51.100.3 and 203.0.113.5.",
@@ -1489,7 +1489,7 @@
 			}
 		},
 		"session": {
-			"detection": {"id": 41, "checkId": "token_concurrent_use", "severity": "high", "enforced": true, "ip": "203.0.113.5", "netKey": "4:203.0.113.0/24", "uid": "alice", "shareId": null, "hits": 1, "createdAt": 1789999700, "lastSeenAt": 1790000000, "actions": [], "explanation": {"v": 1, "check": "token_concurrent_use", "mode": {"configured": "protect", "effective": "protect", "reason": null}, "thresholds": [], "facts": {"ip1": "198.51.100.3", "ip2": "203.0.113.5", "switches": 1, "first": 1789999970, "last": 1790000000, "kind": "session", "tokenName": ""}, "first": 1789999700, "last": 1790000000}},
+			"detection": {"id": "470938541726507049", "checkId": "token_concurrent_use", "severity": "high", "enforced": true, "ip": "203.0.113.5", "netKey": "4:203.0.113.0/24", "uid": "alice", "shareId": null, "hits": 1, "createdAt": 1789999700, "lastSeenAt": 1790000000, "actions": [], "explanation": {"v": 1, "check": "token_concurrent_use", "mode": {"configured": "protect", "effective": "protect", "reason": null}, "thresholds": [], "facts": {"ip1": "198.51.100.3", "ip2": "203.0.113.5", "switches": 1, "first": 1789999970, "last": 1790000000, "kind": "session", "tokenName": ""}, "first": 1789999700, "last": 1790000000}},
 			"reads": {
 				"narrative": [
 					"A logged-in browser session of the account alice was used from two different networks at the same time: 198.51.100.3 and 203.0.113.5.",
@@ -1505,7 +1505,7 @@
 			}
 		},
 		"password": {
-			"detection": {"id": 41, "checkId": "token_concurrent_use", "severity": "high", "enforced": true, "ip": "203.0.113.5", "netKey": "4:203.0.113.0/24", "uid": "alice", "shareId": null, "hits": 1, "createdAt": 1789999700, "lastSeenAt": 1790000000, "actions": [], "explanation": {"v": 1, "check": "token_concurrent_use", "mode": {"configured": "protect", "effective": "protect", "reason": null}, "thresholds": [], "facts": {"ip1": "198.51.100.3", "ip2": "203.0.113.5", "switches": 3, "first": 1789999970, "last": 1789999970, "kind": "password", "scheme": "basic", "tokenName": "", "tokenId": null, "sessionTokenId": null}, "first": 1789999700, "last": 1790000000}},
+			"detection": {"id": "470938541726507049", "checkId": "token_concurrent_use", "severity": "high", "enforced": true, "ip": "203.0.113.5", "netKey": "4:203.0.113.0/24", "uid": "alice", "shareId": null, "hits": 1, "createdAt": 1789999700, "lastSeenAt": 1790000000, "actions": [], "explanation": {"v": 1, "check": "token_concurrent_use", "mode": {"configured": "protect", "effective": "protect", "reason": null}, "thresholds": [], "facts": {"ip1": "198.51.100.3", "ip2": "203.0.113.5", "switches": 3, "first": 1789999970, "last": 1789999970, "kind": "password", "scheme": "basic", "tokenName": "", "tokenId": null, "sessionTokenId": null}, "first": 1789999700, "last": 1790000000}},
 			"reads": {
 				"narrative": [
 					"The password of the account alice was sent by an app from two different networks at the same time: 198.51.100.3 and 203.0.113.5.",
@@ -1521,7 +1521,7 @@
 			}
 		},
 		"named app password": {
-			"detection": {"id": 41, "checkId": "token_concurrent_use", "severity": "high", "enforced": true, "ip": "203.0.113.5", "netKey": "4:203.0.113.0/24", "uid": "alice", "shareId": null, "hits": 1, "createdAt": 1789999700, "lastSeenAt": 1790000000, "actions": [], "explanation": {"v": 1, "check": "token_concurrent_use", "mode": {"configured": "protect", "effective": "protect", "reason": null}, "thresholds": [], "facts": {"ip1": "198.51.100.3", "ip2": "203.0.113.5", "switches": 3, "first": 1789999400, "last": 1790000000, "kind": "app_password", "scheme": "basic", "tokenName": "Thunderbird", "tokenId": 9, "sessionTokenId": null}, "first": 1789999700, "last": 1790000000}},
+			"detection": {"id": "470938541726507049", "checkId": "token_concurrent_use", "severity": "high", "enforced": true, "ip": "203.0.113.5", "netKey": "4:203.0.113.0/24", "uid": "alice", "shareId": null, "hits": 1, "createdAt": 1789999700, "lastSeenAt": 1790000000, "actions": [], "explanation": {"v": 1, "check": "token_concurrent_use", "mode": {"configured": "protect", "effective": "protect", "reason": null}, "thresholds": [], "facts": {"ip1": "198.51.100.3", "ip2": "203.0.113.5", "switches": 3, "first": 1789999400, "last": 1790000000, "kind": "app_password", "scheme": "basic", "tokenName": "Thunderbird", "tokenId": 9, "sessionTokenId": null}, "first": 1789999700, "last": 1790000000}},
 			"reads": {
 				"narrative": [
 					"The app password \"Thunderbird\" of the account alice was used from two different networks at the same time: 198.51.100.3 and 203.0.113.5.",
@@ -1537,7 +1537,7 @@
 			}
 		},
 		"app password": {
-			"detection": {"id": 41, "checkId": "token_concurrent_use", "severity": "high", "enforced": true, "ip": "203.0.113.5", "netKey": "4:203.0.113.0/24", "uid": "alice", "shareId": null, "hits": 1, "createdAt": 1789999700, "lastSeenAt": 1790000000, "actions": [], "explanation": {"v": 1, "check": "token_concurrent_use", "mode": {"configured": "protect", "effective": "protect", "reason": null}, "thresholds": [], "facts": {"ip1": "198.51.100.3", "ip2": "203.0.113.5", "switches": 3, "kind": "app_password", "tokenName": ""}, "first": 1789999700, "last": 1790000000}},
+			"detection": {"id": "470938541726507049", "checkId": "token_concurrent_use", "severity": "high", "enforced": true, "ip": "203.0.113.5", "netKey": "4:203.0.113.0/24", "uid": "alice", "shareId": null, "hits": 1, "createdAt": 1789999700, "lastSeenAt": 1790000000, "actions": [], "explanation": {"v": 1, "check": "token_concurrent_use", "mode": {"configured": "protect", "effective": "protect", "reason": null}, "thresholds": [], "facts": {"ip1": "198.51.100.3", "ip2": "203.0.113.5", "switches": 3, "kind": "app_password", "tokenName": ""}, "first": 1789999700, "last": 1790000000}},
 			"reads": {
 				"narrative": [
 					"An app password of the account alice was used from two different networks at the same time: 198.51.100.3 and 203.0.113.5.",
@@ -1555,7 +1555,7 @@
 	},
 	"trap_url": {
 		"path": {
-			"detection": {"id": 41, "checkId": "trap_url", "severity": "high", "enforced": true, "ip": "203.0.113.5", "netKey": "4:203.0.113.0/24", "uid": null, "shareId": null, "hits": 5, "createdAt": 1789999700, "lastSeenAt": 1790000000, "actions": [], "explanation": {"v": 1, "check": "trap_url", "mode": {"configured": "protect", "effective": "protect", "reason": null}, "thresholds": [], "facts": {"path": "/wp-login.php", "trap": "/wp-login.php", "method": "GET"}, "first": 1789999700, "last": 1790000000}},
+			"detection": {"id": "470938541726507049", "checkId": "trap_url", "severity": "high", "enforced": true, "ip": "203.0.113.5", "netKey": "4:203.0.113.0/24", "uid": null, "shareId": null, "hits": 5, "createdAt": 1789999700, "lastSeenAt": 1790000000, "actions": [], "explanation": {"v": 1, "check": "trap_url", "mode": {"configured": "protect", "effective": "protect", "reason": null}, "thresholds": [], "facts": {"path": "/wp-login.php", "trap": "/wp-login.php", "method": "GET"}, "first": 1789999700, "last": 1790000000}},
 			"reads": {
 				"narrative": [
 					"The address 203.0.113.5 requested /wp-login[.]php without being logged in. No Nextcloud client ever requests this path.",
@@ -1564,7 +1564,7 @@
 			}
 		},
 		"old row": {
-			"detection": {"id": 41, "checkId": "trap_url", "severity": "high", "enforced": true, "ip": "203.0.113.5", "netKey": "4:203.0.113.0/24", "uid": null, "shareId": null, "hits": 1, "createdAt": 1789999700, "lastSeenAt": 1790000000, "actions": [], "explanation": {"v": 1, "check": "trap_url", "mode": {"configured": "protect", "effective": "protect", "reason": null}, "thresholds": [], "facts": [], "first": 1789999700, "last": 1790000000}},
+			"detection": {"id": "470938541726507049", "checkId": "trap_url", "severity": "high", "enforced": true, "ip": "203.0.113.5", "netKey": "4:203.0.113.0/24", "uid": null, "shareId": null, "hits": 1, "createdAt": 1789999700, "lastSeenAt": 1790000000, "actions": [], "explanation": {"v": 1, "check": "trap_url", "mode": {"configured": "protect", "effective": "protect", "reason": null}, "thresholds": [], "facts": [], "first": 1789999700, "last": 1790000000}},
 			"reads": {
 				"narrative": [
 					"The address 203.0.113.5 requested  without being logged in. No Nextcloud client ever requests this path."
@@ -1574,10 +1574,10 @@
 	},
 	"user_denied": {
 		"weak": {
-			"detection": {"id": 41, "checkId": "user_denied", "severity": "high", "enforced": true, "ip": "203.0.113.5", "netKey": "4:203.0.113.0/24", "uid": "alice", "shareId": null, "hits": 1, "createdAt": 1789999700, "lastSeenAt": 1790000000, "actions": [], "explanation": {"v": 1, "check": "user_denied", "mode": {"configured": "protect", "effective": "protect", "reason": null}, "thresholds": [], "facts": {"detection": 17, "check": "risky_network", "detectedAt": 1789992800, "passwordInvolved": true, "answeredFromSource": false, "network": null, "weakSession": true, "sessionTokenIds": [3, 4], "tokenId": null}, "first": 1789999700, "last": 1790000000}},
+			"detection": {"id": "470938541726507049", "checkId": "user_denied", "severity": "high", "enforced": true, "ip": "203.0.113.5", "netKey": "4:203.0.113.0/24", "uid": "alice", "shareId": null, "hits": 1, "createdAt": 1789999700, "lastSeenAt": 1790000000, "actions": [], "explanation": {"v": 1, "check": "user_denied", "mode": {"configured": "protect", "effective": "protect", "reason": null}, "thresholds": [], "facts": {"detection": "470938541726507025", "check": "risky_network", "detectedAt": 1789992800, "passwordInvolved": true, "answeredFromSource": false, "network": null, "weakSession": true, "sessionTokenIds": [3, 4], "tokenId": null}, "first": 1789999700, "last": 1790000000}},
 			"reads": {
 				"narrative": [
-					"alice answered \"No, it was not me\" about detection 17 (Hosting and Tor networks, at date:1789992800).",
+					"alice answered \"No, it was not me\" about detection 470938541726507025 (Hosting and Tor networks, at date:1789992800).",
 					"The answer came from a session whose login proved no more than the password, or from a Nextcloud app with its app password, so nothing was ended or blocked, and the question stays open for the user. Check with the user that they answered themselves."
 				],
 				"userNotice": {
@@ -1588,10 +1588,10 @@
 			}
 		},
 		"with network": {
-			"detection": {"id": 41, "checkId": "user_denied", "severity": "high", "enforced": true, "ip": "203.0.113.5", "netKey": "4:203.0.113.0/24", "uid": "alice", "shareId": null, "hits": 1, "createdAt": 1789999700, "lastSeenAt": 1790000000, "actions": [], "explanation": {"v": 1, "check": "user_denied", "mode": {"configured": "protect", "effective": "protect", "reason": null}, "thresholds": [], "facts": {"detection": 18, "check": "password_spraying", "detectedAt": 1789992800, "passwordInvolved": false, "answeredFromSource": true, "network": "4:198.51.100.0/24", "weakSession": false, "sessionTokenIds": [], "tokenId": 6}, "first": 1789999700, "last": 1790000000}},
+			"detection": {"id": "470938541726507049", "checkId": "user_denied", "severity": "high", "enforced": true, "ip": "203.0.113.5", "netKey": "4:203.0.113.0/24", "uid": "alice", "shareId": null, "hits": 1, "createdAt": 1789999700, "lastSeenAt": 1790000000, "actions": [], "explanation": {"v": 1, "check": "user_denied", "mode": {"configured": "protect", "effective": "protect", "reason": null}, "thresholds": [], "facts": {"detection": "470938541726507026", "check": "password_spraying", "detectedAt": 1789992800, "passwordInvolved": false, "answeredFromSource": true, "network": "4:198.51.100.0/24", "weakSession": false, "sessionTokenIds": [], "tokenId": 6}, "first": 1789999700, "last": 1790000000}},
 			"reads": {
 				"narrative": [
-					"alice answered \"No, it was not me\" about detection 18 (Password spraying, at date:1789992800).",
+					"alice answered \"No, it was not me\" about detection 470938541726507026 (Password spraying, at date:1789992800).",
 					"Logins from the network 4:198.51.100.0/24 need extra confirmation for a while."
 				],
 				"userNotice": {
@@ -1602,10 +1602,10 @@
 			}
 		},
 		"old row": {
-			"detection": {"id": 41, "checkId": "user_denied", "severity": "high", "enforced": true, "ip": "203.0.113.5", "netKey": "4:203.0.113.0/24", "uid": "alice", "shareId": null, "hits": 1, "createdAt": 1789999700, "lastSeenAt": 1790000000, "actions": [], "explanation": {"v": 1, "check": "user_denied", "mode": {"configured": "protect", "effective": "protect", "reason": null}, "thresholds": [], "facts": {"detection": 19, "check": "retired_check"}, "first": 1789999700, "last": 1790000000}},
+			"detection": {"id": "470938541726507049", "checkId": "user_denied", "severity": "high", "enforced": true, "ip": "203.0.113.5", "netKey": "4:203.0.113.0/24", "uid": "alice", "shareId": null, "hits": 1, "createdAt": 1789999700, "lastSeenAt": 1790000000, "actions": [], "explanation": {"v": 1, "check": "user_denied", "mode": {"configured": "protect", "effective": "protect", "reason": null}, "thresholds": [], "facts": {"detection": "470938541726507027", "check": "retired_check"}, "first": 1789999700, "last": 1790000000}},
 			"reads": {
 				"narrative": [
-					"alice answered \"No, it was not me\" about detection 19 (retired_check, at date:1789999700)."
+					"alice answered \"No, it was not me\" about detection 470938541726507027 (retired_check, at date:1789999700)."
 				],
 				"userNotice": {
 					"subject": "You said it was not you",

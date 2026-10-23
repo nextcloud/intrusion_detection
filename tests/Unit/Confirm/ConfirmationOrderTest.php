@@ -146,7 +146,7 @@ class ConfirmationOrderTest extends TestCase {
 		$start = $this->approvalMethod()->begin($this->user(), $state);
 		$this->assertSame(IConfirmationMethod::PENDING, $start->outcome);
 		$state = $start->state;
-		$this->assertSame(41, $state->approvalId);
+		$this->assertSame('41', $state->approvalId);
 		$this->assertSame(self::NOW + 1800, $state->deadline, 'The login may wait until the request expires');
 
 		$this->requested = null;
@@ -174,7 +174,7 @@ class ConfirmationOrderTest extends TestCase {
 	public function testTheStatusOfTheRequest(string $status, ?string $decidedBy, int $expiresAt, string $expected): void {
 		$row = $this->approvalRow($status, $expiresAt);
 		$row->setDecidedBy($decidedBy);
-		$state = new StepUpState('alice', ConfirmationStatus::Pending, ['flagged_source'], self::NOW, self::NOW + 900, approvalId: 41);
+		$state = new StepUpState('alice', ConfirmationStatus::Pending, ['flagged_source'], self::NOW, self::NOW + 900, approvalId: '41');
 		$this->assertSame($expected, $this->approvalMethod($row)->status($this->user(), $state));
 	}
 
@@ -182,7 +182,7 @@ class ConfirmationOrderTest extends TestCase {
 		$row = $this->approvalRow(Approval::STATUS_APPROVED, self::NOW + 60);
 		$row->setSubjectUid('mallory');
 		$row->setDecidedBy('carol');
-		$state = new StepUpState('alice', ConfirmationStatus::Pending, ['flagged_source'], self::NOW, self::NOW + 900, approvalId: 41);
+		$state = new StepUpState('alice', ConfirmationStatus::Pending, ['flagged_source'], self::NOW, self::NOW + 900, approvalId: '41');
 		$this->assertSame(AdminApprovalMethod::STATUS_NONE, $this->approvalMethod($row)->status($this->user(), $state));
 	}
 
@@ -209,7 +209,7 @@ class ConfirmationOrderTest extends TestCase {
 
 	private function knownDeviceMethod(): KnownDeviceMethod {
 		$devices = $this->createMock(KnownDevices::class);
-		$devices->method('recognise')->willReturnCallback(fn (): ?KnownDevice => $this->knownDevice ? new KnownDevice(3, 'alice', 'firefox', 'linux', 'Firefox on Linux', '203.0.113.0/24', self::NOW - 86400, self::NOW - 86400) : null);
+		$devices->method('recognise')->willReturnCallback(fn (): ?KnownDevice => $this->knownDevice ? new KnownDevice('3', 'alice', 'firefox', 'linux', 'Firefox on Linux', '203.0.113.0/24', self::NOW - 86400, self::NOW - 86400) : null);
 		return new KnownDeviceMethod($devices, $this->settings());
 	}
 
@@ -234,13 +234,12 @@ class ConfirmationOrderTest extends TestCase {
 	}
 
 	private function approvalRow(string $status, int $expiresAt): Approval {
-		$row = new Approval();
-		$row->setId(41);
+		$row = Approval::fromRow(['id' => '41']);
 		$row->setKind(Approval::KIND_LOGIN);
 		$row->setSubjectUid('alice');
 		$row->setRequestedBy('alice');
 		$row->setStatus($status);
-		$row->setCreatedAt(self::NOW - 60);
+		$row->setCreatedTime(self::NOW - 60);
 		$row->setExpiresAt($expiresAt);
 		return $row;
 	}

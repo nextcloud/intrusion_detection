@@ -73,7 +73,7 @@ class AccountTakeoverDetector implements IDetector {
 		$window = (int)$params[AccountTakeover::PARAM_WINDOW];
 		$windowAny = (int)$params[AccountTakeover::PARAM_WINDOW_ANY];
 
-		/** @var list<array{id: int, type: SecurityChangeType, points: int, at: int, session: ?int, ip: ?string, old: ?string, new: ?string}> $counted */
+		/** @var list<array{id: string, type: SecurityChangeType, points: int, at: int, session: ?int, ip: ?string, old: ?string, new: ?string}> $counted */
 		$counted = [];
 		foreach ($this->changes->findRecent($uid, $now - max($window, $windowAny), self::MAX_CHANGES) as $row) {
 			$type = SecurityChangeType::tryFrom($row['type']);

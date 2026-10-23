@@ -34,8 +34,8 @@ class FactsMergerTest extends TestCase {
 	}
 
 	public function testFactsThatDeclareNoMergeAreTheLatest(): void {
-		$merged = FactsMerger::merge(['link' => 1, 'old' => 'kept'], new DetectionDraft('account_locked', facts: new AccountLockedFacts(link: 2)));
-		$this->assertSame(2, $merged['link']);
+		$merged = FactsMerger::merge(['link' => '1', 'old' => 'kept'], new DetectionDraft('account_locked', facts: new AccountLockedFacts(link: '2')));
+		$this->assertSame('2', $merged['link']);
 		$this->assertSame('kept', $merged['old']);
 		$this->assertSame(['old' => 'kept'], FactsMerger::merge(['old' => 'kept'], new DetectionDraft('manual_block')), 'A draft without facts changes nothing');
 	}

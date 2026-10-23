@@ -74,7 +74,7 @@ class DetectionAccounts {
 	 */
 	public function recordNew(Detection $detection): array {
 		$uids = self::of($detection);
-		$this->mapper->addNew($detection->getId(), $uids);
+		$this->mapper->addNew((string)$detection->getId(), $uids);
 		return $uids;
 	}
 
@@ -87,9 +87,9 @@ class DetectionAccounts {
 	 */
 	public function recordChange(Detection $detection, ?array $before): array {
 		$now = self::of($detection);
-		$added = array_values(array_diff($now, $before ?? $this->mapper->uids($detection->getId())));
+		$added = array_values(array_diff($now, $before ?? $this->mapper->uids((string)$detection->getId())));
 		if ($added !== []) {
-			$this->mapper->add($detection->getId(), $added);
+			$this->mapper->add((string)$detection->getId(), $added);
 		}
 		return array_values(array_unique(array_merge($before ?? [], $now)));
 	}

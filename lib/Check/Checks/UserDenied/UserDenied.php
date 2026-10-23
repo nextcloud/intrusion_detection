@@ -97,9 +97,9 @@ final class UserDenied implements ICheck, IExplainsDetection, IExplainsToUser, I
 		$facts = UserDeniedFacts::fromArray(DetectionFacts::of($detection)->facts);
 		$sentences = [$l->t('%1$s answered "No, it was not me" about detection %2$s (%3$s, at %4$s).', [
 			(string)$detection->getUid(),
-			(string)$facts->detection,
+			$facts->detection,
 			$this->names->name($facts->check, $l),
-			$this->dates->dateTime($facts->detectedAt ?? $detection->getCreatedAt()),
+			$this->dates->dateTime($facts->detectedAt ?? $detection->getCreatedTime()),
 		])];
 		if ($facts->weakSession) {
 			$sentences[] = $l->t('The answer came from a session whose login proved no more than the password, or from a Nextcloud app with its app password, so nothing was ended or blocked, and the question stays open for the user. Check with the user that they answered themselves.');
@@ -117,7 +117,7 @@ final class UserDenied implements ICheck, IExplainsDetection, IExplainsToUser, I
 		return new UserNotice(
 			$l->t('You said it was not you'),
 			[
-				$l->t('You answered "No, it was not me" about an event on your account at %s.', [$this->dates->dateTime($detectedAt ?? $detection->getCreatedAt())]),
+				$l->t('You answered "No, it was not me" about an event on your account at %s.', [$this->dates->dateTime($detectedAt ?? $detection->getCreatedTime())]),
 			],
 			[
 				$l->t('Check your devices and sessions in your security settings, and change your password if you have not been asked to already.'),

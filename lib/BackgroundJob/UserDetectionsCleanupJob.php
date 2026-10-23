@@ -37,10 +37,10 @@ class UserDetectionsCleanupJob extends QueuedJob {
 
 	#[\Override]
 	protected function run(mixed $argument): void {
-		if (!is_array($argument) || !is_string($argument['uid'] ?? null) || !is_int($argument['upTo'] ?? null)) {
+		if (!is_array($argument) || !is_string($argument['uid'] ?? null) || !is_string($argument['upTo'] ?? null)) {
 			return;
 		}
-		$after = is_int($argument['after'] ?? null) ? $argument['after'] : 0;
+		$after = is_string($argument['after'] ?? null) ? $argument['after'] : '0';
 		$last = $this->cleanup->scrubDetections($argument['uid'], $argument['upTo'], $after, self::BATCHES_PER_RUN);
 		if ($last !== null) {
 			$this->jobList->add(self::class, ['uid' => $argument['uid'], 'upTo' => $argument['upTo'], 'after' => $last]);

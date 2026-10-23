@@ -175,13 +175,13 @@ class ResourceControllersTest extends TestCase {
 
 	public function testALiftGoesToTheServiceWithTheActor(): void {
 		$this->banService->expects($this->once())->method('liftById')->with(3, 'alice', 'false positive')->willReturn(new Ban());
-		$this->assertSame(Http::STATUS_OK, $this->banApi->liftBan(3, 'false positive')->getStatus());
+		$this->assertSame(Http::STATUS_OK, $this->banApi->liftBan('3', 'false positive')->getStatus());
 	}
 
 	public function testLiftingAMissingBanIsNotFound(): void {
 		$this->banService->method('liftById')->willThrowException(new DoesNotExistException(''));
 		$this->expectException(OCSNotFoundException::class);
-		$this->banApi->liftBan(3, 'note');
+		$this->banApi->liftBan('3', 'note');
 	}
 
 	public function testSettingsGoToTheTransferAsGivenWithTheActor(): void {
@@ -240,12 +240,12 @@ class ResourceControllersTest extends TestCase {
 	public function testAMissingDetectionIsNotFound(): void {
 		$this->detectionMapper->method('findById')->willThrowException(new DoesNotExistException(''));
 		$this->expectException(OCSNotFoundException::class);
-		$this->detectionApi->detection(5);
+		$this->detectionApi->detection('5');
 	}
 
 	public function testLiftBanNeedsANote(): void {
 		$this->banService->expects($this->never())->method('liftById');
-		$this->assertSame(['param' => 'note', 'reason' => 'required'], array_diff_key($this->banApi->liftBan(1, '  ')->getData(), ['message' => '']));
+		$this->assertSame(['param' => 'note', 'reason' => 'required'], array_diff_key($this->banApi->liftBan('1', '  ')->getData(), ['message' => '']));
 	}
 
 	public function testLearningModeActions(): void {

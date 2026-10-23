@@ -99,7 +99,7 @@ class WasThisYouService {
 	 * @return Detection the detection; still without an answer when the session proved only the password
 	 * @throws AnswerException
 	 */
-	public function deny(IUser $user, int $detectionId): Detection {
+	public function deny(IUser $user, string $detectionId): Detection {
 		$detection = $this->ownOpen($user, $detectionId);
 		$uid = $user->getUID();
 		$level = $this->confirmation->denialLevel($uid);
@@ -123,9 +123,9 @@ class WasThisYouService {
 				source: $source,
 				uid: $uid,
 				facts: new UserDeniedFacts(
-					detection: $detection->getId(),
+					detection: (string)$detection->getId(),
 					check: (string)$detection->getCheckId(),
-					detectedAt: $detection->getCreatedAt(),
+					detectedAt: $detection->getCreatedTime(),
 					passwordInvolved: $this->questions->involvesPassword($detection),
 					answeredFromSource: $source !== null && $current !== null && $source->ipKey === $current->ipKey,
 					network: $weak ? null : $source?->netKey,
@@ -142,36 +142,37 @@ class WasThisYouService {
 				mode: new ModeState($mode, $mode),
 			);
 			if ($weak && $this->weaklyDenied($draft)) {
-				$this->audit->log('%s answered "No, it was not me" about detection %s again from a session that proved only the password; nothing was recorded', ['uid' => $uid, 'detection' => $detection->getId()]);
+				$this->audit->log('%s answered "No, it was not me" about detection %s again from a session that proved only the password; nothing was recorded', ['uid' => $uid, 'detection' => (string)$detection->getId()]);
 				return $detection;
 			}
 			// A weak "No" at the same time as another is merged into it.
 			$denial = $this->engine->handle($draft);
+			$denialId = $denial === null ? null : (string)$denial->getId();
 			if ($mode->acts() && !$weak) {
 				foreach (array_slice($sessions, 1) as $sessionTokenId) {
-					$this->sessionKiller->kill($uid, $sessionTokenId, null, $denial?->getId());
+					$this->sessionKiller->kill($uid, $sessionTokenId, null, $denialId);
 				}
 				if ($source !== null) {
-					$this->flags->flagNetwork($source, FlaggedSources::REASON_USER_DENIED, $denial?->getId());
+					$this->flags->flagNetwork($source, FlaggedSources::REASON_USER_DENIED, $denialId);
 				}
 			}
 		}
 		if ($weak) {
-			$this->audit->log('%s answered "No, it was not me" about detection %s (%s) from a session that proved only the password; the question stays open', ['uid' => $uid, 'detection' => $detection->getId(), 'check' => $detection->getCheckId()]);
+			$this->audit->log('%s answered "No, it was not me" about detection %s (%s) from a session that proved only the password; the question stays open', ['uid' => $uid, 'detection' => (string)$detection->getId(), 'check' => $detection->getCheckId()]);
 			return $detection;
 		}
 		if ($source !== null) {
 			$this->trustedNetworks->distrust($uid, $source);
 		}
 		$this->finish($detection, $user, Detection::VERDICT_DENIED);
-		$this->audit->log('%s answered "No, it was not me" about detection %s (%s)', ['uid' => $uid, 'detection' => $detection->getId(), 'check' => $detection->getCheckId()]);
+		$this->audit->log('%s answered "No, it was not me" about detection %s (%s)', ['uid' => $uid, 'detection' => (string)$detection->getId(), 'check' => $detection->getCheckId()]);
 		return $detection;
 	}
 
 	/**
 	 * @throws AnswerException
 	 */
-	public function confirm(IUser $user, int $detectionId): Detection {
+	public function confirm(IUser $user, string $detectionId): Detection {
 		$detection = $this->ownOpen($user, $detectionId);
 		if (!$this->maySessionVouch($detection)) {
 			throw new AnswerException(AnswerException::SESSION_NOT_ALLOWED, yes: true);
@@ -179,12 +180,12 @@ class WasThisYouService {
 		$this->claim($detection, $user, Detection::VERDICT_CONFIRMED);
 		$source = Questions::answerSource($detection);
 		if ($source !== null) {
-			$this->trustedNetworks->trust($user->getUID(), $source, $detection->getId());
+			$this->trustedNetworks->trust($user->getUID(), $source, (string)$detection->getId());
 		}
 		$this->finish($detection, $user, Detection::VERDICT_CONFIRMED);
-		$this->audit->log('%s answered "Yes, it was me" about detection %s (%s)', ['uid' => $user->getUID(), 'detection' => $detection->getId(), 'check' => $detection->getCheckId()]);
-		if ($this->lockLinks->revokeForDetection($detection->getId()) > 0) {
-			$this->audit->log('the lock link sent to the previous email address of %s about detection %s no longer works', ['uid' => $user->getUID(), 'detection' => $detection->getId()]);
+		$this->audit->log('%s answered "Yes, it was me" about detection %s (%s)', ['uid' => $user->getUID(), 'detection' => (string)$detection->getId(), 'check' => $detection->getCheckId()]);
+		if ($this->lockLinks->revokeForDetection((string)$detection->getId()) > 0) {
+			$this->audit->log('the lock link sent to the previous email address of %s about detection %s no longer works', ['uid' => $user->getUID(), 'detection' => (string)$detection->getId()]);
 		}
 		return $detection;
 	}
@@ -213,7 +214,7 @@ class WasThisYouService {
 	/**
 	 * @throws AnswerException
 	 */
-	private function ownOpen(IUser $user, int $detectionId): Detection {
+	private function ownOpen(IUser $user, string $detectionId): Detection {
 		try {
 			$detection = $this->detections->findById($detectionId);
 		} catch (DoesNotExistException) {
@@ -238,7 +239,7 @@ class WasThisYouService {
 	 */
 	private function claim(Detection $detection, IUser $user, string $verdict): void {
 		$now = $this->timeFactory->getTime();
-		if (!$this->detections->setVerdict($detection->getId(), $user->getUID(), $verdict, $now)) {
+		if (!$this->detections->setVerdict((string)$detection->getId(), $user->getUID(), $verdict, $now)) {
 			throw new AnswerException(AnswerException::ANSWERED);
 		}
 		$detection->setUserVerdict($verdict);

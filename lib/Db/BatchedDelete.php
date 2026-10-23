@@ -41,7 +41,7 @@ final class BatchedDelete {
 		string $idColumn,
 		string $orderColumn,
 		\Closure $where,
-		int $idType = IQueryBuilder::PARAM_INT_ARRAY,
+		int $idType = IQueryBuilder::PARAM_STR_ARRAY,
 		int $batch = self::BATCH,
 		int $maxBatches = self::MAX_BATCHES,
 		?\Closure $beforeDelete = null,
@@ -74,7 +74,7 @@ final class BatchedDelete {
 		string $idColumn,
 		string $orderColumn,
 		\Closure $where,
-		int $idType = IQueryBuilder::PARAM_INT_ARRAY,
+		int $idType = IQueryBuilder::PARAM_STR_ARRAY,
 		int $batch = self::BATCH,
 		int $maxBatches = self::MAX_BATCHES,
 	): \Generator {

@@ -220,7 +220,7 @@ class CredentialStuffingDetector implements IDetector {
 			checkId: CredentialStuffing::ID,
 			facts: self::facts(CredentialStuffingRule::Distributed, $instance, distributed: true),
 		);
-		$this->state->setInt(self::DISTRIBUTED_DETECTION_STATE, $detection?->getId() ?? 0);
+		$this->state->set(self::DISTRIBUTED_DETECTION_STATE, $detection === null ? '' : (string)$detection->getId());
 	}
 
 	/**
@@ -235,7 +235,7 @@ class CredentialStuffingDetector implements IDetector {
 			return;
 		}
 		$now = $attempt->time;
-		$detectionId = $this->state->getInt(self::DISTRIBUTED_DETECTION_STATE) ?: null;
+		$detectionId = $this->state->get(self::DISTRIBUTED_DETECTION_STATE) ?: null;
 		$responses = $this->settings->responses(CredentialStuffing::ID);
 		if (in_array(ResponseType::FlagSource, $responses, true)) {
 			$this->flags->flagSource($attempt->source, FlaggedSources::REASON_DISTRIBUTED, $detectionId, $until + self::DISTRIBUTED_FLAG_AFTER - $now);

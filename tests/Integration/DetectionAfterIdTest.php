@@ -30,12 +30,12 @@ class DetectionAfterIdTest extends IntegrationTestCase {
 			$detection->setEnforced(true);
 			$detection->setExplanationData([]);
 			$detection->setActionList([]);
-			$detection->setCreatedAt(time());
+			$detection->setCreatedTime(time());
 			$detection->setLastSeenAt(time());
 			$detection->setHits(1);
 			$ids[] = $mapper->insert($detection)->getId();
 		}
 		$found = $mapper->findList(new DetectionFilter(afterId: $ids[0]));
-		$this->assertEqualsCanonicalizing([$ids[1], $ids[2]], array_map(static fn (Detection $d): int => $d->getId(), $found));
+		$this->assertEqualsCanonicalizing([$ids[1], $ids[2]], array_map(static fn (Detection $d): string => $d->getId(), $found));
 	}
 }

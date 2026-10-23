@@ -68,7 +68,7 @@ class FlaggedSources implements IPurges {
 	/**
 	 * @return ?int when the flag expires; null when the address is not flagged ({@see BanExemptions::forFlag()})
 	 */
-	public function flagSource(SourceKey $source, string $reason, ?int $detectionId = null, ?int $duration = null): ?int {
+	public function flagSource(SourceKey $source, string $reason, ?string $detectionId = null, ?int $duration = null): ?int {
 		$now = $this->timeFactory->getTime();
 		if ($this->exemptions->forFlag($source, false, $now) !== null) {
 			return null;
@@ -84,7 +84,7 @@ class FlaggedSources implements IPurges {
 	 * @param ?int $duration seconds, at most PASSWORD_FLAG_MAX_DURATION; DURATION by default
 	 * @return int when the flag expires
 	 */
-	public function flagPassword(string $fingerprint, ?int $detectionId = null, ?int $duration = null): int {
+	public function flagPassword(string $fingerprint, ?string $detectionId = null, ?int $duration = null): int {
 		$now = $this->timeFactory->getTime();
 		$expires = $now + min($duration ?? self::DURATION, self::PASSWORD_FLAG_MAX_DURATION);
 		$this->mapper->flag(self::passwordKey($fingerprint), self::REASON_SPRAYED, $expires, $detectionId, $now);
@@ -145,7 +145,7 @@ class FlaggedSources implements IPurges {
 	 *
 	 * @return bool whether it was flagged ({@see BanExemptions::forFlag()})
 	 */
-	public function flagNetwork(SourceKey $source, string $reason, ?int $detectionId = null): bool {
+	public function flagNetwork(SourceKey $source, string $reason, ?string $detectionId = null): bool {
 		$now = $this->timeFactory->getTime();
 		if ($this->exemptions->forFlag($source, true, $now) !== null) {
 			return false;

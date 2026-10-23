@@ -72,8 +72,8 @@ class BanSource implements ITimelineSource {
 			? $l->t('Blocked until %s.', [$this->dates->dateTime($ban->getExpiresAt())])
 			: $l->t('Planned until %s, lifted earlier.', [$this->dates->dateTime($ban->getExpiresAt())]);
 		return new TimelineEntry(
-			id: 'block:' . (int)$ban->getId(),
-			at: $ban->getCreatedAt(),
+			id: 'block:' . (string)$ban->getId(),
+			at: $ban->getCreatedTime(),
 			kind: self::KIND,
 			group: $l->t('Blocks'),
 			title: $ban->getScope() === Ban::SCOPE_NET ? $l->t('Network %s blocked', [$cidr]) : $l->t('Address %s blocked', [$cidr]),
@@ -92,7 +92,7 @@ class BanSource implements ITimelineSource {
 			$details[] = $l->t('Note: %s', [(string)$ban->getLiftNote()]);
 		}
 		return new TimelineEntry(
-			id: 'block-lifted:' . (int)$ban->getId(),
+			id: 'block-lifted:' . (string)$ban->getId(),
 			at: $liftedAt,
 			kind: self::KIND_LIFTED,
 			group: $l->t('Blocks lifted'),

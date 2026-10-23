@@ -50,14 +50,14 @@ class EventPayloadsTest extends IntegrationTestCase {
 		$payload = (new DetectionCreatedEvent($this->detection()))->getWebhookSerializable();
 		$this->assertSame(['type', 'detectionId', 'checkId', 'severity', 'enforced', 'ip', 'uid', 'actions', 'time', 'link'], array_keys($payload));
 		$this->assertSame('detection', $payload['type']);
-		$this->assertSame(42, $payload['detectionId']);
+		$this->assertSame('42', $payload['detectionId']);
 		$this->assertSame(CredentialStuffing::ID, $payload['checkId']);
 		$this->assertSame('high', $payload['severity']);
 		$this->assertTrue($payload['enforced']);
 		$this->assertSame('198.51.100.7', $payload['ip']);
 		$this->assertSame('alice', $payload['uid']);
 		$this->assertSame(1_800_000_000, $payload['time']);
-		$this->assertSame(Server::get(AdminLinks::class)->detection(42), $payload['link']);
+		$this->assertSame(Server::get(AdminLinks::class)->detection('42'), $payload['link']);
 		$this->assertSame([
 			['type' => 'ban', 'enforced' => true, 'bans' => [['reference' => 'K7Q2-MPXA', 'expiresAt' => 1_800_014_400]]],
 			['type' => 'flag_source', 'enforced' => true],
@@ -70,11 +70,11 @@ class EventPayloadsTest extends IntegrationTestCase {
 		$ban = $this->ban();
 		$created = (new BanCreatedEvent($ban, true))->getWebhookSerializable();
 		$this->assertSame(['type', 'reference', 'scope', 'cidr', 'checkId', 'detectionId', 'link', 'raised', 'level', 'createdBy', 'time', 'expiresAt'], array_keys($created));
-		$this->assertSame(['ban_created', 'K7Q2-MPXA', 'ip', '198.51.100.7/32', CredentialStuffing::ID, 42], array_slice(array_values($created), 0, 6));
+		$this->assertSame(['ban_created', 'K7Q2-MPXA', 'ip', '198.51.100.7/32', CredentialStuffing::ID, '42'], array_slice(array_values($created), 0, 6));
 		$this->assertTrue($created['raised']);
 		$this->assertSame(2, $created['level']);
 		$this->assertNull($created['createdBy']);
-		$this->assertSame(Server::get(AdminLinks::class)->detection(42), $created['link']);
+		$this->assertSame(Server::get(AdminLinks::class)->detection('42'), $created['link']);
 
 		$ban->setLiftedAt(1_800_000_600);
 		$ban->setLiftedBy('admin');
@@ -183,8 +183,7 @@ class EventPayloadsTest extends IntegrationTestCase {
 	}
 
 	private function detection(): Detection {
-		$detection = new Detection();
-		$detection->setId(42);
+		$detection = Detection::fromRow(['id' => '42']);
 		$detection->setCheckId(CredentialStuffing::ID);
 		$detection->setSeverity('high');
 		$detection->setEnforced(true);
@@ -193,28 +192,27 @@ class EventPayloadsTest extends IntegrationTestCase {
 		$detection->setUid('alice');
 		$detection->setExplanationData(['facts' => ['password' => self::SECRETS[0], 'token' => self::SECRETS[1]], 'userAgent' => self::SECRETS[2]]);
 		$detection->setActionList([
-			['type' => 'ban', 'enforced' => true, 'ref' => ['bans' => [['id' => 7, 'reference' => 'K7Q2-MPXA', 'cidr' => '198.51.100.7/32', 'level' => 1, 'until' => 1_800_014_400]], 'counts' => ['banned' => 1]]],
+			['type' => 'ban', 'enforced' => true, 'ref' => ['bans' => [['id' => '7', 'reference' => 'K7Q2-MPXA', 'cidr' => '198.51.100.7/32', 'level' => 1, 'until' => 1_800_014_400]], 'counts' => ['banned' => 1]]],
 			['type' => 'flag_source', 'enforced' => true, 'ref' => ['until' => 1_800_086_400]],
 			['type' => 'notify_admin', 'enforced' => true, 'ref' => ['recipients' => ['recipient-uid-secret'], 'email' => 'sent']],
 			['type' => 'step_up', 'enforced' => false, 'note' => 'unavailable'],
 		]);
-		$detection->setCreatedAt(1_800_000_000);
+		$detection->setCreatedTime(1_800_000_000);
 		$detection->setLastSeenAt(1_800_000_000);
 		$detection->setHits(3);
 		return $detection;
 	}
 
 	private function ban(): Ban {
-		$ban = new Ban();
-		$ban->setId(7);
+		$ban = Ban::fromRow(['id' => '7']);
 		$ban->setReference('K7Q2MPXA');
 		$ban->setCidr('198.51.100.7/32');
 		$ban->setScope(Ban::SCOPE_IP);
 		$ban->setBanKey('198.51.100.7');
 		$ban->setLevel(2);
 		$ban->setCheckId(CredentialStuffing::ID);
-		$ban->setDetectionId(42);
-		$ban->setCreatedAt(1_800_000_000);
+		$ban->setDetectionId('42');
+		$ban->setCreatedTime(1_800_000_000);
 		$ban->setExpiresAt(1_800_086_400);
 		return $ban;
 	}

@@ -47,7 +47,7 @@ class KnownDevices implements IKnownDevices, IPurges {
 
 	/** @var array<string, KnownDevice|false> recognised devices of this request, by uid */
 	private array $recognised = [];
-	/** @var array<int, true> devices whose use was noted in this request */
+	/** @var array<string, true> devices whose use was noted in this request, by id */
 	private array $touched = [];
 
 	public function __construct(
@@ -138,7 +138,7 @@ class KnownDevices implements IKnownDevices, IPurges {
 	}
 
 	/**
-	 * @return list<array{id: int, label: string, family: string, platform: string, network: ?string, createdAt: int, lastSeenAt: int, current: bool}> most recently used first
+	 * @return list<array{id: string, label: string, family: string, platform: string, network: ?string, createdAt: int, lastSeenAt: int, current: bool}> most recently used first
 	 */
 	public function forUser(string $uid, IL10N $l, int $limit = self::MAX_PER_USER): array {
 		$current = $this->recognise($uid)?->id;
@@ -159,7 +159,7 @@ class KnownDevices implements IKnownDevices, IPurges {
 	 *
 	 * @return bool whether the account had it
 	 */
-	public function remove(string $uid, int $id): bool {
+	public function remove(string $uid, string $id): bool {
 		$current = $this->recognise($uid)?->id;
 		if (!$this->mapper->delete($uid, $id)) {
 			return false;
@@ -189,7 +189,7 @@ class KnownDevices implements IKnownDevices, IPurges {
 	}
 
 	#[\Override]
-	public function forgetCurrentDevice(string $uid, int $detectionId): void {
+	public function forgetCurrentDevice(string $uid, string $detectionId): void {
 		$deviceId = $this->cookie->read();
 		if ($deviceId === null || !$this->mapper->deleteByHmac($uid, $this->hmac($deviceId))) {
 			return;

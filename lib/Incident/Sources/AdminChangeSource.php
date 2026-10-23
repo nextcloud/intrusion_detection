@@ -100,8 +100,8 @@ class AdminChangeSource implements ITimelineSource {
 		$narrative = $this->narratives->build($detection, $l);
 		$facts = AdminChangeFacts::fromArray(DetectionFacts::of($detection)->facts);
 		return new TimelineEntry(
-			id: 'detection:' . (int)$detection->getId(),
-			at: $detection->getCreatedAt(),
+			id: 'detection:' . (string)$detection->getId(),
+			at: $detection->getCreatedTime(),
 			kind: self::KIND,
 			group: $query->isUser() ? $l->t('Administration changes made by the account') : $l->t('Administration changes made from the address'),
 			title: $this->check->headline($detection, $l) ?? $narrative->title,
@@ -127,10 +127,10 @@ class AdminChangeSource implements ITimelineSource {
 			Approval::KIND_SETTINGS => $l->t('a settings change that switches off the approval of new administrators'),
 			default => $l->t('a request about %s', [$subject]),
 		};
-		$details = [$l->t('Requested by %1$s at %2$s.', [AdminChange::actorName($approval->getRequestedBy(), $l), $this->dates->dateTime($approval->getCreatedAt())])];
+		$details = [$l->t('Requested by %1$s at %2$s.', [AdminChange::actorName($approval->getRequestedBy(), $l), $this->dates->dateTime($approval->getCreatedTime())])];
 		if (!$decided) {
 			$details[] = $l->t('It waits for a decision until %s.', [$this->dates->dateTime($approval->getExpiresAt())]);
-			return $this->approvalEntry($approval, $approval->getCreatedAt(), $l->t('Request waiting for approval: %s', [$what]), $details, $l, $l->t('A request for approval is still waiting. Decide it on the Overview tab or with occ intrusion:approvals:decide, or let it expire.'));
+			return $this->approvalEntry($approval, $approval->getCreatedTime(), $l->t('Request waiting for approval: %s', [$what]), $details, $l, $l->t('A request for approval is still waiting. Decide it on the Overview tab or with occ intrusion:approvals:decide, or let it expire.'));
 		}
 		$decider = AdminChange::actorName((string)$approval->getDecidedBy(), $l);
 		$title = match ($approval->getStatus()) {
@@ -146,7 +146,7 @@ class AdminChangeSource implements ITimelineSource {
 	 */
 	private function approvalEntry(Approval $approval, int $at, string $title, array $details, IL10N $l, ?string $followUp): TimelineEntry {
 		return new TimelineEntry(
-			id: 'approval:' . (int)$approval->getId() . ':' . $approval->getStatus(),
+			id: 'approval:' . (string)$approval->getId() . ':' . $approval->getStatus(),
 			at: $at,
 			kind: self::KIND_APPROVAL,
 			group: $l->t('Approvals'),

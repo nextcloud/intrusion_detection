@@ -36,7 +36,7 @@ class AlertMailJob extends QueuedJob {
 
 	#[\Override]
 	protected function run(mixed $argument): void {
-		if (!is_array($argument) || !is_int($argument['detection'] ?? null)) {
+		if (!is_array($argument) || !is_string($argument['detection'] ?? null)) {
 			return;
 		}
 		try {

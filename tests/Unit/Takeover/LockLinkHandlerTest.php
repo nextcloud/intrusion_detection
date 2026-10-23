@@ -40,17 +40,17 @@ class LockLinkHandlerTest extends TestCase {
 	public function testTheOutcomesOfSending(): void {
 		$links = $this->createMock(LockLinks::class);
 		$links->method('send')->willReturnOnConsecutiveCalls(
-			['state' => LockLinks::SENT, 'sentTo' => 'o***@example.com', 'link' => 5],
+			['state' => LockLinks::SENT, 'sentTo' => 'o***@example.com', 'link' => '5'],
 			['state' => LockLinks::ALREADY_SENT],
 			['state' => LockLinks::NO_PREVIOUS_ADDRESS],
 			['state' => LockLinks::MAIL_FAILED, 'sentTo' => 'o***@example.com'],
 		);
 		$handler = $this->handler($links);
-		$context = $this->context(['emailChangeId' => 3]);
+		$context = $this->context(['emailChangeId' => '3']);
 
 		$sent = $handler->apply($context);
 		$this->assertTrue($sent->enforced);
-		$this->assertSame(['sentTo' => 'o***@example.com', 'link' => 5], $sent->ref, 'Identifiers only, never the token');
+		$this->assertSame(['sentTo' => 'o***@example.com', 'link' => '5'], $sent->ref, 'Identifiers only, never the token');
 		$this->assertSame(ResponseOutcome::NOTE_NOTHING_TO_DO, $handler->apply($context)->note);
 		$this->assertSame(LockLinks::NO_PREVIOUS_ADDRESS, $handler->apply($context)->note);
 		$this->assertSame(LockLinks::MAIL_FAILED, $handler->apply($context)->note);
@@ -75,8 +75,7 @@ class LockLinkHandlerTest extends TestCase {
 	 * @param array<string, mixed> $facts
 	 */
 	private function context(array $facts): ResponseContext {
-		$detection = new Detection();
-		$detection->setId(42);
+		$detection = Detection::fromRow(['id' => '42']);
 		$detection->setExplanationData(['facts' => $facts]);
 		return new ResponseContext(new DetectionDraft(AccountTakeover::ID, uid: 'alice', facts: AccountTakeoverFacts::fromArray($facts)), $detection, (new AccountTakeover(DateFormatter::using($this->createMock(IDateTimeFormatter::class))))->definition(), true);
 	}

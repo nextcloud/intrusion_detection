@@ -90,7 +90,7 @@ class StepUpPolicyTest extends TestCase {
 	}
 
 	public function testTheStateRoundTripsAndRejectsGarbage(): void {
-		$state = new StepUpState('alice', ConfirmationStatus::Pending, ['flagged_source'], 100, 1000, '198.51.100.7', ['email_code'], '$2y$hash', 700, 2, [150, 160], null, 42, true);
+		$state = new StepUpState('alice', ConfirmationStatus::Pending, ['flagged_source'], 100, 1000, '198.51.100.7', ['email_code'], '$2y$hash', 700, 2, [150, 160], null, '42', true);
 		$copy = StepUpState::fromArray($state->toArray());
 		$this->assertEquals($state, $copy);
 		$this->assertNull(StepUpState::fromArray([]));
@@ -99,16 +99,18 @@ class StepUpPolicyTest extends TestCase {
 		$this->assertSame([3], StepUpState::fromArray(['uid' => 'a', 'status' => 'pending', 'resends' => ['a', 3]])?->resends);
 	}
 
-	public function testReferencesEncodeTheDetectionLikeBlockReferences(): void {
-		foreach ([1, 31, 32, 2735, 123456789] as $id) {
+	public function testReferencesEncodeTheDetectionInTheAlphabetOfBlockReferences(): void {
+		$chars = '[' . BanService::REFERENCE_CHARS . ']';
+		foreach (['1', '31', '32', '2735', '470938541726507008', (string)PHP_INT_MAX] as $id) {
 			$reference = StepUpReference::of($id);
-			$this->assertMatchesRegularExpression('/^S[' . BanService::REFERENCE_CHARS . ']{3}-[' . BanService::REFERENCE_CHARS . ']{4}$/', $reference);
+			$this->assertMatchesRegularExpression('/^S' . $chars . '{3}-' . $chars . '{4}-' . $chars . '{4}-' . $chars . '{2}$/', $reference);
 			$this->assertSame($id, StepUpReference::detectionId($reference));
 			$this->assertSame($id, StepUpReference::detectionId(strtolower(str_replace('-', '', $reference))), 'as typed by a person');
 		}
 		$this->assertNull(StepUpReference::detectionId('K7Q2-MPXA'), 'A block reference is not one');
-		$this->assertNull(StepUpReference::detectionId('SAAA-AAA0'), 'Not in the alphabet');
-		$this->assertNull(StepUpReference::detectionId('SAAA-AAAA'), 'No detection 0');
+		$this->assertNull(StepUpReference::detectionId('SAAA-AAAA-AAAA-A0'), 'Not in the alphabet');
+		$this->assertNull(StepUpReference::detectionId('SAAA-AAAA-AAAA-AA'), 'No detection 0');
+		$this->assertNull(StepUpReference::detectionId('S999-9999-9999-99'), 'Beyond a 63-bit id');
 		$this->assertNull(StepUpReference::detectionId('S'));
 	}
 

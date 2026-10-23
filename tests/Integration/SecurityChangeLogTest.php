@@ -147,8 +147,8 @@ class SecurityChangeLogTest extends TakeoverTestCase {
 		$yesterday = $mapper->insert($row($now - SecurityChangeLog::ADDRESS_TTL - 60, 'encrypted'));
 		$recent = $mapper->insert($row($now - 60, 'encrypted'));
 		$links = Server::get(LockLinkMapper::class);
-		$expired = $links->insert('ids-retention', str_repeat('a', 64), 'o***@example.com', null, null, $now - 8 * 86400, $now - 86400);
-		$valid = $links->insert('ids-retention', str_repeat('b', 64), 'o***@example.com', null, null, $now, $now + 86400);
+		$expired = $links->insert('ids-retention', str_repeat('a', 64), 'o***@example.com', null, null, $now - 86400);
+		$valid = $links->insert('ids-retention', str_repeat('b', 64), 'o***@example.com', null, null, $now + 86400);
 
 		self::invokePrivate(Server::get(Cleanup::class), 'run', [null]);
 

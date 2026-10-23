@@ -46,7 +46,7 @@ class AccountSessionsController extends AdminOCSController {
 	 *
 	 * The account's browsers are logged out and its apps must be connected again.
 	 *
-	 * @param int $id A detection about the account
+	 * @param string $id A detection about the account
 	 * @return DataResponse<Http::STATUS_OK, array{ended: int}, array{}>
 	 * @throws OCSNotFoundException The detection does not exist, is not about an account, or the account is gone
 	 *
@@ -54,7 +54,7 @@ class AccountSessionsController extends AdminOCSController {
 	 */
 	#[ApiRoute(verb: 'POST', url: '/api/v1/detections/{id}/sessions/end', requirements: ['id' => '\d+'])]
 	#[PasswordConfirmationRequired]
-	public function end(int $id): DataResponse {
+	public function end(string $id): DataResponse {
 		$detection = $this->found(fn () => $this->detections->findById($id), $this->l->t('This detection does not exist (any more).'));
 		$uid = $detection->getUid();
 		if ($uid === null) {

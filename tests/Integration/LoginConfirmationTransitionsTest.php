@@ -165,7 +165,7 @@ class LoginConfirmationTransitionsTest extends StepUpTestCase {
 
 	public function testConfirmedByAnAdministrator(): void {
 		$this->waitForAnAdministrator();
-		Server::get(ApprovalService::class)->approve((int)$this->stepUp()?->approvalId, 'admin', ApprovalService::VIA_WEB);
+		Server::get(ApprovalService::class)->approve((string)$this->stepUp()?->approvalId, 'admin', ApprovalService::VIA_WEB);
 		$this->verifyController()->continueApproval();
 		$this->assertSame($this->expected(confirmation: ['admin_approval', false], history: ['confirmed', 'admin_approval']), $this->snapshot($this->bob));
 	}
@@ -192,7 +192,7 @@ class LoginConfirmationTransitionsTest extends StepUpTestCase {
 
 	public function testFailedWhenAnAdministratorRejected(): void {
 		$this->waitForAnAdministrator();
-		Server::get(ApprovalService::class)->reject((int)$this->stepUp()?->approvalId, 'admin', ApprovalService::VIA_WEB);
+		Server::get(ApprovalService::class)->reject((string)$this->stepUp()?->approvalId, 'admin', ApprovalService::VIA_WEB);
 		$this->verifyController()->continueApproval();
 		$this->assertSame($this->expected(history: ['failed', 'none'], detections: ['step_up_failed:rejected'], loggedIn: false), $this->snapshot($this->bob));
 	}

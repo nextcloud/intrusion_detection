@@ -48,7 +48,7 @@ class ListApprovals extends Base {
 		$table->setHeaders(['Id', 'Account', 'Request', 'Asked by', 'Asked at', 'Expires', 'Status', 'Decided by']);
 		foreach ($approvals as $approval) {
 			$table->addRow([
-				$approval->getId(),
+				(string)$approval->getId(),
 				$approval->getSubjectUid(),
 				match ($approval->getKind()) {
 					Approval::KIND_LOGIN => 'login from ' . ($approval->getIp() ?? '?'),
@@ -56,7 +56,7 @@ class ListApprovals extends Base {
 					default => 'join ' . (string)$approval->getGroupId(),
 				},
 				$approval->getRequestedBy(),
-				date('Y-m-d H:i', $approval->getCreatedAt()),
+				date('Y-m-d H:i', $approval->getCreatedTime()),
 				date('Y-m-d H:i', $approval->getExpiresAt()),
 				$approval->getStatus(),
 				$approval->getDecidedBy() ?? '',

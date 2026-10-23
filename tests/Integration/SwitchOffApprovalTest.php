@@ -67,7 +67,7 @@ class SwitchOffApprovalTest extends AdminChangeTestCase {
 
 		$request = $this->pendingChange();
 		$this->assertSame($this->alice, $request->getRequestedBy());
-		$this->approvals->approve((int)$request->getId(), $this->carol, ApprovalService::VIA_WEB);
+		$this->approvals->approve((string)$request->getId(), $this->carol, ApprovalService::VIA_WEB);
 		$this->assertFalse($this->appSettings()->adminChangeRequireApproval(), 'Made once another administrator approved');
 		$this->assertSame(7200, $this->appSettings()->banDurations()[1]);
 	}
@@ -101,7 +101,7 @@ class SwitchOffApprovalTest extends AdminChangeTestCase {
 		$this->assertSame(Http::STATUS_FORBIDDEN, $answer['status']);
 		$this->assertSame(Mode::Protect, $this->checkSettings()->configuredMode(AdminChange::ID));
 
-		$this->approvals->approve((int)$this->pendingChange()->getId(), $this->carol, ApprovalService::VIA_WEB);
+		$this->approvals->approve((string)$this->pendingChange()->getId(), $this->carol, ApprovalService::VIA_WEB);
 		$this->assertSame(Mode::Observe, $this->checkSettings()->configuredMode(AdminChange::ID));
 	}
 
@@ -112,7 +112,7 @@ class SwitchOffApprovalTest extends AdminChangeTestCase {
 		$this->assertTrue($this->appSettings()->adminChangeRequireApproval());
 		$this->assertSame(7200, $this->appSettings()->banDurations()[1]);
 
-		$this->approvals->approve((int)$this->pendingChange()->getId(), $this->carol, ApprovalService::VIA_WEB);
+		$this->approvals->approve((string)$this->pendingChange()->getId(), $this->carol, ApprovalService::VIA_WEB);
 		$this->assertFalse($this->appSettings()->adminChangeRequireApproval());
 		$this->assertSame(14400, $this->appSettings()->banDurations()[1]);
 	}
@@ -120,7 +120,7 @@ class SwitchOffApprovalTest extends AdminChangeTestCase {
 	public function testTheAdministratorWhoAskedCannotApprove(): void {
 		$this->ocs($this->container->get(SettingsApiController::class), 'updateSettings', [[GlobalSettings::ADMIN_CHANGE_REQUIRE_APPROVAL => false]]);
 		$this->expectException(ApprovalException::class);
-		$this->approvals->approve((int)$this->pendingChange()->getId(), $this->alice, ApprovalService::VIA_WEB);
+		$this->approvals->approve((string)$this->pendingChange()->getId(), $this->alice, ApprovalService::VIA_WEB);
 	}
 
 	public function testOtherChangesAreNotHeld(): void {

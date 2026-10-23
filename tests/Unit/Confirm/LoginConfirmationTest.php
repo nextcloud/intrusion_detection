@@ -69,10 +69,10 @@ class LoginConfirmationTest extends TestCase {
 
 	public function testAStepUpIsAValue(): void {
 		$state = new StepUpState('alice', ConfirmationStatus::Pending, ['flagged_source'], 1, 900, methods: ['email_code']);
-		$changed = $state->withCode('hash', 600)->withAttempts(2)->withSecondFactorRequested()->withApproval(5, 1800);
+		$changed = $state->withCode('hash', 600)->withAttempts(2)->withSecondFactorRequested()->withApproval('5', 1800);
 		$this->assertNull($state->codeHash, 'The original is unchanged');
-		$this->assertSame(['hash', 600, 2, true, 5, 1800], [$changed->codeHash, $changed->codeExpires, $changed->attempts, $changed->secondFactorRequested, $changed->approvalId, $changed->deadline]);
-		$this->assertSame(1800, $changed->withApproval(6, 100)->deadline, 'An approval never shortens the wait');
+		$this->assertSame(['hash', 600, 2, true, '5', 1800], [$changed->codeHash, $changed->codeExpires, $changed->attempts, $changed->secondFactorRequested, $changed->approvalId, $changed->deadline]);
+		$this->assertSame(1800, $changed->withApproval('6', 100)->deadline, 'An approval never shortens the wait');
 		$this->assertSame(0, $changed->withCode(null, 600)->codeExpires);
 	}
 }

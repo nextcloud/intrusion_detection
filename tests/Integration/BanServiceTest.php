@@ -132,7 +132,7 @@ class BanServiceTest extends IntegrationTestCase {
 	}
 
 	public function testANetworkCanBeBlockedAsAWhole(): void {
-		$result = $this->bans->banNetwork(SourceKey::fromIp('198.51.100.7'), 'credential_stuffing', 5);
+		$result = $this->bans->banNetwork(SourceKey::fromIp('198.51.100.7'), 'credential_stuffing', '5');
 		$this->assertSame(BanResult::BANNED, $result->outcome);
 		$this->assertSame('198.51.100.0/24', $result->ban?->getCidr());
 		$this->assertSame(Ban::SCOPE_NET, $result->ban?->getScope());
@@ -594,7 +594,7 @@ class BanServiceTest extends IntegrationTestCase {
 			$bans = $this->freshService();
 			$ban = $bans->banManually(' 198.51.100.7 ', 1, 'occ', ' scanner ', 300);
 			$this->assertSame('scanner', $ban->getNote());
-			$lifted = $bans->liftById((int)$ban->getId(), 'occ', ' done ');
+			$lifted = $bans->liftById((string)$ban->getId(), 'occ', ' done ');
 			$bans->lift($lifted, 'occ', 'again');
 		} finally {
 			$dispatcher->removeListener(CriticalActionPerformedEvent::class, $listener);
@@ -609,7 +609,7 @@ class BanServiceTest extends IntegrationTestCase {
 
 	public function testALiftWithANoteTooLongIsRefusedBeforeTheBlockIsLookedUp(): void {
 		$this->expectException(InvalidBanException::class);
-		$this->freshService()->liftById(999999, 'occ', str_repeat('x', 256));
+		$this->freshService()->liftById('999999', 'occ', str_repeat('x', 256));
 	}
 
 	public function testTheCheckAndTheInsertRunUnderALockPerAddress(): void {
@@ -661,7 +661,7 @@ class BanServiceTest extends IntegrationTestCase {
 		}
 		$targets[] = SourceKey::fromIp('192.0.2.1');
 		$writes = 0;
-		$results = $this->freshService(state: $this->countingState($writes))->banMany($targets, 'password_spraying', 7);
+		$results = $this->freshService(state: $this->countingState($writes))->banMany($targets, 'password_spraying', '7');
 		$this->assertCount(13, $results);
 		$this->assertSame(1, $writes, 'The cached verdicts change once');
 		$this->assertCount(1, $this->mapper->findActiveForKeys(['198.51.100.0/24'], time()));
@@ -670,7 +670,7 @@ class BanServiceTest extends IntegrationTestCase {
 		$netBans = array_filter($results, static fn (BanResult $r): bool => $r->netBan !== null);
 		$this->assertCount(2, $netBans, 'Each network is blocked once, in the result of the address that did it');
 
-		$again = $this->freshService()->banMany($targets, 'password_spraying', 7);
+		$again = $this->freshService()->banMany($targets, 'password_spraying', '7');
 		$this->assertSame([BanResult::ALREADY], array_values(array_unique(array_map(static fn (BanResult $r): string => $r->outcome, $again))));
 		$this->assertNotNull($state->get(AddressCache::VERSION_STATE));
 	}
@@ -791,7 +791,7 @@ class BanServiceTest extends IntegrationTestCase {
 		$ban->setBanKey($banKey);
 		$ban->setLevel(1);
 		$ban->setCheckId('trap_url');
-		$ban->setCreatedAt($expiresAt - 3600);
+		$ban->setCreatedTime($expiresAt - 3600);
 		$ban->setExpiresAt($expiresAt);
 		$ban->setLiftedAt($lifted ? $expiresAt - 60 : null);
 		$this->mapper->insert($ban);
@@ -805,7 +805,7 @@ class BanServiceTest extends IntegrationTestCase {
 		$ban->setBanKey($banKey);
 		$ban->setLevel(1);
 		$ban->setCheckId('trap_url');
-		$ban->setCreatedAt(time());
+		$ban->setCreatedTime(time());
 		$ban->setExpiresAt(time() + 14400);
 		$ban->setLiftedAt($lifted ? time() : null);
 		$this->mapper->insert($ban);
@@ -819,7 +819,7 @@ class BanServiceTest extends IntegrationTestCase {
 		$ban->setBanKey($banKey);
 		$ban->setLevel(1);
 		$ban->setCheckId('trap_url');
-		$ban->setCreatedAt($createdAt);
+		$ban->setCreatedTime($createdAt);
 		$ban->setExpiresAt($createdAt + 14400);
 		$this->mapper->insert($ban);
 	}
