@@ -10,7 +10,7 @@ declare(strict_types=1);
 namespace OCA\IntrusionDetection\Takeover;
 
 use OCA\IntrusionDetection\AdminChange\ActorResolver;
-use OCA\IntrusionDetection\Config\AppSettings;
+use OCA\IntrusionDetection\Config\PurgeRetention;
 use OCA\IntrusionDetection\Confirm\EmailCodes;
 use OCA\IntrusionDetection\Db\IPurges;
 use OCA\IntrusionDetection\Login\CoreSession;
@@ -64,7 +64,7 @@ class SecurityChangeLog implements IPurges {
 		private readonly ICrypto $crypto,
 		private readonly ITimeFactory $timeFactory,
 		private readonly LoggerInterface $logger,
-		private readonly AppSettings $settings,
+		private readonly PurgeRetention $retention,
 	) {
 	}
 
@@ -76,7 +76,7 @@ class SecurityChangeLog implements IPurges {
 	 */
 	#[\Override]
 	public function purge(int $now): int {
-		$deleted = $this->mapper->deleteOlderThan($now - $this->settings->retentionDays() * 86400);
+		$deleted = $this->mapper->deleteOlderThan($now - $this->retention->days($now) * 86400);
 		$this->mapper->forgetAddressesBefore($now - self::ADDRESS_TTL, $now - self::ADDRESS_TTL - self::ADDRESS_LOOK_BACK);
 		return $deleted;
 	}

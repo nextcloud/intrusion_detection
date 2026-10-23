@@ -12,6 +12,8 @@ namespace OCA\IntrusionDetection\Tests\Integration;
 use OC\Authentication\TwoFactorAuth\Manager as TwoFactorManager;
 use OCA\IntrusionDetection\BackgroundJob\Cleanup;
 use OCA\IntrusionDetection\Config\GlobalSettings;
+use OCA\IntrusionDetection\Config\PurgeRetention;
+use OCA\IntrusionDetection\State\AppState;
 use OCA\IntrusionDetection\Takeover\Db\LockLinkMapper;
 use OCA\IntrusionDetection\Takeover\Db\SecurityChangeMapper;
 use OCA\IntrusionDetection\Takeover\SecurityChangeLog;
@@ -160,7 +162,10 @@ class SecurityChangeLogTest extends TakeoverTestCase {
 		$this->settingsEditor()->setGlobal(GlobalSettings::RETENTION_DETECTIONS_DAYS, 7);
 		$mapper->insert($row($now - 8 * 86400, null));
 		self::invokePrivate(Server::get(Cleanup::class), 'run', [null]);
-		$this->assertCount(2, $mapper->findSince('ids-retention', 0, 10), 'The retention setting applies');
+		$this->assertCount(3, $mapper->findSince('ids-retention', 0, 10), 'A shorter retention waits');
+		Server::get(AppState::class)->set(PurgeRetention::STATE, json_encode(['days' => 90, 'loweredAt' => $now - PurgeRetention::DELAY - 60]));
+		self::invokePrivate(Server::get(Cleanup::class), 'run', [null]);
+		$this->assertCount(2, $mapper->findSince('ids-retention', 0, 10), 'The retention setting applies after the delay');
 	}
 
 	private function provider(string $id): IProvider {

@@ -14,6 +14,7 @@ use OCA\IntrusionDetection\AdminChange\Approvers;
 use OCA\IntrusionDetection\Audit\AuditLogger;
 use OCA\IntrusionDetection\Check\CheckRegistry;
 use OCA\IntrusionDetection\Check\Checks\AccountTakeover\AccountTakeoverDetector;
+use OCA\IntrusionDetection\Config\PurgeRetention;
 use OCA\IntrusionDetection\Confirm\SecondFactors;
 use OCA\IntrusionDetection\Crypto\Fingerprinter;
 use OCA\IntrusionDetection\Detection\DetectionService;
@@ -201,7 +202,7 @@ abstract class TakeoverTestCase extends AccountTestCase {
 			Server::get(ICrypto::class),
 			Server::get(ITimeFactory::class),
 			Server::get(LoggerInterface::class),
-			$this->appSettings(),
+			Server::get(PurgeRetention::class),
 		);
 	}
 

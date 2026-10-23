@@ -9,7 +9,7 @@ declare(strict_types=1);
 
 namespace OCA\IntrusionDetection\Detection;
 
-use OCA\IntrusionDetection\Config\AppSettings;
+use OCA\IntrusionDetection\Config\PurgeRetention;
 use OCA\IntrusionDetection\Db\Detection;
 use OCA\IntrusionDetection\Db\DetectionMapper;
 use OCA\IntrusionDetection\Db\IPurges;
@@ -43,7 +43,7 @@ class DetectionTotals implements IPurges {
 		private readonly IDBConnection $db,
 		private readonly DetectionMapper $mapper,
 		private readonly AppState $state,
-		private readonly AppSettings $settings,
+		private readonly PurgeRetention $retention,
 	) {
 	}
 
@@ -55,7 +55,7 @@ class DetectionTotals implements IPurges {
 	 */
 	#[\Override]
 	public function purge(int $now): int {
-		$deleted = $this->deleteCreatedBefore($now - $this->settings->retentionDays() * 86400);
+		$deleted = $this->deleteCreatedBefore($now - $this->retention->days($now) * 86400);
 		$this->retireBefore($now - self::ROLLUP_DAYS * 86400);
 		return $deleted;
 	}

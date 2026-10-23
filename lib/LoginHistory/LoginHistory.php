@@ -9,7 +9,7 @@ declare(strict_types=1);
 
 namespace OCA\IntrusionDetection\LoginHistory;
 
-use OCA\IntrusionDetection\Config\AppSettings;
+use OCA\IntrusionDetection\Config\PurgeRetention;
 use OCA\IntrusionDetection\Db\IPurges;
 use OCA\IntrusionDetection\Db\KeyMatch;
 use OCA\IntrusionDetection\Login\CoreSession;
@@ -83,7 +83,7 @@ class LoginHistory implements IAcceptedLogins, IPurges {
 		private readonly CoreSession $coreSession,
 		private readonly SessionTokenLinker $linker,
 		private readonly ITimeFactory $timeFactory,
-		private readonly AppSettings $settings,
+		private readonly PurgeRetention $retention,
 	) {
 	}
 
@@ -110,7 +110,7 @@ class LoginHistory implements IAcceptedLogins, IPurges {
 	 */
 	#[\Override]
 	public function purge(int $now): int {
-		return $this->mapper->deleteOlderThan($now - $this->settings->retentionDays() * 86400);
+		return $this->mapper->deleteOlderThan($now - $this->retention->days($now) * 86400);
 	}
 
 	/**

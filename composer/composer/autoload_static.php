@@ -243,6 +243,7 @@ class ComposerStaticInitIntrusionDetection
         'OCA\\IntrusionDetection\\Config\\LexiconData' => __DIR__ . '/..' . '/../lib/Config/LexiconData.php',
         'OCA\\IntrusionDetection\\Config\\ModeState' => __DIR__ . '/..' . '/../lib/Config/ModeState.php',
         'OCA\\IntrusionDetection\\Config\\Prerequisites' => __DIR__ . '/..' . '/../lib/Config/Prerequisites.php',
+        'OCA\\IntrusionDetection\\Config\\PurgeRetention' => __DIR__ . '/..' . '/../lib/Config/PurgeRetention.php',
         'OCA\\IntrusionDetection\\Config\\StoredSettings' => __DIR__ . '/..' . '/../lib/Config/StoredSettings.php',
         'OCA\\IntrusionDetection\\Config\\UserKeys' => __DIR__ . '/..' . '/../lib/Config/UserKeys.php',
         'OCA\\IntrusionDetection\\Configure\\LexiconDataBuilder' => __DIR__ . '/..' . '/../lib/Configure/LexiconDataBuilder.php',

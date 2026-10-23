@@ -12,6 +12,7 @@ namespace OCA\IntrusionDetection\Admin;
 use OCA\IntrusionDetection\AdminChange\ApprovalService;
 use OCA\IntrusionDetection\Config\AppSettings;
 use OCA\IntrusionDetection\Config\GlobalSettings;
+use OCA\IntrusionDetection\Config\PurgeRetention;
 use OCA\IntrusionDetection\Confirm\EmailCodes;
 use OCA\IntrusionDetection\Confirm\LoginConfirmations;
 use OCA\IntrusionDetection\Confirm\Methods\AdminApprovalMethod;
@@ -197,7 +198,7 @@ class GlobalSettingsPresenter {
 			), self::GROUP_BLOCKS],
 			GlobalSettings::RETENTION_DETECTIONS_DAYS => [new ParamText(
 				$l->t('Keep records for'),
-				$l->t('Older detections, logins and security changes of accounts (email address, password, second factor, app passwords) are deleted. Blocks are kept 30 days after they end, for escalation.'),
+				$l->t('Older detections, logins and security changes of accounts (email address, password, second factor, app passwords) are deleted. A shorter period applies only after %s, so that lowering it cannot delete what happened before anyone saw the alert about the change. Blocks are kept 30 days after they end, for escalation.', [TextRenderer::duration(PurgeRetention::DELAY, $l)]),
 				$l->t('days'),
 			), self::GROUP_PRIVACY],
 			GlobalSettings::EXPORT_FORMATS => [new ParamText(

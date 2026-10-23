@@ -13,6 +13,7 @@ use OC\Memcache\ArrayCache;
 use OCA\IntrusionDetection\BackgroundJob\Cleanup;
 use OCA\IntrusionDetection\Cache\Caches;
 use OCA\IntrusionDetection\Config\GlobalSettings;
+use OCA\IntrusionDetection\Config\PurgeRetention;
 use OCA\IntrusionDetection\Confirm\SessionConfirmation;
 use OCA\IntrusionDetection\Confirm\StepUpPolicy;
 use OCA\IntrusionDetection\Listener\Login\HistoryStep;
@@ -278,7 +279,7 @@ class LoginHistoryTest extends StepUpTestCase {
 
 	private function historyWith(Caches $factory): LoginHistory {
 		$this->listenerCaches = $factory;
-		return new LoginHistory(Server::get(LoginHistoryMapper::class), $this->state, $this->coreSession, new SessionTokenLinker($this->state, $this->coreSession), Server::get(ITimeFactory::class), $this->appSettings());
+		return new LoginHistory(Server::get(LoginHistoryMapper::class), $this->state, $this->coreSession, new SessionTokenLinker($this->state, $this->coreSession), Server::get(ITimeFactory::class), Server::get(PurgeRetention::class));
 	}
 
 	private function historyListener(?LoginHistory $history = null): LoginListener {

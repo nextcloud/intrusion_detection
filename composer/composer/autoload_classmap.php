@@ -228,6 +228,7 @@ return array(
     'OCA\\IntrusionDetection\\Config\\LexiconData' => $baseDir . '/../lib/Config/LexiconData.php',
     'OCA\\IntrusionDetection\\Config\\ModeState' => $baseDir . '/../lib/Config/ModeState.php',
     'OCA\\IntrusionDetection\\Config\\Prerequisites' => $baseDir . '/../lib/Config/Prerequisites.php',
+    'OCA\\IntrusionDetection\\Config\\PurgeRetention' => $baseDir . '/../lib/Config/PurgeRetention.php',
     'OCA\\IntrusionDetection\\Config\\StoredSettings' => $baseDir . '/../lib/Config/StoredSettings.php',
     'OCA\\IntrusionDetection\\Config\\UserKeys' => $baseDir . '/../lib/Config/UserKeys.php',
     'OCA\\IntrusionDetection\\Configure\\LexiconDataBuilder' => $baseDir . '/../lib/Configure/LexiconDataBuilder.php',

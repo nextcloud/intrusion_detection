@@ -15,6 +15,7 @@ use OCA\IntrusionDetection\AdminChange\Approvers;
 use OCA\IntrusionDetection\AppInfo\Application;
 use OCA\IntrusionDetection\Audit\AuditLogger;
 use OCA\IntrusionDetection\Cache\Caches;
+use OCA\IntrusionDetection\Config\PurgeRetention;
 use OCA\IntrusionDetection\Confirm\AccountMethods;
 use OCA\IntrusionDetection\Confirm\ConfirmationPolicy;
 use OCA\IntrusionDetection\Confirm\Db\StepUpSessionMapper;
@@ -326,7 +327,7 @@ abstract class StepUpTestCase extends AccountTestCase {
 			$this->coreSession,
 			new SessionTokenLinker($this->state, $this->coreSession),
 			Server::get(ITimeFactory::class),
-			$this->appSettings(),
+			Server::get(PurgeRetention::class),
 		);
 	}
 
