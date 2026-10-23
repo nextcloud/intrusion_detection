@@ -12,7 +12,6 @@ namespace OCA\IntrusionDetection\Tests\Unit\Response\Handlers;
 use OCA\IntrusionDetection\Check\CheckRegistry;
 use OCA\IntrusionDetection\Check\Checks\InjectionProbe\InjectionProbe;
 use OCA\IntrusionDetection\Check\Checks\ShareBruteforce\ShareBruteforce;
-use OCA\IntrusionDetection\Check\Checks\SharedAddress\SharedAddress;
 use OCA\IntrusionDetection\Check\Checks\TrapUrl\TrapUrl;
 use OCA\IntrusionDetection\Db\Ban;
 use OCA\IntrusionDetection\Db\Detection;
@@ -23,8 +22,10 @@ use OCA\IntrusionDetection\Response\BanResult;
 use OCA\IntrusionDetection\Response\BanService;
 use OCA\IntrusionDetection\Response\Handlers\BanHandler;
 use OCA\IntrusionDetection\Response\ResponseContext;
-use OCA\IntrusionDetection\Response\ResponseEngine;
 use OCA\IntrusionDetection\Response\ResponseOutcome;
+use OCA\IntrusionDetection\Signal\BlockHeldBack;
+use OCA\IntrusionDetection\Signal\Dispatch;
+use OCA\IntrusionDetection\Signal\SignalDispatcher;
 use OCP\IL10N;
 use OCP\L10N\IFactory;
 use OCP\Server;
@@ -150,12 +151,12 @@ class BanHandlerTest extends TestCase {
 		$bans = $this->banService();
 		$bans->method('banMany')->willReturnCallback(static fn (array $targets): array => array_fill_keys(array_map(static fn (SourceKey $t): string => $t->ipKey, $targets), new BanResult(BanResult::SKIPPED_PROXY, sharedUsers: 4)));
 		$bans->method('firstReport')->willReturn(true);
-		$engine = $this->createMock(ResponseEngine::class);
-		$engine->expects($this->once())->method('handle')->with($this->callback(
-			static fn (DetectionDraft $draft): bool => $draft->checkId === SharedAddress::ID && $draft->facts === ['users' => 4, 'wantedBy' => 'trap_url', 'proxy' => true],
-		));
+		$dispatcher = $this->createMock(SignalDispatcher::class);
+		$dispatcher->expects($this->once())->method('dispatch')->with($this->callback(
+			static fn (BlockHeldBack $held): bool => $held->target->ip === '198.51.100.7' && $held->users === 4 && $held->wantedBy === 'trap_url' && $held->proxy,
+		))->willReturn(new Dispatch([], false));
 		$container = $this->createMock(ContainerInterface::class);
-		$container->method('get')->with(ResponseEngine::class)->willReturn($engine);
+		$container->method('get')->with(SignalDispatcher::class)->willReturn($dispatcher);
 		$handler = new BanHandler($bans, $container);
 		$outcome = $handler->apply($this->context());
 		$this->assertSame(1, $outcome->ref['counts']['proxy']);

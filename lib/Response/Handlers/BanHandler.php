@@ -9,7 +9,6 @@ declare(strict_types=1);
 
 namespace OCA\IntrusionDetection\Response\Handlers;
 
-use OCA\IntrusionDetection\Check\Checks\SharedAddress\SharedAddress;
 use OCA\IntrusionDetection\Db\Ban;
 use OCA\IntrusionDetection\Definition\ResponseType;
 use OCA\IntrusionDetection\Detection\DetectionDraft;
@@ -20,15 +19,17 @@ use OCA\IntrusionDetection\Response\BanResult;
 use OCA\IntrusionDetection\Response\BanService;
 use OCA\IntrusionDetection\Response\IResponseHandler;
 use OCA\IntrusionDetection\Response\ResponseContext;
-use OCA\IntrusionDetection\Response\ResponseEngine;
 use OCA\IntrusionDetection\Response\ResponseOutcome;
+use OCA\IntrusionDetection\Signal\BlockHeldBack;
+use OCA\IntrusionDetection\Signal\SignalDispatcher;
 use OCP\IL10N;
 use Psr\Container\ContainerInterface;
 
 /**
  * Blocks the detection's source (and, for some checks, further sources).
  * When the safety valve or an unconfigured reverse proxy keeps an address
- * from being blocked, a `shared_address` detection tells the admin instead.
+ * from being blocked, it is reported ({@see BlockHeldBack}), so that the
+ * administrators are told instead.
  * Addresses of this server's own people are not blocked either
  * ({@see \OCA\IntrusionDetection\Response\BanExemptions}); the action says so.
  *
@@ -182,6 +183,6 @@ class BanHandler implements IResponseHandler, IDescribesAction {
 
 	private function reportShared(DetectionDraft $draft, SourceKey $target, int $users, bool $proxy): void {
 		// Resolved lazily: the engine runs this handler, so it cannot be a constructor dependency.
-		$this->container->get(ResponseEngine::class)->handle(SharedAddress::draft($target, $users, $draft->checkId, $proxy));
+		$this->container->get(SignalDispatcher::class)->dispatch(new BlockHeldBack($target, $users, $draft->checkId, $proxy));
 	}
 }

@@ -16,8 +16,8 @@ use OCA\IntrusionDetection\AppInfo\Application;
 use OCA\IntrusionDetection\Audit\AuditLogger;
 use OCA\IntrusionDetection\Cache\Caches;
 use OCA\IntrusionDetection\Check\CheckRegistry;
+use OCA\IntrusionDetection\Check\Checks\DirectoryScraping\DirectoryCounter;
 use OCA\IntrusionDetection\Check\Checks\DirectoryScraping\DirectoryScraping;
-use OCA\IntrusionDetection\Check\Checks\DirectoryScraping\DirectoryScrapingDetector;
 use OCA\IntrusionDetection\Config\CheckSettings;
 use OCA\IntrusionDetection\Config\GlobalSettings;
 use OCA\IntrusionDetection\Config\ModeState;
@@ -273,7 +273,7 @@ class DirectoryScrapingTest extends IntegrationTestCase {
 		return new DirectoryScrapingRule($request, $userSession, $container);
 	}
 
-	private function detector(CheckSettings $settings, Caches $factory): DirectoryScrapingDetector {
+	private function detector(CheckSettings $settings, Caches $factory): DirectoryCounter {
 		$request = $this->request();
 		$time = $this->createMock(ITimeFactory::class);
 		$time->method('getTime')->willReturnCallback(fn (): int => $this->now);
@@ -281,7 +281,7 @@ class DirectoryScrapingTest extends IntegrationTestCase {
 		$context->setVerdict(new Verdict());
 		$currentSession = $this->createMock(CurrentSession::class);
 		$currentSession->method('tokenId')->willReturn(17);
-		return new DirectoryScrapingDetector(
+		return new DirectoryCounter(
 			$this->appSettings(),
 			$settings,
 			$context,

@@ -10,6 +10,7 @@ declare(strict_types=1);
 namespace OCA\IntrusionDetection\Check\Checks\AccountLocked;
 
 use OCA\IntrusionDetection\Check\ICheck;
+use OCA\IntrusionDetection\Config\ModeState;
 use OCA\IntrusionDetection\Db\Detection;
 use OCA\IntrusionDetection\Definition\Category;
 use OCA\IntrusionDetection\Definition\CheckDefinition;
@@ -19,12 +20,15 @@ use OCA\IntrusionDetection\Definition\DataKind;
 use OCA\IntrusionDetection\Definition\Mode;
 use OCA\IntrusionDetection\Definition\ResponseType;
 use OCA\IntrusionDetection\Definition\Severity;
+use OCA\IntrusionDetection\Detection\DetectionDraft;
 use OCA\IntrusionDetection\Explain\DateFormatter;
 use OCA\IntrusionDetection\Explain\DetectionFacts;
 use OCA\IntrusionDetection\Explain\IExplainsDetection;
 use OCA\IntrusionDetection\Explain\IExplainsToUser;
 use OCA\IntrusionDetection\Explain\IHeadlinesDetection;
 use OCA\IntrusionDetection\Explain\UserNotice;
+use OCA\IntrusionDetection\Net\SourceKey;
+use OCA\IntrusionDetection\Notification\AdminAlerts;
 use OCP\IL10N;
 
 /**
@@ -40,6 +44,34 @@ final class AccountLocked implements ICheck, IExplainsDetection, IHeadlinesDetec
 	public function __construct(
 		private readonly DateFormatter $dates,
 	) {
+	}
+
+	/**
+	 * The detection of a lock link that was used. It is recorded and told
+	 * whatever the check's mode: the account holder locked their account.
+	 *
+	 * @param ?int $takeoverDetection the detection the link was sent for
+	 * @param ?array<string, mixed> $change the email change the link was sent for
+	 * @param list<array{id: int, name: string}> $ended the sessions and app passwords that were ended
+	 */
+	public static function draft(?SourceKey $source, string $uid, int $linkId, string $sentTo, ?int $takeoverDetection, ?array $change, array $ended): DetectionDraft {
+		return new DetectionDraft(
+			checkId: self::ID,
+			source: $source,
+			uid: $uid,
+			facts: [
+				'link' => $linkId,
+				'sentTo' => $sentTo,
+				'newAddress' => $change['new_value_hint'] ?? null,
+				'changedAt' => $change['created_at'] ?? null,
+				'changedFrom' => $change['ip'] ?? null,
+				'takeoverDetection' => $takeoverDetection,
+				'tokensEnded' => count($ended),
+				'ended' => array_slice($ended, 0, 50),
+				AdminAlerts::FACT_ALL_ADMINS => true,
+			],
+			mode: new ModeState(Mode::Protect, Mode::Protect),
+		);
 	}
 
 	#[\Override]

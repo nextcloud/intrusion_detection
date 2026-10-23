@@ -10,6 +10,7 @@ declare(strict_types=1);
 namespace OCA\IntrusionDetection\Guard;
 
 use OCA\IntrusionDetection\AppInfo\Application;
+use OCA\IntrusionDetection\Check\Checks\TrapUrl\TrapResponder;
 use OCA\IntrusionDetection\Check\Checks\TrapUrl\TrapUrl;
 use OCA\IntrusionDetection\Config\AppSettings;
 use OCA\IntrusionDetection\Config\CheckSettings;
@@ -22,7 +23,6 @@ use OCA\IntrusionDetection\Net\SourceKey;
 use OCA\IntrusionDetection\Perf\GuardTimer;
 use OCA\IntrusionDetection\Traps\PendingTrapHit;
 use OCA\IntrusionDetection\Traps\TrapPaths;
-use OCA\IntrusionDetection\Traps\TrapResponder;
 use OCP\IAppConfig;
 use OCP\IConfig;
 use OCP\IRequest;

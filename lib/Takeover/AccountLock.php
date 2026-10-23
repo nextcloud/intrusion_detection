@@ -11,13 +11,9 @@ namespace OCA\IntrusionDetection\Takeover;
 
 use OCA\IntrusionDetection\Audit\AuditLogger;
 use OCA\IntrusionDetection\Check\Checks\AccountLocked\AccountLocked;
-use OCA\IntrusionDetection\Config\ModeState;
 use OCA\IntrusionDetection\Db\Detection;
-use OCA\IntrusionDetection\Definition\Mode;
-use OCA\IntrusionDetection\Detection\DetectionDraft;
 use OCA\IntrusionDetection\Guide\SecureAccountGuide;
 use OCA\IntrusionDetection\Net\RemoteAddressResolver;
-use OCA\IntrusionDetection\Notification\AdminAlerts;
 use OCA\IntrusionDetection\Response\ResponseEngine;
 use OCA\IntrusionDetection\Response\Tokens;
 use OCA\IntrusionDetection\Takeover\Db\SecurityChangeMapper;
@@ -85,23 +81,7 @@ class AccountLock {
 
 		$change = $link['change_id'] === null ? null : $this->changes->find($link['change_id']);
 		try {
-			$this->engine->handle(new DetectionDraft(
-				checkId: AccountLocked::ID,
-				source: $source,
-				uid: $uid,
-				facts: [
-					'link' => $linkId,
-					'sentTo' => $link['sent_to_hint'],
-					'newAddress' => $change['new_value_hint'] ?? null,
-					'changedAt' => $change['created_at'] ?? null,
-					'changedFrom' => $change['ip'] ?? null,
-					'takeoverDetection' => $link['detection_id'],
-					'tokensEnded' => count($ended),
-					'ended' => array_slice($ended, 0, 50),
-					AdminAlerts::FACT_ALL_ADMINS => true,
-				],
-				mode: new ModeState(Mode::Protect, Mode::Protect),
-			));
+			$this->engine->handle(AccountLocked::draft($source, $uid, $linkId, $link['sent_to_hint'], $link['detection_id'], $change, $ended));
 		} catch (\Throwable $e) {
 			$this->logger->error('Intrusion detection locked the account {uid} but could not record it', ['uid' => $uid, 'exception' => $e]);
 		}

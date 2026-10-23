@@ -10,6 +10,7 @@ declare(strict_types=1);
 namespace OCA\IntrusionDetection\Tests\Integration;
 
 use OCA\IntrusionDetection\Address\AddressResolver;
+use OCA\IntrusionDetection\Check\Checks\TrapUrl\TrapResponder;
 use OCA\IntrusionDetection\Check\Checks\TrapUrl\TrapUrl;
 use OCA\IntrusionDetection\Db\BanMapper;
 use OCA\IntrusionDetection\Db\DetectionFilter;
@@ -26,7 +27,6 @@ use OCA\IntrusionDetection\Net\ServerAddresses;
 use OCA\IntrusionDetection\Perf\GuardTimer;
 use OCA\IntrusionDetection\Response\ResponseEngine;
 use OCA\IntrusionDetection\Response\ResponseOutcome;
-use OCA\IntrusionDetection\Traps\TrapResponder;
 use OCP\AppFramework\Controller;
 use OCP\AppFramework\Utility\ITimeFactory;
 use OCP\IAppConfig;

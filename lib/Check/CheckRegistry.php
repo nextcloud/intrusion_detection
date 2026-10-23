@@ -12,6 +12,7 @@ namespace OCA\IntrusionDetection\Check;
 use OCA\IntrusionDetection\Definition\CheckDefinition;
 use OCA\IntrusionDetection\Definition\InvalidParamException;
 use OCA\IntrusionDetection\Signal\AdminChanged;
+use OCA\IntrusionDetection\Signal\BlockHeldBack;
 use OCA\IntrusionDetection\Signal\FailedLogin;
 use OCA\IntrusionDetection\Signal\FailedLoginAttempt;
 use OCA\IntrusionDetection\Signal\IDetector;
@@ -108,6 +109,9 @@ class CheckRegistry {
 		],
 		AdminChanged::class => [
 			'admin_change' => Checks\AdminChange\AdminChangeDetector::class,
+		],
+		BlockHeldBack::class => [
+			'shared_address' => Checks\SharedAddress\SharedAddressDetector::class,
 		],
 	];
 

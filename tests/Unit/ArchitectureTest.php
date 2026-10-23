@@ -68,13 +68,12 @@ class ArchitectureTest extends TestCase {
 		'OpenMetrics' => ['Perf'],
 		// The privacy cleanup schedules its job by class.
 		'Privacy' => ['BackgroundJob'],
-		// Handlers of feature responses use their feature's services (pipeline, feature slices).
-		'Response' => ['Address', 'Check\\Checks', 'Confirm', 'SessionState', 'Share', 'Takeover'],
+		// Handlers of feature responses use their feature's services (feature slices).
+		'Response' => ['Address', 'Confirm', 'SessionState', 'Share', 'Takeover'],
 		// The request context and deferred hits live in Guard (login package).
 		'Risk' => ['Guard'],
 		// Session rules let their own controllers through (login package).
 		'SessionState' => ['Controller', 'Guard'],
-		'Traps' => ['Guard'],
 	];
 
 	/**
@@ -85,8 +84,6 @@ class ArchitectureTest extends TestCase {
 	private const NAMES_A_CHECK = [
 		'Check/CheckRegistry.php' => 'the list of all checks',
 		'Notification/Notifier.php' => 'approval notifications name the actor like the admin-change check (feature slices)',
-		'Response/Handlers/BanHandler.php' => 'a held-back block is reported as a shared-address detection (pipeline)',
-		'Response/Handlers/RateLimitHandler.php' => 'the action names the directory-scraping group (pipeline)',
 	];
 
 	/** @var array<string, array<string, list<string>>>|null unit => used unit => files */

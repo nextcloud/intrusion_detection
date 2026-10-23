@@ -9,7 +9,7 @@ declare(strict_types=1);
 
 namespace OCA\IntrusionDetection\SessionState\Rules;
 
-use OCA\IntrusionDetection\Check\Checks\DirectoryScraping\DirectoryScrapingDetector;
+use OCA\IntrusionDetection\Check\Checks\DirectoryScraping\DirectoryCounter;
 use OCA\IntrusionDetection\Sensitive\DirectoryRoutes;
 use OCA\IntrusionDetection\SessionState\ISessionStateRule;
 use OCA\IntrusionDetection\SessionState\RequestTarget;
@@ -21,7 +21,7 @@ use Psr\Container\ContainerInterface;
 
 /**
  * Counts the requests of logged-in accounts that read the user directory
- * ({@see DirectoryScrapingDetector}), and refuses them with 429 while the
+ * ({@see DirectoryCounter}), and refuses them with 429 while the
  * account is above a limit.
  *
  * It hooks into the session-state middleware and WebDAV plugin, which run
@@ -50,7 +50,7 @@ class DirectoryScrapingRule implements ISessionStateRule {
 		if ($uid === null) {
 			return null;
 		}
-		return $this->container->get(DirectoryScrapingDetector::class)->count($uid, $group);
+		return $this->container->get(DirectoryCounter::class)->count($uid, $group);
 	}
 
 	/**

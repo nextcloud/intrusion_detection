@@ -33,13 +33,14 @@ use Psr\Container\ContainerInterface;
  *   a bucket also sets the counter's lifetime) and two app config reads that
  *   are already loaded: no database, no check definitions.
  * - The request that goes above the limit records the detection once per
- *   bucket, with the configured responses.
+ *   bucket: going over the limit is the detection, so the counter hands it
+ *   to the response engine itself.
  * - While the check acts with the rate-limit response, every request above
  *   the limit is refused with 429 until the bucket ends.
  *
  * Without a memory cache nothing is counted: the check is unavailable then.
  */
-class DirectoryScrapingDetector {
+class DirectoryCounter {
 	/** The namespace of its memory cache in {@see Caches} */
 	public const CACHE = 'directory-scraping';
 	public const KEY_PREFIX = 'scrape:';

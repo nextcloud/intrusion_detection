@@ -39,7 +39,7 @@ use OCP\IL10N;
  * address book, the user lists. A scraping account is compromised or an
  * insider, so the account itself is not told by default.
  *
- * The counting is {@see DirectoryScrapingDetector}, in the memory cache:
+ * The counting is {@see DirectoryCounter}, in the memory cache:
  * without one the check is unavailable, because counting in the database
  * would cost a write per request. The requests that count are
  * {@see DirectoryRoutes}.
@@ -98,19 +98,6 @@ final class DirectoryScraping implements ICheck, IExplainsDetection, IExplainsTo
 		);
 	}
 
-	/**
-	 * The kind of request in the words of the admin page, e.g. "searches for people".
-	 */
-	public static function groupLabel(string $group, IL10N $l): string {
-		return match ($group) {
-			DirectoryRoutes::GROUP_SEARCH => $l->t('searches for people'),
-			DirectoryRoutes::GROUP_PROFILE => $l->t('requests for profiles and avatars'),
-			DirectoryRoutes::GROUP_ADDRESSBOOK => $l->t('downloads of the address book or the user list'),
-			DirectoryRoutes::GROUP_USERS => $l->t('requests for user lists'),
-			default => $group,
-		};
-	}
-
 	#[\Override]
 	public function headline(Detection $detection, IL10N $l): ?string {
 		return $l->t('%s is reading the user directory unusually fast', [(string)$detection->getUid()]);
@@ -123,7 +110,7 @@ final class DirectoryScraping implements ICheck, IExplainsDetection, IExplainsTo
 			$l->t('The account %1$s made %2$s %3$s within %4$s, from %5$s. The limit at that time was %6$s.', [
 				(string)$detection->getUid(),
 				(string)$facts->int('count'),
-				self::groupLabel($facts->string('group'), $l),
+				DirectoryRoutes::label($facts->string('group'), $l),
 				TextRenderer::duration($facts->int('window', self::WINDOW), $l),
 				(string)$detection->getIp(),
 				(string)$facts->int('limit'),
