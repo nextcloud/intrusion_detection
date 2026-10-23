@@ -24,7 +24,9 @@ use OCP\AppFramework\Utility\ITimeFactory;
  * gets a flag of its own (`tool:`), which only the risk score reads.
  *
  * A block that ends by itself flags its address or /24 (the cleanup job);
- * lifting a block removes the flag.
+ * lifting a block removes the flag. An address or network that the safety
+ * valve or a suspected reverse proxy keeps from being blocked is not flagged
+ * either ({@see BanExemptions::forFlag()}).
  */
 class FlaggedSources implements IPurges {
 	public const REASON_ATTACK = 'attack';
@@ -50,6 +52,7 @@ class FlaggedSources implements IPurges {
 
 	public function __construct(
 		private readonly FlagMapper $mapper,
+		private readonly BanExemptions $exemptions,
 		private readonly ITimeFactory $timeFactory,
 	) {
 	}
@@ -63,11 +66,14 @@ class FlaggedSources implements IPurges {
 	}
 
 	/**
-	 * @return int when the flag expires
+	 * @return ?int when the flag expires; null when the address is not flagged ({@see BanExemptions::forFlag()})
 	 */
-	public function flagSource(SourceKey $source, string $reason, ?int $detectionId = null, ?int $duration = null): int {
-		$this->sourceFlags = [];
+	public function flagSource(SourceKey $source, string $reason, ?int $detectionId = null, ?int $duration = null): ?int {
 		$now = $this->timeFactory->getTime();
+		if ($this->exemptions->forFlag($source, false, $now) !== null) {
+			return null;
+		}
+		$this->sourceFlags = [];
 		$expires = $now + ($duration ?? self::DURATION);
 		$this->mapper->flag(self::sourceKey($source), $reason, $expires, $detectionId, $now);
 		return $expires;
@@ -134,10 +140,19 @@ class FlaggedSources implements IPurges {
 		return array_intersect_key($flags, array_flip($passwordKeys)) !== [];
 	}
 
-	public function flagNetwork(SourceKey $source, string $reason, ?int $detectionId = null): void {
-		$this->sourceFlags = [];
+	/**
+	 * Flag the network of the address (its /24, or its /64).
+	 *
+	 * @return bool whether it was flagged ({@see BanExemptions::forFlag()})
+	 */
+	public function flagNetwork(SourceKey $source, string $reason, ?int $detectionId = null): bool {
 		$now = $this->timeFactory->getTime();
+		if ($this->exemptions->forFlag($source, true, $now) !== null) {
+			return false;
+		}
+		$this->sourceFlags = [];
 		$this->mapper->flag('net:' . $source->netKey, $reason, $now + self::DURATION, $detectionId, $now);
+		return true;
 	}
 
 	public function unflagSource(SourceKey $source): void {

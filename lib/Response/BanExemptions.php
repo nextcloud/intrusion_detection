@@ -22,7 +22,8 @@ use OCP\IGroupManager;
 
 /**
  * Why an address or network must not be blocked automatically, asked only
- * when a block is about to be created (never on the common path):
+ * when a block or a flag is about to be created (never on the common path;
+ * a flag asks only the first two, {@see forFlag()}):
  *
  * - Safety valve: at least BAN_SHARED_IP_USERS different people, whose
  *   accounts are at least 3 days old or administrators
@@ -82,12 +83,27 @@ class BanExemptions {
 	 * @param ?string $uid the account the detection is about, if any
 	 */
 	public function forAddress(SourceKey $source, int $now, string $checkId, ?string $uid = null): ?BanResult {
-		[$column, $keys] = $source->family === 4 ? ['ip', new KeyMatch([$source->ip])] : ['net_key', new KeyMatch([$source->ipKey])];
-		$facts = $this->remembered('a:' . $source->ipKey, fn (): array => [
-			'shared' => $this->sharedUsers($this->logins->distinctUidsForIp($source->ipKey, intdiv($now - 86400, 3600), self::MAX_ACCOUNTS), $now),
-			'proxy' => $this->proxies->accountsBehind($source),
-		] + $this->accounts($column, $keys, $now, ProxySuspect::isPrivate($source)));
-		return $this->decide($facts, $checkId, $uid, $column, $keys, $now);
+		[$column, $keys] = self::addressKeys($source);
+		return $this->decide($this->addressFacts($source, $now), $checkId, $uid, $column, $keys, $now);
+	}
+
+	/**
+	 * Why logins from an address, or from its network, must not be flagged
+	 * ({@see FlaggedSources}), or null when they may be. A flag makes every
+	 * new login from there confirm itself, so the safety valve, a suspected
+	 * reverse proxy and the protected ranges hold it back as they hold back
+	 * a block: one person behind an office or provider address must not make
+	 * everyone there confirm their logins. The addresses of this server's own
+	 * people are flagged: a flag only asks for a confirmation.
+	 *
+	 * @param bool $network the address's network (its /24, or its /64) instead of the address
+	 */
+	public function forFlag(SourceKey $source, bool $network, int $now): ?BanResult {
+		if (!$network) {
+			return $this->heldBack($this->addressFacts($source, $now));
+		}
+		$facts = $this->networkFacts($source->netKey, new KeyMatch([$source->netKey]), $now);
+		return $facts === null ? new BanResult(BanResult::SKIPPED_NEVER) : $this->heldBack($facts);
 	}
 
 	/**
@@ -99,11 +115,46 @@ class BanExemptions {
 	 * @param ?string $uid the account the detection is about, if any
 	 */
 	public function forNetwork(string $cidr, KeyMatch $netKeys, int $now, string $checkId, ?string $uid = null): ?BanResult {
+		$facts = $this->networkFacts($cidr, $netKeys, $now);
+		return $facts === null ? new BanResult(BanResult::SKIPPED_NEVER) : $this->decide($facts, $checkId, $uid, 'net_key', $netKeys, $now);
+	}
+
+	/**
+	 * Whether a block of this address that was held back should be reported
+	 * now: once per REMEMBER seconds with a memory cache, else every time.
+	 */
+	public function firstReport(SourceKey $source): bool {
+		$cache = $this->caches->local(self::CACHE);
+		return $cache === null || $cache->add('ex:r:' . $source->ipKey, 1, self::REMEMBER);
+	}
+
+	/**
+	 * @return array{0: 'ip'|'net_key', 1: KeyMatch} the column and keys the login tables store the address under
+	 */
+	private static function addressKeys(SourceKey $source): array {
+		return $source->family === 4 ? ['ip', new KeyMatch([$source->ip])] : ['net_key', new KeyMatch([$source->ipKey])];
+	}
+
+	/**
+	 * @return array{shared: int, proxy: int, admin: bool, private: bool, users: int}
+	 */
+	private function addressFacts(SourceKey $source, int $now): array {
+		[$column, $keys] = self::addressKeys($source);
+		return $this->remembered('a:' . $source->ipKey, fn (): array => [
+			'shared' => $this->sharedUsers($this->logins->distinctUidsForIp($source->ipKey, intdiv($now - 86400, 3600), self::MAX_ACCOUNTS), $now),
+			'proxy' => $this->proxies->accountsBehind($source),
+		] + $this->accounts($column, $keys, $now, ProxySuspect::isPrivate($source)));
+	}
+
+	/**
+	 * @return ?array{shared: int, proxy: int, admin: bool, private: bool, users: int} null for a network over a protected range
+	 */
+	private function networkFacts(string $cidr, KeyMatch $netKeys, int $now): ?array {
 		$range = RangeCodec::parse($cidr);
 		if ($this->protected->overlaps($range['family'], $range['start'], $range['end'])) {
-			return new BanResult(BanResult::SKIPPED_NEVER);
+			return null;
 		}
-		$facts = $this->remembered('n:' . $cidr, function () use ($cidr, $netKeys, $range, $now): array {
+		return $this->remembered('n:' . $cidr, function () use ($cidr, $netKeys, $range, $now): array {
 			$proxy = 0;
 			$suspect = $this->proxies->suspect();
 			if ($suspect !== null) {
@@ -118,23 +169,15 @@ class BanExemptions {
 				'proxy' => $proxy,
 			] + $this->accounts('net_key', $netKeys, $now, $first !== null && ProxySuspect::isPrivate($first));
 		});
-		return $this->decide($facts, $checkId, $uid, 'net_key', $netKeys, $now);
 	}
 
 	/**
-	 * Whether a block of this address that was held back should be reported
-	 * now: once per REMEMBER seconds with a memory cache, else every time.
-	 */
-	public function firstReport(SourceKey $source): bool {
-		$cache = $this->caches->local(self::CACHE);
-		return $cache === null || $cache->add('ex:r:' . $source->ipKey, 1, self::REMEMBER);
-	}
-
-	/**
+	 * The safety valve and the suspected reverse proxy, which hold back
+	 * whatever would hit everyone behind the address.
+	 *
 	 * @param array{shared: int, proxy: int, admin: bool, private: bool, users: int} $facts
-	 * @param 'ip'|'net_key' $column
 	 */
-	private function decide(array $facts, string $checkId, ?string $uid, string $column, KeyMatch $keys, int $now): ?BanResult {
+	private function heldBack(array $facts): ?BanResult {
 		if ($facts['shared'] > 0) {
 			return new BanResult(BanResult::SKIPPED_SHARED, sharedUsers: $facts['shared']);
 		}
@@ -145,6 +188,18 @@ class BanExemptions {
 		}
 		if ($facts['admin'] && $facts['private'] && $unconfigured) {
 			return new BanResult(BanResult::SKIPPED_PROXY, sharedUsers: $facts['users']);
+		}
+		return null;
+	}
+
+	/**
+	 * @param array{shared: int, proxy: int, admin: bool, private: bool, users: int} $facts
+	 * @param 'ip'|'net_key' $column
+	 */
+	private function decide(array $facts, string $checkId, ?string $uid, string $column, KeyMatch $keys, int $now): ?BanResult {
+		$held = $this->heldBack($facts);
+		if ($held !== null) {
+			return $held;
 		}
 		$check = $this->registry->find($checkId);
 		if ($check !== null && !$check->trustedLoginsExempt) {

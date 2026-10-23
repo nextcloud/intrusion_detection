@@ -10,20 +10,65 @@ declare(strict_types=1);
 namespace OCA\IntrusionDetection\Tests\Integration;
 
 use OC\DB\ConnectionAdapter;
+use OCA\IntrusionDetection\Cache\Caches;
+use OCA\IntrusionDetection\Check\CheckRegistry;
+use OCA\IntrusionDetection\Db\LoginMapper;
+use OCA\IntrusionDetection\Login\EstablishedAccounts;
+use OCA\IntrusionDetection\LoginHistory\LoginHistory;
+use OCA\IntrusionDetection\Net\ProtectedRanges;
+use OCA\IntrusionDetection\Net\ServerAddresses;
 use OCA\IntrusionDetection\Net\SourceKey;
+use OCA\IntrusionDetection\Response\BanExemptions;
 use OCA\IntrusionDetection\Response\Db\FlagMapper;
 use OCA\IntrusionDetection\Response\FlaggedSources;
+use OCA\IntrusionDetection\Response\ProxySuspect;
 use OCP\AppFramework\Utility\ITimeFactory;
 use OCP\IDBConnection;
+use OCP\IGroupManager;
 use OCP\Server;
 use PHPUnit\Framework\Attributes\Group;
 
 /**
  * The flags a password login reads: the password's and the address's, in
- * one query.
+ * one query. Addresses many people share are not flagged.
  */
 #[Group('DB')]
 class FlaggedSourcesTest extends IntegrationTestCase {
+	use CreatesAccounts;
+
+	protected function tearDown(): void {
+		$this->deleteAccounts();
+		parent::tearDown();
+	}
+
+	public function testAnAddressManyPeopleLogInFromIsNotFlagged(): void {
+		$source = SourceKey::fromIp('198.51.100.20');
+		$hour = intdiv(time(), 3600);
+		foreach ($this->accounts(5) as $uid) {
+			Server::get(LoginMapper::class)->record($source->ipKey, $source->netKey, $uid, $hour);
+		}
+		$flags = Server::get(FlaggedSources::class);
+
+		$this->assertNull($flags->flagSource($source, FlaggedSources::REASON_ATTACK));
+		$this->assertFalse($flags->flagNetwork(SourceKey::fromIp('198.51.100.21'), FlaggedSources::REASON_USER_DENIED), 'its network neither');
+		$this->assertNull($flags->sourceFlag($source));
+		$this->assertNull($flags->sourceFlag(SourceKey::fromIp('198.51.100.21')));
+
+		$other = SourceKey::fromIp('203.0.113.20');
+		$this->assertNotNull($flags->flagSource($other, FlaggedSources::REASON_ATTACK), 'an address few people log in from is flagged');
+		$this->assertSame(FlaggedSources::REASON_ATTACK, $flags->sourceFlag($other));
+	}
+
+	public function testANetworkOverTheAllowlistIsNotFlagged(): void {
+		$this->appConfig->setValueString('bruteForce', 'whitelist_1', '192.0.2.200/32');
+		try {
+			$flags = new FlaggedSources(Server::get(FlagMapper::class), $this->freshExemptions(), Server::get(ITimeFactory::class));
+			$this->assertFalse($flags->flagNetwork(SourceKey::fromIp('192.0.2.7'), FlaggedSources::REASON_USER_DENIED));
+			$this->assertNull($flags->sourceFlag(SourceKey::fromIp('192.0.2.7')));
+		} finally {
+			$this->appConfig->deleteKey('bruteForce', 'whitelist_1');
+		}
+	}
 	public function testALoginReadsThePasswordAndAddressFlagsInOneQuery(): void {
 		$flags = $this->flags();
 		$source = SourceKey::fromIp('203.0.113.5');
@@ -86,7 +131,25 @@ class FlaggedSourcesTest extends IntegrationTestCase {
 	}
 
 	private function flags(): FlaggedSources {
-		return new FlaggedSources(Server::get(FlagMapper::class), Server::get(ITimeFactory::class));
+		return new FlaggedSources(Server::get(FlagMapper::class), Server::get(BanExemptions::class), Server::get(ITimeFactory::class));
+	}
+
+	/**
+	 * Exemptions with nothing cached from earlier tests (the allowlist is
+	 * read once per instance).
+	 */
+	private function freshExemptions(): BanExemptions {
+		return new BanExemptions(
+			Server::get(LoginMapper::class),
+			Server::get(LoginHistory::class),
+			$this->appSettings(),
+			Server::get(ProxySuspect::class),
+			new ProtectedRanges($this->appConfig, Server::get(ServerAddresses::class)),
+			Server::get(IGroupManager::class),
+			Server::get(Caches::class),
+			Server::get(EstablishedAccounts::class),
+			Server::get(CheckRegistry::class),
+		);
 	}
 
 	private function queries(): int {

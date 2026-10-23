@@ -85,6 +85,15 @@ class BanExemptionsTest extends TestCase {
 		$this->assertTrue($this->exemptions(null)->firstReport(SourceKey::fromIp('198.51.100.7')), 'Without a memory cache every time');
 	}
 
+	public function testAFlagIsHeldBackOnlyForEveryoneBehindTheAddress(): void {
+		$this->history->method('acceptedUidsFrom')->willReturn(['admin']);
+		$this->logins->method('distinctUidsForIp')->willReturnCallback(static fn (string $ipKey): array => $ipKey === '198.51.100.8' ? ['a', 'b', 'c', 'd', 'e'] : []);
+		$exemptions = $this->exemptions(null);
+		$this->assertSame(BanResult::SKIPPED_TRUSTED, $exemptions->forAddress(SourceKey::fromIp('198.51.100.7'), time(), 'credential_stuffing')?->outcome);
+		$this->assertNull($exemptions->forFlag(SourceKey::fromIp('198.51.100.7'), false, time()), 'an administrator\'s address is flagged: a flag only asks for a confirmation');
+		$this->assertSame(BanResult::SKIPPED_SHARED, $exemptions->forFlag(SourceKey::fromIp('198.51.100.8'), false, time())?->outcome);
+	}
+
 	private function exemptions(?ArrayCache $cache): BanExemptions {
 		$settings = $this->createMock(AppSettings::class);
 		$settings->method('banSharedIpUsers')->willReturn(5);
