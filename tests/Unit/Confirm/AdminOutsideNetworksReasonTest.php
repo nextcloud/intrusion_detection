@@ -11,7 +11,6 @@ namespace OCA\IntrusionDetection\Tests\Unit\Confirm;
 
 use OCA\IntrusionDetection\AdminChange\DelegatedGroups;
 use OCA\IntrusionDetection\Config\AppSettings;
-use OCA\IntrusionDetection\Confirm\Methods\KnownDeviceMethod;
 use OCA\IntrusionDetection\Confirm\Reasons\AdminOutsideNetworksReason;
 use OCA\IntrusionDetection\Confirm\StepUpPolicy;
 use OCA\IntrusionDetection\Confirm\StepUpReasons;
@@ -44,7 +43,7 @@ class AdminOutsideNetworksReasonTest extends TestCase {
 		$this->assertContains(AdminOutsideNetworksReason::class, StepUpReasons::PROVIDERS);
 		$this->assertSame(StepUpPolicy::AdminOutsideNetworks, AdminOutsideNetworksReason::policy());
 		$this->assertFalse(StepUpPolicy::AdminOutsideNetworks->allowsFamiliarApps(), 'Strict for apps sending the password');
-		$this->assertContains(StepUpPolicy::AdminOutsideNetworks, KnownDeviceMethod::NEVER, 'A remembered device does not change the network');
+		$this->assertFalse(StepUpPolicy::AdminOutsideNetworks->knownDeviceMayConfirm(), 'A remembered device does not change the network');
 	}
 
 	public function testNothingIsReadWhileTheSwitchIsOff(): void {

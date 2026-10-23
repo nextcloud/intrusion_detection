@@ -12,6 +12,7 @@ namespace OCA\IntrusionDetection\Tests\Unit\Config;
 use OCA\IntrusionDetection\Check\Checks\CredentialStuffing\CredentialStuffing;
 use OCA\IntrusionDetection\Check\Checks\DirectoryScraping\DirectoryScraping;
 use OCA\IntrusionDetection\Check\Checks\InjectionProbe\InjectionProbe;
+use OCA\IntrusionDetection\Check\Checks\RiskyNetwork\RiskyNetwork;
 use OCA\IntrusionDetection\Check\Checks\TrapUrl\TrapUrl;
 use OCA\IntrusionDetection\Config\AppSettings;
 use OCA\IntrusionDetection\Config\CheckSettings;
@@ -74,6 +75,18 @@ class SettingsReadTest extends TestCase {
 	public function testListItemsAreReadWithTheStaticRulesAndTheirUserSkipsTheUnusableOnes(): void {
 		$this->stored[Keys::param(InjectionProbe::ID, InjectionProbe::PARAM_CUSTOM)] = ['union.*select', '(unclosed'];
 		$this->assertSame(['union.*select', '(unclosed'], $this->checks()->paramList(InjectionProbe::ID, InjectionProbe::PARAM_CUSTOM));
+	}
+
+	public function testAStepUpIsActiveWhileItsCheckActsWithTheStepUpResponse(): void {
+		$this->stored[Keys::responses(RiskyNetwork::ID)] = [ResponseType::StepUp->value];
+		$this->assertTrue($this->checks()->stepUpActive(RiskyNetwork::ID));
+
+		$this->stored[Keys::mode(RiskyNetwork::ID)] = Mode::Observe->value;
+		$this->assertFalse($this->checks()->stepUpActive(RiskyNetwork::ID), 'observing asks nobody');
+
+		$this->stored[Keys::mode(RiskyNetwork::ID)] = Mode::Protect->value;
+		$this->stored[Keys::responses(RiskyNetwork::ID)] = [ResponseType::NotifyAdmin->value];
+		$this->assertFalse($this->checks()->stepUpActive(RiskyNetwork::ID), 'without the step-up response');
 	}
 
 	public function testUnknownChecksThrow(): void {

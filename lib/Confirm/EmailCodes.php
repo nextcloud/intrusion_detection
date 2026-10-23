@@ -18,9 +18,7 @@ use OCA\IntrusionDetection\Notification\Mails;
 use OCA\IntrusionDetection\Notification\UserMessages;
 use OCP\AppFramework\Utility\ITimeFactory;
 use OCP\Config\IUserConfig;
-use OCP\IConfig;
 use OCP\IUser;
-use OCP\Mail\IEmailValidator;
 use OCP\Security\IHasher;
 use OCP\Security\ISecureRandom;
 
@@ -60,24 +58,11 @@ class EmailCodes {
 		private readonly IHasher $hasher,
 		private readonly Mails $mails,
 		private readonly UserMessages $messages,
-		private readonly IEmailValidator $emailValidator,
-		private readonly IConfig $config,
 		private readonly ITimeFactory $timeFactory,
 		private readonly UnconfirmedSessions $sessions,
 		private readonly CoreSession $coreSession,
 		private readonly IUserConfig $userConfig,
 	) {
-	}
-
-	/**
-	 * Whether a code can be sent to the account: it has a valid email
-	 * address and the server sends mail.
-	 */
-	public function isAvailable(IUser $user): bool {
-		$address = (string)$user->getEMailAddress();
-		return $address !== ''
-			&& $this->emailValidator->isValid($address)
-			&& $this->config->getSystemValueString('mail_smtpmode', 'smtp') !== 'null';
 	}
 
 	/**

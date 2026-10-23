@@ -24,6 +24,7 @@ use OCA\IntrusionDetection\Notification\AdminRecipients;
 use OCA\IntrusionDetection\Notification\Db\AlertMapper;
 use OCA\IntrusionDetection\Notification\MailContent;
 use OCA\IntrusionDetection\Notification\MailQueue;
+use OCA\IntrusionDetection\Notification\MailReach;
 use OCA\IntrusionDetection\Notification\Mails;
 use OCA\IntrusionDetection\Notification\Notifier;
 use OCA\IntrusionDetection\Notification\UserMessages;
@@ -85,6 +86,7 @@ class AdminAlertsTest extends IntegrationTestCase {
 			Server::get(AdminLinks::class),
 			Server::get(ITimeFactory::class),
 			Server::get(MailQueue::class),
+			Server::get(MailReach::class),
 		);
 	}
 
@@ -111,6 +113,7 @@ class AdminAlertsTest extends IntegrationTestCase {
 			Server::get(AlertMapper::class), $recipients, $this->notifications, $this->mails, $this->appSettings(),
 			Server::get(NarrativeBuilder::class), Server::get(CheckRegistry::class), Server::get(UserMessages::class),
 			Server::get(AdminLinks::class), Server::get(ITimeFactory::class), Server::get(MailQueue::class),
+			Server::get(MailReach::class),
 		);
 		// The first hit sends the bell and the email, with one lookup.
 		$this->assertSame(2, $alerts->alert($this->detection('198.51.100.7', Severity::Critical))['recipients']);
@@ -189,6 +192,7 @@ class AdminAlertsTest extends IntegrationTestCase {
 			Server::get(AlertMapper::class), $recipients, $this->notifications, $this->mails, $this->appSettings(),
 			Server::get(NarrativeBuilder::class), Server::get(CheckRegistry::class), Server::get(UserMessages::class),
 			Server::get(AdminLinks::class), Server::get(ITimeFactory::class), Server::get(MailQueue::class),
+			Server::get(MailReach::class),
 		);
 		$result = $alerts->alert($this->detection('198.51.100.7', Severity::Critical));
 		$this->assertSame(AdminAlerts::EMAIL_NO_ADDRESS, $result['email']);
@@ -210,6 +214,7 @@ class AdminAlertsTest extends IntegrationTestCase {
 			Server::get(AlertMapper::class), $recipients, $this->notifications, $this->mails, $this->appSettings(),
 			Server::get(NarrativeBuilder::class), Server::get(CheckRegistry::class), Server::get(UserMessages::class),
 			Server::get(AdminLinks::class), Server::get(ITimeFactory::class), Server::get(MailQueue::class),
+			Server::get(MailReach::class),
 		);
 		$this->assertSame(AdminAlerts::EMAIL_NO_ADDRESS, $alerts->alert($this->detection('198.51.100.7', Severity::Critical))['email']);
 		for ($i = 0; $i < 5; $i++) {
@@ -224,6 +229,7 @@ class AdminAlertsTest extends IntegrationTestCase {
 			Server::get(AlertMapper::class), $this->recipients, $this->notifications, $mails, $this->appSettings(),
 			Server::get(NarrativeBuilder::class), Server::get(CheckRegistry::class), Server::get(UserMessages::class),
 			Server::get(AdminLinks::class), Server::get(ITimeFactory::class), Server::get(MailQueue::class),
+			Server::get(MailReach::class),
 		);
 		$this->assertSame(AdminAlerts::EMAIL_QUEUED, $alerts->alert($this->detection('198.51.100.7', Severity::Critical))['email']);
 		$this->runQueuedMails(admins: $alerts);

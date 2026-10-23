@@ -14,7 +14,6 @@ use OCA\IntrusionDetection\Check\Checks\BreachedPassword\BreachedPasswordDetecto
 use OCA\IntrusionDetection\Config\CheckSettings;
 use OCA\IntrusionDetection\Confirm\IStepUpReason;
 use OCA\IntrusionDetection\Confirm\StepUpPolicy;
-use OCA\IntrusionDetection\Definition\ResponseType;
 use OCA\IntrusionDetection\Login\LoginContext;
 use Psr\Container\ContainerInterface;
 
@@ -39,8 +38,7 @@ class BreachedPasswordReason implements IStepUpReason {
 	#[\Override]
 	public function applies(LoginContext $login): bool {
 		// Off by default: stop before loading the detector and its HTTP client.
-		if (!$this->settings->modeState(BreachedPassword::ID)->acts()
-			|| !$this->settings->hasResponse(BreachedPassword::ID, ResponseType::StepUp)) {
+		if (!$this->settings->stepUpActive(BreachedPassword::ID)) {
 			return false;
 		}
 		return $this->container->get(BreachedPasswordDetector::class)->isBreached($login->user);

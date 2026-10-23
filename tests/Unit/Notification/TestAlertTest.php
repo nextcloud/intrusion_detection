@@ -19,6 +19,7 @@ use OCA\IntrusionDetection\Notification\AdminAlerts;
 use OCA\IntrusionDetection\Notification\AdminLinks;
 use OCA\IntrusionDetection\Notification\Db\AlertMapper;
 use OCA\IntrusionDetection\Notification\MailContent;
+use OCA\IntrusionDetection\Notification\MailReach;
 use OCA\IntrusionDetection\Notification\Mails;
 use OCA\IntrusionDetection\Notification\Notifier;
 use OCA\IntrusionDetection\Notification\TestAlert;
@@ -62,7 +63,7 @@ class TestAlertTest extends TestCase {
 		$factory = $this->createMock(IFactory::class);
 		$factory->method('getUserLanguage')->willReturn('en');
 		$factory->method('get')->willReturn(Server::get(IFactory::class)->get('intrusion_detection', 'en'));
-		return new TestAlert($this->notifications, $this->mails, $this->prerequisites, $factory, $links, $time);
+		return new TestAlert($this->notifications, $this->mails, $this->prerequisites, $factory, $links, $time, Server::get(MailReach::class));
 	}
 
 	private function user(string $email): IUser&MockObject {

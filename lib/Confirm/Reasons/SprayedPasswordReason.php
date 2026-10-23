@@ -13,7 +13,6 @@ use OCA\IntrusionDetection\Check\Checks\PasswordSpraying\PasswordSpraying;
 use OCA\IntrusionDetection\Config\CheckSettings;
 use OCA\IntrusionDetection\Confirm\IStepUpReason;
 use OCA\IntrusionDetection\Confirm\StepUpPolicy;
-use OCA\IntrusionDetection\Definition\ResponseType;
 use OCA\IntrusionDetection\Login\LoginContext;
 
 /**
@@ -34,8 +33,6 @@ class SprayedPasswordReason implements IStepUpReason {
 
 	#[\Override]
 	public function applies(LoginContext $login): bool {
-		return $login->passwordFlagged
-			&& $this->settings->modeState(PasswordSpraying::ID)->acts()
-			&& $this->settings->hasResponse(PasswordSpraying::ID, ResponseType::StepUp);
+		return $login->passwordFlagged && $this->settings->stepUpActive(PasswordSpraying::ID);
 	}
 }

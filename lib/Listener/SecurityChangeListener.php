@@ -13,6 +13,7 @@ use OC\Authentication\TwoFactorAuth\Manager as TwoFactorManager;
 use OC\Core\Events\BeforePasswordResetEvent;
 use OC\Core\Events\PasswordResetEvent;
 use OCA\IntrusionDetection\Config\AppSettings;
+use OCA\IntrusionDetection\Confirm\SecondFactors;
 use OCA\IntrusionDetection\Response\Tokens;
 use OCA\IntrusionDetection\Takeover\Db\SecurityChangeMapper;
 use OCA\IntrusionDetection\Takeover\ResetTracker;
@@ -23,7 +24,6 @@ use OCP\Authentication\Events\AppPasswordCreatedEvent;
 use OCP\Authentication\Events\LoginFlowV2GrantedEvent;
 use OCP\Authentication\Events\TokenInvalidatedEvent;
 use OCP\Authentication\Token\IToken;
-use OCP\Authentication\TwoFactorAuth\IRegistry;
 use OCP\Authentication\TwoFactorAuth\TwoFactorProviderForUserRegistered;
 use OCP\Authentication\TwoFactorAuth\TwoFactorProviderForUserUnregistered;
 use OCP\EventDispatcher\Event;
@@ -56,14 +56,13 @@ use Psr\Log\LoggerInterface;
 class SecurityChangeListener implements IEventListener {
 	/** A device connected within this time after its app password was created is the same change */
 	public const SAME_CHANGE_WINDOW = 300;
-	private const BACKUP_CODES = 'backup_codes';
 
 	public function __construct(
 		private readonly AppSettings $settings,
 		private readonly SecurityChangeLog $log,
 		private readonly SecurityChangeMapper $changes,
 		private readonly ResetTracker $resets,
-		private readonly IRegistry $twoFactorRegistry,
+		private readonly SecondFactors $secondFactors,
 		private readonly ITimeFactory $timeFactory,
 		private readonly LoggerInterface $logger,
 	) {
@@ -130,14 +129,8 @@ class SecurityChangeListener implements IEventListener {
 
 	private function secondFactorRemoved(TwoFactorProviderForUserUnregistered $event): void {
 		$user = $event->getUser();
-		$remaining = false;
-		foreach ($this->twoFactorRegistry->getProviderStates($user) as $providerId => $enabled) {
-			if ($enabled && $providerId !== self::BACKUP_CODES && $providerId !== $event->getProvider()->getId()) {
-				$remaining = true;
-				break;
-			}
-		}
-		$type = $remaining || $event->getProvider()->getId() === self::BACKUP_CODES ? SecurityChangeType::SecondFactorRemoved : SecurityChangeType::SecondFactorDisabled;
+		$remaining = $this->secondFactors->has($user, except: $event->getProvider()->getId());
+		$type = $remaining || $event->getProvider()->getId() === SecondFactors::BACKUP_CODES ? SecurityChangeType::SecondFactorRemoved : SecurityChangeType::SecondFactorDisabled;
 		$this->log->record($user->getUID(), $type, detail: $event->getProvider()->getId());
 	}
 

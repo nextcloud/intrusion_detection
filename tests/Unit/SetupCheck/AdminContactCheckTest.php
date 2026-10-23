@@ -9,12 +9,17 @@ declare(strict_types=1);
 
 namespace OCA\IntrusionDetection\Tests\Unit\SetupCheck;
 
+use OC\Authentication\TwoFactorAuth\ProviderLoader;
 use OC\Memcache\ArrayCache;
 use OCA\IntrusionDetection\Admin\SetupProblems;
 use OCA\IntrusionDetection\AdminChange\Approvers;
 use OCA\IntrusionDetection\Config\AppSettings;
+use OCA\IntrusionDetection\Confirm\AccountMethods;
 use OCA\IntrusionDetection\Confirm\ConfirmationCoverage;
+use OCA\IntrusionDetection\Confirm\SecondFactors;
+use OCA\IntrusionDetection\Confirm\UntrustedSecondFactors;
 use OCA\IntrusionDetection\Notification\AdminLinks;
+use OCA\IntrusionDetection\Notification\MailReach;
 use OCA\IntrusionDetection\SetupCheck\AdminContactCheck;
 use OCA\IntrusionDetection\SetupCheck\Finding;
 use OCA\IntrusionDetection\Tests\Unit\Cache\FixedCaches;
@@ -26,6 +31,7 @@ use OCP\IUserManager;
 use OCP\L10N\IFactory;
 use OCP\Server;
 use OCP\SetupCheck\SetupResult;
+use Psr\Log\LoggerInterface;
 use Test\TestCase;
 
 class AdminContactCheckTest extends TestCase {
@@ -128,12 +134,15 @@ class AdminContactCheckTest extends TestCase {
 	private function instance(Approvers $approvers, IRegistry $registry, bool $trustedNetworksOnly = false): AdminContactCheck {
 		$cache = new ArrayCache();
 		$cacheFactory = new FixedCaches($cache);
+		$secondFactors = new SecondFactors($registry, $this->createMock(ProviderLoader::class), $this->createMock(UntrustedSecondFactors::class), $this->createMock(LoggerInterface::class));
 		$coverage = new ConfirmationCoverage(
 			$this->createMock(IDBConnection::class),
 			$this->createMock(IUserManager::class),
 			$this->createMock(IGroupManager::class),
 			$approvers,
-			$registry,
+			new AccountMethods(Server::get(MailReach::class), $secondFactors),
+			$secondFactors,
+			Server::get(MailReach::class),
 			$cacheFactory,
 			$this->createMock(\OCP\AppFramework\Utility\ITimeFactory::class),
 			$this->createMock(\OCA\IntrusionDetection\State\AppState::class),

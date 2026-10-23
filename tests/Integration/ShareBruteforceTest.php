@@ -34,6 +34,7 @@ use OCA\IntrusionDetection\Listener\ShareAccessFailedListener;
 use OCA\IntrusionDetection\Net\SourceKey;
 use OCA\IntrusionDetection\Notification\MailContent;
 use OCA\IntrusionDetection\Notification\MailQueue;
+use OCA\IntrusionDetection\Notification\MailReach;
 use OCA\IntrusionDetection\Notification\Mails;
 use OCA\IntrusionDetection\Notification\ShareOwnerAlerts;
 use OCA\IntrusionDetection\Notification\ShareOwnerNotifier;
@@ -459,6 +460,7 @@ class ShareBruteforceTest extends RequestEventTestCase {
 			Server::get(IURLGenerator::class),
 			Server::get(ITimeFactory::class),
 			Server::get(MailQueue::class),
+			Server::get(MailReach::class),
 		);
 		$result = $alerts->alert($detection, $share);
 

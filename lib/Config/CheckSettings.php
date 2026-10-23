@@ -152,6 +152,14 @@ class CheckSettings extends StoredSettings {
 		return $responses;
 	}
 
+	/**
+	 * Whether a check asks for extra confirmation of a login now: it acts,
+	 * and has the step-up response.
+	 */
+	public function stepUpActive(string $checkId): bool {
+		return $this->modeState($checkId)->acts() && $this->hasResponse($checkId, ResponseType::StepUp);
+	}
+
 	public function hasResponse(string $checkId, ResponseType $response): bool {
 		return in_array($response, $this->responses($checkId), true);
 	}

@@ -11,10 +11,16 @@ namespace OCA\IntrusionDetection\Tests\Integration;
 
 use OC\Memcache\ArrayCache;
 use OCA\IntrusionDetection\AdminChange\Approvers;
+use OCA\IntrusionDetection\AppInfo\Application;
 use OCA\IntrusionDetection\BackgroundJob\StatusRefreshJob;
 use OCA\IntrusionDetection\Cache\Caches;
+use OCA\IntrusionDetection\Config\UserKeys;
+use OCA\IntrusionDetection\Confirm\AccountMethods;
 use OCA\IntrusionDetection\Confirm\ConfirmationCoverage;
+use OCA\IntrusionDetection\Confirm\SecondFactors;
+use OCA\IntrusionDetection\Confirm\UntrustedSecondFactors;
 use OCA\IntrusionDetection\Notification\AdminLinks;
+use OCA\IntrusionDetection\Notification\MailReach;
 use OCA\IntrusionDetection\SetupCheck\Finding;
 use OCA\IntrusionDetection\SetupCheck\UsersWithoutConfirmationCheck;
 use OCA\IntrusionDetection\StaleCredential\StaleCredentialSweep;
@@ -22,13 +28,16 @@ use OCA\IntrusionDetection\State\AppState;
 use OCA\IntrusionDetection\Tests\Unit\Cache\FixedCaches;
 use OCA\IntrusionDetection\Traps\TrapNameCollisions;
 use OCP\AppFramework\Utility\ITimeFactory;
-use OCP\Authentication\TwoFactorAuth\IRegistry;
+use OCP\Config\IUserConfig;
 use OCP\DB\QueryBuilder\IQueryBuilder;
+use OCP\IConfig;
 use OCP\IGroupManager;
 use OCP\IUser;
 use OCP\IUserManager;
 use OCP\L10N\IFactory;
+use OCP\Mail\IEmailValidator;
 use OCP\Server;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Group;
 use Psr\Log\LoggerInterface;
 
@@ -82,6 +91,56 @@ class ConfirmationCoverageTest extends IntegrationTestCase {
 		$this->assertSame(1_760_000_000, $row['lastLogin']);
 		$this->assertSame(['staff'], $row['groups']);
 		$this->assertFalse($row['admin']);
+	}
+
+	/**
+	 * The query counts and lists exactly the accounts a login finds without
+	 * a method of their own ({@see AccountMethods::any()}).
+	 */
+	#[DataProvider('mailModes')]
+	public function testTheQueryAgreesWithWhatALoginAccepts(bool $sendsMail): void {
+		$config = $this->createMock(IConfig::class);
+		$config->method('getSystemValueString')->willReturnCallback(static fn (string $key, string $default): string => $key === 'mail_smtpmode' ? ($sendsMail ? 'smtp' : 'null') : $default);
+		$reach = new MailReach(Server::get(IEmailValidator::class), $config);
+		$coverage = $this->coverage($reach);
+		$before = $coverage->recount()['withoutMethod'];
+		$now = time();
+		$this->account('a-none');
+		$this->account('a-email', email: true);
+		$this->account('a-totp', secondFactor: 'totp');
+		$this->account('a-backup', secondFactor: 'backup_codes');
+		$this->account('a-untrusted', secondFactor: 'totp', marks: ['totp' => $now - 60]);
+		$this->account('a-untrusted-email', email: true, secondFactor: 'totp', marks: ['totp' => $now - 60]);
+		$this->account('a-still-untrusted', secondFactor: 'totp', marks: ['totp' => ['at' => $now - 60, 'until' => $now + 3600]]);
+		$this->account('a-mark-ended', secondFactor: 'totp', marks: ['totp' => ['at' => $now - 7200, 'until' => $now - 3600]]);
+		$this->account('a-one-of-two', secondFactor: 'totp', marks: ['webauthn' => $now - 60]);
+		$this->addSecondFactor(self::PREFIX . 'a-one-of-two', 'webauthn');
+		$this->account('a-other-mark', secondFactor: 'totp', marks: ['webauthn' => $now - 60]);
+
+		$methods = new AccountMethods($reach, Server::get(SecondFactors::class));
+		$expected = [];
+		foreach ($this->users as $uid) {
+			$user = Server::get(IUserManager::class)->get($uid);
+			$this->assertInstanceOf(IUser::class, $user);
+			if (!$methods->any($user)) {
+				$expected[] = $uid;
+			}
+		}
+		sort($expected);
+		$listed = array_values(array_filter(array_column($coverage->list(200, 0, false, self::PREFIX . 'a-'), 'uid'), static fn (string $uid): bool => str_starts_with($uid, self::PREFIX . 'a-')));
+
+		$this->assertSame($expected, $listed);
+		$this->assertSame($before + count($expected), $coverage->recount()['withoutMethod']);
+		$this->assertContains(self::PREFIX . 'a-untrusted', $listed, 'an untrusted second factor confirms nothing');
+		$this->assertNotContains(self::PREFIX . 'a-mark-ended', $listed, 'a mark that ended counts no more');
+		$this->assertSame(!$sendsMail, in_array(self::PREFIX . 'a-email', $listed, true), 'an address is a method only while the server sends mail');
+	}
+
+	/**
+	 * @return array<string, array{bool}>
+	 */
+	public static function mailModes(): array {
+		return ['the server sends mail' => [true], 'the server sends no mail' => [false]];
 	}
 
 	public function testAPageCostsTheSameFewQueriesWhateverItsSizeAndTheNextOneStartsAfterIt(): void {
@@ -146,7 +205,7 @@ class ConfirmationCoverageTest extends IntegrationTestCase {
 		$this->fakeAccounts(10_000);
 		$userManager = $this->createMock(IUserManager::class);
 		$userManager->expects($this->never())->method($this->anything());
-		$coverage = new ConfirmationCoverage($this->db, $userManager, $this->createMock(IGroupManager::class), $this->createMock(Approvers::class), $this->createMock(IRegistry::class), $this->cacheFactory(), Server::get(ITimeFactory::class), Server::get(AppState::class));
+		$coverage = new ConfirmationCoverage($this->db, $userManager, $this->createMock(IGroupManager::class), $this->createMock(Approvers::class), Server::get(AccountMethods::class), Server::get(SecondFactors::class), Server::get(MailReach::class), $this->cacheFactory(), Server::get(ITimeFactory::class), Server::get(AppState::class));
 
 		$start = hrtime(true);
 		$counts = $coverage->users();
@@ -161,13 +220,17 @@ class ConfirmationCoverageTest extends IntegrationTestCase {
 		$this->assertSame(Finding::LEVEL_WARNING, $check->finding($l)?->level, 'Far more than a tenth');
 	}
 
-	private function coverage(): ConfirmationCoverage {
+	private function coverage(?MailReach $reach = null): ConfirmationCoverage {
+		$reach ??= Server::get(MailReach::class);
+		$secondFactors = Server::get(SecondFactors::class);
 		return new ConfirmationCoverage(
 			$this->db,
 			Server::get(IUserManager::class),
 			Server::get(IGroupManager::class),
 			Server::get(Approvers::class),
-			Server::get(IRegistry::class),
+			new AccountMethods($reach, $secondFactors),
+			$secondFactors,
+			$reach,
 			$this->cacheFactory(),
 			Server::get(ITimeFactory::class),
 			Server::get(AppState::class),
@@ -183,7 +246,10 @@ class ConfirmationCoverageTest extends IntegrationTestCase {
 		return $factory;
 	}
 
-	private function account(string $name, bool $email = false, ?string $secondFactor = null, bool $disabled = false, bool $loggedIn = true): string {
+	/**
+	 * @param array<string, int|array{at: int, until: int}> $marks untrusted second factors ({@see UntrustedSecondFactors})
+	 */
+	private function account(string $name, bool $email = false, ?string $secondFactor = null, bool $disabled = false, bool $loggedIn = true, array $marks = []): string {
 		$uid = self::PREFIX . $name;
 		$user = Server::get(IUserManager::class)->createUser($uid, 'A-long-test-password-' . $uid);
 		$this->assertInstanceOf(IUser::class, $user);
@@ -194,7 +260,10 @@ class ConfirmationCoverageTest extends IntegrationTestCase {
 			$user->setSystemEMailAddress($name . '@example.com');
 		}
 		if ($secondFactor !== null) {
-			$this->db->insertIfNotExist('*PREFIX*twofactor_providers', ['provider_id' => $secondFactor, 'uid' => $uid, 'enabled' => 1], ['provider_id', 'uid']);
+			$this->addSecondFactor($uid, $secondFactor);
+		}
+		if ($marks !== []) {
+			Server::get(IUserConfig::class)->setValueArray($uid, Application::APP_ID, UserKeys::UNTRUSTED_SECOND_FACTORS, $marks);
 		}
 		if ($disabled) {
 			$user->setEnabled(false);
@@ -203,6 +272,10 @@ class ConfirmationCoverageTest extends IntegrationTestCase {
 			$this->preference($uid, 'login', 'lastLogin', '1760000000');
 		}
 		return $uid;
+	}
+
+	private function addSecondFactor(string $uid, string $providerId): void {
+		$this->db->insertIfNotExist('*PREFIX*twofactor_providers', ['provider_id' => $providerId, 'uid' => $uid, 'enabled' => 1], ['provider_id', 'uid']);
 	}
 
 	/**

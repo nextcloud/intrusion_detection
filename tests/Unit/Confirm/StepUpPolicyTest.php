@@ -11,7 +11,6 @@ namespace OCA\IntrusionDetection\Tests\Unit\Confirm;
 
 use OCA\IntrusionDetection\Config\GlobalSettings;
 use OCA\IntrusionDetection\Confirm\IStepUpReason;
-use OCA\IntrusionDetection\Confirm\Methods\KnownDeviceMethod;
 use OCA\IntrusionDetection\Confirm\NoMethodOutcome;
 use OCA\IntrusionDetection\Confirm\StepUpPolicy;
 use OCA\IntrusionDetection\Confirm\StepUpReasons;
@@ -76,7 +75,7 @@ class StepUpPolicyTest extends TestCase {
 		$this->assertSame(array_map(static fn (StepUpPolicy $p): string => $p->value, StepUpReasons::policies()), array_keys(GlobalSettings::STEP_UP_NO_METHOD_DEFAULTS));
 		$this->assertSame(array_map(static fn (NoMethodOutcome $o): string => $o->value, NoMethodOutcome::cases()), GlobalSettings::NO_METHOD_OUTCOMES);
 		foreach (StepUpPolicy::cases() as $policy) {
-			$this->assertSame(!in_array($policy, KnownDeviceMethod::NEVER, true), preg_match(GlobalSettings::STEP_UP_KNOWN_DEVICE_PATTERN, $policy->value) === 1, $policy->value);
+			$this->assertSame($policy->knownDeviceMayConfirm(), preg_match(GlobalSettings::STEP_UP_KNOWN_DEVICE_PATTERN, $policy->value) === 1, $policy->value);
 		}
 	}
 
@@ -110,5 +109,11 @@ class StepUpPolicyTest extends TestCase {
 		$this->assertNull(StepUpReference::detectionId('SAAA-AAA0'), 'Not in the alphabet');
 		$this->assertNull(StepUpReference::detectionId('SAAA-AAAA'), 'No detection 0');
 		$this->assertNull(StepUpReference::detectionId('S'));
+	}
+
+	public function testTheKnownDeviceDefaultOffersOnlyReasonsADeviceMayConfirm(): void {
+		foreach (GlobalSettings::STEP_UP_KNOWN_DEVICE_DEFAULT as $policy) {
+			$this->assertTrue(StepUpPolicy::from($policy)->knownDeviceMayConfirm(), $policy);
+		}
 	}
 }

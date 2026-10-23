@@ -9,11 +9,13 @@ declare(strict_types=1);
 
 namespace OCA\IntrusionDetection\Tests\Integration;
 
+use OC\Authentication\TwoFactorAuth\ProviderLoader;
 use OCA\IntrusionDetection\AdminChange\ApprovalService;
 use OCA\IntrusionDetection\AdminChange\Approvers;
 use OCA\IntrusionDetection\AppInfo\Application;
 use OCA\IntrusionDetection\Audit\AuditLogger;
 use OCA\IntrusionDetection\Cache\Caches;
+use OCA\IntrusionDetection\Confirm\AccountMethods;
 use OCA\IntrusionDetection\Confirm\ConfirmationPolicy;
 use OCA\IntrusionDetection\Confirm\Db\StepUpSessionMapper;
 use OCA\IntrusionDetection\Confirm\EmailCodes;
@@ -24,6 +26,7 @@ use OCA\IntrusionDetection\Confirm\Methods\AdminApprovalMethod;
 use OCA\IntrusionDetection\Confirm\Methods\EmailCodeMethod;
 use OCA\IntrusionDetection\Confirm\Methods\KnownDeviceMethod;
 use OCA\IntrusionDetection\Confirm\Methods\SecondFactorMethod;
+use OCA\IntrusionDetection\Confirm\SecondFactors;
 use OCA\IntrusionDetection\Confirm\SecondFactorSetup;
 use OCA\IntrusionDetection\Confirm\SessionConfirmation;
 use OCA\IntrusionDetection\Confirm\StepUpReasons;
@@ -53,6 +56,7 @@ use OCA\IntrusionDetection\LoginHistory\Db\LoginHistoryMapper;
 use OCA\IntrusionDetection\LoginHistory\LoginHistory;
 use OCA\IntrusionDetection\Net\RemoteAddressResolver;
 use OCA\IntrusionDetection\Net\ServerAddresses;
+use OCA\IntrusionDetection\Notification\MailReach;
 use OCA\IntrusionDetection\Notification\UserMessages;
 use OCA\IntrusionDetection\Response\FlaggedSources;
 use OCA\IntrusionDetection\SessionState\Rules\StepUpRule;
@@ -73,7 +77,6 @@ use OCP\IRequest;
 use OCP\IURLGenerator;
 use OCP\IUser;
 use OCP\L10N\IFactory;
-use OCP\Mail\IEmailValidator;
 use OCP\Security\Bruteforce\IThrottler;
 use OCP\Security\IHasher;
 use OCP\Security\ISecureRandom;
@@ -263,7 +266,7 @@ abstract class StepUpTestCase extends AccountTestCase {
 		return new ConfirmationPolicy($this->appSettings(), new OverridingContainer([
 			SecondFactorMethod::class => $this->secondFactorMethod(),
 			KnownDeviceMethod::class => new KnownDeviceMethod($this->knownDevices(), $this->appSettings()),
-			EmailCodeMethod::class => new EmailCodeMethod($this->codes()),
+			EmailCodeMethod::class => new EmailCodeMethod($this->codes(), $this->accountMethods()),
 			AdminApprovalMethod::class => new AdminApprovalMethod(
 				Server::get(ApprovalService::class),
 				Server::get(ApprovalMapper::class),
@@ -340,6 +343,18 @@ abstract class StepUpTestCase extends AccountTestCase {
 		}
 	}
 
+	/**
+	 * What the accounts can confirm with: email as the server sends it, the
+	 * second factor as the test says.
+	 */
+	protected function accountMethods(): AccountMethods {
+		return new AccountMethods(Server::get(MailReach::class), $this->secondFactors());
+	}
+
+	protected function secondFactors(): SecondFactors {
+		return new SecondFactors($this->registry(), Server::get(ProviderLoader::class), $this->untrustedSecondFactors(), Server::get(LoggerInterface::class));
+	}
+
 	protected function codes(): EmailCodes {
 		$random = $this->createMock(ISecureRandom::class);
 		$random->method('generate')->willReturnCallback(fn (): string => array_shift($this->codes) ?? '999999');
@@ -348,8 +363,6 @@ abstract class StepUpTestCase extends AccountTestCase {
 			Server::get(IHasher::class),
 			$this->mails,
 			Server::get(UserMessages::class),
-			Server::get(IEmailValidator::class),
-			Server::get(IConfig::class),
 			Server::get(ITimeFactory::class),
 			Server::get(UnconfirmedSessions::class),
 			$this->coreSession,
@@ -380,7 +393,7 @@ abstract class StepUpTestCase extends AccountTestCase {
 	}
 
 	protected function secondFactorMethod(): SecondFactorMethod {
-		return new SecondFactorMethod($this->challenges, $this->registry(), $this->untrustedSecondFactors());
+		return new SecondFactorMethod($this->challenges, $this->accountMethods());
 	}
 
 	/**
@@ -389,7 +402,7 @@ abstract class StepUpTestCase extends AccountTestCase {
 	protected function passChallenge(IUser $user, string $providerId = 'totp'): void {
 		$provider = $this->createMock(IProvider::class);
 		$provider->method('getId')->willReturn($providerId);
-		(new ChallengePassedListener($this->service(), $this->secondFactorMethod(), $this->sessionConfirmation(), $this->history(), $this->appSettings(), Server::get(LoggerInterface::class)))
+		(new ChallengePassedListener($this->service(), $this->secondFactors(), $this->sessionConfirmation(), $this->history(), $this->appSettings(), Server::get(LoggerInterface::class)))
 			->handle(new TwoFactorProviderChallengePassed($user, $provider));
 	}
 

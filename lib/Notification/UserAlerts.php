@@ -76,6 +76,7 @@ class UserAlerts {
 		private readonly Questions $questions,
 		private readonly MailQueue $queue,
 		private readonly CheckRegistry $registry,
+		private readonly MailReach $reach,
 	) {
 	}
 
@@ -114,7 +115,7 @@ class UserAlerts {
 			->setSubject(self::SUBJECT, ['detection' => $detection->getId()]);
 		$this->notifications->notify($notification);
 
-		if ((string)$user->getEMailAddress() === '') {
+		if (!$this->reach->hasAddress($user)) {
 			return ['bell' => self::BELL_SENT, 'email' => self::EMAIL_NO_ADDRESS, 'admins' => $this->unreachable($detection, $uid, self::EMAIL_NO_ADDRESS)];
 		}
 		if (!$this->queue->user($detection->getId(), $uid)) {
@@ -133,7 +134,7 @@ class UserAlerts {
 		if ($user === null || !$user->isEnabled() || $detection->getUid() !== $uid) {
 			return;
 		}
-		if ((string)$user->getEMailAddress() === '') {
+		if (!$this->reach->hasAddress($user)) {
 			$this->unreachable($detection, $uid, self::EMAIL_NO_ADDRESS);
 		} elseif (!$this->mails->send($user, $this->messages->mail($detection, $user))) {
 			$this->unreachable($detection, $uid, self::EMAIL_FAILED);

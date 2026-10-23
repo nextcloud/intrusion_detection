@@ -9,10 +9,12 @@ declare(strict_types=1);
 
 namespace OCA\IntrusionDetection\Tests\Unit\Confirm;
 
+use OC\Authentication\TwoFactorAuth\ProviderLoader;
 use OCA\IntrusionDetection\AdminChange\ApprovalService;
 use OCA\IntrusionDetection\AdminChange\Approvers;
 use OCA\IntrusionDetection\Config\AppSettings;
 use OCA\IntrusionDetection\Config\GlobalSettings;
+use OCA\IntrusionDetection\Confirm\AccountMethods;
 use OCA\IntrusionDetection\Confirm\ConfirmationPolicy;
 use OCA\IntrusionDetection\Confirm\EmailCodes;
 use OCA\IntrusionDetection\Confirm\IConfirmationMethod;
@@ -20,6 +22,7 @@ use OCA\IntrusionDetection\Confirm\Methods\AdminApprovalMethod;
 use OCA\IntrusionDetection\Confirm\Methods\EmailCodeMethod;
 use OCA\IntrusionDetection\Confirm\Methods\KnownDeviceMethod;
 use OCA\IntrusionDetection\Confirm\Methods\SecondFactorMethod;
+use OCA\IntrusionDetection\Confirm\SecondFactors;
 use OCA\IntrusionDetection\Confirm\StepUpPolicy;
 use OCA\IntrusionDetection\Confirm\StepUpState;
 use OCA\IntrusionDetection\Confirm\UntrustedSecondFactors;
@@ -27,6 +30,7 @@ use OCA\IntrusionDetection\Db\Approval;
 use OCA\IntrusionDetection\Db\ApprovalMapper;
 use OCA\IntrusionDetection\KnownDevice\KnownDevice;
 use OCA\IntrusionDetection\KnownDevice\KnownDevices;
+use OCA\IntrusionDetection\Notification\MailReach;
 use OCP\AppFramework\Utility\ITimeFactory;
 use OCP\Authentication\TwoFactorAuth\IChallengeRequester;
 use OCP\Authentication\TwoFactorAuth\IRegistry;
@@ -195,7 +199,7 @@ class ConfirmationOrderTest extends TestCase {
 		$challenges->method('isAvailable')->willReturnCallback(fn (): bool => $this->secondFactor);
 		$registry = $this->createMock(IRegistry::class);
 		$registry->method('getProviderStates')->willReturnCallback(fn (): array => $this->secondFactor ? ['totp' => true] : []);
-		return new SecondFactorMethod($challenges, $registry, $this->createMock(UntrustedSecondFactors::class));
+		return new SecondFactorMethod($challenges, new AccountMethods($this->createMock(MailReach::class), new SecondFactors($registry, $this->createMock(ProviderLoader::class), $this->createMock(UntrustedSecondFactors::class), $this->createMock(LoggerInterface::class))));
 	}
 
 	private function knownDeviceMethod(): KnownDeviceMethod {
@@ -205,9 +209,9 @@ class ConfirmationOrderTest extends TestCase {
 	}
 
 	private function emailMethod(): EmailCodeMethod {
-		$codes = $this->createMock(EmailCodes::class);
-		$codes->method('isAvailable')->willReturnCallback(fn (): bool => $this->email);
-		return new EmailCodeMethod($codes);
+		$methods = $this->createMock(AccountMethods::class);
+		$methods->method('byEmail')->willReturnCallback(fn (): bool => $this->email);
+		return new EmailCodeMethod($this->createMock(EmailCodes::class), $methods);
 	}
 
 	private function approvalMethod(?Approval $row = null): AdminApprovalMethod {

@@ -21,6 +21,7 @@ use OCA\IntrusionDetection\Notification\AdminRecipients;
 use OCA\IntrusionDetection\Notification\Db\AlertMapper;
 use OCA\IntrusionDetection\Notification\MailContent;
 use OCA\IntrusionDetection\Notification\MailQueue;
+use OCA\IntrusionDetection\Notification\MailReach;
 use OCA\IntrusionDetection\Notification\Mails;
 use OCA\IntrusionDetection\Notification\UserMessages;
 use OCP\AppFramework\Utility\ITimeFactory;
@@ -69,6 +70,7 @@ class AdminChangeAlertsTest extends IntegrationTestCase {
 			Server::get(AlertMapper::class), $recipients, $notifications, $mails, $this->appSettings(),
 			Server::get(NarrativeBuilder::class), Server::get(CheckRegistry::class), Server::get(UserMessages::class),
 			Server::get(AdminLinks::class), Server::get(ITimeFactory::class), Server::get(MailQueue::class),
+			Server::get(MailReach::class),
 		);
 	}
 

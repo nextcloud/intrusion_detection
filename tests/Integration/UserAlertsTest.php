@@ -24,6 +24,7 @@ use OCA\IntrusionDetection\Notification\AdminNotices;
 use OCA\IntrusionDetection\Notification\Db\AlertMapper;
 use OCA\IntrusionDetection\Notification\LoginNotices;
 use OCA\IntrusionDetection\Notification\MailQueue;
+use OCA\IntrusionDetection\Notification\MailReach;
 use OCA\IntrusionDetection\Notification\Mails;
 use OCA\IntrusionDetection\Notification\Notifier;
 use OCA\IntrusionDetection\Notification\UserAlerts;
@@ -319,6 +320,7 @@ class UserAlertsTest extends AccountTestCase {
 			Server::get(Questions::class),
 			Server::get(MailQueue::class),
 			Server::get(CheckRegistry::class),
+			Server::get(MailReach::class),
 		);
 	}
 }

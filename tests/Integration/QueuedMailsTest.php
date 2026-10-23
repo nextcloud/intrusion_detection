@@ -27,6 +27,7 @@ use OCA\IntrusionDetection\Notification\AdminNotices;
 use OCA\IntrusionDetection\Notification\Db\AlertMapper;
 use OCA\IntrusionDetection\Notification\LoginNotices;
 use OCA\IntrusionDetection\Notification\MailQueue;
+use OCA\IntrusionDetection\Notification\MailReach;
 use OCA\IntrusionDetection\Notification\Mails;
 use OCA\IntrusionDetection\Notification\UserAlerts;
 use OCA\IntrusionDetection\Notification\UserMessages;
@@ -36,7 +37,6 @@ use OCA\IntrusionDetection\WasThisYou\Questions;
 use OCP\AppFramework\Utility\ITimeFactory;
 use OCP\BackgroundJob\IJobList;
 use OCP\Config\IUserConfig;
-use OCP\IConfig;
 use OCP\IDateTimeFormatter;
 use OCP\IUserManager;
 use OCP\L10N\IFactory;
@@ -102,8 +102,6 @@ class QueuedMailsTest extends AccountTestCase {
 			Server::get(IHasher::class),
 			$this->slowMails(),
 			Server::get(UserMessages::class),
-			Server::get(IEmailValidator::class),
-			Server::get(IConfig::class),
 			Server::get(ITimeFactory::class),
 			Server::get(UnconfirmedSessions::class),
 			Server::get(CoreSession::class),
@@ -198,6 +196,7 @@ class QueuedMailsTest extends AccountTestCase {
 			Server::get(Questions::class),
 			$queue ?? Server::get(MailQueue::class),
 			Server::get(CheckRegistry::class),
+			Server::get(MailReach::class),
 		);
 	}
 

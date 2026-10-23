@@ -9,11 +9,10 @@ declare(strict_types=1);
 
 namespace OCA\IntrusionDetection\Guide;
 
-use OC\Authentication\TwoFactorAuth\ProviderLoader;
 use OCA\IntrusionDetection\AppInfo\Application;
 use OCA\IntrusionDetection\Config\UserKeys;
+use OCA\IntrusionDetection\Confirm\SecondFactors;
 use OCP\AppFramework\Utility\ITimeFactory;
-use OCP\Authentication\TwoFactorAuth\IRegistry;
 use OCP\Config\IUserConfig;
 use OCP\IUser;
 use OCP\IUserManager;
@@ -63,14 +62,10 @@ class SecureAccountGuide {
 	public const NOTIFICATION_SUBJECT = 'secure_account';
 	public const NOTIFICATION_OBJECT = 'secure_account';
 
-	/** Backup codes alone are no second factor */
-	private const BACKUP_CODES = 'backup_codes';
-
 	public function __construct(
 		private readonly IUserConfig $userConfig,
 		private readonly IUserManager $userManager,
-		private readonly IRegistry $twoFactorRegistry,
-		private readonly ProviderLoader $providerLoader,
+		private readonly SecondFactors $secondFactors,
 		private readonly INotificationManager $notifications,
 		private readonly ITimeFactory $timeFactory,
 		private readonly LoggerInterface $logger,
@@ -186,9 +181,9 @@ class SecureAccountGuide {
 		$done = 0;
 		$total = 0;
 		foreach (self::STEPS as $step) {
-			$skipped = $step === self::STEP_TWO_FACTOR && !$this->secondFactorAvailable($user);
+			$skipped = $step === self::STEP_TWO_FACTOR && !$this->secondFactors->available($user);
 			$doneAt = $state['done'][$step] ?? null;
-			if ($step === self::STEP_TWO_FACTOR && $doneAt === null && !$skipped && $this->hasSecondFactor($user)) {
+			if ($step === self::STEP_TWO_FACTOR && $doneAt === null && !$skipped && $this->secondFactors->has($user)) {
 				$doneAt = $state['started'] ?? 0;
 			}
 			$isDone = $doneAt !== null && !$skipped;
@@ -217,32 +212,6 @@ class SecureAccountGuide {
 			'total' => $total,
 			'steps' => $steps,
 		];
-	}
-
-	public function hasSecondFactor(IUser $user): bool {
-		try {
-			foreach ($this->twoFactorRegistry->getProviderStates($user) as $providerId => $enabled) {
-				if ($enabled && $providerId !== self::BACKUP_CODES) {
-					return true;
-				}
-			}
-		} catch (\Throwable $e) {
-			$this->logger->warning('Intrusion detection could not read the second factors of {uid}', ['uid' => $user->getUID(), 'exception' => $e]);
-		}
-		return false;
-	}
-
-	public function secondFactorAvailable(IUser $user): bool {
-		try {
-			foreach ($this->providerLoader->getProviders($user) as $provider) {
-				if ($provider->getId() !== self::BACKUP_CODES) {
-					return true;
-				}
-			}
-		} catch (\Throwable $e) {
-			$this->logger->warning('Intrusion detection could not list the second factors available to {uid}', ['uid' => $user->getUID(), 'exception' => $e]);
-		}
-		return false;
 	}
 
 	/**

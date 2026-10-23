@@ -19,11 +19,9 @@ use OCA\IntrusionDetection\Notification\UserMessages;
 use OCP\AppFramework\Utility\ITimeFactory;
 use OCP\Authentication\Token\IProvider;
 use OCP\Config\IUserConfig;
-use OCP\IConfig;
 use OCP\ISession;
 use OCP\IUser;
 use OCP\L10N\IFactory;
-use OCP\Mail\IEmailValidator;
 use OCP\Security\IHasher;
 use OCP\Security\ISecureRandom;
 use OCP\Server;
@@ -42,7 +40,6 @@ class EmailCodesTest extends TestCase {
 	private bool $mailWorks = true;
 	/** @var list<string> */
 	private array $codes = ['482915', '730264', '119838', '650417', '004213'];
-	private string $smtpMode = 'smtp';
 	/** The tries the server counted; null: the session is not remembered there */
 	private ?int $serverTries = null;
 	/** @var list<int> when the account's codes were sent */
@@ -203,14 +200,6 @@ class EmailCodesTest extends TestCase {
 		$this->assertTrue($codes->canResend($state), 'The window moves on');
 	}
 
-	public function testOnlyAccountsWithAValidAddressOnAServerThatSendsMail(): void {
-		$this->assertTrue($this->codes()->isAvailable($this->user()));
-		$this->assertFalse($this->codes()->isAvailable($this->user('')), 'No email address');
-		$this->assertFalse($this->codes()->isAvailable($this->user('not an address')));
-		$this->smtpMode = 'null';
-		$this->assertFalse($this->codes()->isAvailable($this->user()), 'The server does not send mail');
-	}
-
 	/**
 	 * @return array<string, array{string, string}>
 	 */
@@ -255,10 +244,6 @@ class EmailCodesTest extends TestCase {
 		});
 		$messages = $this->createMock(UserMessages::class);
 		$messages->method('l10nFor')->willReturn(Server::get(IFactory::class)->get('intrusion_detection', 'en'));
-		$validator = $this->createMock(IEmailValidator::class);
-		$validator->method('isValid')->willReturnCallback(static fn (string $a): bool => str_contains($a, '@'));
-		$config = $this->createMock(IConfig::class);
-		$config->method('getSystemValueString')->willReturnCallback(fn (string $key, string $default): string => $key === 'mail_smtpmode' ? $this->smtpMode : $default);
 		$time = $this->createMock(ITimeFactory::class);
 		$time->method('getTime')->willReturnCallback(fn (): int => $this->now);
 		$sessions = $this->createMock(UnconfirmedSessions::class);
@@ -276,6 +261,6 @@ class EmailCodesTest extends TestCase {
 			$this->mailTimes = $value;
 			return true;
 		});
-		return new EmailCodes($random, Server::get(IHasher::class), $mails, $messages, $validator, $config, $time, $sessions, new CoreSession($session, $this->createMock(IProvider::class), $this->createMock(LoggerInterface::class)), $userConfig);
+		return new EmailCodes($random, Server::get(IHasher::class), $mails, $messages, $time, $sessions, new CoreSession($session, $this->createMock(IProvider::class), $this->createMock(LoggerInterface::class)), $userConfig);
 	}
 }

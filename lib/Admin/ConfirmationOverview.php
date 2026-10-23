@@ -15,7 +15,6 @@ use OCA\IntrusionDetection\Config\AppSettings;
 use OCA\IntrusionDetection\Config\Prerequisites;
 use OCA\IntrusionDetection\Confirm\ConfirmationCoverage;
 use OCA\IntrusionDetection\Confirm\IConfirmationMethod;
-use OCA\IntrusionDetection\Confirm\Methods\KnownDeviceMethod;
 use OCA\IntrusionDetection\Confirm\NoMethodOutcome;
 use OCA\IntrusionDetection\Confirm\NoMethodPreset;
 use OCA\IntrusionDetection\Confirm\StepUpReasons;
@@ -144,7 +143,7 @@ class ConfirmationOverview {
 		$policies = [];
 		foreach (StepUpReasons::policies() as $policy) {
 			$outcome = NoMethodOutcome::tryFrom($this->settings->stepUpNoMethod($policy->value)) ?? $policy->defaultOutcome();
-			$allowed = !in_array($policy, KnownDeviceMethod::NEVER, true);
+			$allowed = $policy->knownDeviceMayConfirm();
 			$policies[] = [
 				'id' => $policy->value,
 				'label' => $policy->label($l),

@@ -17,7 +17,6 @@ use OCA\IntrusionDetection\State\AppState;
 use OCP\AppFramework\Utility\ITimeFactory;
 use OCP\IDateTimeZone;
 use OCP\IUser;
-use OCP\Mail\IEmailValidator;
 use Psr\Log\LoggerInterface;
 
 /**
@@ -56,13 +55,13 @@ class DigestSender {
 		private readonly AdminRecipients $recipients,
 		private readonly Mails $mails,
 		private readonly AlertMapper $alerts,
-		private readonly IEmailValidator $emailValidator,
 		private readonly UserMessages $messages,
 		private readonly IDateTimeZone $dateTimeZone,
 		private readonly Prerequisites $prerequisites,
 		private readonly ITimeFactory $timeFactory,
 		private readonly LoggerInterface $logger,
 		private readonly AppState $state,
+		private readonly MailReach $reach,
 	) {
 	}
 
@@ -141,7 +140,7 @@ class DigestSender {
 	 * @return self::TEST_*
 	 */
 	public function sendTest(IUser $admin): string {
-		if (!$this->hasAddress($admin)) {
+		if (!$this->reach->hasAddress($admin)) {
 			return self::TEST_NO_ADDRESS;
 		}
 		$report = $this->digest->report($this->schedule(), $this->timeFactory->getTime());
@@ -175,7 +174,7 @@ class DigestSender {
 			'withoutEmail' => array_map(static fn (IUser $user): array => ['uid' => $user->getUID(), 'displayName' => $user->getDisplayName()], $listed),
 			'withoutEmailCount' => count($withoutEmail),
 			'mailConfigured' => $this->prerequisites->hasMail(),
-			'viewerHasEmail' => $viewer !== null && $this->hasAddress($viewer),
+			'viewerHasEmail' => $viewer !== null && $this->reach->hasAddress($viewer),
 		];
 	}
 
@@ -186,17 +185,12 @@ class DigestSender {
 		$with = [];
 		$without = [];
 		foreach ($this->recipients->users() as $user) {
-			if ($this->hasAddress($user)) {
+			if ($this->reach->hasAddress($user)) {
 				$with[] = $user;
 			} else {
 				$without[] = $user;
 			}
 		}
 		return [$with, $without];
-	}
-
-	private function hasAddress(IUser $user): bool {
-		$address = $user->getEMailAddress();
-		return $address !== null && $address !== '' && $this->emailValidator->isValid($address);
 	}
 }

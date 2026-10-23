@@ -23,15 +23,9 @@ use OCP\IUser;
  * silently, without asking anything.
  *
  * A device proves who holds the device, not that the password is still
- * safe, nor where the login comes from. So it never confirms a login whose
- * password is being sprayed or is known from a breach, nor an
- * administrator's login from outside the trusted networks (NEVER), and the
- * other policies accept it only as `step_up_known_device_ok_for` says.
+ * safe: see {@see StepUpPolicy::knownDeviceMayConfirm()}.
  */
 class KnownDeviceMethod implements IConfirmationMethod {
-	/** @var list<StepUpPolicy> */
-	public const NEVER = [StepUpPolicy::SprayedPassword, StepUpPolicy::BreachedPassword, StepUpPolicy::AdminOutsideNetworks];
-
 	public function __construct(
 		private readonly KnownDevices $devices,
 		private readonly AppSettings $settings,
@@ -70,9 +64,6 @@ class KnownDeviceMethod implements IConfirmationMethod {
 	 * Whether a known device may confirm a login with this policy at all.
 	 */
 	public function accepts(StepUpPolicy $policy): bool {
-		if (in_array($policy, self::NEVER, true)) {
-			return false;
-		}
-		return in_array($policy->value, $this->settings->stepUpKnownDeviceOkFor(), true);
+		return $policy->knownDeviceMayConfirm() && in_array($policy->value, $this->settings->stepUpKnownDeviceOkFor(), true);
 	}
 }

@@ -14,6 +14,8 @@ use OCA\IntrusionDetection\AppInfo\Application;
 use OCA\IntrusionDetection\Check\Checks\SecondFactorFailed\SecondFactorFailed;
 use OCA\IntrusionDetection\Check\Checks\TokenConcurrentUse\TokenConcurrentUse;
 use OCA\IntrusionDetection\Config\ModeState;
+use OCA\IntrusionDetection\Confirm\SecondFactors;
+use OCA\IntrusionDetection\Confirm\UntrustedSecondFactors;
 use OCA\IntrusionDetection\Controller\PersonalApiController;
 use OCA\IntrusionDetection\Db\Detection;
 use OCA\IntrusionDetection\Definition\Mode;
@@ -127,7 +129,7 @@ class SecureAccountGuideTest extends AccountTestCase {
 		$provider->method('getId')->willReturn('ids_totp');
 		$loader = $this->createMock(ProviderLoader::class);
 		$loader->method('getProviders')->willReturn(['ids_totp' => $provider]);
-		$guide = new SecureAccountGuide(Server::get(IUserConfig::class), Server::get(IUserManager::class), Server::get(IRegistry::class), $loader, Server::get(INotificationManager::class), Server::get(ITimeFactory::class), Server::get(LoggerInterface::class));
+		$guide = new SecureAccountGuide(Server::get(IUserConfig::class), Server::get(IUserManager::class), new SecondFactors(Server::get(IRegistry::class), $loader, Server::get(UntrustedSecondFactors::class), Server::get(LoggerInterface::class)), Server::get(INotificationManager::class), Server::get(ITimeFactory::class), Server::get(LoggerInterface::class));
 		$guide->start($user->getUID(), SecureAccountGuide::REASON_SELF);
 		$this->assertFalse($this->step($guide->progress($user), 'two_factor')['skipped']);
 		$this->assertFalse($this->step($guide->progress($user), 'two_factor')['done']);

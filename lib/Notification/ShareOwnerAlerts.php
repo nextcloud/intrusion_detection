@@ -50,6 +50,7 @@ class ShareOwnerAlerts {
 		private readonly IURLGenerator $urlGenerator,
 		private readonly ITimeFactory $timeFactory,
 		private readonly MailQueue $queue,
+		private readonly MailReach $reach,
 	) {
 	}
 
@@ -63,7 +64,7 @@ class ShareOwnerAlerts {
 		foreach ($this->managers($share) as $user) {
 			$this->notify($user, $detection, $share, $now);
 			$recipients[] = $user->getUID();
-			$withAddress = $withAddress || (string)$user->getEMailAddress() !== '';
+			$withAddress = $withAddress || $this->reach->hasAddress($user);
 		}
 		$email = match (true) {
 			!$withAddress => self::EMAIL_NO_ADDRESS,

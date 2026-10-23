@@ -10,25 +10,31 @@ declare(strict_types=1);
 namespace OCA\IntrusionDetection\Confirm;
 
 use OCA\IntrusionDetection\AdminChange\Approvers;
+use OCA\IntrusionDetection\AppInfo\Application;
 use OCA\IntrusionDetection\Cache\Caches;
+use OCA\IntrusionDetection\Config\UserKeys;
+use OCA\IntrusionDetection\Notification\MailReach;
 use OCA\IntrusionDetection\State\AppState;
 use OCP\AppFramework\Utility\ITimeFactory;
-use OCP\Authentication\TwoFactorAuth\IRegistry;
 use OCP\DB\QueryBuilder\IQueryBuilder;
 use OCP\Group\Backend\INamedBackend;
 use OCP\IDBConnection;
 use OCP\IGroupManager;
-use OCP\IUser;
 use OCP\IUserManager;
 
 /**
- * Which accounts have no way to confirm a login: neither a second factor
- * nor an email address (concept sections 11.5, 16.2 and setup checks 9 and
- * 10). If a check asks them to confirm, the "no method" policies decide.
+ * Which accounts have no way of their own to confirm a login
+ * ({@see AccountMethods::any()}): no email code and no second factor that
+ * confirms logins (concept sections 11.5, 16.2 and setup checks 9 and 10).
+ * If a check asks them to confirm, the "no method" policies decide.
  *
  * Only active accounts count: enabled ones that logged in at least once.
  * Counting never loads accounts: it is one query over core's preferences
- * and second-factor tables, through their indexes. The counts are stored
+ * and second-factor tables, through their indexes. Only the few accounts
+ * that have a second factor and untrusted marks are asked one by one. The
+ * SQL takes any stored address for a valid one; core stores what it is
+ * given, so an address the validator rejects is the one case where the
+ * counts and a login disagree. The counts are stored
  * (setting `coverage_users`): an hourly job and an explicit refresh count
  * again, the pages and setup checks only read them. Lists are read a page
  * at a time. Administrators (at most {@see Approvers::MAX}) are checked one
@@ -40,8 +46,6 @@ class ConfirmationCoverage {
 	/** The namespace of its memory cache in {@see Caches} */
 	public const CACHE = 'coverage';
 	public const CACHE_TTL = 3600;
-	/** Backup codes alone are not a second factor */
-	public const BACKUP_CODES = 'backup_codes';
 	/** A user list returns at most this many accounts */
 	public const MAX_LIST = 200;
 	/** Share of active accounts above which setup check 9 warns */
@@ -54,7 +58,9 @@ class ConfirmationCoverage {
 		private readonly IUserManager $userManager,
 		private readonly IGroupManager $groupManager,
 		private readonly Approvers $approvers,
-		private readonly IRegistry $twoFactor,
+		private readonly AccountMethods $methods,
+		private readonly SecondFactors $secondFactors,
+		private readonly MailReach $reach,
 		private readonly Caches $caches,
 		private readonly ITimeFactory $timeFactory,
 		private readonly AppState $state,
@@ -88,8 +94,9 @@ class ConfirmationCoverage {
 	}
 
 	/**
-	 * The enabled members of the admin group, and which of them have no
-	 * email address or no second factor.
+	 * The enabled members of the admin group: which of them have no email
+	 * address for alerts, which no second factor at all, and which have no
+	 * way of their own to confirm a login.
 	 *
 	 * @return array{total: int, withoutEmail: list<string>, withoutSecondFactor: list<string>, withNeither: list<string>}
 	 */
@@ -105,15 +112,15 @@ class ConfirmationCoverage {
 		$withoutSecondFactor = [];
 		$withNeither = [];
 		foreach ($admins as $admin) {
-			$email = (string)$admin->getEMailAddress() !== '';
-			$secondFactor = $this->hasSecondFactor($admin);
+			$email = $this->reach->hasAddress($admin);
+			$secondFactor = $this->secondFactors->has($admin);
 			if (!$email) {
 				$withoutEmail[] = $admin->getUID();
 			}
 			if (!$secondFactor) {
 				$withoutSecondFactor[] = $admin->getUID();
 			}
-			if (!$email && !$secondFactor) {
+			if (!$this->methods->any($admin)) {
 				$withNeither[] = $admin->getUID();
 			}
 		}
@@ -192,15 +199,6 @@ class ConfirmationCoverage {
 		return $list;
 	}
 
-	public function hasSecondFactor(IUser $user): bool {
-		foreach ($this->twoFactor->getProviderStates($user) as $provider => $enabled) {
-			if ($enabled && $provider !== self::BACKUP_CODES) {
-				return true;
-			}
-		}
-		return false;
-	}
-
 	private function count(bool $withoutMethod): int {
 		$qb = $this->db->getQueryBuilder();
 		$qb->select($qb->func()->count('*'));
@@ -214,14 +212,16 @@ class ConfirmationCoverage {
 	/**
 	 * Enabled accounts that logged in at least once (core's login/lastLogin
 	 * value, through the preferences' (appid, configkey) index), and with
-	 * $withoutMethod only those with neither an email address nor a second
-	 * factor, each tested by primary key or index.
+	 * $withoutMethod only those without a way to confirm: no email address
+	 * while the server sends mail, and no second factor or only untrusted
+	 * ones, each tested by primary key or index.
 	 *
 	 * Disabled accounts are left out with a left join on their primary key:
 	 * PostgreSQL misestimates the equivalent NOT EXISTS on configvalue and
 	 * took seconds for it with many accounts.
 	 */
 	private function activeAccounts(IQueryBuilder $qb, bool $withoutMethod): void {
+		$untrustedOnly = $withoutMethod ? $this->untrustedOnly() : [];
 		$qb->from('preferences', 'p')
 			->leftJoin('p', 'preferences', 'd', $qb->expr()->andX(
 				$qb->expr()->eq('d.userid', 'p.userid'),
@@ -236,22 +236,74 @@ class ConfirmationCoverage {
 			return;
 		}
 
-		// An empty address deletes the value, so any row is an address.
+		$this->withoutEmail($qb, 'p');
+		$withoutSecondFactor = $qb->createFunction('NOT EXISTS (' . $this->secondFactors($qb, 'p')->getSQL() . ')');
+		$qb->andWhere($untrustedOnly === []
+			? $withoutSecondFactor
+			: $qb->expr()->orX($withoutSecondFactor, $qb->expr()->in('p.userid', $qb->createNamedParameter($untrustedOnly, IQueryBuilder::PARAM_STR_ARRAY))));
+	}
+
+	/**
+	 * No email code can reach the account: it has no address, or the server
+	 * sends no mail at all. An empty address deletes the value, so any row
+	 * is an address.
+	 */
+	private function withoutEmail(IQueryBuilder $qb, string $alias): void {
+		if (!$this->reach->sendsMail()) {
+			return;
+		}
 		$email = $this->db->getQueryBuilder();
 		$email->select('e.userid')
 			->from('preferences', 'e')
-			->where($email->expr()->eq('e.userid', 'p.userid'))
+			->where($email->expr()->eq('e.userid', $alias . '.userid'))
 			->andWhere($email->expr()->eq('e.appid', $qb->createNamedParameter('settings')))
 			->andWhere($email->expr()->in('e.configkey', $qb->createNamedParameter(['email', 'primary_email'], IQueryBuilder::PARAM_STR_ARRAY)));
 		$qb->andWhere($qb->createFunction('NOT EXISTS (' . $email->getSQL() . ')'));
+	}
 
+	/**
+	 * The second factors of the account, without backup codes, for an
+	 * EXISTS test.
+	 */
+	private function secondFactors(IQueryBuilder $qb, string $alias): IQueryBuilder {
 		$secondFactor = $this->db->getQueryBuilder();
 		$secondFactor->select('t.uid')
 			->from('twofactor_providers', 't')
-			->where($secondFactor->expr()->eq('t.uid', 'p.userid'))
+			->where($secondFactor->expr()->eq('t.uid', $alias . '.userid'))
 			->andWhere($secondFactor->expr()->eq('t.enabled', $qb->createNamedParameter(1, IQueryBuilder::PARAM_INT)))
-			->andWhere($secondFactor->expr()->neq('t.provider_id', $qb->createNamedParameter(self::BACKUP_CODES)));
-		$qb->andWhere($qb->createFunction('NOT EXISTS (' . $secondFactor->getSQL() . ')'));
+			->andWhere($secondFactor->expr()->neq('t.provider_id', $qb->createNamedParameter(SecondFactors::BACKUP_CODES)));
+		return $secondFactor;
+	}
+
+	/**
+	 * The active accounts without an email code whose second factors all do
+	 * not confirm a login now ({@see UntrustedSecondFactors}). Only accounts
+	 * with untrusted marks can be among them, and the marks end by
+	 * themselves, so these few are asked through {@see SecondFactors::trusted()}.
+	 *
+	 * @return list<string>
+	 */
+	private function untrustedOnly(): array {
+		$qb = $this->db->getQueryBuilder();
+		$qb->select('p.userid');
+		$this->activeAccounts($qb, false);
+		$qb->innerJoin('p', 'preferences', 'm', $qb->expr()->andX(
+			$qb->expr()->eq('m.userid', 'p.userid'),
+			$qb->expr()->eq('m.appid', $qb->createNamedParameter(Application::APP_ID)),
+			$qb->expr()->eq('m.configkey', $qb->createNamedParameter(UserKeys::UNTRUSTED_SECOND_FACTORS)),
+		));
+		$this->withoutEmail($qb, 'p');
+		$qb->andWhere($qb->createFunction('EXISTS (' . $this->secondFactors($qb, 'p')->getSQL() . ')'));
+		$result = $qb->executeQuery();
+		$uids = [];
+		while (($uid = $result->fetchOne()) !== false) {
+			$user = $this->userManager->get((string)$uid);
+			if ($user !== null && !$this->secondFactors->trusted($user)) {
+				$uids[] = $user->getUID();
+			}
+		}
+		$result->closeCursor();
+		return $uids;
 	}
 
 	/**

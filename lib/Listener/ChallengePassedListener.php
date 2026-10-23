@@ -11,7 +11,7 @@ namespace OCA\IntrusionDetection\Listener;
 
 use OCA\IntrusionDetection\Config\AppSettings;
 use OCA\IntrusionDetection\Confirm\IConfirmationMethod;
-use OCA\IntrusionDetection\Confirm\Methods\SecondFactorMethod;
+use OCA\IntrusionDetection\Confirm\SecondFactors;
 use OCA\IntrusionDetection\Confirm\SessionConfirmation;
 use OCA\IntrusionDetection\Confirm\StepUpService;
 use OCA\IntrusionDetection\LoginHistory\LoginHistory;
@@ -39,7 +39,7 @@ use Psr\Log\LoggerInterface;
 class ChallengePassedListener implements IEventListener {
 	public function __construct(
 		private readonly StepUpService $stepUps,
-		private readonly SecondFactorMethod $method,
+		private readonly SecondFactors $secondFactors,
 		private readonly SessionConfirmation $confirmation,
 		private readonly LoginHistory $history,
 		private readonly AppSettings $settings,
@@ -68,7 +68,7 @@ class ChallengePassedListener implements IEventListener {
 
 	private function confirm(TwoFactorProviderChallengePassed $event): void {
 		$user = $event->getUser();
-		if (!$this->method->confirms($user, $event->getProvider()->getId())) {
+		if (!$this->secondFactors->confirms($user, $event->getProvider()->getId())) {
 			return;
 		}
 		$stepUp = $this->stepUps->current();

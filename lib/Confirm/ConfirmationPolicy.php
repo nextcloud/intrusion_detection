@@ -123,8 +123,8 @@ class ConfirmationPolicy {
 	 * refused when any policy refuses; otherwise allowed, with every notice
 	 * and password change any of them asks for.
 	 *
-	 * A protected account is never refused from a familiar place
-	 * ({@see FamiliarLogin}): that login is allowed with a notice instead.
+	 * A reason that a familiar place softens ({@see StepUpPolicy::familiarPlaceSoftensRefusal()})
+	 * never refuses there: that login is allowed with a notice instead.
 	 * `$familiar` is asked only when it decides.
 	 *
 	 * @param list<StepUpPolicy> $policies
@@ -136,7 +136,7 @@ class ConfirmationPolicy {
 		$forceChange = false;
 		foreach ($policies as $policy) {
 			$outcome = $this->noMethodOutcome($policy);
-			if ($outcome === NoMethodOutcome::Refuse && $policy === StepUpPolicy::ProtectedAccount && $familiar !== null && $familiar()) {
+			if ($outcome === NoMethodOutcome::Refuse && $policy->familiarPlaceSoftensRefusal() && $familiar !== null && $familiar()) {
 				$outcome = NoMethodOutcome::AllowNotify;
 			}
 			$refuse = $refuse || $outcome === NoMethodOutcome::Refuse;

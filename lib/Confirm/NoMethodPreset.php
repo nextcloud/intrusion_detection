@@ -90,7 +90,7 @@ class NoMethodPreset {
 	private static function outcome(string $preset, StepUpPolicy $policy): NoMethodOutcome {
 		return match ($preset) {
 			self::REFUSE => NoMethodOutcome::Refuse,
-			self::ALLOW => $policy === StepUpPolicy::BreachedPassword ? NoMethodOutcome::AllowForceChange : NoMethodOutcome::AllowNotify,
+			self::ALLOW => $policy->allowingOutcome(),
 			default => $policy->defaultOutcome(),
 		};
 	}

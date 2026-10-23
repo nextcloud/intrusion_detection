@@ -13,7 +13,6 @@ use OCA\IntrusionDetection\Check\Checks\RiskyNetwork\RiskyNetwork;
 use OCA\IntrusionDetection\Config\CheckSettings;
 use OCA\IntrusionDetection\Confirm\IStepUpReason;
 use OCA\IntrusionDetection\Confirm\StepUpPolicy;
-use OCA\IntrusionDetection\Definition\ResponseType;
 use OCA\IntrusionDetection\Login\LoginContext;
 use OCA\IntrusionDetection\Risk\NetworkAttributes;
 
@@ -38,8 +37,6 @@ class RiskyNetworkReason implements IStepUpReason {
 
 	#[\Override]
 	public function applies(LoginContext $login): bool {
-		return $this->settings->modeState(RiskyNetwork::ID)->acts()
-			&& $this->settings->hasResponse(RiskyNetwork::ID, ResponseType::StepUp)
-			&& $this->networks->riskyLogin($login) !== null;
+		return $this->settings->stepUpActive(RiskyNetwork::ID) && $this->networks->riskyLogin($login) !== null;
 	}
 }

@@ -71,6 +71,7 @@ class AdminAlerts {
 		private readonly AdminLinks $links,
 		private readonly ITimeFactory $timeFactory,
 		private readonly MailQueue $queue,
+		private readonly MailReach $reach,
 	) {
 	}
 
@@ -185,7 +186,7 @@ class AdminAlerts {
 		if ($this->recipients->knownWithoutEmail($allAdmins)) {
 			return self::EMAIL_NO_ADDRESS;
 		}
-		if (self::withAddress($recipients()) === []) {
+		if ($this->withAddress($recipients()) === []) {
 			$this->recipients->rememberWithoutEmail($allAdmins);
 			return self::EMAIL_NO_ADDRESS;
 		}
@@ -206,7 +207,7 @@ class AdminAlerts {
 	public function sendMail(Detection $detection): int {
 		$allAdmins = ($detection->getExplanationData()['facts'][self::FACT_ALL_ADMINS] ?? false) === true;
 		$sent = 0;
-		foreach (self::withAddress($this->recipients->users($allAdmins)) as $user) {
+		foreach ($this->withAddress($this->recipients->users($allAdmins)) as $user) {
 			if ($this->mails->send($user, $this->mailFor($detection, $user))) {
 				$sent++;
 			}
@@ -218,8 +219,8 @@ class AdminAlerts {
 	 * @param list<IUser> $users
 	 * @return list<IUser>
 	 */
-	private static function withAddress(array $users): array {
-		return array_values(array_filter($users, static fn (IUser $u): bool => (string)$u->getEMailAddress() !== ''));
+	private function withAddress(array $users): array {
+		return array_values(array_filter($users, fn (IUser $u): bool => $this->reach->hasAddress($u)));
 	}
 
 	/**

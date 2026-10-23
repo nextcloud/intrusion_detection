@@ -13,6 +13,7 @@ use OCA\IntrusionDetection\AdminChange\ActorResolver;
 use OCA\IntrusionDetection\Audit\AuditLogger;
 use OCA\IntrusionDetection\Check\CheckRegistry;
 use OCA\IntrusionDetection\Check\Checks\AccountTakeover\AccountTakeoverDetector;
+use OCA\IntrusionDetection\Confirm\SecondFactors;
 use OCA\IntrusionDetection\Crypto\Fingerprinter;
 use OCA\IntrusionDetection\Detection\DetectionService;
 use OCA\IntrusionDetection\Event\TypedEvents;
@@ -28,6 +29,7 @@ use OCA\IntrusionDetection\Notification\AdminRecipients;
 use OCA\IntrusionDetection\Notification\Db\AlertMapper;
 use OCA\IntrusionDetection\Notification\MailContent;
 use OCA\IntrusionDetection\Notification\MailQueue;
+use OCA\IntrusionDetection\Notification\MailReach;
 use OCA\IntrusionDetection\Notification\UserMessages;
 use OCA\IntrusionDetection\Response\Handlers\KillSessionHandler;
 use OCA\IntrusionDetection\Response\Handlers\LockLinkHandler;
@@ -45,7 +47,6 @@ use OCA\IntrusionDetection\Takeover\RiskyLogins;
 use OCA\IntrusionDetection\Takeover\SecurityChangeLog;
 use OCA\IntrusionDetection\Takeover\Signals\UnconfirmedLoginSignal;
 use OCP\AppFramework\Utility\ITimeFactory;
-use OCP\Authentication\TwoFactorAuth\IRegistry;
 use OCP\Defaults;
 use OCP\EventDispatcher\Event;
 use OCP\EventDispatcher\IEventDispatcher;
@@ -148,6 +149,7 @@ abstract class TakeoverTestCase extends AccountTestCase {
 			Server::get(AdminLinks::class),
 			Server::get(ITimeFactory::class),
 			Server::get(MailQueue::class),
+			Server::get(MailReach::class),
 		);
 	}
 
@@ -207,7 +209,7 @@ abstract class TakeoverTestCase extends AccountTestCase {
 			$this->changeLog(),
 			Server::get(SecurityChangeMapper::class),
 			Server::get(ResetTracker::class),
-			Server::get(IRegistry::class),
+			Server::get(SecondFactors::class),
 			Server::get(ITimeFactory::class),
 			Server::get(LoggerInterface::class),
 		);

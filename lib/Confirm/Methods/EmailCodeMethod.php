@@ -9,6 +9,7 @@ declare(strict_types=1);
 
 namespace OCA\IntrusionDetection\Confirm\Methods;
 
+use OCA\IntrusionDetection\Confirm\AccountMethods;
 use OCA\IntrusionDetection\Confirm\EmailCodes;
 use OCA\IntrusionDetection\Confirm\IConfirmationMethod;
 use OCA\IntrusionDetection\Confirm\StepUpPolicy;
@@ -23,6 +24,7 @@ use OCP\IUser;
 class EmailCodeMethod implements IConfirmationMethod {
 	public function __construct(
 		private readonly EmailCodes $codes,
+		private readonly AccountMethods $methods,
 	) {
 	}
 
@@ -33,7 +35,7 @@ class EmailCodeMethod implements IConfirmationMethod {
 
 	#[\Override]
 	public function isAvailable(IUser $user, StepUpPolicy $policy): bool {
-		return $this->codes->isAvailable($user);
+		return $this->methods->byEmail($user);
 	}
 
 	#[\Override]

@@ -29,6 +29,7 @@ use OCA\IntrusionDetection\Notification\Digest;
 use OCA\IntrusionDetection\Notification\DigestSchedule;
 use OCA\IntrusionDetection\Notification\DigestSender;
 use OCA\IntrusionDetection\Notification\MailContent;
+use OCA\IntrusionDetection\Notification\MailReach;
 use OCA\IntrusionDetection\Notification\Mails;
 use OCA\IntrusionDetection\Notification\UserMessages;
 use OCA\IntrusionDetection\Response\Db\ProtectedAccountMapper;
@@ -368,13 +369,13 @@ class DigestTest extends IntegrationTestCase {
 			$recipients,
 			$mails,
 			Server::get(AlertMapper::class),
-			Server::get(IEmailValidator::class),
 			Server::get(UserMessages::class),
 			$timezone,
 			Server::get(Prerequisites::class),
 			$time,
 			$this->logger,
 			Server::get(AppState::class),
+			Server::get(MailReach::class),
 		);
 	}
 
