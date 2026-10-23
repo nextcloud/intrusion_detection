@@ -100,16 +100,30 @@ class DirectoryScrapingTest extends IntegrationTestCase {
 		$this->assertSame(0, $this->queries() - $queries, 'No database query');
 	}
 
-	public function testAMatchingRequestCostsOneCacheIncrementAndNoQuery(): void {
+	public function testAMatchingRequestCostsTwoCacheOperationsAndNoQuery(): void {
 		$this->rule()->check($this->state(), $this->appTarget());
-		$this->assertSame(['inc' => 1, 'set' => 1], $this->cache->byType, 'The first request of a bucket also sets the lifetime');
+		$this->assertSame(['add' => 1, 'set' => 1, 'inc' => 1], $this->cache->byType, 'The first request of a bucket creates the counter with its lifetime, then counts');
 		$queries = $this->queries();
 		$this->cache->reset();
 		for ($i = 0; $i < 5; $i++) {
 			$this->assertNull($this->rule()->check($this->state(), $this->appTarget()));
 		}
-		$this->assertSame(['inc' => 5], $this->cache->byType, 'One increment per request');
+		$this->assertSame(['add' => 5, 'inc' => 5], $this->cache->byType, 'One add that finds the counter, and one increment, per request');
 		$this->assertSame(0, $this->queries() - $queries, 'No database query');
+	}
+
+	public function testACountBetweenTheFirstIncrementAndItsLifetimeIsNotLost(): void {
+		$counter = $this->detector($this->settings, $this->cacheFactory());
+		$counted = null;
+		// Another web server counts right after this request's first increment.
+		$this->cache->afterInc = function (string $key) use (&$counted): void {
+			$counted = $key;
+			$this->cache->inc($key);
+		};
+		$counter->count('alice', DirectoryRoutes::GROUPS[0]);
+		$counter->count('alice', DirectoryRoutes::GROUPS[0]);
+		$this->assertIsString($counted);
+		$this->assertSame(3, $this->cache->get($counted), 'all three requests are counted');
 	}
 
 	public function testAboveTheLimitTheAccountGets429UntilTheBucketEnds(): void {
@@ -335,6 +349,8 @@ class OperationCountingCache extends ArrayCache {
 	public int $operations = 0;
 	/** @var array<string, int> */
 	public array $byType = [];
+	/** @var ?\Closure(string): void runs once after the next increment, as another web server would */
+	public ?\Closure $afterInc = null;
 
 	public function reset(): void {
 		$this->operations = 0;
@@ -361,6 +377,11 @@ class OperationCountingCache extends ArrayCache {
 		$value = parent::get($key);
 		$value = is_int($value) ? $value + $step : $step;
 		parent::set($key, $value);
+		$after = $this->afterInc;
+		$this->afterInc = null;
+		if ($after !== null) {
+			$after($key);
+		}
 		return $value;
 	}
 

@@ -76,13 +76,11 @@ class DirectoryCounter {
 		$now = $this->timeFactory->getTime();
 		$bucket = intdiv($now, DirectoryScraping::WINDOW);
 		$key = self::KEY_PREFIX . $group . ':' . $bucket . ':' . $this->fingerprinter->lookup($uid);
+		// Created with its lifetime first, so that no count is lost to a reset; some caches create counters without one.
+		$cache->add($key, 0, DirectoryScraping::WINDOW + 60);
 		$count = $cache->inc($key);
 		if (!is_int($count)) {
 			return null;
-		}
-		if ($count === 1) {
-			// Some caches create counters without a lifetime.
-			$cache->set($key, 1, DirectoryScraping::WINDOW + 60);
 		}
 		// The default when the stored value is out of range.
 		$limit = $this->settings->paramInt(DirectoryScraping::ID, $limitDefinition[0]);
