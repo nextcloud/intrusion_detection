@@ -20,9 +20,11 @@ use OCA\IntrusionDetection\Db\BanMapper;
 use OCA\IntrusionDetection\Definition\Mode;
 use OCA\IntrusionDetection\Detection\DetectionTotals;
 use OCA\IntrusionDetection\Export\FirewallExporter;
+use OCA\IntrusionDetection\Guard\AddressGuard;
 use OCA\IntrusionDetection\Learning\LearningService;
 use OCA\IntrusionDetection\Perf\GuardTimer;
 use OCP\AppFramework\Utility\ITimeFactory;
+use OCP\IConfig;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Output\OutputInterface;
 
@@ -40,6 +42,7 @@ class Status extends Base {
 		private readonly ITimeFactory $timeFactory,
 		private readonly FirewallExporter $exporter,
 		private readonly BlocklistOverview $blocklists,
+		private readonly IConfig $config,
 	) {
 		parent::__construct();
 	}
@@ -79,6 +82,7 @@ class Status extends Base {
 			'blocklists_enabled' => count($lists),
 			'blocklists_stale' => count(array_filter($lists, static fn (array $l): bool => $l['stale'])),
 			'locked' => $this->appSettings->isLocked(),
+			'guards' => $this->config->getSystemValueBool(AddressGuard::DISABLE_SWITCH, false) ? 'off' : 'on',
 		];
 
 		if ($input->getOption('output') !== self::OUTPUT_FORMAT_PLAIN) {
@@ -91,6 +95,9 @@ class Status extends Base {
 			'learning' => sprintf('<info>Learning:</info> %d day(s) left, until %s. Checks set to Protect only observe.', $status['learning_days_left'], $status['learning_until']),
 			default => '<info>Protecting.</info>',
 		});
+		if ($status['guards'] === 'off') {
+			$output->writeln('<error>Request guards off:</error> "intrusion_detection.disable_guards" is set in config.php, so no request is checked for blocks, blocklists, trap URLs, injection probes or stolen credentials.');
+		}
 		if ($status['locked']) {
 			$output->writeln('<info>Locked in config.php:</info> intrusion detection, the admin change alerts and the approval of new administrators cannot be switched off.');
 		}

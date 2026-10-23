@@ -60,6 +60,7 @@ use OCA\IntrusionDetection\SetupCheck\BlocklistSyncCheck;
 use OCA\IntrusionDetection\SetupCheck\BruteForceProtectionCheck;
 use OCA\IntrusionDetection\SetupCheck\ConfigLockCheck;
 use OCA\IntrusionDetection\SetupCheck\DecoySecretCheck;
+use OCA\IntrusionDetection\SetupCheck\GuardsDisabledCheck;
 use OCA\IntrusionDetection\SetupCheck\LearningModeCheck;
 use OCA\IntrusionDetection\SetupCheck\MailCheck;
 use OCA\IntrusionDetection\SetupCheck\MemoryCacheCheck;
@@ -131,6 +132,7 @@ class Application extends App implements IBootstrap {
 		StaleCredentialsCheck::class,
 		ConfigLockCheck::class,
 		DecoySecretCheck::class,
+		GuardsDisabledCheck::class,
 	];
 	/**
 	 * Setup checks registered with core only: they are no ProblemCheck, so the
