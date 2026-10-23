@@ -19,7 +19,7 @@ use Psr\Log\LoggerInterface;
 
 /**
  * The sessions whose login still waits for its confirmation, or was refused,
- * remembered on the server by a keyed fingerprint of the session id.
+ * remembered on the server by a fingerprint of the session id.
  *
  * The step-up state lives in the PHP session, but a session can come back
  * without it: through the remember-me cookie, which core issues at the end

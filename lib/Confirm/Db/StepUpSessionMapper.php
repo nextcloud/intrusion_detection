@@ -14,7 +14,7 @@ use OCP\DB\QueryBuilder\IQueryBuilder;
 use OCP\IDBConnection;
 
 /**
- * Sessions whose login was not confirmed (ids_step_up_sessions), by a keyed
+ * Sessions whose login was not confirmed (ids_step_up_sessions), by a
  * fingerprint of the session id. Never the session id itself.
  */
 class StepUpSessionMapper {

@@ -17,7 +17,8 @@ use OCP\IConfig;
  *
  * Every key is derived from the instance `secret` in config.php, never from a
  * value stored in the database, so a database dump alone is not enough to test
- * guesses against the stored fingerprints.
+ * guesses against the stored fingerprints. Session ids, which cannot be
+ * guessed, are the one exception ({@see self::session()}).
  *
  * Nothing this class returns may ever be logged.
  */
@@ -121,12 +122,15 @@ class Fingerprinter {
 	}
 
 	/**
-	 * 32 hex characters: a keyed fingerprint of a session id, so a session
-	 * can be recognised later without storing its id, which is the secret of
-	 * its token.
+	 * 32 hex characters: a fingerprint of a session id, so a session can be
+	 * recognised later without storing its id, which is the secret of its
+	 * token. It is the one fingerprint without a key: a session id is long
+	 * and random, so its digest cannot be tested against guesses, and a
+	 * session that waits for its confirmation must still be recognised
+	 * after the instance secret changed.
 	 */
 	public function session(#[\SensitiveParameter] string $sessionId): string {
-		return bin2hex(substr(hash_hmac('sha256', $sessionId, $this->key('session'), true), 0, 16));
+		return bin2hex(substr(hash('sha256', 'intrusion_detection/session/' . $sessionId, true), 0, 16));
 	}
 
 	/**

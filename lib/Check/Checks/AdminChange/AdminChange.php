@@ -313,7 +313,7 @@ final class AdminChange implements ICheck, IExplainsDetection, IHeadlinesDetecti
 				: $l->t('%1$s changed "%2$s" from %3$s to %4$s.', [$actor, $label, $old, $new])];
 		}
 		if (($facts->setting ?? '') === WatchedSettings::systemKey('secret')) {
-			$sentences[] = $l->t('Intrusion detection keys every fingerprint it keeps with this secret. Decoy app passwords created before no longer match their secret and are found by their login name only, so recreate them. Remembered browsers are forgotten, open lock links stop working, a login that waits for its confirmation is no longer recognised when it comes back with its remember-me cookie, and the watched settings were recorded again without reporting each of them.');
+			$sentences[] = $l->t('Intrusion detection keys almost every fingerprint it keeps with this secret. Decoy app passwords created before no longer match their secret and are found by their login name only, so recreate them. Remembered browsers are forgotten, open lock links stop working, and the watched settings were recorded again without reporting each of them.');
 		}
 		if ($watch) {
 			$sentences[] = $l->t('Nextcloud cannot tell who made this change: config.php and some settings can be changed without going through Nextcloud, for example by editing the file or with occ.');

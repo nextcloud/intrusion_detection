@@ -402,7 +402,7 @@
 			"reads": {
 				"narrative": [
 					"The regular check of the security settings found that \"secret in config.php\" changed. Its value is secret, so it is neither stored nor shown.",
-					"Intrusion detection keys every fingerprint it keeps with this secret. Decoy app passwords created before no longer match their secret and are found by their login name only, so recreate them. Remembered browsers are forgotten, open lock links stop working, a login that waits for its confirmation is no longer recognised when it comes back with its remember-me cookie, and the watched settings were recorded again without reporting each of them.",
+					"Intrusion detection keys almost every fingerprint it keeps with this secret. Decoy app passwords created before no longer match their secret and are found by their login name only, so recreate them. Remembered browsers are forgotten, open lock links stop working, and the watched settings were recorded again without reporting each of them.",
 					"Nextcloud cannot tell who made this change: config.php and some settings can be changed without going through Nextcloud, for example by editing the file or with occ.",
 					"It happened at date:1789999700."
 				],
