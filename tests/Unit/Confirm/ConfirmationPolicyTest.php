@@ -9,16 +9,22 @@ declare(strict_types=1);
 
 namespace OCA\IntrusionDetection\Tests\Unit\Confirm;
 
-use OCA\IntrusionDetection\Config\Settings;
+use OC\Authentication\TwoFactorAuth\ProviderLoader;
+use OCA\IntrusionDetection\Config\AppSettings;
+use OCA\IntrusionDetection\Confirm\AccountMethods;
+use OCA\IntrusionDetection\Confirm\Administrators;
 use OCA\IntrusionDetection\Confirm\ConfirmationPolicy;
+use OCA\IntrusionDetection\Confirm\ConfirmationStatus;
 use OCA\IntrusionDetection\Confirm\EmailCodes;
 use OCA\IntrusionDetection\Confirm\IConfirmationMethod;
 use OCA\IntrusionDetection\Confirm\Methods\EmailCodeMethod;
 use OCA\IntrusionDetection\Confirm\Methods\SecondFactorMethod;
 use OCA\IntrusionDetection\Confirm\NoMethodOutcome;
+use OCA\IntrusionDetection\Confirm\SecondFactors;
 use OCA\IntrusionDetection\Confirm\StepUpPolicy;
 use OCA\IntrusionDetection\Confirm\StepUpState;
 use OCA\IntrusionDetection\Confirm\UntrustedSecondFactors;
+use OCA\IntrusionDetection\Notification\MailReach;
 use OCP\Authentication\TwoFactorAuth\IChallengeRequester;
 use OCP\Authentication\TwoFactorAuth\IRegistry;
 use OCP\IUser;
@@ -107,28 +113,30 @@ class ConfirmationPolicyTest extends TestCase {
 		$untrusted = $this->createMock(UntrustedSecondFactors::class);
 		$untrusted->method('marks')->willReturn(['totp' => 1]);
 		$untrusted->method('isTrusted')->willReturnCallback(static fn (string $uid, string $id): bool => $id !== 'totp');
-		$method = new SecondFactorMethod($challenges, $registry, $this->createMock(UntrustedSecondFactors::class));
+		$method = new SecondFactorMethod($challenges, new AccountMethods($this->createMock(MailReach::class), new SecondFactors($registry, $this->createMock(ProviderLoader::class), $this->createMock(UntrustedSecondFactors::class), $this->createMock(LoggerInterface::class))));
 		$this->assertTrue($method->isAvailable($user, StepUpPolicy::FlaggedSource));
 		$this->assertFalse($method->isAvailable($user, StepUpPolicy::FlaggedSource), 'Backup codes alone, or a disabled provider, are not a second factor');
 		$this->assertFalse($method->isAvailable($user, StepUpPolicy::FlaggedSource), 'Two factors enforced without a provider: none yet');
 
-		$state = new StepUpState('u', StepUpState::PENDING, [], 0, 0, methods: [IConfirmationMethod::SECOND_FACTOR, IConfirmationMethod::EMAIL_CODE]);
-		$this->assertSame(IConfirmationMethod::PENDING, $method->begin($user, $state), 'The login waits for core\'s challenge');
-		$this->assertTrue($state->secondFactorRequested);
-		$this->assertSame([IConfirmationMethod::SECOND_FACTOR], $state->methods, 'No code was sent, so none is offered');
+		$state = new StepUpState('u', ConfirmationStatus::Pending, [], 0, 0, methods: [IConfirmationMethod::SECOND_FACTOR, IConfirmationMethod::EMAIL_CODE]);
+		$start = $method->begin($user, $state);
+		$this->assertSame(IConfirmationMethod::PENDING, $start->outcome, 'The login waits for core\'s challenge');
+		$this->assertTrue($start->state->secondFactorRequested);
+		$this->assertSame([IConfirmationMethod::SECOND_FACTOR], $start->state->methods, 'No code was sent, so none is offered');
 
-		$withUntrusted = new SecondFactorMethod($challenges, $registry, $untrusted);
+		$secondFactors = new SecondFactors($registry, $this->createMock(ProviderLoader::class), $untrusted, $this->createMock(LoggerInterface::class));
+		$withUntrusted = new SecondFactorMethod($challenges, new AccountMethods($this->createMock(MailReach::class), $secondFactors));
 		$this->assertTrue($withUntrusted->isAvailable($user, StepUpPolicy::FlaggedSource), 'Another provider counts');
 		$this->assertFalse($withUntrusted->isAvailable($user, StepUpPolicy::FlaggedSource), 'One set up from an unconfirmed session does not');
-		$this->assertFalse($withUntrusted->confirms($user, 'totp'));
-		$this->assertTrue($withUntrusted->confirms($user, 'webauthn'));
+		$this->assertFalse($secondFactors->confirms($user, 'totp'));
+		$this->assertTrue($secondFactors->confirms($user, 'webauthn'));
 
 		$appPasswordSession = $this->createMock(IChallengeRequester::class);
 		$appPasswordSession->method('isAvailable')->willReturn(false);
 		$appPasswordSession->method('requestChallenge')->willThrowException(new \LogicException('no'));
-		$noChallenge = new SecondFactorMethod($appPasswordSession, $registry, $untrusted);
+		$noChallenge = new SecondFactorMethod($appPasswordSession, new AccountMethods($this->createMock(MailReach::class), $secondFactors));
 		$this->assertFalse($noChallenge->isAvailable($user, StepUpPolicy::FlaggedSource));
-		$this->assertSame(IConfirmationMethod::UNAVAILABLE, $noChallenge->begin($user, new StepUpState('u', StepUpState::PENDING, [], 0, 0)));
+		$this->assertSame(IConfirmationMethod::UNAVAILABLE, $noChallenge->begin($user, new StepUpState('u', ConfirmationStatus::Pending, [], 0, 0))->outcome);
 	}
 
 	/**
@@ -186,38 +194,34 @@ class ConfirmationPolicyTest extends TestCase {
 	}
 
 	private function email(bool $available): IConfirmationMethod {
-		$codes = $this->createMock(EmailCodes::class);
-		$codes->method('isAvailable')->willReturn($available);
-		return new EmailCodeMethod($codes);
+		$methods = $this->createMock(AccountMethods::class);
+		$methods->method('byEmail')->willReturn($available);
+		return new EmailCodeMethod($this->createMock(EmailCodes::class), $methods);
 	}
 
 	private function policy(IConfirmationMethod ...$methods): ConfirmationPolicy {
-		$settings = $this->createMock(Settings::class);
-		$settings->method('global')->willReturnCallback(function (string $name): string {
-			foreach (StepUpPolicy::cases() as $p) {
-				if ($p->settingKey() === $name) {
-					return $this->outcomes[$p->value] ?? $p->defaultOutcome()->value;
-				}
-			}
-			return '';
-		});
+		$settings = $this->createMock(AppSettings::class);
+		$settings->method('stepUpNoMethod')->willReturnCallback(fn (string $policy): string => $this->outcomes[$policy] ?? StepUpPolicy::from($policy)->defaultOutcome()->value);
 		$byClass = [];
 		foreach ($methods as $i => $method) {
 			$byClass['method' . $i] = $method;
 		}
 		$container = $this->createMock(ContainerInterface::class);
 		$container->method('get')->willReturnCallback(static fn (string $id): object => $byClass[$id]);
-		return new class(array_keys($byClass), $settings, $container, $this->createMock(LoggerInterface::class)) extends ConfirmationPolicy {
+		$administrators = $this->createMock(Administrators::class);
+		$administrators->method('isAdministrator')->willReturn(false);
+		return new class(array_keys($byClass), $settings, $container, $this->createMock(LoggerInterface::class), $administrators) extends ConfirmationPolicy {
 			/**
 			 * @param list<string> $list
 			 */
 			public function __construct(
 				private array $list,
-				Settings $settings,
+				AppSettings $settings,
 				ContainerInterface $container,
 				LoggerInterface $logger,
+				Administrators $administrators,
 			) {
-				parent::__construct($settings, $container, $logger);
+				parent::__construct($settings, $container, $logger, $administrators);
 			}
 
 			protected function classes(): array {

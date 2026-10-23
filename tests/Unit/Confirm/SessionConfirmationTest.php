@@ -12,11 +12,16 @@ namespace OCA\IntrusionDetection\Tests\Unit\Confirm;
 use OC\Authentication\TwoFactorAuth\Manager;
 use OC\Authentication\TwoFactorAuth\ProviderSet;
 use OC\Session\Memory;
+use OCA\IntrusionDetection\Confirm\ConfirmationStatus;
+use OCA\IntrusionDetection\Confirm\LoginConfirmation;
+use OCA\IntrusionDetection\Confirm\LoginConfirmationStore;
 use OCA\IntrusionDetection\Confirm\SecondFactorSetup;
 use OCA\IntrusionDetection\Confirm\SessionConfirmation;
 use OCA\IntrusionDetection\Confirm\StepUpState;
-use OCA\IntrusionDetection\SessionState\SessionState;
-use OCP\AppFramework\Utility\ITimeFactory;
+use OCA\IntrusionDetection\Confirm\UnconfirmedSessions;
+use OCA\IntrusionDetection\Login\CoreSession;
+use OCA\IntrusionDetection\Login\SessionMarkers;
+use OCP\Authentication\Token\IProvider as TokenProvider;
 use OCP\Authentication\TwoFactorAuth\IProvider;
 use OCP\IUser;
 use Psr\Log\LoggerInterface;
@@ -24,12 +29,12 @@ use Test\TestCase;
 
 class SessionConfirmationTest extends TestCase {
 	private Memory $session;
-	private SessionState $state;
+	private SessionMarkers $state;
 
 	protected function setUp(): void {
 		parent::setUp();
 		$this->session = new Memory();
-		$this->state = new SessionState($this->session, $this->createMock(LoggerInterface::class));
+		$this->state = new SessionMarkers($this->session, $this->createMock(LoggerInterface::class));
 	}
 
 	public function testALoginThatNeededNothingProvedThePassword(): void {
@@ -37,49 +42,49 @@ class SessionConfirmationTest extends TestCase {
 	}
 
 	public function testAPendingRefusedOrUnconfirmedLoginIsUnconfirmed(): void {
-		$this->state->set(SessionState::STEP_UP, (new StepUpState('alice', StepUpState::PENDING, ['flagged_source'], 1, 2))->toArray());
+		$this->state->set(SessionMarkers::STEP_UP, (new StepUpState('alice', ConfirmationStatus::Pending, ['flagged_source'], 1, 2))->toArray());
 		$this->assertTrue($this->confirmation()->isUnconfirmed('alice'));
 		$this->assertSame(SessionConfirmation::PASSWORD, $this->confirmation()->level('bob'), 'Another account\'s marker says nothing');
 
-		$this->state->remove(SessionState::STEP_UP);
-		$this->state->set(SessionState::CONFIRMATION, ['uid' => 'alice', 'by' => 'none', 'policies' => [], 'at' => 1]);
-		$this->confirmation()->proved('alice', 'second_factor');
+		$this->state->remove(SessionMarkers::STEP_UP);
+		$this->state->set(SessionMarkers::CONFIRMATION, ['uid' => 'alice', 'by' => 'none', 'policies' => [], 'at' => 1]);
+		$this->prove('alice', 'second_factor');
 		$this->assertTrue($this->confirmation()->isUnconfirmed('alice'), 'Let in without a confirmation, whatever came later');
 	}
 
 	public function testAnAppPasswordIsNeverMoreThanUnconfirmed(): void {
 		$this->session->set('app_password', 'xxx');
-		$this->confirmation()->proved('alice', 'second_factor');
+		$this->prove('alice', 'second_factor');
 		$this->assertTrue($this->confirmation()->isUnconfirmed('alice'));
 	}
 
 	public function testAnAppPasswordCountsAsThePasswordForANo(): void {
 		$this->session->set('app_password', 'xxx');
 		$this->assertSame(SessionConfirmation::PASSWORD, $this->confirmation()->denialLevel('alice'));
-		$this->confirmation()->proved('alice', 'second_factor');
+		$this->prove('alice', 'second_factor');
 		$this->assertSame(SessionConfirmation::PASSWORD, $this->confirmation()->denialLevel('alice'), 'Never more than the password');
 		$this->assertSame(SessionConfirmation::UNCONFIRMED, $this->confirmation()->level('alice'), 'Everything else still asks for more');
 
-		$this->state->set(SessionState::CONFIRMATION, ['uid' => 'alice', 'by' => 'none', 'policies' => [], 'at' => 1]);
+		$this->state->set(SessionMarkers::CONFIRMATION, ['uid' => 'alice', 'by' => 'none', 'policies' => [], 'at' => 1]);
 		$this->assertSame(SessionConfirmation::UNCONFIRMED, $this->confirmation()->denialLevel('alice'), 'Let in without a confirmation');
-		$this->state->remove(SessionState::CONFIRMATION);
-		$this->state->set(SessionState::STEP_UP, (new StepUpState('alice', StepUpState::PENDING, ['flagged_source'], 1, 2))->toArray());
+		$this->state->remove(SessionMarkers::CONFIRMATION);
+		$this->state->set(SessionMarkers::STEP_UP, (new StepUpState('alice', ConfirmationStatus::Pending, ['flagged_source'], 1, 2))->toArray());
 		$this->assertSame(SessionConfirmation::UNCONFIRMED, $this->confirmation()->denialLevel('alice'), 'Waiting for its confirmation');
 	}
 
 	public function testABrowserSessionAnswersNoWithTheLevelOfItsLogin(): void {
 		$this->assertSame(SessionConfirmation::PASSWORD, $this->confirmation()->denialLevel('alice'));
-		$this->confirmation()->proved('alice', 'second_factor');
+		$this->prove('alice', 'second_factor');
 		$this->assertSame(SessionConfirmation::PROVEN, $this->confirmation()->denialLevel('alice'));
 	}
 
 	public function testAConfirmationOrAProofOfTheLogin(): void {
-		foreach (SessionConfirmation::PROOFS as $by) {
-			$this->state->set(SessionState::CONFIRMATION, ['uid' => 'alice', 'by' => $by, 'policies' => [], 'at' => 1]);
+		foreach (LoginConfirmation::PROOFS as $by) {
+			$this->state->set(SessionMarkers::CONFIRMATION, ['uid' => 'alice', 'by' => $by, 'policies' => [], 'at' => 1]);
 			$this->assertTrue($this->confirmation()->isProven('alice'), $by);
 		}
-		$this->state->remove(SessionState::CONFIRMATION);
-		$this->confirmation()->proved('alice', 'known_device');
+		$this->state->remove(SessionMarkers::CONFIRMATION);
+		$this->prove('alice', 'known_device');
 		$this->assertTrue($this->confirmation()->isProven('alice'));
 		$this->assertFalse($this->confirmation()->isProven('bob'));
 	}
@@ -112,6 +117,18 @@ class SessionConfirmationTest extends TestCase {
 	}
 
 	private function confirmation(): SessionConfirmation {
-		return new SessionConfirmation($this->state, $this->session, $this->createMock(ITimeFactory::class));
+		return new SessionConfirmation($this->store(), $this->coreSession());
+	}
+
+	private function prove(string $uid, string $by): void {
+		$this->store()->put(LoginConfirmation::proven($uid, $by, 0));
+	}
+
+	private function store(): LoginConfirmationStore {
+		return new LoginConfirmationStore($this->state, $this->createMock(UnconfirmedSessions::class), $this->coreSession());
+	}
+
+	private function coreSession(): CoreSession {
+		return new CoreSession($this->session, $this->createMock(TokenProvider::class), $this->createMock(LoggerInterface::class));
 	}
 }

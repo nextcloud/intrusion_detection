@@ -7,7 +7,6 @@
 import type { NewDecoy } from '../../types.ts'
 
 import { mdiAlertOutline, mdiCheck, mdiContentCopy, mdiFileDocumentOutline, mdiFolderNetworkOutline, mdiNoteTextOutline, mdiScriptTextOutline } from '@mdi/js'
-import { t } from '@nextcloud/l10n'
 import { computed, ref, watch } from 'vue'
 import NcButton from '@nextcloud/vue/components/NcButton'
 import NcCheckboxRadioSwitch from '@nextcloud/vue/components/NcCheckboxRadioSwitch'
@@ -15,6 +14,7 @@ import NcDialog from '@nextcloud/vue/components/NcDialog'
 import NcIconSvgWrapper from '@nextcloud/vue/components/NcIconSvgWrapper'
 import { useCopy } from '../../composables/useCopy.ts'
 import { APP_ID } from '../../utils/format.ts'
+import { t } from '../../utils/l10n.ts'
 
 /**
  * The secret of a new decoy, shown this once. The parent hands it over and
@@ -116,16 +116,16 @@ async function copySecret() {
 .secret {
 	display: flex;
 	flex-direction: column;
-	gap: calc(var(--default-grid-baseline) * 4);
-	padding-bottom: calc(var(--default-grid-baseline) * 2);
+	gap: var(--ids-space-4);
+	padding-bottom: var(--ids-space-2);
 }
 
 .secret__warning {
 	display: flex;
 	align-items: flex-start;
-	gap: calc(var(--default-grid-baseline) * 2);
+	gap: var(--ids-space-2);
 	margin: 0;
-	padding: calc(var(--default-grid-baseline) * 3);
+	padding: var(--ids-space-3);
 	border-radius: var(--border-radius-large);
 	background-color: color-mix(in srgb, var(--color-warning) 14%, var(--color-main-background));
 	line-height: 1.5;
@@ -139,15 +139,15 @@ async function copySecret() {
 .secret__box {
 	display: flex;
 	flex-direction: column;
-	gap: calc(var(--default-grid-baseline) * 3);
-	padding: calc(var(--default-grid-baseline) * 4);
+	gap: var(--ids-space-3);
+	padding: var(--ids-space-4);
 	border: 1px dashed var(--color-border-dark, var(--color-border));
 	border-radius: var(--border-radius-large);
 	background-color: var(--color-background-hover);
 }
 
 .secret__label {
-	color: var(--color-text-maxcontrast);
+	composes: muted from '../../styles/shared.module.css';
 	font-size: 0.9em;
 }
 
@@ -164,11 +164,11 @@ async function copySecret() {
 	display: flex;
 	flex-wrap: wrap;
 	align-items: center;
-	gap: calc(var(--default-grid-baseline) * 3);
+	gap: var(--ids-space-3);
 }
 
 .secret__login {
-	color: var(--color-text-maxcontrast);
+	composes: muted from '../../styles/shared.module.css';
 }
 
 .secret__login code {
@@ -177,29 +177,27 @@ async function copySecret() {
 }
 
 .secret__heading {
-	margin: 0 0 calc(var(--default-grid-baseline) * 1);
+	margin: 0 0 var(--ids-space-1);
 	font-size: 1em;
 	font-weight: 700;
 }
 
 .secret__text {
-	margin: 0 0 calc(var(--default-grid-baseline) * 2);
+	margin: 0 0 var(--ids-space-2);
 	line-height: 1.5;
 }
 
 .ideas {
+	composes: plainList from '../../styles/shared.module.css';
 	display: flex;
 	flex-direction: column;
-	gap: calc(var(--default-grid-baseline) * 2);
-	margin: 0;
-	padding: 0;
-	list-style: none;
+	gap: var(--ids-space-2);
 }
 
 .ideas li {
 	display: flex;
 	align-items: flex-start;
-	gap: calc(var(--default-grid-baseline) * 2);
+	gap: var(--ids-space-2);
 	line-height: 1.45;
 }
 

@@ -11,9 +11,15 @@ namespace OCA\IntrusionDetection\Controller;
 
 use OC\User\Session;
 use OCA\IntrusionDetection\AppInfo\Application;
+use OCA\IntrusionDetection\Check\Checks\BreachedPassword\NewPasswords;
 use OCA\IntrusionDetection\Http\LocalRedirect;
+use OCA\IntrusionDetection\Login\CoreSession;
+use OCA\IntrusionDetection\Login\SessionMarkers;
 use OCA\IntrusionDetection\Response\PasswordChangeService;
-use OCA\IntrusionDetection\SessionState\SessionState;
+use OCA\IntrusionDetection\Response\Tokens;
+use OCA\IntrusionDetection\SessionState\ILoginFlowPage;
+use OCA\IntrusionDetection\SessionState\LoginFlowRoute;
+use OCP\App\IAppManager;
 use OCP\AppFramework\Controller;
 use OCP\AppFramework\Http;
 use OCP\AppFramework\Http\Attribute\BruteForceProtection;
@@ -39,7 +45,9 @@ use OCP\Util;
  * The page that asks for a new password when one is required (concept
  * section 11.7): the current password, the new one twice. The new password
  * is set with {@see IUser::setPassword()}, so the password policy applies
- * and its message is shown.
+ * and its message is shown. Without the password policy app it needs
+ * MIN_LENGTH characters; while the breach check runs it must not be on the
+ * breach list. The user can log out the other browsers with the change.
  *
  * The page needs a finished login, second factor included: otherwise
  * whoever knows only the password could choose the new one. It is
@@ -47,23 +55,35 @@ use OCP\Util;
  * throttled like failed logins. Passwords are never logged or kept.
  */
 #[OpenAPI(scope: OpenAPI::SCOPE_IGNORE)]
-class PasswordChangeController extends Controller {
+class PasswordChangeController extends Controller implements ILoginFlowPage {
 	public const TEMPLATE = 'password';
 	public const BRUTE_FORCE_ACTION = 'intrusion_detection_password';
 	/** Never continued to: this page itself */
 	private const EXCLUDED = ['/apps/' . Application::APP_ID . '/password'];
+	/** Characters a new password needs where no password policy app decides */
+	public const MIN_LENGTH = 8;
+	private const POLICY_APP = 'password_policy';
 
 	public function __construct(
 		IRequest $request,
 		private readonly IUserSession $userSession,
 		private readonly IUserManager $userManager,
 		private readonly PasswordChangeService $passwords,
-		private readonly SessionState $state,
+		private readonly SessionMarkers $state,
 		private readonly IURLGenerator $urlGenerator,
 		private readonly IL10N $l,
 		private readonly LocalRedirect $redirect,
+		private readonly IAppManager $appManager,
+		private readonly NewPasswords $newPasswords,
+		private readonly Tokens $tokens,
+		private readonly CoreSession $coreSession,
 	) {
 		parent::__construct(Application::APP_ID, $request);
+	}
+
+	#[\Override]
+	public static function loginFlowRoute(): LoginFlowRoute {
+		return LoginFlowRoute::PasswordChange;
 	}
 
 	#[NoAdminRequired]
@@ -91,6 +111,7 @@ class PasswordChangeController extends Controller {
 		#[\SensitiveParameter]
 		string $newPasswordRepeat = '',
 		string $redirect_url = '',
+		bool $logoutOthers = false,
 	): Response {
 		$user = $this->userSession->getUser();
 		if ($user === null || !$this->stillRequired($user)) {
@@ -113,6 +134,12 @@ class PasswordChangeController extends Controller {
 		if (strlen($newPassword) > IUserManager::MAX_PASSWORD_LENGTH) {
 			return $this->page($redirect_url, $this->l->t('The new password is too long.'));
 		}
+		if (mb_strlen($newPassword) < self::MIN_LENGTH && !$this->appManager->isEnabledForAnyone(self::POLICY_APP)) {
+			return $this->page($redirect_url, $this->l->n('Use at least %n character.', 'Use at least %n characters.', self::MIN_LENGTH));
+		}
+		if ($this->newPasswords->isBreached($newPassword)) {
+			return $this->page($redirect_url, $this->l->t('This password appears in published data breaches. Choose another one.'));
+		}
 		try {
 			if (!$user->setPassword($newPassword)) {
 				return $this->page($redirect_url, $this->l->t('Your password could not be changed. Try again, or contact your administrator.'));
@@ -125,26 +152,20 @@ class PasswordChangeController extends Controller {
 			$this->userSession->updateSessionTokenPassword($newPassword);
 		}
 		$this->passwords->clear($user->getUID(), 'password changed on the password page');
-		$this->state->remove(SessionState::PASSWORD_CHANGE);
+		$this->state->remove(SessionMarkers::PASSWORD_CHANGE);
+		if ($logoutOthers) {
+			$this->tokens->invalidateSessionsExcept($user->getUID(), $this->coreSession->tokenId() ?? -1);
+		}
 		return new RedirectResponse($this->target($redirect_url));
 	}
 
 	/**
-	 * Whether this account must still choose a password here. A requirement
-	 * that was lifted meanwhile, or that cannot be met here because the
-	 * password is managed elsewhere, also drops the session's marker.
+	 * Whether this account must still choose a password here. Only reads:
+	 * the session rule drops a stale marker
+	 * ({@see \OCA\IntrusionDetection\SessionState\Rules\PasswordChangeRule}).
 	 */
 	private function stillRequired(IUser $user): bool {
-		if (!$this->passwords->isRequired($user->getUID())) {
-			$this->state->remove(SessionState::PASSWORD_CHANGE);
-			return false;
-		}
-		if (!$user->canChangePassword()) {
-			$this->passwords->external($user);
-			$this->state->remove(SessionState::PASSWORD_CHANGE);
-			return false;
-		}
-		return true;
+		return $this->passwords->isRequired($user->getUID()) && $user->canChangePassword();
 	}
 
 	/**

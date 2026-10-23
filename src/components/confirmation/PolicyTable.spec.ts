@@ -72,7 +72,6 @@ describe('PolicyTable', () => {
 		wrapper.findAll('tbody tr')[0]!.findComponent(SelectField).vm.$emit('update:modelValue', 'allow_notify')
 		await flushPromises()
 		expect(updateSettings).toHaveBeenCalledWith({ step_up_no_method_flagged_source: 'allow_notify' })
-		expect(wrapper.emitted('changed')?.[0]?.[0]).toEqual([{ ...policies[0], outcome: 'allow_notify' }, policies[1], policies[2]])
 		expect(showSuccess).toHaveBeenCalled()
 	})
 

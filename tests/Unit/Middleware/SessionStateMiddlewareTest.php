@@ -10,7 +10,8 @@ declare(strict_types=1);
 namespace OCA\IntrusionDetection\Tests\Unit\Middleware;
 
 use OCA\IntrusionDetection\Dav\SessionStatePlugin;
-use OCA\IntrusionDetection\Guard\RequestContext;
+use OCA\IntrusionDetection\Login\RequestContext;
+use OCA\IntrusionDetection\Login\SessionMarkers;
 use OCA\IntrusionDetection\Middleware\SessionBlockedException;
 use OCA\IntrusionDetection\Middleware\SessionStateMiddleware;
 use OCA\IntrusionDetection\Response\PasswordChangeFlag;
@@ -20,7 +21,7 @@ use OCA\IntrusionDetection\SessionState\Rules\CredentialUseRule;
 use OCA\IntrusionDetection\SessionState\Rules\PasswordChangeRule;
 use OCA\IntrusionDetection\SessionState\Rules\StepUpRule;
 use OCA\IntrusionDetection\SessionState\SessionBlock;
-use OCA\IntrusionDetection\SessionState\SessionState;
+use OCA\IntrusionDetection\SessionState\SessionGate;
 use OCA\IntrusionDetection\SessionState\SessionStateRules;
 use OCP\AppFramework\Controller;
 use OCP\AppFramework\Http\DataResponse;
@@ -56,7 +57,7 @@ class SessionStateMiddlewareTest extends TestCase {
 	private bool $loggedIn = true;
 	private string $accept = 'text/html,application/xhtml+xml';
 	private string $method = 'GET';
-	private SessionState $state;
+	private SessionMarkers $state;
 	private SessionStateRules $rules;
 	private IUserSession $userSession;
 
@@ -70,18 +71,19 @@ class SessionStateMiddlewareTest extends TestCase {
 		$session->method('set')->willReturnCallback(function (string $key, mixed $value): void {
 			$this->sessionData[$key] = $value;
 		});
-		$this->state = new SessionState($session, $this->createMock(LoggerInterface::class));
+		$this->state = new SessionMarkers($session, $this->createMock(LoggerInterface::class));
 		$this->flag = $this->createMock(PasswordChangeFlag::class);
 		$this->flag->method('isRequired')->willReturn(true);
 		$user = $this->createMock(IUser::class);
 		$user->method('getUID')->willReturn('alice');
+		$user->method('canChangePassword')->willReturn(true);
 		$userSession = $this->createMock(IUserSession::class);
 		$userSession->method('getUser')->willReturnCallback(fn (): ?IUser => $this->loggedIn ? $user : null);
 		$userSession->method('isLoggedIn')->willReturnCallback(fn (): bool => $this->loggedIn);
 		$this->userSession = $userSession;
 		$urls = $this->createMock(IURLGenerator::class);
 		$urls->method('linkToRoute')->willReturn('/index.php/apps/intrusion_detection/password?redirect_url=%2Fapps%2Ffiles%2F');
-		$rule = new PasswordChangeRule($this->flag, $userSession, $urls);
+		$rule = new PasswordChangeRule($this->flag, $userSession, $urls, $this->createMock(\Psr\Container\ContainerInterface::class));
 		$container = $this->createMock(ContainerInterface::class);
 		$credentialRule = new CredentialUseRule(new RequestContext(), $this->createMock(ContainerInterface::class));
 		$stepUp = new StepUpRule($userSession, $urls, $this->createMock(ITimeFactory::class), $container, $this->createMock(LoggerInterface::class));
@@ -90,7 +92,7 @@ class SessionStateMiddlewareTest extends TestCase {
 			CredentialUseRule::class => $credentialRule,
 			default => $rule,
 		});
-		$this->rules = new SessionStateRules($container, $this->createMock(LoggerInterface::class), new \OCA\IntrusionDetection\Guard\RequestContext(), $this->createMock(\OCP\IRequest::class));
+		$this->rules = new SessionStateRules($container, $this->createMock(LoggerInterface::class), new \OCA\IntrusionDetection\Login\RequestContext(), $this->createMock(\OCP\IRequest::class));
 		$this->request = $this->createMock(IRequest::class);
 		$this->request->method('getMethod')->willReturnCallback(fn (): string => $this->method);
 		$this->request->method('getRequestUri')->willReturn('/apps/files/');
@@ -170,7 +172,7 @@ class SessionStateMiddlewareTest extends TestCase {
 
 	public function testWebDavGetsForbiddenWithAHeader(): void {
 		$this->mark(PasswordChangeRule::MODE_REDIRECT);
-		$plugin = new SessionStatePlugin($this->rules, $this->state, $this->userSession, $this->createMock(LoggerInterface::class));
+		$plugin = new SessionStatePlugin(new SessionGate($this->rules, $this->state, $this->userSession, $this->request, $this->createMock(LoggerInterface::class)));
 		$request = $this->createMock(RequestInterface::class);
 		$request->method('getMethod')->willReturn('PROPFIND');
 		$request->method('getUrl')->willReturn('/remote.php/dav/files/alice/');
@@ -186,7 +188,7 @@ class SessionStateMiddlewareTest extends TestCase {
 	}
 
 	public function testWebDavWithNothingPendingPasses(): void {
-		$plugin = new SessionStatePlugin($this->rules, $this->state, $this->userSession, $this->createMock(LoggerInterface::class));
+		$plugin = new SessionStatePlugin(new SessionGate($this->rules, $this->state, $this->userSession, $this->request, $this->createMock(LoggerInterface::class)));
 		$request = $this->createMock(RequestInterface::class);
 		$request->method('getMethod')->willReturn('PROPFIND');
 		$request->method('getUrl')->willReturn('/remote.php/dav/files/alice/');
@@ -206,7 +208,7 @@ class SessionStateMiddlewareTest extends TestCase {
 		}
 		$container = $this->createMock(ContainerInterface::class);
 		$container->method('get')->willReturnCallback(static fn (string $id): object => $byClass[$id]);
-		return new class(array_keys($byClass), $container, $this->createMock(LoggerInterface::class), new \OCA\IntrusionDetection\Guard\RequestContext(), $this->createMock(\OCP\IRequest::class)) extends SessionStateRules {
+		return new class(array_keys($byClass), $container, $this->createMock(LoggerInterface::class), new \OCA\IntrusionDetection\Login\RequestContext(), $this->createMock(\OCP\IRequest::class)) extends SessionStateRules {
 			/**
 			 * @param list<string> $names
 			 */
@@ -214,7 +216,7 @@ class SessionStateMiddlewareTest extends TestCase {
 				private readonly array $names,
 				ContainerInterface $container,
 				LoggerInterface $logger,
-				\OCA\IntrusionDetection\Guard\RequestContext $context,
+				\OCA\IntrusionDetection\Login\RequestContext $context,
 				\OCP\IRequest $request,
 			) {
 				parent::__construct($container, $logger, $context, $request);
@@ -228,7 +230,7 @@ class SessionStateMiddlewareTest extends TestCase {
 	}
 
 	private function mark(string $mode): void {
-		$this->sessionData[SessionState::SESSION_KEY] = [SessionState::PASSWORD_CHANGE => ['uid' => 'alice', 'mode' => $mode, 'since' => 1]];
+		$this->sessionData[SessionMarkers::SESSION_KEY] = [SessionMarkers::PASSWORD_CHANGE => ['uid' => 'alice', 'mode' => $mode, 'since' => 1]];
 	}
 
 	private function blockedResponse(Controller $controller): \OCP\AppFramework\Http\Response {
@@ -242,7 +244,7 @@ class SessionStateMiddlewareTest extends TestCase {
 	}
 
 	private function middleware(): SessionStateMiddleware {
-		return new SessionStateMiddleware($this->rules, $this->state, $this->userSession, $this->request, $this->createMock(LoggerInterface::class));
+		return new SessionStateMiddleware(new SessionGate($this->rules, $this->state, $this->userSession, $this->request, $this->createMock(LoggerInterface::class)), $this->request);
 	}
 
 	private function controller(): Controller {

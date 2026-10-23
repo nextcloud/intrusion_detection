@@ -16,7 +16,12 @@ describe('links of the admin page', () => {
 	})
 
 	test('a detection opens on the overview', () => {
-		expect(resolveLink('#detection-42')).toEqual({ tab: 'overview', check: null, section: null, detection: 42 })
+		expect(resolveLink('#detection-42')).toEqual({ tab: 'overview', check: null, section: null, detection: '42' })
+	})
+
+	test('a snowflake id beyond the precision of a number stays exact', () => {
+		expect(resolveLink('#detection-9007199254740993123')).toMatchObject({ detection: '9007199254740993123' })
+		expect(resolveLink('#approval-9007199254740993123')).toMatchObject({ section: 'approval-9007199254740993123' })
 	})
 
 	test('a request for a new administrator opens on the overview, at its card', () => {

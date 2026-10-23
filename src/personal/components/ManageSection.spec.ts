@@ -7,6 +7,7 @@ import { enableAutoUnmount, flushPromises, mount } from '@vue/test-utils'
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 import { nextTick } from 'vue'
 import ManageSection from './ManageSection.vue'
+import { snowflake } from '../../tests/fixtures.ts'
 import { knownDevice, overview } from '../../tests/personalFixtures.ts'
 import { fetchKnownDevices, fetchTrustedNetworks, removeKnownDevice } from '../api.ts'
 import { personal } from '../store.ts'
@@ -68,7 +69,7 @@ describe('ManageSection', () => {
 
 	test('stays while the user empties it', async () => {
 		personal.manage = { devices: 1, networks: 0, otherBrowsers: 0 }
-		vi.mocked(removeKnownDevice).mockResolvedValue({ removed: 1 })
+		vi.mocked(removeKnownDevice).mockResolvedValue({ removed: snowflake(1) })
 		const wrapper = mount(ManageSection)
 		await wrapper.get('[data-test="manage"] button').trigger('click')
 		await flushPromises()

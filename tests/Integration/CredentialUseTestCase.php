@@ -11,33 +11,32 @@ namespace OCA\IntrusionDetection\Tests\Integration;
 
 use OC\AppFramework\Http\Request;
 use OC\Memcache\ArrayCache;
-use OCA\IntrusionDetection\Check\CheckRegistry;
-use OCA\IntrusionDetection\Check\Checks\TokenConcurrentUseDetector;
-use OCA\IntrusionDetection\Check\CredentialUse\CredentialTracker;
-use OCA\IntrusionDetection\Check\CredentialUse\CredentialUseResolver;
-use OCA\IntrusionDetection\Config\GlobalSettings;
-use OCA\IntrusionDetection\Config\Prerequisites;
-use OCA\IntrusionDetection\Config\Settings;
+use OCA\IntrusionDetection\Cache\Caches;
+use OCA\IntrusionDetection\Cache\KeyLock;
+use OCA\IntrusionDetection\Check\Checks\TokenConcurrentUse\CredentialTracker;
+use OCA\IntrusionDetection\Check\Checks\TokenConcurrentUse\CredentialUseResolver;
+use OCA\IntrusionDetection\Check\Checks\TokenConcurrentUse\TokenConcurrentUseDetector;
 use OCA\IntrusionDetection\Crypto\Fingerprinter;
 use OCA\IntrusionDetection\Guard\CredentialUseGuard;
-use OCA\IntrusionDetection\Guard\RequestContext;
 use OCA\IntrusionDetection\KnownDevice\IKnownDevices;
-use OCA\IntrusionDetection\Listener\CredentialUseLoginListener;
+use OCA\IntrusionDetection\Listener\Login\CredentialUseStep;
+use OCA\IntrusionDetection\Listener\LoginListener;
+use OCA\IntrusionDetection\Login\CoreSession;
+use OCA\IntrusionDetection\Login\RequestContext;
+use OCA\IntrusionDetection\Login\SessionMarkers;
 use OCA\IntrusionDetection\Net\RemoteAddressResolver;
 use OCA\IntrusionDetection\Net\ServerAddresses;
 use OCA\IntrusionDetection\Perf\GuardTimer;
 use OCA\IntrusionDetection\Response\Tokens;
-use OCA\IntrusionDetection\SessionState\CurrentSession;
 use OCA\IntrusionDetection\SessionState\RequestTarget;
 use OCA\IntrusionDetection\SessionState\Rules\CredentialUseRule;
-use OCA\IntrusionDetection\SessionState\SessionState;
+use OCA\IntrusionDetection\Signal\SignalDispatcher;
+use OCA\IntrusionDetection\Tests\LoginSteps;
+use OCA\IntrusionDetection\Tests\Unit\Cache\FixedCaches;
 use OCP\AppFramework\Utility\ITimeFactory;
 use OCP\Authentication\Token\IProvider;
-use OCP\EventDispatcher\IEventDispatcher;
-use OCP\IAppConfig;
-use OCP\ICache;
-use OCP\ICacheFactory;
 use OCP\IConfig;
+use OCP\IMemcache;
 use OCP\IRequestId;
 use OCP\ISession;
 use OCP\IUser;
@@ -72,15 +71,7 @@ abstract class CredentialUseTestCase extends AccountTestCase {
 	protected function setUp(): void {
 		parent::setUp();
 		$this->cache = new ArrayCache();
-		$this->settings = new Settings(
-			Server::get(IAppConfig::class),
-			Server::get(CheckRegistry::class),
-			Server::get(ITimeFactory::class),
-			new Prerequisites($this->cacheFactory($this->cache), Server::get(IConfig::class)),
-			Server::get(GlobalSettings::class),
-			Server::get(IEventDispatcher::class),
-		);
-		$this->tracker = new CredentialTracker($this->cacheFactory($this->cache), $this->settings);
+		$this->tracker = new CredentialTracker($this->cacheFactory($this->cache), $this->checkSettings(), new KeyLock($this->cacheFactory($this->cache)));
 		$this->now = time();
 		$this->cookieName = Server::get(IConfig::class)->getSystemValueString('instanceid');
 	}
@@ -88,14 +79,8 @@ abstract class CredentialUseTestCase extends AccountTestCase {
 	/**
 	 * A factory that offers this cache as the local cache, or no memory cache at all.
 	 */
-	protected function cacheFactory(?ICache $cache): ICacheFactory {
-		$factory = $this->createMock(ICacheFactory::class);
-		$factory->method('isAvailable')->willReturn(false);
-		$factory->method('isLocalCacheAvailable')->willReturn($cache !== null);
-		if ($cache !== null) {
-			$factory->method('createLocal')->willReturn($cache);
-		}
-		return $factory;
+	protected function cacheFactory(?IMemcache $cache): Caches {
+		return new FixedCaches($cache, $cache);
 	}
 
 	/**
@@ -103,8 +88,8 @@ abstract class CredentialUseTestCase extends AccountTestCase {
 	 *
 	 * @param array<string, string> $server
 	 * @param array<string, string> $cookies
-	 * @param ?\Closure(TestSession, CredentialUseLoginListener): ?IUser $authenticate what core's
-	 *                                                                                 authentication does; returns the logged-in user
+	 * @param ?\Closure(TestSession, LoginListener): ?IUser $authenticate what core's
+	 *                                                                    authentication does; returns the logged-in user
 	 * @param bool $rule whether the request reaches a controller or WebDAV, where the session-state rules run
 	 */
 	protected function send(string $ip, array $server, array $cookies, ?\Closure $authenticate, bool $rule = true): RequestContext {
@@ -121,36 +106,36 @@ abstract class CredentialUseTestCase extends AccountTestCase {
 		$container = new TestContainer();
 		$logger = $this->logger();
 
-		$guard = new TestCredentialUseGuard(Server::get(IConfig::class), $this->settings, new Fingerprinter(Server::get(IConfig::class), $time), $this->tracker, $context, $time, $container, $logger, Server::get(GuardTimer::class));
+		$guard = new TestCredentialUseGuard(Server::get(IConfig::class), $this->appSettings(), $this->checkSettings(), new Fingerprinter(Server::get(IConfig::class), $time), $this->tracker, $context, $time, $container, $logger, Server::get(GuardTimer::class));
 		$knownDevices = new class($this->forgotten) implements IKnownDevices {
-			/** @param list<array{string, int}> $calls */
+			/** @param list<array{string, string}> $calls */
 			public function __construct(
 				private array &$calls,
 			) {
 			}
 
-			public function forgetCurrentDevice(string $uid, int $detectionId): void {
+			public function forgetCurrentDevice(string $uid, string $detectionId): void {
 				$this->calls[] = [$uid, $detectionId];
 			}
 		};
 		$container->services = [
 			IUserSession::class => $this->userSession,
 			ISession::class => $session,
-			CurrentSession::class => new CurrentSession($session, Server::get(IProvider::class), $logger),
+			CoreSession::class => new CoreSession($session, Server::get(IProvider::class), $logger),
 			CredentialTracker::class => $this->tracker,
 			ITimeFactory::class => $time,
 			RemoteAddressResolver::class => new RemoteAddressResolver($request, Server::get(IThrottler::class), Server::get(ServerAddresses::class)),
-			TokenConcurrentUseDetector::class => new TokenConcurrentUseDetector($this->settings, $this->engine(), Server::get(Tokens::class), $knownDevices),
+			SignalDispatcher::class => $this->dispatcher([TokenConcurrentUseDetector::class => new TokenConcurrentUseDetector(Server::get(Tokens::class), $knownDevices)], $this->engine()),
 			CredentialUseResolver::class => new CredentialUseResolver($context, $request, Server::get(IConfig::class), $container, $logger),
 		];
 
 		$this->assertNull($guard->check($request), 'The guard never refuses');
 		if ($authenticate !== null) {
-			$this->sessionUser = $authenticate($session, new CredentialUseLoginListener($context, $container, $logger));
+			$this->sessionUser = $authenticate($session, LoginSteps::listener([CredentialUseStep::class => new CredentialUseStep($container->services[CredentialUseResolver::class])], $this->appSettings(), $request, $context, logger: $logger));
 		}
 		if ($rule && $this->sessionUser !== null) {
 			$rule = new CredentialUseRule($context, $container);
-			$this->assertNull($rule->check(new SessionState($session, $logger), RequestTarget::dav('PROPFIND', '/remote.php/dav/files/x/')), 'The rule never blocks');
+			$this->assertNull($rule->check(new SessionMarkers($session, $logger), RequestTarget::dav('PROPFIND', '/remote.php/dav/files/x/')), 'The rule never blocks');
 		}
 		foreach ($guard->shutdown as $callback) {
 			$callback();
@@ -174,7 +159,7 @@ abstract class CredentialUseTestCase extends AccountTestCase {
 	 * @param array{id: int, secret: string} $token
 	 */
 	protected function appPasswordLogin(IUser $user, array $token): \Closure {
-		return function (TestSession $session, CredentialUseLoginListener $listener) use ($user, $token): IUser {
+		return function (TestSession $session, LoginListener $listener) use ($user, $token): IUser {
 			$session->set('token-id', $token['id']);
 			$this->sessionUser = $user;
 			$listener->handle(new UserLoggedInEvent($user, $user->getUID(), 'A-long-test-password-' . $user->getUID(), true));
@@ -199,7 +184,7 @@ abstract class CredentialUseTestCase extends AccountTestCase {
 	 * A login with the account's password over Basic.
 	 */
 	protected function passwordLogin(IUser $user): \Closure {
-		return function (TestSession $session, CredentialUseLoginListener $listener) use ($user): IUser {
+		return function (TestSession $session, LoginListener $listener) use ($user): IUser {
 			$this->sessionUser = $user;
 			$listener->handle(new UserLoggedInEvent($user, $user->getUID(), 'A-long-test-password-' . $user->getUID(), false));
 			return $user;

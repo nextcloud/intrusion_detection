@@ -10,16 +10,14 @@ declare(strict_types=1);
 namespace OCA\IntrusionDetection\Confirm;
 
 use OCA\IntrusionDetection\AppInfo\Application;
+use OCA\IntrusionDetection\Config\UserKeys;
 use OCA\IntrusionDetection\Explain\TextRenderer;
 use OCA\IntrusionDetection\Notification\MailContent;
 use OCA\IntrusionDetection\Notification\Mails;
 use OCA\IntrusionDetection\Notification\UserMessages;
 use OCP\AppFramework\Utility\ITimeFactory;
 use OCP\Config\IUserConfig;
-use OCP\IConfig;
-use OCP\ISession;
 use OCP\IUser;
-use OCP\Mail\IEmailValidator;
 use OCP\Security\IHasher;
 use OCP\Security\ISecureRandom;
 
@@ -31,7 +29,9 @@ use OCP\Security\ISecureRandom;
  * login gets MAX_ATTEMPTS tries in all and MAX_RESENDS new codes per
  * RESEND_WINDOW. An account gets at most MAX_MAILS codes per MAIL_WINDOW
  * across all its logins, so that apps or an attacker with the password
- * cannot flood its mailbox. The tries are counted on the server too
+ * cannot flood its mailbox, and MAX_WRONG wrong codes per MAIL_WINDOW
+ * across all its logins, so that new logins bring no new tries: once
+ * they are used up, no code is sent or checked until the window passes. The tries are counted on the server too
  * ({@see UnconfirmedSessions::takeCodeAttempt()}), before the code is
  * checked: parallel requests that each read the session before any of them
  * saved it never get more tries between them. The code is in the email and nowhere else: never in a
@@ -45,8 +45,7 @@ class EmailCodes {
 	public const RESEND_WINDOW = 600;
 	public const MAX_MAILS = 5;
 	public const MAIL_WINDOW = 3600;
-	/** When the account's recent codes were sent */
-	public const USER_KEY_MAILS = 'code_mails';
+	public const MAX_WRONG = 10;
 
 	public const VERIFIED = 'verified';
 	public const WRONG = 'wrong';
@@ -61,46 +60,29 @@ class EmailCodes {
 		private readonly IHasher $hasher,
 		private readonly Mails $mails,
 		private readonly UserMessages $messages,
-		private readonly IEmailValidator $emailValidator,
-		private readonly IConfig $config,
 		private readonly ITimeFactory $timeFactory,
-		private readonly UnconfirmedSessions $sessions,
-		private readonly ISession $session,
+		private readonly LoginConfirmationStore $store,
 		private readonly IUserConfig $userConfig,
 	) {
 	}
 
 	/**
-	 * Whether a code can be sent to the account: it has a valid email
-	 * address and the server sends mail.
-	 */
-	public function isAvailable(IUser $user): bool {
-		$address = (string)$user->getEMailAddress();
-		return $address !== ''
-			&& $this->emailValidator->isValid($address)
-			&& $this->config->getSystemValueString('mail_smtpmode', 'smtp') !== 'null';
-	}
-
-	/**
 	 * Send a new code. The earlier code, if any, stops working.
 	 *
-	 * @return bool whether the email was handed to the mail server; when not, or when the account got too many codes, the state keeps no code
+	 * @return StepUpState with the new code; with none when the email was not handed to the mail server or the account got too many codes
 	 */
-	public function issue(IUser $user, StepUpState $state): bool {
-		$state->codeHash = null;
-		$state->codeExpires = 0;
+	public function issue(IUser $user, StepUpState $state): StepUpState {
+		$state = $state->withCode(null, 0);
 		$sent = $this->recentMails($user->getUID());
 		if (count($sent) >= self::MAX_MAILS) {
-			return false;
+			return $state;
 		}
 		$code = $this->random->generate(self::LENGTH, ISecureRandom::CHAR_DIGITS);
 		if (!$this->mails->send($user, $this->mail($user, $state, $code))) {
-			return false;
+			return $state;
 		}
-		$this->userConfig->setValueArray($user->getUID(), Application::APP_ID, self::USER_KEY_MAILS, [...$sent, $this->timeFactory->getTime()], lazy: true);
-		$state->codeHash = $this->hasher->hash($code);
-		$state->codeExpires = $this->timeFactory->getTime() + self::TTL;
-		return true;
+		$this->userConfig->setValueArray($user->getUID(), Application::APP_ID, UserKeys::CODE_MAILS, [...$sent, $this->timeFactory->getTime()], lazy: true);
+		return $state->withCode($this->hasher->hash($code), $this->timeFactory->getTime() + self::TTL);
 	}
 
 	/**
@@ -108,6 +90,13 @@ class EmailCodes {
 	 */
 	public function isLimited(IUser $user): bool {
 		return count($this->recentMails($user->getUID())) >= self::MAX_MAILS;
+	}
+
+	/**
+	 * Whether MAX_WRONG wrong codes were entered for the account within MAIL_WINDOW.
+	 */
+	public function isGuessLimited(string $uid): bool {
+		return count($this->recentWrong($uid)) >= self::MAX_WRONG;
 	}
 
 	/**
@@ -120,47 +109,45 @@ class EmailCodes {
 	/**
 	 * Send another code, if the limit allows it.
 	 *
-	 * @return bool whether a new code was sent
+	 * @return ?StepUpState null when the limit does not allow it; else as {@see self::issue()}
 	 */
-	public function resend(IUser $user, StepUpState $state): bool {
+	public function resend(IUser $user, StepUpState $state): ?StepUpState {
 		if (!$this->canResend($state)) {
-			return false;
+			return null;
 		}
-		$state->resends = [...$this->recentResends($state), $this->timeFactory->getTime()];
-		return $this->issue($user, $state);
+		return $this->issue($user, $state->withResends([...$this->recentResends($state), $this->timeFactory->getTime()]));
 	}
 
 	/**
 	 * Check an entered code. A wrong code counts as an attempt; a correct
 	 * one is used up.
 	 *
-	 * @return self::VERIFIED|self::WRONG|self::EXPIRED|self::MALFORMED|self::EXHAUSTED
+	 * @return array{0: self::VERIFIED|self::WRONG|self::EXPIRED|self::MALFORMED|self::EXHAUSTED, 1: StepUpState} the result, and the state with the attempt counted or the code used up
 	 */
-	public function verify(StepUpState $state, #[\SensitiveParameter] string $input): string {
-		if ($state->attempts >= self::MAX_ATTEMPTS) {
-			return self::EXHAUSTED;
+	public function verify(StepUpState $state, #[\SensitiveParameter] string $input): array {
+		if ($state->attempts >= self::MAX_ATTEMPTS || $this->isGuessLimited($state->uid)) {
+			return [self::EXHAUSTED, $state];
 		}
 		$code = preg_replace('/[\s-]+/', '', $input) ?? '';
 		if (preg_match('/^\d{' . self::LENGTH . '}$/', $code) !== 1) {
-			return self::MALFORMED;
+			return [self::MALFORMED, $state];
 		}
 		if ($state->codeHash === null || $state->codeExpires <= $this->timeFactory->getTime()) {
-			return self::EXPIRED;
+			return [self::EXPIRED, $state];
 		}
-		$used = $this->sessions->takeCodeAttempt($this->sessionId(), self::MAX_ATTEMPTS);
+		$used = $this->store->takeCodeAttempt(self::MAX_ATTEMPTS);
 		if ($used === null) {
-			$state->attempts = self::MAX_ATTEMPTS;
-			return self::EXHAUSTED;
+			return [self::EXHAUSTED, $state->withAttempts(self::MAX_ATTEMPTS)];
 		}
 		// The tries before this one, as the server counted them.
-		$state->attempts = max($state->attempts, $used - 1);
+		$state = $state->withAttempts(max($state->attempts, $used - 1));
 		if (!$this->hasher->verify($code, $state->codeHash)) {
-			$state->attempts++;
-			return $state->attempts >= self::MAX_ATTEMPTS ? self::EXHAUSTED : self::WRONG;
+			$state = $state->withAttempts($state->attempts + 1);
+			$wrong = [...$this->recentWrong($state->uid), $this->timeFactory->getTime()];
+			$this->userConfig->setValueArray($state->uid, Application::APP_ID, UserKeys::CODE_WRONG, $wrong, lazy: true);
+			return [$state->attempts >= self::MAX_ATTEMPTS || count($wrong) >= self::MAX_WRONG ? self::EXHAUSTED : self::WRONG, $state];
 		}
-		$state->codeHash = null;
-		$state->codeExpires = 0;
-		return self::VERIFIED;
+		return [self::VERIFIED, $state->withCode(null, 0)];
 	}
 
 	public function attemptsLeft(StepUpState $state): int {
@@ -179,21 +166,22 @@ class EmailCodes {
 		return mb_substr(substr($address, 0, $at), 0, 1) . '***' . substr($address, $at);
 	}
 
-	private function sessionId(): string {
-		try {
-			return $this->session->getId();
-		} catch (\Throwable) {
-			return '';
-		}
-	}
-
 	/**
 	 * @return list<int> when the account's codes of the last MAIL_WINDOW were sent
 	 */
 	private function recentMails(string $uid): array {
 		$since = $this->timeFactory->getTime() - self::MAIL_WINDOW;
-		$sent = $this->userConfig->getValueArray($uid, Application::APP_ID, self::USER_KEY_MAILS, lazy: true);
+		$sent = $this->userConfig->getValueArray($uid, Application::APP_ID, UserKeys::CODE_MAILS, lazy: true);
 		return array_values(array_filter($sent, static fn (mixed $at): bool => is_int($at) && $at > $since));
+	}
+
+	/**
+	 * @return list<int> when the account's wrong codes of the last MAIL_WINDOW were entered
+	 */
+	private function recentWrong(string $uid): array {
+		$since = $this->timeFactory->getTime() - self::MAIL_WINDOW;
+		$wrong = $this->userConfig->getValueArray($uid, Application::APP_ID, UserKeys::CODE_WRONG, lazy: true);
+		return array_values(array_filter($wrong, static fn (mixed $at): bool => is_int($at) && $at > $since));
 	}
 
 	/**

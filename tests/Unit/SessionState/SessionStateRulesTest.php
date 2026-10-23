@@ -10,11 +10,12 @@ declare(strict_types=1);
 namespace OCA\IntrusionDetection\Tests\Unit\SessionState;
 
 use OC\Session\Memory;
+use OCA\IntrusionDetection\Confirm\ConfirmationStatus;
 use OCA\IntrusionDetection\Confirm\StepUpState;
+use OCA\IntrusionDetection\Login\SessionMarkers;
 use OCA\IntrusionDetection\SessionState\RequestTarget;
 use OCA\IntrusionDetection\SessionState\Rules\PasswordChangeRule;
 use OCA\IntrusionDetection\SessionState\Rules\StepUpRule;
-use OCA\IntrusionDetection\SessionState\SessionState;
 use OCA\IntrusionDetection\SessionState\SessionStateRules;
 use Psr\Container\ContainerInterface;
 use Psr\Log\LoggerInterface;
@@ -24,11 +25,11 @@ use Test\TestCase;
  * Rules fail open, except the step-up rule while a step-up is pending.
  */
 class SessionStateRulesTest extends TestCase {
-	private SessionState $state;
+	private SessionMarkers $state;
 
 	protected function setUp(): void {
 		parent::setUp();
-		$this->state = new SessionState(new Memory(), $this->createMock(LoggerInterface::class));
+		$this->state = new SessionMarkers(new Memory(), $this->createMock(LoggerInterface::class));
 	}
 
 	public function testABrokenStepUpRuleBlocksWhileAStepUpIsPending(): void {
@@ -56,12 +57,24 @@ class SessionStateRulesTest extends TestCase {
 	public function testOtherBrokenRulesLetTheRequestPass(): void {
 		$broken = $this->createMock(PasswordChangeRule::class);
 		$broken->method('check')->willThrowException(new \RuntimeException('broken'));
-		$this->state->set(SessionState::PASSWORD_CHANGE, ['uid' => 'alice', 'mode' => 'redirect', 'since' => 1]);
+		$this->state->set(SessionMarkers::PASSWORD_CHANGE, ['uid' => 'alice', 'mode' => 'redirect', 'since' => 1]);
 		$this->assertNull($this->rules([PasswordChangeRule::class => $broken], [PasswordChangeRule::class])->check($this->state, RequestTarget::dav('GET', '/')));
 	}
 
+	public function testEveryRuleSaysWhatItLooksAt(): void {
+		$this->assertSame(SessionStateRules::RULES, array_keys(SessionStateRules::LOOKS_AT));
+	}
+
+	public function testAMarkerNoRuleLooksAtBuildsNoRule(): void {
+		$this->state->set(SessionMarkers::PROOF, ['uid' => 'alice', 'by' => 'second_factor', 'at' => 1]);
+		$container = $this->createMock(ContainerInterface::class);
+		$container->expects($this->never())->method('get');
+		$rules = new SessionStateRules($container, $this->createMock(LoggerInterface::class), new \OCA\IntrusionDetection\Login\RequestContext(), $this->createMock(\OCP\IRequest::class));
+		$this->assertNull($rules->check($this->state, RequestTarget::dav('PUT', '/remote.php/dav/files/alice/a.txt')));
+	}
+
 	private function pending(): void {
-		$this->state->set(SessionState::STEP_UP, (new StepUpState('alice', StepUpState::PENDING, ['flagged_source'], 1, 2))->toArray());
+		$this->state->set(SessionMarkers::STEP_UP, (new StepUpState('alice', ConfirmationStatus::Pending, ['flagged_source'], 1, 2))->toArray());
 	}
 
 	/**
@@ -71,7 +84,7 @@ class SessionStateRulesTest extends TestCase {
 	private function rules(array $byClass, array $classes = [StepUpRule::class]): SessionStateRules {
 		$container = $this->createMock(ContainerInterface::class);
 		$container->method('get')->willReturnCallback(static fn (string $id): object => $byClass[$id] ?? throw new \RuntimeException('cannot build ' . $id));
-		return new class($classes, $container, $this->createMock(LoggerInterface::class), new \OCA\IntrusionDetection\Guard\RequestContext(), $this->createMock(\OCP\IRequest::class)) extends SessionStateRules {
+		return new class($classes, $container, $this->createMock(LoggerInterface::class), new \OCA\IntrusionDetection\Login\RequestContext(), $this->createMock(\OCP\IRequest::class)) extends SessionStateRules {
 			/**
 			 * @param list<class-string<\OCA\IntrusionDetection\SessionState\ISessionStateRule>> $names
 			 */
@@ -79,7 +92,7 @@ class SessionStateRulesTest extends TestCase {
 				private readonly array $names,
 				ContainerInterface $container,
 				LoggerInterface $logger,
-				\OCA\IntrusionDetection\Guard\RequestContext $context,
+				\OCA\IntrusionDetection\Login\RequestContext $context,
 				\OCP\IRequest $request,
 			) {
 				parent::__construct($container, $logger, $context, $request);

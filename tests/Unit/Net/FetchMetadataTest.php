@@ -21,6 +21,8 @@ class FetchMetadataTest extends TestCase {
 	public static function lures(): array {
 		return [
 			'another site sent the browser there' => ['GET', ['Sec-Fetch-Site' => 'cross-site', 'Sec-Fetch-Mode' => 'navigate', 'Sec-Fetch-Dest' => 'document']],
+			'a sibling host of the same site sent the browser there' => ['GET', ['Sec-Fetch-Site' => 'same-site', 'Sec-Fetch-Mode' => 'navigate', 'Sec-Fetch-Dest' => 'document', 'Referer' => 'https://mail.example.com/inbox']],
+			'a sibling host without a referrer' => ['GET', ['Sec-Fetch-Site' => ' Same-Site ', 'Sec-Fetch-Mode' => 'navigate', 'Sec-Fetch-Dest' => 'document']],
 			'an image' => ['GET', ['Sec-Fetch-Site' => 'same-site', 'Sec-Fetch-Mode' => 'no-cors', 'Sec-Fetch-Dest' => 'image']],
 			'a script, header case and spaces' => ['GET', ['Sec-Fetch-Dest' => ' Script ']],
 			'a frame' => ['GET', ['Sec-Fetch-Site' => 'same-origin', 'Sec-Fetch-Mode' => 'navigate', 'Sec-Fetch-Dest' => 'iframe']],
@@ -51,6 +53,7 @@ class FetchMetadataTest extends TestCase {
 			'PROPFIND' => ['PROPFIND', ['Sec-Fetch-Dest' => 'image']],
 			'a page of this server as the referrer' => ['GET', ['Sec-Fetch-Site' => 'cross-site', 'Sec-Fetch-Dest' => 'image', 'Referer' => 'https://cloud.example.com/index.php/apps/files']],
 			'this server as the origin, in another case' => ['GET', ['Sec-Fetch-Site' => 'cross-site', 'Origin' => 'https://Cloud.Example.com']],
+			'a page of this server, same-site' => ['GET', ['Sec-Fetch-Site' => 'same-site', 'Sec-Fetch-Mode' => 'navigate', 'Sec-Fetch-Dest' => 'document', 'Referer' => 'https://cloud.example.com/index.php/apps/files']],
 		];
 	}
 

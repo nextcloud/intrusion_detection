@@ -10,10 +10,11 @@ declare(strict_types=1);
 namespace OCA\IntrusionDetection\Admin;
 
 use OCA\IntrusionDetection\Check\CheckRegistry;
-use OCA\IntrusionDetection\Check\ResponseType;
+use OCA\IntrusionDetection\Config\CheckSettings;
 use OCA\IntrusionDetection\Config\Prerequisites;
-use OCA\IntrusionDetection\Config\Settings;
+use OCA\IntrusionDetection\Definition\ResponseType;
 use OCA\IntrusionDetection\Notification\AdminRecipients;
+use OCA\IntrusionDetection\Notification\MailReach;
 use OCA\IntrusionDetection\ResponseDefinitions;
 use OCP\IL10N;
 use OCP\IUser;
@@ -28,8 +29,9 @@ class NotificationOverview {
 	public function __construct(
 		private readonly AdminRecipients $recipients,
 		private readonly Prerequisites $prerequisites,
+		private readonly MailReach $reach,
 		private readonly CheckRegistry $registry,
-		private readonly Settings $settings,
+		private readonly CheckSettings $settings,
 	) {
 	}
 
@@ -54,10 +56,10 @@ class NotificationOverview {
 		}
 		$myEmail = (string)$me?->getEMailAddress();
 		return [
-			'recipients' => array_map(static fn (IUser $u): array => [
+			'recipients' => array_map(fn (IUser $u): array => [
 				'uid' => $u->getUID(),
 				'displayName' => $u->getDisplayName(),
-				'hasEmail' => (string)$u->getEMailAddress() !== '',
+				'hasEmail' => $this->reach->hasAddress($u),
 			], $recipients),
 			'recipientLimit' => AdminRecipients::MAX,
 			'mail' => $this->prerequisites->hasMail(),

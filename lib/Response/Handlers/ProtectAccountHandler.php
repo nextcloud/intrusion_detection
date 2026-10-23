@@ -9,8 +9,8 @@ declare(strict_types=1);
 
 namespace OCA\IntrusionDetection\Response\Handlers;
 
-use OCA\IntrusionDetection\Check\ResponseType;
-use OCA\IntrusionDetection\Config\Settings;
+use OCA\IntrusionDetection\Config\CheckSettings;
+use OCA\IntrusionDetection\Definition\ResponseType;
 use OCA\IntrusionDetection\Explain\DateFormatter;
 use OCA\IntrusionDetection\Explain\IDescribesAction;
 use OCA\IntrusionDetection\Response\AccountProtection;
@@ -31,7 +31,7 @@ class ProtectAccountHandler implements IResponseHandler, IDescribesAction {
 
 	public function __construct(
 		private readonly AccountProtection $protection,
-		private readonly Settings $settings,
+		private readonly CheckSettings $settings,
 		private readonly ITimeFactory $timeFactory,
 	) {
 	}
@@ -54,7 +54,7 @@ class ProtectAccountHandler implements IResponseHandler, IDescribesAction {
 			$uid,
 			$this->timeFactory->getTime() + $duration,
 			AccountProtection::REASON_UNDER_ATTACK,
-			$context->detection->getId(),
+			(string)$context->detection->getId(),
 		);
 		return ResponseOutcome::done(['uid' => $uid, 'until' => $until]);
 	}

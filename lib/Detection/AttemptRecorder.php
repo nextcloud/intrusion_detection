@@ -9,12 +9,12 @@ declare(strict_types=1);
 
 namespace OCA\IntrusionDetection\Detection;
 
-use OCA\IntrusionDetection\Config\GlobalSettings;
-use OCA\IntrusionDetection\Config\Settings;
 use OCA\IntrusionDetection\Crypto\Fingerprinter;
 use OCA\IntrusionDetection\Db\AttemptKind;
 use OCA\IntrusionDetection\Db\AttemptMapper;
+use OCA\IntrusionDetection\Db\IPurges;
 use OCA\IntrusionDetection\Net\SourceKey;
+use OCA\IntrusionDetection\State\HotState;
 use OCP\AppFramework\Utility\ITimeFactory;
 
 /**
@@ -22,10 +22,10 @@ use OCP\AppFramework\Utility\ITimeFactory;
  *
  * The login name and the password are fingerprinted with keys derived from
  * the instance secret before anything is stored; the plain values never
- * leave this method. Expired attempts are deleted by the cleanup job, never
- * on the path of a failed login.
+ * leave this method. Expired attempts are deleted by the cleanup job
+ * ({@see purge()}), never on the path of a failed login.
  */
-class AttemptRecorder {
+class AttemptRecorder implements IPurges {
 	/** Attempts are kept this long */
 	public const RETENTION = 3600;
 	/** Above this many rows the table counts as flooded */
@@ -36,9 +36,27 @@ class AttemptRecorder {
 	public function __construct(
 		private readonly AttemptMapper $mapper,
 		private readonly Fingerprinter $fingerprinter,
-		private readonly Settings $settings,
 		private readonly ITimeFactory $timeFactory,
+		private readonly HotState $hotState,
 	) {
+	}
+
+	/**
+	 * Delete the attempts past RETENTION, then note whether the table is
+	 * flooded. The flood state is updated even when the deletion fails: a
+	 * flooded table is when that is most likely.
+	 */
+	#[\Override]
+	public function purge(int $now): int {
+		try {
+			return $this->mapper->deleteOlderThan($now - self::RETENTION);
+		} finally {
+			if ($this->mapper->hasMoreThan(self::FLOOD_ROWS)) {
+				$this->hotState->setAttemptsFloodUntil($now + 600);
+			} elseif ($this->hotState->attemptsFloodUntil() > 0) {
+				$this->hotState->setAttemptsFloodUntil(0);
+			}
+		}
 	}
 
 	public function record(
@@ -83,7 +101,7 @@ class AttemptRecorder {
 	 * the row as its weight, which the counts of {@see AttemptMapper} use.
 	 */
 	public function sampleFactor(AttemptKind $kind, int $now): int {
-		return self::isSampledKind($kind) && $this->settings->getInt(GlobalSettings::ATTEMPTS_FLOOD_UNTIL) > $now ? self::FLOOD_SAMPLE : 1;
+		return self::isSampledKind($kind) && $this->hotState->attemptsFloodUntil() > $now ? self::FLOOD_SAMPLE : 1;
 	}
 
 	/**

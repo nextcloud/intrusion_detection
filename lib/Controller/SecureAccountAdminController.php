@@ -9,14 +9,14 @@ declare(strict_types=1);
 
 namespace OCA\IntrusionDetection\Controller;
 
+use OCA\IntrusionDetection\AdminChange\ActorResolver;
 use OCA\IntrusionDetection\Audit\AuditLogger;
-use OCA\IntrusionDetection\Check\Checks\AccountLocked;
+use OCA\IntrusionDetection\Check\Checks\AccountLocked\AccountLocked;
 use OCA\IntrusionDetection\Db\Detection;
 use OCA\IntrusionDetection\Db\DetectionMapper;
 use OCA\IntrusionDetection\Guide\SecureAccountGuide;
 use OCA\IntrusionDetection\ResponseDefinitions;
 use OCA\IntrusionDetection\Takeover\AccountLock;
-use OCP\AppFramework\Db\DoesNotExistException;
 use OCP\AppFramework\Http;
 use OCP\AppFramework\Http\Attribute\ApiRoute;
 use OCP\AppFramework\Http\Attribute\OpenAPI;
@@ -26,7 +26,6 @@ use OCP\AppFramework\OCS\OCSNotFoundException;
 use OCP\IL10N;
 use OCP\IRequest;
 use OCP\IUserManager;
-use OCP\IUserSession;
 
 /**
  * The "Secure my account" state of a detection's account on the admin
@@ -43,34 +42,34 @@ class SecureAccountAdminController extends AdminOCSController {
 	public function __construct(
 		IRequest $request,
 		IL10N $l,
-		IUserSession $userSession,
+		ActorResolver $actors,
 		private readonly DetectionMapper $detections,
 		private readonly SecureAccountGuide $guide,
 		private readonly AccountLock $lock,
 		private readonly IUserManager $userManager,
 		private readonly AuditLogger $audit,
 	) {
-		parent::__construct($request, $l, $userSession);
+		parent::__construct($request, $l, $actors);
 	}
 
 	/**
 	 * Get the "Secure my account" state of a detection's account
 	 *
-	 * @param int $id The detection
+	 * @param string $id The detection
 	 * @return DataResponse<Http::STATUS_OK, IntrusionDetectionAccountGuide, array{}>
 	 * @throws OCSNotFoundException The detection does not exist or is not about an account
 	 *
 	 * 200: The account's state
 	 */
 	#[ApiRoute(verb: 'GET', url: '/api/v1/detections/{id}/secure-account', requirements: ['id' => '\d+'])]
-	public function show(int $id): DataResponse {
+	public function show(string $id): DataResponse {
 		return new DataResponse($this->present($this->detection($id)));
 	}
 
 	/**
 	 * Enable an account that was locked with the lock link, and start "Secure my account" for its owner
 	 *
-	 * @param int $id The detection of the lock
+	 * @param string $id The detection of the lock
 	 * @return DataResponse<Http::STATUS_OK, IntrusionDetectionAccountGuide, array{}>|DataResponse<Http::STATUS_BAD_REQUEST, IntrusionDetectionError, array{}>
 	 * @throws OCSNotFoundException The detection does not exist or is not about an account
 	 *
@@ -79,7 +78,7 @@ class SecureAccountAdminController extends AdminOCSController {
 	 */
 	#[ApiRoute(verb: 'POST', url: '/api/v1/detections/{id}/reenable', requirements: ['id' => '\d+'])]
 	#[PasswordConfirmationRequired]
-	public function reenable(int $id): DataResponse {
+	public function reenable(string $id): DataResponse {
 		$detection = $this->detection($id);
 		return match ($this->lock->reenable($detection, $this->actor())) {
 			AccountLock::REENABLED => new DataResponse($this->present($detection)),
@@ -92,7 +91,7 @@ class SecureAccountAdminController extends AdminOCSController {
 	/**
 	 * Mark the password step done for an account whose password is managed outside Nextcloud
 	 *
-	 * @param int $id A detection of the account
+	 * @param string $id A detection of the account
 	 * @return DataResponse<Http::STATUS_OK, IntrusionDetectionAccountGuide, array{}>|DataResponse<Http::STATUS_BAD_REQUEST, IntrusionDetectionError, array{}>
 	 * @throws OCSNotFoundException The detection does not exist or is not about an account
 	 *
@@ -101,7 +100,7 @@ class SecureAccountAdminController extends AdminOCSController {
 	 */
 	#[ApiRoute(verb: 'POST', url: '/api/v1/detections/{id}/secure-account/password', requirements: ['id' => '\d+'])]
 	#[PasswordConfirmationRequired]
-	public function passwordReset(int $id): DataResponse {
+	public function passwordReset(string $id): DataResponse {
 		$detection = $this->detection($id);
 		$user = $this->userManager->get((string)$detection->getUid());
 		if ($user === null) {
@@ -117,12 +116,8 @@ class SecureAccountAdminController extends AdminOCSController {
 		return new DataResponse($this->present($detection));
 	}
 
-	private function detection(int $id): Detection {
-		try {
-			$detection = $this->detections->findById($id);
-		} catch (DoesNotExistException) {
-			throw new OCSNotFoundException($this->l->t('This detection does not exist (any more).'));
-		}
+	private function detection(string $id): Detection {
+		$detection = $this->found(fn () => $this->detections->findById($id), $this->l->t('This detection does not exist (any more).'));
 		if ($detection->getUid() === null) {
 			throw new OCSNotFoundException($this->l->t('This detection is not about an account.'));
 		}

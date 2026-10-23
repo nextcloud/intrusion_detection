@@ -6,24 +6,21 @@
 <script setup lang="ts">
 import type { ProtectionLevel } from '../../types.ts'
 
-import { showError } from '@nextcloud/dialogs'
-import { t } from '@nextcloud/l10n'
-import { computed, ref, useId } from 'vue'
+import { computed, useId } from 'vue'
 import NcLoadingIcon from '@nextcloud/vue/components/NcLoadingIcon'
 import NcRadioGroup from '@nextcloud/vue/components/NcRadioGroup'
 import NcRadioGroupButton from '@nextcloud/vue/components/NcRadioGroupButton'
-import { useAnnouncer } from '../../composables/useAnnouncer.ts'
-import { errorMessage, isCancelled, updateProtectionLevel } from '../../services/api.ts'
-import { logger } from '../../services/logger.ts'
-import { refreshSettings, state } from '../../store.ts'
+import { useAction } from '../../composables/useAction.ts'
+import { chooseProtectionLevel, state } from '../../store.ts'
 import { APP_ID } from '../../utils/format.ts'
+import { t } from '../../utils/l10n.ts'
 import { vRadioGroupName } from '../../utils/radioGroupName.ts'
 
 type Choosable = Exclude<ProtectionLevel, 'custom'>
 
 const id = useId()
-const saving = ref(false)
-const { announce } = useAnnouncer()
+const { busy, run } = useAction()
+const saving = computed(() => busy.value !== null)
 
 /** From the loosest to the tightest limits */
 const LEVELS: { value: ProtectionLevel, label: () => string, text: () => string }[] = [
@@ -41,31 +38,14 @@ const shown = computed(() => LEVELS.filter((level) => level.value !== 'custom' |
  *
  * @param value - The chosen level
  */
-async function choose(value: ProtectionLevel) {
+function choose(value: ProtectionLevel) {
 	if (value === state.protectionLevel || value === 'custom' || saving.value) {
 		return
 	}
-	const previous = state.protectionLevel
-	state.protectionLevel = value
-	saving.value = true
-	try {
-		const result = await updateProtectionLevel(value as Choosable)
-		state.protectionLevel = result.level
-		state.checks = result.checks.checks
-		state.categories = result.checks.categories
-		await refreshSettings()
-		announce(t(APP_ID, 'Saved: the protection level is {level}.', { level: current.value.label() }))
-	} catch (error) {
-		state.protectionLevel = previous
-		if (!isCancelled(error)) {
-			logger.error('Could not set the protection level', { error })
-			const message = errorMessage(error, t(APP_ID, 'The protection level could not be changed. Please try again.'))
-			showError(message)
-			announce(message)
-		}
-	} finally {
-		saving.value = false
-	}
+	run('level', () => chooseProtectionLevel(value as Choosable), {
+		done: () => t(APP_ID, 'Saved: the protection level is {level}.', { level: current.value.label() }),
+		fallback: t(APP_ID, 'The protection level could not be changed. Please try again.'),
+	})
 }
 </script>
 
@@ -101,13 +81,13 @@ async function choose(value: ProtectionLevel) {
 .level {
 	display: flex;
 	flex-direction: column;
-	gap: calc(var(--default-grid-baseline) * 3);
+	gap: var(--ids-space-3);
 }
 
 .level__head {
 	display: flex;
 	align-items: center;
-	gap: calc(var(--default-grid-baseline) * 2);
+	gap: var(--ids-space-2);
 }
 
 .level__heading {
@@ -123,6 +103,6 @@ async function choose(value: ProtectionLevel) {
 }
 
 .level__note {
-	color: var(--color-text-maxcontrast);
+	composes: muted from '../../styles/shared.module.css';
 }
 </style>

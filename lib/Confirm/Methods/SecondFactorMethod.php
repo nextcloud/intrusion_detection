@@ -9,12 +9,13 @@ declare(strict_types=1);
 
 namespace OCA\IntrusionDetection\Confirm\Methods;
 
+use OCA\IntrusionDetection\Confirm\AccountMethods;
 use OCA\IntrusionDetection\Confirm\IConfirmationMethod;
+use OCA\IntrusionDetection\Confirm\MethodStart;
 use OCA\IntrusionDetection\Confirm\StepUpPolicy;
 use OCA\IntrusionDetection\Confirm\StepUpState;
 use OCA\IntrusionDetection\Confirm\UntrustedSecondFactors;
 use OCP\Authentication\TwoFactorAuth\IChallengeRequester;
-use OCP\Authentication\TwoFactorAuth\IRegistry;
 use OCP\IUser;
 
 /**
@@ -22,7 +23,7 @@ use OCP\IUser;
  * challenge is requested for the session; core's login chain asks for it
  * anyway, and any other login is held at the challenge by core's two-factor
  * middleware. The login stays pending until the challenge is passed
- * ({@see \OCA\IntrusionDetection\Listener\StepUpChallengePassedListener}),
+ * ({@see \OCA\IntrusionDetection\Listener\ChallengePassedListener}),
  * so a login stopped at the challenge is never counted as confirmed.
  *
  * Only a second factor that is set up counts: an account for which two
@@ -32,13 +33,9 @@ use OCP\IUser;
  * is set up again ({@see UntrustedSecondFactors}).
  */
 class SecondFactorMethod implements IConfirmationMethod {
-	/** Backup codes alone do not make an account use two factors, as in core */
-	private const BACKUP_CODES = 'backup_codes';
-
 	public function __construct(
 		private readonly IChallengeRequester $challenges,
-		private readonly IRegistry $registry,
-		private readonly UntrustedSecondFactors $untrusted,
+		private readonly AccountMethods $methods,
 	) {
 	}
 
@@ -49,16 +46,7 @@ class SecondFactorMethod implements IConfirmationMethod {
 
 	#[\Override]
 	public function isAvailable(IUser $user, StepUpPolicy $policy): bool {
-		if (!$this->challenges->isAvailable($user)) {
-			return false;
-		}
-		$untrusted = $this->untrusted->marks($user->getUID());
-		foreach ($this->registry->getProviderStates($user) as $providerId => $enabled) {
-			if ($enabled && $providerId !== self::BACKUP_CODES && !isset($untrusted[$providerId])) {
-				return true;
-			}
-		}
-		return false;
+		return $this->challenges->isAvailable($user) && $this->methods->bySecondFactor($user);
 	}
 
 	#[\Override]
@@ -67,23 +55,14 @@ class SecondFactorMethod implements IConfirmationMethod {
 	}
 
 	#[\Override]
-	public function begin(IUser $user, StepUpState $state): string {
+	public function begin(IUser $user, StepUpState $state): MethodStart {
 		try {
 			$this->challenges->requestChallenge($user, '');
 		} catch (\LogicException) {
-			return self::UNAVAILABLE;
+			return new MethodStart(self::UNAVAILABLE, $state);
 		}
-		$state->secondFactorRequested = true;
 		// Other methods would need to be started now (an email code): this one is answered at core's challenge.
-		$state->methods = [self::SECOND_FACTOR];
-		return self::PENDING;
-	}
-
-	/**
-	 * Whether passing the challenge with this provider confirms a login.
-	 */
-	public function confirms(IUser $user, string $providerId): bool {
-		return $this->untrusted->isTrusted($user->getUID(), $providerId);
+		return new MethodStart(self::PENDING, $state->withSecondFactorRequested()->withMethods([self::SECOND_FACTOR]));
 	}
 
 	/**

@@ -17,8 +17,10 @@ use OCP\IDBConnection;
  * account, the address and the session that created it. Only identifiers
  * are stored, never a token. Kept for 30 days.
  */
-class TokenOriginMapper {
+class TokenOriginMapper implements IPurges {
 	public const TABLE = 'ids_token_origin';
+	/** Where app passwords came from is kept this long */
+	public const RETENTION = 30 * 86400;
 
 	public function __construct(
 		private readonly IDBConnection $db,
@@ -138,8 +140,9 @@ class TokenOriginMapper {
 		return $rows;
 	}
 
-	public function deleteOlderThan(int $before): int {
-		return BatchedDelete::run($this->db, self::TABLE, 'token_id', 'created_at', static fn (IQueryBuilder $qb): IQueryBuilder => $qb->where($qb->expr()->lt('created_at', $qb->createNamedParameter($before, IQueryBuilder::PARAM_INT))));
+	#[\Override]
+	public function purge(int $now): int {
+		return BatchedDelete::run($this->db, self::TABLE, 'token_id', 'created_at', static fn (IQueryBuilder $qb): IQueryBuilder => $qb->where($qb->expr()->lt('created_at', $qb->createNamedParameter($now - self::RETENTION, IQueryBuilder::PARAM_INT))), IQueryBuilder::PARAM_INT_ARRAY);
 	}
 
 	/**

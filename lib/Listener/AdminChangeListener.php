@@ -17,12 +17,13 @@ use OCA\IntrusionDetection\AdminChange\ConfigWatch;
 use OCA\IntrusionDetection\AdminChange\DelegatedGroups;
 use OCA\IntrusionDetection\AdminChange\GrantPermit;
 use OCA\IntrusionDetection\AppInfo\Application;
-use OCA\IntrusionDetection\Check\Checks\AdminChange;
-use OCA\IntrusionDetection\Check\Checks\AdminChangeDetector;
-use OCA\IntrusionDetection\Check\Severity;
-use OCA\IntrusionDetection\Config\Settings;
+use OCA\IntrusionDetection\Check\Checks\AdminChange\AdminChange;
+use OCA\IntrusionDetection\Definition\Severity;
 use OCA\IntrusionDetection\Event\SettingChangedEvent;
 use OCA\IntrusionDetection\Net\RemoteAddressResolver;
+use OCA\IntrusionDetection\Notification\AdminAlerts;
+use OCA\IntrusionDetection\Signal\AdminChanged;
+use OCA\IntrusionDetection\Signal\SignalDispatcher;
 use OCP\App\Events\AppDisableEvent;
 use OCP\App\Events\AppEnableEvent;
 use OCP\EventDispatcher\Event;
@@ -47,14 +48,17 @@ use Psr\Log\LoggerInterface;
  * - this app's own settings changed through the app, except changes of the
  *   learning period that do not start it ({@see \OCA\IntrusionDetection\Learning\LearningService}).
  *
- * With four-eyes approval on, an account added to the admin group from the
- * web interface or the provisioning API is taken out again at once and a
- * request for approval is created; see {@see AdminGrantGate}. This listener
+ * With four-eyes approval on, an account added to the admin group, or to a
+ * group with delegated administration settings, from the web interface or
+ * the provisioning API is taken out again at once and a request for
+ * approval is created; see {@see AdminGrantGate}. This listener
  * is registered with a low priority, so the other listeners of the addition
  * have finished before it is taken back, and the removal's listeners clean
  * up after them.
  *
- * Fails open: an error is logged and never breaks the change itself.
+ * An error is logged and never breaks the change itself. An error of the
+ * approval gate takes an addition to the admin group back and asks for
+ * approval, so that it cannot let a new administrator in.
  *
  * @template-implements IEventListener<Event>
  */
@@ -72,8 +76,7 @@ class AdminChangeListener implements IEventListener {
 	private array $reportedRemovals = [];
 
 	public function __construct(
-		private readonly Settings $settings,
-		private readonly AdminChangeDetector $detector,
+		private readonly SignalDispatcher $dispatcher,
 		private readonly AdminGrantGate $gate,
 		private readonly ApprovalService $approvals,
 		private readonly GrantPermit $permit,
@@ -111,11 +114,11 @@ class AdminChangeListener implements IEventListener {
 		if ($gid !== Approvers::ADMIN_GROUP && $delegated === null) {
 			return;
 		}
-		$decision = $this->gate->decide($group, $user);
+		$decision = $this->decide($group, $user, $delegated !== null);
 		$actor = $this->actors->actor();
 
 		if ($decision === AdminGrantGate::NEEDS_APPROVAL) {
-			$this->holdForApproval($group, $user, $actor);
+			$this->holdForApproval($group, $user, $actor, $delegated);
 			return;
 		}
 		if (!$this->runs()) {
@@ -130,7 +133,22 @@ class AdminChangeListener implements IEventListener {
 		} elseif ($decision !== AdminGrantGate::NOT_NEEDED) {
 			$facts['exempt'] = $decision;
 		}
-		$this->detector->record(AdminChange::KIND_ADMIN_GRANTED, Severity::High, $actor, $user->getUID(), facts: $facts, alertKey: AdminChange::KIND_ADMIN_GRANTED . ':' . $gid);
+		$this->dispatcher->dispatch(new AdminChanged(AdminChange::KIND_ADMIN_GRANTED, Severity::High, $actor, $user->getUID(), facts: $facts, alertKey: AdminChange::KIND_ADMIN_GRANTED . ':' . $gid));
+	}
+
+	/**
+	 * The gate's decision. When the gate fails on an addition to the admin
+	 * group or a group with delegated administration settings, the addition
+	 * waits for approval like any other: an error must not let a new
+	 * administrator in.
+	 */
+	private function decide(IGroup $group, IUser $user, bool $delegated): string {
+		try {
+			return $this->gate->decide($group, $user);
+		} catch (\Throwable $e) {
+			$this->logger->error('Intrusion detection could not decide whether {uid} may join {gid} without approval; the addition waits for approval', ['uid' => $user->getUID(), 'gid' => $group->getGID(), 'exception' => $e]);
+			return $group->getGID() === Approvers::ADMIN_GROUP || $delegated ? AdminGrantGate::NEEDS_APPROVAL : AdminGrantGate::NOT_NEEDED;
+		}
 	}
 
 	/**
@@ -140,7 +158,10 @@ class AdminChangeListener implements IEventListener {
 	 * decision. Without a request (too many pending, or the revert failed)
 	 * the administrators are alerted as usual.
 	 */
-	private function holdForApproval(IGroup $group, IUser $user, string $actor): void {
+	/**
+	 * @param ?list<string> $delegated the delegated administration settings of the group; null for the admin group
+	 */
+	private function holdForApproval(IGroup $group, IUser $user, string $actor, ?array $delegated): void {
 		$uid = $user->getUID();
 		$gid = $group->getGID();
 		$this->permit->beginRevert($uid, $gid);
@@ -154,14 +175,17 @@ class AdminChangeListener implements IEventListener {
 		$reverted = !$group->inGroup($user);
 
 		$facts = ['group' => $gid, 'reverted' => $reverted, 'revert_failed' => !$reverted];
+		if ($delegated !== null) {
+			$facts['delegated'] = $delegated;
+		}
 		if ($reverted) {
 			$approval = $this->approvals->request($user, $group, $actor, $this->addresses->current()?->ip);
 			if ($approval !== null) {
-				$facts['approval'] = (int)$approval->getId();
+				$facts['approval'] = (string)$approval->getId();
 				$facts['expires_at'] = $approval->getExpiresAt();
 			}
 		}
-		$this->detector->record(AdminChange::KIND_GRANT_REQUESTED, Severity::High, $actor, $uid, facts: $facts, alertKey: AdminChange::KIND_GRANT_REQUESTED . ':' . $gid, responses: isset($facts['approval']) ? [] : null);
+		$this->dispatcher->dispatch(new AdminChanged(AdminChange::KIND_GRANT_REQUESTED, Severity::High, $actor, $uid, facts: $facts, alertKey: AdminChange::KIND_GRANT_REQUESTED . ':' . $gid));
 	}
 
 	private function userRemoved(IGroup $group, IUser $user): void {
@@ -182,14 +206,14 @@ class AdminChangeListener implements IEventListener {
 		if ($delegated !== null) {
 			$facts['delegated'] = $delegated;
 		}
-		$this->detector->record(AdminChange::KIND_ADMIN_REMOVED, Severity::Low, $this->actors->actor(), $user->getUID(), facts: $facts, alertKey: AdminChange::KIND_ADMIN_REMOVED . ':' . $gid);
+		$this->dispatcher->dispatch(new AdminChanged(AdminChange::KIND_ADMIN_REMOVED, Severity::Low, $this->actors->actor(), $user->getUID(), facts: $facts, alertKey: AdminChange::KIND_ADMIN_REMOVED . ':' . $gid));
 	}
 
 	private function subAdminAdded(IGroup $group, IUser $user): void {
 		if (!$this->runs()) {
 			return;
 		}
-		$this->detector->record(AdminChange::KIND_SUBADMIN_GRANTED, Severity::Medium, $this->actors->actor(), $user->getUID(), facts: ['group' => $group->getGID()], alertKey: AdminChange::KIND_SUBADMIN_GRANTED);
+		$this->dispatcher->dispatch(new AdminChanged(AdminChange::KIND_SUBADMIN_GRANTED, Severity::Medium, $this->actors->actor(), $user->getUID(), facts: ['group' => $group->getGID()], alertKey: AdminChange::KIND_SUBADMIN_GRANTED));
 	}
 
 	/**
@@ -207,7 +231,7 @@ class AdminChangeListener implements IEventListener {
 		if (!$byAdmin) {
 			return;
 		}
-		$this->detector->record(AdminChange::KIND_USER_CREATED, Severity::Low, $actor, $user->getUID(), facts: [], alertKey: AdminChange::KIND_USER_CREATED);
+		$this->dispatcher->dispatch(new AdminChanged(AdminChange::KIND_USER_CREATED, Severity::Low, $actor, $user->getUID(), facts: [], alertKey: AdminChange::KIND_USER_CREATED));
 	}
 
 	/**
@@ -217,15 +241,19 @@ class AdminChangeListener implements IEventListener {
 		if (!$this->runs()) {
 			return;
 		}
-		$this->detector->record(AdminChange::KIND_APP_ENABLED, Severity::Medium, $this->actors->actor(), null, facts: ['app' => $appId, 'groups' => $groups], alertKey: AdminChange::KIND_APP_ENABLED);
+		$this->dispatcher->dispatch(new AdminChanged(AdminChange::KIND_APP_ENABLED, Severity::Medium, $this->actors->actor(), null, facts: ['app' => $appId, 'groups' => $groups], alertKey: AdminChange::KIND_APP_ENABLED));
 	}
 
 	private function appDisabled(string $appId): void {
 		if (!$this->runs()) {
 			return;
 		}
-		$severity = $appId === Application::APP_ID ? Severity::High : Severity::Medium;
-		$this->detector->record(AdminChange::KIND_APP_DISABLED, $severity, $this->actors->actor(), null, facts: ['app' => $appId], alertKey: AdminChange::KIND_APP_DISABLED);
+		$self = $appId === Application::APP_ID;
+		$facts = ['app' => $appId];
+		if ($self) {
+			$facts[AdminAlerts::FACT_OUTLIVES_APP] = true;
+		}
+		$this->dispatcher->dispatch(new AdminChanged(AdminChange::KIND_APP_DISABLED, $self ? Severity::High : Severity::Medium, $this->actors->actor(), null, facts: $facts, alertKey: AdminChange::KIND_APP_DISABLED));
 	}
 
 	/**
@@ -238,11 +266,10 @@ class AdminChangeListener implements IEventListener {
 			$this->watch->ownSettingRecorded($event->getKey(), $event->getNewValue());
 			return;
 		}
-		$mode = $this->detector->modeBefore($event->getKey(), $event->getOldValue());
-		$this->watch->ownSettingChanged($event->getKey(), $event->getOldValue(), $event->getNewValue(), $this->actors->actor(), $mode);
+		$this->watch->ownSettingChanged($event->getKey(), $event->getOldValue(), $event->getNewValue(), $this->actors->actor());
 	}
 
 	private function runs(): bool {
-		return $this->settings->modeState(AdminChange::ID)->runs();
+		return $this->dispatcher->runs(AdminChanged::class);
 	}
 }

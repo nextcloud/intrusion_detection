@@ -10,13 +10,12 @@ declare(strict_types=1);
 namespace OCA\IntrusionDetection\Notification;
 
 use OCA\IntrusionDetection\AppInfo\Application;
-use OCA\IntrusionDetection\Check\ResponseType;
-use OCA\IntrusionDetection\Config\GlobalSettings;
 use OCA\IntrusionDetection\Config\ModeState;
-use OCA\IntrusionDetection\Config\Settings;
 use OCA\IntrusionDetection\Db\DetectionFilter;
 use OCA\IntrusionDetection\Db\DetectionMapper;
+use OCA\IntrusionDetection\Definition\ResponseType;
 use OCA\IntrusionDetection\Learning\LearningService;
+use OCA\IntrusionDetection\State\AppState;
 use OCP\AppFramework\Utility\ITimeFactory;
 use OCP\Notification\IManager as INotificationManager;
 
@@ -45,13 +44,13 @@ class LearningNotices {
 	public const SUMMARY_LIMIT = 5000;
 
 	public function __construct(
-		private readonly Settings $settings,
 		private readonly LearningService $learning,
 		private readonly AdminRecipients $recipients,
 		private readonly INotificationManager $notifications,
 		private readonly DetectionMapper $detections,
 		private readonly AdminLinks $links,
 		private readonly ITimeFactory $timeFactory,
+		private readonly AppState $state,
 	) {
 	}
 
@@ -67,7 +66,7 @@ class LearningNotices {
 			return false;
 		}
 		[$detections, $blocks] = $this->summary($now - self::SUMMARY_DAYS * 86400);
-		$this->settings->setGlobal(GlobalSettings::LEARNING_NOTICE_SENT, $now);
+		$this->state->setInt(LearningService::NOTICE_STATE, $now);
 		foreach ($this->recipients->users() as $user) {
 			$notification = $this->notifications->createNotification();
 			$notification->setApp(Application::APP_ID)

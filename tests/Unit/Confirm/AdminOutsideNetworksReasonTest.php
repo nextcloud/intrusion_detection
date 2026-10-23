@@ -10,22 +10,23 @@ declare(strict_types=1);
 namespace OCA\IntrusionDetection\Tests\Unit\Confirm;
 
 use OCA\IntrusionDetection\AdminChange\DelegatedGroups;
-use OCA\IntrusionDetection\Config\GlobalSettings;
-use OCA\IntrusionDetection\Config\Settings;
-use OCA\IntrusionDetection\Confirm\LoginContext;
-use OCA\IntrusionDetection\Confirm\Methods\KnownDeviceMethod;
+use OCA\IntrusionDetection\Config\AppSettings;
+use OCA\IntrusionDetection\Confirm\Administrators;
 use OCA\IntrusionDetection\Confirm\Reasons\AdminOutsideNetworksReason;
 use OCA\IntrusionDetection\Confirm\StepUpPolicy;
 use OCA\IntrusionDetection\Confirm\StepUpReasons;
+use OCA\IntrusionDetection\Login\LoginContext;
 use OCA\IntrusionDetection\Net\SourceKey;
 use OCP\IGroupManager;
 use OCP\IUser;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\MockObject\MockObject;
+use Psr\Container\ContainerInterface;
+use Psr\Log\LoggerInterface;
 use Test\TestCase;
 
 class AdminOutsideNetworksReasonTest extends TestCase {
-	private Settings&MockObject $settings;
+	private AppSettings&MockObject $settings;
 	private IGroupManager&MockObject $groups;
 	private DelegatedGroups&MockObject $delegated;
 	private bool $on = true;
@@ -34,9 +35,9 @@ class AdminOutsideNetworksReasonTest extends TestCase {
 
 	protected function setUp(): void {
 		parent::setUp();
-		$this->settings = $this->createMock(Settings::class);
-		$this->settings->method('getBool')->willReturnCallback(fn (string $name): bool => $name === GlobalSettings::ADMIN_TRUSTED_NETWORKS_ONLY && $this->on);
-		$this->settings->method('global')->willReturnCallback(fn (string $name): array => $name === GlobalSettings::RISKY_NETWORK_OFFICE_NETWORKS ? $this->networks : []);
+		$this->settings = $this->createMock(AppSettings::class);
+		$this->settings->method('adminTrustedNetworksOnly')->willReturnCallback(fn (): bool => $this->on);
+		$this->settings->method('riskyNetworkOfficeNetworks')->willReturnCallback(fn (): array => $this->networks);
 		$this->groups = $this->createMock(IGroupManager::class);
 		$this->delegated = $this->createMock(DelegatedGroups::class);
 	}
@@ -45,12 +46,12 @@ class AdminOutsideNetworksReasonTest extends TestCase {
 		$this->assertContains(AdminOutsideNetworksReason::class, StepUpReasons::PROVIDERS);
 		$this->assertSame(StepUpPolicy::AdminOutsideNetworks, AdminOutsideNetworksReason::policy());
 		$this->assertFalse(StepUpPolicy::AdminOutsideNetworks->allowsFamiliarApps(), 'Strict for apps sending the password');
-		$this->assertContains(StepUpPolicy::AdminOutsideNetworks, KnownDeviceMethod::NEVER, 'A remembered device does not change the network');
+		$this->assertFalse(StepUpPolicy::AdminOutsideNetworks->knownDeviceMayConfirm(), 'A remembered device does not change the network');
 	}
 
 	public function testNothingIsReadWhileTheSwitchIsOff(): void {
 		$this->on = false;
-		$this->settings->expects($this->never())->method('global');
+		$this->settings->expects($this->never())->method('riskyNetworkOfficeNetworks');
 		$this->groups->expects($this->never())->method('isInGroup');
 		$this->delegated->expects($this->never())->method('all');
 		$this->assertFalse($this->reason()->applies($this->login('203.0.113.9')));
@@ -105,8 +106,27 @@ class AdminOutsideNetworksReasonTest extends TestCase {
 		$this->assertFalse($this->reason()->applies($this->login('203.0.113.9')));
 	}
 
+	public function testAnAdministratorLookupThatFailsCountsAsAnAdministrator(): void {
+		$this->groups->method('isInGroup')->willThrowException(new \RuntimeException('The group backend is down'));
+		$reason = $this->reason();
+		$container = $this->createMock(ContainerInterface::class);
+		$container->method('get')->willReturn($reason);
+		$reasons = new class($container, $this->createMock(LoggerInterface::class)) extends StepUpReasons {
+			#[\Override]
+			protected function providers(): array {
+				return [AdminOutsideNetworksReason::class];
+			}
+		};
+		$this->assertSame([StepUpPolicy::AdminOutsideNetworks], $reasons->collect($this->login('203.0.113.9')), 'An explicit rule fails closed');
+		$this->assertSame([], $reasons->collect($this->login('192.0.2.40')), 'Inside the networks nothing is looked up');
+	}
+
+	public function testItIsAnExplicitRule(): void {
+		$this->assertSame([StepUpPolicy::AdminOutsideNetworks], array_values(array_filter(StepUpPolicy::cases(), static fn (StepUpPolicy $p): bool => $p->isExplicitRule())));
+	}
+
 	private function reason(): AdminOutsideNetworksReason {
-		return new AdminOutsideNetworksReason($this->settings, $this->groups, $this->delegated);
+		return new AdminOutsideNetworksReason($this->settings, new Administrators($this->groups, $this->delegated));
 	}
 
 	private function login(?string $ip): LoginContext {

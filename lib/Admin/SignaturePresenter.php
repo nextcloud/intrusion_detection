@@ -9,10 +9,10 @@ declare(strict_types=1);
 
 namespace OCA\IntrusionDetection\Admin;
 
-use OCA\IntrusionDetection\Check\Checks\InjectionProbe;
-use OCA\IntrusionDetection\Check\Payload\CustomSignatures;
-use OCA\IntrusionDetection\Check\Payload\Signatures;
-use OCA\IntrusionDetection\Config\Settings;
+use OCA\IntrusionDetection\Check\Checks\InjectionProbe\CustomSignatures;
+use OCA\IntrusionDetection\Check\Checks\InjectionProbe\InjectionProbe;
+use OCA\IntrusionDetection\Check\Checks\InjectionProbe\Signatures;
+use OCA\IntrusionDetection\Config\CheckSettings;
 use OCA\IntrusionDetection\ResponseDefinitions;
 use OCP\IL10N;
 
@@ -26,7 +26,7 @@ use OCP\IL10N;
  */
 class SignaturePresenter {
 	public function __construct(
-		private readonly Settings $settings,
+		private readonly CheckSettings $settings,
 		private readonly CustomSignatures $custom,
 	) {
 	}

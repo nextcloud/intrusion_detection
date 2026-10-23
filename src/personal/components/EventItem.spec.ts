@@ -12,8 +12,9 @@ import { AxiosError, AxiosHeaders } from 'axios'
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 import EventItem from './EventItem.vue'
 import { ApiError } from '../../services/api.ts'
-import { overview, securityEvent } from '../../tests/personalFixtures.ts'
-import { confirmEvent, denyEvent, fetchOverview } from '../api.ts'
+import { snowflake } from '../../tests/fixtures.ts'
+import { activity, overview, securityEvent } from '../../tests/personalFixtures.ts'
+import { confirmEvent, denyEvent, fetchActivity, fetchOverview } from '../api.ts'
 import { personal } from '../store.ts'
 
 vi.mock('@nextcloud/dialogs', () => ({ showError: vi.fn(), showSuccess: vi.fn() }))
@@ -22,6 +23,7 @@ vi.mock('../api.ts', async (importOriginal) => ({
 	...(await importOriginal<object>()),
 	confirmEvent: vi.fn(),
 	denyEvent: vi.fn(),
+	fetchActivity: vi.fn(),
 	fetchOverview: vi.fn(),
 }))
 
@@ -37,14 +39,15 @@ function mountItem(event: SecurityEvent) {
 }
 
 /**
- * An error as the API reports it, with the HTTP status.
+ * An error as the API reports it, with the HTTP status and the reason.
  *
  * @param status - The HTTP status
+ * @param reason - The machine-readable reason
  * @param message - The server's explanation
  */
-function apiError(status: number, message: string): ApiError {
+function apiError(status: number, reason: string, message: string): ApiError {
 	const cause = new AxiosError(message, 'ERR', undefined, undefined, { status, statusText: '', data: {}, headers: {}, config: { headers: new AxiosHeaders() } })
-	return new ApiError(message, null, { cause })
+	return new ApiError(message, null, { cause }, reason)
 }
 
 /**
@@ -57,7 +60,9 @@ function bodyButton(text: string): HTMLButtonElement | undefined {
 describe('EventItem', () => {
 	beforeEach(() => {
 		personal.overview = overview()
-		personal.networksVersion = 0
+		personal.activity = activity({ questions: [securityEvent(1, { asks: true, canConfirm: true })] })
+		personal.manage = { devices: 0, networks: 0, otherBrowsers: 0 }
+		vi.mocked(fetchActivity).mockResolvedValue(activity())
 		vi.mocked(fetchOverview).mockResolvedValue(overview({ status: { level: 'ok', headline: 'Refreshed', items: [] } }))
 	})
 
@@ -91,10 +96,10 @@ describe('EventItem', () => {
 		const wrapper = mountItem(securityEvent(1, { asks: true, canConfirm: true }))
 		await wrapper.get('[data-test="confirm"]').trigger('click')
 		await flushPromises()
-		expect(confirmEvent).toHaveBeenCalledWith(1)
-		expect(wrapper.emitted('answered')).toEqual([[answered]])
+		expect(confirmEvent).toHaveBeenCalledWith(snowflake(1))
 		expect(showSuccess).toHaveBeenCalled()
-		expect(personal.networksVersion).toBe(1)
+		expect(personal.activity?.questions).toEqual([])
+		expect(personal.manage.networks).toBe(1)
 		expect(personal.overview?.status.headline).toBe('Refreshed')
 	})
 
@@ -104,7 +109,7 @@ describe('EventItem', () => {
 		await wrapper.get('[data-test="confirm"]').trigger('click')
 		await flushPromises()
 		expect(showError).not.toHaveBeenCalled()
-		expect(wrapper.emitted('answered')).toBeUndefined()
+		expect(personal.activity?.questions).toHaveLength(1)
 		expect(wrapper.find('[data-test="confirm"]').exists()).toBe(true)
 	})
 
@@ -119,7 +124,7 @@ describe('EventItem', () => {
 	})
 
 	test('turns a refusal of the server into the same explanation', async () => {
-		vi.mocked(confirmEvent).mockRejectedValue(apiError(403, 'For your safety, "Yes, it was me" cannot be answered from the session this event is about.'))
+		vi.mocked(confirmEvent).mockRejectedValue(apiError(403, 'session_not_allowed', 'For your safety, "Yes, it was me" cannot be answered from the session this event is about.'))
 		const wrapper = mountItem(securityEvent(1, { asks: true, canConfirm: true }))
 		await wrapper.get('[data-test="confirm"]').trigger('click')
 		await flushPromises()
@@ -131,7 +136,7 @@ describe('EventItem', () => {
 	})
 
 	test('reloads the list when the event was answered elsewhere', async () => {
-		vi.mocked(confirmEvent).mockRejectedValue(apiError(409, 'This event was answered already.'))
+		vi.mocked(confirmEvent).mockRejectedValue(apiError(409, 'answered', 'This event was answered already.'))
 		const wrapper = mountItem(securityEvent(1, { asks: true, canConfirm: true }))
 		await wrapper.get('[data-test="confirm"]').trigger('click')
 		await flushPromises()
@@ -155,8 +160,9 @@ describe('EventItem', () => {
 		await flushPromises()
 		bodyButton('It was not me')!.click()
 		await flushPromises()
-		expect(denyEvent).toHaveBeenCalledWith(1)
-		expect(wrapper.emitted('answered')).toEqual([[answered]])
+		expect(denyEvent).toHaveBeenCalledWith(snowflake(1))
+		expect(personal.activity?.questions).toEqual([])
+		expect(fetchActivity).toHaveBeenCalled()
 	})
 
 	test('"No" from a session that proved only the password keeps the question open', async () => {
@@ -167,8 +173,8 @@ describe('EventItem', () => {
 		await flushPromises()
 		bodyButton('It was not me')!.click()
 		await flushPromises()
-		expect(denyEvent).toHaveBeenCalledWith(1)
-		expect(wrapper.emitted('answered')).toBeUndefined()
+		expect(denyEvent).toHaveBeenCalledWith(snowflake(1))
+		expect(personal.activity?.questions).toHaveLength(1)
 		expect(showSuccess).not.toHaveBeenCalled()
 		expect(wrapper.get('[data-test="told-only"]').text()).toContain('answer "No" again after a login with your second factor')
 		expect(wrapper.find('[data-test="deny"]').exists()).toBe(false)

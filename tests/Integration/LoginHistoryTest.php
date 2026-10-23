@@ -11,28 +11,26 @@ namespace OCA\IntrusionDetection\Tests\Integration;
 
 use OC\Memcache\ArrayCache;
 use OCA\IntrusionDetection\BackgroundJob\Cleanup;
+use OCA\IntrusionDetection\Cache\Caches;
 use OCA\IntrusionDetection\Config\GlobalSettings;
-use OCA\IntrusionDetection\Config\Prerequisites;
+use OCA\IntrusionDetection\Config\PurgeRetention;
 use OCA\IntrusionDetection\Confirm\SessionConfirmation;
 use OCA\IntrusionDetection\Confirm\StepUpPolicy;
-use OCA\IntrusionDetection\Db\LoginHistoryMapper;
-use OCA\IntrusionDetection\KnownDevice\KnownDevices;
-use OCA\IntrusionDetection\Listener\LoginHistoryListener;
-use OCA\IntrusionDetection\Login\InteractiveLogin;
-use OCA\IntrusionDetection\Login\LoginGate;
+use OCA\IntrusionDetection\Listener\Login\HistoryStep;
+use OCA\IntrusionDetection\Listener\Login\KnownDeviceStep;
+use OCA\IntrusionDetection\Listener\LoginListener;
+use OCA\IntrusionDetection\Login\SessionMarkers;
+use OCA\IntrusionDetection\Login\SessionTokenLinker;
+use OCA\IntrusionDetection\LoginHistory\Db\LoginHistoryMapper;
 use OCA\IntrusionDetection\LoginHistory\LoginHistory;
 use OCA\IntrusionDetection\LoginHistory\LoginHistoryEntry;
 use OCA\IntrusionDetection\Net\SourceKey;
-use OCA\IntrusionDetection\Notification\LoginNotices;
 use OCA\IntrusionDetection\Privacy\UserDataCleanup;
 use OCA\IntrusionDetection\Response\FlaggedSources;
 use OCA\IntrusionDetection\SessionState\RequestTarget;
 use OCA\IntrusionDetection\SessionState\Rules\LoginHistoryRule;
-use OCA\IntrusionDetection\SessionState\SessionState;
+use OCA\IntrusionDetection\Tests\Unit\Cache\FixedCaches;
 use OCP\AppFramework\Utility\ITimeFactory;
-use OCP\Authentication\TwoFactorAuth\IProvider;
-use OCP\Authentication\TwoFactorAuth\TwoFactorProviderChallengePassed;
-use OCP\ICacheFactory;
 use OCP\IUser;
 use OCP\Server;
 use OCP\User\Events\UserLoggedInEvent;
@@ -57,7 +55,7 @@ class LoginHistoryTest extends StepUpTestCase {
 
 	public function testALoginThroughTheFormIsOneRowLinkedToItsSessionOnTheFirstRequest(): void {
 		$token = $this->startSession($this->alice);
-		$this->loginAndRecord($this->alice);
+		$this->loginThroughTheApp($this->alice);
 		$rows = $this->historyOf($this->alice);
 		$this->assertCount(1, $rows);
 		$this->assertSame(LoginHistory::METHOD_PASSWORD, $rows[0]->method);
@@ -71,22 +69,22 @@ class LoginHistoryTest extends StepUpTestCase {
 
 		$this->historyRule()->check($this->state, RequestTarget::dav('PROPFIND', '/'));
 		$this->assertSame($token['id'], $this->historyOf($this->alice)[0]->sessionTokenId);
-		$this->assertNull($this->state->get(SessionState::LOGIN_HISTORY), 'Linked once; the session has nothing left to check');
+		$this->assertNull($this->state->get(SessionMarkers::LOGIN_HISTORY), 'Linked once; the session has nothing left to check');
 		$this->assertTrue($this->state->isEmpty());
 	}
 
 	public function testALaterSecondFactorFindsTheLinkedRowByTheSessionToken(): void {
 		$this->startSession($this->alice);
-		$this->loginAndRecord($this->alice);
+		$this->loginThroughTheApp($this->alice);
 		$this->historyRule()->check($this->state, RequestTarget::dav('PROPFIND', '/'));
-		$this->historyListener()->handle(new TwoFactorProviderChallengePassed($this->alice, $this->createMock(IProvider::class)));
+		$this->passChallenge($this->alice);
 		$this->assertSame([null, 'second_factor'], $this->outcome($this->alice));
 	}
 
 	public function testTheRowSaysHowALoginThatNeededConfirmationWasConfirmed(): void {
 		Server::get(FlaggedSources::class)->flagSource(SourceKey::fromIp($this->remoteAddress), FlaggedSources::REASON_ATTACK);
 		$this->startSession($this->alice);
-		$this->loginAndRecord($this->alice);
+		$this->loginThroughTheApp($this->alice);
 		$this->assertSame([LoginHistory::STEP_UP_PENDING, 'none'], $this->outcome($this->alice));
 
 		$this->verifyController()->confirm('482915');
@@ -94,7 +92,7 @@ class LoginHistoryTest extends StepUpTestCase {
 
 		$this->session->clear();
 		$this->startSession($this->alice);
-		$this->loginAndRecord($this->alice);
+		$this->loginThroughTheApp($this->alice);
 		for ($i = 0; $i < 5; $i++) {
 			$this->verifyController()->confirm('111111');
 		}
@@ -105,26 +103,26 @@ class LoginHistoryTest extends StepUpTestCase {
 		Server::get(FlaggedSources::class)->flagSource(SourceKey::fromIp($this->remoteAddress), FlaggedSources::REASON_ATTACK);
 		$bob = $this->user('ids-history-bob', null);
 		$this->startSession($bob);
-		$this->loginAndRecord($bob);
+		$this->loginThroughTheApp($bob);
 		$this->assertSame([LoginHistory::STEP_UP_REFUSED, 'none'], $this->outcome($bob));
 
-		$this->settings->setGlobal(StepUpPolicy::FlaggedSource->settingKey(), 'allow_notify');
+		$this->settingsEditor()->setGlobal(StepUpPolicy::FlaggedSource->settingKey(), 'allow_notify');
 		$this->session->clear();
 		$this->startSession($bob);
-		$this->loginAndRecord($bob);
+		$this->loginThroughTheApp($bob);
 		$this->assertSame([LoginHistory::STEP_UP_ALLOWED, 'none'], $this->outcome($bob));
 	}
 
 	public function testALoginFromAKnownDevice(): void {
 		Server::get(FlaggedSources::class)->flagSource(SourceKey::fromIp($this->remoteAddress), FlaggedSources::REASON_ATTACK);
 		$this->startSession($this->alice);
-		$this->loginAndRecord($this->alice);
+		$this->loginThroughTheApp($this->alice);
 		$this->verifyController()->confirm('482915', '', '1');
 
 		$this->session->clear();
 		$this->nextRequest();
 		$this->startSession($this->alice);
-		$this->loginAndRecord($this->alice);
+		$this->loginThroughTheApp($this->alice);
 		$row = $this->historyOf($this->alice)[0];
 		$this->assertTrue($row->knownDevice);
 		$this->assertSame('known_device', $row->confirmedBy);
@@ -133,8 +131,8 @@ class LoginHistoryTest extends StepUpTestCase {
 
 	public function testASecondFactorAtLoginIsNoted(): void {
 		$this->startSession($this->alice);
-		$this->loginAndRecord($this->alice);
-		$this->historyListener()->handle(new TwoFactorProviderChallengePassed($this->alice, $this->createMock(IProvider::class)));
+		$this->loginThroughTheApp($this->alice);
+		$this->passChallenge($this->alice);
 		$this->assertSame([null, 'second_factor'], $this->outcome($this->alice));
 	}
 
@@ -142,32 +140,30 @@ class LoginHistoryTest extends StepUpTestCase {
 		Server::get(FlaggedSources::class)->flagSource(SourceKey::fromIp($this->remoteAddress), FlaggedSources::REASON_ATTACK);
 		$this->hasSecondFactor = true;
 		$this->startSession($this->alice);
-		$this->loginAndRecord($this->alice);
+		$this->loginThroughTheApp($this->alice);
 		$this->assertSame([LoginHistory::STEP_UP_PENDING, 'none'], $this->outcome($this->alice), 'Stopped at the challenge: not confirmed yet');
 
 		$this->passChallenge($this->alice);
-		$this->historyListener()->handle(new TwoFactorProviderChallengePassed($this->alice, $this->createMock(IProvider::class)));
 		$this->assertSame([LoginHistory::STEP_UP_CONFIRMED, 'second_factor'], $this->outcome($this->alice));
 	}
 
 	public function testANormalLoginFromAKnownDeviceProvesTheDevice(): void {
 		Server::get(FlaggedSources::class)->flagSource(SourceKey::fromIp($this->remoteAddress), FlaggedSources::REASON_ATTACK);
 		$this->startSession($this->alice);
-		$this->loginAndRecord($this->alice);
+		$this->loginThroughTheApp($this->alice);
 		$this->verifyController()->confirm('482915', '', '1');
 
 		Server::get(FlaggedSources::class)->unflagSource(SourceKey::fromIp($this->remoteAddress));
 		$this->session->clear();
 		$this->nextRequest();
 		$this->startSession($this->alice);
-		$this->loginAndRecord($this->alice);
+		$this->loginThroughTheApp($this->alice);
 		$this->assertNull($this->historyOf($this->alice)[0]->stepUp, 'Nothing was needed');
 		$this->assertSame(SessionConfirmation::PROVEN, $this->sessionConfirmation()->level($this->alice->getUID()));
 	}
 
 	public function testAppsThatSendThePasswordAreRecordedOnceADayPerNetworkWithoutAMemoryCache(): void {
-		$factory = $this->createMock(ICacheFactory::class);
-		$factory->method('isAvailable')->willReturn(false);
+		$factory = FixedCaches::none();
 		$history = $this->historyWith($factory);
 		$this->basicAuth($this->alice);
 		for ($i = 0; $i < 3; $i++) {
@@ -190,9 +186,7 @@ class LoginHistoryTest extends StepUpTestCase {
 
 	public function testAppPasswordsAreRecordedOncePerTokenAndDayWithAMemoryCache(): void {
 		$cache = new ArrayCache();
-		$factory = $this->createMock(ICacheFactory::class);
-		$factory->method('isAvailable')->willReturn(true);
-		$factory->method('createDistributed')->willReturn($cache);
+		$factory = new FixedCaches($cache);
 		$history = $this->historyWith($factory);
 		$first = $this->token($this->alice, \OCP\Authentication\Token\IToken::PERMANENT_TOKEN, 'Desktop client');
 		$second = $this->token($this->alice, \OCP\Authentication\Token\IToken::PERMANENT_TOKEN, 'Phone');
@@ -210,7 +204,7 @@ class LoginHistoryTest extends StepUpTestCase {
 		$this->session->clear();
 		$this->session->set('token-id', $first['id']);
 		$queries = $this->db->getInner()->getStats()['executed'];
-		$this->historyWith($factory)->record($this->alice->getUID(), LoginHistory::METHOD_APP_PASSWORD, SourceKey::fromIp($this->remoteAddress), 'client', null, false);
+		$this->historyWith($factory)->record($this->alice->getUID(), LoginHistory::METHOD_APP_PASSWORD, SourceKey::fromIp($this->remoteAddress), 'client', false, false, firstOfTheHour: true);
 		$this->assertSame(1, $this->db->getInner()->getStats()['executed'] - $queries, 'One indexed read, no insert');
 		$rows = $this->historyOf($this->alice);
 		$this->assertCount(2, $rows, 'Once per app password');
@@ -237,7 +231,7 @@ class LoginHistoryTest extends StepUpTestCase {
 	public function testUserAgentsAreCleanedAndCut(): void {
 		$this->headers['User-Agent'] = "Evil\x00Agent\r\n" . str_repeat('x', 400);
 		$this->startSession($this->alice);
-		$this->loginAndRecord($this->alice);
+		$this->loginThroughTheApp($this->alice);
 		$agent = (string)$this->historyOf($this->alice)[0]->userAgent;
 		$this->assertSame(200, mb_strlen($agent));
 		$this->assertStringStartsWith('Evil Agent x', $agent);
@@ -259,18 +253,13 @@ class LoginHistoryTest extends StepUpTestCase {
 		$this->assertCount(2, $mapper->forAddress('203.0.113.5', $now - 86400), 'Both accounts from the address');
 		$this->assertCount(3, $mapper->forAddress('203.0.113.0/24', $now - 86400), 'The whole network');
 
-		$this->settings->setGlobal(GlobalSettings::RETENTION_DETECTIONS_DAYS, 30);
+		$this->settingsEditor()->setGlobal(GlobalSettings::RETENTION_DETECTIONS_DAYS, 30);
 		$this->invokePrivate(Server::get(Cleanup::class), 'run', [null]);
 		$this->assertCount(2, $mapper->forUser($this->alice->getUID(), 0), 'Older than the retention: deleted');
 
 		Server::get(UserDataCleanup::class)->deleteUser($this->alice->getUID());
 		$this->assertCount(0, $mapper->forUser($this->alice->getUID(), 0));
 		$this->assertCount(1, $mapper->forUser($other->getUID(), 0));
-	}
-
-	private function loginAndRecord(IUser $user): void {
-		$this->login($user);
-		$this->historyListener()->handle(new UserLoggedInEvent($user, $user->getUID(), self::PASSWORD, false));
 	}
 
 	/**
@@ -288,26 +277,14 @@ class LoginHistoryTest extends StepUpTestCase {
 		return [$row->stepUp, $row->confirmedBy];
 	}
 
-	private function historyWith(ICacheFactory $factory): LoginHistory {
-		return new LoginHistory(Server::get(LoginHistoryMapper::class), $this->state, $this->currentSession, new LoginGate($factory, Server::get(Prerequisites::class), $this->session), Server::get(ITimeFactory::class));
+	private function historyWith(Caches $factory): LoginHistory {
+		$this->listenerCaches = $factory;
+		return new LoginHistory(Server::get(LoginHistoryMapper::class), $this->state, $this->coreSession, new SessionTokenLinker($this->state, $this->coreSession), Server::get(ITimeFactory::class), Server::get(PurgeRetention::class));
 	}
 
-	private function historyListener(?LoginHistory $history = null): LoginHistoryListener {
-		return new LoginHistoryListener(
-			$this->settings,
-			new InteractiveLogin($this->request),
-			$this->addresses(),
-			$this->request,
-			new OverridingContainer([
-				LoginHistory::class => $history ?? $this->history(),
-				KnownDevices::class => $this->knownDevices(),
-				LoginNotices::class => $this->createMock(LoginNotices::class),
-				SessionConfirmation::class => $this->sessionConfirmation(),
-			]),
-			Server::get(LoggerInterface::class),
-		);
+	private function historyListener(?LoginHistory $history = null): LoginListener {
+		return $this->loginListener([KnownDeviceStep::class, HistoryStep::class], $history);
 	}
-
 	private function historyRule(): LoginHistoryRule {
 		return new LoginHistoryRule($this->userSession, new OverridingContainer([LoginHistory::class => $this->history()]), Server::get(LoggerInterface::class));
 	}

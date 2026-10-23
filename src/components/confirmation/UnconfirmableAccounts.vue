@@ -4,35 +4,44 @@
 -->
 
 <script setup lang="ts">
-import type { ConfirmationOverview, UnconfirmableAccount } from '../../types.ts'
+import type { ConfirmationOverview } from '../../types.ts'
 
 import { mdiAlertOutline, mdiCheckCircleOutline, mdiChevronDown, mdiDownload } from '@mdi/js'
 import { showError } from '@nextcloud/dialogs'
-import { n, t } from '@nextcloud/l10n'
 import { computed, ref, watch } from 'vue'
 import NcButton from '@nextcloud/vue/components/NcButton'
 import NcCheckboxRadioSwitch from '@nextcloud/vue/components/NcCheckboxRadioSwitch'
 import NcIconSvgWrapper from '@nextcloud/vue/components/NcIconSvgWrapper'
 import NcLoadingIcon from '@nextcloud/vue/components/NcLoadingIcon'
 import TimeStamp from '../common/TimeStamp.vue'
-import { errorMessage, fetchUnconfirmableAccounts } from '../../services/api.ts'
-import { logger } from '../../services/logger.ts'
+import { useAction } from '../../composables/useAction.ts'
+import { allUnconfirmableAccounts, useUnconfirmableAccounts } from '../../stores/settings.ts'
+import { csvCell } from '../../utils/csv.ts'
 import { APP_ID, formatNumber } from '../../utils/format.ts'
+import { n, t } from '../../utils/l10n.ts'
 
 const props = defineProps<{
 	users: ConfirmationOverview['users']
 	admins: ConfirmationOverview['admins']
 }>()
-const PAGE = 50
 /** The CSV holds at most this many accounts */
 const CSV_MAX = 2000
 
 const open = ref(false)
 const adminsOnly = ref(false)
-const accounts = ref<UnconfirmableAccount[]>([])
-const loading = ref(false)
-const exhausted = ref(false)
-const exporting = ref(false)
+const failure = () => t(APP_ID, 'The accounts could not be loaded. Please try again.')
+const { data: list, error, loading: loadingFirst, loadMore: nextPage } = useUnconfirmableAccounts(open, adminsOnly, { failure })
+const accounts = computed(() => list.value?.accounts ?? [])
+const exhausted = computed(() => list.value?.exhausted ?? false)
+const { busy, run } = useAction()
+const loading = computed(() => loadingFirst.value || busy.value === 'more')
+const exporting = computed(() => busy.value === 'download')
+
+watch(error, (message) => {
+	if (message !== null) {
+		showError(message)
+	}
+})
 
 const share = computed(() => props.users.active === 0 ? 0 : props.users.withoutMethod / props.users.active)
 const sharePercent = computed(() => new Intl.NumberFormat(undefined, { style: 'percent', maximumFractionDigits: 1 }).format(share.value))
@@ -41,51 +50,16 @@ const total = computed(() => adminsOnly.value ? props.admins.withNeither.length 
 /**
  * Load the next page of accounts.
  */
-async function loadMore() {
-	loading.value = true
-	try {
-		const page = await fetchUnconfirmableAccounts(PAGE, accounts.value.at(-1)?.uid ?? '', adminsOnly.value)
-		accounts.value.push(...page)
-		exhausted.value = page.length < PAGE
-	} catch (error) {
-		logger.error('Could not load the accounts', { error })
-		showError(errorMessage(error, t(APP_ID, 'The accounts could not be loaded. Please try again.')))
-	} finally {
-		loading.value = false
-	}
-}
-
-watch([open, adminsOnly], ([isOpen]) => {
-	accounts.value = []
-	exhausted.value = false
-	if (isOpen) {
-		void loadMore()
-	}
-})
-
-/**
- * @param value - A cell
- */
-function csvCell(value: string): string {
-	// A leading formula character would run in a spreadsheet.
-	const safe = /^[=+\-@\t\r]/.test(value) ? `'${value}` : value
-	return `"${safe.replaceAll('"', '""')}"`
+function loadMore() {
+	run('more', nextPage, { fallback: failure() })
 }
 
 /**
  * Download every account as CSV, page by page.
  */
-async function download() {
-	exporting.value = true
-	try {
-		const rows: UnconfirmableAccount[] = []
-		while (rows.length < CSV_MAX) {
-			const page = await fetchUnconfirmableAccounts(200, rows.at(-1)?.uid ?? '', adminsOnly.value)
-			rows.push(...page)
-			if (page.length < 200) {
-				break
-			}
-		}
+function download() {
+	run('download', async () => {
+		const rows = await allUnconfirmableAccounts(adminsOnly.value, CSV_MAX)
 		const lines = [
 			[t(APP_ID, 'Account'), t(APP_ID, 'Name'), t(APP_ID, 'Last login'), t(APP_ID, 'Groups')].map(csvCell).join(','),
 			...rows.map((row) => [row.uid, row.displayName, row.lastLogin > 0 ? new Date(row.lastLogin * 1000).toISOString() : '', row.groups.join(' ')].map(csvCell).join(',')),
@@ -95,12 +69,7 @@ async function download() {
 		link.download = `accounts-without-confirmation-${new Date().toISOString().slice(0, 10)}.csv`
 		link.click()
 		URL.revokeObjectURL(link.href)
-	} catch (error) {
-		logger.error('Could not export the accounts', { error })
-		showError(errorMessage(error, t(APP_ID, 'The list could not be downloaded. Please try again.')))
-	} finally {
-		exporting.value = false
-	}
+	}, { fallback: t(APP_ID, 'The list could not be downloaded. Please try again.') })
 }
 </script>
 
@@ -208,20 +177,20 @@ async function download() {
 .coverage {
 	display: flex;
 	flex-direction: column;
-	gap: calc(var(--default-grid-baseline) * 3);
+	gap: var(--ids-space-3);
 }
 
 .figures {
 	display: grid;
 	grid-template-columns: repeat(auto-fit, minmax(min(100%, 240px), 1fr));
-	gap: calc(var(--default-grid-baseline) * 3);
+	gap: var(--ids-space-3);
 }
 
 .figure {
 	display: flex;
 	flex-direction: column;
-	gap: calc(var(--default-grid-baseline) * 1);
-	padding: calc(var(--default-grid-baseline) * 4);
+	gap: var(--ids-space-1);
+	padding: var(--ids-space-4);
 	border-radius: var(--border-radius-large);
 	background-color: var(--color-background-hover);
 }
@@ -237,7 +206,7 @@ async function download() {
 .figure__value {
 	display: inline-flex;
 	align-items: center;
-	gap: calc(var(--default-grid-baseline) * 2);
+	gap: var(--ids-space-2);
 	font-size: 2em;
 	font-weight: 700;
 	line-height: 1.1;
@@ -248,7 +217,7 @@ async function download() {
 }
 
 .figure__label {
-	color: var(--color-text-maxcontrast);
+	composes: muted from '../../styles/shared.module.css';
 }
 
 .text {
@@ -261,7 +230,7 @@ async function download() {
 	display: flex;
 	flex-wrap: wrap;
 	align-items: center;
-	gap: calc(var(--default-grid-baseline) * 2);
+	gap: var(--ids-space-2);
 }
 
 .chevron {
@@ -281,7 +250,7 @@ async function download() {
 .listWrap {
 	display: flex;
 	flex-direction: column;
-	gap: calc(var(--default-grid-baseline) * 2);
+	gap: var(--ids-space-2);
 }
 
 .table {
@@ -291,7 +260,7 @@ async function download() {
 
 .table th,
 .table td {
-	padding: calc(var(--default-grid-baseline) * 2) calc(var(--default-grid-baseline) * 3);
+	padding: var(--ids-space-2) var(--ids-space-3);
 	border-bottom: 1px solid var(--color-border);
 	text-align: start;
 	vertical-align: top;
@@ -328,13 +297,13 @@ async function download() {
 	}
 
 	.table tr {
-		padding-block: calc(var(--default-grid-baseline) * 2);
+		padding-block: var(--ids-space-2);
 		border-bottom: 1px solid var(--color-border);
 	}
 
 	.table th,
 	.table td {
-		padding: calc(var(--default-grid-baseline) * 0.5) 0;
+		padding: var(--ids-space-half) 0;
 		border: none;
 	}
 

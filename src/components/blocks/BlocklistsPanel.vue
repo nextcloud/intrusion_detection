@@ -4,12 +4,10 @@
 -->
 
 <script setup lang="ts">
-import type { Blocklist, Blocklists, CheckRef } from '../../types.ts'
+import type { CheckRef } from '../../types.ts'
 
 import { mdiCloudOutline, mdiPlaylistRemove, mdiPlus, mdiShieldAlertOutline } from '@mdi/js'
-import { showError } from '@nextcloud/dialogs'
-import { t } from '@nextcloud/l10n'
-import { computed, onActivated, onMounted, ref } from 'vue'
+import { computed, ref } from 'vue'
 import NcButton from '@nextcloud/vue/components/NcButton'
 import NcIconSvgWrapper from '@nextcloud/vue/components/NcIconSvgWrapper'
 import NcNoteCard from '@nextcloud/vue/components/NcNoteCard'
@@ -18,17 +16,15 @@ import SectionCard from '../common/SectionCard.vue'
 import SkeletonBlock from '../common/SkeletonBlock.vue'
 import AddBlocklistDialog from './AddBlocklistDialog.vue'
 import BlocklistRow from './BlocklistRow.vue'
-import { useAnnouncer } from '../../composables/useAnnouncer.ts'
-import { errorMessage, fetchBlocklists, isCancelled, updateCheck } from '../../services/api.ts'
-import { logger } from '../../services/logger.ts'
-import { refreshStatus, replaceCheck, state } from '../../store.ts'
+import { useAction } from '../../composables/useAction.ts'
+import { modeLabel, saveCheck, state } from '../../store.ts'
+import { useBlocklists } from '../../stores/blocks.ts'
 import { APP_ID } from '../../utils/format.ts'
+import { t } from '../../utils/l10n.ts'
 
-const data = ref<Blocklists | null>(null)
-const loadError = ref<string | null>(null)
+const { data, error: loadError } = useBlocklists({ failure: () => t(APP_ID, 'The lists could not be loaded. Please reload the page.') })
 const adding = ref(false)
-const switching = ref(false)
-const { announce } = useAnnouncer()
+const { busy, run } = useAction()
 
 const lists = computed(() => data.value?.lists ?? [])
 const denyLists = computed(() => lists.value.filter((l) => l.purpose === 'deny'))
@@ -40,70 +36,19 @@ const networkCheckRuns = computed(() => data.value?.networkCheck.mode.effective 
 const riskEnabled = computed(() => state.settings.find((s) => s.name === 'risk_enabled')?.value !== false)
 
 /**
- * Load the lists.
- */
-async function load() {
-	try {
-		data.value = await fetchBlocklists()
-		loadError.value = null
-	} catch (error) {
-		logger.error('Could not load the blocklists', { error })
-		loadError.value = errorMessage(error, t(APP_ID, 'The lists could not be loaded. Please reload the page.'))
-	}
-}
-
-onMounted(load)
-onActivated(load)
-
-/**
- * @param list - The list as the server returned it
- */
-function replace(list: Blocklist) {
-	if (data.value === null) {
-		return
-	}
-	const index = data.value.lists.findIndex((l) => l.id === list.id)
-	if (index === -1) {
-		data.value.lists.push(list)
-	} else {
-		data.value.lists.splice(index, 1, list)
-	}
-}
-
-/**
  * Set a check that is off to Observe, so that the lists it uses are downloaded and counted.
  *
  * @param which - The check of the blocklists or the one of the network lists
  */
-async function observeWith(which: 'check' | 'networkCheck') {
+function observeWith(which: 'check' | 'networkCheck') {
 	if (data.value === null) {
 		return
 	}
 	const check: CheckRef = data.value[which]
-	switching.value = true
-	try {
-		const updated = await updateCheck(check.id, { mode: 'observe' })
-		replaceCheck(updated)
-		data.value[which] = { ...check, mode: updated.mode }
-		announce(t(APP_ID, 'Saved: {check} is set to {mode}.', { check: check.name, mode: t(APP_ID, 'Observe') }))
-		refreshStatus()
-	} catch (error) {
-		if (!isCancelled(error)) {
-			logger.error('Could not change the mode', { error })
-			showError(errorMessage(error, t(APP_ID, 'The mode could not be changed. Please try again.')))
-		}
-	} finally {
-		switching.value = false
-	}
-}
-
-/**
- * @param id - The removed list
- */
-function removed(id: string) {
-	if (data.value !== null) {
-		data.value.lists = data.value.lists.filter((l) => l.id !== id)
-	}
+	run('observe', () => saveCheck(check.id, { mode: 'observe' }), {
+		done: t(APP_ID, 'Saved: {check} is set to {mode}.', { check: check.name, mode: modeLabel('observe') }),
+		fallback: t(APP_ID, 'The mode could not be changed. Please try again.'),
+	})
 }
 </script>
 
@@ -146,7 +91,7 @@ function removed(id: string) {
 						v-if="data.check.mode.configured === 'off'"
 						:class="$style.note__action"
 						variant="secondary"
-						:disabled="switching"
+						:disabled="busy !== null"
 						@click="observeWith('check')">
 						{{ t(APP_ID, 'Set it to Observe') }}
 					</NcButton>
@@ -162,9 +107,7 @@ function removed(id: string) {
 						:days="data.matchDays"
 						:countsMatches="data.countsMatches"
 						:minInterval="data.minInterval"
-						:maxInterval="data.maxInterval"
-						@updated="replace"
-						@removed="removed" />
+						:maxInterval="data.maxInterval" />
 				</ul>
 			</section>
 
@@ -187,7 +130,7 @@ function removed(id: string) {
 						v-if="data.networkCheck.mode.configured === 'off'"
 						:class="$style.note__action"
 						variant="secondary"
-						:disabled="switching"
+						:disabled="busy !== null"
 						@click="observeWith('networkCheck')">
 						{{ t(APP_ID, 'Set it to Observe') }}
 					</NcButton>
@@ -200,9 +143,7 @@ function removed(id: string) {
 						:days="data.matchDays"
 						:countsMatches="data.countsMatches"
 						:minInterval="data.minInterval"
-						:maxInterval="data.maxInterval"
-						@updated="replace"
-						@removed="removed" />
+						:maxInterval="data.maxInterval" />
 				</ul>
 			</section>
 		</template>
@@ -210,8 +151,7 @@ function removed(id: string) {
 		<AddBlocklistDialog
 			v-model:open="adding"
 			:existing="data?.lists.map((l) => l.id) ?? []"
-			:formats="data?.formats ?? ['cidr']"
-			@added="replace" />
+			:formats="data?.formats ?? ['cidr']" />
 	</SectionCard>
 </template>
 
@@ -219,14 +159,14 @@ function removed(id: string) {
 .skeleton {
 	display: flex;
 	flex-direction: column;
-	gap: calc(var(--default-grid-baseline) * 2);
+	gap: var(--ids-space-2);
 }
 
 .group {
 	display: flex;
 	flex-direction: column;
-	gap: calc(var(--default-grid-baseline) * 3);
-	padding-top: calc(var(--default-grid-baseline) * 4);
+	gap: var(--ids-space-3);
+	padding-top: var(--ids-space-4);
 	border-top: 1px solid var(--color-border);
 }
 
@@ -235,7 +175,7 @@ function removed(id: string) {
 	flex-wrap: wrap;
 	align-items: flex-end;
 	justify-content: space-between;
-	gap: calc(var(--default-grid-baseline) * 3);
+	gap: var(--ids-space-3);
 }
 
 .group__head > :first-child {
@@ -245,30 +185,28 @@ function removed(id: string) {
 .group__heading {
 	display: flex;
 	align-items: center;
-	gap: calc(var(--default-grid-baseline) * 2);
+	gap: var(--ids-space-2);
 	margin: 0;
 	font-size: 1em;
 	font-weight: 700;
 }
 
 .group__text {
-	margin: calc(var(--default-grid-baseline) * 1) 0 0;
+	composes: muted from '../../styles/shared.module.css';
+	margin: var(--ids-space-1) 0 0;
 	max-width: 80ch;
-	color: var(--color-text-maxcontrast);
 	line-height: 1.5;
 }
 
 .note__action {
-	margin-top: calc(var(--default-grid-baseline) * 2);
+	margin-top: var(--ids-space-2);
 }
 
 .group__list {
+	composes: plainList from '../../styles/shared.module.css';
 	display: grid;
 	grid-template-columns: repeat(auto-fill, minmax(min(100%, 460px), 1fr));
-	gap: calc(var(--default-grid-baseline) * 3);
+	gap: var(--ids-space-3);
 	align-items: start;
-	margin: 0;
-	padding: 0;
-	list-style: none;
 }
 </style>

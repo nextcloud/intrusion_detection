@@ -9,9 +9,10 @@ declare(strict_types=1);
 
 namespace OCA\IntrusionDetection\SessionState;
 
-use OCA\IntrusionDetection\Check\CredentialUse\CredentialUse;
-use OCA\IntrusionDetection\Check\CredentialUse\CredentialUseResolver;
-use OCA\IntrusionDetection\Guard\RequestContext;
+use OCA\IntrusionDetection\Check\Checks\TokenConcurrentUse\CredentialUse;
+use OCA\IntrusionDetection\Check\Checks\TokenConcurrentUse\CredentialUseResolver;
+use OCA\IntrusionDetection\Login\RequestContext;
+use OCA\IntrusionDetection\Login\SessionMarkers;
 use OCA\IntrusionDetection\Sensitive\DirectoryRoutes;
 use OCA\IntrusionDetection\SessionState\Rules\DirectoryScrapingRule;
 use OCP\IRequest;
@@ -20,20 +21,19 @@ use Psr\Log\LoggerInterface;
 
 /**
  * The session-state rules, in order. The first rule that blocks a request
- * decides. Adding a rule means adding its class to RULES.
+ * decides. Adding a rule means adding its class to RULES and what it looks
+ * at to LOOKS_AT.
  *
  * A rule that throws, or cannot be loaded, is logged and treated as letting
  * the request pass: a broken rule must not lock everybody out. The one
  * exception is the step-up rule while a step-up is pending
- * ({@see self::FAIL_CLOSED}): an error must not let an unconfirmed login
- * through.
+ * ({@see self::FAIL_CLOSED}, {@see self::onError()}): an error must not let
+ * an unconfirmed login through.
  *
- * Most requests have nothing for any rule: no session state, no credential
- * the credential check waits to learn about, and no read of the user
- * directory. {@see self::nothingToCheck()} tells so before any rule or its
- * dependencies are built. It knows what each of RULES looks at, so a new
- * rule must be added there too. A pending step-up is session state, so it
- * always reaches the rules.
+ * Most requests have nothing for any rule: none of the markers or request
+ * facts in LOOKS_AT. {@see self::nothingToCheck()} tells so before any rule
+ * or its dependencies are built, without loading a rule's class. A pending
+ * step-up is a session marker, so it always reaches the rules.
  */
 class SessionStateRules {
 	/**
@@ -44,6 +44,7 @@ class SessionStateRules {
 	 */
 	public const RULES = [
 		Rules\StepUpRule::class,
+		Rules\AdminNetworkRule::class,
 		Rules\PasswordChangeRule::class,
 		Rules\CredentialUseRule::class,
 		Rules\LoginHistoryRule::class,
@@ -51,12 +52,30 @@ class SessionStateRules {
 		Rules\DirectoryScrapingRule::class,
 	];
 
+	/** A credential the credential check waits to learn about ({@see CredentialUseResolver}) */
+	public const CREDENTIAL_TO_LEARN = '@credential';
+	/** A read of the user directory ({@see DirectoryRoutes}) */
+	public const DIRECTORY_READ = '@directory';
+
 	/**
-	 * Rules that block on an error while their session marker is set.
+	 * What each rule looks at: session markers, or one of the request facts
+	 * above. A rule has nothing to do for a request without any of them.
+	 * Kept here rather than on the rules, so that telling this loads no rule.
 	 *
-	 * @var array<class-string<ISessionStateRule>, string>
+	 * @var array<class-string<ISessionStateRule>, list<string>>
 	 */
-	public const FAIL_CLOSED = [Rules\StepUpRule::class => SessionState::STEP_UP];
+	public const LOOKS_AT = [
+		Rules\StepUpRule::class => [SessionMarkers::STEP_UP, SessionMarkers::LOGIN_DETECTIONS, SessionMarkers::CONFIRMATION],
+		Rules\AdminNetworkRule::class => [SessionMarkers::ADMIN_SESSION],
+		Rules\PasswordChangeRule::class => [SessionMarkers::PASSWORD_CHANGE],
+		Rules\CredentialUseRule::class => [self::CREDENTIAL_TO_LEARN],
+		Rules\LoginHistoryRule::class => [SessionMarkers::LOGIN_HISTORY],
+		Rules\LoginNoticeRule::class => [SessionMarkers::LOGIN_NOTICE],
+		Rules\DirectoryScrapingRule::class => [self::DIRECTORY_READ],
+	];
+
+	/** The rule that blocks on an error while a step-up is pending */
+	public const FAIL_CLOSED = Rules\StepUpRule::class;
 
 	/** @var list<ISessionStateRule>|null */
 	private ?array $rules = null;
@@ -71,14 +90,15 @@ class SessionStateRules {
 	) {
 	}
 
-	public function check(SessionState $state, RequestTarget $target): ?SessionBlock {
+	public function check(SessionMarkers $state, RequestTarget $target): ?SessionBlock {
 		if ($this->nothingToCheck($state, fn (): ?string => DirectoryScrapingRule::group($target, $this->request))) {
 			return null;
 		}
 		$rules = $this->rules();
-		foreach ($this->missing as $class) {
-			if ($this->failsClosed($class, $state)) {
-				return Rules\StepUpRule::failed();
+		if (in_array(self::FAIL_CLOSED, $this->missing, true)) {
+			$block = $this->onError($state);
+			if ($block !== null) {
+				return $block;
 			}
 		}
 		foreach ($rules as $rule) {
@@ -86,8 +106,9 @@ class SessionStateRules {
 				$block = $rule->check($state, $target);
 			} catch (\Throwable $e) {
 				$this->logger->error('Intrusion detection session rule {rule} failed', ['rule' => $rule::class, 'exception' => $e]);
-				if ($this->failsClosed($rule, $state)) {
-					return Rules\StepUpRule::failed();
+				$block = $rule instanceof Rules\StepUpRule ? $this->onError($state) : null;
+				if ($block !== null) {
+					return $block;
 				}
 				continue;
 			}
@@ -99,10 +120,24 @@ class SessionStateRules {
 	}
 
 	/**
+	 * The step-up rule alone, for a request no other rule may see yet.
+	 * Fails closed like {@see self::check()}.
+	 */
+	public function checkStepUp(SessionMarkers $state, RequestTarget $target): ?SessionBlock {
+		try {
+			$rule = $this->container->get(self::FAIL_CLOSED);
+			return $rule instanceof ISessionStateRule ? $rule->check($state, $target) : $this->onError($state);
+		} catch (\Throwable $e) {
+			$this->logger->error('Intrusion detection session rule {rule} failed', ['rule' => self::FAIL_CLOSED, 'exception' => $e]);
+			return $this->onError($state);
+		}
+	}
+
+	/**
 	 * The rules for a WebDAV request. Most have nothing to check, and then
 	 * neither the request target nor a rule is built.
 	 */
-	public function checkDav(SessionState $state, string $method, string $uri): ?SessionBlock {
+	public function checkDav(SessionMarkers $state, string $method, string $uri): ?SessionBlock {
 		if ($this->nothingToCheck($state, fn (): ?string => DirectoryRoutes::davGroup(strtoupper($method), $uri, $this->request->getHeader('Depth')))) {
 			return null;
 		}
@@ -110,37 +145,46 @@ class SessionStateRules {
 	}
 
 	/**
-	 * @param ISessionStateRule|class-string<ISessionStateRule> $rule
+	 * The answer when checking failed: blocked while a step-up marker is
+	 * readable and present, so that an error never lets an unconfirmed login
+	 * through; otherwise the request passes.
 	 */
-	private function failsClosed(ISessionStateRule|string $rule, SessionState $state): bool {
-		foreach (self::FAIL_CLOSED as $class => $marker) {
-			if ($rule instanceof $class || $rule === $class) {
-				try {
-					return $state->get($marker) !== null;
-				} catch (\Throwable) {
-					return true;
-				}
-			}
+	public function onError(SessionMarkers $state): ?SessionBlock {
+		try {
+			return $state->get(SessionMarkers::STEP_UP) === null ? null : Rules\StepUpRule::failed();
+		} catch (\Throwable) {
+			return null;
 		}
-		return false;
 	}
 
 	/**
-	 * Whether none of RULES would look at this request: the step-up, password
-	 * change, login history and login notice rules need session state, the
-	 * credential use rule a credential the guard noted, and the directory
-	 * scraping rule a read of the user directory.
+	 * Whether none of RULES looks at anything this request has ({@see self::LOOKS_AT}).
 	 *
 	 * @param \Closure(): ?string $directoryGroup the directory group the request reads
 	 */
-	private function nothingToCheck(SessionState $state, \Closure $directoryGroup): bool {
+	private function nothingToCheck(SessionMarkers $state, \Closure $directoryGroup): bool {
 		if ($this->classes() !== self::RULES) {
 			return false;
 		}
+		$markers = $state->all();
+		foreach (self::LOOKS_AT as $facts) {
+			foreach ($facts as $fact) {
+				$present = match ($fact) {
+					self::CREDENTIAL_TO_LEARN => $this->credentialToLearn(),
+					self::DIRECTORY_READ => $directoryGroup() !== null,
+					default => isset($markers[$fact]),
+				};
+				if ($present) {
+					return false;
+				}
+			}
+		}
+		return true;
+	}
+
+	private function credentialToLearn(): bool {
 		$use = $this->context->get(CredentialUseResolver::CONTEXT_KEY);
-		return $state->isEmpty()
-			&& !($use instanceof CredentialUse && $use->needsResolution())
-			&& $directoryGroup() === null;
+		return $use instanceof CredentialUse && $use->needsResolution();
 	}
 
 	/**

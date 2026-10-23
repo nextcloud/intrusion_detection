@@ -9,11 +9,11 @@ declare(strict_types=1);
 
 namespace OCA\IntrusionDetection\SessionState\Rules;
 
+use OCA\IntrusionDetection\Login\SessionMarkers;
 use OCA\IntrusionDetection\LoginHistory\LoginHistory;
 use OCA\IntrusionDetection\SessionState\ISessionStateRule;
 use OCA\IntrusionDetection\SessionState\RequestTarget;
 use OCA\IntrusionDetection\SessionState\SessionBlock;
-use OCA\IntrusionDetection\SessionState\SessionState;
 use OCP\IUserSession;
 use Psr\Container\ContainerInterface;
 use Psr\Log\LoggerInterface;
@@ -33,18 +33,18 @@ class LoginHistoryRule implements ISessionStateRule {
 	}
 
 	#[\Override]
-	public function check(SessionState $state, RequestTarget $target): ?SessionBlock {
-		$marker = $state->all()[SessionState::LOGIN_HISTORY] ?? null;
+	public function check(SessionMarkers $state, RequestTarget $target): ?SessionBlock {
+		$marker = $state->all()[SessionMarkers::LOGIN_HISTORY] ?? null;
 		if (!is_array($marker)) {
 			return null;
 		}
 		if (($marker['linked'] ?? false) === true) {
 			// A marker that is linked already has nothing left to do.
-			$state->remove(SessionState::LOGIN_HISTORY);
+			$state->remove(SessionMarkers::LOGIN_HISTORY);
 			return null;
 		}
 		try {
-			$this->container->get(LoginHistory::class)->link($marker, $this->userSession->getUser()?->getUID());
+			$this->container->get(LoginHistory::class)->linkSession($this->userSession->getUser()?->getUID());
 		} catch (\Throwable $e) {
 			$this->logger->error('Intrusion detection could not link a login to its session', ['exception' => $e]);
 		}

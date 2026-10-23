@@ -4,19 +4,25 @@
 -->
 
 <script setup lang="ts">
-import type { DecoyFormat, NewDecoy } from '../../types.ts'
+import type { DecoyFormat, DecoyLimits, NewDecoy } from '../../types.ts'
 
-import { t } from '@nextcloud/l10n'
 import { computed, ref, watch } from 'vue'
 import NcCheckboxRadioSwitch from '@nextcloud/vue/components/NcCheckboxRadioSwitch'
 import NcDialog from '@nextcloud/vue/components/NcDialog'
 import NcNoteCard from '@nextcloud/vue/components/NcNoteCard'
 import NcTextField from '@nextcloud/vue/components/NcTextField'
-import { ApiError, createDecoy, errorMessage, isCancelled } from '../../services/api.ts'
-import { logger } from '../../services/logger.ts'
+import { useAction } from '../../composables/useAction.ts'
+import { ApiError } from '../../services/api.ts'
+import { addDecoy } from '../../stores/blocks.ts'
 import { APP_ID } from '../../utils/format.ts'
+import { t } from '../../utils/l10n.ts'
+import { isLoginName } from '../../utils/validate.ts'
 
 const open = defineModel<boolean>('open', { required: true })
+
+const props = defineProps<{
+	limits: DecoyLimits
+}>()
 
 const emit = defineEmits<{
 	created: [created: NewDecoy]
@@ -26,8 +32,7 @@ const label = ref('')
 const loginName = ref('')
 const format = ref<DecoyFormat>('app-password')
 const serverErrors = ref<Record<string, string>>({})
-const error = ref<string | null>(null)
-const busy = ref(false)
+const { busy, error, run } = useAction()
 
 watch(open, (value) => {
 	if (value) {
@@ -40,17 +45,16 @@ watch(open, (value) => {
 })
 
 const labelError = computed(() => {
-	if (label.value.length > 200) {
-		return t(APP_ID, 'The label can have at most 200 characters.')
+	if (label.value.length > props.limits.labelMaxLength) {
+		return t(APP_ID, 'The label can have at most {max} characters.', { max: props.limits.labelMaxLength })
 	}
 	return serverErrors.value.label ?? null
 })
 
 const loginNameError = computed(() => {
 	const value = loginName.value.trim()
-	// eslint-disable-next-line no-control-regex
-	if (value !== '' && !/^[^\s\u0000-\u001F\u007F]{1,64}$/u.test(value)) {
-		return t(APP_ID, 'A login name has no spaces and at most 64 characters.')
+	if (value !== '' && !isLoginName(value, props.limits.loginNameMaxLength)) {
+		return t(APP_ID, 'A login name has no spaces and at most {max} characters.', { max: props.limits.loginNameMaxLength })
 	}
 	return serverErrors.value.login_name ?? null
 })
@@ -64,7 +68,7 @@ const FORMATS: { value: DecoyFormat, label: () => string, text: () => string }[]
 
 const buttons = computed(() => [
 	{ label: t(APP_ID, 'Cancel'), callback: () => undefined },
-	{ label: t(APP_ID, 'Create decoy'), variant: 'primary' as const, type: 'submit' as const, disabled: !valid.value || busy.value, callback: () => false },
+	{ label: t(APP_ID, 'Create decoy'), variant: 'primary' as const, type: 'submit' as const, disabled: !valid.value || busy.value !== null, callback: () => false },
 ])
 
 /**
@@ -74,26 +78,22 @@ async function submit() {
 	if (!valid.value) {
 		return
 	}
-	busy.value = true
 	serverErrors.value = {}
-	error.value = null
-	try {
-		const created = await createDecoy({ label: label.value.trim(), loginName: loginName.value.trim(), format: format.value })
+	await run('create', async () => {
+		const created = await addDecoy({ label: label.value.trim(), loginName: loginName.value.trim(), format: format.value })
 		open.value = false
 		emit('created', created)
-	} catch (e) {
-		if (isCancelled(e)) {
-			return
-		}
-		logger.error('Could not create the decoy', { error: e })
-		if (e instanceof ApiError && (e.param === 'label' || e.param === 'login_name')) {
-			serverErrors.value = { [e.param]: e.message }
-		} else {
-			error.value = errorMessage(e, t(APP_ID, 'The decoy could not be created. Please try again.'))
-		}
-	} finally {
-		busy.value = false
-	}
+	}, {
+		fallback: t(APP_ID, 'The decoy could not be created. Please try again.'),
+		inline: true,
+		handle: (e) => {
+			if (e instanceof ApiError && (e.param === 'label' || e.param === 'login_name')) {
+				serverErrors.value = { [e.param]: e.message }
+				return true
+			}
+			return false
+		},
+	})
 }
 </script>
 
@@ -150,8 +150,8 @@ async function submit() {
 .dialog {
 	display: flex;
 	flex-direction: column;
-	gap: calc(var(--default-grid-baseline) * 4);
-	padding-bottom: calc(var(--default-grid-baseline) * 2);
+	gap: var(--ids-space-4);
+	padding-bottom: var(--ids-space-2);
 }
 
 .dialog p {
@@ -162,14 +162,14 @@ async function submit() {
 .dialog__fieldset {
 	display: flex;
 	flex-direction: column;
-	gap: calc(var(--default-grid-baseline) * 1);
+	gap: var(--ids-space-1);
 	margin: 0;
 	padding: 0;
 	border: none;
 }
 
 .dialog__legend {
-	margin-bottom: calc(var(--default-grid-baseline) * 1);
+	margin-bottom: var(--ids-space-1);
 	padding: 0;
 	font-weight: 600;
 }

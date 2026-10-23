@@ -40,7 +40,7 @@ class Decide extends Base {
 		$this->setName('intrusion:approvals:decide')
 			->setDescription('Approve or reject a request that waits for the approval of a second administrator')
 			->addArgument('id', InputArgument::REQUIRED, 'The request, see intrusion:approvals:list')
-			->addOption('approve', null, InputOption::VALUE_NONE, 'Approve the request: the account joins the group, or the waiting login continues')
+			->addOption('approve', null, InputOption::VALUE_NONE, 'Approve the request: the account joins the group, the settings change is made, or the waiting login continues')
 			->addOption('reject', null, InputOption::VALUE_NONE, 'Reject the request: nothing changes')
 			->addOption('as', null, InputOption::VALUE_REQUIRED, 'The administrator who decides; required to approve');
 	}
@@ -54,7 +54,7 @@ class Decide extends Base {
 			return self::INVALID;
 		}
 		$id = (string)$input->getArgument('id');
-		if (!preg_match('/^\d{1,18}$/', $id)) {
+		if (!preg_match('/^\d{1,20}$/', $id)) {
 			$output->writeln('<error>The id must be a number.</error>');
 			return self::INVALID;
 		}
@@ -67,8 +67,8 @@ class Decide extends Base {
 
 		try {
 			$approval = $approve
-				? $this->approvals->approve((int)$id, (string)$as, ApprovalService::VIA_OCC)
-				: $this->approvals->reject((int)$id, $as, ApprovalService::VIA_OCC);
+				? $this->approvals->approve($id, (string)$as, ApprovalService::VIA_OCC)
+				: $this->approvals->reject($id, $as, ApprovalService::VIA_OCC);
 		} catch (ApprovalException $e) {
 			$output->writeln('<error>' . $e->describe($this->l) . '</error>');
 			return self::FAILURE;
@@ -77,6 +77,12 @@ class Decide extends Base {
 			$output->writeln($approve
 				? sprintf('Approved: the login of %s from %s continues.', $approval->getSubjectUid(), $approval->getIp() ?? 'an unknown address')
 				: sprintf('Rejected: the login of %s from %s is ended.', $approval->getSubjectUid(), $approval->getIp() ?? 'an unknown address'));
+			return self::SUCCESS;
+		}
+		if ($approval->getKind() === Approval::KIND_SETTINGS) {
+			$output->writeln($approve
+				? sprintf('Approved: the settings change asked by %s was made.', $approval->getRequestedBy())
+				: sprintf('Rejected: the settings change asked by %s was not made.', $approval->getRequestedBy()));
 			return self::SUCCESS;
 		}
 		$output->writeln($approve

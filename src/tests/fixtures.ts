@@ -5,6 +5,18 @@
 
 import type { Check, DetectionDetail, Status } from '../types.ts'
 
+/** A snowflake id above 2^53, where a JavaScript number would lose digits */
+const SNOWFLAKE = 470938541726507008n
+
+/**
+ * The snowflake id numbered `n` of the fixtures.
+ *
+ * @param n - Small number that tells the ids apart
+ */
+export function snowflake(n: number): string {
+	return String(SNOWFLAKE + BigInt(n))
+}
+
 /**
  * A check as the API presents it, with the texts of concept section 16.3.
  *
@@ -16,7 +28,7 @@ export function makeCheck(overrides: Partial<Check> = {}): Check {
 		category: 'login_attacks',
 		internal: false,
 		severity: 'medium',
-		mode: { configured: 'protect', effective: 'protect', reason: null, missing: null, default: 'protect' },
+		mode: { configured: 'protect', effective: 'protect', reason: null, missing: null, default: 'protect', locked: false },
 		texts: {
 			name: 'Credential stuffing',
 			summary: 'Many different login names failing from one source.',
@@ -56,7 +68,7 @@ export function makeCheck(overrides: Partial<Check> = {}): Check {
 export function makeDetail(overrides: Partial<DetectionDetail> = {}): DetectionDetail {
 	return {
 		detection: {
-			id: 42,
+			id: snowflake(42),
 			checkId: 'credential_stuffing',
 			checkName: 'Credential stuffing',
 			category: 'login_attacks',
@@ -85,14 +97,14 @@ export function makeDetail(overrides: Partial<DetectionDetail> = {}): DetectionD
 		attemptsAvailable: true,
 		attempts: [{ kind: 'password_login', label: 'Failed password login', uid: 'alice', createdAt: 1_790_000_100 }],
 		bans: [{
-			id: 7,
+			id: snowflake(7),
 			reference: 'K7Q2-MPXA',
 			cidr: '203.0.113.7/32',
 			scope: 'ip',
 			level: 1,
 			checkId: 'credential_stuffing',
 			checkName: 'Credential stuffing',
-			detectionId: 42,
+			detectionId: snowflake(42),
 			createdBy: null,
 			note: null,
 			createdAt: 1_790_000_400,
@@ -126,7 +138,6 @@ export function makeStatus(overrides: Partial<Status> = {}): Status {
 			{ id: 'mail', level: 'warning', title: 'Nextcloud cannot send emails', text: '', url: null, urlLabel: null },
 			{ id: 'cache', level: 'info', title: 'No memory cache', text: '', url: null, urlLabel: null },
 		],
-		extensions: {},
 		...overrides,
 	}
 }

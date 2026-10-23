@@ -10,10 +10,10 @@ declare(strict_types=1);
 namespace OCA\IntrusionDetection\Tests\Integration;
 
 use OC\AppFramework\Http\Request;
-use OCA\IntrusionDetection\Check\Payload\PayloadInspector;
-use OCA\IntrusionDetection\Check\Payload\PayloadSettings;
-use OCA\IntrusionDetection\Check\Payload\PreFilter;
-use OCA\IntrusionDetection\Check\Payload\RequestParts;
+use OCA\IntrusionDetection\Check\Checks\InjectionProbe\PayloadInspector;
+use OCA\IntrusionDetection\Check\Checks\InjectionProbe\PayloadSettings;
+use OCA\IntrusionDetection\Check\Checks\InjectionProbe\PreFilter;
+use OCA\IntrusionDetection\Check\Checks\InjectionProbe\RequestParts;
 use OCA\IntrusionDetection\Guard\PayloadGuard;
 use OCP\IConfig;
 use OCP\IRequestId;

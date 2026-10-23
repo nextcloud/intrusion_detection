@@ -7,8 +7,6 @@
 import type { StaleCredential } from '../types.ts'
 
 import { mdiDeleteOutline, mdiKeyOutline, mdiWeb } from '@mdi/js'
-import { showError, showSuccess } from '@nextcloud/dialogs'
-import { n, t } from '@nextcloud/l10n'
 import { computed, ref } from 'vue'
 import NcButton from '@nextcloud/vue/components/NcButton'
 import NcDialog from '@nextcloud/vue/components/NcDialog'
@@ -16,17 +14,15 @@ import NcIconSvgWrapper from '@nextcloud/vue/components/NcIconSvgWrapper'
 import NcLoadingIcon from '@nextcloud/vue/components/NcLoadingIcon'
 import SectionCard from '../../components/common/SectionCard.vue'
 import TimeStamp from '../../components/common/TimeStamp.vue'
-import { useAnnouncer } from '../../composables/useAnnouncer.ts'
-import { errorMessage, isCancelled } from '../../services/api.ts'
-import { logger } from '../../services/logger.ts'
+import { useAction } from '../../composables/useAction.ts'
 import { APP_ID } from '../../utils/format.ts'
-import { removeAllStaleCredentials, removeStaleCredential } from '../api.ts'
-import { personal } from '../store.ts'
+import { n, t } from '../../utils/l10n.ts'
+import { personal, removeUnusedCredential, removeUnusedCredentials } from '../store.ts'
 
+const { busy, run } = useAction()
 /** The credential being removed, or 'all' */
-const removing = ref<number | 'all' | null>(null)
+const removing = computed(() => busy.value === null || busy.value === 'all' ? busy.value : Number(busy.value))
 const confirmAll = ref(false)
-const { announce } = useAnnouncer()
 const credentials = computed(() => personal.staleCredentials)
 const timeZone = computed(() => personal.overview?.timezone)
 
@@ -42,46 +38,24 @@ function kindLabel(credential: StaleCredential): string {
  *
  * @param credential - The credential
  */
-async function remove(credential: StaleCredential) {
-	removing.value = credential.id
-	try {
-		await removeStaleCredential(credential.id)
-		personal.staleCredentials = personal.staleCredentials.filter((c) => c.id !== credential.id)
-		const message = t(APP_ID, '{name} was removed.', { name: credential.name })
-		showSuccess(message)
-		announce(message)
-	} catch (error) {
-		if (isCancelled(error)) {
-			return
-		}
-		logger.error('Could not remove an unused app password or device', { error })
-		showError(errorMessage(error, t(APP_ID, 'It could not be removed. Please try again.')))
-	} finally {
-		removing.value = null
-	}
+function remove(credential: StaleCredential) {
+	run(String(credential.id), () => removeUnusedCredential(credential.id), {
+		done: t(APP_ID, '{name} was removed.', { name: credential.name }),
+		toast: true,
+		fallback: t(APP_ID, 'It could not be removed. Please try again.'),
+	})
 }
 
 /**
  * Remove them all, after the confirmation and the password.
  */
-async function removeAll() {
+function removeAll() {
 	confirmAll.value = false
-	removing.value = 'all'
-	try {
-		const { removed } = await removeAllStaleCredentials()
-		personal.staleCredentials = []
-		const message = n(APP_ID, '%n unused app password or device was removed.', '%n unused app passwords and devices were removed.', removed)
-		showSuccess(message)
-		announce(message)
-	} catch (error) {
-		if (isCancelled(error)) {
-			return
-		}
-		logger.error('Could not remove the unused app passwords and devices', { error })
-		showError(errorMessage(error, t(APP_ID, 'They could not be removed. Please try again.')))
-	} finally {
-		removing.value = null
-	}
+	run('all', removeUnusedCredentials, {
+		done: (removed) => n(APP_ID, '%n unused app password or device was removed.', '%n unused app passwords and devices were removed.', removed),
+		toast: true,
+		fallback: t(APP_ID, 'They could not be removed. Please try again.'),
+	})
 }
 
 const buttons = computed(() => [
@@ -162,18 +136,16 @@ const buttons = computed(() => [
 
 <style module>
 .list {
+	composes: plainList from '../../styles/shared.module.css';
 	display: flex;
 	flex-direction: column;
-	margin: 0;
-	padding: 0;
-	list-style: none;
 }
 
 .item {
 	display: flex;
 	align-items: center;
-	gap: calc(var(--default-grid-baseline) * 3);
-	padding-block: calc(var(--default-grid-baseline) * 3);
+	gap: var(--ids-space-3);
+	padding-block: var(--ids-space-3);
 	border-block-start: 1px solid var(--color-border);
 }
 
@@ -183,6 +155,7 @@ const buttons = computed(() => [
 }
 
 .item__icon {
+	composes: muted from '../../styles/shared.module.css';
 	display: inline-flex;
 	flex: 0 0 auto;
 	align-items: center;
@@ -191,14 +164,13 @@ const buttons = computed(() => [
 	height: 36px;
 	border-radius: 50%;
 	background-color: var(--color-background-dark);
-	color: var(--color-text-maxcontrast);
 }
 
 .item__main {
 	display: flex;
 	flex: 1 1 auto;
 	flex-direction: column;
-	gap: calc(var(--default-grid-baseline) * 0.5);
+	gap: var(--ids-space-half);
 	min-width: 0;
 }
 
@@ -213,14 +185,14 @@ const buttons = computed(() => [
 }
 
 .item__meta {
+	composes: muted from '../../styles/shared.module.css';
 	margin: 0;
-	color: var(--color-text-maxcontrast);
 	font-size: 0.92em;
 	line-height: 1.5;
 }
 
 .dialog {
-	margin: 0 0 calc(var(--default-grid-baseline) * 2);
+	margin: 0 0 var(--ids-space-2);
 	line-height: 1.5;
 }
 </style>

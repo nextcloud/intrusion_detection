@@ -33,9 +33,9 @@ withDefaults(defineProps<{
 	--badge-background: var(--color-background-dark);
 	display: inline-flex;
 	align-items: center;
-	gap: calc(var(--default-grid-baseline) * 1);
-	padding-block: calc(var(--default-grid-baseline) / 2);
-	padding-inline: calc(var(--default-grid-baseline) * 2.5);
+	gap: var(--ids-space-1);
+	padding-block: var(--ids-space-half);
+	padding-inline: var(--ids-space-2-5);
 	border-radius: var(--border-radius-pill, 100px);
 	background-color: var(--badge-background);
 	color: var(--badge-color);

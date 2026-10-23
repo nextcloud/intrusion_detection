@@ -14,7 +14,7 @@ namespace OCA\IntrusionDetection\LoginHistory;
  */
 final class LoginHistoryEntry {
 	public function __construct(
-		public readonly int $id,
+		public readonly string $id,
 		public readonly string $uid,
 		public readonly int $createdAt,
 		public readonly ?string $ip,
@@ -36,7 +36,7 @@ final class LoginHistoryEntry {
 	 */
 	public static function fromRow(array $row): self {
 		return new self(
-			(int)$row['id'],
+			(string)$row['id'],
 			(string)$row['uid'],
 			(int)$row['created_at'],
 			isset($row['ip']) ? (string)$row['ip'] : null,
@@ -51,7 +51,7 @@ final class LoginHistoryEntry {
 	}
 
 	/**
-	 * @return array{id: int, uid: string, createdAt: int, ip: ?string, network: ?string, userAgent: ?string, method: string, knownDevice: bool, confirmedBy: string, stepUp: ?string, sessionTokenId: ?int}
+	 * @return array{id: string, uid: string, createdAt: int, ip: ?string, network: ?string, userAgent: ?string, method: string, knownDevice: bool, confirmedBy: string, stepUp: ?string, sessionTokenId: ?int}
 	 */
 	public function toArray(): array {
 		return [

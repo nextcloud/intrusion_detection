@@ -7,8 +7,7 @@
 import type { Blocklist } from '../../types.ts'
 
 import { mdiAlertCircleOutline, mdiAlertOutline, mdiCheckCircleOutline, mdiChevronDown, mdiCloudOutline, mdiDeleteOutline, mdiDownload, mdiIncognito, mdiOpenInNew, mdiShieldAlertOutline } from '@mdi/js'
-import { showError, showSuccess } from '@nextcloud/dialogs'
-import { n, t } from '@nextcloud/l10n'
+import { showError } from '@nextcloud/dialogs'
 import { computed, ref, useId, watch } from 'vue'
 import NcButton from '@nextcloud/vue/components/NcButton'
 import NcCheckboxRadioSwitch from '@nextcloud/vue/components/NcCheckboxRadioSwitch'
@@ -17,16 +16,20 @@ import NcIconSvgWrapper from '@nextcloud/vue/components/NcIconSvgWrapper'
 import NcLoadingIcon from '@nextcloud/vue/components/NcLoadingIcon'
 import NcRadioGroup from '@nextcloud/vue/components/NcRadioGroup'
 import NcRadioGroupButton from '@nextcloud/vue/components/NcRadioGroupButton'
+import NcTextField from '@nextcloud/vue/components/NcTextField'
 import DurationInput from '../checks/DurationInput.vue'
 import MatchSparkline from '../common/MatchSparkline.vue'
-import ReferencePill from '../common/ReferencePill.vue'
 import StateBadge from '../common/StateBadge.vue'
 import TimeStamp from '../common/TimeStamp.vue'
-import { useAnnouncer } from '../../composables/useAnnouncer.ts'
-import { ApiError, errorMessage, isCancelled, removeBlocklist, syncBlocklist, updateBlocklist } from '../../services/api.ts'
-import { logger } from '../../services/logger.ts'
+import BlocklistHistory from './BlocklistHistory.vue'
+import { useAction } from '../../composables/useAction.ts'
+import { ApiError } from '../../services/api.ts'
+import { modeLabel } from '../../store.ts'
+import { changeBlocklist, deleteBlocklist, syncBlocklistNow } from '../../stores/blocks.ts'
 import { APP_ID, formatDuration, formatNumber } from '../../utils/format.ts'
+import { n, t } from '../../utils/l10n.ts'
 import { vRadioGroupName } from '../../utils/radioGroupName.ts'
+import { sha256Problem } from '../../utils/validate.ts'
 
 const props = defineProps<{
 	list: Blocklist
@@ -37,21 +40,20 @@ const props = defineProps<{
 	maxInterval: number
 }>()
 
-const emit = defineEmits<{
-	updated: [list: Blocklist]
-	removed: [id: string]
-}>()
-
 const id = useId()
 const expanded = ref(false)
-const busy = ref<string | null>(null)
+const { busy, run } = useAction()
 const confirmRemove = ref(false)
 const interval = ref<number | string>(props.list.interval)
 const intervalError = ref<string | null>(null)
-const { announce } = useAnnouncer()
 
 watch(() => props.list.interval, (value) => {
 	interval.value = value
+})
+const checksum = ref(props.list.sha256 ?? '')
+const checksumError = ref<string | null>(null)
+watch(() => props.list.sha256, (value) => {
+	checksum.value = value ?? ''
 })
 
 const isDeny = computed(() => props.list.purpose === 'deny')
@@ -96,37 +98,34 @@ const points = computed(() => {
 	})
 })
 const totalMatches = computed(() => points.value.reduce((sum, p) => sum + p.value, 0))
-const latestSample = computed(() => [...props.list.matches].sort((a, b) => b.day.localeCompare(a.day)).find((d) => d.sample.length > 0)?.sample ?? [])
 
 /**
- * Save a change of the list and tell the parent.
+ * Save a change of the list.
  *
  * @param key - What is saved, for the loading state
  * @param change - The change
  * @param change.enabled - Use the list
  * @param change.mode - Observe or protect
  * @param change.interval - Seconds, 0 for the default
+ * @param change.sha256 - The SHA-256 the file must have, '' for none
  * @param done - What to announce when it worked
  */
-async function save(key: string, change: { enabled?: boolean, mode?: string, interval?: number }, done: string) {
-	busy.value = key
-	try {
-		emit('updated', await updateBlocklist(props.list.id, change))
-		announce(done)
-		return true
-	} catch (error) {
-		if (!isCancelled(error)) {
-			logger.error('Could not change the list', { error })
+function save(key: string, change: { enabled?: boolean, mode?: string, interval?: number, sha256?: string }, done: string) {
+	return run(key, () => changeBlocklist(props.list.id, change), {
+		done,
+		fallback: t(APP_ID, 'The list could not be changed. Please try again.'),
+		handle: (error) => {
 			if (key === 'interval' && error instanceof ApiError) {
 				intervalError.value = error.message
-			} else {
-				showError(errorMessage(error, t(APP_ID, 'The list could not be changed. Please try again.')))
+				return true
 			}
-		}
-		return false
-	} finally {
-		busy.value = null
-	}
+			if (key === 'sha256' && error instanceof ApiError) {
+				checksumError.value = error.message
+				return true
+			}
+			return false
+		},
+	})
 }
 
 /**
@@ -148,7 +147,7 @@ watch(() => props.list.mode, (mode) => {
  * @param mode - observe or protect
  */
 async function setMode(mode: string) {
-	if (mode === matchMode.value) {
+	if (mode === matchMode.value || (mode !== 'observe' && mode !== 'protect')) {
 		return
 	}
 	matchMode.value = mode
@@ -184,14 +183,29 @@ async function saveInterval(reset: boolean) {
 	await save('interval', { interval: reset ? 0 : Number(interval.value) }, t(APP_ID, 'Saved'))
 }
 
+const checksumProblem = computed(() => sha256Problem(checksum.value))
+const checksumChanged = computed(() => checksum.value.trim().toLowerCase() !== (props.list.sha256 ?? ''))
+
 /**
- * Download the list now.
+ * Pin the SHA-256 of the file, or trust the publisher and https again.
+ */
+async function saveChecksum() {
+	checksumError.value = null
+	if (checksumProblem.value !== null) {
+		return
+	}
+	const value = checksum.value.trim()
+	await save('sha256', { sha256: value }, value === ''
+		? t(APP_ID, '{list} is used without a checksum.', { list: props.list.name })
+		: t(APP_ID, '{list} is used only while its file has this checksum.', { list: props.list.name }))
+}
+
+/**
+ * Download the list now. A failed download is an error, the rest is news.
  */
 async function syncNow() {
-	busy.value = 'sync'
-	try {
-		const { result, list } = await syncBlocklist(props.list.id)
-		emit('updated', list)
+	await run('sync', async () => {
+		const result = await syncBlocklistNow(props.list.id)
 		const message = {
 			updated: n(APP_ID, '{list} was downloaded: %n range.', '{list} was downloaded: %n ranges.', result.ranges, { list: props.list.name }),
 			unchanged: t(APP_ID, '{list} has not changed since the last download.', { list: props.list.name }),
@@ -200,36 +214,26 @@ async function syncNow() {
 		}[result.outcome]
 		if (result.outcome === 'failed') {
 			showError(message)
-		} else {
-			showSuccess(message)
+			return ''
 		}
-		announce(message)
-	} catch (error) {
-		if (!isCancelled(error)) {
-			logger.error('Could not download the list', { error })
-			showError(errorMessage(error, t(APP_ID, 'The list could not be downloaded. Please try again.')))
-		}
-	} finally {
-		busy.value = null
-	}
+		return message
+	}, {
+		done: (message) => message,
+		toast: true,
+		fallback: t(APP_ID, 'The list could not be downloaded. Please try again.'),
+	})
 }
 
 /**
  * Remove the custom list, after the confirmation.
  */
 async function remove() {
-	busy.value = 'remove'
-	try {
-		await removeBlocklist(props.list.id)
+	const removed = await run('remove', () => deleteBlocklist(props.list.id), {
+		done: t(APP_ID, '{list} was removed.', { list: props.list.name }),
+		fallback: t(APP_ID, 'The list could not be removed. Please try again.'),
+	})
+	if (removed) {
 		confirmRemove.value = false
-		emit('removed', props.list.id)
-		announce(t(APP_ID, '{list} was removed.', { list: props.list.name }))
-	} catch (error) {
-		if (!isCancelled(error)) {
-			showError(errorMessage(error, t(APP_ID, 'The list could not be removed. Please try again.')))
-		}
-	} finally {
-		busy.value = null
 	}
 }
 </script>
@@ -319,8 +323,8 @@ async function remove() {
 					:label="t(APP_ID, 'What a match does for {list}', { list: list.name })"
 					hideLabel
 					@update:modelValue="setMode">
-					<NcRadioGroupButton value="observe" :label="t(APP_ID, 'Observe')" :disabled="busy !== null" />
-					<NcRadioGroupButton value="protect" :label="t(APP_ID, 'Protect')" :disabled="busy !== null" />
+					<NcRadioGroupButton value="observe" :label="modeLabel('observe')" :disabled="busy !== null" />
+					<NcRadioGroupButton value="protect" :label="modeLabel('protect')" :disabled="busy !== null" />
 				</NcRadioGroup>
 				<div v-if="countsMatches || totalMatches > 0" :class="$style.row__matches">
 					<MatchSparkline :points="points" :label="t(APP_ID, 'Matches of {list} per day', { list: list.name })" />
@@ -336,35 +340,7 @@ async function remove() {
 			:class="$style.row__collapse"
 			:inert="!expanded">
 			<div :class="$style.row__collapseInner">
-				<dl :class="$style.details">
-					<div>
-						<dt>{{ t(APP_ID, 'Downloaded from') }}</dt>
-						<dd><code :class="$style.url">{{ list.url }}</code></dd>
-					</div>
-					<div v-if="isDeny && list.reference">
-						<dt>{{ t(APP_ID, 'Reference on the error page') }}</dt>
-						<dd :class="$style.details__inline">
-							<ReferencePill :reference="list.reference" />
-							<span :class="$style.row__muted">{{ t(APP_ID, 'Visitors refused by this list see this reference, without the name of the list.') }}</span>
-						</dd>
-					</div>
-					<div v-if="list.lastSuccessAt">
-						<dt>{{ t(APP_ID, 'Last good version') }}</dt>
-						<dd>
-							<TimeStamp :timestamp="list.lastSuccessAt" />
-							<span v-if="list.skipped > 0" :class="$style.row__muted">
-								· {{ n(APP_ID, '%n line skipped as not an address range', '%n lines skipped as not address ranges', list.skipped) }}
-							</span>
-						</dd>
-					</div>
-					<div v-if="isDeny && latestSample.length > 0">
-						<dt>{{ t(APP_ID, 'Last matched addresses') }}</dt>
-						<dd :class="$style.sample">
-							<code v-for="address in latestSample.slice(0, 8)" :key="address">{{ address }}</code>
-							<span v-if="latestSample.length > 8" :class="$style.row__muted">{{ n(APP_ID, 'and %n more', 'and %n more', latestSample.length - 8) }}</span>
-						</dd>
-					</div>
-				</dl>
+				<BlocklistHistory :list="list" />
 
 				<form :class="$style.interval" @submit.prevent="saveInterval(false)">
 					<DurationInput
@@ -391,6 +367,27 @@ async function remove() {
 					<p v-if="intervalProblem || intervalError" :class="$style.interval__error">
 						{{ intervalError ?? intervalProblem }}
 					</p>
+				</form>
+
+				<form v-if="!list.builtin" :class="$style.interval" @submit.prevent="saveChecksum">
+					<NcTextField
+						v-model="checksum"
+						:label="t(APP_ID, 'SHA-256 of the file')"
+						autocomplete="off"
+						spellcheck="false"
+						:error="checksumProblem !== null || checksumError !== null"
+						:helperText="checksumError ?? checksumProblem ?? t(APP_ID, 'Optional. A file with another checksum is not used. Empty: trust the publisher and https.')"
+						:disabled="busy !== null"
+						@update:modelValue="checksumError = null" />
+					<NcButton
+						type="submit"
+						variant="secondary"
+						:disabled="busy !== null || checksumProblem !== null || !checksumChanged">
+						<template v-if="busy === 'sha256'" #icon>
+							<NcLoadingIcon />
+						</template>
+						{{ t(APP_ID, 'Save') }}
+					</NcButton>
 				</form>
 
 				<div :class="$style.row__footer">
@@ -432,13 +429,11 @@ async function remove() {
 
 <style module>
 .row {
+	composes: card from '../../styles/shared.module.css';
 	display: flex;
 	flex-direction: column;
-	gap: calc(var(--default-grid-baseline) * 3);
-	padding: calc(var(--default-grid-baseline) * 4);
-	border: 1px solid var(--color-border);
-	border-radius: var(--border-radius-large);
-	background-color: var(--color-main-background);
+	gap: var(--ids-space-3);
+	padding: var(--ids-space-4);
 	transition: border-color 150ms ease;
 }
 
@@ -449,7 +444,7 @@ async function remove() {
 .row__main {
 	display: flex;
 	align-items: flex-start;
-	gap: calc(var(--default-grid-baseline) * 3);
+	gap: var(--ids-space-3);
 }
 
 .row__icon {
@@ -489,7 +484,7 @@ async function remove() {
 	display: flex;
 	flex-wrap: wrap;
 	align-items: center;
-	gap: calc(var(--default-grid-baseline) * 2);
+	gap: var(--ids-space-2);
 }
 
 .row__name {
@@ -504,11 +499,11 @@ async function remove() {
 }
 
 .row__meta {
+	composes: muted from '../../styles/shared.module.css';
 	display: flex;
 	flex-wrap: wrap;
-	gap: calc(var(--default-grid-baseline) * 1.5);
-	margin: calc(var(--default-grid-baseline) / 2) 0 0;
-	color: var(--color-text-maxcontrast);
+	gap: var(--ids-space-1-5);
+	margin: var(--ids-space-half) 0 0;
 	font-size: 0.9em;
 }
 
@@ -516,14 +511,14 @@ async function remove() {
 	display: flex;
 	flex: 0 0 auto;
 	align-items: center;
-	gap: calc(var(--default-grid-baseline) * 1);
+	gap: var(--ids-space-1);
 }
 
 .row__body {
 	display: flex;
 	flex-direction: column;
-	gap: calc(var(--default-grid-baseline) * 2);
-	padding-inline-start: calc(36px + var(--default-grid-baseline) * 3);
+	gap: var(--ids-space-2);
+	padding-inline-start: calc(36px + var(--ids-space-3));
 }
 
 .row__line {
@@ -531,7 +526,7 @@ async function remove() {
 	flex-wrap: wrap;
 	align-items: center;
 	justify-content: space-between;
-	gap: calc(var(--default-grid-baseline) * 2) calc(var(--default-grid-baseline) * 4);
+	gap: var(--ids-space-2) var(--ids-space-4);
 }
 
 .row__sync,
@@ -539,7 +534,7 @@ async function remove() {
 	display: flex;
 	flex-wrap: wrap;
 	align-items: center;
-	gap: calc(var(--default-grid-baseline) * 2);
+	gap: var(--ids-space-2);
 	min-width: 0;
 }
 
@@ -548,14 +543,14 @@ async function remove() {
 }
 
 .row__error {
+	composes: muted from '../../styles/shared.module.css';
 	margin: 0;
-	color: var(--color-text-maxcontrast);
 	font-size: 0.9em;
 	line-height: 1.5;
 }
 
 .row__muted {
-	color: var(--color-text-maxcontrast);
+	composes: muted from '../../styles/shared.module.css';
 	font-size: 0.9em;
 }
 
@@ -582,7 +577,7 @@ async function remove() {
 }
 
 .row button.row__toggle:focus-visible {
-	outline: 2px solid var(--color-main-text);
+	outline: var(--ids-focus-ring);
 	outline-offset: 2px;
 }
 
@@ -609,71 +604,24 @@ async function remove() {
 }
 
 .row_expanded .row__collapseInner {
-	padding-top: calc(var(--default-grid-baseline) * 3);
+	padding-top: var(--ids-space-3);
 	border-top: 1px solid var(--color-border);
 }
 
 .row__collapseInner {
 	display: flex;
 	flex-direction: column;
-	gap: calc(var(--default-grid-baseline) * 4);
+	gap: var(--ids-space-4);
 	min-height: 0;
 	overflow: hidden;
-	padding-inline-start: calc(36px + var(--default-grid-baseline) * 3);
-}
-
-.details {
-	display: grid;
-	grid-template-columns: repeat(auto-fit, minmax(min(100%, 280px), 1fr));
-	gap: calc(var(--default-grid-baseline) * 3) calc(var(--default-grid-baseline) * 5);
-	margin: 0;
-}
-
-.details dt {
-	margin-bottom: calc(var(--default-grid-baseline) * 1);
-	color: var(--color-text-maxcontrast);
-	font-size: 0.8em;
-	font-weight: 700;
-	letter-spacing: 0.06em;
-	text-transform: uppercase;
-}
-
-.details dd {
-	margin: 0;
-}
-
-.details__inline {
-	display: flex;
-	flex-direction: column;
-	align-items: flex-start;
-	gap: calc(var(--default-grid-baseline) * 1);
-}
-
-.url {
-	font-family: var(--font-face-monospace, ui-monospace, 'SFMono-Regular', Menlo, Consolas, monospace);
-	font-size: 0.9em;
-	overflow-wrap: anywhere;
-}
-
-.sample {
-	display: flex;
-	flex-wrap: wrap;
-	gap: calc(var(--default-grid-baseline) * 1.5);
-}
-
-.sample code {
-	padding-inline: calc(var(--default-grid-baseline) * 1.5);
-	border-radius: var(--border-radius-element);
-	background-color: var(--color-background-hover);
-	font-family: var(--font-face-monospace, ui-monospace, 'SFMono-Regular', Menlo, Consolas, monospace);
-	font-size: 0.85em;
+	padding-inline-start: calc(36px + var(--ids-space-3));
 }
 
 .interval {
 	display: flex;
 	flex-wrap: wrap;
 	align-items: flex-end;
-	gap: calc(var(--default-grid-baseline) * 2);
+	gap: var(--ids-space-2);
 }
 
 .interval__error {
@@ -686,12 +634,12 @@ async function remove() {
 .row__footer {
 	display: flex;
 	flex-wrap: wrap;
-	gap: calc(var(--default-grid-baseline) * 2);
+	gap: var(--ids-space-2);
 }
 
 @media (max-width: 600px) {
 	.row {
-		padding: calc(var(--default-grid-baseline) * 3);
+		padding: var(--ids-space-3);
 	}
 
 	.row__body,

@@ -6,11 +6,11 @@
 <script setup lang="ts">
 import type { IncidentSummary } from '../../types.ts'
 
-import { n, t } from '@nextcloud/l10n'
 import { computed, useId } from 'vue'
 import NcNoteCard from '@nextcloud/vue/components/NcNoteCard'
 import TimeStamp from '../common/TimeStamp.vue'
 import { APP_ID, formatNumber } from '../../utils/format.ts'
+import { n, t } from '../../utils/l10n.ts'
 
 const props = defineProps<{
 	summary: IncidentSummary
@@ -104,7 +104,7 @@ const sections = computed(() => [
 .summary {
 	display: flex;
 	flex-direction: column;
-	gap: calc(var(--default-grid-baseline) * 4);
+	gap: var(--ids-space-4);
 }
 
 .summary__headline {
@@ -118,14 +118,14 @@ const sections = computed(() => [
 .summary__facts {
 	display: flex;
 	flex-wrap: wrap;
-	gap: calc(var(--default-grid-baseline) * 2) calc(var(--default-grid-baseline) * 8);
+	gap: var(--ids-space-2) var(--ids-space-8);
 	margin: 0;
 }
 
 .summary__fact {
 	display: flex;
 	flex-direction: column;
-	gap: calc(var(--default-grid-baseline) / 2);
+	gap: var(--ids-space-half);
 }
 
 .summary__fact dt,
@@ -148,23 +148,23 @@ const sections = computed(() => [
 }
 
 .summary__counts {
+	composes: muted from '../../styles/shared.module.css';
 	margin: 0;
-	color: var(--color-text-maxcontrast);
 	font-variant-numeric: tabular-nums;
 }
 
 .summary__grid {
 	display: grid;
 	grid-template-columns: repeat(auto-fill, minmax(min(100%, 260px), 1fr));
-	gap: calc(var(--default-grid-baseline) * 5) calc(var(--default-grid-baseline) * 8);
-	padding-block-start: calc(var(--default-grid-baseline) * 4);
+	gap: var(--ids-space-5) var(--ids-space-8);
+	padding-block-start: var(--ids-space-4);
 	border-block-start: 1px solid var(--color-border);
 }
 
 .summary__section {
 	display: flex;
 	flex-direction: column;
-	gap: calc(var(--default-grid-baseline) * 1.5);
+	gap: var(--ids-space-1-5);
 	min-width: 0;
 }
 
@@ -177,17 +177,17 @@ const sections = computed(() => [
 .summary__list {
 	display: flex;
 	flex-direction: column;
-	gap: calc(var(--default-grid-baseline) * 1);
+	gap: var(--ids-space-1);
 	margin: 0;
-	padding-inline-start: calc(var(--default-grid-baseline) * 5);
+	padding-inline-start: var(--ids-space-5);
 	list-style: disc;
 	line-height: 1.5;
 	overflow-wrap: anywhere;
 }
 
 .summary__empty {
+	composes: muted from '../../styles/shared.module.css';
 	margin: 0;
-	color: var(--color-text-maxcontrast);
 	line-height: 1.5;
 }
 </style>

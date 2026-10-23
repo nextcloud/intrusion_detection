@@ -9,6 +9,7 @@ declare(strict_types=1);
 
 namespace OCA\IntrusionDetection\Confirm;
 
+use OCA\IntrusionDetection\Config\GlobalSettings;
 use OCP\IL10N;
 
 /**
@@ -39,11 +40,7 @@ enum StepUpPolicy: string {
 	 * What happens by default when no confirmation method is available.
 	 */
 	public function defaultOutcome(): NoMethodOutcome {
-		return match ($this) {
-			self::BreachedPassword => NoMethodOutcome::AllowForceChange,
-			self::RiskyNetwork, self::ProtectedAccount => NoMethodOutcome::AllowNotify,
-			default => NoMethodOutcome::Refuse,
-		};
+		return NoMethodOutcome::from(GlobalSettings::STEP_UP_NO_METHOD_DEFAULTS[$this->value]);
 	}
 
 	/**
@@ -63,10 +60,52 @@ enum StepUpPolicy: string {
 	}
 
 	/**
+	 * Whether the reason is an access rule an administrator chose rather
+	 * than a sign of an attack. Such a rule holds on the brute-force
+	 * allowlist too, and it fails closed: when it cannot be evaluated, it
+	 * applies.
+	 */
+	public function isExplicitRule(): bool {
+		return $this === self::AdminOutsideNetworks;
+	}
+
+	/**
+	 * The outcome without a method that lets the login in: with a notice,
+	 * and for a leaked password also with a forced password change.
+	 */
+	public function allowingOutcome(): NoMethodOutcome {
+		return $this === self::BreachedPassword ? NoMethodOutcome::AllowForceChange : NoMethodOutcome::AllowNotify;
+	}
+
+	/**
+	 * Whether a remembered device may confirm a login with this reason at
+	 * all. A device proves who holds it, not that the password is still
+	 * safe nor where the login comes from: never for a password that is
+	 * being sprayed or is known from a breach, nor for an administrator's
+	 * login from outside the trusted networks. The others accept it as
+	 * `step_up_known_device_ok_for` says.
+	 */
+	public function knownDeviceMayConfirm(): bool {
+		return match ($this) {
+			self::SprayedPassword, self::BreachedPassword, self::AdminOutsideNetworks => false,
+			default => true,
+		};
+	}
+
+	/**
+	 * Whether a familiar place ({@see FamiliarLogin}) turns a refusal
+	 * without a method into a login allowed with a notice. Guessing the
+	 * password must not lock the account holder out where they log in.
+	 */
+	public function familiarPlaceSoftensRefusal(): bool {
+		return $this === self::ProtectedAccount;
+	}
+
+	/**
 	 * The global setting that holds the outcome without a method.
 	 */
 	public function settingKey(): string {
-		return 'step_up_no_method_' . $this->value;
+		return GlobalSettings::stepUpNoMethod($this->value);
 	}
 
 	/**

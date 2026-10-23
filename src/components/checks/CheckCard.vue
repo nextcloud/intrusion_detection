@@ -4,12 +4,10 @@
 -->
 
 <script setup lang="ts">
-import type { Check, ParamValue } from '../../types.ts'
+import type { Check } from '../../types.ts'
 
 import { mdiFilterVariant, mdiFlaskOutline, mdiOpenInNew, mdiRestore } from '@mdi/js'
-import { showError } from '@nextcloud/dialogs'
-import { t } from '@nextcloud/l10n'
-import { computed, inject, reactive, ref, watch } from 'vue'
+import { computed, inject, ref, watch } from 'vue'
 import NcButton from '@nextcloud/vue/components/NcButton'
 import NcCheckboxRadioSwitch from '@nextcloud/vue/components/NcCheckboxRadioSwitch'
 import NcDialog from '@nextcloud/vue/components/NcDialog'
@@ -19,77 +17,46 @@ import NcNoteCard from '@nextcloud/vue/components/NcNoteCard'
 import LiveSentence from './LiveSentence.vue'
 import ParamField from './ParamField.vue'
 import SimulationDialog from './SimulationDialog.vue'
-import { useAnnouncer } from '../../composables/useAnnouncer.ts'
+import { useAction } from '../../composables/useAction.ts'
+import { sameList, useParamDraft } from '../../composables/useParamDraft.ts'
 import { checkSections } from '../../extensions.ts'
-import { ApiError, errorMessage, isCancelled, resetCheck, updateCheck } from '../../services/api.ts'
-import { logger } from '../../services/logger.ts'
-import { detectionFilters, globalTypes, globalValues, refreshStatus, replaceCheck, state } from '../../store.ts'
+import { detectionFilters, resetCheckToDefaults, saveCheck, state } from '../../store.ts'
 import { APP_ID, fillTemplate } from '../../utils/format.ts'
-import { validateParam } from '../../utils/validate.ts'
+import { t } from '../../utils/l10n.ts'
 
 const props = defineProps<{
 	check: Check
 }>()
 
-const { announce } = useAnnouncer()
 const showTab = inject<(tab: string) => void>('ids-show-tab', () => {})
 
 const missingRequirement = computed(() => props.check.requirements.find((r) => !r.met) ?? null)
 
 /* Settings and responses: edited as a draft and saved together. */
 
-const draft = reactive<Record<string, unknown>>({})
+const { draft, errors, changed: changedParams, hasErrors, values, types, choices, changes, take, discard: discardParams, clearServerErrors, showAtField } = useParamDraft(() => props.check.params)
 const selected = ref<string[]>([])
-const serverErrors = reactive<Record<string, string>>({})
-const saving = ref(false)
+const { busy, run } = useAction()
+const saving = computed(() => busy.value === 'save')
 const resetOpen = ref(false)
-const resetting = ref(false)
 
 const savedResponses = computed(() => props.check.responses.filter((r) => r.selected).map((r) => r.type))
 
 watch(() => props.check, (check, old) => {
-	for (const param of check.params) {
-		const before = old?.params.find((p) => p.name === param.name)
-		// Edits the admin has not saved yet survive a reload of the check (e.g. after a mode change).
-		if (before === undefined || !(param.name in draft) || same(draft[param.name], before.value)) {
-			draft[param.name] = param.value
-		}
-	}
+	// A choice the admin has not saved yet survives a reload of the check (e.g. after a mode change).
 	if (old === undefined || sameList(selected.value, old.responses.filter((r) => r.selected).map((r) => r.type))) {
 		selected.value = check.responses.filter((r) => r.selected).map((r) => r.type)
 	}
 }, { immediate: true })
 
-const validation = computed(() => Object.fromEntries(props.check.params.map((param) => [param.name, validateParam(param, draft[param.name])])))
-
-const errors = computed<Record<string, string | null>>(() => Object.fromEntries(props.check.params.map((param) => [
-	param.name,
-	validation.value[param.name]?.error ?? serverErrors[param.name] ?? null,
-])))
-
-const changedParams = computed(() => props.check.params
-	.filter((param) => {
-		const value = validation.value[param.name]?.value
-		return value !== undefined && !same(value, param.value)
-	})
-	.map((param) => param.name))
-
 const responsesChanged = computed(() => !sameList(selected.value, savedResponses.value))
-const hasErrors = computed(() => props.check.params.some((param) => validation.value[param.name]?.error))
 const dirty = computed(() => changedParams.value.length > 0 || responsesChanged.value || hasErrors.value)
 
-/** The live values: what is typed where valid, the saved value elsewhere */
-const values = computed<Record<string, ParamValue>>(() => ({
-	...globalValues.value,
-	...Object.fromEntries(props.check.params.map((param) => [param.name, validation.value[param.name]?.value ?? param.value])),
-}))
-const types = computed(() => ({ ...globalTypes.value, ...Object.fromEntries(props.check.params.map((p) => [p.name, p.type])) }))
-
-const decides = computed(() => fillTemplate(props.check.decidesTemplate, values.value, types.value))
+const decides = computed(() => fillTemplate(props.check.decidesTemplate, values.value, types.value, choices.value))
 const happens = computed(() => props.check.responses
 	.filter((r) => selected.value.includes(r.type))
 	.sort((a, b) => a.order - b.order)
-	.map((r) => ({ type: r.type, segments: fillTemplate(r.happens, values.value, types.value) })))
+	.map((r) => ({ type: r.type, segments: fillTemplate(r.happens, values.value, types.value, choices.value) })))
 
 /**
  * Save the changed settings and responses.
@@ -98,69 +65,48 @@ async function save() {
 	if (hasErrors.value) {
 		return
 	}
-	saving.value = true
-	Object.keys(serverErrors).forEach((key) => delete serverErrors[key])
-	try {
-		const params = Object.fromEntries(changedParams.value.map((name) => [name, validation.value[name]!.value!]))
-		const updated = await updateCheck(props.check.id, {
+	clearServerErrors()
+	const params = changes()
+	await run('save', async () => {
+		takeSaved(await saveCheck(props.check.id, {
 			params,
 			responses: responsesChanged.value ? [...selected.value] : undefined,
-		})
-		for (const param of updated.params) {
-			draft[param.name] = param.value
-		}
-		selected.value = updated.responses.filter((r) => r.selected).map((r) => r.type)
-		replaceCheck(updated)
-		announce(t(APP_ID, 'Saved: {check}', { check: props.check.texts.name }))
-	} catch (error) {
-		if (isCancelled(error)) {
-			return
-		}
-		logger.error('Could not save the check', { error })
-		if (error instanceof ApiError && error.param !== null && props.check.params.some((p) => p.name === error.param)) {
-			serverErrors[error.param] = error.message
-		} else {
-			showError(errorMessage(error, t(APP_ID, 'The changes could not be saved. Please try again.')))
-		}
-		announce(errorMessage(error, t(APP_ID, 'The changes could not be saved.')))
-	} finally {
-		saving.value = false
-	}
+		}))
+	}, {
+		done: t(APP_ID, 'Saved: {check}', { check: props.check.texts.name }),
+		fallback: t(APP_ID, 'The changes could not be saved. Please try again.'),
+		handle: showAtField,
+	})
+}
+
+/**
+ * Take the check as saved into the form.
+ *
+ * @param updated - The check as the server returned it
+ */
+function takeSaved(updated: Check) {
+	take(updated.params)
+	selected.value = updated.responses.filter((r) => r.selected).map((r) => r.type)
 }
 
 /**
  * Throw away the unsaved changes.
  */
 function discard() {
-	for (const param of props.check.params) {
-		draft[param.name] = param.value
-	}
+	discardParams()
 	selected.value = [...savedResponses.value]
-	Object.keys(serverErrors).forEach((key) => delete serverErrors[key])
 }
 
 /**
  * Put the check back to its defaults, after the confirmation.
  */
 async function reset() {
-	resetting.value = true
-	try {
-		const updated = await resetCheck(props.check.id)
-		for (const param of updated.params) {
-			draft[param.name] = param.value
-		}
-		selected.value = updated.responses.filter((r) => r.selected).map((r) => r.type)
-		replaceCheck(updated)
+	const done = await run('reset', async () => takeSaved(await resetCheckToDefaults(props.check.id)), {
+		done: t(APP_ID, '{check} is back to its defaults.', { check: props.check.texts.name }),
+		fallback: t(APP_ID, 'The check could not be reset. Please try again.'),
+	})
+	if (done) {
 		resetOpen.value = false
-		announce(t(APP_ID, '{check} is back to its defaults.', { check: props.check.texts.name }))
-		refreshStatus()
-	} catch (error) {
-		if (!isCancelled(error)) {
-			logger.error('Could not reset the check', { error })
-			showError(errorMessage(error, t(APP_ID, 'The check could not be reset. Please try again.')))
-		}
-	} finally {
-		resetting.value = false
 	}
 }
 
@@ -185,22 +131,6 @@ const simulating = ref(false)
 const sectionsAfter = (after: string) => checkSections.filter((section) => section.after === after && (section.checks.length === 0 || section.checks.includes(props.check.id)))
 
 const learnMoreUrl = computed(() => state.docUrl ? `${state.docUrl}#check-${props.check.id}` : '')
-
-/**
- * @param a - A value
- * @param b - Another value
- */
-function same(a: unknown, b: unknown): boolean {
-	return Array.isArray(a) && Array.isArray(b) ? sameList(a.map(String), b.map(String)) : a === b
-}
-
-/**
- * @param a - A list
- * @param b - Another list
- */
-function sameList(a: string[], b: string[]): boolean {
-	return a.length === b.length && a.every((item) => b.includes(item))
-}
 </script>
 
 <template>
@@ -396,35 +326,35 @@ function sameList(a: string[], b: string[]): boolean {
 <style module>
 .card {
 	min-width: 0;
-	padding-top: calc(var(--default-grid-baseline) * 4);
+	padding-top: var(--ids-space-4);
 	border-top: 1px solid var(--color-border);
 }
 
 .card__inner {
 	display: flex;
 	flex-direction: column;
-	gap: calc(var(--default-grid-baseline) * 4);
+	gap: var(--ids-space-4);
 	min-width: 0;
 }
 
 .card__body {
 	display: grid;
 	grid-template-columns: minmax(0, 3fr) minmax(280px, 2fr);
-	gap: calc(var(--default-grid-baseline) * 6);
-	padding-top: calc(var(--default-grid-baseline) * 2);
+	gap: var(--ids-space-6);
+	padding-top: var(--ids-space-2);
 }
 
 .card__explain {
 	display: flex;
 	flex-direction: column;
-	gap: calc(var(--default-grid-baseline) * 4);
+	gap: var(--ids-space-4);
 	min-width: 0;
 }
 
 .card__facts {
 	display: grid;
 	grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-	gap: calc(var(--default-grid-baseline) * 4);
+	gap: var(--ids-space-4);
 }
 
 .section p {
@@ -433,26 +363,22 @@ function sameList(a: string[], b: string[]): boolean {
 }
 
 .section__heading {
-	margin: 0 0 calc(var(--default-grid-baseline) * 1);
-	color: var(--color-text-maxcontrast);
-	font-size: 0.8em;
-	font-weight: 700;
-	letter-spacing: 0.06em;
-	text-transform: uppercase;
+	composes: eyebrow from '../../styles/shared.module.css';
+	margin: 0 0 var(--ids-space-1);
 }
 
 .section__list {
 	display: flex;
 	flex-direction: column;
-	gap: calc(var(--default-grid-baseline) * 1.5);
+	gap: var(--ids-space-1-5);
 	margin: 0;
-	padding-inline-start: calc(var(--default-grid-baseline) * 5);
+	padding-inline-start: var(--ids-space-5);
 	list-style: disc;
 	line-height: 1.6;
 }
 
 .section__warning {
-	margin-top: calc(var(--default-grid-baseline) * 1) !important;
+	margin-top: var(--ids-space-1) !important;
 	color: var(--color-warning-text);
 	font-weight: 600;
 }
@@ -460,9 +386,9 @@ function sameList(a: string[], b: string[]): boolean {
 .card__configure {
 	display: flex;
 	flex-direction: column;
-	gap: calc(var(--default-grid-baseline) * 5);
+	gap: var(--ids-space-5);
 	align-self: start;
-	padding: calc(var(--default-grid-baseline) * 4);
+	padding: var(--ids-space-4);
 	border-radius: var(--border-radius-large);
 	background-color: var(--color-background-hover);
 }
@@ -470,7 +396,7 @@ function sameList(a: string[], b: string[]): boolean {
 .fieldset {
 	display: flex;
 	flex-direction: column;
-	gap: calc(var(--default-grid-baseline) * 3);
+	gap: var(--ids-space-3);
 	min-width: 0;
 	margin: 0;
 	padding: 0;
@@ -478,7 +404,7 @@ function sameList(a: string[], b: string[]): boolean {
 }
 
 .fieldset__legend {
-	margin-bottom: calc(var(--default-grid-baseline) * 2);
+	margin-bottom: var(--ids-space-2);
 	padding: 0;
 	font-size: 1em;
 	font-weight: 700;
@@ -487,14 +413,14 @@ function sameList(a: string[], b: string[]): boolean {
 .card__save {
 	display: flex;
 	flex-wrap: wrap;
-	gap: calc(var(--default-grid-baseline) * 2);
+	gap: var(--ids-space-2);
 }
 
 .card__footer {
 	display: flex;
 	flex-wrap: wrap;
-	gap: calc(var(--default-grid-baseline) * 2);
-	padding-top: calc(var(--default-grid-baseline) * 3);
+	gap: var(--ids-space-2);
+	padding-top: var(--ids-space-3);
 	border-top: 1px solid var(--color-border);
 }
 

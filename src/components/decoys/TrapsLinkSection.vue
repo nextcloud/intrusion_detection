@@ -7,11 +7,11 @@
 import type { Check } from '../../types.ts'
 
 import { mdiArrowRight } from '@mdi/js'
-import { n, t } from '@nextcloud/l10n'
 import { computed } from 'vue'
 import NcButton from '@nextcloud/vue/components/NcButton'
 import NcIconSvgWrapper from '@nextcloud/vue/components/NcIconSvgWrapper'
 import { APP_ID } from '../../utils/format.ts'
+import { n, t } from '../../utils/l10n.ts'
 
 const props = defineProps<{
 	check: Check
@@ -30,7 +30,7 @@ const summary = computed(() => {
 		const list = Array.isArray(names) ? names : []
 		return list.length === 0
 			? t(APP_ID, 'No name is reserved yet.')
-			: n(APP_ID, '%n name is reserved: {names}', '%n names are reserved: {names}', list.length, { names: list.join(', ') }, { escape: false, sanitize: false })
+			: n(APP_ID, '%n name is reserved: {names}', '%n names are reserved: {names}', list.length, { names: list.join(', ') })
 	}
 	const paths = value('paths')
 	const own = Array.isArray(paths) ? paths.length : 0
@@ -62,7 +62,7 @@ const summary = computed(() => {
 .link {
 	display: flex;
 	flex-direction: column;
-	gap: calc(var(--default-grid-baseline) * 2);
+	gap: var(--ids-space-2);
 	min-width: 0;
 	margin: 0;
 	padding: 0;
@@ -70,7 +70,7 @@ const summary = computed(() => {
 }
 
 .link__legend {
-	margin-bottom: calc(var(--default-grid-baseline) * 2);
+	margin-bottom: var(--ids-space-2);
 	padding: 0;
 	font-weight: 700;
 }

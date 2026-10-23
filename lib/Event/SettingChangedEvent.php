@@ -12,7 +12,7 @@ namespace OCA\IntrusionDetection\Event;
 use OCP\EventDispatcher\Event;
 
 /**
- * A setting of the app was changed through {@see \OCA\IntrusionDetection\Config\Settings},
+ * A setting of the app was changed through {@see \OCA\IntrusionDetection\Configure\SettingsEditor},
  * the only place that writes them. Internal state is not reported.
  *
  * The values are the effective ones before and after the change (defaults

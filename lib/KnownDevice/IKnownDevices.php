@@ -20,5 +20,5 @@ interface IKnownDevices {
 	 * was found in use from two networks at once: the cookie may have been
 	 * copied together with it, so it must no longer count as proof.
 	 */
-	public function forgetCurrentDevice(string $uid, int $detectionId): void;
+	public function forgetCurrentDevice(string $uid, string $detectionId): void;
 }

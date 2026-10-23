@@ -10,7 +10,7 @@ declare(strict_types=1);
 namespace OCA\IntrusionDetection\Admin;
 
 use OCA\IntrusionDetection\Address\AddressResolver;
-use OCA\IntrusionDetection\Check\Checks\StepUpRefused;
+use OCA\IntrusionDetection\Check\Checks\StepUpRefused\StepUpRefused;
 use OCA\IntrusionDetection\Confirm\StepUpReference;
 use OCA\IntrusionDetection\Db\Ban;
 use OCA\IntrusionDetection\Db\BanMapper;
@@ -88,14 +88,15 @@ class LookupService {
 				}
 				return $result;
 			} catch (DoesNotExistException) {
-				// Not a block; it may be a refused login, or an account name.
+				// Not a block; it may be an account name.
 			}
-			$refusal = $this->refusal($query);
-			if ($refusal !== null) {
-				$result['kind'] = 'reference';
-				$result['detections'] = [$this->detections->row($refusal, $l)];
-				return $result;
-			}
+		}
+
+		$refusal = $this->refusal($query);
+		if ($refusal !== null) {
+			$result['kind'] = 'reference';
+			$result['detections'] = [$this->detections->row($refusal, $l)];
+			return $result;
 		}
 
 		$source = SourceKey::tryFromIp(explode('/', $query, 2)[0]);

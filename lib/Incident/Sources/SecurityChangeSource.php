@@ -9,11 +9,11 @@ declare(strict_types=1);
 
 namespace OCA\IntrusionDetection\Incident\Sources;
 
-use OCA\IntrusionDetection\Db\SecurityChangeMapper;
 use OCA\IntrusionDetection\Incident\DataCategory;
 use OCA\IntrusionDetection\Incident\IncidentQuery;
 use OCA\IntrusionDetection\Incident\ITimelineSource;
 use OCA\IntrusionDetection\Incident\TimelineEntry;
+use OCA\IntrusionDetection\Takeover\Db\SecurityChangeMapper;
 use OCA\IntrusionDetection\Takeover\SecurityChangeLog;
 use OCA\IntrusionDetection\Takeover\SecurityChangeType;
 use OCP\IL10N;

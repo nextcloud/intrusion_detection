@@ -11,9 +11,10 @@ namespace OCA\IntrusionDetection\Command;
 
 use OC\Core\Command\Base;
 use OCA\IntrusionDetection\Audit\AuditLogger;
-use OCA\IntrusionDetection\Check\Checks\TrapUrl;
-use OCA\IntrusionDetection\Check\InvalidParamException;
-use OCA\IntrusionDetection\Config\Settings;
+use OCA\IntrusionDetection\Check\Checks\TrapUrl\TrapUrl;
+use OCA\IntrusionDetection\Config\CheckSettings;
+use OCA\IntrusionDetection\Configure\SettingsEditor;
+use OCA\IntrusionDetection\Definition\InvalidParamException;
 use OCA\IntrusionDetection\Traps\TrapPaths as TrapPathList;
 use OCP\IL10N;
 use Symfony\Component\Console\Input\InputInterface;
@@ -26,7 +27,8 @@ use Symfony\Component\Console\Output\OutputInterface;
  */
 class TrapPaths extends Base {
 	public function __construct(
-		private readonly Settings $settings,
+		private readonly CheckSettings $settings,
+		private readonly SettingsEditor $editor,
 		private readonly AuditLogger $audit,
 		private readonly IL10N $l,
 	) {
@@ -52,7 +54,7 @@ class TrapPaths extends Base {
 				static fn (string $p): bool => !in_array(strtolower($p), $remove, true),
 			));
 			try {
-				$this->settings->setParam(TrapUrl::ID, 'paths', $paths);
+				$this->editor->setParam(TrapUrl::ID, 'paths', $paths);
 			} catch (InvalidParamException $e) {
 				$output->writeln('<error>' . $e->describe($this->l) . '</error>');
 				return self::INVALID;

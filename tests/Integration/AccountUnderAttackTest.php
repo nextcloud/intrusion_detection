@@ -11,22 +11,22 @@ namespace OCA\IntrusionDetection\Tests\Integration;
 
 use OCA\IntrusionDetection\AppInfo\Application;
 use OCA\IntrusionDetection\Audit\AuditLogger;
-use OCA\IntrusionDetection\Check\Checks\AccountUnderAttack;
-use OCA\IntrusionDetection\Check\Checks\AccountUnderAttackDetector;
-use OCA\IntrusionDetection\Check\Checks\CredentialStuffing;
-use OCA\IntrusionDetection\Check\Checks\PasswordSpraying;
-use OCA\IntrusionDetection\Check\Mode;
-use OCA\IntrusionDetection\Check\ResponseType;
+use OCA\IntrusionDetection\Cache\Caches;
+use OCA\IntrusionDetection\Check\Checks\AccountUnderAttack\AccountUnderAttack;
+use OCA\IntrusionDetection\Check\Checks\AccountUnderAttack\AccountUnderAttackDetector;
+use OCA\IntrusionDetection\Check\Checks\CredentialStuffing\CredentialStuffing;
+use OCA\IntrusionDetection\Check\Checks\PasswordSpraying\PasswordSpraying;
 use OCA\IntrusionDetection\Crypto\Fingerprinter;
 use OCA\IntrusionDetection\Db\AttemptKind;
 use OCA\IntrusionDetection\Db\BanMapper;
-use OCA\IntrusionDetection\Db\ProtectedAccountMapper;
+use OCA\IntrusionDetection\Definition\Mode;
+use OCA\IntrusionDetection\Definition\ResponseType;
 use OCA\IntrusionDetection\Explain\IExplainsToUser;
 use OCA\IntrusionDetection\Net\SourceKey;
 use OCA\IntrusionDetection\Notification\UserAlerts;
 use OCA\IntrusionDetection\Response\AccountProtection;
+use OCA\IntrusionDetection\Response\Db\ProtectedAccountMapper;
 use OCP\AppFramework\Utility\ITimeFactory;
-use OCP\ICacheFactory;
 use OCP\IConfig;
 use OCP\L10N\IFactory;
 use OCP\Server;
@@ -40,8 +40,8 @@ class AccountUnderAttackTest extends LoginFailureTestCase {
 	protected function setUp(): void {
 		parent::setUp();
 		$this->protected = Server::get(ProtectedAccountMapper::class);
-		$this->settings->setMode(CredentialStuffing::ID, Mode::Off);
-		$this->settings->setMode(PasswordSpraying::ID, Mode::Off);
+		$this->settingsEditor()->setMode(CredentialStuffing::ID, Mode::Off);
+		$this->settingsEditor()->setMode(PasswordSpraying::ID, Mode::Off);
 		// A fresh account per test: the protection is cached per account for a minute.
 		$this->uid = 'ids-aua-' . bin2hex(random_bytes(4));
 		$this->user($this->uid);
@@ -113,7 +113,7 @@ class AccountUnderAttackTest extends LoginFailureTestCase {
 	}
 
 	public function testBlockingAddressesIsOptionalAndNeedsRepeatedFailures(): void {
-		$this->settings->setResponses(AccountUnderAttack::ID, [ResponseType::ProtectAccount, ResponseType::Ban]);
+		$this->settingsEditor()->setResponses(AccountUnderAttack::ID, [ResponseType::ProtectAccount, ResponseType::Ban]);
 		// Five addresses guess four passwords each, four more fail once.
 		for ($i = 1; $i <= 5; $i++) {
 			for ($guess = 1; $guess <= 4; $guess++) {
@@ -167,7 +167,7 @@ class AccountUnderAttackTest extends LoginFailureTestCase {
 	}
 
 	public function testObserveProtectsNothing(): void {
-		$this->settings->setMode(AccountUnderAttack::ID, Mode::Observe);
+		$this->settingsEditor()->setMode(AccountUnderAttack::ID, Mode::Observe);
 		$this->attack(10, 5);
 		$this->assertFalse($this->detectionsOf(AccountUnderAttack::ID)[0]->isEnforced());
 		$this->assertNull($this->protected->find($this->uid));
@@ -212,6 +212,6 @@ class AccountUnderAttackTest extends LoginFailureTestCase {
 	}
 
 	private function freshProtection(): AccountProtection {
-		return new AccountProtection($this->protected, Server::get(ITimeFactory::class), Server::get(ICacheFactory::class), Server::get(AuditLogger::class));
+		return new AccountProtection($this->protected, Server::get(ITimeFactory::class), Server::get(Caches::class), Server::get(AuditLogger::class), Server::get(Fingerprinter::class));
 	}
 }

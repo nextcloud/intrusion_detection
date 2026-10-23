@@ -14,7 +14,9 @@ namespace OCA\IntrusionDetection\Blocklist\Parser;
  */
 interface IListParser {
 	/**
+	 * @param int $maxEntries the most valid ranges the list may have
 	 * @throws ListFormatException when the file as a whole is not in this format
+	 * @throws ListTooLongException as soon as the list has more than `$maxEntries` ranges
 	 */
-	public function parse(string $body): ParsedList;
+	public function parse(string $body, int $maxEntries = PHP_INT_MAX): ParsedList;
 }

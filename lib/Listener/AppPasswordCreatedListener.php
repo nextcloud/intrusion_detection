@@ -9,9 +9,9 @@ declare(strict_types=1);
 
 namespace OCA\IntrusionDetection\Listener;
 
-use OCA\IntrusionDetection\Config\Settings;
+use OCA\IntrusionDetection\Config\AppSettings;
 use OCA\IntrusionDetection\Db\TokenOriginMapper;
-use OCA\IntrusionDetection\SessionState\CurrentSession;
+use OCA\IntrusionDetection\Login\CoreSession;
 use OCP\AppFramework\Utility\ITimeFactory;
 use OCP\Authentication\Events\AppPasswordCreatedEvent;
 use OCP\EventDispatcher\Event;
@@ -31,9 +31,9 @@ use Psr\Log\LoggerInterface;
  */
 class AppPasswordCreatedListener implements IEventListener {
 	public function __construct(
-		private readonly Settings $settings,
+		private readonly AppSettings $settings,
 		private readonly TokenOriginMapper $origins,
-		private readonly CurrentSession $currentSession,
+		private readonly CoreSession $coreSession,
 		private readonly IRequest $request,
 		private readonly ITimeFactory $timeFactory,
 		private readonly LoggerInterface $logger,
@@ -50,7 +50,7 @@ class AppPasswordCreatedListener implements IEventListener {
 				return;
 			}
 			$token = $event->getToken();
-			$creator = $this->currentSession->tokenId();
+			$creator = $this->coreSession->tokenId();
 			$ip = $this->request->getRemoteAddress();
 			$this->origins->record(
 				$token->getId(),

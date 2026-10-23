@@ -11,14 +11,14 @@ namespace OCA\IntrusionDetection\Tests\Integration;
 
 use OC\Authentication\TwoFactorAuth\ProviderLoader;
 use OCA\IntrusionDetection\AppInfo\Application;
-use OCA\IntrusionDetection\Check\Checks\SecondFactorFailed;
-use OCA\IntrusionDetection\Check\Checks\TokenConcurrentUse;
-use OCA\IntrusionDetection\Check\Mode;
+use OCA\IntrusionDetection\Check\Checks\SecondFactorFailed\SecondFactorFailed;
+use OCA\IntrusionDetection\Check\Checks\TokenConcurrentUse\TokenConcurrentUse;
 use OCA\IntrusionDetection\Config\ModeState;
+use OCA\IntrusionDetection\Confirm\SecondFactors;
+use OCA\IntrusionDetection\Confirm\UntrustedSecondFactors;
 use OCA\IntrusionDetection\Controller\PersonalApiController;
 use OCA\IntrusionDetection\Db\Detection;
-use OCA\IntrusionDetection\Db\LoginHistoryMapper;
-use OCA\IntrusionDetection\Db\SecurityChangeMapper;
+use OCA\IntrusionDetection\Definition\Mode;
 use OCA\IntrusionDetection\Detection\DetectionDraft;
 use OCA\IntrusionDetection\Detection\DetectionService;
 use OCA\IntrusionDetection\Event\DetectionCreatedEvent;
@@ -27,11 +27,13 @@ use OCA\IntrusionDetection\Guide\SecureAccountGuide;
 use OCA\IntrusionDetection\Guide\SecureAccountNotifier;
 use OCA\IntrusionDetection\Guide\SecureAccountOverview;
 use OCA\IntrusionDetection\KnownDevice\KnownDevices;
+use OCA\IntrusionDetection\LoginHistory\LoginHistory;
 use OCA\IntrusionDetection\Net\SourceKey;
 use OCA\IntrusionDetection\Notification\AdminLinks;
 use OCA\IntrusionDetection\Personal\LogOutElsewhere;
 use OCA\IntrusionDetection\Personal\PersonalActivity;
 use OCA\IntrusionDetection\Personal\PersonalOverview;
+use OCA\IntrusionDetection\Takeover\Db\SecurityChangeMapper;
 use OCA\IntrusionDetection\TrustedNetwork\TrustedNetworks;
 use OCA\IntrusionDetection\WasThisYou\PersonalDetections;
 use OCA\IntrusionDetection\WasThisYou\WasThisYouService;
@@ -127,7 +129,7 @@ class SecureAccountGuideTest extends AccountTestCase {
 		$provider->method('getId')->willReturn('ids_totp');
 		$loader = $this->createMock(ProviderLoader::class);
 		$loader->method('getProviders')->willReturn(['ids_totp' => $provider]);
-		$guide = new SecureAccountGuide(Server::get(IUserConfig::class), Server::get(IUserManager::class), Server::get(IRegistry::class), $loader, Server::get(INotificationManager::class), Server::get(ITimeFactory::class), Server::get(LoggerInterface::class));
+		$guide = new SecureAccountGuide(Server::get(IUserConfig::class), Server::get(IUserManager::class), new SecondFactors(Server::get(IRegistry::class), $loader, Server::get(UntrustedSecondFactors::class), Server::get(LoggerInterface::class)), Server::get(INotificationManager::class), Server::get(ITimeFactory::class), Server::get(LoggerInterface::class));
 		$guide->start($user->getUID(), SecureAccountGuide::REASON_SELF);
 		$this->assertFalse($this->step($guide->progress($user), 'two_factor')['skipped']);
 		$this->assertFalse($this->step($guide->progress($user), 'two_factor')['done']);
@@ -252,7 +254,7 @@ class SecureAccountGuideTest extends AccountTestCase {
 
 	private function detection(IUser $user, string $checkId, bool $enforced): Detection {
 		$mode = $enforced ? Mode::Protect : Mode::Observe;
-		[$detection] = Server::get(DetectionService::class)->record(new DetectionDraft($checkId, SourceKey::fromIp('203.0.113.5'), $user->getUID(), []), new ModeState($mode, $mode));
+		[$detection] = Server::get(DetectionService::class)->record(new DetectionDraft($checkId, SourceKey::fromIp('203.0.113.5'), $user->getUID()), new ModeState($mode, $mode));
 		return $detection;
 	}
 
@@ -265,12 +267,12 @@ class SecureAccountGuideTest extends AccountTestCase {
 			Server::get(TrustedNetworks::class),
 			Server::get(IFactory::class)->get(Application::APP_ID, 'en'),
 			Server::get(KnownDevices::class),
-			Server::get(LoginHistoryMapper::class),
-			$this->currentSession,
+			Server::get(LoginHistory::class),
+			$this->coreSession,
 			$this->guide,
-			new SecureAccountOverview($this->guide, Server::get(SecurityChangeMapper::class), Server::get(\OCA\IntrusionDetection\Db\TokenOriginMapper::class), $this->tokens, $this->currentSession, Server::get(\OCP\Share\IManager::class), Server::get(\OCP\App\IAppManager::class), Server::get(IURLGenerator::class), Server::get(ITimeFactory::class), Server::get(LoggerInterface::class)),
+			new SecureAccountOverview($this->guide, Server::get(SecurityChangeMapper::class), Server::get(\OCA\IntrusionDetection\Db\TokenOriginMapper::class), $this->tokens, $this->coreSession, Server::get(\OCP\Share\IManager::class), Server::get(\OCP\App\IAppManager::class), Server::get(IURLGenerator::class), Server::get(ITimeFactory::class), Server::get(LoggerInterface::class)),
 			Server::get(SecurityChangeMapper::class),
-			$this->settings,
+			$this->appSettings(),
 			Server::get(ITimeFactory::class),
 			Server::get(PersonalOverview::class),
 			Server::get(LogOutElsewhere::class),

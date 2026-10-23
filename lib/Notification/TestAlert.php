@@ -37,6 +37,7 @@ class TestAlert {
 		private readonly IFactory $l10nFactory,
 		private readonly AdminLinks $links,
 		private readonly ITimeFactory $timeFactory,
+		private readonly MailReach $reach,
 	) {
 	}
 
@@ -54,7 +55,7 @@ class TestAlert {
 		$this->notifications->notify($notification);
 
 		$address = (string)$user->getEMailAddress();
-		if ($address === '') {
+		if (!$this->reach->hasAddress($user)) {
 			$email = self::EMAIL_NO_ADDRESS;
 		} elseif (!$this->prerequisites->hasMail()) {
 			$email = self::EMAIL_NO_MAIL;

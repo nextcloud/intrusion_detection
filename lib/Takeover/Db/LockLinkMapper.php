@@ -1,0 +1,144 @@
+<?php
+
+declare(strict_types=1);
+
+/**
+ * SPDX-FileCopyrightText: 2026 Nextcloud GmbH and Nextcloud contributors
+ * SPDX-License-Identifier: AGPL-3.0-or-later
+ */
+
+namespace OCA\IntrusionDetection\Takeover\Db;
+
+use OCA\IntrusionDetection\Db\BatchedDelete;
+use OCP\DB\QueryBuilder\IQueryBuilder;
+use OCP\IDBConnection;
+use OCP\Snowflake\ISnowflakeGenerator;
+
+/**
+ * One-time lock links (ids_lock_links). A link is stored with a keyed
+ * fingerprint of its token, never the token itself.
+ *
+ * @psalm-type LockLinkRow = array{id: string, uid: string, token_hash: string, sent_to_hint: string, detection_id: ?string, change_id: ?string, expires_at: int, used_at: ?int, used_ip: ?string}
+ */
+class LockLinkMapper {
+	public const TABLE = 'ids_lock_links';
+
+	public function __construct(
+		private readonly IDBConnection $db,
+		private readonly ISnowflakeGenerator $snowflakes,
+	) {
+	}
+
+	public function insert(string $uid, string $tokenHash, string $sentToHint, ?string $detectionId, ?string $changeId, int $expiresAt): string {
+		$id = $this->snowflakes->nextId();
+		$qb = $this->db->getQueryBuilder();
+		$qb->insert(self::TABLE)->values([
+			'id' => $qb->createNamedParameter($id),
+			'uid' => $qb->createNamedParameter($uid),
+			'token_hash' => $qb->createNamedParameter($tokenHash),
+			'sent_to_hint' => $qb->createNamedParameter($sentToHint),
+			'detection_id' => $qb->createNamedParameter($detectionId),
+			'change_id' => $qb->createNamedParameter($changeId),
+			'expires_at' => $qb->createNamedParameter($expiresAt, IQueryBuilder::PARAM_INT),
+		])->executeStatement();
+		return $id;
+	}
+
+	/**
+	 * @return ?LockLinkRow
+	 */
+	public function find(string $id): ?array {
+		$qb = $this->db->getQueryBuilder();
+		$qb->select('*')
+			->from(self::TABLE)
+			->where($qb->expr()->eq('id', $qb->createNamedParameter($id)));
+		$result = $qb->executeQuery();
+		$row = $result->fetch();
+		$result->closeCursor();
+		return is_array($row) ? self::row($row) : null;
+	}
+
+	public function existsForDetection(string $detectionId): bool {
+		$qb = $this->db->getQueryBuilder();
+		$qb->select('id')
+			->from(self::TABLE)
+			->where($qb->expr()->eq('detection_id', $qb->createNamedParameter($detectionId)))
+			->setMaxResults(1);
+		$result = $qb->executeQuery();
+		$found = $result->fetchOne() !== false;
+		$result->closeCursor();
+		return $found;
+	}
+
+	/**
+	 * Mark a link used, once: only the first of concurrent requests wins.
+	 *
+	 * @return bool whether this call used it
+	 */
+	public function use(string $id, int $now, ?string $ip): bool {
+		$qb = $this->db->getQueryBuilder();
+		$qb->update(self::TABLE)
+			->set('used_at', $qb->createNamedParameter($now, IQueryBuilder::PARAM_INT))
+			->set('used_ip', $qb->createNamedParameter($ip, $ip === null ? IQueryBuilder::PARAM_NULL : IQueryBuilder::PARAM_STR))
+			->where($qb->expr()->eq('id', $qb->createNamedParameter($id)))
+			->andWhere($qb->expr()->isNull('used_at'))
+			->andWhere($qb->expr()->gt('expires_at', $qb->createNamedParameter($now, IQueryBuilder::PARAM_INT)));
+		return $qb->executeStatement() === 1;
+	}
+
+	/**
+	 * End the unused links sent about a detection now.
+	 *
+	 * @return int how many links ended
+	 */
+	public function revokeForDetection(string $detectionId, int $now): int {
+		$qb = $this->db->getQueryBuilder();
+		$qb->update(self::TABLE)
+			->set('expires_at', $qb->createNamedParameter($now, IQueryBuilder::PARAM_INT))
+			->where($qb->expr()->eq('detection_id', $qb->createNamedParameter($detectionId)))
+			->andWhere($qb->expr()->isNull('used_at'))
+			->andWhere($qb->expr()->gt('expires_at', $qb->createNamedParameter($now, IQueryBuilder::PARAM_INT)));
+		return $qb->executeStatement();
+	}
+
+	/**
+	 * The newest used link of the account, if any: the account was locked with it.
+	 *
+	 * @return ?LockLinkRow
+	 */
+	public function lastUsed(string $uid): ?array {
+		$qb = $this->db->getQueryBuilder();
+		$qb->select('*')
+			->from(self::TABLE)
+			->where($qb->expr()->eq('uid', $qb->createNamedParameter($uid)))
+			->andWhere($qb->expr()->isNotNull('used_at'))
+			->orderBy('used_at', 'DESC')
+			->setMaxResults(1);
+		$result = $qb->executeQuery();
+		$row = $result->fetch();
+		$result->closeCursor();
+		return is_array($row) ? self::row($row) : null;
+	}
+
+	public function deleteExpired(int $now): int {
+		return BatchedDelete::run($this->db, self::TABLE, 'id', 'expires_at', static fn (IQueryBuilder $qb): IQueryBuilder => $qb->where($qb->expr()->lte('expires_at', $qb->createNamedParameter($now, IQueryBuilder::PARAM_INT))));
+	}
+
+	/**
+	 * @param array<string, mixed> $row
+	 * @return LockLinkRow
+	 */
+	private static function row(array $row): array {
+		return [
+			'id' => (string)$row['id'],
+			'uid' => (string)$row['uid'],
+			'token_hash' => (string)$row['token_hash'],
+			'sent_to_hint' => (string)$row['sent_to_hint'],
+			'detection_id' => $row['detection_id'] === null ? null : (string)$row['detection_id'],
+			'change_id' => $row['change_id'] === null ? null : (string)$row['change_id'],
+			'expires_at' => (int)$row['expires_at'],
+			'used_at' => $row['used_at'] === null ? null : (int)$row['used_at'],
+			'used_ip' => $row['used_ip'] === null ? null : (string)$row['used_ip'],
+		];
+	}
+}

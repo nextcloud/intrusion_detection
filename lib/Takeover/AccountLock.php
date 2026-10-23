@@ -9,18 +9,16 @@ declare(strict_types=1);
 
 namespace OCA\IntrusionDetection\Takeover;
 
+use OCA\IntrusionDetection\AdminChange\Approvers;
 use OCA\IntrusionDetection\Audit\AuditLogger;
-use OCA\IntrusionDetection\Check\Checks\AccountLocked;
-use OCA\IntrusionDetection\Check\Mode;
-use OCA\IntrusionDetection\Config\ModeState;
+use OCA\IntrusionDetection\Check\Checks\AccountLocked\AccountLocked;
 use OCA\IntrusionDetection\Db\Detection;
-use OCA\IntrusionDetection\Db\SecurityChangeMapper;
-use OCA\IntrusionDetection\Detection\DetectionDraft;
 use OCA\IntrusionDetection\Guide\SecureAccountGuide;
 use OCA\IntrusionDetection\Net\RemoteAddressResolver;
-use OCA\IntrusionDetection\Notification\AdminAlerts;
+use OCA\IntrusionDetection\Response\PasswordChangeService;
 use OCA\IntrusionDetection\Response\ResponseEngine;
 use OCA\IntrusionDetection\Response\Tokens;
+use OCA\IntrusionDetection\Takeover\Db\SecurityChangeMapper;
 use OCP\IUserManager;
 use OCP\IUserSession;
 use Psr\Log\LoggerInterface;
@@ -30,12 +28,19 @@ use Psr\Log\LoggerInterface;
  *
  * Locking ends every session and app password of the account, disables
  * it, records a critical detection (`account_locked`) and tells all
- * administrators. It never unlocks or changes anything else. Only an
- * administrator enables the account again, which starts the "Secure my
- * account" checklist for its owner.
+ * administrators. It never unlocks or changes anything else. The last
+ * enabled administrator is not disabled, since only the command line could
+ * enable it again: its sessions and app passwords end all the same, and
+ * the detection says so.
+ *
+ * Only an administrator enables a locked account again. That starts the
+ * "Secure my account" checklist for its owner and requires a new password
+ * at the next login, since whoever took the account over may know it.
  */
 class AccountLock {
 	public const LOCKED = 'locked';
+	/** The sessions ended, but the last enabled administrator stayed enabled */
+	public const SESSIONS_ENDED = 'sessions_ended';
 
 	public const REENABLED = 'reenabled';
 	public const NOT_LOCKED = 'not_locked';
@@ -48,6 +53,8 @@ class AccountLock {
 		private readonly Tokens $tokens,
 		private readonly ResponseEngine $engine,
 		private readonly SecureAccountGuide $guide,
+		private readonly PasswordChangeService $passwords,
+		private readonly Approvers $approvers,
 		private readonly IUserManager $userManager,
 		private readonly IUserSession $userSession,
 		private readonly RemoteAddressResolver $addresses,
@@ -59,9 +66,9 @@ class AccountLock {
 	/**
 	 * Lock the account of a lock link, once.
 	 *
-	 * @return LockLinks::VALID|LockLinks::USED|LockLinks::EXPIRED|LockLinks::INVALID|self::LOCKED what happened: LOCKED, or why not
+	 * @return LockLinks::VALID|LockLinks::USED|LockLinks::EXPIRED|LockLinks::INVALID|self::LOCKED|self::SESSIONS_ENDED what happened: LOCKED or SESSIONS_ENDED, or why not
 	 */
-	public function lock(int $linkId, #[\SensitiveParameter] string $token): string {
+	public function lock(string $linkId, #[\SensitiveParameter] string $token): string {
 		[$state, $link] = $this->links->check($linkId, $token);
 		if ($state !== LockLinks::VALID || $link === null) {
 			return $state;
@@ -75,36 +82,26 @@ class AccountLock {
 			return LockLinks::USED;
 		}
 		$uid = $user->getUID();
+		$lastAdmin = $this->approvers->isApprover($uid) && $this->approvers->except([$uid]) === [];
 
 		$ended = $this->tokens->invalidateAll($uid);
 		if ($this->userSession->getUser()?->getUID() === $uid) {
 			$this->userSession->logout();
 		}
-		$user->setEnabled(false);
-		$this->audit->log('account %s locked with the lock link sent to %s', ['uid' => $uid, 'sentTo' => $link['sent_to_hint']]);
+		if ($lastAdmin) {
+			$this->audit->log('sessions of %s ended with the lock link sent to %s; the account stays enabled as the last enabled administrator', ['uid' => $uid, 'sentTo' => $link['sent_to_hint']]);
+		} else {
+			$user->setEnabled(false);
+			$this->audit->log('account %s locked with the lock link sent to %s', ['uid' => $uid, 'sentTo' => $link['sent_to_hint']]);
+		}
 
 		$change = $link['change_id'] === null ? null : $this->changes->find($link['change_id']);
 		try {
-			$this->engine->handle(new DetectionDraft(
-				checkId: AccountLocked::ID,
-				source: $source,
-				uid: $uid,
-				facts: [
-					'link' => $linkId,
-					'sentTo' => $link['sent_to_hint'],
-					'newAddress' => $change['new_value_hint'] ?? null,
-					'changedAt' => $change['created_at'] ?? null,
-					'changedFrom' => $change['ip'] ?? null,
-					'takeoverDetection' => $link['detection_id'],
-					'tokensEnded' => count($ended),
-					'ended' => array_slice($ended, 0, 50),
-					AdminAlerts::FACT_ALL_ADMINS => true,
-				],
-			), null, new ModeState(Mode::Protect, Mode::Protect));
+			$this->engine->handle(AccountLocked::draft($source, $uid, $linkId, $link['sent_to_hint'], $link['detection_id'], $change, $ended, $lastAdmin));
 		} catch (\Throwable $e) {
 			$this->logger->error('Intrusion detection locked the account {uid} but could not record it', ['uid' => $uid, 'exception' => $e]);
 		}
-		return self::LOCKED;
+		return $lastAdmin ? self::SESSIONS_ENDED : self::LOCKED;
 	}
 
 	/**
@@ -125,8 +122,9 @@ class AccountLock {
 			return self::NOT_LOCKED;
 		}
 		$user->setEnabled(true);
-		$this->guide->start($user->getUID(), SecureAccountGuide::REASON_REENABLED, $detection->getId(), $detection->getCreatedAt());
-		$this->audit->log('account %s enabled again by %s after it was locked with the lock link (detection %s)', ['uid' => $user->getUID(), 'actor' => $actor, 'detection' => $detection->getId()]);
+		$this->passwords->require($user->getUID(), (string)$detection->getId(), AccountLocked::ID);
+		$this->guide->start($user->getUID(), SecureAccountGuide::REASON_REENABLED, (string)$detection->getId(), $detection->getCreatedTime());
+		$this->audit->log('account %s enabled again by %s after it was locked with the lock link (detection %s)', ['uid' => $user->getUID(), 'actor' => $actor, 'detection' => (string)$detection->getId()]);
 		return self::REENABLED;
 	}
 }

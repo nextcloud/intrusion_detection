@@ -16,8 +16,8 @@ namespace OCA\IntrusionDetection\Blocklist\Parser;
  */
 class CidrTextParser implements IListParser {
 	#[\Override]
-	public function parse(string $body): ParsedList {
-		$list = new ParsedList();
+	public function parse(string $body, int $maxEntries = PHP_INT_MAX): ParsedList {
+		$list = new ParsedList($maxEntries);
 		foreach (Lines::of($body) as $line) {
 			$cut = strcspn($line, '#;');
 			$line = trim(substr($line, 0, $cut));

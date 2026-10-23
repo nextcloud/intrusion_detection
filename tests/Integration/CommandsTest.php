@@ -36,7 +36,7 @@ class CommandsTest extends IntegrationTestCase {
 			'password spraying' => ['password_spraying', 'one password was tried against 5 different accounts'],
 			'account under attack' => ['account_under_attack', 'had 10 failed logins from 5 different addresses'],
 			'reserved name' => ['reserved_name', 'tried to log in as "admin"'],
-			'trap url' => ['trap_url', 'requested /wp-login.php'],
+			'trap url' => ['trap_url', 'requested /wp-login[.]php'],
 			'share token guessing' => ['share_bruteforce', 'tried 10 different share links that do not exist'],
 			'reset abuse' => ['reset_probing', 'asked for password resets for 5 different names or email addresses'],
 		];
@@ -49,7 +49,7 @@ class CommandsTest extends IntegrationTestCase {
 		$this->assertStringContainsString($expected, $output);
 		$this->assertStringContainsString(Simulate::TEST_ADDRESS, $output);
 		$this->assertStringContainsString('Responses that would run', $output);
-		foreach (self::TABLES as $table) {
+		foreach (self::tables() as $table) {
 			$qb = $this->db->getQueryBuilder();
 			$this->assertSame(0, (int)$qb->select($qb->func()->count('*'))->from($table)->executeQuery()->fetchOne(), $table . ' stays empty');
 		}
@@ -72,8 +72,11 @@ class CommandsTest extends IntegrationTestCase {
 	 */
 	public static function invalidBans(): array {
 		return [
-			'no duration' => [['--duration' => '0'], 'more than 0 seconds'],
-			'longer than 90 days' => [['--duration' => '91d'], 'at most 90 days'],
+			'no duration' => [['--duration' => '0'], 'A block lasts from 5 minutes to 90 days.'],
+			'shorter than the page allows' => [['--duration' => '60'], 'A block lasts from 5 minutes to 90 days.'],
+			'longer than 90 days' => [['--duration' => '91d'], 'A block lasts from 5 minutes to 90 days.'],
+			'a note longer than the page allows' => [['--note' => str_repeat('x', 256)], 'The note can have at most 255 characters.'],
+			'not an address' => [['target' => 'example.com'], 'Enter an IPv4 address'],
 			'a level that is no number' => [['--level' => 'abc'], 'The level must be 1, 2 or 3'],
 			'level 4' => [['--level' => '4'], 'The level must be 1, 2 or 3'],
 			'the server itself' => [['target' => '127.0.0.0/24'], 'never blocked'],

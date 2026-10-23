@@ -9,12 +9,11 @@ declare(strict_types=1);
 
 namespace OCA\IntrusionDetection\Confirm\Reasons;
 
-use OCA\IntrusionDetection\Check\Checks\RiskyNetwork;
-use OCA\IntrusionDetection\Check\ResponseType;
-use OCA\IntrusionDetection\Config\Settings;
+use OCA\IntrusionDetection\Check\Checks\RiskyNetwork\RiskyNetwork;
+use OCA\IntrusionDetection\Config\CheckSettings;
 use OCA\IntrusionDetection\Confirm\IStepUpReason;
-use OCA\IntrusionDetection\Confirm\LoginContext;
 use OCA\IntrusionDetection\Confirm\StepUpPolicy;
+use OCA\IntrusionDetection\Login\LoginContext;
 use OCA\IntrusionDetection\Risk\NetworkAttributes;
 
 /**
@@ -26,7 +25,7 @@ use OCA\IntrusionDetection\Risk\NetworkAttributes;
  */
 class RiskyNetworkReason implements IStepUpReason {
 	public function __construct(
-		private readonly Settings $settings,
+		private readonly CheckSettings $settings,
 		private readonly NetworkAttributes $networks,
 	) {
 	}
@@ -38,8 +37,6 @@ class RiskyNetworkReason implements IStepUpReason {
 
 	#[\Override]
 	public function applies(LoginContext $login): bool {
-		return $this->settings->modeState(RiskyNetwork::ID)->acts()
-			&& $this->settings->hasResponse(RiskyNetwork::ID, ResponseType::StepUp)
-			&& $this->networks->riskyLogin($login) !== null;
+		return $this->settings->stepUpActive(RiskyNetwork::ID) && $this->networks->riskyLogin($login) !== null;
 	}
 }

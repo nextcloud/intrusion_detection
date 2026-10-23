@@ -12,24 +12,24 @@ namespace OCA\IntrusionDetection\Tests\Integration;
 use OC\Memcache\ArrayCache;
 use OCA\IntrusionDetection\Address\AddressCache;
 use OCA\IntrusionDetection\Address\AddressResolver;
+use OCA\IntrusionDetection\Address\Verdict;
 use OCA\IntrusionDetection\Blocklist\BlocklistFactsProvider;
+use OCA\IntrusionDetection\Blocklist\Db\BlocklistRangeMapper;
+use OCA\IntrusionDetection\Blocklist\Db\BlocklistStatMapper;
 use OCA\IntrusionDetection\Blocklist\ListState;
 use OCA\IntrusionDetection\Blocklist\SourceRepository;
 use OCA\IntrusionDetection\Blocklist\StateStore;
 use OCA\IntrusionDetection\Config\GlobalSettings;
-use OCA\IntrusionDetection\Config\Settings;
 use OCA\IntrusionDetection\Db\BanMapper;
-use OCA\IntrusionDetection\Db\BlocklistRangeMapper;
-use OCA\IntrusionDetection\Db\BlocklistStatMapper;
-use OCA\IntrusionDetection\Db\StateMapper;
 use OCA\IntrusionDetection\Guard\AddressGuard;
-use OCA\IntrusionDetection\Guard\RequestContext;
+use OCA\IntrusionDetection\Login\RequestContext;
 use OCA\IntrusionDetection\Net\RangeCodec;
 use OCA\IntrusionDetection\Net\RemoteAddressResolver;
 use OCA\IntrusionDetection\Net\ServerAddresses;
 use OCA\IntrusionDetection\Perf\GuardTimer;
+use OCA\IntrusionDetection\State\AppState;
+use OCA\IntrusionDetection\Tests\Unit\Cache\FixedCaches;
 use OCP\AppFramework\Utility\ITimeFactory;
-use OCP\ICacheFactory;
 use OCP\IConfig;
 use OCP\IRequest;
 use OCP\Security\Bruteforce\IThrottler;
@@ -55,8 +55,7 @@ class RiskyNetworkBenchmarkTest extends IntegrationTestCase {
 	private const COLD_BUDGET_US = 2000;
 
 	public function testTheAddressCheckStaysWithinBudgetWithAHundredThousandRanges(): void {
-		$settings = Server::get(Settings::class);
-		$settings->setGlobal(GlobalSettings::BLOCKLIST_SOURCES, json_encode([
+		$this->settingsEditor()->setGlobal(GlobalSettings::BLOCKLIST_SOURCES, json_encode([
 			['id' => 'cloud', 'url' => 'https://lists.example.org/cloud.txt', 'purpose' => 'hosting', 'enabled' => true],
 		]));
 		$ranges = [];
@@ -71,7 +70,7 @@ class RiskyNetworkBenchmarkTest extends IntegrationTestCase {
 		$listed = long2ip(ip2long('20.0.0.0') + 2 * 54321);
 		$warmGuard = $this->guard(true);
 		$this->assertNull($warmGuard->decisionFor($listed));
-		$this->assertSame(['hosting', 'net:cloud'], $this->context->verdict()?->attributes, 'The verdict carries the attributes');
+		$this->assertSame(['hosting', 'net:cloud'], Verdict::of($this->context)?->attributes, 'The verdict carries the attributes');
 		$warm = $this->measure(fn () => $warmGuard->decisionFor($listed), self::WARM);
 
 		$coldGuard = $this->guard(false);
@@ -103,22 +102,17 @@ class RiskyNetworkBenchmarkTest extends IntegrationTestCase {
 	 */
 	private function guard(bool $cached, bool $withList = true): AddressGuard {
 		if (!$withList) {
-			Server::get(Settings::class)->setGlobal(GlobalSettings::BLOCKLIST_SOURCES, '[]');
+			$this->settingsEditor()->setGlobal(GlobalSettings::BLOCKLIST_SOURCES, '[]');
 		}
 		$store = new ArrayCache();
-		$factory = $this->createMock(ICacheFactory::class);
-		$factory->method('isAvailable')->willReturn($cached);
-		$factory->method('isLocalCacheAvailable')->willReturn($cached);
-		$factory->method('createDistributed')->willReturn($store);
-		$factory->method('createLocal')->willReturn($store);
-		$addressCache = new AddressCache($factory, Server::get(StateMapper::class));
-		$settings = Server::get(Settings::class);
+		$factory = $cached ? new FixedCaches($store) : FixedCaches::none();
+		$addressCache = new AddressCache($factory, Server::get(AppState::class));
 		$provider = new BlocklistFactsProvider(
-			new SourceRepository($settings, Server::get(\OCA\IntrusionDetection\Crypto\Fingerprinter::class)),
+			new SourceRepository($this->appSettings(), Server::get(\OCA\IntrusionDetection\Crypto\Fingerprinter::class)),
 			Server::get(StateStore::class),
 			Server::get(BlocklistRangeMapper::class),
 			Server::get(BlocklistStatMapper::class),
-			$settings,
+			$this->appSettings(), $this->checkSettings(),
 			$addressCache,
 			Server::get(ITimeFactory::class),
 			Server::get(LoggerInterface::class),
@@ -130,13 +124,13 @@ class RiskyNetworkBenchmarkTest extends IntegrationTestCase {
 		$this->context = new RequestContext();
 		return new AddressGuard(
 			$config,
-			$settings,
+			$this->appSettings(),
 			$addressCache,
 			new AddressResolver(Server::get(BanMapper::class), Server::get(ITimeFactory::class), $container),
 			new RemoteAddressResolver($this->createMock(IRequest::class), Server::get(IThrottler::class), Server::get(ServerAddresses::class)),
 			$this->context,
 			Server::get(ITimeFactory::class),
-			new GuardTimer($this->createMock(ICacheFactory::class), Server::get(ITimeFactory::class)),
+			new GuardTimer(FixedCaches::none(), Server::get(ITimeFactory::class)),
 		);
 	}
 

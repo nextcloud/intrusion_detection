@@ -23,8 +23,8 @@ vi.mock('../services/api.ts', async (importOriginal) => ({
 /**
  * @param value - Whether intrusion detection is on
  */
-function master(value: boolean): GlobalSetting {
-	return { name: 'protection_enabled', type: 'bool', default: true, min: null, max: null, choices: [], value, label: 'On', help: '', unit: '', group: 'master' }
+function master(value: boolean, locked = false): GlobalSetting {
+	return { name: 'protection_enabled', type: 'bool', default: true, min: null, max: null, choices: [], value, label: 'On', help: '', unit: '', group: 'master', locked }
 }
 
 enableAutoUnmount(afterEach)
@@ -64,5 +64,12 @@ describe('the master switch', () => {
 		await flushPromises()
 		expect(updateSettings).toHaveBeenCalledWith({ protection_enabled: true })
 		expect(state.settings[0]!.value).toBe(true)
+	})
+
+	test('locked in config.php, it cannot be switched and says why', () => {
+		state.settings = [master(true, true)]
+		const wrapper = mount(MasterSwitch)
+		expect((input(wrapper).element as HTMLInputElement).disabled).toBe(true)
+		expect(wrapper.get('[data-test="master-switch-locked"]').text()).toBe('Locked in config.php')
 	})
 })

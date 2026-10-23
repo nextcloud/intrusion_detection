@@ -9,17 +9,22 @@ declare(strict_types=1);
 
 namespace OCA\IntrusionDetection\Tests\Unit\Confirm;
 
+use OC\Authentication\TwoFactorAuth\ProviderLoader;
 use OCA\IntrusionDetection\AdminChange\ApprovalService;
 use OCA\IntrusionDetection\AdminChange\Approvers;
+use OCA\IntrusionDetection\Config\AppSettings;
 use OCA\IntrusionDetection\Config\GlobalSettings;
-use OCA\IntrusionDetection\Config\Settings;
+use OCA\IntrusionDetection\Confirm\AccountMethods;
+use OCA\IntrusionDetection\Confirm\Administrators;
 use OCA\IntrusionDetection\Confirm\ConfirmationPolicy;
+use OCA\IntrusionDetection\Confirm\ConfirmationStatus;
 use OCA\IntrusionDetection\Confirm\EmailCodes;
 use OCA\IntrusionDetection\Confirm\IConfirmationMethod;
 use OCA\IntrusionDetection\Confirm\Methods\AdminApprovalMethod;
 use OCA\IntrusionDetection\Confirm\Methods\EmailCodeMethod;
 use OCA\IntrusionDetection\Confirm\Methods\KnownDeviceMethod;
 use OCA\IntrusionDetection\Confirm\Methods\SecondFactorMethod;
+use OCA\IntrusionDetection\Confirm\SecondFactors;
 use OCA\IntrusionDetection\Confirm\StepUpPolicy;
 use OCA\IntrusionDetection\Confirm\StepUpState;
 use OCA\IntrusionDetection\Confirm\UntrustedSecondFactors;
@@ -27,6 +32,7 @@ use OCA\IntrusionDetection\Db\Approval;
 use OCA\IntrusionDetection\Db\ApprovalMapper;
 use OCA\IntrusionDetection\KnownDevice\KnownDevice;
 use OCA\IntrusionDetection\KnownDevice\KnownDevices;
+use OCA\IntrusionDetection\Notification\MailReach;
 use OCP\AppFramework\Utility\ITimeFactory;
 use OCP\Authentication\TwoFactorAuth\IChallengeRequester;
 use OCP\Authentication\TwoFactorAuth\IRegistry;
@@ -50,7 +56,7 @@ class ConfirmationOrderTest extends TestCase {
 	private bool $approval = false;
 	private bool $otherApprovers = true;
 	/** @var list<string> */
-	private array $knownDeviceOk = KnownDeviceMethod::DEFAULT_POLICIES;
+	private array $knownDeviceOk = GlobalSettings::STEP_UP_KNOWN_DEVICE_DEFAULT;
 	private ?Approval $requested = null;
 
 	/**
@@ -75,7 +81,7 @@ class ConfirmationOrderTest extends TestCase {
 		$policy = $this->policy();
 		$user = $this->user();
 		foreach (StepUpPolicy::cases() as $reason) {
-			$deviceCounts = $device && in_array($reason->value, KnownDeviceMethod::DEFAULT_POLICIES, true);
+			$deviceCounts = $device && in_array($reason->value, GlobalSettings::STEP_UP_KNOWN_DEVICE_DEFAULT, true);
 			$expected = array_keys(array_filter([
 				IConfirmationMethod::SECOND_FACTOR => $secondFactor,
 				IConfirmationMethod::KNOWN_DEVICE => $deviceCounts,
@@ -117,10 +123,10 @@ class ConfirmationOrderTest extends TestCase {
 
 	public function testAKnownDeviceConfirmsSilently(): void {
 		$this->knownDevice = true;
-		$state = new StepUpState('alice', StepUpState::PENDING, ['flagged_source'], self::NOW, self::NOW + 900);
-		$this->assertSame(IConfirmationMethod::CONFIRMED, $this->knownDeviceMethod()->begin($this->user(), $state));
+		$state = new StepUpState('alice', ConfirmationStatus::Pending, ['flagged_source'], self::NOW, self::NOW + 900);
+		$this->assertSame(IConfirmationMethod::CONFIRMED, $this->knownDeviceMethod()->begin($this->user(), $state)->outcome);
 		$this->knownDevice = false;
-		$this->assertSame(IConfirmationMethod::UNAVAILABLE, $this->knownDeviceMethod()->begin($this->user(), $state));
+		$this->assertSame(IConfirmationMethod::UNAVAILABLE, $this->knownDeviceMethod()->begin($this->user(), $state)->outcome);
 	}
 
 	public function testAdminApprovalNeedsTheSettingAndAnotherAdministrator(): void {
@@ -136,15 +142,18 @@ class ConfirmationOrderTest extends TestCase {
 	public function testAdminApprovalWaitsAsLongAsTheRequest(): void {
 		$this->approval = true;
 		$this->requested = $this->approvalRow(Approval::STATUS_PENDING, self::NOW + 1800);
-		$state = new StepUpState('alice', StepUpState::PENDING, ['flagged_source'], self::NOW, self::NOW + 900, '203.0.113.7');
-		$this->assertSame(IConfirmationMethod::PENDING, $this->approvalMethod()->begin($this->user(), $state));
-		$this->assertSame(41, $state->approvalId);
+		$state = new StepUpState('alice', ConfirmationStatus::Pending, ['flagged_source'], self::NOW, self::NOW + 900, '203.0.113.7');
+		$start = $this->approvalMethod()->begin($this->user(), $state);
+		$this->assertSame(IConfirmationMethod::PENDING, $start->outcome);
+		$state = $start->state;
+		$this->assertSame('41', $state->approvalId);
 		$this->assertSame(self::NOW + 1800, $state->deadline, 'The login may wait until the request expires');
 
 		$this->requested = null;
-		$other = new StepUpState('alice', StepUpState::PENDING, ['flagged_source'], self::NOW, self::NOW + 900);
-		$this->assertSame(IConfirmationMethod::UNAVAILABLE, $this->approvalMethod()->begin($this->user(), $other), 'No request could be stored');
-		$this->assertNull($other->approvalId);
+		$other = new StepUpState('alice', ConfirmationStatus::Pending, ['flagged_source'], self::NOW, self::NOW + 900);
+		$start = $this->approvalMethod()->begin($this->user(), $other);
+		$this->assertSame(IConfirmationMethod::UNAVAILABLE, $start->outcome, 'No request could be stored');
+		$this->assertNull($start->state->approvalId);
 	}
 
 	/**
@@ -165,7 +174,7 @@ class ConfirmationOrderTest extends TestCase {
 	public function testTheStatusOfTheRequest(string $status, ?string $decidedBy, int $expiresAt, string $expected): void {
 		$row = $this->approvalRow($status, $expiresAt);
 		$row->setDecidedBy($decidedBy);
-		$state = new StepUpState('alice', StepUpState::PENDING, ['flagged_source'], self::NOW, self::NOW + 900, approvalId: 41);
+		$state = new StepUpState('alice', ConfirmationStatus::Pending, ['flagged_source'], self::NOW, self::NOW + 900, approvalId: '41');
 		$this->assertSame($expected, $this->approvalMethod($row)->status($this->user(), $state));
 	}
 
@@ -173,7 +182,7 @@ class ConfirmationOrderTest extends TestCase {
 		$row = $this->approvalRow(Approval::STATUS_APPROVED, self::NOW + 60);
 		$row->setSubjectUid('mallory');
 		$row->setDecidedBy('carol');
-		$state = new StepUpState('alice', StepUpState::PENDING, ['flagged_source'], self::NOW, self::NOW + 900, approvalId: 41);
+		$state = new StepUpState('alice', ConfirmationStatus::Pending, ['flagged_source'], self::NOW, self::NOW + 900, approvalId: '41');
 		$this->assertSame(AdminApprovalMethod::STATUS_NONE, $this->approvalMethod($row)->status($this->user(), $state));
 	}
 
@@ -187,7 +196,7 @@ class ConfirmationOrderTest extends TestCase {
 		$this->assertSame(array_keys($methods), ConfirmationPolicy::METHODS, 'The order of concept section 11.5');
 		$container = $this->createMock(ContainerInterface::class);
 		$container->method('get')->willReturnCallback(static fn (string $id): object => $methods[$id]);
-		return new ConfirmationPolicy($this->settings(), $container, $this->createMock(LoggerInterface::class));
+		return new ConfirmationPolicy($this->settings(), $container, $this->createMock(LoggerInterface::class), $this->administrators());
 	}
 
 	private function secondFactorMethod(): SecondFactorMethod {
@@ -195,19 +204,19 @@ class ConfirmationOrderTest extends TestCase {
 		$challenges->method('isAvailable')->willReturnCallback(fn (): bool => $this->secondFactor);
 		$registry = $this->createMock(IRegistry::class);
 		$registry->method('getProviderStates')->willReturnCallback(fn (): array => $this->secondFactor ? ['totp' => true] : []);
-		return new SecondFactorMethod($challenges, $registry, $this->createMock(UntrustedSecondFactors::class));
+		return new SecondFactorMethod($challenges, new AccountMethods($this->createMock(MailReach::class), new SecondFactors($registry, $this->createMock(ProviderLoader::class), $this->createMock(UntrustedSecondFactors::class), $this->createMock(LoggerInterface::class))));
 	}
 
 	private function knownDeviceMethod(): KnownDeviceMethod {
 		$devices = $this->createMock(KnownDevices::class);
-		$devices->method('recognise')->willReturnCallback(fn (): ?KnownDevice => $this->knownDevice ? new KnownDevice(3, 'alice', 'firefox', 'linux', 'Firefox on Linux', '203.0.113.0/24', self::NOW - 86400, self::NOW - 86400) : null);
+		$devices->method('recognise')->willReturnCallback(fn (): ?KnownDevice => $this->knownDevice ? new KnownDevice('3', 'alice', 'firefox', 'linux', 'Firefox on Linux', '203.0.113.0/24', self::NOW - 86400, self::NOW - 86400) : null);
 		return new KnownDeviceMethod($devices, $this->settings());
 	}
 
 	private function emailMethod(): EmailCodeMethod {
-		$codes = $this->createMock(EmailCodes::class);
-		$codes->method('isAvailable')->willReturnCallback(fn (): bool => $this->email);
-		return new EmailCodeMethod($codes);
+		$methods = $this->createMock(AccountMethods::class);
+		$methods->method('byEmail')->willReturnCallback(fn (): bool => $this->email);
+		return new EmailCodeMethod($this->createMock(EmailCodes::class), $methods);
 	}
 
 	private function approvalMethod(?Approval $row = null): AdminApprovalMethod {
@@ -225,22 +234,21 @@ class ConfirmationOrderTest extends TestCase {
 	}
 
 	private function approvalRow(string $status, int $expiresAt): Approval {
-		$row = new Approval();
-		$row->setId(41);
+		$row = Approval::fromRow(['id' => '41']);
 		$row->setKind(Approval::KIND_LOGIN);
 		$row->setSubjectUid('alice');
 		$row->setRequestedBy('alice');
 		$row->setStatus($status);
-		$row->setCreatedAt(self::NOW - 60);
+		$row->setCreatedTime(self::NOW - 60);
 		$row->setExpiresAt($expiresAt);
 		return $row;
 	}
 
-	private function settings(): Settings {
-		$settings = $this->createMock(Settings::class);
-		$settings->method('global')->willReturnCallback(fn (string $name): array|string => $name === GlobalSettings::STEP_UP_KNOWN_DEVICE_OK_FOR ? $this->knownDeviceOk : '');
-		$settings->method('getBool')->willReturnCallback(fn (string $name): bool => $name === GlobalSettings::STEP_UP_ADMIN_APPROVAL && $this->approval);
-		$settings->method('getInt')->willReturn(1800);
+	private function settings(): AppSettings {
+		$settings = $this->createMock(AppSettings::class);
+		$settings->method('stepUpKnownDeviceOkFor')->willReturnCallback(fn (): array => $this->knownDeviceOk);
+		$settings->method('stepUpAdminApproval')->willReturnCallback(fn (): bool => $this->approval);
+		$settings->method('stepUpNoMethod')->willReturn('');
 		return $settings;
 	}
 
@@ -256,5 +264,11 @@ class ConfirmationOrderTest extends TestCase {
 	 */
 	private function ids(array $methods): array {
 		return array_map(static fn (IConfirmationMethod $m): string => $m->id(), $methods);
+	}
+
+	private function administrators(): Administrators {
+		$administrators = $this->createMock(Administrators::class);
+		$administrators->method('isAdministrator')->willReturn(false);
+		return $administrators;
 	}
 }

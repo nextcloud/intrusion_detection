@@ -14,13 +14,20 @@ use OC\AppFramework\Middleware\Security\PasswordConfirmationMiddleware;
 use OC\AppFramework\Utility\ControllerMethodReflector;
 use OC\Authentication\Token\IProvider;
 use OC\User\Manager;
+use OCA\IntrusionDetection\AdminChange\ActorResolver;
 use OCA\IntrusionDetection\AdminChange\ApprovalException;
 use OCA\IntrusionDetection\AdminChange\ApprovalService;
+use OCA\IntrusionDetection\Check\Checks\AdminChange\AdminChange;
+use OCA\IntrusionDetection\Confirm\ConfirmationStatus;
+use OCA\IntrusionDetection\Confirm\LoginConfirmationStore;
 use OCA\IntrusionDetection\Confirm\SessionConfirmation;
 use OCA\IntrusionDetection\Confirm\StepUpState;
+use OCA\IntrusionDetection\Confirm\UnconfirmedSessions;
 use OCA\IntrusionDetection\Controller\ApprovalController;
 use OCA\IntrusionDetection\Db\Approval;
-use OCA\IntrusionDetection\SessionState\SessionState;
+use OCA\IntrusionDetection\Explain\DateFormatter;
+use OCA\IntrusionDetection\Login\CoreSession;
+use OCA\IntrusionDetection\Login\SessionMarkers;
 use OCP\AppFramework\Http;
 use OCP\AppFramework\Http\Attribute\NoAdminRequired;
 use OCP\AppFramework\Http\Attribute\NoCSRFRequired;
@@ -37,10 +44,13 @@ use OCP\IUserSession;
 use OCP\Security\Ip\IRemoteAddress;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\MockObject\MockObject;
+use Psr\Container\ContainerInterface;
 use Psr\Log\LoggerInterface;
 use Test\TestCase;
 
 class ApprovalControllerTest extends TestCase {
+	use AnswersLikeTheApi;
+
 	private const NOW = 1_800_000_000;
 
 	private IUserManager&MockObject $userManager;
@@ -109,7 +119,7 @@ class ApprovalControllerTest extends TestCase {
 		try {
 			$middleware->beforeController($controller, $method);
 			$this->assertTrue($passes, 'The middleware let the request through');
-			$this->assertSame(Http::STATUS_OK, $controller->$method(5)->getStatus());
+			$this->assertSame(Http::STATUS_OK, $controller->$method('5')->getStatus());
 		} catch (NotConfirmedException) {
 			$this->assertFalse($passes, 'The middleware asked for the password');
 		}
@@ -140,10 +150,13 @@ class ApprovalControllerTest extends TestCase {
 
 	public function testTheDecidingAdministratorIsTheLoggedInOne(): void {
 		$service = $this->createMock(ApprovalService::class);
+		$login = new Approval();
+		$login->setKind(Approval::KIND_LOGIN);
+		$service->method('find')->willReturn($login);
 		$approval = new Approval();
 		$approval->setStatus(Approval::STATUS_APPROVED);
 		$service->expects($this->once())->method('approve')->with(5, 'carol', ApprovalService::VIA_WEB)->willReturn($approval);
-		$response = $this->controller($service)->approve(5);
+		$response = $this->answer(fn () => $this->controller($service)->approve('5'));
 		$this->assertSame(Http::STATUS_OK, $response->getStatus());
 		$this->assertSame(Approval::STATUS_APPROVED, $response->getData()['status']);
 	}
@@ -152,16 +165,16 @@ class ApprovalControllerTest extends TestCase {
 		$service = $this->createMock(ApprovalService::class);
 		$service->expects($this->never())->method('approve');
 		$this->confirmation = ['uid' => 'carol', 'by' => 'none', 'policies' => ['flagged_source'], 'at' => 1];
-		$response = $this->controller($service)->approve(5);
+		$response = $this->answer(fn () => $this->controller($service)->approve('5'));
 		$this->assertSame(Http::STATUS_FORBIDDEN, $response->getStatus());
 		$this->assertSame(ApprovalException::UNCONFIRMED, $response->getData()['reason']);
 
 		$this->confirmation = null;
-		$this->stepUp = (new StepUpState('carol', StepUpState::PENDING, ['flagged_source'], 1, 901))->toArray();
-		$this->assertSame(ApprovalException::UNCONFIRMED, $this->controller($service)->approve(5)->getData()['reason'], 'A login that still waits for its confirmation');
+		$this->stepUp = (new StepUpState('carol', ConfirmationStatus::Pending, ['flagged_source'], 1, 901))->toArray();
+		$this->assertSame(ApprovalException::UNCONFIRMED, $this->answer(fn () => $this->controller($service)->approve('5'))->getData()['reason'], 'A login that still waits for its confirmation');
 		$this->stepUp = null;
 		$this->appPassword = true;
-		$this->assertSame(ApprovalException::UNCONFIRMED, $this->controller($service)->approve(5)->getData()['reason'], 'An app password');
+		$this->assertSame(ApprovalException::UNCONFIRMED, $this->answer(fn () => $this->controller($service)->approve('5'))->getData()['reason'], 'An app password');
 		$this->appPassword = false;
 
 		$this->confirmation = ['uid' => 'carol', 'by' => 'email_code', 'policies' => ['flagged_source'], 'at' => 1];
@@ -169,18 +182,62 @@ class ApprovalControllerTest extends TestCase {
 		$approval->setStatus(Approval::STATUS_APPROVED);
 		$other = $this->createMock(ApprovalService::class);
 		$other->expects($this->once())->method('approve')->willReturn($approval);
-		$this->assertSame(Http::STATUS_OK, $this->controller($other)->approve(5)->getStatus());
+		$this->assertSame(Http::STATUS_OK, $this->controller($other)->approve('5')->getStatus());
+	}
+
+	public static function provideKindsThatNeedAProvenLogin(): array {
+		return [
+			'a new administrator' => [Approval::KIND_ADMIN_GRANT],
+			'a held settings change' => [Approval::KIND_SETTINGS],
+		];
+	}
+
+	/**
+	 * A client that sends the password confirms it with every request, so
+	 * the password confirmation alone neither makes a new administrator nor
+	 * switches the four-eyes approval off.
+	 */
+	#[DataProvider('provideKindsThatNeedAProvenLogin')]
+	public function testApprovingNeedsALoginThatProvedMoreThanThePassword(string $kind): void {
+		$grant = new Approval();
+		$grant->setKind($kind);
+		$approved = new Approval();
+		$approved->setStatus(Approval::STATUS_APPROVED);
+		$service = $this->createMock(ApprovalService::class);
+		$service->method('find')->with(5)->willReturn($grant);
+		$service->expects($this->never())->method('approve');
+
+		$response = $this->answer(fn () => $this->controller($service)->approve('5'));
+		$this->assertSame(Http::STATUS_FORBIDDEN, $response->getStatus(), 'A login that needed no confirmation proved the password only');
+		$this->assertSame(ApprovalException::NOT_PROVEN, $response->getData()['reason']);
+
+		$this->confirmation = ['uid' => 'carol', 'by' => 'second_factor', 'policies' => [], 'at' => 1];
+		$proven = $this->createMock(ApprovalService::class);
+		$proven->method('find')->willReturn($grant);
+		$proven->expects($this->once())->method('approve')->willReturn($approved);
+		$this->assertSame(Http::STATUS_OK, $this->controller($proven)->approve('5')->getStatus());
+	}
+
+	public function testAWaitingLoginCanBeApprovedFromAPasswordLogin(): void {
+		$login = new Approval();
+		$login->setKind(Approval::KIND_LOGIN);
+		$approved = new Approval();
+		$approved->setStatus(Approval::STATUS_APPROVED);
+		$service = $this->createMock(ApprovalService::class);
+		$service->method('find')->willReturn($login);
+		$service->expects($this->once())->method('approve')->willReturn($approved);
+		$this->assertSame(Http::STATUS_OK, $this->controller($service)->approve('5')->getStatus());
 	}
 
 	public function testTheWaitingAdministratorsAreListedForTheViewerOldestFirst(): void {
 		$service = $this->createMock(ApprovalService::class);
-		$service->expects($this->once())->method('list')->with(true, 200, Approval::KIND_ADMIN_GRANT)->willReturn([
+		$service->expects($this->exactly(2))->method('list')->willReturnCallback(fn (bool $pendingOnly, int $limit, ?string $kind): array => $kind === Approval::KIND_ADMIN_GRANT ? [
 			$this->grant(3, 'dave', 'carol', self::NOW + 60),
 			$this->grant(2, 'bob', 'alice', self::NOW + 60),
 			$this->grant(1, 'erin', 'alice', self::NOW),
-		]);
+		] : []);
 		$list = $this->controller($service)->adminGrants()->getData();
-		$this->assertSame([2, 3], array_column($list, 'id'), 'Oldest first, the expired one left out');
+		$this->assertSame(['2', '3'], array_column($list, 'id'), 'Oldest first, the expired one left out');
 		$this->assertSame(['uid' => 'bob', 'displayName' => 'Bob Builder', 'group' => 'admin', 'requestedBy' => 'alice', 'requesterName' => 'Alice Liddell', 'canApprove' => true], array_intersect_key($list[0], array_flip(['uid', 'displayName', 'group', 'requestedBy', 'requesterName', 'canApprove'])));
 		$this->assertFalse($list[1]['canApprove'], 'The one who asked cannot approve');
 		$this->assertSame('dave', $list[1]['displayName']);
@@ -214,20 +271,19 @@ class ApprovalControllerTest extends TestCase {
 	public function testRefusalsBecomeErrors(string $reason, int $status): void {
 		$service = $this->createMock(ApprovalService::class);
 		$service->method('reject')->willThrowException(new ApprovalException($reason));
-		$response = $this->controller($service)->reject(5);
+		$response = $this->answer(fn () => $this->controller($service)->reject('5'));
 		$this->assertSame($status, $response->getStatus());
 		$this->assertSame($reason, $response->getData()['reason']);
 	}
 
 	private function grant(int $id, string $subject, string $requester, int $expiresAt): Approval {
-		$approval = new Approval();
-		$approval->setId($id);
+		$approval = Approval::fromRow(['id' => (string)$id]);
 		$approval->setKind(Approval::KIND_ADMIN_GRANT);
 		$approval->setSubjectUid($subject);
 		$approval->setRequestedBy($requester);
 		$approval->setGroupId('admin');
 		$approval->setStatus(Approval::STATUS_PENDING);
-		$approval->setCreatedAt(self::NOW - 100 + $id);
+		$approval->setCreatedTime(self::NOW - 100 + $id);
 		$approval->setExpiresAt($expiresAt);
 		return $approval;
 	}
@@ -245,17 +301,19 @@ class ApprovalControllerTest extends TestCase {
 		$session = $this->userSession();
 		$l = $this->createMock(IL10N::class);
 		$l->method('t')->willReturnArgument(0);
-		$state = $this->createMock(SessionState::class);
+		$state = $this->createMock(SessionMarkers::class);
 		$state->method('get')->willReturnCallback(fn (string $name): ?array => match ($name) {
-			SessionState::CONFIRMATION => $this->confirmation,
-			SessionState::STEP_UP => $this->stepUp,
+			SessionMarkers::CONFIRMATION => $this->confirmation,
+			SessionMarkers::STEP_UP => $this->stepUp,
 			default => null,
 		});
+		$state->method('all')->willReturnCallback(fn (): array => array_filter([SessionMarkers::CONFIRMATION => $this->confirmation, SessionMarkers::STEP_UP => $this->stepUp], static fn (?array $marker): bool => $marker !== null));
 		$phpSession = $this->createMock(ISession::class);
 		$phpSession->method('exists')->willReturnCallback(fn (string $key): bool => $key === 'app_password' && $this->appPassword);
-		$confirmation = new SessionConfirmation($state, $phpSession, $this->createMock(ITimeFactory::class));
+		$coreSession = new CoreSession($phpSession, $this->createMock(\OCP\Authentication\Token\IProvider::class), $this->createMock(LoggerInterface::class));
+		$confirmation = new SessionConfirmation(new LoginConfirmationStore($state, $this->createMock(UnconfirmedSessions::class), $coreSession), $coreSession);
 		$time = $this->createMock(ITimeFactory::class);
 		$time->method('getTime')->willReturn(self::NOW);
-		return new ApprovalController($this->createMock(IRequest::class), $service, $session, $l, $confirmation, $this->userManager, $time);
+		return new ApprovalController($this->createMock(IRequest::class), $l, new ActorResolver($session), $session, $service, $confirmation, $this->userManager, $time, new AdminChange($this->createMock(DateFormatter::class), $this->createMock(ContainerInterface::class)));
 	}
 }

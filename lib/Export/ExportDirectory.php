@@ -10,6 +10,7 @@ declare(strict_types=1);
 namespace OCA\IntrusionDetection\Export;
 
 use OCP\IConfig;
+use OCP\Server;
 
 /**
  * The directory the firewall export writes to: `intrusion_detection.export_dir`
@@ -25,7 +26,9 @@ use OCP\IConfig;
  * - It must not be inside the Nextcloud installation or an apps directory,
  *   nor contain the installation: those are served by the web server, so the
  *   list of blocked addresses (personal data) would be public, and a parent
- *   of the installation is usually the web server's document root.
+ *   of the installation is usually the web server's document root. Other
+ *   folders the web server serves cannot be known here; the documentation
+ *   asks for a folder outside every web root.
  * - It must not be world-writable: a root-owned firewall loader reads these
  *   files, so no other local user may be able to place or swap them.
  * - It must be writable by the web server user.
@@ -94,8 +97,8 @@ class ExportDirectory {
 	 * @return list<string>
 	 */
 	private function servedPaths(): array {
-		// This app is shipped in <installation>/apps/intrusion_detection; this file is in its lib/Export.
-		$paths = [dirname(__DIR__, 4)];
+		// Core's public API is <installation>/lib/public, wherever the apps are.
+		$paths = [dirname((string)(new \ReflectionClass(Server::class))->getFileName(), 3)];
 		$appsPaths = $this->config->getSystemValue('apps_paths', []);
 		if (is_array($appsPaths)) {
 			foreach ($appsPaths as $entry) {

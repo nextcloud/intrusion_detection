@@ -7,12 +7,12 @@
 import type { TabDefinition } from '../extensions.ts'
 
 import { mdiChevronDown } from '@mdi/js'
-import { t } from '@nextcloud/l10n'
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import NcActionButton from '@nextcloud/vue/components/NcActionButton'
 import NcActions from '@nextcloud/vue/components/NcActions'
 import NcIconSvgWrapper from '@nextcloud/vue/components/NcIconSvgWrapper'
 import { APP_ID } from '../utils/format.ts'
+import { t } from '../utils/l10n.ts'
 
 const active = defineModel<string>({ required: true })
 
@@ -211,11 +211,11 @@ async function pick(id: string) {
 	display: inline-flex;
 	flex: 0 0 auto;
 	align-items: center;
-	gap: calc(var(--default-grid-baseline) * 2);
+	gap: var(--ids-space-2);
 	min-height: var(--default-clickable-area);
 	margin: 0;
-	padding-block: calc(var(--default-grid-baseline) * 2);
-	padding-inline: calc(var(--default-grid-baseline) * 3);
+	padding-block: var(--ids-space-2);
+	padding-inline: var(--ids-space-3);
 	border: none;
 	border-radius: var(--border-radius-element) var(--border-radius-element) 0 0;
 	background: transparent;
@@ -231,14 +231,14 @@ async function pick(id: string) {
 }
 
 .tabs button.tab:focus-visible {
-	outline: 2px solid var(--color-main-text);
+	outline: var(--ids-focus-ring);
 	outline-offset: -2px;
 }
 
 .tabs .tab::after {
 	content: '';
 	position: absolute;
-	inset-inline: calc(var(--default-grid-baseline) * 2);
+	inset-inline: var(--ids-space-2);
 	bottom: 0;
 	height: 3px;
 	border-radius: 3px 3px 0 0;
@@ -256,7 +256,7 @@ async function pick(id: string) {
 
 .tab__count {
 	min-width: 20px;
-	padding-inline: calc(var(--default-grid-baseline) * 1.5);
+	padding-inline: var(--ids-space-1-5);
 	border-radius: 10px;
 	background-color: var(--color-primary-element-light);
 	color: var(--color-primary-element-light-text);

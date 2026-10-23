@@ -10,10 +10,10 @@ declare(strict_types=1);
 namespace OCA\IntrusionDetection\Admin;
 
 use OCA\IntrusionDetection\Address\AddressResolver;
-use OCA\IntrusionDetection\Check\ResponseType;
 use OCA\IntrusionDetection\Db\AttemptKind;
 use OCA\IntrusionDetection\Db\AttemptMapper;
 use OCA\IntrusionDetection\Db\Detection;
+use OCA\IntrusionDetection\Definition\ResponseType;
 use OCA\IntrusionDetection\Detection\AttemptRecorder;
 use OCA\IntrusionDetection\Explain\DetectionSummary;
 use OCA\IntrusionDetection\Explain\NarrativeBuilder;
@@ -61,7 +61,7 @@ class DetectionPresenter {
 	public function row(Detection $detection, IL10N $l): array {
 		$checkId = $detection->getCheckId();
 		return [
-			'id' => (int)$detection->getId(),
+			'id' => (string)$detection->getId(),
 			'checkId' => $checkId,
 			'checkName' => $this->names->name($checkId, $l),
 			'category' => $this->names->category($checkId)->value,
@@ -72,7 +72,7 @@ class DetectionPresenter {
 			'uid' => $detection->getUid(),
 			'shareId' => $detection->getShareId(),
 			'hits' => $detection->getHits(),
-			'createdAt' => $detection->getCreatedAt(),
+			'createdAt' => $detection->getCreatedTime(),
 			'lastSeenAt' => $detection->getLastSeenAt(),
 			'userVerdict' => $detection->getUserVerdict(),
 			'summary' => $this->summaries->summary($detection, $l),

@@ -10,18 +10,20 @@ declare(strict_types=1);
 namespace OCA\IntrusionDetection\Tests\Integration;
 
 use OCA\IntrusionDetection\AppInfo\Application;
-use OCA\IntrusionDetection\Check\Checks\PasswordSpraying;
+use OCA\IntrusionDetection\Check\Checks\PasswordSpraying\PasswordSpraying;
+use OCA\IntrusionDetection\Check\Checks\PasswordSpraying\PasswordSprayingFacts;
+use OCA\IntrusionDetection\Check\Checks\PasswordSpraying\PasswordSprayingRule;
 use OCA\IntrusionDetection\Config\GlobalSettings;
 use OCA\IntrusionDetection\Db\DetectionMapper;
-use OCA\IntrusionDetection\Db\LoginHistoryMapper;
-use OCA\IntrusionDetection\Db\SecurityChangeMapper;
 use OCA\IntrusionDetection\Detection\DetectionDraft;
+use OCA\IntrusionDetection\LoginHistory\Db\LoginHistoryMapper;
 use OCA\IntrusionDetection\LoginHistory\LoginHistory;
 use OCA\IntrusionDetection\Net\SourceKey;
 use OCA\IntrusionDetection\Personal\FailedLoginStats;
 use OCA\IntrusionDetection\Personal\ManageSummary;
 use OCA\IntrusionDetection\Personal\PersonalActivity;
 use OCA\IntrusionDetection\Response\Tokens;
+use OCA\IntrusionDetection\Takeover\Db\SecurityChangeMapper;
 use OCA\IntrusionDetection\TrustedNetwork\TrustedNetworks;
 use OCA\IntrusionDetection\WasThisYou\PersonalDetections;
 use OCP\AppFramework\OCS\OCSNotFoundException;
@@ -54,8 +56,8 @@ class PersonalActivityTest extends PersonalApiTestCase {
 		$now = time();
 		$open = $this->detection($this->alice, '203.0.113.10');
 		$answered = $this->detection($this->alice, '203.0.113.11');
-		$this->setCreatedAt($open->getId(), $now - 86400 * 40);
-		$this->setCreatedAt($answered->getId(), $now - 3600);
+		$this->setCreatedTime($open->getId(), $now - 86400 * 40);
+		$this->setCreatedTime($answered->getId(), $now - 3600);
 		Server::get(DetectionMapper::class)->setVerdict($answered->getId(), $this->alice->getUID(), 'confirmed', $now - 3000);
 		$login = $this->loginAt($this->alice, $now - 7200, '198.51.100.7');
 		$change = $this->change($this->alice, $now - 600);
@@ -100,14 +102,14 @@ class PersonalActivityTest extends PersonalApiTestCase {
 		$this->assertSame(LoginHistory::STEP_UP_PENDING, $steps[$recent], 'it may still be confirmed');
 		$this->assertSame([$recent => 'pending', $old => 'failed'], array_column($api->logins()->getData(), 'stepUp', 'id'));
 
-		$this->settings->setGlobal(GlobalSettings::STEP_UP_ADMIN_APPROVAL, true);
+		$this->settingsEditor()->setGlobal(GlobalSettings::STEP_UP_ADMIN_APPROVAL, true);
 		$this->assertSame([$recent => 'pending', $old => 'pending'], array_column($api->logins()->getData(), 'stepUp', 'id'), 'an administrator may still approve it');
 	}
 
 	public function testAnOldOpenQuestionIsListedBehindManyNewerDetections(): void {
 		$now = time();
 		$open = $this->detection($this->alice, '203.0.113.10');
-		$this->setCreatedAt($open->getId(), $now - 86400 * 40);
+		$this->setCreatedTime($open->getId(), $now - 86400 * 40);
 		$mapper = Server::get(DetectionMapper::class);
 		for ($i = 0; $i < PersonalDetections::MAX + 20; $i++) {
 			$answered = $this->detection($this->alice, '203.0.113.' . (100 + $i % 100));
@@ -123,10 +125,10 @@ class PersonalActivityTest extends PersonalApiTestCase {
 
 	public function testDetectionsOfAnAskingCheckThatDoNotAskDoNotHideAnOpenQuestion(): void {
 		$open = $this->detection($this->alice, '203.0.113.10');
-		$this->setCreatedAt($open->getId(), time() - 86400 * 40);
+		$this->setCreatedTime($open->getId(), time() - 86400 * 40);
 		// Password spraying asks only for a login with the sprayed password, not for a flagged one.
 		for ($i = 0; $i < PersonalActivity::MAX_QUESTIONS + 20; $i++) {
-			$this->engine()->handle(new DetectionDraft(PasswordSpraying::ID, SourceKey::fromIp('198.51.100.' . (10 + $i)), $this->alice->getUID(), ['rule' => PasswordSpraying::RULE_FLAGGED]), []);
+			$this->engine()->handle(new DetectionDraft(PasswordSpraying::ID, SourceKey::fromIp('198.51.100.' . (10 + $i)), $this->alice->getUID(), new PasswordSprayingFacts(rule: PasswordSprayingRule::Flagged)), []);
 		}
 		$this->startSession($this->alice);
 		$this->assertSame([$open->getId()], array_column($this->controller()->activity()->getData()['questions'], 'id'));
@@ -220,14 +222,14 @@ class PersonalActivityTest extends PersonalApiTestCase {
 	}
 
 	private function manage(): ManageSummary {
-		return new ManageSummary($this->knownDevices(), Server::get(TrustedNetworks::class), Server::get(Tokens::class), $this->currentSession);
+		return new ManageSummary($this->knownDevices(), Server::get(TrustedNetworks::class), Server::get(Tokens::class), $this->coreSession);
 	}
 
-	private function loginAt(IUser $user, int $at, string $ip): int {
+	private function loginAt(IUser $user, int $at, string $ip): string {
 		return Server::get(LoginHistoryMapper::class)->insert($user->getUID(), $at, SourceKey::fromIp($ip), 'Mozilla/5.0 (X11; Linux x86_64) Firefox/131.0', LoginHistory::METHOD_PASSWORD, false, 'none', null, null);
 	}
 
-	private function change(IUser $user, int $at, ?string $ip = null): int {
+	private function change(IUser $user, int $at, ?string $ip = null): string {
 		return Server::get(SecurityChangeMapper::class)->insert([
 			'uid' => $user->getUID(),
 			'type' => 'password_changed',
@@ -244,7 +246,7 @@ class PersonalActivityTest extends PersonalApiTestCase {
 		]);
 	}
 
-	private function setCreatedAt(int $id, int $at): void {
+	private function setCreatedTime(string $id, int $at): void {
 		$qb = Server::get(IDBConnection::class)->getQueryBuilder();
 		$qb->update(DetectionMapper::TABLE)
 			->set('created_at', $qb->createNamedParameter($at))

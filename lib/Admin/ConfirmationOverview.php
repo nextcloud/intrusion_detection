@@ -11,12 +11,10 @@ namespace OCA\IntrusionDetection\Admin;
 
 use OCA\IntrusionDetection\AdminChange\ApprovalService;
 use OCA\IntrusionDetection\AdminChange\Approvers;
-use OCA\IntrusionDetection\Config\GlobalSettings;
+use OCA\IntrusionDetection\Config\AppSettings;
 use OCA\IntrusionDetection\Config\Prerequisites;
-use OCA\IntrusionDetection\Config\Settings;
 use OCA\IntrusionDetection\Confirm\ConfirmationCoverage;
 use OCA\IntrusionDetection\Confirm\IConfirmationMethod;
-use OCA\IntrusionDetection\Confirm\Methods\KnownDeviceMethod;
 use OCA\IntrusionDetection\Confirm\NoMethodOutcome;
 use OCA\IntrusionDetection\Confirm\NoMethodPreset;
 use OCA\IntrusionDetection\Confirm\StepUpReasons;
@@ -32,7 +30,8 @@ use OCP\IUserManager;
  * confirms that a risky login is really the account holder's, in the order
  * of {@see \OCA\IntrusionDetection\Confirm\ConfirmationPolicy::METHODS}; per reason, whether a remembered device counts
  * and what happens when nothing can confirm; how many accounts have no way
- * to confirm; and the logins that wait for an administrator. The outcomes
+ * to confirm; and the logins that wait for an administrator, read on their
+ * own ({@see pendingLogins()}). The outcomes
  * of all reasons together are one {@see NoMethodPreset}, or "custom".
  *
  * @psalm-import-type IntrusionDetectionConfirmation from ResponseDefinitions
@@ -44,7 +43,7 @@ class ConfirmationOverview {
 	public const MAX_APPROVALS = 50;
 
 	public function __construct(
-		private readonly Settings $settings,
+		private readonly AppSettings $settings,
 		private readonly Prerequisites $prerequisites,
 		private readonly ConfirmationCoverage $coverage,
 		private readonly Approvers $approvers,
@@ -57,7 +56,7 @@ class ConfirmationOverview {
 	/**
 	 * @return IntrusionDetectionConfirmation
 	 */
-	public function get(IL10N $l, string $viewer): array {
+	public function get(IL10N $l): array {
 		$users = $this->coverage->users();
 		$admins = $this->coverage->admins();
 		return [
@@ -73,7 +72,6 @@ class ConfirmationOverview {
 				'withNeither' => $admins['withNeither'],
 			],
 			'approvers' => count($this->approvers->all()),
-			'approvals' => $this->pendingLogins($viewer),
 		];
 	}
 
@@ -85,11 +83,11 @@ class ConfirmationOverview {
 		foreach (array_reverse($this->approvals->list(true, self::MAX_APPROVALS, Approval::KIND_LOGIN)) as $approval) {
 			$uid = $approval->getSubjectUid();
 			$list[] = [
-				'id' => (int)$approval->getId(),
+				'id' => (string)$approval->getId(),
 				'uid' => $uid,
 				'displayName' => $this->userManager->getDisplayName($uid) ?? $uid,
 				'ip' => $approval->getIp(),
-				'createdAt' => $approval->getCreatedAt(),
+				'createdAt' => $approval->getCreatedTime(),
 				'expiresAt' => $approval->getExpiresAt(),
 				'canDecide' => $uid !== $viewer,
 			];
@@ -103,7 +101,7 @@ class ConfirmationOverview {
 	private function methods(IL10N $l): array {
 		$methods = [];
 		$approvers = count($this->approvers->all());
-		$approvalOn = $this->settings->getBool(GlobalSettings::STEP_UP_ADMIN_APPROVAL);
+		$approvalOn = $this->settings->stepUpAdminApproval();
 		$methods[] = [
 			'id' => IConfirmationMethod::SECOND_FACTOR,
 			'name' => $l->t('Second factor'),
@@ -115,7 +113,7 @@ class ConfirmationOverview {
 			'id' => IConfirmationMethod::KNOWN_DEVICE,
 			'name' => $l->t('Remembered device'),
 			'description' => $l->t('After confirming a login, users may tick "Remember this device". Later logins from that browser are confirmed silently, because an attacker with only the password does not have it. It never counts when the password itself is at risk.'),
-			'state' => $this->settings->getBool(GlobalSettings::KNOWN_DEVICE_ENABLED) ? 'on' : 'off',
+			'state' => $this->settings->knownDeviceEnabled() ? 'on' : 'off',
 			'note' => null,
 		];
 		$methods[] = [
@@ -141,12 +139,11 @@ class ConfirmationOverview {
 	 * @return list<array{id: string, label: string, why: string, default: string, outcome: string, setting: string, knownDevice: bool, knownDeviceAllowed: bool}>
 	 */
 	public function policies(IL10N $l): array {
-		$knownDeviceOk = $this->settings->global(GlobalSettings::STEP_UP_KNOWN_DEVICE_OK_FOR);
-		$knownDeviceOk = is_array($knownDeviceOk) ? $knownDeviceOk : [];
+		$knownDeviceOk = $this->settings->stepUpKnownDeviceOkFor();
 		$policies = [];
 		foreach (StepUpReasons::policies() as $policy) {
-			$outcome = NoMethodOutcome::tryFrom((string)$this->settings->global($policy->settingKey())) ?? $policy->defaultOutcome();
-			$allowed = !in_array($policy, KnownDeviceMethod::NEVER, true);
+			$outcome = NoMethodOutcome::tryFrom($this->settings->stepUpNoMethod($policy->value)) ?? $policy->defaultOutcome();
+			$allowed = $policy->knownDeviceMayConfirm();
 			$policies[] = [
 				'id' => $policy->value,
 				'label' => $policy->label($l),

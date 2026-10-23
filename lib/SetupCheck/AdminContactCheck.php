@@ -9,8 +9,7 @@ declare(strict_types=1);
 
 namespace OCA\IntrusionDetection\SetupCheck;
 
-use OCA\IntrusionDetection\Config\GlobalSettings;
-use OCA\IntrusionDetection\Config\Settings;
+use OCA\IntrusionDetection\Config\AppSettings;
 use OCA\IntrusionDetection\Confirm\ConfirmationCoverage;
 use OCA\IntrusionDetection\Notification\AdminLinks;
 use OCP\IL10N;
@@ -40,7 +39,7 @@ class AdminContactCheck extends ProblemCheck {
 		IL10N $l,
 		AdminLinks $links,
 		private readonly ConfirmationCoverage $coverage,
-		private readonly Settings $settings,
+		private readonly AppSettings $settings,
 	) {
 		parent::__construct($l, $links);
 	}
@@ -118,7 +117,7 @@ class AdminContactCheck extends ProblemCheck {
 	 * @param list<string> $withNeither
 	 */
 	private function outsideNetworks(array $withNeither, IL10N $l): ?string {
-		if ($withNeither === [] || !$this->settings->getBool(GlobalSettings::ADMIN_TRUSTED_NETWORKS_ONLY)) {
+		if ($withNeither === [] || !$this->settings->adminTrustedNetworksOnly()) {
 			return null;
 		}
 		return $l->n(

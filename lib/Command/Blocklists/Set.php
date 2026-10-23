@@ -11,8 +11,8 @@ namespace OCA\IntrusionDetection\Command\Blocklists;
 
 use OC\Core\Command\Base;
 use OCA\IntrusionDetection\Blocklist\SourceEditor;
-use OCA\IntrusionDetection\Check\InvalidParamException;
-use OCA\IntrusionDetection\Check\ParamDefinition;
+use OCA\IntrusionDetection\Definition\InvalidParamException;
+use OCA\IntrusionDetection\Definition\ParamDefinition;
 use OCP\L10N\IFactory;
 use Symfony\Component\Console\Input\InputArgument;
 use Symfony\Component\Console\Input\InputInterface;
@@ -40,6 +40,7 @@ class Set extends Base {
 			->addOption('url', null, InputOption::VALUE_REQUIRED, 'Your own list: the https:// address to download')
 			->addOption('purpose', null, InputOption::VALUE_REQUIRED, 'Your own list: deny, hosting or tor')
 			->addOption('format', null, InputOption::VALUE_REQUIRED, 'Your own list: the file format (default cidr: one range per line)')
+			->addOption('sha256', null, InputOption::VALUE_REQUIRED, 'Your own list: the SHA-256 the file must have; "none" to trust the publisher and https')
 			->addOption('remove', null, InputOption::VALUE_NONE, 'Remove your own list');
 	}
 
@@ -61,6 +62,10 @@ class Set extends Base {
 				if (is_string($input->getOption($option))) {
 					$changes[$option] = (string)$input->getOption($option);
 				}
+			}
+			$sha256 = $input->getOption('sha256');
+			if (is_string($sha256)) {
+				$changes['sha256'] = $sha256 === 'none' ? null : $sha256;
 			}
 			$interval = $input->getOption('interval');
 			if (is_string($interval)) {

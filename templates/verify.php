@@ -8,7 +8,7 @@ declare(strict_types=1);
  */
 
 /** @var \OCP\IL10N $l */
-/** @var array{mode: string, title: string, lead: string, logout_url: string, login_url: string, requesttoken: string, why?: ?string, error?: ?string, notice?: ?string, hasCode?: bool, attemptsLeft?: ?string, canResend?: bool, secondFactor?: bool, askAdmin?: bool, waiting?: bool, canRemember?: bool, rememberHint?: string, confirmAction?: string, resendAction?: string, secondFactorAction?: string, askAdminAction?: string, waitingUrl?: string, redirect_url?: string, reference?: ?string, expires?: string, codeUrl?: string, statusUrl?: string, pollInterval?: int, continueAction?: string, cancelAction?: string} $_ */
+/** @var array{mode: string, title: string, lead: string, logout_url: string, login_url: string, requesttoken: string, why?: ?string, error?: ?string, notice?: ?string, hasCode?: bool, attemptsLeft?: ?string, canResend?: bool, secondFactor?: bool, askAdmin?: bool, waiting?: bool, canRemember?: bool, rememberHint?: string, confirmAction?: string, resendAction?: string, secondFactorAction?: string, askAdminAction?: string, waitingUrl?: string, redirect_url?: string, reference?: ?string, expires?: string, codeUrl?: string, statusUrl?: string, pollInterval?: int, continueAction?: string, cancelAction?: string, endAction?: string} $_ */
 $mode = $_['mode'];
 $error = $_['error'] ?? null;
 $notice = $_['notice'] ?? null;
@@ -145,9 +145,10 @@ $described = $error !== null ? 'ids-verify-error' : null;
 		<?php else: ?>
 			<p class="ids-page__hint"><?php p($l->t('Please contact your administrator.')); ?></p>
 		<?php endif; ?>
-		<div class="ids-page__actions">
-			<a href="<?php p($_['login_url']); ?>"><?php p($l->t('Back to the login page')); ?></a>
-		</div>
+		<form class="ids-page__actions" method="post" action="<?php p($_['endAction'] ?? ''); ?>">
+			<input type="hidden" name="requesttoken" value="<?php p($_['requesttoken']); ?>">
+			<button class="ids-page__secondary" type="submit"><?php p($l->t('Back to the login page')); ?></button>
+		</form>
 	<?php else: ?>
 		<div class="ids-page__actions">
 			<a href="<?php p($_['login_url']); ?>"><?php p($l->t('Log in again')); ?></a>

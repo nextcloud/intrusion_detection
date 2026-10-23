@@ -11,30 +11,32 @@ namespace OCA\IntrusionDetection\Tests\Integration;
 
 use OC\Memcache\ArrayCache;
 use OCA\IntrusionDetection\Check\CheckRegistry;
-use OCA\IntrusionDetection\Check\Checks\CredentialStuffing;
-use OCA\IntrusionDetection\Check\Severity;
+use OCA\IntrusionDetection\Check\Checks\CredentialStuffing\CredentialStuffing;
 use OCA\IntrusionDetection\Config\GlobalSettings;
-use OCA\IntrusionDetection\Config\Settings;
-use OCA\IntrusionDetection\Db\AlertMapper;
 use OCA\IntrusionDetection\Db\Detection;
 use OCA\IntrusionDetection\Db\DetectionMapper;
+use OCA\IntrusionDetection\Definition\Severity;
 use OCA\IntrusionDetection\Explain\DateFormatter;
 use OCA\IntrusionDetection\Explain\NarrativeBuilder;
 use OCA\IntrusionDetection\Notification\AdminAlerts;
 use OCA\IntrusionDetection\Notification\AdminLinks;
+use OCA\IntrusionDetection\Notification\AdminNotices;
 use OCA\IntrusionDetection\Notification\AdminRecipients;
+use OCA\IntrusionDetection\Notification\Db\AlertMapper;
 use OCA\IntrusionDetection\Notification\MailContent;
 use OCA\IntrusionDetection\Notification\MailQueue;
+use OCA\IntrusionDetection\Notification\MailReach;
 use OCA\IntrusionDetection\Notification\Mails;
 use OCA\IntrusionDetection\Notification\Notifier;
 use OCA\IntrusionDetection\Notification\UserMessages;
 use OCA\IntrusionDetection\Response\Handlers\NotifyAdminHandler;
+use OCA\IntrusionDetection\Tests\Unit\Cache\FixedCaches;
 use OCP\AppFramework\Utility\ITimeFactory;
 use OCP\Config\IUserConfig;
-use OCP\ICacheFactory;
 use OCP\IGroup;
 use OCP\IGroupManager;
 use OCP\IUser;
+use OCP\IUserManager;
 use OCP\L10N\IFactory;
 use OCP\Notification\IManager as INotificationManager;
 use OCP\Notification\INotification;
@@ -47,6 +49,7 @@ use PHPUnit\Framework\MockObject\MockObject;
  */
 #[Group('DB')]
 class AdminAlertsTest extends IntegrationTestCase {
+	use CreatesAccounts;
 	/** @var INotificationManager&MockObject */
 	private INotificationManager $notifications;
 	/** @var Mails&MockObject */
@@ -79,14 +82,20 @@ class AdminAlertsTest extends IntegrationTestCase {
 			$this->recipients,
 			$this->notifications,
 			$this->mails,
-			Server::get(Settings::class),
+			$this->appSettings(),
 			Server::get(NarrativeBuilder::class),
 			Server::get(CheckRegistry::class),
 			Server::get(UserMessages::class),
 			Server::get(AdminLinks::class),
 			Server::get(ITimeFactory::class),
 			Server::get(MailQueue::class),
+			Server::get(MailReach::class),
 		);
+	}
+
+	protected function tearDown(): void {
+		$this->deleteAccounts();
+		parent::tearDown();
 	}
 
 	public function testManyHitsFromOneSourceAreOneNotificationWithACounter(): void {
@@ -99,7 +108,7 @@ class AdminAlertsTest extends IntegrationTestCase {
 		$this->assertSame(['alice', 'bob'], array_map(static fn (INotification $n): string => $n->getUser(), $this->sent));
 
 		// The notifier shows the live counter of the aggregated alert.
-		$prepared = Server::get(Notifier::class)->prepare($this->sent[0], 'en');
+		$prepared = Server::get(Notifier::class)->prepare($this->sent[0]->setUser($this->realAdmin()), 'en');
 		$this->assertStringContainsString('This happened 5 times within the hour.', $prepared->getParsedMessage());
 		$this->assertSame('Credential stuffing from 198.51.100.7', $prepared->getParsedSubject());
 		$this->assertStringContainsString('/settings/admin/intrusion_detection#detection-', $prepared->getLink());
@@ -109,9 +118,10 @@ class AdminAlertsTest extends IntegrationTestCase {
 		$recipients = $this->createMock(AdminRecipients::class);
 		$recipients->expects($this->once())->method('users')->willReturn([$this->admin('alice', 'alice@example.com'), $this->admin('bob', null)]);
 		$alerts = new AdminAlerts(
-			Server::get(AlertMapper::class), $recipients, $this->notifications, $this->mails, Server::get(Settings::class),
+			Server::get(AlertMapper::class), $recipients, $this->notifications, $this->mails, $this->appSettings(),
 			Server::get(NarrativeBuilder::class), Server::get(CheckRegistry::class), Server::get(UserMessages::class),
 			Server::get(AdminLinks::class), Server::get(ITimeFactory::class), Server::get(MailQueue::class),
+			Server::get(MailReach::class),
 		);
 		// The first hit sends the bell and the email, with one lookup.
 		$this->assertSame(2, $alerts->alert($this->detection('198.51.100.7', Severity::Critical))['recipients']);
@@ -154,7 +164,7 @@ class AdminAlertsTest extends IntegrationTestCase {
 		$config->setValueString('ids-alert-berlin', 'core', 'timezone', 'Europe/Berlin');
 		$detection = $this->detection('198.51.100.7', Severity::Critical);
 		// Monday, October 12, 2026, 08:00 to 08:05 UTC.
-		$detection->setCreatedAt(1791792000);
+		$detection->setCreatedTime(1791792000);
 		$detection->setLastSeenAt(1791792300);
 
 		try {
@@ -177,9 +187,9 @@ class AdminAlertsTest extends IntegrationTestCase {
 	}
 
 	public function testTheEmailSeverityIsASetting(): void {
-		Server::get(Settings::class)->setGlobal(GlobalSettings::NOTIFY_ADMIN_EMAIL_MIN_SEVERITY, 'medium');
+		$this->settingsEditor()->setGlobal(GlobalSettings::NOTIFY_ADMIN_EMAIL_MIN_SEVERITY, 'medium');
 		$this->assertSame(AdminAlerts::EMAIL_QUEUED, $this->alerts->alert($this->detection('198.51.100.7', Severity::Medium))['email']);
-		Server::get(Settings::class)->setGlobal(GlobalSettings::NOTIFY_ADMIN_EMAIL_MIN_SEVERITY, 'never');
+		$this->settingsEditor()->setGlobal(GlobalSettings::NOTIFY_ADMIN_EMAIL_MIN_SEVERITY, 'never');
 		$this->assertSame(AdminAlerts::EMAIL_BELOW_SEVERITY, $this->alerts->alert($this->detection('198.51.100.9', Severity::Critical))['email']);
 	}
 
@@ -187,9 +197,10 @@ class AdminAlertsTest extends IntegrationTestCase {
 		$recipients = $this->createMock(AdminRecipients::class);
 		$recipients->method('users')->willReturn([$this->admin('carol', null)]);
 		$alerts = new AdminAlerts(
-			Server::get(AlertMapper::class), $recipients, $this->notifications, $this->mails, Server::get(Settings::class),
+			Server::get(AlertMapper::class), $recipients, $this->notifications, $this->mails, $this->appSettings(),
 			Server::get(NarrativeBuilder::class), Server::get(CheckRegistry::class), Server::get(UserMessages::class),
 			Server::get(AdminLinks::class), Server::get(ITimeFactory::class), Server::get(MailQueue::class),
+			Server::get(MailReach::class),
 		);
 		$result = $alerts->alert($this->detection('198.51.100.7', Severity::Critical));
 		$this->assertSame(AdminAlerts::EMAIL_NO_ADDRESS, $result['email']);
@@ -205,14 +216,13 @@ class AdminAlertsTest extends IntegrationTestCase {
 		$groups = $this->createMock(IGroupManager::class);
 		$groups->method('get')->willReturn($group);
 		$cache = new ArrayCache('ids-test-recipients');
-		$factory = $this->createMock(ICacheFactory::class);
-		$factory->method('isLocalCacheAvailable')->willReturn(true);
-		$factory->method('createLocal')->willReturn($cache);
-		$recipients = new AdminRecipients(Server::get(Settings::class), $groups, $factory);
+		$factory = new FixedCaches(null, $cache);
+		$recipients = new AdminRecipients($this->appSettings(), $groups, $factory);
 		$alerts = new AdminAlerts(
-			Server::get(AlertMapper::class), $recipients, $this->notifications, $this->mails, Server::get(Settings::class),
+			Server::get(AlertMapper::class), $recipients, $this->notifications, $this->mails, $this->appSettings(),
 			Server::get(NarrativeBuilder::class), Server::get(CheckRegistry::class), Server::get(UserMessages::class),
 			Server::get(AdminLinks::class), Server::get(ITimeFactory::class), Server::get(MailQueue::class),
+			Server::get(MailReach::class),
 		);
 		$this->assertSame(AdminAlerts::EMAIL_NO_ADDRESS, $alerts->alert($this->detection('198.51.100.7', Severity::Critical))['email']);
 		for ($i = 0; $i < 5; $i++) {
@@ -224,9 +234,10 @@ class AdminAlertsTest extends IntegrationTestCase {
 		$mails = $this->createMock(Mails::class);
 		$mails->method('send')->willReturn(false);
 		$alerts = new AdminAlerts(
-			Server::get(AlertMapper::class), $this->recipients, $this->notifications, $mails, Server::get(Settings::class),
+			Server::get(AlertMapper::class), $this->recipients, $this->notifications, $mails, $this->appSettings(),
 			Server::get(NarrativeBuilder::class), Server::get(CheckRegistry::class), Server::get(UserMessages::class),
 			Server::get(AdminLinks::class), Server::get(ITimeFactory::class), Server::get(MailQueue::class),
+			Server::get(MailReach::class),
 		);
 		$this->assertSame(AdminAlerts::EMAIL_QUEUED, $alerts->alert($this->detection('198.51.100.7', Severity::Critical))['email']);
 		$this->runQueuedMails(admins: $alerts);
@@ -239,6 +250,30 @@ class AdminAlertsTest extends IntegrationTestCase {
 		);
 		$this->assertStringContainsString('could not be sent', implode(' ', $sentences));
 		$this->assertStringNotContainsString('no administrator has an email address', implode(' ', $sentences));
+	}
+
+	public function testAFormerAdministratorNoLongerSeesTheAlert(): void {
+		$this->alerts->alert($this->detection('198.51.100.7'));
+		$uid = $this->realAdmin();
+		$notification = $this->sent[0]->setUser($uid);
+		Server::get(Notifier::class)->prepare($notification, 'en');
+
+		Server::get(IGroupManager::class)->get('admin')?->removeUser(Server::get(IUserManager::class)->get($uid));
+		$this->expectException(\OCP\Notification\AlreadyProcessedException::class);
+		Server::get(Notifier::class)->prepare($notification, 'en');
+	}
+
+	public function testAFormerAdministratorNoLongerSeesTheNotices(): void {
+		$uid = $this->realAdmin();
+		$user = $this->account('ids-unreachable');
+		$notification = Server::get(INotificationManager::class)->createNotification();
+		$notification->setApp('intrusion_detection')->setUser($uid)->setDateTime(new \DateTime())->setObject('alert', '1')
+			->setSubject(AdminNotices::SUBJECT_PASSWORD_EXTERNAL, ['uid' => $user, 'detection' => null]);
+		$this->assertStringContainsString($user, Server::get(Notifier::class)->prepare($notification, 'en')->getParsedSubject());
+
+		Server::get(IGroupManager::class)->get('admin')?->removeUser(Server::get(IUserManager::class)->get($uid));
+		$this->expectException(\OCP\Notification\AlreadyProcessedException::class);
+		Server::get(Notifier::class)->prepare($notification, 'en');
 	}
 
 	public function testAPreparedNotificationOfADeletedDetectionIsDropped(): void {
@@ -256,10 +291,19 @@ class AdminAlertsTest extends IntegrationTestCase {
 		$detection->setIp($ip);
 		$detection->setExplanationData(['facts' => ['rule' => 'source', 'failures' => 10, 'names' => 5], 'thresholds' => ['min_failures' => 10, 'min_names' => 5, 'window' => 600]]);
 		$detection->setActionList([['type' => 'ban', 'enforced' => true]]);
-		$detection->setCreatedAt(time());
+		$detection->setCreatedTime(time());
 		$detection->setLastSeenAt(time());
 		$detection->setHits(1);
 		return Server::get(DetectionMapper::class)->insert($detection);
+	}
+
+	/**
+	 * A real account in the admin group, who may read the alerts.
+	 */
+	private function realAdmin(): string {
+		$uid = $this->account('ids-alert-admin');
+		Server::get(IGroupManager::class)->get('admin')?->addUser(Server::get(IUserManager::class)->get($uid));
+		return $uid;
 	}
 
 	private function admin(string $uid, ?string $email): IUser {

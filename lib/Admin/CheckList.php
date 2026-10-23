@@ -9,10 +9,12 @@ declare(strict_types=1);
 
 namespace OCA\IntrusionDetection\Admin;
 
-use OCA\IntrusionDetection\Check\Category;
-use OCA\IntrusionDetection\Check\CheckDefinition;
 use OCA\IntrusionDetection\Check\CheckRegistry;
 use OCA\IntrusionDetection\Db\StatsMapper;
+use OCA\IntrusionDetection\Definition\Category;
+use OCA\IntrusionDetection\Definition\CheckDefinition;
+use OCA\IntrusionDetection\Definition\Mode;
+use OCA\IntrusionDetection\Definition\Severity;
 use OCA\IntrusionDetection\Detection\DetectionTotals;
 use OCA\IntrusionDetection\Explain\CheckPresenter;
 use OCA\IntrusionDetection\ResponseDefinitions;
@@ -59,7 +61,12 @@ class CheckList {
 				$categories[] = ['id' => $category->value, 'name' => $category->label($l)];
 			}
 		}
-		return ['checks' => $checks, 'categories' => $categories];
+		return [
+			'checks' => $checks,
+			'categories' => $categories,
+			'modes' => array_map(static fn (Mode $mode): array => ['value' => $mode->value, 'label' => $mode->label($l)], Mode::cases()),
+			'severities' => array_map(static fn (Severity $severity): array => ['value' => $severity->value, 'label' => $severity->label($l)], Severity::cases()),
+		];
 	}
 
 	/**

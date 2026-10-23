@@ -9,12 +9,12 @@ declare(strict_types=1);
 
 namespace OCA\IntrusionDetection\Guard;
 
-use OCA\IntrusionDetection\Check\Payload\PayloadInspector;
-use OCA\IntrusionDetection\Check\Payload\PayloadResponder;
-use OCA\IntrusionDetection\Check\Payload\PayloadSettings;
-use OCA\IntrusionDetection\Check\Payload\PendingHit;
-use OCA\IntrusionDetection\Check\Payload\PreFilter;
-use OCA\IntrusionDetection\Check\Payload\RequestParts;
+use OCA\IntrusionDetection\Check\Checks\InjectionProbe\PayloadInspector;
+use OCA\IntrusionDetection\Check\Checks\InjectionProbe\PayloadResponder;
+use OCA\IntrusionDetection\Check\Checks\InjectionProbe\PayloadSettings;
+use OCA\IntrusionDetection\Check\Checks\InjectionProbe\PendingHit;
+use OCA\IntrusionDetection\Check\Checks\InjectionProbe\PreFilter;
+use OCA\IntrusionDetection\Check\Checks\InjectionProbe\RequestParts;
 use OCA\IntrusionDetection\Login\BasicCredentials;
 use OCA\IntrusionDetection\Net\FetchMetadata;
 use OCA\IntrusionDetection\Net\RemoteAddressResolver;

@@ -12,12 +12,13 @@ namespace OCA\IntrusionDetection\Takeover;
 use OCA\IntrusionDetection\AppInfo\Application;
 use OCA\IntrusionDetection\Confirm\EmailCodes;
 use OCA\IntrusionDetection\Crypto\Fingerprinter;
-use OCA\IntrusionDetection\Db\LockLinkMapper;
-use OCA\IntrusionDetection\Db\SecurityChangeMapper;
+use OCA\IntrusionDetection\Db\IPurges;
 use OCA\IntrusionDetection\Explain\DateFormatter;
 use OCA\IntrusionDetection\Notification\MailContent;
 use OCA\IntrusionDetection\Notification\Mails;
 use OCA\IntrusionDetection\Notification\UserMessages;
+use OCA\IntrusionDetection\Takeover\Db\LockLinkMapper;
+use OCA\IntrusionDetection\Takeover\Db\SecurityChangeMapper;
 use OCP\AppFramework\Utility\ITimeFactory;
 use OCP\Defaults;
 use OCP\IURLGenerator;
@@ -35,7 +36,8 @@ use Psr\Log\LoggerInterface;
  * - The token has about 256 bits (43 random letters and digits). Only a
  *   keyed fingerprint of it is stored; it is never logged, and it appears
  *   in nothing but the one email.
- * - A link works once and expires after {@see self::TTL}.
+ * - A link works once and expires after {@see self::TTL}, or as soon as the
+ *   account holder answers "Yes, it was me" about its detection.
  * - It can only lock the account, never unlock it or change anything else,
  *   so its worst misuse (someone who reads the old mailbox locks the
  *   account) is visible to the administrators and reversible.
@@ -44,7 +46,7 @@ use Psr\Log\LoggerInterface;
  *
  * @psalm-import-type SecurityChangeRow from SecurityChangeMapper
  */
-class LockLinks {
+class LockLinks implements IPurges {
 	public const TTL = 7 * 86400;
 	public const TOKEN_LENGTH = 43;
 	public const ROUTE = Application::APP_ID . '.LockLink.show';
@@ -76,12 +78,20 @@ class LockLinks {
 	}
 
 	/**
+	 * Delete the lock links that expired.
+	 */
+	#[\Override]
+	public function purge(int $now): int {
+		return $this->links->deleteExpired($now);
+	}
+
+	/**
 	 * Email the previous address of an email change a lock link, once per
 	 * detection.
 	 *
-	 * @return array{state: self::SENT|self::ALREADY_SENT|self::NO_PREVIOUS_ADDRESS|self::MAIL_FAILED, sentTo?: string, link?: int}
+	 * @return array{state: self::SENT|self::ALREADY_SENT|self::NO_PREVIOUS_ADDRESS|self::MAIL_FAILED, sentTo?: string, link?: string}
 	 */
-	public function send(IUser $user, int $changeId, int $detectionId): array {
+	public function send(IUser $user, string $changeId, string $detectionId): array {
 		if ($this->links->existsForDetection($detectionId)) {
 			return ['state' => self::ALREADY_SENT];
 		}
@@ -93,7 +103,7 @@ class LockLinks {
 		$token = $this->random->generate(self::TOKEN_LENGTH, ISecureRandom::CHAR_ALPHANUMERIC);
 		$now = $this->timeFactory->getTime();
 		$hint = EmailCodes::mask($address);
-		$id = $this->links->insert($user->getUID(), $this->fingerprinter->lockToken($token), $hint, $detectionId, $changeId, $now, $now + self::TTL);
+		$id = $this->links->insert($user->getUID(), $this->fingerprinter->lockToken($token), $hint, $detectionId, $changeId, $now + self::TTL);
 		$url = $this->urlGenerator->linkToRouteAbsolute(self::ROUTE, ['id' => $id, 'token' => $token]);
 		$sent = $this->mails->sendTo($address, $user->getDisplayName(), $this->mail($user, $change, $url), $user->getUID());
 		return ['state' => $sent ? self::SENT : self::MAIL_FAILED, 'sentTo' => $hint, 'link' => $id];
@@ -103,9 +113,9 @@ class LockLinks {
 	 * What state a link is in, if the token is the link's. A wrong token is
 	 * indistinguishable from a link that does not exist.
 	 *
-	 * @return array{0: self::VALID|self::USED|self::EXPIRED|self::INVALID, 1: ?array{id: int, uid: string, sent_to_hint: string, detection_id: ?int, change_id: ?int, created_at: int, expires_at: int, used_at: ?int}}
+	 * @return array{0: self::VALID|self::USED|self::EXPIRED|self::INVALID, 1: ?array{id: string, uid: string, sent_to_hint: string, detection_id: ?string, change_id: ?string, expires_at: int, used_at: ?int}}
 	 */
-	public function check(int $id, #[\SensitiveParameter] string $token): array {
+	public function check(string $id, #[\SensitiveParameter] string $token): array {
 		if (strlen($token) !== self::TOKEN_LENGTH || !ctype_alnum($token)) {
 			return [self::INVALID, null];
 		}
@@ -124,13 +134,24 @@ class LockLinks {
 	}
 
 	/**
+	 * End the open links sent about a detection, once the account holder
+	 * said the takeover was them: whoever reads the old mailbox must no
+	 * longer be able to lock the account.
+	 *
+	 * @return int how many links ended
+	 */
+	public function revokeForDetection(string $detectionId): int {
+		return $this->links->revokeForDetection($detectionId, $this->timeFactory->getTime());
+	}
+
+	/**
 	 * Use a valid link: only the first of concurrent requests succeeds.
 	 */
-	public function use(int $id, ?string $ip): bool {
+	public function use(string $id, ?string $ip): bool {
 		return $this->links->use($id, $this->timeFactory->getTime(), $ip);
 	}
 
-	private function previousAddress(int $changeId): ?string {
+	private function previousAddress(string $changeId): ?string {
 		$encrypted = $this->changes->notifyTo($changeId);
 		if ($encrypted === null) {
 			return null;

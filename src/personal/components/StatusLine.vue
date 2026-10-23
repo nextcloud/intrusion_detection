@@ -63,8 +63,8 @@ const ITEM_ICONS: Record<string, string> = {
 	--status-text: var(--color-success-text);
 	display: flex;
 	align-items: flex-start;
-	gap: calc(var(--default-grid-baseline) * 4);
-	padding: calc(var(--default-grid-baseline) * 5);
+	gap: var(--ids-space-4);
+	padding: var(--ids-space-5);
 	border: 1px solid color-mix(in srgb, var(--status-color) 35%, var(--color-border));
 	border-radius: var(--border-radius-large);
 	background-color: color-mix(in srgb, var(--status-color) 10%, var(--color-main-background));
@@ -95,9 +95,9 @@ const ITEM_ICONS: Record<string, string> = {
 .status__text {
 	display: flex;
 	flex-direction: column;
-	gap: calc(var(--default-grid-baseline) * 2);
+	gap: var(--ids-space-2);
 	min-width: 0;
-	padding-block-start: calc(var(--default-grid-baseline) * 1);
+	padding-block-start: var(--ids-space-1);
 }
 
 .status__headline {
@@ -111,7 +111,7 @@ const ITEM_ICONS: Record<string, string> = {
 .status__items {
 	display: flex;
 	flex-direction: column;
-	gap: calc(var(--default-grid-baseline) * 1.5);
+	gap: var(--ids-space-1-5);
 	margin: 0;
 	padding: 0;
 	list-style: none;
@@ -120,7 +120,7 @@ const ITEM_ICONS: Record<string, string> = {
 .status__item {
 	display: flex;
 	align-items: flex-start;
-	gap: calc(var(--default-grid-baseline) * 2);
+	gap: var(--ids-space-2);
 	line-height: 1.5;
 }
 
@@ -133,8 +133,8 @@ const ITEM_ICONS: Record<string, string> = {
 @media (max-width: 480px) {
 	.status {
 		flex-direction: column;
-		gap: calc(var(--default-grid-baseline) * 3);
-		padding: calc(var(--default-grid-baseline) * 4);
+		gap: var(--ids-space-3);
+		padding: var(--ids-space-4);
 	}
 
 	.status__icon {

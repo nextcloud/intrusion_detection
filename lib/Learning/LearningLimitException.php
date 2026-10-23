@@ -9,6 +9,8 @@ declare(strict_types=1);
 
 namespace OCA\IntrusionDetection\Learning;
 
+use OCP\IL10N;
+
 /**
  * A learning period would last more than {@see LearningService::MAX_DAYS}
  * from its start. Starting it again or extending it while it runs never
@@ -29,5 +31,14 @@ class LearningLimitException extends \InvalidArgumentException {
 			gmdate('Y-m-d H:i', $startedAt) . ' UTC',
 			gmdate('Y-m-d H:i', $latest) . ' UTC',
 		));
+	}
+
+	public function describe(IL10N $l): string {
+		return $l->n(
+			'Learning mode lasts at most %n day in all, so that protection cannot stay off for long. This learning period started on %1$s and can last until %2$s at the latest.',
+			'Learning mode lasts at most %n days in all, so that protection cannot stay off for long. This learning period started on %1$s and can last until %2$s at the latest.',
+			LearningService::MAX_DAYS,
+			[(string)$l->l('datetime', $this->startedAt), (string)$l->l('datetime', $this->latest)],
+		);
 	}
 }

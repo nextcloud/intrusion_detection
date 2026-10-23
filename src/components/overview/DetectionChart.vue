@@ -6,9 +6,10 @@
 <script setup lang="ts">
 import type { Day } from '../../types.ts'
 
-import { getCanonicalLocale, n, t } from '@nextcloud/l10n'
+import { getCanonicalLocale } from '@nextcloud/l10n'
 import { computed, onBeforeUnmount, onMounted, ref, useId } from 'vue'
 import { APP_ID, formatNumber } from '../../utils/format.ts'
+import { n, t } from '../../utils/l10n.ts'
 
 const props = defineProps<{
 	days: Day[]
@@ -280,21 +281,21 @@ function onKeydown(event: KeyboardEvent) {
 .chart {
 	display: flex;
 	flex-direction: column;
-	gap: calc(var(--default-grid-baseline) * 3);
+	gap: var(--ids-space-3);
 	margin: 0;
 }
 
 .chart__caption {
+	composes: muted from '../../styles/shared.module.css';
 	display: flex;
 	flex-wrap: wrap;
-	gap: calc(var(--default-grid-baseline) * 5);
-	color: var(--color-text-maxcontrast);
+	gap: var(--ids-space-5);
 }
 
 .legend {
 	display: inline-flex;
 	align-items: center;
-	gap: calc(var(--default-grid-baseline) * 2);
+	gap: var(--ids-space-2);
 }
 
 .legend strong {
@@ -328,7 +329,7 @@ function onKeydown(event: KeyboardEvent) {
 }
 
 .chart__svg:focus-visible {
-	outline: 2px solid var(--color-main-text);
+	outline: var(--ids-focus-ring);
 	outline-offset: 4px;
 }
 
@@ -385,7 +386,7 @@ function onKeydown(event: KeyboardEvent) {
 	display: flex;
 	flex-direction: column;
 	gap: 2px;
-	padding: calc(var(--default-grid-baseline) * 2) calc(var(--default-grid-baseline) * 3);
+	padding: var(--ids-space-2) var(--ids-space-3);
 	border: 1px solid var(--color-border);
 	border-radius: var(--border-radius-element);
 	background-color: var(--color-main-background);

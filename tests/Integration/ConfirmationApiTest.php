@@ -10,6 +10,7 @@ declare(strict_types=1);
 namespace OCA\IntrusionDetection\Tests\Integration;
 
 use OCA\IntrusionDetection\Admin\ConfirmationOverview;
+use OCA\IntrusionDetection\AdminChange\ActorResolver;
 use OCA\IntrusionDetection\AppInfo\Application;
 use OCA\IntrusionDetection\Audit\AuditLogger;
 use OCA\IntrusionDetection\Config\GlobalSettings;
@@ -19,16 +20,17 @@ use OCA\IntrusionDetection\Confirm\NoMethodPreset;
 use OCA\IntrusionDetection\Confirm\StepUpPolicy;
 use OCA\IntrusionDetection\Controller\ConfirmationApiController;
 use OCA\IntrusionDetection\Controller\PersonalApiController;
-use OCA\IntrusionDetection\Db\LoginHistoryMapper;
-use OCA\IntrusionDetection\Db\SecurityChangeMapper;
 use OCA\IntrusionDetection\Guide\SecureAccountGuide;
 use OCA\IntrusionDetection\Guide\SecureAccountOverview;
+use OCA\IntrusionDetection\LoginHistory\Db\LoginHistoryMapper;
 use OCA\IntrusionDetection\LoginHistory\LoginHistory;
 use OCA\IntrusionDetection\Net\SourceKey;
 use OCA\IntrusionDetection\Personal\LogOutElsewhere;
 use OCA\IntrusionDetection\Personal\PersonalActivity;
 use OCA\IntrusionDetection\Personal\PersonalOverview;
 use OCA\IntrusionDetection\Response\FlaggedSources;
+use OCA\IntrusionDetection\Takeover\Db\SecurityChangeMapper;
+use OCA\IntrusionDetection\Tests\Unit\Controller\AnswersLikeTheApi;
 use OCA\IntrusionDetection\TrustedNetwork\TrustedNetworks;
 use OCA\IntrusionDetection\WasThisYou\PersonalDetections;
 use OCA\IntrusionDetection\WasThisYou\WasThisYouService;
@@ -49,6 +51,8 @@ use PHPUnit\Framework\Attributes\Group;
  */
 #[Group('DB')]
 class ConfirmationApiTest extends StepUpTestCase {
+	use AnswersLikeTheApi;
+
 	private IUser $alice;
 
 	protected function setUp(): void {
@@ -65,12 +69,12 @@ class ConfirmationApiTest extends StepUpTestCase {
 	}
 
 	public function testTheOverviewDescribesMethodsReasonsAccountsAndWaitingLogins(): void {
-		$this->settings->setGlobal(GlobalSettings::STEP_UP_ADMIN_APPROVAL, true);
+		$this->settingsEditor()->setGlobal(GlobalSettings::STEP_UP_ADMIN_APPROVAL, true);
 		Server::get(FlaggedSources::class)->flagSource(SourceKey::fromIp($this->remoteAddress), FlaggedSources::REASON_ATTACK);
 		$bob = $this->user('ids-api-bob', null);
 		$this->startSession($bob);
 		$this->login($bob);
-		$this->assertFalse($this->confirmationApi()->index()->getData()['approvals'][0]['canDecide'], 'Nobody decides on their own login');
+		$this->assertFalse($this->confirmationApi()->waiting()->getData()[0]['canDecide'], 'Nobody decides on their own login');
 
 		$this->sessionUser = Server::get(IUserManager::class)->get('admin');
 		$data = $this->confirmationApi()->index(true)->getData();
@@ -79,16 +83,18 @@ class ConfirmationApiTest extends StepUpTestCase {
 		$this->assertSame(['flagged_source', 'sprayed_password', 'protected_account', 'breached_password', 'risky_network', 'risk_high', 'admin_outside_networks'], array_column($data['policies'], 'id'));
 		$this->assertSame([true, false, true, false, true, true, false], array_column($data['policies'], 'knownDeviceAllowed'));
 		$this->assertSame(['refuse', 'allow_notify', 'allow_force_change'], array_column($data['outcomes'], 'id'));
-		$this->assertCount(1, $data['approvals']);
-		$this->assertSame($bob->getUID(), $data['approvals'][0]['uid']);
-		$this->assertTrue($data['approvals'][0]['canDecide']);
+		$this->assertArrayNotHasKey('approvals', $data, 'The waiting logins have their own endpoint');
+		$waiting = $this->confirmationApi()->waiting()->getData();
+		$this->assertCount(1, $waiting);
+		$this->assertSame($bob->getUID(), $waiting[0]['uid']);
+		$this->assertTrue($waiting[0]['canDecide']);
 		$this->assertGreaterThanOrEqual(1, $data['users']['active']);
 
 		$this->assertSame(Http::STATUS_OK, $this->confirmationApi()->accounts(5000, -3)->getStatus(), 'The limit and offset are bounded');
 	}
 
 	public function testWaitingLoginsAreListedLive(): void {
-		$this->settings->setGlobal(GlobalSettings::STEP_UP_ADMIN_APPROVAL, true);
+		$this->settingsEditor()->setGlobal(GlobalSettings::STEP_UP_ADMIN_APPROVAL, true);
 		$this->sessionUser = Server::get(IUserManager::class)->get('admin');
 		$this->assertSame([], $this->confirmationApi()->waiting()->getData());
 
@@ -111,18 +117,18 @@ class ConfirmationApiTest extends StepUpTestCase {
 		$this->assertSame('refuse', $data['preset']);
 		$this->assertSame(['refuse'], array_values(array_unique(array_column($data['policies'], 'outcome'))));
 		foreach (StepUpPolicy::cases() as $policy) {
-			$this->assertSame('refuse', $this->settings->global($policy->settingKey()), $policy->value);
+			$this->assertSame('refuse', $this->appSettings()->stepUpNoMethod($policy->value), $policy->value);
 		}
 
 		$this->confirmationApi()->setPreset('allow');
-		$this->assertSame('allow_force_change', $this->settings->global(StepUpPolicy::BreachedPassword->settingKey()));
-		$this->assertSame('allow_notify', $this->settings->global(StepUpPolicy::FlaggedSource->settingKey()));
+		$this->assertSame('allow_force_change', $this->appSettings()->value(StepUpPolicy::BreachedPassword->settingKey()));
+		$this->assertSame('allow_notify', $this->appSettings()->value(StepUpPolicy::FlaggedSource->settingKey()));
 
-		$this->settings->setGlobal(StepUpPolicy::RiskHigh->settingKey(), NoMethodOutcome::Refuse->value);
+		$this->settingsEditor()->setGlobal(StepUpPolicy::RiskHigh->settingKey(), NoMethodOutcome::Refuse->value);
 		$this->assertSame('custom', $this->confirmationApi()->index()->getData()['preset'], 'A change of one reason makes it custom');
 
-		$this->assertSame(Http::STATUS_BAD_REQUEST, $this->confirmationApi()->setPreset('custom')->getStatus());
-		$this->assertSame('refuse', $this->settings->global(StepUpPolicy::RiskHigh->settingKey()), 'A refused preset saves nothing');
+		$this->assertSame(Http::STATUS_BAD_REQUEST, $this->answer(fn () => $this->confirmationApi()->setPreset('custom'))->getStatus());
+		$this->assertSame('refuse', $this->appSettings()->value(StepUpPolicy::RiskHigh->settingKey()), 'A refused preset saves nothing');
 	}
 
 	public function testUsersListAndRemoveTheirOwnDevices(): void {
@@ -164,7 +170,7 @@ class ConfirmationApiTest extends StepUpTestCase {
 		return new ConfirmationApiController(
 			$this->request,
 			Server::get(IFactory::class)->get(Application::APP_ID, 'en'),
-			$this->userSession,
+			new ActorResolver($this->userSession),
 			Server::get(ConfirmationOverview::class),
 			Server::get(ConfirmationCoverage::class),
 			Server::get(NoMethodPreset::class),
@@ -181,12 +187,12 @@ class ConfirmationApiTest extends StepUpTestCase {
 			Server::get(TrustedNetworks::class),
 			Server::get(IFactory::class)->get(Application::APP_ID, 'en'),
 			$this->knownDevices(),
-			Server::get(LoginHistoryMapper::class),
-			$this->currentSession,
+			Server::get(LoginHistory::class),
+			$this->coreSession,
 			Server::get(SecureAccountGuide::class),
 			Server::get(SecureAccountOverview::class),
 			Server::get(SecurityChangeMapper::class),
-			$this->settings,
+			$this->appSettings(),
 			Server::get(ITimeFactory::class),
 			Server::get(PersonalOverview::class),
 			Server::get(LogOutElsewhere::class),

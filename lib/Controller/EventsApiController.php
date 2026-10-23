@@ -9,8 +9,8 @@ declare(strict_types=1);
 
 namespace OCA\IntrusionDetection\Controller;
 
-use OCA\IntrusionDetection\Config\GlobalSettings;
-use OCA\IntrusionDetection\Config\Settings;
+use OCA\IntrusionDetection\AdminChange\ActorResolver;
+use OCA\IntrusionDetection\Config\AppSettings;
 use OCA\IntrusionDetection\Event\EventExamples;
 use OCA\IntrusionDetection\Event\TypedEvents;
 use OCA\IntrusionDetection\ResponseDefinitions;
@@ -19,7 +19,6 @@ use OCP\AppFramework\Http;
 use OCP\AppFramework\Http\Attribute\ApiRoute;
 use OCP\AppFramework\Http\Attribute\OpenAPI;
 use OCP\AppFramework\Http\DataResponse;
-use OCP\AppFramework\OCSController;
 use OCP\IL10N;
 use OCP\IRequest;
 
@@ -30,16 +29,16 @@ use OCP\IRequest;
  * @psalm-import-type IntrusionDetectionWebhookEvents from ResponseDefinitions
  */
 #[OpenAPI(scope: OpenAPI::SCOPE_ADMINISTRATION)]
-class EventsApiController extends OCSController {
+class EventsApiController extends AdminOCSController {
 	public function __construct(
-		string $appName,
 		IRequest $request,
-		private readonly IL10N $l,
+		IL10N $l,
+		ActorResolver $actors,
 		private readonly EventExamples $examples,
-		private readonly Settings $settings,
+		private readonly AppSettings $settings,
 		private readonly IAppManager $appManager,
 	) {
-		parent::__construct($appName, $request);
+		parent::__construct($request, $l, $actors);
 	}
 
 	/**
@@ -55,7 +54,7 @@ class EventsApiController extends OCSController {
 	#[ApiRoute(verb: 'GET', url: '/api/v1/events')]
 	public function events(): DataResponse {
 		return new DataResponse([
-			'includeIp' => $this->settings->getBool(GlobalSettings::EVENTS_INCLUDE_IP),
+			'includeIp' => $this->settings->eventsIncludeIp(),
 			'webhooksEnabled' => $this->appManager->isEnabledForAnyone(TypedEvents::WEBHOOK_APP),
 			'events' => $this->examples->all($this->l),
 		]);

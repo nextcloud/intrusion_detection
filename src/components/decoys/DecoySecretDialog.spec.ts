@@ -3,14 +3,16 @@
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 
-import type { NewDecoy } from '../../types.ts'
+import type { NewDecoy, Traps } from '../../types.ts'
 
 import { flushPromises, mount } from '@vue/test-utils'
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 import { nextTick } from 'vue'
 import DecoyCredentials from './DecoyCredentials.vue'
 import DecoySecretDialog from './DecoySecretDialog.vue'
-import { createDecoy } from '../../services/api.ts'
+import { resource } from '../../composables/useResource.ts'
+import { createDecoy, fetchTraps } from '../../services/api.ts'
+import { addDecoy } from '../../stores/blocks.ts'
 
 vi.mock('../../services/api.ts', async (importOriginal) => ({
 	...(await importOriginal<object>()),
@@ -21,7 +23,7 @@ vi.mock('../../services/api.ts', async (importOriginal) => ({
 const SECRET = 'wJxeW-bj8eB-R5koJ-357nA-sRcxw'
 
 const created: NewDecoy = {
-	decoy: { id: 3, label: 'Old backup script on nas01', loginName: 'backup-svc', format: 'app-password', createdBy: 'admin', createdAt: 1_790_000_000, lastTriggeredAt: null, triggerCount: 0 },
+	decoy: { id: '3', label: 'Old backup script on nas01', loginName: 'backup-svc', format: 'app-password', createdBy: 'admin', createdAt: 1_790_000_000, lastTriggeredAt: null, triggerCount: 0 },
 	secret: SECRET,
 }
 
@@ -81,15 +83,13 @@ describe('DecoySecretDialog', () => {
 	test('after the dialog closes, the secret is nowhere on the page', async () => {
 		vi.mocked(createDecoy).mockResolvedValue({ ...created })
 		const wrapper = mount(DecoyCredentials, {
-			props: { decoys: [], check: { id: 'decoy_credential', name: 'Decoys', mode: { configured: 'protect', effective: 'protect', reason: null, missing: null, default: 'protect' } }, collisions: [] },
+			props: { decoys: [], check: { id: 'decoy_credential', name: 'Decoys', mode: { configured: 'protect', effective: 'protect', reason: null, missing: null, default: 'protect' } }, collisions: [], limits: { labelMaxLength: 200, loginNameMaxLength: 64 } },
 			attachTo: document.body,
 		})
 		// The create dialog hands the new decoy over, as after a successful request.
 		wrapper.findComponent({ name: 'CreateDecoyDialog' }).vm.$emit('created', { ...created })
 		await flushPromises()
 		expect(document.body.innerHTML).toContain(SECRET)
-		expect(wrapper.emitted('changed')?.[0]?.[0]).toEqual([created.decoy])
-		expect(JSON.stringify(wrapper.emitted('changed'))).not.toContain(SECRET)
 
 		;(document.body.querySelector('input[data-test="secret-stored"], [data-test="secret-stored"] input') as HTMLInputElement).click()
 		await nextTick()
@@ -97,5 +97,13 @@ describe('DecoySecretDialog', () => {
 		await flushPromises()
 		expect(document.body.innerHTML).not.toContain(SECRET)
 		wrapper.unmount()
+	})
+
+	test('the list of decoys gets the new decoy, never its secret', async () => {
+		vi.mocked(createDecoy).mockResolvedValue({ ...created })
+		const traps = resource<Traps>('traps', fetchTraps, { initial: { decoys: [], decoyCollisions: [] } as unknown as Traps })
+		await addDecoy({ label: created.decoy.label, loginName: 'backup-svc', format: 'app-password' })
+		expect(traps.data?.decoys).toEqual([created.decoy])
+		expect(JSON.stringify(traps.data)).not.toContain(SECRET)
 	})
 })

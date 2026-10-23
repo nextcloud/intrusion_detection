@@ -17,12 +17,27 @@ export default defineConfig([
 	...recommended,
 
 	{
+		name: 'intrusion_detection/translate-as-text',
+		ignores: ['src/utils/l10n.ts'],
+		rules: {
+			'no-restricted-imports': ['error', {
+				paths: [{
+					name: '@nextcloud/l10n',
+					importNames: ['t', 'n', 'translate', 'translatePlural'],
+					message: 'Import t and n from src/utils/l10n.ts: they translate for text output, without HTML escaping.',
+				}],
+			}],
+		},
+	},
+
+	{
 		name: 'intrusion_detection/ignored-files',
 		ignores: [
 			'composer/',
 			'css/',
 			'js/',
 			'l10n/',
+			'src/types/openapi/',
 			'tests/',
 			'vendor/',
 		],

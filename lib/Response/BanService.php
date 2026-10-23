@@ -11,17 +11,20 @@ namespace OCA\IntrusionDetection\Response;
 
 use OCA\IntrusionDetection\Address\AddressCache;
 use OCA\IntrusionDetection\Address\AddressResolver;
-use OCA\IntrusionDetection\Config\GlobalSettings;
-use OCA\IntrusionDetection\Config\Settings;
+use OCA\IntrusionDetection\Audit\AuditLogger;
+use OCA\IntrusionDetection\Cache\KeyLock;
+use OCA\IntrusionDetection\Config\AppSettings;
 use OCA\IntrusionDetection\Db\Ban;
 use OCA\IntrusionDetection\Db\BanMapper;
-use OCA\IntrusionDetection\Db\KeyLock;
+use OCA\IntrusionDetection\Db\IPurges;
 use OCA\IntrusionDetection\Db\KeyMatch;
 use OCA\IntrusionDetection\Event\TypedEvents;
 use OCA\IntrusionDetection\Net\Ipv6Networks;
 use OCA\IntrusionDetection\Net\ProtectedRanges;
 use OCA\IntrusionDetection\Net\RemoteAddressResolver;
 use OCA\IntrusionDetection\Net\SourceKey;
+use OCA\IntrusionDetection\State\AppState;
+use OCP\AppFramework\Db\DoesNotExistException;
 use OCP\AppFramework\Utility\ITimeFactory;
 use OCP\Security\ISecureRandom;
 
@@ -47,14 +50,27 @@ use OCP\Security\ISecureRandom;
  * - Blocking many addresses at once ({@see banMany()}) costs one query for
  *   those blocked already, one escalation per network and one change of the
  *   cached verdicts.
+ * - Ended blocks are kept for escalation: BAN_HISTORY, or longer when the
+ *   history setting says so. Before they go, the addresses of the blocks
+ *   that ended since the last cleanup are flagged ({@see purge()}).
  */
-class BanService {
+class BanService implements IPurges {
 	/** References avoid characters that are easily confused: no 0, O, 1, I or l */
 	public const REFERENCE_CHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+	/** The shortest block by hand */
+	public const MIN_DURATION = 300;
 	/** The longest block by hand */
 	public const MAX_DURATION = 90 * 86400;
+	/** The longest note of a block or a lift */
+	public const MAX_NOTE = 255;
 	/** With a distributed cache, up to this many changed addresses get a new verdict each; more drop all verdicts at once */
 	public const REFRESH_MAX = 10;
+	/** Blocks that ended up to this time have been flagged */
+	public const BANS_FLAGGED_STATE = 'bans_flagged_until';
+	/** Ended blocks are kept this long at least, for escalation */
+	public const BAN_HISTORY = 30 * 86400;
+	/** Ended blocks flagged per cleanup at most */
+	public const ENDED_BANS_PER_RUN = 1000;
 	/** Ban keys per query, below every database's limit for a list */
 	private const KEYS_PER_QUERY = 500;
 
@@ -64,7 +80,7 @@ class BanService {
 	public function __construct(
 		private readonly BanMapper $mapper,
 		private readonly BanExemptions $exemptions,
-		private readonly Settings $settings,
+		private readonly AppSettings $settings,
 		private readonly AddressCache $addressCache,
 		private readonly AddressResolver $resolver,
 		private readonly RemoteAddressResolver $addresses,
@@ -74,13 +90,25 @@ class BanService {
 		private readonly ITimeFactory $timeFactory,
 		private readonly ISecureRandom $random,
 		private readonly TypedEvents $events,
+		private readonly AppState $state,
+		private readonly AuditLogger $audit,
 	) {
+	}
+
+	/**
+	 * Flag the addresses of the blocks that ended since the last cleanup,
+	 * then delete the blocks that ended longer ago than their history.
+	 */
+	#[\Override]
+	public function purge(int $now): int {
+		$this->flagEndedBans($now);
+		return $this->mapper->deleteEndedBefore($now - max(self::BAN_HISTORY, $this->settings->banHistoryDays() * 86400));
 	}
 
 	/**
 	 * @param ?string $uid the account the detection is about, for the exemptions of checks about one account
 	 */
-	public function ban(SourceKey $source, string $checkId, ?int $detectionId = null, ?int $forceLevel = null, ?string $uid = null): BanResult {
+	public function ban(SourceKey $source, string $checkId, ?string $detectionId = null, ?int $forceLevel = null, ?string $uid = null): BanResult {
 		return $this->banMany([$source], $checkId, $detectionId, $forceLevel, $uid)[$source->ipKey];
 	}
 
@@ -94,7 +122,7 @@ class BanService {
 	 * @param ?string $uid the account the detection is about, for the exemptions of checks about one account
 	 * @return array<string, BanResult> by ip key; a network block by escalation is in the result of the address that caused it
 	 */
-	public function banMany(array $sources, string $checkId, ?int $detectionId = null, ?int $forceLevel = null, ?string $uid = null): array {
+	public function banMany(array $sources, string $checkId, ?string $detectionId = null, ?int $forceLevel = null, ?string $uid = null): array {
 		$results = [];
 		$candidates = [];
 		foreach ($sources as $source) {
@@ -187,7 +215,7 @@ class BanService {
 	 *
 	 * @param ?string $uid the account the detection is about, for the exemptions of checks about one account
 	 */
-	public function banNetwork(SourceKey $member, string $checkId, ?int $detectionId = null, ?string $uid = null): BanResult {
+	public function banNetwork(SourceKey $member, string $checkId, ?string $detectionId = null, ?string $uid = null): BanResult {
 		if ($member->family !== 4) {
 			return new BanResult(BanResult::SKIPPED_NEVER);
 		}
@@ -220,24 +248,36 @@ class BanService {
 	}
 
 	/**
-	 * Block an address or network by hand. Accepts an IPv4 address, an IPv4
-	 * /24, or an IPv6 address or /64 (stored as the /64). Manual blocks skip
-	 * the safety valve: the administrator decided. Loopback, the server's own
-	 * address and the brute-force allowlist are refused, also inside a /24.
+	 * Block an address or network by hand, and write it to the audit log.
+	 * Accepts an IPv4 address, an IPv4 /24, or an IPv6 address or /64
+	 * (stored as the /64). Manual blocks skip the safety valve: the
+	 * administrator decided. Loopback, the server's own address and the
+	 * brute-force allowlist are refused, also inside a /24, and so is the
+	 * address of the administrator who asks, where there is one.
 	 *
-	 * @throws BanRefusedException for a target that is never blocked
-	 * @throws \InvalidArgumentException for anything else that is not a valid target
+	 * @param int $level 1 to 3, which sets the duration
+	 * @param ?int $duration MIN_DURATION to MAX_DURATION seconds instead of the level's
+	 * @param ?string $note at most MAX_NOTE characters
+	 * @throws InvalidBanException
 	 */
 	public function banManually(string $target, int $level, string $actor, ?string $note, ?int $duration = null): Ban {
+		$target = trim($target);
+		if ($level < 1 || $level > 3) {
+			throw new InvalidBanException(InvalidBanException::LEVEL);
+		}
+		if ($duration !== null && ($duration < self::MIN_DURATION || $duration > self::MAX_DURATION)) {
+			throw new InvalidBanException(InvalidBanException::DURATION);
+		}
+		$note = self::note($note);
+		$this->refuseTarget($target);
 		$now = $this->timeFactory->getTime();
 		[$cidr, $scope, $banKey] = $this->parseTarget($target);
 		$source = SourceKey::fromIp(explode('/', $cidr, 2)[0]);
 		if ($this->addresses->isIgnored($source) || $this->protected->overlapsCidr($cidr)) {
-			throw new BanRefusedException($cidr);
+			throw new InvalidBanException(InvalidBanException::CONTAINS_NEVER, $cidr);
 		}
-		$level = max(1, min(3, $level));
 		$expires = $now + ($duration ?? $this->durationFor($level));
-		return $this->locks->run('ban', $banKey, function () use ($cidr, $scope, $banKey, $level, $actor, $note, $now, $expires): Ban {
+		$ban = $this->locks->run('ban', $banKey, function () use ($cidr, $scope, $banKey, $level, $actor, $note, $now, $expires): Ban {
 			$existing = $this->activeFor([$banKey], $now);
 			if ($existing !== null) {
 				$existing->setLevel(max($existing->getLevel(), $level));
@@ -249,19 +289,57 @@ class BanService {
 			}
 			return $this->insert($cidr, $scope, $banKey, $level, 'manual', null, $now, $expires, $actor, $note);
 		});
+		$this->audit->log('block %s (%s) added by %s: %s', ['reference' => $ban->getDisplayReference(), 'cidr' => $ban->getCidr(), 'actor' => $actor, 'note' => $note]);
+		return $ban;
 	}
 
+	/**
+	 * Lift a block by its id, see {@see lift()}.
+	 *
+	 * @throws InvalidBanException for a note that is too long, before the block is looked up
+	 * @throws DoesNotExistException
+	 */
+	public function liftById(string $id, string $actor, string $note): Ban {
+		self::note($note);
+		$ban = $this->mapper->findById($id);
+		$this->lift($ban, $actor, $note);
+		return $ban;
+	}
+
+	/**
+	 * Lift a block, and write it to the audit log. A block that was lifted
+	 * already stays as it is.
+	 *
+	 * @param string $note why, at most MAX_NOTE characters
+	 * @throws InvalidBanException for a note that is too long
+	 */
 	public function lift(Ban $ban, string $actor, string $note): void {
+		$note = (string)self::note($note);
 		if ($ban->getLiftedAt() !== null) {
 			return;
 		}
 		$ban->setLiftedAt($this->timeFactory->getTime());
 		$ban->setLiftedBy($actor);
-		$ban->setLiftNote(mb_substr($note, 0, 255));
+		$ban->setLiftNote($note);
 		$this->mapper->update($ban);
 		$this->flags->unflagBan($ban);
 		$this->invalidate($ban);
 		$this->events->banLifted($ban);
+		$this->audit->log('block %s (%s) lifted by %s: %s', ['reference' => $ban->getDisplayReference(), 'cidr' => $ban->getCidr(), 'actor' => $actor, 'note' => $note]);
+	}
+
+	/**
+	 * The limits of a block by hand, and the durations of the levels.
+	 *
+	 * @return array{minDuration: int, maxDuration: int, maxNote: int, levelDurations: list<int>}
+	 */
+	public function limits(): array {
+		return [
+			'minDuration' => self::MIN_DURATION,
+			'maxDuration' => self::MAX_DURATION,
+			'maxNote' => self::MAX_NOTE,
+			'levelDurations' => [$this->durationFor(1), $this->durationFor(2), $this->durationFor(3)],
+		];
 	}
 
 	/**
@@ -275,7 +353,7 @@ class BanService {
 	/**
 	 * Block one address under its lock, or raise its own active block.
 	 */
-	private function banLocked(SourceKey $source, string $checkId, ?int $detectionId, ?int $forceLevel, int $level, int $now): BanResult {
+	private function banLocked(SourceKey $source, string $checkId, ?string $detectionId, ?int $forceLevel, int $level, int $now): BanResult {
 		$scope = $source->family === 6 ? Ban::SCOPE_NET : Ban::SCOPE_IP;
 		$cidr = $scope === Ban::SCOPE_NET ? $source->ipKey : $source->ip . '/32';
 		return $this->locks->run('ban', $source->ipKey, function () use ($source, $scope, $cidr, $checkId, $detectionId, $forceLevel, $level, $now): BanResult {
@@ -322,7 +400,7 @@ class BanService {
 	}
 
 	private function levelFor(string $banKey, int $now, ?int $forceLevel): int {
-		$historyDays = $this->settings->getInt(GlobalSettings::BAN_HISTORY_DAYS);
+		$historyDays = $this->settings->banHistoryDays();
 		$earlier = $this->mapper->countSince($banKey, $now - $historyDays * 86400);
 		$level = match (true) {
 			$earlier === 0 => 1,
@@ -345,8 +423,8 @@ class BanService {
 	 * Block the network once enough of its addresses are blocked: the /24
 	 * for IPv4; the /48, else the /56, for IPv6.
 	 */
-	private function escalate(SourceKey $source, string $checkId, ?int $detectionId, ?string $uid, int $now): ?Ban {
-		$netAfter = $this->settings->getInt(GlobalSettings::BAN_NET_AFTER);
+	private function escalate(SourceKey $source, string $checkId, ?string $detectionId, ?string $uid, int $now): ?Ban {
+		$netAfter = $this->settings->banNetAfter();
 		if ($netAfter < 1) {
 			return null;
 		}
@@ -358,8 +436,8 @@ class BanService {
 		} else {
 			$key48 = Ipv6Networks::key($source, 48);
 			$key56 = Ipv6Networks::key($source, 56);
-			$in48 = Ipv6Networks::slash64Keys($key48);
-			$in56 = Ipv6Networks::slash64Keys($key56);
+			$in48 = KeyMatch::slash64sIn($key48);
+			$in56 = KeyMatch::slash64sIn($key56);
 			$candidates = [
 				[$key48, $in48, $in48, $netAfter * $netAfter, [$key48]],
 				[$key56, $in56, $in56, $netAfter, [$key56, $key48]],
@@ -392,7 +470,7 @@ class BanService {
 		string $banKey,
 		int $level,
 		string $checkId,
-		?int $detectionId,
+		?string $detectionId,
 		int $now,
 		int $expiresAt,
 		?string $createdBy = null,
@@ -408,7 +486,7 @@ class BanService {
 		$ban->setDetectionId($detectionId);
 		$ban->setCreatedBy($createdBy);
 		$ban->setNote($note === null ? null : mb_substr($note, 0, 255));
-		$ban->setCreatedAt($now);
+		$ban->setCreatedTime($now);
 		$ban->setExpiresAt($expiresAt);
 		$ban = $this->mapper->insert($ban);
 		$this->changed($ban, false);
@@ -462,7 +540,46 @@ class BanService {
 	}
 
 	/**
+	 * The note trimmed, null when empty.
+	 *
+	 * @throws InvalidBanException for a note that is too long
+	 */
+	private static function note(?string $note): ?string {
+		$note = trim($note ?? '');
+		if (mb_strlen($note) > self::MAX_NOTE) {
+			throw new InvalidBanException(InvalidBanException::NOTE_TOO_LONG);
+		}
+		return $note === '' ? null : $note;
+	}
+
+	/**
+	 * Refuses a target that is no address, that is never blocked, or that
+	 * is the address of the administrator who asks or its network.
+	 *
+	 * @throws InvalidBanException
+	 */
+	private function refuseTarget(string $target): void {
+		$parts = explode('/', $target, 2);
+		$source = SourceKey::tryFromIp($parts[0]);
+		if ($source === null || (isset($parts[1]) && !ctype_digit($parts[1]))) {
+			throw new InvalidBanException(InvalidBanException::TARGET);
+		}
+		if ($this->addresses->isNeverBlocked($source)) {
+			throw new InvalidBanException(InvalidBanException::NEVER, $source->ip);
+		}
+		if ($this->addresses->isBypassListed($source)) {
+			throw new InvalidBanException(InvalidBanException::ALLOWLISTED, $source->ip);
+		}
+		$own = $this->addresses->current();
+		$wholeNetwork = $source->family === 6 || ($parts[1] ?? '') === '24';
+		if ($own !== null && ($wholeNetwork ? $own->sameNetwork($source) : $own->ipKey === $source->ipKey)) {
+			throw new InvalidBanException(InvalidBanException::OWN_ADDRESS, $own->ip);
+		}
+	}
+
+	/**
 	 * @return array{0: string, 1: string, 2: string} cidr, scope and ban key
+	 * @throws InvalidBanException
 	 */
 	private function parseTarget(string $target): array {
 		$target = trim($target);
@@ -470,14 +587,14 @@ class BanService {
 		if (str_contains($target, '/')) {
 			[$target, $length] = explode('/', $target, 2);
 			if (!ctype_digit($length)) {
-				throw new \InvalidArgumentException('Invalid prefix length');
+				throw new InvalidBanException(InvalidBanException::TARGET);
 			}
 			$prefixLength = (int)$length;
 		}
-		$source = SourceKey::fromIp($target);
+		$source = SourceKey::tryFromIp($target) ?? throw new InvalidBanException(InvalidBanException::TARGET);
 		if ($source->family === 6) {
 			if ($prefixLength !== null && $prefixLength !== 64 && $prefixLength !== 128) {
-				throw new \InvalidArgumentException('IPv6 blocks cover a /64');
+				throw new InvalidBanException(InvalidBanException::TARGET);
 			}
 			return [$source->netKey, Ban::SCOPE_NET, $source->netKey];
 		}
@@ -485,8 +602,27 @@ class BanService {
 			return [$source->netKey, Ban::SCOPE_NET, $source->netKey];
 		}
 		if ($prefixLength !== null && $prefixLength !== 32) {
-			throw new \InvalidArgumentException('IPv4 blocks cover one address or a /24');
+			throw new InvalidBanException(InvalidBanException::TARGET);
 		}
 		return [$source->ip . '/32', Ban::SCOPE_IP, $source->ipKey];
+	}
+
+	/**
+	 * Flag the addresses of blocks that ended since the last run. At most
+	 * ENDED_BANS_PER_RUN per run; the rest follow at the next. Blocks that
+	 * ended longer ago than a flag lasts are skipped: their flag would have
+	 * ended too. The progress is only written when something ended.
+	 */
+	private function flagEndedBans(int $now): void {
+		$since = max($this->state->getInt(self::BANS_FLAGGED_STATE), $now - FlaggedSources::DURATION);
+		$ended = $this->mapper->findEndedBetween($since, $now, self::ENDED_BANS_PER_RUN);
+		if ($ended === []) {
+			return;
+		}
+		foreach ($ended as $ban) {
+			$this->flags->flagEndedBan($ban);
+		}
+		// Blocks that end in the same second as the last one flagged are looked at again; flagging is idempotent.
+		$this->state->setInt(self::BANS_FLAGGED_STATE, count($ended) < self::ENDED_BANS_PER_RUN ? $now : $ended[count($ended) - 1]->getExpiresAt() - 1);
 	}
 }

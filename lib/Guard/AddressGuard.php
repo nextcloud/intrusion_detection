@@ -12,7 +12,8 @@ namespace OCA\IntrusionDetection\Guard;
 use OCA\IntrusionDetection\Address\AddressCache;
 use OCA\IntrusionDetection\Address\AddressResolver;
 use OCA\IntrusionDetection\Address\Verdict;
-use OCA\IntrusionDetection\Config\Settings;
+use OCA\IntrusionDetection\Config\AppSettings;
+use OCA\IntrusionDetection\Login\RequestContext;
 use OCA\IntrusionDetection\Net\RemoteAddressResolver;
 use OCA\IntrusionDetection\Net\SourceKey;
 use OCA\IntrusionDetection\Perf\GuardTimer;
@@ -34,7 +35,7 @@ class AddressGuard implements IRequestGuard {
 
 	public function __construct(
 		private readonly IConfig $config,
-		private readonly Settings $settings,
+		private readonly AppSettings $settings,
 		private readonly AddressCache $cache,
 		private readonly AddressResolver $resolver,
 		private readonly RemoteAddressResolver $addresses,
@@ -68,7 +69,7 @@ class AddressGuard implements IRequestGuard {
 		}
 		$now = $this->timeFactory->getTime();
 		$verdict = $this->verdict($source, $now);
-		$this->context->setVerdict($verdict);
+		$this->context->set(Verdict::CONTEXT_KEY, $verdict);
 		if (!$verdict->isDenied($now)) {
 			return null;
 		}

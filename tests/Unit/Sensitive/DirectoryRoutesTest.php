@@ -9,7 +9,7 @@ declare(strict_types=1);
 
 namespace OCA\IntrusionDetection\Tests\Unit\Sensitive;
 
-use OCA\IntrusionDetection\Check\Checks\DirectoryScraping;
+use OCA\IntrusionDetection\Check\Checks\DirectoryScraping\DirectoryScraping;
 use OCA\IntrusionDetection\Sensitive\DirectoryRoutes;
 use OCP\Route\IRouter;
 use OCP\Server;

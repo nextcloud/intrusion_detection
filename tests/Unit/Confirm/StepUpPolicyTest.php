@@ -9,14 +9,15 @@ declare(strict_types=1);
 
 namespace OCA\IntrusionDetection\Tests\Unit\Confirm;
 
-use OCA\IntrusionDetection\Check\ParamType;
 use OCA\IntrusionDetection\Config\GlobalSettings;
+use OCA\IntrusionDetection\Confirm\ConfirmationStatus;
 use OCA\IntrusionDetection\Confirm\IStepUpReason;
 use OCA\IntrusionDetection\Confirm\NoMethodOutcome;
 use OCA\IntrusionDetection\Confirm\StepUpPolicy;
 use OCA\IntrusionDetection\Confirm\StepUpReasons;
 use OCA\IntrusionDetection\Confirm\StepUpReference;
 use OCA\IntrusionDetection\Confirm\StepUpState;
+use OCA\IntrusionDetection\Definition\ParamType;
 use OCA\IntrusionDetection\Response\BanService;
 use OCP\L10N\IFactory;
 use OCP\Server;
@@ -72,7 +73,11 @@ class StepUpPolicyTest extends TestCase {
 			$this->assertSame(['refuse', 'allow_notify', 'allow_force_change'], $definition->choices);
 			$this->assertLessThanOrEqual(64, strlen($policy->settingKey()));
 		}
-		$this->assertTrue(GlobalSettings::isInternal(GlobalSettings::STEP_UP_SESSIONS_UNTIL));
+		$this->assertSame(array_map(static fn (StepUpPolicy $p): string => $p->value, StepUpReasons::policies()), array_keys(GlobalSettings::STEP_UP_NO_METHOD_DEFAULTS));
+		$this->assertSame(array_map(static fn (NoMethodOutcome $o): string => $o->value, NoMethodOutcome::cases()), GlobalSettings::NO_METHOD_OUTCOMES);
+		foreach (StepUpPolicy::cases() as $policy) {
+			$this->assertSame($policy->knownDeviceMayConfirm(), preg_match(GlobalSettings::STEP_UP_KNOWN_DEVICE_PATTERN, $policy->value) === 1, $policy->value);
+		}
 	}
 
 	public function testReasonsAreDescribedInPlainWords(): void {
@@ -85,7 +90,7 @@ class StepUpPolicyTest extends TestCase {
 	}
 
 	public function testTheStateRoundTripsAndRejectsGarbage(): void {
-		$state = new StepUpState('alice', StepUpState::PENDING, ['flagged_source'], 100, 1000, '198.51.100.7', ['email_code'], '$2y$hash', 700, 2, [150, 160], null, 42, true);
+		$state = new StepUpState('alice', ConfirmationStatus::Pending, ['flagged_source'], 100, 1000, '198.51.100.7', ['email_code'], '$2y$hash', 700, 2, [150, 160], null, '42', true);
 		$copy = StepUpState::fromArray($state->toArray());
 		$this->assertEquals($state, $copy);
 		$this->assertNull(StepUpState::fromArray([]));
@@ -94,16 +99,24 @@ class StepUpPolicyTest extends TestCase {
 		$this->assertSame([3], StepUpState::fromArray(['uid' => 'a', 'status' => 'pending', 'resends' => ['a', 3]])?->resends);
 	}
 
-	public function testReferencesEncodeTheDetectionLikeBlockReferences(): void {
-		foreach ([1, 31, 32, 2735, 123456789] as $id) {
+	public function testReferencesEncodeTheDetectionInTheAlphabetOfBlockReferences(): void {
+		$chars = '[' . BanService::REFERENCE_CHARS . ']';
+		foreach (['1', '31', '32', '2735', '470938541726507008', (string)PHP_INT_MAX] as $id) {
 			$reference = StepUpReference::of($id);
-			$this->assertMatchesRegularExpression('/^S[' . BanService::REFERENCE_CHARS . ']{3}-[' . BanService::REFERENCE_CHARS . ']{4}$/', $reference);
+			$this->assertMatchesRegularExpression('/^S' . $chars . '{3}-' . $chars . '{4}-' . $chars . '{4}-' . $chars . '{2}$/', $reference);
 			$this->assertSame($id, StepUpReference::detectionId($reference));
 			$this->assertSame($id, StepUpReference::detectionId(strtolower(str_replace('-', '', $reference))), 'as typed by a person');
 		}
 		$this->assertNull(StepUpReference::detectionId('K7Q2-MPXA'), 'A block reference is not one');
-		$this->assertNull(StepUpReference::detectionId('SAAA-AAA0'), 'Not in the alphabet');
-		$this->assertNull(StepUpReference::detectionId('SAAA-AAAA'), 'No detection 0');
+		$this->assertNull(StepUpReference::detectionId('SAAA-AAAA-AAAA-A0'), 'Not in the alphabet');
+		$this->assertNull(StepUpReference::detectionId('SAAA-AAAA-AAAA-AA'), 'No detection 0');
+		$this->assertNull(StepUpReference::detectionId('S999-9999-9999-99'), 'Beyond a 63-bit id');
 		$this->assertNull(StepUpReference::detectionId('S'));
+	}
+
+	public function testTheKnownDeviceDefaultOffersOnlyReasonsADeviceMayConfirm(): void {
+		foreach (GlobalSettings::STEP_UP_KNOWN_DEVICE_DEFAULT as $policy) {
+			$this->assertTrue(StepUpPolicy::from($policy)->knownDeviceMayConfirm(), $policy);
+		}
 	}
 }

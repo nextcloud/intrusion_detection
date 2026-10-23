@@ -11,7 +11,7 @@ namespace OCA\IntrusionDetection\Command\Checks;
 
 use OC\Core\Command\Base;
 use OCA\IntrusionDetection\Check\CheckRegistry;
-use OCA\IntrusionDetection\Check\InvalidParamException;
+use OCA\IntrusionDetection\Definition\InvalidParamException;
 use OCA\IntrusionDetection\Explain\CheckPresenter;
 use OCP\IL10N;
 use Symfony\Component\Console\Input\InputArgument;

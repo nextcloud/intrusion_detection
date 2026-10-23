@@ -9,12 +9,12 @@ declare(strict_types=1);
 
 namespace OCA\IntrusionDetection\Tests\Integration;
 
-use OCA\IntrusionDetection\Check\Checks\ReservedName;
-use OCA\IntrusionDetection\Config\GlobalSettings;
+use OCA\IntrusionDetection\Check\Checks\ReservedName\ReservedName;
 use OCA\IntrusionDetection\Db\BanMapper;
 use OCA\IntrusionDetection\Learning\LearningService;
 use OCA\IntrusionDetection\Repair\ReserveSuggestedNames;
 use OCA\IntrusionDetection\Repair\StartLearningMode;
+use OCA\IntrusionDetection\State\AppState;
 use OCA\IntrusionDetection\Traps\ReservedNames;
 use OCP\IUserManager;
 use OCP\Migration\IOutput;
@@ -79,7 +79,7 @@ class ReserveSuggestedNamesTest extends LoginFailureTestCase {
 	}
 
 	public function testOnlyTheFirstInstallationReservesNames(): void {
-		$this->settings->setGlobal(GlobalSettings::INSTALLED_AT, time() - 86400);
+		Server::get(AppState::class)->setInt(AppState::INSTALLED_AT, time() - 86400);
 		$this->install();
 		$this->assertSame([], Server::get(ReservedNames::class)->list(), 'An earlier installation keeps its names, even none');
 	}

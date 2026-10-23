@@ -9,11 +9,15 @@ declare(strict_types=1);
 
 namespace OCA\IntrusionDetection\Tests\Unit;
 
-use OCA\IntrusionDetection\Check\Checks\ShareBruteforceDetector;
+use OCA\IntrusionDetection\Check\Checks\ShareBruteforce\ShareBruteforceDetector;
+use OCA\IntrusionDetection\Config\ModeState;
 use OCA\IntrusionDetection\Crypto\Fingerprinter;
 use OCA\IntrusionDetection\Db\AttemptKind;
+use OCA\IntrusionDetection\Definition\Mode;
 use OCA\IntrusionDetection\Detection\AttemptRecord;
 use OCA\IntrusionDetection\Net\SourceKey;
+use OCA\IntrusionDetection\Signal\ISignal;
+use OCA\IntrusionDetection\Signal\ShareAccessFailed;
 use Test\TestCase;
 
 /**
@@ -41,7 +45,68 @@ class SensitiveParametersTest extends TestCase {
 				}
 			}
 		}
+		$this->assertGreaterThanOrEqual(4, $checked);
+	}
+
+	public function testEveryParameterThatTakesASignalIsSensitive(): void {
+		$checked = 0;
+		foreach (self::appClasses() as $class) {
+			foreach ((new \ReflectionClass($class))->getMethods() as $method) {
+				foreach ($method->getParameters() as $parameter) {
+					$type = $parameter->getType();
+					if ($type instanceof \ReflectionNamedType && !$type->isBuiltin() && is_a($type->getName(), ISignal::class, true)) {
+						$checked++;
+						$this->assertNotSame([], $parameter->getAttributes(\SensitiveParameter::class), $class . '::' . $method->getName() . '($' . $parameter->getName() . ') must be #[\SensitiveParameter]');
+					}
+				}
+			}
+		}
 		$this->assertGreaterThanOrEqual(8, $checked);
+	}
+
+	/**
+	 * A login name is often a password typed into the wrong field, and a
+	 * session id is the secret of its session.
+	 */
+	public function testEveryLoginNameAndSessionIdIsSensitive(): void {
+		$checked = 0;
+		foreach (self::appClasses() as $class) {
+			foreach ((new \ReflectionClass($class))->getMethods() as $method) {
+				foreach ($method->getParameters() as $parameter) {
+					if (!in_array($parameter->getName(), ['loginName', 'sessionId', 'previousSessionId', 'password'], true)) {
+						continue;
+					}
+					$checked++;
+					$this->assertNotSame([], $parameter->getAttributes(\SensitiveParameter::class), $class . '::' . $method->getName() . '($' . $parameter->getName() . ') must be #[\SensitiveParameter]');
+				}
+			}
+		}
+		$this->assertGreaterThanOrEqual(8, $checked);
+	}
+
+	public function testASignalWithASecretHidesItFromDumps(): void {
+		$checked = 0;
+		foreach (self::appClasses() as $class) {
+			$reflection = new \ReflectionClass($class);
+			if (!$reflection->implementsInterface(ISignal::class) || $reflection->isInterface()) {
+				continue;
+			}
+			$secrets = array_filter($reflection->getConstructor()?->getParameters() ?? [], static fn (\ReflectionParameter $p): bool => $p->getAttributes(\SensitiveParameter::class) !== []);
+			if ($secrets === []) {
+				continue;
+			}
+			$checked++;
+			$this->assertTrue($reflection->hasMethod('__debugInfo') && $reflection->getMethod('__debugInfo')->getDeclaringClass()->getName() === $class, $class . ' carries a secret and must define __debugInfo()');
+		}
+		$this->assertGreaterThanOrEqual(2, $checked);
+	}
+
+	/**
+	 * @return list<class-string>
+	 */
+	private static function appClasses(): array {
+		$classmap = require __DIR__ . '/../../composer/composer/autoload_classmap.php';
+		return array_values(array_filter(array_keys($classmap), static fn (string $class): bool => str_starts_with($class, 'OCA\\IntrusionDetection\\') && (class_exists($class) || interface_exists($class))));
 	}
 
 	public function testEverySecretTheFingerprinterTakesIsSensitive(): void {
@@ -63,12 +128,13 @@ class SensitiveParametersTest extends TestCase {
 		$record = new AttemptRecord(AttemptKind::UnknownShareToken, SourceKey::fromIp('198.51.100.7'), 'secret-fingerprint-0123', null, null, null, [], time(), true);
 		$detector = $this->getMockBuilder(ShareBruteforceDetector::class)->disableOriginalConstructor()->onlyMethods([])->getMock();
 		try {
-			$detector->unknownToken($record, null);
+			$detector->detect(new ShareAccessFailed($record, null, null), new ModeState(Mode::Protect, Mode::Protect));
 			$this->fail('The detector without its dependencies throws');
 		} catch (\Error $e) {
-			$frame = $e->getTrace()[0];
-			$this->assertSame('unknownToken', $frame['function']);
-			$this->assertInstanceOf(\SensitiveParameterValue::class, $frame['args'][0] ?? null);
+			$frames = array_column($e->getTrace(), null, 'function');
+			foreach (['unknownToken', 'detect'] as $function) {
+				$this->assertInstanceOf(\SensitiveParameterValue::class, $frames[$function]['args'][0] ?? null, $function);
+			}
 		} finally {
 			ini_set('zend.exception_ignore_args', (string)$previous);
 		}

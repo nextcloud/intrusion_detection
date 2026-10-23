@@ -9,9 +9,8 @@ declare(strict_types=1);
 
 namespace OCA\IntrusionDetection\Perf;
 
-use OCA\IntrusionDetection\AppInfo\Application;
+use OCA\IntrusionDetection\Cache\Caches;
 use OCP\AppFramework\Utility\ITimeFactory;
-use OCP\ICacheFactory;
 use OCP\IMemcache;
 
 /**
@@ -27,17 +26,17 @@ use OCP\IMemcache;
  * measure would cost more than the guards themselves.
  */
 class GuardTimer {
+	/** The namespace of its memory cache in {@see Caches} */
+	public const CACHE = 'perf';
 	public const SAMPLE_RATE = 1000;
 	private const PREFIX = 'gt:';
 
-	private ?IMemcache $cache = null;
-	private bool $initialised = false;
 	/** Whether this request is sampled, decided by the first guard */
 	private ?bool $sampled = null;
 	private int $requestNanoseconds = 0;
 
 	public function __construct(
-		private readonly ICacheFactory $cacheFactory,
+		private readonly Caches $caches,
 		private readonly ITimeFactory $timeFactory,
 	) {
 	}
@@ -77,14 +76,14 @@ class GuardTimer {
 	 * Whether this request is one of the sampled ones.
 	 */
 	public function sample(): bool {
-		return random_int(1, self::SAMPLE_RATE) === 1 && $this->cache() !== null;
+		return random_int(1, self::SAMPLE_RATE) === 1 && $this->caches->shared(self::CACHE) !== null;
 	}
 
 	/**
 	 * @param int $nanoseconds measured with hrtime(true)
 	 */
 	public function record(int $nanoseconds): void {
-		$cache = $this->cache();
+		$cache = $this->caches->shared(self::CACHE);
 		if ($cache === null) {
 			return;
 		}
@@ -111,7 +110,7 @@ class GuardTimer {
 	 * @return array{samples: int, averageMicroseconds: float, maxMicroseconds: int}|null null when nothing was measured
 	 */
 	public function summary(int $hours = 24): ?array {
-		$cache = $this->cache();
+		$cache = $this->caches->shared(self::CACHE);
 		if ($cache === null) {
 			return null;
 		}
@@ -142,17 +141,5 @@ class GuardTimer {
 			$totals[1] + (int)$cache->get(self::PREFIX . $hour . ':s'),
 			max($totals[2], (int)$cache->get(self::PREFIX . $hour . ':m')),
 		];
-	}
-
-	private function cache(): ?IMemcache {
-		if (!$this->initialised) {
-			$this->initialised = true;
-			// Counters need atomic increments, which only the memcache types offer.
-			$cache = $this->cacheFactory->isAvailable()
-				? $this->cacheFactory->createDistributed(Application::APP_ID . '-perf')
-				: ($this->cacheFactory->isLocalCacheAvailable() ? $this->cacheFactory->createLocal(Application::APP_ID . '-perf') : null);
-			$this->cache = $cache instanceof IMemcache ? $cache : null;
-		}
-		return $this->cache;
 	}
 }

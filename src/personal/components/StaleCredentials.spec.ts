@@ -63,6 +63,17 @@ describe('StaleCredentials', () => {
 		expect(wrapper.find('[data-test="remove-all-stale"]').exists()).toBe(true)
 	})
 
+	test('shows a name with & and \' as it is, in the text, the label and the toast', async () => {
+		personal.staleCredentials = [credential(1, { name: 'Tom\'s & Co <laptop>' })]
+		vi.mocked(removeStaleCredential).mockResolvedValue({ removed: 1 })
+		const wrapper = mount(StaleCredentials)
+		expect(wrapper.get('[data-test="stale-1"]').text()).toContain('Tom\'s & Co <laptop>')
+		expect(wrapper.get('[data-test="remove-stale"]').attributes('aria-label')).toBe('Remove Tom\'s & Co <laptop>')
+		await wrapper.get('[data-test="remove-stale"]').trigger('click')
+		await flushPromises()
+		expect(showSuccess).toHaveBeenCalledWith('Tom\'s & Co <laptop> was removed.')
+	})
+
 	test('offers no Remove all for a single one', () => {
 		personal.staleCredentials = [credential(1)]
 		const wrapper = mount(StaleCredentials)

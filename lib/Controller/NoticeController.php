@@ -13,6 +13,8 @@ use OCA\IntrusionDetection\AppInfo\Application;
 use OCA\IntrusionDetection\Db\Detection;
 use OCA\IntrusionDetection\Http\LocalRedirect;
 use OCA\IntrusionDetection\Notification\LoginNotices;
+use OCA\IntrusionDetection\SessionState\ILoginFlowPage;
+use OCA\IntrusionDetection\SessionState\LoginFlowRoute;
 use OCA\IntrusionDetection\WasThisYou\AnswerException;
 use OCA\IntrusionDetection\WasThisYou\PersonalDetections;
 use OCA\IntrusionDetection\WasThisYou\WasThisYouService;
@@ -47,7 +49,7 @@ use OCP\Util;
  * change is a CSRF-protected POST, rate limited per user.
  */
 #[OpenAPI(scope: OpenAPI::SCOPE_IGNORE)]
-class NoticeController extends Controller {
+class NoticeController extends Controller implements ILoginFlowPage {
 	public const TEMPLATE = 'notice';
 	/** At most this many events are shown */
 	public const MAX = 20;
@@ -65,6 +67,11 @@ class NoticeController extends Controller {
 		private readonly IL10N $l,
 	) {
 		parent::__construct(Application::APP_ID, $request);
+	}
+
+	#[\Override]
+	public static function loginFlowRoute(): LoginFlowRoute {
+		return LoginFlowRoute::Notice;
 	}
 
 	#[NoAdminRequired]
@@ -93,7 +100,7 @@ class NoticeController extends Controller {
 	#[NoAdminRequired]
 	#[UserRateLimit(limit: 20, period: 600)]
 	#[FrontpageRoute(verb: 'POST', url: '/notice/{id}/deny', requirements: ['id' => '\d+'])]
-	public function deny(int $id, string $redirect_url = ''): Response {
+	public function deny(string $id, string $redirect_url = ''): Response {
 		return $this->answer($id, $redirect_url, false);
 	}
 
@@ -101,11 +108,11 @@ class NoticeController extends Controller {
 	#[PasswordConfirmationRequired]
 	#[UserRateLimit(limit: 20, period: 600)]
 	#[FrontpageRoute(verb: 'POST', url: '/notice/{id}/confirm', requirements: ['id' => '\d+'])]
-	public function confirm(int $id, string $redirect_url = ''): Response {
+	public function confirm(string $id, string $redirect_url = ''): Response {
 		return $this->answer($id, $redirect_url, true);
 	}
 
-	private function answer(int $id, string $redirectUrl, bool $yes): Response {
+	private function answer(string $id, string $redirectUrl, bool $yes): Response {
 		$user = $this->userSession->getUser();
 		if ($user === null || $this->notices->shownSince($user->getUID()) === null) {
 			return $this->continue($redirectUrl);

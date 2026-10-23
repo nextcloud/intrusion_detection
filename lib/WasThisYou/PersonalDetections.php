@@ -9,8 +9,7 @@ declare(strict_types=1);
 
 namespace OCA\IntrusionDetection\WasThisYou;
 
-use OCA\IntrusionDetection\Config\GlobalSettings;
-use OCA\IntrusionDetection\Config\Settings;
+use OCA\IntrusionDetection\Config\AppSettings;
 use OCA\IntrusionDetection\Db\Detection;
 use OCA\IntrusionDetection\Db\DetectionFilter;
 use OCA\IntrusionDetection\Db\DetectionMapper;
@@ -35,7 +34,7 @@ class PersonalDetections {
 		private readonly UserMessages $messages,
 		private readonly Questions $questions,
 		private readonly WasThisYouService $answers,
-		private readonly Settings $settings,
+		private readonly AppSettings $settings,
 		private readonly ITimeFactory $timeFactory,
 	) {
 	}
@@ -44,7 +43,7 @@ class PersonalDetections {
 	 * @return list<IntrusionDetectionPersonalDetection> newest first
 	 */
 	public function forUser(IUser $user, int $limit = 50): array {
-		$since = $this->timeFactory->getTime() - $this->settings->getInt(GlobalSettings::RETENTION_DETECTIONS_DAYS) * 86400;
+		$since = $this->timeFactory->getTime() - $this->settings->retentionDays() * 86400;
 		return array_map(fn (Detection $d): array => $this->present($d, $user), $this->find($user, $since, max(1, min(self::MAX, $limit))));
 	}
 
@@ -66,11 +65,11 @@ class PersonalDetections {
 		$asks = $this->questions->asks($detection);
 		$open = $asks && $detection->getUserVerdict() === null;
 		return [
-			'id' => $detection->getId(),
+			'id' => (string)$detection->getId(),
 			'check' => $detection->getCheckId(),
 			'severity' => $detection->getSeverity(),
 			'enforced' => $detection->isEnforced(),
-			'createdAt' => $detection->getCreatedAt(),
+			'createdAt' => $detection->getCreatedTime(),
 			'lastSeenAt' => $detection->getLastSeenAt(),
 			'hits' => $detection->getHits(),
 			'subject' => $message->subject,

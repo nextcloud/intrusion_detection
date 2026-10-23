@@ -9,10 +9,9 @@ declare(strict_types=1);
 
 namespace OCA\IntrusionDetection\SetupCheck;
 
-use OCA\IntrusionDetection\Config\GlobalSettings;
-use OCA\IntrusionDetection\Config\Settings;
 use OCA\IntrusionDetection\Learning\LearningService;
 use OCA\IntrusionDetection\Notification\AdminLinks;
+use OCA\IntrusionDetection\State\AppState;
 use OCP\AppFramework\Utility\ITimeFactory;
 use OCP\IL10N;
 
@@ -27,8 +26,8 @@ class LearningModeCheck extends ProblemCheck {
 		IL10N $l,
 		AdminLinks $links,
 		private readonly LearningService $learning,
-		private readonly Settings $settings,
 		private readonly ITimeFactory $timeFactory,
+		private readonly AppState $state,
 	) {
 		parent::__construct($l, $links);
 	}
@@ -48,9 +47,9 @@ class LearningModeCheck extends ProblemCheck {
 		if (!$this->learning->isActive()) {
 			return null;
 		}
-		$started = $this->settings->getInt(GlobalSettings::LEARNING_STARTED_AT);
+		$started = $this->state->getInt(LearningService::STARTED_STATE);
 		if ($started === 0) {
-			$started = $this->settings->getInt(GlobalSettings::INSTALLED_AT);
+			$started = $this->state->getInt(AppState::INSTALLED_AT);
 		}
 		$days = intdiv($this->timeFactory->getTime() - $started, 86400);
 		if ($started === 0 || $days < self::DAYS) {

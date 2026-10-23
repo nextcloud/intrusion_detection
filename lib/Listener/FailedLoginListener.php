@@ -9,21 +9,17 @@ declare(strict_types=1);
 
 namespace OCA\IntrusionDetection\Listener;
 
-use OCA\IntrusionDetection\Check\Checks\AccountUnderAttack;
-use OCA\IntrusionDetection\Check\Checks\AccountUnderAttackDetector;
-use OCA\IntrusionDetection\Check\Checks\CredentialStuffing;
-use OCA\IntrusionDetection\Check\Checks\CredentialStuffingDetector;
-use OCA\IntrusionDetection\Check\Checks\DecoyCredentialDetector;
-use OCA\IntrusionDetection\Check\Checks\PasswordSpraying;
-use OCA\IntrusionDetection\Check\Checks\PasswordSprayingDetector;
-use OCA\IntrusionDetection\Check\Checks\ReservedNameDetector;
-use OCA\IntrusionDetection\Config\Settings;
+use OCA\IntrusionDetection\Check\Checks\AccountUnderAttack\AccountUnderAttackDetector;
+use OCA\IntrusionDetection\Config\AppSettings;
 use OCA\IntrusionDetection\Db\AttemptKind;
 use OCA\IntrusionDetection\Detection\AttemptRecorder;
 use OCA\IntrusionDetection\Login\EmailAccounts;
 use OCA\IntrusionDetection\Net\RemoteAddressResolver;
 use OCA\IntrusionDetection\Personal\FailedLoginStats;
 use OCA\IntrusionDetection\Risk\RiskScorer;
+use OCA\IntrusionDetection\Signal\FailedLogin;
+use OCA\IntrusionDetection\Signal\FailedLoginAttempt;
+use OCA\IntrusionDetection\Signal\SignalDispatcher;
 use OCP\Authentication\Events\AnyLoginFailedEvent;
 use OCP\EventDispatcher\Event;
 use OCP\EventDispatcher\IEventListener;
@@ -37,15 +33,14 @@ use Psr\Log\LoggerInterface;
  *
  * 1. a source on the brute-force allowlist is ignored; an attack tool's user
  *    agent is remembered on the address for its risk score;
- * 2. a decoy credential, and then a reserved login name, is a detection on
- *    its own, and nothing else runs;
+ * 2. the failed login is judged on its own ({@see FailedLogin}): an address
+ *    on a blocklist is recorded, and a decoy credential or a reserved login
+ *    name answers it, and nothing else runs;
  * 3. a failure of an existing account is counted for the user's own
  *    security page, while users have it;
- * 4. the attempt is recorded, if any check uses it (fingerprints only; old
+ * 4. the attempt is recorded, if any check reads it (fingerprints only; old
  *    attempts are cleaned up now and then by the recorder);
- * 5. the detectors of the checks that use failed logins run: password
- *    spraying (a password that is already being sprayed blocks its address
- *    at once), credential stuffing, and one account attacked from many places.
+ * 5. the checks that read failed logins judge it ({@see FailedLoginAttempt}).
  *
  * Nothing here may break a login failure: every step fails open and logs.
  * The password is only passed on to be fingerprinted, never stored or logged.
@@ -55,20 +50,14 @@ use Psr\Log\LoggerInterface;
 class FailedLoginListener implements IEventListener {
 	/** Generated app passwords: five groups of five characters, or 72 letters and digits */
 	public const APP_PASSWORD_PATTERN = '/^(?:[A-Za-z0-9]{5}(?:-[A-Za-z0-9]{5}){4}|[A-Za-z0-9]{72})$/';
-	/** The checks that read the recorded failed logins */
-	public const ATTEMPT_CHECKS = [PasswordSpraying::ID, CredentialStuffing::ID, AccountUnderAttack::ID];
 	/** Longer login names are not looked up as accounts */
 	public const MAX_LOGIN_NAME = 255;
 
 	public function __construct(
-		private readonly Settings $settings,
+		private readonly AppSettings $appSettings,
 		private readonly RemoteAddressResolver $addresses,
+		private readonly SignalDispatcher $dispatcher,
 		private readonly AttemptRecorder $recorder,
-		private readonly DecoyCredentialDetector $decoys,
-		private readonly ReservedNameDetector $reservedNames,
-		private readonly CredentialStuffingDetector $stuffing,
-		private readonly PasswordSprayingDetector $spraying,
-		private readonly AccountUnderAttackDetector $accountUnderAttack,
 		private readonly RiskScorer $risk,
 		private readonly IUserManager $userManager,
 		private readonly IRequest $request,
@@ -84,7 +73,7 @@ class FailedLoginListener implements IEventListener {
 			return;
 		}
 		try {
-			if (!$this->settings->isEnabled()) {
+			if (!$this->appSettings->isEnabled()) {
 				return;
 			}
 			$source = $this->addresses->current();
@@ -96,25 +85,22 @@ class FailedLoginListener implements IEventListener {
 			$userAgent = $this->request->getHeader('User-Agent');
 			$this->step('risk_score', fn () => $this->risk->noteFailedLogin($source, $userAgent));
 
-			if ($this->step('decoy_credential', fn (): bool => $this->decoys->detect($source, $loginName, $password, $userAgent)) === true) {
-				return;
-			}
-			if ($this->step('reserved_name', fn (): bool => $this->reservedNames->detect($source, $loginName, $userAgent)) === true) {
+			if ($this->dispatcher->dispatch(new FailedLogin($source, $loginName, $password, $userAgent))->stopped) {
 				return;
 			}
 
-			$detectorsRun = $this->anyDetectorRuns();
+			$recorded = $this->dispatcher->runs(FailedLoginAttempt::class);
 			$counted = $this->failedLoginStats->isEnabled();
-			if (!$detectorsRun && !$counted) {
+			if (!$recorded && !$counted) {
 				return;
 			}
 			// An email address is only looked up for what counts per account: core's lookup is slow, and a
 			// stuffing list rarely repeats an address. Credential stuffing counts login names, not accounts.
-			$uid = $this->resolveUid($loginName, $counted || $this->settings->modeState(AccountUnderAttack::ID)->runs());
+			$uid = $this->resolveUid($loginName, $counted || $this->dispatcher->runs(FailedLoginAttempt::class, AccountUnderAttackDetector::class));
 			if ($counted && $uid !== null) {
 				$this->step('failed_login_stats', fn () => $this->failedLoginStats->record($uid, $source));
 			}
-			if (!$detectorsRun) {
+			if (!$recorded) {
 				return;
 			}
 			$attempt = $this->recorder->record(
@@ -125,25 +111,10 @@ class FailedLoginListener implements IEventListener {
 				null,
 				$password,
 			);
-
-			$this->step('password_spraying', fn () => $this->spraying->detect($attempt, $userAgent, $password));
-			$this->step('credential_stuffing', fn () => $this->stuffing->detect($attempt, $userAgent));
-			$this->step('account_under_attack', fn () => $this->accountUnderAttack->detect($attempt, $userAgent));
+			$this->dispatcher->dispatch(new FailedLoginAttempt($attempt, $password, $userAgent));
 		} catch (\Throwable $e) {
 			$this->logger->error('Intrusion detection could not process a failed login', ['exception' => $e]);
 		}
-	}
-
-	/**
-	 * Attempts are only recorded while a check uses them.
-	 */
-	private function anyDetectorRuns(): bool {
-		foreach (self::ATTEMPT_CHECKS as $checkId) {
-			if ($this->settings->modeState($checkId)->runs()) {
-				return true;
-			}
-		}
-		return false;
 	}
 
 	/**
@@ -162,7 +133,7 @@ class FailedLoginListener implements IEventListener {
 	 * that exactly one account has (only with `$byEmail`). Nothing is
 	 * returned to the client, so this reveals nothing.
 	 */
-	private function resolveUid(string $loginName, bool $byEmail): ?string {
+	private function resolveUid(#[\SensitiveParameter] string $loginName, bool $byEmail): ?string {
 		$name = trim($loginName);
 		if ($name === '' || strlen($name) > self::MAX_LOGIN_NAME) {
 			return null;

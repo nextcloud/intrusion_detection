@@ -11,13 +11,19 @@ namespace OCA\IntrusionDetection\SessionState;
 
 use OC\Core\Controller\CssController;
 use OC\Core\Controller\JsController;
+use OC\Core\Controller\LoginController;
 use OC\Core\Controller\OCJSController;
+use OC\Core\Controller\TwoFactorChallengeController;
 use OCP\AppFramework\Controller;
 use OCP\AppFramework\Http\Attribute\PublicPage;
+use OCP\AppFramework\OCSController;
+use OCP\Authentication\TwoFactorAuth\ALoginSetupController;
+use OCP\IRequest;
 
 /**
  * What a logged-in request is about to reach: an AppFramework controller
- * method, or a WebDAV path. Session-state rules decide on it.
+ * method, or a WebDAV path. Session-state rules decide on it, and name the
+ * pages of the login flow by their route ({@see LoginFlowRoute}).
  */
 final class RequestTarget {
 	/**
@@ -36,6 +42,7 @@ final class RequestTarget {
 	];
 
 	private ?bool $publicPage = null;
+	private LoginFlowRoute|false|null $route = null;
 
 	private function __construct(
 		public readonly bool $dav,
@@ -57,14 +64,41 @@ final class RequestTarget {
 	}
 
 	/**
-	 * Whether the target is a method of this controller (or of a subclass),
-	 * and if given, that method.
-	 *
-	 * @param class-string $class
+	 * The page of the login flow the target is, or null for any other
+	 * target. The app's own pages say which they are ({@see ILoginFlowPage}).
 	 */
-	public function isController(string $class, ?string $method = null): bool {
-		return $this->controller instanceof $class
-			&& ($method === null || strcasecmp((string)$this->controllerMethod, $method) === 0);
+	public function route(): ?LoginFlowRoute {
+		if ($this->route === null) {
+			$this->route = match (true) {
+				$this->controller instanceof ILoginFlowPage => $this->controller::loginFlowRoute(),
+				$this->controller instanceof TwoFactorChallengeController => LoginFlowRoute::SecondFactorChallenge,
+				$this->controller instanceof ALoginSetupController => LoginFlowRoute::SecondFactorSetup,
+				$this->controller instanceof LoginController && $this->isMethod('logout') => LoginFlowRoute::Logout,
+				default => false,
+			};
+		}
+		return $this->route ?: null;
+	}
+
+	/**
+	 * Whether the target is one of these pages of the login flow.
+	 */
+	public function isRoute(LoginFlowRoute ...$routes): bool {
+		return in_array($this->route(), $routes, true);
+	}
+
+	/**
+	 * Whether the target is this controller method.
+	 */
+	public function isMethod(string $method): bool {
+		return strcasecmp((string)$this->controllerMethod, $method) === 0;
+	}
+
+	/**
+	 * An OCS API request, which only apps and scripts send.
+	 */
+	public function isOcs(): bool {
+		return $this->controller instanceof OCSController;
 	}
 
 	/**
@@ -103,5 +137,14 @@ final class RequestTarget {
 
 	public function isReadOnly(): bool {
 		return $this->httpMethod === 'GET' || $this->httpMethod === 'HEAD';
+	}
+
+	/**
+	 * A browser loading a page, as opposed to a script asking for data.
+	 */
+	public function isPageNavigation(IRequest $request): bool {
+		return $this->isReadOnly()
+			&& stripos($request->getHeader('Accept'), 'html') !== false
+			&& $request->getHeader('OCS-APIREQUEST') === '';
 	}
 }

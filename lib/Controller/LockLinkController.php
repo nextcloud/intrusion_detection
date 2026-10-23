@@ -80,7 +80,7 @@ class LockLinkController extends Controller {
 	#[UserRateLimit(limit: 30, period: 600)]
 	#[BruteForceProtection(action: self::BRUTE_FORCE_ACTION)]
 	#[FrontpageRoute(verb: 'GET', url: '/lock/{id}/{token}', requirements: ['id' => '\d+', 'token' => '[A-Za-z0-9]{1,64}'])]
-	public function show(int $id, #[\SensitiveParameter] string $token): StandaloneTemplateResponse {
+	public function show(string $id, #[\SensitiveParameter] string $token): StandaloneTemplateResponse {
 		[$state, $link] = $this->links->check($id, $token);
 		return match ($state) {
 			LockLinks::VALID => $this->confirmPage($id, $token, $link['sent_to_hint'] ?? ''),
@@ -97,7 +97,7 @@ class LockLinkController extends Controller {
 	#[UserRateLimit(limit: 10, period: 600)]
 	#[BruteForceProtection(action: self::BRUTE_FORCE_ACTION)]
 	#[FrontpageRoute(verb: 'POST', url: '/lock/{id}', requirements: ['id' => '\d+'])]
-	public function lock(int $id, #[\SensitiveParameter] string $token = '', #[\SensitiveParameter] string $nonce = ''): StandaloneTemplateResponse {
+	public function lock(string $id, #[\SensitiveParameter] string $token = '', #[\SensitiveParameter] string $nonce = ''): StandaloneTemplateResponse {
 		[$state, $link] = $this->links->check($id, $token);
 		if ($state !== LockLinks::VALID) {
 			return match ($state) {
@@ -110,14 +110,15 @@ class LockLinkController extends Controller {
 			return $this->confirmPage($id, $token, $link['sent_to_hint'] ?? '', $this->l->t('Please confirm once more on this page.'));
 		}
 		return match ($this->lock->lock($id, $token)) {
-			AccountLock::LOCKED => $this->page(self::PAGE_LOCKED),
+			AccountLock::LOCKED => $this->page(self::PAGE_LOCKED, ['disabled' => true]),
+			AccountLock::SESSIONS_ENDED => $this->page(self::PAGE_LOCKED, ['disabled' => false]),
 			LockLinks::USED => $this->page(self::PAGE_USED),
 			LockLinks::EXPIRED => $this->expired(),
 			default => $this->invalid($id),
 		};
 	}
 
-	private function confirmPage(int $id, #[\SensitiveParameter] string $token, string $sentTo, ?string $error = null): StandaloneTemplateResponse {
+	private function confirmPage(string $id, #[\SensitiveParameter] string $token, string $sentTo, ?string $error = null): StandaloneTemplateResponse {
 		$nonce = $this->random->generate(32, ISecureRandom::CHAR_ALPHANUMERIC);
 		$this->session->set(self::SESSION_NONCE, ['link' => $id, 'nonce' => $nonce]);
 		$response = $this->page(self::PAGE_CONFIRM, [
@@ -136,14 +137,14 @@ class LockLinkController extends Controller {
 	/**
 	 * The nonce the page put into its form for this link, once.
 	 */
-	private function takeNonce(int $id, #[\SensitiveParameter] string $nonce): bool {
+	private function takeNonce(string $id, #[\SensitiveParameter] string $nonce): bool {
 		$stored = $this->session->get(self::SESSION_NONCE);
 		$this->session->remove(self::SESSION_NONCE);
 		return is_array($stored) && ($stored['link'] ?? null) === $id
 			&& is_string($stored['nonce'] ?? null) && $nonce !== '' && hash_equals($stored['nonce'], $nonce);
 	}
 
-	private function invalid(int $id): StandaloneTemplateResponse {
+	private function invalid(string $id): StandaloneTemplateResponse {
 		$response = $this->page(self::PAGE_INVALID);
 		$response->setStatus(Http::STATUS_NOT_FOUND);
 		$response->throttle(['link' => $id]);

@@ -10,7 +10,6 @@ declare(strict_types=1);
 namespace OCA\IntrusionDetection\Tests\Unit\Confirm;
 
 use OCA\IntrusionDetection\Confirm\IStepUpReason;
-use OCA\IntrusionDetection\Confirm\LoginContext;
 use OCA\IntrusionDetection\Confirm\Reasons\BreachedPasswordReason;
 use OCA\IntrusionDetection\Confirm\Reasons\FlaggedSourceReason;
 use OCA\IntrusionDetection\Confirm\Reasons\ProtectedAccountReason;
@@ -19,6 +18,7 @@ use OCA\IntrusionDetection\Confirm\Reasons\RiskyNetworkReason;
 use OCA\IntrusionDetection\Confirm\Reasons\SprayedPasswordReason;
 use OCA\IntrusionDetection\Confirm\StepUpPolicy;
 use OCA\IntrusionDetection\Confirm\StepUpReasons;
+use OCA\IntrusionDetection\Login\LoginContext;
 use OCA\IntrusionDetection\Net\SourceKey;
 use OCA\IntrusionDetection\Response\FlaggedSources;
 use OCA\IntrusionDetection\TrustedNetwork\ITrustedNetworks;

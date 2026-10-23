@@ -4,20 +4,20 @@
 -->
 
 <script setup lang="ts">
-import type { Check, Simulation } from '../../types.ts'
+import type { Check } from '../../types.ts'
 
 import { mdiArrowRightThin, mdiFlaskOutline } from '@mdi/js'
-import { t } from '@nextcloud/l10n'
-import { computed, ref, watch } from 'vue'
+import { computed } from 'vue'
 import NcDialog from '@nextcloud/vue/components/NcDialog'
 import NcIconSvgWrapper from '@nextcloud/vue/components/NcIconSvgWrapper'
 import NcNoteCard from '@nextcloud/vue/components/NcNoteCard'
 import SeverityPill from '../common/SeverityPill.vue'
 import SkeletonBlock from '../common/SkeletonBlock.vue'
 import StateBadge from '../common/StateBadge.vue'
-import { errorMessage, simulateCheck } from '../../services/api.ts'
-import { logger } from '../../services/logger.ts'
+import { modeLabel } from '../../store.ts'
+import { useSimulation } from '../../stores/settings.ts'
 import { APP_ID } from '../../utils/format.ts'
+import { t } from '../../utils/l10n.ts'
 
 const open = defineModel<boolean>('open', { required: true })
 
@@ -25,31 +25,8 @@ const props = defineProps<{
 	check: Check
 }>()
 
-const result = ref<Simulation | null>(null)
-const error = ref<string | null>(null)
-const loading = ref(false)
-
-/**
- * Run the simulation on the server.
- */
-async function run() {
-	loading.value = true
-	error.value = null
-	try {
-		result.value = await simulateCheck(props.check.id)
-	} catch (e) {
-		logger.error('Could not simulate the check', { error: e })
-		error.value = errorMessage(e, t(APP_ID, 'The simulation did not work. Please try again.'))
-	} finally {
-		loading.value = false
-	}
-}
-
-watch(open, (value) => {
-	if (value) {
-		result.value = null
-		run()
-	}
+const { data: result, error, loading, reload } = useSimulation(() => open.value ? props.check.id : null, {
+	failure: () => t(APP_ID, 'The simulation did not work. Please try again.'),
 })
 
 const mode = computed(() => {
@@ -58,18 +35,18 @@ const mode = computed(() => {
 		return null
 	}
 	if (!current.runs) {
-		return { type: 'warning' as const, text: t(APP_ID, 'Off'), note: t(APP_ID, 'This check is off, so in reality nothing would be recorded. This is what it would report once it is on.') }
+		return { type: 'warning' as const, text: modeLabel('off'), note: t(APP_ID, 'This check is off, so in reality nothing would be recorded. This is what it would report once it is on.') }
 	}
 	if (!current.acts) {
 		return {
 			type: 'info' as const,
-			text: current.modeReason === 'learning' ? t(APP_ID, 'Observing while learning') : t(APP_ID, 'Observe'),
+			text: current.modeReason === 'learning' ? t(APP_ID, 'Observing while learning') : modeLabel('observe'),
 			note: current.modeReason === 'learning'
 				? t(APP_ID, 'Learning mode is on, so the detection would only be recorded. Once protection starts, these responses run:')
 				: t(APP_ID, 'The check is set to Observe, so the detection would only be recorded. In Protect mode these responses run:'),
 		}
 	}
-	return { type: 'success' as const, text: t(APP_ID, 'Protect'), note: null }
+	return { type: 'success' as const, text: modeLabel('protect'), note: null }
 })
 
 const buttons = computed(() => [
@@ -78,7 +55,7 @@ const buttons = computed(() => [
 		variant: 'secondary' as const,
 		disabled: loading.value,
 		callback: () => {
-			run()
+			reload()
 			return false
 		},
 	},
@@ -154,16 +131,16 @@ const buttons = computed(() => [
 .sim {
 	display: flex;
 	flex-direction: column;
-	gap: calc(var(--default-grid-baseline) * 5);
-	padding-bottom: calc(var(--default-grid-baseline) * 2);
+	gap: var(--ids-space-5);
+	padding-bottom: var(--ids-space-2);
 }
 
 .sim__intro {
 	display: flex;
 	align-items: flex-start;
-	gap: calc(var(--default-grid-baseline) * 2);
+	gap: var(--ids-space-2);
 	margin: 0;
-	padding: calc(var(--default-grid-baseline) * 3);
+	padding: var(--ids-space-3);
 	border-radius: var(--border-radius-large);
 	background-color: color-mix(in srgb, var(--color-info) 10%, var(--color-main-background));
 	color: var(--color-main-text);
@@ -178,13 +155,13 @@ const buttons = computed(() => [
 .sim__skeleton {
 	display: flex;
 	flex-direction: column;
-	gap: calc(var(--default-grid-baseline) * 2);
+	gap: var(--ids-space-2);
 }
 
 .sim__section {
 	display: flex;
 	flex-direction: column;
-	gap: calc(var(--default-grid-baseline) * 2);
+	gap: var(--ids-space-2);
 }
 
 .sim__head {
@@ -192,25 +169,21 @@ const buttons = computed(() => [
 	flex-wrap: wrap;
 	align-items: center;
 	justify-content: space-between;
-	gap: calc(var(--default-grid-baseline) * 2);
+	gap: var(--ids-space-2);
 }
 
 .sim__heading {
+	composes: eyebrow from '../../styles/shared.module.css';
 	margin: 0;
-	color: var(--color-text-maxcontrast);
-	font-size: 0.8em;
-	font-weight: 700;
-	letter-spacing: 0.06em;
-	text-transform: uppercase;
 }
 
 .sim__report {
 	display: flex;
 	flex-direction: column;
-	gap: calc(var(--default-grid-baseline) * 2);
+	gap: var(--ids-space-2);
 	margin: 0;
-	padding-block: calc(var(--default-grid-baseline) * 1);
-	padding-inline: calc(var(--default-grid-baseline) * 4) 0;
+	padding-block: var(--ids-space-1);
+	padding-inline: var(--ids-space-4) 0;
 	border-inline-start: 3px solid var(--color-primary-element);
 	line-height: 1.6;
 }
@@ -222,23 +195,21 @@ const buttons = computed(() => [
 }
 
 .sim__note {
-	color: var(--color-text-maxcontrast);
+	composes: muted from '../../styles/shared.module.css';
 }
 
 .sim__steps {
+	composes: plainList from '../../styles/shared.module.css';
 	display: flex;
 	flex-direction: column;
-	gap: calc(var(--default-grid-baseline) * 2);
-	margin: 0;
-	padding: 0;
-	list-style: none;
+	gap: var(--ids-space-2);
 }
 
 .sim__steps li {
 	display: flex;
 	align-items: flex-start;
-	gap: calc(var(--default-grid-baseline) * 2);
-	padding: calc(var(--default-grid-baseline) * 2) calc(var(--default-grid-baseline) * 3);
+	gap: var(--ids-space-2);
+	padding: var(--ids-space-2) var(--ids-space-3);
 	border-radius: var(--border-radius-large);
 	background-color: var(--color-background-hover);
 	line-height: 1.5;

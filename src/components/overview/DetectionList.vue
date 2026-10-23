@@ -4,11 +4,11 @@
 -->
 
 <script setup lang="ts">
-import type { Ban, Detection } from '../../types.ts'
+import type { Ban } from '../../types.ts'
 
 import { mdiClose, mdiShieldCheckOutline } from '@mdi/js'
-import { n, t } from '@nextcloud/l10n'
-import { computed, ref, useId, watch } from 'vue'
+import debounce from 'debounce'
+import { computed, onBeforeUnmount, ref, useId, watch } from 'vue'
 import NcButton from '@nextcloud/vue/components/NcButton'
 import NcIconSvgWrapper from '@nextcloud/vue/components/NcIconSvgWrapper'
 import NcLoadingIcon from '@nextcloud/vue/components/NcLoadingIcon'
@@ -19,23 +19,25 @@ import SelectField from '../common/SelectField.vue'
 import SkeletonBlock from '../common/SkeletonBlock.vue'
 import DetectionGroup from './DetectionGroup.vue'
 import DetectionRow from './DetectionRow.vue'
-import { errorMessage, fetchDetections } from '../../services/api.ts'
-import { logger } from '../../services/logger.ts'
+import { useAction } from '../../composables/useAction.ts'
 import { detectionFilters, openDetectionId, state } from '../../store.ts'
+import { useDetectionList } from '../../stores/overview.ts'
 import { APP_ID } from '../../utils/format.ts'
 import { groupDetections } from '../../utils/groups.ts'
+import { n, t } from '../../utils/l10n.ts'
 
 const emit = defineEmits<{
-	lift: [ban: Ban, reload: () => Promise<void>]
+	lift: [ban: Ban]
 }>()
 
-const PAGE = 25
 const id = useId()
-const detections = ref<Detection[]>([])
-const hasMore = ref(false)
-const loading = ref(true)
-const loadingMore = ref(false)
-const error = ref<string | null>(null)
+const list = useDetectionList({ failure: () => t(APP_ID, 'The detections could not be loaded. Please reload the page.') })
+const detections = computed(() => list.data.value?.detections ?? [])
+const hasMore = computed(() => list.data.value?.hasMore ?? false)
+const more = useAction()
+const loading = computed(() => list.data.value === null && list.error.value === null)
+const loadingMore = computed(() => more.busy.value !== null)
+const error = computed(() => list.error.value ?? more.error.value)
 const address = ref(detectionFilters.address)
 const user = ref(detectionFilters.user)
 
@@ -66,54 +68,24 @@ const entries = computed(() => groupDetections(detections.value))
 const filtered = computed(() => Object.values(detectionFilters).some((value) => value !== ''))
 
 /**
- * Load the first page for the current filters.
- */
-async function load() {
-	loading.value = true
-	error.value = null
-	try {
-		const page = await fetchDetections(detectionFilters, PAGE, 0)
-		detections.value = page.detections
-		hasMore.value = page.hasMore
-	} catch (e) {
-		logger.error('Could not load detections', { error: e })
-		error.value = errorMessage(e, t(APP_ID, 'The detections could not be loaded. Please reload the page.'))
-	} finally {
-		loading.value = false
-	}
-}
-
-/**
  * Append the next page.
  */
-async function loadMore() {
-	loadingMore.value = true
-	try {
-		const page = await fetchDetections(detectionFilters, PAGE, detections.value.length)
-		detections.value.push(...page.detections)
-		hasMore.value = page.hasMore
-	} catch (e) {
-		logger.error('Could not load more detections', { error: e })
-		error.value = errorMessage(e, t(APP_ID, 'More detections could not be loaded.'))
-	} finally {
-		loadingMore.value = false
-	}
+function loadMore() {
+	more.run('more', list.loadMore, { fallback: t(APP_ID, 'More detections could not be loaded.'), inline: true })
 }
 
-let typing: ReturnType<typeof setTimeout> | undefined
-watch([address, user], () => {
-	clearTimeout(typing)
-	typing = setTimeout(() => {
-		detectionFilters.address = address.value.trim()
-		detectionFilters.user = user.value.trim()
-	}, 400)
-})
+const applyTyped = debounce(() => {
+	detectionFilters.address = address.value.trim()
+	detectionFilters.user = user.value.trim()
+}, 400)
+watch([address, user], applyTyped)
+onBeforeUnmount(() => applyTyped.clear())
 
 watch(() => ({ ...detectionFilters }), () => {
 	address.value = detectionFilters.address
 	user.value = detectionFilters.user
-	load()
-}, { immediate: true })
+	more.error.value = null
+})
 
 /**
  * Remove every filter.
@@ -124,20 +96,6 @@ function clearFilters() {
 
 /** A detection opened from a link or the lookup that is not on the first page */
 const pinned = computed(() => openDetectionId.value !== null && !detections.value.some((d) => d.id === openDetectionId.value) ? openDetectionId.value : null)
-
-/**
- * Reload the list after a block was lifted, so its rows and narratives show the change.
- *
- * @param ban - The block to lift
- * @param reload - Reloads the narrative it was lifted from
- */
-function onLift(ban: Ban, reload: () => Promise<void>) {
-	emit('lift', ban, async () => {
-		await Promise.all([reload(), load()])
-	})
-}
-
-defineExpose({ reload: load })
 </script>
 
 <template>
@@ -210,7 +168,7 @@ defineExpose({ reload: load })
 				:key="pinned"
 				:detectionId="pinned"
 				open
-				@lift="onLift" />
+				@lift="emit('lift', $event)" />
 		</ul>
 
 		<div v-if="loading" :class="$style.detections__skeleton" aria-busy="true">
@@ -229,12 +187,12 @@ defineExpose({ reload: load })
 					v-if="entry.type === 'single'"
 					:detection="entry.detection"
 					:open="openDetectionId === entry.detection.id"
-					@lift="onLift" />
+					@lift="emit('lift', $event)" />
 				<DetectionGroup
 					v-else
 					:detections="entry.detections"
 					:openId="openDetectionId"
-					@lift="onLift" />
+					@lift="emit('lift', $event)" />
 			</template>
 		</ul>
 
@@ -253,7 +211,7 @@ defineExpose({ reload: load })
 .detections {
 	display: flex;
 	flex-direction: column;
-	gap: calc(var(--default-grid-baseline) * 4);
+	gap: var(--ids-space-4);
 }
 
 .detections__head {
@@ -261,7 +219,7 @@ defineExpose({ reload: load })
 	flex-wrap: wrap;
 	align-items: baseline;
 	justify-content: space-between;
-	gap: calc(var(--default-grid-baseline) * 2);
+	gap: var(--ids-space-2);
 }
 
 .detections__heading {
@@ -271,7 +229,7 @@ defineExpose({ reload: load })
 }
 
 .detections__count {
-	color: var(--color-text-maxcontrast);
+	composes: muted from '../../styles/shared.module.css';
 	font-size: 0.9em;
 }
 
@@ -279,7 +237,7 @@ defineExpose({ reload: load })
 	display: grid;
 	grid-template-columns: repeat(auto-fill, minmax(min(100%, 170px), 1fr));
 	align-items: start;
-	gap: calc(var(--default-grid-baseline) * 3);
+	gap: var(--ids-space-3);
 }
 
 .filters .filter {
@@ -290,7 +248,7 @@ defineExpose({ reload: load })
 .filter_text {
 	display: flex;
 	flex-direction: column;
-	gap: calc(var(--default-grid-baseline) * 1);
+	gap: var(--ids-space-1);
 }
 
 .filter_text label {
@@ -308,9 +266,7 @@ defineExpose({ reload: load })
 }
 
 .detections__list {
-	margin: 0;
-	padding: 0;
-	list-style: none;
+	composes: plainList from '../../styles/shared.module.css';
 }
 
 .detections__list_pinned {
@@ -321,7 +277,7 @@ defineExpose({ reload: load })
 .detections__skeleton {
 	display: flex;
 	flex-direction: column;
-	gap: calc(var(--default-grid-baseline) * 2);
+	gap: var(--ids-space-2);
 }
 
 .detections__more {

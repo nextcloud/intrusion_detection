@@ -9,56 +9,72 @@ declare(strict_types=1);
 
 namespace OCA\IntrusionDetection\Tests\Integration;
 
+use OC\Authentication\TwoFactorAuth\ProviderLoader;
+use OC\Session\SessionIdRenewer;
+use OC\User\Session as UserSession;
 use OCA\IntrusionDetection\AdminChange\ApprovalService;
 use OCA\IntrusionDetection\AdminChange\Approvers;
 use OCA\IntrusionDetection\AppInfo\Application;
 use OCA\IntrusionDetection\Audit\AuditLogger;
-use OCA\IntrusionDetection\Check\Checks\PasswordSpraying;
-use OCA\IntrusionDetection\Check\Checks\PasswordSprayingDetector;
-use OCA\IntrusionDetection\Check\Checks\StepUpFailed;
-use OCA\IntrusionDetection\Check\Checks\StepUpUnconfirmed;
-use OCA\IntrusionDetection\Config\Prerequisites;
+use OCA\IntrusionDetection\Cache\Caches;
+use OCA\IntrusionDetection\Config\PurgeRetention;
+use OCA\IntrusionDetection\Confirm\AccountMethods;
+use OCA\IntrusionDetection\Confirm\Administrators;
 use OCA\IntrusionDetection\Confirm\ConfirmationPolicy;
+use OCA\IntrusionDetection\Confirm\Db\StepUpSessionMapper;
 use OCA\IntrusionDetection\Confirm\EmailCodes;
 use OCA\IntrusionDetection\Confirm\FamiliarLogin;
+use OCA\IntrusionDetection\Confirm\LoginAssessment;
+use OCA\IntrusionDetection\Confirm\LoginConfirmations;
+use OCA\IntrusionDetection\Confirm\LoginConfirmationStore;
 use OCA\IntrusionDetection\Confirm\LoginDetections;
 use OCA\IntrusionDetection\Confirm\Methods\AdminApprovalMethod;
 use OCA\IntrusionDetection\Confirm\Methods\EmailCodeMethod;
 use OCA\IntrusionDetection\Confirm\Methods\KnownDeviceMethod;
 use OCA\IntrusionDetection\Confirm\Methods\SecondFactorMethod;
+use OCA\IntrusionDetection\Confirm\PendingLoginFlow;
+use OCA\IntrusionDetection\Confirm\SecondFactors;
 use OCA\IntrusionDetection\Confirm\SecondFactorSetup;
 use OCA\IntrusionDetection\Confirm\SessionConfirmation;
 use OCA\IntrusionDetection\Confirm\StepUpReasons;
-use OCA\IntrusionDetection\Confirm\StepUpService;
 use OCA\IntrusionDetection\Confirm\StepUpState;
 use OCA\IntrusionDetection\Confirm\UnconfirmedSessions;
 use OCA\IntrusionDetection\Confirm\UntrustedSecondFactors;
 use OCA\IntrusionDetection\Controller\VerifyController;
 use OCA\IntrusionDetection\Crypto\Fingerprinter;
 use OCA\IntrusionDetection\Db\ApprovalMapper;
-use OCA\IntrusionDetection\Db\AttemptMapper;
 use OCA\IntrusionDetection\Db\Detection;
 use OCA\IntrusionDetection\Db\DetectionFilter;
 use OCA\IntrusionDetection\Db\DetectionMapper;
-use OCA\IntrusionDetection\Db\KnownDeviceMapper;
-use OCA\IntrusionDetection\Db\LoginHistoryMapper;
-use OCA\IntrusionDetection\Db\StepUpSessionMapper;
 use OCA\IntrusionDetection\Http\LocalRedirect;
+use OCA\IntrusionDetection\KnownDevice\Db\KnownDeviceMapper;
 use OCA\IntrusionDetection\KnownDevice\DeviceCookie;
 use OCA\IntrusionDetection\KnownDevice\KnownDevices;
-use OCA\IntrusionDetection\Listener\StepUpChallengePassedListener;
-use OCA\IntrusionDetection\Listener\StepUpLoginListener;
-use OCA\IntrusionDetection\Login\InteractiveLogin;
+use OCA\IntrusionDetection\Listener\ChallengePassedListener;
+use OCA\IntrusionDetection\Listener\Login\HistoryStep;
+use OCA\IntrusionDetection\Listener\Login\ILoginStep;
+use OCA\IntrusionDetection\Listener\Login\KnownDeviceStep;
+use OCA\IntrusionDetection\Listener\Login\StepUpStep;
+use OCA\IntrusionDetection\Listener\LoginListener;
 use OCA\IntrusionDetection\Login\LoginGate;
+use OCA\IntrusionDetection\Login\RequestContext;
+use OCA\IntrusionDetection\Login\SessionIdRenewal;
+use OCA\IntrusionDetection\Login\SessionMarkers;
+use OCA\IntrusionDetection\Login\SessionTokenLinker;
+use OCA\IntrusionDetection\LoginHistory\Db\LoginHistoryMapper;
 use OCA\IntrusionDetection\LoginHistory\LoginHistory;
 use OCA\IntrusionDetection\Net\RemoteAddressResolver;
 use OCA\IntrusionDetection\Net\ServerAddresses;
+use OCA\IntrusionDetection\Notification\MailReach;
 use OCA\IntrusionDetection\Notification\UserMessages;
 use OCA\IntrusionDetection\Response\FlaggedSources;
-use OCA\IntrusionDetection\Risk\RiskScorer;
+use OCA\IntrusionDetection\Response\Tokens;
 use OCA\IntrusionDetection\SessionState\Rules\StepUpRule;
-use OCA\IntrusionDetection\SessionState\SessionState;
+use OCA\IntrusionDetection\Signal\SignalDispatcher;
 use OCA\IntrusionDetection\Tests\BasicAuthServer;
+use OCA\IntrusionDetection\Tests\LoginSteps;
+use OCA\IntrusionDetection\Tests\Unit\Cache\FixedCaches;
+use OCA\IntrusionDetection\Tests\Unit\Login\FixedSessionIdRenewal;
 use OCA\IntrusionDetection\TrustedNetwork\TrustedNetworks;
 use OCP\AppFramework\Utility\ITimeFactory;
 use OCP\Authentication\TwoFactorAuth\IChallengeRequester;
@@ -66,18 +82,18 @@ use OCP\Authentication\TwoFactorAuth\IProvider;
 use OCP\Authentication\TwoFactorAuth\IRegistry;
 use OCP\Authentication\TwoFactorAuth\TwoFactorProviderChallengePassed;
 use OCP\Config\IUserConfig;
-use OCP\ICacheFactory;
 use OCP\IConfig;
 use OCP\IRequest;
 use OCP\IURLGenerator;
 use OCP\IUser;
 use OCP\L10N\IFactory;
-use OCP\Mail\IEmailValidator;
 use OCP\Security\Bruteforce\IThrottler;
 use OCP\Security\IHasher;
 use OCP\Security\ISecureRandom;
 use OCP\Server;
+use OCP\Session\ISessionIdRenewer;
 use OCP\User\Events\UserLoggedInEvent;
+use OCP\User\Events\UserLoggedInWithCookieEvent;
 use PHPUnit\Framework\MockObject\MockObject;
 use Psr\Log\LoggerInterface;
 
@@ -104,21 +120,25 @@ abstract class StepUpTestCase extends AccountTestCase {
 	/** Whether core holds the login at the setup of a second factor */
 	protected bool $secondFactorSetupRequired = false;
 	/** The memory caches of the login listener; none by default */
-	protected ?ICacheFactory $listenerCaches = null;
+	protected ?Caches $listenerCaches = null;
 	protected bool $bypassListed = false;
 	/** @var IRequest&MockObject */
 	protected IRequest $request;
-	protected SessionState $state;
+	protected SessionMarkers $state;
 	/** @var IChallengeRequester&MockObject */
 	protected IChallengeRequester $challenges;
 	/** @var list<array{string, int}> device cookies set: value and expiry */
 	protected array $deviceCookiesSet = [];
+	/** Whether the server can renew a session id and keep its token */
+	protected bool $sessionIdRenewal = true;
+	/** @var list<string> the session ids core moved a remember-me cookie from */
+	protected array $magicCookieRenewedFrom = [];
 	private ?KnownDevices $knownDevices = null;
 	private ?LoginHistory $history = null;
 
 	protected function setUp(): void {
 		parent::setUp();
-		$this->state = new SessionState($this->session, Server::get(LoggerInterface::class));
+		$this->state = new SessionMarkers($this->session, Server::get(LoggerInterface::class));
 		$this->request = $this->createMock(IRequest::class);
 		$this->request->method('getRemoteAddress')->willReturnCallback(fn (): string => $this->remoteAddress);
 		$this->request->method('getHeader')->willReturnCallback(fn (string $name): string => $this->headers[$name] ?? '');
@@ -164,41 +184,70 @@ abstract class StepUpTestCase extends AccountTestCase {
 		return $this->service()->current();
 	}
 
-	protected function listener(): StepUpLoginListener {
-		return new StepUpLoginListener(
-			$this->settings,
-			new InteractiveLogin($this->request),
-			$this->addresses(),
+	/**
+	 * The login listener with the step-up step only, as the other tests of
+	 * the step-up need it.
+	 */
+	protected function listener(): LoginListener {
+		return $this->loginListener([StepUpStep::class]);
+	}
+
+	/**
+	 * A login through the app: the step-up, the known device and the login history.
+	 */
+	protected function loginThroughTheApp(IUser $user, UserLoggedInEvent|UserLoggedInWithCookieEvent|null $event = null): void {
+		$event ??= new UserLoggedInEvent($user, $user->getUID(), self::PASSWORD, false);
+		if ($this->session->id === null) {
+			$this->session->id = bin2hex(random_bytes(32));
+		}
+		$this->sessionUser = $user;
+		$this->loginListener([StepUpStep::class, KnownDeviceStep::class, HistoryStep::class])->handle($event);
+	}
+
+	/**
+	 * The app's login listener, running these of its steps, wired with the
+	 * test session and request.
+	 *
+	 * @param list<class-string<ILoginStep>> $steps
+	 */
+	protected function loginListener(array $steps, ?LoginHistory $history = null): LoginListener {
+		$context = $this->requestContext();
+		$services = [
+			StepUpStep::class => new StepUpStep($this->assessment()),
+			KnownDeviceStep::class => new KnownDeviceStep($this->knownDevices(), $this->service()),
+			HistoryStep::class => new HistoryStep($history ?? $this->history()),
+		];
+		$steps = array_map(fn (string $class): ILoginStep => $services[$class] ?? Server::get($class), array_combine($steps, $steps));
+		return LoginSteps::listener($steps, $this->appSettings(), $this->request, $context, $this->addresses(), new LoginGate($this->listenerCaches ?? $this->noCaches(), $this->coreSession, Server::get(Fingerprinter::class)));
+	}
+
+	/**
+	 * The request context of the login listener.
+	 */
+	protected function requestContext(): RequestContext {
+		return new RequestContext();
+	}
+
+	protected function assessment(): LoginAssessment {
+		return new LoginAssessment(
 			Server::get(Fingerprinter::class),
 			Server::get(FlaggedSources::class),
 			$this->stepUpReasons(),
 			Server::get(UnconfirmedSessions::class),
+			$this->coreSession,
 			$this->request,
-			$this->session,
-			new OverridingContainer($this->listenerServices() + [
-				StepUpService::class => $this->service(),
+			new OverridingContainer([
+				LoginConfirmations::class => $this->service(),
 				LoginDetections::class => $this->linker(),
-				PasswordSprayingDetector::class => new PasswordSprayingDetector(
-					$this->settings,
-					Server::get(AttemptMapper::class),
-					$this->engine(),
-					Server::get(FlaggedSources::class),
-					Server::get(Fingerprinter::class),
-					Server::get(ICacheFactory::class),
-					Server::get(PasswordSpraying::class),
-					Server::get(RiskScorer::class),
-				),
+				SignalDispatcher::class => $this->dispatcher($this->listenerServices(), $this->engine()),
 			]),
 			$this->listenerCaches ?? $this->noCaches(),
 			Server::get(LoggerInterface::class),
 		);
 	}
 
-	protected function noCaches(): ICacheFactory {
-		$factory = $this->createMock(ICacheFactory::class);
-		$factory->method('isAvailable')->willReturn(false);
-		$factory->method('isLocalCacheAvailable')->willReturn(false);
-		return $factory;
+	protected function noCaches(): Caches {
+		return FixedCaches::none();
 	}
 
 	/**
@@ -209,7 +258,7 @@ abstract class StepUpTestCase extends AccountTestCase {
 	}
 
 	/**
-	 * Further services of the login listener a test replaces.
+	 * The detectors of the login signals a test replaces.
 	 *
 	 * @return array<string, object>
 	 */
@@ -217,41 +266,56 @@ abstract class StepUpTestCase extends AccountTestCase {
 		return [];
 	}
 
-	protected function service(): StepUpService {
-		return new StepUpService(
-			$this->state,
-			$this->session,
+	protected function service(): LoginConfirmations {
+		return new LoginConfirmations(
+			$this->store(),
 			$this->userSession,
 			$this->policy(),
 			$this->engine(),
-			$this->settings,
-			Server::get(UnconfirmedSessions::class),
-			$this->currentSession,
+			$this->coreSession,
 			$this->addresses(),
-			Server::get(StepUpFailed::class),
-			Server::get(StepUpUnconfirmed::class),
 			Server::get(ITimeFactory::class),
 			Server::get(AuditLogger::class),
 			Server::get(LoggerInterface::class),
 			$this->history(),
-			new FamiliarLogin($this->knownDevices(), Server::get(LoginHistoryMapper::class), Server::get(TrustedNetworks::class), Server::get(ITimeFactory::class)),
+			new FamiliarLogin($this->knownDevices(), $this->history(), Server::get(TrustedNetworks::class), Server::get(ITimeFactory::class)),
 			$this->request,
+			Server::get(Tokens::class),
+			$this->sessionIds(),
 		);
 	}
 
+	/**
+	 * Core's renewal of the session id, on the test session and the real
+	 * token provider. Moving the remember-me cookie is recorded.
+	 */
+	protected function sessionIds(): SessionIdRenewal {
+		$userSession = $this->createMock(UserSession::class);
+		$userSession->method('getSession')->willReturn($this->session);
+		$userSession->method('renewMagicSessionId')->willReturnCallback(function (string $oldSessionId): void {
+			$this->magicCookieRenewedFrom[] = $oldSessionId;
+		});
+		$container = new OverridingContainer([ISessionIdRenewer::class => new SessionIdRenewer($userSession, $this->tokens)]);
+		return new FixedSessionIdRenewal($container, Server::get(LoggerInterface::class), $this->sessionIdRenewal);
+	}
+
+	protected function store(): LoginConfirmationStore {
+		return new LoginConfirmationStore($this->state, Server::get(UnconfirmedSessions::class), $this->coreSession);
+	}
+
 	protected function policy(): ConfirmationPolicy {
-		return new ConfirmationPolicy($this->settings, new OverridingContainer([
+		return new ConfirmationPolicy($this->appSettings(), new OverridingContainer([
 			SecondFactorMethod::class => $this->secondFactorMethod(),
-			KnownDeviceMethod::class => new KnownDeviceMethod($this->knownDevices(), $this->settings),
-			EmailCodeMethod::class => new EmailCodeMethod($this->codes()),
+			KnownDeviceMethod::class => new KnownDeviceMethod($this->knownDevices(), $this->appSettings()),
+			EmailCodeMethod::class => new EmailCodeMethod($this->codes(), $this->accountMethods()),
 			AdminApprovalMethod::class => new AdminApprovalMethod(
 				Server::get(ApprovalService::class),
 				Server::get(ApprovalMapper::class),
 				Server::get(Approvers::class),
-				$this->settings,
+				$this->appSettings(),
 				Server::get(ITimeFactory::class),
 			),
-		]), Server::get(LoggerInterface::class));
+		]), Server::get(LoggerInterface::class), Server::get(Administrators::class));
 	}
 
 	/**
@@ -282,7 +346,7 @@ abstract class StepUpTestCase extends AccountTestCase {
 				Server::get(KnownDeviceMapper::class),
 				$cookie,
 				Server::get(Fingerprinter::class),
-				$this->settings,
+				$this->appSettings(),
 				Server::get(ITimeFactory::class),
 				Server::get(AuditLogger::class),
 			);
@@ -294,9 +358,10 @@ abstract class StepUpTestCase extends AccountTestCase {
 		return $this->history ??= new LoginHistory(
 			Server::get(LoginHistoryMapper::class),
 			$this->state,
-			$this->currentSession,
-			new LoginGate(Server::get(ICacheFactory::class), Server::get(Prerequisites::class), $this->session),
+			$this->coreSession,
+			new SessionTokenLinker($this->state, $this->coreSession),
 			Server::get(ITimeFactory::class),
+			Server::get(PurgeRetention::class),
 		);
 	}
 
@@ -320,6 +385,18 @@ abstract class StepUpTestCase extends AccountTestCase {
 		}
 	}
 
+	/**
+	 * What the accounts can confirm with: email as the server sends it, the
+	 * second factor as the test says.
+	 */
+	protected function accountMethods(): AccountMethods {
+		return new AccountMethods(Server::get(MailReach::class), $this->secondFactors());
+	}
+
+	protected function secondFactors(): SecondFactors {
+		return new SecondFactors($this->registry(), Server::get(ProviderLoader::class), $this->untrustedSecondFactors(), Server::get(LoggerInterface::class));
+	}
+
 	protected function codes(): EmailCodes {
 		$random = $this->createMock(ISecureRandom::class);
 		$random->method('generate')->willReturnCallback(fn (): string => array_shift($this->codes) ?? '999999');
@@ -328,31 +405,28 @@ abstract class StepUpTestCase extends AccountTestCase {
 			Server::get(IHasher::class),
 			$this->mails,
 			Server::get(UserMessages::class),
-			Server::get(IEmailValidator::class),
-			Server::get(IConfig::class),
 			Server::get(ITimeFactory::class),
-			Server::get(UnconfirmedSessions::class),
-			$this->session,
+			$this->store(),
 			Server::get(IUserConfig::class),
 		);
 	}
 
 	protected function linker(): LoginDetections {
-		return new LoginDetections($this->state, Server::get(DetectionMapper::class), $this->currentSession, Server::get(LoggerInterface::class));
+		return new LoginDetections($this->state, Server::get(DetectionMapper::class), new SessionTokenLinker($this->state, $this->coreSession), Server::get(LoggerInterface::class));
 	}
 
 	protected function rule(): StepUpRule {
 		$setup = $this->createMock(SecondFactorSetup::class);
 		$setup->method('isRequired')->willReturnCallback(fn (): bool => $this->secondFactorSetupRequired);
 		return new StepUpRule($this->userSession, Server::get(IURLGenerator::class), Server::get(ITimeFactory::class), new OverridingContainer([
-			StepUpService::class => $this->service(),
+			LoginConfirmations::class => $this->service(),
 			LoginDetections::class => $this->linker(),
 			SecondFactorSetup::class => $setup,
 		]), Server::get(LoggerInterface::class));
 	}
 
 	protected function sessionConfirmation(): SessionConfirmation {
-		return new SessionConfirmation($this->state, $this->session, Server::get(ITimeFactory::class));
+		return new SessionConfirmation($this->store(), $this->coreSession);
 	}
 
 	protected function untrustedSecondFactors(): UntrustedSecondFactors {
@@ -360,7 +434,7 @@ abstract class StepUpTestCase extends AccountTestCase {
 	}
 
 	protected function secondFactorMethod(): SecondFactorMethod {
-		return new SecondFactorMethod($this->challenges, $this->registry(), $this->untrustedSecondFactors());
+		return new SecondFactorMethod($this->challenges, $this->accountMethods());
 	}
 
 	/**
@@ -369,7 +443,7 @@ abstract class StepUpTestCase extends AccountTestCase {
 	protected function passChallenge(IUser $user, string $providerId = 'totp'): void {
 		$provider = $this->createMock(IProvider::class);
 		$provider->method('getId')->willReturn($providerId);
-		(new StepUpChallengePassedListener($this->service(), $this->secondFactorMethod(), $this->sessionConfirmation(), Server::get(LoggerInterface::class)))
+		(new ChallengePassedListener($this->service(), $this->secondFactors(), $this->history(), $this->appSettings(), Server::get(LoggerInterface::class)))
 			->handle(new TwoFactorProviderChallengePassed($user, $provider));
 	}
 
@@ -377,14 +451,12 @@ abstract class StepUpTestCase extends AccountTestCase {
 		return new VerifyController(
 			$this->request,
 			$this->userSession,
-			$this->service(),
+			new PendingLoginFlow($this->service(), $this->policy(), $this->codes(), $this->knownDevices(), $this->addresses(), $this->request),
 			$this->codes(),
-			$this->policy(),
 			Server::get(IURLGenerator::class),
 			Server::get(LocalRedirect::class),
 			Server::get(IFactory::class)->get(Application::APP_ID, 'en'),
 			$this->knownDevices(),
-			$this->addresses(),
 			Server::get(ITimeFactory::class),
 		);
 	}

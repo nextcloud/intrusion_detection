@@ -9,7 +9,7 @@ declare(strict_types=1);
 
 namespace OCA\IntrusionDetection\Listener;
 
-use OCA\IntrusionDetection\Config\Settings;
+use OCA\IntrusionDetection\Config\AppSettings;
 use OCA\IntrusionDetection\Confirm\UntrustedSecondFactors;
 use OCP\Authentication\TwoFactorAuth\TwoFactorProviderForUserRegistered;
 use OCP\Authentication\TwoFactorAuth\TwoFactorProviderForUserUnregistered;
@@ -26,7 +26,7 @@ use Psr\Log\LoggerInterface;
  */
 class UntrustedSecondFactorListener implements IEventListener {
 	public function __construct(
-		private readonly Settings $settings,
+		private readonly AppSettings $settings,
 		private readonly UntrustedSecondFactors $untrusted,
 		private readonly LoggerInterface $logger,
 	) {

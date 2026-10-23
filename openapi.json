@@ -20,21 +20,6 @@
             }
         },
         "schemas": {
-            "AnswerError": {
-                "type": "object",
-                "required": [
-                    "reason",
-                    "message"
-                ],
-                "properties": {
-                    "reason": {
-                        "type": "string"
-                    },
-                    "message": {
-                        "type": "string"
-                    }
-                }
-            },
             "EmailHint": {
                 "type": "object",
                 "required": [
@@ -48,6 +33,26 @@
                     "secondFactorUrl": {
                         "type": "string",
                         "nullable": true
+                    }
+                }
+            },
+            "Error": {
+                "type": "object",
+                "required": [
+                    "message",
+                    "param",
+                    "reason"
+                ],
+                "properties": {
+                    "message": {
+                        "type": "string"
+                    },
+                    "param": {
+                        "type": "string",
+                        "nullable": true
+                    },
+                    "reason": {
+                        "type": "string"
                     }
                 }
             },
@@ -150,8 +155,7 @@
                 ],
                 "properties": {
                     "id": {
-                        "type": "integer",
-                        "format": "int64"
+                        "type": "string"
                     },
                     "label": {
                         "type": "string"
@@ -213,8 +217,7 @@
                 ],
                 "properties": {
                     "id": {
-                        "type": "integer",
-                        "format": "int64"
+                        "type": "string"
                     },
                     "createdAt": {
                         "type": "integer",
@@ -399,14 +402,19 @@
                 ],
                 "properties": {
                     "id": {
-                        "type": "integer",
-                        "format": "int64"
+                        "type": "string"
                     },
                     "check": {
                         "type": "string"
                     },
                     "severity": {
-                        "type": "string"
+                        "type": "string",
+                        "enum": [
+                            "low",
+                            "medium",
+                            "high",
+                            "critical"
+                        ]
                     },
                     "enforced": {
                         "type": "boolean"
@@ -657,8 +665,7 @@
                         "nullable": true
                     },
                     "detectionId": {
-                        "type": "integer",
-                        "format": "int64",
+                        "type": "string",
                         "nullable": true
                     },
                     "closedAt": {
@@ -795,7 +802,15 @@
                 ],
                 "properties": {
                     "id": {
-                        "type": "string"
+                        "type": "string",
+                        "enum": [
+                            "password",
+                            "sessions",
+                            "two_factor",
+                            "email",
+                            "shares",
+                            "files"
+                        ]
                     },
                     "done": {
                         "type": "boolean"
@@ -832,8 +847,7 @@
                 ],
                 "properties": {
                     "id": {
-                        "type": "integer",
-                        "format": "int64"
+                        "type": "string"
                     },
                     "type": {
                         "type": "string"
@@ -910,8 +924,7 @@
                 ],
                 "properties": {
                     "id": {
-                        "type": "integer",
-                        "format": "int64"
+                        "type": "string"
                     },
                     "network": {
                         "type": "string"
@@ -925,8 +938,7 @@
                         "format": "int64"
                     },
                     "detectionId": {
-                        "type": "integer",
-                        "format": "int64",
+                        "type": "string",
                         "nullable": true
                     }
                 }
@@ -1088,8 +1100,8 @@
                         "description": "the event",
                         "required": true,
                         "schema": {
-                            "type": "integer",
-                            "format": "int64"
+                            "type": "string",
+                            "pattern": "^\\d+$"
                         }
                     },
                     {
@@ -1155,7 +1167,7 @@
                                                     "$ref": "#/components/schemas/OCSMeta"
                                                 },
                                                 "data": {
-                                                    "$ref": "#/components/schemas/AnswerError"
+                                                    "$ref": "#/components/schemas/Error"
                                                 }
                                             }
                                         }
@@ -1185,7 +1197,7 @@
                                                     "$ref": "#/components/schemas/OCSMeta"
                                                 },
                                                 "data": {
-                                                    "$ref": "#/components/schemas/AnswerError"
+                                                    "$ref": "#/components/schemas/Error"
                                                 }
                                             }
                                         }
@@ -1215,7 +1227,7 @@
                                                     "$ref": "#/components/schemas/OCSMeta"
                                                 },
                                                 "data": {
-                                                    "$ref": "#/components/schemas/AnswerError"
+                                                    "$ref": "#/components/schemas/Error"
                                                 }
                                             }
                                         }
@@ -1245,7 +1257,7 @@
                                                     "$ref": "#/components/schemas/OCSMeta"
                                                 },
                                                 "data": {
-                                                    "$ref": "#/components/schemas/AnswerError"
+                                                    "$ref": "#/components/schemas/Error"
                                                 }
                                             }
                                         }
@@ -1308,8 +1320,8 @@
                         "description": "the event",
                         "required": true,
                         "schema": {
-                            "type": "integer",
-                            "format": "int64"
+                            "type": "string",
+                            "pattern": "^\\d+$"
                         }
                     },
                     {
@@ -1375,7 +1387,7 @@
                                                     "$ref": "#/components/schemas/OCSMeta"
                                                 },
                                                 "data": {
-                                                    "$ref": "#/components/schemas/AnswerError"
+                                                    "$ref": "#/components/schemas/Error"
                                                 }
                                             }
                                         }
@@ -1405,7 +1417,7 @@
                                                     "$ref": "#/components/schemas/OCSMeta"
                                                 },
                                                 "data": {
-                                                    "$ref": "#/components/schemas/AnswerError"
+                                                    "$ref": "#/components/schemas/Error"
                                                 }
                                             }
                                         }
@@ -1435,7 +1447,7 @@
                                                     "$ref": "#/components/schemas/OCSMeta"
                                                 },
                                                 "data": {
-                                                    "$ref": "#/components/schemas/AnswerError"
+                                                    "$ref": "#/components/schemas/Error"
                                                 }
                                             }
                                         }
@@ -1465,7 +1477,7 @@
                                                     "$ref": "#/components/schemas/OCSMeta"
                                                 },
                                                 "data": {
-                                                    "$ref": "#/components/schemas/AnswerError"
+                                                    "$ref": "#/components/schemas/Error"
                                                 }
                                             }
                                         }
@@ -1659,8 +1671,8 @@
                         "description": "the entry",
                         "required": true,
                         "schema": {
-                            "type": "integer",
-                            "format": "int64"
+                            "type": "string",
+                            "pattern": "^\\d+$"
                         }
                     },
                     {
@@ -1702,8 +1714,7 @@
                                                     ],
                                                     "properties": {
                                                         "removed": {
-                                                            "type": "integer",
-                                                            "format": "int64"
+                                                            "type": "string"
                                                         }
                                                     }
                                                 }
@@ -1737,7 +1748,7 @@
                                                             "$ref": "#/components/schemas/OCSMeta"
                                                         },
                                                         "data": {
-                                                            "$ref": "#/components/schemas/AnswerError"
+                                                            "$ref": "#/components/schemas/Error"
                                                         }
                                                     }
                                                 }
@@ -1955,8 +1966,8 @@
                         "description": "the device",
                         "required": true,
                         "schema": {
-                            "type": "integer",
-                            "format": "int64"
+                            "type": "string",
+                            "pattern": "^\\d+$"
                         }
                     },
                     {
@@ -1998,8 +2009,7 @@
                                                     ],
                                                     "properties": {
                                                         "removed": {
-                                                            "type": "integer",
-                                                            "format": "int64"
+                                                            "type": "string"
                                                         }
                                                     }
                                                 }
@@ -2033,7 +2043,7 @@
                                                             "$ref": "#/components/schemas/OCSMeta"
                                                         },
                                                         "data": {
-                                                            "$ref": "#/components/schemas/AnswerError"
+                                                            "$ref": "#/components/schemas/Error"
                                                         }
                                                     }
                                                 }
@@ -2983,7 +2993,7 @@
                                                     "$ref": "#/components/schemas/OCSMeta"
                                                 },
                                                 "data": {
-                                                    "$ref": "#/components/schemas/AnswerError"
+                                                    "$ref": "#/components/schemas/Error"
                                                 }
                                             }
                                         }
@@ -3013,7 +3023,7 @@
                                                     "$ref": "#/components/schemas/OCSMeta"
                                                 },
                                                 "data": {
-                                                    "$ref": "#/components/schemas/AnswerError"
+                                                    "$ref": "#/components/schemas/Error"
                                                 }
                                             }
                                         }
@@ -3250,7 +3260,7 @@
                                                     "$ref": "#/components/schemas/OCSMeta"
                                                 },
                                                 "data": {
-                                                    "$ref": "#/components/schemas/AnswerError"
+                                                    "$ref": "#/components/schemas/Error"
                                                 }
                                             }
                                         }
@@ -3341,8 +3351,8 @@
                         "description": "The detection from the notification",
                         "required": true,
                         "schema": {
-                            "type": "integer",
-                            "format": "int64"
+                            "type": "string",
+                            "pattern": "^\\d+$"
                         }
                     },
                     {
@@ -3829,7 +3839,7 @@
                                                             "$ref": "#/components/schemas/OCSMeta"
                                                         },
                                                         "data": {
-                                                            "$ref": "#/components/schemas/AnswerError"
+                                                            "$ref": "#/components/schemas/Error"
                                                         }
                                                     }
                                                 }
@@ -3895,16 +3905,24 @@
     },
     "tags": [
         {
-            "name": "admin_api",
-            "description": "The admin page's API. Administrators only (there is no delegation: this page can turn protection off and lift blocks). Every change needs a recent password confirmation and is written to the audit log."
+            "name": "account_sessions",
+            "description": "Ends every session and app password of the account a detection is about, for an administrator who handles the detection."
         },
         {
             "name": "approval",
             "description": "Requests for the approval of a second administrator: the list, and the decisions, made on the admin page or by API. Administrators only (the default for controllers) and CSRF-protected; the rules who may decide are in {@see ApprovalService}, shared with occ. Approving needs a recent password confirmation, and the deciding administrator's own session must not be unconfirmed ({@see SessionConfirmation::isUnconfirmed()}): a session that was let in without its confirmation, still waits for it, or uses an app password must not let others in. So a stolen app password alone never approves. Rejecting needs neither: it changes nothing (the account does not join, the waiting login ends and can be tried again), and stopping a request one did not expect must be quick."
         },
         {
+            "name": "ban_api",
+            "description": "The blocks on the admin page: the list, blocking by hand and lifting. Administrators only; every change needs a recent password confirmation and is written to the audit log."
+        },
+        {
             "name": "blocklist_api",
             "description": "The firewall export and the blocklists on the Blocks tab. Administrators only; every change needs a recent password confirmation and is audited. The export directory is deliberately not settable here: it is read from config.php only, so a web administrator cannot make Nextcloud write files anywhere on the server."
+        },
+        {
+            "name": "check_api",
+            "description": "The checks on the admin page: the status on top, the check cards and the protection level. Administrators only; every change needs a recent password confirmation and is written to the audit log. A change that would switch the four-eyes approval of new administrators off waits for a second administrator ({@see ApprovalService::hold()})."
         },
         {
             "name": "confirmation_api",
@@ -3913,6 +3931,10 @@
         {
             "name": "decoy_api",
             "description": "The Decoys tab: decoy credentials, reserved names and trap paths. Administrators only; every change needs a recent password confirmation and is audited. The secret of a decoy is returned once, by the request that creates it, and never stored: no endpoint can return it again."
+        },
+        {
+            "name": "detection_api",
+            "description": "The detections on the admin page: the list, one detection explained, the daily counts and the lookup of a reference, an address or an account. Administrators only; nothing here changes anything."
         },
         {
             "name": "digest_api",
@@ -3945,6 +3967,10 @@
         {
             "name": "secure_account_admin",
             "description": "The \"Secure my account\" state of a detection's account on the admin page (concept sections 11.15 and 15.3): the checklist's progress, and for accounts locked with the lock link \"Re-enable and start Secure my * account\". Administrators only; every write needs password confirmation and is audited."
+        },
+        {
+            "name": "settings_api",
+            "description": "The global settings and learning mode on the admin page, with the export for support and the reset to the defaults. Administrators only; every change needs a recent password confirmation and is written to the audit log."
         },
         {
             "name": "share_alert",

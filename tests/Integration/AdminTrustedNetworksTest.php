@@ -13,20 +13,29 @@ use OC\Settings\AuthorizedGroup;
 use OC\Settings\AuthorizedGroupMapper;
 use OCA\IntrusionDetection\AdminChange\DelegatedGroups;
 use OCA\IntrusionDetection\AppInfo\Application;
-use OCA\IntrusionDetection\Check\Checks\StepUpRefused;
-use OCA\IntrusionDetection\Check\Checks\StepUpRefusedClient;
+use OCA\IntrusionDetection\Check\Checks\StepUpRefused\StepUpRefused;
+use OCA\IntrusionDetection\Check\Checks\StepUpRefusedClient\StepUpRefusedClient;
 use OCA\IntrusionDetection\Config\GlobalSettings;
+use OCA\IntrusionDetection\Confirm\Administrators;
+use OCA\IntrusionDetection\Confirm\ConfirmationStatus;
 use OCA\IntrusionDetection\Confirm\IConfirmationMethod;
+use OCA\IntrusionDetection\Confirm\LoginAssessment;
+use OCA\IntrusionDetection\Confirm\LoginConfirmations;
+use OCA\IntrusionDetection\Confirm\LoginDetections;
 use OCA\IntrusionDetection\Confirm\Reasons\AdminOutsideNetworksReason;
 use OCA\IntrusionDetection\Confirm\StepUpPolicy;
 use OCA\IntrusionDetection\Confirm\StepUpReasons;
-use OCA\IntrusionDetection\Confirm\StepUpState;
+use OCA\IntrusionDetection\Confirm\UnconfirmedSessions;
 use OCA\IntrusionDetection\Controller\VerifyController;
+use OCA\IntrusionDetection\Crypto\Fingerprinter;
+use OCA\IntrusionDetection\Login\SessionMarkers;
 use OCA\IntrusionDetection\Net\SourceKey;
-use OCA\IntrusionDetection\SessionState\SessionState;
+use OCA\IntrusionDetection\Response\FlaggedSources;
+use OCA\IntrusionDetection\Signal\SignalDispatcher;
 use OCP\AppFramework\Http\StandaloneTemplateResponse;
 use OCP\IGroupManager;
 use OCP\IUser;
+use OCP\IUserSession;
 use OCP\L10N\IFactory;
 use OCP\Server;
 use PHPUnit\Framework\Attributes\Group;
@@ -47,13 +56,14 @@ class AdminTrustedNetworksTest extends StepUpTestCase {
 	private array $delegations = [];
 	/** @var list<string> */
 	private array $groups = [];
+	private bool $brokenConfirmations = false;
 
 	protected function setUp(): void {
 		parent::setUp();
 		$this->admin = $this->user('ids-adminnet', 'admin@example.com');
 		Server::get(IGroupManager::class)->get('admin')?->addUser($this->admin);
-		$this->settings->setGlobal(GlobalSettings::ADMIN_TRUSTED_NETWORKS_ONLY, true);
-		$this->settings->setGlobal(GlobalSettings::RISKY_NETWORK_OFFICE_NETWORKS, [self::OFFICE]);
+		$this->settingsEditor()->setGlobal(GlobalSettings::ADMIN_TRUSTED_NETWORKS_ONLY, true);
+		$this->settingsEditor()->setGlobal(GlobalSettings::RISKY_NETWORK_OFFICE_NETWORKS, [self::OFFICE]);
 		$this->remoteAddress = self::OUTSIDE;
 	}
 
@@ -73,21 +83,69 @@ class AdminTrustedNetworksTest extends StepUpTestCase {
 		// A fresh reason per login, so that delegations made by the test are seen.
 		return new StepUpReasons(new OverridingContainer([
 			AdminOutsideNetworksReason::class => new AdminOutsideNetworksReason(
-				$this->settings,
-				Server::get(IGroupManager::class),
-				new DelegatedGroups(Server::get(AuthorizedGroupMapper::class), Server::get(LoggerInterface::class)),
+				$this->appSettings(),
+				new Administrators(Server::get(IGroupManager::class), new DelegatedGroups(Server::get(AuthorizedGroupMapper::class), Server::get(LoggerInterface::class))),
 			),
 		]), Server::get(LoggerInterface::class));
+	}
+
+	#[\Override]
+	protected function assessment(): LoginAssessment {
+		if (!$this->brokenConfirmations) {
+			return parent::assessment();
+		}
+		$broken = $this->createMock(LoginConfirmations::class);
+		$broken->method('atLogin')->willThrowException(new \RuntimeException('The database is gone'));
+		return new LoginAssessment(
+			Server::get(Fingerprinter::class),
+			Server::get(FlaggedSources::class),
+			$this->stepUpReasons(),
+			Server::get(UnconfirmedSessions::class),
+			$this->coreSession,
+			$this->request,
+			new OverridingContainer([
+				LoginConfirmations::class => $broken,
+				LoginDetections::class => $this->linker(),
+				SignalDispatcher::class => $this->dispatcher([], $this->engine()),
+				IUserSession::class => $this->userSession,
+			]),
+			$this->noCaches(),
+			Server::get(LoggerInterface::class),
+		);
 	}
 
 	public function testAnAdministratorOutsideTheTrustedNetworksMustConfirm(): void {
 		$this->login($this->admin);
 
 		$stepUp = $this->stepUp();
-		$this->assertSame(StepUpState::PENDING, $stepUp?->status);
+		$this->assertSame(ConfirmationStatus::Pending, $stepUp?->status);
 		$this->assertSame([StepUpPolicy::AdminOutsideNetworks->value], $stepUp->policies);
 		$this->assertSame([IConfirmationMethod::EMAIL_CODE], $stepUp->methods);
 		$this->assertSame('482915', $this->lastCode($this->admin->getUID()));
+	}
+
+	public function testAnAdministratorWhomAnotherCanApproveIsNotAskedForAnEmailCode(): void {
+		$this->settingsEditor()->setGlobal(GlobalSettings::STEP_UP_ADMIN_APPROVAL, true);
+		$this->login($this->admin);
+
+		$this->assertSame([IConfirmationMethod::ADMIN_APPROVAL], $this->stepUp()?->methods, 'An administrator\'s mailbox is no second factor');
+		$this->assertNull($this->lastCode($this->admin->getUID()));
+	}
+
+	public function testAnAdministratorWithASecondFactorIsNeverOfferedAnEmailCode(): void {
+		$this->hasSecondFactor = true;
+		$this->login($this->admin);
+		$stepUp = $this->stepUp();
+		$this->assertNotNull($stepUp);
+
+		$this->assertSame([IConfirmationMethod::SECOND_FACTOR], array_map(static fn (IConfirmationMethod $m): string => $m->id(), $this->policy()->methodsForAll($this->admin, [StepUpPolicy::AdminOutsideNetworks])));
+		$this->assertSame([], $this->mailed);
+	}
+
+	public function testOtherAccountsKeepTheEmailCodeNextToAnApproval(): void {
+		$this->settingsEditor()->setGlobal(GlobalSettings::STEP_UP_ADMIN_APPROVAL, true);
+		$bob = $this->user('ids-adminnet-user', 'bob@example.com');
+		$this->assertSame([IConfirmationMethod::EMAIL_CODE, IConfirmationMethod::ADMIN_APPROVAL], array_map(static fn (IConfirmationMethod $m): string => $m->id(), $this->policy()->methodsForAll($bob, [StepUpPolicy::ProtectedAccount])));
 	}
 
 	public function testTheConfirmationPageSaysWhy(): void {
@@ -130,7 +188,7 @@ class AdminTrustedNetworksTest extends StepUpTestCase {
 		$this->delegations[] = Server::get(AuthorizedGroupMapper::class)->insert($delegation)->getId();
 		$this->session->clear();
 		$this->login($carol);
-		$this->assertSame(StepUpState::PENDING, $this->stepUp()?->status);
+		$this->assertSame(ConfirmationStatus::Pending, $this->stepUp()?->status);
 	}
 
 	public function testARememberedDeviceIsNotEnough(): void {
@@ -139,7 +197,7 @@ class AdminTrustedNetworksTest extends StepUpTestCase {
 		$this->assertNotNull($this->knownDevices()->recognise($this->admin->getUID()), 'The device is known');
 
 		$this->login($this->admin);
-		$this->assertSame(StepUpState::PENDING, $this->stepUp()?->status);
+		$this->assertSame(ConfirmationStatus::Pending, $this->stepUp()?->status);
 		$this->assertSame([IConfirmationMethod::EMAIL_CODE], $this->stepUp()?->methods);
 	}
 
@@ -148,7 +206,7 @@ class AdminTrustedNetworksTest extends StepUpTestCase {
 		Server::get(IGroupManager::class)->get('admin')?->addUser($dave);
 		$this->login($dave);
 
-		$this->assertSame(StepUpState::REFUSED, $this->stepUp()?->status);
+		$this->assertSame(ConfirmationStatus::Refused, $this->stepUp()?->status);
 		$this->assertCount(1, $this->detectionsOf(StepUpRefused::ID));
 		$response = $this->verifyController()->show();
 		$this->assertInstanceOf(StandaloneTemplateResponse::class, $response);
@@ -159,8 +217,8 @@ class AdminTrustedNetworksTest extends StepUpTestCase {
 	public function testAppsSendingThePasswordFromOutsideAreRefused(): void {
 		$this->basicAuth($this->admin);
 		$this->login($this->admin);
-		$this->assertSame(StepUpState::REFUSED_CLIENT, $this->stepUp()?->status);
-		$this->assertNull($this->state->get(SessionState::CONFIRMATION));
+		$this->assertSame(ConfirmationStatus::RefusedClient, $this->stepUp()?->status);
+		$this->assertNull($this->state->get(SessionMarkers::CONFIRMATION));
 		$detections = $this->detectionsOf(StepUpRefusedClient::ID);
 		$this->assertCount(1, $detections);
 		$l = Server::get(IFactory::class)->get(Application::APP_ID, 'en');
@@ -171,7 +229,41 @@ class AdminTrustedNetworksTest extends StepUpTestCase {
 		Server::get(\OCA\IntrusionDetection\TrustedNetwork\TrustedNetworks::class)->trust($this->admin->getUID(), SourceKey::fromIp(self::OUTSIDE));
 		$this->basicAuth($this->admin);
 		$this->login($this->admin);
-		$this->assertSame(StepUpState::REFUSED_CLIENT, $this->stepUp()?->status, 'A network of "Yes, it was me" is no trusted network');
+		$this->assertSame(ConfirmationStatus::RefusedClient, $this->stepUp()?->status, 'A network of "Yes, it was me" is no trusted network');
+	}
+
+	public function testAnAddressOnTheBruteForceAllowlistOutsideTheNetworksStillMustConfirm(): void {
+		$this->bypassListed = true;
+		$this->login($this->admin);
+		$this->assertSame(ConfirmationStatus::Pending, $this->stepUp()?->status, 'The allowlist spares throttling, not the rule');
+		$this->assertSame([StepUpPolicy::AdminOutsideNetworks->value], $this->stepUp()?->policies);
+
+		$this->session->clear();
+		$this->remoteAddress = self::INSIDE;
+		$this->login($this->admin);
+		$this->assertNull($this->stepUp());
+	}
+
+	public function testOtherReasonsStaySkippedOnTheAllowlist(): void {
+		$this->bypassListed = true;
+		$bob = $this->user('ids-adminnet-allowlisted', 'bob@example.com');
+		Server::get(\OCA\IntrusionDetection\Response\AccountProtection::class)->protect($bob->getUID(), time() + 3600);
+		$this->login($bob);
+		$this->assertNull($this->stepUp());
+		$this->assertNull($this->state->get(SessionMarkers::CONFIRMATION));
+	}
+
+	public function testALoginTheRuleCannotDecideIsEnded(): void {
+		$this->brokenConfirmations = true;
+		$this->login($this->admin);
+		$this->assertNull($this->sessionUser, 'An error must not let an administrator in from outside unconfirmed');
+	}
+
+	public function testAnErrorElsewhereInsideTheNetworksLetsTheLoginIn(): void {
+		$this->brokenConfirmations = true;
+		$this->remoteAddress = self::INSIDE;
+		$this->login($this->admin);
+		$this->assertNotNull($this->sessionUser);
 	}
 
 	public function testAppPasswordsFromOutsideAreNotAffected(): void {
@@ -181,7 +273,7 @@ class AdminTrustedNetworksTest extends StepUpTestCase {
 	}
 
 	public function testWithTheSwitchOffNothingChanges(): void {
-		$this->settings->setGlobal(GlobalSettings::ADMIN_TRUSTED_NETWORKS_ONLY, false);
+		$this->settingsEditor()->setGlobal(GlobalSettings::ADMIN_TRUSTED_NETWORKS_ONLY, false);
 		$this->login($this->admin);
 		$this->assertNull($this->stepUp());
 
@@ -192,9 +284,9 @@ class AdminTrustedNetworksTest extends StepUpTestCase {
 	}
 
 	public function testWithoutTrustedNetworksEveryAdministratorLoginMustConfirm(): void {
-		$this->settings->setGlobal(GlobalSettings::RISKY_NETWORK_OFFICE_NETWORKS, []);
+		$this->settingsEditor()->setGlobal(GlobalSettings::RISKY_NETWORK_OFFICE_NETWORKS, []);
 		$this->remoteAddress = self::INSIDE;
 		$this->login($this->admin);
-		$this->assertSame(StepUpState::PENDING, $this->stepUp()?->status);
+		$this->assertSame(ConfirmationStatus::Pending, $this->stepUp()?->status);
 	}
 }

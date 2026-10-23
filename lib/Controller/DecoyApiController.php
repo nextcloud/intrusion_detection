@@ -10,15 +10,15 @@ declare(strict_types=1);
 namespace OCA\IntrusionDetection\Controller;
 
 use OCA\IntrusionDetection\Admin\TrapsOverview;
+use OCA\IntrusionDetection\AdminChange\ActorResolver;
 use OCA\IntrusionDetection\Audit\AuditLogger;
-use OCA\IntrusionDetection\Check\Checks\TrapUrl;
-use OCA\IntrusionDetection\Check\InvalidParamException;
-use OCA\IntrusionDetection\Config\Settings;
+use OCA\IntrusionDetection\Check\Checks\TrapUrl\TrapUrl;
+use OCA\IntrusionDetection\Config\CheckSettings;
+use OCA\IntrusionDetection\Configure\SettingsEditor;
 use OCA\IntrusionDetection\Decoy\DecoyFormat;
 use OCA\IntrusionDetection\Decoy\DecoyService;
 use OCA\IntrusionDetection\ResponseDefinitions;
 use OCA\IntrusionDetection\Traps\ReservedNames;
-use OCP\AppFramework\Db\DoesNotExistException;
 use OCP\AppFramework\Http;
 use OCP\AppFramework\Http\Attribute\ApiRoute;
 use OCP\AppFramework\Http\Attribute\OpenAPI;
@@ -28,7 +28,6 @@ use OCP\AppFramework\Http\DataResponse;
 use OCP\AppFramework\OCS\OCSNotFoundException;
 use OCP\IL10N;
 use OCP\IRequest;
-use OCP\IUserSession;
 
 /**
  * The Decoys tab: decoy credentials, reserved names and trap paths.
@@ -51,14 +50,15 @@ class DecoyApiController extends AdminOCSController {
 	public function __construct(
 		IRequest $request,
 		IL10N $l,
-		IUserSession $userSession,
+		ActorResolver $actors,
 		private readonly TrapsOverview $overview,
 		private readonly DecoyService $decoys,
 		private readonly ReservedNames $reservedNames,
-		private readonly Settings $settings,
+		private readonly CheckSettings $settings,
+		private readonly SettingsEditor $editor,
 		private readonly AuditLogger $audit,
 	) {
-		parent::__construct($request, $l, $userSession);
+		parent::__construct($request, $l, $actors);
 	}
 
 	/**
@@ -92,16 +92,12 @@ class DecoyApiController extends AdminOCSController {
 	#[ApiRoute(verb: 'POST', url: '/api/v1/decoys')]
 	#[PasswordConfirmationRequired]
 	#[UserRateLimit(limit: 20, period: 600)]
-	public function create(string $label, string $loginName = '', string $secretFormat = 'app-password'): DataResponse {
+	public function create(string $label, #[\SensitiveParameter] string $loginName = '', string $secretFormat = 'app-password'): DataResponse {
 		$decoyFormat = DecoyFormat::tryFrom($secretFormat);
 		if ($decoyFormat === null) {
 			return $this->error($this->l->t('Choose what the secret looks like: an app password or a token.'), 'secretFormat', 'invalid_format');
 		}
-		try {
-			[$decoy, $secret] = $this->decoys->create($label, $loginName === '' ? null : $loginName, $decoyFormat, $this->actor());
-		} catch (InvalidParamException $e) {
-			return $this->invalid($e);
-		}
+		[$decoy, $secret] = $this->decoys->create($label, $loginName === '' ? null : $loginName, $decoyFormat, $this->actor());
 		$response = new DataResponse(['decoy' => TrapsOverview::decoy($decoy), 'secret' => $secret]);
 		$response->addHeader('Cache-Control', 'no-store');
 		return $response;
@@ -112,20 +108,16 @@ class DecoyApiController extends AdminOCSController {
 	 *
 	 * Anyone who uses it afterwards is treated like any other failed login.
 	 *
-	 * @param int $id The decoy
-	 * @return DataResponse<Http::STATUS_OK, array{deleted: int}, array{}>
+	 * @param string $id The decoy
+	 * @return DataResponse<Http::STATUS_OK, array{deleted: string}, array{}>
 	 * @throws OCSNotFoundException The decoy does not exist
 	 *
 	 * 200: Decoy deleted
 	 */
 	#[ApiRoute(verb: 'DELETE', url: '/api/v1/decoys/{id}', requirements: ['id' => '\d+'])]
 	#[PasswordConfirmationRequired]
-	public function delete(int $id): DataResponse {
-		try {
-			$this->decoys->delete($id, $this->actor());
-		} catch (DoesNotExistException) {
-			throw new OCSNotFoundException($this->l->t('This decoy does not exist (any more).'));
-		}
+	public function delete(string $id): DataResponse {
+		$this->found(fn () => $this->decoys->delete($id, $this->actor()), $this->l->t('This decoy does not exist (any more).'));
 		return new DataResponse(['deleted' => $id]);
 	}
 
@@ -149,12 +141,8 @@ class DecoyApiController extends AdminOCSController {
 		if (count($add) + count($remove) > self::MAX_CHANGES) {
 			return $this->error($this->l->t('Change at most %s names at once.', [(string)self::MAX_CHANGES]), 'names', 'too_many_items');
 		}
-		try {
-			if ($add !== [] || $remove !== []) {
-				$this->reservedNames->change($add, $remove, $this->actor());
-			}
-		} catch (InvalidParamException $e) {
-			return $this->invalid($e);
+		if ($add !== [] || $remove !== []) {
+			$this->reservedNames->change($add, $remove, $this->actor());
 		}
 		return new DataResponse($this->overview->reservedNames());
 	}
@@ -197,11 +185,7 @@ class DecoyApiController extends AdminOCSController {
 		if ($autodiscover !== null) {
 			$params['autodiscover'] = $autodiscover;
 		}
-		try {
-			$changes = $this->settings->updateCheck(TrapUrl::ID, null, $params, null);
-		} catch (InvalidParamException $e) {
-			return $this->invalid($e);
-		}
+		$changes = $this->editor->updateCheck(TrapUrl::ID, null, $params, null);
 		if ($changes === []) {
 			return new DataResponse($this->overview->trapPaths($this->l));
 		}

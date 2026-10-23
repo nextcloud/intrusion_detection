@@ -9,9 +9,9 @@ declare(strict_types=1);
 
 namespace OCA\IntrusionDetection\Tests\Unit\Net;
 
-use OCA\IntrusionDetection\Config\GlobalSettings;
 use OCA\IntrusionDetection\Net\ServerAddresses;
 use OCA\IntrusionDetection\Net\SourceKey;
+use OCA\IntrusionDetection\State\HotState;
 use OCP\IAppConfig;
 use PHPUnit\Framework\MockObject\MockObject;
 use Test\TestCase;
@@ -25,7 +25,7 @@ class ServerAddressesTest extends TestCase {
 	protected function setUp(): void {
 		parent::setUp();
 		$this->appConfig = $this->createMock(IAppConfig::class);
-		$this->appConfig->method('getValueArray')->willReturnCallback(fn (string $app, string $key): array => $key === GlobalSettings::SERVER_ADDRESSES ? $this->stored : []);
+		$this->appConfig->method('getValueArray')->willReturnCallback(fn (string $app, string $key): array => $key === HotState::SERVER_ADDRESSES ? $this->stored : []);
 		$this->appConfig->method('setValueArray')->willReturnCallback(function (string $app, string $key, array $value): bool {
 			$this->stored = $value;
 			$this->writes++;
@@ -39,7 +39,7 @@ class ServerAddressesTest extends TestCase {
 	}
 
 	public function testANewAddressIsStoredOnceAndKnownWithoutAWebRequest(): void {
-		$servers = new ServerAddresses($this->appConfig);
+		$servers = new ServerAddresses(new HotState($this->appConfig));
 		$_SERVER['SERVER_ADDR'] = '192.0.2.10';
 		$servers->observe();
 		$servers->observe();
@@ -50,7 +50,7 @@ class ServerAddressesTest extends TestCase {
 	}
 
 	public function testEveryWebServerAddsItsOwnAndTheLatestAreKept(): void {
-		$servers = new ServerAddresses($this->appConfig);
+		$servers = new ServerAddresses(new HotState($this->appConfig));
 		for ($i = 1; $i <= ServerAddresses::MAX_REMEMBERED + 2; $i++) {
 			$_SERVER['SERVER_ADDR'] = '2001:db8::' . dechex($i);
 			$servers->observe();
@@ -63,13 +63,13 @@ class ServerAddressesTest extends TestCase {
 
 	public function testTheAddressOfTheRequestCountsBeforeItIsStored(): void {
 		$_SERVER['SERVER_ADDR'] = '192.0.2.10';
-		$servers = new ServerAddresses($this->appConfig);
+		$servers = new ServerAddresses(new HotState($this->appConfig));
 		$this->assertTrue($servers->contains(SourceKey::fromIp('192.0.2.10')));
 		$this->assertSame(0, $this->writes);
 	}
 
 	public function testWithoutAWebRequestNothingIsStored(): void {
-		(new ServerAddresses($this->appConfig))->observe();
+		(new ServerAddresses(new HotState($this->appConfig)))->observe();
 		$this->assertSame(0, $this->writes);
 	}
 }

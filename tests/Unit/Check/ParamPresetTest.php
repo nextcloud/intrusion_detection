@@ -10,11 +10,11 @@ declare(strict_types=1);
 namespace OCA\IntrusionDetection\Tests\Unit\Check;
 
 use OCA\IntrusionDetection\Check\CheckRegistry;
-use OCA\IntrusionDetection\Check\ParamDefinition;
-use OCA\IntrusionDetection\Check\ParamPreset;
-use OCA\IntrusionDetection\Check\ParamType;
 use OCA\IntrusionDetection\Config\GlobalSettings;
-use OCA\IntrusionDetection\Config\ProtectionLevel;
+use OCA\IntrusionDetection\Definition\ParamDefinition;
+use OCA\IntrusionDetection\Definition\ParamPreset;
+use OCA\IntrusionDetection\Definition\ParamType;
+use OCA\IntrusionDetection\Definition\ProtectionLevel;
 use OCP\Server;
 use Test\TestCase;
 

@@ -14,12 +14,12 @@ namespace OCA\IntrusionDetection\Blocklist\Parser;
  */
 class GoogleCloudParser implements IListParser {
 	#[\Override]
-	public function parse(string $body): ParsedList {
+	public function parse(string $body, int $maxEntries = PHP_INT_MAX): ParsedList {
 		$data = JsonDocument::decode($body);
 		if (!isset($data['prefixes']) || !is_array($data['prefixes'])) {
 			throw new ListFormatException('Not a Google Cloud ranges document');
 		}
-		$list = new ParsedList();
+		$list = new ParsedList($maxEntries);
 		foreach ($data['prefixes'] as $prefix) {
 			$value = is_array($prefix) ? ($prefix['ipv4Prefix'] ?? $prefix['ipv6Prefix'] ?? null) : null;
 			$list->add(is_string($value) ? $value : '');

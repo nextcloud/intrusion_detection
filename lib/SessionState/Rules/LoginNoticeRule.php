@@ -9,17 +9,11 @@ declare(strict_types=1);
 
 namespace OCA\IntrusionDetection\SessionState\Rules;
 
-use OC\Core\Controller\LoginController;
-use OC\Core\Controller\TwoFactorChallengeController;
 use OCA\IntrusionDetection\AppInfo\Application;
-use OCA\IntrusionDetection\Controller\NoticeController;
-use OCA\IntrusionDetection\Controller\PasswordChangeController;
-use OCA\IntrusionDetection\Controller\VerifyController;
+use OCA\IntrusionDetection\Login\SessionMarkers;
 use OCA\IntrusionDetection\SessionState\ISessionStateRule;
 use OCA\IntrusionDetection\SessionState\RequestTarget;
 use OCA\IntrusionDetection\SessionState\SessionBlock;
-use OCA\IntrusionDetection\SessionState\SessionState;
-use OCP\Authentication\TwoFactorAuth\ALoginSetupController;
 use OCP\IRequest;
 use OCP\IURLGenerator;
 
@@ -40,17 +34,11 @@ class LoginNoticeRule implements ISessionStateRule {
 	}
 
 	#[\Override]
-	public function check(SessionState $state, RequestTarget $target): ?SessionBlock {
-		if (!isset($state->all()[SessionState::LOGIN_NOTICE]) || $target->dav || !$this->isPageNavigation($target)) {
+	public function check(SessionMarkers $state, RequestTarget $target): ?SessionBlock {
+		if (!isset($state->all()[SessionMarkers::LOGIN_NOTICE]) || $target->dav || !$target->isPageNavigation($this->request)) {
 			return null;
 		}
-		if ($target->isPublicPage()
-			|| $target->isController(NoticeController::class)
-			|| $target->isController(VerifyController::class)
-			|| $target->isController(PasswordChangeController::class)
-			|| $target->isController(TwoFactorChallengeController::class)
-			|| $target->isController(ALoginSetupController::class)
-			|| $target->isController(LoginController::class, 'logout')) {
+		if ($target->isPublicPage() || $target->route() !== null) {
 			return null;
 		}
 		return new SessionBlock(
@@ -59,11 +47,5 @@ class LoginNoticeRule implements ISessionStateRule {
 			'There is a security notice for this account. Open Nextcloud in a browser to read it.',
 			$this->urlGenerator->linkToRoute(self::ROUTE, ['redirect_url' => $target->uri]),
 		);
-	}
-
-	private function isPageNavigation(RequestTarget $target): bool {
-		return $target->isReadOnly()
-			&& stripos($this->request->getHeader('Accept'), 'html') !== false
-			&& $this->request->getHeader('OCS-APIREQUEST') === '';
 	}
 }

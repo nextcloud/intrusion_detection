@@ -10,10 +10,10 @@ declare(strict_types=1);
 namespace OCA\IntrusionDetection\KnownDevice;
 
 use OCA\IntrusionDetection\Audit\AuditLogger;
-use OCA\IntrusionDetection\Config\GlobalSettings;
-use OCA\IntrusionDetection\Config\Settings;
+use OCA\IntrusionDetection\Config\AppSettings;
 use OCA\IntrusionDetection\Crypto\Fingerprinter;
-use OCA\IntrusionDetection\Db\KnownDeviceMapper;
+use OCA\IntrusionDetection\Db\IPurges;
+use OCA\IntrusionDetection\KnownDevice\Db\KnownDeviceMapper;
 use OCA\IntrusionDetection\Net\SourceKey;
 use OCA\IntrusionDetection\Notification\UserMessages;
 use OCP\AppFramework\Utility\ITimeFactory;
@@ -38,7 +38,7 @@ use OCP\IUser;
  * An account has at most MAX_PER_USER devices; the least recently used
  * ones are dropped.
  */
-class KnownDevices implements IKnownDevices {
+class KnownDevices implements IKnownDevices, IPurges {
 	public const MAX_PER_USER = 50;
 	/** How long a device stays known after its last use */
 	public const DURATION = 180 * 86400;
@@ -47,21 +47,29 @@ class KnownDevices implements IKnownDevices {
 
 	/** @var array<string, KnownDevice|false> recognised devices of this request, by uid */
 	private array $recognised = [];
-	/** @var array<int, true> devices whose use was noted in this request */
+	/** @var array<string, true> devices whose use was noted in this request, by id */
 	private array $touched = [];
 
 	public function __construct(
 		private readonly KnownDeviceMapper $mapper,
 		private readonly DeviceCookie $cookie,
 		private readonly Fingerprinter $fingerprinter,
-		private readonly Settings $settings,
+		private readonly AppSettings $settings,
 		private readonly ITimeFactory $timeFactory,
 		private readonly AuditLogger $audit,
 	) {
 	}
 
+	/**
+	 * Forget the devices unused for DURATION.
+	 */
+	#[\Override]
+	public function purge(int $now): int {
+		return $this->mapper->deleteUnusedSince($now - self::DURATION);
+	}
+
 	public function isEnabled(): bool {
-		return $this->settings->getBool(GlobalSettings::KNOWN_DEVICE_ENABLED);
+		return $this->settings->knownDeviceEnabled();
 	}
 
 	/**
@@ -130,7 +138,7 @@ class KnownDevices implements IKnownDevices {
 	}
 
 	/**
-	 * @return list<array{id: int, label: string, family: string, platform: string, network: ?string, createdAt: int, lastSeenAt: int, current: bool}> most recently used first
+	 * @return list<array{id: string, label: string, family: string, platform: string, network: ?string, createdAt: int, lastSeenAt: int, current: bool}> most recently used first
 	 */
 	public function forUser(string $uid, IL10N $l, int $limit = self::MAX_PER_USER): array {
 		$current = $this->recognise($uid)?->id;
@@ -151,7 +159,7 @@ class KnownDevices implements IKnownDevices {
 	 *
 	 * @return bool whether the account had it
 	 */
-	public function remove(string $uid, int $id): bool {
+	public function remove(string $uid, string $id): bool {
 		$current = $this->recognise($uid)?->id;
 		if (!$this->mapper->delete($uid, $id)) {
 			return false;
@@ -181,7 +189,7 @@ class KnownDevices implements IKnownDevices {
 	}
 
 	#[\Override]
-	public function forgetCurrentDevice(string $uid, int $detectionId): void {
+	public function forgetCurrentDevice(string $uid, string $detectionId): void {
 		$deviceId = $this->cookie->read();
 		if ($deviceId === null || !$this->mapper->deleteByHmac($uid, $this->hmac($deviceId))) {
 			return;
@@ -189,10 +197,6 @@ class KnownDevices implements IKnownDevices {
 		unset($this->recognised[$uid]);
 		$this->cookie->clear();
 		$this->audit->log('known device of %s forgotten: a credential of the account was used from two networks at once (detection %s)', ['uid' => $uid, 'detection' => $detectionId]);
-	}
-
-	public function deleteExpired(): int {
-		return $this->mapper->deleteUnusedSince($this->timeFactory->getTime() - self::DURATION);
 	}
 
 	private function hmac(#[\SensitiveParameter] string $deviceId): string {

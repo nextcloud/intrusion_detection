@@ -9,6 +9,7 @@ declare(strict_types=1);
 
 namespace OCA\IntrusionDetection\Controller;
 
+use OCA\IntrusionDetection\AdminChange\ActorResolver;
 use OCA\IntrusionDetection\Incident\IncidentQuery;
 use OCA\IntrusionDetection\Incident\IncidentReports;
 use OCA\IntrusionDetection\Incident\InvalidIncidentQuery;
@@ -24,7 +25,6 @@ use OCP\AppFramework\Http\DataResponse;
 use OCP\AppFramework\Utility\ITimeFactory;
 use OCP\IL10N;
 use OCP\IRequest;
-use OCP\IUserSession;
 
 /**
  * The incident report on the Incidents tab.
@@ -45,11 +45,11 @@ class IncidentApiController extends AdminOCSController {
 	public function __construct(
 		IRequest $request,
 		IL10N $l,
-		IUserSession $userSession,
+		ActorResolver $actors,
 		private readonly IncidentReports $reports,
 		private readonly ITimeFactory $timeFactory,
 	) {
-		parent::__construct($request, $l, $userSession);
+		parent::__construct($request, $l, $actors);
 	}
 
 	/**
@@ -71,11 +71,7 @@ class IncidentApiController extends AdminOCSController {
 	#[PasswordConfirmationRequired]
 	#[UserRateLimit(limit: 30, period: 600)]
 	public function report(string $user = '', string $address = '', ?int $since = null, ?int $until = null): DataResponse {
-		try {
-			$query = $this->query($user, $address, $since, $until);
-		} catch (InvalidIncidentQuery $e) {
-			return $this->error($e->describe($this->l), $e->param(), $e->reason);
-		}
+		$query = $this->query($user, $address, $since, $until);
 		$response = new DataResponse($this->reports->report($query, $this->actor(), $this->l)->toArray());
 		$response->addHeader('Cache-Control', 'no-store');
 		return $response;
@@ -104,16 +100,9 @@ class IncidentApiController extends AdminOCSController {
 		$format = match ($output) {
 			'json' => ReportFormat::Json,
 			'html' => ReportFormat::Html,
-			default => null,
+			default => throw new InvalidIncidentQuery(InvalidIncidentQuery::OUTPUT),
 		};
-		if ($format === null) {
-			return $this->error($this->l->t('Choose JSON or HTML.'), 'output', 'invalid_output');
-		}
-		try {
-			$query = $this->query($user, $address, $since, $until);
-		} catch (InvalidIncidentQuery $e) {
-			return $this->error($e->describe($this->l), $e->param(), $e->reason);
-		}
+		$query = $this->query($user, $address, $since, $until);
 		$document = $this->reports->document($query, $format, $this->actor(), $this->l);
 		/** @var 'application/json; charset=utf-8'|'text/html; charset=utf-8' $contentType */
 		$contentType = $document['contentType'];

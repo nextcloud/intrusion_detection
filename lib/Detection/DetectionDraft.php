@@ -9,8 +9,10 @@ declare(strict_types=1);
 
 namespace OCA\IntrusionDetection\Detection;
 
-use OCA\IntrusionDetection\Check\ResponseType;
-use OCA\IntrusionDetection\Check\Severity;
+use OCA\IntrusionDetection\Config\ModeState;
+use OCA\IntrusionDetection\Crypto\Fingerprinter;
+use OCA\IntrusionDetection\Definition\ResponseType;
+use OCA\IntrusionDetection\Definition\Severity;
 use OCA\IntrusionDetection\Net\SourceKey;
 
 /**
@@ -20,6 +22,7 @@ use OCA\IntrusionDetection\Net\SourceKey;
  * the thresholds in force, the measured values, the targets, and anything
  * else needed to explain the detection later. Facts must never contain a
  * password, a fingerprint, a decoy secret, a share token or a credential.
+ * A check gives them as its facts class ({@see IFacts}).
  */
 final class DetectionDraft {
 	public const MERGE_NONE = 'none';
@@ -34,6 +37,10 @@ final class DetectionDraft {
 	/** Per account and the detection the draft is about (`facts['detection']`) */
 	public const MERGE_SUBJECT = 'subject';
 
+	/** @var array<string, mixed> the facts as the detection stores them */
+	public readonly array $facts;
+	/** The facts as the check's facts class, if the draft has any */
+	public readonly ?IFacts $typedFacts;
 	/** @var list<SourceKey> */
 	private array $extraBanTargets = [];
 	private bool $banSource = true;
@@ -45,18 +52,19 @@ final class DetectionDraft {
 	private array $onlyWhenNew = [];
 
 	/**
-	 * @param array<string, mixed> $facts
 	 * @param self::MERGE_* $merge which repeated hits within `$mergeWindow` update one row (hits of different `rule` facts never do)
 	 * @param ?int $banLevel force at least this escalation level when banning
 	 * @param ?int $sessionTokenId the id of the session token involved, for the kill_session response
 	 * @param ?int $tokenId the id of the app password or token involved, for the revoke_token response
 	 * @param bool $lure the request is a possible lure ({@see \OCA\IntrusionDetection\Net\FetchMetadata}): the ban response spares `$source`, for the checks that honour lures
+	 * @param ?ModeState $mode the mode to record and answer it in instead of the check's: for a check with a second mode, and for detections the check's mode must not hold back
+	 * @param bool $final the detection answers its signal on its own: the detectors after this one do not run ({@see \OCA\IntrusionDetection\Signal\SignalDispatcher})
 	 */
 	public function __construct(
 		public readonly string $checkId,
 		public readonly ?SourceKey $source = null,
 		public readonly ?string $uid = null,
-		public readonly array $facts = [],
+		?IFacts $facts = null,
 		public readonly ?Severity $severity = null,
 		public readonly ?int $shareId = null,
 		public readonly string $merge = self::MERGE_NONE,
@@ -66,7 +74,11 @@ final class DetectionDraft {
 		public readonly ?int $sessionTokenId = null,
 		public readonly ?int $tokenId = null,
 		public readonly bool $lure = false,
+		public readonly ?ModeState $mode = null,
+		public readonly bool $final = false,
 	) {
+		$this->facts = $facts?->toArray() ?? [];
+		$this->typedFacts = $facts;
 	}
 
 	/**
@@ -165,7 +177,12 @@ final class DetectionDraft {
 		return array_values($unique);
 	}
 
-	public function mergeKey(): ?string {
+	/**
+	 * The key that tells which stored detection a hit joins: a keyed hash
+	 * ({@see Fingerprinter::lookup()}) of the check, its rule and the merge
+	 * subject, or null when the detection is never merged.
+	 */
+	public function mergeKey(Fingerprinter $fingerprinter): ?string {
 		$parts = match ($this->merge) {
 			self::MERGE_SOURCE => [$this->source?->ipKey],
 			self::MERGE_USER => [$this->uid],
@@ -173,7 +190,7 @@ final class DetectionDraft {
 			self::MERGE_SHARE => [$this->shareId === null ? null : (string)$this->shareId],
 			self::MERGE_SOURCE_SHARE => [$this->source?->ipKey, $this->shareId === null ? null : (string)$this->shareId],
 			self::MERGE_TOKEN => [$this->uid, ($this->tokenId ?? $this->sessionTokenId) === null ? null : (string)($this->tokenId ?? $this->sessionTokenId)],
-			self::MERGE_SUBJECT => [$this->uid, is_int($this->facts['detection'] ?? null) ? (string)$this->facts['detection'] : null],
+			self::MERGE_SUBJECT => [$this->uid, is_string($this->facts['detection'] ?? null) && $this->facts['detection'] !== '' ? $this->facts['detection'] : null],
 			default => null,
 		};
 		if ($parts === null || in_array(null, $parts, true)) {
@@ -183,6 +200,6 @@ final class DetectionDraft {
 		$rule = $this->facts['rule'] ?? null;
 		$scope = is_string($rule) ? $this->checkId . "\0rule:" . $rule : $this->checkId;
 		// Hashed, so the key fits the column whatever the inputs are.
-		return hash('sha256', $scope . "\0" . implode("\0", $parts));
+		return $fingerprinter->lookup($scope, ...$parts);
 	}
 }

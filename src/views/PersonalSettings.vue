@@ -4,17 +4,17 @@
 -->
 
 <script setup lang="ts">
-import { t } from '@nextcloud/l10n'
-import { onMounted, provide } from 'vue'
+import { provide } from 'vue'
 import NcSettingsSection from '@nextcloud/vue/components/NcSettingsSection'
 import { useAnnouncer } from '../composables/useAnnouncer.ts'
 import { personalSections } from '../personal/extensions.ts'
-import { loadActivity } from '../personal/store.ts'
+import { useActivity } from '../personal/store.ts'
 import { APP_ID } from '../utils/format.ts'
+import { t } from '../utils/l10n.ts'
 
 const { message } = useAnnouncer()
 provide('ids-flat-sections', true)
-onMounted(() => loadActivity())
+useActivity()
 </script>
 
 <template>
@@ -41,7 +41,7 @@ onMounted(() => loadActivity())
 .sections {
 	display: flex;
 	flex-direction: column;
-	gap: calc(var(--default-grid-baseline) * 8);
+	gap: var(--ids-space-8);
 	max-width: 900px;
 }
 

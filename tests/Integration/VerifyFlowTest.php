@@ -10,18 +10,22 @@ declare(strict_types=1);
 namespace OCA\IntrusionDetection\Tests\Integration;
 
 use OCA\IntrusionDetection\AppInfo\Application;
-use OCA\IntrusionDetection\Check\Checks\StepUpFailed;
+use OCA\IntrusionDetection\Check\Checks\StepUpFailed\StepUpFailed;
+use OCA\IntrusionDetection\Check\Checks\StepUpFailed\StepUpFailedRule;
+use OCA\IntrusionDetection\Config\UserKeys;
+use OCA\IntrusionDetection\Confirm\ConfirmationStatus;
 use OCA\IntrusionDetection\Confirm\EmailCodes;
 use OCA\IntrusionDetection\Confirm\IConfirmationMethod;
-use OCA\IntrusionDetection\Confirm\StepUpService;
+use OCA\IntrusionDetection\Confirm\LoginConfirmations;
 use OCA\IntrusionDetection\Confirm\StepUpState;
 use OCA\IntrusionDetection\Controller\VerifyController;
 use OCA\IntrusionDetection\Db\BanMapper;
+use OCA\IntrusionDetection\Login\SessionMarkers;
 use OCA\IntrusionDetection\Net\SourceKey;
 use OCA\IntrusionDetection\Notification\UserAlerts;
 use OCA\IntrusionDetection\Response\FlaggedSources;
 use OCA\IntrusionDetection\SessionState\RequestTarget;
-use OCA\IntrusionDetection\SessionState\SessionState;
+use OCA\IntrusionDetection\SessionState\Rules\StepUpRule;
 use OCP\AppFramework\Http;
 use OCP\AppFramework\Http\Attribute\BruteForceProtection;
 use OCP\AppFramework\Http\Attribute\NoCSRFRequired;
@@ -76,7 +80,7 @@ class VerifyFlowTest extends StepUpTestCase {
 		$this->assertInstanceOf(RedirectResponse::class, $response);
 		$this->assertStringEndsWith('/index.php/apps/files/?dir=/Photos', $response->getRedirectURL());
 		$this->assertNull($this->stepUp());
-		$this->assertSame('email_code', $this->state->get(SessionState::CONFIRMATION)['by'] ?? null);
+		$this->assertSame('email_code', $this->state->get(SessionMarkers::CONFIRMATION)['by'] ?? null);
 		$this->assertSame(0, $this->unconfirmedRows());
 		$this->assertNull($this->rule()->check($this->state, RequestTarget::dav('PROPFIND', '/')), 'The session may continue');
 		$this->assertSame([], $this->detectionsOf(StepUpFailed::ID));
@@ -129,7 +133,7 @@ class VerifyFlowTest extends StepUpTestCase {
 		$failed = $this->detectionsOf(StepUpFailed::ID);
 		$this->assertCount(1, $failed);
 		$this->assertSame('high', $failed[0]->getSeverity());
-		$this->assertSame(StepUpFailed::RULE_ATTEMPTS, $failed[0]->getExplanationData()['facts']['rule']);
+		$this->assertSame(StepUpFailedRule::Attempts->value, $failed[0]->getExplanationData()['facts']['rule']);
 		$this->assertSame(['ban', 'kill_session', 'notify_admin', 'notify_user'], array_column($failed[0]->getActionList(), 'type'));
 		$this->assertNotSame([], Server::get(BanMapper::class)->findActiveForKeys([SourceKey::fromIp($this->remoteAddress)->ipKey], time()), 'Blocked');
 		$this->assertCount(1, $this->notificationsFor($this->alice->getUID(), UserAlerts::SUBJECT));
@@ -138,12 +142,12 @@ class VerifyFlowTest extends StepUpTestCase {
 	public function testParallelRequestsGetNoMoreThanFiveTriesBetweenThem(): void {
 		$this->pendingLogin();
 		// Every request read the session before any of them saved it.
-		$loaded = $this->state->get(SessionState::STEP_UP);
+		$loaded = $this->state->get(SessionMarkers::STEP_UP);
 		$this->assertNotNull($loaded);
 		$statuses = [];
 		foreach (['000000', '000000', '000000', '000000', '000000', '482915', '000000'] as $code) {
 			$this->sessionUser = $this->alice;
-			$this->state->set(SessionState::STEP_UP, $loaded);
+			$this->state->set(SessionMarkers::STEP_UP, $loaded);
 			$response = $this->verifyController()->confirm($code);
 			$statuses[] = $response instanceof RedirectResponse ? $response->getRedirectURL() : $response->getStatus();
 		}
@@ -152,7 +156,7 @@ class VerifyFlowTest extends StepUpTestCase {
 			$this->assertIsString($status, 'Request ' . ($i + 5) . ' gets no try');
 			$this->assertStringContainsString('/verify/ended?reason=attempts', $status);
 		}
-		$this->assertNull($this->state->get(SessionState::CONFIRMATION), 'Not even the right code got in');
+		$this->assertNull($this->state->get(SessionMarkers::CONFIRMATION), 'Not even the right code got in');
 		$this->assertCount(1, $this->detectionsOf(StepUpFailed::ID));
 	}
 
@@ -168,7 +172,7 @@ class VerifyFlowTest extends StepUpTestCase {
 	}
 
 	public function testAfterFiveCodesInAnHourTheLoginWaitsWithoutANewOne(): void {
-		Server::get(IUserConfig::class)->setValueArray($this->alice->getUID(), Application::APP_ID, EmailCodes::USER_KEY_MAILS, array_fill(0, EmailCodes::MAX_MAILS, time() - 60), lazy: true);
+		Server::get(IUserConfig::class)->setValueArray($this->alice->getUID(), Application::APP_ID, UserKeys::CODE_MAILS, array_fill(0, EmailCodes::MAX_MAILS, time() - 60), lazy: true);
 		$this->pendingLogin();
 		$this->assertSame([IConfirmationMethod::EMAIL_CODE], $this->stepUp()?->methods, 'Still held: never let through for lack of a code');
 		$this->assertNull($this->stepUp()?->codeHash);
@@ -182,13 +186,30 @@ class VerifyFlowTest extends StepUpTestCase {
 		$this->assertSame([], $this->mailed);
 	}
 
+	public function testWrongCodesAreCountedForTheAccountAcrossLogins(): void {
+		// Earlier logins, from other addresses, entered wrong codes this hour.
+		Server::get(IUserConfig::class)->setValueArray($this->alice->getUID(), Application::APP_ID, UserKeys::CODE_WRONG, array_fill(0, EmailCodes::MAX_WRONG - 1, time() - 60), lazy: true);
+		$this->pendingLogin();
+		$response = $this->verifyController()->confirm('000000');
+		$this->assertInstanceOf(RedirectResponse::class, $response, 'The account has no tries left this hour');
+		$this->assertStringContainsString('/verify/ended?reason=attempts', $response->getRedirectURL());
+
+		$this->mailed = [];
+		$this->pendingLogin();
+		$this->assertNull($this->stepUp()?->codeHash, 'No code that could not be checked');
+		$this->assertSame([], $this->mailed);
+		$page = $this->verifyController()->show();
+		$this->assertStringContainsString('Too many wrong codes', (string)$this->paramOf($page, 'error'));
+		$this->assertFalse($this->paramOf($page, 'canResend'));
+	}
+
 	public function testALoginThatWaitsTooLongIsEndedWithoutBlockingTheAddress(): void {
 		$this->pendingLogin();
 		$stepUp = $this->stepUp();
 		$this->assertNotNull($stepUp);
 		$expired = StepUpState::fromArray(array_merge($stepUp->toArray(), ['deadline' => time() - 1]));
 		$this->assertNotNull($expired);
-		$this->service()->save($expired);
+		$this->service()->update($expired);
 
 		$block = $this->rule()->check($this->state, RequestTarget::dav('PROPFIND', '/remote.php/dav/files/'));
 		$this->assertNotNull($block);
@@ -196,7 +217,7 @@ class VerifyFlowTest extends StepUpTestCase {
 		$this->assertNull($this->sessionUser);
 		$this->assertFalse($this->tokenExists($this->token['id']));
 		$failed = $this->detectionsOf(StepUpFailed::ID)[0];
-		$this->assertSame(StepUpFailed::RULE_TIMEOUT, $failed->getExplanationData()['facts']['rule']);
+		$this->assertSame(StepUpFailedRule::Timeout->value, $failed->getExplanationData()['facts']['rule']);
 		$this->assertSame(['kill_session', 'notify_admin', 'notify_user'], array_column($failed->getActionList(), 'type'));
 		$this->assertSame([], Server::get(BanMapper::class)->findActiveForKeys([SourceKey::fromIp($this->remoteAddress)->ipKey], time()));
 	}
@@ -205,8 +226,7 @@ class VerifyFlowTest extends StepUpTestCase {
 		$this->pendingLogin();
 		$stepUp = $this->stepUp();
 		$this->assertNotNull($stepUp);
-		$stepUp->codeExpires = time() - 1;
-		$this->service()->save($stepUp);
+		$this->service()->update($stepUp->withCode($stepUp->codeHash, time() - 1));
 		$response = $this->verifyController()->confirm('482915');
 		$this->assertSame('This code has expired. Send a new one, then enter it.', $this->paramOf($response, 'error'));
 		$this->assertSame(0, $this->stepUp()?->attempts);
@@ -239,9 +259,45 @@ class VerifyFlowTest extends StepUpTestCase {
 		$this->assertStringContainsString('Your account has no email address or second factor that could confirm it, so this login cannot continue.', $html);
 		$this->assertSame(1, substr_count($html, 'This login needs extra confirmation'), 'The lead does not repeat the title');
 		$this->assertMatchesRegularExpression('/Give your administrator this reference, so that they can see what happened:\s*<span class="ids-page__reference">' . preg_quote($reference, '/') . '</', $html);
-		$this->assertNull($this->sessionUser, 'The refused session ends once it was told');
+		$this->assertNotNull($this->sessionUser, 'Showing the page changes nothing');
+		$this->assertStringContainsString('name="requesttoken"', $html, 'Leaving is a form');
+
+		$ended = $this->verifyController()->end();
+		$this->assertInstanceOf(RedirectResponse::class, $ended);
+		$this->assertSame(Server::get(IURLGenerator::class)->linkToRoute('core.login.showLoginForm'), $ended->getRedirectURL());
+		$this->assertNull($this->sessionUser, 'The refused session ends when it is left');
 		$this->assertSame(0, $this->unconfirmedRows());
 		$this->assertInstanceOf(RedirectResponse::class, $this->verifyController()->confirm('482915'), 'Nothing to confirm any more');
+	}
+
+	public function testARefusedLoginEndsOnItsFirstRequestAfterItsTimeWithoutANewDetection(): void {
+		$bob = $this->user('ids-verify-refused-late', null);
+		$this->token = $this->startSession($bob);
+		$this->login($bob);
+		$stepUp = $this->stepUp();
+		$this->assertSame(ConfirmationStatus::Refused, $stepUp?->status);
+		$this->assertGreaterThan(time(), $stepUp->deadline, 'A few minutes to read why');
+		$this->service()->update($stepUp->withDeadline(time() - 1));
+
+		$block = $this->rule()->check($this->state, RequestTarget::app($this->verifyController(), 'show', 'GET', '/index.php/apps/intrusion_detection/verify'));
+		$this->assertNotNull($block);
+		$this->assertNull($this->sessionUser);
+		$this->assertFalse($this->tokenExists($this->token['id']));
+		$this->assertSame([], $this->detectionsOf(StepUpFailed::ID), 'It was refused, not failed');
+	}
+
+	public function testAnAppRefusedAtItsLoginLosesItsSessionAtOnce(): void {
+		$bob = $this->user('ids-verify-refused-app', 'bob@example.com');
+		Server::get(\OCA\IntrusionDetection\Response\AccountProtection::class)->protect($bob->getUID(), time() + 3600);
+		$this->token = $this->startSession($bob);
+		$this->basicAuth($bob);
+		$this->login($bob);
+		$this->assertSame(ConfirmationStatus::RefusedClient, $this->stepUp()?->status);
+
+		$block = $this->rule()->check($this->state, RequestTarget::dav('PROPFIND', '/remote.php/dav/files/'));
+		$this->assertSame(StepUpRule::MESSAGE_CLIENT, $block?->message, 'Told why');
+		$this->assertNull($this->sessionUser, 'Nothing is left to come back to');
+		$this->assertFalse($this->tokenExists($this->token['id']));
 	}
 
 	public function testTheEndedPageOnlySaysWhyWithAFixedText(): void {
@@ -249,7 +305,7 @@ class VerifyFlowTest extends StepUpTestCase {
 		$html = $response->render();
 		$this->assertStringContainsString('This login was never confirmed', $html);
 		$this->assertStringNotContainsString('<script>alert', $html);
-		$this->assertStringContainsString('was not confirmed in time', $this->verifyController()->ended(StepUpFailed::RULE_TIMEOUT)->render());
+		$this->assertStringContainsString('was not confirmed in time', $this->verifyController()->ended(StepUpFailedRule::Timeout->value)->render());
 	}
 
 	public function testWithoutAPendingLoginThePageContinuesAtOnce(): void {
@@ -268,8 +324,7 @@ class VerifyFlowTest extends StepUpTestCase {
 
 		$stepUp = $this->stepUp();
 		$this->assertNotNull($stepUp);
-		$stepUp->methods = [IConfirmationMethod::SECOND_FACTOR, IConfirmationMethod::EMAIL_CODE];
-		$this->service()->save($stepUp);
+		$this->service()->update($stepUp->withMethods([IConfirmationMethod::SECOND_FACTOR, IConfirmationMethod::EMAIL_CODE]));
 		$this->assertTrue($this->paramOf($this->verifyController()->show(), 'secondFactor'));
 
 		$this->passChallenge($this->alice);
@@ -280,7 +335,7 @@ class VerifyFlowTest extends StepUpTestCase {
 		$this->assertSame('/index.php/login/challenge?redirect_url=back', $response->getRedirectURL());
 		$this->passChallenge($this->alice);
 		$this->assertNull($this->stepUp());
-		$this->assertSame('second_factor', $this->state->get(SessionState::CONFIRMATION)['by'] ?? null);
+		$this->assertSame('second_factor', $this->state->get(SessionMarkers::CONFIRMATION)['by'] ?? null);
 	}
 
 	public function testTheEndpointsAreProtected(): void {
@@ -302,14 +357,14 @@ class VerifyFlowTest extends StepUpTestCase {
 	public function testTheTimeLimits(): void {
 		$this->pendingLogin();
 		$stepUp = $this->stepUp();
-		$this->assertSame(StepUpService::SESSION_TTL, ($stepUp?->deadline ?? 0) - ($stepUp?->started ?? 0));
+		$this->assertSame(LoginConfirmations::SESSION_TTL, ($stepUp?->deadline ?? 0) - ($stepUp?->started ?? 0));
 		$this->assertLessThanOrEqual(Server::get(ITimeFactory::class)->getTime() + EmailCodes::TTL, $stepUp?->codeExpires);
 	}
 
 	private function pendingLogin(): void {
 		$this->token = $this->startSession($this->alice);
 		$this->login($this->alice);
-		$this->assertSame(StepUpState::PENDING, $this->stepUp()?->status);
+		$this->assertSame(ConfirmationStatus::Pending, $this->stepUp()?->status);
 	}
 
 	private function paramOf(Response $response, string $name): mixed {

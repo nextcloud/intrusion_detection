@@ -66,12 +66,12 @@ const id = useId()
 	display: inline-flex;
 	align-items: center;
 	align-self: flex-start;
-	gap: calc(var(--default-grid-baseline) * 1.5);
-	min-height: calc(var(--default-clickable-area) - var(--default-grid-baseline) * 2);
+	gap: var(--ids-space-1-5);
+	min-height: calc(var(--default-clickable-area) - var(--ids-space-2));
 	margin: 0;
 	margin-inline-start: calc(var(--default-grid-baseline) * -2);
 	padding-block: 0;
-	padding-inline: calc(var(--default-grid-baseline) * 2);
+	padding-inline: var(--ids-space-2);
 	border: none;
 	border-radius: var(--border-radius-element);
 	background: transparent;
@@ -86,7 +86,7 @@ const id = useId()
 	justify-content: space-between;
 	min-height: var(--default-clickable-area);
 	margin-inline-start: 0;
-	padding-inline: calc(var(--default-grid-baseline) * 3);
+	padding-inline: var(--ids-space-3);
 }
 
 .disclosure button.disclosure__toggle:hover {
@@ -94,7 +94,7 @@ const id = useId()
 }
 
 .disclosure button.disclosure__toggle:focus-visible {
-	outline: 2px solid var(--color-main-text);
+	outline: var(--ids-focus-ring);
 	outline-offset: -2px;
 }
 
@@ -140,11 +140,11 @@ const id = useId()
 }
 
 .disclosure_open .disclosure__content {
-	padding-top: calc(var(--default-grid-baseline) * 2);
+	padding-top: var(--ids-space-2);
 }
 
 .disclosure_row.disclosure_open .disclosure__content {
-	padding: calc(var(--default-grid-baseline) * 1) calc(var(--default-grid-baseline) * 3) calc(var(--default-grid-baseline) * 3);
+	padding: var(--ids-space-1) var(--ids-space-3) var(--ids-space-3);
 }
 
 @media (prefers-reduced-motion: reduce) {

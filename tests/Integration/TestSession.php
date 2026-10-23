@@ -23,4 +23,14 @@ class TestSession extends Memory {
 	public function getId(): string {
 		return $this->id ?? throw new SessionNotAvailableException('No session id in this test');
 	}
+
+	/**
+	 * A new id, as PHP gives one; the data stays.
+	 */
+	#[\Override]
+	public function regenerateId(bool $deleteOldSession = true, bool $updateToken = false): void {
+		if ($this->id !== null) {
+			$this->id = bin2hex(random_bytes(32));
+		}
+	}
 }

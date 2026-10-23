@@ -18,18 +18,18 @@ use Test\TestCase;
 class UserDetectionsCleanupJobTest extends TestCase {
 	public function testARunThatDoesNotFinishQueuesTheRest(): void {
 		$cleanup = $this->createMock(UserDataCleanup::class);
-		$cleanup->expects($this->once())->method('scrubDetections')->with('alice', 900, 0, UserDetectionsCleanupJob::BATCHES_PER_RUN)->willReturn(400);
+		$cleanup->expects($this->once())->method('scrubDetections')->with('alice', '900', '0', UserDetectionsCleanupJob::BATCHES_PER_RUN)->willReturn('400');
 		$jobs = $this->createMock(IJobList::class);
-		$jobs->expects($this->once())->method('add')->with(UserDetectionsCleanupJob::class, ['uid' => 'alice', 'upTo' => 900, 'after' => 400]);
-		self::invokePrivate(new UserDetectionsCleanupJob($this->createMock(ITimeFactory::class), $cleanup, $jobs), 'run', [['uid' => 'alice', 'upTo' => 900]]);
+		$jobs->expects($this->once())->method('add')->with(UserDetectionsCleanupJob::class, ['uid' => 'alice', 'upTo' => '900', 'after' => '400']);
+		self::invokePrivate(new UserDetectionsCleanupJob($this->createMock(ITimeFactory::class), $cleanup, $jobs), 'run', [['uid' => 'alice', 'upTo' => '900']]);
 	}
 
 	public function testAFinishedRunQueuesNothing(): void {
 		$cleanup = $this->createMock(UserDataCleanup::class);
-		$cleanup->expects($this->once())->method('scrubDetections')->with('alice', 900, 400)->willReturn(null);
+		$cleanup->expects($this->once())->method('scrubDetections')->with('alice', '900', '400')->willReturn(null);
 		$jobs = $this->createMock(IJobList::class);
 		$jobs->expects($this->never())->method('add');
-		self::invokePrivate(new UserDetectionsCleanupJob($this->createMock(ITimeFactory::class), $cleanup, $jobs), 'run', [['uid' => 'alice', 'upTo' => 900, 'after' => 400]]);
+		self::invokePrivate(new UserDetectionsCleanupJob($this->createMock(ITimeFactory::class), $cleanup, $jobs), 'run', [['uid' => 'alice', 'upTo' => '900', 'after' => '400']]);
 	}
 
 	public function testABrokenArgumentDoesNothing(): void {

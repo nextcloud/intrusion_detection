@@ -11,26 +11,28 @@ namespace OCA\IntrusionDetection\Tests\Integration;
 
 use OC\AppFramework\Http\Request;
 use OCA\IntrusionDetection\AppInfo\Application;
-use OCA\IntrusionDetection\Check\Checks\InjectionProbe;
-use OCA\IntrusionDetection\Check\Mode;
-use OCA\IntrusionDetection\Check\Payload\CustomSignatures;
-use OCA\IntrusionDetection\Check\Payload\PayloadInspector;
-use OCA\IntrusionDetection\Check\Payload\PayloadResponder;
-use OCA\IntrusionDetection\Check\Payload\PayloadSettings;
-use OCA\IntrusionDetection\Check\Payload\PendingHit;
-use OCA\IntrusionDetection\Check\Payload\RequestParts;
+use OCA\IntrusionDetection\Check\Checks\InjectionProbe\CustomSignatures;
+use OCA\IntrusionDetection\Check\Checks\InjectionProbe\FormMatch;
+use OCA\IntrusionDetection\Check\Checks\InjectionProbe\InjectionProbe;
+use OCA\IntrusionDetection\Check\Checks\InjectionProbe\InjectionProbeFacts;
+use OCA\IntrusionDetection\Check\Checks\InjectionProbe\PayloadInspector;
+use OCA\IntrusionDetection\Check\Checks\InjectionProbe\PayloadResponder;
+use OCA\IntrusionDetection\Check\Checks\InjectionProbe\PayloadSettings;
+use OCA\IntrusionDetection\Check\Checks\InjectionProbe\PendingHit;
+use OCA\IntrusionDetection\Check\Checks\InjectionProbe\RequestParts;
 use OCA\IntrusionDetection\Config\GlobalSettings;
-use OCA\IntrusionDetection\Config\Settings;
 use OCA\IntrusionDetection\Db\BanMapper;
 use OCA\IntrusionDetection\Db\Detection;
 use OCA\IntrusionDetection\Db\DetectionFilter;
 use OCA\IntrusionDetection\Db\DetectionMapper;
+use OCA\IntrusionDetection\Definition\Mode;
 use OCA\IntrusionDetection\Explain\NarrativeBuilder;
 use OCA\IntrusionDetection\Guard\AddressGuard;
 use OCA\IntrusionDetection\Guard\DeferredHits;
 use OCA\IntrusionDetection\Guard\PayloadGuard;
-use OCA\IntrusionDetection\Guard\RequestContext;
-use OCA\IntrusionDetection\Listener\PayloadLoginListener;
+use OCA\IntrusionDetection\Listener\Login\PayloadStep;
+use OCA\IntrusionDetection\Listener\LoginListener;
+use OCA\IntrusionDetection\Login\RequestContext;
 use OCA\IntrusionDetection\Middleware\PayloadBlockedException;
 use OCA\IntrusionDetection\Middleware\PayloadMiddleware;
 use OCA\IntrusionDetection\Net\RemoteAddressResolver;
@@ -38,6 +40,7 @@ use OCA\IntrusionDetection\Net\ServerAddresses;
 use OCA\IntrusionDetection\Perf\GuardTimer;
 use OCA\IntrusionDetection\Response\ResponseEngine;
 use OCA\IntrusionDetection\Response\ResponseOutcome;
+use OCA\IntrusionDetection\Tests\LoginSteps;
 use OCP\AppFramework\Controller;
 use OCP\AppFramework\Http;
 use OCP\AppFramework\Http\JSONResponse;
@@ -74,12 +77,10 @@ class PayloadGuardTest extends IntegrationTestCase {
 	private array $shutdown = [];
 	private ?IUser $sessionUser = null;
 	private PayloadResponder $responder;
-	private Settings $settings;
 
 	protected function setUp(): void {
 		parent::setUp();
 		$this->context = new RequestContext();
-		$this->settings = Server::get(Settings::class);
 		$shutdown = &$this->shutdown;
 		$this->responder = new class(Server::get(ResponseEngine::class), Server::get(PayloadSettings::class), $this->context, Server::get(ITimeFactory::class), $this->container(), Server::get(LoggerInterface::class), $shutdown) extends PayloadResponder {
 			/** @param list<\Closure> $shutdown */
@@ -132,11 +133,11 @@ class PayloadGuardTest extends IntegrationTestCase {
 		$this->assertTrue($detection->isEnforced());
 		$this->assertSame(self::IP, $detection->getIp());
 		$this->assertNull($detection->getUid());
-		$facts = $detection->getExplanationData()['facts'];
-		$this->assertFalse($facts['authenticated']);
-		$this->assertNotSame([], $facts['signatures']);
-		$this->assertGreaterThanOrEqual(3, $facts['weight']);
-		$this->assertLessThanOrEqual(200, mb_strlen($facts['excerpt']));
+		$facts = InjectionProbeFacts::fromArray($detection->getExplanationData()['facts']);
+		$this->assertFalse($facts->authenticated);
+		$this->assertNotSame([], $facts->signatures);
+		$this->assertGreaterThanOrEqual(3, $facts->weight);
+		$this->assertLessThanOrEqual(200, mb_strlen($facts->excerpt));
 		$this->assertSame('sqlmap/1.7', $detection->getExplanationData()['userAgent']);
 		$this->assertSame('ban', $detection->getActionList()[0]['type']);
 	}
@@ -167,9 +168,9 @@ class PayloadGuardTest extends IntegrationTestCase {
 		$detection = $this->onlyDetection();
 		$this->assertFalse($detection->isEnforced());
 		$this->assertSame('alice', $detection->getUid());
-		$facts = $detection->getExplanationData()['facts'];
-		$this->assertTrue($facts['authenticated']);
-		$this->assertSame(PendingHit::CREDENTIAL_SESSION, $facts['credential']);
+		$facts = InjectionProbeFacts::fromArray($detection->getExplanationData()['facts']);
+		$this->assertTrue($facts->authenticated);
+		$this->assertSame(PendingHit::CREDENTIAL_SESSION, $facts->credential);
 		$this->assertSame([['type' => 'ban', 'enforced' => false]], $detection->getActionList());
 		$this->assertSame([], Server::get(BanMapper::class)->findActiveForKeys([self::IP], time()));
 		$this->assertFalse($this->responder->hasPending());
@@ -238,7 +239,7 @@ class PayloadGuardTest extends IntegrationTestCase {
 
 		$detection = $this->onlyDetection();
 		$this->assertTrue($detection->isEnforced());
-		$this->assertSame(PendingHit::CREDENTIAL_SESSION, $detection->getExplanationData()['facts']['credential']);
+		$this->assertSame(PendingHit::CREDENTIAL_SESSION, InjectionProbeFacts::fromArray($detection->getExplanationData()['facts'])->credential);
 		$this->assertCount(1, Server::get(BanMapper::class)->findActiveForKeys([self::IP], time()));
 	}
 
@@ -312,19 +313,18 @@ class PayloadGuardTest extends IntegrationTestCase {
 
 	public function testABasicAuthLoginNamesTheUser(): void {
 		$this->decide('/remote.php/dav/files/bob?id=1%20UNION%20SELECT%201', '/remote.php', [], [], ['Authorization' => 'Basic ' . base64_encode('bob:app-password')]);
-		$listener = new PayloadLoginListener($this->context, $this->container(), Server::get(LoggerInterface::class));
-		$listener->handle(new UserLoggedInEvent($this->user('bob'), 'bob', null, false));
+		$this->payloadStep()->handle(new UserLoggedInEvent($this->user('bob'), 'bob', null, false));
 
 		$detection = $this->onlyDetection();
 		$this->assertSame('bob', $detection->getUid());
-		$this->assertSame(PendingHit::CREDENTIAL_BASIC, $detection->getExplanationData()['facts']['credential']);
+		$this->assertSame(PendingHit::CREDENTIAL_BASIC, InjectionProbeFacts::fromArray($detection->getExplanationData()['facts'])->credential);
 		$this->assertFalse($detection->isEnforced());
 	}
 
 	public function testAHitDecidedAtTheLoginIsRefusedBeforeTheController(): void {
-		$this->settings->setParam(InjectionProbe::ID, InjectionProbe::PARAM_AUTHENTICATED_MODE, 'protect');
+		$this->settingsEditor()->setParam(InjectionProbe::ID, InjectionProbe::PARAM_AUTHENTICATED_MODE, 'protect');
 		$this->decide('/ocs/v2.php/apps/foo?id=1%20UNION%20SELECT%201', '/ocs/v2.php', [], [], ['Authorization' => 'Basic ' . base64_encode('bob:app-password')]);
-		(new PayloadLoginListener($this->context, $this->container(), Server::get(LoggerInterface::class)))
+		$this->payloadStep()
 			->handle(new UserLoggedInEvent($this->user('bob'), 'bob', null, false));
 		$this->assertTrue($this->onlyDetection()->isEnforced());
 
@@ -342,7 +342,7 @@ class PayloadGuardTest extends IntegrationTestCase {
 	public function testAClientsOwnPhpAuthHeaderDoesNotMakeAProbeLoggedIn(): void {
 		$decision = $this->decide('/index.php/apps/foo?id=1%20UNION%20SELECT%20password%20FROM%20oc_users--', '/index.php', [], [], ['PHP-Auth-User' => 'alice', 'PHP-Auth-Pw' => 'made-up']);
 		$this->assertNotNull($decision, 'Still blocked as an anonymous probe');
-		$this->assertFalse($this->onlyDetection()->getExplanationData()['facts']['authenticated']);
+		$this->assertFalse(InjectionProbeFacts::fromArray($this->onlyDetection()->getExplanationData()['facts'])->authenticated);
 	}
 
 	public function testBearerAndRememberMeCountAsCredentials(): void {
@@ -354,7 +354,7 @@ class PayloadGuardTest extends IntegrationTestCase {
 	}
 
 	public function testProtectForLoggedInUsersBlocks(): void {
-		$this->settings->setParam(InjectionProbe::ID, InjectionProbe::PARAM_AUTHENTICATED_MODE, 'protect');
+		$this->settingsEditor()->setParam(InjectionProbe::ID, InjectionProbe::PARAM_AUTHENTICATED_MODE, 'protect');
 		$this->decide('/index.php/apps/foo?id=1%20UNION%20SELECT%201', '/index.php', [], [$this->sessionCookie() => 'abc']);
 		$decision = $this->responder->resolve($this->user('alice'));
 		$this->assertNotNull($decision);
@@ -363,7 +363,7 @@ class PayloadGuardTest extends IntegrationTestCase {
 	}
 
 	public function testLoggedInUsersCanBeIgnored(): void {
-		$this->settings->setParam(InjectionProbe::ID, InjectionProbe::PARAM_AUTHENTICATED_MODE, 'off');
+		$this->settingsEditor()->setParam(InjectionProbe::ID, InjectionProbe::PARAM_AUTHENTICATED_MODE, 'off');
 		$this->decide('/index.php/apps/foo?id=1%20UNION%20SELECT%201', '/index.php', [], [$this->sessionCookie() => 'abc']);
 		$this->assertNull($this->responder->resolve($this->user('alice')));
 		$this->assertSame([], $this->detections());
@@ -374,15 +374,15 @@ class PayloadGuardTest extends IntegrationTestCase {
 	}
 
 	public function testTheChecksModeIsTheCeilingForLoggedInUsers(): void {
-		$this->settings->setMode(InjectionProbe::ID, Mode::Observe);
-		$this->settings->setParam(InjectionProbe::ID, InjectionProbe::PARAM_AUTHENTICATED_MODE, 'protect');
+		$this->settingsEditor()->setMode(InjectionProbe::ID, Mode::Observe);
+		$this->settingsEditor()->setParam(InjectionProbe::ID, InjectionProbe::PARAM_AUTHENTICATED_MODE, 'protect');
 		$this->decide('/index.php/apps/foo?id=1%20UNION%20SELECT%201', '/index.php', [], [$this->sessionCookie() => 'abc']);
 		$this->assertNull($this->responder->resolve($this->user('alice')));
 		$this->assertFalse($this->onlyDetection()->isEnforced());
 	}
 
 	public function testOffDoesNothing(): void {
-		$this->settings->setMode(InjectionProbe::ID, Mode::Off);
+		$this->settingsEditor()->setMode(InjectionProbe::ID, Mode::Off);
 		$inspector = $this->createMock(PayloadInspector::class);
 		$inspector->expects($this->never())->method('inspect');
 		$this->assertNull($this->decide('/index.php/apps/foo?id=1%20UNION%20SELECT%201', '/index.php', inspector: $inspector));
@@ -405,12 +405,12 @@ class PayloadGuardTest extends IntegrationTestCase {
 	}
 
 	public function testObserveAndLearningModeDoNotBlock(): void {
-		$this->settings->setMode(InjectionProbe::ID, Mode::Observe);
+		$this->settingsEditor()->setMode(InjectionProbe::ID, Mode::Observe);
 		$this->assertNull($this->decide('/index.php/apps/foo?id=1%20UNION%20SELECT%201', '/index.php'));
 		$this->assertFalse($this->onlyDetection()->isEnforced());
 
 		$this->db->getQueryBuilder()->delete('ids_detections')->executeStatement();
-		$this->settings->setMode(InjectionProbe::ID, Mode::Protect);
+		$this->settingsEditor()->setMode(InjectionProbe::ID, Mode::Protect);
 		$this->appConfig->setValueInt(Application::APP_ID, GlobalSettings::LEARNING_UNTIL, time() + 3600);
 		$this->assertNull($this->decide('/index.php/apps/foo?id=1%20UNION%20SELECT%201', '/index.php'));
 		$this->assertSame('learning', $this->onlyDetection()->getExplanationData()['mode']['reason']);
@@ -425,7 +425,7 @@ class PayloadGuardTest extends IntegrationTestCase {
 		$this->assertSame($first->getReference(), $second->getReference());
 		$detection = $this->onlyDetection();
 		$this->assertSame(2, $detection->getHits());
-		$this->assertSame('cat', $detection->getExplanationData()['facts']['param'], 'The latest hit explains the row');
+		$this->assertSame('cat', InjectionProbeFacts::fromArray($detection->getExplanationData()['facts'])->param, 'The latest hit explains the row');
 	}
 
 	public function testAProbeInAnImageAnotherSiteEmbedsIsRecordedButNotBlocked(): void {
@@ -439,7 +439,7 @@ class PayloadGuardTest extends IntegrationTestCase {
 	}
 
 	public function testAProbeLoggedInUsersMakeForAnotherSiteDoesNotBlockTheirAddress(): void {
-		$this->settings->setParam(InjectionProbe::ID, InjectionProbe::PARAM_AUTHENTICATED_MODE, 'protect');
+		$this->settingsEditor()->setParam(InjectionProbe::ID, InjectionProbe::PARAM_AUTHENTICATED_MODE, 'protect');
 		$lure = ['Sec-Fetch-Site' => 'cross-site', 'Sec-Fetch-Dest' => 'image'];
 		$this->assertNull($this->decide('/index.php/apps/foo?id=1%20UNION%20SELECT%201', '/index.php', cookies: [$this->sessionCookie() => 'x'], headers: $lure));
 		$this->assertNull($this->responder->resolve($this->user('alice')));
@@ -448,22 +448,22 @@ class PayloadGuardTest extends IntegrationTestCase {
 	}
 
 	public function testCustomAndDisabledSignaturesFromTheSettings(): void {
-		$this->settings->setParam(InjectionProbe::ID, InjectionProbe::PARAM_CUSTOM, ['dbms_pipe\.receive_message']);
+		$this->settingsEditor()->setParam(InjectionProbe::ID, InjectionProbe::PARAM_CUSTOM, ['dbms_pipe\.receive_message']);
 		$this->assertNotNull($this->decide('/index.php/apps/foo?id=DBMS_PIPE.RECEIVE_MESSAGE(%27a%27,5)', '/index.php'));
 		$this->assertSame([CustomSignatures::idFor('dbms_pipe\.receive_message')], array_values(array_filter(
-			$this->onlyDetection()->getExplanationData()['facts']['signatures'],
+			InjectionProbeFacts::fromArray($this->onlyDetection()->getExplanationData()['facts'])->signatures,
 			static fn (string $id): bool => str_starts_with($id, 'custom_'),
 		)));
 
 		$this->resetTables();
-		$this->settings->setParam(InjectionProbe::ID, InjectionProbe::PARAM_DISABLED, ['sql_union_select']);
+		$this->settingsEditor()->setParam(InjectionProbe::ID, InjectionProbe::PARAM_DISABLED, ['sql_union_select']);
 		$this->assertNull($this->decide('/index.php/apps/foo?id=1%20UNION%20SELECT%201', '/index.php'));
 		$this->assertSame([], $this->detections());
 	}
 
 	public function testASlowCustomSignatureCannotBeSaved(): void {
-		$this->expectException(\OCA\IntrusionDetection\Check\InvalidParamException::class);
-		$this->settings->setParam(InjectionProbe::ID, InjectionProbe::PARAM_CUSTOM, ['(a+)+$']);
+		$this->expectException(\OCA\IntrusionDetection\Definition\InvalidParamException::class);
+		$this->settingsEditor()->setParam(InjectionProbe::ID, InjectionProbe::PARAM_CUSTOM, ['(a+)+$']);
 	}
 
 	public function testTheGuardFailsOpen(): void {
@@ -482,7 +482,7 @@ class PayloadGuardTest extends IntegrationTestCase {
 			$guard = new PayloadGuard(Server::get(IConfig::class), $this->addresses(), $this->container(), Server::get(LoggerInterface::class), Server::get(GuardTimer::class));
 			$this->assertNull($guard->check($this->request('/index.php/login', '/index.php')), 'GET ignores form fields');
 			$this->assertNotNull($guard->check($this->request('/index.php/login', '/index.php', method: 'POST')));
-			$this->assertSame('x', $this->onlyDetection()->getExplanationData()['facts']['param']);
+			$this->assertSame('x', InjectionProbeFacts::fromArray($this->onlyDetection()->getExplanationData()['facts'])->param);
 		} finally {
 			$_POST = $saved;
 		}
@@ -491,20 +491,21 @@ class PayloadGuardTest extends IntegrationTestCase {
 	public function testTheNarrativeNamesParameterSignaturesAndExcerpt(): void {
 		$this->decide('/index.php/apps/foo?data=JyBPUiAnMSc9JzE=', '/index.php');
 		$l = Server::get(IFactory::class)->get('intrusion_detection', 'en');
+		$facts = InjectionProbeFacts::fromArray($this->onlyDetection()->getExplanationData()['facts']);
+		$this->assertSame('data', $facts->param);
+		$this->assertSame(3, $facts->weights['sql_tautology'] ?? null);
+		$this->assertSame(FormMatch::ENCODING_BASE64, $facts->encoding);
+		$this->assertStringContainsString("' or '1'='1", $facts->excerpt);
+		$this->assertFalse($facts->authenticated);
 		$narrative = Server::get(NarrativeBuilder::class)->build($this->onlyDetection(), $l);
-		$text = implode("\n", $narrative->happened);
-		$this->assertStringContainsString('"data"', $text);
-		$this->assertStringContainsString('sql_tautology (3)', $text);
-		$this->assertStringContainsString('base64', $text);
-		$this->assertStringContainsString("' or '1'='1", $text);
-		$this->assertStringContainsString('not logged in', $text);
 		$this->assertStringContainsString('Blocked ' . self::IP . '/32', implode("\n", $narrative->done));
 
 		$this->resetTables();
 		$this->decide('/index.php/apps/foo?id=1%20UNION%20SELECT%201', '/index.php', [], [$this->sessionCookie() => 'abc']);
 		$this->responder->resolve($this->user('alice'));
+		$this->assertTrue(InjectionProbeFacts::fromArray($this->onlyDetection()->getExplanationData()['facts'])->authenticated);
+		$this->assertSame('alice', $this->onlyDetection()->getUid());
 		$narrative = Server::get(NarrativeBuilder::class)->build($this->onlyDetection(), $l);
-		$this->assertStringContainsString('alice', implode("\n", $narrative->happened));
 		$this->assertStringContainsString('logged-in user', (string)$narrative->observedBecause);
 	}
 
@@ -651,5 +652,12 @@ class PayloadGuardTest extends IntegrationTestCase {
 			$this->db->getQueryBuilder()->delete($table)->executeStatement();
 		}
 		$this->context->set(PayloadResponder::CONTEXT_KEY, null);
+	}
+
+	/**
+	 * The login listener with the step that decides the waiting hits.
+	 */
+	private function payloadStep(): LoginListener {
+		return LoginSteps::listener([PayloadStep::class => new PayloadStep(new DeferredHits($this->context, $this->container()))], $this->appSettings(), $this->createMock(IRequest::class), $this->context);
 	}
 }

@@ -10,28 +10,29 @@ declare(strict_types=1);
 namespace OCA\IntrusionDetection\Tests\Integration;
 
 use OCA\IntrusionDetection\BackgroundJob\UserDetectionsCleanupJob;
-use OCA\IntrusionDetection\Check\Checks\CredentialStuffing;
-use OCA\IntrusionDetection\Check\Checks\SecondFactorFailed;
-use OCA\IntrusionDetection\Check\Mode;
-use OCA\IntrusionDetection\Check\ResponseType;
+use OCA\IntrusionDetection\Check\Checks\CredentialStuffing\CredentialStuffing;
+use OCA\IntrusionDetection\Check\Checks\SecondFactorFailed\SecondFactorFailed;
 use OCA\IntrusionDetection\Config\ModeState;
-use OCA\IntrusionDetection\Db\AlertMapper;
 use OCA\IntrusionDetection\Db\AttemptKind;
 use OCA\IntrusionDetection\Db\AttemptMapper;
 use OCA\IntrusionDetection\Db\DetectionMapper;
-use OCA\IntrusionDetection\Db\LockLinkMapper;
 use OCA\IntrusionDetection\Db\LoginMapper;
-use OCA\IntrusionDetection\Db\ProtectedAccountMapper;
-use OCA\IntrusionDetection\Db\SecurityChangeMapper;
 use OCA\IntrusionDetection\Db\TokenOriginMapper;
+use OCA\IntrusionDetection\Definition\Mode;
+use OCA\IntrusionDetection\Definition\ResponseType;
 use OCA\IntrusionDetection\Detection\DetectionDraft;
 use OCA\IntrusionDetection\Detection\DetectionService;
 use OCA\IntrusionDetection\Listener\UserDeletedListener;
 use OCA\IntrusionDetection\Net\SourceKey;
+use OCA\IntrusionDetection\Notification\Db\AlertMapper;
 use OCA\IntrusionDetection\Notification\UserAlerts;
 use OCA\IntrusionDetection\Privacy\UserDataCleanup;
+use OCA\IntrusionDetection\Response\Db\ProtectedAccountMapper;
+use OCA\IntrusionDetection\Takeover\Db\LockLinkMapper;
+use OCA\IntrusionDetection\Takeover\Db\SecurityChangeMapper;
 use OCP\BackgroundJob\IJobList;
 use OCP\Server;
+use OCP\Snowflake\ISnowflakeGenerator;
 use OCP\User\Events\UserDeletedEvent;
 use PHPUnit\Framework\Attributes\Group;
 use Psr\Log\LoggerInterface;
@@ -59,19 +60,19 @@ class UserDeletedTest extends AccountTestCase {
 
 		$service = Server::get(DetectionService::class);
 		$protect = new ModeState(Mode::Protect, Mode::Protect);
-		[$own] = $service->record(new DetectionDraft(SecondFactorFailed::ID, SourceKey::fromIp('203.0.113.1'), $uid, ['sessionTokenId' => 9], merge: DetectionDraft::MERGE_SOURCE_USER), $protect);
+		[$own] = $service->record(new DetectionDraft(SecondFactorFailed::ID, SourceKey::fromIp('203.0.113.1'), $uid, self::factsOf(SecondFactorFailed::ID, ['sessionTokenId' => 9]), merge: DetectionDraft::MERGE_SOURCE_USER), $protect);
 		$service->setActions($own, [['type' => ResponseType::ForcePasswordChange->value, 'enforced' => true, 'ref' => ['uid' => $uid, 'state' => 'required']]]);
-		[$attack] = $service->record(new DetectionDraft(CredentialStuffing::ID, SourceKey::fromIp('203.0.113.2'), null, ['targets' => [$other, $uid], 'failures' => 12]), $protect);
-		[$unrelated] = $service->record(new DetectionDraft(CredentialStuffing::ID, SourceKey::fromIp('203.0.113.3'), null, ['targets' => [$other]]), $protect);
+		[$attack] = $service->record(new DetectionDraft(CredentialStuffing::ID, SourceKey::fromIp('203.0.113.2'), null, self::factsOf(CredentialStuffing::ID, ['targets' => [$other, $uid], 'failures' => 12])), $protect);
+		[$unrelated] = $service->record(new DetectionDraft(CredentialStuffing::ID, SourceKey::fromIp('203.0.113.3'), null, self::factsOf(CredentialStuffing::ID, ['targets' => [$other]])), $protect);
 
 		$user->delete();
 		// Run it directly too, in case the app's listeners are not registered in this test run; it is idempotent.
-		(new UserDeletedListener(Server::get(UserDataCleanup::class), Server::get(LoggerInterface::class)))->handle(new UserDeletedEvent($user));
+		(new UserDeletedListener(Server::get(UserDataCleanup::class), Server::get(\OCP\BackgroundJob\IJobList::class), Server::get(LoggerInterface::class)))->handle(new UserDeletedEvent($user));
 		$this->assertSame([$other, $uid], Server::get(DetectionMapper::class)->findById($attack->getId())->getExplanationData()['facts']['targets'], 'The detections are rewritten later, by a job');
 		$this->runQueuedCleanup();
 
 		$dump = '';
-		foreach (IntegrationTestCase::TABLES as $table) {
+		foreach (IntegrationTestCase::tables() as $table) {
 			$result = $this->db->getQueryBuilder()->select('*')->from($table)->executeQuery();
 			$dump .= json_encode($result->fetchAll(), JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
 			$result->closeCursor();
@@ -99,9 +100,9 @@ class UserDeletedTest extends AccountTestCase {
 		$protect = new ModeState(Mode::Protect, Mode::Protect);
 		$count = UserDataCleanup::BATCH + 5;
 		for ($i = 0; $i < $count; $i++) {
-			$service->record(new DetectionDraft(CredentialStuffing::ID, SourceKey::fromIp('203.0.113.9'), null, ['targets' => ['many-user', 'kept-user'], 'n' => $i]), $protect);
+			$service->record(new DetectionDraft(CredentialStuffing::ID, SourceKey::fromIp('203.0.113.9'), null, self::factsOf(CredentialStuffing::ID, ['targets' => ['many-user', 'kept-user']])), $protect);
 		}
-		[$few] = $service->record(new DetectionDraft(CredentialStuffing::ID, SourceKey::fromIp('203.0.113.8'), null, ['targets' => ['few-user']]), $protect);
+		[$few] = $service->record(new DetectionDraft(CredentialStuffing::ID, SourceKey::fromIp('203.0.113.8'), null, self::factsOf(CredentialStuffing::ID, ['targets' => ['few-user']])), $protect);
 
 		$cleanup = Server::get(UserDataCleanup::class);
 		$queries = $this->db->getInner()->getStats()['executed'];
@@ -112,8 +113,8 @@ class UserDeletedTest extends AccountTestCase {
 		$this->assertSame($few, $this->db->getInner()->getStats()['executed'] - $queries, 'No query per detection in the deletion');
 
 		$upTo = Server::get(DetectionMapper::class)->lastId();
-		$this->assertSame(0, $cleanup->scrubDetections('many-user', $upTo, 0, 0), 'nothing done without a batch');
-		$after = $cleanup->scrubDetections('many-user', $upTo, 0, 1);
+		$this->assertSame('0', $cleanup->scrubDetections('many-user', $upTo, '0', 0), 'nothing done without a batch');
+		$after = $cleanup->scrubDetections('many-user', $upTo, '0', 1);
 		$this->assertNotNull($after, 'one batch, more to do');
 		$this->assertNull($cleanup->scrubDetections('many-user', $upTo, $after, 1));
 		$this->runQueuedCleanup();
@@ -122,15 +123,15 @@ class UserDeletedTest extends AccountTestCase {
 		$this->assertStringNotContainsString('many-user', $dump);
 		$this->assertStringNotContainsString('few-user', $dump);
 		$this->assertSame($count, substr_count($dump, 'kept-user'));
-		$this->assertSame([], Server::get(\OCA\IntrusionDetection\Db\DetectionAccountMapper::class)->detectionIds('many-user', 0, 10));
+		$this->assertSame([], Server::get(\OCA\IntrusionDetection\Db\DetectionAccountMapper::class)->detectionIds('many-user', '0', 10));
 	}
 
 	public function testANewAccountWithTheNameOfADeletedOneKeepsItsDetections(): void {
 		$service = Server::get(DetectionService::class);
 		$protect = new ModeState(Mode::Protect, Mode::Protect);
-		$service->record(new DetectionDraft(CredentialStuffing::ID, SourceKey::fromIp('203.0.113.9'), null, ['targets' => ['reused']]), $protect);
+		$service->record(new DetectionDraft(CredentialStuffing::ID, SourceKey::fromIp('203.0.113.9'), null, self::factsOf(CredentialStuffing::ID, ['targets' => ['reused']])), $protect);
 		Server::get(UserDataCleanup::class)->deleteUser('reused');
-		[$later] = $service->record(new DetectionDraft(CredentialStuffing::ID, SourceKey::fromIp('203.0.113.7'), null, ['targets' => ['reused']]), $protect);
+		[$later] = $service->record(new DetectionDraft(CredentialStuffing::ID, SourceKey::fromIp('203.0.113.7'), null, self::factsOf(CredentialStuffing::ID, ['targets' => ['reused']])), $protect);
 		$this->runQueuedCleanup();
 		$this->assertSame(['reused'], Server::get(DetectionMapper::class)->findById($later->getId())->getExplanationData()['facts']['targets']);
 	}
@@ -155,6 +156,7 @@ class UserDeletedTest extends AccountTestCase {
 		foreach (['gone-user', 'kept-user'] as $uid) {
 			$qb = $this->db->getQueryBuilder();
 			$qb->insert('ids_approvals')->values([
+				'id' => $qb->createNamedParameter(Server::get(ISnowflakeGenerator::class)->nextId()),
 				'kind' => $qb->createNamedParameter('admin_grant'),
 				'subject_uid' => $qb->createNamedParameter($uid),
 				'requested_by' => $qb->createNamedParameter('admin'),
@@ -186,7 +188,7 @@ class UserDeletedTest extends AccountTestCase {
 		$now = time();
 		foreach (['gone-user', 'kept-user'] as $uid) {
 			Server::get(SecurityChangeMapper::class)->insert(['uid' => $uid, 'type' => 'email_changed', 'via' => 'self', 'actor_uid' => $uid, 'old_value_hint' => 'o***@example.com', 'new_value_hint' => null, 'notify_to' => 'encrypted', 'ref_id' => null, 'detail' => null, 'session_token_id' => null, 'ip' => null, 'created_at' => $now]);
-			Server::get(LockLinkMapper::class)->insert($uid, str_repeat('c', 64), 'o***@example.com', null, null, $now, $now + 3600);
+			Server::get(LockLinkMapper::class)->insert($uid, str_repeat('c', 64), 'o***@example.com', null, null, $now + 3600);
 		}
 
 		Server::get(UserDataCleanup::class)->deleteUser('gone-user');

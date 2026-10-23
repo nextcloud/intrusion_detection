@@ -11,17 +11,19 @@ namespace OCA\IntrusionDetection\Tests\Integration;
 
 use OCA\IntrusionDetection\AppInfo\Application;
 use OCA\IntrusionDetection\Audit\AuditLogger;
-use OCA\IntrusionDetection\Check\InvalidParamException;
 use OCA\IntrusionDetection\Command\Credentials\Stale;
 use OCA\IntrusionDetection\Config\GlobalSettings;
+use OCA\IntrusionDetection\Config\UserKeys;
 use OCA\IntrusionDetection\Controller\StaleCredentialsApiController;
-use OCA\IntrusionDetection\Db\StaleTokenMapper;
+use OCA\IntrusionDetection\Definition\InvalidParamException;
 use OCA\IntrusionDetection\Notification\Notifier;
 use OCA\IntrusionDetection\SetupCheck\Finding;
 use OCA\IntrusionDetection\SetupCheck\StaleCredentialsCheck;
+use OCA\IntrusionDetection\StaleCredential\Db\StaleTokenMapper;
 use OCA\IntrusionDetection\StaleCredential\StaleCredentialNotices;
 use OCA\IntrusionDetection\StaleCredential\StaleCredentials;
 use OCA\IntrusionDetection\StaleCredential\StaleCredentialSweep;
+use OCA\IntrusionDetection\State\AppState;
 use OCP\AppFramework\Http;
 use OCP\AppFramework\Http\Attribute\PasswordConfirmationRequired;
 use OCP\AppFramework\Utility\ITimeFactory;
@@ -182,28 +184,28 @@ class StaleCredentialsTest extends AccountTestCase {
 		$this->credential($user, IToken::TEMPORARY_TOKEN, 'Firefox', 80, IToken::REMEMBER);
 
 		$this->sweep()->run();
-		$reminders = $this->notificationsFor($user->getUID(), StaleCredentialNotices::SUBJECT_REMINDER);
+		$reminders = $this->notificationsFor($user->getUID(), Notifier::SUBJECT_STALE_REMINDER);
 		$this->assertCount(1, $reminders);
 		$this->assertSame(['appPasswords' => 2, 'sessions' => 0, 'days' => 90], $reminders[0]->getSubjectParameters());
-		$this->assertSame($this->now, Server::get(IUserConfig::class)->getValueInt($user->getUID(), Application::APP_ID, StaleCredentialSweep::USER_KEY));
+		$this->assertSame($this->now, Server::get(IUserConfig::class)->getValueInt($user->getUID(), Application::APP_ID, UserKeys::STALE_CREDENTIALS_NOTIFIED_AT));
 		$this->assertSame('You have 2 app passwords you haven\'t used for 3 months', $this->prepared($reminders[0])->getParsedSubject());
 
 		$this->assertNull($this->sweep()->runIfDue(), 'once a day');
 		$this->now += 29 * self::DAY;
 		$this->sweep()->run();
-		$this->assertCount(1, $this->notificationsFor($user->getUID(), StaleCredentialNotices::SUBJECT_REMINDER), 'not again within 30 days');
+		$this->assertCount(1, $this->notificationsFor($user->getUID(), Notifier::SUBJECT_STALE_REMINDER), 'not again within 30 days');
 
 		// The browser became stale 10 days after the reminder, but within the month.
 		$this->now += 2 * self::DAY;
 		$this->assertNotNull($this->sweep()->runIfDue());
-		$reminders = $this->notificationsFor($user->getUID(), StaleCredentialNotices::SUBJECT_REMINDER);
+		$reminders = $this->notificationsFor($user->getUID(), Notifier::SUBJECT_STALE_REMINDER);
 		$this->assertCount(2, $reminders, 'after a month, with a credential that became unused since');
 		$this->assertSame(['appPasswords' => 2, 'sessions' => 1, 'days' => 90], $reminders[1]->getSubjectParameters());
 		$this->assertSame('You have 3 app passwords and devices you haven\'t used for 3 months', $this->prepared($reminders[1])->getParsedSubject());
 
 		$this->now += 40 * self::DAY;
 		$this->sweep()->run();
-		$this->assertCount(2, $this->notificationsFor($user->getUID(), StaleCredentialNotices::SUBJECT_REMINDER), 'nothing new: no reminder');
+		$this->assertCount(2, $this->notificationsFor($user->getUID(), Notifier::SUBJECT_STALE_REMINDER), 'nothing new: no reminder');
 	}
 
 	public function testDisabledAccountsAreNotReminded(): void {
@@ -222,11 +224,11 @@ class StaleCredentialsTest extends AccountTestCase {
 
 		$this->assertSame(0, $result['removed']);
 		$this->assertTrue($this->tokenExists($old));
-		$this->assertSame([], $this->notificationsFor($user->getUID(), StaleCredentialNotices::SUBJECT_REMOVED));
+		$this->assertSame([], $this->notificationsFor($user->getUID(), Notifier::SUBJECT_STALE_REMOVED));
 	}
 
 	public function testAutomaticRemovalRemovesWhatIsOlderThanTheSettingAndTellsTheUserOnce(): void {
-		$this->settings->setGlobal(GlobalSettings::STALE_CREDENTIALS_REMOVE_DAYS, 120);
+		$this->settingsEditor()->setGlobal(GlobalSettings::STALE_CREDENTIALS_REMOVE_DAYS, 120);
 		$user = $this->newUser('stale-remove');
 		$gone = $this->credential($user, IToken::PERMANENT_TOKEN, 'Thunderbird', 130);
 		$goneBrowser = $this->credential($user, IToken::TEMPORARY_TOKEN, 'Firefox', 200, IToken::REMEMBER);
@@ -240,7 +242,7 @@ class StaleCredentialsTest extends AccountTestCase {
 		$this->assertFalse($this->tokenExists($goneBrowser));
 		$this->assertTrue($this->tokenExists($kept));
 		$this->assertTrue($this->tokenExists($fresh));
-		$notices = $this->notificationsFor($user->getUID(), StaleCredentialNotices::SUBJECT_REMOVED);
+		$notices = $this->notificationsFor($user->getUID(), Notifier::SUBJECT_STALE_REMOVED);
 		$this->assertCount(1, $notices);
 		$this->assertSame(['appPasswords' => 1, 'sessions' => 1, 'days' => 120, 'names' => ['Thunderbird', 'Firefox']], $notices[0]->getSubjectParameters());
 		$prepared = $this->prepared($notices[0]);
@@ -249,20 +251,20 @@ class StaleCredentialsTest extends AccountTestCase {
 		$this->assertTrue($this->wasAudited('the daily job removed 2 app passwords and devices of ' . $user->getUID() . ' unused for 120 days'));
 
 		$this->sweep()->run();
-		$this->assertCount(1, $this->notificationsFor($user->getUID(), StaleCredentialNotices::SUBJECT_REMOVED), 'told once');
+		$this->assertCount(1, $this->notificationsFor($user->getUID(), Notifier::SUBJECT_STALE_REMOVED), 'told once');
 		$this->assertTrue($this->tokenExists($kept));
 	}
 
 	public function testAutomaticRemovalNeedsAtLeast90Days(): void {
 		try {
-			$this->settings->setGlobal(GlobalSettings::STALE_CREDENTIALS_REMOVE_DAYS, 30);
+			$this->settingsEditor()->setGlobal(GlobalSettings::STALE_CREDENTIALS_REMOVE_DAYS, 30);
 			$this->fail('30 days were accepted');
 		} catch (InvalidParamException $e) {
 			$this->assertSame('zero_or_at_least', $e->reason);
 		}
-		$this->settings->setGlobal(GlobalSettings::STALE_CREDENTIALS_REMOVE_DAYS, 90);
+		$this->settingsEditor()->setGlobal(GlobalSettings::STALE_CREDENTIALS_REMOVE_DAYS, 90);
 		$this->assertSame(90, $this->sweep()->removeDays());
-		$this->settings->setGlobal(GlobalSettings::STALE_CREDENTIALS_REMOVE_DAYS, 0);
+		$this->settingsEditor()->setGlobal(GlobalSettings::STALE_CREDENTIALS_REMOVE_DAYS, 0);
 		$this->assertSame(0, $this->sweep()->removeDays());
 	}
 
@@ -329,7 +331,7 @@ class StaleCredentialsTest extends AccountTestCase {
 		$this->assertFalse($this->tokenExists($old));
 		$this->assertTrue($this->tokenExists($fresh));
 		$this->assertTrue($this->tokenExists($theirs));
-		$this->assertCount(1, $this->notificationsFor($user->getUID(), StaleCredentialNotices::SUBJECT_REMOVED));
+		$this->assertCount(1, $this->notificationsFor($user->getUID(), Notifier::SUBJECT_STALE_REMOVED));
 		$this->assertNoSecret($output . $json);
 	}
 
@@ -346,7 +348,7 @@ class StaleCredentialsTest extends AccountTestCase {
 		foreach (Server::get(StaleTokenMapper::class)->tokens($this->now - 90 * self::DAY, $user->getUID(), 0, 10) as $row) {
 			$this->assertSame(['id', 'uid', 'name', 'type', 'lastActivity'], array_keys($row));
 		}
-		$this->settings->setGlobal(GlobalSettings::STALE_CREDENTIALS_REMOVE_DAYS, 90);
+		$this->settingsEditor()->setGlobal(GlobalSettings::STALE_CREDENTIALS_REMOVE_DAYS, 90);
 		$this->sweep()->run();
 		$notifications = $this->notificationsFor($user->getUID());
 		$this->assertNotEmpty($notifications);
@@ -384,7 +386,7 @@ class StaleCredentialsTest extends AccountTestCase {
 	}
 
 	private function credentials(): StaleCredentials {
-		return new StaleCredentials($this->tokens, Server::get(IProvider::class), $this->currentSession, $this->time(), Server::get(AuditLogger::class));
+		return new StaleCredentials($this->tokens, Server::get(IProvider::class), $this->coreSession, $this->time(), Server::get(AuditLogger::class));
 	}
 
 	private function sweep(): StaleCredentialSweep {
@@ -393,7 +395,8 @@ class StaleCredentialsTest extends AccountTestCase {
 			Server::get(StaleTokenMapper::class),
 			$this->credentials(),
 			new StaleCredentialNotices(Server::get(INotificationManager::class), $time),
-			$this->settings,
+			$this->appSettings(),
+			Server::get(AppState::class),
 			Server::get(IUserConfig::class),
 			Server::get(IUserManager::class),
 			$time,
@@ -407,7 +410,7 @@ class StaleCredentialsTest extends AccountTestCase {
 			$this->userSession,
 			$this->credentials(),
 			new StaleCredentialNotices(Server::get(INotificationManager::class), $this->time()),
-			$this->settings,
+			$this->appSettings(),
 			$this->l(),
 		);
 	}

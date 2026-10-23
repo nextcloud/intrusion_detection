@@ -10,11 +10,12 @@ declare(strict_types=1);
 namespace OCA\IntrusionDetection\Tests\Unit\Controller;
 
 use OCA\IntrusionDetection\Admin\ConfirmationOverview;
+use OCA\IntrusionDetection\AdminChange\ActorResolver;
 use OCA\IntrusionDetection\Audit\AuditLogger;
-use OCA\IntrusionDetection\Check\InvalidParamException;
 use OCA\IntrusionDetection\Confirm\ConfirmationCoverage;
 use OCA\IntrusionDetection\Confirm\NoMethodPreset;
 use OCA\IntrusionDetection\Controller\ConfirmationApiController;
+use OCA\IntrusionDetection\Definition\InvalidParamException;
 use OCP\AppFramework\Http;
 use OCP\AppFramework\Http\Attribute\PasswordConfirmationRequired;
 use OCP\IRequest;
@@ -30,6 +31,8 @@ use Test\TestCase;
  * behind password confirmation, and audited.
  */
 class ConfirmationApiControllerTest extends TestCase {
+	use AnswersLikeTheApi;
+
 	private NoMethodPreset&MockObject $preset;
 	private AuditLogger&MockObject $audit;
 	private ConfirmationOverview&MockObject $overview;
@@ -48,7 +51,7 @@ class ConfirmationApiControllerTest extends TestCase {
 		$this->controller = new ConfirmationApiController(
 			$this->createMock(IRequest::class),
 			Server::get(IFactory::class)->get('intrusion_detection', 'en'),
-			$session,
+			new ActorResolver($session),
 			$this->overview,
 			$this->createMock(ConfirmationCoverage::class),
 			$this->preset,
@@ -78,13 +81,13 @@ class ConfirmationApiControllerTest extends TestCase {
 		$this->preset->method('apply')->willReturn([]);
 		$this->preset->method('current')->willReturn('recommended');
 		$this->audit->expects($this->never())->method('log');
-		$this->assertSame('recommended', $this->controller->setPreset('recommended')->getData()['preset']);
+		$this->assertSame('recommended', $this->answer(fn () => $this->controller->setPreset('recommended'))->getData()['preset']);
 	}
 
 	public function testCustomCannotBeSet(): void {
 		$this->preset->method('apply')->willThrowException(new InvalidParamException('not_a_choice', ['param' => 'preset', 'choices' => 'recommended, refuse, allow']));
 		$this->audit->expects($this->never())->method('log');
-		$response = $this->controller->setPreset('custom');
+		$response = $this->answer(fn () => $this->controller->setPreset('custom'));
 		$this->assertSame(Http::STATUS_BAD_REQUEST, $response->getStatus());
 		$this->assertSame('preset', $response->getData()['param']);
 	}

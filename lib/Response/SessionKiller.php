@@ -11,7 +11,7 @@ namespace OCA\IntrusionDetection\Response;
 
 use OCA\IntrusionDetection\Audit\AuditLogger;
 use OCA\IntrusionDetection\Db\TokenOriginMapper;
-use OCA\IntrusionDetection\SessionState\CurrentSession;
+use OCA\IntrusionDetection\Login\CoreSession;
 use OCP\AppFramework\Utility\ITimeFactory;
 use OCP\IUserSession;
 
@@ -36,7 +36,7 @@ class SessionKiller {
 	public function __construct(
 		private readonly Tokens $tokens,
 		private readonly TokenOriginMapper $origins,
-		private readonly CurrentSession $currentSession,
+		private readonly CoreSession $coreSession,
 		private readonly IUserSession $userSession,
 		private readonly ITimeFactory $timeFactory,
 		private readonly AuditLogger $audit,
@@ -46,11 +46,11 @@ class SessionKiller {
 	/**
 	 * @return array{session: ?array{id: int, name: string}, tokens: list<array{id: int, name: string}>, loggedOut: bool}
 	 */
-	public function kill(string $uid, ?int $sessionTokenId, ?string $ip, ?int $detectionId = null): array {
+	public function kill(string $uid, ?int $sessionTokenId, ?string $ip, ?string $detectionId = null): array {
 		$session = null;
 		$loggedOut = false;
 		if ($sessionTokenId !== null) {
-			$isCurrent = $this->currentSession->tokenId() === $sessionTokenId
+			$isCurrent = $this->coreSession->tokenId() === $sessionTokenId
 				&& $this->userSession->getUser()?->getUID() === $uid;
 			$session = $this->tokens->invalidate($uid, $sessionTokenId);
 			if ($isCurrent) {

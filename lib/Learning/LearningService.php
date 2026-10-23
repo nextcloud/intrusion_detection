@@ -11,9 +11,11 @@ namespace OCA\IntrusionDetection\Learning;
 
 use OCA\IntrusionDetection\AppInfo\Application;
 use OCA\IntrusionDetection\Audit\AuditLogger;
+use OCA\IntrusionDetection\Config\AppSettings;
 use OCA\IntrusionDetection\Config\GlobalSettings;
-use OCA\IntrusionDetection\Config\Settings;
+use OCA\IntrusionDetection\Configure\SettingsEditor;
 use OCA\IntrusionDetection\Notification\LearningNotices;
+use OCA\IntrusionDetection\State\AppState;
 use OCP\AppFramework\Utility\ITimeFactory;
 use OCP\Notification\IManager as INotificationManager;
 
@@ -38,14 +40,20 @@ use OCP\Notification\IManager as INotificationManager;
  * it was about the period before.
  */
 class LearningService {
+	/** When the running learning period started */
+	public const STARTED_STATE = 'learning_started_at';
+	/** When the "learning ends tomorrow" notice was sent for the running period; 0 before */
+	public const NOTICE_STATE = 'learning_notice_sent';
 	public const MIN_DAYS = 1;
 	public const MAX_DAYS = 30;
 
 	public function __construct(
-		private readonly Settings $settings,
+		private readonly AppSettings $settings,
+		private readonly SettingsEditor $editor,
 		private readonly ITimeFactory $timeFactory,
 		private readonly AuditLogger $audit,
 		private readonly INotificationManager $notifications,
+		private readonly AppState $state,
 	) {
 	}
 
@@ -95,8 +103,8 @@ class LearningService {
 		if (!$this->isActive()) {
 			return 0;
 		}
-		$started = $this->settings->getInt(GlobalSettings::LEARNING_STARTED_AT);
-		return $started > 0 ? $started : $this->settings->getInt(GlobalSettings::INSTALLED_AT);
+		$started = $this->state->getInt(self::STARTED_STATE);
+		return $started > 0 ? $started : $this->state->getInt(AppState::INSTALLED_AT);
 	}
 
 	/**
@@ -119,11 +127,11 @@ class LearningService {
 		}
 		$protecting = !$this->isActive();
 		$before = $this->until();
-		$this->settings->setGlobal(GlobalSettings::LEARNING_UNTIL, $until, reported: $until > $before);
+		$this->editor->setGlobal(GlobalSettings::LEARNING_UNTIL, $until, reported: $until > $before);
 		if ($protecting) {
-			$this->settings->setGlobal(GlobalSettings::LEARNING_STARTED_AT, $this->timeFactory->getTime());
+			$this->state->setInt(self::STARTED_STATE, $this->timeFactory->getTime());
 		}
-		$this->settings->setGlobal(GlobalSettings::LEARNING_NOTICE_SENT, 0);
+		$this->state->setInt(self::NOTICE_STATE, 0);
 		$this->dismissEndingNotice();
 		return $until;
 	}
@@ -136,7 +144,7 @@ class LearningService {
 		if ($this->until() === 0) {
 			return;
 		}
-		$this->settings->setGlobal(GlobalSettings::LEARNING_UNTIL, 0, reported: false);
+		$this->editor->setGlobal(GlobalSettings::LEARNING_UNTIL, 0, reported: false);
 		$this->audit->log('learning mode ended by %s', ['actor' => $actor]);
 	}
 
@@ -144,8 +152,8 @@ class LearningService {
 	 * Start the first learning period when the app is installed.
 	 */
 	public function startAtInstall(int $now): void {
-		$this->settings->setGlobal(GlobalSettings::LEARNING_UNTIL, $now + GlobalSettings::LEARNING_DEFAULT_PERIOD, reported: false);
-		$this->settings->setGlobal(GlobalSettings::LEARNING_STARTED_AT, $now);
+		$this->editor->setGlobal(GlobalSettings::LEARNING_UNTIL, $now + GlobalSettings::LEARNING_DEFAULT_PERIOD, reported: false);
+		$this->state->setInt(self::STARTED_STATE, $now);
 		$this->audit->log('learning mode started for %s days at installation', ['days' => intdiv(GlobalSettings::LEARNING_DEFAULT_PERIOD, 86400)]);
 	}
 
@@ -160,7 +168,7 @@ class LearningService {
 		if ($until === 0 || $until > $this->timeFactory->getTime()) {
 			return false;
 		}
-		$this->settings->setGlobal(GlobalSettings::LEARNING_UNTIL, 0, reported: false);
+		$this->editor->setGlobal(GlobalSettings::LEARNING_UNTIL, 0, reported: false);
 		$this->dismissEndingNotice();
 		$this->audit->log('learning mode ended automatically; protection is active', []);
 		return true;
@@ -171,7 +179,7 @@ class LearningService {
 	 * learning period, which nobody started, extended or ended since.
 	 */
 	public function isEndingNoticePending(): bool {
-		return $this->isActive() && $this->settings->getInt(GlobalSettings::LEARNING_NOTICE_SENT) > 0;
+		return $this->isActive() && $this->state->getInt(self::NOTICE_STATE) > 0;
 	}
 
 	/**

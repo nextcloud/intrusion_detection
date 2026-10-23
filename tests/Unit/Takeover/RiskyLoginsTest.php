@@ -10,9 +10,10 @@ declare(strict_types=1);
 namespace OCA\IntrusionDetection\Tests\Unit\Takeover;
 
 use OC\Session\Memory;
+use OCA\IntrusionDetection\Confirm\ConfirmationStatus;
 use OCA\IntrusionDetection\Confirm\StepUpState;
-use OCA\IntrusionDetection\SessionState\CurrentSession;
-use OCA\IntrusionDetection\SessionState\SessionState;
+use OCA\IntrusionDetection\Login\CoreSession;
+use OCA\IntrusionDetection\Login\SessionMarkers;
 use OCA\IntrusionDetection\Takeover\IRiskyLoginSignal;
 use OCA\IntrusionDetection\Takeover\RiskyLogin;
 use OCA\IntrusionDetection\Takeover\RiskyLogins;
@@ -37,7 +38,7 @@ class RiskyLoginsTest extends TestCase {
 	}
 
 	public function testALoginThatStillWaitsForItsConfirmationIsRisky(): void {
-		$signal = $this->signal(null, 7, new StepUpState('alice', StepUpState::PENDING, ['protected_account'], 900, 1800));
+		$signal = $this->signal(null, 7, new StepUpState('alice', ConfirmationStatus::Pending, ['protected_account'], 900, 1800));
 		$login = $signal->riskyLogin('alice', 7);
 		$this->assertSame(900, $login?->at);
 		$this->assertSame(RiskyLogin::REASON_UNCONFIRMED, $login->reason);
@@ -89,14 +90,14 @@ class RiskyLoginsTest extends TestCase {
 	 */
 	private function signal(?array $marker, int $currentToken, ?StepUpState $stepUp = null): UnconfirmedLoginSignal {
 		$session = new Memory();
-		$state = new SessionState($session, $this->createMock(LoggerInterface::class));
+		$state = new SessionMarkers($session, $this->createMock(LoggerInterface::class));
 		if ($stepUp !== null) {
-			$state->set(SessionState::STEP_UP, $stepUp->toArray());
+			$state->set(SessionMarkers::STEP_UP, $stepUp->toArray());
 		}
 		if ($marker !== null) {
-			$state->set(SessionState::CONFIRMATION, $marker);
+			$state->set(SessionMarkers::CONFIRMATION, $marker);
 		}
-		$current = $this->createMock(CurrentSession::class);
+		$current = $this->createMock(CoreSession::class);
 		$current->method('tokenId')->willReturn($currentToken);
 		return new UnconfirmedLoginSignal($state, $current);
 	}

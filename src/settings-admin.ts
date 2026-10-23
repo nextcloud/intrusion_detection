@@ -9,6 +9,7 @@ import { createApp } from 'vue'
 import AdminSettings from './views/AdminSettings.vue'
 
 import 'vite/modulepreload-polyfill'
+import './styles/tokens.css'
 
 addPasswordConfirmationInterceptors(axios)
 

@@ -9,30 +9,31 @@ declare(strict_types=1);
 
 namespace OCA\IntrusionDetection\Tests\Integration;
 
-use OCA\IntrusionDetection\Check\Checks\AccountUnderAttack;
-use OCA\IntrusionDetection\Check\Checks\CredentialStuffing;
-use OCA\IntrusionDetection\Check\Checks\DecoyCredential;
-use OCA\IntrusionDetection\Check\Checks\PasswordSpraying;
-use OCA\IntrusionDetection\Check\Checks\ShareBruteforce;
-use OCA\IntrusionDetection\Check\Checks\TrapUrl;
+use OCA\IntrusionDetection\Blocklist\Db\BlocklistStatMapper;
+use OCA\IntrusionDetection\Check\Checks\AccountUnderAttack\AccountUnderAttack;
+use OCA\IntrusionDetection\Check\Checks\CredentialStuffing\CredentialStuffing;
+use OCA\IntrusionDetection\Check\Checks\DecoyCredential\DecoyCredential;
+use OCA\IntrusionDetection\Check\Checks\PasswordSpraying\PasswordSpraying;
+use OCA\IntrusionDetection\Check\Checks\ShareBruteforce\ShareBruteforce;
+use OCA\IntrusionDetection\Check\Checks\TrapUrl\TrapUrl;
 use OCA\IntrusionDetection\Config\GlobalSettings;
 use OCA\IntrusionDetection\Config\Prerequisites;
-use OCA\IntrusionDetection\Config\Settings;
-use OCA\IntrusionDetection\Db\AlertMapper;
 use OCA\IntrusionDetection\Db\Ban;
 use OCA\IntrusionDetection\Db\BanMapper;
-use OCA\IntrusionDetection\Db\BlocklistStatMapper;
 use OCA\IntrusionDetection\Db\Detection;
 use OCA\IntrusionDetection\Db\DetectionMapper;
-use OCA\IntrusionDetection\Db\ProtectedAccountMapper;
 use OCA\IntrusionDetection\Detection\DetectionTotals;
 use OCA\IntrusionDetection\Notification\AdminRecipients;
+use OCA\IntrusionDetection\Notification\Db\AlertMapper;
 use OCA\IntrusionDetection\Notification\Digest;
 use OCA\IntrusionDetection\Notification\DigestSchedule;
 use OCA\IntrusionDetection\Notification\DigestSender;
 use OCA\IntrusionDetection\Notification\MailContent;
+use OCA\IntrusionDetection\Notification\MailReach;
 use OCA\IntrusionDetection\Notification\Mails;
 use OCA\IntrusionDetection\Notification\UserMessages;
+use OCA\IntrusionDetection\Response\Db\ProtectedAccountMapper;
+use OCA\IntrusionDetection\State\AppState;
 use OCP\AppFramework\Utility\ITimeFactory;
 use OCP\Config\IUserConfig;
 use OCP\IDateTimeZone;
@@ -59,7 +60,6 @@ class DigestTest extends IntegrationTestCase {
 	private const DUE = 1792396800;
 	private const DAY = 86400;
 
-	private Settings $settings;
 	private int $now = self::DUE + 1800;
 	/** @var list<IUser> */
 	private array $admins = [];
@@ -70,7 +70,6 @@ class DigestTest extends IntegrationTestCase {
 
 	protected function setUp(): void {
 		parent::setUp();
-		$this->settings = Server::get(Settings::class);
 		$this->admins = [$this->admin('alice', 'alice@example.com'), $this->admin('bob', null), $this->admin('carol', 'not an address')];
 		$this->logger = $this->createMock(LoggerInterface::class);
 	}
@@ -171,13 +170,13 @@ class DigestTest extends IntegrationTestCase {
 	}
 
 	public function testLearningModeAndProblemsAreShownOnTop(): void {
-		$this->settings->setGlobal(GlobalSettings::LEARNING_UNTIL, time() + 3 * self::DAY + 3600);
+		$this->settingsEditor()->setGlobal(GlobalSettings::LEARNING_UNTIL, time() + 3 * self::DAY + 3600);
 		$content = $this->digest()->content($this->digest()->report($this->schedule(), self::DUE), self::l10n(), new \DateTimeZone('UTC'));
 		$this->assertSame('Learning: 4 days left', $content->notes[0]['label']);
 		$this->assertSame(IEMailTemplate::NOTE_INFO, $content->notes[0]['type']);
 
-		$this->settings->setGlobal(GlobalSettings::LEARNING_UNTIL, 0);
-		$this->settings->setGlobal(GlobalSettings::ENABLED, false);
+		$this->settingsEditor()->setGlobal(GlobalSettings::LEARNING_UNTIL, 0);
+		$this->settingsEditor()->setGlobal(GlobalSettings::ENABLED, false);
 		$content = $this->digest()->content($this->digest()->report($this->schedule(), self::DUE), self::l10n(), new \DateTimeZone('UTC'));
 		$this->assertSame('Off', $content->notes[0]['label']);
 		$this->assertSame(IEMailTemplate::NOTE_WARNING, $content->notes[0]['type']);
@@ -243,7 +242,7 @@ class DigestTest extends IntegrationTestCase {
 	public function testOnlyAdminsWithAnEmailAddressGetIt(): void {
 		$this->assertSame(DigestSender::RESULT_SENT, $this->sender()->sendIfDue());
 		$this->assertSame(['alice'], array_column($this->mailed, 0));
-		$state = $this->settings->getJson(GlobalSettings::DIGEST_STATE);
+		$state = Server::get(AppState::class)->getJson(DigestSender::STATE);
 		$this->assertSame(['period' => self::DUE, 'sentAt' => $this->now, 'result' => 'sent', 'recipients' => 1, 'failed' => 0, 'withoutEmail' => 2], $state);
 
 		$overview = $this->sender()->overview($this->admins[1]);
@@ -266,7 +265,7 @@ class DigestTest extends IntegrationTestCase {
 		$this->now += 3600;
 		$this->assertSame(DigestSender::RESULT_ALREADY_SENT, $this->sender()->sendIfDue());
 		// Another web server whose settings cache has not seen the new state yet still finds the claim.
-		$this->settings->setGlobal(GlobalSettings::DIGEST_STATE, '{}');
+		Server::get(AppState::class)->setJson(DigestSender::STATE, []);
 		$this->assertSame(DigestSender::RESULT_ALREADY_SENT, $this->sender()->sendIfDue());
 		$this->assertCount(1, $this->mailed);
 	}
@@ -283,15 +282,15 @@ class DigestTest extends IntegrationTestCase {
 	}
 
 	public function testOffLateAndBeforeInstallationNothingIsSent(): void {
-		$this->settings->setGlobal(GlobalSettings::DIGEST_FREQUENCY, 'off');
+		$this->settingsEditor()->setGlobal(GlobalSettings::DIGEST_FREQUENCY, 'off');
 		$this->assertSame(DigestSender::RESULT_OFF, $this->sender()->sendIfDue());
-		$this->settings->setGlobal(GlobalSettings::DIGEST_FREQUENCY, 'weekly');
+		$this->settingsEditor()->setGlobal(GlobalSettings::DIGEST_FREQUENCY, 'weekly');
 
 		$this->now = self::DUE + DigestSchedule::GRACE + 1;
 		$this->assertSame(DigestSender::RESULT_NOT_DUE, $this->sender()->sendIfDue(), 'cron did not run for half a day: this digest is skipped');
 
 		$this->now = self::DUE + 1800;
-		$this->settings->setGlobal(GlobalSettings::INSTALLED_AT, self::DUE + 60);
+		Server::get(AppState::class)->setInt(AppState::INSTALLED_AT, self::DUE + 60);
 		$this->assertSame(DigestSender::RESULT_NOT_DUE, $this->sender()->sendIfDue(), 'no digest for a week before the app was installed');
 		$this->assertSame([], $this->mailed);
 	}
@@ -299,7 +298,7 @@ class DigestTest extends IntegrationTestCase {
 	public function testDailyDigestsAreDueEveryDay(): void {
 		$this->now = self::DUE + self::DAY + 600;
 		$this->assertSame(DigestSender::RESULT_NOT_DUE, $this->sender()->sendIfDue(), 'Tuesday is not a weekly digest day');
-		$this->settings->setGlobal(GlobalSettings::DIGEST_FREQUENCY, 'daily');
+		$this->settingsEditor()->setGlobal(GlobalSettings::DIGEST_FREQUENCY, 'daily');
 		$this->insertDetection(CredentialStuffing::ID, '198.51.100.7', null, self::DUE + 3600);
 		$this->assertSame(DigestSender::RESULT_SENT, $this->sender()->sendIfDue());
 		$this->assertSame('Intrusion detection daily summary: 1 detection', $this->mailed[0][1]->subject);
@@ -310,7 +309,7 @@ class DigestTest extends IntegrationTestCase {
 		$this->mailWorks = false;
 		$this->logger->expects($this->once())->method('error');
 		$this->assertSame(DigestSender::RESULT_FAILED, $this->sender()->sendIfDue());
-		$this->assertSame('failed', $this->settings->getJson(GlobalSettings::DIGEST_STATE)['result']);
+		$this->assertSame('failed', Server::get(AppState::class)->getJson(DigestSender::STATE)['result']);
 	}
 
 	public function testTheTestDigestGoesOnlyToTheAdminWhoAskedAndChangesNothing(): void {
@@ -322,7 +321,7 @@ class DigestTest extends IntegrationTestCase {
 		$this->assertSame('Test', $content->notes[0]['label']);
 		$this->assertStringContainsString('sent only to you', $content->notes[0]['text']);
 		$this->assertStringContainsString('1 detection in this period.', implode(' ', $content->paragraphs), 'the period up to now');
-		$this->assertSame([], $this->settings->getJson(GlobalSettings::DIGEST_STATE));
+		$this->assertSame([], Server::get(AppState::class)->getJson(DigestSender::STATE));
 
 		$this->assertSame(DigestSender::TEST_NO_ADDRESS, $this->sender()->sendTest($this->admins[1]));
 		$this->assertCount(1, $this->mailed);
@@ -331,7 +330,7 @@ class DigestTest extends IntegrationTestCase {
 	}
 
 	private function schedule(): DigestSchedule {
-		return new DigestSchedule((string)$this->settings->global(GlobalSettings::DIGEST_FREQUENCY), new \DateTimeZone('UTC'));
+		return new DigestSchedule($this->appSettings()->digestFrequency(), new \DateTimeZone('UTC'));
 	}
 
 	/**
@@ -365,17 +364,18 @@ class DigestTest extends IntegrationTestCase {
 		$timezone = $this->createMock(IDateTimeZone::class);
 		$timezone->method('getDefaultTimeZone')->willReturn(new \DateTimeZone('UTC'));
 		return new DigestSender(
-			$this->settings,
+			$this->appSettings(),
 			$this->digest(),
 			$recipients,
 			$mails,
 			Server::get(AlertMapper::class),
-			Server::get(IEmailValidator::class),
 			Server::get(UserMessages::class),
 			$timezone,
 			Server::get(Prerequisites::class),
 			$time,
 			$this->logger,
+			Server::get(AppState::class),
+			Server::get(MailReach::class),
 		);
 	}
 
@@ -407,7 +407,7 @@ class DigestTest extends IntegrationTestCase {
 		$manual->setBanKey('192.0.2.99');
 		$manual->setLevel(1);
 		$manual->setCheckId('manual');
-		$manual->setCreatedAt($week + 4 * self::DAY);
+		$manual->setCreatedTime($week + 4 * self::DAY);
 		$manual->setExpiresAt($week + 5 * self::DAY);
 		Server::get(BanMapper::class)->insert($manual);
 
@@ -448,7 +448,7 @@ class DigestTest extends IntegrationTestCase {
 		$detection->setShareId($shareId);
 		$detection->setExplanationData(['facts' => $facts]);
 		$detection->setActionList([['type' => 'ban', 'enforced' => $enforced]]);
-		$detection->setCreatedAt($at);
+		$detection->setCreatedTime($at);
 		$detection->setLastSeenAt($at);
 		$detection->setHits(1);
 		$detection = Server::get(DetectionMapper::class)->insert($detection);
@@ -465,7 +465,7 @@ class DigestTest extends IntegrationTestCase {
 		$ban->setLevel(1);
 		$ban->setCheckId($detection->getCheckId());
 		$ban->setDetectionId($detection->getId());
-		$ban->setCreatedAt($at);
+		$ban->setCreatedTime($at);
 		$ban->setExpiresAt($at + 14400);
 		Server::get(BanMapper::class)->insert($ban);
 	}

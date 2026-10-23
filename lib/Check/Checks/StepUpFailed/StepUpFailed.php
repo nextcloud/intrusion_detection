@@ -1,0 +1,136 @@
+<?php
+
+declare(strict_types=1);
+
+/**
+ * SPDX-FileCopyrightText: 2026 Nextcloud GmbH and Nextcloud contributors
+ * SPDX-License-Identifier: AGPL-3.0-or-later
+ */
+
+namespace OCA\IntrusionDetection\Check\Checks\StepUpFailed;
+
+use OCA\IntrusionDetection\Check\ICheck;
+use OCA\IntrusionDetection\Check\ISelectsResponses;
+use OCA\IntrusionDetection\Confirm\EmailCodes;
+use OCA\IntrusionDetection\Confirm\LoginConfirmations;
+use OCA\IntrusionDetection\Confirm\StepUpPolicy;
+use OCA\IntrusionDetection\Db\Detection;
+use OCA\IntrusionDetection\Definition\Category;
+use OCA\IntrusionDetection\Definition\CheckDefinition;
+use OCA\IntrusionDetection\Definition\CheckTexts;
+use OCA\IntrusionDetection\Definition\CostClass;
+use OCA\IntrusionDetection\Definition\DataKind;
+use OCA\IntrusionDetection\Definition\Mode;
+use OCA\IntrusionDetection\Definition\ResponseType;
+use OCA\IntrusionDetection\Definition\Severity;
+use OCA\IntrusionDetection\Detection\DetectionDraft;
+use OCA\IntrusionDetection\Explain\DateFormatter;
+use OCA\IntrusionDetection\Explain\DetectionFacts;
+use OCA\IntrusionDetection\Explain\IAsksWasThisYou;
+use OCA\IntrusionDetection\Explain\IExplainsDetection;
+use OCA\IntrusionDetection\Explain\IExplainsToUser;
+use OCA\IntrusionDetection\Explain\TextRenderer;
+use OCA\IntrusionDetection\Explain\UserNotice;
+use OCP\IL10N;
+
+/**
+ * A login that needed extra confirmation was not confirmed: too many wrong
+ * email codes, no confirmation in time, or an administrator rejected it.
+ * Raised by the step-up service.
+ *
+ * Only wrong codes block the address. A login that merely timed out (or
+ * whose session came back later without its confirmation) is ended and
+ * reported, but its address is not blocked: the person who waits too long
+ * for an email is far more often the account holder than an attacker, who
+ * gains nothing by waiting.
+ */
+final class StepUpFailed implements ICheck, IExplainsDetection, IExplainsToUser, IAsksWasThisYou, ISelectsResponses {
+	public const ID = 'step_up_failed';
+
+	public function __construct(
+		private readonly DateFormatter $dates,
+	) {
+	}
+
+	#[\Override]
+	public function definition(): CheckDefinition {
+		return new CheckDefinition(
+			id: self::ID,
+			category: Category::Internal,
+			defaultMode: Mode::Protect,
+			severity: Severity::High,
+			params: [],
+			responses: [ResponseType::Ban, ResponseType::KillSession, ResponseType::FlagSource, ResponseType::NotifyAdmin, ResponseType::NotifyUser],
+			defaultResponses: [ResponseType::Ban, ResponseType::KillSession, ResponseType::NotifyAdmin, ResponseType::NotifyUser],
+			cost: CostClass::OnLoginOnly,
+			stores: [DataKind::Detections],
+			texts: static fn (IL10N $l): CheckTexts => new CheckTexts(
+				name: $l->t('Login confirmation failed'),
+				shortName: $l->t('Confirmation failed'),
+				summary: $l->t('A login that needed extra confirmation was not confirmed.'),
+				detects: $l->t('Someone logged in with the correct password, but the login needed extra confirmation, for example because it came from an address that took part in an attack. Nextcloud sent a code to the account\'s email address. Whoever entered wrong codes again and again knows the password, but cannot read the mailbox.'),
+				decides: $l->t('Fires after %1$s wrong codes, when the login was not confirmed within %2$s, or when an administrator rejected it. Only wrong codes block the address.', [(string)EmailCodes::MAX_ATTEMPTS, TextRenderer::duration(LoginConfirmations::SESSION_TTL, $l)]),
+				wrong: $l->t('Someone who mistypes the code several times, or who waits too long for the email. Their login is ended and they are asked whether it was them; they can log in again. Blocking the address can be switched off for this check with occ.'),
+				data: $l->t('Detections: the account, the address, why the login needed confirmation and how it failed. The code itself is never stored: only a hash of it is kept in the session until it is used or expires.'),
+			),
+			internal: true,
+		);
+	}
+
+	#[\Override]
+	public function responsesFor(DetectionDraft $draft, array $configured, array $params): array {
+		if (StepUpFailedFacts::fromArray($draft->facts)->rule === StepUpFailedRule::Attempts) {
+			return $configured;
+		}
+		return array_values(array_filter($configured, static fn (ResponseType $r): bool => $r !== ResponseType::Ban && $r !== ResponseType::FlagSource));
+	}
+
+	#[\Override]
+	public function asksWasThisYou(Detection $detection): bool {
+		return true;
+	}
+
+	#[\Override]
+	public function narrative(Detection $detection, IL10N $l): array {
+		$stored = DetectionFacts::of($detection);
+		$facts = StepUpFailedFacts::fromArray($stored->facts);
+		$because = StepUpPolicy::describeAll($facts->policies, $l);
+		$started = $this->dates->dateTime($facts->started ?? $stored->first);
+		$sentences = [$because === ''
+			? $l->t('At %1$s %2$s logged in from %3$s with the correct password. The login needed extra confirmation.', [
+				$started, (string)$detection->getUid(), (string)$detection->getIp(),
+			])
+			: $l->t('At %1$s %2$s logged in from %3$s with the correct password. The login needed extra confirmation, because %4$s.', [
+				$started, (string)$detection->getUid(), (string)$detection->getIp(), $because,
+			])];
+		$sentences[] = match ($facts->rule) {
+			StepUpFailedRule::Timeout => $l->t('It was not confirmed within %s, so the login was ended.', [TextRenderer::duration($facts->ttl ?? 900, $l)]),
+			StepUpFailedRule::Resumed => $l->t('It was never confirmed, and the session came back later through its remember-me cookie or its session token, without the confirmation. It was ended.'),
+			StepUpFailedRule::Rejected => $l->t('It waited for an administrator\'s approval, and an administrator rejected it, so the login was ended.'),
+			default => $l->n('%n wrong code was entered, so the login was ended.', '%n wrong codes were entered, so the login was ended.', $facts->attempts),
+		};
+		return $sentences;
+	}
+
+	#[\Override]
+	public function userNotice(Detection $detection, IL10N $l): UserNotice {
+		$facts = StepUpFailedFacts::fromArray(DetectionFacts::of($detection)->facts);
+		$because = StepUpPolicy::describeAll($facts->policies, $l);
+		$message = [match ($facts->rule) {
+			StepUpFailedRule::Attempts => $l->t('Someone logged in to your account with your correct password, but entered the wrong code again and again when asked to confirm it.'),
+			StepUpFailedRule::Rejected => $l->t('Someone logged in to your account with your correct password. The login waited for an administrator\'s approval, and an administrator rejected it.'),
+			default => $l->t('Someone logged in to your account with your correct password, but did not confirm the login with the code sent to your email address in time.'),
+		}];
+		$message[] = $because === ''
+			? $l->t('The login was ended.')
+			: $l->t('The login needed the extra confirmation because %s. It was ended.', [$because]);
+		return new UserNotice(
+			$l->t('A login to your account was not confirmed'),
+			$message,
+			[
+				$l->t('If this was you, just log in again.'),
+				$l->t('If it was not you, someone knows your password: change it, and answer "No, it was not me".'),
+			],
+		);
+	}
+}

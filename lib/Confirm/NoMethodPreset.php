@@ -9,8 +9,9 @@ declare(strict_types=1);
 
 namespace OCA\IntrusionDetection\Confirm;
 
-use OCA\IntrusionDetection\Check\InvalidParamException;
-use OCA\IntrusionDetection\Config\Settings;
+use OCA\IntrusionDetection\Config\AppSettings;
+use OCA\IntrusionDetection\Configure\SettingsEditor;
+use OCA\IntrusionDetection\Definition\InvalidParamException;
 
 /**
  * The one choice on the admin page for logins that need extra confirmation
@@ -35,7 +36,8 @@ class NoMethodPreset {
 	public const PRESETS = [self::RECOMMENDED, self::REFUSE, self::ALLOW];
 
 	public function __construct(
-		private readonly Settings $settings,
+		private readonly AppSettings $settings,
+		private readonly SettingsEditor $editor,
 	) {
 	}
 
@@ -64,7 +66,7 @@ class NoMethodPreset {
 	public function current(): string {
 		$stored = [];
 		foreach (StepUpPolicy::cases() as $policy) {
-			$stored[$policy->settingKey()] = (string)$this->settings->global($policy->settingKey());
+			$stored[$policy->settingKey()] = $this->settings->stepUpNoMethod($policy->value);
 		}
 		foreach (self::PRESETS as $preset) {
 			if (self::outcomes($preset) === $stored) {
@@ -82,13 +84,13 @@ class NoMethodPreset {
 	 * @throws InvalidParamException
 	 */
 	public function apply(string $preset): array {
-		return $this->settings->updateGlobals(self::outcomes($preset));
+		return $this->editor->updateGlobals(self::outcomes($preset));
 	}
 
 	private static function outcome(string $preset, StepUpPolicy $policy): NoMethodOutcome {
 		return match ($preset) {
 			self::REFUSE => NoMethodOutcome::Refuse,
-			self::ALLOW => $policy === StepUpPolicy::BreachedPassword ? NoMethodOutcome::AllowForceChange : NoMethodOutcome::AllowNotify,
+			self::ALLOW => $policy->allowingOutcome(),
 			default => $policy->defaultOutcome(),
 		};
 	}

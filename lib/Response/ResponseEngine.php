@@ -11,10 +11,10 @@ namespace OCA\IntrusionDetection\Response;
 
 use OCA\IntrusionDetection\Audit\AuditLogger;
 use OCA\IntrusionDetection\Check\CheckRegistry;
-use OCA\IntrusionDetection\Check\ResponseType;
-use OCA\IntrusionDetection\Config\ModeState;
-use OCA\IntrusionDetection\Config\Settings;
+use OCA\IntrusionDetection\Check\ISelectsResponses;
+use OCA\IntrusionDetection\Config\CheckSettings;
 use OCA\IntrusionDetection\Db\Detection;
+use OCA\IntrusionDetection\Definition\ResponseType;
 use OCA\IntrusionDetection\Detection\DetectionDraft;
 use OCA\IntrusionDetection\Detection\DetectionService;
 use OCA\IntrusionDetection\Event\TypedEvents;
@@ -24,11 +24,12 @@ use Psr\Log\LoggerInterface;
 /**
  * Turns a detection into actions.
  *
- * 1. Read the check's effective mode (learning mode and prerequisites applied).
- *    Off: nothing is recorded.
+ * 1. Read the check's effective mode (learning mode and prerequisites applied),
+ *    or take the draft's own. Off: nothing is recorded.
  * 2. Store the detection (merging repeats).
- * 3. Run the configured responses in their fixed order: blocks first,
- *    notifications last, so a notification can say what was done.
+ * 3. Run the configured responses, as far as the check selects them for this
+ *    detection ({@see ISelectsResponses}), in their fixed order: blocks
+ *    first, notifications last, so a notification can say what was done.
  *    In Observe every action is recorded as "would have" and nothing happens.
  *
  * Each response is idempotent. A response that fails is logged and recorded
@@ -58,7 +59,7 @@ class ResponseEngine {
 
 	public function __construct(
 		private readonly CheckRegistry $registry,
-		private readonly Settings $settings,
+		private readonly CheckSettings $settings,
 		private readonly DetectionService $detections,
 		private readonly ContainerInterface $container,
 		private readonly TypedEvents $events,
@@ -68,24 +69,21 @@ class ResponseEngine {
 	}
 
 	/**
-	 * @param list<ResponseType>|null $responses run these instead of the configured ones
-	 * @param ?ModeState $mode use this mode instead of the check's, for checks with more than one (e.g. one for logged-in users)
 	 * @return ?Detection the stored detection, or null when the check is off
 	 */
-	public function handle(DetectionDraft $draft, ?array $responses = null, ?ModeState $mode = null): ?Detection {
+	public function handle(DetectionDraft $draft): ?Detection {
 		$definition = $this->registry->get($draft->checkId);
-		$mode ??= $this->settings->modeState($draft->checkId);
+		$mode = $draft->mode ?? $this->settings->modeState($draft->checkId);
 		if (!$mode->runs()) {
 			return null;
 		}
 
 		[$detection, $isNew] = $this->detections->record($draft, $mode);
 
-		$responses ??= $this->settings->responses($draft->checkId);
+		$responses = $this->responsesFor($draft);
 		if (!$isNew) {
 			$responses = array_values(array_filter($responses, static fn (ResponseType $r): bool => !$draft->runsOnlyWhenNew($r)));
 		}
-		usort($responses, static fn (ResponseType $a, ResponseType $b): int => $a->order() <=> $b->order());
 
 		$context = new ResponseContext($draft, $detection, $definition, $isNew);
 		$actions = $isNew ? [] : $detection->getActionList();
@@ -107,6 +105,22 @@ class ResponseEngine {
 			$this->events->detectionCreated($detection);
 		}
 		return $detection;
+	}
+
+	/**
+	 * The responses a detection runs, in the order they run: the configured
+	 * ones, as far as the check selects them for this detection.
+	 *
+	 * @return list<ResponseType>
+	 */
+	public function responsesFor(DetectionDraft $draft): array {
+		$responses = $this->settings->responses($draft->checkId);
+		$check = $this->registry->check($this->registry->classOf($draft->checkId));
+		if ($check instanceof ISelectsResponses) {
+			$responses = $check->responsesFor($draft, $responses, $this->settings->params($draft->checkId));
+		}
+		usort($responses, static fn (ResponseType $a, ResponseType $b): int => $a->order() <=> $b->order());
+		return $responses;
 	}
 
 	/**

@@ -26,6 +26,12 @@ vi.mock('../services/api.ts', async (importOriginal) => ({
 	searchAccounts: vi.fn(() => Promise.resolve([])),
 }))
 
+// The labels come with the checks, which this tab does not load.
+vi.mock('../store.ts', async (importOriginal) => ({
+	...(await importOriginal<object>()),
+	severityLabel: (severity: string) => ({ high: 'High' } as Record<string, string>)[severity] ?? severity,
+}))
+
 const AT = Date.UTC(2026, 9, 20, 10, 2) / 1000
 
 /**
@@ -161,8 +167,8 @@ describe('IncidentsTab', () => {
 	test('lists the addresses and accounts of the last 7 days with status, severity and time; nothing is built until one is chosen', async () => {
 		vi.mocked(fetchDetections).mockResolvedValue({
 			detections: [
-				detection({ id: 1, ip: '203.0.113.7', severity: 'high', enforced: true, outcome: 'acted', lastSeenAt: AT }),
-				detection({ id: 2, ip: null, uid: 'alice', severity: 'low', enforced: false, outcome: 'observed', checkName: 'Admin change alerts', lastSeenAt: AT - 60 }),
+				detection({ id: '1', ip: '203.0.113.7', severity: 'high', enforced: true, outcome: 'acted', lastSeenAt: AT }),
+				detection({ id: '2', ip: null, uid: 'alice', severity: 'low', enforced: false, outcome: 'observed', checkName: 'Admin change alerts', lastSeenAt: AT - 60 }),
 			],
 			hasMore: false,
 		})
@@ -318,7 +324,7 @@ describe('IncidentsTab', () => {
 
 		beforeEach(() => {
 			vi.mocked(fetchDetections).mockResolvedValue({
-				detections: [detection({ id: 1, ip: A.value, lastSeenAt: AT }), detection({ id: 2, ip: B.value, lastSeenAt: AT - 60 })],
+				detections: [detection({ id: '1', ip: A.value, lastSeenAt: AT }), detection({ id: '2', ip: B.value, lastSeenAt: AT - 60 })],
 				hasMore: false,
 			})
 		})

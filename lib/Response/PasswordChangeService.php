@@ -43,7 +43,7 @@ class PasswordChangeService {
 	/**
 	 * @return self::STATE_* what happened
 	 */
-	public function require(string $uid, ?int $detectionId = null, string $checkId = self::NOTICE_CHECK): string {
+	public function require(string $uid, ?string $detectionId = null, string $checkId = self::NOTICE_CHECK): string {
 		$user = $this->userManager->get($uid);
 		if ($user === null) {
 			return self::STATE_NO_USER;
@@ -80,7 +80,7 @@ class PasswordChangeService {
 	 * The account's password is managed elsewhere: ask the administrators to
 	 * reset it there, and do not keep a requirement the user cannot meet.
 	 */
-	public function external(IUser $user, ?int $detectionId = null, string $checkId = self::NOTICE_CHECK): void {
+	public function external(IUser $user, ?string $detectionId = null, string $checkId = self::NOTICE_CHECK): void {
 		$this->adminNotices->externalPassword($user->getUID(), $detectionId, $checkId);
 		$this->clear($user->getUID(), 'password managed outside Nextcloud');
 		$this->audit->log('password of %s must be reset in its external directory (detection %s)', ['uid' => $user->getUID(), 'detection' => $detectionId]);

@@ -10,7 +10,7 @@ declare(strict_types=1);
 namespace OCA\IntrusionDetection\Settings;
 
 use OCA\IntrusionDetection\AppInfo\Application;
-use OCA\IntrusionDetection\Config\Settings;
+use OCA\IntrusionDetection\Config\AppSettings;
 use OCA\IntrusionDetection\Personal\ManageSummary;
 use OCA\IntrusionDetection\Personal\PersonalOverview;
 use OCA\IntrusionDetection\StaleCredential\StaleCredentials;
@@ -34,7 +34,7 @@ class Personal implements ISettings {
 	public const PRIORITY = 110;
 
 	public function __construct(
-		private readonly Settings $settings,
+		private readonly AppSettings $settings,
 		private readonly PersonalOverview $overview,
 		private readonly IUserSession $userSession,
 		private readonly IInitialState $initialState,

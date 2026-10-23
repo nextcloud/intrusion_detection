@@ -10,17 +10,17 @@ declare(strict_types=1);
 namespace OCA\IntrusionDetection\Tests\Unit\Admin;
 
 use OCA\IntrusionDetection\Admin\GlobalSettingsPresenter;
+use OCA\IntrusionDetection\Config\AppSettings;
 use OCA\IntrusionDetection\Config\GlobalSettings;
-use OCA\IntrusionDetection\Config\Settings;
 use OCP\L10N\IFactory;
 use OCP\Server;
 use Test\TestCase;
 
 class GlobalSettingsPresenterTest extends TestCase {
-	public function testInternalStateIsNeverPresentedOrEditable(): void {
+	public function testEverySettingButTheOnesManagedElsewhereIsPresentedAndEditable(): void {
 		$globals = new GlobalSettings();
-		$settings = $this->createMock(Settings::class);
-		$settings->method('global')->willReturnCallback(static fn (string $name): int|float|bool|string|array => $globals->get($name)?->default ?? 0);
+		$settings = $this->createMock(AppSettings::class);
+		$settings->method('value')->willReturnCallback(static fn (string $name): int|float|bool|string|array => $globals->get($name)?->default ?? 0);
 		$presenter = new GlobalSettingsPresenter($globals, $settings);
 		$l = Server::get(IFactory::class)->get('intrusion_detection', 'en');
 
@@ -28,8 +28,7 @@ class GlobalSettingsPresenterTest extends TestCase {
 		$names = array_column($presented['settings'], 'name');
 
 		foreach (array_keys($globals->all()) as $name) {
-			$hidden = GlobalSettings::isInternal($name)
-				|| in_array($name, [GlobalSettings::LEARNING_UNTIL, GlobalSettings::BLOCKLIST_SOURCES], true);
+			$hidden = in_array($name, [GlobalSettings::LEARNING_UNTIL, GlobalSettings::BLOCKLIST_SOURCES], true);
 			$this->assertSame(!$hidden, in_array($name, $names, true), $name);
 			$this->assertSame(!$hidden, $presenter->isEditable($name), $name);
 		}

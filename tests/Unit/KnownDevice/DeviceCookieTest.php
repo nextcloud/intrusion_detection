@@ -27,8 +27,16 @@ class DeviceCookieTest extends TestCase {
 		$this->assertSame('/', $http['path']);
 	}
 
-	public function testTheNameCarriesTheInstanceId(): void {
-		$this->assertSame('nc_ids_device_oc1a2b3c', $this->cookie()->name());
+	public function testTheNameCarriesTheInstanceIdAndTheStrictestPrefixTheServerAllows(): void {
+		$this->assertSame('__Host-nc_ids_device_oc1a2b3c', $this->cookie()->name(), 'HTTPS for the whole host');
+		$this->assertSame('__Secure-nc_ids_device_oc1a2b3c', $this->cookie(webroot: '/nextcloud')->name(), 'HTTPS below a path');
+		$this->assertSame('nc_ids_device_oc1a2b3c', $this->cookie(protocol: 'http')->name(), 'Browsers keep no prefixed cookie without HTTPS');
+	}
+
+	public function testAServerConfiguredForHttpsAlwaysSetsSecure(): void {
+		$cookie = $this->cookie(protocol: 'http', forceSsl: true);
+		$this->assertTrue($cookie->options(5)['secure'], 'Behind a proxy the request may look like HTTP');
+		$this->assertSame('__Host-nc_ids_device_oc1a2b3c', $cookie->name());
 	}
 
 	public function testANewIdIs43RandomCharacters(): void {
@@ -59,18 +67,19 @@ class DeviceCookieTest extends TestCase {
 		$this->assertSame($expected, $this->cookie(cookie: $value)->read());
 	}
 
-	private function cookie(string $protocol = 'https', string $webroot = '', ?string $cookie = null): DeviceCookie {
+	private function cookie(string $protocol = 'https', string $webroot = '', ?string $cookie = null, bool $forceSsl = false): DeviceCookie {
 		$request = $this->createMock(IRequest::class);
 		$request->method('getServerProtocol')->willReturn($protocol);
-		$request->method('getCookie')->willReturnCallback(static fn (string $name): ?string => $name === 'nc_ids_device_oc1a2b3c' ? $cookie : null);
+		$request->method('getCookie')->willReturnCallback(static fn (string $name): ?string => $name === '__Host-nc_ids_device_oc1a2b3c' ? $cookie : null);
 		$urlGenerator = $this->createMock(IURLGenerator::class);
 		$urlGenerator->method('getWebroot')->willReturn($webroot);
-		return new DeviceCookie($request, $this->config(), $urlGenerator, $this->createMock(ISecureRandom::class));
+		return new DeviceCookie($request, $this->config($forceSsl), $urlGenerator, $this->createMock(ISecureRandom::class));
 	}
 
-	private function config(): IConfig {
+	private function config(bool $forceSsl = false): IConfig {
 		$config = $this->createMock(IConfig::class);
 		$config->method('getSystemValueString')->willReturnCallback(static fn (string $key, string $default = ''): string => $key === 'instanceid' ? 'oc1a2b3c' : $default);
+		$config->method('getSystemValueBool')->willReturnCallback(static fn (string $key, bool $default = false): bool => $key === 'forcessl' ? $forceSsl : $default);
 		return $config;
 	}
 }

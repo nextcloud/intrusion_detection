@@ -1,0 +1,78 @@
+# SPDX-FileCopyrightText: 2026 Nextcloud GmbH and Nextcloud contributors
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
+name: OpenAPI
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+      - master
+      - stable*
+
+permissions:
+  contents: read
+
+concurrency:
+  group: openapi-${{ github.head_ref || github.run_id }}
+  cancel-in-progress: true
+
+jobs:
+  openapi:
+    runs-on: ubuntu-latest
+
+    name: openapi-specs-and-types
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Set up php 8.3
+        uses: shivammathur/setup-php@eb7c497e18156a6bbabfef1d3a82760b9eda3962 # 2.40.0
+        timeout-minutes: 5
+        with:
+          php-version: '8.3'
+          extensions: xml
+          coverage: none
+          ini-file: development
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Read package.json node and npm engines version
+        uses: skjnldsv/read-package-engines-version-actions@06d6db44aa62f4609ba070f556ec24bc99fb85cb # v4
+        id: versions
+        with:
+          fallbackNode: '^24'
+          fallbackNpm: '^11.3'
+
+      - name: Set up node ${{ steps.versions.outputs.nodeVersion }}
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: ${{ steps.versions.outputs.nodeVersion }}
+
+      - name: Set up npm ${{ steps.versions.outputs.npmVersion }}
+        run: npm i -g 'npm@${{ steps.versions.outputs.npmVersion }}'
+
+      - name: Install the OpenAPI extractor
+        run: composer install --no-interaction --working-dir=vendor-bin/openapi-extractor
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Generate the OpenAPI specs
+        run: vendor-bin/openapi-extractor/vendor/bin/generate-spec
+
+      - name: Generate the TypeScript types
+        run: npm run typescript:generate
+
+      - name: Check that the specs and types are committed
+        run: |
+          if [ -n "$(git status --porcelain)" ]; then
+            echo 'The OpenAPI specs or the generated types are out of date. Run vendor-bin/openapi-extractor/vendor/bin/generate-spec and npm run typescript:generate, and commit openapi*.json and src/types/openapi/.'
+            git status
+            git --no-pager diff
+            exit 1
+          fi

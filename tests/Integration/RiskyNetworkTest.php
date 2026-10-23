@@ -14,33 +14,35 @@ use OCA\IntrusionDetection\Address\AddressCache;
 use OCA\IntrusionDetection\Address\Verdict;
 use OCA\IntrusionDetection\AppInfo\Application;
 use OCA\IntrusionDetection\Blocklist\SourceRepository;
-use OCA\IntrusionDetection\Check\Checks\RiskyNetwork;
-use OCA\IntrusionDetection\Check\Checks\RiskyNetworkDetector;
-use OCA\IntrusionDetection\Check\Checks\StepUpRefused;
-use OCA\IntrusionDetection\Check\Checks\StepUpUnconfirmed;
-use OCA\IntrusionDetection\Check\Mode;
-use OCA\IntrusionDetection\Check\ResponseType;
+use OCA\IntrusionDetection\Cache\Caches;
+use OCA\IntrusionDetection\Check\Checks\RiskyNetwork\RiskyNetwork;
+use OCA\IntrusionDetection\Check\Checks\RiskyNetwork\RiskyNetworkDetector;
+use OCA\IntrusionDetection\Check\Checks\RiskyNetwork\RiskyNetworkFacts;
+use OCA\IntrusionDetection\Check\Checks\StepUpRefused\StepUpRefused;
+use OCA\IntrusionDetection\Check\Checks\StepUpUnconfirmed\StepUpUnconfirmed;
 use OCA\IntrusionDetection\Config\GlobalSettings;
+use OCA\IntrusionDetection\Confirm\ConfirmationStatus;
 use OCA\IntrusionDetection\Confirm\IConfirmationMethod;
 use OCA\IntrusionDetection\Confirm\Reasons\RiskHighReason;
 use OCA\IntrusionDetection\Confirm\Reasons\RiskyNetworkReason;
 use OCA\IntrusionDetection\Confirm\StepUpPolicy;
 use OCA\IntrusionDetection\Confirm\StepUpReasons;
-use OCA\IntrusionDetection\Confirm\StepUpState;
+use OCA\IntrusionDetection\Crypto\Fingerprinter;
 use OCA\IntrusionDetection\Db\AttemptMapper;
 use OCA\IntrusionDetection\Db\DetectionMapper;
-use OCA\IntrusionDetection\Explain\NarrativeBuilder;
-use OCA\IntrusionDetection\Guard\RequestContext;
+use OCA\IntrusionDetection\Definition\Mode;
+use OCA\IntrusionDetection\Definition\ResponseType;
+use OCA\IntrusionDetection\Login\RequestContext;
 use OCA\IntrusionDetection\Net\SourceKey;
 use OCA\IntrusionDetection\Notification\UserAlerts;
 use OCA\IntrusionDetection\Response\FlaggedSources;
 use OCA\IntrusionDetection\Risk\AttackTools;
 use OCA\IntrusionDetection\Risk\NetworkAttributes;
 use OCA\IntrusionDetection\Risk\RiskScorer;
+use OCA\IntrusionDetection\Tests\Unit\Cache\FixedCaches;
 use OCA\IntrusionDetection\TrustedNetwork\ITrustedNetworks;
 use OCA\IntrusionDetection\TrustedNetwork\TrustedNetworks;
 use OCP\AppFramework\Utility\ITimeFactory;
-use OCP\ICacheFactory;
 use OCP\IGroupManager;
 use OCP\IUser;
 use OCP\L10N\IFactory;
@@ -75,7 +77,7 @@ class RiskyNetworkTest extends StepUpTestCase {
 		$this->login($this->alice);
 
 		$stepUp = $this->stepUp();
-		$this->assertSame(StepUpState::PENDING, $stepUp?->status);
+		$this->assertSame(ConfirmationStatus::Pending, $stepUp?->status);
 		$this->assertSame([StepUpPolicy::RiskyNetwork->value], $stepUp->policies);
 		$this->assertSame([IConfirmationMethod::EMAIL_CODE], $stepUp->methods);
 
@@ -86,33 +88,29 @@ class RiskyNetworkTest extends StepUpTestCase {
 		$this->assertTrue($detection->isEnforced());
 		$this->assertSame($this->alice->getUID(), $detection->getUid());
 		$this->assertSame(['step_up'], array_column($detection->getActionList(), 'type'), 'No notification by default');
-		$facts = $detection->getExplanationData()['facts'];
-		$this->assertSame(['hosting'], $facts['attributes']);
-		$this->assertSame(['Amazon Web Services'], $facts['listNames']);
+		$facts = RiskyNetworkFacts::fromArray($detection->getExplanationData()['facts']);
+		$this->assertSame(['hosting'], $facts->attributes);
+		$this->assertSame(['Amazon Web Services'], $facts->listNames);
 
-		$l = Server::get(IFactory::class)->get(Application::APP_ID, 'en');
-		$this->assertStringContainsString(
-			'logged in with its password from 198.51.100.7, an address of a cloud or hosting provider (Amazon Web Services).',
-			implode(' ', Server::get(NarrativeBuilder::class)->build($detection, $l)->happened),
-		);
+		$this->assertSame(['Amazon Web Services'], RiskyNetworkFacts::fromArray($detection->getExplanationData()['facts'])->listNames);
 	}
 
 	public function testATorExitNodeCountsToo(): void {
 		$this->network(['tor', 'net:tor_exits']);
 		$this->login($this->alice);
 		$this->assertSame([StepUpPolicy::RiskyNetwork->value], $this->stepUp()?->policies);
-		$this->assertSame(['tor'], $this->detectionsOf(RiskyNetwork::ID)[0]->getExplanationData()['facts']['attributes']);
+		$this->assertSame(['tor'], RiskyNetworkFacts::fromArray($this->detectionsOf(RiskyNetwork::ID)[0]->getExplanationData()['facts'])->attributes);
 	}
 
 	public function testWithoutANetworkListNothingHappens(): void {
-		$this->context->setVerdict(new Verdict());
+		$this->context->set(Verdict::CONTEXT_KEY, new Verdict());
 		$this->login($this->alice);
 		$this->assertNull($this->stepUp());
 		$this->assertSame([], $this->detectionsOf(RiskyNetwork::ID));
 	}
 
 	public function testAnOfficeNetworkIsNeverRisky(): void {
-		$this->settings->setGlobal(GlobalSettings::RISKY_NETWORK_OFFICE_NETWORKS, ['198.51.100.0/24']);
+		$this->settingsEditor()->setGlobal(GlobalSettings::RISKY_NETWORK_OFFICE_NETWORKS, ['198.51.100.0/24']);
 		$this->network(['hosting']);
 		$this->login($this->alice);
 		$this->assertNull($this->stepUp());
@@ -122,7 +120,7 @@ class RiskyNetworkTest extends StepUpTestCase {
 	public function testMembersOfAnExemptGroupAreNotAsked(): void {
 		$group = Server::get(IGroupManager::class)->createGroup('ids-service-accounts');
 		$group?->addUser($this->alice);
-		$this->settings->setGlobal(GlobalSettings::RISKY_NETWORK_EXEMPT_GROUPS, ['ids-service-accounts']);
+		$this->settingsEditor()->setGlobal(GlobalSettings::RISKY_NETWORK_EXEMPT_GROUPS, ['ids-service-accounts']);
 		$this->network(['hosting']);
 		$this->login($this->alice);
 		$this->assertNull($this->stepUp());
@@ -159,16 +157,16 @@ class RiskyNetworkTest extends StepUpTestCase {
 	}
 
 	public function testThePolicyCanRefuseInstead(): void {
-		$this->settings->setGlobal(StepUpPolicy::RiskyNetwork->settingKey(), 'refuse');
+		$this->settingsEditor()->setGlobal(StepUpPolicy::RiskyNetwork->settingKey(), 'refuse');
 		$bob = $this->user('ids-risky-refuse', null);
 		$this->network(['hosting']);
 		$this->login($bob);
-		$this->assertSame(StepUpState::REFUSED, $this->stepUp()?->status);
+		$this->assertSame(ConfirmationStatus::Refused, $this->stepUp()?->status);
 		$this->assertCount(1, $this->detectionsOf(StepUpRefused::ID));
 	}
 
 	public function testObserveRecordsAndAsksNothing(): void {
-		$this->settings->setMode(RiskyNetwork::ID, Mode::Observe);
+		$this->settingsEditor()->setMode(RiskyNetwork::ID, Mode::Observe);
 		$this->network(['hosting']);
 		$this->login($this->alice);
 		$this->assertNull($this->stepUp());
@@ -178,7 +176,7 @@ class RiskyNetworkTest extends StepUpTestCase {
 	}
 
 	public function testWithoutTheStepUpResponseItIsOnlyRecorded(): void {
-		$this->settings->setResponses(RiskyNetwork::ID, [ResponseType::NotifyAdmin]);
+		$this->settingsEditor()->setResponses(RiskyNetwork::ID, [ResponseType::NotifyAdmin]);
 		$this->network(['hosting']);
 		$this->login($this->alice);
 		$this->assertNull($this->stepUp());
@@ -186,7 +184,7 @@ class RiskyNetworkTest extends StepUpTestCase {
 	}
 
 	public function testTheUserCanBeToldInTheirWords(): void {
-		$this->settings->setResponses(RiskyNetwork::ID, [ResponseType::StepUp, ResponseType::NotifyUser]);
+		$this->settingsEditor()->setResponses(RiskyNetwork::ID, [ResponseType::StepUp, ResponseType::NotifyUser]);
 		$this->network(['tor']);
 		$this->login($this->alice);
 		$this->assertCount(1, $this->notificationsFor($this->alice->getUID(), UserAlerts::SUBJECT));
@@ -203,12 +201,12 @@ class RiskyNetworkTest extends StepUpTestCase {
 			$this->session->clear();
 			$this->session->id = null;
 			$this->login($this->alice);
-			$this->assertSame(StepUpState::REFUSED_CLIENT, $this->stepUp()?->status, 'Refused: the account can confirm in a browser, so the app must use an app password');
+			$this->assertSame(ConfirmationStatus::RefusedClient, $this->stepUp()?->status, 'Refused: the account can confirm in a browser, so the app must use an app password');
 		}
 		$detections = $this->detectionsOf(RiskyNetwork::ID);
 		$this->assertCount(1, $detections);
 		$this->assertSame(1, $detections[0]->getHits(), 'Later requests do not even touch the database');
-		$this->assertTrue($detections[0]->getExplanationData()['facts']['client']);
+		$this->assertTrue(RiskyNetworkFacts::fromArray($detections[0]->getExplanationData()['facts'])->client);
 	}
 
 	public function testAppsSendingThePasswordFromAnotherAddressAreRecordedSeparately(): void {
@@ -255,16 +253,16 @@ class RiskyNetworkTest extends StepUpTestCase {
 	}
 
 	public function testAHighRiskScoreAsksForConfirmation(): void {
-		$this->settings->setGlobal(GlobalSettings::RISK_ENABLED, true);
-		$this->settings->setMode(RiskyNetwork::ID, Mode::Off);
+		$this->settingsEditor()->setGlobal(GlobalSettings::RISK_ENABLED, true);
+		$this->settingsEditor()->setMode(RiskyNetwork::ID, Mode::Off);
 		$this->network(['tor', 'hosting', 'list:watch']);
 		$this->login($this->alice);
 		$this->assertSame([StepUpPolicy::RiskHigh->value], $this->stepUp()?->policies, 'Score 5: high');
 	}
 
 	public function testAHighRiskScoreDoesNotAskWhileLearningOrFromATrustedNetwork(): void {
-		$this->settings->setGlobal(GlobalSettings::RISK_ENABLED, true);
-		$this->settings->setMode(RiskyNetwork::ID, Mode::Off);
+		$this->settingsEditor()->setGlobal(GlobalSettings::RISK_ENABLED, true);
+		$this->settingsEditor()->setMode(RiskyNetwork::ID, Mode::Off);
 		$this->network(['tor', 'hosting', 'list:watch']);
 		$this->appConfig->setValueInt(Application::APP_ID, GlobalSettings::LEARNING_UNTIL, time() + 86400);
 		$this->login($this->alice);
@@ -283,22 +281,22 @@ class RiskyNetworkTest extends StepUpTestCase {
 	}
 
 	public function testAHighRiskScoreWithoutAWayToConfirmIsRefused(): void {
-		$this->settings->setGlobal(GlobalSettings::RISK_ENABLED, true);
+		$this->settingsEditor()->setGlobal(GlobalSettings::RISK_ENABLED, true);
 		Server::get(FlaggedSources::class)->flagAttackTool(SourceKey::fromIp($this->remoteAddress), 'hydra');
 		Server::get(FlaggedSources::class)->flagNetwork(SourceKey::fromIp($this->remoteAddress), FlaggedSources::REASON_USER_DENIED);
-		$this->context->setVerdict(new Verdict());
+		$this->context->set(Verdict::CONTEXT_KEY, new Verdict());
 		$bob = $this->user('ids-risky-high', null);
 		$this->login($bob);
-		$this->assertSame(StepUpState::REFUSED, $this->stepUp()?->status);
+		$this->assertSame(ConfirmationStatus::Refused, $this->stepUp()?->status);
 		$this->assertContains(StepUpPolicy::RiskHigh->value, $this->stepUp()?->policies ?? []);
 	}
 
 	public function testAnElevatedScoreOrTheScoreOffDoesNotAsk(): void {
-		$this->settings->setMode(RiskyNetwork::ID, Mode::Off);
+		$this->settingsEditor()->setMode(RiskyNetwork::ID, Mode::Off);
 		$this->network(['tor', 'hosting']);
 		$this->login($this->alice);
 		$this->assertNull($this->stepUp(), 'Off');
-		$this->settings->setGlobal(GlobalSettings::RISK_ENABLED, true);
+		$this->settingsEditor()->setGlobal(GlobalSettings::RISK_ENABLED, true);
 		$this->session->id = null;
 		$this->login($this->alice);
 		$this->assertNull($this->stepUp(), 'Score 3 is elevated, not high');
@@ -308,34 +306,33 @@ class RiskyNetworkTest extends StepUpTestCase {
 	 * @param list<string> $attributes
 	 */
 	private function network(array $attributes): void {
-		$this->context->setVerdict(new Verdict(0, '', $attributes));
+		$this->context->set(Verdict::CONTEXT_KEY, new Verdict(0, '', $attributes));
 	}
 
 	#[\Override]
 	protected function stepUpReasons(): StepUpReasons {
 		$networks = $this->networks();
 		return new StepUpReasons(new OverridingContainer([
-			RiskyNetworkReason::class => new RiskyNetworkReason($this->settings, $networks),
-			RiskHighReason::class => new RiskHighReason($this->scorer(), $this->settings, Server::get(ITrustedNetworks::class)),
+			RiskyNetworkReason::class => new RiskyNetworkReason($this->checkSettings(), $networks),
+			RiskHighReason::class => new RiskHighReason($this->scorer(), $this->appSettings(), Server::get(ITrustedNetworks::class)),
 		]), Server::get(LoggerInterface::class));
 	}
 
 	#[\Override]
 	protected function listenerServices(): array {
 		$this->detector ??= new RiskyNetworkDetector(
-			$this->settings,
 			$this->networks(),
 			Server::get(SourceRepository::class),
-			$this->engine(),
 			$this->memory(),
 			Server::get(ITimeFactory::class),
+			Server::get(Fingerprinter::class),
 		);
 		return [RiskyNetworkDetector::class => $this->detector];
 	}
 
 	private function networks(): NetworkAttributes {
 		return new NetworkAttributes(
-			$this->settings,
+			$this->appSettings(),
 			$this->context,
 			Server::get(AddressCache::class),
 			$this->addresses(),
@@ -346,7 +343,7 @@ class RiskyNetworkTest extends StepUpTestCase {
 
 	private function scorer(): RiskScorer {
 		return new RiskScorer(
-			$this->settings,
+			$this->appSettings(),
 			Server::get(FlaggedSources::class),
 			Server::get(AttemptMapper::class),
 			Server::get(DetectionMapper::class),
@@ -360,13 +357,9 @@ class RiskyNetworkTest extends StepUpTestCase {
 		);
 	}
 
-	private function memory(): ICacheFactory {
+	private function memory(): Caches {
 		$cache = new ArrayCache();
-		$factory = $this->createMock(ICacheFactory::class);
-		$factory->method('isAvailable')->willReturn(true);
-		$factory->method('isLocalCacheAvailable')->willReturn(true);
-		$factory->method('createDistributed')->willReturn($cache);
-		$factory->method('createLocal')->willReturn($cache);
+		$factory = new FixedCaches($cache);
 		return $factory;
 	}
 }

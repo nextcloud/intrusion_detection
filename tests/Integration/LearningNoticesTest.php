@@ -12,12 +12,11 @@ namespace OCA\IntrusionDetection\Tests\Integration;
 use OCA\IntrusionDetection\AppInfo\Application;
 use OCA\IntrusionDetection\Audit\AuditLogger;
 use OCA\IntrusionDetection\BackgroundJob\LearningModeJob;
-use OCA\IntrusionDetection\Check\Checks\ManualBlock;
-use OCA\IntrusionDetection\Check\Mode;
+use OCA\IntrusionDetection\Check\Checks\ManualBlock\ManualBlock;
 use OCA\IntrusionDetection\Config\GlobalSettings;
 use OCA\IntrusionDetection\Config\ModeState;
-use OCA\IntrusionDetection\Config\Settings;
 use OCA\IntrusionDetection\Db\DetectionMapper;
+use OCA\IntrusionDetection\Definition\Mode;
 use OCA\IntrusionDetection\Detection\DetectionDraft;
 use OCA\IntrusionDetection\Learning\LearningService;
 use OCA\IntrusionDetection\Net\SourceKey;
@@ -26,6 +25,7 @@ use OCA\IntrusionDetection\Notification\AdminRecipients;
 use OCA\IntrusionDetection\Notification\LearningNotices;
 use OCA\IntrusionDetection\Notification\Notifier;
 use OCA\IntrusionDetection\Response\ResponseEngine;
+use OCA\IntrusionDetection\State\AppState;
 use OCP\AppFramework\Utility\ITimeFactory;
 use OCP\IGroupManager;
 use OCP\IUser;
@@ -47,7 +47,6 @@ class LearningNoticesTest extends IntegrationTestCase {
 	private int $dismissed = 0;
 	private LearningNotices $notices;
 	private LearningService $learning;
-	private Settings $settings;
 	private string $groupId;
 	/** @var list<IUser> */
 	private array $users = [];
@@ -64,8 +63,7 @@ class LearningNoticesTest extends IntegrationTestCase {
 			$this->assertSame(LearningNotices::OBJECT_TYPE, $n->getObjectType());
 			$this->dismissed++;
 		});
-		$this->settings = Server::get(Settings::class);
-		$this->learning = new LearningService($this->settings, Server::get(ITimeFactory::class), Server::get(AuditLogger::class), $this->notifications);
+		$this->learning = new LearningService($this->appSettings(), $this->settingsEditor(), Server::get(ITimeFactory::class), Server::get(AuditLogger::class), $this->notifications, Server::get(AppState::class));
 
 		// The administrators are the members of the configured groups, enabled ones only.
 		$this->groupId = 'ids-admins-' . bin2hex(random_bytes(3));
@@ -76,16 +74,16 @@ class LearningNoticesTest extends IntegrationTestCase {
 			$this->users[] = $user;
 		}
 		$this->users[2]->setEnabled(false);
-		$this->settings->setGlobal(GlobalSettings::NOTIFY_ADMIN_GROUP, [$this->groupId]);
+		$this->settingsEditor()->setGlobal(GlobalSettings::NOTIFY_ADMIN_GROUP, [$this->groupId]);
 
 		$this->notices = new LearningNotices(
-			$this->settings,
 			$this->learning,
 			Server::get(AdminRecipients::class),
 			$this->notifications,
 			Server::get(DetectionMapper::class),
 			Server::get(AdminLinks::class),
 			Server::get(ITimeFactory::class),
+			Server::get(AppState::class),
 		);
 	}
 
@@ -189,11 +187,11 @@ class LearningNoticesTest extends IntegrationTestCase {
 		$this->learning->start(7, 'test');
 		$engine = Server::get(ResponseEngine::class);
 		// Two detections from one address and one from another, all held back by learning mode.
-		foreach (['198.51.100.7', '198.51.100.7', '198.51.100.8'] as $i => $ip) {
-			$engine->handle(new DetectionDraft(ManualBlock::ID, SourceKey::fromIp($ip), facts: ['n' => $i]));
+		foreach (['198.51.100.7', '198.51.100.7', '198.51.100.8'] as $ip) {
+			$engine->handle(new DetectionDraft(ManualBlock::ID, SourceKey::fromIp($ip)));
 		}
 		// A check set to Observe on purpose is not what learning held back.
-		$engine->handle(new DetectionDraft(ManualBlock::ID, SourceKey::fromIp('198.51.100.9')), null, new ModeState(Mode::Observe, Mode::Observe));
+		$engine->handle(new DetectionDraft(ManualBlock::ID, SourceKey::fromIp('198.51.100.9'), mode: new ModeState(Mode::Observe, Mode::Observe)));
 
 		$this->setLearningUntil(time() + 3600);
 		$this->assertTrue($this->notices->sendEndingNoticeIfDue());
@@ -204,6 +202,6 @@ class LearningNoticesTest extends IntegrationTestCase {
 
 	private function setLearningUntil(int $until): void {
 		$this->appConfig->setValueInt(Application::APP_ID, GlobalSettings::LEARNING_UNTIL, $until);
-		$this->appConfig->setValueInt(Application::APP_ID, GlobalSettings::LEARNING_NOTICE_SENT, 0);
+		Server::get(AppState::class)->setInt(LearningService::NOTICE_STATE, 0);
 	}
 }

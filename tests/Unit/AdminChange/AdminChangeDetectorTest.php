@@ -11,20 +11,18 @@ namespace OCA\IntrusionDetection\Tests\Unit\AdminChange;
 
 use OCA\IntrusionDetection\AdminChange\ActorResolver;
 use OCA\IntrusionDetection\AdminChange\WatchedSettings;
-use OCA\IntrusionDetection\Check\Checks\AdminChange;
-use OCA\IntrusionDetection\Check\Checks\AdminChangeDetector;
-use OCA\IntrusionDetection\Check\Mode;
-use OCA\IntrusionDetection\Check\Severity;
+use OCA\IntrusionDetection\Check\Checks\AdminChange\AdminChange;
+use OCA\IntrusionDetection\Check\Checks\AdminChange\AdminChangeDetector;
 use OCA\IntrusionDetection\Config\GlobalSettings;
 use OCA\IntrusionDetection\Config\Keys;
 use OCA\IntrusionDetection\Config\ModeState;
-use OCA\IntrusionDetection\Config\Settings;
+use OCA\IntrusionDetection\Definition\Mode;
+use OCA\IntrusionDetection\Definition\Severity;
 use OCA\IntrusionDetection\Detection\DetectionDraft;
 use OCA\IntrusionDetection\Net\RemoteAddressResolver;
 use OCA\IntrusionDetection\Net\SourceKey;
 use OCA\IntrusionDetection\Notification\AdminAlerts;
-use OCA\IntrusionDetection\Response\ResponseEngine;
-use OCP\AppFramework\Utility\ITimeFactory;
+use OCA\IntrusionDetection\Signal\AdminChanged;
 use PHPUnit\Framework\Attributes\DataProvider;
 use Test\TestCase;
 
@@ -76,93 +74,55 @@ class AdminChangeDetectorTest extends TestCase {
 		$this->assertSame('setting:' . WatchedSettings::BRUTEFORCE_ALLOWLIST, AdminChangeDetector::settingAlertKey(WatchedSettings::BRUTEFORCE_ALLOWLIST));
 	}
 
-	public function testARecordCarriesKindActorSubjectAddressAndAlertKey(): void {
-		$engine = $this->createMock(ResponseEngine::class);
-		$engine->expects($this->once())->method('handle')->with($this->callback(function (DetectionDraft $draft): bool {
-			$this->assertSame(AdminChange::ID, $draft->checkId);
-			$this->assertSame('bob', $draft->uid);
-			$this->assertSame(Severity::High, $draft->severity);
-			$this->assertNull($draft->source, 'The actor\'s address is a fact, not the detection\'s source');
-			$this->assertSame(AdminChange::KIND_ADMIN_GRANTED, $draft->facts['kind']);
-			$this->assertSame('alice', $draft->facts['actor']);
-			$this->assertSame(['bob'], $draft->facts['targets']);
-			$this->assertSame('198.51.100.7', $draft->facts['actor_ip']);
-			$this->assertSame('admin_granted:admin', $draft->facts[AdminAlerts::FACT_ALERT_KEY]);
-			$this->assertTrue($draft->facts[AdminAlerts::FACT_ALL_ADMINS]);
-			$this->assertSame(DetectionDraft::MERGE_NONE, $draft->merge, 'One detection per change');
-			return true;
-		}));
-		$this->detector($engine, false)->record(AdminChange::KIND_ADMIN_GRANTED, Severity::High, 'alice', 'bob', ['group' => 'admin'], 'admin_granted:admin');
+	public function testAChangeCarriesKindActorSubjectAddressAndAlertKey(): void {
+		$mode = new ModeState(Mode::Protect, Mode::Protect);
+		[$draft] = $this->drafts(new AdminChanged(AdminChange::KIND_ADMIN_GRANTED, Severity::High, 'alice', 'bob', ['group' => 'admin'], 'admin_granted:admin'), false, $mode);
+		$this->assertSame(AdminChange::ID, $draft->checkId);
+		$this->assertSame('bob', $draft->uid);
+		$this->assertSame(Severity::High, $draft->severity);
+		$this->assertNull($draft->source, 'The actor\'s address is a fact, not the detection\'s source');
+		$this->assertSame(AdminChange::KIND_ADMIN_GRANTED, $draft->facts['kind']);
+		$this->assertSame('alice', $draft->facts['actor']);
+		$this->assertSame(['bob'], $draft->facts['targets']);
+		$this->assertSame('198.51.100.7', $draft->facts['actor_ip']);
+		$this->assertSame('admin_granted:admin', $draft->facts[AdminAlerts::FACT_ALERT_KEY]);
+		$this->assertTrue($draft->facts[AdminAlerts::FACT_ALL_ADMINS]);
+		$this->assertSame(DetectionDraft::MERGE_NONE, $draft->merge, 'One detection per change');
+		$this->assertSame($mode, $draft->mode, 'Recorded in the mode it was judged by');
 	}
 
 	public function testOnTheCommandLineNoAddressIsRecorded(): void {
-		$engine = $this->createMock(ResponseEngine::class);
-		$engine->expects($this->once())->method('handle')->with($this->callback(fn (DetectionDraft $d): bool => !isset($d->facts['actor_ip'])));
-		$this->detector($engine, true)->record(AdminChange::KIND_APP_ENABLED, Severity::Medium, ActorResolver::OCC, null, ['app' => 'files'], 'app_enabled');
+		[$draft] = $this->drafts(new AdminChanged(AdminChange::KIND_APP_ENABLED, Severity::Medium, ActorResolver::OCC, null, ['app' => 'files'], 'app_enabled'), true);
+		$this->assertArrayNotHasKey('actor_ip', $draft->facts);
 	}
 
 	public function testSecretSettingsCarryNoValues(): void {
-		$engine = $this->createMock(ResponseEngine::class);
-		$engine->expects($this->once())->method('handle')->with($this->callback(function (DetectionDraft $draft): bool {
-			$this->assertTrue($draft->facts['secret']);
-			$this->assertArrayNotHasKey('old', $draft->facts);
-			$this->assertArrayNotHasKey('new', $draft->facts);
-			$this->assertStringNotContainsString('s3cr3t', json_encode($draft->facts, JSON_THROW_ON_ERROR));
-			return true;
-		}));
-		$this->detector($engine, false)->settingChanged(WatchedSettings::systemKey('intrusion_detection.token'), 'old-s3cr3t', 'new-s3cr3t', true, ActorResolver::UNKNOWN, true);
+		[$draft] = $this->drafts(AdminChangeDetector::settingChange(WatchedSettings::systemKey('intrusion_detection.token'), 'old-s3cr3t', 'new-s3cr3t', true, ActorResolver::UNKNOWN, true, self::NOW), false);
+		$this->assertTrue($draft->facts['secret']);
+		$this->assertArrayNotHasKey('old', $draft->facts);
+		$this->assertArrayNotHasKey('new', $draft->facts);
+		$this->assertStringNotContainsString('s3cr3t', json_encode($draft->facts, JSON_THROW_ON_ERROR));
 	}
 
 	public function testWatchFindingsHaveNoAddress(): void {
-		$engine = $this->createMock(ResponseEngine::class);
-		$engine->expects($this->once())->method('handle')->with($this->callback(fn (DetectionDraft $d): bool => !isset($d->facts['actor_ip']) && $d->facts['watch'] === true && $d->facts['old'] === 'a' && $d->facts['new'] === 'b'));
-		$this->detector($engine, false)->settingChanged(WatchedSettings::systemKey('overwritehost'), 'a', 'b', false, ActorResolver::UNKNOWN, true);
+		[$draft] = $this->drafts(AdminChangeDetector::settingChange(WatchedSettings::systemKey('overwritehost'), 'a', 'b', false, ActorResolver::UNKNOWN, true, self::NOW), false);
+		$this->assertArrayNotHasKey('actor_ip', $draft->facts);
+		$this->assertTrue($draft->facts['watch']);
+		$this->assertSame('a', $draft->facts['old']);
+		$this->assertSame('b', $draft->facts['new']);
 	}
 
 	/**
-	 * The current state is the one after the change: configured mode, master switch, learning.
-	 *
-	 * @return array<string, array{0: string, 1: int|float|bool|string|list<string>, 2: Mode, 3: bool, 4: bool, 5: Mode, 6: ?string, 7?: bool}>
+	 * @return list<DetectionDraft>
 	 */
-	public static function modesBefore(): array {
-		return [
-			'switching the app off is told as before' => [GlobalSettings::ENABLED, true, Mode::Protect, false, false, Mode::Protect, null],
-			'switching the app on was not watched' => [GlobalSettings::ENABLED, false, Mode::Protect, true, false, Mode::Off, ModeState::REASON_DISABLED],
-			'this check to off is told as before' => [Keys::mode(AdminChange::ID), 'protect', Mode::Off, true, false, Mode::Protect, null],
-			'this check from off was not watched' => [Keys::mode(AdminChange::ID), 'off', Mode::Protect, true, false, Mode::Off, null],
-			'learning started is told as before' => [GlobalSettings::LEARNING_UNTIL, 0, Mode::Protect, true, true, Mode::Protect, null],
-			'learning ended while learning' => [GlobalSettings::LEARNING_UNTIL, self::NOW + 60, Mode::Protect, true, false, Mode::Observe, ModeState::REASON_LEARNING],
-			'learning does not silence a check that acts while learning' => [GlobalSettings::LEARNING_UNTIL, self::NOW + 60, Mode::Protect, true, false, Mode::Protect, null, true],
-			'any setting while learning, acting while learning' => [GlobalSettings::BAN_NET_AFTER, 3, Mode::Protect, true, true, Mode::Protect, null, true],
-			'any other setting' => [GlobalSettings::BAN_NET_AFTER, 3, Mode::Protect, true, false, Mode::Protect, null],
-		];
-	}
-
-	/**
-	 * @param int|float|bool|string|list<string> $old
-	 */
-	#[DataProvider('modesBefore')]
-	public function testTheModeBeforeAChange(string $name, int|float|bool|string|array $old, Mode $configuredNow, bool $enabledNow, bool $learningNow, Mode $effective, ?string $reason, bool $actsWhileLearning = false): void {
-		$settings = $this->createMock(Settings::class);
-		$settings->method('actsWhileLearning')->with(AdminChange::ID)->willReturn($actsWhileLearning);
-		$settings->method('configuredMode')->willReturn($configuredNow);
-		$settings->method('isEnabled')->willReturn($enabledNow);
-		$settings->method('isLearning')->willReturn($learningNow);
-		$time = $this->createMock(ITimeFactory::class);
-		$time->method('getTime')->willReturn(self::NOW);
-		$detector = new AdminChangeDetector($this->createMock(ResponseEngine::class), $settings, $this->createMock(ActorResolver::class), $this->createMock(RemoteAddressResolver::class), $time);
-		$mode = $detector->modeBefore($name, $old);
-		$this->assertSame($effective, $mode->effective);
-		$this->assertSame($reason, $mode->reason);
-	}
-
-	private function detector(ResponseEngine $engine, bool $commandLine): AdminChangeDetector {
+	private function drafts(AdminChanged $change, bool $commandLine, ?ModeState $mode = null): array {
 		$actors = $this->createMock(ActorResolver::class);
 		$actors->method('isCommandLine')->willReturn($commandLine);
 		$addresses = $this->createMock(RemoteAddressResolver::class);
 		$addresses->method('current')->willReturn(SourceKey::fromIp('198.51.100.7'));
-		$time = $this->createMock(ITimeFactory::class);
-		$time->method('getTime')->willReturn(self::NOW);
-		return new AdminChangeDetector($engine, $this->createMock(Settings::class), $actors, $addresses, $time);
+		$drafts = (new AdminChangeDetector($actors, $addresses))->detect($change, $mode ?? new ModeState(Mode::Protect, Mode::Protect));
+		$this->assertIsArray($drafts);
+		$this->assertCount(1, $drafts);
+		return $drafts;
 	}
 }

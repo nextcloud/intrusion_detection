@@ -9,7 +9,7 @@ declare(strict_types=1);
 
 namespace OCA\IntrusionDetection\Response\Handlers;
 
-use OCA\IntrusionDetection\Check\ResponseType;
+use OCA\IntrusionDetection\Definition\ResponseType;
 use OCA\IntrusionDetection\Explain\DateFormatter;
 use OCA\IntrusionDetection\Explain\IDescribesAction;
 use OCA\IntrusionDetection\Response\IResponseHandler;
@@ -41,7 +41,7 @@ class RevokeTokenHandler implements IResponseHandler, IDescribesAction {
 		if ($draft->uid === null || $draft->tokenId === null) {
 			return ResponseOutcome::skipped(ResponseOutcome::NOTE_NOTHING_TO_DO);
 		}
-		$result = $this->revoker->revoke($draft->uid, $draft->tokenId, $context->detection->getId());
+		$result = $this->revoker->revoke($draft->uid, $draft->tokenId, (string)$context->detection->getId());
 		if ($result['token'] === null && $result['tokens'] === []) {
 			return ResponseOutcome::skipped(ResponseOutcome::NOTE_NOTHING_TO_DO);
 		}

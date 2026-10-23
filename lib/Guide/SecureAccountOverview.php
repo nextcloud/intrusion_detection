@@ -11,12 +11,12 @@ namespace OCA\IntrusionDetection\Guide;
 
 use OC\Authentication\Token\IProvider as PrivateTokenProvider;
 use OC\Authentication\Token\PublicKeyToken;
-use OCA\IntrusionDetection\Db\SecurityChangeMapper;
 use OCA\IntrusionDetection\Db\TokenOriginMapper;
 use OCA\IntrusionDetection\KnownDevice\DeviceLabel;
+use OCA\IntrusionDetection\Login\CoreSession;
 use OCA\IntrusionDetection\Response\Tokens;
 use OCA\IntrusionDetection\ResponseDefinitions;
-use OCA\IntrusionDetection\SessionState\CurrentSession;
+use OCA\IntrusionDetection\Takeover\Db\SecurityChangeMapper;
 use OCA\IntrusionDetection\Takeover\SecurityChangeLog;
 use OCA\IntrusionDetection\Takeover\SecurityChangeType;
 use OCP\App\IAppManager;
@@ -55,7 +55,7 @@ class SecureAccountOverview {
 		private readonly SecurityChangeMapper $changes,
 		private readonly TokenOriginMapper $origins,
 		private readonly PrivateTokenProvider $tokens,
-		private readonly CurrentSession $currentSession,
+		private readonly CoreSession $coreSession,
 		private readonly IShareManager $shareManager,
 		private readonly IAppManager $appManager,
 		private readonly IURLGenerator $urlGenerator,
@@ -116,7 +116,7 @@ class SecureAccountOverview {
 	 * @return list<IntrusionDetectionSecureAccountSession>
 	 */
 	private function sessions(string $uid, int $eventAt, IL10N $l): array {
-		$current = $this->currentSession->tokenId();
+		$current = $this->coreSession->tokenId();
 		$sessions = [];
 		try {
 			$tokens = $this->tokens->getTokenByUser($uid);

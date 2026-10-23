@@ -5,8 +5,6 @@
 
 <script setup lang="ts">
 import { mdiDownload, mdiRestore } from '@mdi/js'
-import { showError, showSuccess } from '@nextcloud/dialogs'
-import { n, t } from '@nextcloud/l10n'
 import { computed, ref } from 'vue'
 import NcButton from '@nextcloud/vue/components/NcButton'
 import NcDialog from '@nextcloud/vue/components/NcDialog'
@@ -15,16 +13,15 @@ import NcLoadingIcon from '@nextcloud/vue/components/NcLoadingIcon'
 import NcTextField from '@nextcloud/vue/components/NcTextField'
 import SettingsGroup from '../common/SettingsGroup.vue'
 import TimeStamp from '../common/TimeStamp.vue'
-import { useAnnouncer } from '../../composables/useAnnouncer.ts'
-import { errorMessage, exportSettings, isCancelled, resetSettings, updateLearning } from '../../services/api.ts'
-import { logger } from '../../services/logger.ts'
-import { refreshChecks, refreshStatus, state } from '../../store.ts'
+import { useAction } from '../../composables/useAction.ts'
+import { exportSettings } from '../../services/api.ts'
+import { changeLearning, resetAllSettings, state } from '../../store.ts'
 import { APP_ID } from '../../utils/format.ts'
+import { n, t } from '../../utils/l10n.ts'
 
-const busy = ref<string | null>(null)
+const { busy, run } = useAction()
 const days = ref(7)
 const confirmReset = ref(false)
-const { announce } = useAnnouncer()
 
 const learning = computed(() => state.status?.learning ?? { active: false, until: 0, daysLeft: 0, minDays: 1, maxDays: 30 })
 const daysValid = computed(() => Number.isInteger(days.value) && days.value >= learning.value.minDays && days.value <= learning.value.maxDays)
@@ -33,53 +30,33 @@ const daysValid = computed(() => Number.isInteger(days.value) && days.value >= l
 const otherSettings = computed(() => state.settings.filter((s) => s.group === 'approvals' || s.group === 'other'))
 
 /**
- * Run an action and reload what it changes.
+ * Run an action.
  *
  * @param id - Which action, for the loading state
- * @param action - The request
+ * @param action - The change
  * @param done - What to say when it worked
  */
-async function run(id: string, action: () => Promise<unknown>, done: string): Promise<boolean> {
-	busy.value = id
-	try {
-		await action()
-		await Promise.all([refreshStatus(), refreshChecks()])
-		showSuccess(done)
-		announce(done)
-		return true
-	} catch (error) {
-		if (!isCancelled(error)) {
-			logger.error('Intrusion detection action failed', { error })
-			showError(errorMessage(error, t(APP_ID, 'That did not work. Please try again.')))
-		}
-		return false
-	} finally {
-		busy.value = null
-	}
+function act(id: string, action: () => Promise<void>, done: string): Promise<boolean> {
+	return run(id, action, { done, toast: true, fallback: t(APP_ID, 'That did not work. Please try again.') })
 }
 
-const startLearning = () => run('start', () => updateLearning('start', days.value), n(APP_ID, 'Learning mode is on for %n day.', 'Learning mode is on for %n days.', days.value))
-const extendLearning = () => run('extend', () => updateLearning('extend', days.value), n(APP_ID, 'Learning mode was extended by %n day.', 'Learning mode was extended by %n days.', days.value))
-const stopLearning = () => run('stop', () => updateLearning('stop'), t(APP_ID, 'Learning mode ended. Checks set to Protect act from now on.'))
+const startLearning = () => act('start', () => changeLearning('start', days.value), n(APP_ID, 'Learning mode is on for %n day.', 'Learning mode is on for %n days.', days.value))
+const extendLearning = () => act('extend', () => changeLearning('extend', days.value), n(APP_ID, 'Learning mode was extended by %n day.', 'Learning mode was extended by %n days.', days.value))
+const stopLearning = () => act('stop', () => changeLearning('stop'), t(APP_ID, 'Learning mode ended. Checks set to Protect act from now on.'))
 
 /**
  * Reset everything, after the confirmation.
  */
 async function resetAll() {
-	await run('reset', async () => {
-		const payload = await resetSettings()
-		state.settings = payload.settings
-		state.templates = payload.templates
-	}, t(APP_ID, 'All settings are back to their defaults.'))
+	await act('reset', resetAllSettings, t(APP_ID, 'All settings are back to their defaults.'))
 	confirmReset.value = false
 }
 
 /**
  * Download the settings as a JSON file.
  */
-async function download() {
-	busy.value = 'export'
-	try {
+function download() {
+	run('export', async () => {
 		const data = await exportSettings()
 		const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' })
 		const link = document.createElement('a')
@@ -87,13 +64,10 @@ async function download() {
 		link.download = `intrusion-detection-settings-${new Date().toISOString().slice(0, 10)}.json`
 		link.click()
 		URL.revokeObjectURL(link.href)
-		announce(t(APP_ID, 'The settings were downloaded.'))
-	} catch (error) {
-		logger.error('Could not export the settings', { error })
-		showError(errorMessage(error, t(APP_ID, 'The settings could not be exported.')))
-	} finally {
-		busy.value = null
-	}
+	}, {
+		done: t(APP_ID, 'The settings were downloaded.'),
+		fallback: t(APP_ID, 'The settings could not be exported.'),
+	})
 }
 </script>
 
@@ -209,19 +183,17 @@ async function download() {
 .grid {
 	display: grid;
 	grid-template-columns: repeat(auto-fit, minmax(min(100%, 420px), 1fr));
-	gap: calc(var(--default-grid-baseline) * 5);
+	gap: var(--ids-space-5);
 	align-items: start;
 }
 
 .card {
+	composes: card from '../../styles/shared.module.css';
 	display: flex;
 	flex-direction: column;
-	gap: calc(var(--default-grid-baseline) * 3);
+	gap: var(--ids-space-3);
 	min-width: 0;
-	padding: calc(var(--default-grid-baseline) * 5);
-	border: 1px solid var(--color-border);
-	border-radius: var(--border-radius-large);
-	background-color: var(--color-main-background);
+	padding: var(--ids-space-5);
 }
 
 .card__heading {
@@ -237,7 +209,7 @@ async function download() {
 
 .card__state {
 	margin: 0;
-	padding: calc(var(--default-grid-baseline) * 2) calc(var(--default-grid-baseline) * 3);
+	padding: var(--ids-space-2) var(--ids-space-3);
 	border-radius: var(--border-radius-element);
 	background-color: var(--color-background-hover);
 	font-weight: 600;
@@ -252,7 +224,7 @@ async function download() {
 	display: flex;
 	flex-wrap: wrap;
 	align-items: flex-end;
-	gap: calc(var(--default-grid-baseline) * 2);
+	gap: var(--ids-space-2);
 }
 
 .card__hint {
@@ -273,7 +245,7 @@ async function download() {
 
 @media (max-width: 600px) {
 	.card {
-		padding: calc(var(--default-grid-baseline) * 3);
+		padding: var(--ids-space-3);
 	}
 }
 </style>

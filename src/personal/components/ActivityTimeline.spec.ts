@@ -6,9 +6,10 @@
 import { enableAutoUnmount, flushPromises, mount } from '@vue/test-utils'
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 import ActivityTimeline from './ActivityTimeline.vue'
+import { snowflake } from '../../tests/fixtures.ts'
 import { activity, activityItem, login, NOW, securityChange, securityEvent } from '../../tests/personalFixtures.ts'
 import { fetchActivity } from '../api.ts'
-import { ACTIVITY_PAGE, personal } from '../store.ts'
+import { ACTIVITY_PAGE, personal, reloadActivity } from '../store.ts'
 
 vi.mock('../api.ts', async (importOriginal) => ({
 	...(await importOriginal<object>()),
@@ -20,7 +21,6 @@ enableAutoUnmount(afterEach)
 describe('ActivityTimeline', () => {
 	beforeEach(() => {
 		personal.activity = null
-		personal.activityError = null
 		personal.activityLimit = ACTIVITY_PAGE
 	})
 
@@ -42,13 +42,13 @@ describe('ActivityTimeline', () => {
 		expect(wrapper.get('h3').text()).toBe('Recent activity')
 		expect(wrapper.findAll('h4').map((h) => h.text())).toEqual(['Today', 'Yesterday', 'Thursday, October 15'])
 		const today = wrapper.get('[data-test="day-2026-10-21"]')
-		expect(today.findAll('li').map((li) => li.attributes('data-test'))).toEqual(['activity-change-1', 'activity-login-1'])
-		expect(today.get('[data-test="activity-change-1"]').text()).toContain('Second factor added')
-		expect(today.get('[data-test="activity-change-1"]').text()).toContain('by you')
-		expect(today.get('[data-test="activity-login-1"]').text()).toContain('This session')
+		expect(today.findAll('li').map((li) => li.attributes('data-test'))).toEqual([`activity-change-${snowflake(1)}`, `activity-login-${snowflake(1)}`])
+		expect(today.get(`[data-test="activity-change-${snowflake(1)}"]`).text()).toContain('Second factor added')
+		expect(today.get(`[data-test="activity-change-${snowflake(1)}"]`).text()).toContain('by you')
+		expect(today.get(`[data-test="activity-login-${snowflake(1)}"]`).text()).toContain('This session')
 		expect(wrapper.get('[data-test="activity-failed-2026-10-20"]').text()).toContain('3 failed logins with a wrong password')
 		expect(wrapper.get('[data-test="activity-failed-2026-10-20"]').text()).toContain('the last one at')
-		expect(wrapper.get('[data-test="activity-login-2"]').text()).toContain('Confirmed with an email code')
+		expect(wrapper.get(`[data-test="activity-login-${snowflake(2)}"]`).text()).toContain('Confirmed with an email code')
 		expect(wrapper.find('[data-test="show-more"]').exists()).toBe(false)
 	})
 
@@ -57,7 +57,7 @@ describe('ActivityTimeline', () => {
 			items: [activityItem({ event: securityEvent(1, { asks: true, verdict: 'confirmed', verdictAt: NOW }) })],
 		})
 		const wrapper = mount(ActivityTimeline)
-		const row = wrapper.get('[data-test="activity-event-1"]')
+		const row = wrapper.get(`[data-test="activity-event-${snowflake(1)}"]`)
 
 		expect(row.get('[data-test="answer"]').text()).toBe('You answered "Yes, it was me".')
 		expect(row.find('[data-test="question"]').exists()).toBe(false)
@@ -75,9 +75,9 @@ describe('ActivityTimeline', () => {
 		await wrapper.get('[data-test="show-more"]').trigger('click')
 		await flushPromises()
 
-		expect(fetchActivity).toHaveBeenCalledWith(ACTIVITY_PAGE * 2)
+		expect(fetchActivity).toHaveBeenCalledWith(ACTIVITY_PAGE * 2, 30, expect.any(AbortSignal))
 		expect(personal.activityLimit).toBe(ACTIVITY_PAGE * 2)
-		expect(wrapper.find('[data-test="activity-login-2"]').exists()).toBe(true)
+		expect(wrapper.find(`[data-test="activity-login-${snowflake(2)}"]`).exists()).toBe(true)
 		expect(wrapper.find('[data-test="show-more"]').exists()).toBe(false)
 	})
 
@@ -97,13 +97,14 @@ describe('ActivityTimeline', () => {
 	})
 
 	test('says when the activity could not be loaded, and tries again', async () => {
-		personal.activityError = 'Your recent activity could not be loaded. Please try again.'
+		vi.mocked(fetchActivity).mockRejectedValueOnce(new Error('offline'))
+		await reloadActivity()
 		vi.mocked(fetchActivity).mockResolvedValue(activity({ items: [activityItem({ login: login(1) })] }))
 		const wrapper = mount(ActivityTimeline)
 		expect(wrapper.get('[data-test="load-error"]').text()).toContain('could not be loaded')
 		await wrapper.get('[data-test="load-error"] button').trigger('click')
 		await flushPromises()
-		expect(fetchActivity).toHaveBeenCalledWith(ACTIVITY_PAGE)
-		expect(wrapper.find('[data-test="activity-login-1"]').exists()).toBe(true)
+		expect(fetchActivity).toHaveBeenLastCalledWith(ACTIVITY_PAGE, 30, expect.any(AbortSignal))
+		expect(wrapper.find(`[data-test="activity-login-${snowflake(1)}"]`).exists()).toBe(true)
 	})
 })

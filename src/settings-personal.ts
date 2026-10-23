@@ -10,6 +10,7 @@ import PersonalSettings from './views/PersonalSettings.vue'
 import { initPersonalState } from './personal/store.ts'
 
 import 'vite/modulepreload-polyfill'
+import './styles/tokens.css'
 
 addPasswordConfirmationInterceptors(axios)
 initPersonalState()

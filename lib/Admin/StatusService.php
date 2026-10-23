@@ -9,9 +9,11 @@ declare(strict_types=1);
 
 namespace OCA\IntrusionDetection\Admin;
 
+use OCA\IntrusionDetection\Cache\Caches;
 use OCA\IntrusionDetection\Check\CheckRegistry;
+use OCA\IntrusionDetection\Config\AppSettings;
+use OCA\IntrusionDetection\Config\CheckSettings;
 use OCA\IntrusionDetection\Config\Prerequisites;
-use OCA\IntrusionDetection\Config\Settings;
 use OCA\IntrusionDetection\Db\BanMapper;
 use OCA\IntrusionDetection\Db\StatsMapper;
 use OCA\IntrusionDetection\Detection\DetectionTotals;
@@ -19,11 +21,7 @@ use OCA\IntrusionDetection\Learning\LearningService;
 use OCA\IntrusionDetection\Perf\GuardTimer;
 use OCA\IntrusionDetection\ResponseDefinitions;
 use OCP\AppFramework\Utility\ITimeFactory;
-use OCP\ICache;
-use OCP\ICacheFactory;
 use OCP\IL10N;
-use Psr\Container\ContainerInterface;
-use Psr\Log\LoggerInterface;
 
 /**
  * What intrusion detection is doing right now: the state, the last 24 hours
@@ -44,10 +42,8 @@ use Psr\Log\LoggerInterface;
  * @psalm-type Measured = array{last24h: array{detections: int, enforced: int, observed: int, blockedAddresses: int, wouldHaveBlocked: int, accounts: int, categories: list<IntrusionDetectionCategoryCount>}, activeBans: int, cost: ?IntrusionDetectionCost}
  */
 class StatusService {
-	/** @var list<class-string<IStatusContributor>> */
-	public const CONTRIBUTORS = [
-		SetupProblems::class,
-	];
+	/** The namespace of its memory cache in {@see Caches} */
+	public const CACHE = 'status';
 
 	public const STATE_PROTECTING = 'protecting';
 	public const STATE_LEARNING = 'learning';
@@ -56,13 +52,10 @@ class StatusService {
 	/** Above this average guard time the banner points to the likely cause */
 	public const SLOW_GUARD_MICROSECONDS = 1000;
 	public const CACHE_TTL = 60;
-	public const CACHE_PREFIX = 'intrusion_detection_status';
-
-	private ?ICache $cache = null;
-	private bool $cacheInitialised = false;
 
 	public function __construct(
-		private readonly Settings $settings,
+		private readonly AppSettings $appSettings,
+		private readonly CheckSettings $settings,
 		private readonly CheckRegistry $registry,
 		private readonly CheckNames $names,
 		private readonly LearningService $learning,
@@ -72,9 +65,8 @@ class StatusService {
 		private readonly StatsMapper $stats,
 		private readonly GuardTimer $timer,
 		private readonly ITimeFactory $timeFactory,
-		private readonly ContainerInterface $container,
-		private readonly LoggerInterface $logger,
-		private readonly ICacheFactory $cacheFactory,
+		private readonly SetupProblems $setupProblems,
+		private readonly Caches $caches,
 	) {
 	}
 
@@ -82,7 +74,7 @@ class StatusService {
 	 * @return 'protecting'|'learning'|'off'
 	 */
 	public function state(): string {
-		if (!$this->settings->isEnabled()) {
+		if (!$this->appSettings->isEnabled()) {
 			return self::STATE_OFF;
 		}
 		return $this->learning->isActive() ? self::STATE_LEARNING : self::STATE_PROTECTING;
@@ -112,13 +104,13 @@ class StatusService {
 			$modes[$this->settings->effectiveMode($check->id)->value]++;
 		}
 		$key = 'status:' . $l->getLanguageCode();
-		$measured = $this->cache()?->get($key);
+		$measured = $this->caches->shared(self::CACHE)?->get($key);
 		if (!is_array($measured) || !is_array($measured['last24h'] ?? null) || !is_int($measured['activeBans'] ?? null)) {
 			$measured = $this->measured($l);
-			$this->cache()?->set($key, $measured, self::CACHE_TTL);
+			$this->caches->shared(self::CACHE)?->set($key, $measured, self::CACHE_TTL);
 		}
 		/** @var Measured $measured */
-		[$problems, $extensions] = $this->problems($l, $measured['cost']);
+		$problems = $this->problems($l, $measured['cost']);
 		return [
 			'state' => $this->state(),
 			'learning' => $this->learning(),
@@ -126,13 +118,12 @@ class StatusService {
 			'last24h' => $measured['last24h'],
 			'activeBans' => $measured['activeBans'],
 			'prerequisites' => [
-				'memoryCache' => $this->prerequisites->hasDistributedCache() ? 'distributed' : ($this->prerequisites->hasMemoryCache() ? 'local' : 'none'),
+				'memoryCache' => $this->caches->kind(),
 				'mail' => $this->prerequisites->hasMail(),
 			],
 			'cost' => $measured['cost'],
 			'costSampleRate' => GuardTimer::SAMPLE_RATE,
 			'problems' => $problems,
-			'extensions' => $extensions,
 		];
 	}
 
@@ -180,46 +171,18 @@ class StatusService {
 	}
 
 	/**
-	 * The problems and the data of the contributors.
+	 * A slow address check, and the findings of the setup checks.
 	 *
 	 * @param ?IntrusionDetectionCost $cost
-	 * @return array{0: list<IntrusionDetectionProblem>, 1: array<string, array<string, mixed>>}
+	 * @return list<IntrusionDetectionProblem>
 	 */
 	private function problems(IL10N $l, ?array $cost): array {
 		$problems = [];
 		if ($cost !== null && $cost['averageMicroseconds'] > self::SLOW_GUARD_MICROSECONDS) {
 			$problems[] = $this->slowGuardsProblem($l);
 		}
-		$extensions = [];
-		foreach (static::CONTRIBUTORS as $class) {
-			try {
-				$contributor = $this->container->get($class);
-				if (!$contributor instanceof IStatusContributor) {
-					continue;
-				}
-				$data = $contributor->data($l);
-				if ($data !== null) {
-					$extensions[$contributor->key()] = $data;
-				}
-				array_push($problems, ...$contributor->problems($l));
-			} catch (\Throwable $e) {
-				// One broken contributor must not take the status page down with it.
-				$this->logger->error('Intrusion detection status contributor {class} failed', ['class' => $class, 'exception' => $e]);
-			}
-		}
-		return [$problems, $extensions];
-	}
-
-	private function cache(): ?ICache {
-		if (!$this->cacheInitialised) {
-			$this->cacheInitialised = true;
-			if ($this->cacheFactory->isAvailable()) {
-				$this->cache = $this->cacheFactory->createDistributed(self::CACHE_PREFIX);
-			} elseif ($this->cacheFactory->isLocalCacheAvailable()) {
-				$this->cache = $this->cacheFactory->createLocal(self::CACHE_PREFIX);
-			}
-		}
-		return $this->cache;
+		array_push($problems, ...$this->setupProblems->problems($l));
+		return $problems;
 	}
 
 	/**

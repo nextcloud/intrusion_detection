@@ -9,7 +9,7 @@ declare(strict_types=1);
 
 namespace OCA\IntrusionDetection\Response\Handlers;
 
-use OCA\IntrusionDetection\Check\ResponseType;
+use OCA\IntrusionDetection\Definition\ResponseType;
 use OCA\IntrusionDetection\Explain\DateFormatter;
 use OCA\IntrusionDetection\Explain\IDescribesAction;
 use OCA\IntrusionDetection\Response\FlaggedSources;
@@ -45,7 +45,7 @@ class FlagPasswordHandler implements IResponseHandler, IDescribesAction {
 		}
 		$until = 0;
 		foreach ($fingerprints as $fingerprint) {
-			$until = max($until, $this->flags->flagPassword($fingerprint, $context->detection->getId()));
+			$until = max($until, $this->flags->flagPassword($fingerprint, (string)$context->detection->getId()));
 		}
 		return ResponseOutcome::done(['until' => $until]);
 	}

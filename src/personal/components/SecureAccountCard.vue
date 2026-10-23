@@ -4,30 +4,19 @@
 -->
 
 <script setup lang="ts">
-import type { SecureAccountProgress } from '../../secureAccountTypes.ts'
-
 import { mdiShieldAccountOutline } from '@mdi/js'
-import { t } from '@nextcloud/l10n'
 import { generateUrl } from '@nextcloud/router'
-import { onMounted, ref } from 'vue'
+import { computed } from 'vue'
 import NcButton from '@nextcloud/vue/components/NcButton'
 import SectionCard from '../../components/common/SectionCard.vue'
-import { logger } from '../../services/logger.ts'
-import { fetchSecureAccountProgress } from '../../services/secureAccount.ts'
 import { APP_ID } from '../../utils/format.ts'
+import { t } from '../../utils/l10n.ts'
+import { useSecureAccountProgress } from '../store.ts'
 
-const progress = ref<SecureAccountProgress | null>(null)
+// A failure shows nothing here: the rest of the section still shows, and the checklist page has its own errors.
+const { data } = useSecureAccountProgress()
+const progress = computed(() => data.value?.active ? data.value : null)
 const checklistUrl = generateUrl('/apps/intrusion_detection/secure-account')
-
-onMounted(async () => {
-	try {
-		const current = await fetchSecureAccountProgress()
-		progress.value = current.active ? current : null
-	} catch (e) {
-		// The rest of the section still shows; the checklist page has its own errors.
-		logger.error('Could not load the "Secure my account" checklist', { error: e })
-	}
-})
 </script>
 
 <template>
@@ -60,18 +49,18 @@ onMounted(async () => {
 .progress {
 	display: flex;
 	flex-direction: column;
-	gap: var(--default-grid-baseline);
-	margin-block-end: calc(var(--default-grid-baseline) * 3);
+	gap: var(--ids-space-1);
+	margin-block-end: var(--ids-space-3);
 }
 
 .progress__bar {
 	width: 100%;
-	height: calc(var(--default-grid-baseline) * 2);
+	height: var(--ids-space-2);
 	accent-color: var(--color-primary-element);
 }
 
 .progress__text {
+	composes: muted from '../../styles/shared.module.css';
 	margin: 0;
-	color: var(--color-text-maxcontrast);
 }
 </style>

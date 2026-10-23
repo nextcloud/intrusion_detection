@@ -12,9 +12,9 @@ namespace OCA\IntrusionDetection\Tests\Unit\Address;
 use OC\Memcache\ArrayCache;
 use OCA\IntrusionDetection\Address\AddressCache;
 use OCA\IntrusionDetection\Address\Verdict;
-use OCA\IntrusionDetection\Db\StateMapper;
 use OCA\IntrusionDetection\Net\SourceKey;
-use OCP\ICacheFactory;
+use OCA\IntrusionDetection\State\AppState;
+use OCA\IntrusionDetection\Tests\Unit\Cache\FixedCaches;
 use Test\TestCase;
 
 class AddressCacheTest extends TestCase {
@@ -132,31 +132,18 @@ class AddressCacheTest extends TestCase {
 		$this->assertNull($this->cache('local')->get($source), 'Another web server reads it once its own copy expired');
 	}
 
-	public function testApcuHandedOutAsTheDistributedCacheIsLocal(): void {
-		$factory = $this->createMock(ICacheFactory::class);
-		$factory->method('isAvailable')->willReturn(true);
-		$factory->method('isLocalCacheAvailable')->willReturn(true);
-		$factory->method('createDistributed')->willReturn(new ArrayCache('a'));
-		$factory->method('createLocal')->willReturn(new ArrayCache('b'));
-		$this->assertFalse((new AddressCache($factory, $this->state()))->isDistributed());
-	}
-
 	/**
 	 * A fresh instance, as a new request on any web server would have.
 	 *
 	 * @param 'distributed'|'local' $kind
 	 */
 	private function cache(string $kind = 'distributed'): AddressCache {
-		$factory = $this->createMock(ICacheFactory::class);
-		$factory->method('isAvailable')->willReturn($kind === 'distributed');
-		$factory->method('isLocalCacheAvailable')->willReturn(true);
-		$factory->method('createDistributed')->willReturn($this->distributed);
-		$factory->method('createLocal')->willReturn($this->local);
-		return new AddressCache($factory, $this->state());
+		$caches = $kind === 'distributed' ? new FixedCaches($this->distributed, $this->local, true) : new FixedCaches($this->local, $this->local);
+		return new AddressCache($caches, $this->state());
 	}
 
-	private function state(): StateMapper {
-		$state = $this->createMock(StateMapper::class);
+	private function state(): AppState {
+		$state = $this->createMock(AppState::class);
 		$state->method('get')->willReturnCallback(fn (string $name): ?string => $name === AddressCache::VERSION_STATE ? $this->storedVersion : null);
 		$state->method('set')->willReturnCallback(function (string $name, string $value): void {
 			$this->assertSame(AddressCache::VERSION_STATE, $name);

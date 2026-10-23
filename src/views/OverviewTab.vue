@@ -4,11 +4,10 @@
 -->
 
 <script setup lang="ts">
-import type { Ban, DailyStats } from '../types.ts'
+import type { Ban } from '../types.ts'
 
 import { mdiShieldCheckOutline } from '@mdi/js'
-import { t } from '@nextcloud/l10n'
-import { computed, nextTick, onActivated, onMounted, ref, watch } from 'vue'
+import { computed, nextTick, ref, watch } from 'vue'
 import NcEmptyContent from '@nextcloud/vue/components/NcEmptyContent'
 import NcIconSvgWrapper from '@nextcloud/vue/components/NcIconSvgWrapper'
 import NcNoteCard from '@nextcloud/vue/components/NcNoteCard'
@@ -21,15 +20,13 @@ import DetectionList from '../components/overview/DetectionList.vue'
 import LookupBox from '../components/overview/LookupBox.vue'
 import ProblemList from '../components/ProblemList.vue'
 import StatusBanner from '../components/StatusBanner.vue'
-import { errorMessage, fetchDailyStats } from '../services/api.ts'
-import { logger } from '../services/logger.ts'
-import { adminGrants, decidableLogins, openDetectionId, refreshAdminGrants, refreshWaitingLogins, state } from '../store.ts'
+import { adminGrants, decidableLogins, openDetectionId, state } from '../store.ts'
+import { useDailyStats } from '../stores/overview.ts'
 import { APP_ID } from '../utils/format.ts'
+import { t } from '../utils/l10n.ts'
 
-const stats = ref<DailyStats | null>(null)
-const statsError = ref<string | null>(null)
+const { data: stats, error: statsError } = useDailyStats({ failure: () => t(APP_ID, 'The chart could not be loaded.') })
 const liftTarget = ref<Ban | null>(null)
-let afterLift: (() => Promise<void>) | null = null
 
 /**
  * Only real problems need attention; tips are listed further down. Nothing
@@ -41,40 +38,11 @@ const tips = computed(() => (state.status?.problems ?? []).filter((problem) => p
 const quiet = computed(() => stats.value !== null && stats.value.days.every((day) => day.enforced + day.observed === 0))
 
 /**
- * Load the chart.
- */
-async function loadStats() {
-	try {
-		stats.value = await fetchDailyStats(30)
-		statsError.value = null
-	} catch (error) {
-		logger.error('Could not load the daily statistics', { error })
-		statsError.value = errorMessage(error, t(APP_ID, 'The chart could not be loaded.'))
-	}
-}
-
-onMounted(loadStats)
-onActivated(() => {
-	if (stats.value !== null) {
-		loadStats()
-	}
-})
-
-/**
- * @param ban - The block to lift
- * @param reload - What to reload once it is lifted
- */
-function onLift(ban: Ban, reload: () => Promise<void>) {
-	liftTarget.value = ban
-	afterLift = reload
-}
-
-/**
  * Open a detection from the lookup.
  *
  * @param id - The detection id
  */
-function openDetection(id: number) {
+function openDetection(id: string) {
 	openDetectionId.value = id
 }
 
@@ -95,25 +63,24 @@ watch(openDetectionId, async (id) => {
 			id="overview-attention"
 			:problems="problems">
 			<template v-if="decidableLogins.length > 0 || adminGrants.length > 0" #default>
-				<AdminGrantRequests v-if="adminGrants.length > 0" :requests="adminGrants" @decided="refreshAdminGrants" />
+				<AdminGrantRequests v-if="adminGrants.length > 0" :requests="adminGrants" />
 				<PendingApprovals
 					v-if="decidableLogins.length > 0"
 					:approvals="decidableLogins"
-					data-test="overview-waiting"
-					@decided="refreshWaitingLogins" />
+					data-test="overview-waiting" />
 			</template>
 		</ProblemList>
 
 		<div :class="$style.overview__main">
 			<div :class="$style.card">
-				<DetectionList @lift="onLift" />
+				<DetectionList @lift="liftTarget = $event" />
 			</div>
 
 			<section :class="$style.card" aria-labelledby="ids-lookup-heading">
 				<h3 id="ids-lookup-heading" :class="$style.card__heading">
 					{{ t(APP_ID, 'Look up an address or account') }}
 				</h3>
-				<LookupBox @openDetection="openDetection" @lift="onLift" />
+				<LookupBox @openDetection="openDetection" @lift="liftTarget = $event" />
 			</section>
 		</div>
 
@@ -147,7 +114,7 @@ watch(openDetectionId, async (id) => {
 			<DetectionChart v-else :days="stats.days" />
 		</section>
 
-		<LiftBanDialog :ban="liftTarget" @close="liftTarget = null" @lifted="afterLift?.()" />
+		<LiftBanDialog :ban="liftTarget" @close="liftTarget = null" />
 	</div>
 </template>
 
@@ -155,24 +122,22 @@ watch(openDetectionId, async (id) => {
 .overview {
 	display: flex;
 	flex-direction: column;
-	gap: calc(var(--default-grid-baseline) * 5);
+	gap: var(--ids-space-5);
 }
 
 .overview__main {
 	display: flex;
 	flex-direction: column;
-	gap: calc(var(--default-grid-baseline) * 5);
+	gap: var(--ids-space-5);
 }
 
 .card {
+	composes: card from '../styles/shared.module.css';
 	display: flex;
 	flex-direction: column;
-	gap: calc(var(--default-grid-baseline) * 4);
+	gap: var(--ids-space-4);
 	min-width: 0;
-	padding: calc(var(--default-grid-baseline) * 5);
-	border: 1px solid var(--color-border);
-	border-radius: var(--border-radius-large);
-	background-color: var(--color-main-background);
+	padding: var(--ids-space-5);
 }
 
 .card__heading {
@@ -184,16 +149,16 @@ watch(openDetectionId, async (id) => {
 .card__skeleton {
 	display: flex;
 	flex-direction: column;
-	gap: calc(var(--default-grid-baseline) * 3);
+	gap: var(--ids-space-3);
 }
 
 .card__empty {
-	margin-block: calc(var(--default-grid-baseline) * 6) !important;
+	margin-block: var(--ids-space-6) !important;
 }
 
 @media (max-width: 600px) {
 	.card {
-		padding: calc(var(--default-grid-baseline) * 3);
+		padding: var(--ids-space-3);
 	}
 }
 </style>

@@ -10,19 +10,21 @@ declare(strict_types=1);
 namespace OCA\IntrusionDetection\Tests\Integration;
 
 use OCA\IntrusionDetection\AppInfo\Application;
-use OCA\IntrusionDetection\Check\Checks\AccountUnderAttack;
-use OCA\IntrusionDetection\Check\Checks\SecondFactorFailed;
-use OCA\IntrusionDetection\Check\Mode;
-use OCA\IntrusionDetection\Check\ResponseType;
+use OCA\IntrusionDetection\Check\CheckRegistry;
+use OCA\IntrusionDetection\Check\Checks\AccountUnderAttack\AccountUnderAttack;
+use OCA\IntrusionDetection\Check\Checks\SecondFactorFailed\SecondFactorFailed;
 use OCA\IntrusionDetection\Config\ModeState;
-use OCA\IntrusionDetection\Db\AlertMapper;
 use OCA\IntrusionDetection\Db\Detection;
+use OCA\IntrusionDetection\Definition\Mode;
+use OCA\IntrusionDetection\Definition\ResponseType;
 use OCA\IntrusionDetection\Detection\DetectionDraft;
 use OCA\IntrusionDetection\Detection\DetectionService;
 use OCA\IntrusionDetection\Net\SourceKey;
 use OCA\IntrusionDetection\Notification\AdminNotices;
+use OCA\IntrusionDetection\Notification\Db\AlertMapper;
 use OCA\IntrusionDetection\Notification\LoginNotices;
 use OCA\IntrusionDetection\Notification\MailQueue;
+use OCA\IntrusionDetection\Notification\MailReach;
 use OCA\IntrusionDetection\Notification\Mails;
 use OCA\IntrusionDetection\Notification\Notifier;
 use OCA\IntrusionDetection\Notification\UserAlerts;
@@ -104,7 +106,7 @@ class UserAlertsTest extends AccountTestCase {
 		$this->assertCount(1, $this->mailed);
 		$mail = $this->mailed[0][1];
 		$this->assertSame('Security notice: Someone entered your password, but not your second factor', $mail->subject);
-		$when = Server::get(IDateTimeFormatter::class)->formatDateTime($detection->getCreatedAt(), 'long', 'short', new \DateTimeZone('Pacific/Auckland'), Server::get(IFactory::class)->get(Application::APP_ID, 'en'));
+		$when = Server::get(IDateTimeFormatter::class)->formatDateTime($detection->getCreatedTime(), 'long', 'short', new \DateTimeZone('Pacific/Auckland'), Server::get(IFactory::class)->get(Application::APP_ID, 'en'));
 		$whenParagraph = (string)($mail->paragraphs[count($mail->paragraphs) - 1] ?? '');
 		$this->assertSame('This happened on ' . $when . ', from the address 198.51.100.7.', $whenParagraph, 'In the user\'s time zone, and no unknown device');
 		$this->assertStringNotContainsString('script', json_encode($mail, JSON_THROW_ON_ERROR), 'The user agent is never shown as it was sent');
@@ -132,7 +134,7 @@ class UserAlertsTest extends AccountTestCase {
 		$detection = $this->detection($user, AccountUnderAttack::ID, [
 			['type' => ResponseType::ProtectAccount->value, 'enforced' => true, 'ref' => ['until' => $monday]],
 		]);
-		$detection->setCreatedAt($monday - 3600);
+		$detection->setCreatedTime($monday - 3600);
 
 		// ICU puts a narrow no-break space before "PM".
 		$text = str_replace("\u{202F}", ' ', implode(' ', Server::get(UserMessages::class)->mail($detection, $user)->paragraphs));
@@ -214,11 +216,12 @@ class UserAlertsTest extends AccountTestCase {
 	public function testThroughTheEngineAMergedHitIsNotToldAgain(): void {
 		$user = $this->newUser('ids-notify', 'alice@example.com');
 		$draft = static fn (string $ip): DetectionDraft => new DetectionDraft(SecondFactorFailed::ID, SourceKey::fromIp($ip), $user->getUID(), merge: DetectionDraft::MERGE_SOURCE_USER);
-		$this->engine()->handle($draft('198.51.100.7'), [ResponseType::NotifyUser]);
-		$merged = $this->engine()->handle($draft('198.51.100.7'), [ResponseType::NotifyUser]);
+		$this->settingsEditor()->setResponses(SecondFactorFailed::ID, [ResponseType::NotifyUser]);
+		$this->engine()->handle($draft('198.51.100.7'));
+		$merged = $this->engine()->handle($draft('198.51.100.7'));
 		$this->assertSame(2, $merged?->getHits());
 		$this->assertTrue($merged->getActionList()[0]['enforced'], 'The merged hit keeps what the first one did');
-		$this->engine()->handle($draft('198.51.100.8'), [ResponseType::NotifyUser]);
+		$this->engine()->handle($draft('198.51.100.8'));
 		$this->assertCount(2, $this->notificationsFor($user->getUID(), UserAlerts::SUBJECT));
 	}
 
@@ -262,7 +265,7 @@ class UserAlertsTest extends AccountTestCase {
 		$this->assertSame(UserAlerts::EMAIL_QUEUED, $result['email'] ?? null);
 		$this->assertSame([], $this->notificationsFor('admin', AdminNotices::SUBJECT_USER_UNREACHABLE));
 		$this->runQueuedMails($this->alerts());
-		$this->assertSame($detection->getCreatedAt(), Server::get(LoginNotices::class)->since($user->getUID()), 'Shown at the next login');
+		$this->assertSame($detection->getCreatedTime(), Server::get(LoginNotices::class)->since($user->getUID()), 'Shown at the next login');
 		$notices = $this->notificationsFor('admin', AdminNotices::SUBJECT_USER_UNREACHABLE);
 		$this->assertCount(1, $notices);
 		$this->assertSame(AdminNotices::REASON_MAIL_FAILED, $notices[0]->getSubjectParameters()['reason']);
@@ -280,8 +283,9 @@ class UserAlertsTest extends AccountTestCase {
 
 	public function testTheResponseRunsLastAndIsOnlyEnforcedInProtect(): void {
 		$user = $this->newUser('ids-notify', 'alice@example.com');
-		$this->settings->setMode(SecondFactorFailed::ID, Mode::Observe);
-		$this->engine()->handle(new DetectionDraft(SecondFactorFailed::ID, SourceKey::fromIp('198.51.100.7'), $user->getUID()), [ResponseType::NotifyUser]);
+		$this->settingsEditor()->setMode(SecondFactorFailed::ID, Mode::Observe);
+		$this->settingsEditor()->setResponses(SecondFactorFailed::ID, [ResponseType::NotifyUser]);
+		$this->engine()->handle(new DetectionDraft(SecondFactorFailed::ID, SourceKey::fromIp('198.51.100.7'), $user->getUID()));
 		$this->assertSame([], $this->mailed, 'Observe tells nobody');
 	}
 
@@ -293,7 +297,7 @@ class UserAlertsTest extends AccountTestCase {
 			checkId: $checkId,
 			source: $ip === null ? null : SourceKey::fromIp($ip),
 			uid: $user->getUID(),
-			facts: ['provider' => 'totp', 'providerName' => 'TOTP'],
+			facts: self::factsOf($checkId, ['provider' => 'totp', 'providerName' => 'TOTP']),
 			userAgent: $userAgent,
 		), new ModeState(Mode::Protect, Mode::Protect));
 		$this->detections->setActions($detection, $actions);
@@ -315,6 +319,8 @@ class UserAlertsTest extends AccountTestCase {
 			Server::get(LoginNotices::class),
 			Server::get(Questions::class),
 			Server::get(MailQueue::class),
+			Server::get(CheckRegistry::class),
+			Server::get(MailReach::class),
 		);
 	}
 }

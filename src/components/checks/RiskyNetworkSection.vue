@@ -7,13 +7,13 @@
 import type { Check } from '../../types.ts'
 
 import { mdiArrowRight } from '@mdi/js'
-import { t } from '@nextcloud/l10n'
 import { computed } from 'vue'
 import NcButton from '@nextcloud/vue/components/NcButton'
 import NcIconSvgWrapper from '@nextcloud/vue/components/NcIconSvgWrapper'
 import SettingsGroup from '../common/SettingsGroup.vue'
 import { state } from '../../store.ts'
 import { APP_ID } from '../../utils/format.ts'
+import { t } from '../../utils/l10n.ts'
 
 const props = defineProps<{
 	check: Check
@@ -51,7 +51,7 @@ const settings = computed(() => state.settings.filter((s) => s.group === 'risky_
 .section {
 	display: flex;
 	flex-direction: column;
-	gap: calc(var(--default-grid-baseline) * 3);
+	gap: var(--ids-space-3);
 	min-width: 0;
 	margin: 0;
 	padding: 0;
@@ -59,14 +59,14 @@ const settings = computed(() => state.settings.filter((s) => s.group === 'risky_
 }
 
 .section__legend {
-	margin-bottom: calc(var(--default-grid-baseline) * 2);
+	margin-bottom: var(--ids-space-2);
 	padding: 0;
 	font-weight: 700;
 }
 
 .section__text {
+	composes: muted from '../../styles/shared.module.css';
 	margin: 0;
-	color: var(--color-text-maxcontrast);
 	line-height: 1.5;
 }
 </style>

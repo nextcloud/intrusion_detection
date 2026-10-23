@@ -8,8 +8,6 @@ import type { TabDefinition } from '../../extensions.ts'
 import type { CheckRef, TrapPathList, TrapWebServer } from '../../types.ts'
 
 import { mdiServerNetwork, mdiSignDirection } from '@mdi/js'
-import { showError } from '@nextcloud/dialogs'
-import { n, t } from '@nextcloud/l10n'
 import { computed, ref } from 'vue'
 import NcCheckboxRadioSwitch from '@nextcloud/vue/components/NcCheckboxRadioSwitch'
 import NcNoteCard from '@nextcloud/vue/components/NcNoteCard'
@@ -19,28 +17,24 @@ import CodeBlock from '../common/CodeBlock.vue'
 import ListEditor from '../common/ListEditor.vue'
 import SectionCard from '../common/SectionCard.vue'
 import ShowMore from '../common/ShowMore.vue'
-import { useAnnouncer } from '../../composables/useAnnouncer.ts'
-import { errorMessage, isCancelled, updateTrapPaths } from '../../services/api.ts'
-import { logger } from '../../services/logger.ts'
+import { useAction } from '../../composables/useAction.ts'
+import { errorMessage } from '../../services/api.ts'
+import { changeTrapPaths } from '../../stores/blocks.ts'
 import { APP_ID } from '../../utils/format.ts'
+import { n, t } from '../../utils/l10n.ts'
 
 const props = defineProps<{
 	paths: TrapPathList
 	check: CheckRef
 }>()
 
-const emit = defineEmits<{
-	changed: [paths: TrapPathList]
-}>()
-
-const busy = ref<string | null>(null)
+const { busy, run } = useAction()
 const error = ref<string | null>(null)
 const server = ref(props.paths.webServer === 'apache' || props.paths.webServer === 'apache_fpm' ? 'apache' : 'nginx')
-const { announce } = useAnnouncer()
 
 const serverTabs: TabDefinition[] = [
-	{ id: 'nginx', name: () => 'nginx', icon: mdiServerNetwork, order: 1 },
-	{ id: 'apache', name: () => 'Apache', icon: mdiServerNetwork, order: 2 },
+	{ id: 'nginx', name: () => 'nginx', icon: mdiServerNetwork },
+	{ id: 'apache', name: () => 'Apache', icon: mdiServerNetwork },
 ]
 
 /**
@@ -54,7 +48,7 @@ function serverName(webServer: TrapWebServer): string {
  * @param answeredBy - The web servers that answer a built-in path themselves
  */
 function ruleNote(answeredBy: TrapPathList['builtin'][number]['answeredBy']): string {
-	return t(APP_ID, 'Needs the web server rule on {servers}.', { servers: answeredBy.map(serverName).join(', ') }, undefined, { escape: false, sanitize: false })
+	return t(APP_ID, 'Needs the web server rule on {servers}.', { servers: answeredBy.map(serverName).join(', ') })
 }
 
 const thisServer = computed(() => {
@@ -63,9 +57,9 @@ const thisServer = computed(() => {
 		return null
 	}
 	if (needRule.length === 0) {
-		return t(APP_ID, 'On this server ({server}), your trap paths reach Nextcloud without the rule.', { server: serverName(webServer) }, undefined, { escape: false, sanitize: false })
+		return t(APP_ID, 'On this server ({server}), your trap paths reach Nextcloud without the rule.', { server: serverName(webServer) })
 	}
-	return n(APP_ID, 'On this server ({server}), %n trap path reaches Nextcloud only with the rule: {paths}', 'On this server ({server}), %n trap paths reach Nextcloud only with the rule: {paths}', needRule.length, { server: serverName(webServer), paths: needRule.join(' ') }, { escape: false, sanitize: false })
+	return n(APP_ID, 'On this server ({server}), %n trap path reaches Nextcloud only with the rule: {paths}', 'On this server ({server}), %n trap paths reach Nextcloud only with the rule: {paths}', needRule.length, { server: serverName(webServer), paths: needRule.join(' ') })
 })
 
 /**
@@ -75,10 +69,12 @@ function validate(value: string): string | null {
 	if (!value.startsWith('/')) {
 		return t(APP_ID, 'A path starts with /, for example /old-admin.')
 	}
-	if (!/^\/[\x21-\x7E]{0,199}$/.test(value)) {
-		return t(APP_ID, 'A path has no spaces and at most 200 characters.')
+	const { maxLength, nextcloudSegments } = props.paths.limits
+	if (value.length > maxLength || !/^\/[\x21-\x7E]*$/.test(value)) {
+		return t(APP_ID, 'A path has no spaces and at most {max} characters.', { max: maxLength })
 	}
-	if (/^\/(index\.php|remote\.php|public\.php|ocs|apps|core|s|login|status\.php|\.well-known)(\/|$)/.test(value)) {
+	const path = value.toLowerCase().replace(/^\/index\.php(?=\/)/, '')
+	if (nextcloudSegments.includes(path.slice(1).split('/')[0]!)) {
 		return t(APP_ID, 'Nextcloud uses this path itself, so legitimate clients would be blocked.')
 	}
 	return null
@@ -93,26 +89,21 @@ function validate(value: string): string | null {
  * @param change.autodiscover - Trap the autodiscover path
  * @param done - What to announce
  */
-async function save(key: string, change: { add?: string[], remove?: string[], builtinEnabled?: boolean, autodiscover?: boolean }, done: string) {
-	busy.value = key
+function save(key: string, change: { add?: string[], remove?: string[], builtinEnabled?: boolean, autodiscover?: boolean }, done: string) {
+	const fallback = t(APP_ID, 'The trap paths could not be saved. Please try again.')
 	error.value = null
-	try {
-		emit('changed', await updateTrapPaths(change))
-		announce(done)
-	} catch (e) {
-		if (!isCancelled(e)) {
-			logger.error('Could not change the trap paths', { error: e })
-			const message = errorMessage(e, t(APP_ID, 'The trap paths could not be saved. Please try again.'))
-			if (key === 'list') {
-				error.value = message
-			} else {
-				showError(message)
+	run(key, () => changeTrapPaths(change), {
+		done,
+		fallback,
+		// A change of the list is shown at the list.
+		handle: (e) => {
+			if (key !== 'list') {
+				return false
 			}
-			announce(message)
-		}
-	} finally {
-		busy.value = null
-	}
+			error.value = errorMessage(e, fallback)
+			return true
+		},
+	})
 }
 </script>
 
@@ -171,15 +162,15 @@ async function save(key: string, change: { add?: string[], remove?: string[], bu
 					<ListEditor
 						:items="paths.custom"
 						:label="t(APP_ID, 'Add a path')"
-						:placeholder="t(APP_ID, 'e.g. {example}', { example: '/old-admin/*' }, undefined, { escape: false, sanitize: false })"
+						:placeholder="t(APP_ID, 'e.g. {example}', { example: '/old-admin/*' })"
 						:validate="validate"
 						:normalise="(value) => value.trim().toLowerCase()"
 						:emptyText="t(APP_ID, 'None yet. A path matches exactly, or as a prefix when it ends with *.')"
 						:max="paths.max"
 						:busy="busy === 'list'"
 						:error="error"
-						@add="save('list', { add: $event }, t(APP_ID, 'Added: {paths}', { paths: $event.join(', ') }, undefined, { escape: false, sanitize: false }))"
-						@remove="save('list', { remove: [$event] }, t(APP_ID, 'Removed: {path}', { path: $event }, undefined, { escape: false, sanitize: false }))" />
+						@add="save('list', { add: $event }, t(APP_ID, 'Added: {paths}', { paths: $event.join(', ') }))"
+						@remove="save('list', { remove: [$event] }, t(APP_ID, 'Removed: {path}', { path: $event }))" />
 				</div>
 			</div>
 			<div :class="[$style.column, $style.snippets]">
@@ -204,7 +195,7 @@ async function save(key: string, change: { add?: string[], remove?: string[], bu
 						</template>
 					</div>
 					<NcNoteCard v-if="paths.snippetsSkipped.length > 0" type="info">
-						{{ t(APP_ID, 'These paths contain characters that are not put into a web server configuration automatically: {paths}. Add them by hand if you need them.', { paths: paths.snippetsSkipped.join(' ') }, undefined, { escape: false, sanitize: false }) }}
+						{{ t(APP_ID, 'These paths contain characters that are not put into a web server configuration automatically: {paths}. Add them by hand if you need them.', { paths: paths.snippetsSkipped.join(' ') }) }}
 					</NcNoteCard>
 					<p :class="$style.hint">
 						{{ t(APP_ID, 'The snippet changes when you change the paths above. Reload the web server after you update it.') }}
@@ -219,21 +210,21 @@ async function save(key: string, change: { add?: string[], remove?: string[], bu
 .columns {
 	display: grid;
 	grid-template-columns: repeat(auto-fit, minmax(min(100%, 420px), 1fr));
-	gap: calc(var(--default-grid-baseline) * 6);
+	gap: var(--ids-space-6);
 	align-items: start;
 }
 
 .column {
 	display: flex;
 	flex-direction: column;
-	gap: calc(var(--default-grid-baseline) * 4);
+	gap: var(--ids-space-4);
 	min-width: 0;
 }
 
 .switches {
 	display: flex;
 	flex-direction: column;
-	gap: calc(var(--default-grid-baseline) * 3);
+	gap: var(--ids-space-3);
 }
 
 .builtin {
@@ -244,7 +235,7 @@ async function save(key: string, change: { add?: string[], remove?: string[], bu
 .builtin__list {
 	display: grid;
 	grid-template-columns: repeat(auto-fill, minmax(min(100%, 340px), 1fr));
-	gap: 0 calc(var(--default-grid-baseline) * 5);
+	gap: 0 var(--ids-space-5);
 	margin: 0;
 	padding: 0;
 }
@@ -252,8 +243,8 @@ async function save(key: string, change: { add?: string[], remove?: string[], bu
 .builtin__item {
 	display: grid;
 	grid-template-columns: minmax(0, 9em) minmax(0, 1fr);
-	gap: calc(var(--default-grid-baseline) * 3);
-	padding-block: calc(var(--default-grid-baseline) * 2);
+	gap: var(--ids-space-3);
+	padding-block: var(--ids-space-2);
 	border-top: 1px solid var(--color-border);
 }
 
@@ -278,13 +269,13 @@ async function save(key: string, change: { add?: string[], remove?: string[], bu
 .custom {
 	display: flex;
 	flex-direction: column;
-	gap: calc(var(--default-grid-baseline) * 3);
-	padding-top: calc(var(--default-grid-baseline) * 4);
+	gap: var(--ids-space-3);
+	padding-top: var(--ids-space-4);
 	border-top: 1px solid var(--color-border);
 }
 
 .snippets {
-	gap: calc(var(--default-grid-baseline) * 3);
+	gap: var(--ids-space-3);
 }
 
 .subheading {
@@ -300,17 +291,17 @@ async function save(key: string, change: { add?: string[], remove?: string[], bu
 }
 
 .hint {
+	composes: muted from '../../styles/shared.module.css';
 	display: flex;
-	gap: calc(var(--default-grid-baseline) * 2);
+	gap: var(--ids-space-2);
 	margin: 0;
-	color: var(--color-text-maxcontrast);
 	font-size: 0.9em;
 }
 
 @media (max-width: 600px) {
 	.builtin__item {
 		grid-template-columns: minmax(0, 1fr);
-		gap: calc(var(--default-grid-baseline) * 1);
+		gap: var(--ids-space-1);
 	}
 }
 </style>

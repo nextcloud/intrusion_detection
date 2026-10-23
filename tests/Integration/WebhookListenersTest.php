@@ -9,7 +9,8 @@ declare(strict_types=1);
 
 namespace OCA\IntrusionDetection\Tests\Integration;
 
-use OCA\IntrusionDetection\Check\Checks\CredentialStuffing;
+use OCA\IntrusionDetection\Check\Checks\CredentialStuffing\CredentialStuffing;
+use OCA\IntrusionDetection\Config\GlobalSettings;
 use OCA\IntrusionDetection\Db\Detection;
 use OCA\IntrusionDetection\Event\BanCreatedEvent;
 use OCA\IntrusionDetection\Event\BanLiftedEvent;
@@ -66,6 +67,7 @@ class WebhookListenersTest extends IntegrationTestCase {
 		$webhook = $mapper->addWebhookListener(null, 'admin', 'POST', 'https://siem.example.com/hook', DetectionCreatedEvent::class, ['event.severity' => 'high'], null, null, AuthMethod::None, null);
 		$this->webhooks[] = $webhook->getId();
 
+		$this->settingsEditor()->setGlobal(GlobalSettings::EVENTS_INCLUDE_IP, true);
 		$listener = Server::get(WebhooksEventListener::class);
 		$listener->handle(new DetectionCreatedEvent($this->detection('high')));
 		$listener->handle(new DetectionCreatedEvent($this->detection('low')));
@@ -86,14 +88,13 @@ class WebhookListenersTest extends IntegrationTestCase {
 	}
 
 	private function detection(string $severity): Detection {
-		$detection = new Detection();
-		$detection->setId(7);
+		$detection = Detection::fromRow(['id' => '7']);
 		$detection->setCheckId(CredentialStuffing::ID);
 		$detection->setSeverity($severity);
 		$detection->setEnforced(true);
 		$detection->setIp('203.0.113.7');
 		$detection->setActionList([['type' => 'ban', 'enforced' => true]]);
-		$detection->setCreatedAt(time());
+		$detection->setCreatedTime(time());
 		$detection->setLastSeenAt(time());
 		$detection->setHits(1);
 		return $detection;

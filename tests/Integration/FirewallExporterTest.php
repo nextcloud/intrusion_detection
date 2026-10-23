@@ -12,10 +12,8 @@ namespace OCA\IntrusionDetection\Tests\Integration;
 use OCA\IntrusionDetection\AppInfo\Application;
 use OCA\IntrusionDetection\BackgroundJob\FirewallExportJob;
 use OCA\IntrusionDetection\Config\GlobalSettings;
-use OCA\IntrusionDetection\Config\Settings;
 use OCA\IntrusionDetection\Db\Ban;
 use OCA\IntrusionDetection\Db\BanMapper;
-use OCA\IntrusionDetection\Db\StateMapper;
 use OCA\IntrusionDetection\Event\BanCreatedEvent;
 use OCA\IntrusionDetection\Event\BanLiftedEvent;
 use OCA\IntrusionDetection\Export\ExportDirectory;
@@ -24,6 +22,7 @@ use OCA\IntrusionDetection\Export\FirewallExporter;
 use OCA\IntrusionDetection\Listener\FirewallExportListener;
 use OCA\IntrusionDetection\Net\ProtectedRanges;
 use OCA\IntrusionDetection\Net\ServerAddresses;
+use OCA\IntrusionDetection\State\AppState;
 use OCA\IntrusionDetection\Tests\Unit\Export\ExportDirectoryTest;
 use OCP\AppFramework\Utility\ITimeFactory;
 use OCP\BackgroundJob\IJobList;
@@ -38,15 +37,13 @@ class FirewallExporterTest extends IntegrationTestCase {
 	private int $now = 1792490400;
 	private string $base;
 	private ?string $exportDir;
-	private Settings $settings;
 
 	protected function setUp(): void {
 		parent::setUp();
 		$this->base = sys_get_temp_dir() . '/ids-exporter-' . bin2hex(random_bytes(4));
 		mkdir($this->base . '/export', 0o750, true);
 		$this->exportDir = $this->base . '/export';
-		$this->settings = Server::get(Settings::class);
-		$this->settings->setGlobal(GlobalSettings::EXPORT_FORMATS, ['txt', 'nft', 'ipset', 'log']);
+		$this->settingsEditor()->setGlobal(GlobalSettings::EXPORT_FORMATS, ['txt', 'nft', 'ipset', 'log']);
 	}
 
 	protected function tearDown(): void {
@@ -66,7 +63,7 @@ class FirewallExporterTest extends IntegrationTestCase {
 	}
 
 	public function testNothingIsWrittenWithoutAFormat(): void {
-		$this->settings->setGlobal(GlobalSettings::EXPORT_FORMATS, []);
+		$this->settingsEditor()->setGlobal(GlobalSettings::EXPORT_FORMATS, []);
 		$this->exporter()->banChanged($this->ban('203.0.113.7/32', 3600), false);
 		$this->assertSame([], $this->files());
 	}
@@ -156,13 +153,13 @@ class FirewallExporterTest extends IntegrationTestCase {
 	}
 
 	public function testChangingTheFormatsRewritesAtTheNextJobRun(): void {
-		$this->settings->setGlobal(GlobalSettings::EXPORT_FORMATS, ['txt']);
+		$this->settingsEditor()->setGlobal(GlobalSettings::EXPORT_FORMATS, ['txt']);
 		$this->ban('203.0.113.7/32', 3600);
 		$exporter = $this->exporter();
 		$exporter->write();
 		$this->assertSame(['bans.txt'], $this->files());
 
-		$this->settings->setGlobal(GlobalSettings::EXPORT_FORMATS, ['txt', 'nft']);
+		$this->settingsEditor()->setGlobal(GlobalSettings::EXPORT_FORMATS, ['txt', 'nft']);
 		$this->assertTrue($exporter->writeIfDue());
 		$this->assertSame(['bans.nft', 'bans.txt'], $this->files());
 		$this->assertFalse($exporter->writeIfDue());
@@ -191,7 +188,7 @@ class FirewallExporterTest extends IntegrationTestCase {
 		$exporter->write();
 		$this->assertStringContainsString('203.0.113.7', $this->read('bans.nft'));
 
-		$this->settings->setGlobal(GlobalSettings::ENABLED, false);
+		$this->settingsEditor()->setGlobal(GlobalSettings::ENABLED, false);
 		$this->assertTrue($exporter->writeIfDue(), 'Switching protection off rewrites the files');
 		$this->assertStringNotContainsString('203.0.113.7', $this->read('bans.nft'));
 		$this->assertStringNotContainsString('203.0.113.7', $this->read('bans.txt'));
@@ -199,7 +196,7 @@ class FirewallExporterTest extends IntegrationTestCase {
 		$exporter->banChanged($this->ban('198.51.100.9/32', 3600), false);
 		$this->assertFileDoesNotExist($this->exportDir . '/bans.log', 'Nothing is logged either');
 
-		$this->settings->setGlobal(GlobalSettings::ENABLED, true);
+		$this->settingsEditor()->setGlobal(GlobalSettings::ENABLED, true);
 		$this->assertTrue($exporter->writeIfDue(), 'And switching it on again');
 		$this->assertStringContainsString('203.0.113.7', $this->read('bans.nft'));
 	}
@@ -326,7 +323,7 @@ class FirewallExporterTest extends IntegrationTestCase {
 		$ban->setBanKey(explode('/', $cidr)[0]);
 		$ban->setLevel(1);
 		$ban->setCheckId('trap_url');
-		$ban->setCreatedAt($this->now);
+		$ban->setCreatedTime($this->now);
 		$ban->setExpiresAt($this->now + $duration);
 		return Server::get(BanMapper::class)->insert($ban);
 	}
@@ -341,9 +338,9 @@ class FirewallExporterTest extends IntegrationTestCase {
 		$config->method('getSystemValue')->willReturn([]);
 		return new FirewallExporter(
 			new ExportDirectory($config),
-			$this->settings,
+			$this->appSettings(),
 			Server::get(BanMapper::class),
-			Server::get(StateMapper::class),
+			Server::get(AppState::class),
 			new ProtectedRanges($this->appConfig, Server::get(ServerAddresses::class)),
 			$this->time(),
 			Server::get(ISecureRandom::class),

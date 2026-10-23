@@ -14,25 +14,32 @@ use OC\Core\Controller\LostController;
 use OC\Security\RateLimiting\Limiter;
 use OCA\IntrusionDetection\AppInfo\Application;
 use OCA\IntrusionDetection\BackgroundJob\Cleanup;
-use OCA\IntrusionDetection\Check\Checks\ResetProbing;
-use OCA\IntrusionDetection\Check\Checks\ResetProbingDetector;
-use OCA\IntrusionDetection\Check\Mode;
-use OCA\IntrusionDetection\Check\ResponseType;
+use OCA\IntrusionDetection\Check\Checks\ResetProbing\ResetProbing;
+use OCA\IntrusionDetection\Check\Checks\ResetProbing\ResetProbingFacts;
+use OCA\IntrusionDetection\Check\Checks\ResetProbing\ResetProbingRule;
 use OCA\IntrusionDetection\Config\GlobalSettings;
+use OCA\IntrusionDetection\Crypto\Fingerprinter;
 use OCA\IntrusionDetection\Db\AttemptMapper;
 use OCA\IntrusionDetection\Db\BanMapper;
-use OCA\IntrusionDetection\Db\ResetSuppressionMapper;
+use OCA\IntrusionDetection\Definition\Mode;
+use OCA\IntrusionDetection\Definition\ResponseType;
 use OCA\IntrusionDetection\Detection\AttemptRecorder;
 use OCA\IntrusionDetection\Explain\NarrativeBuilder;
+use OCA\IntrusionDetection\KnownDevice\Db\KnownDevice;
+use OCA\IntrusionDetection\KnownDevice\KnownDevices;
 use OCA\IntrusionDetection\Listener\ResetRequestedListener;
+use OCA\IntrusionDetection\LoginHistory\Db\LoginHistoryMapper;
+use OCA\IntrusionDetection\LoginHistory\LoginHistory;
+use OCA\IntrusionDetection\Net\SourceKey;
+use OCA\IntrusionDetection\Response\Db\ResetSuppressionMapper;
 use OCA\IntrusionDetection\Response\ResetMailSuppressor;
 use OCA\IntrusionDetection\Response\ResponseOutcome;
+use OCA\IntrusionDetection\Tests\Unit\Cache\FixedCaches;
 use OCP\AppFramework\Http\JSONResponse;
 use OCP\AppFramework\Services\IInitialState;
 use OCP\AppFramework\Utility\ITimeFactory;
 use OCP\Defaults;
 use OCP\Encryption\IManager as IEncryptionManager;
-use OCP\ICacheFactory;
 use OCP\IConfig;
 use OCP\IURLGenerator;
 use OCP\IUser;
@@ -56,21 +63,50 @@ class ResetProbingTest extends RequestEventTestCase {
 	/** @var list<string> the addresses reset emails were sent to */
 	private array $sentTo = [];
 	private BanMapper $bans;
+	/** The account whose remembered device the requests come from */
+	private ?string $rememberedFor = null;
 
 	protected function setUp(): void {
 		parent::setUp();
 		$this->bans = Server::get(BanMapper::class);
+		$devices = $this->createMock(KnownDevices::class);
+		$devices->method('recognise')->willReturnCallback(fn (string $uid): ?KnownDevice => $uid === $this->rememberedFor
+			? new KnownDevice(1, $uid, 'firefox', 'linux', 'Firefox on Linux', null, time(), time())
+			: null);
 		$this->listen(PasswordResetRequestedEvent::class, new ResetRequestedListener(
-			$this->settings,
+			$this->dispatcher(),
 			$this->addresses,
 			Server::get(AttemptRecorder::class),
-			Server::get(ResetProbingDetector::class),
 			$this->suppressor(),
 			Server::get(IUserManager::class),
 			$this->request,
 			Server::get(LoggerInterface::class),
 			Server::get(\OCA\IntrusionDetection\Login\EmailAccounts::class),
+			$devices,
+			Server::get(LoginHistory::class),
+			Server::get(ITimeFactory::class),
 		));
+	}
+
+	public function testTheAccountHolderGetsTheEmailFromAnAddressTheyConfirmedALoginFrom(): void {
+		$held = $this->user('ids-reset-holder', 'holder@example.com');
+		$this->suppressor()->suppress($held->getUID(), time() + 3600);
+		Server::get(LoginHistoryMapper::class)->insert($held->getUID(), time() - 86400, SourceKey::fromIp('198.51.100.30'), null, LoginHistory::METHOD_PASSWORD, false, 'second_factor', null, null);
+		Server::get(LoginHistoryMapper::class)->insert($held->getUID(), time() - 86400, SourceKey::fromIp('198.51.100.31'), null, LoginHistory::METHOD_PASSWORD, false, LoginHistory::CONFIRMED_BY_NONE, null, null);
+
+		$this->askForReset('198.51.100.31', $held->getUID());
+		$this->assertSame([], $this->sentTo, 'A login with the password alone proves nothing');
+		$this->askForReset('198.51.100.30', $held->getUID());
+		$this->assertSame(['holder@example.com'], $this->sentTo, 'The address the account confirmed a login from gets the email');
+	}
+
+	public function testTheAccountHolderGetsTheEmailOnARememberedDevice(): void {
+		$held = $this->user('ids-reset-device', 'device@example.com');
+		$this->suppressor()->suppress($held->getUID(), time() + 3600);
+		$this->rememberedFor = $held->getUID();
+
+		$this->askForReset('198.51.100.32', $held->getUID());
+		$this->assertSame(['device@example.com'], $this->sentTo);
 	}
 
 	public function testTheAnswerIsTheSameWhetherOrNotTheEmailIsSent(): void {
@@ -94,7 +130,7 @@ class ResetProbingTest extends RequestEventTestCase {
 	}
 
 	public function testAFloodHoldsBackFurtherEmailsWithTheSameAnswer(): void {
-		$this->settings->setParam(ResetProbing::ID, 'flood_min_requests', 3);
+		$this->settingsEditor()->setParam(ResetProbing::ID, 'flood_min_requests', 3);
 		$victim = $this->user('ids-reset-victim', 'victim@example.com');
 		$first = $this->askForReset('203.0.113.1', $victim->getUID());
 		$this->askForReset('203.0.113.2', 'victim@example.com');
@@ -113,8 +149,10 @@ class ResetProbingTest extends RequestEventTestCase {
 		$this->assertSame($victim->getUID(), $detection->getUid());
 		$this->assertNull($detection->getIp());
 		$this->assertSame(2, $detection->getHits());
-		$this->assertSame(ResetProbing::RULE_FLOOD, $detection->getExplanationData()['facts']['rule']);
-		$this->assertSame(4, $detection->getExplanationData()['facts']['requests']);
+		$facts = ResetProbingFacts::fromArray($detection->getExplanationData()['facts']);
+		$this->assertSame(ResetProbingRule::Flood, $facts->rule);
+		$this->assertSame(4, $facts->requests);
+		$this->assertSame(4, $facts->sources);
 		$actions = [];
 		foreach ($detection->getActionList() as $action) {
 			$actions[$action['type']] = $action;
@@ -128,7 +166,6 @@ class ResetProbingTest extends RequestEventTestCase {
 
 		$l = Server::get(IFactory::class)->get(Application::APP_ID, 'en');
 		$narrative = Server::get(NarrativeBuilder::class)->build($detection, $l);
-		$this->assertStringContainsString('someone asked 4 times for password reset emails for the account ' . $victim->getUID() . ', from 4 different addresses', implode(' ', $narrative->happened));
 		$this->assertStringContainsString('no password reset emails are sent to ' . $victim->getUID(), implode(' ', $narrative->done));
 
 		$notice = Server::get(ResetProbing::class)->userNotice($detection, $l);
@@ -141,7 +178,7 @@ class ResetProbingTest extends RequestEventTestCase {
 	}
 
 	public function testOnceTheTimeIsUsedUpTheResponseSaysEmailsAreSentAgain(): void {
-		$this->settings->setParam(ResetProbing::ID, 'flood_min_requests', 3);
+		$this->settingsEditor()->setParam(ResetProbing::ID, 'flood_min_requests', 3);
 		$victim = $this->user('ids-reset-victim', 'victim@example.com');
 		Server::get(ResetSuppressionMapper::class)->suppress($victim->getUID(), null, time() - ResetMailSuppressor::MAX_SUPPRESSION - 60, time() - 60);
 		for ($i = 1; $i <= 3; $i++) {
@@ -167,11 +204,11 @@ class ResetProbingTest extends RequestEventTestCase {
 		$this->askForReset('198.51.100.7', 'NOBODY-D');
 		$detections = $this->detectionsOf(ResetProbing::ID);
 		$this->assertCount(1, $detections);
-		$facts = $detections[0]->getExplanationData()['facts'];
-		$this->assertSame(ResetProbing::RULE_ENUMERATION, $facts['rule']);
-		$this->assertSame(5, $facts['inputs']);
-		$this->assertSame(6, $facts['requests']);
-		$this->assertSame([$existing->getUID()], $facts['targets'], 'The admin learns which of the tried accounts exist');
+		$facts = ResetProbingFacts::fromArray($detections[0]->getExplanationData()['facts']);
+		$this->assertSame(ResetProbingRule::Enumeration, $facts->rule);
+		$this->assertSame(5, $facts->inputs);
+		$this->assertSame(6, $facts->requests);
+		$this->assertSame([$existing->getUID()], $facts->common->targets, 'The admin learns which of the tried accounts exist');
 		$this->assertSame([ResponseType::Ban->value], array_column($detections[0]->getActionList(), 'type'));
 		$this->assertNotSame([], $this->bans->findActiveForKeys(['198.51.100.7'], time()));
 		$this->assertStringNotContainsString('nobody', json_encode($detections[0]->getExplanationData(), JSON_THROW_ON_ERROR), 'What was typed is never stored');
@@ -184,7 +221,7 @@ class ResetProbingTest extends RequestEventTestCase {
 		}
 		$detections = $this->detectionsOf(ResetProbing::ID);
 		$this->assertCount(1, $detections);
-		$this->assertSame(ResetProbing::RULE_FLOOD, $detections[0]->getExplanationData()['facts']['rule']);
+		$this->assertSame(ResetProbingRule::Flood, ResetProbingFacts::fromArray($detections[0]->getExplanationData()['facts'])->rule);
 		$this->assertSame([], $this->bans->findActiveForKeys(['198.51.100.7'], time()));
 	}
 
@@ -209,7 +246,7 @@ class ResetProbingTest extends RequestEventTestCase {
 	}
 
 	public function testOffSkipsAllWork(): void {
-		$this->settings->setMode(ResetProbing::ID, Mode::Off);
+		$this->settingsEditor()->setMode(ResetProbing::ID, Mode::Off);
 		$victim = $this->user('ids-reset-victim', 'victim@example.com');
 		$this->suppressor()->suppress($victim->getUID(), time() + 3600);
 		for ($i = 0; $i < 6; $i++) {
@@ -221,7 +258,7 @@ class ResetProbingTest extends RequestEventTestCase {
 	}
 
 	public function testObserveRecordsWhatItWouldHaveDone(): void {
-		$this->settings->setGlobal(GlobalSettings::LEARNING_UNTIL, time() + 86400);
+		$this->settingsEditor()->setGlobal(GlobalSettings::LEARNING_UNTIL, time() + 86400);
 		$victim = $this->user('ids-reset-victim', 'victim@example.com');
 		for ($i = 1; $i <= 5; $i++) {
 			$this->askForReset('203.0.113.' . $i, $victim->getUID());
@@ -331,13 +368,13 @@ class ResetProbingTest extends RequestEventTestCase {
 	 */
 	private function suppressor(?\Closure $clock = null): ResetMailSuppressor {
 		// Without a cache, so that suppressions set by one test are seen at once and not by the next.
-		$cacheFactory = $this->createMock(ICacheFactory::class);
+		$cacheFactory = FixedCaches::none();
 		$time = Server::get(ITimeFactory::class);
 		if ($clock !== null) {
 			$time = $this->createMock(ITimeFactory::class);
 			$time->method('getTime')->willReturnCallback($clock);
 		}
-		return new ResetMailSuppressor(Server::get(ResetSuppressionMapper::class), $time, $cacheFactory);
+		return new ResetMailSuppressor(Server::get(ResetSuppressionMapper::class), $time, $cacheFactory, Server::get(Fingerprinter::class));
 	}
 
 	protected function user(string $prefix, ?string $email = null): IUser {

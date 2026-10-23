@@ -4,7 +4,7 @@
 -->
 
 <script setup lang="ts">
-import type { SecureAccount, SecureAccountStepId } from '../secureAccountTypes.ts'
+import type { SecureAccountStepId } from '../secureAccountTypes.ts'
 
 import {
 	mdiCheck,
@@ -15,12 +15,10 @@ import {
 	mdiKeyOutline,
 	mdiOpenInNew,
 	mdiShareVariantOutline,
-	mdiShieldAccountOutline,
 	mdiShieldCheckOutline,
 	mdiTwoFactorAuthentication,
 } from '@mdi/js'
-import { n, t } from '@nextcloud/l10n'
-import { computed, onMounted, ref, watch } from 'vue'
+import { computed, ref, watch } from 'vue'
 import NcAppContent from '@nextcloud/vue/components/NcAppContent'
 import NcButton from '@nextcloud/vue/components/NcButton'
 import NcContent from '@nextcloud/vue/components/NcContent'
@@ -32,29 +30,32 @@ import NcNoteCard from '@nextcloud/vue/components/NcNoteCard'
 import NcPasswordField from '@nextcloud/vue/components/NcPasswordField'
 import SkeletonBlock from '../components/common/SkeletonBlock.vue'
 import TimeStamp from '../components/common/TimeStamp.vue'
+import ChecklistHero from '../components/secure/ChecklistHero.vue'
 import StepCard from '../components/secure/StepCard.vue'
+import { useAction } from '../composables/useAction.ts'
 import { useAnnouncer } from '../composables/useAnnouncer.ts'
-import { errorMessage, isCancelled } from '../services/api.ts'
-import { logger } from '../services/logger.ts'
 import {
-	changePassword,
-	completeStep,
-	deleteShare,
-	dismissSecureAccount,
-	fetchSecureAccount,
-	revokeSession,
-	startSecureAccount,
-} from '../services/secureAccount.ts'
+	changeAccountPassword,
+	completeChecklistStep,
+	deleteAccountShare,
+	dismissChecklist,
+	revokeAccountSession,
+	startChecklist,
+	useSecureAccount,
+} from '../stores/secureAccount.ts'
 import { APP_ID } from '../utils/format.ts'
+import { t } from '../utils/l10n.ts'
 
-const data = ref<SecureAccount | null>(null)
-const loadError = ref<string | null>(null)
-const busy = ref<string | null>(null)
-const stepError = ref<{ step: string, message: string } | null>(null)
+const { data, error } = useSecureAccount({ failure: () => t(APP_ID, 'The checklist could not be loaded. Please reload the page.') })
+/** A failed reload after a change keeps the checklist shown */
+const loadError = computed(() => data.value === null ? error.value : null)
+const { busy, error: changeError, run: runChange } = useAction()
+/** The change that ran last, whose error is shown at its step */
+const lastChange = ref('')
 const confirmDismiss = ref(false)
 const oldPassword = ref('')
 const newPassword = ref('')
-const { message: announcement, announce } = useAnnouncer()
+const { message: announcement } = useAnnouncer()
 
 const progress = computed(() => data.value?.progress ?? null)
 const finished = computed(() => progress.value !== null && !progress.value.active && progress.value.closedBy === 'done')
@@ -64,7 +65,6 @@ const numbers = computed(() => {
 	let count = 0
 	return Object.fromEntries((progress.value?.steps ?? []).map((step) => [step.id, step.skipped ? 0 : ++count]))
 })
-const applicable = computed(() => (progress.value?.steps ?? []).filter((step) => !step.skipped))
 
 /** One step is open at a time: the first one still to do, until the user opens another */
 const openStep = ref<SecureAccountStepId | null>(null)
@@ -76,19 +76,6 @@ watch(() => (progress.value?.steps ?? []).map((step) => `${step.id}:${step.done}
 	}
 }, { immediate: true })
 
-const lead = computed(() => {
-	switch (progress.value?.reason) {
-		case 'reenabled':
-			return t(APP_ID, 'Your administrator enabled your account again after it was locked. Go through these steps to make sure nobody else can get in.')
-		case 'denied':
-			return t(APP_ID, 'You said that something on your account was not you. Nextcloud already ended the sessions involved. Go through these steps to make sure nobody else can get in.')
-		case 'detection':
-			return t(APP_ID, 'Nextcloud noticed signs that someone else may have had your password. Go through these steps to make sure nobody else can get in.')
-		default:
-			return t(APP_ID, 'Go through these steps to make sure nobody else can get into your account.')
-	}
-})
-
 const STEP_TEXTS: Record<SecureAccountStepId, { heading: () => string, icon: string }> = {
 	password: { heading: () => t(APP_ID, 'Change your password'), icon: mdiKeyOutline },
 	sessions: { heading: () => t(APP_ID, 'Check your devices and sessions'), icon: mdiDevices },
@@ -99,50 +86,23 @@ const STEP_TEXTS: Record<SecureAccountStepId, { heading: () => string, icon: str
 }
 
 /**
- * Load the checklist (again).
- */
-async function load() {
-	loadError.value = null
-	try {
-		data.value = await fetchSecureAccount()
-	} catch (e) {
-		logger.error('Could not load the checklist', { error: e })
-		loadError.value = errorMessage(e, t(APP_ID, 'The checklist could not be loaded. Please reload the page.'))
-	}
-}
-
-/**
- * Run a change and show the checklist as it is afterwards.
+ * Run a change; the checklist then shows as it is afterwards.
  *
  * @param key - What is busy, for the loading state of its button
  * @param action - The change
  * @param fallback - What to say when it fails
  * @param done - What to announce when it worked
  */
-async function run(key: string, action: () => Promise<SecureAccount | void>, fallback: string, done?: string) {
-	busy.value = key
-	stepError.value = null
-	try {
-		const result = await action()
-		data.value = result ?? await fetchSecureAccount()
-		if (done) {
-			announce(done)
-		}
-	} catch (e) {
-		if (!isCancelled(e)) {
-			logger.error('Could not update the checklist', { error: e })
-			stepError.value = { step: key, message: errorMessage(e, fallback) }
-		}
-	} finally {
-		busy.value = null
-	}
+function run(key: string, action: () => Promise<void>, fallback: string, done?: string) {
+	lastChange.value = key
+	return runChange(key, action, { done, fallback, inline: true })
 }
 
 /**
  * @param step - The step the user checked
  */
 function confirmStep(step: SecureAccountStepId) {
-	run('step:' + step, () => completeStep(step), t(APP_ID, 'The step could not be saved. Please try again.'), t(APP_ID, 'Step done.'))
+	run('step:' + step, () => completeChecklistStep(step), t(APP_ID, 'The step could not be saved. Please try again.'), t(APP_ID, 'Step done.'))
 }
 
 /**
@@ -150,7 +110,7 @@ function confirmStep(step: SecureAccountStepId) {
  */
 function submitPassword() {
 	run('step:password', async () => {
-		await changePassword(oldPassword.value, newPassword.value)
+		await changeAccountPassword(oldPassword.value, newPassword.value)
 		oldPassword.value = ''
 		newPassword.value = ''
 	}, t(APP_ID, 'Your password could not be changed. Check your current password and try again.'), t(APP_ID, 'Your password was changed.'))
@@ -161,7 +121,7 @@ function submitPassword() {
  * @param name - Its name, for the announcement
  */
 function revoke(id: number, name: string) {
-	run('session:' + id, () => revokeSession(id), t(APP_ID, 'It could not be revoked. Please try again.'), t(APP_ID, '"{name}" was revoked.', { name }))
+	run('session:' + id, () => revokeAccountSession(id), t(APP_ID, 'It could not be revoked. Please try again.'), t(APP_ID, '"{name}" was revoked.', { name }))
 }
 
 /**
@@ -169,7 +129,7 @@ function revoke(id: number, name: string) {
  * @param name - The shared item, for the announcement
  */
 function removeShare(id: string, name: string) {
-	run('share:' + id, () => deleteShare(id), t(APP_ID, 'The share could not be deleted. Please try again.'), t(APP_ID, 'The share of "{name}" was deleted.', { name }))
+	run('share:' + id, () => deleteAccountShare(id), t(APP_ID, 'The share could not be deleted. Please try again.'), t(APP_ID, 'The share of "{name}" was deleted.', { name }))
 }
 
 /**
@@ -178,11 +138,11 @@ function removeShare(id: string, name: string) {
  * @param id - The step
  */
 function errorFor(id: SecureAccountStepId): string | null {
-	const key = stepError.value?.step ?? ''
+	const key = lastChange.value
 	const mine = key === 'step:' + id
 		|| (id === 'sessions' && key.startsWith('session:'))
 		|| (id === 'shares' && key.startsWith('share:'))
-	return mine ? stepError.value!.message : null
+	return mine ? changeError.value : null
 }
 
 /**
@@ -208,12 +168,10 @@ const dismissButtons = computed(() => [
 		label: t(APP_ID, 'Close the checklist'),
 		variant: 'primary' as const,
 		callback: () => {
-			run('dismiss', dismissSecureAccount, t(APP_ID, 'The checklist could not be closed. Please try again.'), t(APP_ID, 'The checklist was closed.'))
+			run('dismiss', dismissChecklist, t(APP_ID, 'The checklist could not be closed. Please try again.'), t(APP_ID, 'The checklist was closed.'))
 		},
 	},
 ])
-
-onMounted(load)
 </script>
 
 <template>
@@ -233,52 +191,12 @@ onMounted(load)
 				<NcNoteCard v-else-if="loadError" type="error" :text="loadError" />
 
 				<template v-else-if="data && progress">
-					<header :class="[$style.hero, finished ? $style.hero_done : null]">
-						<span :class="$style.hero__icon" aria-hidden="true">
-							<NcIconSvgWrapper :path="finished ? mdiShieldCheckOutline : mdiShieldAccountOutline" :size="32" />
-						</span>
-						<div :class="$style.hero__text">
-							<h2 :class="$style.hero__title">
-								{{ t(APP_ID, 'Secure my account') }}
-							</h2>
-							<p v-if="progress.active" :class="$style.hero__lead">
-								{{ lead }}
-							</p>
-							<p v-else-if="finished" :class="$style.hero__lead">
-								{{ t(APP_ID, 'All done. Your account is as safe as you can make it. Thank you for checking.') }}
-							</p>
-							<p v-else :class="$style.hero__lead">
-								{{ t(APP_ID, 'If you think someone else got into your account, this checklist guides you through securing it: a new password, your devices, two-factor authentication, your email address and what you shared.') }}
-							</p>
-							<div v-if="progress.active || finished" :class="$style.hero__progress">
-								<span :class="$style.hero__count">
-									{{ n(APP_ID, '{done} of %n step done', '{done} of %n steps done', progress.total, { done: progress.done }) }}
-								</span>
-								<span
-									:class="$style.hero__bar"
-									role="progressbar"
-									:aria-label="t(APP_ID, 'Progress of the checklist')"
-									aria-valuemin="0"
-									:aria-valuemax="progress.total"
-									:aria-valuenow="progress.done"
-									data-test="checklist-progress">
-									<span
-										v-for="step in applicable"
-										:key="step.id"
-										:class="[$style.hero__segment, { [$style.hero__segment_done]: step.done }]" />
-								</span>
-							</div>
-						</div>
-						<div v-if="!progress.active" :class="$style.hero__actions">
-							<NcButton variant="primary" :disabled="busy !== null" @click="run('start', startSecureAccount, t(APP_ID, 'The checklist could not be started. Please try again.'))">
-								<template #icon>
-									<NcLoadingIcon v-if="busy === 'start'" :size="20" />
-									<NcIconSvgWrapper v-else :path="mdiShieldAccountOutline" />
-								</template>
-								{{ finished ? t(APP_ID, 'Go through it again') : t(APP_ID, 'Start the checklist') }}
-							</NcButton>
-						</div>
-					</header>
+					<ChecklistHero
+						:progress="progress"
+						:finished="finished"
+						:starting="busy === 'start'"
+						:disabled="busy !== null"
+						@start="run('start', startChecklist, t(APP_ID, 'The checklist could not be started. Please try again.'))" />
 
 					<NcEmptyContent
 						v-if="!progress.active && !finished"
@@ -493,7 +411,7 @@ onMounted(load)
 							{{ t(APP_ID, 'Close the checklist') }}
 						</NcButton>
 					</footer>
-					<NcNoteCard v-if="stepError && stepError.step === 'dismiss'" type="error" :text="stepError.message" />
+					<NcNoteCard v-if="changeError && lastChange === 'dismiss'" type="error" :text="changeError" />
 				</template>
 
 				<NcDialog
@@ -510,111 +428,25 @@ onMounted(load)
 .page {
 	display: flex;
 	flex-direction: column;
-	gap: calc(var(--default-grid-baseline) * 4);
+	gap: var(--ids-space-4);
 	box-sizing: border-box;
 	width: 100%;
 	max-width: 880px;
 	margin: 0 auto;
-	padding: calc(var(--default-grid-baseline) * 8) calc(var(--default-grid-baseline) * 4);
+	padding: var(--ids-space-8) var(--ids-space-4);
 }
 
 .page__skeleton {
 	display: flex;
 	flex-direction: column;
-	gap: calc(var(--default-grid-baseline) * 3);
-}
-
-.hero {
-	display: flex;
-	flex-wrap: wrap;
-	align-items: flex-start;
-	gap: calc(var(--default-grid-baseline) * 5);
-	padding: calc(var(--default-grid-baseline) * 6);
-	border: 1px solid var(--color-border);
-	border-radius: var(--border-radius-container, var(--border-radius-large));
-	background-color: color-mix(in srgb, var(--color-primary-element) 8%, var(--color-main-background));
-}
-
-.hero_done {
-	background-color: color-mix(in srgb, var(--color-success) 12%, var(--color-main-background));
-}
-
-.hero__icon {
-	display: inline-flex;
-	align-items: center;
-	justify-content: center;
-	flex: 0 0 auto;
-	width: 56px;
-	height: 56px;
-	border-radius: 50%;
-	background-color: var(--color-main-background);
-	color: var(--color-primary-element);
-}
-
-.hero_done .hero__icon {
-	color: var(--color-success-text);
-}
-
-.hero__text {
-	display: flex;
-	flex: 1 1 320px;
-	flex-direction: column;
-	gap: calc(var(--default-grid-baseline) * 2);
-	min-width: 0;
-}
-
-.hero__title {
-	margin: 0;
-	font-size: 1.6em;
-	line-height: 1.25;
-}
-
-.hero__lead {
-	margin: 0;
-	max-width: 60ch;
-	line-height: 1.5;
-}
-
-.hero__progress {
-	display: flex;
-	flex-direction: column;
-	gap: calc(var(--default-grid-baseline) * 1.5);
-	max-width: 420px;
-	margin-block-start: calc(var(--default-grid-baseline) * 2);
-}
-
-.hero__count {
-	font-weight: 600;
-}
-
-.hero__bar {
-	display: flex;
-	gap: calc(var(--default-grid-baseline) * 1);
-}
-
-.hero__segment {
-	flex: 1 1 0;
-	height: 8px;
-	border-radius: 4px;
-	background-color: color-mix(in srgb, var(--color-main-text) 14%, var(--color-main-background));
-}
-
-.hero__segment_done {
-	background-color: var(--color-success);
-}
-
-.hero__actions {
-	display: flex;
-	align-items: center;
+	gap: var(--ids-space-3);
 }
 
 .steps {
+	composes: plainList from '../styles/shared.module.css';
 	display: flex;
 	flex-direction: column;
-	gap: calc(var(--default-grid-baseline) * 3);
-	margin: 0;
-	padding: 0;
-	list-style: none;
+	gap: var(--ids-space-3);
 }
 
 .text {
@@ -623,7 +455,7 @@ onMounted(load)
 }
 
 .subheading {
-	margin: calc(var(--default-grid-baseline) * 2) 0 0;
+	margin: var(--ids-space-2) 0 0;
 	font-size: 1em;
 	font-weight: 600;
 }
@@ -631,26 +463,24 @@ onMounted(load)
 .form {
 	display: flex;
 	flex-direction: column;
-	gap: calc(var(--default-grid-baseline) * 3);
+	gap: var(--ids-space-3);
 	max-width: 420px;
 }
 
 .list {
+	composes: plainList from '../styles/shared.module.css';
 	display: flex;
 	flex-direction: column;
-	margin: 0;
-	padding: 0;
 	border: 1px solid var(--color-border);
 	border-radius: var(--border-radius-element);
-	list-style: none;
 }
 
 .row {
 	display: flex;
 	flex-wrap: wrap;
 	align-items: center;
-	gap: calc(var(--default-grid-baseline) * 2) calc(var(--default-grid-baseline) * 3);
-	padding: calc(var(--default-grid-baseline) * 2) calc(var(--default-grid-baseline) * 3);
+	gap: var(--ids-space-2) var(--ids-space-3);
+	padding: var(--ids-space-2) var(--ids-space-3);
 	border-bottom: 1px solid var(--color-border);
 }
 
@@ -675,15 +505,15 @@ onMounted(load)
 }
 
 .row__meta {
+	composes: muted from '../styles/shared.module.css';
 	display: flex;
 	flex-wrap: wrap;
-	gap: 0 calc(var(--default-grid-baseline) * 3);
-	color: var(--color-text-maxcontrast);
+	gap: 0 var(--ids-space-3);
 	font-size: 0.9em;
 }
 
 .badge {
-	padding-inline: calc(var(--default-grid-baseline) * 2);
+	padding-inline: var(--ids-space-2);
 	border-radius: var(--border-radius-element);
 	font-size: 0.85em;
 	font-weight: 600;
@@ -705,26 +535,22 @@ onMounted(load)
 .confirm {
 	display: flex;
 	flex-wrap: wrap;
-	gap: calc(var(--default-grid-baseline) * 2);
+	gap: var(--ids-space-2);
 }
 
 .footer {
+	composes: muted from '../styles/shared.module.css';
 	display: flex;
 	flex-wrap: wrap;
 	align-items: center;
 	justify-content: space-between;
-	gap: calc(var(--default-grid-baseline) * 3);
-	padding: 0 calc(var(--default-grid-baseline) * 2);
-	color: var(--color-text-maxcontrast);
+	gap: var(--ids-space-3);
+	padding: 0 var(--ids-space-2);
 }
 
 @media (max-width: 600px) {
 	.page {
-		padding: calc(var(--default-grid-baseline) * 4);
-	}
-
-	.hero {
-		padding: calc(var(--default-grid-baseline) * 4);
+		padding: var(--ids-space-4);
 	}
 }
 </style>

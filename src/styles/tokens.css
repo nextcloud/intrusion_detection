@@ -1,0 +1,27 @@
+/*!
+ * SPDX-FileCopyrightText: 2026 Nextcloud GmbH and Nextcloud contributors
+ * SPDX-License-Identifier: AGPL-3.0-or-later
+ */
+
+/*
+ * The spacing steps and the focus outline of the app's pages, in steps of
+ * the grid baseline. The page entries import this file.
+ */
+:root {
+	--ids-space-half: calc(var(--default-grid-baseline) / 2);
+	--ids-space-1: var(--default-grid-baseline);
+	--ids-space-1-5: calc(var(--default-grid-baseline) * 1.5);
+	--ids-space-2: calc(var(--default-grid-baseline) * 2);
+	--ids-space-2-5: calc(var(--default-grid-baseline) * 2.5);
+	--ids-space-3: calc(var(--default-grid-baseline) * 3);
+	--ids-space-4: calc(var(--default-grid-baseline) * 4);
+	--ids-space-5: calc(var(--default-grid-baseline) * 5);
+	--ids-space-6: calc(var(--default-grid-baseline) * 6);
+	--ids-space-7: calc(var(--default-grid-baseline) * 7);
+	--ids-space-8: calc(var(--default-grid-baseline) * 8);
+	--ids-space-9: calc(var(--default-grid-baseline) * 9);
+	--ids-space-10: calc(var(--default-grid-baseline) * 10);
+	--ids-space-12: calc(var(--default-grid-baseline) * 12);
+	/* The outline of a focused control */
+	--ids-focus-ring: 2px solid var(--color-main-text);
+}

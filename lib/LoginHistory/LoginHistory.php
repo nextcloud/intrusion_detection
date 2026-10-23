@@ -9,14 +9,17 @@ declare(strict_types=1);
 
 namespace OCA\IntrusionDetection\LoginHistory;
 
-use OCA\IntrusionDetection\Confirm\StepUpState;
-use OCA\IntrusionDetection\Db\LoginHistoryMapper;
-use OCA\IntrusionDetection\KnownDevice\KnownDevice;
-use OCA\IntrusionDetection\Login\LoginGate;
+use OCA\IntrusionDetection\Config\PurgeRetention;
+use OCA\IntrusionDetection\Db\IPurges;
+use OCA\IntrusionDetection\Db\KeyMatch;
+use OCA\IntrusionDetection\Login\CoreSession;
+use OCA\IntrusionDetection\Login\LoginKind;
+use OCA\IntrusionDetection\Login\SessionMarkers;
+use OCA\IntrusionDetection\Login\SessionTokenLinker;
+use OCA\IntrusionDetection\LoginHistory\Db\LoginHistoryMapper;
 use OCA\IntrusionDetection\Net\SourceKey;
 use OCA\IntrusionDetection\Notification\UserMessages;
-use OCA\IntrusionDetection\SessionState\CurrentSession;
-use OCA\IntrusionDetection\SessionState\SessionState;
+use OCA\IntrusionDetection\Response\IAcceptedLogins;
 use OCP\AppFramework\Utility\ITimeFactory;
 
 /**
@@ -25,24 +28,24 @@ use OCP\AppFramework\Utility\ITimeFactory;
  * in and how the login was confirmed. It feeds the personal security page,
  * the incident report and the account takeover check.
  *
- * - A login costs one insert. Its step-up outcome is known by then, because
- *   the step-up listener runs first; a confirmation that follows later on
- *   the verify page updates the row.
+ * - A login costs one insert. Its step-up outcome is known by then: the
+ *   login's step-up step runs first and hands its decision on. A
+ *   confirmation that follows later on the verify page updates the row.
  * - Apps that send a password or an app password with every request would
  *   write a row per request, so these logins are written at most once per
  *   credential (the app password, or the password), network and
  *   HISTORY_INTERVAL, with or without a memory cache: a client that stays
- *   on one network is one row a day. The {@see LoginGate} lets one login
+ *   on one network is one row a day. The {@see \OCA\IntrusionDetection\Login\LoginGate} lets one login
  *   per credential, address and hour through to the indexed check.
  * - Browser sessions get their session token linked on their first request
- *   ({@see \OCA\IntrusionDetection\SessionState\Rules\LoginHistoryRule}),
- *   since core creates the token after the login event. The session marker
+ *   ({@see SessionTokenLinker}), since core creates the token after the
+ *   login event. The session marker
  *   goes then, so that later requests have nothing to check; later updates
  *   of the row find it by the session's token.
  *
  * Never a password, token or session id: only the token's database id.
  */
-class LoginHistory {
+class LoginHistory implements IAcceptedLogins, IPurges {
 	/** The login form */
 	public const METHOD_PASSWORD = 'password';
 	/** An app or script sending the account's password (Basic auth) */
@@ -71,47 +74,75 @@ class LoginHistory {
 
 	/** An app's logins with one credential from one network are one row this long */
 	public const HISTORY_INTERVAL = 86400;
-	/** A confirmation recorded this recently belongs to the login being recorded */
-	private const CONFIRMATION_AGE = 60;
 	/** A session's own login is looked up this far back by its token */
 	private const SESSION_LOOKBACK = 86400;
 
 	public function __construct(
 		private readonly LoginHistoryMapper $mapper,
-		private readonly SessionState $state,
-		private readonly CurrentSession $currentSession,
-		private readonly LoginGate $gate,
+		private readonly SessionMarkers $state,
+		private readonly CoreSession $coreSession,
+		private readonly SessionTokenLinker $linker,
 		private readonly ITimeFactory $timeFactory,
+		private readonly PurgeRetention $retention,
 	) {
+	}
+
+	/**
+	 * The method a kind of login is recorded with, or null for a browser
+	 * session restored from its token, which is no new login.
+	 *
+	 * @return ?self::METHOD_*
+	 */
+	public static function methodOf(LoginKind $kind): ?string {
+		return match ($kind) {
+			LoginKind::FormPassword => self::METHOD_PASSWORD,
+			LoginKind::ClientPassword => self::METHOD_CLIENT_PASSWORD,
+			LoginKind::OtherPassword, LoginKind::Sso => self::METHOD_SSO,
+			LoginKind::AppPasswordBasic => self::METHOD_APP_PASSWORD,
+			LoginKind::Bearer => self::METHOD_TOKEN,
+			LoginKind::RememberMeCookie => self::METHOD_COOKIE,
+			LoginKind::RestoredSession => null,
+		};
+	}
+
+	/**
+	 * Delete the logins past the retention setting of the detections.
+	 */
+	#[\Override]
+	public function purge(int $now): int {
+		return $this->mapper->deleteOlderThan($now - $this->retention->days($now) * 86400);
 	}
 
 	/**
 	 * Record a successful login.
 	 *
 	 * @param self::METHOD_* $method
+	 * @param bool $knownDevice whether it came from a device the account remembered
 	 * @param bool $browser a browser session, whose session token is linked on its first request
-	 * @return ?int the new row, or null when the login was recorded recently
+	 * @param string $confirmedBy how the login was confirmed ({@see self::CONFIRMED_BY})
+	 * @param ?self::STEP_UP_* $stepUp the step-up's outcome at login, null when nothing was needed
+	 * @param ?bool $firstOfTheHour the {@see \OCA\IntrusionDetection\Login\LoginGate}'s answer for an app; null when it cannot tell
+	 * @return ?string the new row, or null when the login was recorded recently
 	 */
-	public function record(string $uid, string $method, ?SourceKey $source, ?string $userAgent, ?KnownDevice $device, bool $browser): ?int {
+	public function record(string $uid, string $method, ?SourceKey $source, ?string $userAgent, bool $knownDevice, bool $browser, string $confirmedBy = self::CONFIRMED_BY_NONE, ?string $stepUp = null, ?bool $firstOfTheHour = null): ?string {
 		$now = $this->timeFactory->getTime();
-		$tokenId = $browser ? null : $this->gate->tokenId();
-		if (!$browser && !$this->passesGate($uid, $method, $tokenId, $source, $now)) {
+		$tokenId = $browser ? null : $this->coreSession->loginTokenId();
+		if (!$browser && ($firstOfTheHour === false || $this->mapper->existsSince($uid, $method, $tokenId, $source?->netKey, $now - self::HISTORY_INTERVAL))) {
 			return null;
 		}
-		[$confirmedBy, $stepUp] = $this->outcomeAtLogin($uid, $now);
 		$id = $this->mapper->insert(
 			$uid,
 			$now,
 			$source,
 			UserMessages::shortUserAgent($userAgent),
 			$method,
-			$device !== null,
+			$knownDevice,
 			$confirmedBy,
 			$stepUp,
 			$tokenId,
 		);
 		if ($browser) {
-			$this->state->set(SessionState::LOGIN_HISTORY, ['uid' => $uid, 'id' => $id, 'linked' => false]);
+			$this->state->set(SessionMarkers::LOGIN_HISTORY, ['uid' => $uid, 'id' => $id, 'linked' => false]);
 		}
 		return $id;
 	}
@@ -142,63 +173,91 @@ class LoginHistory {
 	/**
 	 * Link the current session's token to its login, once, and drop the
 	 * session marker.
-	 *
-	 * @param array<string, mixed> $marker
 	 */
-	public function link(array $marker, ?string $currentUid): void {
-		$uid = $marker['uid'] ?? null;
-		$id = $marker['id'] ?? null;
-		$tokenId = is_string($uid) && is_int($id) && $uid === $currentUid ? $this->currentSession->tokenId() : null;
-		if ($tokenId !== null) {
-			$this->mapper->setSessionToken($id, (string)$uid, $tokenId);
+	public function linkSession(?string $currentUid): void {
+		$this->linker->link(SessionMarkers::LOGIN_HISTORY, $currentUid, function (array $marker, int $tokenId): void {
+			if (is_string($marker['id'] ?? null)) {
+				$this->mapper->setSessionToken($marker['id'], (string)$marker['uid'], $tokenId);
+			}
+		});
+	}
+
+	/**
+	 * @return list<LoginHistoryEntry> the account's logins in [since, until), newest first unless `$oldestFirst`
+	 */
+	public function forUser(string $uid, int $since, ?int $until = null, int $limit = 100, bool $oldestFirst = false): array {
+		return $this->mapper->forUser($uid, $since, $until, $limit, $oldestFirst);
+	}
+
+	/**
+	 * The logins from one address, or from a network when given its key
+	 * (as in {@see SourceKey::$netKey}), in [since, until), newest first
+	 * unless `$oldestFirst`.
+	 *
+	 * @return list<LoginHistoryEntry>
+	 */
+	public function forAddress(string $address, int $since, ?int $until = null, int $limit = 100, bool $oldestFirst = false): array {
+		return $this->mapper->forAddress($address, $since, $until, $limit, $oldestFirst);
+	}
+
+	/**
+	 * The newest login of an account that started a session (or app
+	 * password) token.
+	 */
+	public function forSession(string $uid, int $sessionTokenId): ?LoginHistoryEntry {
+		return $this->mapper->forSession($uid, $sessionTokenId);
+	}
+
+	/**
+	 * Whether the account logged in from this network (as in
+	 * {@see SourceKey::$netKey}) since a time with a login that went
+	 * through: it needed nothing, or it was confirmed.
+	 */
+	public function wentThroughFrom(string $uid, string $netKey, int $since): bool {
+		return $this->mapper->wentThroughFrom($uid, $netKey, $since);
+	}
+
+	/**
+	 * A login that waited for its confirmation since `$started` failed
+	 * (it was left waiting past its deadline).
+	 *
+	 * @return ?LoginHistoryEntry its row, or null when none waits
+	 */
+	public function failPending(string $uid, int $started): ?LoginHistoryEntry {
+		$entry = $this->mapper->stepUpAround($uid, $started, self::STEP_UP_PENDING);
+		if ($entry !== null) {
+			$this->mapper->setOutcome($entry->id, $uid, self::CONFIRMED_BY_NONE, self::STEP_UP_FAILED);
 		}
-		$this->state->remove(SessionState::LOGIN_HISTORY);
+		return $entry;
+	}
+
+	/**
+	 * The row of a refused login that started at `$started`, or null.
+	 */
+	public function refusedAround(string $uid, int $started): ?LoginHistoryEntry {
+		return $this->mapper->stepUpAround($uid, $started, self::STEP_UP_REFUSED);
+	}
+
+	#[\Override]
+	public function acceptedUidsFrom(string $column, KeyMatch $keys, int $since, int $limit): array {
+		return $this->mapper->acceptedUidsFrom($column, $keys, $since, $limit);
+	}
+
+	#[\Override]
+	public function hasConfirmedLogin(string $uid, string $column, KeyMatch $keys, int $since): bool {
+		return $this->mapper->hasConfirmedLogin($uid, $column, $keys, $since);
 	}
 
 	/**
 	 * The row of the current session's login: from the session marker until
 	 * it is linked, then by the session's token.
 	 */
-	private function rowOf(string $uid): ?int {
-		$marker = $this->state->get(SessionState::LOGIN_HISTORY);
+	private function rowOf(string $uid): ?string {
+		$marker = $this->state->get(SessionMarkers::LOGIN_HISTORY);
 		if ($marker !== null) {
-			return ($marker['uid'] ?? null) === $uid && is_int($marker['id'] ?? null) ? $marker['id'] : null;
+			return ($marker['uid'] ?? null) === $uid && is_string($marker['id'] ?? null) ? $marker['id'] : null;
 		}
-		$tokenId = $this->currentSession->tokenId();
+		$tokenId = $this->coreSession->tokenId();
 		return $tokenId === null ? null : $this->mapper->idForSessionToken($uid, $tokenId, $this->timeFactory->getTime() - self::SESSION_LOOKBACK);
-	}
-
-	/**
-	 * How the login being recorded was confirmed, from what the step-up
-	 * decided just before.
-	 *
-	 * @return array{0: string, 1: ?string}
-	 */
-	private function outcomeAtLogin(string $uid, int $now): array {
-		$stepUp = StepUpState::fromArray($this->state->get(SessionState::STEP_UP) ?? []);
-		if ($stepUp !== null && $stepUp->uid === $uid) {
-			return [self::CONFIRMED_BY_NONE, match ($stepUp->status) {
-				StepUpState::PENDING => self::STEP_UP_PENDING,
-				StepUpState::RESUMED => self::STEP_UP_FAILED,
-				default => self::STEP_UP_REFUSED,
-			}];
-		}
-		$confirmation = $this->state->get(SessionState::CONFIRMATION);
-		if ($confirmation !== null && ($confirmation['uid'] ?? null) === $uid && is_int($confirmation['at'] ?? null) && $confirmation['at'] >= $now - self::CONFIRMATION_AGE) {
-			$by = is_string($confirmation['by'] ?? null) && in_array($confirmation['by'], self::CONFIRMED_BY, true) ? $confirmation['by'] : self::CONFIRMED_BY_NONE;
-			return [$by, $by === self::CONFIRMED_BY_NONE ? self::STEP_UP_ALLOWED : self::STEP_UP_CONFIRMED];
-		}
-		return [self::CONFIRMED_BY_NONE, null];
-	}
-
-	/**
-	 * Whether a login of an app is due for a row: the first with its
-	 * credential from its network in HISTORY_INTERVAL.
-	 */
-	private function passesGate(string $uid, string $method, ?int $tokenId, ?SourceKey $source, int $now): bool {
-		if ($source !== null && $this->gate->isFirst($uid, $source->ipKey, $now) === false) {
-			return false;
-		}
-		return !$this->mapper->existsSince($uid, $method, $tokenId, $source?->netKey, $now - self::HISTORY_INTERVAL);
 	}
 }

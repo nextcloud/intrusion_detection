@@ -15,26 +15,25 @@ use OCA\IntrusionDetection\Address\AddressCache;
 use OCA\IntrusionDetection\Blocklist\BlocklistFactsProvider;
 use OCA\IntrusionDetection\Blocklist\BlocklistOverview;
 use OCA\IntrusionDetection\Blocklist\BlocklistSync;
+use OCA\IntrusionDetection\Blocklist\Db\BlocklistRangeMapper;
+use OCA\IntrusionDetection\Blocklist\Db\BlocklistStatMapper;
 use OCA\IntrusionDetection\Blocklist\LimitedSink;
 use OCA\IntrusionDetection\Blocklist\SourceRepository;
 use OCA\IntrusionDetection\Blocklist\StateStore;
 use OCA\IntrusionDetection\Blocklist\SyncFailure;
 use OCA\IntrusionDetection\Blocklist\SyncResult;
 use OCA\IntrusionDetection\Blocklist\UrlPolicy;
-use OCA\IntrusionDetection\Check\Checks\BlocklistMatch;
-use OCA\IntrusionDetection\Check\Mode;
+use OCA\IntrusionDetection\Check\Checks\BlocklistMatch\BlocklistMatch;
 use OCA\IntrusionDetection\Config\GlobalSettings;
-use OCA\IntrusionDetection\Config\Settings;
-use OCA\IntrusionDetection\Db\BlocklistRangeMapper;
-use OCA\IntrusionDetection\Db\BlocklistStatMapper;
-use OCA\IntrusionDetection\Db\StateMapper;
+use OCA\IntrusionDetection\Definition\Mode;
 use OCA\IntrusionDetection\Net\SourceKey;
 use OCA\IntrusionDetection\SetupCheck\BlocklistSyncCheck;
+use OCA\IntrusionDetection\State\AppState;
+use OCA\IntrusionDetection\Tests\Unit\Cache\FixedCaches;
 use OCP\AppFramework\Utility\ITimeFactory;
 use OCP\Http\Client\IClient;
 use OCP\Http\Client\IClientService;
 use OCP\Http\Client\IResponse;
-use OCP\ICacheFactory;
 use OCP\IDBConnection;
 use OCP\IL10N;
 use OCP\Lock\ILockingProvider;
@@ -57,12 +56,10 @@ class BlocklistSyncTest extends IntegrationTestCase {
 	/** @var list<array{url: string, options: array<string, mixed>}> */
 	private array $requests = [];
 	private ?\Closure $duringWrite = null;
-	private Settings $settings;
 
 	protected function setUp(): void {
 		parent::setUp();
-		$this->settings = Server::get(Settings::class);
-		$this->settings->setMode(BlocklistMatch::ID, Mode::Protect);
+		$this->settingsEditor()->setMode(BlocklistMatch::ID, Mode::Protect);
 		$this->setSources([
 			['id' => 'office_block', 'url' => self::URL, 'purpose' => 'deny', 'mode' => 'protect', 'enabled' => true],
 		]);
@@ -70,7 +67,7 @@ class BlocklistSyncTest extends IntegrationTestCase {
 
 	public function testASyncWritesANewVersionAndSwitchesToIt(): void {
 		$this->respond(self::URL, 200, $this->fixture('custom.txt'), ['Last-Modified' => 'Tue, 20 Oct 2026 08:00:00 GMT', 'ETag' => '"abc"']);
-		$cacheVersion = Server::get(StateMapper::class)->get(AddressCache::VERSION_STATE);
+		$cacheVersion = Server::get(AppState::class)->get(AddressCache::VERSION_STATE);
 
 		[$result] = $this->sync()->sync();
 
@@ -82,7 +79,7 @@ class BlocklistSyncTest extends IntegrationTestCase {
 		$this->assertSame($this->now, $state->successAt);
 		$this->assertSame('Tue, 20 Oct 2026 08:00:00 GMT', $state->lastModified);
 		$this->assertSame(3, $this->ranges()->countVersion('office_block', 1));
-		$this->assertNotSame($cacheVersion, Server::get(StateMapper::class)->get(AddressCache::VERSION_STATE), 'Cached verdicts are invalidated');
+		$this->assertNotSame($cacheVersion, Server::get(AppState::class)->get(AddressCache::VERSION_STATE), 'Cached verdicts are invalidated');
 	}
 
 	public function testTheDownloadIsLimitedAndRefusesLocalRedirects(): void {
@@ -122,6 +119,24 @@ class BlocklistSyncTest extends IntegrationTestCase {
 				$this->assertSame(SyncFailure::URL_REFUSED, $e->reason);
 			}
 		}
+	}
+
+	public function testAPinnedListIsTakenOnlyWithItsChecksum(): void {
+		$body = $this->fixture('custom.txt');
+		$this->setSources([
+			['id' => 'office_block', 'url' => self::URL, 'purpose' => 'deny', 'mode' => 'protect', 'enabled' => true, 'sha256' => hash('sha256', $body)],
+		]);
+		$this->respond(self::URL, 200, $body, ['ETag' => '"abc"']);
+		$this->respond(self::URL, 200, $body . "203.0.113.0/24\n", ['ETag' => '"def"']);
+		[$first] = $this->sync()->sync();
+		$this->assertSame(SyncResult::UPDATED, $first->outcome);
+
+		$this->now += 86400;
+		[$changed] = $this->sync()->sync();
+		$this->assertSame(SyncResult::FAILED, $changed->outcome);
+		$this->assertSame(SyncFailure::CHECKSUM_MISMATCH, $changed->error);
+		$this->assertSame(1, $this->states()->get('office_block')->version, 'The checked version stays in use');
+		$this->assertArrayNotHasKey('If-None-Match', $this->requests[1]['options']['headers'], 'A pinned list is always checked in full');
 	}
 
 	public function testAnUnchangedListIsNotDownloadedAgain(): void {
@@ -311,7 +326,7 @@ class BlocklistSyncTest extends IntegrationTestCase {
 		$results = $this->sync()->syncDue();
 		$this->assertSame(['tor_copy'], array_map(static fn (SyncResult $r): string => $r->listId, $results), 'Only the hourly list is due');
 
-		$this->settings->setMode(BlocklistMatch::ID, Mode::Off);
+		$this->settingsEditor()->setMode(BlocklistMatch::ID, Mode::Off);
 		$this->now += 86400;
 		$this->respond(self::TOR_URL, 200, "198.51.100.9\n");
 		$results = $this->sync()->syncDue();
@@ -353,11 +368,11 @@ class BlocklistSyncTest extends IntegrationTestCase {
 		$this->assertSame([], $this->requests);
 	}
 
-	public function testOldMatchCountersAreDeleted(): void {
+	public function testOldMatchCountersAreDeletedAlsoWhenNoListSyncs(): void {
 		$stats = Server::get(BlocklistStatMapper::class);
 		$stats->record('office_block', gmdate('Y-m-d', $this->now - 31 * 86400), '192.0.2.7');
 		$stats->record('office_block', gmdate('Y-m-d', $this->now - 29 * 86400), '192.0.2.7');
-		$this->sync()->cleanup();
+		$stats->purge($this->now);
 		$this->assertNull($stats->find('office_block', gmdate('Y-m-d', $this->now - 31 * 86400)));
 		$this->assertNotNull($stats->find('office_block', gmdate('Y-m-d', $this->now - 29 * 86400)));
 	}
@@ -366,7 +381,7 @@ class BlocklistSyncTest extends IntegrationTestCase {
 	 * @param list<array<string, mixed>> $sources
 	 */
 	private function setSources(array $sources): void {
-		$this->settings->setGlobal(GlobalSettings::BLOCKLIST_SOURCES, json_encode($sources));
+		$this->settingsEditor()->setGlobal(GlobalSettings::BLOCKLIST_SOURCES, json_encode($sources));
 	}
 
 	/**
@@ -419,7 +434,7 @@ class BlocklistSyncTest extends IntegrationTestCase {
 			Server::get(BlocklistStatMapper::class),
 			$clientService,
 			Server::get(UrlPolicy::class),
-			$this->settings,
+			$this->checkSettings(),
 			$this->addressCache(),
 			$locking ?? Server::get(ILockingProvider::class),
 			$this->time(),
@@ -442,7 +457,7 @@ class BlocklistSyncTest extends IntegrationTestCase {
 			$this->states(),
 			$this->ranges(),
 			Server::get(BlocklistStatMapper::class),
-			$this->settings,
+			$this->appSettings(), $this->checkSettings(),
 			$this->addressCache(),
 			$this->time(),
 			Server::get(LoggerInterface::class),
@@ -462,10 +477,8 @@ class BlocklistSyncTest extends IntegrationTestCase {
 	}
 
 	private function addressCache(): AddressCache {
-		$factory = $this->createMock(ICacheFactory::class);
-		$factory->method('isAvailable')->willReturn(false);
-		$factory->method('isLocalCacheAvailable')->willReturn(false);
-		return new AddressCache($factory, Server::get(StateMapper::class));
+		$factory = FixedCaches::none();
+		return new AddressCache($factory, Server::get(AppState::class));
 	}
 
 	private function time(): ITimeFactory {

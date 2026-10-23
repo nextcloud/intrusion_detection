@@ -10,9 +10,9 @@ declare(strict_types=1);
 namespace OCA\IntrusionDetection\Command\Decoys;
 
 use OC\Core\Command\Base;
-use OCA\IntrusionDetection\Check\InvalidParamException;
 use OCA\IntrusionDetection\Decoy\DecoyFormat;
 use OCA\IntrusionDetection\Decoy\DecoyService;
+use OCA\IntrusionDetection\Definition\InvalidParamException;
 use OCP\IL10N;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Input\InputOption;
@@ -58,7 +58,7 @@ class Create extends Base {
 			$this->writeArrayInOutputFormat($input, $output, $decoy->jsonSerialize() + ['secret' => $secret]);
 			return self::SUCCESS;
 		}
-		$output->writeln('Decoy ' . $decoy->getId() . ' ("' . $decoy->getLabel() . '") created.');
+		$output->writeln('Decoy ' . (string)$decoy->getId() . ' ("' . $decoy->getLabel() . '") created.');
 		$output->writeln('');
 		$output->writeln('  Secret:       <info>' . $secret . '</info>');
 		if ($decoy->getLoginName() !== null) {

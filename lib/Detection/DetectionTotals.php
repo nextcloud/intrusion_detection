@@ -9,11 +9,12 @@ declare(strict_types=1);
 
 namespace OCA\IntrusionDetection\Detection;
 
-use OCA\IntrusionDetection\Config\GlobalSettings;
-use OCA\IntrusionDetection\Config\Settings;
+use OCA\IntrusionDetection\Config\PurgeRetention;
 use OCA\IntrusionDetection\Db\Detection;
 use OCA\IntrusionDetection\Db\DetectionMapper;
+use OCA\IntrusionDetection\Db\IPurges;
 use OCA\IntrusionDetection\Db\StatsMapper;
+use OCA\IntrusionDetection\State\AppState;
 use OCP\DB\QueryBuilder\IQueryBuilder;
 use OCP\IDBConnection;
 
@@ -31,7 +32,9 @@ use OCP\IDBConnection;
  *   Detections themselves are deleted after their own retention, which
  *   changes no total.
  */
-class DetectionTotals {
+class DetectionTotals implements IPurges {
+	/** Detections deleted after their retention, counted per check, severity and enforcement, for the running total */
+	public const RETIRED_STATE = 'detections_retired';
 	public const TABLE = 'ids_detection_hourly';
 	/** Hours kept for the per-day chart, which shows up to 90 local days */
 	public const ROLLUP_DAYS = 100;
@@ -39,15 +42,29 @@ class DetectionTotals {
 	public function __construct(
 		private readonly IDBConnection $db,
 		private readonly DetectionMapper $mapper,
-		private readonly Settings $settings,
+		private readonly AppState $state,
+		private readonly PurgeRetention $retention,
 	) {
+	}
+
+	/**
+	 * Delete the detections past the retention setting, then fold the hours
+	 * past ROLLUP_DAYS into the running totals.
+	 *
+	 * @return int how many detections were deleted
+	 */
+	#[\Override]
+	public function purge(int $now): int {
+		$deleted = $this->deleteCreatedBefore($now - $this->retention->days($now) * 86400);
+		$this->retireBefore($now - self::ROLLUP_DAYS * 86400);
+		return $deleted;
 	}
 
 	/**
 	 * Count a new detection.
 	 */
 	public function created(Detection $detection): void {
-		$this->add('created', intdiv((int)$detection->getCreatedAt(), 3600), (string)$detection->getCheckId(), (string)$detection->getSeverity(), $detection->isEnforced());
+		$this->add('created', intdiv((int)$detection->getCreatedTime(), 3600), (string)$detection->getCheckId(), (string)$detection->getSeverity(), $detection->isEnforced());
 	}
 
 	/**
@@ -96,7 +113,7 @@ class DetectionTotals {
 		}
 		ksort($retired);
 		// Written before the rows go: an interruption may count them twice, never lose them.
-		$this->settings->setGlobal(GlobalSettings::DETECTIONS_RETIRED, $retired);
+		$this->state->setJson(self::RETIRED_STATE, $retired);
 		$delete = $this->db->getQueryBuilder();
 		$delete->delete(self::TABLE)
 			->where($delete->expr()->lt('hour', $delete->createNamedParameter($beforeHour, IQueryBuilder::PARAM_INT)))
@@ -218,49 +235,16 @@ class DetectionTotals {
 	}
 
 	/**
-	 * Count the detections stored so far, for the time before the totals
-	 * existed. Does nothing once any hour is counted.
-	 */
-	public function backfill(): void {
-		$qb = $this->db->getQueryBuilder();
-		$qb->select('id')->from(self::TABLE)->setMaxResults(1);
-		$result = $qb->executeQuery();
-		$counted = $result->fetchOne() !== false;
-		$result->closeCursor();
-		if ($counted) {
-			return;
-		}
-		$qb = $this->db->getQueryBuilder();
-		$hour = match ($this->db->getDatabaseProvider()) {
-			IDBConnection::PLATFORM_MYSQL, IDBConnection::PLATFORM_MARIADB => $qb->getColumnName('created_at') . ' DIV 3600',
-			IDBConnection::PLATFORM_ORACLE => 'FLOOR(' . $qb->getColumnName('created_at') . ' / 3600)',
-			// Integer division: created_at is an integer column.
-			default => $qb->getColumnName('created_at') . ' / 3600',
-		};
-		$qb->selectAlias($qb->createFunction($hour), 'h')
-			->addSelect('check_id', 'severity', 'enforced')
-			->selectAlias($qb->func()->count('*'), 'n')
-			->from(DetectionMapper::TABLE)
-			->groupBy($qb->createFunction($hour))
-			->addGroupBy('check_id', 'severity', 'enforced');
-		$result = $qb->executeQuery();
-		while ($row = $result->fetch()) {
-			$this->add('created', (int)$row['h'], (string)$row['check_id'], (string)$row['severity'], (bool)$row['enforced'], (int)$row['n']);
-		}
-		$result->closeCursor();
-	}
-
-	/**
 	 * Add to a counter of an hour and labels: an update, and an insert the
 	 * first time; a concurrent first insert makes the update run again.
 	 *
 	 * @param 'created'|'raised' $column
 	 */
-	private function add(string $column, int $hour, string $checkId, string $severity, bool $enforced, int $by = 1): void {
-		$update = function () use ($column, $hour, $checkId, $severity, $enforced, $by): int {
+	private function add(string $column, int $hour, string $checkId, string $severity, bool $enforced): void {
+		$update = function () use ($column, $hour, $checkId, $severity, $enforced): int {
 			$qb = $this->db->getQueryBuilder();
 			return $qb->update(self::TABLE)
-				->set($column, $qb->createFunction($qb->getColumnName($column) . ' + ' . $by))
+				->set($column, $qb->createFunction($qb->getColumnName($column) . ' + 1'))
 				->where($qb->expr()->eq('hour', $qb->createNamedParameter($hour, IQueryBuilder::PARAM_INT)))
 				->andWhere($qb->expr()->eq('check_id', $qb->createNamedParameter($checkId)))
 				->andWhere($qb->expr()->eq('severity', $qb->createNamedParameter($severity)))
@@ -275,8 +259,8 @@ class DetectionTotals {
 			'check_id' => $checkId,
 			'severity' => $severity,
 			'enforced' => $enforced ? 1 : 0,
-			'created' => $column === 'created' ? $by : 0,
-			'raised' => $column === 'raised' ? $by : 0,
+			'created' => $column === 'created' ? 1 : 0,
+			'raised' => $column === 'raised' ? 1 : 0,
 		]);
 		if ($inserted === 0) {
 			$update();
@@ -288,7 +272,7 @@ class DetectionTotals {
 	 */
 	private function retired(): array {
 		$retired = [];
-		foreach ($this->settings->getJson(GlobalSettings::DETECTIONS_RETIRED) as $key => $count) {
+		foreach ($this->state->getJson(self::RETIRED_STATE) as $key => $count) {
 			if (is_string($key) && is_int($count) && $count > 0) {
 				$retired[$key] = $count;
 			}

@@ -10,20 +10,24 @@ declare(strict_types=1);
 namespace OCA\IntrusionDetection\Tests\Integration;
 
 use OCA\IntrusionDetection\AppInfo\Application;
-use OCA\IntrusionDetection\Check\Checks\CredentialStuffing;
-use OCA\IntrusionDetection\Check\Checks\InjectionProbe;
-use OCA\IntrusionDetection\Check\Checks\TrapUrl;
-use OCA\IntrusionDetection\Config\GlobalSettings;
-use OCA\IntrusionDetection\Controller\AdminApiController;
+use OCA\IntrusionDetection\Check\Checks\CredentialStuffing\CredentialStuffing;
+use OCA\IntrusionDetection\Check\Checks\InjectionProbe\InjectionProbe;
+use OCA\IntrusionDetection\Check\Checks\TrapUrl\TrapUrl;
 use OCA\IntrusionDetection\Controller\BlocklistApiController;
+use OCA\IntrusionDetection\Controller\CheckApiController;
 use OCA\IntrusionDetection\Controller\DecoyApiController;
 use OCA\IntrusionDetection\Controller\NotificationApiController;
 use OCA\IntrusionDetection\Controller\PayloadApiController;
 use OCA\IntrusionDetection\Controller\PrivacyApiController;
+use OCA\IntrusionDetection\Controller\SettingsApiController;
 use OCA\IntrusionDetection\Controller\SimulationApiController;
 use OCA\IntrusionDetection\Detection\Simulator;
+use OCA\IntrusionDetection\Learning\LearningService;
+use OCA\IntrusionDetection\State\AppState;
+use OCA\IntrusionDetection\Tests\Unit\Controller\AnswersLikeTheApi;
 use OCA\IntrusionDetection\Traps\TrapNameCollisions;
 use OCP\AppFramework\Http;
+use OCP\AppFramework\IAppContainer;
 use OCP\AppFramework\OCS\OCSNotFoundException;
 use OCP\IUserManager;
 use OCP\IUserSession;
@@ -37,6 +41,8 @@ use PHPUnit\Framework\Attributes\Group;
  */
 #[Group('DB')]
 class AdminPagesApiTest extends IntegrationTestCase {
+	use AnswersLikeTheApi;
+
 	private const USERS = ['ids_admin', 'ids_alice', 'ids_root2'];
 
 	private DecoyApiController $decoys;
@@ -45,7 +51,7 @@ class AdminPagesApiTest extends IntegrationTestCase {
 	private PayloadApiController $payload;
 	private SimulationApiController $simulation;
 	private NotificationApiController $notifications;
-	private AdminApiController $admin;
+	private IAppContainer $container;
 
 	protected function setUp(): void {
 		parent::setUp();
@@ -63,7 +69,7 @@ class AdminPagesApiTest extends IntegrationTestCase {
 		$this->payload = $container->get(PayloadApiController::class);
 		$this->simulation = $container->get(SimulationApiController::class);
 		$this->notifications = $container->get(NotificationApiController::class);
-		$this->admin = $container->get(AdminApiController::class);
+		$this->container = $container;
 	}
 
 	protected function tearDown(): void {
@@ -94,7 +100,7 @@ class AdminPagesApiTest extends IntegrationTestCase {
 			$this->assertStringNotContainsString('secret_hmac', $json, $name);
 		}
 		// And it is in no table.
-		foreach (self::TABLES as $table) {
+		foreach (self::tables() as $table) {
 			foreach ($this->db->getQueryBuilder()->select('*')->from($table)->executeQuery()->fetchAll() as $row) {
 				$this->assertStringNotContainsString($secret, json_encode($row, JSON_THROW_ON_ERROR), $table);
 			}
@@ -105,9 +111,9 @@ class AdminPagesApiTest extends IntegrationTestCase {
 	}
 
 	public function testDecoysAreValidated(): void {
-		$this->assertSame('secretFormat', $this->decoys->create('label', '', 'plain')->getData()['param']);
-		$this->assertSame('login_name', $this->decoys->create('label', 'IDS_Alice')->getData()['param'], 'An existing account cannot be a decoy name');
-		$this->assertSame('label', $this->decoys->create("\n  ")->getData()['param']);
+		$this->assertSame('secretFormat', $this->answer(fn () => $this->decoys->create('label', '', 'plain'))->getData()['param']);
+		$this->assertSame('login_name', $this->answer(fn () => $this->decoys->create('label', 'IDS_Alice'))->getData()['param'], 'An existing account cannot be a decoy name');
+		$this->assertSame('label', $this->answer(fn () => $this->decoys->create("\n  "))->getData()['param']);
 		$this->assertSame(0, (int)$this->db->getQueryBuilder()->select($this->db->getQueryBuilder()->func()->count('*'))->from('ids_decoys')->executeQuery()->fetchOne());
 	}
 
@@ -123,7 +129,7 @@ class AdminPagesApiTest extends IntegrationTestCase {
 		$this->assertSame(['root', 'ids_root2'], $names['names']);
 		$this->assertNotContains('root', $names['suggestions']);
 
-		$refused = $this->decoys->updateReservedNames(['webmaster', 'ids_alice'], ['root']);
+		$refused = $this->answer(fn () => $this->decoys->updateReservedNames(['webmaster', 'ids_alice'], ['root']));
 		$this->assertSame(Http::STATUS_BAD_REQUEST, $refused->getStatus());
 		$this->assertSame('existing_user', $refused->getData()['reason']);
 		$this->assertSame(['root', 'ids_root2'], $this->decoys->index()->getData()['reservedNames']['names'], 'Nothing was saved');
@@ -133,7 +139,7 @@ class AdminPagesApiTest extends IntegrationTestCase {
 		$this->assertSame([], $this->decoys->index()->getData()['reservedNames']['collisions'], 'Pages read the stored lookup');
 		Server::get(TrapNameCollisions::class)->refresh();
 		$this->assertSame(['ids_root2'], $this->decoys->index()->getData()['reservedNames']['collisions']);
-		$problems = array_column($this->admin->status()->getData()['problems'], null, 'id');
+		$problems = array_column($this->container->get(CheckApiController::class)->status()->getData()['problems'], null, 'id');
 		$this->assertSame('error', $problems['trap_name_collision']['level']);
 		$this->assertSame('#blocks-decoys', $problems['trap_name_collision']['url']);
 		$this->assertNotEmpty($problems['trap_name_collision']['fix']);
@@ -143,7 +149,7 @@ class AdminPagesApiTest extends IntegrationTestCase {
 	}
 
 	public function testTrapPathsAreValidatedAndRoutedByTheSnippets(): void {
-		$refused = $this->decoys->updateTrapPaths(['/index.php/apps/files']);
+		$refused = $this->answer(fn () => $this->decoys->updateTrapPaths(['/index.php/apps/files']));
 		$this->assertSame(Http::STATUS_BAD_REQUEST, $refused->getStatus());
 		$this->assertSame('nextcloud_path', $refused->getData()['reason']);
 
@@ -163,11 +169,11 @@ class AdminPagesApiTest extends IntegrationTestCase {
 	}
 
 	public function testCustomListsAreValidatedAndBuiltInOnesProtected(): void {
-		$local = $this->blocklists->create('intranet', 'https://localhost/list.txt', 'deny');
+		$local = $this->answer(fn () => $this->blocklists->create('intranet', 'https://localhost/list.txt', 'deny'));
 		$this->assertSame(Http::STATUS_BAD_REQUEST, $local->getStatus());
 		$this->assertSame('url', $local->getData()['param']);
-		$this->assertSame('url', $this->blocklists->create('plain', 'http://lists.example.org/x.txt', 'deny')->getData()['param']);
-		$this->assertSame('id', $this->blocklists->create('Bad Name', 'https://lists.example.org/x.txt', 'deny')->getData()['param']);
+		$this->assertSame('url', $this->answer(fn () => $this->blocklists->create('plain', 'http://lists.example.org/x.txt', 'deny'))->getData()['param']);
+		$this->assertSame('id', $this->answer(fn () => $this->blocklists->create('Bad Name', 'https://lists.example.org/x.txt', 'deny'))->getData()['param']);
 		$this->assertSame('list_exists', $this->blocklists->create('aws', 'https://lists.example.org/x.txt', 'hosting')->getData()['reason']);
 
 		$list = $this->blocklists->create('corp_feed', 'https://lists.example.org/x.txt', 'deny', 'cidr', 'observe', 3600)->getData();
@@ -176,7 +182,7 @@ class AdminPagesApiTest extends IntegrationTestCase {
 		$this->assertSame(3600, $list['interval']);
 		$this->assertTrue($list['customInterval']);
 
-		$this->assertSame(Http::STATUS_BAD_REQUEST, $this->blocklists->remove('aws')->getStatus(), 'Built-in lists are switched off, not removed');
+		$this->assertSame(Http::STATUS_BAD_REQUEST, $this->answer(fn () => $this->blocklists->remove('aws'))->getStatus(), 'Built-in lists are switched off, not removed');
 		$this->assertSame(['removed' => 'corp_feed'], $this->blocklists->remove('corp_feed')->getData());
 
 		$aws = $this->blocklists->update('aws', true, null, 7200)->getData();
@@ -184,7 +190,7 @@ class AdminPagesApiTest extends IntegrationTestCase {
 		$this->assertSame(7200, $aws['interval']);
 		$this->assertSame(21600, $this->blocklists->update('aws', null, null, 0)->getData()['interval'], 'Back to the default interval');
 		$this->assertSame('protect', $this->blocklists->update('spamhaus_drop_v4', null, 'protect')->getData()['mode']);
-		$this->assertSame('interval', $this->blocklists->update('aws', null, null, 60)->getData()['param']);
+		$this->assertSame('interval', $this->answer(fn () => $this->blocklists->update('aws', null, null, 60))->getData()['param']);
 
 		$this->assertSame('list_disabled', $this->blocklists->syncNow('firehol_level1')->getData()['reason']);
 		$this->expectException(OCSNotFoundException::class);
@@ -231,15 +237,19 @@ class AdminPagesApiTest extends IntegrationTestCase {
 		$this->assertSame('ids_detection_hourly', $stored['detection_totals']['where']);
 		$where = implode(', ', array_column($data['stored'], 'where'));
 		// ids_state holds the app's own versions and timestamps: nothing about an address or an account.
-		foreach (array_diff(self::TABLES, ['ids_state']) as $table) {
+		foreach (array_diff(self::tables(), ['ids_state']) as $table) {
 			$this->assertMatchesRegularExpression('/(^|, )' . $table . '(,|$)/', $where, 'Every table of the app is listed');
 		}
 		$outgoing = array_column($data['outgoing'], null, 'id');
 		$this->assertFalse($outgoing['blocklists']['active']);
-		$this->assertCount(2, $data['gdpr']);
+		$this->assertCount(4, $data['gdpr']);
+		foreach ($data['stored'] as $row) {
+			$this->assertNotSame('', $row['protection'], $row['id'] . ' says how it is protected and who sees it');
+		}
+		$this->assertStringContainsString('Who created or lifted a block is kept when that account is deleted', $stored['bans']['protection']);
 
 		// The page fills the retention placeholders live from the settings it has.
-		$settings = array_column($this->admin->settings()->getData()['settings'], 'name');
+		$settings = array_column($this->container->get(SettingsApiController::class)->settings()->getData()['settings'], 'name');
 		foreach ($data['stored'] as $row) {
 			preg_match_all('/\{([a-z0-9_]+)\}/', $row['retention'], $m);
 			foreach ($m[1] as $placeholder) {
@@ -256,7 +266,7 @@ class AdminPagesApiTest extends IntegrationTestCase {
 		$this->assertSame('secret', $values['password']['skipped']);
 		$this->assertArrayNotHasKey('normalised', $values['password'], 'Password fields are never shown');
 		$this->assertSame(Http::STATUS_BAD_REQUEST, $this->payload->test('  ')->getStatus());
-		foreach (self::TABLES as $table) {
+		foreach (self::tables() as $table) {
 			$this->assertSame(0, $this->rows($table), $table);
 		}
 	}
@@ -271,7 +281,7 @@ class AdminPagesApiTest extends IntegrationTestCase {
 		$this->assertSame('matches_everything', $checked['.*']['problem']);
 		$this->assertSame(Http::STATUS_BAD_REQUEST, $this->payload->checkSignatures(array_fill(0, 51, 'x'))->getStatus());
 
-		$this->admin->updateCheck(InjectionProbe::ID, null, null, ['disabled_signatures' => ['sql_sleep'], 'custom_signatures' => ['2:union\s+distinct']]);
+		$this->container->get(CheckApiController::class)->updateCheck(InjectionProbe::ID, null, null, ['disabled_signatures' => ['sql_sleep'], 'custom_signatures' => ['2:union\s+distinct']]);
 		$catalog = $this->payload->signatures()->getData();
 		$this->assertFalse(array_column($catalog['signatures'], null, 'id')['sql_sleep']['enabled']);
 		$this->assertSame('sql', array_column($catalog['signatures'], null, 'id')['sql_sleep']['group']);
@@ -285,7 +295,7 @@ class AdminPagesApiTest extends IntegrationTestCase {
 		$this->assertTrue($result['acts']);
 		$this->assertContains('ban', array_column($result['responses'], 'type'));
 		$this->assertStringContainsString('4 hours', array_column($result['responses'], 'text', 'type')['ban']);
-		foreach (self::TABLES as $table) {
+		foreach (self::tables() as $table) {
 			$this->assertSame(0, $this->rows($table), $table);
 		}
 		$this->assertSame(TrapUrl::ID, $this->simulation->simulate(TrapUrl::ID)->getData()['check']);
@@ -313,15 +323,15 @@ class AdminPagesApiTest extends IntegrationTestCase {
 	}
 
 	public function testLearningRemembersWhenItStarted(): void {
-		$this->admin->updateLearning('start', 7);
-		$started = $this->appConfig->getValueInt(Application::APP_ID, GlobalSettings::LEARNING_STARTED_AT);
+		$this->container->get(SettingsApiController::class)->updateLearning('start', 7);
+		$started = Server::get(AppState::class)->getInt(LearningService::STARTED_STATE);
 		$this->assertEqualsWithDelta(time(), $started, 5);
-		$this->admin->updateLearning('extend', 7);
-		$this->assertSame($started, $this->appConfig->getValueInt(Application::APP_ID, GlobalSettings::LEARNING_STARTED_AT), 'Extending keeps the start');
-		$this->admin->updateLearning('stop');
-		$this->appConfig->setValueInt(Application::APP_ID, GlobalSettings::LEARNING_STARTED_AT, 1);
-		$this->admin->updateLearning('extend', 3);
-		$this->assertEqualsWithDelta(time(), $this->appConfig->getValueInt(Application::APP_ID, GlobalSettings::LEARNING_STARTED_AT), 5, 'Extending a finished period starts a new one');
+		$this->container->get(SettingsApiController::class)->updateLearning('extend', 7);
+		$this->assertSame($started, Server::get(AppState::class)->getInt(LearningService::STARTED_STATE), 'Extending keeps the start');
+		$this->container->get(SettingsApiController::class)->updateLearning('stop');
+		Server::get(AppState::class)->setInt(LearningService::STARTED_STATE, 1);
+		$this->container->get(SettingsApiController::class)->updateLearning('extend', 3);
+		$this->assertEqualsWithDelta(time(), Server::get(AppState::class)->getInt(LearningService::STARTED_STATE), 5, 'Extending a finished period starts a new one');
 	}
 
 	/**
@@ -331,10 +341,10 @@ class AdminPagesApiTest extends IntegrationTestCase {
 	 */
 	private function everyRead(): array {
 		return [
-			'status' => $this->admin->status()->getData(),
-			'checks' => $this->admin->checks()->getData(),
-			'settings' => $this->admin->settings()->getData(),
-			'export settings' => $this->admin->exportSettings()->getData(),
+			'status' => $this->container->get(CheckApiController::class)->status()->getData(),
+			'checks' => $this->container->get(CheckApiController::class)->checks()->getData(),
+			'settings' => $this->container->get(SettingsApiController::class)->settings()->getData(),
+			'export settings' => $this->container->get(SettingsApiController::class)->exportSettings()->getData(),
 			'decoys' => $this->decoys->index()->getData(),
 			'blocklists' => $this->blocklists->lists()->getData(),
 			'export' => $this->blocklists->export()->getData(),

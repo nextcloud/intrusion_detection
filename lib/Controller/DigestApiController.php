@@ -9,6 +9,7 @@ declare(strict_types=1);
 
 namespace OCA\IntrusionDetection\Controller;
 
+use OCA\IntrusionDetection\AdminChange\ActorResolver;
 use OCA\IntrusionDetection\Audit\AuditLogger;
 use OCA\IntrusionDetection\Notification\DigestSender;
 use OCA\IntrusionDetection\ResponseDefinitions;
@@ -18,7 +19,6 @@ use OCP\AppFramework\Http\Attribute\OpenAPI;
 use OCP\AppFramework\Http\Attribute\PasswordConfirmationRequired;
 use OCP\AppFramework\Http\Attribute\UserRateLimit;
 use OCP\AppFramework\Http\DataResponse;
-use OCP\AppFramework\OCSController;
 use OCP\IL10N;
 use OCP\IRequest;
 use OCP\IUserSession;
@@ -32,16 +32,16 @@ use OCP\IUserSession;
  * @psalm-import-type IntrusionDetectionError from ResponseDefinitions
  */
 #[OpenAPI(scope: OpenAPI::SCOPE_ADMINISTRATION)]
-class DigestApiController extends OCSController {
+class DigestApiController extends AdminOCSController {
 	public function __construct(
-		string $appName,
 		IRequest $request,
-		private readonly IL10N $l,
+		IL10N $l,
+		ActorResolver $actors,
 		private readonly IUserSession $userSession,
 		private readonly DigestSender $digests,
 		private readonly AuditLogger $audit,
 	) {
-		parent::__construct($appName, $request);
+		parent::__construct($request, $l, $actors);
 	}
 
 	/**
@@ -78,18 +78,10 @@ class DigestApiController extends OCSController {
 		$user = $this->userSession->getUser();
 		$result = $user === null ? DigestSender::TEST_NO_ADDRESS : $this->digests->sendTest($user);
 		if ($result === DigestSender::TEST_NO_ADDRESS) {
-			return new DataResponse([
-				'message' => $this->l->t('You have no email address, so the test digest cannot be sent. Add one in your personal settings.'),
-				'param' => null,
-				'reason' => 'no_address',
-			], Http::STATUS_BAD_REQUEST);
+			return $this->error($this->l->t('You have no email address, so the test digest cannot be sent. Add one in your personal settings.'), null, 'no_address');
 		}
 		if ($result === DigestSender::TEST_FAILED) {
-			return new DataResponse([
-				'message' => $this->l->t('The test digest could not be sent. Check the email server settings and the server log.'),
-				'param' => null,
-				'reason' => 'send_failed',
-			], Http::STATUS_BAD_REQUEST);
+			return $this->error($this->l->t('The test digest could not be sent. Check the email server settings and the server log.'), null, 'send_failed');
 		}
 		$this->audit->log('test digest sent to %s', ['actor' => $user?->getUID() ?? 'unknown']);
 		return new DataResponse(['message' => $this->l->t('The test digest was sent to %s.', [(string)$user?->getEMailAddress()])]);

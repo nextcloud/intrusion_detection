@@ -10,16 +10,17 @@ declare(strict_types=1);
 namespace OCA\IntrusionDetection\Confirm;
 
 use OCA\IntrusionDetection\Db\DetectionMapper;
-use OCA\IntrusionDetection\SessionState\CurrentSession;
-use OCA\IntrusionDetection\SessionState\SessionState;
+use OCA\IntrusionDetection\Detection\CommonFacts;
+use OCA\IntrusionDetection\Login\SessionMarkers;
+use OCA\IntrusionDetection\Login\SessionTokenLinker;
 use OCP\AppFramework\Db\DoesNotExistException;
 use Psr\Log\LoggerInterface;
 
 /**
  * Links detections recorded during a login to the session the login
  * created. Core creates the session token only after the login event, so
- * the detection ids wait in the session ({@see SessionState::LOGIN_DETECTIONS})
- * until its first request, when the token exists. A linked detection knows
+ * the detection ids wait in the session ({@see SessionMarkers::LOGIN_DETECTIONS})
+ * until its first request, when the token exists ({@see SessionTokenLinker}). A linked detection knows
  * its session: "No, it was not me" ends it, and "Yes, it was me" is refused
  * from it.
  */
@@ -27,26 +28,26 @@ class LoginDetections {
 	/** At most this many detections wait per login, and sessions are kept per detection */
 	public const MAX = 10;
 	/** The detection fact with the ids of the session tokens it is about */
-	public const FACT = 'sessionTokenIds';
+	public const FACT = CommonFacts::SESSION_TOKEN_IDS;
 
 	public function __construct(
-		private readonly SessionState $state,
+		private readonly SessionMarkers $state,
 		private readonly DetectionMapper $detections,
-		private readonly CurrentSession $currentSession,
+		private readonly SessionTokenLinker $linker,
 		private readonly LoggerInterface $logger,
 	) {
 	}
 
 	/**
-	 * @param list<int> $ids
+	 * @param list<string> $ids
 	 */
 	public function await(string $uid, array $ids): void {
 		if ($ids === []) {
 			return;
 		}
-		$waiting = $this->state->get(SessionState::LOGIN_DETECTIONS);
-		$known = is_array($waiting) && ($waiting['uid'] ?? null) === $uid && is_array($waiting['ids'] ?? null) ? array_values(array_filter($waiting['ids'], 'is_int')) : [];
-		$this->state->set(SessionState::LOGIN_DETECTIONS, [
+		$waiting = $this->state->get(SessionMarkers::LOGIN_DETECTIONS);
+		$known = is_array($waiting) && ($waiting['uid'] ?? null) === $uid && is_array($waiting['ids'] ?? null) ? array_values(array_filter($waiting['ids'], 'is_string')) : [];
+		$this->state->set(SessionMarkers::LOGIN_DETECTIONS, [
 			'uid' => $uid,
 			'ids' => array_slice(array_values(array_unique([...$known, ...$ids])), 0, self::MAX),
 		]);
@@ -54,18 +55,21 @@ class LoginDetections {
 
 	/**
 	 * Link the waiting detections to the current session token, once.
-	 *
+	 */
+	public function linkSession(?string $currentUid): void {
+		$this->linker->link(SessionMarkers::LOGIN_DETECTIONS, $currentUid, $this->linkToken(...));
+	}
+
+	/**
 	 * @param array<string, mixed> $waiting
 	 */
-	public function link(array $waiting, ?string $currentUid): void {
-		$this->state->remove(SessionState::LOGIN_DETECTIONS);
-		$uid = $waiting['uid'] ?? null;
-		$tokenId = $this->currentSession->tokenId();
-		if (!is_string($uid) || $uid !== $currentUid || $tokenId === null || !is_array($waiting['ids'] ?? null)) {
+	private function linkToken(array $waiting, int $tokenId): void {
+		$uid = $waiting['uid'];
+		if (!is_array($waiting['ids'] ?? null)) {
 			return;
 		}
 		foreach (array_slice($waiting['ids'], 0, self::MAX) as $id) {
-			if (!is_int($id)) {
+			if (!is_string($id)) {
 				continue;
 			}
 			try {

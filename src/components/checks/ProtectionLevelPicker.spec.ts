@@ -51,7 +51,7 @@ describe('the protection level', () => {
 
 	test('one click sets every limit and loads the checks and settings the server returns', async () => {
 		const strict = makeCheck({ params: makeCheck().params.map((p) => p.name === 'min_failures' ? { ...p, value: 5 } : p) })
-		vi.mocked(updateProtectionLevel).mockResolvedValue({ level: 'strict', checks: { checks: [strict], categories: [] } })
+		vi.mocked(updateProtectionLevel).mockResolvedValue({ level: 'strict', checks: { checks: [strict], categories: [], modes: [], severities: [] } })
 		const wrapper = mount(ProtectionLevelPicker)
 		await radios(wrapper)[2]!.setValue(true)
 		await radios(wrapper)[2]!.trigger('change')

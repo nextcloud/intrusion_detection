@@ -31,6 +31,7 @@ function paths(webServer: TrapWebServer, needRule: string[]): TrapPathList {
 		webServer,
 		needRule,
 		max: 100,
+		limits: { maxLength: 200, nextcloudSegments: ['index.php', 'apps', 'remote.php'] },
 		snippets: [
 			{ id: 'nginx', file: '/etc/nginx/sites-available/nextcloud', content: 'location' },
 			{ id: 'apache', file: '/etc/apache2/sites-available/nextcloud.conf', content: 'RewriteRule' },

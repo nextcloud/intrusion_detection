@@ -23,12 +23,10 @@ final class Explanation {
 	public const MAX_USER_AGENT = 200;
 
 	/**
-	 * @param array<string, mixed> $facts
 	 * @param array<string, int|float|bool|string|list<string>> $thresholds the parameters in force
 	 * @return array<string, mixed>
 	 */
 	public static function build(DetectionDraft $draft, ModeState $mode, array $thresholds, int $now): array {
-		$facts = self::facts($draft);
 		return [
 			'v' => self::VERSION,
 			'check' => $draft->checkId,
@@ -44,23 +42,10 @@ final class Explanation {
 				'family' => $draft->source->family,
 			],
 			'userAgent' => self::cleanUserAgent($draft->userAgent),
-			'facts' => $facts,
+			'facts' => $draft->facts,
 			'first' => $now,
 			'last' => $now,
 		];
-	}
-
-	/**
-	 * The draft's facts as they are stored: targets as unique strings, at most MAX_TARGETS.
-	 *
-	 * @return array<string, mixed>
-	 */
-	public static function facts(DetectionDraft $draft): array {
-		$facts = $draft->facts;
-		if (isset($facts['targets']) && is_array($facts['targets'])) {
-			$facts['targets'] = array_slice(array_values(array_unique(array_map('strval', $facts['targets']))), 0, self::MAX_TARGETS);
-		}
-		return $facts;
 	}
 
 	/**

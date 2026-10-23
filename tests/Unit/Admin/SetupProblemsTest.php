@@ -41,8 +41,6 @@ class SetupProblemsTest extends TestCase {
 		$logger->expects($this->once())->method('error');
 
 		$contributor = new SetupProblems($container, $logger);
-		$this->assertSame('setup', $contributor->key());
-		$this->assertNull($contributor->data($l));
 		$problems = $contributor->problems($l);
 		$this->assertSame(['trap_name_collision', 'mail_missing', 'memory_cache_missing'], array_column($problems, 'id'));
 		$this->assertSame(['id' => 'trap_name_collision', 'level' => 'error', 'title' => 'Names', 'text' => 'Taken.', 'fix' => 'Remove them.', 'url' => '#decoys', 'urlLabel' => 'Open'], $problems[0]);

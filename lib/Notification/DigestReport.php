@@ -28,7 +28,7 @@ final class DigestReport {
 	 * @param list<array{shareId: int, owner: ?string, detections: int}> $shares shares under attack
 	 * @param list<array{id: string, name: string, matches: int}> $blocklists lookups of addresses on each list
 	 * @param list<array{uid: string, until: int}> $protectedAccounts accounts that need extra confirmation right now
-	 * @param list<array{id: int, uid: string, checkId: string, verdictAt: int}> $deniedByUsers detections their account answered with "This was not me"
+	 * @param list<array{id: string, uid: string, checkId: string, verdictAt: int}> $deniedByUsers detections their account answered with "This was not me"
 	 */
 	public function __construct(
 		public readonly string $kind,

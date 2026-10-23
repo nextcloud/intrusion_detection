@@ -9,8 +9,8 @@ declare(strict_types=1);
 
 namespace OCA\IntrusionDetection\Risk;
 
-use OCA\IntrusionDetection\Check\CheckTexts;
 use OCA\IntrusionDetection\Db\Detection;
+use OCA\IntrusionDetection\Definition\CheckTexts;
 use OCA\IntrusionDetection\ResponseDefinitions;
 use OCP\IL10N;
 

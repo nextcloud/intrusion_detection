@@ -9,8 +9,8 @@ declare(strict_types=1);
 
 namespace OCA\IntrusionDetection\SetupCheck;
 
-use OCA\IntrusionDetection\Check\Checks\ReservedName;
-use OCA\IntrusionDetection\Config\Settings;
+use OCA\IntrusionDetection\Check\Checks\ReservedName\ReservedName;
+use OCA\IntrusionDetection\Config\CheckSettings;
 use OCA\IntrusionDetection\Notification\AdminLinks;
 use OCA\IntrusionDetection\Traps\TrapNameCollisions;
 use OCP\IL10N;
@@ -23,15 +23,15 @@ use OCP\IL10N;
  * names refresh.
  *
  * Otherwise it points out that no name is reserved while the decoy admin
- * account check runs, as on installs from before names were reserved at
- * installation. That reads the list only, without looking names up.
+ * account check runs, for example after an administrator removed them all.
+ * That reads the list only, without looking names up.
  */
 class TrapNameCollisionCheck extends ProblemCheck {
 	public function __construct(
 		IL10N $l,
 		AdminLinks $links,
 		private readonly TrapNameCollisions $collisions,
-		private readonly Settings $settings,
+		private readonly CheckSettings $settings,
 	) {
 		parent::__construct($l, $links);
 	}

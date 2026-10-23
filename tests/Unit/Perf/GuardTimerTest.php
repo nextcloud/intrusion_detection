@@ -10,23 +10,22 @@ declare(strict_types=1);
 namespace OCA\IntrusionDetection\Tests\Unit\Perf;
 
 use OC\Memcache\ArrayCache;
+use OCA\IntrusionDetection\Cache\Caches;
 use OCA\IntrusionDetection\Perf\GuardTimer;
+use OCA\IntrusionDetection\Tests\Unit\Cache\FixedCaches;
 use OCP\AppFramework\Utility\ITimeFactory;
-use OCP\ICacheFactory;
 use Test\TestCase;
 
 class GuardTimerTest extends TestCase {
 	private function timer(bool $sampled, ArrayCache $cache): GuardTimer {
-		$factory = $this->createMock(ICacheFactory::class);
-		$factory->method('isAvailable')->willReturn(true);
-		$factory->method('createDistributed')->willReturn($cache);
+		$factory = new FixedCaches($cache);
 		$time = $this->createMock(ITimeFactory::class);
 		$time->method('getTime')->willReturn(1_800_000_000);
 		return new class($factory, $time, $sampled) extends GuardTimer {
 			public int $decisions = 0;
 
 			public function __construct(
-				ICacheFactory $factory,
+				Caches $factory,
 				ITimeFactory $time,
 				private readonly bool $sampled,
 			) {

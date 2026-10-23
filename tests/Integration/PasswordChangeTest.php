@@ -11,20 +11,31 @@ namespace OCA\IntrusionDetection\Tests\Integration;
 
 use OCA\IntrusionDetection\AppInfo\Application;
 use OCA\IntrusionDetection\Audit\AuditLogger;
+use OCA\IntrusionDetection\Breach\PwnedPasswordsClient;
+use OCA\IntrusionDetection\Check\Checks\BreachedPassword\BreachedPassword;
+use OCA\IntrusionDetection\Check\Checks\BreachedPassword\NewPasswords;
+use OCA\IntrusionDetection\Config\CheckSettings;
+use OCA\IntrusionDetection\Config\Keys;
 use OCA\IntrusionDetection\Controller\PasswordChangeController;
+use OCA\IntrusionDetection\Definition\Mode;
 use OCA\IntrusionDetection\Http\LocalRedirect;
-use OCA\IntrusionDetection\Listener\PasswordChangeLoginListener;
+use OCA\IntrusionDetection\Listener\Login\PasswordChangeStep;
+use OCA\IntrusionDetection\Listener\LoginListener;
 use OCA\IntrusionDetection\Listener\PasswordUpdatedListener;
-use OCA\IntrusionDetection\Login\InteractiveLogin;
+use OCA\IntrusionDetection\Login\SessionMarkers;
 use OCA\IntrusionDetection\Notification\AdminNotices;
 use OCA\IntrusionDetection\Response\PasswordChangeFlag;
 use OCA\IntrusionDetection\Response\PasswordChangeService;
+use OCA\IntrusionDetection\Response\Tokens;
+use OCA\IntrusionDetection\SessionState\RequestTarget;
 use OCA\IntrusionDetection\SessionState\Rules\PasswordChangeRule;
-use OCA\IntrusionDetection\SessionState\SessionState;
 use OCA\IntrusionDetection\Tests\BasicAuthServer;
+use OCA\IntrusionDetection\Tests\LoginSteps;
+use OCP\App\IAppManager;
 use OCP\AppFramework\Http;
 use OCP\AppFramework\Http\RedirectResponse;
 use OCP\AppFramework\Http\StandaloneTemplateResponse;
+use OCP\Authentication\Token\IToken;
 use OCP\EventDispatcher\IEventDispatcher;
 use OCP\HintException;
 use OCP\IRequest;
@@ -51,19 +62,22 @@ class PasswordChangeTest extends AccountTestCase {
 
 	private PasswordChangeService $passwords;
 	private PasswordChangeFlag $flag;
-	private SessionState $state;
+	private SessionMarkers $state;
 	private IUser $user;
 	private string $password;
 	/** @var array<string, string> */
 	private array $headers = [];
 	/** @var \Closure(ValidatePasswordPolicyEvent): void */
 	private \Closure $policy;
+	private bool $passwordPolicy = false;
+	private ?int $breachCount = 0;
+	private int $breachAsked = 0;
 
 	protected function setUp(): void {
 		parent::setUp();
 		$this->passwords = Server::get(PasswordChangeService::class);
 		$this->flag = Server::get(PasswordChangeFlag::class);
-		$this->state = new SessionState($this->session, Server::get(LoggerInterface::class));
+		$this->state = new SessionMarkers($this->session, Server::get(LoggerInterface::class));
 		$this->user = $this->newUser('ids-pw', 'pw@example.com');
 		$this->password = 'A-long-test-password-' . $this->user->getUID();
 		$this->policy = static function (ValidatePasswordPolicyEvent $event): void {
@@ -80,10 +94,10 @@ class PasswordChangeTest extends AccountTestCase {
 	}
 
 	public function testRequiringSetsTheFlagOnce(): void {
-		$this->assertSame(PasswordChangeService::STATE_REQUIRED, $this->passwords->require($this->user->getUID(), 42));
+		$this->assertSame(PasswordChangeService::STATE_REQUIRED, $this->passwords->require($this->user->getUID(), '42'));
 		$since = $this->flag->requiredSince($this->user->getUID());
 		$this->assertNotNull($since);
-		$this->passwords->require($this->user->getUID(), 43);
+		$this->passwords->require($this->user->getUID(), '43');
 		$this->assertSame($since, $this->flag->requiredSince($this->user->getUID()), 'An earlier requirement is kept');
 		$this->assertSame(PasswordChangeService::STATE_NO_USER, $this->passwords->require('no-such-user-' . $this->user->getUID()));
 	}
@@ -96,14 +110,14 @@ class PasswordChangeTest extends AccountTestCase {
 		$users->method('get')->willReturn($external);
 		$service = new PasswordChangeService($this->flag, $users, Server::get(AdminNotices::class), Server::get(AuditLogger::class));
 
-		$this->assertSame(PasswordChangeService::STATE_EXTERNAL, $service->require('ldap-alice', 7, 'second_factor_failed'));
+		$this->assertSame(PasswordChangeService::STATE_EXTERNAL, $service->require('ldap-alice', '7', 'second_factor_failed'));
 		$this->assertFalse($this->flag->isRequired('ldap-alice'), 'No requirement the user cannot meet');
 		$notices = $this->notificationsFor('admin', AdminNotices::SUBJECT_PASSWORD_EXTERNAL);
 		$this->assertCount(1, $notices);
-		$this->assertSame(['uid' => 'ldap-alice', 'detection' => 7], $notices[0]->getSubjectParameters());
+		$this->assertSame(['uid' => 'ldap-alice', 'detection' => '7'], $notices[0]->getSubjectParameters());
 
 		// Aggregated: once per account and hour.
-		$service->require('ldap-alice', 8, 'second_factor_failed');
+		$service->require('ldap-alice', '8', 'second_factor_failed');
 		$this->assertCount(1, $this->notificationsFor('admin', AdminNotices::SUBJECT_PASSWORD_EXTERNAL));
 	}
 
@@ -152,7 +166,7 @@ class PasswordChangeTest extends AccountTestCase {
 		$this->loginListener()->handle($cookie
 			? new UserLoggedInWithCookieEvent($this->user, null)
 			: new UserLoggedInEvent($this->user, $this->user->getUID(), 'irrelevant', $tokenLogin));
-		$marker = $this->state->get(SessionState::PASSWORD_CHANGE);
+		$marker = $this->state->get(SessionMarkers::PASSWORD_CHANGE);
 		$this->assertSame($mode, $marker['mode'] ?? null);
 		if ($mode !== null) {
 			$this->assertSame($this->user->getUID(), $marker['uid']);
@@ -179,11 +193,32 @@ class PasswordChangeTest extends AccountTestCase {
 	}
 
 	public function testWithoutARequirementThePageContinuesAtOnce(): void {
-		$this->state->set(SessionState::PASSWORD_CHANGE, ['uid' => $this->user->getUID(), 'mode' => PasswordChangeRule::MODE_REDIRECT]);
+		$this->state->set(SessionMarkers::PASSWORD_CHANGE, ['uid' => $this->user->getUID(), 'mode' => PasswordChangeRule::MODE_REDIRECT]);
 		$response = $this->controller()->show('/apps/files/');
 		$this->assertInstanceOf(RedirectResponse::class, $response);
 		$this->assertStringEndsWith('/apps/files/', $response->getRedirectURL());
-		$this->assertTrue($this->state->isEmpty(), 'A stale marker is dropped');
+		$this->assertFalse($this->state->isEmpty(), 'Showing the page changes nothing');
+
+		$this->assertNull($this->rule()->check($this->state, RequestTarget::app($this->controller(), 'show', 'GET', '/index.php/apps/intrusion_detection/password')));
+		$this->assertTrue($this->state->isEmpty(), 'The session rule drops a stale marker');
+	}
+
+	public function testAPasswordManagedElsewhereIsReportedByTheSessionRuleNotByThePage(): void {
+		$this->flag->set('ldap-carol');
+		$external = $this->createMock(IUser::class);
+		$external->method('getUID')->willReturn('ldap-carol');
+		$external->method('canChangePassword')->willReturn(false);
+		$this->sessionUser = $external;
+		$this->state->set(SessionMarkers::PASSWORD_CHANGE, ['uid' => 'ldap-carol', 'mode' => PasswordChangeRule::MODE_REDIRECT]);
+
+		$this->assertInstanceOf(RedirectResponse::class, $this->controller()->show());
+		$this->assertTrue($this->flag->isRequired('ldap-carol'), 'The page only reads');
+		$this->assertSame([], $this->notificationsFor('admin', AdminNotices::SUBJECT_PASSWORD_EXTERNAL));
+
+		$this->assertNull($this->rule()->check($this->state, RequestTarget::dav('PROPFIND', '/remote.php/dav/files/ldap-carol/')));
+		$this->assertFalse($this->flag->isRequired('ldap-carol'));
+		$this->assertTrue($this->state->isEmpty());
+		$this->assertCount(1, $this->notificationsFor('admin', AdminNotices::SUBJECT_PASSWORD_EXTERNAL));
 	}
 
 	public function testAWrongCurrentPasswordIsThrottled(): void {
@@ -202,7 +237,7 @@ class PasswordChangeTest extends AccountTestCase {
 		return [
 			'empty' => ['', '', 'Enter a new password.'],
 			'not repeated the same' => ['A-brand-new-password-1', 'A-brand-new-password-2', 'The two new passwords are not the same. Type the new password twice.'],
-			'the policy refuses it' => ['short', 'short', 'Passwords must be at least 12 characters <long>.'],
+			'the policy refuses it' => ['short-pass', 'short-pass', 'Passwords must be at least 12 characters <long>.'],
 		];
 	}
 
@@ -218,12 +253,63 @@ class PasswordChangeTest extends AccountTestCase {
 
 	public function testThePolicyMessageIsShownEscaped(): void {
 		$this->requireAndMark();
-		$response = $this->controller()->change($this->password, 'short', 'short');
+		$response = $this->controller()->change($this->password, 'short-pass', 'short-pass');
 		$this->assertInstanceOf(StandaloneTemplateResponse::class, $response);
 		$html = $response->render();
 		$this->assertStringContainsString('Passwords must be at least 12 characters &lt;long&gt;.', $html);
 		$this->assertStringNotContainsString('<long>', $html);
 		$this->assertStringContainsString('role="alert"', $html);
+	}
+
+	public function testWithoutAPasswordPolicyTheNewPasswordNeedsEightCharacters(): void {
+		$this->requireAndMark();
+		$response = $this->controller()->change($this->password, 'Ab1-xyz', 'Ab1-xyz');
+		$this->assertSame('Use at least 8 characters.', $this->errorOf($response));
+		$this->assertTrue($this->flag->isRequired($this->user->getUID()));
+
+		$this->passwordPolicy = true;
+		$response = $this->controller()->change($this->password, 'Ab1-xyz', 'Ab1-xyz');
+		$this->assertSame('Passwords must be at least 12 characters <long>.', $this->errorOf($response), 'The password policy decides where it runs');
+	}
+
+	public function testAPasswordFromADataBreachIsRefusedWhileTheBreachCheckRuns(): void {
+		$this->appConfig->setValueString(Application::APP_ID, Keys::mode(BreachedPassword::ID), Mode::Protect->value);
+		$this->requireAndMark();
+		$this->breachCount = 3;
+		$response = $this->controller()->change($this->password, 'A-leaked-password-2026', 'A-leaked-password-2026');
+		$this->assertSame('This password appears in published data breaches. Choose another one.', $this->errorOf($response));
+		$this->assertTrue($this->flag->isRequired($this->user->getUID()));
+
+		$this->breachCount = null;
+		$this->assertInstanceOf(RedirectResponse::class, $this->controller()->change($this->password, 'A-leaked-password-2026', 'A-leaked-password-2026'), 'When the list cannot be asked, the password policy alone decides');
+	}
+
+	public function testWithTheBreachCheckOffTheListIsNotAsked(): void {
+		$this->appConfig->setValueString(Application::APP_ID, Keys::mode(BreachedPassword::ID), Mode::Off->value);
+		$this->requireAndMark();
+		$this->breachCount = 3;
+		$this->assertInstanceOf(RedirectResponse::class, $this->controller()->change($this->password, 'A-brand-new-password-1', 'A-brand-new-password-1'));
+		$this->assertSame(0, $this->breachAsked);
+	}
+
+	public function testTheOtherBrowsersCanBeLoggedOutWithTheChange(): void {
+		$this->requireAndMark();
+		$other = $this->token($this->user, IToken::TEMPORARY_TOKEN, 'Chrome on Windows');
+		$app = $this->token($this->user, IToken::PERMANENT_TOKEN, 'Calendar app');
+		$page = $this->controller()->show();
+		$this->assertStringContainsString('name="logoutOthers"', $page->render());
+
+		$this->assertInstanceOf(RedirectResponse::class, $this->controller()->change($this->password, 'A-brand-new-password-1', 'A-brand-new-password-1', logoutOthers: true));
+		$this->assertFalse($this->tokenExists($other['id']), 'Another browser that may be the intruder\'s');
+		$this->assertTrue($this->tokenExists($app['id']), 'App passwords keep working, as the page says');
+		$this->assertNotNull($this->sessionUser, 'This browser goes on');
+	}
+
+	public function testWithoutAskingTheOtherBrowsersStay(): void {
+		$this->requireAndMark();
+		$other = $this->token($this->user, IToken::TEMPORARY_TOKEN, 'Chrome on Windows');
+		$this->controller()->change($this->password, 'A-brand-new-password-1', 'A-brand-new-password-1', logoutOthers: false);
+		$this->assertTrue($this->tokenExists($other['id']));
 	}
 
 	public function testTheCurrentPasswordCannotBeChosenAgain(): void {
@@ -285,17 +371,24 @@ class PasswordChangeTest extends AccountTestCase {
 		$this->passwords->require($this->user->getUID());
 		$this->startSession($this->user);
 		$this->loginListener()->handle(new UserLoggedInEvent($this->user, $this->user->getUID(), $this->password, false));
-		$this->assertNotNull($this->state->get(SessionState::PASSWORD_CHANGE));
+		$this->assertNotNull($this->state->get(SessionMarkers::PASSWORD_CHANGE));
 	}
 
-	private function loginListener(): PasswordChangeLoginListener {
+	private function loginListener(): LoginListener {
 		$request = $this->createMock(IRequest::class);
 		$request->method('getHeader')->willReturnCallback(fn (string $name): string => $this->headers[$name] ?? '');
-		return new PasswordChangeLoginListener($this->settings, $this->passwords, $this->state, $request, new InteractiveLogin($request), Server::get(LoggerInterface::class));
+		return LoginSteps::listener([PasswordChangeStep::class => new PasswordChangeStep($this->passwords, $this->state)], $this->appSettings(), $request);
 	}
 
 	private function controller(): PasswordChangeController {
 		$this->sessionUser ??= $this->user;
+		$apps = $this->createMock(IAppManager::class);
+		$apps->method('isEnabledForAnyone')->willReturnCallback(fn (string $app): bool => $app === 'password_policy' && $this->passwordPolicy);
+		$client = $this->createMock(PwnedPasswordsClient::class);
+		$client->method('count')->willReturnCallback(function (): ?int {
+			$this->breachAsked++;
+			return $this->breachCount;
+		});
 		return new PasswordChangeController(
 			$this->createMock(IRequest::class),
 			$this->userSession,
@@ -305,7 +398,15 @@ class PasswordChangeTest extends AccountTestCase {
 			Server::get(IURLGenerator::class),
 			Server::get(IFactory::class)->get(Application::APP_ID, 'en'),
 			Server::get(LocalRedirect::class),
+			$apps,
+			new NewPasswords(Server::get(CheckSettings::class), $client),
+			Server::get(Tokens::class),
+			$this->coreSession,
 		);
+	}
+
+	private function rule(): PasswordChangeRule {
+		return new PasswordChangeRule($this->flag, $this->userSession, Server::get(IURLGenerator::class), new OverridingContainer([PasswordChangeService::class => $this->passwords]));
 	}
 
 	private function errorOf(\OCP\AppFramework\Http\Response $response): ?string {

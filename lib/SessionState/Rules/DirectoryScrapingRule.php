@@ -9,19 +9,19 @@ declare(strict_types=1);
 
 namespace OCA\IntrusionDetection\SessionState\Rules;
 
-use OCA\IntrusionDetection\Check\Checks\DirectoryScrapingDetector;
+use OCA\IntrusionDetection\Check\Checks\DirectoryScraping\DirectoryCounter;
+use OCA\IntrusionDetection\Login\SessionMarkers;
 use OCA\IntrusionDetection\Sensitive\DirectoryRoutes;
 use OCA\IntrusionDetection\SessionState\ISessionStateRule;
 use OCA\IntrusionDetection\SessionState\RequestTarget;
 use OCA\IntrusionDetection\SessionState\SessionBlock;
-use OCA\IntrusionDetection\SessionState\SessionState;
 use OCP\IRequest;
 use OCP\IUserSession;
 use Psr\Container\ContainerInterface;
 
 /**
  * Counts the requests of logged-in accounts that read the user directory
- * ({@see DirectoryScrapingDetector}), and refuses them with 429 while the
+ * ({@see DirectoryCounter}), and refuses them with 429 while the
  * account is above a limit.
  *
  * It hooks into the session-state middleware and WebDAV plugin, which run
@@ -41,7 +41,7 @@ class DirectoryScrapingRule implements ISessionStateRule {
 	}
 
 	#[\Override]
-	public function check(SessionState $state, RequestTarget $target): ?SessionBlock {
+	public function check(SessionMarkers $state, RequestTarget $target): ?SessionBlock {
 		$group = self::group($target, $this->request);
 		if ($group === null) {
 			return null;
@@ -50,7 +50,7 @@ class DirectoryScrapingRule implements ISessionStateRule {
 		if ($uid === null) {
 			return null;
 		}
-		return $this->container->get(DirectoryScrapingDetector::class)->count($uid, $group);
+		return $this->container->get(DirectoryCounter::class)->count($uid, $group);
 	}
 
 	/**

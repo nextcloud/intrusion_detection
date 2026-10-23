@@ -9,12 +9,8 @@ declare(strict_types=1);
 
 namespace OCA\IntrusionDetection\Response\Handlers;
 
-use OCA\IntrusionDetection\Check\Checks\InjectionProbe;
-use OCA\IntrusionDetection\Check\Checks\ShareBruteforce;
-use OCA\IntrusionDetection\Check\Checks\SharedAddress;
-use OCA\IntrusionDetection\Check\Checks\TrapUrl;
-use OCA\IntrusionDetection\Check\ResponseType;
 use OCA\IntrusionDetection\Db\Ban;
+use OCA\IntrusionDetection\Definition\ResponseType;
 use OCA\IntrusionDetection\Detection\DetectionDraft;
 use OCA\IntrusionDetection\Explain\DateFormatter;
 use OCA\IntrusionDetection\Explain\IDescribesAction;
@@ -23,15 +19,17 @@ use OCA\IntrusionDetection\Response\BanResult;
 use OCA\IntrusionDetection\Response\BanService;
 use OCA\IntrusionDetection\Response\IResponseHandler;
 use OCA\IntrusionDetection\Response\ResponseContext;
-use OCA\IntrusionDetection\Response\ResponseEngine;
 use OCA\IntrusionDetection\Response\ResponseOutcome;
+use OCA\IntrusionDetection\Signal\BlockHeldBack;
+use OCA\IntrusionDetection\Signal\SignalDispatcher;
 use OCP\IL10N;
 use Psr\Container\ContainerInterface;
 
 /**
  * Blocks the detection's source (and, for some checks, further sources).
  * When the safety valve or an unconfigured reverse proxy keeps an address
- * from being blocked, a `shared_address` detection tells the admin instead.
+ * from being blocked, it is reported ({@see BlockHeldBack}), so that the
+ * administrators are told instead.
  * Addresses of this server's own people are not blocked either
  * ({@see \OCA\IntrusionDetection\Response\BanExemptions}); the action says so.
  *
@@ -39,14 +37,13 @@ use Psr\Container\ContainerInterface;
  * lure ({@see \OCA\IntrusionDetection\Net\FetchMetadata}): a browser that
  * fetched a URL for another site's page or an email. Anyone could have caused
  * it, so it is recorded, but blocking it would let any page lock its visitors
- * out. Only the checks a plain link can trigger honour lures (LURE_CHECKS);
+ * out. Only the checks a plain link can trigger honour lures
+ * ({@see \OCA\IntrusionDetection\Definition\CheckDefinition::$honoursLure});
  * failed logins and wrong share passwords never come from a lure.
  */
 class BanHandler implements IResponseHandler, IDescribesAction {
 	/** At most this many blocks are listed in the action; the rest are counted */
 	public const MAX_LISTED = 20;
-	/** The checks whose detections may spare the address of a lure */
-	public const LURE_CHECKS = [TrapUrl::ID, InjectionProbe::ID, ShareBruteforce::ID];
 
 	public function __construct(
 		private readonly BanService $bans,
@@ -68,7 +65,7 @@ class BanHandler implements IResponseHandler, IDescribesAction {
 		$draft = $context->draft;
 		$listed = [];
 		$counts = ['banned' => 0, 'already' => 0, 'skipped' => 0, 'lure' => 0, 'trusted' => 0, 'proxy' => 0];
-		$lure = $draft->lure && in_array($draft->checkId, self::LURE_CHECKS, true) ? $draft->source : null;
+		$lure = $draft->lure && $context->definition->honoursLure ? $draft->source : null;
 		$targets = [];
 		foreach ($draft->banTargets() as $target) {
 			if ($lure !== null && $target->ipKey === $lure->ipKey) {
@@ -77,17 +74,17 @@ class BanHandler implements IResponseHandler, IDescribesAction {
 			}
 			$targets[$target->ipKey] = $target;
 		}
-		$results = $targets === [] ? [] : $this->bans->banMany(array_values($targets), $draft->checkId, $context->detection->getId(), $draft->banLevel, $draft->uid);
+		$results = $targets === [] ? [] : $this->bans->banMany(array_values($targets), $draft->checkId, (string)$context->detection->getId(), $draft->banLevel, $draft->uid);
 		foreach ($results as $ipKey => $result) {
 			$target = $targets[$ipKey] ?? null;
 			if ($target !== null && ($result->outcome === BanResult::SKIPPED_SHARED || $result->outcome === BanResult::SKIPPED_PROXY)
-				&& $draft->checkId !== SharedAddress::ID && $this->bans->firstReport($target)) {
+				&& $this->bans->firstReport($target)) {
 				$this->reportShared($draft, $target, $result->sharedUsers, $result->outcome === BanResult::SKIPPED_PROXY);
 			}
 			$this->count($result, $draft, $counts, $listed);
 		}
 		foreach ($draft->networkBanTargets() as $member) {
-			$this->count($this->bans->banNetwork($member, $draft->checkId, $context->detection->getId(), $draft->uid), $draft, $counts, $listed);
+			$this->count($this->bans->banNetwork($member, $draft->checkId, (string)$context->detection->getId(), $draft->uid), $draft, $counts, $listed);
 		}
 		$ref = ['bans' => array_values($listed), 'counts' => $counts];
 		if ($counts['banned'] === 0 && $counts['already'] === 0) {
@@ -98,7 +95,7 @@ class BanHandler implements IResponseHandler, IDescribesAction {
 
 	/**
 	 * @param array<string, int> $counts
-	 * @param array<int, array{id: int, reference: string, cidr: string, level: int, forced: bool, until: int}> $listed
+	 * @param array<int, array{id: string, reference: string, cidr: string, level: int, forced: bool, until: int}> $listed
 	 */
 	private function count(BanResult $result, DetectionDraft $draft, array &$counts, array &$listed): void {
 		if ($result->ban === null) {
@@ -112,7 +109,7 @@ class BanHandler implements IResponseHandler, IDescribesAction {
 		$counts[$result->outcome === BanResult::ALREADY ? 'already' : 'banned']++;
 		foreach ([$result->ban, $result->netBan] as $ban) {
 			if ($ban !== null && count($listed) < self::MAX_LISTED) {
-				$listed[$ban->getId()] = $this->listed($ban, $draft);
+				$listed[(string)$ban->getId()] = $this->listed($ban, $draft);
 			}
 		}
 	}
@@ -171,11 +168,11 @@ class BanHandler implements IResponseHandler, IDescribesAction {
 	}
 
 	/**
-	 * @return array{id: int, reference: string, cidr: string, level: int, forced: bool, until: int}
+	 * @return array{id: string, reference: string, cidr: string, level: int, forced: bool, until: int}
 	 */
 	private function listed(Ban $ban, DetectionDraft $draft): array {
 		return [
-			'id' => $ban->getId(),
+			'id' => (string)$ban->getId(),
 			'reference' => $ban->getDisplayReference(),
 			'cidr' => $ban->getCidr(),
 			'level' => $ban->getLevel(),
@@ -186,6 +183,6 @@ class BanHandler implements IResponseHandler, IDescribesAction {
 
 	private function reportShared(DetectionDraft $draft, SourceKey $target, int $users, bool $proxy): void {
 		// Resolved lazily: the engine runs this handler, so it cannot be a constructor dependency.
-		$this->container->get(ResponseEngine::class)->handle(SharedAddress::draft($target, $users, $draft->checkId, $proxy));
+		$this->container->get(SignalDispatcher::class)->dispatch(new BlockHeldBack($target, $users, $draft->checkId, $proxy));
 	}
 }

@@ -13,16 +13,15 @@ use OC\DB\ConnectionAdapter;
 use OC\Memcache\ArrayCache;
 use OCA\IntrusionDetection\Address\AddressCache;
 use OCA\IntrusionDetection\Address\Verdict;
-use OCA\IntrusionDetection\Check\Checks\ReservedName;
-use OCA\IntrusionDetection\Check\Checks\TrapUrl;
+use OCA\IntrusionDetection\Cache\Caches;
+use OCA\IntrusionDetection\Check\Checks\ReservedName\ReservedName;
+use OCA\IntrusionDetection\Check\Checks\TrapUrl\TrapUrl;
 use OCA\IntrusionDetection\Config\GlobalSettings;
-use OCA\IntrusionDetection\Config\Settings;
 use OCA\IntrusionDetection\Db\AttemptKind;
 use OCA\IntrusionDetection\Db\AttemptMapper;
 use OCA\IntrusionDetection\Db\Detection;
 use OCA\IntrusionDetection\Db\DetectionMapper;
-use OCA\IntrusionDetection\Db\StateMapper;
-use OCA\IntrusionDetection\Guard\RequestContext;
+use OCA\IntrusionDetection\Login\RequestContext;
 use OCA\IntrusionDetection\Net\RemoteAddressResolver;
 use OCA\IntrusionDetection\Net\ServerAddresses;
 use OCA\IntrusionDetection\Net\SourceKey;
@@ -30,8 +29,8 @@ use OCA\IntrusionDetection\Response\FlaggedSources;
 use OCA\IntrusionDetection\Risk\AttackTools;
 use OCA\IntrusionDetection\Risk\RiskAssessment;
 use OCA\IntrusionDetection\Risk\RiskScorer;
+use OCA\IntrusionDetection\State\AppState;
 use OCP\AppFramework\Utility\ITimeFactory;
-use OCP\ICacheFactory;
 use OCP\IDBConnection;
 use OCP\IRequest;
 use OCP\Security\Bruteforce\IThrottler;
@@ -48,14 +47,12 @@ use Psr\Log\LoggerInterface;
 class RiskScorerTest extends IntegrationTestCase {
 	private const IP = '198.51.100.7';
 
-	private Settings $settings;
 	private RequestContext $context;
 	private ?ArrayCache $memory = null;
 
 	protected function setUp(): void {
 		parent::setUp();
-		$this->settings = Server::get(Settings::class);
-		$this->settings->setGlobal(GlobalSettings::RISK_ENABLED, true);
+		$this->settingsEditor()->setGlobal(GlobalSettings::RISK_ENABLED, true);
 		$this->context = new RequestContext();
 	}
 
@@ -77,7 +74,7 @@ class RiskScorerTest extends IntegrationTestCase {
 	}
 
 	public function testNetworkAttributesComeFromTheVerdictOfTheRequest(): void {
-		$this->context->setVerdict(new Verdict(0, '', ['tor', 'net:exits', 'hosting', 'net:aws', 'list:watch']));
+		$this->context->set(Verdict::CONTEXT_KEY, new Verdict(0, '', ['tor', 'net:exits', 'hosting', 'net:aws', 'list:watch']));
 		$risk = $this->scorer()->score(SourceKey::fromIp(self::IP));
 		$this->assertSame([
 			['fact' => RiskAssessment::FACT_TOR, 'points' => 2, 'detail' => null],
@@ -143,8 +140,8 @@ class RiskScorerTest extends IntegrationTestCase {
 	}
 
 	public function testAnOfficeNetworkTakesTenPointsOff(): void {
-		$this->settings->setGlobal(GlobalSettings::RISKY_NETWORK_OFFICE_NETWORKS, ['198.51.100.0/24']);
-		$this->context->setVerdict(new Verdict(0, '', ['tor', 'hosting']));
+		$this->settingsEditor()->setGlobal(GlobalSettings::RISKY_NETWORK_OFFICE_NETWORKS, ['198.51.100.0/24']);
+		$this->context->set(Verdict::CONTEXT_KEY, new Verdict(0, '', ['tor', 'hosting']));
 		$risk = $this->scorer()->score(SourceKey::fromIp(self::IP));
 		$this->assertSame(-7, $risk->score);
 		$this->assertSame(['fact' => RiskAssessment::FACT_OFFICE, 'points' => -10, 'detail' => '198.51.100.0/24'], $risk->parts[2]);
@@ -153,7 +150,7 @@ class RiskScorerTest extends IntegrationTestCase {
 
 	public function testTheBoundsWithEveryFactAtOnce(): void {
 		$source = SourceKey::fromIp(self::IP);
-		$this->context->setVerdict(new Verdict(0, '', ['tor', 'hosting', 'list:a', 'list:b']));
+		$this->context->set(Verdict::CONTEXT_KEY, new Verdict(0, '', ['tor', 'hosting', 'list:a', 'list:b']));
 		$this->scorer()->noteFailedLogin($source, 'hydra');
 		$this->detection(TrapUrl::ID, self::IP, time());
 		$this->detection(ReservedName::ID, self::IP, time());
@@ -167,12 +164,12 @@ class RiskScorerTest extends IntegrationTestCase {
 		$this->assertSame(3, $risk->lower(10), 'A quarter, rounded up');
 		$this->assertSame(2, $risk->lower(5), 'Limits never go below 2');
 
-		$this->settings->setGlobal(GlobalSettings::RISKY_NETWORK_OFFICE_NETWORKS, ['198.51.100.7']);
+		$this->settingsEditor()->setGlobal(GlobalSettings::RISKY_NETWORK_OFFICE_NETWORKS, ['198.51.100.7']);
 		$this->assertSame(5, $this->scorer()->score($source)->score);
 	}
 
 	public function testTheTiersInForceAreKeptWithTheScore(): void {
-		$this->context->setVerdict(new Verdict(0, '', ['tor']));
+		$this->context->set(Verdict::CONTEXT_KEY, new Verdict(0, '', ['tor']));
 		$risk = $this->scorer()->score(SourceKey::fromIp(self::IP));
 		$this->assertSame(2, $risk->score);
 		$this->assertSame(RiskAssessment::TIER_ELEVATED, $risk->tier);
@@ -181,8 +178,8 @@ class RiskScorerTest extends IntegrationTestCase {
 	}
 
 	public function testOffItIsNeutralAndAsksNothing(): void {
-		$this->settings->setGlobal(GlobalSettings::RISK_ENABLED, false);
-		$this->context->setVerdict(new Verdict(0, '', ['tor']));
+		$this->settingsEditor()->setGlobal(GlobalSettings::RISK_ENABLED, false);
+		$this->context->set(Verdict::CONTEXT_KEY, new Verdict(0, '', ['tor']));
 		$source = SourceKey::fromIp(self::IP);
 		$queries = $this->queries();
 		$scorer = $this->scorer();
@@ -206,7 +203,7 @@ class RiskScorerTest extends IntegrationTestCase {
 	}
 
 	public function testLimitsAskForTheScoreOnlyWhenItCanChangeTheOutcome(): void {
-		$this->context->setVerdict(new Verdict(0, '', ['tor', 'hosting']));
+		$this->context->set(Verdict::CONTEXT_KEY, new Verdict(0, '', ['tor', 'hosting']));
 		$source = SourceKey::fromIp(self::IP);
 		$scorer = $this->scorer();
 
@@ -231,7 +228,7 @@ class RiskScorerTest extends IntegrationTestCase {
 		$logger = $this->createMock(LoggerInterface::class);
 		$logger->expects($this->once())->method('error');
 		$scorer = new RiskScorer(
-			$this->settings, $flags, Server::get(AttemptMapper::class), Server::get(DetectionMapper::class), $this->context,
+			$this->appSettings(), $flags, Server::get(AttemptMapper::class), Server::get(DetectionMapper::class), $this->context,
 			$this->addressCache(), $this->addresses(), new AttackTools(), $this->factory(), Server::get(ITimeFactory::class), $logger,
 		);
 		$this->assertEquals(RiskAssessment::neutral(), $scorer->score(SourceKey::fromIp(self::IP)));
@@ -239,7 +236,7 @@ class RiskScorerTest extends IntegrationTestCase {
 
 	private function scorer(): RiskScorer {
 		return new RiskScorer(
-			$this->settings,
+			$this->appSettings(),
 			Server::get(FlaggedSources::class),
 			Server::get(AttemptMapper::class),
 			Server::get(DetectionMapper::class),
@@ -260,15 +257,12 @@ class RiskScorerTest extends IntegrationTestCase {
 	}
 
 	private function addressCache(): AddressCache {
-		return new AddressCache($this->factory(), Server::get(StateMapper::class));
+		return new AddressCache($this->factory(), Server::get(AppState::class));
 	}
 
-	private function factory(): ICacheFactory {
-		$factory = $this->createMock(ICacheFactory::class);
-		$factory->method('isAvailable')->willReturn($this->memory !== null);
-		$factory->method('isLocalCacheAvailable')->willReturn($this->memory !== null);
-		$factory->method('createDistributed')->willReturnCallback(fn (): ArrayCache => $this->memory ?? new ArrayCache());
-		$factory->method('createLocal')->willReturnCallback(fn (): ArrayCache => $this->memory ?? new ArrayCache());
+	private function factory(): Caches {
+		$factory = $this->createMock(Caches::class);
+		$factory->method('shared')->willReturnCallback(fn (): ?ArrayCache => $this->memory);
 		return $factory;
 	}
 
@@ -282,7 +276,7 @@ class RiskScorerTest extends IntegrationTestCase {
 		$detection->setNetKey($source->netKey);
 		$detection->setExplanationData([]);
 		$detection->setActionList([]);
-		$detection->setCreatedAt($lastSeen - 7200);
+		$detection->setCreatedTime($lastSeen - 7200);
 		$detection->setLastSeenAt($lastSeen);
 		$detection->setHits(1);
 		Server::get(DetectionMapper::class)->insert($detection);

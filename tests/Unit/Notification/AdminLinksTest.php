@@ -32,6 +32,6 @@ class AdminLinksTest extends TestCase {
 		$urls->method('linkToRoute')->with('settings.AdminSettings.index', ['section' => 'intrusion_detection'])->willReturn($route);
 		$urls->method('linkTo')->with('', 'index.php')->willReturn($index);
 		$urls->method('getAbsoluteURL')->willReturnCallback(static fn (string $path): string => 'https://cloud.example.com' . $path);
-		$this->assertSame($expected, (new AdminLinks($urls))->detection(42));
+		$this->assertSame($expected, (new AdminLinks($urls))->detection('42'));
 	}
 }

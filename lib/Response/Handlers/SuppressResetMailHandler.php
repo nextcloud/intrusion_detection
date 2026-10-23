@@ -9,8 +9,8 @@ declare(strict_types=1);
 
 namespace OCA\IntrusionDetection\Response\Handlers;
 
-use OCA\IntrusionDetection\Check\ResponseType;
-use OCA\IntrusionDetection\Config\Settings;
+use OCA\IntrusionDetection\Config\CheckSettings;
+use OCA\IntrusionDetection\Definition\ResponseType;
 use OCA\IntrusionDetection\Explain\DateFormatter;
 use OCA\IntrusionDetection\Explain\IDescribesAction;
 use OCA\IntrusionDetection\Response\IResponseHandler;
@@ -32,7 +32,7 @@ class SuppressResetMailHandler implements IResponseHandler, IDescribesAction {
 
 	public function __construct(
 		private readonly ResetMailSuppressor $suppressor,
-		private readonly Settings $settings,
+		private readonly CheckSettings $settings,
 		private readonly ITimeFactory $timeFactory,
 	) {
 	}
@@ -52,7 +52,7 @@ class SuppressResetMailHandler implements IResponseHandler, IDescribesAction {
 			? $this->settings->paramInt($context->definition->id, 'suppress_duration')
 			: self::DEFAULT_DURATION;
 		$now = $this->timeFactory->getTime();
-		['until' => $until, 'latest' => $latest] = $this->suppressor->suppress($uid, $now + $duration, $context->detection->getId());
+		['until' => $until, 'latest' => $latest] = $this->suppressor->suppress($uid, $now + $duration, (string)$context->detection->getId());
 		$ref = ['uid' => $uid, 'until' => $until, 'latest' => $latest];
 		return $until > $now ? ResponseOutcome::done($ref) : ResponseOutcome::skipped(ResponseOutcome::NOTE_HELD_BACK, $ref);
 	}

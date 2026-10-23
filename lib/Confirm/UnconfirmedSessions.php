@@ -9,17 +9,17 @@ declare(strict_types=1);
 
 namespace OCA\IntrusionDetection\Confirm;
 
-use OCA\IntrusionDetection\Config\GlobalSettings;
-use OCA\IntrusionDetection\Config\Settings;
+use OCA\IntrusionDetection\Confirm\Db\StepUpSessionMapper;
 use OCA\IntrusionDetection\Crypto\Fingerprinter;
-use OCA\IntrusionDetection\Db\StepUpSessionMapper;
+use OCA\IntrusionDetection\Db\IPurges;
+use OCA\IntrusionDetection\State\HotState;
 use OCP\AppFramework\Utility\ITimeFactory;
 use OCP\IConfig;
 use Psr\Log\LoggerInterface;
 
 /**
  * The sessions whose login still waits for its confirmation, or was refused,
- * remembered on the server by a keyed fingerprint of the session id.
+ * remembered on the server by a fingerprint of the session id.
  *
  * The step-up state lives in the PHP session, but a session can come back
  * without it: through the remember-me cookie, which core issues at the end
@@ -31,7 +31,7 @@ use Psr\Log\LoggerInterface;
  * Normal logins cost nothing: the table is only read while an unconfirmed
  * session may exist, which a global setting tells without a query.
  */
-class UnconfirmedSessions {
+class UnconfirmedSessions implements IPurges {
 	/** Core's defaults for how long a remembered login and a session last */
 	public const DEFAULT_REMEMBER_LIFETIME = 15 * 86400;
 	public const DEFAULT_SESSION_LIFETIME = 86400;
@@ -39,15 +39,23 @@ class UnconfirmedSessions {
 	public function __construct(
 		private readonly StepUpSessionMapper $mapper,
 		private readonly Fingerprinter $fingerprinter,
-		private readonly Settings $settings,
 		private readonly IConfig $config,
 		private readonly ITimeFactory $timeFactory,
 		private readonly LoggerInterface $logger,
+		private readonly HotState $hotState,
 	) {
 	}
 
 	/**
-	 * @param ?StepUpState $pending a login that waits for its confirmation, which a background job ends at its deadline
+	 * Delete the remembered sessions whose time is up.
+	 */
+	#[\Override]
+	public function purge(int $now): int {
+		return $this->mapper->deleteExpired($now);
+	}
+
+	/**
+	 * @param ?StepUpState $pending a login that waits for its confirmation, or a refused one, which a background job ends at its deadline
 	 */
 	public function remember(#[\SensitiveParameter] string $sessionId, string $uid, ?StepUpState $pending = null): void {
 		$now = $this->timeFactory->getTime();
@@ -60,9 +68,10 @@ class UnconfirmedSessions {
 			$pending?->deadline,
 			$pending?->ip,
 			$pending === null ? [] : $pending->policies,
+			$pending?->status === ConfirmationStatus::Refused,
 		);
-		if ($this->settings->getInt(GlobalSettings::STEP_UP_SESSIONS_UNTIL) < $expires) {
-			$this->settings->setGlobal(GlobalSettings::STEP_UP_SESSIONS_UNTIL, $expires);
+		if ($this->hotState->stepUpSessionsUntil() < $expires) {
+			$this->hotState->setStepUpSessionsUntil($expires);
 		}
 	}
 
@@ -110,14 +119,14 @@ class UnconfirmedSessions {
 	 * Whether any unconfirmed session may still exist, without a query.
 	 */
 	public function mayExist(): bool {
-		return self::mayExistIn($this->settings, $this->timeFactory->getTime());
+		return self::mayExistIn($this->hotState, $this->timeFactory->getTime());
 	}
 
 	/**
 	 * The same, for callers that have not built this service.
 	 */
-	public static function mayExistIn(Settings $settings, int $now): bool {
-		return $settings->getInt(GlobalSettings::STEP_UP_SESSIONS_UNTIL) > $now;
+	public static function mayExistIn(HotState $hotState, int $now): bool {
+		return $hotState->stepUpSessionsUntil() > $now;
 	}
 
 	/**

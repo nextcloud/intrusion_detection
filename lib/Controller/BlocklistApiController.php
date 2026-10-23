@@ -10,12 +10,12 @@ declare(strict_types=1);
 namespace OCA\IntrusionDetection\Controller;
 
 use OCA\IntrusionDetection\Admin\BlocklistPresenter;
+use OCA\IntrusionDetection\AdminChange\ActorResolver;
 use OCA\IntrusionDetection\Audit\AuditLogger;
 use OCA\IntrusionDetection\Blocklist\BlocklistSource;
 use OCA\IntrusionDetection\Blocklist\BlocklistSync;
 use OCA\IntrusionDetection\Blocklist\SourceEditor;
 use OCA\IntrusionDetection\Blocklist\SourceRepository;
-use OCA\IntrusionDetection\Check\InvalidParamException;
 use OCA\IntrusionDetection\ResponseDefinitions;
 use OCP\AppFramework\Http;
 use OCP\AppFramework\Http\Attribute\ApiRoute;
@@ -26,7 +26,6 @@ use OCP\AppFramework\Http\DataResponse;
 use OCP\AppFramework\OCS\OCSNotFoundException;
 use OCP\IL10N;
 use OCP\IRequest;
-use OCP\IUserSession;
 
 /**
  * The firewall export and the blocklists on the Blocks tab. Administrators
@@ -47,14 +46,14 @@ class BlocklistApiController extends AdminOCSController {
 	public function __construct(
 		IRequest $request,
 		IL10N $l,
-		IUserSession $userSession,
+		ActorResolver $actors,
 		private readonly BlocklistPresenter $presenter,
 		private readonly SourceEditor $editor,
 		private readonly SourceRepository $sources,
 		private readonly BlocklistSync $sync,
 		private readonly AuditLogger $audit,
 	) {
-		parent::__construct($request, $l, $userSession);
+		parent::__construct($request, $l, $actors);
 	}
 
 	/**
@@ -99,6 +98,7 @@ class BlocklistApiController extends AdminOCSController {
 	 * @param string $fileFormat The file format, usually "cidr" (one range per line); not called "format", which chooses the OCS response format
 	 * @param 'observe'|'protect' $mode For blocklists: only count matches, or refuse them
 	 * @param int<900, 604800>|null $interval Seconds between downloads; null for the global interval
+	 * @param string|null $sha256 The SHA-256 the file must have, in hexadecimal; null to trust the publisher and https
 	 * @return DataResponse<Http::STATUS_OK, IntrusionDetectionBlocklist, array{}>|DataResponse<Http::STATUS_BAD_REQUEST, IntrusionDetectionError, array{}>
 	 *
 	 * 200: List added
@@ -106,35 +106,33 @@ class BlocklistApiController extends AdminOCSController {
 	 */
 	#[ApiRoute(verb: 'POST', url: '/api/v1/blocklists')]
 	#[PasswordConfirmationRequired]
-	public function create(string $id, string $url, string $purpose, string $fileFormat = 'cidr', string $mode = BlocklistSource::MODE_OBSERVE, ?int $interval = null): DataResponse {
+	public function create(string $id, string $url, string $purpose, string $fileFormat = 'cidr', string $mode = BlocklistSource::MODE_OBSERVE, ?int $interval = null, ?string $sha256 = null): DataResponse {
 		$id = trim($id);
 		if ($this->sources->get($id) !== null) {
 			return $this->error($this->l->t('A list with this name exists already.'), 'id', 'list_exists');
 		}
-		try {
-			$this->editor->set($id, [
-				'url' => trim($url),
-				'purpose' => $purpose,
-				'format' => $fileFormat,
-				'mode' => $mode,
-				'interval' => $interval,
-				'enabled' => true,
-			], $this->actor());
-		} catch (InvalidParamException $e) {
-			return $this->invalid(self::withParam($e, 'url'));
-		}
+		$this->editor->set($id, [
+			'url' => trim($url),
+			'purpose' => $purpose,
+			'format' => $fileFormat,
+			'mode' => $mode,
+			'interval' => $interval,
+			'sha256' => $sha256,
+			'enabled' => true,
+		], $this->actor());
 		return $this->one($id);
 	}
 
 	/**
 	 * Change a list
 	 *
-	 * Switch it on or off, choose the mode of a blocklist, or its interval.
+	 * Switch it on or off, choose the mode of a blocklist, its interval, or the SHA-256 of your own list.
 	 *
 	 * @param string $id The list
 	 * @param bool|null $enabled Download and use the list
 	 * @param 'observe'|'protect'|null $mode For blocklists: only count matches, or refuse them
 	 * @param int<0, 604800>|null $interval Seconds between downloads; 0 for the default interval
+	 * @param string|null $sha256 Your own list: the SHA-256 the file must have, in hexadecimal; an empty string to trust the publisher and https
 	 * @return DataResponse<Http::STATUS_OK, IntrusionDetectionBlocklist, array{}>|DataResponse<Http::STATUS_BAD_REQUEST, IntrusionDetectionError, array{}>
 	 * @throws OCSNotFoundException The list does not exist
 	 *
@@ -143,7 +141,7 @@ class BlocklistApiController extends AdminOCSController {
 	 */
 	#[ApiRoute(verb: 'PUT', url: '/api/v1/blocklists/{id}', requirements: ['id' => '[a-z][a-z0-9_]{1,31}'])]
 	#[PasswordConfirmationRequired]
-	public function update(string $id, ?bool $enabled = null, ?string $mode = null, ?int $interval = null): DataResponse {
+	public function update(string $id, ?bool $enabled = null, ?string $mode = null, ?int $interval = null, ?string $sha256 = null): DataResponse {
 		$this->existing($id);
 		$changes = [];
 		if ($enabled !== null) {
@@ -155,11 +153,10 @@ class BlocklistApiController extends AdminOCSController {
 		if ($interval !== null) {
 			$changes['interval'] = $interval === 0 ? null : $interval;
 		}
-		try {
-			$this->editor->set($id, $changes, $this->actor());
-		} catch (InvalidParamException $e) {
-			return $this->invalid($e);
+		if ($sha256 !== null) {
+			$changes['sha256'] = $sha256;
 		}
+		$this->editor->set($id, $changes, $this->actor());
 		return $this->one($id);
 	}
 
@@ -179,11 +176,7 @@ class BlocklistApiController extends AdminOCSController {
 	#[PasswordConfirmationRequired]
 	public function remove(string $id): DataResponse {
 		$this->existing($id);
-		try {
-			$this->editor->remove($id, $this->actor());
-		} catch (InvalidParamException $e) {
-			return $this->invalid($e);
-		}
+		$this->editor->remove($id, $this->actor());
 		return new DataResponse(['removed' => $id]);
 	}
 
@@ -237,17 +230,4 @@ class BlocklistApiController extends AdminOCSController {
 		return new DataResponse($list);
 	}
 
-	/**
-	 * Errors about a new list without a field of their own belong to the field named here.
-	 */
-	private static function withParam(InvalidParamException $e, string $param): InvalidParamException {
-		if (isset($e->details['param'])) {
-			return $e;
-		}
-		$field = match ($e->reason) {
-			'invalid_list_id', 'too_many_lists' => 'id',
-			default => $param,
-		};
-		return new InvalidParamException($e->reason, $e->details + ['param' => $field]);
-	}
 }

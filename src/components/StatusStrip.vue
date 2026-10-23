@@ -7,10 +7,11 @@
 import type { Status } from '../types.ts'
 
 import { mdiAlertOutline } from '@mdi/js'
-import { getCanonicalLocale, n, t } from '@nextcloud/l10n'
+import { getCanonicalLocale } from '@nextcloud/l10n'
 import { computed } from 'vue'
 import NcIconSvgWrapper from '@nextcloud/vue/components/NcIconSvgWrapper'
 import { APP_ID } from '../utils/format.ts'
+import { n, t } from '../utils/l10n.ts'
 import { statusIcon } from '../utils/status.ts'
 
 const props = defineProps<{
@@ -67,7 +68,7 @@ const attention = computed(() => props.status.problems.filter((problem) => probl
 	display: flex;
 	flex-wrap: wrap;
 	align-items: center;
-	gap: calc(var(--default-grid-baseline) * 1) calc(var(--default-grid-baseline) * 2);
+	gap: var(--ids-space-1) var(--ids-space-2);
 }
 
 .strip_learning {
@@ -101,10 +102,10 @@ const attention = computed(() => props.status.problems.filter((problem) => probl
 .strip button.strip__link {
 	display: inline-flex;
 	align-items: center;
-	gap: calc(var(--default-grid-baseline) * 1);
-	min-height: calc(var(--default-clickable-area) - var(--default-grid-baseline) * 2);
+	gap: var(--ids-space-1);
+	min-height: calc(var(--default-clickable-area) - var(--ids-space-2));
 	margin: 0;
-	padding-inline: calc(var(--default-grid-baseline) * 2);
+	padding-inline: var(--ids-space-2);
 	border: none;
 	border-radius: var(--border-radius-element);
 	background: transparent;
@@ -118,7 +119,7 @@ const attention = computed(() => props.status.problems.filter((problem) => probl
 }
 
 .strip button.strip__link:focus-visible {
-	outline: 2px solid var(--color-main-text);
+	outline: var(--ids-focus-ring);
 	outline-offset: 2px;
 }
 </style>

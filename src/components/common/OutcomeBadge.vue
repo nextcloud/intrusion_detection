@@ -24,7 +24,7 @@ const label = computed(() => outcomeLabel(props.outcome))
 <style module>
 .badge {
 	display: inline-block;
-	padding-inline: calc(var(--default-grid-baseline) * 2);
+	padding-inline: var(--ids-space-2);
 	border: 1px solid transparent;
 	border-radius: var(--border-radius-element);
 	font-size: 0.85em;

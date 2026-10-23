@@ -40,7 +40,7 @@ function account(done: SecureAccountStepId[] = [], overrides: Partial<SecureAcco
 			startedAt: AT,
 			eventAt: AT - 600,
 			reason: 'denied',
-			detectionId: 42,
+			detectionId: '42',
 			closedAt: null,
 			closedBy: null,
 			done: done.length,
@@ -60,7 +60,7 @@ function account(done: SecureAccountStepId[] = [], overrides: Partial<SecureAcco
 			{ id: 12, name: 'Sync client', kind: 'app_password', current: false, lastActivity: AT, createdAt: AT, address: '203.0.113.7', afterEvent: true },
 		],
 		changes: [
-			{ id: 1, type: 'email_changed', label: 'Email address changed', via: 'self', actor: null, previous: 'a***@example.com', new: 'e***@evil.example', detail: null, address: '203.0.113.7', createdAt: AT },
+			{ id: '1', type: 'email_changed', label: 'Email address changed', via: 'self', actor: null, previous: 'a***@example.com', new: 'e***@evil.example', detail: null, address: '203.0.113.7', createdAt: AT },
 		],
 		shares: [
 			{ id: 'ocinternal:5', name: 'Finance', type: 'link', recipient: null, createdAt: AT, hasPassword: false, expiresAt: null, isFolder: true },

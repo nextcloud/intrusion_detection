@@ -4,8 +4,8 @@
 -->
 
 <script setup lang="ts">
-import { t } from '@nextcloud/l10n'
 import { APP_ID } from '../../utils/format.ts'
+import { t } from '../../utils/l10n.ts'
 
 // The card passes the check as `check`; this section does not need it, and it must not end up as an attribute.
 defineOptions({ inheritAttrs: false })

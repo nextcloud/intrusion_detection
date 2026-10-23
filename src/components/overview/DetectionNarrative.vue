@@ -7,7 +7,6 @@
 import type { Ban, DetectionDetail } from '../../types.ts'
 
 import { mdiChevronDown, mdiContentCopy, mdiFileDocumentAlertOutline, mdiFormatListBulleted, mdiLockOpenVariantOutline } from '@mdi/js'
-import { t } from '@nextcloud/l10n'
 import { computed, ref, useId } from 'vue'
 import NcButton from '@nextcloud/vue/components/NcButton'
 import NcIconSvgWrapper from '@nextcloud/vue/components/NcIconSvgWrapper'
@@ -18,6 +17,7 @@ import { useAnnouncer } from '../../composables/useAnnouncer.ts'
 import { useIncidentReport } from '../../composables/useIncidentReport.ts'
 import { detectionSections } from '../../extensions.ts'
 import { APP_ID, formatAddress } from '../../utils/format.ts'
+import { t } from '../../utils/l10n.ts'
 
 const props = defineProps<{
 	detail: DetectionDetail
@@ -210,14 +210,14 @@ async function copyText() {
 .narrative {
 	display: flex;
 	flex-direction: column;
-	gap: calc(var(--default-grid-baseline) * 4);
+	gap: var(--ids-space-4);
 }
 
 .narrative__details {
 	display: flex;
 	flex-direction: column;
-	gap: calc(var(--default-grid-baseline) * 4);
-	padding-inline-start: calc(var(--default-grid-baseline) * 4);
+	gap: var(--ids-space-4);
+	padding-inline-start: var(--ids-space-4);
 	border-inline-start: 2px solid var(--color-border);
 }
 
@@ -228,16 +228,12 @@ async function copyText() {
 .narrative__section {
 	display: flex;
 	flex-direction: column;
-	gap: calc(var(--default-grid-baseline) * 1.5);
+	gap: var(--ids-space-1-5);
 }
 
 .narrative__heading {
+	composes: eyebrow from '../../styles/shared.module.css';
 	margin: 0;
-	color: var(--color-text-maxcontrast);
-	font-size: 0.8em;
-	font-weight: 700;
-	letter-spacing: 0.06em;
-	text-transform: uppercase;
 }
 
 .narrative__text {
@@ -249,38 +245,36 @@ async function copyText() {
 .narrative__done {
 	display: flex;
 	flex-direction: column;
-	gap: calc(var(--default-grid-baseline) * 1);
+	gap: var(--ids-space-1);
 	margin: 0;
-	padding-inline-start: calc(var(--default-grid-baseline) * 5);
+	padding-inline-start: var(--ids-space-5);
 	list-style: disc;
 	line-height: 1.6;
 }
 
 .narrative__bans {
+	composes: plainList from '../../styles/shared.module.css';
 	display: flex;
 	flex-direction: column;
-	gap: calc(var(--default-grid-baseline) * 2);
-	margin: 0;
-	padding: 0;
-	list-style: none;
+	gap: var(--ids-space-2);
 }
 
 .narrative__ban {
 	display: flex;
 	flex-wrap: wrap;
 	align-items: center;
-	gap: calc(var(--default-grid-baseline) * 2);
+	gap: var(--ids-space-2);
 }
 
 .narrative__muted {
+	composes: muted from '../../styles/shared.module.css';
 	margin: 0;
-	color: var(--color-text-maxcontrast);
 }
 
 .narrative__actions {
 	display: flex;
 	flex-wrap: wrap;
-	gap: calc(var(--default-grid-baseline) * 2);
+	gap: var(--ids-space-2);
 }
 
 .table {
@@ -297,7 +291,7 @@ async function copyText() {
 
 .table th,
 .table td {
-	padding: calc(var(--default-grid-baseline) * 2);
+	padding: var(--ids-space-2);
 	border-bottom: 1px solid var(--color-border);
 }
 </style>

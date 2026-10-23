@@ -9,8 +9,8 @@ declare(strict_types=1);
 
 namespace OCA\IntrusionDetection\Response;
 
-use OCA\IntrusionDetection\Check\CheckDefinition;
 use OCA\IntrusionDetection\Db\Detection;
+use OCA\IntrusionDetection\Definition\CheckDefinition;
 use OCA\IntrusionDetection\Detection\DetectionDraft;
 
 final class ResponseContext {

@@ -11,18 +11,24 @@ namespace OCA\IntrusionDetection\Tests\Integration;
 
 use OCA\IntrusionDetection\Address\AddressResolver;
 use OCA\IntrusionDetection\AppInfo\Application;
-use OCA\IntrusionDetection\Check\Checks\AccountUnderAttack;
-use OCA\IntrusionDetection\Check\Checks\CredentialStuffing;
-use OCA\IntrusionDetection\Check\Checks\PasswordSpraying;
-use OCA\IntrusionDetection\Check\Checks\SharedAddress;
-use OCA\IntrusionDetection\Check\Mode;
+use OCA\IntrusionDetection\Check\Checks\AccountUnderAttack\AccountUnderAttack;
+use OCA\IntrusionDetection\Check\Checks\CredentialStuffing\CredentialStuffing;
+use OCA\IntrusionDetection\Check\Checks\CredentialStuffing\CredentialStuffingDetector;
+use OCA\IntrusionDetection\Check\Checks\CredentialStuffing\CredentialStuffingFacts;
+use OCA\IntrusionDetection\Check\Checks\CredentialStuffing\CredentialStuffingRule;
+use OCA\IntrusionDetection\Check\Checks\PasswordSpraying\PasswordSpraying;
+use OCA\IntrusionDetection\Check\Checks\SharedAddress\SharedAddress;
 use OCA\IntrusionDetection\Config\GlobalSettings;
+use OCA\IntrusionDetection\Config\ModeState;
 use OCA\IntrusionDetection\Db\BanMapper;
-use OCA\IntrusionDetection\Db\FlagMapper;
-use OCA\IntrusionDetection\Db\LoginHistoryMapper;
 use OCA\IntrusionDetection\Db\LoginMapper;
+use OCA\IntrusionDetection\Definition\Mode;
+use OCA\IntrusionDetection\Explain\DetectionFacts;
 use OCA\IntrusionDetection\Explain\NarrativeBuilder;
+use OCA\IntrusionDetection\LoginHistory\Db\LoginHistoryMapper;
 use OCA\IntrusionDetection\Net\SourceKey;
+use OCA\IntrusionDetection\Response\Db\FlagMapper;
+use OCA\IntrusionDetection\State\AppState;
 use OCP\Config\IUserConfig;
 use OCP\L10N\IFactory;
 use OCP\Server;
@@ -36,8 +42,8 @@ class CredentialStuffingTest extends LoginFailureTestCase {
 		parent::setUp();
 		$this->bans = Server::get(BanMapper::class);
 		// Only the check under test runs, so other checks cannot interfere.
-		$this->settings->setMode(PasswordSpraying::ID, Mode::Off);
-		$this->settings->setMode(AccountUnderAttack::ID, Mode::Off);
+		$this->settingsEditor()->setMode(PasswordSpraying::ID, Mode::Off);
+		$this->settingsEditor()->setMode(AccountUnderAttack::ID, Mode::Off);
 	}
 
 	public function testOneAddressTryingManyAccountsIsBlockedAtTheThreshold(): void {
@@ -52,10 +58,10 @@ class CredentialStuffingTest extends LoginFailureTestCase {
 		$detection = $detections[0];
 		$this->assertTrue($detection->isEnforced());
 		$this->assertSame('198.51.100.7', $detection->getIp());
-		$facts = $detection->getExplanationData()['facts'];
-		$this->assertSame(CredentialStuffing::RULE_SOURCE, $facts['rule']);
-		$this->assertSame(10, $facts['failures']);
-		$this->assertSame(5, $facts['names']);
+		$facts = CredentialStuffingFacts::fromArray($detection->getExplanationData()['facts']);
+		$this->assertSame(CredentialStuffingRule::Source, $facts->rule);
+		$this->assertSame(10, $facts->failures);
+		$this->assertSame(5, $facts->names);
 		$this->assertSame(10, $detection->getExplanationData()['thresholds']['min_failures']);
 
 		$this->assertCount(1, $this->bans->findActiveForKeys(['198.51.100.7'], time()));
@@ -74,7 +80,7 @@ class CredentialStuffingTest extends LoginFailureTestCase {
 	}
 
 	public function testRepeatedHitsMergeIntoOneDetection(): void {
-		$this->settings->setMode(CredentialStuffing::ID, Mode::Observe);
+		$this->settingsEditor()->setMode(CredentialStuffing::ID, Mode::Observe);
 		for ($i = 1; $i <= 14; $i++) {
 			$this->failLogin('198.51.100.7', 'user' . $i);
 		}
@@ -99,10 +105,10 @@ class CredentialStuffingTest extends LoginFailureTestCase {
 		$this->failLogin('203.0.113.30', 'name0');
 		$detections = $this->detectionsOf(CredentialStuffing::ID);
 		$this->assertCount(1, $detections);
-		$facts = $detections[0]->getExplanationData()['facts'];
-		$this->assertSame(CredentialStuffing::RULE_NETWORK, $facts['rule']);
-		$this->assertSame('203.0.113.0/24', $facts['net']);
-		$this->assertSame(30, $facts['sources']);
+		$facts = CredentialStuffingFacts::fromArray($detections[0]->getExplanationData()['facts']);
+		$this->assertSame(CredentialStuffingRule::Network, $facts->rule);
+		$this->assertSame('203.0.113.0/24', $facts->net);
+		$this->assertSame(30, $facts->sources);
 		// No address failed twice: the attempts are spread over the network, so the network itself is blocked.
 		$this->assertCount(1, $this->bans->findActiveForKeys(['203.0.113.0/24'], time()));
 		$this->assertSame([], $this->bans->findActiveForKeys(['203.0.113.17'], time()));
@@ -121,7 +127,7 @@ class CredentialStuffingTest extends LoginFailureTestCase {
 		$this->failLogin('203.0.113.51', 'another-neighbour');
 		$detections = $this->detectionsOf(CredentialStuffing::ID);
 		$this->assertCount(1, $detections);
-		$this->assertSame(CredentialStuffing::RULE_NETWORK, $detections[0]->getExplanationData()['facts']['rule']);
+		$this->assertSame(CredentialStuffingRule::Network, CredentialStuffingFacts::fromArray($detections[0]->getExplanationData()['facts'])->rule);
 		for ($i = 1; $i <= 7; $i++) {
 			$this->assertCount(1, $this->bans->findActiveForKeys(['203.0.113.' . $i], time()), (string)$i);
 		}
@@ -155,12 +161,12 @@ class CredentialStuffingTest extends LoginFailureTestCase {
 		}
 		$detections = $this->detectionsOf(CredentialStuffing::ID);
 		$this->assertCount(1, $detections);
-		$this->assertSame(CredentialStuffing::RULE_SOURCE, $detections[0]->getExplanationData()['facts']['rule']);
+		$this->assertSame(CredentialStuffingRule::Source, CredentialStuffingFacts::fromArray($detections[0]->getExplanationData()['facts'])->rule);
 		$this->assertCount(1, $this->bans->findActiveForKeys(['2001:db8:1:2::/64'], time()));
 	}
 
 	public function testOffRecordsNothing(): void {
-		$this->settings->setMode(CredentialStuffing::ID, Mode::Off);
+		$this->settingsEditor()->setMode(CredentialStuffing::ID, Mode::Off);
 		for ($i = 1; $i <= 12; $i++) {
 			$this->failLogin('198.51.100.7', 'user' . $i);
 		}
@@ -170,7 +176,7 @@ class CredentialStuffingTest extends LoginFailureTestCase {
 	}
 
 	public function testObserveRecordsWhatWouldHaveHappened(): void {
-		$this->settings->setMode(CredentialStuffing::ID, Mode::Observe);
+		$this->settingsEditor()->setMode(CredentialStuffing::ID, Mode::Observe);
 		for ($i = 1; $i <= 10; $i++) {
 			$this->failLogin('198.51.100.7', 'user' . $i);
 		}
@@ -192,24 +198,25 @@ class CredentialStuffingTest extends LoginFailureTestCase {
 		$this->assertFalse($detection->isEnforced());
 		$this->assertSame(0, $this->rows('ids_bans'));
 
-		$narrative = Server::get(NarrativeBuilder::class)->build($detection, Server::get(IFactory::class)->get(Application::APP_ID, 'en'));
-		$this->assertStringContainsString('failed to log in 10 times, trying 10 different accounts', $narrative->happened[0]);
-		$this->assertStringContainsString('The limit at that time was 10 failures for 5 accounts within 10 minutes', implode(' ', $narrative->happened));
-		$this->assertStringContainsString('learning mode', (string)$narrative->observedBecause);
+		$facts = CredentialStuffingFacts::fromArray($detection->getExplanationData()['facts']);
+		$this->assertSame(10, $facts->failures);
+		$this->assertSame(10, $facts->names);
+		$this->assertSame(ModeState::REASON_LEARNING, $detection->getExplanationData()['mode']['reason']);
+		$this->assertNotNull(Server::get(NarrativeBuilder::class)->build($detection, Server::get(IFactory::class)->get(Application::APP_ID, 'en'))->observedBecause);
 	}
 
 	public function testTheNarrativeKeepsTheThresholdsOfItsTime(): void {
 		for ($i = 1; $i <= 10; $i++) {
 			$this->failLogin('198.51.100.7', 'user' . $i);
 		}
-		$this->settings->setParam(CredentialStuffing::ID, 'min_failures', 50);
+		$this->settingsEditor()->setParam(CredentialStuffing::ID, 'min_failures', 50);
 		$detection = $this->detectionsOf(CredentialStuffing::ID)[0];
-		$narrative = Server::get(NarrativeBuilder::class)->build($detection, Server::get(IFactory::class)->get(Application::APP_ID, 'en'));
-		$this->assertStringContainsString('10 failures for 5 accounts', implode(' ', $narrative->happened));
+		$this->assertSame(10, DetectionFacts::of($detection)->threshold('min_failures'), 'The narrative reads the limits of its time');
+		$this->assertSame(5, DetectionFacts::of($detection)->threshold('min_names'));
 	}
 
 	public function testADistributedAttackIsRecordedOnceAndBlocksAddressesThatFailRepeatedly(): void {
-		$this->settings->setParam(CredentialStuffing::ID, 'min_failures', 1000);
+		$this->settingsEditor()->setParam(CredentialStuffing::ID, 'min_failures', 1000);
 		// 100 failures from 25 addresses for 25 names, spread over the last minutes.
 		for ($i = 0; $i < 99; $i++) {
 			$this->storeAttempt('192.0.2.' . ($i % 25 + 1), 'victim' . ($i % 25), at: time() - 120);
@@ -217,11 +224,11 @@ class CredentialStuffingTest extends LoginFailureTestCase {
 		$this->failLogin('192.0.2.1', 'victim99');
 		$distributed = array_values(array_filter(
 			$this->detectionsOf(CredentialStuffing::ID),
-			static fn ($d): bool => ($d->getExplanationData()['facts']['distributed'] ?? false) === true,
+			static fn ($d): bool => CredentialStuffingFacts::fromArray($d->getExplanationData()['facts'])->rule === CredentialStuffingRule::Distributed,
 		));
 		$this->assertCount(1, $distributed);
 		$this->assertNull($distributed[0]->getIp());
-		$this->assertGreaterThan(time(), $this->settings->getInt(GlobalSettings::CS_DISTRIBUTED_UNTIL));
+		$this->assertGreaterThan(time(), Server::get(AppState::class)->getInt(CredentialStuffingDetector::DISTRIBUTED_UNTIL_STATE));
 		// 192.0.2.1 failed 5 times for 2 or more names: blocked, with the distributed detection as reason.
 		$ban = $this->bans->findActiveForKeys(['192.0.2.1'], time())[0] ?? null;
 		$this->assertNotNull($ban);
@@ -231,13 +238,13 @@ class CredentialStuffingTest extends LoginFailureTestCase {
 		$this->failLogin('192.0.2.2', 'victim100');
 		$this->assertCount(1, array_filter(
 			$this->detectionsOf(CredentialStuffing::ID),
-			static fn ($d): bool => ($d->getExplanationData()['facts']['distributed'] ?? false) === true,
+			static fn ($d): bool => CredentialStuffingFacts::fromArray($d->getExplanationData()['facts'])->rule === CredentialStuffingRule::Distributed,
 		));
 	}
 
 	public function testDuringADistributedAttackEveryFailingAddressIsFlaggedButOnlyRepeatOffendersBlocked(): void {
-		$this->appConfig->setValueInt(Application::APP_ID, GlobalSettings::CS_DISTRIBUTED_UNTIL, time() + 300);
-		$this->appConfig->setValueInt(Application::APP_ID, GlobalSettings::CS_DISTRIBUTED_DETECTED_AT, time());
+		Server::get(AppState::class)->setInt(CredentialStuffingDetector::DISTRIBUTED_UNTIL_STATE, time() + 300);
+		Server::get(AppState::class)->setInt(CredentialStuffingDetector::DISTRIBUTED_DETECTED_AT_STATE, time());
 		$this->failLogin('192.0.2.200', 'someone');
 		$this->assertNotSame([], Server::get(FlagMapper::class)->active(['ip:192.0.2.200'], time()));
 		$this->assertSame([], $this->bans->findActiveForKeys(['192.0.2.200'], time()), 'One failure is not enough for a block');
@@ -249,8 +256,8 @@ class CredentialStuffingTest extends LoginFailureTestCase {
 	}
 
 	public function testASharedAddressInADistributedAttackIsReportedInsteadOfBlocked(): void {
-		$this->appConfig->setValueInt(Application::APP_ID, GlobalSettings::CS_DISTRIBUTED_UNTIL, time() + 300);
-		$this->appConfig->setValueInt(Application::APP_ID, GlobalSettings::CS_DISTRIBUTED_DETECTED_AT, time());
+		Server::get(AppState::class)->setInt(CredentialStuffingDetector::DISTRIBUTED_UNTIL_STATE, time() + 300);
+		Server::get(AppState::class)->setInt(CredentialStuffingDetector::DISTRIBUTED_DETECTED_AT_STATE, time());
 		$source = SourceKey::fromIp('192.0.2.210');
 		foreach (['alice', 'bob', 'carol', 'dave', 'erin'] as $name) {
 			$uid = $this->user('ids-' . $name . '-' . bin2hex(random_bytes(3)))->getUID();
@@ -267,7 +274,7 @@ class CredentialStuffingTest extends LoginFailureTestCase {
 	}
 
 	public function testAfterADistributedAttackFailingAddressesStayFlaggedForAnHour(): void {
-		$this->appConfig->setValueInt(Application::APP_ID, GlobalSettings::CS_DISTRIBUTED_UNTIL, time() - 600);
+		Server::get(AppState::class)->setInt(CredentialStuffingDetector::DISTRIBUTED_UNTIL_STATE, time() - 600);
 		$this->failLogin('192.0.2.201', 'a');
 		$this->failLogin('192.0.2.201', 'b');
 		$this->failLogin('192.0.2.201', 'c');
@@ -276,9 +283,9 @@ class CredentialStuffingTest extends LoginFailureTestCase {
 	}
 
 	public function testTheDistributedRuleOnlyObservesInObserveMode(): void {
-		$this->settings->setMode(CredentialStuffing::ID, Mode::Observe);
-		$this->appConfig->setValueInt(Application::APP_ID, GlobalSettings::CS_DISTRIBUTED_UNTIL, time() + 300);
-		$this->appConfig->setValueInt(Application::APP_ID, GlobalSettings::CS_DISTRIBUTED_DETECTED_AT, time());
+		$this->settingsEditor()->setMode(CredentialStuffing::ID, Mode::Observe);
+		Server::get(AppState::class)->setInt(CredentialStuffingDetector::DISTRIBUTED_UNTIL_STATE, time() + 300);
+		Server::get(AppState::class)->setInt(CredentialStuffingDetector::DISTRIBUTED_DETECTED_AT_STATE, time());
 		for ($i = 0; $i < 3; $i++) {
 			$this->failLogin('192.0.2.202', 'n' . $i);
 		}

@@ -10,7 +10,7 @@ SPDX-FileCopyrightText = "2026 Nextcloud translators"
 SPDX-License-Identifier = "AGPL-3.0-or-later"
 
 [[annotations]]
-path = ["package.json", "package-lock.json", "tsconfig.json", "openapi-administration.json", "openapi-full.json", "composer/composer.json", "composer/composer.lock", "composer/composer/installed.json", "tests/fixtures/**"]
+path = ["package.json", "package-lock.json", "tsconfig.json", "openapi-administration.json", "openapi-full.json", "composer/composer.json", "composer/composer.lock", "composer/composer/installed.json", "vendor-bin/*/composer.json", "vendor-bin/*/composer.lock", "src/types/openapi/**", "tests/fixtures/**"]
 precedence = "aggregate"
 SPDX-FileCopyrightText = "2026 Nextcloud GmbH and Nextcloud contributors"
 SPDX-License-Identifier = "AGPL-3.0-or-later"

@@ -9,7 +9,6 @@ declare(strict_types=1);
 
 namespace OCA\IntrusionDetection\Takeover\Signals;
 
-use OCA\IntrusionDetection\Db\LoginHistoryMapper;
 use OCA\IntrusionDetection\LoginHistory\LoginHistory;
 use OCA\IntrusionDetection\Net\SourceKey;
 use OCA\IntrusionDetection\Risk\RiskScorer;
@@ -26,7 +25,7 @@ class UnknownDeviceSignal implements IRiskyLoginSignal {
 	private const PASSWORD_METHODS = [LoginHistory::METHOD_PASSWORD, LoginHistory::METHOD_CLIENT_PASSWORD];
 
 	public function __construct(
-		private readonly LoginHistoryMapper $history,
+		private readonly LoginHistory $history,
 		private readonly RiskScorer $scorer,
 	) {
 	}

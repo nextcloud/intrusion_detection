@@ -30,7 +30,7 @@ class BanPresenter {
 	public function present(Ban $ban, IL10N $l): array {
 		$checkId = $ban->getCheckId();
 		return [
-			'id' => (int)$ban->getId(),
+			'id' => (string)$ban->getId(),
 			'reference' => $ban->getDisplayReference(),
 			'cidr' => $ban->getCidr(),
 			'scope' => $ban->getScope(),
@@ -40,7 +40,7 @@ class BanPresenter {
 			'detectionId' => $ban->getDetectionId(),
 			'createdBy' => $ban->getCreatedBy(),
 			'note' => $ban->getNote(),
-			'createdAt' => $ban->getCreatedAt(),
+			'createdAt' => $ban->getCreatedTime(),
 			'expiresAt' => $ban->getExpiresAt(),
 			'liftedAt' => $ban->getLiftedAt(),
 			'liftedBy' => $ban->getLiftedBy(),

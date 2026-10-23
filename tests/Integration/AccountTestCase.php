@@ -12,15 +12,16 @@ namespace OCA\IntrusionDetection\Tests\Integration;
 use OC\Authentication\Token\IProvider as PrivateTokenProvider;
 use OCA\IntrusionDetection\Audit\AuditLogger;
 use OCA\IntrusionDetection\Check\CheckRegistry;
-use OCA\IntrusionDetection\Config\Settings;
-use OCA\IntrusionDetection\Db\AlertMapper;
 use OCA\IntrusionDetection\Db\TokenOriginMapper;
 use OCA\IntrusionDetection\Detection\DetectionService;
 use OCA\IntrusionDetection\Event\TypedEvents;
+use OCA\IntrusionDetection\Login\CoreSession;
 use OCA\IntrusionDetection\Notification\AdminNotices;
+use OCA\IntrusionDetection\Notification\Db\AlertMapper;
 use OCA\IntrusionDetection\Notification\LoginNotices;
 use OCA\IntrusionDetection\Notification\MailContent;
 use OCA\IntrusionDetection\Notification\MailQueue;
+use OCA\IntrusionDetection\Notification\MailReach;
 use OCA\IntrusionDetection\Notification\Mails;
 use OCA\IntrusionDetection\Notification\UserAlerts;
 use OCA\IntrusionDetection\Notification\UserMessages;
@@ -29,7 +30,6 @@ use OCA\IntrusionDetection\Response\Handlers\NotifyUserHandler;
 use OCA\IntrusionDetection\Response\ResponseEngine;
 use OCA\IntrusionDetection\Response\SessionKiller;
 use OCA\IntrusionDetection\Response\Tokens;
-use OCA\IntrusionDetection\SessionState\CurrentSession;
 use OCA\IntrusionDetection\WasThisYou\Questions;
 use OCP\AppFramework\Utility\ITimeFactory;
 use OCP\Authentication\Exceptions\InvalidTokenException;
@@ -50,10 +50,9 @@ use Psr\Log\LoggerInterface;
  * are captured; emails are captured instead of sent.
  */
 abstract class AccountTestCase extends IntegrationTestCase {
-	protected Settings $settings;
 	protected PrivateTokenProvider $tokens;
 	protected TestSession $session;
-	protected CurrentSession $currentSession;
+	protected CoreSession $coreSession;
 	/** @var IUserSession&MockObject */
 	protected IUserSession $userSession;
 	/** @var Mails&MockObject */
@@ -67,10 +66,9 @@ abstract class AccountTestCase extends IntegrationTestCase {
 
 	protected function setUp(): void {
 		parent::setUp();
-		$this->settings = Server::get(Settings::class);
 		$this->tokens = Server::get(PrivateTokenProvider::class);
 		$this->session = new TestSession();
-		$this->currentSession = new CurrentSession($this->session, Server::get(IProvider::class), Server::get(LoggerInterface::class));
+		$this->coreSession = new CoreSession($this->session, Server::get(IProvider::class), Server::get(LoggerInterface::class));
 		$this->userSession = $this->createMock(IUserSession::class);
 		$this->userSession->method('getUser')->willReturnCallback(fn (): ?IUser => $this->sessionUser);
 		$this->userSession->method('isLoggedIn')->willReturnCallback(fn (): bool => $this->sessionUser !== null);
@@ -148,6 +146,8 @@ abstract class AccountTestCase extends IntegrationTestCase {
 			Server::get(LoginNotices::class),
 			Server::get(Questions::class),
 			Server::get(MailQueue::class),
+			Server::get(CheckRegistry::class),
+			Server::get(MailReach::class),
 		);
 	}
 
@@ -164,7 +164,7 @@ abstract class AccountTestCase extends IntegrationTestCase {
 		return new SessionKiller(
 			Server::get(Tokens::class),
 			Server::get(TokenOriginMapper::class),
-			$this->currentSession,
+			$this->coreSession,
 			$this->userSession,
 			Server::get(ITimeFactory::class),
 			Server::get(AuditLogger::class),
@@ -177,7 +177,7 @@ abstract class AccountTestCase extends IntegrationTestCase {
 	protected function engine(): ResponseEngine {
 		return new ResponseEngine(
 			Server::get(CheckRegistry::class),
-			$this->settings,
+			$this->checkSettings(),
 			Server::get(DetectionService::class),
 			new OverridingContainer([
 				KillSessionHandler::class => new KillSessionHandler($this->sessionKiller()),

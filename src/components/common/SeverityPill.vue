@@ -6,20 +6,16 @@
 <script setup lang="ts">
 import type { Severity } from '../../types.ts'
 
-import { t } from '@nextcloud/l10n'
 import { computed } from 'vue'
+import { severityLabel } from '../../store.ts'
 import { APP_ID } from '../../utils/format.ts'
+import { t } from '../../utils/l10n.ts'
 
 const props = defineProps<{
 	severity: Severity
 }>()
 
-const label = computed(() => ({
-	low: t(APP_ID, 'Low'),
-	medium: t(APP_ID, 'Medium'),
-	high: t(APP_ID, 'High'),
-	critical: t(APP_ID, 'Critical'),
-})[props.severity] ?? props.severity)
+const label = computed(() => severityLabel(props.severity))
 </script>
 
 <template>
@@ -36,9 +32,9 @@ const label = computed(() => ({
 	--pill-tint: var(--color-text-maxcontrast);
 	display: inline-flex;
 	align-items: center;
-	gap: calc(var(--default-grid-baseline) * 1.5);
-	padding-block: calc(var(--default-grid-baseline) / 2);
-	padding-inline: calc(var(--default-grid-baseline) * 2);
+	gap: var(--ids-space-1-5);
+	padding-block: var(--ids-space-half);
+	padding-inline: var(--ids-space-2);
 	border: 1px solid color-mix(in srgb, var(--pill-tint) 40%, var(--color-main-background));
 	border-radius: var(--border-radius-pill, 100px);
 	background-color: color-mix(in srgb, var(--pill-tint) 16%, var(--color-main-background));

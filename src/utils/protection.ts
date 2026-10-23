@@ -5,8 +5,8 @@
 
 import type { Check } from '../types.ts'
 
-import { t } from '@nextcloud/l10n'
 import { APP_ID } from './format.ts'
+import { t } from './l10n.ts'
 
 export interface ProtectionGroup {
 	id: string

@@ -9,7 +9,7 @@ declare(strict_types=1);
 
 namespace OCA\IntrusionDetection\Db;
 
-use OCP\AppFramework\Db\Entity;
+use OCP\AppFramework\Db\SnowflakeAwareEntity;
 use OCP\DB\Types;
 
 /**
@@ -25,14 +25,14 @@ use OCP\DB\Types;
  * @method void setLevel(int $level)
  * @method string getCheckId()
  * @method void setCheckId(string $checkId)
- * @method ?int getDetectionId()
- * @method void setDetectionId(?int $detectionId)
+ * @method ?string getDetectionId()
+ * @method void setDetectionId(?string $detectionId)
  * @method ?string getCreatedBy()
  * @method void setCreatedBy(?string $createdBy)
  * @method ?string getNote()
  * @method void setNote(?string $note)
- * @method int getCreatedAt()
- * @method void setCreatedAt(int $createdAt)
+ * @method int getCreatedTime() when it was created, as a Unix time
+ * @method void setCreatedTime(int $createdTime)
  * @method int getExpiresAt()
  * @method void setExpiresAt(int $expiresAt)
  * @method ?int getLiftedAt()
@@ -42,7 +42,9 @@ use OCP\DB\Types;
  * @method ?string getLiftNote()
  * @method void setLiftNote(?string $liftNote)
  */
-class Ban extends Entity implements \JsonSerializable {
+class Ban extends SnowflakeAwareEntity implements \JsonSerializable {
+	use CreatedTimeColumn;
+
 	public const SCOPE_IP = 'ip';
 	public const SCOPE_NET = 'net';
 
@@ -52,10 +54,10 @@ class Ban extends Entity implements \JsonSerializable {
 	protected ?string $banKey = null;
 	protected ?int $level = null;
 	protected ?string $checkId = null;
-	protected ?int $detectionId = null;
+	protected ?string $detectionId = null;
 	protected ?string $createdBy = null;
 	protected ?string $note = null;
-	protected ?int $createdAt = null;
+	protected ?int $createdTime = null;
 	protected ?int $expiresAt = null;
 	protected ?int $liftedAt = null;
 	protected ?string $liftedBy = null;
@@ -68,10 +70,10 @@ class Ban extends Entity implements \JsonSerializable {
 		$this->addType('banKey', Types::STRING);
 		$this->addType('level', Types::SMALLINT);
 		$this->addType('checkId', Types::STRING);
-		$this->addType('detectionId', Types::BIGINT);
+		$this->addType('detectionId', Types::STRING);
 		$this->addType('createdBy', Types::STRING);
 		$this->addType('note', Types::STRING);
-		$this->addType('createdAt', Types::BIGINT);
+		$this->addType('createdTime', Types::BIGINT);
 		$this->addType('expiresAt', Types::BIGINT);
 		$this->addType('liftedAt', Types::BIGINT);
 		$this->addType('liftedBy', Types::STRING);
@@ -103,7 +105,7 @@ class Ban extends Entity implements \JsonSerializable {
 	#[\Override]
 	public function jsonSerialize(): array {
 		return [
-			'id' => $this->getId(),
+			'id' => (string)$this->getId(),
 			'reference' => $this->getDisplayReference(),
 			'cidr' => $this->cidr,
 			'scope' => $this->scope,
@@ -112,7 +114,7 @@ class Ban extends Entity implements \JsonSerializable {
 			'detectionId' => $this->detectionId,
 			'createdBy' => $this->createdBy,
 			'note' => $this->note,
-			'createdAt' => $this->createdAt,
+			'createdAt' => $this->createdTime,
 			'expiresAt' => $this->expiresAt,
 			'liftedAt' => $this->liftedAt,
 			'liftedBy' => $this->liftedBy,

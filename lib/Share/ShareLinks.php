@@ -10,7 +10,8 @@ declare(strict_types=1);
 namespace OCA\IntrusionDetection\Share;
 
 use OCA\IntrusionDetection\Audit\AuditLogger;
-use OCA\IntrusionDetection\Check\Checks\ShareBruteforce;
+use OCA\IntrusionDetection\Check\Checks\ShareBruteforce\ShareBruteforce;
+use OCA\IntrusionDetection\Check\Checks\ShareBruteforce\ShareBruteforceFacts;
 use OCA\IntrusionDetection\Db\Detection;
 use OCA\IntrusionDetection\Db\DetectionMapper;
 use OCA\IntrusionDetection\Explain\DetectionFacts;
@@ -114,7 +115,7 @@ class ShareLinks {
 	 *
 	 * @return self::DISABLED|self::ALREADY_GONE|self::NOT_FOUND
 	 */
-	public function disable(int $detectionId, string $actorUid): string {
+	public function disable(string $detectionId, string $actorUid): string {
 		try {
 			$detection = $this->detections->findById($detectionId);
 		} catch (DoesNotExistException) {
@@ -126,7 +127,7 @@ class ShareLinks {
 		$share = $this->find($detection);
 		if ($share === null) {
 			// Only the people the detection told may learn that the link is gone.
-			return in_array($actorUid, DetectionFacts::of($detection)->list('managers'), true) ? self::ALREADY_GONE : self::NOT_FOUND;
+			return in_array($actorUid, ShareBruteforceFacts::fromArray(DetectionFacts::of($detection)->facts)->managers ?? [], true) ? self::ALREADY_GONE : self::NOT_FOUND;
 		}
 		if (!$this->canManage($share, $actorUid) || !$this->isLink($share)) {
 			return self::NOT_FOUND;
@@ -148,7 +149,7 @@ class ShareLinks {
 		if ($shareId === null) {
 			return null;
 		}
-		$fullId = DetectionFacts::of($detection)->string('share');
+		$fullId = ShareBruteforceFacts::fromArray(DetectionFacts::of($detection)->facts)->share ?? '';
 		if (preg_match('/^[A-Za-z][A-Za-z0-9_]{0,63}:(\d{1,20})$/', $fullId, $m) === 1 && $m[1] === (string)$shareId) {
 			return $fullId;
 		}

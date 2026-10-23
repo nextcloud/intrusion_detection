@@ -5,11 +5,11 @@
 
 <script setup lang="ts">
 import { mdiCheck, mdiContentCopy } from '@mdi/js'
-import { t } from '@nextcloud/l10n'
 import { ref } from 'vue'
 import NcIconSvgWrapper from '@nextcloud/vue/components/NcIconSvgWrapper'
 import { useAnnouncer } from '../../composables/useAnnouncer.ts'
 import { APP_ID } from '../../utils/format.ts'
+import { t } from '../../utils/l10n.ts'
 
 const props = defineProps<{
 	reference: string
@@ -60,7 +60,7 @@ async function copy() {
 }
 
 .reference__code {
-	padding-inline: calc(var(--default-grid-baseline) * 2);
+	padding-inline: var(--ids-space-2);
 	font-family: var(--font-face-monospace, ui-monospace, 'SFMono-Regular', Menlo, Consolas, monospace);
 	font-size: 0.9em;
 	letter-spacing: 0.04em;
@@ -98,7 +98,7 @@ async function copy() {
 }
 
 .reference button.reference__copy:focus-visible {
-	outline: 2px solid var(--color-main-text);
+	outline: var(--ids-focus-ring);
 	outline-offset: -2px;
 }
 </style>

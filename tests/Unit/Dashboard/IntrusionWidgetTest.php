@@ -12,11 +12,11 @@ namespace OCA\IntrusionDetection\Tests\Unit\Dashboard;
 use OCA\IntrusionDetection\Admin\CheckNames;
 use OCA\IntrusionDetection\Admin\ConfirmationOverview;
 use OCA\IntrusionDetection\Admin\StatusService;
-use OCA\IntrusionDetection\Check\Category;
 use OCA\IntrusionDetection\Dashboard\IntrusionWidget;
 use OCA\IntrusionDetection\Db\Detection;
 use OCA\IntrusionDetection\Db\DetectionFilter;
 use OCA\IntrusionDetection\Db\DetectionMapper;
+use OCA\IntrusionDetection\Definition\Category;
 use OCA\IntrusionDetection\Explain\DateFormatter;
 use OCP\AppFramework\Utility\ITimeFactory;
 use OCP\Dashboard\Model\WidgetButton;
@@ -191,7 +191,7 @@ class IntrusionWidgetTest extends TestCase {
 
 		$items = $this->widget->getItemsV2('admin', '8', 7);
 
-		$this->assertSame(8, $filter?->afterId);
+		$this->assertSame('8', $filter?->afterId);
 		$this->assertSame(7, $filter?->limit);
 		$this->assertSame(['9'], array_map(static fn ($item): string => $item->getSinceId(), $items->getItems()));
 		$this->assertSame('', $items->getEmptyContentMessage());
@@ -233,14 +233,12 @@ class IntrusionWidgetTest extends TestCase {
 			'cost' => null,
 			'costSampleRate' => 1000,
 			'problems' => [],
-			'extensions' => [],
 		];
 	}
 
 	private static function detection(int $id, string $checkId, bool $enforced, string $severity = 'high'): Detection {
-		$detection = new Detection();
+		$detection = Detection::fromRow(['id' => (string)$id]);
 		$detection->setSeverity($severity);
-		$detection->setId($id);
 		$detection->setCheckId($checkId);
 		$detection->setEnforced($enforced);
 		$detection->setIp('198.51.100.7');

@@ -11,9 +11,8 @@ namespace OCA\IntrusionDetection\Tests\Integration;
 
 use OCA\IntrusionDetection\Admin\DetectionPresenter;
 use OCA\IntrusionDetection\AppInfo\Application;
-use OCA\IntrusionDetection\Check\Checks\CredentialStuffing;
+use OCA\IntrusionDetection\Check\Checks\CredentialStuffing\CredentialStuffing;
 use OCA\IntrusionDetection\Config\GlobalSettings;
-use OCA\IntrusionDetection\Risk\RiskScorer;
 use OCP\L10N\IFactory;
 use OCP\Server;
 use PHPUnit\Framework\Attributes\Group;
@@ -28,8 +27,7 @@ class NoSecretsRiskTest extends LoginFailureTestCase {
 	private const SECRET = 'Unguessable-Secret-Pa55word-4711';
 
 	public function testThePasswordAppearsInNoTableAndNoExplanation(): void {
-		(new \ReflectionProperty(RiskScorer::class, 'cacheInitialised'))->setValue(Server::get(RiskScorer::class), false);
-		$this->settings->setGlobal(GlobalSettings::RISK_ENABLED, true);
+		$this->settingsEditor()->setGlobal(GlobalSettings::RISK_ENABLED, true);
 		$this->userAgent = 'python-requests/2.31';
 		for ($i = 1; $i <= 5; $i++) {
 			$this->failLogin('198.51.100.7', 'user' . $i, self::SECRET);

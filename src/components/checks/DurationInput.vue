@@ -4,11 +4,11 @@
 -->
 
 <script setup lang="ts">
-import { t } from '@nextcloud/l10n'
 import { computed, ref, useId, watch } from 'vue'
 import NcTextField from '@nextcloud/vue/components/NcTextField'
 import SelectField from '../common/SelectField.vue'
 import { APP_ID, DURATION_UNITS, splitDuration } from '../../utils/format.ts'
+import { t } from '../../utils/l10n.ts'
 
 /** Seconds; text that is not a number is passed on as typed, so validation can say what is wrong */
 const model = defineModel<number | string>({ required: true })
@@ -77,7 +77,7 @@ function emitValue() {
 .duration {
 	display: flex;
 	flex-direction: column;
-	gap: calc(var(--default-grid-baseline) * 1);
+	gap: var(--ids-space-1);
 }
 
 .duration__label {
@@ -87,7 +87,7 @@ function emitValue() {
 .duration__row {
 	display: flex;
 	align-items: center;
-	gap: calc(var(--default-grid-baseline) * 2);
+	gap: var(--ids-space-2);
 	max-width: 360px;
 }
 

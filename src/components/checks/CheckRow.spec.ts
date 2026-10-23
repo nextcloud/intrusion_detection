@@ -14,7 +14,6 @@ import { makeCheck } from '../../tests/fixtures.ts'
 vi.mock('../../services/api.ts', async (importOriginal) => ({
 	...(await importOriginal<object>()),
 	updateCheck: vi.fn(),
-	fetchStatus: vi.fn(() => new Promise(() => {})),
 }))
 
 const mounted: { unmount: () => void }[] = []
@@ -84,6 +83,12 @@ describe('a check on the Protection tab', () => {
 		}))
 		expect(row.findAll('input[type="radio"]').map((r) => (r.element as HTMLInputElement).disabled)).toEqual([false, true, true])
 		expect(row.text()).toContain('Needs a memory cache')
+	})
+
+	test('a mode locked in config.php cannot be changed, and the row says why', () => {
+		const row = mountRow(makeCheck({ mode: { configured: 'protect', effective: 'protect', reason: null, missing: null, default: 'protect', locked: true } }))
+		expect(row.findAll('input[type="radio"]').every((r) => (r.element as HTMLInputElement).disabled)).toBe(true)
+		expect(row.text()).toContain('Locked in config.php')
 	})
 
 	test('learning mode is left to the header', () => {

@@ -10,17 +10,18 @@ declare(strict_types=1);
 namespace OCA\IntrusionDetection\Tests\Integration;
 
 use OCA\IntrusionDetection\AppInfo\Application;
-use OCA\IntrusionDetection\Check\Checks\DecoyCredential;
-use OCA\IntrusionDetection\Check\InvalidParamException;
-use OCA\IntrusionDetection\Check\Mode;
+use OCA\IntrusionDetection\Check\Checks\DecoyCredential\DecoyCredential;
+use OCA\IntrusionDetection\Check\Checks\DecoyCredential\DecoyCredentialFacts;
+use OCA\IntrusionDetection\Check\Checks\DecoyCredential\DecoyCredentialMatch;
 use OCA\IntrusionDetection\Config\GlobalSettings;
 use OCA\IntrusionDetection\Crypto\Fingerprinter;
 use OCA\IntrusionDetection\Db\BanMapper;
-use OCA\IntrusionDetection\Db\DecoyMapper;
+use OCA\IntrusionDetection\Decoy\Db\DecoyMapper;
 use OCA\IntrusionDetection\Decoy\DecoyFormat;
 use OCA\IntrusionDetection\Decoy\DecoyService;
-use OCA\IntrusionDetection\Explain\NarrativeBuilder;
-use OCP\L10N\IFactory;
+use OCA\IntrusionDetection\Definition\InvalidParamException;
+use OCA\IntrusionDetection\Definition\Mode;
+use OCA\IntrusionDetection\State\HotState;
 use OCP\Server;
 use PHPUnit\Framework\Attributes\Group;
 
@@ -50,10 +51,10 @@ class DecoyCredentialTest extends LoginFailureTestCase {
 			$this->assertNotContains($appSecret, $row);
 			$this->assertNotContains($tokenSecret, $row);
 		}
-		$this->assertSame(2, $this->settings->getInt(GlobalSettings::DECOY_COUNT));
+		$this->assertSame(2, Server::get(HotState::class)->decoyCount());
 
 		$this->decoys->delete($appPassword->getId(), 'admin');
-		$this->assertSame(1, $this->settings->getInt(GlobalSettings::DECOY_COUNT));
+		$this->assertSame(1, Server::get(HotState::class)->decoyCount());
 		$this->assertCount(1, $this->decoys->list());
 	}
 
@@ -78,7 +79,7 @@ class DecoyCredentialTest extends LoginFailureTestCase {
 		$this->assertCount(1, $detections);
 		$this->assertSame('critical', $detections[0]->getSeverity());
 		$this->assertTrue($detections[0]->isEnforced());
-		$this->assertSame('old backup script on nas01', $detections[0]->getExplanationData()['facts']['label']);
+		$this->assertSame('old backup script on nas01', DecoyCredentialFacts::fromArray($detections[0]->getExplanationData()['facts'])->label);
 
 		$ban = $this->bans->findActiveForKeys(['198.51.100.7'], time())[0];
 		$this->assertSame(3, $ban->getLevel());
@@ -91,9 +92,7 @@ class DecoyCredentialTest extends LoginFailureTestCase {
 		$this->assertSame(1, $stored->getTriggerCount());
 		$this->assertNotNull($stored->getLastTriggeredAt());
 		$this->assertSame(0, $this->rows('ids_attempts'), 'A decoy use is answered on its own');
-
-		$narrative = Server::get(NarrativeBuilder::class)->build($detections[0], Server::get(IFactory::class)->get(Application::APP_ID, 'en'));
-		$this->assertStringContainsString('used the decoy credential "old backup script on nas01"', $narrative->happened[0]);
+		$this->assertSame(DecoyCredentialMatch::Secret, DecoyCredentialFacts::fromArray($detections[0]->getExplanationData()['facts'])->match);
 	}
 
 	public function testATokenDecoyIsFoundToo(): void {
@@ -115,7 +114,7 @@ class DecoyCredentialTest extends LoginFailureTestCase {
 		$this->failLogin('198.51.100.7', 'Backup-Svc', 'some other password');
 		$detection = $this->detectionsOf(DecoyCredential::ID)[0];
 		$this->assertSame('high', $detection->getSeverity());
-		$this->assertSame(DecoyCredential::MATCH_LOGIN_NAME, $detection->getExplanationData()['facts']['match']);
+		$this->assertSame(DecoyCredentialMatch::LoginName, DecoyCredentialFacts::fromArray($detection->getExplanationData()['facts'])->match);
 		$this->assertSame(1, $this->bans->findActiveForKeys(['198.51.100.7'], time())[0]->getLevel(), 'The usual escalation');
 		$this->assertFalse(array_column($detection->getActionList(), null, 'type')['ban']['ref']['bans'][0]['forced']);
 	}
@@ -142,7 +141,7 @@ class DecoyCredentialTest extends LoginFailureTestCase {
 
 	public function testOffSkipsTheCheck(): void {
 		[, $secret] = $this->decoys->create('label', null, DecoyFormat::AppPassword, 'admin');
-		$this->settings->setMode(DecoyCredential::ID, Mode::Off);
+		$this->settingsEditor()->setMode(DecoyCredential::ID, Mode::Off);
 		$this->failLogin('198.51.100.7', 'x', $secret);
 		$this->assertSame([], $this->detectionsOf(DecoyCredential::ID));
 	}

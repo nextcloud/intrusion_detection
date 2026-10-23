@@ -14,9 +14,10 @@ use OCP\IDBConnection;
 
 /**
  * Deletes the rows that match a condition a batch at a time: the ids are
- * selected through the condition's index, then deleted by primary key. No
- * statement locks or scans more than one batch, so a large backlog cannot
- * stall the other writers of a table, and a run stops after `$maxBatches`.
+ * selected through the condition's index, then the rows with these ids that
+ * match the condition are deleted. No statement locks or scans much more
+ * than one batch, so a large backlog cannot stall the other writers of a
+ * table, and a run stops after `$maxBatches`.
  *
  * The batches are read in the order of an indexed column of the condition
  * and the id, each one from where the last one ended (keyset paging): a
@@ -28,7 +29,7 @@ final class BatchedDelete {
 	public const MAX_BATCHES = 100;
 
 	/**
-	 * @param string $idColumn the single-column primary key
+	 * @param string $idColumn the single-column primary key, or the column that identifies a row together with `$orderColumn`, such as the account of a per-account day
 	 * @param string $orderColumn an integer column of the condition that an index starts with (after the condition's equality columns)
 	 * @param \Closure(IQueryBuilder): mixed $where adds the condition to a query on the table
 	 * @param IQueryBuilder::PARAM_INT_ARRAY|IQueryBuilder::PARAM_STR_ARRAY $idType
@@ -41,7 +42,7 @@ final class BatchedDelete {
 		string $idColumn,
 		string $orderColumn,
 		\Closure $where,
-		int $idType = IQueryBuilder::PARAM_INT_ARRAY,
+		int $idType = IQueryBuilder::PARAM_STR_ARRAY,
 		int $batch = self::BATCH,
 		int $maxBatches = self::MAX_BATCHES,
 		?\Closure $beforeDelete = null,
@@ -52,8 +53,9 @@ final class BatchedDelete {
 				$beforeDelete($ids);
 			}
 			$delete = $db->getQueryBuilder();
-			$delete->delete($table)
-				->where($delete->expr()->in($idColumn, $delete->createNamedParameter($ids, $idType)));
+			$delete->delete($table);
+			$where($delete);
+			$delete->andWhere($delete->expr()->in($idColumn, $delete->createNamedParameter($ids, $idType)));
 			$deleted += $delete->executeStatement();
 		}
 		return $deleted;
@@ -74,7 +76,7 @@ final class BatchedDelete {
 		string $idColumn,
 		string $orderColumn,
 		\Closure $where,
-		int $idType = IQueryBuilder::PARAM_INT_ARRAY,
+		int $idType = IQueryBuilder::PARAM_STR_ARRAY,
 		int $batch = self::BATCH,
 		int $maxBatches = self::MAX_BATCHES,
 	): \Generator {

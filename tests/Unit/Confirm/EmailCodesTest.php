@@ -9,19 +9,17 @@ declare(strict_types=1);
 
 namespace OCA\IntrusionDetection\Tests\Unit\Confirm;
 
+use OCA\IntrusionDetection\Confirm\ConfirmationStatus;
 use OCA\IntrusionDetection\Confirm\EmailCodes;
+use OCA\IntrusionDetection\Confirm\LoginConfirmationStore;
 use OCA\IntrusionDetection\Confirm\StepUpState;
-use OCA\IntrusionDetection\Confirm\UnconfirmedSessions;
 use OCA\IntrusionDetection\Notification\MailContent;
 use OCA\IntrusionDetection\Notification\Mails;
 use OCA\IntrusionDetection\Notification\UserMessages;
 use OCP\AppFramework\Utility\ITimeFactory;
 use OCP\Config\IUserConfig;
-use OCP\IConfig;
-use OCP\ISession;
 use OCP\IUser;
 use OCP\L10N\IFactory;
-use OCP\Mail\IEmailValidator;
 use OCP\Security\IHasher;
 use OCP\Security\ISecureRandom;
 use OCP\Server;
@@ -39,7 +37,6 @@ class EmailCodesTest extends TestCase {
 	private bool $mailWorks = true;
 	/** @var list<string> */
 	private array $codes = ['482915', '730264', '119838', '650417', '004213'];
-	private string $smtpMode = 'smtp';
 	/** The tries the server counted; null: the session is not remembered there */
 	private ?int $serverTries = null;
 	/** @var list<int> when the account's codes were sent */
@@ -49,8 +46,7 @@ class EmailCodesTest extends TestCase {
 		$random = $this->createMock(ISecureRandom::class);
 		$random->expects($this->once())->method('generate')->with(6, ISecureRandom::CHAR_DIGITS)->willReturn('482915');
 		$codes = $this->codes($random);
-		$state = $this->state();
-		$this->assertTrue($codes->issue($this->user(), $state));
+		$state = $codes->issue($this->user(), $this->state());
 
 		$this->assertNotNull($state->codeHash);
 		$this->assertStringNotContainsString('482915', json_encode($state->toArray(), JSON_THROW_ON_ERROR), 'Never the code itself');
@@ -65,50 +61,44 @@ class EmailCodesTest extends TestCase {
 
 	public function testAFailedEmailKeepsNoCode(): void {
 		$this->mailWorks = false;
-		$state = $this->state();
-		$this->assertFalse($this->codes()->issue($this->user(), $state));
+		$state = $this->codes()->issue($this->user(), $this->state());
 		$this->assertNull($state->codeHash);
-		$this->assertSame(EmailCodes::EXPIRED, $this->codes()->verify($state, '482915'));
+		$this->assertSame(EmailCodes::EXPIRED, $this->codes()->verify($state, '482915')[0]);
 	}
 
 	public function testTheRightCodeWorksOnceWithSpacesOrDashes(): void {
 		$codes = $this->codes();
-		$state = $this->state();
-		$codes->issue($this->user(), $state);
-		$this->assertSame(EmailCodes::VERIFIED, $codes->verify($state, ' 482-915 '));
+		$state = $codes->issue($this->user(), $this->state());
+		[$result, $state] = $codes->verify($state, ' 482-915 ');
+		$this->assertSame(EmailCodes::VERIFIED, $result);
 		$this->assertNull($state->codeHash, 'Used up');
-		$this->assertSame(EmailCodes::EXPIRED, $codes->verify($state, '482915'));
+		$this->assertSame(EmailCodes::EXPIRED, $codes->verify($state, '482915')[0]);
 	}
 
 	public function testTheServerCountsTheTriesSoThatParallelRequestsShareThem(): void {
 		$this->serverTries = 0;
 		$codes = $this->codes();
-		$state = $this->state();
-		$codes->issue($this->user(), $state);
+		$state = $codes->issue($this->user(), $this->state());
 		// Each request read the session before any of them saved it.
 		$results = [];
 		for ($i = 0; $i < 6; $i++) {
-			$copy = StepUpState::fromArray($state->toArray());
-			$this->assertNotNull($copy);
-			$results[] = $codes->verify($copy, '000000');
+			$results[] = $codes->verify($state, '000000')[0];
 		}
 		$this->assertSame([EmailCodes::WRONG, EmailCodes::WRONG, EmailCodes::WRONG, EmailCodes::WRONG, EmailCodes::EXHAUSTED, EmailCodes::EXHAUSTED], $results);
 		$this->assertSame(5, $this->serverTries, 'Never more than five');
 
-		$copy = StepUpState::fromArray($state->toArray());
-		$this->assertNotNull($copy);
-		$this->assertSame(EmailCodes::EXHAUSTED, $codes->verify($copy, '482915'), 'Not even the right code after that');
-		$this->assertSame(0, $codes->attemptsLeft($copy));
+		[$result, $after] = $codes->verify($state, '482915');
+		$this->assertSame(EmailCodes::EXHAUSTED, $result, 'Not even the right code after that');
+		$this->assertSame(0, $codes->attemptsLeft($after));
 	}
 
 	public function testMalformedAndExpiredCodesAreNotCountedOnTheServer(): void {
 		$this->serverTries = 0;
 		$codes = $this->codes();
-		$state = $this->state();
-		$codes->issue($this->user(), $state);
-		$this->assertSame(EmailCodes::MALFORMED, $codes->verify($state, 'abc'));
+		$state = $codes->issue($this->user(), $this->state());
+		$this->assertSame(EmailCodes::MALFORMED, $codes->verify($state, 'abc')[0]);
 		$this->now += 601;
-		$this->assertSame(EmailCodes::EXPIRED, $codes->verify($state, '482915'));
+		$this->assertSame(EmailCodes::EXPIRED, $codes->verify($state, '482915')[0]);
 		$this->assertSame(0, $this->serverTries);
 	}
 
@@ -116,27 +106,25 @@ class EmailCodesTest extends TestCase {
 		$this->codes = ['111111', '222222', '333333', '444444', '555555', '666666', '777777'];
 		$codes = $this->codes();
 		for ($i = 0; $i < EmailCodes::MAX_MAILS; $i++) {
-			$this->assertTrue($codes->issue($this->user(), $this->state()), 'Code ' . ($i + 1));
+			$this->assertNotNull($codes->issue($this->user(), $this->state())->codeHash, 'Code ' . ($i + 1));
 			$this->now += 60;
 		}
 		$this->assertTrue($codes->isLimited($this->user()));
-		$state = $this->state();
-		$this->assertFalse($codes->issue($this->user(), $state), 'A sixth login in the hour gets none');
-		$this->assertNull($state->codeHash);
+		$this->assertNull($codes->issue($this->user(), $this->state())->codeHash, 'A sixth login in the hour gets none');
 		$this->assertCount(EmailCodes::MAX_MAILS, $this->sent);
 
 		$this->now += EmailCodes::MAIL_WINDOW - 5 * 60 + 1;
 		$this->assertFalse($codes->isLimited($this->user()), 'The oldest code left the hour');
-		$this->assertTrue($codes->issue($this->user(), $this->state()));
+		$this->assertNotNull($codes->issue($this->user(), $this->state())->codeHash);
 		$this->assertCount(EmailCodes::MAX_MAILS, $this->mailTimes, 'Only the last hour is kept');
 	}
 
 	public function testACodeExpires(): void {
 		$codes = $this->codes();
-		$state = $this->state();
-		$codes->issue($this->user(), $state);
+		$state = $codes->issue($this->user(), $this->state());
 		$this->now += 600;
-		$this->assertSame(EmailCodes::EXPIRED, $codes->verify($state, '482915'));
+		[$result, $state] = $codes->verify($state, '482915');
+		$this->assertSame(EmailCodes::EXPIRED, $result);
 		$this->assertSame(0, $state->attempts, 'An expired code is no guess');
 	}
 
@@ -155,57 +143,51 @@ class EmailCodesTest extends TestCase {
 	#[DataProvider('malformed')]
 	public function testMalformedInputIsNotCountedAsATry(string $input): void {
 		$codes = $this->codes();
-		$state = $this->state();
-		$codes->issue($this->user(), $state);
-		$this->assertSame(EmailCodes::MALFORMED, $codes->verify($state, $input));
+		$state = $codes->issue($this->user(), $this->state());
+		[$result, $state] = $codes->verify($state, $input);
+		$this->assertSame(EmailCodes::MALFORMED, $result);
 		$this->assertSame(0, $state->attempts);
 	}
 
 	public function testFiveWrongCodesUseUpTheTries(): void {
 		$codes = $this->codes();
-		$state = $this->state();
-		$codes->issue($this->user(), $state);
+		$state = $codes->issue($this->user(), $this->state());
 		for ($i = 1; $i < EmailCodes::MAX_ATTEMPTS; $i++) {
-			$this->assertSame(EmailCodes::WRONG, $codes->verify($state, '000000'));
+			[$result, $state] = $codes->verify($state, '000000');
+			$this->assertSame(EmailCodes::WRONG, $result);
 			$this->assertSame(EmailCodes::MAX_ATTEMPTS - $i, $codes->attemptsLeft($state));
 		}
-		$this->assertSame(EmailCodes::EXHAUSTED, $codes->verify($state, '000000'));
-		$this->assertSame(EmailCodes::EXHAUSTED, $codes->verify($state, '482915'), 'Not even the right code after that');
+		[$result, $state] = $codes->verify($state, '000000');
+		$this->assertSame(EmailCodes::EXHAUSTED, $result);
+		$this->assertSame(EmailCodes::EXHAUSTED, $codes->verify($state, '482915')[0], 'Not even the right code after that');
 	}
 
 	public function testANewCodeReplacesTheOldOneAndTheTriesStay(): void {
 		$codes = $this->codes();
-		$state = $this->state();
-		$codes->issue($this->user(), $state);
-		$codes->verify($state, '000000');
-		$this->assertTrue($codes->resend($this->user(), $state));
-		$this->assertSame(EmailCodes::WRONG, $codes->verify($state, '482915'), 'The first code no longer works');
+		$state = $codes->issue($this->user(), $this->state());
+		$state = $codes->verify($state, '000000')[1];
+		$state = $codes->resend($this->user(), $state);
+		$this->assertNotNull($state?->codeHash);
+		[$result, $state] = $codes->verify($state, '482915');
+		$this->assertSame(EmailCodes::WRONG, $result, 'The first code no longer works');
 		$this->assertSame(2, $state->attempts, 'A new code does not give new tries');
-		$this->assertSame(EmailCodes::VERIFIED, $codes->verify($state, '730264'));
+		$this->assertSame(EmailCodes::VERIFIED, $codes->verify($state, '730264')[0]);
 	}
 
 	public function testAtMostThreeNewCodesPerTenMinutes(): void {
 		$codes = $this->codes();
-		$state = $this->state();
-		$codes->issue($this->user(), $state);
+		$state = $codes->issue($this->user(), $this->state());
 		for ($i = 0; $i < EmailCodes::MAX_RESENDS; $i++) {
 			$this->now += 60;
-			$this->assertTrue($codes->resend($this->user(), $state));
+			$state = $codes->resend($this->user(), $state);
+			$this->assertNotNull($state?->codeHash);
 		}
 		$this->assertFalse($codes->canResend($state));
-		$this->assertFalse($codes->resend($this->user(), $state));
+		$this->assertNull($codes->resend($this->user(), $state));
 		$this->assertCount(1 + EmailCodes::MAX_RESENDS, $this->sent);
 
 		$this->now += EmailCodes::RESEND_WINDOW - 3 * 60 + 61;
 		$this->assertTrue($codes->canResend($state), 'The window moves on');
-	}
-
-	public function testOnlyAccountsWithAValidAddressOnAServerThatSendsMail(): void {
-		$this->assertTrue($this->codes()->isAvailable($this->user()));
-		$this->assertFalse($this->codes()->isAvailable($this->user('')), 'No email address');
-		$this->assertFalse($this->codes()->isAvailable($this->user('not an address')));
-		$this->smtpMode = 'null';
-		$this->assertFalse($this->codes()->isAvailable($this->user()), 'The server does not send mail');
 	}
 
 	/**
@@ -226,7 +208,7 @@ class EmailCodesTest extends TestCase {
 	}
 
 	private function state(): StepUpState {
-		return new StepUpState('alice', StepUpState::PENDING, ['flagged_source'], $this->now, $this->now + 900, '198.51.100.7', ['email_code']);
+		return new StepUpState('alice', ConfirmationStatus::Pending, ['flagged_source'], $this->now, $this->now + 900, '198.51.100.7', ['email_code']);
 	}
 
 	private function user(string $address = 'alice@example.com'): IUser {
@@ -252,27 +234,21 @@ class EmailCodesTest extends TestCase {
 		});
 		$messages = $this->createMock(UserMessages::class);
 		$messages->method('l10nFor')->willReturn(Server::get(IFactory::class)->get('intrusion_detection', 'en'));
-		$validator = $this->createMock(IEmailValidator::class);
-		$validator->method('isValid')->willReturnCallback(static fn (string $a): bool => str_contains($a, '@'));
-		$config = $this->createMock(IConfig::class);
-		$config->method('getSystemValueString')->willReturnCallback(fn (string $key, string $default): string => $key === 'mail_smtpmode' ? $this->smtpMode : $default);
 		$time = $this->createMock(ITimeFactory::class);
 		$time->method('getTime')->willReturnCallback(fn (): int => $this->now);
-		$sessions = $this->createMock(UnconfirmedSessions::class);
-		$sessions->method('takeCodeAttempt')->willReturnCallback(function (string $sessionId, int $max): ?int {
+		$store = $this->createMock(LoginConfirmationStore::class);
+		$store->method('takeCodeAttempt')->willReturnCallback(function (int $max): ?int {
 			if ($this->serverTries === null) {
 				return 0;
 			}
 			return $this->serverTries < $max ? ++$this->serverTries : null;
 		});
-		$session = $this->createMock(ISession::class);
-		$session->method('getId')->willReturn('session-id');
 		$userConfig = $this->createMock(IUserConfig::class);
 		$userConfig->method('getValueArray')->willReturnCallback(fn (): array => $this->mailTimes);
 		$userConfig->method('setValueArray')->willReturnCallback(function (string $uid, string $app, string $key, array $value): bool {
 			$this->mailTimes = $value;
 			return true;
 		});
-		return new EmailCodes($random, Server::get(IHasher::class), $mails, $messages, $validator, $config, $time, $sessions, $session, $userConfig);
+		return new EmailCodes($random, Server::get(IHasher::class), $mails, $messages, $time, $store, $userConfig);
 	}
 }

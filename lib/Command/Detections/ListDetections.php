@@ -10,10 +10,10 @@ declare(strict_types=1);
 namespace OCA\IntrusionDetection\Command\Detections;
 
 use OC\Core\Command\Base;
-use OCA\IntrusionDetection\Check\ParamDefinition;
 use OCA\IntrusionDetection\Db\Detection;
 use OCA\IntrusionDetection\Db\DetectionFilter;
 use OCA\IntrusionDetection\Db\DetectionMapper;
+use OCA\IntrusionDetection\Definition\ParamDefinition;
 use OCP\AppFramework\Utility\ITimeFactory;
 use Symfony\Component\Console\Helper\Table;
 use Symfony\Component\Console\Input\InputInterface;
@@ -65,7 +65,7 @@ class ListDetections extends Base {
 		$table = new Table($output);
 		$table->setHeaders(['Id', 'When', 'Check', 'Severity', 'Address', 'Account', 'Hits', 'Acted']);
 		foreach ($detections as $d) {
-			$table->addRow([$d->getId(), date('Y-m-d H:i', $d->getCreatedAt()), $d->getCheckId(), $d->getSeverity(), $d->getIp() ?? '', $d->getUid() ?? '', $d->getHits(), $d->isEnforced() ? 'yes' : 'would have']);
+			$table->addRow([$d->getId(), date('Y-m-d H:i', $d->getCreatedTime()), $d->getCheckId(), $d->getSeverity(), $d->getIp() ?? '', $d->getUid() ?? '', $d->getHits(), $d->isEnforced() ? 'yes' : 'would have']);
 		}
 		$table->render();
 		return self::SUCCESS;

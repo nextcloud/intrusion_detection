@@ -15,7 +15,7 @@ namespace OCA\IntrusionDetection\KnownDevice;
  */
 final class KnownDevice {
 	public function __construct(
-		public readonly int $id,
+		public readonly string $id,
 		public readonly string $uid,
 		/** Browser family, e.g. "firefox"; see {@see DeviceLabel} */
 		public readonly string $family,
@@ -35,7 +35,7 @@ final class KnownDevice {
 	 */
 	public static function fromRow(array $row): self {
 		return new self(
-			(int)$row['id'],
+			(string)$row['id'],
 			(string)$row['uid'],
 			(string)($row['family'] ?? DeviceLabel::OTHER),
 			(string)($row['platform'] ?? DeviceLabel::OTHER),

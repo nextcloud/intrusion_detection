@@ -9,8 +9,10 @@ declare(strict_types=1);
 
 namespace OCA\IntrusionDetection\Confirm\Methods;
 
+use OCA\IntrusionDetection\Confirm\AccountMethods;
 use OCA\IntrusionDetection\Confirm\EmailCodes;
 use OCA\IntrusionDetection\Confirm\IConfirmationMethod;
+use OCA\IntrusionDetection\Confirm\MethodStart;
 use OCA\IntrusionDetection\Confirm\StepUpPolicy;
 use OCA\IntrusionDetection\Confirm\StepUpState;
 use OCP\IUser;
@@ -23,6 +25,7 @@ use OCP\IUser;
 class EmailCodeMethod implements IConfirmationMethod {
 	public function __construct(
 		private readonly EmailCodes $codes,
+		private readonly AccountMethods $methods,
 	) {
 	}
 
@@ -33,7 +36,7 @@ class EmailCodeMethod implements IConfirmationMethod {
 
 	#[\Override]
 	public function isAvailable(IUser $user, StepUpPolicy $policy): bool {
-		return $this->codes->isAvailable($user);
+		return $this->methods->byEmail($user);
 	}
 
 	#[\Override]
@@ -42,15 +45,17 @@ class EmailCodeMethod implements IConfirmationMethod {
 	}
 
 	/**
-	 * When the account got too many codes, the login waits without one:
-	 * the verify page says so. Falling through to the next method would
-	 * let whoever caused the codes reach the outcome without a method.
+	 * When the account got too many codes, or too many wrong ones were
+	 * entered, the login waits without one: the verify page says so.
+	 * Falling through to the next method would let whoever caused the
+	 * codes reach the outcome without a method.
 	 */
 	#[\Override]
-	public function begin(IUser $user, StepUpState $state): string {
-		if ($this->codes->isLimited($user)) {
-			return self::PENDING;
+	public function begin(IUser $user, StepUpState $state): MethodStart {
+		if ($this->codes->isLimited($user) || $this->codes->isGuessLimited($user->getUID())) {
+			return new MethodStart(self::PENDING, $state);
 		}
-		return $this->codes->issue($user, $state) ? self::PENDING : self::UNAVAILABLE;
+		$issued = $this->codes->issue($user, $state);
+		return new MethodStart($issued->codeHash === null ? self::UNAVAILABLE : self::PENDING, $issued);
 	}
 }

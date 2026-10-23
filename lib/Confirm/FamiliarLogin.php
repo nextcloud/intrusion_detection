@@ -9,8 +9,9 @@ declare(strict_types=1);
 
 namespace OCA\IntrusionDetection\Confirm;
 
-use OCA\IntrusionDetection\Db\LoginHistoryMapper;
 use OCA\IntrusionDetection\KnownDevice\KnownDevices;
+use OCA\IntrusionDetection\Login\LoginContext;
+use OCA\IntrusionDetection\LoginHistory\LoginHistory;
 use OCA\IntrusionDetection\TrustedNetwork\TrustedNetworks;
 use OCP\AppFramework\Utility\ITimeFactory;
 
@@ -28,7 +29,7 @@ class FamiliarLogin {
 
 	public function __construct(
 		private readonly KnownDevices $devices,
-		private readonly LoginHistoryMapper $history,
+		private readonly LoginHistory $history,
 		private readonly TrustedNetworks $trustedNetworks,
 		private readonly ITimeFactory $timeFactory,
 	) {

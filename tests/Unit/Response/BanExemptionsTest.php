@@ -10,30 +10,32 @@ declare(strict_types=1);
 namespace OCA\IntrusionDetection\Tests\Unit\Response;
 
 use OC\Memcache\ArrayCache;
-use OCA\IntrusionDetection\Config\Settings;
-use OCA\IntrusionDetection\Db\LoginHistoryMapper;
+use OCA\IntrusionDetection\Check\CheckRegistry;
+use OCA\IntrusionDetection\Config\AppSettings;
 use OCA\IntrusionDetection\Db\LoginMapper;
 use OCA\IntrusionDetection\Login\EstablishedAccounts;
 use OCA\IntrusionDetection\Net\ProtectedRanges;
-use OCA\IntrusionDetection\Net\ProxySuspect;
 use OCA\IntrusionDetection\Net\SourceKey;
 use OCA\IntrusionDetection\Response\BanExemptions;
 use OCA\IntrusionDetection\Response\BanResult;
-use OCP\ICacheFactory;
+use OCA\IntrusionDetection\Response\IAcceptedLogins;
+use OCA\IntrusionDetection\Response\ProxySuspect;
+use OCA\IntrusionDetection\Tests\Unit\Cache\FixedCaches;
 use OCP\IGroupManager;
+use OCP\Server;
 use PHPUnit\Framework\MockObject\MockObject;
 use Test\TestCase;
 
 class BanExemptionsTest extends TestCase {
 	private LoginMapper&MockObject $logins;
-	private LoginHistoryMapper&MockObject $history;
+	private IAcceptedLogins&MockObject $history;
 	private ProxySuspect&MockObject $proxies;
 	private IGroupManager&MockObject $groups;
 
 	protected function setUp(): void {
 		parent::setUp();
 		$this->logins = $this->createMock(LoginMapper::class);
-		$this->history = $this->createMock(LoginHistoryMapper::class);
+		$this->history = $this->createMock(IAcceptedLogins::class);
 		$this->proxies = $this->createMock(ProxySuspect::class);
 		$this->groups = $this->createMock(IGroupManager::class);
 		$this->groups->method('isAdmin')->willReturnCallback(static fn (string $uid): bool => $uid === 'admin');
@@ -83,16 +85,21 @@ class BanExemptionsTest extends TestCase {
 		$this->assertTrue($this->exemptions(null)->firstReport(SourceKey::fromIp('198.51.100.7')), 'Without a memory cache every time');
 	}
 
+	public function testAFlagIsHeldBackOnlyForEveryoneBehindTheAddress(): void {
+		$this->history->method('acceptedUidsFrom')->willReturn(['admin']);
+		$this->logins->method('distinctUidsForIp')->willReturnCallback(static fn (string $ipKey): array => $ipKey === '198.51.100.8' ? ['a', 'b', 'c', 'd', 'e'] : []);
+		$exemptions = $this->exemptions(null);
+		$this->assertSame(BanResult::SKIPPED_TRUSTED, $exemptions->forAddress(SourceKey::fromIp('198.51.100.7'), time(), 'credential_stuffing')?->outcome);
+		$this->assertNull($exemptions->forFlag(SourceKey::fromIp('198.51.100.7'), false, time()), 'an administrator\'s address is flagged: a flag only asks for a confirmation');
+		$this->assertSame(BanResult::SKIPPED_SHARED, $exemptions->forFlag(SourceKey::fromIp('198.51.100.8'), false, time())?->outcome);
+	}
+
 	private function exemptions(?ArrayCache $cache): BanExemptions {
-		$settings = $this->createMock(Settings::class);
-		$settings->method('getInt')->willReturn(5);
-		$factory = $this->createMock(ICacheFactory::class);
-		$factory->method('isLocalCacheAvailable')->willReturn($cache !== null);
-		if ($cache !== null) {
-			$factory->method('createLocal')->willReturn($cache);
-		}
+		$settings = $this->createMock(AppSettings::class);
+		$settings->method('banSharedIpUsers')->willReturn(5);
+		$factory = new FixedCaches(null, $cache);
 		$accounts = $this->createMock(EstablishedAccounts::class);
 		$accounts->method('count')->willReturnCallback(static fn (array $uids): int => count($uids));
-		return new BanExemptions($this->logins, $this->history, $settings, $this->proxies, $this->createMock(ProtectedRanges::class), $this->groups, $factory, $accounts);
+		return new BanExemptions($this->logins, $this->history, $settings, $this->proxies, $this->createMock(ProtectedRanges::class), $this->groups, $factory, $accounts, Server::get(CheckRegistry::class));
 	}
 }

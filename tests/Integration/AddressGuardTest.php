@@ -11,19 +11,21 @@ namespace OCA\IntrusionDetection\Tests\Integration;
 
 use OCA\IntrusionDetection\Address\AddressCache;
 use OCA\IntrusionDetection\Address\AddressResolver;
+use OCA\IntrusionDetection\Address\Verdict;
 use OCA\IntrusionDetection\AppInfo\Application;
+use OCA\IntrusionDetection\Cache\Caches;
+use OCA\IntrusionDetection\Cache\KeyLock;
 use OCA\IntrusionDetection\Config\GlobalSettings;
-use OCA\IntrusionDetection\Config\Settings;
-use OCA\IntrusionDetection\Db\StateMapper;
 use OCA\IntrusionDetection\Guard\AddressGuard;
-use OCA\IntrusionDetection\Guard\RequestContext;
+use OCA\IntrusionDetection\Login\RequestContext;
 use OCA\IntrusionDetection\Net\RemoteAddressResolver;
 use OCA\IntrusionDetection\Net\ServerAddresses;
 use OCA\IntrusionDetection\Net\SourceKey;
 use OCA\IntrusionDetection\Perf\GuardTimer;
 use OCA\IntrusionDetection\Response\BanService;
+use OCA\IntrusionDetection\State\AppState;
+use OCA\IntrusionDetection\Tests\Unit\Cache\FixedCaches;
 use OCP\AppFramework\Utility\ITimeFactory;
-use OCP\ICacheFactory;
 use OCP\IConfig;
 use OCP\Security\Bruteforce\IThrottler;
 use OCP\Server;
@@ -109,8 +111,8 @@ class AddressGuardTest extends IntegrationTestCase {
 		$context = new RequestContext();
 		[$guard] = $this->guard('distributed', context: $context);
 		$guard->decisionFor('198.51.100.7');
-		$this->assertNotNull($context->verdict());
-		$this->assertFalse($context->verdict()->isDenied(time()));
+		$this->assertNotNull(Verdict::of($context));
+		$this->assertFalse(Verdict::of($context)->isDenied(time()));
 	}
 
 	public function testAVerdictResolvedInAWebRequestRemembersTheServersAddress(): void {
@@ -129,7 +131,7 @@ class AddressGuardTest extends IntegrationTestCase {
 	 */
 	private function guard(string $cache, ?IConfig $config = null, ?IThrottler $throttler = null, ?RequestContext $context = null): array {
 		$factory = $this->cacheFactory($cache);
-		$addressCache = new AddressCache($factory, Server::get(StateMapper::class));
+		$addressCache = new AddressCache($factory, Server::get(AppState::class));
 		$time = Server::get(ITimeFactory::class);
 		$throttler ??= $this->createMock(IThrottler::class);
 		$request = $this->createMock(\OCP\IRequest::class);
@@ -138,16 +140,18 @@ class AddressGuardTest extends IntegrationTestCase {
 		$bans = new BanService(
 			Server::get(\OCA\IntrusionDetection\Db\BanMapper::class),
 			Server::get(\OCA\IntrusionDetection\Response\BanExemptions::class),
-			Server::get(Settings::class),
+			$this->appSettings(),
 			$addressCache,
 			Server::get(AddressResolver::class),
 			$addresses,
 			Server::get(\OCA\IntrusionDetection\Net\ProtectedRanges::class),
 			Server::get(\OCA\IntrusionDetection\Response\FlaggedSources::class),
-			Server::get(\OCA\IntrusionDetection\Db\KeyLock::class),
+			Server::get(KeyLock::class),
 			$time,
 			Server::get(\OCP\Security\ISecureRandom::class),
 			Server::get(\OCA\IntrusionDetection\Event\TypedEvents::class),
+			Server::get(AppState::class),
+			Server::get(\OCA\IntrusionDetection\Audit\AuditLogger::class),
 		);
 		if ($config === null) {
 			$config = $this->createMock(IConfig::class);
@@ -155,7 +159,7 @@ class AddressGuardTest extends IntegrationTestCase {
 		}
 		$guard = new AddressGuard(
 			$config,
-			Server::get(Settings::class),
+			$this->appSettings(),
 			$addressCache,
 			Server::get(AddressResolver::class),
 			$addresses,
@@ -166,7 +170,7 @@ class AddressGuardTest extends IntegrationTestCase {
 		return [$guard, $bans];
 	}
 
-	private function cacheFactory(string $kind): ICacheFactory {
+	private function cacheFactory(string $kind): Caches {
 		// One in-memory store per test and cache kind, so the caches the guard
 		// and the ban service create behave like one Redis or APCu.
 		// A distributed cache is another class than the local one, as Redis is to APCu.
@@ -175,11 +179,10 @@ class AddressGuardTest extends IntegrationTestCase {
 			}
 		: new \OC\Memcache\ArrayCache('ids-test-' . $kind);
 		$store = $this->stores[$kind];
-		$factory = $this->createMock(ICacheFactory::class);
-		$factory->method('isAvailable')->willReturn($kind === 'distributed');
-		$factory->method('isLocalCacheAvailable')->willReturn($kind !== 'none');
-		$factory->method('createDistributed')->willReturn($store);
-		$factory->method('createLocal')->willReturn($store);
-		return $factory;
+		return match ($kind) {
+			'distributed' => new FixedCaches($store, null, true),
+			'local' => new FixedCaches($store),
+			default => FixedCaches::none(),
+		};
 	}
 }

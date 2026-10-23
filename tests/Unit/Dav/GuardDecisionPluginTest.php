@@ -9,11 +9,11 @@ declare(strict_types=1);
 
 namespace OCA\IntrusionDetection\Tests\Unit\Dav;
 
+use OCA\IntrusionDetection\Check\Checks\TrapUrl\TrapResponder;
 use OCA\IntrusionDetection\Dav\GuardDecisionPlugin;
 use OCA\IntrusionDetection\Guard\DeferredHits;
-use OCA\IntrusionDetection\Guard\IDeferredResponder;
-use OCA\IntrusionDetection\Guard\RequestContext;
-use OCA\IntrusionDetection\Traps\TrapResponder;
+use OCA\IntrusionDetection\Login\IDeferredResponder;
+use OCA\IntrusionDetection\Login\RequestContext;
 use OCP\IUser;
 use OCP\IUserSession;
 use OCP\L10N\IFactory;

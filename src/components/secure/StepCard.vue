@@ -5,10 +5,10 @@
 
 <script setup lang="ts">
 import { mdiCheck, mdiChevronDown, mdiMinus } from '@mdi/js'
-import { t } from '@nextcloud/l10n'
 import { computed, useId } from 'vue'
 import NcIconSvgWrapper from '@nextcloud/vue/components/NcIconSvgWrapper'
 import { APP_ID } from '../../utils/format.ts'
+import { t } from '../../utils/l10n.ts'
 
 /** Whether the step is open; the checklist keeps one step open at a time */
 const expanded = defineModel<boolean>('open', { default: false })
@@ -99,11 +99,11 @@ const state = computed(() => {
 	display: grid;
 	grid-template-columns: auto auto minmax(0, 1fr) auto auto;
 	align-items: center;
-	gap: calc(var(--default-grid-baseline) * 3);
+	gap: var(--ids-space-3);
 	width: 100%;
-	min-height: calc(var(--default-clickable-area) + var(--default-grid-baseline) * 4);
+	min-height: calc(var(--default-clickable-area) + var(--ids-space-4));
 	margin: 0;
-	padding: calc(var(--default-grid-baseline) * 3) calc(var(--default-grid-baseline) * 4);
+	padding: var(--ids-space-3) var(--ids-space-4);
 	border: none;
 	border-radius: var(--border-radius-large);
 	background: transparent;
@@ -118,7 +118,7 @@ const state = computed(() => {
 }
 
 .step .step__head:focus-visible {
-	outline: 2px solid var(--color-main-text);
+	outline: var(--ids-focus-ring);
 	outline-offset: -2px;
 }
 
@@ -146,8 +146,8 @@ const state = computed(() => {
 }
 
 .step__icon {
+	composes: muted from '../../styles/shared.module.css';
 	display: inline-flex;
-	color: var(--color-text-maxcontrast);
 }
 
 .step__heading {
@@ -163,7 +163,7 @@ const state = computed(() => {
 }
 
 .step__state {
-	padding-inline: calc(var(--default-grid-baseline) * 2);
+	padding-inline: var(--ids-space-2);
 	border-radius: var(--border-radius-element);
 	font-size: 0.85em;
 	font-weight: 600;
@@ -198,14 +198,14 @@ const state = computed(() => {
 .step__body {
 	display: flex;
 	flex-direction: column;
-	gap: calc(var(--default-grid-baseline) * 3);
-	padding: 0 calc(var(--default-grid-baseline) * 5) calc(var(--default-grid-baseline) * 5) calc(var(--default-grid-baseline) * 4 + 32px + var(--default-grid-baseline) * 3);
+	gap: var(--ids-space-3);
+	padding: 0 var(--ids-space-5) var(--ids-space-5) calc(var(--ids-space-4) + 32px + var(--ids-space-3));
 	animation: step-reveal 180ms ease;
 }
 
 .step__description {
+	composes: muted from '../../styles/shared.module.css';
 	margin: 0;
-	color: var(--color-text-maxcontrast);
 	line-height: 1.5;
 }
 
@@ -219,8 +219,8 @@ const state = computed(() => {
 @media (max-width: 600px) {
 	.step .step__head {
 		grid-template-columns: auto minmax(0, 1fr) auto auto;
-		gap: calc(var(--default-grid-baseline) * 2);
-		padding-inline: calc(var(--default-grid-baseline) * 3);
+		gap: var(--ids-space-2);
+		padding-inline: var(--ids-space-3);
 	}
 
 	.step__icon {
@@ -228,7 +228,7 @@ const state = computed(() => {
 	}
 
 	.step__body {
-		padding-inline: calc(var(--default-grid-baseline) * 3);
+		padding-inline: var(--ids-space-3);
 	}
 }
 

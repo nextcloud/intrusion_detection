@@ -13,10 +13,10 @@ use OC\Core\Controller\CssController;
 use OC\Core\Controller\LoginController;
 use OC\Core\Controller\TwoFactorChallengeController;
 use OCA\IntrusionDetection\Controller\PasswordChangeController;
+use OCA\IntrusionDetection\Login\SessionMarkers;
 use OCA\IntrusionDetection\Response\PasswordChangeFlag;
 use OCA\IntrusionDetection\SessionState\RequestTarget;
 use OCA\IntrusionDetection\SessionState\Rules\PasswordChangeRule;
-use OCA\IntrusionDetection\SessionState\SessionState;
 use OCP\AppFramework\Controller;
 use OCP\AppFramework\Http\Attribute\PublicPage;
 use OCP\AppFramework\Http\DataResponse;
@@ -32,7 +32,7 @@ use Test\TestCase;
 class PasswordChangeRuleTest extends TestCase {
 	/** @var array<string, mixed> */
 	private array $sessionData = [];
-	private SessionState $state;
+	private SessionMarkers $state;
 	/** @var PasswordChangeFlag&MockObject */
 	private PasswordChangeFlag $flag;
 	private PasswordChangeRule $rule;
@@ -48,16 +48,17 @@ class PasswordChangeRuleTest extends TestCase {
 		$session->method('remove')->willReturnCallback(function (string $key): void {
 			unset($this->sessionData[$key]);
 		});
-		$this->state = new SessionState($session, $this->createMock(LoggerInterface::class));
+		$this->state = new SessionMarkers($session, $this->createMock(LoggerInterface::class));
 		$this->flag = $this->createMock(PasswordChangeFlag::class);
 		$this->flag->method('isRequired')->willReturnCallback(fn (): bool => $this->required);
 		$user = $this->createMock(IUser::class);
 		$user->method('getUID')->willReturn('alice');
+		$user->method('canChangePassword')->willReturn(true);
 		$userSession = $this->createMock(IUserSession::class);
 		$userSession->method('getUser')->willReturn($user);
 		$urls = $this->createMock(IURLGenerator::class);
 		$urls->method('linkToRoute')->willReturnCallback(static fn (string $route, array $params): string => '/index.php/apps/intrusion_detection/password?redirect_url=' . rawurlencode((string)$params['redirect_url']));
-		$this->rule = new PasswordChangeRule($this->flag, $userSession, $urls);
+		$this->rule = new PasswordChangeRule($this->flag, $userSession, $urls, $this->createMock(\Psr\Container\ContainerInterface::class));
 	}
 
 	public function testNothingHappensWithoutAMarkerAndNothingIsRead(): void {
@@ -90,14 +91,14 @@ class PasswordChangeRuleTest extends TestCase {
 
 	public function testThePasswordPageLogoutTheSecondFactorAndPublicResourcesStayReachable(): void {
 		$this->mark(PasswordChangeRule::MODE_REDIRECT);
-		$this->assertNull($this->rule->check($this->state, $this->app($this->createMock(PasswordChangeController::class), 'show')));
-		$this->assertNull($this->rule->check($this->state, $this->app($this->createMock(LoginController::class), 'logout')));
-		$this->assertNull($this->rule->check($this->state, $this->app($this->createMock(TwoFactorChallengeController::class), 'showChallenge')));
+		$this->assertNull($this->rule->check($this->state, $this->app($this->controller(PasswordChangeController::class), 'show')));
+		$this->assertNull($this->rule->check($this->state, $this->app($this->controller(LoginController::class), 'logout')));
+		$this->assertNull($this->rule->check($this->state, $this->app($this->controller(TwoFactorChallengeController::class), 'showChallenge')));
 		$css = $this->getMockBuilder(CssController::class)->disableOriginalConstructor()->onlyMethods([])->getMock();
 		$this->assertNull($this->rule->check($this->state, $this->app($css, 'getCss')));
 		$this->assertNotNull($this->rule->check($this->state, $this->app($css, 'getCss', 'POST')), 'Only reading public resources');
 		$this->assertNotNull($this->rule->check($this->state, $this->app(new SomeController(), 'publicStyle')), 'Only the resources every page needs');
-		$this->assertNotNull($this->rule->check($this->state, $this->app($this->createMock(LoginController::class), 'showLoginForm')));
+		$this->assertNotNull($this->rule->check($this->state, $this->app($this->controller(LoginController::class), 'showLoginForm')));
 	}
 
 	public function testAMarkerWhoseRequirementWasLiftedIsDropped(): void {
@@ -108,13 +109,20 @@ class PasswordChangeRuleTest extends TestCase {
 	}
 
 	public function testAMarkerOfAnotherAccountIsDropped(): void {
-		$this->state->set(SessionState::PASSWORD_CHANGE, ['uid' => 'bob', 'mode' => PasswordChangeRule::MODE_REDIRECT]);
+		$this->state->set(SessionMarkers::PASSWORD_CHANGE, ['uid' => 'bob', 'mode' => PasswordChangeRule::MODE_REDIRECT]);
 		$this->assertNull($this->rule->check($this->state, $this->app(new SomeController(), 'index')));
 		$this->assertTrue($this->state->isEmpty());
 	}
 
 	private function mark(string $mode): void {
-		$this->state->set(SessionState::PASSWORD_CHANGE, ['uid' => 'alice', 'mode' => $mode, 'since' => 1]);
+		$this->state->set(SessionMarkers::PASSWORD_CHANGE, ['uid' => 'alice', 'mode' => $mode, 'since' => 1]);
+	}
+
+	/**
+	 * @param class-string<Controller> $class
+	 */
+	private function controller(string $class): Controller {
+		return $this->getMockBuilder($class)->disableOriginalConstructor()->onlyMethods([])->getMock();
 	}
 
 	private function app(Controller $controller, string $method, string $httpMethod = 'GET'): RequestTarget {

@@ -9,22 +9,20 @@ declare(strict_types=1);
 
 namespace OCA\IntrusionDetection\SessionState\Rules;
 
-use OC\Core\Controller\LoginController;
-use OC\Core\Controller\TwoFactorChallengeController;
 use OCA\IntrusionDetection\AppInfo\Application;
-use OCA\IntrusionDetection\Check\Checks\StepUpFailed;
+use OCA\IntrusionDetection\Check\Checks\StepUpFailed\StepUpFailedRule;
+use OCA\IntrusionDetection\Confirm\ConfirmationStatus;
+use OCA\IntrusionDetection\Confirm\LoginConfirmation;
+use OCA\IntrusionDetection\Confirm\LoginConfirmations;
 use OCA\IntrusionDetection\Confirm\LoginDetections;
 use OCA\IntrusionDetection\Confirm\SecondFactorSetup;
-use OCA\IntrusionDetection\Confirm\StepUpService;
 use OCA\IntrusionDetection\Confirm\StepUpState;
-use OCA\IntrusionDetection\Controller\VerifyController;
+use OCA\IntrusionDetection\Login\SessionMarkers;
 use OCA\IntrusionDetection\SessionState\ISessionStateRule;
+use OCA\IntrusionDetection\SessionState\LoginFlowRoute;
 use OCA\IntrusionDetection\SessionState\RequestTarget;
 use OCA\IntrusionDetection\SessionState\SessionBlock;
-use OCA\IntrusionDetection\SessionState\SessionState;
-use OCP\AppFramework\OCSController;
 use OCP\AppFramework\Utility\ITimeFactory;
-use OCP\Authentication\TwoFactorAuth\ALoginSetupController;
 use OCP\IURLGenerator;
 use OCP\IUserSession;
 use Psr\Container\ContainerInterface;
@@ -38,10 +36,13 @@ use Psr\Log\LoggerInterface;
  * `{"error": "step_up_required"}`, WebDAV requests 403 with
  * `X-Nextcloud-Step-Up: required`.
  *
- * - A login that is not confirmed within {@see StepUpService::SESSION_TTL} is failed
+ * - A login that is not confirmed within {@see LoginConfirmations::SESSION_TTL} is failed
  *   here, on its next request: the session ends.
- * - A refused login can only open the verify page, which says why and ends it.
- * - A refused app login (Basic auth) is refused for every request.
+ * - A refused login can only open the verify page, which says why, and
+ *   leave it; its session ends then, or on its first request after
+ *   {@see LoginConfirmations::REFUSED_TTL}.
+ * - A refused app login (Basic auth) is refused, and its session ended, at
+ *   its first request.
  * - A session that an app sending the password opened while a reason
  *   applied, and that was let in unconfirmed, serves apps only: WebDAV and
  *   OCS. Core gives such a login a browser session when it sends core's
@@ -53,8 +54,8 @@ use Psr\Log\LoggerInterface;
  * loaded only when something is pending. Detections recorded at login are
  * linked to the session here, on its first request. Unlike other rules,
  * this one does not fail open: errors while ending a login keep the
- * request blocked, and so does {@see SessionStateRules} when the rule
- * fails while a step-up is pending.
+ * request blocked, and so does the gate ({@see SessionStateRules::onError()})
+ * when the rule or the gate itself fails while a step-up is pending.
  */
 class StepUpRule implements ISessionStateRule {
 	public const ERROR = 'step_up_required';
@@ -62,6 +63,7 @@ class StepUpRule implements ISessionStateRule {
 	public const DAV_HEADER = 'X-Nextcloud-Step-Up';
 	public const ROUTE = Application::APP_ID . '.Verify.show';
 	public const ENDED_ROUTE = Application::APP_ID . '.Verify.ended';
+	public const LOGIN_ROUTE = 'core.login.showLoginForm';
 
 	public const MESSAGE_CLIENT = 'This login needs extra confirmation that apps cannot give. Log in with a browser, or use an app password.';
 	public const MESSAGE_PENDING = 'This login waits for its extra confirmation. Confirm it in the browser where you logged in, or use an app password.';
@@ -80,53 +82,60 @@ class StepUpRule implements ISessionStateRule {
 	}
 
 	#[\Override]
-	public function check(SessionState $state, RequestTarget $target): ?SessionBlock {
+	public function check(SessionMarkers $state, RequestTarget $target): ?SessionBlock {
 		$all = $state->all();
-		if (($all[SessionState::CONFIRMATION][StepUpService::CLIENT_ONLY] ?? false) === true
-			&& !$target->dav && !$target->isController(OCSController::class)
-			&& !$target->isController(LoginController::class, 'logout') && !$target->isPublicResource()) {
+		if (($all[SessionMarkers::CONFIRMATION][LoginConfirmation::CLIENT_ONLY] ?? false) === true
+			&& !$target->dav && !$target->isOcs()
+			&& !$target->isRoute(LoginFlowRoute::Logout) && !$target->isPublicResource()) {
 			return new SessionBlock(self::ERROR_CLIENT_ONLY, self::DAV_HEADER, self::MESSAGE_CLIENT_ONLY);
 		}
-		if (!isset($all[SessionState::STEP_UP]) && !isset($all[SessionState::LOGIN_DETECTIONS])) {
+		if (!isset($all[SessionMarkers::STEP_UP]) && !isset($all[SessionMarkers::LOGIN_DETECTIONS])) {
 			return null;
 		}
-		$waiting = $state->get(SessionState::LOGIN_DETECTIONS);
-		if ($waiting !== null) {
+		if (isset($all[SessionMarkers::LOGIN_DETECTIONS])) {
 			try {
-				$this->container->get(LoginDetections::class)->link($waiting, $this->userSession->getUser()?->getUID());
+				$this->container->get(LoginDetections::class)->linkSession($this->userSession->getUser()?->getUID());
 			} catch (\Throwable $e) {
 				// Linking only helps "Was this you?" later; it must never let a pending login through.
 				$this->logger->error('Intrusion detection could not link the detections of a login to its session', ['exception' => $e]);
 			}
 		}
-		$data = $state->get(SessionState::STEP_UP);
+		$data = $state->get(SessionMarkers::STEP_UP);
 		if ($data === null) {
 			return null;
 		}
 		$stepUp = StepUpState::fromArray($data);
 		if ($stepUp === null || $stepUp->uid !== $this->userSession->getUser()?->getUID()) {
-			$state->remove(SessionState::STEP_UP);
+			$state->remove(SessionMarkers::STEP_UP);
 			return null;
 		}
 
-		if ($stepUp->status === StepUpState::RESUMED
+		if ($stepUp->status === ConfirmationStatus::Resumed
 			|| ($stepUp->isPending() && $this->timeFactory->getTime() >= $stepUp->deadline)) {
-			$rule = $stepUp->status === StepUpState::RESUMED ? StepUpFailed::RULE_RESUMED : StepUpFailed::RULE_TIMEOUT;
+			$rule = $stepUp->status === ConfirmationStatus::Resumed ? StepUpFailedRule::Resumed : StepUpFailedRule::Timeout;
 			try {
-				$this->container->get(StepUpService::class)->fail($stepUp, $rule);
+				$this->container->get(LoginConfirmations::class)->fail($stepUp, $rule);
 			} catch (\Throwable $e) {
 				// The request stays blocked: an error must not turn an unconfirmed login into a confirmed one.
 				$this->logger->error('Intrusion detection could not end an unconfirmed login', ['exception' => $e]);
 			}
-			return $this->block(self::ERROR, $this->urlGenerator->linkToRoute(self::ENDED_ROUTE, ['reason' => $rule]), self::MESSAGE_ENDED);
+			return $this->block(self::ERROR, $this->urlGenerator->linkToRoute(self::ENDED_ROUTE, ['reason' => $rule->value]), self::MESSAGE_ENDED);
 		}
-		if ($stepUp->status === StepUpState::REFUSED_CLIENT) {
-			return $this->block(self::ERROR, null, self::MESSAGE_CLIENT);
+		if ($stepUp->status === ConfirmationStatus::RefusedClient
+			|| ($stepUp->status === ConfirmationStatus::Refused && $stepUp->deadline > 0 && $this->timeFactory->getTime() >= $stepUp->deadline)) {
+			try {
+				$this->container->get(LoginConfirmations::class)->endRefused();
+			} catch (\Throwable $e) {
+				$this->logger->error('Intrusion detection could not end a refused login', ['exception' => $e]);
+			}
+			return $stepUp->status === ConfirmationStatus::RefusedClient
+				? $this->block(self::ERROR, null, self::MESSAGE_CLIENT)
+				: $this->block(self::ERROR_REFUSED, $this->urlGenerator->linkToRoute(self::LOGIN_ROUTE), self::MESSAGE_REFUSED);
 		}
 		if (!$target->dav && $this->isExempt($stepUp, $target)) {
 			return null;
 		}
-		$refused = $stepUp->status === StepUpState::REFUSED;
+		$refused = $stepUp->status === ConfirmationStatus::Refused;
 		return $this->block(
 			$refused ? self::ERROR_REFUSED : self::ERROR,
 			$this->urlGenerator->linkToRoute(self::ROUTE, ['redirect_url' => $target->uri]),
@@ -143,15 +152,14 @@ class StepUpRule implements ISessionStateRule {
 	}
 
 	private function isExempt(StepUpState $stepUp, RequestTarget $target): bool {
-		if ($target->isController(LoginController::class, 'logout') || $target->isPublicResource()) {
+		if ($target->isRoute(LoginFlowRoute::Logout) || $target->isPublicResource()) {
 			return true;
 		}
-		if ($stepUp->status === StepUpState::REFUSED) {
-			return $target->isController(VerifyController::class, 'show');
+		if ($stepUp->status === ConfirmationStatus::Refused) {
+			return $target->isRoute(LoginFlowRoute::Verify) && ($target->isMethod('show') || $target->isMethod('end'));
 		}
-		return $target->isController(VerifyController::class)
-			|| $target->isController(TwoFactorChallengeController::class)
-			|| ($target->isController(ALoginSetupController::class) && $this->mustSetUpSecondFactor());
+		return $target->isRoute(LoginFlowRoute::Verify, LoginFlowRoute::SecondFactorChallenge)
+			|| ($target->isRoute(LoginFlowRoute::SecondFactorSetup) && $this->mustSetUpSecondFactor());
 	}
 
 	/**

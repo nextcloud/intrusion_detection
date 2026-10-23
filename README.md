@@ -51,6 +51,7 @@ Think of it as *Entra ID Protection for your own server*: identity-aware threat 
 - [Getting started](#-getting-started)
 - [Requirements](#requirements)
 - [FAQ](#-faq)
+- [Documentation](#documentation)
 - [Contributing and security](#contributing-and-security)
 
 ## 🎯 Why
@@ -174,8 +175,8 @@ Security works better when the account owner can say "that wasn't me". Users fin
 
 1. the user's **second factor**, if they have one;
 2. a **remembered device**: after a confirmed login, users can tick "Remember this device" (kept 180 days after last use; never enough when the password itself is at risk, or for an administrator outside the trusted networks);
-3. a 6-digit **email code**, valid for 10 minutes, with 5 tries;
-4. optionally, **approval by an administrator** (off by default).
+3. a 6-digit **email code**, valid for 10 minutes, with 5 tries (and at most 10 wrong codes per account and hour); administrators get one only when neither their second factor nor an approval can confirm;
+4. optionally, **approval by an administrator** (off by default), asked for 10 minutes.
 
 Apps that log in with an app password are never interrupted.
 
@@ -228,11 +229,13 @@ Everything lives under **Administration settings → Intrusion detection**, in f
 
 *Everything about one account on one timeline, ready to print or download.*
 
-**Blocklists.** Spamhaus DROP (IPv4 and IPv6) and FireHOL level 1, plus network lists for Amazon Web Services, Google Cloud, Oracle Cloud, DigitalOcean and Tor exit nodes. All are off until you switch them on; you can add your own `https://` lists.
+**Blocklists.** Spamhaus DROP (IPv4 and IPv6) and FireHOL level 1, plus network lists for Amazon Web Services, Google Cloud, Oracle Cloud, DigitalOcean and Tor exit nodes. All are off until you switch them on; you can add your own `https://` lists and pin the SHA-256 of their file. See [Blocklists and the firewall export](docs/blocklists.md) for the formats, the limits and what you trust.
 
-**Firewall export.** Write the active blocks to files your firewall reads, so blocked addresses are dropped before they reach the web server: `bans.txt`, an nftables script (`bans.nft`), an `ipset restore` script (`bans.ipset`) and an append-only `bans.log` for fail2ban. The admin page shows ready-made nftables, ipset, fail2ban and systemd snippets. The export directory can only be set in `config.php` (`intrusion_detection.export_dir`), and the app never runs a firewall command itself.
+**Firewall export.** Write the active blocks to files your firewall reads, so blocked addresses are dropped before they reach the web server: `bans.txt`, an nftables script (`bans.nft`), an `ipset restore` script (`bans.ipset`) and an append-only `bans.log` for fail2ban. The admin page shows ready-made nftables, ipset, fail2ban and systemd snippets. The export directory can only be set in `config.php` (`intrusion_detection.export_dir`) and must be outside every web root, and the app never runs a firewall command itself.
 
-**Administrators from trusted networks only.** One switch in the login confirmation settings: a password login of an administrator from outside your trusted networks (office, VPN) then needs the second factor, an email code or, if you switched it on, another admin's approval. A remembered device is not enough, because the point is the network. Apps with app passwords are not affected. "Needs attention" warns you when the list of trusted networks is empty, or when an administrator has neither an email address nor a second factor, so nobody is locked out by surprise. `occ` keeps working from the server.
+**Administrators from trusted networks only.** One switch in the login confirmation settings: a password login of an administrator from outside your trusted networks (office, VPN) then needs the second factor or, if you switched it on, another admin's approval, and an email code only without both. A remembered device is not enough, because the point is the network. A browser session let in from a trusted network ends when it is used elsewhere, and an account made administrator logs in again. Apps with app passwords and single sign-on are not affected. "Needs attention" warns you when the list of trusted networks is empty, or when an administrator has neither an email address nor a second factor, so nobody is locked out by surprise. `occ` keeps working from the server.
+
+**Four-eyes approval.** With "A second administrator approves new administrators" on, someone added to the admin group, or to a group with delegated administration settings, from the web or the API waits until another administrator approves. Switching that approval or intrusion detection off from the admin page, lowering the admin change alerts below Protect and "Reset all settings" wait for another administrator the same way. `occ` is not held back, and is reported. To make these settings unchangeable even with `occ`, set `'intrusion_detection.locked' => true` in `config.php`; see [Who may do what](docs/authorization.md).
 
 **Notifications and digest.** Admins in the chosen groups get a notification at most once per check, address and hour, and an email for severity High and above. A weekly digest (Monday 08:00, or daily, or off) sums up how each check did and what is still open.
 
@@ -248,7 +251,7 @@ Everything lives under **Administration settings → Intrusion detection**, in f
 
 **Dashboard widget.** Logins waiting for your approval, the current status, the last 24 hours in numbers and the latest serious detections, right on the Nextcloud dashboard.
 
-**Webhooks.** With Nextcloud's Webhooks app, three typed events can go to a chat room, a ticket system or a SIEM: `DetectionCreatedEvent`, `BanCreatedEvent` and `BanLiftedEvent`. Payloads never contain passwords, tokens or other secrets; whether they include the attacking address is up to you.
+**Webhooks.** With Nextcloud's Webhooks app, three typed events can go to a chat room, a ticket system or a SIEM: `DetectionCreatedEvent`, `BanCreatedEvent` and `BanLiftedEvent`. Payloads never contain passwords, tokens or other secrets. They leave out the attacking address unless you switch on "Addresses in webhook events".
 
 **OpenMetrics.** Six metrics for Prometheus: `intrusion_detections_total`, `intrusion_bans_active`, `intrusion_guard_seconds`, `intrusion_learning_mode`, `intrusion_blocklist_ranges` and `intrusion_approvals_pending`.
 
@@ -264,7 +267,7 @@ occ intrusion:checks:explain credential_stuffing
 occ intrusion:simulate password_spraying      # what a check would do, without recording anything
 occ intrusion:bans:list
 occ intrusion:bans:lift K7Q2-MPXA --note="Our own scanner"
-occ intrusion:detections:explain 2367
+occ intrusion:detections:explain 470938541726507008
 occ intrusion:report --user=mia --format=html > mia.html
 occ intrusion:user mia                        # what applies to an account, and lift it
 occ intrusion:credentials:stale --revoke      # remove app passwords and devices unused for 90 days
@@ -319,7 +322,8 @@ occ intrusion:benchmark                       # measure the cost per request
 - **The breach check uses k-anonymity.** Only the first 5 characters of the password's SHA-1 hash go to the Have I Been Pwned range API, with padding, and the comparison happens on your server. It only checks logins through the login form, and it is off until you switch it on.
 - **Secrets are never stored.** Passwords and account names in failed attempts, decoy secrets, email codes, lock links and remembered-device cookies are kept only as keyed fingerprints or hashes.
 - **Everything has an expiry.** Failed attempts are kept 1 hour, successful logins 24 hours, detections, login history and security changes 90 days (configurable from 7 to 730), remembered devices 180 days after last use. A background job deletes them on time. Deleting an account deletes or anonymises its data.
-- **The admin page lists all of it.** Settings → Data and privacy shows every kind of data the app keeps, why and for how long. IP addresses are stored as they are, because the admin needs them to recognise and lift blocks.
+- **The admin page lists all of it.** Settings → Data and privacy shows every kind of data the app keeps, why, for how long and who sees it. IP addresses are stored as they are, because the admin needs them to recognise and lift blocks.
+- **Users can take their data with them.** With the User migration app, a user's export contains their logins, remembered devices, trusted networks, security changes and security events.
 
 <details>
 <summary><strong>What Nextcloud keeps</strong> (screenshot)</summary>
@@ -348,16 +352,24 @@ A plain request in a new PHP process loads none of the checks and at most 45 of 
 
 **You need Nextcloud 36** (in development) with the core changes this app hooks into. They are open as draft pull requests: [#65735](https://github.com/nextcloud/server/pull/65735), [#65736](https://github.com/nextcloud/server/pull/65736), [#65737](https://github.com/nextcloud/server/pull/65737), [#65738](https://github.com/nextcloud/server/pull/65738), [#65739](https://github.com/nextcloud/server/pull/65739), [#65740](https://github.com/nextcloud/server/pull/65740) and [#65741](https://github.com/nextcloud/server/pull/65741), plus one more small change to the DAV app.
 
-Install from source:
+Install it from the app store: in Nextcloud under Apps → Security, or with
+`php occ app:install intrusion_detection`. The app store package is signed and
+holds only the files the app needs to run.
+
+Until a release is on the app store, build the same package yourself, on a
+machine with Node.js and npm, and unpack it into the apps folder:
 
 ```sh
-cd /path/to/nextcloud/apps
-git clone https://github.com/nextcloud/intrusion_detection.git intrusion_detection
+git clone https://github.com/nextcloud/intrusion_detection.git
 cd intrusion_detection
-npm ci && npm run build
-cd ../..
-php occ app:enable intrusion_detection
+make build appstore
+tar -xzf build/artifacts/intrusion_detection.tar.gz -C /path/to/nextcloud/apps
+php /path/to/nextcloud/occ app:enable intrusion_detection
 ```
+
+Don't run the app from a git checkout in the apps folder of a production
+server: that puts `.git`, the sources, the tests and the build tools where
+the web server can reach them.
 
 Then:
 
@@ -419,10 +431,23 @@ Yes. Most checks watch what reaches Nextcloud, not how people log in, so they wo
 With a memory cache, a few microseconds; see [Light on resources](#-light-on-resources). Run `occ intrusion:benchmark` on your own server to see the numbers.
 </details>
 
+## Documentation
+
+- [Security policy](SECURITY.md): reporting, supported versions, dependency updates
+- [Browser security](docs/browser-security.md)
+- [Resource limits](docs/limits.md)
+- [Functionality that needs care](docs/dangerous-functionality.md)
+- [Who may do what](docs/authorization.md): access rules, approvals, four-eyes approval and tamper resistance
+- [Keys and fingerprints](docs/keys.md): what is kept instead of secrets, and what changing the instance `secret` does
+- [Cryptography and keys](docs/cryptography.md): every key, fingerprint and secret, and what changing the instance `secret` does to them
+- [Logging](docs/logging.md): what goes to the audit log, `nextcloud.log`, `bans.log` and webhooks, and lock links in web server access logs
+- [Blocklists and the firewall export](docs/blocklists.md): what you trust, list formats and limits, and where to put the export folder
+- [Logins and their confirmation](docs/logins.md): which logins are confirmed, timers, limits, and lock links in access logs
+
 ## Contributing and security
 
 - **Bugs and ideas:** please open an issue at [github.com/nextcloud/intrusion_detection/issues](https://github.com/nextcloud/intrusion_detection/issues). Pull requests are welcome; see the [Nextcloud contribution guidelines](https://github.com/nextcloud/.github/blob/master/CONTRIBUTING.md).
-- **Security issues:** please do **not** open an issue. Report them through [HackerOne](https://hackerone.com/nextcloud), as described in the [Nextcloud security policy](https://nextcloud.com/security/).
+- **Security issues:** please do **not** open an issue. Report them through [HackerOne](https://hackerone.com/nextcloud), as described in [SECURITY.md](SECURITY.md).
 
 ## License
 

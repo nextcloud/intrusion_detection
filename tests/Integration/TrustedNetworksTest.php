@@ -11,14 +11,13 @@ namespace OCA\IntrusionDetection\Tests\Integration;
 
 use OCA\IntrusionDetection\Audit\AuditLogger;
 use OCA\IntrusionDetection\BackgroundJob\Cleanup;
-use OCA\IntrusionDetection\Config\GlobalSettings;
-use OCA\IntrusionDetection\Config\Settings;
+use OCA\IntrusionDetection\Confirm\Db\StepUpSessionMapper;
 use OCA\IntrusionDetection\Confirm\UnconfirmedSessions;
 use OCA\IntrusionDetection\Crypto\Fingerprinter;
-use OCA\IntrusionDetection\Db\StepUpSessionMapper;
-use OCA\IntrusionDetection\Db\TrustedNetworkMapper;
 use OCA\IntrusionDetection\Net\SourceKey;
 use OCA\IntrusionDetection\Privacy\UserDataCleanup;
+use OCA\IntrusionDetection\State\HotState;
+use OCA\IntrusionDetection\TrustedNetwork\Db\TrustedNetworkMapper;
 use OCA\IntrusionDetection\TrustedNetwork\ITrustedNetworks;
 use OCA\IntrusionDetection\TrustedNetwork\TrustedNetworks;
 use OCP\AppFramework\Utility\ITimeFactory;
@@ -38,7 +37,7 @@ class TrustedNetworksTest extends IntegrationTestCase {
 	public function testANetworkIsTrustedForTheUserForTheConfiguredTime(): void {
 		$networks = $this->networks();
 		$this->assertInstanceOf(TrustedNetworks::class, Server::get(ITrustedNetworks::class), 'The real implementation is registered');
-		$until = $networks->trust('alice', SourceKey::fromIp('203.0.113.7'), 42);
+		$until = $networks->trust('alice', SourceKey::fromIp('203.0.113.7'), '42');
 		$this->assertSame($this->now + 30 * 86400, $until);
 		$this->assertTrue($networks->isTrusted('alice', SourceKey::fromIp('203.0.113.250')), 'The whole /24');
 		$this->assertFalse($networks->isTrusted('alice', SourceKey::fromIp('203.0.114.7')));
@@ -58,11 +57,11 @@ class TrustedNetworksTest extends IntegrationTestCase {
 		$networks = $this->networks();
 		$networks->trust('alice', SourceKey::fromIp('203.0.113.7'));
 		$this->now += 86400;
-		$until = $networks->trust('alice', SourceKey::fromIp('203.0.113.8'), 7);
+		$until = $networks->trust('alice', SourceKey::fromIp('203.0.113.8'), '7');
 		$list = $networks->forUser('alice');
 		$this->assertCount(1, $list);
 		$this->assertSame($until, $list[0]['expiresAt']);
-		$this->assertSame(7, $list[0]['detectionId']);
+		$this->assertSame('7', $list[0]['detectionId']);
 	}
 
 	public function testUsersRemoveOnlyTheirOwnEntries(): void {
@@ -118,8 +117,8 @@ class TrustedNetworksTest extends IntegrationTestCase {
 
 		$mapper = $this->createMock(StepUpSessionMapper::class);
 		$mapper->expects($this->never())->method('find');
-		$this->settings()->setGlobal(GlobalSettings::STEP_UP_SESSIONS_UNTIL, 0);
-		$quiet = new UnconfirmedSessions($mapper, Server::get(Fingerprinter::class), $this->settings(), $config, Server::get(ITimeFactory::class), Server::get(LoggerInterface::class));
+		Server::get(HotState::class)->setStepUpSessionsUntil(0);
+		$quiet = new UnconfirmedSessions($mapper, Server::get(Fingerprinter::class), $config, Server::get(ITimeFactory::class), Server::get(LoggerInterface::class), Server::get(HotState::class));
 		$this->assertNull($quiet->accountOf('any'), 'Normal logins cost no query');
 	}
 
@@ -129,7 +128,4 @@ class TrustedNetworksTest extends IntegrationTestCase {
 		return new TrustedNetworks(Server::get(TrustedNetworkMapper::class), $time, Server::get(AuditLogger::class));
 	}
 
-	private function settings(): Settings {
-		return Server::get(Settings::class);
-	}
 }

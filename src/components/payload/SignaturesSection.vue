@@ -4,12 +4,10 @@
 -->
 
 <script setup lang="ts">
-import type { Check, Signature, Signatures } from '../../types.ts'
+import type { Check, Signature } from '../../types.ts'
 
 import { mdiClose, mdiPlus, mdiRegex } from '@mdi/js'
-import { showError } from '@nextcloud/dialogs'
-import { n, t } from '@nextcloud/l10n'
-import { computed, onMounted, ref, useId, watch } from 'vue'
+import { computed, ref, useId, watch } from 'vue'
 import NcButton from '@nextcloud/vue/components/NcButton'
 import NcCheckboxRadioSwitch from '@nextcloud/vue/components/NcCheckboxRadioSwitch'
 import NcIconSvgWrapper from '@nextcloud/vue/components/NcIconSvgWrapper'
@@ -20,40 +18,24 @@ import SelectField from '../common/SelectField.vue'
 import ShowMore from '../common/ShowMore.vue'
 import SkeletonBlock from '../common/SkeletonBlock.vue'
 import StateBadge from '../common/StateBadge.vue'
-import { useAnnouncer } from '../../composables/useAnnouncer.ts'
-import { ApiError, checkSignatures, errorMessage, fetchSignatures, isCancelled, updateCheck } from '../../services/api.ts'
-import { logger } from '../../services/logger.ts'
-import { replaceCheck } from '../../store.ts'
+import { useAction } from '../../composables/useAction.ts'
+import { ApiError, checkSignatures, errorMessage } from '../../services/api.ts'
+import { saveCheck } from '../../store.ts'
+import { useSignatures } from '../../stores/settings.ts'
 import { APP_ID } from '../../utils/format.ts'
+import { n, t } from '../../utils/l10n.ts'
 
 const props = defineProps<{
 	check: Check
 }>()
 
 const id = useId()
-const catalog = ref<Signatures | null>(null)
-const loadError = ref<string | null>(null)
-const busy = ref<string | null>(null)
+const { data: catalog, error: loadError } = useSignatures({ failure: () => t(APP_ID, 'The signatures could not be loaded.') })
+const { busy, run } = useAction()
 const weight = ref(3)
 const pattern = ref('')
 const patternError = ref<string | null>(null)
-const { announce } = useAnnouncer()
 
-/**
- * Load the signatures.
- */
-async function load() {
-	try {
-		catalog.value = await fetchSignatures()
-		loadError.value = null
-	} catch (error) {
-		logger.error('Could not load the signatures', { error })
-		loadError.value = errorMessage(error, t(APP_ID, 'The signatures could not be loaded.'))
-	}
-}
-
-onMounted(load)
-watch(() => props.check, load)
 watch(pattern, () => {
 	patternError.value = null
 })
@@ -87,39 +69,36 @@ const localProblem = computed(() => {
  *
  * @param key - What is saved, for the loading state
  * @param params - The new values
+ * @param done - What to announce when it worked
+ * @param before - Runs first, e.g. a check of the new value
  */
-async function save(key: string, params: Record<string, string[]>): Promise<boolean> {
-	busy.value = key
-	try {
-		replaceCheck(await updateCheck(props.check.id, { params }))
-		return true
-	} catch (error) {
-		if (!isCancelled(error)) {
-			logger.error('Could not save the signatures', { error })
+function save(key: string, params: Record<string, string[]>, done: string, before?: () => Promise<void>): Promise<boolean> {
+	return run(key, async () => {
+		await before?.()
+		await saveCheck(props.check.id, { params })
+	}, {
+		done,
+		fallback: t(APP_ID, 'The signatures could not be saved. Please try again.'),
+		handle: (error) => {
 			if (key === 'add' && error instanceof ApiError) {
 				patternError.value = error.message
-			} else {
-				showError(errorMessage(error, t(APP_ID, 'The signatures could not be saved. Please try again.')))
+				return true
 			}
-		}
-		return false
-	} finally {
-		busy.value = null
-	}
+			return false
+		},
+	})
 }
 
 /**
  * @param signature - The signature
  * @param on - Whether it counts
  */
-async function toggle(signature: Signature, on: boolean) {
+function toggle(signature: Signature, on: boolean) {
 	const disabled = (catalog.value?.signatures ?? []).filter((s) => !s.enabled && s.id !== signature.id).map((s) => s.id)
 	if (!on) {
 		disabled.push(signature.id)
 	}
-	if (await save(signature.id, { disabled_signatures: disabled })) {
-		announce(on ? t(APP_ID, 'Signature {id} is on.', { id: signature.id }) : t(APP_ID, 'Signature {id} is off.', { id: signature.id }))
-	}
+	save(signature.id, { disabled_signatures: disabled }, on ? t(APP_ID, 'Signature {id} is on.', { id: signature.id }) : t(APP_ID, 'Signature {id} is off.', { id: signature.id }))
 }
 
 /**
@@ -135,32 +114,27 @@ async function add() {
 		patternError.value = t(APP_ID, 'This signature exists already.')
 		return
 	}
-	busy.value = 'add'
-	try {
-		const [checked] = (await checkSignatures([entry])).entries
-		if (checked?.problemText) {
-			patternError.value = checked.problemText
-			return
+	const added = await save('add', { custom_signatures: [...customEntries.value, entry] }, t(APP_ID, 'Your signature was added.'), async () => {
+		let checked
+		try {
+			[checked] = (await checkSignatures([entry])).entries
+		} catch (error) {
+			throw new ApiError(errorMessage(error, t(APP_ID, 'The signature could not be checked. Please try again.')), null, { cause: error })
 		}
-	} catch (error) {
-		patternError.value = errorMessage(error, t(APP_ID, 'The signature could not be checked. Please try again.'))
-		return
-	} finally {
-		busy.value = null
-	}
-	if (await save('add', { custom_signatures: [...customEntries.value, entry] })) {
+		if (checked?.problemText) {
+			throw new ApiError(checked.problemText)
+		}
+	})
+	if (added) {
 		pattern.value = ''
-		announce(t(APP_ID, 'Your signature was added.'))
 	}
 }
 
 /**
  * @param entry - The custom signature to remove
  */
-async function remove(entry: string) {
-	if (await save('remove:' + entry, { custom_signatures: customEntries.value.filter((e) => e !== entry) })) {
-		announce(t(APP_ID, 'The signature was removed.'))
-	}
+function remove(entry: string) {
+	save('remove:' + entry, { custom_signatures: customEntries.value.filter((e) => e !== entry) }, t(APP_ID, 'The signature was removed.'))
 }
 </script>
 
@@ -235,7 +209,7 @@ async function remove(entry: string) {
 						</span>
 						<NcButton
 							variant="tertiary"
-							:aria-label="t(APP_ID, 'Remove signature {pattern}', { pattern: custom.pattern }, undefined, { escape: false, sanitize: false })"
+							:aria-label="t(APP_ID, 'Remove signature {pattern}', { pattern: custom.pattern })"
 							:disabled="busy !== null"
 							@click="remove(custom.entry)">
 							<template #icon>
@@ -262,7 +236,7 @@ async function remove(entry: string) {
 						:label="t(APP_ID, 'Regular expression')"
 						spellcheck="false"
 						autocomplete="off"
-						:placeholder="t(APP_ID, 'e.g. {example}', { example: 'union\\s+distinct\\s+select' }, undefined, { escape: false, sanitize: false })"
+						:placeholder="t(APP_ID, 'e.g. {example}', { example: 'union\\s+distinct\\s+select' })"
 						:maxlength="catalog.maxLength"
 						:disabled="busy !== null"
 						:error="(patternError ?? localProblem) !== null"
@@ -288,7 +262,7 @@ async function remove(entry: string) {
 .sigs {
 	display: flex;
 	flex-direction: column;
-	gap: calc(var(--default-grid-baseline) * 2);
+	gap: var(--ids-space-2);
 }
 
 .sigs__head {
@@ -296,19 +270,15 @@ async function remove(entry: string) {
 	flex-wrap: wrap;
 	align-items: center;
 	justify-content: space-between;
-	gap: calc(var(--default-grid-baseline) * 2);
+	gap: var(--ids-space-2);
 }
 
 .sigs__heading {
+	composes: eyebrow from '../../styles/shared.module.css';
 	display: flex;
 	align-items: center;
-	gap: calc(var(--default-grid-baseline) * 1.5);
+	gap: var(--ids-space-1-5);
 	margin: 0;
-	color: var(--color-text-maxcontrast);
-	font-size: 0.8em;
-	font-weight: 700;
-	letter-spacing: 0.06em;
-	text-transform: uppercase;
 }
 
 .sigs__text {
@@ -317,14 +287,14 @@ async function remove(entry: string) {
 }
 
 .muted {
-	color: var(--color-text-maxcontrast);
+	composes: muted from '../../styles/shared.module.css';
 	font-size: 0.9em;
 }
 
 .skeleton {
 	display: flex;
 	flex-direction: column;
-	gap: calc(var(--default-grid-baseline) * 1);
+	gap: var(--ids-space-1);
 }
 
 .group {
@@ -336,20 +306,20 @@ async function remove(entry: string) {
 	display: flex;
 	flex-direction: column;
 	margin: 0;
-	padding: 0 calc(var(--default-grid-baseline) * 2) calc(var(--default-grid-baseline) * 2);
+	padding: 0 var(--ids-space-2) var(--ids-space-2);
 	list-style: none;
 }
 
 .sig {
 	display: flex;
 	align-items: center;
-	gap: calc(var(--default-grid-baseline) * 2);
-	padding-block: calc(var(--default-grid-baseline) * 1);
+	gap: var(--ids-space-2);
+	padding-block: var(--ids-space-1);
 	border-top: 1px solid var(--color-border);
 }
 
 .custom .sig {
-	padding-inline: calc(var(--default-grid-baseline) * 2);
+	padding-inline: var(--ids-space-2);
 }
 
 .sig_off .sig__text {
@@ -360,7 +330,7 @@ async function remove(entry: string) {
 	display: flex;
 	flex: 1 1 auto;
 	flex-direction: column;
-	gap: calc(var(--default-grid-baseline) / 2);
+	gap: var(--ids-space-half);
 	min-width: 0;
 	line-height: 1.45;
 }
@@ -369,7 +339,7 @@ async function remove(entry: string) {
 	display: flex;
 	flex-wrap: wrap;
 	align-items: center;
-	gap: calc(var(--default-grid-baseline) * 1.5);
+	gap: var(--ids-space-1-5);
 }
 
 .sig__meta code,
@@ -402,8 +372,8 @@ async function remove(entry: string) {
 .custom {
 	display: flex;
 	flex-direction: column;
-	gap: calc(var(--default-grid-baseline) * 2);
-	padding-top: calc(var(--default-grid-baseline) * 2);
+	gap: var(--ids-space-2);
+	padding-top: var(--ids-space-2);
 }
 
 .custom__heading {
@@ -426,7 +396,7 @@ async function remove(entry: string) {
 	display: flex;
 	flex-wrap: wrap;
 	align-items: flex-end;
-	gap: calc(var(--default-grid-baseline) * 2);
+	gap: var(--ids-space-2);
 }
 
 .custom__form .custom__weight {

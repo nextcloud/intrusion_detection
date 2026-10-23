@@ -13,10 +13,12 @@ use OC\SystemConfig;
 use OCA\IntrusionDetection\Admin\GlobalSettingsPresenter;
 use OCA\IntrusionDetection\AppInfo\Application;
 use OCA\IntrusionDetection\Check\CheckRegistry;
-use OCA\IntrusionDetection\Check\ResponseType;
+use OCA\IntrusionDetection\Config\AppSettings;
+use OCA\IntrusionDetection\Config\CheckSettings;
 use OCA\IntrusionDetection\Config\GlobalSettings;
 use OCA\IntrusionDetection\Config\Keys;
-use OCA\IntrusionDetection\Config\Settings;
+use OCA\IntrusionDetection\Definition\ResponseType;
+use OCA\IntrusionDetection\Net\ProtectedRanges;
 use OCP\IAppConfig;
 use OCP\IL10N;
 use Psr\Log\LoggerInterface;
@@ -29,7 +31,7 @@ use Psr\Log\LoggerInterface;
  *   overwrite* settings, brute-force protection, debug and log level, 2FA
  *   enforcement, the admin address ranges, and this app's own entries;
  * - app config: the brute-force allowlist, sharing by link, the password
- *   policy, and this app's settings (effective values, internal state left out).
+ *   policy, and this app's settings (effective values).
  *
  * Keys are "system:<config.php key>" and "app:<app id>:<key>". A value is
  * secret when Nextcloud masks it: config.php values that the filtered read
@@ -47,8 +49,6 @@ class WatchedSettings {
 	public const SYSTEM_PREFIXES = ['overwrite', 'twofactor_enforced', 'intrusion_detection.'];
 	public const CORE_KEYS = ['shareapi_allow_links', 'shareapi_enforce_links_password'];
 	public const PASSWORD_POLICY_APP = 'password_policy';
-	public const BRUTEFORCE_APP = 'bruteForce';
-	public const BRUTEFORCE_PREFIX = 'whitelist_';
 	/** All allowlist entries together, as one setting */
 	public const BRUTEFORCE_ALLOWLIST = 'app:bruteForce:whitelist';
 	/** Keys core keeps for every app; app enabling is reported by its own event */
@@ -59,7 +59,8 @@ class WatchedSettings {
 	public function __construct(
 		private readonly SystemConfig $systemConfig,
 		private readonly IAppConfig $appConfig,
-		private readonly Settings $settings,
+		private readonly AppSettings $appSettings,
+		private readonly CheckSettings $settings,
 		private readonly CheckRegistry $registry,
 		private readonly GlobalSettings $globals,
 		private readonly LoggerInterface $logger,
@@ -179,7 +180,7 @@ class WatchedSettings {
 				}
 			}
 		}
-		$label = (new GlobalSettingsPresenter($this->globals, $this->settings))->label($name, $l);
+		$label = (new GlobalSettingsPresenter($this->globals, $this->appSettings))->label($name, $l);
 		return $l->t('Intrusion detection: %s', [$label ?? $name]);
 	}
 
@@ -224,12 +225,12 @@ class WatchedSettings {
 	 * @return list<WatchedValue>
 	 */
 	private function bruteForce(): array {
-		$current = $this->appConfig->getAllValues(self::BRUTEFORCE_APP, self::BRUTEFORCE_PREFIX);
+		$current = $this->appConfig->getAllValues(ProtectedRanges::BRUTEFORCE_APP, ProtectedRanges::BRUTEFORCE_PREFIX);
 		$ranges = [];
 		$secret = false;
 		foreach ($current as $key => $value) {
 			$ranges[] = is_scalar($value) ? (string)$value : '';
-			$secret = $secret || $this->isSensitive(self::BRUTEFORCE_APP, (string)$key, $current);
+			$secret = $secret || $this->isSensitive(ProtectedRanges::BRUTEFORCE_APP, (string)$key, $current);
 		}
 		sort($ranges);
 		return [new WatchedValue(self::BRUTEFORCE_ALLOWLIST, $ranges, $secret, true)];
@@ -252,17 +253,15 @@ class WatchedSettings {
 	}
 
 	/**
-	 * Every setting this app defines (internal state left out), see {@see self::ownValue()}.
+	 * Every setting this app defines, see {@see self::ownValue()}.
 	 *
 	 * @return list<WatchedValue>
 	 */
 	private function ownSettings(): array {
 		$stored = $this->appConfig->getAllValues(Application::APP_ID);
 		$values = [];
-		foreach ($this->globals->all() as $name => $definition) {
-			if (!GlobalSettings::isInternal($name)) {
-				$values[] = self::ownValue($name, $this->settings->global($name), $stored[$name] ?? null);
-			}
+		foreach (array_keys($this->globals->all()) as $name) {
+			$values[] = self::ownValue($name, $this->appSettings->value($name), $stored[$name] ?? null);
 		}
 		foreach ($this->registry->all() as $check) {
 			$values[] = self::ownValue(Keys::mode($check->id), $this->settings->configuredMode($check->id)->value, $stored[Keys::mode($check->id)] ?? null);

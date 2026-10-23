@@ -11,21 +11,22 @@ namespace OCA\IntrusionDetection\Tests\Integration;
 
 use OCA\IntrusionDetection\AdminChange\ApprovalException;
 use OCA\IntrusionDetection\AdminChange\ApprovalService;
-use OCA\IntrusionDetection\Check\Checks\StepUpFailed;
-use OCA\IntrusionDetection\Check\Checks\StepUpRefused;
+use OCA\IntrusionDetection\Check\Checks\StepUpFailed\StepUpFailed;
+use OCA\IntrusionDetection\Check\Checks\StepUpFailed\StepUpFailedRule;
+use OCA\IntrusionDetection\Check\Checks\StepUpRefused\StepUpRefused;
 use OCA\IntrusionDetection\Config\GlobalSettings;
+use OCA\IntrusionDetection\Confirm\ConfirmationStatus;
 use OCA\IntrusionDetection\Confirm\IConfirmationMethod;
+use OCA\IntrusionDetection\Confirm\LoginConfirmations;
 use OCA\IntrusionDetection\Confirm\Methods\AdminApprovalMethod;
-use OCA\IntrusionDetection\Confirm\StepUpService;
-use OCA\IntrusionDetection\Confirm\StepUpState;
 use OCA\IntrusionDetection\Controller\VerifyController;
 use OCA\IntrusionDetection\Db\Approval;
 use OCA\IntrusionDetection\Db\ApprovalMapper;
+use OCA\IntrusionDetection\Login\SessionMarkers;
 use OCA\IntrusionDetection\Net\SourceKey;
 use OCA\IntrusionDetection\Notification\Notifier;
 use OCA\IntrusionDetection\Response\FlaggedSources;
 use OCA\IntrusionDetection\SessionState\RequestTarget;
-use OCA\IntrusionDetection\SessionState\SessionState;
 use OCP\AppFramework\Http\Attribute\NoCSRFRequired;
 use OCP\AppFramework\Http\Attribute\UserRateLimit;
 use OCP\AppFramework\Http\JSONResponse;
@@ -51,7 +52,7 @@ class AdminApprovalTest extends StepUpTestCase {
 	protected function setUp(): void {
 		parent::setUp();
 		$this->bob = $this->user('ids-approval', null);
-		$this->settings->setGlobal(GlobalSettings::STEP_UP_ADMIN_APPROVAL, true);
+		$this->settingsEditor()->setGlobal(GlobalSettings::STEP_UP_ADMIN_APPROVAL, true);
 		Server::get(FlaggedSources::class)->flagSource(SourceKey::fromIp($this->remoteAddress), FlaggedSources::REASON_ATTACK);
 	}
 
@@ -63,8 +64,7 @@ class AdminApprovalTest extends StepUpTestCase {
 		$this->assertSame(Approval::KIND_LOGIN, $approval->getKind());
 		$this->assertSame($this->bob->getUID(), $approval->getSubjectUid());
 		$this->assertSame($this->remoteAddress, $approval->getIp());
-		$this->assertSame($approval->getExpiresAt(), $stepUp->deadline, 'The login may wait as long as the request');
-		$this->assertGreaterThan($stepUp->started + StepUpService::SESSION_TTL, $stepUp->deadline);
+		$this->assertSame(max($stepUp->started + LoginConfirmations::SESSION_TTL, $approval->getExpiresAt()), $stepUp->deadline, 'The login may wait as long as the request');
 		$this->assertSame([], $this->detectionsOf(StepUpRefused::ID), 'Not refused');
 
 		$this->assertNotSame([], $this->notificationsFor(self::ADMIN, Notifier::SUBJECT_APPROVAL_REQUESTED), 'The administrators are asked');
@@ -92,7 +92,7 @@ class AdminApprovalTest extends StepUpTestCase {
 
 	public function testTheLoginContinuesOnlyOnceAnotherAdministratorApproved(): void {
 		$this->waitingLogin();
-		$id = (int)$this->stepUp()?->approvalId;
+		$id = (string)$this->stepUp()?->approvalId;
 
 		$this->assertRefused(ApprovalException::SUBJECT, fn () => Server::get(ApprovalService::class)->approve($id, $this->bob->getUID(), ApprovalService::VIA_WEB), 'Nobody approves their own login');
 		$this->assertRefused(ApprovalException::NOT_ADMIN, fn () => Server::get(ApprovalService::class)->approve($id, $this->user('ids-approval-other', null)->getUID(), ApprovalService::VIA_WEB), 'Only administrators decide');
@@ -106,7 +106,7 @@ class AdminApprovalTest extends StepUpTestCase {
 		$this->assertInstanceOf(RedirectResponse::class, $response);
 		$this->assertStringEndsWith('/index.php/apps/files/', $response->getRedirectURL());
 		$this->assertNull($this->stepUp());
-		$this->assertSame('admin_approval', $this->state->get(SessionState::CONFIRMATION)['by'] ?? null);
+		$this->assertSame('admin_approval', $this->state->get(SessionMarkers::CONFIRMATION)['by'] ?? null);
 		$this->assertNull($this->rule()->check($this->state, RequestTarget::dav('PROPFIND', '/')));
 		$this->assertCount(1, $this->deviceCookiesSet, 'Remembered, as chosen');
 
@@ -115,7 +115,7 @@ class AdminApprovalTest extends StepUpTestCase {
 
 	public function testARejectedLoginEnds(): void {
 		$this->waitingLogin();
-		Server::get(ApprovalService::class)->reject((int)$this->stepUp()?->approvalId, self::ADMIN, ApprovalService::VIA_WEB);
+		Server::get(ApprovalService::class)->reject((string)$this->stepUp()?->approvalId, self::ADMIN, ApprovalService::VIA_WEB);
 		$this->assertSame('rejected', $this->approvalStatus()->getData()['status']);
 
 		$response = $this->verifyController()->continueApproval();
@@ -124,13 +124,13 @@ class AdminApprovalTest extends StepUpTestCase {
 		$this->assertNull($this->sessionUser, 'The session ended');
 		$failed = $this->detectionsOf(StepUpFailed::ID);
 		$this->assertCount(1, $failed);
-		$this->assertSame(StepUpFailed::RULE_REJECTED, $failed[0]->getExplanationData()['facts']['rule'] ?? null);
-		$this->assertStringContainsString('rejected', $this->verifyController()->ended(StepUpFailed::RULE_REJECTED)->render());
+		$this->assertSame(StepUpFailedRule::Rejected->value, $failed[0]->getExplanationData()['facts']['rule'] ?? null);
+		$this->assertStringContainsString('rejected', $this->verifyController()->ended(StepUpFailedRule::Rejected->value)->render());
 	}
 
 	public function testAnExpiredRequestEndsTheLogin(): void {
 		$this->waitingLogin();
-		$id = (int)$this->stepUp()?->approvalId;
+		$id = (string)$this->stepUp()?->approvalId;
 		$qb = $this->db->getQueryBuilder();
 		$qb->update(ApprovalMapper::TABLE)->set('expires_at', $qb->createNamedParameter(time() - 1))->executeStatement();
 		$this->assertSame('expired', $this->approvalStatus()->getData()['status']);
@@ -145,7 +145,7 @@ class AdminApprovalTest extends StepUpTestCase {
 	public function testARejectedLoginCannotAskAgain(): void {
 		$this->waitingLogin();
 		$asked = count($this->notificationsFor(self::ADMIN, Notifier::SUBJECT_APPROVAL_REQUESTED));
-		Server::get(ApprovalService::class)->reject((int)$this->stepUp()?->approvalId, self::ADMIN, ApprovalService::VIA_WEB);
+		Server::get(ApprovalService::class)->reject((string)$this->stepUp()?->approvalId, self::ADMIN, ApprovalService::VIA_WEB);
 
 		$response = $this->verifyController()->requestApproval();
 		$this->assertInstanceOf(RedirectResponse::class, $response, 'Asking again after a rejection ends the login');
@@ -154,7 +154,7 @@ class AdminApprovalTest extends StepUpTestCase {
 		$this->assertNull($this->stepUp());
 		$failed = $this->detectionsOf(StepUpFailed::ID);
 		$this->assertCount(1, $failed);
-		$this->assertSame(StepUpFailed::RULE_REJECTED, $failed[0]->getExplanationData()['facts']['rule'] ?? null);
+		$this->assertSame(StepUpFailedRule::Rejected->value, $failed[0]->getExplanationData()['facts']['rule'] ?? null);
 		$this->assertCount(1, Server::get(ApprovalMapper::class)->findList(false, 10, Approval::KIND_LOGIN), 'No new request');
 		$this->assertCount($asked, $this->notificationsFor(self::ADMIN, Notifier::SUBJECT_APPROVAL_REQUESTED), 'The administrators are not asked again');
 	}
@@ -168,7 +168,7 @@ class AdminApprovalTest extends StepUpTestCase {
 		$this->assertInstanceOf(RedirectResponse::class, $response);
 		$this->assertStringContainsString('reason=timeout', $response->getRedirectURL());
 		$this->assertNull($this->sessionUser);
-		$this->assertSame(StepUpFailed::RULE_TIMEOUT, $this->detectionsOf(StepUpFailed::ID)[0]->getExplanationData()['facts']['rule'] ?? null);
+		$this->assertSame(StepUpFailedRule::Timeout->value, $this->detectionsOf(StepUpFailed::ID)[0]->getExplanationData()['facts']['rule'] ?? null);
 		$this->assertSame(0, $this->pendingFor($this->bob->getUID()), 'No new request');
 	}
 
@@ -178,8 +178,7 @@ class AdminApprovalTest extends StepUpTestCase {
 		$this->login($carol);
 		$stepUp = $this->stepUp();
 		$this->assertNotNull($stepUp);
-		$stepUp->deadline = time() - 1;
-		$this->service()->save($stepUp);
+		$this->service()->update($stepUp->withDeadline(time() - 1));
 
 		$block = $this->rule()->check($this->state, RequestTarget::app($this->verifyController(), 'requestApproval', 'POST', '/index.php/apps/intrusion_detection/verify/approval'));
 		$this->assertNotNull($block, 'The rule ends it before the verify page is reached');
@@ -192,13 +191,19 @@ class AdminApprovalTest extends StepUpTestCase {
 		$this->waitingLogin();
 		$stepUp = $this->stepUp();
 		$this->assertNotNull($stepUp);
-		$this->assertSame($this->approval()->getExpiresAt(), $stepUp->deadline);
-		$this->assertLessThan($stepUp->started + StepUpService::SESSION_TTL + AdminApprovalMethod::TTL, $stepUp->deadline + 1, 'Never beyond the login\'s own time plus one approval');
+		$this->assertSame(max($stepUp->started + LoginConfirmations::SESSION_TTL, $this->approval()->getExpiresAt()), $stepUp->deadline);
+		$this->assertLessThan($stepUp->started + LoginConfirmations::SESSION_TTL + AdminApprovalMethod::TTL, $stepUp->deadline + 1, 'Never beyond the login\'s own time plus one approval');
+	}
+
+	public function testAnAdministratorIsAskedForTenMinutesAtMost(): void {
+		$this->waitingLogin();
+		$approval = $this->approval();
+		$this->assertSame(600, $approval->getExpiresAt() - $approval->getCreatedTime(), 'Out-of-band requests wait ten minutes at most');
 	}
 
 	public function testTheUserCanGiveUpWaiting(): void {
 		$this->waitingLogin();
-		$id = (int)$this->stepUp()?->approvalId;
+		$id = (string)$this->stepUp()?->approvalId;
 		$response = $this->verifyController()->cancelApproval();
 		$this->assertInstanceOf(RedirectResponse::class, $response);
 		$this->assertNull($this->sessionUser);
@@ -241,15 +246,15 @@ class AdminApprovalTest extends StepUpTestCase {
 		$this->session->clear();
 		$this->startSession($this->bob);
 		$this->login($this->bob);
-		$this->assertSame(StepUpState::REFUSED, $this->stepUp()?->status, 'Too many waiting logins: the policy decides');
+		$this->assertSame(ConfirmationStatus::Refused, $this->stepUp()?->status, 'Too many waiting logins: the policy decides');
 		$this->assertSame(ApprovalService::MAX_PENDING_LOGINS, $this->pendingFor($this->bob->getUID()));
 	}
 
 	public function testOffByDefault(): void {
-		$this->settings->setGlobal(GlobalSettings::STEP_UP_ADMIN_APPROVAL, false);
+		$this->settingsEditor()->setGlobal(GlobalSettings::STEP_UP_ADMIN_APPROVAL, false);
 		$this->startSession($this->bob);
 		$this->login($this->bob);
-		$this->assertSame(StepUpState::REFUSED, $this->stepUp()?->status);
+		$this->assertSame(ConfirmationStatus::Refused, $this->stepUp()?->status);
 		$this->assertSame(0, $this->pendingFor($this->bob->getUID()));
 	}
 
@@ -265,7 +270,7 @@ class AdminApprovalTest extends StepUpTestCase {
 		$this->assertSame('WEB', $actions[0]->getRequestType());
 		$this->assertStringEndsWith('#settings-approvals', $actions[0]->getLink());
 
-		Server::get(ApprovalService::class)->approve((int)$this->stepUp()?->approvalId, self::ADMIN, ApprovalService::VIA_WEB);
+		Server::get(ApprovalService::class)->approve((string)$this->stepUp()?->approvalId, self::ADMIN, ApprovalService::VIA_WEB);
 		$this->expectException(AlreadyProcessedException::class);
 		Server::get(Notifier::class)->prepare(clone $notification, 'en');
 	}
@@ -295,7 +300,7 @@ class AdminApprovalTest extends StepUpTestCase {
 		$this->nextRequest();
 		$this->startSession($this->bob);
 		$this->login($this->bob);
-		$this->assertSame(StepUpState::PENDING, $this->stepUp()?->status);
+		$this->assertSame(ConfirmationStatus::Pending, $this->stepUp()?->status);
 		$this->assertNotNull($this->stepUp()?->approvalId);
 	}
 

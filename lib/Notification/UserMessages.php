@@ -11,9 +11,9 @@ namespace OCA\IntrusionDetection\Notification;
 
 use OCA\IntrusionDetection\AppInfo\Application;
 use OCA\IntrusionDetection\Check\CheckRegistry;
-use OCA\IntrusionDetection\Check\InvalidParamException;
-use OCA\IntrusionDetection\Check\ResponseType;
 use OCA\IntrusionDetection\Db\Detection;
+use OCA\IntrusionDetection\Definition\InvalidParamException;
+use OCA\IntrusionDetection\Definition\ResponseType;
 use OCA\IntrusionDetection\Explain\DateFormatter;
 use OCA\IntrusionDetection\Explain\IExplainsToUser;
 use OCA\IntrusionDetection\Explain\IKeepsFromUser;
@@ -200,7 +200,12 @@ class UserMessages {
 		return is_object($check) ? $check : null;
 	}
 
-	private function notice(Detection $detection, IL10N $l): UserNotice {
+	/**
+	 * What the detection's check tells a person about it.
+	 *
+	 * @param IL10N $l in the reader's language
+	 */
+	public function notice(Detection $detection, IL10N $l): UserNotice {
 		$check = $this->check($detection);
 		if ($check instanceof IExplainsToUser) {
 			return $check->userNotice($detection, $l);
@@ -210,7 +215,7 @@ class UserMessages {
 	}
 
 	private function when(Detection $detection, IL10N $l): string {
-		$time = $this->dates->dateTime($detection->getCreatedAt());
+		$time = $this->dates->dateTime($detection->getCreatedTime());
 		$ip = $detection->getIp();
 		$userAgent = $detection->getExplanationData()['userAgent'] ?? null;
 		$device = DeviceLabel::describe(is_string($userAgent) ? $userAgent : null, $l);

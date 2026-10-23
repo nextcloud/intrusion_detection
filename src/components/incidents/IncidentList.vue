@@ -6,7 +6,6 @@
 <script setup lang="ts">
 import type { IncidentSubject } from '../../utils/incidents.ts'
 
-import { n, t } from '@nextcloud/l10n'
 import { useId } from 'vue'
 import NcNoteCard from '@nextcloud/vue/components/NcNoteCard'
 import OutcomeBadge from '../common/OutcomeBadge.vue'
@@ -14,6 +13,7 @@ import SeverityPill from '../common/SeverityPill.vue'
 import SkeletonBlock from '../common/SkeletonBlock.vue'
 import TimeStamp from '../common/TimeStamp.vue'
 import { APP_ID } from '../../utils/format.ts'
+import { n, t } from '../../utils/l10n.ts'
 
 defineProps<{
 	subjects: IncidentSubject[]
@@ -103,13 +103,13 @@ function checks(subject: IncidentSubject): string {
 .list {
 	display: flex;
 	flex-direction: column;
-	gap: calc(var(--default-grid-baseline) * 2);
+	gap: var(--ids-space-2);
 	min-width: 0;
 }
 
 .list__heading {
+	composes: muted from '../../styles/shared.module.css';
 	margin: 0;
-	color: var(--color-text-maxcontrast);
 	font-size: 0.9em;
 	font-weight: 600;
 }
@@ -117,7 +117,7 @@ function checks(subject: IncidentSubject): string {
 .list__skeleton {
 	display: flex;
 	flex-direction: column;
-	gap: calc(var(--default-grid-baseline) * 2);
+	gap: var(--ids-space-2);
 }
 
 .list__empty,
@@ -132,22 +132,20 @@ function checks(subject: IncidentSubject): string {
 }
 
 .list__items {
+	composes: plainList from '../../styles/shared.module.css';
 	display: flex;
 	flex-direction: column;
-	gap: calc(var(--default-grid-baseline) / 2);
-	margin: 0;
-	padding: 0;
-	list-style: none;
+	gap: var(--ids-space-half);
 }
 
 .list .item {
 	display: flex;
 	flex-direction: column;
-	gap: calc(var(--default-grid-baseline) * 1);
+	gap: var(--ids-space-1);
 	width: 100%;
 	min-height: auto;
 	margin: 0;
-	padding: calc(var(--default-grid-baseline) * 2) calc(var(--default-grid-baseline) * 3);
+	padding: var(--ids-space-2) var(--ids-space-3);
 	border: none;
 	border-radius: var(--border-radius-large);
 	background: transparent;
@@ -162,7 +160,7 @@ function checks(subject: IncidentSubject): string {
 }
 
 .list .item:focus-visible {
-	outline: 2px solid var(--color-main-text);
+	outline: var(--ids-focus-ring);
 	outline-offset: -2px;
 }
 
@@ -176,7 +174,7 @@ function checks(subject: IncidentSubject): string {
 	display: flex;
 	align-items: baseline;
 	justify-content: space-between;
-	gap: calc(var(--default-grid-baseline) * 2);
+	gap: var(--ids-space-2);
 	min-width: 0;
 }
 
@@ -193,11 +191,11 @@ function checks(subject: IncidentSubject): string {
 }
 
 .item__meta {
+	composes: muted from '../../styles/shared.module.css';
 	display: flex;
 	flex-wrap: wrap;
 	align-items: center;
-	gap: calc(var(--default-grid-baseline) * 1) calc(var(--default-grid-baseline) * 2);
-	color: var(--color-text-maxcontrast);
+	gap: var(--ids-space-1) var(--ids-space-2);
 	font-size: 0.9em;
 }
 

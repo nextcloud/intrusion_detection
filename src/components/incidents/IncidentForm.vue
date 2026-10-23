@@ -8,9 +8,8 @@ import type { NcSelectUsersModel } from '@nextcloud/vue/components/NcSelectUsers
 import type { IncidentRequest, IncidentSubjectType } from '../../types.ts'
 
 import { mdiFileChartOutline } from '@mdi/js'
-import { t } from '@nextcloud/l10n'
 import debounce from 'debounce'
-import { computed, ref, useId } from 'vue'
+import { computed, onBeforeUnmount, ref, useId } from 'vue'
 import NcButton from '@nextcloud/vue/components/NcButton'
 import NcDateTimePickerNative from '@nextcloud/vue/components/NcDateTimePickerNative'
 import NcIconSvgWrapper from '@nextcloud/vue/components/NcIconSvgWrapper'
@@ -22,6 +21,7 @@ import NcTextField from '@nextcloud/vue/components/NcTextField'
 import { searchAccounts } from '../../services/api.ts'
 import { logger } from '../../services/logger.ts'
 import { APP_ID } from '../../utils/format.ts'
+import { t } from '../../utils/l10n.ts'
 import { vRadioGroupName } from '../../utils/radioGroupName.ts'
 import { isCidr } from '../../utils/validate.ts'
 
@@ -89,16 +89,30 @@ const periodError = computed(() => {
 const subjectValid = computed(() => (type.value === 'user' ? account.value !== null : address.value.trim() !== '' && addressError.value === null))
 const valid = computed(() => subjectValid.value && periodError.value === null && (period.value !== 'custom' || (from.value !== null && to.value !== null)))
 
+/** Cancels the search under way, whose answer would be for older text */
+let searchController: AbortController | null = null
+
 const runSearch = debounce(async (term: string) => {
+	searchController?.abort()
+	const controller = new AbortController()
+	searchController = controller
+	let users: Awaited<ReturnType<typeof searchAccounts>> = []
 	try {
-		options.value = (await searchAccounts(term)).map((user) => ({ id: user.uid, user: user.uid, displayName: user.displayName, subname: user.email ?? user.uid }))
+		users = await searchAccounts(term, controller.signal)
 	} catch (error) {
-		logger.error('Could not search for accounts', { error })
-		options.value = []
-	} finally {
+		if (!controller.signal.aborted) {
+			logger.error('Could not search for accounts', { error })
+		}
+	}
+	if (controller === searchController) {
+		options.value = users.map((user) => ({ id: user.uid, user: user.uid, displayName: user.displayName, subname: user.email ?? user.uid }))
 		searching.value = false
 	}
 }, 250)
+onBeforeUnmount(() => {
+	runSearch.clear()
+	searchController?.abort()
+})
 
 /**
  * @param term - What was typed into the account picker
@@ -252,15 +266,15 @@ if (props.initial) {
 .form {
 	display: flex;
 	flex-direction: column;
-	gap: calc(var(--default-grid-baseline) * 5);
-	padding-block-end: calc(var(--default-grid-baseline) * 3);
+	gap: var(--ids-space-5);
+	padding-block-end: var(--ids-space-3);
 }
 
 .form__row {
 	display: flex;
 	flex-wrap: wrap;
 	align-items: flex-end;
-	gap: calc(var(--default-grid-baseline) * 3) calc(var(--default-grid-baseline) * 5);
+	gap: var(--ids-space-3) var(--ids-space-5);
 }
 
 .form__choice {
@@ -283,7 +297,7 @@ if (props.initial) {
 .form__dates {
 	display: flex;
 	flex-wrap: wrap;
-	gap: calc(var(--default-grid-baseline) * 3);
+	gap: var(--ids-space-3);
 }
 
 .form__date {
@@ -301,12 +315,12 @@ if (props.initial) {
 	display: flex;
 	flex-wrap: wrap;
 	align-items: center;
-	gap: calc(var(--default-grid-baseline) * 3);
+	gap: var(--ids-space-3);
 }
 
 .form__hint {
+	composes: muted from '../../styles/shared.module.css';
 	margin: 0;
-	color: var(--color-text-maxcontrast);
 	font-size: 0.9em;
 }
 

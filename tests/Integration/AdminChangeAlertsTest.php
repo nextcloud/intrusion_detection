@@ -10,18 +10,18 @@ declare(strict_types=1);
 namespace OCA\IntrusionDetection\Tests\Integration;
 
 use OCA\IntrusionDetection\Check\CheckRegistry;
-use OCA\IntrusionDetection\Check\Checks\AdminChange;
-use OCA\IntrusionDetection\Check\Severity;
-use OCA\IntrusionDetection\Config\Settings;
-use OCA\IntrusionDetection\Db\AlertMapper;
+use OCA\IntrusionDetection\Check\Checks\AdminChange\AdminChange;
 use OCA\IntrusionDetection\Db\Detection;
 use OCA\IntrusionDetection\Db\DetectionMapper;
+use OCA\IntrusionDetection\Definition\Severity;
 use OCA\IntrusionDetection\Explain\NarrativeBuilder;
 use OCA\IntrusionDetection\Notification\AdminAlerts;
 use OCA\IntrusionDetection\Notification\AdminLinks;
 use OCA\IntrusionDetection\Notification\AdminRecipients;
+use OCA\IntrusionDetection\Notification\Db\AlertMapper;
 use OCA\IntrusionDetection\Notification\MailContent;
 use OCA\IntrusionDetection\Notification\MailQueue;
+use OCA\IntrusionDetection\Notification\MailReach;
 use OCA\IntrusionDetection\Notification\Mails;
 use OCA\IntrusionDetection\Notification\UserMessages;
 use OCP\AppFramework\Utility\ITimeFactory;
@@ -67,9 +67,10 @@ class AdminChangeAlertsTest extends IntegrationTestCase {
 			return [$this->admin('alice', 'alice@example.com'), $this->admin('carol', null)];
 		});
 		$this->alerts = new AdminAlerts(
-			Server::get(AlertMapper::class), $recipients, $notifications, $mails, Server::get(Settings::class),
+			Server::get(AlertMapper::class), $recipients, $notifications, $mails, $this->appSettings(),
 			Server::get(NarrativeBuilder::class), Server::get(CheckRegistry::class), Server::get(UserMessages::class),
 			Server::get(AdminLinks::class), Server::get(ITimeFactory::class), Server::get(MailQueue::class),
+			Server::get(MailReach::class),
 		);
 	}
 
@@ -127,7 +128,7 @@ class AdminChangeAlertsTest extends IntegrationTestCase {
 			AdminAlerts::FACT_ALL_ADMINS => true,
 		]]);
 		$detection->setActionList([]);
-		$detection->setCreatedAt(time());
+		$detection->setCreatedTime(time());
 		$detection->setLastSeenAt(time());
 		$detection->setHits(1);
 		return Server::get(DetectionMapper::class)->insert($detection);

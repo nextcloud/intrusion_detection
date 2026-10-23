@@ -9,15 +9,22 @@ declare(strict_types=1);
 
 namespace OCA\IntrusionDetection\Tests\Unit\SessionState;
 
-use OCA\IntrusionDetection\Check\CredentialUse\CredentialSwitch;
-use OCA\IntrusionDetection\Check\CredentialUse\CredentialUse;
-use OCA\IntrusionDetection\Check\CredentialUse\CredentialUseResolver;
-use OCA\IntrusionDetection\Check\CredentialUse\PresentedCredential;
-use OCA\IntrusionDetection\Guard\RequestContext;
-use OCA\IntrusionDetection\Listener\CredentialUseLoginListener;
+use OCA\IntrusionDetection\Check\Checks\TokenConcurrentUse\CredentialSwitch;
+use OCA\IntrusionDetection\Check\Checks\TokenConcurrentUse\CredentialUse;
+use OCA\IntrusionDetection\Check\Checks\TokenConcurrentUse\CredentialUseResolver;
+use OCA\IntrusionDetection\Check\Checks\TokenConcurrentUse\PresentedCredential;
+use OCA\IntrusionDetection\Config\AppSettings;
+use OCA\IntrusionDetection\Listener\Login\CredentialUseStep;
+use OCA\IntrusionDetection\Listener\LoginListener;
+use OCA\IntrusionDetection\Login\LoginGate;
+use OCA\IntrusionDetection\Login\RequestContext;
+use OCA\IntrusionDetection\Login\SessionMarkers;
+use OCA\IntrusionDetection\Net\RemoteAddressResolver;
 use OCA\IntrusionDetection\SessionState\RequestTarget;
 use OCA\IntrusionDetection\SessionState\Rules\CredentialUseRule;
-use OCA\IntrusionDetection\SessionState\SessionState;
+use OCA\IntrusionDetection\State\HotState;
+use OCA\IntrusionDetection\Tests\LoginSteps;
+use OCP\IRequest;
 use OCP\ISession;
 use OCP\IUser;
 use OCP\User\Events\UserLoggedInEvent;
@@ -68,23 +75,28 @@ class CredentialUseRuleTest extends TestCase {
 	}
 
 	public function testTheLoginListenerPassesTheLoginOnAndNeverBreaksIt(): void {
-		$this->context->set(CredentialUseResolver::CONTEXT_KEY, new CredentialUse(PresentedCredential::SCHEME_BASIC, false));
+		$use = new CredentialUse(PresentedCredential::SCHEME_BASIC, false);
+		$use->unknown = true;
+		$this->context->set(CredentialUseResolver::CONTEXT_KEY, $use);
 		$user = $this->createMock(IUser::class);
 		$this->resolver->expects($this->once())->method('loggedIn')->with($user, 'alice', false)->willThrowException(new \RuntimeException('broken'));
 		$logger = $this->createMock(LoggerInterface::class);
 		$logger->expects($this->once())->method('error');
-		(new CredentialUseLoginListener($this->context, $this->container, $logger))->handle(new UserLoggedInEvent($user, 'alice', 'password', false));
+		$this->listener($logger)->handle(new UserLoggedInEvent($user, 'alice', 'password', false));
 	}
 
 	private function rule(): CredentialUseRule {
 		return new CredentialUseRule($this->context, $this->container);
 	}
 
-	private function listener(): CredentialUseLoginListener {
-		return new CredentialUseLoginListener($this->context, $this->container, $this->createMock(LoggerInterface::class));
+	private function listener(?LoggerInterface $logger = null): LoginListener {
+		$settings = $this->createMock(AppSettings::class);
+		$settings->method('isEnabled')->willReturn(true);
+		$addresses = $this->createMock(RemoteAddressResolver::class);
+		return LoginSteps::listener([CredentialUseStep::class => new CredentialUseStep($this->resolver)], $settings, $this->createMock(IRequest::class), $this->context, $addresses, $this->createMock(LoginGate::class), $logger ?? $this->createMock(LoggerInterface::class), $this->createMock(HotState::class));
 	}
 
-	private function state(): SessionState {
-		return new SessionState($this->createMock(ISession::class), $this->createMock(LoggerInterface::class));
+	private function state(): SessionMarkers {
+		return new SessionMarkers($this->createMock(ISession::class), $this->createMock(LoggerInterface::class));
 	}
 }

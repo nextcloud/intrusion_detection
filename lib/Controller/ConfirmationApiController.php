@@ -10,8 +10,8 @@ declare(strict_types=1);
 namespace OCA\IntrusionDetection\Controller;
 
 use OCA\IntrusionDetection\Admin\ConfirmationOverview;
+use OCA\IntrusionDetection\AdminChange\ActorResolver;
 use OCA\IntrusionDetection\Audit\AuditLogger;
-use OCA\IntrusionDetection\Check\InvalidParamException;
 use OCA\IntrusionDetection\Confirm\ConfirmationCoverage;
 use OCA\IntrusionDetection\Confirm\NoMethodPreset;
 use OCA\IntrusionDetection\ResponseDefinitions;
@@ -22,7 +22,6 @@ use OCP\AppFramework\Http\Attribute\PasswordConfirmationRequired;
 use OCP\AppFramework\Http\DataResponse;
 use OCP\IL10N;
 use OCP\IRequest;
-use OCP\IUserSession;
 
 /**
  * Login confirmation on the admin page. Its settings are changed through
@@ -41,21 +40,21 @@ class ConfirmationApiController extends AdminOCSController {
 	public function __construct(
 		IRequest $request,
 		IL10N $l,
-		IUserSession $userSession,
+		ActorResolver $actors,
 		private readonly ConfirmationOverview $overview,
 		private readonly ConfirmationCoverage $coverage,
 		private readonly NoMethodPreset $preset,
 		private readonly AuditLogger $audit,
 	) {
-		parent::__construct($request, $l, $userSession);
+		parent::__construct($request, $l, $actors);
 	}
 
 	/**
 	 * How logins are confirmed
 	 *
 	 * The confirmation methods in the order they are tried, what happens per
-	 * reason when nothing can confirm, how many accounts cannot confirm a
-	 * login, and the logins that wait for an administrator.
+	 * reason when nothing can confirm, and how many accounts cannot confirm a
+	 * login. The logins that wait for an administrator have their own endpoint.
 	 *
 	 * @param bool $refresh count the accounts again instead of using the counts of the last hour
 	 * @return DataResponse<Http::STATUS_OK, IntrusionDetectionConfirmation, array{}>
@@ -67,7 +66,7 @@ class ConfirmationApiController extends AdminOCSController {
 		if ($refresh) {
 			$this->coverage->refresh();
 		}
-		return new DataResponse($this->overview->get($this->l, $this->actor()));
+		return new DataResponse($this->overview->get($this->l));
 	}
 
 	/**
@@ -119,11 +118,7 @@ class ConfirmationApiController extends AdminOCSController {
 	#[ApiRoute(verb: 'PUT', url: '/api/v1/confirmation/preset')]
 	#[PasswordConfirmationRequired]
 	public function setPreset(string $preset): DataResponse {
-		try {
-			$changes = $this->preset->apply($preset);
-		} catch (InvalidParamException $e) {
-			return $this->invalid($e);
-		}
+		$changes = $this->preset->apply($preset);
 		if ($changes !== []) {
 			$this->audit->log('login confirmation without a method set to %s by %s: %s', [
 				'preset' => $preset,

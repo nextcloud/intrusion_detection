@@ -11,17 +11,17 @@ namespace OCA\IntrusionDetection\Tests\Integration;
 
 use OCA\IntrusionDetection\AppInfo\Application;
 use OCA\IntrusionDetection\Audit\AuditLogger;
-use OCA\IntrusionDetection\Check\Checks\AdminChange;
-use OCA\IntrusionDetection\Check\Checks\AdminChangeDetector;
-use OCA\IntrusionDetection\Check\Checks\CredentialStuffing;
-use OCA\IntrusionDetection\Check\Mode;
-use OCA\IntrusionDetection\Check\Severity;
+use OCA\IntrusionDetection\Check\Checks\AdminChange\AdminChange;
+use OCA\IntrusionDetection\Check\Checks\CredentialStuffing\CredentialStuffing;
+use OCA\IntrusionDetection\Check\Checks\CredentialStuffing\CredentialStuffingFacts;
 use OCA\IntrusionDetection\Command\Report;
 use OCA\IntrusionDetection\Db\Approval;
 use OCA\IntrusionDetection\Db\ApprovalMapper;
 use OCA\IntrusionDetection\Db\BanMapper;
-use OCA\IntrusionDetection\Db\LoginHistoryMapper;
 use OCA\IntrusionDetection\Db\TokenOriginMapper;
+use OCA\IntrusionDetection\Definition\Mode;
+use OCA\IntrusionDetection\Definition\Severity;
+use OCA\IntrusionDetection\Detection\CommonFacts;
 use OCA\IntrusionDetection\Detection\DetectionDraft;
 use OCA\IntrusionDetection\Explain\DateFormatter;
 use OCA\IntrusionDetection\Incident\DataCategory;
@@ -34,10 +34,13 @@ use OCA\IntrusionDetection\Incident\ReportRenderer;
 use OCA\IntrusionDetection\Incident\Sources\LoginSource;
 use OCA\IntrusionDetection\Incident\Sources\ShareSource;
 use OCA\IntrusionDetection\Incident\TimelineEntry;
+use OCA\IntrusionDetection\LoginHistory\Db\LoginHistoryMapper;
 use OCA\IntrusionDetection\LoginHistory\LoginHistory;
 use OCA\IntrusionDetection\Net\SourceKey;
 use OCA\IntrusionDetection\Response\BanService;
 use OCA\IntrusionDetection\Response\ResponseEngine;
+use OCA\IntrusionDetection\Signal\AdminChanged;
+use OCA\IntrusionDetection\Signal\SignalDispatcher;
 use OCP\AppFramework\Utility\ITimeFactory;
 use OCP\Constants;
 use OCP\EventDispatcher\IEventDispatcher;
@@ -178,7 +181,7 @@ class IncidentReportTest extends LoginFailureTestCase {
 			$this->assertStringNotContainsString('203.0.113.50', json_encode($entry->toArray(), JSON_THROW_ON_ERROR), 'nothing about another address');
 		}
 		$detection = $report->entries[1];
-		$this->assertSame(CredentialStuffing::ID, Server::get(\OCA\IntrusionDetection\Db\DetectionMapper::class)->findById((int)$detection->ref['id'])->getCheckId());
+		$this->assertSame(CredentialStuffing::ID, Server::get(\OCA\IntrusionDetection\Db\DetectionMapper::class)->findById($detection->ref['id'])->getCheckId());
 		$this->assertTrue($detection->enforced);
 		$this->assertSame('acted', $detection->outcome, 'the address was blocked');
 		$this->assertNull($report->entries[0]->outcome, 'only detections have an outcome');
@@ -206,8 +209,8 @@ class IncidentReportTest extends LoginFailureTestCase {
 		}
 		$this->shareFiles();
 		$this->appConfig->setValueString(Application::APP_ID, 'check_' . AdminChange::ID . '_mode', Mode::Protect->value);
-		Server::get(AdminChangeDetector::class)->record(AdminChange::KIND_APP_ENABLED, Severity::Medium, $this->victim, null, ['app' => 'files_external', 'groups' => []], 'test');
-		Server::get(AdminChangeDetector::class)->record(AdminChange::KIND_APP_ENABLED, Severity::Medium, $this->other, null, ['app' => 'files_external', 'groups' => []], 'test');
+		Server::get(SignalDispatcher::class)->dispatch(new AdminChanged(AdminChange::KIND_APP_ENABLED, Severity::Medium, $this->victim, null, ['app' => 'files_external', 'groups' => []], 'test'));
+		Server::get(SignalDispatcher::class)->dispatch(new AdminChanged(AdminChange::KIND_APP_ENABLED, Severity::Medium, $this->other, null, ['app' => 'files_external', 'groups' => []], 'test'));
 		$approval = new Approval();
 		$approval->setKind(Approval::KIND_ADMIN_GRANT);
 		$approval->setSubjectUid($this->other);
@@ -215,7 +218,7 @@ class IncidentReportTest extends LoginFailureTestCase {
 		$approval->setGroupId('admin');
 		$approval->setStatus(Approval::STATUS_REJECTED);
 		$approval->setDecidedBy('admin');
-		$approval->setCreatedAt(time() - 600);
+		$approval->setCreatedTime(time() - 600);
 		$approval->setDecidedAt(time() - 60);
 		$approval->setExpiresAt(time() + 3600);
 		Server::get(ApprovalMapper::class)->insert($approval);
@@ -264,7 +267,7 @@ class IncidentReportTest extends LoginFailureTestCase {
 		$approval->setRequestedBy($this->other);
 		$approval->setGroupId('admin');
 		$approval->setStatus(Approval::STATUS_PENDING);
-		$approval->setCreatedAt(time() - 10);
+		$approval->setCreatedTime(time() - 10);
 		$approval->setExpiresAt(time() + 3600);
 		Server::get(ApprovalMapper::class)->insert($approval);
 
@@ -284,7 +287,7 @@ class IncidentReportTest extends LoginFailureTestCase {
 		$detection->setSeverity('medium');
 		$detection->setEnforced(true);
 		$detection->setExplanationData([]);
-		$detection->setCreatedAt(time());
+		$detection->setCreatedTime(time());
 		$detection->setLastSeenAt(time());
 		$detection->setHits(1);
 		$detection->setActionList([
@@ -316,7 +319,7 @@ class IncidentReportTest extends LoginFailureTestCase {
 		$detection->setIp('198.51.100.21');
 		$detection->setExplanationData([]);
 		$detection->setActionList([['type' => 'notify_admin', 'enforced' => true, 'ref' => ['admins' => 1, 'emails' => 0]]]);
-		$detection->setCreatedAt(time() - 60);
+		$detection->setCreatedTime(time() - 60);
 		$detection->setLastSeenAt(time() - 60);
 		$detection->setHits(1);
 		Server::get(\OCA\IntrusionDetection\Db\DetectionMapper::class)->insert($detection);
@@ -350,7 +353,7 @@ class IncidentReportTest extends LoginFailureTestCase {
 			checkId: CredentialStuffing::ID,
 			source: SourceKey::fromIp('198.51.100.9'),
 			uid: $this->victim,
-			facts: ['failures' => 12, 'names' => 6, 'targets' => [$this->victim]],
+			facts: new CredentialStuffingFacts(failures: 12, names: 6, common: new CommonFacts(targets: [$this->victim])),
 			userAgent: self::HTML_AGENT,
 		));
 		Server::get(BanService::class)->banManually('198.51.100.9', 1, 'admin', '<b onmouseover="alert(2)">really bad</b>');
@@ -431,7 +434,7 @@ class IncidentReportTest extends LoginFailureTestCase {
 
 		$snapshot = function (): array {
 			$rows = [];
-			foreach (self::TABLES as $table) {
+			foreach (self::tables() as $table) {
 				$rows[$table] = $this->allRows($table);
 			}
 			$this->appConfig->clearCache();

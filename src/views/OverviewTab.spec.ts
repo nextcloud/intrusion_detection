@@ -87,8 +87,8 @@ describe('the overview', () => {
 	test('a login waiting for this administrator needs attention first, with Approve and Reject', async () => {
 		state.status = makeStatus({ state: 'protecting', problems: [] })
 		waitingLogins.value = [
-			{ id: 7, uid: 'alice', displayName: 'Alice Liddell', ip: '203.0.113.9', createdAt: 1_760_000_000, expiresAt: 1_760_001_800, canDecide: true },
-			{ id: 8, uid: 'admin', displayName: 'Admin', ip: null, createdAt: 1_760_000_100, expiresAt: 1_760_001_900, canDecide: false },
+			{ id: '7', uid: 'alice', displayName: 'Alice Liddell', ip: '203.0.113.9', createdAt: 1_760_000_000, expiresAt: 1_760_001_800, canDecide: true },
+			{ id: '8', uid: 'admin', displayName: 'Admin', ip: null, createdAt: 1_760_000_100, expiresAt: 1_760_001_900, canDecide: false },
 		]
 		vi.mocked(rejectRequest).mockResolvedValue({})
 		vi.mocked(fetchWaitingLogins).mockResolvedValue([])
@@ -101,7 +101,7 @@ describe('the overview', () => {
 		expect(waiting.findAll('button').map((b) => b.text())).toEqual(['Reject', 'Approve'])
 		await waiting.findAll('button')[0]!.trigger('click')
 		await flushPromises()
-		expect(rejectRequest).toHaveBeenCalledWith(7)
+		expect(rejectRequest).toHaveBeenCalledWith('7')
 		expect(approveRequest).not.toHaveBeenCalled()
 		expect(fetchWaitingLogins).toHaveBeenCalled()
 		expect(wrapper.find('#overview-attention').exists()).toBe(false)
@@ -110,7 +110,7 @@ describe('the overview', () => {
 	test('an account waiting to become an administrator needs attention; approving asks first', async () => {
 		state.status = makeStatus({ state: 'protecting', problems: [] })
 		adminGrants.value = [
-			{ id: 7, uid: 'bob', displayName: 'Bob Builder', group: 'admin', requestedBy: 'alice', requesterName: 'Alice Liddell', createdAt: 1_760_000_000, expiresAt: 1_760_604_800, canApprove: true },
+			{ id: '7', uid: 'bob', displayName: 'Bob Builder', group: 'admin', requestedBy: 'alice', requesterName: 'Alice Liddell', createdAt: 1_760_000_000, expiresAt: 1_760_604_800, canApprove: true },
 		]
 		vi.mocked(approveRequest).mockResolvedValue({})
 		vi.mocked(fetchAdminGrants).mockResolvedValue([])
@@ -127,7 +127,7 @@ describe('the overview', () => {
 		const approve = [...dialog!.querySelectorAll('button')].find((b) => b.textContent?.trim() === 'Approve')
 		approve!.click()
 		await flushPromises()
-		expect(approveRequest).toHaveBeenCalledWith(7)
+		expect(approveRequest).toHaveBeenCalledWith('7')
 		expect(fetchAdminGrants).toHaveBeenCalled()
 		expect(wrapper.find('#overview-attention').exists()).toBe(false)
 	})
@@ -135,8 +135,8 @@ describe('the overview', () => {
 	test('a request for a new administrator is rejected in one click, and the one who asked can only withdraw it', async () => {
 		state.status = makeStatus({ state: 'protecting', problems: [] })
 		adminGrants.value = [
-			{ id: 7, uid: 'bob', displayName: 'Bob Builder', group: 'admin', requestedBy: 'alice', requesterName: 'Alice Liddell', createdAt: 1_760_000_000, expiresAt: 1_760_604_800, canApprove: true },
-			{ id: 8, uid: 'dave', displayName: 'Dave', group: 'admin', requestedBy: 'admin', requesterName: 'Admin', createdAt: 1_760_000_100, expiresAt: 1_760_604_900, canApprove: false },
+			{ id: '7', uid: 'bob', displayName: 'Bob Builder', group: 'admin', requestedBy: 'alice', requesterName: 'Alice Liddell', createdAt: 1_760_000_000, expiresAt: 1_760_604_800, canApprove: true },
+			{ id: '8', uid: 'dave', displayName: 'Dave', group: 'admin', requestedBy: 'admin', requesterName: 'Admin', createdAt: 1_760_000_100, expiresAt: 1_760_604_900, canApprove: false },
 		]
 		vi.mocked(rejectRequest).mockResolvedValue({})
 		vi.mocked(fetchAdminGrants).mockResolvedValue([])
@@ -147,7 +147,7 @@ describe('the overview', () => {
 
 		await wrapper.get('#approval-7').findAll('button')[0]!.trigger('click')
 		await flushPromises()
-		expect(rejectRequest).toHaveBeenCalledWith(7)
+		expect(rejectRequest).toHaveBeenCalledWith('7')
 		expect(approveRequest).not.toHaveBeenCalled()
 		expect(document.body.querySelector('[role="dialog"]')).toBeNull()
 	})

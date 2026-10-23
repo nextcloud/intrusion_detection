@@ -4,9 +4,10 @@
 -->
 
 <script setup lang="ts">
-import { getCanonicalLocale, t } from '@nextcloud/l10n'
+import { getCanonicalLocale } from '@nextcloud/l10n'
 import { computed } from 'vue'
 import { APP_ID, formatNumber } from '../../utils/format.ts'
+import { t } from '../../utils/l10n.ts'
 
 const props = withDefaults(defineProps<{
 	/** One value per day, oldest first */

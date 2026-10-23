@@ -9,13 +9,13 @@ declare(strict_types=1);
 
 namespace OCA\IntrusionDetection\SessionState\Rules;
 
-use OCA\IntrusionDetection\Check\CredentialUse\CredentialUse;
-use OCA\IntrusionDetection\Check\CredentialUse\CredentialUseResolver;
-use OCA\IntrusionDetection\Guard\RequestContext;
+use OCA\IntrusionDetection\Check\Checks\TokenConcurrentUse\CredentialUse;
+use OCA\IntrusionDetection\Check\Checks\TokenConcurrentUse\CredentialUseResolver;
+use OCA\IntrusionDetection\Login\RequestContext;
+use OCA\IntrusionDetection\Login\SessionMarkers;
 use OCA\IntrusionDetection\SessionState\ISessionStateRule;
 use OCA\IntrusionDetection\SessionState\RequestTarget;
 use OCA\IntrusionDetection\SessionState\SessionBlock;
-use OCA\IntrusionDetection\SessionState\SessionState;
 use Psr\Container\ContainerInterface;
 
 /**
@@ -33,7 +33,7 @@ class CredentialUseRule implements ISessionStateRule {
 	}
 
 	#[\Override]
-	public function check(SessionState $state, RequestTarget $target): ?SessionBlock {
+	public function check(SessionMarkers $state, RequestTarget $target): ?SessionBlock {
 		$use = $this->context->get(CredentialUseResolver::CONTEXT_KEY);
 		if ($use instanceof CredentialUse && $use->needsResolution()) {
 			$this->container->get(CredentialUseResolver::class)->resolve(true);

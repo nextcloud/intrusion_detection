@@ -42,6 +42,8 @@ describe('formatValue', () => {
 		expect(formatValue(0.333333, 'float')).toBe('0.33')
 		expect(formatValue(600, 'duration')).toBe('10 minutes')
 		expect(formatValue(600, 'int')).toBe('600')
+		expect(formatValue('observe', 'choice', [{ value: 'observe', label: 'Observe' }])).toBe('Observe')
+		expect(formatValue('daily', 'choice', [])).toBe('daily')
 	})
 })
 
@@ -60,6 +62,10 @@ describe('fillTemplate', () => {
 
 	test('keeps placeholders without a value, as the server does', () => {
 		expect(fillTemplateText(template, { window: 3600 }, { window: 'duration' })).toBe('Fires when one address fails {min_failures} times within 1 hour.')
+	})
+
+	test('keeps placeholders named like inherited object properties', () => {
+		expect(fillTemplateText('{constructor} and {toString}', {})).toBe('{constructor} and {toString}')
 	})
 
 	test('never interprets values as markup', () => {

@@ -3,9 +3,10 @@
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 
-import type { DetectionOutcome, ParamType, ParamValue } from '../types.ts'
+import type { Choice, DetectionOutcome, ParamType, ParamValue } from '../types.ts'
 
-import { getCanonicalLocale, n, t } from '@nextcloud/l10n'
+import { getCanonicalLocale } from '@nextcloud/l10n'
+import { n, t } from './l10n.ts'
 
 export const APP_ID = 'intrusion_detection'
 
@@ -39,26 +40,6 @@ export function formatDuration(seconds: number): string {
 	return n(APP_ID, '%n second', '%n seconds', seconds)
 }
 
-const CHOICES: Record<string, () => string> = {
-	off: () => t(APP_ID, 'Off'),
-	observe: () => t(APP_ID, 'Observe'),
-	protect: () => t(APP_ID, 'Protect'),
-	low: () => t(APP_ID, 'Low'),
-	medium: () => t(APP_ID, 'Medium'),
-	high: () => t(APP_ID, 'High'),
-	critical: () => t(APP_ID, 'Critical'),
-	never: () => t(APP_ID, 'Never'),
-}
-
-/**
- * The value of a choice setting as people read it: "Observe" for "observe".
- *
- * @param choice - The stored value
- */
-export function choiceLabel(choice: string): string {
-	return CHOICES[choice]?.() ?? choice
-}
-
 /**
  * What Nextcloud did about a detection, in one word: "Acted on", "Notified", "Recorded" or "Observed".
  *
@@ -82,8 +63,9 @@ export function outcomeLabel(outcome: DetectionOutcome): string {
  *
  * @param value - The value
  * @param type - The type of the setting, if known
+ * @param choices - The choices of a choice setting, with the labels the server sent
  */
-export function formatValue(value: ParamValue, type?: ParamType): string {
+export function formatValue(value: ParamValue, type?: ParamType, choices: Choice[] = []): string {
 	if (type === 'duration' && typeof value === 'number') {
 		return formatDuration(value)
 	}
@@ -94,7 +76,7 @@ export function formatValue(value: ParamValue, type?: ParamType): string {
 		return value.length === 0 ? t(APP_ID, 'none') : value.join(', ')
 	}
 	if (type === 'choice' && typeof value === 'string') {
-		return choiceLabel(value)
+		return choices.find((choice) => choice.value === value)?.label ?? value
 	}
 	if (type === 'float' && typeof value === 'number') {
 		return String(Number(value.toFixed(2)))
@@ -109,21 +91,22 @@ export function formatValue(value: ParamValue, type?: ParamType): string {
  * @param template - The translated template
  * @param values - Values by setting name
  * @param types - Types by setting name, for formatting
+ * @param choices - The choices of choice settings by setting name, for their labels
  */
-export function fillTemplate(template: string, values: Record<string, ParamValue>, types: Record<string, ParamType> = {}): Segment[] {
+export function fillTemplate(template: string, values: Record<string, ParamValue>, types: Record<string, ParamType> = {}, choices: Record<string, Choice[]> = {}): Segment[] {
 	const segments: Segment[] = []
 	const pattern = /\{([a-z][a-z0-9_]*)\}/g
 	let last = 0
 	for (const match of template.matchAll(pattern)) {
 		const name = match[1]!
 		const index = match.index
-		if (!(name in values)) {
+		if (!Object.hasOwn(values, name)) {
 			continue
 		}
 		if (index > last) {
 			segments.push({ text: template.slice(last, index) })
 		}
-		segments.push({ text: formatValue(values[name]!, types[name]), name })
+		segments.push({ text: formatValue(values[name]!, types[name], choices[name]), name })
 		last = index + match[0].length
 	}
 	if (last < template.length) {
@@ -138,9 +121,10 @@ export function fillTemplate(template: string, values: Record<string, ParamValue
  * @param template - The translated template
  * @param values - Values by setting name
  * @param types - Types by setting name
+ * @param choices - The choices of choice settings by setting name
  */
-export function fillTemplateText(template: string, values: Record<string, ParamValue>, types: Record<string, ParamType> = {}): string {
-	return fillTemplate(template, values, types).map((segment) => segment.text).join('')
+export function fillTemplateText(template: string, values: Record<string, ParamValue>, types: Record<string, ParamType> = {}, choices: Record<string, Choice[]> = {}): string {
+	return fillTemplate(template, values, types, choices).map((segment) => segment.text).join('')
 }
 
 /**

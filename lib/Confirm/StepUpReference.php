@@ -13,32 +13,33 @@ use OCA\IntrusionDetection\Db\Ban;
 use OCA\IntrusionDetection\Response\BanService;
 
 /**
- * The reference a refused login shows ("Reference: SAAA-AAB3"), so that an
- * administrator can look the refusal up. It encodes the id of the refusal's
- * detection in the alphabet and shape of block references, with the
- * leading letter S; the lookup tries blocks first.
+ * The reference a refused login shows ("Reference: SAAA-AAAA-AAAA-AB3"),
+ * so that an administrator can look the refusal up. It encodes the id of
+ * the refusal's detection in the alphabet of block references, after the
+ * letter S, in groups of four.
  */
 final class StepUpReference {
 	public const PREFIX = 'S';
-	private const DIGITS = 7;
+	/** Enough base-32 digits for any 63-bit snowflake id */
+	private const DIGITS = 13;
 
-	public static function of(int $detectionId): string {
+	public static function of(string $detectionId): string {
 		$alphabet = BanService::REFERENCE_CHARS;
 		$base = strlen($alphabet);
 		$digits = '';
-		$value = max(0, $detectionId);
+		$value = max(0, (int)$detectionId);
 		for ($i = 0; $i < self::DIGITS; $i++) {
 			$digits = $alphabet[$value % $base] . $digits;
 			$value = intdiv($value, $base);
 		}
-		return Ban::formatReference(self::PREFIX . $digits);
+		return implode('-', str_split(self::PREFIX . $digits, 4));
 	}
 
 	/**
 	 * The detection id in a reference as typed by a person (any case, with or
-	 * without the dash), or null when it is not one.
+	 * without the dashes), or null when it is not one.
 	 */
-	public static function detectionId(string $input): ?int {
+	public static function detectionId(string $input): ?string {
 		$reference = Ban::normaliseReference($input);
 		if (strlen($reference) !== 1 + self::DIGITS || $reference[0] !== self::PREFIX) {
 			return null;
@@ -47,11 +48,11 @@ final class StepUpReference {
 		$value = 0;
 		for ($i = 1; $i <= self::DIGITS; $i++) {
 			$digit = strpos($alphabet, $reference[$i]);
-			if ($digit === false) {
+			if ($digit === false || $value > intdiv(PHP_INT_MAX - $digit, strlen($alphabet))) {
 				return null;
 			}
 			$value = $value * strlen($alphabet) + $digit;
 		}
-		return $value > 0 ? $value : null;
+		return $value > 0 ? (string)$value : null;
 	}
 }

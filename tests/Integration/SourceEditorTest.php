@@ -14,14 +14,13 @@ use OCA\IntrusionDetection\AppInfo\Application;
 use OCA\IntrusionDetection\Audit\AuditLogger;
 use OCA\IntrusionDetection\Blocklist\BlocklistOverview;
 use OCA\IntrusionDetection\Blocklist\BlocklistSource;
+use OCA\IntrusionDetection\Blocklist\Db\BlocklistStatMapper;
 use OCA\IntrusionDetection\Blocklist\SourceEditor;
 use OCA\IntrusionDetection\Blocklist\SourceRepository;
 use OCA\IntrusionDetection\Blocklist\UrlPolicy;
-use OCA\IntrusionDetection\Check\InvalidParamException;
 use OCA\IntrusionDetection\Config\GlobalSettings;
-use OCA\IntrusionDetection\Config\Settings;
-use OCA\IntrusionDetection\Db\BlocklistStatMapper;
-use OCA\IntrusionDetection\Db\StateMapper;
+use OCA\IntrusionDetection\Definition\InvalidParamException;
+use OCA\IntrusionDetection\State\AppState;
 use OCP\Server;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Group;
@@ -32,12 +31,12 @@ class SourceEditorTest extends IntegrationTestCase {
 	private array $audited = [];
 
 	public function testABuiltInListIsSwitchedOnAndBackToItsDefault(): void {
-		$version = Server::get(StateMapper::class)->get(AddressCache::VERSION_STATE);
+		$version = Server::get(AppState::class)->get(AddressCache::VERSION_STATE);
 		$source = $this->editor()->set('spamhaus_drop_v4', ['enabled' => true, 'mode' => 'observe'], 'admin');
 		$this->assertTrue($source->enabled);
 		$this->assertSame('observe', $source->mode);
 		$this->assertTrue(Server::get(SourceRepository::class)->get('spamhaus_drop_v4')?->enabled);
-		$this->assertNotSame($version, Server::get(StateMapper::class)->get(AddressCache::VERSION_STATE), 'Cached verdicts are invalidated');
+		$this->assertNotSame($version, Server::get(AppState::class)->get(AddressCache::VERSION_STATE), 'Cached verdicts are invalidated');
 		$this->assertStringContainsString('spamhaus_drop_v4', json_encode($this->audited));
 		$this->assertStringContainsString('admin', json_encode($this->audited));
 
@@ -62,6 +61,17 @@ class SourceEditorTest extends IntegrationTestCase {
 		$this->assertNull(Server::get(SourceRepository::class)->get('office_block'));
 	}
 
+	public function testACustomListCanPinTheChecksumOfItsFile(): void {
+		$pin = hash('sha256', 'the file');
+		$this->editor()->set('office_block', ['url' => 'https://lists.example.org/block.txt', 'purpose' => 'deny', 'sha256' => ' ' . strtoupper($pin) . ' '], 'occ');
+		$this->assertSame($pin, Server::get(SourceRepository::class)->get('office_block')?->sha256, 'stored in lower case, trimmed');
+		$this->assertStringContainsString($pin, json_encode($this->audited, JSON_THROW_ON_ERROR));
+		$this->editor()->set('office_block', ['mode' => 'protect'], 'occ');
+		$this->assertSame($pin, Server::get(SourceRepository::class)->get('office_block')?->sha256, 'other changes keep the pin');
+		$this->editor()->set('office_block', ['sha256' => ''], 'occ');
+		$this->assertNull(Server::get(SourceRepository::class)->get('office_block')?->sha256);
+	}
+
 	/**
 	 * @return array<string, array{string, array<string, mixed>, string}>
 	 */
@@ -78,6 +88,8 @@ class SourceEditorTest extends IntegrationTestCase {
 			'unknown mode' => ['spamhaus_drop_v4', ['mode' => 'block'], 'not_a_choice'],
 			'interval too short' => ['spamhaus_drop_v4', ['interval' => 60], 'too_small'],
 			'interval too long' => ['spamhaus_drop_v4', ['interval' => 30 * 86400], 'too_large'],
+			'a checksum that is no SHA-256' => ['mine', ['url' => 'https://lists.example.org/x.txt', 'purpose' => 'deny', 'sha256' => 'abc'], 'invalid_sha256'],
+			'a checksum for a built-in list' => ['spamhaus_drop_v4', ['sha256' => str_repeat('a', 64)], 'builtin_list'],
 			'bad id' => ['Mine!', ['url' => 'https://lists.example.org/x.txt', 'purpose' => 'deny'], 'invalid_list_id'],
 			'built-in address' => ['spamhaus_drop_v4', ['url' => 'https://lists.example.org/x.txt'], 'builtin_list'],
 			'built-in purpose' => ['aws', ['purpose' => 'deny'], 'builtin_list'],
@@ -109,8 +121,8 @@ class SourceEditorTest extends IntegrationTestCase {
 		for ($i = count(Server::get(SourceRepository::class)->all()); $i < SourceRepository::MAX_SOURCES; $i++) {
 			$stored[] = ['id' => 'list_' . $i, 'url' => 'https://lists.example.org/' . $i, 'purpose' => 'deny'];
 		}
-		Server::get(Settings::class)->setGlobal(GlobalSettings::BLOCKLIST_SOURCES, json_encode($stored));
-		$this->expectExceptionObject(new InvalidParamException('too_many_lists', ['max' => SourceRepository::MAX_SOURCES]));
+		$this->settingsEditor()->setGlobal(GlobalSettings::BLOCKLIST_SOURCES, json_encode($stored));
+		$this->expectExceptionObject(new InvalidParamException('too_many_lists', ['param' => 'id', 'max' => SourceRepository::MAX_SOURCES]));
 		$this->editor()->set('one_more', ['url' => 'https://lists.example.org/more', 'purpose' => 'deny'], 'admin');
 	}
 
@@ -136,6 +148,6 @@ class SourceEditorTest extends IntegrationTestCase {
 		$audit->method('log')->willReturnCallback(function (string $message, array $parameters = []): void {
 			$this->audited[] = [$message, $parameters];
 		});
-		return new SourceEditor(Server::get(SourceRepository::class), Server::get(UrlPolicy::class), Server::get(Settings::class), Server::get(AddressCache::class), $audit);
+		return new SourceEditor(Server::get(SourceRepository::class), Server::get(UrlPolicy::class), $this->settingsEditor(), Server::get(AddressCache::class), $audit);
 	}
 }

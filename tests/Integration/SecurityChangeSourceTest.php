@@ -10,12 +10,12 @@ declare(strict_types=1);
 namespace OCA\IntrusionDetection\Tests\Integration;
 
 use OCA\IntrusionDetection\AppInfo\Application;
-use OCA\IntrusionDetection\Db\SecurityChangeMapper;
 use OCA\IntrusionDetection\Incident\DataCategory;
 use OCA\IntrusionDetection\Incident\IncidentQuery;
 use OCA\IntrusionDetection\Incident\IncidentReportBuilder;
 use OCA\IntrusionDetection\Incident\Sources\SecurityChangeSource;
 use OCA\IntrusionDetection\Incident\TimelineEntry;
+use OCA\IntrusionDetection\Takeover\Db\SecurityChangeMapper;
 use OCA\IntrusionDetection\Takeover\SecurityChangeLog;
 use OCP\L10N\IFactory;
 use OCP\Server;

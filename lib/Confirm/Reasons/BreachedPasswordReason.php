@@ -9,13 +9,12 @@ declare(strict_types=1);
 
 namespace OCA\IntrusionDetection\Confirm\Reasons;
 
-use OCA\IntrusionDetection\Check\Checks\BreachedPassword;
-use OCA\IntrusionDetection\Check\Checks\BreachedPasswordDetector;
-use OCA\IntrusionDetection\Check\ResponseType;
-use OCA\IntrusionDetection\Config\Settings;
+use OCA\IntrusionDetection\Check\Checks\BreachedPassword\BreachedPassword;
+use OCA\IntrusionDetection\Check\Checks\BreachedPassword\BreachedPasswordDetector;
+use OCA\IntrusionDetection\Config\CheckSettings;
 use OCA\IntrusionDetection\Confirm\IStepUpReason;
-use OCA\IntrusionDetection\Confirm\LoginContext;
 use OCA\IntrusionDetection\Confirm\StepUpPolicy;
+use OCA\IntrusionDetection\Login\LoginContext;
 use Psr\Container\ContainerInterface;
 
 /**
@@ -26,7 +25,7 @@ use Psr\Container\ContainerInterface;
  */
 class BreachedPasswordReason implements IStepUpReason {
 	public function __construct(
-		private readonly Settings $settings,
+		private readonly CheckSettings $settings,
 		private readonly ContainerInterface $container,
 	) {
 	}
@@ -39,8 +38,7 @@ class BreachedPasswordReason implements IStepUpReason {
 	#[\Override]
 	public function applies(LoginContext $login): bool {
 		// Off by default: stop before loading the detector and its HTTP client.
-		if (!$this->settings->modeState(BreachedPassword::ID)->acts()
-			|| !$this->settings->hasResponse(BreachedPassword::ID, ResponseType::StepUp)) {
+		if (!$this->settings->stepUpActive(BreachedPassword::ID)) {
 			return false;
 		}
 		return $this->container->get(BreachedPasswordDetector::class)->isBreached($login->user);

@@ -4,10 +4,9 @@
 -->
 
 <script setup lang="ts">
-import type { Ban, Detection, DetectionDetail } from '../../types.ts'
+import type { Ban, Detection } from '../../types.ts'
 
 import { mdiChevronDown } from '@mdi/js'
-import { n, t } from '@nextcloud/l10n'
 import { computed, ref, useId, watch } from 'vue'
 import NcIconSvgWrapper from '@nextcloud/vue/components/NcIconSvgWrapper'
 import NcNoteCard from '@nextcloud/vue/components/NcNoteCard'
@@ -16,58 +15,33 @@ import SeverityPill from '../common/SeverityPill.vue'
 import SkeletonBlock from '../common/SkeletonBlock.vue'
 import TimeStamp from '../common/TimeStamp.vue'
 import DetectionNarrative from './DetectionNarrative.vue'
-import { errorMessage, fetchDetection } from '../../services/api.ts'
-import { logger } from '../../services/logger.ts'
+import { useDetection } from '../../stores/overview.ts'
 import { APP_ID } from '../../utils/format.ts'
+import { n, t } from '../../utils/l10n.ts'
 
 const props = defineProps<{
 	/** The row as listed; without it, the row loads itself from `detectionId` */
 	detection?: Detection
-	detectionId?: number
+	detectionId?: string
 	open?: boolean
 }>()
 
 const emit = defineEmits<{
-	lift: [ban: Ban, reload: () => Promise<void>]
+	lift: [ban: Ban]
 }>()
 
 const id = useId()
 const expanded = ref(props.open ?? false)
-const detail = ref<DetectionDetail | null>(null)
-const error = ref<string | null>(null)
-const loading = ref(false)
-
 const rowId = computed(() => props.detection?.id ?? props.detectionId ?? 0)
-const shown = computed(() => props.detection ?? detail.value?.detection ?? null)
-
-/**
- * Load the narrative (again).
- */
-async function load() {
-	loading.value = true
-	error.value = null
-	try {
-		detail.value = await fetchDetection(rowId.value)
-	} catch (e) {
-		logger.error('Could not load the detection', { error: e })
-		error.value = errorMessage(e, t(APP_ID, 'The explanation could not be loaded. Please try again.'))
-	} finally {
-		loading.value = false
-	}
-}
-
+/** The narrative loads when the row is opened first, and stays */
+const opened = ref(expanded.value)
 watch(expanded, (open) => {
-	if (open && detail.value === null && !loading.value) {
-		load()
-	}
-}, { immediate: true })
-
-watch(() => props.detection?.lastSeenAt, () => {
-	detail.value = null
-	if (expanded.value) {
-		load()
-	}
+	opened.value ||= open
 })
+const { data: detail, error, loading } = useDetection(() => opened.value ? rowId.value : null, () => props.detection?.lastSeenAt, {
+	failure: () => t(APP_ID, 'The explanation could not be loaded. Please try again.'),
+})
+const shown = computed(() => props.detection ?? detail.value?.detection ?? null)
 </script>
 
 <template>
@@ -110,7 +84,7 @@ watch(() => props.detection?.lastSeenAt, () => {
 				<SkeletonBlock width="60%" />
 			</div>
 			<NcNoteCard v-else-if="error" type="error" :text="error" />
-			<DetectionNarrative v-else-if="detail" :detail="detail" @lift="(ban) => emit('lift', ban, load)" />
+			<DetectionNarrative v-else-if="detail" :detail="detail" @lift="emit('lift', $event)" />
 		</div>
 	</li>
 </template>
@@ -129,11 +103,11 @@ watch(() => props.detection?.lastSeenAt, () => {
 	grid-template-columns: 6em minmax(0, 1fr) 7.5em 7em 20px;
 	grid-template-areas: "severity main outcome time chevron";
 	align-items: center;
-	gap: calc(var(--default-grid-baseline) * 3);
+	gap: var(--ids-space-3);
 	width: 100%;
 	min-height: 56px;
 	margin: 0;
-	padding: calc(var(--default-grid-baseline) * 2) calc(var(--default-grid-baseline) * 3);
+	padding: var(--ids-space-2) var(--ids-space-3);
 	border: none;
 	border-radius: var(--border-radius-element);
 	background: transparent;
@@ -148,7 +122,7 @@ watch(() => props.detection?.lastSeenAt, () => {
 }
 
 .row button.row__summary:focus-visible {
-	outline: 2px solid var(--color-main-text);
+	outline: var(--ids-focus-ring);
 	outline-offset: -2px;
 }
 
@@ -170,10 +144,10 @@ watch(() => props.detection?.lastSeenAt, () => {
 }
 
 .row__facts {
+	composes: muted from '../../styles/shared.module.css';
 	display: flex;
 	flex-wrap: wrap;
-	gap: 0 calc(var(--default-grid-baseline) * 3);
-	color: var(--color-text-maxcontrast);
+	gap: 0 var(--ids-space-3);
 	font-size: 0.9em;
 }
 
@@ -205,14 +179,14 @@ watch(() => props.detection?.lastSeenAt, () => {
 }
 
 .row__detail {
-	padding: calc(var(--default-grid-baseline) * 2) calc(var(--default-grid-baseline) * 4) calc(var(--default-grid-baseline) * 5);
+	padding: var(--ids-space-2) var(--ids-space-4) var(--ids-space-5);
 	animation: row-reveal 180ms ease;
 }
 
 .row__skeleton {
 	display: flex;
 	flex-direction: column;
-	gap: calc(var(--default-grid-baseline) * 3);
+	gap: var(--ids-space-3);
 }
 
 @keyframes row-reveal {
@@ -228,7 +202,7 @@ watch(() => props.detection?.lastSeenAt, () => {
 		grid-template-areas:
 			"severity time outcome chevron"
 			"main main main main";
-		gap: calc(var(--default-grid-baseline) * 1) calc(var(--default-grid-baseline) * 2);
+		gap: var(--ids-space-1) var(--ids-space-2);
 	}
 
 	.row .row__time {
@@ -236,7 +210,7 @@ watch(() => props.detection?.lastSeenAt, () => {
 	}
 
 	.row__detail {
-		padding-inline: calc(var(--default-grid-baseline) * 2);
+		padding-inline: var(--ids-space-2);
 	}
 }
 

@@ -9,8 +9,8 @@ declare(strict_types=1);
 
 namespace OCA\IntrusionDetection\Tests\Unit\Notification;
 
+use OCA\IntrusionDetection\Check\Checks\AdminChange\AdminChange;
 use OCA\IntrusionDetection\Config\Prerequisites;
-use OCA\IntrusionDetection\Db\AlertMapper;
 use OCA\IntrusionDetection\Db\ApprovalMapper;
 use OCA\IntrusionDetection\Db\DetectionMapper;
 use OCA\IntrusionDetection\Explain\DateFormatter;
@@ -18,7 +18,10 @@ use OCA\IntrusionDetection\Explain\NarrativeBuilder;
 use OCA\IntrusionDetection\Learning\LearningService;
 use OCA\IntrusionDetection\Notification\AdminAlerts;
 use OCA\IntrusionDetection\Notification\AdminLinks;
+use OCA\IntrusionDetection\Notification\AdminRecipients;
+use OCA\IntrusionDetection\Notification\Db\AlertMapper;
 use OCA\IntrusionDetection\Notification\MailContent;
+use OCA\IntrusionDetection\Notification\MailReach;
 use OCA\IntrusionDetection\Notification\Mails;
 use OCA\IntrusionDetection\Notification\Notifier;
 use OCA\IntrusionDetection\Notification\TestAlert;
@@ -62,7 +65,7 @@ class TestAlertTest extends TestCase {
 		$factory = $this->createMock(IFactory::class);
 		$factory->method('getUserLanguage')->willReturn('en');
 		$factory->method('get')->willReturn(Server::get(IFactory::class)->get('intrusion_detection', 'en'));
-		return new TestAlert($this->notifications, $this->mails, $this->prerequisites, $factory, $links, $time);
+		return new TestAlert($this->notifications, $this->mails, $this->prerequisites, $factory, $links, $time, Server::get(MailReach::class));
 	}
 
 	private function user(string $email): IUser&MockObject {
@@ -120,6 +123,8 @@ class TestAlertTest extends TestCase {
 			$this->createMock(Questions::class),
 			$this->createMock(IURLGenerator::class),
 			$this->createMock(LearningService::class),
+			Server::get(AdminChange::class),
+			$this->createMock(AdminRecipients::class),
 		);
 		$notification = Server::get(INotificationManager::class)->createNotification();
 		$notification->setApp('intrusion_detection')->setUser('alice')->setDateTime(new \DateTime())->setObject(TestAlert::OBJECT_TYPE, '1')->setSubject(TestAlert::SUBJECT);

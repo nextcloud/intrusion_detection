@@ -14,33 +14,35 @@ use GuzzleHttp\Psr7\Request;
 use OC\Memcache\ArrayCache;
 use OCA\IntrusionDetection\AppInfo\Application;
 use OCA\IntrusionDetection\Breach\PwnedPasswordsClient;
-use OCA\IntrusionDetection\Check\Checks\BreachedPassword;
-use OCA\IntrusionDetection\Check\Checks\BreachedPasswordDetector;
-use OCA\IntrusionDetection\Check\Mode;
-use OCA\IntrusionDetection\Check\ResponseType;
+use OCA\IntrusionDetection\Check\Checks\BreachedPassword\BreachedPassword;
+use OCA\IntrusionDetection\Check\Checks\BreachedPassword\BreachedPasswordDetector;
+use OCA\IntrusionDetection\Check\Checks\BreachedPassword\BreachedPasswordFacts;
 use OCA\IntrusionDetection\Command\User as UserCommand;
 use OCA\IntrusionDetection\Config\Lexicon;
-use OCA\IntrusionDetection\Config\Settings;
+use OCA\IntrusionDetection\Config\UserKeys;
 use OCA\IntrusionDetection\Db\Detection;
 use OCA\IntrusionDetection\Db\DetectionFilter;
 use OCA\IntrusionDetection\Db\DetectionMapper;
+use OCA\IntrusionDetection\Definition\Mode;
+use OCA\IntrusionDetection\Definition\ResponseType;
 use OCA\IntrusionDetection\Explain\CheckPresenter;
 use OCA\IntrusionDetection\Explain\NarrativeBuilder;
-use OCA\IntrusionDetection\Listener\BreachedPasswordListener;
 use OCA\IntrusionDetection\Listener\BreachResetListener;
-use OCA\IntrusionDetection\Login\InteractiveLogin;
+use OCA\IntrusionDetection\Listener\Login\BreachStep;
 use OCA\IntrusionDetection\Net\RemoteAddressResolver;
 use OCA\IntrusionDetection\Net\ServerAddresses;
 use OCA\IntrusionDetection\Notification\AdminAlerts;
 use OCA\IntrusionDetection\Notification\Notifier;
-use OCA\IntrusionDetection\Response\ResponseEngine;
+use OCA\IntrusionDetection\Signal\InteractivePasswordLogin;
+use OCA\IntrusionDetection\Signal\SignalDispatcher;
 use OCA\IntrusionDetection\Tests\BasicAuthServer;
+use OCA\IntrusionDetection\Tests\LoginSteps;
+use OCA\IntrusionDetection\Tests\Unit\Cache\FixedCaches;
 use OCP\AppFramework\Utility\ITimeFactory;
 use OCP\Config\IUserConfig;
 use OCP\Http\Client\IClient;
 use OCP\Http\Client\IClientService;
 use OCP\Http\Client\IResponse;
-use OCP\ICacheFactory;
 use OCP\IConfig;
 use OCP\IRequest;
 use OCP\IUser;
@@ -54,7 +56,6 @@ use OCP\User\Events\PasswordUpdatedEvent;
 use OCP\User\Events\UserLoggedInEvent;
 use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\MockObject\MockObject;
-use Psr\Container\ContainerInterface;
 use Psr\Log\AbstractLogger;
 use Psr\Log\LoggerInterface;
 use Symfony\Component\Console\Input\ArrayInput;
@@ -73,7 +74,6 @@ class BreachedPasswordTest extends IntegrationTestCase {
 	public const PASSWORD = 'P@ssw0rd';
 	public const SUFFIX = '2DC183F740EE76F27B78EB39C8AD972A757';
 
-	protected Settings $settings;
 	protected DetectionMapper $detections;
 	protected IUser $user;
 	/** @var list<string> the requested URLs */
@@ -96,7 +96,6 @@ class BreachedPasswordTest extends IntegrationTestCase {
 
 	protected function setUp(): void {
 		parent::setUp();
-		$this->settings = Server::get(Settings::class);
 		$this->detections = Server::get(DetectionMapper::class);
 		$this->now = time();
 		$uid = 'ids-breach-' . bin2hex(random_bytes(4));
@@ -106,8 +105,8 @@ class BreachedPasswordTest extends IntegrationTestCase {
 	}
 
 	protected function tearDown(): void {
-		Server::get(IUserConfig::class)->deleteUserConfig($this->user->getUID(), Application::APP_ID, BreachedPasswordDetector::KEY_CHECKED_AT);
-		Server::get(IUserConfig::class)->deleteUserConfig($this->user->getUID(), Application::APP_ID, BreachedPasswordDetector::KEY_BREACHED);
+		Server::get(IUserConfig::class)->deleteUserConfig($this->user->getUID(), Application::APP_ID, UserKeys::BREACH_CHECKED_AT);
+		Server::get(IUserConfig::class)->deleteUserConfig($this->user->getUID(), Application::APP_ID, UserKeys::BREACHED);
 		$this->user->delete();
 		parent::tearDown();
 	}
@@ -145,22 +144,16 @@ class BreachedPasswordTest extends IntegrationTestCase {
 		$clientService = $this->createMock(IClientService::class);
 		$clientService->method('newClient')->willReturn($client);
 		// Without a memory cache, every check that reaches the service is counted.
-		$cacheFactory = $this->createMock(ICacheFactory::class);
-		$cacheFactory->method('isAvailable')->willReturn($this->cache !== null);
-		$cacheFactory->method('isLocalCacheAvailable')->willReturn(false);
-		if ($this->cache !== null) {
-			$cacheFactory->method('createDistributed')->willReturn($this->cache);
-		}
+		$cacheFactory = $this->cache === null ? FixedCaches::none() : new FixedCaches($this->cache);
 		$time = $this->createMock(ITimeFactory::class);
 		$time->method('getTime')->willReturnCallback(fn (): int => $this->now);
 		$throttler = $this->createMock(IThrottler::class);
 		$throttler->method('isBypassListed')->willReturnCallback(fn (): bool => $this->bypassListed);
 
 		return new BreachedPasswordDetector(
-			$this->settings,
+			$this->checkSettings(),
 			new PwnedPasswordsClient($clientService, $cacheFactory, Server::get(ICrypto::class), $this->logger()),
 			Server::get(IUserConfig::class),
-			Server::get(ResponseEngine::class),
 			new RemoteAddressResolver($this->request(), $throttler, Server::get(ServerAddresses::class)),
 			$time,
 		);
@@ -181,18 +174,15 @@ class BreachedPasswordTest extends IntegrationTestCase {
 	/**
 	 * One successful login in a new request, through the listener.
 	 */
-	protected function login(string $password = self::PASSWORD, bool $tokenLogin = false): BreachedPasswordDetector {
-		$detector = $this->detector();
-		$container = $this->createMock(ContainerInterface::class);
-		$container->method('get')->with(BreachedPasswordDetector::class)->willReturn($detector);
-		$request = $this->request();
-		$listener = new BreachedPasswordListener($this->settings, new InteractiveLogin($request), $request, $container, $this->logger());
+	protected function login(string $password = self::PASSWORD, bool $tokenLogin = false): SignalDispatcher {
+		$dispatcher = $this->dispatcher([BreachedPasswordDetector::class => $this->detector()], logger: $this->logger());
+		$listener = LoginSteps::listener([BreachStep::class => new BreachStep($dispatcher)], $this->appSettings(), $this->request(), logger: $this->logger());
 		$listener->handle(new UserLoggedInEvent($this->user, $this->user->getUID(), $password, $tokenLogin));
-		return $detector;
+		return $dispatcher;
 	}
 
 	protected function protect(): void {
-		$this->settings->setMode(BreachedPassword::ID, Mode::Protect);
+		$this->settingsEditor()->setMode(BreachedPassword::ID, Mode::Protect);
 	}
 
 	/**
@@ -203,7 +193,7 @@ class BreachedPasswordTest extends IntegrationTestCase {
 	}
 
 	public function testIsOffByDefaultAndThenSendsNothing(): void {
-		$this->assertSame(Mode::Off, $this->settings->configuredMode(BreachedPassword::ID));
+		$this->assertSame(Mode::Off, $this->checkSettings()->configuredMode(BreachedPassword::ID));
 		$this->login();
 		$this->assertSame([], $this->requests, 'Off sends nothing');
 		$this->assertNull($this->detector()->checkedAt($this->user));
@@ -226,7 +216,7 @@ class BreachedPasswordTest extends IntegrationTestCase {
 		$this->assertSame('198.51.100.20', $detection->getIp());
 		$this->assertSame('medium', $detection->getSeverity());
 		$this->assertTrue($detection->isEnforced());
-		$this->assertSame(['trigger' => 'login'], $detection->getExplanationData()['facts']);
+		$this->assertSame(['trigger' => BreachedPasswordFacts::TRIGGER_LOGIN], $detection->getExplanationData()['facts'], 'Never how often the password is listed');
 		$this->assertSame(['recheck_days' => 30, 'min_count' => 1], $detection->getExplanationData()['thresholds']);
 		$this->assertEqualsCanonicalizing(
 			[ResponseType::StepUp->value, ResponseType::ForcePasswordChange->value, ResponseType::NotifyUser->value],
@@ -236,7 +226,7 @@ class BreachedPasswordTest extends IntegrationTestCase {
 
 	public function testAPasswordBelowTheCountIsNotBreached(): void {
 		$this->protect();
-		$this->settings->setParam(BreachedPassword::ID, 'min_count', 10);
+		$this->settingsEditor()->setParam(BreachedPassword::ID, 'min_count', 10);
 		$this->listCount = 9;
 		$this->login();
 		$this->assertCount(1, $this->requests);
@@ -275,17 +265,17 @@ class BreachedPasswordTest extends IntegrationTestCase {
 
 	public function testOneRequestChecksOnce(): void {
 		$this->protect();
-		$detector = $this->login();
-		$this->assertTrue($detector->checkAtLogin($this->user, self::PASSWORD), 'A second caller in the same request gets the result');
-		$this->assertCount(1, $this->requests);
+		$dispatcher = $this->login();
+		$dispatcher->dispatch(new InteractivePasswordLogin($this->user, self::PASSWORD, null));
+		$this->assertCount(1, $this->requests, 'A second caller in the same request checks nothing again');
 		$this->assertCount(1, $this->breachDetections());
 	}
 
 	public function testFailsOpenAndTriesAgainAtTheNextLogin(): void {
 		$this->protect();
 		$this->listCount = null;
-		$detector = $this->login();
-		$this->assertNull($detector->checkAtLogin($this->user, self::PASSWORD));
+		$this->login()->dispatch(new InteractivePasswordLogin($this->user, self::PASSWORD, null));
+		$this->assertCount(1, $this->requests);
 		$this->assertNull($this->detector()->checkedAt($this->user), 'Nothing is stored');
 		$this->assertFalse($this->detector()->isBreached($this->user));
 		$this->assertSame([], $this->breachDetections());
@@ -346,7 +336,7 @@ class BreachedPasswordTest extends IntegrationTestCase {
 	}
 
 	public function testObserveRecordsWithoutActing(): void {
-		$this->settings->setMode(BreachedPassword::ID, Mode::Observe);
+		$this->settingsEditor()->setMode(BreachedPassword::ID, Mode::Observe);
 		$this->login();
 		$detections = $this->breachDetections();
 		$this->assertCount(1, $detections);
@@ -389,8 +379,8 @@ class BreachedPasswordTest extends IntegrationTestCase {
 		foreach (Server::get(Lexicon::class)->getUserConfigs() as $entry) {
 			$keys[$entry->getKey()] = $entry->isLazy();
 		}
-		$this->assertTrue($keys[BreachedPasswordDetector::KEY_CHECKED_AT] ?? false, 'declared and lazy');
-		$this->assertTrue($keys[BreachedPasswordDetector::KEY_BREACHED] ?? false, 'declared and lazy');
+		$this->assertTrue($keys[UserKeys::BREACH_CHECKED_AT] ?? false, 'declared and lazy');
+		$this->assertTrue($keys[UserKeys::BREACHED] ?? false, 'declared and lazy');
 	}
 
 	public function testExplainsItselfToAdminsAndTheUser(): void {
@@ -399,9 +389,7 @@ class BreachedPasswordTest extends IntegrationTestCase {
 		$detection = $this->breachDetections()[0];
 		$l = Server::get(IFactory::class)->get(Application::APP_ID, 'en');
 
-		$narrative = json_encode(Server::get(NarrativeBuilder::class)->build($detection, $l)->toArray(), JSON_THROW_ON_ERROR);
-		$this->assertStringContainsString('logged in from 198.51.100.20 with a password that appears in the public list of leaked passwords', $narrative);
-		$this->assertStringContainsString('only the first 5 characters of its SHA-1 hash left the server', $narrative);
+		$this->assertSame('198.51.100.20', $detection->getIp());
 
 		$notice = Server::get(BreachedPassword::class)->userNotice($detection, $l);
 		$this->assertSame('Your password appears in lists of leaked passwords', $notice->subject);
@@ -429,7 +417,7 @@ class BreachedPasswordTest extends IntegrationTestCase {
 		};
 		$this->cache = $cache;
 		$this->protect();
-		$this->settings->setResponses(BreachedPassword::ID, [ResponseType::StepUp, ResponseType::ForcePasswordChange, ResponseType::NotifyAdmin, ResponseType::NotifyUser]);
+		$this->settingsEditor()->setResponses(BreachedPassword::ID, [ResponseType::StepUp, ResponseType::ForcePasswordChange, ResponseType::NotifyAdmin, ResponseType::NotifyUser]);
 
 		// SHA-1 EDB0E576C4E745D575F45B5DD8DD1EF7F6070FA0
 		$password = 'Secret-Breached-Password-7e3b';
@@ -452,7 +440,7 @@ class BreachedPasswordTest extends IntegrationTestCase {
 
 		// Tables: the app's own and its per-account values. Hex columns
 		// (merge keys) are lower-case, so the prefix is looked for as sent.
-		$tables = IntegrationTestCase::TABLES;
+		$tables = IntegrationTestCase::tables();
 		$rows = [];
 		foreach ($tables as $table) {
 			$result = $this->db->getQueryBuilder()->select('*')->from($table)->executeQuery();

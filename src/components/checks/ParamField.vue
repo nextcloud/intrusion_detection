@@ -6,14 +6,14 @@
 <script setup lang="ts">
 import type { Param } from '../../types.ts'
 
-import { t } from '@nextcloud/l10n'
 import { computed, useId } from 'vue'
 import NcCheckboxRadioSwitch from '@nextcloud/vue/components/NcCheckboxRadioSwitch'
 import NcTextArea from '@nextcloud/vue/components/NcTextArea'
 import NcTextField from '@nextcloud/vue/components/NcTextField'
 import SelectField from '../common/SelectField.vue'
 import DurationInput from './DurationInput.vue'
-import { APP_ID, choiceLabel, formatDuration, formatNumber, formatValue } from '../../utils/format.ts'
+import { APP_ID, formatDuration, formatNumber, formatValue } from '../../utils/format.ts'
+import { t } from '../../utils/l10n.ts'
 
 /** The field's raw value: what the admin typed, validated by the parent */
 const model = defineModel<unknown>({ required: true })
@@ -52,7 +52,7 @@ const range = computed(() => {
 
 const hint = computed(() => [
 	range.value,
-	t(APP_ID, 'default {value}', { value: typeof props.param.default === 'number' && props.param.type === 'int' ? formatNumber(props.param.default) : formatValue(props.param.default, props.param.type) }),
+	t(APP_ID, 'default {value}', { value: typeof props.param.default === 'number' && props.param.type === 'int' ? formatNumber(props.param.default) : formatValue(props.param.default, props.param.type, props.param.choices) }),
 ].filter(Boolean).join(' · '))
 
 const listText = computed({
@@ -61,8 +61,6 @@ const listText = computed({
 		model.value = value
 	},
 })
-
-const choices = computed(() => props.param.choices.map((choice) => ({ value: choice, label: choiceLabel(choice) })))
 
 const textValue = computed({
 	// Whole numbers are shown with digit groups, as in the hints and sentences
@@ -99,7 +97,7 @@ const textValue = computed({
 				v-model="textValue"
 				:class="$style.field__select"
 				:label="param.label"
-				:options="choices"
+				:options="param.choices"
 				:disabled="disabled"
 				:aria-describedby="hintId" />
 
@@ -150,7 +148,7 @@ const textValue = computed({
 .field {
 	display: flex;
 	flex-direction: column;
-	gap: calc(var(--default-grid-baseline) * 1);
+	gap: var(--ids-space-1);
 	min-width: 0;
 }
 
@@ -169,7 +167,7 @@ const textValue = computed({
 .field__row {
 	display: flex;
 	align-items: center;
-	gap: calc(var(--default-grid-baseline) * 2);
+	gap: var(--ids-space-2);
 }
 
 .field__number {
@@ -179,7 +177,7 @@ const textValue = computed({
 }
 
 .field__unit {
-	color: var(--color-text-maxcontrast);
+	composes: muted from '../../styles/shared.module.css';
 }
 
 .field__select {
@@ -196,8 +194,8 @@ const textValue = computed({
 }
 
 .field__hint {
+	composes: muted from '../../styles/shared.module.css';
 	margin: 0;
-	color: var(--color-text-maxcontrast);
 	font-size: 0.9em;
 	line-height: 1.45;
 }

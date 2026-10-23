@@ -10,7 +10,7 @@ declare(strict_types=1);
 namespace OCA\IntrusionDetection\Command\Decoys;
 
 use OC\Core\Command\Base;
-use OCA\IntrusionDetection\Db\Decoy;
+use OCA\IntrusionDetection\Decoy\Db\Decoy;
 use OCA\IntrusionDetection\Decoy\DecoyService;
 use Symfony\Component\Console\Helper\Table;
 use Symfony\Component\Console\Input\InputInterface;
@@ -45,11 +45,11 @@ class ListDecoys extends Base {
 		$table->setHeaders(['Id', 'Label', 'Account name', 'Format', 'Created', 'By', 'Last used', 'Uses']);
 		foreach ($decoys as $decoy) {
 			$table->addRow([
-				$decoy->getId(),
+				(string)$decoy->getId(),
 				$decoy->getLabel(),
 				$decoy->getLoginName() ?? '',
 				$decoy->getFormat(),
-				date('Y-m-d H:i', $decoy->getCreatedAt()),
+				$decoy->getCreatedAt()?->format('Y-m-d H:i') ?? '',
 				$decoy->getCreatedBy() ?? '',
 				$decoy->getLastTriggeredAt() === null ? 'never' : date('Y-m-d H:i', $decoy->getLastTriggeredAt()),
 				$decoy->getTriggerCount(),

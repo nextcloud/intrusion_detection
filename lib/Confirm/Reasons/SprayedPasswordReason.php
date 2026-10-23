@@ -9,12 +9,11 @@ declare(strict_types=1);
 
 namespace OCA\IntrusionDetection\Confirm\Reasons;
 
-use OCA\IntrusionDetection\Check\Checks\PasswordSpraying;
-use OCA\IntrusionDetection\Check\ResponseType;
-use OCA\IntrusionDetection\Config\Settings;
+use OCA\IntrusionDetection\Check\Checks\PasswordSpraying\PasswordSpraying;
+use OCA\IntrusionDetection\Config\CheckSettings;
 use OCA\IntrusionDetection\Confirm\IStepUpReason;
-use OCA\IntrusionDetection\Confirm\LoginContext;
 use OCA\IntrusionDetection\Confirm\StepUpPolicy;
+use OCA\IntrusionDetection\Login\LoginContext;
 
 /**
  * The password is flagged as sprayed (concept section 10.2), and the
@@ -23,7 +22,7 @@ use OCA\IntrusionDetection\Confirm\StepUpPolicy;
  */
 class SprayedPasswordReason implements IStepUpReason {
 	public function __construct(
-		private readonly Settings $settings,
+		private readonly CheckSettings $settings,
 	) {
 	}
 
@@ -34,8 +33,6 @@ class SprayedPasswordReason implements IStepUpReason {
 
 	#[\Override]
 	public function applies(LoginContext $login): bool {
-		return $login->passwordFlagged
-			&& $this->settings->modeState(PasswordSpraying::ID)->acts()
-			&& $this->settings->hasResponse(PasswordSpraying::ID, ResponseType::StepUp);
+		return $login->passwordFlagged && $this->settings->stepUpActive(PasswordSpraying::ID);
 	}
 }

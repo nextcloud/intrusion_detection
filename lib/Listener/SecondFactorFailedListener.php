@@ -9,9 +9,10 @@ declare(strict_types=1);
 
 namespace OCA\IntrusionDetection\Listener;
 
-use OCA\IntrusionDetection\Check\Checks\SecondFactorFailedDetector;
-use OCA\IntrusionDetection\Config\Settings;
+use OCA\IntrusionDetection\Config\AppSettings;
 use OCA\IntrusionDetection\Net\RemoteAddressResolver;
+use OCA\IntrusionDetection\Signal\SecondFactorFailure;
+use OCA\IntrusionDetection\Signal\SignalDispatcher;
 use OCP\Authentication\TwoFactorAuth\TwoFactorProviderChallengeFailed;
 use OCP\EventDispatcher\Event;
 use OCP\EventDispatcher\IEventListener;
@@ -27,9 +28,9 @@ use Psr\Log\LoggerInterface;
  */
 class SecondFactorFailedListener implements IEventListener {
 	public function __construct(
-		private readonly Settings $settings,
+		private readonly AppSettings $settings,
 		private readonly RemoteAddressResolver $addresses,
-		private readonly SecondFactorFailedDetector $detector,
+		private readonly SignalDispatcher $dispatcher,
 		private readonly IRequest $request,
 		private readonly LoggerInterface $logger,
 	) {
@@ -49,7 +50,7 @@ class SecondFactorFailedListener implements IEventListener {
 				return;
 			}
 			$provider = $event->getProvider();
-			$this->detector->detect($event->getUser(), $provider->getId(), $provider->getDisplayName(), $source, $this->request->getHeader('User-Agent'));
+			$this->dispatcher->dispatch(new SecondFactorFailure($event->getUser(), $provider->getId(), $provider->getDisplayName(), $source, $this->request->getHeader('User-Agent')));
 		} catch (\Throwable $e) {
 			$this->logger->error('Intrusion detection could not process a failed second factor', ['exception' => $e]);
 		}

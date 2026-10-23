@@ -9,8 +9,8 @@ declare(strict_types=1);
 
 namespace OCA\IntrusionDetection\Admin;
 
-use OCA\IntrusionDetection\Check\Category;
 use OCA\IntrusionDetection\Check\CheckRegistry;
+use OCA\IntrusionDetection\Definition\Category;
 use OCP\IL10N;
 
 /**

@@ -7,22 +7,20 @@
 import type { Ref } from 'vue'
 
 import { mdiShieldOutline } from '@mdi/js'
-import { t } from '@nextcloud/l10n'
-import { computed, inject, nextTick, onActivated, ref, watch } from 'vue'
+import { computed, inject, nextTick, ref, watch } from 'vue'
 import NcEmptyContent from '@nextcloud/vue/components/NcEmptyContent'
 import NcIconSvgWrapper from '@nextcloud/vue/components/NcIconSvgWrapper'
 import CheckRow from '../components/checks/CheckRow.vue'
 import ProtectionLevelPicker from '../components/checks/ProtectionLevelPicker.vue'
-import { refreshProtectionLevel, state } from '../store.ts'
+import RiskScoreSection from '../components/checks/RiskScoreSection.vue'
+import { state } from '../store.ts'
 import { APP_ID } from '../utils/format.ts'
+import { t } from '../utils/l10n.ts'
 import { protectionGroups } from '../utils/protection.ts'
 
 const openCheckId = inject<Ref<string | null>>('ids-open-check', ref(null))
 
 const groups = computed(() => protectionGroups(state.checks))
-
-// A block duration changed on another tab can make the level "custom".
-onActivated(refreshProtectionLevel)
 
 watch(openCheckId, async (checkId) => {
 	if (checkId) {
@@ -64,6 +62,8 @@ watch(openCheckId, async (checkId) => {
 					:open="openCheckId === check.id" />
 			</ul>
 		</section>
+
+		<RiskScoreSection />
 	</div>
 </template>
 
@@ -71,32 +71,28 @@ watch(openCheckId, async (checkId) => {
 .protection {
 	display: flex;
 	flex-direction: column;
-	gap: calc(var(--default-grid-baseline) * 5);
+	gap: var(--ids-space-5);
 }
 
 .card {
+	composes: card from '../styles/shared.module.css';
 	min-width: 0;
-	padding: calc(var(--default-grid-baseline) * 5);
-	border: 1px solid var(--color-border);
-	border-radius: var(--border-radius-large);
-	background-color: var(--color-main-background);
+	padding: var(--ids-space-5);
 }
 
 .group__heading {
-	margin: 0 0 calc(var(--default-grid-baseline) * 1);
+	margin: 0 0 var(--ids-space-1);
 	font-size: 1.15em;
 	font-weight: 700;
 }
 
 .group__list {
-	margin: 0;
-	padding: 0;
-	list-style: none;
+	composes: plainList from '../styles/shared.module.css';
 }
 
 @media (max-width: 600px) {
 	.card {
-		padding: calc(var(--default-grid-baseline) * 3) calc(var(--default-grid-baseline) * 4);
+		padding: var(--ids-space-3) var(--ids-space-4);
 	}
 }
 </style>

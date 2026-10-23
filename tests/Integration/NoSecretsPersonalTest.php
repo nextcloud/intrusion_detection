@@ -9,20 +9,16 @@ declare(strict_types=1);
 
 namespace OCA\IntrusionDetection\Tests\Integration;
 
-use OCA\IntrusionDetection\Check\Checks\AccountUnderAttackDetector;
-use OCA\IntrusionDetection\Check\Checks\CredentialStuffingDetector;
-use OCA\IntrusionDetection\Check\Checks\DecoyCredentialDetector;
-use OCA\IntrusionDetection\Check\Checks\PasswordSprayingDetector;
-use OCA\IntrusionDetection\Check\Checks\ReservedNameDetector;
 use OCA\IntrusionDetection\Crypto\Fingerprinter;
-use OCA\IntrusionDetection\Db\LoginHistoryMapper;
 use OCA\IntrusionDetection\Db\UserDailyMapper;
 use OCA\IntrusionDetection\Detection\AttemptRecorder;
 use OCA\IntrusionDetection\Listener\FailedLoginListener;
+use OCA\IntrusionDetection\LoginHistory\Db\LoginHistoryMapper;
 use OCA\IntrusionDetection\LoginHistory\LoginHistory;
 use OCA\IntrusionDetection\Net\SourceKey;
 use OCA\IntrusionDetection\Personal\FailedLoginStats;
 use OCA\IntrusionDetection\Risk\RiskScorer;
+use OCA\IntrusionDetection\Signal\SignalDispatcher;
 use OCA\IntrusionDetection\TrustedNetwork\TrustedNetworks;
 use OCP\Authentication\Events\AnyLoginFailedEvent;
 use OCP\Authentication\Token\IToken;
@@ -89,14 +85,10 @@ class NoSecretsPersonalTest extends PersonalApiTestCase {
 
 	private function failedLoginListener(): FailedLoginListener {
 		return new FailedLoginListener(
-			$this->settings,
+			$this->appSettings(),
 			$this->addresses(),
+			Server::get(SignalDispatcher::class),
 			Server::get(AttemptRecorder::class),
-			Server::get(DecoyCredentialDetector::class),
-			Server::get(ReservedNameDetector::class),
-			Server::get(CredentialStuffingDetector::class),
-			Server::get(PasswordSprayingDetector::class),
-			Server::get(AccountUnderAttackDetector::class),
 			Server::get(RiskScorer::class),
 			Server::get(IUserManager::class),
 			$this->request,

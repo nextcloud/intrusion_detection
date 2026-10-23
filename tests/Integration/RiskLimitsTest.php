@@ -12,15 +12,13 @@ namespace OCA\IntrusionDetection\Tests\Integration;
 use OC\DB\ConnectionAdapter;
 use OCA\IntrusionDetection\Admin\DetectionPresenter;
 use OCA\IntrusionDetection\AppInfo\Application;
-use OCA\IntrusionDetection\Check\Checks\AccountUnderAttack;
-use OCA\IntrusionDetection\Check\Checks\CredentialStuffing;
-use OCA\IntrusionDetection\Check\Checks\PasswordSpraying;
-use OCA\IntrusionDetection\Check\Checks\ResetProbing;
-use OCA\IntrusionDetection\Check\Checks\ResetProbingDetector;
-use OCA\IntrusionDetection\Check\Checks\ShareBruteforce;
-use OCA\IntrusionDetection\Check\Checks\ShareBruteforceDetector;
+use OCA\IntrusionDetection\Cache\Caches;
+use OCA\IntrusionDetection\Check\Checks\AccountUnderAttack\AccountUnderAttack;
+use OCA\IntrusionDetection\Check\Checks\CredentialStuffing\CredentialStuffing;
+use OCA\IntrusionDetection\Check\Checks\PasswordSpraying\PasswordSpraying;
+use OCA\IntrusionDetection\Check\Checks\ResetProbing\ResetProbing;
+use OCA\IntrusionDetection\Check\Checks\ShareBruteforce\ShareBruteforce;
 use OCA\IntrusionDetection\Config\GlobalSettings;
-use OCA\IntrusionDetection\Config\Settings;
 use OCA\IntrusionDetection\Crypto\Fingerprinter;
 use OCA\IntrusionDetection\Db\AttemptKind;
 use OCA\IntrusionDetection\Db\AttemptMapper;
@@ -32,6 +30,10 @@ use OCA\IntrusionDetection\Net\SourceKey;
 use OCA\IntrusionDetection\Response\FlaggedSources;
 use OCA\IntrusionDetection\Risk\RiskAssessment;
 use OCA\IntrusionDetection\Risk\RiskScorer;
+use OCA\IntrusionDetection\Signal\ResetRequested;
+use OCA\IntrusionDetection\Signal\ShareAccessFailed;
+use OCA\IntrusionDetection\Signal\SignalDispatcher;
+use OCA\IntrusionDetection\State\HotState;
 use OCP\AppFramework\Utility\ITimeFactory;
 use OCP\IDBConnection;
 use OCP\IL10N;
@@ -51,9 +53,7 @@ class RiskLimitsTest extends LoginFailureTestCase {
 
 	protected function setUp(): void {
 		parent::setUp();
-		// The tests' memory cache lives as long as the process: start from an empty one.
-		(new \ReflectionProperty(RiskScorer::class, 'cacheInitialised'))->setValue(Server::get(RiskScorer::class), false);
-		$this->settings->setGlobal(GlobalSettings::RISK_ENABLED, true);
+		$this->settingsEditor()->setGlobal(GlobalSettings::RISK_ENABLED, true);
 		$this->l = Server::get(IFactory::class)->get(Application::APP_ID, 'en');
 	}
 
@@ -95,7 +95,7 @@ class RiskLimitsTest extends LoginFailureTestCase {
 		}
 		$this->assertSame([], $this->detectionsOf(CredentialStuffing::ID), '9 failures earn 1 point: limits as configured');
 		// A minute later the stored facts are read again.
-		(new \ReflectionProperty(RiskScorer::class, 'cacheInitialised'))->setValue(Server::get(RiskScorer::class), false);
+		Server::get(Caches::class)->shared(RiskScorer::CACHE)?->clear();
 		$this->failLogin('198.51.100.7', 'user10');
 		$detections = $this->detectionsOf(CredentialStuffing::ID);
 		$this->assertCount(1, $detections);
@@ -109,7 +109,7 @@ class RiskLimitsTest extends LoginFailureTestCase {
 	}
 
 	public function testWithTheScoreOffThePlainLimitsApply(): void {
-		$this->settings->setGlobal(GlobalSettings::RISK_ENABLED, false);
+		$this->settingsEditor()->setGlobal(GlobalSettings::RISK_ENABLED, false);
 		for ($i = 1; $i <= 9; $i++) {
 			$this->failLogin('198.51.100.7', 'user' . $i);
 		}
@@ -150,7 +150,7 @@ class RiskLimitsTest extends LoginFailureTestCase {
 		for ($i = 1; $i <= 5; $i++) {
 			$this->attempts->insert(AttemptKind::UnknownShareToken, $source->ipKey, $source->netKey, bin2hex(Server::get(Fingerprinter::class)->shareToken('guessed' . $i)), null, null, null, time());
 		}
-		Server::get(ShareBruteforceDetector::class)->unknownToken(new AttemptRecord(AttemptKind::UnknownShareToken, $source, null, null, null, null, [], time(), true), null);
+		Server::get(SignalDispatcher::class)->dispatch(new ShareAccessFailed(new AttemptRecord(AttemptKind::UnknownShareToken, $source, null, null, null, null, [], time(), true), null, null));
 		$detections = $this->detectionsOf(ShareBruteforce::ID);
 		$this->assertCount(1, $detections);
 		$this->assertSame(['token_min' => ['plain' => 10, 'effective' => 5]], $detections[0]->getExplanationData()['facts']['loweredLimits']);
@@ -162,7 +162,7 @@ class RiskLimitsTest extends LoginFailureTestCase {
 		foreach (['a@example.com', 'b@example.com', 'c@example.com'] as $input) {
 			$this->attempts->insert(AttemptKind::PasswordReset, $source->ipKey, $source->netKey, bin2hex(Server::get(Fingerprinter::class)->name($input)), null, null, null, time());
 		}
-		Server::get(ResetProbingDetector::class)->detect(new AttemptRecord(AttemptKind::PasswordReset, $source, null, null, null, null, [], time(), true), null);
+		Server::get(SignalDispatcher::class)->dispatch(new ResetRequested(new AttemptRecord(AttemptKind::PasswordReset, $source, null, null, null, null, [], time(), true), null));
 		$detections = $this->detectionsOf(ResetProbing::ID);
 		$this->assertCount(1, $detections);
 		$this->assertSame(['enum_min_inputs' => ['plain' => 5, 'effective' => 3]], $detections[0]->getExplanationData()['facts']['loweredLimits']);
@@ -174,7 +174,7 @@ class RiskLimitsTest extends LoginFailureTestCase {
 		$this->failLogin('198.51.100.60', 'someone');
 		$counts = [];
 		foreach ([false, true, false, true] as $i => $on) {
-			$this->settings->setGlobal(GlobalSettings::RISK_ENABLED, $on);
+			$this->settingsEditor()->setGlobal(GlobalSettings::RISK_ENABLED, $on);
 			$counts[] = $this->queriesFor(fn () => $this->failLogin('198.51.100.7' . $i, 'someone'));
 		}
 		$this->assertSame([$counts[0], $counts[0], $counts[0], $counts[0]], $counts, 'The score is only computed close to a limit');
@@ -185,7 +185,7 @@ class RiskLimitsTest extends LoginFailureTestCase {
 	 */
 	#[\Override]
 	protected function attemptRecorder(): AttemptRecorder {
-		return new class(Server::get(AttemptMapper::class), Server::get(Fingerprinter::class), Server::get(Settings::class), Server::get(ITimeFactory::class)) extends AttemptRecorder {
+		return new class(Server::get(AttemptMapper::class), Server::get(Fingerprinter::class), Server::get(ITimeFactory::class), Server::get(HotState::class)) extends AttemptRecorder {
 			#[\Override]
 			protected function oneIn(int $n): bool {
 				return false;

@@ -44,7 +44,7 @@ class ShareAlertController extends OCSController {
 	 * detection does not exist. Turning off a link that is already gone
 	 * succeeds again.
 	 *
-	 * @param int $detectionId The detection from the notification
+	 * @param string $detectionId The detection from the notification
 	 * @return DataResponse<Http::STATUS_OK, array{status: 'disabled'|'already_gone'}, array{}>|DataResponse<Http::STATUS_NOT_FOUND, array{status: 'not_found'}, array{}>
 	 *
 	 * 200: The link is off
@@ -52,8 +52,8 @@ class ShareAlertController extends OCSController {
 	 */
 	#[NoAdminRequired]
 	#[UserRateLimit(limit: 10, period: 600)]
-	#[ApiRoute(verb: 'POST', url: '/api/v1/share-alerts/{detectionId}/disable', requirements: ['detectionId' => '\d{1,18}'])]
-	public function disable(int $detectionId): DataResponse {
+	#[ApiRoute(verb: 'POST', url: '/api/v1/share-alerts/{detectionId}/disable', requirements: ['detectionId' => '\d+'])]
+	public function disable(string $detectionId): DataResponse {
 		$uid = $this->userSession->getUser()?->getUID();
 		$result = $uid === null ? ShareLinks::NOT_FOUND : $this->links->disable($detectionId, $uid);
 		if ($result === ShareLinks::NOT_FOUND) {

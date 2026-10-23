@@ -9,6 +9,8 @@ declare(strict_types=1);
 
 namespace OCA\IntrusionDetection\Sensitive;
 
+use OCP\IL10N;
+
 /**
  * The requests through which a logged-in account can read the user
  * directory, in groups with a limit each (concept section 10.16).
@@ -113,5 +115,18 @@ final class DirectoryRoutes {
 		return count($segments) === 2 && in_array($segments[1], self::PRINCIPAL_COLLECTIONS, true) && $depth !== '0'
 			? self::GROUP_ADDRESSBOOK
 			: null;
+	}
+
+	/**
+	 * The kind of request in the words of the admin page, e.g. "searches for people".
+	 */
+	public static function label(string $group, IL10N $l): string {
+		return match ($group) {
+			self::GROUP_SEARCH => $l->t('searches for people'),
+			self::GROUP_PROFILE => $l->t('requests for profiles and avatars'),
+			self::GROUP_ADDRESSBOOK => $l->t('downloads of the address book or the user list'),
+			self::GROUP_USERS => $l->t('requests for user lists'),
+			default => $group,
+		};
 	}
 }

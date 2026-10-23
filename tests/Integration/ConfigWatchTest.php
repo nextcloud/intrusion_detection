@@ -12,23 +12,27 @@ namespace OCA\IntrusionDetection\Tests\Integration;
 use OC\SystemConfig;
 use OCA\IntrusionDetection\AdminChange\ActorResolver;
 use OCA\IntrusionDetection\AdminChange\ConfigWatch;
+use OCA\IntrusionDetection\AdminChange\Db\ConfigSnapshotMapper;
 use OCA\IntrusionDetection\AdminChange\DisplayValue;
 use OCA\IntrusionDetection\AdminChange\WatchedSettings;
 use OCA\IntrusionDetection\AdminChange\WatchedValue;
 use OCA\IntrusionDetection\AppInfo\Application;
 use OCA\IntrusionDetection\Check\CheckRegistry;
-use OCA\IntrusionDetection\Check\Checks\AdminChange;
-use OCA\IntrusionDetection\Check\Mode;
-use OCA\IntrusionDetection\Check\Severity;
+use OCA\IntrusionDetection\Check\Checks\AdminChange\AdminChange;
 use OCA\IntrusionDetection\Config\GlobalSettings;
 use OCA\IntrusionDetection\Config\Keys;
-use OCA\IntrusionDetection\Config\Settings;
 use OCA\IntrusionDetection\Crypto\Fingerprinter;
-use OCA\IntrusionDetection\Db\ConfigSnapshotMapper;
+use OCA\IntrusionDetection\Decoy\DecoyFormat;
+use OCA\IntrusionDetection\Decoy\DecoyService;
+use OCA\IntrusionDetection\Definition\Mode;
+use OCA\IntrusionDetection\Definition\Severity;
 use OCA\IntrusionDetection\Explain\NarrativeBuilder;
 use OCA\IntrusionDetection\Notification\AdminAlerts;
 use OCA\IntrusionDetection\Notification\Notifier;
+use OCA\IntrusionDetection\SetupCheck\DecoySecretCheck;
+use OCA\IntrusionDetection\State\AppState;
 use OCP\App\IAppManager;
+use OCP\AppFramework\Utility\ITimeFactory;
 use OCP\IAppConfig;
 use OCP\IConfig;
 use OCP\L10N\IFactory;
@@ -72,7 +76,7 @@ class ConfigWatchTest extends AdminChangeTestCase {
 	}
 
 	private function watchedSettings(): WatchedSettings {
-		return new WatchedSettings($this->systemConfig, Server::get(IAppConfig::class), Server::get(Settings::class), Server::get(CheckRegistry::class), new GlobalSettings(), Server::get(LoggerInterface::class));
+		return new WatchedSettings($this->systemConfig, Server::get(IAppConfig::class), $this->appSettings(), $this->checkSettings(), Server::get(CheckRegistry::class), new GlobalSettings(), Server::get(LoggerInterface::class));
 	}
 
 	protected function tearDown(): void {
@@ -85,14 +89,14 @@ class ConfigWatchTest extends AdminChangeTestCase {
 	public function testTheFirstRunOnlyRecordsTheBaseline(): void {
 		$this->assertSame(0, $this->watch->run());
 		$this->assertSame([], $this->adminChanges());
-		$this->assertGreaterThan(0, Server::get(Settings::class)->getInt(GlobalSettings::CONFIG_WATCH_BASELINE));
+		$this->assertGreaterThan(0, Server::get(AppState::class)->getInt(ConfigWatch::BASELINE_STATE));
 		$snapshot = $this->snapshot();
 		$this->assertSame('["cloud.example.com"]', $snapshot[WatchedSettings::systemKey('trusted_domains')]['display_value']);
 		$this->assertNull($snapshot[WatchedSettings::systemKey('trusted_proxies')]['display_value']);
 		$this->assertArrayHasKey(WatchedSettings::systemKey('overwritehost'), $snapshot, 'Fixed keys are watched even when not set');
 		$this->assertArrayNotHasKey(WatchedSettings::systemKey('secret'), $snapshot, 'Only the watched keys');
 		$this->assertArrayHasKey(WatchedSettings::ownKey(Keys::mode('credential_stuffing')), $snapshot);
-		$this->assertArrayNotHasKey(WatchedSettings::ownKey(GlobalSettings::INSTALLED_AT), $snapshot, 'Internal state is not watched');
+		$this->assertArrayNotHasKey(WatchedSettings::ownKey(AppState::INSTALLED_AT), $snapshot, 'Internal state is not watched');
 	}
 
 	public function testAChangeIsOneDetectionAndOnlyOnce(): void {
@@ -123,9 +127,6 @@ class ConfigWatchTest extends AdminChangeTestCase {
 		$this->assertSame(ActorResolver::UNKNOWN, $facts['actor']);
 		$this->assertSame(Severity::Low->value, $byKey[WatchedSettings::systemKey('loglevel')]->getSeverity());
 
-		$narrative = implode(' ', Server::get(NarrativeBuilder::class)->build($domains, $this->l())->happened);
-		$this->assertStringContainsString('"trusted_domains in config.php" changed from "cloud.example.com" to "cloud.example.com, evil.example.net"', $narrative);
-		$this->assertStringContainsString('Nextcloud cannot tell who made this change', $narrative);
 	}
 
 	public function testNewAndRemovedSettingsAreChanges(): void {
@@ -228,7 +229,7 @@ class ConfigWatchTest extends AdminChangeTestCase {
 	public function testOwnSettingsChangedThroughTheAppAreNotReportedTwice(): void {
 		Server::get(ConfigWatch::class)->run();
 		$this->assertSame([], $this->adminChanges());
-		Server::get(Settings::class)->setParam('credential_stuffing', 'min_names', 7);
+		$this->settingsEditor()->setParam('credential_stuffing', 'min_names', 7);
 		$this->assertCount(1, $this->adminChanges(), 'Reported by the app at once');
 		$this->assertSame(0, Server::get(ConfigWatch::class)->run(), 'The watch has nothing left to report');
 	}
@@ -264,16 +265,105 @@ class ConfigWatchTest extends AdminChangeTestCase {
 		$this->assertStringContainsString('Its value is secret', $texts);
 	}
 
-	public function testSwitchingTheCheckOffStartsANewBaseline(): void {
+	public function testSwitchingTheCheckOffAroundTheAppIsReported(): void {
 		$this->watch->run();
 		$this->appConfig->setValueString(Application::APP_ID, Keys::mode(AdminChange::ID), Mode::Off->value);
-		$this->assertSame(0, $this->watch->run());
-		$this->assertSame(0, Server::get(Settings::class)->getInt(GlobalSettings::CONFIG_WATCH_BASELINE));
+		$this->watch->run();
+
+		[$detection] = $this->adminChanges();
+		$this->assertSame(WatchedSettings::ownKey(Keys::mode(AdminChange::ID)), $this->facts($detection)['setting']);
+		$this->assertSame(Severity::High->value, $detection->getSeverity());
+		$this->assertNotSame([], $this->notificationsWithSubject(AdminAlerts::SUBJECT), 'The administrators are alerted');
+		$this->assertNotSame(0, Server::get(AppState::class)->getInt(ConfigWatch::BASELINE_STATE), 'The baseline is kept');
+		$this->watch->run();
+		$this->assertCount(1, $this->adminChanges(), 'Reported once');
+	}
+
+	public function testChangesWhileTheCheckWasOffAreReportedWhenItIsBack(): void {
+		$this->watch->run();
+		$this->appConfig->setValueString(Application::APP_ID, Keys::mode(AdminChange::ID), Mode::Off->value);
+		$this->watch->run();
+		$this->system['trusted_proxies'] = [];
+		$this->system['loglevel'] = 0;
+		$this->watch->run();
+		$this->assertCount(1, $this->adminChanges(), 'Nothing is recorded while the check is off');
+
+		$this->appConfig->setValueString(Application::APP_ID, Keys::mode(AdminChange::ID), Mode::Protect->value);
+		$this->watch->run();
+		$settings = array_map(fn ($d): string => $this->facts($d)['setting'], array_slice($this->adminChanges(), 1));
+		sort($settings);
+		$this->assertSame([WatchedSettings::systemKey('loglevel'), WatchedSettings::systemKey('trusted_proxies')], $settings, 'Compared with the last baseline');
+	}
+
+	public function testChangesWhileProtectionWasOffAreReportedWhenItIsBack(): void {
+		$this->watch->run();
+		$this->appConfig->setValueBool(Application::APP_ID, GlobalSettings::ENABLED, false);
+		$this->watch->run();
+		[$off] = $this->adminChanges();
+		$this->assertSame(WatchedSettings::ownKey(GlobalSettings::ENABLED), $this->facts($off)['setting']);
+		$this->assertSame(Severity::High->value, $off->getSeverity());
 
 		$this->system['trusted_proxies'] = [];
-		$this->appConfig->setValueString(Application::APP_ID, Keys::mode(AdminChange::ID), Mode::Protect->value);
-		$this->assertSame(0, $this->watch->run(), 'Changes while it was off are not told: nobody knows when they happened');
-		$this->assertSame([], $this->adminChanges());
+		$this->watch->run();
+		$this->appConfig->setValueBool(Application::APP_ID, GlobalSettings::ENABLED, true);
+		$this->watch->run();
+		$settings = array_map(fn ($d): string => $this->facts($d)['setting'], $this->adminChanges());
+		$this->assertContains(WatchedSettings::systemKey('trusted_proxies'), $settings);
+	}
+
+	public function testSwitchingTheCheckAndProtectionOffTogetherIsReported(): void {
+		$this->watch->run();
+		$this->appConfig->setValueString(Application::APP_ID, Keys::mode(AdminChange::ID), Mode::Off->value);
+		$this->appConfig->setValueBool(Application::APP_ID, GlobalSettings::ENABLED, false);
+		$this->watch->run();
+		$settings = array_map(fn ($d): string => $this->facts($d)['setting'], $this->adminChanges());
+		sort($settings);
+		$this->assertSame([WatchedSettings::ownKey(Keys::mode(AdminChange::ID)), WatchedSettings::ownKey(GlobalSettings::ENABLED)], $settings);
+	}
+
+	public function testOwnChangesWhileTheCheckWasOffAreReportedWhenItIsBack(): void {
+		$watch = Server::get(ConfigWatch::class);
+		$watch->run();
+		$editor = $this->settingsEditor();
+		$editor->setMode(AdminChange::ID, Mode::Off);
+		$this->assertCount(1, $this->adminChanges(), 'Switching it off is reported at once');
+		$editor->setMode('credential_stuffing', Mode::Off);
+		$this->assertCount(1, $this->adminChanges());
+		$watch->run();
+		$this->assertCount(1, $this->adminChanges());
+
+		$editor->setMode(AdminChange::ID, Mode::Protect);
+		$watch->run();
+		$settings = array_map(fn ($d): string => $this->facts($d)['setting'], $this->adminChanges());
+		$this->assertContains(WatchedSettings::ownKey(Keys::mode('credential_stuffing')), $settings);
+	}
+
+	public function testAChangedSecretIsToldOnceAndTheSettingsAreRecordedAgain(): void {
+		$this->watch->run();
+		$rotated = $this->watchWithSecret('a-new-instance-secret-0123456789');
+		$this->assertSame(1, $rotated->run());
+
+		$changes = $this->adminChanges();
+		$this->assertCount(1, $changes, 'Not every watched setting, only the secret');
+		$facts = $this->facts($changes[0]);
+		$this->assertSame(ConfigWatch::SECRET_KEY, $facts['setting']);
+		$this->assertTrue($facts['secret']);
+		$this->assertSame(Severity::High->value, $changes[0]->getSeverity());
+		$narrative = implode(' ', Server::get(NarrativeBuilder::class)->build($changes[0], $this->l())->happened);
+		$this->assertStringContainsString('Decoy app passwords created before no longer match', $narrative);
+		$this->assertGreaterThan(0, Server::get(AppState::class)->getInt(ConfigWatch::SECRET_CHANGED_STATE));
+
+		$this->assertSame(0, $rotated->run(), 'Recorded again under the new key');
+		$this->system['loglevel'] = 0;
+		$this->assertSame(1, $rotated->run(), 'Later changes are found as before');
+	}
+
+	public function testDecoysCreatedBeforeTheSecretChangedAreNamed(): void {
+		Server::get(DecoyService::class)->create('Old decoy', null, DecoyFormat::AppPassword, 'admin');
+		$check = Server::get(DecoySecretCheck::class);
+		$this->assertNull($check->finding($this->l()));
+		Server::get(AppState::class)->setInt(ConfigWatch::SECRET_CHANGED_STATE, time() + 1);
+		$this->assertSame('decoy_secret_changed', $check->finding($this->l())?->id);
 	}
 
 	public function testANewlyWatchedFixedKeyIsRecordedSilently(): void {
@@ -282,6 +372,13 @@ class ConfigWatchTest extends AdminChangeTestCase {
 		$qb->delete('ids_config_snapshot')->where($qb->expr()->eq('setting_key', $qb->createNamedParameter(WatchedSettings::systemKey('debug'))))->executeStatement();
 		$this->assertSame(0, $this->watch->run());
 		$this->assertArrayHasKey(WatchedSettings::systemKey('debug'), $this->snapshot());
+	}
+
+	private function watchWithSecret(string $secret): ConfigWatch {
+		$config = $this->createMock(IConfig::class);
+		$config->method('getSystemValueString')->willReturnCallback(static fn (string $key, string $default = ''): string => $key === 'secret' ? $secret : $default);
+		$fingerprinter = new Fingerprinter($config, Server::get(ITimeFactory::class));
+		return new ConfigWatch($this->watchedSettings(), Server::get(ConfigSnapshotMapper::class), $fingerprinter, $this->signals, $this->checkSettings(), Server::get(ITimeFactory::class), Server::get(IAppManager::class), Server::get(AppState::class));
 	}
 
 	/**

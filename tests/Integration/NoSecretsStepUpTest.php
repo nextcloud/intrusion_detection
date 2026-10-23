@@ -14,11 +14,11 @@ use OCA\IntrusionDetection\Confirm\StepUpPolicy;
 use OCA\IntrusionDetection\Db\DetectionFilter;
 use OCA\IntrusionDetection\Db\DetectionMapper;
 use OCA\IntrusionDetection\Explain\NarrativeBuilder;
+use OCA\IntrusionDetection\Login\SessionMarkers;
 use OCA\IntrusionDetection\Net\SourceKey;
 use OCA\IntrusionDetection\Notification\Notifier;
 use OCA\IntrusionDetection\Response\FlaggedSources;
 use OCA\IntrusionDetection\SessionState\RequestTarget;
-use OCA\IntrusionDetection\SessionState\SessionState;
 use OCP\IConfig;
 use OCP\L10N\IFactory;
 use OCP\Server;
@@ -48,7 +48,7 @@ class NoSecretsStepUpTest extends StepUpTestCase {
 		// Confirmed after a wrong code and a new one.
 		$sessionIds[] = $this->startSession($alice)['secret'];
 		$this->login($alice);
-		$stateDuringStepUp = json_encode($this->session->get(SessionState::SESSION_KEY), JSON_THROW_ON_ERROR);
+		$stateDuringStepUp = json_encode($this->session->get(SessionMarkers::SESSION_KEY), JSON_THROW_ON_ERROR);
 		$this->verifyController()->confirm('000000');
 		$this->verifyController()->resend();
 		$this->verifyController()->confirm('730264');
@@ -69,11 +69,11 @@ class NoSecretsStepUpTest extends StepUpTestCase {
 		$sessionIds[] = $this->startSession($bob)['secret'];
 		$this->login($bob);
 		$this->verifyController()->show();
-		$this->settings->setGlobal(StepUpPolicy::FlaggedSource->settingKey(), 'allow_notify');
+		$this->settingsEditor()->setGlobal(StepUpPolicy::FlaggedSource->settingKey(), 'allow_notify');
 		$sessionIds[] = $this->startSession($bob)['secret'];
 		$this->login($bob);
 		$this->rule()->check($this->state, RequestTarget::dav('GET', '/'));
-		$this->settings->setGlobal(StepUpPolicy::FlaggedSource->settingKey(), 'refuse');
+		$this->settingsEditor()->setGlobal(StepUpPolicy::FlaggedSource->settingKey(), 'refuse');
 		$this->basicAuth($alice);
 		$this->session->clear();
 		$this->session->id = $sessionIds[] = bin2hex(random_bytes(32));
@@ -83,7 +83,7 @@ class NoSecretsStepUpTest extends StepUpTestCase {
 			$secrets['session id ' . $i] = $id;
 		}
 
-		foreach (IntegrationTestCase::TABLES as $table) {
+		foreach (IntegrationTestCase::tables() as $table) {
 			$result = $this->db->getQueryBuilder()->select('*')->from($table)->executeQuery();
 			$this->assertClean(json_encode($result->fetchAll(), JSON_THROW_ON_ERROR), $secrets, $table);
 			$result->closeCursor();

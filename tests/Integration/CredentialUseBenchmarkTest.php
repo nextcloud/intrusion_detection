@@ -12,22 +12,19 @@ namespace OCA\IntrusionDetection\Tests\Integration;
 use OC\AppFramework\Http\Request;
 use OC\Memcache\ArrayCache;
 use OCA\IntrusionDetection\Address\Verdict;
-use OCA\IntrusionDetection\Check\CheckRegistry;
-use OCA\IntrusionDetection\Check\CredentialUse\CredentialTracker;
-use OCA\IntrusionDetection\Check\CredentialUse\PresentedCredential;
-use OCA\IntrusionDetection\Config\GlobalSettings;
+use OCA\IntrusionDetection\Cache\KeyLock;
+use OCA\IntrusionDetection\Check\Checks\TokenConcurrentUse\CredentialTracker;
+use OCA\IntrusionDetection\Check\Checks\TokenConcurrentUse\PresentedCredential;
+use OCA\IntrusionDetection\Config\CoreHooks;
 use OCA\IntrusionDetection\Config\Prerequisites;
-use OCA\IntrusionDetection\Config\Settings;
 use OCA\IntrusionDetection\Crypto\Fingerprinter;
 use OCA\IntrusionDetection\Guard\CredentialUseGuard;
-use OCA\IntrusionDetection\Guard\RequestContext;
+use OCA\IntrusionDetection\Login\RequestContext;
 use OCA\IntrusionDetection\Net\SourceKey;
 use OCA\IntrusionDetection\Perf\GuardTimer;
+use OCA\IntrusionDetection\Tests\Unit\Cache\FixedCaches;
 use OCP\AppFramework\Utility\ITimeFactory;
-use OCP\EventDispatcher\IEventDispatcher;
-use OCP\IAppConfig;
 use OCP\ICache;
-use OCP\ICacheFactory;
 use OCP\IConfig;
 use OCP\IRequest;
 use OCP\IRequestId;
@@ -87,24 +84,14 @@ class CredentialUseBenchmarkTest extends IntegrationTestCase {
 	}
 
 	private function guard(ICache $cache, bool $distributed): CredentialUseGuard {
-		$factory = $this->createMock(ICacheFactory::class);
-		$factory->method('isAvailable')->willReturn($distributed);
-		$factory->method('isLocalCacheAvailable')->willReturn(true);
-		$factory->method('createLocal')->willReturn($cache);
-		$factory->method('createDistributed')->willReturn($cache);
-		$settings = new Settings(
-			Server::get(IAppConfig::class),
-			Server::get(CheckRegistry::class),
-			Server::get(ITimeFactory::class),
-			new Prerequisites($factory, Server::get(IConfig::class)),
-			Server::get(GlobalSettings::class),
-			Server::get(IEventDispatcher::class),
-		);
+		$factory = new FixedCaches($cache, $cache, $distributed);
+		[$settings] = $this->settingsOn(new Prerequisites($factory, Server::get(IConfig::class), new CoreHooks()));
 		return new CredentialUseGuard(
 			Server::get(IConfig::class),
+			$this->appSettings(),
 			$settings,
 			Server::get(Fingerprinter::class),
-			$this->tracker = new CredentialTracker($factory, $settings),
+			$this->tracker = new CredentialTracker($factory, $settings, new KeyLock($factory)),
 			$this->addressGuardRan(),
 			Server::get(ITimeFactory::class),
 			Server::get(ContainerInterface::class),
@@ -118,7 +105,7 @@ class CredentialUseBenchmarkTest extends IntegrationTestCase {
 	 */
 	private function addressGuardRan(): RequestContext {
 		$context = new RequestContext();
-		$context->setVerdict(new Verdict());
+		$context->set(Verdict::CONTEXT_KEY, new Verdict());
 		return $context;
 	}
 

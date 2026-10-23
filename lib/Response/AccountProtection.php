@@ -9,12 +9,12 @@ declare(strict_types=1);
 
 namespace OCA\IntrusionDetection\Response;
 
-use OCA\IntrusionDetection\AppInfo\Application;
 use OCA\IntrusionDetection\Audit\AuditLogger;
-use OCA\IntrusionDetection\Db\ProtectedAccountMapper;
+use OCA\IntrusionDetection\Cache\Caches;
+use OCA\IntrusionDetection\Crypto\Fingerprinter;
+use OCA\IntrusionDetection\Db\IPurges;
+use OCA\IntrusionDetection\Response\Db\ProtectedAccountMapper;
 use OCP\AppFramework\Utility\ITimeFactory;
-use OCP\ICache;
-use OCP\ICacheFactory;
 
 /**
  * Accounts under extra protection: while an account is protected, every
@@ -25,19 +25,27 @@ use OCP\ICacheFactory;
  * per account for CACHE_TTL seconds when a memory cache exists. A change made
  * on another web server with only a local cache is seen within that time.
  */
-class AccountProtection {
+class AccountProtection implements IPurges {
+	/** The namespace of its memory cache in {@see Caches} */
+	public const CACHE = 'protected-accounts';
 	public const REASON_UNDER_ATTACK = 'under_attack';
 	public const CACHE_TTL = 60;
-
-	private ?ICache $cache = null;
-	private bool $cacheInitialised = false;
 
 	public function __construct(
 		private readonly ProtectedAccountMapper $mapper,
 		private readonly ITimeFactory $timeFactory,
-		private readonly ICacheFactory $cacheFactory,
+		private readonly Caches $caches,
 		private readonly AuditLogger $audit,
+		private readonly Fingerprinter $fingerprinter,
 	) {
+	}
+
+	/**
+	 * Delete the protections that ended.
+	 */
+	#[\Override]
+	public function purge(int $now): int {
+		return $this->mapper->deleteExpired($now);
 	}
 
 	/**
@@ -45,10 +53,10 @@ class AccountProtection {
 	 *
 	 * @return int when the protection ends now
 	 */
-	public function protect(string $uid, int $until, string $reason = self::REASON_UNDER_ATTACK, ?int $detectionId = null): int {
+	public function protect(string $uid, int $until, string $reason = self::REASON_UNDER_ATTACK, ?string $detectionId = null): int {
 		$now = $this->timeFactory->getTime();
 		$this->mapper->protect($uid, $reason, $detectionId, $now, $until);
-		$this->cache()?->remove($this->key($uid));
+		$this->caches->shared(self::CACHE)?->remove($this->key($uid));
 		return $this->protectedUntil($uid) ?? $until;
 	}
 
@@ -65,7 +73,7 @@ class AccountProtection {
 	 */
 	public function protectedUntil(string $uid): ?int {
 		$now = $this->timeFactory->getTime();
-		$cache = $this->cache();
+		$cache = $this->caches->shared(self::CACHE);
 		$cached = $cache?->get($this->key($uid));
 		if (is_int($cached)) {
 			return $cached > $now ? $cached : null;
@@ -77,7 +85,7 @@ class AccountProtection {
 	}
 
 	/**
-	 * @return ?array{uid: string, reason: string, detection_id: ?int, created_at: int, expires_at: int} the active protection
+	 * @return ?array{uid: string, reason: string, detection_id: ?string, created_at: int, expires_at: int} the active protection
 	 */
 	public function get(string $uid): ?array {
 		$row = $this->mapper->find($uid);
@@ -85,10 +93,10 @@ class AccountProtection {
 	}
 
 	/**
-	 * @return list<array{uid: string, reason: string, detection_id: ?int, created_at: int, expires_at: int}>
+	 * @return list<array{uid: string, reason: string, detection_id: ?string, created_at: int, expires_at: int}>
 	 */
-	public function active(): array {
-		return $this->mapper->findActive($this->timeFactory->getTime());
+	public function active(int $limit = 200): array {
+		return $this->mapper->findActive($this->timeFactory->getTime(), $limit);
 	}
 
 	/**
@@ -99,7 +107,7 @@ class AccountProtection {
 	public function end(string $uid, string $actor): bool {
 		$active = $this->get($uid) !== null;
 		$this->mapper->delete($uid);
-		$this->cache()?->remove($this->key($uid));
+		$this->caches->shared(self::CACHE)?->remove($this->key($uid));
 		if ($active) {
 			$this->audit->log('protection of account %s ended early by %s', ['uid' => $uid, 'actor' => $actor]);
 		}
@@ -107,18 +115,6 @@ class AccountProtection {
 	}
 
 	private function key(string $uid): string {
-		return 'prot:' . hash('sha256', $uid);
-	}
-
-	private function cache(): ?ICache {
-		if (!$this->cacheInitialised) {
-			$this->cacheInitialised = true;
-			if ($this->cacheFactory->isAvailable()) {
-				$this->cache = $this->cacheFactory->createDistributed(Application::APP_ID);
-			} elseif ($this->cacheFactory->isLocalCacheAvailable()) {
-				$this->cache = $this->cacheFactory->createLocal(Application::APP_ID);
-			}
-		}
-		return $this->cache;
+		return 'prot:' . $this->fingerprinter->lookup($uid);
 	}
 }

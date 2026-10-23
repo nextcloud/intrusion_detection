@@ -9,11 +9,12 @@ declare(strict_types=1);
 
 namespace OCA\IntrusionDetection\Tests\Unit\Confirm;
 
-use OCA\IntrusionDetection\Check\InvalidParamException;
-use OCA\IntrusionDetection\Config\Settings;
+use OCA\IntrusionDetection\Config\AppSettings;
+use OCA\IntrusionDetection\Configure\SettingsEditor;
 use OCA\IntrusionDetection\Confirm\NoMethodOutcome;
 use OCA\IntrusionDetection\Confirm\NoMethodPreset;
 use OCA\IntrusionDetection\Confirm\StepUpPolicy;
+use OCA\IntrusionDetection\Definition\InvalidParamException;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\MockObject\MockObject;
 use Test\TestCase;
@@ -23,11 +24,13 @@ use Test\TestCase;
  * written at once, and a mix set per reason is "custom".
  */
 class NoMethodPresetTest extends TestCase {
-	private Settings&MockObject $settings;
+	private AppSettings&MockObject $settings;
+	private SettingsEditor&MockObject $editor;
 
 	protected function setUp(): void {
 		parent::setUp();
-		$this->settings = $this->createMock(Settings::class);
+		$this->settings = $this->createMock(AppSettings::class);
+		$this->editor = $this->createMock(SettingsEditor::class);
 	}
 
 	/**
@@ -69,16 +72,16 @@ class NoMethodPresetTest extends TestCase {
 
 	#[DataProvider('unknown')]
 	public function testOnlyThePresetsCanBeSet(string $preset): void {
-		$this->settings->expects($this->never())->method('updateGlobals');
+		$this->editor->expects($this->never())->method('updateGlobals');
 		$this->expectException(InvalidParamException::class);
-		(new NoMethodPreset($this->settings))->apply($preset);
+		(new NoMethodPreset($this->settings, $this->editor))->apply($preset);
 	}
 
 	public function testApplyWritesEveryReasonInOneValidatedCall(): void {
-		$this->settings->expects($this->once())->method('updateGlobals')
+		$this->editor->expects($this->once())->method('updateGlobals')
 			->with(NoMethodPreset::outcomes(NoMethodPreset::REFUSE))
 			->willReturn(['step_up_no_method_protected_account' => 'refuse']);
-		$this->assertSame(['step_up_no_method_protected_account' => 'refuse'], (new NoMethodPreset($this->settings))->apply(NoMethodPreset::REFUSE));
+		$this->assertSame(['step_up_no_method_protected_account' => 'refuse'], (new NoMethodPreset($this->settings, $this->editor))->apply(NoMethodPreset::REFUSE));
 	}
 
 	/**
@@ -91,14 +94,14 @@ class NoMethodPresetTest extends TestCase {
 	#[DataProvider('presets')]
 	public function testTheStoredOutcomesNameTheirPreset(string $preset): void {
 		$stored = NoMethodPreset::outcomes($preset);
-		$this->settings->method('global')->willReturnCallback(static fn (string $name): string => $stored[$name]);
-		$this->assertSame($preset, (new NoMethodPreset($this->settings))->current());
+		$this->settings->method('stepUpNoMethod')->willReturnCallback(static fn (string $policy): string => $stored['step_up_no_method_' . $policy]);
+		$this->assertSame($preset, (new NoMethodPreset($this->settings, $this->editor))->current());
 	}
 
 	public function testAMixSetPerReasonIsCustom(): void {
 		$stored = NoMethodPreset::outcomes(NoMethodPreset::REFUSE);
 		$stored[StepUpPolicy::RiskyNetwork->settingKey()] = NoMethodOutcome::AllowNotify->value;
-		$this->settings->method('global')->willReturnCallback(static fn (string $name): string => $stored[$name]);
-		$this->assertSame(NoMethodPreset::CUSTOM, (new NoMethodPreset($this->settings))->current());
+		$this->settings->method('stepUpNoMethod')->willReturnCallback(static fn (string $policy): string => $stored['step_up_no_method_' . $policy]);
+		$this->assertSame(NoMethodPreset::CUSTOM, (new NoMethodPreset($this->settings, $this->editor))->current());
 	}
 }

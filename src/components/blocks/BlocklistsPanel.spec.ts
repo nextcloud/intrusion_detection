@@ -19,11 +19,6 @@ vi.mock('../../services/api.ts', async (importOriginal) => ({
 	updateBlocklist: vi.fn(),
 }))
 
-vi.mock('../../store.ts', async (importOriginal) => ({
-	...(await importOriginal<object>()),
-	refreshStatus: vi.fn(),
-}))
-
 const check = (id: string): CheckRef => ({ id, name: id, mode: { configured: 'observe', effective: 'observe', reason: null, missing: null, default: 'observe' } })
 
 /**
@@ -43,6 +38,7 @@ function list(id: string, builtin: boolean): Blocklist {
 		interval: 21600,
 		customInterval: false,
 		termsUrl: null,
+		sha256: null,
 		reference: null,
 		ranges: 10,
 		entries: 10,
@@ -100,9 +96,12 @@ describe('the blocklists', () => {
 		const wrapper = await mountPanel({ check: off })
 		const note = wrapper.get('[data-test="deny-check-off"]')
 		expect(note.text()).toContain('are not downloaded')
+		vi.mocked(fetchBlocklists).mockClear().mockResolvedValue(structuredClone(lists))
 		await note.get('button').trigger('click')
 		await flushPromises()
 		expect(updateCheck).toHaveBeenCalledWith('blocklist', { mode: 'observe' })
+		// The store loads the lists again, with the check as it is now.
+		expect(fetchBlocklists).toHaveBeenCalledTimes(1)
 		expect(wrapper.find('[data-test="deny-check-off"]').exists()).toBe(false)
 	})
 
@@ -125,5 +124,20 @@ describe('the blocklists', () => {
 		await flushPromises()
 		expect((radios[0]!.element as HTMLInputElement).checked).toBe(true)
 		expect((radios[1]!.element as HTMLInputElement).checked).toBe(false)
+	})
+
+	test('your own list can pin the checksum of its file; a built-in list cannot', async () => {
+		const pin = 'ab'.repeat(32)
+		vi.mocked(updateBlocklist).mockResolvedValue({ ...list('corp', false), sha256: pin })
+		const wrapper = await mountPanel()
+		const forms = wrapper.findAll('form').filter((form) => form.text().includes('SHA-256 of the file'))
+		expect(forms).toHaveLength(1)
+		const field = forms[0]!.get('input')
+		await field.setValue('nope')
+		expect(forms[0]!.text()).toContain('A SHA-256 checksum has 64 hexadecimal characters.')
+		await field.setValue(' ' + pin.toUpperCase() + ' ')
+		await forms[0]!.trigger('submit')
+		await flushPromises()
+		expect(updateBlocklist).toHaveBeenCalledWith('corp', { sha256: pin.toUpperCase() })
 	})
 })

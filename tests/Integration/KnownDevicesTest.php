@@ -12,18 +12,18 @@ namespace OCA\IntrusionDetection\Tests\Integration;
 use OCA\IntrusionDetection\AppInfo\Application;
 use OCA\IntrusionDetection\BackgroundJob\Cleanup;
 use OCA\IntrusionDetection\Config\GlobalSettings;
-use OCA\IntrusionDetection\Confirm\StepUpState;
+use OCA\IntrusionDetection\Confirm\ConfirmationStatus;
 use OCA\IntrusionDetection\Crypto\Fingerprinter;
 use OCA\IntrusionDetection\Db\Detection;
-use OCA\IntrusionDetection\Db\KnownDeviceMapper;
 use OCA\IntrusionDetection\Event\WasThisYouAnsweredEvent;
+use OCA\IntrusionDetection\KnownDevice\Db\KnownDeviceMapper;
 use OCA\IntrusionDetection\KnownDevice\DeviceCookie;
 use OCA\IntrusionDetection\KnownDevice\KnownDevices;
 use OCA\IntrusionDetection\Listener\KnownDeviceListener;
+use OCA\IntrusionDetection\Login\SessionMarkers;
 use OCA\IntrusionDetection\Net\SourceKey;
 use OCA\IntrusionDetection\Privacy\UserDataCleanup;
 use OCA\IntrusionDetection\Response\FlaggedSources;
-use OCA\IntrusionDetection\SessionState\SessionState;
 use OCP\AppFramework\Http\StandaloneTemplateResponse;
 use OCP\AppFramework\Utility\ITimeFactory;
 use OCP\IUser;
@@ -85,9 +85,9 @@ class KnownDevicesTest extends StepUpTestCase {
 	public function testARememberedDeviceConfirmsTheNextLoginSilently(): void {
 		$this->rememberDevice();
 		$this->mailed = [];
-		$this->freshLogin(StepUpState::PENDING, expectPending: false);
+		$this->freshLogin(ConfirmationStatus::Pending, expectPending: false);
 		$this->assertNull($this->stepUp(), 'Nothing is asked');
-		$this->assertSame('known_device', $this->state->get(SessionState::CONFIRMATION)['by'] ?? null);
+		$this->assertSame('known_device', $this->state->get(SessionMarkers::CONFIRMATION)['by'] ?? null);
 		$this->assertSame([], $this->mailed, 'No code is sent');
 	}
 
@@ -103,12 +103,12 @@ class KnownDevicesTest extends StepUpTestCase {
 
 	public function testTheSettingsDecideWhetherADeviceCounts(): void {
 		$this->rememberDevice();
-		$this->settings->setGlobal(GlobalSettings::STEP_UP_KNOWN_DEVICE_OK_FOR, ['protected_account']);
+		$this->settingsEditor()->setGlobal(GlobalSettings::STEP_UP_KNOWN_DEVICE_OK_FOR, ['protected_account']);
 		$this->freshLogin();
 		$this->assertSame(['email_code'], $this->stepUp()?->methods);
 
-		$this->settings->setGlobal(GlobalSettings::STEP_UP_KNOWN_DEVICE_OK_FOR, ['flagged_source']);
-		$this->settings->setGlobal(GlobalSettings::KNOWN_DEVICE_ENABLED, false);
+		$this->settingsEditor()->setGlobal(GlobalSettings::STEP_UP_KNOWN_DEVICE_OK_FOR, ['flagged_source']);
+		$this->settingsEditor()->setGlobal(GlobalSettings::KNOWN_DEVICE_ENABLED, false);
 		$this->freshLogin();
 		$this->assertSame(['email_code'], $this->stepUp()?->methods, 'Switched off: no device is recognised');
 		$page = $this->verifyController()->show();
@@ -181,10 +181,10 @@ class KnownDevicesTest extends StepUpTestCase {
 	public function testACredentialUsedFromTwoNetworksForgetsTheCurrentDevice(): void {
 		$this->rememberDevice();
 		$this->deviceCookiesSet = [];
-		$this->knownDevices()->forgetCurrentDevice($this->alice->getUID(), 99);
+		$this->knownDevices()->forgetCurrentDevice($this->alice->getUID(), '99');
 		$this->assertSame(0, $this->deviceRows());
 		$this->assertSame(1, $this->deviceCookiesSet[0][1] ?? null, 'The cookie is cleared');
-		$this->knownDevices()->forgetCurrentDevice($this->alice->getUID(), 99);
+		$this->knownDevices()->forgetCurrentDevice($this->alice->getUID(), '99');
 		$this->assertCount(1, $this->deviceCookiesSet, 'Nothing left to forget');
 	}
 
@@ -215,7 +215,7 @@ class KnownDevicesTest extends StepUpTestCase {
 	/**
 	 * A login with the password from the flagged address, in a new session.
 	 */
-	private function freshLogin(string $status = StepUpState::PENDING, bool $expectPending = true): void {
+	private function freshLogin(ConfirmationStatus $status = ConfirmationStatus::Pending, bool $expectPending = true): void {
 		$this->session->clear();
 		$this->nextRequest();
 		$this->startSession($this->alice);

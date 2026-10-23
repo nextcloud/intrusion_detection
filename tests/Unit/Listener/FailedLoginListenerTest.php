@@ -9,25 +9,27 @@ declare(strict_types=1);
 
 namespace OCA\IntrusionDetection\Tests\Unit\Listener;
 
-use OCA\IntrusionDetection\Check\Checks\AccountUnderAttackDetector;
-use OCA\IntrusionDetection\Check\Checks\CredentialStuffingDetector;
-use OCA\IntrusionDetection\Check\Checks\DecoyCredentialDetector;
-use OCA\IntrusionDetection\Check\Checks\PasswordSprayingDetector;
-use OCA\IntrusionDetection\Check\Checks\ReservedNameDetector;
-use OCA\IntrusionDetection\Check\Mode;
-use OCA\IntrusionDetection\Config\ModeState;
-use OCA\IntrusionDetection\Config\Settings;
+use OCA\IntrusionDetection\Check\Checks\AccountUnderAttack\AccountUnderAttackDetector;
+use OCA\IntrusionDetection\Config\AppSettings;
+use OCA\IntrusionDetection\Crypto\Fingerprinter;
 use OCA\IntrusionDetection\Db\AttemptKind;
 use OCA\IntrusionDetection\Detection\AttemptRecord;
 use OCA\IntrusionDetection\Detection\AttemptRecorder;
 use OCA\IntrusionDetection\Listener\FailedLoginListener;
+use OCA\IntrusionDetection\Login\EmailAccounts;
 use OCA\IntrusionDetection\Net\RemoteAddressResolver;
 use OCA\IntrusionDetection\Net\SourceKey;
 use OCA\IntrusionDetection\Personal\FailedLoginStats;
 use OCA\IntrusionDetection\Risk\RiskScorer;
+use OCA\IntrusionDetection\Signal\Dispatch;
+use OCA\IntrusionDetection\Signal\FailedLogin;
+use OCA\IntrusionDetection\Signal\FailedLoginAttempt;
+use OCA\IntrusionDetection\Signal\SignalDispatcher;
+use OCA\IntrusionDetection\Tests\Unit\Cache\FixedCaches;
 use OCP\Authentication\Events\AnyLoginFailedEvent;
 use OCP\IRequest;
 use OCP\IUserManager;
+use OCP\Server;
 use PHPUnit\Framework\Attributes\DataProvider;
 use Psr\Log\LoggerInterface;
 use Test\TestCase;
@@ -52,85 +54,85 @@ class FailedLoginListenerTest extends TestCase {
 		$this->assertSame($kind, FailedLoginListener::kindOf($password));
 	}
 
-	public function testAFailingDetectorIsLoggedAndTheOthersStillRun(): void {
-		$settings = $this->createMock(Settings::class);
-		$settings->method('isEnabled')->willReturn(true);
-		$settings->method('modeState')->willReturn(new ModeState(Mode::Protect, Mode::Protect));
-		$addresses = $this->createMock(RemoteAddressResolver::class);
-		$addresses->method('current')->willReturn(SourceKey::fromIp('198.51.100.7'));
-		$source = SourceKey::fromIp('198.51.100.7');
+	public function testAFinalDetectionEndsTheChainBeforeTheAttemptIsRecorded(): void {
+		$dispatcher = $this->createMock(SignalDispatcher::class);
+		$dispatcher->expects($this->once())->method('dispatch')->with($this->isInstanceOf(FailedLogin::class))->willReturn(new Dispatch([], true));
+		$dispatcher->expects($this->never())->method('runs');
 		$recorder = $this->createMock(AttemptRecorder::class);
-		$recorder->method('record')->willReturn(new AttemptRecord(AttemptKind::PasswordLogin, $source, 'aa', null, null, 'bb', ['bb'], time(), true));
-		$spraying = $this->createMock(PasswordSprayingDetector::class);
-		$spraying->method('detect')->willThrowException(new \RuntimeException('database gone'));
-		$stuffing = $this->createMock(CredentialStuffingDetector::class);
-		$stuffing->expects($this->once())->method('detect');
-		$accountUnderAttack = $this->createMock(AccountUnderAttackDetector::class);
-		$accountUnderAttack->expects($this->once())->method('detect');
-		$logger = $this->createMock(LoggerInterface::class);
-		$logger->expects($this->once())->method('error')->with($this->anything(), $this->callback(
-			static fn (array $context): bool => $context['step'] === 'password_spraying',
-		));
+		$recorder->expects($this->never())->method('record');
 
-		$listener = new FailedLoginListener(
-			$settings, $addresses, $recorder, $this->createMock(DecoyCredentialDetector::class), $this->createMock(ReservedNameDetector::class),
-			$stuffing, $spraying, $accountUnderAttack, $this->createMock(RiskScorer::class),
-			$this->createMock(IUserManager::class), $this->createMock(IRequest::class), $logger,
-			$this->createMock(FailedLoginStats::class),
-			$this->createMock(\OCA\IntrusionDetection\Login\EmailAccounts::class),
-		);
-		$listener->handle(new AnyLoginFailedEvent('alice', 'secret'));
+		$this->listener($dispatcher, $recorder)->handle(new AnyLoginFailedEvent('alice', 'secret'));
+	}
+
+	public function testTheAttemptIsRecordedAndJudgedWhileACheckReadsIt(): void {
+		$source = SourceKey::fromIp('198.51.100.7');
+		$attempt = new AttemptRecord(AttemptKind::PasswordLogin, $source, 'aa', null, null, 'bb', ['bb'], time(), true);
+		$dispatched = [];
+		$dispatcher = $this->createMock(SignalDispatcher::class);
+		$dispatcher->method('dispatch')->willReturnCallback(static function (object $signal) use (&$dispatched): Dispatch {
+			$dispatched[] = $signal;
+			return new Dispatch([], false);
+		});
+		$dispatcher->method('runs')->willReturn(true);
+		$recorder = $this->createMock(AttemptRecorder::class);
+		$recorder->expects($this->once())->method('record')->willReturn($attempt);
+
+		$this->listener($dispatcher, $recorder)->handle(new AnyLoginFailedEvent('alice', 'secret'));
+		$this->assertCount(2, $dispatched);
+		$this->assertInstanceOf(FailedLogin::class, $dispatched[0]);
+		$this->assertInstanceOf(FailedLoginAttempt::class, $dispatched[1]);
+		$this->assertSame($attempt, $dispatched[1]->attempt);
+	}
+
+	public function testNoAttemptIsRecordedWhileNoCheckReadsIt(): void {
+		$dispatcher = $this->createMock(SignalDispatcher::class);
+		$dispatcher->expects($this->once())->method('dispatch')->willReturn(new Dispatch([], false));
+		$dispatcher->method('runs')->willReturn(false);
+		$recorder = $this->createMock(AttemptRecorder::class);
+		$recorder->expects($this->never())->method('record');
+
+		$this->listener($dispatcher, $recorder)->handle(new AnyLoginFailedEvent('alice', 'secret'));
 	}
 
 	public function testABypassListedSourceIsIgnoredEntirely(): void {
-		$settings = $this->createMock(Settings::class);
-		$settings->method('isEnabled')->willReturn(true);
 		$addresses = $this->createMock(RemoteAddressResolver::class);
 		$addresses->method('current')->willReturn(SourceKey::fromIp('198.51.100.7'));
 		$addresses->method('isBypassListed')->willReturn(true);
+		$dispatcher = $this->createMock(SignalDispatcher::class);
+		$dispatcher->expects($this->never())->method('dispatch');
 		$recorder = $this->createMock(AttemptRecorder::class);
 		$recorder->expects($this->never())->method('record');
-		$decoys = $this->createMock(DecoyCredentialDetector::class);
-		$decoys->expects($this->never())->method('detect');
-		$reserved = $this->createMock(ReservedNameDetector::class);
-		$reserved->expects($this->never())->method('detect');
 
-		$listener = new FailedLoginListener(
-			$settings, $addresses, $recorder, $decoys, $reserved,
-			$this->createMock(CredentialStuffingDetector::class), $this->createMock(PasswordSprayingDetector::class), $this->createMock(AccountUnderAttackDetector::class),
-			$this->createMock(RiskScorer::class),
-			$this->createMock(IUserManager::class), $this->createMock(IRequest::class), $this->createMock(LoggerInterface::class),
-			$this->createMock(FailedLoginStats::class),
-			$this->createMock(\OCA\IntrusionDetection\Login\EmailAccounts::class),
-		);
-		$listener->handle(new AnyLoginFailedEvent('admin', 'secret'));
+		$this->listener($dispatcher, $recorder, addresses: $addresses)->handle(new AnyLoginFailedEvent('admin', 'secret'));
 	}
 
 	public function testAnEmailIsOnlyLookedUpForTheChecksThatCountPerAccountEvenWithAMemoryCache(): void {
-		$settings = $this->createMock(Settings::class);
-		$settings->method('isEnabled')->willReturn(true);
-		$settings->method('modeState')->willReturnCallback(static fn (string $id): ModeState => $id === \OCA\IntrusionDetection\Check\Checks\AccountUnderAttack::ID
-			? new ModeState(Mode::Off, Mode::Off)
-			: new ModeState(Mode::Protect, Mode::Protect));
-		$addresses = $this->createMock(RemoteAddressResolver::class);
-		$addresses->method('current')->willReturn(SourceKey::fromIp('198.51.100.7'));
+		$dispatcher = $this->createMock(SignalDispatcher::class);
+		$dispatcher->method('dispatch')->willReturn(new Dispatch([], false));
+		$dispatcher->method('runs')->willReturnCallback(static fn (string $signal, ?string $detector = null): bool => $detector !== AccountUnderAttackDetector::class);
 		$recorder = $this->createMock(AttemptRecorder::class);
 		$recorder->expects($this->once())->method('record')->with(AttemptKind::PasswordLogin, $this->anything(), 'alice@example.com', null)
 			->willReturn(new AttemptRecord(AttemptKind::PasswordLogin, SourceKey::fromIp('198.51.100.7'), 'aa', null, null, 'bb', ['bb'], time(), true));
 		$users = $this->createMock(IUserManager::class);
 		$users->method('getUserNameFromLoginName')->willReturnArgument(0);
 		$users->expects($this->never())->method('getByEmail');
-		$cached = $this->createMock(\OCP\ICacheFactory::class);
-		$cached->method('isAvailable')->willReturn(true);
-		$cached->method('createDistributed')->willReturn(new \OC\Memcache\ArrayCache());
-		$emails = new \OCA\IntrusionDetection\Login\EmailAccounts($users, $cached);
 
-		$listener = new FailedLoginListener(
-			$settings, $addresses, $recorder, $this->createMock(DecoyCredentialDetector::class), $this->createMock(ReservedNameDetector::class),
-			$this->createMock(CredentialStuffingDetector::class), $this->createMock(PasswordSprayingDetector::class), $this->createMock(AccountUnderAttackDetector::class),
-			$this->createMock(RiskScorer::class), $users, $this->createMock(IRequest::class), $this->createMock(LoggerInterface::class),
-			$this->createMock(FailedLoginStats::class), $emails,
+		$this->listener($dispatcher, $recorder, $users)->handle(new AnyLoginFailedEvent('alice@example.com', 'secret'));
+	}
+
+	private function listener(SignalDispatcher $dispatcher, AttemptRecorder $recorder, ?IUserManager $users = null, ?RemoteAddressResolver $addresses = null): FailedLoginListener {
+		$appSettings = $this->createMock(AppSettings::class);
+		$appSettings->method('isEnabled')->willReturn(true);
+		if ($addresses === null) {
+			$addresses = $this->createMock(RemoteAddressResolver::class);
+			$addresses->method('current')->willReturn(SourceKey::fromIp('198.51.100.7'));
+		}
+		$users ??= $this->createMock(IUserManager::class);
+		return new FailedLoginListener(
+			$appSettings, $addresses, $dispatcher, $recorder, $this->createMock(RiskScorer::class),
+			$users, $this->createMock(IRequest::class), $this->createMock(LoggerInterface::class),
+			$this->createMock(FailedLoginStats::class),
+			new EmailAccounts($users, new FixedCaches(new \OC\Memcache\ArrayCache()), Server::get(Fingerprinter::class)),
 		);
-		$listener->handle(new AnyLoginFailedEvent('alice@example.com', 'secret'));
 	}
 }

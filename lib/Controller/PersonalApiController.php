@@ -10,19 +10,18 @@ declare(strict_types=1);
 namespace OCA\IntrusionDetection\Controller;
 
 use OCA\IntrusionDetection\AppInfo\Application;
-use OCA\IntrusionDetection\Config\GlobalSettings;
-use OCA\IntrusionDetection\Config\Settings;
-use OCA\IntrusionDetection\Db\LoginHistoryMapper;
-use OCA\IntrusionDetection\Db\SecurityChangeMapper;
+use OCA\IntrusionDetection\Config\AppSettings;
 use OCA\IntrusionDetection\Guide\SecureAccountGuide;
 use OCA\IntrusionDetection\Guide\SecureAccountOverview;
 use OCA\IntrusionDetection\KnownDevice\KnownDevices;
+use OCA\IntrusionDetection\Login\CoreSession;
+use OCA\IntrusionDetection\LoginHistory\LoginHistory;
 use OCA\IntrusionDetection\LoginHistory\LoginHistoryEntry;
 use OCA\IntrusionDetection\Personal\LogOutElsewhere;
 use OCA\IntrusionDetection\Personal\PersonalActivity;
 use OCA\IntrusionDetection\Personal\PersonalOverview;
 use OCA\IntrusionDetection\ResponseDefinitions;
-use OCA\IntrusionDetection\SessionState\CurrentSession;
+use OCA\IntrusionDetection\Takeover\Db\SecurityChangeMapper;
 use OCA\IntrusionDetection\TrustedNetwork\TrustedNetworks;
 use OCA\IntrusionDetection\WasThisYou\AnswerException;
 use OCA\IntrusionDetection\WasThisYou\PersonalDetections;
@@ -57,7 +56,7 @@ use OCP\IUserSession;
  *
  * @psalm-import-type IntrusionDetectionPersonalDetection from ResponseDefinitions
  * @psalm-import-type IntrusionDetectionTrustedNetwork from ResponseDefinitions
- * @psalm-import-type IntrusionDetectionAnswerError from ResponseDefinitions
+ * @psalm-import-type IntrusionDetectionError from ResponseDefinitions
  * @psalm-import-type IntrusionDetectionKnownDevice from ResponseDefinitions
  * @psalm-import-type IntrusionDetectionLogin from ResponseDefinitions
  * @psalm-import-type IntrusionDetectionSecurityChange from ResponseDefinitions
@@ -80,12 +79,12 @@ class PersonalApiController extends OCSController {
 		private readonly TrustedNetworks $trustedNetworks,
 		private readonly IL10N $l,
 		private readonly KnownDevices $knownDevices,
-		private readonly LoginHistoryMapper $loginHistory,
-		private readonly CurrentSession $currentSession,
+		private readonly LoginHistory $loginHistory,
+		private readonly CoreSession $coreSession,
 		private readonly SecureAccountGuide $guide,
 		private readonly SecureAccountOverview $overview,
 		private readonly SecurityChangeMapper $changes,
-		private readonly Settings $settings,
+		private readonly AppSettings $settings,
 		private readonly ITimeFactory $timeFactory,
 		private readonly PersonalOverview $personalOverview,
 		private readonly LogOutElsewhere $logOutElsewhere,
@@ -113,8 +112,8 @@ class PersonalApiController extends OCSController {
 	/**
 	 * Answer "No, it was not me": end the sessions linked to the event, block its address and tell the administrators
 	 *
-	 * @param int $id the event
-	 * @return DataResponse<Http::STATUS_OK, IntrusionDetectionPersonalDetection, array{}>|DataResponse<Http::STATUS_BAD_REQUEST|Http::STATUS_FORBIDDEN|Http::STATUS_NOT_FOUND|Http::STATUS_CONFLICT, IntrusionDetectionAnswerError, array{}>
+	 * @param string $id the event
+	 * @return DataResponse<Http::STATUS_OK, IntrusionDetectionPersonalDetection, array{}>|DataResponse<Http::STATUS_BAD_REQUEST|Http::STATUS_FORBIDDEN|Http::STATUS_NOT_FOUND|Http::STATUS_CONFLICT, IntrusionDetectionError, array{}>
 	 *
 	 * 200: The answer was taken; from a session whose login proved only the password, or with an app password, the administrators were told and the event stays open (no verdict)
 	 * 400: The event does not ask
@@ -125,20 +124,16 @@ class PersonalApiController extends OCSController {
 	#[NoAdminRequired]
 	#[UserRateLimit(limit: 20, period: 600)]
 	#[ApiRoute(verb: 'POST', url: '/api/v1/personal/detections/{id}/deny', requirements: ['id' => '\d+'])]
-	public function deny(int $id): DataResponse {
+	public function deny(string $id): DataResponse {
 		$user = $this->user();
-		try {
-			return new DataResponse($this->detections->present($this->answers->deny($user, $id), $user));
-		} catch (AnswerException $e) {
-			return $this->error($e, false);
-		}
+		return new DataResponse($this->detections->present($this->answers->deny($user, $id), $user));
 	}
 
 	/**
 	 * Answer "Yes, it was me": trust the event's network for a while
 	 *
-	 * @param int $id the event
-	 * @return DataResponse<Http::STATUS_OK, IntrusionDetectionPersonalDetection, array{}>|DataResponse<Http::STATUS_BAD_REQUEST|Http::STATUS_FORBIDDEN|Http::STATUS_NOT_FOUND|Http::STATUS_CONFLICT, IntrusionDetectionAnswerError, array{}>
+	 * @param string $id the event
+	 * @return DataResponse<Http::STATUS_OK, IntrusionDetectionPersonalDetection, array{}>|DataResponse<Http::STATUS_BAD_REQUEST|Http::STATUS_FORBIDDEN|Http::STATUS_NOT_FOUND|Http::STATUS_CONFLICT, IntrusionDetectionError, array{}>
 	 *
 	 * 200: The answer was taken
 	 * 400: The event does not ask
@@ -150,13 +145,9 @@ class PersonalApiController extends OCSController {
 	#[PasswordConfirmationRequired]
 	#[UserRateLimit(limit: 20, period: 600)]
 	#[ApiRoute(verb: 'POST', url: '/api/v1/personal/detections/{id}/confirm', requirements: ['id' => '\d+'])]
-	public function confirm(int $id): DataResponse {
+	public function confirm(string $id): DataResponse {
 		$user = $this->user();
-		try {
-			return new DataResponse($this->detections->present($this->answers->confirm($user, $id), $user));
-		} catch (AnswerException $e) {
-			return $this->error($e, true);
-		}
+		return new DataResponse($this->detections->present($this->answers->confirm($user, $id), $user));
 	}
 
 	/**
@@ -178,8 +169,8 @@ class PersonalApiController extends OCSController {
 	/**
 	 * Stop trusting one of the current user's networks
 	 *
-	 * @param int $id the entry
-	 * @return DataResponse<Http::STATUS_OK, array{removed: int}, array{}>|DataResponse<Http::STATUS_NOT_FOUND, IntrusionDetectionAnswerError, array{}>
+	 * @param string $id the entry
+	 * @return DataResponse<Http::STATUS_OK, array{removed: string}, array{}>|DataResponse<Http::STATUS_NOT_FOUND, IntrusionDetectionError, array{}>
 	 * @throws OCSNotFoundException The security page is switched off
 	 *
 	 * 200: Removed
@@ -188,11 +179,11 @@ class PersonalApiController extends OCSController {
 	#[NoAdminRequired]
 	#[UserRateLimit(limit: 20, period: 600)]
 	#[ApiRoute(verb: 'DELETE', url: '/api/v1/personal/trusted-networks/{id}', requirements: ['id' => '\d+'])]
-	public function removeTrustedNetwork(int $id): DataResponse {
+	public function removeTrustedNetwork(string $id): DataResponse {
 		$this->requirePage();
 		$uid = $this->user()->getUID();
 		if (!$this->trustedNetworks->remove($uid, $id)) {
-			return new DataResponse(['reason' => AnswerException::NOT_FOUND, 'message' => $this->l->t('This network is not one of your trusted networks.')], Http::STATUS_NOT_FOUND);
+			return $this->error($this->l->t('This network is not one of your trusted networks.'), AnswerException::NOT_FOUND, Http::STATUS_NOT_FOUND);
 		}
 		return new DataResponse(['removed' => $id]);
 	}
@@ -218,8 +209,8 @@ class PersonalApiController extends OCSController {
 	 *
 	 * Its logins are asked for a confirmation again where needed.
 	 *
-	 * @param int $id the device
-	 * @return DataResponse<Http::STATUS_OK, array{removed: int}, array{}>|DataResponse<Http::STATUS_NOT_FOUND, IntrusionDetectionAnswerError, array{}>
+	 * @param string $id the device
+	 * @return DataResponse<Http::STATUS_OK, array{removed: string}, array{}>|DataResponse<Http::STATUS_NOT_FOUND, IntrusionDetectionError, array{}>
 	 * @throws OCSNotFoundException The security page is switched off
 	 *
 	 * 200: Forgotten
@@ -228,10 +219,10 @@ class PersonalApiController extends OCSController {
 	#[NoAdminRequired]
 	#[UserRateLimit(limit: 20, period: 600)]
 	#[ApiRoute(verb: 'DELETE', url: '/api/v1/personal/known-devices/{id}', requirements: ['id' => '\d+'])]
-	public function removeKnownDevice(int $id): DataResponse {
+	public function removeKnownDevice(string $id): DataResponse {
 		$this->requirePage();
 		if (!$this->knownDevices->remove($this->user()->getUID(), $id)) {
-			return new DataResponse(['reason' => AnswerException::NOT_FOUND, 'message' => $this->l->t('This device is not one of your remembered devices.')], Http::STATUS_NOT_FOUND);
+			return $this->error($this->l->t('This device is not one of your remembered devices.'), AnswerException::NOT_FOUND, Http::STATUS_NOT_FOUND);
 		}
 		return new DataResponse(['removed' => $id]);
 	}
@@ -250,8 +241,8 @@ class PersonalApiController extends OCSController {
 	#[ApiRoute(verb: 'GET', url: '/api/v1/personal/logins')]
 	public function logins(int $days = 30, int $limit = 100): DataResponse {
 		$this->requirePage();
-		$days = max(1, min($days, $this->settings->getInt(GlobalSettings::RETENTION_DETECTIONS_DAYS)));
-		$current = $this->currentSession->tokenId();
+		$days = max(1, min($days, $this->settings->retentionDays()));
+		$current = $this->coreSession->tokenId();
 		$entries = $this->loginHistory->forUser($this->user()->getUID(), $this->timeFactory->getTime() - $days * 86400, null, max(1, min(200, $limit)));
 		$l = $this->l;
 		$waitedOutBefore = $this->activity->waitedOutBefore();
@@ -288,7 +279,7 @@ class PersonalApiController extends OCSController {
 	#[ApiRoute(verb: 'GET', url: '/api/v1/personal/security-changes')]
 	public function securityChanges(int $limit = 50): DataResponse {
 		$this->requirePage();
-		$since = $this->timeFactory->getTime() - $this->settings->getInt(GlobalSettings::RETENTION_DETECTIONS_DAYS) * 86400;
+		$since = $this->timeFactory->getTime() - $this->settings->retentionDays() * 86400;
 		$rows = $this->changes->findRecent($this->user()->getUID(), $since, max(1, min(100, $limit)));
 		return new DataResponse(array_map(fn (array $row): array => SecureAccountOverview::change($row, $this->l), $rows));
 	}
@@ -346,7 +337,7 @@ class PersonalApiController extends OCSController {
 	 * Mark a step of the checklist done that the user checks themselves
 	 *
 	 * @param string $step sessions, email, shares or files
-	 * @return DataResponse<Http::STATUS_OK, IntrusionDetectionSecureAccount, array{}>|DataResponse<Http::STATUS_BAD_REQUEST|Http::STATUS_CONFLICT, IntrusionDetectionAnswerError, array{}>
+	 * @return DataResponse<Http::STATUS_OK, IntrusionDetectionSecureAccount, array{}>|DataResponse<Http::STATUS_BAD_REQUEST|Http::STATUS_CONFLICT, IntrusionDetectionError, array{}>
 	 *
 	 * 200: The step is done
 	 * 400: The user cannot mark this step
@@ -358,10 +349,10 @@ class PersonalApiController extends OCSController {
 	public function completeSecureAccountStep(string $step): DataResponse {
 		$user = $this->user();
 		if (!in_array($step, SecureAccountGuide::USER_STEPS, true)) {
-			return new DataResponse(['reason' => 'not_a_user_step', 'message' => $this->l->t('This step is done by itself once you have done it.')], Http::STATUS_BAD_REQUEST);
+			return $this->error($this->l->t('This step is done by itself once you have done it.'), 'not_a_user_step', Http::STATUS_BAD_REQUEST);
 		}
 		if (!$this->guide->markDone($user->getUID(), $step)) {
-			return new DataResponse(['reason' => 'not_open', 'message' => $this->l->t('There is no open checklist. Start it again to go through it.')], Http::STATUS_CONFLICT);
+			return $this->error($this->l->t('There is no open checklist. Start it again to go through it.'), 'not_open', Http::STATUS_CONFLICT);
 		}
 		return new DataResponse($this->overview->forUser($user, $this->l));
 	}
@@ -402,7 +393,7 @@ class PersonalApiController extends OCSController {
 	 *
 	 * App passwords and connected devices keep working.
 	 *
-	 * @return DataResponse<Http::STATUS_OK, IntrusionDetectionLoggedOutElsewhere, array{}>|DataResponse<Http::STATUS_BAD_REQUEST, IntrusionDetectionAnswerError, array{}>
+	 * @return DataResponse<Http::STATUS_OK, IntrusionDetectionLoggedOutElsewhere, array{}>|DataResponse<Http::STATUS_BAD_REQUEST, IntrusionDetectionError, array{}>
 	 * @throws OCSNotFoundException The security page is switched off
 	 *
 	 * 200: Logged out everywhere else
@@ -416,7 +407,7 @@ class PersonalApiController extends OCSController {
 		$this->requirePage();
 		$result = $this->logOutElsewhere->run($this->user());
 		if ($result === null) {
-			return new DataResponse(['reason' => self::NO_SESSION, 'message' => $this->l->t('This can only be done from a browser session, not with an app password.')], Http::STATUS_BAD_REQUEST);
+			return $this->error($this->l->t('This can only be done from a browser session, not with an app password.'), self::NO_SESSION, Http::STATUS_BAD_REQUEST);
 		}
 		return new DataResponse($result);
 	}
@@ -443,17 +434,11 @@ class PersonalApiController extends OCSController {
 	}
 
 	/**
-	 * @return DataResponse<Http::STATUS_BAD_REQUEST|Http::STATUS_FORBIDDEN|Http::STATUS_NOT_FOUND|Http::STATUS_CONFLICT, IntrusionDetectionAnswerError, array{}>
+	 * @template S of Http::STATUS_*
+	 * @param S $status
+	 * @return DataResponse<S, IntrusionDetectionError, array{}>
 	 */
-	private function error(AnswerException $e, bool $yes): DataResponse {
-		[$status, $message] = match ($e->reason) {
-			AnswerException::NOT_FOUND => [Http::STATUS_NOT_FOUND, $this->l->t('This event does not exist, or it is not about your account.')],
-			AnswerException::NOT_ASKED => [Http::STATUS_BAD_REQUEST, $this->l->t('This event does not need an answer.')],
-			AnswerException::ANSWERED => [Http::STATUS_CONFLICT, $this->l->t('This event was answered already.')],
-			default => [Http::STATUS_FORBIDDEN, $yes
-				? $this->l->t('For your safety, "Yes, it was me" can only be answered in a browser, after a login with your second factor or an email code, or from a device you remembered. It cannot be answered from the session this event is about.')
-				: $this->l->t('For your safety, "No, it was not me" cannot be answered from a login that was not confirmed. Answer from another device, or after a login with your second factor or an email code.')],
-		};
-		return new DataResponse(['reason' => $e->reason, 'message' => $message], $status);
+	private function error(string $message, string $reason, int $status): DataResponse {
+		return new DataResponse(['message' => $message, 'param' => null, 'reason' => $reason], $status);
 	}
 }

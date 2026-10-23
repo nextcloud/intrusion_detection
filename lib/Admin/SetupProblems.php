@@ -23,7 +23,7 @@ use Psr\Log\LoggerInterface;
  *
  * @psalm-import-type IntrusionDetectionProblem from ResponseDefinitions
  */
-class SetupProblems implements IStatusContributor {
+class SetupProblems {
 	/** @var list<class-string<ProblemCheck>> */
 	public const CHECKS = Application::SETUP_CHECKS;
 
@@ -35,17 +35,9 @@ class SetupProblems implements IStatusContributor {
 	) {
 	}
 
-	#[\Override]
-	public function key(): string {
-		return 'setup';
-	}
-
-	#[\Override]
-	public function data(IL10N $l): ?array {
-		return null;
-	}
-
-	#[\Override]
+	/**
+	 * @return list<IntrusionDetectionProblem>
+	 */
 	public function problems(IL10N $l): array {
 		$findings = [];
 		foreach (self::CHECKS as $class) {

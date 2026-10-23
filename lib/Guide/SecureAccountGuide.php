@@ -9,10 +9,10 @@ declare(strict_types=1);
 
 namespace OCA\IntrusionDetection\Guide;
 
-use OC\Authentication\TwoFactorAuth\ProviderLoader;
 use OCA\IntrusionDetection\AppInfo\Application;
+use OCA\IntrusionDetection\Config\UserKeys;
+use OCA\IntrusionDetection\Confirm\SecondFactors;
 use OCP\AppFramework\Utility\ITimeFactory;
-use OCP\Authentication\TwoFactorAuth\IRegistry;
 use OCP\Config\IUserConfig;
 use OCP\IUser;
 use OCP\IUserManager;
@@ -37,7 +37,6 @@ use Psr\Log\LoggerInterface;
  * - sessions, email, shares, files: the user confirms they checked them.
  */
 class SecureAccountGuide {
-	public const USER_KEY = 'secure_guide';
 
 	public const STEP_PASSWORD = 'password';
 	public const STEP_SESSIONS = 'sessions';
@@ -63,14 +62,10 @@ class SecureAccountGuide {
 	public const NOTIFICATION_SUBJECT = 'secure_account';
 	public const NOTIFICATION_OBJECT = 'secure_account';
 
-	/** Backup codes alone are no second factor */
-	private const BACKUP_CODES = 'backup_codes';
-
 	public function __construct(
 		private readonly IUserConfig $userConfig,
 		private readonly IUserManager $userManager,
-		private readonly IRegistry $twoFactorRegistry,
-		private readonly ProviderLoader $providerLoader,
+		private readonly SecondFactors $secondFactors,
 		private readonly INotificationManager $notifications,
 		private readonly ITimeFactory $timeFactory,
 		private readonly LoggerInterface $logger,
@@ -84,7 +79,7 @@ class SecureAccountGuide {
 	 * @param self::REASON_* $reason
 	 * @param ?int $eventAt when the suspicious event happened; now if unknown
 	 */
-	public function start(string $uid, string $reason, ?int $detectionId = null, ?int $eventAt = null): void {
+	public function start(string $uid, string $reason, ?string $detectionId = null, ?int $eventAt = null): void {
 		$now = $this->timeFactory->getTime();
 		$state = $this->state($uid);
 		$wasOpen = $state !== null && $state['closed'] === null;
@@ -104,10 +99,10 @@ class SecureAccountGuide {
 	/**
 	 * The stored state, or null when the guide was never started.
 	 *
-	 * @return ?array{v: int, started: int, event: int, reason: string, detection: ?int, done: array<string, int>, closed: ?int, closedBy: ?string}
+	 * @return ?array{v: int, started: int, event: int, reason: string, detection: ?string, done: array<string, int>, closed: ?int, closedBy: ?string}
 	 */
 	public function state(string $uid): ?array {
-		$raw = $this->userConfig->getValueString($uid, Application::APP_ID, self::USER_KEY, '', true);
+		$raw = $this->userConfig->getValueString($uid, Application::APP_ID, UserKeys::SECURE_GUIDE, '', true);
 		$data = $raw === '' ? null : json_decode($raw, true);
 		if (!is_array($data) || !is_int($data['started'] ?? null)) {
 			return null;
@@ -123,7 +118,7 @@ class SecureAccountGuide {
 			'started' => $data['started'],
 			'event' => is_int($data['event'] ?? null) ? $data['event'] : $data['started'],
 			'reason' => is_string($data['reason'] ?? null) ? $data['reason'] : self::REASON_SELF,
-			'detection' => is_int($data['detection'] ?? null) ? $data['detection'] : null,
+			'detection' => is_string($data['detection'] ?? null) ? $data['detection'] : null,
 			'done' => $done,
 			'closed' => is_int($data['closed'] ?? null) ? $data['closed'] : null,
 			'closedBy' => is_string($data['closedBy'] ?? null) ? $data['closedBy'] : null,
@@ -178,7 +173,7 @@ class SecureAccountGuide {
 	/**
 	 * The guide as the pages show it.
 	 *
-	 * @return array{active: bool, startedAt: ?int, eventAt: ?int, reason: ?string, detectionId: ?int, closedAt: ?int, closedBy: ?string, done: int, total: int, steps: list<array{id: string, done: bool, doneAt: ?int, skipped: bool, managed: bool, userConfirms: bool}>}
+	 * @return array{active: bool, startedAt: ?int, eventAt: ?int, reason: ?string, detectionId: ?string, closedAt: ?int, closedBy: ?string, done: int, total: int, steps: list<array{id: SecureAccountGuide::STEP_*, done: bool, doneAt: ?int, skipped: bool, managed: bool, userConfirms: bool}>}
 	 */
 	public function progress(IUser $user): array {
 		$state = $this->state($user->getUID());
@@ -186,9 +181,9 @@ class SecureAccountGuide {
 		$done = 0;
 		$total = 0;
 		foreach (self::STEPS as $step) {
-			$skipped = $step === self::STEP_TWO_FACTOR && !$this->secondFactorAvailable($user);
+			$skipped = $step === self::STEP_TWO_FACTOR && !$this->secondFactors->available($user);
 			$doneAt = $state['done'][$step] ?? null;
-			if ($step === self::STEP_TWO_FACTOR && $doneAt === null && !$skipped && $this->hasSecondFactor($user)) {
+			if ($step === self::STEP_TWO_FACTOR && $doneAt === null && !$skipped && $this->secondFactors->has($user)) {
 				$doneAt = $state['started'] ?? 0;
 			}
 			$isDone = $doneAt !== null && !$skipped;
@@ -219,35 +214,9 @@ class SecureAccountGuide {
 		];
 	}
 
-	public function hasSecondFactor(IUser $user): bool {
-		try {
-			foreach ($this->twoFactorRegistry->getProviderStates($user) as $providerId => $enabled) {
-				if ($enabled && $providerId !== self::BACKUP_CODES) {
-					return true;
-				}
-			}
-		} catch (\Throwable $e) {
-			$this->logger->warning('Intrusion detection could not read the second factors of {uid}', ['uid' => $user->getUID(), 'exception' => $e]);
-		}
-		return false;
-	}
-
-	public function secondFactorAvailable(IUser $user): bool {
-		try {
-			foreach ($this->providerLoader->getProviders($user) as $provider) {
-				if ($provider->getId() !== self::BACKUP_CODES) {
-					return true;
-				}
-			}
-		} catch (\Throwable $e) {
-			$this->logger->warning('Intrusion detection could not list the second factors available to {uid}', ['uid' => $user->getUID(), 'exception' => $e]);
-		}
-		return false;
-	}
-
 	/**
-	 * @param array{v: int, started: int, event: int, reason: string, detection: ?int, done: array<string, int>, closed: ?int, closedBy: ?string} $state
-	 * @return array{v: int, started: int, event: int, reason: string, detection: ?int, done: array<string, int>, closed: ?int, closedBy: ?string}
+	 * @param array{v: int, started: int, event: int, reason: string, detection: ?string, done: array<string, int>, closed: ?int, closedBy: ?string} $state
+	 * @return array{v: int, started: int, event: int, reason: string, detection: ?string, done: array<string, int>, closed: ?int, closedBy: ?string}
 	 */
 	private function closeIfComplete(string $uid, array $state): array {
 		$user = $this->userManager->get($uid);
@@ -265,10 +234,10 @@ class SecureAccountGuide {
 	}
 
 	/**
-	 * @param array{v: int, started: int, event: int, reason: string, detection: ?int, done: array<string, int>, closed: ?int, closedBy: ?string} $state
+	 * @param array{v: int, started: int, event: int, reason: string, detection: ?string, done: array<string, int>, closed: ?int, closedBy: ?string} $state
 	 */
 	private function save(string $uid, array $state): void {
-		$this->userConfig->setValueString($uid, Application::APP_ID, self::USER_KEY, json_encode($state, JSON_THROW_ON_ERROR), true);
+		$this->userConfig->setValueString($uid, Application::APP_ID, UserKeys::SECURE_GUIDE, json_encode($state, JSON_THROW_ON_ERROR), true);
 	}
 
 	/**

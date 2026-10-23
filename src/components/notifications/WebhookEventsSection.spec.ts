@@ -8,14 +8,15 @@ import type { WebhookEvents } from '../../types.ts'
 import { flushPromises, mount } from '@vue/test-utils'
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 import WebhookEventsSection from './WebhookEventsSection.vue'
-import { fetchWebhookEvents } from '../../services/api.ts'
-import { state } from '../../store.ts'
+import { fetchWebhookEvents, updateSettings } from '../../services/api.ts'
+import { saveSettings, state } from '../../store.ts'
 
 const mounted: { unmount: () => void }[] = []
 
 vi.mock('../../services/api.ts', async (importOriginal) => ({
 	...(await importOriginal<object>()),
 	fetchWebhookEvents: vi.fn(),
+	updateSettings: vi.fn(),
 }))
 
 const detectionExample = {
@@ -96,8 +97,8 @@ describe('WebhookEventsSection', () => {
 
 	test('the examples are loaded again when the address setting was saved', async () => {
 		await mountSection()
-		state.settings = state.settings.map((s) => ({ ...s, value: false }))
-		await flushPromises()
+		vi.mocked(updateSettings).mockResolvedValue({ settings: state.settings.map((s) => ({ ...s, value: false })), templates: {} })
+		await saveSettings({ events_include_ip: false })
 		expect(fetchWebhookEvents).toHaveBeenCalledTimes(2)
 	})
 })

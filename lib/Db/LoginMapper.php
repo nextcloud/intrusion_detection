@@ -11,16 +11,20 @@ namespace OCA\IntrusionDetection\Db;
 
 use OCP\DB\QueryBuilder\IQueryBuilder;
 use OCP\IDBConnection;
+use OCP\Snowflake\ISnowflakeGenerator;
 
 /**
  * Which accounts logged in successfully from which address, per hour
  * (ids_logins). Feeds the shared-address safety valve. Kept for 24 hours.
  */
-class LoginMapper {
+class LoginMapper implements IPurges {
 	public const TABLE = 'ids_logins';
+	/** Logins are kept this long, as far back as the safety valve looks */
+	public const RETENTION = 86400;
 
 	public function __construct(
 		private readonly IDBConnection $db,
+		private readonly ISnowflakeGenerator $snowflakes,
 	) {
 	}
 
@@ -29,6 +33,7 @@ class LoginMapper {
 	 */
 	public function record(string $ipKey, string $netKey, string $uid, int $hour): void {
 		$this->db->insertIgnoreConflict(self::TABLE, [
+			'id' => $this->snowflakes->nextId(),
 			'ip_key' => $ipKey,
 			'net_key' => $netKey,
 			'uid' => $uid,
@@ -89,6 +94,11 @@ class LoginMapper {
 		}
 		$result->closeCursor();
 		return $rows;
+	}
+
+	#[\Override]
+	public function purge(int $now): int {
+		return $this->deleteOlderThan(intdiv($now - self::RETENTION, 3600));
 	}
 
 	public function deleteOlderThan(int $beforeHour): int {

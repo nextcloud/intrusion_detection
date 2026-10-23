@@ -9,11 +9,11 @@ declare(strict_types=1);
 
 namespace OCA\IntrusionDetection\Admin;
 
-use OCA\IntrusionDetection\Check\Checks\DecoyCredential;
-use OCA\IntrusionDetection\Check\Checks\ReservedName;
-use OCA\IntrusionDetection\Check\Checks\TrapUrl;
-use OCA\IntrusionDetection\Config\Settings;
-use OCA\IntrusionDetection\Db\Decoy;
+use OCA\IntrusionDetection\Check\Checks\DecoyCredential\DecoyCredential;
+use OCA\IntrusionDetection\Check\Checks\ReservedName\ReservedName;
+use OCA\IntrusionDetection\Check\Checks\TrapUrl\TrapUrl;
+use OCA\IntrusionDetection\Config\CheckSettings;
+use OCA\IntrusionDetection\Decoy\Db\Decoy;
 use OCA\IntrusionDetection\Decoy\DecoyService;
 use OCA\IntrusionDetection\ResponseDefinitions;
 use OCA\IntrusionDetection\Traps\ReservedNames;
@@ -38,7 +38,7 @@ class TrapsOverview {
 		private readonly ReservedNames $reservedNames,
 		private readonly TrapNameCollisions $collisions,
 		private readonly TrapPathSnippets $snippets,
-		private readonly Settings $settings,
+		private readonly CheckSettings $settings,
 		private readonly CheckSummary $checks,
 	) {
 	}
@@ -55,6 +55,7 @@ class TrapsOverview {
 			'decoyCollisions' => $this->decoys->loginNameCollisions(),
 			'reservedNames' => $this->reservedNames(),
 			'trapPaths' => $this->trapPaths($l),
+			'limits' => ['labelMaxLength' => DecoyService::MAX_LABEL, 'loginNameMaxLength' => DecoyService::MAX_LOGIN_NAME],
 		];
 	}
 
@@ -63,12 +64,12 @@ class TrapsOverview {
 	 */
 	public static function decoy(Decoy $decoy): array {
 		return [
-			'id' => $decoy->getId(),
+			'id' => (string)$decoy->getId(),
 			'label' => $decoy->getLabel(),
 			'loginName' => $decoy->getLoginName(),
 			'format' => $decoy->getFormat(),
 			'createdBy' => $decoy->getCreatedBy(),
-			'createdAt' => $decoy->getCreatedAt(),
+			'createdAt' => $decoy->getCreatedAt()?->getTimestamp() ?? 0,
 			'lastTriggeredAt' => $decoy->getLastTriggeredAt(),
 			'triggerCount' => $decoy->getTriggerCount(),
 		];
@@ -83,6 +84,7 @@ class TrapsOverview {
 			'suggestions' => $this->reservedNames->suggestions(),
 			'collisions' => $this->collisions->reserved(),
 			'max' => ReservedNames::MAX_NAMES,
+			'limits' => ['maxLength' => ReservedNames::MAX_LENGTH],
 		];
 	}
 
@@ -112,6 +114,7 @@ class TrapsOverview {
 			'webServer' => $webServer,
 			'needRule' => TrapPaths::needingRule($webServer, $builtinEnabled, $autodiscover, $custom),
 			'max' => TrapPaths::MAX_CUSTOM,
+			'limits' => ['maxLength' => TrapPaths::MAX_CUSTOM_LENGTH, 'nextcloudSegments' => TrapPaths::NEXTCLOUD_SEGMENTS],
 			'snippets' => [
 				['id' => 'nginx', 'file' => $snippets['nginx']['file'], 'content' => $snippets['nginx']['content']],
 				['id' => 'apache', 'file' => $snippets['apache']['file'], 'content' => $snippets['apache']['content']],

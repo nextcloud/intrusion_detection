@@ -4,6 +4,7 @@
  */
 
 import { describe, expect, test } from 'vitest'
+import { snowflake } from '../tests/fixtures.ts'
 import { activityItem, login, NOW, securityChange, securityEvent } from '../tests/personalFixtures.ts'
 import { changeValues, confirmationLabel, dayBefore, dayLabel, groupByDay, hasNews, isOpenQuestion } from './activity.ts'
 
@@ -20,9 +21,9 @@ describe('the activity timeline', () => {
 		const days = groupByDay(items)
 
 		expect(days.map((d) => d.day)).toEqual(['2026-10-21', '2026-10-20', '2026-10-18'])
-		expect(days[0].items.map((i) => i.id)).toEqual(['change-1', 'login-1'])
-		expect(days[1].items.map((i) => i.id)).toEqual(['failed-2026-10-20', 'login-2'])
-		expect(days[2].items.map((i) => i.id)).toEqual(['event-1'])
+		expect(days[0].items.map((i) => i.id)).toEqual([`change-${snowflake(1)}`, `login-${snowflake(1)}`])
+		expect(days[1].items.map((i) => i.id)).toEqual(['failed-2026-10-20', `login-${snowflake(2)}`])
+		expect(days[2].items.map((i) => i.id)).toEqual([`event-${snowflake(1)}`])
 		expect(groupByDay([])).toEqual([])
 	})
 

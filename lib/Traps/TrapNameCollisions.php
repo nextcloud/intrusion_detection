@@ -9,10 +9,10 @@ declare(strict_types=1);
 
 namespace OCA\IntrusionDetection\Traps;
 
-use OCA\IntrusionDetection\Check\Checks\ReservedName;
-use OCA\IntrusionDetection\Config\GlobalSettings;
-use OCA\IntrusionDetection\Config\Settings;
-use OCA\IntrusionDetection\Db\DecoyMapper;
+use OCA\IntrusionDetection\Check\Checks\ReservedName\ReservedName;
+use OCA\IntrusionDetection\Config\CheckSettings;
+use OCA\IntrusionDetection\Decoy\Db\DecoyMapper;
+use OCA\IntrusionDetection\State\AppState;
 use OCP\AppFramework\Utility\ITimeFactory;
 
 /**
@@ -23,11 +23,14 @@ use OCP\AppFramework\Utility\ITimeFactory;
  * page or a setup check reads it.
  */
 class TrapNameCollisions {
+	/** Reserved names and decoy login names that are accounts by now, with when they were looked up */
+	public const STATE = 'trap_name_collisions';
 	public function __construct(
-		private readonly Settings $settings,
+		private readonly CheckSettings $settings,
 		private readonly DecoyMapper $decoys,
 		private readonly AccountNames $accounts,
 		private readonly ITimeFactory $timeFactory,
+		private readonly AppState $state,
 	) {
 	}
 
@@ -60,7 +63,7 @@ class TrapNameCollisions {
 			'decoys' => array_values(array_filter($this->decoys->loginNames(), $exists)),
 			'checkedAt' => $this->timeFactory->getTime(),
 		];
-		$this->settings->setGlobal(GlobalSettings::TRAP_NAME_COLLISIONS, $result);
+		$this->state->setJson(self::STATE, $result);
 		return $result;
 	}
 
@@ -68,7 +71,7 @@ class TrapNameCollisions {
 	 * @return array{reserved: list<string>, decoys: list<string>, checkedAt: int}
 	 */
 	private function stored(): array {
-		$stored = $this->settings->getJson(GlobalSettings::TRAP_NAME_COLLISIONS);
+		$stored = $this->state->getJson(self::STATE);
 		if (!is_int($stored['checkedAt'] ?? null)) {
 			return $this->refresh();
 		}

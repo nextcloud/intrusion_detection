@@ -45,6 +45,11 @@ $error = $_['error'];
 		<input class="ids-page__input" id="ids-page-repeat" type="password" name="newPasswordRepeat"
 			autocomplete="new-password" required maxlength="469">
 
+		<div class="ids-page__remember">
+			<input id="ids-page-logout-others" type="checkbox" name="logoutOthers" value="1" checked>
+			<label for="ids-page-logout-others"><?php p($l->t('Log out on all other browsers')); ?></label>
+		</div>
+
 		<button class="primary ids-page__submit" type="submit"><?php p($l->t('Change password and continue')); ?></button>
 	</form>
 

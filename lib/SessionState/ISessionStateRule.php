@@ -9,6 +9,8 @@ declare(strict_types=1);
 
 namespace OCA\IntrusionDetection\SessionState;
 
+use OCA\IntrusionDetection\Login\SessionMarkers;
+
 /**
  * One rule about logged-in sessions, applied by the session-state
  * middleware (AppFramework) and the WebDAV plugin to every request of a
@@ -23,5 +25,5 @@ interface ISessionStateRule {
 	/**
 	 * @return ?SessionBlock why the request may not proceed, or null to let it pass
 	 */
-	public function check(SessionState $state, RequestTarget $target): ?SessionBlock;
+	public function check(SessionMarkers $state, RequestTarget $target): ?SessionBlock;
 }

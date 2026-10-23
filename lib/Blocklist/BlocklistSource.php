@@ -30,12 +30,17 @@ final class BlocklistSource {
 	public const MODES = [self::MODE_OBSERVE, self::MODE_PROTECT];
 
 	public const ID_PATTERN = '/^[a-z][a-z0-9_]{1,31}$/';
+	/** A pinned SHA-256 of the file, lower-case hex */
+	public const SHA256_PATTERN = '/^[0-9a-f]{64}$/';
 	public const MIN_INTERVAL = 900;
 	public const MAX_INTERVAL = 7 * 86400;
 
 	/**
+	 * @param self::PURPOSE_* $purpose
+	 * @param self::MODE_*|null $mode
 	 * @param ?int $interval seconds between syncs; null for the global sync interval
 	 * @param ?string $termsUrl where the publisher states the terms of use
+	 * @param ?string $sha256 the SHA-256 the downloaded file must have (custom lists only); null to trust the publisher and https
 	 */
 	public function __construct(
 		public readonly string $id,
@@ -48,6 +53,7 @@ final class BlocklistSource {
 		public readonly ?int $interval,
 		public readonly bool $builtin,
 		public readonly ?string $termsUrl = null,
+		public readonly ?string $sha256 = null,
 	) {
 	}
 
@@ -82,7 +88,7 @@ final class BlocklistSource {
 	/**
 	 * The stored form in the `blocklist_sources` setting.
 	 *
-	 * @return array{id: string, url: string, purpose: string, format: string, mode?: string, enabled: bool, interval?: int}
+	 * @return array{id: string, url: string, purpose: string, format: string, mode?: string, enabled: bool, interval?: int, sha256?: string}
 	 */
 	public function toStored(): array {
 		$stored = [
@@ -97,6 +103,9 @@ final class BlocklistSource {
 		}
 		if ($this->interval !== null) {
 			$stored['interval'] = $this->interval;
+		}
+		if ($this->sha256 !== null) {
+			$stored['sha256'] = $this->sha256;
 		}
 		return $stored;
 	}

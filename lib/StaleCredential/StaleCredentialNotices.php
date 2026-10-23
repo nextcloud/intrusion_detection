@@ -10,6 +10,7 @@ declare(strict_types=1);
 namespace OCA\IntrusionDetection\StaleCredential;
 
 use OCA\IntrusionDetection\AppInfo\Application;
+use OCA\IntrusionDetection\Notification\Notifier;
 use OCP\AppFramework\Utility\ITimeFactory;
 use OCP\Notification\IManager as INotificationManager;
 
@@ -21,8 +22,6 @@ use OCP\Notification\IManager as INotificationManager;
  * the names the credentials had.
  */
 class StaleCredentialNotices {
-	public const SUBJECT_REMINDER = 'stale_credentials';
-	public const SUBJECT_REMOVED = 'stale_credentials_removed';
 	public const OBJECT_REMINDER = 'stale_credentials';
 	public const OBJECT_REMOVED = 'stale_credentials_removed';
 	/** At most this many names are kept in a removal notice */
@@ -41,7 +40,7 @@ class StaleCredentialNotices {
 			->setUser($uid)
 			->setDateTime(new \DateTime('@' . $this->timeFactory->getTime()))
 			->setObject(self::OBJECT_REMINDER, $uid)
-			->setSubject(self::SUBJECT_REMINDER, ['appPasswords' => $appPasswords, 'sessions' => $sessions, 'days' => StaleCredentials::DAYS]);
+			->setSubject(Notifier::SUBJECT_STALE_REMINDER, ['appPasswords' => $appPasswords, 'sessions' => $sessions, 'days' => StaleCredentials::DAYS]);
 		$this->notifications->notify($notification);
 	}
 
@@ -59,7 +58,7 @@ class StaleCredentialNotices {
 			->setUser($uid)
 			->setDateTime(new \DateTime('@' . $now))
 			->setObject(self::OBJECT_REMOVED, (string)$now)
-			->setSubject(self::SUBJECT_REMOVED, [
+			->setSubject(Notifier::SUBJECT_STALE_REMOVED, [
 				'appPasswords' => $appPasswords,
 				'sessions' => count($removed) - $appPasswords,
 				'days' => $days,

@@ -13,19 +13,23 @@ use Doctrine\DBAL\Logging\DebugStack;
 use OC\AppConfig;
 use OC\DB\ConnectionAdapter;
 use OC\Memcache\ArrayCache;
-use OCA\IntrusionDetection\Check\Checks\CredentialStuffing;
-use OCA\IntrusionDetection\Check\Checks\CredentialStuffingDetector;
-use OCA\IntrusionDetection\Config\GlobalSettings;
-use OCA\IntrusionDetection\Config\Prerequisites;
-use OCA\IntrusionDetection\Config\Settings;
+use OCA\IntrusionDetection\Cache\Caches;
+use OCA\IntrusionDetection\Check\Checks\CredentialStuffing\CredentialStuffing;
+use OCA\IntrusionDetection\Check\Checks\CredentialStuffing\CredentialStuffingDetector;
+use OCA\IntrusionDetection\Check\Checks\CredentialStuffing\CredentialStuffingFacts;
+use OCA\IntrusionDetection\Check\Checks\CredentialStuffing\CredentialStuffingRule;
+use OCA\IntrusionDetection\Config\AppSettings;
+use OCA\IntrusionDetection\Config\CheckSettings;
 use OCA\IntrusionDetection\Crypto\Fingerprinter;
 use OCA\IntrusionDetection\Db\AttemptKind;
 use OCA\IntrusionDetection\Db\AttemptMapper;
-use OCA\IntrusionDetection\Db\StateMapper;
 use OCA\IntrusionDetection\Detection\AttemptRecord;
 use OCA\IntrusionDetection\Net\SourceKey;
+use OCA\IntrusionDetection\Response\ResponseEngine;
+use OCA\IntrusionDetection\Signal\FailedLoginAttempt;
+use OCA\IntrusionDetection\State\AppState;
+use OCA\IntrusionDetection\Tests\Unit\Cache\FixedCaches;
 use OCP\IAppConfig;
-use OCP\ICacheFactory;
 use OCP\Server;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Group;
@@ -47,7 +51,7 @@ class CredentialStuffingClusterTest extends LoginFailureTestCase {
 		$this->distributed = new ArrayCache('distributed');
 		// A time early in a period, so that the period cannot end during the test.
 		$this->now = intdiv(time(), CredentialStuffingDetector::EVALUATE_EVERY) * CredentialStuffingDetector::EVALUATE_EVERY + 1;
-		$this->settings->setParam(CredentialStuffing::ID, 'min_failures', 1000);
+		$this->settingsEditor()->setParam(CredentialStuffing::ID, 'min_failures', 1000);
 	}
 
 	protected function tearDown(): void {
@@ -89,15 +93,13 @@ class CredentialStuffingClusterTest extends LoginFailureTestCase {
 
 		$distributed = array_filter(
 			$this->detectionsOf(CredentialStuffing::ID),
-			static fn ($d): bool => ($d->getExplanationData()['facts']['distributed'] ?? false) === true,
+			static fn ($d): bool => CredentialStuffingFacts::fromArray($d->getExplanationData()['facts'])->rule === CredentialStuffingRule::Distributed,
 		);
 		$this->assertCount(1, $distributed);
-		$facts = array_values($distributed)[0]->getExplanationData()['facts'];
-		$this->assertSame(120, $facts['failures']);
-		$this->assertSame(25, $facts['sources']);
-		foreach ($this->servers($caches) as [, $settings]) {
-			$this->assertSame($this->now + CredentialStuffingDetector::DISTRIBUTED_WINDOW, $settings->getInt(GlobalSettings::CS_DISTRIBUTED_UNTIL));
-		}
+		$facts = CredentialStuffingFacts::fromArray(array_values($distributed)[0]->getExplanationData()['facts']);
+		$this->assertSame(120, $facts->failures);
+		$this->assertSame(25, $facts->sources);
+		$this->assertSame($this->now + CredentialStuffingDetector::DISTRIBUTED_WINDOW, Server::get(AppState::class)->getInt(CredentialStuffingDetector::DISTRIBUTED_UNTIL_STATE));
 	}
 
 	#[DataProvider('caches')]
@@ -109,15 +111,15 @@ class CredentialStuffingClusterTest extends LoginFailureTestCase {
 			$this->storeAttempt('192.0.2.' . ($i % 25 + 1), 'victim' . ($i % 25), at: $this->now + 5);
 		}
 		$this->failOnEach($servers, $this->now + 10);
-		$this->assertSame(0, $this->freshSettings()->getInt(GlobalSettings::CS_DISTRIBUTED_UNTIL), 'Not counted again within the period');
+		$this->assertSame(0, Server::get(AppState::class)->getInt(CredentialStuffingDetector::DISTRIBUTED_UNTIL_STATE), 'Not counted again within the period');
 
 		$next = $this->now + CredentialStuffingDetector::EVALUATE_EVERY;
 		$this->failOnEach($servers, $next);
-		$this->assertSame($next + CredentialStuffingDetector::DISTRIBUTED_WINDOW, $this->freshSettings()->getInt(GlobalSettings::CS_DISTRIBUTED_UNTIL));
+		$this->assertSame($next + CredentialStuffingDetector::DISTRIBUTED_WINDOW, Server::get(AppState::class)->getInt(CredentialStuffingDetector::DISTRIBUTED_UNTIL_STATE));
 	}
 
 	public function testAPeriodIsClaimedOnceAndNeverAfterALaterOne(): void {
-		$state = Server::get(StateMapper::class);
+		$state = Server::get(AppState::class);
 		$this->assertTrue($state->claim('test', 9), 'The first claim creates the row');
 		$this->assertFalse($state->claim('test', 9));
 		$this->assertTrue($state->claim('test', 10), 'One more digit still compares as a larger number');
@@ -153,12 +155,13 @@ class CredentialStuffingClusterTest extends LoginFailureTestCase {
 	}
 
 	/**
-	 * @param list<array{0: CredentialStuffingDetector, 1: Settings}> $servers
+	 * @param list<CredentialStuffingDetector> $servers
 	 */
 	private function failOnEach(array $servers, int $time): void {
 		$fingerprinter = Server::get(Fingerprinter::class);
-		foreach ($servers as $n => [$detector]) {
-			$detector->detect(new AttemptRecord(
+		$engine = Server::get(ResponseEngine::class);
+		foreach ($servers as $n => $detector) {
+			$drafts = $detector->detect(new FailedLoginAttempt(new AttemptRecord(
 				AttemptKind::PasswordLogin,
 				SourceKey::fromIp('198.51.100.' . ($n + 1)),
 				bin2hex($fingerprinter->name('someone' . $n)),
@@ -168,7 +171,10 @@ class CredentialStuffingClusterTest extends LoginFailureTestCase {
 				[],
 				$time,
 				true,
-			), null);
+			), null, null), $this->checkSettings()->modeState(CredentialStuffing::ID));
+			while ($drafts->valid()) {
+				$drafts->send($engine->handle($drafts->current()));
+			}
 		}
 	}
 
@@ -177,37 +183,27 @@ class CredentialStuffingClusterTest extends LoginFailureTestCase {
 	 * app config before any of them changed it, as concurrent requests do.
 	 *
 	 * @param 'distributed'|'local'|'none' $caches
-	 * @return list<array{0: CredentialStuffingDetector, 1: Settings}>
+	 * @return list<CredentialStuffingDetector>
 	 */
 	private function servers(string $caches): array {
 		$servers = [];
 		for ($n = 0; $n < self::SERVERS; $n++) {
-			$factory = $this->createMock(ICacheFactory::class);
-			$factory->method('isAvailable')->willReturn($caches !== 'none');
-			$factory->method('isLocalCacheAvailable')->willReturn($caches !== 'none');
 			$local = new ArrayCache('local' . $n);
-			$factory->method('createLocal')->willReturn($local);
-			// Without memcache.distributed, core hands out the local cache as the distributed one.
-			$factory->method('createDistributed')->willReturn($caches === 'distributed' ? $this->distributed : $local);
-			$prerequisites = $this->createMock(Prerequisites::class);
-			$prerequisites->method('hasDistributedCache')->willReturn($caches === 'distributed');
+			$memory = match ($caches) {
+				'distributed' => new FixedCaches($this->distributed, $local, true),
+				'local' => new FixedCaches($local, $local),
+				default => FixedCaches::none(),
+			};
 
-			$settings = $this->freshSettings();
-			$settings->getInt(GlobalSettings::CS_DISTRIBUTED_UNTIL);
-			$servers[] = [$this->build(CredentialStuffingDetector::class, [
-				ICacheFactory::class => $factory,
-				Prerequisites::class => $prerequisites,
-				Settings::class => $settings,
-			]), $settings];
+			$appConfig = $this->build(AppConfig::class, []);
+			$appSettings = $this->build(AppSettings::class, [IAppConfig::class => $appConfig]);
+			$servers[] = $this->build(CredentialStuffingDetector::class, [
+				Caches::class => $memory,
+				AppSettings::class => $appSettings,
+				CheckSettings::class => $this->build(CheckSettings::class, [IAppConfig::class => $appConfig, AppSettings::class => $appSettings]),
+			]);
 		}
 		return $servers;
-	}
-
-	/**
-	 * Settings over an app config of their own, as a new request has.
-	 */
-	private function freshSettings(): Settings {
-		return $this->build(Settings::class, [IAppConfig::class => $this->build(AppConfig::class, [])]);
 	}
 
 	/**

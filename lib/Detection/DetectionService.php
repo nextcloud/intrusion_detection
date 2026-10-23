@@ -9,13 +9,14 @@ declare(strict_types=1);
 
 namespace OCA\IntrusionDetection\Detection;
 
+use OCA\IntrusionDetection\Cache\KeyLock;
 use OCA\IntrusionDetection\Check\CheckRegistry;
-use OCA\IntrusionDetection\Check\Severity;
+use OCA\IntrusionDetection\Config\CheckSettings;
 use OCA\IntrusionDetection\Config\ModeState;
-use OCA\IntrusionDetection\Config\Settings;
+use OCA\IntrusionDetection\Crypto\Fingerprinter;
 use OCA\IntrusionDetection\Db\Detection;
 use OCA\IntrusionDetection\Db\DetectionMapper;
-use OCA\IntrusionDetection\Db\KeyLock;
+use OCA\IntrusionDetection\Definition\Severity;
 use OCA\IntrusionDetection\Risk\RiskAssessment;
 use OCA\IntrusionDetection\Risk\RiskScorer;
 use OCP\AppFramework\Utility\ITimeFactory;
@@ -31,18 +32,19 @@ use OCP\AppFramework\Utility\ITimeFactory;
  * lowered a limit with. Merged hits do not compute it again.
  */
 class DetectionService {
-	/** @var array<int, list<string>> the accounts recorded for detections in this request */
+	/** @var array<array-key, list<string>> the accounts recorded for detections in this request, by detection id */
 	private array $recorded = [];
 
 	public function __construct(
 		private readonly DetectionMapper $mapper,
 		private readonly CheckRegistry $registry,
-		private readonly Settings $settings,
+		private readonly CheckSettings $settings,
 		private readonly ITimeFactory $timeFactory,
 		private readonly RiskScorer $risk,
 		private readonly DetectionAccounts $accounts,
 		private readonly DetectionTotals $totals,
 		private readonly KeyLock $locks,
+		private readonly Fingerprinter $fingerprinter,
 	) {
 	}
 
@@ -50,7 +52,7 @@ class DetectionService {
 	 * @return array{0: Detection, 1: bool} the stored detection, and whether it is new
 	 */
 	public function record(DetectionDraft $draft, ModeState $mode): array {
-		$mergeKey = $draft->mergeKey();
+		$mergeKey = $draft->mergeKey($this->fingerprinter);
 		if ($mergeKey === null) {
 			return $this->recordUnlocked($draft, $mode);
 		}
@@ -76,7 +78,7 @@ class DetectionService {
 			}
 			$explanation = $existing->getExplanationData();
 			$explanation['last'] = $now;
-			$explanation['facts'] = FactsMerger::merge(is_array($explanation['facts'] ?? null) ? $explanation['facts'] : [], Explanation::facts($draft));
+			$explanation['facts'] = FactsMerger::merge(is_array($explanation['facts'] ?? null) ? $explanation['facts'] : [], $draft);
 			$existing->setExplanationData($explanation);
 			$this->mapper->update($existing);
 			// Only what changes from here on is written again (the actions).
@@ -85,14 +87,14 @@ class DetectionService {
 				$this->totals->raised($existing, $now);
 			}
 			// The merged facts may name accounts the detection did not name before.
-			$this->recorded[$existing->getId()] = $this->accounts->recordChange($existing, $accountsBefore);
+			$this->recorded[(string)$existing->getId()] = $this->accounts->recordChange($existing, $accountsBefore);
 			return [$existing, false];
 		}
 
 		$detection = $this->mapper->insert($this->build($draft, $mode, $now, true));
 		$detection->resetUpdatedFields();
 		$this->totals->created($detection);
-		$this->recorded[$detection->getId()] = $this->accounts->recordNew($detection);
+		$this->recorded[(string)$detection->getId()] = $this->accounts->recordNew($detection);
 		return [$detection, true];
 	}
 
@@ -103,7 +105,7 @@ class DetectionService {
 	 * was answered; a later hit starts a new one.
 	 */
 	public function mergeTarget(DetectionDraft $draft, ModeState $mode): ?Detection {
-		$mergeKey = $draft->mergeKey();
+		$mergeKey = $draft->mergeKey($this->fingerprinter);
 		if ($mergeKey === null) {
 			return null;
 		}
@@ -131,7 +133,7 @@ class DetectionService {
 		$detection->setNetKey($draft->source?->netKey);
 		$detection->setUid($draft->uid);
 		$detection->setShareId($draft->shareId);
-		$detection->setMergeKey($draft->mergeKey());
+		$detection->setMergeKey($draft->mergeKey($this->fingerprinter));
 		$explanation = Explanation::build(
 			$draft,
 			$mode,
@@ -145,7 +147,7 @@ class DetectionService {
 		}
 		$detection->setExplanationData($explanation);
 		$detection->setActionList([]);
-		$detection->setCreatedAt($now);
+		$detection->setCreatedTime($now);
 		$detection->setLastSeenAt($now);
 		$detection->setHits(1);
 		return $detection;
@@ -164,6 +166,6 @@ class DetectionService {
 		}
 		$this->mapper->update($detection);
 		$detection->resetUpdatedFields();
-		$this->recorded[$detection->getId()] = $this->accounts->recordChange($detection, $this->recorded[$detection->getId()] ?? null);
+		$this->recorded[(string)$detection->getId()] = $this->accounts->recordChange($detection, $this->recorded[(string)$detection->getId()] ?? null);
 	}
 }

@@ -7,9 +7,7 @@
 import type { KnownDevice } from '../types.ts'
 
 import { mdiCellphone, mdiCheckCircleOutline, mdiDeleteOutline, mdiDevices, mdiLaptop, mdiMonitor } from '@mdi/js'
-import { showError, showSuccess } from '@nextcloud/dialogs'
-import { t } from '@nextcloud/l10n'
-import { computed, onMounted, ref, watch } from 'vue'
+import { computed } from 'vue'
 import NcButton from '@nextcloud/vue/components/NcButton'
 import NcIconSvgWrapper from '@nextcloud/vue/components/NcIconSvgWrapper'
 import NcLoadingIcon from '@nextcloud/vue/components/NcLoadingIcon'
@@ -18,21 +16,14 @@ import StateBadge from '../../components/common/StateBadge.vue'
 import TimeStamp from '../../components/common/TimeStamp.vue'
 import LoadError from './LoadError.vue'
 import SkeletonRows from './SkeletonRows.vue'
-import { useAnnouncer } from '../../composables/useAnnouncer.ts'
-import { errorMessage } from '../../services/api.ts'
-import { logger } from '../../services/logger.ts'
+import { useAction } from '../../composables/useAction.ts'
 import { APP_ID } from '../../utils/format.ts'
-import { fetchKnownDevices, removeKnownDevice } from '../api.ts'
-import { personal } from '../store.ts'
+import { t } from '../../utils/l10n.ts'
+import { forgetDevice, personal, useKnownDevices } from '../store.ts'
 import { date } from '../time.ts'
-import { useRemoteList } from '../useRemoteList.ts'
 
-const { items: devices, error, load } = useRemoteList<KnownDevice>(
-	fetchKnownDevices,
-	() => t(APP_ID, 'Your remembered devices could not be loaded. Please try again.'),
-)
-const removing = ref<number | null>(null)
-const { announce } = useAnnouncer()
+const { data: devices, error, reload: load } = useKnownDevices({ failure: () => t(APP_ID, 'Your remembered devices could not be loaded. Please try again.') })
+const { busy, run } = useAction()
 const timeZone = computed(() => personal.overview?.timezone)
 /** Shown while loading, and while there is a device or an error */
 const shown = computed(() => devices.value === null || devices.value.length > 0 || error.value !== null)
@@ -52,25 +43,13 @@ function iconOf(device: KnownDevice): string {
  *
  * @param device - The device
  */
-async function remove(device: KnownDevice) {
-	removing.value = device.id
-	try {
-		await removeKnownDevice(device.id)
-		devices.value = (devices.value ?? []).filter((d) => d.id !== device.id)
-		personal.manage.devices = devices.value.length
-		const message = t(APP_ID, '{device} is no longer remembered.', { device: device.label })
-		showSuccess(message)
-		announce(message)
-	} catch (e) {
-		logger.error('Could not forget a remembered device', { error: e })
-		showError(errorMessage(e, t(APP_ID, 'The device could not be removed. Please try again.')))
-	} finally {
-		removing.value = null
-	}
+function remove(device: KnownDevice) {
+	run(device.id, () => forgetDevice(device.id), {
+		done: t(APP_ID, '{device} is no longer remembered.', { device: device.label }),
+		toast: true,
+		fallback: t(APP_ID, 'The device could not be removed. Please try again.'),
+	})
 }
-
-watch(() => personal.devicesVersion, load)
-onMounted(load)
 </script>
 
 <template>
@@ -114,11 +93,11 @@ onMounted(load)
 					variant="tertiary"
 					:aria-label="t(APP_ID, 'Remove {device}', { device: device.label })"
 					:title="t(APP_ID, 'Remove')"
-					:disabled="removing !== null"
+					:disabled="busy !== null"
 					data-test="remove-device"
 					@click="remove(device)">
 					<template #icon>
-						<NcLoadingIcon v-if="removing === device.id" :size="20" />
+						<NcLoadingIcon v-if="busy === device.id" :size="20" />
 						<NcIconSvgWrapper v-else :path="mdiDeleteOutline" />
 					</template>
 				</NcButton>
@@ -129,18 +108,16 @@ onMounted(load)
 
 <style module>
 .list {
+	composes: plainList from '../../styles/shared.module.css';
 	display: flex;
 	flex-direction: column;
-	margin: 0;
-	padding: 0;
-	list-style: none;
 }
 
 .device {
 	display: flex;
 	align-items: flex-start;
-	gap: calc(var(--default-grid-baseline) * 3);
-	padding-block: calc(var(--default-grid-baseline) * 3);
+	gap: var(--ids-space-3);
+	padding-block: var(--ids-space-3);
 	border-block-start: 1px solid var(--color-border);
 }
 
@@ -150,6 +127,7 @@ onMounted(load)
 }
 
 .device__icon {
+	composes: muted from '../../styles/shared.module.css';
 	display: inline-flex;
 	flex: 0 0 auto;
 	align-items: center;
@@ -158,14 +136,13 @@ onMounted(load)
 	height: 36px;
 	border-radius: 50%;
 	background-color: var(--color-background-dark);
-	color: var(--color-text-maxcontrast);
 }
 
 .device__main {
 	display: flex;
 	flex: 1 1 auto;
 	flex-direction: column;
-	gap: calc(var(--default-grid-baseline) * 0.5);
+	gap: var(--ids-space-half);
 	min-width: 0;
 }
 
@@ -173,7 +150,7 @@ onMounted(load)
 	display: flex;
 	flex-wrap: wrap;
 	align-items: center;
-	gap: calc(var(--default-grid-baseline) * 2);
+	gap: var(--ids-space-2);
 	margin: 0;
 }
 
@@ -182,8 +159,8 @@ onMounted(load)
 }
 
 .device__meta {
+	composes: muted from '../../styles/shared.module.css';
 	margin: 0;
-	color: var(--color-text-maxcontrast);
 	font-size: 0.92em;
 	line-height: 1.5;
 }

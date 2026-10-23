@@ -4,22 +4,21 @@
 -->
 
 <script setup lang="ts">
-import { showError, showSuccess } from '@nextcloud/dialogs'
-import { t } from '@nextcloud/l10n'
 import { computed, ref } from 'vue'
 import NcCheckboxRadioSwitch from '@nextcloud/vue/components/NcCheckboxRadioSwitch'
 import NcDialog from '@nextcloud/vue/components/NcDialog'
-import { useAnnouncer } from '../composables/useAnnouncer.ts'
-import { errorMessage, isCancelled, updateSettings } from '../services/api.ts'
-import { logger } from '../services/logger.ts'
-import { refreshChecks, refreshStatus, state } from '../store.ts'
+import { useAction } from '../composables/useAction.ts'
+import { saveSettings, state } from '../store.ts'
 import { APP_ID } from '../utils/format.ts'
+import { t } from '../utils/l10n.ts'
 
-const busy = ref(false)
+const { busy, run } = useAction()
 const confirmOff = ref(false)
-const { announce } = useAnnouncer()
 
-const enabled = computed(() => state.settings.find((s) => s.name === 'protection_enabled')?.value !== false)
+const setting = computed(() => state.settings.find((s) => s.name === 'protection_enabled'))
+const enabled = computed(() => setting.value?.value !== false)
+/** config.php keeps it on */
+const locked = computed(() => setting.value?.locked === true)
 
 /**
  * @param on - The new state of the switch; turning it off asks first
@@ -37,22 +36,11 @@ async function toggle(on: boolean) {
  */
 async function switchTo(on: boolean) {
 	confirmOff.value = false
-	busy.value = true
-	try {
-		const payload = await updateSettings({ protection_enabled: on })
-		state.settings = payload.settings
-		await Promise.all([refreshStatus(), refreshChecks()])
-		const done = on ? t(APP_ID, 'Intrusion detection is on.') : t(APP_ID, 'Intrusion detection is off.')
-		showSuccess(done)
-		announce(done)
-	} catch (error) {
-		if (!isCancelled(error)) {
-			logger.error('Could not switch intrusion detection', { error })
-			showError(errorMessage(error, t(APP_ID, 'That did not work. Please try again.')))
-		}
-	} finally {
-		busy.value = false
-	}
+	await run('switch', () => saveSettings({ protection_enabled: on }), {
+		done: on ? t(APP_ID, 'Intrusion detection is on.') : t(APP_ID, 'Intrusion detection is off.'),
+		toast: true,
+		fallback: t(APP_ID, 'That did not work. Please try again.'),
+	})
 }
 </script>
 
@@ -61,11 +49,14 @@ async function switchTo(on: boolean) {
 		<NcCheckboxRadioSwitch
 			:modelValue="enabled"
 			type="switch"
-			:loading="busy"
-			:disabled="busy"
+			:loading="busy !== null"
+			:disabled="busy !== null || locked"
 			@update:modelValue="toggle">
 			{{ t(APP_ID, 'Intrusion detection is on') }}
 		</NcCheckboxRadioSwitch>
+		<p v-if="locked" :class="$style.switch__note" data-test="master-switch-locked">
+			{{ t(APP_ID, 'Locked in config.php') }}
+		</p>
 
 		<NcDialog
 			v-model:open="confirmOff"
@@ -81,5 +72,9 @@ async function switchTo(on: boolean) {
 <style module>
 .switch {
 	flex: 0 0 auto;
+}
+
+.switch__note {
+	color: var(--color-text-maxcontrast);
 }
 </style>

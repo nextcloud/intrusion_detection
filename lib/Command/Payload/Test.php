@@ -10,7 +10,7 @@ declare(strict_types=1);
 namespace OCA\IntrusionDetection\Command\Payload;
 
 use OC\Core\Command\Base;
-use OCA\IntrusionDetection\Check\Payload\PayloadTester;
+use OCA\IntrusionDetection\Check\Checks\InjectionProbe\PayloadTester;
 use OCP\IL10N;
 use Symfony\Component\Console\Input\InputArgument;
 use Symfony\Component\Console\Input\InputInterface;

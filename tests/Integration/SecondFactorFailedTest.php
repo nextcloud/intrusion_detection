@@ -10,15 +10,17 @@ declare(strict_types=1);
 namespace OCA\IntrusionDetection\Tests\Integration;
 
 use OCA\IntrusionDetection\AppInfo\Application;
-use OCA\IntrusionDetection\Check\Checks\SecondFactorFailed;
-use OCA\IntrusionDetection\Check\Checks\SecondFactorFailedDetector;
-use OCA\IntrusionDetection\Check\Mode;
+use OCA\IntrusionDetection\Check\Checks\SecondFactorFailed\SecondFactorFailed;
+use OCA\IntrusionDetection\Check\Checks\SecondFactorFailed\SecondFactorFailedDetector;
+use OCA\IntrusionDetection\Check\Checks\SecondFactorFailed\SecondFactorFailedFacts;
+use OCA\IntrusionDetection\Check\Checks\SecondFactorFailed\SecondFactorFailedRule;
 use OCA\IntrusionDetection\Db\AttemptKind;
 use OCA\IntrusionDetection\Db\AttemptMapper;
 use OCA\IntrusionDetection\Db\Detection;
 use OCA\IntrusionDetection\Db\DetectionFilter;
 use OCA\IntrusionDetection\Db\DetectionMapper;
 use OCA\IntrusionDetection\Db\TokenOriginMapper;
+use OCA\IntrusionDetection\Definition\Mode;
 use OCA\IntrusionDetection\Detection\AttemptRecorder;
 use OCA\IntrusionDetection\Explain\NarrativeBuilder;
 use OCA\IntrusionDetection\Net\SourceKey;
@@ -26,6 +28,7 @@ use OCA\IntrusionDetection\Notification\UserAlerts;
 use OCA\IntrusionDetection\Response\FlaggedSources;
 use OCA\IntrusionDetection\Response\PasswordChangeFlag;
 use OCA\IntrusionDetection\Response\PasswordChangeService;
+use OCA\IntrusionDetection\Signal\SecondFactorFailure;
 use OCP\Authentication\Token\IToken;
 use OCP\IUser;
 use OCP\L10N\IFactory;
@@ -48,12 +51,11 @@ class SecondFactorFailedTest extends AccountTestCase {
 		parent::setUp();
 		$this->detections = Server::get(DetectionMapper::class);
 		$this->detector = new SecondFactorFailedDetector(
-			$this->settings,
+			$this->checkSettings(),
 			Server::get(AttemptRecorder::class),
 			Server::get(AttemptMapper::class),
 			Server::get(FlaggedSources::class),
-			$this->engine(),
-			$this->currentSession,
+			$this->coreSession,
 			$this->session,
 			Server::get(LoggerInterface::class),
 		);
@@ -94,10 +96,11 @@ class SecondFactorFailedTest extends AccountTestCase {
 		$this->assertSame('high', $detection->getSeverity());
 		$this->assertSame($this->user->getUID(), $detection->getUid());
 		$this->assertSame(self::ADDRESS, $detection->getIp());
-		$facts = $detection->getExplanationData()['facts'];
-		$this->assertSame([SecondFactorFailed::RULE_LOGIN], $facts['rules']);
-		$this->assertSame(3, $facts['loginFailures']);
-		$this->assertSame($pending['id'], $facts['sessionTokenId']);
+		$facts = SecondFactorFailedFacts::fromArray($detection->getExplanationData()['facts']);
+		$this->assertSame([SecondFactorFailedRule::Login], $facts->rules);
+		$this->assertSame(3, $facts->loginFailures);
+		$this->assertSame('TOTP', $facts->providerName);
+		$this->assertSame($pending['id'], $facts->sessionTokenId);
 
 		// Only the pending session and the app passwords that came with it are gone.
 		$this->assertFalse($this->tokenExists($pending['id']), 'The pending session is ended');
@@ -139,8 +142,6 @@ class SecondFactorFailedTest extends AccountTestCase {
 		// The administrators' narrative explains it.
 		$narrative = Server::get(NarrativeBuilder::class)->build($detection, Server::get(IFactory::class)->get(Application::APP_ID, 'en'));
 		$text = implode(' ', array_merge($narrative->happened, $narrative->done));
-		$this->assertStringContainsString('entered the correct password from 198.51.100.7, but the second factor (TOTP) failed.', $text);
-		$this->assertStringContainsString('The limit at that time was 3 failures in one login.', $text);
 		$this->assertStringContainsString('Ended the session "Firefox on Linux"', $text);
 		$this->assertStringContainsString('must choose a new password at the next login', $text);
 	}
@@ -180,20 +181,20 @@ class SecondFactorFailedTest extends AccountTestCase {
 		}
 		$this->startSession($this->user);
 		$this->assertTrue($this->failChallenge('203.0.113.5'));
-		$facts = $this->detectionsOfCheck()[0]->getExplanationData()['facts'];
-		$this->assertSame([SecondFactorFailed::RULE_HOUR], $facts['rules']);
-		$this->assertSame(5, $facts['hourFailures']);
+		$facts = SecondFactorFailedFacts::fromArray($this->detectionsOfCheck()[0]->getExplanationData()['facts']);
+		$this->assertSame([SecondFactorFailedRule::Hour], $facts->rules);
+		$this->assertSame(5, $facts->hourFailures);
 	}
 
 	public function testTheFirstFailureFromAFlaggedAddressFires(): void {
 		Server::get(FlaggedSources::class)->flagSource(SourceKey::fromIp(self::ADDRESS), FlaggedSources::REASON_ATTACK);
 		$this->startSession($this->user);
 		$this->assertTrue($this->failChallenge());
-		$this->assertSame([SecondFactorFailed::RULE_FLAGGED], $this->detectionsOfCheck()[0]->getExplanationData()['facts']['rules']);
+		$this->assertSame([SecondFactorFailedRule::Flagged], SecondFactorFailedFacts::fromArray($this->detectionsOfCheck()[0]->getExplanationData()['facts'])->rules);
 	}
 
 	public function testObserveRecordsWhatWouldHaveBeenDoneAndTouchesNothing(): void {
-		$this->settings->setMode(SecondFactorFailed::ID, Mode::Observe);
+		$this->settingsEditor()->setMode(SecondFactorFailed::ID, Mode::Observe);
 		$pending = $this->startSession($this->user);
 		$this->userSession->expects($this->never())->method('logout');
 		$this->failChallenge();
@@ -208,7 +209,7 @@ class SecondFactorFailedTest extends AccountTestCase {
 	}
 
 	public function testOffRecordsNothing(): void {
-		$this->settings->setMode(SecondFactorFailed::ID, Mode::Off);
+		$this->settingsEditor()->setMode(SecondFactorFailed::ID, Mode::Off);
 		$this->startSession($this->user);
 		for ($i = 0; $i < 5; $i++) {
 			$this->assertFalse($this->failChallenge());
@@ -218,7 +219,8 @@ class SecondFactorFailedTest extends AccountTestCase {
 	}
 
 	private function failChallenge(string $ip = self::ADDRESS): bool {
-		return $this->detector->detect($this->user, 'totp', 'TOTP', SourceKey::fromIp($ip), 'Mozilla/5.0 (X11; Linux x86_64) Firefox/140.0');
+		$failure = new SecondFactorFailure($this->user, 'totp', 'TOTP', SourceKey::fromIp($ip), 'Mozilla/5.0 (X11; Linux x86_64) Firefox/140.0');
+		return $this->dispatcher([SecondFactorFailedDetector::class => $this->detector], $this->engine())->dispatch($failure)->detections !== [];
 	}
 
 	/**

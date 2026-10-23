@@ -4,7 +4,6 @@
 -->
 
 <script setup lang="ts">
-import { t } from '@nextcloud/l10n'
 import { computed, useId } from 'vue'
 import NcButton from '@nextcloud/vue/components/NcButton'
 import NcLoadingIcon from '@nextcloud/vue/components/NcLoadingIcon'
@@ -12,8 +11,9 @@ import SectionCard from '../../components/common/SectionCard.vue'
 import ActivityRow from './ActivityRow.vue'
 import LoadError from './LoadError.vue'
 import { APP_ID } from '../../utils/format.ts'
+import { t } from '../../utils/l10n.ts'
 import { dayLabel, groupByDay, hasNews } from '../activity.ts'
-import { ACTIVITY_MAX, ACTIVITY_PAGE, loadActivity, personal } from '../store.ts'
+import { ACTIVITY_MAX, personal, reloadActivity, showMoreActivity } from '../store.ts'
 
 const id = useId()
 const activity = computed(() => personal.activity)
@@ -31,7 +31,7 @@ const canShowMore = computed(() => (activity.value?.hasMore ?? false) && persona
 			{{ t(APP_ID, 'Logins, changes to your account and what Nextcloud noticed in the last 30 days.') }}
 		</template>
 
-		<LoadError v-if="activity === null && personal.activityError" :text="personal.activityError" @retry="loadActivity()" />
+		<LoadError v-if="activity === null && personal.activityError" :text="personal.activityError" @retry="reloadActivity()" />
 		<template v-else-if="activity">
 			<section
 				v-for="(group, index) in days"
@@ -56,7 +56,7 @@ const canShowMore = computed(() => (activity.value?.hasMore ?? false) && persona
 				:class="$style.more"
 				:disabled="personal.activityLoading"
 				data-test="show-more"
-				@click="loadActivity(personal.activityLimit + ACTIVITY_PAGE)">
+				@click="showMoreActivity()">
 				<template v-if="personal.activityLoading" #icon>
 					<NcLoadingIcon :size="20" />
 				</template>
@@ -73,18 +73,16 @@ const canShowMore = computed(() => (activity.value?.hasMore ?? false) && persona
 }
 
 .day__heading {
+	composes: muted from '../../styles/shared.module.css';
 	margin: 0;
-	padding-block-end: var(--default-grid-baseline);
+	padding-block-end: var(--ids-space-1);
 	border-block-end: 1px solid var(--color-border);
-	color: var(--color-text-maxcontrast);
 	font-size: 0.92em;
 	font-weight: 600;
 }
 
 .day__list {
-	margin: 0;
-	padding: 0;
-	list-style: none;
+	composes: plainList from '../../styles/shared.module.css';
 }
 
 .more {

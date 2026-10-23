@@ -4,11 +4,9 @@
 -->
 
 <script setup lang="ts">
-import type { CheckRef, Decoy, NewDecoy } from '../../types.ts'
+import type { CheckRef, Decoy, DecoyLimits, NewDecoy } from '../../types.ts'
 
 import { mdiAlertCircleOutline, mdiDeleteOutline, mdiKeyChainVariant, mdiKeyVariant, mdiPlus } from '@mdi/js'
-import { showError } from '@nextcloud/dialogs'
-import { n, t } from '@nextcloud/l10n'
 import { computed, ref } from 'vue'
 import NcButton from '@nextcloud/vue/components/NcButton'
 import NcDialog from '@nextcloud/vue/components/NcDialog'
@@ -20,28 +18,26 @@ import StateBadge from '../common/StateBadge.vue'
 import TimeStamp from '../common/TimeStamp.vue'
 import CreateDecoyDialog from './CreateDecoyDialog.vue'
 import DecoySecretDialog from './DecoySecretDialog.vue'
+import { useAction } from '../../composables/useAction.ts'
 import { useAnnouncer } from '../../composables/useAnnouncer.ts'
-import { deleteDecoy, errorMessage, isCancelled } from '../../services/api.ts'
-import { logger } from '../../services/logger.ts'
 import { globalValues } from '../../store.ts'
+import { removeDecoy } from '../../stores/blocks.ts'
 import { APP_ID, formatDuration } from '../../utils/format.ts'
+import { n, t } from '../../utils/l10n.ts'
 
-const props = defineProps<{
+defineProps<{
 	decoys: Decoy[]
 	check: CheckRef
 	/** Login names of decoys that are accounts by now */
 	collisions: string[]
-}>()
-
-const emit = defineEmits<{
-	changed: [decoys: Decoy[]]
+	limits: DecoyLimits
 }>()
 
 const creating = ref(false)
 /** The decoy just created, with its secret, until the secret dialog closes */
 const created = ref<NewDecoy | null>(null)
 const deleting = ref<Decoy | null>(null)
-const busy = ref(false)
+const { busy, run } = useAction()
 const { announce } = useAnnouncer()
 
 /** A used decoy secret blocks like a repeat offender */
@@ -51,7 +47,6 @@ const repeatBlock = computed(() => formatDuration(Number(globalValues.value.ban_
  * @param value - The new decoy and its secret
  */
 function onCreated(value: NewDecoy) {
-	emit('changed', [value.decoy, ...props.decoys])
 	created.value = value
 	announce(t(APP_ID, 'The decoy was created. Copy its secret now; it is shown only once.'))
 }
@@ -64,19 +59,12 @@ async function remove() {
 	if (decoy === null) {
 		return
 	}
-	busy.value = true
-	try {
-		await deleteDecoy(decoy.id)
-		emit('changed', props.decoys.filter((d) => d.id !== decoy.id))
+	const removed = await run('delete', () => removeDecoy(decoy.id), {
+		done: t(APP_ID, 'The decoy "{label}" was deleted.', { label: decoy.label }),
+		fallback: t(APP_ID, 'The decoy could not be deleted. Please try again.'),
+	})
+	if (removed) {
 		deleting.value = null
-		announce(t(APP_ID, 'The decoy "{label}" was deleted.', { label: decoy.label }, undefined, { escape: false, sanitize: false }))
-	} catch (error) {
-		if (!isCancelled(error)) {
-			logger.error('Could not delete the decoy', { error })
-			showError(errorMessage(error, t(APP_ID, 'The decoy could not be deleted. Please try again.')))
-		}
-	} finally {
-		busy.value = false
 	}
 }
 </script>
@@ -119,7 +107,7 @@ async function remove() {
 						<span :class="$style.decoy__created">
 							<span>{{ t(APP_ID, 'created') }}</span>
 							<TimeStamp :timestamp="decoy.createdAt" short />
-							<span v-if="decoy.createdBy">{{ t(APP_ID, 'by {admin}', { admin: decoy.createdBy }, undefined, { escape: false, sanitize: false }) }}</span>
+							<span v-if="decoy.createdBy">{{ t(APP_ID, 'by {admin}', { admin: decoy.createdBy }) }}</span>
 						</span>
 					</span>
 					<span v-if="decoy.loginName && collisions.includes(decoy.loginName)" :class="$style.decoy__problem">
@@ -141,7 +129,7 @@ async function remove() {
 				</div>
 				<NcButton
 					variant="tertiary"
-					:aria-label="t(APP_ID, 'Delete the decoy {label}', { label: decoy.label }, undefined, { escape: false, sanitize: false })"
+					:aria-label="t(APP_ID, 'Delete the decoy {label}', { label: decoy.label })"
 					:title="t(APP_ID, 'Delete')"
 					@click="deleting = decoy">
 					<template #icon>
@@ -151,7 +139,7 @@ async function remove() {
 			</li>
 		</ul>
 
-		<CreateDecoyDialog v-model:open="creating" @created="onCreated" />
+		<CreateDecoyDialog v-model:open="creating" :limits="limits" @created="onCreated" />
 		<DecoySecretDialog v-model:created="created" />
 		<NcDialog
 			:open="deleting !== null"
@@ -159,7 +147,7 @@ async function remove() {
 			:message="t(APP_ID, 'Anyone who uses it afterwards is treated like any other failed login. Remove it from where you planted it too.')"
 			:buttons="[
 				{ label: t(APP_ID, 'Cancel'), callback: () => { deleting = null } },
-				{ label: t(APP_ID, 'Delete decoy'), variant: 'error', disabled: busy, callback: () => { remove(); return false } },
+				{ label: t(APP_ID, 'Delete decoy'), variant: 'error', disabled: busy !== null, callback: () => { remove(); return false } },
 			]"
 			@update:open="!$event && (deleting = null)" />
 	</SectionCard>
@@ -167,19 +155,17 @@ async function remove() {
 
 <style module>
 .list {
+	composes: plainList from '../../styles/shared.module.css';
 	display: flex;
 	flex-direction: column;
-	margin: 0;
-	padding: 0;
-	list-style: none;
 }
 
 .decoy {
 	display: flex;
 	flex-wrap: wrap;
 	align-items: center;
-	gap: calc(var(--default-grid-baseline) * 3);
-	padding-block: calc(var(--default-grid-baseline) * 3);
+	gap: var(--ids-space-3);
+	padding-block: var(--ids-space-3);
 	border-top: 1px solid var(--color-border);
 }
 
@@ -189,6 +175,7 @@ async function remove() {
 }
 
 .decoy__icon {
+	composes: muted from '../../styles/shared.module.css';
 	display: inline-flex;
 	flex: 0 0 auto;
 	align-items: center;
@@ -197,7 +184,6 @@ async function remove() {
 	height: 36px;
 	border-radius: 50%;
 	background-color: var(--color-background-dark);
-	color: var(--color-text-maxcontrast);
 }
 
 .decoy_used .decoy__icon {
@@ -209,7 +195,7 @@ async function remove() {
 	display: flex;
 	flex: 1 1 280px;
 	flex-direction: column;
-	gap: calc(var(--default-grid-baseline) / 2);
+	gap: var(--ids-space-half);
 	min-width: 0;
 }
 
@@ -219,10 +205,10 @@ async function remove() {
 }
 
 .decoy__meta {
+	composes: muted from '../../styles/shared.module.css';
 	display: flex;
 	flex-wrap: wrap;
-	gap: calc(var(--default-grid-baseline) * 1.5);
-	color: var(--color-text-maxcontrast);
+	gap: var(--ids-space-1-5);
 	font-size: 0.9em;
 }
 
@@ -240,7 +226,7 @@ async function remove() {
 .decoy__problem {
 	display: inline-flex;
 	align-items: center;
-	gap: calc(var(--default-grid-baseline) * 1);
+	gap: var(--ids-space-1);
 	color: var(--color-error-text);
 	font-size: 0.9em;
 	font-weight: 600;
@@ -250,18 +236,18 @@ async function remove() {
 	display: flex;
 	flex-direction: column;
 	align-items: flex-end;
-	gap: calc(var(--default-grid-baseline) / 2);
+	gap: var(--ids-space-half);
 }
 
 .decoy__last {
-	color: var(--color-text-maxcontrast);
+	composes: muted from '../../styles/shared.module.css';
 	font-size: 0.85em;
 }
 
 @media (max-width: 600px) {
 	.decoy__state {
 		align-items: flex-start;
-		margin-inline-start: calc(36px + var(--default-grid-baseline) * 3);
+		margin-inline-start: calc(36px + var(--ids-space-3));
 	}
 }
 </style>

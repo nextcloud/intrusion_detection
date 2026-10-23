@@ -51,12 +51,12 @@ class ListBans extends Base {
 		$table->setHeaders(['Id', 'Reference', 'Address', 'Level', 'Check', 'Since', 'Until', 'State']);
 		foreach ($bans as $ban) {
 			$table->addRow([
-				$ban->getId(),
+				(string)$ban->getId(),
 				$ban->getDisplayReference(),
 				$ban->getCidr(),
 				$ban->getLevel(),
 				$ban->getCheckId(),
-				date('Y-m-d H:i', $ban->getCreatedAt()),
+				date('Y-m-d H:i', $ban->getCreatedTime()),
 				date('Y-m-d H:i', $ban->getExpiresAt()),
 				$ban->getLiftedAt() !== null ? 'lifted by ' . $ban->getLiftedBy() : ($ban->isActive($now) ? 'active' : 'expired'),
 			]);

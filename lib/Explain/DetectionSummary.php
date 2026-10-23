@@ -9,9 +9,9 @@ declare(strict_types=1);
 
 namespace OCA\IntrusionDetection\Explain;
 
-use OCA\IntrusionDetection\Check\ResponseType;
 use OCA\IntrusionDetection\Config\ModeState;
 use OCA\IntrusionDetection\Db\Detection;
+use OCA\IntrusionDetection\Definition\ResponseType;
 use OCP\IL10N;
 
 /**

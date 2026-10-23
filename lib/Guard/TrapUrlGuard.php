@@ -10,9 +10,12 @@ declare(strict_types=1);
 namespace OCA\IntrusionDetection\Guard;
 
 use OCA\IntrusionDetection\AppInfo\Application;
-use OCA\IntrusionDetection\Check\Checks\TrapUrl;
+use OCA\IntrusionDetection\Check\Checks\TrapUrl\TrapResponder;
+use OCA\IntrusionDetection\Check\Checks\TrapUrl\TrapUrl;
+use OCA\IntrusionDetection\Check\Checks\TrapUrl\TrapUrlFacts;
+use OCA\IntrusionDetection\Config\AppSettings;
+use OCA\IntrusionDetection\Config\CheckSettings;
 use OCA\IntrusionDetection\Config\Keys;
-use OCA\IntrusionDetection\Config\Settings;
 use OCA\IntrusionDetection\Detection\Explanation;
 use OCA\IntrusionDetection\Login\BasicCredentials;
 use OCA\IntrusionDetection\Net\FetchMetadata;
@@ -21,7 +24,6 @@ use OCA\IntrusionDetection\Net\SourceKey;
 use OCA\IntrusionDetection\Perf\GuardTimer;
 use OCA\IntrusionDetection\Traps\PendingTrapHit;
 use OCA\IntrusionDetection\Traps\TrapPaths;
-use OCA\IntrusionDetection\Traps\TrapResponder;
 use OCP\IAppConfig;
 use OCP\IConfig;
 use OCP\IRequest;
@@ -52,7 +54,8 @@ class TrapUrlGuard implements IRequestGuard {
 	public function __construct(
 		private readonly IConfig $config,
 		private readonly IAppConfig $appConfig,
-		private readonly Settings $settings,
+		private readonly AppSettings $appSettings,
+		private readonly CheckSettings $settings,
 		private readonly RemoteAddressResolver $addresses,
 		private readonly ContainerInterface $container,
 		private readonly GuardTimer $timer,
@@ -83,7 +86,7 @@ class TrapUrlGuard implements IRequestGuard {
 			return null;
 		}
 		$trap = $this->match($path);
-		if ($trap === null || !$this->settings->isEnabled()) {
+		if ($trap === null || !$this->appSettings->isEnabled()) {
 			return null;
 		}
 		return $this->trapped($request, $path, $trap);
@@ -117,11 +120,11 @@ class TrapUrlGuard implements IRequestGuard {
 		}
 		$hit = new PendingTrapHit(
 			$source,
-			facts: [
-				'path' => mb_substr((string)Explanation::cleanUserAgent($path), 0, self::MAX_STORED_PATH),
-				'trap' => $trap,
-				'method' => substr(preg_replace('/[^A-Z]/', '', strtoupper($request->getMethod())) ?? '', 0, 10),
-			],
+			facts: new TrapUrlFacts(
+				path: mb_substr((string)Explanation::cleanUserAgent($path), 0, self::MAX_STORED_PATH),
+				trap: $trap,
+				method: substr(preg_replace('/[^A-Z]/', '', strtoupper($request->getMethod())) ?? '', 0, 10),
+			),
 			userAgent: $request->getHeader('User-Agent'),
 			lure: FetchMetadata::isLure($request),
 		);

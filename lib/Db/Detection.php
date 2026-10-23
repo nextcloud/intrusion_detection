@@ -9,7 +9,8 @@ declare(strict_types=1);
 
 namespace OCA\IntrusionDetection\Db;
 
-use OCP\AppFramework\Db\Entity;
+use OCA\IntrusionDetection\Definition\Severity;
+use OCP\AppFramework\Db\SnowflakeAwareEntity;
 use OCP\DB\Types;
 
 /**
@@ -20,7 +21,7 @@ use OCP\DB\Types;
  *
  * @method string getCheckId()
  * @method void setCheckId(string $checkId)
- * @method string getSeverity()
+ * @method value-of<Severity> getSeverity()
  * @method void setSeverity(string $severity)
  * @method ?bool getEnforced()
  * @method void setEnforced(?bool $enforced)
@@ -42,14 +43,16 @@ use OCP\DB\Types;
  * @method void setUserVerdict(?string $userVerdict)
  * @method ?int getVerdictAt()
  * @method void setVerdictAt(?int $verdictAt)
- * @method int getCreatedAt()
- * @method void setCreatedAt(int $createdAt)
+ * @method int getCreatedTime() when it was created, as a Unix time
+ * @method void setCreatedTime(int $createdTime)
  * @method int getLastSeenAt()
  * @method void setLastSeenAt(int $lastSeenAt)
  * @method int getHits()
  * @method void setHits(int $hits)
  */
-class Detection extends Entity implements \JsonSerializable {
+class Detection extends SnowflakeAwareEntity implements \JsonSerializable {
+	use CreatedTimeColumn;
+
 	public const VERDICT_CONFIRMED = 'confirmed';
 	public const VERDICT_DENIED = 'denied';
 
@@ -65,7 +68,7 @@ class Detection extends Entity implements \JsonSerializable {
 	protected ?string $actions = null;
 	protected ?string $userVerdict = null;
 	protected ?int $verdictAt = null;
-	protected ?int $createdAt = null;
+	protected ?int $createdTime = null;
 	protected ?int $lastSeenAt = null;
 	protected ?int $hits = null;
 
@@ -82,7 +85,7 @@ class Detection extends Entity implements \JsonSerializable {
 		$this->addType('actions', Types::TEXT);
 		$this->addType('userVerdict', Types::STRING);
 		$this->addType('verdictAt', Types::BIGINT);
-		$this->addType('createdAt', Types::BIGINT);
+		$this->addType('createdTime', Types::BIGINT);
 		$this->addType('lastSeenAt', Types::BIGINT);
 		$this->addType('hits', Types::INTEGER);
 	}
@@ -123,7 +126,7 @@ class Detection extends Entity implements \JsonSerializable {
 	#[\Override]
 	public function jsonSerialize(): array {
 		return [
-			'id' => $this->getId(),
+			'id' => (string)$this->getId(),
 			'checkId' => $this->checkId,
 			'severity' => $this->severity,
 			'enforced' => $this->isEnforced(),
@@ -135,7 +138,7 @@ class Detection extends Entity implements \JsonSerializable {
 			'actions' => $this->getActionList(),
 			'userVerdict' => $this->userVerdict,
 			'verdictAt' => $this->verdictAt,
-			'createdAt' => $this->createdAt,
+			'createdAt' => $this->createdTime,
 			'lastSeenAt' => $this->lastSeenAt,
 			'hits' => $this->hits,
 		];

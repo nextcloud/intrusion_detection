@@ -13,16 +13,19 @@ use OC\Authentication\Login\Chain;
 use OC\Authentication\Login\LoginData;
 use OC\User\Session;
 use OCA\IntrusionDetection\AppInfo\Application;
-use OCA\IntrusionDetection\Check\Checks\StepUpFailed;
-use OCA\IntrusionDetection\Check\Checks\StepUpRefused;
-use OCA\IntrusionDetection\Check\Checks\StepUpRefusedClient;
-use OCA\IntrusionDetection\Check\Checks\StepUpUnconfirmed;
+use OCA\IntrusionDetection\Cache\Caches;
+use OCA\IntrusionDetection\Check\Checks\StepUpFailed\StepUpFailed;
+use OCA\IntrusionDetection\Check\Checks\StepUpRefused\StepUpRefused;
+use OCA\IntrusionDetection\Check\Checks\StepUpRefusedClient\StepUpRefusedClient;
+use OCA\IntrusionDetection\Check\Checks\StepUpUnconfirmed\StepUpUnconfirmed;
 use OCA\IntrusionDetection\Config\GlobalSettings;
-use OCA\IntrusionDetection\Config\Settings;
+use OCA\IntrusionDetection\Confirm\ConfirmationStatus;
+use OCA\IntrusionDetection\Confirm\LoginAssessment;
+use OCA\IntrusionDetection\Confirm\LoginConfirmation;
+use OCA\IntrusionDetection\Confirm\LoginConfirmations;
 use OCA\IntrusionDetection\Confirm\NoMethodOutcome;
 use OCA\IntrusionDetection\Confirm\StepUpPolicy;
 use OCA\IntrusionDetection\Confirm\StepUpReasons;
-use OCA\IntrusionDetection\Confirm\StepUpService;
 use OCA\IntrusionDetection\Confirm\StepUpState;
 use OCA\IntrusionDetection\Confirm\UnconfirmedSessions;
 use OCA\IntrusionDetection\Crypto\Fingerprinter;
@@ -30,9 +33,11 @@ use OCA\IntrusionDetection\Db\Approval;
 use OCA\IntrusionDetection\Db\ApprovalMapper;
 use OCA\IntrusionDetection\Db\DetectionFilter;
 use OCA\IntrusionDetection\Db\DetectionMapper;
-use OCA\IntrusionDetection\Db\LoginHistoryMapper;
-use OCA\IntrusionDetection\Listener\StepUpLoginListener;
-use OCA\IntrusionDetection\Login\InteractiveLogin;
+use OCA\IntrusionDetection\Login\CoreSession;
+use OCA\IntrusionDetection\Login\LoginClassifier;
+use OCA\IntrusionDetection\Login\RequestContext;
+use OCA\IntrusionDetection\Login\SessionMarkers;
+use OCA\IntrusionDetection\LoginHistory\Db\LoginHistoryMapper;
 use OCA\IntrusionDetection\LoginHistory\LoginHistory;
 use OCA\IntrusionDetection\Net\RemoteAddressResolver;
 use OCA\IntrusionDetection\Net\ServerAddresses;
@@ -43,10 +48,8 @@ use OCA\IntrusionDetection\Response\AccountProtection;
 use OCA\IntrusionDetection\Response\FlaggedSources;
 use OCA\IntrusionDetection\SessionState\RequestTarget;
 use OCA\IntrusionDetection\SessionState\Rules\StepUpRule;
-use OCA\IntrusionDetection\SessionState\SessionState;
 use OCA\IntrusionDetection\Tests\BasicAuthServer;
 use OCP\AppFramework\Controller;
-use OCP\ICacheFactory;
 use OCP\IRequest;
 use OCP\ISession;
 use OCP\IUser;
@@ -98,18 +101,16 @@ class RealLoginTest extends IntegrationTestCase {
 		// Services an earlier test may have built with its own request: rebuilt with this one.
 		$addresses = new RemoteAddressResolver($this->request, Server::get(IThrottler::class), Server::get(ServerAddresses::class));
 		$this->overwriteService(RemoteAddressResolver::class, $addresses);
-		$this->overwriteService(StepUpLoginListener::class, new StepUpLoginListener(
-			Server::get(Settings::class),
-			new InteractiveLogin($this->request),
-			$addresses,
+		$this->overwriteService(LoginClassifier::class, new LoginClassifier($this->request, new RequestContext()));
+		$this->overwriteService(LoginAssessment::class, new LoginAssessment(
 			Server::get(Fingerprinter::class),
 			Server::get(FlaggedSources::class),
 			Server::get(StepUpReasons::class),
 			Server::get(UnconfirmedSessions::class),
+			Server::get(CoreSession::class),
 			$this->request,
-			Server::get(ISession::class),
 			\OC::$server->getRegisteredAppContainer(Application::APP_ID),
-			Server::get(ICacheFactory::class),
+			Server::get(Caches::class),
 			Server::get(LoggerInterface::class),
 		));
 		$mails = $this->createMock(Mails::class);
@@ -119,7 +120,7 @@ class RealLoginTest extends IntegrationTestCase {
 		});
 		$this->overwriteService(Mails::class, $mails);
 		Server::get(AccountProtection::class)->protect($this->user->getUID(), time() + 3600);
-		Server::get(Settings::class)->setGlobal(StepUpPolicy::ProtectedAccount->settingKey(), NoMethodOutcome::Refuse->value);
+		$this->settingsEditor()->setGlobal(StepUpPolicy::ProtectedAccount->settingKey(), NoMethodOutcome::Refuse->value);
 	}
 
 	protected function tearDown(): void {
@@ -127,7 +128,8 @@ class RealLoginTest extends IntegrationTestCase {
 		Server::get(ISession::class)->clear();
 		$this->restoreService(IRequest::class);
 		$this->restoreService(RemoteAddressResolver::class);
-		$this->restoreService(StepUpLoginListener::class);
+		$this->restoreService(LoginClassifier::class);
+		$this->restoreService(LoginAssessment::class);
 		$this->restoreService(Mails::class);
 		$this->user->delete();
 		parent::tearDown();
@@ -137,9 +139,9 @@ class RealLoginTest extends IntegrationTestCase {
 		$result = Server::get(Chain::class)->process(new LoginData($this->request, $this->user->getUID(), self::PASSWORD, false));
 		$this->assertTrue($result->isSuccess(), 'The password was right');
 
-		$stepUp = StepUpState::fromArray(Server::get(SessionState::class)->get(SessionState::STEP_UP) ?? []);
+		$stepUp = StepUpState::fromArray(Server::get(SessionMarkers::class)->get(SessionMarkers::STEP_UP) ?? []);
 		$this->assertNotNull($stepUp, 'The app\'s own listener marked the session');
-		$this->assertSame(StepUpState::REFUSED, $stepUp->status, 'No email address and no second factor: refused, as configured');
+		$this->assertSame(ConfirmationStatus::Refused, $stepUp->status, 'No email address and no second factor: refused, as configured');
 		$this->assertSame(['protected_account'], $stepUp->policies);
 		$this->assertCount(1, Server::get(DetectionMapper::class)->findList(new DetectionFilter(checkIds: [StepUpRefused::ID], uid: $this->user->getUID())));
 		$history = Server::get(LoginHistoryMapper::class)->forUser($this->user->getUID(), 0);
@@ -155,8 +157,8 @@ class RealLoginTest extends IntegrationTestCase {
 			$this->headers = [$header => $value];
 			$result = Server::get(Chain::class)->process(new LoginData($this->request, $this->user->getUID(), self::PASSWORD, false));
 			$this->assertTrue($result->isSuccess());
-			$stepUp = StepUpState::fromArray(Server::get(SessionState::class)->get(SessionState::STEP_UP) ?? []);
-			$this->assertSame(StepUpState::REFUSED, $stepUp?->status, 'Held back like any login form, with ' . $header);
+			$stepUp = StepUpState::fromArray(Server::get(SessionMarkers::class)->get(SessionMarkers::STEP_UP) ?? []);
+			$this->assertSame(ConfirmationStatus::Refused, $stepUp?->status, 'Held back like any login form, with ' . $header);
 			$history = Server::get(LoginHistoryMapper::class)->forUser($this->user->getUID(), 0);
 			$this->assertSame([LoginHistory::METHOD_PASSWORD, LoginHistory::STEP_UP_REFUSED], [$history[0]->method, $history[0]->stepUp]);
 		}
@@ -170,8 +172,8 @@ class RealLoginTest extends IntegrationTestCase {
 		$this->path = '/files/' . $this->user->getUID();
 		$this->assertTrue(Server::get(Session::class)->logClientIn($this->user->getUID(), self::PASSWORD, $this->request, Server::get(IThrottler::class)));
 
-		$stepUp = StepUpState::fromArray(Server::get(SessionState::class)->get(SessionState::STEP_UP) ?? []);
-		$this->assertSame(StepUpState::REFUSED_CLIENT, $stepUp?->status);
+		$stepUp = StepUpState::fromArray(Server::get(SessionMarkers::class)->get(SessionMarkers::STEP_UP) ?? []);
+		$this->assertSame(ConfirmationStatus::RefusedClient, $stepUp?->status);
 		$this->assertCount(1, Server::get(DetectionMapper::class)->findList(new DetectionFilter(checkIds: [StepUpRefusedClient::ID], uid: $this->user->getUID())));
 		$history = Server::get(LoginHistoryMapper::class)->forUser($this->user->getUID(), 0);
 		$this->assertCount(4, $history);
@@ -181,33 +183,28 @@ class RealLoginTest extends IntegrationTestCase {
 		// where the setting would let a login in that nothing can confirm. Another address, so
 		// that the decision about the app above is not repeated.
 		$this->remoteAddress = '198.51.100.10';
-		Server::get(Settings::class)->setGlobal(StepUpPolicy::ProtectedAccount->settingKey(), NoMethodOutcome::AllowNotify->value);
+		$this->settingsEditor()->setGlobal(StepUpPolicy::ProtectedAccount->settingKey(), NoMethodOutcome::AllowNotify->value);
 		$this->user->setEMailAddress('real-login@example.com');
 		Server::get(Session::class)->logout();
 		Server::get(ISession::class)->clear();
 		$this->assertTrue(Server::get(Session::class)->logClientIn($this->user->getUID(), self::PASSWORD, $this->request, Server::get(IThrottler::class)));
-		$stepUp = StepUpState::fromArray(Server::get(SessionState::class)->get(SessionState::STEP_UP) ?? []);
-		$this->assertSame(StepUpState::REFUSED_CLIENT, $stepUp?->status, 'The password over Basic auth does not get around the email code');
+		$stepUp = StepUpState::fromArray(Server::get(SessionMarkers::class)->get(SessionMarkers::STEP_UP) ?? []);
+		$this->assertSame(ConfirmationStatus::RefusedClient, $stepUp?->status, 'The password over Basic auth does not get around the email code');
 		$this->assertSame([], Server::get(DetectionMapper::class)->findList(new DetectionFilter(checkIds: [StepUpUnconfirmed::ID], uid: $this->user->getUID())), 'Not let in unconfirmed');
 		$this->assertSame([], $this->codeMails(), 'No code: an app cannot enter it');
 
 		// A client with a cookie jar sends core's cookie test back from its second request on:
 		// still an app. Nothing is started for it, nothing fails later, and nobody is told again.
 		// The same address, decided afresh rather than repeated from the memory cache.
-		$caches = Server::get(ICacheFactory::class);
-		if ($caches->isAvailable()) {
-			$caches->createDistributed(Application::APP_ID)->clear();
-		} elseif ($caches->isLocalCacheAvailable()) {
-			$caches->createLocal(Application::APP_ID)->clear();
-		}
-		Server::get(Settings::class)->setGlobal(GlobalSettings::STEP_UP_ADMIN_APPROVAL, true);
+		Server::get(Caches::class)->clear();
+		$this->settingsEditor()->setGlobal(GlobalSettings::STEP_UP_ADMIN_APPROVAL, true);
 		$notices = $this->mailsOf('intrusion_detection.userNotice');
 		Server::get(Session::class)->logout();
 		Server::get(ISession::class)->clear();
-		$this->cookies[StepUpService::COOKIE_TEST] = 'test';
+		$this->cookies[LoginConfirmations::COOKIE_TEST] = 'test';
 		$this->assertTrue(Server::get(Session::class)->logClientIn($this->user->getUID(), self::PASSWORD, $this->request, Server::get(IThrottler::class)));
-		$stepUp = StepUpState::fromArray(Server::get(SessionState::class)->get(SessionState::STEP_UP) ?? []);
-		$this->assertSame(StepUpState::REFUSED_CLIENT, $stepUp?->status, 'Basic auth is an app whatever cookies it sends');
+		$stepUp = StepUpState::fromArray(Server::get(SessionMarkers::class)->get(SessionMarkers::STEP_UP) ?? []);
+		$this->assertSame(ConfirmationStatus::RefusedClient, $stepUp?->status, 'Basic auth is an app whatever cookies it sends');
 		$this->assertSame([], $this->codeMails(), 'No code');
 		$this->assertSame(0, Server::get(ApprovalMapper::class)->countPendingFor(Approval::KIND_LOGIN, $this->user->getUID(), time()), 'No approval request');
 		$this->assertSame([], Server::get(DetectionMapper::class)->findList(new DetectionFilter(checkIds: [StepUpFailed::ID], uid: $this->user->getUID())), 'Nothing waits that could fail');
@@ -220,9 +217,9 @@ class RealLoginTest extends IntegrationTestCase {
 		Server::get(Session::class)->logout();
 		Server::get(ISession::class)->clear();
 		$this->assertTrue(Server::get(Session::class)->logClientIn($this->user->getUID(), self::PASSWORD, $this->request, Server::get(IThrottler::class)));
-		$state = Server::get(SessionState::class);
-		$this->assertNull($state->get(SessionState::STEP_UP), 'A protected account does not lock out its calendar app at home');
-		$this->assertTrue($state->get(SessionState::CONFIRMATION)[StepUpService::CLIENT_ONLY] ?? false);
+		$state = Server::get(SessionMarkers::class);
+		$this->assertNull($state->get(SessionMarkers::STEP_UP), 'A protected account does not lock out its calendar app at home');
+		$this->assertTrue($state->get(SessionMarkers::CONFIRMATION)[LoginConfirmation::CLIENT_ONLY] ?? false);
 		$rule = Server::get(StepUpRule::class);
 		$this->assertNull($rule->check($state, RequestTarget::dav('PROPFIND', '/remote.php/dav/files/' . $this->user->getUID())));
 		$page = $rule->check($state, RequestTarget::app($this->createMock(Controller::class), 'index', 'GET', '/index.php/apps/files/'));

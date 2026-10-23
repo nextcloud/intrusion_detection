@@ -9,7 +9,7 @@ declare(strict_types=1);
 
 namespace OCA\IntrusionDetection\Tests\Integration;
 
-use OCA\IntrusionDetection\Db\BlocklistRangeMapper;
+use OCA\IntrusionDetection\Blocklist\Db\BlocklistRangeMapper;
 use OCP\IDBConnection;
 use OCP\Server;
 use PHPUnit\Framework\Attributes\Group;

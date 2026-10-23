@@ -9,6 +9,7 @@ declare(strict_types=1);
 
 namespace OCA\IntrusionDetection\Tests\Integration;
 
+use OCA\IntrusionDetection\Db\KeyMatch;
 use OCA\IntrusionDetection\Db\LoginMapper;
 use OCA\IntrusionDetection\Net\Ipv6Networks;
 use OCA\IntrusionDetection\Net\SourceKey;
@@ -60,7 +61,7 @@ class Ipv6NetworksTest extends IntegrationTestCase {
 				$inside['in' . $i] = true;
 			}
 			$key = Ipv6Networks::key(SourceKey::fromIp($network . '1'), $prefix);
-			$this->assertSame(count($inside), count($logins->distinctUidsForNets(Ipv6Networks::slash64Keys($key), 0, 1000)), $key);
+			$this->assertSame(count($inside), count($logins->distinctUidsForNets(KeyMatch::slash64sIn($key), 0, 1000)), $key);
 		}
 	}
 

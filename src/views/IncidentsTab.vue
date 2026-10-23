@@ -8,8 +8,7 @@ import type { IncidentReport, IncidentRequest } from '../types.ts'
 import type { IncidentSubject } from '../utils/incidents.ts'
 
 import { mdiPlus, mdiShieldCheckOutline, mdiTextBoxSearchOutline } from '@mdi/js'
-import { n, t } from '@nextcloud/l10n'
-import { computed, nextTick, onActivated, onMounted, ref, watch } from 'vue'
+import { computed, nextTick, ref, watch } from 'vue'
 import NcButton from '@nextcloud/vue/components/NcButton'
 import NcDialog from '@nextcloud/vue/components/NcDialog'
 import NcEmptyContent from '@nextcloud/vue/components/NcEmptyContent'
@@ -20,24 +19,22 @@ import IncidentDetail from '../components/incidents/IncidentDetail.vue'
 import IncidentForm from '../components/incidents/IncidentForm.vue'
 import IncidentList from '../components/incidents/IncidentList.vue'
 import { useAnnouncer } from '../composables/useAnnouncer.ts'
-import { buildIncidentReport, errorMessage, fetchDetections, isCancelled, isRateLimited } from '../services/api.ts'
+import { buildIncidentReport, errorMessage, isCancelled, isRateLimited } from '../services/api.ts'
 import { logger } from '../services/logger.ts'
 import { incidentRequest } from '../store.ts'
+import { useRecentDetections } from '../stores/overview.ts'
 import { APP_ID } from '../utils/format.ts'
 import { incidentSubjects, requestKey, subjectKey } from '../utils/incidents.ts'
+import { n, t } from '../utils/l10n.ts'
 
-/** The list covers the detections of this many days */
-const LIST_DAYS = 7
-/** At most this many detections are folded into the list; the most the API returns */
-const LIST_LIMIT = 100
 /** This many built reports are kept for this page view */
 const CACHE_SIZE = 10
 
-const subjects = ref<IncidentSubject[]>([])
-const listLoading = ref(true)
-const listError = ref<string | null>(null)
-const listHasMore = ref(false)
-let listLoaded = false
+const recent = useRecentDetections({ failure: () => t(APP_ID, 'The recent incidents could not be loaded.') })
+const subjects = computed<IncidentSubject[]>(() => incidentSubjects(recent.data.value?.detections ?? []))
+const listLoading = computed(() => recent.data.value === null && recent.error.value === null)
+const listError = recent.error
+const listHasMore = computed(() => recent.data.value?.hasMore ?? false)
 
 const detail = ref<InstanceType<typeof IncidentDetail> | null>(null)
 const report = ref<IncidentReport | null>(null)
@@ -64,32 +61,6 @@ const selected = computed(() => {
 })
 const nothingAtAll = computed(() => !listLoading.value && listError.value === null && subjects.value.length === 0
 	&& report.value === null && !loading.value && error.value === null)
-
-/**
- * Load the addresses and accounts of the recent detections.
- */
-async function loadList() {
-	try {
-		const since = Math.floor(Date.now() / 1000) - LIST_DAYS * 86400
-		const list = await fetchDetections({}, LIST_LIMIT, 0, since)
-		subjects.value = incidentSubjects(list.detections)
-		listHasMore.value = list.hasMore
-		listError.value = null
-	} catch (e) {
-		logger.error('Could not load the recent detections', { error: e })
-		listError.value = errorMessage(e, t(APP_ID, 'The recent incidents could not be loaded.'))
-	} finally {
-		listLoading.value = false
-		listLoaded = true
-	}
-}
-
-onMounted(loadList)
-onActivated(() => {
-	if (listLoaded) {
-		loadList()
-	}
-})
 
 /**
  * Show a built report and remember it for this page view.
@@ -292,7 +263,7 @@ watch(incidentRequest, (request) => {
 .tab {
 	display: flex;
 	flex-direction: column;
-	gap: calc(var(--default-grid-baseline) * 6);
+	gap: var(--ids-space-6);
 	container-type: inline-size;
 }
 
@@ -301,7 +272,7 @@ watch(incidentRequest, (request) => {
 	flex-wrap: wrap;
 	align-items: flex-start;
 	justify-content: space-between;
-	gap: calc(var(--default-grid-baseline) * 4);
+	gap: var(--ids-space-4);
 }
 
 .tab__intro {
@@ -316,16 +287,16 @@ watch(incidentRequest, (request) => {
 }
 
 .tab__description {
-	margin: calc(var(--default-grid-baseline) * 1) 0 0;
+	composes: muted from '../styles/shared.module.css';
+	margin: var(--ids-space-1) 0 0;
 	max-width: 75ch;
-	color: var(--color-text-maxcontrast);
 	line-height: 1.5;
 }
 
 .tab__layout {
 	display: grid;
 	grid-template-columns: minmax(0, 1fr);
-	gap: calc(var(--default-grid-baseline) * 6);
+	gap: var(--ids-space-6);
 }
 
 .tab__detail {
@@ -335,11 +306,11 @@ watch(incidentRequest, (request) => {
 .tab__skeleton {
 	display: flex;
 	flex-direction: column;
-	gap: calc(var(--default-grid-baseline) * 3);
+	gap: var(--ids-space-3);
 }
 
 .tab__retry {
-	margin-block-start: calc(var(--default-grid-baseline) * 2);
+	margin-block-start: var(--ids-space-2);
 }
 
 /* On narrow screens the list comes first and a report opens below it */
@@ -350,22 +321,22 @@ watch(incidentRequest, (request) => {
 @container (min-width: 820px) {
 	.tab__layout {
 		grid-template-columns: minmax(240px, 300px) minmax(0, 1fr);
-		gap: calc(var(--default-grid-baseline) * 8);
+		gap: var(--ids-space-8);
 	}
 
 	.tab__list {
 		position: sticky;
-		top: calc(var(--default-grid-baseline) * 2);
+		top: var(--ids-space-2);
 		align-self: start;
-		max-height: calc(100vh - var(--header-height, 50px) - var(--default-grid-baseline) * 8);
+		max-height: calc(100vh - var(--header-height, 50px) - var(--ids-space-8));
 		overflow-y: auto;
-		padding-inline-end: calc(var(--default-grid-baseline) * 4);
+		padding-inline-end: var(--ids-space-4);
 		border-inline-end: 1px solid var(--color-border);
 	}
 
 	.tab__placeholder {
 		display: flex;
-		margin-block-start: calc(var(--default-grid-baseline) * 10);
+		margin-block-start: var(--ids-space-10);
 	}
 }
 </style>

@@ -10,8 +10,9 @@ declare(strict_types=1);
 namespace OCA\IntrusionDetection\TrustedNetwork;
 
 use OCA\IntrusionDetection\Audit\AuditLogger;
-use OCA\IntrusionDetection\Db\TrustedNetworkMapper;
+use OCA\IntrusionDetection\Db\IPurges;
 use OCA\IntrusionDetection\Net\SourceKey;
+use OCA\IntrusionDetection\TrustedNetwork\Db\TrustedNetworkMapper;
 use OCP\AppFramework\Utility\ITimeFactory;
 
 /**
@@ -24,7 +25,7 @@ use OCP\AppFramework\Utility\ITimeFactory;
  * Read only where a decision needs it (a flagged address at login, a login
  * request), with one indexed query.
  */
-class TrustedNetworks implements ITrustedNetworks {
+class TrustedNetworks implements ITrustedNetworks, IPurges {
 	/** Seconds a network stays trusted */
 	public const DURATION = 30 * 86400;
 
@@ -33,6 +34,14 @@ class TrustedNetworks implements ITrustedNetworks {
 		private readonly ITimeFactory $timeFactory,
 		private readonly AuditLogger $audit,
 	) {
+	}
+
+	/**
+	 * Delete the trusted networks whose time is up.
+	 */
+	#[\Override]
+	public function purge(int $now): int {
+		return $this->mapper->deleteExpired($now);
 	}
 
 	#[\Override]
@@ -46,7 +55,7 @@ class TrustedNetworks implements ITrustedNetworks {
 	 *
 	 * @return int when the trust ends
 	 */
-	public function trust(string $uid, SourceKey $source, ?int $detectionId = null): int {
+	public function trust(string $uid, SourceKey $source, ?string $detectionId = null): int {
 		$now = $this->timeFactory->getTime();
 		$until = $now + self::DURATION;
 		$this->mapper->trust($uid, $source->netKey, $detectionId, $now, $until);
@@ -55,7 +64,7 @@ class TrustedNetworks implements ITrustedNetworks {
 	}
 
 	/**
-	 * @return list<array{id: int, network: string, createdAt: int, expiresAt: int, detectionId: ?int}> the account's trusted networks, newest first
+	 * @return list<array{id: string, network: string, createdAt: int, expiresAt: int, detectionId: ?string}> the account's trusted networks, newest first
 	 */
 	public function forUser(string $uid, int $limit = 100): array {
 		return array_map(static fn (array $row): array => [
@@ -72,7 +81,7 @@ class TrustedNetworks implements ITrustedNetworks {
 	 *
 	 * @return bool whether the account had it
 	 */
-	public function remove(string $uid, int $id): bool {
+	public function remove(string $uid, string $id): bool {
 		$network = $this->mapper->delete($uid, $id);
 		if ($network === null) {
 			return false;

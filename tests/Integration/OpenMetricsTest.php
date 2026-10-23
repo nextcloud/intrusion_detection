@@ -12,7 +12,7 @@ namespace OCA\IntrusionDetection\Tests\Integration;
 use OC\OpenMetrics\ExporterManager;
 use OCA\IntrusionDetection\AppInfo\Application;
 use OCA\IntrusionDetection\BackgroundJob\Cleanup;
-use OCA\IntrusionDetection\Config\GlobalSettings;
+use OCA\IntrusionDetection\Cache\Caches;
 use OCA\IntrusionDetection\Db\Approval;
 use OCA\IntrusionDetection\Db\ApprovalMapper;
 use OCA\IntrusionDetection\Db\Detection;
@@ -25,6 +25,7 @@ use OCA\IntrusionDetection\OpenMetrics\DetectionsMetric;
 use OCA\IntrusionDetection\OpenMetrics\GuardSecondsMetric;
 use OCA\IntrusionDetection\OpenMetrics\LearningModeMetric;
 use OCA\IntrusionDetection\Response\BanService;
+use OCA\IntrusionDetection\State\AppState;
 use OCP\App\IAppManager;
 use OCP\IConfig;
 use OCP\OpenMetrics\IMetricFamily;
@@ -59,7 +60,7 @@ class OpenMetricsTest extends IntegrationTestCase {
 		$detection->setUid($uid);
 		$detection->setExplanationData([]);
 		$detection->setActionList([]);
-		$detection->setCreatedAt($createdAt);
+		$detection->setCreatedTime($createdAt);
 		$detection->setLastSeenAt($createdAt);
 		$detection->setHits(1);
 		Server::get(DetectionTotals::class)->created(Server::get(DetectionMapper::class)->insert($detection));
@@ -80,7 +81,7 @@ class OpenMetricsTest extends IntegrationTestCase {
 	}
 
 	private function cleanCache(): void {
-		Server::get(\OCP\ICacheFactory::class)->createLocal(Application::APP_ID . '-metrics')->clear();
+		Server::get(Caches::class)->shared(DetectionsMetric::CACHE)?->clear();
 	}
 
 	public function testTheExportersAreRegisteredInInfoXml(): void {
@@ -137,11 +138,11 @@ class OpenMetricsTest extends IntegrationTestCase {
 		$this->assertSame($expected, self::values(Server::get(DetectionsMetric::class)), 'but still counted');
 		$this->assertSame(
 			['credential_stuffing|medium|1' => 1, 'trap_url|low|0' => 1],
-			json_decode($this->appConfig->getValueString(Application::APP_ID, GlobalSettings::DETECTIONS_RETIRED), true),
+			Server::get(AppState::class)->getJson(DetectionTotals::RETIRED_STATE),
 		);
 
 		self::invokePrivate(Server::get(Cleanup::class), 'run', [null]);
-		$this->assertSame(['credential_stuffing|medium|1' => 1, 'trap_url|low|0' => 1], json_decode($this->appConfig->getValueString(Application::APP_ID, GlobalSettings::DETECTIONS_RETIRED), true), 'a second run adds nothing');
+		$this->assertSame(['credential_stuffing|medium|1' => 1, 'trap_url|low|0' => 1], Server::get(AppState::class)->getJson(DetectionTotals::RETIRED_STATE), 'a second run adds nothing');
 		$this->assertCount(3, Server::get(DetectionTotals::class)->totals());
 	}
 
@@ -172,7 +173,7 @@ class OpenMetricsTest extends IntegrationTestCase {
 			$approval->setSubjectUid('ids-metric-' . $i);
 			$approval->setRequestedBy('admin');
 			$approval->setStatus($status);
-			$approval->setCreatedAt(time());
+			$approval->setCreatedTime(time());
 			$approval->setExpiresAt(time() + 3600);
 			Server::get(ApprovalMapper::class)->insert($approval);
 		}

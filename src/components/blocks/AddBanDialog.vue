@@ -4,9 +4,8 @@
 -->
 
 <script setup lang="ts">
-import type { Ban } from '../../types.ts'
+import type { Ban, BanLimits } from '../../types.ts'
 
-import { t } from '@nextcloud/l10n'
 import { computed, ref, watch } from 'vue'
 import NcCheckboxRadioSwitch from '@nextcloud/vue/components/NcCheckboxRadioSwitch'
 import NcDialog from '@nextcloud/vue/components/NcDialog'
@@ -15,17 +14,18 @@ import NcTextArea from '@nextcloud/vue/components/NcTextArea'
 import NcTextField from '@nextcloud/vue/components/NcTextField'
 import DurationInput from '../checks/DurationInput.vue'
 import SelectField from '../common/SelectField.vue'
-import { useAnnouncer } from '../../composables/useAnnouncer.ts'
-import { addBan, ApiError, errorMessage, isCancelled } from '../../services/api.ts'
-import { logger } from '../../services/logger.ts'
-import { globalValues, refreshStatus, state } from '../../store.ts'
+import { useAction } from '../../composables/useAction.ts'
+import { ApiError } from '../../services/api.ts'
+import { banAdd, state } from '../../store.ts'
 import { APP_ID, formatAddress, formatDuration } from '../../utils/format.ts'
+import { t } from '../../utils/l10n.ts'
 import { isCidr } from '../../utils/validate.ts'
 
 const open = defineModel<boolean>('open', { required: true })
 
-const emit = defineEmits<{
-	added: [ban: Ban]
+const props = defineProps<{
+	/** The server's limits; the dialog waits for them */
+	limits: BanLimits | null
 }>()
 
 const target = ref('')
@@ -34,9 +34,7 @@ const level = ref(1)
 const duration = ref<number | string>(3600)
 const note = ref('')
 const errors = ref<Partial<Record<string, string>>>({})
-const error = ref<string | null>(null)
-const busy = ref(false)
-const { announce } = useAnnouncer()
+const { busy, error, run } = useAction()
 
 watch(open, (value) => {
 	if (value) {
@@ -58,13 +56,13 @@ watch(duration, () => {
 	errors.value = { ...errors.value, duration: undefined }
 })
 
-const levels = computed(() => [1, 2, 3].map((value) => ({
-	value,
-	label: {
-		1: t(APP_ID, 'First block: {duration}', { duration: formatDuration(Number(globalValues.value.ban_duration_1 ?? 14400)) }),
-		2: t(APP_ID, 'Second block: {duration}', { duration: formatDuration(Number(globalValues.value.ban_duration_2 ?? 86400)) }),
-		3: t(APP_ID, 'Repeat offender: {duration}', { duration: formatDuration(Number(globalValues.value.ban_duration_3 ?? 604800)) }),
-	}[value]!,
+const levels = computed(() => (props.limits?.levelDurations ?? []).map((seconds, index) => ({
+	value: index + 1,
+	label: [
+		t(APP_ID, 'First block: {duration}', { duration: formatDuration(seconds) }),
+		t(APP_ID, 'Second block: {duration}', { duration: formatDuration(seconds) }),
+		t(APP_ID, 'Repeat offender: {duration}', { duration: formatDuration(seconds) }),
+	][index]!,
 })))
 
 const targetError = computed(() => {
@@ -83,17 +81,18 @@ const durationError = computed(() => {
 	if (typeof seconds !== 'number') {
 		return t(APP_ID, 'Enter a whole number.')
 	}
-	if (seconds < 300 || seconds > 90 * 86400) {
+	if (props.limits !== null && (seconds < props.limits.minDuration || seconds > props.limits.maxDuration)) {
 		return t(APP_ID, 'A block lasts from 5 minutes to 90 days.')
 	}
 	return errors.value.duration ?? null
 })
 
-const valid = computed(() => target.value.trim() !== '' && targetError.value === null && durationError.value === null && note.value.length <= 255)
+const noteTooLong = computed(() => props.limits !== null && note.value.trim().length > props.limits.maxNote)
+const valid = computed(() => props.limits !== null && target.value.trim() !== '' && targetError.value === null && durationError.value === null && !noteTooLong.value)
 
 const buttons = computed(() => [
 	{ label: t(APP_ID, 'Cancel'), callback: () => undefined },
-	{ label: t(APP_ID, 'Block address'), variant: 'primary' as const, type: 'submit' as const, disabled: !valid.value || busy.value, callback: () => false },
+	{ label: t(APP_ID, 'Block address'), variant: 'primary' as const, type: 'submit' as const, disabled: !valid.value || busy.value !== null, callback: () => false },
 ])
 
 /**
@@ -103,32 +102,26 @@ async function submit() {
 	if (!valid.value) {
 		return
 	}
-	busy.value = true
 	errors.value = {}
-	error.value = null
-	try {
-		const ban = await addBan({
-			target: target.value.trim(),
-			level: level.value,
-			duration: length.value === 'custom' && typeof duration.value === 'number' ? duration.value : undefined,
-			note: note.value.trim(),
-		})
-		announce(t(APP_ID, '{address} is blocked. Reference {reference}.', { address: formatAddress(ban.cidr), reference: ban.reference }))
-		emit('added', ban)
+	const added = await run('add', () => banAdd({
+		target: target.value.trim(),
+		level: level.value,
+		duration: length.value === 'custom' && typeof duration.value === 'number' ? duration.value : undefined,
+		note: note.value.trim(),
+	}), {
+		done: (ban: Ban) => t(APP_ID, '{address} is blocked. Reference {reference}.', { address: formatAddress(ban.cidr), reference: ban.reference }),
+		fallback: t(APP_ID, 'The address could not be blocked. Please try again.'),
+		inline: true,
+		handle: (e) => {
+			if (e instanceof ApiError && (e.param === 'target' || e.param === 'duration')) {
+				errors.value = { [e.param]: e.message }
+				return true
+			}
+			return false
+		},
+	})
+	if (added) {
 		open.value = false
-		refreshStatus()
-	} catch (e) {
-		if (isCancelled(e)) {
-			return
-		}
-		logger.error('Could not add the block', { error: e })
-		if (e instanceof ApiError && (e.param === 'target' || e.param === 'duration')) {
-			errors.value = { [e.param]: e.message }
-		} else {
-			error.value = errorMessage(e, t(APP_ID, 'The address could not be blocked. Please try again.'))
-		}
-	} finally {
-		busy.value = false
 	}
 }
 </script>
@@ -190,7 +183,7 @@ async function submit() {
 				v-model="note"
 				:label="t(APP_ID, 'Note (optional)')"
 				:helperText="t(APP_ID, 'Why the address is blocked, for other administrators. Kept with the block and in the audit log.')"
-				:error="note.length > 255"
+				:error="noteTooLong"
 				resize="vertical" />
 
 			<NcNoteCard v-if="error" type="error" :text="error" />
@@ -202,8 +195,8 @@ async function submit() {
 .dialog {
 	display: flex;
 	flex-direction: column;
-	gap: calc(var(--default-grid-baseline) * 4);
-	padding-bottom: calc(var(--default-grid-baseline) * 2);
+	gap: var(--ids-space-4);
+	padding-bottom: var(--ids-space-2);
 }
 
 .dialog p {
@@ -214,21 +207,21 @@ async function submit() {
 .dialog__fieldset {
 	display: flex;
 	flex-direction: column;
-	gap: calc(var(--default-grid-baseline) * 2);
+	gap: var(--ids-space-2);
 	margin: 0;
 	padding: 0;
 	border: none;
 }
 
 .dialog__legend {
-	margin-bottom: calc(var(--default-grid-baseline) * 1);
+	margin-bottom: var(--ids-space-1);
 	padding: 0;
 	font-weight: 600;
 }
 
 .dialog__select {
 	max-width: 320px;
-	margin-inline-start: calc(var(--default-grid-baseline) * 9);
+	margin-inline-start: var(--ids-space-9);
 }
 
 .dialog__error {

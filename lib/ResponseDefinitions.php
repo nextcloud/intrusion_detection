@@ -10,13 +10,18 @@ declare(strict_types=1);
 namespace OCA\IntrusionDetection;
 
 /**
+ * @psalm-type IntrusionDetectionChoice = array{
+ *     value: string,
+ *     label: string,
+ * }
+ *
  * @psalm-type IntrusionDetectionParam = array{
  *     name: string,
- *     type: string,
+ *     type: 'int'|'duration'|'float'|'bool'|'choice'|'string_list'|'cidr_list'|'json',
  *     default: int|float|bool|string|list<string>,
  *     min: int|float|null,
  *     max: int|float|null,
- *     choices: list<string>,
+ *     choices: list<IntrusionDetectionChoice>,
  *     value: int|float|bool|string|list<string>,
  *     label: string,
  *     help: string,
@@ -39,11 +44,12 @@ namespace OCA\IntrusionDetection;
  * }
  *
  * @psalm-type IntrusionDetectionModeState = array{
- *     configured: string,
- *     effective: string,
+ *     configured: 'off'|'observe'|'protect',
+ *     effective: 'off'|'observe'|'protect',
  *     reason: ?string,
  *     missing: ?string,
- *     default: string,
+ *     default: 'off'|'observe'|'protect',
+ *     locked: bool,
  * }
  *
  * @psalm-type IntrusionDetectionCheckTexts = array{
@@ -59,7 +65,7 @@ namespace OCA\IntrusionDetection;
  *     id: string,
  *     category: string,
  *     internal: bool,
- *     severity: string,
+ *     severity: 'low'|'medium'|'high'|'critical',
  *     mode: IntrusionDetectionModeState,
  *     texts: IntrusionDetectionCheckTexts,
  *     decidesTemplate: string,
@@ -95,6 +101,8 @@ namespace OCA\IntrusionDetection;
  * @psalm-type IntrusionDetectionCheckList = array{
  *     checks: list<IntrusionDetectionCheck>,
  *     categories: list<IntrusionDetectionCategory>,
+ *     modes: list<IntrusionDetectionChoice>,
+ *     severities: list<IntrusionDetectionChoice>,
  * }
  *
  * @psalm-type IntrusionDetectionProtectionLevel = array{
@@ -155,15 +163,14 @@ namespace OCA\IntrusionDetection;
  *     cost: ?IntrusionDetectionCost,
  *     costSampleRate: int,
  *     problems: list<IntrusionDetectionProblem>,
- *     extensions: array<string, array<string, mixed>>,
  * }
  *
  * @psalm-type IntrusionDetectionDetection = array{
- *     id: int,
+ *     id: string,
  *     checkId: string,
  *     checkName: string,
  *     category: string,
- *     severity: string,
+ *     severity: 'low'|'medium'|'high'|'critical',
  *     enforced: bool,
  *     ip: ?string,
  *     netKey: ?string,
@@ -197,14 +204,14 @@ namespace OCA\IntrusionDetection;
  * }
  *
  * @psalm-type IntrusionDetectionBan = array{
- *     id: int,
+ *     id: string,
  *     reference: string,
  *     cidr: string,
  *     scope: string,
  *     level: int,
  *     checkId: string,
  *     checkName: string,
- *     detectionId: ?int,
+ *     detectionId: ?string,
  *     createdBy: ?string,
  *     note: ?string,
  *     createdAt: int,
@@ -215,10 +222,18 @@ namespace OCA\IntrusionDetection;
  *     active: bool,
  * }
  *
+ * @psalm-type IntrusionDetectionBanLimits = array{
+ *     minDuration: int,
+ *     maxDuration: int,
+ *     maxNote: int,
+ *     levelDurations: list<int>,
+ * }
+ *
  * @psalm-type IntrusionDetectionBanList = array{
  *     bans: list<IntrusionDetectionBan>,
  *     hasMore: bool,
  *     activeCount: int,
+ *     limits: IntrusionDetectionBanLimits,
  * }
  *
  * @psalm-type IntrusionDetectionAction = array{
@@ -272,16 +287,17 @@ namespace OCA\IntrusionDetection;
  *
  * @psalm-type IntrusionDetectionGlobalSetting = array{
  *     name: string,
- *     type: string,
+ *     type: 'int'|'duration'|'float'|'bool'|'choice'|'string_list'|'cidr_list'|'json',
  *     default: int|float|bool|string|list<string>,
  *     min: int|float|null,
  *     max: int|float|null,
- *     choices: list<string>,
+ *     choices: list<IntrusionDetectionChoice>,
  *     value: int|float|bool|string|list<string>,
  *     label: string,
  *     help: string,
  *     unit: string,
  *     group: string,
+ *     locked: bool,
  * }
  *
  * @psalm-type IntrusionDetectionSettings = array{
@@ -361,11 +377,11 @@ namespace OCA\IntrusionDetection;
  * @psalm-type IntrusionDetectionSimulation = array{
  *     check: string,
  *     testAddress: string,
- *     mode: string,
+ *     mode: 'off'|'observe'|'protect',
  *     modeReason: ?string,
  *     runs: bool,
  *     acts: bool,
- *     severity: string,
+ *     severity: 'low'|'medium'|'high'|'critical',
  *     narrative: IntrusionDetectionNarrative,
  *     responses: list<array{type: string, text: string}>,
  * }
@@ -403,13 +419,14 @@ namespace OCA\IntrusionDetection;
  *     name: string,
  *     url: string,
  *     format: string,
- *     purpose: string,
- *     mode: ?string,
+ *     purpose: 'deny'|'hosting'|'tor',
+ *     mode: 'observe'|'protect'|null,
  *     enabled: bool,
  *     builtin: bool,
  *     interval: int,
  *     customInterval: bool,
  *     termsUrl: ?string,
+ *     sha256: ?string,
  *     reference: ?string,
  *     ranges: int,
  *     entries: int,
@@ -438,14 +455,14 @@ namespace OCA\IntrusionDetection;
  *
  * @psalm-type IntrusionDetectionSyncResult = array{
  *     list: string,
- *     outcome: string,
+ *     outcome: 'updated'|'unchanged'|'skipped'|'failed',
  *     error: ?string,
  *     errorText: ?string,
  *     ranges: int,
  * }
  *
  * @psalm-type IntrusionDetectionDecoy = array{
- *     id: int,
+ *     id: string,
  *     label: string,
  *     loginName: ?string,
  *     format: string,
@@ -465,6 +482,7 @@ namespace OCA\IntrusionDetection;
  *     suggestions: list<string>,
  *     collisions: list<string>,
  *     max: int,
+ *     limits: array{maxLength: int},
  * }
  *
  * @psalm-type IntrusionDetectionTrapPaths = array{
@@ -476,6 +494,7 @@ namespace OCA\IntrusionDetection;
  *     webServer: 'nginx'|'apache_fpm'|'apache'|'unknown',
  *     needRule: list<string>,
  *     max: int,
+ *     limits: array{maxLength: int, nextcloudSegments: list<string>},
  *     snippets: list<IntrusionDetectionSnippet>,
  *     snippetsSkipped: list<string>,
  * }
@@ -488,6 +507,7 @@ namespace OCA\IntrusionDetection;
  *     decoyCollisions: list<string>,
  *     reservedNames: IntrusionDetectionReservedNames,
  *     trapPaths: IntrusionDetectionTrapPaths,
+ *     limits: array{labelMaxLength: int, loginNameMaxLength: int},
  * }
  *
  * @psalm-type IntrusionDetectionRecipient = array{
@@ -500,7 +520,7 @@ namespace OCA\IntrusionDetection;
  *     id: string,
  *     name: string,
  *     category: string,
- *     mode: string,
+ *     mode: 'off'|'observe'|'protect',
  *     admin: bool,
  *     user: bool,
  *     adminAvailable: bool,
@@ -528,6 +548,7 @@ namespace OCA\IntrusionDetection;
  *     why: string,
  *     retention: string,
  *     where: string,
+ *     protection: string,
  *     checks: list<string>,
  * }
  *
@@ -607,12 +628,12 @@ namespace OCA\IntrusionDetection;
  *     maxBytes: int,
  *     signaturesVersion: int,
  *     fires: bool,
- *     modes: array{anonymous: string, authenticated: string},
+ *     modes: array{anonymous: 'off'|'observe'|'protect', authenticated: 'off'|'observe'|'protect'},
  *     values: list<IntrusionDetectionPayloadValue>,
  * }
  *
  * @psalm-type IntrusionDetectionApproval = array{
- *     id: int,
+ *     id: string,
  *     kind: string,
  *     subject: string,
  *     requestedBy: string,
@@ -626,7 +647,9 @@ namespace OCA\IntrusionDetection;
  * }
  *
  * @psalm-type IntrusionDetectionAdminGrantRequest = array{
- *     id: int,
+ *     id: string,
+ *     kind: 'admin_grant'|'settings',
+ *     change: ?string,
  *     uid: string,
  *     displayName: string,
  *     group: string,
@@ -638,9 +661,9 @@ namespace OCA\IntrusionDetection;
  * }
  *
  * @psalm-type IntrusionDetectionPersonalDetection = array{
- *     id: int,
+ *     id: string,
  *     check: string,
- *     severity: string,
+ *     severity: 'low'|'medium'|'high'|'critical',
  *     enforced: bool,
  *     createdAt: int,
  *     lastSeenAt: int,
@@ -658,16 +681,11 @@ namespace OCA\IntrusionDetection;
  * }
  *
  * @psalm-type IntrusionDetectionTrustedNetwork = array{
- *     id: int,
+ *     id: string,
  *     network: string,
  *     createdAt: int,
  *     expiresAt: int,
- *     detectionId: ?int,
- * }
- *
- * @psalm-type IntrusionDetectionAnswerError = array{
- *     reason: string,
- *     message: string,
+ *     detectionId: ?string,
  * }
  *
  * @psalm-type IntrusionDetectionIncidentEntry = array{
@@ -678,7 +696,7 @@ namespace OCA\IntrusionDetection;
  *     kind: string,
  *     group: string,
  *     title: string,
- *     severity: ?string,
+ *     severity: 'low'|'medium'|'high'|'critical'|null,
  *     enforced: ?bool,
  *     outcome: 'acted'|'notified'|'recorded'|'observed'|null,
  *     details: list<string>,
@@ -744,7 +762,7 @@ namespace OCA\IntrusionDetection;
  * }
  *
  * @psalm-type IntrusionDetectionLoginApproval = array{
- *     id: int,
+ *     id: string,
  *     uid: string,
  *     displayName: string,
  *     ip: ?string,
@@ -761,7 +779,6 @@ namespace OCA\IntrusionDetection;
  *     users: array{withoutMethod: int, active: int},
  *     admins: array{total: int, withoutEmail: int, withoutSecondFactor: int, withNeither: list<string>},
  *     approvers: int,
- *     approvals: list<IntrusionDetectionLoginApproval>,
  * }
  *
  * @psalm-type IntrusionDetectionConfirmationPreset = array{
@@ -778,7 +795,7 @@ namespace OCA\IntrusionDetection;
  * }
  *
  * @psalm-type IntrusionDetectionKnownDevice = array{
- *     id: int,
+ *     id: string,
  *     label: string,
  *     family: string,
  *     platform: string,
@@ -789,7 +806,7 @@ namespace OCA\IntrusionDetection;
  * }
  *
  * @psalm-type IntrusionDetectionLogin = array{
- *     id: int,
+ *     id: string,
  *     createdAt: int,
  *     ip: ?string,
  *     network: ?string,
@@ -855,7 +872,7 @@ namespace OCA\IntrusionDetection;
  * }
  *
  * @psalm-type IntrusionDetectionSecurityChange = array{
- *     id: int,
+ *     id: string,
  *     type: string,
  *     label: string,
  *     via: string,
@@ -891,7 +908,7 @@ namespace OCA\IntrusionDetection;
  * }
  *
  * @psalm-type IntrusionDetectionSecureAccountStep = array{
- *     id: string,
+ *     id: 'password'|'sessions'|'two_factor'|'email'|'shares'|'files',
  *     done: bool,
  *     doneAt: ?int,
  *     skipped: bool,
@@ -904,7 +921,7 @@ namespace OCA\IntrusionDetection;
  *     startedAt: ?int,
  *     eventAt: ?int,
  *     reason: ?string,
- *     detectionId: ?int,
+ *     detectionId: ?string,
  *     closedAt: ?int,
  *     closedBy: ?string,
  *     done: int,

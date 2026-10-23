@@ -10,13 +10,15 @@ declare(strict_types=1);
 namespace OCA\IntrusionDetection\Admin;
 
 use OCA\IntrusionDetection\AdminChange\ApprovalService;
-use OCA\IntrusionDetection\Check\ParamText;
+use OCA\IntrusionDetection\Config\AppSettings;
 use OCA\IntrusionDetection\Config\GlobalSettings;
-use OCA\IntrusionDetection\Config\Settings;
+use OCA\IntrusionDetection\Config\PurgeRetention;
 use OCA\IntrusionDetection\Confirm\EmailCodes;
+use OCA\IntrusionDetection\Confirm\LoginConfirmations;
 use OCA\IntrusionDetection\Confirm\Methods\AdminApprovalMethod;
+use OCA\IntrusionDetection\Confirm\NoMethodOutcome;
 use OCA\IntrusionDetection\Confirm\StepUpPolicy;
-use OCA\IntrusionDetection\Confirm\StepUpService;
+use OCA\IntrusionDetection\Definition\ParamText;
 use OCA\IntrusionDetection\Explain\TextRenderer;
 use OCA\IntrusionDetection\KnownDevice\KnownDevices;
 use OCA\IntrusionDetection\ResponseDefinitions;
@@ -55,12 +57,9 @@ class GlobalSettingsPresenter {
 	/** Trusted networks and exempt groups, shown in the card of the hosting and Tor networks check */
 	public const GROUP_RISKY_NETWORK = 'risky_network';
 
-	/** Changed through the learning mode endpoint only, so every change is explained and audited as such */
-	private const MANAGED_ELSEWHERE = [GlobalSettings::LEARNING_UNTIL, GlobalSettings::BLOCKLIST_SOURCES];
-
 	public function __construct(
 		private readonly GlobalSettings $globals,
-		private readonly Settings $settings,
+		private readonly AppSettings $settings,
 	) {
 	}
 
@@ -68,9 +67,7 @@ class GlobalSettingsPresenter {
 	 * Whether an admin may change the setting through the settings endpoint.
 	 */
 	public function isEditable(string $name): bool {
-		return $this->globals->get($name) !== null
-			&& !GlobalSettings::isInternal($name)
-			&& !in_array($name, self::MANAGED_ELSEWHERE, true);
+		return $this->globals->isEditable($name);
 	}
 
 	/**
@@ -92,11 +89,13 @@ class GlobalSettingsPresenter {
 			}
 			[$text, $group] = $this->describe($name, $l);
 			$settings[] = array_merge($definition->toArray(), [
-				'value' => $this->settings->global($name),
+				'choices' => $definition->choiceLabels($l, $this->choiceLabels($l)),
+				'value' => $this->settings->value($name),
 				'label' => $text->label,
 				'help' => $text->help,
 				'unit' => $text->unit,
 				'group' => $group,
+				'locked' => $this->settings->isLockedSetting($name),
 			]);
 		}
 		return [
@@ -108,7 +107,7 @@ class GlobalSettingsPresenter {
 				'neverBlocked' => $l->t('Addresses on the brute-force allowlist and the server\'s own addresses are never blocked, and no network that contains one. Checks also never block an address an administrator logged in from in the last 7 days (except for trap URLs and injection probes), nor, for attacks on one account, an address from which that account confirmed a login in the last 7 days (with a second factor, an email code, an administrator\'s approval or a remembered device), nor a private address many people or an administrator log in from while no trusted proxies are configured. You can still block these by hand.'),
 				'confirmationTimes' => $l->t('Email codes are valid for %1$s. A login that is not confirmed within %2$s is ended, and the user is told. A login waits for an administrator\'s approval at most %3$s. When a user answers "Yes, it was me", their network is trusted for %4$s.', [
 					TextRenderer::duration(EmailCodes::TTL, $l),
-					TextRenderer::duration(StepUpService::SESSION_TTL, $l),
+					TextRenderer::duration(LoginConfirmations::SESSION_TTL, $l),
 					TextRenderer::duration(AdminApprovalMethod::TTL, $l),
 					TextRenderer::duration(TrustedNetworks::DURATION, $l),
 				]),
@@ -134,6 +133,23 @@ class GlobalSettingsPresenter {
 				]),
 			],
 		];
+	}
+
+	/**
+	 * The labels of the choices of global settings that are no mode or severity.
+	 *
+	 * @return array<string, string>
+	 */
+	private function choiceLabels(IL10N $l): array {
+		$labels = [
+			'never' => $l->t('Never'),
+			'daily' => $l->t('Daily'),
+			'weekly' => $l->t('Weekly'),
+		];
+		foreach (NoMethodOutcome::cases() as $outcome) {
+			$labels[$outcome->value] = $outcome->label($l);
+		}
+		return $labels;
 	}
 
 	/**
@@ -182,7 +198,7 @@ class GlobalSettingsPresenter {
 			), self::GROUP_BLOCKS],
 			GlobalSettings::RETENTION_DETECTIONS_DAYS => [new ParamText(
 				$l->t('Keep records for'),
-				$l->t('Older detections, logins and security changes of accounts (email address, password, second factor, app passwords) are deleted. Blocks are kept 30 days after they end, for escalation.'),
+				$l->t('Older detections, logins and security changes of accounts (email address, password, second factor, app passwords) are deleted. A shorter period applies only after %s, so that lowering it cannot delete what happened before anyone saw the alert about the change. Blocks are kept 30 days after they end, for escalation.', [TextRenderer::duration(PurgeRetention::DELAY, $l)]),
 				$l->t('days'),
 			), self::GROUP_PRIVACY],
 			GlobalSettings::EXPORT_FORMATS => [new ParamText(
@@ -199,7 +215,7 @@ class GlobalSettingsPresenter {
 			), self::GROUP_NOTIFICATIONS],
 			GlobalSettings::ADMIN_CHANGE_REQUIRE_APPROVAL => [new ParamText(
 				$l->t('A second administrator approves new administrators'),
-				$l->t('Someone added to the admin group through the web interface or the API is taken out again until another administrator approves. A request nobody approves within %s is dropped, and the requester is told. occ and directory-backed groups are not held back, only reported. Needs at least two administrators.', [TextRenderer::duration(ApprovalService::TTL, $l)]),
+				$l->t('Someone added to the admin group, or to a group with delegated administration settings, through the web interface or the API is taken out again until another administrator approves. A request nobody approves within %s is dropped, and the requester is told. occ and directory-backed groups are not held back, only reported. Needs at least two administrators.', [TextRenderer::duration(ApprovalService::TTL, $l)]),
 			), self::GROUP_APPROVALS],
 			GlobalSettings::DIGEST_FREQUENCY => [new ParamText(
 				$l->t('Send the digest'),
@@ -207,7 +223,7 @@ class GlobalSettingsPresenter {
 			), self::GROUP_NOTIFICATIONS],
 			GlobalSettings::EVENTS_INCLUDE_IP => [new ParamText(
 				$l->t('Addresses in webhook events'),
-				$l->t('Whether the events sent to webhooks contain the attacking address. Turn this off when the receiving system must not get personal data.'),
+				$l->t('Whether the events sent to webhooks contain the attacking address. Only switch this on when the receiving system may get personal data.'),
 			), self::GROUP_NOTIFICATIONS],
 			GlobalSettings::STEP_UP_KNOWN_DEVICE_OK_FOR => [new ParamText(
 				$l->t('Remembered devices confirm these logins'),
@@ -230,8 +246,8 @@ class GlobalSettingsPresenter {
 				$l->t('Your own networks and VPN, as addresses or ranges such as 203.0.113.0/24. Logins from them never count as risky, they lower the risk score, and administrators may log in from them when "Administrators log in from trusted networks only" is on.'),
 			), self::GROUP_RISKY_NETWORK],
 			GlobalSettings::ADMIN_TRUSTED_NETWORKS_ONLY => [new ParamText(
-				$l->t('Administrators log in from trusted networks only'),
-				$l->t('A password login of an administrator (the admin group or delegated administration) from outside the trusted networks must be confirmed with a second factor, an email code or, when it is on, another administrator\'s approval; a remembered device is not enough. Apps that send the password cannot confirm, so they are refused. For an account without any way to confirm, your choice for risky logins that cannot be confirmed decides. Apps with app passwords are not affected. Locked out? Run "occ config:app:set intrusion_detection admin_trusted_networks_only --value=false" on the server.'),
+				$l->t('Administrators log in with their password from trusted networks only'),
+				$l->t('A password login of an administrator (the admin group or delegated administration) from outside the trusted networks must be confirmed with a second factor or, when it is on, another administrator\'s approval, and only without both with an email code; a remembered device is not enough. A browser session let in from a trusted network ends when it is used elsewhere, and an account made administrator logs in again. Apps that send the password cannot confirm, so they are refused. For an account without any way to confirm, your choice for risky logins that cannot be confirmed decides. Apps with app passwords and single sign-on are not affected. Locked out? Run "occ config:app:set intrusion_detection admin_trusted_networks_only --value=false" on the server.'),
 			), self::GROUP_STEP_UP],
 			GlobalSettings::RISKY_NETWORK_EXEMPT_GROUPS => [new ParamText(
 				$l->t('Exempt groups'),

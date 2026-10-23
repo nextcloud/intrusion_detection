@@ -12,6 +12,7 @@ namespace OCA\IntrusionDetection\Tests\Unit\Controller;
 use OCA\IntrusionDetection\Admin\BlocklistPresenter;
 use OCA\IntrusionDetection\Admin\NotificationOverview;
 use OCA\IntrusionDetection\Admin\TrapsOverview;
+use OCA\IntrusionDetection\AdminChange\ActorResolver;
 use OCA\IntrusionDetection\Audit\AuditLogger;
 use OCA\IntrusionDetection\Blocklist\BlocklistSource;
 use OCA\IntrusionDetection\Blocklist\BlocklistSync;
@@ -19,12 +20,13 @@ use OCA\IntrusionDetection\Blocklist\ListFormat;
 use OCA\IntrusionDetection\Blocklist\SourceEditor;
 use OCA\IntrusionDetection\Blocklist\SourceRepository;
 use OCA\IntrusionDetection\Blocklist\SyncResult;
-use OCA\IntrusionDetection\Check\InvalidParamException;
-use OCA\IntrusionDetection\Config\Settings;
+use OCA\IntrusionDetection\Config\CheckSettings;
+use OCA\IntrusionDetection\Configure\SettingsEditor;
 use OCA\IntrusionDetection\Controller\BlocklistApiController;
 use OCA\IntrusionDetection\Controller\DecoyApiController;
 use OCA\IntrusionDetection\Controller\NotificationApiController;
 use OCA\IntrusionDetection\Decoy\DecoyService;
+use OCA\IntrusionDetection\Definition\InvalidParamException;
 use OCA\IntrusionDetection\Notification\TestAlert;
 use OCA\IntrusionDetection\Traps\ReservedNames;
 use OCP\AppFramework\Http;
@@ -43,6 +45,8 @@ use Test\TestCase;
  * Decoys, Notifications and Data and privacy tabs.
  */
 class AdminTabControllersTest extends TestCase {
+	use AnswersLikeTheApi;
+
 	private IL10N $l;
 	private IUserSession&MockObject $session;
 	private AuditLogger&MockObject $audit;
@@ -71,7 +75,7 @@ class AdminTabControllersTest extends TestCase {
 		$sync = $this->createMock(BlocklistSync::class);
 		$presenter = $this->createMock(BlocklistPresenter::class);
 		$presenter->method('list')->willReturn(['id' => 'corp']);
-		$controller = new BlocklistApiController($this->createMock(IRequest::class), $this->l, $this->session, $presenter, $editor, $sources, $sync, $this->audit);
+		$controller = new BlocklistApiController($this->createMock(IRequest::class), $this->l, new ActorResolver($this->session), $presenter, $editor, $sources, $sync, $this->audit);
 		return [$controller, $editor, $sync];
 	}
 
@@ -83,12 +87,12 @@ class AdminTabControllersTest extends TestCase {
 				$this->assertTrue($changes['enabled']);
 				$this->assertSame('cidr', $changes['format']);
 				if ($id === 'bad') {
-					throw new InvalidParamException('url_refused');
+					throw new InvalidParamException('url_refused', ['param' => 'url']);
 				}
 				return self::source($id, true);
 			});
-		$this->assertSame(['id' => 'corp'], $controller->create(' corp ', ' https://lists.example.org/x ', 'deny')->getData());
-		$refused = $controller->create('bad', 'https://localhost/x', 'deny');
+		$this->assertSame(['id' => 'corp'], $this->answer(fn () => $controller->create(' corp ', ' https://lists.example.org/x ', 'deny'))->getData());
+		$refused = $this->answer(fn () => $controller->create('bad', 'https://localhost/x', 'deny'));
 		$this->assertSame(Http::STATUS_BAD_REQUEST, $refused->getStatus());
 		$this->assertSame('url', $refused->getData()['param']);
 	}
@@ -108,32 +112,33 @@ class AdminTabControllersTest extends TestCase {
 	public function testSyncNowOnlyForEnabledListsAndAudited(): void {
 		[$controller, , $sync] = $this->blocklists(self::source('corp', false));
 		$sync->expects($this->never())->method('sync');
-		$this->assertSame('list_disabled', $controller->syncNow('corp')->getData()['reason']);
+		$this->assertSame('list_disabled', $this->answer(fn () => $controller->syncNow('corp'))->getData()['reason']);
 
 		[$controller, , $sync] = $this->blocklists(self::source('corp', true));
 		$sync->expects($this->once())->method('sync')->with('corp')->willReturn([new SyncResult('corp', SyncResult::FAILED, 'http_error', status: 503)]);
 		$this->audit->expects($this->once())->method('log')->with('blocklist %s downloaded by %s: %s', ['list' => 'corp', 'actor' => 'alice', 'outcome' => 'failed']);
-		$data = $controller->syncNow('corp')->getData();
+		$data = $this->answer(fn () => $controller->syncNow('corp'))->getData();
 		$this->assertSame('failed', $data['result']['outcome']);
 		$this->assertSame('lists.example.org answered with HTTP status 503', $data['result']['errorText'], 'the server and the status of the list');
 	}
 
 	/**
-	 * @return array{DecoyApiController, Settings&MockObject, ReservedNames&MockObject}
+	 * @return array{DecoyApiController, CheckSettings&MockObject, SettingsEditor&MockObject, ReservedNames&MockObject}
 	 */
 	private function decoys(): array {
-		$settings = $this->createMock(Settings::class);
+		$settings = $this->createMock(CheckSettings::class);
+		$editor = $this->createMock(SettingsEditor::class);
 		$reserved = $this->createMock(ReservedNames::class);
 		$overview = $this->createMock(TrapsOverview::class);
 		$overview->method('trapPaths')->willReturn(['custom' => []]);
-		$controller = new DecoyApiController($this->createMock(IRequest::class), $this->l, $this->session, $overview, $this->createMock(DecoyService::class), $reserved, $settings, $this->audit);
-		return [$controller, $settings, $reserved];
+		$controller = new DecoyApiController($this->createMock(IRequest::class), $this->l, new ActorResolver($this->session), $overview, $this->createMock(DecoyService::class), $reserved, $settings, $editor, $this->audit);
+		return [$controller, $settings, $editor, $reserved];
 	}
 
 	public function testTrapPathChangesAreSavedTogetherAndAudited(): void {
-		[$controller, $settings] = $this->decoys();
+		[$controller, $settings, $editor] = $this->decoys();
 		$settings->method('paramList')->willReturn(['/old/*', '/gone']);
-		$settings->expects($this->once())->method('updateCheck')
+		$editor->expects($this->once())->method('updateCheck')
 			->with('trap_url', null, ['paths' => ['/old/*', '/new'], 'autodiscover' => true], null)
 			->willReturn(['params' => ['paths' => ['/old/*', '/new'], 'autodiscover' => true]]);
 		$this->audit->expects($this->once())->method('log')->with($this->anything(), [
@@ -143,35 +148,35 @@ class AdminTabControllersTest extends TestCase {
 	}
 
 	public function testAnInvalidTrapPathSavesNothing(): void {
-		[$controller, $settings] = $this->decoys();
+		[$controller, $settings, $editor] = $this->decoys();
 		$settings->method('paramList')->willReturn([]);
-		$settings->method('updateCheck')->willThrowException(new InvalidParamException('nextcloud_path', ['param' => 'paths', 'item' => '/apps']));
+		$editor->method('updateCheck')->willThrowException(new InvalidParamException('nextcloud_path', ['param' => 'paths', 'item' => '/apps']));
 		$this->audit->expects($this->never())->method('log');
-		$response = $controller->updateTrapPaths(['/apps']);
+		$response = $this->answer(fn () => $controller->updateTrapPaths(['/apps']));
 		$this->assertSame(Http::STATUS_BAD_REQUEST, $response->getStatus());
 		$this->assertSame('paths', $response->getData()['param']);
 	}
 
 	public function testTrapPathsThatChangeNothingAreNotAudited(): void {
-		[$controller, $settings] = $this->decoys();
+		[$controller, $settings, $editor] = $this->decoys();
 		$settings->method('paramList')->willReturn(['/old']);
-		$settings->method('updateCheck')->willReturn([]);
+		$editor->method('updateCheck')->willReturn([]);
 		$this->audit->expects($this->never())->method('log');
-		$this->assertSame(Http::STATUS_OK, $controller->updateTrapPaths(['/old'])->getStatus());
+		$this->assertSame(Http::STATUS_OK, $this->answer(fn () => $controller->updateTrapPaths(['/old']))->getStatus());
 	}
 
 	public function testTooManyChangesAtOnceAreRefused(): void {
-		[$controller, , $reserved] = $this->decoys();
+		[$controller, , , $reserved] = $this->decoys();
 		$reserved->expects($this->never())->method('change');
-		$this->assertSame('too_many_items', $controller->updateReservedNames(array_map(static fn (int $i): string => 'name' . $i, range(1, 101)))->getData()['reason']);
+		$this->assertSame('too_many_items', $this->answer(fn () => $controller->updateReservedNames(array_map(static fn (int $i): string => 'name' . $i, range(1, 101))))->getData()['reason']);
 	}
 
 	public function testTheTestAlertGoesToTheAdminWhoAsksAndIsAudited(): void {
 		$alert = $this->createMock(TestAlert::class);
 		$alert->expects($this->once())->method('send')->with($this->session->getUser())->willReturn(['bell' => true, 'email' => 'sent', 'address' => 'alice@example.org']);
 		$this->audit->expects($this->once())->method('log')->with('test alert sent to %s: email %s', ['actor' => 'alice', 'email' => 'sent']);
-		$controller = new NotificationApiController($this->createMock(IRequest::class), $this->l, $this->session, $this->createMock(NotificationOverview::class), $alert, $this->audit);
-		$this->assertSame('sent', $controller->test()->getData()['email']);
+		$controller = new NotificationApiController($this->createMock(IRequest::class), $this->l, new ActorResolver($this->session), $this->session, $this->createMock(NotificationOverview::class), $alert, $this->audit);
+		$this->assertSame('sent', $this->answer(fn () => $controller->test())->getData()['email']);
 	}
 
 }

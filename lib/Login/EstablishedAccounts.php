@@ -9,11 +9,9 @@ declare(strict_types=1);
 
 namespace OCA\IntrusionDetection\Login;
 
-use OCA\IntrusionDetection\AppInfo\Application;
+use OCA\IntrusionDetection\Cache\Caches;
 use OCP\Config\IUserConfig;
 use OCP\Config\ValueType;
-use OCP\ICache;
-use OCP\ICacheFactory;
 use OCP\IGroupManager;
 
 /**
@@ -32,17 +30,16 @@ use OCP\IGroupManager;
  * accounts.
  */
 class EstablishedAccounts {
+	/** The namespace of its memory cache in {@see Caches} */
+	public const CACHE = 'established-accounts';
 	/** Accounts count once their first login is this long ago */
 	public const MIN_AGE = 3 * 86400;
 	public const CACHE_TTL = 3600;
 
-	private ?ICache $cache = null;
-	private bool $cacheInitialised = false;
-
 	public function __construct(
 		private readonly IUserConfig $userConfig,
 		private readonly IGroupManager $groups,
-		private readonly ICacheFactory $cacheFactory,
+		private readonly Caches $caches,
 	) {
 	}
 
@@ -78,7 +75,7 @@ class EstablishedAccounts {
 	 * @return array<string, int>
 	 */
 	private function firstLogins(array $uids): array {
-		$cache = $this->cache();
+		$cache = $this->caches->local(self::CACHE);
 		$found = [];
 		$missing = [];
 		foreach ($uids as $uid) {
@@ -99,13 +96,5 @@ class EstablishedAccounts {
 			$cache?->set('first-login:' . $uid, $found[$uid], self::CACHE_TTL);
 		}
 		return $found;
-	}
-
-	private function cache(): ?ICache {
-		if (!$this->cacheInitialised) {
-			$this->cacheInitialised = true;
-			$this->cache = $this->cacheFactory->isLocalCacheAvailable() ? $this->cacheFactory->createLocal(Application::APP_ID) : null;
-		}
-		return $this->cache;
 	}
 }

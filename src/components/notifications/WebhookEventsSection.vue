@@ -4,11 +4,8 @@
 -->
 
 <script setup lang="ts">
-import type { WebhookEvents } from '../../types.ts'
-
 import { mdiCheck, mdiContentCopy, mdiWebhook } from '@mdi/js'
-import { t } from '@nextcloud/l10n'
-import { computed, onMounted, ref, watch } from 'vue'
+import { computed, ref } from 'vue'
 import NcIconSvgWrapper from '@nextcloud/vue/components/NcIconSvgWrapper'
 import NcNoteCard from '@nextcloud/vue/components/NcNoteCard'
 import CodeBlock from '../common/CodeBlock.vue'
@@ -17,31 +14,18 @@ import SettingsGroup from '../common/SettingsGroup.vue'
 import ShowMore from '../common/ShowMore.vue'
 import SkeletonBlock from '../common/SkeletonBlock.vue'
 import { useAnnouncer } from '../../composables/useAnnouncer.ts'
-import { fetchWebhookEvents } from '../../services/api.ts'
-import { logger } from '../../services/logger.ts'
 import { state } from '../../store.ts'
+import { useWebhookEvents } from '../../stores/settings.ts'
 import { APP_ID } from '../../utils/format.ts'
+import { t } from '../../utils/l10n.ts'
 
-const events = ref<WebhookEvents | null>(null)
-const loadFailed = ref(false)
+const { data: events, error } = useWebhookEvents()
+const loadFailed = computed(() => error.value !== null)
 const copied = ref<string | null>(null)
 const { announce } = useAnnouncer()
 
 const settings = computed(() => state.settings.filter((s) => s.name === 'events_include_ip'))
 const filterExample = JSON.stringify({ 'event.severity': { $in: ['high', 'critical'] } })
-
-/**
- * Load the events with their example payloads.
- */
-async function load() {
-	try {
-		events.value = await fetchWebhookEvents()
-		loadFailed.value = false
-	} catch (error) {
-		logger.error('Could not load the webhook events', { error })
-		loadFailed.value = true
-	}
-}
 
 /**
  * @param value - The example payload
@@ -67,10 +51,6 @@ async function copy(className: string) {
 		announce(t(APP_ID, 'Could not copy. Select the event name and copy it by hand.'))
 	}
 }
-
-// The examples follow the address setting, so they are loaded again after it was saved.
-watch(() => settings.value.map((s) => s.value).join('|'), load)
-onMounted(load)
 </script>
 
 <template>
@@ -136,13 +116,13 @@ onMounted(load)
 
 <style module>
 .hint {
+	composes: muted from '../../styles/shared.module.css';
 	margin: 0;
-	color: var(--color-text-maxcontrast);
 	line-height: 1.6;
 }
 
 .inline {
-	padding-inline: calc(var(--default-grid-baseline) * 1);
+	padding-inline: var(--ids-space-1);
 	border-radius: var(--border-radius-element);
 	background-color: var(--color-background-hover);
 	color: var(--color-main-text);
@@ -150,21 +130,19 @@ onMounted(load)
 }
 
 .events {
+	composes: plainList from '../../styles/shared.module.css';
 	display: flex;
 	flex-direction: column;
-	margin: 0;
-	padding: 0;
 	border: 1px solid var(--color-border);
 	border-radius: var(--border-radius-large);
-	list-style: none;
 }
 
 .event {
 	display: flex;
 	flex-direction: column;
-	gap: calc(var(--default-grid-baseline) * 1);
+	gap: var(--ids-space-1);
 	min-width: 0;
-	padding: calc(var(--default-grid-baseline) * 3) calc(var(--default-grid-baseline) * 4);
+	padding: var(--ids-space-3) var(--ids-space-4);
 }
 
 .event + .event {
@@ -176,12 +154,12 @@ onMounted(load)
 	flex-wrap: wrap;
 	align-items: center;
 	justify-content: space-between;
-	gap: calc(var(--default-grid-baseline) * 2);
+	gap: var(--ids-space-2);
 }
 
 .event__description {
+	composes: muted from '../../styles/shared.module.css';
 	margin: 0;
-	color: var(--color-text-maxcontrast);
 	line-height: 1.5;
 }
 
@@ -197,7 +175,7 @@ onMounted(load)
 }
 
 .event__class code {
-	padding-inline: calc(var(--default-grid-baseline) * 2);
+	padding-inline: var(--ids-space-2);
 	overflow-wrap: anywhere;
 }
 
@@ -223,7 +201,7 @@ onMounted(load)
 }
 
 .event__class button.copy:focus-visible {
-	outline: 2px solid var(--color-main-text);
+	outline: var(--ids-focus-ring);
 	outline-offset: -2px;
 }
 </style>

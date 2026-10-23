@@ -1,0 +1,226 @@
+{
+	"account_takeover": [
+		{
+			"stored": {"rules": ["any_session"], "anyPoints": 5, "sessionPoints": 0, "riskyLoginAt": null, "riskyLoginReason": null, "riskyLoginPolicies": [], "changes": [{"id": "470938541726507009", "type": "password_changed", "points": 1, "at": 1789999100, "ip": null, "old": null, "new": null}], "emailChangeId": null, "emailChangedAt": null, "previousAddress": null, "userHasEmail": true, "sessionTokenId": 7, "first": 1789999100, "last": 1789999100, "risk": {"score": 0}, "sessionTokenIds": [7]},
+			"hit": {"rules": ["risky_login", "any_session"], "anyPoints": 7, "sessionPoints": 4, "riskyLoginAt": 1789999000, "riskyLoginReason": "risky_network", "riskyLoginPolicies": ["new_network"], "changes": [{"id": "470938541726507009", "type": "password_changed", "points": 1, "at": 1789999100, "ip": null, "old": null, "new": null}, {"id": "470938541726507010", "type": "email_changed", "points": 2, "at": 1789999900, "ip": "203.0.113.5", "old": "a***@example.com", "new": "m***@example.org"}], "emailChangeId": "470938541726507010", "emailChangedAt": 1789999900, "previousAddress": "a***@example.com", "userHasEmail": true, "sessionTokenId": 7, "first": 1789999100, "last": 1789999900},
+			"merged": {"rules": ["any_session", "risky_login"], "anyPoints": 7, "sessionPoints": 4, "riskyLoginAt": 1789999000, "riskyLoginReason": "risky_network", "riskyLoginPolicies": ["new_network"], "changes": [{"id": "470938541726507009", "type": "password_changed", "points": 1, "at": 1789999100, "ip": null, "old": null, "new": null}, {"id": "470938541726507010", "type": "email_changed", "points": 2, "at": 1789999900, "ip": "203.0.113.5", "old": "a***@example.com", "new": "m***@example.org"}], "emailChangeId": "470938541726507010", "emailChangedAt": 1789999900, "previousAddress": "a***@example.com", "userHasEmail": true, "sessionTokenId": 7, "first": 1789999100, "last": 1789999900, "risk": {"score": 0}, "sessionTokenIds": [7]}
+		}
+	],
+	"account_under_attack": [
+		{
+			"stored": {"failures": 12, "sources": 5, "first": 1789999100, "last": 1789999700, "lastSource": "198.51.100.1", "risk": {"score": 10}},
+			"hit": {"failures": 15, "sources": 6, "first": 1789999000, "last": 1790000000, "lastSource": "198.51.100.2", "risk": {"score": 45, "tier": "elevated", "factors": [{"id": "failures", "value": "30", "points": 2}]}, "loweredLimits": {"min_names": {"plain": 5, "effective": 3}}},
+			"merged": {"failures": 15, "sources": 6, "first": 1789999000, "last": 1790000000, "lastSource": "198.51.100.2", "risk": {"score": 45, "tier": "elevated", "factors": [{"id": "failures", "value": "30", "points": 2}]}, "loweredLimits": {"min_names": {"plain": 5, "effective": 3}}}
+		}
+	],
+	"blocklist_match": [
+		{
+			"stored": {"lists": ["a"], "listNames": ["A"], "trigger": "failed_login"},
+			"hit": {"lists": ["a", "b"], "listNames": ["A", "B"], "trigger": "failed_login"},
+			"merged": {"lists": ["a", "b"], "listNames": ["A", "B"], "trigger": "failed_login"}
+		}
+	],
+	"breached_password": [
+		{
+			"stored": {"trigger": "login", "risk": {"score": 3}, "sessionTokenIds": [3]},
+			"hit": {"trigger": "login"},
+			"merged": {"trigger": "login", "risk": {"score": 3}, "sessionTokenIds": [3]}
+		}
+	],
+	"credential_stuffing": [
+		{
+			"stored": {"rule": "source", "failures": 10, "names": 5, "sources": 1, "first": 1789999500, "last": 1789999900, "targets": ["alice", "bob"]},
+			"hit": {"rule": "source", "failures": 14, "names": 7, "sources": 1, "first": 1789999500, "last": 1790000000, "targets": ["bob", "carol", "dave"], "risk": {"score": 45, "tier": "elevated", "factors": [{"id": "failures", "value": "30", "points": 2}]}, "loweredLimits": {"min_names": {"plain": 5, "effective": 3}}},
+			"merged": {"rule": "source", "failures": 14, "names": 7, "sources": 1, "first": 1789999500, "last": 1790000000, "targets": ["alice", "bob", "carol", "dave"], "risk": {"score": 45, "tier": "elevated", "factors": [{"id": "failures", "value": "30", "points": 2}]}, "loweredLimits": {"min_names": {"plain": 5, "effective": 3}}}
+		},
+		{
+			"stored": {"rule": "network", "failures": 30, "names": 15, "sources": 4, "first": 1789999500, "last": 1789999900, "net": "4:198.51.100.0/24", "targets": ["alice"]},
+			"hit": {"rule": "network", "failures": 31, "names": 15, "sources": 5, "first": 1789999600, "last": 1790000000, "net": "4:198.51.100.0/24", "targets": ["bob"]},
+			"merged": {"rule": "network", "failures": 31, "names": 15, "sources": 5, "first": 1789999500, "last": 1790000000, "net": "4:198.51.100.0/24", "targets": ["alice", "bob"]}
+		}
+	],
+	"decoy_credential": [
+		{
+			"stored": {"decoy": "470938541726507011", "label": "wiki admin", "format": "password", "match": "login_name"},
+			"hit": {"decoy": "470938541726507011", "label": "wiki admin", "format": "password", "match": "secret"},
+			"merged": {"decoy": "470938541726507011", "label": "wiki admin", "format": "password", "match": "secret"}
+		}
+	],
+	"directory_scraping": [
+		{
+			"stored": {"group": "search", "count": 210, "limit": 200, "window": 600, "until": 1790000000},
+			"hit": {"group": "profile", "count": 1100, "limit": 1000, "window": 600, "until": 1790000600},
+			"merged": {"group": "profile", "count": 1100, "limit": 1000, "window": 600, "until": 1790000600}
+		}
+	],
+	"injection_probe": [
+		{
+			"stored": {"location": "query", "param": "id", "signatures": ["sql_union"], "weights": {"sql_union": 3}, "weight": 3, "minWeight": 3, "encoding": "none", "excerpt": "UNION", "otherParams": ["a"], "signaturesVersion": 4, "authenticated": false, "credential": null},
+			"hit": {"location": "form", "param": "q", "signatures": ["sql_comment", "sql_union"], "weights": {"sql_comment": 1, "sql_union": 3}, "weight": 4, "minWeight": 3, "encoding": "base64", "excerpt": "--", "otherParams": ["b", "a"], "signaturesVersion": 4, "authenticated": false, "credential": "basic"},
+			"merged": {"location": "form", "param": "q", "signatures": ["sql_union", "sql_comment"], "weights": {"sql_comment": 1, "sql_union": 3}, "weight": 4, "minWeight": 3, "encoding": "base64", "excerpt": "--", "otherParams": ["a", "b"], "signaturesVersion": 4, "authenticated": false, "credential": "basic"}
+		},
+		{
+			"stored": {"location": "query", "param": "id", "signatures": [], "weights": [], "weight": 3, "minWeight": 3, "encoding": "none", "excerpt": "", "otherParams": [], "signaturesVersion": 3, "authenticated": true, "credential": "session"},
+			"hit": {"location": "query", "param": "id", "signatures": [], "weights": [], "weight": 3, "minWeight": 3, "encoding": "none", "excerpt": "", "otherParams": [], "signaturesVersion": 4, "authenticated": true, "credential": "session"},
+			"merged": {"location": "query", "param": "id", "signatures": [], "weights": [], "weight": 3, "minWeight": 3, "encoding": "none", "excerpt": "", "otherParams": [], "signaturesVersion": 4, "authenticated": true, "credential": "session"}
+		}
+	],
+	"password_spraying": [
+		{
+			"stored": {"rule": "spray", "failures": 20, "names": 10, "sources": 3, "banTargets": 2, "listed": 3, "first": 1789999100, "last": 1789999700, "targets": ["alice", "bob"]},
+			"hit": {"rule": "spray", "failures": 30, "names": 14, "sources": 5, "banTargets": 3, "listed": 5, "first": 1789999000, "last": 1790000000, "targets": ["bob", "carol"], "risk": {"score": 45, "tier": "elevated", "factors": [{"id": "failures", "value": "30", "points": 2}]}, "loweredLimits": {"min_names": {"plain": 5, "effective": 3}}},
+			"merged": {"rule": "spray", "failures": 30, "names": 14, "sources": 5, "banTargets": 3, "listed": 5, "first": 1789999000, "last": 1790000000, "targets": ["alice", "bob", "carol"], "risk": {"score": 45, "tier": "elevated", "factors": [{"id": "failures", "value": "30", "points": 2}]}, "loweredLimits": {"min_names": {"plain": 5, "effective": 3}}}
+		},
+		{
+			"stored": {"rule": "spray", "failures": 20, "names": 10, "sources": 3, "banTargets": 2, "first": 1789999100, "last": 1789999700},
+			"hit": {"rule": "flagged_password", "names": 3},
+			"merged": {"rule": "spray", "failures": 20, "names": 3, "sources": 3, "banTargets": 2, "first": 1789999100, "last": 1789999700}
+		},
+		{
+			"stored": {"rule": "login_success", "client": true, "sessionTokenIds": [4]},
+			"hit": {"rule": "login_success", "client": false},
+			"merged": {"rule": "login_success", "client": false, "sessionTokenIds": [4]}
+		}
+	],
+	"reserved_name": [
+		{
+			"stored": {"name": "admin"},
+			"hit": {"name": "root"},
+			"merged": {"name": "root"}
+		}
+	],
+	"reset_probing": [
+		{
+			"stored": {"rule": "enumeration", "inputs": 6, "requests": 8, "sampleFactor": 1, "targets": ["alice"], "first": 1789999500, "last": 1789999900},
+			"hit": {"rule": "enumeration", "inputs": 9, "requests": 12, "sampleFactor": 2, "targets": ["bob", "alice"], "first": 1789999500, "last": 1790000000, "risk": {"score": 45, "tier": "elevated", "factors": [{"id": "failures", "value": "30", "points": 2}]}, "loweredLimits": {"min_names": {"plain": 5, "effective": 3}}},
+			"merged": {"rule": "enumeration", "inputs": 9, "requests": 12, "sampleFactor": 2, "targets": ["alice", "bob"], "first": 1789999500, "last": 1790000000, "risk": {"score": 45, "tier": "elevated", "factors": [{"id": "failures", "value": "30", "points": 2}]}, "loweredLimits": {"min_names": {"plain": 5, "effective": 3}}}
+		},
+		{
+			"stored": {"rule": "flood", "requests": 10, "sources": 3, "sampleFactor": 1, "lastSource": "198.51.100.1", "first": 1789998000, "last": 1789999900},
+			"hit": {"rule": "flood", "requests": 11, "sources": 4, "sampleFactor": 1, "lastSource": "198.51.100.2", "first": 1789998100, "last": 1790000000},
+			"merged": {"rule": "flood", "requests": 11, "sources": 4, "sampleFactor": 1, "lastSource": "198.51.100.2", "first": 1789998000, "last": 1790000000}
+		}
+	],
+	"risky_network": [
+		{
+			"stored": {"attributes": ["hosting"], "lists": ["aws"], "listNames": ["Amazon AWS"], "client": false, "sessionTokenIds": [3], "risk": {"score": 20}},
+			"hit": {"attributes": ["tor", "hosting"], "lists": ["tor"], "listNames": ["Tor exits"], "client": true},
+			"merged": {"attributes": ["hosting", "tor"], "lists": ["aws", "tor"], "listNames": ["Amazon AWS", "Tor exits"], "client": true, "sessionTokenIds": [3], "risk": {"score": 20}}
+		}
+	],
+	"second_factor_failed": [
+		{
+			"stored": {"provider": "totp", "providerName": "TOTP", "loginFailures": 3, "hourFailures": 3, "rules": ["login"], "flag": null, "sessionTokenId": 31, "first": 1789999700, "last": 1789999700},
+			"hit": {"provider": "totp", "providerName": "TOTP", "loginFailures": 4, "hourFailures": 6, "rules": ["login", "hour"], "flag": "distributed", "sessionTokenId": 32, "first": 1790000000, "last": 1790000000},
+			"merged": {"provider": "totp", "providerName": "TOTP", "loginFailures": 4, "hourFailures": 6, "rules": ["login", "hour"], "flag": "distributed", "sessionTokenId": 32, "first": 1789999700, "last": 1790000000}
+		},
+		{
+			"stored": {"provider": "totp", "providerName": "TOTP", "loginFailures": 3, "hourFailures": 3, "rules": ["flagged"], "flag": "distributed", "sessionTokenId": 31, "first": 1789999700, "last": 1789999700},
+			"hit": {"provider": "webauthn", "providerName": "Security key", "loginFailures": 1, "hourFailures": 4, "rules": ["login"], "flag": null, "sessionTokenId": null, "first": 1790000000, "last": 1790000000},
+			"merged": {"provider": "webauthn", "providerName": "Security key", "loginFailures": 1, "hourFailures": 4, "rules": ["flagged", "login"], "flag": null, "sessionTokenId": null, "first": 1789999700, "last": 1790000000}
+		}
+	],
+	"share_bruteforce": [
+		{
+			"stored": {"rule": "tokens", "tokens": 12, "attempts": 14, "sources": 1, "sampleFactor": 1, "first": 1789999500, "last": 1789999900},
+			"hit": {"rule": "tokens", "tokens": 15, "attempts": 18, "sources": 1, "sampleFactor": 1, "first": 1789999500, "last": 1790000000, "loggedIn": true, "federation": true, "risk": {"score": 45, "tier": "elevated", "factors": [{"id": "failures", "value": "30", "points": 2}]}, "loweredLimits": {"min_names": {"plain": 5, "effective": 3}}},
+			"merged": {"rule": "tokens", "tokens": 15, "attempts": 18, "sources": 1, "sampleFactor": 1, "first": 1789999500, "last": 1790000000, "loggedIn": true, "federation": true, "risk": {"score": 45, "tier": "elevated", "factors": [{"id": "failures", "value": "30", "points": 2}]}, "loweredLimits": {"min_names": {"plain": 5, "effective": 3}}}
+		},
+		{
+			"stored": {"rule": "tokens_network", "tokens": 40, "attempts": 44, "sources": 3, "sampleFactor": 1, "first": 1789999500, "last": 1789999900, "net": "4:198.51.100.0/24", "partners": 1},
+			"hit": {"rule": "tokens_network", "tokens": 45, "attempts": 50, "sources": 4, "sampleFactor": 2, "first": 1789999600, "last": 1790000000, "net": "4:198.51.100.0/24"},
+			"merged": {"rule": "tokens_network", "tokens": 45, "attempts": 50, "sources": 4, "sampleFactor": 2, "first": 1789999500, "last": 1790000000, "net": "4:198.51.100.0/24", "partners": 1}
+		},
+		{
+			"stored": {"rule": "password_share", "failures": 20, "sources": 5, "first": 1789997000, "last": 1789999900, "lastSource": "198.51.100.1", "owner": "alice", "managers": ["alice"], "share": "ocinternal:1", "shareType": 3, "targets": ["alice"]},
+			"hit": {"rule": "password_share", "failures": 21, "sources": 6, "first": 1789997100, "last": 1790000000, "lastSource": "198.51.100.2", "owner": "bob", "managers": ["bob", "alice"], "share": "ocinternal:1", "shareType": 3, "targets": ["bob", "alice"]},
+			"merged": {"rule": "password_share", "failures": 21, "sources": 6, "first": 1789997000, "last": 1790000000, "lastSource": "198.51.100.2", "owner": "bob", "managers": ["alice", "bob"], "share": "ocinternal:1", "shareType": 3, "targets": ["alice", "bob"]}
+		},
+		{
+			"stored": {"rule": "password_source", "failures": 10, "first": 1789999700, "last": 1789999900, "owner": null, "managers": [], "share": "ocinternal:1", "shareType": 3, "targets": []},
+			"hit": {"rule": "password_source", "failures": 11, "first": 1789999700, "last": 1790000000, "owner": null, "managers": [], "share": "ocinternal:1", "shareType": 3, "targets": []},
+			"merged": {"rule": "password_source", "failures": 11, "first": 1789999700, "last": 1790000000, "owner": null, "managers": [], "share": "ocinternal:1", "shareType": 3, "targets": []}
+		}
+	],
+	"shared_address": [
+		{
+			"stored": {"users": 4, "wantedBy": "credential_stuffing"},
+			"hit": {"users": 6, "wantedBy": "password_spraying", "proxy": true},
+			"merged": {"users": 6, "wantedBy": "password_spraying", "proxy": true}
+		},
+		{
+			"stored": {"users": 4, "wantedBy": "credential_stuffing", "proxy": true},
+			"hit": {"users": 3, "wantedBy": "credential_stuffing"},
+			"merged": {"users": 3, "wantedBy": "credential_stuffing", "proxy": true}
+		}
+	],
+	"step_up_failed": [
+		{
+			"stored": {"rule": "attempts", "policies": ["flagged_source"], "attempts": 3, "started": 1789999000, "ttl": 900, "sessionTokenId": 31},
+			"hit": {"rule": "attempts", "policies": ["flagged_source", "risky_network"], "attempts": 3, "started": 1789999900, "ttl": 900, "sessionTokenId": 32},
+			"merged": {"rule": "attempts", "policies": ["flagged_source", "risky_network"], "attempts": 3, "started": 1789999900, "ttl": 900, "sessionTokenId": 32}
+		},
+		{
+			"stored": {"rule": "timeout", "policies": ["risk_high"], "attempts": 0, "started": 1789999000, "ttl": 600, "sessionTokenId": 31, "abandoned": true},
+			"hit": {"rule": "timeout", "policies": ["risk_high"], "attempts": 1, "started": 1789999800, "ttl": 900, "sessionTokenId": null},
+			"merged": {"rule": "timeout", "policies": ["risk_high"], "attempts": 1, "started": 1789999800, "ttl": 900, "sessionTokenId": null, "abandoned": true}
+		},
+		{
+			"stored": {"rule": "attempts", "policies": ["flagged_source"], "attempts": 5},
+			"hit": {"rule": "attempts", "policies": ["risk_high"], "attempts": 3, "started": 1789999900, "ttl": 900, "sessionTokenId": 32},
+			"merged": {"rule": "attempts", "policies": ["flagged_source", "risk_high"], "attempts": 3, "started": 1789999900, "ttl": 900, "sessionTokenId": 32}
+		}
+	],
+	"step_up_refused": [
+		{
+			"stored": {"policies": ["flagged_source"], "sessionTokenIds": [3]},
+			"hit": {"policies": ["flagged_source", "risk_high"]},
+			"merged": {"policies": ["flagged_source", "risk_high"], "sessionTokenIds": [3]}
+		}
+	],
+	"step_up_refused_client": [
+		{
+			"stored": {"policies": ["risky_network"], "inBrowser": false},
+			"hit": {"policies": ["breached_password"], "inBrowser": true},
+			"merged": {"policies": ["risky_network", "breached_password"], "inBrowser": true}
+		},
+		{
+			"stored": {"policies": ["flagged_source"]},
+			"hit": {"policies": ["flagged_source"], "inBrowser": true},
+			"merged": {"policies": ["flagged_source"], "inBrowser": true}
+		}
+	],
+	"step_up_unconfirmed": [
+		{
+			"stored": {"policies": ["breached_password"], "client": false, "notify": true, "forceChange": false, "sessionTokenIds": [5]},
+			"hit": {"policies": ["sprayed_password"], "client": true, "notify": false, "forceChange": true},
+			"merged": {"policies": ["breached_password", "sprayed_password"], "client": true, "notify": false, "forceChange": true, "sessionTokenIds": [5]}
+		}
+	],
+	"token_concurrent_use": [
+		{
+			"stored": {"ip1": "198.51.100.3", "net1": "4:198.51.100.0/24", "ip2": "203.0.113.5", "net2": "4:203.0.113.0/24", "family": 4, "switches": 3, "first": 1789999400, "last": 1789999700, "kind": "app_password", "scheme": "basic", "tokenName": "Thunderbird", "tokenId": 9, "sessionTokenId": null},
+			"hit": {"ip1": "203.0.113.5", "net1": "4:203.0.113.0/24", "ip2": "198.51.100.3", "net2": "4:198.51.100.0/24", "family": 4, "switches": 4, "first": 1789999800, "last": 1790000000, "kind": "app_password", "scheme": "bearer", "tokenName": "Thunderbird", "tokenId": 9, "sessionTokenId": 12},
+			"merged": {"ip1": "203.0.113.5", "net1": "4:203.0.113.0/24", "ip2": "198.51.100.3", "net2": "4:198.51.100.0/24", "family": 4, "switches": 4, "first": 1789999400, "last": 1790000000, "kind": "app_password", "scheme": "bearer", "tokenName": "Thunderbird", "tokenId": 9, "sessionTokenId": 12}
+		},
+		{
+			"stored": {"ip1": "198.51.100.3", "ip2": "203.0.113.5", "switches": 3, "first": 1789999400, "last": 1789999700, "kind": "app_password", "scheme": "basic", "tokenName": "Thunderbird", "tokenId": 9, "sessionTokenId": 12},
+			"hit": {"ip1": "203.0.113.5", "net1": "4:203.0.113.0/24", "ip2": "198.51.100.3", "net2": "4:198.51.100.0/24", "family": 4, "switches": 4, "first": 1789999800, "last": 1790000000, "kind": "app_password", "scheme": "basic", "tokenName": "", "tokenId": 9, "sessionTokenId": null},
+			"merged": {"ip1": "203.0.113.5", "ip2": "198.51.100.3", "switches": 4, "first": 1789999400, "last": 1790000000, "kind": "app_password", "scheme": "basic", "tokenName": "", "tokenId": 9, "sessionTokenId": null, "net1": "4:203.0.113.0/24", "net2": "4:198.51.100.0/24", "family": 4}
+		}
+	],
+	"trap_url": [
+		{
+			"stored": {"path": "/wp-login.php", "trap": "/wp-login.php", "method": "GET"},
+			"hit": {"path": "/.env", "trap": "/.env", "method": "POST"},
+			"merged": {"path": "/.env", "trap": "/.env", "method": "POST"}
+		}
+	],
+	"user_denied": [
+		{
+			"stored": {"detection": "470938541726507025", "check": "risky_network", "detectedAt": 1789992800, "passwordInvolved": true, "answeredFromSource": false, "network": null, "weakSession": true, "sessionTokenIds": [3, 4], "tokenId": null},
+			"hit": {"detection": "470938541726507025", "check": "risky_network", "detectedAt": 1789992800, "passwordInvolved": true, "answeredFromSource": true, "network": null, "weakSession": true, "sessionTokenIds": [4, 5], "tokenId": 2},
+			"merged": {"detection": "470938541726507025", "check": "risky_network", "detectedAt": 1789992800, "passwordInvolved": true, "answeredFromSource": true, "network": null, "weakSession": true, "sessionTokenIds": [3, 4, 5], "tokenId": 2}
+		}
+	]
+}

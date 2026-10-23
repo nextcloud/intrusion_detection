@@ -5,13 +5,13 @@
 
 <script setup lang="ts">
 import { mdiAlertCircleOutline, mdiClose, mdiPlus } from '@mdi/js'
-import { n, t } from '@nextcloud/l10n'
 import { computed, ref, useId, watch } from 'vue'
 import NcButton from '@nextcloud/vue/components/NcButton'
 import NcIconSvgWrapper from '@nextcloud/vue/components/NcIconSvgWrapper'
 import NcLoadingIcon from '@nextcloud/vue/components/NcLoadingIcon'
 import NcTextField from '@nextcloud/vue/components/NcTextField'
 import { APP_ID } from '../../utils/format.ts'
+import { n, t } from '../../utils/l10n.ts'
 
 const props = withDefaults(defineProps<{
 	/** The entries */
@@ -70,7 +70,7 @@ const draftError = computed(() => {
 		return null
 	}
 	if (props.items.includes(value.value)) {
-		return t(APP_ID, '"{item}" is in the list already.', { item: value.value }, undefined, { escape: false, sanitize: false })
+		return t(APP_ID, '"{item}" is in the list already.', { item: value.value })
 	}
 	if (props.items.length >= props.max) {
 		return n(APP_ID, 'The list can have at most %n entry.', 'The list can have at most %n entries.', props.max)
@@ -112,7 +112,7 @@ function add() {
 					type="button"
 					:class="$style.chip__remove"
 					:disabled="busy"
-					:aria-label="t(APP_ID, 'Remove {item}', { item }, undefined, { escape: false, sanitize: false })"
+					:aria-label="t(APP_ID, 'Remove {item}', { item })"
 					@click="emit('remove', item)">
 					<NcIconSvgWrapper inline :path="mdiClose" :size="16" />
 				</button>
@@ -156,7 +156,7 @@ function add() {
 						type="button"
 						:class="$style.suggestion"
 						:disabled="busy"
-						:aria-label="t(APP_ID, 'Add {item}', { item: suggestion }, undefined, { escape: false, sanitize: false })"
+						:aria-label="t(APP_ID, 'Add {item}', { item: suggestion })"
 						@click="emit('add', [suggestion])">
 						<NcIconSvgWrapper inline :path="mdiPlus" :size="16" />
 						<code>{{ suggestion }}</code>
@@ -180,24 +180,22 @@ function add() {
 .editor {
 	display: flex;
 	flex-direction: column;
-	gap: calc(var(--default-grid-baseline) * 3);
+	gap: var(--ids-space-3);
 }
 
 .editor__items {
+	composes: plainList from '../../styles/shared.module.css';
 	display: flex;
 	flex-wrap: wrap;
-	gap: calc(var(--default-grid-baseline) * 2);
-	margin: 0;
-	padding: 0;
-	list-style: none;
+	gap: var(--ids-space-2);
 }
 
 .chip {
 	display: inline-flex;
 	align-items: center;
-	gap: calc(var(--default-grid-baseline) * 1);
+	gap: var(--ids-space-1);
 	min-height: 32px;
-	padding-inline: calc(var(--default-grid-baseline) * 3) calc(var(--default-grid-baseline) * 1);
+	padding-inline: var(--ids-space-3) var(--ids-space-1);
 	border: 1px solid var(--color-border);
 	border-radius: var(--border-radius-pill, 100px);
 	background-color: var(--color-background-hover);
@@ -239,19 +237,19 @@ function add() {
 }
 
 .chip button.chip__remove:focus-visible {
-	outline: 2px solid var(--color-main-text);
+	outline: var(--ids-focus-ring);
 }
 
 .editor__empty {
+	composes: muted from '../../styles/shared.module.css';
 	margin: 0;
-	color: var(--color-text-maxcontrast);
 }
 
 .editor__add {
 	display: flex;
 	flex-wrap: wrap;
 	align-items: flex-start;
-	gap: calc(var(--default-grid-baseline) * 2);
+	gap: var(--ids-space-2);
 }
 
 .editor__field {
@@ -260,38 +258,36 @@ function add() {
 }
 
 .editor__add > button {
-	margin-top: calc(var(--default-grid-baseline) * 1.5);
+	margin-top: var(--ids-space-1-5);
 }
 
 .editor__suggest {
 	display: flex;
 	flex-wrap: wrap;
 	align-items: center;
-	gap: calc(var(--default-grid-baseline) * 2);
+	gap: var(--ids-space-2);
 }
 
 .editor__suggestLabel {
-	color: var(--color-text-maxcontrast);
+	composes: muted from '../../styles/shared.module.css';
 	font-size: 0.9em;
 }
 
 .editor__suggestList {
+	composes: plainList from '../../styles/shared.module.css';
 	display: flex;
 	flex-wrap: wrap;
-	gap: calc(var(--default-grid-baseline) * 1.5);
-	margin: 0;
-	padding: 0;
-	list-style: none;
+	gap: var(--ids-space-1-5);
 }
 
 .editor__suggest button.suggestion {
 	display: inline-flex;
 	align-items: center;
-	gap: calc(var(--default-grid-baseline) * 1);
+	gap: var(--ids-space-1);
 	min-height: 30px;
 	margin: 0;
 	padding-block: 0;
-	padding-inline: calc(var(--default-grid-baseline) * 2) calc(var(--default-grid-baseline) * 3);
+	padding-inline: var(--ids-space-2) var(--ids-space-3);
 	border: 1px dashed var(--color-border-dark, var(--color-border));
 	border-radius: var(--border-radius-pill, 100px);
 	background: transparent;
@@ -309,12 +305,12 @@ function add() {
 }
 
 .editor__suggest button.suggestion:focus-visible {
-	outline: 2px solid var(--color-main-text);
+	outline: var(--ids-focus-ring);
 	outline-offset: 2px;
 }
 
 .editor__suggest button.suggestion_all {
-	padding-inline: calc(var(--default-grid-baseline) * 3);
+	padding-inline: var(--ids-space-3);
 	border-style: solid;
 	font-weight: 600;
 }

@@ -10,8 +10,7 @@ declare(strict_types=1);
 namespace OCA\IntrusionDetection\Notification;
 
 use OCA\IntrusionDetection\AppInfo\Application;
-use OCA\IntrusionDetection\Check\Checks\AdminChange;
-use OCA\IntrusionDetection\Db\AlertMapper;
+use OCA\IntrusionDetection\Check\Checks\AdminChange\AdminChange;
 use OCA\IntrusionDetection\Db\Approval;
 use OCA\IntrusionDetection\Db\ApprovalMapper;
 use OCA\IntrusionDetection\Db\Detection;
@@ -19,7 +18,7 @@ use OCA\IntrusionDetection\Db\DetectionMapper;
 use OCA\IntrusionDetection\Explain\DateFormatter;
 use OCA\IntrusionDetection\Explain\NarrativeBuilder;
 use OCA\IntrusionDetection\Learning\LearningService;
-use OCA\IntrusionDetection\StaleCredential\StaleCredentialNotices;
+use OCA\IntrusionDetection\Notification\Db\AlertMapper;
 use OCA\IntrusionDetection\WasThisYou\Questions;
 use OCP\AppFramework\Db\DoesNotExistException;
 use OCP\IL10N;
@@ -36,7 +35,10 @@ use OCP\Notification\UnknownNotificationException;
  *
  * Notifications carry only identifiers; everything shown is built here from
  * the stored detection, so the texts follow the reader's language and the
- * counter of an aggregated alert is always current.
+ * counter of an aggregated alert is always current. Alerts and notices to
+ * the administrators are shown only to readers who would get them now
+ * ({@see AdminRecipients::includes()}); for anyone else, such as a former
+ * administrator, they are processed.
  */
 class Notifier implements INotifier {
 	public const SUBJECT_LEARNING_ENDS = 'learning_ends';
@@ -47,6 +49,10 @@ class Notifier implements INotifier {
 	public const SUBJECT_APPROVAL_PENDING = 'approval_pending';
 	/** To the administrator who asked, once the request was decided or expired */
 	public const SUBJECT_APPROVAL_DECIDED = 'approval_decided';
+	/** To a user who has app passwords or devices they have not used for 90 days */
+	public const SUBJECT_STALE_REMINDER = 'stale_credentials';
+	/** To a user whose unused app passwords or devices were removed */
+	public const SUBJECT_STALE_REMOVED = 'stale_credentials_removed';
 
 	public const ACTION_PROTECT = 'protect';
 	public const ACTION_EXTEND = 'extend';
@@ -73,6 +79,8 @@ class Notifier implements INotifier {
 		private readonly Questions $questions,
 		private readonly IURLGenerator $urlGenerator,
 		private readonly LearningService $learning,
+		private readonly AdminChange $adminChange,
+		private readonly AdminRecipients $recipients,
 	) {
 	}
 
@@ -111,22 +119,23 @@ class Notifier implements INotifier {
 			AdminNotices::SUBJECT_PASSWORD_EXTERNAL => $this->preparePasswordExternal($notification, $l),
 			self::SUBJECT_APPROVAL_REQUESTED, self::SUBJECT_APPROVAL_PENDING, self::SUBJECT_APPROVAL_DECIDED => $this->prepareApproval($notification, $l),
 			TestAlert::SUBJECT => $this->prepareTestAlert($notification, $l),
-			StaleCredentialNotices::SUBJECT_REMINDER => $this->prepareStaleReminder($notification, $l),
-			StaleCredentialNotices::SUBJECT_REMOVED => $this->prepareStaleRemoved($notification, $l),
+			self::SUBJECT_STALE_REMINDER => $this->prepareStaleReminder($notification, $l),
+			self::SUBJECT_STALE_REMOVED => $this->prepareStaleRemoved($notification, $l),
 			default => throw new UnknownNotificationException(),
 		};
 	}
 
 	private function prepareDetection(INotification $notification, IL10N $l): INotification {
 		$params = $notification->getSubjectParameters();
-		$alert = $this->alerts->find((int)($params['alert'] ?? 0));
-		$detectionId = $alert['detection_id'] ?? (int)($params['detection'] ?? 0);
+		$alert = $this->alerts->find(self::id($params, 'alert'));
+		$detectionId = $alert['detection_id'] ?? self::id($params, 'detection');
 		try {
 			$detection = $this->detections->findById($detectionId);
 		} catch (DoesNotExistException) {
 			// Removed by retention or by an administrator: nothing left to show.
 			throw new AlreadyProcessedException();
 		}
+		$this->requireRecipient($notification, AdminAlerts::reachesAdminGroup($detection));
 		$hits = max(1, $alert['hits'] ?? 1);
 		$name = $this->adminAlerts->checkName($detection->getCheckId(), $l);
 		$headline = $this->adminAlerts->headline($detection, $l);
@@ -160,7 +169,7 @@ class Notifier implements INotifier {
 			$notification->setRichSubject($richSubject, $richParams);
 		}
 		$notification->setParsedMessage(implode(' ', $message))
-			->setLink($this->links->detection($detection->getId()));
+			->setLink($this->links->detection((string)$detection->getId()));
 		return $notification;
 	}
 
@@ -202,7 +211,7 @@ class Notifier implements INotifier {
 
 	private function prepareApproval(INotification $notification, IL10N $l): INotification {
 		try {
-			$approval = $this->approvals->findById((int)($notification->getSubjectParameters()['approval'] ?? 0));
+			$approval = $this->approvals->findById(self::id($notification->getSubjectParameters(), 'approval'));
 		} catch (DoesNotExistException) {
 			throw new AlreadyProcessedException();
 		}
@@ -217,9 +226,16 @@ class Notifier implements INotifier {
 		if ($approval->getKind() === Approval::KIND_LOGIN) {
 			return $this->prepareLoginApproval($notification, $approval, $l, $expires);
 		}
+		if ($approval->getKind() === Approval::KIND_SETTINGS) {
+			return $this->prepareSettingsApproval($notification, $approval, $l, $expires, $requester);
+		}
 
+		$group = (string)$approval->getGroupId();
+		$delegated = $group !== AdminRecipients::ADMIN_GROUP;
 		if ($subjectId === self::SUBJECT_APPROVAL_REQUESTED) {
-			$notification->setParsedSubject($l->t('%1$s asks to make %2$s an administrator', [$requester, $account]))
+			$notification->setParsedSubject($delegated
+				? $l->t('%1$s asks to add %2$s to the group "%3$s", which has administration rights', [$requester, $account, $group])
+				: $l->t('%1$s asks to make %2$s an administrator', [$requester, $account]))
 				->setParsedMessage(implode(' ', [
 					$l->t('A second administrator must approve new administrators, so %s was not added yet.', [$account]),
 					$l->t('Approve only if you know about this change. If you did not expect it, reject it and check the account of the one who asked: it may have been taken over.'),
@@ -227,27 +243,66 @@ class Notifier implements INotifier {
 				]));
 			$this->addReviewAction($notification, $approval, $l->t('Review the request'));
 		} elseif ($subjectId === self::SUBJECT_APPROVAL_PENDING) {
-			$notification->setParsedSubject($l->t('%s is not an administrator yet', [$account]))
-				->setParsedMessage($l->t('A second administrator must approve new administrators, so %1$s was taken out of the admin group again. The other administrators were asked to approve; the request expires at %2$s.', [$account, $expires]));
+			$notification->setParsedSubject($delegated
+				? $l->t('%1$s is not in the group "%2$s" yet', [$account, $group])
+				: $l->t('%s is not an administrator yet', [$account]))
+				->setParsedMessage($delegated
+					? $l->t('A second administrator must approve new administrators, so %1$s was taken out of the group "%2$s" again. The other administrators were asked to approve; the request expires at %3$s.', [$account, $group, $expires])
+					: $l->t('A second administrator must approve new administrators, so %1$s was taken out of the admin group again. The other administrators were asked to approve; the request expires at %2$s.', [$account, $expires]));
 		} else {
 			$decider = AdminChange::actorName((string)$approval->getDecidedBy(), $l);
 			[$subject, $message] = match ($approval->getStatus()) {
 				Approval::STATUS_APPROVED => [
-					$l->t('%s is now an administrator', [$account]),
+					$delegated ? $l->t('%1$s is now in the group "%2$s"', [$account, $group]) : $l->t('%s is now an administrator', [$account]),
 					$l->t('%s approved your request.', [$decider]),
 				],
 				Approval::STATUS_REJECTED => [
-					$l->t('Your request to make %s an administrator was rejected', [$account]),
+					$delegated ? $l->t('Your request to add %1$s to the group "%2$s" was rejected', [$account, $group]) : $l->t('Your request to make %s an administrator was rejected', [$account]),
 					$l->t('%s rejected it. Nothing was changed.', [$decider]),
 				],
 				default => [
-					$l->t('Your request to make %s an administrator expired', [$account]),
+					$delegated ? $l->t('Your request to add %1$s to the group "%2$s" expired', [$account, $group]) : $l->t('Your request to make %s an administrator expired', [$account]),
 					$l->t('No other administrator approved it in time. Nothing was changed. Ask again if it is still needed.'),
 				],
 			};
 			$notification->setParsedSubject($subject)->setParsedMessage($message);
 		}
-		$notification->setLink($this->links->approval((int)$approval->getId()));
+		$notification->setLink($this->links->approval((string)$approval->getId()));
+		return $notification;
+	}
+
+	/**
+	 * A settings change that would switch the four-eyes approval off, held
+	 * back until a second administrator approves it.
+	 */
+	private function prepareSettingsApproval(INotification $notification, Approval $approval, IL10N $l, string $expires, string $requester): INotification {
+		$change = $this->adminChange->heldChange($approval->heldChange(), $l);
+		$subjectId = $notification->getSubject();
+		if ($subjectId === self::SUBJECT_APPROVAL_REQUESTED) {
+			$notification->setParsedSubject($l->t('%s asks for a change that needs your approval', [$requester]))
+				->setParsedMessage(implode(' ', [
+					$change,
+					$l->t('While a second administrator must approve new administrators, one administrator alone cannot switch that off.'),
+					$l->t('Approve only if you know about this change. If you did not expect it, reject it and check the account of the one who asked: it may have been taken over.'),
+					$l->t('The request expires at %s. Approving needs your password, so you decide on the admin page.', [$expires]),
+				]));
+			$this->addReviewAction($notification, $approval, $l->t('Review the request'));
+		} elseif ($subjectId === self::SUBJECT_APPROVAL_PENDING) {
+			$notification->setParsedSubject($l->t('Your change waits for approval'))
+				->setParsedMessage(implode(' ', [
+					$change,
+					$l->t('It is made once another administrator approves it; the request expires at %s.', [$expires]),
+				]));
+		} else {
+			$decider = AdminChange::actorName((string)$approval->getDecidedBy(), $l);
+			[$subject, $message] = match ($approval->getStatus()) {
+				Approval::STATUS_APPROVED => [$l->t('Your change was approved'), $l->t('%s approved it, and it was made.', [$decider])],
+				Approval::STATUS_REJECTED => [$l->t('Your change was rejected'), $l->t('%s rejected it. Nothing was changed.', [$decider])],
+				default => [$l->t('Your change expired'), $l->t('No other administrator approved it in time. Nothing was changed.')],
+			};
+			$notification->setParsedSubject($subject)->setParsedMessage(implode(' ', [$message, $change]));
+		}
+		$notification->setLink($this->links->approval((string)$approval->getId()));
 		return $notification;
 	}
 
@@ -322,7 +377,7 @@ class Notifier implements INotifier {
 			$deny = $notification->createAction();
 			$deny->setLabel(self::ACTION_DENY)
 				->setParsedLabel($l->t('No, it was not me'))
-				->setLink($this->urlGenerator->linkToOCSRouteAbsolute(Application::APP_ID . '.PersonalApi.deny', ['id' => $detection->getId()]), 'POST')
+				->setLink($this->urlGenerator->linkToOCSRouteAbsolute(Application::APP_ID . '.PersonalApi.deny', ['id' => (string)$detection->getId()]), 'POST')
 				->setPrimary(true);
 			$notification->addParsedAction($deny);
 			// "Yes" needs the password first, which the notification cannot ask: it opens the security page.
@@ -337,6 +392,7 @@ class Notifier implements INotifier {
 	}
 
 	private function prepareUserUnreachable(INotification $notification, IL10N $l, string $languageCode): INotification {
+		$this->requireRecipient($notification, false);
 		$params = $notification->getSubjectParameters();
 		$detection = $this->detectionOf($notification);
 		$uid = (string)($params['uid'] ?? '');
@@ -351,28 +407,39 @@ class Notifier implements INotifier {
 		$notification->setParsedSubject($l->t('%s could only be told inside Nextcloud', [$uid]))
 			->setRichSubject($l->t('{user} could only be told inside Nextcloud'), ['user' => ['type' => 'user', 'id' => $uid, 'name' => $uid]])
 			->setParsedMessage($message . ' ' . $l->t('If it matters, reach out to them another way.'))
-			->setLink($this->links->detection($detection->getId()));
+			->setLink($this->links->detection((string)$detection->getId()));
 		return $notification;
 	}
 
 	private function preparePasswordExternal(INotification $notification, IL10N $l): INotification {
+		$this->requireRecipient($notification, false);
 		$params = $notification->getSubjectParameters();
 		$uid = (string)($params['uid'] ?? '');
 		$user = $this->userManager->get($uid);
 		if ($user === null) {
 			throw new AlreadyProcessedException();
 		}
-		$detectionId = (int)($params['detection'] ?? 0);
+		$detectionId = self::id($params, 'detection');
 		$notification->setParsedSubject($l->t('Reset the password of %s in the external directory', [$uid]))
 			->setRichSubject($l->t('Reset the password of {user} in the external directory'), ['user' => ['type' => 'user', 'id' => $uid, 'name' => $uid]])
 			->setParsedMessage($l->t('Intrusion detection wanted %1$s to choose a new password, but their password is managed outside Nextcloud (%2$s), so Nextcloud cannot ask for a new one. Reset the password in that directory, or ask the user to change it there.', [$uid, $user->getBackendClassName()]))
-			->setLink($detectionId > 0 ? $this->links->detection($detectionId) : $this->links->adminPage());
+			->setLink($detectionId !== '0' ? $this->links->detection($detectionId) : $this->links->adminPage());
 		return $notification;
+	}
+
+	/**
+	 * @throws AlreadyProcessedException when the reader no longer gets the administrators' alerts
+	 */
+	private function requireRecipient(INotification $notification, bool $withAdminGroup): void {
+		$reader = $this->userManager->get($notification->getUser());
+		if ($reader === null || !$this->recipients->includes($reader, $withAdminGroup)) {
+			throw new AlreadyProcessedException();
+		}
 	}
 
 	private function detectionOf(INotification $notification): Detection {
 		try {
-			return $this->detections->findById((int)($notification->getSubjectParameters()['detection'] ?? 0));
+			return $this->detections->findById(self::id($notification->getSubjectParameters(), 'detection'));
 		} catch (DoesNotExistException) {
 			throw new AlreadyProcessedException();
 		}
@@ -419,6 +486,16 @@ class Notifier implements INotifier {
 			->setParsedMessage($message)
 			->setLink($this->userLinks->securityPage());
 		return $notification;
+	}
+
+	/**
+	 * An id among the subject parameters, "0" when there is none.
+	 *
+	 * @param array<array-key, mixed> $params
+	 */
+	private static function id(array $params, string $key): string {
+		$id = $params[$key] ?? null;
+		return is_string($id) && $id !== '' ? $id : '0';
 	}
 
 	private function prepareTestAlert(INotification $notification, IL10N $l): INotification {

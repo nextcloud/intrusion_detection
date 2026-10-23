@@ -17,8 +17,12 @@ use OCP\Security\ISecureRandom;
 /**
  * The known-device cookie (concept section 11.5.1): a random device id of
  * ID_LENGTH characters from ISecureRandom, `HttpOnly`, `SameSite=Lax`,
- * `Secure` on HTTPS, for the web root. The id is the secret: only a keyed
- * fingerprint of it is stored, and it is never logged.
+ * for the web root. On HTTPS, or when the server is configured for it
+ * (`forcessl`), it is `Secure` and its name carries the strictest prefix
+ * browsers allow: `__Host-` for a server at the root of its host, else
+ * `__Secure-`, so that no other site of the domain and no plain HTTP
+ * response can set it. The id is the secret: only a keyed fingerprint of
+ * it is stored, and it is never logged.
  */
 class DeviceCookie {
 	public const PREFIX = 'nc_ids_device_';
@@ -34,7 +38,11 @@ class DeviceCookie {
 	}
 
 	public function name(): string {
-		return self::PREFIX . preg_replace('/[^a-z0-9]/i', '', $this->config->getSystemValueString('instanceid'));
+		$name = self::PREFIX . preg_replace('/[^a-z0-9]/i', '', $this->config->getSystemValueString('instanceid'));
+		if (!$this->isSecure()) {
+			return $name;
+		}
+		return ($this->urlGenerator->getWebroot() === '' ? '__Host-' : '__Secure-') . $name;
 	}
 
 	/**
@@ -73,10 +81,14 @@ class DeviceCookie {
 		return [
 			'expires' => $expires,
 			'path' => $webroot === '' ? '/' : $webroot,
-			'secure' => $this->request->getServerProtocol() === 'https',
+			'secure' => $this->isSecure(),
 			'httponly' => true,
 			'samesite' => 'Lax',
 		];
+	}
+
+	private function isSecure(): bool {
+		return $this->request->getServerProtocol() === 'https' || $this->config->getSystemValueBool('forcessl');
 	}
 
 	protected function send(#[\SensitiveParameter] string $value, int $expires): bool {

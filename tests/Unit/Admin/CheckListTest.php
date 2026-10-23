@@ -10,22 +10,22 @@ declare(strict_types=1);
 namespace OCA\IntrusionDetection\Tests\Unit\Admin;
 
 use OCA\IntrusionDetection\Admin\CheckList;
-use OCA\IntrusionDetection\Check\Category;
-use OCA\IntrusionDetection\Check\CheckDefinition;
 use OCA\IntrusionDetection\Check\CheckRegistry;
-use OCA\IntrusionDetection\Check\CheckTexts;
-use OCA\IntrusionDetection\Check\CostClass;
-use OCA\IntrusionDetection\Check\Mode;
-use OCA\IntrusionDetection\Check\ParamDefinition;
-use OCA\IntrusionDetection\Check\ParamText;
-use OCA\IntrusionDetection\Check\ParamType;
-use OCA\IntrusionDetection\Check\ResponseType;
-use OCA\IntrusionDetection\Check\Severity;
+use OCA\IntrusionDetection\Config\CheckSettings;
 use OCA\IntrusionDetection\Config\GlobalSettings;
 use OCA\IntrusionDetection\Config\ModeState;
 use OCA\IntrusionDetection\Config\Prerequisites;
-use OCA\IntrusionDetection\Config\Settings;
 use OCA\IntrusionDetection\Db\StatsMapper;
+use OCA\IntrusionDetection\Definition\Category;
+use OCA\IntrusionDetection\Definition\CheckDefinition;
+use OCA\IntrusionDetection\Definition\CheckTexts;
+use OCA\IntrusionDetection\Definition\CostClass;
+use OCA\IntrusionDetection\Definition\Mode;
+use OCA\IntrusionDetection\Definition\ParamDefinition;
+use OCA\IntrusionDetection\Definition\ParamText;
+use OCA\IntrusionDetection\Definition\ParamType;
+use OCA\IntrusionDetection\Definition\ResponseType;
+use OCA\IntrusionDetection\Definition\Severity;
 use OCA\IntrusionDetection\Detection\DetectionTotals;
 use OCA\IntrusionDetection\Explain\CheckPresenter;
 use OCA\IntrusionDetection\Explain\TextRenderer;
@@ -46,7 +46,7 @@ class CheckListTest extends TestCase {
 		$registry = $this->createMock(CheckRegistry::class);
 		$registry->method('configurable')->willReturn(['trap_check' => $traps, 'login_check' => $login]);
 
-		$settings = $this->createMock(Settings::class);
+		$settings = $this->createMock(CheckSettings::class);
 		$settings->method('placeholderValues')->willReturn(['min_failures' => 12, 'window' => 900, 'ban_duration_1' => 14400]);
 		$settings->method('modeState')->willReturn(new ModeState(Mode::Protect, Mode::Observe, ModeState::REASON_LEARNING));
 		$settings->method('responses')->willReturn([ResponseType::NotifyAdmin, ResponseType::Ban]);
@@ -77,7 +77,7 @@ class CheckListTest extends TestCase {
 		$this->assertSame(0, $result['checks'][0]['stats']['detections']);
 		$this->assertSame('Fires at 12 failures within 15 minutes.', $login['decides']);
 		$this->assertSame('Fires at {min_failures} failures within {window}.', $login['decidesTemplate']);
-		$this->assertSame(['configured' => 'protect', 'effective' => 'observe', 'reason' => 'learning', 'missing' => null, 'default' => 'protect'], $login['mode']);
+		$this->assertSame(['configured' => 'protect', 'effective' => 'observe', 'reason' => 'learning', 'missing' => null, 'default' => 'protect', 'locked' => false], $login['mode']);
 
 		// Responses run blocks first; "what happens" fills in the durations.
 		$this->assertSame('The address is blocked for 4 hours ({ban_duration_2} if it is blocked again within {ban_history_days} days, then {ban_duration_3}).', $login['happens'][0]);

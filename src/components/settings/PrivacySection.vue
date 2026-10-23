@@ -4,11 +4,8 @@
 -->
 
 <script setup lang="ts">
-import type { Privacy } from '../../types.ts'
-
 import { mdiCloudUploadOutline, mdiDatabaseOutline, mdiScaleBalance } from '@mdi/js'
-import { n, t } from '@nextcloud/l10n'
-import { computed, onActivated, onMounted, ref } from 'vue'
+import { computed } from 'vue'
 import NcIconSvgWrapper from '@nextcloud/vue/components/NcIconSvgWrapper'
 import NcNoteCard from '@nextcloud/vue/components/NcNoteCard'
 import LiveSentence from '../checks/LiveSentence.vue'
@@ -17,13 +14,12 @@ import SettingsGroup from '../common/SettingsGroup.vue'
 import ShowMore from '../common/ShowMore.vue'
 import SkeletonBlock from '../common/SkeletonBlock.vue'
 import StateBadge from '../common/StateBadge.vue'
-import { errorMessage, fetchPrivacy } from '../../services/api.ts'
-import { logger } from '../../services/logger.ts'
 import { state } from '../../store.ts'
+import { usePrivacy } from '../../stores/settings.ts'
 import { APP_ID } from '../../utils/format.ts'
+import { n, t } from '../../utils/l10n.ts'
 
-const data = ref<Privacy | null>(null)
-const loadError = ref<string | null>(null)
+const { data, error: loadError } = usePrivacy({ failure: () => t(APP_ID, 'The overview could not be loaded. Please reload the page.') })
 
 /**
  * "Stored by" with at most three check names.
@@ -32,30 +28,14 @@ const loadError = ref<string | null>(null)
  */
 function storedBy(checks: string[]): string {
 	const names = checks.length > 3
-		? n(APP_ID, '{names} and %n more', '{names} and %n more', checks.length - 3, { names: checks.slice(0, 3).join(', ') }, { escape: false, sanitize: false })
+		? n(APP_ID, '{names} and %n more', '{names} and %n more', checks.length - 3, { names: checks.slice(0, 3).join(', ') })
 		: checks.join(', ')
-	return t(APP_ID, 'Stored by: {checks}', { checks: names }, undefined, { escape: false, sanitize: false })
+	return t(APP_ID, 'Stored by: {checks}', { checks: names })
 }
 
 const retentionSettings = computed(() => state.settings.filter((s) => s.group === 'privacy'))
 const days = (name: string) => Number(state.settings.find((s) => s.name === name)?.value ?? 0)
 const activeOutgoing = computed(() => data.value?.outgoing.filter((item) => item.active).map((item) => item.name) ?? [])
-
-/**
- * Load the overview.
- */
-async function load() {
-	try {
-		data.value = await fetchPrivacy()
-		loadError.value = null
-	} catch (error) {
-		logger.error('Could not load the data overview', { error })
-		loadError.value = errorMessage(error, t(APP_ID, 'The overview could not be loaded. Please reload the page.'))
-	}
-}
-
-onMounted(load)
-onActivated(load)
 </script>
 
 <template>
@@ -111,6 +91,7 @@ onActivated(load)
 											<th scope="row" :data-label="t(APP_ID, 'What')">
 												<span :class="$style.name">{{ row.name }}</span>
 												<span :class="$style.what">{{ row.what }}</span>
+												<span :class="$style.what" data-test="stored-protection">{{ row.protection }}</span>
 												<span v-if="row.checks.length > 0" :class="$style.users">
 													{{ storedBy(row.checks) }}
 												</span>
@@ -142,7 +123,7 @@ onActivated(load)
 						{{ t(APP_ID, 'Nothing is sent to other services.') }}
 					</template>
 					<template v-else>
-						{{ t(APP_ID, 'Only these contact other services: {names}.', { names: activeOutgoing.join(', ') }, undefined, { escape: false, sanitize: false }) }}
+						{{ t(APP_ID, 'Only these contact other services: {names}.', { names: activeOutgoing.join(', ') }) }}
 					</template>
 				</p>
 				<ul :class="$style.outgoing">
@@ -197,13 +178,13 @@ onActivated(load)
 .stack {
 	display: flex;
 	flex-direction: column;
-	gap: calc(var(--default-grid-baseline) * 5);
+	gap: var(--ids-space-5);
 }
 
 .skeleton {
 	display: flex;
 	flex-direction: column;
-	gap: calc(var(--default-grid-baseline) * 3);
+	gap: var(--ids-space-3);
 }
 
 .tableWrap {
@@ -219,7 +200,7 @@ onActivated(load)
 
 .table th,
 .table td {
-	padding: calc(var(--default-grid-baseline) * 3);
+	padding: var(--ids-space-3);
 	white-space: normal;
 	overflow-wrap: anywhere;
 	border-bottom: 1px solid var(--color-border);
@@ -229,7 +210,7 @@ onActivated(load)
 }
 
 .table thead th {
-	padding-block: calc(var(--default-grid-baseline) * 2);
+	padding-block: var(--ids-space-2);
 	color: var(--color-text-maxcontrast);
 	font-size: 0.85em;
 	font-weight: 600;
@@ -272,9 +253,9 @@ onActivated(load)
 }
 
 .users {
+	composes: muted from '../../styles/shared.module.css';
 	display: block;
-	margin-top: calc(var(--default-grid-baseline) * 1);
-	color: var(--color-text-maxcontrast);
+	margin-top: var(--ids-space-1);
 	font-size: 0.85em;
 	font-weight: normal;
 }
@@ -284,27 +265,25 @@ onActivated(load)
 }
 
 .where {
+	composes: muted from '../../styles/shared.module.css';
 	display: block;
 	overflow-wrap: normal;
-	color: var(--color-text-maxcontrast);
 	font-family: var(--font-face-monospace, ui-monospace, 'SFMono-Regular', Menlo, Consolas, monospace);
 	font-size: 0.85em;
 }
 
 .outgoing {
+	composes: plainList from '../../styles/shared.module.css';
 	display: grid;
 	grid-template-columns: repeat(auto-fit, minmax(min(100%, 340px), 1fr));
-	gap: calc(var(--default-grid-baseline) * 3);
-	margin: 0;
-	padding: 0;
-	list-style: none;
+	gap: var(--ids-space-3);
 }
 
 .outgoing__item {
 	display: flex;
 	flex-direction: column;
-	gap: calc(var(--default-grid-baseline) * 1.5);
-	padding: calc(var(--default-grid-baseline) * 4);
+	gap: var(--ids-space-1-5);
+	padding: var(--ids-space-4);
 	border-radius: var(--border-radius-large);
 	background-color: var(--color-background-hover);
 }
@@ -314,7 +293,7 @@ onActivated(load)
 	flex-wrap: wrap;
 	align-items: center;
 	justify-content: space-between;
-	gap: calc(var(--default-grid-baseline) * 2);
+	gap: var(--ids-space-2);
 }
 
 .outgoing__name {
@@ -330,15 +309,15 @@ onActivated(load)
 }
 
 .outgoing__items {
-	color: var(--color-text-maxcontrast);
+	composes: muted from '../../styles/shared.module.css';
 	font-size: 0.9em;
 }
 
 .gdpr {
 	display: flex;
 	align-items: flex-start;
-	gap: calc(var(--default-grid-baseline) * 4);
-	padding: calc(var(--default-grid-baseline) * 5);
+	gap: var(--ids-space-4);
+	padding: var(--ids-space-5);
 	border: 1px solid color-mix(in srgb, var(--color-info) 30%, var(--color-border));
 	border-radius: var(--border-radius-large);
 	background-color: color-mix(in srgb, var(--color-info) 8%, var(--color-main-background));
@@ -357,13 +336,13 @@ onActivated(load)
 }
 
 .gdpr__heading {
-	margin: 0 0 calc(var(--default-grid-baseline) * 2);
+	margin: 0 0 var(--ids-space-2);
 	font-size: 1.15em;
 	font-weight: 700;
 }
 
 .gdpr__text {
-	margin: 0 0 calc(var(--default-grid-baseline) * 2);
+	margin: 0 0 var(--ids-space-2);
 	max-width: 85ch;
 	line-height: 1.6;
 }
@@ -395,7 +374,7 @@ onActivated(load)
 	}
 
 	.table tr {
-		padding-block: calc(var(--default-grid-baseline) * 3);
+		padding-block: var(--ids-space-3);
 		border-bottom: 1px solid var(--color-border);
 	}
 
@@ -405,7 +384,7 @@ onActivated(load)
 
 	.table th,
 	.table td {
-		padding: calc(var(--default-grid-baseline) * 1) 0;
+		padding: var(--ids-space-1) 0;
 		border: none !important;
 	}
 
@@ -425,7 +404,7 @@ onActivated(load)
 
 	.gdpr {
 		flex-direction: column;
-		padding: calc(var(--default-grid-baseline) * 4);
+		padding: var(--ids-space-4);
 	}
 }
 </style>

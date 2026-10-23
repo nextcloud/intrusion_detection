@@ -10,11 +10,11 @@ declare(strict_types=1);
 namespace OCA\IntrusionDetection\Tests\Integration;
 
 use OCA\IntrusionDetection\AppInfo\Application;
-use OCA\IntrusionDetection\Check\Checks\TokenConcurrentUse;
-use OCA\IntrusionDetection\Check\CredentialUse\CredentialTracker;
-use OCA\IntrusionDetection\Check\ResponseType;
+use OCA\IntrusionDetection\Check\Checks\TokenConcurrentUse\CredentialTracker;
+use OCA\IntrusionDetection\Check\Checks\TokenConcurrentUse\TokenConcurrentUse;
 use OCA\IntrusionDetection\Db\DetectionFilter;
 use OCA\IntrusionDetection\Db\DetectionMapper;
+use OCA\IntrusionDetection\Definition\ResponseType;
 use OCA\IntrusionDetection\Explain\NarrativeBuilder;
 use OCA\IntrusionDetection\Notification\Notifier;
 use OCP\Authentication\Token\IToken;
@@ -34,7 +34,7 @@ class NoSecretsCredentialTest extends CredentialUseTestCase {
 	public function testNoCredentialOrCredentialKeyLeavesTheMemoryCache(): void {
 		$logFile = $this->logFile();
 		$logOffset = is_file($logFile) ? (int)filesize($logFile) : 0;
-		$this->settings->setResponses(TokenConcurrentUse::ID, [ResponseType::RevokeToken, ResponseType::NotifyAdmin, ResponseType::NotifyUser]);
+		$this->settingsEditor()->setResponses(TokenConcurrentUse::ID, [ResponseType::RevokeToken, ResponseType::NotifyAdmin, ResponseType::NotifyUser]);
 		$user = $this->newUser('ids-secret', 'secret@example.com');
 		$password = 'A-long-test-password-' . $user->getUID();
 		$appPassword = $this->token($user, IToken::PERMANENT_TOKEN, 'Desktop client');
@@ -73,7 +73,7 @@ class NoSecretsCredentialTest extends CredentialUseTestCase {
 			$secrets['credential key ' . $key] = substr($key, strlen(CredentialTracker::KEY_PREFIX));
 		}
 
-		foreach (IntegrationTestCase::TABLES as $table) {
+		foreach (IntegrationTestCase::tables() as $table) {
 			$result = $this->db->getQueryBuilder()->select('*')->from($table)->executeQuery();
 			$this->assertClean(json_encode($result->fetchAll(), JSON_THROW_ON_ERROR), $secrets, $table);
 			$result->closeCursor();

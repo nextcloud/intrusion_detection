@@ -9,27 +9,28 @@ declare(strict_types=1);
 
 namespace OCA\IntrusionDetection\Privacy;
 
+use OCA\IntrusionDetection\BackgroundJob\UserDataCleanupJob;
 use OCA\IntrusionDetection\BackgroundJob\UserDetectionsCleanupJob;
-use OCA\IntrusionDetection\Db\AlertMapper;
+use OCA\IntrusionDetection\Confirm\Db\StepUpSessionMapper;
 use OCA\IntrusionDetection\Db\ApprovalMapper;
 use OCA\IntrusionDetection\Db\AttemptMapper;
 use OCA\IntrusionDetection\Db\Detection;
 use OCA\IntrusionDetection\Db\DetectionAccountMapper;
 use OCA\IntrusionDetection\Db\DetectionMapper;
-use OCA\IntrusionDetection\Db\KnownDeviceMapper;
-use OCA\IntrusionDetection\Db\LockLinkMapper;
-use OCA\IntrusionDetection\Db\LoginHistoryMapper;
 use OCA\IntrusionDetection\Db\LoginMapper;
-use OCA\IntrusionDetection\Db\ProtectedAccountMapper;
-use OCA\IntrusionDetection\Db\ResetSuppressionMapper;
-use OCA\IntrusionDetection\Db\SecurityChangeMapper;
-use OCA\IntrusionDetection\Db\StepUpSessionMapper;
 use OCA\IntrusionDetection\Db\TokenOriginMapper;
-use OCA\IntrusionDetection\Db\TrustedNetworkMapper;
 use OCA\IntrusionDetection\Db\UserDailyMapper;
 use OCA\IntrusionDetection\Detection\DetectionAccounts;
+use OCA\IntrusionDetection\KnownDevice\Db\KnownDeviceMapper;
+use OCA\IntrusionDetection\LoginHistory\Db\LoginHistoryMapper;
 use OCA\IntrusionDetection\Notification\AdminNotices;
+use OCA\IntrusionDetection\Notification\Db\AlertMapper;
 use OCA\IntrusionDetection\Notification\UserAlerts;
+use OCA\IntrusionDetection\Response\Db\ProtectedAccountMapper;
+use OCA\IntrusionDetection\Response\Db\ResetSuppressionMapper;
+use OCA\IntrusionDetection\Takeover\Db\LockLinkMapper;
+use OCA\IntrusionDetection\Takeover\Db\SecurityChangeMapper;
+use OCA\IntrusionDetection\TrustedNetwork\Db\TrustedNetworkMapper;
 use OCP\BackgroundJob\IJobList;
 use OCP\DB\QueryBuilder\IQueryBuilder;
 use OCP\IDBConnection;
@@ -48,8 +49,12 @@ use OCP\IDBConnection;
  *   can be named in many detections, so they are rewritten after the
  *   deletion, by a queued job ({@see UserDetectionsCleanupJob}) in batches.
  * - The counters that aggregate notifications about the account are deleted.
+ * - Who created or lifted a block, created a decoy, or requested or decided
+ *   an approval is kept: those are an administrator's actions, kept for
+ *   accountability until their rows expire.
  *
- * The app's user settings and notifications are removed by core.
+ * The app's user settings and notifications are removed by core. When the
+ * removal fails, {@see UserDataCleanupJob} tries again.
  */
 class UserDataCleanup {
 	/** @var array<string, string> table => the column that holds the uid */
@@ -72,6 +77,8 @@ class UserDataCleanup {
 	/** @var array<string, string> table => the column set to null */
 	public const ANONYMISE = [
 		AttemptMapper::TABLE => 'uid',
+		// A change the account made to another account stays in that account's history, without who made it.
+		SecurityChangeMapper::TABLE => 'actor_uid',
 	];
 
 	/** Detections are rewritten in batches of this size */
@@ -100,7 +107,7 @@ class UserDataCleanup {
 				->executeStatement();
 		}
 		$this->deleteCounters($uid);
-		if ($this->accounts->detectionIds($uid, 0, 1) !== []) {
+		if ($this->accounts->detectionIds($uid, '0', 1) !== []) {
 			$this->jobList->add(UserDetectionsCleanupJob::class, ['uid' => $uid, 'upTo' => $this->detections->lastId()]);
 		}
 	}
@@ -123,10 +130,10 @@ class UserDataCleanup {
 	 * the accounts recorded per detection ({@see DetectionAccounts}), not by
 	 * searching the JSON of every row.
 	 *
-	 * @param int $after the detection id the last call ended with
-	 * @return ?int the detection id to go on after, or null when all are done
+	 * @param string $after the detection id the last call ended with
+	 * @return ?string the detection id to go on after, or null when all are done
 	 */
-	public function scrubDetections(string $uid, int $upTo, int $after = 0, int $maxBatches = PHP_INT_MAX): ?int {
+	public function scrubDetections(string $uid, string $upTo, string $after = '0', int $maxBatches = PHP_INT_MAX): ?string {
 		for ($batch = 0; $batch < $maxBatches; $batch++) {
 			$ids = $this->accounts->detectionIds($uid, $after, self::BATCH, $upTo);
 			if ($ids !== []) {
@@ -140,7 +147,7 @@ class UserDataCleanup {
 					$this->db->rollBack();
 					throw $e;
 				}
-				$after = max($ids);
+				$after = $ids[array_key_last($ids)];
 			}
 			if (count($ids) < self::BATCH) {
 				$this->accounts->deleteForUid($uid, $upTo);

@@ -11,7 +11,7 @@ export interface LinkTarget {
 	/** The element id of a section within the tab, scrolled to, e.g. `settings-privacy` */
 	section: string | null
 	/** A detection to open on the Overview */
-	detection: number | null
+	detection: string | null
 }
 
 /** The tabs of the page */
@@ -41,8 +41,8 @@ const SECTION = /^([a-z]+)-[a-z0-9-]{1,64}$/
  * - a tab: `#protection`, `#incidents`;
  * - a section, by its element id: `#settings-privacy`, `#blocks-decoys`;
  * - a check: `#protection/credential_stuffing`;
- * - a detection: `#detection-42`;
- * - a request for a new administrator, on the overview: `#approval-7`;
+ * - a detection: `#detection-470938541726507008`;
+ * - a request for a new administrator, on the overview: `#approval-470938541726508033`;
  * - the links of the former tabs, such as `#checks/…`, `#decoys` or `#advanced`.
  *
  * @param hash - The location hash
@@ -50,11 +50,11 @@ const SECTION = /^([a-z]+)-[a-z0-9-]{1,64}$/
  */
 export function resolveLink(hash: string): LinkTarget | null {
 	let link = hash.replace(/^#/, '')
-	const detection = link.match(/^detection-(\d{1,18})$/)
+	const detection = link.match(/^detection-(\d{1,20})$/)
 	if (detection) {
-		return { tab: 'overview', check: null, section: null, detection: Number(detection[1]) }
+		return { tab: 'overview', check: null, section: null, detection: detection[1]! }
 	}
-	if (/^approval-\d{1,18}$/.test(link)) {
+	if (/^approval-\d{1,20}$/.test(link)) {
 		return { tab: 'overview', check: null, section: link, detection: null }
 	}
 	const [first = '', check = null, ...more] = link.split('/')

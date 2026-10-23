@@ -16,17 +16,18 @@ use OC\Core\Controller\LoginController;
 use OC\Core\Controller\OCJSController;
 use OC\Core\Controller\TwoFactorChallengeController;
 use OC\Session\Memory;
-use OCA\IntrusionDetection\Check\Checks\StepUpFailed;
+use OCA\IntrusionDetection\Check\Checks\StepUpFailed\StepUpFailedRule;
+use OCA\IntrusionDetection\Confirm\ConfirmationStatus;
+use OCA\IntrusionDetection\Confirm\LoginConfirmations;
 use OCA\IntrusionDetection\Confirm\LoginDetections;
 use OCA\IntrusionDetection\Confirm\SecondFactorSetup;
-use OCA\IntrusionDetection\Confirm\StepUpService;
 use OCA\IntrusionDetection\Confirm\StepUpState;
 use OCA\IntrusionDetection\Controller\PasswordChangeController;
 use OCA\IntrusionDetection\Controller\VerifyController;
+use OCA\IntrusionDetection\Login\SessionMarkers;
 use OCA\IntrusionDetection\SessionState\RequestTarget;
 use OCA\IntrusionDetection\SessionState\Rules\PasswordChangeRule;
 use OCA\IntrusionDetection\SessionState\Rules\StepUpRule;
-use OCA\IntrusionDetection\SessionState\SessionState;
 use OCA\IntrusionDetection\SessionState\SessionStateRules;
 use OCP\AppFramework\Controller;
 use OCP\AppFramework\Utility\ITimeFactory;
@@ -44,10 +45,10 @@ use Test\TestCase;
  * refused, or came back without its state (concept section 11.5).
  */
 class StepUpRuleTest extends TestCase {
-	private SessionState $state;
+	private SessionMarkers $state;
 	private int $now = 1_800_000_000;
-	/** @var StepUpService&MockObject */
-	private StepUpService $service;
+	/** @var LoginConfirmations&MockObject */
+	private LoginConfirmations $service;
 	/** @var LoginDetections&MockObject */
 	private LoginDetections $linker;
 	private bool $serviceLoaded = false;
@@ -55,8 +56,8 @@ class StepUpRuleTest extends TestCase {
 
 	protected function setUp(): void {
 		parent::setUp();
-		$this->state = new SessionState(new Memory(), $this->createMock(LoggerInterface::class));
-		$this->service = $this->createMock(StepUpService::class);
+		$this->state = new SessionMarkers(new Memory(), $this->createMock(LoggerInterface::class));
+		$this->service = $this->createMock(LoginConfirmations::class);
 		$this->linker = $this->createMock(LoginDetections::class);
 	}
 
@@ -84,9 +85,9 @@ class StepUpRuleTest extends TestCase {
 
 	public function testWebDavIsToldWhyALoginWasRefusedOrEnded(): void {
 		$dav = RequestTarget::dav('PROPFIND', '/remote.php/dav/files/alice/');
-		$this->state->set(SessionState::STEP_UP, (new StepUpState('alice', StepUpState::REFUSED, ['flagged_source'], $this->now, 0))->toArray());
+		$this->state->set(SessionMarkers::STEP_UP, (new StepUpState('alice', ConfirmationStatus::Refused, ['flagged_source'], $this->now, 0))->toArray());
 		$this->assertSame(StepUpRule::MESSAGE_REFUSED, $this->rule()->check($this->state, $dav)?->message);
-		$this->state->set(SessionState::STEP_UP, (new StepUpState('alice', StepUpState::REFUSED_CLIENT, ['protected_account'], $this->now, 0))->toArray());
+		$this->state->set(SessionMarkers::STEP_UP, (new StepUpState('alice', ConfirmationStatus::RefusedClient, ['protected_account'], $this->now, 0))->toArray());
 		$this->assertSame(StepUpRule::MESSAGE_CLIENT, $this->rule()->check($this->state, $dav)?->message);
 		$this->pending(deadline: $this->now);
 		$this->assertSame(StepUpRule::MESSAGE_ENDED, $this->rule()->check($this->state, $dav)?->message);
@@ -120,7 +121,7 @@ class StepUpRuleTest extends TestCase {
 
 	public function testATimedOutLoginIsFailedAndEnded(): void {
 		$this->pending(deadline: $this->now);
-		$this->service->expects($this->once())->method('fail')->with($this->isInstanceOf(StepUpState::class), StepUpFailed::RULE_TIMEOUT);
+		$this->service->expects($this->once())->method('fail')->with($this->isInstanceOf(StepUpState::class), StepUpFailedRule::Timeout);
 		$block = $this->rule()->check($this->state, $this->target(VerifyController::class));
 		$this->assertNotNull($block, 'Even the verify page');
 		$this->assertSame('/ended?reason=timeout', $block->redirectUrl);
@@ -133,13 +134,13 @@ class StepUpRuleTest extends TestCase {
 	}
 
 	public function testAResumedSessionIsEnded(): void {
-		$this->state->set(SessionState::STEP_UP, (new StepUpState('alice', StepUpState::RESUMED, [], $this->now, $this->now))->toArray());
-		$this->service->expects($this->once())->method('fail')->with($this->anything(), StepUpFailed::RULE_RESUMED);
+		$this->state->set(SessionMarkers::STEP_UP, (new StepUpState('alice', ConfirmationStatus::Resumed, [], $this->now, $this->now))->toArray());
+		$this->service->expects($this->once())->method('fail')->with($this->anything(), StepUpFailedRule::Resumed);
 		$this->assertSame('/ended?reason=resumed', $this->rule()->check($this->state, $this->target(Controller::class))?->redirectUrl);
 	}
 
 	public function testARefusedLoginCanOnlyBeToldWhy(): void {
-		$this->state->set(SessionState::STEP_UP, (new StepUpState('alice', StepUpState::REFUSED, ['flagged_source'], $this->now, 0, reference: 'SAAA-AAAB'))->toArray());
+		$this->state->set(SessionMarkers::STEP_UP, (new StepUpState('alice', ConfirmationStatus::Refused, ['flagged_source'], $this->now, 0, reference: 'SAAA-AAAB'))->toArray());
 		$this->assertNull($this->rule()->check($this->state, $this->target(VerifyController::class, 'show')));
 		$this->assertSame(StepUpRule::ERROR_REFUSED, $this->rule()->check($this->state, $this->target(VerifyController::class, 'confirm'))?->error);
 		$this->assertSame(StepUpRule::ERROR_REFUSED, $this->rule()->check($this->state, $this->target(Controller::class))?->error);
@@ -147,7 +148,7 @@ class StepUpRuleTest extends TestCase {
 	}
 
 	public function testARefusedAppLoginIsRefusedEverywhereWithoutARedirect(): void {
-		$this->state->set(SessionState::STEP_UP, (new StepUpState('alice', StepUpState::REFUSED_CLIENT, ['protected_account'], $this->now, 0))->toArray());
+		$this->state->set(SessionMarkers::STEP_UP, (new StepUpState('alice', ConfirmationStatus::RefusedClient, ['protected_account'], $this->now, 0))->toArray());
 		foreach ([Controller::class, VerifyController::class] as $class) {
 			$block = $this->rule()->check($this->state, $this->target($class));
 			$this->assertNotNull($block, $class);
@@ -156,14 +157,14 @@ class StepUpRuleTest extends TestCase {
 	}
 
 	public function testAMarkerOfAnotherAccountIsDropped(): void {
-		$this->state->set(SessionState::STEP_UP, (new StepUpState('mallory', StepUpState::PENDING, [], $this->now, $this->now + 900))->toArray());
+		$this->state->set(SessionMarkers::STEP_UP, (new StepUpState('mallory', ConfirmationStatus::Pending, [], $this->now, $this->now + 900))->toArray());
 		$this->assertNull($this->rule()->check($this->state, $this->target(Controller::class)));
-		$this->assertNull($this->state->get(SessionState::STEP_UP));
+		$this->assertNull($this->state->get(SessionMarkers::STEP_UP));
 	}
 
 	public function testDetectionsOfTheLoginAreLinkedOnTheFirstRequest(): void {
-		$this->state->set(SessionState::LOGIN_DETECTIONS, ['uid' => 'alice', 'ids' => [7]]);
-		$this->linker->expects($this->once())->method('link')->with(['uid' => 'alice', 'ids' => [7]], 'alice');
+		$this->state->set(SessionMarkers::LOGIN_DETECTIONS, ['uid' => 'alice', 'ids' => [7]]);
+		$this->linker->expects($this->once())->method('linkSession')->with('alice');
 		$this->assertNull($this->rule()->check($this->state, $this->target(Controller::class)));
 	}
 
@@ -173,14 +174,14 @@ class StepUpRuleTest extends TestCase {
 	}
 
 	private function pending(?int $deadline = null): void {
-		$this->state->set(SessionState::STEP_UP, (new StepUpState('alice', StepUpState::PENDING, ['flagged_source'], $this->now - 60, $deadline ?? $this->now + 840, '198.51.100.7', ['email_code']))->toArray());
+		$this->state->set(SessionMarkers::STEP_UP, (new StepUpState('alice', ConfirmationStatus::Pending, ['flagged_source'], $this->now - 60, $deadline ?? $this->now + 840, '198.51.100.7', ['email_code']))->toArray());
 	}
 
 	/**
 	 * @param class-string<Controller> $class
 	 */
 	private function target(string $class, string $method = 'index'): RequestTarget {
-		$controller = $this->getMockBuilder($class)->disableOriginalConstructor()->getMock();
+		$controller = $this->getMockBuilder($class)->disableOriginalConstructor()->onlyMethods([])->getMock();
 		return RequestTarget::app($controller, $method, 'GET', '/index.php/apps/files/');
 	}
 

@@ -9,17 +9,10 @@ declare(strict_types=1);
 
 namespace OCA\IntrusionDetection\Config;
 
-use OCA\IntrusionDetection\Check\Checks\AdminChange;
-use OCA\IntrusionDetection\Check\InvalidParamException;
-use OCA\IntrusionDetection\Check\IValidatesParams;
-use OCA\IntrusionDetection\Check\ParamDefinition;
-use OCA\IntrusionDetection\Check\ParamPreset;
-use OCA\IntrusionDetection\Check\ParamType;
-use OCA\IntrusionDetection\Confirm\Methods\KnownDeviceMethod;
-use OCA\IntrusionDetection\Confirm\NoMethodOutcome;
-use OCA\IntrusionDetection\Confirm\StepUpPolicy;
-use OCA\IntrusionDetection\Confirm\StepUpReasons;
-use OCA\IntrusionDetection\Net\ServerAddresses;
+use OCA\IntrusionDetection\Definition\InvalidParamException;
+use OCA\IntrusionDetection\Definition\ParamDefinition;
+use OCA\IntrusionDetection\Definition\ParamPreset;
+use OCA\IntrusionDetection\Definition\ParamType;
 
 /**
  * The settings that belong to the app rather than to one check.
@@ -33,7 +26,6 @@ final class GlobalSettings {
 	/** Not 'enabled': core keeps every app's enabled state under that key */
 	public const ENABLED = 'protection_enabled';
 	public const LEARNING_UNTIL = 'learning_until';
-	public const LEARNING_NOTICE_SENT = 'learning_notice_sent';
 	public const BAN_DURATION_1 = 'ban_duration_1';
 	public const BAN_DURATION_2 = 'ban_duration_2';
 	public const BAN_DURATION_3 = 'ban_duration_3';
@@ -43,46 +35,20 @@ final class GlobalSettings {
 	/** Days detections, the login history and the security change log are kept */
 	public const RETENTION_DETECTIONS_DAYS = 'retention_detections_days';
 
-	/** Internal state, not shown as settings */
-	public const INSTALLED_AT = 'installed_at';
-	/** While in the future, low-value attempts are sampled because the attempts table is flooded */
-	public const ATTEMPTS_FLOOD_UNTIL = 'attempts_flood_until';
-
 	public const EXPORT_FORMATS = 'export_formats';
 	public const BLOCKLIST_SOURCES = 'blocklist_sources';
-	/** Internal: per list the active version and the last sync results */
-	public const BLOCKLIST_STATE = 'blocklist_state';
 	/** The groups whose members get the admin notifications */
 	public const NOTIFY_ADMIN_GROUP = 'notify_admin_group';
 	/** Detections of at least this severity are also emailed to them ("never" for no emails) */
 	public const NOTIFY_ADMIN_EMAIL_MIN_SEVERITY = 'notify_admin_email_min_severity';
-	/** Internal: until when a distributed credential stuffing attack counts as running */
-	public const CS_DISTRIBUTED_UNTIL = 'cs_distributed_until';
-	/** Internal: when the running distributed attack was last recorded as a detection */
-	public const CS_DISTRIBUTED_DETECTED_AT = 'cs_distributed_detected_at';
-	/** Internal: the detection of the running distributed attack */
-	public const CS_DISTRIBUTED_DETECTION = 'cs_distributed_detection';
-	/** Internal: how many decoy credentials exist, so failed logins skip the lookup while there are none */
-	public const DECOY_COUNT = 'decoy_count';
 	/** A second administrator must approve every new administrator */
 	public const ADMIN_CHANGE_REQUIRE_APPROVAL = 'admin_change_require_approval';
-	/** Internal: when the watched settings were first recorded; 0 until then */
-	public const CONFIG_WATCH_BASELINE = 'config_watch_baseline';
-
-	/** Internal: when the running learning period started */
-	public const LEARNING_STARTED_AT = 'learning_started_at';
 
 	/** How often the administrators get the digest email: off, daily or weekly */
 	public const DIGEST_FREQUENCY = 'digest_frequency';
-	/** Internal: the last digest sent, for the admin page */
-	public const DIGEST_STATE = 'digest_state';
 	/** Whether the typed events for webhooks carry the address */
 	public const EVENTS_INCLUDE_IP = 'events_include_ip';
-	/** Internal: detections deleted after their retention, counted per check, severity and enforcement, for the metrics' running total */
-	public const DETECTIONS_RETIRED = 'detections_retired';
 
-	/** Internal: until when sessions with an unconfirmed login may exist, so that resumed sessions are checked */
-	public const STEP_UP_SESSIONS_UNTIL = 'step_up_sessions_until';
 	/** The step-up policies for which a remembered device confirms a login */
 	public const STEP_UP_KNOWN_DEVICE_OK_FOR = 'step_up_known_device_ok_for';
 	/** Whether an administrator can approve a login that nothing else can confirm */
@@ -100,22 +66,42 @@ final class GlobalSettings {
 	public const RISKY_NETWORK_EXEMPT_GROUPS = 'risky_network_exempt_groups';
 	/** Whether users see the intrusion detection part of their security settings */
 	public const PERSONAL_PAGE_ENABLED = 'personal_page_enabled';
-	/** Bans that ended up to this time have been flagged */
-	public const BANS_FLAGGED_UNTIL = 'bans_flagged_until';
-	/** Internal: the counts of active accounts and of those without a way to confirm a login, with when they were counted */
-	public const COVERAGE_USERS = 'coverage_users';
-	/** Internal: reserved names and decoy login names that are accounts by now, with when they were looked up */
-	public const TRAP_NAME_COLLISIONS = 'trap_name_collisions';
-	/** Internal: the protection level the limits were last set to (recommended, strict, relaxed), or custom after a change by hand */
-	public const PROTECTION_LEVEL = 'protection_level';
-	/** Internal: this server's own addresses seen in web requests, for cron and occ */
-	public const SERVER_ADDRESSES = 'server_addresses';
 	/** Days without use after which the daily job removes app passwords and remembered browsers; 0 keeps them */
 	public const STALE_CREDENTIALS_REMOVE_DAYS = 'stale_credentials_remove_days';
 	/** The removal takes at least this many days without use */
 	public const STALE_CREDENTIALS_MIN_REMOVE_DAYS = 90;
-	/** Internal: how many app passwords and remembered browsers were not used for 90 days, and of how many accounts, with when they were counted and when the daily look last ran */
-	public const STALE_CREDENTIALS = 'stale_credentials';
+
+	/**
+	 * What happens by default to a login that needs extra confirmation when
+	 * nothing can confirm it, by step-up policy
+	 * ({@see \OCA\IntrusionDetection\Confirm\StepUpPolicy}); each has
+	 * the setting {@see self::stepUpNoMethod()}.
+	 */
+	public const STEP_UP_NO_METHOD_DEFAULTS = [
+		'flagged_source' => 'refuse',
+		'sprayed_password' => 'refuse',
+		'protected_account' => 'allow_notify',
+		'breached_password' => 'allow_force_change',
+		'risky_network' => 'allow_notify',
+		'risk_high' => 'refuse',
+		'admin_outside_networks' => 'refuse',
+	];
+	/** The choices of those settings ({@see \OCA\IntrusionDetection\Confirm\NoMethodOutcome}) */
+	public const NO_METHOD_OUTCOMES = ['refuse', 'allow_notify', 'allow_force_change'];
+	/** The policies for which a remembered device confirms a login by default */
+	public const STEP_UP_KNOWN_DEVICE_DEFAULT = ['flagged_source', 'protected_account', 'risky_network', 'risk_high'];
+	/** The policies that setting may name: every one but a sprayed or breached password and an administrator outside the trusted networks */
+	public const STEP_UP_KNOWN_DEVICE_PATTERN = '/^(flagged_source|protected_account|risky_network|risk_high)$/';
+
+	/**
+	 * The global settings that the config.php lock ({@see AppSettings::LOCK})
+	 * holds at these values: protection on, and a second administrator
+	 * approves new administrators.
+	 */
+	public const LOCKED = [self::ENABLED => true, self::ADMIN_CHANGE_REQUIRE_APPROVAL => true];
+
+	/** Changed through their own endpoints only (learning mode, blocklists), so every change is explained and audited as such */
+	private const MANAGED_ELSEWHERE = [self::LEARNING_UNTIL, self::BLOCKLIST_SOURCES];
 
 	/** Seconds in the learning period that starts when the app is first enabled */
 	public const LEARNING_DEFAULT_PERIOD = 7 * 86400;
@@ -131,7 +117,6 @@ final class GlobalSettings {
 			$list = [
 				new ParamDefinition(self::ENABLED, ParamType::Bool, true),
 				new ParamDefinition(self::LEARNING_UNTIL, ParamType::Int, 0, min: 0),
-				new ParamDefinition(self::LEARNING_NOTICE_SENT, ParamType::Int, 0, min: 0),
 				// The three escalation levels: first block, repeat within the history window, and after that.
 				new ParamDefinition(self::BAN_DURATION_1, ParamType::Duration, 14400, min: 300, max: 90 * 86400, preset: ParamPreset::BlockDuration),
 				new ParamDefinition(self::BAN_DURATION_2, ParamType::Duration, 86400, min: 300, max: 90 * 86400, preset: ParamPreset::BlockDuration),
@@ -140,30 +125,19 @@ final class GlobalSettings {
 				new ParamDefinition(self::BAN_NET_AFTER, ParamType::Int, 3, min: 2, max: 256),
 				new ParamDefinition(self::BAN_SHARED_IP_USERS, ParamType::Int, 5, min: 0, max: 10000),
 				new ParamDefinition(self::RETENTION_DETECTIONS_DAYS, ParamType::Int, 90, min: 7, max: 730),
-				new ParamDefinition(self::INSTALLED_AT, ParamType::Int, 0, min: 0),
-				new ParamDefinition(self::ATTEMPTS_FLOOD_UNTIL, ParamType::Int, 0, min: 0),
 				new ParamDefinition(self::EXPORT_FORMATS, ParamType::StringList, [], itemPattern: '/^(txt|nft|ipset|log)$/', maxItems: 4),
 				new ParamDefinition(self::BLOCKLIST_SOURCES, ParamType::Json, '[]'),
-				new ParamDefinition(self::BLOCKLIST_STATE, ParamType::Json, '{}'),
 				new ParamDefinition(self::NOTIFY_ADMIN_GROUP, ParamType::StringList, ['admin'], itemPattern: '/^[^\x00-\x1f\x7f]{1,255}$/u', maxItems: 10),
 				new ParamDefinition(self::NOTIFY_ADMIN_EMAIL_MIN_SEVERITY, ParamType::Choice, 'high', choices: ['low', 'medium', 'high', 'critical', 'never']),
-				new ParamDefinition(self::CS_DISTRIBUTED_UNTIL, ParamType::Int, 0, min: 0),
-				new ParamDefinition(self::CS_DISTRIBUTED_DETECTED_AT, ParamType::Int, 0, min: 0),
-				new ParamDefinition(self::CS_DISTRIBUTED_DETECTION, ParamType::Int, 0, min: 0),
-				new ParamDefinition(self::DECOY_COUNT, ParamType::Int, 0, min: 0),
 				new ParamDefinition(self::ADMIN_CHANGE_REQUIRE_APPROVAL, ParamType::Bool, false),
-				new ParamDefinition(self::CONFIG_WATCH_BASELINE, ParamType::Int, 0, min: 0),
 				new ParamDefinition(self::DIGEST_FREQUENCY, ParamType::Choice, 'weekly', choices: ['off', 'daily', 'weekly']),
-				new ParamDefinition(self::DIGEST_STATE, ParamType::Json, '{}'),
-				new ParamDefinition(self::EVENTS_INCLUDE_IP, ParamType::Bool, true),
-				new ParamDefinition(self::LEARNING_STARTED_AT, ParamType::Int, 0, min: 0),
-				new ParamDefinition(self::STEP_UP_SESSIONS_UNTIL, ParamType::Int, 0, min: 0),
+				new ParamDefinition(self::EVENTS_INCLUDE_IP, ParamType::Bool, false),
 				...array_map(
-					static fn (StepUpPolicy $p): ParamDefinition => new ParamDefinition($p->settingKey(), ParamType::Choice, $p->defaultOutcome()->value, choices: NoMethodOutcome::values()),
-					StepUpReasons::policies(),
+					static fn (string $policy, string $outcome): ParamDefinition => new ParamDefinition(self::stepUpNoMethod($policy), ParamType::Choice, $outcome, choices: self::NO_METHOD_OUTCOMES),
+					array_keys(self::STEP_UP_NO_METHOD_DEFAULTS),
+					self::STEP_UP_NO_METHOD_DEFAULTS,
 				),
-				new ParamDefinition(self::DETECTIONS_RETIRED, ParamType::Json, '{}'),
-				new ParamDefinition(self::STEP_UP_KNOWN_DEVICE_OK_FOR, ParamType::StringList, KnownDeviceMethod::DEFAULT_POLICIES, itemPattern: KnownDeviceMethod::POLICY_PATTERN, maxItems: count(StepUpPolicy::cases())),
+				new ParamDefinition(self::STEP_UP_KNOWN_DEVICE_OK_FOR, ParamType::StringList, self::STEP_UP_KNOWN_DEVICE_DEFAULT, itemPattern: self::STEP_UP_KNOWN_DEVICE_PATTERN, maxItems: count(self::STEP_UP_NO_METHOD_DEFAULTS)),
 				new ParamDefinition(self::STEP_UP_ADMIN_APPROVAL, ParamType::Bool, false),
 				new ParamDefinition(self::KNOWN_DEVICE_ENABLED, ParamType::Bool, true),
 				new ParamDefinition(self::RISK_ENABLED, ParamType::Bool, true),
@@ -171,13 +145,7 @@ final class GlobalSettings {
 				new ParamDefinition(self::ADMIN_TRUSTED_NETWORKS_ONLY, ParamType::Bool, false),
 				new ParamDefinition(self::RISKY_NETWORK_EXEMPT_GROUPS, ParamType::StringList, [], itemPattern: '/^[^\x00-\x1f\x7f]{1,255}$/u', maxItems: 20),
 				new ParamDefinition(self::PERSONAL_PAGE_ENABLED, ParamType::Bool, true),
-				new ParamDefinition(self::BANS_FLAGGED_UNTIL, ParamType::Int, 0, min: 0),
-				new ParamDefinition(self::COVERAGE_USERS, ParamType::Json, '{}'),
-				new ParamDefinition(self::TRAP_NAME_COLLISIONS, ParamType::Json, '{}'),
-				new ParamDefinition(self::PROTECTION_LEVEL, ParamType::Choice, ProtectionLevel::Recommended->value, choices: array_map(static fn (ProtectionLevel $level): string => $level->value, ProtectionLevel::cases())),
-				new ParamDefinition(self::SERVER_ADDRESSES, ParamType::StringList, [], itemPattern: '/^[0-9a-f.:]{2,45}$/', maxItems: ServerAddresses::MAX_REMEMBERED),
 				new ParamDefinition(self::STALE_CREDENTIALS_REMOVE_DAYS, ParamType::Int, 0, min: 0, max: 3650),
-				new ParamDefinition(self::STALE_CREDENTIALS, ParamType::Json, '{}'),
 			];
 			$this->definitions = [];
 			foreach ($list as $definition) {
@@ -192,16 +160,19 @@ final class GlobalSettings {
 	}
 
 	/**
-	 * The check whose rules a global setting must also pass when it is written,
-	 * for settings that belong to one check.
-	 *
-	 * @return ?class-string<IValidatesParams>
+	 * Whether an administrator changes the setting through the settings
+	 * endpoint, and "Reset all settings" puts it back.
 	 */
-	public static function validatedBy(string $name): ?string {
-		return match ($name) {
-			self::ADMIN_CHANGE_REQUIRE_APPROVAL => AdminChange::class,
-			default => null,
-		};
+	public function isEditable(string $name): bool {
+		return $this->get($name) !== null && !in_array($name, self::MANAGED_ELSEWHERE, true);
+	}
+
+	/**
+	 * The setting that holds what happens to a login of a step-up policy
+	 * that nothing can confirm.
+	 */
+	public static function stepUpNoMethod(string $policy): string {
+		return 'step_up_no_method_' . $policy;
 	}
 
 	/**
@@ -214,28 +185,5 @@ final class GlobalSettings {
 		if ($name === self::STALE_CREDENTIALS_REMOVE_DAYS && $value !== 0 && $value < self::STALE_CREDENTIALS_MIN_REMOVE_DAYS) {
 			throw new InvalidParamException('zero_or_at_least', ['param' => $name, 'min' => self::STALE_CREDENTIALS_MIN_REMOVE_DAYS]);
 		}
-	}
-
-	/**
-	 * Settings that hold internal state and are never set by an admin.
-	 */
-	public static function isInternal(string $name): bool {
-		return in_array($name, [
-			self::INSTALLED_AT, self::LEARNING_NOTICE_SENT, self::ATTEMPTS_FLOOD_UNTIL,
-			self::BLOCKLIST_STATE,
-			self::CS_DISTRIBUTED_UNTIL, self::CS_DISTRIBUTED_DETECTED_AT, self::CS_DISTRIBUTED_DETECTION,
-			self::DECOY_COUNT,
-			self::CONFIG_WATCH_BASELINE,
-			self::DIGEST_STATE,
-			self::LEARNING_STARTED_AT,
-			self::STEP_UP_SESSIONS_UNTIL,
-			self::DETECTIONS_RETIRED,
-			self::BANS_FLAGGED_UNTIL,
-			self::COVERAGE_USERS,
-			self::TRAP_NAME_COLLISIONS,
-			self::PROTECTION_LEVEL,
-			self::SERVER_ADDRESSES,
-			self::STALE_CREDENTIALS,
-		], true);
 	}
 }

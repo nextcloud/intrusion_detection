@@ -7,8 +7,6 @@
 import type { IncidentReport, IncidentRequest } from '../../types.ts'
 
 import { mdiDownload, mdiFileCodeOutline, mdiInformationOutline, mdiOpenInNew, mdiPencilOutline, mdiPrinterOutline } from '@mdi/js'
-import { showError } from '@nextcloud/dialogs'
-import { t } from '@nextcloud/l10n'
 import { computed, ref, useId } from 'vue'
 import NcButton from '@nextcloud/vue/components/NcButton'
 import NcIconSvgWrapper from '@nextcloud/vue/components/NcIconSvgWrapper'
@@ -17,10 +15,10 @@ import NcNoteCard from '@nextcloud/vue/components/NcNoteCard'
 import TimeStamp from '../common/TimeStamp.vue'
 import IncidentSummary from './IncidentSummary.vue'
 import IncidentTimeline from './IncidentTimeline.vue'
-import { useAnnouncer } from '../../composables/useAnnouncer.ts'
-import { downloadIncidentReport, errorMessage, isCancelled } from '../../services/api.ts'
-import { logger } from '../../services/logger.ts'
+import { useAction } from '../../composables/useAction.ts'
+import { downloadIncidentReport } from '../../services/api.ts'
 import { APP_ID } from '../../utils/format.ts'
+import { t } from '../../utils/l10n.ts'
 
 const props = defineProps<{
 	report: IncidentReport
@@ -35,8 +33,7 @@ const emit = defineEmits<{
 
 const id = useId()
 const heading = ref<HTMLElement | null>(null)
-const downloading = ref<'json' | 'html' | 'print' | null>(null)
-const { announce } = useAnnouncer()
+const { busy: downloading, run } = useAction()
 
 const subject = computed(() => {
 	const value = props.report.subject
@@ -96,25 +93,18 @@ function print(html: string) {
  *
  * @param action - JSON, the HTML page, or print the HTML page
  */
-async function download(action: 'json' | 'html' | 'print') {
-	downloading.value = action
-	try {
+function download(action: 'json' | 'html' | 'print') {
+	run(action, async () => {
 		const { blob, filename } = await downloadIncidentReport(props.request, action === 'json' ? 'json' : 'html')
 		if (action === 'print') {
 			print(await blob.text())
 		} else {
 			save(blob, filename)
-			announce(t(APP_ID, 'The report was downloaded.'))
 		}
-	} catch (e) {
-		if (isCancelled(e)) {
-			return
-		}
-		logger.error('Could not download the incident report', { error: e })
-		showError(errorMessage(e, t(APP_ID, 'The report could not be downloaded. Please try again.')))
-	} finally {
-		downloading.value = null
-	}
+	}, {
+		done: action === 'print' ? undefined : t(APP_ID, 'The report was downloaded.'),
+		fallback: t(APP_ID, 'The report could not be downloaded. Please try again.'),
+	})
 }
 
 /**
@@ -222,14 +212,14 @@ defineExpose({ focus })
 .report {
 	display: flex;
 	flex-direction: column;
-	gap: calc(var(--default-grid-baseline) * 6);
+	gap: var(--ids-space-6);
 	min-width: 0;
 }
 
 .report__head {
 	display: flex;
 	flex-direction: column;
-	gap: calc(var(--default-grid-baseline) * 1);
+	gap: var(--ids-space-1);
 }
 
 .report__subject {
@@ -237,43 +227,43 @@ defineExpose({ focus })
 	font-size: 1.35em;
 	font-weight: 700;
 	overflow-wrap: anywhere;
-	scroll-margin-top: calc(var(--default-grid-baseline) * 4);
+	scroll-margin-top: var(--ids-space-4);
 }
 
 .report__subject:focus-visible {
-	outline: 2px solid var(--color-main-text);
+	outline: var(--ids-focus-ring);
 	outline-offset: 2px;
 	border-radius: var(--border-radius-element);
 }
 
 .report__period {
+	composes: muted from '../../styles/shared.module.css';
 	display: flex;
 	flex-wrap: wrap;
-	gap: calc(var(--default-grid-baseline) * 1.5);
+	gap: var(--ids-space-1-5);
 	margin: 0;
-	color: var(--color-text-maxcontrast);
 }
 
 .report__actions {
 	display: flex;
 	flex-wrap: wrap;
-	gap: calc(var(--default-grid-baseline) * 1);
-	margin-block-start: calc(var(--default-grid-baseline) * 2);
+	gap: var(--ids-space-1);
+	margin-block-start: var(--ids-space-2);
 }
 
 .report__notes {
+	composes: muted from '../../styles/shared.module.css';
 	display: flex;
 	flex-direction: column;
-	gap: calc(var(--default-grid-baseline) * 2);
-	padding-block-start: calc(var(--default-grid-baseline) * 4);
+	gap: var(--ids-space-2);
+	padding-block-start: var(--ids-space-4);
 	border-block-start: 1px solid var(--color-border);
-	color: var(--color-text-maxcontrast);
 }
 
 .report__notesHeading {
 	display: flex;
 	align-items: center;
-	gap: calc(var(--default-grid-baseline) * 2);
+	gap: var(--ids-space-2);
 	margin: 0;
 	color: var(--color-main-text);
 	font-size: 0.95em;
@@ -283,9 +273,9 @@ defineExpose({ focus })
 .report__noteList {
 	display: flex;
 	flex-direction: column;
-	gap: calc(var(--default-grid-baseline) * 1.5);
+	gap: var(--ids-space-1-5);
 	margin: 0;
-	padding-inline-start: calc(var(--default-grid-baseline) * 5);
+	padding-inline-start: var(--ids-space-5);
 	list-style: disc;
 	line-height: 1.5;
 }
@@ -293,7 +283,7 @@ defineExpose({ focus })
 .report__link {
 	display: inline-flex;
 	align-items: center;
-	gap: calc(var(--default-grid-baseline) * 1);
+	gap: var(--ids-space-1);
 	color: var(--color-primary-element-text-dark, var(--color-primary-element));
 	text-decoration: underline;
 }

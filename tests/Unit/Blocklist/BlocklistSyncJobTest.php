@@ -16,7 +16,7 @@ use OCA\IntrusionDetection\Blocklist\ListFormat;
 use OCA\IntrusionDetection\Blocklist\ListState;
 use OCA\IntrusionDetection\Blocklist\SourceRepository;
 use OCA\IntrusionDetection\Blocklist\StateStore;
-use OCA\IntrusionDetection\Config\Settings;
+use OCA\IntrusionDetection\Config\AppSettings;
 use OCP\AppFramework\Utility\ITimeFactory;
 use OCP\BackgroundJob\IJobList;
 use Test\TestCase;
@@ -56,8 +56,7 @@ class BlocklistSyncJobTest extends TestCase {
 		$sources->method('enabled')->willReturn($enabled);
 		$states = $this->createMock(StateStore::class);
 		$states->method('all')->willReturn(array_map(static fn (int $at): ListState => new ListState(attemptAt: $at), $attempts));
-		$settings = $this->createMock(Settings::class);
-		$settings->method('getInt')->willReturn(21600);
+		$settings = $this->createMock(AppSettings::class);
 		$settings->method('isEnabled')->willReturn(true);
 		$time = $this->createMock(ITimeFactory::class);
 		$time->method('getTime')->willReturn(1792490400);

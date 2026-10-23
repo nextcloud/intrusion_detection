@@ -9,33 +9,29 @@ declare(strict_types=1);
 
 namespace OCA\IntrusionDetection\Tests\Integration;
 
-use OCA\IntrusionDetection\Check\Checks\AccountUnderAttackDetector;
-use OCA\IntrusionDetection\Check\Checks\CredentialStuffingDetector;
-use OCA\IntrusionDetection\Check\Checks\DecoyCredentialDetector;
-use OCA\IntrusionDetection\Check\Checks\PasswordSpraying;
-use OCA\IntrusionDetection\Check\Checks\PasswordSprayingDetector;
-use OCA\IntrusionDetection\Check\Checks\ReservedNameDetector;
-use OCA\IntrusionDetection\Config\Prerequisites;
-use OCA\IntrusionDetection\Config\Settings;
+use OCA\IntrusionDetection\Address\AddressCache;
+use OCA\IntrusionDetection\Blocklist\SourceRepository;
+use OCA\IntrusionDetection\Cache\Caches;
+use OCA\IntrusionDetection\Check\Checks\BlocklistMatch\BlocklistMatchDetector;
+use OCA\IntrusionDetection\Check\Checks\CredentialStuffing\CredentialStuffingDetector;
 use OCA\IntrusionDetection\Crypto\Fingerprinter;
 use OCA\IntrusionDetection\Db\AttemptKind;
 use OCA\IntrusionDetection\Db\AttemptMapper;
 use OCA\IntrusionDetection\Db\Detection;
 use OCA\IntrusionDetection\Db\DetectionFilter;
 use OCA\IntrusionDetection\Db\DetectionMapper;
-use OCA\IntrusionDetection\Db\StateMapper;
 use OCA\IntrusionDetection\Detection\AttemptRecorder;
 use OCA\IntrusionDetection\Listener\FailedLoginListener;
+use OCA\IntrusionDetection\Login\RequestContext;
 use OCA\IntrusionDetection\Net\RemoteAddressResolver;
 use OCA\IntrusionDetection\Net\ServerAddresses;
 use OCA\IntrusionDetection\Net\SourceKey;
 use OCA\IntrusionDetection\Personal\FailedLoginStats;
 use OCA\IntrusionDetection\Response\BanService;
 use OCA\IntrusionDetection\Response\FlaggedSources;
-use OCA\IntrusionDetection\Response\ResponseEngine;
 use OCA\IntrusionDetection\Risk\RiskScorer;
+use OCA\IntrusionDetection\State\AppState;
 use OCP\Authentication\Events\AnyLoginFailedEvent;
-use OCP\ICacheFactory;
 use OCP\IRequest;
 use OCP\IUser;
 use OCP\IUserManager;
@@ -50,11 +46,12 @@ use Psr\Log\LoggerInterface;
  */
 abstract class LoginFailureTestCase extends IntegrationTestCase {
 	protected FailedLoginListener $listener;
-	protected Settings $settings;
 	protected DetectionMapper $detections;
 	protected AttemptMapper $attempts;
 	/** @var IRequest&MockObject */
 	protected IRequest $request;
+	/** What the address check found for the request, for the blocklist check */
+	protected RequestContext $requestContext;
 	protected string $remoteAddress = '198.51.100.7';
 	protected string $userAgent = 'curl/8.0';
 	/** @var list<string> */
@@ -62,43 +59,30 @@ abstract class LoginFailureTestCase extends IntegrationTestCase {
 
 	protected function setUp(): void {
 		parent::setUp();
-		$this->settings = Server::get(Settings::class);
 		$this->detections = Server::get(DetectionMapper::class);
 		$this->attempts = Server::get(AttemptMapper::class);
 		$this->request = $this->createMock(IRequest::class);
 		$this->request->method('getRemoteAddress')->willReturnCallback(fn (): string => $this->remoteAddress);
 		$this->request->method('getHeader')->willReturnCallback(fn (string $name): string => $name === 'User-Agent' ? $this->userAgent : '');
-		$addresses = new RemoteAddressResolver($this->request, Server::get(IThrottler::class), Server::get(ServerAddresses::class));
+		$this->requestContext = new RequestContext();
+		$addresses = new RemoteAddressResolver($this->request, $this->throttler(), Server::get(ServerAddresses::class));
 		$this->listener = new FailedLoginListener(
-			$this->settings,
+			$this->appSettings(),
 			$addresses,
+			$this->dispatcher([
+				BlocklistMatchDetector::class => new BlocklistMatchDetector($addresses, $this->requestContext, Server::get(AddressCache::class), Server::get(SourceRepository::class)),
+				CredentialStuffingDetector::class => new CredentialStuffingDetector(
+					$this->checkSettings(),
+					$this->attempts,
+					Server::get(FlaggedSources::class),
+					Server::get(BanService::class),
+					$addresses,
+					Server::get(Caches::class),
+					Server::get(RiskScorer::class),
+					Server::get(AppState::class),
+				),
+			], logger: $this->listenerLogger()),
 			$this->attemptRecorder(),
-			Server::get(DecoyCredentialDetector::class),
-			Server::get(ReservedNameDetector::class),
-			// Built per test, so the memory-cache state of one test cannot leak into the next.
-			new CredentialStuffingDetector(
-				$this->settings,
-				$this->attempts,
-				Server::get(ResponseEngine::class),
-				Server::get(FlaggedSources::class),
-				Server::get(BanService::class),
-				$addresses,
-				Server::get(ICacheFactory::class),
-				Server::get(RiskScorer::class),
-				Server::get(StateMapper::class),
-				Server::get(Prerequisites::class),
-			),
-			new PasswordSprayingDetector(
-				$this->settings,
-				$this->attempts,
-				Server::get(ResponseEngine::class),
-				Server::get(FlaggedSources::class),
-				Server::get(Fingerprinter::class),
-				Server::get(ICacheFactory::class),
-				Server::get(PasswordSpraying::class),
-				Server::get(RiskScorer::class),
-			),
-			Server::get(AccountUnderAttackDetector::class),
 			Server::get(RiskScorer::class),
 			Server::get(IUserManager::class),
 			$this->request,
@@ -113,6 +97,10 @@ abstract class LoginFailureTestCase extends IntegrationTestCase {
 			Server::get(IUserManager::class)->get($uid)?->delete();
 		}
 		parent::tearDown();
+	}
+
+	protected function throttler(): IThrottler {
+		return Server::get(IThrottler::class);
 	}
 
 	protected function listenerLogger(): LoggerInterface {

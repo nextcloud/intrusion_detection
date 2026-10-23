@@ -45,7 +45,7 @@ describe('Simulate on a check card', () => {
 		const card = mount(CheckCard, { props: { check: makeCheck() }, attachTo: document.body })
 		await card.findAll('button').find((b) => b.text() === 'Simulate')!.trigger('click')
 		await flushPromises()
-		expect(simulateCheck).toHaveBeenCalledWith('credential_stuffing')
+		expect(simulateCheck).toHaveBeenCalledWith('credential_stuffing', expect.any(AbortSignal))
 		const narrative = document.body.querySelector('[data-test="simulation-narrative"]')
 		expect(narrative?.textContent).toContain('198.51.100.23 failed to log in 10 times')
 		expect(document.body.textContent).toContain('Nothing is recorded, blocked or notified')

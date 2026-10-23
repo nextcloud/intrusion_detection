@@ -11,8 +11,6 @@ namespace OCA\IntrusionDetection\Tests\Integration;
 
 use OCA\IntrusionDetection\AppInfo\Application;
 use OCA\IntrusionDetection\Check\CheckRegistry;
-use OCA\IntrusionDetection\Check\Checks\ResetProbingDetector;
-use OCA\IntrusionDetection\Check\Checks\ShareBruteforceDetector;
 use OCA\IntrusionDetection\Config\GlobalSettings;
 use OCA\IntrusionDetection\Crypto\Fingerprinter;
 use OCA\IntrusionDetection\Db\BanMapper;
@@ -93,7 +91,7 @@ class NoSecretsTest extends LoginFailureTestCase {
 		$admin = Server::get(IUserManager::class)->get('admin');
 		$this->adminEmail = $admin?->getSystemEMailAddress();
 		$admin?->setSystemEMailAddress('admin@example.com');
-		$this->settings->setGlobal(GlobalSettings::NOTIFY_ADMIN_EMAIL_MIN_SEVERITY, 'low');
+		$this->settingsEditor()->setGlobal(GlobalSettings::NOTIFY_ADMIN_EMAIL_MIN_SEVERITY, 'low');
 	}
 
 	protected function tearDown(): void {
@@ -141,7 +139,7 @@ class NoSecretsTest extends LoginFailureTestCase {
 		}
 
 		// Tables
-		foreach (IntegrationTestCase::TABLES as $table) {
+		foreach (IntegrationTestCase::tables() as $table) {
 			foreach ($this->allRows($table) as $row) {
 				$allowed = self::FINGERPRINT_COLUMNS[$table] ?? [];
 				foreach ($row as $column => $value) {
@@ -207,8 +205,8 @@ class NoSecretsTest extends LoginFailureTestCase {
 			$inputs['probe' . $i] = 'secret-probe-' . $i . '@example.org';
 		}
 
-		$shares = new ShareAccessFailedListener($this->settings, new RemoteAddressResolver($this->request, Server::get(IThrottler::class), Server::get(ServerAddresses::class)), Server::get(AttemptRecorder::class), Server::get(ShareBruteforceDetector::class), $this->request, Server::get(IUserSession::class), $this->listenerLogger());
-		$resets = new ResetRequestedListener($this->settings, new RemoteAddressResolver($this->request, Server::get(IThrottler::class), Server::get(ServerAddresses::class)), Server::get(AttemptRecorder::class), Server::get(ResetProbingDetector::class), Server::get(ResetMailSuppressor::class), Server::get(IUserManager::class), $this->request, $this->listenerLogger(), Server::get(\OCA\IntrusionDetection\Login\EmailAccounts::class));
+		$shares = new ShareAccessFailedListener($this->dispatcher(logger: $this->listenerLogger()), new RemoteAddressResolver($this->request, Server::get(IThrottler::class), Server::get(ServerAddresses::class)), Server::get(AttemptRecorder::class), $this->request, Server::get(IUserSession::class), $this->listenerLogger());
+		$resets = new ResetRequestedListener($this->dispatcher(logger: $this->listenerLogger()), new RemoteAddressResolver($this->request, Server::get(IThrottler::class), Server::get(ServerAddresses::class)), Server::get(AttemptRecorder::class), Server::get(ResetMailSuppressor::class), Server::get(IUserManager::class), $this->request, $this->listenerLogger(), Server::get(\OCA\IntrusionDetection\Login\EmailAccounts::class), Server::get(\OCA\IntrusionDetection\KnownDevice\KnownDevices::class), Server::get(\OCA\IntrusionDetection\LoginHistory\LoginHistory::class), Server::get(\OCP\AppFramework\Utility\ITimeFactory::class));
 
 		$this->remoteAddress = '198.51.100.7';
 		for ($i = 1; $i <= 10; $i++) {
@@ -243,7 +241,7 @@ class NoSecretsTest extends LoginFailureTestCase {
 			$fingerprints[] = bin2hex($fingerprinter->name($input));
 		}
 
-		foreach (IntegrationTestCase::TABLES as $table) {
+		foreach (IntegrationTestCase::tables() as $table) {
 			foreach ($this->allRows($table) as $row) {
 				foreach ($row as $column => $value) {
 					$value = (string)$value;

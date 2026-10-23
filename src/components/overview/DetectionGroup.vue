@@ -7,7 +7,6 @@
 import type { Ban, Detection } from '../../types.ts'
 
 import { mdiChevronDown } from '@mdi/js'
-import { n, t } from '@nextcloud/l10n'
 import { computed, ref, useId, watch } from 'vue'
 import NcIconSvgWrapper from '@nextcloud/vue/components/NcIconSvgWrapper'
 import OutcomeBadge from '../common/OutcomeBadge.vue'
@@ -16,20 +15,21 @@ import TimeStamp from '../common/TimeStamp.vue'
 import DetectionRow from './DetectionRow.vue'
 import { APP_ID, formatNumber } from '../../utils/format.ts'
 import { commonSummary, groupSpan, highestSeverity } from '../../utils/groups.ts'
+import { n, t } from '../../utils/l10n.ts'
 
 const props = defineProps<{
 	/** Detections that read the same, newest first */
 	detections: Detection[]
 	/** A detection to open, e.g. from a link */
-	openId?: number | null
+	openId?: string | null
 }>()
 
 const emit = defineEmits<{
-	lift: [ban: Ban, reload: () => Promise<void>]
+	lift: [ban: Ban]
 }>()
 
 const id = useId()
-const contains = (detectionId: number | null | undefined) => typeof detectionId === 'number' && props.detections.some((d) => d.id === detectionId)
+const contains = (detectionId: string | null | undefined) => typeof detectionId === 'string' && props.detections.some((d) => d.id === detectionId)
 const expanded = ref(contains(props.openId))
 watch(() => props.openId, (openId) => {
 	if (contains(openId)) {
@@ -41,7 +41,7 @@ const first = computed(() => props.detections[0]!)
 const shared = computed(() => commonSummary(props.detections))
 /** The sentence every detection of the group shares, else "17 × Admin change alerts" */
 const title = computed(() => shared.value
-	?? t(APP_ID, '{count} × {check}', { count: formatNumber(props.detections.length), check: first.value.checkName }, undefined, { escape: false, sanitize: false }))
+	?? t(APP_ID, '{count} × {check}', { count: formatNumber(props.detections.length), check: first.value.checkName }))
 </script>
 
 <template>
@@ -75,7 +75,7 @@ const title = computed(() => shared.value
 				:key="detection.id"
 				:detection="detection"
 				:open="openId === detection.id"
-				@lift="(ban, reload) => emit('lift', ban, reload)" />
+				@lift="emit('lift', $event)" />
 		</ul>
 	</li>
 </template>
@@ -94,11 +94,11 @@ const title = computed(() => shared.value
 	grid-template-columns: 6em minmax(0, 1fr) 7.5em 7em 20px;
 	grid-template-areas: "severity main outcome time chevron";
 	align-items: center;
-	gap: calc(var(--default-grid-baseline) * 3);
+	gap: var(--ids-space-3);
 	width: 100%;
 	min-height: 56px;
 	margin: 0;
-	padding: calc(var(--default-grid-baseline) * 2) calc(var(--default-grid-baseline) * 3);
+	padding: var(--ids-space-2) var(--ids-space-3);
 	border: none;
 	border-radius: var(--border-radius-element);
 	background: transparent;
@@ -113,7 +113,7 @@ const title = computed(() => shared.value
 }
 
 .group button.group__summary:focus-visible {
-	outline: 2px solid var(--color-main-text);
+	outline: var(--ids-focus-ring);
 	outline-offset: -2px;
 }
 
@@ -135,10 +135,10 @@ const title = computed(() => shared.value
 }
 
 .group__facts {
+	composes: muted from '../../styles/shared.module.css';
 	display: flex;
 	flex-wrap: wrap;
-	gap: 0 calc(var(--default-grid-baseline) * 3);
-	color: var(--color-text-maxcontrast);
+	gap: 0 var(--ids-space-3);
 	font-size: 0.9em;
 }
 
@@ -170,8 +170,8 @@ const title = computed(() => shared.value
 }
 
 .group__items {
-	margin: 0 0 calc(var(--default-grid-baseline) * 2);
-	margin-inline-start: calc(var(--default-grid-baseline) * 6);
+	margin: 0 0 var(--ids-space-2);
+	margin-inline-start: var(--ids-space-6);
 	padding: 0;
 	border-inline-start: 2px solid var(--color-border);
 	list-style: none;
@@ -183,7 +183,7 @@ const title = computed(() => shared.value
 		grid-template-areas:
 			"severity time outcome chevron"
 			"main main main main";
-		gap: calc(var(--default-grid-baseline) * 1) calc(var(--default-grid-baseline) * 2);
+		gap: var(--ids-space-1) var(--ids-space-2);
 	}
 
 	.group .group__time {
@@ -191,7 +191,7 @@ const title = computed(() => shared.value
 	}
 
 	.group__items {
-		margin-inline-start: calc(var(--default-grid-baseline) * 2);
+		margin-inline-start: var(--ids-space-2);
 	}
 }
 

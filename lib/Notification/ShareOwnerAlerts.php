@@ -10,8 +10,8 @@ declare(strict_types=1);
 namespace OCA\IntrusionDetection\Notification;
 
 use OCA\IntrusionDetection\AppInfo\Application;
-use OCA\IntrusionDetection\Check\Checks\ShareBruteforce;
 use OCA\IntrusionDetection\Db\Detection;
+use OCA\IntrusionDetection\Definition\Severity;
 use OCA\IntrusionDetection\Share\ShareLinks;
 use OCP\AppFramework\Utility\ITimeFactory;
 use OCP\IURLGenerator;
@@ -44,7 +44,6 @@ class ShareOwnerAlerts {
 
 	public function __construct(
 		private readonly ShareLinks $links,
-		private readonly ShareBruteforce $check,
 		private readonly IUserManager $userManager,
 		private readonly INotificationManager $notifications,
 		private readonly Mails $mails,
@@ -52,6 +51,7 @@ class ShareOwnerAlerts {
 		private readonly IURLGenerator $urlGenerator,
 		private readonly ITimeFactory $timeFactory,
 		private readonly MailQueue $queue,
+		private readonly MailReach $reach,
 	) {
 	}
 
@@ -65,11 +65,11 @@ class ShareOwnerAlerts {
 		foreach ($this->managers($share) as $user) {
 			$this->notify($user, $detection, $share, $now);
 			$recipients[] = $user->getUID();
-			$withAddress = $withAddress || (string)$user->getEMailAddress() !== '';
+			$withAddress = $withAddress || $this->reach->hasAddress($user);
 		}
 		$email = match (true) {
 			!$withAddress => self::EMAIL_NO_ADDRESS,
-			$this->queue->shareOwners($detection->getId()) => self::EMAIL_QUEUED,
+			$this->queue->shareOwners((string)$detection->getId(), Severity::from($detection->getSeverity())) => self::EMAIL_QUEUED,
 			default => self::EMAIL_LIMITED,
 		};
 		return ['recipients' => $recipients, 'email' => $email];
@@ -112,17 +112,17 @@ class ShareOwnerAlerts {
 	 * Remove the notification about a detection for everyone, e.g. after the
 	 * link was disabled.
 	 */
-	public function dismiss(int $detectionId): void {
+	public function dismiss(string $detectionId): void {
 		$notification = $this->notifications->createNotification();
 		$notification->setApp(Application::APP_ID)
-			->setObject(self::OBJECT_TYPE, (string)$detectionId);
+			->setObject(self::OBJECT_TYPE, $detectionId);
 		$this->notifications->markProcessed($notification);
 	}
 
 	public function mailFor(Detection $detection, IShare $share, IUser $user): MailContent {
 		$l = $this->messages->l10nFor($user);
 		return $this->messages->asReader($user, $l, function () use ($detection, $share, $l): MailContent {
-			$notice = $this->check->userNotice($detection, $l);
+			$notice = $this->messages->notice($detection, $l);
 			$paragraphs = $notice->message;
 			if ($this->links->isLink($share)) {
 				$paragraphs[] = $l->t('You can change the password or turn the link off in the sharing settings of the file, or with "Disable link" in the notification inside Nextcloud.');
@@ -145,7 +145,7 @@ class ShareOwnerAlerts {
 			->setUser($user->getUID())
 			->setDateTime(new \DateTime('@' . $now))
 			->setObject(self::OBJECT_TYPE, (string)$detection->getId())
-			->setSubject(self::SUBJECT, ['detection' => $detection->getId()]);
+			->setSubject(self::SUBJECT, ['detection' => (string)$detection->getId()]);
 		$open = $notification->createAction();
 		$open->setLabel(self::ACTION_OPEN)
 			->setLink($this->links->settingsLink($share), 'WEB')
@@ -154,7 +154,7 @@ class ShareOwnerAlerts {
 		if ($this->links->isLink($share)) {
 			$disable = $notification->createAction();
 			$disable->setLabel(self::ACTION_DISABLE)
-				->setLink($this->urlGenerator->linkToOCSRouteAbsolute(Application::APP_ID . '.ShareAlert.disable', ['detectionId' => $detection->getId()]), 'POST');
+				->setLink($this->urlGenerator->linkToOCSRouteAbsolute(Application::APP_ID . '.ShareAlert.disable', ['detectionId' => (string)$detection->getId()]), 'POST');
 			$notification->addAction($disable);
 		}
 		$this->notifications->notify($notification);

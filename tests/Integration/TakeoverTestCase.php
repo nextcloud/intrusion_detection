@@ -10,42 +10,46 @@ declare(strict_types=1);
 namespace OCA\IntrusionDetection\Tests\Integration;
 
 use OCA\IntrusionDetection\AdminChange\ActorResolver;
+use OCA\IntrusionDetection\AdminChange\Approvers;
 use OCA\IntrusionDetection\Audit\AuditLogger;
 use OCA\IntrusionDetection\Check\CheckRegistry;
-use OCA\IntrusionDetection\Check\Checks\AccountTakeoverDetector;
+use OCA\IntrusionDetection\Check\Checks\AccountTakeover\AccountTakeoverDetector;
+use OCA\IntrusionDetection\Config\PurgeRetention;
+use OCA\IntrusionDetection\Confirm\SecondFactors;
 use OCA\IntrusionDetection\Crypto\Fingerprinter;
-use OCA\IntrusionDetection\Db\AlertMapper;
-use OCA\IntrusionDetection\Db\LockLinkMapper;
-use OCA\IntrusionDetection\Db\SecurityChangeMapper;
 use OCA\IntrusionDetection\Detection\DetectionService;
 use OCA\IntrusionDetection\Event\TypedEvents;
 use OCA\IntrusionDetection\Explain\DateFormatter;
 use OCA\IntrusionDetection\Explain\NarrativeBuilder;
 use OCA\IntrusionDetection\Guide\SecureAccountGuide;
 use OCA\IntrusionDetection\Listener\SecurityChangeListener;
+use OCA\IntrusionDetection\Login\SessionMarkers;
 use OCA\IntrusionDetection\Net\RemoteAddressResolver;
 use OCA\IntrusionDetection\Net\ServerAddresses;
 use OCA\IntrusionDetection\Notification\AdminAlerts;
 use OCA\IntrusionDetection\Notification\AdminLinks;
 use OCA\IntrusionDetection\Notification\AdminRecipients;
+use OCA\IntrusionDetection\Notification\Db\AlertMapper;
 use OCA\IntrusionDetection\Notification\MailContent;
 use OCA\IntrusionDetection\Notification\MailQueue;
+use OCA\IntrusionDetection\Notification\MailReach;
 use OCA\IntrusionDetection\Notification\UserMessages;
 use OCA\IntrusionDetection\Response\Handlers\KillSessionHandler;
 use OCA\IntrusionDetection\Response\Handlers\LockLinkHandler;
 use OCA\IntrusionDetection\Response\Handlers\NotifyAdminHandler;
 use OCA\IntrusionDetection\Response\Handlers\NotifyUserHandler;
+use OCA\IntrusionDetection\Response\PasswordChangeService;
 use OCA\IntrusionDetection\Response\ResponseEngine;
 use OCA\IntrusionDetection\Response\Tokens;
-use OCA\IntrusionDetection\SessionState\SessionState;
 use OCA\IntrusionDetection\Takeover\AccountLock;
+use OCA\IntrusionDetection\Takeover\Db\LockLinkMapper;
+use OCA\IntrusionDetection\Takeover\Db\SecurityChangeMapper;
 use OCA\IntrusionDetection\Takeover\LockLinks;
 use OCA\IntrusionDetection\Takeover\ResetTracker;
 use OCA\IntrusionDetection\Takeover\RiskyLogins;
 use OCA\IntrusionDetection\Takeover\SecurityChangeLog;
 use OCA\IntrusionDetection\Takeover\Signals\UnconfirmedLoginSignal;
 use OCP\AppFramework\Utility\ITimeFactory;
-use OCP\Authentication\TwoFactorAuth\IRegistry;
 use OCP\Defaults;
 use OCP\EventDispatcher\Event;
 use OCP\EventDispatcher\IEventDispatcher;
@@ -76,7 +80,7 @@ abstract class TakeoverTestCase extends AccountTestCase {
 	protected string $actor = 'self';
 	/** @var ActorResolver&MockObject */
 	protected ActorResolver $actors;
-	protected SessionState $state;
+	protected SessionMarkers $state;
 	/** @var list<array{string, MailContent}> emails sent to an address that is not the account's own */
 	protected array $sentTo = [];
 	/** @var array<class-string<Event>, callable> */
@@ -87,7 +91,7 @@ abstract class TakeoverTestCase extends AccountTestCase {
 		$this->actors = $this->createMock(ActorResolver::class);
 		$this->actors->method('isConsole')->willReturnCallback(fn (): bool => $this->actor === 'occ');
 		$this->actors->method('isCommandLine')->willReturnCallback(fn (): bool => in_array($this->actor, ['occ', 'cron'], true));
-		$this->state = new SessionState($this->session, Server::get(LoggerInterface::class));
+		$this->state = new SessionMarkers($this->session, Server::get(LoggerInterface::class));
 		$this->mails->method('sendTo')->willReturnCallback(function (string $address, string $name, MailContent $content): bool {
 			$this->sentTo[] = [$address, $content];
 			return true;
@@ -141,13 +145,14 @@ abstract class TakeoverTestCase extends AccountTestCase {
 			Server::get(AdminRecipients::class),
 			Server::get(INotificationManager::class),
 			$this->mails,
-			$this->settings,
+			$this->appSettings(),
 			Server::get(NarrativeBuilder::class),
 			Server::get(CheckRegistry::class),
 			Server::get(UserMessages::class),
 			Server::get(AdminLinks::class),
 			Server::get(ITimeFactory::class),
 			Server::get(MailQueue::class),
+			Server::get(MailReach::class),
 		);
 	}
 
@@ -159,7 +164,7 @@ abstract class TakeoverTestCase extends AccountTestCase {
 	protected function takeoverEngine(): ResponseEngine {
 		return new ResponseEngine(
 			Server::get(CheckRegistry::class),
-			$this->settings,
+			$this->checkSettings(),
 			Server::get(DetectionService::class),
 			new OverridingContainer([
 				KillSessionHandler::class => new KillSessionHandler($this->sessionKiller()),
@@ -175,10 +180,9 @@ abstract class TakeoverTestCase extends AccountTestCase {
 
 	protected function detector(): AccountTakeoverDetector {
 		return new AccountTakeoverDetector(
-			$this->settings,
+			$this->checkSettings(),
 			Server::get(SecurityChangeMapper::class),
-			new RiskyLogins(new OverridingContainer([UnconfirmedLoginSignal::class => new UnconfirmedLoginSignal($this->state, $this->currentSession)]), Server::get(LoggerInterface::class)),
-			$this->takeoverEngine(),
+			new RiskyLogins(new OverridingContainer([UnconfirmedLoginSignal::class => new UnconfirmedLoginSignal($this->state, $this->coreSession)]), Server::get(LoggerInterface::class)),
 			$this->addresses(),
 			Server::get(IUserManager::class),
 			$this->request(),
@@ -192,34 +196,37 @@ abstract class TakeoverTestCase extends AccountTestCase {
 			$this->actors,
 			$this->userSession,
 			Server::get(ResetTracker::class),
-			$this->currentSession,
+			$this->coreSession,
 			$this->addresses(),
-			$this->detector(),
+			$this->dispatcher([AccountTakeoverDetector::class => $this->detector()], $this->takeoverEngine()),
 			Server::get(ICrypto::class),
 			Server::get(ITimeFactory::class),
 			Server::get(LoggerInterface::class),
+			Server::get(PurgeRetention::class),
 		);
 	}
 
 	protected function listener(): SecurityChangeListener {
 		return new SecurityChangeListener(
-			$this->settings,
+			$this->appSettings(),
 			$this->changeLog(),
 			Server::get(SecurityChangeMapper::class),
 			Server::get(ResetTracker::class),
-			Server::get(IRegistry::class),
+			Server::get(SecondFactors::class),
 			Server::get(ITimeFactory::class),
 			Server::get(LoggerInterface::class),
 		);
 	}
 
-	protected function accountLock(): AccountLock {
+	protected function accountLock(?Approvers $approvers = null): AccountLock {
 		return new AccountLock(
 			$this->lockLinks(),
 			Server::get(SecurityChangeMapper::class),
 			Server::get(Tokens::class),
 			$this->takeoverEngine(),
 			Server::get(SecureAccountGuide::class),
+			Server::get(PasswordChangeService::class),
+			$approvers ?? Server::get(Approvers::class),
 			Server::get(IUserManager::class),
 			$this->userSession,
 			$this->addresses('198.51.100.20'),
@@ -236,7 +243,7 @@ abstract class TakeoverTestCase extends AccountTestCase {
 	 */
 	protected function loginAs(IUser $user, bool $risky, ?int $at = null): array {
 		$token = $this->startSession($user);
-		$this->state->set(SessionState::CONFIRMATION, [
+		$this->state->set(SessionMarkers::CONFIRMATION, [
 			'uid' => $user->getUID(),
 			'by' => $risky ? 'none' : 'second_factor',
 			'policies' => ['flagged_source'],

@@ -9,8 +9,7 @@ declare(strict_types=1);
 
 namespace OCA\IntrusionDetection\Event;
 
-use OCA\IntrusionDetection\Config\GlobalSettings;
-use OCA\IntrusionDetection\Config\Settings;
+use OCA\IntrusionDetection\Config\AppSettings;
 use OCA\IntrusionDetection\Db\Ban;
 use OCA\IntrusionDetection\Db\Detection;
 use OCA\IntrusionDetection\Notification\AdminLinks;
@@ -36,7 +35,7 @@ class EventPayloads {
 	public const MAX_BANS = 20;
 
 	public function __construct(
-		private readonly Settings $settings,
+		private readonly AppSettings $settings,
 		private readonly AdminLinks $links,
 		private readonly LoggerInterface $logger,
 	) {
@@ -48,15 +47,15 @@ class EventPayloads {
 	public function detection(Detection $detection): array {
 		return $this->safely(fn (): array => $this->withIp([
 			'type' => self::TYPE_DETECTION,
-			'detectionId' => $detection->getId(),
+			'detectionId' => (string)$detection->getId(),
 			'checkId' => $detection->getCheckId(),
 			'severity' => $detection->getSeverity(),
 			'enforced' => $detection->isEnforced(),
 		], 'ip', $detection->getIp()) + [
 			'uid' => $detection->getUid(),
 			'actions' => array_map(self::action(...), $detection->getActionList()),
-			'time' => $detection->getCreatedAt(),
-			'link' => $this->links->detection($detection->getId()),
+			'time' => $detection->getCreatedTime(),
+			'link' => $this->links->detection((string)$detection->getId()),
 		], self::TYPE_DETECTION);
 	}
 
@@ -68,7 +67,7 @@ class EventPayloads {
 			'raised' => $raised,
 			'level' => $ban->getLevel(),
 			'createdBy' => $ban->getCreatedBy(),
-			'time' => $ban->getCreatedAt(),
+			'time' => $ban->getCreatedTime(),
 			'expiresAt' => $ban->getExpiresAt(),
 		], self::TYPE_BAN_CREATED);
 	}
@@ -126,7 +125,7 @@ class EventPayloads {
 	 * @return array<string, mixed>
 	 */
 	private function withIp(array $payload, string $key, ?string $value): array {
-		if ($this->settings->getBool(GlobalSettings::EVENTS_INCLUDE_IP)) {
+		if ($this->settings->eventsIncludeIp()) {
 			$payload[$key] = $value;
 		}
 		return $payload;

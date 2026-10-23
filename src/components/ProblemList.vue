@@ -7,10 +7,10 @@
 import type { Problem } from '../types.ts'
 
 import { mdiAlertCircleOutline, mdiAlertOutline, mdiChevronDown, mdiInformationOutline, mdiWrenchOutline } from '@mdi/js'
-import { t } from '@nextcloud/l10n'
 import { ref, useId, watch } from 'vue'
 import NcIconSvgWrapper from '@nextcloud/vue/components/NcIconSvgWrapper'
 import { APP_ID } from '../utils/format.ts'
+import { t } from '../utils/l10n.ts'
 
 const props = defineProps<{
 	problems: Problem[]
@@ -100,21 +100,17 @@ function toggle(problemId: string) {
 .problems {
 	display: flex;
 	flex-direction: column;
-	gap: calc(var(--default-grid-baseline) * 2);
-	scroll-margin-top: calc(var(--default-grid-baseline) * 4);
+	gap: var(--ids-space-2);
+	scroll-margin-top: var(--ids-space-4);
 }
 
 .problems__heading {
+	composes: eyebrow from '../styles/shared.module.css';
 	margin: 0;
-	color: var(--color-text-maxcontrast);
-	font-size: 0.8em;
-	font-weight: 700;
-	letter-spacing: 0.06em;
-	text-transform: uppercase;
 }
 
 .problems__extra {
-	padding-inline: calc(var(--default-grid-baseline) * 4);
+	padding-inline: var(--ids-space-4);
 	border: 1px solid var(--color-border);
 	border-inline-start: 4px solid var(--color-warning);
 	border-radius: var(--border-radius-large);
@@ -122,14 +118,9 @@ function toggle(problemId: string) {
 }
 
 .problems__list {
+	composes: card plainList from '../styles/shared.module.css';
 	display: flex;
 	flex-direction: column;
-	margin: 0;
-	padding: 0;
-	border: 1px solid var(--color-border);
-	border-radius: var(--border-radius-large);
-	background-color: var(--color-main-background);
-	list-style: none;
 	overflow: hidden;
 }
 
@@ -157,12 +148,12 @@ function toggle(problemId: string) {
 .problem button.problem__head {
 	display: flex;
 	align-items: center;
-	gap: calc(var(--default-grid-baseline) * 3);
+	gap: var(--ids-space-3);
 	width: 100%;
-	min-height: calc(var(--default-clickable-area) + var(--default-grid-baseline) * 2);
+	min-height: calc(var(--default-clickable-area) + var(--ids-space-2));
 	margin: 0;
-	padding-block: calc(var(--default-grid-baseline) * 2);
-	padding-inline: calc(var(--default-grid-baseline) * 4) calc(var(--default-grid-baseline) * 3);
+	padding-block: var(--ids-space-2);
+	padding-inline: var(--ids-space-4) var(--ids-space-3);
 	border: none;
 	border-radius: 0;
 	background: transparent;
@@ -177,7 +168,7 @@ function toggle(problemId: string) {
 }
 
 .problem button.problem__head:focus-visible {
-	outline: 2px solid var(--color-main-text);
+	outline: var(--ids-focus-ring);
 	outline-offset: -2px;
 }
 
@@ -194,7 +185,7 @@ function toggle(problemId: string) {
 
 .problem__level {
 	flex: 0 0 auto;
-	padding-inline: calc(var(--default-grid-baseline) * 2);
+	padding-inline: var(--ids-space-2);
 	border-radius: var(--border-radius-pill, 100px);
 	background-color: color-mix(in srgb, var(--problem-color) 14%, var(--color-main-background));
 	color: var(--problem-text);
@@ -231,14 +222,14 @@ function toggle(problemId: string) {
 .problem__body {
 	display: flex;
 	flex-direction: column;
-	gap: calc(var(--default-grid-baseline) * 2);
+	gap: var(--ids-space-2);
 	min-height: 0;
 	overflow: hidden;
-	padding-inline: calc(var(--default-grid-baseline) * 12) calc(var(--default-grid-baseline) * 4);
+	padding-inline: var(--ids-space-12) var(--ids-space-4);
 }
 
 .problem_open .problem__body {
-	padding-bottom: calc(var(--default-grid-baseline) * 4);
+	padding-bottom: var(--ids-space-4);
 }
 
 .problem__body p {
@@ -250,8 +241,8 @@ function toggle(problemId: string) {
 .problem__fix {
 	display: flex;
 	align-items: flex-start;
-	gap: calc(var(--default-grid-baseline) * 2);
-	padding: calc(var(--default-grid-baseline) * 2) calc(var(--default-grid-baseline) * 3);
+	gap: var(--ids-space-2);
+	padding: var(--ids-space-2) var(--ids-space-3);
 	border-radius: var(--border-radius-element);
 	background-color: var(--color-background-hover);
 }
@@ -270,7 +261,7 @@ function toggle(problemId: string) {
 
 @media (max-width: 600px) {
 	.problem__body {
-		padding-inline: calc(var(--default-grid-baseline) * 4);
+		padding-inline: var(--ids-space-4);
 	}
 
 	.problem__level {

@@ -9,22 +9,22 @@ declare(strict_types=1);
 
 namespace OCA\IntrusionDetection\Tests\Unit\SetupCheck;
 
+use OC\Memcache\ArrayCache;
 use OCA\IntrusionDetection\Address\AddressResolver;
 use OCA\IntrusionDetection\Address\Verdict;
-use OCA\IntrusionDetection\Check\Checks\ReservedName;
-use OCA\IntrusionDetection\Check\Mode;
-use OCA\IntrusionDetection\Config\GlobalSettings;
+use OCA\IntrusionDetection\Check\Checks\ReservedName\ReservedName;
+use OCA\IntrusionDetection\Config\CheckSettings;
 use OCA\IntrusionDetection\Config\ModeState;
 use OCA\IntrusionDetection\Config\Prerequisites;
-use OCA\IntrusionDetection\Config\Settings;
 use OCA\IntrusionDetection\Db\Detection;
 use OCA\IntrusionDetection\Db\DetectionFilter;
 use OCA\IntrusionDetection\Db\DetectionMapper;
 use OCA\IntrusionDetection\Db\LoginMapper;
+use OCA\IntrusionDetection\Definition\Mode;
 use OCA\IntrusionDetection\Learning\LearningService;
 use OCA\IntrusionDetection\Login\EstablishedAccounts;
-use OCA\IntrusionDetection\Net\ProxySuspect;
 use OCA\IntrusionDetection\Notification\AdminLinks;
+use OCA\IntrusionDetection\Response\ProxySuspect;
 use OCA\IntrusionDetection\SetupCheck\BruteForceProtectionCheck;
 use OCA\IntrusionDetection\SetupCheck\Finding;
 use OCA\IntrusionDetection\SetupCheck\LearningModeCheck;
@@ -33,6 +33,8 @@ use OCA\IntrusionDetection\SetupCheck\MemoryCacheCheck;
 use OCA\IntrusionDetection\SetupCheck\ReverseProxyCheck;
 use OCA\IntrusionDetection\SetupCheck\SharedAddressCheck;
 use OCA\IntrusionDetection\SetupCheck\TrapNameCollisionCheck;
+use OCA\IntrusionDetection\State\AppState;
+use OCA\IntrusionDetection\Tests\Unit\Cache\FixedCaches;
 use OCA\IntrusionDetection\Traps\TrapNameCollisions;
 use OCP\AppFramework\Utility\ITimeFactory;
 use OCP\IConfig;
@@ -41,6 +43,7 @@ use OCP\IURLGenerator;
 use OCP\L10N\IFactory;
 use OCP\Server;
 use OCP\SetupCheck\SetupResult;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\MockObject\MockObject;
 use Test\TestCase;
 
@@ -120,36 +123,71 @@ class SetupChecksTest extends TestCase {
 	public function testMailMissing(): void {
 		$prerequisites = $this->createMock(Prerequisites::class);
 		$prerequisites->method('hasMail')->willReturnOnConsecutiveCalls(true, false);
-		$check = new MailCheck($this->l, $this->links, $prerequisites, $this->urls);
+		$check = new MailCheck($this->l, $this->links, $prerequisites, $this->urls, $this->mailConfig([]));
 		$this->assertNull($check->finding($this->l));
-		$this->assertSame(Finding::LEVEL_WARNING, $check->finding($this->l)?->level);
+		$this->assertSame('mail_missing', $check->finding($this->l)?->id);
+	}
+
+	/**
+	 * @return array<string, array{array<string, mixed>, bool}>
+	 */
+	public static function mailServers(): array {
+		return [
+			'a local mail server' => [['mail_smtphost' => 'localhost', 'mail_smtpport' => 25], false],
+			'the default host' => [[], false],
+			'another host, STARTTLS if offered' => [['mail_smtphost' => 'smtp.example.com', 'mail_smtpport' => 587], true],
+			'another host, SSL/TLS' => [['mail_smtphost' => 'smtp.example.com', 'mail_smtpport' => 465, 'mail_smtpsecure' => 'ssl'], false],
+			'another host, port 465' => [['mail_smtphost' => 'smtp.example.com', 'mail_smtpport' => 465], false],
+			'another host, certificate not checked' => [['mail_smtphost' => 'smtp.example.com', 'mail_smtpport' => 465, 'mail_smtpsecure' => 'ssl', 'mail_smtpstreamoptions' => ['ssl' => ['verify_peer' => false]]], true],
+			'sendmail' => [['mail_smtpmode' => 'sendmail', 'mail_smtphost' => 'smtp.example.com'], false],
+		];
+	}
+
+	/**
+	 * @param array<string, mixed> $values
+	 */
+	#[DataProvider('mailServers')]
+	public function testMailToAnotherHostWithoutEnforcedTls(array $values, bool $warns): void {
+		$prerequisites = $this->createMock(Prerequisites::class);
+		$prerequisites->method('hasMail')->willReturn(true);
+		$finding = (new MailCheck($this->l, $this->links, $prerequisites, $this->urls, $this->mailConfig($values)))->finding($this->l);
+		$this->assertSame($warns ? 'mail_without_tls' : null, $finding?->id);
+	}
+
+	/**
+	 * @param array<string, mixed> $values
+	 */
+	private function mailConfig(array $values): IConfig {
+		$config = $this->createMock(IConfig::class);
+		$read = static fn (string $key, mixed $default = ''): mixed => $values[$key] ?? $default;
+		$config->method('getSystemValue')->willReturnCallback($read);
+		$config->method('getSystemValueString')->willReturnCallback($read);
+		$config->method('getSystemValueInt')->willReturnCallback($read);
+		return $config;
 	}
 
 	public function testWithoutAMemoryCacheTheCostIsMeasured(): void {
-		$prerequisites = $this->createMock(Prerequisites::class);
-		$prerequisites->method('hasMemoryCache')->willReturn(false);
+		$caches = FixedCaches::none();
 		$resolver = $this->createMock(AddressResolver::class);
 		$resolver->expects($this->exactly(3))->method('resolve')->willReturn(new Verdict(0, '', [], self::NOW + 300));
-		$finding = (new MemoryCacheCheck($this->l, $this->links, $prerequisites, $resolver, $this->urls))->finding($this->l);
+		$finding = (new MemoryCacheCheck($this->l, $this->links, $caches, $resolver, $this->urls))->finding($this->l);
 		$this->assertSame(Finding::LEVEL_INFO, $finding?->level);
 		$this->assertMatchesRegularExpression('/about \d+\.\d\d ms per request, measured just now/', (string)$finding?->text);
 	}
 
 	public function testAFailingMeasurementStillReportsTheMissingCache(): void {
-		$prerequisites = $this->createMock(Prerequisites::class);
-		$prerequisites->method('hasMemoryCache')->willReturn(false);
+		$caches = FixedCaches::none();
 		$resolver = $this->createMock(AddressResolver::class);
 		$resolver->method('resolve')->willThrowException(new \RuntimeException('db down'));
-		$finding = (new MemoryCacheCheck($this->l, $this->links, $prerequisites, $resolver, $this->urls))->finding($this->l);
+		$finding = (new MemoryCacheCheck($this->l, $this->links, $caches, $resolver, $this->urls))->finding($this->l);
 		$this->assertStringNotContainsString('ms per request', (string)$finding?->text);
 	}
 
 	public function testAMemoryCacheIsFine(): void {
-		$prerequisites = $this->createMock(Prerequisites::class);
-		$prerequisites->method('hasMemoryCache')->willReturn(true);
+		$caches = new FixedCaches(new ArrayCache());
 		$resolver = $this->createMock(AddressResolver::class);
 		$resolver->expects($this->never())->method('resolve');
-		$this->assertNull((new MemoryCacheCheck($this->l, $this->links, $prerequisites, $resolver, $this->urls))->finding($this->l));
+		$this->assertNull((new MemoryCacheCheck($this->l, $this->links, $caches, $resolver, $this->urls))->finding($this->l));
 	}
 
 	public function testTrapNamesThatBecameAccountsAreAnErrorWithALinkToTheTab(): void {
@@ -188,8 +226,8 @@ class SetupChecksTest extends TestCase {
 	/**
 	 * @param list<string> $names
 	 */
-	private function reservedNameSettings(Mode $mode, array $names): Settings&MockObject {
-		$settings = $this->createMock(Settings::class);
+	private function reservedNameSettings(Mode $mode, array $names): CheckSettings&MockObject {
+		$settings = $this->createMock(CheckSettings::class);
 		$settings->method('modeState')->with(ReservedName::ID)->willReturn(new ModeState($mode, $mode));
 		$settings->method('paramList')->with(ReservedName::ID, 'names')->willReturn($names);
 		return $settings;
@@ -224,12 +262,12 @@ class SetupChecksTest extends TestCase {
 	private function learningCheck(bool $active, int $startedAt, int $installedAt = 0): LearningModeCheck {
 		$learning = $this->createMock(LearningService::class);
 		$learning->method('isActive')->willReturn($active);
-		$settings = $this->createMock(Settings::class);
-		$settings->method('getInt')->willReturnMap([
-			[GlobalSettings::LEARNING_STARTED_AT, $startedAt],
-			[GlobalSettings::INSTALLED_AT, $installedAt],
+		$state = $this->createMock(AppState::class);
+		$state->method('getInt')->willReturnMap([
+			[LearningService::STARTED_STATE, $startedAt],
+			[AppState::INSTALLED_AT, $installedAt],
 		]);
-		return new LearningModeCheck($this->l, $this->links, $learning, $settings, $this->time);
+		return new LearningModeCheck($this->l, $this->links, $learning, $this->time, $state);
 	}
 
 	public function testLearningForMoreThanTwoWeeks(): void {

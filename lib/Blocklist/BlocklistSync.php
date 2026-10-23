@@ -10,12 +10,13 @@ declare(strict_types=1);
 namespace OCA\IntrusionDetection\Blocklist;
 
 use OCA\IntrusionDetection\Address\AddressCache;
+use OCA\IntrusionDetection\Blocklist\Db\BlocklistRangeMapper;
+use OCA\IntrusionDetection\Blocklist\Db\BlocklistStatMapper;
 use OCA\IntrusionDetection\Blocklist\Parser\ListFormatException;
+use OCA\IntrusionDetection\Blocklist\Parser\ListTooLongException;
 use OCA\IntrusionDetection\Blocklist\Parser\ParsedList;
-use OCA\IntrusionDetection\Check\Checks\BlocklistMatch;
-use OCA\IntrusionDetection\Config\Settings;
-use OCA\IntrusionDetection\Db\BlocklistRangeMapper;
-use OCA\IntrusionDetection\Db\BlocklistStatMapper;
+use OCA\IntrusionDetection\Check\Checks\BlocklistMatch\BlocklistMatch;
+use OCA\IntrusionDetection\Config\CheckSettings;
 use OCA\IntrusionDetection\Net\RangeCodec;
 use OCP\AppFramework\Utility\ITimeFactory;
 use OCP\Http\Client\IClientService;
@@ -34,10 +35,13 @@ use Psr\Log\LoggerInterface;
  * 2. Download with `If-Modified-Since` / `If-None-Match`, timeouts, at most
  *    three https redirects (each checked like the address itself), into a
  *    sink that aborts the transfer after MAX_BYTES ({@see LimitedSink}).
- * 3. Parse, and refuse a list that is empty, has more than MAX_ENTRIES
- *    entries, or more than 1 % malformed entries.
- * 4. Write the ranges, merged so they never overlap, as a new version.
- * 5. Switch the list's active version in app config (one write), bump the
+ * 3. Refuse a file whose SHA-256 is not the one pinned for the list, if
+ *    any; a pinned list is downloaded without conditions.
+ * 4. Parse, and refuse a list that is empty, has more than MAX_ENTRIES
+ *    entries (parsing stops at the first one over), or more than 1 %
+ *    malformed entries.
+ * 5. Write the ranges, merged so they never overlap, as a new version.
+ * 6. Switch the list's active version in app config (one write), bump the
  *    address cache so every cached verdict is re-resolved, and delete
  *    versions older than the previous one. The previous version is deleted a
  *    few minutes later, so a request that read the old state just before the
@@ -56,8 +60,6 @@ class BlocklistSync {
 	public const MAX_MALFORMED_SHARE = 0.01;
 	/** Seconds the previous version is kept after a switch */
 	public const PREVIOUS_GRACE = 300;
-	/** Matches are kept this many days */
-	public const STATS_DAYS = 30;
 	private const TIMEOUT = 60;
 	private const CONNECT_TIMEOUT = 10;
 	private const MAX_REDIRECTS = 3;
@@ -70,7 +72,7 @@ class BlocklistSync {
 		private readonly BlocklistStatMapper $stats,
 		private readonly IClientService $clientService,
 		private readonly UrlPolicy $urlPolicy,
-		private readonly Settings $settings,
+		private readonly CheckSettings $settings,
 		private readonly AddressCache $addressCache,
 		private readonly ILockingProvider $locking,
 		private readonly ITimeFactory $timeFactory,
@@ -140,7 +142,6 @@ class BlocklistSync {
 			return;
 		}
 		try {
-			$this->states->reload();
 			$this->cleanupLocked($this->timeFactory->getTime());
 		} finally {
 			$this->locking->releaseLock(self::LOCK, ILockingProvider::LOCK_EXCLUSIVE);
@@ -158,7 +159,6 @@ class BlocklistSync {
 			return array_map(static fn (BlocklistSource $s): SyncResult => new SyncResult($s->id, SyncResult::SKIPPED), $sources);
 		}
 		try {
-			$this->states->reload();
 			$results = [];
 			$switched = false;
 			foreach ($sources as $source) {
@@ -191,7 +191,11 @@ class BlocklistSync {
 				$this->states->save($source->id, $state);
 				return new SyncResult($source->id, SyncResult::UNCHANGED, ranges: $state->ranges);
 			}
-			$parsed = $this->parse($source, $this->readBody($response));
+			$body = $this->readBody($response);
+			if ($source->sha256 !== null && !hash_equals($source->sha256, hash('sha256', $body))) {
+				throw new SyncFailure(SyncFailure::CHECKSUM_MISMATCH);
+			}
+			$parsed = $this->parse($source, $body);
 			$merged = RangeCodec::merge($parsed->ranges);
 			$parsed->ranges = [];
 
@@ -248,7 +252,8 @@ class BlocklistSync {
 			throw new SyncFailure(SyncFailure::URL_REFUSED);
 		}
 		$headers = ['Accept' => '*/*'];
-		$conditional = !$force && $state->version !== null && $state->url === $source->url;
+		// A pinned list is always checked in full, so that a new pin is checked against the current file.
+		$conditional = !$force && $state->version !== null && $state->url === $source->url && $source->sha256 === null;
 		if ($conditional && $state->lastModified !== null) {
 			$headers['If-Modified-Since'] = $state->lastModified;
 		}
@@ -322,12 +327,11 @@ class BlocklistSync {
 	 */
 	private function parse(BlocklistSource $source, string $body): ParsedList {
 		try {
-			$parsed = $source->format->parser()->parse($body);
+			$parsed = $source->format->parser()->parse($body, self::MAX_ENTRIES);
 		} catch (ListFormatException $e) {
 			throw new SyncFailure(SyncFailure::INVALID_FORMAT, $e->getMessage());
-		}
-		if ($parsed->entries > self::MAX_ENTRIES) {
-			throw new SyncFailure(SyncFailure::TOO_MANY_ENTRIES, $parsed->entries . ' > ' . self::MAX_ENTRIES);
+		} catch (ListTooLongException $e) {
+			throw new SyncFailure(SyncFailure::TOO_MANY_ENTRIES, $e->getMessage());
 		}
 		if ($parsed->malformedShare() > self::MAX_MALFORMED_SHARE) {
 			throw new SyncFailure(SyncFailure::TOO_MANY_MALFORMED, $parsed->malformed . ' of ' . ($parsed->entries + $parsed->malformed));
@@ -369,7 +373,6 @@ class BlocklistSync {
 			// Also removes what a sync that died half-way left behind.
 			$this->ranges->deleteVersionsExcept($id, self::kept($state));
 		}
-		$this->stats->deleteBefore(gmdate('Y-m-d', $now - self::STATS_DAYS * 86400));
 	}
 
 	/**

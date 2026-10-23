@@ -12,6 +12,7 @@ namespace OCA\IntrusionDetection\Tests\Unit\Blocklist;
 use OCA\IntrusionDetection\Blocklist\BuiltinSources;
 use OCA\IntrusionDetection\Blocklist\ListFormat;
 use OCA\IntrusionDetection\Blocklist\Parser\ListFormatException;
+use OCA\IntrusionDetection\Blocklist\Parser\ListTooLongException;
 use OCA\IntrusionDetection\Blocklist\Parser\ParsedList;
 use OCA\IntrusionDetection\Net\RangeCodec;
 use PHPUnit\Framework\Attributes\DataProvider;
@@ -113,6 +114,51 @@ class ParserTest extends TestCase {
 		$parsed = ListFormat::AwsJson->parser()->parse('{"prefixes": [{"ip_prefix": "192.0.2.0/24"}, {"ip_prefix": 42}, "x", {"region": "eu"}]}');
 		$this->assertSame(1, $parsed->entries);
 		$this->assertSame(3, $parsed->malformed);
+	}
+
+	/**
+	 * @return array<string, array{ListFormat, string}>
+	 */
+	public static function overTheLimit(): array {
+		$cidr = '';
+		$spamhaus = '';
+		$aws = [];
+		for ($i = 0; $i < 4; $i++) {
+			$cidr .= '192.0.2.' . $i . "/32\n";
+			$spamhaus .= '{"cidr":"198.51.100.' . $i . "/32\"}\n";
+			$aws[] = ['ip_prefix' => '203.0.113.' . $i . '/32'];
+		}
+		return [
+			'plain text' => [ListFormat::Cidr, $cidr],
+			'JSON lines' => [ListFormat::SpamhausJson, $spamhaus],
+			'a JSON document' => [ListFormat::AwsJson, (string)json_encode(['prefixes' => $aws])],
+		];
+	}
+
+	#[DataProvider('overTheLimit')]
+	public function testParsingStopsAtTheFirstEntryOverTheLimit(ListFormat $format, string $body): void {
+		$this->assertSame(4, $format->parser()->parse($body, 4)->entries, 'exactly the limit is fine');
+		try {
+			$format->parser()->parse($body, 3);
+			$this->fail('a list just over the limit is refused');
+		} catch (ListTooLongException $e) {
+			$this->assertSame(3, $e->maxEntries);
+		}
+	}
+
+	public function testNoRangeOverTheLimitIsKept(): void {
+		$list = new ParsedList(2);
+		$list->add('192.0.2.1');
+		$list->add('not a range');
+		$list->add('192.0.2.2');
+		$this->assertSame(1, $list->malformed, 'malformed entries do not count against the limit');
+		try {
+			$list->add('192.0.2.3');
+			$this->fail('the third range is refused');
+		} catch (ListTooLongException) {
+		}
+		$this->assertCount(2, $list->ranges);
+		$this->assertSame(2, $list->entries);
 	}
 
 	public function testAByteOrderMarkIsIgnored(): void {

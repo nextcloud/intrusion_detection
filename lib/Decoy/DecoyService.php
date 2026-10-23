@@ -10,12 +10,11 @@ declare(strict_types=1);
 namespace OCA\IntrusionDetection\Decoy;
 
 use OCA\IntrusionDetection\Audit\AuditLogger;
-use OCA\IntrusionDetection\Check\InvalidParamException;
-use OCA\IntrusionDetection\Config\GlobalSettings;
-use OCA\IntrusionDetection\Config\Settings;
 use OCA\IntrusionDetection\Crypto\Fingerprinter;
-use OCA\IntrusionDetection\Db\Decoy;
-use OCA\IntrusionDetection\Db\DecoyMapper;
+use OCA\IntrusionDetection\Decoy\Db\Decoy;
+use OCA\IntrusionDetection\Decoy\Db\DecoyMapper;
+use OCA\IntrusionDetection\Definition\InvalidParamException;
+use OCA\IntrusionDetection\State\HotState;
 use OCA\IntrusionDetection\Traps\AccountNames;
 use OCA\IntrusionDetection\Traps\TrapNameCollisions;
 use OCP\AppFramework\Db\DoesNotExistException;
@@ -33,17 +32,19 @@ use OCP\Security\ISecureRandom;
  */
 class DecoyService {
 	public const MAX_LABEL = 200;
-	public const LOGIN_NAME_PATTERN = '/^[^\s\x00-\x1f\x7f]{1,64}$/u';
+	/** The longest login name */
+	public const MAX_LOGIN_NAME = 64;
+	public const LOGIN_NAME_PATTERN = '/^[^\s\x00-\x1f\x7f]{1,' . self::MAX_LOGIN_NAME . '}$/u';
 
 	public function __construct(
 		private readonly DecoyMapper $mapper,
 		private readonly Fingerprinter $fingerprinter,
 		private readonly ISecureRandom $random,
 		private readonly AccountNames $accounts,
-		private readonly Settings $settings,
 		private readonly AuditLogger $audit,
 		private readonly ITimeFactory $timeFactory,
 		private readonly TrapNameCollisions $collisions,
+		private readonly HotState $hotState,
 	) {
 	}
 
@@ -51,7 +52,7 @@ class DecoyService {
 	 * @return array{0: Decoy, 1: string} the stored decoy and its secret, which is never available again
 	 * @throws InvalidParamException for an empty or too long label, or an invalid or existing login name
 	 */
-	public function create(string $label, ?string $loginName, DecoyFormat $format, string $actor): array {
+	public function create(string $label, #[\SensitiveParameter] ?string $loginName, DecoyFormat $format, string $actor): array {
 		$label = trim((string)preg_replace('/[\x00-\x1f\x7f]+/u', ' ', $label));
 		if ($label === '' || mb_strlen($label) > self::MAX_LABEL) {
 			throw new InvalidParamException('invalid_item', ['param' => 'label', 'item' => mb_substr($label, 0, 40)]);
@@ -80,23 +81,30 @@ class DecoyService {
 		$decoy->setSecretHmac($secretHmac);
 		$decoy->setFormat($format->value);
 		$decoy->setCreatedBy(mb_substr($actor, 0, 64));
-		$decoy->setCreatedAt($this->timeFactory->getTime());
 		$decoy->setTriggerCount(0);
 		$decoy = $this->mapper->insert($decoy);
 		$this->updateCount();
-		$this->audit->log('decoy credential %s ("%s") created by %s', ['id' => $decoy->getId(), 'label' => $label, 'actor' => $actor]);
+		$this->audit->log('decoy credential %s ("%s") created by %s', ['id' => (string)$decoy->getId(), 'label' => $label, 'actor' => $actor]);
 		return [$decoy, $secret];
 	}
 
 	/**
 	 * @throws DoesNotExistException
 	 */
-	public function delete(int $id, string $actor): Decoy {
+	public function delete(string $id, string $actor): Decoy {
 		$decoy = $this->mapper->findById($id);
 		$this->mapper->delete($decoy);
 		$this->updateCount();
 		$this->audit->log('decoy credential %s ("%s") deleted by %s', ['id' => $id, 'label' => $decoy->getLabel(), 'actor' => $actor]);
 		return $decoy;
+	}
+
+	/**
+	 * How many decoys were created before a time, such as a change of the
+	 * instance secret, after which their secret no longer matches.
+	 */
+	public function countCreatedBefore(int $before): int {
+		return $before <= 0 ? 0 : $this->mapper->countCreatedBefore($before);
 	}
 
 	/**
@@ -114,8 +122,8 @@ class DecoyService {
 	 *
 	 * @return ?array{0: Decoy, 1: bool}
 	 */
-	public function match(#[\SensitiveParameter] ?string $password, string $loginName): ?array {
-		if ($this->settings->getInt(GlobalSettings::DECOY_COUNT) === 0) {
+	public function match(#[\SensitiveParameter] ?string $password, #[\SensitiveParameter] string $loginName): ?array {
+		if ($this->hotState->decoyCount() === 0) {
 			return null;
 		}
 		$secretHmac = $password === null || $password === '' ? null : bin2hex($this->fingerprinter->decoy($password));
@@ -135,7 +143,7 @@ class DecoyService {
 	}
 
 	public function triggered(Decoy $decoy): void {
-		$this->mapper->markTriggered($decoy->getId(), $this->timeFactory->getTime());
+		$this->mapper->markTriggered((string)$decoy->getId(), $this->timeFactory->getTime());
 	}
 
 	/**
@@ -148,7 +156,7 @@ class DecoyService {
 	}
 
 	private function updateCount(): void {
-		$this->settings->setGlobal(GlobalSettings::DECOY_COUNT, $this->mapper->countAll());
+		$this->hotState->setDecoyCount($this->mapper->countAll());
 		$this->collisions->refresh();
 	}
 }

@@ -15,8 +15,8 @@ use OCA\IntrusionDetection\Blocklist\ListFormat;
 use OCA\IntrusionDetection\Blocklist\SourceRepository;
 use OCA\IntrusionDetection\Blocklist\SyncFailure;
 use OCA\IntrusionDetection\Blocklist\SyncResult;
-use OCA\IntrusionDetection\Check\Checks\BlocklistMatch;
-use OCA\IntrusionDetection\Check\Checks\RiskyNetwork;
+use OCA\IntrusionDetection\Check\Checks\BlocklistMatch\BlocklistMatch;
+use OCA\IntrusionDetection\Check\Checks\RiskyNetwork\RiskyNetwork;
 use OCA\IntrusionDetection\Export\ExportDirectory;
 use OCA\IntrusionDetection\Export\ExportException;
 use OCA\IntrusionDetection\Export\FirewallExporter;
@@ -91,6 +91,7 @@ class BlocklistPresenter {
 				'interval' => $list['interval'],
 				'customInterval' => $source !== null && $source->interval !== null,
 				'termsUrl' => $list['termsUrl'],
+				'sha256' => $source?->sha256,
 				'reference' => $list['reference'],
 				'ranges' => $list['ranges'],
 				'entries' => $list['entries'],

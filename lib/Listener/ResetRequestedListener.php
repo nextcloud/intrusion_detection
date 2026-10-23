@@ -9,14 +9,19 @@ declare(strict_types=1);
 
 namespace OCA\IntrusionDetection\Listener;
 
-use OCA\IntrusionDetection\Check\Checks\ResetProbing;
-use OCA\IntrusionDetection\Check\Checks\ResetProbingDetector;
-use OCA\IntrusionDetection\Config\Settings;
+use OCA\IntrusionDetection\Check\Checks\ResetProbing\ResetProbing;
 use OCA\IntrusionDetection\Db\AttemptKind;
+use OCA\IntrusionDetection\Db\KeyMatch;
 use OCA\IntrusionDetection\Detection\AttemptRecorder;
+use OCA\IntrusionDetection\KnownDevice\KnownDevices;
 use OCA\IntrusionDetection\Login\EmailAccounts;
 use OCA\IntrusionDetection\Net\RemoteAddressResolver;
+use OCA\IntrusionDetection\Net\SourceKey;
+use OCA\IntrusionDetection\Response\IAcceptedLogins;
 use OCA\IntrusionDetection\Response\ResetMailSuppressor;
+use OCA\IntrusionDetection\Signal\ResetRequested;
+use OCA\IntrusionDetection\Signal\SignalDispatcher;
+use OCP\AppFramework\Utility\ITimeFactory;
 use OCP\EventDispatcher\Event;
 use OCP\EventDispatcher\IEventListener;
 use OCP\IRequest;
@@ -29,8 +34,12 @@ use Psr\Log\LoggerInterface;
  *
  * 1. records an attempt of kind 6 with a fingerprint of the input, and the
  *    account it belongs to, resolved the way core resolves it for the email;
- * 2. runs the reset abuse detector;
- * 3. prevents the email while the account's reset emails are held back.
+ * 2. hands it to the reset abuse check ({@see ResetRequested});
+ * 3. prevents the email while the account's reset emails are held back,
+ *    unless the request comes from the account holder: from a remembered
+ *    device of the account, or from an address the account confirmed a
+ *    login from (a second factor, an email code, admin approval or a
+ *    remembered device) within {@see ResetProbing::HOLDER_LOGIN_AGE}.
  *
  * Core answers the request the same way whatever happens here, so nothing
  * this listener does is visible to the requester. Returns at once while the
@@ -44,15 +53,17 @@ class ResetRequestedListener implements IEventListener {
 	public const MAX_INPUT = 255;
 
 	public function __construct(
-		private readonly Settings $settings,
+		private readonly SignalDispatcher $dispatcher,
 		private readonly RemoteAddressResolver $addresses,
 		private readonly AttemptRecorder $recorder,
-		private readonly ResetProbingDetector $detector,
 		private readonly ResetMailSuppressor $suppressor,
 		private readonly IUserManager $userManager,
 		private readonly IRequest $request,
 		private readonly LoggerInterface $logger,
 		private readonly EmailAccounts $emailAccounts,
+		private readonly KnownDevices $knownDevices,
+		private readonly IAcceptedLogins $logins,
+		private readonly ITimeFactory $timeFactory,
 	) {
 	}
 
@@ -62,8 +73,7 @@ class ResetRequestedListener implements IEventListener {
 			return;
 		}
 		try {
-			$state = $this->settings->modeState(ResetProbing::ID);
-			if (!$state->runs()) {
+			if (!$this->dispatcher->runs(ResetRequested::class)) {
 				return;
 			}
 			$source = $this->addresses->current();
@@ -73,17 +83,22 @@ class ResetRequestedListener implements IEventListener {
 			$input = $event->getInput();
 			$uid = $this->resolveUid($input);
 			$attempt = $this->recorder->record(AttemptKind::PasswordReset, $source, $input, $uid);
-			try {
-				$this->detector->detect($attempt, $this->request->getHeader('User-Agent'));
-			} catch (\Throwable $e) {
-				$this->logger->error('Intrusion detection could not check a password reset request', ['exception' => $e]);
-			}
-			if ($uid !== null && $state->acts()) {
-				$this->suppressor->apply($event, $uid);
+			$this->dispatcher->dispatch(new ResetRequested($attempt, $this->request->getHeader('User-Agent')));
+			if ($uid !== null && $this->dispatcher->acts(ResetRequested::class)
+				&& $this->suppressor->isSuppressed($uid) && !$this->fromAccountHolder($uid, $source)) {
+				$event->preventEmail();
 			}
 		} catch (\Throwable $e) {
 			$this->logger->error('Intrusion detection could not process a password reset request', ['exception' => $e]);
 		}
+	}
+
+	private function fromAccountHolder(string $uid, SourceKey $source): bool {
+		if ($this->knownDevices->recognise($uid) !== null) {
+			return true;
+		}
+		[$column, $keys] = KeyMatch::address($source);
+		return $this->logins->hasConfirmedLogin($uid, $column, $keys, $this->timeFactory->getTime() - ResetProbing::HOLDER_LOGIN_AGE);
 	}
 
 	/**

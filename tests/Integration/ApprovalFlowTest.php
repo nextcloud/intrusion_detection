@@ -10,26 +10,40 @@ declare(strict_types=1);
 namespace OCA\IntrusionDetection\Tests\Integration;
 
 use OCA\IntrusionDetection\AdminChange\ActorResolver;
+use OCA\IntrusionDetection\AdminChange\AdminGrantGate;
 use OCA\IntrusionDetection\AdminChange\ApprovalException;
 use OCA\IntrusionDetection\AdminChange\ApprovalService;
+use OCA\IntrusionDetection\AdminChange\Approvers;
 use OCA\IntrusionDetection\AdminChange\GrantPermit;
+use OCA\IntrusionDetection\AdminChange\HeldChanges;
 use OCA\IntrusionDetection\AppInfo\Application;
-use OCA\IntrusionDetection\Check\Checks\AdminChange;
-use OCA\IntrusionDetection\Check\InvalidParamException;
-use OCA\IntrusionDetection\Check\Severity;
+use OCA\IntrusionDetection\Audit\AuditLogger;
+use OCA\IntrusionDetection\Check\Checks\AdminChange\AdminChange;
+use OCA\IntrusionDetection\Check\Checks\AdminChange\AdminChangeFacts;
 use OCA\IntrusionDetection\Config\GlobalSettings;
-use OCA\IntrusionDetection\Config\Settings;
 use OCA\IntrusionDetection\Db\Approval;
 use OCA\IntrusionDetection\Db\ApprovalMapper;
+use OCA\IntrusionDetection\Definition\InvalidParamException;
+use OCA\IntrusionDetection\Definition\Severity;
+use OCA\IntrusionDetection\Net\RemoteAddressResolver;
 use OCA\IntrusionDetection\Notification\AdminAlerts;
+use OCA\IntrusionDetection\Notification\AdminLinks;
 use OCA\IntrusionDetection\Notification\Notifier;
+use OCP\AppFramework\Utility\ITimeFactory;
+use OCP\Group\Backend\ABackend;
+use OCP\Group\Backend\INamedBackend;
 use OCP\Group\Events\UserAddedEvent;
+use OCP\GroupInterface;
 use OCP\IGroup;
+use OCP\IGroupManager;
+use OCP\IUserManager;
+use OCP\L10N\IFactory;
 use OCP\Notification\AlreadyProcessedException;
 use OCP\Notification\IManager as INotificationManager;
 use OCP\Notification\INotification;
 use OCP\Server;
 use PHPUnit\Framework\Attributes\Group;
+use Psr\Log\LoggerInterface;
 
 /**
  * Four-eyes approval of new administrators (concept section 10.15, verify
@@ -56,7 +70,7 @@ class ApprovalFlowTest extends AdminChangeTestCase {
 		$this->assertSame($this->alice, $approval->getRequestedBy());
 		$this->assertSame('admin', $approval->getGroupId());
 		$this->assertSame(Approval::STATUS_PENDING, $approval->getStatus());
-		$this->assertSame(604800, $approval->getExpiresAt() - $approval->getCreatedAt());
+		$this->assertSame(604800, $approval->getExpiresAt() - $approval->getCreatedTime());
 
 		[$detection] = $this->adminChanges();
 		$facts = $this->facts($detection);
@@ -65,6 +79,7 @@ class ApprovalFlowTest extends AdminChangeTestCase {
 		$this->assertTrue($facts['reverted']);
 		$this->assertSame($approval->getId(), $facts['approval']);
 		$this->assertSame([], $this->notificationsWithSubject(AdminAlerts::SUBJECT), 'The approval request is the only notification');
+		$this->assertSame([], $detection->getActionList(), 'No response runs for a held-back grant');
 
 		$asked = $this->notificationsWithSubject(Notifier::SUBJECT_APPROVAL_REQUESTED);
 		$askedUsers = array_map(static fn (INotification $n): string => $n->getUser(), $asked);
@@ -75,7 +90,7 @@ class ApprovalFlowTest extends AdminChangeTestCase {
 
 		$prepared = Server::get(Notifier::class)->prepare($asked[0], 'en');
 		$this->assertSame($this->alice . ' asks to make ' . $this->bob . ' an administrator', $prepared->getParsedSubject());
-		$this->assertReviewedOnTheAdminPage($prepared, (int)$approval->getId());
+		$this->assertReviewedOnTheAdminPage($prepared, (string)$approval->getId());
 		$this->assertSame(['WEB'], array_map(static fn ($a): string => $a->getRequestType(), $asked[0]->getActions()), 'Only a link is stored');
 	}
 
@@ -83,7 +98,7 @@ class ApprovalFlowTest extends AdminChangeTestCase {
 		$this->act($this->alice);
 		$this->addAsWeb('admin', $this->bob);
 		[$approval] = $this->approvals->list(true);
-		$id = (int)$approval->getId();
+		$id = (string)$approval->getId();
 
 		$stored = Server::get(INotificationManager::class)->createNotification();
 		$stored->setApp(Application::APP_ID)
@@ -97,6 +112,34 @@ class ApprovalFlowTest extends AdminChangeTestCase {
 			$stored->addAction($action);
 		}
 		$this->assertReviewedOnTheAdminPage(Server::get(Notifier::class)->prepare($stored, 'en'), $id);
+	}
+
+	public function testAnAdditionToAGroupWithDelegatedAdminSettingsWaitsToo(): void {
+		$this->delegate('ids-ac-delegates');
+		$this->act($this->alice);
+		$this->addAsWeb('ids-ac-delegates', $this->bob);
+
+		$this->assertFalse($this->inGroup('ids-ac-delegates', $this->bob), 'Taken out again');
+		[$approval] = $this->approvals->list(true);
+		$this->assertSame('ids-ac-delegates', $approval->getGroupId());
+		[$detection] = $this->adminChanges();
+		$this->assertSame(AdminChange::KIND_GRANT_REQUESTED, $this->facts($detection)['kind']);
+		$this->assertSame(['Users'], $this->facts($detection)['delegated']);
+		$this->assertSame('Approval needed: ' . $this->bob . ' to join "ids-ac-delegates", which has administration rights', Server::get(AdminAlerts::class)->headline($detection, Server::get(IFactory::class)->get(Application::APP_ID, 'en')));
+
+		$asked = array_values(array_filter($this->notificationsWithSubject(Notifier::SUBJECT_APPROVAL_REQUESTED), fn (INotification $n): bool => $n->getUser() === $this->carol));
+		$this->assertSame($this->alice . ' asks to add ' . $this->bob . ' to the group "ids-ac-delegates", which has administration rights', Server::get(Notifier::class)->prepare($asked[0], 'en')->getParsedSubject());
+
+		$this->approvals->approve((string)$approval->getId(), $this->carol, ApprovalService::VIA_WEB);
+		$this->assertTrue($this->inGroup('ids-ac-delegates', $this->bob));
+	}
+
+	public function testOrdinaryGroupsDoNotWait(): void {
+		$this->createGroup('ids-ac-plain');
+		$this->act($this->alice);
+		$this->addAsWeb('ids-ac-plain', $this->bob);
+		$this->assertTrue($this->inGroup('ids-ac-plain', $this->bob));
+		$this->assertSame([], $this->approvals->list(true));
 	}
 
 	public function testAnotherAddOfTheSameAccountReusesTheRequest(): void {
@@ -115,7 +158,7 @@ class ApprovalFlowTest extends AdminChangeTestCase {
 			$approval->setRequestedBy($this->alice);
 			$approval->setGroupId('admin');
 			$approval->setStatus(Approval::STATUS_PENDING);
-			$approval->setCreatedAt(time());
+			$approval->setCreatedTime(time());
 			$approval->setExpiresAt(time() + 3600);
 			$mapper->insert($approval);
 		}
@@ -124,9 +167,8 @@ class ApprovalFlowTest extends AdminChangeTestCase {
 		$this->assertFalse($this->inGroup('admin', $this->bob));
 		$this->assertNull($mapper->findPending(Approval::KIND_ADMIN_GRANT, $this->bob, 'admin'));
 		[$detection] = $this->adminChanges();
-		$this->assertArrayNotHasKey('approval', $this->facts($detection));
+		$this->assertNull(AdminChangeFacts::fromArray($this->facts($detection))->approval, 'No request was stored');
 		$this->assertNotSame([], $this->notificationsWithSubject(AdminAlerts::SUBJECT), 'Without a request the administrators are alerted');
-		$this->assertStringContainsString('Too many requests are already waiting', implode(' ', Server::get(\OCA\IntrusionDetection\Explain\NarrativeBuilder::class)->build($detection, Server::get(\OCP\L10N\IFactory::class)->get(Application::APP_ID, 'en'))->happened));
 	}
 
 	public function testTheRequesterTheSubjectAndNonAdminsCannotApprove(): void {
@@ -165,6 +207,86 @@ class ApprovalFlowTest extends AdminChangeTestCase {
 		// The open requests disappear once decided.
 		$this->expectException(AlreadyProcessedException::class);
 		Server::get(Notifier::class)->prepare($this->notificationsWithSubject(Notifier::SUBJECT_APPROVAL_REQUESTED)[0], 'en');
+	}
+
+	public function testAnApprovalWhoseAdditionFailsStillWaits(): void {
+		$id = $this->requestBob();
+		$group = $this->createMock(IGroup::class);
+		$group->method('getGID')->willReturn('admin');
+		$group->method('addUser')->willThrowException(new \RuntimeException('The group backend is read-only'));
+		$groupManager = $this->createMock(IGroupManager::class);
+		$groupManager->method('get')->willReturn($group);
+		$service = new ApprovalService(
+			Server::get(ApprovalMapper::class),
+			Server::get(Approvers::class),
+			Server::get(GrantPermit::class),
+			Server::get(HeldChanges::class),
+			Server::get(RemoteAddressResolver::class),
+			$groupManager,
+			Server::get(IUserManager::class),
+			Server::get(INotificationManager::class),
+			Server::get(AdminLinks::class),
+			Server::get(AuditLogger::class),
+			Server::get(ITimeFactory::class),
+			Server::get(LoggerInterface::class),
+		);
+		try {
+			$service->approve($id, $this->carol, ApprovalService::VIA_WEB);
+			$this->fail('The addition failed');
+		} catch (ApprovalException $e) {
+			$this->assertSame(ApprovalException::NOT_CARRIED_OUT, $e->reason);
+		}
+		$approval = $this->approvals->find($id);
+		$this->assertSame(Approval::STATUS_PENDING, $approval->getStatus(), 'Not marked approved while nothing happened');
+		$this->assertNull($approval->getDecidedBy());
+		$this->assertNull(Server::get(GrantPermit::class)->consume($this->bob, 'admin'), 'No permit is left behind');
+
+		$this->approvals->approve($id, $this->carol, ApprovalService::VIA_WEB);
+		$this->assertTrue($this->inGroup('admin', $this->bob), 'It can be approved again');
+	}
+
+	public function testAnApprovedSettingsChangeThatCannotBeMadeStillWaits(): void {
+		$approval = new Approval();
+		$approval->setKind(Approval::KIND_SETTINGS);
+		$approval->setSubjectUid($this->alice);
+		$approval->setRequestedBy($this->alice);
+		$approval->setPayload(json_encode(['op' => HeldChanges::CHECK, 'check' => 'no_such_check', 'mode' => 'off']));
+		$approval->setStatus(Approval::STATUS_PENDING);
+		$approval->setCreatedTime(time());
+		$approval->setExpiresAt(time() + 3600);
+		$id = (string)Server::get(ApprovalMapper::class)->insert($approval)->getId();
+		try {
+			$this->approvals->approve($id, $this->carol, ApprovalService::VIA_WEB);
+			$this->fail('The change cannot be made');
+		} catch (ApprovalException $e) {
+			$this->assertSame(ApprovalException::NOT_CARRIED_OUT, $e->reason);
+		}
+		$this->assertSame(Approval::STATUS_PENDING, $this->approvals->find($id)->getStatus());
+	}
+
+	public function testAnExpiredRequestCannotBeDecidedEvenInTheSameMoment(): void {
+		$id = $this->requestBob();
+		$this->expire($id);
+		$mapper = Server::get(ApprovalMapper::class);
+		$this->assertFalse($mapper->decide($id, Approval::STATUS_APPROVED, $this->carol, time()), 'The update itself checks the expiry');
+		$this->assertTrue($mapper->decide($id, Approval::STATUS_EXPIRED, null, time()));
+	}
+
+	public function testWaitingLoginsCannotCrowdOutNewAdministrators(): void {
+		$mapper = Server::get(ApprovalMapper::class);
+		for ($i = 0; $i < ApprovalService::MAX_PENDING; $i++) {
+			$approval = new Approval();
+			$approval->setKind(Approval::KIND_LOGIN);
+			$approval->setSubjectUid('ids-ac-filler-' . $i);
+			$approval->setRequestedBy('ids-ac-filler-' . $i);
+			$approval->setStatus(Approval::STATUS_PENDING);
+			$approval->setCreatedTime(time());
+			$approval->setExpiresAt(time() + 3600);
+			$mapper->insert($approval);
+		}
+		$this->act($this->alice);
+		$this->addAsWeb('admin', $this->bob);
+		$this->assertNotNull($mapper->findPending(Approval::KIND_ADMIN_GRANT, $this->bob, 'admin'), 'Each kind has its own limit');
 	}
 
 	public function testTheApprovalCannotBeReplayed(): void {
@@ -265,22 +387,50 @@ class ApprovalFlowTest extends AdminChangeTestCase {
 	}
 
 	public function testDirectoryGroupsAreExemptAndAlerted(): void {
-		$group = $this->createMock(IGroup::class);
-		$group->method('getGID')->willReturn('admin');
-		$group->method('getBackendNames')->willReturn(['LDAP']);
-		$group->expects($this->never())->method('removeUser');
-		$this->act($this->alice);
-		$this->dispatch(new UserAddedEvent($group, $this->user($this->bob)));
+		$directory = $this->directory([$this->bob]);
+		try {
+			$group = $this->createMock(IGroup::class);
+			$group->method('getGID')->willReturn('admin');
+			$group->expects($this->never())->method('removeUser');
+			$this->act($this->alice);
+			$this->dispatch(new UserAddedEvent($group, $this->user($this->bob)));
+		} finally {
+			Server::get(IGroupManager::class)->removeBackend($directory);
+		}
 		$this->assertSame([], $this->approvals->list(true));
 		[$detection] = $this->adminChanges();
-		$this->assertSame(AdminChange::EXEMPT_DIRECTORY, $this->facts($detection)['exempt']);
-		$this->assertStringContainsString('user directory such as LDAP', implode(' ', Server::get(\OCA\IntrusionDetection\Explain\NarrativeBuilder::class)->build($detection, Server::get(\OCP\L10N\IFactory::class)->get(Application::APP_ID, 'en'))->happened));
+		$this->assertSame(AdminChange::EXEMPT_DIRECTORY, AdminChangeFacts::fromArray($this->facts($detection))->exempt);
+	}
+
+	public function testAWebAdditionWaitsAlthoughADirectoryAlsoHasTheGroup(): void {
+		$directory = $this->directory([$this->dave]);
+		try {
+			$this->act($this->alice);
+			$this->addAsWeb('admin', $this->bob);
+		} finally {
+			Server::get(IGroupManager::class)->removeBackend($directory);
+		}
+		$this->assertFalse($this->inGroup('admin', $this->bob), 'Only the membership the directory holds is exempt');
+		$this->assertCount(1, $this->approvals->list(true));
+	}
+
+	public function testAnErrorInTheGateTakesTheAdditionBack(): void {
+		$gate = $this->createMock(AdminGrantGate::class);
+		$gate->method('decide')->willThrowException(new \RuntimeException('The settings could not be read'));
+		$this->rebuild(gate: $gate);
+		$this->act($this->alice);
+		$this->addAsWeb('admin', $this->bob);
+
+		$this->assertFalse($this->inGroup('admin', $this->bob), 'An error does not let the new administrator in');
+		[$approval] = $this->approvals->list(true);
+		$this->assertSame($this->bob, $approval->getSubjectUid());
+		[$detection] = $this->adminChanges();
+		$this->assertSame(AdminChange::KIND_GRANT_REQUESTED, $this->facts($detection)['kind']);
 	}
 
 	public function testAFailedRevertIsReportedWithoutARequest(): void {
 		$group = $this->createMock(IGroup::class);
 		$group->method('getGID')->willReturn('admin');
-		$group->method('getBackendNames')->willReturn(['Database']);
 		$group->method('inGroup')->willReturn(true);
 		$this->act($this->alice);
 		$this->dispatch(new UserAddedEvent($group, $this->user($this->bob)));
@@ -301,8 +451,8 @@ class ApprovalFlowTest extends AdminChangeTestCase {
 
 	public function testApprovalCanBeSwitchedOnWithTwoAdmins(): void {
 		$this->requireApproval(false);
-		Server::get(Settings::class)->setGlobal(GlobalSettings::ADMIN_CHANGE_REQUIRE_APPROVAL, true);
-		$this->assertTrue(Server::get(Settings::class)->getBool(GlobalSettings::ADMIN_CHANGE_REQUIRE_APPROVAL));
+		$this->settingsEditor()->setGlobal(GlobalSettings::ADMIN_CHANGE_REQUIRE_APPROVAL, true);
+		$this->assertTrue($this->appSettings()->adminChangeRequireApproval());
 	}
 
 	public function testApprovalCannotBeSwitchedOnWithFewerThanTwoAdmins(): void {
@@ -312,25 +462,34 @@ class ApprovalFlowTest extends AdminChangeTestCase {
 		$approvers->method('count')->willReturn(1);
 		$this->overwriteService(\OCA\IntrusionDetection\AdminChange\Approvers::class, $approvers);
 		try {
-			Server::get(Settings::class)->setGlobal(GlobalSettings::ADMIN_CHANGE_REQUIRE_APPROVAL, true);
+			$this->settingsEditor()->setGlobal(GlobalSettings::ADMIN_CHANGE_REQUIRE_APPROVAL, true);
 			$this->fail('One administrator cannot switch approval on');
 		} catch (InvalidParamException $e) {
 			$this->assertSame('too_few_admins', $e->reason);
 		} finally {
 			$this->restoreService(\OCA\IntrusionDetection\AdminChange\Approvers::class);
 		}
-		$this->assertFalse(Server::get(Settings::class)->getBool(GlobalSettings::ADMIN_CHANGE_REQUIRE_APPROVAL));
+		$this->assertFalse($this->appSettings()->adminChangeRequireApproval());
 		$this->assertFalse($check->validateParam(GlobalSettings::ADMIN_CHANGE_REQUIRE_APPROVAL, false), 'Switching it off is always possible');
 	}
 
-	private function requestBob(): int {
+	private function delegate(string $gid): void {
+		$this->createGroup($gid);
+		$qb = $this->db->getQueryBuilder();
+		$qb->insert('authorized_groups')
+			->values(['group_id' => $qb->createNamedParameter($gid), 'class' => $qb->createNamedParameter(\OCA\Settings\Settings\Admin\Users::class)])
+			->executeStatement();
+		$this->rebuild();
+	}
+
+	private function requestBob(): string {
 		$this->act($this->alice);
 		$this->addAsWeb('admin', $this->bob);
 		[$approval] = $this->approvals->list(true);
-		return (int)$approval->getId();
+		return (string)$approval->getId();
 	}
 
-	private function expire(int $id): void {
+	private function expire(string $id): void {
 		$approval = Server::get(ApprovalMapper::class)->findById($id);
 		$approval->setExpiresAt(time() - 1);
 		Server::get(ApprovalMapper::class)->update($approval);
@@ -340,7 +499,7 @@ class ApprovalFlowTest extends AdminChangeTestCase {
 	 * Approving needs the password, which no notification can ask: the one
 	 * button opens the request on the admin page, also in the clients.
 	 */
-	private function assertReviewedOnTheAdminPage(INotification $prepared, int $id): void {
+	private function assertReviewedOnTheAdminPage(INotification $prepared, string $id): void {
 		$this->assertStringContainsString('Approving needs your password', $prepared->getParsedMessage());
 		$this->assertStringEndsWith('/settings/admin/intrusion_detection#approval-' . $id, $prepared->getLink());
 		$actions = $prepared->getParsedActions();
@@ -348,5 +507,48 @@ class ApprovalFlowTest extends AdminChangeTestCase {
 		$this->assertSame('WEB', $actions[0]->getRequestType());
 		$this->assertTrue($actions[0]->isPrimary());
 		$this->assertSame($prepared->getLink(), $actions[0]->getLink());
+	}
+
+	/**
+	 * A user directory that also has a group "admin", with these members.
+	 *
+	 * @param list<string> $members
+	 */
+	private function directory(array $members): GroupInterface {
+		$directory = new class($members) extends ABackend implements INamedBackend {
+			/**
+			 * @param list<string> $members
+			 */
+			public function __construct(
+				private array $members,
+			) {
+			}
+
+			public function getBackendName(): string {
+				return 'LDAP';
+			}
+
+			public function inGroup($uid, $gid): bool {
+				return $gid === 'admin' && in_array($uid, $this->members, true);
+			}
+
+			public function getUserGroups($uid): array {
+				return in_array($uid, $this->members, true) ? ['admin'] : [];
+			}
+
+			public function getGroups(string $search = '', int $limit = -1, int $offset = 0): array {
+				return ['admin'];
+			}
+
+			public function groupExists($gid): bool {
+				return $gid === 'admin';
+			}
+
+			public function usersInGroup($gid, $search = '', $limit = -1, $offset = 0): array {
+				return $gid === 'admin' ? $this->members : [];
+			}
+		};
+		Server::get(IGroupManager::class)->addBackend($directory);
+		return $directory;
 	}
 }

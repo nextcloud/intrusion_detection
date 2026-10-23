@@ -5,12 +5,9 @@
 
 <script setup lang="ts">
 import type { TabDefinition } from '../../extensions.ts'
-import type { FirewallExport } from '../../types.ts'
 
 import { mdiAlertCircleOutline, mdiCheckCircleOutline, mdiFire, mdiLockOutline, mdiPauseCircleOutline, mdiServerSecurity, mdiShieldOutline, mdiTimerCogOutline } from '@mdi/js'
-import { showError } from '@nextcloud/dialogs'
-import { n, t } from '@nextcloud/l10n'
-import { computed, onActivated, onMounted, ref } from 'vue'
+import { computed, ref } from 'vue'
 import NcCheckboxRadioSwitch from '@nextcloud/vue/components/NcCheckboxRadioSwitch'
 import NcIconSvgWrapper from '@nextcloud/vue/components/NcIconSvgWrapper'
 import NcNoteCard from '@nextcloud/vue/components/NcNoteCard'
@@ -21,17 +18,15 @@ import ShowMore from '../common/ShowMore.vue'
 import SkeletonBlock from '../common/SkeletonBlock.vue'
 import StateBadge from '../common/StateBadge.vue'
 import TimeStamp from '../common/TimeStamp.vue'
-import { useAnnouncer } from '../../composables/useAnnouncer.ts'
-import { errorMessage, fetchExport, isCancelled, updateSettings } from '../../services/api.ts'
-import { logger } from '../../services/logger.ts'
-import { state } from '../../store.ts'
+import { useAction } from '../../composables/useAction.ts'
+import { saveSettings, state } from '../../store.ts'
+import { useFirewallExport } from '../../stores/blocks.ts'
 import { APP_ID } from '../../utils/format.ts'
+import { n, t } from '../../utils/l10n.ts'
 
-const exportState = ref<FirewallExport | null>(null)
-const loadError = ref<string | null>(null)
-const saving = ref<string | null>(null)
+const { data: exportState, error: loadError } = useFirewallExport({ failure: () => t(APP_ID, 'The firewall export could not be loaded. Please reload the page.') })
+const { busy: saving, run } = useAction()
 const snippetTab = ref('nftables')
-const { announce } = useAnnouncer()
 
 const FORMATS = [
 	{ id: 'nft', file: 'bans.nft', text: () => t(APP_ID, 'An nftables script that refills the sets of table inet nextcloud_ids, each address with its remaining time.') },
@@ -41,10 +36,10 @@ const FORMATS = [
 ]
 
 const snippetTabs: TabDefinition[] = [
-	{ id: 'nftables', name: () => 'nftables', icon: mdiShieldOutline, order: 1 },
-	{ id: 'ipset', name: () => 'ipset', icon: mdiShieldOutline, order: 2 },
-	{ id: 'fail2ban', name: () => 'fail2ban', icon: mdiFire, order: 3 },
-	{ id: 'systemd', name: () => 'systemd', icon: mdiTimerCogOutline, order: 4 },
+	{ id: 'nftables', name: () => 'nftables', icon: mdiShieldOutline },
+	{ id: 'ipset', name: () => 'ipset', icon: mdiShieldOutline },
+	{ id: 'fail2ban', name: () => 'fail2ban', icon: mdiFire },
+	{ id: 'systemd', name: () => 'systemd', icon: mdiTimerCogOutline },
 ]
 
 const SNIPPETS: Record<string, { ids: string[], intro: () => string }> = {
@@ -105,44 +100,17 @@ const status = computed(() => {
 const configLine = computed(() => `'${exportState.value?.configKey ?? 'intrusion_detection.export_dir'}' => '${exportState.value?.exampleDirectory ?? '/var/lib/nextcloud-ids'}',`)
 
 /**
- * Load the export state.
- */
-async function load() {
-	try {
-		exportState.value = await fetchExport()
-		loadError.value = null
-	} catch (error) {
-		logger.error('Could not load the firewall export', { error })
-		loadError.value = errorMessage(error, t(APP_ID, 'The firewall export could not be loaded. Please reload the page.'))
-	}
-}
-
-onMounted(load)
-onActivated(load)
-
-/**
  * Switch one format on or off.
  *
  * @param id - The format
  * @param on - Whether to write it
  */
-async function setFormat(id: string, on: boolean) {
+function setFormat(id: string, on: boolean) {
 	const next = on ? [...new Set([...formats.value, id])] : formats.value.filter((f) => f !== id)
-	saving.value = id
-	try {
-		const payload = await updateSettings({ export_formats: next })
-		state.settings = payload.settings
-		state.templates = payload.templates
-		await load()
-		announce(on ? t(APP_ID, '{file} is written from now on.', { file: `bans.${id}` }) : t(APP_ID, '{file} is no longer written.', { file: `bans.${id}` }))
-	} catch (error) {
-		if (!isCancelled(error)) {
-			logger.error('Could not change the export formats', { error })
-			showError(errorMessage(error, t(APP_ID, 'The formats could not be saved. Please try again.')))
-		}
-	} finally {
-		saving.value = null
-	}
+	run(id, () => saveSettings({ export_formats: next }), {
+		done: on ? t(APP_ID, '{file} is written from now on.', { file: `bans.${id}` }) : t(APP_ID, '{file} is no longer written.', { file: `bans.${id}` }),
+		fallback: t(APP_ID, 'The formats could not be saved. Please try again.'),
+	})
 }
 </script>
 
@@ -272,26 +240,26 @@ async function setFormat(id: string, on: boolean) {
 .skeleton {
 	display: flex;
 	flex-direction: column;
-	gap: calc(var(--default-grid-baseline) * 2);
+	gap: var(--ids-space-2);
 }
 
 .muted {
-	color: var(--color-text-maxcontrast);
+	composes: muted from '../../styles/shared.module.css';
 }
 
 .facts {
 	display: grid;
 	grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr));
-	gap: calc(var(--default-grid-baseline) * 3);
+	gap: var(--ids-space-3);
 	margin: 0;
 }
 
 .fact {
 	display: flex;
 	flex-direction: column;
-	gap: calc(var(--default-grid-baseline) * 1);
+	gap: var(--ids-space-1);
 	min-width: 0;
-	padding: calc(var(--default-grid-baseline) * 3) calc(var(--default-grid-baseline) * 4);
+	padding: var(--ids-space-3) var(--ids-space-4);
 	border-radius: var(--border-radius-large);
 	background-color: var(--color-background-hover);
 }
@@ -312,13 +280,13 @@ async function setFormat(id: string, on: boolean) {
 .fact dd {
 	display: flex;
 	flex-direction: column;
-	gap: calc(var(--default-grid-baseline) / 2);
+	gap: var(--ids-space-half);
 	margin: 0;
 	font-weight: 600;
 }
 
 .fact__hint {
-	color: var(--color-text-maxcontrast);
+	composes: muted from '../../styles/shared.module.css';
 	font-size: 0.85em;
 	font-weight: normal;
 }
@@ -326,7 +294,7 @@ async function setFormat(id: string, on: boolean) {
 .path {
 	display: inline-flex;
 	align-items: center;
-	gap: calc(var(--default-grid-baseline) * 1.5);
+	gap: var(--ids-space-1-5);
 	min-width: 0;
 }
 
@@ -341,12 +309,12 @@ async function setFormat(id: string, on: boolean) {
 .files {
 	display: flex;
 	flex-wrap: wrap;
-	gap: calc(var(--default-grid-baseline) * 2);
+	gap: var(--ids-space-2);
 }
 
 .config {
-	margin: calc(var(--default-grid-baseline) * 2) 0;
-	padding: calc(var(--default-grid-baseline) * 2) calc(var(--default-grid-baseline) * 3);
+	margin: var(--ids-space-2) 0;
+	padding: var(--ids-space-2) var(--ids-space-3);
 	overflow-x: auto;
 	border-radius: var(--border-radius-element);
 	background-color: var(--color-background-hover);
@@ -362,7 +330,7 @@ async function setFormat(id: string, on: boolean) {
 }
 
 .formats__legend {
-	margin-bottom: calc(var(--default-grid-baseline) * 2);
+	margin-bottom: var(--ids-space-2);
 	padding: 0;
 	font-weight: 700;
 }
@@ -370,11 +338,11 @@ async function setFormat(id: string, on: boolean) {
 .formats__grid {
 	display: grid;
 	grid-template-columns: repeat(auto-fit, minmax(min(100%, 250px), 1fr));
-	gap: calc(var(--default-grid-baseline) * 2);
+	gap: var(--ids-space-2);
 }
 
 .format {
-	padding: calc(var(--default-grid-baseline) * 2) calc(var(--default-grid-baseline) * 3);
+	padding: var(--ids-space-2) var(--ids-space-3);
 	border: 1px solid var(--color-border);
 	border-radius: var(--border-radius-large);
 	transition: border-color 150ms ease, background-color 150ms ease;
@@ -392,7 +360,7 @@ async function setFormat(id: string, on: boolean) {
 }
 
 .snippets {
-	padding-top: calc(var(--default-grid-baseline) * 3);
+	padding-top: var(--ids-space-3);
 	border-top: 1px solid var(--color-border);
 }
 
@@ -402,10 +370,10 @@ async function setFormat(id: string, on: boolean) {
 }
 
 .snippets__panel {
-	margin-top: calc(var(--default-grid-baseline) * 3);
+	margin-top: var(--ids-space-3);
 	display: flex;
 	flex-direction: column;
-	gap: calc(var(--default-grid-baseline) * 3);
+	gap: var(--ids-space-3);
 }
 
 .snippets__intro {

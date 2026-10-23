@@ -9,7 +9,7 @@ declare(strict_types=1);
 
 namespace OCA\IntrusionDetection\Response\Handlers;
 
-use OCA\IntrusionDetection\Check\ResponseType;
+use OCA\IntrusionDetection\Definition\ResponseType;
 use OCA\IntrusionDetection\Explain\DateFormatter;
 use OCA\IntrusionDetection\Explain\IDescribesAction;
 use OCA\IntrusionDetection\Response\IResponseHandler;
@@ -44,11 +44,11 @@ class LockLinkHandler implements IResponseHandler, IDescribesAction {
 		$facts = $context->detection->getExplanationData()['facts'] ?? [];
 		$changeId = is_array($facts) ? ($facts['emailChangeId'] ?? null) : null;
 		$user = $context->draft->uid === null ? null : $this->userManager->get($context->draft->uid);
-		if (!is_int($changeId) || $user === null) {
+		if (!is_string($changeId) || $user === null) {
 			// Recorded as handled with a note, so the narrative says why nothing was sent.
 			return ResponseOutcome::done(null, self::NOTE_NO_EMAIL_CHANGE);
 		}
-		$result = $this->links->send($user, $changeId, $context->detection->getId());
+		$result = $this->links->send($user, $changeId, (string)$context->detection->getId());
 		return match ($result['state']) {
 			LockLinks::SENT => ResponseOutcome::done(['sentTo' => $result['sentTo'] ?? null, 'link' => $result['link'] ?? null]),
 			// Sent for an earlier hit: keep what that one recorded.

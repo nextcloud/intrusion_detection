@@ -10,10 +10,12 @@ declare(strict_types=1);
 namespace OCA\IntrusionDetection\Tests\Unit\Personal;
 
 use OC\Authentication\TwoFactorAuth\ProviderLoader;
-use OCA\IntrusionDetection\Config\Settings;
-use OCA\IntrusionDetection\Confirm\ConfirmationCoverage;
+use OCA\IntrusionDetection\Config\AppSettings;
+use OCA\IntrusionDetection\Confirm\SecondFactors;
+use OCA\IntrusionDetection\Confirm\UntrustedSecondFactors;
 use OCA\IntrusionDetection\Db\Detection;
 use OCA\IntrusionDetection\Db\DetectionMapper;
+use OCA\IntrusionDetection\Notification\MailReach;
 use OCA\IntrusionDetection\Notification\UserMessages;
 use OCA\IntrusionDetection\Personal\FailedLoginStats;
 use OCA\IntrusionDetection\Personal\PersonalOverview;
@@ -23,6 +25,7 @@ use OCA\IntrusionDetection\WasThisYou\Questions;
 use OCP\AppFramework\Utility\ITimeFactory;
 use OCP\Authentication\TwoFactorAuth\IProvider;
 use OCP\Authentication\TwoFactorAuth\IProvidesPersonalSettings;
+use OCP\Authentication\TwoFactorAuth\IRegistry;
 use OCP\IDateTimeFormatter;
 use OCP\IL10N;
 use OCP\IURLGenerator;
@@ -42,7 +45,7 @@ class PersonalOverviewTest extends TestCase {
 	private array $detections = [];
 	/** @var array<int, bool> detection id => open question */
 	private array $open = [];
-	/** @var list<int> ids of the detections kept from the user */
+	/** @var list<string> ids of the detections kept from the user */
 	private array $kept = [];
 	private bool $passwordChange = false;
 	private ?int $protectedUntil = null;
@@ -77,7 +80,7 @@ class PersonalOverviewTest extends TestCase {
 
 	public function testEventsKeptFromTheUserAreNotCounted(): void {
 		$this->detection(1, self::NOW - 3600, false);
-		$this->kept = [1];
+		$this->kept = ['1'];
 		$this->assertSame('No unusual activity in the last 30 days', $this->statusFor(0)['headline']);
 	}
 
@@ -146,9 +149,8 @@ class PersonalOverviewTest extends TestCase {
 	}
 
 	private function detection(int $id, int $createdAt, bool $open): void {
-		$detection = new Detection();
-		$detection->setId($id);
-		$detection->setCreatedAt($createdAt);
+		$detection = Detection::fromRow(['id' => (string)$id]);
+		$detection->setCreatedTime($createdAt);
 		$this->detections[] = $detection;
 		$this->open[$id] = $open;
 	}
@@ -184,8 +186,10 @@ class PersonalOverviewTest extends TestCase {
 		$flag->method('isRequired')->willReturnCallback(fn (): bool => $this->passwordChange);
 		$protection = $this->createMock(AccountProtection::class);
 		$protection->method('protectedUntil')->willReturnCallback(fn (): ?int => $this->protectedUntil);
-		$coverage = $this->createMock(ConfirmationCoverage::class);
-		$coverage->method('hasSecondFactor')->willReturnCallback(fn (): bool => $this->secondFactor);
+		$registry = $this->createMock(IRegistry::class);
+		$registry->method('getProviderStates')->willReturnCallback(fn (): array => $this->secondFactor ? ['totp' => true] : []);
+		$mails = $this->createMock(MailReach::class);
+		$mails->method('hasAddress')->willReturnCallback(static fn (IUser $user): bool => (string)$user->getEMailAddress() !== '');
 		$loader = $this->createMock(ProviderLoader::class);
 		$loader->method('getProviders')->willReturnCallback(function (): array {
 			if ($this->providersFail) {
@@ -193,8 +197,8 @@ class PersonalOverviewTest extends TestCase {
 			}
 			return $this->providers;
 		});
-		$settings = $this->createMock(Settings::class);
-		$settings->method('getInt')->willReturn(90);
+		$settings = $this->createMock(AppSettings::class);
+		$settings->method('retentionDays')->willReturn(90);
 		$formatter = $this->createMock(IDateTimeFormatter::class);
 		$formatter->method('formatTime')->willReturnCallback(static fn (int $ts): string => 'time:' . $ts);
 		$formatter->method('formatDateTime')->willReturnCallback(static fn (int $ts): string => 'date:' . $ts);
@@ -213,14 +217,13 @@ class PersonalOverviewTest extends TestCase {
 			$questions,
 			$flag,
 			$protection,
-			$coverage,
-			$loader,
+			new SecondFactors($registry, $loader, $this->createMock(UntrustedSecondFactors::class), $logger),
+			$mails,
 			$messages,
 			$settings,
 			$formatter,
 			$urls,
 			$time,
-			$logger,
 		);
 	}
 }

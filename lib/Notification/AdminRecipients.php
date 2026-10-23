@@ -9,11 +9,8 @@ declare(strict_types=1);
 
 namespace OCA\IntrusionDetection\Notification;
 
-use OCA\IntrusionDetection\AppInfo\Application;
-use OCA\IntrusionDetection\Config\GlobalSettings;
-use OCA\IntrusionDetection\Config\Settings;
-use OCP\ICache;
-use OCP\ICacheFactory;
+use OCA\IntrusionDetection\Cache\Caches;
+use OCA\IntrusionDetection\Config\AppSettings;
 use OCP\IGroupManager;
 use OCP\IUser;
 
@@ -24,19 +21,18 @@ use OCP\IUser;
  * changing that setting cannot silence them.
  */
 class AdminRecipients {
+	/** The namespace of its memory cache in {@see Caches} */
+	public const CACHE = 'admin-recipients';
 	/** At most this many people are notified, so a huge group cannot turn one alert into a flood */
 	public const MAX = 100;
 	public const ADMIN_GROUP = 'admin';
 	/** That no recipient has an email address is remembered this long */
 	public const REMEMBER_WITHOUT_EMAIL = 60;
 
-	private ?ICache $cache = null;
-	private bool $cacheInitialised = false;
-
 	public function __construct(
-		private readonly Settings $settings,
+		private readonly AppSettings $settings,
 		private readonly IGroupManager $groupManager,
-		private readonly ICacheFactory $cacheFactory,
+		private readonly Caches $caches,
 	) {
 	}
 
@@ -46,11 +42,11 @@ class AdminRecipients {
 	 * look the group members up again. Always false without a memory cache.
 	 */
 	public function knownWithoutEmail(bool $withAdminGroup = false): bool {
-		return $this->cache()?->get($this->withoutEmailKey($withAdminGroup)) !== null;
+		return $this->caches->local(self::CACHE)?->get($this->withoutEmailKey($withAdminGroup)) !== null;
 	}
 
 	public function rememberWithoutEmail(bool $withAdminGroup = false): void {
-		$this->cache()?->set($this->withoutEmailKey($withAdminGroup), 1, self::REMEMBER_WITHOUT_EMAIL);
+		$this->caches->local(self::CACHE)?->set($this->withoutEmailKey($withAdminGroup), 1, self::REMEMBER_WITHOUT_EMAIL);
 	}
 
 	/**
@@ -76,11 +72,26 @@ class AdminRecipients {
 	}
 
 	/**
+	 * Whether a user is one of the recipients now: enabled, and a member of
+	 * one of their groups.
+	 */
+	public function includes(IUser $user, bool $withAdminGroup = false): bool {
+		if (!$user->isEnabled()) {
+			return false;
+		}
+		foreach ($this->groups($withAdminGroup) as $groupId) {
+			if ($this->groupManager->isInGroup($user->getUID(), $groupId)) {
+				return true;
+			}
+		}
+		return false;
+	}
+
+	/**
 	 * @return list<string>
 	 */
 	private function groups(bool $withAdminGroup): array {
-		$groups = $this->settings->global(GlobalSettings::NOTIFY_ADMIN_GROUP);
-		$groups = is_array($groups) ? array_map('strval', $groups) : [];
+		$groups = $this->settings->notifyAdminGroups();
 		if ($withAdminGroup && !in_array(self::ADMIN_GROUP, $groups, true)) {
 			$groups[] = self::ADMIN_GROUP;
 		}
@@ -89,13 +100,5 @@ class AdminRecipients {
 
 	private function withoutEmailKey(bool $withAdminGroup): string {
 		return 'recipients:no-email:' . md5(implode("\0", $this->groups($withAdminGroup)));
-	}
-
-	private function cache(): ?ICache {
-		if (!$this->cacheInitialised) {
-			$this->cacheInitialised = true;
-			$this->cache = $this->cacheFactory->isLocalCacheAvailable() ? $this->cacheFactory->createLocal(Application::APP_ID) : null;
-		}
-		return $this->cache;
 	}
 }

@@ -11,31 +11,40 @@ namespace OCA\IntrusionDetection\Command;
 
 use OC\Core\Command\Base;
 use OCA\IntrusionDetection\Blocklist\BlocklistOverview;
+use OCA\IntrusionDetection\Cache\Caches;
 use OCA\IntrusionDetection\Check\CheckRegistry;
-use OCA\IntrusionDetection\Check\Mode;
+use OCA\IntrusionDetection\Config\AppSettings;
+use OCA\IntrusionDetection\Config\CheckSettings;
+use OCA\IntrusionDetection\Config\CoreHooks;
 use OCA\IntrusionDetection\Config\Prerequisites;
-use OCA\IntrusionDetection\Config\Settings;
 use OCA\IntrusionDetection\Db\BanMapper;
+use OCA\IntrusionDetection\Definition\Mode;
 use OCA\IntrusionDetection\Detection\DetectionTotals;
 use OCA\IntrusionDetection\Export\FirewallExporter;
+use OCA\IntrusionDetection\Guard\AddressGuard;
 use OCA\IntrusionDetection\Learning\LearningService;
 use OCA\IntrusionDetection\Perf\GuardTimer;
 use OCP\AppFramework\Utility\ITimeFactory;
+use OCP\IConfig;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Output\OutputInterface;
 
 class Status extends Base {
 	public function __construct(
-		private readonly Settings $settings,
+		private readonly AppSettings $appSettings,
+		private readonly CheckSettings $settings,
 		private readonly CheckRegistry $registry,
 		private readonly LearningService $learning,
 		private readonly Prerequisites $prerequisites,
+		private readonly Caches $caches,
 		private readonly BanMapper $bans,
 		private readonly DetectionTotals $totals,
 		private readonly GuardTimer $timer,
 		private readonly ITimeFactory $timeFactory,
 		private readonly FirewallExporter $exporter,
 		private readonly BlocklistOverview $blocklists,
+		private readonly IConfig $config,
+		private readonly CoreHooks $hooks,
 	) {
 		parent::__construct();
 	}
@@ -60,11 +69,11 @@ class Status extends Base {
 		$lists = array_values(array_filter($this->blocklists->lists(), static fn (array $l): bool => $l['enabled']));
 
 		$status = [
-			'state' => !$this->settings->isEnabled() ? 'off' : ($this->learning->isActive() ? 'learning' : 'protecting'),
+			'state' => !$this->appSettings->isEnabled() ? 'off' : ($this->learning->isActive() ? 'learning' : 'protecting'),
 			'learning_until' => $this->learning->until() > $now ? date('c', $this->learning->until()) : null,
 			'learning_days_left' => $this->learning->daysLeft(),
 			'checks' => $modes,
-			'memory_cache' => $this->prerequisites->hasDistributedCache() ? 'distributed' : ($this->prerequisites->hasMemoryCache() ? 'local' : 'none'),
+			'memory_cache' => $this->caches->kind(),
 			'mail' => $this->prerequisites->hasMail(),
 			'active_bans' => $this->bans->countActive($now),
 			'detections_24h' => array_sum(array_map(static fn (array $c): int => $c['enforced'] + $c['observed'], $last24h)),
@@ -74,6 +83,9 @@ class Status extends Base {
 			'export' => $export,
 			'blocklists_enabled' => count($lists),
 			'blocklists_stale' => count(array_filter($lists, static fn (array $l): bool => $l['stale'])),
+			'locked' => $this->appSettings->isLocked(),
+			'guards' => $this->config->getSystemValueBool(AddressGuard::DISABLE_SWITCH, false) ? 'off' : 'on',
+			'core_hooks_missing' => $this->hooks->missing(),
 		];
 
 		if ($input->getOption('output') !== self::OUTPUT_FORMAT_PLAIN) {
@@ -86,6 +98,15 @@ class Status extends Base {
 			'learning' => sprintf('<info>Learning:</info> %d day(s) left, until %s. Checks set to Protect only observe.', $status['learning_days_left'], $status['learning_until']),
 			default => '<info>Protecting.</info>',
 		});
+		if ($status['core_hooks_missing'] !== []) {
+			$output->writeln(sprintf('<error>Nextcloud server lacks:</error> %s. The parts of intrusion detection that use them do nothing; see the setup checks.', implode(', ', $status['core_hooks_missing'])));
+		}
+		if ($status['guards'] === 'off') {
+			$output->writeln('<error>Request guards off:</error> "intrusion_detection.disable_guards" is set in config.php, so no request is checked for blocks, blocklists, trap URLs, injection probes or stolen credentials.');
+		}
+		if ($status['locked']) {
+			$output->writeln('<info>Locked in config.php:</info> intrusion detection, the admin change alerts and the approval of new administrators cannot be switched off.');
+		}
 		$output->writeln(sprintf('Checks: %d protecting, %d observing, %d off.', $modes[Mode::Protect->value], $modes[Mode::Observe->value], $modes[Mode::Off->value]));
 		$output->writeln(sprintf('Memory cache: %s. Mail: %s.', $status['memory_cache'], $status['mail'] ? 'configured' : 'not configured'));
 		$output->writeln(sprintf('Active blocks: %d. Detections in the last 24 hours: %d.', $status['active_bans'], $status['detections_24h']));

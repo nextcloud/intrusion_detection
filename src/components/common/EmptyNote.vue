@@ -36,13 +36,14 @@ defineProps<{
 .empty {
 	display: flex;
 	align-items: center;
-	gap: calc(var(--default-grid-baseline) * 3);
-	padding: calc(var(--default-grid-baseline) * 4);
+	gap: var(--ids-space-3);
+	padding: var(--ids-space-4);
 	border: 1px dashed var(--color-border-dark, var(--color-border));
 	border-radius: var(--border-radius-large);
 }
 
 .empty__icon {
+	composes: muted from '../../styles/shared.module.css';
 	display: inline-flex;
 	flex: 0 0 auto;
 	align-items: center;
@@ -51,7 +52,6 @@ defineProps<{
 	height: 44px;
 	border-radius: 50%;
 	background-color: var(--color-background-hover);
-	color: var(--color-text-maxcontrast);
 }
 
 .empty__text {
@@ -64,9 +64,9 @@ defineProps<{
 }
 
 .empty__description {
-	margin: calc(var(--default-grid-baseline) / 2) 0 0;
+	composes: muted from '../../styles/shared.module.css';
+	margin: var(--ids-space-half) 0 0;
 	max-width: 75ch;
-	color: var(--color-text-maxcontrast);
 	line-height: 1.5;
 }
 </style>

@@ -9,12 +9,11 @@ declare(strict_types=1);
 
 namespace OCA\IntrusionDetection\Personal;
 
-use OC\Authentication\TwoFactorAuth\ProviderLoader;
-use OCA\IntrusionDetection\Config\GlobalSettings;
-use OCA\IntrusionDetection\Config\Settings;
-use OCA\IntrusionDetection\Confirm\ConfirmationCoverage;
+use OCA\IntrusionDetection\Config\AppSettings;
+use OCA\IntrusionDetection\Confirm\SecondFactors;
 use OCA\IntrusionDetection\Db\DetectionFilter;
 use OCA\IntrusionDetection\Db\DetectionMapper;
+use OCA\IntrusionDetection\Notification\MailReach;
 use OCA\IntrusionDetection\Notification\UserMessages;
 use OCA\IntrusionDetection\Response\AccountProtection;
 use OCA\IntrusionDetection\Response\PasswordChangeFlag;
@@ -22,12 +21,10 @@ use OCA\IntrusionDetection\ResponseDefinitions;
 use OCA\IntrusionDetection\WasThisYou\PersonalDetections;
 use OCA\IntrusionDetection\WasThisYou\Questions;
 use OCP\AppFramework\Utility\ITimeFactory;
-use OCP\Authentication\TwoFactorAuth\IProvidesPersonalSettings;
 use OCP\IDateTimeFormatter;
 use OCP\IL10N;
 use OCP\IURLGenerator;
 use OCP\IUser;
-use Psr\Log\LoggerInterface;
 
 /**
  * The top of the user's security section (concept section 15.1): one status
@@ -46,23 +43,19 @@ use Psr\Log\LoggerInterface;
  */
 class PersonalOverview {
 	public const RECENT_DAYS = 30;
-	/** Backup codes alone are no second factor */
-	private const BACKUP_CODES = 'backup_codes';
-
 	public function __construct(
 		private readonly FailedLoginStats $failedLogins,
 		private readonly DetectionMapper $detections,
 		private readonly Questions $questions,
 		private readonly PasswordChangeFlag $passwordChange,
 		private readonly AccountProtection $protection,
-		private readonly ConfirmationCoverage $coverage,
-		private readonly ProviderLoader $providers,
+		private readonly SecondFactors $secondFactors,
+		private readonly MailReach $reach,
 		private readonly UserMessages $messages,
-		private readonly Settings $settings,
+		private readonly AppSettings $settings,
 		private readonly IDateTimeFormatter $formatter,
 		private readonly IURLGenerator $urlGenerator,
 		private readonly ITimeFactory $timeFactory,
-		private readonly LoggerInterface $logger,
 	) {
 	}
 
@@ -86,14 +79,14 @@ class PersonalOverview {
 	public function status(IUser $user, IL10N $l, \DateTimeZone $timeZone, int $failedLogins): array {
 		$uid = $user->getUID();
 		$now = $this->timeFactory->getTime();
-		$since = $now - $this->settings->getInt(GlobalSettings::RETENTION_DETECTIONS_DAYS) * 86400;
+		$since = $now - $this->settings->retentionDays() * 86400;
 		$open = 0;
 		$recent = 0;
 		foreach ($this->messages->toldToUser($this->detections->findList(new DetectionFilter(uid: $uid, since: $since, limit: PersonalDetections::MAX))) as $detection) {
 			if ($this->questions->isOpen($detection)) {
 				$open++;
 			}
-			if ($detection->getCreatedAt() >= $now - self::RECENT_DAYS * 86400) {
+			if ($detection->getCreatedTime() >= $now - self::RECENT_DAYS * 86400) {
 				$recent++;
 			}
 		}
@@ -155,31 +148,15 @@ class PersonalOverview {
 	 * @return ?IntrusionDetectionEmailHint
 	 */
 	public function emailHint(IUser $user): ?array {
-		if ((string)$user->getEMailAddress() !== '' || $this->coverage->hasSecondFactor($user)) {
+		if ($this->reach->hasAddress($user) || $this->secondFactors->has($user)) {
 			return null;
 		}
 		return [
 			'emailUrl' => $this->urlGenerator->linkToRoute('settings.PersonalSettings.index', ['section' => 'profile-contact']),
-			'secondFactorUrl' => $this->canSetUpSecondFactor($user)
+			'secondFactorUrl' => $this->secondFactors->available($user, settable: true)
 				? $this->urlGenerator->linkToRoute('settings.PersonalSettings.index', ['section' => 'security']) . '#two-factor-auth'
 				: null,
 		];
-	}
-
-	/**
-	 * Whether a second factor the user can set up is enabled on the server.
-	 */
-	private function canSetUpSecondFactor(IUser $user): bool {
-		try {
-			foreach ($this->providers->getProviders($user) as $provider) {
-				if ($provider->getId() !== self::BACKUP_CODES && $provider instanceof IProvidesPersonalSettings) {
-					return true;
-				}
-			}
-		} catch (\Throwable $e) {
-			$this->logger->warning('Intrusion detection could not list the second factor providers', ['exception' => $e]);
-		}
-		return false;
 	}
 
 	private function until(int $until, int $now, \DateTimeZone $timeZone, IL10N $l): string {

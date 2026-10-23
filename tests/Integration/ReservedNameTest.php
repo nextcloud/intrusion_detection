@@ -9,10 +9,11 @@ declare(strict_types=1);
 
 namespace OCA\IntrusionDetection\Tests\Integration;
 
-use OCA\IntrusionDetection\Check\Checks\ReservedName;
-use OCA\IntrusionDetection\Check\InvalidParamException;
-use OCA\IntrusionDetection\Check\Mode;
+use OCA\IntrusionDetection\Check\Checks\ReservedName\ReservedName;
+use OCA\IntrusionDetection\Check\Checks\ReservedName\ReservedNameFacts;
 use OCA\IntrusionDetection\Db\BanMapper;
+use OCA\IntrusionDetection\Definition\InvalidParamException;
+use OCA\IntrusionDetection\Definition\Mode;
 use OCA\IntrusionDetection\Traps\ReservedNames;
 use OCP\Server;
 use PHPUnit\Framework\Attributes\Group;
@@ -51,7 +52,7 @@ class ReservedNameTest extends LoginFailureTestCase {
 			$this->assertSame('existing_user', $e->reason);
 		}
 		$this->expectException(InvalidParamException::class);
-		$this->settings->setParam(ReservedName::ID, 'names', ['root', 'support']);
+		$this->settingsEditor()->setParam(ReservedName::ID, 'names', ['root', 'support']);
 	}
 
 	public function testAnAttemptWithAReservedNameBlocksTheSourceAndIsNotCounted(): void {
@@ -59,13 +60,13 @@ class ReservedNameTest extends LoginFailureTestCase {
 		$this->failLogin('198.51.100.7', ' Root ');
 		$detections = $this->detectionsOf(ReservedName::ID);
 		$this->assertCount(1, $detections);
-		$this->assertSame('root', $detections[0]->getExplanationData()['facts']['name']);
+		$this->assertSame('root', ReservedNameFacts::fromArray($detections[0]->getExplanationData()['facts'])->name);
 		$this->assertCount(1, Server::get(BanMapper::class)->findActiveForKeys(['198.51.100.7'], time()));
 		$this->assertSame(0, $this->rows('ids_attempts'), 'A reserved-name attempt is answered on its own');
 	}
 
 	public function testRepeatedAttemptsFromOneSourceAreOneDetection(): void {
-		$this->settings->setMode(ReservedName::ID, Mode::Observe);
+		$this->settingsEditor()->setMode(ReservedName::ID, Mode::Observe);
 		$this->names->add(['administrator'], 'test');
 		for ($i = 0; $i < 4; $i++) {
 			$this->failLogin('198.51.100.7', 'administrator');
@@ -87,7 +88,7 @@ class ReservedNameTest extends LoginFailureTestCase {
 
 	public function testOffSkipsTheCheck(): void {
 		$this->names->add(['root'], 'test');
-		$this->settings->setMode(ReservedName::ID, Mode::Off);
+		$this->settingsEditor()->setMode(ReservedName::ID, Mode::Off);
 		$this->failLogin('198.51.100.7', 'root');
 		$this->assertSame(0, $this->rows('ids_detections'));
 	}

@@ -10,13 +10,13 @@ declare(strict_types=1);
 namespace OCA\IntrusionDetection\Tests\Unit\Check;
 
 use OCA\IntrusionDetection\Check\CheckRegistry;
-use OCA\IntrusionDetection\Check\Checks\PasswordSpraying;
-use OCA\IntrusionDetection\Check\ResponseType;
+use OCA\IntrusionDetection\Check\Checks\PasswordSpraying\PasswordSpraying;
 use OCA\IntrusionDetection\Config\GlobalSettings;
 use OCA\IntrusionDetection\Config\Keys;
 use OCA\IntrusionDetection\Config\Lexicon;
+use OCA\IntrusionDetection\Config\UserKeys;
+use OCA\IntrusionDetection\Definition\ResponseType;
 use OCA\IntrusionDetection\Detection\AttemptRecorder;
-use OCA\IntrusionDetection\Response\PasswordChangeFlag;
 use OCP\Config\Lexicon\Entry;
 use OCP\L10N\IFactory;
 use OCP\Server;
@@ -105,9 +105,9 @@ class CheckRegistryTest extends TestCase {
 		foreach ((new Lexicon())->getUserConfigs() as $entry) {
 			$entries[$entry->getKey()] = $entry;
 		}
-		$this->assertArrayHasKey(PasswordChangeFlag::USER_KEY, $entries);
-		$this->assertSame('0', $entries[PasswordChangeFlag::USER_KEY]->getDefault(\OCP\Config\Lexicon\Preset::NONE), 'Stored as a string');
-		$this->assertSame(\OCP\Config\ValueType::INT, $entries[PasswordChangeFlag::USER_KEY]->getValueType());
+		$this->assertArrayHasKey(UserKeys::FORCE_PASSWORD_CHANGE, $entries);
+		$this->assertSame('0', $entries[UserKeys::FORCE_PASSWORD_CHANGE]->getDefault(\OCP\Config\Lexicon\Preset::NONE), 'Stored as a string');
+		$this->assertSame(\OCP\Config\ValueType::INT, $entries[UserKeys::FORCE_PASSWORD_CHANGE]->getValueType());
 	}
 
 	public function testConfigKeysAreValidAndShortEnough(): void {

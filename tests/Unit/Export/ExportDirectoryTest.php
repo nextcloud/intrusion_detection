@@ -70,6 +70,7 @@ class ExportDirectoryTest extends TestCase {
 			'a link into the data directory' => ['{base}/link-into-data', ExportException::INSIDE_DATA_DIRECTORY],
 			'the installation' => [$serverRoot, ExportException::INSIDE_WEB_ROOT],
 			'inside the installation' => [$serverRoot . '/apps/intrusion_detection', ExportException::INSIDE_WEB_ROOT],
+			'core of the installation' => [$serverRoot . '/lib/public', ExportException::INSIDE_WEB_ROOT],
 			'a parent of the installation' => [dirname($serverRoot), ExportException::INSIDE_WEB_ROOT],
 			'the file system root' => ['/', ExportException::INSIDE_WEB_ROOT],
 			'world-writable' => ['{base}/open', ExportException::WORLD_WRITABLE],

@@ -12,8 +12,9 @@ namespace OCA\IntrusionDetection\AdminChange;
 use OCP\IL10N;
 
 /**
- * A decision on a request for approval was refused. Carries a machine-readable
- * reason, so the admin API and occ show the same message.
+ * A decision on a request for approval was refused, or a change waits for
+ * one. Carries a machine-readable reason, so the admin API and occ show the
+ * same message.
  */
 final class ApprovalException extends \RuntimeException {
 	public const NOT_FOUND = 'not_found';
@@ -26,6 +27,16 @@ final class ApprovalException extends \RuntimeException {
 	public const GROUP_MISSING = 'group_missing';
 	/** The deciding administrator's own login was allowed without a confirmation */
 	public const UNCONFIRMED = 'unconfirmed';
+	/** A change waits for the approval of a second administrator */
+	public const HELD = 'approval_requested';
+	/** A change needs the approval of a second administrator, and there is none */
+	public const HELD_NO_APPROVER = 'no_approver';
+	/** What was approved could not be carried out; the request waits again */
+	public const NOT_CARRIED_OUT = 'not_carried_out';
+	/** Too many requests are pending, so this one was not stored */
+	public const TOO_MANY = 'too_many_requests';
+	/** Making an administrator needs a login that proved more than the password, and the deciding one did not */
+	public const NOT_PROVEN = 'not_proven';
 
 	public function __construct(
 		public readonly string $reason,
@@ -44,6 +55,11 @@ final class ApprovalException extends \RuntimeException {
 			self::SUBJECT_MISSING => $l->t('The account no longer exists.'),
 			self::GROUP_MISSING => $l->t('The group no longer exists.'),
 			self::UNCONFIRMED => $l->t('Your own login was not confirmed, so you cannot approve requests from this session. Log in again and confirm it, or ask another administrator.'),
+			self::HELD => $l->t('This change switches off the approval of new administrators, so a second administrator must approve it. The other administrators were asked; the change is made once one of them approves.'),
+			self::HELD_NO_APPROVER => $l->t('This change switches off the approval of new administrators, so a second administrator must approve it, but there is no other administrator. Make the change with occ on the server instead.'),
+			self::NOT_CARRIED_OUT => $l->t('The approved change could not be made, so the request still waits. Try again later.'),
+			self::TOO_MANY => $l->t('Too many requests are waiting for approval, so this one was not stored. Decide the open requests first.'),
+			self::NOT_PROVEN => $l->t('Approving a new administrator needs a login confirmed with more than the password: a second factor, an emailed code or a remembered device. Log in again with one of them, or ask another administrator.'),
 			default => $l->t('The request cannot be decided.'),
 		};
 	}

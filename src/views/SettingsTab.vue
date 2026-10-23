@@ -4,12 +4,12 @@
 -->
 
 <script setup lang="ts">
-import { t } from '@nextcloud/l10n'
 import ConfirmationSection from '../components/settings/ConfirmationSection.vue'
 import LearningSection from '../components/settings/LearningSection.vue'
 import NotificationsSection from '../components/settings/NotificationsSection.vue'
 import PrivacySection from '../components/settings/PrivacySection.vue'
 import { APP_ID } from '../utils/format.ts'
+import { t } from '../utils/l10n.ts'
 
 /**
  * The sections of the Settings tab. Their ids are deep-link targets.
@@ -42,14 +42,14 @@ const sections = [
 .settings {
 	display: flex;
 	flex-direction: column;
-	gap: calc(var(--default-grid-baseline) * 10);
+	gap: var(--ids-space-10);
 }
 
 .section {
 	display: flex;
 	flex-direction: column;
-	gap: calc(var(--default-grid-baseline) * 3);
-	scroll-margin-top: calc(var(--default-grid-baseline) * 4);
+	gap: var(--ids-space-3);
+	scroll-margin-top: var(--ids-space-4);
 }
 
 .section__heading {

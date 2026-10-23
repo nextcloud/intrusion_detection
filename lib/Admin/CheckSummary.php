@@ -10,7 +10,7 @@ declare(strict_types=1);
 namespace OCA\IntrusionDetection\Admin;
 
 use OCA\IntrusionDetection\Check\CheckRegistry;
-use OCA\IntrusionDetection\Config\Settings;
+use OCA\IntrusionDetection\Config\CheckSettings;
 use OCA\IntrusionDetection\ResponseDefinitions;
 use OCP\IL10N;
 
@@ -24,7 +24,7 @@ use OCP\IL10N;
 class CheckSummary {
 	public function __construct(
 		private readonly CheckRegistry $registry,
-		private readonly Settings $settings,
+		private readonly CheckSettings $settings,
 	) {
 	}
 
@@ -43,6 +43,7 @@ class CheckSummary {
 				'reason' => $state->reason,
 				'missing' => $state->missing?->value,
 				'default' => $check->defaultMode->value,
+				'locked' => $this->settings->isHeldByLock($check->id),
 			],
 		];
 	}

@@ -10,10 +10,14 @@ declare(strict_types=1);
 namespace OCA\IntrusionDetection\Tests\Unit\Login;
 
 use OC\Memcache\ArrayCache;
-use OCA\IntrusionDetection\Config\Prerequisites;
+use OCA\IntrusionDetection\Crypto\Fingerprinter;
+use OCA\IntrusionDetection\Login\CoreSession;
 use OCA\IntrusionDetection\Login\LoginGate;
-use OCP\ICacheFactory;
+use OCA\IntrusionDetection\Tests\Unit\Cache\FixedCaches;
+use OCP\Authentication\Token\IProvider;
 use OCP\ISession;
+use OCP\Server;
+use Psr\Log\LoggerInterface;
 use Test\TestCase;
 
 class LoginGateTest extends TestCase {
@@ -51,16 +55,10 @@ class LoginGateTest extends TestCase {
 	 * A gate as one request of one web server sees it.
 	 */
 	private function gate(ArrayCache $local, bool $distributed = true): LoginGate {
-		$factory = $this->createMock(ICacheFactory::class);
-		$factory->method('isAvailable')->willReturn(true);
-		$factory->method('isLocalCacheAvailable')->willReturn(true);
-		$factory->method('createDistributed')->with(LoginGate::PREFIX)->willReturn($distributed ? $this->shared : $local);
-		$factory->method('createLocal')->with(LoginGate::PREFIX)->willReturn($local);
-		$prerequisites = $this->createMock(Prerequisites::class);
-		$prerequisites->method('hasDistributedCache')->willReturn($distributed);
+		$caches = $distributed ? new FixedCaches($this->shared, $local, true) : new FixedCaches($local, $local);
 		$session = $this->createMock(ISession::class);
 		$session->method('get')->willReturnCallback(fn (string $key): ?int => $key === 'token-id' ? $this->tokenId : null);
-		return new LoginGate($factory, $prerequisites, $session);
+		return new LoginGate($caches, new CoreSession($session, $this->createMock(IProvider::class), $this->createMock(LoggerInterface::class)), Server::get(Fingerprinter::class));
 	}
 
 	public function testOneDistributedRoundTripPerCredentialAddressAndHourOnEachServer(): void {
@@ -103,10 +101,7 @@ class LoginGateTest extends TestCase {
 	}
 
 	public function testWithoutAMemoryCacheItCannotTell(): void {
-		$factory = $this->createMock(ICacheFactory::class);
-		$factory->method('isAvailable')->willReturn(false);
-		$factory->method('isLocalCacheAvailable')->willReturn(false);
-		$gate = new LoginGate($factory, $this->createMock(Prerequisites::class), $this->createMock(ISession::class));
+		$gate = new LoginGate(FixedCaches::none(), $this->createMock(CoreSession::class), Server::get(Fingerprinter::class));
 		$this->assertNull($gate->isFirst('alice', '4:203.0.113.5', self::HOUR));
 	}
 }

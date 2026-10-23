@@ -9,14 +9,14 @@ declare(strict_types=1);
 
 namespace OCA\IntrusionDetection\Tests\Integration;
 
-use OCA\IntrusionDetection\Check\Checks\RiskyNetwork;
-use OCA\IntrusionDetection\Check\Mode;
+use OCA\IntrusionDetection\Check\Checks\RiskyNetwork\RiskyNetwork;
 use OCA\IntrusionDetection\Config\ModeState;
 use OCA\IntrusionDetection\Confirm\LoginDetections;
 use OCA\IntrusionDetection\Db\DetectionMapper;
-use OCA\IntrusionDetection\Db\LoginHistoryMapper;
+use OCA\IntrusionDetection\Definition\Mode;
 use OCA\IntrusionDetection\Detection\DetectionDraft;
 use OCA\IntrusionDetection\Detection\DetectionService;
+use OCA\IntrusionDetection\LoginHistory\Db\LoginHistoryMapper;
 use OCA\IntrusionDetection\LoginHistory\LoginHistory;
 use OCA\IntrusionDetection\Net\SourceKey;
 use OCA\IntrusionDetection\Risk\RiskAssessment;
@@ -49,7 +49,7 @@ class RiskyLoginSignalsTest extends IntegrationTestCase {
 		$scorer = $this->createMock(RiskScorer::class);
 		$scorer->method('isEnabled')->willReturn($enabled);
 		$scorer->method('score')->willReturn(new RiskAssessment($score, RiskAssessment::TIER_NORMAL, 1.0, [], 2, 4));
-		return new UnknownDeviceSignal($this->history, $scorer);
+		return new UnknownDeviceSignal(Server::get(LoginHistory::class), $scorer);
 	}
 
 	public function testAPasswordLoginFromAnUnknownDeviceOnARaisedScoreIsRisky(): void {
@@ -77,8 +77,8 @@ class RiskyLoginSignalsTest extends IntegrationTestCase {
 		$this->login($at, LoginHistory::METHOD_PASSWORD, false, 51);
 		$service = Server::get(DetectionService::class);
 		$protect = new ModeState(Mode::Protect, Mode::Protect);
-		$service->record(new DetectionDraft(RiskyNetwork::ID, SourceKey::fromIp('198.51.100.7'), 'alice', [LoginDetections::FACT => [50, 51]]), $protect);
-		$signal = new RiskyNetworkSignal(Server::get(DetectionMapper::class), $this->history, Server::get(ITimeFactory::class));
+		$service->record(new DetectionDraft(RiskyNetwork::ID, SourceKey::fromIp('198.51.100.7'), 'alice', self::factsOf(RiskyNetwork::ID, [LoginDetections::FACT => [50, 51]])), $protect);
+		$signal = new RiskyNetworkSignal(Server::get(DetectionMapper::class), Server::get(LoginHistory::class), Server::get(ITimeFactory::class));
 
 		$login = $signal->riskyLogin('alice', 51);
 		$this->assertSame($at, $login?->at, 'From the login history');

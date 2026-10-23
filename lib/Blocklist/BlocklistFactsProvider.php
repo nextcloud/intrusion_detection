@@ -12,12 +12,12 @@ namespace OCA\IntrusionDetection\Blocklist;
 use OCA\IntrusionDetection\Address\AddressCache;
 use OCA\IntrusionDetection\Address\AddressFacts;
 use OCA\IntrusionDetection\Address\IAddressFactsProvider;
-use OCA\IntrusionDetection\Check\Checks\BlocklistMatch;
-use OCA\IntrusionDetection\Check\Checks\RiskyNetwork;
-use OCA\IntrusionDetection\Config\GlobalSettings;
-use OCA\IntrusionDetection\Config\Settings;
-use OCA\IntrusionDetection\Db\BlocklistRangeMapper;
-use OCA\IntrusionDetection\Db\BlocklistStatMapper;
+use OCA\IntrusionDetection\Blocklist\Db\BlocklistRangeMapper;
+use OCA\IntrusionDetection\Blocklist\Db\BlocklistStatMapper;
+use OCA\IntrusionDetection\Check\Checks\BlocklistMatch\BlocklistMatch;
+use OCA\IntrusionDetection\Check\Checks\RiskyNetwork\RiskyNetwork;
+use OCA\IntrusionDetection\Config\AppSettings;
+use OCA\IntrusionDetection\Config\CheckSettings;
 use OCA\IntrusionDetection\Net\RangeCodec;
 use OCA\IntrusionDetection\Net\SourceKey;
 use OCP\AppFramework\Utility\ITimeFactory;
@@ -53,7 +53,8 @@ class BlocklistFactsProvider implements IAddressFactsProvider {
 		private readonly StateStore $states,
 		private readonly BlocklistRangeMapper $ranges,
 		private readonly BlocklistStatMapper $stats,
-		private readonly Settings $settings,
+		private readonly AppSettings $appSettings,
+		private readonly CheckSettings $settings,
 		private readonly AddressCache $addressCache,
 		private readonly ITimeFactory $timeFactory,
 		private readonly LoggerInterface $logger,
@@ -98,7 +99,7 @@ class BlocklistFactsProvider implements IAddressFactsProvider {
 					continue;
 				}
 			} else {
-				$attributesUsed ??= $this->settings->modeState(RiskyNetwork::ID)->runs() || $this->settings->getBool(GlobalSettings::RISK_ENABLED);
+				$attributesUsed ??= $this->settings->modeState(RiskyNetwork::ID)->runs() || $this->appSettings->riskEnabled();
 				if (!$attributesUsed) {
 					continue;
 				}

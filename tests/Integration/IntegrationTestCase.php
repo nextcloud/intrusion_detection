@@ -10,23 +10,38 @@ declare(strict_types=1);
 namespace OCA\IntrusionDetection\Tests\Integration;
 
 use OCA\IntrusionDetection\AppInfo\Application;
+use OCA\IntrusionDetection\Audit\AuditLogger;
 use OCA\IntrusionDetection\BackgroundJob\AlertMailJob;
-use OCA\IntrusionDetection\Check\Checks\AdminChange;
-use OCA\IntrusionDetection\Check\Mode;
+use OCA\IntrusionDetection\Cache\Caches;
+use OCA\IntrusionDetection\Check\CheckRegistry;
+use OCA\IntrusionDetection\Check\Checks\AdminChange\AdminChange;
+use OCA\IntrusionDetection\Config\AppSettings;
+use OCA\IntrusionDetection\Config\CheckSettings;
 use OCA\IntrusionDetection\Config\GlobalSettings;
 use OCA\IntrusionDetection\Config\Keys;
+use OCA\IntrusionDetection\Config\ModeState;
+use OCA\IntrusionDetection\Config\Prerequisites;
+use OCA\IntrusionDetection\Configure\SettingsEditor;
+use OCA\IntrusionDetection\Db\Detection;
 use OCA\IntrusionDetection\Db\DetectionMapper;
-use OCA\IntrusionDetection\Login\EstablishedAccounts;
+use OCA\IntrusionDetection\Definition\Mode;
+use OCA\IntrusionDetection\Detection\DetectionDraft;
+use OCA\IntrusionDetection\Detection\DetectionService;
+use OCA\IntrusionDetection\Detection\IFacts;
 use OCA\IntrusionDetection\Notification\AdminAlerts;
-use OCA\IntrusionDetection\Notification\AdminRecipients;
 use OCA\IntrusionDetection\Notification\ShareOwnerAlerts;
 use OCA\IntrusionDetection\Notification\UserAlerts;
-use OCA\IntrusionDetection\Response\BanExemptions;
+use OCA\IntrusionDetection\Response\ResponseEngine;
+use OCA\IntrusionDetection\Signal\SignalDispatcher;
+use OCA\IntrusionDetection\State\AppState;
 use OCP\AppFramework\Utility\ITimeFactory;
 use OCP\BackgroundJob\IJobList;
+use OCP\EventDispatcher\IEventDispatcher;
 use OCP\IAppConfig;
+use OCP\IConfig;
 use OCP\IDBConnection;
 use OCP\Server;
+use Psr\Log\LoggerInterface;
 use Test\TestCase;
 
 /**
@@ -37,8 +52,8 @@ use Test\TestCase;
  * the tests change; its own tests switch it on.
  */
 abstract class IntegrationTestCase extends TestCase {
-	/** Tables emptied before and after each test */
-	public const TABLES = ['ids_attempts', 'ids_logins', 'ids_detections', 'ids_bans', 'ids_flags', 'ids_blocklist_ranges', 'ids_blocklist_stats', 'ids_protected_accounts', 'ids_alerts', 'ids_decoys', 'ids_reset_suppressions', 'ids_token_origin', 'ids_approvals', 'ids_config_snapshot', 'ids_trusted_networks', 'ids_step_up_sessions', 'ids_known_devices', 'ids_login_history', 'ids_security_changes', 'ids_lock_links', 'ids_user_daily', 'ids_detection_accounts', 'ids_detection_hourly', 'ids_state'];
+	/** @var list<string>|null */
+	private static ?array $tables = null;
 
 	protected IDBConnection $db;
 	protected IAppConfig $appConfig;
@@ -107,15 +122,85 @@ abstract class IntegrationTestCase extends TestCase {
 		return $jobs;
 	}
 
+	protected function checkSettings(): CheckSettings {
+		return Server::get(CheckSettings::class);
+	}
+
+	protected function appSettings(): AppSettings {
+		return Server::get(AppSettings::class);
+	}
+
+	/**
+	 * The signal dispatcher, with some detectors (or the response engine)
+	 * replaced for one test.
+	 *
+	 * @param array<string, object> $detectors
+	 */
+	protected function dispatcher(array $detectors = [], ?ResponseEngine $engine = null, ?LoggerInterface $logger = null): SignalDispatcher {
+		return new SignalDispatcher($this->checkSettings(), $engine ?? Server::get(ResponseEngine::class), new OverridingContainer($detectors), $logger ?? Server::get(LoggerInterface::class));
+	}
+
+	/**
+	 * Store a detection as if its check acted, without running any response.
+	 */
+	protected function storeDetection(DetectionDraft $draft): Detection {
+		return Server::get(DetectionService::class)->record($draft, new ModeState(Mode::Protect, Mode::Protect))[0];
+	}
+
+	/**
+	 * Facts given as a check stores them, read by the check's facts class.
+	 *
+	 * @param array<string, mixed> $stored
+	 */
+	protected static function factsOf(string $checkId, array $stored): IFacts {
+		/** @var class-string<IFacts> $class */
+		$class = Server::get(CheckRegistry::class)->classOf($checkId) . 'Facts';
+		return $class::fromArray($stored);
+	}
+
+	protected function settingsEditor(): SettingsEditor {
+		return Server::get(SettingsEditor::class);
+	}
+
+	/**
+	 * The check settings and their editor of a server with these prerequisites.
+	 *
+	 * @return array{CheckSettings, SettingsEditor}
+	 */
+	protected function settingsOn(Prerequisites $prerequisites): array {
+		$appConfig = Server::get(IAppConfig::class);
+		$checks = new CheckSettings($appConfig, $this->appSettings(), $prerequisites);
+		return [$checks, new SettingsEditor($appConfig, $checks, $this->appSettings(), Server::get(CheckRegistry::class), $prerequisites, Server::get(GlobalSettings::class), Server::get(IEventDispatcher::class), Server::get(AppState::class), Server::get(AuditLogger::class))];
+	}
+
+	/**
+	 * The app's tables, read from the database schema, without the table
+	 * prefix. Each test starts and ends with all of them empty.
+	 *
+	 * @return list<string>
+	 */
+	public static function tables(): array {
+		if (self::$tables === null) {
+			$prefix = Server::get(IConfig::class)->getSystemValueString('dbtableprefix', 'oc_');
+			self::$tables = [];
+			foreach (Server::get(IDBConnection::class)->createSchema()->getTables() as $table) {
+				$name = substr($table->getName(), strlen($prefix));
+				if (str_starts_with($table->getName(), $prefix . 'ids_')) {
+					self::$tables[] = $name;
+				}
+			}
+			sort(self::$tables);
+		}
+		return self::$tables;
+	}
+
 	private function reset(): void {
 		Server::get(IJobList::class)->remove(AlertMailJob::class);
-		foreach (static::TABLES as $table) {
+		foreach (self::tables() as $table) {
 			$this->db->getQueryBuilder()->delete($table)->executeStatement();
 		}
-		// Facts these services remember in the memory cache would outlive a test.
-		foreach ([BanExemptions::class, AdminRecipients::class, EstablishedAccounts::class] as $class) {
-			self::invokePrivate(Server::get($class), 'cache')?->clear();
-		}
+		// What the services remember in the memory cache would outlive a test.
+		Server::get(Caches::class)->clear();
 		foreach ($this->appConfig->getKeys(Application::APP_ID) as $key) {
 			if ($key !== 'enabled' && $key !== 'installed_version' && $key !== 'types') {
 				$this->appConfig->deleteKey(Application::APP_ID, $key);

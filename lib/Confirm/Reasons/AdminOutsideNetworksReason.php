@@ -9,22 +9,18 @@ declare(strict_types=1);
 
 namespace OCA\IntrusionDetection\Confirm\Reasons;
 
-use OCA\IntrusionDetection\AdminChange\Approvers;
-use OCA\IntrusionDetection\AdminChange\DelegatedGroups;
-use OCA\IntrusionDetection\Config\GlobalSettings;
-use OCA\IntrusionDetection\Config\Settings;
+use OCA\IntrusionDetection\Config\AppSettings;
+use OCA\IntrusionDetection\Confirm\Administrators;
 use OCA\IntrusionDetection\Confirm\IStepUpReason;
-use OCA\IntrusionDetection\Confirm\LoginContext;
 use OCA\IntrusionDetection\Confirm\StepUpPolicy;
+use OCA\IntrusionDetection\Login\LoginContext;
 use OCA\IntrusionDetection\Net\RangeCodec;
-use OCP\IGroupManager;
-use OCP\IUser;
 
 /**
  * An administrator logs in from outside the trusted networks
  * (`risky_network_office_networks`) while `admin_trusted_networks_only` is
  * on. Administrators are the members of the admin group and of groups with
- * delegated administration settings ({@see DelegatedGroups}). The networks
+ * delegated administration settings ({@see Administrators}). The networks
  * of a user's "Yes, it was me" do not count: the point is the network.
  *
  * Nothing is read while the switch is off; otherwise the cached network
@@ -35,9 +31,8 @@ use OCP\IUser;
  */
 class AdminOutsideNetworksReason implements IStepUpReason {
 	public function __construct(
-		private readonly Settings $settings,
-		private readonly IGroupManager $groupManager,
-		private readonly DelegatedGroups $delegated,
+		private readonly AppSettings $settings,
+		private readonly Administrators $administrators,
 	) {
 	}
 
@@ -48,29 +43,12 @@ class AdminOutsideNetworksReason implements IStepUpReason {
 
 	#[\Override]
 	public function applies(LoginContext $login): bool {
-		if (!$this->settings->getBool(GlobalSettings::ADMIN_TRUSTED_NETWORKS_ONLY)) {
+		if (!$this->settings->adminTrustedNetworksOnly()) {
 			return false;
 		}
-		$networks = $this->settings->global(GlobalSettings::RISKY_NETWORK_OFFICE_NETWORKS);
-		if ($login->source !== null && is_array($networks) && RangeCodec::firstContaining($networks, $login->source) !== null) {
+		if ($login->source !== null && RangeCodec::firstContaining($this->settings->riskyNetworkOfficeNetworks(), $login->source) !== null) {
 			return false;
 		}
-		return $this->isAdministrator($login->user);
-	}
-
-	private function isAdministrator(IUser $user): bool {
-		if ($this->groupManager->isInGroup($user->getUID(), Approvers::ADMIN_GROUP)) {
-			return true;
-		}
-		$delegations = $this->delegated->all();
-		if ($delegations === []) {
-			return false;
-		}
-		foreach ($this->groupManager->getUserGroupIds($user) as $gid) {
-			if (isset($delegations[$gid])) {
-				return true;
-			}
-		}
-		return false;
+		return $this->administrators->isAdministrator($login->user);
 	}
 }

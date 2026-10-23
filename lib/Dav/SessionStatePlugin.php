@@ -9,10 +9,7 @@ declare(strict_types=1);
 
 namespace OCA\IntrusionDetection\Dav;
 
-use OCA\IntrusionDetection\SessionState\SessionState;
-use OCA\IntrusionDetection\SessionState\SessionStateRules;
-use OCP\IUserSession;
-use Psr\Log\LoggerInterface;
+use OCA\IntrusionDetection\SessionState\SessionGate;
 use Sabre\DAV\Exception\Forbidden;
 use Sabre\DAV\Server;
 use Sabre\DAV\ServerPlugin;
@@ -20,13 +17,12 @@ use Sabre\HTTP\RequestInterface;
 use Sabre\HTTP\ResponseInterface;
 
 /**
- * Applies the session-state rules to WebDAV requests, after Sabre's
+ * Applies the session gate ({@see SessionGate}) to WebDAV requests, after Sabre's
  * authentication. A blocked request gets 403 and a header that says why
  * (e.g. `X-Nextcloud-Password-Change: required`). The 403 is Sabre's own
  * Forbidden, which the DAV app logs at debug level only. A rate limit gets
  * 429 with `Retry-After`.
- * Nothing but one session read happens while no rule applies; a failure
- * lets the request pass.
+ * Nothing but one session read happens while no rule applies.
  */
 class SessionStatePlugin extends ServerPlugin {
 	/** After the authentication plugin (priority 10) */
@@ -35,10 +31,7 @@ class SessionStatePlugin extends ServerPlugin {
 	private ?Server $server = null;
 
 	public function __construct(
-		private readonly SessionStateRules $rules,
-		private readonly SessionState $state,
-		private readonly IUserSession $userSession,
-		private readonly LoggerInterface $logger,
+		private readonly SessionGate $gate,
 	) {
 	}
 
@@ -58,15 +51,7 @@ class SessionStatePlugin extends ServerPlugin {
 	 * @throws Forbidden
 	 */
 	public function beforeMethod(RequestInterface $request, ResponseInterface $response): bool {
-		try {
-			if (!$this->userSession->isLoggedIn()) {
-				return true;
-			}
-			$block = $this->rules->checkDav($this->state, $request->getMethod(), $request->getUrl());
-		} catch (\Throwable $e) {
-			$this->logger->error('Intrusion detection could not check the session state of a WebDAV request', ['exception' => $e]);
-			return true;
-		}
+		$block = $this->gate->decideDav($request->getMethod(), $request->getUrl());
 		if ($block !== null && $block->isRateLimit()) {
 			// Answered here rather than thrown: the DAV app logs unknown exceptions as critical.
 			$response->setStatus(429);

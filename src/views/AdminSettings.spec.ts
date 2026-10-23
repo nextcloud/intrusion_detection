@@ -3,9 +3,11 @@
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 
+import type { TabDefinition } from '../extensions.ts'
+
 import { enableAutoUnmount, flushPromises, mount } from '@vue/test-utils'
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
-import { defineComponent, h, inject } from 'vue'
+import { defineComponent } from 'vue'
 import AdminSettings from './AdminSettings.vue'
 import { fetchWaitingLogins } from '../services/api.ts'
 import { state, waitingLogins } from '../store.ts'
@@ -16,11 +18,17 @@ vi.mock('../services/api.ts', async (importOriginal) => ({
 	fetchWaitingLogins: vi.fn(() => Promise.resolve([])),
 }))
 
-const OpenCheck = defineComponent({
-	setup() {
-		const openCheck = inject<{ value: string | null }>('ids-open-check')
-		return () => h('div', { 'data-test': 'open-check' }, openCheck?.value ?? '')
-	},
+// Every tab shows which check a link opened.
+vi.mock('../extensions.ts', async (importOriginal) => {
+	const original = await importOriginal<{ tabs: TabDefinition[] }>()
+	const { defineComponent, h, inject } = await import('vue')
+	const OpenCheck = defineComponent({
+		setup() {
+			const openCheck = inject<{ value: string | null }>('ids-open-check')
+			return () => h('div', { 'data-test': 'open-check' }, openCheck?.value ?? '')
+		},
+	})
+	return { ...original, tabs: original.tabs.map((tab) => ({ ...tab, component: OpenCheck })) }
 })
 
 enableAutoUnmount(afterEach)
@@ -39,7 +47,7 @@ describe('the admin page', () => {
 
 	const mountPage = () => mount(AdminSettings, {
 		attachTo: document.body,
-		global: { stubs: { KeepAlive: defineComponent({ setup: (_, { slots }) => () => slots.default?.() }), TabContent: OpenCheck } },
+		global: { stubs: { KeepAlive: defineComponent({ setup: (_, { slots }) => () => slots.default?.() }) } },
 	})
 
 	const tabIds = (wrapper: ReturnType<typeof mountPage>) => wrapper.findAll('[role="tab"]').map((tab) => tab.attributes('data-tab'))
@@ -77,7 +85,7 @@ describe('the admin page', () => {
 
 	test('looks for waiting logins and counts them in the header', async () => {
 		state.status = makeStatus({ problems: [] })
-		vi.mocked(fetchWaitingLogins).mockResolvedValue([{ id: 7, uid: 'alice', displayName: 'Alice', ip: null, createdAt: 1, expiresAt: 2, canDecide: true }])
+		vi.mocked(fetchWaitingLogins).mockResolvedValue([{ id: '7', uid: 'alice', displayName: 'Alice', ip: null, createdAt: 1, expiresAt: 2, canDecide: true }])
 		const wrapper = mountPage()
 		await flushPromises()
 		expect(fetchWaitingLogins).toHaveBeenCalled()
@@ -110,6 +118,23 @@ describe('the admin page', () => {
 		expect(activeTab(wrapper)).toBe('settings')
 		await navigate('#accounts')
 		expect(activeTab(wrapper)).toBe('settings')
+	})
+
+	test('a malformed link opens the overview, and later links still work', async () => {
+		window.history.replaceState(null, '', '#%E0')
+		const wrapper = mountPage()
+		await flushPromises()
+		expect(activeTab(wrapper)).toBe('overview')
+		const errors = vi.fn()
+		window.addEventListener('error', errors)
+		try {
+			await navigate('#protection/%E0%A4%A')
+			expect(errors).not.toHaveBeenCalled()
+			await navigate('#incidents')
+			expect(activeTab(wrapper)).toBe('incidents')
+		} finally {
+			window.removeEventListener('error', errors)
+		}
 	})
 
 	test('a link to a section scrolls to it', async () => {

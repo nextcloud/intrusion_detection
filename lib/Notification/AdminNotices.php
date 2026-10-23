@@ -10,7 +10,7 @@ declare(strict_types=1);
 namespace OCA\IntrusionDetection\Notification;
 
 use OCA\IntrusionDetection\AppInfo\Application;
-use OCA\IntrusionDetection\Db\AlertMapper;
+use OCA\IntrusionDetection\Notification\Db\AlertMapper;
 use OCP\AppFramework\Utility\ITimeFactory;
 use OCP\Notification\IManager as INotificationManager;
 
@@ -49,7 +49,7 @@ class AdminNotices {
 	 * @param self::REASON_* $reason
 	 * @return int how many administrators were notified
 	 */
-	public function userUnreachable(string $uid, int $detectionId, string $checkId, string $reason): int {
+	public function userUnreachable(string $uid, string $detectionId, string $checkId, string $reason): int {
 		return $this->send(self::SUBJECT_USER_UNREACHABLE, $checkId, $uid, [
 			'uid' => $uid,
 			'detection' => $detectionId,
@@ -60,7 +60,7 @@ class AdminNotices {
 	/**
 	 * @return int how many administrators were notified
 	 */
-	public function externalPassword(string $uid, ?int $detectionId, string $checkId): int {
+	public function externalPassword(string $uid, ?string $detectionId, string $checkId): int {
 		return $this->send(self::SUBJECT_PASSWORD_EXTERNAL, $checkId, $uid, [
 			'uid' => $uid,
 			'detection' => $detectionId,
@@ -86,7 +86,7 @@ class AdminNotices {
 			$notification->setApp(Application::APP_ID)
 				->setUser($admin->getUID())
 				->setDateTime(new \DateTime('@' . $now))
-				->setObject(self::OBJECT_TYPE, (string)$alertId)
+				->setObject(self::OBJECT_TYPE, $alertId)
 				->setSubject($subject, $parameters);
 			$this->notifications->notify($notification);
 			$sent++;

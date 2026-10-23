@@ -32,7 +32,7 @@ class AlertMailJobTest extends TestCase {
 		parent::setUp();
 		$this->detection = new Detection();
 		$this->detections = $this->createMock(DetectionMapper::class);
-		$this->detections->method('findById')->willReturnCallback(fn (int $id): Detection => $id === 7 ? $this->detection : throw new DoesNotExistException('gone'));
+		$this->detections->method('findById')->willReturnCallback(fn (string $id): Detection => $id === '7' ? $this->detection : throw new DoesNotExistException('gone'));
 		$this->users = $this->createMock(UserAlerts::class);
 		$this->admins = $this->createMock(AdminAlerts::class);
 		$this->shareOwners = $this->createMock(ShareOwnerAlerts::class);
@@ -42,9 +42,9 @@ class AlertMailJobTest extends TestCase {
 		$this->users->expects($this->once())->method('sendMail')->with($this->detection, 'alice');
 		$this->admins->expects($this->once())->method('sendMail')->with($this->detection);
 		$this->shareOwners->expects($this->once())->method('sendMail')->with($this->detection);
-		$this->runJob(['kind' => MailQueue::KIND_USER, 'detection' => 7, 'uid' => 'alice']);
-		$this->runJob(['kind' => MailQueue::KIND_ADMIN, 'detection' => 7]);
-		$this->runJob(['kind' => MailQueue::KIND_SHARE_OWNER, 'detection' => 7]);
+		$this->runJob(['kind' => MailQueue::KIND_USER, 'detection' => '7', 'uid' => 'alice']);
+		$this->runJob(['kind' => MailQueue::KIND_ADMIN, 'detection' => '7']);
+		$this->runJob(['kind' => MailQueue::KIND_SHARE_OWNER, 'detection' => '7']);
 	}
 
 	public function testABrokenArgumentOrADeletedDetectionSendsNothing(): void {
@@ -52,10 +52,10 @@ class AlertMailJobTest extends TestCase {
 		$this->admins->expects($this->never())->method('sendMail');
 		$this->shareOwners->expects($this->never())->method('sendMail');
 		$this->runJob(null);
-		$this->runJob(['kind' => MailQueue::KIND_USER, 'detection' => 7]);
-		$this->runJob(['kind' => MailQueue::KIND_USER, 'detection' => '7', 'uid' => 'alice']);
-		$this->runJob(['kind' => 'other', 'detection' => 7]);
-		$this->runJob(['kind' => MailQueue::KIND_ADMIN, 'detection' => 8]);
+		$this->runJob(['kind' => MailQueue::KIND_USER, 'detection' => '7']);
+		$this->runJob(['kind' => MailQueue::KIND_USER, 'detection' => 7, 'uid' => 'alice']);
+		$this->runJob(['kind' => 'other', 'detection' => '7']);
+		$this->runJob(['kind' => MailQueue::KIND_ADMIN, 'detection' => '8']);
 	}
 
 	private function runJob(mixed $argument): void {

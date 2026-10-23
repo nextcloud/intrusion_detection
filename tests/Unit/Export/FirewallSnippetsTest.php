@@ -9,7 +9,7 @@ declare(strict_types=1);
 
 namespace OCA\IntrusionDetection\Tests\Unit\Export;
 
-use OCA\IntrusionDetection\Config\Settings;
+use OCA\IntrusionDetection\Config\AppSettings;
 use OCA\IntrusionDetection\Export\ExportDirectory;
 use OCA\IntrusionDetection\Export\ExportRenderer;
 use OCA\IntrusionDetection\Export\FirewallSnippets;
@@ -111,8 +111,8 @@ class FirewallSnippetsTest extends TestCase {
 	private function snippets(?string $dir): FirewallSnippets {
 		$directory = $this->createMock(ExportDirectory::class);
 		$directory->method('configured')->willReturn($dir);
-		$settings = $this->createMock(Settings::class);
-		$settings->method('getInt')->willReturn(14400);
+		$settings = $this->createMock(AppSettings::class);
+		$settings->method('banDurations')->willReturn([1 => 14400, 2 => 86400, 3 => 604800]);
 		return new FirewallSnippets($directory, $settings);
 	}
 }

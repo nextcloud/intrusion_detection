@@ -14,38 +14,41 @@ use OC\Memcache\ArrayCache;
 use OCA\IntrusionDetection\Address\Verdict;
 use OCA\IntrusionDetection\AppInfo\Application;
 use OCA\IntrusionDetection\Audit\AuditLogger;
+use OCA\IntrusionDetection\Cache\Caches;
 use OCA\IntrusionDetection\Check\CheckRegistry;
-use OCA\IntrusionDetection\Check\Checks\DirectoryScraping;
-use OCA\IntrusionDetection\Check\Checks\DirectoryScrapingDetector;
-use OCA\IntrusionDetection\Check\InvalidParamException;
-use OCA\IntrusionDetection\Check\Mode;
-use OCA\IntrusionDetection\Check\Requirement;
-use OCA\IntrusionDetection\Check\ResponseType;
+use OCA\IntrusionDetection\Check\Checks\DirectoryScraping\DirectoryCounter;
+use OCA\IntrusionDetection\Check\Checks\DirectoryScraping\DirectoryScraping;
+use OCA\IntrusionDetection\Check\Checks\DirectoryScraping\DirectoryScrapingFacts;
+use OCA\IntrusionDetection\Config\CheckSettings;
+use OCA\IntrusionDetection\Config\CoreHooks;
 use OCA\IntrusionDetection\Config\GlobalSettings;
 use OCA\IntrusionDetection\Config\ModeState;
 use OCA\IntrusionDetection\Config\Prerequisites;
-use OCA\IntrusionDetection\Config\Settings;
+use OCA\IntrusionDetection\Crypto\Fingerprinter;
 use OCA\IntrusionDetection\Db\Detection;
 use OCA\IntrusionDetection\Db\DetectionFilter;
 use OCA\IntrusionDetection\Db\DetectionMapper;
+use OCA\IntrusionDetection\Definition\InvalidParamException;
+use OCA\IntrusionDetection\Definition\Mode;
+use OCA\IntrusionDetection\Definition\Requirement;
+use OCA\IntrusionDetection\Definition\ResponseType;
 use OCA\IntrusionDetection\Detection\DetectionService;
 use OCA\IntrusionDetection\Event\TypedEvents;
 use OCA\IntrusionDetection\Explain\NarrativeBuilder;
-use OCA\IntrusionDetection\Guard\RequestContext;
+use OCA\IntrusionDetection\Login\CoreSession;
+use OCA\IntrusionDetection\Login\RequestContext;
+use OCA\IntrusionDetection\Login\SessionMarkers;
 use OCA\IntrusionDetection\Net\RemoteAddressResolver;
 use OCA\IntrusionDetection\Net\ServerAddresses;
 use OCA\IntrusionDetection\Response\ResponseEngine;
 use OCA\IntrusionDetection\Sensitive\DirectoryRoutes;
-use OCA\IntrusionDetection\SessionState\CurrentSession;
 use OCA\IntrusionDetection\SessionState\RequestTarget;
 use OCA\IntrusionDetection\SessionState\Rules\DirectoryScrapingRule;
 use OCA\IntrusionDetection\SessionState\SessionBlock;
-use OCA\IntrusionDetection\SessionState\SessionState;
+use OCA\IntrusionDetection\Tests\Unit\Cache\FixedCaches;
 use OCP\AppFramework\Controller;
 use OCP\AppFramework\Utility\ITimeFactory;
-use OCP\EventDispatcher\IEventDispatcher;
 use OCP\IAppConfig;
-use OCP\ICacheFactory;
 use OCP\IConfig;
 use OCP\IDBConnection;
 use OCP\IRequest;
@@ -70,7 +73,7 @@ class DirectoryScrapingTest extends IntegrationTestCase {
 	private const NOW = 1792490400;
 
 	private OperationCountingCache $cache;
-	private Settings $settings;
+	private CheckSettings $settings;
 	private int $now = self::NOW;
 	private string $route = 'ocs.core.autocomplete.get';
 	private ?string $providerId = null;
@@ -81,7 +84,7 @@ class DirectoryScrapingTest extends IntegrationTestCase {
 		parent::setUp();
 		$this->cache = new OperationCountingCache();
 		$this->settings = $this->settingsWith(true);
-		$this->settings->setParam(DirectoryScraping::ID, 'limit_search', 10);
+		$this->settingsEditor()->setParam(DirectoryScraping::ID, 'limit_search', 10);
 	}
 
 	public function testOtherRequestsCostNothing(): void {
@@ -97,16 +100,30 @@ class DirectoryScrapingTest extends IntegrationTestCase {
 		$this->assertSame(0, $this->queries() - $queries, 'No database query');
 	}
 
-	public function testAMatchingRequestCostsOneCacheIncrementAndNoQuery(): void {
+	public function testAMatchingRequestCostsTwoCacheOperationsAndNoQuery(): void {
 		$this->rule()->check($this->state(), $this->appTarget());
-		$this->assertSame(['inc' => 1, 'set' => 1], $this->cache->byType, 'The first request of a bucket also sets the lifetime');
+		$this->assertSame(['add' => 1, 'set' => 1, 'inc' => 1], $this->cache->byType, 'The first request of a bucket creates the counter with its lifetime, then counts');
 		$queries = $this->queries();
 		$this->cache->reset();
 		for ($i = 0; $i < 5; $i++) {
 			$this->assertNull($this->rule()->check($this->state(), $this->appTarget()));
 		}
-		$this->assertSame(['inc' => 5], $this->cache->byType, 'One increment per request');
+		$this->assertSame(['add' => 5, 'inc' => 5], $this->cache->byType, 'One add that finds the counter, and one increment, per request');
 		$this->assertSame(0, $this->queries() - $queries, 'No database query');
+	}
+
+	public function testACountBetweenTheFirstIncrementAndItsLifetimeIsNotLost(): void {
+		$counter = $this->detector($this->settings, $this->cacheFactory());
+		$counted = null;
+		// Another web server counts right after this request's first increment.
+		$this->cache->afterInc = function (string $key) use (&$counted): void {
+			$counted = $key;
+			$this->cache->inc($key);
+		};
+		$counter->count('alice', DirectoryRoutes::GROUPS[0]);
+		$counter->count('alice', DirectoryRoutes::GROUPS[0]);
+		$this->assertIsString($counted);
+		$this->assertSame(3, $this->cache->get($counted), 'all three requests are counted');
 	}
 
 	public function testAboveTheLimitTheAccountGets429UntilTheBucketEnds(): void {
@@ -127,10 +144,10 @@ class DirectoryScrapingTest extends IntegrationTestCase {
 		$this->assertTrue($detection->isEnforced());
 		$this->assertSame('alice', $detection->getUid());
 		$this->assertSame('203.0.113.9', $detection->getIp());
-		$facts = $detection->getExplanationData()['facts'];
-		$this->assertSame(DirectoryRoutes::GROUP_SEARCH, $facts['group']);
-		$this->assertSame(11, $facts['count']);
-		$this->assertSame(10, $facts['limit']);
+		$facts = DirectoryScrapingFacts::fromArray($detection->getExplanationData()['facts']);
+		$this->assertSame(DirectoryRoutes::GROUP_SEARCH, $facts->group);
+		$this->assertSame(11, $facts->count);
+		$this->assertSame(10, $facts->limit);
 		$this->assertSame(['rate_limit', 'notify_admin'], array_column($detection->getActionList(), 'type'));
 
 		$this->assertNotNull($this->rule()->check($this->state(), $this->appTarget()), 'Still refused');
@@ -148,7 +165,6 @@ class DirectoryScrapingTest extends IntegrationTestCase {
 		$l = Server::get(IFactory::class)->get(Application::APP_ID, 'en');
 		$narrative = Server::get(NarrativeBuilder::class)->build($this->detections()[0], $l);
 		$this->assertSame('Directory scraping', $narrative->title);
-		$this->assertStringContainsString('The account alice made 11 searches for people within 10 minutes, from 203.0.113.9. The limit at that time was 10.', implode(' ', $narrative->happened));
 		$this->assertStringContainsString('Further searches for people of the account were refused until', implode(' ', $narrative->done));
 	}
 
@@ -171,7 +187,7 @@ class DirectoryScrapingTest extends IntegrationTestCase {
 	}
 
 	public function testObserveRecordsWhatWouldHaveHappenedAndRefusesNothing(): void {
-		$this->settings->setMode(DirectoryScraping::ID, Mode::Observe);
+		$this->settingsEditor()->setMode(DirectoryScraping::ID, Mode::Observe);
 		for ($i = 0; $i < 15; $i++) {
 			$this->assertNull($this->rule()->check($this->state(), $this->appTarget()));
 		}
@@ -184,7 +200,7 @@ class DirectoryScrapingTest extends IntegrationTestCase {
 	}
 
 	public function testLearningModeOnlyObserves(): void {
-		$this->settings->setGlobal(GlobalSettings::LEARNING_UNTIL, time() + 86400);
+		$this->settingsEditor()->setGlobal(GlobalSettings::LEARNING_UNTIL, time() + 86400);
 		for ($i = 0; $i < 12; $i++) {
 			$this->assertNull($this->rule()->check($this->state(), $this->appTarget()));
 		}
@@ -192,7 +208,7 @@ class DirectoryScrapingTest extends IntegrationTestCase {
 	}
 
 	public function testWithoutTheRateLimitResponseNothingIsRefused(): void {
-		$this->settings->setResponses(DirectoryScraping::ID, [ResponseType::NotifyAdmin]);
+		$this->settingsEditor()->setResponses(DirectoryScraping::ID, [ResponseType::NotifyAdmin]);
 		for ($i = 0; $i < 12; $i++) {
 			$this->assertNull($this->rule()->check($this->state(), $this->appTarget()));
 		}
@@ -200,7 +216,7 @@ class DirectoryScrapingTest extends IntegrationTestCase {
 	}
 
 	public function testOffCountsNothing(): void {
-		$this->settings->setMode(DirectoryScraping::ID, Mode::Off);
+		$this->settingsEditor()->setMode(DirectoryScraping::ID, Mode::Off);
 		for ($i = 0; $i < 12; $i++) {
 			$this->assertNull($this->rule()->check($this->state(), $this->appTarget()));
 		}
@@ -209,23 +225,19 @@ class DirectoryScrapingTest extends IntegrationTestCase {
 	}
 
 	public function testUnavailableWithoutAMemoryCache(): void {
-		$settings = $this->settingsWith(false);
+		[$settings, $editor] = $this->settingsOn(new Prerequisites(FixedCaches::none(), Server::get(IConfig::class), new CoreHooks()));
 		$state = $settings->modeState(DirectoryScraping::ID);
 		$this->assertSame(Mode::Off, $state->effective);
 		$this->assertSame(ModeState::REASON_REQUIREMENT, $state->reason);
 		$this->assertSame(Requirement::MemoryCache, $state->missing);
 		try {
-			$settings->setMode(DirectoryScraping::ID, Mode::Protect);
+			$editor->setMode(DirectoryScraping::ID, Mode::Protect);
 			$this->fail('The mode cannot be set without a memory cache');
 		} catch (InvalidParamException $e) {
 			$this->assertSame('mode_unavailable', $e->reason);
 		}
 
-		$factory = $this->createMock(ICacheFactory::class);
-		$factory->method('isAvailable')->willReturn(false);
-		$factory->method('isLocalCacheAvailable')->willReturn(false);
-		$factory->expects($this->never())->method('createDistributed');
-		$factory->expects($this->never())->method('createLocal');
+		$factory = FixedCaches::none();
 		$queries = $this->queries();
 		for ($i = 0; $i < 12; $i++) {
 			$this->assertNull($this->detector($settings, $factory)->count('alice', DirectoryRoutes::GROUP_SEARCH));
@@ -254,8 +266,8 @@ class DirectoryScrapingTest extends IntegrationTestCase {
 		return $connection->getInner()->getStats()['executed'];
 	}
 
-	private function state(): SessionState {
-		return new SessionState($this->createMock(ISession::class), $this->createMock(LoggerInterface::class));
+	private function state(): SessionMarkers {
+		return new SessionMarkers($this->createMock(ISession::class), $this->createMock(LoggerInterface::class));
 	}
 
 	private function appTarget(): RequestTarget {
@@ -277,15 +289,16 @@ class DirectoryScrapingTest extends IntegrationTestCase {
 		return new DirectoryScrapingRule($request, $userSession, $container);
 	}
 
-	private function detector(Settings $settings, ICacheFactory $factory): DirectoryScrapingDetector {
+	private function detector(CheckSettings $settings, Caches $factory): DirectoryCounter {
 		$request = $this->request();
 		$time = $this->createMock(ITimeFactory::class);
 		$time->method('getTime')->willReturnCallback(fn (): int => $this->now);
 		$context = new RequestContext();
-		$context->setVerdict(new Verdict());
-		$currentSession = $this->createMock(CurrentSession::class);
-		$currentSession->method('tokenId')->willReturn(17);
-		return new DirectoryScrapingDetector(
+		$context->set(Verdict::CONTEXT_KEY, new Verdict());
+		$coreSession = $this->createMock(CoreSession::class);
+		$coreSession->method('tokenId')->willReturn(17);
+		return new DirectoryCounter(
+			$this->appSettings(),
 			$settings,
 			$context,
 			$factory,
@@ -302,8 +315,9 @@ class DirectoryScrapingTest extends IntegrationTestCase {
 				),
 				RemoteAddressResolver::class => new RemoteAddressResolver($request, Server::get(IThrottler::class), Server::get(ServerAddresses::class)),
 				IRequest::class => $request,
-				CurrentSession::class => $currentSession,
+				CoreSession::class => $coreSession,
 			]),
+			Server::get(Fingerprinter::class),
 		);
 	}
 
@@ -319,27 +333,12 @@ class DirectoryScrapingTest extends IntegrationTestCase {
 		return $request;
 	}
 
-	private function cacheFactory(): ICacheFactory {
-		$factory = $this->createMock(ICacheFactory::class);
-		$factory->method('isAvailable')->willReturn(true);
-		$factory->method('isLocalCacheAvailable')->willReturn(true);
-		$factory->method('createDistributed')->willReturn($this->cache);
-		$factory->method('createLocal')->willReturn($this->cache);
-		return $factory;
+	private function cacheFactory(): Caches {
+		return new FixedCaches($this->cache);
 	}
 
-	private function settingsWith(bool $memoryCache): Settings {
-		$factory = $this->createMock(ICacheFactory::class);
-		$factory->method('isAvailable')->willReturn($memoryCache);
-		$factory->method('isLocalCacheAvailable')->willReturn($memoryCache);
-		return new Settings(
-			Server::get(IAppConfig::class),
-			Server::get(CheckRegistry::class),
-			Server::get(ITimeFactory::class),
-			new Prerequisites($factory, Server::get(IConfig::class)),
-			Server::get(GlobalSettings::class),
-			Server::get(IEventDispatcher::class),
-		);
+	private function settingsWith(bool $memoryCache): CheckSettings {
+		return $this->settingsOn(new Prerequisites($memoryCache ? new FixedCaches(new ArrayCache()) : FixedCaches::none(), Server::get(IConfig::class), new CoreHooks()))[0];
 	}
 }
 
@@ -350,6 +349,8 @@ class OperationCountingCache extends ArrayCache {
 	public int $operations = 0;
 	/** @var array<string, int> */
 	public array $byType = [];
+	/** @var ?\Closure(string): void runs once after the next increment, as another web server would */
+	public ?\Closure $afterInc = null;
 
 	public function reset(): void {
 		$this->operations = 0;
@@ -376,6 +377,11 @@ class OperationCountingCache extends ArrayCache {
 		$value = parent::get($key);
 		$value = is_int($value) ? $value + $step : $step;
 		parent::set($key, $value);
+		$after = $this->afterInc;
+		$this->afterInc = null;
+		if ($after !== null) {
+			$after($key);
+		}
 		return $value;
 	}
 

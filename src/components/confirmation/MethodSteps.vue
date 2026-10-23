@@ -7,10 +7,10 @@
 import type { ConfirmationMethod, ConfirmationMethodId } from '../../types.ts'
 
 import { mdiAccountCheckOutline, mdiAlertOutline, mdiCheckCircleOutline, mdiCloseCircleOutline, mdiEmailOutline, mdiLaptop, mdiTwoFactorAuthentication } from '@mdi/js'
-import { t } from '@nextcloud/l10n'
 import NcIconSvgWrapper from '@nextcloud/vue/components/NcIconSvgWrapper'
 import StateBadge from '../common/StateBadge.vue'
 import { APP_ID } from '../../utils/format.ts'
+import { t } from '../../utils/l10n.ts'
 
 defineProps<{
 	/** In the order they are tried */
@@ -62,12 +62,10 @@ const badges = {
 
 <style module>
 .steps {
+	composes: plainList from '../../styles/shared.module.css';
 	display: grid;
 	grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr));
-	gap: calc(var(--default-grid-baseline) * 3);
-	margin: 0;
-	padding: 0;
-	list-style: none;
+	gap: var(--ids-space-3);
 	counter-reset: none;
 }
 
@@ -75,8 +73,8 @@ const badges = {
 	position: relative;
 	display: flex;
 	flex-direction: column;
-	gap: calc(var(--default-grid-baseline) * 2);
-	padding: calc(var(--default-grid-baseline) * 4);
+	gap: var(--ids-space-2);
+	padding: var(--ids-space-4);
 	border: 1px solid var(--color-border);
 	border-radius: var(--border-radius-large);
 	background-color: var(--color-main-background);
@@ -90,7 +88,7 @@ const badges = {
 	display: flex;
 	align-items: center;
 	justify-content: space-between;
-	gap: calc(var(--default-grid-baseline) * 2);
+	gap: var(--ids-space-2);
 }
 
 .step__icon {
@@ -145,11 +143,11 @@ const badges = {
 }
 
 .step__text {
-	color: var(--color-text-maxcontrast);
+	composes: muted from '../../styles/shared.module.css';
 }
 
 .step__note {
-	padding-inline-start: calc(var(--default-grid-baseline) * 2);
+	padding-inline-start: var(--ids-space-2);
 	border-inline-start: 3px solid var(--color-warning);
 	font-size: 0.9em;
 }

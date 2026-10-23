@@ -9,7 +9,7 @@ declare(strict_types=1);
 
 namespace OCA\IntrusionDetection\Confirm;
 
-use OCA\IntrusionDetection\Config\Settings;
+use OCA\IntrusionDetection\Config\AppSettings;
 use OCP\IUser;
 use Psr\Container\ContainerInterface;
 use Psr\Log\LoggerInterface;
@@ -21,6 +21,11 @@ use Psr\Log\LoggerInterface;
  * Adding a method means adding its class to METHODS at its place in the
  * order. A method that fails to load or to answer is left out, so the
  * login falls through to the next method or to the policy.
+ *
+ * An administrator ({@see Administrators}) never confirms with an email
+ * code while the second factor or an approval can confirm the login: a
+ * mailbox is weaker than either. Only an administrator without both gets
+ * the code.
  */
 class ConfirmationPolicy {
 	/** @var list<class-string<IConfirmationMethod>> */
@@ -35,9 +40,10 @@ class ConfirmationPolicy {
 	private ?array $methods = null;
 
 	public function __construct(
-		private readonly Settings $settings,
+		private readonly AppSettings $settings,
 		private readonly ContainerInterface $container,
 		private readonly LoggerInterface $logger,
+		private readonly Administrators $administrators,
 	) {
 	}
 
@@ -74,7 +80,7 @@ class ConfirmationPolicy {
 			}
 			$available[] = $method;
 		}
-		return $available;
+		return $this->withoutEmailForAdministrators($user, $available);
 	}
 
 	/**
@@ -101,6 +107,27 @@ class ConfirmationPolicy {
 		return false;
 	}
 
+	/**
+	 * The method a pending login offers, while it can still confirm every
+	 * reason of that login; null otherwise.
+	 */
+	public function offered(IUser $user, StepUpState $stepUp, string $id): ?IConfirmationMethod {
+		if (!$stepUp->hasMethod($id)) {
+			return null;
+		}
+		$method = $this->method($id);
+		if ($method === null) {
+			return null;
+		}
+		foreach ($stepUp->policies as $policy) {
+			$known = StepUpPolicy::tryFrom($policy);
+			if ($known === null || !$method->isAvailable($user, $known)) {
+				return null;
+			}
+		}
+		return $method;
+	}
+
 	public function method(string $id): ?IConfirmationMethod {
 		foreach ($this->methods() as $method) {
 			if ($method->id() === $id) {
@@ -114,7 +141,7 @@ class ConfirmationPolicy {
 	 * The configured outcome for a policy when no method is available.
 	 */
 	public function noMethodOutcome(StepUpPolicy $policy): NoMethodOutcome {
-		$value = (string)$this->settings->global($policy->settingKey());
+		$value = $this->settings->stepUpNoMethod($policy->value);
 		return NoMethodOutcome::tryFrom($value) ?? $policy->defaultOutcome();
 	}
 
@@ -123,8 +150,8 @@ class ConfirmationPolicy {
 	 * refused when any policy refuses; otherwise allowed, with every notice
 	 * and password change any of them asks for.
 	 *
-	 * A protected account is never refused from a familiar place
-	 * ({@see FamiliarLogin}): that login is allowed with a notice instead.
+	 * A reason that a familiar place softens ({@see StepUpPolicy::familiarPlaceSoftensRefusal()})
+	 * never refuses there: that login is allowed with a notice instead.
 	 * `$familiar` is asked only when it decides.
 	 *
 	 * @param list<StepUpPolicy> $policies
@@ -136,7 +163,7 @@ class ConfirmationPolicy {
 		$forceChange = false;
 		foreach ($policies as $policy) {
 			$outcome = $this->noMethodOutcome($policy);
-			if ($outcome === NoMethodOutcome::Refuse && $policy === StepUpPolicy::ProtectedAccount && $familiar !== null && $familiar()) {
+			if ($outcome === NoMethodOutcome::Refuse && $policy->familiarPlaceSoftensRefusal() && $familiar !== null && $familiar()) {
 				$outcome = NoMethodOutcome::AllowNotify;
 			}
 			$refuse = $refuse || $outcome === NoMethodOutcome::Refuse;
@@ -144,6 +171,31 @@ class ConfirmationPolicy {
 			$forceChange = $forceChange || $outcome === NoMethodOutcome::AllowForceChange;
 		}
 		return new NoMethodDecision($refuse, $notify, $forceChange);
+	}
+
+	/**
+	 * The methods without the email code when the account is an
+	 * administrator and the second factor or an approval is among them.
+	 * When it cannot be told whether the account is an administrator, the
+	 * stronger methods are kept alone.
+	 *
+	 * @param list<IConfirmationMethod> $methods
+	 * @return list<IConfirmationMethod>
+	 */
+	private function withoutEmailForAdministrators(IUser $user, array $methods): array {
+		$ids = array_map(static fn (IConfirmationMethod $method): string => $method->id(), $methods);
+		if (!in_array(IConfirmationMethod::EMAIL_CODE, $ids, true)
+			|| array_intersect([IConfirmationMethod::SECOND_FACTOR, IConfirmationMethod::ADMIN_APPROVAL], $ids) === []) {
+			return $methods;
+		}
+		try {
+			if (!$this->administrators->isAdministrator($user)) {
+				return $methods;
+			}
+		} catch (\Throwable $e) {
+			$this->logger->error('Intrusion detection could not tell whether an account is an administrator', ['exception' => $e]);
+		}
+		return array_values(array_filter($methods, static fn (IConfirmationMethod $method): bool => $method->id() !== IConfirmationMethod::EMAIL_CODE));
 	}
 
 	/**

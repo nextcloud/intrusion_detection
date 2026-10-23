@@ -10,12 +10,11 @@ declare(strict_types=1);
 namespace OCA\IntrusionDetection\Tests\Unit\Decoy;
 
 use OCA\IntrusionDetection\Audit\AuditLogger;
-use OCA\IntrusionDetection\Config\GlobalSettings;
-use OCA\IntrusionDetection\Config\Settings;
 use OCA\IntrusionDetection\Crypto\Fingerprinter;
-use OCA\IntrusionDetection\Db\DecoyMapper;
+use OCA\IntrusionDetection\Decoy\Db\DecoyMapper;
 use OCA\IntrusionDetection\Decoy\DecoyFormat;
 use OCA\IntrusionDetection\Decoy\DecoyService;
+use OCA\IntrusionDetection\State\HotState;
 use OCA\IntrusionDetection\Traps\AccountNames;
 use OCA\IntrusionDetection\Traps\TrapNameCollisions;
 use OCP\AppFramework\Utility\ITimeFactory;
@@ -25,13 +24,13 @@ use Test\TestCase;
 
 class DecoyServiceTest extends TestCase {
 	public function testWithoutDecoysAFailedLoginCostsNoQuery(): void {
-		$settings = $this->createMock(Settings::class);
-		$settings->method('getInt')->with(GlobalSettings::DECOY_COUNT)->willReturn(0);
+		$hotState = $this->createMock(HotState::class);
+		$hotState->method('decoyCount')->willReturn(0);
 		$mapper = $this->createMock(DecoyMapper::class);
 		$mapper->expects($this->never())->method('findMatching');
 		$fingerprinter = $this->createMock(Fingerprinter::class);
 		$fingerprinter->expects($this->never())->method('decoy');
-		$service = new DecoyService($mapper, $fingerprinter, $this->createMock(ISecureRandom::class), $this->createMock(AccountNames::class), $settings, $this->createMock(AuditLogger::class), $this->createMock(ITimeFactory::class), $this->createMock(TrapNameCollisions::class));
+		$service = new DecoyService($mapper, $fingerprinter, $this->createMock(ISecureRandom::class), $this->createMock(AccountNames::class), $this->createMock(AuditLogger::class), $this->createMock(ITimeFactory::class), $this->createMock(TrapNameCollisions::class), $hotState);
 		$this->assertNull($service->match('some password', 'alice'));
 	}
 

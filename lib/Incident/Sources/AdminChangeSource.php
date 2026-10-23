@@ -10,7 +10,8 @@ declare(strict_types=1);
 namespace OCA\IntrusionDetection\Incident\Sources;
 
 use OCA\IntrusionDetection\Admin\DetectionPresenter;
-use OCA\IntrusionDetection\Check\Checks\AdminChange;
+use OCA\IntrusionDetection\Check\Checks\AdminChange\AdminChange;
+use OCA\IntrusionDetection\Check\Checks\AdminChange\AdminChangeFacts;
 use OCA\IntrusionDetection\Db\Approval;
 use OCA\IntrusionDetection\Db\ApprovalMapper;
 use OCA\IntrusionDetection\Db\Detection;
@@ -82,17 +83,25 @@ class AdminChangeSource implements ITimelineSource {
 		return MatchingRows::collect(
 			fn (?Detection $after, int $limit): array => $this->detections->findOfCheckFor(AdminChange::ID, $query->uid, $needle, $query->since, $query->until, $limit, $after),
 			// Changes to the account itself are its own detections already.
-			static fn (Detection $d): bool => DetectionFacts::of($d)->string($field) === $value && ($query->uid === null || $d->getUid() !== $query->uid),
+			static fn (Detection $d): bool => self::actorOf($d, $query->uid !== null) === $value && ($query->uid === null || $d->getUid() !== $query->uid),
 			$query->limit,
 		);
 	}
 
+	/**
+	 * The account that made a change, or the address it came from.
+	 */
+	private static function actorOf(Detection $detection, bool $account): string {
+		$facts = AdminChangeFacts::fromArray(DetectionFacts::of($detection)->facts);
+		return ($account ? $facts->actor : $facts->actorIp) ?? '';
+	}
+
 	private function change(Detection $detection, IncidentQuery $query, IL10N $l): TimelineEntry {
 		$narrative = $this->narratives->build($detection, $l);
-		$facts = DetectionFacts::of($detection);
+		$facts = AdminChangeFacts::fromArray(DetectionFacts::of($detection)->facts);
 		return new TimelineEntry(
-			id: 'detection:' . (int)$detection->getId(),
-			at: $detection->getCreatedAt(),
+			id: 'detection:' . (string)$detection->getId(),
+			at: $detection->getCreatedTime(),
 			kind: self::KIND,
 			group: $query->isUser() ? $l->t('Administration changes made by the account') : $l->t('Administration changes made from the address'),
 			title: $this->check->headline($detection, $l) ?? $narrative->title,
@@ -101,8 +110,8 @@ class AdminChangeSource implements ITimelineSource {
 			details: $narrative->happened,
 			done: $narrative->done,
 			note: $narrative->observedBecause,
-			address: $facts->string('actor_ip') !== '' ? $facts->string('actor_ip') : null,
-			accounts: array_values(array_filter([$detection->getUid(), $facts->string('actor')], static fn (?string $a): bool => $a !== null && $a !== '')),
+			address: ($facts->actorIp ?? '') !== '' ? $facts->actorIp : null,
+			accounts: array_values(array_filter([$detection->getUid(), $facts->actor], static fn (?string $a): bool => $a !== null && $a !== '')),
 			ref: ['type' => 'detection', 'id' => (string)$detection->getId()],
 			categories: [DataCategory::Administration],
 			followUp: $l->t('Review every administration change listed here and undo the ones that were not planned.'),
@@ -113,13 +122,15 @@ class AdminChangeSource implements ITimelineSource {
 
 	private function approval(Approval $approval, bool $decided, IL10N $l): TimelineEntry {
 		$subject = $approval->getSubjectUid();
-		$what = $approval->getKind() === Approval::KIND_ADMIN_GRANT
-			? $l->t('%s to become an administrator', [$subject])
-			: $l->t('a request about %s', [$subject]);
-		$details = [$l->t('Requested by %1$s at %2$s.', [AdminChange::actorName($approval->getRequestedBy(), $l), $this->dates->dateTime($approval->getCreatedAt())])];
+		$what = match ($approval->getKind()) {
+			Approval::KIND_ADMIN_GRANT => $l->t('%s to become an administrator', [$subject]),
+			Approval::KIND_SETTINGS => $l->t('a settings change that switches off the approval of new administrators'),
+			default => $l->t('a request about %s', [$subject]),
+		};
+		$details = [$l->t('Requested by %1$s at %2$s.', [AdminChange::actorName($approval->getRequestedBy(), $l), $this->dates->dateTime($approval->getCreatedTime())])];
 		if (!$decided) {
 			$details[] = $l->t('It waits for a decision until %s.', [$this->dates->dateTime($approval->getExpiresAt())]);
-			return $this->approvalEntry($approval, $approval->getCreatedAt(), $l->t('Request waiting for approval: %s', [$what]), $details, $l, $l->t('A request for approval is still waiting. Decide it on the Overview tab or with occ intrusion:approvals:decide, or let it expire.'));
+			return $this->approvalEntry($approval, $approval->getCreatedTime(), $l->t('Request waiting for approval: %s', [$what]), $details, $l, $l->t('A request for approval is still waiting. Decide it on the Overview tab or with occ intrusion:approvals:decide, or let it expire.'));
 		}
 		$decider = AdminChange::actorName((string)$approval->getDecidedBy(), $l);
 		$title = match ($approval->getStatus()) {
@@ -135,7 +146,7 @@ class AdminChangeSource implements ITimelineSource {
 	 */
 	private function approvalEntry(Approval $approval, int $at, string $title, array $details, IL10N $l, ?string $followUp): TimelineEntry {
 		return new TimelineEntry(
-			id: 'approval:' . (int)$approval->getId() . ':' . $approval->getStatus(),
+			id: 'approval:' . (string)$approval->getId() . ':' . $approval->getStatus(),
 			at: $at,
 			kind: self::KIND_APPROVAL,
 			group: $l->t('Approvals'),
