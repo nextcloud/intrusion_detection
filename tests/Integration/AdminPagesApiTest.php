@@ -242,7 +242,11 @@ class AdminPagesApiTest extends IntegrationTestCase {
 		}
 		$outgoing = array_column($data['outgoing'], null, 'id');
 		$this->assertFalse($outgoing['blocklists']['active']);
-		$this->assertCount(2, $data['gdpr']);
+		$this->assertCount(4, $data['gdpr']);
+		foreach ($data['stored'] as $row) {
+			$this->assertNotSame('', $row['protection'], $row['id'] . ' says how it is protected and who sees it');
+		}
+		$this->assertStringContainsString('Who created or lifted a block is kept when that account is deleted', $stored['bans']['protection']);
 
 		// The page fills the retention placeholders live from the settings it has.
 		$settings = array_column($this->container->get(SettingsApiController::class)->settings()->getData()['settings'], 'name');

@@ -2449,6 +2449,7 @@ export type components = {
             why: string;
             retention: string;
             where: string;
+            protection: string;
             checks: string[];
         };
         SyncResult: {

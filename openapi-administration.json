@@ -3625,6 +3625,7 @@
                     "why",
                     "retention",
                     "where",
+                    "protection",
                     "checks"
                 ],
                 "properties": {
@@ -3644,6 +3645,9 @@
                         "type": "string"
                     },
                     "where": {
+                        "type": "string"
+                    },
+                    "protection": {
                         "type": "string"
                     },
                     "checks": {

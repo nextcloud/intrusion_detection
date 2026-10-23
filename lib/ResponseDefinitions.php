@@ -548,6 +548,7 @@ namespace OCA\IntrusionDetection;
  *     why: string,
  *     retention: string,
  *     where: string,
+ *     protection: string,
  *     checks: list<string>,
  * }
  *

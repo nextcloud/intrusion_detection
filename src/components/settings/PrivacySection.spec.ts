@@ -25,7 +25,7 @@ function days(name: string, value: number): GlobalSetting {
 }
 
 const privacy: Privacy = {
-	stored: [{ id: 'detections', name: 'Detections', what: 'What happened', why: 'To explain it', retention: '{retention_detections_days} days', where: 'ids_detections', checks: [] }],
+	stored: [{ id: 'detections', name: 'Detections', what: 'What happened', protection: 'Addresses in clear', why: 'To explain it', retention: '{retention_detections_days} days', where: 'ids_detections', checks: [] }],
 	outgoing: [
 		{ id: 'breach', name: 'Breached password check', text: 'Sends a hash prefix.', active: true, items: ['5 characters of a hash'] },
 		{ id: 'lists', name: 'Blocklists', text: 'Downloads lists.', active: false, items: [] },
@@ -65,5 +65,8 @@ describe('the data and privacy section', () => {
 		expect(wrapper.text()).toContain('What leaves the server')
 		expect(wrapper.text()).toContain('5 characters of a hash')
 		expect(wrapper.text()).toContain('A note on the GDPR')
+
+		await wrapper.get('[data-test="stored-toggle"] button').trigger('click')
+		expect(wrapper.get('[data-test="stored-protection"]').text()).toBe('Addresses in clear')
 	})
 })

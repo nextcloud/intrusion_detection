@@ -91,6 +91,7 @@ const activeOutgoing = computed(() => data.value?.outgoing.filter((item) => item
 											<th scope="row" :data-label="t(APP_ID, 'What')">
 												<span :class="$style.name">{{ row.name }}</span>
 												<span :class="$style.what">{{ row.what }}</span>
+												<span :class="$style.what" data-test="stored-protection">{{ row.protection }}</span>
 												<span v-if="row.checks.length > 0" :class="$style.users">
 													{{ storedBy(row.checks) }}
 												</span>

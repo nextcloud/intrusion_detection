@@ -63,6 +63,8 @@ class PrivacyOverview {
 			'gdpr' => [
 				$l->t('IP addresses and account names are personal data under the GDPR. Processing them to protect your server is usually a legitimate interest (Article 6(1)(f)), but you should document this decision in your records of processing activities and mention it in your privacy notice.'),
 				$l->t('Everything listed here stays in your database or memory cache and is deleted automatically after the time shown. Passwords are never stored; fingerprints of them cannot be turned back into a password and are useless without the secret in config.php.'),
+				$l->t('With the Auditing app, the actions of intrusion detection and of administrators on this page are also written to the audit log, with addresses and accounts, and kept as long as that log is kept.'),
+				$l->t('Users can take a copy of their own logins, devices, trusted networks, security changes and security events with the User migration app.'),
 			],
 		];
 	}
@@ -92,6 +94,7 @@ class PrivacyOverview {
 			'why' => $l->t('So that an attack turns into one notification with a counter rather than thousands.'),
 			'retention' => $l->t('30 days'),
 			'where' => 'ids_alerts',
+			'protection' => $l->t('Addresses and accounts in clear. Never shown.'),
 			'checks' => [],
 		];
 		$rows[] = [
@@ -101,6 +104,7 @@ class PrivacyOverview {
 			'why' => $l->t('For the statistics, the digest and the metrics, which count further back than detections are kept.'),
 			'retention' => $l->n('Hours for %n day, then one running total per check', 'Hours for %n days, then one running total per check', DetectionTotals::ROLLUP_DAYS),
 			'where' => 'ids_detection_hourly',
+			'protection' => $l->t('Counts only, no personal data.'),
 			'checks' => [],
 		];
 		$rows[] = [
@@ -110,13 +114,14 @@ class PrivacyOverview {
 			'why' => $l->t('So that every web server knows when its cached address checks are out of date, and the export is only written again when something changed.'),
 			'retention' => $l->t('As long as the app is installed'),
 			'where' => 'ids_state',
+			'protection' => $l->t('No personal data.'),
 			'checks' => [],
 		];
 		return $rows;
 	}
 
 	/**
-	 * @return array{name: string, what: string, why: string, retention: string, where: string}
+	 * @return array{name: string, what: string, why: string, retention: string, where: string, protection: string}
 	 */
 	private function describe(DataKind $kind, IL10N $l): array {
 		return match ($kind) {
@@ -126,6 +131,7 @@ class PrivacyOverview {
 				'why' => $l->t('To recognise attacks: many failures from one address, one password tried against many accounts, one account attacked from many places.'),
 				'retention' => $l->n('%n hour', '%n hours', intdiv(AttemptRecorder::RETENTION, 3600)),
 				'where' => 'ids_attempts',
+				'protection' => $l->t('Names, reset inputs, share tokens and passwords only as fingerprints keyed with the secret in config.php; addresses in clear. Not shown on any page.'),
 			],
 			DataKind::SuccessfulLogins => [
 				'name' => $l->t('Successful logins'),
@@ -133,6 +139,7 @@ class PrivacyOverview {
 				'why' => $l->t('So that an address many people log in from, such as an office network, is never blocked.'),
 				'retention' => $l->t('24 hours'),
 				'where' => 'ids_logins',
+				'protection' => $l->t('Addresses and accounts in clear. Not shown on any page.'),
 			],
 			DataKind::Detections => [
 				'name' => $l->t('Detections'),
@@ -140,6 +147,7 @@ class PrivacyOverview {
 				'why' => $l->t('To explain every decision on this page and in notifications, and to find repeated attacks. The accounts are listed so that deleting an account removes it from every detection.'),
 				'retention' => $l->t('{retention_detections_days} days'),
 				'where' => 'ids_detections, ids_detection_accounts',
+				'protection' => $l->t('Addresses, accounts and measured values in clear. Administrators see them on this page, in occ, in incident reports and in alert emails; with the Auditing app, every new detection is also an audit log line with its address and account.'),
 			],
 			DataKind::Bans => [
 				'name' => $l->t('Blocks'),
@@ -147,6 +155,7 @@ class PrivacyOverview {
 				'why' => $l->t('To refuse blocked addresses, and to block an address longer when it comes back.'),
 				'retention' => $l->t('While active, then {ban_history_days} days, but at least 30 days'),
 				'where' => 'ids_bans',
+				'protection' => $l->t('Addresses in clear. Administrators see them; the firewall export writes them to its folder, readable only by the web server\'s user and group. Who created or lifted a block is kept when that account is deleted.'),
 			],
 			DataKind::Flags => [
 				'name' => $l->t('Marked addresses and accounts'),
@@ -158,6 +167,7 @@ class PrivacyOverview {
 					TextRenderer::duration(FlaggedSources::ATTACK_TOOL_DURATION, $l),
 				]),
 				'where' => 'ids_flags, ids_protected_accounts',
+				'protection' => $l->t('Addresses in clear, passwords only as keyed fingerprints. Not shown on any page.'),
 			],
 			DataKind::LoginHistory => [
 				'name' => $l->t('Login history'),
@@ -165,6 +175,7 @@ class PrivacyOverview {
 				'why' => $l->t('So that users can see their recent logins, and so that an incident can be reconstructed. Apps that log in with every request are recorded once a day, and again when they log in from another network.'),
 				'retention' => $l->t('{retention_detections_days} days'),
 				'where' => 'ids_login_history',
+				'protection' => $l->t('Addresses and browser names in clear. Users see their own on their security page; administrators in incident reports.'),
 			],
 			DataKind::SecurityChanges => [
 				'name' => $l->t('Security changes'),
@@ -172,6 +183,7 @@ class PrivacyOverview {
 				'why' => $l->t('To recognise an account takeover, where an attacker changes the email address or password one after the other, to reach the previous address with the lock link, and to show users and incident reports what changed.'),
 				'retention' => $l->t('{retention_detections_days} days; the previous address 1 day'),
 				'where' => 'ids_security_changes',
+				'protection' => $l->t('Email addresses masked; the previous address encrypted with the server\'s key. Users see their own changes; administrators in incident reports.'),
 			],
 			DataKind::KnownDevices => [
 				'name' => $l->t('Known devices'),
@@ -179,6 +191,7 @@ class PrivacyOverview {
 				'why' => $l->t('So that people logging in from their own device are not asked to confirm again, where the reason allows it.'),
 				'retention' => $l->t('%s after the last use, or until the user removes it', [TextRenderer::duration(KnownDevices::DURATION, $l)]),
 				'where' => 'ids_known_devices',
+				'protection' => $l->t('Only a keyed fingerprint of the cookie. Users see and remove their own devices.'),
 			],
 			DataKind::TokenOrigins => [
 				'name' => $l->t('App password origins'),
@@ -186,6 +199,7 @@ class PrivacyOverview {
 				'why' => $l->t('To recognise an app password that is used from somewhere else at the same time.'),
 				'retention' => $l->t('30 days'),
 				'where' => 'ids_token_origin',
+				'protection' => $l->t('Addresses in clear. Administrators see them in incident reports.'),
 			],
 			DataKind::Decoys => [
 				'name' => $l->t('Decoy credentials'),
@@ -193,6 +207,7 @@ class PrivacyOverview {
 				'why' => $l->t('To recognise anyone who uses a decoy. The secret itself is never stored.'),
 				'retention' => $l->t('Until you delete the decoy'),
 				'where' => 'ids_decoys',
+				'protection' => $l->t('The secret only as a keyed fingerprint. Administrators see the label and login name. Who created a decoy is kept when that account is deleted.'),
 			],
 			DataKind::BlocklistRanges => [
 				'name' => $l->t('Blocklists and network lists'),
@@ -200,6 +215,7 @@ class PrivacyOverview {
 				'why' => $l->t('To refuse or recognise addresses on these lists without asking an outside service.'),
 				'retention' => $l->n('Ranges until the list is switched off; matches %n day', 'Ranges until the list is switched off; matches %n days', BlocklistStatMapper::RETENTION_DAYS),
 				'where' => 'ids_blocklist_ranges, ids_blocklist_stats',
+				'protection' => $l->t('Public address ranges, and the matched addresses in clear, which administrators see per list.'),
 			],
 			DataKind::RequestExcerpts => [
 				'name' => $l->t('Excerpts of suspicious requests'),
@@ -207,6 +223,7 @@ class PrivacyOverview {
 				'why' => $l->t('To show exactly what matched, so you can tell an attack from a false alarm.'),
 				'retention' => $l->t('{retention_detections_days} days, with the detection'),
 				'where' => 'ids_detections',
+				'protection' => $l->t('In clear, quoted so that nothing in them becomes a link. Administrators see them with the detection and in alert emails.'),
 			],
 			DataKind::CacheCounters => [
 				'name' => $l->t('Short-lived counters'),
@@ -214,6 +231,7 @@ class PrivacyOverview {
 				'why' => $l->t('To recognise fast attacks without writing to the database on every request.'),
 				'retention' => $l->t('Minutes, at most an hour'),
 				'where' => $l->t('memory cache'),
+				'protection' => $l->t('Keyed by fingerprints of addresses and accounts. Never shown.'),
 			],
 			DataKind::AccountState => [
 				'name' => $l->t('Account state'),
@@ -221,6 +239,7 @@ class PrivacyOverview {
 				'why' => $l->t('To check each password only as often as needed, to ask for a new one at the next login, to show users without a working email address their security events once at their next login, to keep a second factor that whoever had only the password could have set up from confirming logins for a while, to send at most five codes an hour, and to send that reminder at most once a month.'),
 				'retention' => $l->t('Until the account is deleted. The time of the oldest unseen event until the user saw it. A second factor\'s mark for %s, or until the factor is removed or set up again after a confirmed login; after a login that was not confirmed, only until then. The times of the codes for an hour.', [TextRenderer::duration(UntrustedSecondFactors::PASSWORD_DELAY, $l)]),
 				'where' => $l->t('user preferences'),
+				'protection' => $l->t('In the user\'s preferences. Never shown, except what the user\'s own security page says about it.'),
 			],
 			DataKind::ConfigSnapshot => [
 				'name' => $l->t('Settings snapshot'),
@@ -228,6 +247,7 @@ class PrivacyOverview {
 				'why' => $l->t('To recognise security settings that were changed outside the web interface.'),
 				'retention' => $l->t('Replaced at every check'),
 				'where' => 'ids_config_snapshot',
+				'protection' => $l->t('Values only as keyed hashes; secret values are never kept in clear. Administrators see changes as detections.'),
 			],
 			DataKind::Approvals => [
 				'name' => $l->t('Approval requests'),
@@ -235,6 +255,7 @@ class PrivacyOverview {
 				'why' => $l->t('So that a second administrator can approve new administrators.'),
 				'retention' => $l->n('%n day after the decision', '%n days after the decision', ApprovalService::RETENTION_DAYS),
 				'where' => 'ids_approvals',
+				'protection' => $l->t('Accounts in clear. Administrators see them. Who asked or decided is kept when that account is deleted.'),
 			],
 			DataKind::TrustedNetworks => [
 				'name' => $l->t('Trusted networks'),
@@ -242,6 +263,7 @@ class PrivacyOverview {
 				'why' => $l->t('So that logins from these networks are not asked for an extra confirmation again.'),
 				'retention' => $l->n('%n day, or until the user removes the network', '%n days, or until the user removes the network', intdiv(TrustedNetworks::DURATION, 86400)),
 				'where' => 'ids_trusted_networks',
+				'protection' => $l->t('Networks in clear. Users see and remove their own.'),
 			],
 			DataKind::UnconfirmedSessions => [
 				'name' => $l->t('Unconfirmed logins'),
@@ -249,6 +271,7 @@ class PrivacyOverview {
 				'why' => $l->t('So that such a session cannot skip the confirmation by coming back through its remember-me cookie, and so that a login nobody comes back to is ended and the user told.'),
 				'retention' => $l->t('Until the login is confirmed or ended, at most as long as a remembered login lasts'),
 				'where' => 'ids_step_up_sessions',
+				'protection' => $l->t('Sessions only as keyed fingerprints; addresses in clear. Not shown on any page.'),
 			],
 			DataKind::LockLinks => [
 				'name' => $l->t('Lock links'),
@@ -256,6 +279,7 @@ class PrivacyOverview {
 				'why' => $l->t('So that the owner of an account\'s previous email address can lock the account once with the link from the email.'),
 				'retention' => $l->n('%n day', '%n days', intdiv(LockLinks::TTL, 86400)),
 				'where' => 'ids_lock_links',
+				'protection' => $l->t('Only a keyed fingerprint of the link; the address it was sent to masked. Administrators see when and from where it was used.'),
 			],
 			DataKind::SecureAccountProgress => [
 				'name' => $l->t('"Secure my account" progress'),
@@ -263,6 +287,7 @@ class PrivacyOverview {
 				'why' => $l->t('To guide a user through securing their account, and to show you how far they got.'),
 				'retention' => $l->t('Until the account is deleted'),
 				'where' => $l->t('user preferences'),
+				'protection' => $l->t('In the user\'s preferences. The user and administrators see the progress.'),
 			],
 			DataKind::ResetSuppressions => [
 				'name' => $l->t('Held-back password reset emails'),
@@ -270,6 +295,7 @@ class PrivacyOverview {
 				'why' => $l->t('So that a flood of reset requests does not fill the person\'s inbox.'),
 				'retention' => $l->n('%n day from the first held-back email; until then, no new hold starts for the account', '%n days from the first held-back email; until then, no new hold starts for the account', intdiv(ResetMailSuppressor::PERIOD, 86400)),
 				'where' => 'ids_reset_suppressions',
+				'protection' => $l->t('Accounts in clear. Administrators see them with the detection.'),
 			],
 			DataKind::FailedLoginDays => [
 				'name' => $l->t('Failed logins per account and day'),
@@ -277,6 +303,7 @@ class PrivacyOverview {
 				'why' => $l->t('So that users can see on their security page how often someone tried to log in to their account, and from where.'),
 				'retention' => $l->n('%n day', '%n days', FailedLoginStats::RETENTION_DAYS),
 				'where' => 'ids_user_daily',
+				'protection' => $l->t('Addresses in clear. Only the user sees them, on their security page.'),
 			],
 		};
 	}
