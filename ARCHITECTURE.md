@@ -111,6 +111,43 @@ Code whose finding is itself the detection (a guard's trap or payload
 hit, a counter over its limit, a step-up outcome, the account holder's
 "No", a lock link) builds its draft and hands it to the engine directly.
 
+## A login's confirmation
+
+A login passes through these, each using only the ones before it
+(`ArchitectureTest::LOGIN_ORDER`):
+
+1. **`Login`, the kernel.** `LoginClassifier` tells once per request how
+   it logged in (`LoginKind`). `CoreSession` is the only class that reads
+   core's private session keys and the session id. `SessionMarkers` keeps
+   the app's markers in the PHP session, and `SessionTokenLinker` links
+   what a login recorded to its session token on the first request.
+2. **`Listener\LoginListener` runs the login steps** (`Listener\Login\ILoginStep`)
+   in order over one `LoginFacts`. Each step says when it applies; the
+   step-up step hands the facts to `Confirm\LoginAssessment`.
+3. **`Confirm` decides and keeps the confirmation.** A login's
+   confirmation is one `LoginConfirmation` with one `ConfirmationStatus`
+   (pending, refused, refused for an app, resumed, confirmed, allowed
+   unconfirmed, proven, none). `LoginConfirmations` is its only writer: it
+   owns every transition (at login, update, complete, fail, abandon,
+   end refused, resumed, abandoned by the background job) and updates the
+   login history. `LoginConfirmationStore` keeps it as one unit: the
+   session markers, and for a login not confirmed yet, the remembered
+   session on the server. `StepUpState` is a value. What an account can
+   confirm with is `AccountMethods`; which method a login offers is
+   `ConfirmationPolicy`; the verify page's steps are `PendingLoginFlow`.
+   `LoginConfirmation::historyOutcome()` is the one mapping to the values
+   the login history stores.
+4. **`SessionState` holds the session to it.** `SessionGate` is the one
+   decision the middleware and the WebDAV plugin ask for. The rules name
+   the login-flow pages by route (`RequestTarget::route()`), and
+   `SessionStateRules::LOOKS_AT` says what each rule reads, so that a
+   plain request builds no rule. An internal error lets a request pass,
+   except while a step-up is pending: then it is blocked.
+
+The session format is read as remembered logins stored it: they last
+about 15 days, so `LoginConfirmation::fromMarkers()` keeps reading every
+format the app has written.
+
 ## The allow-lists
 
 `ArchitectureTest` lists today's exceptions, each with its reason:

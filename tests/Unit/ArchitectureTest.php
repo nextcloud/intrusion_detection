@@ -73,6 +73,14 @@ class ArchitectureTest extends TestCase {
 	];
 
 	/**
+	 * A login's confirmation is layered inside the features too: each of
+	 * these may use the ones before it, never one after (ARCHITECTURE.md,
+	 * "A login's confirmation"). Login, Check and Detection are below
+	 * them as platform.
+	 */
+	private const LOGIN_ORDER = ['Risk', 'LoginHistory', 'Confirm', 'SessionState'];
+
+	/**
 	 * Generic files that still name a check, and why. Entries may only be removed.
 	 *
 	 * @var array<string, string>
@@ -118,6 +126,19 @@ class ArchitectureTest extends TestCase {
 		}
 		$this->assertSame([], $new, 'dependencies that point upward; turn them around, or move the class');
 		$this->assertSame([], $stale, 'fixed: remove them from ALLOWED_UPWARD');
+	}
+
+	public function testALoginsConfirmationPointsOneWay(): void {
+		$back = [];
+		foreach (self::LOGIN_ORDER as $index => $from) {
+			foreach (array_slice(self::LOGIN_ORDER, $index + 1) as $to) {
+				$where = self::dependencies()[$from][$to] ?? [];
+				if ($where !== []) {
+					$back[] = $from . ' -> ' . $to . ' (' . implode(', ', $where) . ')';
+				}
+			}
+		}
+		$this->assertSame([], $back);
 	}
 
 	public function testTheDefinitionVocabularyUsesNothingElseOfTheApp(): void {
