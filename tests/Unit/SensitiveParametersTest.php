@@ -64,6 +64,26 @@ class SensitiveParametersTest extends TestCase {
 		$this->assertGreaterThanOrEqual(8, $checked);
 	}
 
+	/**
+	 * A login name is often a password typed into the wrong field, and a
+	 * session id is the secret of its session.
+	 */
+	public function testEveryLoginNameAndSessionIdIsSensitive(): void {
+		$checked = 0;
+		foreach (self::appClasses() as $class) {
+			foreach ((new \ReflectionClass($class))->getMethods() as $method) {
+				foreach ($method->getParameters() as $parameter) {
+					if (!in_array($parameter->getName(), ['loginName', 'sessionId', 'previousSessionId', 'password'], true)) {
+						continue;
+					}
+					$checked++;
+					$this->assertNotSame([], $parameter->getAttributes(\SensitiveParameter::class), $class . '::' . $method->getName() . '($' . $parameter->getName() . ') must be #[\SensitiveParameter]');
+				}
+			}
+		}
+		$this->assertGreaterThanOrEqual(8, $checked);
+	}
+
 	public function testASignalWithASecretHidesItFromDumps(): void {
 		$checked = 0;
 		foreach (self::appClasses() as $class) {

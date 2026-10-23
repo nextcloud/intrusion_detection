@@ -30,7 +30,7 @@ class DecoyMapper extends QBMapper {
 	 *
 	 * @return list<Decoy>
 	 */
-	public function findMatching(?string $secretHmac, ?string $loginName): array {
+	public function findMatching(?string $secretHmac, #[\SensitiveParameter] ?string $loginName): array {
 		if ($secretHmac === null && $loginName === null) {
 			return [];
 		}

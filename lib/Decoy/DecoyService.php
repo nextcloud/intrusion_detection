@@ -52,7 +52,7 @@ class DecoyService {
 	 * @return array{0: Decoy, 1: string} the stored decoy and its secret, which is never available again
 	 * @throws InvalidParamException for an empty or too long label, or an invalid or existing login name
 	 */
-	public function create(string $label, ?string $loginName, DecoyFormat $format, string $actor): array {
+	public function create(string $label, #[\SensitiveParameter] ?string $loginName, DecoyFormat $format, string $actor): array {
 		$label = trim((string)preg_replace('/[\x00-\x1f\x7f]+/u', ' ', $label));
 		if ($label === '' || mb_strlen($label) > self::MAX_LABEL) {
 			throw new InvalidParamException('invalid_item', ['param' => 'label', 'item' => mb_substr($label, 0, 40)]);
@@ -123,7 +123,7 @@ class DecoyService {
 	 *
 	 * @return ?array{0: Decoy, 1: bool}
 	 */
-	public function match(#[\SensitiveParameter] ?string $password, string $loginName): ?array {
+	public function match(#[\SensitiveParameter] ?string $password, #[\SensitiveParameter] string $loginName): ?array {
 		if ($this->hotState->decoyCount() === 0) {
 			return null;
 		}

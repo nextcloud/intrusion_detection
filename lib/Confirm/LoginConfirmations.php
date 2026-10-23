@@ -295,7 +295,7 @@ class LoginConfirmations {
 	 *
 	 * @param ?string $previousSessionId the session id it came back from, when core gave it a new one
 	 */
-	public function resumed(string $uid, ?string $previousSessionId = null): LoginConfirmation {
+	public function resumed(string $uid, #[\SensitiveParameter] ?string $previousSessionId = null): LoginConfirmation {
 		if ($previousSessionId !== null) {
 			$this->store->forget($previousSessionId);
 		}

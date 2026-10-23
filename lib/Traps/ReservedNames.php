@@ -132,7 +132,7 @@ class ReservedNames {
 	 * The reserved name a login name matches, unless an account with that
 	 * name exists by now.
 	 */
-	public function match(string $loginName): ?string {
+	public function match(#[\SensitiveParameter] string $loginName): ?string {
 		$reserved = $this->list();
 		if ($reserved === []) {
 			return null;

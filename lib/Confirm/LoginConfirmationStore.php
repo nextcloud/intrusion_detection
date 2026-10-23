@@ -89,7 +89,7 @@ class LoginConfirmationStore {
 	 * The session, or the one a remember-me login came back from, no longer
 	 * needs to be remembered on the server.
 	 */
-	public function forget(?string $sessionId = null): void {
+	public function forget(#[\SensitiveParameter] ?string $sessionId = null): void {
 		$this->unconfirmed->forget($sessionId ?? $this->sessionId());
 	}
 

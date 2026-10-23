@@ -92,7 +92,7 @@ class DecoyApiController extends AdminOCSController {
 	#[ApiRoute(verb: 'POST', url: '/api/v1/decoys')]
 	#[PasswordConfirmationRequired]
 	#[UserRateLimit(limit: 20, period: 600)]
-	public function create(string $label, string $loginName = '', string $secretFormat = 'app-password'): DataResponse {
+	public function create(string $label, #[\SensitiveParameter] string $loginName = '', string $secretFormat = 'app-password'): DataResponse {
 		$decoyFormat = DecoyFormat::tryFrom($secretFormat);
 		if ($decoyFormat === null) {
 			return $this->error($this->l->t('Choose what the secret looks like: an app password or a token.'), 'secretFormat', 'invalid_format');

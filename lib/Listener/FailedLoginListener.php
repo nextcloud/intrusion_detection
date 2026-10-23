@@ -133,7 +133,7 @@ class FailedLoginListener implements IEventListener {
 	 * that exactly one account has (only with `$byEmail`). Nothing is
 	 * returned to the client, so this reveals nothing.
 	 */
-	private function resolveUid(string $loginName, bool $byEmail): ?string {
+	private function resolveUid(#[\SensitiveParameter] string $loginName, bool $byEmail): ?string {
 		$name = trim($loginName);
 		if ($name === '' || strlen($name) > self::MAX_LOGIN_NAME) {
 			return null;

@@ -72,7 +72,7 @@ class CredentialUseResolver {
 	/**
 	 * A login succeeded in this request.
 	 */
-	public function loggedIn(IUser $user, string $loginName, bool $tokenLogin): void {
+	public function loggedIn(IUser $user, #[\SensitiveParameter] string $loginName, bool $tokenLogin): void {
 		$use = $this->pending();
 		if ($use === null) {
 			return;
