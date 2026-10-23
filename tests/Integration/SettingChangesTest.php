@@ -79,6 +79,7 @@ class SettingChangesTest extends IntegrationTestCase {
 
 		$this->settingsEditor()->setGlobal(GlobalSettings::BAN_DURATION_1, 7200);
 		$this->settingsEditor()->setGlobal(GlobalSettings::BAN_DURATION_1, 7200);
+		$this->assertSame(ProtectionLevel::Custom, $this->settingsEditor()->protectionLevel(), 'a block duration changed by hand');
 		$this->settingsEditor()->setGlobal(GlobalSettings::EVENTS_INCLUDE_IP, false, reported: false);
 		$this->settingsEditor()->setParam($check, 'window', 900);
 		$this->settingsEditor()->setParam($check, 'window', 1200, reported: false);
@@ -102,7 +103,7 @@ class SettingChangesTest extends IntegrationTestCase {
 			['check_credential_stuffing_mode', 'observe', 'protect', true],
 			['check_credential_stuffing_responses', ['notify_admin'], $defaultResponses, true],
 		], $this->events);
-		$this->assertSame(ProtectionLevel::Custom, $this->settingsEditor()->protectionLevel(), 'a block duration changed by hand');
+		$this->assertSame(ProtectionLevel::Recommended, $this->settingsEditor()->protectionLevel(), 'every limit is back at its default');
 	}
 
 	public function testSeveralValuesTogetherReportEachChange(): void {

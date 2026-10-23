@@ -193,7 +193,7 @@ class SettingsEditor {
 		$definition = $this->registry->get($checkId)->param($name);
 		$old = $this->checks->param($checkId, $name);
 		$this->appConfig->deleteKey(Application::APP_ID, Keys::param($checkId, $name));
-		$this->presetChanged($definition, $this->changed(Keys::param($checkId, $name), $old, $this->checks->param($checkId, $name)));
+		$this->presetReset($definition, $this->changed(Keys::param($checkId, $name), $old, $this->checks->param($checkId, $name)));
 	}
 
 	/**
@@ -257,7 +257,7 @@ class SettingsEditor {
 		$this->changed(Keys::mode($checkId), $oldMode, $this->checks->configuredMode($checkId)->value);
 		$this->changed(Keys::responses($checkId), $oldResponses, $this->responseValues($checkId));
 		foreach ($this->checks->params($checkId) as $name => $value) {
-			$this->presetChanged($check->param($name), $this->changed(Keys::param($checkId, $name), $oldParams[$name], $value));
+			$this->presetReset($check->param($name), $this->changed(Keys::param($checkId, $name), $oldParams[$name], $value));
 		}
 		if ($actor !== null) {
 			$this->audit->log('check %s reset to defaults by %s', ['check' => $checkId, 'actor' => $actor]);
@@ -304,7 +304,7 @@ class SettingsEditor {
 		$definition = $this->globalDefinition($name);
 		$old = $this->settings->value($name);
 		$this->appConfig->deleteKey(Application::APP_ID, $name);
-		return $this->presetChanged($definition, $this->changed($name, $old, $this->settings->value($name)));
+		return $this->presetReset($definition, $this->changed($name, $old, $this->settings->value($name)));
 	}
 
 	/**
@@ -396,6 +396,50 @@ class SettingsEditor {
 			$this->state->set(self::LEVEL_STATE, ProtectionLevel::Custom->value);
 		}
 		return $changed;
+	}
+
+	/**
+	 * A limit or block duration put back to its default gives the level all
+	 * limits match now: the level again once nothing differs from it, else
+	 * "custom".
+	 *
+	 * @return bool $changed, passed through
+	 */
+	private function presetReset(ParamDefinition $definition, bool $changed): bool {
+		if ($changed && $definition->preset !== null && !$this->applyingLevel) {
+			$this->state->set(self::LEVEL_STATE, $this->matchingLevel()->value);
+		}
+		return $changed;
+	}
+
+	/**
+	 * The level whose values every limit and block duration has, or Custom.
+	 */
+	private function matchingLevel(): ProtectionLevel {
+		foreach (ProtectionLevel::choosable() as $level) {
+			if ($this->hasValuesOf($level)) {
+				return $level;
+			}
+		}
+		return ProtectionLevel::Custom;
+	}
+
+	private function hasValuesOf(ProtectionLevel $level): bool {
+		foreach ($this->registry->all() as $check) {
+			foreach ($check->params as $param) {
+				$value = $param->presetValue($level);
+				if ($value !== null && $value !== $this->checks->param($check->id, $param->name)) {
+					return false;
+				}
+			}
+		}
+		foreach ($this->globals->all() as $name => $definition) {
+			$value = $definition->presetValue($level);
+			if ($value !== null && $value !== $this->settings->value($name)) {
+				return false;
+			}
+		}
+		return true;
 	}
 
 	/**

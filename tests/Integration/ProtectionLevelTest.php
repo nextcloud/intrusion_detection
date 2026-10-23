@@ -92,6 +92,21 @@ class ProtectionLevelTest extends IntegrationTestCase {
 		$this->assertSame(ProtectionLevel::Custom, $this->settingsEditor()->protectionLevel());
 	}
 
+	public function testResettingTheOnlyChangedCheckRestoresTheLevel(): void {
+		$this->settingsEditor()->updateCheck(CredentialStuffing::ID, null, ['min_failures' => 7], null);
+		$this->assertSame(ProtectionLevel::Custom, $this->settingsEditor()->protectionLevel());
+
+		$this->settingsEditor()->resetCheck(CredentialStuffing::ID);
+		$this->assertSame(ProtectionLevel::Recommended, $this->settingsEditor()->protectionLevel(), 'every limit is at its default again');
+	}
+
+	public function testResettingACheckKeepsCustomWhileAnotherLimitDiffers(): void {
+		$this->settingsEditor()->updateCheck(CredentialStuffing::ID, null, ['min_failures' => 7], null);
+		$this->settingsEditor()->updateGlobals([GlobalSettings::BAN_DURATION_2 => 3600]);
+		$this->settingsEditor()->resetCheck(CredentialStuffing::ID);
+		$this->assertSame(ProtectionLevel::Custom, $this->settingsEditor()->protectionLevel());
+	}
+
 	public function testResettingEverythingIsTheRecommendedLevel(): void {
 		$this->levels->apply(ProtectionLevel::Strict, 'test');
 		Server::get(SettingsTransfer::class)->resetAll('test');
