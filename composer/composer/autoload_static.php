@@ -550,8 +550,6 @@ class ComposerStaticInitIntrusionDetection
         'OCA\\IntrusionDetection\\Personal\\PersonalDataMigrator' => __DIR__ . '/..' . '/../lib/Personal/PersonalDataMigrator.php',
         'OCA\\IntrusionDetection\\Personal\\PersonalOverview' => __DIR__ . '/..' . '/../lib/Personal/PersonalOverview.php',
         'OCA\\IntrusionDetection\\Privacy\\UserDataCleanup' => __DIR__ . '/..' . '/../lib/Privacy/UserDataCleanup.php',
-        'OCA\\IntrusionDetection\\Repair\\MoveInternalState' => __DIR__ . '/..' . '/../lib/Repair/MoveInternalState.php',
-        'OCA\\IntrusionDetection\\Repair\\RemoveRetiredSettings' => __DIR__ . '/..' . '/../lib/Repair/RemoveRetiredSettings.php',
         'OCA\\IntrusionDetection\\Repair\\ReserveSuggestedNames' => __DIR__ . '/..' . '/../lib/Repair/ReserveSuggestedNames.php',
         'OCA\\IntrusionDetection\\Repair\\StartLearningMode' => __DIR__ . '/..' . '/../lib/Repair/StartLearningMode.php',
         'OCA\\IntrusionDetection\\ResponseDefinitions' => __DIR__ . '/..' . '/../lib/ResponseDefinitions.php',

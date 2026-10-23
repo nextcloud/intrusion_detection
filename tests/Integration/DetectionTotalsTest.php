@@ -69,19 +69,6 @@ class DetectionTotalsTest extends IntegrationTestCase {
 		$this->assertSame(1, array_sum(array_column($totals->perDay(time() - 300 * 86400, 0), 'count')), 'the chart has the recent hours only');
 	}
 
-	public function testTheBackfillCountsStoredDetectionsOnce(): void {
-		$this->insert('trap_url', 'low', false, time() - 7200, count: false);
-		$this->insert('trap_url', 'low', false, time() - 7200, count: false);
-		$this->insert('admin_change', 'high', true, time(), count: false);
-		$totals = Server::get(DetectionTotals::class);
-		$totals->backfill();
-		$totals->backfill();
-		$this->assertSame([
-			['check' => 'admin_change', 'severity' => 'high', 'enforced' => true, 'count' => 1],
-			['check' => 'trap_url', 'severity' => 'low', 'enforced' => false, 'count' => 2],
-		], $totals->totals());
-	}
-
 	public function testTheLastSevenDaysPerCheckComeFromTheHourlyTable(): void {
 		$now = time();
 		for ($i = 0; $i < 30; $i++) {
@@ -134,7 +121,7 @@ class DetectionTotalsTest extends IntegrationTestCase {
 		$this->assertSame(7, $trap['stats']['days']);
 	}
 
-	private function insert(string $check, string $severity, bool $enforced, int $createdAt, bool $count = true): void {
+	private function insert(string $check, string $severity, bool $enforced, int $createdAt): void {
 		$detection = new Detection();
 		$detection->setCheckId($check);
 		$detection->setSeverity($severity);
@@ -145,8 +132,6 @@ class DetectionTotalsTest extends IntegrationTestCase {
 		$detection->setLastSeenAt($createdAt);
 		$detection->setHits(1);
 		$detection = Server::get(DetectionMapper::class)->insert($detection);
-		if ($count) {
-			Server::get(DetectionTotals::class)->created($detection);
-		}
+		Server::get(DetectionTotals::class)->created($detection);
 	}
 }

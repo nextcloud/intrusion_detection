@@ -126,43 +126,6 @@ class StepUpSessionMapper {
 	}
 
 	/**
-	 * Sessions without a deadline that may still come back, by key after
-	 * `$after`: refused logins, ended ones, and pending ones remembered
-	 * before the deadline was kept.
-	 *
-	 * @return list<array{session_key: string, uid: string, created_at: int}>
-	 */
-	public function findWithoutDeadline(int $now, string $after, int $limit): array {
-		$qb = $this->db->getQueryBuilder();
-		$qb->select('session_key', 'uid', 'created_at')
-			->from(self::TABLE)
-			->where($qb->expr()->isNull('deadline'))
-			->andWhere($qb->expr()->gt('expires_at', $qb->createNamedParameter($now, IQueryBuilder::PARAM_INT)))
-			->andWhere($qb->expr()->gt('session_key', $qb->createNamedParameter($after)))
-			->orderBy('session_key', 'ASC')
-			->setMaxResults($limit);
-		$result = $qb->executeQuery();
-		$rows = [];
-		while ($row = $result->fetch()) {
-			$rows[] = ['session_key' => (string)$row['session_key'], 'uid' => (string)$row['uid'], 'created_at' => (int)$row['created_at']];
-		}
-		$result->closeCursor();
-		return $rows;
-	}
-
-	/**
-	 * Give a session without a deadline one.
-	 */
-	public function setDeadline(string $sessionKey, int $deadline): void {
-		$qb = $this->db->getQueryBuilder();
-		$qb->update(self::TABLE)
-			->set('deadline', $qb->createNamedParameter($deadline, IQueryBuilder::PARAM_INT))
-			->where($qb->expr()->eq('session_key', $qb->createNamedParameter($sessionKey)))
-			->andWhere($qb->expr()->isNull('deadline'))
-			->executeStatement();
-	}
-
-	/**
 	 * The pending login was ended; the row stays, so that the session cannot come back.
 	 *
 	 * @return bool whether this call ended it (and not another one at the same time)

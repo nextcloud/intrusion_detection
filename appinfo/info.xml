@@ -54,10 +54,6 @@ Every check can be switched between Off, Observe and Protect, every threshold is
     </background-jobs>
 
     <repair-steps>
-        <post-migration>
-            <step>OCA\IntrusionDetection\Repair\RemoveRetiredSettings</step>
-            <step>OCA\IntrusionDetection\Repair\MoveInternalState</step>
-        </post-migration>
         <install>
             <step>OCA\IntrusionDetection\Repair\ReserveSuggestedNames</step>
             <step>OCA\IntrusionDetection\Repair\StartLearningMode</step>

@@ -235,49 +235,16 @@ class DetectionTotals implements IPurges {
 	}
 
 	/**
-	 * Count the detections stored so far, for the time before the totals
-	 * existed. Does nothing once any hour is counted.
-	 */
-	public function backfill(): void {
-		$qb = $this->db->getQueryBuilder();
-		$qb->select('id')->from(self::TABLE)->setMaxResults(1);
-		$result = $qb->executeQuery();
-		$counted = $result->fetchOne() !== false;
-		$result->closeCursor();
-		if ($counted) {
-			return;
-		}
-		$qb = $this->db->getQueryBuilder();
-		$hour = match ($this->db->getDatabaseProvider()) {
-			IDBConnection::PLATFORM_MYSQL, IDBConnection::PLATFORM_MARIADB => $qb->getColumnName('created_at') . ' DIV 3600',
-			IDBConnection::PLATFORM_ORACLE => 'FLOOR(' . $qb->getColumnName('created_at') . ' / 3600)',
-			// Integer division: created_at is an integer column.
-			default => $qb->getColumnName('created_at') . ' / 3600',
-		};
-		$qb->selectAlias($qb->createFunction($hour), 'h')
-			->addSelect('check_id', 'severity', 'enforced')
-			->selectAlias($qb->func()->count('*'), 'n')
-			->from(DetectionMapper::TABLE)
-			->groupBy($qb->createFunction($hour))
-			->addGroupBy('check_id', 'severity', 'enforced');
-		$result = $qb->executeQuery();
-		while ($row = $result->fetch()) {
-			$this->add('created', (int)$row['h'], (string)$row['check_id'], (string)$row['severity'], (bool)$row['enforced'], (int)$row['n']);
-		}
-		$result->closeCursor();
-	}
-
-	/**
 	 * Add to a counter of an hour and labels: an update, and an insert the
 	 * first time; a concurrent first insert makes the update run again.
 	 *
 	 * @param 'created'|'raised' $column
 	 */
-	private function add(string $column, int $hour, string $checkId, string $severity, bool $enforced, int $by = 1): void {
-		$update = function () use ($column, $hour, $checkId, $severity, $enforced, $by): int {
+	private function add(string $column, int $hour, string $checkId, string $severity, bool $enforced): void {
+		$update = function () use ($column, $hour, $checkId, $severity, $enforced): int {
 			$qb = $this->db->getQueryBuilder();
 			return $qb->update(self::TABLE)
-				->set($column, $qb->createFunction($qb->getColumnName($column) . ' + ' . $by))
+				->set($column, $qb->createFunction($qb->getColumnName($column) . ' + 1'))
 				->where($qb->expr()->eq('hour', $qb->createNamedParameter($hour, IQueryBuilder::PARAM_INT)))
 				->andWhere($qb->expr()->eq('check_id', $qb->createNamedParameter($checkId)))
 				->andWhere($qb->expr()->eq('severity', $qb->createNamedParameter($severity)))
@@ -292,8 +259,8 @@ class DetectionTotals implements IPurges {
 			'check_id' => $checkId,
 			'severity' => $severity,
 			'enforced' => $enforced ? 1 : 0,
-			'created' => $column === 'created' ? $by : 0,
-			'raised' => $column === 'raised' ? $by : 0,
+			'created' => $column === 'created' ? 1 : 0,
+			'raised' => $column === 'raised' ? 1 : 0,
 		]);
 		if ($inserted === 0) {
 			$update();

@@ -535,8 +535,6 @@ return array(
     'OCA\\IntrusionDetection\\Personal\\PersonalDataMigrator' => $baseDir . '/../lib/Personal/PersonalDataMigrator.php',
     'OCA\\IntrusionDetection\\Personal\\PersonalOverview' => $baseDir . '/../lib/Personal/PersonalOverview.php',
     'OCA\\IntrusionDetection\\Privacy\\UserDataCleanup' => $baseDir . '/../lib/Privacy/UserDataCleanup.php',
-    'OCA\\IntrusionDetection\\Repair\\MoveInternalState' => $baseDir . '/../lib/Repair/MoveInternalState.php',
-    'OCA\\IntrusionDetection\\Repair\\RemoveRetiredSettings' => $baseDir . '/../lib/Repair/RemoveRetiredSettings.php',
     'OCA\\IntrusionDetection\\Repair\\ReserveSuggestedNames' => $baseDir . '/../lib/Repair/ReserveSuggestedNames.php',
     'OCA\\IntrusionDetection\\Repair\\StartLearningMode' => $baseDir . '/../lib/Repair/StartLearningMode.php',
     'OCA\\IntrusionDetection\\ResponseDefinitions' => $baseDir . '/../lib/ResponseDefinitions.php',

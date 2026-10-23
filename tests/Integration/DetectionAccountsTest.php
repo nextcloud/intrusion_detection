@@ -109,15 +109,6 @@ class DetectionAccountsTest extends IntegrationTestCase {
 		$this->assertSame([$kept->getId()], $this->accounts->detectionIds('alice', 0, 10));
 	}
 
-	public function testTheBackfillRecordsStoredDetectionsOnce(): void {
-		[$detection] = $this->service->record(new DetectionDraft(CredentialStuffing::ID, SourceKey::fromIp('203.0.113.12'), 'carol', self::factsOf(CredentialStuffing::ID, ['targets' => ['alice']])), $this->protect);
-		$this->accounts->deleteForDetections([$detection->getId()]);
-
-		Server::get(DetectionAccounts::class)->backfill();
-		Server::get(DetectionAccounts::class)->backfill();
-		$this->assertEqualsCanonicalizing(['alice', 'carol'], $this->accounts->uids($detection->getId()));
-	}
-
 	private function queries(): int {
 		return $this->db->getInner()->getStats()['executed'];
 	}

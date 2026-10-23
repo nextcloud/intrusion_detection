@@ -18,8 +18,9 @@ use Psr\Log\LoggerInterface;
 /**
  * Reserves the suggested login names, such as "administrator" or "root",
  * when the app is installed, leaving out every name that is an account in
- * any user backend. Runs once, before {@see StartLearningMode} records the
- * installation; installs from before this step keep their names as they are.
+ * any user backend. Runs before {@see StartLearningMode} records the
+ * installation, and only once: installing the app again keeps the names as
+ * they are.
  */
 class ReserveSuggestedNames implements IRepairStep {
 	public function __construct(

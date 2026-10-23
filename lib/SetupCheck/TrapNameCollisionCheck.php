@@ -23,8 +23,8 @@ use OCP\IL10N;
  * names refresh.
  *
  * Otherwise it points out that no name is reserved while the decoy admin
- * account check runs, as on installs from before names were reserved at
- * installation. That reads the list only, without looking names up.
+ * account check runs, for example after an administrator removed them all.
+ * That reads the list only, without looking names up.
  */
 class TrapNameCollisionCheck extends ProblemCheck {
 	public function __construct(

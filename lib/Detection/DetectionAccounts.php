@@ -11,9 +11,6 @@ namespace OCA\IntrusionDetection\Detection;
 
 use OCA\IntrusionDetection\Db\Detection;
 use OCA\IntrusionDetection\Db\DetectionAccountMapper;
-use OCA\IntrusionDetection\Db\DetectionMapper;
-use OCP\DB\QueryBuilder\IQueryBuilder;
-use OCP\IDBConnection;
 
 /**
  * The accounts a detection is about or mentions, kept in a side table when
@@ -36,11 +33,9 @@ class DetectionAccounts {
 	/** Accounts kept per detection at most */
 	public const MAX = 200;
 	private const UID_MAX_LENGTH = 64;
-	private const BACKFILL_BATCH = 500;
 
 	public function __construct(
 		private readonly DetectionAccountMapper $mapper,
-		private readonly IDBConnection $db,
 	) {
 	}
 
@@ -97,39 +92,5 @@ class DetectionAccounts {
 			$this->mapper->add($detection->getId(), $added);
 		}
 		return array_values(array_unique(array_merge($before ?? [], $now)));
-	}
-
-	/**
-	 * Record the accounts of every stored detection, for the detections made
-	 * before the side table existed or before a key was added to FACT_KEYS.
-	 * Accounts already recorded are skipped.
-	 *
-	 * @param list<string> $checkIds only the detections of these checks; all when empty
-	 */
-	public function backfill(array $checkIds = []): void {
-		$lastId = 0;
-		do {
-			$qb = $this->db->getQueryBuilder();
-			$qb->select('id', 'uid', 'explanation', 'actions')
-				->from(DetectionMapper::TABLE)
-				->where($qb->expr()->gt('id', $qb->createNamedParameter($lastId, IQueryBuilder::PARAM_INT)))
-				->orderBy('id', 'ASC')
-				->setMaxResults(self::BACKFILL_BATCH);
-			if ($checkIds !== []) {
-				$qb->andWhere($qb->expr()->in('check_id', $qb->createNamedParameter($checkIds, IQueryBuilder::PARAM_STR_ARRAY)));
-			}
-			$result = $qb->executeQuery();
-			$rows = $result->fetchAll();
-			$result->closeCursor();
-			foreach ($rows as $row) {
-				$detection = new Detection();
-				$detection->setId((int)$row['id']);
-				$detection->setUid($row['uid'] === null ? null : (string)$row['uid']);
-				$detection->setExplanation(is_string($row['explanation']) ? $row['explanation'] : null);
-				$detection->setActions(is_string($row['actions']) ? $row['actions'] : null);
-				$this->mapper->add($detection->getId(), self::of($detection));
-				$lastId = $detection->getId();
-			}
-		} while (count($rows) === self::BACKFILL_BATCH);
 	}
 }
