@@ -16,10 +16,8 @@ use OCA\IntrusionDetection\Config\CheckSettings;
 use OCA\IntrusionDetection\Configure\SettingsEditor;
 use OCA\IntrusionDetection\Decoy\DecoyFormat;
 use OCA\IntrusionDetection\Decoy\DecoyService;
-use OCA\IntrusionDetection\Definition\InvalidParamException;
 use OCA\IntrusionDetection\ResponseDefinitions;
 use OCA\IntrusionDetection\Traps\ReservedNames;
-use OCP\AppFramework\Db\DoesNotExistException;
 use OCP\AppFramework\Http;
 use OCP\AppFramework\Http\Attribute\ApiRoute;
 use OCP\AppFramework\Http\Attribute\OpenAPI;
@@ -99,11 +97,7 @@ class DecoyApiController extends AdminOCSController {
 		if ($decoyFormat === null) {
 			return $this->error($this->l->t('Choose what the secret looks like: an app password or a token.'), 'secretFormat', 'invalid_format');
 		}
-		try {
-			[$decoy, $secret] = $this->decoys->create($label, $loginName === '' ? null : $loginName, $decoyFormat, $this->actor());
-		} catch (InvalidParamException $e) {
-			return $this->invalid($e);
-		}
+		[$decoy, $secret] = $this->decoys->create($label, $loginName === '' ? null : $loginName, $decoyFormat, $this->actor());
 		$response = new DataResponse(['decoy' => TrapsOverview::decoy($decoy), 'secret' => $secret]);
 		$response->addHeader('Cache-Control', 'no-store');
 		return $response;
@@ -123,11 +117,7 @@ class DecoyApiController extends AdminOCSController {
 	#[ApiRoute(verb: 'DELETE', url: '/api/v1/decoys/{id}', requirements: ['id' => '\d+'])]
 	#[PasswordConfirmationRequired]
 	public function delete(int $id): DataResponse {
-		try {
-			$this->decoys->delete($id, $this->actor());
-		} catch (DoesNotExistException) {
-			throw new OCSNotFoundException($this->l->t('This decoy does not exist (any more).'));
-		}
+		$this->found(fn () => $this->decoys->delete($id, $this->actor()), $this->l->t('This decoy does not exist (any more).'));
 		return new DataResponse(['deleted' => $id]);
 	}
 
@@ -151,12 +141,8 @@ class DecoyApiController extends AdminOCSController {
 		if (count($add) + count($remove) > self::MAX_CHANGES) {
 			return $this->error($this->l->t('Change at most %s names at once.', [(string)self::MAX_CHANGES]), 'names', 'too_many_items');
 		}
-		try {
-			if ($add !== [] || $remove !== []) {
-				$this->reservedNames->change($add, $remove, $this->actor());
-			}
-		} catch (InvalidParamException $e) {
-			return $this->invalid($e);
+		if ($add !== [] || $remove !== []) {
+			$this->reservedNames->change($add, $remove, $this->actor());
 		}
 		return new DataResponse($this->overview->reservedNames());
 	}
@@ -199,11 +185,7 @@ class DecoyApiController extends AdminOCSController {
 		if ($autodiscover !== null) {
 			$params['autodiscover'] = $autodiscover;
 		}
-		try {
-			$changes = $this->editor->updateCheck(TrapUrl::ID, null, $params, null);
-		} catch (InvalidParamException $e) {
-			return $this->invalid($e);
-		}
+		$changes = $this->editor->updateCheck(TrapUrl::ID, null, $params, null);
 		if ($changes === []) {
 			return new DataResponse($this->overview->trapPaths($this->l));
 		}

@@ -13,7 +13,6 @@ use OCA\IntrusionDetection\Admin\ConfirmationOverview;
 use OCA\IntrusionDetection\Audit\AuditLogger;
 use OCA\IntrusionDetection\Confirm\ConfirmationCoverage;
 use OCA\IntrusionDetection\Confirm\NoMethodPreset;
-use OCA\IntrusionDetection\Definition\InvalidParamException;
 use OCA\IntrusionDetection\ResponseDefinitions;
 use OCP\AppFramework\Http;
 use OCP\AppFramework\Http\Attribute\ApiRoute;
@@ -119,11 +118,7 @@ class ConfirmationApiController extends AdminOCSController {
 	#[ApiRoute(verb: 'PUT', url: '/api/v1/confirmation/preset')]
 	#[PasswordConfirmationRequired]
 	public function setPreset(string $preset): DataResponse {
-		try {
-			$changes = $this->preset->apply($preset);
-		} catch (InvalidParamException $e) {
-			return $this->invalid($e);
-		}
+		$changes = $this->preset->apply($preset);
 		if ($changes !== []) {
 			$this->audit->log('login confirmation without a method set to %s by %s: %s', [
 				'preset' => $preset,

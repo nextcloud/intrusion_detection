@@ -167,7 +167,7 @@ class WasThisYouService {
 	public function confirm(IUser $user, int $detectionId): Detection {
 		$detection = $this->ownOpen($user, $detectionId);
 		if (!$this->maySessionVouch($detection)) {
-			throw new AnswerException(AnswerException::SESSION_NOT_ALLOWED);
+			throw new AnswerException(AnswerException::SESSION_NOT_ALLOWED, yes: true);
 		}
 		$this->claim($detection, $user, Detection::VERDICT_CONFIRMED);
 		$source = Questions::answerSource($detection);

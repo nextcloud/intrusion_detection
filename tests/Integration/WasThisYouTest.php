@@ -50,6 +50,7 @@ use OCA\IntrusionDetection\Response\FlaggedSources;
 use OCA\IntrusionDetection\Response\PasswordChangeFlag;
 use OCA\IntrusionDetection\SessionState\SessionState;
 use OCA\IntrusionDetection\Takeover\Db\SecurityChangeMapper;
+use OCA\IntrusionDetection\Tests\Unit\Controller\AnswersLikeTheApi;
 use OCA\IntrusionDetection\TrustedNetwork\TrustedNetworks;
 use OCA\IntrusionDetection\WasThisYou\AnswerException;
 use OCA\IntrusionDetection\WasThisYou\PersonalDetections;
@@ -76,6 +77,8 @@ use PHPUnit\Framework\Attributes\Group;
  */
 #[Group('DB')]
 class WasThisYouTest extends StepUpTestCase {
+	use AnswersLikeTheApi;
+
 	private const ATTACKER = '203.0.113.66';
 
 	private IUser $alice;
@@ -236,7 +239,7 @@ class WasThisYouTest extends StepUpTestCase {
 		$this->startSession($this->alice);
 		$this->state->set(SessionState::CONFIRMATION, ['uid' => $this->alice->getUID(), 'by' => 'none', 'policies' => [StepUpPolicy::FlaggedSource->value], 'at' => time()]);
 		$this->assertAnswerFails(AnswerException::SESSION_NOT_ALLOWED, fn () => $this->answers()->deny($this->alice, $detection->getId()), 'A login let in without a confirmation');
-		$refused = $this->controller()->deny($detection->getId());
+		$refused = $this->answer(fn () => $this->controller()->deny($detection->getId()));
 		$this->assertSame(Http::STATUS_FORBIDDEN, $refused->getStatus());
 		$this->assertStringStartsWith('For your safety, "No, it was not me" cannot be answered from a login that was not confirmed.', $refused->getData()['message'], 'The message is about "No"');
 
@@ -313,7 +316,7 @@ class WasThisYouTest extends StepUpTestCase {
 		$this->appPasswordSession($this->alice);
 		$this->prove($this->alice);
 
-		$refused = $this->controller()->confirm($detection->getId());
+		$refused = $this->answer(fn () => $this->controller()->confirm($detection->getId()));
 
 		$this->assertSame(Http::STATUS_FORBIDDEN, $refused->getStatus());
 		$this->assertSame(AnswerException::SESSION_NOT_ALLOWED, $refused->getData()['reason']);
@@ -450,11 +453,11 @@ class WasThisYouTest extends StepUpTestCase {
 		$bob = $this->user('ids-wty-bob3', 'bob@example.com');
 		$detection = $this->detection(SecondFactorFailed::ID, $this->alice);
 		$this->provenSession($this->alice);
-		$this->assertSame(Http::STATUS_NOT_FOUND, $this->controller()->deny(999999999)->getStatus());
+		$this->assertSame(Http::STATUS_NOT_FOUND, $this->answer(fn () => $this->controller()->deny(999999999))->getStatus());
 		$response = $this->controller()->confirm($detection->getId());
 		$this->assertSame(Http::STATUS_OK, $response->getStatus());
 		$this->assertSame('confirmed', $response->getData()['verdict']);
-		$this->assertSame(Http::STATUS_CONFLICT, $this->controller()->deny($detection->getId())->getStatus());
+		$this->assertSame(Http::STATUS_CONFLICT, $this->answer(fn () => $this->controller()->deny($detection->getId()))->getStatus());
 
 		$networks = $this->controller()->trustedNetworks()->getData();
 		$this->assertCount(1, $networks);
@@ -467,7 +470,7 @@ class WasThisYouTest extends StepUpTestCase {
 
 		$suspicious = $this->provenSession($this->alice);
 		$own = $this->detection(SecondFactorFailed::ID, $this->alice, ['sessionTokenId' => $suspicious['id']]);
-		$refused = $this->controller()->confirm($own->getId());
+		$refused = $this->answer(fn () => $this->controller()->confirm($own->getId()));
 		$this->assertSame(Http::STATUS_FORBIDDEN, $refused->getStatus());
 		$this->assertSame(AnswerException::SESSION_NOT_ALLOWED, $refused->getData()['reason']);
 	}

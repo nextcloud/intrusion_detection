@@ -41,6 +41,8 @@ use Psr\Log\LoggerInterface;
 use Test\TestCase;
 
 class ApprovalControllerTest extends TestCase {
+	use AnswersLikeTheApi;
+
 	private const NOW = 1_800_000_000;
 
 	private IUserManager&MockObject $userManager;
@@ -143,7 +145,7 @@ class ApprovalControllerTest extends TestCase {
 		$approval = new Approval();
 		$approval->setStatus(Approval::STATUS_APPROVED);
 		$service->expects($this->once())->method('approve')->with(5, 'carol', ApprovalService::VIA_WEB)->willReturn($approval);
-		$response = $this->controller($service)->approve(5);
+		$response = $this->answer(fn () => $this->controller($service)->approve(5));
 		$this->assertSame(Http::STATUS_OK, $response->getStatus());
 		$this->assertSame(Approval::STATUS_APPROVED, $response->getData()['status']);
 	}
@@ -152,16 +154,16 @@ class ApprovalControllerTest extends TestCase {
 		$service = $this->createMock(ApprovalService::class);
 		$service->expects($this->never())->method('approve');
 		$this->confirmation = ['uid' => 'carol', 'by' => 'none', 'policies' => ['flagged_source'], 'at' => 1];
-		$response = $this->controller($service)->approve(5);
+		$response = $this->answer(fn () => $this->controller($service)->approve(5));
 		$this->assertSame(Http::STATUS_FORBIDDEN, $response->getStatus());
 		$this->assertSame(ApprovalException::UNCONFIRMED, $response->getData()['reason']);
 
 		$this->confirmation = null;
 		$this->stepUp = (new StepUpState('carol', StepUpState::PENDING, ['flagged_source'], 1, 901))->toArray();
-		$this->assertSame(ApprovalException::UNCONFIRMED, $this->controller($service)->approve(5)->getData()['reason'], 'A login that still waits for its confirmation');
+		$this->assertSame(ApprovalException::UNCONFIRMED, $this->answer(fn () => $this->controller($service)->approve(5))->getData()['reason'], 'A login that still waits for its confirmation');
 		$this->stepUp = null;
 		$this->appPassword = true;
-		$this->assertSame(ApprovalException::UNCONFIRMED, $this->controller($service)->approve(5)->getData()['reason'], 'An app password');
+		$this->assertSame(ApprovalException::UNCONFIRMED, $this->answer(fn () => $this->controller($service)->approve(5))->getData()['reason'], 'An app password');
 		$this->appPassword = false;
 
 		$this->confirmation = ['uid' => 'carol', 'by' => 'email_code', 'policies' => ['flagged_source'], 'at' => 1];
@@ -214,7 +216,7 @@ class ApprovalControllerTest extends TestCase {
 	public function testRefusalsBecomeErrors(string $reason, int $status): void {
 		$service = $this->createMock(ApprovalService::class);
 		$service->method('reject')->willThrowException(new ApprovalException($reason));
-		$response = $this->controller($service)->reject(5);
+		$response = $this->answer(fn () => $this->controller($service)->reject(5));
 		$this->assertSame($status, $response->getStatus());
 		$this->assertSame($reason, $response->getData()['reason']);
 	}
@@ -256,6 +258,6 @@ class ApprovalControllerTest extends TestCase {
 		$confirmation = new SessionConfirmation($state, $phpSession, $this->createMock(ITimeFactory::class));
 		$time = $this->createMock(ITimeFactory::class);
 		$time->method('getTime')->willReturn(self::NOW);
-		return new ApprovalController($this->createMock(IRequest::class), $service, $session, $l, $confirmation, $this->userManager, $time);
+		return new ApprovalController($this->createMock(IRequest::class), $l, $session, $service, $confirmation, $this->userManager, $time);
 	}
 }

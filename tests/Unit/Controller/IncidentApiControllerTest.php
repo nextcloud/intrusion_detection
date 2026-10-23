@@ -39,6 +39,8 @@ use Test\TestCase;
  * an audit log entry with who, about whom, which period and which form.
  */
 class IncidentApiControllerTest extends TestCase {
+	use AnswersLikeTheApi;
+
 	private const NOW = 1_800_000_000;
 
 	private IL10N $l;
@@ -111,7 +113,7 @@ class IncidentApiControllerTest extends TestCase {
 		$this->builder->expects($this->never())->method('build');
 		$this->audit->expects($this->never())->method('log');
 		foreach ([['', ''], ['alice', '198.51.100.7']] as [$user, $address]) {
-			$response = $this->controller->report($user, $address);
+			$response = $this->answer(fn () => $this->controller->report($user, $address));
 			$this->assertSame(Http::STATUS_BAD_REQUEST, $response->getStatus());
 			$this->assertSame('subject', $response->getData()['param']);
 		}
@@ -120,12 +122,12 @@ class IncidentApiControllerTest extends TestCase {
 	public function testAnInvalidPeriodIsExplainedAndNothingIsBuilt(): void {
 		$this->builder->expects($this->never())->method('build');
 		$this->audit->expects($this->never())->method('log');
-		$response = $this->controller->report('', '198.51.100.7', self::NOW, self::NOW - 60);
+		$response = $this->answer(fn () => $this->controller->report('', '198.51.100.7', self::NOW, self::NOW - 60));
 		$this->assertSame(Http::STATUS_BAD_REQUEST, $response->getStatus());
 		$this->assertSame('range_order', $response->getData()['reason']);
 		$this->assertSame('The start of the period must be before its end.', $response->getData()['message']);
 
-		$this->assertSame('invalid_address', $this->controller->report('', 'not-an-ip')->getData()['reason']);
+		$this->assertSame('invalid_address', $this->answer(fn () => $this->controller->report('', 'not-an-ip'))->getData()['reason']);
 	}
 
 	public function testDownloadsAreDocumentsThatAreNotCachedAndAudited(): void {

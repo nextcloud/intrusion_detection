@@ -10,10 +10,12 @@ declare(strict_types=1);
 namespace OCA\IntrusionDetection\Controller;
 
 use OCA\IntrusionDetection\AppInfo\Application;
-use OCA\IntrusionDetection\Definition\InvalidParamException;
+use OCA\IntrusionDetection\Middleware\ApiErrorMiddleware;
 use OCA\IntrusionDetection\ResponseDefinitions;
+use OCP\AppFramework\Db\DoesNotExistException;
 use OCP\AppFramework\Http;
 use OCP\AppFramework\Http\DataResponse;
+use OCP\AppFramework\OCS\OCSNotFoundException;
 use OCP\AppFramework\OCSController;
 use OCP\IL10N;
 use OCP\IRequest;
@@ -21,7 +23,9 @@ use OCP\IUserSession;
 
 /**
  * Shared parts of the admin page's controllers: who is acting, and errors
- * the page can show next to the field they are about.
+ * the page can show next to the field they are about. Domain errors that
+ * a controller does not catch are answered by {@see ApiErrorMiddleware}
+ * in the same shape.
  *
  * Subclasses are for administrators only: they carry no attribute that
  * relaxes core's default admin requirement.
@@ -42,11 +46,19 @@ abstract class AdminOCSController extends OCSController {
 	}
 
 	/**
-	 * @return DataResponse<Http::STATUS_BAD_REQUEST, IntrusionDetectionError, array{}>
+	 * What a lookup finds, or "not found" with this message when it finds nothing.
+	 *
+	 * @template T
+	 * @param \Closure(): T $lookup
+	 * @return T
+	 * @throws OCSNotFoundException
 	 */
-	protected function invalid(InvalidParamException $e): DataResponse {
-		$param = $e->details['param'] ?? null;
-		return $this->error($e->describe($this->l), $param === null ? null : (string)$param, $e->reason);
+	protected function found(\Closure $lookup, string $message): mixed {
+		try {
+			return $lookup();
+		} catch (DoesNotExistException) {
+			throw new OCSNotFoundException($message);
+		}
 	}
 
 	/**

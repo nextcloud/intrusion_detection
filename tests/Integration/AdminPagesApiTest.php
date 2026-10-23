@@ -23,6 +23,7 @@ use OCA\IntrusionDetection\Controller\SimulationApiController;
 use OCA\IntrusionDetection\Detection\Simulator;
 use OCA\IntrusionDetection\Learning\LearningService;
 use OCA\IntrusionDetection\State\AppState;
+use OCA\IntrusionDetection\Tests\Unit\Controller\AnswersLikeTheApi;
 use OCA\IntrusionDetection\Traps\TrapNameCollisions;
 use OCP\AppFramework\Http;
 use OCP\AppFramework\OCS\OCSNotFoundException;
@@ -38,6 +39,8 @@ use PHPUnit\Framework\Attributes\Group;
  */
 #[Group('DB')]
 class AdminPagesApiTest extends IntegrationTestCase {
+	use AnswersLikeTheApi;
+
 	private const USERS = ['ids_admin', 'ids_alice', 'ids_root2'];
 
 	private DecoyApiController $decoys;
@@ -106,9 +109,9 @@ class AdminPagesApiTest extends IntegrationTestCase {
 	}
 
 	public function testDecoysAreValidated(): void {
-		$this->assertSame('secretFormat', $this->decoys->create('label', '', 'plain')->getData()['param']);
-		$this->assertSame('login_name', $this->decoys->create('label', 'IDS_Alice')->getData()['param'], 'An existing account cannot be a decoy name');
-		$this->assertSame('label', $this->decoys->create("\n  ")->getData()['param']);
+		$this->assertSame('secretFormat', $this->answer(fn () => $this->decoys->create('label', '', 'plain'))->getData()['param']);
+		$this->assertSame('login_name', $this->answer(fn () => $this->decoys->create('label', 'IDS_Alice'))->getData()['param'], 'An existing account cannot be a decoy name');
+		$this->assertSame('label', $this->answer(fn () => $this->decoys->create("\n  "))->getData()['param']);
 		$this->assertSame(0, (int)$this->db->getQueryBuilder()->select($this->db->getQueryBuilder()->func()->count('*'))->from('ids_decoys')->executeQuery()->fetchOne());
 	}
 
@@ -124,7 +127,7 @@ class AdminPagesApiTest extends IntegrationTestCase {
 		$this->assertSame(['root', 'ids_root2'], $names['names']);
 		$this->assertNotContains('root', $names['suggestions']);
 
-		$refused = $this->decoys->updateReservedNames(['webmaster', 'ids_alice'], ['root']);
+		$refused = $this->answer(fn () => $this->decoys->updateReservedNames(['webmaster', 'ids_alice'], ['root']));
 		$this->assertSame(Http::STATUS_BAD_REQUEST, $refused->getStatus());
 		$this->assertSame('existing_user', $refused->getData()['reason']);
 		$this->assertSame(['root', 'ids_root2'], $this->decoys->index()->getData()['reservedNames']['names'], 'Nothing was saved');
@@ -144,7 +147,7 @@ class AdminPagesApiTest extends IntegrationTestCase {
 	}
 
 	public function testTrapPathsAreValidatedAndRoutedByTheSnippets(): void {
-		$refused = $this->decoys->updateTrapPaths(['/index.php/apps/files']);
+		$refused = $this->answer(fn () => $this->decoys->updateTrapPaths(['/index.php/apps/files']));
 		$this->assertSame(Http::STATUS_BAD_REQUEST, $refused->getStatus());
 		$this->assertSame('nextcloud_path', $refused->getData()['reason']);
 
@@ -164,11 +167,11 @@ class AdminPagesApiTest extends IntegrationTestCase {
 	}
 
 	public function testCustomListsAreValidatedAndBuiltInOnesProtected(): void {
-		$local = $this->blocklists->create('intranet', 'https://localhost/list.txt', 'deny');
+		$local = $this->answer(fn () => $this->blocklists->create('intranet', 'https://localhost/list.txt', 'deny'));
 		$this->assertSame(Http::STATUS_BAD_REQUEST, $local->getStatus());
 		$this->assertSame('url', $local->getData()['param']);
-		$this->assertSame('url', $this->blocklists->create('plain', 'http://lists.example.org/x.txt', 'deny')->getData()['param']);
-		$this->assertSame('id', $this->blocklists->create('Bad Name', 'https://lists.example.org/x.txt', 'deny')->getData()['param']);
+		$this->assertSame('url', $this->answer(fn () => $this->blocklists->create('plain', 'http://lists.example.org/x.txt', 'deny'))->getData()['param']);
+		$this->assertSame('id', $this->answer(fn () => $this->blocklists->create('Bad Name', 'https://lists.example.org/x.txt', 'deny'))->getData()['param']);
 		$this->assertSame('list_exists', $this->blocklists->create('aws', 'https://lists.example.org/x.txt', 'hosting')->getData()['reason']);
 
 		$list = $this->blocklists->create('corp_feed', 'https://lists.example.org/x.txt', 'deny', 'cidr', 'observe', 3600)->getData();
@@ -177,7 +180,7 @@ class AdminPagesApiTest extends IntegrationTestCase {
 		$this->assertSame(3600, $list['interval']);
 		$this->assertTrue($list['customInterval']);
 
-		$this->assertSame(Http::STATUS_BAD_REQUEST, $this->blocklists->remove('aws')->getStatus(), 'Built-in lists are switched off, not removed');
+		$this->assertSame(Http::STATUS_BAD_REQUEST, $this->answer(fn () => $this->blocklists->remove('aws'))->getStatus(), 'Built-in lists are switched off, not removed');
 		$this->assertSame(['removed' => 'corp_feed'], $this->blocklists->remove('corp_feed')->getData());
 
 		$aws = $this->blocklists->update('aws', true, null, 7200)->getData();
@@ -185,7 +188,7 @@ class AdminPagesApiTest extends IntegrationTestCase {
 		$this->assertSame(7200, $aws['interval']);
 		$this->assertSame(21600, $this->blocklists->update('aws', null, null, 0)->getData()['interval'], 'Back to the default interval');
 		$this->assertSame('protect', $this->blocklists->update('spamhaus_drop_v4', null, 'protect')->getData()['mode']);
-		$this->assertSame('interval', $this->blocklists->update('aws', null, null, 60)->getData()['param']);
+		$this->assertSame('interval', $this->answer(fn () => $this->blocklists->update('aws', null, null, 60))->getData()['param']);
 
 		$this->assertSame('list_disabled', $this->blocklists->syncNow('firehol_level1')->getData()['reason']);
 		$this->expectException(OCSNotFoundException::class);

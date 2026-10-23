@@ -12,7 +12,6 @@ namespace OCA\IntrusionDetection\Controller;
 use OCA\IntrusionDetection\AdminChange\ActorResolver;
 use OCA\IntrusionDetection\AdminChange\ApprovalException;
 use OCA\IntrusionDetection\AdminChange\ApprovalService;
-use OCA\IntrusionDetection\AppInfo\Application;
 use OCA\IntrusionDetection\Check\Checks\AdminChange\AdminChange;
 use OCA\IntrusionDetection\Confirm\SessionConfirmation;
 use OCA\IntrusionDetection\Db\Approval;
@@ -23,7 +22,6 @@ use OCP\AppFramework\Http\Attribute\OpenAPI;
 use OCP\AppFramework\Http\Attribute\PasswordConfirmationRequired;
 use OCP\AppFramework\Http\Attribute\UserRateLimit;
 use OCP\AppFramework\Http\DataResponse;
-use OCP\AppFramework\OCSController;
 use OCP\AppFramework\Utility\ITimeFactory;
 use OCP\IL10N;
 use OCP\IRequest;
@@ -49,19 +47,20 @@ use OCP\IUserSession;
  *
  * @psalm-import-type IntrusionDetectionApproval from ResponseDefinitions
  * @psalm-import-type IntrusionDetectionAdminGrantRequest from ResponseDefinitions
+ * @psalm-import-type IntrusionDetectionError from ResponseDefinitions
  */
 #[OpenAPI(scope: OpenAPI::SCOPE_ADMINISTRATION)]
-class ApprovalController extends OCSController {
+class ApprovalController extends AdminOCSController {
 	public function __construct(
 		IRequest $request,
+		IL10N $l,
+		IUserSession $userSession,
 		private readonly ApprovalService $approvals,
-		private readonly IUserSession $userSession,
-		private readonly IL10N $l,
 		private readonly SessionConfirmation $confirmation,
 		private readonly IUserManager $userManager,
 		private readonly ITimeFactory $timeFactory,
 	) {
-		parent::__construct(Application::APP_ID, $request);
+		parent::__construct($request, $l, $userSession);
 	}
 
 	/**
@@ -124,7 +123,7 @@ class ApprovalController extends OCSController {
 	 * give: their notification opens the admin page instead.
 	 *
 	 * @param int $id the request
-	 * @return DataResponse<Http::STATUS_OK, IntrusionDetectionApproval, array{}>|DataResponse<Http::STATUS_BAD_REQUEST|Http::STATUS_FORBIDDEN|Http::STATUS_NOT_FOUND, array{reason: string, message: string}, array{}>
+	 * @return DataResponse<Http::STATUS_OK, IntrusionDetectionApproval, array{}>|DataResponse<Http::STATUS_BAD_REQUEST|Http::STATUS_FORBIDDEN|Http::STATUS_NOT_FOUND, IntrusionDetectionError, array{}>
 	 *
 	 * 200: Approved
 	 * 400: The request was already decided or has expired
@@ -135,22 +134,18 @@ class ApprovalController extends OCSController {
 	#[PasswordConfirmationRequired]
 	#[UserRateLimit(limit: 10, period: 60)]
 	public function approve(int $id): DataResponse {
-		try {
-			$decider = $this->decider();
-			if ($this->confirmation->isUnconfirmed($decider)) {
-				throw new ApprovalException(ApprovalException::UNCONFIRMED);
-			}
-			return new DataResponse($this->approvals->approve($id, $decider, ApprovalService::VIA_WEB)->jsonSerialize());
-		} catch (ApprovalException $e) {
-			return $this->refused($e);
+		$decider = $this->decider();
+		if ($this->confirmation->isUnconfirmed($decider)) {
+			throw new ApprovalException(ApprovalException::UNCONFIRMED);
 		}
+		return new DataResponse($this->approvals->approve($id, $decider, ApprovalService::VIA_WEB)->jsonSerialize());
 	}
 
 	/**
 	 * Reject a request: nothing changes, and the one who asked is told
 	 *
 	 * @param int $id the request
-	 * @return DataResponse<Http::STATUS_OK, IntrusionDetectionApproval, array{}>|DataResponse<Http::STATUS_BAD_REQUEST|Http::STATUS_FORBIDDEN|Http::STATUS_NOT_FOUND, array{reason: string, message: string}, array{}>
+	 * @return DataResponse<Http::STATUS_OK, IntrusionDetectionApproval, array{}>|DataResponse<Http::STATUS_BAD_REQUEST|Http::STATUS_FORBIDDEN|Http::STATUS_NOT_FOUND, IntrusionDetectionError, array{}>
 	 *
 	 * 200: Rejected
 	 * 400: The request was already decided or has expired
@@ -160,11 +155,7 @@ class ApprovalController extends OCSController {
 	#[ApiRoute(verb: 'POST', url: '/api/v1/approvals/{id}/reject', requirements: ['id' => '\d+'])]
 	#[UserRateLimit(limit: 10, period: 60)]
 	public function reject(int $id): DataResponse {
-		try {
-			return new DataResponse($this->approvals->reject($id, $this->decider(), ApprovalService::VIA_WEB)->jsonSerialize());
-		} catch (ApprovalException $e) {
-			return $this->refused($e);
-		}
+		return new DataResponse($this->approvals->reject($id, $this->decider(), ApprovalService::VIA_WEB)->jsonSerialize());
 	}
 
 	private function decider(): string {
@@ -172,15 +163,4 @@ class ApprovalController extends OCSController {
 		return $this->userSession->getUser()?->getUID() ?? throw new ApprovalException(ApprovalException::NOT_ADMIN);
 	}
 
-	/**
-	 * @return DataResponse<Http::STATUS_BAD_REQUEST|Http::STATUS_FORBIDDEN|Http::STATUS_NOT_FOUND, array{reason: string, message: string}, array{}>
-	 */
-	private function refused(ApprovalException $e): DataResponse {
-		$status = match ($e->reason) {
-			ApprovalException::NOT_FOUND => Http::STATUS_NOT_FOUND,
-			ApprovalException::REQUESTER, ApprovalException::SUBJECT, ApprovalException::NOT_ADMIN, ApprovalException::UNCONFIRMED => Http::STATUS_FORBIDDEN,
-			default => Http::STATUS_BAD_REQUEST,
-		};
-		return new DataResponse(['reason' => $e->reason, 'message' => $e->describe($this->l)], $status);
-	}
 }

@@ -126,21 +126,6 @@
                     }
                 }
             },
-            "AnswerError": {
-                "type": "object",
-                "required": [
-                    "reason",
-                    "message"
-                ],
-                "properties": {
-                    "reason": {
-                        "type": "string"
-                    },
-                    "message": {
-                        "type": "string"
-                    }
-                }
-            },
             "Approval": {
                 "type": "object",
                 "required": [
@@ -7842,19 +7827,7 @@
                                                     "$ref": "#/components/schemas/OCSMeta"
                                                 },
                                                 "data": {
-                                                    "type": "object",
-                                                    "required": [
-                                                        "reason",
-                                                        "message"
-                                                    ],
-                                                    "properties": {
-                                                        "reason": {
-                                                            "type": "string"
-                                                        },
-                                                        "message": {
-                                                            "type": "string"
-                                                        }
-                                                    }
+                                                    "$ref": "#/components/schemas/Error"
                                                 }
                                             }
                                         }
@@ -7886,19 +7859,7 @@
                                                             "$ref": "#/components/schemas/OCSMeta"
                                                         },
                                                         "data": {
-                                                            "type": "object",
-                                                            "required": [
-                                                                "reason",
-                                                                "message"
-                                                            ],
-                                                            "properties": {
-                                                                "reason": {
-                                                                    "type": "string"
-                                                                },
-                                                                "message": {
-                                                                    "type": "string"
-                                                                }
-                                                            }
+                                                            "$ref": "#/components/schemas/Error"
                                                         }
                                                     }
                                                 }
@@ -7951,19 +7912,7 @@
                                                     "$ref": "#/components/schemas/OCSMeta"
                                                 },
                                                 "data": {
-                                                    "type": "object",
-                                                    "required": [
-                                                        "reason",
-                                                        "message"
-                                                    ],
-                                                    "properties": {
-                                                        "reason": {
-                                                            "type": "string"
-                                                        },
-                                                        "message": {
-                                                            "type": "string"
-                                                        }
-                                                    }
+                                                    "$ref": "#/components/schemas/Error"
                                                 }
                                             }
                                         }
@@ -8093,19 +8042,7 @@
                                                     "$ref": "#/components/schemas/OCSMeta"
                                                 },
                                                 "data": {
-                                                    "type": "object",
-                                                    "required": [
-                                                        "reason",
-                                                        "message"
-                                                    ],
-                                                    "properties": {
-                                                        "reason": {
-                                                            "type": "string"
-                                                        },
-                                                        "message": {
-                                                            "type": "string"
-                                                        }
-                                                    }
+                                                    "$ref": "#/components/schemas/Error"
                                                 }
                                             }
                                         }
@@ -8137,19 +8074,7 @@
                                                             "$ref": "#/components/schemas/OCSMeta"
                                                         },
                                                         "data": {
-                                                            "type": "object",
-                                                            "required": [
-                                                                "reason",
-                                                                "message"
-                                                            ],
-                                                            "properties": {
-                                                                "reason": {
-                                                                    "type": "string"
-                                                                },
-                                                                "message": {
-                                                                    "type": "string"
-                                                                }
-                                                            }
+                                                            "$ref": "#/components/schemas/Error"
                                                         }
                                                     }
                                                 }
@@ -8202,19 +8127,7 @@
                                                     "$ref": "#/components/schemas/OCSMeta"
                                                 },
                                                 "data": {
-                                                    "type": "object",
-                                                    "required": [
-                                                        "reason",
-                                                        "message"
-                                                    ],
-                                                    "properties": {
-                                                        "reason": {
-                                                            "type": "string"
-                                                        },
-                                                        "message": {
-                                                            "type": "string"
-                                                        }
-                                                    }
+                                                    "$ref": "#/components/schemas/Error"
                                                 }
                                             }
                                         }
@@ -13204,7 +13117,7 @@
                                                     "$ref": "#/components/schemas/OCSMeta"
                                                 },
                                                 "data": {
-                                                    "$ref": "#/components/schemas/AnswerError"
+                                                    "$ref": "#/components/schemas/Error"
                                                 }
                                             }
                                         }
@@ -13234,7 +13147,7 @@
                                                     "$ref": "#/components/schemas/OCSMeta"
                                                 },
                                                 "data": {
-                                                    "$ref": "#/components/schemas/AnswerError"
+                                                    "$ref": "#/components/schemas/Error"
                                                 }
                                             }
                                         }
@@ -13264,7 +13177,7 @@
                                                     "$ref": "#/components/schemas/OCSMeta"
                                                 },
                                                 "data": {
-                                                    "$ref": "#/components/schemas/AnswerError"
+                                                    "$ref": "#/components/schemas/Error"
                                                 }
                                             }
                                         }
@@ -13294,7 +13207,7 @@
                                                     "$ref": "#/components/schemas/OCSMeta"
                                                 },
                                                 "data": {
-                                                    "$ref": "#/components/schemas/AnswerError"
+                                                    "$ref": "#/components/schemas/Error"
                                                 }
                                             }
                                         }
@@ -13424,7 +13337,7 @@
                                                     "$ref": "#/components/schemas/OCSMeta"
                                                 },
                                                 "data": {
-                                                    "$ref": "#/components/schemas/AnswerError"
+                                                    "$ref": "#/components/schemas/Error"
                                                 }
                                             }
                                         }
@@ -13454,7 +13367,7 @@
                                                     "$ref": "#/components/schemas/OCSMeta"
                                                 },
                                                 "data": {
-                                                    "$ref": "#/components/schemas/AnswerError"
+                                                    "$ref": "#/components/schemas/Error"
                                                 }
                                             }
                                         }
@@ -13484,7 +13397,7 @@
                                                     "$ref": "#/components/schemas/OCSMeta"
                                                 },
                                                 "data": {
-                                                    "$ref": "#/components/schemas/AnswerError"
+                                                    "$ref": "#/components/schemas/Error"
                                                 }
                                             }
                                         }
@@ -13514,7 +13427,7 @@
                                                     "$ref": "#/components/schemas/OCSMeta"
                                                 },
                                                 "data": {
-                                                    "$ref": "#/components/schemas/AnswerError"
+                                                    "$ref": "#/components/schemas/Error"
                                                 }
                                             }
                                         }
@@ -13786,7 +13699,7 @@
                                                             "$ref": "#/components/schemas/OCSMeta"
                                                         },
                                                         "data": {
-                                                            "$ref": "#/components/schemas/AnswerError"
+                                                            "$ref": "#/components/schemas/Error"
                                                         }
                                                     }
                                                 }
@@ -14082,7 +13995,7 @@
                                                             "$ref": "#/components/schemas/OCSMeta"
                                                         },
                                                         "data": {
-                                                            "$ref": "#/components/schemas/AnswerError"
+                                                            "$ref": "#/components/schemas/Error"
                                                         }
                                                     }
                                                 }
@@ -15032,7 +14945,7 @@
                                                     "$ref": "#/components/schemas/OCSMeta"
                                                 },
                                                 "data": {
-                                                    "$ref": "#/components/schemas/AnswerError"
+                                                    "$ref": "#/components/schemas/Error"
                                                 }
                                             }
                                         }
@@ -15062,7 +14975,7 @@
                                                     "$ref": "#/components/schemas/OCSMeta"
                                                 },
                                                 "data": {
-                                                    "$ref": "#/components/schemas/AnswerError"
+                                                    "$ref": "#/components/schemas/Error"
                                                 }
                                             }
                                         }
@@ -15299,7 +15212,7 @@
                                                     "$ref": "#/components/schemas/OCSMeta"
                                                 },
                                                 "data": {
-                                                    "$ref": "#/components/schemas/AnswerError"
+                                                    "$ref": "#/components/schemas/Error"
                                                 }
                                             }
                                         }
@@ -15878,7 +15791,7 @@
                                                             "$ref": "#/components/schemas/OCSMeta"
                                                         },
                                                         "data": {
-                                                            "$ref": "#/components/schemas/AnswerError"
+                                                            "$ref": "#/components/schemas/Error"
                                                         }
                                                     }
                                                 }

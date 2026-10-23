@@ -52,7 +52,7 @@ final class InvalidParamException extends \InvalidArgumentException {
 			'unknown_check' => $l->t('There is no check "%s".', [(string)($this->details['check'] ?? '')]),
 			'unknown_response' => $l->t('"%s" is not a response this check can use.', [(string)($this->details['response'] ?? '')]),
 			'unknown_mode' => $l->t('The mode must be off, observe or protect.'),
-			'mode_unavailable' => $l->t('This check cannot run on this server: %s', [(string)($this->details['why'] ?? '')]),
+			'mode_unavailable' => $l->t('This check cannot run on this server: %s', [Requirement::tryFrom((string)($this->details['why'] ?? ''))?->describe($l) ?? (string)($this->details['why'] ?? '')]),
 			'not_json' => $l->t('"%s" must be a valid JSON document.', [$param]),
 			'unknown_list' => $l->t('There is no list "%s".', [(string)($this->details['list'] ?? '')]),
 			'invalid_list_id' => $l->t('A list name must start with a letter and use only lower-case letters, digits and underscores, at most 32 characters.'),

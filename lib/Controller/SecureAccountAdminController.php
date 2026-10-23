@@ -16,7 +16,6 @@ use OCA\IntrusionDetection\Db\DetectionMapper;
 use OCA\IntrusionDetection\Guide\SecureAccountGuide;
 use OCA\IntrusionDetection\ResponseDefinitions;
 use OCA\IntrusionDetection\Takeover\AccountLock;
-use OCP\AppFramework\Db\DoesNotExistException;
 use OCP\AppFramework\Http;
 use OCP\AppFramework\Http\Attribute\ApiRoute;
 use OCP\AppFramework\Http\Attribute\OpenAPI;
@@ -118,11 +117,7 @@ class SecureAccountAdminController extends AdminOCSController {
 	}
 
 	private function detection(int $id): Detection {
-		try {
-			$detection = $this->detections->findById($id);
-		} catch (DoesNotExistException) {
-			throw new OCSNotFoundException($this->l->t('This detection does not exist (any more).'));
-		}
+		$detection = $this->found(fn () => $this->detections->findById($id), $this->l->t('This detection does not exist (any more).'));
 		if ($detection->getUid() === null) {
 			throw new OCSNotFoundException($this->l->t('This detection is not about an account.'));
 		}

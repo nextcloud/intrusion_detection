@@ -109,7 +109,7 @@ class SourceEditorTest extends IntegrationTestCase {
 			$stored[] = ['id' => 'list_' . $i, 'url' => 'https://lists.example.org/' . $i, 'purpose' => 'deny'];
 		}
 		$this->settingsEditor()->setGlobal(GlobalSettings::BLOCKLIST_SOURCES, json_encode($stored));
-		$this->expectExceptionObject(new InvalidParamException('too_many_lists', ['max' => SourceRepository::MAX_SOURCES]));
+		$this->expectExceptionObject(new InvalidParamException('too_many_lists', ['param' => 'id', 'max' => SourceRepository::MAX_SOURCES]));
 		$this->editor()->set('one_more', ['url' => 'https://lists.example.org/more', 'purpose' => 'deny'], 'admin');
 	}
 

@@ -40,19 +40,19 @@ class SourceEditor {
 	 */
 	public function set(string $id, array $changes, string $actor): BlocklistSource {
 		if (!preg_match(BlocklistSource::ID_PATTERN, $id)) {
-			throw new InvalidParamException('invalid_list_id');
+			throw new InvalidParamException('invalid_list_id', ['param' => 'id']);
 		}
 		$all = $this->sources->all();
 		$existing = $all[$id] ?? null;
 		$definitionChange = isset($changes['url']) || isset($changes['purpose']) || isset($changes['format']);
 		if ($existing !== null && $existing->builtin && $definitionChange) {
-			throw new InvalidParamException('builtin_list');
+			throw new InvalidParamException('builtin_list', ['param' => 'url']);
 		}
 
 		$url = $changes['url'] ?? $existing?->url;
 		$purpose = $changes['purpose'] ?? $existing?->purpose;
 		if ($url === null || $purpose === null) {
-			throw new InvalidParamException('list_needs_url');
+			throw new InvalidParamException('list_needs_url', ['param' => 'url']);
 		}
 		if (!in_array($purpose, BlocklistSource::PURPOSES, true)) {
 			throw new InvalidParamException('not_a_choice', ['param' => 'purpose', 'choices' => implode(', ', BlocklistSource::PURPOSES)]);
@@ -62,7 +62,7 @@ class SourceEditor {
 			throw new InvalidParamException('not_a_choice', ['param' => 'format', 'choices' => implode(', ', array_map(static fn (ListFormat $f): string => $f->value, ListFormat::cases()))]);
 		}
 		if (($existing === null || !$existing->builtin) && !$this->urlPolicy->isAllowed($url)) {
-			throw new InvalidParamException('url_refused');
+			throw new InvalidParamException('url_refused', ['param' => 'url']);
 		}
 		$mode = $changes['mode'] ?? $existing?->mode ?? BlocklistSource::MODE_OBSERVE;
 		if (!in_array($mode, BlocklistSource::MODES, true)) {
@@ -76,7 +76,7 @@ class SourceEditor {
 			throw new InvalidParamException('too_large', ['param' => 'interval', 'max' => BlocklistSource::MAX_INTERVAL]);
 		}
 		if ($existing === null && count($all) >= SourceRepository::MAX_SOURCES) {
-			throw new InvalidParamException('too_many_lists', ['max' => SourceRepository::MAX_SOURCES]);
+			throw new InvalidParamException('too_many_lists', ['param' => 'id', 'max' => SourceRepository::MAX_SOURCES]);
 		}
 		if ($existing !== null && $existing->builtin && array_key_exists('interval', $changes) && $changes['interval'] === null) {
 			$interval = BuiltinSources::all()[$id]->interval;

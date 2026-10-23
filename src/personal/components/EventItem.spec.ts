@@ -38,14 +38,15 @@ function mountItem(event: SecurityEvent) {
 }
 
 /**
- * An error as the API reports it, with the HTTP status.
+ * An error as the API reports it, with the HTTP status and the reason.
  *
  * @param status - The HTTP status
+ * @param reason - The machine-readable reason
  * @param message - The server's explanation
  */
-function apiError(status: number, message: string): ApiError {
+function apiError(status: number, reason: string, message: string): ApiError {
 	const cause = new AxiosError(message, 'ERR', undefined, undefined, { status, statusText: '', data: {}, headers: {}, config: { headers: new AxiosHeaders() } })
-	return new ApiError(message, null, { cause })
+	return new ApiError(message, null, { cause }, reason)
 }
 
 /**
@@ -122,7 +123,7 @@ describe('EventItem', () => {
 	})
 
 	test('turns a refusal of the server into the same explanation', async () => {
-		vi.mocked(confirmEvent).mockRejectedValue(apiError(403, 'For your safety, "Yes, it was me" cannot be answered from the session this event is about.'))
+		vi.mocked(confirmEvent).mockRejectedValue(apiError(403, 'session_not_allowed', 'For your safety, "Yes, it was me" cannot be answered from the session this event is about.'))
 		const wrapper = mountItem(securityEvent(1, { asks: true, canConfirm: true }))
 		await wrapper.get('[data-test="confirm"]').trigger('click')
 		await flushPromises()
@@ -134,7 +135,7 @@ describe('EventItem', () => {
 	})
 
 	test('reloads the list when the event was answered elsewhere', async () => {
-		vi.mocked(confirmEvent).mockRejectedValue(apiError(409, 'This event was answered already.'))
+		vi.mocked(confirmEvent).mockRejectedValue(apiError(409, 'answered', 'This event was answered already.'))
 		const wrapper = mountItem(securityEvent(1, { asks: true, canConfirm: true }))
 		await wrapper.get('[data-test="confirm"]').trigger('click')
 		await flushPromises()

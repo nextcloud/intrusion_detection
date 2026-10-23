@@ -30,6 +30,8 @@ use Test\TestCase;
  * behind password confirmation, and audited.
  */
 class ConfirmationApiControllerTest extends TestCase {
+	use AnswersLikeTheApi;
+
 	private NoMethodPreset&MockObject $preset;
 	private AuditLogger&MockObject $audit;
 	private ConfirmationOverview&MockObject $overview;
@@ -78,13 +80,13 @@ class ConfirmationApiControllerTest extends TestCase {
 		$this->preset->method('apply')->willReturn([]);
 		$this->preset->method('current')->willReturn('recommended');
 		$this->audit->expects($this->never())->method('log');
-		$this->assertSame('recommended', $this->controller->setPreset('recommended')->getData()['preset']);
+		$this->assertSame('recommended', $this->answer(fn () => $this->controller->setPreset('recommended'))->getData()['preset']);
 	}
 
 	public function testCustomCannotBeSet(): void {
 		$this->preset->method('apply')->willThrowException(new InvalidParamException('not_a_choice', ['param' => 'preset', 'choices' => 'recommended, refuse, allow']));
 		$this->audit->expects($this->never())->method('log');
-		$response = $this->controller->setPreset('custom');
+		$response = $this->answer(fn () => $this->controller->setPreset('custom'));
 		$this->assertSame(Http::STATUS_BAD_REQUEST, $response->getStatus());
 		$this->assertSame('preset', $response->getData()['param']);
 	}

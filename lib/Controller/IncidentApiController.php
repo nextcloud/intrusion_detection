@@ -71,11 +71,7 @@ class IncidentApiController extends AdminOCSController {
 	#[PasswordConfirmationRequired]
 	#[UserRateLimit(limit: 30, period: 600)]
 	public function report(string $user = '', string $address = '', ?int $since = null, ?int $until = null): DataResponse {
-		try {
-			$query = $this->query($user, $address, $since, $until);
-		} catch (InvalidIncidentQuery $e) {
-			return $this->error($e->describe($this->l), $e->param(), $e->reason);
-		}
+		$query = $this->query($user, $address, $since, $until);
 		$response = new DataResponse($this->reports->report($query, $this->actor(), $this->l)->toArray());
 		$response->addHeader('Cache-Control', 'no-store');
 		return $response;
@@ -109,11 +105,7 @@ class IncidentApiController extends AdminOCSController {
 		if ($format === null) {
 			return $this->error($this->l->t('Choose JSON or HTML.'), 'output', 'invalid_output');
 		}
-		try {
-			$query = $this->query($user, $address, $since, $until);
-		} catch (InvalidIncidentQuery $e) {
-			return $this->error($e->describe($this->l), $e->param(), $e->reason);
-		}
+		$query = $this->query($user, $address, $since, $until);
 		$document = $this->reports->document($query, $format, $this->actor(), $this->l);
 		/** @var 'application/json; charset=utf-8'|'text/html; charset=utf-8' $contentType */
 		$contentType = $document['contentType'];

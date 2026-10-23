@@ -29,6 +29,7 @@ use OCA\IntrusionDetection\Personal\PersonalActivity;
 use OCA\IntrusionDetection\Personal\PersonalOverview;
 use OCA\IntrusionDetection\Response\FlaggedSources;
 use OCA\IntrusionDetection\Takeover\Db\SecurityChangeMapper;
+use OCA\IntrusionDetection\Tests\Unit\Controller\AnswersLikeTheApi;
 use OCA\IntrusionDetection\TrustedNetwork\TrustedNetworks;
 use OCA\IntrusionDetection\WasThisYou\PersonalDetections;
 use OCA\IntrusionDetection\WasThisYou\WasThisYouService;
@@ -49,6 +50,8 @@ use PHPUnit\Framework\Attributes\Group;
  */
 #[Group('DB')]
 class ConfirmationApiTest extends StepUpTestCase {
+	use AnswersLikeTheApi;
+
 	private IUser $alice;
 
 	protected function setUp(): void {
@@ -121,7 +124,7 @@ class ConfirmationApiTest extends StepUpTestCase {
 		$this->settingsEditor()->setGlobal(StepUpPolicy::RiskHigh->settingKey(), NoMethodOutcome::Refuse->value);
 		$this->assertSame('custom', $this->confirmationApi()->index()->getData()['preset'], 'A change of one reason makes it custom');
 
-		$this->assertSame(Http::STATUS_BAD_REQUEST, $this->confirmationApi()->setPreset('custom')->getStatus());
+		$this->assertSame(Http::STATUS_BAD_REQUEST, $this->answer(fn () => $this->confirmationApi()->setPreset('custom'))->getStatus());
 		$this->assertSame('refuse', $this->appSettings()->value(StepUpPolicy::RiskHigh->settingKey()), 'A refused preset saves nothing');
 	}
 

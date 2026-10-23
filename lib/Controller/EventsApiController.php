@@ -18,9 +18,9 @@ use OCP\AppFramework\Http;
 use OCP\AppFramework\Http\Attribute\ApiRoute;
 use OCP\AppFramework\Http\Attribute\OpenAPI;
 use OCP\AppFramework\Http\DataResponse;
-use OCP\AppFramework\OCSController;
 use OCP\IL10N;
 use OCP\IRequest;
+use OCP\IUserSession;
 
 /**
  * The admin page's API for the typed events that webhooks can receive.
@@ -29,16 +29,16 @@ use OCP\IRequest;
  * @psalm-import-type IntrusionDetectionWebhookEvents from ResponseDefinitions
  */
 #[OpenAPI(scope: OpenAPI::SCOPE_ADMINISTRATION)]
-class EventsApiController extends OCSController {
+class EventsApiController extends AdminOCSController {
 	public function __construct(
-		string $appName,
 		IRequest $request,
-		private readonly IL10N $l,
+		IL10N $l,
+		IUserSession $userSession,
 		private readonly EventExamples $examples,
 		private readonly AppSettings $settings,
 		private readonly IAppManager $appManager,
 	) {
-		parent::__construct($appName, $request);
+		parent::__construct($request, $l, $userSession);
 	}
 
 	/**

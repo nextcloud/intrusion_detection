@@ -48,6 +48,7 @@ use OCA\IntrusionDetection\Listener\TrapNamesChangedListener;
 use OCA\IntrusionDetection\Listener\UntrustedSecondFactorListener;
 use OCA\IntrusionDetection\Listener\UserDeletedListener;
 use OCA\IntrusionDetection\LoginHistory\LoginHistory;
+use OCA\IntrusionDetection\Middleware\ApiErrorMiddleware;
 use OCA\IntrusionDetection\Middleware\PayloadMiddleware;
 use OCA\IntrusionDetection\Middleware\SessionStateMiddleware;
 use OCA\IntrusionDetection\Notification\Notifier;
@@ -118,8 +119,8 @@ class ApplicationTest extends TestCase {
 		$this->assertSame([AddressGuard::class, TrapUrlGuard::class, PayloadGuard::class, CredentialUseGuard::class], $this->calls['registerRequestGuard']);
 	}
 
-	public function testBothMiddlewaresAreGlobalAndThePayloadOneRunsFirst(): void {
-		$this->assertSame([[PayloadMiddleware::class, true], [SessionStateMiddleware::class, true]], $this->calls['registerMiddleware']);
+	public function testTheGuardMiddlewaresAreGlobalAndThePayloadOneRunsFirstTheErrorOneIsTheAppsOwn(): void {
+		$this->assertSame([[PayloadMiddleware::class, true], [SessionStateMiddleware::class, true], [ApiErrorMiddleware::class, false]], $this->calls['registerMiddleware']);
 	}
 
 	public function testTheListenersOfEachEventRunInThisOrder(): void {

@@ -23,6 +23,7 @@ use OCA\IntrusionDetection\Db\DetectionMapper;
 use OCA\IntrusionDetection\Detection\DetectionTotals;
 use OCA\IntrusionDetection\Response\BanService;
 use OCA\IntrusionDetection\State\AppState;
+use OCA\IntrusionDetection\Tests\Unit\Controller\AnswersLikeTheApi;
 use OCP\AppFramework\Http;
 use OCP\IUserManager;
 use OCP\IUserSession;
@@ -35,6 +36,8 @@ use PHPUnit\Framework\Attributes\Group;
  */
 #[Group('DB')]
 class AdminApiTest extends IntegrationTestCase {
+	use AnswersLikeTheApi;
+
 	private const SECRET_FINGERPRINT = '0123456789abcdef0123456789abcdef';
 	private const SECRET_NAME_HMAC = 'fedcba9876543210fedcba9876543210';
 
@@ -312,7 +315,7 @@ class AdminApiTest extends IntegrationTestCase {
 
 	public function testTheApiExplainsTheLimitOfThirtyDays(): void {
 		$this->controller->updateLearning('start', 25);
-		$response = $this->controller->updateLearning('extend', 7);
+		$response = $this->answer(fn () => $this->controller->updateLearning('extend', 7));
 		$this->assertSame(Http::STATUS_BAD_REQUEST, $response->getStatus());
 		$this->assertSame('learning_limit', $response->getData()['reason']);
 		$this->assertStringContainsString('Learning mode lasts at most 30 days in all, so that protection cannot stay off for long.', $response->getData()['message']);

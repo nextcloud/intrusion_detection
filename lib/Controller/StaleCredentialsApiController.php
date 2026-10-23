@@ -38,7 +38,7 @@ use OCP\IUserSession;
  * a recent password confirmation and is rate limited per user.
  *
  * @psalm-import-type IntrusionDetectionStaleCredential from ResponseDefinitions
- * @psalm-import-type IntrusionDetectionAnswerError from ResponseDefinitions
+ * @psalm-import-type IntrusionDetectionError from ResponseDefinitions
  */
 #[OpenAPI(scope: OpenAPI::SCOPE_DEFAULT)]
 class StaleCredentialsApiController extends OCSController {
@@ -73,7 +73,7 @@ class StaleCredentialsApiController extends OCSController {
 	 * Remove one of the current user's app passwords or remembered browsers that have not been used for 90 days
 	 *
 	 * @param int $id the credential
-	 * @return DataResponse<Http::STATUS_OK, array{removed: int}, array{}>|DataResponse<Http::STATUS_NOT_FOUND, IntrusionDetectionAnswerError, array{}>
+	 * @return DataResponse<Http::STATUS_OK, array{removed: int}, array{}>|DataResponse<Http::STATUS_NOT_FOUND, IntrusionDetectionError, array{}>
 	 * @throws OCSNotFoundException The security page is switched off
 	 *
 	 * 200: Removed
@@ -87,7 +87,7 @@ class StaleCredentialsApiController extends OCSController {
 		$this->requirePage();
 		$uid = $this->user()->getUID();
 		if ($this->credentials->remove($uid, $id) === null) {
-			return new DataResponse(['reason' => AnswerException::NOT_FOUND, 'message' => $this->l->t('This is not one of your unused app passwords or devices.')], Http::STATUS_NOT_FOUND);
+			return new DataResponse(['message' => $this->l->t('This is not one of your unused app passwords or devices.'), 'param' => null, 'reason' => AnswerException::NOT_FOUND], Http::STATUS_NOT_FOUND);
 		}
 		if ($this->credentials->forUser($uid, $this->l) === []) {
 			$this->notices->dismiss($uid);

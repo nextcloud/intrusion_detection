@@ -15,7 +15,6 @@ use OCA\IntrusionDetection\Blocklist\BlocklistSource;
 use OCA\IntrusionDetection\Blocklist\BlocklistSync;
 use OCA\IntrusionDetection\Blocklist\SourceEditor;
 use OCA\IntrusionDetection\Blocklist\SourceRepository;
-use OCA\IntrusionDetection\Definition\InvalidParamException;
 use OCA\IntrusionDetection\ResponseDefinitions;
 use OCP\AppFramework\Http;
 use OCP\AppFramework\Http\Attribute\ApiRoute;
@@ -111,18 +110,14 @@ class BlocklistApiController extends AdminOCSController {
 		if ($this->sources->get($id) !== null) {
 			return $this->error($this->l->t('A list with this name exists already.'), 'id', 'list_exists');
 		}
-		try {
-			$this->editor->set($id, [
-				'url' => trim($url),
-				'purpose' => $purpose,
-				'format' => $fileFormat,
-				'mode' => $mode,
-				'interval' => $interval,
-				'enabled' => true,
-			], $this->actor());
-		} catch (InvalidParamException $e) {
-			return $this->invalid(self::withParam($e, 'url'));
-		}
+		$this->editor->set($id, [
+			'url' => trim($url),
+			'purpose' => $purpose,
+			'format' => $fileFormat,
+			'mode' => $mode,
+			'interval' => $interval,
+			'enabled' => true,
+		], $this->actor());
 		return $this->one($id);
 	}
 
@@ -155,11 +150,7 @@ class BlocklistApiController extends AdminOCSController {
 		if ($interval !== null) {
 			$changes['interval'] = $interval === 0 ? null : $interval;
 		}
-		try {
-			$this->editor->set($id, $changes, $this->actor());
-		} catch (InvalidParamException $e) {
-			return $this->invalid($e);
-		}
+		$this->editor->set($id, $changes, $this->actor());
 		return $this->one($id);
 	}
 
@@ -179,11 +170,7 @@ class BlocklistApiController extends AdminOCSController {
 	#[PasswordConfirmationRequired]
 	public function remove(string $id): DataResponse {
 		$this->existing($id);
-		try {
-			$this->editor->remove($id, $this->actor());
-		} catch (InvalidParamException $e) {
-			return $this->invalid($e);
-		}
+		$this->editor->remove($id, $this->actor());
 		return new DataResponse(['removed' => $id]);
 	}
 
@@ -237,17 +224,4 @@ class BlocklistApiController extends AdminOCSController {
 		return new DataResponse($list);
 	}
 
-	/**
-	 * Errors about a new list without a field of their own belong to the field named here.
-	 */
-	private static function withParam(InvalidParamException $e, string $param): InvalidParamException {
-		if (isset($e->details['param'])) {
-			return $e;
-		}
-		$field = match ($e->reason) {
-			'invalid_list_id', 'too_many_lists' => 'id',
-			default => $param,
-		};
-		return new InvalidParamException($e->reason, $e->details + ['param' => $field]);
-	}
 }

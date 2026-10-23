@@ -5,7 +5,6 @@
 
 import type { KnownDevice, LoggedOutElsewhere, PersonalActivity, PersonalOverview, SecurityEvent, StaleCredential, TrustedNetwork } from './types.ts'
 
-import { isAxiosError } from '@nextcloud/axios'
 import { ApiError, call } from '../services/api.ts'
 
 /**
@@ -50,7 +49,7 @@ export function confirmEvent(id: number): Promise<SecurityEvent> {
  * @param error - The error the answer threw
  */
 export function isRefusedFromThisSession(error: unknown): boolean {
-	return error instanceof ApiError && isAxiosError(error.cause) && error.cause.response?.status === 403
+	return error instanceof ApiError && error.reason === 'session_not_allowed'
 }
 
 /**

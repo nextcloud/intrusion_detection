@@ -65,6 +65,8 @@ use PHPUnit\Framework\MockObject\MockObject;
 use Test\TestCase;
 
 class AdminApiControllerTest extends TestCase {
+	use AnswersLikeTheApi;
+
 	private const CHECK = 'test_check';
 
 	private CheckRegistry&MockObject $registry;
@@ -126,7 +128,6 @@ class AdminApiControllerTest extends TestCase {
 		$this->levels = $this->createMock(ProtectionLevels::class);
 
 		$this->controller = new AdminApiController(
-			'intrusion_detection',
 			$this->createMock(IRequest::class),
 			$l,
 			$session,
@@ -217,7 +218,7 @@ class AdminApiControllerTest extends TestCase {
 		$this->settings->expects($this->never())->method('updateCheck');
 		$this->audit->expects($this->never())->method('log');
 
-		$response = $this->controller->updateCheck(self::CHECK, 'observe', ['ban'], ['window' => 600, 'min_failures' => 2]);
+		$response = $this->answer(fn () => $this->controller->updateCheck(self::CHECK, 'observe', ['ban'], ['window' => 600, 'min_failures' => 2]));
 
 		$this->assertSame(Http::STATUS_BAD_REQUEST, $response->getStatus());
 		$this->assertSame(['message' => '"min_failures" must be at least 3.', 'param' => 'min_failures', 'reason' => 'too_small'], $response->getData());
@@ -232,27 +233,27 @@ class AdminApiControllerTest extends TestCase {
 			fn (array $p): bool => $p['check'] === self::CHECK && $p['actor'] === 'alice' && str_contains((string)$p['change'], '"min_failures":20') && !str_contains((string)$p['change'], 'window'),
 		));
 
-		$response = $this->controller->updateCheck(self::CHECK, 'observe', ['ban', 'notify_admin'], ['window' => '10m', 'min_failures' => 20]);
+		$response = $this->answer(fn () => $this->controller->updateCheck(self::CHECK, 'observe', ['ban', 'notify_admin'], ['window' => '10m', 'min_failures' => 20]));
 		$this->assertSame(Http::STATUS_OK, $response->getStatus());
 	}
 
 	public function testAChangeThatChangesNothingIsNotAudited(): void {
 		$this->settings->method('updateCheck')->willReturn([]);
 		$this->audit->expects($this->never())->method('log');
-		$this->assertSame(Http::STATUS_OK, $this->controller->updateCheck(self::CHECK, 'protect')->getStatus());
+		$this->assertSame(Http::STATUS_OK, $this->answer(fn () => $this->controller->updateCheck(self::CHECK, 'protect'))->getStatus());
 	}
 
 	public function testUpdateCheckRefusesUnknownResponsesAndModes(): void {
 		$this->settings->expects($this->never())->method('setResponses');
-		$this->assertSame('unknown_response', $this->controller->updateCheck(self::CHECK, null, ['kill_session'])->getData()['reason']);
-		$this->assertSame('unknown_response', $this->controller->updateCheck(self::CHECK, null, [['nested']])->getData()['reason']);
-		$this->assertSame('unknown_mode', $this->controller->updateCheck(self::CHECK, 'everything')->getData()['reason']);
-		$this->assertSame('unknown_param', $this->controller->updateCheck(self::CHECK, null, null, ['nope' => 1])->getData()['reason']);
+		$this->assertSame('unknown_response', $this->answer(fn () => $this->controller->updateCheck(self::CHECK, null, ['kill_session']))->getData()['reason']);
+		$this->assertSame('unknown_response', $this->answer(fn () => $this->controller->updateCheck(self::CHECK, null, [['nested']]))->getData()['reason']);
+		$this->assertSame('unknown_mode', $this->answer(fn () => $this->controller->updateCheck(self::CHECK, 'everything'))->getData()['reason']);
+		$this->assertSame('unknown_param', $this->answer(fn () => $this->controller->updateCheck(self::CHECK, null, null, ['nope' => 1]))->getData()['reason']);
 	}
 
 	public function testUpdateCheckExplainsAMissingRequirement(): void {
 		$this->settings->method('updateCheck')->willThrowException(new InvalidParamException('mode_unavailable', ['why' => 'memory_cache']));
-		$response = $this->controller->updateCheck(self::CHECK, 'protect');
+		$response = $this->answer(fn () => $this->controller->updateCheck(self::CHECK, 'protect'));
 		$this->assertSame(Http::STATUS_BAD_REQUEST, $response->getStatus());
 		$this->assertStringContainsString('Needs a memory cache', $response->getData()['message']);
 	}
@@ -273,16 +274,16 @@ class AdminApiControllerTest extends TestCase {
 	public function testResetCheckIsAudited(): void {
 		$this->settings->expects($this->once())->method('resetCheck')->with(self::CHECK);
 		$this->audit->expects($this->once())->method('log')->with('check %s reset to defaults by %s', ['check' => self::CHECK, 'actor' => 'alice']);
-		$this->assertSame(Http::STATUS_OK, $this->controller->resetCheck(self::CHECK)->getStatus());
+		$this->assertSame(Http::STATUS_OK, $this->answer(fn () => $this->controller->resetCheck(self::CHECK))->getStatus());
 	}
 
 	public function testDetectionFiltersAreValidatedAndPassedOn(): void {
-		$this->assertSame('severity', $this->controller->detections(severity: 'huge')->getData()['param']);
-		$this->assertSame('address', $this->controller->detections(address: 'not-an-ip')->getData()['param']);
-		$this->assertSame('mode', $this->controller->detections(mode: 'maybe')->getData()['param']);
-		$this->assertSame('limit', $this->controller->detections(limit: 101)->getData()['param']);
-		$this->assertSame('check', $this->controller->detections(check: 'Bad Id')->getData()['param']);
-		$this->assertSame('offset', $this->controller->detections(offset: -1)->getData()['param']);
+		$this->assertSame('severity', $this->answer(fn () => $this->controller->detections(severity: 'huge'))->getData()['param']);
+		$this->assertSame('address', $this->answer(fn () => $this->controller->detections(address: 'not-an-ip'))->getData()['param']);
+		$this->assertSame('mode', $this->answer(fn () => $this->controller->detections(mode: 'maybe'))->getData()['param']);
+		$this->assertSame('limit', $this->answer(fn () => $this->controller->detections(limit: 101))->getData()['param']);
+		$this->assertSame('check', $this->answer(fn () => $this->controller->detections(check: 'Bad Id'))->getData()['param']);
+		$this->assertSame('offset', $this->answer(fn () => $this->controller->detections(offset: -1))->getData()['param']);
 
 		$captured = null;
 		$this->detectionMapper->method('findList')->willReturnCallback(function (DetectionFilter $filter) use (&$captured): array {
@@ -314,31 +315,31 @@ class AdminApiControllerTest extends TestCase {
 
 	public function testAddBanValidatesItsInput(): void {
 		$this->banService->expects($this->never())->method('banManually');
-		$this->assertSame('level', $this->controller->addBan('203.0.113.7', 4)->getData()['param']);
-		$this->assertSame('duration', $this->controller->addBan('203.0.113.7', 1, 60)->getData()['param']);
-		$this->assertSame('duration', $this->controller->addBan('203.0.113.7', 1, 91 * 86400)->getData()['param']);
-		$this->assertSame('note', $this->controller->addBan('203.0.113.7', 1, null, str_repeat('x', 256))->getData()['param']);
-		$this->assertSame('target', $this->controller->addBan('example.com')->getData()['param']);
-		$this->assertSame('target', $this->controller->addBan('203.0.113.0/abc')->getData()['param']);
+		$this->assertSame('level', $this->answer(fn () => $this->controller->addBan('203.0.113.7', 4))->getData()['param']);
+		$this->assertSame('duration', $this->answer(fn () => $this->controller->addBan('203.0.113.7', 1, 60))->getData()['param']);
+		$this->assertSame('duration', $this->answer(fn () => $this->controller->addBan('203.0.113.7', 1, 91 * 86400))->getData()['param']);
+		$this->assertSame('note', $this->answer(fn () => $this->controller->addBan('203.0.113.7', 1, null, str_repeat('x', 256)))->getData()['param']);
+		$this->assertSame('target', $this->answer(fn () => $this->controller->addBan('example.com'))->getData()['param']);
+		$this->assertSame('target', $this->answer(fn () => $this->controller->addBan('203.0.113.0/abc'))->getData()['param']);
 	}
 
 	public function testAddBanNeverBlocksTheAdminsOwnAddressOrNetwork(): void {
 		$this->banService->expects($this->never())->method('banManually');
-		$this->assertStringContainsString('your own address', $this->controller->addBan('192.0.2.10')->getData()['message']);
-		$this->assertStringContainsString('your own address', $this->controller->addBan('192.0.2.0/24')->getData()['message']);
+		$this->assertStringContainsString('your own address', $this->answer(fn () => $this->controller->addBan('192.0.2.10'))->getData()['message']);
+		$this->assertStringContainsString('your own address', $this->answer(fn () => $this->controller->addBan('192.0.2.0/24'))->getData()['message']);
 	}
 
 	public function testAddBanRefusesTheServerAndTheAllowlist(): void {
 		$this->addresses->method('isNeverBlocked')->willReturnCallback(static fn (SourceKey $s): bool => $s->isLoopback());
 		$this->addresses->method('isBypassListed')->willReturnCallback(static fn (SourceKey $s): bool => $s->ip === '198.51.100.1');
 		$this->banService->expects($this->never())->method('banManually');
-		$this->assertStringContainsString('never blocked', $this->controller->addBan('127.0.0.1')->getData()['message']);
-		$this->assertStringContainsString('allowlist', $this->controller->addBan('198.51.100.1')->getData()['message']);
+		$this->assertStringContainsString('never blocked', $this->answer(fn () => $this->controller->addBan('127.0.0.1'))->getData()['message']);
+		$this->assertStringContainsString('allowlist', $this->answer(fn () => $this->controller->addBan('198.51.100.1'))->getData()['message']);
 	}
 
 	public function testAddBanRefusesANetworkAroundTheAllowlist(): void {
 		$this->banService->method('banManually')->willThrowException(new BanRefusedException('198.51.100.0/24'));
-		$response = $this->controller->addBan('198.51.100.0/24');
+		$response = $this->answer(fn () => $this->controller->addBan('198.51.100.0/24'));
 		$this->assertSame('target', $response->getData()['param']);
 		$this->assertStringContainsString('198.51.100.0/24 contains this server, a loopback address or an address on the brute-force allowlist', $response->getData()['message']);
 	}
@@ -349,13 +350,13 @@ class AdminApiControllerTest extends TestCase {
 		$ban->setCidr('203.0.113.7/32');
 		$this->banService->expects($this->once())->method('banManually')->with('203.0.113.7', 2, 'alice', 'scanner', 7200)->willReturn($ban);
 		$this->audit->expects($this->once())->method('log')->with('block %s (%s) added by %s: %s', ['reference' => 'K7Q2-MPXA', 'cidr' => '203.0.113.7/32', 'actor' => 'alice', 'note' => 'scanner']);
-		$this->assertSame(Http::STATUS_OK, $this->controller->addBan(' 203.0.113.7 ', 2, 7200, ' scanner ')->getStatus());
+		$this->assertSame(Http::STATUS_OK, $this->answer(fn () => $this->controller->addBan(' 203.0.113.7 ', 2, 7200, ' scanner '))->getStatus());
 	}
 
 	public function testLiftBanNeedsANote(): void {
 		$this->banService->expects($this->never())->method('lift');
-		$this->assertSame('note', $this->controller->liftBan(1, '  ')->getData()['param']);
-		$this->assertSame('note', $this->controller->liftBan(1, str_repeat('x', 256))->getData()['param']);
+		$this->assertSame('note', $this->answer(fn () => $this->controller->liftBan(1, '  '))->getData()['param']);
+		$this->assertSame('note', $this->answer(fn () => $this->controller->liftBan(1, str_repeat('x', 256)))->getData()['param']);
 	}
 
 	public function testLiftBanLiftsOnceAndAudits(): void {
@@ -365,7 +366,7 @@ class AdminApiControllerTest extends TestCase {
 		$this->banMapper->method('findById')->with(3)->willReturn($ban);
 		$this->banService->expects($this->once())->method('lift')->with($ban, 'alice', 'false positive');
 		$this->audit->expects($this->once())->method('log')->with('block %s (%s) lifted by %s: %s', $this->anything());
-		$this->assertSame(Http::STATUS_OK, $this->controller->liftBan(3, 'false positive')->getStatus());
+		$this->assertSame(Http::STATUS_OK, $this->answer(fn () => $this->controller->liftBan(3, 'false positive'))->getStatus());
 	}
 
 	public function testLiftingALiftedBanChangesNothing(): void {
@@ -374,7 +375,7 @@ class AdminApiControllerTest extends TestCase {
 		$this->banMapper->method('findById')->willReturn($ban);
 		$this->banService->expects($this->never())->method('lift');
 		$this->audit->expects($this->never())->method('log');
-		$this->assertSame(Http::STATUS_OK, $this->controller->liftBan(3, 'again')->getStatus());
+		$this->assertSame(Http::STATUS_OK, $this->answer(fn () => $this->controller->liftBan(3, 'again'))->getStatus());
 	}
 
 	public function testLiftingAMissingBanIsNotFound(): void {
@@ -387,18 +388,18 @@ class AdminApiControllerTest extends TestCase {
 		$this->learning->expects($this->once())->method('start')->with(14, 'alice');
 		$this->learning->expects($this->once())->method('extend')->with(7, 'alice');
 		$this->learning->expects($this->once())->method('stop')->with('alice');
-		$this->assertSame(Http::STATUS_OK, $this->controller->updateLearning('start', 14)->getStatus());
-		$this->assertSame(Http::STATUS_OK, $this->controller->updateLearning('extend', 7)->getStatus());
-		$this->assertSame(Http::STATUS_OK, $this->controller->updateLearning('stop')->getStatus());
-		$this->assertSame('days', $this->controller->updateLearning('start', 31)->getData()['param']);
-		$this->assertSame('days', $this->controller->updateLearning('extend', 0)->getData()['param']);
-		$this->assertSame('action', $this->controller->updateLearning('forever')->getData()['param']);
+		$this->assertSame(Http::STATUS_OK, $this->answer(fn () => $this->controller->updateLearning('start', 14))->getStatus());
+		$this->assertSame(Http::STATUS_OK, $this->answer(fn () => $this->controller->updateLearning('extend', 7))->getStatus());
+		$this->assertSame(Http::STATUS_OK, $this->answer(fn () => $this->controller->updateLearning('stop'))->getStatus());
+		$this->assertSame('days', $this->answer(fn () => $this->controller->updateLearning('start', 31))->getData()['param']);
+		$this->assertSame('days', $this->answer(fn () => $this->controller->updateLearning('extend', 0))->getData()['param']);
+		$this->assertSame('action', $this->answer(fn () => $this->controller->updateLearning('forever'))->getData()['param']);
 	}
 
 	public function testSettingsRefuseInternalAndUnknownKeys(): void {
 		$this->settings->expects($this->never())->method('updateGlobals');
 		foreach (['attempts_flood_until', 'installed_at', GlobalSettings::LEARNING_UNTIL, 'no_such_setting'] as $name) {
-			$response = $this->controller->updateSettings([$name => 1]);
+			$response = $this->answer(fn () => $this->controller->updateSettings([$name => 1]));
 			$this->assertSame(Http::STATUS_BAD_REQUEST, $response->getStatus(), $name);
 			$this->assertSame($name, $response->getData()['param']);
 		}
@@ -406,7 +407,7 @@ class AdminApiControllerTest extends TestCase {
 
 	public function testSettingsValidateEverythingBeforeSaving(): void {
 		$this->settings->expects($this->never())->method('updateGlobals');
-		$response = $this->controller->updateSettings([GlobalSettings::BAN_DURATION_1 => '2h', GlobalSettings::BAN_NET_AFTER => 1]);
+		$response = $this->answer(fn () => $this->controller->updateSettings([GlobalSettings::BAN_DURATION_1 => '2h', GlobalSettings::BAN_NET_AFTER => 1]));
 		$this->assertSame(Http::STATUS_BAD_REQUEST, $response->getStatus());
 		$this->assertSame(GlobalSettings::BAN_NET_AFTER, $response->getData()['param']);
 	}
@@ -449,8 +450,8 @@ class AdminApiControllerTest extends TestCase {
 	public function testCustomAndUnknownLevelsAreRefusedBeforeAnythingChanges(): void {
 		$this->levels->expects($this->never())->method('apply');
 		$this->audit->expects($this->never())->method('log');
-		$this->assertSame(Http::STATUS_BAD_REQUEST, $this->controller->updateProtectionLevel('custom')->getStatus());
-		$this->assertSame(Http::STATUS_BAD_REQUEST, $this->controller->updateProtectionLevel('paranoid')->getStatus());
+		$this->assertSame(Http::STATUS_BAD_REQUEST, $this->answer(fn () => $this->controller->updateProtectionLevel('custom'))->getStatus());
+		$this->assertSame(Http::STATUS_BAD_REQUEST, $this->answer(fn () => $this->controller->updateProtectionLevel('paranoid'))->getStatus());
 	}
 
 	/**

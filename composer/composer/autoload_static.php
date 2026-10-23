@@ -429,6 +429,7 @@ class ComposerStaticInitIntrusionDetection
         'OCA\\IntrusionDetection\\Login\\InteractiveLogin' => __DIR__ . '/..' . '/../lib/Login/InteractiveLogin.php',
         'OCA\\IntrusionDetection\\Login\\LoginContext' => __DIR__ . '/..' . '/../lib/Login/LoginContext.php',
         'OCA\\IntrusionDetection\\Login\\LoginGate' => __DIR__ . '/..' . '/../lib/Login/LoginGate.php',
+        'OCA\\IntrusionDetection\\Middleware\\ApiErrorMiddleware' => __DIR__ . '/..' . '/../lib/Middleware/ApiErrorMiddleware.php',
         'OCA\\IntrusionDetection\\Middleware\\PayloadBlockedException' => __DIR__ . '/..' . '/../lib/Middleware/PayloadBlockedException.php',
         'OCA\\IntrusionDetection\\Middleware\\PayloadMiddleware' => __DIR__ . '/..' . '/../lib/Middleware/PayloadMiddleware.php',
         'OCA\\IntrusionDetection\\Middleware\\SessionBlockedException' => __DIR__ . '/..' . '/../lib/Middleware/SessionBlockedException.php',

@@ -19,6 +19,7 @@ use OCA\IntrusionDetection\Controller\AdminApiController;
 use OCA\IntrusionDetection\Definition\Mode;
 use OCA\IntrusionDetection\Definition\ProtectionLevel;
 use OCA\IntrusionDetection\Definition\ResponseType;
+use OCA\IntrusionDetection\Tests\Unit\Controller\AnswersLikeTheApi;
 use OCP\AppFramework\Http;
 use OCP\IUserManager;
 use OCP\IUserSession;
@@ -32,6 +33,8 @@ use PHPUnit\Framework\Attributes\Group;
  */
 #[Group('DB')]
 class ProtectionLevelTest extends IntegrationTestCase {
+	use AnswersLikeTheApi;
+
 	private ProtectionLevels $levels;
 
 	protected function setUp(): void {
@@ -115,12 +118,12 @@ class ProtectionLevelTest extends IntegrationTestCase {
 			$check = array_values(array_filter($data['checks']['checks'], static fn (array $c): bool => $c['id'] === CredentialStuffing::ID))[0];
 			$this->assertSame(5, array_column($check['params'], 'value', 'name')['min_failures']);
 
-			$this->assertSame(Http::STATUS_BAD_REQUEST, $controller->updateProtectionLevel('custom')->getStatus());
-			$this->assertSame(Http::STATUS_BAD_REQUEST, $controller->updateProtectionLevel('paranoid')->getStatus());
+			$this->assertSame(Http::STATUS_BAD_REQUEST, $this->answer(fn () => $controller->updateProtectionLevel('custom'))->getStatus());
+			$this->assertSame(Http::STATUS_BAD_REQUEST, $this->answer(fn () => $controller->updateProtectionLevel('paranoid'))->getStatus());
 			$this->assertSame(ProtectionLevel::Strict, $this->settingsEditor()->protectionLevel(), 'a refused level changes nothing');
 
 			// The level is changed through its own endpoint only, and not shown as a setting.
-			$this->assertSame(Http::STATUS_BAD_REQUEST, $controller->updateSettings([SettingsEditor::LEVEL_STATE => 'relaxed'])->getStatus());
+			$this->assertSame(Http::STATUS_BAD_REQUEST, $this->answer(fn () => $controller->updateSettings([SettingsEditor::LEVEL_STATE => 'relaxed']))->getStatus());
 			$this->assertNotContains(SettingsEditor::LEVEL_STATE, array_column($controller->settings()->getData()['settings'], 'name'));
 		} finally {
 			Server::get(IUserSession::class)->setUser(null);

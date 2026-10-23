@@ -30,24 +30,20 @@ use OCA\IntrusionDetection\Definition\InvalidParamException;
 use OCA\IntrusionDetection\Definition\Mode;
 use OCA\IntrusionDetection\Definition\ParamDefinition;
 use OCA\IntrusionDetection\Definition\ProtectionLevel;
-use OCA\IntrusionDetection\Definition\Requirement;
 use OCA\IntrusionDetection\Definition\ResponseType;
 use OCA\IntrusionDetection\Definition\Severity;
-use OCA\IntrusionDetection\Learning\LearningLimitException;
 use OCA\IntrusionDetection\Learning\LearningService;
 use OCA\IntrusionDetection\Net\RemoteAddressResolver;
 use OCA\IntrusionDetection\Net\SourceKey;
 use OCA\IntrusionDetection\Response\BanRefusedException;
 use OCA\IntrusionDetection\Response\BanService;
 use OCA\IntrusionDetection\ResponseDefinitions;
-use OCP\AppFramework\Db\DoesNotExistException;
 use OCP\AppFramework\Http;
 use OCP\AppFramework\Http\Attribute\ApiRoute;
 use OCP\AppFramework\Http\Attribute\OpenAPI;
 use OCP\AppFramework\Http\Attribute\PasswordConfirmationRequired;
 use OCP\AppFramework\Http\DataResponse;
 use OCP\AppFramework\OCS\OCSNotFoundException;
-use OCP\AppFramework\OCSController;
 use OCP\AppFramework\Utility\ITimeFactory;
 use OCP\IL10N;
 use OCP\IRequest;
@@ -75,17 +71,16 @@ use OCP\IUserSession;
  * @psalm-import-type IntrusionDetectionError from ResponseDefinitions
  */
 #[OpenAPI(scope: OpenAPI::SCOPE_ADMINISTRATION)]
-class AdminApiController extends OCSController {
+class AdminApiController extends AdminOCSController {
 	public const MAX_PAGE = 100;
 	public const MAX_NOTE = 255;
 	public const MIN_BAN_DURATION = 300;
 	public const MAX_BAN_DURATION = BanService::MAX_DURATION;
 
 	public function __construct(
-		string $appName,
 		IRequest $request,
-		private readonly IL10N $l,
-		private readonly IUserSession $userSession,
+		IL10N $l,
+		IUserSession $userSession,
 		private readonly ITimeFactory $timeFactory,
 		private readonly CheckRegistry $registry,
 		private readonly SettingsEditor $settings,
@@ -106,7 +101,7 @@ class AdminApiController extends OCSController {
 		private readonly AuditLogger $audit,
 		private readonly ProtectionLevels $protectionLevels,
 	) {
-		parent::__construct($appName, $request);
+		parent::__construct($request, $l, $userSession);
 	}
 
 	/**
@@ -161,26 +156,22 @@ class AdminApiController extends OCSController {
 	#[PasswordConfirmationRequired]
 	public function updateCheck(string $id, ?string $mode = null, ?array $responses = null, ?array $params = null): DataResponse {
 		$check = $this->configurableCheck($id);
-		try {
-			$newMode = null;
-			if ($mode !== null) {
-				$newMode = Mode::tryFrom($mode) ?? throw new InvalidParamException('unknown_mode');
-			}
-			$newResponses = null;
-			if ($responses !== null) {
-				$newResponses = [];
-				foreach ($responses as $value) {
-					$newResponses[] = self::allowedResponse($check, $value);
-				}
-			}
-			$newParams = [];
-			foreach ($params ?? [] as $name => $value) {
-				$newParams[(string)$name] = self::validated($check->param((string)$name), $value);
-			}
-			$changes = $this->settings->updateCheck($id, $newMode, $newParams, $newResponses);
-		} catch (InvalidParamException $e) {
-			return $this->invalid($e);
+		$newMode = null;
+		if ($mode !== null) {
+			$newMode = Mode::tryFrom($mode) ?? throw new InvalidParamException('unknown_mode');
 		}
+		$newResponses = null;
+		if ($responses !== null) {
+			$newResponses = [];
+			foreach ($responses as $value) {
+				$newResponses[] = self::allowedResponse($check, $value);
+			}
+		}
+		$newParams = [];
+		foreach ($params ?? [] as $name => $value) {
+			$newParams[(string)$name] = self::validated($check->param((string)$name), $value);
+		}
+		$changes = $this->settings->updateCheck($id, $newMode, $newParams, $newResponses);
 
 		if ($changes !== []) {
 			$this->audit->log('check %s changed by %s: %s', [
@@ -243,11 +234,7 @@ class AdminApiController extends OCSController {
 		if ($chosen === null || !in_array($chosen, ProtectionLevel::choosable(), true)) {
 			return $this->error($this->l->t('Choose the recommended, strict or relaxed protection level.'), 'level', 'invalid_level');
 		}
-		try {
-			$changes = $this->protectionLevels->apply($chosen);
-		} catch (InvalidParamException $e) {
-			return $this->invalid($e);
-		}
+		$changes = $this->protectionLevels->apply($chosen);
 		$this->audit->log('protection level set to %s by %s: %s', [
 			'level' => $chosen->value,
 			'actor' => $this->actor(),
@@ -346,11 +333,7 @@ class AdminApiController extends OCSController {
 	 */
 	#[ApiRoute(verb: 'GET', url: '/api/v1/detections/{id}', requirements: ['id' => '\d+'])]
 	public function detection(int $id): DataResponse {
-		try {
-			$detection = $this->detectionMapper->findById($id);
-		} catch (DoesNotExistException) {
-			throw new OCSNotFoundException($this->l->t('This detection does not exist (any more).'));
-		}
+		$detection = $this->found(fn () => $this->detectionMapper->findById($id), $this->l->t('This detection does not exist (any more).'));
 		return new DataResponse($this->detections->detail($detection, $this->l));
 	}
 
@@ -461,11 +444,7 @@ class AdminApiController extends OCSController {
 		if (mb_strlen($note) > self::MAX_NOTE) {
 			return $this->error($this->l->t('The note can have at most %s characters.', [(string)self::MAX_NOTE]), 'note', 'too_long');
 		}
-		try {
-			$ban = $this->banMapper->findById($id);
-		} catch (DoesNotExistException) {
-			throw new OCSNotFoundException($this->l->t('This block does not exist (any more).'));
-		}
+		$ban = $this->found(fn () => $this->banMapper->findById($id), $this->l->t('This block does not exist (any more).'));
 		if ($ban->getLiftedAt() === null) {
 			$this->banService->lift($ban, $this->actor(), $note);
 			$this->audit->log('block %s (%s) lifted by %s: %s', [
@@ -532,19 +511,10 @@ class AdminApiController extends OCSController {
 		if ($days < LearningService::MIN_DAYS || $days > LearningService::MAX_DAYS) {
 			return $this->error($this->l->t('Learning mode lasts 1 to 30 days.'), 'days', 'invalid_days');
 		}
-		try {
-			if ($action === 'start') {
-				$this->learningService->start($days, $this->actor());
-			} else {
-				$this->learningService->extend($days, $this->actor());
-			}
-		} catch (LearningLimitException $e) {
-			return $this->error($this->l->n(
-				'Learning mode lasts at most %n day in all, so that protection cannot stay off for long. This learning period started on %1$s and can last until %2$s at the latest.',
-				'Learning mode lasts at most %n days in all, so that protection cannot stay off for long. This learning period started on %1$s and can last until %2$s at the latest.',
-				LearningService::MAX_DAYS,
-				[(string)$this->l->l('datetime', $e->startedAt), (string)$this->l->l('datetime', $e->latest)],
-			), 'days', 'learning_limit');
+		if ($action === 'start') {
+			$this->learningService->start($days, $this->actor());
+		} else {
+			$this->learningService->extend($days, $this->actor());
 		}
 		return new DataResponse($this->status->learning());
 	}
@@ -578,20 +548,16 @@ class AdminApiController extends OCSController {
 	#[ApiRoute(verb: 'PUT', url: '/api/v1/settings')]
 	#[PasswordConfirmationRequired]
 	public function updateSettings(array $values = []): DataResponse {
-		try {
-			$parsed = [];
-			foreach ($values as $name => $value) {
-				$name = (string)$name;
-				$definition = $this->globals->get($name);
-				if ($definition === null || !$this->globalSettings->isEditable($name)) {
-					throw new InvalidParamException('unknown_param', ['param' => $name]);
-				}
-				$parsed[$name] = self::validated($definition, $value);
+		$parsed = [];
+		foreach ($values as $name => $value) {
+			$name = (string)$name;
+			$definition = $this->globals->get($name);
+			if ($definition === null || !$this->globalSettings->isEditable($name)) {
+				throw new InvalidParamException('unknown_param', ['param' => $name]);
 			}
-			$changes = $this->settings->updateGlobals($parsed);
-		} catch (InvalidParamException $e) {
-			return $this->invalid($e);
+			$parsed[$name] = self::validated($definition, $value);
 		}
+		$changes = $this->settings->updateGlobals($parsed);
 		if (array_key_exists(GlobalSettings::ENABLED, $changes)) {
 			$this->audit->log('intrusion detection turned %s by %s', [
 				'state' => $changes[GlobalSettings::ENABLED] === true ? 'on' : 'off',
@@ -702,33 +668,7 @@ class AdminApiController extends OCSController {
 	/**
 	 * @return DataResponse<Http::STATUS_BAD_REQUEST, IntrusionDetectionError, array{}>
 	 */
-	private function invalid(InvalidParamException $e): DataResponse {
-		$message = $e->describe($this->l);
-		if ($e->reason === 'mode_unavailable') {
-			$requirement = Requirement::tryFrom((string)($e->details['why'] ?? ''));
-			if ($requirement !== null) {
-				$message = $this->l->t('This check cannot run on this server: %s', [$requirement->describe($this->l)]);
-			}
-		}
-		$param = $e->details['param'] ?? null;
-		return $this->error($message, $param === null ? null : (string)$param, $e->reason);
-	}
-
-	/**
-	 * @return DataResponse<Http::STATUS_BAD_REQUEST, IntrusionDetectionError, array{}>
-	 */
 	private function badFilter(string $param): DataResponse {
 		return $this->error($this->l->t('The filter "%s" is not valid.', [$param]), $param, 'invalid_filter');
-	}
-
-	/**
-	 * @return DataResponse<Http::STATUS_BAD_REQUEST, IntrusionDetectionError, array{}>
-	 */
-	private function error(string $message, ?string $param, string $reason): DataResponse {
-		return new DataResponse(['message' => $message, 'param' => $param, 'reason' => $reason], Http::STATUS_BAD_REQUEST);
-	}
-
-	private function actor(): string {
-		return $this->userSession->getUser()?->getUID() ?? 'unknown';
 	}
 }

@@ -665,11 +665,6 @@ namespace OCA\IntrusionDetection;
  *     detectionId: ?int,
  * }
  *
- * @psalm-type IntrusionDetectionAnswerError = array{
- *     reason: string,
- *     message: string,
- * }
- *
  * @psalm-type IntrusionDetectionIncidentEntry = array{
  *     id: string,
  *     at: int,

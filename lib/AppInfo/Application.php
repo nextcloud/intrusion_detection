@@ -48,6 +48,7 @@ use OCA\IntrusionDetection\Listener\TrapNamesChangedListener;
 use OCA\IntrusionDetection\Listener\UntrustedSecondFactorListener;
 use OCA\IntrusionDetection\Listener\UserDeletedListener;
 use OCA\IntrusionDetection\LoginHistory\LoginHistory;
+use OCA\IntrusionDetection\Middleware\ApiErrorMiddleware;
 use OCA\IntrusionDetection\Middleware\PayloadMiddleware;
 use OCA\IntrusionDetection\Middleware\SessionStateMiddleware;
 use OCA\IntrusionDetection\Notification\Notifier;
@@ -156,6 +157,7 @@ class Application extends App implements IBootstrap {
 		$context->registerMiddleware(PayloadMiddleware::class, true);
 		// Global, so that it covers every app's controllers; it runs after core's two-factor middleware.
 		$context->registerMiddleware(SessionStateMiddleware::class, true);
+		$context->registerMiddleware(ApiErrorMiddleware::class);
 
 		// Listeners of one event run by priority, and with the same priority in registration order.
 		$context->registerEventListener(BanCreatedEvent::class, FirewallExportListener::class);

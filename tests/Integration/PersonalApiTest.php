@@ -17,6 +17,7 @@ use OCA\IntrusionDetection\LoginHistory\Db\LoginHistoryMapper;
 use OCA\IntrusionDetection\LoginHistory\LoginHistory;
 use OCA\IntrusionDetection\Net\SourceKey;
 use OCA\IntrusionDetection\Personal\FailedLoginStats;
+use OCA\IntrusionDetection\Tests\Unit\Controller\AnswersLikeTheApi;
 use OCA\IntrusionDetection\TrustedNetwork\TrustedNetworks;
 use OCP\AppFramework\Http;
 use OCP\AppFramework\OCS\OCSNotFoundException;
@@ -33,6 +34,8 @@ use PHPUnit\Framework\Attributes\Group;
  */
 #[Group('DB')]
 class PersonalApiTest extends PersonalApiTestCase {
+	use AnswersLikeTheApi;
+
 	private IUser $alice;
 	private IUser $bob;
 
@@ -71,8 +74,8 @@ class PersonalApiTest extends PersonalApiTestCase {
 		$this->assertSame(1, $overview['failedLogins']['total'], 'Bob\'s two failures are his');
 		$this->assertSame(['203.0.113.10'], array_column($overview['failedLogins']['recent'], 'address'));
 
-		$this->assertSame(Http::STATUS_NOT_FOUND, $api->deny($bobs['detection'])->getStatus());
-		$this->assertSame(Http::STATUS_NOT_FOUND, $api->confirm($bobs['detection'])->getStatus());
+		$this->assertSame(Http::STATUS_NOT_FOUND, $this->answer(fn () => $api->deny($bobs['detection']))->getStatus());
+		$this->assertSame(Http::STATUS_NOT_FOUND, $this->answer(fn () => $api->confirm($bobs['detection']))->getStatus());
 		$this->assertSame(Http::STATUS_NOT_FOUND, $api->removeTrustedNetwork($bobs['network'])->getStatus());
 		$this->assertSame(Http::STATUS_NOT_FOUND, $api->removeKnownDevice($bobs['device'])->getStatus());
 		$this->assertNull(Server::get(DetectionMapper::class)->findById($bobs['detection'])->getUserVerdict());

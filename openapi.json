@@ -20,21 +20,6 @@
             }
         },
         "schemas": {
-            "AnswerError": {
-                "type": "object",
-                "required": [
-                    "reason",
-                    "message"
-                ],
-                "properties": {
-                    "reason": {
-                        "type": "string"
-                    },
-                    "message": {
-                        "type": "string"
-                    }
-                }
-            },
             "EmailHint": {
                 "type": "object",
                 "required": [
@@ -48,6 +33,26 @@
                     "secondFactorUrl": {
                         "type": "string",
                         "nullable": true
+                    }
+                }
+            },
+            "Error": {
+                "type": "object",
+                "required": [
+                    "message",
+                    "param",
+                    "reason"
+                ],
+                "properties": {
+                    "message": {
+                        "type": "string"
+                    },
+                    "param": {
+                        "type": "string",
+                        "nullable": true
+                    },
+                    "reason": {
+                        "type": "string"
                     }
                 }
             },
@@ -1155,7 +1160,7 @@
                                                     "$ref": "#/components/schemas/OCSMeta"
                                                 },
                                                 "data": {
-                                                    "$ref": "#/components/schemas/AnswerError"
+                                                    "$ref": "#/components/schemas/Error"
                                                 }
                                             }
                                         }
@@ -1185,7 +1190,7 @@
                                                     "$ref": "#/components/schemas/OCSMeta"
                                                 },
                                                 "data": {
-                                                    "$ref": "#/components/schemas/AnswerError"
+                                                    "$ref": "#/components/schemas/Error"
                                                 }
                                             }
                                         }
@@ -1215,7 +1220,7 @@
                                                     "$ref": "#/components/schemas/OCSMeta"
                                                 },
                                                 "data": {
-                                                    "$ref": "#/components/schemas/AnswerError"
+                                                    "$ref": "#/components/schemas/Error"
                                                 }
                                             }
                                         }
@@ -1245,7 +1250,7 @@
                                                     "$ref": "#/components/schemas/OCSMeta"
                                                 },
                                                 "data": {
-                                                    "$ref": "#/components/schemas/AnswerError"
+                                                    "$ref": "#/components/schemas/Error"
                                                 }
                                             }
                                         }
@@ -1375,7 +1380,7 @@
                                                     "$ref": "#/components/schemas/OCSMeta"
                                                 },
                                                 "data": {
-                                                    "$ref": "#/components/schemas/AnswerError"
+                                                    "$ref": "#/components/schemas/Error"
                                                 }
                                             }
                                         }
@@ -1405,7 +1410,7 @@
                                                     "$ref": "#/components/schemas/OCSMeta"
                                                 },
                                                 "data": {
-                                                    "$ref": "#/components/schemas/AnswerError"
+                                                    "$ref": "#/components/schemas/Error"
                                                 }
                                             }
                                         }
@@ -1435,7 +1440,7 @@
                                                     "$ref": "#/components/schemas/OCSMeta"
                                                 },
                                                 "data": {
-                                                    "$ref": "#/components/schemas/AnswerError"
+                                                    "$ref": "#/components/schemas/Error"
                                                 }
                                             }
                                         }
@@ -1465,7 +1470,7 @@
                                                     "$ref": "#/components/schemas/OCSMeta"
                                                 },
                                                 "data": {
-                                                    "$ref": "#/components/schemas/AnswerError"
+                                                    "$ref": "#/components/schemas/Error"
                                                 }
                                             }
                                         }
@@ -1737,7 +1742,7 @@
                                                             "$ref": "#/components/schemas/OCSMeta"
                                                         },
                                                         "data": {
-                                                            "$ref": "#/components/schemas/AnswerError"
+                                                            "$ref": "#/components/schemas/Error"
                                                         }
                                                     }
                                                 }
@@ -2033,7 +2038,7 @@
                                                             "$ref": "#/components/schemas/OCSMeta"
                                                         },
                                                         "data": {
-                                                            "$ref": "#/components/schemas/AnswerError"
+                                                            "$ref": "#/components/schemas/Error"
                                                         }
                                                     }
                                                 }
@@ -2983,7 +2988,7 @@
                                                     "$ref": "#/components/schemas/OCSMeta"
                                                 },
                                                 "data": {
-                                                    "$ref": "#/components/schemas/AnswerError"
+                                                    "$ref": "#/components/schemas/Error"
                                                 }
                                             }
                                         }
@@ -3013,7 +3018,7 @@
                                                     "$ref": "#/components/schemas/OCSMeta"
                                                 },
                                                 "data": {
-                                                    "$ref": "#/components/schemas/AnswerError"
+                                                    "$ref": "#/components/schemas/Error"
                                                 }
                                             }
                                         }
@@ -3250,7 +3255,7 @@
                                                     "$ref": "#/components/schemas/OCSMeta"
                                                 },
                                                 "data": {
-                                                    "$ref": "#/components/schemas/AnswerError"
+                                                    "$ref": "#/components/schemas/Error"
                                                 }
                                             }
                                         }
@@ -3829,7 +3834,7 @@
                                                             "$ref": "#/components/schemas/OCSMeta"
                                                         },
                                                         "data": {
-                                                            "$ref": "#/components/schemas/AnswerError"
+                                                            "$ref": "#/components/schemas/Error"
                                                         }
                                                     }
                                                 }

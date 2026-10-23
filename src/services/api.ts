@@ -53,13 +53,15 @@ import { PasswordConfirmationCancelledError, PwdConfirmationMode } from '@nextcl
 import { generateOcsUrl } from '@nextcloud/router'
 
 /**
- * An error the API explained: the translated message, and the setting it is about.
+ * An error the API explained: the translated message, the setting it is
+ * about, and the machine-readable reason.
  */
 export class ApiError extends Error {
 	constructor(
 		message: string,
 		public readonly param: string | null = null,
 		options?: ErrorOptions,
+		public readonly reason: string | null = null,
 	) {
 		super(message, options)
 	}
@@ -137,7 +139,7 @@ export async function call<T>(method: 'get' | 'post' | 'put' | 'delete', path: s
 	}
 }
 
-type OcsError = OCSResponse<{ message?: string, param?: string | null } | undefined>['ocs']
+type OcsError = OCSResponse<{ message?: string, param?: string | null, reason?: string } | undefined>['ocs']
 
 /**
  * The error as `ApiError` when the OCS answer explains it, else as it is.
@@ -148,7 +150,7 @@ type OcsError = OCSResponse<{ message?: string, param?: string | null } | undefi
 function explained(error: unknown, ocs?: OcsError): unknown {
 	const body = ocs ?? (isAxiosError(error) ? (error.response?.data as { ocs?: OcsError } | undefined)?.ocs : undefined)
 	const message = body?.data?.message || body?.meta?.message
-	return message ? new ApiError(message, body?.data?.param ?? null, { cause: error }) : error
+	return message ? new ApiError(message, body?.data?.param ?? null, { cause: error }, body?.data?.reason ?? null) : error
 }
 
 /**

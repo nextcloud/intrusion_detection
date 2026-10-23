@@ -81,7 +81,7 @@ class ApiResponsesTest extends IntegrationTestCase {
 			'unknown check' => [
 				'PUT /api/v1/checks/{id}',
 				['id' => 'no_such_check', 'mode' => 'off'],
-				['status' => 404, 'message' => 'There is no check "no_such_check".', 'data' => []],
+				['status' => 404, 'message' => '', 'data' => ['message' => 'There is no check "no_such_check".', 'param' => null, 'reason' => 'not_found']],
 			],
 			'unknown mode' => [
 				'PUT /api/v1/checks/{id}',
@@ -106,7 +106,7 @@ class ApiResponsesTest extends IntegrationTestCase {
 			'reset unknown check' => [
 				'POST /api/v1/checks/{id}/reset',
 				['id' => 'no_such_check'],
-				['status' => 404, 'message' => 'There is no check "no_such_check".', 'data' => []],
+				['status' => 404, 'message' => '', 'data' => ['message' => 'There is no check "no_such_check".', 'param' => null, 'reason' => 'not_found']],
 			],
 			'custom level' => [
 				'PUT /api/v1/protection-level',
@@ -131,7 +131,7 @@ class ApiResponsesTest extends IntegrationTestCase {
 			'missing detection' => [
 				'GET /api/v1/detections/{id}',
 				['id' => 999999],
-				['status' => 404, 'message' => 'This detection does not exist (any more).', 'data' => []],
+				['status' => 404, 'message' => '', 'data' => ['message' => 'This detection does not exist (any more).', 'param' => null, 'reason' => 'not_found']],
 			],
 			'ban level' => [
 				'POST /api/v1/bans',
@@ -181,7 +181,7 @@ class ApiResponsesTest extends IntegrationTestCase {
 			'lift missing ban' => [
 				'DELETE /api/v1/bans/{id}',
 				['id' => 999999, 'note' => 'gone'],
-				['status' => 404, 'message' => 'This block does not exist (any more).', 'data' => []],
+				['status' => 404, 'message' => '', 'data' => ['message' => 'This block does not exist (any more).', 'param' => null, 'reason' => 'not_found']],
 			],
 			'learning action' => [
 				'PUT /api/v1/learning',
@@ -211,12 +211,12 @@ class ApiResponsesTest extends IntegrationTestCase {
 			'approve missing' => [
 				'POST /api/v1/approvals/{id}/approve',
 				['id' => 999999],
-				['status' => 404, 'message' => '', 'data' => ['reason' => 'not_found', 'message' => 'There is no such request.']],
+				['status' => 404, 'message' => '', 'data' => ['message' => 'There is no such request.', 'param' => null, 'reason' => 'not_found']],
 			],
 			'reject missing' => [
 				'POST /api/v1/approvals/{id}/reject',
 				['id' => 999999],
-				['status' => 404, 'message' => '', 'data' => ['reason' => 'not_found', 'message' => 'There is no such request.']],
+				['status' => 404, 'message' => '', 'data' => ['message' => 'There is no such request.', 'param' => null, 'reason' => 'not_found']],
 			],
 			'blocklist exists' => [
 				'POST /api/v1/blocklists',
@@ -236,7 +236,7 @@ class ApiResponsesTest extends IntegrationTestCase {
 			'blocklist missing' => [
 				'PUT /api/v1/blocklists/{id}',
 				['id' => 'no_such_list', 'enabled' => true],
-				['status' => 404, 'message' => 'There is no list "no_such_list".', 'data' => []],
+				['status' => 404, 'message' => '', 'data' => ['message' => 'There is no list "no_such_list".', 'param' => null, 'reason' => 'not_found']],
 			],
 			'blocklist bad mode' => [
 				'PUT /api/v1/blocklists/{id}',
@@ -261,7 +261,7 @@ class ApiResponsesTest extends IntegrationTestCase {
 			'decoy missing' => [
 				'DELETE /api/v1/decoys/{id}',
 				['id' => 999999],
-				['status' => 404, 'message' => 'This decoy does not exist (any more).', 'data' => []],
+				['status' => 404, 'message' => '', 'data' => ['message' => 'This decoy does not exist (any more).', 'param' => null, 'reason' => 'not_found']],
 			],
 			'reserved name invalid' => [
 				'PUT /api/v1/reserved-names',
@@ -316,17 +316,17 @@ class ApiResponsesTest extends IntegrationTestCase {
 			'secure account missing' => [
 				'GET /api/v1/detections/{id}/secure-account',
 				['id' => 999999],
-				['status' => 404, 'message' => 'This detection does not exist (any more).', 'data' => []],
+				['status' => 404, 'message' => '', 'data' => ['message' => 'This detection does not exist (any more).', 'param' => null, 'reason' => 'not_found']],
 			],
 			'reenable missing' => [
 				'POST /api/v1/detections/{id}/reenable',
 				['id' => 999999],
-				['status' => 404, 'message' => 'This detection does not exist (any more).', 'data' => []],
+				['status' => 404, 'message' => '', 'data' => ['message' => 'This detection does not exist (any more).', 'param' => null, 'reason' => 'not_found']],
 			],
 			'simulation missing' => [
 				'GET /api/v1/checks/{id}/simulation',
 				['id' => 'no_such_check'],
-				['status' => 404, 'message' => 'This check cannot be simulated.', 'data' => []],
+				['status' => 404, 'message' => '', 'data' => ['message' => 'This check cannot be simulated.', 'param' => null, 'reason' => 'not_found']],
 			],
 			'signatures too many' => [
 				'POST /api/v1/payload/signatures/check',
@@ -346,17 +346,17 @@ class ApiResponsesTest extends IntegrationTestCase {
 			'personal deny missing' => [
 				'POST /api/v1/personal/detections/{id}/deny',
 				['id' => 999999],
-				['status' => 404, 'message' => '', 'data' => ['reason' => 'not_found', 'message' => 'This event does not exist, or it is not about your account.']],
+				['status' => 404, 'message' => '', 'data' => ['message' => 'This event does not exist, or it is not about your account.', 'param' => null, 'reason' => 'not_found']],
 			],
 			'personal confirm missing' => [
 				'POST /api/v1/personal/detections/{id}/confirm',
 				['id' => 999999],
-				['status' => 404, 'message' => '', 'data' => ['reason' => 'not_found', 'message' => 'This event does not exist, or it is not about your account.']],
+				['status' => 404, 'message' => '', 'data' => ['message' => 'This event does not exist, or it is not about your account.', 'param' => null, 'reason' => 'not_found']],
 			],
 			'stale credential missing' => [
 				'DELETE /api/v1/personal/stale-credentials/{id}',
 				['id' => 999999],
-				['status' => 404, 'message' => '', 'data' => ['reason' => 'not_found', 'message' => 'This is not one of your unused app passwords or devices.']],
+				['status' => 404, 'message' => '', 'data' => ['message' => 'This is not one of your unused app passwords or devices.', 'param' => null, 'reason' => 'not_found']],
 			],
 		];
 	}

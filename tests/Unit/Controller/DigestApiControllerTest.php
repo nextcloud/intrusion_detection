@@ -36,6 +36,8 @@ use PHPUnit\Framework\MockObject\MockObject;
 use Test\TestCase;
 
 class DigestApiControllerTest extends TestCase {
+	use AnswersLikeTheApi;
+
 	private DigestSender&MockObject $sender;
 	private AuditLogger&MockObject $audit;
 	private IUserSession&MockObject $userSession;
@@ -94,7 +96,7 @@ class DigestApiControllerTest extends TestCase {
 		$admin = $this->user('alice', 'alice@example.com');
 		$this->userSession->method('getUser')->willReturn($admin);
 		$this->sender->expects($this->once())->method('overview')->with($admin)->willReturn(['frequency' => 'weekly']);
-		$this->assertSame(['frequency' => 'weekly'], $this->controller()->digest()->getData());
+		$this->assertSame(['frequency' => 'weekly'], $this->answer(fn () => $this->controller()->digest())->getData());
 	}
 
 	public function testTheEventsFollowTheAddressSetting(): void {
@@ -104,12 +106,12 @@ class DigestApiControllerTest extends TestCase {
 		$apps->method('isEnabledForAnyone')->with('webhook_listeners')->willReturn(true);
 		$examples = $this->createMock(EventExamples::class);
 		$examples->method('all')->willReturn([]);
-		$controller = new EventsApiController('intrusion_detection', $this->createMock(IRequest::class), $this->l, $examples, $settings, $apps);
+		$controller = new EventsApiController($this->createMock(IRequest::class), $this->l, $this->userSession, $examples, $settings, $apps);
 		$this->assertSame(['includeIp' => false, 'webhooksEnabled' => true, 'events' => []], $controller->events()->getData());
 	}
 
 	private function controller(): DigestApiController {
-		return new DigestApiController('intrusion_detection', $this->createMock(IRequest::class), $this->l, $this->userSession, $this->sender, $this->audit);
+		return new DigestApiController($this->createMock(IRequest::class), $this->l, $this->userSession, $this->sender, $this->audit);
 	}
 
 	private function user(string $uid, ?string $email): IUser {

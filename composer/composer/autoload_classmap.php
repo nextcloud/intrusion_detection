@@ -414,6 +414,7 @@ return array(
     'OCA\\IntrusionDetection\\Login\\InteractiveLogin' => $baseDir . '/../lib/Login/InteractiveLogin.php',
     'OCA\\IntrusionDetection\\Login\\LoginContext' => $baseDir . '/../lib/Login/LoginContext.php',
     'OCA\\IntrusionDetection\\Login\\LoginGate' => $baseDir . '/../lib/Login/LoginGate.php',
+    'OCA\\IntrusionDetection\\Middleware\\ApiErrorMiddleware' => $baseDir . '/../lib/Middleware/ApiErrorMiddleware.php',
     'OCA\\IntrusionDetection\\Middleware\\PayloadBlockedException' => $baseDir . '/../lib/Middleware/PayloadBlockedException.php',
     'OCA\\IntrusionDetection\\Middleware\\PayloadMiddleware' => $baseDir . '/../lib/Middleware/PayloadMiddleware.php',
     'OCA\\IntrusionDetection\\Middleware\\SessionBlockedException' => $baseDir . '/../lib/Middleware/SessionBlockedException.php',
