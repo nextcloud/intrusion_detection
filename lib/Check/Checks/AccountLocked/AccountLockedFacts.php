@@ -29,6 +29,7 @@ final readonly class AccountLockedFacts implements IFacts {
 	 * @param int $tokensEnded the sessions and app passwords that were ended
 	 * @param list<array{id: int, name: string}> $ended the first of them
 	 * @param ?bool $allAdmins every administrator is told
+	 * @param ?bool $keptEnabled the account was the last enabled administrator and stayed enabled
 	 */
 	public function __construct(
 		public int $link = 0,
@@ -40,6 +41,7 @@ final readonly class AccountLockedFacts implements IFacts {
 		public int $tokensEnded = 0,
 		public array $ended = [],
 		public ?bool $allAdmins = null,
+		public ?bool $keptEnabled = null,
 		public CommonFacts $common = new CommonFacts(),
 	) {
 	}
@@ -58,6 +60,7 @@ final readonly class AccountLockedFacts implements IFacts {
 			FactValues::int($stored, 'tokensEnded') ?? 0,
 			self::ended(FactValues::array($stored, 'ended')),
 			FactValues::bool($stored, AdminAlerts::FACT_ALL_ADMINS),
+			FactValues::bool($stored, 'keptEnabled'),
 			CommonFacts::fromArray($stored),
 		);
 	}
@@ -75,6 +78,7 @@ final readonly class AccountLockedFacts implements IFacts {
 			'ended' => $this->ended,
 		] + FactValues::recorded([
 			AdminAlerts::FACT_ALL_ADMINS => $this->allAdmins,
+			'keptEnabled' => $this->keptEnabled,
 		]) + $this->common->toArray();
 	}
 

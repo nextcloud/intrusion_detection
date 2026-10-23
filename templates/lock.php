@@ -43,7 +43,7 @@ $error = $_['error'] ?? null;
 	<?php elseif ($mode === 'locked'): ?>
 		<div class="ids-page__icon ids-page__icon--done" aria-hidden="true"></div>
 		<h2 class="ids-page__title"><?php p($l->t('The account is locked')); ?></h2>
-		<p class="ids-page__notice" role="status"><?php p($l->t('Every session and app password ended, and the account is disabled. The administrators were told.')); ?></p>
+		<p class="ids-page__notice" role="status"><?php p(($_['disabled'] ?? true) ? $l->t('Every session and app password ended, and the account is disabled. The administrators were told.') : $l->t('Every session and app password ended. The administrators were told and check the account.')); ?></p>
 		<p class="ids-page__lead"><?php p($l->t('Contact your administrators to get back in. They check the email address of the account with you, enable it again and help you secure it.')); ?></p>
 		<p class="ids-page__hint"><?php p($l->t('Change the password of your email account too, if someone may have had access to it.')); ?></p>
 	<?php elseif ($mode === 'used'): ?>

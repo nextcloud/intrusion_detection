@@ -8,7 +8,7 @@
 					"The address was changed to m***@example.org at date:1789996400 from 198.51.100.7.",
 					"The link was used from 203.0.113.5.",
 					"3 sessions and app passwords were ended, and the account was disabled.",
-					"Talk to the user another way than by email before you enable the account again. Then use \"Re-enable and start Secure my account\", and correct the email address in the account management if needed."
+					"Talk to the user another way than by email before you enable the account again. Then use \"Re-enable and start Secure my account\", which requires a new password at the next login, and correct the email address in the account management if needed."
 				],
 				"headline": "The account alice was locked by the owner of its previous email address",
 				"userNotice": {
@@ -25,7 +25,7 @@
 					"The account of alice was locked by the owner of the previous email address a***@example.com, with the link Nextcloud had sent there.",
 					"The address was removed at date:1789999900.",
 					"1 session or app password was ended, and the account was disabled.",
-					"Talk to the user another way than by email before you enable the account again. Then use \"Re-enable and start Secure my account\", and correct the email address in the account management if needed."
+					"Talk to the user another way than by email before you enable the account again. Then use \"Re-enable and start Secure my account\", which requires a new password at the next login, and correct the email address in the account management if needed."
 				],
 				"headline": "The account alice was locked by the owner of its previous email address",
 				"userNotice": {
@@ -43,7 +43,7 @@
 					"The address was changed to m***@example.org at date:1789999900.",
 					"The link was used from 203.0.113.5.",
 					"2 sessions and app passwords were ended, and the account was disabled.",
-					"Talk to the user another way than by email before you enable the account again. Then use \"Re-enable and start Secure my account\", and correct the email address in the account management if needed."
+					"Talk to the user another way than by email before you enable the account again. Then use \"Re-enable and start Secure my account\", which requires a new password at the next login, and correct the email address in the account management if needed."
 				],
 				"headline": "The account alice was locked by the owner of its previous email address",
 				"userNotice": {
@@ -60,7 +60,7 @@
 					"The account of alice was locked by the owner of the previous email address , with the link Nextcloud had sent there.",
 					"The link was used from 203.0.113.5.",
 					"0 sessions and app passwords were ended, and the account was disabled.",
-					"Talk to the user another way than by email before you enable the account again. Then use \"Re-enable and start Secure my account\", and correct the email address in the account management if needed."
+					"Talk to the user another way than by email before you enable the account again. Then use \"Re-enable and start Secure my account\", which requires a new password at the next login, and correct the email address in the account management if needed."
 				],
 				"headline": "The account alice was locked by the owner of its previous email address",
 				"userNotice": {

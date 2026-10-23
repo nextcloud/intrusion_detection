@@ -10,6 +10,7 @@ declare(strict_types=1);
 namespace OCA\IntrusionDetection\Tests\Integration;
 
 use OCA\IntrusionDetection\AdminChange\ActorResolver;
+use OCA\IntrusionDetection\AdminChange\Approvers;
 use OCA\IntrusionDetection\Audit\AuditLogger;
 use OCA\IntrusionDetection\Check\CheckRegistry;
 use OCA\IntrusionDetection\Check\Checks\AccountTakeover\AccountTakeoverDetector;
@@ -36,6 +37,7 @@ use OCA\IntrusionDetection\Response\Handlers\KillSessionHandler;
 use OCA\IntrusionDetection\Response\Handlers\LockLinkHandler;
 use OCA\IntrusionDetection\Response\Handlers\NotifyAdminHandler;
 use OCA\IntrusionDetection\Response\Handlers\NotifyUserHandler;
+use OCA\IntrusionDetection\Response\PasswordChangeService;
 use OCA\IntrusionDetection\Response\ResponseEngine;
 use OCA\IntrusionDetection\Response\Tokens;
 use OCA\IntrusionDetection\Takeover\AccountLock;
@@ -215,13 +217,15 @@ abstract class TakeoverTestCase extends AccountTestCase {
 		);
 	}
 
-	protected function accountLock(): AccountLock {
+	protected function accountLock(?Approvers $approvers = null): AccountLock {
 		return new AccountLock(
 			$this->lockLinks(),
 			Server::get(SecurityChangeMapper::class),
 			Server::get(Tokens::class),
 			$this->takeoverEngine(),
 			Server::get(SecureAccountGuide::class),
+			Server::get(PasswordChangeService::class),
+			$approvers ?? Server::get(Approvers::class),
 			Server::get(IUserManager::class),
 			$this->userSession,
 			$this->addresses('198.51.100.20'),

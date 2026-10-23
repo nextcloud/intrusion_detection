@@ -110,7 +110,8 @@ class LockLinkController extends Controller {
 			return $this->confirmPage($id, $token, $link['sent_to_hint'] ?? '', $this->l->t('Please confirm once more on this page.'));
 		}
 		return match ($this->lock->lock($id, $token)) {
-			AccountLock::LOCKED => $this->page(self::PAGE_LOCKED),
+			AccountLock::LOCKED => $this->page(self::PAGE_LOCKED, ['disabled' => true]),
+			AccountLock::SESSIONS_ENDED => $this->page(self::PAGE_LOCKED, ['disabled' => false]),
 			LockLinks::USED => $this->page(self::PAGE_USED),
 			LockLinks::EXPIRED => $this->expired(),
 			default => $this->invalid($id),

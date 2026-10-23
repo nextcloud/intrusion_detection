@@ -10,6 +10,7 @@ declare(strict_types=1);
 namespace OCA\IntrusionDetection\Tests\Integration;
 
 use OCA\IntrusionDetection\AdminChange\ActorResolver;
+use OCA\IntrusionDetection\AdminChange\Approvers;
 use OCA\IntrusionDetection\AppInfo\Application;
 use OCA\IntrusionDetection\Check\Checks\AccountLocked\AccountLocked;
 use OCA\IntrusionDetection\Check\Checks\AccountTakeover\AccountTakeover;
@@ -18,8 +19,10 @@ use OCA\IntrusionDetection\Controller\SecureAccountAdminController;
 use OCA\IntrusionDetection\Db\Detection;
 use OCA\IntrusionDetection\Db\DetectionFilter;
 use OCA\IntrusionDetection\Db\DetectionMapper;
+use OCA\IntrusionDetection\Explain\NarrativeBuilder;
 use OCA\IntrusionDetection\Guide\SecureAccountGuide;
 use OCA\IntrusionDetection\Notification\AdminAlerts;
+use OCA\IntrusionDetection\Response\PasswordChangeService;
 use OCA\IntrusionDetection\Takeover\AccountLock;
 use OCA\IntrusionDetection\Takeover\Db\LockLinkMapper;
 use OCA\IntrusionDetection\Takeover\LockLinks;
@@ -231,6 +234,35 @@ class LockLinkTest extends TakeoverTestCase {
 		$this->assertNotSame([], (new \ReflectionMethod(SecureAccountAdminController::class, 'reenable'))->getAttributes(PasswordConfirmationRequired::class));
 	}
 
+	public function testReEnablingRequiresANewPassword(): void {
+		$controller = $this->controller();
+		$nonce = (string)$controller->show($this->linkId, $this->token)->getParams()['nonce'];
+		$controller->lock($this->linkId, $this->token, $nonce);
+		$passwords = Server::get(PasswordChangeService::class);
+		$this->assertFalse($passwords->isRequired($this->user->getUID()));
+
+		$this->adminController()->reenable($this->lockDetections()[0]->getId());
+		$this->assertTrue($passwords->isRequired($this->user->getUID()), 'Whoever took the account over may still know the password');
+	}
+
+	public function testTheLastEnabledAdministratorIsNotDisabled(): void {
+		$approvers = $this->createMock(Approvers::class);
+		$approvers->method('isApprover')->willReturnCallback(fn (string $uid): bool => $uid === $this->user->getUID());
+		$approvers->method('except')->willReturn([]);
+		$controller = $this->controller(accountLock: $this->accountLock($approvers));
+		$nonce = (string)$controller->show($this->linkId, $this->token)->getParams()['nonce'];
+		$page = $controller->lock($this->linkId, $this->token, $nonce);
+		$this->assertFalse($page->getParams()['disabled'], 'The page does not claim the account is disabled');
+
+		$this->assertTrue($this->reloadUser()->isEnabled(), 'Disabled, it could only be enabled again on the command line');
+		$this->assertFalse($this->tokenExists($this->appPassword['id']), 'Its app passwords are revoked all the same');
+		$this->assertSame([], $this->tokens->getTokenByUser($this->user->getUID()), 'Every session ended');
+		$lock = $this->lockDetections()[0];
+		$this->assertTrue($lock->getExplanationData()['facts']['keptEnabled']);
+		$narrative = implode(' ', Server::get(NarrativeBuilder::class)->build($lock, Server::get(IFactory::class)->get(Application::APP_ID, 'en'))->happened);
+		$this->assertStringContainsString('last enabled administrator', $narrative);
+	}
+
 	public function testOnlyLocksCanBeReEnabledHere(): void {
 		$takeover = Server::get(DetectionMapper::class)->findList(new DetectionFilter(checkIds: [AccountTakeover::ID], uid: $this->user->getUID()))[0];
 		$this->reloadUser()->setEnabled(false);
@@ -243,12 +275,12 @@ class LockLinkTest extends TakeoverTestCase {
 		$this->adminController()->show(999999999);
 	}
 
-	private function controller(?LockLinks $links = null): LockLinkController {
+	private function controller(?LockLinks $links = null, ?AccountLock $accountLock = null): LockLinkController {
 		$links ??= $this->lockLinks();
 		return new LockLinkController(
 			$this->request('198.51.100.20'),
 			$links,
-			$this->accountLock(),
+			$accountLock ?? $this->accountLock(),
 			$this->session,
 			Server::get(ISecureRandom::class),
 			Server::get(IURLGenerator::class),
