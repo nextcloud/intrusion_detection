@@ -66,7 +66,7 @@ class UserDeletedTest extends AccountTestCase {
 
 		$user->delete();
 		// Run it directly too, in case the app's listeners are not registered in this test run; it is idempotent.
-		(new UserDeletedListener(Server::get(UserDataCleanup::class), Server::get(LoggerInterface::class)))->handle(new UserDeletedEvent($user));
+		(new UserDeletedListener(Server::get(UserDataCleanup::class), Server::get(\OCP\BackgroundJob\IJobList::class), Server::get(LoggerInterface::class)))->handle(new UserDeletedEvent($user));
 		$this->assertSame([$other, $uid], Server::get(DetectionMapper::class)->findById($attack->getId())->getExplanationData()['facts']['targets'], 'The detections are rewritten later, by a job');
 		$this->runQueuedCleanup();
 

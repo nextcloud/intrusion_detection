@@ -60,7 +60,7 @@ class TableOwnersTest extends IntegrationTestCase {
 	}
 
 	public function testEveryTableIsInThePrivacyCleanupOrHasAReason(): void {
-		$mapped = [...array_keys(UserDataCleanup::DELETE), ...array_keys(UserDataCleanup::ANONYMISE)];
+		$mapped = array_unique([...array_keys(UserDataCleanup::DELETE), ...array_keys(UserDataCleanup::ANONYMISE)]);
 		$this->assertSame([], array_values(array_intersect($mapped, array_keys(self::NOT_IN_PRIVACY_MAPS))), 'a mapped table needs no reason');
 		$this->assertSame(self::tables(), self::sorted([...$mapped, ...array_keys(self::NOT_IN_PRIVACY_MAPS)]));
 	}

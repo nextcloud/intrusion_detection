@@ -9,6 +9,7 @@ declare(strict_types=1);
 
 namespace OCA\IntrusionDetection\Privacy;
 
+use OCA\IntrusionDetection\BackgroundJob\UserDataCleanupJob;
 use OCA\IntrusionDetection\BackgroundJob\UserDetectionsCleanupJob;
 use OCA\IntrusionDetection\Confirm\Db\StepUpSessionMapper;
 use OCA\IntrusionDetection\Db\ApprovalMapper;
@@ -48,8 +49,12 @@ use OCP\IDBConnection;
  *   can be named in many detections, so they are rewritten after the
  *   deletion, by a queued job ({@see UserDetectionsCleanupJob}) in batches.
  * - The counters that aggregate notifications about the account are deleted.
+ * - Who created or lifted a block, created a decoy, or requested or decided
+ *   an approval is kept: those are an administrator's actions, kept for
+ *   accountability until their rows expire.
  *
- * The app's user settings and notifications are removed by core.
+ * The app's user settings and notifications are removed by core. When the
+ * removal fails, {@see UserDataCleanupJob} tries again.
  */
 class UserDataCleanup {
 	/** @var array<string, string> table => the column that holds the uid */
@@ -72,6 +77,8 @@ class UserDataCleanup {
 	/** @var array<string, string> table => the column set to null */
 	public const ANONYMISE = [
 		AttemptMapper::TABLE => 'uid',
+		// A change the account made to another account stays in that account's history, without who made it.
+		SecurityChangeMapper::TABLE => 'actor_uid',
 	];
 
 	/** Detections are rewritten in batches of this size */
