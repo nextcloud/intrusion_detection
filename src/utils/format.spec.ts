@@ -64,6 +64,10 @@ describe('fillTemplate', () => {
 		expect(fillTemplateText(template, { window: 3600 }, { window: 'duration' })).toBe('Fires when one address fails {min_failures} times within 1 hour.')
 	})
 
+	test('keeps placeholders named like inherited object properties', () => {
+		expect(fillTemplateText('{constructor} and {toString}', {})).toBe('{constructor} and {toString}')
+	})
+
 	test('never interprets values as markup', () => {
 		const segments = fillTemplate('Name: {names}', { names: ['<b>x</b>'] })
 		expect(segments[1]).toEqual({ text: '<b>x</b>', name: 'names' })

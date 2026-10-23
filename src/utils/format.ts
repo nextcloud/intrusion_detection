@@ -100,7 +100,7 @@ export function fillTemplate(template: string, values: Record<string, ParamValue
 	for (const match of template.matchAll(pattern)) {
 		const name = match[1]!
 		const index = match.index
-		if (!(name in values)) {
+		if (!Object.hasOwn(values, name)) {
 			continue
 		}
 		if (index > last) {
