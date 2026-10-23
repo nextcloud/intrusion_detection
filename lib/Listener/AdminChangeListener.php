@@ -21,6 +21,7 @@ use OCA\IntrusionDetection\Check\Checks\AdminChange\AdminChange;
 use OCA\IntrusionDetection\Definition\Severity;
 use OCA\IntrusionDetection\Event\SettingChangedEvent;
 use OCA\IntrusionDetection\Net\RemoteAddressResolver;
+use OCA\IntrusionDetection\Notification\AdminAlerts;
 use OCA\IntrusionDetection\Signal\AdminChanged;
 use OCA\IntrusionDetection\Signal\SignalDispatcher;
 use OCP\App\Events\AppDisableEvent;
@@ -223,8 +224,12 @@ class AdminChangeListener implements IEventListener {
 		if (!$this->runs()) {
 			return;
 		}
-		$severity = $appId === Application::APP_ID ? Severity::High : Severity::Medium;
-		$this->dispatcher->dispatch(new AdminChanged(AdminChange::KIND_APP_DISABLED, $severity, $this->actors->actor(), null, facts: ['app' => $appId], alertKey: AdminChange::KIND_APP_DISABLED));
+		$self = $appId === Application::APP_ID;
+		$facts = ['app' => $appId];
+		if ($self) {
+			$facts[AdminAlerts::FACT_OUTLIVES_APP] = true;
+		}
+		$this->dispatcher->dispatch(new AdminChanged(AdminChange::KIND_APP_DISABLED, $self ? Severity::High : Severity::Medium, $this->actors->actor(), null, facts: $facts, alertKey: AdminChange::KIND_APP_DISABLED));
 	}
 
 	/**

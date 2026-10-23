@@ -44,6 +44,7 @@ final readonly class AdminChangeFacts implements IFacts {
 	 * @param mixed $new the value after, shortened for display
 	 * @param ?string $alertKey changes with the same key share one notification per hour
 	 * @param ?bool $allAdmins every administrator is told
+	 * @param ?bool $outlivesApp the change stops this app, so the administrators are told at once and by means that outlive it
 	 */
 	public function __construct(
 		public ?string $kind = null,
@@ -68,6 +69,7 @@ final readonly class AdminChangeFacts implements IFacts {
 		public mixed $new = null,
 		public ?string $alertKey = null,
 		public ?bool $allAdmins = null,
+		public ?bool $outlivesApp = null,
 		public CommonFacts $common = new CommonFacts(),
 	) {
 	}
@@ -99,6 +101,7 @@ final readonly class AdminChangeFacts implements IFacts {
 			$stored['new'] ?? null,
 			FactValues::string($stored, AdminAlerts::FACT_ALERT_KEY),
 			FactValues::bool($stored, AdminAlerts::FACT_ALL_ADMINS),
+			FactValues::bool($stored, AdminAlerts::FACT_OUTLIVES_APP),
 			CommonFacts::fromArray($stored),
 		);
 	}
@@ -131,6 +134,7 @@ final readonly class AdminChangeFacts implements IFacts {
 			$this->new,
 			$alertKey,
 			true,
+			$this->outlivesApp,
 			new CommonFacts(targets: $subject === null ? null : [$subject]),
 		);
 	}
@@ -157,6 +161,7 @@ final readonly class AdminChangeFacts implements IFacts {
 			'actor_ip' => $this->actorIp,
 			AdminAlerts::FACT_ALERT_KEY => $this->alertKey,
 			AdminAlerts::FACT_ALL_ADMINS => $this->allAdmins,
+			AdminAlerts::FACT_OUTLIVES_APP => $this->outlivesApp,
 		]);
 		if ($this->hasValues) {
 			// Recorded even when not set: "not set" is a value of a setting.

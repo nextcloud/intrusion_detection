@@ -37,6 +37,12 @@ use OCP\Notification\IManager as INotificationManager;
  * A detection with the fact {@see self::FACT_ALERT_KEY} is aggregated per
  * check and that key (bell and email), so that different kinds of changes
  * are each told.
+ *
+ * A detection with the fact {@see self::FACT_OUTLIVES_APP} is about this
+ * app being switched off: the background jobs and the notifier of the app
+ * stop with it. Its email is sent at once, and its bell notification goes
+ * through the admin notifications of Nextcloud's notifications app, with
+ * the text written in each recipient's language when it is sent.
  */
 class AdminAlerts {
 	private ?DetectionHeadline $headlines = null;
@@ -49,6 +55,11 @@ class AdminAlerts {
 	public const FACT_ALERT_KEY = 'alert_key';
 	/** Detection fact: also notify the members of the admin group, whatever notify_admin_group says */
 	public const FACT_ALL_ADMINS = 'alert_all_admins';
+	/** Detection fact: the detection stops this app; tell at once, by means that outlive it */
+	public const FACT_OUTLIVES_APP = 'alert_outlives_app';
+	/** The notifications app's notifier that shows a text given when sending */
+	public const OUTLIVING_APP = 'admin_notifications';
+	public const OUTLIVING_SUBJECT = 'cli';
 
 	public const BELL_SENT = 'sent';
 	public const BELL_AGGREGATED = 'aggregated';
@@ -86,6 +97,7 @@ class AdminAlerts {
 		// Group members are only looked up when a notification or an email is sent.
 		$recipients = null;
 		$allAdmins = ($detection->getExplanationData()['facts'][self::FACT_ALL_ADMINS] ?? false) === true;
+		$outlives = ($detection->getExplanationData()['facts'][self::FACT_OUTLIVES_APP] ?? false) === true;
 		$load = function () use (&$recipients, $allAdmins): array {
 			return $recipients ??= $this->recipients->users($allAdmins);
 		};
@@ -93,6 +105,10 @@ class AdminAlerts {
 		if ($first) {
 			$this->alerts->setRecipients($alertId, count($load()));
 			foreach ($load() as $user) {
+				if ($outlives) {
+					$this->notifyOutliving($detection, $user, $now);
+					continue;
+				}
 				$notification = $this->notifications->createNotification();
 				$notification->setApp(Application::APP_ID)
 					->setUser($user->getUID())
@@ -107,7 +123,7 @@ class AdminAlerts {
 			}
 		}
 
-		$email = $this->email($detection, $load, $allAdmins, $bucket, $now);
+		$email = $this->email($detection, $load, $allAdmins, $outlives, $bucket, $now);
 		$counter = $this->alerts->find($alertId);
 		return [
 			'alert' => $alertId,
@@ -170,7 +186,7 @@ class AdminAlerts {
 	/**
 	 * @param \Closure(): list<IUser> $recipients
 	 */
-	private function email(Detection $detection, \Closure $recipients, bool $allAdmins, int $bucket, int $now): string {
+	private function email(Detection $detection, \Closure $recipients, bool $allAdmins, bool $sendNow, int $bucket, int $now): string {
 		$minimum = Severity::tryFrom($this->settings->notifyAdminEmailMinSeverity());
 		$severity = Severity::tryFrom($detection->getSeverity());
 		if ($minimum === null || $severity === null || !$severity->atLeast($minimum)) {
@@ -194,8 +210,37 @@ class AdminAlerts {
 		if (!$first) {
 			return self::EMAIL_LIMITED;
 		}
+		if ($sendNow) {
+			return $this->sendMail($detection) > 0 ? self::EMAIL_SENT : self::EMAIL_FAILED;
+		}
 		$this->queue->admins($detection->getId());
 		return self::EMAIL_QUEUED;
+	}
+
+	/**
+	 * A bell notification that Nextcloud's notifications app shows without
+	 * this app, with the headline and what happened as its text.
+	 */
+	private function notifyOutliving(Detection $detection, IUser $user, int $now): void {
+		$l = $this->messages->l10nFor($user);
+		[$subject, $message] = $this->messages->asReader($user, $l, function () use ($detection, $l): array {
+			return [$this->headline($detection, $l), implode(' ', $this->narratives->build($detection, $l)->happened)];
+		});
+		$notification = $this->notifications->createNotification();
+		$notification->setApp(self::OUTLIVING_APP)
+			->setUser($user->getUID())
+			->setDateTime(new \DateTime('@' . $now))
+			->setObject(Application::APP_ID, (string)$detection->getId())
+			->setSubject(self::OUTLIVING_SUBJECT, ['subject' => self::plain($subject), 'parameters' => []])
+			->setMessage(self::OUTLIVING_SUBJECT, ['message' => self::plain($message), 'parameters' => []]);
+		$this->notifications->notify($notification);
+	}
+
+	/**
+	 * One line without placeholders, as the notifications app reads the text as a rich string.
+	 */
+	private static function plain(string $text): string {
+		return str_replace(['{', '}'], ['(', ')'], Mails::clean($text));
 	}
 
 	/**

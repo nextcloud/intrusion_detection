@@ -30,6 +30,7 @@ use OCA\IntrusionDetection\Db\DetectionMapper;
 use OCA\IntrusionDetection\Definition\Mode;
 use OCA\IntrusionDetection\Listener\AdminChangeListener;
 use OCA\IntrusionDetection\Net\RemoteAddressResolver;
+use OCA\IntrusionDetection\Response\ResponseEngine;
 use OCA\IntrusionDetection\Signal\SignalDispatcher;
 use OCA\IntrusionDetection\State\AppState;
 use OCP\AppFramework\Utility\ITimeFactory;
@@ -133,9 +134,9 @@ abstract class AdminChangeTestCase extends IntegrationTestCase {
 	/**
 	 * Build the listener and its helpers again, e.g. after changing delegations.
 	 */
-	protected function rebuild(?ITimeFactory $time = null): void {
+	protected function rebuild(?ITimeFactory $time = null, ?ResponseEngine $engine = null): void {
 		$time ??= Server::get(ITimeFactory::class);
-		$this->signals = $this->dispatcher([AdminChangeDetector::class => new AdminChangeDetector($this->actors, Server::get(RemoteAddressResolver::class))]);
+		$this->signals = $this->dispatcher([AdminChangeDetector::class => new AdminChangeDetector($this->actors, Server::get(RemoteAddressResolver::class))], $engine);
 		$this->gate = new AdminGrantGate($this->appSettings(), $this->checkSettings(), $this->actors, Server::get(GrantPermit::class));
 		$this->listener = new AdminChangeListener(
 			$this->signals,
