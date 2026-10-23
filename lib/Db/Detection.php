@@ -9,6 +9,7 @@ declare(strict_types=1);
 
 namespace OCA\IntrusionDetection\Db;
 
+use OCA\IntrusionDetection\Definition\Severity;
 use OCP\AppFramework\Db\Entity;
 use OCP\DB\Types;
 
@@ -20,7 +21,7 @@ use OCP\DB\Types;
  *
  * @method string getCheckId()
  * @method void setCheckId(string $checkId)
- * @method string getSeverity()
+ * @method value-of<Severity> getSeverity()
  * @method void setSeverity(string $severity)
  * @method ?bool getEnforced()
  * @method void setEnforced(?bool $enforced)

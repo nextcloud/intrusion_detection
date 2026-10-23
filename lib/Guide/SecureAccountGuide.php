@@ -178,7 +178,7 @@ class SecureAccountGuide {
 	/**
 	 * The guide as the pages show it.
 	 *
-	 * @return array{active: bool, startedAt: ?int, eventAt: ?int, reason: ?string, detectionId: ?int, closedAt: ?int, closedBy: ?string, done: int, total: int, steps: list<array{id: string, done: bool, doneAt: ?int, skipped: bool, managed: bool, userConfirms: bool}>}
+	 * @return array{active: bool, startedAt: ?int, eventAt: ?int, reason: ?string, detectionId: ?int, closedAt: ?int, closedBy: ?string, done: int, total: int, steps: list<array{id: SecureAccountGuide::STEP_*, done: bool, doneAt: ?int, skipped: bool, managed: bool, userConfirms: bool}>}
 	 */
 	public function progress(IUser $user): array {
 		$state = $this->state($user->getUID());

@@ -135,7 +135,7 @@ watch(() => props.list.mode, (mode) => {
  * @param mode - observe or protect
  */
 async function setMode(mode: string) {
-	if (mode === matchMode.value) {
+	if (mode === matchMode.value || (mode !== 'observe' && mode !== 'protect')) {
 		return
 	}
 	matchMode.value = mode

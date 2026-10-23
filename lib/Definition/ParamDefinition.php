@@ -170,7 +170,7 @@ final class ParamDefinition {
 	}
 
 	/**
-	 * @return array{name: string, type: string, default: int|float|bool|string|list<string>, min: int|float|null, max: int|float|null, choices: list<string>}
+	 * @return array{name: string, type: value-of<ParamType>, default: int|float|bool|string|list<string>, min: int|float|null, max: int|float|null, choices: list<string>}
 	 */
 	public function toArray(): array {
 		return [

@@ -34,6 +34,8 @@ final class BlocklistSource {
 	public const MAX_INTERVAL = 7 * 86400;
 
 	/**
+	 * @param self::PURPOSE_* $purpose
+	 * @param self::MODE_*|null $mode
 	 * @param ?int $interval seconds between syncs; null for the global sync interval
 	 * @param ?string $termsUrl where the publisher states the terms of use
 	 */

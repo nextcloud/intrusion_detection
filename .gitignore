@@ -13,3 +13,6 @@
 /css/settings-admin.css
 /css/settings-personal.css
 /css/verify.css
+
+# Tools installed by the CI, see vendor-bin/*/composer.json
+/vendor-bin/*/vendor/

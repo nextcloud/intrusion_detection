@@ -21,6 +21,7 @@
     "test": "vitest run",
     "test:coverage": "vitest run --coverage",
     "test:watch": "vitest watch",
+    "typescript:generate": "npx openapi-typescript ./openapi-full.json -t -o src/types/openapi/openapi-full.ts",
     "watch": "NODE_ENV=development vite build --mode development --watch"
   },
   "browserslist": [
@@ -50,6 +51,7 @@
     "axios": "^1.20.0",
     "eslint": "^10.12.0",
     "jsdom": "^30.1.2",
+    "openapi-typescript": "^7.13.0",
     "vite": "^7.3.7",
     "vitest": "^5.0.3"
   },

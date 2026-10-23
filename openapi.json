@@ -411,7 +411,13 @@
                         "type": "string"
                     },
                     "severity": {
-                        "type": "string"
+                        "type": "string",
+                        "enum": [
+                            "low",
+                            "medium",
+                            "high",
+                            "critical"
+                        ]
                     },
                     "enforced": {
                         "type": "boolean"
@@ -800,7 +806,15 @@
                 ],
                 "properties": {
                     "id": {
-                        "type": "string"
+                        "type": "string",
+                        "enum": [
+                            "password",
+                            "sessions",
+                            "two_factor",
+                            "email",
+                            "shares",
+                            "files"
+                        ]
                     },
                     "done": {
                         "type": "boolean"

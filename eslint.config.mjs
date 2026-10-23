@@ -23,6 +23,7 @@ export default defineConfig([
 			'css/',
 			'js/',
 			'l10n/',
+			'src/types/openapi/',
 			'tests/',
 			'vendor/',
 		],

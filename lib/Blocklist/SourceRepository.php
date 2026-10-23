@@ -136,6 +136,9 @@ class SourceRepository {
 		return $sources;
 	}
 
+	/**
+	 * @return BlocklistSource::MODE_*|null
+	 */
 	private static function mode(mixed $mode): ?string {
 		return is_string($mode) && in_array($mode, BlocklistSource::MODES, true) ? $mode : null;
 	}
