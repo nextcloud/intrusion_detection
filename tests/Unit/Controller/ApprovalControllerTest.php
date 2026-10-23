@@ -150,6 +150,9 @@ class ApprovalControllerTest extends TestCase {
 
 	public function testTheDecidingAdministratorIsTheLoggedInOne(): void {
 		$service = $this->createMock(ApprovalService::class);
+		$login = new Approval();
+		$login->setKind(Approval::KIND_LOGIN);
+		$service->method('find')->willReturn($login);
 		$approval = new Approval();
 		$approval->setStatus(Approval::STATUS_APPROVED);
 		$service->expects($this->once())->method('approve')->with(5, 'carol', ApprovalService::VIA_WEB)->willReturn($approval);
@@ -182,13 +185,22 @@ class ApprovalControllerTest extends TestCase {
 		$this->assertSame(Http::STATUS_OK, $this->controller($other)->approve('5')->getStatus());
 	}
 
+	public static function provideKindsThatNeedAProvenLogin(): array {
+		return [
+			'a new administrator' => [Approval::KIND_ADMIN_GRANT],
+			'a held settings change' => [Approval::KIND_SETTINGS],
+		];
+	}
+
 	/**
 	 * A client that sends the password confirms it with every request, so
-	 * the password confirmation alone does not make a new administrator.
+	 * the password confirmation alone neither makes a new administrator nor
+	 * switches the four-eyes approval off.
 	 */
-	public function testMakingAnAdministratorNeedsALoginThatProvedMoreThanThePassword(): void {
+	#[DataProvider('provideKindsThatNeedAProvenLogin')]
+	public function testApprovingNeedsALoginThatProvedMoreThanThePassword(string $kind): void {
 		$grant = new Approval();
-		$grant->setKind(Approval::KIND_ADMIN_GRANT);
+		$grant->setKind($kind);
 		$approved = new Approval();
 		$approved->setStatus(Approval::STATUS_APPROVED);
 		$service = $this->createMock(ApprovalService::class);

@@ -59,8 +59,8 @@ Administrators confirm with the second factor or another administrator's
 approval. An emailed code is offered to an administrator only when neither
 is available.
 
-Approving a new administrator needs a login that proved more than the
-password: a second factor, an emailed code, an approval or a remembered
+Approving a new administrator or a held settings change needs a login
+that proved more than the password: a second factor, an emailed code, an approval or a remembered
 device. A client that sends the password with Basic auth cannot approve.
 
 ## Timers

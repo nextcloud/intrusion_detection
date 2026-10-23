@@ -64,7 +64,8 @@ A request for approval is decided by another enabled member of the
 - the administrator who asked can only withdraw it (reject it);
 - delegated and group administrators can never decide;
 - approving needs a password confirmation, and the approving
-  administrator's own login must have been confirmed;
+  administrator's own login must have been confirmed; for a new
+  administrator or a settings change, by more than the password;
 - only one decision wins, and a request expires after its time (7 days
   for administrators and settings changes);
 - `occ intrusion:approvals:decide --approve --as=<uid>` follows the same

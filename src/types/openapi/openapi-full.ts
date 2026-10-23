@@ -78,7 +78,7 @@ export type paths = {
         put?: never;
         /**
          * Approve a request: the account joins the group, the change is made, or the waiting login continues
-         * @description Needs a recent password confirmation, and a login of the deciding administrator that was not let in unconfirmed. Making an administrator needs a login that proved more than the password: a client that sends the password confirms it with every request.
+         * @description Needs a recent password confirmation, and a login of the deciding administrator that was not let in unconfirmed. Making an administrator or a held settings change needs a login that proved more than the password: a client that sends the password confirms it with every request.
          *     This endpoint requires admin access
          *     This endpoint requires password confirmation
          */
