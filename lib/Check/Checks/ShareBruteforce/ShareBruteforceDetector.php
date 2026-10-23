@@ -15,6 +15,7 @@ use OCA\IntrusionDetection\Db\AttemptKind;
 use OCA\IntrusionDetection\Db\AttemptMapper;
 use OCA\IntrusionDetection\Db\AttemptStats;
 use OCA\IntrusionDetection\Detection\AttemptRecord;
+use OCA\IntrusionDetection\Detection\CommonFacts;
 use OCA\IntrusionDetection\Detection\DetectionDraft;
 use OCA\IntrusionDetection\Net\SourceKey;
 use OCA\IntrusionDetection\Risk\RiskScorer;
@@ -100,18 +101,23 @@ class ShareBruteforceDetector implements IDetector {
 		$kinds = [AttemptKind::UnknownShareToken];
 
 		// A logged-in user is told about, never blocked ({@see ShareBruteforce::responsesFor()}).
-		$loggedIn = $attempt->uid !== null ? ['loggedIn' => true] : [];
+		$loggedIn = $attempt->uid !== null ? true : null;
 
 		$ip = $this->attempts->stats('ip_key', [$source->ipKey], $kinds, $since);
 		$limits = $this->risk->limits($source, ['token_min' => [$minTokens, $ip->namesEstimate()]]);
 		if (self::reaches($ip->distinctNames, $ip->namesEstimate(), $limits->of('token_min'))) {
 			// A partner server is reported, never blocked ({@see ShareBruteforce::responsesFor()}).
-			$partner = $this->partners->isPartner($source) ? ['federation' => true] : [];
 			return [new DetectionDraft(
 				checkId: ShareBruteforce::ID,
 				source: $source,
 				uid: $attempt->uid,
-				facts: $this->tokenFacts(ShareBruteforce::RULE_TOKENS, $ip) + $loggedIn + $partner + $limits->facts(),
+				facts: self::tokenFacts(
+					ShareBruteforceRule::Tokens,
+					$ip,
+					$limits->facts(),
+					loggedIn: $loggedIn,
+					federation: $this->partners->isPartner($source) ? true : null,
+				),
 				merge: DetectionDraft::MERGE_SOURCE,
 				userAgent: $userAgent,
 				lure: $attempt->lure,
@@ -143,8 +149,14 @@ class ShareBruteforceDetector implements IDetector {
 			checkId: ShareBruteforce::ID,
 			source: $source,
 			uid: $attempt->uid,
-			facts: $this->tokenFacts(ShareBruteforce::RULE_TOKENS_NETWORK, $net) + ['net' => $source->netKey] + $loggedIn
-				+ ($partners === [] ? [] : ['partners' => count($partners)]) + $netLimits->facts(),
+			facts: self::tokenFacts(
+				ShareBruteforceRule::TokensNetwork,
+				$net,
+				$netLimits->facts(),
+				net: $source->netKey,
+				loggedIn: $loggedIn,
+				partners: $partners === [] ? null : count($partners),
+			),
 			merge: DetectionDraft::MERGE_SOURCE,
 			userAgent: $userAgent,
 			lure: $attempt->lure,
@@ -171,7 +183,7 @@ class ShareBruteforceDetector implements IDetector {
 		$params = $this->settings->params(ShareBruteforce::ID);
 		$kinds = [AttemptKind::WrongSharePassword];
 		$source = $attempt->source;
-		$shareFacts = $this->shareFacts($share);
+		$managers = $this->links->managers($share);
 
 		$fromSource = $this->attempts->statsForSourceOnShare($source->ipKey, $shareId, $kinds, $attempt->time - (int)$params['password_source_window']);
 		$sourceLimits = $this->risk->limits($source, ['password_min_per_source' => [(int)$params['password_min_per_source'], $fromSource->failures]]);
@@ -180,12 +192,7 @@ class ShareBruteforceDetector implements IDetector {
 			$drafts[] = new DetectionDraft(
 				checkId: ShareBruteforce::ID,
 				source: $source,
-				facts: [
-					'rule' => ShareBruteforce::RULE_PASSWORD_SOURCE,
-					'failures' => $fromSource->failures,
-					'first' => $fromSource->first,
-					'last' => $fromSource->last,
-				] + $shareFacts + $sourceLimits->facts(),
+				facts: self::passwordFacts(ShareBruteforceRule::PasswordSource, $share, $managers, $fromSource, $sourceLimits->facts()),
 				shareId: $shareId,
 				merge: DetectionDraft::MERGE_SOURCE_SHARE,
 				userAgent: $userAgent,
@@ -197,15 +204,16 @@ class ShareBruteforceDetector implements IDetector {
 		if ($shareLimits->reached()) {
 			$drafts[] = new DetectionDraft(
 				checkId: ShareBruteforce::ID,
-				uid: $shareFacts['owner'],
-				facts: [
-					'rule' => ShareBruteforce::RULE_PASSWORD_SHARE,
-					'failures' => $onShare->failures,
-					'sources' => $onShare->distinctSources,
-					'first' => $onShare->first,
-					'last' => $onShare->last,
-					'lastSource' => $source->ip,
-				] + $shareFacts + $shareLimits->facts(),
+				uid: $managers[0] ?? null,
+				facts: self::passwordFacts(
+					ShareBruteforceRule::PasswordShare,
+					$share,
+					$managers,
+					$onShare,
+					$shareLimits->facts(),
+					sources: $onShare->distinctSources,
+					lastSource: $source->ip,
+				),
 				shareId: $shareId,
 				merge: DetectionDraft::MERGE_SHARE,
 				mergeWindow: self::SHARE_MERGE_WINDOW,
@@ -225,34 +233,41 @@ class ShareBruteforceDetector implements IDetector {
 	}
 
 	/**
-	 * @return array<string, mixed>
+	 * @param array<string, mixed> $risk
 	 */
-	private function tokenFacts(string $rule, AttemptStats $stats): array {
-		return [
-			'rule' => $rule,
-			'tokens' => $stats->namesEstimate(),
-			'attempts' => $stats->failuresEstimate(),
-			'sources' => $stats->distinctSources,
-			'sampleFactor' => $stats->maxWeight,
-			'first' => $stats->first,
-			'last' => $stats->last,
-		];
+	private static function tokenFacts(ShareBruteforceRule $rule, AttemptStats $stats, array $risk, ?string $net = null, ?bool $loggedIn = null, ?bool $federation = null, ?int $partners = null): ShareBruteforceFacts {
+		return new ShareBruteforceFacts(
+			rule: $rule,
+			tokens: $stats->namesEstimate(),
+			attempts: $stats->failuresEstimate(),
+			sources: $stats->distinctSources,
+			sampleFactor: $stats->maxWeight,
+			net: $net,
+			loggedIn: $loggedIn,
+			federation: $federation,
+			partners: $partners,
+			common: new CommonFacts(first: $stats->first, last: $stats->last, risk: $risk),
+		);
 	}
 
 	/**
 	 * Identifiers only: the share's full id and type, and the accounts that
 	 * manage it. Never its token or its name.
 	 *
-	 * @return array{owner: ?string, managers: list<string>, share: string, shareType: int, targets: list<string>}
+	 * @param list<string> $managers
+	 * @param array<string, mixed> $risk
 	 */
-	private function shareFacts(IShare $share): array {
-		$managers = $this->links->managers($share);
-		return [
-			'owner' => $managers[0] ?? null,
-			'managers' => $managers,
-			'share' => $share->getFullId(),
-			'shareType' => $share->getShareType(),
-			'targets' => $managers,
-		];
+	private static function passwordFacts(ShareBruteforceRule $rule, IShare $share, array $managers, AttemptStats $stats, array $risk, ?int $sources = null, ?string $lastSource = null): ShareBruteforceFacts {
+		return new ShareBruteforceFacts(
+			rule: $rule,
+			failures: $stats->failures,
+			sources: $sources,
+			lastSource: $lastSource,
+			owner: $managers[0] ?? null,
+			managers: $managers,
+			share: $share->getFullId(),
+			shareType: $share->getShareType(),
+			common: new CommonFacts(first: $stats->first, last: $stats->last, targets: $managers, risk: $risk),
+		);
 	}
 }

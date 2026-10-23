@@ -14,6 +14,7 @@ use OCA\IntrusionDetection\Check\Checks\ResetProbing\ResetProbing;
 use OCA\IntrusionDetection\Check\Checks\ResetProbing\ResetProbingRule;
 use OCA\IntrusionDetection\Check\Checks\ShareBruteforce\ShareBruteforce;
 use OCA\IntrusionDetection\Check\Checks\ShareBruteforce\ShareBruteforceDetector;
+use OCA\IntrusionDetection\Check\Checks\ShareBruteforce\ShareBruteforceRule;
 use OCA\IntrusionDetection\Db\Detection;
 use OCA\IntrusionDetection\Definition\ResponseType;
 use OCA\IntrusionDetection\Definition\Severity;
@@ -33,17 +34,17 @@ class RuleResponsesTest extends TestCase {
 	public function testShareRulesAboutOneAddressBlockAndTellTheAdmins(): void {
 		$check = new ShareBruteforce(DateFormatter::using($this->createMock(IDateTimeFormatter::class)), $this->createMock(ContainerInterface::class));
 		$all = [ResponseType::Ban, ResponseType::NotifyAdmin, ResponseType::NotifyShareOwner];
-		foreach ([ShareBruteforce::RULE_TOKENS, ShareBruteforce::RULE_TOKENS_NETWORK, ShareBruteforce::RULE_PASSWORD_SOURCE] as $rule) {
+		foreach ([ShareBruteforceRule::Tokens->value, ShareBruteforceRule::TokensNetwork->value, ShareBruteforceRule::PasswordSource->value] as $rule) {
 			$this->assertSame([ResponseType::Ban, ResponseType::NotifyAdmin], $check->responsesFor($this->draft(ShareBruteforce::ID, $rule), $all, []), $rule);
 			$this->assertSame([ResponseType::Ban], $check->responsesFor($this->draft(ShareBruteforce::ID, $rule), [ResponseType::Ban], []), 'What the admin switched off stays off');
 		}
-		$this->assertSame([ResponseType::NotifyAdmin, ResponseType::NotifyShareOwner], $check->responsesFor($this->draft(ShareBruteforce::ID, ShareBruteforce::RULE_PASSWORD_SHARE), $all, []));
-		$this->assertSame([], $check->responsesFor($this->draft(ShareBruteforce::ID, ShareBruteforce::RULE_PASSWORD_SHARE), [ResponseType::Ban], []), 'A response the admin switched off stays off');
+		$this->assertSame([ResponseType::NotifyAdmin, ResponseType::NotifyShareOwner], $check->responsesFor($this->draft(ShareBruteforce::ID, ShareBruteforceRule::PasswordShare->value), $all, []));
+		$this->assertSame([], $check->responsesFor($this->draft(ShareBruteforce::ID, ShareBruteforceRule::PasswordShare->value), [ResponseType::Ban], []), 'A response the admin switched off stays off');
 	}
 
 	public function testUnknownLinksOfAPartnerServerAreReportedButNeverBlock(): void {
 		$check = new ShareBruteforce(DateFormatter::using($this->createMock(IDateTimeFormatter::class)), $this->createMock(ContainerInterface::class));
-		$partner = new DetectionDraft(ShareBruteforce::ID, facts: ['rule' => ShareBruteforce::RULE_TOKENS, 'federation' => true]);
+		$partner = new DetectionDraft(ShareBruteforce::ID, facts: ['rule' => ShareBruteforceRule::Tokens->value, 'federation' => true]);
 		$this->assertSame([ResponseType::NotifyAdmin], $check->responsesFor($partner, [ResponseType::Ban, ResponseType::NotifyAdmin, ResponseType::NotifyShareOwner], []));
 	}
 
@@ -115,9 +116,9 @@ class RuleResponsesTest extends TestCase {
 		$check = new ShareBruteforce(DateFormatter::using($this->createMock(IDateTimeFormatter::class)), $container);
 		$l = \OCP\Server::get(\OCP\L10N\IFactory::class)->get('intrusion_detection', 'en');
 		$detection = new Detection();
-		$detection->setExplanationData(['facts' => ['rule' => ShareBruteforce::RULE_PASSWORD_SOURCE, 'failures' => 5], 'thresholds' => ['password_source_window' => 600, 'password_share_window' => 3600]]);
+		$detection->setExplanationData(['facts' => ['rule' => ShareBruteforceRule::PasswordSource->value, 'failures' => 5], 'thresholds' => ['password_source_window' => 600, 'password_share_window' => 3600]]);
 		$this->assertStringContainsString('within 10 minutes', implode(' ', $check->userNotice($detection, $l)->message));
-		$detection->setExplanationData(['facts' => ['rule' => ShareBruteforce::RULE_PASSWORD_SHARE, 'failures' => 20], 'thresholds' => ['password_source_window' => 600, 'password_share_window' => 3600]]);
+		$detection->setExplanationData(['facts' => ['rule' => ShareBruteforceRule::PasswordShare->value, 'failures' => 20], 'thresholds' => ['password_source_window' => 600, 'password_share_window' => 3600]]);
 		$this->assertStringContainsString('within 1 hour', implode(' ', $check->userNotice($detection, $l)->message));
 	}
 

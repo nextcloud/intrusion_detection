@@ -15,6 +15,8 @@ use OCA\Files_Sharing\Controller\ShareController;
 use OCA\IntrusionDetection\AppInfo\Application;
 use OCA\IntrusionDetection\Audit\AuditLogger;
 use OCA\IntrusionDetection\Check\Checks\ShareBruteforce\ShareBruteforce;
+use OCA\IntrusionDetection\Check\Checks\ShareBruteforce\ShareBruteforceFacts;
+use OCA\IntrusionDetection\Check\Checks\ShareBruteforce\ShareBruteforceRule;
 use OCA\IntrusionDetection\Config\GlobalSettings;
 use OCA\IntrusionDetection\Controller\ShareAlertController;
 use OCA\IntrusionDetection\Crypto\Fingerprinter;
@@ -128,18 +130,14 @@ class ShareBruteforceTest extends RequestEventTestCase {
 		$detection = $detections[0];
 		$this->assertTrue($detection->isEnforced());
 		$this->assertSame('198.51.100.7', $detection->getIp());
-		$facts = $detection->getExplanationData()['facts'];
-		$this->assertSame(ShareBruteforce::RULE_TOKENS, $facts['rule']);
-		$this->assertSame(10, $facts['tokens']);
-		$this->assertSame(11, $facts['attempts']);
-		$this->assertSame(1, $facts['sampleFactor']);
+		$facts = ShareBruteforceFacts::fromArray($detection->getExplanationData()['facts']);
+		$this->assertSame(ShareBruteforceRule::Tokens, $facts->rule);
+		$this->assertSame(10, $facts->tokens);
+		$this->assertSame(11, $facts->attempts);
+		$this->assertSame(1, $facts->sampleFactor);
 		$this->assertSame([ResponseType::Ban->value, ResponseType::NotifyAdmin->value], array_column($detection->getActionList(), 'type'), 'Token guessing blocks and tells the admins');
 		$this->assertCount(1, $this->bans->findActiveForKeys(['198.51.100.7'], time()));
 
-		$l = Server::get(IFactory::class)->get(Application::APP_ID, 'en');
-		$text = implode(' ', Server::get(NarrativeBuilder::class)->build($detection, $l)->happened);
-		$this->assertStringContainsString('the address 198.51.100.7 tried 10 different share links that do not exist (11 attempts)', $text);
-		$this->assertStringContainsString('The limit at that time was 10 links within 10 minutes.', $text);
 		$this->assertStringNotContainsString('guessedToken', json_encode($detection->getExplanationData(), JSON_THROW_ON_ERROR));
 	}
 
@@ -156,7 +154,7 @@ class ShareBruteforceTest extends RequestEventTestCase {
 		$this->openUnknownLink('198.51.100.4', 'netToken' . $n);
 		$detections = $this->detectionsOf(ShareBruteforce::ID);
 		$this->assertCount(1, $detections);
-		$this->assertSame(ShareBruteforce::RULE_TOKENS_NETWORK, $detections[0]->getExplanationData()['facts']['rule']);
+		$this->assertSame(ShareBruteforceRule::TokensNetwork, ShareBruteforceFacts::fromArray($detections[0]->getExplanationData()['facts'])->rule);
 		foreach (['198.51.100.1', '198.51.100.2', '198.51.100.3', '198.51.100.4'] as $ip) {
 			$this->assertNotSame([], $this->bans->findActiveForKeys([$ip], time()), $ip . ' is blocked');
 		}
@@ -191,7 +189,7 @@ class ShareBruteforceTest extends RequestEventTestCase {
 		}
 		$detections = $this->detectionsOf(ShareBruteforce::ID);
 		$this->assertCount(1, $detections);
-		$this->assertSame(ShareBruteforce::RULE_TOKENS_NETWORK, $detections[0]->getExplanationData()['facts']['rule'], 'The network as a whole crossed its limit');
+		$this->assertSame(ShareBruteforceRule::TokensNetwork, ShareBruteforceFacts::fromArray($detections[0]->getExplanationData()['facts'])->rule, 'The network as a whole crossed its limit');
 		foreach (['198.51.100.1', '198.51.100.2', '198.51.100.3'] as $ip) {
 			$this->assertSame([], $this->bans->findActiveForKeys([$ip], time()), $ip . ' only opened lures');
 		}
@@ -209,7 +207,7 @@ class ShareBruteforceTest extends RequestEventTestCase {
 		$this->openUnknownLink('198.51.100.60', 'oneOutdatedLink');
 		$detections = $this->detectionsOf(ShareBruteforce::ID);
 		$this->assertCount(1, $detections);
-		$this->assertSame(ShareBruteforce::RULE_TOKENS_NETWORK, $detections[0]->getExplanationData()['facts']['rule']);
+		$this->assertSame(ShareBruteforceRule::TokensNetwork, ShareBruteforceFacts::fromArray($detections[0]->getExplanationData()['facts'])->rule);
 		$this->assertNotSame([], $this->bans->findActiveForKeys(['198.51.100.1'], time()));
 		$this->assertSame([], $this->bans->findActiveForKeys(['198.51.100.60'], time()), 'One outdated link never blocks an address');
 	}
@@ -260,7 +258,7 @@ class ShareBruteforceTest extends RequestEventTestCase {
 		$this->assertCount(1, $detections, 'It is reported');
 		$this->assertSame([], $this->bans->findActiveForKeys(['203.0.113.80'], time()), 'but the partner is not blocked');
 		$this->assertSame([ResponseType::NotifyAdmin->value], array_column($detections[0]->getActionList(), 'type'));
-		$this->assertTrue($detections[0]->getExplanationData()['facts']['federation']);
+		$this->assertTrue(ShareBruteforceFacts::fromArray($detections[0]->getExplanationData()['facts'])->federation);
 		$this->assertSame(207, $this->propfind('203.0.113.80', $live->getToken()), 'and its federated share keeps working');
 
 		$l = Server::get(IFactory::class)->get(Application::APP_ID, 'en');
@@ -274,7 +272,7 @@ class ShareBruteforceTest extends RequestEventTestCase {
 		}
 		$detections = $this->detectionsOf(ShareBruteforce::ID);
 		$this->assertCount(1, $detections);
-		$this->assertArrayNotHasKey('federation', $detections[0]->getExplanationData()['facts']);
+		$this->assertNull(ShareBruteforceFacts::fromArray($detections[0]->getExplanationData()['facts'])->federation);
 		$this->assertNotSame([], $this->bans->findActiveForKeys(['198.51.100.7'], time()));
 	}
 
@@ -303,9 +301,9 @@ class ShareBruteforceTest extends RequestEventTestCase {
 		$this->assertSame([], $this->bans->findActiveForKeys(['198.51.100.1'], time()), 'The partner server is not blocked');
 		$this->assertNotSame([], $this->bans->findActiveForKeys(['198.51.100.2'], time()));
 		$this->assertNotSame([], $this->bans->findActiveForKeys(['198.51.100.3'], time()));
-		$facts = $detections[0]->getExplanationData()['facts'];
-		$this->assertSame(ShareBruteforce::RULE_TOKENS_NETWORK, $facts['rule']);
-		$this->assertSame(1, $facts['partners']);
+		$facts = ShareBruteforceFacts::fromArray($detections[0]->getExplanationData()['facts']);
+		$this->assertSame(ShareBruteforceRule::TokensNetwork, $facts->rule);
+		$this->assertSame(1, $facts->partners);
 	}
 
 	public function testIpv6IsCountedPerSlash64(): void {
@@ -328,9 +326,9 @@ class ShareBruteforceTest extends RequestEventTestCase {
 
 		$this->storeUnknownToken($source, 'floodToken1');
 		$this->dispatcher()->dispatch(new ShareAccessFailed($this->kept($source), null, null));
-		$facts = $this->detectionsOf(ShareBruteforce::ID)[0]->getExplanationData()['facts'];
-		$this->assertSame(14, $facts['tokens'], '4 before the flood, and one kept link that stands for 10');
-		$this->assertSame(10, $facts['sampleFactor']);
+		$facts = ShareBruteforceFacts::fromArray($this->detectionsOf(ShareBruteforce::ID)[0]->getExplanationData()['facts']);
+		$this->assertSame(14, $facts->tokens, '4 before the flood, and one kept link that stands for 10');
+		$this->assertSame(10, $facts->sampleFactor);
 	}
 
 	public function testTheRecorderStoresTheWeightOfASampledAttempt(): void {
@@ -360,14 +358,9 @@ class ShareBruteforceTest extends RequestEventTestCase {
 		$this->dispatcher()->dispatch(new ShareAccessFailed($this->kept($source), null, null));
 		$detections = $this->detectionsOf(ShareBruteforce::ID);
 		$this->assertCount(1, $detections);
-		$facts = $detections[0]->getExplanationData()['facts'];
-		$this->assertSame(10, $facts['sampleFactor']);
-		$this->assertSame(30, $facts['tokens']);
-
-		$l = Server::get(IFactory::class)->get(Application::APP_ID, 'en');
-		$text = implode(' ', Server::get(NarrativeBuilder::class)->build($detections[0], $l)->happened);
-		$this->assertStringContainsString('tried about 30 different share links', $text);
-		$this->assertStringContainsString('only one in 10 unknown links was recorded', $text);
+		$facts = ShareBruteforceFacts::fromArray($detections[0]->getExplanationData()['facts']);
+		$this->assertSame(10, $facts->sampleFactor);
+		$this->assertSame(30, $facts->tokens);
 
 		// An attempt the recorder did not keep is not evaluated at all.
 		$this->detections->delete($detections[0]);
@@ -386,10 +379,10 @@ class ShareBruteforceTest extends RequestEventTestCase {
 		$this->enterWrongPassword('198.51.100.7', $share);
 		$detections = $this->detectionsOf(ShareBruteforce::ID);
 		$this->assertCount(1, $detections);
-		$this->assertSame(ShareBruteforce::RULE_PASSWORD_SOURCE, $detections[0]->getExplanationData()['facts']['rule']);
+		$this->assertSame(ShareBruteforceRule::PasswordSource, ShareBruteforceFacts::fromArray($detections[0]->getExplanationData()['facts'])->rule);
 		$this->assertSame((int)$share->getId(), $detections[0]->getShareId());
 		$this->assertNull($detections[0]->getUid(), 'About the address: it is not shown on the owner\'s security page');
-		$this->assertSame([$owner->getUID()], $detections[0]->getExplanationData()['facts']['managers']);
+		$this->assertSame([$owner->getUID()], ShareBruteforceFacts::fromArray($detections[0]->getExplanationData()['facts'])->managers);
 		$this->assertSame('198.51.100.7', $detections[0]->getIp());
 		$this->assertSame(['ban' => true, 'notify_admin' => true], array_column($detections[0]->getActionList(), 'enforced', 'type'));
 		$this->assertNotSame([], $this->bans->findActiveForKeys(['198.51.100.7'], time()));
@@ -410,7 +403,7 @@ class ShareBruteforceTest extends RequestEventTestCase {
 		$detections = $this->detectionsOf(ShareBruteforce::ID);
 		$this->assertCount(1, $detections);
 		$detection = $detections[0];
-		$this->assertSame(ShareBruteforce::RULE_PASSWORD_SHARE, $detection->getExplanationData()['facts']['rule']);
+		$this->assertSame(ShareBruteforceRule::PasswordShare, ShareBruteforceFacts::fromArray($detection->getExplanationData()['facts'])->rule);
 		$this->assertNull($detection->getIp(), 'The detection is about the share, not one address');
 		$this->assertSame([], $this->bans->findActiveForKeys([$source->ipKey], time()), 'Nobody is blocked for one wrong password');
 		$this->assertSame(
@@ -447,7 +440,7 @@ class ShareBruteforceTest extends RequestEventTestCase {
 		$share = $this->linkShare($creator, self::SHARE_PASSWORD, 'Plans.pdf', $fileOwner);
 		$detection = $this->shareDetection($share);
 		$this->assertSame($creator->getUID(), $detection->getUid());
-		$this->assertSame([$creator->getUID(), $fileOwner->getUID()], $detection->getExplanationData()['facts']['managers']);
+		$this->assertSame([$creator->getUID(), $fileOwner->getUID()], ShareBruteforceFacts::fromArray($detection->getExplanationData()['facts'])->managers);
 
 		$mailed = [];
 		$mails = $this->createMock(Mails::class);

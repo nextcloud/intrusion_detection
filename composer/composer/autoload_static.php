@@ -172,6 +172,8 @@ class ComposerStaticInitIntrusionDetection
         'OCA\\IntrusionDetection\\Check\\Checks\\SecondFactorFailed\\SecondFactorFailedRule' => __DIR__ . '/..' . '/../lib/Check/Checks/SecondFactorFailed/SecondFactorFailedRule.php',
         'OCA\\IntrusionDetection\\Check\\Checks\\ShareBruteforce\\ShareBruteforce' => __DIR__ . '/..' . '/../lib/Check/Checks/ShareBruteforce/ShareBruteforce.php',
         'OCA\\IntrusionDetection\\Check\\Checks\\ShareBruteforce\\ShareBruteforceDetector' => __DIR__ . '/..' . '/../lib/Check/Checks/ShareBruteforce/ShareBruteforceDetector.php',
+        'OCA\\IntrusionDetection\\Check\\Checks\\ShareBruteforce\\ShareBruteforceFacts' => __DIR__ . '/..' . '/../lib/Check/Checks/ShareBruteforce/ShareBruteforceFacts.php',
+        'OCA\\IntrusionDetection\\Check\\Checks\\ShareBruteforce\\ShareBruteforceRule' => __DIR__ . '/..' . '/../lib/Check/Checks/ShareBruteforce/ShareBruteforceRule.php',
         'OCA\\IntrusionDetection\\Check\\Checks\\SharedAddress\\SharedAddress' => __DIR__ . '/..' . '/../lib/Check/Checks/SharedAddress/SharedAddress.php',
         'OCA\\IntrusionDetection\\Check\\Checks\\SharedAddress\\SharedAddressDetector' => __DIR__ . '/..' . '/../lib/Check/Checks/SharedAddress/SharedAddressDetector.php',
         'OCA\\IntrusionDetection\\Check\\Checks\\SharedAddress\\SharedAddressFacts' => __DIR__ . '/..' . '/../lib/Check/Checks/SharedAddress/SharedAddressFacts.php',

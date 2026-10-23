@@ -25,6 +25,7 @@ use OCA\IntrusionDetection\Definition\ParamPreset;
 use OCA\IntrusionDetection\Definition\ParamType;
 use OCA\IntrusionDetection\Definition\ResponseType;
 use OCA\IntrusionDetection\Definition\Severity;
+use OCA\IntrusionDetection\Detection\CommonFacts;
 use OCA\IntrusionDetection\Detection\DetectionDraft;
 use OCA\IntrusionDetection\Explain\DateFormatter;
 use OCA\IntrusionDetection\Explain\DetectionFacts;
@@ -50,11 +51,6 @@ use Psr\Container\ContainerInterface;
  */
 final class ShareBruteforce implements ICheck, IExplainsDetection, IExplainsToUser, ISimulatable, ISelectsResponses {
 	public const ID = 'share_bruteforce';
-
-	public const RULE_TOKENS = 'tokens';
-	public const RULE_TOKENS_NETWORK = 'tokens_network';
-	public const RULE_PASSWORD_SOURCE = 'password_source';
-	public const RULE_PASSWORD_SHARE = 'password_share';
 
 	/** The responses of the rules about one address */
 	private const SOURCE_RESPONSES = [ResponseType::Ban, ResponseType::NotifyAdmin];
@@ -111,66 +107,67 @@ final class ShareBruteforce implements ICheck, IExplainsDetection, IExplainsToUs
 	 */
 	#[\Override]
 	public function responsesFor(DetectionDraft $draft, array $configured, array $params): array {
-		$rule = $draft->facts['rule'] ?? null;
-		$allowed = $rule === self::RULE_PASSWORD_SHARE ? self::SHARE_RESPONSES : self::SOURCE_RESPONSES;
-		$spared = ($draft->facts['loggedIn'] ?? false) === true || ($draft->facts['federation'] ?? false) === true;
+		$facts = ShareBruteforceFacts::fromArray($draft->facts);
+		$allowed = $facts->rule === ShareBruteforceRule::PasswordShare ? self::SHARE_RESPONSES : self::SOURCE_RESPONSES;
+		$spared = $facts->loggedIn === true || $facts->federation === true;
 		return array_values(array_filter($configured, static fn (ResponseType $r): bool => in_array($r, $allowed, true) && !($spared && $r === ResponseType::Ban)));
 	}
 
 	#[\Override]
 	public function narrative(Detection $detection, IL10N $l): array {
-		$facts = DetectionFacts::of($detection);
-		$from = $this->dates->dateTime($facts->first);
-		$to = $this->dates->time($facts->last);
+		$stored = DetectionFacts::of($detection);
+		$facts = ShareBruteforceFacts::fromArray($stored->facts);
+		$from = $this->dates->dateTime($stored->first);
+		$to = $this->dates->time($stored->last);
 		$sentences = [];
 
-		switch ($facts->string('rule', self::RULE_TOKENS)) {
-			case self::RULE_PASSWORD_SOURCE:
+		switch ($facts->rule ?? ShareBruteforceRule::Tokens) {
+			case ShareBruteforceRule::PasswordSource:
 				$sentences[] = $l->t('Between %1$s and %2$s the address %3$s entered %4$s wrong passwords for a share of %5$s (share %6$s).', [
-					$from, $to, (string)$detection->getIp(), (string)$facts->int('failures'), $facts->string('owner'), (string)$detection->getShareId(),
+					$from, $to, (string)$detection->getIp(), (string)($facts->failures ?? 0), $facts->owner ?? '', (string)$detection->getShareId(),
 				]);
 				$sentences[] = $l->t('The limit at that time was %1$s wrong passwords for one share within %2$s.', [
-					(string)$facts->threshold('password_min_per_source'),
-					TextRenderer::duration($facts->threshold('password_source_window', 600), $l),
+					(string)$stored->threshold('password_min_per_source'),
+					TextRenderer::duration($stored->threshold('password_source_window', 600), $l),
 				]);
 				break;
-			case self::RULE_PASSWORD_SHARE:
+			case ShareBruteforceRule::PasswordShare:
 				$sentences[] = $l->t('Between %1$s and %2$s a share of %3$s (share %4$s) got %5$s wrong passwords from %6$s different addresses.', [
-					$from, $to, $facts->string('owner'), (string)$detection->getShareId(), (string)$facts->int('failures'), (string)$facts->int('sources'),
+					$from, $to, $facts->owner ?? '', (string)$detection->getShareId(), (string)($facts->failures ?? 0), (string)($facts->sources ?? 0),
 				]);
 				$sentences[] = $l->t('The limit at that time was %1$s wrong passwords for one share within %2$s, from any number of addresses.', [
-					(string)$facts->threshold('password_min_per_share'),
-					TextRenderer::duration($facts->threshold('password_share_window', 3600), $l),
+					(string)$stored->threshold('password_min_per_share'),
+					TextRenderer::duration($stored->threshold('password_share_window', 3600), $l),
 				]);
-				if ($facts->string('lastSource') !== '') {
-					$sentences[] = $l->t('The most recent attempt came from %s.', [$facts->string('lastSource')]);
+				if (($facts->lastSource ?? '') !== '') {
+					$sentences[] = $l->t('The most recent attempt came from %s.', [$facts->lastSource]);
 				}
 				break;
-			case self::RULE_TOKENS_NETWORK:
+			case ShareBruteforceRule::TokensNetwork:
 				$sentences[] = $l->t('Between %1$s and %2$s the network %3$s tried %4$s different share links that do not exist, from %5$s addresses.', [
-					$from, $to, $facts->string('net', (string)$detection->getNetKey()), $facts->estimated('tokens', $l), (string)$facts->int('sources'),
+					$from, $to, $facts->net ?? (string)$detection->getNetKey(), TextRenderer::estimated($facts->tokens ?? 0, $facts->sampleFactor, $l), (string)($facts->sources ?? 0),
 				]);
 				$sentences[] = $l->t('The limit for a network at that time was %1$s links within %2$s.', [
-					(string)($facts->threshold('token_min') * max(1, $facts->threshold('net_factor', 3))),
-					TextRenderer::duration($facts->threshold('token_window', 600), $l),
+					(string)($stored->threshold('token_min') * max(1, $stored->threshold('net_factor', 3))),
+					TextRenderer::duration($stored->threshold('token_window', 600), $l),
 				]);
 				break;
-			default:
+			case ShareBruteforceRule::Tokens:
 				$sentences[] = $l->t('Between %1$s and %2$s the address %3$s tried %4$s different share links that do not exist (%5$s attempts).', [
-					$from, $to, (string)$detection->getIp(), $facts->estimated('tokens', $l), $facts->estimated('attempts', $l),
+					$from, $to, (string)$detection->getIp(), TextRenderer::estimated($facts->tokens ?? 0, $facts->sampleFactor, $l), TextRenderer::estimated($facts->attempts ?? 0, $facts->sampleFactor, $l),
 				]);
 				$sentences[] = $l->t('The limit at that time was %1$s links within %2$s.', [
-					(string)$facts->threshold('token_min'),
-					TextRenderer::duration($facts->threshold('token_window', 600), $l),
+					(string)$stored->threshold('token_min'),
+					TextRenderer::duration($stored->threshold('token_window', 600), $l),
 				]);
 		}
-		if ($facts->bool('loggedIn') && $detection->getUid() !== null) {
+		if ($facts->loggedIn === true && $detection->getUid() !== null) {
 			$sentences[] = $l->t('The most recent of these links was opened while logged in as %s. Links opened while logged in are reported, but never block the address.', [$detection->getUid()]);
 		}
-		if ($facts->bool('federation')) {
+		if ($facts->federation === true) {
 			$sentences[] = $l->t('The address opened a federated share of this server within the last day: it belongs to a server your users share files with, which may still open federated shares that were deleted here. Such an address is reported, but never blocked.');
 		}
-		$partners = $facts->int('partners');
+		$partners = $facts->partners ?? 0;
 		if ($partners > 0) {
 			$sentences[] = $l->n(
 				'%n address of the network opened a federated share of this server within the last day and was not blocked.',
@@ -178,7 +175,7 @@ final class ShareBruteforce implements ICheck, IExplainsDetection, IExplainsToUs
 				$partners,
 			);
 		}
-		$factor = $facts->int('sampleFactor', 1);
+		$factor = $facts->sampleFactor ?? 1;
 		if ($factor > 1) {
 			$sentences[] = $l->t('The server was receiving so many failed attempts that only one in %s unknown links was recorded. The numbers are estimates from those.', [(string)$factor]);
 		}
@@ -191,13 +188,14 @@ final class ShareBruteforce implements ICheck, IExplainsDetection, IExplainsToUs
 	 */
 	#[\Override]
 	public function userNotice(Detection $detection, IL10N $l): UserNotice {
-		$facts = DetectionFacts::of($detection);
+		$stored = DetectionFacts::of($detection);
+		$facts = ShareBruteforceFacts::fromArray($stored->facts);
 		$links = $this->container->get(ShareLinks::class);
 		$share = $links->find($detection);
-		$failures = $facts->int('failures');
-		$window = TextRenderer::duration($facts->string('rule') === self::RULE_PASSWORD_SOURCE
-			? $facts->threshold('password_source_window', 600)
-			: $facts->threshold('password_share_window', 3600), $l);
+		$failures = $facts->failures ?? 0;
+		$window = TextRenderer::duration($facts->rule === ShareBruteforceRule::PasswordSource
+			? $stored->threshold('password_source_window', 600)
+			: $stored->threshold('password_share_window', 3600), $l);
 		$message = [
 			$share !== null
 				? $l->n(
@@ -225,15 +223,13 @@ final class ShareBruteforce implements ICheck, IExplainsDetection, IExplainsToUs
 		return new DetectionDraft(
 			checkId: self::ID,
 			source: $source,
-			facts: [
-				'rule' => self::RULE_TOKENS,
-				'tokens' => $tokens,
-				'attempts' => $tokens,
-				'sampleFactor' => 1,
-				'first' => $now - (int)($params['token_window'] ?? 600) + 60,
-				'last' => $now,
-				'simulated' => true,
-			],
+			facts: new ShareBruteforceFacts(
+				rule: ShareBruteforceRule::Tokens,
+				tokens: $tokens,
+				attempts: $tokens,
+				sampleFactor: 1,
+				common: new CommonFacts(first: $now - (int)($params['token_window'] ?? 600) + 60, last: $now, simulated: true),
+			),
 			merge: DetectionDraft::MERGE_SOURCE,
 		);
 	}

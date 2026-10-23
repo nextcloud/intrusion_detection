@@ -157,6 +157,8 @@ return array(
     'OCA\\IntrusionDetection\\Check\\Checks\\SecondFactorFailed\\SecondFactorFailedRule' => $baseDir . '/../lib/Check/Checks/SecondFactorFailed/SecondFactorFailedRule.php',
     'OCA\\IntrusionDetection\\Check\\Checks\\ShareBruteforce\\ShareBruteforce' => $baseDir . '/../lib/Check/Checks/ShareBruteforce/ShareBruteforce.php',
     'OCA\\IntrusionDetection\\Check\\Checks\\ShareBruteforce\\ShareBruteforceDetector' => $baseDir . '/../lib/Check/Checks/ShareBruteforce/ShareBruteforceDetector.php',
+    'OCA\\IntrusionDetection\\Check\\Checks\\ShareBruteforce\\ShareBruteforceFacts' => $baseDir . '/../lib/Check/Checks/ShareBruteforce/ShareBruteforceFacts.php',
+    'OCA\\IntrusionDetection\\Check\\Checks\\ShareBruteforce\\ShareBruteforceRule' => $baseDir . '/../lib/Check/Checks/ShareBruteforce/ShareBruteforceRule.php',
     'OCA\\IntrusionDetection\\Check\\Checks\\SharedAddress\\SharedAddress' => $baseDir . '/../lib/Check/Checks/SharedAddress/SharedAddress.php',
     'OCA\\IntrusionDetection\\Check\\Checks\\SharedAddress\\SharedAddressDetector' => $baseDir . '/../lib/Check/Checks/SharedAddress/SharedAddressDetector.php',
     'OCA\\IntrusionDetection\\Check\\Checks\\SharedAddress\\SharedAddressFacts' => $baseDir . '/../lib/Check/Checks/SharedAddress/SharedAddressFacts.php',
