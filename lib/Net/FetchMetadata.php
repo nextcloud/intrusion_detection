@@ -17,7 +17,9 @@ use OCP\IRequest;
  *
  * A request is a possible lure when a browser fetched a URL for another
  * site's page or an email: to embed it (an image, a script, a frame), or
- * because the other site sent the browser there. Any web page or HTML email
+ * because the other site sent the browser there. Another host of the same
+ * registrable domain (`same-site`, such as a webmail or the homepage next to
+ * this server) counts as another site: other people may publish there. Any web page or HTML email
  * can make a visitor's browser do that with a GET request, so only GET and
  * HEAD requests can be lures. Only browsers send these headers; scripts and
  * scanners usually send none, and requests without them are never lures.
@@ -39,12 +41,15 @@ final class FetchMetadata {
 		'video', 'worker', 'xslt',
 	];
 
+	/** `Sec-Fetch-Site` values of a request another host started */
+	private const OTHER_SITE = ['cross-site', 'same-site'];
+
 	public static function isLure(IRequest $request): bool {
 		$method = strtoupper($request->getMethod());
 		if ($method !== 'GET' && $method !== 'HEAD') {
 			return false;
 		}
-		$foreign = strtolower(trim($request->getHeader('Sec-Fetch-Site'))) === 'cross-site'
+		$foreign = in_array(strtolower(trim($request->getHeader('Sec-Fetch-Site'))), self::OTHER_SITE, true)
 			|| strtolower(trim($request->getHeader('Sec-Fetch-Mode'))) === 'no-cors'
 			|| in_array(strtolower(trim($request->getHeader('Sec-Fetch-Dest'))), self::EMBEDDED, true);
 		return $foreign && !self::fromThisServer($request);
