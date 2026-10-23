@@ -11,6 +11,7 @@ namespace OCA\IntrusionDetection\Notification;
 
 use OCA\IntrusionDetection\AppInfo\Application;
 use OCA\IntrusionDetection\Db\Detection;
+use OCA\IntrusionDetection\Definition\Severity;
 use OCA\IntrusionDetection\Share\ShareLinks;
 use OCP\AppFramework\Utility\ITimeFactory;
 use OCP\IURLGenerator;
@@ -68,7 +69,7 @@ class ShareOwnerAlerts {
 		}
 		$email = match (true) {
 			!$withAddress => self::EMAIL_NO_ADDRESS,
-			$this->queue->shareOwners($detection->getId()) => self::EMAIL_QUEUED,
+			$this->queue->shareOwners($detection->getId(), Severity::from($detection->getSeverity())) => self::EMAIL_QUEUED,
 			default => self::EMAIL_LIMITED,
 		};
 		return ['recipients' => $recipients, 'email' => $email];

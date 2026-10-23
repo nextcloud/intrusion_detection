@@ -118,7 +118,7 @@ class UserAlerts {
 		if (!$this->reach->hasAddress($user)) {
 			return ['bell' => self::BELL_SENT, 'email' => self::EMAIL_NO_ADDRESS, 'admins' => $this->unreachable($detection, $uid, self::EMAIL_NO_ADDRESS)];
 		}
-		if (!$this->queue->user($detection->getId(), $uid)) {
+		if (!$this->queue->user($detection->getId(), $uid, Severity::from($detection->getSeverity()))) {
 			$this->loginNotices->remember($uid, $detection->getCreatedAt());
 			return ['bell' => self::BELL_SENT, 'email' => self::EMAIL_LIMITED, 'admins' => 0];
 		}

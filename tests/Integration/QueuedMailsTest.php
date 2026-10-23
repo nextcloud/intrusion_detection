@@ -19,6 +19,7 @@ use OCA\IntrusionDetection\Confirm\EmailCodes;
 use OCA\IntrusionDetection\Confirm\LoginConfirmationStore;
 use OCA\IntrusionDetection\Confirm\StepUpState;
 use OCA\IntrusionDetection\Definition\ResponseType;
+use OCA\IntrusionDetection\Definition\Severity;
 use OCA\IntrusionDetection\Detection\DetectionDraft;
 use OCA\IntrusionDetection\Detection\DetectionService;
 use OCA\IntrusionDetection\Event\TypedEvents;
@@ -122,17 +123,26 @@ class QueuedMailsTest extends AccountTestCase {
 			return $now;
 		});
 		$logger = $this->createMock(LoggerInterface::class);
-		$logger->expects($this->once())->method('warning')->with($this->stringContains('{max} emails to users within the hour'));
+		$logger->expects($this->exactly(2))->method('warning')->with($this->stringContains('{max} emails to users within the hour'));
 		$queue = new MailQueue(Server::get(IJobList::class), Server::get(AlertMapper::class), $time, $logger);
+		$shared = MailQueue::MAX_USER_MAILS_PER_HOUR - MailQueue::RESERVED_FOR_SEVERE;
 
 		// An attacker walks 150 accounts within the hour.
 		$queued = 0;
 		for ($i = 1; $i <= 150; $i++) {
-			$queued += $queue->user(1000000 + $i, 'walked-' . $i) ? 1 : 0;
+			$queued += $queue->user(1000000 + $i, 'walked-' . $i, Severity::Medium) ? 1 : 0;
 		}
-		$this->assertSame(MailQueue::MAX_USER_MAILS_PER_HOUR, $queued);
+		$this->assertSame($shared, $queued, 'Lesser detections leave the reserve alone');
+		$this->assertFalse($queue->shareOwners(1000001, Severity::Low), 'Share owners count against the same cap');
+
+		// A takeover notice still gets out, until the reserve is used up too.
+		$severe = 0;
+		for ($i = 1; $i <= MailQueue::RESERVED_FOR_SEVERE + 5; $i++) {
+			$severe += $queue->user(3000000 + $i, 'taken-' . $i, $i % 2 === 0 ? Severity::Critical : Severity::High) ? 1 : 0;
+		}
+		$this->assertSame(MailQueue::RESERVED_FOR_SEVERE, $severe);
+		$this->assertFalse($queue->shareOwners(1000002, Severity::Critical));
 		$this->assertCount(MailQueue::MAX_USER_MAILS_PER_HOUR, $this->queuedMails(), 'At most the cap of jobs');
-		$this->assertFalse($queue->shareOwners(1000001), 'Share owners count against the same cap');
 
 		// Above the cap, a user is told inside Nextcloud and at the next login.
 		$user = $this->newUser('ids-queued', 'alice@example.com');
@@ -149,7 +159,7 @@ class QueuedMailsTest extends AccountTestCase {
 
 		// The next hour, users are emailed again.
 		$now += 3600;
-		$this->assertTrue($queue->user(2000000, 'walked-next-hour'));
+		$this->assertTrue($queue->user(2000000, 'walked-next-hour', Severity::Low));
 	}
 
 	public function testAJobForADetectionOrAccountThatIsGoneSendsNothing(): void {
