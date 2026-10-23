@@ -83,7 +83,7 @@ class BanExemptions {
 	 * @param ?string $uid the account the detection is about, if any
 	 */
 	public function forAddress(SourceKey $source, int $now, string $checkId, ?string $uid = null): ?BanResult {
-		[$column, $keys] = self::addressKeys($source);
+		[$column, $keys] = KeyMatch::address($source);
 		return $this->decide($this->addressFacts($source, $now), $checkId, $uid, $column, $keys, $now);
 	}
 
@@ -129,17 +129,10 @@ class BanExemptions {
 	}
 
 	/**
-	 * @return array{0: 'ip'|'net_key', 1: KeyMatch} the column and keys the login tables store the address under
-	 */
-	private static function addressKeys(SourceKey $source): array {
-		return $source->family === 4 ? ['ip', new KeyMatch([$source->ip])] : ['net_key', new KeyMatch([$source->ipKey])];
-	}
-
-	/**
 	 * @return array{shared: int, proxy: int, admin: bool, private: bool, users: int}
 	 */
 	private function addressFacts(SourceKey $source, int $now): array {
-		[$column, $keys] = self::addressKeys($source);
+		[$column, $keys] = KeyMatch::address($source);
 		return $this->remembered('a:' . $source->ipKey, fn (): array => [
 			'shared' => $this->sharedUsers($this->logins->distinctUidsForIp($source->ipKey, intdiv($now - 86400, 3600), self::MAX_ACCOUNTS), $now),
 			'proxy' => $this->proxies->accountsBehind($source),

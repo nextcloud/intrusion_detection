@@ -43,6 +43,8 @@ use OCP\IL10N;
  */
 final class ResetProbing implements ICheck, IExplainsDetection, IExplainsToUser, ISimulatable, ISelectsResponses {
 	public const ID = 'reset_probing';
+	/** A confirmed login from an address this recently shows the account holder, who still gets held-back reset emails */
+	public const HOLDER_LOGIN_AGE = 30 * 86400;
 
 	private const ENUMERATION_RESPONSES = [ResponseType::Ban];
 	private const FLOOD_RESPONSES = [ResponseType::SuppressResetMail, ResponseType::NotifyUser, ResponseType::NotifyAdmin];
@@ -76,7 +78,7 @@ final class ResetProbing implements ICheck, IExplainsDetection, IExplainsToUser,
 				shortName: $l->t('Password reset abuse'),
 				summary: $l->t('Someone uses "Forgot password" to find accounts, or floods one person with reset emails.'),
 				detects: $l->t('The "Forgot password" form gives the same answer whether an account exists or not, but attackers still use it. They try many names to find out which accounts exist, or send one person so many reset emails that the person gets annoyed, misses a real one, or clicks one they did not ask for.'),
-				decides: $l->t('Fires when one address asks for password resets for {enum_min_inputs} different names or email addresses within {enum_window}; the address is blocked. It also fires when one account is asked for {flood_min_requests} reset emails within {flood_window}, from any number of addresses: then no reset emails are sent to it for {suppress_duration} after the last request, for at most a day within two days, and the person is told once, with the latest time the emails are held back.'),
+				decides: $l->t('Fires when one address asks for password resets for {enum_min_inputs} different names or email addresses within {enum_window}; the address is blocked. It also fires when one account is asked for {flood_min_requests} reset emails within {flood_window}, from any number of addresses: then no reset emails are sent to it for {suppress_duration} after the last request, for at most a day within two days, and the person is told once, with the latest time the emails are held back. Requests from a remembered device of the account, or from an address it confirmed a login from within %s, still get the email.', [TextRenderer::duration(self::HOLDER_LOGIN_AGE, $l)]),
 				wrong: $l->t('Someone who does not remember their login name and tries a few variants; it takes several different ones to fire. A person who asks for many reset emails because none arrives: they get no further emails for a while and are told why. The answer on the page is always the same, so nobody learns whether an email was sent.'),
 				data: $l->t('Reset requests: the address, a fingerprint of what was typed (never the text itself), the account if it matches one, and the time, deleted after 1 hour. Accounts whose reset emails are held back: the account, since and until when, kept for two days.'),
 			),
@@ -154,7 +156,7 @@ final class ResetProbing implements ICheck, IExplainsDetection, IExplainsToUser,
 		}
 		$message[] = $l->t('Your password has not been changed.');
 		$message[] = $until !== null
-			? $l->t('If it was you, wait until then and try again.')
+			? $l->t('If it was you, ask again from a device or network you confirmed a login from before, or wait until then.')
 			: $l->t('If it was not you, ignore these emails: nobody can use them without access to your mailbox.');
 		return new UserNotice($l->t('Someone asked for many password reset emails for your account'), $message);
 	}

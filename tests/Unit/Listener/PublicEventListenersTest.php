@@ -18,17 +18,20 @@ use OCA\IntrusionDetection\Db\AttemptKind;
 use OCA\IntrusionDetection\Definition\Mode;
 use OCA\IntrusionDetection\Detection\AttemptRecord;
 use OCA\IntrusionDetection\Detection\AttemptRecorder;
+use OCA\IntrusionDetection\KnownDevice\KnownDevices;
 use OCA\IntrusionDetection\Listener\LoginFlowGrantedListener;
 use OCA\IntrusionDetection\Listener\ResetRequestedListener;
 use OCA\IntrusionDetection\Listener\ShareAccessFailedListener;
 use OCA\IntrusionDetection\Net\RemoteAddressResolver;
 use OCA\IntrusionDetection\Net\SourceKey;
+use OCA\IntrusionDetection\Response\IAcceptedLogins;
 use OCA\IntrusionDetection\Response\ResetMailSuppressor;
 use OCA\IntrusionDetection\Response\ResponseEngine;
 use OCA\IntrusionDetection\Signal\IDetector;
 use OCA\IntrusionDetection\Signal\ShareAccessFailed;
 use OCA\IntrusionDetection\Signal\SignalDispatcher;
 use OCA\IntrusionDetection\Tests\Unit\Cache\FixedCaches;
+use OCP\AppFramework\Utility\ITimeFactory;
 use OCP\Authentication\Events\LoginFlowV2GrantedEvent;
 use OCP\Authentication\Token\IToken;
 use OCP\IRequest;
@@ -152,10 +155,6 @@ class PublicEventListenersTest extends TestCase {
 		$detector->method('detect')->willThrowException(new \RuntimeException('database gone'));
 		$suppressor = $this->createMock(ResetMailSuppressor::class);
 		$suppressor->method('isSuppressed')->willReturn(true);
-		$suppressor->method('apply')->willReturnCallback(static function (PasswordResetRequestedEvent $event): bool {
-			$event->preventEmail();
-			return true;
-		});
 		$this->logger->expects($this->once())->method('error');
 
 		$event = new PasswordResetRequestedEvent('alice');
@@ -167,7 +166,7 @@ class PublicEventListenersTest extends TestCase {
 		$this->settings->method('modeState')->willReturn(new ModeState(Mode::Protect, Mode::Observe, ModeState::REASON_LEARNING));
 		$this->recorder->method('record')->willReturn($this->attempt(AttemptKind::PasswordReset));
 		$suppressor = $this->createMock(ResetMailSuppressor::class);
-		$suppressor->expects($this->never())->method('apply');
+		$suppressor->expects($this->never())->method('isSuppressed');
 		$event = new PasswordResetRequestedEvent('alice');
 		$this->resetListener($this->createMock(ResetProbingDetector::class), $suppressor, 'alice')->handle($event);
 		$this->assertFalse($event->isEmailPrevented());
@@ -205,7 +204,7 @@ class PublicEventListenersTest extends TestCase {
 			$user->method('isEnabled')->willReturn(true);
 			$users->method('get')->willReturnMap([[$existingUid, $user]]);
 		}
-		return new ResetRequestedListener($this->dispatcher($detector), $this->addresses, $this->recorder, $suppressor, $users, $this->createMock(IRequest::class), $this->logger, new \OCA\IntrusionDetection\Login\EmailAccounts($users, FixedCaches::none()));
+		return new ResetRequestedListener($this->dispatcher($detector), $this->addresses, $this->recorder, $suppressor, $users, $this->createMock(IRequest::class), $this->logger, new \OCA\IntrusionDetection\Login\EmailAccounts($users, FixedCaches::none()), $this->createMock(KnownDevices::class), $this->createMock(IAcceptedLogins::class), $this->createMock(ITimeFactory::class));
 	}
 
 	private function flowListener(LoginFlowMismatchDetector $detector): LoginFlowGrantedListener {

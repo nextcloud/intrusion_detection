@@ -10,6 +10,7 @@ declare(strict_types=1);
 namespace OCA\IntrusionDetection\Db;
 
 use OCA\IntrusionDetection\Net\Ipv6Networks;
+use OCA\IntrusionDetection\Net\SourceKey;
 use OCP\DB\QueryBuilder\ICompositeExpression;
 use OCP\DB\QueryBuilder\IQueryBuilder;
 
@@ -39,6 +40,16 @@ final class KeyMatch {
 		public readonly array $exact,
 		public readonly array $patterns = [],
 	) {
+	}
+
+	/**
+	 * The column and keys the login tables store one address under: the
+	 * IPv4 address itself, or the IPv6 /64.
+	 *
+	 * @return array{0: 'ip'|'net_key', 1: self}
+	 */
+	public static function address(SourceKey $source): array {
+		return $source->family === 4 ? ['ip', new self([$source->ip])] : ['net_key', new self([$source->ipKey])];
 	}
 
 	/**

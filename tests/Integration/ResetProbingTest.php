@@ -24,7 +24,12 @@ use OCA\IntrusionDetection\Definition\Mode;
 use OCA\IntrusionDetection\Definition\ResponseType;
 use OCA\IntrusionDetection\Detection\AttemptRecorder;
 use OCA\IntrusionDetection\Explain\NarrativeBuilder;
+use OCA\IntrusionDetection\KnownDevice\Db\KnownDevice;
+use OCA\IntrusionDetection\KnownDevice\KnownDevices;
 use OCA\IntrusionDetection\Listener\ResetRequestedListener;
+use OCA\IntrusionDetection\LoginHistory\Db\LoginHistoryMapper;
+use OCA\IntrusionDetection\LoginHistory\LoginHistory;
+use OCA\IntrusionDetection\Net\SourceKey;
 use OCA\IntrusionDetection\Response\Db\ResetSuppressionMapper;
 use OCA\IntrusionDetection\Response\ResetMailSuppressor;
 use OCA\IntrusionDetection\Response\ResponseOutcome;
@@ -57,10 +62,16 @@ class ResetProbingTest extends RequestEventTestCase {
 	/** @var list<string> the addresses reset emails were sent to */
 	private array $sentTo = [];
 	private BanMapper $bans;
+	/** The account whose remembered device the requests come from */
+	private ?string $rememberedFor = null;
 
 	protected function setUp(): void {
 		parent::setUp();
 		$this->bans = Server::get(BanMapper::class);
+		$devices = $this->createMock(KnownDevices::class);
+		$devices->method('recognise')->willReturnCallback(fn (string $uid): ?KnownDevice => $uid === $this->rememberedFor
+			? new KnownDevice(1, $uid, 'firefox', 'linux', 'Firefox on Linux', null, time(), time())
+			: null);
 		$this->listen(PasswordResetRequestedEvent::class, new ResetRequestedListener(
 			$this->dispatcher(),
 			$this->addresses,
@@ -70,7 +81,31 @@ class ResetProbingTest extends RequestEventTestCase {
 			$this->request,
 			Server::get(LoggerInterface::class),
 			Server::get(\OCA\IntrusionDetection\Login\EmailAccounts::class),
+			$devices,
+			Server::get(LoginHistory::class),
+			Server::get(ITimeFactory::class),
 		));
+	}
+
+	public function testTheAccountHolderGetsTheEmailFromAnAddressTheyConfirmedALoginFrom(): void {
+		$held = $this->user('ids-reset-holder', 'holder@example.com');
+		$this->suppressor()->suppress($held->getUID(), time() + 3600);
+		Server::get(LoginHistoryMapper::class)->insert($held->getUID(), time() - 86400, SourceKey::fromIp('198.51.100.30'), null, LoginHistory::METHOD_PASSWORD, false, 'second_factor', null, null);
+		Server::get(LoginHistoryMapper::class)->insert($held->getUID(), time() - 86400, SourceKey::fromIp('198.51.100.31'), null, LoginHistory::METHOD_PASSWORD, false, LoginHistory::CONFIRMED_BY_NONE, null, null);
+
+		$this->askForReset('198.51.100.31', $held->getUID());
+		$this->assertSame([], $this->sentTo, 'A login with the password alone proves nothing');
+		$this->askForReset('198.51.100.30', $held->getUID());
+		$this->assertSame(['holder@example.com'], $this->sentTo, 'The address the account confirmed a login from gets the email');
+	}
+
+	public function testTheAccountHolderGetsTheEmailOnARememberedDevice(): void {
+		$held = $this->user('ids-reset-device', 'device@example.com');
+		$this->suppressor()->suppress($held->getUID(), time() + 3600);
+		$this->rememberedFor = $held->getUID();
+
+		$this->askForReset('198.51.100.32', $held->getUID());
+		$this->assertSame(['device@example.com'], $this->sentTo);
 	}
 
 	public function testTheAnswerIsTheSameWhetherOrNotTheEmailIsSent(): void {

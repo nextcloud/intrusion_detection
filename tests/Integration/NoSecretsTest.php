@@ -206,7 +206,7 @@ class NoSecretsTest extends LoginFailureTestCase {
 		}
 
 		$shares = new ShareAccessFailedListener($this->dispatcher(logger: $this->listenerLogger()), new RemoteAddressResolver($this->request, Server::get(IThrottler::class), Server::get(ServerAddresses::class)), Server::get(AttemptRecorder::class), $this->request, Server::get(IUserSession::class), $this->listenerLogger());
-		$resets = new ResetRequestedListener($this->dispatcher(logger: $this->listenerLogger()), new RemoteAddressResolver($this->request, Server::get(IThrottler::class), Server::get(ServerAddresses::class)), Server::get(AttemptRecorder::class), Server::get(ResetMailSuppressor::class), Server::get(IUserManager::class), $this->request, $this->listenerLogger(), Server::get(\OCA\IntrusionDetection\Login\EmailAccounts::class));
+		$resets = new ResetRequestedListener($this->dispatcher(logger: $this->listenerLogger()), new RemoteAddressResolver($this->request, Server::get(IThrottler::class), Server::get(ServerAddresses::class)), Server::get(AttemptRecorder::class), Server::get(ResetMailSuppressor::class), Server::get(IUserManager::class), $this->request, $this->listenerLogger(), Server::get(\OCA\IntrusionDetection\Login\EmailAccounts::class), Server::get(\OCA\IntrusionDetection\KnownDevice\KnownDevices::class), Server::get(\OCA\IntrusionDetection\LoginHistory\LoginHistory::class), Server::get(\OCP\AppFramework\Utility\ITimeFactory::class));
 
 		$this->remoteAddress = '198.51.100.7';
 		for ($i = 1; $i <= 10; $i++) {

@@ -97,20 +97,6 @@ class ResetMailSuppressor implements IPurges {
 		return $this->suppressedUntil($uid) !== null;
 	}
 
-	/**
-	 * Prevent the email of this reset request if the account's emails are
-	 * held back.
-	 *
-	 * @return bool whether the email was prevented
-	 */
-	public function apply(PasswordResetRequestedEvent $event, string $uid): bool {
-		if (!$this->isSuppressed($uid)) {
-			return false;
-		}
-		$event->preventEmail();
-		return true;
-	}
-
 	public function end(string $uid): void {
 		$this->mapper->delete($uid);
 		$this->caches->shared(self::CACHE)?->remove($this->key($uid));

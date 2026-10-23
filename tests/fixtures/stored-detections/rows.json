@@ -939,7 +939,7 @@
 				],
 				"userNotice": {
 					"subject": "Someone asked for many password reset emails for your account",
-					"message": ["Someone asked for password reset emails for your account 12 times within 1 hour.", "Nextcloud stopped sending them until date:1790001800.", "If someone keeps asking, they stay held back until date:1790007200 at the latest, never longer.", "Your password has not been changed.", "If it was you, wait until then and try again."],
+					"message": ["Someone asked for password reset emails for your account 12 times within 1 hour.", "Nextcloud stopped sending them until date:1790001800.", "If someone keeps asking, they stay held back until date:1790007200 at the latest, never longer.", "Your password has not been changed.", "If it was you, ask again from a device or network you confirmed a login from before, or wait until then."],
 					"advice": []
 				}
 			}
