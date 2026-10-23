@@ -158,3 +158,25 @@ format the app has written.
 These lists may only shrink. A change that removes an exception removes its
 entry; the test fails while a fixed entry is still listed. A new namespace
 must be added to a layer here and in the test.
+
+## Private core classes
+
+The app uses core's public API (`OCP\`) wherever it offers what the app
+needs. These private `OC\` classes remain, because core has no public
+counterpart. They can change in any release, so `info.xml` allows one
+server version only.
+
+| Class | Used by | What it gives that `OCP\` does not |
+| --- | --- | --- |
+| `OC\Core\Command\Base` | the occ commands | The output formats (`--output=json`) that core's commands share. |
+| `OC\Authentication\Token\IProvider` | `Response\Tokens`, `StaleCredential\StaleCredentials`, `Guide\SecureAccountOverview` | Looking tokens up by id and listing an account's tokens. The public provider only finds a token by its secret; invalidating uses the public provider. |
+| `OC\Authentication\Token\PublicKeyToken` | `StaleCredential\`, `Guide\SecureAccountOverview` | A token's last activity and the token format version. |
+| `OC\Authentication\TwoFactorAuth\Manager` | `Confirm\SecondFactorSetup`, `Listener\SecurityChangeListener` | Whether an account needs a second factor and its provider set; the listener only compares a caller's class name. |
+| `OC\Authentication\TwoFactorAuth\ProviderLoader` | `Confirm\SecondFactors` | The providers the server offers an account. `IRegistry` only knows the providers an account has set up. |
+| `OC\Core\Events\BeforePasswordResetEvent`, `OC\Core\Events\PasswordResetEvent` | `Listener\SecurityChangeListener` | That a password was set through the reset link, not changed by its owner. |
+| `OC\Core\Controller\*` (`LoginController`, `TwoFactorChallengeController`, `CssController`, `JsController`, `OCJSController`) | `SessionState\RequestTarget` | Class names only, compared with the controller of the current request. |
+| `OC\User\Session` | `Controller\PasswordChangeController` | `updateSessionTokenPassword()`, which keeps the browser session valid after a password change. |
+| `OC\SystemConfig` | `AdminChange\WatchedSettings` | The list of all `config.php` keys, with their filtered values. |
+| `OC\Settings\AuthorizedGroupMapper` | `AdminChange\DelegatedGroups` | Every delegation of an admin settings section to a group. |
+| `OC\AppFramework\Http\Request`, `OC\DB\Connection` | `Perf\FreshRequestProbe`, `Command\Benchmark` (`occ intrusion:benchmark` only) | A synthetic request object and the query count of the connection. |
+| `OC\Memcache\APCu`, `OC\Memcache\ArrayCache` | `Cache\Caches` | Class names only, compared with `memcache.distributed` to tell whether the configured cache is shared by all web servers. |
