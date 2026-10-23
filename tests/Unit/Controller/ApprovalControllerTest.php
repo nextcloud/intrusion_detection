@@ -182,6 +182,41 @@ class ApprovalControllerTest extends TestCase {
 		$this->assertSame(Http::STATUS_OK, $this->controller($other)->approve(5)->getStatus());
 	}
 
+	/**
+	 * A client that sends the password confirms it with every request, so
+	 * the password confirmation alone does not make a new administrator.
+	 */
+	public function testMakingAnAdministratorNeedsALoginThatProvedMoreThanThePassword(): void {
+		$grant = new Approval();
+		$grant->setKind(Approval::KIND_ADMIN_GRANT);
+		$approved = new Approval();
+		$approved->setStatus(Approval::STATUS_APPROVED);
+		$service = $this->createMock(ApprovalService::class);
+		$service->method('find')->with(5)->willReturn($grant);
+		$service->expects($this->never())->method('approve');
+
+		$response = $this->answer(fn () => $this->controller($service)->approve(5));
+		$this->assertSame(Http::STATUS_FORBIDDEN, $response->getStatus(), 'A login that needed no confirmation proved the password only');
+		$this->assertSame(ApprovalException::NOT_PROVEN, $response->getData()['reason']);
+
+		$this->confirmation = ['uid' => 'carol', 'by' => 'second_factor', 'policies' => [], 'at' => 1];
+		$proven = $this->createMock(ApprovalService::class);
+		$proven->method('find')->willReturn($grant);
+		$proven->expects($this->once())->method('approve')->willReturn($approved);
+		$this->assertSame(Http::STATUS_OK, $this->controller($proven)->approve(5)->getStatus());
+	}
+
+	public function testAWaitingLoginCanBeApprovedFromAPasswordLogin(): void {
+		$login = new Approval();
+		$login->setKind(Approval::KIND_LOGIN);
+		$approved = new Approval();
+		$approved->setStatus(Approval::STATUS_APPROVED);
+		$service = $this->createMock(ApprovalService::class);
+		$service->method('find')->willReturn($login);
+		$service->expects($this->once())->method('approve')->willReturn($approved);
+		$this->assertSame(Http::STATUS_OK, $this->controller($service)->approve(5)->getStatus());
+	}
+
 	public function testTheWaitingAdministratorsAreListedForTheViewerOldestFirst(): void {
 		$service = $this->createMock(ApprovalService::class);
 		$service->expects($this->exactly(2))->method('list')->willReturnCallback(fn (bool $pendingOnly, int $limit, ?string $kind): array => $kind === Approval::KIND_ADMIN_GRANT ? [

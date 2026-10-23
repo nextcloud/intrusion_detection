@@ -128,8 +128,10 @@ class ApprovalController extends AdminOCSController {
 	/**
 	 * Approve a request: the account joins the group, the change is made, or the waiting login continues
 	 *
-	 * Needs a recent password confirmation, which apps and clients cannot
-	 * give: their notification opens the admin page instead.
+	 * Needs a recent password confirmation, and a login of the deciding
+	 * administrator that was not let in unconfirmed. Making an administrator
+	 * needs a login that proved more than the password: a client that sends
+	 * the password confirms it with every request.
 	 *
 	 * @param int $id the request
 	 * @return DataResponse<Http::STATUS_OK, IntrusionDetectionApproval, array{}>|DataResponse<Http::STATUS_BAD_REQUEST|Http::STATUS_FORBIDDEN|Http::STATUS_NOT_FOUND, IntrusionDetectionError, array{}>
@@ -146,6 +148,9 @@ class ApprovalController extends AdminOCSController {
 		$decider = $this->decider();
 		if ($this->confirmation->isUnconfirmed($decider)) {
 			throw new ApprovalException(ApprovalException::UNCONFIRMED);
+		}
+		if ($this->approvals->find($id)->getKind() === Approval::KIND_ADMIN_GRANT && !$this->confirmation->isProven($decider)) {
+			throw new ApprovalException(ApprovalException::NOT_PROVEN);
 		}
 		return new DataResponse($this->approvals->approve($id, $decider, ApprovalService::VIA_WEB)->jsonSerialize());
 	}
