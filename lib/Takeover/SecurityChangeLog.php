@@ -13,8 +13,8 @@ use OCA\IntrusionDetection\AdminChange\ActorResolver;
 use OCA\IntrusionDetection\Config\AppSettings;
 use OCA\IntrusionDetection\Confirm\EmailCodes;
 use OCA\IntrusionDetection\Db\IPurges;
+use OCA\IntrusionDetection\Login\CoreSession;
 use OCA\IntrusionDetection\Net\RemoteAddressResolver;
-use OCA\IntrusionDetection\SessionState\CurrentSession;
 use OCA\IntrusionDetection\Signal\SecurityChanged;
 use OCA\IntrusionDetection\Signal\SignalDispatcher;
 use OCA\IntrusionDetection\Takeover\Db\SecurityChangeMapper;
@@ -58,7 +58,7 @@ class SecurityChangeLog implements IPurges {
 		private readonly ActorResolver $actors,
 		private readonly IUserSession $userSession,
 		private readonly ResetTracker $resets,
-		private readonly CurrentSession $currentSession,
+		private readonly CoreSession $coreSession,
 		private readonly RemoteAddressResolver $addresses,
 		private readonly SignalDispatcher $dispatcher,
 		private readonly ICrypto $crypto,
@@ -95,7 +95,7 @@ class SecurityChangeLog implements IPurges {
 		?string $detail = null,
 	): int {
 		[$via, $actor] = $this->actor($uid);
-		$sessionTokenId = $this->actors->isCommandLine() ? null : $this->currentSession->tokenId();
+		$sessionTokenId = $this->actors->isCommandLine() ? null : $this->coreSession->tokenId();
 		$source = $this->addresses->current();
 		$oldAddress = self::address($oldAddress);
 		$newAddress = self::address($newAddress);

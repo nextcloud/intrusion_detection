@@ -9,9 +9,9 @@ declare(strict_types=1);
 
 namespace OCA\IntrusionDetection\Confirm;
 
+use OCA\IntrusionDetection\Login\CoreSession;
 use OCA\IntrusionDetection\SessionState\SessionState;
 use OCP\AppFramework\Utility\ITimeFactory;
-use OCP\ISession;
 
 /**
  * How much the current session's login proved, for decisions a session
@@ -44,7 +44,7 @@ class SessionConfirmation {
 
 	public function __construct(
 		private readonly SessionState $state,
-		private readonly ISession $session,
+		private readonly CoreSession $coreSession,
 		private readonly ITimeFactory $timeFactory,
 	) {
 	}
@@ -116,10 +116,6 @@ class SessionConfirmation {
 	}
 
 	private function isAppPassword(): bool {
-		try {
-			return $this->session->exists('app_password');
-		} catch (\Throwable) {
-			return true;
-		}
+		return $this->coreSession->usesAppPassword();
 	}
 }

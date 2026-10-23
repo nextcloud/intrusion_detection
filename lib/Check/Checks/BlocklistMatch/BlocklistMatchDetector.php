@@ -10,10 +10,11 @@ declare(strict_types=1);
 namespace OCA\IntrusionDetection\Check\Checks\BlocklistMatch;
 
 use OCA\IntrusionDetection\Address\AddressCache;
+use OCA\IntrusionDetection\Address\Verdict;
 use OCA\IntrusionDetection\Blocklist\SourceRepository;
 use OCA\IntrusionDetection\Config\ModeState;
 use OCA\IntrusionDetection\Detection\DetectionDraft;
-use OCA\IntrusionDetection\Guard\RequestContext;
+use OCA\IntrusionDetection\Login\RequestContext;
 use OCA\IntrusionDetection\Net\RemoteAddressResolver;
 use OCA\IntrusionDetection\Signal\FailedLogin;
 use OCA\IntrusionDetection\Signal\IDetector;
@@ -49,7 +50,7 @@ class BlocklistMatchDetector implements IDetector {
 		if ($this->addresses->isIgnored($source)) {
 			return [];
 		}
-		$verdict = $this->context->verdict() ?? $this->cache->get($source);
+		$verdict = Verdict::of($this->context) ?? $this->cache->get($source);
 		if ($verdict === null) {
 			return [];
 		}

@@ -15,7 +15,8 @@ use OCA\IntrusionDetection\Controller\PasswordChangeController;
 use OCA\IntrusionDetection\Http\LocalRedirect;
 use OCA\IntrusionDetection\Listener\PasswordChangeLoginListener;
 use OCA\IntrusionDetection\Listener\PasswordUpdatedListener;
-use OCA\IntrusionDetection\Login\InteractiveLogin;
+use OCA\IntrusionDetection\Login\LoginClassifier;
+use OCA\IntrusionDetection\Login\RequestContext;
 use OCA\IntrusionDetection\Notification\AdminNotices;
 use OCA\IntrusionDetection\Response\PasswordChangeFlag;
 use OCA\IntrusionDetection\Response\PasswordChangeService;
@@ -291,7 +292,7 @@ class PasswordChangeTest extends AccountTestCase {
 	private function loginListener(): PasswordChangeLoginListener {
 		$request = $this->createMock(IRequest::class);
 		$request->method('getHeader')->willReturnCallback(fn (string $name): string => $this->headers[$name] ?? '');
-		return new PasswordChangeLoginListener($this->appSettings(), $this->passwords, $this->state, $request, new InteractiveLogin($request), Server::get(LoggerInterface::class));
+		return new PasswordChangeLoginListener($this->appSettings(), $this->passwords, $this->state, new LoginClassifier($request, new RequestContext()), Server::get(LoggerInterface::class));
 	}
 
 	private function controller(): PasswordChangeController {

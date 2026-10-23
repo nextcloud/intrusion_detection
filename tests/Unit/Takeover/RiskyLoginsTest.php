@@ -11,7 +11,7 @@ namespace OCA\IntrusionDetection\Tests\Unit\Takeover;
 
 use OC\Session\Memory;
 use OCA\IntrusionDetection\Confirm\StepUpState;
-use OCA\IntrusionDetection\SessionState\CurrentSession;
+use OCA\IntrusionDetection\Login\CoreSession;
 use OCA\IntrusionDetection\SessionState\SessionState;
 use OCA\IntrusionDetection\Takeover\IRiskyLoginSignal;
 use OCA\IntrusionDetection\Takeover\RiskyLogin;
@@ -96,7 +96,7 @@ class RiskyLoginsTest extends TestCase {
 		if ($marker !== null) {
 			$state->set(SessionState::CONFIRMATION, $marker);
 		}
-		$current = $this->createMock(CurrentSession::class);
+		$current = $this->createMock(CoreSession::class);
 		$current->method('tokenId')->willReturn($currentToken);
 		return new UnconfirmedLoginSignal($state, $current);
 	}

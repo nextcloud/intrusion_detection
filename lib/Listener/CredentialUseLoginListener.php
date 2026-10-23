@@ -11,7 +11,7 @@ namespace OCA\IntrusionDetection\Listener;
 
 use OCA\IntrusionDetection\Check\Checks\TokenConcurrentUse\CredentialUse;
 use OCA\IntrusionDetection\Check\Checks\TokenConcurrentUse\CredentialUseResolver;
-use OCA\IntrusionDetection\Guard\RequestContext;
+use OCA\IntrusionDetection\Login\RequestContext;
 use OCP\EventDispatcher\Event;
 use OCP\EventDispatcher\IEventListener;
 use OCP\User\Events\UserLoggedInEvent;

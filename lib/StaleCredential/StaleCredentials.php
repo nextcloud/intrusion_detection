@@ -13,9 +13,9 @@ use OC\Authentication\Token\IProvider as PrivateTokenProvider;
 use OC\Authentication\Token\PublicKeyToken;
 use OCA\IntrusionDetection\Audit\AuditLogger;
 use OCA\IntrusionDetection\Guide\SecureAccountOverview;
+use OCA\IntrusionDetection\Login\CoreSession;
 use OCA\IntrusionDetection\Response\Tokens;
 use OCA\IntrusionDetection\ResponseDefinitions;
-use OCA\IntrusionDetection\SessionState\CurrentSession;
 use OCA\IntrusionDetection\StaleCredential\Db\StaleTokenMapper;
 use OCP\AppFramework\Utility\ITimeFactory;
 use OCP\Authentication\Token\IProvider;
@@ -40,7 +40,7 @@ class StaleCredentials {
 	public function __construct(
 		private readonly PrivateTokenProvider $tokenLookup,
 		private readonly IProvider $tokenProvider,
-		private readonly CurrentSession $currentSession,
+		private readonly CoreSession $coreSession,
 		private readonly ITimeFactory $timeFactory,
 		private readonly AuditLogger $audit,
 	) {
@@ -112,7 +112,7 @@ class StaleCredentials {
 	 * @return list<PublicKeyToken>
 	 */
 	private function unusedSince(string $uid, int $before): array {
-		$current = $this->currentSession->tokenId();
+		$current = $this->coreSession->tokenId();
 		return array_values(array_filter(
 			$this->tokenLookup->getTokenByUser($uid),
 			static fn (IToken $token): bool => $token instanceof PublicKeyToken

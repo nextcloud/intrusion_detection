@@ -193,7 +193,7 @@ class LoginNoticesTest extends StepUpTestCase {
 				Server::get(FlaggedSources::class),
 				Server::get(TrustedNetworks::class),
 				$this->sessionKiller(),
-				$this->currentSession,
+				$this->coreSession,
 				$this->addresses(),
 				$this->sessionConfirmation(),
 				Server::get(INotificationManager::class),

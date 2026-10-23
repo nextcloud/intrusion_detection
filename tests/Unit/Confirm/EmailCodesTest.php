@@ -12,10 +12,12 @@ namespace OCA\IntrusionDetection\Tests\Unit\Confirm;
 use OCA\IntrusionDetection\Confirm\EmailCodes;
 use OCA\IntrusionDetection\Confirm\StepUpState;
 use OCA\IntrusionDetection\Confirm\UnconfirmedSessions;
+use OCA\IntrusionDetection\Login\CoreSession;
 use OCA\IntrusionDetection\Notification\MailContent;
 use OCA\IntrusionDetection\Notification\Mails;
 use OCA\IntrusionDetection\Notification\UserMessages;
 use OCP\AppFramework\Utility\ITimeFactory;
+use OCP\Authentication\Token\IProvider;
 use OCP\Config\IUserConfig;
 use OCP\IConfig;
 use OCP\ISession;
@@ -26,6 +28,7 @@ use OCP\Security\IHasher;
 use OCP\Security\ISecureRandom;
 use OCP\Server;
 use PHPUnit\Framework\Attributes\DataProvider;
+use Psr\Log\LoggerInterface;
 use Test\TestCase;
 
 /**
@@ -273,6 +276,6 @@ class EmailCodesTest extends TestCase {
 			$this->mailTimes = $value;
 			return true;
 		});
-		return new EmailCodes($random, Server::get(IHasher::class), $mails, $messages, $validator, $config, $time, $sessions, $session, $userConfig);
+		return new EmailCodes($random, Server::get(IHasher::class), $mails, $messages, $validator, $config, $time, $sessions, new CoreSession($session, $this->createMock(IProvider::class), $this->createMock(LoggerInterface::class)), $userConfig);
 	}
 }

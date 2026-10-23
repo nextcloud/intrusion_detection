@@ -23,12 +23,12 @@ use OCA\IntrusionDetection\Definition\Mode;
 use OCA\IntrusionDetection\Detection\CommonFacts;
 use OCA\IntrusionDetection\Detection\DetectionDraft;
 use OCA\IntrusionDetection\Event\WasThisYouAnsweredEvent;
+use OCA\IntrusionDetection\Login\CoreSession;
 use OCA\IntrusionDetection\Net\RemoteAddressResolver;
 use OCA\IntrusionDetection\Notification\UserAlerts;
 use OCA\IntrusionDetection\Response\FlaggedSources;
 use OCA\IntrusionDetection\Response\ResponseEngine;
 use OCA\IntrusionDetection\Response\SessionKiller;
-use OCA\IntrusionDetection\SessionState\CurrentSession;
 use OCA\IntrusionDetection\TrustedNetwork\TrustedNetworks;
 use OCP\AppFramework\Db\DoesNotExistException;
 use OCP\AppFramework\Utility\ITimeFactory;
@@ -80,7 +80,7 @@ class WasThisYouService {
 		private readonly FlaggedSources $flags,
 		private readonly TrustedNetworks $trustedNetworks,
 		private readonly SessionKiller $sessionKiller,
-		private readonly CurrentSession $currentSession,
+		private readonly CoreSession $coreSession,
 		private readonly RemoteAddressResolver $addresses,
 		private readonly SessionConfirmation $confirmation,
 		private readonly INotificationManager $notifications,
@@ -187,7 +187,7 @@ class WasThisYouService {
 	 * session (or app password) the detection is about.
 	 */
 	public function maySessionVouch(Detection $detection): bool {
-		$current = $this->currentSession->tokenId();
+		$current = $this->coreSession->tokenId();
 		if ($current === null || $detection->getUid() === null || !$this->confirmation->isProven($detection->getUid())) {
 			return false;
 		}

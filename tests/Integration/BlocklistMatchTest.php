@@ -37,7 +37,7 @@ class BlocklistMatchTest extends LoginFailureTestCase {
 	}
 
 	public function testAFailedLoginFromAListedAddressIsRecordedOncePerHour(): void {
-		$this->requestContext->setVerdict(new Verdict(0, '', ['list:spamhaus_drop_v4', 'hosting'], time() + 300));
+		$this->requestContext->set(Verdict::CONTEXT_KEY, new Verdict(0, '', ['list:spamhaus_drop_v4', 'hosting'], time() + 300));
 		$this->failLogin('198.51.100.7', self::LOGIN, self::PASSWORD);
 		$this->failLogin('198.51.100.7', self::LOGIN, self::PASSWORD);
 
@@ -54,27 +54,27 @@ class BlocklistMatchTest extends LoginFailureTestCase {
 	}
 
 	public function testUnlistedAddressesAndAttributeListsAreNotRecorded(): void {
-		$this->requestContext->setVerdict(new Verdict(0, '', ['hosting', 'tor'], time() + 300));
+		$this->requestContext->set(Verdict::CONTEXT_KEY, new Verdict(0, '', ['hosting', 'tor'], time() + 300));
 		$this->failLogin('198.51.100.7', self::LOGIN, self::PASSWORD);
 		$this->assertSame([], $this->detectionsOf(BlocklistMatch::ID));
 	}
 
 	public function testNothingRunsWhileTheCheckIsOff(): void {
 		$this->settingsEditor()->setMode(BlocklistMatch::ID, Mode::Off);
-		$this->requestContext->setVerdict(new Verdict(0, '', ['list:spamhaus_drop_v4'], time() + 300));
+		$this->requestContext->set(Verdict::CONTEXT_KEY, new Verdict(0, '', ['list:spamhaus_drop_v4'], time() + 300));
 		$this->failLogin('198.51.100.7', self::LOGIN, self::PASSWORD);
 		$this->assertSame([], $this->detectionsOf(BlocklistMatch::ID));
 	}
 
 	public function testAllowlistedAddressesAreIgnored(): void {
 		$this->allowlisted = true;
-		$this->requestContext->setVerdict(new Verdict(0, '', ['list:spamhaus_drop_v4'], time() + 300));
+		$this->requestContext->set(Verdict::CONTEXT_KEY, new Verdict(0, '', ['list:spamhaus_drop_v4'], time() + 300));
 		$this->failLogin('198.51.100.7', self::LOGIN, self::PASSWORD);
 		$this->assertSame([], $this->detectionsOf(BlocklistMatch::ID));
 	}
 
 	public function testTheLoginNameAndPasswordAreStoredAndLoggedNowhere(): void {
-		$this->requestContext->setVerdict(new Verdict(0, '', ['list:spamhaus_drop_v4'], time() + 300));
+		$this->requestContext->set(Verdict::CONTEXT_KEY, new Verdict(0, '', ['list:spamhaus_drop_v4'], time() + 300));
 		$this->failLogin('198.51.100.7', self::LOGIN, self::PASSWORD);
 		$this->assertCount(1, $this->detectionsOf(BlocklistMatch::ID));
 		foreach (self::tables() as $table) {

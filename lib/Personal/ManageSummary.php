@@ -10,8 +10,8 @@ declare(strict_types=1);
 namespace OCA\IntrusionDetection\Personal;
 
 use OCA\IntrusionDetection\KnownDevice\KnownDevices;
+use OCA\IntrusionDetection\Login\CoreSession;
 use OCA\IntrusionDetection\Response\Tokens;
-use OCA\IntrusionDetection\SessionState\CurrentSession;
 use OCA\IntrusionDetection\TrustedNetwork\TrustedNetworks;
 use OCP\IL10N;
 
@@ -26,7 +26,7 @@ class ManageSummary {
 		private readonly KnownDevices $knownDevices,
 		private readonly TrustedNetworks $trustedNetworks,
 		private readonly Tokens $tokens,
-		private readonly CurrentSession $currentSession,
+		private readonly CoreSession $coreSession,
 	) {
 	}
 
@@ -37,7 +37,7 @@ class ManageSummary {
 		return [
 			'devices' => count($this->knownDevices->forUser($uid, $l)),
 			'networks' => count($this->trustedNetworks->forUser($uid)),
-			'otherBrowsers' => $this->tokens->countSessionsExcept($uid, $this->currentSession->tokenId()),
+			'otherBrowsers' => $this->tokens->countSessionsExcept($uid, $this->coreSession->tokenId()),
 		];
 	}
 }

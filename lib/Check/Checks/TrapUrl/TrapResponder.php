@@ -11,9 +11,8 @@ namespace OCA\IntrusionDetection\Check\Checks\TrapUrl;
 
 use OCA\IntrusionDetection\Address\AddressResolver;
 use OCA\IntrusionDetection\Detection\DetectionDraft;
-use OCA\IntrusionDetection\Guard\DeferredHits;
-use OCA\IntrusionDetection\Guard\IDeferredResponder;
-use OCA\IntrusionDetection\Guard\RequestContext;
+use OCA\IntrusionDetection\Login\IDeferredResponder;
+use OCA\IntrusionDetection\Login\RequestContext;
 use OCA\IntrusionDetection\Response\ResponseEngine;
 use OCA\IntrusionDetection\Traps\PendingTrapHit;
 use OCP\AppFramework\Utility\ITimeFactory;
@@ -29,7 +28,7 @@ use Psr\Log\LoggerInterface;
  *
  * A request that presents credentials (an Authorization header, a session
  * or remember-me cookie) waits until it is known whether it is logged in
- * ({@see DeferredHits}): logged-in users and clients never trip the check,
+ * ({@see \OCA\IntrusionDetection\Guard\DeferredHits}): logged-in users and clients never trip the check,
  * but a made-up cookie or password does not hide a scanner either. A
  * request that never logs in is handled as not logged in.
  */

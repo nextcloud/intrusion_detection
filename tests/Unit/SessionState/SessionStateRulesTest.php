@@ -71,7 +71,7 @@ class SessionStateRulesTest extends TestCase {
 	private function rules(array $byClass, array $classes = [StepUpRule::class]): SessionStateRules {
 		$container = $this->createMock(ContainerInterface::class);
 		$container->method('get')->willReturnCallback(static fn (string $id): object => $byClass[$id] ?? throw new \RuntimeException('cannot build ' . $id));
-		return new class($classes, $container, $this->createMock(LoggerInterface::class), new \OCA\IntrusionDetection\Guard\RequestContext(), $this->createMock(\OCP\IRequest::class)) extends SessionStateRules {
+		return new class($classes, $container, $this->createMock(LoggerInterface::class), new \OCA\IntrusionDetection\Login\RequestContext(), $this->createMock(\OCP\IRequest::class)) extends SessionStateRules {
 			/**
 			 * @param list<class-string<\OCA\IntrusionDetection\SessionState\ISessionStateRule>> $names
 			 */
@@ -79,7 +79,7 @@ class SessionStateRulesTest extends TestCase {
 				private readonly array $names,
 				ContainerInterface $container,
 				LoggerInterface $logger,
-				\OCA\IntrusionDetection\Guard\RequestContext $context,
+				\OCA\IntrusionDetection\Login\RequestContext $context,
 				\OCP\IRequest $request,
 			) {
 				parent::__construct($container, $logger, $context, $request);

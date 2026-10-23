@@ -13,6 +13,7 @@ use OCA\IntrusionDetection\Address\AddressCache;
 use OCA\IntrusionDetection\Address\AddressResolver;
 use OCA\IntrusionDetection\Address\Verdict;
 use OCA\IntrusionDetection\Config\AppSettings;
+use OCA\IntrusionDetection\Login\RequestContext;
 use OCA\IntrusionDetection\Net\RemoteAddressResolver;
 use OCA\IntrusionDetection\Net\SourceKey;
 use OCA\IntrusionDetection\Perf\GuardTimer;
@@ -68,7 +69,7 @@ class AddressGuard implements IRequestGuard {
 		}
 		$now = $this->timeFactory->getTime();
 		$verdict = $this->verdict($source, $now);
-		$this->context->setVerdict($verdict);
+		$this->context->set(Verdict::CONTEXT_KEY, $verdict);
 		if (!$verdict->isDenied($now)) {
 			return null;
 		}

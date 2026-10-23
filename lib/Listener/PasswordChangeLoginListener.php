@@ -10,13 +10,12 @@ declare(strict_types=1);
 namespace OCA\IntrusionDetection\Listener;
 
 use OCA\IntrusionDetection\Config\AppSettings;
-use OCA\IntrusionDetection\Login\InteractiveLogin;
+use OCA\IntrusionDetection\Login\LoginClassifier;
 use OCA\IntrusionDetection\Response\PasswordChangeService;
 use OCA\IntrusionDetection\SessionState\Rules\PasswordChangeRule;
 use OCA\IntrusionDetection\SessionState\SessionState;
 use OCP\EventDispatcher\Event;
 use OCP\EventDispatcher\IEventListener;
-use OCP\IRequest;
 use OCP\User\Events\UserLoggedInEvent;
 use OCP\User\Events\UserLoggedInWithCookieEvent;
 use Psr\Log\LoggerInterface;
@@ -43,8 +42,7 @@ class PasswordChangeLoginListener implements IEventListener {
 		private readonly AppSettings $settings,
 		private readonly PasswordChangeService $passwords,
 		private readonly SessionState $state,
-		private readonly IRequest $request,
-		private readonly InteractiveLogin $interactive,
+		private readonly LoginClassifier $classifier,
 		private readonly LoggerInterface $logger,
 	) {
 	}
@@ -58,7 +56,7 @@ class PasswordChangeLoginListener implements IEventListener {
 			if (!$this->settings->isEnabled()) {
 				return;
 			}
-			$mode = $this->mode($event);
+			$mode = PasswordChangeRule::modeFor($this->classifier->classify($event));
 			if ($mode === null) {
 				return;
 			}
@@ -75,21 +73,5 @@ class PasswordChangeLoginListener implements IEventListener {
 		} catch (\Throwable $e) {
 			$this->logger->error('Intrusion detection could not check for a required password change at login', ['exception' => $e]);
 		}
-	}
-
-	/**
-	 * @return ?string the rule's mode for this login, or null for app passwords and tokens
-	 */
-	private function mode(UserLoggedInEvent|UserLoggedInWithCookieEvent $event): ?string {
-		if ($event instanceof UserLoggedInWithCookieEvent) {
-			return PasswordChangeRule::MODE_REDIRECT;
-		}
-		if ($event->isTokenLogin()) {
-			// Core takes a Bearer token from the header and an app password from Basic auth;
-			// any other token login is a browser session restored from its own token.
-			$bearer = str_starts_with($this->request->getHeader('Authorization'), 'Bearer ');
-			return ($bearer || InteractiveLogin::hasBasicCredentials()) ? null : PasswordChangeRule::MODE_REDIRECT;
-		}
-		return $this->interactive->kind($event) === InteractiveLogin::CLIENT ? PasswordChangeRule::MODE_REFUSE : PasswordChangeRule::MODE_REDIRECT;
 	}
 }

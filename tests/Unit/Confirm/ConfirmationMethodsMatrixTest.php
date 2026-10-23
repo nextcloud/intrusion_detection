@@ -27,6 +27,7 @@ use OCA\IntrusionDetection\Confirm\UntrustedSecondFactors;
 use OCA\IntrusionDetection\Db\ApprovalMapper;
 use OCA\IntrusionDetection\KnownDevice\KnownDevice;
 use OCA\IntrusionDetection\KnownDevice\KnownDevices;
+use OCA\IntrusionDetection\Login\CoreSession;
 use OCA\IntrusionDetection\Notification\Mails;
 use OCA\IntrusionDetection\Notification\UserMessages;
 use OCA\IntrusionDetection\State\AppState;
@@ -37,7 +38,6 @@ use OCP\Config\IUserConfig;
 use OCP\IConfig;
 use OCP\IDBConnection;
 use OCP\IGroupManager;
-use OCP\ISession;
 use OCP\IUser;
 use OCP\IUserManager;
 use OCP\Mail\IEmailValidator;
@@ -186,7 +186,7 @@ class ConfirmationMethodsMatrixTest extends TestCase {
 			$config,
 			$this->createMock(ITimeFactory::class),
 			$this->createMock(UnconfirmedSessions::class),
-			$this->createMock(ISession::class),
+			$this->createMock(CoreSession::class),
 			$this->createMock(IUserConfig::class),
 		);
 	}

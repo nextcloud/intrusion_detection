@@ -11,7 +11,7 @@ namespace OCA\IntrusionDetection\Tests\Unit\Dav;
 
 use OCA\IntrusionDetection\Dav\GuardDecisionPlugin;
 use OCA\IntrusionDetection\Dav\SessionStatePlugin;
-use OCA\IntrusionDetection\Guard\RequestContext;
+use OCA\IntrusionDetection\Login\RequestContext;
 use OCA\IntrusionDetection\SessionState\ISessionStateRule;
 use OCA\IntrusionDetection\SessionState\RequestTarget;
 use OCA\IntrusionDetection\SessionState\SessionBlock;

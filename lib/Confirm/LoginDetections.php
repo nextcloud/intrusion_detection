@@ -11,7 +11,7 @@ namespace OCA\IntrusionDetection\Confirm;
 
 use OCA\IntrusionDetection\Db\DetectionMapper;
 use OCA\IntrusionDetection\Detection\CommonFacts;
-use OCA\IntrusionDetection\SessionState\CurrentSession;
+use OCA\IntrusionDetection\Login\CoreSession;
 use OCA\IntrusionDetection\SessionState\SessionState;
 use OCP\AppFramework\Db\DoesNotExistException;
 use Psr\Log\LoggerInterface;
@@ -33,7 +33,7 @@ class LoginDetections {
 	public function __construct(
 		private readonly SessionState $state,
 		private readonly DetectionMapper $detections,
-		private readonly CurrentSession $currentSession,
+		private readonly CoreSession $coreSession,
 		private readonly LoggerInterface $logger,
 	) {
 	}
@@ -61,7 +61,7 @@ class LoginDetections {
 	public function link(array $waiting, ?string $currentUid): void {
 		$this->state->remove(SessionState::LOGIN_DETECTIONS);
 		$uid = $waiting['uid'] ?? null;
-		$tokenId = $this->currentSession->tokenId();
+		$tokenId = $this->coreSession->tokenId();
 		if (!is_string($uid) || $uid !== $currentUid || $tokenId === null || !is_array($waiting['ids'] ?? null)) {
 			return;
 		}

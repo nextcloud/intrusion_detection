@@ -10,7 +10,7 @@ declare(strict_types=1);
 namespace OCA\IntrusionDetection\Dav;
 
 use OCA\IntrusionDetection\Guard\DeferredHits;
-use OCA\IntrusionDetection\Guard\RequestContext;
+use OCA\IntrusionDetection\Login\RequestContext;
 use OCP\IUserSession;
 use OCP\L10N\IFactory;
 use Psr\Container\ContainerInterface;

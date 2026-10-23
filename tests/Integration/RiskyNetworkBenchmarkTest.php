@@ -12,6 +12,7 @@ namespace OCA\IntrusionDetection\Tests\Integration;
 use OC\Memcache\ArrayCache;
 use OCA\IntrusionDetection\Address\AddressCache;
 use OCA\IntrusionDetection\Address\AddressResolver;
+use OCA\IntrusionDetection\Address\Verdict;
 use OCA\IntrusionDetection\Blocklist\BlocklistFactsProvider;
 use OCA\IntrusionDetection\Blocklist\Db\BlocklistRangeMapper;
 use OCA\IntrusionDetection\Blocklist\Db\BlocklistStatMapper;
@@ -21,7 +22,7 @@ use OCA\IntrusionDetection\Blocklist\StateStore;
 use OCA\IntrusionDetection\Config\GlobalSettings;
 use OCA\IntrusionDetection\Db\BanMapper;
 use OCA\IntrusionDetection\Guard\AddressGuard;
-use OCA\IntrusionDetection\Guard\RequestContext;
+use OCA\IntrusionDetection\Login\RequestContext;
 use OCA\IntrusionDetection\Net\RangeCodec;
 use OCA\IntrusionDetection\Net\RemoteAddressResolver;
 use OCA\IntrusionDetection\Net\ServerAddresses;
@@ -69,7 +70,7 @@ class RiskyNetworkBenchmarkTest extends IntegrationTestCase {
 		$listed = long2ip(ip2long('20.0.0.0') + 2 * 54321);
 		$warmGuard = $this->guard(true);
 		$this->assertNull($warmGuard->decisionFor($listed));
-		$this->assertSame(['hosting', 'net:cloud'], $this->context->verdict()?->attributes, 'The verdict carries the attributes');
+		$this->assertSame(['hosting', 'net:cloud'], Verdict::of($this->context)?->attributes, 'The verdict carries the attributes');
 		$warm = $this->measure(fn () => $warmGuard->decisionFor($listed), self::WARM);
 
 		$coldGuard = $this->guard(false);

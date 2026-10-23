@@ -15,7 +15,6 @@ use OCA\IntrusionDetection\Check\Checks\TokenConcurrentUse\CredentialUse;
 use OCA\IntrusionDetection\Check\Checks\TokenConcurrentUse\CredentialUseResolver;
 use OCA\IntrusionDetection\Check\Checks\TokenConcurrentUse\PresentedCredential;
 use OCA\IntrusionDetection\Config\AppSettings;
-use OCA\IntrusionDetection\Guard\RequestContext;
 use OCA\IntrusionDetection\Listener\BreachedPasswordListener;
 use OCA\IntrusionDetection\Listener\CredentialUseLoginListener;
 use OCA\IntrusionDetection\Listener\LoginHistoryListener;
@@ -24,7 +23,9 @@ use OCA\IntrusionDetection\Listener\LoginRecordListener;
 use OCA\IntrusionDetection\Listener\PasswordChangeLoginListener;
 use OCA\IntrusionDetection\Listener\PayloadLoginListener;
 use OCA\IntrusionDetection\Listener\StepUpLoginListener;
+use OCA\IntrusionDetection\Login\LoginClassifier;
 use OCA\IntrusionDetection\Login\LoginGate;
+use OCA\IntrusionDetection\Login\RequestContext;
 use OCA\IntrusionDetection\Net\RemoteAddressResolver;
 use OCA\IntrusionDetection\Net\SourceKey;
 use OCA\IntrusionDetection\State\HotState;
@@ -88,7 +89,7 @@ class LoginListenerTest extends TestCase {
 		}
 		$hotState = $this->createMock(HotState::class);
 		$hotState->method('stepUpSessionsUntil')->willReturnCallback(fn (): int => $this->sessionsUntil);
-		return new LoginListener($this->settings, $hotState, $this->context, $addresses, $this->gate, $request, $time, $container, $this->createMock(LoggerInterface::class));
+		return new LoginListener($this->settings, $hotState, $this->context, $addresses, $this->gate, new LoginClassifier($request, $this->context), $time, $container, $this->createMock(LoggerInterface::class));
 	}
 
 	private function login(bool $token): UserLoggedInEvent {

@@ -11,7 +11,7 @@ namespace OCA\IntrusionDetection\Takeover\Signals;
 
 use OCA\IntrusionDetection\Confirm\StepUpService;
 use OCA\IntrusionDetection\Confirm\StepUpState;
-use OCA\IntrusionDetection\SessionState\CurrentSession;
+use OCA\IntrusionDetection\Login\CoreSession;
 use OCA\IntrusionDetection\SessionState\SessionState;
 use OCA\IntrusionDetection\Takeover\IRiskyLoginSignal;
 use OCA\IntrusionDetection\Takeover\RiskyLogin;
@@ -30,13 +30,13 @@ use OCA\IntrusionDetection\Takeover\RiskyLogin;
 class UnconfirmedLoginSignal implements IRiskyLoginSignal {
 	public function __construct(
 		private readonly SessionState $state,
-		private readonly CurrentSession $currentSession,
+		private readonly CoreSession $coreSession,
 	) {
 	}
 
 	#[\Override]
 	public function riskyLogin(string $uid, ?int $sessionTokenId): ?RiskyLogin {
-		if ($sessionTokenId === null || $this->currentSession->tokenId() !== $sessionTokenId) {
+		if ($sessionTokenId === null || $this->coreSession->tokenId() !== $sessionTokenId) {
 			return null;
 		}
 		$stepUp = StepUpState::fromArray($this->state->get(SessionState::STEP_UP) ?? []);

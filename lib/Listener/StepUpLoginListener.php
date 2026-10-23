@@ -17,8 +17,10 @@ use OCA\IntrusionDetection\Confirm\StepUpReasons;
 use OCA\IntrusionDetection\Confirm\StepUpService;
 use OCA\IntrusionDetection\Confirm\UnconfirmedSessions;
 use OCA\IntrusionDetection\Crypto\Fingerprinter;
-use OCA\IntrusionDetection\Login\InteractiveLogin;
+use OCA\IntrusionDetection\Login\CoreSession;
+use OCA\IntrusionDetection\Login\LoginClassifier;
 use OCA\IntrusionDetection\Login\LoginContext;
+use OCA\IntrusionDetection\Login\LoginKind;
 use OCA\IntrusionDetection\Net\RemoteAddressResolver;
 use OCA\IntrusionDetection\Net\SourceKey;
 use OCA\IntrusionDetection\Response\FlaggedSources;
@@ -28,7 +30,6 @@ use OCA\IntrusionDetection\Signal\SuccessfulLogin;
 use OCP\EventDispatcher\Event;
 use OCP\EventDispatcher\IEventListener;
 use OCP\IRequest;
-use OCP\ISession;
 use OCP\User\Events\UserLoggedInEvent;
 use OCP\User\Events\UserLoggedInWithCookieEvent;
 use Psr\Container\ContainerInterface;
@@ -46,7 +47,7 @@ use Psr\Log\LoggerInterface;
  *
  * Only logins with the account's password count: through the login form,
  * or from apps and scripts that send it (Basic auth); a password login of
- * any other kind is treated like the login form ({@see InteractiveLogin}).
+ * any other kind is treated like the login form ({@see LoginKind}).
  * Basic auth is an app whatever cookies it sends: no confirmation is ever
  * started for it ({@see StepUpService}).
  * App passwords and tokens never need it. A session that comes back through its remember-me
@@ -74,14 +75,14 @@ class StepUpLoginListener implements IEventListener {
 
 	public function __construct(
 		private readonly AppSettings $appSettings,
-		private readonly InteractiveLogin $interactive,
+		private readonly LoginClassifier $classifier,
 		private readonly RemoteAddressResolver $addresses,
 		private readonly Fingerprinter $fingerprinter,
 		private readonly FlaggedSources $flags,
 		private readonly StepUpReasons $reasons,
 		private readonly UnconfirmedSessions $unconfirmed,
 		private readonly IRequest $request,
-		private readonly ISession $session,
+		private readonly CoreSession $coreSession,
 		private readonly ContainerInterface $container,
 		private readonly Caches $caches,
 		private readonly LoggerInterface $logger,
@@ -104,7 +105,7 @@ class StepUpLoginListener implements IEventListener {
 			if ($event->isTokenLogin()) {
 				// A browser session restored from its token keeps its session id; for app
 				// passwords and Bearer tokens the id is new and matches nothing.
-				$this->resumed($event->getUser()->getUID(), $this->sessionId(), false);
+				$this->resumed($event->getUser()->getUID(), $this->coreSession->sessionId(), false);
 				return;
 			}
 			$this->passwordLogin($event);
@@ -114,12 +115,12 @@ class StepUpLoginListener implements IEventListener {
 	}
 
 	private function passwordLogin(UserLoggedInEvent $event): void {
-		$kind = $this->interactive->kind($event);
+		$kind = $this->classifier->classify($event);
 		$password = $event->getPassword();
-		if ($kind === null || $password === null) {
+		if (!$kind->hasPassword() || $password === null) {
 			return;
 		}
-		$interactive = $kind !== InteractiveLogin::CLIENT;
+		$interactive = $kind !== LoginKind::ClientPassword;
 		$source = $this->addresses->current();
 		if ($source !== null && $this->addresses->isBypassListed($source)) {
 			return;
@@ -209,13 +210,5 @@ class StepUpLoginListener implements IEventListener {
 			return;
 		}
 		$this->container->get(StepUpService::class)->resumed($uid, $renewed ? $sessionId : null);
-	}
-
-	private function sessionId(): ?string {
-		try {
-			return $this->session->getId();
-		} catch (\Throwable) {
-			return null;
-		}
 	}
 }

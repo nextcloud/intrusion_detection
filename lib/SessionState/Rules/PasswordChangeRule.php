@@ -14,6 +14,7 @@ use OC\Core\Controller\TwoFactorChallengeController;
 use OCA\IntrusionDetection\AppInfo\Application;
 use OCA\IntrusionDetection\Controller\PasswordChangeController;
 use OCA\IntrusionDetection\Controller\VerifyController;
+use OCA\IntrusionDetection\Login\LoginKind;
 use OCA\IntrusionDetection\Response\PasswordChangeFlag;
 use OCA\IntrusionDetection\SessionState\ISessionStateRule;
 use OCA\IntrusionDetection\SessionState\RequestTarget;
@@ -49,6 +50,22 @@ class PasswordChangeRule implements ISessionStateRule {
 		private readonly IUserSession $userSession,
 		private readonly IURLGenerator $urlGenerator,
 	) {
+	}
+
+	/**
+	 * How a login of this kind is held while a new password is required:
+	 * browsers are sent to the password page, apps and scripts with the
+	 * password are refused, and app passwords and tokens are left alone
+	 * (null): whoever guessed the password does not have them.
+	 *
+	 * @return self::MODE_*|null
+	 */
+	public static function modeFor(LoginKind $kind): ?string {
+		return match ($kind) {
+			LoginKind::ClientPassword => self::MODE_REFUSE,
+			LoginKind::AppPasswordBasic, LoginKind::Bearer => null,
+			default => self::MODE_REDIRECT,
+		};
 	}
 
 	#[\Override]

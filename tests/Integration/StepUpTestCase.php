@@ -42,8 +42,9 @@ use OCA\IntrusionDetection\KnownDevice\DeviceCookie;
 use OCA\IntrusionDetection\KnownDevice\KnownDevices;
 use OCA\IntrusionDetection\Listener\StepUpChallengePassedListener;
 use OCA\IntrusionDetection\Listener\StepUpLoginListener;
-use OCA\IntrusionDetection\Login\InteractiveLogin;
+use OCA\IntrusionDetection\Login\LoginClassifier;
 use OCA\IntrusionDetection\Login\LoginGate;
+use OCA\IntrusionDetection\Login\RequestContext;
 use OCA\IntrusionDetection\LoginHistory\Db\LoginHistoryMapper;
 use OCA\IntrusionDetection\LoginHistory\LoginHistory;
 use OCA\IntrusionDetection\Net\RemoteAddressResolver;
@@ -162,14 +163,14 @@ abstract class StepUpTestCase extends AccountTestCase {
 	protected function listener(): StepUpLoginListener {
 		return new StepUpLoginListener(
 			$this->appSettings(),
-			new InteractiveLogin($this->request),
+			new LoginClassifier($this->request, new RequestContext()),
 			$this->addresses(),
 			Server::get(Fingerprinter::class),
 			Server::get(FlaggedSources::class),
 			$this->stepUpReasons(),
 			Server::get(UnconfirmedSessions::class),
 			$this->request,
-			$this->session,
+			$this->coreSession,
 			new OverridingContainer([
 				StepUpService::class => $this->service(),
 				LoginDetections::class => $this->linker(),
@@ -203,12 +204,11 @@ abstract class StepUpTestCase extends AccountTestCase {
 	protected function service(): StepUpService {
 		return new StepUpService(
 			$this->state,
-			$this->session,
 			$this->userSession,
 			$this->policy(),
 			$this->engine(),
 			Server::get(UnconfirmedSessions::class),
-			$this->currentSession,
+			$this->coreSession,
 			$this->addresses(),
 			Server::get(ITimeFactory::class),
 			Server::get(AuditLogger::class),
@@ -274,8 +274,8 @@ abstract class StepUpTestCase extends AccountTestCase {
 		return $this->history ??= new LoginHistory(
 			Server::get(LoginHistoryMapper::class),
 			$this->state,
-			$this->currentSession,
-			new LoginGate(Server::get(Caches::class), $this->session),
+			$this->coreSession,
+			new LoginGate(Server::get(Caches::class), $this->coreSession),
 			Server::get(ITimeFactory::class),
 			$this->appSettings(),
 		);
@@ -313,13 +313,13 @@ abstract class StepUpTestCase extends AccountTestCase {
 			Server::get(IConfig::class),
 			Server::get(ITimeFactory::class),
 			Server::get(UnconfirmedSessions::class),
-			$this->session,
+			$this->coreSession,
 			Server::get(IUserConfig::class),
 		);
 	}
 
 	protected function linker(): LoginDetections {
-		return new LoginDetections($this->state, Server::get(DetectionMapper::class), $this->currentSession, Server::get(LoggerInterface::class));
+		return new LoginDetections($this->state, Server::get(DetectionMapper::class), $this->coreSession, Server::get(LoggerInterface::class));
 	}
 
 	protected function rule(): StepUpRule {
@@ -333,7 +333,7 @@ abstract class StepUpTestCase extends AccountTestCase {
 	}
 
 	protected function sessionConfirmation(): SessionConfirmation {
-		return new SessionConfirmation($this->state, $this->session, Server::get(ITimeFactory::class));
+		return new SessionConfirmation($this->state, $this->coreSession, Server::get(ITimeFactory::class));
 	}
 
 	protected function untrustedSecondFactors(): UntrustedSecondFactors {

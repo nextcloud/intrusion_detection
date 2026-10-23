@@ -16,8 +16,8 @@ use OCA\IntrusionDetection\Db\AttemptMapper;
 use OCA\IntrusionDetection\Detection\AttemptRecorder;
 use OCA\IntrusionDetection\Detection\CommonFacts;
 use OCA\IntrusionDetection\Detection\DetectionDraft;
+use OCA\IntrusionDetection\Login\CoreSession;
 use OCA\IntrusionDetection\Response\FlaggedSources;
-use OCA\IntrusionDetection\SessionState\CurrentSession;
 use OCA\IntrusionDetection\Signal\IDetector;
 use OCA\IntrusionDetection\Signal\ISignal;
 use OCA\IntrusionDetection\Signal\SecondFactorFailure;
@@ -51,7 +51,7 @@ class SecondFactorFailedDetector implements IDetector {
 		private readonly AttemptRecorder $recorder,
 		private readonly AttemptMapper $attempts,
 		private readonly FlaggedSources $flags,
-		private readonly CurrentSession $currentSession,
+		private readonly CoreSession $coreSession,
 		private readonly ISession $session,
 		private readonly LoggerInterface $logger,
 	) {
@@ -67,7 +67,7 @@ class SecondFactorFailedDetector implements IDetector {
 		$uid = $signal->user->getUID();
 		$params = $this->settings->params(SecondFactorFailed::ID);
 		$attempt = $this->recorder->record(AttemptKind::SecondFactor, $source, null, $uid);
-		$sessionTokenId = $this->currentSession->tokenId();
+		$sessionTokenId = $this->coreSession->tokenId();
 		$loginFailures = $this->countInSession($sessionTokenId);
 		$hourFailures = $this->attempts->stats('uid', [$uid], [AttemptKind::SecondFactor], $attempt->time - self::HOUR)->failures;
 		$flag = $this->flags->sourceFlag($source);

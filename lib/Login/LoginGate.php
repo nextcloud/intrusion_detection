@@ -10,7 +10,6 @@ declare(strict_types=1);
 namespace OCA\IntrusionDetection\Login;
 
 use OCA\IntrusionDetection\Cache\Caches;
-use OCP\ISession;
 
 /**
  * Apps and WebDAV clients log in with every request. The gate lets the
@@ -31,15 +30,13 @@ class LoginGate {
 	/** The namespace of its memory cache in {@see Caches} */
 	public const CACHE = 'login';
 	public const INTERVAL = 3600;
-	/** Where core keeps the id of the token a request logged in with */
-	private const TOKEN_ID_KEY = 'token-id';
 
 	/** @var array<string, bool> by gate key */
 	private array $answers = [];
 
 	public function __construct(
 		private readonly Caches $caches,
-		private readonly ISession $session,
+		private readonly CoreSession $coreSession,
 	) {
 	}
 
@@ -48,7 +45,7 @@ class LoginGate {
 	 * from the address in the hour; null without a memory cache.
 	 */
 	public function isFirst(string $uid, string $ipKey, int $now): ?bool {
-		$tokenId = $this->tokenId();
+		$tokenId = $this->coreSession->loginTokenId();
 		$key = hash('sha256', $uid . "\0" . ($tokenId === null ? 'password' : (string)$tokenId) . "\0" . $ipKey) . ':' . intdiv($now, self::INTERVAL);
 		if (isset($this->answers[$key])) {
 			return $this->answers[$key];
@@ -65,18 +62,4 @@ class LoginGate {
 		$local?->set($key, 1, self::INTERVAL - $now % self::INTERVAL);
 		return $this->answers[$key] = $first;
 	}
-
-	/**
-	 * The id of the token (app password or Bearer token) the request logged
-	 * in with, as core keeps it in the session.
-	 */
-	public function tokenId(): ?int {
-		try {
-			$id = $this->session->get(self::TOKEN_ID_KEY);
-		} catch (\Throwable) {
-			return null;
-		}
-		return is_int($id) || (is_string($id) && ctype_digit($id)) ? (int)$id : null;
-	}
-
 }

@@ -11,6 +11,7 @@ namespace OCA\IntrusionDetection\Tests\Integration;
 
 use OCA\IntrusionDetection\Address\AddressCache;
 use OCA\IntrusionDetection\Address\AddressResolver;
+use OCA\IntrusionDetection\Address\Verdict;
 use OCA\IntrusionDetection\AppInfo\Application;
 use OCA\IntrusionDetection\Blocklist\BlocklistFactsProvider;
 use OCA\IntrusionDetection\Blocklist\Db\BlocklistRangeMapper;
@@ -25,7 +26,7 @@ use OCA\IntrusionDetection\Db\Ban;
 use OCA\IntrusionDetection\Db\BanMapper;
 use OCA\IntrusionDetection\Definition\Mode;
 use OCA\IntrusionDetection\Guard\AddressGuard;
-use OCA\IntrusionDetection\Guard\RequestContext;
+use OCA\IntrusionDetection\Login\RequestContext;
 use OCA\IntrusionDetection\Net\RangeCodec;
 use OCA\IntrusionDetection\Net\RemoteAddressResolver;
 use OCA\IntrusionDetection\Net\ServerAddresses;
@@ -215,7 +216,7 @@ class BlocklistFactsProviderTest extends IntegrationTestCase {
 		$this->assertSame(AddressCache::OK_TTL, $decision->getRetryAfter());
 
 		$this->assertNull($guard->decisionFor('203.0.113.9'), 'An Observe list does not refuse');
-		$this->assertSame(['list:watch', 'hosting', 'net:cloud'], $context->verdict()?->attributes);
+		$this->assertSame(['list:watch', 'hosting', 'net:cloud'], Verdict::of($context)?->attributes);
 		$this->assertNull($guard->decisionFor('8.8.8.8'));
 	}
 

@@ -13,8 +13,8 @@ use OCA\IntrusionDetection\Address\AddressCache;
 use OCA\IntrusionDetection\Address\Verdict;
 use OCA\IntrusionDetection\Blocklist\BlocklistSource;
 use OCA\IntrusionDetection\Config\AppSettings;
-use OCA\IntrusionDetection\Guard\RequestContext;
 use OCA\IntrusionDetection\Login\LoginContext;
+use OCA\IntrusionDetection\Login\RequestContext;
 use OCA\IntrusionDetection\Net\RangeCodec;
 use OCA\IntrusionDetection\Net\RemoteAddressResolver;
 use OCA\IntrusionDetection\TrustedNetwork\ITrustedNetworks;
@@ -98,6 +98,6 @@ class NetworkAttributes {
 		if ($current === null || $current->ip !== $ip) {
 			return null;
 		}
-		return $this->context->verdict() ?? $this->addressCache->get($current);
+		return Verdict::of($this->context) ?? $this->addressCache->get($current);
 	}
 }

@@ -13,7 +13,7 @@ use OCA\IntrusionDetection\Config\AppSettings;
 use OCA\IntrusionDetection\Confirm\IConfirmationMethod;
 use OCA\IntrusionDetection\Confirm\SessionConfirmation;
 use OCA\IntrusionDetection\KnownDevice\KnownDevices;
-use OCA\IntrusionDetection\Login\InteractiveLogin;
+use OCA\IntrusionDetection\Login\LoginClassifier;
 use OCA\IntrusionDetection\LoginHistory\LoginHistory;
 use OCA\IntrusionDetection\Net\RemoteAddressResolver;
 use OCA\IntrusionDetection\Notification\LoginNotices;
@@ -42,7 +42,7 @@ use Psr\Log\LoggerInterface;
 class LoginHistoryListener implements IEventListener {
 	public function __construct(
 		private readonly AppSettings $settings,
-		private readonly InteractiveLogin $interactive,
+		private readonly LoginClassifier $classifier,
 		private readonly RemoteAddressResolver $addresses,
 		private readonly IRequest $request,
 		private readonly ContainerInterface $container,
@@ -63,7 +63,8 @@ class LoginHistoryListener implements IEventListener {
 				$this->container->get(LoginHistory::class)->secondFactorPassed($event->getUser()->getUID());
 				return;
 			}
-			[$method, $browser] = $event instanceof UserLoggedInWithCookieEvent ? [LoginHistory::METHOD_COOKIE, true] : $this->method($event);
+			$kind = $this->classifier->classify($event);
+			$method = LoginHistory::methodOf($kind);
 			if ($method === null) {
 				return;
 			}
@@ -72,7 +73,7 @@ class LoginHistoryListener implements IEventListener {
 				return;
 			}
 			$uid = $event->getUser()->getUID();
-			$interactive = $method === LoginHistory::METHOD_PASSWORD || $method === LoginHistory::METHOD_SSO;
+			$interactive = $kind->isInteractive();
 			$device = null;
 			if ($interactive) {
 				$devices = $this->container->get(KnownDevices::class);
@@ -82,30 +83,12 @@ class LoginHistoryListener implements IEventListener {
 					$this->container->get(SessionConfirmation::class)->proved($uid, IConfirmationMethod::KNOWN_DEVICE);
 				}
 			}
-			$this->container->get(LoginHistory::class)->record($uid, $method, $source, $this->request->getHeader('User-Agent'), $device, $browser);
+			$this->container->get(LoginHistory::class)->record($uid, $method, $source, $this->request->getHeader('User-Agent'), $device, $kind->isBrowser());
 			if ($interactive) {
 				$this->container->get(LoginNotices::class)->atLogin($uid, $device);
 			}
 		} catch (\Throwable $e) {
 			$this->logger->error('Intrusion detection could not record a login', ['exception' => $e]);
 		}
-	}
-
-	/**
-	 * @return array{0: ?LoginHistory::METHOD_*, 1: bool} how the account logged in (null: not a new login), and whether it is a browser session
-	 */
-	private function method(UserLoggedInEvent $event): array {
-		if ($event->isTokenLogin()) {
-			if (str_starts_with($this->request->getHeader('Authorization'), 'Bearer ')) {
-				return [LoginHistory::METHOD_TOKEN, false];
-			}
-			// Otherwise core restored a browser session from its token, unless Basic auth carried an app password.
-			return InteractiveLogin::hasBasicCredentials() ? [LoginHistory::METHOD_APP_PASSWORD, false] : [null, false];
-		}
-		return match ($this->interactive->kind($event)) {
-			InteractiveLogin::FORM => [LoginHistory::METHOD_PASSWORD, true],
-			InteractiveLogin::CLIENT => [LoginHistory::METHOD_CLIENT_PASSWORD, false],
-			default => [LoginHistory::METHOD_SSO, true],
-		};
 	}
 }

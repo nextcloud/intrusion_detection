@@ -12,13 +12,13 @@ namespace OCA\IntrusionDetection\Confirm;
 use OCA\IntrusionDetection\AppInfo\Application;
 use OCA\IntrusionDetection\Config\UserKeys;
 use OCA\IntrusionDetection\Explain\TextRenderer;
+use OCA\IntrusionDetection\Login\CoreSession;
 use OCA\IntrusionDetection\Notification\MailContent;
 use OCA\IntrusionDetection\Notification\Mails;
 use OCA\IntrusionDetection\Notification\UserMessages;
 use OCP\AppFramework\Utility\ITimeFactory;
 use OCP\Config\IUserConfig;
 use OCP\IConfig;
-use OCP\ISession;
 use OCP\IUser;
 use OCP\Mail\IEmailValidator;
 use OCP\Security\IHasher;
@@ -64,7 +64,7 @@ class EmailCodes {
 		private readonly IConfig $config,
 		private readonly ITimeFactory $timeFactory,
 		private readonly UnconfirmedSessions $sessions,
-		private readonly ISession $session,
+		private readonly CoreSession $coreSession,
 		private readonly IUserConfig $userConfig,
 	) {
 	}
@@ -179,11 +179,7 @@ class EmailCodes {
 	}
 
 	private function sessionId(): string {
-		try {
-			return $this->session->getId();
-		} catch (\Throwable) {
-			return '';
-		}
+		return $this->coreSession->sessionId() ?? '';
 	}
 
 	/**

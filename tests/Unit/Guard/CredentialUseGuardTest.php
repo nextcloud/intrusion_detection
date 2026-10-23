@@ -24,7 +24,7 @@ use OCA\IntrusionDetection\Crypto\Fingerprinter;
 use OCA\IntrusionDetection\Definition\Mode;
 use OCA\IntrusionDetection\Guard\AddressGuard;
 use OCA\IntrusionDetection\Guard\CredentialUseGuard;
-use OCA\IntrusionDetection\Guard\RequestContext;
+use OCA\IntrusionDetection\Login\RequestContext;
 use OCA\IntrusionDetection\Net\RemoteAddressResolver;
 use OCA\IntrusionDetection\Net\SourceKey;
 use OCA\IntrusionDetection\Perf\GuardTimer;
@@ -129,7 +129,7 @@ class CredentialUseGuardTest extends TestCase {
 	}
 
 	public function testTheAddressGuardsVerdictSparesReadingTheMasterSwitch(): void {
-		$this->context->setVerdict(new Verdict());
+		$this->context->set(Verdict::CONTEXT_KEY, new Verdict());
 		$this->appSettings->expects($this->never())->method('isEnabled');
 		$this->guard()->check($this->basic('198.51.100.7'));
 		$this->assertSame(1, $this->cache->gets);

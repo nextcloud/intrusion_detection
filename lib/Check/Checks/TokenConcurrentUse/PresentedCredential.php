@@ -56,6 +56,7 @@ final class PresentedCredential {
 		$cookie = self::sessionCookieOf($request, $sessionCookieName);
 		$authorization = trim($request->getHeader('Authorization'));
 
+		// Any case: this notes what a client presents, to core or another backend, not how core logged it in ({@see \OCA\IntrusionDetection\Login\LoginClassifier}).
 		if (strncasecmp($authorization, 'Bearer ', 7) === 0) {
 			$token = trim(substr($authorization, 7));
 			if ($token !== '') {

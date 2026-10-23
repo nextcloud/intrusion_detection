@@ -9,6 +9,7 @@ declare(strict_types=1);
 
 namespace OCA\IntrusionDetection\Guard;
 
+use OCA\IntrusionDetection\Address\Verdict;
 use OCA\IntrusionDetection\Check\Checks\TokenConcurrentUse\CredentialTracker;
 use OCA\IntrusionDetection\Check\Checks\TokenConcurrentUse\CredentialUse;
 use OCA\IntrusionDetection\Check\Checks\TokenConcurrentUse\CredentialUseResolver;
@@ -18,6 +19,7 @@ use OCA\IntrusionDetection\Config\AppSettings;
 use OCA\IntrusionDetection\Config\CheckSettings;
 use OCA\IntrusionDetection\Crypto\Fingerprinter;
 use OCA\IntrusionDetection\Definition\Mode;
+use OCA\IntrusionDetection\Login\RequestContext;
 use OCA\IntrusionDetection\Net\RemoteAddressResolver;
 use OCA\IntrusionDetection\Net\SourceKey;
 use OCA\IntrusionDetection\Perf\GuardTimer;
@@ -124,7 +126,7 @@ class CredentialUseGuard implements IRequestGuard {
 	 * the response engine applies the effective mode.
 	 */
 	private function runs(): bool {
-		return ($this->context->verdict() !== null || $this->appSettings->isEnabled())
+		return (Verdict::of($this->context) !== null || $this->appSettings->isEnabled())
 			&& $this->settings->configuredMode(TokenConcurrentUse::ID) !== Mode::Off;
 	}
 

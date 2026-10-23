@@ -15,7 +15,8 @@ use OCA\IntrusionDetection\Confirm\SessionConfirmation;
 use OCA\IntrusionDetection\KnownDevice\KnownDevice;
 use OCA\IntrusionDetection\KnownDevice\KnownDevices;
 use OCA\IntrusionDetection\Listener\LoginHistoryListener;
-use OCA\IntrusionDetection\Login\InteractiveLogin;
+use OCA\IntrusionDetection\Login\LoginClassifier;
+use OCA\IntrusionDetection\Login\RequestContext;
 use OCA\IntrusionDetection\LoginHistory\LoginHistory;
 use OCA\IntrusionDetection\Net\RemoteAddressResolver;
 use OCA\IntrusionDetection\Net\ServerAddresses;
@@ -161,7 +162,7 @@ class LoginHistoryListenerTest extends TestCase {
 		}
 		return new LoginHistoryListener(
 			$settings,
-			new InteractiveLogin($request),
+			new LoginClassifier($request, new RequestContext()),
 			new RemoteAddressResolver($request, $throttler, Server::get(ServerAddresses::class)),
 			$request,
 			$container,

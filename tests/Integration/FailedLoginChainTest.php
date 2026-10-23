@@ -89,7 +89,7 @@ class FailedLoginChainTest extends LoginFailureTestCase {
 			['id' => 'spamhaus_drop_v4', 'enabled' => true, 'mode' => 'observe'],
 		]));
 		[, $secret] = Server::get(DecoyService::class)->create('old backup script', null, DecoyFormat::AppPassword, 'admin');
-		$this->requestContext->setVerdict(new Verdict(0, '', ['list:spamhaus_drop_v4'], time() + 300));
+		$this->requestContext->set(Verdict::CONTEXT_KEY, new Verdict(0, '', ['list:spamhaus_drop_v4'], time() + 300));
 		$this->failLogin('198.51.100.7', 'anyone', $secret);
 
 		$this->assertCount(1, $this->detectionsOf(BlocklistMatch::ID));

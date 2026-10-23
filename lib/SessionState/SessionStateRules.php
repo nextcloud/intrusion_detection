@@ -11,7 +11,7 @@ namespace OCA\IntrusionDetection\SessionState;
 
 use OCA\IntrusionDetection\Check\Checks\TokenConcurrentUse\CredentialUse;
 use OCA\IntrusionDetection\Check\Checks\TokenConcurrentUse\CredentialUseResolver;
-use OCA\IntrusionDetection\Guard\RequestContext;
+use OCA\IntrusionDetection\Login\RequestContext;
 use OCA\IntrusionDetection\Sensitive\DirectoryRoutes;
 use OCA\IntrusionDetection\SessionState\Rules\DirectoryScrapingRule;
 use OCP\IRequest;

@@ -13,7 +13,7 @@ use OCP\IUser;
 
 /**
  * A successful login with the account's password through the login form
- * ({@see \OCA\IntrusionDetection\Login\InteractiveLogin}). The password is
+ * ({@see \OCA\IntrusionDetection\Login\LoginKind::typesPassword()}). The password is
  * only checked, never stored or logged.
  */
 final class InteractivePasswordLogin implements ISignal {

@@ -55,7 +55,7 @@ class SecondFactorFailedTest extends AccountTestCase {
 			Server::get(AttemptRecorder::class),
 			Server::get(AttemptMapper::class),
 			Server::get(FlaggedSources::class),
-			$this->currentSession,
+			$this->coreSession,
 			$this->session,
 			Server::get(LoggerInterface::class),
 		);

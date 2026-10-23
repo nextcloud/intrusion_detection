@@ -56,8 +56,8 @@ class ArchitectureTest extends TestCase {
 		'AdminChange' => ['Admin'],
 		// CheckRegistry::CHECKS is the one list of all checks.
 		'Check' => ['Check\\Checks'],
-		// Check names and the request context live in Admin and Guard (feature slices, login package).
-		'Check\\Checks' => ['Admin', 'Guard'],
+		// Check names live in Admin (feature slices).
+		'Check\\Checks' => ['Admin'],
 		// The risk scorer adds to detections and narratives (pipeline).
 		'Detection' => ['Risk'],
 		'Explain' => ['Risk'],
@@ -69,11 +69,9 @@ class ArchitectureTest extends TestCase {
 		// The privacy cleanup schedules its job by class.
 		'Privacy' => ['BackgroundJob'],
 		// Handlers of feature responses use their feature's services (feature slices).
-		'Response' => ['Address', 'Confirm', 'SessionState', 'Share', 'Takeover'],
-		// The request context and deferred hits live in Guard (login package).
-		'Risk' => ['Guard'],
+		'Response' => ['Address', 'Confirm', 'Share', 'Takeover'],
 		// Session rules let their own controllers through (login package).
-		'SessionState' => ['Controller', 'Guard'],
+		'SessionState' => ['Controller'],
 	];
 
 	/**

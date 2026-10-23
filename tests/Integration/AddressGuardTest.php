@@ -11,12 +11,13 @@ namespace OCA\IntrusionDetection\Tests\Integration;
 
 use OCA\IntrusionDetection\Address\AddressCache;
 use OCA\IntrusionDetection\Address\AddressResolver;
+use OCA\IntrusionDetection\Address\Verdict;
 use OCA\IntrusionDetection\AppInfo\Application;
 use OCA\IntrusionDetection\Cache\Caches;
 use OCA\IntrusionDetection\Cache\KeyLock;
 use OCA\IntrusionDetection\Config\GlobalSettings;
 use OCA\IntrusionDetection\Guard\AddressGuard;
-use OCA\IntrusionDetection\Guard\RequestContext;
+use OCA\IntrusionDetection\Login\RequestContext;
 use OCA\IntrusionDetection\Net\RemoteAddressResolver;
 use OCA\IntrusionDetection\Net\ServerAddresses;
 use OCA\IntrusionDetection\Net\SourceKey;
@@ -110,8 +111,8 @@ class AddressGuardTest extends IntegrationTestCase {
 		$context = new RequestContext();
 		[$guard] = $this->guard('distributed', context: $context);
 		$guard->decisionFor('198.51.100.7');
-		$this->assertNotNull($context->verdict());
-		$this->assertFalse($context->verdict()->isDenied(time()));
+		$this->assertNotNull(Verdict::of($context));
+		$this->assertFalse(Verdict::of($context)->isDenied(time()));
 	}
 
 	public function testAVerdictResolvedInAWebRequestRemembersTheServersAddress(): void {

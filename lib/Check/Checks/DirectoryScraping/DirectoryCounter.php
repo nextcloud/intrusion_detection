@@ -9,16 +9,17 @@ declare(strict_types=1);
 
 namespace OCA\IntrusionDetection\Check\Checks\DirectoryScraping;
 
+use OCA\IntrusionDetection\Address\Verdict;
 use OCA\IntrusionDetection\Cache\Caches;
 use OCA\IntrusionDetection\Config\AppSettings;
 use OCA\IntrusionDetection\Config\CheckSettings;
 use OCA\IntrusionDetection\Definition\Mode;
 use OCA\IntrusionDetection\Definition\ResponseType;
 use OCA\IntrusionDetection\Detection\DetectionDraft;
-use OCA\IntrusionDetection\Guard\RequestContext;
+use OCA\IntrusionDetection\Login\CoreSession;
+use OCA\IntrusionDetection\Login\RequestContext;
 use OCA\IntrusionDetection\Net\RemoteAddressResolver;
 use OCA\IntrusionDetection\Response\ResponseEngine;
-use OCA\IntrusionDetection\SessionState\CurrentSession;
 use OCA\IntrusionDetection\SessionState\SessionBlock;
 use OCP\AppFramework\Utility\ITimeFactory;
 use OCP\IRequest;
@@ -115,7 +116,7 @@ class DirectoryCounter {
 			facts: new DirectoryScrapingFacts(group: $group, count: $count, limit: $limit, window: DirectoryScraping::WINDOW, until: $until),
 			merge: DetectionDraft::MERGE_USER,
 			userAgent: $this->container->get(IRequest::class)->getHeader('User-Agent'),
-			sessionTokenId: $this->container->get(CurrentSession::class)->tokenId(),
+			sessionTokenId: $this->container->get(CoreSession::class)->tokenId(),
 		));
 	}
 
@@ -126,7 +127,7 @@ class DirectoryCounter {
 	 * memory cache are applied when a limit is reached.
 	 */
 	private function runs(): bool {
-		return ($this->context->verdict() !== null || $this->appSettings->isEnabled())
+		return (Verdict::of($this->context) !== null || $this->appSettings->isEnabled())
 			&& $this->settings->configuredMode(DirectoryScraping::ID) !== Mode::Off;
 	}
 }

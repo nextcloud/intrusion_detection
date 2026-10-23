@@ -386,7 +386,7 @@ class StaleCredentialsTest extends AccountTestCase {
 	}
 
 	private function credentials(): StaleCredentials {
-		return new StaleCredentials($this->tokens, Server::get(IProvider::class), $this->currentSession, $this->time(), Server::get(AuditLogger::class));
+		return new StaleCredentials($this->tokens, Server::get(IProvider::class), $this->coreSession, $this->time(), Server::get(AuditLogger::class));
 	}
 
 	private function sweep(): StaleCredentialSweep {

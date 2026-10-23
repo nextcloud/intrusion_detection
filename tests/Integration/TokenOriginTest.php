@@ -131,7 +131,7 @@ class TokenOriginTest extends AccountTestCase {
 		return new AppPasswordCreatedListener(
 			$this->appSettings(),
 			$this->origins,
-			$this->currentSession,
+			$this->coreSession,
 			$request,
 			Server::get(ITimeFactory::class),
 			Server::get(LoggerInterface::class),

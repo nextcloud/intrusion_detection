@@ -31,7 +31,9 @@ use OCA\IntrusionDetection\Db\ApprovalMapper;
 use OCA\IntrusionDetection\Db\DetectionFilter;
 use OCA\IntrusionDetection\Db\DetectionMapper;
 use OCA\IntrusionDetection\Listener\StepUpLoginListener;
-use OCA\IntrusionDetection\Login\InteractiveLogin;
+use OCA\IntrusionDetection\Login\CoreSession;
+use OCA\IntrusionDetection\Login\LoginClassifier;
+use OCA\IntrusionDetection\Login\RequestContext;
 use OCA\IntrusionDetection\LoginHistory\Db\LoginHistoryMapper;
 use OCA\IntrusionDetection\LoginHistory\LoginHistory;
 use OCA\IntrusionDetection\Net\RemoteAddressResolver;
@@ -99,14 +101,14 @@ class RealLoginTest extends IntegrationTestCase {
 		$this->overwriteService(RemoteAddressResolver::class, $addresses);
 		$this->overwriteService(StepUpLoginListener::class, new StepUpLoginListener(
 			$this->appSettings(),
-			new InteractiveLogin($this->request),
+			new LoginClassifier($this->request, new RequestContext()),
 			$addresses,
 			Server::get(Fingerprinter::class),
 			Server::get(FlaggedSources::class),
 			Server::get(StepUpReasons::class),
 			Server::get(UnconfirmedSessions::class),
 			$this->request,
-			Server::get(ISession::class),
+			Server::get(CoreSession::class),
 			\OC::$server->getRegisteredAppContainer(Application::APP_ID),
 			Server::get(Caches::class),
 			Server::get(LoggerInterface::class),

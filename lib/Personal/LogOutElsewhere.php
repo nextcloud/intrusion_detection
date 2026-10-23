@@ -11,9 +11,8 @@ namespace OCA\IntrusionDetection\Personal;
 
 use OCA\IntrusionDetection\Audit\AuditLogger;
 use OCA\IntrusionDetection\KnownDevice\KnownDevices;
+use OCA\IntrusionDetection\Login\CoreSession;
 use OCA\IntrusionDetection\Response\Tokens;
-use OCA\IntrusionDetection\SessionState\CurrentSession;
-use OCP\ISession;
 use OCP\IUser;
 
 /**
@@ -29,9 +28,8 @@ use OCP\IUser;
 class LogOutElsewhere {
 	public function __construct(
 		private readonly Tokens $tokens,
-		private readonly CurrentSession $currentSession,
+		private readonly CoreSession $coreSession,
 		private readonly KnownDevices $knownDevices,
-		private readonly ISession $session,
 		private readonly AuditLogger $audit,
 	) {
 	}
@@ -41,8 +39,8 @@ class LogOutElsewhere {
 	 */
 	public function run(IUser $user): ?array {
 		$uid = $user->getUID();
-		$current = $this->currentSession->tokenId();
-		if ($current === null || $this->session->exists('app_password') || !$this->tokens->isSession($uid, $current)) {
+		$current = $this->coreSession->tokenId();
+		if ($current === null || $this->coreSession->usesAppPassword() || !$this->tokens->isSession($uid, $current)) {
 			return null;
 		}
 		$sessions = $this->tokens->invalidateSessionsExcept($uid, $current);

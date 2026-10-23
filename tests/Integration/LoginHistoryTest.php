@@ -17,8 +17,9 @@ use OCA\IntrusionDetection\Confirm\SessionConfirmation;
 use OCA\IntrusionDetection\Confirm\StepUpPolicy;
 use OCA\IntrusionDetection\KnownDevice\KnownDevices;
 use OCA\IntrusionDetection\Listener\LoginHistoryListener;
-use OCA\IntrusionDetection\Login\InteractiveLogin;
+use OCA\IntrusionDetection\Login\LoginClassifier;
 use OCA\IntrusionDetection\Login\LoginGate;
+use OCA\IntrusionDetection\Login\RequestContext;
 use OCA\IntrusionDetection\LoginHistory\Db\LoginHistoryMapper;
 use OCA\IntrusionDetection\LoginHistory\LoginHistory;
 use OCA\IntrusionDetection\LoginHistory\LoginHistoryEntry;
@@ -286,13 +287,13 @@ class LoginHistoryTest extends StepUpTestCase {
 	}
 
 	private function historyWith(Caches $factory): LoginHistory {
-		return new LoginHistory(Server::get(LoginHistoryMapper::class), $this->state, $this->currentSession, new LoginGate($factory, $this->session), Server::get(ITimeFactory::class), $this->appSettings());
+		return new LoginHistory(Server::get(LoginHistoryMapper::class), $this->state, $this->coreSession, new LoginGate($factory, $this->coreSession), Server::get(ITimeFactory::class), $this->appSettings());
 	}
 
 	private function historyListener(?LoginHistory $history = null): LoginHistoryListener {
 		return new LoginHistoryListener(
 			$this->appSettings(),
-			new InteractiveLogin($this->request),
+			new LoginClassifier($this->request, new RequestContext()),
 			$this->addresses(),
 			$this->request,
 			new OverridingContainer([

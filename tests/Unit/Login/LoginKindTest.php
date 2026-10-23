@@ -11,15 +11,16 @@ namespace OCA\IntrusionDetection\Tests\Unit\Login;
 
 use OCA\IntrusionDetection\Check\Checks\TokenConcurrentUse\PresentedCredential;
 use OCA\IntrusionDetection\Config\AppSettings;
-use OCA\IntrusionDetection\Guard\RequestContext;
 use OCA\IntrusionDetection\Listener\BreachedPasswordListener;
 use OCA\IntrusionDetection\Listener\LoginHistoryListener;
 use OCA\IntrusionDetection\Listener\LoginListener;
 use OCA\IntrusionDetection\Listener\LoginRecordListener;
 use OCA\IntrusionDetection\Listener\PasswordChangeLoginListener;
 use OCA\IntrusionDetection\Listener\StepUpLoginListener;
-use OCA\IntrusionDetection\Login\InteractiveLogin;
+use OCA\IntrusionDetection\Login\LoginClassifier;
 use OCA\IntrusionDetection\Login\LoginGate;
+use OCA\IntrusionDetection\Login\LoginKind;
+use OCA\IntrusionDetection\Login\RequestContext;
 use OCA\IntrusionDetection\LoginHistory\LoginHistory;
 use OCA\IntrusionDetection\Net\RemoteAddressResolver;
 use OCA\IntrusionDetection\Net\SourceKey;
@@ -66,84 +67,91 @@ class LoginKindTest extends TestCase {
 	/**
 	 * The login, the request, and what follows from it.
 	 *
-	 * @return iterable<string, array{0: array{event: string, password?: ?string, method?: string, path?: string, authorization?: string, basic?: array{string, string}, cookie?: bool}, 1: array{steps: list<string>, history: array{?string, bool}, passwordChange: ?string, interactive: ?string, presented: ?string}}>
+	 * @return iterable<string, array{0: array{event: string, password?: ?string, method?: string, path?: string, authorization?: string, basic?: array{string, string}, cookie?: bool}, 1: array{kind: string, steps: list<string>, history: array{?string, bool}, passwordChange: ?string, interactive: ?string, presented: ?string}}>
 	 */
 	public static function logins(): iterable {
 		$browser = ['stepUp', 'record', 'breach', 'passwordChange', 'history'];
 		yield 'login form' => [
 			['event' => 'login', 'password' => 'secret'],
-			['steps' => $browser, 'history' => ['password', true], 'passwordChange' => 'redirect', 'interactive' => 'form', 'presented' => null],
+			['kind' => 'form_password', 'steps' => $browser, 'history' => ['password', true], 'passwordChange' => 'redirect', 'interactive' => 'form', 'presented' => null],
 		];
 		yield 'Basic auth with the password' => [
 			['event' => 'login', 'password' => 'secret', 'method' => 'PROPFIND', 'path' => '/files/alice', 'authorization' => 'Basic YWxpY2U6c2VjcmV0', 'basic' => ['alice', 'secret']],
-			['steps' => $browser, 'history' => ['client_password', false], 'passwordChange' => 'refuse', 'interactive' => 'client', 'presented' => 'basic'],
+			['kind' => 'client_password', 'steps' => $browser, 'history' => ['client_password', false], 'passwordChange' => 'refuse', 'interactive' => 'client', 'presented' => 'basic'],
 		];
 		yield 'login form with Basic credentials for another password' => [
 			['event' => 'login', 'password' => 'secret', 'basic' => ['alice', 'other']],
-			['steps' => $browser, 'history' => ['password', true], 'passwordChange' => 'redirect', 'interactive' => 'form', 'presented' => 'basic'],
+			['kind' => 'form_password', 'steps' => $browser, 'history' => ['password', true], 'passwordChange' => 'redirect', 'interactive' => 'form', 'presented' => 'basic'],
 		];
 		yield 'login form with a forged Bearer header' => [
 			['event' => 'login', 'password' => 'secret', 'authorization' => 'Bearer forged'],
-			['steps' => $browser, 'history' => ['password', true], 'passwordChange' => 'redirect', 'interactive' => 'form', 'presented' => 'bearer'],
+			['kind' => 'form_password', 'steps' => $browser, 'history' => ['password', true], 'passwordChange' => 'redirect', 'interactive' => 'form', 'presented' => 'bearer'],
 		];
 		yield 'another password login (SSO with a stored secret)' => [
 			['event' => 'login', 'password' => 'stored-secret', 'method' => 'GET', 'path' => '/apps/user_saml/saml/acs'],
-			['steps' => $browser, 'history' => ['sso', true], 'passwordChange' => 'redirect', 'interactive' => 'other', 'presented' => null],
+			['kind' => 'other_password', 'steps' => $browser, 'history' => ['sso', true], 'passwordChange' => 'redirect', 'interactive' => 'other', 'presented' => null],
 		];
 		yield 'passwordless (SSO)' => [
 			['event' => 'login', 'password' => null, 'method' => 'GET', 'path' => '/apps/user_saml/saml/acs'],
-			['steps' => $browser, 'history' => ['sso', true], 'passwordChange' => 'redirect', 'interactive' => null, 'presented' => null],
+			['kind' => 'sso', 'steps' => $browser, 'history' => ['sso', true], 'passwordChange' => 'redirect', 'interactive' => null, 'presented' => null],
 		];
 		yield 'passwordless with an empty password (WebAuthn)' => [
 			['event' => 'login', 'password' => ''],
-			['steps' => $browser, 'history' => ['sso', true], 'passwordChange' => 'redirect', 'interactive' => null, 'presented' => null],
+			['kind' => 'sso', 'steps' => $browser, 'history' => ['sso', true], 'passwordChange' => 'redirect', 'interactive' => null, 'presented' => null],
 		];
 		yield 'app password over Basic auth' => [
 			['event' => 'token', 'method' => 'PROPFIND', 'path' => '/files/alice', 'authorization' => 'Basic YWxpY2U6YXBw', 'basic' => ['alice', 'app']],
-			['steps' => ['record', 'history'], 'history' => ['app_password', false], 'passwordChange' => null, 'interactive' => null, 'presented' => 'basic'],
+			['kind' => 'app_password_basic', 'steps' => ['record', 'history'], 'history' => ['app_password', false], 'passwordChange' => null, 'interactive' => null, 'presented' => 'basic'],
 		];
 		yield 'Bearer token' => [
 			['event' => 'token', 'method' => 'GET', 'path' => '/cloud/user', 'authorization' => 'Bearer token'],
-			['steps' => ['record', 'history'], 'history' => ['token', false], 'passwordChange' => null, 'interactive' => null, 'presented' => 'bearer'],
+			['kind' => 'bearer', 'steps' => ['record', 'history'], 'history' => ['token', false], 'passwordChange' => null, 'interactive' => null, 'presented' => 'bearer'],
 		];
 		yield 'Bearer token with Basic credentials too' => [
 			['event' => 'token', 'method' => 'GET', 'path' => '/cloud/user', 'authorization' => 'Bearer token', 'basic' => ['alice', 'app']],
-			['steps' => ['record', 'history'], 'history' => ['token', false], 'passwordChange' => null, 'interactive' => null, 'presented' => 'bearer'],
+			['kind' => 'bearer', 'steps' => ['record', 'history'], 'history' => ['token', false], 'passwordChange' => null, 'interactive' => null, 'presented' => 'bearer'],
 		];
 		yield 'lowercase bearer: core restored the session from its cookie' => [
 			['event' => 'token', 'method' => 'GET', 'path' => '/apps/files/', 'authorization' => 'bearer token', 'cookie' => true],
-			['steps' => ['record', 'passwordChange', 'history'], 'history' => [null, false], 'passwordChange' => 'redirect', 'interactive' => null, 'presented' => 'bearer'],
+			['kind' => 'restored_session', 'steps' => ['record', 'passwordChange', 'history'], 'history' => [null, false], 'passwordChange' => 'redirect', 'interactive' => null, 'presented' => 'bearer'],
 		];
 		yield 'browser session restored from its token' => [
 			['event' => 'token', 'method' => 'GET', 'path' => '/apps/files/', 'cookie' => true],
-			['steps' => ['record', 'passwordChange', 'history'], 'history' => [null, false], 'passwordChange' => 'redirect', 'interactive' => null, 'presented' => 'session'],
+			['kind' => 'restored_session', 'steps' => ['record', 'passwordChange', 'history'], 'history' => [null, false], 'passwordChange' => 'redirect', 'interactive' => null, 'presented' => 'session'],
 		];
 		yield 'a Basic header PHP did not pass on' => [
 			['event' => 'token', 'method' => 'GET', 'path' => '/apps/files/', 'authorization' => 'Basic YWxpY2U6YXBw'],
-			['steps' => ['record', 'passwordChange', 'history'], 'history' => [null, false], 'passwordChange' => 'redirect', 'interactive' => null, 'presented' => 'basic'],
+			['kind' => 'restored_session', 'steps' => ['record', 'passwordChange', 'history'], 'history' => [null, false], 'passwordChange' => 'redirect', 'interactive' => null, 'presented' => 'basic'],
 		];
 		yield 'remember-me cookie' => [
 			['event' => 'cookie', 'method' => 'GET', 'path' => '/apps/files/', 'cookie' => true],
-			['steps' => ['passwordChange', 'history'], 'history' => ['cookie', true], 'passwordChange' => 'redirect', 'interactive' => null, 'presented' => 'session'],
+			['kind' => 'remember_me_cookie', 'steps' => ['passwordChange', 'history'], 'history' => ['cookie', true], 'passwordChange' => 'redirect', 'interactive' => null, 'presented' => 'session'],
 		];
 		yield 'remember-me cookie with Basic credentials' => [
 			['event' => 'cookie', 'method' => 'GET', 'path' => '/apps/files/', 'authorization' => 'Basic YWxpY2U6YXBw', 'basic' => ['alice', 'app'], 'cookie' => true],
-			['steps' => ['passwordChange', 'history'], 'history' => ['cookie', true], 'passwordChange' => 'redirect', 'interactive' => null, 'presented' => 'basic'],
+			['kind' => 'remember_me_cookie', 'steps' => ['passwordChange', 'history'], 'history' => ['cookie', true], 'passwordChange' => 'redirect', 'interactive' => null, 'presented' => 'basic'],
 		];
 	}
 
 	/**
 	 * @param array{event: string, password?: ?string, method?: string, path?: string, authorization?: string, basic?: array{string, string}, cookie?: bool} $login
-	 * @param array{steps: list<string>, history: array{?string, bool}, passwordChange: ?string, interactive: ?string, presented: ?string} $expected
+	 * @param array{kind: string, steps: list<string>, history: array{?string, bool}, passwordChange: ?string, interactive: ?string, presented: ?string} $expected
 	 */
 	#[DataProvider('logins')]
 	public function testEachKindOfLogin(array $login, array $expected): void {
 		$event = $this->prepare($login);
+		$kind = $this->classifier()->classify($event);
 		$this->assertSame($expected, [
+			'kind' => $kind->value,
 			'steps' => $this->steps($event),
 			'history' => $this->historyMethod($event),
 			'passwordChange' => $this->passwordChangeMode($event),
-			'interactive' => $event instanceof UserLoggedInEvent ? (new InteractiveLogin($this->request()))->kind($event) : null,
+			'interactive' => match ($kind) {
+				LoginKind::FormPassword => 'form',
+				LoginKind::ClientPassword => 'client',
+				LoginKind::OtherPassword => 'other',
+				default => null,
+			},
 			'presented' => PresentedCredential::fromRequest($this->request(), self::COOKIE)?->scheme,
 		]);
 	}
@@ -228,7 +236,7 @@ class LoginKindTest extends TestCase {
 		$gate->method('isFirst')->willReturn(true);
 		$hotState = $this->createMock(HotState::class);
 		$hotState->method('stepUpSessionsUntil')->willReturnCallback(fn (): int => $this->sessionsUntil);
-		(new LoginListener($this->settings(), $hotState, new RequestContext(), $addresses, $gate, $this->request(), $this->time(), $container, $this->createMock(LoggerInterface::class)))->handle($event);
+		(new LoginListener($this->settings(), $hotState, new RequestContext(), $addresses, $gate, $this->classifier(), $this->time(), $container, $this->createMock(LoggerInterface::class)))->handle($event);
 		return $built;
 	}
 
@@ -251,7 +259,7 @@ class LoginKindTest extends TestCase {
 			LoginHistory::class => $history,
 			default => $this->createMock($class),
 		});
-		(new LoginHistoryListener($this->settings(), new InteractiveLogin($this->request()), $addresses, $this->request(), $container, $this->createMock(LoggerInterface::class)))->handle($event);
+		(new LoginHistoryListener($this->settings(), $this->classifier(), $addresses, $this->request(), $container, $this->createMock(LoggerInterface::class)))->handle($event);
 		return $recorded;
 	}
 
@@ -267,9 +275,13 @@ class LoginKindTest extends TestCase {
 			$stored[$key] = $value;
 		});
 		$state = new SessionState($session, $this->createMock(LoggerInterface::class));
-		(new PasswordChangeLoginListener($this->settings(), $passwords, $state, $this->request(), new InteractiveLogin($this->request()), $this->createMock(LoggerInterface::class)))->handle($event);
+		(new PasswordChangeLoginListener($this->settings(), $passwords, $state, $this->classifier(), $this->createMock(LoggerInterface::class)))->handle($event);
 		$marker = $state->get(SessionState::PASSWORD_CHANGE);
 		return is_string($marker['mode'] ?? null) ? $marker['mode'] : null;
+	}
+
+	private function classifier(): LoginClassifier {
+		return new LoginClassifier($this->request(), new RequestContext());
 	}
 
 	private function settings(): AppSettings {

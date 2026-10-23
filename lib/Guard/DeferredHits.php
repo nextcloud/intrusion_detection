@@ -11,6 +11,8 @@ namespace OCA\IntrusionDetection\Guard;
 
 use OCA\IntrusionDetection\Check\Checks\InjectionProbe\PayloadResponder;
 use OCA\IntrusionDetection\Check\Checks\TrapUrl\TrapResponder;
+use OCA\IntrusionDetection\Login\IDeferredResponder;
+use OCA\IntrusionDetection\Login\RequestContext;
 use OCP\IUser;
 use OCP\Security\Guard\GuardDecision;
 use Psr\Container\ContainerInterface;

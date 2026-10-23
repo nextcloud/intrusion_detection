@@ -14,12 +14,13 @@ use OCA\IntrusionDetection\Confirm\StepUpState;
 use OCA\IntrusionDetection\Db\IPurges;
 use OCA\IntrusionDetection\Db\KeyMatch;
 use OCA\IntrusionDetection\KnownDevice\KnownDevice;
+use OCA\IntrusionDetection\Login\CoreSession;
 use OCA\IntrusionDetection\Login\LoginGate;
+use OCA\IntrusionDetection\Login\LoginKind;
 use OCA\IntrusionDetection\LoginHistory\Db\LoginHistoryMapper;
 use OCA\IntrusionDetection\Net\SourceKey;
 use OCA\IntrusionDetection\Notification\UserMessages;
 use OCA\IntrusionDetection\Response\IAcceptedLogins;
-use OCA\IntrusionDetection\SessionState\CurrentSession;
 use OCA\IntrusionDetection\SessionState\SessionState;
 use OCP\AppFramework\Utility\ITimeFactory;
 
@@ -83,11 +84,29 @@ class LoginHistory implements IAcceptedLogins, IPurges {
 	public function __construct(
 		private readonly LoginHistoryMapper $mapper,
 		private readonly SessionState $state,
-		private readonly CurrentSession $currentSession,
+		private readonly CoreSession $coreSession,
 		private readonly LoginGate $gate,
 		private readonly ITimeFactory $timeFactory,
 		private readonly AppSettings $settings,
 	) {
+	}
+
+	/**
+	 * The method a kind of login is recorded with, or null for a browser
+	 * session restored from its token, which is no new login.
+	 *
+	 * @return ?self::METHOD_*
+	 */
+	public static function methodOf(LoginKind $kind): ?string {
+		return match ($kind) {
+			LoginKind::FormPassword => self::METHOD_PASSWORD,
+			LoginKind::ClientPassword => self::METHOD_CLIENT_PASSWORD,
+			LoginKind::OtherPassword, LoginKind::Sso => self::METHOD_SSO,
+			LoginKind::AppPasswordBasic => self::METHOD_APP_PASSWORD,
+			LoginKind::Bearer => self::METHOD_TOKEN,
+			LoginKind::RememberMeCookie => self::METHOD_COOKIE,
+			LoginKind::RestoredSession => null,
+		};
 	}
 
 	/**
@@ -107,7 +126,7 @@ class LoginHistory implements IAcceptedLogins, IPurges {
 	 */
 	public function record(string $uid, string $method, ?SourceKey $source, ?string $userAgent, ?KnownDevice $device, bool $browser): ?int {
 		$now = $this->timeFactory->getTime();
-		$tokenId = $browser ? null : $this->gate->tokenId();
+		$tokenId = $browser ? null : $this->coreSession->loginTokenId();
 		if (!$browser && !$this->passesGate($uid, $method, $tokenId, $source, $now)) {
 			return null;
 		}
@@ -161,7 +180,7 @@ class LoginHistory implements IAcceptedLogins, IPurges {
 	public function link(array $marker, ?string $currentUid): void {
 		$uid = $marker['uid'] ?? null;
 		$id = $marker['id'] ?? null;
-		$tokenId = is_string($uid) && is_int($id) && $uid === $currentUid ? $this->currentSession->tokenId() : null;
+		$tokenId = is_string($uid) && is_int($id) && $uid === $currentUid ? $this->coreSession->tokenId() : null;
 		if ($tokenId !== null) {
 			$this->mapper->setSessionToken($id, (string)$uid, $tokenId);
 		}
@@ -236,7 +255,7 @@ class LoginHistory implements IAcceptedLogins, IPurges {
 		if ($marker !== null) {
 			return ($marker['uid'] ?? null) === $uid && is_int($marker['id'] ?? null) ? $marker['id'] : null;
 		}
-		$tokenId = $this->currentSession->tokenId();
+		$tokenId = $this->coreSession->tokenId();
 		return $tokenId === null ? null : $this->mapper->idForSessionToken($uid, $tokenId, $this->timeFactory->getTime() - self::SESSION_LOOKBACK);
 	}
 

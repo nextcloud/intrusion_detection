@@ -16,17 +16,16 @@ use OCA\IntrusionDetection\Check\Checks\StepUpRefusedClient\StepUpRefusedClient;
 use OCA\IntrusionDetection\Check\Checks\StepUpUnconfirmed\StepUpUnconfirmed;
 use OCA\IntrusionDetection\Db\Detection;
 use OCA\IntrusionDetection\Detection\DetectionDraft;
+use OCA\IntrusionDetection\Login\CoreSession;
 use OCA\IntrusionDetection\Login\LoginContext;
 use OCA\IntrusionDetection\LoginHistory\LoginHistory;
 use OCA\IntrusionDetection\Net\RemoteAddressResolver;
 use OCA\IntrusionDetection\Net\SourceKey;
 use OCA\IntrusionDetection\Response\ResponseEngine;
-use OCA\IntrusionDetection\SessionState\CurrentSession;
 use OCA\IntrusionDetection\SessionState\Rules\StepUpRule;
 use OCA\IntrusionDetection\SessionState\SessionState;
 use OCP\AppFramework\Utility\ITimeFactory;
 use OCP\IRequest;
-use OCP\ISession;
 use OCP\IUserSession;
 use Psr\Log\LoggerInterface;
 
@@ -81,12 +80,11 @@ class StepUpService {
 
 	public function __construct(
 		private readonly SessionState $state,
-		private readonly ISession $session,
 		private readonly IUserSession $userSession,
 		private readonly ConfirmationPolicy $policy,
 		private readonly ResponseEngine $engine,
 		private readonly UnconfirmedSessions $unconfirmed,
-		private readonly CurrentSession $currentSession,
+		private readonly CoreSession $coreSession,
 		private readonly RemoteAddressResolver $addresses,
 		private readonly ITimeFactory $timeFactory,
 		private readonly AuditLogger $audit,
@@ -249,7 +247,7 @@ class StepUpService {
 	 */
 	public function fail(StepUpState $stepUp, string $rule): ?Detection {
 		$sessionId = $this->sessionId();
-		$sessionTokenId = $this->currentSession->tokenId();
+		$sessionTokenId = $this->coreSession->tokenId();
 		$source = $this->addresses->current() ?? ($stepUp->ip === null ? null : SourceKey::tryFromIp($stepUp->ip));
 		$draft = new DetectionDraft(
 			checkId: StepUpFailed::ID,
@@ -396,11 +394,7 @@ class StepUpService {
 	}
 
 	private function sessionId(): string {
-		try {
-			return $this->session->getId();
-		} catch (\Throwable) {
-			return '';
-		}
+		return $this->coreSession->sessionId() ?? '';
 	}
 
 	/**

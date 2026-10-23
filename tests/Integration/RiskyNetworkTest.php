@@ -31,7 +31,7 @@ use OCA\IntrusionDetection\Db\AttemptMapper;
 use OCA\IntrusionDetection\Db\DetectionMapper;
 use OCA\IntrusionDetection\Definition\Mode;
 use OCA\IntrusionDetection\Definition\ResponseType;
-use OCA\IntrusionDetection\Guard\RequestContext;
+use OCA\IntrusionDetection\Login\RequestContext;
 use OCA\IntrusionDetection\Net\SourceKey;
 use OCA\IntrusionDetection\Notification\UserAlerts;
 use OCA\IntrusionDetection\Response\FlaggedSources;
@@ -102,7 +102,7 @@ class RiskyNetworkTest extends StepUpTestCase {
 	}
 
 	public function testWithoutANetworkListNothingHappens(): void {
-		$this->context->setVerdict(new Verdict());
+		$this->context->set(Verdict::CONTEXT_KEY, new Verdict());
 		$this->login($this->alice);
 		$this->assertNull($this->stepUp());
 		$this->assertSame([], $this->detectionsOf(RiskyNetwork::ID));
@@ -283,7 +283,7 @@ class RiskyNetworkTest extends StepUpTestCase {
 		$this->settingsEditor()->setGlobal(GlobalSettings::RISK_ENABLED, true);
 		Server::get(FlaggedSources::class)->flagAttackTool(SourceKey::fromIp($this->remoteAddress), 'hydra');
 		Server::get(FlaggedSources::class)->flagNetwork(SourceKey::fromIp($this->remoteAddress), FlaggedSources::REASON_USER_DENIED);
-		$this->context->setVerdict(new Verdict());
+		$this->context->set(Verdict::CONTEXT_KEY, new Verdict());
 		$bob = $this->user('ids-risky-high', null);
 		$this->login($bob);
 		$this->assertSame(StepUpState::REFUSED, $this->stepUp()?->status);
@@ -305,7 +305,7 @@ class RiskyNetworkTest extends StepUpTestCase {
 	 * @param list<string> $attributes
 	 */
 	private function network(array $attributes): void {
-		$this->context->setVerdict(new Verdict(0, '', $attributes));
+		$this->context->set(Verdict::CONTEXT_KEY, new Verdict(0, '', $attributes));
 	}
 
 	#[\Override]

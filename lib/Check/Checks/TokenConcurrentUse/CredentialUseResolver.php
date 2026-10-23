@@ -10,15 +10,14 @@ declare(strict_types=1);
 namespace OCA\IntrusionDetection\Check\Checks\TokenConcurrentUse;
 
 use OCA\IntrusionDetection\Crypto\Fingerprinter;
-use OCA\IntrusionDetection\Guard\RequestContext;
+use OCA\IntrusionDetection\Login\CoreSession;
+use OCA\IntrusionDetection\Login\RequestContext;
 use OCA\IntrusionDetection\Net\RemoteAddressResolver;
 use OCA\IntrusionDetection\Net\SourceKey;
-use OCA\IntrusionDetection\SessionState\CurrentSession;
 use OCA\IntrusionDetection\Signal\SignalDispatcher;
 use OCP\AppFramework\Utility\ITimeFactory;
 use OCP\IConfig;
 use OCP\IRequest;
-use OCP\ISession;
 use OCP\IUser;
 use OCP\IUserSession;
 use Psr\Container\ContainerInterface;
@@ -52,9 +51,6 @@ use Psr\Log\LoggerInterface;
  */
 class CredentialUseResolver {
 	public const CONTEXT_KEY = TokenConcurrentUse::ID . '.use';
-	/** Where core keeps the app password a session logged in with, and its token id */
-	private const APP_PASSWORD_KEY = 'app_password';
-	private const TOKEN_ID_KEY = 'token-id';
 
 	public function __construct(
 		private readonly RequestContext $context,
@@ -118,9 +114,8 @@ class CredentialUseResolver {
 			$use->resolved = true;
 			return;
 		}
-		$session = $this->container->get(ISession::class);
-		$appPassword = $session->get(self::APP_PASSWORD_KEY);
-		$appPassword = is_string($appPassword) && $appPassword !== '' ? $appPassword : null;
+		$session = $this->container->get(CoreSession::class);
+		$appPassword = $session->appPassword();
 		$verified = $this->verify($use, $credential, $session, $user, $appPassword);
 		if ($verified === null && !$final) {
 			return;
@@ -139,9 +134,9 @@ class CredentialUseResolver {
 	/**
 	 * @return ?bool null while it cannot be told yet
 	 */
-	private function verify(CredentialUse $use, PresentedCredential $credential, ISession $session, IUser $user, #[\SensitiveParameter] ?string $appPassword): ?bool {
+	private function verify(CredentialUse $use, PresentedCredential $credential, CoreSession $session, IUser $user, #[\SensitiveParameter] ?string $appPassword): ?bool {
 		return match ($credential->scheme) {
-			PresentedCredential::SCHEME_SESSION => $credential->matches($this->sessionId($session)),
+			PresentedCredential::SCHEME_SESSION => $credential->matches($session->sessionId()),
 			PresentedCredential::SCHEME_BEARER => $appPassword === null ? null : $credential->matches($appPassword),
 			default => match (true) {
 				$appPassword !== null => $credential->matches($appPassword),
@@ -156,12 +151,12 @@ class CredentialUseResolver {
 	 * The request sent an Authorization header that did not log it in, and
 	 * its session cookie did: track the cookie.
 	 */
-	private function trackSessionCookie(CredentialUse $use, ISession $session, IUser $user): void {
+	private function trackSessionCookie(CredentialUse $use, CoreSession $session, IUser $user): void {
 		if (!$use->hasSessionCookie || $use->scheme === PresentedCredential::SCHEME_SESSION || $use->passwordLoginUid !== null) {
 			return;
 		}
 		$cookie = PresentedCredential::sessionCookieOf($this->request, $this->sessionCookieName());
-		if ($cookie === null || !$cookie->matches($this->sessionId($session))) {
+		if ($cookie === null || !$cookie->matches($session->sessionId())) {
 			return;
 		}
 		$switch = $this->track($cookie->keyMaterial(), $cookie->userTag());
@@ -191,20 +186,19 @@ class CredentialUseResolver {
 	/**
 	 * @param PresentedCredential::SCHEME_* $scheme
 	 */
-	private function record(CredentialSwitch $switch, string $scheme, bool $appPassword, ISession $session, IUser $user): void {
+	private function record(CredentialSwitch $switch, string $scheme, bool $appPassword, CoreSession $session, IUser $user): void {
 		if ($scheme === PresentedCredential::SCHEME_SESSION) {
 			$kind = TokenConcurrentUse::KIND_SESSION;
-			$sessionTokenId = $this->container->get(CurrentSession::class)->tokenId();
+			$sessionTokenId = $session->tokenId();
 			$tokenId = $sessionTokenId;
 		} elseif ($appPassword) {
 			$kind = TokenConcurrentUse::KIND_APP_PASSWORD;
-			$id = $session->get(self::TOKEN_ID_KEY);
-			$tokenId = is_int($id) || (is_string($id) && ctype_digit($id)) ? (int)$id : null;
+			$tokenId = $session->loginTokenId();
 			$sessionTokenId = null;
 		} else {
 			$kind = TokenConcurrentUse::KIND_PASSWORD;
 			$tokenId = null;
-			$sessionTokenId = $this->container->get(CurrentSession::class)->tokenId();
+			$sessionTokenId = $session->tokenId();
 		}
 		$userAgent = $this->request->getHeader('User-Agent');
 		$this->container->get(SignalDispatcher::class)->dispatch(new CredentialSwitched(
@@ -216,14 +210,6 @@ class CredentialUseResolver {
 			$sessionTokenId,
 			$userAgent === '' ? null : $userAgent,
 		));
-	}
-
-	private function sessionId(ISession $session): ?string {
-		try {
-			return $session->getId();
-		} catch (\Throwable) {
-			return null;
-		}
 	}
 
 	private function sessionCookieName(): string {

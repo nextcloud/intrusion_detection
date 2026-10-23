@@ -29,7 +29,8 @@ use OCA\IntrusionDetection\Explain\CheckPresenter;
 use OCA\IntrusionDetection\Explain\NarrativeBuilder;
 use OCA\IntrusionDetection\Listener\BreachedPasswordListener;
 use OCA\IntrusionDetection\Listener\BreachResetListener;
-use OCA\IntrusionDetection\Login\InteractiveLogin;
+use OCA\IntrusionDetection\Login\LoginClassifier;
+use OCA\IntrusionDetection\Login\RequestContext;
 use OCA\IntrusionDetection\Net\RemoteAddressResolver;
 use OCA\IntrusionDetection\Net\ServerAddresses;
 use OCA\IntrusionDetection\Notification\AdminAlerts;
@@ -180,7 +181,7 @@ class BreachedPasswordTest extends IntegrationTestCase {
 		$container = $this->createMock(ContainerInterface::class);
 		$container->method('get')->with(SignalDispatcher::class)->willReturn($dispatcher);
 		$request = $this->request();
-		$listener = new BreachedPasswordListener(new InteractiveLogin($request), $request, $container, $this->logger());
+		$listener = new BreachedPasswordListener(new LoginClassifier($request, new RequestContext()), $request, $container, $this->logger());
 		$listener->handle(new UserLoggedInEvent($this->user, $this->user->getUID(), $password, $tokenLogin));
 		return $dispatcher;
 	}

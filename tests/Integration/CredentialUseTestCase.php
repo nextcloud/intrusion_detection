@@ -17,14 +17,14 @@ use OCA\IntrusionDetection\Check\Checks\TokenConcurrentUse\CredentialUseResolver
 use OCA\IntrusionDetection\Check\Checks\TokenConcurrentUse\TokenConcurrentUseDetector;
 use OCA\IntrusionDetection\Crypto\Fingerprinter;
 use OCA\IntrusionDetection\Guard\CredentialUseGuard;
-use OCA\IntrusionDetection\Guard\RequestContext;
 use OCA\IntrusionDetection\KnownDevice\IKnownDevices;
 use OCA\IntrusionDetection\Listener\CredentialUseLoginListener;
+use OCA\IntrusionDetection\Login\CoreSession;
+use OCA\IntrusionDetection\Login\RequestContext;
 use OCA\IntrusionDetection\Net\RemoteAddressResolver;
 use OCA\IntrusionDetection\Net\ServerAddresses;
 use OCA\IntrusionDetection\Perf\GuardTimer;
 use OCA\IntrusionDetection\Response\Tokens;
-use OCA\IntrusionDetection\SessionState\CurrentSession;
 use OCA\IntrusionDetection\SessionState\RequestTarget;
 use OCA\IntrusionDetection\SessionState\Rules\CredentialUseRule;
 use OCA\IntrusionDetection\SessionState\SessionState;
@@ -118,7 +118,7 @@ abstract class CredentialUseTestCase extends AccountTestCase {
 		$container->services = [
 			IUserSession::class => $this->userSession,
 			ISession::class => $session,
-			CurrentSession::class => new CurrentSession($session, Server::get(IProvider::class), $logger),
+			CoreSession::class => new CoreSession($session, Server::get(IProvider::class), $logger),
 			CredentialTracker::class => $this->tracker,
 			ITimeFactory::class => $time,
 			RemoteAddressResolver::class => new RemoteAddressResolver($request, Server::get(IThrottler::class), Server::get(ServerAddresses::class)),

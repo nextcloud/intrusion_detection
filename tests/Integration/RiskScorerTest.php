@@ -21,7 +21,7 @@ use OCA\IntrusionDetection\Db\AttemptKind;
 use OCA\IntrusionDetection\Db\AttemptMapper;
 use OCA\IntrusionDetection\Db\Detection;
 use OCA\IntrusionDetection\Db\DetectionMapper;
-use OCA\IntrusionDetection\Guard\RequestContext;
+use OCA\IntrusionDetection\Login\RequestContext;
 use OCA\IntrusionDetection\Net\RemoteAddressResolver;
 use OCA\IntrusionDetection\Net\ServerAddresses;
 use OCA\IntrusionDetection\Net\SourceKey;
@@ -74,7 +74,7 @@ class RiskScorerTest extends IntegrationTestCase {
 	}
 
 	public function testNetworkAttributesComeFromTheVerdictOfTheRequest(): void {
-		$this->context->setVerdict(new Verdict(0, '', ['tor', 'net:exits', 'hosting', 'net:aws', 'list:watch']));
+		$this->context->set(Verdict::CONTEXT_KEY, new Verdict(0, '', ['tor', 'net:exits', 'hosting', 'net:aws', 'list:watch']));
 		$risk = $this->scorer()->score(SourceKey::fromIp(self::IP));
 		$this->assertSame([
 			['fact' => RiskAssessment::FACT_TOR, 'points' => 2, 'detail' => null],
@@ -141,7 +141,7 @@ class RiskScorerTest extends IntegrationTestCase {
 
 	public function testAnOfficeNetworkTakesTenPointsOff(): void {
 		$this->settingsEditor()->setGlobal(GlobalSettings::RISKY_NETWORK_OFFICE_NETWORKS, ['198.51.100.0/24']);
-		$this->context->setVerdict(new Verdict(0, '', ['tor', 'hosting']));
+		$this->context->set(Verdict::CONTEXT_KEY, new Verdict(0, '', ['tor', 'hosting']));
 		$risk = $this->scorer()->score(SourceKey::fromIp(self::IP));
 		$this->assertSame(-7, $risk->score);
 		$this->assertSame(['fact' => RiskAssessment::FACT_OFFICE, 'points' => -10, 'detail' => '198.51.100.0/24'], $risk->parts[2]);
@@ -150,7 +150,7 @@ class RiskScorerTest extends IntegrationTestCase {
 
 	public function testTheBoundsWithEveryFactAtOnce(): void {
 		$source = SourceKey::fromIp(self::IP);
-		$this->context->setVerdict(new Verdict(0, '', ['tor', 'hosting', 'list:a', 'list:b']));
+		$this->context->set(Verdict::CONTEXT_KEY, new Verdict(0, '', ['tor', 'hosting', 'list:a', 'list:b']));
 		$this->scorer()->noteFailedLogin($source, 'hydra');
 		$this->detection(TrapUrl::ID, self::IP, time());
 		$this->detection(ReservedName::ID, self::IP, time());
@@ -169,7 +169,7 @@ class RiskScorerTest extends IntegrationTestCase {
 	}
 
 	public function testTheTiersInForceAreKeptWithTheScore(): void {
-		$this->context->setVerdict(new Verdict(0, '', ['tor']));
+		$this->context->set(Verdict::CONTEXT_KEY, new Verdict(0, '', ['tor']));
 		$risk = $this->scorer()->score(SourceKey::fromIp(self::IP));
 		$this->assertSame(2, $risk->score);
 		$this->assertSame(RiskAssessment::TIER_ELEVATED, $risk->tier);
@@ -179,7 +179,7 @@ class RiskScorerTest extends IntegrationTestCase {
 
 	public function testOffItIsNeutralAndAsksNothing(): void {
 		$this->settingsEditor()->setGlobal(GlobalSettings::RISK_ENABLED, false);
-		$this->context->setVerdict(new Verdict(0, '', ['tor']));
+		$this->context->set(Verdict::CONTEXT_KEY, new Verdict(0, '', ['tor']));
 		$source = SourceKey::fromIp(self::IP);
 		$queries = $this->queries();
 		$scorer = $this->scorer();
@@ -203,7 +203,7 @@ class RiskScorerTest extends IntegrationTestCase {
 	}
 
 	public function testLimitsAskForTheScoreOnlyWhenItCanChangeTheOutcome(): void {
-		$this->context->setVerdict(new Verdict(0, '', ['tor', 'hosting']));
+		$this->context->set(Verdict::CONTEXT_KEY, new Verdict(0, '', ['tor', 'hosting']));
 		$source = SourceKey::fromIp(self::IP);
 		$scorer = $this->scorer();
 

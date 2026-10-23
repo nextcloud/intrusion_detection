@@ -16,11 +16,11 @@ use OCA\IntrusionDetection\Db\DetectionFilter;
 use OCA\IntrusionDetection\Db\DetectionMapper;
 use OCA\IntrusionDetection\Guide\SecureAccountOverview;
 use OCA\IntrusionDetection\KnownDevice\DeviceLabel;
+use OCA\IntrusionDetection\Login\CoreSession;
 use OCA\IntrusionDetection\LoginHistory\LoginHistory;
 use OCA\IntrusionDetection\LoginHistory\LoginHistoryEntry;
 use OCA\IntrusionDetection\Notification\UserMessages;
 use OCA\IntrusionDetection\ResponseDefinitions;
-use OCA\IntrusionDetection\SessionState\CurrentSession;
 use OCA\IntrusionDetection\Takeover\Db\SecurityChangeMapper;
 use OCA\IntrusionDetection\WasThisYou\PersonalDetections;
 use OCA\IntrusionDetection\WasThisYou\Questions;
@@ -66,7 +66,7 @@ class PersonalActivity {
 		private readonly SecurityChangeMapper $changes,
 		private readonly FailedLoginStats $failedLogins,
 		private readonly UserMessages $messages,
-		private readonly CurrentSession $currentSession,
+		private readonly CoreSession $coreSession,
 		private readonly AppSettings $settings,
 		private readonly ITimeFactory $timeFactory,
 	) {
@@ -132,7 +132,7 @@ class PersonalActivity {
 		// Older events than the oldest one read may exist.
 		$moreEvents = count($found) >= PersonalDetections::MAX;
 
-		$current = $this->currentSession->tokenId();
+		$current = $this->coreSession->tokenId();
 		$waitedOutBefore = $this->waitedOutBefore();
 		foreach ($this->loginHistory->forUser($uid, $since, null, $limit + 1) as $entry) {
 			$entries[] = [

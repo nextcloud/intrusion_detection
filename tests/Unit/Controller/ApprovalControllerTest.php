@@ -21,6 +21,7 @@ use OCA\IntrusionDetection\Confirm\SessionConfirmation;
 use OCA\IntrusionDetection\Confirm\StepUpState;
 use OCA\IntrusionDetection\Controller\ApprovalController;
 use OCA\IntrusionDetection\Db\Approval;
+use OCA\IntrusionDetection\Login\CoreSession;
 use OCA\IntrusionDetection\SessionState\SessionState;
 use OCP\AppFramework\Http;
 use OCP\AppFramework\Http\Attribute\NoAdminRequired;
@@ -256,7 +257,7 @@ class ApprovalControllerTest extends TestCase {
 		});
 		$phpSession = $this->createMock(ISession::class);
 		$phpSession->method('exists')->willReturnCallback(fn (string $key): bool => $key === 'app_password' && $this->appPassword);
-		$confirmation = new SessionConfirmation($state, $phpSession, $this->createMock(ITimeFactory::class));
+		$confirmation = new SessionConfirmation($state, new CoreSession($phpSession, $this->createMock(\OCP\Authentication\Token\IProvider::class), $this->createMock(LoggerInterface::class)), $this->createMock(ITimeFactory::class));
 		$time = $this->createMock(ITimeFactory::class);
 		$time->method('getTime')->willReturn(self::NOW);
 		return new ApprovalController($this->createMock(IRequest::class), $l, new ActorResolver($session), $session, $service, $confirmation, $this->userManager, $time);

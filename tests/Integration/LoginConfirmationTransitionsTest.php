@@ -21,7 +21,8 @@ use OCA\IntrusionDetection\Db\DetectionFilter;
 use OCA\IntrusionDetection\Db\DetectionMapper;
 use OCA\IntrusionDetection\KnownDevice\KnownDevices;
 use OCA\IntrusionDetection\Listener\LoginHistoryListener;
-use OCA\IntrusionDetection\Login\InteractiveLogin;
+use OCA\IntrusionDetection\Login\LoginClassifier;
+use OCA\IntrusionDetection\Login\RequestContext;
 use OCA\IntrusionDetection\LoginHistory\Db\LoginHistoryMapper;
 use OCA\IntrusionDetection\LoginHistory\LoginHistory;
 use OCA\IntrusionDetection\Net\SourceKey;
@@ -277,7 +278,7 @@ class LoginConfirmationTransitionsTest extends StepUpTestCase {
 	private function historyListener(): LoginHistoryListener {
 		return new LoginHistoryListener(
 			$this->appSettings(),
-			new InteractiveLogin($this->request),
+			new LoginClassifier($this->request, new RequestContext()),
 			$this->addresses(),
 			$this->request,
 			new OverridingContainer([

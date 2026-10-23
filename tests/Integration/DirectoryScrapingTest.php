@@ -33,12 +33,12 @@ use OCA\IntrusionDetection\Definition\ResponseType;
 use OCA\IntrusionDetection\Detection\DetectionService;
 use OCA\IntrusionDetection\Event\TypedEvents;
 use OCA\IntrusionDetection\Explain\NarrativeBuilder;
-use OCA\IntrusionDetection\Guard\RequestContext;
+use OCA\IntrusionDetection\Login\CoreSession;
+use OCA\IntrusionDetection\Login\RequestContext;
 use OCA\IntrusionDetection\Net\RemoteAddressResolver;
 use OCA\IntrusionDetection\Net\ServerAddresses;
 use OCA\IntrusionDetection\Response\ResponseEngine;
 use OCA\IntrusionDetection\Sensitive\DirectoryRoutes;
-use OCA\IntrusionDetection\SessionState\CurrentSession;
 use OCA\IntrusionDetection\SessionState\RequestTarget;
 use OCA\IntrusionDetection\SessionState\Rules\DirectoryScrapingRule;
 use OCA\IntrusionDetection\SessionState\SessionBlock;
@@ -278,9 +278,9 @@ class DirectoryScrapingTest extends IntegrationTestCase {
 		$time = $this->createMock(ITimeFactory::class);
 		$time->method('getTime')->willReturnCallback(fn (): int => $this->now);
 		$context = new RequestContext();
-		$context->setVerdict(new Verdict());
-		$currentSession = $this->createMock(CurrentSession::class);
-		$currentSession->method('tokenId')->willReturn(17);
+		$context->set(Verdict::CONTEXT_KEY, new Verdict());
+		$coreSession = $this->createMock(CoreSession::class);
+		$coreSession->method('tokenId')->willReturn(17);
 		return new DirectoryCounter(
 			$this->appSettings(),
 			$settings,
@@ -299,7 +299,7 @@ class DirectoryScrapingTest extends IntegrationTestCase {
 				),
 				RemoteAddressResolver::class => new RemoteAddressResolver($request, Server::get(IThrottler::class), Server::get(ServerAddresses::class)),
 				IRequest::class => $request,
-				CurrentSession::class => $currentSession,
+				CoreSession::class => $coreSession,
 			]),
 		);
 	}

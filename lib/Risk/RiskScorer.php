@@ -20,7 +20,7 @@ use OCA\IntrusionDetection\Config\AppSettings;
 use OCA\IntrusionDetection\Db\AttemptKind;
 use OCA\IntrusionDetection\Db\AttemptMapper;
 use OCA\IntrusionDetection\Db\DetectionMapper;
-use OCA\IntrusionDetection\Guard\RequestContext;
+use OCA\IntrusionDetection\Login\RequestContext;
 use OCA\IntrusionDetection\Net\RangeCodec;
 use OCA\IntrusionDetection\Net\RemoteAddressResolver;
 use OCA\IntrusionDetection\Net\SourceKey;
@@ -205,7 +205,7 @@ class RiskScorer {
 	 * or a cached one. Never resolved here: that would be a lookup of its own.
 	 */
 	private function verdict(SourceKey $source): ?Verdict {
-		$current = $this->context->verdict();
+		$current = Verdict::of($this->context);
 		if ($current !== null && $this->addresses->current()?->ip === $source->ip) {
 			return $current;
 		}

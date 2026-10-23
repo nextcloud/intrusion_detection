@@ -15,15 +15,15 @@ use OCA\IntrusionDetection\Check\Checks\TokenConcurrentUse\CredentialUseResolver
 use OCA\IntrusionDetection\Config\AppSettings;
 use OCA\IntrusionDetection\Confirm\UnconfirmedSessions;
 use OCA\IntrusionDetection\Guard\DeferredHits;
-use OCA\IntrusionDetection\Guard\RequestContext;
-use OCA\IntrusionDetection\Login\InteractiveLogin;
+use OCA\IntrusionDetection\Login\LoginClassifier;
 use OCA\IntrusionDetection\Login\LoginGate;
+use OCA\IntrusionDetection\Login\LoginKind;
+use OCA\IntrusionDetection\Login\RequestContext;
 use OCA\IntrusionDetection\Net\RemoteAddressResolver;
 use OCA\IntrusionDetection\State\HotState;
 use OCP\AppFramework\Utility\ITimeFactory;
 use OCP\EventDispatcher\Event;
 use OCP\EventDispatcher\IEventListener;
-use OCP\IRequest;
 use OCP\User\Events\UserLoggedInEvent;
 use OCP\User\Events\UserLoggedInWithCookieEvent;
 use Psr\Container\ContainerInterface;
@@ -63,7 +63,7 @@ class LoginListener implements IEventListener {
 		private readonly RequestContext $context,
 		private readonly RemoteAddressResolver $addresses,
 		private readonly LoginGate $gate,
-		private readonly IRequest $request,
+		private readonly LoginClassifier $classifier,
 		private readonly ITimeFactory $timeFactory,
 		private readonly ContainerInterface $container,
 		private readonly LoggerInterface $logger,
@@ -102,16 +102,10 @@ class LoginListener implements IEventListener {
 	 */
 	private function forLogin(UserLoggedInEvent $event): array {
 		$listeners = [];
-		$appClient = false;
-		if (!$event->isTokenLogin()) {
+		$kind = $this->classifier->classify($event);
+		$appClient = $kind === LoginKind::Bearer || $kind === LoginKind::AppPasswordBasic;
+		if (!$event->isTokenLogin() || $this->resumable()) {
 			$listeners[] = StepUpLoginListener::class;
-		} else {
-			// Core takes a Bearer token from the header and an app password from Basic auth;
-			// any other token login is a browser session restored from its own token.
-			$appClient = str_starts_with($this->request->getHeader('Authorization'), 'Bearer ') || InteractiveLogin::hasBasicCredentials();
-			if ($this->resumable()) {
-				$listeners[] = StepUpLoginListener::class;
-			}
 		}
 		$recorded = !$appClient || $this->firstOfTheHour($event);
 		if ($recorded) {

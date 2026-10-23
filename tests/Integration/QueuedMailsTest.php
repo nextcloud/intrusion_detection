@@ -21,6 +21,7 @@ use OCA\IntrusionDetection\Definition\ResponseType;
 use OCA\IntrusionDetection\Detection\DetectionDraft;
 use OCA\IntrusionDetection\Detection\DetectionService;
 use OCA\IntrusionDetection\Event\TypedEvents;
+use OCA\IntrusionDetection\Login\CoreSession;
 use OCA\IntrusionDetection\Net\SourceKey;
 use OCA\IntrusionDetection\Notification\AdminNotices;
 use OCA\IntrusionDetection\Notification\Db\AlertMapper;
@@ -37,7 +38,6 @@ use OCP\BackgroundJob\IJobList;
 use OCP\Config\IUserConfig;
 use OCP\IConfig;
 use OCP\IDateTimeFormatter;
-use OCP\ISession;
 use OCP\IUserManager;
 use OCP\L10N\IFactory;
 use OCP\Mail\IAttachment;
@@ -106,7 +106,7 @@ class QueuedMailsTest extends AccountTestCase {
 			Server::get(IConfig::class),
 			Server::get(ITimeFactory::class),
 			Server::get(UnconfirmedSessions::class),
-			Server::get(ISession::class),
+			Server::get(CoreSession::class),
 			Server::get(IUserConfig::class),
 		);
 		$state = new StepUpState($user->getUID(), StepUpState::PENDING, ['protected_account'], time(), time() + 600, '198.51.100.7');

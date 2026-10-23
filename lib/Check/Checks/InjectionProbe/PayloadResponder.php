@@ -12,9 +12,8 @@ namespace OCA\IntrusionDetection\Check\Checks\InjectionProbe;
 use OCA\IntrusionDetection\Db\Detection;
 use OCA\IntrusionDetection\Definition\ResponseType;
 use OCA\IntrusionDetection\Detection\DetectionDraft;
-use OCA\IntrusionDetection\Guard\DeferredHits;
-use OCA\IntrusionDetection\Guard\IDeferredResponder;
-use OCA\IntrusionDetection\Guard\RequestContext;
+use OCA\IntrusionDetection\Login\IDeferredResponder;
+use OCA\IntrusionDetection\Login\RequestContext;
 use OCA\IntrusionDetection\Net\SourceKey;
 use OCA\IntrusionDetection\Response\ResponseEngine;
 use OCP\AppFramework\Utility\ITimeFactory;
@@ -34,7 +33,7 @@ use Psr\Log\LoggerInterface;
  *   hour, in the mode for logged-in users (Observe by default).
  *
  * A hit with credentials waits until the request knows its user
- * ({@see DeferredHits}). A request that never logs in is handled as not
+ * ({@see \OCA\IntrusionDetection\Guard\DeferredHits}). A request that never logs in is handled as not
  * logged in.
  */
 class PayloadResponder implements IDeferredResponder {

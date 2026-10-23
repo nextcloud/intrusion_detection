@@ -222,7 +222,7 @@ class PersonalActivityTest extends PersonalApiTestCase {
 	}
 
 	private function manage(): ManageSummary {
-		return new ManageSummary($this->knownDevices(), Server::get(TrustedNetworks::class), Server::get(Tokens::class), $this->currentSession);
+		return new ManageSummary($this->knownDevices(), Server::get(TrustedNetworks::class), Server::get(Tokens::class), $this->coreSession);
 	}
 
 	private function loginAt(IUser $user, int $at, string $ip): int {

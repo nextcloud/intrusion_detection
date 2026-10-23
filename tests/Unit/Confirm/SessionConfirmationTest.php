@@ -15,8 +15,10 @@ use OC\Session\Memory;
 use OCA\IntrusionDetection\Confirm\SecondFactorSetup;
 use OCA\IntrusionDetection\Confirm\SessionConfirmation;
 use OCA\IntrusionDetection\Confirm\StepUpState;
+use OCA\IntrusionDetection\Login\CoreSession;
 use OCA\IntrusionDetection\SessionState\SessionState;
 use OCP\AppFramework\Utility\ITimeFactory;
+use OCP\Authentication\Token\IProvider as TokenProvider;
 use OCP\Authentication\TwoFactorAuth\IProvider;
 use OCP\IUser;
 use Psr\Log\LoggerInterface;
@@ -112,6 +114,6 @@ class SessionConfirmationTest extends TestCase {
 	}
 
 	private function confirmation(): SessionConfirmation {
-		return new SessionConfirmation($this->state, $this->session, $this->createMock(ITimeFactory::class));
+		return new SessionConfirmation($this->state, new CoreSession($this->session, $this->createMock(TokenProvider::class), $this->createMock(LoggerInterface::class)), $this->createMock(ITimeFactory::class));
 	}
 }

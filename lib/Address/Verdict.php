@@ -9,6 +9,8 @@ declare(strict_types=1);
 
 namespace OCA\IntrusionDetection\Address;
 
+use OCA\IntrusionDetection\Login\RequestContext;
+
 /**
  * What the app knows about one client address: whether it is blocked, and
  * which network attributes it has (hosting, tor, observed blocklist matches).
@@ -16,6 +18,9 @@ namespace OCA\IntrusionDetection\Address;
  * Kept small, because one verdict per address lives in the memory cache.
  */
 final class Verdict {
+	/** The request context key of the verdict a guard resolved in this request */
+	public const CONTEXT_KEY = 'address.verdict';
+
 	/**
 	 * @param int $denyUntil timestamp until which the address is blocked, 0 if it is not
 	 * @param string $reference the block reference shown to the client
@@ -30,6 +35,14 @@ final class Verdict {
 		public readonly int $cacheUntil = 0,
 		public readonly bool $perAddress = false,
 	) {
+	}
+
+	/**
+	 * The address verdict, if a guard resolved it in this request.
+	 */
+	public static function of(RequestContext $context): ?self {
+		$verdict = $context->get(self::CONTEXT_KEY);
+		return $verdict instanceof self ? $verdict : null;
 	}
 
 	public function isDenied(int $now): bool {

@@ -9,7 +9,7 @@ declare(strict_types=1);
 
 namespace OCA\IntrusionDetection\Listener;
 
-use OCA\IntrusionDetection\Login\InteractiveLogin;
+use OCA\IntrusionDetection\Login\LoginClassifier;
 use OCA\IntrusionDetection\Signal\InteractivePasswordLogin;
 use OCA\IntrusionDetection\Signal\SignalDispatcher;
 use OCP\EventDispatcher\Event;
@@ -29,7 +29,7 @@ use Psr\Log\LoggerInterface;
  */
 class BreachedPasswordListener implements IEventListener {
 	public function __construct(
-		private readonly InteractiveLogin $interactive,
+		private readonly LoginClassifier $classifier,
 		private readonly IRequest $request,
 		private readonly ContainerInterface $container,
 		private readonly LoggerInterface $logger,
@@ -42,7 +42,7 @@ class BreachedPasswordListener implements IEventListener {
 			return;
 		}
 		try {
-			if (!$this->interactive->isPasswordLogin($event)) {
+			if (!$this->classifier->classify($event)->typesPassword()) {
 				return;
 			}
 			$this->container->get(SignalDispatcher::class)->dispatch(new InteractivePasswordLogin(

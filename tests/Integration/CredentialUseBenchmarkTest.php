@@ -17,7 +17,7 @@ use OCA\IntrusionDetection\Check\Checks\TokenConcurrentUse\PresentedCredential;
 use OCA\IntrusionDetection\Config\Prerequisites;
 use OCA\IntrusionDetection\Crypto\Fingerprinter;
 use OCA\IntrusionDetection\Guard\CredentialUseGuard;
-use OCA\IntrusionDetection\Guard\RequestContext;
+use OCA\IntrusionDetection\Login\RequestContext;
 use OCA\IntrusionDetection\Net\SourceKey;
 use OCA\IntrusionDetection\Perf\GuardTimer;
 use OCA\IntrusionDetection\Tests\Unit\Cache\FixedCaches;
@@ -103,7 +103,7 @@ class CredentialUseBenchmarkTest extends IntegrationTestCase {
 	 */
 	private function addressGuardRan(): RequestContext {
 		$context = new RequestContext();
-		$context->setVerdict(new Verdict());
+		$context->set(Verdict::CONTEXT_KEY, new Verdict());
 		return $context;
 	}
 

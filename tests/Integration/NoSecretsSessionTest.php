@@ -23,7 +23,8 @@ use OCA\IntrusionDetection\Guide\SecureAccountNotifier;
 use OCA\IntrusionDetection\Http\LocalRedirect;
 use OCA\IntrusionDetection\Listener\AppPasswordCreatedListener;
 use OCA\IntrusionDetection\Listener\PasswordChangeLoginListener;
-use OCA\IntrusionDetection\Login\InteractiveLogin;
+use OCA\IntrusionDetection\Login\LoginClassifier;
+use OCA\IntrusionDetection\Login\RequestContext;
 use OCA\IntrusionDetection\Net\SourceKey;
 use OCA\IntrusionDetection\Notification\Notifier;
 use OCA\IntrusionDetection\Response\FlaggedSources;
@@ -68,10 +69,10 @@ class NoSecretsSessionTest extends AccountTestCase {
 		$request = $this->createMock(IRequest::class);
 		$request->method('getRemoteAddress')->willReturn('198.51.100.7');
 		$request->method('getHeader')->willReturn('');
-		(new AppPasswordCreatedListener($this->appSettings(), Server::get(TokenOriginMapper::class), $this->currentSession, $request, Server::get(ITimeFactory::class), Server::get(LoggerInterface::class)))
+		(new AppPasswordCreatedListener($this->appSettings(), Server::get(TokenOriginMapper::class), $this->coreSession, $request, Server::get(ITimeFactory::class), Server::get(LoggerInterface::class)))
 			->handle(new AppPasswordCreatedEvent($this->tokens->getTokenById($appPassword['id'])));
 
-		$dispatcher = $this->dispatcher([SecondFactorFailedDetector::class => new SecondFactorFailedDetector($this->checkSettings(), Server::get(AttemptRecorder::class), Server::get(AttemptMapper::class), Server::get(FlaggedSources::class), $this->currentSession, $this->session, Server::get(LoggerInterface::class))], $this->engine());
+		$dispatcher = $this->dispatcher([SecondFactorFailedDetector::class => new SecondFactorFailedDetector($this->checkSettings(), Server::get(AttemptRecorder::class), Server::get(AttemptMapper::class), Server::get(FlaggedSources::class), $this->coreSession, $this->session, Server::get(LoggerInterface::class))], $this->engine());
 		for ($i = 0; $i < 3; $i++) {
 			$dispatcher->dispatch(new SecondFactorFailure($user, 'totp', 'TOTP', SourceKey::fromIp('198.51.100.7'), 'Mozilla/5.0 test'));
 		}
@@ -81,7 +82,7 @@ class NoSecretsSessionTest extends AccountTestCase {
 		$this->startSession($user);
 		$state = new SessionState($this->session, Server::get(LoggerInterface::class));
 		$passwords = Server::get(PasswordChangeService::class);
-		(new PasswordChangeLoginListener($this->appSettings(), $passwords, $state, $request, new InteractiveLogin($request), Server::get(LoggerInterface::class)))
+		(new PasswordChangeLoginListener($this->appSettings(), $passwords, $state, new LoginClassifier($request, new RequestContext()), Server::get(LoggerInterface::class)))
 			->handle(new UserLoggedInEvent($user, $user->getUID(), $oldPassword, false));
 		$controller = new PasswordChangeController($request, $this->userSession, Server::get(IUserManager::class), $passwords, $state, Server::get(IURLGenerator::class), Server::get(IFactory::class)->get(Application::APP_ID, 'en'), Server::get(LocalRedirect::class));
 		$controller->change($secrets['wrong password'], $secrets['new password'], $secrets['new password']);

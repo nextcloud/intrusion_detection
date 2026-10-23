@@ -7,31 +7,19 @@ declare(strict_types=1);
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 
-namespace OCA\IntrusionDetection\Guard;
+namespace OCA\IntrusionDetection\Login;
 
-use OCA\IntrusionDetection\Address\Verdict;
 use OCP\Security\Guard\GuardDecision;
 
 /**
- * Facts the request guards found, handed to listeners and middleware later
- * in the same request, so nothing is looked up twice.
+ * Facts the request guards and the login found, handed to listeners and
+ * middleware later in the same request, so nothing is looked up twice.
+ * Each fact is kept under a key its owner declares.
  */
 class RequestContext {
-	private ?Verdict $verdict = null;
 	private ?GuardDecision $decision = null;
 	/** @var array<string, mixed> */
 	private array $facts = [];
-
-	public function setVerdict(Verdict $verdict): void {
-		$this->verdict = $verdict;
-	}
-
-	/**
-	 * The address verdict, if a guard resolved it in this request.
-	 */
-	public function verdict(): ?Verdict {
-		return $this->verdict;
-	}
 
 	/**
 	 * Refuse the rest of the request: a hit of a guard that was decided

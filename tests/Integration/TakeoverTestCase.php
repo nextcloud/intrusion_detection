@@ -177,7 +177,7 @@ abstract class TakeoverTestCase extends AccountTestCase {
 		return new AccountTakeoverDetector(
 			$this->checkSettings(),
 			Server::get(SecurityChangeMapper::class),
-			new RiskyLogins(new OverridingContainer([UnconfirmedLoginSignal::class => new UnconfirmedLoginSignal($this->state, $this->currentSession)]), Server::get(LoggerInterface::class)),
+			new RiskyLogins(new OverridingContainer([UnconfirmedLoginSignal::class => new UnconfirmedLoginSignal($this->state, $this->coreSession)]), Server::get(LoggerInterface::class)),
 			$this->addresses(),
 			Server::get(IUserManager::class),
 			$this->request(),
@@ -191,7 +191,7 @@ abstract class TakeoverTestCase extends AccountTestCase {
 			$this->actors,
 			$this->userSession,
 			Server::get(ResetTracker::class),
-			$this->currentSession,
+			$this->coreSession,
 			$this->addresses(),
 			$this->dispatcher([AccountTakeoverDetector::class => $this->detector()], $this->takeoverEngine()),
 			Server::get(ICrypto::class),

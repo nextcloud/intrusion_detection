@@ -14,13 +14,13 @@ use OCA\IntrusionDetection\Config\AppSettings;
 use OCA\IntrusionDetection\Guide\SecureAccountGuide;
 use OCA\IntrusionDetection\Guide\SecureAccountOverview;
 use OCA\IntrusionDetection\KnownDevice\KnownDevices;
+use OCA\IntrusionDetection\Login\CoreSession;
 use OCA\IntrusionDetection\LoginHistory\LoginHistory;
 use OCA\IntrusionDetection\LoginHistory\LoginHistoryEntry;
 use OCA\IntrusionDetection\Personal\LogOutElsewhere;
 use OCA\IntrusionDetection\Personal\PersonalActivity;
 use OCA\IntrusionDetection\Personal\PersonalOverview;
 use OCA\IntrusionDetection\ResponseDefinitions;
-use OCA\IntrusionDetection\SessionState\CurrentSession;
 use OCA\IntrusionDetection\Takeover\Db\SecurityChangeMapper;
 use OCA\IntrusionDetection\TrustedNetwork\TrustedNetworks;
 use OCA\IntrusionDetection\WasThisYou\AnswerException;
@@ -80,7 +80,7 @@ class PersonalApiController extends OCSController {
 		private readonly IL10N $l,
 		private readonly KnownDevices $knownDevices,
 		private readonly LoginHistory $loginHistory,
-		private readonly CurrentSession $currentSession,
+		private readonly CoreSession $coreSession,
 		private readonly SecureAccountGuide $guide,
 		private readonly SecureAccountOverview $overview,
 		private readonly SecurityChangeMapper $changes,
@@ -242,7 +242,7 @@ class PersonalApiController extends OCSController {
 	public function logins(int $days = 30, int $limit = 100): DataResponse {
 		$this->requirePage();
 		$days = max(1, min($days, $this->settings->retentionDays()));
-		$current = $this->currentSession->tokenId();
+		$current = $this->coreSession->tokenId();
 		$entries = $this->loginHistory->forUser($this->user()->getUID(), $this->timeFactory->getTime() - $days * 86400, null, max(1, min(200, $limit)));
 		$l = $this->l;
 		$waitedOutBefore = $this->activity->waitedOutBefore();
