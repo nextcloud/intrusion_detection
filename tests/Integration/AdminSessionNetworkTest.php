@@ -88,6 +88,20 @@ class AdminSessionNetworkTest extends StepUpTestCase {
 		$this->assertNotNull($this->sessionUser);
 	}
 
+	public function testALoginThatWaitsOutsideReachesItsConfirmation(): void {
+		$this->remoteAddress = self::OUTSIDE;
+		$this->startSession($this->admin);
+		$this->loginWithSteps(new UserLoggedInEvent($this->admin, $this->admin->getUID(), self::PASSWORD, false));
+		$this->assertNotNull($this->stepUp(), 'The login waits for its confirmation');
+
+		$this->assertNull($this->adminRule()->check($this->state, $this->page()), 'The step-up rule decides about a waiting login');
+		$this->assertNotNull($this->sessionUser, 'The session waits for its code');
+
+		$this->verifyController()->confirm('482915');
+		$this->assertNull($this->stepUp());
+		$this->assertNull($this->adminRule()->check($this->state, $this->page()));
+	}
+
 	public function testRemovingTheNetworkEndsTheSessionsItLetIn(): void {
 		$this->startSession($this->admin);
 		$this->loginWithSteps(new UserLoggedInEvent($this->admin, $this->admin->getUID(), self::PASSWORD, false));

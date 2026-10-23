@@ -34,6 +34,9 @@ use OCP\IUserSession;
  * remember-me cookie, and trusted networks that changed since the login,
  * as the networks are read on every request.
  *
+ * A login that still waits for its confirmation, or was refused, is left
+ * to {@see StepUpRule}, which holds it to its verify page.
+ *
  * The rule accepts what confirms a login from outside the networks: the
  * second factor, an emailed code or an approval, and a login let in
  * without a method where the rule's own setting allows that. A remembered
@@ -64,11 +67,15 @@ class AdminNetworkRule implements ISessionStateRule {
 			$state->remove(SessionMarkers::ADMIN_SESSION);
 			return null;
 		}
+		$confirmation = LoginConfirmation::fromMarkers($state->all(), $uid);
+		if ($confirmation->status->isStepUp()) {
+			return null;
+		}
 		$source = $this->addresses->current();
 		if ($source !== null && RangeCodec::firstContaining($this->settings->riskyNetworkOfficeNetworks(), $source) !== null) {
 			return null;
 		}
-		if (self::accepts(LoginConfirmation::fromMarkers($state->all(), $uid))) {
+		if (self::accepts($confirmation)) {
 			return null;
 		}
 		$this->audit->log('session of administrator %s ended: used from %s, outside the trusted networks', ['uid' => $uid, 'ip' => $source?->ip ?? 'an unknown address']);
