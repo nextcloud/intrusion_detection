@@ -5,7 +5,7 @@
 			"reads": {
 				"narrative": [
 					"The account of alice was locked by the owner of the previous email address a***@example.com, with the link Nextcloud had sent there.",
-					"The address was changed to m***@example.org at date:1789996400 from 198.51.100.7.",
+					"The address was changed to m***[@]example[.]org at date:1789996400 from 198.51.100.7.",
 					"The link was used from 203.0.113.5.",
 					"3 sessions and app passwords were ended, and the account was disabled.",
 					"Talk to the user another way than by email before you enable the account again. Then use \"Re-enable and start Secure my account\", which requires a new password at the next login, and correct the email address in the account management if needed."
@@ -40,7 +40,7 @@
 			"reads": {
 				"narrative": [
 					"The account of alice was locked by the owner of the previous email address a***@example.com, with the link Nextcloud had sent there.",
-					"The address was changed to m***@example.org at date:1789999900.",
+					"The address was changed to m***[@]example[.]org at date:1789999900.",
 					"The link was used from 203.0.113.5.",
 					"2 sessions and app passwords were ended, and the account was disabled.",
 					"Talk to the user another way than by email before you enable the account again. Then use \"Re-enable and start Secure my account\", which requires a new password at the next login, and correct the email address in the account management if needed."
@@ -1545,7 +1545,7 @@
 			"detection": {"id": 41, "checkId": "trap_url", "severity": "high", "enforced": true, "ip": "203.0.113.5", "netKey": "4:203.0.113.0/24", "uid": null, "shareId": null, "hits": 5, "createdAt": 1789999700, "lastSeenAt": 1790000000, "actions": [], "explanation": {"v": 1, "check": "trap_url", "mode": {"configured": "protect", "effective": "protect", "reason": null}, "thresholds": [], "facts": {"path": "/wp-login.php", "trap": "/wp-login.php", "method": "GET"}, "first": 1789999700, "last": 1790000000}},
 			"reads": {
 				"narrative": [
-					"The address 203.0.113.5 requested /wp-login.php without being logged in. No Nextcloud client ever requests this path.",
+					"The address 203.0.113.5 requested /wp-login[.]php without being logged in. No Nextcloud client ever requests this path.",
 					"It requested trap paths 5 times between date:1789999700 and time:1790000000."
 				]
 			}

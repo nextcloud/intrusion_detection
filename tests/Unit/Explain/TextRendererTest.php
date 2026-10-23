@@ -77,6 +77,29 @@ class TextRendererTest extends TestCase {
 		$this->assertSame('600 and on', $this->renderer->fill('{window} and {flag}', ['window' => 600, 'flag' => true], self::l()), 'Without a check, only global settings are typed');
 	}
 
+	/**
+	 * @return array<string, array{string, string}>
+	 */
+	public static function texts(): array {
+		return [
+			'a link' => ['/x?go=https://evil.example/pay', '/x?go=https[://]evil[.]example/pay'],
+			'a host without a scheme' => ['call us at www.evil.example', 'call us at www[.]evil[.]example'],
+			'an email address' => ['help@evil.example', 'help[@]evil[.]example'],
+			'a full-width dot' => ['evil．example', 'evil[.]example'],
+			'a file name' => ['/wp-login.php', '/wp-login[.]php'],
+			'a hidden file' => ['/.env', '/.env'],
+			'a version and an address' => ['Mozilla/5.0 from 192.0.2.1', 'Mozilla/5.0 from 192.0.2.1'],
+			'an injection' => ["' UNION SELECT password FROM oc_users--", "' UNION SELECT password FROM oc_users--"],
+			'control and bidi characters' => ["a\u{202E}b\r\nc\x00d", 'a b c d'],
+			'invalid UTF-8' => ["a\xC3(b", 'a?(b'],
+		];
+	}
+
+	#[DataProvider('texts')]
+	public function testTextARequestChoseCannotBecomeALink(string $text, string $shown): void {
+		$this->assertSame($shown, TextRenderer::defused($text));
+	}
+
 	private static function l(): IL10N {
 		return Server::get(IFactory::class)->get('intrusion_detection', 'en');
 	}

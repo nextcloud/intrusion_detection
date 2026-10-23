@@ -27,6 +27,7 @@ use OCA\IntrusionDetection\Definition\Severity;
 use OCA\IntrusionDetection\Explain\DetectionFacts;
 use OCA\IntrusionDetection\Explain\IExplainsDetection;
 use OCA\IntrusionDetection\Explain\IKeepsFromUser;
+use OCA\IntrusionDetection\Explain\TextRenderer;
 use OCP\IL10N;
 
 /**
@@ -118,8 +119,8 @@ final class InjectionProbe implements ICheck, IExplainsDetection, IKeepsFromUser
 		$facts = InjectionProbeFacts::fromArray(DetectionFacts::of($detection)->facts);
 		$where = match ($facts->location) {
 			PayloadHit::LOCATION_PATH => $l->t('the path of the web address'),
-			PayloadHit::LOCATION_FORM => $l->t('the form field "%s"', [$facts->param]),
-			default => $l->t('the parameter "%s" of the web address', [$facts->param]),
+			PayloadHit::LOCATION_FORM => $l->t('the form field "%s"', [TextRenderer::defused($facts->param)]),
+			default => $l->t('the parameter "%s" of the web address', [TextRenderer::defused($facts->param)]),
 		};
 		$listed = [];
 		foreach ($facts->weights as $id => $weight) {
@@ -140,10 +141,10 @@ final class InjectionProbe implements ICheck, IExplainsDetection, IKeepsFromUser
 			default => $l->t('The value matched as it was sent, after URL decoding.'),
 		};
 		if ($facts->excerpt !== '') {
-			$sentences[] = $l->t('The suspicious part read: %s', ['“' . $facts->excerpt . '”']);
+			$sentences[] = $l->t('The suspicious part read: %s', ['“' . TextRenderer::defused($facts->excerpt) . '”']);
 		}
 		if ($facts->otherParams !== []) {
-			$sentences[] = $l->t('These parameters matched as well: %s.', [implode(', ', $facts->otherParams)]);
+			$sentences[] = $l->t('These parameters matched as well: %s.', [implode(', ', array_map(TextRenderer::defused(...), $facts->otherParams))]);
 		}
 		if ($facts->authenticated) {
 			$sentences[] = $l->t('The request came from the logged-in account %s. Check whether this account is being used to probe the server.', [(string)$detection->getUid()]);

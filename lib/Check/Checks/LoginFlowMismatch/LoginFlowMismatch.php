@@ -93,7 +93,7 @@ final class LoginFlowMismatch implements ICheck, IExplainsDetection, IExplainsTo
 		$facts = LoginFlowMismatchFacts::fromArray($stored->facts);
 		$initiator = $facts->initiator ?? '';
 		$granter = $facts->granter;
-		$sentences = [$l->t('The account %1$s approved a login request for the new device "%2$s".', [(string)$detection->getUid(), $facts->client])];
+		$sentences = [$l->t('The account %1$s approved a login request for the new device "%2$s".', [(string)$detection->getUid(), TextRenderer::defused($facts->client)])];
 		$sentences[] = match ($facts->rule) {
 			LoginFlowMismatchRule::InitiatorBlocked => $l->t('The request was started from %1$s, an address that was blocked at that time, and approved from %2$s.', [$initiator, $granter]),
 			LoginFlowMismatchRule::InitiatorFlagged => $l->t('The request was started from %1$s, an address that was marked as attacking at that time, and approved from %2$s.', [$initiator, $granter]),

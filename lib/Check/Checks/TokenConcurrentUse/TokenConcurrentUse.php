@@ -101,7 +101,7 @@ final class TokenConcurrentUse implements ICheck, IExplainsDetection, IExplainsT
 		$uid = (string)$detection->getUid();
 		$ip1 = $facts->ip1;
 		$ip2 = $facts->ip2;
-		$name = $facts->tokenName;
+		$name = TextRenderer::defused($facts->tokenName);
 		$sentences = [match ($facts->kind) {
 			self::KIND_SESSION => $name === ''
 				? $l->t('A logged-in browser session of the account %1$s was used from two different networks at the same time: %2$s and %3$s.', [$uid, $ip1, $ip2])

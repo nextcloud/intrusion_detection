@@ -31,6 +31,7 @@ use OCA\IntrusionDetection\Detection\DetectionDraft;
 use OCA\IntrusionDetection\Explain\DateFormatter;
 use OCA\IntrusionDetection\Explain\DetectionFacts;
 use OCA\IntrusionDetection\Explain\IExplainsDetection;
+use OCA\IntrusionDetection\Explain\TextRenderer;
 use OCA\IntrusionDetection\Net\SourceKey;
 use OCA\IntrusionDetection\Traps\TrapPaths;
 use OCP\IL10N;
@@ -106,7 +107,7 @@ final class TrapUrl implements ICheck, IExplainsDetection, ISimulatable, IValida
 		$facts = TrapUrlFacts::fromArray(DetectionFacts::of($detection)->facts);
 		$sentences = [$l->t('The address %1$s requested %2$s without being logged in. No Nextcloud client ever requests this path.', [
 			(string)$detection->getIp(),
-			$facts->path,
+			TextRenderer::defused($facts->path),
 		])];
 		if ($detection->getHits() > 1) {
 			$sentences[] = $l->n('It requested trap paths %n time between %1$s and %2$s.', 'It requested trap paths %n times between %1$s and %2$s.', $detection->getHits(), [

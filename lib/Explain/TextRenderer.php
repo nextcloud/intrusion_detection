@@ -59,6 +59,22 @@ class TextRenderer {
 	}
 
 	/**
+	 * Text a request chose (a requested path, a parameter and its value, a
+	 * client or session name), as the explanations quote it: printable
+	 * characters only, and nothing a mail client or the notifications could
+	 * turn into a link or an address. "://", "@" and the dots before a
+	 * top-level domain or file extension are bracketed (`evil[.]example`), the way security reports quote such
+	 * text; everything else stays as it was sent.
+	 */
+	public static function defused(string $text): string {
+		$text = mb_scrub($text, 'UTF-8');
+		// Control, format (bidi overrides), private-use and unassigned characters.
+		$text = (string)(preg_replace('/\p{C}+/u', ' ', $text) ?? '');
+		$text = str_replace(['://', '@'], ['[://]', '[@]'], $text);
+		return (string)(preg_replace('/(?<=[\p{L}\p{N}])[.。．｡](?=\p{L}{2})/u', '[.]', $text) ?? '');
+	}
+
+	/**
 	 * A duration in the largest whole unit: "90 seconds", "10 minutes", "4 hours", "7 days".
 	 */
 	public static function duration(int $seconds, IL10N $l): string {

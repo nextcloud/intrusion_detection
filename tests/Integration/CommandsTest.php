@@ -36,7 +36,7 @@ class CommandsTest extends IntegrationTestCase {
 			'password spraying' => ['password_spraying', 'one password was tried against 5 different accounts'],
 			'account under attack' => ['account_under_attack', 'had 10 failed logins from 5 different addresses'],
 			'reserved name' => ['reserved_name', 'tried to log in as "admin"'],
-			'trap url' => ['trap_url', 'requested /wp-login.php'],
+			'trap url' => ['trap_url', 'requested /wp-login[.]php'],
 			'share token guessing' => ['share_bruteforce', 'tried 10 different share links that do not exist'],
 			'reset abuse' => ['reset_probing', 'asked for password resets for 5 different names or email addresses'],
 		];

@@ -26,6 +26,7 @@ use OCA\IntrusionDetection\Explain\DetectionFacts;
 use OCA\IntrusionDetection\Explain\IExplainsDetection;
 use OCA\IntrusionDetection\Explain\IExplainsToUser;
 use OCA\IntrusionDetection\Explain\IHeadlinesDetection;
+use OCA\IntrusionDetection\Explain\TextRenderer;
 use OCA\IntrusionDetection\Explain\UserNotice;
 use OCA\IntrusionDetection\Net\SourceKey;
 use OCP\IL10N;
@@ -129,7 +130,7 @@ final class AccountLocked implements ICheck, IExplainsDetection, IHeadlinesDetec
 		$sentences = [$l->t('The account of %1$s was locked by the owner of the previous email address %2$s, with the link Nextcloud had sent there.', [$uid, $facts->sentTo])];
 		$changedAt = $facts->changedAt ?? 0;
 		if ($changedAt > 0) {
-			$new = $facts->newAddress ?? '';
+			$new = TextRenderer::defused($facts->newAddress ?? '');
 			$ip = $facts->changedFrom ?? '';
 			$sentences[] = match (true) {
 				$new !== '' && $ip !== '' => $l->t('The address was changed to %1$s at %2$s from %3$s.', [$new, $this->dates->dateTime($changedAt), $ip]),
