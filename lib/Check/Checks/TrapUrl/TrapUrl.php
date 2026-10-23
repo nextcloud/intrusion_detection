@@ -25,6 +25,7 @@ use OCA\IntrusionDetection\Definition\ParamText;
 use OCA\IntrusionDetection\Definition\ParamType;
 use OCA\IntrusionDetection\Definition\ResponseType;
 use OCA\IntrusionDetection\Definition\Severity;
+use OCA\IntrusionDetection\Detection\CommonFacts;
 use OCA\IntrusionDetection\Detection\DetectionDraft;
 use OCA\IntrusionDetection\Explain\DateFormatter;
 use OCA\IntrusionDetection\Explain\DetectionFacts;
@@ -100,10 +101,10 @@ final class TrapUrl implements ICheck, IExplainsDetection, ISimulatable, IValida
 
 	#[\Override]
 	public function narrative(Detection $detection, IL10N $l): array {
-		$facts = DetectionFacts::of($detection);
+		$facts = TrapUrlFacts::fromArray(DetectionFacts::of($detection)->facts);
 		$sentences = [$l->t('The address %1$s requested %2$s without being logged in. No Nextcloud client ever requests this path.', [
 			(string)$detection->getIp(),
-			$facts->string('path'),
+			$facts->path,
 		])];
 		if ($detection->getHits() > 1) {
 			$sentences[] = $l->n('It requested trap paths %n time between %1$s and %2$s.', 'It requested trap paths %n times between %1$s and %2$s.', $detection->getHits(), [
@@ -119,7 +120,7 @@ final class TrapUrl implements ICheck, IExplainsDetection, ISimulatable, IValida
 		return new DetectionDraft(
 			checkId: self::ID,
 			source: $source,
-			facts: ['path' => '/wp-login.php', 'trap' => '/wp-login.php', 'simulated' => true],
+			facts: new TrapUrlFacts(path: '/wp-login.php', trap: '/wp-login.php', common: new CommonFacts(simulated: true)),
 			merge: DetectionDraft::MERGE_SOURCE,
 		);
 	}

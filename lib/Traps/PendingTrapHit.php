@@ -9,6 +9,7 @@ declare(strict_types=1);
 
 namespace OCA\IntrusionDetection\Traps;
 
+use OCA\IntrusionDetection\Check\Checks\TrapUrl\TrapUrlFacts;
 use OCA\IntrusionDetection\Net\SourceKey;
 
 /**
@@ -16,12 +17,11 @@ use OCA\IntrusionDetection\Net\SourceKey;
  */
 final class PendingTrapHit {
 	/**
-	 * @param array{path: string, trap: string, method: string} $facts
 	 * @param bool $lure the request is a possible lure ({@see \OCA\IntrusionDetection\Net\FetchMetadata})
 	 */
 	public function __construct(
 		public readonly SourceKey $source,
-		public readonly array $facts,
+		public readonly TrapUrlFacts $facts,
 		public readonly ?string $userAgent,
 		public readonly bool $lure,
 	) {

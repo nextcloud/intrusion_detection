@@ -63,7 +63,7 @@ class BlocklistMatchDetector implements IDetector {
 		return [new DetectionDraft(
 			checkId: BlocklistMatch::ID,
 			source: $source,
-			facts: ['lists' => array_keys($lists), 'listNames' => array_values($lists), 'trigger' => 'failed_login'],
+			facts: new BlocklistMatchFacts(lists: array_map('strval', array_keys($lists)), listNames: array_values($lists), trigger: BlocklistMatchFacts::TRIGGER_FAILED_LOGIN),
 			merge: DetectionDraft::MERGE_SOURCE,
 			mergeWindow: 3600,
 			userAgent: $signal->userAgent,

@@ -23,6 +23,7 @@ use OCA\IntrusionDetection\Definition\ParamText;
 use OCA\IntrusionDetection\Definition\ParamType;
 use OCA\IntrusionDetection\Definition\ResponseType;
 use OCA\IntrusionDetection\Definition\Severity;
+use OCA\IntrusionDetection\Explain\DetectionFacts;
 use OCA\IntrusionDetection\Explain\IExplainsDetection;
 use OCA\IntrusionDetection\Explain\IKeepsFromUser;
 use OCP\IL10N;
@@ -112,18 +113,15 @@ final class InjectionProbe implements ICheck, IExplainsDetection, IKeepsFromUser
 
 	#[\Override]
 	public function narrative(Detection $detection, IL10N $l): array {
-		$explanation = $detection->getExplanationData();
-		$facts = is_array($explanation['facts'] ?? null) ? $explanation['facts'] : [];
-		$param = (string)($facts['param'] ?? '');
-		$where = match ($facts['location'] ?? '') {
+		$facts = InjectionProbeFacts::fromArray(DetectionFacts::of($detection)->facts);
+		$where = match ($facts->location) {
 			PayloadHit::LOCATION_PATH => $l->t('the path of the web address'),
-			PayloadHit::LOCATION_FORM => $l->t('the form field "%s"', [$param]),
-			default => $l->t('the parameter "%s" of the web address', [$param]),
+			PayloadHit::LOCATION_FORM => $l->t('the form field "%s"', [$facts->param]),
+			default => $l->t('the parameter "%s" of the web address', [$facts->param]),
 		};
-		$weights = is_array($facts['weights'] ?? null) ? $facts['weights'] : [];
 		$listed = [];
-		foreach ($weights as $id => $weight) {
-			$listed[] = sprintf('%s (%d)', (string)$id, (int)$weight);
+		foreach ($facts->weights as $id => $weight) {
+			$listed[] = sprintf('%s (%d)', (string)$id, $weight);
 		}
 
 		$sentences = [];
@@ -131,23 +129,21 @@ final class InjectionProbe implements ICheck, IExplainsDetection, IKeepsFromUser
 			(string)($detection->getIp() ?? '?'),
 			$where,
 			$listed === [] ? $l->t('none') : implode(', ', $listed),
-			(string)(int)($facts['weight'] ?? 0),
-			(string)(int)($facts['minWeight'] ?? 0),
+			(string)$facts->weight,
+			(string)$facts->minWeight,
 		]);
-		$sentences[] = match ($facts['encoding'] ?? FormMatch::ENCODING_NONE) {
+		$sentences[] = match ($facts->encoding) {
 			FormMatch::ENCODING_BASE64 => $l->t('The value was hidden in base64; it matched after decoding.'),
 			FormMatch::ENCODING_BASE64_TWICE => $l->t('The value was hidden in base64 twice; it matched after decoding it two times.'),
 			default => $l->t('The value matched as it was sent, after URL decoding.'),
 		};
-		$excerpt = (string)($facts['excerpt'] ?? '');
-		if ($excerpt !== '') {
-			$sentences[] = $l->t('The suspicious part read: %s', ['“' . $excerpt . '”']);
+		if ($facts->excerpt !== '') {
+			$sentences[] = $l->t('The suspicious part read: %s', ['“' . $facts->excerpt . '”']);
 		}
-		$others = is_array($facts['otherParams'] ?? null) ? array_map('strval', $facts['otherParams']) : [];
-		if ($others !== []) {
-			$sentences[] = $l->t('These parameters matched as well: %s.', [implode(', ', $others)]);
+		if ($facts->otherParams !== []) {
+			$sentences[] = $l->t('These parameters matched as well: %s.', [implode(', ', $facts->otherParams)]);
 		}
-		if (($facts['authenticated'] ?? false) === true) {
+		if ($facts->authenticated) {
 			$sentences[] = $l->t('The request came from the logged-in account %s. Check whether this account is being used to probe the server.', [(string)$detection->getUid()]);
 		} else {
 			$sentences[] = $l->t('The request was not logged in.');

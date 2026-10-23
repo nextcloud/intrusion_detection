@@ -67,19 +67,19 @@ final class RiskyNetwork implements ICheck, IExplainsDetection, IExplainsToUser 
 
 	#[\Override]
 	public function narrative(Detection $detection, IL10N $l): array {
-		$facts = DetectionFacts::of($detection);
+		$facts = RiskyNetworkFacts::fromArray(DetectionFacts::of($detection)->facts);
 		$uid = (string)$detection->getUid();
 		$ip = (string)$detection->getIp();
-		$names = $facts->list('listNames');
+		$names = $facts->listNames;
 		$sentences = [];
-		if (in_array('tor', $facts->list('attributes'), true)) {
+		if (in_array('tor', $facts->attributes, true)) {
 			$sentences[] = $l->t('The account %1$s logged in with its password from %2$s, a Tor exit node.', [$uid, $ip]);
 		} elseif ($names !== []) {
 			$sentences[] = $l->t('The account %1$s logged in with its password from %2$s, an address of a cloud or hosting provider (%3$s).', [$uid, $ip, implode(', ', $names)]);
 		} else {
 			$sentences[] = $l->t('The account %1$s logged in with its password from %2$s, an address of a cloud or hosting provider.', [$uid, $ip]);
 		}
-		if ($facts->bool('client')) {
+		if ($facts->client) {
 			$sentences[] = $l->t('It was an app or a script that sends the password with its requests, not the login page.');
 		}
 		$sentences[] = $l->t('Such logins are suspicious, not proof of an attack: attackers often use rented servers or Tor, but so do some VPNs.');
@@ -91,12 +91,12 @@ final class RiskyNetwork implements ICheck, IExplainsDetection, IExplainsToUser 
 
 	#[\Override]
 	public function userNotice(Detection $detection, IL10N $l): UserNotice {
-		$facts = DetectionFacts::of($detection);
+		$facts = RiskyNetworkFacts::fromArray(DetectionFacts::of($detection)->facts);
 		$ip = (string)$detection->getIp();
 		return new UserNotice(
 			$l->t('Login from a hosting or Tor network'),
 			[
-				in_array('tor', $facts->list('attributes'), true)
+				in_array('tor', $facts->attributes, true)
 					? $l->t('Someone logged in to your account with your password from %s, an address of the Tor network.', [$ip])
 					: $l->t('Someone logged in to your account with your password from %s, an address of a cloud or hosting provider.', [$ip]),
 			],

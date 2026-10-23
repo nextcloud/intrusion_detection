@@ -105,15 +105,15 @@ final class DirectoryScraping implements ICheck, IExplainsDetection, IExplainsTo
 
 	#[\Override]
 	public function narrative(Detection $detection, IL10N $l): array {
-		$facts = DetectionFacts::of($detection);
+		$facts = DirectoryScrapingFacts::fromArray(DetectionFacts::of($detection)->facts);
 		$sentences = [
 			$l->t('The account %1$s made %2$s %3$s within %4$s, from %5$s. The limit at that time was %6$s.', [
 				(string)$detection->getUid(),
-				(string)$facts->int('count'),
-				DirectoryRoutes::label($facts->string('group'), $l),
-				TextRenderer::duration($facts->int('window', self::WINDOW), $l),
+				(string)$facts->count,
+				DirectoryRoutes::label($facts->group, $l),
+				TextRenderer::duration($facts->window, $l),
 				(string)$detection->getIp(),
-				(string)$facts->int('limit'),
+				(string)$facts->limit,
 			]),
 			$l->t('People do not read the directory this fast. The account may be used to copy the list of people on this server, by someone who got into it or by its owner.'),
 		];

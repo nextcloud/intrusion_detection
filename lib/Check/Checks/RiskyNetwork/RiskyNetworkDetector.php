@@ -70,12 +70,12 @@ class RiskyNetworkDetector implements IDetector {
 			checkId: RiskyNetwork::ID,
 			source: $login->source,
 			uid: $login->uid(),
-			facts: [
-				'attributes' => $risky->attributes,
-				'lists' => $risky->lists,
-				'listNames' => $names,
-				'client' => !$login->interactive,
-			],
+			facts: new RiskyNetworkFacts(
+				attributes: $risky->attributes,
+				lists: $risky->lists,
+				listNames: $names,
+				client: !$login->interactive,
+			),
 			merge: DetectionDraft::MERGE_SOURCE_USER,
 			mergeWindow: self::MERGE_WINDOW,
 			userAgent: $login->userAgent,

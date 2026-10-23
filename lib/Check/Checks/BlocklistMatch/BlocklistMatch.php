@@ -21,6 +21,7 @@ use OCA\IntrusionDetection\Definition\DataKind;
 use OCA\IntrusionDetection\Definition\Mode;
 use OCA\IntrusionDetection\Definition\ResponseType;
 use OCA\IntrusionDetection\Definition\Severity;
+use OCA\IntrusionDetection\Explain\DetectionFacts;
 use OCA\IntrusionDetection\Explain\IExplainsDetection;
 use OCA\IntrusionDetection\Explain\TextRenderer;
 use OCP\IL10N;
@@ -78,10 +79,9 @@ final class BlocklistMatch implements ICheck, IExplainsDetection {
 
 	#[\Override]
 	public function narrative(Detection $detection, IL10N $l): array {
-		$facts = $detection->getExplanationData()['facts'] ?? [];
-		$names = is_array($facts) && is_array($facts['listNames'] ?? null) ? array_filter($facts['listNames'], 'is_string') : [];
+		$facts = BlocklistMatchFacts::fromArray(DetectionFacts::of($detection)->facts);
 		$sentences = [
-			$l->t('A login failed from %1$s, an address on these blocklists: %2$s.', [(string)$detection->getIp(), implode(', ', $names)]),
+			$l->t('A login failed from %1$s, an address on these blocklists: %2$s.', [(string)$detection->getIp(), implode(', ', $facts->listNames)]),
 		];
 		if ($detection->getHits() > 1) {
 			$sentences[] = $l->n('It happened %n time.', 'It happened %n times.', $detection->getHits());

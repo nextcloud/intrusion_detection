@@ -12,6 +12,7 @@ namespace OCA\IntrusionDetection\Guard;
 use OCA\IntrusionDetection\AppInfo\Application;
 use OCA\IntrusionDetection\Check\Checks\TrapUrl\TrapResponder;
 use OCA\IntrusionDetection\Check\Checks\TrapUrl\TrapUrl;
+use OCA\IntrusionDetection\Check\Checks\TrapUrl\TrapUrlFacts;
 use OCA\IntrusionDetection\Config\AppSettings;
 use OCA\IntrusionDetection\Config\CheckSettings;
 use OCA\IntrusionDetection\Config\Keys;
@@ -119,11 +120,11 @@ class TrapUrlGuard implements IRequestGuard {
 		}
 		$hit = new PendingTrapHit(
 			$source,
-			facts: [
-				'path' => mb_substr((string)Explanation::cleanUserAgent($path), 0, self::MAX_STORED_PATH),
-				'trap' => $trap,
-				'method' => substr(preg_replace('/[^A-Z]/', '', strtoupper($request->getMethod())) ?? '', 0, 10),
-			],
+			facts: new TrapUrlFacts(
+				path: mb_substr((string)Explanation::cleanUserAgent($path), 0, self::MAX_STORED_PATH),
+				trap: $trap,
+				method: substr(preg_replace('/[^A-Z]/', '', strtoupper($request->getMethod())) ?? '', 0, 10),
+			),
 			userAgent: $request->getHeader('User-Agent'),
 			lure: FetchMetadata::isLure($request),
 		);

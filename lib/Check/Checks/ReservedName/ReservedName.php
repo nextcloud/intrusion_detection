@@ -25,6 +25,7 @@ use OCA\IntrusionDetection\Definition\ParamText;
 use OCA\IntrusionDetection\Definition\ParamType;
 use OCA\IntrusionDetection\Definition\ResponseType;
 use OCA\IntrusionDetection\Definition\Severity;
+use OCA\IntrusionDetection\Detection\CommonFacts;
 use OCA\IntrusionDetection\Detection\DetectionDraft;
 use OCA\IntrusionDetection\Explain\DateFormatter;
 use OCA\IntrusionDetection\Explain\DetectionFacts;
@@ -98,10 +99,10 @@ final class ReservedName implements ICheck, IExplainsDetection, ISimulatable, IV
 
 	#[\Override]
 	public function narrative(Detection $detection, IL10N $l): array {
-		$facts = DetectionFacts::of($detection);
+		$facts = ReservedNameFacts::fromArray(DetectionFacts::of($detection)->facts);
 		$sentences = [$l->t('The address %1$s tried to log in as "%2$s", a reserved name that no account uses.', [
 			(string)$detection->getIp(),
-			$facts->string('name'),
+			$facts->name,
 		])];
 		if ($detection->getHits() > 1) {
 			$sentences[] = $l->n('It tried %n time between %1$s and %2$s.', 'It tried %n times between %1$s and %2$s.', $detection->getHits(), [
@@ -118,7 +119,7 @@ final class ReservedName implements ICheck, IExplainsDetection, ISimulatable, IV
 		return new DetectionDraft(
 			checkId: self::ID,
 			source: $source,
-			facts: ['name' => (string)($names[0] ?? 'admin'), 'simulated' => true],
+			facts: new ReservedNameFacts(name: (string)($names[0] ?? 'admin'), common: new CommonFacts(simulated: true)),
 			merge: DetectionDraft::MERGE_SOURCE,
 		);
 	}

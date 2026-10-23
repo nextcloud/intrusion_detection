@@ -40,7 +40,7 @@ final class SharedAddress implements ICheck {
 		return new DetectionDraft(
 			checkId: self::ID,
 			source: $target,
-			facts: ['users' => $users, 'wantedBy' => $wantedBy] + ($proxy ? ['proxy' => true] : []),
+			facts: new SharedAddressFacts(users: $users, wantedBy: $wantedBy, proxy: $proxy ? true : null),
 			merge: DetectionDraft::MERGE_SOURCE,
 			mergeWindow: 86400,
 		);

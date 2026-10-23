@@ -47,12 +47,12 @@ class DecoyCredentialDetector implements IDetector {
 		return [new DetectionDraft(
 			checkId: DecoyCredential::ID,
 			source: $signal->source,
-			facts: [
-				'decoy' => $decoy->getId(),
-				'label' => $decoy->getLabel(),
-				'format' => $decoy->getFormat(),
-				'match' => $bySecret ? DecoyCredential::MATCH_SECRET : DecoyCredential::MATCH_LOGIN_NAME,
-			],
+			facts: new DecoyCredentialFacts(
+				decoy: $decoy->getId(),
+				label: $decoy->getLabel(),
+				format: $decoy->getFormat(),
+				match: $bySecret ? DecoyCredentialMatch::Secret : DecoyCredentialMatch::LoginName,
+			),
 			severity: $bySecret ? Severity::Critical : Severity::High,
 			merge: DetectionDraft::MERGE_SOURCE,
 			banLevel: $bySecret ? DecoyCredential::BAN_LEVEL : null,

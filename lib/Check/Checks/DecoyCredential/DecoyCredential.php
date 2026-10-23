@@ -34,9 +34,6 @@ use OCP\IL10N;
 final class DecoyCredential implements ICheck, IExplainsDetection {
 	public const ID = 'decoy_credential';
 
-	public const MATCH_SECRET = 'secret';
-	public const MATCH_LOGIN_NAME = 'login_name';
-
 	/** A use of the secret blocks at this escalation level at once */
 	public const BAN_LEVEL = 3;
 
@@ -73,14 +70,14 @@ final class DecoyCredential implements ICheck, IExplainsDetection {
 
 	#[\Override]
 	public function narrative(Detection $detection, IL10N $l): array {
-		$facts = DetectionFacts::of($detection);
-		$sentences = $facts->string('match') === self::MATCH_LOGIN_NAME
+		$facts = DecoyCredentialFacts::fromArray(DetectionFacts::of($detection)->facts);
+		$sentences = $facts->match === DecoyCredentialMatch::LoginName
 			? [
-				$l->t('The address %1$s tried to log in with the account name of the decoy "%2$s", but not with its secret.', [(string)$detection->getIp(), $facts->string('label')]),
+				$l->t('The address %1$s tried to log in with the account name of the decoy "%2$s", but not with its secret.', [(string)$detection->getIp(), $facts->label]),
 				$l->t('Someone has seen where the decoy is planted, or guessed the name. This is a weaker sign than using the secret.'),
 			]
 			: [
-				$l->t('The address %1$s used the decoy credential "%2$s".', [(string)$detection->getIp(), $facts->string('label')]),
+				$l->t('The address %1$s used the decoy credential "%2$s".', [(string)$detection->getIp(), $facts->label]),
 				$l->t('It was planted on purpose and is never used legitimately, so whoever used it found it where it was placed.'),
 			];
 		if ($detection->getHits() > 1) {

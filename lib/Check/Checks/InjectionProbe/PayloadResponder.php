@@ -60,11 +60,10 @@ class PayloadResponder implements IDeferredResponder {
 	 * @return ?GuardDecision the refusal when the address is blocked now
 	 */
 	public function anonymous(PayloadHit $hit, SourceKey $source, ?string $userAgent, ?string $credential = null, bool $lure = false): ?GuardDecision {
-		$facts = $hit->facts() + ['authenticated' => false, 'credential' => $credential];
 		$draft = new DetectionDraft(
 			checkId: InjectionProbe::ID,
 			source: $source,
-			facts: $facts,
+			facts: $hit->facts(false, $credential),
 			merge: DetectionDraft::MERGE_SOURCE,
 			mergeWindow: 3600,
 			userAgent: $userAgent,
@@ -81,12 +80,11 @@ class PayloadResponder implements IDeferredResponder {
 	 * @param bool $lure the request is a possible lure: its address is not blocked
 	 */
 	public function authenticated(PayloadHit $hit, SourceKey $source, string $uid, string $credential, ?string $userAgent, bool $lure = false): ?GuardDecision {
-		$facts = $hit->facts() + ['authenticated' => true, 'credential' => $credential];
 		$draft = new DetectionDraft(
 			checkId: InjectionProbe::ID,
 			source: $source,
 			uid: $uid,
-			facts: $facts,
+			facts: $hit->facts(true, $credential),
 			merge: DetectionDraft::MERGE_SOURCE_USER,
 			mergeWindow: 3600,
 			userAgent: $userAgent,

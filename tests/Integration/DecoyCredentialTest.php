@@ -11,6 +11,8 @@ namespace OCA\IntrusionDetection\Tests\Integration;
 
 use OCA\IntrusionDetection\AppInfo\Application;
 use OCA\IntrusionDetection\Check\Checks\DecoyCredential\DecoyCredential;
+use OCA\IntrusionDetection\Check\Checks\DecoyCredential\DecoyCredentialFacts;
+use OCA\IntrusionDetection\Check\Checks\DecoyCredential\DecoyCredentialMatch;
 use OCA\IntrusionDetection\Config\GlobalSettings;
 use OCA\IntrusionDetection\Crypto\Fingerprinter;
 use OCA\IntrusionDetection\Db\BanMapper;
@@ -79,7 +81,7 @@ class DecoyCredentialTest extends LoginFailureTestCase {
 		$this->assertCount(1, $detections);
 		$this->assertSame('critical', $detections[0]->getSeverity());
 		$this->assertTrue($detections[0]->isEnforced());
-		$this->assertSame('old backup script on nas01', $detections[0]->getExplanationData()['facts']['label']);
+		$this->assertSame('old backup script on nas01', DecoyCredentialFacts::fromArray($detections[0]->getExplanationData()['facts'])->label);
 
 		$ban = $this->bans->findActiveForKeys(['198.51.100.7'], time())[0];
 		$this->assertSame(3, $ban->getLevel());
@@ -116,7 +118,7 @@ class DecoyCredentialTest extends LoginFailureTestCase {
 		$this->failLogin('198.51.100.7', 'Backup-Svc', 'some other password');
 		$detection = $this->detectionsOf(DecoyCredential::ID)[0];
 		$this->assertSame('high', $detection->getSeverity());
-		$this->assertSame(DecoyCredential::MATCH_LOGIN_NAME, $detection->getExplanationData()['facts']['match']);
+		$this->assertSame(DecoyCredentialMatch::LoginName, DecoyCredentialFacts::fromArray($detection->getExplanationData()['facts'])->match);
 		$this->assertSame(1, $this->bans->findActiveForKeys(['198.51.100.7'], time())[0]->getLevel(), 'The usual escalation');
 		$this->assertFalse(array_column($detection->getActionList(), null, 'type')['ban']['ref']['bans'][0]['forced']);
 	}

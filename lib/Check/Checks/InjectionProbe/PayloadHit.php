@@ -43,20 +43,22 @@ final class PayloadHit {
 	/**
 	 * The facts a detection stores (section 16.4 of the concept).
 	 *
-	 * @return array<string, mixed>
+	 * @param ?string $credential what the request carried if it claimed to be logged in, see PendingHit::CREDENTIAL_*
 	 */
-	public function facts(): array {
-		return [
-			'location' => $this->location,
-			'param' => $this->param,
-			'signatures' => array_keys($this->signatures),
-			'weights' => $this->signatures,
-			'weight' => $this->weight,
-			'minWeight' => $this->minWeight,
-			'encoding' => $this->encoding,
-			'excerpt' => $this->excerpt,
-			'otherParams' => $this->otherParams,
-			'signaturesVersion' => Signatures::VERSION,
-		];
+	public function facts(bool $authenticated, ?string $credential): InjectionProbeFacts {
+		return new InjectionProbeFacts(
+			location: $this->location,
+			param: $this->param,
+			signatures: array_map('strval', array_keys($this->signatures)),
+			weights: $this->signatures,
+			weight: $this->weight,
+			minWeight: $this->minWeight,
+			encoding: $this->encoding,
+			excerpt: $this->excerpt,
+			otherParams: $this->otherParams,
+			signaturesVersion: Signatures::VERSION,
+			authenticated: $authenticated,
+			credential: $credential,
+		);
 	}
 }

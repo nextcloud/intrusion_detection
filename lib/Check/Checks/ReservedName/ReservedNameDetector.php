@@ -43,7 +43,7 @@ class ReservedNameDetector implements IDetector {
 		return [new DetectionDraft(
 			checkId: ReservedName::ID,
 			source: $signal->source,
-			facts: ['name' => $name],
+			facts: new ReservedNameFacts(name: $name),
 			merge: DetectionDraft::MERGE_SOURCE,
 			userAgent: $signal->userAgent,
 			final: true,
