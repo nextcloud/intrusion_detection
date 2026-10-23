@@ -60,23 +60,10 @@ use Psr\Log\LoggerInterface;
  * their state.
  */
 class StepUpService {
-	public const NONE = 'none';
-	public const CONFIRMED = 'confirmed';
-	public const PENDING = 'pending';
-	public const REFUSED = 'refused';
-	public const REFUSED_CLIENT = 'refused_client';
-	public const ALLOWED = 'allowed';
 	/** Seconds a login may wait for its confirmation before it is ended */
 	public const SESSION_TTL = 900;
-	/** Outcomes of apps sending the password that may be repeated ({@see self::repeatClient()}) */
-	public const REPEATABLE = [self::NONE, self::REFUSED_CLIENT, self::ALLOWED];
-
-	/** confirmed_by of a login that was allowed without a confirmation */
-	public const CONFIRMED_BY_NONE = 'none';
 	/** Core creates a session token for a Basic auth login only when the client sends this cookie */
 	public const COOKIE_TEST = 'cookie_test';
-	/** In the confirmation of a session that an app sending the password opened while a reason applied */
-	public const CLIENT_ONLY = 'client';
 
 	public function __construct(
 		private readonly SessionState $state,
@@ -99,11 +86,11 @@ class StepUpService {
 	 * Decide a successful password login with these reasons.
 	 *
 	 * @param list<StepUpPolicy> $policies
-	 * @return array{0: self::NONE|self::CONFIRMED|self::PENDING|self::REFUSED|self::REFUSED_CLIENT|self::ALLOWED, 1: list<int>} what happened, and the detections it recorded
+	 * @return array{0: LoginConfirmation, 1: list<int>} the decision, and the detections it recorded
 	 */
 	public function atLogin(LoginContext $login, array $policies): array {
 		if ($policies === []) {
-			return [self::NONE, []];
+			return [LoginConfirmation::none($login->uid()), []];
 		}
 		$uid = $login->uid();
 		$now = $this->timeFactory->getTime();
@@ -132,8 +119,7 @@ class StepUpService {
 			));
 			// Without the cookie, core gives the client no session token: nothing could resume this session.
 			$resumable = $this->request->getCookie(self::COOKIE_TEST) !== null;
-			$this->mark(new StepUpState($uid, StepUpState::REFUSED_CLIENT, $policyIds, $now, 0, $login->source?->ip, detectionId: $detection?->getId()), $resumable);
-			return [self::REFUSED_CLIENT, self::ids($detection)];
+			return [$this->mark(new StepUpState($uid, StepUpState::REFUSED_CLIENT, $policyIds, $now, 0, $login->source?->ip, detectionId: $detection?->getId()), $resumable), self::ids($detection)];
 		}
 
 		$methods = $this->policy->methodsForAll($login->user, $policies);
@@ -142,13 +128,12 @@ class StepUpService {
 			$state->methods = array_map(static fn (IConfirmationMethod $m): string => $m->id(), array_slice($methods, $i));
 			$started = $method->begin($login->user, $state);
 			if ($started === IConfirmationMethod::CONFIRMED) {
-				$this->confirmation($uid, $method->id(), $policyIds);
-				return [self::CONFIRMED, []];
+				return [$this->confirmation(LoginConfirmation::confirmed($uid, $method->id(), $policyIds, $now)), []];
 			}
 			if ($started === IConfirmationMethod::PENDING) {
-				$this->mark($state);
+				$pending = $this->mark($state);
 				$this->audit->log('login of %s needs extra confirmation (%s), with %s', ['uid' => $uid, 'reasons' => implode(', ', $policyIds), 'method' => $method->id()]);
-				return [self::PENDING, []];
+				return [$pending, []];
 			}
 		}
 
@@ -164,7 +149,7 @@ class StepUpService {
 			merge: DetectionDraft::MERGE_SOURCE_USER,
 			userAgent: $login->userAgent,
 		));
-		$this->mark(new StepUpState(
+		$refused = $this->mark(new StepUpState(
 			$uid,
 			StepUpState::REFUSED,
 			$policyIds,
@@ -175,7 +160,7 @@ class StepUpService {
 			detectionId: $detection?->getId(),
 		));
 		$this->audit->log('login of %s refused: it needed extra confirmation (%s), and nothing could confirm it', ['uid' => $uid, 'reasons' => implode(', ', $policyIds)]);
-		return [self::REFUSED, self::ids($detection)];
+		return [$refused, self::ids($detection)];
 	}
 
 	/**
@@ -183,16 +168,16 @@ class StepUpService {
 	 * ago for the same account, password and address, without recording
 	 * it again.
 	 *
-	 * @param self::NONE|self::REFUSED_CLIENT|self::ALLOWED $outcome
+	 * @param ConfirmationStatus::None|ConfirmationStatus::RefusedClient|ConfirmationStatus::AllowedUnconfirmed $outcome
 	 * @param list<string> $policyIds
 	 */
-	public function repeatClient(string $uid, ?SourceKey $source, string $outcome, array $policyIds): void {
-		if ($outcome === self::REFUSED_CLIENT) {
-			$now = $this->timeFactory->getTime();
-			$this->mark(new StepUpState($uid, StepUpState::REFUSED_CLIENT, $policyIds, $now, 0, $source?->ip), $this->request->getCookie(self::COOKIE_TEST) !== null);
-		} elseif ($outcome === self::ALLOWED) {
-			$this->confirmation($uid, self::CONFIRMED_BY_NONE, $policyIds, true);
-		}
+	public function repeatClient(string $uid, ?SourceKey $source, ConfirmationStatus $outcome, array $policyIds): LoginConfirmation {
+		$now = $this->timeFactory->getTime();
+		return match ($outcome) {
+			ConfirmationStatus::RefusedClient => $this->mark(new StepUpState($uid, StepUpState::REFUSED_CLIENT, $policyIds, $now, 0, $source?->ip), $this->request->getCookie(self::COOKIE_TEST) !== null),
+			ConfirmationStatus::AllowedUnconfirmed => $this->confirmation(LoginConfirmation::allowed($uid, $policyIds, $now, true)),
+			default => LoginConfirmation::none($uid),
+		};
 	}
 
 	/**
@@ -219,7 +204,7 @@ class StepUpService {
 	 */
 	public function complete(StepUpState $stepUp, string $method): void {
 		$this->state->remove(SessionState::STEP_UP);
-		$this->confirmation($stepUp->uid, $method, $stepUp->policies);
+		$this->confirmation(LoginConfirmation::confirmed($stepUp->uid, $method, $stepUp->policies, $this->timeFactory->getTime()));
 		$this->unconfirmed->forget($this->sessionId());
 		$this->recordOutcome($stepUp->uid, $method, LoginHistory::STEP_UP_CONFIRMED);
 		$this->audit->log('login of %s confirmed with %s', ['uid' => $stepUp->uid, 'method' => $method]);
@@ -293,13 +278,14 @@ class StepUpService {
 	 *
 	 * @param ?string $previousSessionId the session id it came back from, when core gave it a new one
 	 */
-	public function resumed(string $uid, ?string $previousSessionId = null): void {
+	public function resumed(string $uid, ?string $previousSessionId = null): LoginConfirmation {
 		if ($previousSessionId !== null) {
 			$this->unconfirmed->forget($previousSessionId);
 		}
 		$now = $this->timeFactory->getTime();
-		$this->mark(new StepUpState($uid, StepUpState::RESUMED, [], $now, $now, $this->addresses->current()?->ip));
+		$resumed = $this->mark(new StepUpState($uid, StepUpState::RESUMED, [], $now, $now, $this->addresses->current()?->ip));
 		$this->audit->log('a session of %s whose login was never confirmed came back and is ended', ['uid' => $uid]);
+		return $resumed;
 	}
 
 	/**
@@ -307,7 +293,7 @@ class StepUpService {
 	 * ask for (tell the user and the administrators, require a new password).
 	 *
 	 * @param list<string> $policyIds
-	 * @return array{0: self::ALLOWED, 1: list<int>}
+	 * @return array{0: LoginConfirmation, 1: list<int>}
 	 */
 	private function allow(LoginContext $login, array $policyIds, NoMethodDecision $decision): array {
 		$draft = new DetectionDraft(
@@ -319,9 +305,9 @@ class StepUpService {
 			userAgent: $login->userAgent,
 		);
 		$detection = $this->record($draft);
-		$this->confirmation($login->uid(), self::CONFIRMED_BY_NONE, $policyIds, !$login->interactive);
+		$allowed = $this->confirmation(LoginConfirmation::allowed($login->uid(), $policyIds, $this->timeFactory->getTime(), !$login->interactive));
 		$this->audit->log('login of %s allowed without confirmation (%s)', ['uid' => $login->uid(), 'reasons' => implode(', ', $policyIds)]);
-		return [self::ALLOWED, self::ids($detection)];
+		return [$allowed, self::ids($detection)];
 	}
 
 	/**
@@ -366,31 +352,28 @@ class StepUpService {
 	/**
 	 * @param bool $resumable whether the session could come back without its state, and must be remembered
 	 */
-	private function mark(StepUpState $stepUp, bool $resumable = true): void {
+	private function mark(StepUpState $stepUp, bool $resumable = true): LoginConfirmation {
 		if (!$this->state->set(SessionState::STEP_UP, $stepUp->toArray())) {
 			// Without a writable session the login cannot be held back; the error is logged by the session state.
-			return;
+			return LoginConfirmation::ofStepUp($stepUp);
 		}
 		$sessionId = $this->sessionId();
 		if ($resumable && $sessionId !== '') {
 			$this->unconfirmed->remember($sessionId, $stepUp->uid, $stepUp->isPending() ? $stepUp : null);
 		}
+		return LoginConfirmation::ofStepUp($stepUp);
 	}
 
 	/**
-	 * @param list<string> $policyIds
+	 * A login confirmed, or let in without a confirmation: an app sending
+	 * the password let in so serves apps only ({@see StepUpRule}).
 	 */
-	/**
-	 * @param bool $client an app sending the password was let in without a confirmation: the session serves apps only ({@see StepUpRule})
-	 */
-	private function confirmation(string $uid, string $method, array $policyIds, bool $client = false): void {
-		$this->state->set(SessionState::CONFIRMATION, array_filter([
-			'uid' => $uid,
-			'by' => $method,
-			'policies' => $policyIds,
-			'at' => $this->timeFactory->getTime(),
-			self::CLIENT_ONLY => $client ?: null,
-		], static fn (mixed $v): bool => $v !== null));
+	private function confirmation(LoginConfirmation $confirmation): LoginConfirmation {
+		$marker = $confirmation->toMarker();
+		if ($marker !== null) {
+			$this->state->set($marker[0], $marker[1]);
+		}
+		return $confirmation;
 	}
 
 	private function sessionId(): string {

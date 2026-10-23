@@ -11,12 +11,16 @@ namespace OCA\IntrusionDetection\Tests\Unit\Login;
 
 use OCA\IntrusionDetection\Check\Checks\TokenConcurrentUse\PresentedCredential;
 use OCA\IntrusionDetection\Config\AppSettings;
-use OCA\IntrusionDetection\Listener\BreachedPasswordListener;
-use OCA\IntrusionDetection\Listener\LoginHistoryListener;
+use OCA\IntrusionDetection\Listener\Login\BreachStep;
+use OCA\IntrusionDetection\Listener\Login\HistoryStep;
+use OCA\IntrusionDetection\Listener\Login\ILoginStep;
+use OCA\IntrusionDetection\Listener\Login\KnownDeviceStep;
+use OCA\IntrusionDetection\Listener\Login\LoginFacts;
+use OCA\IntrusionDetection\Listener\Login\NoticeStep;
+use OCA\IntrusionDetection\Listener\Login\PasswordChangeStep;
+use OCA\IntrusionDetection\Listener\Login\RecordStep;
+use OCA\IntrusionDetection\Listener\Login\StepUpStep;
 use OCA\IntrusionDetection\Listener\LoginListener;
-use OCA\IntrusionDetection\Listener\LoginRecordListener;
-use OCA\IntrusionDetection\Listener\PasswordChangeLoginListener;
-use OCA\IntrusionDetection\Listener\StepUpLoginListener;
 use OCA\IntrusionDetection\Login\LoginClassifier;
 use OCA\IntrusionDetection\Login\LoginGate;
 use OCA\IntrusionDetection\Login\LoginKind;
@@ -28,9 +32,8 @@ use OCA\IntrusionDetection\Response\PasswordChangeService;
 use OCA\IntrusionDetection\SessionState\SessionState;
 use OCA\IntrusionDetection\State\HotState;
 use OCA\IntrusionDetection\Tests\BasicAuthServer;
+use OCA\IntrusionDetection\Tests\LoginSteps;
 use OCP\AppFramework\Utility\ITimeFactory;
-use OCP\EventDispatcher\Event;
-use OCP\EventDispatcher\IEventListener;
 use OCP\IRequest;
 use OCP\ISession;
 use OCP\IUser;
@@ -70,14 +73,15 @@ class LoginKindTest extends TestCase {
 	 * @return iterable<string, array{0: array{event: string, password?: ?string, method?: string, path?: string, authorization?: string, basic?: array{string, string}, cookie?: bool}, 1: array{kind: string, steps: list<string>, history: array{?string, bool}, passwordChange: ?string, interactive: ?string, presented: ?string}}>
 	 */
 	public static function logins(): iterable {
-		$browser = ['stepUp', 'record', 'breach', 'passwordChange', 'history'];
+		$browser = ['stepUp', 'record', 'breach', 'passwordChange', 'knownDevice', 'history', 'notice'];
+		$sso = ['record', 'passwordChange', 'knownDevice', 'history', 'notice'];
 		yield 'login form' => [
 			['event' => 'login', 'password' => 'secret'],
 			['kind' => 'form_password', 'steps' => $browser, 'history' => ['password', true], 'passwordChange' => 'redirect', 'interactive' => 'form', 'presented' => null],
 		];
 		yield 'Basic auth with the password' => [
 			['event' => 'login', 'password' => 'secret', 'method' => 'PROPFIND', 'path' => '/files/alice', 'authorization' => 'Basic YWxpY2U6c2VjcmV0', 'basic' => ['alice', 'secret']],
-			['kind' => 'client_password', 'steps' => $browser, 'history' => ['client_password', false], 'passwordChange' => 'refuse', 'interactive' => 'client', 'presented' => 'basic'],
+			['kind' => 'client_password', 'steps' => ['stepUp', 'record', 'passwordChange', 'history'], 'history' => ['client_password', false], 'passwordChange' => 'refuse', 'interactive' => 'client', 'presented' => 'basic'],
 		];
 		yield 'login form with Basic credentials for another password' => [
 			['event' => 'login', 'password' => 'secret', 'basic' => ['alice', 'other']],
@@ -93,11 +97,11 @@ class LoginKindTest extends TestCase {
 		];
 		yield 'passwordless (SSO)' => [
 			['event' => 'login', 'password' => null, 'method' => 'GET', 'path' => '/apps/user_saml/saml/acs'],
-			['kind' => 'sso', 'steps' => $browser, 'history' => ['sso', true], 'passwordChange' => 'redirect', 'interactive' => null, 'presented' => null],
+			['kind' => 'sso', 'steps' => $sso, 'history' => ['sso', true], 'passwordChange' => 'redirect', 'interactive' => null, 'presented' => null],
 		];
 		yield 'passwordless with an empty password (WebAuthn)' => [
 			['event' => 'login', 'password' => ''],
-			['kind' => 'sso', 'steps' => $browser, 'history' => ['sso', true], 'passwordChange' => 'redirect', 'interactive' => null, 'presented' => null],
+			['kind' => 'sso', 'steps' => $sso, 'history' => ['sso', true], 'passwordChange' => 'redirect', 'interactive' => null, 'presented' => null],
 		];
 		yield 'app password over Basic auth' => [
 			['event' => 'token', 'method' => 'PROPFIND', 'path' => '/files/alice', 'authorization' => 'Basic YWxpY2U6YXBw', 'basic' => ['alice', 'app']],
@@ -113,15 +117,15 @@ class LoginKindTest extends TestCase {
 		];
 		yield 'lowercase bearer: core restored the session from its cookie' => [
 			['event' => 'token', 'method' => 'GET', 'path' => '/apps/files/', 'authorization' => 'bearer token', 'cookie' => true],
-			['kind' => 'restored_session', 'steps' => ['record', 'passwordChange', 'history'], 'history' => [null, false], 'passwordChange' => 'redirect', 'interactive' => null, 'presented' => 'bearer'],
+			['kind' => 'restored_session', 'steps' => ['record', 'passwordChange'], 'history' => [null, false], 'passwordChange' => 'redirect', 'interactive' => null, 'presented' => 'bearer'],
 		];
 		yield 'browser session restored from its token' => [
 			['event' => 'token', 'method' => 'GET', 'path' => '/apps/files/', 'cookie' => true],
-			['kind' => 'restored_session', 'steps' => ['record', 'passwordChange', 'history'], 'history' => [null, false], 'passwordChange' => 'redirect', 'interactive' => null, 'presented' => 'session'],
+			['kind' => 'restored_session', 'steps' => ['record', 'passwordChange'], 'history' => [null, false], 'passwordChange' => 'redirect', 'interactive' => null, 'presented' => 'session'],
 		];
 		yield 'a Basic header PHP did not pass on' => [
 			['event' => 'token', 'method' => 'GET', 'path' => '/apps/files/', 'authorization' => 'Basic YWxpY2U6YXBw'],
-			['kind' => 'restored_session', 'steps' => ['record', 'passwordChange', 'history'], 'history' => [null, false], 'passwordChange' => 'redirect', 'interactive' => null, 'presented' => 'basic'],
+			['kind' => 'restored_session', 'steps' => ['record', 'passwordChange'], 'history' => [null, false], 'passwordChange' => 'redirect', 'interactive' => null, 'presented' => 'basic'],
 		];
 		yield 'remember-me cookie' => [
 			['event' => 'cookie', 'method' => 'GET', 'path' => '/apps/files/', 'cookie' => true],
@@ -163,10 +167,10 @@ class LoginKindTest extends TestCase {
 	 * @return iterable<string, array{0: array{event: string, password?: ?string, method?: string, path?: string, authorization?: string, basic?: array{string, string}, cookie?: bool}, 1: list<string>}>
 	 */
 	public static function returningSessions(): iterable {
-		yield 'login form' => [['event' => 'login', 'password' => 'secret'], ['stepUp', 'record', 'breach', 'passwordChange', 'history']];
+		yield 'login form' => [['event' => 'login', 'password' => 'secret'], ['stepUp', 'record', 'breach', 'passwordChange', 'knownDevice', 'history', 'notice']];
 		yield 'app password over Basic auth' => [['event' => 'token', 'method' => 'PROPFIND', 'authorization' => 'Basic YWxpY2U6YXBw', 'basic' => ['alice', 'app']], ['stepUp', 'record', 'history']];
 		yield 'Bearer token' => [['event' => 'token', 'method' => 'GET', 'authorization' => 'Bearer token'], ['stepUp', 'record', 'history']];
-		yield 'browser session restored from its token' => [['event' => 'token', 'method' => 'GET', 'cookie' => true], ['stepUp', 'record', 'passwordChange', 'history']];
+		yield 'browser session restored from its token' => [['event' => 'token', 'method' => 'GET', 'cookie' => true], ['stepUp', 'record', 'passwordChange']];
 		yield 'remember-me cookie' => [['event' => 'cookie', 'method' => 'GET', 'cookie' => true], ['stepUp', 'passwordChange', 'history']];
 	}
 
@@ -209,35 +213,23 @@ class LoginKindTest extends TestCase {
 	}
 
 	/**
-	 * The login steps that run, by name.
+	 * The login steps that apply, by name.
 	 *
 	 * @return list<string>
 	 */
 	private function steps(UserLoggedInEvent|UserLoggedInWithCookieEvent $event): array {
-		$names = [
-			StepUpLoginListener::class => 'stepUp',
-			LoginRecordListener::class => 'record',
-			BreachedPasswordListener::class => 'breach',
-			PasswordChangeLoginListener::class => 'passwordChange',
-			LoginHistoryListener::class => 'history',
-		];
 		$built = [];
-		$container = $this->createMock(ContainerInterface::class);
-		$container->method('get')->willReturnCallback(function (string $class) use (&$built, $names): IEventListener {
-			$built[] = $names[$class] ?? $class;
-			return new class implements IEventListener {
-				public function handle(Event $event): void {
-				}
-			};
-		});
-		$addresses = $this->createMock(RemoteAddressResolver::class);
-		$addresses->method('current')->willReturn(SourceKey::fromIp('203.0.113.5'));
-		$gate = $this->createMock(LoginGate::class);
-		$gate->method('isFirst')->willReturn(true);
-		$hotState = $this->createMock(HotState::class);
-		$hotState->method('stepUpSessionsUntil')->willReturnCallback(fn (): int => $this->sessionsUntil);
-		(new LoginListener($this->settings(), $hotState, new RequestContext(), $addresses, $gate, $this->classifier(), $this->time(), $container, $this->createMock(LoggerInterface::class)))->handle($event);
-		return $built;
+		$this->runLogin($event, [], $built);
+		$names = [
+			StepUpStep::class => 'stepUp',
+			RecordStep::class => 'record',
+			BreachStep::class => 'breach',
+			PasswordChangeStep::class => 'passwordChange',
+			KnownDeviceStep::class => 'knownDevice',
+			HistoryStep::class => 'history',
+			NoticeStep::class => 'notice',
+		];
+		return array_map(static fn (string $class): string => $names[$class] ?? $class, $built);
 	}
 
 	/**
@@ -248,18 +240,12 @@ class LoginKindTest extends TestCase {
 	private function historyMethod(UserLoggedInEvent|UserLoggedInWithCookieEvent $event): array {
 		$recorded = [null, false];
 		$history = $this->createMock(LoginHistory::class);
-		$history->method('record')->willReturnCallback(function (string $uid, string $method, ?SourceKey $source, ?string $userAgent, mixed $device, bool $browser) use (&$recorded): ?int {
+		$history->method('record')->willReturnCallback(function (string $uid, string $method, ?SourceKey $source, ?string $userAgent, bool $knownDevice, bool $browser) use (&$recorded): ?int {
 			$recorded = [$method, $browser];
 			return 1;
 		});
-		$addresses = $this->createMock(RemoteAddressResolver::class);
-		$addresses->method('current')->willReturn(SourceKey::fromIp('203.0.113.5'));
-		$container = $this->createMock(ContainerInterface::class);
-		$container->method('get')->willReturnCallback(fn (string $class): object => match ($class) {
-			LoginHistory::class => $history,
-			default => $this->createMock($class),
-		});
-		(new LoginHistoryListener($this->settings(), $this->classifier(), $addresses, $this->request(), $container, $this->createMock(LoggerInterface::class)))->handle($event);
+		$built = [];
+		$this->runLogin($event, [HistoryStep::class => new HistoryStep($history)], $built);
 		return $recorded;
 	}
 
@@ -275,9 +261,40 @@ class LoginKindTest extends TestCase {
 			$stored[$key] = $value;
 		});
 		$state = new SessionState($session, $this->createMock(LoggerInterface::class));
-		(new PasswordChangeLoginListener($this->settings(), $passwords, $state, $this->classifier(), $this->createMock(LoggerInterface::class)))->handle($event);
+		$built = [];
+		$this->runLogin($event, [PasswordChangeStep::class => new PasswordChangeStep($passwords, $state)], $built);
 		$marker = $state->get(SessionState::PASSWORD_CHANGE);
 		return is_string($marker['mode'] ?? null) ? $marker['mode'] : null;
+	}
+
+	/**
+	 * Run the app's login listener: these steps for real, the others doing nothing.
+	 *
+	 * @param array<class-string<ILoginStep>, ILoginStep> $steps
+	 * @param list<string> $built the steps that applied
+	 * @param-out list<string> $built
+	 */
+	private function runLogin(UserLoggedInEvent|UserLoggedInWithCookieEvent $event, array $steps, array &$built): void {
+		$container = $this->createMock(ContainerInterface::class);
+		$container->method('get')->willReturnCallback(function (string $class) use (&$built, $steps): ILoginStep {
+			$built[] = $class;
+			return $steps[$class] ?? new class implements ILoginStep {
+				public static function appliesTo(LoginFacts $facts): bool {
+					return true;
+				}
+
+				public function handle(LoginFacts $facts): void {
+				}
+			};
+		});
+		$addresses = $this->createMock(RemoteAddressResolver::class);
+		$addresses->method('current')->willReturn(SourceKey::fromIp('203.0.113.5'));
+		$gate = $this->createMock(LoginGate::class);
+		$gate->method('isFirst')->willReturn(true);
+		$hotState = $this->createMock(HotState::class);
+		$hotState->method('stepUpSessionsUntil')->willReturnCallback(fn (): int => $this->sessionsUntil);
+		$context = new RequestContext();
+		(new LoginListener($this->settings(), $hotState, $context, $gate, $this->time(), LoginSteps::withRequest($container, $this->request(), $addresses, $context), $this->createMock(LoggerInterface::class)))->handle($event);
 	}
 
 	private function classifier(): LoginClassifier {

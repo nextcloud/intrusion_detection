@@ -30,7 +30,8 @@ use OCA\IntrusionDetection\Explain\NarrativeBuilder;
 use OCA\IntrusionDetection\Guard\AddressGuard;
 use OCA\IntrusionDetection\Guard\DeferredHits;
 use OCA\IntrusionDetection\Guard\PayloadGuard;
-use OCA\IntrusionDetection\Listener\PayloadLoginListener;
+use OCA\IntrusionDetection\Listener\Login\PayloadStep;
+use OCA\IntrusionDetection\Listener\LoginListener;
 use OCA\IntrusionDetection\Login\RequestContext;
 use OCA\IntrusionDetection\Middleware\PayloadBlockedException;
 use OCA\IntrusionDetection\Middleware\PayloadMiddleware;
@@ -39,6 +40,7 @@ use OCA\IntrusionDetection\Net\ServerAddresses;
 use OCA\IntrusionDetection\Perf\GuardTimer;
 use OCA\IntrusionDetection\Response\ResponseEngine;
 use OCA\IntrusionDetection\Response\ResponseOutcome;
+use OCA\IntrusionDetection\Tests\LoginSteps;
 use OCP\AppFramework\Controller;
 use OCP\AppFramework\Http;
 use OCP\AppFramework\Http\JSONResponse;
@@ -311,8 +313,7 @@ class PayloadGuardTest extends IntegrationTestCase {
 
 	public function testABasicAuthLoginNamesTheUser(): void {
 		$this->decide('/remote.php/dav/files/bob?id=1%20UNION%20SELECT%201', '/remote.php', [], [], ['Authorization' => 'Basic ' . base64_encode('bob:app-password')]);
-		$listener = new PayloadLoginListener($this->context, $this->container(), Server::get(LoggerInterface::class));
-		$listener->handle(new UserLoggedInEvent($this->user('bob'), 'bob', null, false));
+		$this->payloadStep()->handle(new UserLoggedInEvent($this->user('bob'), 'bob', null, false));
 
 		$detection = $this->onlyDetection();
 		$this->assertSame('bob', $detection->getUid());
@@ -323,7 +324,7 @@ class PayloadGuardTest extends IntegrationTestCase {
 	public function testAHitDecidedAtTheLoginIsRefusedBeforeTheController(): void {
 		$this->settingsEditor()->setParam(InjectionProbe::ID, InjectionProbe::PARAM_AUTHENTICATED_MODE, 'protect');
 		$this->decide('/ocs/v2.php/apps/foo?id=1%20UNION%20SELECT%201', '/ocs/v2.php', [], [], ['Authorization' => 'Basic ' . base64_encode('bob:app-password')]);
-		(new PayloadLoginListener($this->context, $this->container(), Server::get(LoggerInterface::class)))
+		$this->payloadStep()
 			->handle(new UserLoggedInEvent($this->user('bob'), 'bob', null, false));
 		$this->assertTrue($this->onlyDetection()->isEnforced());
 
@@ -651,5 +652,12 @@ class PayloadGuardTest extends IntegrationTestCase {
 			$this->db->getQueryBuilder()->delete($table)->executeStatement();
 		}
 		$this->context->set(PayloadResponder::CONTEXT_KEY, null);
+	}
+
+	/**
+	 * The login listener with the step that decides the waiting hits.
+	 */
+	private function payloadStep(): LoginListener {
+		return LoginSteps::listener([PayloadStep::class => new PayloadStep(new DeferredHits($this->context, $this->container()))], $this->appSettings(), $this->createMock(IRequest::class), $this->context);
 	}
 }

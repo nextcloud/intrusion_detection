@@ -22,7 +22,7 @@ use Psr\Container\ContainerInterface;
  * or a trap URL in a request that claims to be logged in. At guard time a
  * cookie or a password only says that the request presents one, so the hit
  * waits until the request knows its user, and is decided at the first of:
- * a successful login ({@see \OCA\IntrusionDetection\Listener\PayloadLoginListener}),
+ * a successful login ({@see \OCA\IntrusionDetection\Listener\Login\PayloadStep}),
  * the start of a controller ({@see \OCA\IntrusionDetection\Middleware\PayloadMiddleware}),
  * the start of a WebDAV method ({@see \OCA\IntrusionDetection\Dav\GuardDecisionPlugin}),
  * or the end of the request. A refusal decided early is kept in the request

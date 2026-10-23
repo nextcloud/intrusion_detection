@@ -18,7 +18,8 @@ use OCA\IntrusionDetection\Check\Checks\TokenConcurrentUse\TokenConcurrentUseDet
 use OCA\IntrusionDetection\Crypto\Fingerprinter;
 use OCA\IntrusionDetection\Guard\CredentialUseGuard;
 use OCA\IntrusionDetection\KnownDevice\IKnownDevices;
-use OCA\IntrusionDetection\Listener\CredentialUseLoginListener;
+use OCA\IntrusionDetection\Listener\Login\CredentialUseStep;
+use OCA\IntrusionDetection\Listener\LoginListener;
 use OCA\IntrusionDetection\Login\CoreSession;
 use OCA\IntrusionDetection\Login\RequestContext;
 use OCA\IntrusionDetection\Net\RemoteAddressResolver;
@@ -29,6 +30,7 @@ use OCA\IntrusionDetection\SessionState\RequestTarget;
 use OCA\IntrusionDetection\SessionState\Rules\CredentialUseRule;
 use OCA\IntrusionDetection\SessionState\SessionState;
 use OCA\IntrusionDetection\Signal\SignalDispatcher;
+use OCA\IntrusionDetection\Tests\LoginSteps;
 use OCA\IntrusionDetection\Tests\Unit\Cache\FixedCaches;
 use OCP\AppFramework\Utility\ITimeFactory;
 use OCP\Authentication\Token\IProvider;
@@ -85,8 +87,8 @@ abstract class CredentialUseTestCase extends AccountTestCase {
 	 *
 	 * @param array<string, string> $server
 	 * @param array<string, string> $cookies
-	 * @param ?\Closure(TestSession, CredentialUseLoginListener): ?IUser $authenticate what core's
-	 *                                                                                 authentication does; returns the logged-in user
+	 * @param ?\Closure(TestSession, LoginListener): ?IUser $authenticate what core's
+	 *                                                                    authentication does; returns the logged-in user
 	 * @param bool $rule whether the request reaches a controller or WebDAV, where the session-state rules run
 	 */
 	protected function send(string $ip, array $server, array $cookies, ?\Closure $authenticate, bool $rule = true): RequestContext {
@@ -128,7 +130,7 @@ abstract class CredentialUseTestCase extends AccountTestCase {
 
 		$this->assertNull($guard->check($request), 'The guard never refuses');
 		if ($authenticate !== null) {
-			$this->sessionUser = $authenticate($session, new CredentialUseLoginListener($context, $container, $logger));
+			$this->sessionUser = $authenticate($session, LoginSteps::listener([CredentialUseStep::class => new CredentialUseStep($container->services[CredentialUseResolver::class])], $this->appSettings(), $request, $context, logger: $logger));
 		}
 		if ($rule && $this->sessionUser !== null) {
 			$rule = new CredentialUseRule($context, $container);
@@ -156,7 +158,7 @@ abstract class CredentialUseTestCase extends AccountTestCase {
 	 * @param array{id: int, secret: string} $token
 	 */
 	protected function appPasswordLogin(IUser $user, array $token): \Closure {
-		return function (TestSession $session, CredentialUseLoginListener $listener) use ($user, $token): IUser {
+		return function (TestSession $session, LoginListener $listener) use ($user, $token): IUser {
 			$session->set('token-id', $token['id']);
 			$this->sessionUser = $user;
 			$listener->handle(new UserLoggedInEvent($user, $user->getUID(), 'A-long-test-password-' . $user->getUID(), true));
@@ -181,7 +183,7 @@ abstract class CredentialUseTestCase extends AccountTestCase {
 	 * A login with the account's password over Basic.
 	 */
 	protected function passwordLogin(IUser $user): \Closure {
-		return function (TestSession $session, CredentialUseLoginListener $listener) use ($user): IUser {
+		return function (TestSession $session, LoginListener $listener) use ($user): IUser {
 			$this->sessionUser = $user;
 			$listener->handle(new UserLoggedInEvent($user, $user->getUID(), 'A-long-test-password-' . $user->getUID(), false));
 			return $user;

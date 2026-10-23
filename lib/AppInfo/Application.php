@@ -30,11 +30,11 @@ use OCA\IntrusionDetection\KnownDevice\KnownDevices;
 use OCA\IntrusionDetection\Listener\AdminChangeListener;
 use OCA\IntrusionDetection\Listener\AppPasswordCreatedListener;
 use OCA\IntrusionDetection\Listener\BreachResetListener;
+use OCA\IntrusionDetection\Listener\ChallengePassedListener;
 use OCA\IntrusionDetection\Listener\FailedLoginListener;
 use OCA\IntrusionDetection\Listener\FirewallExportListener;
 use OCA\IntrusionDetection\Listener\KnownDeviceListener;
 use OCA\IntrusionDetection\Listener\LoginFlowGrantedListener;
-use OCA\IntrusionDetection\Listener\LoginHistoryListener;
 use OCA\IntrusionDetection\Listener\LoginListener;
 use OCA\IntrusionDetection\Listener\PasswordUpdatedListener;
 use OCA\IntrusionDetection\Listener\ResetRequestedListener;
@@ -43,7 +43,6 @@ use OCA\IntrusionDetection\Listener\SecondFactorFailedListener;
 use OCA\IntrusionDetection\Listener\SecureGuideListener;
 use OCA\IntrusionDetection\Listener\SecurityChangeListener;
 use OCA\IntrusionDetection\Listener\ShareAccessFailedListener;
-use OCA\IntrusionDetection\Listener\StepUpChallengePassedListener;
 use OCA\IntrusionDetection\Listener\TrapNamesChangedListener;
 use OCA\IntrusionDetection\Listener\UntrustedSecondFactorListener;
 use OCA\IntrusionDetection\Listener\UserDeletedListener;
@@ -180,10 +179,9 @@ class Application extends App implements IBootstrap {
 		// One listener runs the app's login listeners, each only when the login concerns it.
 		$context->registerEventListener(UserLoggedInEvent::class, LoginListener::class, self::LOGIN_PRIORITY);
 		$context->registerEventListener(UserLoggedInWithCookieEvent::class, LoginListener::class, self::LOGIN_PRIORITY);
-		$context->registerEventListener(TwoFactorProviderChallengePassed::class, StepUpChallengePassedListener::class);
+		$context->registerEventListener(TwoFactorProviderChallengePassed::class, ChallengePassedListener::class);
 		$context->registerEventListener(TwoFactorProviderForUserRegistered::class, UntrustedSecondFactorListener::class);
 		$context->registerEventListener(TwoFactorProviderForUserUnregistered::class, UntrustedSecondFactorListener::class);
-		$context->registerEventListener(TwoFactorProviderChallengePassed::class, LoginHistoryListener::class);
 		$context->registerEventListener(WasThisYouAnsweredEvent::class, KnownDeviceListener::class);
 		$context->registerEventListener(PasswordUpdatedEvent::class, KnownDeviceListener::class);
 		foreach ([BeforePasswordResetEvent::class, PasswordResetEvent::class, UserChangedEvent::class, PasswordUpdatedEvent::class, TwoFactorProviderForUserRegistered::class, TwoFactorProviderForUserUnregistered::class, AppPasswordCreatedEvent::class, LoginFlowV2GrantedEvent::class, TokenInvalidatedEvent::class] as $event) {

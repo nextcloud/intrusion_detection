@@ -255,6 +255,7 @@ class ApprovalControllerTest extends TestCase {
 			SessionState::STEP_UP => $this->stepUp,
 			default => null,
 		});
+		$state->method('all')->willReturnCallback(fn (): array => array_filter([SessionState::CONFIRMATION => $this->confirmation, SessionState::STEP_UP => $this->stepUp], static fn (?array $marker): bool => $marker !== null));
 		$phpSession = $this->createMock(ISession::class);
 		$phpSession->method('exists')->willReturnCallback(fn (string $key): bool => $key === 'app_password' && $this->appPassword);
 		$confirmation = new SessionConfirmation($state, new CoreSession($phpSession, $this->createMock(\OCP\Authentication\Token\IProvider::class), $this->createMock(LoggerInterface::class)), $this->createMock(ITimeFactory::class));

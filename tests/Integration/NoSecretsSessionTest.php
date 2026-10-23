@@ -22,15 +22,14 @@ use OCA\IntrusionDetection\Guide\SecureAccountGuide;
 use OCA\IntrusionDetection\Guide\SecureAccountNotifier;
 use OCA\IntrusionDetection\Http\LocalRedirect;
 use OCA\IntrusionDetection\Listener\AppPasswordCreatedListener;
-use OCA\IntrusionDetection\Listener\PasswordChangeLoginListener;
-use OCA\IntrusionDetection\Login\LoginClassifier;
-use OCA\IntrusionDetection\Login\RequestContext;
+use OCA\IntrusionDetection\Listener\Login\PasswordChangeStep;
 use OCA\IntrusionDetection\Net\SourceKey;
 use OCA\IntrusionDetection\Notification\Notifier;
 use OCA\IntrusionDetection\Response\FlaggedSources;
 use OCA\IntrusionDetection\Response\PasswordChangeService;
 use OCA\IntrusionDetection\SessionState\SessionState;
 use OCA\IntrusionDetection\Signal\SecondFactorFailure;
+use OCA\IntrusionDetection\Tests\LoginSteps;
 use OCP\AppFramework\Utility\ITimeFactory;
 use OCP\Authentication\Events\AppPasswordCreatedEvent;
 use OCP\Authentication\Token\IToken;
@@ -82,7 +81,7 @@ class NoSecretsSessionTest extends AccountTestCase {
 		$this->startSession($user);
 		$state = new SessionState($this->session, Server::get(LoggerInterface::class));
 		$passwords = Server::get(PasswordChangeService::class);
-		(new PasswordChangeLoginListener($this->appSettings(), $passwords, $state, new LoginClassifier($request, new RequestContext()), Server::get(LoggerInterface::class)))
+		LoginSteps::listener([PasswordChangeStep::class => new PasswordChangeStep($passwords, $state)], $this->appSettings(), $request)
 			->handle(new UserLoggedInEvent($user, $user->getUID(), $oldPassword, false));
 		$controller = new PasswordChangeController($request, $this->userSession, Server::get(IUserManager::class), $passwords, $state, Server::get(IURLGenerator::class), Server::get(IFactory::class)->get(Application::APP_ID, 'en'), Server::get(LocalRedirect::class));
 		$controller->change($secrets['wrong password'], $secrets['new password'], $secrets['new password']);

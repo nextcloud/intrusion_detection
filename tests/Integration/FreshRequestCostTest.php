@@ -46,14 +46,17 @@ class FreshRequestCostTest extends IntegrationTestCase {
 	public function testAnAppPasswordRequestLoadsOnlyWhatItUses(): void {
 		$result = $this->runFresh();
 
-		$this->assertNotContains(self::NS . 'Listener\\StepUpLoginListener', $result['afterBoot'], 'registering the app loads no listener for its constants');
+		$this->assertNotContains(self::NS . 'Listener\\LoginListener', $result['afterBoot'], 'registering the app loads no listener for its constants');
 		$this->assertNotContains(self::NS . 'Listener\\AdminChangeListener', $result['afterBoot']);
 		$this->assertNotContains(self::NS . 'Admin\\SetupProblems', $result['afterBoot']);
 
 		$this->assertSame([self::NS . 'Config\\LexiconData'], array_values(array_diff($result['lexicon']['classes'], [self::NS . 'Config\\Lexicon'])), 'the lexicon needs its data only, not the parameter types or key names');
 
-		$listeners = array_values(array_filter($result['firstLogin']['classes'], static fn (string $c): bool => str_starts_with($c, self::NS . 'Listener\\')));
-		$this->assertSame([self::NS . 'Listener\\LoginHistoryListener', self::NS . 'Listener\\LoginListener', self::NS . 'Listener\\LoginRecordListener'], $listeners, 'an app password needs no step-up, breach, password change, probe or credential listener');
+		$listeners = array_values(array_filter($result['firstLogin']['classes'], static fn (string $c): bool => str_starts_with($c, self::NS . 'Listener\\') && !str_starts_with($c, self::NS . 'Listener\\Login\\')));
+		$this->assertSame([self::NS . 'Listener\\LoginListener'], $listeners, 'the login steps are the only other listener code');
+		foreach (['Confirm\\LoginAssessment', 'Signal\\SignalDispatcher', 'Response\\PasswordChangeService', 'Notification\\LoginNotices'] as $service) {
+			$this->assertNotContains(self::NS . $service, $result['firstLogin']['classes'], 'an app password needs no step-up, breach, password change or notice');
+		}
 		$this->assertNotContains(self::NS . 'KnownDevice\\KnownDevices', $result['firstLogin']['classes'], 'an app is no device');
 
 		$this->assertSame([], $result['repeatedLogin']['classes']);

@@ -34,14 +34,6 @@ class SessionConfirmation {
 	public const PASSWORD = 'password';
 	public const PROVEN = 'proven';
 
-	/** The confirmation methods that prove more than the password */
-	public const PROOFS = [
-		IConfirmationMethod::SECOND_FACTOR,
-		IConfirmationMethod::EMAIL_CODE,
-		IConfirmationMethod::ADMIN_APPROVAL,
-		IConfirmationMethod::KNOWN_DEVICE,
-	];
-
 	public function __construct(
 		private readonly SessionState $state,
 		private readonly CoreSession $coreSession,
@@ -94,25 +86,7 @@ class SessionConfirmation {
 	 * @return self::UNCONFIRMED|self::PASSWORD|self::PROVEN
 	 */
 	private function loginLevel(string $uid): string {
-		$stepUp = $this->state->get(SessionState::STEP_UP);
-		if ($stepUp !== null && ($stepUp['uid'] ?? null) === $uid) {
-			return self::UNCONFIRMED;
-		}
-		$confirmation = $this->state->get(SessionState::CONFIRMATION);
-		if ($confirmation !== null && ($confirmation['uid'] ?? null) === $uid) {
-			$by = $confirmation['by'] ?? null;
-			if ($by === StepUpService::CONFIRMED_BY_NONE) {
-				return self::UNCONFIRMED;
-			}
-			if (in_array($by, self::PROOFS, true)) {
-				return self::PROVEN;
-			}
-		}
-		$proof = $this->state->get(SessionState::PROOF);
-		if ($proof !== null && ($proof['uid'] ?? null) === $uid && in_array($proof['by'] ?? null, self::PROOFS, true)) {
-			return self::PROVEN;
-		}
-		return self::PASSWORD;
+		return LoginConfirmation::fromMarkers($this->state->all(), $uid)->level();
 	}
 
 	private function isAppPassword(): bool {

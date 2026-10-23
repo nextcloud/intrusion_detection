@@ -12,6 +12,7 @@ namespace OCA\IntrusionDetection\Tests\Unit\Confirm;
 use OC\Authentication\TwoFactorAuth\Manager;
 use OC\Authentication\TwoFactorAuth\ProviderSet;
 use OC\Session\Memory;
+use OCA\IntrusionDetection\Confirm\LoginConfirmation;
 use OCA\IntrusionDetection\Confirm\SecondFactorSetup;
 use OCA\IntrusionDetection\Confirm\SessionConfirmation;
 use OCA\IntrusionDetection\Confirm\StepUpState;
@@ -76,7 +77,7 @@ class SessionConfirmationTest extends TestCase {
 	}
 
 	public function testAConfirmationOrAProofOfTheLogin(): void {
-		foreach (SessionConfirmation::PROOFS as $by) {
+		foreach (LoginConfirmation::PROOFS as $by) {
 			$this->state->set(SessionState::CONFIRMATION, ['uid' => 'alice', 'by' => $by, 'policies' => [], 'at' => 1]);
 			$this->assertTrue($this->confirmation()->isProven('alice'), $by);
 		}

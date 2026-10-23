@@ -27,10 +27,8 @@ use OCA\IntrusionDetection\Definition\Mode;
 use OCA\IntrusionDetection\Definition\ResponseType;
 use OCA\IntrusionDetection\Explain\CheckPresenter;
 use OCA\IntrusionDetection\Explain\NarrativeBuilder;
-use OCA\IntrusionDetection\Listener\BreachedPasswordListener;
 use OCA\IntrusionDetection\Listener\BreachResetListener;
-use OCA\IntrusionDetection\Login\LoginClassifier;
-use OCA\IntrusionDetection\Login\RequestContext;
+use OCA\IntrusionDetection\Listener\Login\BreachStep;
 use OCA\IntrusionDetection\Net\RemoteAddressResolver;
 use OCA\IntrusionDetection\Net\ServerAddresses;
 use OCA\IntrusionDetection\Notification\AdminAlerts;
@@ -38,6 +36,7 @@ use OCA\IntrusionDetection\Notification\Notifier;
 use OCA\IntrusionDetection\Signal\InteractivePasswordLogin;
 use OCA\IntrusionDetection\Signal\SignalDispatcher;
 use OCA\IntrusionDetection\Tests\BasicAuthServer;
+use OCA\IntrusionDetection\Tests\LoginSteps;
 use OCA\IntrusionDetection\Tests\Unit\Cache\FixedCaches;
 use OCP\AppFramework\Utility\ITimeFactory;
 use OCP\Config\IUserConfig;
@@ -57,7 +56,6 @@ use OCP\User\Events\PasswordUpdatedEvent;
 use OCP\User\Events\UserLoggedInEvent;
 use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\MockObject\MockObject;
-use Psr\Container\ContainerInterface;
 use Psr\Log\AbstractLogger;
 use Psr\Log\LoggerInterface;
 use Symfony\Component\Console\Input\ArrayInput;
@@ -178,10 +176,7 @@ class BreachedPasswordTest extends IntegrationTestCase {
 	 */
 	protected function login(string $password = self::PASSWORD, bool $tokenLogin = false): SignalDispatcher {
 		$dispatcher = $this->dispatcher([BreachedPasswordDetector::class => $this->detector()], logger: $this->logger());
-		$container = $this->createMock(ContainerInterface::class);
-		$container->method('get')->with(SignalDispatcher::class)->willReturn($dispatcher);
-		$request = $this->request();
-		$listener = new BreachedPasswordListener(new LoginClassifier($request, new RequestContext()), $request, $container, $this->logger());
+		$listener = LoginSteps::listener([BreachStep::class => new BreachStep($dispatcher)], $this->appSettings(), $this->request(), logger: $this->logger());
 		$listener->handle(new UserLoggedInEvent($this->user, $this->user->getUID(), $password, $tokenLogin));
 		return $dispatcher;
 	}

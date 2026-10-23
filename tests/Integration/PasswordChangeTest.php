@@ -13,16 +13,16 @@ use OCA\IntrusionDetection\AppInfo\Application;
 use OCA\IntrusionDetection\Audit\AuditLogger;
 use OCA\IntrusionDetection\Controller\PasswordChangeController;
 use OCA\IntrusionDetection\Http\LocalRedirect;
-use OCA\IntrusionDetection\Listener\PasswordChangeLoginListener;
+use OCA\IntrusionDetection\Listener\Login\PasswordChangeStep;
+use OCA\IntrusionDetection\Listener\LoginListener;
 use OCA\IntrusionDetection\Listener\PasswordUpdatedListener;
-use OCA\IntrusionDetection\Login\LoginClassifier;
-use OCA\IntrusionDetection\Login\RequestContext;
 use OCA\IntrusionDetection\Notification\AdminNotices;
 use OCA\IntrusionDetection\Response\PasswordChangeFlag;
 use OCA\IntrusionDetection\Response\PasswordChangeService;
 use OCA\IntrusionDetection\SessionState\Rules\PasswordChangeRule;
 use OCA\IntrusionDetection\SessionState\SessionState;
 use OCA\IntrusionDetection\Tests\BasicAuthServer;
+use OCA\IntrusionDetection\Tests\LoginSteps;
 use OCP\AppFramework\Http;
 use OCP\AppFramework\Http\RedirectResponse;
 use OCP\AppFramework\Http\StandaloneTemplateResponse;
@@ -289,10 +289,10 @@ class PasswordChangeTest extends AccountTestCase {
 		$this->assertNotNull($this->state->get(SessionState::PASSWORD_CHANGE));
 	}
 
-	private function loginListener(): PasswordChangeLoginListener {
+	private function loginListener(): LoginListener {
 		$request = $this->createMock(IRequest::class);
 		$request->method('getHeader')->willReturnCallback(fn (string $name): string => $this->headers[$name] ?? '');
-		return new PasswordChangeLoginListener($this->appSettings(), $this->passwords, $this->state, new LoginClassifier($request, new RequestContext()), Server::get(LoggerInterface::class));
+		return LoginSteps::listener([PasswordChangeStep::class => new PasswordChangeStep($this->passwords, $this->state)], $this->appSettings(), $request);
 	}
 
 	private function controller(): PasswordChangeController {

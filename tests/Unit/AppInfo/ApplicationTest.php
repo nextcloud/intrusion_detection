@@ -30,11 +30,11 @@ use OCA\IntrusionDetection\KnownDevice\KnownDevices;
 use OCA\IntrusionDetection\Listener\AdminChangeListener;
 use OCA\IntrusionDetection\Listener\AppPasswordCreatedListener;
 use OCA\IntrusionDetection\Listener\BreachResetListener;
+use OCA\IntrusionDetection\Listener\ChallengePassedListener;
 use OCA\IntrusionDetection\Listener\FailedLoginListener;
 use OCA\IntrusionDetection\Listener\FirewallExportListener;
 use OCA\IntrusionDetection\Listener\KnownDeviceListener;
 use OCA\IntrusionDetection\Listener\LoginFlowGrantedListener;
-use OCA\IntrusionDetection\Listener\LoginHistoryListener;
 use OCA\IntrusionDetection\Listener\LoginListener;
 use OCA\IntrusionDetection\Listener\PasswordUpdatedListener;
 use OCA\IntrusionDetection\Listener\ResetRequestedListener;
@@ -43,7 +43,6 @@ use OCA\IntrusionDetection\Listener\SecondFactorFailedListener;
 use OCA\IntrusionDetection\Listener\SecureGuideListener;
 use OCA\IntrusionDetection\Listener\SecurityChangeListener;
 use OCA\IntrusionDetection\Listener\ShareAccessFailedListener;
-use OCA\IntrusionDetection\Listener\StepUpChallengePassedListener;
 use OCA\IntrusionDetection\Listener\TrapNamesChangedListener;
 use OCA\IntrusionDetection\Listener\UntrustedSecondFactorListener;
 use OCA\IntrusionDetection\Listener\UserDeletedListener;
@@ -156,7 +155,7 @@ class ApplicationTest extends TestCase {
 			SubAdminAddedEvent::class => [[AdminChangeListener::class, -100]],
 			TokenInvalidatedEvent::class => [[SecurityChangeListener::class, 0]],
 			TwoFactorProviderChallengeFailed::class => [[SecondFactorFailedListener::class, 0]],
-			TwoFactorProviderChallengePassed::class => [[StepUpChallengePassedListener::class, 0], [LoginHistoryListener::class, 0]],
+			TwoFactorProviderChallengePassed::class => [[ChallengePassedListener::class, 0]],
 			TwoFactorProviderForUserRegistered::class => [[UntrustedSecondFactorListener::class, 0], [SecurityChangeListener::class, 0]],
 			TwoFactorProviderForUserUnregistered::class => [[UntrustedSecondFactorListener::class, 0], [SecurityChangeListener::class, 0]],
 			UserAddedEvent::class => [[AdminChangeListener::class, -100]],

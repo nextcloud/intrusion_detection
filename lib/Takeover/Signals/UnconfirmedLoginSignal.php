@@ -9,8 +9,7 @@ declare(strict_types=1);
 
 namespace OCA\IntrusionDetection\Takeover\Signals;
 
-use OCA\IntrusionDetection\Confirm\StepUpService;
-use OCA\IntrusionDetection\Confirm\StepUpState;
+use OCA\IntrusionDetection\Confirm\LoginConfirmation;
 use OCA\IntrusionDetection\Login\CoreSession;
 use OCA\IntrusionDetection\SessionState\SessionState;
 use OCA\IntrusionDetection\Takeover\IRiskyLoginSignal;
@@ -39,16 +38,7 @@ class UnconfirmedLoginSignal implements IRiskyLoginSignal {
 		if ($sessionTokenId === null || $this->coreSession->tokenId() !== $sessionTokenId) {
 			return null;
 		}
-		$stepUp = StepUpState::fromArray($this->state->get(SessionState::STEP_UP) ?? []);
-		if ($stepUp !== null && $stepUp->uid === $uid) {
-			return new RiskyLogin($stepUp->started, RiskyLogin::REASON_UNCONFIRMED, $stepUp->policies);
-		}
-		$confirmation = $this->state->get(SessionState::CONFIRMATION);
-		if ($confirmation === null || ($confirmation['uid'] ?? null) !== $uid || ($confirmation['by'] ?? null) !== StepUpService::CONFIRMED_BY_NONE) {
-			return null;
-		}
-		$at = $confirmation['at'] ?? null;
-		$policies = is_array($confirmation['policies'] ?? null) ? array_values(array_filter($confirmation['policies'], 'is_string')) : [];
-		return is_int($at) ? new RiskyLogin($at, RiskyLogin::REASON_UNCONFIRMED, $policies) : null;
+		$login = LoginConfirmation::fromMarkers($this->state->all(), $uid);
+		return $login->isRisky() ? new RiskyLogin($login->since, RiskyLogin::REASON_UNCONFIRMED, $login->policies) : null;
 	}
 }

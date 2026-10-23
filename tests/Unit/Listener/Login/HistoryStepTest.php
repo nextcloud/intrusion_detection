@@ -7,23 +7,29 @@ declare(strict_types=1);
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 
-namespace OCA\IntrusionDetection\Tests\Unit\LoginHistory;
+namespace OCA\IntrusionDetection\Tests\Unit\Listener\Login;
 
 use OCA\IntrusionDetection\Config\AppSettings;
 use OCA\IntrusionDetection\Confirm\IConfirmationMethod;
 use OCA\IntrusionDetection\Confirm\SessionConfirmation;
 use OCA\IntrusionDetection\KnownDevice\KnownDevice;
 use OCA\IntrusionDetection\KnownDevice\KnownDevices;
-use OCA\IntrusionDetection\Listener\LoginHistoryListener;
-use OCA\IntrusionDetection\Login\LoginClassifier;
+use OCA\IntrusionDetection\Listener\Login\HistoryStep;
+use OCA\IntrusionDetection\Listener\Login\ILoginStep;
+use OCA\IntrusionDetection\Listener\Login\KnownDeviceStep;
+use OCA\IntrusionDetection\Listener\Login\LoginFacts;
+use OCA\IntrusionDetection\Listener\Login\NoticeStep;
+use OCA\IntrusionDetection\Listener\LoginListener;
+use OCA\IntrusionDetection\Login\LoginGate;
 use OCA\IntrusionDetection\Login\RequestContext;
 use OCA\IntrusionDetection\LoginHistory\LoginHistory;
 use OCA\IntrusionDetection\Net\RemoteAddressResolver;
 use OCA\IntrusionDetection\Net\ServerAddresses;
 use OCA\IntrusionDetection\Notification\LoginNotices;
+use OCA\IntrusionDetection\State\HotState;
 use OCA\IntrusionDetection\Tests\BasicAuthServer;
-use OCP\Authentication\TwoFactorAuth\IProvider;
-use OCP\Authentication\TwoFactorAuth\TwoFactorProviderChallengePassed;
+use OCA\IntrusionDetection\Tests\LoginSteps;
+use OCP\AppFramework\Utility\ITimeFactory;
 use OCP\IRequest;
 use OCP\IUser;
 use OCP\Security\Bruteforce\IThrottler;
@@ -39,7 +45,7 @@ use Test\TestCase;
  * Which kind of login each successful login is, and whether it is
  * recorded at all.
  */
-class LoginHistoryListenerTest extends TestCase {
+class HistoryStepTest extends TestCase {
 	use BasicAuthServer;
 
 	/** @var array<string, string> */
@@ -51,7 +57,6 @@ class LoginHistoryListenerTest extends TestCase {
 	private array $recorded = [];
 	/** @var list<string> */
 	private array $noticed = [];
-	private int $secondFactors = 0;
 	private ?KnownDevice $device = null;
 	/** @var list<array{string, string}> */
 	private array $proofs = [];
@@ -109,20 +114,21 @@ class LoginHistoryListenerTest extends TestCase {
 		$this->assertSame([], $this->recorded);
 	}
 
-	public function testASecondFactorIsNoted(): void {
-		$this->listener()->handle(new TwoFactorProviderChallengePassed($this->user(), $this->createMock(IProvider::class)));
-		$this->assertSame(1, $this->secondFactors);
-	}
-
-	public function testAFailureNeverBreaksTheLogin(): void {
-		$container = $this->createMock(ContainerInterface::class);
-		$container->method('get')->willThrowException(new \RuntimeException('database down'));
+	public function testAFailingStepDoesNotStopTheOthersNorTheLogin(): void {
 		$logger = $this->createMock(LoggerInterface::class);
 		$logger->expects($this->once())->method('error');
-		$this->listener($container, $logger)->handle(new UserLoggedInEvent($this->user(), 'alice', 'secret', false));
+		$this->listener($logger, failing: HistoryStep::class)->handle(new UserLoggedInEvent($this->user(), 'alice', 'secret', false));
+		$this->assertSame([], $this->recorded);
+		$this->assertSame(['alice'], $this->noticed, 'The notice runs after the history');
 	}
 
-	private function listener(?ContainerInterface $container = null, ?LoggerInterface $logger = null): LoginHistoryListener {
+	/**
+	 * The app's login listener with its real steps; those of the history,
+	 * the known device and the notice on mocks, the others doing nothing.
+	 *
+	 * @param ?class-string<ILoginStep> $failing a step that cannot be built
+	 */
+	private function listener(?LoggerInterface $logger = null, ?string $failing = null): LoginListener {
 		$request = $this->createMock(IRequest::class);
 		$request->method('getHeader')->willReturnCallback(fn (string $name): string => $this->headers[$name] ?? '');
 		$request->method('getMethod')->willReturnCallback(fn (): string => $this->method);
@@ -134,12 +140,9 @@ class LoginHistoryListenerTest extends TestCase {
 		$settings->method('isEnabled')->willReturn(true);
 
 		$history = $this->createMock(LoginHistory::class);
-		$history->method('record')->willReturnCallback(function (string $uid, string $method, $source, $agent, ?KnownDevice $device, bool $browser): int {
-			$this->recorded[] = [$uid, $method, $device !== null, $browser];
+		$history->method('record')->willReturnCallback(function (string $uid, string $method, $source, $agent, bool $knownDevice, bool $browser): int {
+			$this->recorded[] = [$uid, $method, $knownDevice, $browser];
 			return 1;
-		});
-		$history->method('secondFactorPassed')->willReturnCallback(function (): void {
-			$this->secondFactors++;
 		});
 		$devices = $this->createMock(KnownDevices::class);
 		$devices->method('recognise')->willReturnCallback(fn (): ?KnownDevice => $this->device);
@@ -151,21 +154,31 @@ class LoginHistoryListenerTest extends TestCase {
 		$confirmation->method('proved')->willReturnCallback(function (string $uid, string $by): void {
 			$this->proofs[] = [$uid, $by];
 		});
-		if ($container === null) {
-			$container = $this->createMock(ContainerInterface::class);
-			$container->method('get')->willReturnCallback(static fn (string $id): object => match ($id) {
-				LoginHistory::class => $history,
-				KnownDevices::class => $devices,
-				LoginNotices::class => $notices,
-				SessionConfirmation::class => $confirmation,
-			});
-		}
-		return new LoginHistoryListener(
+		$container = $this->createMock(ContainerInterface::class);
+		$container->method('get')->willReturnCallback(static fn (string $id): ILoginStep => match ($id) {
+			$failing => throw new \RuntimeException('database down'),
+			HistoryStep::class => new HistoryStep($history),
+			KnownDeviceStep::class => new KnownDeviceStep($devices, $confirmation),
+			NoticeStep::class => new NoticeStep($notices),
+			default => new class implements ILoginStep {
+				public static function appliesTo(LoginFacts $facts): bool {
+					return true;
+				}
+
+				public function handle(LoginFacts $facts): void {
+				}
+			},
+		});
+		$gate = $this->createMock(LoginGate::class);
+		$gate->method('isFirst')->willReturn(true);
+		$context = new RequestContext();
+		return new LoginListener(
 			$settings,
-			new LoginClassifier($request, new RequestContext()),
-			new RemoteAddressResolver($request, $throttler, Server::get(ServerAddresses::class)),
-			$request,
-			$container,
+			$this->createMock(HotState::class),
+			$context,
+			$gate,
+			Server::get(ITimeFactory::class),
+			LoginSteps::withRequest($container, $request, new RemoteAddressResolver($request, $throttler, Server::get(ServerAddresses::class)), $context),
 			$logger ?? $this->createMock(LoggerInterface::class),
 		);
 	}

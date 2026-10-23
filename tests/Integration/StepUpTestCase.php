@@ -18,6 +18,7 @@ use OCA\IntrusionDetection\Confirm\ConfirmationPolicy;
 use OCA\IntrusionDetection\Confirm\Db\StepUpSessionMapper;
 use OCA\IntrusionDetection\Confirm\EmailCodes;
 use OCA\IntrusionDetection\Confirm\FamiliarLogin;
+use OCA\IntrusionDetection\Confirm\LoginAssessment;
 use OCA\IntrusionDetection\Confirm\LoginDetections;
 use OCA\IntrusionDetection\Confirm\Methods\AdminApprovalMethod;
 use OCA\IntrusionDetection\Confirm\Methods\EmailCodeMethod;
@@ -40,9 +41,12 @@ use OCA\IntrusionDetection\Http\LocalRedirect;
 use OCA\IntrusionDetection\KnownDevice\Db\KnownDeviceMapper;
 use OCA\IntrusionDetection\KnownDevice\DeviceCookie;
 use OCA\IntrusionDetection\KnownDevice\KnownDevices;
-use OCA\IntrusionDetection\Listener\StepUpChallengePassedListener;
-use OCA\IntrusionDetection\Listener\StepUpLoginListener;
-use OCA\IntrusionDetection\Login\LoginClassifier;
+use OCA\IntrusionDetection\Listener\ChallengePassedListener;
+use OCA\IntrusionDetection\Listener\Login\HistoryStep;
+use OCA\IntrusionDetection\Listener\Login\ILoginStep;
+use OCA\IntrusionDetection\Listener\Login\KnownDeviceStep;
+use OCA\IntrusionDetection\Listener\Login\StepUpStep;
+use OCA\IntrusionDetection\Listener\LoginListener;
 use OCA\IntrusionDetection\Login\LoginGate;
 use OCA\IntrusionDetection\Login\RequestContext;
 use OCA\IntrusionDetection\LoginHistory\Db\LoginHistoryMapper;
@@ -55,6 +59,7 @@ use OCA\IntrusionDetection\SessionState\Rules\StepUpRule;
 use OCA\IntrusionDetection\SessionState\SessionState;
 use OCA\IntrusionDetection\Signal\SignalDispatcher;
 use OCA\IntrusionDetection\Tests\BasicAuthServer;
+use OCA\IntrusionDetection\Tests\LoginSteps;
 use OCA\IntrusionDetection\Tests\Unit\Cache\FixedCaches;
 use OCA\IntrusionDetection\TrustedNetwork\TrustedNetworks;
 use OCP\AppFramework\Utility\ITimeFactory;
@@ -74,6 +79,7 @@ use OCP\Security\IHasher;
 use OCP\Security\ISecureRandom;
 use OCP\Server;
 use OCP\User\Events\UserLoggedInEvent;
+use OCP\User\Events\UserLoggedInWithCookieEvent;
 use PHPUnit\Framework\MockObject\MockObject;
 use Psr\Log\LoggerInterface;
 
@@ -160,17 +166,51 @@ abstract class StepUpTestCase extends AccountTestCase {
 		return $this->service()->current();
 	}
 
-	protected function listener(): StepUpLoginListener {
-		return new StepUpLoginListener(
-			$this->appSettings(),
-			new LoginClassifier($this->request, new RequestContext()),
-			$this->addresses(),
+	/**
+	 * The login listener with the step-up step only, as the other tests of
+	 * the step-up need it.
+	 */
+	protected function listener(): LoginListener {
+		return $this->loginListener([StepUpStep::class]);
+	}
+
+	/**
+	 * A login through the app: the step-up, the known device and the login history.
+	 */
+	protected function loginThroughTheApp(IUser $user, UserLoggedInEvent|UserLoggedInWithCookieEvent|null $event = null): void {
+		$event ??= new UserLoggedInEvent($user, $user->getUID(), self::PASSWORD, false);
+		if ($this->session->id === null) {
+			$this->session->id = bin2hex(random_bytes(32));
+		}
+		$this->sessionUser = $user;
+		$this->loginListener([StepUpStep::class, KnownDeviceStep::class, HistoryStep::class])->handle($event);
+	}
+
+	/**
+	 * The app's login listener, running these of its steps, wired with the
+	 * test session and request.
+	 *
+	 * @param list<class-string<ILoginStep>> $steps
+	 */
+	protected function loginListener(array $steps, ?LoginHistory $history = null): LoginListener {
+		$context = new RequestContext();
+		$services = [
+			StepUpStep::class => new StepUpStep($this->assessment()),
+			KnownDeviceStep::class => new KnownDeviceStep($this->knownDevices(), $this->sessionConfirmation()),
+			HistoryStep::class => new HistoryStep($history ?? $this->history()),
+		];
+		$steps = array_map(fn (string $class): ILoginStep => $services[$class] ?? Server::get($class), array_combine($steps, $steps));
+		return LoginSteps::listener($steps, $this->appSettings(), $this->request, $context, $this->addresses(), new LoginGate($this->listenerCaches ?? $this->noCaches(), $this->coreSession));
+	}
+
+	protected function assessment(): LoginAssessment {
+		return new LoginAssessment(
 			Server::get(Fingerprinter::class),
 			Server::get(FlaggedSources::class),
 			$this->stepUpReasons(),
 			Server::get(UnconfirmedSessions::class),
-			$this->request,
 			$this->coreSession,
+			$this->request,
 			new OverridingContainer([
 				StepUpService::class => $this->service(),
 				LoginDetections::class => $this->linker(),
@@ -275,7 +315,6 @@ abstract class StepUpTestCase extends AccountTestCase {
 			Server::get(LoginHistoryMapper::class),
 			$this->state,
 			$this->coreSession,
-			new LoginGate(Server::get(Caches::class), $this->coreSession),
 			Server::get(ITimeFactory::class),
 			$this->appSettings(),
 		);
@@ -350,7 +389,7 @@ abstract class StepUpTestCase extends AccountTestCase {
 	protected function passChallenge(IUser $user, string $providerId = 'totp'): void {
 		$provider = $this->createMock(IProvider::class);
 		$provider->method('getId')->willReturn($providerId);
-		(new StepUpChallengePassedListener($this->service(), $this->secondFactorMethod(), $this->sessionConfirmation(), Server::get(LoggerInterface::class)))
+		(new ChallengePassedListener($this->service(), $this->secondFactorMethod(), $this->sessionConfirmation(), $this->history(), $this->appSettings(), Server::get(LoggerInterface::class)))
 			->handle(new TwoFactorProviderChallengePassed($user, $provider));
 	}
 

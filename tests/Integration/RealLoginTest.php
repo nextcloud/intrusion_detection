@@ -19,6 +19,8 @@ use OCA\IntrusionDetection\Check\Checks\StepUpRefused\StepUpRefused;
 use OCA\IntrusionDetection\Check\Checks\StepUpRefusedClient\StepUpRefusedClient;
 use OCA\IntrusionDetection\Check\Checks\StepUpUnconfirmed\StepUpUnconfirmed;
 use OCA\IntrusionDetection\Config\GlobalSettings;
+use OCA\IntrusionDetection\Confirm\LoginAssessment;
+use OCA\IntrusionDetection\Confirm\LoginConfirmation;
 use OCA\IntrusionDetection\Confirm\NoMethodOutcome;
 use OCA\IntrusionDetection\Confirm\StepUpPolicy;
 use OCA\IntrusionDetection\Confirm\StepUpReasons;
@@ -30,7 +32,6 @@ use OCA\IntrusionDetection\Db\Approval;
 use OCA\IntrusionDetection\Db\ApprovalMapper;
 use OCA\IntrusionDetection\Db\DetectionFilter;
 use OCA\IntrusionDetection\Db\DetectionMapper;
-use OCA\IntrusionDetection\Listener\StepUpLoginListener;
 use OCA\IntrusionDetection\Login\CoreSession;
 use OCA\IntrusionDetection\Login\LoginClassifier;
 use OCA\IntrusionDetection\Login\RequestContext;
@@ -99,16 +100,14 @@ class RealLoginTest extends IntegrationTestCase {
 		// Services an earlier test may have built with its own request: rebuilt with this one.
 		$addresses = new RemoteAddressResolver($this->request, Server::get(IThrottler::class), Server::get(ServerAddresses::class));
 		$this->overwriteService(RemoteAddressResolver::class, $addresses);
-		$this->overwriteService(StepUpLoginListener::class, new StepUpLoginListener(
-			$this->appSettings(),
-			new LoginClassifier($this->request, new RequestContext()),
-			$addresses,
+		$this->overwriteService(LoginClassifier::class, new LoginClassifier($this->request, new RequestContext()));
+		$this->overwriteService(LoginAssessment::class, new LoginAssessment(
 			Server::get(Fingerprinter::class),
 			Server::get(FlaggedSources::class),
 			Server::get(StepUpReasons::class),
 			Server::get(UnconfirmedSessions::class),
-			$this->request,
 			Server::get(CoreSession::class),
+			$this->request,
 			\OC::$server->getRegisteredAppContainer(Application::APP_ID),
 			Server::get(Caches::class),
 			Server::get(LoggerInterface::class),
@@ -128,7 +127,8 @@ class RealLoginTest extends IntegrationTestCase {
 		Server::get(ISession::class)->clear();
 		$this->restoreService(IRequest::class);
 		$this->restoreService(RemoteAddressResolver::class);
-		$this->restoreService(StepUpLoginListener::class);
+		$this->restoreService(LoginClassifier::class);
+		$this->restoreService(LoginAssessment::class);
 		$this->restoreService(Mails::class);
 		$this->user->delete();
 		parent::tearDown();
@@ -218,7 +218,7 @@ class RealLoginTest extends IntegrationTestCase {
 		$this->assertTrue(Server::get(Session::class)->logClientIn($this->user->getUID(), self::PASSWORD, $this->request, Server::get(IThrottler::class)));
 		$state = Server::get(SessionState::class);
 		$this->assertNull($state->get(SessionState::STEP_UP), 'A protected account does not lock out its calendar app at home');
-		$this->assertTrue($state->get(SessionState::CONFIRMATION)[StepUpService::CLIENT_ONLY] ?? false);
+		$this->assertTrue($state->get(SessionState::CONFIRMATION)[LoginConfirmation::CLIENT_ONLY] ?? false);
 		$rule = Server::get(StepUpRule::class);
 		$this->assertNull($rule->check($state, RequestTarget::dav('PROPFIND', '/remote.php/dav/files/' . $this->user->getUID())));
 		$page = $rule->check($state, RequestTarget::app($this->createMock(Controller::class), 'index', 'GET', '/index.php/apps/files/'));

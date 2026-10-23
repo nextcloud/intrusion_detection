@@ -15,7 +15,7 @@ use OCA\IntrusionDetection\Cache\Caches;
  * Apps and WebDAV clients log in with every request. The gate lets the
  * first login per account, credential (an app password, or the password)
  * and address of each hour through to what records logins, the logins per
- * address ({@see \OCA\IntrusionDetection\Listener\LoginRecordListener}) and
+ * address ({@see \OCA\IntrusionDetection\Listener\Login\RecordStep}) and
  * the login history ({@see \OCA\IntrusionDetection\LoginHistory\LoginHistory}):
  *
  * - one atomic add in the memory cache decides for both; the answer is kept

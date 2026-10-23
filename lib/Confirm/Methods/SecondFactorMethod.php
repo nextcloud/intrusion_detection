@@ -22,7 +22,7 @@ use OCP\IUser;
  * challenge is requested for the session; core's login chain asks for it
  * anyway, and any other login is held at the challenge by core's two-factor
  * middleware. The login stays pending until the challenge is passed
- * ({@see \OCA\IntrusionDetection\Listener\StepUpChallengePassedListener}),
+ * ({@see \OCA\IntrusionDetection\Listener\ChallengePassedListener}),
  * so a login stopped at the challenge is never counted as confirmed.
  *
  * Only a second factor that is set up counts: an account for which two

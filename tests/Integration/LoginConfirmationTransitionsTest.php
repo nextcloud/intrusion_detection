@@ -14,19 +14,15 @@ use OCA\IntrusionDetection\Audit\AuditLogger;
 use OCA\IntrusionDetection\Config\GlobalSettings;
 use OCA\IntrusionDetection\Confirm\AbandonedLogins;
 use OCA\IntrusionDetection\Confirm\Db\StepUpSessionMapper;
+use OCA\IntrusionDetection\Confirm\LoginConfirmation;
 use OCA\IntrusionDetection\Confirm\SessionConfirmation;
 use OCA\IntrusionDetection\Confirm\StepUpPolicy;
 use OCA\IntrusionDetection\Confirm\StepUpService;
 use OCA\IntrusionDetection\Db\DetectionFilter;
 use OCA\IntrusionDetection\Db\DetectionMapper;
-use OCA\IntrusionDetection\KnownDevice\KnownDevices;
-use OCA\IntrusionDetection\Listener\LoginHistoryListener;
-use OCA\IntrusionDetection\Login\LoginClassifier;
-use OCA\IntrusionDetection\Login\RequestContext;
 use OCA\IntrusionDetection\LoginHistory\Db\LoginHistoryMapper;
 use OCA\IntrusionDetection\LoginHistory\LoginHistory;
 use OCA\IntrusionDetection\Net\SourceKey;
-use OCA\IntrusionDetection\Notification\LoginNotices;
 use OCA\IntrusionDetection\Response\AccountProtection;
 use OCA\IntrusionDetection\Response\FlaggedSources;
 use OCA\IntrusionDetection\SessionState\RequestTarget;
@@ -166,7 +162,7 @@ class LoginConfirmationTransitionsTest extends StepUpTestCase {
 		$this->startSession($this->alice);
 		$this->loginThroughTheApp($this->alice);
 		$this->passChallenge($this->alice);
-		$this->assertSame($this->expected(proof: 'second_factor', history: [null, 'none']), $this->snapshot($this->alice));
+		$this->assertSame($this->expected(proof: 'second_factor', history: [null, 'second_factor']), $this->snapshot($this->alice));
 	}
 
 	public function testConfirmedByAnAdministrator(): void {
@@ -261,36 +257,6 @@ class LoginConfirmationTransitionsTest extends StepUpTestCase {
 		$this->assertTrue($this->detectionsOf('step_up_failed')[0]->getExplanationData()['facts']['abandoned'] ?? false);
 	}
 
-	/**
-	 * A login through the app: the step-up first, then the login history.
-	 */
-	private function loginThroughTheApp(IUser $user, UserLoggedInEvent|UserLoggedInWithCookieEvent|null $event = null): void {
-		$event ??= new UserLoggedInEvent($user, $user->getUID(), self::PASSWORD, false);
-		if ($event instanceof UserLoggedInEvent && !$event->isTokenLogin()) {
-			$this->login($user);
-		} else {
-			$this->sessionUser = $user;
-			$this->listener()->handle($event);
-		}
-		$this->historyListener()->handle($event);
-	}
-
-	private function historyListener(): LoginHistoryListener {
-		return new LoginHistoryListener(
-			$this->appSettings(),
-			new LoginClassifier($this->request, new RequestContext()),
-			$this->addresses(),
-			$this->request,
-			new OverridingContainer([
-				LoginHistory::class => $this->history(),
-				KnownDevices::class => $this->knownDevices(),
-				LoginNotices::class => $this->createMock(LoginNotices::class),
-				SessionConfirmation::class => $this->sessionConfirmation(),
-			]),
-			Server::get(LoggerInterface::class),
-		);
-	}
-
 	private function linkHistory(int $tokenId): void {
 		$qb = $this->db->getQueryBuilder();
 		$qb->update(LoginHistoryMapper::TABLE)->set('session_token_id', $qb->createNamedParameter($tokenId, IQueryBuilder::PARAM_INT))->executeStatement();
@@ -353,7 +319,7 @@ class LoginConfirmationTransitionsTest extends StepUpTestCase {
 		}
 		return [
 			'stepUp' => $this->state->get(SessionState::STEP_UP)['status'] ?? null,
-			'confirmation' => $confirmation === null ? null : [$confirmation['by'] ?? null, ($confirmation[StepUpService::CLIENT_ONLY] ?? false) === true],
+			'confirmation' => $confirmation === null ? null : [$confirmation['by'] ?? null, ($confirmation[LoginConfirmation::CLIENT_ONLY] ?? false) === true],
 			'proof' => $this->state->get(SessionState::PROOF)['by'] ?? null,
 			'rows' => $this->unconfirmedRowsOf($uid),
 			'history' => $history === [] ? null : [$history[0]->stepUp, $history[0]->confirmedBy],

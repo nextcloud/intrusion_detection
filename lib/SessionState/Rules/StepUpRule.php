@@ -13,6 +13,7 @@ use OC\Core\Controller\LoginController;
 use OC\Core\Controller\TwoFactorChallengeController;
 use OCA\IntrusionDetection\AppInfo\Application;
 use OCA\IntrusionDetection\Check\Checks\StepUpFailed\StepUpFailed;
+use OCA\IntrusionDetection\Confirm\LoginConfirmation;
 use OCA\IntrusionDetection\Confirm\LoginDetections;
 use OCA\IntrusionDetection\Confirm\SecondFactorSetup;
 use OCA\IntrusionDetection\Confirm\StepUpService;
@@ -82,7 +83,7 @@ class StepUpRule implements ISessionStateRule {
 	#[\Override]
 	public function check(SessionState $state, RequestTarget $target): ?SessionBlock {
 		$all = $state->all();
-		if (($all[SessionState::CONFIRMATION][StepUpService::CLIENT_ONLY] ?? false) === true
+		if (($all[SessionState::CONFIRMATION][LoginConfirmation::CLIENT_ONLY] ?? false) === true
 			&& !$target->dav && !$target->isController(OCSController::class)
 			&& !$target->isController(LoginController::class, 'logout') && !$target->isPublicResource()) {
 			return new SessionBlock(self::ERROR_CLIENT_ONLY, self::DAV_HEADER, self::MESSAGE_CLIENT_ONLY);

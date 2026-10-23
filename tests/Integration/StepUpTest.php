@@ -26,6 +26,7 @@ use OCA\IntrusionDetection\Config\Keys;
 use OCA\IntrusionDetection\Config\UserKeys;
 use OCA\IntrusionDetection\Confirm\Db\StepUpSessionMapper;
 use OCA\IntrusionDetection\Confirm\IConfirmationMethod;
+use OCA\IntrusionDetection\Confirm\LoginConfirmation;
 use OCA\IntrusionDetection\Confirm\LoginDetections;
 use OCA\IntrusionDetection\Confirm\NoMethodOutcome;
 use OCA\IntrusionDetection\Confirm\StepUpPolicy;
@@ -431,7 +432,7 @@ class StepUpTest extends StepUpTestCase {
 		$this->basicAuth($this->alice);
 		$this->login($this->alice);
 		$this->assertNull($this->stepUp());
-		$this->assertTrue($this->state->get(SessionState::CONFIRMATION)[StepUpService::CLIENT_ONLY] ?? false);
+		$this->assertTrue($this->state->get(SessionState::CONFIRMATION)[LoginConfirmation::CLIENT_ONLY] ?? false);
 
 		$this->assertNull($this->rule()->check($this->state, RequestTarget::dav('PROPFIND', '/remote.php/dav/files/')), 'WebDAV works');
 		$this->assertNull($this->rule()->check($this->state, RequestTarget::app($this->createMock(OCSController::class), 'index', 'GET', '/ocs/v2.php/cloud/user')), 'OCS works');
