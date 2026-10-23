@@ -614,6 +614,7 @@ return array(
     'OCA\\IntrusionDetection\\SetupCheck\\BlocklistSyncCheck' => $baseDir . '/../lib/SetupCheck/BlocklistSyncCheck.php',
     'OCA\\IntrusionDetection\\SetupCheck\\BruteForceProtectionCheck' => $baseDir . '/../lib/SetupCheck/BruteForceProtectionCheck.php',
     'OCA\\IntrusionDetection\\SetupCheck\\ConfigLockCheck' => $baseDir . '/../lib/SetupCheck/ConfigLockCheck.php',
+    'OCA\\IntrusionDetection\\SetupCheck\\DecoySecretCheck' => $baseDir . '/../lib/SetupCheck/DecoySecretCheck.php',
     'OCA\\IntrusionDetection\\SetupCheck\\Finding' => $baseDir . '/../lib/SetupCheck/Finding.php',
     'OCA\\IntrusionDetection\\SetupCheck\\LearningModeCheck' => $baseDir . '/../lib/SetupCheck/LearningModeCheck.php',
     'OCA\\IntrusionDetection\\SetupCheck\\MailCheck' => $baseDir . '/../lib/SetupCheck/MailCheck.php',

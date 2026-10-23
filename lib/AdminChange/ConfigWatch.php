@@ -38,6 +38,12 @@ use OCP\AppFramework\Utility\ITimeFactory;
  *   intrusion:*) are reported at once with the actor, and the snapshot is
  *   updated then; the watch only finds those made around the app. Changes
  *   the app makes on its own (the learning period) only update the snapshot.
+ * - The hashes are keyed with the instance `secret`. The snapshot row
+ *   META_KEY holds a hash of a fixed text under that key: when it no longer
+ *   matches, the secret changed. Then that change is reported once, every
+ *   setting is recorded again without reporting it (all hashes differ, not
+ *   the values), and SECRET_CHANGED_STATE holds the time, so that the
+ *   decoys created before can be told apart.
  * - This app's settings are compared by their stored values. Settings an
  *   update removed are dropped from the snapshot silently, and after an
  *   update of this app its settings are recorded again silently (an update
@@ -49,6 +55,12 @@ class ConfigWatch {
 	public const BASELINE_STATE = 'config_watch_baseline';
 	/** Snapshot row that holds the app version of the last run */
 	public const META_VERSION = 'meta:app_version';
+	/** Snapshot row that holds the hash of a fixed text under the current key */
+	public const META_KEY = 'meta:key_id';
+	/** When the watch found that the instance secret changed; 0 when it never did */
+	public const SECRET_CHANGED_STATE = 'secret_changed_at';
+	/** The setting reported when the instance secret changed */
+	public const SECRET_KEY = 'system:secret';
 
 	public function __construct(
 		private readonly WatchedSettings $watched,
@@ -77,7 +89,17 @@ class ConfigWatch {
 		$version = $this->appManager->getAppVersion(Application::APP_ID);
 		$versionHash = $this->fingerprinter->setting(WatchedValue::canonicalOf($version));
 		$updated = !isset($snapshot[self::META_VERSION]) || !hash_equals($snapshot[self::META_VERSION]['hash'], $versionHash);
-		unset($snapshot[self::META_VERSION]);
+		$keyId = $this->fingerprinter->setting(self::META_KEY);
+		$rekeyed = !$baseline && isset($snapshot[self::META_KEY]) && !hash_equals($snapshot[self::META_KEY]['hash'], $keyId);
+		if (!isset($snapshot[self::META_KEY]) || $rekeyed) {
+			$this->snapshots->store(self::META_KEY, $keyId, null, $now);
+		}
+		unset($snapshot[self::META_VERSION], $snapshot[self::META_KEY]);
+		if ($rekeyed) {
+			// Every keyed hash differs now, whatever changed: record them all again.
+			$baseline = true;
+			$silenced = false;
+		}
 		$changes = [];
 
 		foreach ($current as $key => $value) {
@@ -132,6 +154,12 @@ class ConfigWatch {
 
 		if ($updated && !$silenced) {
 			$this->snapshots->store(self::META_VERSION, $versionHash, DisplayValue::encode($version), $now);
+		}
+		if ($rekeyed) {
+			$this->state->setInt(self::BASELINE_STATE, $now);
+			$this->state->setInt(self::SECRET_CHANGED_STATE, $now);
+			$this->dispatcher->dispatch(AdminChangeDetector::settingChange(self::SECRET_KEY, null, null, true, ActorResolver::UNKNOWN, true, $now));
+			return 1;
 		}
 		if ($baseline) {
 			$this->state->setInt(self::BASELINE_STATE, $now);

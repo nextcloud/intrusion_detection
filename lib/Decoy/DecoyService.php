@@ -101,6 +101,14 @@ class DecoyService {
 	}
 
 	/**
+	 * How many decoys were created before a time, such as a change of the
+	 * instance secret, after which their secret no longer matches.
+	 */
+	public function countCreatedBefore(int $before): int {
+		return $before <= 0 ? 0 : $this->mapper->countCreatedBefore($before);
+	}
+
+	/**
 	 * @return list<Decoy>
 	 */
 	public function list(): array {

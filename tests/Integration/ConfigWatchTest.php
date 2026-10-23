@@ -22,13 +22,17 @@ use OCA\IntrusionDetection\Check\Checks\AdminChange\AdminChange;
 use OCA\IntrusionDetection\Config\GlobalSettings;
 use OCA\IntrusionDetection\Config\Keys;
 use OCA\IntrusionDetection\Crypto\Fingerprinter;
+use OCA\IntrusionDetection\Decoy\DecoyFormat;
+use OCA\IntrusionDetection\Decoy\DecoyService;
 use OCA\IntrusionDetection\Definition\Mode;
 use OCA\IntrusionDetection\Definition\Severity;
 use OCA\IntrusionDetection\Explain\NarrativeBuilder;
 use OCA\IntrusionDetection\Notification\AdminAlerts;
 use OCA\IntrusionDetection\Notification\Notifier;
+use OCA\IntrusionDetection\SetupCheck\DecoySecretCheck;
 use OCA\IntrusionDetection\State\AppState;
 use OCP\App\IAppManager;
+use OCP\AppFramework\Utility\ITimeFactory;
 use OCP\IAppConfig;
 use OCP\IConfig;
 use OCP\L10N\IFactory;
@@ -334,12 +338,47 @@ class ConfigWatchTest extends AdminChangeTestCase {
 		$this->assertContains(WatchedSettings::ownKey(Keys::mode('credential_stuffing')), $settings);
 	}
 
+	public function testAChangedSecretIsToldOnceAndTheSettingsAreRecordedAgain(): void {
+		$this->watch->run();
+		$rotated = $this->watchWithSecret('a-new-instance-secret-0123456789');
+		$this->assertSame(1, $rotated->run());
+
+		$changes = $this->adminChanges();
+		$this->assertCount(1, $changes, 'Not every watched setting, only the secret');
+		$facts = $this->facts($changes[0]);
+		$this->assertSame(ConfigWatch::SECRET_KEY, $facts['setting']);
+		$this->assertTrue($facts['secret']);
+		$this->assertSame(Severity::High->value, $changes[0]->getSeverity());
+		$narrative = implode(' ', Server::get(NarrativeBuilder::class)->build($changes[0], $this->l())->happened);
+		$this->assertStringContainsString('Decoy app passwords created before no longer match', $narrative);
+		$this->assertGreaterThan(0, Server::get(AppState::class)->getInt(ConfigWatch::SECRET_CHANGED_STATE));
+
+		$this->assertSame(0, $rotated->run(), 'Recorded again under the new key');
+		$this->system['loglevel'] = 0;
+		$this->assertSame(1, $rotated->run(), 'Later changes are found as before');
+	}
+
+	public function testDecoysCreatedBeforeTheSecretChangedAreNamed(): void {
+		Server::get(DecoyService::class)->create('Old decoy', null, DecoyFormat::AppPassword, 'admin');
+		$check = Server::get(DecoySecretCheck::class);
+		$this->assertNull($check->finding($this->l()));
+		Server::get(AppState::class)->setInt(ConfigWatch::SECRET_CHANGED_STATE, time() + 1);
+		$this->assertSame('decoy_secret_changed', $check->finding($this->l())?->id);
+	}
+
 	public function testANewlyWatchedFixedKeyIsRecordedSilently(): void {
 		$this->watch->run();
 		$qb = $this->db->getQueryBuilder();
 		$qb->delete('ids_config_snapshot')->where($qb->expr()->eq('setting_key', $qb->createNamedParameter(WatchedSettings::systemKey('debug'))))->executeStatement();
 		$this->assertSame(0, $this->watch->run());
 		$this->assertArrayHasKey(WatchedSettings::systemKey('debug'), $this->snapshot());
+	}
+
+	private function watchWithSecret(string $secret): ConfigWatch {
+		$config = $this->createMock(IConfig::class);
+		$config->method('getSystemValueString')->willReturnCallback(static fn (string $key, string $default = ''): string => $key === 'secret' ? $secret : $default);
+		$fingerprinter = new Fingerprinter($config, Server::get(ITimeFactory::class));
+		return new ConfigWatch($this->watchedSettings(), Server::get(ConfigSnapshotMapper::class), $fingerprinter, $this->signals, $this->checkSettings(), Server::get(ITimeFactory::class), Server::get(IAppManager::class), Server::get(AppState::class));
 	}
 
 	/**

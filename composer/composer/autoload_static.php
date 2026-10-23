@@ -629,6 +629,7 @@ class ComposerStaticInitIntrusionDetection
         'OCA\\IntrusionDetection\\SetupCheck\\BlocklistSyncCheck' => __DIR__ . '/..' . '/../lib/SetupCheck/BlocklistSyncCheck.php',
         'OCA\\IntrusionDetection\\SetupCheck\\BruteForceProtectionCheck' => __DIR__ . '/..' . '/../lib/SetupCheck/BruteForceProtectionCheck.php',
         'OCA\\IntrusionDetection\\SetupCheck\\ConfigLockCheck' => __DIR__ . '/..' . '/../lib/SetupCheck/ConfigLockCheck.php',
+        'OCA\\IntrusionDetection\\SetupCheck\\DecoySecretCheck' => __DIR__ . '/..' . '/../lib/SetupCheck/DecoySecretCheck.php',
         'OCA\\IntrusionDetection\\SetupCheck\\Finding' => __DIR__ . '/..' . '/../lib/SetupCheck/Finding.php',
         'OCA\\IntrusionDetection\\SetupCheck\\LearningModeCheck' => __DIR__ . '/..' . '/../lib/SetupCheck/LearningModeCheck.php',
         'OCA\\IntrusionDetection\\SetupCheck\\MailCheck' => __DIR__ . '/..' . '/../lib/SetupCheck/MailCheck.php',

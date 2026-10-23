@@ -78,6 +78,20 @@ class DecoyMapper extends QBMapper {
 		return $this->findEntities($qb);
 	}
 
+	/**
+	 * How many decoys were created before a time.
+	 */
+	public function countCreatedBefore(int $before): int {
+		$qb = $this->db->getQueryBuilder();
+		$qb->select($qb->func()->count('*'))
+			->from(self::TABLE)
+			->where($qb->expr()->lt('created_at', $qb->createNamedParameter($before, IQueryBuilder::PARAM_INT)));
+		$result = $qb->executeQuery();
+		$count = (int)$result->fetchOne();
+		$result->closeCursor();
+		return $count;
+	}
+
 	public function countAll(): int {
 		$qb = $this->db->getQueryBuilder();
 		$qb->select($qb->func()->count('*'))->from(self::TABLE);

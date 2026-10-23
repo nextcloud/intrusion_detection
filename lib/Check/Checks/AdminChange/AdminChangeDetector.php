@@ -28,7 +28,7 @@ use OCA\IntrusionDetection\Signal\ISignal;
  *
  * - high: administration rights granted (directly or through a delegated
  *   group), the brute-force allowlist or `trusted_proxies` changed, 2FA
- *   enforcement switched off, this app switched off, learning mode started,
+ *   enforcement switched off, the instance secret changed, this app switched off, learning mode started,
  *   a check weakened to Observe or Off, or four-eyes approval switched off;
  * - medium: an app switched on or off, a group administrator appointed, a
  *   running learning period made longer;
@@ -111,7 +111,7 @@ class AdminChangeDetector implements IDetector {
 	 * key counts, as the values are unknown.
 	 */
 	public static function settingSeverity(string $key, mixed $old, mixed $new, int $now): Severity {
-		if ($key === WatchedSettings::systemKey('trusted_proxies') || $key === WatchedSettings::BRUTEFORCE_ALLOWLIST) {
+		if ($key === WatchedSettings::systemKey('trusted_proxies') || $key === WatchedSettings::BRUTEFORCE_ALLOWLIST || $key === WatchedSettings::systemKey('secret')) {
 			return Severity::High;
 		}
 		if ($key === WatchedSettings::systemKey('twofactor_enforced') && self::isOn($old) && !self::isOn($new)) {
