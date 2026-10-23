@@ -13,7 +13,9 @@ use OCA\IntrusionDetection\Check\Checks\AdminChange\AdminChange;
 use OCA\IntrusionDetection\Config\AppSettings;
 use OCA\IntrusionDetection\Config\CheckSettings;
 use OCA\IntrusionDetection\Definition\Mode;
+use OCP\Group\Backend\INamedBackend;
 use OCP\IGroup;
+use OCP\IGroupManager;
 use OCP\IUser;
 
 /**
@@ -26,9 +28,11 @@ use OCP\IUser;
  *
  * - occ and background jobs on the command line: whoever can start them
  *   already controls the server;
- * - groups that a user directory (LDAP or another backend than Nextcloud's
- *   own database) provides: Nextcloud cannot undo what the directory sets,
- *   and the next sync would add the member again.
+ * - memberships that a user directory (LDAP or another backend than
+ *   Nextcloud's own database) holds: Nextcloud cannot undo what the
+ *   directory sets, and the next sync would add the member again. An
+ *   addition to Nextcloud's own database is not exempt because a directory
+ *   also has a group of that name.
  *
  * Approval applies while the setting is on and the check is set to Protect,
  * also during learning mode: an administrator switched it on deliberately.
@@ -50,6 +54,7 @@ class AdminGrantGate {
 		private readonly CheckSettings $settings,
 		private readonly ActorResolver $actors,
 		private readonly GrantPermit $permit,
+		private readonly IGroupManager $groupManager,
 	) {
 	}
 
@@ -64,7 +69,7 @@ class AdminGrantGate {
 		if ($group->getGID() !== Approvers::ADMIN_GROUP || !$this->isRequired()) {
 			return self::NOT_NEEDED;
 		}
-		if ($this->isDirectoryBacked($group)) {
+		if ($this->isDirectoryBacked($group, $user)) {
 			return AdminChange::EXEMPT_DIRECTORY;
 		}
 		if ($this->actors->isConsole()) {
@@ -90,11 +95,16 @@ class AdminGrantGate {
 	}
 
 	/**
-	 * Whether a backend other than Nextcloud's own database provides the group.
+	 * Whether a backend other than Nextcloud's own database holds the
+	 * account's membership of the group.
 	 */
-	public function isDirectoryBacked(IGroup $group): bool {
-		foreach ($group->getBackendNames() as $name) {
-			if ($name !== self::DATABASE_BACKEND) {
+	public function isDirectoryBacked(IGroup $group, IUser $user): bool {
+		$gid = $group->getGID();
+		foreach ($this->groupManager->getBackends() as $backend) {
+			if ($backend instanceof INamedBackend && $backend->getBackendName() === self::DATABASE_BACKEND) {
+				continue;
+			}
+			if ($backend->groupExists($gid) && $backend->inGroup($user->getUID(), $gid)) {
 				return true;
 			}
 		}

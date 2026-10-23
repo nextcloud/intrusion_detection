@@ -55,7 +55,9 @@ use Psr\Log\LoggerInterface;
  * have finished before it is taken back, and the removal's listeners clean
  * up after them.
  *
- * Fails open: an error is logged and never breaks the change itself.
+ * An error is logged and never breaks the change itself. An error of the
+ * approval gate takes an addition to the admin group back and asks for
+ * approval, so that it cannot let a new administrator in.
  *
  * @template-implements IEventListener<Event>
  */
@@ -111,7 +113,7 @@ class AdminChangeListener implements IEventListener {
 		if ($gid !== Approvers::ADMIN_GROUP && $delegated === null) {
 			return;
 		}
-		$decision = $this->gate->decide($group, $user);
+		$decision = $this->decide($group, $user);
 		$actor = $this->actors->actor();
 
 		if ($decision === AdminGrantGate::NEEDS_APPROVAL) {
@@ -131,6 +133,20 @@ class AdminChangeListener implements IEventListener {
 			$facts['exempt'] = $decision;
 		}
 		$this->dispatcher->dispatch(new AdminChanged(AdminChange::KIND_ADMIN_GRANTED, Severity::High, $actor, $user->getUID(), facts: $facts, alertKey: AdminChange::KIND_ADMIN_GRANTED . ':' . $gid));
+	}
+
+	/**
+	 * The gate's decision. When the gate fails on an addition to the admin
+	 * group, the addition waits for approval like any other: an error must
+	 * not let a new administrator in.
+	 */
+	private function decide(IGroup $group, IUser $user): string {
+		try {
+			return $this->gate->decide($group, $user);
+		} catch (\Throwable $e) {
+			$this->logger->error('Intrusion detection could not decide whether {uid} may join {gid} without approval; the addition waits for approval', ['uid' => $user->getUID(), 'gid' => $group->getGID(), 'exception' => $e]);
+			return $group->getGID() === Approvers::ADMIN_GROUP ? AdminGrantGate::NEEDS_APPROVAL : AdminGrantGate::NOT_NEEDED;
+		}
 	}
 
 	/**

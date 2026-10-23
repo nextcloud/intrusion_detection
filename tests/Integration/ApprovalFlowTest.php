@@ -10,6 +10,7 @@ declare(strict_types=1);
 namespace OCA\IntrusionDetection\Tests\Integration;
 
 use OCA\IntrusionDetection\AdminChange\ActorResolver;
+use OCA\IntrusionDetection\AdminChange\AdminGrantGate;
 use OCA\IntrusionDetection\AdminChange\ApprovalException;
 use OCA\IntrusionDetection\AdminChange\ApprovalService;
 use OCA\IntrusionDetection\AdminChange\GrantPermit;
@@ -23,8 +24,12 @@ use OCA\IntrusionDetection\Definition\InvalidParamException;
 use OCA\IntrusionDetection\Definition\Severity;
 use OCA\IntrusionDetection\Notification\AdminAlerts;
 use OCA\IntrusionDetection\Notification\Notifier;
+use OCP\Group\Backend\ABackend;
+use OCP\Group\Backend\INamedBackend;
 use OCP\Group\Events\UserAddedEvent;
+use OCP\GroupInterface;
 use OCP\IGroup;
+use OCP\IGroupManager;
 use OCP\Notification\AlreadyProcessedException;
 use OCP\Notification\IManager as INotificationManager;
 use OCP\Notification\INotification;
@@ -265,21 +270,50 @@ class ApprovalFlowTest extends AdminChangeTestCase {
 	}
 
 	public function testDirectoryGroupsAreExemptAndAlerted(): void {
-		$group = $this->createMock(IGroup::class);
-		$group->method('getGID')->willReturn('admin');
-		$group->method('getBackendNames')->willReturn(['LDAP']);
-		$group->expects($this->never())->method('removeUser');
-		$this->act($this->alice);
-		$this->dispatch(new UserAddedEvent($group, $this->user($this->bob)));
+		$directory = $this->directory([$this->bob]);
+		try {
+			$group = $this->createMock(IGroup::class);
+			$group->method('getGID')->willReturn('admin');
+			$group->expects($this->never())->method('removeUser');
+			$this->act($this->alice);
+			$this->dispatch(new UserAddedEvent($group, $this->user($this->bob)));
+		} finally {
+			Server::get(IGroupManager::class)->removeBackend($directory);
+		}
 		$this->assertSame([], $this->approvals->list(true));
 		[$detection] = $this->adminChanges();
 		$this->assertSame(AdminChange::EXEMPT_DIRECTORY, AdminChangeFacts::fromArray($this->facts($detection))->exempt);
 	}
 
+	public function testAWebAdditionWaitsAlthoughADirectoryAlsoHasTheGroup(): void {
+		$directory = $this->directory([$this->dave]);
+		try {
+			$this->act($this->alice);
+			$this->addAsWeb('admin', $this->bob);
+		} finally {
+			Server::get(IGroupManager::class)->removeBackend($directory);
+		}
+		$this->assertFalse($this->inGroup('admin', $this->bob), 'Only the membership the directory holds is exempt');
+		$this->assertCount(1, $this->approvals->list(true));
+	}
+
+	public function testAnErrorInTheGateTakesTheAdditionBack(): void {
+		$gate = $this->createMock(AdminGrantGate::class);
+		$gate->method('decide')->willThrowException(new \RuntimeException('The settings could not be read'));
+		$this->rebuild(gate: $gate);
+		$this->act($this->alice);
+		$this->addAsWeb('admin', $this->bob);
+
+		$this->assertFalse($this->inGroup('admin', $this->bob), 'An error does not let the new administrator in');
+		[$approval] = $this->approvals->list(true);
+		$this->assertSame($this->bob, $approval->getSubjectUid());
+		[$detection] = $this->adminChanges();
+		$this->assertSame(AdminChange::KIND_GRANT_REQUESTED, $this->facts($detection)['kind']);
+	}
+
 	public function testAFailedRevertIsReportedWithoutARequest(): void {
 		$group = $this->createMock(IGroup::class);
 		$group->method('getGID')->willReturn('admin');
-		$group->method('getBackendNames')->willReturn(['Database']);
 		$group->method('inGroup')->willReturn(true);
 		$this->act($this->alice);
 		$this->dispatch(new UserAddedEvent($group, $this->user($this->bob)));
@@ -347,5 +381,48 @@ class ApprovalFlowTest extends AdminChangeTestCase {
 		$this->assertSame('WEB', $actions[0]->getRequestType());
 		$this->assertTrue($actions[0]->isPrimary());
 		$this->assertSame($prepared->getLink(), $actions[0]->getLink());
+	}
+
+	/**
+	 * A user directory that also has a group "admin", with these members.
+	 *
+	 * @param list<string> $members
+	 */
+	private function directory(array $members): GroupInterface {
+		$directory = new class($members) extends ABackend implements INamedBackend {
+			/**
+			 * @param list<string> $members
+			 */
+			public function __construct(
+				private array $members,
+			) {
+			}
+
+			public function getBackendName(): string {
+				return 'LDAP';
+			}
+
+			public function inGroup($uid, $gid): bool {
+				return $gid === 'admin' && in_array($uid, $this->members, true);
+			}
+
+			public function getUserGroups($uid): array {
+				return in_array($uid, $this->members, true) ? ['admin'] : [];
+			}
+
+			public function getGroups(string $search = '', int $limit = -1, int $offset = 0): array {
+				return ['admin'];
+			}
+
+			public function groupExists($gid): bool {
+				return $gid === 'admin';
+			}
+
+			public function usersInGroup($gid, $search = '', $limit = -1, $offset = 0): array {
+				return $gid === 'admin' ? $this->members : [];
+			}
+		};
+		Server::get(IGroupManager::class)->addBackend($directory);
+		return $directory;
 	}
 }
