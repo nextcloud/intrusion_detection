@@ -10,6 +10,8 @@ declare(strict_types=1);
 namespace OCA\IntrusionDetection\Tests\Unit\Detection;
 
 use OCA\IntrusionDetection\Check\Checks\CredentialStuffing\CredentialStuffing;
+use OCA\IntrusionDetection\Check\Checks\UserDenied\UserDenied;
+use OCA\IntrusionDetection\Check\Checks\UserDenied\UserDeniedFacts;
 use OCA\IntrusionDetection\Db\Detection;
 use OCA\IntrusionDetection\Detection\DetectionDraft;
 use OCA\IntrusionDetection\Explain\DateFormatter;
@@ -57,7 +59,7 @@ class DetectionDraftTest extends TestCase {
 	}
 
 	public function testAnswersAboutOneDetectionShareTheirMergeKey(): void {
-		$about = static fn (string $uid, mixed $detection): ?string => (new DetectionDraft(checkId: 'user_denied', uid: $uid, facts: ['detection' => $detection], merge: DetectionDraft::MERGE_SUBJECT))->mergeKey();
+		$about = static fn (string $uid, ?int $detection): ?string => (new DetectionDraft(checkId: UserDenied::ID, uid: $uid, facts: $detection === null ? null : new UserDeniedFacts(detection: $detection), merge: DetectionDraft::MERGE_SUBJECT))->mergeKey();
 		$this->assertNotNull($about('alice', 7));
 		$this->assertSame($about('alice', 7), $about('alice', 7));
 		$this->assertNotSame($about('alice', 7), $about('alice', 8));

@@ -10,7 +10,7 @@ declare(strict_types=1);
 namespace OCA\IntrusionDetection\SessionState\Rules;
 
 use OCA\IntrusionDetection\AppInfo\Application;
-use OCA\IntrusionDetection\Check\Checks\StepUpFailed\StepUpFailed;
+use OCA\IntrusionDetection\Check\Checks\StepUpFailed\StepUpFailedRule;
 use OCA\IntrusionDetection\Confirm\ConfirmationStatus;
 use OCA\IntrusionDetection\Confirm\LoginConfirmation;
 use OCA\IntrusionDetection\Confirm\LoginConfirmations;
@@ -108,14 +108,14 @@ class StepUpRule implements ISessionStateRule {
 
 		if ($stepUp->status === ConfirmationStatus::Resumed
 			|| ($stepUp->isPending() && $this->timeFactory->getTime() >= $stepUp->deadline)) {
-			$rule = $stepUp->status === ConfirmationStatus::Resumed ? StepUpFailed::RULE_RESUMED : StepUpFailed::RULE_TIMEOUT;
+			$rule = $stepUp->status === ConfirmationStatus::Resumed ? StepUpFailedRule::Resumed : StepUpFailedRule::Timeout;
 			try {
 				$this->container->get(LoginConfirmations::class)->fail($stepUp, $rule);
 			} catch (\Throwable $e) {
 				// The request stays blocked: an error must not turn an unconfirmed login into a confirmed one.
 				$this->logger->error('Intrusion detection could not end an unconfirmed login', ['exception' => $e]);
 			}
-			return $this->block(self::ERROR, $this->urlGenerator->linkToRoute(self::ENDED_ROUTE, ['reason' => $rule]), self::MESSAGE_ENDED);
+			return $this->block(self::ERROR, $this->urlGenerator->linkToRoute(self::ENDED_ROUTE, ['reason' => $rule->value]), self::MESSAGE_ENDED);
 		}
 		if ($stepUp->status === ConfirmationStatus::RefusedClient) {
 			return $this->block(self::ERROR, null, self::MESSAGE_CLIENT);

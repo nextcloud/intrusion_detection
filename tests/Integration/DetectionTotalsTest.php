@@ -33,7 +33,7 @@ class DetectionTotalsTest extends IntegrationTestCase {
 		$service = Server::get(DetectionService::class);
 		$totals = Server::get(DetectionTotals::class);
 		$protect = new ModeState(Mode::Protect, Mode::Protect);
-		$draft = fn (?Severity $severity): DetectionDraft => new DetectionDraft(DecoyCredential::ID, SourceKey::fromIp('203.0.113.20'), null, [], merge: DetectionDraft::MERGE_SOURCE, severity: $severity);
+		$draft = fn (?Severity $severity): DetectionDraft => new DetectionDraft(DecoyCredential::ID, SourceKey::fromIp('203.0.113.20'), null, merge: DetectionDraft::MERGE_SOURCE, severity: $severity);
 
 		[$detection] = $service->record($draft(Severity::Medium), $protect);
 		$this->assertSame([['check' => DecoyCredential::ID, 'severity' => 'medium', 'enforced' => true, 'count' => 1]], $totals->totals());

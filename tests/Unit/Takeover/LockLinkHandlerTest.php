@@ -10,6 +10,7 @@ declare(strict_types=1);
 namespace OCA\IntrusionDetection\Tests\Unit\Takeover;
 
 use OCA\IntrusionDetection\Check\Checks\AccountTakeover\AccountTakeover;
+use OCA\IntrusionDetection\Check\Checks\AccountTakeover\AccountTakeoverFacts;
 use OCA\IntrusionDetection\Db\Detection;
 use OCA\IntrusionDetection\Detection\DetectionDraft;
 use OCA\IntrusionDetection\Explain\DateFormatter;
@@ -77,6 +78,6 @@ class LockLinkHandlerTest extends TestCase {
 		$detection = new Detection();
 		$detection->setId(42);
 		$detection->setExplanationData(['facts' => $facts]);
-		return new ResponseContext(new DetectionDraft(AccountTakeover::ID, uid: 'alice', facts: $facts), $detection, (new AccountTakeover(DateFormatter::using($this->createMock(IDateTimeFormatter::class))))->definition(), true);
+		return new ResponseContext(new DetectionDraft(AccountTakeover::ID, uid: 'alice', facts: AccountTakeoverFacts::fromArray($facts)), $detection, (new AccountTakeover(DateFormatter::using($this->createMock(IDateTimeFormatter::class))))->definition(), true);
 	}
 }

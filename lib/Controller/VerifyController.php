@@ -10,7 +10,7 @@ declare(strict_types=1);
 namespace OCA\IntrusionDetection\Controller;
 
 use OCA\IntrusionDetection\AppInfo\Application;
-use OCA\IntrusionDetection\Check\Checks\StepUpFailed\StepUpFailed;
+use OCA\IntrusionDetection\Check\Checks\StepUpFailed\StepUpFailedRule;
 use OCA\IntrusionDetection\Confirm\ConfirmationStatus;
 use OCA\IntrusionDetection\Confirm\EmailCodes;
 use OCA\IntrusionDetection\Confirm\IConfirmationMethod;
@@ -267,10 +267,10 @@ class VerifyController extends Controller implements ILoginFlowPage {
 	#[NoCSRFRequired]
 	#[FrontpageRoute(verb: 'GET', url: '/verify/ended')]
 	public function ended(string $reason = ''): StandaloneTemplateResponse {
-		$text = match ($reason) {
-			StepUpFailed::RULE_ATTEMPTS => $this->l->t('The code was entered wrong too many times, so this login was ended. If it was you, log in again; a new code will be sent.'),
-			StepUpFailed::RULE_TIMEOUT => $this->l->t('This login was not confirmed in time, so it was ended. If it was you, log in again.'),
-			StepUpFailed::RULE_REJECTED => $this->l->t('An administrator rejected this login, so it was ended. If it was you, contact your administrator.'),
+		$text = match (StepUpFailedRule::tryFrom($reason)) {
+			StepUpFailedRule::Attempts => $this->l->t('The code was entered wrong too many times, so this login was ended. If it was you, log in again; a new code will be sent.'),
+			StepUpFailedRule::Timeout => $this->l->t('This login was not confirmed in time, so it was ended. If it was you, log in again.'),
+			StepUpFailedRule::Rejected => $this->l->t('An administrator rejected this login, so it was ended. If it was you, contact your administrator.'),
 			default => $this->l->t('This login was never confirmed, so it was ended. If it was you, log in again.'),
 		};
 		return $this->render(self::MODE_ENDED, [
@@ -309,7 +309,7 @@ class VerifyController extends Controller implements ILoginFlowPage {
 	 * The page that says why the login ended.
 	 */
 	private function endedPage(PendingLoginResult $result): RedirectResponse {
-		return new RedirectResponse($this->urlGenerator->linkToRoute(Application::APP_ID . '.Verify.ended', ['reason' => $result->endedRule() ?? StepUpFailed::RULE_TIMEOUT]));
+		return new RedirectResponse($this->urlGenerator->linkToRoute(Application::APP_ID . '.Verify.ended', ['reason' => ($result->endedRule() ?? StepUpFailedRule::Timeout)->value]));
 	}
 
 	private function codePage(IUser $user, StepUpState $stepUp, string $redirectUrl, ?string $error = null, ?string $notice = null, int $status = Http::STATUS_OK): StandaloneTemplateResponse {

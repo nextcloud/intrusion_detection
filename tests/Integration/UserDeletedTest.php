@@ -59,10 +59,10 @@ class UserDeletedTest extends AccountTestCase {
 
 		$service = Server::get(DetectionService::class);
 		$protect = new ModeState(Mode::Protect, Mode::Protect);
-		[$own] = $service->record(new DetectionDraft(SecondFactorFailed::ID, SourceKey::fromIp('203.0.113.1'), $uid, ['sessionTokenId' => 9], merge: DetectionDraft::MERGE_SOURCE_USER), $protect);
+		[$own] = $service->record(new DetectionDraft(SecondFactorFailed::ID, SourceKey::fromIp('203.0.113.1'), $uid, self::factsOf(SecondFactorFailed::ID, ['sessionTokenId' => 9]), merge: DetectionDraft::MERGE_SOURCE_USER), $protect);
 		$service->setActions($own, [['type' => ResponseType::ForcePasswordChange->value, 'enforced' => true, 'ref' => ['uid' => $uid, 'state' => 'required']]]);
-		[$attack] = $service->record(new DetectionDraft(CredentialStuffing::ID, SourceKey::fromIp('203.0.113.2'), null, ['targets' => [$other, $uid], 'failures' => 12]), $protect);
-		[$unrelated] = $service->record(new DetectionDraft(CredentialStuffing::ID, SourceKey::fromIp('203.0.113.3'), null, ['targets' => [$other]]), $protect);
+		[$attack] = $service->record(new DetectionDraft(CredentialStuffing::ID, SourceKey::fromIp('203.0.113.2'), null, self::factsOf(CredentialStuffing::ID, ['targets' => [$other, $uid], 'failures' => 12])), $protect);
+		[$unrelated] = $service->record(new DetectionDraft(CredentialStuffing::ID, SourceKey::fromIp('203.0.113.3'), null, self::factsOf(CredentialStuffing::ID, ['targets' => [$other]])), $protect);
 
 		$user->delete();
 		// Run it directly too, in case the app's listeners are not registered in this test run; it is idempotent.
@@ -99,9 +99,9 @@ class UserDeletedTest extends AccountTestCase {
 		$protect = new ModeState(Mode::Protect, Mode::Protect);
 		$count = UserDataCleanup::BATCH + 5;
 		for ($i = 0; $i < $count; $i++) {
-			$service->record(new DetectionDraft(CredentialStuffing::ID, SourceKey::fromIp('203.0.113.9'), null, ['targets' => ['many-user', 'kept-user'], 'n' => $i]), $protect);
+			$service->record(new DetectionDraft(CredentialStuffing::ID, SourceKey::fromIp('203.0.113.9'), null, self::factsOf(CredentialStuffing::ID, ['targets' => ['many-user', 'kept-user']])), $protect);
 		}
-		[$few] = $service->record(new DetectionDraft(CredentialStuffing::ID, SourceKey::fromIp('203.0.113.8'), null, ['targets' => ['few-user']]), $protect);
+		[$few] = $service->record(new DetectionDraft(CredentialStuffing::ID, SourceKey::fromIp('203.0.113.8'), null, self::factsOf(CredentialStuffing::ID, ['targets' => ['few-user']])), $protect);
 
 		$cleanup = Server::get(UserDataCleanup::class);
 		$queries = $this->db->getInner()->getStats()['executed'];
@@ -128,9 +128,9 @@ class UserDeletedTest extends AccountTestCase {
 	public function testANewAccountWithTheNameOfADeletedOneKeepsItsDetections(): void {
 		$service = Server::get(DetectionService::class);
 		$protect = new ModeState(Mode::Protect, Mode::Protect);
-		$service->record(new DetectionDraft(CredentialStuffing::ID, SourceKey::fromIp('203.0.113.9'), null, ['targets' => ['reused']]), $protect);
+		$service->record(new DetectionDraft(CredentialStuffing::ID, SourceKey::fromIp('203.0.113.9'), null, self::factsOf(CredentialStuffing::ID, ['targets' => ['reused']])), $protect);
 		Server::get(UserDataCleanup::class)->deleteUser('reused');
-		[$later] = $service->record(new DetectionDraft(CredentialStuffing::ID, SourceKey::fromIp('203.0.113.7'), null, ['targets' => ['reused']]), $protect);
+		[$later] = $service->record(new DetectionDraft(CredentialStuffing::ID, SourceKey::fromIp('203.0.113.7'), null, self::factsOf(CredentialStuffing::ID, ['targets' => ['reused']])), $protect);
 		$this->runQueuedCleanup();
 		$this->assertSame(['reused'], Server::get(DetectionMapper::class)->findById($later->getId())->getExplanationData()['facts']['targets']);
 	}

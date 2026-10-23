@@ -502,7 +502,7 @@ class WasThisYouTest extends StepUpTestCase {
 			checkId: $checkId,
 			source: SourceKey::fromIp(self::ATTACKER),
 			uid: $user->getUID(),
-			facts: $facts,
+			facts: self::factsOf($checkId, $facts),
 			severity: $severity,
 			userAgent: 'Mozilla/5.0',
 		));

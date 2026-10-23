@@ -76,13 +76,14 @@ final class StepUpRefused implements ICheck, IExplainsDetection, IExplainsToUser
 
 	#[\Override]
 	public function narrative(Detection $detection, IL10N $l): array {
-		$facts = DetectionFacts::of($detection);
+		$stored = DetectionFacts::of($detection);
+		$facts = StepUpRefusedFacts::fromArray($stored->facts);
 		$sentences = [
 			$l->t('At %1$s %2$s logged in from %3$s with the correct password. The login needed extra confirmation, because %4$s.', [
-				$this->dates->dateTime($facts->first),
+				$this->dates->dateTime($stored->first),
 				(string)$detection->getUid(),
 				(string)$detection->getIp(),
-				StepUpPolicy::describeAll($facts->list('policies'), $l),
+				StepUpPolicy::describeAll($facts->policies, $l),
 			]),
 			$l->t('The account has no second factor and no email address that could confirm it, so the login was refused. The person was shown the reference %s.', [StepUpReference::of($detection->getId())]),
 		];
@@ -94,11 +95,11 @@ final class StepUpRefused implements ICheck, IExplainsDetection, IExplainsToUser
 
 	#[\Override]
 	public function userNotice(Detection $detection, IL10N $l): UserNotice {
-		$facts = DetectionFacts::of($detection);
+		$facts = StepUpRefusedFacts::fromArray(DetectionFacts::of($detection)->facts);
 		return new UserNotice(
 			$l->t('A login to your account was refused'),
 			[
-				$l->t('Someone logged in to your account with your correct password. The login needed extra confirmation because %s.', [StepUpPolicy::describeAll($facts->list('policies'), $l)]),
+				$l->t('Someone logged in to your account with your correct password. The login needed extra confirmation because %s.', [StepUpPolicy::describeAll($facts->policies, $l)]),
 				$l->t('Your account has no email address or second factor to confirm it with, so the login was refused.'),
 			],
 			[

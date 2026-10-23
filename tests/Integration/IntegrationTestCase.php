@@ -27,6 +27,7 @@ use OCA\IntrusionDetection\Db\DetectionMapper;
 use OCA\IntrusionDetection\Definition\Mode;
 use OCA\IntrusionDetection\Detection\DetectionDraft;
 use OCA\IntrusionDetection\Detection\DetectionService;
+use OCA\IntrusionDetection\Detection\IFacts;
 use OCA\IntrusionDetection\Notification\AdminAlerts;
 use OCA\IntrusionDetection\Notification\ShareOwnerAlerts;
 use OCA\IntrusionDetection\Notification\UserAlerts;
@@ -144,6 +145,17 @@ abstract class IntegrationTestCase extends TestCase {
 	 */
 	protected function storeDetection(DetectionDraft $draft): Detection {
 		return Server::get(DetectionService::class)->record($draft, new ModeState(Mode::Protect, Mode::Protect))[0];
+	}
+
+	/**
+	 * Facts given as a check stores them, read by the check's facts class.
+	 *
+	 * @param array<string, mixed> $stored
+	 */
+	protected static function factsOf(string $checkId, array $stored): IFacts {
+		/** @var class-string<IFacts> $class */
+		$class = Server::get(CheckRegistry::class)->classOf($checkId) . 'Facts';
+		return $class::fromArray($stored);
 	}
 
 	protected function settingsEditor(): SettingsEditor {

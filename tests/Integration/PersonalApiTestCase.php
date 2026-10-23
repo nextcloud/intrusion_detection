@@ -67,7 +67,6 @@ abstract class PersonalApiTestCase extends StepUpTestCase {
 			checkId: SecondFactorFailed::ID,
 			source: SourceKey::fromIp($ip),
 			uid: $user->getUID(),
-			facts: [],
 			userAgent: 'Mozilla/5.0',
 		));
 	}

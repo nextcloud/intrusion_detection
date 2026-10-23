@@ -9,7 +9,7 @@ declare(strict_types=1);
 
 namespace OCA\IntrusionDetection\Confirm;
 
-use OCA\IntrusionDetection\Check\Checks\StepUpFailed\StepUpFailed;
+use OCA\IntrusionDetection\Check\Checks\StepUpFailed\StepUpFailedRule;
 use OCA\IntrusionDetection\Confirm\Methods\AdminApprovalMethod;
 use OCA\IntrusionDetection\Confirm\Methods\SecondFactorMethod;
 use OCA\IntrusionDetection\KnownDevice\KnownDevices;
@@ -64,7 +64,7 @@ class PendingLoginFlow {
 			case EmailCodes::VERIFIED:
 				return $this->confirmed($user, $stepUp, IConfirmationMethod::EMAIL_CODE, $rememberDevice);
 			case EmailCodes::EXHAUSTED:
-				$this->confirmations->fail($stepUp, StepUpFailed::RULE_ATTEMPTS);
+				$this->confirmations->fail($stepUp, StepUpFailedRule::Attempts);
 				return PendingLoginResult::EndedAttempts;
 			case EmailCodes::WRONG:
 				$this->confirmations->update($stepUp);

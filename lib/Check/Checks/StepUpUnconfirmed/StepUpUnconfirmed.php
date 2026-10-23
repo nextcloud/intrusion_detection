@@ -74,11 +74,10 @@ final class StepUpUnconfirmed implements ICheck, IExplainsDetection, IExplainsTo
 
 	#[\Override]
 	public function responsesFor(DetectionDraft $draft, array $configured, array $params): array {
-		$notify = ($draft->facts['notify'] ?? false) === true;
-		$forceChange = ($draft->facts['forceChange'] ?? false) === true;
+		$facts = StepUpUnconfirmedFacts::fromArray($draft->facts);
 		return array_values(array_filter($configured, static fn (ResponseType $r): bool => match ($r) {
-			ResponseType::ForcePasswordChange => $forceChange,
-			ResponseType::NotifyAdmin, ResponseType::NotifyUser => $notify,
+			ResponseType::ForcePasswordChange => $facts->forceChange,
+			ResponseType::NotifyAdmin, ResponseType::NotifyUser => $facts->notify,
 			default => false,
 		}));
 	}
@@ -90,14 +89,15 @@ final class StepUpUnconfirmed implements ICheck, IExplainsDetection, IExplainsTo
 
 	#[\Override]
 	public function narrative(Detection $detection, IL10N $l): array {
-		$facts = DetectionFacts::of($detection);
+		$stored = DetectionFacts::of($detection);
+		$facts = StepUpUnconfirmedFacts::fromArray($stored->facts);
 		$sentences = [
-			$facts->bool('client')
+			$facts->client
 				? $l->t('At %1$s an app or script logged in as %2$s from %3$s with the account\'s password. The login needed extra confirmation, because %4$s.', [
-					$this->dates->dateTime($facts->first), (string)$detection->getUid(), (string)$detection->getIp(), StepUpPolicy::describeAll($facts->list('policies'), $l),
+					$this->dates->dateTime($stored->first), (string)$detection->getUid(), (string)$detection->getIp(), StepUpPolicy::describeAll($facts->policies, $l),
 				])
 				: $l->t('At %1$s %2$s logged in from %3$s with the correct password. The login needed extra confirmation, because %4$s.', [
-					$this->dates->dateTime($facts->first), (string)$detection->getUid(), (string)$detection->getIp(), StepUpPolicy::describeAll($facts->list('policies'), $l),
+					$this->dates->dateTime($stored->first), (string)$detection->getUid(), (string)$detection->getIp(), StepUpPolicy::describeAll($facts->policies, $l),
 				]),
 			$l->t('Nothing could confirm it, and the settings for these reasons allow such logins, so it was allowed. The session counts as unconfirmed.'),
 		];
@@ -109,11 +109,11 @@ final class StepUpUnconfirmed implements ICheck, IExplainsDetection, IExplainsTo
 
 	#[\Override]
 	public function userNotice(Detection $detection, IL10N $l): UserNotice {
-		$facts = DetectionFacts::of($detection);
+		$facts = StepUpUnconfirmedFacts::fromArray(DetectionFacts::of($detection)->facts);
 		return new UserNotice(
 			$l->t('A login to your account could not be confirmed'),
 			[
-				$l->t('Someone logged in to your account with your correct password. The login needed extra confirmation because %s.', [StepUpPolicy::describeAll($facts->list('policies'), $l)]),
+				$l->t('Someone logged in to your account with your correct password. The login needed extra confirmation because %s.', [StepUpPolicy::describeAll($facts->policies, $l)]),
 				$l->t('Your account has no email address or second factor to confirm it with, so the login was allowed without it.'),
 			],
 			[

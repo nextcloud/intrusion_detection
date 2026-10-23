@@ -16,7 +16,7 @@ use OC\Core\Controller\LoginController;
 use OC\Core\Controller\OCJSController;
 use OC\Core\Controller\TwoFactorChallengeController;
 use OC\Session\Memory;
-use OCA\IntrusionDetection\Check\Checks\StepUpFailed\StepUpFailed;
+use OCA\IntrusionDetection\Check\Checks\StepUpFailed\StepUpFailedRule;
 use OCA\IntrusionDetection\Confirm\ConfirmationStatus;
 use OCA\IntrusionDetection\Confirm\LoginConfirmations;
 use OCA\IntrusionDetection\Confirm\LoginDetections;
@@ -121,7 +121,7 @@ class StepUpRuleTest extends TestCase {
 
 	public function testATimedOutLoginIsFailedAndEnded(): void {
 		$this->pending(deadline: $this->now);
-		$this->service->expects($this->once())->method('fail')->with($this->isInstanceOf(StepUpState::class), StepUpFailed::RULE_TIMEOUT);
+		$this->service->expects($this->once())->method('fail')->with($this->isInstanceOf(StepUpState::class), StepUpFailedRule::Timeout);
 		$block = $this->rule()->check($this->state, $this->target(VerifyController::class));
 		$this->assertNotNull($block, 'Even the verify page');
 		$this->assertSame('/ended?reason=timeout', $block->redirectUrl);
@@ -135,7 +135,7 @@ class StepUpRuleTest extends TestCase {
 
 	public function testAResumedSessionIsEnded(): void {
 		$this->state->set(SessionMarkers::STEP_UP, (new StepUpState('alice', ConfirmationStatus::Resumed, [], $this->now, $this->now))->toArray());
-		$this->service->expects($this->once())->method('fail')->with($this->anything(), StepUpFailed::RULE_RESUMED);
+		$this->service->expects($this->once())->method('fail')->with($this->anything(), StepUpFailedRule::Resumed);
 		$this->assertSame('/ended?reason=resumed', $this->rule()->check($this->state, $this->target(Controller::class))?->redirectUrl);
 	}
 

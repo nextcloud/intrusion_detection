@@ -11,10 +11,6 @@ namespace OCA\IntrusionDetection\Tests\Integration;
 
 use OCA\IntrusionDetection\Check\CheckRegistry;
 use OCA\IntrusionDetection\Check\Checks\ManualBlock\ManualBlock;
-use OCA\IntrusionDetection\Check\Checks\StepUpFailed\StepUpFailed;
-use OCA\IntrusionDetection\Check\Checks\StepUpRefused\StepUpRefused;
-use OCA\IntrusionDetection\Check\Checks\StepUpRefusedClient\StepUpRefusedClient;
-use OCA\IntrusionDetection\Check\Checks\StepUpUnconfirmed\StepUpUnconfirmed;
 use OCA\IntrusionDetection\Check\ISimulatable;
 use OCA\IntrusionDetection\Db\Detection;
 use OCA\IntrusionDetection\Detection\DetectionDraft;
@@ -50,10 +46,6 @@ class StoredDetectionsTest extends TestCase {
 	/** Checks without a facts class, and why. This list may only shrink. */
 	private const UNTYPED = [
 		ManualBlock::ID => 'records no detections',
-		StepUpFailed::ID => 'its drafts still give an array, which merges by shape',
-		StepUpRefused::ID => 'its drafts still give an array, which merges by shape',
-		StepUpRefusedClient::ID => 'its drafts still give an array, which merges by shape',
-		StepUpUnconfirmed::ID => 'its drafts still give an array, which merges by shape',
 	];
 
 	public function testEveryCheckHasAFactsClass(): void {
@@ -138,8 +130,8 @@ class StoredDetectionsTest extends TestCase {
 	 * @return array<string, mixed>
 	 */
 	public static function merge(string $checkId, array $stored, array $hit): array {
-		$class = self::factsClass($checkId);
-		return FactsMerger::merge($stored, new DetectionDraft(checkId: $checkId, facts: $class === null ? $hit : $class::fromArray($hit)));
+		$class = self::factsClass($checkId) ?? throw new \LogicException('No facts class for ' . $checkId);
+		return FactsMerger::merge($stored, new DetectionDraft(checkId: $checkId, facts: $class::fromArray($hit)));
 	}
 
 	/**

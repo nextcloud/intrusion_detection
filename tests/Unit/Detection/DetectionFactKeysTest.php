@@ -20,7 +20,7 @@ use Test\TestCase;
  * key looks like it holds an account but is not one of those keys.
  *
  * Fact keys are the top-level keys of the arrays that become a detection's
- * facts: the `facts:` argument (of a detection draft or a permit), arrays
+ * facts: the `facts:` argument (of a permit or an administration change), arrays
  * assigned or added to `$facts`, `$facts[...]` writes, the arrays that
  * methods named `...facts()` return, and those that the `toArray()` of a
  * facts class (`...Facts.php`) returns. Keys may be strings or class constants.
@@ -78,7 +78,6 @@ class DetectionFactKeysTest extends TestCase {
 
 	public function testFactsArePassedByName(): void {
 		$positions = self::factsParameters();
-		$this->assertArrayHasKey('DetectionDraft', $positions, 'The scan knows the draft\'s facts parameter');
 		$this->assertArrayHasKey('AdminChanged', $positions, 'The scan knows the facts of an administration change');
 		$positional = [];
 		$files = new \RecursiveIteratorIterator(new \RecursiveDirectoryIterator(dirname(__DIR__, 3) . '/lib', \FilesystemIterator::SKIP_DOTS));

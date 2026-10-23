@@ -76,16 +76,17 @@ final class StepUpRefusedClient implements ICheck, IExplainsDetection, IExplains
 
 	#[\Override]
 	public function narrative(Detection $detection, IL10N $l): array {
-		$facts = DetectionFacts::of($detection);
+		$stored = DetectionFacts::of($detection);
+		$facts = StepUpRefusedClientFacts::fromArray($stored->facts);
 		$sentences = [
 			$l->t('At %1$s an app or script logged in as %2$s from %3$s with the account\'s password. Logins with the password needed extra confirmation, because %4$s, and apps cannot give one, so the request was refused.', [
-				$this->dates->dateTime($facts->first),
+				$this->dates->dateTime($stored->first),
 				(string)$detection->getUid(),
 				(string)$detection->getIp(),
-				StepUpPolicy::describeAll($facts->list('policies'), $l),
+				StepUpPolicy::describeAll($facts->policies, $l),
 			]),
 		];
-		if ($facts->bool('inBrowser')) {
+		if ($facts->inBrowser === true) {
 			$sentences[] = $l->t('The account could confirm such a login in a browser, so apps must use an app password.');
 		}
 		if ($detection->getHits() > 1) {
@@ -96,11 +97,11 @@ final class StepUpRefusedClient implements ICheck, IExplainsDetection, IExplains
 
 	#[\Override]
 	public function userNotice(Detection $detection, IL10N $l): UserNotice {
-		$facts = DetectionFacts::of($detection);
+		$facts = StepUpRefusedClientFacts::fromArray(DetectionFacts::of($detection)->facts);
 		return new UserNotice(
 			$l->t('An app could not log in with your password'),
 			[
-				$l->t('An app or script logged in to your account with your password, not with an app password. Logins with your password need extra confirmation right now, because %s. Apps cannot give it, so the app was refused.', [StepUpPolicy::describeAll($facts->list('policies'), $l)]),
+				$l->t('An app or script logged in to your account with your password, not with an app password. Logins with your password need extra confirmation right now, because %s. Apps cannot give it, so the app was refused.', [StepUpPolicy::describeAll($facts->policies, $l)]),
 			],
 			[
 				$l->t('If this was one of your apps, connect it with an app password from your security settings instead of your password.'),

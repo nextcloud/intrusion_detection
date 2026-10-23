@@ -54,19 +54,19 @@ class DetectionAccountsTest extends IntegrationTestCase {
 	}
 
 	public function testAnApprovedAdminGrantFindsItsRequesterAndApprover(): void {
-		[$detection] = $this->service->record(new DetectionDraft(AdminChange::ID, null, 'new-admin', [
+		[$detection] = $this->service->record(new DetectionDraft(AdminChange::ID, null, 'new-admin', self::factsOf(AdminChange::ID, [
 			'kind' => AdminChange::KIND_ADMIN_GRANTED,
 			'actor' => 'second-admin',
 			'approval' => 3,
 			'requested_by' => 'asking-admin',
 			'approved_by' => 'second-admin',
-		]), $this->protect);
+		])), $this->protect);
 		$this->assertEqualsCanonicalizing(['new-admin', 'second-admin', 'asking-admin'], $this->accounts->uids($detection->getId()));
 		$this->assertSame([$detection->getId()], $this->accounts->detectionIds('asking-admin', 0, 10), 'Deleting the requester finds the detection');
 	}
 
 	public function testRecordingMergingAndActionsAddTheirAccounts(): void {
-		$draft = fn (array $targets): DetectionDraft => new DetectionDraft(CredentialStuffing::ID, SourceKey::fromIp('203.0.113.5'), null, ['targets' => $targets], merge: DetectionDraft::MERGE_SOURCE);
+		$draft = fn (array $targets): DetectionDraft => new DetectionDraft(CredentialStuffing::ID, SourceKey::fromIp('203.0.113.5'), null, self::factsOf(CredentialStuffing::ID, ['targets' => $targets]), merge: DetectionDraft::MERGE_SOURCE);
 		[$detection] = $this->service->record($draft(['alice', 'bob']), $this->protect);
 		$this->assertEqualsCanonicalizing(['alice', 'bob'], $this->accounts->uids($detection->getId()));
 
@@ -82,10 +82,10 @@ class DetectionAccountsTest extends IntegrationTestCase {
 
 	public function testDeletingAnAccountReadsOnlyItsDetections(): void {
 		for ($i = 0; $i < 50; $i++) {
-			$this->service->record(new DetectionDraft(CredentialStuffing::ID, SourceKey::fromIp('198.51.100.' . $i), null, ['targets' => ['bob'], 'note' => 'alice is only a word here']), $this->protect);
+			$this->service->record(new DetectionDraft(CredentialStuffing::ID, SourceKey::fromIp('198.51.100.' . $i), null, self::factsOf(CredentialStuffing::ID, ['targets' => ['bob'], 'net' => 'alice is only a word here'])), $this->protect);
 		}
-		[$attack] = $this->service->record(new DetectionDraft(CredentialStuffing::ID, SourceKey::fromIp('203.0.113.9'), null, ['targets' => ['alice', 'bob']]), $this->protect);
-		[$change] = $this->service->record(new DetectionDraft(AdminChange::ID, null, 'bob', ['actor' => 'alice', 'kind' => 'admin_granted']), $this->protect);
+		[$attack] = $this->service->record(new DetectionDraft(CredentialStuffing::ID, SourceKey::fromIp('203.0.113.9'), null, self::factsOf(CredentialStuffing::ID, ['targets' => ['alice', 'bob']])), $this->protect);
+		[$change] = $this->service->record(new DetectionDraft(AdminChange::ID, null, 'bob', self::factsOf(AdminChange::ID, ['actor' => 'alice', 'kind' => 'admin_granted'])), $this->protect);
 
 		$queries = $this->queries();
 		Server::get(UserDataCleanup::class)->deleteUser('alice');
@@ -102,18 +102,18 @@ class DetectionAccountsTest extends IntegrationTestCase {
 	}
 
 	public function testRetentionDeletesTheAccountsWithTheirDetections(): void {
-		[$old] = $this->service->record(new DetectionDraft(CredentialStuffing::ID, SourceKey::fromIp('203.0.113.10'), null, ['targets' => ['alice']]), $this->protect);
+		[$old] = $this->service->record(new DetectionDraft(CredentialStuffing::ID, SourceKey::fromIp('203.0.113.10'), null, self::factsOf(CredentialStuffing::ID, ['targets' => ['alice']])), $this->protect);
 		$mapper = Server::get(DetectionMapper::class);
 		$old->setCreatedAt(1000);
 		$mapper->update($old);
-		[$kept] = $this->service->record(new DetectionDraft(CredentialStuffing::ID, SourceKey::fromIp('203.0.113.11'), null, ['targets' => ['alice']]), $this->protect);
+		[$kept] = $this->service->record(new DetectionDraft(CredentialStuffing::ID, SourceKey::fromIp('203.0.113.11'), null, self::factsOf(CredentialStuffing::ID, ['targets' => ['alice']])), $this->protect);
 
 		$this->assertSame(1, $mapper->deleteCreatedBefore(2000));
 		$this->assertSame([$kept->getId()], $this->accounts->detectionIds('alice', 0, 10));
 	}
 
 	public function testTheBackfillRecordsStoredDetectionsOnce(): void {
-		[$detection] = $this->service->record(new DetectionDraft(CredentialStuffing::ID, SourceKey::fromIp('203.0.113.12'), 'carol', ['targets' => ['alice']]), $this->protect);
+		[$detection] = $this->service->record(new DetectionDraft(CredentialStuffing::ID, SourceKey::fromIp('203.0.113.12'), 'carol', self::factsOf(CredentialStuffing::ID, ['targets' => ['alice']])), $this->protect);
 		$this->accounts->deleteForDetections([$detection->getId()]);
 
 		Server::get(DetectionAccounts::class)->backfill();
@@ -122,9 +122,9 @@ class DetectionAccountsTest extends IntegrationTestCase {
 	}
 
 	public function testTheMigrationRecordsTheNewAccountKeysOfOldDetections(): void {
-		[$granted] = $this->service->record(new DetectionDraft(AdminChange::ID, null, 'new-admin', ['kind' => AdminChange::KIND_ADMIN_GRANTED, 'actor' => 'second-admin', 'requested_by' => 'asking-admin', 'approved_by' => 'second-admin']), $this->protect);
-		[$share] = $this->service->record(new DetectionDraft(ShareBruteforce::ID, SourceKey::fromIp('203.0.113.13'), null, ['owner' => 'sharer', 'managers' => ['sharer', 'co-owner']]), $this->protect);
-		[$other] = $this->service->record(new DetectionDraft(CredentialStuffing::ID, SourceKey::fromIp('203.0.113.14'), null, ['targets' => ['alice']]), $this->protect);
+		[$granted] = $this->service->record(new DetectionDraft(AdminChange::ID, null, 'new-admin', self::factsOf(AdminChange::ID, ['kind' => AdminChange::KIND_ADMIN_GRANTED, 'actor' => 'second-admin', 'requested_by' => 'asking-admin', 'approved_by' => 'second-admin'])), $this->protect);
+		[$share] = $this->service->record(new DetectionDraft(ShareBruteforce::ID, SourceKey::fromIp('203.0.113.13'), null, self::factsOf(ShareBruteforce::ID, ['owner' => 'sharer', 'managers' => ['sharer', 'co-owner']])), $this->protect);
+		[$other] = $this->service->record(new DetectionDraft(CredentialStuffing::ID, SourceKey::fromIp('203.0.113.14'), null, self::factsOf(CredentialStuffing::ID, ['targets' => ['alice']])), $this->protect);
 		// As stored before the keys were known: only the account of the detection itself.
 		$this->accounts->deleteForDetections([$granted->getId(), $share->getId(), $other->getId()]);
 		$this->accounts->add($granted->getId(), ['new-admin']);

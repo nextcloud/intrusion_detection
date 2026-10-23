@@ -11,9 +11,14 @@ namespace OCA\IntrusionDetection\Confirm;
 
 use OCA\IntrusionDetection\Audit\AuditLogger;
 use OCA\IntrusionDetection\Check\Checks\StepUpFailed\StepUpFailed;
+use OCA\IntrusionDetection\Check\Checks\StepUpFailed\StepUpFailedFacts;
+use OCA\IntrusionDetection\Check\Checks\StepUpFailed\StepUpFailedRule;
 use OCA\IntrusionDetection\Check\Checks\StepUpRefused\StepUpRefused;
+use OCA\IntrusionDetection\Check\Checks\StepUpRefused\StepUpRefusedFacts;
 use OCA\IntrusionDetection\Check\Checks\StepUpRefusedClient\StepUpRefusedClient;
+use OCA\IntrusionDetection\Check\Checks\StepUpRefusedClient\StepUpRefusedClientFacts;
 use OCA\IntrusionDetection\Check\Checks\StepUpUnconfirmed\StepUpUnconfirmed;
+use OCA\IntrusionDetection\Check\Checks\StepUpUnconfirmed\StepUpUnconfirmedFacts;
 use OCA\IntrusionDetection\Db\Detection;
 use OCA\IntrusionDetection\Detection\DetectionDraft;
 use OCA\IntrusionDetection\Login\CoreSession;
@@ -111,7 +116,7 @@ class LoginConfirmations {
 				checkId: StepUpRefusedClient::ID,
 				source: $login->source,
 				uid: $uid,
-				facts: ['policies' => $policyIds, 'inBrowser' => $inBrowser],
+				facts: new StepUpRefusedClientFacts($policyIds, $inBrowser),
 				merge: DetectionDraft::MERGE_SOURCE_USER,
 				mergeWindow: 86400,
 				userAgent: $login->userAgent,
@@ -143,7 +148,7 @@ class LoginConfirmations {
 			checkId: StepUpRefused::ID,
 			source: $login->source,
 			uid: $uid,
-			facts: ['policies' => $policyIds],
+			facts: new StepUpRefusedFacts($policyIds),
 			merge: DetectionDraft::MERGE_SOURCE_USER,
 			userAgent: $login->userAgent,
 		));
@@ -231,10 +236,8 @@ class LoginConfirmations {
 	/**
 	 * The login was not confirmed: record `step_up_failed`, which ends the
 	 * session with its responses, and end it in any case.
-	 *
-	 * @param StepUpFailed::RULE_* $rule
 	 */
-	public function fail(StepUpState $stepUp, string $rule): ?Detection {
+	public function fail(StepUpState $stepUp, StepUpFailedRule $rule): ?Detection {
 		$sessionId = $this->store->sessionId();
 		$sessionTokenId = $this->coreSession->tokenId();
 		$source = $this->addresses->current() ?? ($stepUp->ip === null ? null : SourceKey::tryFromIp($stepUp->ip));
@@ -246,7 +249,7 @@ class LoginConfirmations {
 			$this->store->removeStepUp();
 			$this->userSession->logout();
 		}
-		$this->audit->log('login of %s ended: not confirmed (%s)', ['uid' => $stepUp->uid, 'rule' => $rule]);
+		$this->audit->log('login of %s ended: not confirmed (%s)', ['uid' => $stepUp->uid, 'rule' => $rule->value]);
 		return $detection;
 	}
 
@@ -265,7 +268,7 @@ class LoginConfirmations {
 		}
 		$this->engine->handle($this->failure(
 			$stepUp,
-			StepUpFailed::RULE_TIMEOUT,
+			StepUpFailedRule::Timeout,
 			$stepUp->ip === null ? null : SourceKey::tryFromIp($stepUp->ip),
 			$sessionTokenId,
 			max(0, $stepUp->deadline - $stepUp->started),
@@ -316,7 +319,7 @@ class LoginConfirmations {
 			checkId: StepUpUnconfirmed::ID,
 			source: $login->source,
 			uid: $login->uid(),
-			facts: ['policies' => $policyIds, 'client' => !$login->interactive, 'notify' => $decision->notify, 'forceChange' => $decision->forceChange],
+			facts: new StepUpUnconfirmedFacts($policyIds, !$login->interactive, $decision->notify, $decision->forceChange),
 			merge: DetectionDraft::MERGE_SOURCE_USER,
 			userAgent: $login->userAgent,
 		);
@@ -328,26 +331,13 @@ class LoginConfirmations {
 
 	/**
 	 * `step_up_failed` for a login that was not confirmed.
-	 *
-	 * @param StepUpFailed::RULE_* $rule
 	 */
-	private function failure(StepUpState $stepUp, string $rule, ?SourceKey $source, ?int $sessionTokenId, int $ttl, int $attempts, bool $abandoned = false): DetectionDraft {
-		$facts = [
-			'rule' => $rule,
-			'policies' => $stepUp->policies,
-			'attempts' => $attempts,
-			'started' => $stepUp->started,
-			'ttl' => $ttl,
-			'sessionTokenId' => $sessionTokenId,
-		];
-		if ($abandoned) {
-			$facts['abandoned'] = true;
-		}
+	private function failure(StepUpState $stepUp, StepUpFailedRule $rule, ?SourceKey $source, ?int $sessionTokenId, int $ttl, int $attempts, bool $abandoned = false): DetectionDraft {
 		return new DetectionDraft(
 			checkId: StepUpFailed::ID,
 			source: $source,
 			uid: $stepUp->uid,
-			facts: $facts,
+			facts: new StepUpFailedFacts($rule, $stepUp->policies, $attempts, $stepUp->started, $ttl, $sessionTokenId, $abandoned),
 			merge: DetectionDraft::MERGE_SOURCE_USER,
 			sessionTokenId: $sessionTokenId,
 		);

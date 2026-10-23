@@ -11,6 +11,7 @@ namespace OCA\IntrusionDetection\Tests\Integration;
 
 use OCA\IntrusionDetection\AppInfo\Application;
 use OCA\IntrusionDetection\Check\Checks\StepUpFailed\StepUpFailed;
+use OCA\IntrusionDetection\Check\Checks\StepUpFailed\StepUpFailedRule;
 use OCA\IntrusionDetection\Config\UserKeys;
 use OCA\IntrusionDetection\Confirm\ConfirmationStatus;
 use OCA\IntrusionDetection\Confirm\EmailCodes;
@@ -131,7 +132,7 @@ class VerifyFlowTest extends StepUpTestCase {
 		$failed = $this->detectionsOf(StepUpFailed::ID);
 		$this->assertCount(1, $failed);
 		$this->assertSame('high', $failed[0]->getSeverity());
-		$this->assertSame(StepUpFailed::RULE_ATTEMPTS, $failed[0]->getExplanationData()['facts']['rule']);
+		$this->assertSame(StepUpFailedRule::Attempts->value, $failed[0]->getExplanationData()['facts']['rule']);
 		$this->assertSame(['ban', 'kill_session', 'notify_admin', 'notify_user'], array_column($failed[0]->getActionList(), 'type'));
 		$this->assertNotSame([], Server::get(BanMapper::class)->findActiveForKeys([SourceKey::fromIp($this->remoteAddress)->ipKey], time()), 'Blocked');
 		$this->assertCount(1, $this->notificationsFor($this->alice->getUID(), UserAlerts::SUBJECT));
@@ -198,7 +199,7 @@ class VerifyFlowTest extends StepUpTestCase {
 		$this->assertNull($this->sessionUser);
 		$this->assertFalse($this->tokenExists($this->token['id']));
 		$failed = $this->detectionsOf(StepUpFailed::ID)[0];
-		$this->assertSame(StepUpFailed::RULE_TIMEOUT, $failed->getExplanationData()['facts']['rule']);
+		$this->assertSame(StepUpFailedRule::Timeout->value, $failed->getExplanationData()['facts']['rule']);
 		$this->assertSame(['kill_session', 'notify_admin', 'notify_user'], array_column($failed->getActionList(), 'type'));
 		$this->assertSame([], Server::get(BanMapper::class)->findActiveForKeys([SourceKey::fromIp($this->remoteAddress)->ipKey], time()));
 	}
@@ -250,7 +251,7 @@ class VerifyFlowTest extends StepUpTestCase {
 		$html = $response->render();
 		$this->assertStringContainsString('This login was never confirmed', $html);
 		$this->assertStringNotContainsString('<script>alert', $html);
-		$this->assertStringContainsString('was not confirmed in time', $this->verifyController()->ended(StepUpFailed::RULE_TIMEOUT)->render());
+		$this->assertStringContainsString('was not confirmed in time', $this->verifyController()->ended(StepUpFailedRule::Timeout->value)->render());
 	}
 
 	public function testWithoutAPendingLoginThePageContinuesAtOnce(): void {

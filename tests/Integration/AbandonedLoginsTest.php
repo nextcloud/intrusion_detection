@@ -10,6 +10,7 @@ declare(strict_types=1);
 namespace OCA\IntrusionDetection\Tests\Integration;
 
 use OCA\IntrusionDetection\Check\Checks\StepUpFailed\StepUpFailed;
+use OCA\IntrusionDetection\Check\Checks\StepUpFailed\StepUpFailedRule;
 use OCA\IntrusionDetection\Config\GlobalSettings;
 use OCA\IntrusionDetection\Confirm\AbandonedLogins;
 use OCA\IntrusionDetection\Confirm\Db\StepUpSessionMapper;
@@ -53,7 +54,7 @@ class AbandonedLoginsTest extends StepUpTestCase {
 		$this->assertSame(1, $this->abandoned()->purge(time()));
 
 		$detection = $this->detectionsOf(StepUpFailed::ID)[0];
-		$this->assertSame(StepUpFailed::RULE_TIMEOUT, $detection->getExplanationData()['facts']['rule']);
+		$this->assertSame(StepUpFailedRule::Timeout->value, $detection->getExplanationData()['facts']['rule']);
 		$this->assertSame([], Server::get(BanMapper::class)->findActiveForKeys([SourceKey::fromIp($this->remoteAddress)->ipKey], time()), 'A timeout never blocks');
 		$this->assertFalse($this->tokenExists($token['id']), 'Its session is ended');
 		$this->assertCount(1, $this->notificationsFor($this->alice->getUID(), UserAlerts::SUBJECT), 'The user is told');

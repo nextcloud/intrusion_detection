@@ -14,6 +14,9 @@ use OCA\IntrusionDetection\Audit\AuditLogger;
 use OCA\IntrusionDetection\Cache\KeyLock;
 use OCA\IntrusionDetection\Check\CheckRegistry;
 use OCA\IntrusionDetection\Check\Checks\AccountTakeover\AccountTakeover;
+use OCA\IntrusionDetection\Check\Checks\CredentialStuffing\CredentialStuffing;
+use OCA\IntrusionDetection\Check\Checks\CredentialStuffing\CredentialStuffingFacts;
+use OCA\IntrusionDetection\Check\Checks\CredentialStuffing\CredentialStuffingRule;
 use OCA\IntrusionDetection\Check\Checks\ManualBlock\ManualBlock;
 use OCA\IntrusionDetection\Check\Checks\SharedAddress\SharedAddress;
 use OCA\IntrusionDetection\Config\GlobalSettings;
@@ -23,6 +26,7 @@ use OCA\IntrusionDetection\Db\DetectionMapper;
 use OCA\IntrusionDetection\Db\LoginMapper;
 use OCA\IntrusionDetection\Definition\Mode;
 use OCA\IntrusionDetection\Definition\ResponseType;
+use OCA\IntrusionDetection\Detection\CommonFacts;
 use OCA\IntrusionDetection\Detection\DetectionAccounts;
 use OCA\IntrusionDetection\Detection\DetectionDraft;
 use OCA\IntrusionDetection\Detection\DetectionService;
@@ -170,8 +174,8 @@ class ResponseEngineTest extends IntegrationTestCase {
 	}
 
 	public function testAMergedHitKeepsTheEarlierFacts(): void {
-		$first = $this->engine->handle(new DetectionDraft(ManualBlock::ID, SourceKey::fromIp('198.51.100.7'), facts: ['rule' => 'a', 'targets' => ['alice', 'bob'], 'first' => 1000, 'last' => 1100], merge: DetectionDraft::MERGE_SOURCE));
-		$second = $this->engine->handle(new DetectionDraft(ManualBlock::ID, SourceKey::fromIp('198.51.100.7'), facts: ['rule' => 'a', 'targets' => ['carol'], 'first' => 1050, 'last' => 1200], merge: DetectionDraft::MERGE_SOURCE));
+		$first = $this->engine->handle($this->stuffing(CredentialStuffingRule::Source, new CommonFacts(first: 1000, last: 1100, targets: ['alice', 'bob'])));
+		$second = $this->engine->handle($this->stuffing(CredentialStuffingRule::Source, new CommonFacts(first: 1050, last: 1200, targets: ['carol'])));
 		$this->assertSame($first?->getId(), $second?->getId());
 		$facts = $this->detections->findById($second->getId())->getExplanationData()['facts'];
 		$this->assertSame(['alice', 'bob', 'carol'], $facts['targets']);
@@ -218,10 +222,10 @@ class ResponseEngineTest extends IntegrationTestCase {
 	}
 
 	public function testHitsOfAnotherRuleAreAnotherDetection(): void {
-		$this->engine->handle(new DetectionDraft(ManualBlock::ID, SourceKey::fromIp('198.51.100.7'), facts: ['rule' => 'a'], merge: DetectionDraft::MERGE_SOURCE));
-		$this->engine->handle(new DetectionDraft(ManualBlock::ID, SourceKey::fromIp('198.51.100.7'), facts: ['rule' => 'b'], merge: DetectionDraft::MERGE_SOURCE));
+		$this->engine->handle($this->stuffing(CredentialStuffingRule::Source));
+		$this->engine->handle($this->stuffing(CredentialStuffingRule::Network));
 		$rules = array_map(static fn ($d): string => $d->getExplanationData()['facts']['rule'], $this->detections->findList(new DetectionFilter()));
-		$this->assertEqualsCanonicalizing(['a', 'b'], $rules);
+		$this->assertEqualsCanonicalizing([CredentialStuffingRule::Source->value, CredentialStuffingRule::Network->value], $rules);
 	}
 
 	public function testDifferentSourcesAreSeparateDetections(): void {
@@ -261,9 +265,9 @@ class ResponseEngineTest extends IntegrationTestCase {
 
 	public function testExplanationKeepsTheThresholdsAndCleansTheUserAgent(): void {
 		$detection = $this->engine->handle(new DetectionDraft(
-			ManualBlock::ID,
+			CredentialStuffing::ID,
 			SourceKey::fromIp('198.51.100.7'),
-			facts: ['targets' => array_map(static fn (int $i): string => 'user' . $i, range(1, 30))],
+			facts: new CredentialStuffingFacts(common: new CommonFacts(targets: array_map(static fn (int $i): string => 'user' . $i, range(1, 30)))),
 			userAgent: "curl/8.0\n\x07" . str_repeat('x', 300),
 		));
 		$explanation = $detection->getExplanationData();
@@ -275,5 +279,9 @@ class ResponseEngineTest extends IntegrationTestCase {
 
 	private function draft(string $ip, string $merge = DetectionDraft::MERGE_NONE): DetectionDraft {
 		return new DetectionDraft(ManualBlock::ID, SourceKey::fromIp($ip), merge: $merge);
+	}
+
+	private function stuffing(CredentialStuffingRule $rule, CommonFacts $common = new CommonFacts()): DetectionDraft {
+		return new DetectionDraft(CredentialStuffing::ID, SourceKey::fromIp('198.51.100.7'), facts: new CredentialStuffingFacts(rule: $rule, common: $common), merge: DetectionDraft::MERGE_SOURCE);
 	}
 }

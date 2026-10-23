@@ -12,6 +12,7 @@ namespace OCA\IntrusionDetection\Tests\Integration;
 use OCA\IntrusionDetection\AdminChange\ApprovalException;
 use OCA\IntrusionDetection\AdminChange\ApprovalService;
 use OCA\IntrusionDetection\Check\Checks\StepUpFailed\StepUpFailed;
+use OCA\IntrusionDetection\Check\Checks\StepUpFailed\StepUpFailedRule;
 use OCA\IntrusionDetection\Check\Checks\StepUpRefused\StepUpRefused;
 use OCA\IntrusionDetection\Config\GlobalSettings;
 use OCA\IntrusionDetection\Confirm\ConfirmationStatus;
@@ -124,8 +125,8 @@ class AdminApprovalTest extends StepUpTestCase {
 		$this->assertNull($this->sessionUser, 'The session ended');
 		$failed = $this->detectionsOf(StepUpFailed::ID);
 		$this->assertCount(1, $failed);
-		$this->assertSame(StepUpFailed::RULE_REJECTED, $failed[0]->getExplanationData()['facts']['rule'] ?? null);
-		$this->assertStringContainsString('rejected', $this->verifyController()->ended(StepUpFailed::RULE_REJECTED)->render());
+		$this->assertSame(StepUpFailedRule::Rejected->value, $failed[0]->getExplanationData()['facts']['rule'] ?? null);
+		$this->assertStringContainsString('rejected', $this->verifyController()->ended(StepUpFailedRule::Rejected->value)->render());
 	}
 
 	public function testAnExpiredRequestEndsTheLogin(): void {
@@ -154,7 +155,7 @@ class AdminApprovalTest extends StepUpTestCase {
 		$this->assertNull($this->stepUp());
 		$failed = $this->detectionsOf(StepUpFailed::ID);
 		$this->assertCount(1, $failed);
-		$this->assertSame(StepUpFailed::RULE_REJECTED, $failed[0]->getExplanationData()['facts']['rule'] ?? null);
+		$this->assertSame(StepUpFailedRule::Rejected->value, $failed[0]->getExplanationData()['facts']['rule'] ?? null);
 		$this->assertCount(1, Server::get(ApprovalMapper::class)->findList(false, 10, Approval::KIND_LOGIN), 'No new request');
 		$this->assertCount($asked, $this->notificationsFor(self::ADMIN, Notifier::SUBJECT_APPROVAL_REQUESTED), 'The administrators are not asked again');
 	}
@@ -168,7 +169,7 @@ class AdminApprovalTest extends StepUpTestCase {
 		$this->assertInstanceOf(RedirectResponse::class, $response);
 		$this->assertStringContainsString('reason=timeout', $response->getRedirectURL());
 		$this->assertNull($this->sessionUser);
-		$this->assertSame(StepUpFailed::RULE_TIMEOUT, $this->detectionsOf(StepUpFailed::ID)[0]->getExplanationData()['facts']['rule'] ?? null);
+		$this->assertSame(StepUpFailedRule::Timeout->value, $this->detectionsOf(StepUpFailed::ID)[0]->getExplanationData()['facts']['rule'] ?? null);
 		$this->assertSame(0, $this->pendingFor($this->bob->getUID()), 'No new request');
 	}
 

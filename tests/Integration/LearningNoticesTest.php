@@ -187,8 +187,8 @@ class LearningNoticesTest extends IntegrationTestCase {
 		$this->learning->start(7, 'test');
 		$engine = Server::get(ResponseEngine::class);
 		// Two detections from one address and one from another, all held back by learning mode.
-		foreach (['198.51.100.7', '198.51.100.7', '198.51.100.8'] as $i => $ip) {
-			$engine->handle(new DetectionDraft(ManualBlock::ID, SourceKey::fromIp($ip), facts: ['n' => $i]));
+		foreach (['198.51.100.7', '198.51.100.7', '198.51.100.8'] as $ip) {
+			$engine->handle(new DetectionDraft(ManualBlock::ID, SourceKey::fromIp($ip)));
 		}
 		// A check set to Observe on purpose is not what learning held back.
 		$engine->handle(new DetectionDraft(ManualBlock::ID, SourceKey::fromIp('198.51.100.9'), mode: new ModeState(Mode::Observe, Mode::Observe)));

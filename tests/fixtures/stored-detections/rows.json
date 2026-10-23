@@ -1160,6 +1160,302 @@
 			}
 		}
 	},
+	"step_up_failed": {
+		"wrong codes": {
+			"detection": {"id": 41, "checkId": "step_up_failed", "severity": "high", "enforced": true, "ip": "203.0.113.5", "netKey": "4:203.0.113.0/24", "uid": "alice", "shareId": null, "hits": 1, "createdAt": 1789999700, "lastSeenAt": 1790000000, "actions": [], "explanation": {"v": 1, "check": "step_up_failed", "mode": {"configured": "protect", "effective": "protect", "reason": null}, "thresholds": [], "facts": {"rule": "attempts", "policies": ["flagged_source", "risky_network"], "attempts": 3, "started": 1789999650, "ttl": 900, "sessionTokenId": 31}, "first": 1789999700, "last": 1790000000}},
+			"reads": {
+				"narrative": [
+					"At date:1789999650 alice logged in from 203.0.113.5 with the correct password. The login needed extra confirmation, because the address or its network took part in an attack; the address belongs to a hosting provider or the Tor network.",
+					"3 wrong codes were entered, so the login was ended."
+				],
+				"userNotice": {
+					"subject": "A login to your account was not confirmed",
+					"message": ["Someone logged in to your account with your correct password, but entered the wrong code again and again when asked to confirm it.", "The login needed the extra confirmation because the address or its network took part in an attack; the address belongs to a hosting provider or the Tor network. It was ended."],
+					"advice": ["If this was you, just log in again.", "If it was not you, someone knows your password: change it, and answer \"No, it was not me\"."]
+				},
+				"asksWasThisYou": true
+			}
+		},
+		"not in time": {
+			"detection": {"id": 41, "checkId": "step_up_failed", "severity": "high", "enforced": true, "ip": "203.0.113.5", "netKey": "4:203.0.113.0/24", "uid": "alice", "shareId": null, "hits": 2, "createdAt": 1789999700, "lastSeenAt": 1790000000, "actions": [], "explanation": {"v": 1, "check": "step_up_failed", "mode": {"configured": "protect", "effective": "protect", "reason": null}, "thresholds": [], "facts": {"rule": "timeout", "policies": ["risk_high"], "attempts": 0, "started": 1789999000, "ttl": 900, "sessionTokenId": 31}, "first": 1789999700, "last": 1790000000}},
+			"reads": {
+				"narrative": [
+					"At date:1789999000 alice logged in from 203.0.113.5 with the correct password. The login needed extra confirmation, because the address has a high risk score.",
+					"It was not confirmed within 15 minutes, so the login was ended."
+				],
+				"userNotice": {
+					"subject": "A login to your account was not confirmed",
+					"message": ["Someone logged in to your account with your correct password, but did not confirm the login with the code sent to your email address in time.", "The login needed the extra confirmation because the address has a high risk score. It was ended."],
+					"advice": ["If this was you, just log in again.", "If it was not you, someone knows your password: change it, and answer \"No, it was not me\"."]
+				},
+				"asksWasThisYou": true
+			}
+		},
+		"left waiting": {
+			"detection": {"id": 41, "checkId": "step_up_failed", "severity": "high", "enforced": true, "ip": "203.0.113.5", "netKey": "4:203.0.113.0/24", "uid": "alice", "shareId": null, "hits": 1, "createdAt": 1789999700, "lastSeenAt": 1790000000, "actions": [], "explanation": {"v": 1, "check": "step_up_failed", "mode": {"configured": "protect", "effective": "protect", "reason": null}, "thresholds": [], "facts": {"rule": "timeout", "policies": ["breached_password"], "attempts": 0, "started": 1789999000, "ttl": 600, "sessionTokenId": null, "abandoned": true}, "first": 1789999700, "last": 1790000000}},
+			"reads": {
+				"narrative": [
+					"At date:1789999000 alice logged in from 203.0.113.5 with the correct password. The login needed extra confirmation, because the password is on a public list of leaked passwords.",
+					"It was not confirmed within 10 minutes, so the login was ended."
+				],
+				"userNotice": {
+					"subject": "A login to your account was not confirmed",
+					"message": ["Someone logged in to your account with your correct password, but did not confirm the login with the code sent to your email address in time.", "The login needed the extra confirmation because the password is on a public list of leaked passwords. It was ended."],
+					"advice": ["If this was you, just log in again.", "If it was not you, someone knows your password: change it, and answer \"No, it was not me\"."]
+				},
+				"asksWasThisYou": true
+			}
+		},
+		"resumed": {
+			"detection": {"id": 41, "checkId": "step_up_failed", "severity": "high", "enforced": true, "ip": "203.0.113.5", "netKey": "4:203.0.113.0/24", "uid": "alice", "shareId": null, "hits": 1, "createdAt": 1789999700, "lastSeenAt": 1790000000, "actions": [], "explanation": {"v": 1, "check": "step_up_failed", "mode": {"configured": "protect", "effective": "protect", "reason": null}, "thresholds": [], "facts": {"rule": "resumed", "policies": [], "attempts": 0, "started": 1789999700, "ttl": 900, "sessionTokenId": 31}, "first": 1789999700, "last": 1790000000}},
+			"reads": {
+				"narrative": [
+					"At date:1789999700 alice logged in from 203.0.113.5 with the correct password. The login needed extra confirmation.",
+					"It was never confirmed, and the session came back later through its remember-me cookie or its session token, without the confirmation. It was ended."
+				],
+				"userNotice": {
+					"subject": "A login to your account was not confirmed",
+					"message": ["Someone logged in to your account with your correct password, but did not confirm the login with the code sent to your email address in time.", "The login was ended."],
+					"advice": ["If this was you, just log in again.", "If it was not you, someone knows your password: change it, and answer \"No, it was not me\"."]
+				},
+				"asksWasThisYou": true
+			}
+		},
+		"rejected": {
+			"detection": {"id": 41, "checkId": "step_up_failed", "severity": "high", "enforced": true, "ip": "203.0.113.5", "netKey": "4:203.0.113.0/24", "uid": "alice", "shareId": null, "hits": 1, "createdAt": 1789999700, "lastSeenAt": 1790000000, "actions": [], "explanation": {"v": 1, "check": "step_up_failed", "mode": {"configured": "protect", "effective": "protect", "reason": null}, "thresholds": [], "facts": {"rule": "rejected", "policies": ["protected_account"], "attempts": 0, "started": 1789999600, "ttl": 900, "sessionTokenId": 31}, "first": 1789999700, "last": 1790000000}},
+			"reads": {
+				"narrative": [
+					"At date:1789999600 alice logged in from 203.0.113.5 with the correct password. The login needed extra confirmation, because someone is guessing the account's password.",
+					"It waited for an administrator's approval, and an administrator rejected it, so the login was ended."
+				],
+				"userNotice": {
+					"subject": "A login to your account was not confirmed",
+					"message": ["Someone logged in to your account with your correct password. The login waited for an administrator's approval, and an administrator rejected it.", "The login needed the extra confirmation because someone is guessing the account's password. It was ended."],
+					"advice": ["If this was you, just log in again.", "If it was not you, someone knows your password: change it, and answer \"No, it was not me\"."]
+				},
+				"asksWasThisYou": true
+			}
+		},
+		"old row": {
+			"detection": {"id": 41, "checkId": "step_up_failed", "severity": "high", "enforced": true, "ip": "203.0.113.5", "netKey": "4:203.0.113.0/24", "uid": "alice", "shareId": null, "hits": 1, "createdAt": 1789999700, "lastSeenAt": 1790000000, "actions": [], "explanation": {"v": 1, "check": "step_up_failed", "mode": {"configured": "protect", "effective": "protect", "reason": null}, "thresholds": [], "facts": {"rule": "attempts", "policies": ["flagged_source", "retired_policy"], "attempts": 5}, "first": 1789999700, "last": 1790000000}},
+			"reads": {
+				"narrative": [
+					"At date:1789999700 alice logged in from 203.0.113.5 with the correct password. The login needed extra confirmation, because the address or its network took part in an attack.",
+					"5 wrong codes were entered, so the login was ended."
+				],
+				"userNotice": {
+					"subject": "A login to your account was not confirmed",
+					"message": ["Someone logged in to your account with your correct password, but entered the wrong code again and again when asked to confirm it.", "The login needed the extra confirmation because the address or its network took part in an attack. It was ended."],
+					"advice": ["If this was you, just log in again.", "If it was not you, someone knows your password: change it, and answer \"No, it was not me\"."]
+				},
+				"asksWasThisYou": true
+			}
+		}
+	},
+	"step_up_refused": {
+		"refused": {
+			"detection": {"id": 41, "checkId": "step_up_refused", "severity": "medium", "enforced": true, "ip": "203.0.113.5", "netKey": "4:203.0.113.0/24", "uid": "alice", "shareId": null, "hits": 2, "createdAt": 1789999700, "lastSeenAt": 1790000000, "actions": [], "explanation": {"v": 1, "check": "step_up_refused", "mode": {"configured": "protect", "effective": "protect", "reason": null}, "thresholds": [], "facts": {"policies": ["flagged_source", "risk_high"]}, "first": 1789999700, "last": 1790000000}},
+			"reads": {
+				"narrative": [
+					"At date:1789999700 alice logged in from 203.0.113.5 with the correct password. The login needed extra confirmation, because the address or its network took part in an attack; the address has a high risk score.",
+					"The account has no second factor and no email address that could confirm it, so the login was refused. The person was shown the reference SAAA-AABK.",
+					"It was refused 2 times within the hour."
+				],
+				"userNotice": {
+					"subject": "A login to your account was refused",
+					"message": ["Someone logged in to your account with your correct password. The login needed extra confirmation because the address or its network took part in an attack; the address has a high risk score.", "Your account has no email address or second factor to confirm it with, so the login was refused."],
+					"advice": ["If this was you, ask your administrator for help and give them the reference SAAA-AABK. With an email address or a second factor, you can confirm such logins yourself.", "If it was not you, someone knows your password: change it, and answer \"No, it was not me\"."]
+				},
+				"asksWasThisYou": true
+			}
+		},
+		"linked to its session": {
+			"detection": {"id": 41, "checkId": "step_up_refused", "severity": "medium", "enforced": true, "ip": "203.0.113.5", "netKey": "4:203.0.113.0/24", "uid": "alice", "shareId": null, "hits": 1, "createdAt": 1789999700, "lastSeenAt": 1790000000, "actions": [], "explanation": {"v": 1, "check": "step_up_refused", "mode": {"configured": "protect", "effective": "protect", "reason": null}, "thresholds": [], "facts": {"policies": ["protected_account"], "sessionTokenIds": [7]}, "first": 1789999700, "last": 1790000000}},
+			"reads": {
+				"narrative": [
+					"At date:1789999700 alice logged in from 203.0.113.5 with the correct password. The login needed extra confirmation, because someone is guessing the account's password.",
+					"The account has no second factor and no email address that could confirm it, so the login was refused. The person was shown the reference SAAA-AABK."
+				],
+				"userNotice": {
+					"subject": "A login to your account was refused",
+					"message": ["Someone logged in to your account with your correct password. The login needed extra confirmation because someone is guessing the account's password.", "Your account has no email address or second factor to confirm it with, so the login was refused."],
+					"advice": ["If this was you, ask your administrator for help and give them the reference SAAA-AABK. With an email address or a second factor, you can confirm such logins yourself.", "If it was not you, someone knows your password: change it, and answer \"No, it was not me\"."]
+				},
+				"asksWasThisYou": true
+			}
+		},
+		"administrator outside the trusted networks": {
+			"detection": {"id": 41, "checkId": "step_up_refused", "severity": "medium", "enforced": true, "ip": "203.0.113.5", "netKey": "4:203.0.113.0/24", "uid": "alice", "shareId": null, "hits": 1, "createdAt": 1789999700, "lastSeenAt": 1790000000, "actions": [], "explanation": {"v": 1, "check": "step_up_refused", "mode": {"configured": "protect", "effective": "protect", "reason": null}, "thresholds": [], "facts": {"policies": ["admin_outside_networks"]}, "first": 1789999700, "last": 1790000000}},
+			"reads": {
+				"narrative": [
+					"At date:1789999700 alice logged in from 203.0.113.5 with the correct password. The login needed extra confirmation, because administrators may log in only from the trusted networks, and this address is outside them.",
+					"The account has no second factor and no email address that could confirm it, so the login was refused. The person was shown the reference SAAA-AABK."
+				],
+				"userNotice": {
+					"subject": "A login to your account was refused",
+					"message": [
+						"Someone logged in to your account with your correct password. The login needed extra confirmation because administrators may log in only from the trusted networks, and this address is outside them.",
+						"Your account has no email address or second factor to confirm it with, so the login was refused."
+					],
+					"advice": [
+						"If this was you, ask your administrator for help and give them the reference SAAA-AABK. With an email address or a second factor, you can confirm such logins yourself.",
+						"If it was not you, someone knows your password: change it, and answer \"No, it was not me\"."
+					]
+				},
+				"asksWasThisYou": true
+			}
+		},
+		"old row": {
+			"detection": {"id": 41, "checkId": "step_up_refused", "severity": "medium", "enforced": true, "ip": "203.0.113.5", "netKey": "4:203.0.113.0/24", "uid": "alice", "shareId": null, "hits": 1, "createdAt": 1789999700, "lastSeenAt": 1790000000, "actions": [], "explanation": {"v": 1, "check": "step_up_refused", "mode": {"configured": "protect", "effective": "protect", "reason": null}, "thresholds": [], "facts": {"policies": ["retired_policy"]}, "first": 1789999700, "last": 1790000000}},
+			"reads": {
+				"narrative": [
+					"At date:1789999700 alice logged in from 203.0.113.5 with the correct password. The login needed extra confirmation, because .",
+					"The account has no second factor and no email address that could confirm it, so the login was refused. The person was shown the reference SAAA-AABK."
+				],
+				"userNotice": {
+					"subject": "A login to your account was refused",
+					"message": ["Someone logged in to your account with your correct password. The login needed extra confirmation because .", "Your account has no email address or second factor to confirm it with, so the login was refused."],
+					"advice": ["If this was you, ask your administrator for help and give them the reference SAAA-AABK. With an email address or a second factor, you can confirm such logins yourself.", "If it was not you, someone knows your password: change it, and answer \"No, it was not me\"."]
+				},
+				"asksWasThisYou": true
+			}
+		}
+	},
+	"step_up_refused_client": {
+		"could confirm in a browser": {
+			"detection": {"id": 41, "checkId": "step_up_refused_client", "severity": "low", "enforced": true, "ip": "203.0.113.5", "netKey": "4:203.0.113.0/24", "uid": "alice", "shareId": null, "hits": 3, "createdAt": 1789999700, "lastSeenAt": 1790000000, "actions": [], "explanation": {"v": 1, "check": "step_up_refused_client", "mode": {"configured": "protect", "effective": "protect", "reason": null}, "thresholds": [], "facts": {"policies": ["risky_network"], "inBrowser": true}, "first": 1789999700, "last": 1790000000}},
+			"reads": {
+				"narrative": [
+					"At date:1789999700 an app or script logged in as alice from 203.0.113.5 with the account's password. Logins with the password needed extra confirmation, because the address belongs to a hosting provider or the Tor network, and apps cannot give one, so the request was refused.",
+					"The account could confirm such a login in a browser, so apps must use an app password.",
+					"3 requests were refused that day."
+				],
+				"userNotice": {
+					"subject": "An app could not log in with your password",
+					"message": ["An app or script logged in to your account with your password, not with an app password. Logins with your password need extra confirmation right now, because the address belongs to a hosting provider or the Tor network. Apps cannot give it, so the app was refused."],
+					"advice": ["If this was one of your apps, connect it with an app password from your security settings instead of your password.", "If it was not you, someone knows your password: change it, and answer \"No, it was not me\"."]
+				},
+				"asksWasThisYou": true
+			}
+		},
+		"no way to confirm": {
+			"detection": {"id": 41, "checkId": "step_up_refused_client", "severity": "low", "enforced": true, "ip": "203.0.113.5", "netKey": "4:203.0.113.0/24", "uid": "alice", "shareId": null, "hits": 1, "createdAt": 1789999700, "lastSeenAt": 1790000000, "actions": [], "explanation": {"v": 1, "check": "step_up_refused_client", "mode": {"configured": "protect", "effective": "protect", "reason": null}, "thresholds": [], "facts": {"policies": ["breached_password"], "inBrowser": false, "sessionTokenIds": [9]}, "first": 1789999700, "last": 1790000000}},
+			"reads": {
+				"narrative": [
+					"At date:1789999700 an app or script logged in as alice from 203.0.113.5 with the account's password. Logins with the password needed extra confirmation, because the password is on a public list of leaked passwords, and apps cannot give one, so the request was refused."
+				],
+				"userNotice": {
+					"subject": "An app could not log in with your password",
+					"message": ["An app or script logged in to your account with your password, not with an app password. Logins with your password need extra confirmation right now, because the password is on a public list of leaked passwords. Apps cannot give it, so the app was refused."],
+					"advice": ["If this was one of your apps, connect it with an app password from your security settings instead of your password.", "If it was not you, someone knows your password: change it, and answer \"No, it was not me\"."]
+				},
+				"asksWasThisYou": true
+			}
+		},
+		"administrator outside the trusted networks": {
+			"detection": {"id": 41, "checkId": "step_up_refused_client", "severity": "low", "enforced": true, "ip": "203.0.113.5", "netKey": "4:203.0.113.0/24", "uid": "alice", "shareId": null, "hits": 1, "createdAt": 1789999700, "lastSeenAt": 1790000000, "actions": [], "explanation": {"v": 1, "check": "step_up_refused_client", "mode": {"configured": "protect", "effective": "protect", "reason": null}, "thresholds": [], "facts": {"policies": ["admin_outside_networks"], "inBrowser": false}, "first": 1789999700, "last": 1790000000}},
+			"reads": {
+				"narrative": [
+					"At date:1789999700 an app or script logged in as alice from 203.0.113.5 with the account's password. Logins with the password needed extra confirmation, because administrators may log in only from the trusted networks, and this address is outside them, and apps cannot give one, so the request was refused."
+				],
+				"userNotice": {
+					"subject": "An app could not log in with your password",
+					"message": [
+						"An app or script logged in to your account with your password, not with an app password. Logins with your password need extra confirmation right now, because administrators may log in only from the trusted networks, and this address is outside them. Apps cannot give it, so the app was refused."
+					],
+					"advice": [
+						"If this was one of your apps, connect it with an app password from your security settings instead of your password.",
+						"If it was not you, someone knows your password: change it, and answer \"No, it was not me\"."
+					]
+				},
+				"asksWasThisYou": true
+			}
+		},
+		"old row": {
+			"detection": {"id": 41, "checkId": "step_up_refused_client", "severity": "low", "enforced": true, "ip": "203.0.113.5", "netKey": "4:203.0.113.0/24", "uid": "alice", "shareId": null, "hits": 1, "createdAt": 1789999700, "lastSeenAt": 1790000000, "actions": [], "explanation": {"v": 1, "check": "step_up_refused_client", "mode": {"configured": "protect", "effective": "protect", "reason": null}, "thresholds": [], "facts": {"policies": ["flagged_source"]}, "first": 1789999700, "last": 1790000000}},
+			"reads": {
+				"narrative": [
+					"At date:1789999700 an app or script logged in as alice from 203.0.113.5 with the account's password. Logins with the password needed extra confirmation, because the address or its network took part in an attack, and apps cannot give one, so the request was refused."
+				],
+				"userNotice": {
+					"subject": "An app could not log in with your password",
+					"message": ["An app or script logged in to your account with your password, not with an app password. Logins with your password need extra confirmation right now, because the address or its network took part in an attack. Apps cannot give it, so the app was refused."],
+					"advice": ["If this was one of your apps, connect it with an app password from your security settings instead of your password.", "If it was not you, someone knows your password: change it, and answer \"No, it was not me\"."]
+				},
+				"asksWasThisYou": true
+			}
+		}
+	},
+	"step_up_unconfirmed": {
+		"browser": {
+			"detection": {"id": 41, "checkId": "step_up_unconfirmed", "severity": "medium", "enforced": true, "ip": "203.0.113.5", "netKey": "4:203.0.113.0/24", "uid": "alice", "shareId": null, "hits": 2, "createdAt": 1789999700, "lastSeenAt": 1790000000, "actions": [], "explanation": {"v": 1, "check": "step_up_unconfirmed", "mode": {"configured": "protect", "effective": "protect", "reason": null}, "thresholds": [], "facts": {"policies": ["breached_password"], "client": false, "notify": true, "forceChange": true}, "first": 1789999700, "last": 1790000000}},
+			"reads": {
+				"narrative": [
+					"At date:1789999700 alice logged in from 203.0.113.5 with the correct password. The login needed extra confirmation, because the password is on a public list of leaked passwords.",
+					"Nothing could confirm it, and the settings for these reasons allow such logins, so it was allowed. The session counts as unconfirmed.",
+					"It happened 2 times."
+				],
+				"userNotice": {
+					"subject": "A login to your account could not be confirmed",
+					"message": ["Someone logged in to your account with your correct password. The login needed extra confirmation because the password is on a public list of leaked passwords.", "Your account has no email address or second factor to confirm it with, so the login was allowed without it."],
+					"advice": ["If this was you, add an email address or a second factor in your settings, so that you can confirm such logins next time.", "If it was not you, someone knows your password: change it, and answer \"No, it was not me\"."]
+				},
+				"asksWasThisYou": true
+			}
+		},
+		"app": {
+			"detection": {"id": 41, "checkId": "step_up_unconfirmed", "severity": "medium", "enforced": true, "ip": "203.0.113.5", "netKey": "4:203.0.113.0/24", "uid": "alice", "shareId": null, "hits": 1, "createdAt": 1789999700, "lastSeenAt": 1790000000, "actions": [], "explanation": {"v": 1, "check": "step_up_unconfirmed", "mode": {"configured": "protect", "effective": "protect", "reason": null}, "thresholds": [], "facts": {"policies": ["sprayed_password", "risk_high"], "client": true, "notify": true, "forceChange": false, "sessionTokenIds": [12]}, "first": 1789999700, "last": 1790000000}},
+			"reads": {
+				"narrative": [
+					"At date:1789999700 an app or script logged in as alice from 203.0.113.5 with the account's password. The login needed extra confirmation, because attackers are trying the password against many accounts right now; the address has a high risk score.",
+					"Nothing could confirm it, and the settings for these reasons allow such logins, so it was allowed. The session counts as unconfirmed."
+				],
+				"userNotice": {
+					"subject": "A login to your account could not be confirmed",
+					"message": ["Someone logged in to your account with your correct password. The login needed extra confirmation because attackers are trying the password against many accounts right now; the address has a high risk score.", "Your account has no email address or second factor to confirm it with, so the login was allowed without it."],
+					"advice": ["If this was you, add an email address or a second factor in your settings, so that you can confirm such logins next time.", "If it was not you, someone knows your password: change it, and answer \"No, it was not me\"."]
+				},
+				"asksWasThisYou": true
+			}
+		},
+		"administrator outside the trusted networks": {
+			"detection": {"id": 41, "checkId": "step_up_unconfirmed", "severity": "medium", "enforced": true, "ip": "203.0.113.5", "netKey": "4:203.0.113.0/24", "uid": "alice", "shareId": null, "hits": 2, "createdAt": 1789999700, "lastSeenAt": 1790000000, "actions": [], "explanation": {"v": 1, "check": "step_up_unconfirmed", "mode": {"configured": "protect", "effective": "protect", "reason": null}, "thresholds": [], "facts": {"policies": ["admin_outside_networks"], "client": false, "notify": true, "forceChange": false}, "first": 1789999700, "last": 1790000000}},
+			"reads": {
+				"narrative": [
+					"At date:1789999700 alice logged in from 203.0.113.5 with the correct password. The login needed extra confirmation, because administrators may log in only from the trusted networks, and this address is outside them.",
+					"Nothing could confirm it, and the settings for these reasons allow such logins, so it was allowed. The session counts as unconfirmed.",
+					"It happened 2 times."
+				],
+				"userNotice": {
+					"subject": "A login to your account could not be confirmed",
+					"message": [
+						"Someone logged in to your account with your correct password. The login needed extra confirmation because administrators may log in only from the trusted networks, and this address is outside them.",
+						"Your account has no email address or second factor to confirm it with, so the login was allowed without it."
+					],
+					"advice": [
+						"If this was you, add an email address or a second factor in your settings, so that you can confirm such logins next time.",
+						"If it was not you, someone knows your password: change it, and answer \"No, it was not me\"."
+					]
+				},
+				"asksWasThisYou": true
+			}
+		},
+		"old row": {
+			"detection": {"id": 41, "checkId": "step_up_unconfirmed", "severity": "medium", "enforced": true, "ip": "203.0.113.5", "netKey": "4:203.0.113.0/24", "uid": "alice", "shareId": null, "hits": 1, "createdAt": 1789999700, "lastSeenAt": 1790000000, "actions": [], "explanation": {"v": 1, "check": "step_up_unconfirmed", "mode": {"configured": "protect", "effective": "protect", "reason": null}, "thresholds": [], "facts": {"policies": ["retired_policy"]}, "first": 1789999700, "last": 1790000000}},
+			"reads": {
+				"narrative": [
+					"At date:1789999700 alice logged in from 203.0.113.5 with the correct password. The login needed extra confirmation, because .",
+					"Nothing could confirm it, and the settings for these reasons allow such logins, so it was allowed. The session counts as unconfirmed."
+				],
+				"userNotice": {
+					"subject": "A login to your account could not be confirmed",
+					"message": ["Someone logged in to your account with your correct password. The login needed extra confirmation because .", "Your account has no email address or second factor to confirm it with, so the login was allowed without it."],
+					"advice": ["If this was you, add an email address or a second factor in your settings, so that you can confirm such logins next time.", "If it was not you, someone knows your password: change it, and answer \"No, it was not me\"."]
+				},
+				"asksWasThisYou": true
+			}
+		}
+	},
 	"token_concurrent_use": {
 		"named session": {
 			"detection": {"id": 41, "checkId": "token_concurrent_use", "severity": "high", "enforced": true, "ip": "203.0.113.5", "netKey": "4:203.0.113.0/24", "uid": "alice", "shareId": null, "hits": 3, "createdAt": 1789999700, "lastSeenAt": 1790000000, "actions": [], "explanation": {"v": 1, "check": "token_concurrent_use", "mode": {"configured": "protect", "effective": "protect", "reason": null}, "thresholds": {"window": 900, "min_switches": 3}, "facts": {"ip1": "198.51.100.3", "net1": "4:198.51.100.0/24", "ip2": "203.0.113.5", "net2": "4:203.0.113.0/24", "family": 4, "switches": 4, "first": 1789999875, "last": 1790000000, "kind": "session", "scheme": "cookie", "tokenName": "Mozilla/5.0 (X11; Linux x86_64; rv:131.0) Gecko/20100101 Firefox/131.0", "tokenId": null, "sessionTokenId": 55}, "first": 1789999700, "last": 1790000000}},

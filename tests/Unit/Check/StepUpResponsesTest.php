@@ -11,15 +11,21 @@ namespace OCA\IntrusionDetection\Tests\Unit\Check;
 
 use OCA\IntrusionDetection\Admin\CheckNames;
 use OCA\IntrusionDetection\Check\Checks\PasswordSpraying\PasswordSpraying;
+use OCA\IntrusionDetection\Check\Checks\PasswordSpraying\PasswordSprayingFacts;
 use OCA\IntrusionDetection\Check\Checks\PasswordSpraying\PasswordSprayingRule;
 use OCA\IntrusionDetection\Check\Checks\StepUpFailed\StepUpFailed;
+use OCA\IntrusionDetection\Check\Checks\StepUpFailed\StepUpFailedFacts;
+use OCA\IntrusionDetection\Check\Checks\StepUpFailed\StepUpFailedRule;
 use OCA\IntrusionDetection\Check\Checks\StepUpRefused\StepUpRefused;
 use OCA\IntrusionDetection\Check\Checks\StepUpRefusedClient\StepUpRefusedClient;
 use OCA\IntrusionDetection\Check\Checks\StepUpUnconfirmed\StepUpUnconfirmed;
+use OCA\IntrusionDetection\Check\Checks\StepUpUnconfirmed\StepUpUnconfirmedFacts;
 use OCA\IntrusionDetection\Check\Checks\UserDenied\UserDenied;
+use OCA\IntrusionDetection\Check\Checks\UserDenied\UserDeniedFacts;
 use OCA\IntrusionDetection\Db\Detection;
 use OCA\IntrusionDetection\Definition\ResponseType;
 use OCA\IntrusionDetection\Detection\DetectionDraft;
+use OCA\IntrusionDetection\Detection\IFacts;
 use OCA\IntrusionDetection\Explain\DateFormatter;
 use OCP\IDateTimeFormatter;
 use Test\TestCase;
@@ -32,14 +38,14 @@ class StepUpResponsesTest extends TestCase {
 	public function testASprayedPasswordBlocksOnFailuresAndConfirmsOnSuccess(): void {
 		$check = new PasswordSpraying($this->dates());
 		$all = $check->definition()->defaultResponses;
-		$this->assertSame([ResponseType::Ban, ResponseType::FlagPassword, ResponseType::NotifyAdmin], $check->responsesFor($this->draft(PasswordSpraying::ID, PasswordSprayingRule::Spray->value), $all, []));
-		$this->assertSame([ResponseType::Ban], $check->responsesFor($this->draft(PasswordSpraying::ID, PasswordSprayingRule::Flagged->value), $all, []), 'An address joining a spray is only blocked');
+		$this->assertSame([ResponseType::Ban, ResponseType::FlagPassword, ResponseType::NotifyAdmin], $check->responsesFor($this->draft(PasswordSpraying::ID, new PasswordSprayingFacts(rule: PasswordSprayingRule::Spray)), $all, []));
+		$this->assertSame([ResponseType::Ban], $check->responsesFor($this->draft(PasswordSpraying::ID, new PasswordSprayingFacts(rule: PasswordSprayingRule::Flagged)), $all, []), 'An address joining a spray is only blocked');
 		$this->assertSame(
 			[ResponseType::StepUp, ResponseType::ForcePasswordChange, ResponseType::NotifyAdmin, ResponseType::NotifyUser],
-			$check->responsesFor($this->draft(PasswordSpraying::ID, PasswordSprayingRule::Login->value), $all, []),
+			$check->responsesFor($this->draft(PasswordSpraying::ID, new PasswordSprayingFacts(rule: PasswordSprayingRule::Login)), $all, []),
 			'A successful login is never blocked by this check',
 		);
-		$this->assertSame([ResponseType::StepUp], $check->responsesFor($this->draft(PasswordSpraying::ID, PasswordSprayingRule::Login->value), [ResponseType::Ban, ResponseType::StepUp], []), 'What the admin switched off stays off');
+		$this->assertSame([ResponseType::StepUp], $check->responsesFor($this->draft(PasswordSpraying::ID, new PasswordSprayingFacts(rule: PasswordSprayingRule::Login)), [ResponseType::Ban, ResponseType::StepUp], []), 'What the admin switched off stays off');
 
 		$this->assertTrue($check->asksWasThisYou($this->detection(['rule' => PasswordSprayingRule::Login->value])));
 		$this->assertFalse($check->asksWasThisYou($this->detection(['rule' => PasswordSprayingRule::Spray->value])));
@@ -48,28 +54,28 @@ class StepUpResponsesTest extends TestCase {
 	public function testOnlyWrongCodesBlockTheAddress(): void {
 		$check = new StepUpFailed($this->dates());
 		$all = $check->definition()->defaultResponses;
-		$this->assertContains(ResponseType::Ban, $check->responsesFor($this->draft(StepUpFailed::ID, StepUpFailed::RULE_ATTEMPTS), $all, []));
-		foreach ([StepUpFailed::RULE_TIMEOUT, StepUpFailed::RULE_RESUMED] as $rule) {
-			$responses = $check->responsesFor($this->draft(StepUpFailed::ID, $rule), [...$all, ResponseType::FlagSource], []);
-			$this->assertSame([ResponseType::KillSession, ResponseType::NotifyAdmin, ResponseType::NotifyUser], $responses, $rule);
+		$this->assertContains(ResponseType::Ban, $check->responsesFor($this->draft(StepUpFailed::ID, new StepUpFailedFacts(rule: StepUpFailedRule::Attempts)), $all, []));
+		foreach ([StepUpFailedRule::Timeout, StepUpFailedRule::Resumed] as $rule) {
+			$responses = $check->responsesFor($this->draft(StepUpFailed::ID, new StepUpFailedFacts(rule: $rule)), [...$all, ResponseType::FlagSource], []);
+			$this->assertSame([ResponseType::KillSession, ResponseType::NotifyAdmin, ResponseType::NotifyUser], $responses, $rule->value);
 		}
 	}
 
 	public function testThePoliciesChooseTheResponsesOfAnAllowedLogin(): void {
 		$check = new StepUpUnconfirmed($this->dates());
 		$all = $check->definition()->defaultResponses;
-		$this->assertSame([ResponseType::NotifyAdmin, ResponseType::NotifyUser], $check->responsesFor($this->facts(StepUpUnconfirmed::ID, ['notify' => true, 'forceChange' => false]), $all, []));
-		$this->assertSame([ResponseType::ForcePasswordChange], $check->responsesFor($this->facts(StepUpUnconfirmed::ID, ['notify' => false, 'forceChange' => true]), $all, []));
-		$this->assertSame($all, $check->responsesFor($this->facts(StepUpUnconfirmed::ID, ['notify' => true, 'forceChange' => true]), $all, []));
+		$this->assertSame([ResponseType::NotifyAdmin, ResponseType::NotifyUser], $check->responsesFor($this->draft(StepUpUnconfirmed::ID, new StepUpUnconfirmedFacts(notify: true, forceChange: false)), $all, []));
+		$this->assertSame([ResponseType::ForcePasswordChange], $check->responsesFor($this->draft(StepUpUnconfirmed::ID, new StepUpUnconfirmedFacts(notify: false, forceChange: true)), $all, []));
+		$this->assertSame($all, $check->responsesFor($this->draft(StepUpUnconfirmed::ID, new StepUpUnconfirmedFacts(notify: true, forceChange: true)), $all, []));
 	}
 
 	public function testNoRequiresANewPasswordOnlyWhenThePasswordWasInvolved(): void {
 		$check = new UserDenied($this->dates(), $this->createMock(CheckNames::class));
 		$all = $check->definition()->defaultResponses;
-		$this->assertContains(ResponseType::ForcePasswordChange, $check->responsesFor($this->facts(UserDenied::ID, ['passwordInvolved' => true]), $all, []));
-		$this->assertNotContains(ResponseType::ForcePasswordChange, $check->responsesFor($this->facts(UserDenied::ID, ['passwordInvolved' => false]), $all, []));
-		$this->assertContains(ResponseType::Ban, $check->responsesFor($this->facts(UserDenied::ID, []), $all, []));
-		$this->assertNotContains(ResponseType::Ban, $check->responsesFor($this->facts(UserDenied::ID, ['answeredFromSource' => true]), $all, []), 'Never the address of the one who answers');
+		$this->assertContains(ResponseType::ForcePasswordChange, $check->responsesFor($this->draft(UserDenied::ID, new UserDeniedFacts(passwordInvolved: true)), $all, []));
+		$this->assertNotContains(ResponseType::ForcePasswordChange, $check->responsesFor($this->draft(UserDenied::ID, new UserDeniedFacts(passwordInvolved: false)), $all, []));
+		$this->assertContains(ResponseType::Ban, $check->responsesFor($this->draft(UserDenied::ID, new UserDeniedFacts()), $all, []));
+		$this->assertNotContains(ResponseType::Ban, $check->responsesFor($this->draft(UserDenied::ID, new UserDeniedFacts(answeredFromSource: true)), $all, []), 'Never the address of the one who answers');
 	}
 
 	public function testTheStepUpChecksAreInternalAndAsk(): void {
@@ -89,14 +95,7 @@ class StepUpResponsesTest extends TestCase {
 		return DateFormatter::using($this->createMock(IDateTimeFormatter::class));
 	}
 
-	private function draft(string $checkId, string $rule): DetectionDraft {
-		return $this->facts($checkId, ['rule' => $rule]);
-	}
-
-	/**
-	 * @param array<string, mixed> $facts
-	 */
-	private function facts(string $checkId, array $facts): DetectionDraft {
+	private function draft(string $checkId, IFacts $facts): DetectionDraft {
 		return new DetectionDraft(checkId: $checkId, uid: 'alice', facts: $facts);
 	}
 

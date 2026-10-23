@@ -297,7 +297,7 @@ class UserAlertsTest extends AccountTestCase {
 			checkId: $checkId,
 			source: $ip === null ? null : SourceKey::fromIp($ip),
 			uid: $user->getUID(),
-			facts: ['provider' => 'totp', 'providerName' => 'TOTP'],
+			facts: self::factsOf($checkId, ['provider' => 'totp', 'providerName' => 'TOTP']),
 			userAgent: $userAgent,
 		), new ModeState(Mode::Protect, Mode::Protect));
 		$this->detections->setActions($detection, $actions);

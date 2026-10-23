@@ -77,7 +77,7 @@ class RiskyLoginSignalsTest extends IntegrationTestCase {
 		$this->login($at, LoginHistory::METHOD_PASSWORD, false, 51);
 		$service = Server::get(DetectionService::class);
 		$protect = new ModeState(Mode::Protect, Mode::Protect);
-		$service->record(new DetectionDraft(RiskyNetwork::ID, SourceKey::fromIp('198.51.100.7'), 'alice', [LoginDetections::FACT => [50, 51]]), $protect);
+		$service->record(new DetectionDraft(RiskyNetwork::ID, SourceKey::fromIp('198.51.100.7'), 'alice', self::factsOf(RiskyNetwork::ID, [LoginDetections::FACT => [50, 51]])), $protect);
 		$signal = new RiskyNetworkSignal(Server::get(DetectionMapper::class), Server::get(LoginHistory::class), Server::get(ITimeFactory::class));
 
 		$login = $signal->riskyLogin('alice', 51);

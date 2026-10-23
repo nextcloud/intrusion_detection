@@ -154,6 +154,49 @@
 			"merged": {"users": 3, "wantedBy": "credential_stuffing", "proxy": true}
 		}
 	],
+	"step_up_failed": [
+		{
+			"stored": {"rule": "attempts", "policies": ["flagged_source"], "attempts": 3, "started": 1789999000, "ttl": 900, "sessionTokenId": 31},
+			"hit": {"rule": "attempts", "policies": ["flagged_source", "risky_network"], "attempts": 3, "started": 1789999900, "ttl": 900, "sessionTokenId": 32},
+			"merged": {"rule": "attempts", "policies": ["flagged_source", "risky_network"], "attempts": 3, "started": 1789999900, "ttl": 900, "sessionTokenId": 32}
+		},
+		{
+			"stored": {"rule": "timeout", "policies": ["risk_high"], "attempts": 0, "started": 1789999000, "ttl": 600, "sessionTokenId": 31, "abandoned": true},
+			"hit": {"rule": "timeout", "policies": ["risk_high"], "attempts": 1, "started": 1789999800, "ttl": 900, "sessionTokenId": null},
+			"merged": {"rule": "timeout", "policies": ["risk_high"], "attempts": 1, "started": 1789999800, "ttl": 900, "sessionTokenId": null, "abandoned": true}
+		},
+		{
+			"stored": {"rule": "attempts", "policies": ["flagged_source"], "attempts": 5},
+			"hit": {"rule": "attempts", "policies": ["risk_high"], "attempts": 3, "started": 1789999900, "ttl": 900, "sessionTokenId": 32},
+			"merged": {"rule": "attempts", "policies": ["flagged_source", "risk_high"], "attempts": 3, "started": 1789999900, "ttl": 900, "sessionTokenId": 32}
+		}
+	],
+	"step_up_refused": [
+		{
+			"stored": {"policies": ["flagged_source"], "sessionTokenIds": [3]},
+			"hit": {"policies": ["flagged_source", "risk_high"]},
+			"merged": {"policies": ["flagged_source", "risk_high"], "sessionTokenIds": [3]}
+		}
+	],
+	"step_up_refused_client": [
+		{
+			"stored": {"policies": ["risky_network"], "inBrowser": false},
+			"hit": {"policies": ["breached_password"], "inBrowser": true},
+			"merged": {"policies": ["risky_network", "breached_password"], "inBrowser": true}
+		},
+		{
+			"stored": {"policies": ["flagged_source"]},
+			"hit": {"policies": ["flagged_source"], "inBrowser": true},
+			"merged": {"policies": ["flagged_source"], "inBrowser": true}
+		}
+	],
+	"step_up_unconfirmed": [
+		{
+			"stored": {"policies": ["breached_password"], "client": false, "notify": true, "forceChange": false, "sessionTokenIds": [5]},
+			"hit": {"policies": ["sprayed_password"], "client": true, "notify": false, "forceChange": true},
+			"merged": {"policies": ["breached_password", "sprayed_password"], "client": true, "notify": false, "forceChange": true, "sessionTokenIds": [5]}
+		}
+	],
 	"token_concurrent_use": [
 		{
 			"stored": {"ip1": "198.51.100.3", "net1": "4:198.51.100.0/24", "ip2": "203.0.113.5", "net2": "4:203.0.113.0/24", "family": 4, "switches": 3, "first": 1789999400, "last": 1789999700, "kind": "app_password", "scheme": "basic", "tokenName": "Thunderbird", "tokenId": 9, "sessionTokenId": null},

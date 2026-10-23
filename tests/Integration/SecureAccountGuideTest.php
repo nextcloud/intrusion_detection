@@ -254,7 +254,7 @@ class SecureAccountGuideTest extends AccountTestCase {
 
 	private function detection(IUser $user, string $checkId, bool $enforced): Detection {
 		$mode = $enforced ? Mode::Protect : Mode::Observe;
-		[$detection] = Server::get(DetectionService::class)->record(new DetectionDraft($checkId, SourceKey::fromIp('203.0.113.5'), $user->getUID(), []), new ModeState($mode, $mode));
+		[$detection] = Server::get(DetectionService::class)->record(new DetectionDraft($checkId, SourceKey::fromIp('203.0.113.5'), $user->getUID()), new ModeState($mode, $mode));
 		return $detection;
 	}
 

@@ -47,13 +47,6 @@ use OCP\IL10N;
 final class StepUpFailed implements ICheck, IExplainsDetection, IExplainsToUser, IAsksWasThisYou, ISelectsResponses {
 	public const ID = 'step_up_failed';
 
-	public const RULE_ATTEMPTS = 'attempts';
-	public const RULE_TIMEOUT = 'timeout';
-	/** The session of an unconfirmed login came back without its confirmation state */
-	public const RULE_RESUMED = 'resumed';
-	/** An administrator rejected the login */
-	public const RULE_REJECTED = 'rejected';
-
 	public function __construct(
 		private readonly DateFormatter $dates,
 	) {
@@ -86,7 +79,7 @@ final class StepUpFailed implements ICheck, IExplainsDetection, IExplainsToUser,
 
 	#[\Override]
 	public function responsesFor(DetectionDraft $draft, array $configured, array $params): array {
-		if (($draft->facts['rule'] ?? null) === self::RULE_ATTEMPTS) {
+		if (StepUpFailedFacts::fromArray($draft->facts)->rule === StepUpFailedRule::Attempts) {
 			return $configured;
 		}
 		return array_values(array_filter($configured, static fn (ResponseType $r): bool => $r !== ResponseType::Ban && $r !== ResponseType::FlagSource));
@@ -99,31 +92,33 @@ final class StepUpFailed implements ICheck, IExplainsDetection, IExplainsToUser,
 
 	#[\Override]
 	public function narrative(Detection $detection, IL10N $l): array {
-		$facts = DetectionFacts::of($detection);
-		$because = StepUpPolicy::describeAll($facts->list('policies'), $l);
+		$stored = DetectionFacts::of($detection);
+		$facts = StepUpFailedFacts::fromArray($stored->facts);
+		$because = StepUpPolicy::describeAll($facts->policies, $l);
+		$started = $this->dates->dateTime($facts->started ?? $stored->first);
 		$sentences = [$because === ''
 			? $l->t('At %1$s %2$s logged in from %3$s with the correct password. The login needed extra confirmation.', [
-				$this->dates->dateTime($facts->int('started', $facts->first)), (string)$detection->getUid(), (string)$detection->getIp(),
+				$started, (string)$detection->getUid(), (string)$detection->getIp(),
 			])
 			: $l->t('At %1$s %2$s logged in from %3$s with the correct password. The login needed extra confirmation, because %4$s.', [
-				$this->dates->dateTime($facts->int('started', $facts->first)), (string)$detection->getUid(), (string)$detection->getIp(), $because,
+				$started, (string)$detection->getUid(), (string)$detection->getIp(), $because,
 			])];
-		$sentences[] = match ($facts->string('rule')) {
-			self::RULE_TIMEOUT => $l->t('It was not confirmed within %s, so the login was ended.', [TextRenderer::duration($facts->int('ttl', 900), $l)]),
-			self::RULE_RESUMED => $l->t('It was never confirmed, and the session came back later through its remember-me cookie or its session token, without the confirmation. It was ended.'),
-			self::RULE_REJECTED => $l->t('It waited for an administrator\'s approval, and an administrator rejected it, so the login was ended.'),
-			default => $l->n('%n wrong code was entered, so the login was ended.', '%n wrong codes were entered, so the login was ended.', $facts->int('attempts')),
+		$sentences[] = match ($facts->rule) {
+			StepUpFailedRule::Timeout => $l->t('It was not confirmed within %s, so the login was ended.', [TextRenderer::duration($facts->ttl ?? 900, $l)]),
+			StepUpFailedRule::Resumed => $l->t('It was never confirmed, and the session came back later through its remember-me cookie or its session token, without the confirmation. It was ended.'),
+			StepUpFailedRule::Rejected => $l->t('It waited for an administrator\'s approval, and an administrator rejected it, so the login was ended.'),
+			default => $l->n('%n wrong code was entered, so the login was ended.', '%n wrong codes were entered, so the login was ended.', $facts->attempts),
 		};
 		return $sentences;
 	}
 
 	#[\Override]
 	public function userNotice(Detection $detection, IL10N $l): UserNotice {
-		$facts = DetectionFacts::of($detection);
-		$because = StepUpPolicy::describeAll($facts->list('policies'), $l);
-		$message = [match ($facts->string('rule')) {
-			self::RULE_ATTEMPTS => $l->t('Someone logged in to your account with your correct password, but entered the wrong code again and again when asked to confirm it.'),
-			self::RULE_REJECTED => $l->t('Someone logged in to your account with your correct password. The login waited for an administrator\'s approval, and an administrator rejected it.'),
+		$facts = StepUpFailedFacts::fromArray(DetectionFacts::of($detection)->facts);
+		$because = StepUpPolicy::describeAll($facts->policies, $l);
+		$message = [match ($facts->rule) {
+			StepUpFailedRule::Attempts => $l->t('Someone logged in to your account with your correct password, but entered the wrong code again and again when asked to confirm it.'),
+			StepUpFailedRule::Rejected => $l->t('Someone logged in to your account with your correct password. The login waited for an administrator\'s approval, and an administrator rejected it.'),
 			default => $l->t('Someone logged in to your account with your correct password, but did not confirm the login with the code sent to your email address in time.'),
 		}];
 		$message[] = $because === ''

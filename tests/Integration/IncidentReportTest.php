@@ -13,6 +13,7 @@ use OCA\IntrusionDetection\AppInfo\Application;
 use OCA\IntrusionDetection\Audit\AuditLogger;
 use OCA\IntrusionDetection\Check\Checks\AdminChange\AdminChange;
 use OCA\IntrusionDetection\Check\Checks\CredentialStuffing\CredentialStuffing;
+use OCA\IntrusionDetection\Check\Checks\CredentialStuffing\CredentialStuffingFacts;
 use OCA\IntrusionDetection\Command\Report;
 use OCA\IntrusionDetection\Db\Approval;
 use OCA\IntrusionDetection\Db\ApprovalMapper;
@@ -20,6 +21,7 @@ use OCA\IntrusionDetection\Db\BanMapper;
 use OCA\IntrusionDetection\Db\TokenOriginMapper;
 use OCA\IntrusionDetection\Definition\Mode;
 use OCA\IntrusionDetection\Definition\Severity;
+use OCA\IntrusionDetection\Detection\CommonFacts;
 use OCA\IntrusionDetection\Detection\DetectionDraft;
 use OCA\IntrusionDetection\Explain\DateFormatter;
 use OCA\IntrusionDetection\Incident\DataCategory;
@@ -351,7 +353,7 @@ class IncidentReportTest extends LoginFailureTestCase {
 			checkId: CredentialStuffing::ID,
 			source: SourceKey::fromIp('198.51.100.9'),
 			uid: $this->victim,
-			facts: ['failures' => 12, 'names' => 6, 'targets' => [$this->victim]],
+			facts: new CredentialStuffingFacts(failures: 12, names: 6, common: new CommonFacts(targets: [$this->victim])),
 			userAgent: self::HTML_AGENT,
 		));
 		Server::get(BanService::class)->banManually('198.51.100.9', 1, 'admin', '<b onmouseover="alert(2)">really bad</b>');

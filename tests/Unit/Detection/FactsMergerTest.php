@@ -9,45 +9,50 @@ declare(strict_types=1);
 
 namespace OCA\IntrusionDetection\Tests\Unit\Detection;
 
+use OCA\IntrusionDetection\Check\Checks\AccountLocked\AccountLockedFacts;
+use OCA\IntrusionDetection\Check\Checks\CredentialStuffing\CredentialStuffingFacts;
+use OCA\IntrusionDetection\Check\Checks\CredentialStuffing\CredentialStuffingRule;
+use OCA\IntrusionDetection\Detection\CommonFacts;
+use OCA\IntrusionDetection\Detection\DetectionDraft;
 use OCA\IntrusionDetection\Detection\Explanation;
 use OCA\IntrusionDetection\Detection\FactsMerger;
 use Test\TestCase;
 
 class FactsMergerTest extends TestCase {
-	public function testEachKindOfFactIsMergedItsOwnWay(): void {
-		$merged = FactsMerger::byShape(
-			['rule' => 'spray', 'first' => 100, 'last' => 200, 'targets' => ['alice', 'bob'], 'failures' => 7, 'risk' => ['score' => 10], 'old' => 'kept'],
-			['rule' => 'flagged', 'first' => 150, 'last' => 300, 'targets' => ['bob', 'carol'], 'failures' => 9, 'risk' => ['score' => 40], 'lastSource' => '198.51.100.8'],
+	public function testTheFactsClassMergesItsFacts(): void {
+		$hit = new CredentialStuffingFacts(CredentialStuffingRule::Network, failures: 9, common: new CommonFacts(first: 150, last: 300, targets: ['bob', 'carol']));
+		$merged = FactsMerger::merge(
+			['rule' => 'source', 'failures' => 7, 'first' => 100, 'last' => 200, 'targets' => ['alice', 'bob'], 'old' => 'kept'],
+			new DetectionDraft('credential_stuffing', facts: $hit),
 		);
-		$this->assertSame('spray', $merged['rule'], 'The original rule stays');
+		$this->assertSame('source', $merged['rule'], 'The original rule stays');
+		$this->assertSame(9, $merged['failures'], 'Counts are the latest');
 		$this->assertSame(100, $merged['first']);
 		$this->assertSame(300, $merged['last']);
 		$this->assertSame(['alice', 'bob', 'carol'], $merged['targets'], 'Earlier accounts are kept');
-		$this->assertSame(9, $merged['failures'], 'Counts are the latest');
-		$this->assertSame(['score' => 40], $merged['risk']);
-		$this->assertSame('kept', $merged['old']);
-		$this->assertSame('198.51.100.8', $merged['lastSource']);
+		$this->assertSame('kept', $merged['old'], 'Stored facts the class does not know stay');
 	}
 
-	public function testAnEarlierFirstIsNotMovedForward(): void {
-		$this->assertSame(['first' => 100, 'last' => 500], FactsMerger::byShape(['first' => 100, 'last' => 500], ['first' => 400, 'last' => 450]));
+	public function testFactsThatDeclareNoMergeAreTheLatest(): void {
+		$merged = FactsMerger::merge(['link' => 1, 'old' => 'kept'], new DetectionDraft('account_locked', facts: new AccountLockedFacts(link: 2)));
+		$this->assertSame(2, $merged['link']);
+		$this->assertSame('kept', $merged['old']);
+		$this->assertSame(['old' => 'kept'], FactsMerger::merge(['old' => 'kept'], new DetectionDraft('manual_block')), 'A draft without facts changes nothing');
 	}
 
 	public function testListsAreBounded(): void {
 		$old = array_map(static fn (int $i): string => 'user' . $i, range(1, Explanation::MAX_TARGETS));
-		$merged = FactsMerger::byShape(['targets' => $old, 'lists' => range(1, 40)], ['targets' => ['newcomer'], 'lists' => range(30, 80)]);
-		$this->assertSame($old, $merged['targets']);
-		$this->assertCount(FactsMerger::MAX_LIST, $merged['lists']);
-		$this->assertSame(range(1, FactsMerger::MAX_LIST), $merged['lists']);
+		$this->assertSame($old, FactsMerger::union($old, ['newcomer'], Explanation::MAX_TARGETS));
+		$this->assertSame(range(1, FactsMerger::MAX_LIST), FactsMerger::union(range(1, 40), range(30, 80)));
 	}
 
 	public function testListsOfStructuresAreJoinedByValue(): void {
-		$merged = FactsMerger::byShape(['delegated' => [['group' => 'a']]], ['delegated' => [['group' => 'a'], ['group' => 'b']]]);
-		$this->assertSame([['group' => 'a'], ['group' => 'b']], $merged['delegated']);
+		$this->assertSame([['group' => 'a'], ['group' => 'b']], FactsMerger::union([['group' => 'a']], [['group' => 'a'], ['group' => 'b']]));
 	}
 
-	public function testAListReplacedByAScalarTakesTheLatest(): void {
-		$this->assertSame(['targets' => 'x'], FactsMerger::byShape(['targets' => ['a']], ['targets' => 'x']));
-		$this->assertSame(['first' => 'later'], FactsMerger::byShape(['first' => 5], ['first' => 'later']));
+	public function testAMissingListIsNoList(): void {
+		$this->assertSame(['a'], FactsMerger::union(null, ['a']));
+		$this->assertSame(['a'], FactsMerger::union(['a'], null));
+		$this->assertNull(FactsMerger::union(null, null));
 	}
 }

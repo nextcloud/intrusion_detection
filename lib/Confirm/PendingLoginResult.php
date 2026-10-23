@@ -9,7 +9,7 @@ declare(strict_types=1);
 
 namespace OCA\IntrusionDetection\Confirm;
 
-use OCA\IntrusionDetection\Check\Checks\StepUpFailed\StepUpFailed;
+use OCA\IntrusionDetection\Check\Checks\StepUpFailed\StepUpFailedRule;
 
 /**
  * What a step of a pending login on the verify page led to
@@ -45,14 +45,12 @@ enum PendingLoginResult {
 
 	/**
 	 * The rule the login ended with, or null when it goes on.
-	 *
-	 * @return ?StepUpFailed::RULE_*
 	 */
-	public function endedRule(): ?string {
+	public function endedRule(): ?StepUpFailedRule {
 		return match ($this) {
-			self::EndedAttempts => StepUpFailed::RULE_ATTEMPTS,
-			self::EndedRejected => StepUpFailed::RULE_REJECTED,
-			self::EndedTimeout => StepUpFailed::RULE_TIMEOUT,
+			self::EndedAttempts => StepUpFailedRule::Attempts,
+			self::EndedRejected => StepUpFailedRule::Rejected,
+			self::EndedTimeout => StepUpFailedRule::Timeout,
 			default => null,
 		};
 	}

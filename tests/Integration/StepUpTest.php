@@ -18,6 +18,7 @@ use OCA\IntrusionDetection\Check\Checks\PasswordSpraying\PasswordSpraying;
 use OCA\IntrusionDetection\Check\Checks\PasswordSpraying\PasswordSprayingFacts;
 use OCA\IntrusionDetection\Check\Checks\PasswordSpraying\PasswordSprayingRule;
 use OCA\IntrusionDetection\Check\Checks\StepUpFailed\StepUpFailed;
+use OCA\IntrusionDetection\Check\Checks\StepUpFailed\StepUpFailedRule;
 use OCA\IntrusionDetection\Check\Checks\StepUpRefused\StepUpRefused;
 use OCA\IntrusionDetection\Check\Checks\StepUpRefusedClient\StepUpRefusedClient;
 use OCA\IntrusionDetection\Check\Checks\StepUpUnconfirmed\StepUpUnconfirmed;
@@ -670,7 +671,7 @@ class StepUpTest extends StepUpTestCase {
 		$this->assertNotNull($block);
 		$this->assertNull($this->sessionUser, 'Ended');
 		$failed = $this->detectionsOf(StepUpFailed::ID)[0];
-		$this->assertSame(StepUpFailed::RULE_RESUMED, $failed->getExplanationData()['facts']['rule']);
+		$this->assertSame(StepUpFailedRule::Resumed->value, $failed->getExplanationData()['facts']['rule']);
 		$this->assertNotContains('ban', array_column($failed->getActionList(), 'type'), 'Coming back is no reason to block the address');
 		$this->assertSame(0, $this->unconfirmedRows());
 	}

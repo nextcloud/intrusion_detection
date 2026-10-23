@@ -11,9 +11,11 @@ namespace OCA\IntrusionDetection\Tests\Unit\Check;
 
 use OCA\IntrusionDetection\Check\Checks\LoginFlowMismatch\LoginFlowMismatch;
 use OCA\IntrusionDetection\Check\Checks\ResetProbing\ResetProbing;
+use OCA\IntrusionDetection\Check\Checks\ResetProbing\ResetProbingFacts;
 use OCA\IntrusionDetection\Check\Checks\ResetProbing\ResetProbingRule;
 use OCA\IntrusionDetection\Check\Checks\ShareBruteforce\ShareBruteforce;
 use OCA\IntrusionDetection\Check\Checks\ShareBruteforce\ShareBruteforceDetector;
+use OCA\IntrusionDetection\Check\Checks\ShareBruteforce\ShareBruteforceFacts;
 use OCA\IntrusionDetection\Check\Checks\ShareBruteforce\ShareBruteforceRule;
 use OCA\IntrusionDetection\Db\Detection;
 use OCA\IntrusionDetection\Definition\ResponseType;
@@ -34,25 +36,25 @@ class RuleResponsesTest extends TestCase {
 	public function testShareRulesAboutOneAddressBlockAndTellTheAdmins(): void {
 		$check = new ShareBruteforce(DateFormatter::using($this->createMock(IDateTimeFormatter::class)), $this->createMock(ContainerInterface::class));
 		$all = [ResponseType::Ban, ResponseType::NotifyAdmin, ResponseType::NotifyShareOwner];
-		foreach ([ShareBruteforceRule::Tokens->value, ShareBruteforceRule::TokensNetwork->value, ShareBruteforceRule::PasswordSource->value] as $rule) {
-			$this->assertSame([ResponseType::Ban, ResponseType::NotifyAdmin], $check->responsesFor($this->draft(ShareBruteforce::ID, $rule), $all, []), $rule);
-			$this->assertSame([ResponseType::Ban], $check->responsesFor($this->draft(ShareBruteforce::ID, $rule), [ResponseType::Ban], []), 'What the admin switched off stays off');
+		foreach ([ShareBruteforceRule::Tokens, ShareBruteforceRule::TokensNetwork, ShareBruteforceRule::PasswordSource] as $rule) {
+			$this->assertSame([ResponseType::Ban, ResponseType::NotifyAdmin], $check->responsesFor($this->draft($rule), $all, []), $rule->value);
+			$this->assertSame([ResponseType::Ban], $check->responsesFor($this->draft($rule), [ResponseType::Ban], []), 'What the admin switched off stays off');
 		}
-		$this->assertSame([ResponseType::NotifyAdmin, ResponseType::NotifyShareOwner], $check->responsesFor($this->draft(ShareBruteforce::ID, ShareBruteforceRule::PasswordShare->value), $all, []));
-		$this->assertSame([], $check->responsesFor($this->draft(ShareBruteforce::ID, ShareBruteforceRule::PasswordShare->value), [ResponseType::Ban], []), 'A response the admin switched off stays off');
+		$this->assertSame([ResponseType::NotifyAdmin, ResponseType::NotifyShareOwner], $check->responsesFor($this->draft(ShareBruteforceRule::PasswordShare), $all, []));
+		$this->assertSame([], $check->responsesFor($this->draft(ShareBruteforceRule::PasswordShare), [ResponseType::Ban], []), 'A response the admin switched off stays off');
 	}
 
 	public function testUnknownLinksOfAPartnerServerAreReportedButNeverBlock(): void {
 		$check = new ShareBruteforce(DateFormatter::using($this->createMock(IDateTimeFormatter::class)), $this->createMock(ContainerInterface::class));
-		$partner = new DetectionDraft(ShareBruteforce::ID, facts: ['rule' => ShareBruteforceRule::Tokens->value, 'federation' => true]);
+		$partner = new DetectionDraft(ShareBruteforce::ID, facts: new ShareBruteforceFacts(rule: ShareBruteforceRule::Tokens, federation: true));
 		$this->assertSame([ResponseType::NotifyAdmin], $check->responsesFor($partner, [ResponseType::Ban, ResponseType::NotifyAdmin, ResponseType::NotifyShareOwner], []));
 	}
 
 	public function testResetRules(): void {
 		$check = new ResetProbing(DateFormatter::using($this->createMock(IDateTimeFormatter::class)));
 		$all = [ResponseType::Ban, ResponseType::SuppressResetMail, ResponseType::NotifyAdmin, ResponseType::NotifyUser];
-		$this->assertSame([ResponseType::Ban], $check->responsesFor($this->draft(ResetProbing::ID, ResetProbingRule::Enumeration->value), $all, []));
-		$this->assertSame([ResponseType::SuppressResetMail, ResponseType::NotifyAdmin, ResponseType::NotifyUser], $check->responsesFor($this->draft(ResetProbing::ID, ResetProbingRule::Flood->value), $all, []));
+		$this->assertSame([ResponseType::Ban], $check->responsesFor($this->draft(ResetProbingRule::Enumeration), $all, []));
+		$this->assertSame([ResponseType::SuppressResetMail, ResponseType::NotifyAdmin, ResponseType::NotifyUser], $check->responsesFor($this->draft(ResetProbingRule::Flood), $all, []));
 	}
 
 	/**
@@ -122,7 +124,9 @@ class RuleResponsesTest extends TestCase {
 		$this->assertStringContainsString('within 1 hour', implode(' ', $check->userNotice($detection, $l)->message));
 	}
 
-	private function draft(string $checkId, string $rule): DetectionDraft {
-		return new DetectionDraft($checkId, facts: ['rule' => $rule]);
+	private function draft(ShareBruteforceRule|ResetProbingRule $rule): DetectionDraft {
+		return $rule instanceof ShareBruteforceRule
+			? new DetectionDraft(ShareBruteforce::ID, facts: new ShareBruteforceFacts(rule: $rule))
+			: new DetectionDraft(ResetProbing::ID, facts: new ResetProbingFacts(rule: $rule));
 	}
 }
