@@ -9,17 +9,14 @@ declare(strict_types=1);
 
 namespace OCA\IntrusionDetection\Tests\Unit\Controller;
 
-use OCA\IntrusionDetection\Controller\BanApiController;
+use OCA\IntrusionDetection\Controller\AdminOCSController;
+use OCA\IntrusionDetection\Controller\ApprovalController;
 use OCA\IntrusionDetection\Controller\BlocklistApiController;
-use OCA\IntrusionDetection\Controller\CheckApiController;
-use OCA\IntrusionDetection\Controller\ConfirmationApiController;
 use OCA\IntrusionDetection\Controller\DecoyApiController;
-use OCA\IntrusionDetection\Controller\DetectionApiController;
+use OCA\IntrusionDetection\Controller\DigestApiController;
 use OCA\IntrusionDetection\Controller\IncidentApiController;
 use OCA\IntrusionDetection\Controller\NotificationApiController;
 use OCA\IntrusionDetection\Controller\PayloadApiController;
-use OCA\IntrusionDetection\Controller\PrivacyApiController;
-use OCA\IntrusionDetection\Controller\SettingsApiController;
 use OCA\IntrusionDetection\Controller\SimulationApiController;
 use OCP\AppFramework\Http\Attribute\ApiRoute;
 use OCP\AppFramework\Http\Attribute\AuthorizedAdminSetting;
@@ -34,8 +31,9 @@ use PHPUnit\Framework\Attributes\DataProvider;
 use Test\TestCase;
 
 /**
- * Every controller of the admin page: administrators only, CSRF-protected,
- * and every change behind a recent password confirmation.
+ * Every controller of the admin page, found by its OpenAPI scope:
+ * administrators only, CSRF-protected, and every change behind a recent
+ * password confirmation.
  */
 class AdminControllersTest extends TestCase {
 	/**
@@ -57,23 +55,55 @@ class AdminControllersTest extends TestCase {
 		SimulationApiController::class . '::simulate',
 		IncidentApiController::class . '::report',
 		IncidentApiController::class . '::download',
+		ApprovalController::class . '::approve',
+		ApprovalController::class . '::reject',
+		DigestApiController::class . '::sendTest',
 	];
 
+	/** Writes without a password confirmation, with the reason */
+	private const UNCONFIRMED_WRITES = [
+		// Rejecting changes nothing, and stopping a request one did not expect must be quick (decided in PR #8).
+		ApprovalController::class . '::reject',
+	];
+
+	/**
+	 * The admin controllers: those in the administration scope of the API.
+	 *
+	 * @return array<string, array{class-string}>
+	 */
 	public static function controllers(): array {
-		return [
-			[CheckApiController::class],
-			[DetectionApiController::class],
-			[BanApiController::class],
-			[SettingsApiController::class],
-			[BlocklistApiController::class],
-			[DecoyApiController::class],
-			[NotificationApiController::class],
-			[PayloadApiController::class],
-			[PrivacyApiController::class],
-			[SimulationApiController::class],
-			[IncidentApiController::class],
-			[ConfirmationApiController::class],
-		];
+		$admin = [];
+		foreach (RouteTable::controllers() as $class) {
+			if (self::isAdministration($class)) {
+				$admin[$class] = [$class];
+			}
+		}
+		return $admin;
+	}
+
+	public function testTheAdminControllersAreFoundAndShareTheBase(): void {
+		$this->assertGreaterThanOrEqual(16, count(self::controllers()));
+		foreach (self::controllers() as [$class]) {
+			$this->assertTrue(is_subclass_of($class, AdminOCSController::class), $class . ' extends AdminOCSController');
+		}
+	}
+
+	/**
+	 * Every controller whose routes are for administrators only is in the
+	 * administration scope, and every one that extends the admin base is.
+	 */
+	public function testEveryAdministratorsOnlyControllerIsInTheAdministrationScope(): void {
+		foreach (RouteTable::controllers() as $class) {
+			$relaxed = false;
+			foreach (RouteTable::methods($class) as $method) {
+				foreach ([NoAdminRequired::class, SubAdminRequired::class, PublicPage::class, AuthorizedAdminSetting::class] as $attribute) {
+					$relaxed = $relaxed || $method->getAttributes($attribute) !== [] || (new \ReflectionClass($class))->getAttributes($attribute) !== [];
+				}
+			}
+			if (!$relaxed || is_subclass_of($class, AdminOCSController::class)) {
+				$this->assertTrue(self::isAdministration($class), $class . ' is for administrators only and belongs to the administration scope');
+			}
+		}
 	}
 
 	/**
@@ -108,6 +138,8 @@ class AdminControllersTest extends TestCase {
 			$confirmation = $method->getAttributes(PasswordConfirmationRequired::class);
 			if ($verb === 'GET' || in_array($id, self::READS_WITH_BODY, true)) {
 				$this->assertSame([], $confirmation, $id . ' only reads');
+			} elseif (in_array($id, self::UNCONFIRMED_WRITES, true)) {
+				$this->assertSame([], $confirmation, $id . ' is listed as a write without password confirmation');
 			} else {
 				$this->assertCount(1, $confirmation, $id . ' changes something and needs password confirmation');
 			}
@@ -123,10 +155,9 @@ class AdminControllersTest extends TestCase {
 
 	public function testNoRouteIsDefinedTwice(): void {
 		$routes = [];
-		foreach (self::controllers() as [$class]) {
-			foreach (self::routes($class) as $method) {
-				$arguments = $method->getAttributes(ApiRoute::class)[0]->getArguments();
-				$routes[] = $arguments['verb'] . ' ' . $arguments['url'];
+		foreach (RouteTable::controllers() as $class) {
+			foreach (RouteTable::methods($class) as $method) {
+				$routes[] = RouteTable::key($method);
 			}
 		}
 		$this->assertSame(count($routes), count(array_unique($routes)));
@@ -152,12 +183,14 @@ class AdminControllersTest extends TestCase {
 	 * @return list<\ReflectionMethod>
 	 */
 	private static function routes(string $class): array {
-		$routes = [];
-		foreach ((new \ReflectionClass($class))->getMethods(\ReflectionMethod::IS_PUBLIC) as $method) {
-			if ($method->getAttributes(ApiRoute::class) !== []) {
-				$routes[] = $method;
-			}
-		}
-		return $routes;
+		return RouteTable::methods($class);
+	}
+
+	/**
+	 * @param class-string $class
+	 */
+	private static function isAdministration(string $class): bool {
+		$openApi = (new \ReflectionClass($class))->getAttributes(OpenAPI::class);
+		return $openApi !== [] && ($openApi[0]->getArguments()['scope'] ?? null) === OpenAPI::SCOPE_ADMINISTRATION;
 	}
 }
