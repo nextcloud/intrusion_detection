@@ -223,7 +223,7 @@ class GlobalSettingsPresenter {
 			), self::GROUP_NOTIFICATIONS],
 			GlobalSettings::EVENTS_INCLUDE_IP => [new ParamText(
 				$l->t('Addresses in webhook events'),
-				$l->t('Whether the events sent to webhooks contain the attacking address. Turn this off when the receiving system must not get personal data.'),
+				$l->t('Whether the events sent to webhooks contain the attacking address. Only switch this on when the receiving system may get personal data.'),
 			), self::GROUP_NOTIFICATIONS],
 			GlobalSettings::STEP_UP_KNOWN_DEVICE_OK_FOR => [new ParamText(
 				$l->t('Remembered devices confirm these logins'),

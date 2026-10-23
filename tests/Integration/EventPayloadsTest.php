@@ -37,6 +37,7 @@ class EventPayloadsTest extends IntegrationTestCase {
 
 	protected function setUp(): void {
 		parent::setUp();
+		$this->settingsEditor()->setGlobal(GlobalSettings::EVENTS_INCLUDE_IP, true);
 	}
 
 	public function testTheEventsAreWebhookCompatible(): void {
@@ -90,8 +91,8 @@ class EventPayloadsTest extends IntegrationTestCase {
 		$this->assertSame('admin', $manual['createdBy']);
 	}
 
-	public function testTheAddressIsLeftOutWhenConfigured(): void {
-		$this->settingsEditor()->setGlobal(GlobalSettings::EVENTS_INCLUDE_IP, false);
+	public function testTheAddressIsLeftOutByDefault(): void {
+		$this->settingsEditor()->resetGlobal(GlobalSettings::EVENTS_INCLUDE_IP);
 		$detection = (new DetectionCreatedEvent($this->detection()))->getWebhookSerializable();
 		$created = (new BanCreatedEvent($this->ban()))->getWebhookSerializable();
 		$lifted = (new BanLiftedEvent($this->ban()))->getWebhookSerializable();

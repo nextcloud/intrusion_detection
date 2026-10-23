@@ -123,7 +123,7 @@ final class LexiconData {
 		],
 		'events_include_ip' => [
 			'type' => 'bool',
-			'default' => true,
+			'default' => false,
 		],
 		'step_up_no_method_flagged_source' => [
 			'type' => 'choice',
@@ -1089,7 +1089,7 @@ final class LexiconData {
 		['notify_admin_email_min_severity', ValueType::STRING, 'high', 'intrusion detection: notify_admin_email_min_severity'],
 		['admin_change_require_approval', ValueType::BOOL, false, 'intrusion detection: admin_change_require_approval'],
 		['digest_frequency', ValueType::STRING, 'weekly', 'intrusion detection: digest_frequency'],
-		['events_include_ip', ValueType::BOOL, true, 'intrusion detection: events_include_ip'],
+		['events_include_ip', ValueType::BOOL, false, 'intrusion detection: events_include_ip'],
 		['step_up_no_method_flagged_source', ValueType::STRING, 'refuse', 'intrusion detection: step_up_no_method_flagged_source'],
 		['step_up_no_method_sprayed_password', ValueType::STRING, 'refuse', 'intrusion detection: step_up_no_method_sprayed_password'],
 		['step_up_no_method_protected_account', ValueType::STRING, 'allow_notify', 'intrusion detection: step_up_no_method_protected_account'],

@@ -10,6 +10,7 @@ declare(strict_types=1);
 namespace OCA\IntrusionDetection\Tests\Integration;
 
 use OCA\IntrusionDetection\Check\Checks\CredentialStuffing\CredentialStuffing;
+use OCA\IntrusionDetection\Config\GlobalSettings;
 use OCA\IntrusionDetection\Db\Detection;
 use OCA\IntrusionDetection\Event\BanCreatedEvent;
 use OCA\IntrusionDetection\Event\BanLiftedEvent;
@@ -66,6 +67,7 @@ class WebhookListenersTest extends IntegrationTestCase {
 		$webhook = $mapper->addWebhookListener(null, 'admin', 'POST', 'https://siem.example.com/hook', DetectionCreatedEvent::class, ['event.severity' => 'high'], null, null, AuthMethod::None, null);
 		$this->webhooks[] = $webhook->getId();
 
+		$this->settingsEditor()->setGlobal(GlobalSettings::EVENTS_INCLUDE_IP, true);
 		$listener = Server::get(WebhooksEventListener::class);
 		$listener->handle(new DetectionCreatedEvent($this->detection('high')));
 		$listener->handle(new DetectionCreatedEvent($this->detection('low')));

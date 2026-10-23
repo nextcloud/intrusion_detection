@@ -80,7 +80,7 @@ class SettingChangesTest extends IntegrationTestCase {
 		$this->settingsEditor()->setGlobal(GlobalSettings::BAN_DURATION_1, 7200);
 		$this->settingsEditor()->setGlobal(GlobalSettings::BAN_DURATION_1, 7200);
 		$this->assertSame(ProtectionLevel::Custom, $this->settingsEditor()->protectionLevel(), 'a block duration changed by hand');
-		$this->settingsEditor()->setGlobal(GlobalSettings::EVENTS_INCLUDE_IP, false, reported: false);
+		$this->settingsEditor()->setGlobal(GlobalSettings::EVENTS_INCLUDE_IP, true, reported: false);
 		$this->settingsEditor()->setParam($check, 'window', 900);
 		$this->settingsEditor()->setParam($check, 'window', 1200, reported: false);
 		$this->settingsEditor()->setMode($check, Mode::Observe);
@@ -92,14 +92,14 @@ class SettingChangesTest extends IntegrationTestCase {
 
 		$this->assertSame([
 			['ban_duration_1', 14400, 7200, true],
-			['events_include_ip', true, false, false],
+			['events_include_ip', false, true, false],
 			['check_credential_stuffing_window', 600, 900, true],
 			['check_credential_stuffing_window', 900, 1200, false],
 			['check_credential_stuffing_mode', 'protect', 'observe', true],
 			['check_credential_stuffing_responses', $defaultResponses, ['notify_admin'], true],
 			['check_credential_stuffing_window', 1200, 600, true],
 			['ban_duration_1', 7200, 14400, true],
-			['events_include_ip', false, true, true],
+			['events_include_ip', true, false, true],
 			['check_credential_stuffing_mode', 'observe', 'protect', true],
 			['check_credential_stuffing_responses', ['notify_admin'], $defaultResponses, true],
 		], $this->events);

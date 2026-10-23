@@ -251,7 +251,7 @@ Everything lives under **Administration settings → Intrusion detection**, in f
 
 **Dashboard widget.** Logins waiting for your approval, the current status, the last 24 hours in numbers and the latest serious detections, right on the Nextcloud dashboard.
 
-**Webhooks.** With Nextcloud's Webhooks app, three typed events can go to a chat room, a ticket system or a SIEM: `DetectionCreatedEvent`, `BanCreatedEvent` and `BanLiftedEvent`. Payloads never contain passwords, tokens or other secrets; whether they include the attacking address is up to you.
+**Webhooks.** With Nextcloud's Webhooks app, three typed events can go to a chat room, a ticket system or a SIEM: `DetectionCreatedEvent`, `BanCreatedEvent` and `BanLiftedEvent`. Payloads never contain passwords, tokens or other secrets. They leave out the attacking address unless you switch on "Addresses in webhook events".
 
 **OpenMetrics.** Six metrics for Prometheus: `intrusion_detections_total`, `intrusion_bans_active`, `intrusion_guard_seconds`, `intrusion_learning_mode`, `intrusion_blocklist_ranges` and `intrusion_approvals_pending`.
 

@@ -131,7 +131,7 @@ final class GlobalSettings {
 				new ParamDefinition(self::NOTIFY_ADMIN_EMAIL_MIN_SEVERITY, ParamType::Choice, 'high', choices: ['low', 'medium', 'high', 'critical', 'never']),
 				new ParamDefinition(self::ADMIN_CHANGE_REQUIRE_APPROVAL, ParamType::Bool, false),
 				new ParamDefinition(self::DIGEST_FREQUENCY, ParamType::Choice, 'weekly', choices: ['off', 'daily', 'weekly']),
-				new ParamDefinition(self::EVENTS_INCLUDE_IP, ParamType::Bool, true),
+				new ParamDefinition(self::EVENTS_INCLUDE_IP, ParamType::Bool, false),
 				...array_map(
 					static fn (string $policy, string $outcome): ParamDefinition => new ParamDefinition(self::stepUpNoMethod($policy), ParamType::Choice, $outcome, choices: self::NO_METHOD_OUTCOMES),
 					array_keys(self::STEP_UP_NO_METHOD_DEFAULTS),
