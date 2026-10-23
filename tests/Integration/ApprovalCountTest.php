@@ -33,7 +33,8 @@ class ApprovalCountTest extends IntegrationTestCase {
 			$approval->setExpiresAt($expiresAt);
 			$mapper->insert($approval);
 		}
-		$this->assertSame(2, $mapper->countPending($now));
+		$this->assertSame(1, $mapper->countPending(Approval::KIND_ADMIN_GRANT, $now));
+		$this->assertSame(1, $mapper->countPending(Approval::KIND_LOGIN, $now));
 		$this->assertSame([Approval::KIND_ADMIN_GRANT => 1, Approval::KIND_LOGIN => 1], $mapper->countPendingByKind($now));
 	}
 }

@@ -52,7 +52,11 @@ use Psr\Log\LoggerInterface;
  * @psalm-import-type HeldChange from Approval
  */
 class ApprovalService {
-	/** Requests beyond this many pending ones are not stored, so a script cannot flood the table */
+	/**
+	 * Requests of one kind beyond this many pending ones are not stored, so a
+	 * script cannot flood the table. Each kind has its own limit, so that
+	 * waiting logins cannot crowd out new administrators.
+	 */
 	public const MAX_PENDING = 100;
 	/** Logins of one account beyond this many waiting ones are not stored */
 	public const MAX_PENDING_LOGINS = 3;
@@ -95,7 +99,7 @@ class ApprovalService {
 		if ($existing !== null && $existing->getExpiresAt() > $now) {
 			return $existing;
 		}
-		if ($this->mapper->countPending($now) >= self::MAX_PENDING) {
+		if ($this->mapper->countPending(Approval::KIND_ADMIN_GRANT, $now) >= self::MAX_PENDING) {
 			$this->audit->log('request to add %s to %s by %s not stored: too many pending requests', [
 				'subject' => $subject->getUID(),
 				'group' => $group->getGID(),
@@ -141,7 +145,7 @@ class ApprovalService {
 			return;
 		}
 		$now = $this->timeFactory->getTime();
-		if ($this->mapper->countPending($now) >= self::MAX_PENDING) {
+		if ($this->mapper->countPending(Approval::KIND_SETTINGS, $now) >= self::MAX_PENDING) {
 			$this->audit->log('settings change by %s not stored for approval: too many pending requests', ['requester' => $requester]);
 			throw new ApprovalException(ApprovalException::TOO_MANY);
 		}
@@ -176,7 +180,7 @@ class ApprovalService {
 		$now = $this->timeFactory->getTime();
 		$uid = $subject->getUID();
 		if ($this->approvers->except([$uid]) === []
-			|| $this->mapper->countPending($now) >= self::MAX_PENDING
+			|| $this->mapper->countPending(Approval::KIND_LOGIN, $now) >= self::MAX_PENDING
 			|| $this->mapper->countPendingFor(Approval::KIND_LOGIN, $uid, $now) >= self::MAX_PENDING_LOGINS) {
 			$this->audit->log('request to approve a login of %s not stored: nobody else can approve it, or too many requests are pending', ['subject' => $uid]);
 			return null;
@@ -279,6 +283,8 @@ class ApprovalService {
 		]);
 		try {
 			$group->addUser($user);
+		} catch (\Throwable $e) {
+			$this->notCarriedOut($approval, $decider, $e);
 		} finally {
 			$this->permit->revoke($user->getUID(), $group->getGID());
 		}
@@ -316,8 +322,25 @@ class ApprovalService {
 			'via' => $via,
 			'requester' => $approval->getRequestedBy(),
 		]);
-		$this->held->apply($approval->heldChange(), $approval->getRequestedBy());
+		try {
+			$this->held->apply($approval->heldChange(), $approval->getRequestedBy());
+		} catch (\Throwable $e) {
+			$this->notCarriedOut($approval, $decider, $e);
+		}
 		return $this->finish($approval);
+	}
+
+	/**
+	 * What an approval approved could not be carried out: the request waits
+	 * again, so that it never reads as approved while nothing happened.
+	 *
+	 * @throws ApprovalException always
+	 */
+	private function notCarriedOut(Approval $approval, string $decider, \Throwable $e): never {
+		$this->mapper->reopen((int)$approval->getId(), $decider);
+		$this->logger->error('Intrusion detection could not carry out approval {approval}; it waits again', ['approval' => $approval->getId(), 'exception' => $e]);
+		$this->audit->log('approval %s by %s could not be carried out and waits again', ['approval' => $approval->getId(), 'decider' => $decider]);
+		throw new ApprovalException(ApprovalException::NOT_CARRIED_OUT);
 	}
 
 	/**

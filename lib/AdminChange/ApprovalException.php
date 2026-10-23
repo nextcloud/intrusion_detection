@@ -31,6 +31,8 @@ final class ApprovalException extends \RuntimeException {
 	public const HELD = 'approval_requested';
 	/** A change needs the approval of a second administrator, and there is none */
 	public const HELD_NO_APPROVER = 'no_approver';
+	/** What was approved could not be carried out; the request waits again */
+	public const NOT_CARRIED_OUT = 'not_carried_out';
 	/** Too many requests are pending, so this one was not stored */
 	public const TOO_MANY = 'too_many_requests';
 
@@ -53,6 +55,7 @@ final class ApprovalException extends \RuntimeException {
 			self::UNCONFIRMED => $l->t('Your own login was not confirmed, so you cannot approve requests from this session. Log in again and confirm it, or ask another administrator.'),
 			self::HELD => $l->t('This change switches off the approval of new administrators, so a second administrator must approve it. The other administrators were asked; the change is made once one of them approves.'),
 			self::HELD_NO_APPROVER => $l->t('This change switches off the approval of new administrators, so a second administrator must approve it, but there is no other administrator. Make the change with occ on the server instead.'),
+			self::NOT_CARRIED_OUT => $l->t('The approved change could not be made, so the request still waits. Try again later.'),
 			self::TOO_MANY => $l->t('Too many requests are waiting for approval, so this one was not stored. Decide the open requests first.'),
 			default => $l->t('The request cannot be decided.'),
 		};

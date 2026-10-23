@@ -92,14 +92,15 @@ class ApprovalMapper extends QBMapper {
 	}
 
 	/**
-	 * How many requests are pending and not expired. Expired ones only wait
-	 * for the hourly job to mark them, and count for nothing.
+	 * How many requests of a kind are pending and not expired. Expired ones
+	 * only wait for the hourly job to mark them, and count for nothing.
 	 */
-	public function countPending(int $now): int {
+	public function countPending(string $kind, int $now): int {
 		$qb = $this->db->getQueryBuilder();
 		$qb->select($qb->func()->count('*'))
 			->from(self::TABLE)
 			->where($qb->expr()->eq('status', $qb->createNamedParameter(Approval::STATUS_PENDING)))
+			->andWhere($qb->expr()->eq('kind', $qb->createNamedParameter($kind)))
 			->andWhere($qb->expr()->gt('expires_at', $qb->createNamedParameter($now, IQueryBuilder::PARAM_INT)));
 		$result = $qb->executeQuery();
 		$count = (int)$result->fetchOne();
@@ -180,7 +181,9 @@ class ApprovalMapper extends QBMapper {
 	/**
 	 * End a pending request. Only one caller can win: the update only applies
 	 * while the request is still pending, so two administrators deciding at
-	 * the same moment cannot both succeed.
+	 * the same moment cannot both succeed. Only a request whose time ran out
+	 * can expire, and only one whose time did not run out can be approved or
+	 * rejected.
 	 *
 	 * @return bool whether this call decided it
 	 */
@@ -191,7 +194,28 @@ class ApprovalMapper extends QBMapper {
 			->set('decided_by', $qb->createNamedParameter($decidedBy))
 			->set('decided_at', $qb->createNamedParameter($now, IQueryBuilder::PARAM_INT))
 			->where($qb->expr()->eq('id', $qb->createNamedParameter($id, IQueryBuilder::PARAM_INT)))
-			->andWhere($qb->expr()->eq('status', $qb->createNamedParameter(Approval::STATUS_PENDING)));
+			->andWhere($qb->expr()->eq('status', $qb->createNamedParameter(Approval::STATUS_PENDING)))
+			->andWhere($status === Approval::STATUS_EXPIRED
+				? $qb->expr()->lte('expires_at', $qb->createNamedParameter($now, IQueryBuilder::PARAM_INT))
+				: $qb->expr()->gt('expires_at', $qb->createNamedParameter($now, IQueryBuilder::PARAM_INT)));
+		return $qb->executeStatement() === 1;
+	}
+
+	/**
+	 * Put an approved request back to pending, when what it approved could
+	 * not be carried out.
+	 *
+	 * @return bool whether this call reopened it
+	 */
+	public function reopen(int $id, string $decidedBy): bool {
+		$qb = $this->db->getQueryBuilder();
+		$qb->update(self::TABLE)
+			->set('status', $qb->createNamedParameter(Approval::STATUS_PENDING))
+			->set('decided_by', $qb->createNamedParameter(null))
+			->set('decided_at', $qb->createNamedParameter(null))
+			->where($qb->expr()->eq('id', $qb->createNamedParameter($id, IQueryBuilder::PARAM_INT)))
+			->andWhere($qb->expr()->eq('status', $qb->createNamedParameter(Approval::STATUS_APPROVED)))
+			->andWhere($qb->expr()->eq('decided_by', $qb->createNamedParameter($decidedBy)));
 		return $qb->executeStatement() === 1;
 	}
 

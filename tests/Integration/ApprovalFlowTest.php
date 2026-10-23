@@ -13,8 +13,11 @@ use OCA\IntrusionDetection\AdminChange\ActorResolver;
 use OCA\IntrusionDetection\AdminChange\AdminGrantGate;
 use OCA\IntrusionDetection\AdminChange\ApprovalException;
 use OCA\IntrusionDetection\AdminChange\ApprovalService;
+use OCA\IntrusionDetection\AdminChange\Approvers;
 use OCA\IntrusionDetection\AdminChange\GrantPermit;
+use OCA\IntrusionDetection\AdminChange\HeldChanges;
 use OCA\IntrusionDetection\AppInfo\Application;
+use OCA\IntrusionDetection\Audit\AuditLogger;
 use OCA\IntrusionDetection\Check\Checks\AdminChange\AdminChange;
 use OCA\IntrusionDetection\Check\Checks\AdminChange\AdminChangeFacts;
 use OCA\IntrusionDetection\Config\GlobalSettings;
@@ -22,19 +25,24 @@ use OCA\IntrusionDetection\Db\Approval;
 use OCA\IntrusionDetection\Db\ApprovalMapper;
 use OCA\IntrusionDetection\Definition\InvalidParamException;
 use OCA\IntrusionDetection\Definition\Severity;
+use OCA\IntrusionDetection\Net\RemoteAddressResolver;
 use OCA\IntrusionDetection\Notification\AdminAlerts;
+use OCA\IntrusionDetection\Notification\AdminLinks;
 use OCA\IntrusionDetection\Notification\Notifier;
+use OCP\AppFramework\Utility\ITimeFactory;
 use OCP\Group\Backend\ABackend;
 use OCP\Group\Backend\INamedBackend;
 use OCP\Group\Events\UserAddedEvent;
 use OCP\GroupInterface;
 use OCP\IGroup;
 use OCP\IGroupManager;
+use OCP\IUserManager;
 use OCP\Notification\AlreadyProcessedException;
 use OCP\Notification\IManager as INotificationManager;
 use OCP\Notification\INotification;
 use OCP\Server;
 use PHPUnit\Framework\Attributes\Group;
+use Psr\Log\LoggerInterface;
 
 /**
  * Four-eyes approval of new administrators (concept section 10.15, verify
@@ -170,6 +178,86 @@ class ApprovalFlowTest extends AdminChangeTestCase {
 		// The open requests disappear once decided.
 		$this->expectException(AlreadyProcessedException::class);
 		Server::get(Notifier::class)->prepare($this->notificationsWithSubject(Notifier::SUBJECT_APPROVAL_REQUESTED)[0], 'en');
+	}
+
+	public function testAnApprovalWhoseAdditionFailsStillWaits(): void {
+		$id = $this->requestBob();
+		$group = $this->createMock(IGroup::class);
+		$group->method('getGID')->willReturn('admin');
+		$group->method('addUser')->willThrowException(new \RuntimeException('The group backend is read-only'));
+		$groupManager = $this->createMock(IGroupManager::class);
+		$groupManager->method('get')->willReturn($group);
+		$service = new ApprovalService(
+			Server::get(ApprovalMapper::class),
+			Server::get(Approvers::class),
+			Server::get(GrantPermit::class),
+			Server::get(HeldChanges::class),
+			Server::get(RemoteAddressResolver::class),
+			$groupManager,
+			Server::get(IUserManager::class),
+			Server::get(INotificationManager::class),
+			Server::get(AdminLinks::class),
+			Server::get(AuditLogger::class),
+			Server::get(ITimeFactory::class),
+			Server::get(LoggerInterface::class),
+		);
+		try {
+			$service->approve($id, $this->carol, ApprovalService::VIA_WEB);
+			$this->fail('The addition failed');
+		} catch (ApprovalException $e) {
+			$this->assertSame(ApprovalException::NOT_CARRIED_OUT, $e->reason);
+		}
+		$approval = $this->approvals->find($id);
+		$this->assertSame(Approval::STATUS_PENDING, $approval->getStatus(), 'Not marked approved while nothing happened');
+		$this->assertNull($approval->getDecidedBy());
+		$this->assertNull(Server::get(GrantPermit::class)->consume($this->bob, 'admin'), 'No permit is left behind');
+
+		$this->approvals->approve($id, $this->carol, ApprovalService::VIA_WEB);
+		$this->assertTrue($this->inGroup('admin', $this->bob), 'It can be approved again');
+	}
+
+	public function testAnApprovedSettingsChangeThatCannotBeMadeStillWaits(): void {
+		$approval = new Approval();
+		$approval->setKind(Approval::KIND_SETTINGS);
+		$approval->setSubjectUid($this->alice);
+		$approval->setRequestedBy($this->alice);
+		$approval->setPayload(json_encode(['op' => HeldChanges::CHECK, 'check' => 'no_such_check', 'mode' => 'off']));
+		$approval->setStatus(Approval::STATUS_PENDING);
+		$approval->setCreatedAt(time());
+		$approval->setExpiresAt(time() + 3600);
+		$id = (int)Server::get(ApprovalMapper::class)->insert($approval)->getId();
+		try {
+			$this->approvals->approve($id, $this->carol, ApprovalService::VIA_WEB);
+			$this->fail('The change cannot be made');
+		} catch (ApprovalException $e) {
+			$this->assertSame(ApprovalException::NOT_CARRIED_OUT, $e->reason);
+		}
+		$this->assertSame(Approval::STATUS_PENDING, $this->approvals->find($id)->getStatus());
+	}
+
+	public function testAnExpiredRequestCannotBeDecidedEvenInTheSameMoment(): void {
+		$id = $this->requestBob();
+		$this->expire($id);
+		$mapper = Server::get(ApprovalMapper::class);
+		$this->assertFalse($mapper->decide($id, Approval::STATUS_APPROVED, $this->carol, time()), 'The update itself checks the expiry');
+		$this->assertTrue($mapper->decide($id, Approval::STATUS_EXPIRED, null, time()));
+	}
+
+	public function testWaitingLoginsCannotCrowdOutNewAdministrators(): void {
+		$mapper = Server::get(ApprovalMapper::class);
+		for ($i = 0; $i < ApprovalService::MAX_PENDING; $i++) {
+			$approval = new Approval();
+			$approval->setKind(Approval::KIND_LOGIN);
+			$approval->setSubjectUid('ids-ac-filler-' . $i);
+			$approval->setRequestedBy('ids-ac-filler-' . $i);
+			$approval->setStatus(Approval::STATUS_PENDING);
+			$approval->setCreatedAt(time());
+			$approval->setExpiresAt(time() + 3600);
+			$mapper->insert($approval);
+		}
+		$this->act($this->alice);
+		$this->addAsWeb('admin', $this->bob);
+		$this->assertNotNull($mapper->findPending(Approval::KIND_ADMIN_GRANT, $this->bob, 'admin'), 'Each kind has its own limit');
 	}
 
 	public function testTheApprovalCannotBeReplayed(): void {
