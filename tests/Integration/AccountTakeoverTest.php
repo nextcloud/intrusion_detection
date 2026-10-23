@@ -13,6 +13,8 @@ use OC\Core\Events\BeforePasswordResetEvent;
 use OC\Core\Events\PasswordResetEvent;
 use OCA\IntrusionDetection\AppInfo\Application;
 use OCA\IntrusionDetection\Check\Checks\AccountTakeover\AccountTakeover;
+use OCA\IntrusionDetection\Check\Checks\AccountTakeover\AccountTakeoverFacts;
+use OCA\IntrusionDetection\Check\Checks\AccountTakeover\AccountTakeoverRule;
 use OCA\IntrusionDetection\Config\GlobalSettings;
 use OCA\IntrusionDetection\Config\Keys;
 use OCA\IntrusionDetection\Db\Detection;
@@ -58,12 +60,12 @@ class AccountTakeoverTest extends TakeoverTestCase {
 		$detection = $this->takeover($user);
 		$this->assertNotNull($detection);
 		$this->assertTrue($detection->isEnforced());
-		$facts = $detection->getExplanationData()['facts'];
-		$this->assertSame([AccountTakeover::RULE_RISKY_LOGIN], $facts['rules']);
-		$this->assertSame(3, $facts['sessionPoints']);
-		$this->assertSame($session['id'], $facts['sessionTokenId']);
-		$this->assertSame('o***@example.com', $facts['previousAddress']);
-		$this->assertSame(['email_changed', 'app_password_created'], array_column($facts['changes'], 'type'));
+		$facts = AccountTakeoverFacts::fromArray($detection->getExplanationData()['facts']);
+		$this->assertSame([AccountTakeoverRule::RiskyLogin], $facts->rules);
+		$this->assertSame(3, $facts->sessionPoints);
+		$this->assertSame($session['id'], $facts->sessionTokenId);
+		$this->assertSame('o***@example.com', $facts->previousAddress);
+		$this->assertSame(['email_changed', 'app_password_created'], array_column($facts->changes, 'type'));
 
 		$actions = array_column($detection->getActionList(), null, 'type');
 		$this->assertTrue($actions[ResponseType::LockLink->value]['enforced']);
@@ -103,7 +105,7 @@ class AccountTakeoverTest extends TakeoverTestCase {
 		$this->appPassword($user);
 		$detection = $this->takeover($user);
 		$this->assertNotNull($detection, '5 points from any session within 30 minutes');
-		$this->assertSame([AccountTakeover::RULE_ANY_SESSION], $detection->getExplanationData()['facts']['rules']);
+		$this->assertSame([AccountTakeoverRule::AnySession], AccountTakeoverFacts::fromArray($detection->getExplanationData()['facts'])->rules);
 		$this->assertSame(5, $detection->getExplanationData()['facts']['anyPoints']);
 	}
 

@@ -14,6 +14,8 @@ use OCA\IntrusionDetection\Check\Checks\RiskyNetwork\RiskyNetworkDetector;
 use OCA\IntrusionDetection\Confirm\LoginDetections;
 use OCA\IntrusionDetection\Db\DetectionFilter;
 use OCA\IntrusionDetection\Db\DetectionMapper;
+use OCA\IntrusionDetection\Detection\CommonFacts;
+use OCA\IntrusionDetection\Explain\DetectionFacts;
 use OCA\IntrusionDetection\LoginHistory\LoginHistory;
 use OCA\IntrusionDetection\Takeover\IRiskyLoginSignal;
 use OCA\IntrusionDetection\Takeover\RiskyLogin;
@@ -45,8 +47,7 @@ class RiskyNetworkSignal implements IRiskyLoginSignal {
 		$since = $this->timeFactory->getTime() - 2 * RiskyNetworkDetector::MERGE_WINDOW;
 		$found = $this->detections->findList(new DetectionFilter(checkIds: [RiskyNetwork::ID], uid: $uid, since: $since, limit: self::LIMIT));
 		foreach ($found as $detection) {
-			$facts = $detection->getExplanationData()['facts'] ?? null;
-			$sessions = is_array($facts) && is_array($facts[LoginDetections::FACT] ?? null) ? array_filter($facts[LoginDetections::FACT], 'is_int') : [];
+			$sessions = CommonFacts::fromArray(DetectionFacts::of($detection)->facts)->sessionTokenIds ?? [];
 			if (in_array($sessionTokenId, $sessions, true)) {
 				$at = $this->history->forSession($uid, $sessionTokenId)?->createdAt ?? $detection->getLastSeenAt();
 				return new RiskyLogin($at, RiskyLogin::REASON_RISKY_NETWORK);

@@ -11,6 +11,7 @@ namespace OCA\IntrusionDetection\Tests\Unit\Takeover;
 
 use OCA\IntrusionDetection\Check\Checks\AccountLocked\AccountLocked;
 use OCA\IntrusionDetection\Check\Checks\AccountTakeover\AccountTakeover;
+use OCA\IntrusionDetection\Check\Checks\AccountTakeover\AccountTakeoverRule;
 use OCA\IntrusionDetection\Db\Detection;
 use OCA\IntrusionDetection\Definition\Mode;
 use OCA\IntrusionDetection\Definition\ResponseType;
@@ -64,7 +65,7 @@ class AccountTakeoverTest extends TestCase {
 
 	public function testTheNarrativeTellsTheChangesAndTheLimits(): void {
 		$detection = $this->detection([
-			'rules' => [AccountTakeover::RULE_RISKY_LOGIN],
+			'rules' => [AccountTakeoverRule::RiskyLogin->value],
 			'sessionPoints' => 3,
 			'riskyLoginAt' => 1792560000,
 			'userHasEmail' => false,

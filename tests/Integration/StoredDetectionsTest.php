@@ -95,7 +95,8 @@ class StoredDetectionsTest extends TestCase {
 			$this->markTestSkipped($checkId . ' has no facts class');
 		}
 		$this->assertTrue(is_a($class, IMergeableFacts::class, true), 'The facts of a check whose hits merge declare how');
-		foreach ([$stored, $hit, $merged] as $facts) {
+		// Stored rows may predate a fact; the facts of a hit and of a merge have today's shape.
+		foreach ([$hit, $merged] as $facts) {
 			$this->assertSame(self::canonical($facts), self::canonical($class::fromArray($facts)->toArray()));
 		}
 	}

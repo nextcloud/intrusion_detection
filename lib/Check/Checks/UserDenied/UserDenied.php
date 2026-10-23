@@ -79,9 +79,10 @@ final class UserDenied implements ICheck, IExplainsDetection, IExplainsToUser, I
 	 */
 	#[\Override]
 	public function responsesFor(DetectionDraft $draft, array $configured, array $params): array {
-		$password = ($draft->facts['passwordInvolved'] ?? false) === true;
-		$fromSource = ($draft->facts['answeredFromSource'] ?? false) === true;
-		if (($draft->facts['weakSession'] ?? false) === true) {
+		$facts = UserDeniedFacts::fromArray($draft->facts);
+		$password = $facts->passwordInvolved;
+		$fromSource = $facts->answeredFromSource;
+		if ($facts->weakSession) {
 			return in_array(ResponseType::NotifyAdmin, $configured, true) ? [ResponseType::NotifyAdmin] : [];
 		}
 		return array_values(array_filter($configured, static fn (ResponseType $r): bool => match ($r) {
@@ -93,17 +94,17 @@ final class UserDenied implements ICheck, IExplainsDetection, IExplainsToUser, I
 
 	#[\Override]
 	public function narrative(Detection $detection, IL10N $l): array {
-		$facts = DetectionFacts::of($detection);
+		$facts = UserDeniedFacts::fromArray(DetectionFacts::of($detection)->facts);
 		$sentences = [$l->t('%1$s answered "No, it was not me" about detection %2$s (%3$s, at %4$s).', [
 			(string)$detection->getUid(),
-			(string)$facts->int('detection'),
-			$this->names->name($facts->string('check'), $l),
-			$this->dates->dateTime($facts->int('detectedAt', $detection->getCreatedAt())),
+			(string)$facts->detection,
+			$this->names->name($facts->check, $l),
+			$this->dates->dateTime($facts->detectedAt ?? $detection->getCreatedAt()),
 		])];
-		if ($facts->bool('weakSession')) {
+		if ($facts->weakSession) {
 			$sentences[] = $l->t('The answer came from a session whose login proved no more than the password, or from a Nextcloud app with its app password, so nothing was ended or blocked, and the question stays open for the user. Check with the user that they answered themselves.');
 		}
-		$network = $facts->string('network');
+		$network = $facts->network ?? '';
 		if ($network !== '') {
 			$sentences[] = $l->t('Logins from the network %s need extra confirmation for a while.', [$network]);
 		}
@@ -112,11 +113,11 @@ final class UserDenied implements ICheck, IExplainsDetection, IExplainsToUser, I
 
 	#[\Override]
 	public function userNotice(Detection $detection, IL10N $l): UserNotice {
-		$facts = DetectionFacts::of($detection);
+		$detectedAt = UserDeniedFacts::fromArray(DetectionFacts::of($detection)->facts)->detectedAt;
 		return new UserNotice(
 			$l->t('You said it was not you'),
 			[
-				$l->t('You answered "No, it was not me" about an event on your account at %s.', [$this->dates->dateTime($facts->int('detectedAt', $detection->getCreatedAt()))]),
+				$l->t('You answered "No, it was not me" about an event on your account at %s.', [$this->dates->dateTime($detectedAt ?? $detection->getCreatedAt())]),
 			],
 			[
 				$l->t('Check your devices and sessions in your security settings, and change your password if you have not been asked to already.'),

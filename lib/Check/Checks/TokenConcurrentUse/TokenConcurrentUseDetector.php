@@ -11,6 +11,7 @@ namespace OCA\IntrusionDetection\Check\Checks\TokenConcurrentUse;
 
 use OCA\IntrusionDetection\Config\ModeState;
 use OCA\IntrusionDetection\Db\Detection;
+use OCA\IntrusionDetection\Detection\CommonFacts;
 use OCA\IntrusionDetection\Detection\DetectionDraft;
 use OCA\IntrusionDetection\KnownDevice\IKnownDevices;
 use OCA\IntrusionDetection\Net\SourceKey;
@@ -52,17 +53,25 @@ class TokenConcurrentUseDetector implements IDetector {
 		$uid = $signal->user->getUID();
 		$tokenId = $signal->tokenId;
 		$token = $tokenId === null ? null : $this->tokens->find($uid, $tokenId);
+		$switch = $signal->switch;
 		$detection = yield new DetectionDraft(
 			checkId: TokenConcurrentUse::ID,
 			source: $source,
 			uid: $uid,
-			facts: $signal->switch->facts() + [
-				'kind' => $signal->kind,
-				'scheme' => $signal->scheme,
-				'tokenName' => $token === null ? '' : Tokens::name($token),
-				'tokenId' => $tokenId,
-				'sessionTokenId' => $signal->sessionTokenId,
-			],
+			facts: new TokenConcurrentUseFacts(
+				ip1: $switch->otherIp,
+				net1: $switch->otherNet,
+				ip2: $switch->currentIp,
+				net2: $switch->currentNet,
+				family: $switch->family,
+				switches: $switch->switches,
+				kind: $signal->kind,
+				scheme: $signal->scheme,
+				tokenName: $token === null ? '' : Tokens::name($token),
+				tokenId: $tokenId,
+				sessionTokenId: $signal->sessionTokenId,
+				common: new CommonFacts(first: $switch->firstSwitchAt, last: $switch->at),
+			),
 			merge: DetectionDraft::MERGE_TOKEN,
 			mergeWindow: self::MERGE_WINDOW,
 			userAgent: $signal->userAgent,

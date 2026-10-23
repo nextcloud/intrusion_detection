@@ -13,6 +13,7 @@ use OCA\IntrusionDetection\Admin\CheckNames;
 use OCA\IntrusionDetection\Admin\DetectionPresenter;
 use OCA\IntrusionDetection\Db\Detection;
 use OCA\IntrusionDetection\Db\DetectionMapper;
+use OCA\IntrusionDetection\Detection\CommonFacts;
 use OCA\IntrusionDetection\Explain\DetectionFacts;
 use OCA\IntrusionDetection\Explain\DetectionHeadline;
 use OCA\IntrusionDetection\Explain\NarrativeBuilder;
@@ -64,7 +65,7 @@ class DetectionSource implements ITimelineSource {
 				$limit,
 				$after,
 			),
-			static fn (Detection $d): bool => $uid === null || $d->getUid() === $uid || in_array($uid, DetectionFacts::of($d)->list('targets'), true),
+			static fn (Detection $d): bool => $uid === null || $d->getUid() === $uid || in_array($uid, CommonFacts::fromArray(DetectionFacts::of($d)->facts)->targets ?? [], true),
 			$query->limit,
 		);
 		foreach ($rows as $detection) {
@@ -79,7 +80,7 @@ class DetectionSource implements ITimelineSource {
 		$enforced = $detection->isEnforced();
 		$uid = $detection->getUid();
 		$accounts = $uid !== null ? [$uid] : [];
-		foreach (DetectionFacts::of($detection)->list('targets') as $target) {
+		foreach (CommonFacts::fromArray(DetectionFacts::of($detection)->facts)->targets ?? [] as $target) {
 			if (!in_array($target, $accounts, true)) {
 				$accounts[] = $target;
 			}

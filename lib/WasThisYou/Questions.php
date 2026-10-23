@@ -17,8 +17,11 @@ use OCA\IntrusionDetection\Check\Checks\StepUpRefused\StepUpRefused;
 use OCA\IntrusionDetection\Check\Checks\StepUpRefusedClient\StepUpRefusedClient;
 use OCA\IntrusionDetection\Check\Checks\StepUpUnconfirmed\StepUpUnconfirmed;
 use OCA\IntrusionDetection\Check\Checks\TokenConcurrentUse\TokenConcurrentUse;
+use OCA\IntrusionDetection\Check\Checks\TokenConcurrentUse\TokenConcurrentUseFacts;
 use OCA\IntrusionDetection\Db\Detection;
 use OCA\IntrusionDetection\Definition\InvalidParamException;
+use OCA\IntrusionDetection\Detection\CommonFacts;
+use OCA\IntrusionDetection\Explain\DetectionFacts;
 use OCA\IntrusionDetection\Explain\IAsksWasThisYou;
 use OCA\IntrusionDetection\Net\SourceKey;
 use Psr\Container\ContainerInterface;
@@ -94,9 +97,8 @@ class Questions {
 		if (in_array($detection->getCheckId(), self::PASSWORD_INVOLVED, true)) {
 			return true;
 		}
-		$facts = $detection->getExplanationData()['facts'] ?? [];
 		return $detection->getCheckId() === TokenConcurrentUse::ID
-			&& is_array($facts) && ($facts['kind'] ?? null) === TokenConcurrentUse::KIND_PASSWORD;
+			&& TokenConcurrentUseFacts::fromArray(DetectionFacts::of($detection)->facts)->kind === TokenConcurrentUse::KIND_PASSWORD;
 	}
 
 	/**
@@ -117,11 +119,8 @@ class Questions {
 	 * @return list<int>
 	 */
 	public static function sessionTokens(Detection $detection): array {
-		$facts = $detection->getExplanationData()['facts'] ?? [];
-		if (!is_array($facts)) {
-			return [];
-		}
-		$ids = is_array($facts['sessionTokenIds'] ?? null) ? $facts['sessionTokenIds'] : [];
+		$facts = DetectionFacts::of($detection)->facts;
+		$ids = CommonFacts::fromArray($facts)->sessionTokenIds ?? [];
 		$ids[] = $facts['sessionTokenId'] ?? null;
 		return array_values(array_unique(array_filter($ids, 'is_int')));
 	}

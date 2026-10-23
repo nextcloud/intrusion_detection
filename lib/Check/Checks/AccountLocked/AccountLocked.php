@@ -28,7 +28,6 @@ use OCA\IntrusionDetection\Explain\IExplainsToUser;
 use OCA\IntrusionDetection\Explain\IHeadlinesDetection;
 use OCA\IntrusionDetection\Explain\UserNotice;
 use OCA\IntrusionDetection\Net\SourceKey;
-use OCA\IntrusionDetection\Notification\AdminAlerts;
 use OCP\IL10N;
 
 /**
@@ -59,17 +58,17 @@ final class AccountLocked implements ICheck, IExplainsDetection, IHeadlinesDetec
 			checkId: self::ID,
 			source: $source,
 			uid: $uid,
-			facts: [
-				'link' => $linkId,
-				'sentTo' => $sentTo,
-				'newAddress' => $change['new_value_hint'] ?? null,
-				'changedAt' => $change['created_at'] ?? null,
-				'changedFrom' => $change['ip'] ?? null,
-				'takeoverDetection' => $takeoverDetection,
-				'tokensEnded' => count($ended),
-				'ended' => array_slice($ended, 0, 50),
-				AdminAlerts::FACT_ALL_ADMINS => true,
-			],
+			facts: new AccountLockedFacts(
+				link: $linkId,
+				sentTo: $sentTo,
+				newAddress: is_string($change['new_value_hint'] ?? null) ? $change['new_value_hint'] : null,
+				changedAt: is_int($change['created_at'] ?? null) ? $change['created_at'] : null,
+				changedFrom: is_string($change['ip'] ?? null) ? $change['ip'] : null,
+				takeoverDetection: $takeoverDetection,
+				tokensEnded: count($ended),
+				ended: array_slice($ended, 0, 50),
+				allAdmins: true,
+			),
 			mode: new ModeState(Mode::Protect, Mode::Protect),
 		);
 	}
@@ -106,7 +105,7 @@ final class AccountLocked implements ICheck, IExplainsDetection, IHeadlinesDetec
 
 	#[\Override]
 	public function userNotice(Detection $detection, IL10N $l): UserNotice {
-		$sentTo = DetectionFacts::of($detection)->string('sentTo');
+		$sentTo = AccountLockedFacts::fromArray(DetectionFacts::of($detection)->facts)->sentTo;
 		return new UserNotice(
 			$l->t('Your account was locked'),
 			[
@@ -123,13 +122,13 @@ final class AccountLocked implements ICheck, IExplainsDetection, IHeadlinesDetec
 
 	#[\Override]
 	public function narrative(Detection $detection, IL10N $l): array {
-		$facts = DetectionFacts::of($detection);
+		$facts = AccountLockedFacts::fromArray(DetectionFacts::of($detection)->facts);
 		$uid = (string)$detection->getUid();
-		$sentences = [$l->t('The account of %1$s was locked by the owner of the previous email address %2$s, with the link Nextcloud had sent there.', [$uid, $facts->string('sentTo')])];
-		$changedAt = $facts->int('changedAt');
+		$sentences = [$l->t('The account of %1$s was locked by the owner of the previous email address %2$s, with the link Nextcloud had sent there.', [$uid, $facts->sentTo])];
+		$changedAt = $facts->changedAt ?? 0;
 		if ($changedAt > 0) {
-			$new = $facts->string('newAddress');
-			$ip = $facts->string('changedFrom');
+			$new = $facts->newAddress ?? '';
+			$ip = $facts->changedFrom ?? '';
 			$sentences[] = match (true) {
 				$new !== '' && $ip !== '' => $l->t('The address was changed to %1$s at %2$s from %3$s.', [$new, $this->dates->dateTime($changedAt), $ip]),
 				$new !== '' => $l->t('The address was changed to %1$s at %2$s.', [$new, $this->dates->dateTime($changedAt)]),
@@ -142,7 +141,7 @@ final class AccountLocked implements ICheck, IExplainsDetection, IHeadlinesDetec
 		$sentences[] = $l->n(
 			'%n session or app password was ended, and the account was disabled.',
 			'%n sessions and app passwords were ended, and the account was disabled.',
-			$facts->int('tokensEnded'),
+			$facts->tokensEnded,
 		);
 		$sentences[] = $l->t('Talk to the user another way than by email before you enable the account again. Then use "Re-enable and start Secure my account", and correct the email address in the account management if needed.');
 		return $sentences;

@@ -12,6 +12,7 @@ namespace OCA\IntrusionDetection\WasThisYou;
 use OCA\IntrusionDetection\AppInfo\Application;
 use OCA\IntrusionDetection\Audit\AuditLogger;
 use OCA\IntrusionDetection\Check\Checks\UserDenied\UserDenied;
+use OCA\IntrusionDetection\Check\Checks\UserDenied\UserDeniedFacts;
 use OCA\IntrusionDetection\Config\AppSettings;
 use OCA\IntrusionDetection\Config\CheckSettings;
 use OCA\IntrusionDetection\Config\ModeState;
@@ -19,6 +20,7 @@ use OCA\IntrusionDetection\Confirm\SessionConfirmation;
 use OCA\IntrusionDetection\Db\Detection;
 use OCA\IntrusionDetection\Db\DetectionMapper;
 use OCA\IntrusionDetection\Definition\Mode;
+use OCA\IntrusionDetection\Detection\CommonFacts;
 use OCA\IntrusionDetection\Detection\DetectionDraft;
 use OCA\IntrusionDetection\Event\WasThisYouAnsweredEvent;
 use OCA\IntrusionDetection\Net\RemoteAddressResolver;
@@ -115,17 +117,17 @@ class WasThisYouService {
 				checkId: UserDenied::ID,
 				source: $source,
 				uid: $uid,
-				facts: [
-					'detection' => $detection->getId(),
-					'check' => $detection->getCheckId(),
-					'detectedAt' => $detection->getCreatedAt(),
-					'passwordInvolved' => $this->questions->involvesPassword($detection),
-					'answeredFromSource' => $source !== null && $current !== null && $source->ipKey === $current->ipKey,
-					'network' => $weak ? null : $source?->netKey,
-					'weakSession' => $weak,
-					'sessionTokenIds' => $sessions,
-					'tokenId' => $tokenId,
-				],
+				facts: new UserDeniedFacts(
+					detection: $detection->getId(),
+					check: (string)$detection->getCheckId(),
+					detectedAt: $detection->getCreatedAt(),
+					passwordInvolved: $this->questions->involvesPassword($detection),
+					answeredFromSource: $source !== null && $current !== null && $source->ipKey === $current->ipKey,
+					network: $weak ? null : $source?->netKey,
+					weakSession: $weak,
+					tokenId: $tokenId,
+					common: new CommonFacts(sessionTokenIds: $sessions),
+				),
 				merge: $weak ? DetectionDraft::MERGE_SUBJECT : DetectionDraft::MERGE_NONE,
 				mergeWindow: $this->appSettings->retentionDays() * 86400,
 				banLevel: self::BAN_LEVEL,

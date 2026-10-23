@@ -41,12 +41,6 @@ use OCP\IL10N;
 final class LoginFlowMismatch implements ICheck, IExplainsDetection, IExplainsToUser, IAsksWasThisYou, ISelectsResponses {
 	public const ID = 'login_flow_mismatch';
 
-	public const RULE_INITIATOR_BLOCKED = 'initiator_blocked';
-	public const RULE_INITIATOR_FLAGGED = 'initiator_flagged';
-	public const RULE_OTHER_NETWORK = 'other_network';
-	public const RULE_TOO_OLD = 'too_old';
-	public const RULE_OTHER_FAMILY = 'other_family';
-
 	#[\Override]
 	public function definition(): CheckDefinition {
 		return new CheckDefinition(
@@ -93,26 +87,27 @@ final class LoginFlowMismatch implements ICheck, IExplainsDetection, IExplainsTo
 
 	#[\Override]
 	public function narrative(Detection $detection, IL10N $l): array {
-		$facts = DetectionFacts::of($detection);
-		$initiator = $facts->string('initiator');
-		$granter = $facts->string('granter');
-		$sentences = [$l->t('The account %1$s approved a login request for the new device "%2$s".', [(string)$detection->getUid(), $facts->string('client')])];
-		$sentences[] = match ($facts->string('rule')) {
-			self::RULE_INITIATOR_BLOCKED => $l->t('The request was started from %1$s, an address that was blocked at that time, and approved from %2$s.', [$initiator, $granter]),
-			self::RULE_INITIATOR_FLAGGED => $l->t('The request was started from %1$s, an address that was marked as attacking at that time, and approved from %2$s.', [$initiator, $granter]),
-			self::RULE_OTHER_NETWORK => $l->t('The request was started from %1$s and approved from %2$s, which is in another network.', [$initiator, $granter]),
-			self::RULE_TOO_OLD => $l->t('The request was approved %1$s after it was started. The limit at that time was %2$s.', [
-				TextRenderer::duration($facts->int('age'), $l),
-				TextRenderer::duration($facts->threshold('max_age', 600), $l),
+		$stored = DetectionFacts::of($detection);
+		$facts = LoginFlowMismatchFacts::fromArray($stored->facts);
+		$initiator = $facts->initiator ?? '';
+		$granter = $facts->granter;
+		$sentences = [$l->t('The account %1$s approved a login request for the new device "%2$s".', [(string)$detection->getUid(), $facts->client])];
+		$sentences[] = match ($facts->rule) {
+			LoginFlowMismatchRule::InitiatorBlocked => $l->t('The request was started from %1$s, an address that was blocked at that time, and approved from %2$s.', [$initiator, $granter]),
+			LoginFlowMismatchRule::InitiatorFlagged => $l->t('The request was started from %1$s, an address that was marked as attacking at that time, and approved from %2$s.', [$initiator, $granter]),
+			LoginFlowMismatchRule::OtherNetwork => $l->t('The request was started from %1$s and approved from %2$s, which is in another network.', [$initiator, $granter]),
+			LoginFlowMismatchRule::TooOld => $l->t('The request was approved %1$s after it was started. The limit at that time was %2$s.', [
+				TextRenderer::duration($facts->age, $l),
+				TextRenderer::duration($stored->threshold('max_age', 600), $l),
 			]),
 			default => $l->t('The request was started from %1$s and approved from %2$s. One of them is IPv4 and the other IPv6, which is normal for devices that use both, so this was only recorded.', [$initiator, $granter]),
 		};
-		if ($facts->string('rule') === self::RULE_TOO_OLD) {
+		if ($facts->rule === LoginFlowMismatchRule::TooOld) {
 			$sentences[] = $initiator !== ''
 				? $l->t('It was started from %1$s and approved from %2$s.', [$initiator, $granter])
 				: $l->t('It was approved from %s; where it was started is not known.', [$granter]);
 		}
-		if ($facts->bool('trusted')) {
+		if ($facts->trusted) {
 			$sentences[] = $l->t('The request was started in a network the person confirmed as their own, so it counts as low and was only recorded.');
 		}
 		return $sentences;
@@ -120,24 +115,24 @@ final class LoginFlowMismatch implements ICheck, IExplainsDetection, IExplainsTo
 
 	#[\Override]
 	public function userNotice(Detection $detection, IL10N $l): UserNotice {
-		$facts = DetectionFacts::of($detection);
-		$initiator = $facts->string('initiator');
-		$granter = $facts->string('granter');
+		$facts = LoginFlowMismatchFacts::fromArray(DetectionFacts::of($detection)->facts);
+		$initiator = $facts->initiator ?? '';
+		$granter = $facts->granter;
 		$revoked = false;
 		foreach ($detection->getActionList() as $action) {
 			if ($action['type'] === ResponseType::RevokeToken->value && $action['enforced']) {
 				$revoked = true;
 			}
 		}
-		$device = DeviceLabel::describe($facts->string('client'), $l);
+		$device = DeviceLabel::describe($facts->client, $l);
 		$message = [$device === null
 			? $l->t('A new device was connected to your account.')
 			: $l->t('A new device was connected to your account: %s.', [$device])];
 		$message[] = $initiator !== ''
 			? $l->t('The request came from %1$s, you approved it from %2$s.', [$initiator, $granter])
 			: $l->t('You approved the request from %s.', [$granter]);
-		if ($facts->string('rule') === self::RULE_TOO_OLD) {
-			$message[] = $l->t('It was approved %s after it was started. Real devices are usually approved within a minute or two.', [TextRenderer::duration($facts->int('age'), $l)]);
+		if ($facts->rule === LoginFlowMismatchRule::TooOld) {
+			$message[] = $l->t('It was approved %s after it was started. Real devices are usually approved within a minute or two.', [TextRenderer::duration($facts->age, $l)]);
 		}
 		$message[] = $revoked
 			? $l->t('Nextcloud disconnected the device again to be safe. If it was yours, connect it once more.')

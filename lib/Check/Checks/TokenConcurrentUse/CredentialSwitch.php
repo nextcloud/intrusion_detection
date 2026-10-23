@@ -31,20 +31,4 @@ final class CredentialSwitch {
 		public readonly int $at,
 	) {
 	}
-
-	/**
-	 * @return array{ip1: string, net1: string, ip2: string, net2: string, family: int, switches: int, first: int, last: int}
-	 */
-	public function facts(): array {
-		return [
-			'ip1' => $this->otherIp,
-			'net1' => $this->otherNet,
-			'ip2' => $this->currentIp,
-			'net2' => $this->currentNet,
-			'family' => $this->family,
-			'switches' => $this->switches,
-			'first' => $this->firstSwitchAt,
-			'last' => $this->at,
-		];
-	}
 }

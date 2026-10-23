@@ -96,12 +96,13 @@ final class TokenConcurrentUse implements ICheck, IExplainsDetection, IExplainsT
 
 	#[\Override]
 	public function narrative(Detection $detection, IL10N $l): array {
-		$facts = DetectionFacts::of($detection);
+		$stored = DetectionFacts::of($detection);
+		$facts = TokenConcurrentUseFacts::fromArray($stored->facts);
 		$uid = (string)$detection->getUid();
-		$ip1 = $facts->string('ip1');
-		$ip2 = $facts->string('ip2');
-		$name = $facts->string('tokenName');
-		$sentences = [match ($facts->string('kind')) {
+		$ip1 = $facts->ip1;
+		$ip2 = $facts->ip2;
+		$name = $facts->tokenName;
+		$sentences = [match ($facts->kind) {
 			self::KIND_SESSION => $name === ''
 				? $l->t('A logged-in browser session of the account %1$s was used from two different networks at the same time: %2$s and %3$s.', [$uid, $ip1, $ip2])
 				: $l->t('The logged-in browser session "%1$s" of the account %2$s was used from two different networks at the same time: %3$s and %4$s.', [$name, $uid, $ip1, $ip2]),
@@ -110,15 +111,15 @@ final class TokenConcurrentUse implements ICheck, IExplainsDetection, IExplainsT
 				? $l->t('An app password of the account %1$s was used from two different networks at the same time: %2$s and %3$s.', [$uid, $ip1, $ip2])
 				: $l->t('The app password "%1$s" of the account %2$s was used from two different networks at the same time: %3$s and %4$s.', [$name, $uid, $ip1, $ip2]),
 		}];
-		$switches = $facts->int('switches');
+		$switches = $facts->switches;
 		$sentences[] = $l->n(
 			'It switched between these two networks %n time within %1$s. The limit at that time was %2$s switches within %3$s.',
 			'It switched between these two networks %n times within %1$s. The limit at that time was %2$s switches within %3$s.',
 			$switches,
 			[
-				TextRenderer::duration(self::roundedSpan($facts->int('last') - $facts->int('first')), $l),
-				(string)$facts->threshold(self::PARAM_MIN_SWITCHES, 3),
-				TextRenderer::duration($facts->threshold(self::PARAM_WINDOW, 900), $l),
+				TextRenderer::duration(self::roundedSpan(($facts->common->last ?? 0) - ($facts->common->first ?? 0)), $l),
+				(string)$stored->threshold(self::PARAM_MIN_SWITCHES, 3),
+				TextRenderer::duration($stored->threshold(self::PARAM_WINDOW, 900), $l),
 			],
 		);
 		$sentences[] = $l->t('It logged in successfully, so whoever used it from the other network had a working copy.');
@@ -130,12 +131,12 @@ final class TokenConcurrentUse implements ICheck, IExplainsDetection, IExplainsT
 
 	#[\Override]
 	public function userNotice(Detection $detection, IL10N $l): UserNotice {
-		$facts = DetectionFacts::of($detection);
-		$ip1 = $facts->string('ip1');
-		$ip2 = $facts->string('ip2');
-		$device = DeviceLabel::describe($facts->string('tokenName'), $l);
-		$appPassword = UserMessages::appPassword($facts->string('tokenName'), $l);
-		return match ($facts->string('kind')) {
+		$facts = TokenConcurrentUseFacts::fromArray(DetectionFacts::of($detection)->facts);
+		$ip1 = $facts->ip1;
+		$ip2 = $facts->ip2;
+		$device = DeviceLabel::describe($facts->tokenName, $l);
+		$appPassword = UserMessages::appPassword($facts->tokenName, $l);
+		return match ($facts->kind) {
 			self::KIND_SESSION => new UserNotice(
 				$l->t('Your session was used from two places at once'),
 				[

@@ -13,6 +13,7 @@ use OCA\IntrusionDetection\Address\AddressResolver;
 use OCA\IntrusionDetection\Config\CheckSettings;
 use OCA\IntrusionDetection\Config\ModeState;
 use OCA\IntrusionDetection\Definition\Severity;
+use OCA\IntrusionDetection\Detection\CommonFacts;
 use OCA\IntrusionDetection\Detection\DetectionDraft;
 use OCA\IntrusionDetection\Detection\Explanation;
 use OCA\IntrusionDetection\Net\RemoteAddressResolver;
@@ -78,18 +79,17 @@ class LoginFlowMismatchDetector implements IDetector {
 			source: $initiator ?? $granter,
 			uid: $uid,
 			tokenId: $token->getId(),
-			facts: [
-				'rule' => $rule,
-				'initiator' => $initiator?->ip,
-				'granter' => $granter->ip,
-				'age' => $age,
-				'startedAt' => $startedAt,
-				'client' => Explanation::cleanUserAgent($token->getName()) ?? '',
-				'tokenId' => $token->getId(),
-				'trusted' => $trusted,
-				'first' => $startedAt,
-				'last' => $now,
-			],
+			facts: new LoginFlowMismatchFacts(
+				rule: $rule,
+				initiator: $initiator?->ip,
+				granter: $granter->ip,
+				age: $age,
+				startedAt: $startedAt,
+				client: Explanation::cleanUserAgent($token->getName()) ?? '',
+				tokenId: $token->getId(),
+				trusted: $trusted,
+				common: new CommonFacts(first: $startedAt, last: $now),
+			),
 			severity: $trusted ? Severity::Low : $severity,
 			userAgent: $signal->userAgent,
 		);
@@ -97,25 +97,25 @@ class LoginFlowMismatchDetector implements IDetector {
 	}
 
 	/**
-	 * @return array{0: ?string, 1: Severity} the rule that applies (null for none) and its severity
+	 * @return array{0: ?LoginFlowMismatchRule, 1: Severity} the rule that applies (null for none) and its severity
 	 */
 	private function evaluate(?SourceKey $initiator, SourceKey $granter, int $age, int $maxAge, int $now): array {
 		if ($initiator !== null) {
 			if ($this->addressResolver->resolve($initiator)->isDenied($now)) {
-				return [LoginFlowMismatch::RULE_INITIATOR_BLOCKED, Severity::High];
+				return [LoginFlowMismatchRule::InitiatorBlocked, Severity::High];
 			}
 			if ($this->flags->sourceFlag($initiator) !== null) {
-				return [LoginFlowMismatch::RULE_INITIATOR_FLAGGED, Severity::High];
+				return [LoginFlowMismatchRule::InitiatorFlagged, Severity::High];
 			}
 			if ($initiator->family === $granter->family && !$initiator->sameNetwork($granter)) {
-				return [LoginFlowMismatch::RULE_OTHER_NETWORK, Severity::Medium];
+				return [LoginFlowMismatchRule::OtherNetwork, Severity::Medium];
 			}
 		}
 		if ($age > $maxAge) {
-			return [LoginFlowMismatch::RULE_TOO_OLD, Severity::Medium];
+			return [LoginFlowMismatchRule::TooOld, Severity::Medium];
 		}
 		if ($initiator !== null && $initiator->family !== $granter->family) {
-			return [LoginFlowMismatch::RULE_OTHER_FAMILY, Severity::Low];
+			return [LoginFlowMismatchRule::OtherFamily, Severity::Low];
 		}
 		return [null, Severity::Low];
 	}

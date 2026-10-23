@@ -11,6 +11,7 @@ namespace OCA\IntrusionDetection\Check\Checks\AccountTakeover;
 
 use OCA\IntrusionDetection\Config\CheckSettings;
 use OCA\IntrusionDetection\Config\ModeState;
+use OCA\IntrusionDetection\Detection\CommonFacts;
 use OCA\IntrusionDetection\Detection\DetectionDraft;
 use OCA\IntrusionDetection\Net\RemoteAddressResolver;
 use OCA\IntrusionDetection\Signal\IDetector;
@@ -109,7 +110,7 @@ class AccountTakeoverDetector implements IDetector {
 			}
 		}
 		if ($anyPoints >= (int)$params[AccountTakeover::PARAM_MIN_POINTS_ANY]) {
-			$rules[] = AccountTakeover::RULE_ANY_SESSION;
+			$rules[] = AccountTakeoverRule::AnySession;
 		} else {
 			$used = [];
 		}
@@ -121,7 +122,7 @@ class AccountTakeoverDetector implements IDetector {
 				&& $c['at'] >= $risky->at && $c['at'] <= $risky->at + $window);
 			$sessionPoints = array_sum(array_column($inSession, 'points'));
 			if ($sessionPoints >= (int)$params[AccountTakeover::PARAM_MIN_POINTS]) {
-				$rules[] = AccountTakeover::RULE_RISKY_LOGIN;
+				$rules[] = AccountTakeoverRule::RiskyLogin;
 				foreach ($inSession as $change) {
 					$used[$change['id']] = $change;
 				}
@@ -141,14 +142,14 @@ class AccountTakeoverDetector implements IDetector {
 				break;
 			}
 		}
-		$facts = [
-			'rules' => $rules,
-			'anyPoints' => $anyPoints,
-			'sessionPoints' => $sessionPoints,
-			'riskyLoginAt' => $risky?->at,
-			'riskyLoginReason' => $risky?->reason,
-			'riskyLoginPolicies' => $risky?->policies ?? [],
-			'changes' => array_map(static fn (array $c): array => [
+		$facts = new AccountTakeoverFacts(
+			rules: $rules,
+			anyPoints: $anyPoints,
+			sessionPoints: $sessionPoints,
+			riskyLoginAt: $risky?->at,
+			riskyLoginReason: $risky?->reason,
+			riskyLoginPolicies: $risky?->policies ?? [],
+			changes: array_map(static fn (array $c): array => [
 				'id' => $c['id'],
 				'type' => $c['type']->value,
 				'points' => $c['points'],
@@ -157,14 +158,13 @@ class AccountTakeoverDetector implements IDetector {
 				'old' => $c['old'],
 				'new' => $c['new'],
 			], array_slice($used, -self::MAX_FACT_CHANGES)),
-			'emailChangeId' => $emailChange !== null && $emailChange['old'] !== null ? $emailChange['id'] : null,
-			'emailChangedAt' => $emailChange['at'] ?? null,
-			'previousAddress' => $emailChange['old'] ?? null,
-			'userHasEmail' => (string)$this->userManager->get($uid)?->getEMailAddress() !== '',
-			'sessionTokenId' => $sessionTokenId,
-			'first' => min(array_column($used, 'at')),
-			'last' => max(array_column($used, 'at')),
-		];
+			emailChangeId: $emailChange !== null && $emailChange['old'] !== null ? $emailChange['id'] : null,
+			emailChangedAt: $emailChange['at'] ?? null,
+			previousAddress: $emailChange['old'] ?? null,
+			userHasEmail: (string)$this->userManager->get($uid)?->getEMailAddress() !== '',
+			sessionTokenId: $sessionTokenId,
+			common: new CommonFacts(first: min(array_column($used, 'at')), last: max(array_column($used, 'at'))),
+		);
 		return [new DetectionDraft(
 			checkId: AccountTakeover::ID,
 			source: $this->addresses->current(),

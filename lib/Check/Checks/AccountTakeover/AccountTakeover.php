@@ -48,10 +48,6 @@ final class AccountTakeover implements ICheck, IExplainsDetection, IExplainsToUs
 	public const PARAM_WINDOW_ANY = 'window_any';
 	public const PARAM_MIN_POINTS_ANY = 'min_points_any';
 
-	/** Why a detection fired, as stored in its facts */
-	public const RULE_RISKY_LOGIN = 'risky_login';
-	public const RULE_ANY_SESSION = 'any_session';
-
 	/** @var array<string, int> default points per kind of change */
 	public const DEFAULT_POINTS = [
 		'email_changed' => 2,
@@ -132,29 +128,29 @@ final class AccountTakeover implements ICheck, IExplainsDetection, IExplainsToUs
 
 	#[\Override]
 	public function narrative(Detection $detection, IL10N $l): array {
-		$facts = DetectionFacts::of($detection);
+		$stored = DetectionFacts::of($detection);
+		$facts = AccountTakeoverFacts::fromArray($stored->facts);
 		$uid = (string)$detection->getUid();
 		$sentences = [$l->t('These security changes were made to the account %s:', [$uid])];
-		foreach (self::changes($facts) as $change) {
+		foreach ($facts->changes as $change) {
 			$sentences[] = $this->changeSentence($change, $l);
 		}
-		$rules = $facts->list('rules');
-		if (in_array(self::RULE_RISKY_LOGIN, $rules, true)) {
-			$sentences[] = $l->t('The session they were made in started with a risky login at %s: it needed extra confirmation and was let in without one.', [$this->dates->dateTime($facts->int('riskyLoginAt'))]);
+		if (in_array(AccountTakeoverRule::RiskyLogin, $facts->rules, true)) {
+			$sentences[] = $l->t('The session they were made in started with a risky login at %s: it needed extra confirmation and was let in without one.', [$this->dates->dateTime($facts->riskyLoginAt ?? 0)]);
 			$sentences[] = $l->t('Together they count %1$s points. The limit at that time was %2$s points within %3$s after a risky login.', [
-				(string)$facts->int('sessionPoints'),
-				(string)$facts->threshold(self::PARAM_MIN_POINTS, 3),
-				TextRenderer::duration($facts->threshold(self::PARAM_WINDOW, 3600), $l),
+				(string)$facts->sessionPoints,
+				(string)$stored->threshold(self::PARAM_MIN_POINTS, 3),
+				TextRenderer::duration($stored->threshold(self::PARAM_WINDOW, 3600), $l),
 			]);
 		}
-		if (in_array(self::RULE_ANY_SESSION, $rules, true)) {
+		if (in_array(AccountTakeoverRule::AnySession, $facts->rules, true)) {
 			$sentences[] = $l->t('The changes from all sessions count %1$s points. The limit at that time was %2$s points within %3$s.', [
-				(string)$facts->int('anyPoints'),
-				(string)$facts->threshold(self::PARAM_MIN_POINTS_ANY, 5),
-				TextRenderer::duration($facts->threshold(self::PARAM_WINDOW_ANY, 1800), $l),
+				(string)$facts->anyPoints,
+				(string)$stored->threshold(self::PARAM_MIN_POINTS_ANY, 5),
+				TextRenderer::duration($stored->threshold(self::PARAM_WINDOW_ANY, 1800), $l),
 			]);
 		}
-		if ($facts->has('userHasEmail') && !$facts->bool('userHasEmail')) {
+		if ($facts->userHasEmail === false) {
 			$sentences[] = $l->t('The account has no email address now. You may be the only one who can reach its owner outside the account, which may be in someone else\'s hands.');
 		}
 		return $sentences;
@@ -162,9 +158,8 @@ final class AccountTakeover implements ICheck, IExplainsDetection, IExplainsToUs
 
 	#[\Override]
 	public function userNotice(Detection $detection, IL10N $l): UserNotice {
-		$facts = DetectionFacts::of($detection);
 		$labels = [];
-		foreach (self::changes($facts) as $change) {
+		foreach (AccountTakeoverFacts::fromArray(DetectionFacts::of($detection)->facts)->changes as $change) {
 			$type = SecurityChangeType::tryFrom((string)($change['type'] ?? ''));
 			if ($type !== null) {
 				$labels[$type->value] = $type->label($l);
@@ -184,14 +179,6 @@ final class AccountTakeover implements ICheck, IExplainsDetection, IExplainsToUs
 				$l->t('Check your email address, your second factor and your devices in your security settings.'),
 			],
 		);
-	}
-
-	/**
-	 * @return list<array<array-key, mixed>>
-	 */
-	private static function changes(DetectionFacts $facts): array {
-		$changes = $facts->value('changes');
-		return is_array($changes) ? array_values(array_filter($changes, 'is_array')) : [];
 	}
 
 	/**

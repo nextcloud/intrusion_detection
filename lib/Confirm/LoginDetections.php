@@ -10,6 +10,7 @@ declare(strict_types=1);
 namespace OCA\IntrusionDetection\Confirm;
 
 use OCA\IntrusionDetection\Db\DetectionMapper;
+use OCA\IntrusionDetection\Detection\CommonFacts;
 use OCA\IntrusionDetection\SessionState\CurrentSession;
 use OCA\IntrusionDetection\SessionState\SessionState;
 use OCP\AppFramework\Db\DoesNotExistException;
@@ -27,7 +28,7 @@ class LoginDetections {
 	/** At most this many detections wait per login, and sessions are kept per detection */
 	public const MAX = 10;
 	/** The detection fact with the ids of the session tokens it is about */
-	public const FACT = 'sessionTokenIds';
+	public const FACT = CommonFacts::SESSION_TOKEN_IDS;
 
 	public function __construct(
 		private readonly SessionState $state,

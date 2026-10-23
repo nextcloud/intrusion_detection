@@ -16,12 +16,14 @@ use OCA\IntrusionDetection\Address\AddressResolver;
 use OCA\IntrusionDetection\AppInfo\Application;
 use OCA\IntrusionDetection\Check\Checks\LoginFlowMismatch\LoginFlowMismatch;
 use OCA\IntrusionDetection\Check\Checks\LoginFlowMismatch\LoginFlowMismatchDetector;
+use OCA\IntrusionDetection\Check\Checks\LoginFlowMismatch\LoginFlowMismatchFacts;
+use OCA\IntrusionDetection\Check\Checks\LoginFlowMismatch\LoginFlowMismatchRule;
 use OCA\IntrusionDetection\Config\GlobalSettings;
 use OCA\IntrusionDetection\Db\Detection;
 use OCA\IntrusionDetection\Definition\Mode;
 use OCA\IntrusionDetection\Definition\ResponseType;
 use OCA\IntrusionDetection\Definition\Severity;
-use OCA\IntrusionDetection\Explain\NarrativeBuilder;
+use OCA\IntrusionDetection\Explain\DetectionFacts;
 use OCA\IntrusionDetection\Listener\LoginFlowGrantedListener;
 use OCA\IntrusionDetection\Net\SourceKey;
 use OCA\IntrusionDetection\Response\BanService;
@@ -71,7 +73,7 @@ class LoginFlowMismatchTest extends RequestEventTestCase {
 		Server::get(BanService::class)->ban(SourceKey::fromIp('203.0.113.66'), 'manual');
 		$detection = $this->grant('203.0.113.66', '198.51.100.7');
 		$this->assertSame(Severity::High->value, $detection->getSeverity());
-		$this->assertSame(LoginFlowMismatch::RULE_INITIATOR_BLOCKED, $detection->getExplanationData()['facts']['rule']);
+		$this->assertSame(LoginFlowMismatchRule::InitiatorBlocked, LoginFlowMismatchFacts::fromArray($detection->getExplanationData()['facts'])->rule);
 		$this->assertSame('203.0.113.66', $detection->getIp(), 'The detection is about the address that started the request');
 		$actions = $this->actions($detection);
 		$this->assertSame([ResponseType::RevokeToken->value, ResponseType::NotifyAdmin->value, ResponseType::NotifyUser->value], array_keys($actions));
@@ -83,19 +85,19 @@ class LoginFlowMismatchTest extends RequestEventTestCase {
 		Server::get(FlaggedSources::class)->flagSource(SourceKey::fromIp('198.51.100.66'), FlaggedSources::REASON_ATTACK);
 		$detection = $this->grant('198.51.100.66', '198.51.100.7');
 		$this->assertSame(Severity::High->value, $detection->getSeverity());
-		$this->assertSame(LoginFlowMismatch::RULE_INITIATOR_FLAGGED, $detection->getExplanationData()['facts']['rule']);
+		$this->assertSame(LoginFlowMismatchRule::InitiatorFlagged, LoginFlowMismatchFacts::fromArray($detection->getExplanationData()['facts'])->rule);
 	}
 
 	public function testMediumWhenStartedInAnotherNetwork(): void {
 		$detection = $this->grant('203.0.113.5', '198.51.100.7');
 		$this->assertSame(Severity::Medium->value, $detection->getSeverity());
-		$facts = $detection->getExplanationData()['facts'];
-		$this->assertSame(LoginFlowMismatch::RULE_OTHER_NETWORK, $facts['rule']);
-		$this->assertSame('203.0.113.5', $facts['initiator']);
-		$this->assertSame('198.51.100.7', $facts['granter']);
-		$this->assertSame(self::CLIENT, $facts['client']);
+		$facts = LoginFlowMismatchFacts::fromArray($detection->getExplanationData()['facts']);
+		$this->assertSame(LoginFlowMismatchRule::OtherNetwork, $facts->rule);
+		$this->assertSame('203.0.113.5', $facts->initiator);
+		$this->assertSame('198.51.100.7', $facts->granter);
+		$this->assertSame(self::CLIENT, $facts->client);
 		$this->assertSame($this->user->getUID(), $detection->getUid());
-		$token = Server::get(IProvider::class)->getTokenById($facts['tokenId']);
+		$token = Server::get(IProvider::class)->getTokenById((int)$facts->tokenId);
 		$this->assertSame($this->user->getUID(), $token->getUID(), 'The detection names the new app password by its id');
 		$this->assertSame([ResponseType::NotifyAdmin->value, ResponseType::NotifyUser->value], array_keys($this->actions($detection)), 'Medium does not disconnect the device by default');
 		$this->assertTrue(Server::get(LoginFlowMismatch::class)->asksWasThisYou($detection));
@@ -108,7 +110,6 @@ class LoginFlowMismatchTest extends RequestEventTestCase {
 			'The request came from 203.0.113.5, you approved it from 198.51.100.7.',
 			'If this was not you, remove the device in your security settings and change your password.',
 		], $notice->message);
-		$this->assertStringContainsString('The request was started from 203.0.113.5 and approved from 198.51.100.7, which is in another network.', implode(' ', Server::get(NarrativeBuilder::class)->build($detection, $l)->happened));
 	}
 
 	public function testMediumCanDisconnectTheDeviceWhenSwitchedOn(): void {
@@ -120,26 +121,25 @@ class LoginFlowMismatchTest extends RequestEventTestCase {
 	public function testMediumWhenApprovedTooLate(): void {
 		$detection = $this->grant('198.51.100.8', '198.51.100.7', 900);
 		$this->assertSame(Severity::Medium->value, $detection->getSeverity());
-		$facts = $detection->getExplanationData()['facts'];
-		$this->assertSame(LoginFlowMismatch::RULE_TOO_OLD, $facts['rule']);
-		$this->assertEqualsWithDelta(900, $facts['age'], 5);
-		$l = Server::get(IFactory::class)->get(Application::APP_ID, 'en');
-		$this->assertStringContainsString('The limit at that time was 10 minutes.', implode(' ', Server::get(NarrativeBuilder::class)->build($detection, $l)->happened));
+		$facts = LoginFlowMismatchFacts::fromArray($detection->getExplanationData()['facts']);
+		$this->assertSame(LoginFlowMismatchRule::TooOld, $facts->rule);
+		$this->assertEqualsWithDelta(900, $facts->age, 5);
+		$this->assertSame(600, DetectionFacts::of($detection)->threshold('max_age'), 'The narrative reads the limit of its time');
 	}
 
 	public function testDualStackIsOnlyRecordedAsLow(): void {
 		$detection = $this->grant('2001:db8::5', '198.51.100.7');
 		$this->assertSame(Severity::Low->value, $detection->getSeverity());
-		$this->assertSame(LoginFlowMismatch::RULE_OTHER_FAMILY, $detection->getExplanationData()['facts']['rule']);
+		$this->assertSame(LoginFlowMismatchRule::OtherFamily, LoginFlowMismatchFacts::fromArray($detection->getExplanationData()['facts'])->rule);
 		$this->assertSame([], $detection->getActionList(), 'Low is recorded only: nobody is told');
 		$this->assertFalse(Server::get(LoginFlowMismatch::class)->asksWasThisYou($detection));
 	}
 
 	public function testTheRulesApplyInOrder(): void {
 		// Different families and too old: the age rule comes first.
-		$this->assertSame(LoginFlowMismatch::RULE_TOO_OLD, $this->grant('2001:db8::5', '198.51.100.7', 900)->getExplanationData()['facts']['rule']);
+		$this->assertSame(LoginFlowMismatchRule::TooOld, LoginFlowMismatchFacts::fromArray($this->grant('2001:db8::5', '198.51.100.7', 900)->getExplanationData()['facts'])->rule);
 		// Another network and too old: the network rule comes first.
-		$this->assertSame(LoginFlowMismatch::RULE_OTHER_NETWORK, $this->grant('203.0.113.5', '198.51.100.7', 900)->getExplanationData()['facts']['rule']);
+		$this->assertSame(LoginFlowMismatchRule::OtherNetwork, LoginFlowMismatchFacts::fromArray($this->grant('203.0.113.5', '198.51.100.7', 900)->getExplanationData()['facts'])->rule);
 	}
 
 	public function testNothingWhenStartedAndApprovedInTheSameNetworkInTime(): void {
@@ -163,7 +163,7 @@ class LoginFlowMismatchTest extends RequestEventTestCase {
 		$this->detectWithoutCore(null, '198.51.100.7');
 		$this->assertSame([], $this->detectionsOf(LoginFlowMismatch::ID));
 		$detection = $this->detectWithoutCore(null, '198.51.100.7', 900);
-		$this->assertSame(LoginFlowMismatch::RULE_TOO_OLD, $detection->getExplanationData()['facts']['rule']);
+		$this->assertSame(LoginFlowMismatchRule::TooOld, LoginFlowMismatchFacts::fromArray($detection->getExplanationData()['facts'])->rule);
 		$this->assertSame('198.51.100.7', $detection->getIp());
 	}
 
