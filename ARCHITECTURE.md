@@ -121,6 +121,8 @@ A login passes through these, each using only the ones before it
    core's private session keys and the session id. `SessionMarkers` keeps
    the app's markers in the PHP session, and `SessionTokenLinker` links
    what a login recorded to its session token on the first request.
+   `SessionIdRenewal` gives a confirmed login's session a new id through
+   core, where the server has the API.
 2. **`Listener\LoginListener` runs the login steps** (`Listener\Login\ILoginStep`)
    in order over one `LoginFacts`. Each step says when it applies; the
    step-up step hands the facts to `Confirm\LoginAssessment`.

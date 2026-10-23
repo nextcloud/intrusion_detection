@@ -32,6 +32,12 @@ the verify page, logging out and core's second-factor pages. This holds on
 every `remote.php` endpoint, including the old `remote.php/caldav`,
 `/calendar`, `/carddav` and `/contacts` addresses.
 
+Once a login is confirmed, its session continues under a new session id, on
+servers whose core can renew the id and keep the session's token
+(`OCP\Session\ISessionIdRenewer`). The token keeps its id, so the login
+history and detections stay linked to the session. Other servers keep the
+session id.
+
 ### Administrators
 
 While "Administrators log in with their password from trusted networks only"
