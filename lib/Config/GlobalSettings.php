@@ -93,6 +93,9 @@ final class GlobalSettings {
 	/** The policies that setting may name: every one but a sprayed or breached password and an administrator outside the trusted networks */
 	public const STEP_UP_KNOWN_DEVICE_PATTERN = '/^(flagged_source|protected_account|risky_network|risk_high)$/';
 
+	/** Changed through their own endpoints only (learning mode, blocklists), so every change is explained and audited as such */
+	private const MANAGED_ELSEWHERE = [self::LEARNING_UNTIL, self::BLOCKLIST_SOURCES];
+
 	/** Seconds in the learning period that starts when the app is first enabled */
 	public const LEARNING_DEFAULT_PERIOD = 7 * 86400;
 
@@ -147,6 +150,14 @@ final class GlobalSettings {
 
 	public function get(string $name): ?ParamDefinition {
 		return $this->all()[$name] ?? null;
+	}
+
+	/**
+	 * Whether an administrator changes the setting through the settings
+	 * endpoint, and "Reset all settings" puts it back.
+	 */
+	public function isEditable(string $name): bool {
+		return $this->get($name) !== null && !in_array($name, self::MANAGED_ELSEWHERE, true);
 	}
 
 	/**

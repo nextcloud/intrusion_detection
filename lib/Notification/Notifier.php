@@ -76,6 +76,7 @@ class Notifier implements INotifier {
 		private readonly Questions $questions,
 		private readonly IURLGenerator $urlGenerator,
 		private readonly LearningService $learning,
+		private readonly AdminChange $adminChange,
 	) {
 	}
 
@@ -220,6 +221,9 @@ class Notifier implements INotifier {
 		if ($approval->getKind() === Approval::KIND_LOGIN) {
 			return $this->prepareLoginApproval($notification, $approval, $l, $expires);
 		}
+		if ($approval->getKind() === Approval::KIND_SETTINGS) {
+			return $this->prepareSettingsApproval($notification, $approval, $l, $expires, $requester);
+		}
 
 		if ($subjectId === self::SUBJECT_APPROVAL_REQUESTED) {
 			$notification->setParsedSubject($l->t('%1$s asks to make %2$s an administrator', [$requester, $account]))
@@ -249,6 +253,41 @@ class Notifier implements INotifier {
 				],
 			};
 			$notification->setParsedSubject($subject)->setParsedMessage($message);
+		}
+		$notification->setLink($this->links->approval((int)$approval->getId()));
+		return $notification;
+	}
+
+	/**
+	 * A settings change that would switch the four-eyes approval off, held
+	 * back until a second administrator approves it.
+	 */
+	private function prepareSettingsApproval(INotification $notification, Approval $approval, IL10N $l, string $expires, string $requester): INotification {
+		$change = $this->adminChange->heldChange($approval->heldChange(), $l);
+		$subjectId = $notification->getSubject();
+		if ($subjectId === self::SUBJECT_APPROVAL_REQUESTED) {
+			$notification->setParsedSubject($l->t('%s asks for a change that needs your approval', [$requester]))
+				->setParsedMessage(implode(' ', [
+					$change,
+					$l->t('While a second administrator must approve new administrators, one administrator alone cannot switch that off.'),
+					$l->t('Approve only if you know about this change. If you did not expect it, reject it and check the account of the one who asked: it may have been taken over.'),
+					$l->t('The request expires at %s. Approving needs your password, so you decide on the admin page.', [$expires]),
+				]));
+			$this->addReviewAction($notification, $approval, $l->t('Review the request'));
+		} elseif ($subjectId === self::SUBJECT_APPROVAL_PENDING) {
+			$notification->setParsedSubject($l->t('Your change waits for approval'))
+				->setParsedMessage(implode(' ', [
+					$change,
+					$l->t('It is made once another administrator approves it; the request expires at %s.', [$expires]),
+				]));
+		} else {
+			$decider = AdminChange::actorName((string)$approval->getDecidedBy(), $l);
+			[$subject, $message] = match ($approval->getStatus()) {
+				Approval::STATUS_APPROVED => [$l->t('Your change was approved'), $l->t('%s approved it, and it was made.', [$decider])],
+				Approval::STATUS_REJECTED => [$l->t('Your change was rejected'), $l->t('%s rejected it. Nothing was changed.', [$decider])],
+				default => [$l->t('Your change expired'), $l->t('No other administrator approved it in time. Nothing was changed.')],
+			};
+			$notification->setParsedSubject($subject)->setParsedMessage(implode(' ', [$message, $change]));
 		}
 		$notification->setLink($this->links->approval((int)$approval->getId()));
 		return $notification;

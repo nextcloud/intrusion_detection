@@ -12,12 +12,15 @@ namespace OCA\IntrusionDetection\Check\Checks\AdminChange;
 use OCA\IntrusionDetection\AdminChange\ActorResolver;
 use OCA\IntrusionDetection\AdminChange\ApprovalService;
 use OCA\IntrusionDetection\AdminChange\Approvers;
+use OCA\IntrusionDetection\AdminChange\HeldChanges;
 use OCA\IntrusionDetection\AdminChange\WatchedSettings;
 use OCA\IntrusionDetection\AppInfo\Application;
+use OCA\IntrusionDetection\Check\CheckRegistry;
 use OCA\IntrusionDetection\Check\ICheck;
 use OCA\IntrusionDetection\Check\ISelectsResponses;
 use OCA\IntrusionDetection\Check\IValidatesParams;
 use OCA\IntrusionDetection\Config\GlobalSettings;
+use OCA\IntrusionDetection\Db\Approval;
 use OCA\IntrusionDetection\Db\Detection;
 use OCA\IntrusionDetection\Definition\Category;
 use OCA\IntrusionDetection\Definition\CheckDefinition;
@@ -54,6 +57,8 @@ use Psr\Container\ContainerInterface;
  * The detector is {@see AdminChangeDetector}; the events come from
  * {@see \OCA\IntrusionDetection\Listener\AdminChangeListener} and
  * {@see \OCA\IntrusionDetection\AdminChange\ConfigWatch}.
+ *
+ * @psalm-import-type HeldChange from Approval
  */
 final class AdminChange implements ICheck, IExplainsDetection, IHeadlinesDetection, IValidatesParams, IExplainsToUser, IKeepsFromUser, ISelectsResponses {
 	public const ID = 'admin_change';
@@ -113,6 +118,47 @@ final class AdminChange implements ICheck, IExplainsDetection, IHeadlinesDetecti
 			throw new InvalidParamException('too_few_admins', ['param' => $name]);
 		}
 		return $value;
+	}
+
+	/**
+	 * What a settings change that waits for approval does, as one or two
+	 * sentences for the approvers ({@see HeldChanges}).
+	 *
+	 * @param HeldChange $change
+	 */
+	public function heldChange(array $change, IL10N $l): string {
+		$name = function () use ($change, $l): string {
+			$registry = $this->container->get(CheckRegistry::class);
+			$id = (string)($change['check'] ?? '');
+			return $registry->has($id) ? $registry->get($id)->texts($l)->name : $id;
+		};
+		switch ($change['op']) {
+			case HeldChanges::SETTINGS:
+				$values = $change['values'] ?? [];
+				$parts = [];
+				if (array_key_exists(GlobalSettings::ENABLED, $values) && $values[GlobalSettings::ENABLED] !== true) {
+					$parts[] = $l->t('Switch intrusion detection off.');
+				}
+				if (array_key_exists(GlobalSettings::ADMIN_CHANGE_REQUIRE_APPROVAL, $values) && $values[GlobalSettings::ADMIN_CHANGE_REQUIRE_APPROVAL] !== true) {
+					$parts[] = $l->t('Stop asking a second administrator to approve new administrators.');
+				}
+				$others = count(array_diff(array_keys($values), [GlobalSettings::ENABLED, GlobalSettings::ADMIN_CHANGE_REQUIRE_APPROVAL]));
+				if ($others > 0) {
+					$parts[] = $l->n('Change %n other setting.', 'Change %n other settings.', $others);
+				}
+				return implode(' ', $parts);
+			case HeldChanges::CHECK:
+				$mode = Mode::tryFrom((string)($change['mode'] ?? ''));
+				return $mode === null
+					? $l->t('Change "%s".', [$name()])
+					: $l->t('Set "%1$s" to %2$s.', [$name(), $mode->label($l)]);
+			case HeldChanges::RESET_CHECK:
+				return $l->t('Put "%s" back to its defaults.', [$name()]);
+			case HeldChanges::RESET_ALL:
+				return $l->t('Put every setting back to its default, which switches off the approval of new administrators.');
+			default:
+				return $l->t('Change the settings.');
+		}
 	}
 
 	#[\Override]

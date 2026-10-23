@@ -51,10 +51,11 @@ const buttons = computed(() => [
  */
 function decide(request: AdminGrantRequest, approve: boolean) {
 	approving.value = approve
+	const settings = request.kind === 'settings'
 	run('decide:' + request.id, () => decideAdminGrant(request.id, approve), {
 		done: approve
-			? t(APP_ID, '{user} is now an administrator.', { user: request.displayName })
-			: t(APP_ID, 'The request to make {user} an administrator was rejected. Nothing was changed.', { user: request.displayName }),
+			? (settings ? t(APP_ID, 'The change was made.') : t(APP_ID, '{user} is now an administrator.', { user: request.displayName }))
+			: (settings ? t(APP_ID, 'The change was rejected. Nothing was changed.') : t(APP_ID, 'The request to make {user} an administrator was rejected. Nothing was changed.', { user: request.displayName })),
 		toast: true,
 		fallback: t(APP_ID, 'That did not work. Please try again.'),
 	})
@@ -75,11 +76,16 @@ function decide(request: AdminGrantRequest, approve: boolean) {
 					:size="40"
 					disableMenu />
 				<div :class="$style.item__text">
-					<span :class="$style.item__name">
+					<span v-if="request.kind === 'settings'" :class="$style.item__name">
+						{{ t(APP_ID, '{requester} asks for a change: {change}', { requester: request.requesterName, change: request.change ?? '' }) }}
+					</span>
+					<span v-else :class="$style.item__name">
 						{{ t(APP_ID, '{requester} asks to make {user} an administrator', { requester: request.requesterName, user: request.displayName }) }}
 					</span>
 					<span :class="$style.item__meta">
-						{{ t(APP_ID, 'Group {group}', { group: request.group }) }} ·
+						<template v-if="request.kind !== 'settings'">
+							{{ t(APP_ID, 'Group {group}', { group: request.group }) }} ·
+						</template>
 						{{ t(APP_ID, 'asked') }} <TimeStamp :timestamp="request.createdAt" /> ·
 						{{ t(APP_ID, 'expires') }} <TimeStamp :timestamp="request.expiresAt" />
 					</span>
@@ -90,9 +96,13 @@ function decide(request: AdminGrantRequest, approve: boolean) {
 					</span>
 					<NcButton
 						:disabled="busy !== null"
-						:aria-label="request.canApprove
-							? t(APP_ID, 'Reject the request to make {user} an administrator', { user: request.displayName })
-							: t(APP_ID, 'Withdraw the request to make {user} an administrator', { user: request.displayName })"
+						:aria-label="request.kind === 'settings'
+							? (request.canApprove
+								? t(APP_ID, 'Reject the change {requester} asks for', { requester: request.requesterName })
+								: t(APP_ID, 'Withdraw your change'))
+							: (request.canApprove
+								? t(APP_ID, 'Reject the request to make {user} an administrator', { user: request.displayName })
+								: t(APP_ID, 'Withdraw the request to make {user} an administrator', { user: request.displayName }))"
 						@click="decide(request, false)">
 						<template #icon>
 							<NcLoadingIcon v-if="busy === 'decide:' + request.id" :size="20" />
@@ -104,7 +114,9 @@ function decide(request: AdminGrantRequest, approve: boolean) {
 						v-if="request.canApprove"
 						variant="primary"
 						:disabled="busy !== null"
-						:aria-label="t(APP_ID, 'Approve the request to make {user} an administrator', { user: request.displayName })"
+						:aria-label="request.kind === 'settings'
+							? t(APP_ID, 'Approve the change {requester} asks for', { requester: request.requesterName })
+							: t(APP_ID, 'Approve the request to make {user} an administrator', { user: request.displayName })"
 						@click="confirming = request">
 						<template #icon>
 							<NcLoadingIcon v-if="busy === 'decide:' + request.id && approving" :size="20" />
@@ -118,11 +130,18 @@ function decide(request: AdminGrantRequest, approve: boolean) {
 
 		<NcDialog
 			v-model:open="open"
-			:name="t(APP_ID, 'Make {user} an administrator?', { user: confirming?.displayName ?? '' })"
+			:name="confirming?.kind === 'settings'
+				? t(APP_ID, 'Make this change?')
+				: t(APP_ID, 'Make {user} an administrator?', { user: confirming?.displayName ?? '' })"
 			:buttons="buttons"
 			size="normal">
 			<div :class="$style.dialog">
-				<p>{{ t(APP_ID, '{requester} asked to add {user} to the group {group}. Approving gives the account its administration rights at once.', { requester: confirming?.requesterName ?? '', user: confirming?.uid ?? '', group: confirming?.group ?? '' }) }}</p>
+				<p v-if="confirming?.kind === 'settings'">
+					{{ t(APP_ID, '{requester} asked for this change: {change} Approving makes it at once.', { requester: confirming?.requesterName ?? '', change: confirming?.change ?? '' }) }}
+				</p>
+				<p v-else>
+					{{ t(APP_ID, '{requester} asked to add {user} to the group {group}. Approving gives the account its administration rights at once.', { requester: confirming?.requesterName ?? '', user: confirming?.uid ?? '', group: confirming?.group ?? '' }) }}
+				</p>
 				<p><strong>{{ t(APP_ID, 'Approve only if you know about this change. If you did not expect it, reject it and check the account of the one who asked: it may have been taken over.') }}</strong></p>
 				<p>{{ t(APP_ID, 'Approving needs your password.') }}</p>
 			</div>

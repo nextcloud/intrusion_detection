@@ -29,6 +29,7 @@ import { computed, reactive, ref } from 'vue'
 import { invalidate, resource, useResource } from './composables/useResource.ts'
 import {
 	addBan,
+	ApiError,
 	approveRequest,
 	fetchAdminGrants,
 	fetchChecks,
@@ -222,15 +223,33 @@ export async function decideAdminGrant(id: number, approve: boolean): Promise<vo
  * @param values - New values by setting name
  */
 export async function saveSettings(values: Record<string, ParamValue>): Promise<void> {
-	settingsPayload.data = await updateSettings(values)
+	settingsPayload.data = await heldForApproval(updateSettings(values))
 	await invalidate(...FROM_SETTINGS)
+}
+
+/**
+ * A change that would switch off the approval of new administrators waits
+ * for a second administrator: the request then shows in the list of those
+ * waiting, and the failure tells why.
+ *
+ * @param write - The change
+ */
+async function heldForApproval<T>(write: Promise<T>): Promise<T> {
+	try {
+		return await write
+	} catch (error) {
+		if (error instanceof ApiError && (error.reason === 'approval_requested' || error.reason === 'no_approver')) {
+			void invalidate('admin-grants')
+		}
+		throw error
+	}
 }
 
 /**
  * Put every setting and check back to its default.
  */
 export async function resetAllSettings(): Promise<void> {
-	settingsPayload.data = await resetSettings()
+	settingsPayload.data = await heldForApproval(resetSettings())
 	await invalidate(...FROM_SETTINGS, ...FROM_CHECKS)
 }
 
@@ -267,7 +286,7 @@ function putCheck(check: Check): void {
  * @param change.params - New setting values by name
  */
 export async function saveCheck(id: string, change: { mode?: Mode, responses?: string[], params?: Record<string, ParamValue> }): Promise<Check> {
-	const check = await updateCheck(id, change)
+	const check = await heldForApproval(updateCheck(id, change))
 	putCheck(check)
 	await invalidate(...FROM_CHECKS, ...(change.params === undefined ? [] : ['protection-level']))
 	return check
@@ -279,7 +298,7 @@ export async function saveCheck(id: string, change: { mode?: Mode, responses?: s
  * @param id - The check
  */
 export async function resetCheckToDefaults(id: string): Promise<Check> {
-	const check = await resetCheck(id)
+	const check = await heldForApproval(resetCheck(id))
 	putCheck(check)
 	await invalidate(...FROM_CHECKS, 'protection-level')
 	return check

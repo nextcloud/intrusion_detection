@@ -8,7 +8,7 @@ import type { LoginApproval } from './types.ts'
 import { flushPromises, mount } from '@vue/test-utils'
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 import { defineComponent, h } from 'vue'
-import { addBan, approveRequest, fetchBans, fetchProtectionLevel, fetchStatus, fetchWaitingLogins, updateCheck } from './services/api.ts'
+import { addBan, ApiError, approveRequest, fetchAdminGrants, fetchBans, fetchProtectionLevel, fetchStatus, fetchWaitingLogins, updateCheck } from './services/api.ts'
 import { banAdd, decideLogin, saveCheck, state, waitingLogins } from './store.ts'
 import { useBanList } from './stores/blocks.ts'
 import { makeCheck, makeStatus } from './tests/fixtures.ts'
@@ -17,6 +17,7 @@ vi.mock('./services/api.ts', async (importOriginal) => ({
 	...(await importOriginal<object>()),
 	addBan: vi.fn(),
 	approveRequest: vi.fn(),
+	fetchAdminGrants: vi.fn(),
 	fetchBans: vi.fn(),
 	fetchProtectionLevel: vi.fn(),
 	fetchStatus: vi.fn(),
@@ -68,6 +69,14 @@ describe('the admin store', () => {
 		await saveCheck('credential_stuffing', { params: { min_failures: 20 } })
 		expect(fetchProtectionLevel).toHaveBeenCalledTimes(1)
 		expect(state.protectionLevel).toBe('custom')
+	})
+
+	test('a change held for a second administrator loads the waiting requests again and still fails', async () => {
+		vi.mocked(fetchAdminGrants).mockResolvedValue([])
+		vi.mocked(updateCheck).mockRejectedValue(new ApiError('Wait for approval', null, undefined, 'approval_requested'))
+		await expect(saveCheck('admin_change', { mode: 'observe' })).rejects.toThrow('Wait for approval')
+		await flushPromises()
+		expect(fetchAdminGrants).toHaveBeenCalledTimes(1)
 	})
 
 	test('a decided login leaves the list at once, before the list is loaded again', async () => {

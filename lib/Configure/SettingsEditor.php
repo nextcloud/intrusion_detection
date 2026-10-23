@@ -69,6 +69,39 @@ class SettingsEditor {
 	 * @throws InvalidParamException
 	 */
 	public function changeCheck(string $checkId, ?string $mode, ?array $responses, array $params, string $actor): array {
+		[$newMode, $newResponses, $newParams] = $this->parsedCheckChange($checkId, $mode, $responses, $params);
+		$changes = $this->updateCheck($checkId, $newMode, $newParams, $newResponses);
+		if ($changes !== []) {
+			$this->audit->log('check %s changed by %s: %s', ['check' => $checkId, 'actor' => $actor, 'change' => json_encode($changes)]);
+		}
+		return $changes;
+	}
+
+	/**
+	 * Validate a change of a check as an administrator asks it, without
+	 * saving anything.
+	 *
+	 * @param list<mixed>|null $responses
+	 * @param array<array-key, mixed> $params
+	 * @throws InvalidParamException
+	 */
+	public function validateCheckChange(string $checkId, ?string $mode, ?array $responses, array $params): void {
+		[$newMode, , $newParams] = $this->parsedCheckChange($checkId, $mode, $responses, $params);
+		if ($newMode !== null) {
+			$this->assertModeAvailable($checkId, $newMode);
+		}
+		foreach ($newParams as $name => $value) {
+			$this->validatedParam($checkId, $name, $value);
+		}
+	}
+
+	/**
+	 * @param list<mixed>|null $responses
+	 * @param array<array-key, mixed> $params
+	 * @return array{?Mode, list<ResponseType>|null, array<string, mixed>}
+	 * @throws InvalidParamException
+	 */
+	private function parsedCheckChange(string $checkId, ?string $mode, ?array $responses, array $params): array {
 		$check = $this->registry->get($checkId);
 		$newMode = $mode === null ? null : (Mode::tryFrom($mode) ?? throw new InvalidParamException('unknown_mode'));
 		$newResponses = null;
@@ -86,11 +119,7 @@ class SettingsEditor {
 		foreach ($params as $name => $value) {
 			$newParams[(string)$name] = $check->param((string)$name)->fromInput($value);
 		}
-		$changes = $this->updateCheck($checkId, $newMode, $newParams, $newResponses);
-		if ($changes !== []) {
-			$this->audit->log('check %s changed by %s: %s', ['check' => $checkId, 'actor' => $actor, 'change' => json_encode($changes)]);
-		}
-		return $changes;
+		return [$newMode, $newResponses, $newParams];
 	}
 
 	/**
@@ -295,6 +324,22 @@ class SettingsEditor {
 			}
 		}
 		return $changes;
+	}
+
+	/**
+	 * Put every configurable check and every editable global setting back
+	 * to its default. Learning mode and internal state are left alone.
+	 */
+	public function resetAll(): void {
+		foreach ($this->registry->configurable() as $check) {
+			$this->resetCheck($check->id);
+		}
+		foreach (array_keys($this->globals->all()) as $name) {
+			if ($this->globals->isEditable($name)) {
+				$this->resetGlobal($name);
+			}
+		}
+		$this->resetProtectionLevel();
 	}
 
 	/**

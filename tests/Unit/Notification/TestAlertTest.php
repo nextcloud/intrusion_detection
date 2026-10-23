@@ -9,6 +9,7 @@ declare(strict_types=1);
 
 namespace OCA\IntrusionDetection\Tests\Unit\Notification;
 
+use OCA\IntrusionDetection\Check\Checks\AdminChange\AdminChange;
 use OCA\IntrusionDetection\Config\Prerequisites;
 use OCA\IntrusionDetection\Db\ApprovalMapper;
 use OCA\IntrusionDetection\Db\DetectionMapper;
@@ -121,6 +122,7 @@ class TestAlertTest extends TestCase {
 			$this->createMock(Questions::class),
 			$this->createMock(IURLGenerator::class),
 			$this->createMock(LearningService::class),
+			Server::get(AdminChange::class),
 		);
 		$notification = Server::get(INotificationManager::class)->createNotification();
 		$notification->setApp('intrusion_detection')->setUser('alice')->setDateTime(new \DateTime())->setObject(TestAlert::OBJECT_TYPE, '1')->setSubject(TestAlert::SUBJECT);

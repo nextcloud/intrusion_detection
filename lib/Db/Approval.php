@@ -36,11 +36,17 @@ use OCP\DB\Types;
  * @method void setDecidedAt(?int $decidedAt)
  * @method int getExpiresAt()
  * @method void setExpiresAt(int $expiresAt)
+ * @method ?string getPayload()
+ * @method void setPayload(?string $payload)
+ *
+ * @psalm-type HeldChange = array{op: string, values?: array<string, mixed>, check?: string, mode?: ?string, responses?: ?list<mixed>, params?: array<string, mixed>}
  */
 class Approval extends Entity implements \JsonSerializable {
 	public const KIND_ADMIN_GRANT = 'admin_grant';
 	/** A login that nothing else could confirm; requested by the account itself */
 	public const KIND_LOGIN = 'login';
+	/** A settings change that switches the four-eyes approval off; the change is the payload */
+	public const KIND_SETTINGS = 'settings';
 
 	public const STATUS_PENDING = 'pending';
 	public const STATUS_APPROVED = 'approved';
@@ -57,6 +63,7 @@ class Approval extends Entity implements \JsonSerializable {
 	protected ?int $createdAt = null;
 	protected ?int $decidedAt = null;
 	protected ?int $expiresAt = null;
+	protected ?string $payload = null;
 
 	public function __construct() {
 		$this->addType('kind', Types::STRING);
@@ -69,6 +76,19 @@ class Approval extends Entity implements \JsonSerializable {
 		$this->addType('createdAt', Types::BIGINT);
 		$this->addType('decidedAt', Types::BIGINT);
 		$this->addType('expiresAt', Types::BIGINT);
+		$this->addType('payload', Types::TEXT);
+	}
+
+	/**
+	 * The settings change a request of the kind `settings` holds, as it was
+	 * stored; an empty change for every other kind.
+	 *
+	 * @return HeldChange
+	 */
+	public function heldChange(): array {
+		$change = json_decode((string)$this->payload, true);
+		/** @var HeldChange */
+		return is_array($change) && is_string($change['op'] ?? null) ? $change : ['op' => ''];
 	}
 
 	public function isPending(): bool {

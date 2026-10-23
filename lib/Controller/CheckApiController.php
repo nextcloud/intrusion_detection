@@ -12,6 +12,8 @@ namespace OCA\IntrusionDetection\Controller;
 use OCA\IntrusionDetection\Admin\CheckList;
 use OCA\IntrusionDetection\Admin\StatusService;
 use OCA\IntrusionDetection\AdminChange\ActorResolver;
+use OCA\IntrusionDetection\AdminChange\ApprovalService;
+use OCA\IntrusionDetection\AdminChange\HeldChanges;
 use OCA\IntrusionDetection\Check\CheckRegistry;
 use OCA\IntrusionDetection\Configure\ProtectionLevels;
 use OCA\IntrusionDetection\Configure\SettingsEditor;
@@ -31,7 +33,9 @@ use OCP\IRequest;
 /**
  * The checks on the admin page: the status on top, the check cards and
  * the protection level. Administrators only; every change needs a recent
- * password confirmation and is written to the audit log.
+ * password confirmation and is written to the audit log. A change that
+ * would switch the four-eyes approval of new administrators off waits for
+ * a second administrator ({@see ApprovalService::hold()}).
  *
  * @psalm-import-type IntrusionDetectionStatus from ResponseDefinitions
  * @psalm-import-type IntrusionDetectionCheck from ResponseDefinitions
@@ -51,6 +55,7 @@ class CheckApiController extends AdminOCSController {
 		private readonly StatusService $status,
 		private readonly CheckList $checks,
 		private readonly ProtectionLevels $protectionLevels,
+		private readonly ApprovalService $approvals,
 	) {
 		parent::__construct($request, $l, $actors);
 	}
@@ -97,16 +102,20 @@ class CheckApiController extends AdminOCSController {
 	 * @param 'off'|'observe'|'protect'|null $mode The new mode
 	 * @param list<string>|null $responses The responses to run, from the check's allowed responses
 	 * @param array<string, mixed>|null $params New values of the check's settings, by name; durations in seconds or as text like "10m"
-	 * @return DataResponse<Http::STATUS_OK, IntrusionDetectionCheck, array{}>|DataResponse<Http::STATUS_BAD_REQUEST, IntrusionDetectionError, array{}>
+	 * @return DataResponse<Http::STATUS_OK, IntrusionDetectionCheck, array{}>|DataResponse<Http::STATUS_BAD_REQUEST|Http::STATUS_FORBIDDEN|Http::STATUS_TOO_MANY_REQUESTS, IntrusionDetectionError, array{}>
 	 * @throws OCSNotFoundException The check does not exist
 	 *
 	 * 200: Check changed
 	 * 400: A value is not valid; nothing was saved
+	 * 403: The change switches off the approval of new administrators and waits for a second administrator; nothing was saved yet
+	 * 429: Too many requests wait for approval; nothing was saved
 	 */
 	#[ApiRoute(verb: 'PUT', url: '/api/v1/checks/{id}', requirements: ['id' => '[a-z][a-z0-9_]{2,31}'])]
 	#[PasswordConfirmationRequired]
 	public function updateCheck(string $id, ?string $mode = null, ?array $responses = null, ?array $params = null): DataResponse {
 		$check = $this->configurableCheck($id);
+		$this->settings->validateCheckChange($id, $mode, $responses, $params ?? []);
+		$this->approvals->hold(['op' => HeldChanges::CHECK, 'check' => $id, 'mode' => $mode, 'responses' => $responses, 'params' => $params ?? []], $this->actor());
 		$this->settings->changeCheck($id, $mode, $responses, $params ?? [], $this->actor());
 		return new DataResponse($this->checks->one($check, $this->l));
 	}
@@ -115,15 +124,18 @@ class CheckApiController extends AdminOCSController {
 	 * Put a check back to its default mode, responses and settings
 	 *
 	 * @param string $id The check id
-	 * @return DataResponse<Http::STATUS_OK, IntrusionDetectionCheck, array{}>
+	 * @return DataResponse<Http::STATUS_OK, IntrusionDetectionCheck, array{}>|DataResponse<Http::STATUS_FORBIDDEN|Http::STATUS_TOO_MANY_REQUESTS, IntrusionDetectionError, array{}>
 	 * @throws OCSNotFoundException The check does not exist
 	 *
 	 * 200: Check reset
+	 * 403: The reset switches off the approval of new administrators and waits for a second administrator; nothing was reset yet
+	 * 429: Too many requests wait for approval; nothing was reset
 	 */
 	#[ApiRoute(verb: 'POST', url: '/api/v1/checks/{id}/reset', requirements: ['id' => '[a-z][a-z0-9_]{2,31}'])]
 	#[PasswordConfirmationRequired]
 	public function resetCheck(string $id): DataResponse {
 		$check = $this->configurableCheck($id);
+		$this->approvals->hold(['op' => HeldChanges::RESET_CHECK, 'check' => $id], $this->actor());
 		$this->settings->resetCheck($id, $this->actor());
 		return new DataResponse($this->checks->one($check, $this->l));
 	}

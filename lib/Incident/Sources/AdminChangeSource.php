@@ -122,9 +122,11 @@ class AdminChangeSource implements ITimelineSource {
 
 	private function approval(Approval $approval, bool $decided, IL10N $l): TimelineEntry {
 		$subject = $approval->getSubjectUid();
-		$what = $approval->getKind() === Approval::KIND_ADMIN_GRANT
-			? $l->t('%s to become an administrator', [$subject])
-			: $l->t('a request about %s', [$subject]);
+		$what = match ($approval->getKind()) {
+			Approval::KIND_ADMIN_GRANT => $l->t('%s to become an administrator', [$subject]),
+			Approval::KIND_SETTINGS => $l->t('a settings change that switches off the approval of new administrators'),
+			default => $l->t('a request about %s', [$subject]),
+		};
 		$details = [$l->t('Requested by %1$s at %2$s.', [AdminChange::actorName($approval->getRequestedBy(), $l), $this->dates->dateTime($approval->getCreatedAt())])];
 		if (!$decided) {
 			$details[] = $l->t('It waits for a decision until %s.', [$this->dates->dateTime($approval->getExpiresAt())]);

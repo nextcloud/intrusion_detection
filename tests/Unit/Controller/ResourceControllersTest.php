@@ -18,6 +18,7 @@ use OCA\IntrusionDetection\Admin\LookupService;
 use OCA\IntrusionDetection\Admin\SettingsTransfer;
 use OCA\IntrusionDetection\Admin\StatusService;
 use OCA\IntrusionDetection\AdminChange\ActorResolver;
+use OCA\IntrusionDetection\AdminChange\ApprovalService;
 use OCA\IntrusionDetection\Check\CheckRegistry;
 use OCA\IntrusionDetection\Config\GlobalSettings;
 use OCA\IntrusionDetection\Configure\ProtectionLevels;
@@ -122,7 +123,7 @@ class ResourceControllersTest extends TestCase {
 
 		$actors = new ActorResolver($session);
 		$request = $this->createMock(IRequest::class);
-		$this->checkApi = new CheckApiController($request, $l, $actors, $this->registry, $this->settings, $this->status, $this->checks, $this->levels);
+		$this->checkApi = new CheckApiController($request, $l, $actors, $this->registry, $this->settings, $this->status, $this->checks, $this->levels, $this->createMock(ApprovalService::class));
 		$this->detectionApi = new DetectionApiController($request, $l, $actors, $this->detectionMapper, $this->detections, $this->createMock(DailyStats::class), $this->createMock(LookupService::class));
 		$this->banApi = new BanApiController($request, $l, $actors, $time, $this->banMapper, $this->banService, $this->bans);
 		$this->settingsApi = new SettingsApiController($request, $l, $actors, $this->status, $this->learning, $this->globalSettings, $this->transfer);

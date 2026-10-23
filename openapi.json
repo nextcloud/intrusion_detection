@@ -3927,7 +3927,7 @@
         },
         {
             "name": "check_api",
-            "description": "The checks on the admin page: the status on top, the check cards and the protection level. Administrators only; every change needs a recent password confirmation and is written to the audit log."
+            "description": "The checks on the admin page: the status on top, the check cards and the protection level. Administrators only; every change needs a recent password confirmation and is written to the audit log. A change that would switch the four-eyes approval of new administrators off waits for a second administrator ({@see ApprovalService::hold()})."
         },
         {
             "name": "confirmation_api",

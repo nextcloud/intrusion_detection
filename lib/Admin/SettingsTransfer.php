@@ -9,6 +9,9 @@ declare(strict_types=1);
 
 namespace OCA\IntrusionDetection\Admin;
 
+use OCA\IntrusionDetection\AdminChange\ApprovalException;
+use OCA\IntrusionDetection\AdminChange\ApprovalService;
+use OCA\IntrusionDetection\AdminChange\HeldChanges;
 use OCA\IntrusionDetection\AppInfo\Application;
 use OCA\IntrusionDetection\Audit\AuditLogger;
 use OCA\IntrusionDetection\Check\CheckRegistry;
@@ -29,6 +32,9 @@ use OCP\AppFramework\Utility\ITimeFactory;
  * configurable check and every editable global setting. Learning mode and
  * internal state are left alone. Changes are written to the audit log.
  *
+ * A change that would switch the four-eyes approval of new administrators
+ * off waits for a second administrator instead ({@see ApprovalService::hold()}).
+ *
  * @psalm-import-type IntrusionDetectionExport from ResponseDefinitions
  */
 class SettingsTransfer {
@@ -44,6 +50,7 @@ class SettingsTransfer {
 		private readonly IAppManager $appManager,
 		private readonly ITimeFactory $timeFactory,
 		private readonly AuditLogger $audit,
+		private readonly ApprovalService $approvals,
 	) {
 	}
 
@@ -54,6 +61,7 @@ class SettingsTransfer {
 	 * @param array<array-key, mixed> $values by setting name
 	 * @return array<string, int|float|bool|string|list<string>> the settings that really changed, with their new values
 	 * @throws InvalidParamException
+	 * @throws ApprovalException when the change waits for a second administrator
 	 */
 	public function changeSettings(array $values, string $actor): array {
 		$parsed = [];
@@ -63,8 +71,9 @@ class SettingsTransfer {
 			if ($definition === null || !$this->presenter->isEditable($name)) {
 				throw new InvalidParamException('unknown_param', ['param' => $name]);
 			}
-			$parsed[$name] = $definition->fromInput($value);
+			$parsed[$name] = $this->editor->validatedGlobal($name, $definition->fromInput($value));
 		}
+		$this->approvals->hold(['op' => HeldChanges::SETTINGS, 'values' => $parsed], $actor);
 		$changes = $this->editor->updateGlobals($parsed);
 		if (array_key_exists(GlobalSettings::ENABLED, $changes)) {
 			$this->audit->log('intrusion detection turned %s by %s', [
@@ -107,17 +116,12 @@ class SettingsTransfer {
 
 	/**
 	 * Put every check and every editable global setting back to its default.
+	 *
+	 * @throws ApprovalException when the reset waits for a second administrator
 	 */
 	public function resetAll(string $actor): void {
-		foreach ($this->registry->configurable() as $check) {
-			$this->editor->resetCheck($check->id);
-		}
-		foreach (array_keys($this->globals->all()) as $name) {
-			if ($this->presenter->isEditable($name)) {
-				$this->editor->resetGlobal($name);
-			}
-		}
-		$this->editor->resetProtectionLevel();
+		$this->approvals->hold(['op' => HeldChanges::RESET_ALL], $actor);
+		$this->editor->resetAll();
 		$this->audit->log('all settings reset to defaults by %s', ['actor' => $actor]);
 	}
 }

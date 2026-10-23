@@ -60,6 +60,7 @@ class ApprovalController extends AdminOCSController {
 		private readonly SessionConfirmation $confirmation,
 		private readonly IUserManager $userManager,
 		private readonly ITimeFactory $timeFactory,
+		private readonly AdminChange $adminChange,
 	) {
 		parent::__construct($request, $l, $actors);
 	}
@@ -69,23 +70,25 @@ class ApprovalController extends AdminOCSController {
 	 *
 	 * @param bool $all also the decided ones of the last 90 days
 	 * @param int<1, 200> $limit the most requests to return
-	 * @param ?string $kind only requests of this kind: admin_grant or login
+	 * @param ?string $kind only requests of this kind: admin_grant, settings or login
 	 * @return DataResponse<Http::STATUS_OK, list<IntrusionDetectionApproval>, array{}>
 	 *
 	 * 200: The requests, newest first
 	 */
 	#[ApiRoute(verb: 'GET', url: '/api/v1/approvals')]
 	public function index(bool $all = false, int $limit = 200, ?string $kind = null): DataResponse {
-		$kind = in_array($kind, [Approval::KIND_ADMIN_GRANT, Approval::KIND_LOGIN], true) ? $kind : null;
+		$kind = in_array($kind, [Approval::KIND_ADMIN_GRANT, Approval::KIND_SETTINGS, Approval::KIND_LOGIN], true) ? $kind : null;
 		/** @var list<IntrusionDetectionApproval> $list */
 		$list = array_map(static fn (Approval $a): array => $a->jsonSerialize(), $this->approvals->list(!$all, max(1, min(200, $limit)), $kind));
 		return new DataResponse($list);
 	}
 
 	/**
-	 * List the accounts waiting to become administrators
+	 * List the accounts waiting to become administrators, and the changes waiting to switch that approval off
 	 *
-	 * The pending requests that have not expired, for the admin page.
+	 * The pending requests that have not expired, for the admin page. A
+	 * settings change is about the administrator who asked; `change` says
+	 * what it does.
 	 *
 	 * @return DataResponse<Http::STATUS_OK, list<IntrusionDetectionAdminGrantRequest>, array{}>
 	 *
@@ -95,15 +98,20 @@ class ApprovalController extends AdminOCSController {
 	public function adminGrants(): DataResponse {
 		$viewer = $this->userSession->getUser()?->getUID() ?? '';
 		$now = $this->timeFactory->getTime();
+		$requests = array_merge($this->approvals->list(true, 200, Approval::KIND_ADMIN_GRANT), $this->approvals->list(true, 200, Approval::KIND_SETTINGS));
+		usort($requests, static fn (Approval $a, Approval $b): int => [$a->getCreatedAt(), (int)$a->getId()] <=> [$b->getCreatedAt(), (int)$b->getId()]);
 		$list = [];
-		foreach (array_reverse($this->approvals->list(true, 200, Approval::KIND_ADMIN_GRANT)) as $approval) {
+		foreach ($requests as $approval) {
 			if ($approval->getExpiresAt() <= $now) {
 				continue;
 			}
 			$uid = $approval->getSubjectUid();
 			$requester = $approval->getRequestedBy();
+			$settings = $approval->getKind() === Approval::KIND_SETTINGS;
 			$list[] = [
 				'id' => (int)$approval->getId(),
+				'kind' => $settings ? Approval::KIND_SETTINGS : Approval::KIND_ADMIN_GRANT,
+				'change' => $settings ? $this->adminChange->heldChange($approval->heldChange(), $this->l) : null,
 				'uid' => $uid,
 				'displayName' => $this->userManager->getDisplayName($uid) ?? $uid,
 				'group' => (string)$approval->getGroupId(),
@@ -118,7 +126,7 @@ class ApprovalController extends AdminOCSController {
 	}
 
 	/**
-	 * Approve a request: the account joins the group, or the waiting login continues
+	 * Approve a request: the account joins the group, the change is made, or the waiting login continues
 	 *
 	 * Needs a recent password confirmation, which apps and clients cannot
 	 * give: their notification opens the admin page instead.

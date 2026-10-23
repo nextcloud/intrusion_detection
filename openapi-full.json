@@ -84,6 +84,8 @@
                 "type": "object",
                 "required": [
                     "id",
+                    "kind",
+                    "change",
                     "uid",
                     "displayName",
                     "group",
@@ -97,6 +99,17 @@
                     "id": {
                         "type": "integer",
                         "format": "int64"
+                    },
+                    "kind": {
+                        "type": "string",
+                        "enum": [
+                            "admin_grant",
+                            "settings"
+                        ]
+                    },
+                    "change": {
+                        "type": "string",
+                        "nullable": true
                     },
                     "uid": {
                         "type": "string"
@@ -4815,7 +4828,7 @@
                     {
                         "name": "kind",
                         "in": "query",
-                        "description": "only requests of this kind: admin_grant or login",
+                        "description": "only requests of this kind: admin_grant, settings or login",
                         "schema": {
                             "type": "string",
                             "nullable": true,
@@ -4929,8 +4942,8 @@
         "/ocs/v2.php/apps/intrusion_detection/api/v1/approvals/admin-grants": {
             "get": {
                 "operationId": "approval-admin-grants",
-                "summary": "List the accounts waiting to become administrators",
-                "description": "The pending requests that have not expired, for the admin page.\nThis endpoint requires admin access",
+                "summary": "List the accounts waiting to become administrators, and the changes waiting to switch that approval off",
+                "description": "The pending requests that have not expired, for the admin page. A settings change is about the administrator who asked; `change` says what it does.\nThis endpoint requires admin access",
                 "tags": [
                     "approval"
                 ],
@@ -5050,7 +5063,7 @@
         "/ocs/v2.php/apps/intrusion_detection/api/v1/approvals/{id}/approve": {
             "post": {
                 "operationId": "approval-approve",
-                "summary": "Approve a request: the account joins the group, or the waiting login continues",
+                "summary": "Approve a request: the account joins the group, the change is made, or the waiting login continues",
                 "description": "Needs a recent password confirmation, which apps and clients cannot give: their notification opens the admin page instead.\nThis endpoint requires admin access\nThis endpoint requires password confirmation",
                 "tags": [
                     "approval"
@@ -7436,6 +7449,91 @@
                             }
                         }
                     },
+                    "403": {
+                        "description": "The change switches off the approval of new administrators and waits for a second administrator; nothing was saved yet",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "anyOf": [
+                                        {
+                                            "type": "object",
+                                            "required": [
+                                                "ocs"
+                                            ],
+                                            "properties": {
+                                                "ocs": {
+                                                    "type": "object",
+                                                    "required": [
+                                                        "meta",
+                                                        "data"
+                                                    ],
+                                                    "properties": {
+                                                        "meta": {
+                                                            "$ref": "#/components/schemas/OCSMeta"
+                                                        },
+                                                        "data": {
+                                                            "$ref": "#/components/schemas/Error"
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                        },
+                                        {
+                                            "type": "object",
+                                            "required": [
+                                                "ocs"
+                                            ],
+                                            "properties": {
+                                                "ocs": {
+                                                    "type": "object",
+                                                    "required": [
+                                                        "meta",
+                                                        "data"
+                                                    ],
+                                                    "properties": {
+                                                        "meta": {
+                                                            "$ref": "#/components/schemas/OCSMeta"
+                                                        },
+                                                        "data": {}
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "429": {
+                        "description": "Too many requests wait for approval; nothing was saved",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "required": [
+                                        "ocs"
+                                    ],
+                                    "properties": {
+                                        "ocs": {
+                                            "type": "object",
+                                            "required": [
+                                                "meta",
+                                                "data"
+                                            ],
+                                            "properties": {
+                                                "meta": {
+                                                    "$ref": "#/components/schemas/OCSMeta"
+                                                },
+                                                "data": {
+                                                    "$ref": "#/components/schemas/Error"
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
                     "404": {
                         "description": "The check does not exist",
                         "content": {
@@ -7466,34 +7564,6 @@
                     },
                     "401": {
                         "description": "Current user is not logged in",
-                        "content": {
-                            "application/json": {
-                                "schema": {
-                                    "type": "object",
-                                    "required": [
-                                        "ocs"
-                                    ],
-                                    "properties": {
-                                        "ocs": {
-                                            "type": "object",
-                                            "required": [
-                                                "meta",
-                                                "data"
-                                            ],
-                                            "properties": {
-                                                "meta": {
-                                                    "$ref": "#/components/schemas/OCSMeta"
-                                                },
-                                                "data": {}
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    },
-                    "403": {
-                        "description": "Logged in account must be an admin",
                         "content": {
                             "application/json": {
                                 "schema": {
@@ -7592,6 +7662,91 @@
                             }
                         }
                     },
+                    "403": {
+                        "description": "The reset switches off the approval of new administrators and waits for a second administrator; nothing was reset yet",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "anyOf": [
+                                        {
+                                            "type": "object",
+                                            "required": [
+                                                "ocs"
+                                            ],
+                                            "properties": {
+                                                "ocs": {
+                                                    "type": "object",
+                                                    "required": [
+                                                        "meta",
+                                                        "data"
+                                                    ],
+                                                    "properties": {
+                                                        "meta": {
+                                                            "$ref": "#/components/schemas/OCSMeta"
+                                                        },
+                                                        "data": {
+                                                            "$ref": "#/components/schemas/Error"
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                        },
+                                        {
+                                            "type": "object",
+                                            "required": [
+                                                "ocs"
+                                            ],
+                                            "properties": {
+                                                "ocs": {
+                                                    "type": "object",
+                                                    "required": [
+                                                        "meta",
+                                                        "data"
+                                                    ],
+                                                    "properties": {
+                                                        "meta": {
+                                                            "$ref": "#/components/schemas/OCSMeta"
+                                                        },
+                                                        "data": {}
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "429": {
+                        "description": "Too many requests wait for approval; nothing was reset",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "required": [
+                                        "ocs"
+                                    ],
+                                    "properties": {
+                                        "ocs": {
+                                            "type": "object",
+                                            "required": [
+                                                "meta",
+                                                "data"
+                                            ],
+                                            "properties": {
+                                                "meta": {
+                                                    "$ref": "#/components/schemas/OCSMeta"
+                                                },
+                                                "data": {
+                                                    "$ref": "#/components/schemas/Error"
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
                     "404": {
                         "description": "The check does not exist",
                         "content": {
@@ -7622,34 +7777,6 @@
                     },
                     "401": {
                         "description": "Current user is not logged in",
-                        "content": {
-                            "application/json": {
-                                "schema": {
-                                    "type": "object",
-                                    "required": [
-                                        "ocs"
-                                    ],
-                                    "properties": {
-                                        "ocs": {
-                                            "type": "object",
-                                            "required": [
-                                                "meta",
-                                                "data"
-                                            ],
-                                            "properties": {
-                                                "meta": {
-                                                    "$ref": "#/components/schemas/OCSMeta"
-                                                },
-                                                "data": {}
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    },
-                    "403": {
-                        "description": "Logged in account must be an admin",
                         "content": {
                             "application/json": {
                                 "schema": {
@@ -12650,8 +12777,63 @@
                             }
                         }
                     },
-                    "401": {
-                        "description": "Current user is not logged in",
+                    "403": {
+                        "description": "The change switches off the approval of new administrators and waits for a second administrator; nothing was saved yet",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "anyOf": [
+                                        {
+                                            "type": "object",
+                                            "required": [
+                                                "ocs"
+                                            ],
+                                            "properties": {
+                                                "ocs": {
+                                                    "type": "object",
+                                                    "required": [
+                                                        "meta",
+                                                        "data"
+                                                    ],
+                                                    "properties": {
+                                                        "meta": {
+                                                            "$ref": "#/components/schemas/OCSMeta"
+                                                        },
+                                                        "data": {
+                                                            "$ref": "#/components/schemas/Error"
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                        },
+                                        {
+                                            "type": "object",
+                                            "required": [
+                                                "ocs"
+                                            ],
+                                            "properties": {
+                                                "ocs": {
+                                                    "type": "object",
+                                                    "required": [
+                                                        "meta",
+                                                        "data"
+                                                    ],
+                                                    "properties": {
+                                                        "meta": {
+                                                            "$ref": "#/components/schemas/OCSMeta"
+                                                        },
+                                                        "data": {}
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "429": {
+                        "description": "Too many requests wait for approval; nothing was saved",
                         "content": {
                             "application/json": {
                                 "schema": {
@@ -12670,7 +12852,9 @@
                                                 "meta": {
                                                     "$ref": "#/components/schemas/OCSMeta"
                                                 },
-                                                "data": {}
+                                                "data": {
+                                                    "$ref": "#/components/schemas/Error"
+                                                }
                                             }
                                         }
                                     }
@@ -12678,8 +12862,8 @@
                             }
                         }
                     },
-                    "403": {
-                        "description": "Logged in account must be an admin",
+                    "401": {
+                        "description": "Current user is not logged in",
                         "content": {
                             "application/json": {
                                 "schema": {
@@ -12768,8 +12952,63 @@
                             }
                         }
                     },
-                    "401": {
-                        "description": "Current user is not logged in",
+                    "403": {
+                        "description": "The reset switches off the approval of new administrators and waits for a second administrator; nothing was reset yet",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "anyOf": [
+                                        {
+                                            "type": "object",
+                                            "required": [
+                                                "ocs"
+                                            ],
+                                            "properties": {
+                                                "ocs": {
+                                                    "type": "object",
+                                                    "required": [
+                                                        "meta",
+                                                        "data"
+                                                    ],
+                                                    "properties": {
+                                                        "meta": {
+                                                            "$ref": "#/components/schemas/OCSMeta"
+                                                        },
+                                                        "data": {
+                                                            "$ref": "#/components/schemas/Error"
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                        },
+                                        {
+                                            "type": "object",
+                                            "required": [
+                                                "ocs"
+                                            ],
+                                            "properties": {
+                                                "ocs": {
+                                                    "type": "object",
+                                                    "required": [
+                                                        "meta",
+                                                        "data"
+                                                    ],
+                                                    "properties": {
+                                                        "meta": {
+                                                            "$ref": "#/components/schemas/OCSMeta"
+                                                        },
+                                                        "data": {}
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "429": {
+                        "description": "Too many requests wait for approval; nothing was reset",
                         "content": {
                             "application/json": {
                                 "schema": {
@@ -12788,7 +13027,9 @@
                                                 "meta": {
                                                     "$ref": "#/components/schemas/OCSMeta"
                                                 },
-                                                "data": {}
+                                                "data": {
+                                                    "$ref": "#/components/schemas/Error"
+                                                }
                                             }
                                         }
                                     }
@@ -12796,8 +13037,8 @@
                             }
                         }
                     },
-                    "403": {
-                        "description": "Logged in account must be an admin",
+                    "401": {
+                        "description": "Current user is not logged in",
                         "content": {
                             "application/json": {
                                 "schema": {
@@ -16075,7 +16316,7 @@
         },
         {
             "name": "check_api",
-            "description": "The checks on the admin page: the status on top, the check cards and the protection level. Administrators only; every change needs a recent password confirmation and is written to the audit log."
+            "description": "The checks on the admin page: the status on top, the check cards and the protection level. Administrators only; every change needs a recent password confirmation and is written to the audit log. A change that would switch the four-eyes approval of new administrators off waits for a second administrator ({@see ApprovalService::hold()})."
         },
         {
             "name": "confirmation_api",

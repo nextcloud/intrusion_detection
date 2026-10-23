@@ -644,6 +644,8 @@ namespace OCA\IntrusionDetection;
  *
  * @psalm-type IntrusionDetectionAdminGrantRequest = array{
  *     id: int,
+ *     kind: 'admin_grant'|'settings',
+ *     change: ?string,
  *     uid: string,
  *     displayName: string,
  *     group: string,

@@ -17,6 +17,7 @@ use OC\User\Manager;
 use OCA\IntrusionDetection\AdminChange\ActorResolver;
 use OCA\IntrusionDetection\AdminChange\ApprovalException;
 use OCA\IntrusionDetection\AdminChange\ApprovalService;
+use OCA\IntrusionDetection\Check\Checks\AdminChange\AdminChange;
 use OCA\IntrusionDetection\Confirm\ConfirmationStatus;
 use OCA\IntrusionDetection\Confirm\LoginConfirmationStore;
 use OCA\IntrusionDetection\Confirm\SessionConfirmation;
@@ -24,6 +25,7 @@ use OCA\IntrusionDetection\Confirm\StepUpState;
 use OCA\IntrusionDetection\Confirm\UnconfirmedSessions;
 use OCA\IntrusionDetection\Controller\ApprovalController;
 use OCA\IntrusionDetection\Db\Approval;
+use OCA\IntrusionDetection\Explain\DateFormatter;
 use OCA\IntrusionDetection\Login\CoreSession;
 use OCA\IntrusionDetection\Login\SessionMarkers;
 use OCP\AppFramework\Http;
@@ -42,6 +44,7 @@ use OCP\IUserSession;
 use OCP\Security\Ip\IRemoteAddress;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\MockObject\MockObject;
+use Psr\Container\ContainerInterface;
 use Psr\Log\LoggerInterface;
 use Test\TestCase;
 
@@ -181,11 +184,11 @@ class ApprovalControllerTest extends TestCase {
 
 	public function testTheWaitingAdministratorsAreListedForTheViewerOldestFirst(): void {
 		$service = $this->createMock(ApprovalService::class);
-		$service->expects($this->once())->method('list')->with(true, 200, Approval::KIND_ADMIN_GRANT)->willReturn([
+		$service->expects($this->exactly(2))->method('list')->willReturnCallback(fn (bool $pendingOnly, int $limit, ?string $kind): array => $kind === Approval::KIND_ADMIN_GRANT ? [
 			$this->grant(3, 'dave', 'carol', self::NOW + 60),
 			$this->grant(2, 'bob', 'alice', self::NOW + 60),
 			$this->grant(1, 'erin', 'alice', self::NOW),
-		]);
+		] : []);
 		$list = $this->controller($service)->adminGrants()->getData();
 		$this->assertSame([2, 3], array_column($list, 'id'), 'Oldest first, the expired one left out');
 		$this->assertSame(['uid' => 'bob', 'displayName' => 'Bob Builder', 'group' => 'admin', 'requestedBy' => 'alice', 'requesterName' => 'Alice Liddell', 'canApprove' => true], array_intersect_key($list[0], array_flip(['uid', 'displayName', 'group', 'requestedBy', 'requesterName', 'canApprove'])));
@@ -265,6 +268,6 @@ class ApprovalControllerTest extends TestCase {
 		$confirmation = new SessionConfirmation(new LoginConfirmationStore($state, $this->createMock(UnconfirmedSessions::class), $coreSession), $coreSession);
 		$time = $this->createMock(ITimeFactory::class);
 		$time->method('getTime')->willReturn(self::NOW);
-		return new ApprovalController($this->createMock(IRequest::class), $l, new ActorResolver($session), $session, $service, $confirmation, $this->userManager, $time);
+		return new ApprovalController($this->createMock(IRequest::class), $l, new ActorResolver($session), $session, $service, $confirmation, $this->userManager, $time, new AdminChange($this->createMock(DateFormatter::class), $this->createMock(ContainerInterface::class)));
 	}
 }

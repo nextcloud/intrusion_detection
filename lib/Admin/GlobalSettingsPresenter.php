@@ -56,9 +56,6 @@ class GlobalSettingsPresenter {
 	/** Trusted networks and exempt groups, shown in the card of the hosting and Tor networks check */
 	public const GROUP_RISKY_NETWORK = 'risky_network';
 
-	/** Changed through the learning mode endpoint only, so every change is explained and audited as such */
-	private const MANAGED_ELSEWHERE = [GlobalSettings::LEARNING_UNTIL, GlobalSettings::BLOCKLIST_SOURCES];
-
 	public function __construct(
 		private readonly GlobalSettings $globals,
 		private readonly AppSettings $settings,
@@ -69,8 +66,7 @@ class GlobalSettingsPresenter {
 	 * Whether an admin may change the setting through the settings endpoint.
 	 */
 	public function isEditable(string $name): bool {
-		return $this->globals->get($name) !== null
-			&& !in_array($name, self::MANAGED_ELSEWHERE, true);
+		return $this->globals->isEditable($name);
 	}
 
 	/**

@@ -32,8 +32,8 @@ export type paths = {
             cookie?: never;
         };
         /**
-         * List the accounts waiting to become administrators
-         * @description The pending requests that have not expired, for the admin page.
+         * List the accounts waiting to become administrators, and the changes waiting to switch that approval off
+         * @description The pending requests that have not expired, for the admin page. A settings change is about the administrator who asked; `change` says what it does.
          *     This endpoint requires admin access
          */
         get: operations["approval-admin-grants"];
@@ -55,7 +55,7 @@ export type paths = {
         get?: never;
         put?: never;
         /**
-         * Approve a request: the account joins the group, or the waiting login continues
+         * Approve a request: the account joins the group, the change is made, or the waiting login continues
          * @description Needs a recent password confirmation, which apps and clients cannot give: their notification opens the admin page instead.
          *     This endpoint requires admin access
          *     This endpoint requires password confirmation
@@ -1366,6 +1366,9 @@ export type components = {
         AdminGrantRequest: {
             /** Format: int64 */
             id: number;
+            /** @enum {string} */
+            kind: "admin_grant" | "settings";
+            change: string | null;
             uid: string;
             displayName: string;
             group: string;
@@ -2558,7 +2561,7 @@ export interface operations {
                 all?: boolean;
                 /** @description the most requests to return */
                 limit?: number;
-                /** @description only requests of this kind: admin_grant or login */
+                /** @description only requests of this kind: admin_grant, settings or login */
                 kind?: string | null;
             };
             header: {
@@ -3793,13 +3796,18 @@ export interface operations {
                     };
                 };
             };
-            /** @description Logged in account must be an admin */
+            /** @description The change switches off the approval of new administrators and waits for a second administrator; nothing was saved yet */
             403: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
                     "application/json": {
+                        ocs: {
+                            meta: components["schemas"]["OCSMeta"];
+                            data: components["schemas"]["Error"];
+                        };
+                    } | {
                         ocs: {
                             meta: components["schemas"]["OCSMeta"];
                             data: unknown;
@@ -3817,6 +3825,20 @@ export interface operations {
                         ocs: {
                             meta: components["schemas"]["OCSMeta"];
                             data: unknown;
+                        };
+                    };
+                };
+            };
+            /** @description Too many requests wait for approval; nothing was saved */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        ocs: {
+                            meta: components["schemas"]["OCSMeta"];
+                            data: components["schemas"]["Error"];
                         };
                     };
                 };
@@ -3866,13 +3888,18 @@ export interface operations {
                     };
                 };
             };
-            /** @description Logged in account must be an admin */
+            /** @description The reset switches off the approval of new administrators and waits for a second administrator; nothing was reset yet */
             403: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
                     "application/json": {
+                        ocs: {
+                            meta: components["schemas"]["OCSMeta"];
+                            data: components["schemas"]["Error"];
+                        };
+                    } | {
                         ocs: {
                             meta: components["schemas"]["OCSMeta"];
                             data: unknown;
@@ -3890,6 +3917,20 @@ export interface operations {
                         ocs: {
                             meta: components["schemas"]["OCSMeta"];
                             data: unknown;
+                        };
+                    };
+                };
+            };
+            /** @description Too many requests wait for approval; nothing was reset */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        ocs: {
+                            meta: components["schemas"]["OCSMeta"];
+                            data: components["schemas"]["Error"];
                         };
                     };
                 };
@@ -6246,7 +6287,7 @@ export interface operations {
                     };
                 };
             };
-            /** @description Logged in account must be an admin */
+            /** @description The change switches off the approval of new administrators and waits for a second administrator; nothing was saved yet */
             403: {
                 headers: {
                     [name: string]: unknown;
@@ -6255,7 +6296,26 @@ export interface operations {
                     "application/json": {
                         ocs: {
                             meta: components["schemas"]["OCSMeta"];
+                            data: components["schemas"]["Error"];
+                        };
+                    } | {
+                        ocs: {
+                            meta: components["schemas"]["OCSMeta"];
                             data: unknown;
+                        };
+                    };
+                };
+            };
+            /** @description Too many requests wait for approval; nothing was saved */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        ocs: {
+                            meta: components["schemas"]["OCSMeta"];
+                            data: components["schemas"]["Error"];
                         };
                     };
                 };
@@ -6302,7 +6362,7 @@ export interface operations {
                     };
                 };
             };
-            /** @description Logged in account must be an admin */
+            /** @description The reset switches off the approval of new administrators and waits for a second administrator; nothing was reset yet */
             403: {
                 headers: {
                     [name: string]: unknown;
@@ -6311,7 +6371,26 @@ export interface operations {
                     "application/json": {
                         ocs: {
                             meta: components["schemas"]["OCSMeta"];
+                            data: components["schemas"]["Error"];
+                        };
+                    } | {
+                        ocs: {
+                            meta: components["schemas"]["OCSMeta"];
                             data: unknown;
+                        };
+                    };
+                };
+            };
+            /** @description Too many requests wait for approval; nothing was reset */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        ocs: {
+                            meta: components["schemas"]["OCSMeta"];
+                            data: components["schemas"]["Error"];
                         };
                     };
                 };

@@ -67,7 +67,9 @@ class ApiErrorMiddleware extends Middleware {
 			$e instanceof InvalidBanException => [Http::STATUS_BAD_REQUEST, self::body($e->describe($this->l), $e->param(), $e->reason())],
 			$e instanceof ApprovalException => [match ($e->reason) {
 				ApprovalException::NOT_FOUND => Http::STATUS_NOT_FOUND,
-				ApprovalException::REQUESTER, ApprovalException::SUBJECT, ApprovalException::NOT_ADMIN, ApprovalException::UNCONFIRMED => Http::STATUS_FORBIDDEN,
+				ApprovalException::REQUESTER, ApprovalException::SUBJECT, ApprovalException::NOT_ADMIN, ApprovalException::UNCONFIRMED,
+				ApprovalException::HELD, ApprovalException::HELD_NO_APPROVER => Http::STATUS_FORBIDDEN,
+				ApprovalException::TOO_MANY => Http::STATUS_TOO_MANY_REQUESTS,
 				default => Http::STATUS_BAD_REQUEST,
 			}, self::body($e->describe($this->l), null, $e->reason)],
 			$e instanceof AnswerException => [match ($e->reason) {

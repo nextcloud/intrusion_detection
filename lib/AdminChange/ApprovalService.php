@@ -13,6 +13,7 @@ use OCA\IntrusionDetection\AppInfo\Application;
 use OCA\IntrusionDetection\Audit\AuditLogger;
 use OCA\IntrusionDetection\Db\Approval;
 use OCA\IntrusionDetection\Db\ApprovalMapper;
+use OCA\IntrusionDetection\Net\RemoteAddressResolver;
 use OCA\IntrusionDetection\Notification\AdminLinks;
 use OCA\IntrusionDetection\Notification\Notifier;
 use OCP\AppFramework\Db\DoesNotExistException;
@@ -38,11 +39,17 @@ use Psr\Log\LoggerInterface;
  * this one addition does not ask for approval again. Rejected and expired
  * requests change nothing; the one who asked is told.
  *
+ * A settings change that would switch the four-eyes approval off
+ * ({@see HeldChanges}) is a request of the kind `settings`, about the
+ * administrator who asked: approving makes the change.
+ *
  * A login that nothing else could confirm (concept section 11.5) is a
  * request of the kind `login`, asked by the account itself: approving it
  * only marks it approved, and the waiting login continues. The account can
  * withdraw it, but never approve it. Every login gets its own request, so
  * that one approval never lets a second login of the same account through.
+ *
+ * @psalm-import-type HeldChange from Approval
  */
 class ApprovalService {
 	/** Requests beyond this many pending ones are not stored, so a script cannot flood the table */
@@ -64,6 +71,8 @@ class ApprovalService {
 		private readonly ApprovalMapper $mapper,
 		private readonly Approvers $approvers,
 		private readonly GrantPermit $permit,
+		private readonly HeldChanges $held,
+		private readonly RemoteAddressResolver $addresses,
 		private readonly IGroupManager $groupManager,
 		private readonly IUserManager $userManager,
 		private readonly INotificationManager $notifications,
@@ -117,6 +126,45 @@ class ApprovalService {
 			$this->notifyUser($requester, $approval, Notifier::SUBJECT_APPROVAL_PENDING, self::OBJECT_TYPE);
 		}
 		return $approval;
+	}
+
+	/**
+	 * Hold back a change from the admin page or the API that would switch
+	 * the four-eyes approval off: it is stored as a request for a second
+	 * administrator instead of being made. Every other change passes.
+	 *
+	 * @param HeldChange $change
+	 * @throws ApprovalException HELD or HELD_NO_APPROVER when the change waits, TOO_MANY when it could not be stored
+	 */
+	public function hold(array $change, string $requester): void {
+		if (!$this->held->needsApproval($change)) {
+			return;
+		}
+		$now = $this->timeFactory->getTime();
+		if ($this->mapper->countPending($now) >= self::MAX_PENDING) {
+			$this->audit->log('settings change by %s not stored for approval: too many pending requests', ['requester' => $requester]);
+			throw new ApprovalException(ApprovalException::TOO_MANY);
+		}
+		$approval = new Approval();
+		$approval->setKind(Approval::KIND_SETTINGS);
+		$approval->setSubjectUid($requester);
+		$approval->setRequestedBy($requester);
+		$approval->setIp($this->addresses->current()?->ip);
+		$approval->setPayload(json_encode($change, JSON_THROW_ON_ERROR));
+		$approval->setStatus(Approval::STATUS_PENDING);
+		$approval->setCreatedAt($now);
+		$approval->setExpiresAt($now + self::TTL);
+		$approval = $this->mapper->insert($approval);
+		$this->audit->log('approval requested: settings change by %s (request %s): %s', [
+			'requester' => $requester,
+			'approval' => $approval->getId(),
+			'change' => (string)$approval->getPayload(),
+		]);
+		$this->notifyApprovers($approval);
+		if (ActorResolver::isPerson($requester)) {
+			$this->notifyUser($requester, $approval, Notifier::SUBJECT_APPROVAL_PENDING, self::OBJECT_TYPE);
+		}
+		throw new ApprovalException($this->approvers->except([$requester]) === [] ? ApprovalException::HELD_NO_APPROVER : ApprovalException::HELD);
 	}
 
 	/**
@@ -205,6 +253,9 @@ class ApprovalService {
 		if ($approval->getKind() === Approval::KIND_LOGIN) {
 			return $this->approveLogin($approval, $decider, $via);
 		}
+		if ($approval->getKind() === Approval::KIND_SETTINGS) {
+			return $this->approveSettings($approval, $decider, $via);
+		}
 		$user = $this->userManager->get($approval->getSubjectUid()) ?? throw new ApprovalException(ApprovalException::SUBJECT_MISSING);
 		$group = $this->groupManager->get((string)$approval->getGroupId()) ?? throw new ApprovalException(ApprovalException::GROUP_MISSING);
 
@@ -253,6 +304,23 @@ class ApprovalService {
 	}
 
 	/**
+	 * @throws ApprovalException
+	 */
+	private function approveSettings(Approval $approval, string $decider, string $via): Approval {
+		if (!$this->mapper->decide((int)$approval->getId(), Approval::STATUS_APPROVED, $decider, $this->timeFactory->getTime())) {
+			throw new ApprovalException(ApprovalException::NOT_PENDING);
+		}
+		$this->audit->log('approval %s approved by %s via %s: settings change asked by %s', [
+			'approval' => $approval->getId(),
+			'decider' => $decider,
+			'via' => $via,
+			'requester' => $approval->getRequestedBy(),
+		]);
+		$this->held->apply($approval->heldChange(), $approval->getRequestedBy());
+		return $this->finish($approval);
+	}
+
+	/**
 	 * Reject a request. Any member of the admin group may, also the one who
 	 * asked (to withdraw it), but not the account it is about.
 	 *
@@ -274,6 +342,13 @@ class ApprovalService {
 				'via' => $via,
 				'subject' => $approval->getSubjectUid(),
 				'ip' => $approval->getIp() ?? '-',
+			]);
+		} elseif ($approval->getKind() === Approval::KIND_SETTINGS) {
+			$this->audit->log('approval %s rejected by %s via %s: settings change asked by %s is not made', [
+				'approval' => $approval->getId(),
+				'decider' => $decider ?? ActorResolver::OCC,
+				'via' => $via,
+				'requester' => $approval->getRequestedBy(),
 			]);
 		} else {
 			$this->audit->log('approval %s rejected by %s via %s: %s does not join %s, asked by %s', [
@@ -345,6 +420,11 @@ class ApprovalService {
 				'approval' => $approval->getId(),
 				'subject' => $approval->getSubjectUid(),
 				'ip' => $approval->getIp() ?? '-',
+			]);
+		} elseif ($approval->getKind() === Approval::KIND_SETTINGS) {
+			$this->audit->log('approval %s expired: settings change asked by %s was not made', [
+				'approval' => $approval->getId(),
+				'requester' => $approval->getRequestedBy(),
 			]);
 		} else {
 			$this->audit->log('approval %s expired: %s did not join %s, asked by %s', [

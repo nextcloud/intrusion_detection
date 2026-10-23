@@ -114,10 +114,12 @@ class SettingsApiController extends AdminOCSController {
 	 * Every given value is validated before anything is saved.
 	 *
 	 * @param array<string, mixed> $values New values by setting name; durations in seconds or as text like "4h"
-	 * @return DataResponse<Http::STATUS_OK, IntrusionDetectionSettings, array{}>|DataResponse<Http::STATUS_BAD_REQUEST, IntrusionDetectionError, array{}>
+	 * @return DataResponse<Http::STATUS_OK, IntrusionDetectionSettings, array{}>|DataResponse<Http::STATUS_BAD_REQUEST|Http::STATUS_FORBIDDEN|Http::STATUS_TOO_MANY_REQUESTS, IntrusionDetectionError, array{}>
 	 *
 	 * 200: Settings changed
 	 * 400: A value is not valid; nothing was saved
+	 * 403: The change switches off the approval of new administrators and waits for a second administrator; nothing was saved yet
+	 * 429: Too many requests wait for approval; nothing was saved
 	 */
 	#[ApiRoute(verb: 'PUT', url: '/api/v1/settings')]
 	#[PasswordConfirmationRequired]
@@ -131,9 +133,11 @@ class SettingsApiController extends AdminOCSController {
 	 *
 	 * Learning mode, blocks and detections are not touched.
 	 *
-	 * @return DataResponse<Http::STATUS_OK, IntrusionDetectionSettings, array{}>
+	 * @return DataResponse<Http::STATUS_OK, IntrusionDetectionSettings, array{}>|DataResponse<Http::STATUS_FORBIDDEN|Http::STATUS_TOO_MANY_REQUESTS, IntrusionDetectionError, array{}>
 	 *
 	 * 200: Settings reset
+	 * 403: The reset switches off the approval of new administrators and waits for a second administrator; nothing was reset yet
+	 * 429: Too many requests wait for approval; nothing was reset
 	 */
 	#[ApiRoute(verb: 'POST', url: '/api/v1/settings/reset')]
 	#[PasswordConfirmationRequired]
