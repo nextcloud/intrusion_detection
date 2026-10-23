@@ -10,6 +10,7 @@ declare(strict_types=1);
 namespace OCA\IntrusionDetection\Check\Checks\TokenConcurrentUse;
 
 use OCA\IntrusionDetection\Cache\Caches;
+use OCA\IntrusionDetection\Cache\KeyLock;
 use OCA\IntrusionDetection\Config\CheckSettings;
 use OCA\IntrusionDetection\Net\SourceKey;
 use OCP\ICache;
@@ -24,7 +25,9 @@ use OCP\ICache;
  * - Without a memory cache nothing is tracked: tracking in the database
  *   would cost a write per request, so the check is unavailable.
  *
- * The common case costs one cache get and no write.
+ * The common case costs one cache get and no write. A write reads the
+ * entry again under a short lock ({@see KeyLock}), so that two uses at the
+ * same time from different networks do not overwrite each other.
  */
 class CredentialTracker {
 	/** The namespace of its memory cache in {@see Caches} */
@@ -39,6 +42,7 @@ class CredentialTracker {
 	public function __construct(
 		private readonly Caches $caches,
 		private readonly CheckSettings $settings,
+		private readonly KeyLock $locks,
 	) {
 	}
 
@@ -89,12 +93,19 @@ class CredentialTracker {
 		if ($skip !== null && $skip()) {
 			return null;
 		}
-		$switch = $history->record($source, $userTag, $now, fn (): array => [
-			$this->settings->paramInt(TokenConcurrentUse::ID, TokenConcurrentUse::PARAM_WINDOW),
-			$this->settings->paramInt(TokenConcurrentUse::ID, TokenConcurrentUse::PARAM_MIN_SWITCHES),
-		]);
-		$this->cache->set($key, $history->toCache(), self::TTL);
-		return $switch;
+		$cache = $this->cache;
+		return $this->locks->run('credential', $credKey, function () use ($cache, $key, $source, $userTag, $now): ?CredentialSwitch {
+			$history = CredentialHistory::fromCache($cache->get($key));
+			if ($history->isCurrent($source, $now)) {
+				return null;
+			}
+			$switch = $history->record($source, $userTag, $now, fn (): array => [
+				$this->settings->paramInt(TokenConcurrentUse::ID, TokenConcurrentUse::PARAM_WINDOW),
+				$this->settings->paramInt(TokenConcurrentUse::ID, TokenConcurrentUse::PARAM_MIN_SWITCHES),
+			]);
+			$cache->set($key, $history->toCache(), self::TTL);
+			return $switch;
+		});
 	}
 
 	private function init(): void {

@@ -10,6 +10,7 @@ declare(strict_types=1);
 namespace OCA\IntrusionDetection\Tests\Integration;
 
 use OCA\IntrusionDetection\AppInfo\Application;
+use OCA\IntrusionDetection\Cache\KeyLock;
 use OCA\IntrusionDetection\Check\CheckRegistry;
 use OCA\IntrusionDetection\Check\Checks\TokenConcurrentUse\CredentialTracker;
 use OCA\IntrusionDetection\Check\Checks\TokenConcurrentUse\CredentialUse;
@@ -280,7 +281,7 @@ class TokenConcurrentUseTest extends CredentialUseTestCase {
 		], $presented['requirements']);
 		$this->assertStringContainsString('With APCu only, each web server sees only its own requests', $presented['cost']['text']);
 
-		$this->tracker = new CredentialTracker($this->cacheFactory(null), $settings);
+		$this->tracker = new CredentialTracker($this->cacheFactory(null), $settings, new KeyLock($this->cacheFactory(null)));
 		$user = $this->newUser('ids-cu');
 		$token = $this->token($user, IToken::PERMANENT_TOKEN, 'Phone');
 		$context = $this->send(self::HOME, $this->basic($user->getUID(), $token['secret']), [], $this->appPasswordLogin($user, $token));

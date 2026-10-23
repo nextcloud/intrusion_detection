@@ -12,6 +12,7 @@ namespace OCA\IntrusionDetection\Tests\Integration;
 use OC\AppFramework\Http\Request;
 use OC\Memcache\ArrayCache;
 use OCA\IntrusionDetection\Address\Verdict;
+use OCA\IntrusionDetection\Cache\KeyLock;
 use OCA\IntrusionDetection\Check\Checks\TokenConcurrentUse\CredentialTracker;
 use OCA\IntrusionDetection\Check\Checks\TokenConcurrentUse\PresentedCredential;
 use OCA\IntrusionDetection\Config\CoreHooks;
@@ -90,7 +91,7 @@ class CredentialUseBenchmarkTest extends IntegrationTestCase {
 			$this->appSettings(),
 			$settings,
 			Server::get(Fingerprinter::class),
-			$this->tracker = new CredentialTracker($factory, $settings),
+			$this->tracker = new CredentialTracker($factory, $settings, new KeyLock($factory)),
 			$this->addressGuardRan(),
 			Server::get(ITimeFactory::class),
 			Server::get(ContainerInterface::class),

@@ -13,6 +13,7 @@ use OC\AppFramework\Http\Request;
 use OC\Memcache\ArrayCache;
 use OCA\IntrusionDetection\Address\Verdict;
 use OCA\IntrusionDetection\Cache\Caches;
+use OCA\IntrusionDetection\Cache\KeyLock;
 use OCA\IntrusionDetection\Check\Checks\TokenConcurrentUse\CredentialTracker;
 use OCA\IntrusionDetection\Check\Checks\TokenConcurrentUse\CredentialUse;
 use OCA\IntrusionDetection\Check\Checks\TokenConcurrentUse\CredentialUseResolver;
@@ -29,6 +30,7 @@ use OCA\IntrusionDetection\Net\RemoteAddressResolver;
 use OCA\IntrusionDetection\Net\SourceKey;
 use OCA\IntrusionDetection\Perf\GuardTimer;
 use OCA\IntrusionDetection\Tests\BasicAuthServer;
+use OCA\IntrusionDetection\Tests\Unit\Cache\FixedCaches;
 use OCP\AppFramework\Utility\ITimeFactory;
 use OCP\IConfig;
 use OCP\IRequest;
@@ -223,7 +225,7 @@ class CredentialUseGuardTest extends TestCase {
 	}
 
 	private function tracker(): CredentialTracker {
-		return new CredentialTracker($this->caches, $this->settings);
+		return new CredentialTracker($this->caches, $this->settings, new KeyLock(new FixedCaches(new ArrayCache())));
 	}
 
 	private function fingerprinter(): Fingerprinter {

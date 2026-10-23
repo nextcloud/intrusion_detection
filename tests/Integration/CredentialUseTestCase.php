@@ -12,6 +12,7 @@ namespace OCA\IntrusionDetection\Tests\Integration;
 use OC\AppFramework\Http\Request;
 use OC\Memcache\ArrayCache;
 use OCA\IntrusionDetection\Cache\Caches;
+use OCA\IntrusionDetection\Cache\KeyLock;
 use OCA\IntrusionDetection\Check\Checks\TokenConcurrentUse\CredentialTracker;
 use OCA\IntrusionDetection\Check\Checks\TokenConcurrentUse\CredentialUseResolver;
 use OCA\IntrusionDetection\Check\Checks\TokenConcurrentUse\TokenConcurrentUseDetector;
@@ -70,7 +71,7 @@ abstract class CredentialUseTestCase extends AccountTestCase {
 	protected function setUp(): void {
 		parent::setUp();
 		$this->cache = new ArrayCache();
-		$this->tracker = new CredentialTracker($this->cacheFactory($this->cache), $this->checkSettings());
+		$this->tracker = new CredentialTracker($this->cacheFactory($this->cache), $this->checkSettings(), new KeyLock($this->cacheFactory($this->cache)));
 		$this->now = time();
 		$this->cookieName = Server::get(IConfig::class)->getSystemValueString('instanceid');
 	}
