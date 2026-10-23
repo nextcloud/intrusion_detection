@@ -74,7 +74,7 @@ class ConfirmationApiTest extends StepUpTestCase {
 		$bob = $this->user('ids-api-bob', null);
 		$this->startSession($bob);
 		$this->login($bob);
-		$this->assertFalse($this->confirmationApi()->index()->getData()['approvals'][0]['canDecide'], 'Nobody decides on their own login');
+		$this->assertFalse($this->confirmationApi()->waiting()->getData()[0]['canDecide'], 'Nobody decides on their own login');
 
 		$this->sessionUser = Server::get(IUserManager::class)->get('admin');
 		$data = $this->confirmationApi()->index(true)->getData();
@@ -83,9 +83,11 @@ class ConfirmationApiTest extends StepUpTestCase {
 		$this->assertSame(['flagged_source', 'sprayed_password', 'protected_account', 'breached_password', 'risky_network', 'risk_high', 'admin_outside_networks'], array_column($data['policies'], 'id'));
 		$this->assertSame([true, false, true, false, true, true, false], array_column($data['policies'], 'knownDeviceAllowed'));
 		$this->assertSame(['refuse', 'allow_notify', 'allow_force_change'], array_column($data['outcomes'], 'id'));
-		$this->assertCount(1, $data['approvals']);
-		$this->assertSame($bob->getUID(), $data['approvals'][0]['uid']);
-		$this->assertTrue($data['approvals'][0]['canDecide']);
+		$this->assertArrayNotHasKey('approvals', $data, 'The waiting logins have their own endpoint');
+		$waiting = $this->confirmationApi()->waiting()->getData();
+		$this->assertCount(1, $waiting);
+		$this->assertSame($bob->getUID(), $waiting[0]['uid']);
+		$this->assertTrue($waiting[0]['canDecide']);
 		$this->assertGreaterThanOrEqual(1, $data['users']['active']);
 
 		$this->assertSame(Http::STATUS_OK, $this->confirmationApi()->accounts(5000, -3)->getStatus(), 'The limit and offset are bounded');

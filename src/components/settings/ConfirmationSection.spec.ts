@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 
-import type { ConfirmationOverview, GlobalSetting } from '../../types.ts'
+import type { ConfirmationOverview, GlobalSetting, LoginApproval } from '../../types.ts'
 
 import { flushPromises, mount } from '@vue/test-utils'
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
@@ -60,20 +60,22 @@ function overview(overrides: Partial<ConfirmationOverview> = {}): ConfirmationOv
 		users: { withoutMethod: 37, active: 200 },
 		admins: { total: 3, withoutEmail: 1, withoutSecondFactor: 2, withNeither: ['bob'] },
 		approvers: 3,
-		approvals: [
-			{ id: 7, uid: 'alice', displayName: 'Alice Liddell', ip: '203.0.113.7', createdAt: 1_760_000_000, expiresAt: 1_760_001_800, canDecide: true },
-			{ id: 8, uid: 'admin', displayName: 'The Admin', ip: '203.0.113.8', createdAt: 1_760_000_000, expiresAt: 1_760_001_800, canDecide: false },
-		],
 		...overrides,
 	}
 }
 
+const WAITING: LoginApproval[] = [
+	{ id: 7, uid: 'alice', displayName: 'Alice Liddell', ip: '203.0.113.7', createdAt: 1_760_000_000, expiresAt: 1_760_001_800, canDecide: true },
+	{ id: 8, uid: 'admin', displayName: 'The Admin', ip: '203.0.113.8', createdAt: 1_760_000_000, expiresAt: 1_760_001_800, canDecide: false },
+]
+
 /**
  * @param value - What the API returns
+ * @param waiting - The logins that wait for an administrator
  */
-async function mountTab(value = overview()) {
+async function mountTab(value = overview(), waiting = WAITING) {
 	vi.mocked(fetchConfirmation).mockResolvedValue(value)
-	vi.mocked(fetchWaitingLogins).mockResolvedValue(value.approvals)
+	vi.mocked(fetchWaitingLogins).mockResolvedValue(waiting)
 	vi.mocked(fetchSettings).mockResolvedValue({ settings: state.settings, templates: state.templates })
 	const wrapper = mount(ConfirmationSection, { attachTo: document.body })
 	mounted.push(wrapper)
@@ -267,7 +269,7 @@ describe('the login confirmation section', () => {
 	})
 
 	test('says so when no login is waiting', async () => {
-		const wrapper = await mountTab(overview({ approvals: [] }))
+		const wrapper = await mountTab(overview(), [])
 		expect(wrapper.text()).toContain('No login is waiting')
 	})
 })

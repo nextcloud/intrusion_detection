@@ -162,7 +162,6 @@ namespace OCA\IntrusionDetection;
  *     cost: ?IntrusionDetectionCost,
  *     costSampleRate: int,
  *     problems: list<IntrusionDetectionProblem>,
- *     extensions: array<string, array<string, mixed>>,
  * }
  *
  * @psalm-type IntrusionDetectionDetection = array{
@@ -774,7 +773,6 @@ namespace OCA\IntrusionDetection;
  *     users: array{withoutMethod: int, active: int},
  *     admins: array{total: int, withoutEmail: int, withoutSecondFactor: int, withNeither: list<string>},
  *     approvers: int,
- *     approvals: list<IntrusionDetectionLoginApproval>,
  * }
  *
  * @psalm-type IntrusionDetectionConfirmationPreset = array{

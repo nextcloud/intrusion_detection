@@ -233,7 +233,6 @@ class IntrusionWidgetTest extends TestCase {
 			'cost' => null,
 			'costSampleRate' => 1000,
 			'problems' => [],
-			'extensions' => [],
 		];
 	}
 

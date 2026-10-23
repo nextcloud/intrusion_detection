@@ -827,8 +827,7 @@
                     "outcomes",
                     "users",
                     "admins",
-                    "approvers",
-                    "approvals"
+                    "approvers"
                 ],
                 "properties": {
                     "methods": {
@@ -907,12 +906,6 @@
                     "approvers": {
                         "type": "integer",
                         "format": "int64"
-                    },
-                    "approvals": {
-                        "type": "array",
-                        "items": {
-                            "$ref": "#/components/schemas/LoginApproval"
-                        }
                     }
                 }
             },
@@ -4122,8 +4115,7 @@
                     "prerequisites",
                     "cost",
                     "costSampleRate",
-                    "problems",
-                    "extensions"
+                    "problems"
                 ],
                 "properties": {
                     "state": {
@@ -4243,15 +4235,6 @@
                         "type": "array",
                         "items": {
                             "$ref": "#/components/schemas/Problem"
-                        }
-                    },
-                    "extensions": {
-                        "type": "object",
-                        "additionalProperties": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "object"
-                            }
                         }
                     }
                 }
@@ -7880,7 +7863,7 @@
             "get": {
                 "operationId": "confirmation_api-index",
                 "summary": "How logins are confirmed",
-                "description": "The confirmation methods in the order they are tried, what happens per reason when nothing can confirm, how many accounts cannot confirm a login, and the logins that wait for an administrator.\nThis endpoint requires admin access",
+                "description": "The confirmation methods in the order they are tried, what happens per reason when nothing can confirm, and how many accounts cannot confirm a login. The logins that wait for an administrator have their own endpoint.\nThis endpoint requires admin access",
                 "tags": [
                     "confirmation_api"
                 ],

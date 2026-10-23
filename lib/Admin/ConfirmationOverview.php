@@ -31,7 +31,8 @@ use OCP\IUserManager;
  * confirms that a risky login is really the account holder's, in the order
  * of {@see \OCA\IntrusionDetection\Confirm\ConfirmationPolicy::METHODS}; per reason, whether a remembered device counts
  * and what happens when nothing can confirm; how many accounts have no way
- * to confirm; and the logins that wait for an administrator. The outcomes
+ * to confirm; and the logins that wait for an administrator, read on their
+ * own ({@see pendingLogins()}). The outcomes
  * of all reasons together are one {@see NoMethodPreset}, or "custom".
  *
  * @psalm-import-type IntrusionDetectionConfirmation from ResponseDefinitions
@@ -56,7 +57,7 @@ class ConfirmationOverview {
 	/**
 	 * @return IntrusionDetectionConfirmation
 	 */
-	public function get(IL10N $l, string $viewer): array {
+	public function get(IL10N $l): array {
 		$users = $this->coverage->users();
 		$admins = $this->coverage->admins();
 		return [
@@ -72,7 +73,6 @@ class ConfirmationOverview {
 				'withNeither' => $admins['withNeither'],
 			],
 			'approvers' => count($this->approvers->all()),
-			'approvals' => $this->pendingLogins($viewer),
 		];
 	}
 

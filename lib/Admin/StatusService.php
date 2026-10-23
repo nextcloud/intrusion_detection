@@ -22,8 +22,6 @@ use OCA\IntrusionDetection\Perf\GuardTimer;
 use OCA\IntrusionDetection\ResponseDefinitions;
 use OCP\AppFramework\Utility\ITimeFactory;
 use OCP\IL10N;
-use Psr\Container\ContainerInterface;
-use Psr\Log\LoggerInterface;
 
 /**
  * What intrusion detection is doing right now: the state, the last 24 hours
@@ -46,10 +44,6 @@ use Psr\Log\LoggerInterface;
 class StatusService {
 	/** The namespace of its memory cache in {@see Caches} */
 	public const CACHE = 'status';
-	/** @var list<class-string<IStatusContributor>> */
-	public const CONTRIBUTORS = [
-		SetupProblems::class,
-	];
 
 	public const STATE_PROTECTING = 'protecting';
 	public const STATE_LEARNING = 'learning';
@@ -71,8 +65,7 @@ class StatusService {
 		private readonly StatsMapper $stats,
 		private readonly GuardTimer $timer,
 		private readonly ITimeFactory $timeFactory,
-		private readonly ContainerInterface $container,
-		private readonly LoggerInterface $logger,
+		private readonly SetupProblems $setupProblems,
 		private readonly Caches $caches,
 	) {
 	}
@@ -117,7 +110,7 @@ class StatusService {
 			$this->caches->shared(self::CACHE)?->set($key, $measured, self::CACHE_TTL);
 		}
 		/** @var Measured $measured */
-		[$problems, $extensions] = $this->problems($l, $measured['cost']);
+		$problems = $this->problems($l, $measured['cost']);
 		return [
 			'state' => $this->state(),
 			'learning' => $this->learning(),
@@ -131,7 +124,6 @@ class StatusService {
 			'cost' => $measured['cost'],
 			'costSampleRate' => GuardTimer::SAMPLE_RATE,
 			'problems' => $problems,
-			'extensions' => $extensions,
 		];
 	}
 
@@ -179,34 +171,18 @@ class StatusService {
 	}
 
 	/**
-	 * The problems and the data of the contributors.
+	 * A slow address check, and the findings of the setup checks.
 	 *
 	 * @param ?IntrusionDetectionCost $cost
-	 * @return array{0: list<IntrusionDetectionProblem>, 1: array<string, array<string, mixed>>}
+	 * @return list<IntrusionDetectionProblem>
 	 */
 	private function problems(IL10N $l, ?array $cost): array {
 		$problems = [];
 		if ($cost !== null && $cost['averageMicroseconds'] > self::SLOW_GUARD_MICROSECONDS) {
 			$problems[] = $this->slowGuardsProblem($l);
 		}
-		$extensions = [];
-		foreach (static::CONTRIBUTORS as $class) {
-			try {
-				$contributor = $this->container->get($class);
-				if (!$contributor instanceof IStatusContributor) {
-					continue;
-				}
-				$data = $contributor->data($l);
-				if ($data !== null) {
-					$extensions[$contributor->key()] = $data;
-				}
-				array_push($problems, ...$contributor->problems($l));
-			} catch (\Throwable $e) {
-				// One broken contributor must not take the status page down with it.
-				$this->logger->error('Intrusion detection status contributor {class} failed', ['class' => $class, 'exception' => $e]);
-			}
-		}
-		return [$problems, $extensions];
+		array_push($problems, ...$this->setupProblems->problems($l));
+		return $problems;
 	}
 
 	/**

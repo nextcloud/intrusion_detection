@@ -126,7 +126,6 @@ export function makeStatus(overrides: Partial<Status> = {}): Status {
 			{ id: 'mail', level: 'warning', title: 'Nextcloud cannot send emails', text: '', url: null, urlLabel: null },
 			{ id: 'cache', level: 'info', title: 'No memory cache', text: '', url: null, urlLabel: null },
 		],
-		extensions: {},
 		...overrides,
 	}
 }

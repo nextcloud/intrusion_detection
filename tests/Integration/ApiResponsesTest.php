@@ -33,7 +33,7 @@ class ApiResponsesTest extends IntegrationTestCase {
 
 	/** Status and top-level keys of the reads, by route */
 	private const READS = [
-		'GET /api/v1/status' => [200, ['state', 'learning', 'checks', 'last24h', 'activeBans', 'prerequisites', 'cost', 'costSampleRate', 'problems', 'extensions']],
+		'GET /api/v1/status' => [200, ['state', 'learning', 'checks', 'last24h', 'activeBans', 'prerequisites', 'cost', 'costSampleRate', 'problems']],
 		'GET /api/v1/checks' => [200, ['checks', 'categories', 'modes', 'severities']],
 		'GET /api/v1/protection-level' => [200, ['level']],
 		'GET /api/v1/detections' => [200, ['detections', 'hasMore']],
@@ -47,7 +47,7 @@ class ApiResponsesTest extends IntegrationTestCase {
 		'GET /api/v1/approvals/admin-grants' => [200, []],
 		'GET /api/v1/blocklists' => [200, ['lists', 'countsMatches', 'matchDays', 'check', 'networkCheck', 'maxLists', 'minInterval', 'maxInterval', 'formats']],
 		'GET /api/v1/export' => [200, ['directory', 'active', 'formats', 'files', 'lastWriteAt', 'error', 'errorText', 'errorAt', 'entries', 'configKey', 'snippetsUseDirectory', 'exampleDirectory', 'snippets']],
-		'GET /api/v1/confirmation' => [200, ['methods', 'policies', 'preset', 'outcomes', 'users', 'admins', 'approvers', 'approvals']],
+		'GET /api/v1/confirmation' => [200, ['methods', 'policies', 'preset', 'outcomes', 'users', 'admins', 'approvers']],
 		'GET /api/v1/confirmation/waiting' => [200, []],
 		'GET /api/v1/confirmation/accounts' => [200, []],
 		'GET /api/v1/decoys' => [200, ['decoys', 'decoyCheck', 'reservedCheck', 'trapCheck', 'decoyCollisions', 'reservedNames', 'trapPaths', 'limits']],

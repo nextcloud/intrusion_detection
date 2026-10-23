@@ -139,7 +139,6 @@ export interface Status {
 	cost: { samples: number, averageMicroseconds: number, maxMicroseconds: number } | null
 	costSampleRate: number
 	problems: Problem[]
-	extensions: Record<string, Record<string, unknown>>
 }
 
 /** What Nextcloud did about a detection: acted, only notified, only recorded, or observed without acting */
@@ -747,7 +746,6 @@ export interface ConfirmationOverview {
 	users: { withoutMethod: number, active: number }
 	admins: { total: number, withoutEmail: number, withoutSecondFactor: number, withNeither: string[] }
 	approvers: number
-	approvals: LoginApproval[]
 }
 
 export interface UnconfirmableAccount {

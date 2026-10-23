@@ -53,8 +53,8 @@ class ConfirmationApiController extends AdminOCSController {
 	 * How logins are confirmed
 	 *
 	 * The confirmation methods in the order they are tried, what happens per
-	 * reason when nothing can confirm, how many accounts cannot confirm a
-	 * login, and the logins that wait for an administrator.
+	 * reason when nothing can confirm, and how many accounts cannot confirm a
+	 * login. The logins that wait for an administrator have their own endpoint.
 	 *
 	 * @param bool $refresh count the accounts again instead of using the counts of the last hour
 	 * @return DataResponse<Http::STATUS_OK, IntrusionDetectionConfirmation, array{}>
@@ -66,7 +66,7 @@ class ConfirmationApiController extends AdminOCSController {
 		if ($refresh) {
 			$this->coverage->refresh();
 		}
-		return new DataResponse($this->overview->get($this->l, $this->actor()));
+		return new DataResponse($this->overview->get($this->l));
 	}
 
 	/**

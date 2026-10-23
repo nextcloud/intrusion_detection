@@ -48,7 +48,6 @@ class ComposerStaticInitIntrusionDetection
         'OCA\\IntrusionDetection\\Admin\\DailyStats' => __DIR__ . '/..' . '/../lib/Admin/DailyStats.php',
         'OCA\\IntrusionDetection\\Admin\\DetectionPresenter' => __DIR__ . '/..' . '/../lib/Admin/DetectionPresenter.php',
         'OCA\\IntrusionDetection\\Admin\\GlobalSettingsPresenter' => __DIR__ . '/..' . '/../lib/Admin/GlobalSettingsPresenter.php',
-        'OCA\\IntrusionDetection\\Admin\\IStatusContributor' => __DIR__ . '/..' . '/../lib/Admin/IStatusContributor.php',
         'OCA\\IntrusionDetection\\Admin\\LookupService' => __DIR__ . '/..' . '/../lib/Admin/LookupService.php',
         'OCA\\IntrusionDetection\\Admin\\NotificationOverview' => __DIR__ . '/..' . '/../lib/Admin/NotificationOverview.php',
         'OCA\\IntrusionDetection\\Admin\\PrivacyOverview' => __DIR__ . '/..' . '/../lib/Admin/PrivacyOverview.php',

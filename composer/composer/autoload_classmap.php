@@ -33,7 +33,6 @@ return array(
     'OCA\\IntrusionDetection\\Admin\\DailyStats' => $baseDir . '/../lib/Admin/DailyStats.php',
     'OCA\\IntrusionDetection\\Admin\\DetectionPresenter' => $baseDir . '/../lib/Admin/DetectionPresenter.php',
     'OCA\\IntrusionDetection\\Admin\\GlobalSettingsPresenter' => $baseDir . '/../lib/Admin/GlobalSettingsPresenter.php',
-    'OCA\\IntrusionDetection\\Admin\\IStatusContributor' => $baseDir . '/../lib/Admin/IStatusContributor.php',
     'OCA\\IntrusionDetection\\Admin\\LookupService' => $baseDir . '/../lib/Admin/LookupService.php',
     'OCA\\IntrusionDetection\\Admin\\NotificationOverview' => $baseDir . '/../lib/Admin/NotificationOverview.php',
     'OCA\\IntrusionDetection\\Admin\\PrivacyOverview' => $baseDir . '/../lib/Admin/PrivacyOverview.php',
