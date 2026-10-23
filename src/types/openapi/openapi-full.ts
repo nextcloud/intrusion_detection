@@ -4,6 +4,28 @@
  */
 
 export type paths = {
+    "/ocs/v2.php/apps/intrusion_detection/api/v1/detections/{id}/sessions/end": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * End every session and app password of a detection's account
+         * @description The account's browsers are logged out and its apps must be connected again.
+         *     This endpoint requires admin access
+         *     This endpoint requires password confirmation
+         */
+        post: operations["account_sessions-end"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/ocs/v2.php/apps/intrusion_detection/api/v1/approvals": {
         parameters: {
             query?: never;
@@ -56,7 +78,7 @@ export type paths = {
         put?: never;
         /**
          * Approve a request: the account joins the group, the change is made, or the waiting login continues
-         * @description Needs a recent password confirmation, which apps and clients cannot give: their notification opens the admin page instead.
+         * @description Needs a recent password confirmation, and a login of the deciding administrator that was not let in unconfirmed. Making an administrator needs a login that proved more than the password: a client that sends the password confirms it with every request.
          *     This endpoint requires admin access
          *     This endpoint requires password confirmation
          */
@@ -2558,6 +2580,82 @@ export type components = {
 };
 export type $defs = Record<string, never>;
 export interface operations {
+    "account_sessions-end": {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Required to be true for the API request to pass */
+                "OCS-APIRequest": boolean;
+            };
+            path: {
+                /** @description A detection about the account */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The number of sessions and app passwords ended */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        ocs: {
+                            meta: components["schemas"]["OCSMeta"];
+                            data: {
+                                /** Format: int64 */
+                                ended: number;
+                            };
+                        };
+                    };
+                };
+            };
+            /** @description Current user is not logged in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        ocs: {
+                            meta: components["schemas"]["OCSMeta"];
+                            data: unknown;
+                        };
+                    };
+                };
+            };
+            /** @description Logged in account must be an admin */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        ocs: {
+                            meta: components["schemas"]["OCSMeta"];
+                            data: unknown;
+                        };
+                    };
+                };
+            };
+            /** @description The detection does not exist, is not about an account, or the account is gone */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        ocs: {
+                            meta: components["schemas"]["OCSMeta"];
+                            data: unknown;
+                        };
+                    };
+                };
+            };
+        };
+    };
     "approval-index": {
         parameters: {
             query?: {

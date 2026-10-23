@@ -280,6 +280,7 @@ return array(
     'OCA\\IntrusionDetection\\Confirm\\StepUpState' => $baseDir . '/../lib/Confirm/StepUpState.php',
     'OCA\\IntrusionDetection\\Confirm\\UnconfirmedSessions' => $baseDir . '/../lib/Confirm/UnconfirmedSessions.php',
     'OCA\\IntrusionDetection\\Confirm\\UntrustedSecondFactors' => $baseDir . '/../lib/Confirm/UntrustedSecondFactors.php',
+    'OCA\\IntrusionDetection\\Controller\\AccountSessionsController' => $baseDir . '/../lib/Controller/AccountSessionsController.php',
     'OCA\\IntrusionDetection\\Controller\\AdminOCSController' => $baseDir . '/../lib/Controller/AdminOCSController.php',
     'OCA\\IntrusionDetection\\Controller\\ApprovalController' => $baseDir . '/../lib/Controller/ApprovalController.php',
     'OCA\\IntrusionDetection\\Controller\\BanApiController' => $baseDir . '/../lib/Controller/BanApiController.php',

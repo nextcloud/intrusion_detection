@@ -295,6 +295,7 @@ class ComposerStaticInitIntrusionDetection
         'OCA\\IntrusionDetection\\Confirm\\StepUpState' => __DIR__ . '/..' . '/../lib/Confirm/StepUpState.php',
         'OCA\\IntrusionDetection\\Confirm\\UnconfirmedSessions' => __DIR__ . '/..' . '/../lib/Confirm/UnconfirmedSessions.php',
         'OCA\\IntrusionDetection\\Confirm\\UntrustedSecondFactors' => __DIR__ . '/..' . '/../lib/Confirm/UntrustedSecondFactors.php',
+        'OCA\\IntrusionDetection\\Controller\\AccountSessionsController' => __DIR__ . '/..' . '/../lib/Controller/AccountSessionsController.php',
         'OCA\\IntrusionDetection\\Controller\\AdminOCSController' => __DIR__ . '/..' . '/../lib/Controller/AdminOCSController.php',
         'OCA\\IntrusionDetection\\Controller\\ApprovalController' => __DIR__ . '/..' . '/../lib/Controller/ApprovalController.php',
         'OCA\\IntrusionDetection\\Controller\\BanApiController' => __DIR__ . '/..' . '/../lib/Controller/BanApiController.php',

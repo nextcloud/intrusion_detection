@@ -8,13 +8,14 @@ import type { AccountGuide } from '../../secureAccountTypes.ts'
 import { flushPromises, mount } from '@vue/test-utils'
 import { afterEach, describe, expect, test, vi } from 'vitest'
 import SecureAccountPanel from './SecureAccountPanel.vue'
-import { confirmPasswordReset, fetchAccountGuide, reenableAccount } from '../../services/secureAccount.ts'
+import { confirmPasswordReset, endAccountSessions, fetchAccountGuide, reenableAccount } from '../../services/secureAccount.ts'
 import { makeDetail } from '../../tests/fixtures.ts'
 
 vi.mock('../../services/secureAccount.ts', () => ({
 	fetchAccountGuide: vi.fn(),
 	reenableAccount: vi.fn(),
 	confirmPasswordReset: vi.fn(),
+	endAccountSessions: vi.fn(),
 }))
 
 const AT = Date.UTC(2026, 9, 20, 10, 2) / 1000
@@ -71,9 +72,22 @@ describe('SecureAccountPanel', () => {
 		expect(wrapper.findAll('li')).toHaveLength(6)
 	})
 
-	test('shows nothing for an account without a checklist', async () => {
-		const wrapper = await render(guide({ progress: null }))
+	test('shows nothing for an account that is gone', async () => {
+		const wrapper = await render(guide({ exists: false, enabled: false, progress: null }))
 		expect(wrapper.find('section').exists()).toBe(false)
+	})
+
+	test('an account can be logged out everywhere after a confirmation', async () => {
+		vi.mocked(endAccountSessions).mockResolvedValue({ ended: 3 })
+		const wrapper = await render(guide({ progress: null }))
+		await wrapper.findAll('button').find((b) => b.text() === 'Log out everywhere')!.trigger('click')
+		await flushPromises()
+		expect(endAccountSessions).not.toHaveBeenCalled()
+		const confirm = [...document.querySelectorAll('button')].find((b) => b.textContent?.trim() === 'Log out everywhere' && b.closest('[role="dialog"]'))
+		expect(confirm).toBeDefined()
+		confirm!.click()
+		await flushPromises()
+		expect(endAccountSessions).toHaveBeenCalledWith(makeDetail().detection.id)
 	})
 
 	test('a locked account can be enabled again after a confirmation', async () => {

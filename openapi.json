@@ -3914,6 +3914,10 @@
     },
     "tags": [
         {
+            "name": "account_sessions",
+            "description": "Ends every session and app password of the account a detection is about, for an administrator who handles the detection."
+        },
+        {
             "name": "approval",
             "description": "Requests for the approval of a second administrator: the list, and the decisions, made on the admin page or by API. Administrators only (the default for controllers) and CSRF-protected; the rules who may decide are in {@see ApprovalService}, shared with occ. Approving needs a recent password confirmation, and the deciding administrator's own session must not be unconfirmed ({@see SessionConfirmation::isUnconfirmed()}): a session that was let in without its confirmation, still waits for it, or uses an app password must not let others in. So a stolen app password alone never approves. Rejecting needs neither: it changes nothing (the account does not join, the waiting login ends and can be tried again), and stopping a request one did not expect must be quick."
         },

@@ -6,7 +6,7 @@
 <script setup lang="ts">
 import type { DetectionDetail } from '../../types.ts'
 
-import { mdiAccountLockOpenOutline, mdiCheck, mdiKeyOutline } from '@mdi/js'
+import { mdiAccountLockOpenOutline, mdiCheck, mdiKeyOutline, mdiLogout } from '@mdi/js'
 import { computed, ref } from 'vue'
 import NcButton from '@nextcloud/vue/components/NcButton'
 import NcDialog from '@nextcloud/vue/components/NcDialog'
@@ -16,7 +16,7 @@ import NcNoteCard from '@nextcloud/vue/components/NcNoteCard'
 import NcProgressBar from '@nextcloud/vue/components/NcProgressBar'
 import TimeStamp from '../common/TimeStamp.vue'
 import { useAction } from '../../composables/useAction.ts'
-import { confirmAccountPasswordReset, reenableLockedAccount, useAccountGuide } from '../../stores/overview.ts'
+import { confirmAccountPasswordReset, logOutAccountEverywhere, reenableLockedAccount, useAccountGuide } from '../../stores/overview.ts'
 import { APP_ID } from '../../utils/format.ts'
 import { n, t } from '../../utils/l10n.ts'
 
@@ -27,6 +27,7 @@ const props = defineProps<{
 const { data: guide } = useAccountGuide(() => props.detail.detection.id)
 const { busy, error, run } = useAction()
 const confirmReenable = ref(false)
+const confirmLogOut = ref(false)
 
 const progress = computed(() => guide.value?.progress ?? null)
 const percent = computed(() => progress.value && progress.value.total > 0 ? Math.round(progress.value.done / progress.value.total * 100) : 0)
@@ -34,7 +35,8 @@ const passwordWaits = computed(() => {
 	const step = progress.value?.steps.find((s) => s.id === 'password')
 	return progress.value?.active === true && step !== undefined && step.managed && !step.done
 })
-const shown = computed(() => guide.value !== null && (guide.value.lockedByLink || progress.value !== null))
+const canLogOut = computed(() => guide.value !== null && guide.value.exists && guide.value.enabled)
+const shown = computed(() => guide.value !== null && (guide.value.lockedByLink || progress.value !== null || canLogOut.value))
 
 const STEP_LABELS: Record<string, () => string> = {
 	password: () => t(APP_ID, 'New password'),
@@ -61,6 +63,17 @@ const reenableButtons = computed(() => [
 		variant: 'primary' as const,
 		callback: () => {
 			change(reenableLockedAccount, t(APP_ID, 'The account was enabled again.'), t(APP_ID, 'The account could not be enabled. Please try again.'))
+		},
+	},
+])
+
+const logOutButtons = computed(() => [
+	{ label: t(APP_ID, 'Cancel'), callback: () => undefined },
+	{
+		label: t(APP_ID, 'Log out everywhere'),
+		variant: 'error' as const,
+		callback: () => {
+			change(logOutAccountEverywhere, t(APP_ID, 'The account was logged out everywhere.'), t(APP_ID, 'The account could not be logged out. Please try again.'))
 		},
 	},
 ])
@@ -108,7 +121,7 @@ const reenableButtons = computed(() => [
 
 		<NcNoteCard v-if="error" type="error" :text="error" />
 
-		<div v-if="guide.canReenable || passwordWaits" :class="$style.panel__actions">
+		<div v-if="guide.canReenable || passwordWaits || canLogOut" :class="$style.panel__actions">
 			<NcButton
 				v-if="guide.canReenable"
 				variant="primary"
@@ -130,6 +143,16 @@ const reenableButtons = computed(() => [
 				</template>
 				{{ t(APP_ID, 'Password was reset in the directory') }}
 			</NcButton>
+			<NcButton
+				v-if="canLogOut"
+				variant="secondary"
+				:disabled="busy !== null"
+				@click="confirmLogOut = true">
+				<template #icon>
+					<NcIconSvgWrapper :path="mdiLogout" />
+				</template>
+				{{ t(APP_ID, 'Log out everywhere') }}
+			</NcButton>
 		</div>
 
 		<NcDialog
@@ -137,6 +160,12 @@ const reenableButtons = computed(() => [
 			:name="t(APP_ID, 'Enable {user} again?', { user: guide.displayName })"
 			:message="t(APP_ID, 'Only do this after you talked to the user another way than by email. They can log in again at once, and they are guided through securing their account.')"
 			:buttons="reenableButtons"
+			size="normal" />
+		<NcDialog
+			v-model:open="confirmLogOut"
+			:name="t(APP_ID, 'Log {user} out everywhere?', { user: guide.displayName })"
+			:message="t(APP_ID, 'Every browser session and app password of the account ends. The user logs in again, and connects their apps again.')"
+			:buttons="logOutButtons"
 			size="normal" />
 	</section>
 </template>

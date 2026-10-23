@@ -89,3 +89,12 @@ export function reenableAccount(detectionId: number): Promise<AccountGuide> {
 export function confirmPasswordReset(detectionId: number): Promise<AccountGuide> {
 	return call<AccountGuide>('post', 'detections/' + detectionId + '/secure-account/password', { data: {}, confirm: true })
 }
+
+/**
+ * End every session and app password of the account a detection is about.
+ *
+ * @param detectionId - A detection about the account
+ */
+export function endAccountSessions(detectionId: number): Promise<{ ended: number }> {
+	return call<{ ended: number }>('post', 'detections/' + detectionId + '/sessions/end', { data: {}, confirm: true })
+}

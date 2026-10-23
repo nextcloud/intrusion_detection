@@ -11,7 +11,7 @@ import type { DetectionList } from '../types.ts'
 import { toValue } from 'vue'
 import { update, usePagedResource, useResource } from '../composables/useResource.ts'
 import { fetchDailyStats, fetchDetection, fetchDetections, lookup } from '../services/api.ts'
-import { confirmPasswordReset, fetchAccountGuide, reenableAccount } from '../services/secureAccount.ts'
+import { confirmPasswordReset, endAccountSessions, fetchAccountGuide, reenableAccount } from '../services/secureAccount.ts'
 import { detectionFilters } from '../store.ts'
 
 /** Detections loaded first and added by each "Show more" */
@@ -107,4 +107,13 @@ export async function reenableLockedAccount(detectionId: number): Promise<void> 
 export async function confirmAccountPasswordReset(detectionId: number): Promise<void> {
 	const guide = await confirmPasswordReset(detectionId)
 	update<AccountGuide>('account-guide:' + detectionId, () => guide)
+}
+
+/**
+ * Log the account of a detection out everywhere.
+ *
+ * @param detectionId - A detection about the account
+ */
+export async function logOutAccountEverywhere(detectionId: number): Promise<void> {
+	await endAccountSessions(detectionId)
 }
