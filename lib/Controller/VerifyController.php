@@ -169,6 +169,7 @@ class VerifyController extends Controller implements ILoginFlowPage {
 		return match ($result) {
 			PendingLoginResult::NotPending => $this->continue($redirect_url),
 			PendingLoginResult::TooManyCodes => $this->again($user, $redirect_url, $this->tooManyCodes()),
+			PendingLoginResult::TooManyWrongCodes => $this->again($user, $redirect_url, $this->tooManyWrongCodes()),
 			PendingLoginResult::CodeSent => $this->again($user, $redirect_url, notice: $this->l->t('A new code was sent to %s. Earlier codes no longer work.', [EmailCodes::mask((string)$user?->getEMailAddress())])),
 			PendingLoginResult::CodeNotSent => $this->again($user, $redirect_url, $this->l->t('The email could not be sent. Try again in a moment, or contact your administrator.')),
 			default => $this->again($user, $redirect_url, $this->l->t('No more codes can be sent for a few minutes. Use the last code you received, or wait and try again.')),
@@ -316,8 +317,11 @@ class VerifyController extends Controller implements ILoginFlowPage {
 		$masked = EmailCodes::mask((string)$user->getEMailAddress());
 		$valid = TextRenderer::duration(EmailCodes::TTL, $this->l);
 		$hasCode = $stepUp->hasMethod(IConfirmationMethod::EMAIL_CODE);
-		$limited = $hasCode && $this->codes->isLimited($user);
-		if ($limited && $stepUp->codeHash === null) {
+		$guessLimited = $hasCode && $this->codes->isGuessLimited($user->getUID());
+		$limited = $guessLimited || ($hasCode && $this->codes->isLimited($user));
+		if ($guessLimited) {
+			$error ??= $this->tooManyWrongCodes();
+		} elseif ($limited && $stepUp->codeHash === null) {
 			$error ??= $this->tooManyCodes();
 		}
 		$because = StepUpPolicy::describeAll($stepUp->policies, $this->l);
@@ -355,6 +359,10 @@ class VerifyController extends Controller implements ILoginFlowPage {
 
 	private function tooManyCodes(): string {
 		return $this->l->t('Too many codes were sent to your email address in the last hour. Wait a while, then send a new one, or use the last code you received.');
+	}
+
+	private function tooManyWrongCodes(): string {
+		return $this->l->t('Too many wrong codes were entered for your account in the last hour. Wait a while, then log in again, or confirm another way.');
 	}
 
 	private function waitingPage(IUser $user, StepUpState $stepUp, string $redirectUrl, ?string $notice = null): StandaloneTemplateResponse {

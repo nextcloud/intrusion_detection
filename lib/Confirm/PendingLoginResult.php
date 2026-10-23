@@ -31,6 +31,8 @@ enum PendingLoginResult {
 	case CodeNotSent;
 	/** The account got too many codes within the hour */
 	case TooManyCodes;
+	/** Too many wrong codes were entered for the account within the hour */
+	case TooManyWrongCodes;
 	/** No new code may be sent for a few minutes */
 	case NoResendYet;
 	case WrongCode;

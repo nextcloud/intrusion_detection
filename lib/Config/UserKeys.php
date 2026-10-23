@@ -25,6 +25,8 @@ final class UserKeys {
 	public const UNTRUSTED_SECOND_FACTORS = 'untrusted_second_factors';
 	/** When the account's recent confirmation codes were sent */
 	public const CODE_MAILS = 'code_mails';
+	/** When wrong confirmation codes were entered for the account, across its logins */
+	public const CODE_WRONG = 'code_wrong';
 	/** Progress through the "Secure my account" checklist */
 	public const SECURE_GUIDE = 'secure_guide';
 	/** When the user was last reminded of app passwords and devices they have not used for 90 days */

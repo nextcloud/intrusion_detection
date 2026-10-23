@@ -82,6 +82,9 @@ class PendingLoginFlow {
 			return PendingLoginResult::NotPending;
 		}
 		$hasCode = $stepUp->hasMethod(IConfirmationMethod::EMAIL_CODE);
+		if ($hasCode && $this->codes->isGuessLimited($user->getUID())) {
+			return PendingLoginResult::TooManyWrongCodes;
+		}
 		if ($hasCode && $this->codes->isLimited($user)) {
 			return PendingLoginResult::TooManyCodes;
 		}

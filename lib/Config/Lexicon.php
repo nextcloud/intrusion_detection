@@ -46,6 +46,7 @@ final class Lexicon implements ILexicon {
 			new Entry(UserKeys::LOGIN_NOTICE_SINCE, ValueType::INT, 0, 'when the oldest security event happened that the user could only be told inside Nextcloud and has not seen at a login yet (0: none)'),
 			new Entry(UserKeys::UNTRUSTED_SECOND_FACTORS, ValueType::ARRAY, [], 'second factors set up from a session whose login proved only the password: provider id => when, or when and until when'),
 			new Entry(UserKeys::CODE_MAILS, ValueType::ARRAY, [], 'when the last confirmation codes were sent to the account, to limit them per hour', lazy: true),
+			new Entry(UserKeys::CODE_WRONG, ValueType::ARRAY, [], 'when wrong confirmation codes were entered for the account, to limit them per hour', lazy: true),
 			new Entry(UserKeys::SECURE_GUIDE, ValueType::STRING, '', 'progress through the "Secure my account" checklist (JSON)', lazy: true),
 			new Entry(UserKeys::STALE_CREDENTIALS_NOTIFIED_AT, ValueType::INT, 0, 'when the user was last reminded of app passwords and devices they have not used for 90 days (0: never)', lazy: true),
 		];

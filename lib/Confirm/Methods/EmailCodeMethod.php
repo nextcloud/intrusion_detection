@@ -45,13 +45,14 @@ class EmailCodeMethod implements IConfirmationMethod {
 	}
 
 	/**
-	 * When the account got too many codes, the login waits without one:
-	 * the verify page says so. Falling through to the next method would
-	 * let whoever caused the codes reach the outcome without a method.
+	 * When the account got too many codes, or too many wrong ones were
+	 * entered, the login waits without one: the verify page says so.
+	 * Falling through to the next method would let whoever caused the
+	 * codes reach the outcome without a method.
 	 */
 	#[\Override]
 	public function begin(IUser $user, StepUpState $state): MethodStart {
-		if ($this->codes->isLimited($user)) {
+		if ($this->codes->isLimited($user) || $this->codes->isGuessLimited($user->getUID())) {
 			return new MethodStart(self::PENDING, $state);
 		}
 		$issued = $this->codes->issue($user, $state);

@@ -185,6 +185,23 @@ class VerifyFlowTest extends StepUpTestCase {
 		$this->assertSame([], $this->mailed);
 	}
 
+	public function testWrongCodesAreCountedForTheAccountAcrossLogins(): void {
+		// Earlier logins, from other addresses, entered wrong codes this hour.
+		Server::get(IUserConfig::class)->setValueArray($this->alice->getUID(), Application::APP_ID, UserKeys::CODE_WRONG, array_fill(0, EmailCodes::MAX_WRONG - 1, time() - 60), lazy: true);
+		$this->pendingLogin();
+		$response = $this->verifyController()->confirm('000000');
+		$this->assertInstanceOf(RedirectResponse::class, $response, 'The account has no tries left this hour');
+		$this->assertStringContainsString('/verify/ended?reason=attempts', $response->getRedirectURL());
+
+		$this->mailed = [];
+		$this->pendingLogin();
+		$this->assertNull($this->stepUp()?->codeHash, 'No code that could not be checked');
+		$this->assertSame([], $this->mailed);
+		$page = $this->verifyController()->show();
+		$this->assertStringContainsString('Too many wrong codes', (string)$this->paramOf($page, 'error'));
+		$this->assertFalse($this->paramOf($page, 'canResend'));
+	}
+
 	public function testALoginThatWaitsTooLongIsEndedWithoutBlockingTheAddress(): void {
 		$this->pendingLogin();
 		$stepUp = $this->stepUp();
