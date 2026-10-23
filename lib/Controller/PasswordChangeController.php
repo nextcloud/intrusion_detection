@@ -137,21 +137,12 @@ class PasswordChangeController extends Controller implements ILoginFlowPage {
 	}
 
 	/**
-	 * Whether this account must still choose a password here. A requirement
-	 * that was lifted meanwhile, or that cannot be met here because the
-	 * password is managed elsewhere, also drops the session's marker.
+	 * Whether this account must still choose a password here. Only reads:
+	 * the session rule drops a stale marker
+	 * ({@see \OCA\IntrusionDetection\SessionState\Rules\PasswordChangeRule}).
 	 */
 	private function stillRequired(IUser $user): bool {
-		if (!$this->passwords->isRequired($user->getUID())) {
-			$this->state->remove(SessionMarkers::PASSWORD_CHANGE);
-			return false;
-		}
-		if (!$user->canChangePassword()) {
-			$this->passwords->external($user);
-			$this->state->remove(SessionMarkers::PASSWORD_CHANGE);
-			return false;
-		}
-		return true;
+		return $this->passwords->isRequired($user->getUID()) && $user->canChangePassword();
 	}
 
 	/**

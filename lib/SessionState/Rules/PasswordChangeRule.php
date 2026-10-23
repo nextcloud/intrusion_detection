@@ -13,12 +13,14 @@ use OCA\IntrusionDetection\AppInfo\Application;
 use OCA\IntrusionDetection\Login\LoginKind;
 use OCA\IntrusionDetection\Login\SessionMarkers;
 use OCA\IntrusionDetection\Response\PasswordChangeFlag;
+use OCA\IntrusionDetection\Response\PasswordChangeService;
 use OCA\IntrusionDetection\SessionState\ISessionStateRule;
 use OCA\IntrusionDetection\SessionState\LoginFlowRoute;
 use OCA\IntrusionDetection\SessionState\RequestTarget;
 use OCA\IntrusionDetection\SessionState\SessionBlock;
 use OCP\IURLGenerator;
 use OCP\IUserSession;
+use Psr\Container\ContainerInterface;
 
 /**
  * While a session must choose a new password (concept section 11.7), it can
@@ -30,7 +32,10 @@ use OCP\IUserSession;
  *
  * The login listener marks the session. A marker whose requirement was
  * lifted meanwhile (password changed elsewhere, an admin cleared it) is
- * dropped; that check reads the database only for marked sessions.
+ * dropped, also on the password page; that check reads the database only
+ * for marked sessions. An account whose password cannot be changed here
+ * (a directory manages it) gets the administrators asked to reset it
+ * there, and its marker dropped: the page itself never changes anything.
  */
 class PasswordChangeRule implements ISessionStateRule {
 	public const ERROR = 'password_change_required';
@@ -45,6 +50,7 @@ class PasswordChangeRule implements ISessionStateRule {
 		private readonly PasswordChangeFlag $flag,
 		private readonly IUserSession $userSession,
 		private readonly IURLGenerator $urlGenerator,
+		private readonly ContainerInterface $container,
 	) {
 	}
 
@@ -67,12 +73,21 @@ class PasswordChangeRule implements ISessionStateRule {
 	#[\Override]
 	public function check(SessionMarkers $state, RequestTarget $target): ?SessionBlock {
 		$marker = $state->get(SessionMarkers::PASSWORD_CHANGE);
-		if ($marker === null || (!$target->dav && self::isExempt($target))) {
+		if ($marker === null) {
 			return null;
 		}
-		$uid = $this->userSession->getUser()?->getUID();
-		if ($uid === null || $uid !== ($marker['uid'] ?? null) || !$this->flag->isRequired($uid)) {
+		$user = $this->userSession->getUser();
+		$uid = $user?->getUID();
+		if ($user === null || $uid !== ($marker['uid'] ?? null) || !$this->flag->isRequired($uid)) {
 			$state->remove(SessionMarkers::PASSWORD_CHANGE);
+			return null;
+		}
+		if (!$user->canChangePassword()) {
+			$this->container->get(PasswordChangeService::class)->external($user);
+			$state->remove(SessionMarkers::PASSWORD_CHANGE);
+			return null;
+		}
+		if (!$target->dav && self::isExempt($target)) {
 			return null;
 		}
 		$redirect = ($marker['mode'] ?? null) === self::MODE_REDIRECT

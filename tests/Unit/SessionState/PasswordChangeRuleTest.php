@@ -53,11 +53,12 @@ class PasswordChangeRuleTest extends TestCase {
 		$this->flag->method('isRequired')->willReturnCallback(fn (): bool => $this->required);
 		$user = $this->createMock(IUser::class);
 		$user->method('getUID')->willReturn('alice');
+		$user->method('canChangePassword')->willReturn(true);
 		$userSession = $this->createMock(IUserSession::class);
 		$userSession->method('getUser')->willReturn($user);
 		$urls = $this->createMock(IURLGenerator::class);
 		$urls->method('linkToRoute')->willReturnCallback(static fn (string $route, array $params): string => '/index.php/apps/intrusion_detection/password?redirect_url=' . rawurlencode((string)$params['redirect_url']));
-		$this->rule = new PasswordChangeRule($this->flag, $userSession, $urls);
+		$this->rule = new PasswordChangeRule($this->flag, $userSession, $urls, $this->createMock(\Psr\Container\ContainerInterface::class));
 	}
 
 	public function testNothingHappensWithoutAMarkerAndNothingIsRead(): void {

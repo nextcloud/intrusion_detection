@@ -76,13 +76,14 @@ class SessionStateMiddlewareTest extends TestCase {
 		$this->flag->method('isRequired')->willReturn(true);
 		$user = $this->createMock(IUser::class);
 		$user->method('getUID')->willReturn('alice');
+		$user->method('canChangePassword')->willReturn(true);
 		$userSession = $this->createMock(IUserSession::class);
 		$userSession->method('getUser')->willReturnCallback(fn (): ?IUser => $this->loggedIn ? $user : null);
 		$userSession->method('isLoggedIn')->willReturnCallback(fn (): bool => $this->loggedIn);
 		$this->userSession = $userSession;
 		$urls = $this->createMock(IURLGenerator::class);
 		$urls->method('linkToRoute')->willReturn('/index.php/apps/intrusion_detection/password?redirect_url=%2Fapps%2Ffiles%2F');
-		$rule = new PasswordChangeRule($this->flag, $userSession, $urls);
+		$rule = new PasswordChangeRule($this->flag, $userSession, $urls, $this->createMock(\Psr\Container\ContainerInterface::class));
 		$container = $this->createMock(ContainerInterface::class);
 		$credentialRule = new CredentialUseRule(new RequestContext(), $this->createMock(ContainerInterface::class));
 		$stepUp = new StepUpRule($userSession, $urls, $this->createMock(ITimeFactory::class), $container, $this->createMock(LoggerInterface::class));

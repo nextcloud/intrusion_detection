@@ -131,7 +131,7 @@ class LoginFlowExemptionsTest extends TestCase {
 				$this->state->set(SessionMarkers::PASSWORD_CHANGE, ['uid' => 'alice', 'mode' => PasswordChangeRule::MODE_REDIRECT, 'since' => self::NOW - 60]);
 				$flag = $this->createMock(PasswordChangeFlag::class);
 				$flag->method('isRequired')->willReturn(true);
-				return new PasswordChangeRule($flag, $this->userSession(), $this->urls());
+				return new PasswordChangeRule($flag, $this->userSession(), $this->urls(), $this->createMock(\Psr\Container\ContainerInterface::class));
 			default:
 				$this->state->set(SessionMarkers::LOGIN_NOTICE, ['uid' => 'alice', 'since' => self::NOW - 60]);
 				$request = $this->createMock(IRequest::class);
@@ -172,6 +172,7 @@ class LoginFlowExemptionsTest extends TestCase {
 	private function userSession(): IUserSession {
 		$user = $this->createMock(IUser::class);
 		$user->method('getUID')->willReturn('alice');
+		$user->method('canChangePassword')->willReturn(true);
 		$userSession = $this->createMock(IUserSession::class);
 		$userSession->method('getUser')->willReturn($user);
 		return $userSession;

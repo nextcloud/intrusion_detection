@@ -20,6 +20,7 @@ use OCA\IntrusionDetection\Login\SessionMarkers;
 use OCA\IntrusionDetection\Notification\AdminNotices;
 use OCA\IntrusionDetection\Response\PasswordChangeFlag;
 use OCA\IntrusionDetection\Response\PasswordChangeService;
+use OCA\IntrusionDetection\SessionState\RequestTarget;
 use OCA\IntrusionDetection\SessionState\Rules\PasswordChangeRule;
 use OCA\IntrusionDetection\Tests\BasicAuthServer;
 use OCA\IntrusionDetection\Tests\LoginSteps;
@@ -184,7 +185,28 @@ class PasswordChangeTest extends AccountTestCase {
 		$response = $this->controller()->show('/apps/files/');
 		$this->assertInstanceOf(RedirectResponse::class, $response);
 		$this->assertStringEndsWith('/apps/files/', $response->getRedirectURL());
-		$this->assertTrue($this->state->isEmpty(), 'A stale marker is dropped');
+		$this->assertFalse($this->state->isEmpty(), 'Showing the page changes nothing');
+
+		$this->assertNull($this->rule()->check($this->state, RequestTarget::app($this->controller(), 'show', 'GET', '/index.php/apps/intrusion_detection/password')));
+		$this->assertTrue($this->state->isEmpty(), 'The session rule drops a stale marker');
+	}
+
+	public function testAPasswordManagedElsewhereIsReportedByTheSessionRuleNotByThePage(): void {
+		$this->flag->set('ldap-carol');
+		$external = $this->createMock(IUser::class);
+		$external->method('getUID')->willReturn('ldap-carol');
+		$external->method('canChangePassword')->willReturn(false);
+		$this->sessionUser = $external;
+		$this->state->set(SessionMarkers::PASSWORD_CHANGE, ['uid' => 'ldap-carol', 'mode' => PasswordChangeRule::MODE_REDIRECT]);
+
+		$this->assertInstanceOf(RedirectResponse::class, $this->controller()->show());
+		$this->assertTrue($this->flag->isRequired('ldap-carol'), 'The page only reads');
+		$this->assertSame([], $this->notificationsFor('admin', AdminNotices::SUBJECT_PASSWORD_EXTERNAL));
+
+		$this->assertNull($this->rule()->check($this->state, RequestTarget::dav('PROPFIND', '/remote.php/dav/files/ldap-carol/')));
+		$this->assertFalse($this->flag->isRequired('ldap-carol'));
+		$this->assertTrue($this->state->isEmpty());
+		$this->assertCount(1, $this->notificationsFor('admin', AdminNotices::SUBJECT_PASSWORD_EXTERNAL));
 	}
 
 	public function testAWrongCurrentPasswordIsThrottled(): void {
@@ -307,6 +329,10 @@ class PasswordChangeTest extends AccountTestCase {
 			Server::get(IFactory::class)->get(Application::APP_ID, 'en'),
 			Server::get(LocalRedirect::class),
 		);
+	}
+
+	private function rule(): PasswordChangeRule {
+		return new PasswordChangeRule($this->flag, $this->userSession, Server::get(IURLGenerator::class), new OverridingContainer([PasswordChangeService::class => $this->passwords]));
 	}
 
 	private function errorOf(\OCP\AppFramework\Http\Response $response): ?string {
