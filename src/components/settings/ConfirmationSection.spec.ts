@@ -174,7 +174,7 @@ describe('the login confirmation section', () => {
 		state.settings.push(setting('admin_trusted_networks_only', 'bool', false), { ...setting('risky_network_office_networks', 'cidr_list', []), label: 'Trusted networks (office, VPN)', group: 'risky_network' })
 		vi.mocked(updateSettings).mockResolvedValue({ settings: [...state.settings.filter((s) => s.name !== 'admin_trusted_networks_only'), setting('admin_trusted_networks_only', 'bool', true)], templates: {} })
 		const wrapper = await mountTab()
-		expect(wrapper.get('[data-test="admin-networks"]').text()).toContain('Administrators log in from trusted networks only')
+		expect(wrapper.get('[data-test="admin-networks"]').text()).toContain('Administrators log in with their password from trusted networks only')
 		expect(wrapper.find('[data-test="admin-networks-details"]').exists()).toBe(false)
 
 		await wrapper.get('[data-test="admin-networks"] input').setValue(true)

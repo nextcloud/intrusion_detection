@@ -158,9 +158,9 @@ async function showReasons() {
 							:modelValue="adminNetworksOn"
 							:loading="busy === ADMIN_NETWORKS"
 							:disabled="busy !== null"
-							:description="t(APP_ID, 'Password logins of administrators from anywhere else need a second factor, an email code or another administrator\'s approval; a remembered device is not enough. Apps with app passwords are not affected.')"
+							:description="t(APP_ID, 'From anywhere else, an administrator\'s password login needs the second factor or another administrator\'s approval, and only without both an email code; a remembered device is not enough. A browser session let in from a trusted network ends when it is used elsewhere. Apps with app passwords and single sign-on are not affected.')"
 							@update:modelValue="toggle(ADMIN_NETWORKS, $event)">
-							{{ t(APP_ID, 'Administrators log in from trusted networks only') }}
+							{{ t(APP_ID, 'Administrators log in with their password from trusted networks only') }}
 						</NcCheckboxRadioSwitch>
 					</div>
 					<div v-if="adminNetworksOn" :class="$style.networks" data-test="admin-networks-details">

@@ -246,8 +246,8 @@ class GlobalSettingsPresenter {
 				$l->t('Your own networks and VPN, as addresses or ranges such as 203.0.113.0/24. Logins from them never count as risky, they lower the risk score, and administrators may log in from them when "Administrators log in from trusted networks only" is on.'),
 			), self::GROUP_RISKY_NETWORK],
 			GlobalSettings::ADMIN_TRUSTED_NETWORKS_ONLY => [new ParamText(
-				$l->t('Administrators log in from trusted networks only'),
-				$l->t('A password login of an administrator (the admin group or delegated administration) from outside the trusted networks must be confirmed with a second factor, an email code or, when it is on, another administrator\'s approval; a remembered device is not enough. Apps that send the password cannot confirm, so they are refused. For an account without any way to confirm, your choice for risky logins that cannot be confirmed decides. Apps with app passwords are not affected. Locked out? Run "occ config:app:set intrusion_detection admin_trusted_networks_only --value=false" on the server.'),
+				$l->t('Administrators log in with their password from trusted networks only'),
+				$l->t('A password login of an administrator (the admin group or delegated administration) from outside the trusted networks must be confirmed with a second factor or, when it is on, another administrator\'s approval, and only without both with an email code; a remembered device is not enough. A browser session let in from a trusted network ends when it is used elsewhere, and an account made administrator logs in again. Apps that send the password cannot confirm, so they are refused. For an account without any way to confirm, your choice for risky logins that cannot be confirmed decides. Apps with app passwords and single sign-on are not affected. Locked out? Run "occ config:app:set intrusion_detection admin_trusted_networks_only --value=false" on the server.'),
 			), self::GROUP_STEP_UP],
 			GlobalSettings::RISKY_NETWORK_EXEMPT_GROUPS => [new ParamText(
 				$l->t('Exempt groups'),
