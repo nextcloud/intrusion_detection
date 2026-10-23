@@ -11,6 +11,7 @@ namespace OCA\IntrusionDetection\Tests\Unit\Confirm;
 
 use OCA\IntrusionDetection\AdminChange\DelegatedGroups;
 use OCA\IntrusionDetection\Config\AppSettings;
+use OCA\IntrusionDetection\Confirm\Administrators;
 use OCA\IntrusionDetection\Confirm\Reasons\AdminOutsideNetworksReason;
 use OCA\IntrusionDetection\Confirm\StepUpPolicy;
 use OCA\IntrusionDetection\Confirm\StepUpReasons;
@@ -104,7 +105,7 @@ class AdminOutsideNetworksReasonTest extends TestCase {
 	}
 
 	private function reason(): AdminOutsideNetworksReason {
-		return new AdminOutsideNetworksReason($this->settings, $this->groups, $this->delegated);
+		return new AdminOutsideNetworksReason($this->settings, new Administrators($this->groups, $this->delegated));
 	}
 
 	private function login(?string $ip): LoginContext {

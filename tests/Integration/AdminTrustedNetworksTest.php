@@ -16,6 +16,7 @@ use OCA\IntrusionDetection\AppInfo\Application;
 use OCA\IntrusionDetection\Check\Checks\StepUpRefused\StepUpRefused;
 use OCA\IntrusionDetection\Check\Checks\StepUpRefusedClient\StepUpRefusedClient;
 use OCA\IntrusionDetection\Config\GlobalSettings;
+use OCA\IntrusionDetection\Confirm\Administrators;
 use OCA\IntrusionDetection\Confirm\ConfirmationStatus;
 use OCA\IntrusionDetection\Confirm\IConfirmationMethod;
 use OCA\IntrusionDetection\Confirm\Reasons\AdminOutsideNetworksReason;
@@ -74,8 +75,7 @@ class AdminTrustedNetworksTest extends StepUpTestCase {
 		return new StepUpReasons(new OverridingContainer([
 			AdminOutsideNetworksReason::class => new AdminOutsideNetworksReason(
 				$this->appSettings(),
-				Server::get(IGroupManager::class),
-				new DelegatedGroups(Server::get(AuthorizedGroupMapper::class), Server::get(LoggerInterface::class)),
+				new Administrators(Server::get(IGroupManager::class), new DelegatedGroups(Server::get(AuthorizedGroupMapper::class), Server::get(LoggerInterface::class))),
 			),
 		]), Server::get(LoggerInterface::class));
 	}
@@ -88,6 +88,30 @@ class AdminTrustedNetworksTest extends StepUpTestCase {
 		$this->assertSame([StepUpPolicy::AdminOutsideNetworks->value], $stepUp->policies);
 		$this->assertSame([IConfirmationMethod::EMAIL_CODE], $stepUp->methods);
 		$this->assertSame('482915', $this->lastCode($this->admin->getUID()));
+	}
+
+	public function testAnAdministratorWhomAnotherCanApproveIsNotAskedForAnEmailCode(): void {
+		$this->settingsEditor()->setGlobal(GlobalSettings::STEP_UP_ADMIN_APPROVAL, true);
+		$this->login($this->admin);
+
+		$this->assertSame([IConfirmationMethod::ADMIN_APPROVAL], $this->stepUp()?->methods, 'An administrator\'s mailbox is no second factor');
+		$this->assertNull($this->lastCode($this->admin->getUID()));
+	}
+
+	public function testAnAdministratorWithASecondFactorIsNeverOfferedAnEmailCode(): void {
+		$this->hasSecondFactor = true;
+		$this->login($this->admin);
+		$stepUp = $this->stepUp();
+		$this->assertNotNull($stepUp);
+
+		$this->assertSame([IConfirmationMethod::SECOND_FACTOR], array_map(static fn (IConfirmationMethod $m): string => $m->id(), $this->policy()->methodsForAll($this->admin, [StepUpPolicy::AdminOutsideNetworks])));
+		$this->assertSame([], $this->mailed);
+	}
+
+	public function testOtherAccountsKeepTheEmailCodeNextToAnApproval(): void {
+		$this->settingsEditor()->setGlobal(GlobalSettings::STEP_UP_ADMIN_APPROVAL, true);
+		$bob = $this->user('ids-adminnet-user', 'bob@example.com');
+		$this->assertSame([IConfirmationMethod::EMAIL_CODE, IConfirmationMethod::ADMIN_APPROVAL], array_map(static fn (IConfirmationMethod $m): string => $m->id(), $this->policy()->methodsForAll($bob, [StepUpPolicy::ProtectedAccount])));
 	}
 
 	public function testTheConfirmationPageSaysWhy(): void {

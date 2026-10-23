@@ -15,6 +15,7 @@ use OCA\IntrusionDetection\AdminChange\Approvers;
 use OCA\IntrusionDetection\Config\AppSettings;
 use OCA\IntrusionDetection\Config\GlobalSettings;
 use OCA\IntrusionDetection\Confirm\AccountMethods;
+use OCA\IntrusionDetection\Confirm\Administrators;
 use OCA\IntrusionDetection\Confirm\ConfirmationPolicy;
 use OCA\IntrusionDetection\Confirm\ConfirmationStatus;
 use OCA\IntrusionDetection\Confirm\EmailCodes;
@@ -195,7 +196,7 @@ class ConfirmationOrderTest extends TestCase {
 		$this->assertSame(array_keys($methods), ConfirmationPolicy::METHODS, 'The order of concept section 11.5');
 		$container = $this->createMock(ContainerInterface::class);
 		$container->method('get')->willReturnCallback(static fn (string $id): object => $methods[$id]);
-		return new ConfirmationPolicy($this->settings(), $container, $this->createMock(LoggerInterface::class));
+		return new ConfirmationPolicy($this->settings(), $container, $this->createMock(LoggerInterface::class), $this->administrators());
 	}
 
 	private function secondFactorMethod(): SecondFactorMethod {
@@ -264,5 +265,11 @@ class ConfirmationOrderTest extends TestCase {
 	 */
 	private function ids(array $methods): array {
 		return array_map(static fn (IConfirmationMethod $m): string => $m->id(), $methods);
+	}
+
+	private function administrators(): Administrators {
+		$administrators = $this->createMock(Administrators::class);
+		$administrators->method('isAdministrator')->willReturn(false);
+		return $administrators;
 	}
 }

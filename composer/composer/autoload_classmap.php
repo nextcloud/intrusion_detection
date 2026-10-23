@@ -239,6 +239,7 @@ return array(
     'OCA\\IntrusionDetection\\Configure\\SettingsEditor' => $baseDir . '/../lib/Configure/SettingsEditor.php',
     'OCA\\IntrusionDetection\\Confirm\\AbandonedLogins' => $baseDir . '/../lib/Confirm/AbandonedLogins.php',
     'OCA\\IntrusionDetection\\Confirm\\AccountMethods' => $baseDir . '/../lib/Confirm/AccountMethods.php',
+    'OCA\\IntrusionDetection\\Confirm\\Administrators' => $baseDir . '/../lib/Confirm/Administrators.php',
     'OCA\\IntrusionDetection\\Confirm\\ConfirmationCoverage' => $baseDir . '/../lib/Confirm/ConfirmationCoverage.php',
     'OCA\\IntrusionDetection\\Confirm\\ConfirmationPolicy' => $baseDir . '/../lib/Confirm/ConfirmationPolicy.php',
     'OCA\\IntrusionDetection\\Confirm\\ConfirmationStatus' => $baseDir . '/../lib/Confirm/ConfirmationStatus.php',

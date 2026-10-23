@@ -15,6 +15,7 @@ use OCA\IntrusionDetection\AdminChange\Approvers;
 use OCA\IntrusionDetection\Cache\Caches;
 use OCA\IntrusionDetection\Config\AppSettings;
 use OCA\IntrusionDetection\Confirm\AccountMethods;
+use OCA\IntrusionDetection\Confirm\Administrators;
 use OCA\IntrusionDetection\Confirm\ConfirmationCoverage;
 use OCA\IntrusionDetection\Confirm\ConfirmationPolicy;
 use OCA\IntrusionDetection\Confirm\ConfirmationStatus;
@@ -155,7 +156,7 @@ class ConfirmationMethodsMatrixTest extends TestCase {
 			AdminApprovalMethod::class => new AdminApprovalMethod($this->createMock(ApprovalService::class), $this->createMock(ApprovalMapper::class), $this->approvers(), $settings, $this->createMock(ITimeFactory::class)),
 			default => throw new \LogicException($class),
 		});
-		return new ConfirmationPolicy($settings, $container, $this->createMock(LoggerInterface::class));
+		return new ConfirmationPolicy($settings, $container, $this->createMock(LoggerInterface::class), $this->administrators());
 	}
 
 	private function challenges(): IChallengeRequester {
@@ -237,5 +238,11 @@ class ConfirmationMethodsMatrixTest extends TestCase {
 			$this->createMock(ITimeFactory::class),
 			$this->createMock(AppState::class),
 		);
+	}
+
+	private function administrators(): Administrators {
+		$administrators = $this->createMock(Administrators::class);
+		$administrators->method('isAdministrator')->willReturn(false);
+		return $administrators;
 	}
 }

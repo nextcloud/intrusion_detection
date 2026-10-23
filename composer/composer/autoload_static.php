@@ -254,6 +254,7 @@ class ComposerStaticInitIntrusionDetection
         'OCA\\IntrusionDetection\\Configure\\SettingsEditor' => __DIR__ . '/..' . '/../lib/Configure/SettingsEditor.php',
         'OCA\\IntrusionDetection\\Confirm\\AbandonedLogins' => __DIR__ . '/..' . '/../lib/Confirm/AbandonedLogins.php',
         'OCA\\IntrusionDetection\\Confirm\\AccountMethods' => __DIR__ . '/..' . '/../lib/Confirm/AccountMethods.php',
+        'OCA\\IntrusionDetection\\Confirm\\Administrators' => __DIR__ . '/..' . '/../lib/Confirm/Administrators.php',
         'OCA\\IntrusionDetection\\Confirm\\ConfirmationCoverage' => __DIR__ . '/..' . '/../lib/Confirm/ConfirmationCoverage.php',
         'OCA\\IntrusionDetection\\Confirm\\ConfirmationPolicy' => __DIR__ . '/..' . '/../lib/Confirm/ConfirmationPolicy.php',
         'OCA\\IntrusionDetection\\Confirm\\ConfirmationStatus' => __DIR__ . '/..' . '/../lib/Confirm/ConfirmationStatus.php',

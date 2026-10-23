@@ -17,6 +17,7 @@ use OCA\IntrusionDetection\Audit\AuditLogger;
 use OCA\IntrusionDetection\Cache\Caches;
 use OCA\IntrusionDetection\Config\PurgeRetention;
 use OCA\IntrusionDetection\Confirm\AccountMethods;
+use OCA\IntrusionDetection\Confirm\Administrators;
 use OCA\IntrusionDetection\Confirm\ConfirmationPolicy;
 use OCA\IntrusionDetection\Confirm\Db\StepUpSessionMapper;
 use OCA\IntrusionDetection\Confirm\EmailCodes;
@@ -288,7 +289,7 @@ abstract class StepUpTestCase extends AccountTestCase {
 				$this->appSettings(),
 				Server::get(ITimeFactory::class),
 			),
-		]), Server::get(LoggerInterface::class));
+		]), Server::get(LoggerInterface::class), Server::get(Administrators::class));
 	}
 
 	/**

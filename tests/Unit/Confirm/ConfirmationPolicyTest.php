@@ -12,6 +12,7 @@ namespace OCA\IntrusionDetection\Tests\Unit\Confirm;
 use OC\Authentication\TwoFactorAuth\ProviderLoader;
 use OCA\IntrusionDetection\Config\AppSettings;
 use OCA\IntrusionDetection\Confirm\AccountMethods;
+use OCA\IntrusionDetection\Confirm\Administrators;
 use OCA\IntrusionDetection\Confirm\ConfirmationPolicy;
 use OCA\IntrusionDetection\Confirm\ConfirmationStatus;
 use OCA\IntrusionDetection\Confirm\EmailCodes;
@@ -207,7 +208,9 @@ class ConfirmationPolicyTest extends TestCase {
 		}
 		$container = $this->createMock(ContainerInterface::class);
 		$container->method('get')->willReturnCallback(static fn (string $id): object => $byClass[$id]);
-		return new class(array_keys($byClass), $settings, $container, $this->createMock(LoggerInterface::class)) extends ConfirmationPolicy {
+		$administrators = $this->createMock(Administrators::class);
+		$administrators->method('isAdministrator')->willReturn(false);
+		return new class(array_keys($byClass), $settings, $container, $this->createMock(LoggerInterface::class), $administrators) extends ConfirmationPolicy {
 			/**
 			 * @param list<string> $list
 			 */
@@ -216,8 +219,9 @@ class ConfirmationPolicyTest extends TestCase {
 				AppSettings $settings,
 				ContainerInterface $container,
 				LoggerInterface $logger,
+				Administrators $administrators,
 			) {
-				parent::__construct($settings, $container, $logger);
+				parent::__construct($settings, $container, $logger, $administrators);
 			}
 
 			protected function classes(): array {
