@@ -60,6 +60,18 @@ class SessionStateRulesTest extends TestCase {
 		$this->assertNull($this->rules([PasswordChangeRule::class => $broken], [PasswordChangeRule::class])->check($this->state, RequestTarget::dav('GET', '/')));
 	}
 
+	public function testEveryRuleSaysWhatItLooksAt(): void {
+		$this->assertSame(SessionStateRules::RULES, array_keys(SessionStateRules::LOOKS_AT));
+	}
+
+	public function testAMarkerNoRuleLooksAtBuildsNoRule(): void {
+		$this->state->set(SessionMarkers::PROOF, ['uid' => 'alice', 'by' => 'second_factor', 'at' => 1]);
+		$container = $this->createMock(ContainerInterface::class);
+		$container->expects($this->never())->method('get');
+		$rules = new SessionStateRules($container, $this->createMock(LoggerInterface::class), new \OCA\IntrusionDetection\Login\RequestContext(), $this->createMock(\OCP\IRequest::class));
+		$this->assertNull($rules->check($this->state, RequestTarget::dav('PUT', '/remote.php/dav/files/alice/a.txt')));
+	}
+
 	private function pending(): void {
 		$this->state->set(SessionMarkers::STEP_UP, (new StepUpState('alice', StepUpState::PENDING, ['flagged_source'], 1, 2))->toArray());
 	}

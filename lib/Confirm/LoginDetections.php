@@ -11,8 +11,8 @@ namespace OCA\IntrusionDetection\Confirm;
 
 use OCA\IntrusionDetection\Db\DetectionMapper;
 use OCA\IntrusionDetection\Detection\CommonFacts;
-use OCA\IntrusionDetection\Login\CoreSession;
 use OCA\IntrusionDetection\Login\SessionMarkers;
+use OCA\IntrusionDetection\Login\SessionTokenLinker;
 use OCP\AppFramework\Db\DoesNotExistException;
 use Psr\Log\LoggerInterface;
 
@@ -20,7 +20,7 @@ use Psr\Log\LoggerInterface;
  * Links detections recorded during a login to the session the login
  * created. Core creates the session token only after the login event, so
  * the detection ids wait in the session ({@see SessionMarkers::LOGIN_DETECTIONS})
- * until its first request, when the token exists. A linked detection knows
+ * until its first request, when the token exists ({@see SessionTokenLinker}). A linked detection knows
  * its session: "No, it was not me" ends it, and "Yes, it was me" is refused
  * from it.
  */
@@ -33,7 +33,7 @@ class LoginDetections {
 	public function __construct(
 		private readonly SessionMarkers $state,
 		private readonly DetectionMapper $detections,
-		private readonly CoreSession $coreSession,
+		private readonly SessionTokenLinker $linker,
 		private readonly LoggerInterface $logger,
 	) {
 	}
@@ -55,14 +55,17 @@ class LoginDetections {
 
 	/**
 	 * Link the waiting detections to the current session token, once.
-	 *
+	 */
+	public function linkSession(?string $currentUid): void {
+		$this->linker->link(SessionMarkers::LOGIN_DETECTIONS, $currentUid, $this->linkToken(...));
+	}
+
+	/**
 	 * @param array<string, mixed> $waiting
 	 */
-	public function link(array $waiting, ?string $currentUid): void {
-		$this->state->remove(SessionMarkers::LOGIN_DETECTIONS);
-		$uid = $waiting['uid'] ?? null;
-		$tokenId = $this->coreSession->tokenId();
-		if (!is_string($uid) || $uid !== $currentUid || $tokenId === null || !is_array($waiting['ids'] ?? null)) {
+	private function linkToken(array $waiting, int $tokenId): void {
+		$uid = $waiting['uid'];
+		if (!is_array($waiting['ids'] ?? null)) {
 			return;
 		}
 		foreach (array_slice($waiting['ids'], 0, self::MAX) as $id) {

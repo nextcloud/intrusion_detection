@@ -21,6 +21,7 @@ use OCA\IntrusionDetection\SessionState\Rules\CredentialUseRule;
 use OCA\IntrusionDetection\SessionState\Rules\PasswordChangeRule;
 use OCA\IntrusionDetection\SessionState\Rules\StepUpRule;
 use OCA\IntrusionDetection\SessionState\SessionBlock;
+use OCA\IntrusionDetection\SessionState\SessionGate;
 use OCA\IntrusionDetection\SessionState\SessionStateRules;
 use OCP\AppFramework\Controller;
 use OCP\AppFramework\Http\DataResponse;
@@ -170,7 +171,7 @@ class SessionStateMiddlewareTest extends TestCase {
 
 	public function testWebDavGetsForbiddenWithAHeader(): void {
 		$this->mark(PasswordChangeRule::MODE_REDIRECT);
-		$plugin = new SessionStatePlugin($this->rules, $this->state, $this->userSession, $this->createMock(LoggerInterface::class));
+		$plugin = new SessionStatePlugin(new SessionGate($this->rules, $this->state, $this->userSession, $this->request, $this->createMock(LoggerInterface::class)));
 		$request = $this->createMock(RequestInterface::class);
 		$request->method('getMethod')->willReturn('PROPFIND');
 		$request->method('getUrl')->willReturn('/remote.php/dav/files/alice/');
@@ -186,7 +187,7 @@ class SessionStateMiddlewareTest extends TestCase {
 	}
 
 	public function testWebDavWithNothingPendingPasses(): void {
-		$plugin = new SessionStatePlugin($this->rules, $this->state, $this->userSession, $this->createMock(LoggerInterface::class));
+		$plugin = new SessionStatePlugin(new SessionGate($this->rules, $this->state, $this->userSession, $this->request, $this->createMock(LoggerInterface::class)));
 		$request = $this->createMock(RequestInterface::class);
 		$request->method('getMethod')->willReturn('PROPFIND');
 		$request->method('getUrl')->willReturn('/remote.php/dav/files/alice/');
@@ -242,7 +243,7 @@ class SessionStateMiddlewareTest extends TestCase {
 	}
 
 	private function middleware(): SessionStateMiddleware {
-		return new SessionStateMiddleware($this->rules, $this->state, $this->userSession, $this->request, $this->createMock(LoggerInterface::class));
+		return new SessionStateMiddleware(new SessionGate($this->rules, $this->state, $this->userSession, $this->request, $this->createMock(LoggerInterface::class)), $this->request);
 	}
 
 	private function controller(): Controller {

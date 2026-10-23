@@ -16,6 +16,7 @@ use OCA\IntrusionDetection\Middleware\SessionStateMiddleware;
 use OCA\IntrusionDetection\SessionState\ISessionStateRule;
 use OCA\IntrusionDetection\SessionState\RequestTarget;
 use OCA\IntrusionDetection\SessionState\SessionBlock;
+use OCA\IntrusionDetection\SessionState\SessionGate;
 use OCA\IntrusionDetection\SessionState\SessionStateRules;
 use OCP\AppFramework\Controller;
 use OCP\AppFramework\Http;
@@ -105,7 +106,7 @@ class RateLimitAnswerTest extends TestCase {
 	public function testWebDavGets429WithoutAnExceptionToLog(): void {
 		$userSession = $this->createMock(IUserSession::class);
 		$userSession->method('isLoggedIn')->willReturn(true);
-		$plugin = new SessionStatePlugin($this->rules, new SessionMarkers($this->createMock(ISession::class), $this->createMock(LoggerInterface::class)), $userSession, $this->createMock(LoggerInterface::class));
+		$plugin = new SessionStatePlugin(new SessionGate($this->rules, new SessionMarkers($this->createMock(ISession::class), $this->createMock(LoggerInterface::class)), $userSession, $this->createMock(IRequest::class), $this->createMock(LoggerInterface::class)));
 		$request = $this->createMock(RequestInterface::class);
 		$request->method('getMethod')->willReturn('REPORT');
 		$request->method('getUrl')->willReturn('/remote.php/dav/principals/users/');
@@ -133,11 +134,8 @@ class RateLimitAnswerTest extends TestCase {
 		$userSession = $this->createMock(IUserSession::class);
 		$userSession->method('isLoggedIn')->willReturn(true);
 		return new SessionStateMiddleware(
-			$this->rules,
-			new SessionMarkers($this->createMock(ISession::class), $this->createMock(LoggerInterface::class)),
-			$userSession,
+			new SessionGate($this->rules, new SessionMarkers($this->createMock(ISession::class), $this->createMock(LoggerInterface::class)), $userSession, $request, $this->createMock(LoggerInterface::class)),
 			$request,
-			$this->createMock(LoggerInterface::class),
 		);
 	}
 }

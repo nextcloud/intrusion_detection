@@ -44,7 +44,7 @@ class LoginHistoryRule implements ISessionStateRule {
 			return null;
 		}
 		try {
-			$this->container->get(LoginHistory::class)->link($marker, $this->userSession->getUser()?->getUID());
+			$this->container->get(LoginHistory::class)->linkSession($this->userSession->getUser()?->getUID());
 		} catch (\Throwable $e) {
 			$this->logger->error('Intrusion detection could not link a login to its session', ['exception' => $e]);
 		}

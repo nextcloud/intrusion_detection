@@ -53,6 +53,7 @@ use OCA\IntrusionDetection\Listener\LoginListener;
 use OCA\IntrusionDetection\Login\LoginGate;
 use OCA\IntrusionDetection\Login\RequestContext;
 use OCA\IntrusionDetection\Login\SessionMarkers;
+use OCA\IntrusionDetection\Login\SessionTokenLinker;
 use OCA\IntrusionDetection\LoginHistory\Db\LoginHistoryMapper;
 use OCA\IntrusionDetection\LoginHistory\LoginHistory;
 use OCA\IntrusionDetection\Net\RemoteAddressResolver;
@@ -318,6 +319,7 @@ abstract class StepUpTestCase extends AccountTestCase {
 			Server::get(LoginHistoryMapper::class),
 			$this->state,
 			$this->coreSession,
+			new SessionTokenLinker($this->state, $this->coreSession),
 			Server::get(ITimeFactory::class),
 			$this->appSettings(),
 		);
@@ -371,7 +373,7 @@ abstract class StepUpTestCase extends AccountTestCase {
 	}
 
 	protected function linker(): LoginDetections {
-		return new LoginDetections($this->state, Server::get(DetectionMapper::class), $this->coreSession, Server::get(LoggerInterface::class));
+		return new LoginDetections($this->state, Server::get(DetectionMapper::class), new SessionTokenLinker($this->state, $this->coreSession), Server::get(LoggerInterface::class));
 	}
 
 	protected function rule(): StepUpRule {

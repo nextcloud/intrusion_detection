@@ -13,6 +13,8 @@ use OCA\IntrusionDetection\AppInfo\Application;
 use OCA\IntrusionDetection\Db\Detection;
 use OCA\IntrusionDetection\Http\LocalRedirect;
 use OCA\IntrusionDetection\Notification\LoginNotices;
+use OCA\IntrusionDetection\SessionState\ILoginFlowPage;
+use OCA\IntrusionDetection\SessionState\LoginFlowRoute;
 use OCA\IntrusionDetection\WasThisYou\AnswerException;
 use OCA\IntrusionDetection\WasThisYou\PersonalDetections;
 use OCA\IntrusionDetection\WasThisYou\WasThisYouService;
@@ -47,7 +49,7 @@ use OCP\Util;
  * change is a CSRF-protected POST, rate limited per user.
  */
 #[OpenAPI(scope: OpenAPI::SCOPE_IGNORE)]
-class NoticeController extends Controller {
+class NoticeController extends Controller implements ILoginFlowPage {
 	public const TEMPLATE = 'notice';
 	/** At most this many events are shown */
 	public const MAX = 20;
@@ -65,6 +67,11 @@ class NoticeController extends Controller {
 		private readonly IL10N $l,
 	) {
 		parent::__construct(Application::APP_ID, $request);
+	}
+
+	#[\Override]
+	public static function loginFlowRoute(): LoginFlowRoute {
+		return LoginFlowRoute::Notice;
 	}
 
 	#[NoAdminRequired]

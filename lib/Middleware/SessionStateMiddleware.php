@@ -9,10 +9,9 @@ declare(strict_types=1);
 
 namespace OCA\IntrusionDetection\Middleware;
 
-use OCA\IntrusionDetection\Login\SessionMarkers;
 use OCA\IntrusionDetection\SessionState\RequestTarget;
 use OCA\IntrusionDetection\SessionState\SessionBlock;
-use OCA\IntrusionDetection\SessionState\SessionStateRules;
+use OCA\IntrusionDetection\SessionState\SessionGate;
 use OCP\AppFramework\Controller;
 use OCP\AppFramework\Http;
 use OCP\AppFramework\Http\JSONResponse;
@@ -23,12 +22,10 @@ use OCP\AppFramework\Middleware;
 use OCP\AppFramework\OCS\OCSException;
 use OCP\AppFramework\OCSController;
 use OCP\IRequest;
-use OCP\IUserSession;
-use Psr\Log\LoggerInterface;
 
 /**
- * Applies the session-state rules ({@see SessionStateRules}) to every
- * AppFramework request of a logged-in user, in every app.
+ * Applies the session gate ({@see SessionGate}) to every AppFramework
+ * request of a logged-in user, in every app.
  *
  * It is registered as a global middleware, so it runs after core's
  * security and two-factor middlewares: a login that still needs its second
@@ -40,33 +37,21 @@ use Psr\Log\LoggerInterface;
  *
  * The middleware is built for every AppFramework request, so it only takes
  * light dependencies, and does nothing but one session read while no rule
- * applies. A failure lets the request pass.
+ * applies.
  */
 class SessionStateMiddleware extends Middleware {
 	/** Seconds for the Retry-After header of a rate-limited OCS answer, which core's OCS middleware builds */
 	private ?int $retryAfter = null;
 
 	public function __construct(
-		private readonly SessionStateRules $rules,
-		private readonly SessionMarkers $state,
-		private readonly IUserSession $userSession,
+		private readonly SessionGate $gate,
 		private readonly IRequest $request,
-		private readonly LoggerInterface $logger,
 	) {
 	}
 
 	#[\Override]
 	public function beforeController(Controller $controller, string $methodName): void {
-		try {
-			if (!$this->userSession->isLoggedIn()) {
-				return;
-			}
-			$target = RequestTarget::app($controller, $methodName, $this->request->getMethod(), $this->request->getRequestUri());
-			$block = $this->rules->check($this->state, $target);
-		} catch (\Throwable $e) {
-			$this->logger->error('Intrusion detection could not check the session state', ['exception' => $e]);
-			return;
-		}
+		$block = $this->gate->decide($controller, $methodName);
 		if ($block !== null) {
 			throw new SessionBlockedException($block);
 		}
@@ -79,13 +64,13 @@ class SessionStateMiddleware extends Middleware {
 		}
 		$block = $exception->block;
 		if ($block->isRateLimit()) {
-			return $this->rateLimited($controller, $block);
+			return $this->rateLimited($controller, $methodName, $block);
 		}
 		if ($controller instanceof OCSController) {
 			// Core's OCS middleware turns this into an OCS 403 that carries the message.
 			return new JSONResponse(['message' => $block->error], Http::STATUS_FORBIDDEN);
 		}
-		if ($block->redirectUrl !== null && $this->isPageNavigation()) {
+		if ($block->redirectUrl !== null && $this->isPageNavigation($controller, $methodName)) {
 			return new RedirectResponse($block->redirectUrl);
 		}
 		return new JSONResponse(['error' => $block->error], Http::STATUS_FORBIDDEN);
@@ -102,25 +87,19 @@ class SessionStateMiddleware extends Middleware {
 	/**
 	 * @throws OCSException for OCS controllers, which core's OCS middleware turns into an OCS 429
 	 */
-	private function rateLimited(Controller $controller, SessionBlock $block): Response {
+	private function rateLimited(Controller $controller, string $methodName, SessionBlock $block): Response {
 		$this->retryAfter = $block->retryAfter;
 		if ($controller instanceof OCSController) {
 			throw new OCSException($block->message, Http::STATUS_TOO_MANY_REQUESTS);
 		}
-		$response = $this->isPageNavigation()
+		$response = $this->isPageNavigation($controller, $methodName)
 			? new TooManyRequestsResponse()
 			: new JSONResponse(['error' => $block->error], Http::STATUS_TOO_MANY_REQUESTS);
 		$response->addHeader('Retry-After', (string)$block->retryAfter);
 		return $response;
 	}
 
-	/**
-	 * A browser loading a page, as opposed to a script asking for data.
-	 */
-	private function isPageNavigation(): bool {
-		$method = $this->request->getMethod();
-		return ($method === 'GET' || $method === 'HEAD')
-			&& stripos($this->request->getHeader('Accept'), 'html') !== false
-			&& $this->request->getHeader('OCS-APIREQUEST') === '';
+	private function isPageNavigation(Controller $controller, string $methodName): bool {
+		return RequestTarget::app($controller, $methodName, $this->request->getMethod(), $this->request->getRequestUri())->isPageNavigation($this->request);
 	}
 }

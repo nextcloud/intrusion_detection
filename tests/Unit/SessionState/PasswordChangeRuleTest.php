@@ -90,14 +90,14 @@ class PasswordChangeRuleTest extends TestCase {
 
 	public function testThePasswordPageLogoutTheSecondFactorAndPublicResourcesStayReachable(): void {
 		$this->mark(PasswordChangeRule::MODE_REDIRECT);
-		$this->assertNull($this->rule->check($this->state, $this->app($this->createMock(PasswordChangeController::class), 'show')));
-		$this->assertNull($this->rule->check($this->state, $this->app($this->createMock(LoginController::class), 'logout')));
-		$this->assertNull($this->rule->check($this->state, $this->app($this->createMock(TwoFactorChallengeController::class), 'showChallenge')));
+		$this->assertNull($this->rule->check($this->state, $this->app($this->controller(PasswordChangeController::class), 'show')));
+		$this->assertNull($this->rule->check($this->state, $this->app($this->controller(LoginController::class), 'logout')));
+		$this->assertNull($this->rule->check($this->state, $this->app($this->controller(TwoFactorChallengeController::class), 'showChallenge')));
 		$css = $this->getMockBuilder(CssController::class)->disableOriginalConstructor()->onlyMethods([])->getMock();
 		$this->assertNull($this->rule->check($this->state, $this->app($css, 'getCss')));
 		$this->assertNotNull($this->rule->check($this->state, $this->app($css, 'getCss', 'POST')), 'Only reading public resources');
 		$this->assertNotNull($this->rule->check($this->state, $this->app(new SomeController(), 'publicStyle')), 'Only the resources every page needs');
-		$this->assertNotNull($this->rule->check($this->state, $this->app($this->createMock(LoginController::class), 'showLoginForm')));
+		$this->assertNotNull($this->rule->check($this->state, $this->app($this->controller(LoginController::class), 'showLoginForm')));
 	}
 
 	public function testAMarkerWhoseRequirementWasLiftedIsDropped(): void {
@@ -115,6 +115,13 @@ class PasswordChangeRuleTest extends TestCase {
 
 	private function mark(string $mode): void {
 		$this->state->set(SessionMarkers::PASSWORD_CHANGE, ['uid' => 'alice', 'mode' => $mode, 'since' => 1]);
+	}
+
+	/**
+	 * @param class-string<Controller> $class
+	 */
+	private function controller(string $class): Controller {
+		return $this->getMockBuilder($class)->disableOriginalConstructor()->onlyMethods([])->getMock();
 	}
 
 	private function app(Controller $controller, string $method, string $httpMethod = 'GET'): RequestTarget {

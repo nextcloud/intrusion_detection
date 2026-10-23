@@ -163,7 +163,7 @@ class StepUpRuleTest extends TestCase {
 
 	public function testDetectionsOfTheLoginAreLinkedOnTheFirstRequest(): void {
 		$this->state->set(SessionMarkers::LOGIN_DETECTIONS, ['uid' => 'alice', 'ids' => [7]]);
-		$this->linker->expects($this->once())->method('link')->with(['uid' => 'alice', 'ids' => [7]], 'alice');
+		$this->linker->expects($this->once())->method('linkSession')->with('alice');
 		$this->assertNull($this->rule()->check($this->state, $this->target(Controller::class)));
 	}
 
@@ -180,7 +180,7 @@ class StepUpRuleTest extends TestCase {
 	 * @param class-string<Controller> $class
 	 */
 	private function target(string $class, string $method = 'index'): RequestTarget {
-		$controller = $this->getMockBuilder($class)->disableOriginalConstructor()->getMock();
+		$controller = $this->getMockBuilder($class)->disableOriginalConstructor()->onlyMethods([])->getMock();
 		return RequestTarget::app($controller, $method, 'GET', '/index.php/apps/files/');
 	}
 

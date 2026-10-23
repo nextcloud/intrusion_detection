@@ -9,18 +9,14 @@ declare(strict_types=1);
 
 namespace OCA\IntrusionDetection\SessionState\Rules;
 
-use OC\Core\Controller\LoginController;
-use OC\Core\Controller\TwoFactorChallengeController;
 use OCA\IntrusionDetection\AppInfo\Application;
-use OCA\IntrusionDetection\Controller\PasswordChangeController;
-use OCA\IntrusionDetection\Controller\VerifyController;
 use OCA\IntrusionDetection\Login\LoginKind;
 use OCA\IntrusionDetection\Login\SessionMarkers;
 use OCA\IntrusionDetection\Response\PasswordChangeFlag;
 use OCA\IntrusionDetection\SessionState\ISessionStateRule;
+use OCA\IntrusionDetection\SessionState\LoginFlowRoute;
 use OCA\IntrusionDetection\SessionState\RequestTarget;
 use OCA\IntrusionDetection\SessionState\SessionBlock;
-use OCP\Authentication\TwoFactorAuth\ALoginSetupController;
 use OCP\IURLGenerator;
 use OCP\IUserSession;
 
@@ -91,11 +87,12 @@ class PasswordChangeRule implements ISessionStateRule {
 	}
 
 	public static function isExempt(RequestTarget $target): bool {
-		return $target->isController(PasswordChangeController::class)
-			|| $target->isController(VerifyController::class)
-			|| $target->isController(LoginController::class, 'logout')
-			|| $target->isController(TwoFactorChallengeController::class)
-			|| $target->isController(ALoginSetupController::class)
-			|| $target->isPublicResource();
+		return $target->isRoute(
+			LoginFlowRoute::PasswordChange,
+			LoginFlowRoute::Verify,
+			LoginFlowRoute::Logout,
+			LoginFlowRoute::SecondFactorChallenge,
+			LoginFlowRoute::SecondFactorSetup,
+		) || $target->isPublicResource();
 	}
 }

@@ -9,8 +9,6 @@ declare(strict_types=1);
 
 namespace OCA\IntrusionDetection\SessionState\Rules;
 
-use OC\Core\Controller\LoginController;
-use OC\Core\Controller\TwoFactorChallengeController;
 use OCA\IntrusionDetection\AppInfo\Application;
 use OCA\IntrusionDetection\Check\Checks\StepUpFailed\StepUpFailed;
 use OCA\IntrusionDetection\Confirm\LoginConfirmation;
@@ -18,14 +16,12 @@ use OCA\IntrusionDetection\Confirm\LoginDetections;
 use OCA\IntrusionDetection\Confirm\SecondFactorSetup;
 use OCA\IntrusionDetection\Confirm\StepUpService;
 use OCA\IntrusionDetection\Confirm\StepUpState;
-use OCA\IntrusionDetection\Controller\VerifyController;
 use OCA\IntrusionDetection\Login\SessionMarkers;
 use OCA\IntrusionDetection\SessionState\ISessionStateRule;
+use OCA\IntrusionDetection\SessionState\LoginFlowRoute;
 use OCA\IntrusionDetection\SessionState\RequestTarget;
 use OCA\IntrusionDetection\SessionState\SessionBlock;
-use OCP\AppFramework\OCSController;
 use OCP\AppFramework\Utility\ITimeFactory;
-use OCP\Authentication\TwoFactorAuth\ALoginSetupController;
 use OCP\IURLGenerator;
 use OCP\IUserSession;
 use Psr\Container\ContainerInterface;
@@ -84,17 +80,16 @@ class StepUpRule implements ISessionStateRule {
 	public function check(SessionMarkers $state, RequestTarget $target): ?SessionBlock {
 		$all = $state->all();
 		if (($all[SessionMarkers::CONFIRMATION][LoginConfirmation::CLIENT_ONLY] ?? false) === true
-			&& !$target->dav && !$target->isController(OCSController::class)
-			&& !$target->isController(LoginController::class, 'logout') && !$target->isPublicResource()) {
+			&& !$target->dav && !$target->isOcs()
+			&& !$target->isRoute(LoginFlowRoute::Logout) && !$target->isPublicResource()) {
 			return new SessionBlock(self::ERROR_CLIENT_ONLY, self::DAV_HEADER, self::MESSAGE_CLIENT_ONLY);
 		}
 		if (!isset($all[SessionMarkers::STEP_UP]) && !isset($all[SessionMarkers::LOGIN_DETECTIONS])) {
 			return null;
 		}
-		$waiting = $state->get(SessionMarkers::LOGIN_DETECTIONS);
-		if ($waiting !== null) {
+		if (isset($all[SessionMarkers::LOGIN_DETECTIONS])) {
 			try {
-				$this->container->get(LoginDetections::class)->link($waiting, $this->userSession->getUser()?->getUID());
+				$this->container->get(LoginDetections::class)->linkSession($this->userSession->getUser()?->getUID());
 			} catch (\Throwable $e) {
 				// Linking only helps "Was this you?" later; it must never let a pending login through.
 				$this->logger->error('Intrusion detection could not link the detections of a login to its session', ['exception' => $e]);
@@ -144,15 +139,14 @@ class StepUpRule implements ISessionStateRule {
 	}
 
 	private function isExempt(StepUpState $stepUp, RequestTarget $target): bool {
-		if ($target->isController(LoginController::class, 'logout') || $target->isPublicResource()) {
+		if ($target->isRoute(LoginFlowRoute::Logout) || $target->isPublicResource()) {
 			return true;
 		}
 		if ($stepUp->status === StepUpState::REFUSED) {
-			return $target->isController(VerifyController::class, 'show');
+			return $target->isRoute(LoginFlowRoute::Verify) && $target->isMethod('show');
 		}
-		return $target->isController(VerifyController::class)
-			|| $target->isController(TwoFactorChallengeController::class)
-			|| ($target->isController(ALoginSetupController::class) && $this->mustSetUpSecondFactor());
+		return $target->isRoute(LoginFlowRoute::Verify, LoginFlowRoute::SecondFactorChallenge)
+			|| ($target->isRoute(LoginFlowRoute::SecondFactorSetup) && $this->mustSetUpSecondFactor());
 	}
 
 	/**

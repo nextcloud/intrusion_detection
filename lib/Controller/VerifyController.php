@@ -23,6 +23,8 @@ use OCA\IntrusionDetection\Explain\TextRenderer;
 use OCA\IntrusionDetection\Http\LocalRedirect;
 use OCA\IntrusionDetection\KnownDevice\KnownDevices;
 use OCA\IntrusionDetection\Net\RemoteAddressResolver;
+use OCA\IntrusionDetection\SessionState\ILoginFlowPage;
+use OCA\IntrusionDetection\SessionState\LoginFlowRoute;
 use OCP\AppFramework\Controller;
 use OCP\AppFramework\Http;
 use OCP\AppFramework\Http\Attribute\BruteForceProtection;
@@ -68,7 +70,7 @@ use OCP\Util;
  * logged or kept; only their hash is in the session.
  */
 #[OpenAPI(scope: OpenAPI::SCOPE_IGNORE)]
-class VerifyController extends Controller {
+class VerifyController extends Controller implements ILoginFlowPage {
 	public const TEMPLATE = 'verify';
 	public const BRUTE_FORCE_ACTION = 'intrusion_detection_verify';
 	/** Never continued to: the verify pages themselves */
@@ -95,6 +97,11 @@ class VerifyController extends Controller {
 		private readonly ITimeFactory $timeFactory,
 	) {
 		parent::__construct(Application::APP_ID, $request);
+	}
+
+	#[\Override]
+	public static function loginFlowRoute(): LoginFlowRoute {
+		return LoginFlowRoute::Verify;
 	}
 
 	#[NoAdminRequired]

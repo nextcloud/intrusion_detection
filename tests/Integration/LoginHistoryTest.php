@@ -19,6 +19,7 @@ use OCA\IntrusionDetection\Listener\Login\HistoryStep;
 use OCA\IntrusionDetection\Listener\Login\KnownDeviceStep;
 use OCA\IntrusionDetection\Listener\LoginListener;
 use OCA\IntrusionDetection\Login\SessionMarkers;
+use OCA\IntrusionDetection\Login\SessionTokenLinker;
 use OCA\IntrusionDetection\LoginHistory\Db\LoginHistoryMapper;
 use OCA\IntrusionDetection\LoginHistory\LoginHistory;
 use OCA\IntrusionDetection\LoginHistory\LoginHistoryEntry;
@@ -277,7 +278,7 @@ class LoginHistoryTest extends StepUpTestCase {
 
 	private function historyWith(Caches $factory): LoginHistory {
 		$this->listenerCaches = $factory;
-		return new LoginHistory(Server::get(LoginHistoryMapper::class), $this->state, $this->coreSession, Server::get(ITimeFactory::class), $this->appSettings());
+		return new LoginHistory(Server::get(LoginHistoryMapper::class), $this->state, $this->coreSession, new SessionTokenLinker($this->state, $this->coreSession), Server::get(ITimeFactory::class), $this->appSettings());
 	}
 
 	private function historyListener(?LoginHistory $history = null): LoginListener {

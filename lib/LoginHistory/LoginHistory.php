@@ -15,6 +15,7 @@ use OCA\IntrusionDetection\Db\KeyMatch;
 use OCA\IntrusionDetection\Login\CoreSession;
 use OCA\IntrusionDetection\Login\LoginKind;
 use OCA\IntrusionDetection\Login\SessionMarkers;
+use OCA\IntrusionDetection\Login\SessionTokenLinker;
 use OCA\IntrusionDetection\LoginHistory\Db\LoginHistoryMapper;
 use OCA\IntrusionDetection\Net\SourceKey;
 use OCA\IntrusionDetection\Notification\UserMessages;
@@ -37,8 +38,8 @@ use OCP\AppFramework\Utility\ITimeFactory;
  *   on one network is one row a day. The {@see \OCA\IntrusionDetection\Login\LoginGate} lets one login
  *   per credential, address and hour through to the indexed check.
  * - Browser sessions get their session token linked on their first request
- *   ({@see \OCA\IntrusionDetection\SessionState\Rules\LoginHistoryRule}),
- *   since core creates the token after the login event. The session marker
+ *   ({@see SessionTokenLinker}), since core creates the token after the
+ *   login event. The session marker
  *   goes then, so that later requests have nothing to check; later updates
  *   of the row find it by the session's token.
  *
@@ -80,6 +81,7 @@ class LoginHistory implements IAcceptedLogins, IPurges {
 		private readonly LoginHistoryMapper $mapper,
 		private readonly SessionMarkers $state,
 		private readonly CoreSession $coreSession,
+		private readonly SessionTokenLinker $linker,
 		private readonly ITimeFactory $timeFactory,
 		private readonly AppSettings $settings,
 	) {
@@ -171,17 +173,13 @@ class LoginHistory implements IAcceptedLogins, IPurges {
 	/**
 	 * Link the current session's token to its login, once, and drop the
 	 * session marker.
-	 *
-	 * @param array<string, mixed> $marker
 	 */
-	public function link(array $marker, ?string $currentUid): void {
-		$uid = $marker['uid'] ?? null;
-		$id = $marker['id'] ?? null;
-		$tokenId = is_string($uid) && is_int($id) && $uid === $currentUid ? $this->coreSession->tokenId() : null;
-		if ($tokenId !== null) {
-			$this->mapper->setSessionToken($id, (string)$uid, $tokenId);
-		}
-		$this->state->remove(SessionMarkers::LOGIN_HISTORY);
+	public function linkSession(?string $currentUid): void {
+		$this->linker->link(SessionMarkers::LOGIN_HISTORY, $currentUid, function (array $marker, int $tokenId): void {
+			if (is_int($marker['id'] ?? null)) {
+				$this->mapper->setSessionToken($marker['id'], (string)$marker['uid'], $tokenId);
+			}
+		});
 	}
 
 	/**

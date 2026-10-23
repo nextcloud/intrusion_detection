@@ -16,6 +16,7 @@ use OCA\IntrusionDetection\Login\SessionMarkers;
 use OCA\IntrusionDetection\SessionState\ISessionStateRule;
 use OCA\IntrusionDetection\SessionState\RequestTarget;
 use OCA\IntrusionDetection\SessionState\SessionBlock;
+use OCA\IntrusionDetection\SessionState\SessionGate;
 use OCA\IntrusionDetection\SessionState\SessionStateRules;
 use OCP\IRequest;
 use OCP\ISession;
@@ -120,6 +121,6 @@ class RefusalsAreSentTest extends TestCase {
 		};
 		$userSession = $this->createMock(IUserSession::class);
 		$userSession->method('isLoggedIn')->willReturn(true);
-		return new SessionStatePlugin($rules, new SessionMarkers($this->createMock(ISession::class), $this->createMock(LoggerInterface::class)), $userSession, $this->createMock(LoggerInterface::class));
+		return new SessionStatePlugin(new SessionGate($rules, new SessionMarkers($this->createMock(ISession::class), $this->createMock(LoggerInterface::class)), $userSession, $this->createMock(IRequest::class), $this->createMock(LoggerInterface::class)));
 	}
 }

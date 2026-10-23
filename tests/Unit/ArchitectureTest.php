@@ -70,8 +70,6 @@ class ArchitectureTest extends TestCase {
 		'Privacy' => ['BackgroundJob'],
 		// Handlers of feature responses use their feature's services (feature slices).
 		'Response' => ['Address', 'Confirm', 'Share', 'Takeover'],
-		// Session rules let their own controllers through (login package).
-		'SessionState' => ['Controller'],
 	];
 
 	/**

@@ -14,6 +14,8 @@ use OCA\IntrusionDetection\AppInfo\Application;
 use OCA\IntrusionDetection\Http\LocalRedirect;
 use OCA\IntrusionDetection\Login\SessionMarkers;
 use OCA\IntrusionDetection\Response\PasswordChangeService;
+use OCA\IntrusionDetection\SessionState\ILoginFlowPage;
+use OCA\IntrusionDetection\SessionState\LoginFlowRoute;
 use OCP\AppFramework\Controller;
 use OCP\AppFramework\Http;
 use OCP\AppFramework\Http\Attribute\BruteForceProtection;
@@ -47,7 +49,7 @@ use OCP\Util;
  * throttled like failed logins. Passwords are never logged or kept.
  */
 #[OpenAPI(scope: OpenAPI::SCOPE_IGNORE)]
-class PasswordChangeController extends Controller {
+class PasswordChangeController extends Controller implements ILoginFlowPage {
 	public const TEMPLATE = 'password';
 	public const BRUTE_FORCE_ACTION = 'intrusion_detection_password';
 	/** Never continued to: this page itself */
@@ -64,6 +66,11 @@ class PasswordChangeController extends Controller {
 		private readonly LocalRedirect $redirect,
 	) {
 		parent::__construct(Application::APP_ID, $request);
+	}
+
+	#[\Override]
+	public static function loginFlowRoute(): LoginFlowRoute {
+		return LoginFlowRoute::PasswordChange;
 	}
 
 	#[NoAdminRequired]
