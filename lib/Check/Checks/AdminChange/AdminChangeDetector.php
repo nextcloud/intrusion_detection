@@ -73,17 +73,20 @@ class AdminChangeDetector implements IDetector {
 	 * @param bool $foundByWatch found by the config watch, which cannot know who made it
 	 */
 	public static function settingChange(string $key, mixed $old, mixed $new, bool $secret, string $actor, bool $foundByWatch, int $now): AdminChanged {
-		$facts = ['setting' => $key, 'secret' => $secret, 'watch' => $foundByWatch];
-		if (!$secret) {
-			$facts['old'] = DisplayValue::shorten($old);
-			$facts['new'] = DisplayValue::shorten($new);
-		}
+		$facts = new AdminChangeFacts(
+			setting: $key,
+			secret: $secret,
+			watch: $foundByWatch,
+			hasValues: !$secret,
+			old: $secret ? null : DisplayValue::shorten($old),
+			new: $secret ? null : DisplayValue::shorten($new),
+		);
 		return new AdminChanged(
 			AdminChange::KIND_SETTING_CHANGED,
 			self::settingSeverity($key, $secret ? null : $old, $secret ? null : $new, $now),
 			$actor,
 			null,
-			facts: $facts,
+			facts: $facts->toArray(),
 			alertKey: self::settingAlertKey($key),
 			withAddress: !$foundByWatch,
 		);

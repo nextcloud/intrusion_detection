@@ -22,8 +22,18 @@ enforces this on every test run.
 
 - **One folder per check.** `Check/Checks/<Name>/` holds the check's
   definition and texts (`<Name>`), its detector (`<Name>Detector`, listed
-  in `CheckRegistry::DETECTORS`) and the classes only that check uses, such as the payload matching of
+  in `CheckRegistry::DETECTORS`), its facts (`<Name>Facts`, with a
+  `<Name>Rule` enum where it has rules) and the classes only that check uses, such as the payload matching of
   `InjectionProbe` or the credential tracking of `TokenConcurrentUse`.
+- **Facts are typed.** A check's facts class is what its detections
+  record: the detector and the simulation build it, the check's texts
+  read it back with `fromArray()`, and it declares how a repeated hit
+  merges (`Detection\IMergeableFacts`). The facts that many checks record
+  and generic code reads (first, last, targets, the risk score, the
+  linked sessions, simulated) are one `Detection\CommonFacts`. A key a
+  detection did not record stays out of the stored JSON, so rows keep
+  their shape; `tests/Integration/StoredDetectionsTest.php` pins how
+  stored rows read and merge.
 - **A table belongs to its feature.** A feature's mappers and entities live
   in its `Db/` sub-namespace (`KnownDevice\Db\KnownDeviceMapper`), which is
   part of the feature. Other features use that data through the feature's
@@ -94,6 +104,8 @@ enforces this on every test run.
    the mode from the check, or from the draft for the few that run in
    another one, stores the detection and runs the responses the check
    selects for it (`ISelectsResponses`). Nobody else passes responses.
+   A hit that joins a stored detection merges its facts by the rules of
+   the check's facts class (`Detection\FactsMerger`).
 
 Code whose finding is itself the detection (a guard's trap or payload
 hit, a counter over its limit, a step-up outcome, the account holder's

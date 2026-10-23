@@ -10,12 +10,14 @@ declare(strict_types=1);
 namespace OCA\IntrusionDetection\Explain;
 
 use OCA\IntrusionDetection\Db\Detection;
-use OCP\IL10N;
 
 /**
- * Typed access to what a stored detection recorded: its facts and the
- * thresholds that were in force when it was made. Narratives read these,
- * never the current settings, so they keep explaining what happened then.
+ * What a stored detection recorded: its facts, for the facts class of its
+ * check, when it began and last went on, and the thresholds that were in
+ * force when it was made. Narratives read these, never the current
+ * settings, so they keep explaining what happened then.
+ *
+ * The typed readers of single facts serve the checks without a facts class.
  */
 final class DetectionFacts {
 	/**
@@ -62,40 +64,8 @@ final class DetectionFacts {
 		return is_array($value) ? array_values(array_map('strval', array_filter($value, 'is_scalar'))) : [];
 	}
 
-	/**
-	 * A fact as it was stored, for facts that are not of one fixed type.
-	 */
-	public function value(string $key): mixed {
-		return $this->facts[$key] ?? null;
-	}
-
-	public function has(string $key): bool {
-		return array_key_exists($key, $this->facts);
-	}
-
 	public function threshold(string $key, int $default = 0): int {
 		$value = $this->thresholds[$key] ?? null;
 		return is_int($value) ? $value : (is_numeric($value) ? (int)$value : $default);
-	}
-
-	/**
-	 * A count for a sentence, as "about 120" when it was estimated from
-	 * sampled attempts (fact `sampleFactor` above 1).
-	 */
-	public function estimated(string $key, IL10N $l): string {
-		$value = (string)$this->int($key);
-		return $this->int('sampleFactor', 1) > 1 ? $l->t('about %s', [$value]) : $value;
-	}
-
-	/**
-	 * "3 of them exist: alice, bob, carol." for the accounts an attack tried,
-	 * or null when none of them exists.
-	 */
-	public function targetsSentence(IL10N $l, string $key = 'targets'): ?string {
-		$targets = $this->list($key);
-		if ($targets === []) {
-			return null;
-		}
-		return $l->n('%n of them exists: %s.', '%n of them exist: %s.', count($targets), [implode(', ', $targets)]);
 	}
 }

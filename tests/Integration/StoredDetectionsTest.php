@@ -10,6 +10,11 @@ declare(strict_types=1);
 namespace OCA\IntrusionDetection\Tests\Integration;
 
 use OCA\IntrusionDetection\Check\CheckRegistry;
+use OCA\IntrusionDetection\Check\Checks\ManualBlock\ManualBlock;
+use OCA\IntrusionDetection\Check\Checks\StepUpFailed\StepUpFailed;
+use OCA\IntrusionDetection\Check\Checks\StepUpRefused\StepUpRefused;
+use OCA\IntrusionDetection\Check\Checks\StepUpRefusedClient\StepUpRefusedClient;
+use OCA\IntrusionDetection\Check\Checks\StepUpUnconfirmed\StepUpUnconfirmed;
 use OCA\IntrusionDetection\Check\ISimulatable;
 use OCA\IntrusionDetection\Db\Detection;
 use OCA\IntrusionDetection\Detection\DetectionDraft;
@@ -41,6 +46,28 @@ use Test\TestCase;
 class StoredDetectionsTest extends TestCase {
 	public const NOW = 1790000000;
 	private const FIXTURES = __DIR__ . '/../fixtures/stored-detections/';
+
+	/** Checks without a facts class, and why. This list may only shrink. */
+	private const UNTYPED = [
+		ManualBlock::ID => 'records no detections',
+		StepUpFailed::ID => 'its drafts still give an array, which merges by shape',
+		StepUpRefused::ID => 'its drafts still give an array, which merges by shape',
+		StepUpRefusedClient::ID => 'its drafts still give an array, which merges by shape',
+		StepUpUnconfirmed::ID => 'its drafts still give an array, which merges by shape',
+	];
+
+	public function testEveryCheckHasAFactsClass(): void {
+		$untyped = [];
+		foreach (Server::get(CheckRegistry::class)->all() as $definition) {
+			if (self::factsClass($definition->id) === null) {
+				$untyped[] = $definition->id;
+			}
+		}
+		sort($untyped);
+		$listed = array_keys(self::UNTYPED);
+		sort($listed);
+		$this->assertSame($listed, $untyped, 'Give the check a <Name>Facts class in its folder, or remove it from UNTYPED once it has one');
+	}
 
 	/**
 	 * @return \Generator<string, array{string, array<string, mixed>, array<string, mixed>}>
@@ -91,9 +118,7 @@ class StoredDetectionsTest extends TestCase {
 	#[DataProvider('merges')]
 	public function testTheFactsClassKeepsTheStoredShape(string $checkId, array $stored, array $hit, array $merged): void {
 		$class = self::factsClass($checkId);
-		if ($class === null) {
-			$this->markTestSkipped($checkId . ' has no facts class');
-		}
+		$this->assertNotNull($class);
 		$this->assertTrue(is_a($class, IMergeableFacts::class, true), 'The facts of a check whose hits merge declare how');
 		// Stored rows may predate a fact; the facts of a hit and of a merge have today's shape.
 		foreach ([$hit, $merged] as $facts) {
