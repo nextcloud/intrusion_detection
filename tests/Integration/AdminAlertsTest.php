@@ -20,6 +20,7 @@ use OCA\IntrusionDetection\Explain\DateFormatter;
 use OCA\IntrusionDetection\Explain\NarrativeBuilder;
 use OCA\IntrusionDetection\Notification\AdminAlerts;
 use OCA\IntrusionDetection\Notification\AdminLinks;
+use OCA\IntrusionDetection\Notification\AdminNotices;
 use OCA\IntrusionDetection\Notification\AdminRecipients;
 use OCA\IntrusionDetection\Notification\Db\AlertMapper;
 use OCA\IntrusionDetection\Notification\MailContent;
@@ -35,6 +36,7 @@ use OCP\Config\IUserConfig;
 use OCP\IGroup;
 use OCP\IGroupManager;
 use OCP\IUser;
+use OCP\IUserManager;
 use OCP\L10N\IFactory;
 use OCP\Notification\IManager as INotificationManager;
 use OCP\Notification\INotification;
@@ -47,6 +49,7 @@ use PHPUnit\Framework\MockObject\MockObject;
  */
 #[Group('DB')]
 class AdminAlertsTest extends IntegrationTestCase {
+	use CreatesAccounts;
 	/** @var INotificationManager&MockObject */
 	private INotificationManager $notifications;
 	/** @var Mails&MockObject */
@@ -90,6 +93,11 @@ class AdminAlertsTest extends IntegrationTestCase {
 		);
 	}
 
+	protected function tearDown(): void {
+		$this->deleteAccounts();
+		parent::tearDown();
+	}
+
 	public function testManyHitsFromOneSourceAreOneNotificationWithACounter(): void {
 		for ($i = 0; $i < 5; $i++) {
 			$result = $this->alerts->alert($this->detection('198.51.100.7'));
@@ -100,7 +108,7 @@ class AdminAlertsTest extends IntegrationTestCase {
 		$this->assertSame(['alice', 'bob'], array_map(static fn (INotification $n): string => $n->getUser(), $this->sent));
 
 		// The notifier shows the live counter of the aggregated alert.
-		$prepared = Server::get(Notifier::class)->prepare($this->sent[0], 'en');
+		$prepared = Server::get(Notifier::class)->prepare($this->sent[0]->setUser($this->realAdmin()), 'en');
 		$this->assertStringContainsString('This happened 5 times within the hour.', $prepared->getParsedMessage());
 		$this->assertSame('Credential stuffing from 198.51.100.7', $prepared->getParsedSubject());
 		$this->assertStringContainsString('/settings/admin/intrusion_detection#detection-', $prepared->getLink());
@@ -244,6 +252,30 @@ class AdminAlertsTest extends IntegrationTestCase {
 		$this->assertStringNotContainsString('no administrator has an email address', implode(' ', $sentences));
 	}
 
+	public function testAFormerAdministratorNoLongerSeesTheAlert(): void {
+		$this->alerts->alert($this->detection('198.51.100.7'));
+		$uid = $this->realAdmin();
+		$notification = $this->sent[0]->setUser($uid);
+		Server::get(Notifier::class)->prepare($notification, 'en');
+
+		Server::get(IGroupManager::class)->get('admin')?->removeUser(Server::get(IUserManager::class)->get($uid));
+		$this->expectException(\OCP\Notification\AlreadyProcessedException::class);
+		Server::get(Notifier::class)->prepare($notification, 'en');
+	}
+
+	public function testAFormerAdministratorNoLongerSeesTheNotices(): void {
+		$uid = $this->realAdmin();
+		$user = $this->account('ids-unreachable');
+		$notification = Server::get(INotificationManager::class)->createNotification();
+		$notification->setApp('intrusion_detection')->setUser($uid)->setDateTime(new \DateTime())->setObject('alert', '1')
+			->setSubject(AdminNotices::SUBJECT_PASSWORD_EXTERNAL, ['uid' => $user, 'detection' => null]);
+		$this->assertStringContainsString($user, Server::get(Notifier::class)->prepare($notification, 'en')->getParsedSubject());
+
+		Server::get(IGroupManager::class)->get('admin')?->removeUser(Server::get(IUserManager::class)->get($uid));
+		$this->expectException(\OCP\Notification\AlreadyProcessedException::class);
+		Server::get(Notifier::class)->prepare($notification, 'en');
+	}
+
 	public function testAPreparedNotificationOfADeletedDetectionIsDropped(): void {
 		$this->alerts->alert($this->detection('198.51.100.7'));
 		$this->db->getQueryBuilder()->delete('ids_detections')->executeStatement();
@@ -263,6 +295,15 @@ class AdminAlertsTest extends IntegrationTestCase {
 		$detection->setLastSeenAt(time());
 		$detection->setHits(1);
 		return Server::get(DetectionMapper::class)->insert($detection);
+	}
+
+	/**
+	 * A real account in the admin group, who may read the alerts.
+	 */
+	private function realAdmin(): string {
+		$uid = $this->account('ids-alert-admin');
+		Server::get(IGroupManager::class)->get('admin')?->addUser(Server::get(IUserManager::class)->get($uid));
+		return $uid;
 	}
 
 	private function admin(string $uid, ?string $email): IUser {

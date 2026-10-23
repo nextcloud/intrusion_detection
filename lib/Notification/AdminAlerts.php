@@ -96,7 +96,7 @@ class AdminAlerts {
 		[$alertId, $first] = $this->alerts->hit($checkId, self::sourceKey($detection), $bucket, $detection->getId(), $now);
 		// Group members are only looked up when a notification or an email is sent.
 		$recipients = null;
-		$allAdmins = ($detection->getExplanationData()['facts'][self::FACT_ALL_ADMINS] ?? false) === true;
+		$allAdmins = self::reachesAdminGroup($detection);
 		$outlives = ($detection->getExplanationData()['facts'][self::FACT_OUTLIVES_APP] ?? false) === true;
 		$load = function () use (&$recipients, $allAdmins): array {
 			return $recipients ??= $this->recipients->users($allAdmins);
@@ -244,13 +244,21 @@ class AdminAlerts {
 	}
 
 	/**
+	 * Whether the alert about a detection also goes to the admin group,
+	 * whatever `notify_admin_group` says ({@see AdminRecipients}).
+	 */
+	public static function reachesAdminGroup(Detection $detection): bool {
+		return ($detection->getExplanationData()['facts'][self::FACT_ALL_ADMINS] ?? false) === true;
+	}
+
+	/**
 	 * Send the queued alert email about a detection to every administrator
 	 * with an email address.
 	 *
 	 * @return int how many emails were handed to the mail server
 	 */
 	public function sendMail(Detection $detection): int {
-		$allAdmins = ($detection->getExplanationData()['facts'][self::FACT_ALL_ADMINS] ?? false) === true;
+		$allAdmins = self::reachesAdminGroup($detection);
 		$sent = 0;
 		foreach ($this->withAddress($this->recipients->users($allAdmins)) as $user) {
 			if ($this->mails->send($user, $this->mailFor($detection, $user))) {

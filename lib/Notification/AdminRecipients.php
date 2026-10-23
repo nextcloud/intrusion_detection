@@ -72,6 +72,22 @@ class AdminRecipients {
 	}
 
 	/**
+	 * Whether a user is one of the recipients now: enabled, and a member of
+	 * one of their groups.
+	 */
+	public function includes(IUser $user, bool $withAdminGroup = false): bool {
+		if (!$user->isEnabled()) {
+			return false;
+		}
+		foreach ($this->groups($withAdminGroup) as $groupId) {
+			if ($this->groupManager->isInGroup($user->getUID(), $groupId)) {
+				return true;
+			}
+		}
+		return false;
+	}
+
+	/**
 	 * @return list<string>
 	 */
 	private function groups(bool $withAdminGroup): array {

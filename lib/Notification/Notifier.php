@@ -35,7 +35,10 @@ use OCP\Notification\UnknownNotificationException;
  *
  * Notifications carry only identifiers; everything shown is built here from
  * the stored detection, so the texts follow the reader's language and the
- * counter of an aggregated alert is always current.
+ * counter of an aggregated alert is always current. Alerts and notices to
+ * the administrators are shown only to readers who would get them now
+ * ({@see AdminRecipients::includes()}); for anyone else, such as a former
+ * administrator, they are processed.
  */
 class Notifier implements INotifier {
 	public const SUBJECT_LEARNING_ENDS = 'learning_ends';
@@ -77,6 +80,7 @@ class Notifier implements INotifier {
 		private readonly IURLGenerator $urlGenerator,
 		private readonly LearningService $learning,
 		private readonly AdminChange $adminChange,
+		private readonly AdminRecipients $recipients,
 	) {
 	}
 
@@ -131,6 +135,7 @@ class Notifier implements INotifier {
 			// Removed by retention or by an administrator: nothing left to show.
 			throw new AlreadyProcessedException();
 		}
+		$this->requireRecipient($notification, AdminAlerts::reachesAdminGroup($detection));
 		$hits = max(1, $alert['hits'] ?? 1);
 		$name = $this->adminAlerts->checkName($detection->getCheckId(), $l);
 		$headline = $this->adminAlerts->headline($detection, $l);
@@ -387,6 +392,7 @@ class Notifier implements INotifier {
 	}
 
 	private function prepareUserUnreachable(INotification $notification, IL10N $l, string $languageCode): INotification {
+		$this->requireRecipient($notification, false);
 		$params = $notification->getSubjectParameters();
 		$detection = $this->detectionOf($notification);
 		$uid = (string)($params['uid'] ?? '');
@@ -406,6 +412,7 @@ class Notifier implements INotifier {
 	}
 
 	private function preparePasswordExternal(INotification $notification, IL10N $l): INotification {
+		$this->requireRecipient($notification, false);
 		$params = $notification->getSubjectParameters();
 		$uid = (string)($params['uid'] ?? '');
 		$user = $this->userManager->get($uid);
@@ -418,6 +425,16 @@ class Notifier implements INotifier {
 			->setParsedMessage($l->t('Intrusion detection wanted %1$s to choose a new password, but their password is managed outside Nextcloud (%2$s), so Nextcloud cannot ask for a new one. Reset the password in that directory, or ask the user to change it there.', [$uid, $user->getBackendClassName()]))
 			->setLink($detectionId > 0 ? $this->links->detection($detectionId) : $this->links->adminPage());
 		return $notification;
+	}
+
+	/**
+	 * @throws AlreadyProcessedException when the reader no longer gets the administrators' alerts
+	 */
+	private function requireRecipient(INotification $notification, bool $withAdminGroup): void {
+		$reader = $this->userManager->get($notification->getUser());
+		if ($reader === null || !$this->recipients->includes($reader, $withAdminGroup)) {
+			throw new AlreadyProcessedException();
+		}
 	}
 
 	private function detectionOf(INotification $notification): Detection {
