@@ -31,6 +31,12 @@ Every check can be switched between Off, Observe and Protect, every threshold is
     <website>https://github.com/nextcloud/intrusion_detection</website>
     <bugs>https://github.com/nextcloud/intrusion_detection/issues</bugs>
     <repository type="git">https://github.com/nextcloud/intrusion_detection.git</repository>
+    <screenshot>https://raw.githubusercontent.com/nextcloud/intrusion_detection/main/screenshots/overview-light.png</screenshot>
+    <screenshot>https://raw.githubusercontent.com/nextcloud/intrusion_detection/main/screenshots/detection-explained.png</screenshot>
+    <screenshot>https://raw.githubusercontent.com/nextcloud/intrusion_detection/main/screenshots/blocks.png</screenshot>
+    <screenshot>https://raw.githubusercontent.com/nextcloud/intrusion_detection/main/screenshots/was-this-you.gif</screenshot>
+    <screenshot>https://raw.githubusercontent.com/nextcloud/intrusion_detection/main/screenshots/secure-account.png</screenshot>
+    <screenshot>https://raw.githubusercontent.com/nextcloud/intrusion_detection/main/screenshots/privacy.png</screenshot>
 
     <dependencies>
         <nextcloud min-version="36" max-version="36"/>
