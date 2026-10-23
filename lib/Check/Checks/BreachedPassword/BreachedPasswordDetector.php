@@ -118,7 +118,7 @@ class BreachedPasswordDetector implements IDetector {
 			checkId: BreachedPassword::ID,
 			source: $source,
 			uid: $uid,
-			facts: ['trigger' => 'login'],
+			facts: new BreachedPasswordFacts(trigger: BreachedPasswordFacts::TRIGGER_LOGIN),
 			merge: DetectionDraft::MERGE_USER,
 			mergeWindow: 86400,
 			userAgent: $signal->userAgent,

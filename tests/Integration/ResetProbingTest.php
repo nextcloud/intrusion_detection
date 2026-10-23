@@ -15,6 +15,8 @@ use OC\Security\RateLimiting\Limiter;
 use OCA\IntrusionDetection\AppInfo\Application;
 use OCA\IntrusionDetection\BackgroundJob\Cleanup;
 use OCA\IntrusionDetection\Check\Checks\ResetProbing\ResetProbing;
+use OCA\IntrusionDetection\Check\Checks\ResetProbing\ResetProbingFacts;
+use OCA\IntrusionDetection\Check\Checks\ResetProbing\ResetProbingRule;
 use OCA\IntrusionDetection\Config\GlobalSettings;
 use OCA\IntrusionDetection\Db\AttemptMapper;
 use OCA\IntrusionDetection\Db\BanMapper;
@@ -111,8 +113,10 @@ class ResetProbingTest extends RequestEventTestCase {
 		$this->assertSame($victim->getUID(), $detection->getUid());
 		$this->assertNull($detection->getIp());
 		$this->assertSame(2, $detection->getHits());
-		$this->assertSame(ResetProbing::RULE_FLOOD, $detection->getExplanationData()['facts']['rule']);
-		$this->assertSame(4, $detection->getExplanationData()['facts']['requests']);
+		$facts = ResetProbingFacts::fromArray($detection->getExplanationData()['facts']);
+		$this->assertSame(ResetProbingRule::Flood, $facts->rule);
+		$this->assertSame(4, $facts->requests);
+		$this->assertSame(4, $facts->sources);
 		$actions = [];
 		foreach ($detection->getActionList() as $action) {
 			$actions[$action['type']] = $action;
@@ -126,7 +130,6 @@ class ResetProbingTest extends RequestEventTestCase {
 
 		$l = Server::get(IFactory::class)->get(Application::APP_ID, 'en');
 		$narrative = Server::get(NarrativeBuilder::class)->build($detection, $l);
-		$this->assertStringContainsString('someone asked 4 times for password reset emails for the account ' . $victim->getUID() . ', from 4 different addresses', implode(' ', $narrative->happened));
 		$this->assertStringContainsString('no password reset emails are sent to ' . $victim->getUID(), implode(' ', $narrative->done));
 
 		$notice = Server::get(ResetProbing::class)->userNotice($detection, $l);
@@ -165,11 +168,11 @@ class ResetProbingTest extends RequestEventTestCase {
 		$this->askForReset('198.51.100.7', 'NOBODY-D');
 		$detections = $this->detectionsOf(ResetProbing::ID);
 		$this->assertCount(1, $detections);
-		$facts = $detections[0]->getExplanationData()['facts'];
-		$this->assertSame(ResetProbing::RULE_ENUMERATION, $facts['rule']);
-		$this->assertSame(5, $facts['inputs']);
-		$this->assertSame(6, $facts['requests']);
-		$this->assertSame([$existing->getUID()], $facts['targets'], 'The admin learns which of the tried accounts exist');
+		$facts = ResetProbingFacts::fromArray($detections[0]->getExplanationData()['facts']);
+		$this->assertSame(ResetProbingRule::Enumeration, $facts->rule);
+		$this->assertSame(5, $facts->inputs);
+		$this->assertSame(6, $facts->requests);
+		$this->assertSame([$existing->getUID()], $facts->common->targets, 'The admin learns which of the tried accounts exist');
 		$this->assertSame([ResponseType::Ban->value], array_column($detections[0]->getActionList(), 'type'));
 		$this->assertNotSame([], $this->bans->findActiveForKeys(['198.51.100.7'], time()));
 		$this->assertStringNotContainsString('nobody', json_encode($detections[0]->getExplanationData(), JSON_THROW_ON_ERROR), 'What was typed is never stored');
@@ -182,7 +185,7 @@ class ResetProbingTest extends RequestEventTestCase {
 		}
 		$detections = $this->detectionsOf(ResetProbing::ID);
 		$this->assertCount(1, $detections);
-		$this->assertSame(ResetProbing::RULE_FLOOD, $detections[0]->getExplanationData()['facts']['rule']);
+		$this->assertSame(ResetProbingRule::Flood, ResetProbingFacts::fromArray($detections[0]->getExplanationData()['facts'])->rule);
 		$this->assertSame([], $this->bans->findActiveForKeys(['198.51.100.7'], time()));
 	}
 

@@ -14,6 +14,7 @@ use OCA\IntrusionDetection\Config\ModeState;
 use OCA\IntrusionDetection\Db\AttemptKind;
 use OCA\IntrusionDetection\Db\AttemptMapper;
 use OCA\IntrusionDetection\Definition\ResponseType;
+use OCA\IntrusionDetection\Detection\CommonFacts;
 use OCA\IntrusionDetection\Detection\DetectionDraft;
 use OCA\IntrusionDetection\Net\SourceKey;
 use OCA\IntrusionDetection\Risk\RiskScorer;
@@ -78,13 +79,12 @@ class AccountUnderAttackDetector implements IDetector {
 		$draft = new DetectionDraft(
 			checkId: AccountUnderAttack::ID,
 			uid: $uid,
-			facts: [
-				'failures' => $stats->failures,
-				'sources' => $stats->distinctSources,
-				'first' => $stats->first,
-				'last' => $stats->last,
-				'lastSource' => $attempt->source->ip,
-			] + $limits->facts(),
+			facts: new AccountUnderAttackFacts(
+				failures: $stats->failures,
+				sources: $stats->distinctSources,
+				lastSource: $attempt->source->ip,
+				common: new CommonFacts(first: $stats->first, last: $stats->last, risk: $limits->facts()),
+			),
 			merge: DetectionDraft::MERGE_USER,
 			userAgent: $signal->userAgent,
 		);

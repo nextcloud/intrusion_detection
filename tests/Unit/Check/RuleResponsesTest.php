@@ -11,6 +11,7 @@ namespace OCA\IntrusionDetection\Tests\Unit\Check;
 
 use OCA\IntrusionDetection\Check\Checks\LoginFlowMismatch\LoginFlowMismatch;
 use OCA\IntrusionDetection\Check\Checks\ResetProbing\ResetProbing;
+use OCA\IntrusionDetection\Check\Checks\ResetProbing\ResetProbingRule;
 use OCA\IntrusionDetection\Check\Checks\ShareBruteforce\ShareBruteforce;
 use OCA\IntrusionDetection\Check\Checks\ShareBruteforce\ShareBruteforceDetector;
 use OCA\IntrusionDetection\Db\Detection;
@@ -49,8 +50,8 @@ class RuleResponsesTest extends TestCase {
 	public function testResetRules(): void {
 		$check = new ResetProbing(DateFormatter::using($this->createMock(IDateTimeFormatter::class)));
 		$all = [ResponseType::Ban, ResponseType::SuppressResetMail, ResponseType::NotifyAdmin, ResponseType::NotifyUser];
-		$this->assertSame([ResponseType::Ban], $check->responsesFor($this->draft(ResetProbing::ID, ResetProbing::RULE_ENUMERATION), $all, []));
-		$this->assertSame([ResponseType::SuppressResetMail, ResponseType::NotifyAdmin, ResponseType::NotifyUser], $check->responsesFor($this->draft(ResetProbing::ID, ResetProbing::RULE_FLOOD), $all, []));
+		$this->assertSame([ResponseType::Ban], $check->responsesFor($this->draft(ResetProbing::ID, ResetProbingRule::Enumeration->value), $all, []));
+		$this->assertSame([ResponseType::SuppressResetMail, ResponseType::NotifyAdmin, ResponseType::NotifyUser], $check->responsesFor($this->draft(ResetProbing::ID, ResetProbingRule::Flood->value), $all, []));
 	}
 
 	/**

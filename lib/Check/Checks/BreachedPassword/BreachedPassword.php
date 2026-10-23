@@ -84,16 +84,16 @@ final class BreachedPassword implements ICheck, IExplainsDetection, IExplainsToU
 
 	#[\Override]
 	public function narrative(Detection $detection, IL10N $l): array {
-		$facts = DetectionFacts::of($detection);
+		$stored = DetectionFacts::of($detection);
 		$sentences = [];
 		$ip = $detection->getIp();
 		$sentences[] = $ip === null || $ip === ''
 			? $l->t('At %1$s the account %2$s logged in with a password that appears in the public list of leaked passwords.', [
-				$this->dates->dateTime($facts->first),
+				$this->dates->dateTime($stored->first),
 				(string)$detection->getUid(),
 			])
 			: $l->t('At %1$s the account %2$s logged in from %3$s with a password that appears in the public list of leaked passwords.', [
-				$this->dates->dateTime($facts->first),
+				$this->dates->dateTime($stored->first),
 				(string)$detection->getUid(),
 				$ip,
 			]);
@@ -101,7 +101,7 @@ final class BreachedPassword implements ICheck, IExplainsDetection, IExplainsToU
 			$sentences[] = $l->n('It was found again %n time that day.', 'It was found again %n times that day.', $detection->getHits() - 1);
 		}
 		$sentences[] = $l->t('The limit at that time was a count of at least %s in the list. How often it appears is not stored, because that number could identify the password.', [
-			(string)$facts->threshold('min_count', 1),
+			(string)$stored->threshold('min_count', 1),
 		]);
 		$sentences[] = $l->t('The password was never sent anywhere: only the first 5 characters of its SHA-1 hash left the server, and the comparison happened on the server.');
 		return $sentences;

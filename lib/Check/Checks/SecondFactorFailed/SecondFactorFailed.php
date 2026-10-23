@@ -37,11 +37,6 @@ use OCP\IL10N;
 final class SecondFactorFailed implements ICheck, IExplainsDetection, IExplainsToUser {
 	public const ID = 'second_factor_failed';
 
-	/** Why a detection fired, as stored in its facts */
-	public const RULE_LOGIN = 'login';
-	public const RULE_HOUR = 'hour';
-	public const RULE_FLAGGED = 'flagged';
-
 	public function __construct(
 		private readonly DateFormatter $dates,
 	) {
@@ -89,30 +84,29 @@ final class SecondFactorFailed implements ICheck, IExplainsDetection, IExplainsT
 
 	#[\Override]
 	public function narrative(Detection $detection, IL10N $l): array {
-		$facts = DetectionFacts::of($detection);
-		$provider = $facts->string('providerName', $facts->string('provider'));
+		$stored = DetectionFacts::of($detection);
+		$facts = SecondFactorFailedFacts::fromArray($stored->facts);
 		$sentences = [
 			$l->t('%1$s entered the correct password from %2$s, but the second factor (%3$s) failed.', [
 				(string)$detection->getUid(),
 				(string)$detection->getIp(),
-				$provider,
+				$facts->providerName ?? $facts->provider,
 			]),
 			$l->n(
 				'It failed %n time in that login, and %1$s times for this account within the hour.',
 				'It failed %n times in that login, and %1$s times for this account within the hour.',
-				$facts->int('loginFailures'),
-				[(string)$facts->int('hourFailures')],
+				$facts->loginFailures,
+				[(string)$facts->hourFailures],
 			),
 		];
-		$rules = $facts->list('rules');
-		if (in_array(self::RULE_FLAGGED, $rules, true)) {
+		if (in_array(SecondFactorFailedRule::Flagged, $facts->rules, true)) {
 			$sentences[] = $l->t('The address had been flagged after an earlier attack, so the first failure was enough.');
 		}
-		if (in_array(self::RULE_LOGIN, $rules, true)) {
-			$sentences[] = $l->t('The limit at that time was %s failures in one login.', [(string)$facts->threshold('max_failures', 3)]);
+		if (in_array(SecondFactorFailedRule::Login, $facts->rules, true)) {
+			$sentences[] = $l->t('The limit at that time was %s failures in one login.', [(string)$stored->threshold('max_failures', 3)]);
 		}
-		if (in_array(self::RULE_HOUR, $rules, true)) {
-			$sentences[] = $l->t('The limit at that time was %s failures for one account within an hour.', [(string)$facts->threshold('max_failures_hour', 5)]);
+		if (in_array(SecondFactorFailedRule::Hour, $facts->rules, true)) {
+			$sentences[] = $l->t('The limit at that time was %s failures for one account within an hour.', [(string)$stored->threshold('max_failures_hour', 5)]);
 		}
 		$sentences[] = $l->t('Whoever did this knows the password of the account.');
 		if ($detection->getHits() > 1) {
@@ -126,8 +120,8 @@ final class SecondFactorFailed implements ICheck, IExplainsDetection, IExplainsT
 
 	#[\Override]
 	public function userNotice(Detection $detection, IL10N $l): UserNotice {
-		$facts = DetectionFacts::of($detection);
-		$provider = $facts->string('providerName', $facts->string('provider'));
+		$facts = SecondFactorFailedFacts::fromArray(DetectionFacts::of($detection)->facts);
+		$provider = $facts->providerName ?? $facts->provider;
 		return new UserNotice(
 			$l->t('Someone entered your password, but not your second factor'),
 			[

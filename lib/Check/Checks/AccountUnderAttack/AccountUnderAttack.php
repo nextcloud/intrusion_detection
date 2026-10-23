@@ -25,6 +25,7 @@ use OCA\IntrusionDetection\Definition\ParamText;
 use OCA\IntrusionDetection\Definition\ParamType;
 use OCA\IntrusionDetection\Definition\ResponseType;
 use OCA\IntrusionDetection\Definition\Severity;
+use OCA\IntrusionDetection\Detection\CommonFacts;
 use OCA\IntrusionDetection\Detection\DetectionDraft;
 use OCA\IntrusionDetection\Explain\DateFormatter;
 use OCA\IntrusionDetection\Explain\DetectionFacts;
@@ -92,23 +93,24 @@ final class AccountUnderAttack implements ICheck, IExplainsDetection, IExplainsT
 
 	#[\Override]
 	public function narrative(Detection $detection, IL10N $l): array {
-		$facts = DetectionFacts::of($detection);
+		$stored = DetectionFacts::of($detection);
+		$facts = AccountUnderAttackFacts::fromArray($stored->facts);
 		$sentences = [
 			$l->t('Between %1$s and %2$s the account %3$s had %4$s failed logins from %5$s different addresses.', [
-				$this->dates->dateTime($facts->first),
-				$this->dates->time($facts->last),
+				$this->dates->dateTime($stored->first),
+				$this->dates->time($stored->last),
 				(string)$detection->getUid(),
-				(string)$facts->int('failures'),
-				(string)$facts->int('sources'),
+				(string)$facts->failures,
+				(string)$facts->sources,
 			]),
 			$l->t('The limit at that time was %1$s failures from %2$s addresses within %3$s.', [
-				(string)$facts->threshold('min_failures'),
-				(string)$facts->threshold('min_sources'),
-				TextRenderer::duration($facts->threshold('window', 3600), $l),
+				(string)$stored->threshold('min_failures'),
+				(string)$stored->threshold('min_sources'),
+				TextRenderer::duration($stored->threshold('window', 3600), $l),
 			]),
 		];
-		if ($facts->string('lastSource') !== '') {
-			$sentences[] = $l->t('The most recent attempt came from %s.', [$facts->string('lastSource')]);
+		if ($facts->lastSource !== '') {
+			$sentences[] = $l->t('The most recent attempt came from %s.', [$facts->lastSource]);
 		}
 		return $sentences;
 	}
@@ -136,14 +138,12 @@ final class AccountUnderAttack implements ICheck, IExplainsDetection, IExplainsT
 		return new DetectionDraft(
 			checkId: self::ID,
 			uid: 'alice',
-			facts: [
-				'lastSource' => $source->ip,
-				'failures' => (int)($params['min_failures'] ?? 10),
-				'sources' => (int)($params['min_sources'] ?? 5),
-				'first' => $now - (int)($params['window'] ?? 3600) + 60,
-				'last' => $now,
-				'simulated' => true,
-			],
+			facts: new AccountUnderAttackFacts(
+				failures: (int)($params['min_failures'] ?? 10),
+				sources: (int)($params['min_sources'] ?? 5),
+				lastSource: $source->ip,
+				common: new CommonFacts(first: $now - (int)($params['window'] ?? 3600) + 60, last: $now, simulated: true),
+			),
 			merge: DetectionDraft::MERGE_USER,
 		);
 	}

@@ -16,6 +16,7 @@ use OCA\IntrusionDetection\AppInfo\Application;
 use OCA\IntrusionDetection\Breach\PwnedPasswordsClient;
 use OCA\IntrusionDetection\Check\Checks\BreachedPassword\BreachedPassword;
 use OCA\IntrusionDetection\Check\Checks\BreachedPassword\BreachedPasswordDetector;
+use OCA\IntrusionDetection\Check\Checks\BreachedPassword\BreachedPasswordFacts;
 use OCA\IntrusionDetection\Command\User as UserCommand;
 use OCA\IntrusionDetection\Config\Lexicon;
 use OCA\IntrusionDetection\Config\UserKeys;
@@ -219,7 +220,7 @@ class BreachedPasswordTest extends IntegrationTestCase {
 		$this->assertSame('198.51.100.20', $detection->getIp());
 		$this->assertSame('medium', $detection->getSeverity());
 		$this->assertTrue($detection->isEnforced());
-		$this->assertSame(['trigger' => 'login'], $detection->getExplanationData()['facts']);
+		$this->assertSame(['trigger' => BreachedPasswordFacts::TRIGGER_LOGIN], $detection->getExplanationData()['facts'], 'Never how often the password is listed');
 		$this->assertSame(['recheck_days' => 30, 'min_count' => 1], $detection->getExplanationData()['thresholds']);
 		$this->assertEqualsCanonicalizing(
 			[ResponseType::StepUp->value, ResponseType::ForcePasswordChange->value, ResponseType::NotifyUser->value],

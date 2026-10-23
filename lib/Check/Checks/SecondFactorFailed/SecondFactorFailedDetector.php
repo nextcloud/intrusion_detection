@@ -14,6 +14,7 @@ use OCA\IntrusionDetection\Config\ModeState;
 use OCA\IntrusionDetection\Db\AttemptKind;
 use OCA\IntrusionDetection\Db\AttemptMapper;
 use OCA\IntrusionDetection\Detection\AttemptRecorder;
+use OCA\IntrusionDetection\Detection\CommonFacts;
 use OCA\IntrusionDetection\Detection\DetectionDraft;
 use OCA\IntrusionDetection\Response\FlaggedSources;
 use OCA\IntrusionDetection\SessionState\CurrentSession;
@@ -73,13 +74,13 @@ class SecondFactorFailedDetector implements IDetector {
 
 		$rules = [];
 		if ($flag !== null) {
-			$rules[] = SecondFactorFailed::RULE_FLAGGED;
+			$rules[] = SecondFactorFailedRule::Flagged;
 		}
 		if ($loginFailures >= (int)$params['max_failures']) {
-			$rules[] = SecondFactorFailed::RULE_LOGIN;
+			$rules[] = SecondFactorFailedRule::Login;
 		}
 		if ($hourFailures >= (int)$params['max_failures_hour']) {
-			$rules[] = SecondFactorFailed::RULE_HOUR;
+			$rules[] = SecondFactorFailedRule::Hour;
 		}
 		if ($rules === []) {
 			return [];
@@ -89,17 +90,16 @@ class SecondFactorFailedDetector implements IDetector {
 			checkId: SecondFactorFailed::ID,
 			source: $source,
 			uid: $uid,
-			facts: [
-				'provider' => $signal->providerId,
-				'providerName' => $signal->providerName,
-				'loginFailures' => $loginFailures,
-				'hourFailures' => $hourFailures,
-				'rules' => $rules,
-				'flag' => $flag,
-				'sessionTokenId' => $sessionTokenId,
-				'first' => $attempt->time,
-				'last' => $attempt->time,
-			],
+			facts: new SecondFactorFailedFacts(
+				provider: $signal->providerId,
+				providerName: $signal->providerName,
+				loginFailures: $loginFailures,
+				hourFailures: $hourFailures,
+				rules: $rules,
+				flag: $flag,
+				sessionTokenId: $sessionTokenId,
+				common: new CommonFacts(first: $attempt->time, last: $attempt->time),
+			),
 			merge: DetectionDraft::MERGE_SOURCE_USER,
 			userAgent: $signal->userAgent,
 			sessionTokenId: $sessionTokenId,

@@ -19,6 +19,7 @@ use OCA\IntrusionDetection\Db\AttemptStats;
 use OCA\IntrusionDetection\Db\Detection;
 use OCA\IntrusionDetection\Definition\ResponseType;
 use OCA\IntrusionDetection\Detection\AttemptRecord;
+use OCA\IntrusionDetection\Detection\CommonFacts;
 use OCA\IntrusionDetection\Detection\DetectionDraft;
 use OCA\IntrusionDetection\Net\RemoteAddressResolver;
 use OCA\IntrusionDetection\Net\SourceKey;
@@ -116,9 +117,12 @@ class CredentialStuffingDetector implements IDetector {
 			yield new DetectionDraft(
 				checkId: CredentialStuffing::ID,
 				source: $source,
-				facts: $this->facts(CredentialStuffing::RULE_SOURCE, $ip) + [
-					'targets' => $this->attempts->distinctUids('ip_key', [$source->ipKey], self::KINDS, $since, 20),
-				] + $limits->facts(),
+				facts: self::facts(
+					CredentialStuffingRule::Source,
+					$ip,
+					targets: $this->attempts->distinctUids('ip_key', [$source->ipKey], self::KINDS, $since, 20),
+					risk: $limits->facts(),
+				),
 				merge: DetectionDraft::MERGE_SOURCE,
 				userAgent: $userAgent,
 			);
@@ -129,10 +133,13 @@ class CredentialStuffingDetector implements IDetector {
 				$draft = new DetectionDraft(
 					checkId: CredentialStuffing::ID,
 					source: $source,
-					facts: $this->facts(CredentialStuffing::RULE_NETWORK, $net) + [
-						'net' => $source->netKey,
-						'targets' => $this->attempts->distinctUids('net_key', [$source->netKey], self::KINDS, $since, 20),
-					] + $netLimits->facts(),
+					facts: self::facts(
+						CredentialStuffingRule::Network,
+						$net,
+						net: $source->netKey,
+						targets: $this->attempts->distinctUids('net_key', [$source->netKey], self::KINDS, $since, 20),
+						risk: $netLimits->facts(),
+					),
 					merge: DetectionDraft::MERGE_SOURCE,
 					userAgent: $userAgent,
 				);
@@ -211,7 +218,7 @@ class CredentialStuffingDetector implements IDetector {
 		$this->state->setInt(self::DISTRIBUTED_DETECTED_AT_STATE, $now);
 		$detection = yield new DetectionDraft(
 			checkId: CredentialStuffing::ID,
-			facts: $this->facts(CredentialStuffing::RULE_DISTRIBUTED, $instance) + ['distributed' => true],
+			facts: self::facts(CredentialStuffingRule::Distributed, $instance, distributed: true),
 		);
 		$this->state->setInt(self::DISTRIBUTED_DETECTION_STATE, $detection?->getId() ?? 0);
 	}
@@ -269,17 +276,19 @@ class CredentialStuffingDetector implements IDetector {
 	}
 
 	/**
-	 * @return array<string, mixed>
+	 * @param ?list<string> $targets
+	 * @param array<string, mixed> $risk
 	 */
-	private function facts(string $rule, AttemptStats $stats): array {
-		return [
-			'rule' => $rule,
-			'failures' => $stats->failures,
-			'names' => $stats->distinctNames,
-			'sources' => $stats->distinctSources,
-			'first' => $stats->first,
-			'last' => $stats->last,
-		];
+	private static function facts(CredentialStuffingRule $rule, AttemptStats $stats, ?string $net = null, ?array $targets = null, array $risk = [], ?bool $distributed = null): CredentialStuffingFacts {
+		return new CredentialStuffingFacts(
+			rule: $rule,
+			failures: $stats->failures,
+			names: $stats->distinctNames,
+			sources: $stats->distinctSources,
+			net: $net,
+			distributed: $distributed,
+			common: new CommonFacts(first: $stats->first, last: $stats->last, targets: $targets, risk: $risk),
+		);
 	}
 
 	private static function reaches(AttemptStats $stats, int $failures, int $names): bool {

@@ -24,6 +24,7 @@ use OCA\IntrusionDetection\Definition\ParamPreset;
 use OCA\IntrusionDetection\Definition\ParamType;
 use OCA\IntrusionDetection\Definition\ResponseType;
 use OCA\IntrusionDetection\Definition\Severity;
+use OCA\IntrusionDetection\Detection\CommonFacts;
 use OCA\IntrusionDetection\Detection\DetectionDraft;
 use OCA\IntrusionDetection\Explain\DateFormatter;
 use OCA\IntrusionDetection\Explain\DetectionFacts;
@@ -41,9 +42,6 @@ use OCP\IL10N;
  */
 final class ResetProbing implements ICheck, IExplainsDetection, IExplainsToUser, ISimulatable, ISelectsResponses {
 	public const ID = 'reset_probing';
-
-	public const RULE_ENUMERATION = 'enumeration';
-	public const RULE_FLOOD = 'flood';
 
 	private const ENUMERATION_RESPONSES = [ResponseType::Ban];
 	private const FLOOD_RESPONSES = [ResponseType::SuppressResetMail, ResponseType::NotifyUser, ResponseType::NotifyAdmin];
@@ -86,50 +84,50 @@ final class ResetProbing implements ICheck, IExplainsDetection, IExplainsToUser,
 
 	#[\Override]
 	public function responsesFor(DetectionDraft $draft, array $configured, array $params): array {
-		$allowed = ($draft->facts['rule'] ?? null) === self::RULE_FLOOD ? self::FLOOD_RESPONSES : self::ENUMERATION_RESPONSES;
+		$allowed = ResetProbingFacts::fromArray($draft->facts)->rule === ResetProbingRule::Flood ? self::FLOOD_RESPONSES : self::ENUMERATION_RESPONSES;
 		return array_values(array_filter($configured, static fn (ResponseType $r): bool => in_array($r, $allowed, true)));
 	}
 
 	#[\Override]
 	public function narrative(Detection $detection, IL10N $l): array {
-		$facts = DetectionFacts::of($detection);
-		$from = $this->dates->dateTime($facts->first);
-		$to = $this->dates->time($facts->last);
+		$stored = DetectionFacts::of($detection);
+		$facts = ResetProbingFacts::fromArray($stored->facts);
+		$from = $this->dates->dateTime($stored->first);
+		$to = $this->dates->time($stored->last);
 		$sentences = [];
-		if ($facts->string('rule') === self::RULE_FLOOD) {
+		if ($facts->rule === ResetProbingRule::Flood) {
 			$sentences[] = $l->t('Between %1$s and %2$s someone asked %3$s times for password reset emails for the account %4$s, from %5$s different addresses.', [
-				$from, $to, $facts->estimated('requests', $l), (string)$detection->getUid(), (string)$facts->int('sources'),
+				$from, $to, TextRenderer::estimated($facts->requests, $facts->sampleFactor, $l), (string)$detection->getUid(), (string)($facts->sources ?? 0),
 			]);
 			$sentences[] = $l->t('The limit at that time was %1$s requests for one account within %2$s.', [
-				(string)$facts->threshold('flood_min_requests'),
-				TextRenderer::duration($facts->threshold('flood_window', 3600), $l),
+				(string)$stored->threshold('flood_min_requests'),
+				TextRenderer::duration($stored->threshold('flood_window', 3600), $l),
 			]);
-			if ($facts->string('lastSource') !== '') {
-				$sentences[] = $l->t('The most recent request came from %s.', [$facts->string('lastSource')]);
+			if (($facts->lastSource ?? '') !== '') {
+				$sentences[] = $l->t('The most recent request came from %s.', [$facts->lastSource]);
 			}
 		} else {
 			$sentences[] = $l->t('Between %1$s and %2$s the address %3$s asked for password resets for %4$s different names or email addresses (%5$s requests).', [
-				$from, $to, (string)$detection->getIp(), $facts->estimated('inputs', $l), $facts->estimated('requests', $l),
+				$from, $to, (string)$detection->getIp(), TextRenderer::estimated($facts->inputs ?? 0, $facts->sampleFactor, $l), TextRenderer::estimated($facts->requests, $facts->sampleFactor, $l),
 			]);
-			$targets = $facts->targetsSentence($l);
+			$targets = TextRenderer::targets($facts->common->targets, $l);
 			if ($targets !== null) {
 				$sentences[] = $targets;
 			}
 			$sentences[] = $l->t('The limit at that time was %1$s different names or addresses within %2$s.', [
-				(string)$facts->threshold('enum_min_inputs'),
-				TextRenderer::duration($facts->threshold('enum_window', 600), $l),
+				(string)$stored->threshold('enum_min_inputs'),
+				TextRenderer::duration($stored->threshold('enum_window', 600), $l),
 			]);
 		}
-		$factor = $facts->int('sampleFactor', 1);
-		if ($factor > 1) {
-			$sentences[] = $l->t('The server was receiving so many failed attempts that only one in %s reset requests was recorded. The numbers are estimates from those.', [(string)$factor]);
+		if ($facts->sampleFactor > 1) {
+			$sentences[] = $l->t('The server was receiving so many failed attempts that only one in %s reset requests was recorded. The numbers are estimates from those.', [(string)$facts->sampleFactor]);
 		}
 		return $sentences;
 	}
 
 	#[\Override]
 	public function userNotice(Detection $detection, IL10N $l): UserNotice {
-		$facts = DetectionFacts::of($detection);
+		$stored = DetectionFacts::of($detection);
 		$until = null;
 		$latest = null;
 		foreach ($detection->getActionList() as $action) {
@@ -142,8 +140,8 @@ final class ResetProbing implements ICheck, IExplainsDetection, IExplainsToUser,
 			$l->n(
 				'Someone asked for password reset emails for your account %n time within %1$s.',
 				'Someone asked for password reset emails for your account %n times within %1$s.',
-				$facts->int('requests'),
-				[TextRenderer::duration($facts->threshold('flood_window', 3600), $l)],
+				ResetProbingFacts::fromArray($stored->facts)->requests,
+				[TextRenderer::duration($stored->threshold('flood_window', 3600), $l)],
 			),
 		];
 		if ($until !== null) {
@@ -165,16 +163,13 @@ final class ResetProbing implements ICheck, IExplainsDetection, IExplainsToUser,
 		return new DetectionDraft(
 			checkId: self::ID,
 			source: $source,
-			facts: [
-				'rule' => self::RULE_ENUMERATION,
-				'inputs' => $inputs,
-				'requests' => $inputs,
-				'sampleFactor' => 1,
-				'targets' => ['alice'],
-				'first' => $now - (int)($params['enum_window'] ?? 600) + 60,
-				'last' => $now,
-				'simulated' => true,
-			],
+			facts: new ResetProbingFacts(
+				rule: ResetProbingRule::Enumeration,
+				inputs: $inputs,
+				requests: $inputs,
+				sampleFactor: 1,
+				common: new CommonFacts(first: $now - (int)($params['enum_window'] ?? 600) + 60, last: $now, targets: ['alice'], simulated: true),
+			),
 			merge: DetectionDraft::MERGE_SOURCE,
 		);
 	}

@@ -11,6 +11,8 @@ namespace OCA\IntrusionDetection\Tests\Unit\Check\Checks;
 
 use OCA\IntrusionDetection\Check\Checks\ResetProbing\ResetProbing;
 use OCA\IntrusionDetection\Check\Checks\ResetProbing\ResetProbingDetector;
+use OCA\IntrusionDetection\Check\Checks\ResetProbing\ResetProbingFacts;
+use OCA\IntrusionDetection\Check\Checks\ResetProbing\ResetProbingRule;
 use OCA\IntrusionDetection\Config\CheckSettings;
 use OCA\IntrusionDetection\Config\ModeState;
 use OCA\IntrusionDetection\Db\AttemptKind;
@@ -83,8 +85,9 @@ class ResetProbingDetectorTest extends TestCase {
 	private function judge(AttemptRecord $attempt): void {
 		$check = new ResetProbing(DateFormatter::using($this->createMock(IDateTimeFormatter::class)));
 		foreach ($this->detector()->detect(new ResetRequested($attempt, null), new ModeState(Mode::Protect, Mode::Protect)) as $draft) {
-			$this->assertSame(ResetProbing::RULE_FLOOD, $draft->facts['rule']);
-			$this->assertSame($this->requests * $this->sampleFactor, $draft->facts['requests']);
+			$facts = ResetProbingFacts::fromArray($draft->facts);
+			$this->assertSame(ResetProbingRule::Flood, $facts->rule);
+			$this->assertSame($this->requests * $this->sampleFactor, $facts->requests);
 			$this->handled[] = $check->responsesFor($draft, self::ALL, []);
 			$this->drafts[] = $draft;
 		}

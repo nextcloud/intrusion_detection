@@ -16,6 +16,8 @@ use OC\Memcache\ArrayCache;
 use OCA\IntrusionDetection\Cache\Caches;
 use OCA\IntrusionDetection\Check\Checks\CredentialStuffing\CredentialStuffing;
 use OCA\IntrusionDetection\Check\Checks\CredentialStuffing\CredentialStuffingDetector;
+use OCA\IntrusionDetection\Check\Checks\CredentialStuffing\CredentialStuffingFacts;
+use OCA\IntrusionDetection\Check\Checks\CredentialStuffing\CredentialStuffingRule;
 use OCA\IntrusionDetection\Config\AppSettings;
 use OCA\IntrusionDetection\Config\CheckSettings;
 use OCA\IntrusionDetection\Crypto\Fingerprinter;
@@ -91,12 +93,12 @@ class CredentialStuffingClusterTest extends LoginFailureTestCase {
 
 		$distributed = array_filter(
 			$this->detectionsOf(CredentialStuffing::ID),
-			static fn ($d): bool => ($d->getExplanationData()['facts']['distributed'] ?? false) === true,
+			static fn ($d): bool => CredentialStuffingFacts::fromArray($d->getExplanationData()['facts'])->rule === CredentialStuffingRule::Distributed,
 		);
 		$this->assertCount(1, $distributed);
-		$facts = array_values($distributed)[0]->getExplanationData()['facts'];
-		$this->assertSame(120, $facts['failures']);
-		$this->assertSame(25, $facts['sources']);
+		$facts = CredentialStuffingFacts::fromArray(array_values($distributed)[0]->getExplanationData()['facts']);
+		$this->assertSame(120, $facts->failures);
+		$this->assertSame(25, $facts->sources);
 		$this->assertSame($this->now + CredentialStuffingDetector::DISTRIBUTED_WINDOW, Server::get(AppState::class)->getInt(CredentialStuffingDetector::DISTRIBUTED_UNTIL_STATE));
 	}
 

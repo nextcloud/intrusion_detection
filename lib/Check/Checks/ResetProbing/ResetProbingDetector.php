@@ -14,6 +14,7 @@ use OCA\IntrusionDetection\Config\ModeState;
 use OCA\IntrusionDetection\Db\AttemptKind;
 use OCA\IntrusionDetection\Db\AttemptMapper;
 use OCA\IntrusionDetection\Definition\ResponseType;
+use OCA\IntrusionDetection\Detection\CommonFacts;
 use OCA\IntrusionDetection\Detection\DetectionDraft;
 use OCA\IntrusionDetection\Risk\RiskScorer;
 use OCA\IntrusionDetection\Signal\IDetector;
@@ -73,15 +74,18 @@ class ResetProbingDetector implements IDetector {
 			$drafts[] = new DetectionDraft(
 				checkId: ResetProbing::ID,
 				source: $attempt->source,
-				facts: [
-					'rule' => ResetProbing::RULE_ENUMERATION,
-					'inputs' => $ip->namesEstimate(),
-					'requests' => $ip->failuresEstimate(),
-					'sampleFactor' => $ip->maxWeight,
-					'targets' => $this->attempts->distinctUids('ip_key', [$attempt->source->ipKey], $kinds, $since, self::MAX_TARGETS),
-					'first' => $ip->first,
-					'last' => $ip->last,
-				] + $enumLimits->facts(),
+				facts: new ResetProbingFacts(
+					rule: ResetProbingRule::Enumeration,
+					inputs: $ip->namesEstimate(),
+					requests: $ip->failuresEstimate(),
+					sampleFactor: $ip->maxWeight,
+					common: new CommonFacts(
+						first: $ip->first,
+						last: $ip->last,
+						targets: $this->attempts->distinctUids('ip_key', [$attempt->source->ipKey], $kinds, $since, self::MAX_TARGETS),
+						risk: $enumLimits->facts(),
+					),
+				),
 				merge: DetectionDraft::MERGE_SOURCE,
 				userAgent: $userAgent,
 			);
@@ -97,15 +101,14 @@ class ResetProbingDetector implements IDetector {
 			$draft = new DetectionDraft(
 				checkId: ResetProbing::ID,
 				uid: $uid,
-				facts: [
-					'rule' => ResetProbing::RULE_FLOOD,
-					'requests' => $user->failuresEstimate(),
-					'sources' => $user->distinctSources,
-					'sampleFactor' => $user->maxWeight,
-					'lastSource' => $attempt->source->ip,
-					'first' => $user->first,
-					'last' => $user->last,
-				] + $floodLimits->facts(),
+				facts: new ResetProbingFacts(
+					rule: ResetProbingRule::Flood,
+					requests: $user->failuresEstimate(),
+					sampleFactor: $user->maxWeight,
+					sources: $user->distinctSources,
+					lastSource: $attempt->source->ip,
+					common: new CommonFacts(first: $user->first, last: $user->last, risk: $floodLimits->facts()),
+				),
 				merge: DetectionDraft::MERGE_USER,
 				mergeWindow: max((int)$params['flood_window'], (int)$params['suppress_duration']),
 				userAgent: $userAgent,

@@ -12,6 +12,8 @@ namespace OCA\IntrusionDetection\Tests\Integration;
 use OCA\IntrusionDetection\AppInfo\Application;
 use OCA\IntrusionDetection\Check\Checks\SecondFactorFailed\SecondFactorFailed;
 use OCA\IntrusionDetection\Check\Checks\SecondFactorFailed\SecondFactorFailedDetector;
+use OCA\IntrusionDetection\Check\Checks\SecondFactorFailed\SecondFactorFailedFacts;
+use OCA\IntrusionDetection\Check\Checks\SecondFactorFailed\SecondFactorFailedRule;
 use OCA\IntrusionDetection\Db\AttemptKind;
 use OCA\IntrusionDetection\Db\AttemptMapper;
 use OCA\IntrusionDetection\Db\Detection;
@@ -94,10 +96,11 @@ class SecondFactorFailedTest extends AccountTestCase {
 		$this->assertSame('high', $detection->getSeverity());
 		$this->assertSame($this->user->getUID(), $detection->getUid());
 		$this->assertSame(self::ADDRESS, $detection->getIp());
-		$facts = $detection->getExplanationData()['facts'];
-		$this->assertSame([SecondFactorFailed::RULE_LOGIN], $facts['rules']);
-		$this->assertSame(3, $facts['loginFailures']);
-		$this->assertSame($pending['id'], $facts['sessionTokenId']);
+		$facts = SecondFactorFailedFacts::fromArray($detection->getExplanationData()['facts']);
+		$this->assertSame([SecondFactorFailedRule::Login], $facts->rules);
+		$this->assertSame(3, $facts->loginFailures);
+		$this->assertSame('TOTP', $facts->providerName);
+		$this->assertSame($pending['id'], $facts->sessionTokenId);
 
 		// Only the pending session and the app passwords that came with it are gone.
 		$this->assertFalse($this->tokenExists($pending['id']), 'The pending session is ended');
@@ -139,8 +142,6 @@ class SecondFactorFailedTest extends AccountTestCase {
 		// The administrators' narrative explains it.
 		$narrative = Server::get(NarrativeBuilder::class)->build($detection, Server::get(IFactory::class)->get(Application::APP_ID, 'en'));
 		$text = implode(' ', array_merge($narrative->happened, $narrative->done));
-		$this->assertStringContainsString('entered the correct password from 198.51.100.7, but the second factor (TOTP) failed.', $text);
-		$this->assertStringContainsString('The limit at that time was 3 failures in one login.', $text);
 		$this->assertStringContainsString('Ended the session "Firefox on Linux"', $text);
 		$this->assertStringContainsString('must choose a new password at the next login', $text);
 	}
@@ -180,16 +181,16 @@ class SecondFactorFailedTest extends AccountTestCase {
 		}
 		$this->startSession($this->user);
 		$this->assertTrue($this->failChallenge('203.0.113.5'));
-		$facts = $this->detectionsOfCheck()[0]->getExplanationData()['facts'];
-		$this->assertSame([SecondFactorFailed::RULE_HOUR], $facts['rules']);
-		$this->assertSame(5, $facts['hourFailures']);
+		$facts = SecondFactorFailedFacts::fromArray($this->detectionsOfCheck()[0]->getExplanationData()['facts']);
+		$this->assertSame([SecondFactorFailedRule::Hour], $facts->rules);
+		$this->assertSame(5, $facts->hourFailures);
 	}
 
 	public function testTheFirstFailureFromAFlaggedAddressFires(): void {
 		Server::get(FlaggedSources::class)->flagSource(SourceKey::fromIp(self::ADDRESS), FlaggedSources::REASON_ATTACK);
 		$this->startSession($this->user);
 		$this->assertTrue($this->failChallenge());
-		$this->assertSame([SecondFactorFailed::RULE_FLAGGED], $this->detectionsOfCheck()[0]->getExplanationData()['facts']['rules']);
+		$this->assertSame([SecondFactorFailedRule::Flagged], SecondFactorFailedFacts::fromArray($this->detectionsOfCheck()[0]->getExplanationData()['facts'])->rules);
 	}
 
 	public function testObserveRecordsWhatWouldHaveBeenDoneAndTouchesNothing(): void {

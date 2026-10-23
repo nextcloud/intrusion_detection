@@ -25,6 +25,7 @@ use OCA\IntrusionDetection\Definition\ParamText;
 use OCA\IntrusionDetection\Definition\ParamType;
 use OCA\IntrusionDetection\Definition\ResponseType;
 use OCA\IntrusionDetection\Definition\Severity;
+use OCA\IntrusionDetection\Detection\CommonFacts;
 use OCA\IntrusionDetection\Detection\DetectionDraft;
 use OCA\IntrusionDetection\Explain\DateFormatter;
 use OCA\IntrusionDetection\Explain\DetectionFacts;
@@ -43,10 +44,6 @@ use OCP\IL10N;
  */
 final class CredentialStuffing implements ICheck, IExplainsDetection, ISimulatable, ISelectsResponses {
 	public const ID = 'credential_stuffing';
-
-	public const RULE_SOURCE = 'source';
-	public const RULE_NETWORK = 'network';
-	public const RULE_DISTRIBUTED = 'distributed';
 
 	public function __construct(
 		private readonly DateFormatter $dates,
@@ -97,7 +94,7 @@ final class CredentialStuffing implements ICheck, IExplainsDetection, ISimulatab
 
 	#[\Override]
 	public function responsesFor(DetectionDraft $draft, array $configured, array $params): array {
-		if (($draft->facts['rule'] ?? null) !== self::RULE_DISTRIBUTED) {
+		if (CredentialStuffingFacts::fromArray($draft->facts)->rule !== CredentialStuffingRule::Distributed) {
 			return $configured;
 		}
 		return array_values(array_filter($configured, static fn (ResponseType $r): bool => $r === ResponseType::NotifyAdmin));
@@ -105,40 +102,41 @@ final class CredentialStuffing implements ICheck, IExplainsDetection, ISimulatab
 
 	#[\Override]
 	public function narrative(Detection $detection, IL10N $l): array {
-		$facts = DetectionFacts::of($detection);
-		$window = TextRenderer::duration($facts->threshold('window', 600), $l);
-		$from = $this->dates->dateTime($facts->first);
-		$to = $this->dates->time($facts->last);
+		$stored = DetectionFacts::of($detection);
+		$facts = CredentialStuffingFacts::fromArray($stored->facts);
+		$window = TextRenderer::duration($stored->threshold('window', 600), $l);
+		$from = $this->dates->dateTime($stored->first);
+		$to = $this->dates->time($stored->last);
 		$sentences = [];
 
-		switch ($facts->string('rule', self::RULE_SOURCE)) {
-			case self::RULE_DISTRIBUTED:
+		switch ($facts->rule ?? CredentialStuffingRule::Source) {
+			case CredentialStuffingRule::Distributed:
 				$sentences[] = $l->t('Between %1$s and %2$s the whole server saw %3$s failed logins from %4$s different addresses, trying %5$s different accounts. This is a botnet spreading its attempts thin.', [
-					$from, $to, (string)$facts->int('failures'), (string)$facts->int('sources'), (string)$facts->int('names'),
+					$from, $to, (string)$facts->failures, (string)$facts->sources, (string)$facts->names,
 				]);
 				$sentences[] = $l->t('The limit at that time was %1$s failures from %2$s addresses for %3$s accounts within 10 minutes.', [
-					(string)$facts->threshold('distributed_min_failures'), (string)$facts->threshold('distributed_min_sources'), (string)$facts->threshold('distributed_min_names'),
+					(string)$stored->threshold('distributed_min_failures'), (string)$stored->threshold('distributed_min_sources'), (string)$stored->threshold('distributed_min_names'),
 				]);
 				$sentences[] = $l->t('While the attack lasts, and for an hour after it, successful logins from every address that fails need extra confirmation, and addresses that fail 3 times for 2 accounts are blocked.');
 				break;
-			case self::RULE_NETWORK:
-				$factor = max(1, $facts->threshold('net_factor', 3));
+			case CredentialStuffingRule::Network:
+				$factor = max(1, $stored->threshold('net_factor', 3));
 				$sentences[] = $l->t('Between %1$s and %2$s the network %3$s failed to log in %4$s times from %5$s addresses, trying %6$s different accounts.', [
-					$from, $to, $facts->string('net', (string)$detection->getNetKey()), (string)$facts->int('failures'), (string)$facts->int('sources'), (string)$facts->int('names'),
+					$from, $to, $facts->net ?? (string)$detection->getNetKey(), (string)$facts->failures, (string)$facts->sources, (string)$facts->names,
 				]);
 				$sentences[] = $l->t('The limit for a network at that time was %1$s failures for %2$s accounts within %3$s.', [
-					(string)($facts->threshold('min_failures') * $factor), (string)($facts->threshold('min_names') * $factor), $window,
+					(string)($stored->threshold('min_failures') * $factor), (string)($stored->threshold('min_names') * $factor), $window,
 				]);
 				break;
-			default:
+			case CredentialStuffingRule::Source:
 				$sentences[] = $l->t('Between %1$s and %2$s the address %3$s failed to log in %4$s times, trying %5$s different accounts.', [
-					$from, $to, (string)$detection->getIp(), (string)$facts->int('failures'), (string)$facts->int('names'),
+					$from, $to, (string)$detection->getIp(), (string)$facts->failures, (string)$facts->names,
 				]);
 				$sentences[] = $l->t('The limit at that time was %1$s failures for %2$s accounts within %3$s.', [
-					(string)$facts->threshold('min_failures'), (string)$facts->threshold('min_names'), $window,
+					(string)$stored->threshold('min_failures'), (string)$stored->threshold('min_names'), $window,
 				]);
 		}
-		$targets = $facts->targetsSentence($l);
+		$targets = TextRenderer::targets($facts->common->targets, $l);
 		if ($targets !== null) {
 			array_splice($sentences, 1, 0, [$targets]);
 		}
@@ -151,15 +149,13 @@ final class CredentialStuffing implements ICheck, IExplainsDetection, ISimulatab
 		return new DetectionDraft(
 			checkId: self::ID,
 			source: $source,
-			facts: [
-				'rule' => self::RULE_SOURCE,
-				'failures' => (int)($params['min_failures'] ?? 10),
-				'names' => (int)($params['min_names'] ?? 5),
-				'sources' => 1,
-				'first' => $now - $window + 60,
-				'last' => $now,
-				'simulated' => true,
-			],
+			facts: new CredentialStuffingFacts(
+				rule: CredentialStuffingRule::Source,
+				failures: (int)($params['min_failures'] ?? 10),
+				names: (int)($params['min_names'] ?? 5),
+				sources: 1,
+				common: new CommonFacts(first: $now - $window + 60, last: $now, simulated: true),
+			),
 			merge: DetectionDraft::MERGE_SOURCE,
 		);
 	}
