@@ -18,7 +18,6 @@ use OCP\AppFramework\Utility\ITimeFactory;
 use OCP\IDBConnection;
 use OCP\IUserManager;
 use OCP\Server;
-use OCP\Snowflake\ISnowflakeGenerator;
 use PHPUnit\Framework\Attributes\Group;
 
 /**
@@ -167,7 +166,7 @@ class FailedLoginStatsTest extends LoginFailureTestCase {
 				IDBConnection $db,
 				private FailedLoginStatsTest $test,
 			) {
-				parent::__construct($db, Server::get(ISnowflakeGenerator::class));
+				parent::__construct($db);
 			}
 
 			#[\Override]

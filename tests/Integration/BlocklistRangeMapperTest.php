@@ -30,7 +30,7 @@ class BlocklistRangeMapperTest extends IntegrationTestCase {
 		$mapper->writeVersion('test_list', 3, $ranges);
 		$statements = $this->db->getInner()->getStats()['executed'] - $queries;
 
-		$perStatement = $this->db->getDatabaseProvider() === IDBConnection::PLATFORM_SQLITE ? 166 : 1000;
+		$perStatement = $this->db->getDatabaseProvider() === IDBConnection::PLATFORM_SQLITE ? 199 : 1000;
 		$this->assertSame(1 + (int)ceil(5000 / $perStatement) * 2 + (int)ceil(2000 / $perStatement), $statements, 'one delete, then multi-row inserts per transaction of 5000');
 		$this->assertSame(['start' => sprintf('%032x', 1600), 'end' => sprintf('%032x', 1607)], $mapper->findContaining('test_list', 3, 4, sprintf('%032x', 1603)));
 		$this->assertNull($mapper->findContaining('test_list', 3, 4, sprintf('%032x', 1608)));

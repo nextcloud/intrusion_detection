@@ -39,7 +39,6 @@ use OCP\IL10N;
 use OCP\Lock\ILockingProvider;
 use OCP\Lock\LockedException;
 use OCP\Server;
-use OCP\Snowflake\ISnowflakeGenerator;
 use PHPUnit\Framework\Attributes\Group;
 use Psr\Log\LoggerInterface;
 
@@ -418,7 +417,7 @@ class BlocklistSyncTest extends IntegrationTestCase {
 				IDBConnection $db,
 				private readonly BlocklistSyncTest $test,
 			) {
-				parent::__construct($db, Server::get(ISnowflakeGenerator::class));
+				parent::__construct($db);
 			}
 
 			#[\Override]

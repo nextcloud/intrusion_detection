@@ -12,7 +12,6 @@ namespace OCA\IntrusionDetection\Blocklist\Db;
 use OCA\IntrusionDetection\Db\IPurges;
 use OCP\DB\QueryBuilder\IQueryBuilder;
 use OCP\IDBConnection;
-use OCP\Snowflake\ISnowflakeGenerator;
 
 /**
  * Per list and day: how often an address on the list was looked up, and the
@@ -28,7 +27,6 @@ class BlocklistStatMapper implements IPurges {
 
 	public function __construct(
 		private readonly IDBConnection $db,
-		private readonly ISnowflakeGenerator $snowflakes,
 	) {
 	}
 
@@ -42,7 +40,6 @@ class BlocklistStatMapper implements IPurges {
 		$row = $this->find($listId, $day);
 		if ($row === null) {
 			$inserted = $this->db->insertIgnoreConflict(self::TABLE, [
-				'id' => $this->snowflakes->nextId(),
 				'list_id' => $listId,
 				'day' => $day,
 				'matches' => 1,
@@ -65,16 +62,17 @@ class BlocklistStatMapper implements IPurges {
 		$qb->update(self::TABLE)
 			->set('matches', $qb->createFunction($qb->getColumnName('matches') . ' + 1'))
 			->set('sample', $qb->createNamedParameter(json_encode($sample)))
-			->where($qb->expr()->eq('id', $qb->createNamedParameter($row['id'])));
+			->where($qb->expr()->eq('list_id', $qb->createNamedParameter($listId)))
+			->andWhere($qb->expr()->eq('day', $qb->createNamedParameter($day)));
 		$qb->executeStatement();
 	}
 
 	/**
-	 * @return array{id: string, matches: int, sample: list<string>}|null
+	 * @return array{matches: int, sample: list<string>}|null
 	 */
 	public function find(string $listId, string $day): ?array {
 		$qb = $this->db->getQueryBuilder();
-		$qb->select('id', 'matches', 'sample')
+		$qb->select('matches', 'sample')
 			->from(self::TABLE)
 			->where($qb->expr()->eq('list_id', $qb->createNamedParameter($listId)))
 			->andWhere($qb->expr()->eq('day', $qb->createNamedParameter($day)));
@@ -84,7 +82,7 @@ class BlocklistStatMapper implements IPurges {
 		if (!is_array($row)) {
 			return null;
 		}
-		return ['id' => (string)$row['id'], 'matches' => (int)$row['matches'], 'sample' => self::decodeSample($row['sample'])];
+		return ['matches' => (int)$row['matches'], 'sample' => self::decodeSample($row['sample'])];
 	}
 
 	/**

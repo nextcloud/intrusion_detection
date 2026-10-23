@@ -13,6 +13,7 @@ use OCA\IntrusionDetection\Db\AttemptKind;
 use OCA\IntrusionDetection\Db\AttemptMapper;
 use OCA\IntrusionDetection\Db\BatchedDelete;
 use OCA\IntrusionDetection\Db\LoginMapper;
+use OCA\IntrusionDetection\Db\UserDailyMapper;
 use OCA\IntrusionDetection\Response\Db\FlagMapper;
 use OCA\IntrusionDetection\Takeover\Db\SecurityChangeMapper;
 use OCP\DB\QueryBuilder\IQueryBuilder;
@@ -71,6 +72,24 @@ class RetentionTest extends IntegrationTestCase {
 
 		$this->assertSame(10, $logins->deleteOlderThan(500000));
 		$this->assertSame(0, $this->rows(LoginMapper::TABLE));
+	}
+
+	public function testRowsKeyedByAccountAndDayLoseOnlyTheirOldDays(): void {
+		$mapper = Server::get(UserDailyMapper::class);
+		// Three accounts with a row on each of three days: batches of two cut across the days.
+		foreach (['a', 'b', 'c'] as $uid) {
+			foreach ([1, 2, 3] as $day) {
+				$mapper->insert('ids-retention-' . $uid, $day * 86400, '[]', '{}', $day * 86400);
+			}
+		}
+		$where = static fn (IQueryBuilder $qb): IQueryBuilder => $qb->where($qb->expr()->lt('day', $qb->createNamedParameter(3 * 86400, IQueryBuilder::PARAM_INT)));
+
+		$this->assertSame(6, BatchedDelete::run($this->db, UserDailyMapper::TABLE, 'uid', 'day', $where, batch: 2));
+		$qb = $this->db->getQueryBuilder();
+		$result = $qb->select('uid', 'day')->from(UserDailyMapper::TABLE)->orderBy('uid')->executeQuery();
+		$left = array_map(static fn (array $row): string => $row['uid'] . '@' . intdiv((int)$row['day'], 86400), $result->fetchAll());
+		$result->closeCursor();
+		$this->assertSame(['ids-retention-a@3', 'ids-retention-b@3', 'ids-retention-c@3'], $left, 'the newest day of every account stays');
 	}
 
 	public function testAttemptsAreDeletedOneKindAfterTheOtherInTimeOrder(): void {

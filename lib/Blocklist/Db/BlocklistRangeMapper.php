@@ -13,7 +13,6 @@ use OCA\IntrusionDetection\Db\MultiRowInsert;
 use OCA\IntrusionDetection\Net\RangeCodec;
 use OCP\DB\QueryBuilder\IQueryBuilder;
 use OCP\IDBConnection;
-use OCP\Snowflake\ISnowflakeGenerator;
 
 /**
  * The ranges of the downloaded lists. Rows are plain arrays, not entities:
@@ -29,7 +28,6 @@ class BlocklistRangeMapper {
 
 	public function __construct(
 		private readonly IDBConnection $db,
-		private readonly ISnowflakeGenerator $snowflakes,
 	) {
 	}
 
@@ -94,8 +92,7 @@ class BlocklistRangeMapper {
 	public function writeVersion(string $listId, int $version, array $ranges): void {
 		$this->deleteVersion($listId, $version);
 		foreach (array_chunk($ranges, self::CHUNK) as $chunk) {
-			$rows = array_map(fn (string $range): array => [
-				$this->snowflakes->nextId(),
+			$rows = array_map(static fn (string $range): array => [
 				$listId,
 				$version,
 				(int)$range[0],
@@ -104,7 +101,7 @@ class BlocklistRangeMapper {
 			], $chunk);
 			$this->db->beginTransaction();
 			try {
-				MultiRowInsert::insert($this->db, self::TABLE, ['id', 'list_id', 'version', 'family', 'range_start', 'range_end'], $rows);
+				MultiRowInsert::insert($this->db, self::TABLE, ['list_id', 'version', 'family', 'range_start', 'range_end'], $rows);
 				$this->db->commit();
 			} catch (\Throwable $e) {
 				$this->db->rollBack();

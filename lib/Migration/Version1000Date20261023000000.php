@@ -29,7 +29,9 @@ use OCP\Migration\SimpleMigrationStep;
  * Every `id` is a snowflake id that the app generates
  * ({@see \OCP\Snowflake\ISnowflakeGenerator}), so it also tells when the row
  * was created. The columns that refer to them, `detection_id` and
- * `change_id`, are BIGINT as well.
+ * `change_id`, are BIGINT as well. Tables whose rows are never addressed one
+ * by one, such as counters and bulk-written ranges, have no id: what
+ * identifies a row is their primary key.
  */
 #[CreateTable(table: 'ids_attempts', description: 'Failed login, share and reset attempts, kept for one hour')]
 #[CreateTable(table: 'ids_logins', description: 'Which accounts logged in from which address per hour, kept for one day')]
@@ -278,29 +280,26 @@ class Version1000Date20261023000000 extends SimpleMigrationStep {
 
 		if (!$schema->hasTable('ids_blocklist_ranges')) {
 			$table = $schema->createTable('ids_blocklist_ranges');
-			$table->addColumn('id', Types::BIGINT, ['notnull' => true, 'unsigned' => true]);
 			$table->addColumn('list_id', Types::STRING, ['notnull' => true, 'length' => 32]);
 			$table->addColumn('version', Types::INTEGER, ['notnull' => true, 'unsigned' => true]);
 			$table->addColumn('family', Types::SMALLINT, ['notnull' => true, 'unsigned' => true]);
 			$table->addColumn('range_start', Types::STRING, ['notnull' => true, 'length' => 32]);
 			$table->addColumn('range_end', Types::STRING, ['notnull' => true, 'length' => 32]);
-			$table->setPrimaryKey(['id']);
+			// The ranges of a version are merged, so no two start at the same address.
 			// The lookup is "the last range of this list version that starts at or
 			// below the address": equality on the first three columns, then a
-			// backwards range scan that stops at the first row. The same index
+			// backwards range scan that stops at the first row. The same key
 			// serves deleting a whole version.
-			$table->addIndex(['list_id', 'version', 'family', 'range_start'], 'ids_blr_lookup');
+			$table->setPrimaryKey(['list_id', 'version', 'family', 'range_start']);
 		}
 
 		if (!$schema->hasTable('ids_blocklist_stats')) {
 			$table = $schema->createTable('ids_blocklist_stats');
-			$table->addColumn('id', Types::BIGINT, ['notnull' => true, 'unsigned' => true]);
 			$table->addColumn('list_id', Types::STRING, ['notnull' => true, 'length' => 32]);
 			$table->addColumn('day', Types::STRING, ['notnull' => true, 'length' => 10]);
 			$table->addColumn('matches', Types::BIGINT, ['notnull' => true, 'unsigned' => true, 'default' => 0]);
 			$table->addColumn('sample', Types::TEXT, ['notnull' => false]);
-			$table->setPrimaryKey(['id']);
-			$table->addUniqueIndex(['list_id', 'day'], 'ids_bls_day');
+			$table->setPrimaryKey(['list_id', 'day']);
 		}
 
 		if (!$schema->hasTable('ids_known_devices')) {
@@ -424,7 +423,6 @@ class Version1000Date20261023000000 extends SimpleMigrationStep {
 
 		if (!$schema->hasTable('ids_user_daily')) {
 			$table = $schema->createTable('ids_user_daily');
-			$table->addColumn('id', Types::BIGINT, ['notnull' => true, 'unsigned' => true]);
 			$table->addColumn('uid', Types::STRING, ['notnull' => true, 'length' => 64]);
 			// The start of the day in UTC, as a timestamp.
 			$table->addColumn('day', Types::BIGINT, ['notnull' => true, 'unsigned' => true]);
@@ -434,10 +432,9 @@ class Version1000Date20261023000000 extends SimpleMigrationStep {
 			// JSON object of up to 20 address keys and when each one last failed.
 			$table->addColumn('sources', Types::TEXT, ['notnull' => false]);
 			$table->addColumn('updated_at', Types::BIGINT, ['notnull' => true, 'unsigned' => true]);
-			$table->setPrimaryKey(['id']);
-			$table->addUniqueIndex(['uid', 'day'], 'ids_ud_uid_day');
+			$table->setPrimaryKey(['uid', 'day']);
 			// The batched cleanup reads in this order, so that a batch starts where the last one ended within a day of many rows.
-			$table->addIndex(['day', 'id'], 'ids_ud_day_id');
+			$table->addIndex(['day', 'uid'], 'ids_ud_day_uid');
 		}
 
 		if (!$schema->hasTable('ids_detection_accounts')) {
@@ -450,7 +447,6 @@ class Version1000Date20261023000000 extends SimpleMigrationStep {
 
 		if (!$schema->hasTable('ids_detection_hourly')) {
 			$table = $schema->createTable('ids_detection_hourly');
-			$table->addColumn('id', Types::BIGINT, ['notnull' => true, 'unsigned' => true]);
 			// Unix time / 3600 of the hour.
 			$table->addColumn('hour', Types::BIGINT, ['notnull' => true, 'unsigned' => true]);
 			$table->addColumn('check_id', Types::STRING, ['notnull' => true, 'length' => 32]);
@@ -461,8 +457,7 @@ class Version1000Date20261023000000 extends SimpleMigrationStep {
 			$table->addColumn('created', Types::INTEGER, ['notnull' => true, 'unsigned' => true, 'default' => 0]);
 			// Detections whose severity rose to this one in the hour.
 			$table->addColumn('raised', Types::INTEGER, ['notnull' => true, 'unsigned' => true, 'default' => 0]);
-			$table->setPrimaryKey(['id']);
-			$table->addUniqueIndex(['hour', 'check_id', 'severity', 'enforced'], 'ids_dh_uniq');
+			$table->setPrimaryKey(['hour', 'check_id', 'severity', 'enforced']);
 		}
 
 		if (!$schema->hasTable('ids_state')) {

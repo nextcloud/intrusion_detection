@@ -27,7 +27,7 @@ class CleanupRetentionTest extends IntegrationTestCase {
 	private const MARGIN = 600;
 	private const DAY = 86400;
 	/** The tables whose rows have a snowflake id */
-	private const SNOWFLAKE_TABLES = ['ids_attempts', 'ids_logins', 'ids_detections', 'ids_detection_hourly', 'ids_bans', 'ids_alerts', 'ids_trusted_networks', 'ids_known_devices', 'ids_login_history', 'ids_security_changes', 'ids_lock_links', 'ids_user_daily'];
+	private const SNOWFLAKE_TABLES = ['ids_attempts', 'ids_logins', 'ids_detections', 'ids_bans', 'ids_alerts', 'ids_trusted_networks', 'ids_known_devices', 'ids_login_history', 'ids_security_changes', 'ids_lock_links'];
 
 	public function testEveryTableKeepsItsRowsForTheirRetentionOnly(): void {
 		$now = time();

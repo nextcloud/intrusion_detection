@@ -40,7 +40,6 @@ use OCP\IDBConnection;
 use OCP\IRequest;
 use OCP\Security\Bruteforce\IThrottler;
 use OCP\Server;
-use OCP\Snowflake\ISnowflakeGenerator;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Group;
 use Psr\Container\ContainerInterface;
@@ -267,7 +266,7 @@ class BlocklistFactsProviderTest extends IntegrationTestCase {
 				IDBConnection $db,
 				private readonly BlocklistFactsProviderTest $test,
 			) {
-				parent::__construct($db, Server::get(ISnowflakeGenerator::class));
+				parent::__construct($db);
 			}
 
 			#[\Override]
