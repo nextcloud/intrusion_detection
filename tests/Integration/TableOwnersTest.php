@@ -25,7 +25,6 @@ class TableOwnersTest extends IntegrationTestCase {
 	private const NOT_PURGED = [
 		'ids_approvals' => 'the approval expiry job ends requests and deletes decided ones (ApprovalService::expireDue)',
 		'ids_blocklist_ranges' => 'the blocklist sync keeps the current and the previous version of each list',
-		'ids_blocklist_stats' => 'the blocklist sync deletes the days past BlocklistSync::STATS_DAYS',
 		'ids_config_snapshot' => 'one row per watched setting, replaced when the setting changes',
 		'ids_decoys' => 'kept until an administrator deletes them',
 		'ids_state' => 'the app\'s internal state, one row per name, kept by its owner',

@@ -9,17 +9,21 @@ declare(strict_types=1);
 
 namespace OCA\IntrusionDetection\Blocklist\Db;
 
+use OCA\IntrusionDetection\Db\IPurges;
 use OCP\DB\QueryBuilder\IQueryBuilder;
 use OCP\IDBConnection;
 
 /**
  * Per list and day: how often an address on the list was looked up, and the
- * last addresses that matched.
+ * last addresses that matched. Days are kept RETENTION_DAYS, whether or not
+ * the list still syncs.
  */
-class BlocklistStatMapper {
+class BlocklistStatMapper implements IPurges {
 	public const TABLE = 'ids_blocklist_stats';
 	/** Matched addresses kept per list and day */
 	public const SAMPLE_SIZE = 20;
+	/** Days of matches are kept this long */
+	public const RETENTION_DAYS = 30;
 
 	public function __construct(
 		private readonly IDBConnection $db,
@@ -111,10 +115,14 @@ class BlocklistStatMapper {
 		return $rows;
 	}
 
-	public function deleteBefore(string $day): int {
+	/**
+	 * Delete the days past RETENTION_DAYS.
+	 */
+	#[\Override]
+	public function purge(int $now): int {
 		$qb = $this->db->getQueryBuilder();
 		$qb->delete(self::TABLE)
-			->where($qb->expr()->lt('day', $qb->createNamedParameter($day)));
+			->where($qb->expr()->lt('day', $qb->createNamedParameter(gmdate('Y-m-d', $now - self::RETENTION_DAYS * 86400))));
 		return $qb->executeStatement();
 	}
 

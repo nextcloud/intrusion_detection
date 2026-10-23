@@ -11,7 +11,6 @@ namespace OCA\IntrusionDetection\Admin;
 
 use OCA\IntrusionDetection\AdminChange\ApprovalService;
 use OCA\IntrusionDetection\Blocklist\BlocklistSource;
-use OCA\IntrusionDetection\Blocklist\BlocklistSync;
 use OCA\IntrusionDetection\Blocklist\Db\BlocklistStatMapper;
 use OCA\IntrusionDetection\Blocklist\SourceRepository;
 use OCA\IntrusionDetection\Check\CheckRegistry;
@@ -199,7 +198,7 @@ class PrivacyOverview {
 				'name' => $l->t('Blocklists and network lists'),
 				'what' => $l->t('The address ranges of the lists you enabled, and per list and day the number of matches and the last %s matched addresses.', [(string)BlocklistStatMapper::SAMPLE_SIZE]),
 				'why' => $l->t('To refuse or recognise addresses on these lists without asking an outside service.'),
-				'retention' => $l->n('Ranges until the list is switched off; matches %n day', 'Ranges until the list is switched off; matches %n days', BlocklistSync::STATS_DAYS),
+				'retention' => $l->n('Ranges until the list is switched off; matches %n day', 'Ranges until the list is switched off; matches %n days', BlocklistStatMapper::RETENTION_DAYS),
 				'where' => 'ids_blocklist_ranges, ids_blocklist_stats',
 			],
 			DataKind::RequestExcerpts => [

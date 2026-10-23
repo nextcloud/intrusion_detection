@@ -56,8 +56,6 @@ class BlocklistSync {
 	public const MAX_MALFORMED_SHARE = 0.01;
 	/** Seconds the previous version is kept after a switch */
 	public const PREVIOUS_GRACE = 300;
-	/** Matches are kept this many days */
-	public const STATS_DAYS = 30;
 	private const TIMEOUT = 60;
 	private const CONNECT_TIMEOUT = 10;
 	private const MAX_REDIRECTS = 3;
@@ -367,7 +365,6 @@ class BlocklistSync {
 			// Also removes what a sync that died half-way left behind.
 			$this->ranges->deleteVersionsExcept($id, self::kept($state));
 		}
-		$this->stats->deleteBefore(gmdate('Y-m-d', $now - self::STATS_DAYS * 86400));
 	}
 
 	/**

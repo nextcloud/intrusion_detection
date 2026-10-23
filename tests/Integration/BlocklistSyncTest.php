@@ -350,11 +350,11 @@ class BlocklistSyncTest extends IntegrationTestCase {
 		$this->assertSame([], $this->requests);
 	}
 
-	public function testOldMatchCountersAreDeleted(): void {
+	public function testOldMatchCountersAreDeletedAlsoWhenNoListSyncs(): void {
 		$stats = Server::get(BlocklistStatMapper::class);
 		$stats->record('office_block', gmdate('Y-m-d', $this->now - 31 * 86400), '192.0.2.7');
 		$stats->record('office_block', gmdate('Y-m-d', $this->now - 29 * 86400), '192.0.2.7');
-		$this->sync()->cleanup();
+		$stats->purge($this->now);
 		$this->assertNull($stats->find('office_block', gmdate('Y-m-d', $this->now - 31 * 86400)));
 		$this->assertNotNull($stats->find('office_block', gmdate('Y-m-d', $this->now - 29 * 86400)));
 	}

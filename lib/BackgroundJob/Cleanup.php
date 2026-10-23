@@ -9,6 +9,7 @@ declare(strict_types=1);
 
 namespace OCA\IntrusionDetection\BackgroundJob;
 
+use OCA\IntrusionDetection\Blocklist\Db\BlocklistStatMapper;
 use OCA\IntrusionDetection\Confirm\AbandonedLogins;
 use OCA\IntrusionDetection\Confirm\Db\StepUpSessionMapper;
 use OCA\IntrusionDetection\Confirm\UnconfirmedSessions;
@@ -81,6 +82,7 @@ class Cleanup extends TimedJob {
 		SecurityChangeLog::class => [SecurityChangeMapper::TABLE],
 		LockLinks::class => [LockLinkMapper::TABLE],
 		FailedLoginStats::class => [UserDailyMapper::TABLE],
+		BlocklistStatMapper::class => [BlocklistStatMapper::TABLE],
 	];
 
 	public function __construct(

@@ -49,6 +49,7 @@ class CleanupRetentionTest extends IntegrationTestCase {
 			'ids_security_changes' => fn (int $at, string $mark): array => ['uid' => $mark, 'type' => 'email', 'via' => 'self', 'created_at' => $at],
 			'ids_lock_links' => fn (int $at, string $mark): array => ['uid' => $mark, 'token_hash' => $mark, 'sent_to_hint' => 'a***@example.com', 'created_at' => $at - self::DAY, 'expires_at' => $at],
 			'ids_user_daily' => fn (int $at, string $mark): array => ['uid' => $mark, 'day' => $at, 'updated_at' => $at],
+			'ids_blocklist_stats' => fn (int $at, string $mark): array => ['list_id' => $mark, 'day' => gmdate('Y-m-d', $at), 'matches' => 1, 'sample' => '[]'],
 		];
 		// The time each table's rows are kept until, and the column that holds the row's time
 		$until = [
@@ -69,10 +70,11 @@ class CleanupRetentionTest extends IntegrationTestCase {
 			'ids_security_changes' => $now - $retained,
 			'ids_lock_links' => $now,
 			'ids_user_daily' => $today - 31 * self::DAY,
+			'ids_blocklist_stats' => $now - 30 * self::DAY,
 		];
 		$this->assertSame(array_keys($rows), array_keys($until));
 		foreach ($rows as $table => $row) {
-			$margin = in_array($table, ['ids_logins', 'ids_detection_hourly'], true) ? 3600 : ($table === 'ids_user_daily' ? self::DAY : self::MARGIN);
+			$margin = in_array($table, ['ids_logins', 'ids_detection_hourly'], true) ? 3600 : (in_array($table, ['ids_user_daily', 'ids_blocklist_stats'], true) ? self::DAY : self::MARGIN);
 			$this->insert($table, $row($until[$table] - $margin, 'old'));
 			$this->insert($table, $row($until[$table] + $margin, 'new'));
 		}
@@ -85,7 +87,7 @@ class CleanupRetentionTest extends IntegrationTestCase {
 
 		$marks = [
 			'ids_attempts' => 'ip_key', 'ids_logins' => 'ip_key', 'ids_detections' => 'check_id', 'ids_detection_hourly' => 'check_id',
-			'ids_bans' => 'ban_key', 'ids_flags' => 'flag_key', 'ids_alerts' => 'source_key',
+			'ids_bans' => 'ban_key', 'ids_flags' => 'flag_key', 'ids_alerts' => 'source_key', 'ids_blocklist_stats' => 'list_id',
 		];
 		$left = [];
 		foreach (array_keys($rows) as $table) {
