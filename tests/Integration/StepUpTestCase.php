@@ -14,7 +14,6 @@ use OCA\IntrusionDetection\AdminChange\Approvers;
 use OCA\IntrusionDetection\AppInfo\Application;
 use OCA\IntrusionDetection\Audit\AuditLogger;
 use OCA\IntrusionDetection\Cache\Caches;
-use OCA\IntrusionDetection\Check\Checks\PasswordSpraying\PasswordSprayingDetector;
 use OCA\IntrusionDetection\Confirm\ConfirmationPolicy;
 use OCA\IntrusionDetection\Confirm\Db\StepUpSessionMapper;
 use OCA\IntrusionDetection\Confirm\EmailCodes;
@@ -34,7 +33,6 @@ use OCA\IntrusionDetection\Confirm\UntrustedSecondFactors;
 use OCA\IntrusionDetection\Controller\VerifyController;
 use OCA\IntrusionDetection\Crypto\Fingerprinter;
 use OCA\IntrusionDetection\Db\ApprovalMapper;
-use OCA\IntrusionDetection\Db\AttemptMapper;
 use OCA\IntrusionDetection\Db\Detection;
 use OCA\IntrusionDetection\Db\DetectionFilter;
 use OCA\IntrusionDetection\Db\DetectionMapper;
@@ -52,9 +50,9 @@ use OCA\IntrusionDetection\Net\RemoteAddressResolver;
 use OCA\IntrusionDetection\Net\ServerAddresses;
 use OCA\IntrusionDetection\Notification\UserMessages;
 use OCA\IntrusionDetection\Response\FlaggedSources;
-use OCA\IntrusionDetection\Risk\RiskScorer;
 use OCA\IntrusionDetection\SessionState\Rules\StepUpRule;
 use OCA\IntrusionDetection\SessionState\SessionState;
+use OCA\IntrusionDetection\Signal\SignalDispatcher;
 use OCA\IntrusionDetection\Tests\BasicAuthServer;
 use OCA\IntrusionDetection\Tests\Unit\Cache\FixedCaches;
 use OCA\IntrusionDetection\TrustedNetwork\TrustedNetworks;
@@ -163,7 +161,7 @@ abstract class StepUpTestCase extends AccountTestCase {
 
 	protected function listener(): StepUpLoginListener {
 		return new StepUpLoginListener(
-			$this->appSettings(), $this->checkSettings(),
+			$this->appSettings(),
 			new InteractiveLogin($this->request),
 			$this->addresses(),
 			Server::get(Fingerprinter::class),
@@ -172,18 +170,10 @@ abstract class StepUpTestCase extends AccountTestCase {
 			Server::get(UnconfirmedSessions::class),
 			$this->request,
 			$this->session,
-			new OverridingContainer($this->listenerServices() + [
+			new OverridingContainer([
 				StepUpService::class => $this->service(),
 				LoginDetections::class => $this->linker(),
-				PasswordSprayingDetector::class => new PasswordSprayingDetector(
-					$this->checkSettings(),
-					Server::get(AttemptMapper::class),
-					$this->engine(),
-					Server::get(FlaggedSources::class),
-					Server::get(Fingerprinter::class),
-					Server::get(Caches::class),
-					Server::get(RiskScorer::class),
-				),
+				SignalDispatcher::class => $this->dispatcher($this->listenerServices(), $this->engine()),
 			]),
 			$this->listenerCaches ?? $this->noCaches(),
 			Server::get(LoggerInterface::class),
@@ -202,7 +192,7 @@ abstract class StepUpTestCase extends AccountTestCase {
 	}
 
 	/**
-	 * Further services of the login listener a test replaces.
+	 * The detectors of the login signals a test replaces.
 	 *
 	 * @return array<string, object>
 	 */

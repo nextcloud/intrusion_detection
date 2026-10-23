@@ -324,10 +324,8 @@ class RiskyNetworkTest extends StepUpTestCase {
 	#[\Override]
 	protected function listenerServices(): array {
 		$this->detector ??= new RiskyNetworkDetector(
-			$this->checkSettings(),
 			$this->networks(),
 			Server::get(SourceRepository::class),
-			$this->engine(),
 			$this->memory(),
 			Server::get(ITimeFactory::class),
 		);

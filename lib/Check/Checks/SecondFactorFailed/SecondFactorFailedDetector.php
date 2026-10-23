@@ -10,16 +10,17 @@ declare(strict_types=1);
 namespace OCA\IntrusionDetection\Check\Checks\SecondFactorFailed;
 
 use OCA\IntrusionDetection\Config\CheckSettings;
+use OCA\IntrusionDetection\Config\ModeState;
 use OCA\IntrusionDetection\Db\AttemptKind;
 use OCA\IntrusionDetection\Db\AttemptMapper;
 use OCA\IntrusionDetection\Detection\AttemptRecorder;
 use OCA\IntrusionDetection\Detection\DetectionDraft;
-use OCA\IntrusionDetection\Net\SourceKey;
 use OCA\IntrusionDetection\Response\FlaggedSources;
-use OCA\IntrusionDetection\Response\ResponseEngine;
 use OCA\IntrusionDetection\SessionState\CurrentSession;
+use OCA\IntrusionDetection\Signal\IDetector;
+use OCA\IntrusionDetection\Signal\ISignal;
+use OCA\IntrusionDetection\Signal\SecondFactorFailure;
 use OCP\ISession;
-use OCP\IUser;
 use Psr\Log\LoggerInterface;
 
 /**
@@ -37,8 +38,10 @@ use Psr\Log\LoggerInterface;
  *
  * The detection carries the waiting session's token id, so that
  * kill_session ends exactly that session.
+ *
+ * @template-implements IDetector<SecondFactorFailure>
  */
-class SecondFactorFailedDetector {
+class SecondFactorFailedDetector implements IDetector {
 	public const SESSION_KEY = 'intrusion_detection.second_factor_failures';
 	public const HOUR = 3600;
 
@@ -47,7 +50,6 @@ class SecondFactorFailedDetector {
 		private readonly AttemptRecorder $recorder,
 		private readonly AttemptMapper $attempts,
 		private readonly FlaggedSources $flags,
-		private readonly ResponseEngine $engine,
 		private readonly CurrentSession $currentSession,
 		private readonly ISession $session,
 		private readonly LoggerInterface $logger,
@@ -55,13 +57,13 @@ class SecondFactorFailedDetector {
 	}
 
 	/**
-	 * @return bool whether it fired
+	 * @param SecondFactorFailure $signal
+	 * @return list<DetectionDraft>
 	 */
-	public function detect(IUser $user, string $providerId, string $providerName, SourceKey $source, ?string $userAgent): bool {
-		if (!$this->settings->modeState(SecondFactorFailed::ID)->runs()) {
-			return false;
-		}
-		$uid = $user->getUID();
+	#[\Override]
+	public function detect(#[\SensitiveParameter] ISignal $signal, ModeState $mode): iterable {
+		$source = $signal->source;
+		$uid = $signal->user->getUID();
 		$params = $this->settings->params(SecondFactorFailed::ID);
 		$attempt = $this->recorder->record(AttemptKind::SecondFactor, $source, null, $uid);
 		$sessionTokenId = $this->currentSession->tokenId();
@@ -80,16 +82,16 @@ class SecondFactorFailedDetector {
 			$rules[] = SecondFactorFailed::RULE_HOUR;
 		}
 		if ($rules === []) {
-			return false;
+			return [];
 		}
 
-		$this->engine->handle(new DetectionDraft(
+		return [new DetectionDraft(
 			checkId: SecondFactorFailed::ID,
 			source: $source,
 			uid: $uid,
 			facts: [
-				'provider' => $providerId,
-				'providerName' => $providerName,
+				'provider' => $signal->providerId,
+				'providerName' => $signal->providerName,
 				'loginFailures' => $loginFailures,
 				'hourFailures' => $hourFailures,
 				'rules' => $rules,
@@ -99,10 +101,9 @@ class SecondFactorFailedDetector {
 				'last' => $attempt->time,
 			],
 			merge: DetectionDraft::MERGE_SOURCE_USER,
-			userAgent: $userAgent,
+			userAgent: $signal->userAgent,
 			sessionTokenId: $sessionTokenId,
-		));
-		return true;
+		)];
 	}
 
 	/**

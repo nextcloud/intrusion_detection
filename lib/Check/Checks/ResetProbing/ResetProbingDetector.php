@@ -10,13 +10,15 @@ declare(strict_types=1);
 namespace OCA\IntrusionDetection\Check\Checks\ResetProbing;
 
 use OCA\IntrusionDetection\Config\CheckSettings;
+use OCA\IntrusionDetection\Config\ModeState;
 use OCA\IntrusionDetection\Db\AttemptKind;
 use OCA\IntrusionDetection\Db\AttemptMapper;
 use OCA\IntrusionDetection\Definition\ResponseType;
-use OCA\IntrusionDetection\Detection\AttemptRecord;
 use OCA\IntrusionDetection\Detection\DetectionDraft;
-use OCA\IntrusionDetection\Response\ResponseEngine;
 use OCA\IntrusionDetection\Risk\RiskScorer;
+use OCA\IntrusionDetection\Signal\IDetector;
+use OCA\IntrusionDetection\Signal\ISignal;
+use OCA\IntrusionDetection\Signal\ResetRequested;
 
 /**
  * Detects password reset abuse (concept section 10.10) after each reset request.
@@ -34,8 +36,10 @@ use OCA\IntrusionDetection\Risk\RiskScorer;
  * FLOOD_SAMPLE; only a kept one is evaluated, and each kept row counts with
  * its stored weight, so rows from before the flood count once. Fewer than
  * MIN_RAW recorded rows never fire.
+ *
+ * @template-implements IDetector<ResetRequested>
  */
-class ResetProbingDetector {
+class ResetProbingDetector implements IDetector {
 	public const MIN_RAW = 3;
 	/** At most this many existing accounts are listed for an enumeration */
 	public const MAX_TARGETS = 20;
@@ -43,18 +47,22 @@ class ResetProbingDetector {
 	public function __construct(
 		private readonly CheckSettings $settings,
 		private readonly AttemptMapper $attempts,
-		private readonly ResponseEngine $engine,
 		private readonly RiskScorer $risk,
 	) {
 	}
 
-	public function detect(#[\SensitiveParameter] AttemptRecord $attempt, ?string $userAgent): void {
+	/**
+	 * @param ResetRequested $signal
+	 * @return list<DetectionDraft>
+	 */
+	#[\Override]
+	public function detect(#[\SensitiveParameter] ISignal $signal, ModeState $mode): iterable {
+		$attempt = $signal->attempt;
+		$userAgent = $signal->userAgent;
 		if ($attempt->kind !== AttemptKind::PasswordReset || !$attempt->stored) {
-			return;
+			return [];
 		}
-		if (!$this->settings->modeState(ResetProbing::ID)->runs()) {
-			return;
-		}
+		$drafts = [];
 		$params = $this->settings->params(ResetProbing::ID);
 		$kinds = [AttemptKind::PasswordReset];
 
@@ -62,7 +70,7 @@ class ResetProbingDetector {
 		$ip = $this->attempts->stats('ip_key', [$attempt->source->ipKey], $kinds, $since);
 		$enumLimits = $this->risk->limits($attempt->source, ['enum_min_inputs' => [(int)$params['enum_min_inputs'], $ip->namesEstimate()]]);
 		if (self::reaches($ip->distinctNames, $ip->namesEstimate(), $enumLimits->of('enum_min_inputs'))) {
-			$this->handle(new DetectionDraft(
+			$drafts[] = new DetectionDraft(
 				checkId: ResetProbing::ID,
 				source: $attempt->source,
 				facts: [
@@ -76,17 +84,17 @@ class ResetProbingDetector {
 				] + $enumLimits->facts(),
 				merge: DetectionDraft::MERGE_SOURCE,
 				userAgent: $userAgent,
-			));
+			);
 		}
 
 		$uid = $attempt->uid;
 		if ($uid === null) {
-			return;
+			return $drafts;
 		}
 		$user = $this->attempts->stats('uid', [$uid], $kinds, $attempt->time - (int)$params['flood_window']);
 		$floodLimits = $this->risk->limits($attempt->source, ['flood_min_requests' => [(int)$params['flood_min_requests'], $user->failuresEstimate()]]);
 		if (self::reaches($user->failures, $user->failuresEstimate(), $floodLimits->of('flood_min_requests'))) {
-			$this->handle(new DetectionDraft(
+			$draft = new DetectionDraft(
 				checkId: ResetProbing::ID,
 				uid: $uid,
 				facts: [
@@ -101,16 +109,12 @@ class ResetProbingDetector {
 				merge: DetectionDraft::MERGE_USER,
 				mergeWindow: max((int)$params['flood_window'], (int)$params['suppress_duration']),
 				userAgent: $userAgent,
-			));
-		}
-	}
-
-	private function handle(DetectionDraft $draft): void {
-		if ($draft->uid !== null) {
+			);
 			// The person is told when the flood begins, not for every request that continues it.
 			$draft->runOnlyWhenNew(ResponseType::NotifyUser);
+			$drafts[] = $draft;
 		}
-		$this->engine->handle($draft);
+		return $drafts;
 	}
 
 	/**

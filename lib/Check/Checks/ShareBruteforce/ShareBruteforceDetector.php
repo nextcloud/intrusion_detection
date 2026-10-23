@@ -10,16 +10,19 @@ declare(strict_types=1);
 namespace OCA\IntrusionDetection\Check\Checks\ShareBruteforce;
 
 use OCA\IntrusionDetection\Config\CheckSettings;
+use OCA\IntrusionDetection\Config\ModeState;
 use OCA\IntrusionDetection\Db\AttemptKind;
 use OCA\IntrusionDetection\Db\AttemptMapper;
 use OCA\IntrusionDetection\Db\AttemptStats;
 use OCA\IntrusionDetection\Detection\AttemptRecord;
 use OCA\IntrusionDetection\Detection\DetectionDraft;
 use OCA\IntrusionDetection\Net\SourceKey;
-use OCA\IntrusionDetection\Response\ResponseEngine;
 use OCA\IntrusionDetection\Risk\RiskScorer;
 use OCA\IntrusionDetection\Share\FederationPartners;
 use OCA\IntrusionDetection\Share\ShareLinks;
+use OCA\IntrusionDetection\Signal\IDetector;
+use OCA\IntrusionDetection\Signal\ISignal;
+use OCA\IntrusionDetection\Signal\ShareAccessFailed;
 use OCP\Share\IShare;
 
 /**
@@ -51,8 +54,10 @@ use OCP\Share\IShare;
  * kept one is evaluated, and each kept row counts with its stored weight.
  * However the numbers are scaled, an address with at most STALE_TOLERANCE
  * distinct tokens never fires and is never blocked: outdated links are normal.
+ *
+ * @template-implements IDetector<ShareAccessFailed>
  */
-class ShareBruteforceDetector {
+class ShareBruteforceDetector implements IDetector {
 	/** This many distinct unknown tokens per address never count */
 	public const STALE_TOLERANCE = 2;
 	/** A network detection blocks at most this many of its addresses */
@@ -63,19 +68,29 @@ class ShareBruteforceDetector {
 	public function __construct(
 		private readonly CheckSettings $settings,
 		private readonly AttemptMapper $attempts,
-		private readonly ResponseEngine $engine,
 		private readonly ShareLinks $links,
 		private readonly RiskScorer $risk,
 		private readonly FederationPartners $partners,
 	) {
 	}
 
-	public function unknownToken(#[\SensitiveParameter] AttemptRecord $attempt, ?string $userAgent): void {
+	/**
+	 * @param ShareAccessFailed $signal
+	 * @return list<DetectionDraft>
+	 */
+	#[\Override]
+	public function detect(#[\SensitiveParameter] ISignal $signal, ModeState $mode): iterable {
+		return $signal->share === null
+			? $this->unknownToken($signal->attempt, $signal->userAgent)
+			: $this->wrongPassword($signal->attempt, $signal->share, $signal->userAgent);
+	}
+
+	/**
+	 * @return list<DetectionDraft>
+	 */
+	private function unknownToken(#[\SensitiveParameter] AttemptRecord $attempt, ?string $userAgent): array {
 		if ($attempt->kind !== AttemptKind::UnknownShareToken || !$attempt->stored) {
-			return;
-		}
-		if (!$this->settings->modeState(ShareBruteforce::ID)->runs()) {
-			return;
+			return [];
 		}
 		$params = $this->settings->params(ShareBruteforce::ID);
 		$minTokens = (int)$params['token_min'];
@@ -92,7 +107,7 @@ class ShareBruteforceDetector {
 		if (self::reaches($ip->distinctNames, $ip->namesEstimate(), $limits->of('token_min'))) {
 			// A partner server is reported, never blocked ({@see ShareBruteforce::responsesFor()}).
 			$partner = $this->partners->isPartner($source) ? ['federation' => true] : [];
-			$this->engine->handle(new DetectionDraft(
+			return [new DetectionDraft(
 				checkId: ShareBruteforce::ID,
 				source: $source,
 				uid: $attempt->uid,
@@ -100,19 +115,18 @@ class ShareBruteforceDetector {
 				merge: DetectionDraft::MERGE_SOURCE,
 				userAgent: $userAgent,
 				lure: $attempt->lure,
-			));
-			return;
+			)];
 		}
 		if ($source->family !== 4 || $netFactor < 1) {
-			return;
+			return [];
 		}
 		$net = $this->attempts->stats('net_key', [$source->netKey], $kinds, $since);
 		if ($net->distinctSources < 2) {
-			return;
+			return [];
 		}
 		$netLimits = $this->risk->limits($source, ['token_min' => [$minTokens * $netFactor, $net->namesEstimate()]]);
 		if (!self::reaches($net->distinctNames, $net->namesEstimate(), $netLimits->of('token_min'))) {
-			return;
+			return [];
 		}
 		$targets = [];
 		foreach ($this->attempts->distinctNamesPerSource('net_key', $source->netKey, $kinds, $since, self::MAX_NET_TARGETS) as $ipKey => $tokens) {
@@ -142,17 +156,18 @@ class ShareBruteforceDetector {
 			// One or two outdated links never get an address blocked, not even the one that tipped the network over; nor does a partner server.
 			$draft->spareSource();
 		}
-		$this->engine->handle($draft);
+		return [$draft];
 	}
 
-	public function wrongPassword(#[\SensitiveParameter] AttemptRecord $attempt, IShare $share, ?string $userAgent): void {
+	/**
+	 * @return list<DetectionDraft>
+	 */
+	private function wrongPassword(#[\SensitiveParameter] AttemptRecord $attempt, IShare $share, ?string $userAgent): array {
 		$shareId = $attempt->shareId;
 		if ($attempt->kind !== AttemptKind::WrongSharePassword || $shareId === null) {
-			return;
+			return [];
 		}
-		if (!$this->settings->modeState(ShareBruteforce::ID)->runs()) {
-			return;
-		}
+		$drafts = [];
 		$params = $this->settings->params(ShareBruteforce::ID);
 		$kinds = [AttemptKind::WrongSharePassword];
 		$source = $attempt->source;
@@ -162,7 +177,7 @@ class ShareBruteforceDetector {
 		$sourceLimits = $this->risk->limits($source, ['password_min_per_source' => [(int)$params['password_min_per_source'], $fromSource->failures]]);
 		if ($sourceLimits->reached()) {
 			// About the address, not the account: the owner is told only of attacks from many addresses.
-			$this->engine->handle(new DetectionDraft(
+			$drafts[] = new DetectionDraft(
 				checkId: ShareBruteforce::ID,
 				source: $source,
 				facts: [
@@ -174,13 +189,13 @@ class ShareBruteforceDetector {
 				shareId: $shareId,
 				merge: DetectionDraft::MERGE_SOURCE_SHARE,
 				userAgent: $userAgent,
-			));
+			);
 		}
 
 		$onShare = $this->attempts->stats('share_id', [$shareId], $kinds, $attempt->time - (int)$params['password_share_window']);
 		$shareLimits = $this->risk->limits($source, ['password_min_per_share' => [(int)$params['password_min_per_share'], $onShare->failures]]);
 		if ($shareLimits->reached()) {
-			$this->engine->handle(new DetectionDraft(
+			$drafts[] = new DetectionDraft(
 				checkId: ShareBruteforce::ID,
 				uid: $shareFacts['owner'],
 				facts: [
@@ -195,8 +210,9 @@ class ShareBruteforceDetector {
 				merge: DetectionDraft::MERGE_SHARE,
 				mergeWindow: self::SHARE_MERGE_WINDOW,
 				userAgent: $userAgent,
-			));
+			);
 		}
+		return $drafts;
 	}
 
 	/**

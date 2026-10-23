@@ -30,7 +30,7 @@ use OCA\IntrusionDetection\Db\DetectionMapper;
 use OCA\IntrusionDetection\Definition\Mode;
 use OCA\IntrusionDetection\Listener\AdminChangeListener;
 use OCA\IntrusionDetection\Net\RemoteAddressResolver;
-use OCA\IntrusionDetection\Response\ResponseEngine;
+use OCA\IntrusionDetection\Signal\SignalDispatcher;
 use OCA\IntrusionDetection\State\AppState;
 use OCP\AppFramework\Utility\ITimeFactory;
 use OCP\EventDispatcher\Event;
@@ -69,7 +69,7 @@ abstract class AdminChangeTestCase extends IntegrationTestCase {
 
 	/** @var ActorResolver&MockObject */
 	protected ActorResolver $actors;
-	protected AdminChangeDetector $detector;
+	protected SignalDispatcher $signals;
 	protected AdminGrantGate $gate;
 	protected AdminChangeListener $listener;
 	protected DetectionMapper $detections;
@@ -135,11 +135,10 @@ abstract class AdminChangeTestCase extends IntegrationTestCase {
 	 */
 	protected function rebuild(?ITimeFactory $time = null): void {
 		$time ??= Server::get(ITimeFactory::class);
-		$this->detector = new AdminChangeDetector(Server::get(ResponseEngine::class), $this->appSettings(), $this->checkSettings(), $this->actors, Server::get(RemoteAddressResolver::class), $time);
+		$this->signals = $this->dispatcher([AdminChangeDetector::class => new AdminChangeDetector($this->actors, Server::get(RemoteAddressResolver::class))]);
 		$this->gate = new AdminGrantGate($this->appSettings(), $this->checkSettings(), $this->actors, Server::get(GrantPermit::class));
 		$this->listener = new AdminChangeListener(
-			$this->checkSettings(),
-			$this->detector,
+			$this->signals,
 			$this->gate,
 			Server::get(ApprovalService::class),
 			Server::get(GrantPermit::class),
@@ -153,7 +152,7 @@ abstract class AdminChangeTestCase extends IntegrationTestCase {
 	}
 
 	protected function configWatch(WatchedSettings $watched, ?ITimeFactory $time = null, ?\OCP\App\IAppManager $appManager = null): ConfigWatch {
-		return new ConfigWatch($watched, Server::get(ConfigSnapshotMapper::class), Server::get(Fingerprinter::class), $this->detector, $this->checkSettings(), $time ?? Server::get(ITimeFactory::class), $appManager ?? Server::get(\OCP\App\IAppManager::class), Server::get(AppState::class));
+		return new ConfigWatch($watched, Server::get(ConfigSnapshotMapper::class), Server::get(Fingerprinter::class), $this->signals, $this->checkSettings(), $time ?? Server::get(ITimeFactory::class), $appManager ?? Server::get(\OCP\App\IAppManager::class), Server::get(AppState::class));
 	}
 
 	protected function requireApproval(bool $on = true): void {

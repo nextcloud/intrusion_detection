@@ -24,6 +24,10 @@ use OCA\IntrusionDetection\Listener\ShareAccessFailedListener;
 use OCA\IntrusionDetection\Net\RemoteAddressResolver;
 use OCA\IntrusionDetection\Net\SourceKey;
 use OCA\IntrusionDetection\Response\ResetMailSuppressor;
+use OCA\IntrusionDetection\Response\ResponseEngine;
+use OCA\IntrusionDetection\Signal\IDetector;
+use OCA\IntrusionDetection\Signal\ShareAccessFailed;
+use OCA\IntrusionDetection\Signal\SignalDispatcher;
 use OCA\IntrusionDetection\Tests\Unit\Cache\FixedCaches;
 use OCP\Authentication\Events\LoginFlowV2GrantedEvent;
 use OCP\Authentication\Token\IToken;
@@ -35,6 +39,7 @@ use OCP\Security\Events\PasswordResetRequestedEvent;
 use OCP\Share\Events\ShareLinkAccessFailedEvent;
 use OCP\Share\IShare;
 use PHPUnit\Framework\MockObject\MockObject;
+use Psr\Container\ContainerInterface;
 use Psr\Log\LoggerInterface;
 use Test\TestCase;
 
@@ -72,7 +77,7 @@ class PublicEventListenersTest extends TestCase {
 		$this->shareListener($this->createMock(ShareBruteforceDetector::class))->handle(new ShareLinkAccessFailedEvent(self::TOKEN, null, ShareLinkAccessFailedEvent::REASON_NOT_FOUND));
 		$this->resetListener($this->createMock(ResetProbingDetector::class), $this->createMock(ResetMailSuppressor::class))->handle(new PasswordResetRequestedEvent('alice'));
 		$detector = $this->createMock(LoginFlowMismatchDetector::class);
-		$detector->expects($this->never())->method('granted');
+		$detector->expects($this->never())->method('detect');
 		$this->flowListener($detector)->handle(new LoginFlowV2GrantedEvent($this->createMock(IToken::class), '203.0.113.5', time()));
 	}
 
@@ -89,7 +94,7 @@ class PublicEventListenersTest extends TestCase {
 		$attempt = $this->attempt(AttemptKind::UnknownShareToken);
 		$this->recorder->expects($this->once())->method('recordUnknownShareToken')->with($this->anything(), self::TOKEN)->willReturn($attempt);
 		$detector = $this->createMock(ShareBruteforceDetector::class);
-		$detector->expects($this->once())->method('unknownToken')->with($attempt);
+		$detector->expects($this->once())->method('detect')->with($this->callback(static fn (ShareAccessFailed $s): bool => $s->attempt === $attempt && $s->share === null));
 		$this->shareListener($detector)->handle(new ShareLinkAccessFailedEvent(self::TOKEN, null, ShareLinkAccessFailedEvent::REASON_NOT_FOUND));
 	}
 
@@ -98,7 +103,7 @@ class PublicEventListenersTest extends TestCase {
 		$attempt = $this->attempt(AttemptKind::UnknownShareToken);
 		$this->recorder->expects($this->once())->method('recordUnknownShareToken')->with($this->anything(), self::TOKEN, false, 'alice')->willReturn($attempt);
 		$detector = $this->createMock(ShareBruteforceDetector::class);
-		$detector->expects($this->once())->method('unknownToken')->with($attempt);
+		$detector->expects($this->once())->method('detect')->with($this->callback(static fn (ShareAccessFailed $s): bool => $s->attempt === $attempt));
 		$this->shareListener($detector, loggedIn: true)->handle(new ShareLinkAccessFailedEvent(self::TOKEN, null, ShareLinkAccessFailedEvent::REASON_NOT_FOUND));
 	}
 
@@ -108,7 +113,7 @@ class PublicEventListenersTest extends TestCase {
 		$share->method('getId')->willReturn('42');
 		$this->recorder->expects($this->once())->method('record')->willReturn($this->attempt(AttemptKind::WrongSharePassword));
 		$detector = $this->createMock(ShareBruteforceDetector::class);
-		$detector->expects($this->once())->method('wrongPassword');
+		$detector->expects($this->once())->method('detect')->with($this->callback(static fn (ShareAccessFailed $s): bool => $s->share !== null));
 		$this->shareListener($detector, loggedIn: true)->handle(new ShareLinkAccessFailedEvent(self::TOKEN, $share, ShareLinkAccessFailedEvent::REASON_WRONG_PASSWORD));
 	}
 
@@ -119,7 +124,7 @@ class PublicEventListenersTest extends TestCase {
 		$attempt = $this->attempt(AttemptKind::WrongSharePassword);
 		$this->recorder->expects($this->once())->method('record')->with(AttemptKind::WrongSharePassword, $this->anything(), null, null, 42)->willReturn($attempt);
 		$detector = $this->createMock(ShareBruteforceDetector::class);
-		$detector->expects($this->once())->method('wrongPassword')->with($attempt, $share);
+		$detector->expects($this->once())->method('detect')->with($this->callback(static fn (ShareAccessFailed $s): bool => $s->attempt === $attempt && $s->share === $share));
 		$this->shareListener($detector)->handle(new ShareLinkAccessFailedEvent(self::TOKEN, $share, ShareLinkAccessFailedEvent::REASON_WRONG_PASSWORD));
 	}
 
@@ -135,8 +140,8 @@ class PublicEventListenersTest extends TestCase {
 		$this->mode(Mode::Protect);
 		$this->recorder->method('recordUnknownShareToken')->willReturn($this->attempt(AttemptKind::UnknownShareToken));
 		$detector = $this->createMock(ShareBruteforceDetector::class);
-		$detector->method('unknownToken')->willThrowException(new \RuntimeException('database gone'));
-		$this->logger->expects($this->once())->method('error')->with($this->logicalNot($this->stringContains(self::TOKEN)));
+		$detector->method('detect')->willThrowException(new \RuntimeException('database gone'));
+		$this->logger->expects($this->once())->method('error')->with($this->logicalNot($this->stringContains(self::TOKEN)), $this->callback(static fn (array $context): bool => !str_contains((string)json_encode(array_diff_key($context, ['exception' => 1])), self::TOKEN)));
 		$this->shareListener($detector)->handle(new ShareLinkAccessFailedEvent(self::TOKEN, null, ShareLinkAccessFailedEvent::REASON_NOT_FOUND));
 	}
 
@@ -171,7 +176,7 @@ class PublicEventListenersTest extends TestCase {
 	public function testAFailingLoginFlowCheckDoesNotBreakTheGrant(): void {
 		$this->mode(Mode::Protect);
 		$detector = $this->createMock(LoginFlowMismatchDetector::class);
-		$detector->method('granted')->willThrowException(new \RuntimeException('database gone'));
+		$detector->method('detect')->willThrowException(new \RuntimeException('database gone'));
 		$this->logger->expects($this->once())->method('error');
 		$this->flowListener($detector)->handle(new LoginFlowV2GrantedEvent($this->createMock(IToken::class), '203.0.113.5', time()));
 	}
@@ -189,7 +194,7 @@ class PublicEventListenersTest extends TestCase {
 		$user = $this->createMock(IUser::class);
 		$user->method('getUID')->willReturn('alice');
 		$session->method('getUser')->willReturn($loggedIn ? $user : null);
-		return new ShareAccessFailedListener($this->settings, $this->addresses, $this->recorder, $detector, $this->createMock(IRequest::class), $session, $this->logger);
+		return new ShareAccessFailedListener($this->dispatcher($detector), $this->addresses, $this->recorder, $this->createMock(IRequest::class), $session, $this->logger);
 	}
 
 	private function resetListener(ResetProbingDetector $detector, ResetMailSuppressor $suppressor, ?string $existingUid = null): ResetRequestedListener {
@@ -200,10 +205,19 @@ class PublicEventListenersTest extends TestCase {
 			$user->method('isEnabled')->willReturn(true);
 			$users->method('get')->willReturnMap([[$existingUid, $user]]);
 		}
-		return new ResetRequestedListener($this->settings, $this->addresses, $this->recorder, $detector, $suppressor, $users, $this->createMock(IRequest::class), $this->logger, new \OCA\IntrusionDetection\Login\EmailAccounts($users, FixedCaches::none()));
+		return new ResetRequestedListener($this->dispatcher($detector), $this->addresses, $this->recorder, $suppressor, $users, $this->createMock(IRequest::class), $this->logger, new \OCA\IntrusionDetection\Login\EmailAccounts($users, FixedCaches::none()));
 	}
 
 	private function flowListener(LoginFlowMismatchDetector $detector): LoginFlowGrantedListener {
-		return new LoginFlowGrantedListener($this->settings, $this->addresses, $detector, $this->createMock(IRequest::class), $this->logger);
+		return new LoginFlowGrantedListener($this->dispatcher($detector), $this->addresses, $this->createMock(IRequest::class), $this->logger);
+	}
+
+	/**
+	 * The dispatcher with the listener's detector, and an engine that records nothing.
+	 */
+	private function dispatcher(IDetector $detector): SignalDispatcher {
+		$container = $this->createMock(ContainerInterface::class);
+		$container->method('get')->willReturn($detector);
+		return new SignalDispatcher($this->settings, $this->createMock(ResponseEngine::class), $container, $this->logger);
 	}
 }

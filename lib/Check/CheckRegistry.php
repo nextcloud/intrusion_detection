@@ -11,10 +11,18 @@ namespace OCA\IntrusionDetection\Check;
 
 use OCA\IntrusionDetection\Definition\CheckDefinition;
 use OCA\IntrusionDetection\Definition\InvalidParamException;
+use OCA\IntrusionDetection\Signal\AdminChanged;
 use OCA\IntrusionDetection\Signal\FailedLogin;
 use OCA\IntrusionDetection\Signal\FailedLoginAttempt;
 use OCA\IntrusionDetection\Signal\IDetector;
+use OCA\IntrusionDetection\Signal\InteractivePasswordLogin;
 use OCA\IntrusionDetection\Signal\ISignal;
+use OCA\IntrusionDetection\Signal\LoginFlowGranted;
+use OCA\IntrusionDetection\Signal\ResetRequested;
+use OCA\IntrusionDetection\Signal\SecondFactorFailure;
+use OCA\IntrusionDetection\Signal\SecurityChanged;
+use OCA\IntrusionDetection\Signal\ShareAccessFailed;
+use OCA\IntrusionDetection\Signal\SuccessfulLogin;
 use Psr\Container\ContainerInterface;
 
 /**
@@ -72,6 +80,34 @@ class CheckRegistry {
 			'password_spraying' => Checks\PasswordSpraying\PasswordSprayingDetector::class,
 			'credential_stuffing' => Checks\CredentialStuffing\CredentialStuffingDetector::class,
 			'account_under_attack' => Checks\AccountUnderAttack\AccountUnderAttackDetector::class,
+		],
+		SuccessfulLogin::class => [
+			'password_spraying' => Checks\PasswordSpraying\PasswordSprayingDetector::class,
+			'risky_network' => Checks\RiskyNetwork\RiskyNetworkDetector::class,
+		],
+		InteractivePasswordLogin::class => [
+			'breached_password' => Checks\BreachedPassword\BreachedPasswordDetector::class,
+		],
+		Checks\TokenConcurrentUse\CredentialSwitched::class => [
+			'token_concurrent_use' => Checks\TokenConcurrentUse\TokenConcurrentUseDetector::class,
+		],
+		SecondFactorFailure::class => [
+			'second_factor_failed' => Checks\SecondFactorFailed\SecondFactorFailedDetector::class,
+		],
+		SecurityChanged::class => [
+			'account_takeover' => Checks\AccountTakeover\AccountTakeoverDetector::class,
+		],
+		ShareAccessFailed::class => [
+			'share_bruteforce' => Checks\ShareBruteforce\ShareBruteforceDetector::class,
+		],
+		ResetRequested::class => [
+			'reset_probing' => Checks\ResetProbing\ResetProbingDetector::class,
+		],
+		LoginFlowGranted::class => [
+			'login_flow_mismatch' => Checks\LoginFlowMismatch\LoginFlowMismatchDetector::class,
+		],
+		AdminChanged::class => [
+			'admin_change' => Checks\AdminChange\AdminChangeDetector::class,
 		],
 	];
 

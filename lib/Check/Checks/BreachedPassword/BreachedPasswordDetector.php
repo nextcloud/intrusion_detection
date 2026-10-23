@@ -12,10 +12,13 @@ namespace OCA\IntrusionDetection\Check\Checks\BreachedPassword;
 use OCA\IntrusionDetection\AppInfo\Application;
 use OCA\IntrusionDetection\Breach\PwnedPasswordsClient;
 use OCA\IntrusionDetection\Config\CheckSettings;
+use OCA\IntrusionDetection\Config\ModeState;
 use OCA\IntrusionDetection\Config\UserKeys;
 use OCA\IntrusionDetection\Detection\DetectionDraft;
 use OCA\IntrusionDetection\Net\RemoteAddressResolver;
-use OCA\IntrusionDetection\Response\ResponseEngine;
+use OCA\IntrusionDetection\Signal\IDetector;
+use OCA\IntrusionDetection\Signal\InteractivePasswordLogin;
+use OCA\IntrusionDetection\Signal\ISignal;
 use OCP\AppFramework\Utility\ITimeFactory;
 use OCP\Config\IUserConfig;
 use OCP\IUser;
@@ -34,17 +37,18 @@ use OCP\IUser;
  *
  * The detection never holds the password, its hash, the prefix sent or the
  * count in the list (a count can identify a password).
+ *
+ * @template-implements IDetector<InteractivePasswordLogin>
  */
-class BreachedPasswordDetector {
+class BreachedPasswordDetector implements IDetector {
 
-	/** @var array<string, ?bool> results of this request, per account */
-	private array $results = [];
+	/** @var array<string, true> the accounts checked in this request */
+	private array $checked = [];
 
 	public function __construct(
 		private readonly CheckSettings $settings,
 		private readonly PwnedPasswordsClient $client,
 		private readonly IUserConfig $userConfig,
-		private readonly ResponseEngine $engine,
 		private readonly RemoteAddressResolver $addresses,
 		private readonly ITimeFactory $timeFactory,
 	) {
@@ -74,61 +78,51 @@ class BreachedPasswordDetector {
 	}
 
 	/**
-	 * Check the password of an interactive login, if the check runs and the
-	 * account is due, and answer a detection with the configured responses.
+	 * Check the password of an interactive login, if the account is due.
+	 * Within one request the account is checked once.
 	 *
-	 * The caller must only pass the password of an interactive password
-	 * login ({@see \OCA\IntrusionDetection\Login\InteractiveLogin}). Within
-	 * one request the account is checked once; later calls return the same
-	 * result.
-	 *
-	 * @return ?bool true when the password is on the list, false when it is
-	 *               not, null when it was not checked now (check off, not due,
-	 *               allowlisted address, service unreachable)
+	 * @param InteractivePasswordLogin $signal
+	 * @return list<DetectionDraft>
 	 */
-	public function checkAtLogin(IUser $user, #[\SensitiveParameter] string $password, ?string $userAgent = null): ?bool {
-		$uid = $user->getUID();
-		if (array_key_exists($uid, $this->results)) {
-			return $this->results[$uid];
+	#[\Override]
+	public function detect(#[\SensitiveParameter] ISignal $signal, ModeState $mode): iterable {
+		$uid = $signal->user->getUID();
+		if (array_key_exists($uid, $this->checked)) {
+			return [];
 		}
-		$this->results[$uid] = null;
+		$this->checked[$uid] = true;
 
-		if ($password === '' || !$this->settings->modeState(BreachedPassword::ID)->runs()) {
-			return null;
+		if ($signal->password === '') {
+			return [];
 		}
 		$source = $this->addresses->current();
 		if ($source !== null && $this->addresses->isBypassListed($source)) {
-			return null;
+			return [];
 		}
 		if (!$this->isDue($uid)) {
-			return null;
+			return [];
 		}
 
-		$count = $this->client->count($password);
+		$count = $this->client->count($signal->password);
 		if ($count === null) {
-			return null;
+			return [];
 		}
 		$found = $count >= $this->settings->paramInt(BreachedPassword::ID, 'min_count');
 		$this->userConfig->setValueInt($uid, Application::APP_ID, UserKeys::BREACH_CHECKED_AT, $this->timeFactory->getTime(), true);
-		if ($found) {
-			$this->userConfig->setValueBool($uid, Application::APP_ID, UserKeys::BREACHED, true, true);
-		} else {
+		if (!$found) {
 			$this->userConfig->deleteUserConfig($uid, Application::APP_ID, UserKeys::BREACHED);
+			return [];
 		}
-		$this->results[$uid] = $found;
-
-		if ($found) {
-			$this->engine->handle(new DetectionDraft(
-				checkId: BreachedPassword::ID,
-				source: $source,
-				uid: $uid,
-				facts: ['trigger' => 'login'],
-				merge: DetectionDraft::MERGE_USER,
-				mergeWindow: 86400,
-				userAgent: $userAgent,
-			));
-		}
-		return $found;
+		$this->userConfig->setValueBool($uid, Application::APP_ID, UserKeys::BREACHED, true, true);
+		return [new DetectionDraft(
+			checkId: BreachedPassword::ID,
+			source: $source,
+			uid: $uid,
+			facts: ['trigger' => 'login'],
+			merge: DetectionDraft::MERGE_USER,
+			mergeWindow: 86400,
+			userAgent: $signal->userAgent,
+		)];
 	}
 
 	/**
@@ -139,7 +133,7 @@ class BreachedPasswordDetector {
 		$uid = self::uid($user);
 		$this->userConfig->deleteUserConfig($uid, Application::APP_ID, UserKeys::BREACH_CHECKED_AT);
 		$this->userConfig->deleteUserConfig($uid, Application::APP_ID, UserKeys::BREACHED);
-		unset($this->results[$uid]);
+		unset($this->checked[$uid]);
 	}
 
 	private static function uid(IUser|string $user): string {

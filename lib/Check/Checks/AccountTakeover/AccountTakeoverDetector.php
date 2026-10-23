@@ -10,9 +10,12 @@ declare(strict_types=1);
 namespace OCA\IntrusionDetection\Check\Checks\AccountTakeover;
 
 use OCA\IntrusionDetection\Config\CheckSettings;
+use OCA\IntrusionDetection\Config\ModeState;
 use OCA\IntrusionDetection\Detection\DetectionDraft;
 use OCA\IntrusionDetection\Net\RemoteAddressResolver;
-use OCA\IntrusionDetection\Response\ResponseEngine;
+use OCA\IntrusionDetection\Signal\IDetector;
+use OCA\IntrusionDetection\Signal\ISignal;
+use OCA\IntrusionDetection\Signal\SecurityChanged;
 use OCA\IntrusionDetection\Takeover\Db\SecurityChangeMapper;
 use OCA\IntrusionDetection\Takeover\RiskyLogins;
 use OCA\IntrusionDetection\Takeover\SecurityChangeLog;
@@ -37,8 +40,10 @@ use OCP\IUserManager;
  * Repeated firing within the window updates one detection, which runs its
  * (idempotent) responses again; a later email change can still bring the
  * lock link. Cost: one indexed query over the account's last changes.
+ *
+ * @template-implements IDetector<SecurityChanged>
  */
-class AccountTakeoverDetector {
+class AccountTakeoverDetector implements IDetector {
 	/** At most this many changes are read and kept in the facts */
 	public const MAX_CHANGES = 50;
 	public const MAX_FACT_CHANGES = 20;
@@ -47,7 +52,6 @@ class AccountTakeoverDetector {
 		private readonly CheckSettings $settings,
 		private readonly SecurityChangeMapper $changes,
 		private readonly RiskyLogins $riskyLogins,
-		private readonly ResponseEngine $engine,
 		private readonly RemoteAddressResolver $addresses,
 		private readonly IUserManager $userManager,
 		private readonly IRequest $request,
@@ -56,12 +60,13 @@ class AccountTakeoverDetector {
 	}
 
 	/**
-	 * @return bool whether it fired
+	 * @param SecurityChanged $signal
+	 * @return list<DetectionDraft>
 	 */
-	public function evaluate(string $uid, ?int $sessionTokenId): bool {
-		if (!$this->settings->modeState(AccountTakeover::ID)->runs()) {
-			return false;
-		}
+	#[\Override]
+	public function detect(#[\SensitiveParameter] ISignal $signal, ModeState $mode): iterable {
+		$uid = $signal->uid;
+		$sessionTokenId = $signal->sessionTokenId;
 		$params = $this->settings->params(AccountTakeover::ID);
 		$now = $this->timeFactory->getTime();
 		$window = (int)$params[AccountTakeover::PARAM_WINDOW];
@@ -91,7 +96,7 @@ class AccountTakeoverDetector {
 			];
 		}
 		if ($counted === []) {
-			return false;
+			return [];
 		}
 
 		$rules = [];
@@ -123,7 +128,7 @@ class AccountTakeoverDetector {
 			}
 		}
 		if ($rules === []) {
-			return false;
+			return [];
 		}
 
 		ksort($used);
@@ -160,7 +165,7 @@ class AccountTakeoverDetector {
 			'first' => min(array_column($used, 'at')),
 			'last' => max(array_column($used, 'at')),
 		];
-		$this->engine->handle(new DetectionDraft(
+		return [new DetectionDraft(
 			checkId: AccountTakeover::ID,
 			source: $this->addresses->current(),
 			uid: $uid,
@@ -169,7 +174,6 @@ class AccountTakeoverDetector {
 			mergeWindow: max($window, $windowAny),
 			userAgent: $this->request->getHeader('User-Agent') ?: null,
 			sessionTokenId: $sessionTokenId,
-		));
-		return true;
+		)];
 	}
 }

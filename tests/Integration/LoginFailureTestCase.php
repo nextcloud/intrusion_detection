@@ -29,9 +29,7 @@ use OCA\IntrusionDetection\Net\SourceKey;
 use OCA\IntrusionDetection\Personal\FailedLoginStats;
 use OCA\IntrusionDetection\Response\BanService;
 use OCA\IntrusionDetection\Response\FlaggedSources;
-use OCA\IntrusionDetection\Response\ResponseEngine;
 use OCA\IntrusionDetection\Risk\RiskScorer;
-use OCA\IntrusionDetection\Signal\SignalDispatcher;
 use OCA\IntrusionDetection\State\AppState;
 use OCP\Authentication\Events\AnyLoginFailedEvent;
 use OCP\IRequest;
@@ -71,7 +69,7 @@ abstract class LoginFailureTestCase extends IntegrationTestCase {
 		$this->listener = new FailedLoginListener(
 			$this->appSettings(),
 			$addresses,
-			$this->dispatcher(new OverridingContainer([
+			$this->dispatcher([
 				BlocklistMatchDetector::class => new BlocklistMatchDetector($addresses, $this->requestContext, Server::get(AddressCache::class), Server::get(SourceRepository::class)),
 				CredentialStuffingDetector::class => new CredentialStuffingDetector(
 					$this->checkSettings(),
@@ -83,7 +81,7 @@ abstract class LoginFailureTestCase extends IntegrationTestCase {
 					Server::get(RiskScorer::class),
 					Server::get(AppState::class),
 				),
-			])),
+			], logger: $this->listenerLogger()),
 			$this->attemptRecorder(),
 			Server::get(RiskScorer::class),
 			Server::get(IUserManager::class),
@@ -92,10 +90,6 @@ abstract class LoginFailureTestCase extends IntegrationTestCase {
 			Server::get(FailedLoginStats::class),
 			Server::get(\OCA\IntrusionDetection\Login\EmailAccounts::class),
 		);
-	}
-
-	protected function dispatcher(OverridingContainer $detectors): SignalDispatcher {
-		return new SignalDispatcher($this->checkSettings(), Server::get(ResponseEngine::class), $detectors, $this->listenerLogger());
 	}
 
 	protected function tearDown(): void {

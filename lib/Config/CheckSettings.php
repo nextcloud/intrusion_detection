@@ -47,9 +47,29 @@ class CheckSettings extends StoredSettings {
 	 * mode and missing prerequisites are applied.
 	 */
 	public function modeState(string $checkId): ModeState {
+		return $this->state($checkId, $this->configuredMode($checkId), $this->app->isEnabled(), $this->app->isLearning());
+	}
+
+	/**
+	 * The mode a check ran in before one of the app's own settings changed:
+	 * a change of the master switch, of learning mode or of the check's own
+	 * mode is taken back. A change that silences the check is judged by it.
+	 *
+	 * @param string $name the name of the changed setting
+	 * @param int|float|bool|string|list<string> $old its value before
+	 */
+	public function modeStateBefore(string $checkId, string $name, int|float|bool|string|array $old, int $now): ModeState {
+		$configured = $name === Keys::mode($checkId)
+			? (is_string($old) ? Mode::tryFrom($old) : null) ?? Mode::from($this->check($checkId)['mode'])
+			: $this->configuredMode($checkId);
+		$enabled = $name === GlobalSettings::ENABLED ? $old === true : $this->app->isEnabled();
+		$learning = $name === GlobalSettings::LEARNING_UNTIL ? is_int($old) && $old > $now : $this->app->isLearning();
+		return $this->state($checkId, $configured, $enabled, $learning);
+	}
+
+	private function state(string $checkId, Mode $configured, bool $enabled, bool $learning): ModeState {
 		$check = $this->check($checkId);
-		$configured = $this->configuredMode($checkId);
-		if (!$this->app->isEnabled()) {
+		if (!$enabled) {
 			return new ModeState($configured, Mode::Off, ModeState::REASON_DISABLED);
 		}
 		foreach ($check['requirements'] as $value) {
@@ -58,7 +78,7 @@ class CheckSettings extends StoredSettings {
 				return new ModeState($configured, Mode::Off, ModeState::REASON_REQUIREMENT, $requirement);
 			}
 		}
-		if ($configured === Mode::Protect && $this->app->isLearning() && !self::specActsWhileLearning($check)) {
+		if ($configured === Mode::Protect && $learning && !self::specActsWhileLearning($check)) {
 			return new ModeState($configured, Mode::Observe, ModeState::REASON_LEARNING);
 		}
 		return new ModeState($configured, $configured);

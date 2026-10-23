@@ -9,14 +9,14 @@ declare(strict_types=1);
 
 namespace OCA\IntrusionDetection\Check\Checks\TokenConcurrentUse;
 
-use OCA\IntrusionDetection\Config\CheckSettings;
+use OCA\IntrusionDetection\Config\ModeState;
 use OCA\IntrusionDetection\Db\Detection;
 use OCA\IntrusionDetection\Detection\DetectionDraft;
 use OCA\IntrusionDetection\KnownDevice\IKnownDevices;
 use OCA\IntrusionDetection\Net\SourceKey;
-use OCA\IntrusionDetection\Response\ResponseEngine;
 use OCA\IntrusionDetection\Response\Tokens;
-use OCP\IUser;
+use OCA\IntrusionDetection\Signal\IDetector;
+use OCA\IntrusionDetection\Signal\ISignal;
 
 /**
  * Records a credential that was used from two networks at the same time
@@ -27,54 +27,50 @@ use OCP\IUser;
  * "No, it was not me" answer, `sessionTokenId` for a browser session. When
  * the check acts, the known device whose cookie came with this request is
  * forgotten: it may have been copied together with the session.
+ *
+ * @template-implements IDetector<CredentialSwitched>
  */
-class TokenConcurrentUseDetector {
+class TokenConcurrentUseDetector implements IDetector {
 	public const MERGE_WINDOW = 3600;
 
 	public function __construct(
-		private readonly CheckSettings $settings,
-		private readonly ResponseEngine $engine,
 		private readonly Tokens $tokens,
 		private readonly IKnownDevices $knownDevices,
 	) {
 	}
 
 	/**
-	 * @param TokenConcurrentUse::KIND_* $kind
-	 * @param PresentedCredential::SCHEME_* $scheme
-	 * @param ?int $tokenId the app password or session token that was used
-	 * @param ?int $sessionTokenId the browser session's token, if one is involved
+	 * @param CredentialSwitched $signal
+	 * @return \Generator<int, DetectionDraft, ?Detection, void>
 	 */
-	public function record(CredentialSwitch $switch, string $kind, string $scheme, IUser $user, ?int $tokenId, ?int $sessionTokenId, ?string $userAgent): ?Detection {
-		if (!$this->settings->modeState(TokenConcurrentUse::ID)->runs()) {
-			return null;
-		}
-		$source = SourceKey::tryFromIp($switch->currentIp);
+	#[\Override]
+	public function detect(#[\SensitiveParameter] ISignal $signal, ModeState $mode): \Generator {
+		$source = SourceKey::tryFromIp($signal->switch->currentIp);
 		if ($source === null) {
-			return null;
+			return;
 		}
-		$uid = $user->getUID();
+		$uid = $signal->user->getUID();
+		$tokenId = $signal->tokenId;
 		$token = $tokenId === null ? null : $this->tokens->find($uid, $tokenId);
-		$detection = $this->engine->handle(new DetectionDraft(
+		$detection = yield new DetectionDraft(
 			checkId: TokenConcurrentUse::ID,
 			source: $source,
 			uid: $uid,
-			facts: $switch->facts() + [
-				'kind' => $kind,
-				'scheme' => $scheme,
+			facts: $signal->switch->facts() + [
+				'kind' => $signal->kind,
+				'scheme' => $signal->scheme,
 				'tokenName' => $token === null ? '' : Tokens::name($token),
 				'tokenId' => $tokenId,
-				'sessionTokenId' => $sessionTokenId,
+				'sessionTokenId' => $signal->sessionTokenId,
 			],
 			merge: DetectionDraft::MERGE_TOKEN,
 			mergeWindow: self::MERGE_WINDOW,
-			userAgent: $userAgent,
-			sessionTokenId: $sessionTokenId,
+			userAgent: $signal->userAgent,
+			sessionTokenId: $signal->sessionTokenId,
 			tokenId: $tokenId,
-		));
+		);
 		if ($detection !== null && $detection->isEnforced()) {
 			$this->knownDevices->forgetCurrentDevice($uid, $detection->getId());
 		}
-		return $detection;
 	}
 }

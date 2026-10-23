@@ -11,16 +11,18 @@ namespace OCA\IntrusionDetection\Check\Checks\LoginFlowMismatch;
 
 use OCA\IntrusionDetection\Address\AddressResolver;
 use OCA\IntrusionDetection\Config\CheckSettings;
+use OCA\IntrusionDetection\Config\ModeState;
 use OCA\IntrusionDetection\Definition\Severity;
 use OCA\IntrusionDetection\Detection\DetectionDraft;
 use OCA\IntrusionDetection\Detection\Explanation;
 use OCA\IntrusionDetection\Net\RemoteAddressResolver;
 use OCA\IntrusionDetection\Net\SourceKey;
 use OCA\IntrusionDetection\Response\FlaggedSources;
-use OCA\IntrusionDetection\Response\ResponseEngine;
+use OCA\IntrusionDetection\Signal\IDetector;
+use OCA\IntrusionDetection\Signal\ISignal;
+use OCA\IntrusionDetection\Signal\LoginFlowGranted;
 use OCA\IntrusionDetection\TrustedNetwork\ITrustedNetworks;
 use OCP\AppFramework\Utility\ITimeFactory;
-use OCP\Authentication\Token\IToken;
 
 /**
  * Judges a granted login flow v2 request (concept section 10.11). The first
@@ -35,11 +37,12 @@ use OCP\Authentication\Token\IToken;
  * Medium becomes low when the starting network is one of the user's trusted
  * networks. A flow started from an allowlisted address, loopback or the
  * server itself is not judged.
+ *
+ * @template-implements IDetector<LoginFlowGranted>
  */
-class LoginFlowMismatchDetector {
+class LoginFlowMismatchDetector implements IDetector {
 	public function __construct(
 		private readonly CheckSettings $settings,
-		private readonly ResponseEngine $engine,
 		private readonly AddressResolver $addressResolver,
 		private readonly FlaggedSources $flags,
 		private readonly RemoteAddressResolver $addresses,
@@ -48,20 +51,25 @@ class LoginFlowMismatchDetector {
 	) {
 	}
 
-	public function granted(IToken $token, ?string $initiatorIp, int $startedAt, SourceKey $granter, ?string $userAgent): void {
-		if (!$this->settings->modeState(LoginFlowMismatch::ID)->runs()) {
-			return;
-		}
-		$initiator = $initiatorIp === null ? null : SourceKey::tryFromIp($initiatorIp);
+	/**
+	 * @param LoginFlowGranted $signal
+	 * @return list<DetectionDraft>
+	 */
+	#[\Override]
+	public function detect(#[\SensitiveParameter] ISignal $signal, ModeState $mode): iterable {
+		$token = $signal->token;
+		$startedAt = $signal->startedAt;
+		$granter = $signal->granter;
+		$initiator = $signal->initiatorIp === null ? null : SourceKey::tryFromIp($signal->initiatorIp);
 		if ($initiator !== null && $this->addresses->isIgnored($initiator)) {
-			return;
+			return [];
 		}
 		$params = $this->settings->params(LoginFlowMismatch::ID);
 		$now = $this->timeFactory->getTime();
 		$age = max(0, $now - $startedAt);
 		[$rule, $severity] = $this->evaluate($initiator, $granter, $age, (int)$params['max_age'], $now);
 		if ($rule === null) {
-			return;
+			return [];
 		}
 		$uid = $token->getUID();
 		$trusted = $severity === Severity::Medium && $initiator !== null && $this->trustedNetworks->isTrusted($uid, $initiator);
@@ -83,9 +91,9 @@ class LoginFlowMismatchDetector {
 				'last' => $now,
 			],
 			severity: $trusted ? Severity::Low : $severity,
-			userAgent: $userAgent,
+			userAgent: $signal->userAgent,
 		);
-		$this->engine->handle($draft);
+		return [$draft];
 	}
 
 	/**

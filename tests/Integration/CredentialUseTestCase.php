@@ -28,6 +28,7 @@ use OCA\IntrusionDetection\SessionState\CurrentSession;
 use OCA\IntrusionDetection\SessionState\RequestTarget;
 use OCA\IntrusionDetection\SessionState\Rules\CredentialUseRule;
 use OCA\IntrusionDetection\SessionState\SessionState;
+use OCA\IntrusionDetection\Signal\SignalDispatcher;
 use OCA\IntrusionDetection\Tests\Unit\Cache\FixedCaches;
 use OCP\AppFramework\Utility\ITimeFactory;
 use OCP\Authentication\Token\IProvider;
@@ -121,7 +122,7 @@ abstract class CredentialUseTestCase extends AccountTestCase {
 			CredentialTracker::class => $this->tracker,
 			ITimeFactory::class => $time,
 			RemoteAddressResolver::class => new RemoteAddressResolver($request, Server::get(IThrottler::class), Server::get(ServerAddresses::class)),
-			TokenConcurrentUseDetector::class => new TokenConcurrentUseDetector($this->checkSettings(), $this->engine(), Server::get(Tokens::class), $knownDevices),
+			SignalDispatcher::class => $this->dispatcher([TokenConcurrentUseDetector::class => new TokenConcurrentUseDetector(Server::get(Tokens::class), $knownDevices)], $this->engine()),
 			CredentialUseResolver::class => new CredentialUseResolver($context, $request, Server::get(IConfig::class), $container, $logger),
 		];
 

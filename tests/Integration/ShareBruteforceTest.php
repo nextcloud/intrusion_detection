@@ -15,7 +15,6 @@ use OCA\Files_Sharing\Controller\ShareController;
 use OCA\IntrusionDetection\AppInfo\Application;
 use OCA\IntrusionDetection\Audit\AuditLogger;
 use OCA\IntrusionDetection\Check\Checks\ShareBruteforce\ShareBruteforce;
-use OCA\IntrusionDetection\Check\Checks\ShareBruteforce\ShareBruteforceDetector;
 use OCA\IntrusionDetection\Config\GlobalSettings;
 use OCA\IntrusionDetection\Controller\ShareAlertController;
 use OCA\IntrusionDetection\Crypto\Fingerprinter;
@@ -39,6 +38,7 @@ use OCA\IntrusionDetection\Notification\ShareOwnerNotifier;
 use OCA\IntrusionDetection\Notification\UserMessages;
 use OCA\IntrusionDetection\Share\FederationPartners;
 use OCA\IntrusionDetection\Share\ShareLinks;
+use OCA\IntrusionDetection\Signal\ShareAccessFailed;
 use OCA\IntrusionDetection\State\HotState;
 use OCP\AppFramework\Http;
 use OCP\AppFramework\Utility\ITimeFactory;
@@ -85,10 +85,9 @@ class ShareBruteforceTest extends RequestEventTestCase {
 		$this->bans = Server::get(BanMapper::class);
 		$this->attempts = Server::get(AttemptMapper::class);
 		$this->listen(ShareLinkAccessFailedEvent::class, new ShareAccessFailedListener(
-			$this->checkSettings(),
+			$this->dispatcher(),
 			$this->addresses,
 			Server::get(AttemptRecorder::class),
-			Server::get(ShareBruteforceDetector::class),
 			$this->request,
 			Server::get(IUserSession::class),
 			Server::get(LoggerInterface::class),
@@ -220,7 +219,7 @@ class ShareBruteforceTest extends RequestEventTestCase {
 		$session = $this->createMock(IUserSession::class);
 		$session->method('getUser')->willReturn($user);
 		$this->listen(ShareLinkAccessFailedEvent::class, new ShareAccessFailedListener(
-			$this->checkSettings(), $this->addresses, Server::get(AttemptRecorder::class), Server::get(ShareBruteforceDetector::class),
+			$this->dispatcher(), $this->addresses, Server::get(AttemptRecorder::class),
 			$this->request, $session, Server::get(LoggerInterface::class),
 		));
 		for ($i = 1; $i <= 10; $i++) {
@@ -233,12 +232,11 @@ class ShareBruteforceTest extends RequestEventTestCase {
 	}
 
 	public function testALoggedInDetectionNeverBlocksAndSaysWhy(): void {
-		$detector = Server::get(ShareBruteforceDetector::class);
 		$source = SourceKey::fromIp('198.51.100.7');
 		for ($i = 1; $i <= 10; $i++) {
 			$this->storeUnknownToken($source, 'mine' . $i, 1);
 		}
-		$detector->unknownToken(new AttemptRecord(AttemptKind::UnknownShareToken, $source, null, 'alice', null, null, [], time(), true), null);
+		$this->dispatcher()->dispatch(new ShareAccessFailed(new AttemptRecord(AttemptKind::UnknownShareToken, $source, null, 'alice', null, null, [], time(), true), null, null));
 		$detections = $this->detectionsOf(ShareBruteforce::ID);
 		$this->assertCount(1, $detections);
 		$this->assertSame('alice', $detections[0]->getUid());
@@ -320,17 +318,16 @@ class ShareBruteforceTest extends RequestEventTestCase {
 	}
 
 	public function testLinksTriedBeforeAFloodCountOnce(): void {
-		$detector = Server::get(ShareBruteforceDetector::class);
 		$source = SourceKey::fromIp('198.51.100.7');
 		for ($i = 1; $i <= 4; $i++) {
 			$this->storeUnknownToken($source, 'beforeToken' . $i, 1);
 		}
 		Server::get(HotState::class)->setAttemptsFloodUntil(time() + 600);
-		$detector->unknownToken($this->kept($source), null);
+		$this->dispatcher()->dispatch(new ShareAccessFailed($this->kept($source), null, null));
 		$this->assertSame([], $this->detectionsOf(ShareBruteforce::ID), '4 links stay 4 when a flood starts');
 
 		$this->storeUnknownToken($source, 'floodToken1');
-		$detector->unknownToken($this->kept($source), null);
+		$this->dispatcher()->dispatch(new ShareAccessFailed($this->kept($source), null, null));
 		$facts = $this->detectionsOf(ShareBruteforce::ID)[0]->getExplanationData()['facts'];
 		$this->assertSame(14, $facts['tokens'], '4 before the flood, and one kept link that stands for 10');
 		$this->assertSame(10, $facts['sampleFactor']);
@@ -352,16 +349,15 @@ class ShareBruteforceTest extends RequestEventTestCase {
 
 	public function testUnderAFloodCountsAreEstimatedButTwoLinksStillNeverFire(): void {
 		Server::get(HotState::class)->setAttemptsFloodUntil(time() + 600);
-		$detector = Server::get(ShareBruteforceDetector::class);
 		$source = SourceKey::fromIp('198.51.100.7');
 
 		$this->storeUnknownToken($source, 'sampledToken1');
 		$this->storeUnknownToken($source, 'sampledToken2');
-		$detector->unknownToken($this->kept($source), null);
+		$this->dispatcher()->dispatch(new ShareAccessFailed($this->kept($source), null, null));
 		$this->assertSame([], $this->detectionsOf(ShareBruteforce::ID), '2 kept links stand for 20, but two links are never an attack');
 
 		$this->storeUnknownToken($source, 'sampledToken3');
-		$detector->unknownToken($this->kept($source), null);
+		$this->dispatcher()->dispatch(new ShareAccessFailed($this->kept($source), null, null));
 		$detections = $this->detectionsOf(ShareBruteforce::ID);
 		$this->assertCount(1, $detections);
 		$facts = $detections[0]->getExplanationData()['facts'];
@@ -375,7 +371,7 @@ class ShareBruteforceTest extends RequestEventTestCase {
 
 		// An attempt the recorder did not keep is not evaluated at all.
 		$this->detections->delete($detections[0]);
-		$detector->unknownToken(new AttemptRecord(AttemptKind::UnknownShareToken, $source, null, null, null, null, [], time(), false), null);
+		$this->dispatcher()->dispatch(new ShareAccessFailed(new AttemptRecord(AttemptKind::UnknownShareToken, $source, null, null, null, null, [], time(), false), null, null));
 		$this->assertSame([], $this->detectionsOf(ShareBruteforce::ID));
 	}
 

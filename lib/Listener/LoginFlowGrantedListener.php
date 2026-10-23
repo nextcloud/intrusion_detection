@@ -9,10 +9,9 @@ declare(strict_types=1);
 
 namespace OCA\IntrusionDetection\Listener;
 
-use OCA\IntrusionDetection\Check\Checks\LoginFlowMismatch\LoginFlowMismatch;
-use OCA\IntrusionDetection\Check\Checks\LoginFlowMismatch\LoginFlowMismatchDetector;
-use OCA\IntrusionDetection\Config\CheckSettings;
 use OCA\IntrusionDetection\Net\RemoteAddressResolver;
+use OCA\IntrusionDetection\Signal\LoginFlowGranted;
+use OCA\IntrusionDetection\Signal\SignalDispatcher;
 use OCP\Authentication\Events\LoginFlowV2GrantedEvent;
 use OCP\EventDispatcher\Event;
 use OCP\EventDispatcher\IEventListener;
@@ -29,9 +28,8 @@ use Psr\Log\LoggerInterface;
  */
 class LoginFlowGrantedListener implements IEventListener {
 	public function __construct(
-		private readonly CheckSettings $settings,
+		private readonly SignalDispatcher $dispatcher,
 		private readonly RemoteAddressResolver $addresses,
-		private readonly LoginFlowMismatchDetector $detector,
 		private readonly IRequest $request,
 		private readonly LoggerInterface $logger,
 	) {
@@ -43,14 +41,14 @@ class LoginFlowGrantedListener implements IEventListener {
 			return;
 		}
 		try {
-			if (!$this->settings->modeState(LoginFlowMismatch::ID)->runs()) {
+			if (!$this->dispatcher->runs(LoginFlowGranted::class)) {
 				return;
 			}
 			$granter = $this->addresses->current();
 			if ($granter === null) {
 				return;
 			}
-			$this->detector->granted($event->getToken(), $event->getInitiatorIp(), $event->getStartedAt(), $granter, $this->request->getHeader('User-Agent'));
+			$this->dispatcher->dispatch(new LoginFlowGranted($event->getToken(), $event->getInitiatorIp(), $event->getStartedAt(), $granter, $this->request->getHeader('User-Agent')));
 		} catch (\Throwable $e) {
 			$this->logger->error('Intrusion detection could not check a granted login flow', ['exception' => $e]);
 		}

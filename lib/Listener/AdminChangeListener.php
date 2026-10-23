@@ -18,11 +18,11 @@ use OCA\IntrusionDetection\AdminChange\DelegatedGroups;
 use OCA\IntrusionDetection\AdminChange\GrantPermit;
 use OCA\IntrusionDetection\AppInfo\Application;
 use OCA\IntrusionDetection\Check\Checks\AdminChange\AdminChange;
-use OCA\IntrusionDetection\Check\Checks\AdminChange\AdminChangeDetector;
-use OCA\IntrusionDetection\Config\CheckSettings;
 use OCA\IntrusionDetection\Definition\Severity;
 use OCA\IntrusionDetection\Event\SettingChangedEvent;
 use OCA\IntrusionDetection\Net\RemoteAddressResolver;
+use OCA\IntrusionDetection\Signal\AdminChanged;
+use OCA\IntrusionDetection\Signal\SignalDispatcher;
 use OCP\App\Events\AppDisableEvent;
 use OCP\App\Events\AppEnableEvent;
 use OCP\EventDispatcher\Event;
@@ -72,8 +72,7 @@ class AdminChangeListener implements IEventListener {
 	private array $reportedRemovals = [];
 
 	public function __construct(
-		private readonly CheckSettings $settings,
-		private readonly AdminChangeDetector $detector,
+		private readonly SignalDispatcher $dispatcher,
 		private readonly AdminGrantGate $gate,
 		private readonly ApprovalService $approvals,
 		private readonly GrantPermit $permit,
@@ -130,7 +129,7 @@ class AdminChangeListener implements IEventListener {
 		} elseif ($decision !== AdminGrantGate::NOT_NEEDED) {
 			$facts['exempt'] = $decision;
 		}
-		$this->detector->record(AdminChange::KIND_ADMIN_GRANTED, Severity::High, $actor, $user->getUID(), facts: $facts, alertKey: AdminChange::KIND_ADMIN_GRANTED . ':' . $gid);
+		$this->dispatcher->dispatch(new AdminChanged(AdminChange::KIND_ADMIN_GRANTED, Severity::High, $actor, $user->getUID(), facts: $facts, alertKey: AdminChange::KIND_ADMIN_GRANTED . ':' . $gid));
 	}
 
 	/**
@@ -161,7 +160,7 @@ class AdminChangeListener implements IEventListener {
 				$facts['expires_at'] = $approval->getExpiresAt();
 			}
 		}
-		$this->detector->record(AdminChange::KIND_GRANT_REQUESTED, Severity::High, $actor, $uid, facts: $facts, alertKey: AdminChange::KIND_GRANT_REQUESTED . ':' . $gid);
+		$this->dispatcher->dispatch(new AdminChanged(AdminChange::KIND_GRANT_REQUESTED, Severity::High, $actor, $uid, facts: $facts, alertKey: AdminChange::KIND_GRANT_REQUESTED . ':' . $gid));
 	}
 
 	private function userRemoved(IGroup $group, IUser $user): void {
@@ -182,14 +181,14 @@ class AdminChangeListener implements IEventListener {
 		if ($delegated !== null) {
 			$facts['delegated'] = $delegated;
 		}
-		$this->detector->record(AdminChange::KIND_ADMIN_REMOVED, Severity::Low, $this->actors->actor(), $user->getUID(), facts: $facts, alertKey: AdminChange::KIND_ADMIN_REMOVED . ':' . $gid);
+		$this->dispatcher->dispatch(new AdminChanged(AdminChange::KIND_ADMIN_REMOVED, Severity::Low, $this->actors->actor(), $user->getUID(), facts: $facts, alertKey: AdminChange::KIND_ADMIN_REMOVED . ':' . $gid));
 	}
 
 	private function subAdminAdded(IGroup $group, IUser $user): void {
 		if (!$this->runs()) {
 			return;
 		}
-		$this->detector->record(AdminChange::KIND_SUBADMIN_GRANTED, Severity::Medium, $this->actors->actor(), $user->getUID(), facts: ['group' => $group->getGID()], alertKey: AdminChange::KIND_SUBADMIN_GRANTED);
+		$this->dispatcher->dispatch(new AdminChanged(AdminChange::KIND_SUBADMIN_GRANTED, Severity::Medium, $this->actors->actor(), $user->getUID(), facts: ['group' => $group->getGID()], alertKey: AdminChange::KIND_SUBADMIN_GRANTED));
 	}
 
 	/**
@@ -207,7 +206,7 @@ class AdminChangeListener implements IEventListener {
 		if (!$byAdmin) {
 			return;
 		}
-		$this->detector->record(AdminChange::KIND_USER_CREATED, Severity::Low, $actor, $user->getUID(), facts: [], alertKey: AdminChange::KIND_USER_CREATED);
+		$this->dispatcher->dispatch(new AdminChanged(AdminChange::KIND_USER_CREATED, Severity::Low, $actor, $user->getUID(), facts: [], alertKey: AdminChange::KIND_USER_CREATED));
 	}
 
 	/**
@@ -217,7 +216,7 @@ class AdminChangeListener implements IEventListener {
 		if (!$this->runs()) {
 			return;
 		}
-		$this->detector->record(AdminChange::KIND_APP_ENABLED, Severity::Medium, $this->actors->actor(), null, facts: ['app' => $appId, 'groups' => $groups], alertKey: AdminChange::KIND_APP_ENABLED);
+		$this->dispatcher->dispatch(new AdminChanged(AdminChange::KIND_APP_ENABLED, Severity::Medium, $this->actors->actor(), null, facts: ['app' => $appId, 'groups' => $groups], alertKey: AdminChange::KIND_APP_ENABLED));
 	}
 
 	private function appDisabled(string $appId): void {
@@ -225,7 +224,7 @@ class AdminChangeListener implements IEventListener {
 			return;
 		}
 		$severity = $appId === Application::APP_ID ? Severity::High : Severity::Medium;
-		$this->detector->record(AdminChange::KIND_APP_DISABLED, $severity, $this->actors->actor(), null, facts: ['app' => $appId], alertKey: AdminChange::KIND_APP_DISABLED);
+		$this->dispatcher->dispatch(new AdminChanged(AdminChange::KIND_APP_DISABLED, $severity, $this->actors->actor(), null, facts: ['app' => $appId], alertKey: AdminChange::KIND_APP_DISABLED));
 	}
 
 	/**
@@ -238,11 +237,10 @@ class AdminChangeListener implements IEventListener {
 			$this->watch->ownSettingRecorded($event->getKey(), $event->getNewValue());
 			return;
 		}
-		$mode = $this->detector->modeBefore($event->getKey(), $event->getOldValue());
-		$this->watch->ownSettingChanged($event->getKey(), $event->getOldValue(), $event->getNewValue(), $this->actors->actor(), $mode);
+		$this->watch->ownSettingChanged($event->getKey(), $event->getOldValue(), $event->getNewValue(), $this->actors->actor());
 	}
 
 	private function runs(): bool {
-		return $this->settings->modeState(AdminChange::ID)->runs();
+		return $this->dispatcher->runs(AdminChanged::class);
 	}
 }

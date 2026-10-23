@@ -12,19 +12,16 @@ namespace OCA\IntrusionDetection\Check\Checks\AdminChange;
 use OCA\IntrusionDetection\AdminChange\ActorResolver;
 use OCA\IntrusionDetection\AdminChange\DisplayValue;
 use OCA\IntrusionDetection\AdminChange\WatchedSettings;
-use OCA\IntrusionDetection\Config\AppSettings;
-use OCA\IntrusionDetection\Config\CheckSettings;
 use OCA\IntrusionDetection\Config\GlobalSettings;
-use OCA\IntrusionDetection\Config\Keys;
 use OCA\IntrusionDetection\Config\ModeState;
-use OCA\IntrusionDetection\Db\Detection;
 use OCA\IntrusionDetection\Definition\Mode;
 use OCA\IntrusionDetection\Definition\Severity;
 use OCA\IntrusionDetection\Detection\DetectionDraft;
 use OCA\IntrusionDetection\Net\RemoteAddressResolver;
 use OCA\IntrusionDetection\Notification\AdminAlerts;
-use OCA\IntrusionDetection\Response\ResponseEngine;
-use OCP\AppFramework\Utility\ITimeFactory;
+use OCA\IntrusionDetection\Signal\AdminChanged;
+use OCA\IntrusionDetection\Signal\IDetector;
+use OCA\IntrusionDetection\Signal\ISignal;
 
 /**
  * Records one detection of {@see AdminChange} per change, with who made it,
@@ -40,43 +37,44 @@ use OCP\AppFramework\Utility\ITimeFactory;
  *
  * Every administrator is notified, also the one who made the change; the
  * bell and the email are aggregated per kind of change and hour.
+ *
+ * @template-implements IDetector<AdminChanged>
  */
-class AdminChangeDetector {
+class AdminChangeDetector implements IDetector {
 	public function __construct(
-		private readonly ResponseEngine $engine,
-		private readonly AppSettings $appSettings,
-		private readonly CheckSettings $settings,
 		private readonly ActorResolver $actors,
 		private readonly RemoteAddressResolver $addresses,
-		private readonly ITimeFactory $timeFactory,
 	) {
 	}
 
 	/**
-	 * @param array<string, mixed> $facts what the change was about (group, app, approval …)
-	 * @param string $alertKey changes with the same key share one notification per hour
-	 * @param bool $withAddress record the address of the current request as the actor's
+	 * One detection per change, in the mode the dispatcher hands over: a
+	 * change of this app's settings is judged by the mode before it.
+	 *
+	 * @param AdminChanged $signal
+	 * @return list<DetectionDraft>
 	 */
-	public function record(string $kind, Severity $severity, string $actor, ?string $subject, array $facts, string $alertKey, ?ModeState $mode = null, bool $withAddress = true): ?Detection {
-		$facts = ['kind' => $kind, 'actor' => $actor] + $facts;
-		if ($subject !== null) {
-			$facts['targets'] = [$subject];
+	#[\Override]
+	public function detect(#[\SensitiveParameter] ISignal $signal, ModeState $mode): iterable {
+		$facts = ['kind' => $signal->kind, 'actor' => $signal->actor] + $signal->facts;
+		if ($signal->subject !== null) {
+			$facts['targets'] = [$signal->subject];
 		}
-		if ($withAddress && !$this->actors->isCommandLine()) {
+		if ($signal->withAddress && !$this->actors->isCommandLine()) {
 			$ip = $this->addresses->current()?->ip;
 			if ($ip !== null) {
 				$facts['actor_ip'] = $ip;
 			}
 		}
-		$facts[AdminAlerts::FACT_ALERT_KEY] = $alertKey;
+		$facts[AdminAlerts::FACT_ALERT_KEY] = $signal->alertKey;
 		$facts[AdminAlerts::FACT_ALL_ADMINS] = true;
-		return $this->engine->handle(new DetectionDraft(
+		return [new DetectionDraft(
 			checkId: AdminChange::ID,
-			uid: $subject,
+			uid: $signal->subject,
 			facts: $facts,
-			severity: $severity,
+			severity: $signal->severity,
 			mode: $mode,
-		));
+		)];
 	}
 
 	/**
@@ -86,20 +84,19 @@ class AdminChangeDetector {
 	 * @param mixed $new the display value after (shortened), unused for secrets
 	 * @param bool $foundByWatch found by the config watch, which cannot know who made it
 	 */
-	public function settingChanged(string $key, mixed $old, mixed $new, bool $secret, string $actor, bool $foundByWatch, ?ModeState $mode = null): ?Detection {
+	public static function settingChange(string $key, mixed $old, mixed $new, bool $secret, string $actor, bool $foundByWatch, int $now): AdminChanged {
 		$facts = ['setting' => $key, 'secret' => $secret, 'watch' => $foundByWatch];
 		if (!$secret) {
 			$facts['old'] = DisplayValue::shorten($old);
 			$facts['new'] = DisplayValue::shorten($new);
 		}
-		return $this->record(
+		return new AdminChanged(
 			AdminChange::KIND_SETTING_CHANGED,
-			self::settingSeverity($key, $secret ? null : $old, $secret ? null : $new, $this->timeFactory->getTime()),
+			self::settingSeverity($key, $secret ? null : $old, $secret ? null : $new, $now),
 			$actor,
 			null,
 			facts: $facts,
 			alertKey: self::settingAlertKey($key),
-			mode: $mode,
 			withAddress: !$foundByWatch,
 		);
 	}
@@ -149,32 +146,6 @@ class AdminChangeDetector {
 			return Severity::High;
 		}
 		return Severity::Low;
-	}
-
-	/**
-	 * The mode this check had before one of the app's own settings changed.
-	 * A change that switches the app or this check off, or starts learning
-	 * mode, is reported as the check stood before, so the change that silences
-	 * it is still told. As this check only notifies, learning mode does not
-	 * silence it ({@see CheckSettings::actsWhileLearning()}).
-	 *
-	 * @param int|float|bool|string|list<string> $old
-	 */
-	public function modeBefore(string $name, int|float|bool|string|array $old): ModeState {
-		$configured = $name === Keys::mode(AdminChange::ID)
-			? (is_string($old) ? Mode::tryFrom($old) : null) ?? Mode::Protect
-			: $this->settings->configuredMode(AdminChange::ID);
-		$enabled = $name === GlobalSettings::ENABLED ? $old === true : $this->appSettings->isEnabled();
-		$learning = $name === GlobalSettings::LEARNING_UNTIL
-			? is_int($old) && $old > $this->timeFactory->getTime()
-			: $this->appSettings->isLearning();
-		if (!$enabled) {
-			return new ModeState($configured, Mode::Off, ModeState::REASON_DISABLED);
-		}
-		if ($configured === Mode::Protect && $learning && !$this->settings->actsWhileLearning(AdminChange::ID)) {
-			return new ModeState($configured, Mode::Observe, ModeState::REASON_LEARNING);
-		}
-		return new ModeState($configured, $configured);
 	}
 
 	private static function isOn(mixed $value): bool {

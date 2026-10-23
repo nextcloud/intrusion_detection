@@ -9,14 +9,13 @@ declare(strict_types=1);
 
 namespace OCA\IntrusionDetection\Listener;
 
-use OCA\IntrusionDetection\Check\Checks\ResetProbing\ResetProbing;
-use OCA\IntrusionDetection\Check\Checks\ResetProbing\ResetProbingDetector;
-use OCA\IntrusionDetection\Config\CheckSettings;
 use OCA\IntrusionDetection\Db\AttemptKind;
 use OCA\IntrusionDetection\Detection\AttemptRecorder;
 use OCA\IntrusionDetection\Login\EmailAccounts;
 use OCA\IntrusionDetection\Net\RemoteAddressResolver;
 use OCA\IntrusionDetection\Response\ResetMailSuppressor;
+use OCA\IntrusionDetection\Signal\ResetRequested;
+use OCA\IntrusionDetection\Signal\SignalDispatcher;
 use OCP\EventDispatcher\Event;
 use OCP\EventDispatcher\IEventListener;
 use OCP\IRequest;
@@ -29,7 +28,7 @@ use Psr\Log\LoggerInterface;
  *
  * 1. records an attempt of kind 6 with a fingerprint of the input, and the
  *    account it belongs to, resolved the way core resolves it for the email;
- * 2. runs the reset abuse detector;
+ * 2. hands it to the reset abuse check ({@see ResetRequested});
  * 3. prevents the email while the account's reset emails are held back.
  *
  * Core answers the request the same way whatever happens here, so nothing
@@ -44,10 +43,9 @@ class ResetRequestedListener implements IEventListener {
 	public const MAX_INPUT = 255;
 
 	public function __construct(
-		private readonly CheckSettings $settings,
+		private readonly SignalDispatcher $dispatcher,
 		private readonly RemoteAddressResolver $addresses,
 		private readonly AttemptRecorder $recorder,
-		private readonly ResetProbingDetector $detector,
 		private readonly ResetMailSuppressor $suppressor,
 		private readonly IUserManager $userManager,
 		private readonly IRequest $request,
@@ -62,8 +60,7 @@ class ResetRequestedListener implements IEventListener {
 			return;
 		}
 		try {
-			$state = $this->settings->modeState(ResetProbing::ID);
-			if (!$state->runs()) {
+			if (!$this->dispatcher->runs(ResetRequested::class)) {
 				return;
 			}
 			$source = $this->addresses->current();
@@ -73,12 +70,8 @@ class ResetRequestedListener implements IEventListener {
 			$input = $event->getInput();
 			$uid = $this->resolveUid($input);
 			$attempt = $this->recorder->record(AttemptKind::PasswordReset, $source, $input, $uid);
-			try {
-				$this->detector->detect($attempt, $this->request->getHeader('User-Agent'));
-			} catch (\Throwable $e) {
-				$this->logger->error('Intrusion detection could not check a password reset request', ['exception' => $e]);
-			}
-			if ($uid !== null && $state->acts()) {
+			$this->dispatcher->dispatch(new ResetRequested($attempt, $this->request->getHeader('User-Agent')));
+			if ($uid !== null && $this->dispatcher->acts(ResetRequested::class)) {
 				$this->suppressor->apply($event, $uid);
 			}
 		} catch (\Throwable $e) {

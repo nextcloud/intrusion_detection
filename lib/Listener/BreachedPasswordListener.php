@@ -9,10 +9,9 @@ declare(strict_types=1);
 
 namespace OCA\IntrusionDetection\Listener;
 
-use OCA\IntrusionDetection\Check\Checks\BreachedPassword\BreachedPassword;
-use OCA\IntrusionDetection\Check\Checks\BreachedPassword\BreachedPasswordDetector;
-use OCA\IntrusionDetection\Config\CheckSettings;
 use OCA\IntrusionDetection\Login\InteractiveLogin;
+use OCA\IntrusionDetection\Signal\InteractivePasswordLogin;
+use OCA\IntrusionDetection\Signal\SignalDispatcher;
 use OCP\EventDispatcher\Event;
 use OCP\EventDispatcher\IEventListener;
 use OCP\IRequest;
@@ -30,7 +29,6 @@ use Psr\Log\LoggerInterface;
  */
 class BreachedPasswordListener implements IEventListener {
 	public function __construct(
-		private readonly CheckSettings $settings,
 		private readonly InteractiveLogin $interactive,
 		private readonly IRequest $request,
 		private readonly ContainerInterface $container,
@@ -44,15 +42,14 @@ class BreachedPasswordListener implements IEventListener {
 			return;
 		}
 		try {
-			// Off by default: stop before loading the detector and its HTTP client.
-			if (!$this->settings->modeState(BreachedPassword::ID)->runs() || !$this->interactive->isPasswordLogin($event)) {
+			if (!$this->interactive->isPasswordLogin($event)) {
 				return;
 			}
-			$this->container->get(BreachedPasswordDetector::class)->checkAtLogin(
+			$this->container->get(SignalDispatcher::class)->dispatch(new InteractivePasswordLogin(
 				$event->getUser(),
 				(string)$event->getPassword(),
 				$this->request->getHeader('User-Agent'),
-			);
+			));
 		} catch (\Throwable $e) {
 			// A failure here must never break a login.
 			$this->logger->error('Intrusion detection could not check the password against the breach list', ['exception' => $e]);

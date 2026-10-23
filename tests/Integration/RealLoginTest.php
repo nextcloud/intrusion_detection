@@ -98,7 +98,7 @@ class RealLoginTest extends IntegrationTestCase {
 		$addresses = new RemoteAddressResolver($this->request, Server::get(IThrottler::class), Server::get(ServerAddresses::class));
 		$this->overwriteService(RemoteAddressResolver::class, $addresses);
 		$this->overwriteService(StepUpLoginListener::class, new StepUpLoginListener(
-			$this->appSettings(), $this->checkSettings(),
+			$this->appSettings(),
 			new InteractiveLogin($this->request),
 			$addresses,
 			Server::get(Fingerprinter::class),

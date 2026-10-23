@@ -29,6 +29,7 @@ use OCA\IntrusionDetection\Notification\Notifier;
 use OCA\IntrusionDetection\Response\FlaggedSources;
 use OCA\IntrusionDetection\Response\PasswordChangeService;
 use OCA\IntrusionDetection\SessionState\SessionState;
+use OCA\IntrusionDetection\Signal\SecondFactorFailure;
 use OCP\AppFramework\Utility\ITimeFactory;
 use OCP\Authentication\Events\AppPasswordCreatedEvent;
 use OCP\Authentication\Token\IToken;
@@ -70,9 +71,9 @@ class NoSecretsSessionTest extends AccountTestCase {
 		(new AppPasswordCreatedListener($this->appSettings(), Server::get(TokenOriginMapper::class), $this->currentSession, $request, Server::get(ITimeFactory::class), Server::get(LoggerInterface::class)))
 			->handle(new AppPasswordCreatedEvent($this->tokens->getTokenById($appPassword['id'])));
 
-		$detector = new SecondFactorFailedDetector($this->checkSettings(), Server::get(AttemptRecorder::class), Server::get(AttemptMapper::class), Server::get(FlaggedSources::class), $this->engine(), $this->currentSession, $this->session, Server::get(LoggerInterface::class));
+		$dispatcher = $this->dispatcher([SecondFactorFailedDetector::class => new SecondFactorFailedDetector($this->checkSettings(), Server::get(AttemptRecorder::class), Server::get(AttemptMapper::class), Server::get(FlaggedSources::class), $this->currentSession, $this->session, Server::get(LoggerInterface::class))], $this->engine());
 		for ($i = 0; $i < 3; $i++) {
-			$detector->detect($user, 'totp', 'TOTP', SourceKey::fromIp('198.51.100.7'), 'Mozilla/5.0 test');
+			$dispatcher->dispatch(new SecondFactorFailure($user, 'totp', 'TOTP', SourceKey::fromIp('198.51.100.7'), 'Mozilla/5.0 test'));
 		}
 		$this->assertFalse($this->tokenExists($appPassword['id']), 'The scenario ended the app password');
 

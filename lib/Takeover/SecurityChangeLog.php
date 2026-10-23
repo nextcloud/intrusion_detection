@@ -10,12 +10,13 @@ declare(strict_types=1);
 namespace OCA\IntrusionDetection\Takeover;
 
 use OCA\IntrusionDetection\AdminChange\ActorResolver;
-use OCA\IntrusionDetection\Check\Checks\AccountTakeover\AccountTakeoverDetector;
 use OCA\IntrusionDetection\Config\AppSettings;
 use OCA\IntrusionDetection\Confirm\EmailCodes;
 use OCA\IntrusionDetection\Db\IPurges;
 use OCA\IntrusionDetection\Net\RemoteAddressResolver;
 use OCA\IntrusionDetection\SessionState\CurrentSession;
+use OCA\IntrusionDetection\Signal\SecurityChanged;
+use OCA\IntrusionDetection\Signal\SignalDispatcher;
 use OCA\IntrusionDetection\Takeover\Db\SecurityChangeMapper;
 use OCP\AppFramework\Utility\ITimeFactory;
 use OCP\IUserSession;
@@ -59,7 +60,7 @@ class SecurityChangeLog implements IPurges {
 		private readonly ResetTracker $resets,
 		private readonly CurrentSession $currentSession,
 		private readonly RemoteAddressResolver $addresses,
-		private readonly AccountTakeoverDetector $detector,
+		private readonly SignalDispatcher $dispatcher,
 		private readonly ICrypto $crypto,
 		private readonly ITimeFactory $timeFactory,
 		private readonly LoggerInterface $logger,
@@ -115,7 +116,7 @@ class SecurityChangeLog implements IPurges {
 
 		if ($via === self::VIA_SELF && $type->pointsParam() !== null && ($source === null || !$this->addresses->isBypassListed($source))) {
 			try {
-				$this->detector->evaluate($uid, $sessionTokenId);
+				$this->dispatcher->dispatch(new SecurityChanged($uid, $sessionTokenId));
 			} catch (\Throwable $e) {
 				$this->logger->error('Intrusion detection could not evaluate the security changes of {uid}', ['uid' => $uid, 'exception' => $e]);
 			}

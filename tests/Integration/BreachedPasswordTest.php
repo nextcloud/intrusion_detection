@@ -33,7 +33,8 @@ use OCA\IntrusionDetection\Net\RemoteAddressResolver;
 use OCA\IntrusionDetection\Net\ServerAddresses;
 use OCA\IntrusionDetection\Notification\AdminAlerts;
 use OCA\IntrusionDetection\Notification\Notifier;
-use OCA\IntrusionDetection\Response\ResponseEngine;
+use OCA\IntrusionDetection\Signal\InteractivePasswordLogin;
+use OCA\IntrusionDetection\Signal\SignalDispatcher;
 use OCA\IntrusionDetection\Tests\BasicAuthServer;
 use OCA\IntrusionDetection\Tests\Unit\Cache\FixedCaches;
 use OCP\AppFramework\Utility\ITimeFactory;
@@ -153,7 +154,6 @@ class BreachedPasswordTest extends IntegrationTestCase {
 			$this->checkSettings(),
 			new PwnedPasswordsClient($clientService, $cacheFactory, Server::get(ICrypto::class), $this->logger()),
 			Server::get(IUserConfig::class),
-			Server::get(ResponseEngine::class),
 			new RemoteAddressResolver($this->request(), $throttler, Server::get(ServerAddresses::class)),
 			$time,
 		);
@@ -174,14 +174,14 @@ class BreachedPasswordTest extends IntegrationTestCase {
 	/**
 	 * One successful login in a new request, through the listener.
 	 */
-	protected function login(string $password = self::PASSWORD, bool $tokenLogin = false): BreachedPasswordDetector {
-		$detector = $this->detector();
+	protected function login(string $password = self::PASSWORD, bool $tokenLogin = false): SignalDispatcher {
+		$dispatcher = $this->dispatcher([BreachedPasswordDetector::class => $this->detector()], logger: $this->logger());
 		$container = $this->createMock(ContainerInterface::class);
-		$container->method('get')->with(BreachedPasswordDetector::class)->willReturn($detector);
+		$container->method('get')->with(SignalDispatcher::class)->willReturn($dispatcher);
 		$request = $this->request();
-		$listener = new BreachedPasswordListener($this->checkSettings(), new InteractiveLogin($request), $request, $container, $this->logger());
+		$listener = new BreachedPasswordListener(new InteractiveLogin($request), $request, $container, $this->logger());
 		$listener->handle(new UserLoggedInEvent($this->user, $this->user->getUID(), $password, $tokenLogin));
-		return $detector;
+		return $dispatcher;
 	}
 
 	protected function protect(): void {
@@ -268,17 +268,17 @@ class BreachedPasswordTest extends IntegrationTestCase {
 
 	public function testOneRequestChecksOnce(): void {
 		$this->protect();
-		$detector = $this->login();
-		$this->assertTrue($detector->checkAtLogin($this->user, self::PASSWORD), 'A second caller in the same request gets the result');
-		$this->assertCount(1, $this->requests);
+		$dispatcher = $this->login();
+		$dispatcher->dispatch(new InteractivePasswordLogin($this->user, self::PASSWORD, null));
+		$this->assertCount(1, $this->requests, 'A second caller in the same request checks nothing again');
 		$this->assertCount(1, $this->breachDetections());
 	}
 
 	public function testFailsOpenAndTriesAgainAtTheNextLogin(): void {
 		$this->protect();
 		$this->listCount = null;
-		$detector = $this->login();
-		$this->assertNull($detector->checkAtLogin($this->user, self::PASSWORD));
+		$this->login()->dispatch(new InteractivePasswordLogin($this->user, self::PASSWORD, null));
+		$this->assertCount(1, $this->requests);
 		$this->assertNull($this->detector()->checkedAt($this->user), 'Nothing is stored');
 		$this->assertFalse($this->detector()->isBreached($this->user));
 		$this->assertSame([], $this->breachDetections());

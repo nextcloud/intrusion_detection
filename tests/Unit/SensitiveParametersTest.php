@@ -10,11 +10,14 @@ declare(strict_types=1);
 namespace OCA\IntrusionDetection\Tests\Unit;
 
 use OCA\IntrusionDetection\Check\Checks\ShareBruteforce\ShareBruteforceDetector;
+use OCA\IntrusionDetection\Config\ModeState;
 use OCA\IntrusionDetection\Crypto\Fingerprinter;
 use OCA\IntrusionDetection\Db\AttemptKind;
+use OCA\IntrusionDetection\Definition\Mode;
 use OCA\IntrusionDetection\Detection\AttemptRecord;
 use OCA\IntrusionDetection\Net\SourceKey;
 use OCA\IntrusionDetection\Signal\ISignal;
+use OCA\IntrusionDetection\Signal\ShareAccessFailed;
 use Test\TestCase;
 
 /**
@@ -105,12 +108,13 @@ class SensitiveParametersTest extends TestCase {
 		$record = new AttemptRecord(AttemptKind::UnknownShareToken, SourceKey::fromIp('198.51.100.7'), 'secret-fingerprint-0123', null, null, null, [], time(), true);
 		$detector = $this->getMockBuilder(ShareBruteforceDetector::class)->disableOriginalConstructor()->onlyMethods([])->getMock();
 		try {
-			$detector->unknownToken($record, null);
+			$detector->detect(new ShareAccessFailed($record, null, null), new ModeState(Mode::Protect, Mode::Protect));
 			$this->fail('The detector without its dependencies throws');
 		} catch (\Error $e) {
-			$frame = $e->getTrace()[0];
-			$this->assertSame('unknownToken', $frame['function']);
-			$this->assertInstanceOf(\SensitiveParameterValue::class, $frame['args'][0] ?? null);
+			$frames = array_column($e->getTrace(), null, 'function');
+			foreach (['unknownToken', 'detect'] as $function) {
+				$this->assertInstanceOf(\SensitiveParameterValue::class, $frames[$function]['args'][0] ?? null, $function);
+			}
 		} finally {
 			ini_set('zend.exception_ignore_args', (string)$previous);
 		}

@@ -78,7 +78,7 @@ class DetectionFactKeysTest extends TestCase {
 	public function testFactsArePassedByName(): void {
 		$positions = self::factsParameters();
 		$this->assertArrayHasKey('DetectionDraft', $positions, 'The scan knows the draft\'s facts parameter');
-		$this->assertArrayHasKey('record', $positions);
+		$this->assertArrayHasKey('AdminChanged', $positions, 'The scan knows the facts of an administration change');
 		$positional = [];
 		$files = new \RecursiveIteratorIterator(new \RecursiveDirectoryIterator(dirname(__DIR__, 3) . '/lib', \FilesystemIterator::SKIP_DOTS));
 		foreach ($files as $file) {

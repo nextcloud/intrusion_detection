@@ -10,12 +10,7 @@ declare(strict_types=1);
 namespace OCA\IntrusionDetection\Listener;
 
 use OCA\IntrusionDetection\Cache\Caches;
-use OCA\IntrusionDetection\Check\Checks\BreachedPassword\BreachedPassword;
-use OCA\IntrusionDetection\Check\Checks\BreachedPassword\BreachedPasswordDetector;
-use OCA\IntrusionDetection\Check\Checks\PasswordSpraying\PasswordSprayingDetector;
-use OCA\IntrusionDetection\Check\Checks\RiskyNetwork\RiskyNetworkDetector;
 use OCA\IntrusionDetection\Config\AppSettings;
-use OCA\IntrusionDetection\Config\CheckSettings;
 use OCA\IntrusionDetection\Confirm\LoginDetections;
 use OCA\IntrusionDetection\Confirm\StepUpPolicy;
 use OCA\IntrusionDetection\Confirm\StepUpReasons;
@@ -27,6 +22,9 @@ use OCA\IntrusionDetection\Login\LoginContext;
 use OCA\IntrusionDetection\Net\RemoteAddressResolver;
 use OCA\IntrusionDetection\Net\SourceKey;
 use OCA\IntrusionDetection\Response\FlaggedSources;
+use OCA\IntrusionDetection\Signal\InteractivePasswordLogin;
+use OCA\IntrusionDetection\Signal\SignalDispatcher;
+use OCA\IntrusionDetection\Signal\SuccessfulLogin;
 use OCP\EventDispatcher\Event;
 use OCP\EventDispatcher\IEventListener;
 use OCP\IRequest;
@@ -40,11 +38,10 @@ use Psr\Log\LoggerInterface;
  * Decides at every successful password login whether it needs extra
  * confirmation (concept sections 11.5 and 12.2, steps 4 to 7):
  *
- * - a successful login with a sprayed password is reported
- *   ({@see PasswordSprayingDetector::detectSuccess()});
- * - a login from a hosting or Tor network is reported
- *   ({@see RiskyNetworkDetector::detectLogin()});
- * - the breach check runs, when it is on and due;
+ * - the login is judged ({@see SuccessfulLogin}): a sprayed password and a
+ *   hosting or Tor network are reported;
+ * - the breach check runs on the login form's password, when it is on and
+ *   due ({@see InteractivePasswordLogin});
  * - the step-up reasons are collected and {@see StepUpService} decides.
  *
  * Only logins with the account's password count: through the login form,
@@ -77,7 +74,6 @@ class StepUpLoginListener implements IEventListener {
 
 	public function __construct(
 		private readonly AppSettings $appSettings,
-		private readonly CheckSettings $settings,
 		private readonly InteractiveLogin $interactive,
 		private readonly RemoteAddressResolver $addresses,
 		private readonly Fingerprinter $fingerprinter,
@@ -139,17 +135,13 @@ class StepUpLoginListener implements IEventListener {
 
 		$detections = [];
 		try {
-			$sprayed = $this->container->get(PasswordSprayingDetector::class)->detectSuccess($login);
-			if ($sprayed !== null) {
-				$detections[] = $sprayed->getId();
+			$dispatcher = $this->container->get(SignalDispatcher::class);
+			foreach ($dispatcher->dispatch(new SuccessfulLogin($login))->detections as $detection) {
+				$detections[] = $detection->getId();
 			}
-			$risky = $this->container->get(RiskyNetworkDetector::class)->detectLogin($login);
-			if ($risky !== null) {
-				$detections[] = $risky->getId();
-			}
-			if ($interactive && $this->settings->modeState(BreachedPassword::ID)->runs()) {
-				// The check keeps its result for this request, so its own listener does not ask again.
-				$this->container->get(BreachedPasswordDetector::class)->checkAtLogin($user, $password, $userAgent);
+			if ($interactive) {
+				// The check remembers the account for this request, so its own listener does not ask again.
+				$dispatcher->dispatch(new InteractivePasswordLogin($user, $password, $userAgent));
 			}
 		} catch (\Throwable $e) {
 			// The decision below must still happen.

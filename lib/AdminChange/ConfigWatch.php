@@ -14,9 +14,9 @@ use OCA\IntrusionDetection\AppInfo\Application;
 use OCA\IntrusionDetection\Check\Checks\AdminChange\AdminChange;
 use OCA\IntrusionDetection\Check\Checks\AdminChange\AdminChangeDetector;
 use OCA\IntrusionDetection\Config\CheckSettings;
-use OCA\IntrusionDetection\Config\ModeState;
 use OCA\IntrusionDetection\Crypto\Fingerprinter;
 use OCA\IntrusionDetection\Definition\Mode;
+use OCA\IntrusionDetection\Signal\SignalDispatcher;
 use OCA\IntrusionDetection\State\AppState;
 use OCP\App\IAppManager;
 use OCP\AppFramework\Utility\ITimeFactory;
@@ -50,7 +50,7 @@ class ConfigWatch {
 		private readonly WatchedSettings $watched,
 		private readonly ConfigSnapshotMapper $snapshots,
 		private readonly Fingerprinter $fingerprinter,
-		private readonly AdminChangeDetector $detector,
+		private readonly SignalDispatcher $dispatcher,
 		private readonly CheckSettings $settings,
 		private readonly ITimeFactory $timeFactory,
 		private readonly IAppManager $appManager,
@@ -136,9 +136,9 @@ class ConfigWatch {
 		foreach ($changes as $change) {
 			$name = WatchedSettings::ownName($change['key']);
 			$mode = $name !== null && !$change['secret'] && $this->isScalarOrList($change['old'])
-				? $this->detector->modeBefore($name, $change['old'])
+				? $this->settings->modeStateBefore(AdminChange::ID, $name, $change['old'], $now)
 				: null;
-			$this->detector->settingChanged($change['key'], $change['old'], $change['new'], $change['secret'], ActorResolver::UNKNOWN, true, $mode);
+			$this->dispatcher->dispatch(AdminChangeDetector::settingChange($change['key'], $change['old'], $change['new'], $change['secret'], ActorResolver::UNKNOWN, true, $now), $mode);
 		}
 		return count($changes);
 	}
@@ -151,9 +151,13 @@ class ConfigWatch {
 	 * @param int|float|bool|string|list<string> $old
 	 * @param int|float|bool|string|list<string> $new
 	 */
-	public function ownSettingChanged(string $name, int|float|bool|string|array $old, int|float|bool|string|array $new, string $actor, ModeState $mode): void {
+	public function ownSettingChanged(string $name, int|float|bool|string|array $old, int|float|bool|string|array $new, string $actor): void {
 		$this->ownSettingRecorded($name, $new);
-		$this->detector->settingChanged(WatchedSettings::ownKey($name), $old, $new, false, $actor, false, $mode);
+		$now = $this->timeFactory->getTime();
+		$this->dispatcher->dispatch(
+			AdminChangeDetector::settingChange(WatchedSettings::ownKey($name), $old, $new, false, $actor, false, $now),
+			$this->settings->modeStateBefore(AdminChange::ID, $name, $old, $now),
+		);
 	}
 
 	/**

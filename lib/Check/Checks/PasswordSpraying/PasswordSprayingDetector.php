@@ -22,11 +22,11 @@ use OCA\IntrusionDetection\Detection\DetectionDraft;
 use OCA\IntrusionDetection\Login\LoginContext;
 use OCA\IntrusionDetection\Net\SourceKey;
 use OCA\IntrusionDetection\Response\FlaggedSources;
-use OCA\IntrusionDetection\Response\ResponseEngine;
 use OCA\IntrusionDetection\Risk\RiskScorer;
 use OCA\IntrusionDetection\Signal\FailedLoginAttempt;
 use OCA\IntrusionDetection\Signal\IDetector;
 use OCA\IntrusionDetection\Signal\ISignal;
+use OCA\IntrusionDetection\Signal\SuccessfulLogin;
 
 /**
  * Detects password spraying (concept section 10.2) after each failed
@@ -42,13 +42,13 @@ use OCA\IntrusionDetection\Signal\ISignal;
  *   password for at least MIN_NAMES_TO_BLOCK accounts in the window (at most
  *   MAX_BAN_TARGETS); the fingerprint is flagged for a day.
  *
- * - A successful login with a flagged password ({@see self::detectSuccess()})
+ * - A successful login with a flagged password ({@see SuccessfulLogin})
  *   is a detection of its own for the account, with the login responses
  *   (extra confirmation, telling the user, a new password). Whether the
  *   login needs confirmation is decided by the step-up reasons, which read
  *   the same flag.
  *
- * @template-implements IDetector<FailedLoginAttempt>
+ * @template-implements IDetector<FailedLoginAttempt|SuccessfulLogin>
  */
 class PasswordSprayingDetector implements IDetector {
 	/** The namespace of its memory cache in {@see Caches} */
@@ -58,7 +58,6 @@ class PasswordSprayingDetector implements IDetector {
 	public function __construct(
 		private readonly CheckSettings $settings,
 		private readonly AttemptMapper $attempts,
-		private readonly ResponseEngine $engine,
 		private readonly FlaggedSources $flags,
 		private readonly Fingerprinter $fingerprinter,
 		private readonly Caches $caches,
@@ -67,33 +66,15 @@ class PasswordSprayingDetector implements IDetector {
 	}
 
 	/**
-	 * A successful password login: when its password is flagged, record a
-	 * detection for the account, merged per account, address and hour, and run the
-	 * login responses.
-	 *
-	 * @return ?Detection the detection, or null when the password is not flagged or the check is off
-	 */
-	public function detectSuccess(LoginContext $login): ?Detection {
-		if (!$login->passwordFlagged || !$this->settings->modeState(PasswordSpraying::ID)->runs()) {
-			return null;
-		}
-		$draft = new DetectionDraft(
-			checkId: PasswordSpraying::ID,
-			source: $login->source,
-			uid: $login->uid(),
-			facts: ['rule' => PasswordSpraying::RULE_LOGIN, 'client' => !$login->interactive],
-			merge: DetectionDraft::MERGE_SOURCE_USER,
-			userAgent: $login->userAgent,
-		);
-		return $this->engine->handle($draft);
-	}
-
-	/**
-	 * @param FailedLoginAttempt $signal
+	 * @param FailedLoginAttempt|SuccessfulLogin $signal
 	 * @return \Generator<int, DetectionDraft, ?Detection, void>
 	 */
 	#[\Override]
 	public function detect(#[\SensitiveParameter] ISignal $signal, ModeState $mode): \Generator {
+		if ($signal instanceof SuccessfulLogin) {
+			yield from $this->success($signal->login);
+			return;
+		}
 		$attempt = $signal->attempt;
 		$password = $signal->password;
 		$userAgent = $signal->userAgent;
@@ -164,6 +145,27 @@ class PasswordSprayingDetector implements IDetector {
 		if (!$flags) {
 			$this->caches->shared(self::CACHE)?->set($seenKey, 1, $window);
 		}
+	}
+
+	/**
+	 * A successful password login: when its password is flagged, a detection
+	 * for the account, merged per account, address and hour, with the login
+	 * responses.
+	 *
+	 * @return list<DetectionDraft>
+	 */
+	private function success(LoginContext $login): array {
+		if (!$login->passwordFlagged) {
+			return [];
+		}
+		return [new DetectionDraft(
+			checkId: PasswordSpraying::ID,
+			source: $login->source,
+			uid: $login->uid(),
+			facts: ['rule' => PasswordSpraying::RULE_LOGIN, 'client' => !$login->interactive],
+			merge: DetectionDraft::MERGE_SOURCE_USER,
+			userAgent: $login->userAgent,
+		)];
 	}
 
 	/**

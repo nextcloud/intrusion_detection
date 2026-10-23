@@ -12,7 +12,6 @@ namespace OCA\IntrusionDetection\Tests\Integration;
 use OCA\IntrusionDetection\AppInfo\Application;
 use OCA\IntrusionDetection\Audit\AuditLogger;
 use OCA\IntrusionDetection\Check\Checks\AdminChange\AdminChange;
-use OCA\IntrusionDetection\Check\Checks\AdminChange\AdminChangeDetector;
 use OCA\IntrusionDetection\Check\Checks\CredentialStuffing\CredentialStuffing;
 use OCA\IntrusionDetection\Command\Report;
 use OCA\IntrusionDetection\Db\Approval;
@@ -38,6 +37,8 @@ use OCA\IntrusionDetection\LoginHistory\LoginHistory;
 use OCA\IntrusionDetection\Net\SourceKey;
 use OCA\IntrusionDetection\Response\BanService;
 use OCA\IntrusionDetection\Response\ResponseEngine;
+use OCA\IntrusionDetection\Signal\AdminChanged;
+use OCA\IntrusionDetection\Signal\SignalDispatcher;
 use OCP\AppFramework\Utility\ITimeFactory;
 use OCP\Constants;
 use OCP\EventDispatcher\IEventDispatcher;
@@ -206,8 +207,8 @@ class IncidentReportTest extends LoginFailureTestCase {
 		}
 		$this->shareFiles();
 		$this->appConfig->setValueString(Application::APP_ID, 'check_' . AdminChange::ID . '_mode', Mode::Protect->value);
-		Server::get(AdminChangeDetector::class)->record(AdminChange::KIND_APP_ENABLED, Severity::Medium, $this->victim, null, ['app' => 'files_external', 'groups' => []], 'test');
-		Server::get(AdminChangeDetector::class)->record(AdminChange::KIND_APP_ENABLED, Severity::Medium, $this->other, null, ['app' => 'files_external', 'groups' => []], 'test');
+		Server::get(SignalDispatcher::class)->dispatch(new AdminChanged(AdminChange::KIND_APP_ENABLED, Severity::Medium, $this->victim, null, ['app' => 'files_external', 'groups' => []], 'test'));
+		Server::get(SignalDispatcher::class)->dispatch(new AdminChanged(AdminChange::KIND_APP_ENABLED, Severity::Medium, $this->other, null, ['app' => 'files_external', 'groups' => []], 'test'));
 		$approval = new Approval();
 		$approval->setKind(Approval::KIND_ADMIN_GRANT);
 		$approval->setSubjectUid($this->other);

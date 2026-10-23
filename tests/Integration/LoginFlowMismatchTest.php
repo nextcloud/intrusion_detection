@@ -26,7 +26,7 @@ use OCA\IntrusionDetection\Listener\LoginFlowGrantedListener;
 use OCA\IntrusionDetection\Net\SourceKey;
 use OCA\IntrusionDetection\Response\BanService;
 use OCA\IntrusionDetection\Response\FlaggedSources;
-use OCA\IntrusionDetection\Response\ResponseEngine;
+use OCA\IntrusionDetection\Signal\LoginFlowGranted;
 use OCA\IntrusionDetection\TrustedNetwork\ITrustedNetworks;
 use OCP\AppFramework\Utility\ITimeFactory;
 use OCP\Authentication\Events\LoginFlowV2GrantedEvent;
@@ -54,9 +54,8 @@ class LoginFlowMismatchTest extends RequestEventTestCase {
 		$this->user = $this->user('ids-flow');
 		$this->trustedNetworks = Server::get(ITrustedNetworks::class);
 		$this->listen(LoginFlowV2GrantedEvent::class, new LoginFlowGrantedListener(
-			$this->checkSettings(),
+			$this->dispatcher([LoginFlowMismatchDetector::class => $this->detector()]),
 			$this->addresses,
-			$this->detector(),
 			$this->request,
 			Server::get(LoggerInterface::class),
 		));
@@ -219,14 +218,13 @@ class LoginFlowMismatchTest extends RequestEventTestCase {
 		$token->method('getUID')->willReturn($this->user->getUID());
 		$token->method('getName')->willReturn(self::CLIENT);
 		$token->method('getId')->willReturn(4242);
-		$this->detector()->granted($token, $initiator, time() - $age, SourceKey::fromIp($granter), null);
+		$this->dispatcher([LoginFlowMismatchDetector::class => $this->detector()])->dispatch(new LoginFlowGranted($token, $initiator, time() - $age, SourceKey::fromIp($granter), null));
 		return $this->detectionsOf(LoginFlowMismatch::ID)[0] ?? null;
 	}
 
 	private function detector(): LoginFlowMismatchDetector {
 		return new LoginFlowMismatchDetector(
 			$this->checkSettings(),
-			Server::get(ResponseEngine::class),
 			Server::get(AddressResolver::class),
 			Server::get(FlaggedSources::class),
 			$this->addresses,

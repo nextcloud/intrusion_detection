@@ -14,6 +14,7 @@ use OCA\IntrusionDetection\Guard\RequestContext;
 use OCA\IntrusionDetection\Net\RemoteAddressResolver;
 use OCA\IntrusionDetection\Net\SourceKey;
 use OCA\IntrusionDetection\SessionState\CurrentSession;
+use OCA\IntrusionDetection\Signal\SignalDispatcher;
 use OCP\AppFramework\Utility\ITimeFactory;
 use OCP\IConfig;
 use OCP\IRequest;
@@ -206,7 +207,7 @@ class CredentialUseResolver {
 			$sessionTokenId = $this->container->get(CurrentSession::class)->tokenId();
 		}
 		$userAgent = $this->request->getHeader('User-Agent');
-		$this->container->get(TokenConcurrentUseDetector::class)->record(
+		$this->container->get(SignalDispatcher::class)->dispatch(new CredentialSwitched(
 			$switch,
 			$kind,
 			$scheme,
@@ -214,7 +215,7 @@ class CredentialUseResolver {
 			$tokenId,
 			$sessionTokenId,
 			$userAgent === '' ? null : $userAgent,
-		);
+		));
 	}
 
 	private function sessionId(ISession $session): ?string {

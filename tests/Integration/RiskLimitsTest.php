@@ -17,9 +17,7 @@ use OCA\IntrusionDetection\Check\Checks\AccountUnderAttack\AccountUnderAttack;
 use OCA\IntrusionDetection\Check\Checks\CredentialStuffing\CredentialStuffing;
 use OCA\IntrusionDetection\Check\Checks\PasswordSpraying\PasswordSpraying;
 use OCA\IntrusionDetection\Check\Checks\ResetProbing\ResetProbing;
-use OCA\IntrusionDetection\Check\Checks\ResetProbing\ResetProbingDetector;
 use OCA\IntrusionDetection\Check\Checks\ShareBruteforce\ShareBruteforce;
-use OCA\IntrusionDetection\Check\Checks\ShareBruteforce\ShareBruteforceDetector;
 use OCA\IntrusionDetection\Config\GlobalSettings;
 use OCA\IntrusionDetection\Crypto\Fingerprinter;
 use OCA\IntrusionDetection\Db\AttemptKind;
@@ -32,6 +30,9 @@ use OCA\IntrusionDetection\Net\SourceKey;
 use OCA\IntrusionDetection\Response\FlaggedSources;
 use OCA\IntrusionDetection\Risk\RiskAssessment;
 use OCA\IntrusionDetection\Risk\RiskScorer;
+use OCA\IntrusionDetection\Signal\ResetRequested;
+use OCA\IntrusionDetection\Signal\ShareAccessFailed;
+use OCA\IntrusionDetection\Signal\SignalDispatcher;
 use OCA\IntrusionDetection\State\HotState;
 use OCP\AppFramework\Utility\ITimeFactory;
 use OCP\IDBConnection;
@@ -149,7 +150,7 @@ class RiskLimitsTest extends LoginFailureTestCase {
 		for ($i = 1; $i <= 5; $i++) {
 			$this->attempts->insert(AttemptKind::UnknownShareToken, $source->ipKey, $source->netKey, bin2hex(Server::get(Fingerprinter::class)->shareToken('guessed' . $i)), null, null, null, time());
 		}
-		Server::get(ShareBruteforceDetector::class)->unknownToken(new AttemptRecord(AttemptKind::UnknownShareToken, $source, null, null, null, null, [], time(), true), null);
+		Server::get(SignalDispatcher::class)->dispatch(new ShareAccessFailed(new AttemptRecord(AttemptKind::UnknownShareToken, $source, null, null, null, null, [], time(), true), null, null));
 		$detections = $this->detectionsOf(ShareBruteforce::ID);
 		$this->assertCount(1, $detections);
 		$this->assertSame(['token_min' => ['plain' => 10, 'effective' => 5]], $detections[0]->getExplanationData()['facts']['loweredLimits']);
@@ -161,7 +162,7 @@ class RiskLimitsTest extends LoginFailureTestCase {
 		foreach (['a@example.com', 'b@example.com', 'c@example.com'] as $input) {
 			$this->attempts->insert(AttemptKind::PasswordReset, $source->ipKey, $source->netKey, bin2hex(Server::get(Fingerprinter::class)->name($input)), null, null, null, time());
 		}
-		Server::get(ResetProbingDetector::class)->detect(new AttemptRecord(AttemptKind::PasswordReset, $source, null, null, null, null, [], time(), true), null);
+		Server::get(SignalDispatcher::class)->dispatch(new ResetRequested(new AttemptRecord(AttemptKind::PasswordReset, $source, null, null, null, null, [], time(), true), null));
 		$detections = $this->detectionsOf(ResetProbing::ID);
 		$this->assertCount(1, $detections);
 		$this->assertSame(['enum_min_inputs' => ['plain' => 5, 'effective' => 3]], $detections[0]->getExplanationData()['facts']['loweredLimits']);

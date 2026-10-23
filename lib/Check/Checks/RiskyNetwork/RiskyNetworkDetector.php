@@ -11,12 +11,12 @@ namespace OCA\IntrusionDetection\Check\Checks\RiskyNetwork;
 
 use OCA\IntrusionDetection\Blocklist\SourceRepository;
 use OCA\IntrusionDetection\Cache\Caches;
-use OCA\IntrusionDetection\Config\CheckSettings;
-use OCA\IntrusionDetection\Db\Detection;
+use OCA\IntrusionDetection\Config\ModeState;
 use OCA\IntrusionDetection\Detection\DetectionDraft;
-use OCA\IntrusionDetection\Login\LoginContext;
-use OCA\IntrusionDetection\Response\ResponseEngine;
 use OCA\IntrusionDetection\Risk\NetworkAttributes;
+use OCA\IntrusionDetection\Signal\IDetector;
+use OCA\IntrusionDetection\Signal\ISignal;
+use OCA\IntrusionDetection\Signal\SuccessfulLogin;
 use OCP\AppFramework\Utility\ITimeFactory;
 
 /**
@@ -28,43 +28,45 @@ use OCP\AppFramework\Utility\ITimeFactory;
  * Apps and scripts that send the password (Basic auth) log in on every
  * request; with a memory cache, they are recorded once per account, address and day
  * without touching the database again.
+ *
+ * @template-implements IDetector<SuccessfulLogin>
  */
-class RiskyNetworkDetector {
+class RiskyNetworkDetector implements IDetector {
 	/** The namespace of its memory cache in {@see Caches} */
 	public const CACHE = 'risky-network';
 	public const MERGE_WINDOW = 86400;
 
 	public function __construct(
-		private readonly CheckSettings $settings,
 		private readonly NetworkAttributes $networks,
 		private readonly SourceRepository $sources,
-		private readonly ResponseEngine $engine,
 		private readonly Caches $caches,
 		private readonly ITimeFactory $timeFactory,
 	) {
 	}
 
-	public function detectLogin(LoginContext $login): ?Detection {
-		$mode = $this->settings->modeState(RiskyNetwork::ID);
-		if (!$mode->runs()) {
-			return null;
-		}
+	/**
+	 * @param SuccessfulLogin $signal
+	 * @return list<DetectionDraft>
+	 */
+	#[\Override]
+	public function detect(#[\SensitiveParameter] ISignal $signal, ModeState $mode): iterable {
+		$login = $signal->login;
 		$risky = $this->networks->riskyLogin($login);
 		if ($risky === null) {
-			return null;
+			return [];
 		}
 		if (!$login->interactive) {
 			$key = 'rn:' . ($mode->acts() ? 'p' : 'o') . ':' . gmdate('Y-m-d', $this->timeFactory->getTime()) . ':' . hash('sha256', $login->uid() . "\0" . ($login->source?->ipKey ?? ''));
 			$cache = $this->caches->shared(self::CACHE);
 			if ($cache !== null && !$cache->add($key, 1, self::MERGE_WINDOW)) {
-				return null;
+				return [];
 			}
 		}
 		$names = [];
 		foreach ($risky->lists as $id) {
 			$names[] = $this->sources->get($id)?->name ?? $id;
 		}
-		return $this->engine->handle(new DetectionDraft(
+		return [new DetectionDraft(
 			checkId: RiskyNetwork::ID,
 			source: $login->source,
 			uid: $login->uid(),
@@ -77,6 +79,6 @@ class RiskyNetworkDetector {
 			merge: DetectionDraft::MERGE_SOURCE_USER,
 			mergeWindow: self::MERGE_WINDOW,
 			userAgent: $login->userAgent,
-		));
+		)];
 	}
 }

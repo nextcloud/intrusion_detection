@@ -26,6 +26,7 @@ use OCA\IntrusionDetection\Notification\UserAlerts;
 use OCA\IntrusionDetection\Response\FlaggedSources;
 use OCA\IntrusionDetection\Response\PasswordChangeFlag;
 use OCA\IntrusionDetection\Response\PasswordChangeService;
+use OCA\IntrusionDetection\Signal\SecondFactorFailure;
 use OCP\Authentication\Token\IToken;
 use OCP\IUser;
 use OCP\L10N\IFactory;
@@ -52,7 +53,6 @@ class SecondFactorFailedTest extends AccountTestCase {
 			Server::get(AttemptRecorder::class),
 			Server::get(AttemptMapper::class),
 			Server::get(FlaggedSources::class),
-			$this->engine(),
 			$this->currentSession,
 			$this->session,
 			Server::get(LoggerInterface::class),
@@ -218,7 +218,8 @@ class SecondFactorFailedTest extends AccountTestCase {
 	}
 
 	private function failChallenge(string $ip = self::ADDRESS): bool {
-		return $this->detector->detect($this->user, 'totp', 'TOTP', SourceKey::fromIp($ip), 'Mozilla/5.0 (X11; Linux x86_64) Firefox/140.0');
+		$failure = new SecondFactorFailure($this->user, 'totp', 'TOTP', SourceKey::fromIp($ip), 'Mozilla/5.0 (X11; Linux x86_64) Firefox/140.0');
+		return $this->dispatcher([SecondFactorFailedDetector::class => $this->detector], $this->engine())->dispatch($failure)->detections !== [];
 	}
 
 	/**

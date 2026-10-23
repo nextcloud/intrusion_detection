@@ -29,6 +29,8 @@ use OCA\IntrusionDetection\Detection\DetectionService;
 use OCA\IntrusionDetection\Notification\AdminAlerts;
 use OCA\IntrusionDetection\Notification\ShareOwnerAlerts;
 use OCA\IntrusionDetection\Notification\UserAlerts;
+use OCA\IntrusionDetection\Response\ResponseEngine;
+use OCA\IntrusionDetection\Signal\SignalDispatcher;
 use OCA\IntrusionDetection\State\AppState;
 use OCP\AppFramework\Utility\ITimeFactory;
 use OCP\BackgroundJob\IJobList;
@@ -37,6 +39,7 @@ use OCP\IAppConfig;
 use OCP\IConfig;
 use OCP\IDBConnection;
 use OCP\Server;
+use Psr\Log\LoggerInterface;
 use Test\TestCase;
 
 /**
@@ -123,6 +126,16 @@ abstract class IntegrationTestCase extends TestCase {
 
 	protected function appSettings(): AppSettings {
 		return Server::get(AppSettings::class);
+	}
+
+	/**
+	 * The signal dispatcher, with some detectors (or the response engine)
+	 * replaced for one test.
+	 *
+	 * @param array<string, object> $detectors
+	 */
+	protected function dispatcher(array $detectors = [], ?ResponseEngine $engine = null, ?LoggerInterface $logger = null): SignalDispatcher {
+		return new SignalDispatcher($this->checkSettings(), $engine ?? Server::get(ResponseEngine::class), new OverridingContainer($detectors), $logger ?? Server::get(LoggerInterface::class));
 	}
 
 	/**

@@ -15,7 +15,6 @@ use OC\Security\RateLimiting\Limiter;
 use OCA\IntrusionDetection\AppInfo\Application;
 use OCA\IntrusionDetection\BackgroundJob\Cleanup;
 use OCA\IntrusionDetection\Check\Checks\ResetProbing\ResetProbing;
-use OCA\IntrusionDetection\Check\Checks\ResetProbing\ResetProbingDetector;
 use OCA\IntrusionDetection\Config\GlobalSettings;
 use OCA\IntrusionDetection\Db\AttemptMapper;
 use OCA\IntrusionDetection\Db\BanMapper;
@@ -61,10 +60,9 @@ class ResetProbingTest extends RequestEventTestCase {
 		parent::setUp();
 		$this->bans = Server::get(BanMapper::class);
 		$this->listen(PasswordResetRequestedEvent::class, new ResetRequestedListener(
-			$this->checkSettings(),
+			$this->dispatcher(),
 			$this->addresses,
 			Server::get(AttemptRecorder::class),
-			Server::get(ResetProbingDetector::class),
 			$this->suppressor(),
 			Server::get(IUserManager::class),
 			$this->request,
