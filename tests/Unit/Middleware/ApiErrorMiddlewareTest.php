@@ -14,7 +14,7 @@ use OCA\IntrusionDetection\Definition\InvalidParamException;
 use OCA\IntrusionDetection\Incident\InvalidIncidentQuery;
 use OCA\IntrusionDetection\Learning\LearningLimitException;
 use OCA\IntrusionDetection\Middleware\ApiErrorMiddleware;
-use OCA\IntrusionDetection\Response\BanRefusedException;
+use OCA\IntrusionDetection\Response\InvalidBanException;
 use OCA\IntrusionDetection\WasThisYou\AnswerException;
 use OCP\AppFramework\Controller;
 use OCP\AppFramework\Http;
@@ -37,7 +37,10 @@ class ApiErrorMiddlewareTest extends TestCase {
 			'invalid value of no field' => [new InvalidParamException('unknown_mode'), Http::STATUS_BAD_REQUEST, null, 'unknown_mode'],
 			'incident query' => [new InvalidIncidentQuery(InvalidIncidentQuery::INVALID_ADDRESS), Http::STATUS_BAD_REQUEST, 'address', 'invalid_address'],
 			'learning limit' => [new LearningLimitException(1_800_000_000, 1_797_408_000), Http::STATUS_BAD_REQUEST, 'days', 'learning_limit'],
-			'never blocked' => [new BanRefusedException('198.51.100.0/24'), Http::STATUS_BAD_REQUEST, 'target', 'invalid_target'],
+			'never blocked' => [new InvalidBanException(InvalidBanException::CONTAINS_NEVER, '198.51.100.0/24'), Http::STATUS_BAD_REQUEST, 'target', 'invalid_target'],
+			'ban note' => [new InvalidBanException(InvalidBanException::NOTE_TOO_LONG), Http::STATUS_BAD_REQUEST, 'note', 'too_long'],
+			'ban level' => [new InvalidBanException(InvalidBanException::LEVEL), Http::STATUS_BAD_REQUEST, 'level', 'invalid_level'],
+			'ban duration' => [new InvalidBanException(InvalidBanException::DURATION), Http::STATUS_BAD_REQUEST, 'duration', 'invalid_duration'],
 			'no such approval' => [new ApprovalException(ApprovalException::NOT_FOUND), Http::STATUS_NOT_FOUND, null, 'not_found'],
 			'own approval' => [new ApprovalException(ApprovalException::REQUESTER), Http::STATUS_FORBIDDEN, null, 'requester'],
 			'unconfirmed approver' => [new ApprovalException(ApprovalException::UNCONFIRMED), Http::STATUS_FORBIDDEN, null, 'unconfirmed'],

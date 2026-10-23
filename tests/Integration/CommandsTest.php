@@ -72,8 +72,11 @@ class CommandsTest extends IntegrationTestCase {
 	 */
 	public static function invalidBans(): array {
 		return [
-			'no duration' => [['--duration' => '0'], 'more than 0 seconds'],
-			'longer than 90 days' => [['--duration' => '91d'], 'at most 90 days'],
+			'no duration' => [['--duration' => '0'], 'A block lasts from 5 minutes to 90 days.'],
+			'shorter than the page allows' => [['--duration' => '60'], 'A block lasts from 5 minutes to 90 days.'],
+			'longer than 90 days' => [['--duration' => '91d'], 'A block lasts from 5 minutes to 90 days.'],
+			'a note longer than the page allows' => [['--note' => str_repeat('x', 256)], 'The note can have at most 255 characters.'],
+			'not an address' => [['target' => 'example.com'], 'Enter an IPv4 address'],
 			'a level that is no number' => [['--level' => 'abc'], 'The level must be 1, 2 or 3'],
 			'level 4' => [['--level' => '4'], 'The level must be 1, 2 or 3'],
 			'the server itself' => [['target' => '127.0.0.0/24'], 'never blocked'],

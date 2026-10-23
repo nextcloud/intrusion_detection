@@ -22,6 +22,7 @@ use OCA\IntrusionDetection\Event\SettingChangedEvent;
 use OCA\IntrusionDetection\State\AppState;
 use OCP\EventDispatcher\IEventDispatcher;
 use OCP\IUserManager;
+use OCP\Log\Audit\CriticalActionPerformedEvent;
 use OCP\Server;
 use PHPUnit\Framework\Attributes\Group;
 use Symfony\Component\Console\Input\ArrayInput;
@@ -70,6 +71,36 @@ class SettingsWritesTest extends IntegrationTestCase {
 		$this->assertSame([], $this->events);
 	}
 
+	public function testAnAdministratorsCheckChangeIsParsedValidatedAndAuditedOnce(): void {
+		$audited = [];
+		$listener = static function (CriticalActionPerformedEvent $event) use (&$audited): void {
+			$audited[] = [$event->getLogMessage(), $event->getParameters()];
+		};
+		$dispatcher = Server::get(IEventDispatcher::class);
+		$dispatcher->addListener(CriticalActionPerformedEvent::class, $listener);
+		try {
+			$editor = $this->settingsEditor();
+			$changes = $editor->changeCheck(CredentialStuffing::ID, 'observe', ['notify_admin'], ['window' => '20m', 'min_failures' => 25], 'occ');
+			$this->assertSame(['mode' => 'observe', 'params' => ['window' => 1200, 'min_failures' => 25], 'responses' => ['notify_admin']], $changes);
+			$this->assertSame([], $editor->changeCheck(CredentialStuffing::ID, null, null, ['min_failures' => '25'], 'occ'), 'Nothing changed, nothing audited');
+			foreach ([['everything', null, []], [null, ['kill_everything'], []], [null, null, ['nope' => 1]], [null, null, ['min_failures' => 1]]] as [$mode, $responses, $params]) {
+				try {
+					$editor->changeCheck(CredentialStuffing::ID, $mode, $responses, $params, 'occ');
+					$this->fail('Refused values were saved');
+				} catch (InvalidParamException) {
+				}
+			}
+			$editor->resetCheck(CredentialStuffing::ID, 'occ');
+			$editor->resetCheck(CredentialStuffing::ID);
+		} finally {
+			$dispatcher->removeListener(CriticalActionPerformedEvent::class, $listener);
+		}
+		$this->assertSame([
+			['Intrusion detection: check %s changed by %s: %s', ['check' => CredentialStuffing::ID, 'actor' => 'occ', 'change' => json_encode($changes)]],
+			['Intrusion detection: check %s reset to defaults by %s', ['check' => CredentialStuffing::ID, 'actor' => 'occ']],
+		], $audited, 'A reset as part of a larger change is audited by that change');
+	}
+
 	public function testACheckChangeReportsOnlyWhatChanged(): void {
 		$changes = $this->settingsEditor()->updateCheck(CredentialStuffing::ID, Mode::Protect, ['window' => 600, 'min_failures' => 25], null);
 		$this->assertSame(['params' => ['min_failures' => 25]], $changes, 'The mode and the window were already so');
@@ -114,7 +145,7 @@ class SettingsWritesTest extends IntegrationTestCase {
 		$this->settingsEditor()->setParam(CredentialStuffing::ID, 'window', 900);
 		$this->events = [];
 
-		Server::get(SettingsTransfer::class)->resetAll();
+		Server::get(SettingsTransfer::class)->resetAll('test');
 
 		$this->assertSame(14400, $this->appSettings()->banDurations()[1]);
 		// The test case switches the admin change check and the risk score off; the reset switches them on again.

@@ -12,16 +12,12 @@ namespace OCA\IntrusionDetection\Controller;
 use OCA\IntrusionDetection\Admin\CheckList;
 use OCA\IntrusionDetection\Admin\StatusService;
 use OCA\IntrusionDetection\AdminChange\ActorResolver;
-use OCA\IntrusionDetection\Audit\AuditLogger;
 use OCA\IntrusionDetection\Check\CheckRegistry;
 use OCA\IntrusionDetection\Configure\ProtectionLevels;
 use OCA\IntrusionDetection\Configure\SettingsEditor;
 use OCA\IntrusionDetection\Definition\CheckDefinition;
-use OCA\IntrusionDetection\Definition\InvalidParamException;
 use OCA\IntrusionDetection\Definition\Mode;
-use OCA\IntrusionDetection\Definition\ParamDefinition;
 use OCA\IntrusionDetection\Definition\ProtectionLevel;
-use OCA\IntrusionDetection\Definition\ResponseType;
 use OCA\IntrusionDetection\ResponseDefinitions;
 use OCP\AppFramework\Http;
 use OCP\AppFramework\Http\Attribute\ApiRoute;
@@ -55,7 +51,6 @@ class CheckApiController extends AdminOCSController {
 		private readonly StatusService $status,
 		private readonly CheckList $checks,
 		private readonly ProtectionLevels $protectionLevels,
-		private readonly AuditLogger $audit,
 	) {
 		parent::__construct($request, $l, $actors);
 	}
@@ -112,30 +107,7 @@ class CheckApiController extends AdminOCSController {
 	#[PasswordConfirmationRequired]
 	public function updateCheck(string $id, ?string $mode = null, ?array $responses = null, ?array $params = null): DataResponse {
 		$check = $this->configurableCheck($id);
-		$newMode = null;
-		if ($mode !== null) {
-			$newMode = Mode::tryFrom($mode) ?? throw new InvalidParamException('unknown_mode');
-		}
-		$newResponses = null;
-		if ($responses !== null) {
-			$newResponses = [];
-			foreach ($responses as $value) {
-				$newResponses[] = self::allowedResponse($check, $value);
-			}
-		}
-		$newParams = [];
-		foreach ($params ?? [] as $name => $value) {
-			$newParams[(string)$name] = self::validated($check->param((string)$name), $value);
-		}
-		$changes = $this->settings->updateCheck($id, $newMode, $newParams, $newResponses);
-
-		if ($changes !== []) {
-			$this->audit->log('check %s changed by %s: %s', [
-				'check' => $id,
-				'actor' => $this->actor(),
-				'change' => json_encode($changes),
-			]);
-		}
+		$this->settings->changeCheck($id, $mode, $responses, $params ?? [], $this->actor());
 		return new DataResponse($this->checks->one($check, $this->l));
 	}
 
@@ -152,8 +124,7 @@ class CheckApiController extends AdminOCSController {
 	#[PasswordConfirmationRequired]
 	public function resetCheck(string $id): DataResponse {
 		$check = $this->configurableCheck($id);
-		$this->settings->resetCheck($id);
-		$this->audit->log('check %s reset to defaults by %s', ['check' => $id, 'actor' => $this->actor()]);
+		$this->settings->resetCheck($id, $this->actor());
 		return new DataResponse($this->checks->one($check, $this->l));
 	}
 
@@ -190,12 +161,7 @@ class CheckApiController extends AdminOCSController {
 		if ($chosen === null || !in_array($chosen, ProtectionLevel::choosable(), true)) {
 			return $this->error($this->l->t('Choose the recommended, strict or relaxed protection level.'), 'level', 'invalid_level');
 		}
-		$changes = $this->protectionLevels->apply($chosen);
-		$this->audit->log('protection level set to %s by %s: %s', [
-			'level' => $chosen->value,
-			'actor' => $this->actor(),
-			'change' => json_encode($changes),
-		]);
+		$this->protectionLevels->apply($chosen, $this->actor());
 		return new DataResponse([
 			'level' => $this->settings->protectionLevel()->value,
 			'checks' => $this->checks->all($this->l),
@@ -212,25 +178,4 @@ class CheckApiController extends AdminOCSController {
 		return $this->registry->get($id);
 	}
 
-	/**
-	 * A value from the page: text as typed into a field is parsed (so "10m"
-	 * works for durations), anything else is validated as it is.
-	 *
-	 * @return int|float|bool|string|list<string>
-	 * @throws InvalidParamException
-	 */
-	private static function validated(ParamDefinition $definition, mixed $value): int|float|bool|string|array {
-		return is_string($value) ? $definition->parse($value) : $definition->validate($value);
-	}
-
-	/**
-	 * @throws InvalidParamException
-	 */
-	private static function allowedResponse(CheckDefinition $check, mixed $value): ResponseType {
-		$response = is_string($value) ? ResponseType::tryFrom($value) : null;
-		if ($response === null || !$check->allowsResponse($response)) {
-			throw new InvalidParamException('unknown_response', ['response' => is_scalar($value) ? (string)$value : '']);
-		}
-		return $response;
-	}
 }

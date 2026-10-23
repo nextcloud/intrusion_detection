@@ -9,6 +9,7 @@ declare(strict_types=1);
 
 namespace OCA\IntrusionDetection\Configure;
 
+use OCA\IntrusionDetection\Audit\AuditLogger;
 use OCA\IntrusionDetection\Check\CheckRegistry;
 use OCA\IntrusionDetection\Config\GlobalSettings;
 use OCA\IntrusionDetection\Definition\InvalidParamException;
@@ -28,6 +29,7 @@ class ProtectionLevels {
 		private readonly CheckRegistry $registry,
 		private readonly GlobalSettings $globals,
 		private readonly SettingsEditor $editor,
+		private readonly AuditLogger $audit,
 	) {
 	}
 
@@ -58,12 +60,12 @@ class ProtectionLevels {
 	}
 
 	/**
-	 * Set the limits to a level.
+	 * Set the limits to a level, and write it to the audit log.
 	 *
 	 * @return array{checks: array<string, array<string, int|float|bool|string|list<string>>>, settings: array<string, int|float|bool|string|list<string>>} what really changed
 	 * @throws InvalidParamException for Custom, which is not a set of values, or a value the checks refuse
 	 */
-	public function apply(ProtectionLevel $level): array {
+	public function apply(ProtectionLevel $level, string $actor): array {
 		if ($level === ProtectionLevel::Custom) {
 			throw new InvalidParamException('not_a_choice', ['param' => SettingsEditor::LEVEL_STATE, 'choices' => implode(', ', array_map(static fn (ProtectionLevel $l): string => $l->value, ProtectionLevel::choosable()))]);
 		}
@@ -78,6 +80,8 @@ class ProtectionLevels {
 		foreach ($values['settings'] as $name => $value) {
 			$settings[$name] = (int)$this->editor->validatedGlobal($name, $value);
 		}
-		return $this->editor->applyProtectionLevel($level, $checks, $settings);
+		$changes = $this->editor->applyProtectionLevel($level, $checks, $settings);
+		$this->audit->log('protection level set to %s by %s: %s', ['level' => $level->value, 'actor' => $actor, 'change' => json_encode($changes)]);
+		return $changes;
 	}
 }

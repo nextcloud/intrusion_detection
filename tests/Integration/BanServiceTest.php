@@ -13,6 +13,7 @@ use OC\Memcache\ArrayCache;
 use OCA\IntrusionDetection\Address\AddressCache;
 use OCA\IntrusionDetection\Address\AddressResolver;
 use OCA\IntrusionDetection\AppInfo\Application;
+use OCA\IntrusionDetection\Audit\AuditLogger;
 use OCA\IntrusionDetection\BackgroundJob\Cleanup;
 use OCA\IntrusionDetection\Cache\Caches;
 use OCA\IntrusionDetection\Cache\KeyLock;
@@ -30,17 +31,19 @@ use OCA\IntrusionDetection\Net\RemoteAddressResolver;
 use OCA\IntrusionDetection\Net\ServerAddresses;
 use OCA\IntrusionDetection\Net\SourceKey;
 use OCA\IntrusionDetection\Response\BanExemptions;
-use OCA\IntrusionDetection\Response\BanRefusedException;
 use OCA\IntrusionDetection\Response\BanResult;
 use OCA\IntrusionDetection\Response\BanService;
 use OCA\IntrusionDetection\Response\FlaggedSources;
+use OCA\IntrusionDetection\Response\InvalidBanException;
 use OCA\IntrusionDetection\Response\ProxySuspect;
 use OCA\IntrusionDetection\State\AppState;
 use OCA\IntrusionDetection\Tests\Unit\Cache\FixedCaches;
 use OCP\AppFramework\Utility\ITimeFactory;
+use OCP\EventDispatcher\IEventDispatcher;
 use OCP\IConfig;
 use OCP\IGroupManager;
 use OCP\IRequest;
+use OCP\Log\Audit\CriticalActionPerformedEvent;
 use OCP\Security\Bruteforce\IThrottler;
 use OCP\Security\ISecureRandom;
 use OCP\Server;
@@ -513,7 +516,7 @@ class BanServiceTest extends IntegrationTestCase {
 			try {
 				$bans->banManually($target, 1, 'admin', null);
 				$this->fail($target . ' was blocked');
-			} catch (BanRefusedException) {
+			} catch (InvalidBanException) {
 			}
 		}
 	}
@@ -538,12 +541,75 @@ class BanServiceTest extends IntegrationTestCase {
 		$this->appConfig->setValueString('bruteForce', 'whitelist_1', '203.0.113.9/32');
 		$_SERVER['SERVER_ADDR'] = '192.0.2.10';
 		try {
-			$this->expectException(BanRefusedException::class);
+			$this->expectException(InvalidBanException::class);
 			$this->freshService()->banManually($target, 1, 'admin', null);
 		} finally {
 			unset($_SERVER['SERVER_ADDR']);
 			$this->appConfig->deleteKey('bruteForce', 'whitelist_1');
 		}
+	}
+
+	/**
+	 * @return array<string, array{string, int, ?string, ?int, string, string}>
+	 */
+	public static function invalidBlocksByHand(): array {
+		$note = str_repeat('x', 256);
+		return [
+			'not an address' => ['example.com', 1, null, null, InvalidBanException::TARGET, 'target'],
+			'an IPv4 /16' => ['198.51.0.0/16', 1, null, null, InvalidBanException::TARGET, 'target'],
+			'level 0' => ['198.51.100.7', 0, null, null, InvalidBanException::LEVEL, 'level'],
+			'level 4' => ['198.51.100.7', 4, null, null, InvalidBanException::LEVEL, 'level'],
+			'a minute' => ['198.51.100.7', 1, null, 60, InvalidBanException::DURATION, 'duration'],
+			'91 days' => ['198.51.100.7', 1, null, 91 * 86400, InvalidBanException::DURATION, 'duration'],
+			'a long note' => ['198.51.100.7', 1, $note, null, InvalidBanException::NOTE_TOO_LONG, 'note'],
+			'the own address' => ['192.0.2.77', 1, null, null, InvalidBanException::OWN_ADDRESS, 'target'],
+			'the own network' => ['192.0.2.0/24', 1, null, null, InvalidBanException::OWN_ADDRESS, 'target'],
+		];
+	}
+
+	/**
+	 * Blocks by hand follow the same rules from the admin page and occ.
+	 */
+	#[DataProvider('invalidBlocksByHand')]
+	public function testBlocksByHandAreValidatedBeforeAnythingIsSaved(string $target, int $level, ?string $note, ?int $duration, string $problem, string $param): void {
+		$request = $this->createMock(IRequest::class);
+		$request->method('getRemoteAddress')->willReturn('192.0.2.77');
+		try {
+			$this->freshService(request: $request)->banManually($target, $level, 'admin', $note, $duration);
+			$this->fail('The block was added');
+		} catch (InvalidBanException $e) {
+			$this->assertSame([$problem, $param], [$e->problem, $e->param()]);
+		}
+		$this->assertSame(0, $this->mapper->countActive(time()));
+	}
+
+	public function testBlocksByHandAndTheirLiftsAreAudited(): void {
+		$audited = [];
+		$listener = static function (CriticalActionPerformedEvent $event) use (&$audited): void {
+			$audited[] = [$event->getLogMessage(), $event->getParameters()];
+		};
+		$dispatcher = Server::get(IEventDispatcher::class);
+		$dispatcher->addListener(CriticalActionPerformedEvent::class, $listener);
+		try {
+			$bans = $this->freshService();
+			$ban = $bans->banManually(' 198.51.100.7 ', 1, 'occ', ' scanner ', 300);
+			$this->assertSame('scanner', $ban->getNote());
+			$lifted = $bans->liftById((int)$ban->getId(), 'occ', ' done ');
+			$bans->lift($lifted, 'occ', 'again');
+		} finally {
+			$dispatcher->removeListener(CriticalActionPerformedEvent::class, $listener);
+		}
+		$reference = $ban->getDisplayReference();
+		$this->assertSame([
+			['Intrusion detection: block %s (%s) added by %s: %s', ['reference' => $reference, 'cidr' => '198.51.100.7/32', 'actor' => 'occ', 'note' => 'scanner']],
+			['Intrusion detection: block %s (%s) lifted by %s: %s', ['reference' => $reference, 'cidr' => '198.51.100.7/32', 'actor' => 'occ', 'note' => 'done']],
+		], $audited, 'A block lifted already is not lifted again');
+		$this->assertSame('done', $lifted->getLiftNote());
+	}
+
+	public function testALiftWithANoteTooLongIsRefusedBeforeTheBlockIsLookedUp(): void {
+		$this->expectException(InvalidBanException::class);
+		$this->freshService()->liftById(999999, 'occ', str_repeat('x', 256));
 	}
 
 	public function testTheCheckAndTheInsertRunUnderALockPerAddress(): void {
@@ -673,7 +739,7 @@ class BanServiceTest extends IntegrationTestCase {
 	 * The service with nothing cached from earlier tests (the allowlist and
 	 * server ranges are read once per instance).
 	 */
-	private function freshService(?Caches $lockCaches = null, ?AppState $state = null): BanService {
+	private function freshService(?Caches $lockCaches = null, ?AppState $state = null, ?IRequest $request = null): BanService {
 		$ranges = new ProtectedRanges($this->appConfig, Server::get(ServerAddresses::class));
 		return new BanService(
 			$this->mapper,
@@ -691,7 +757,7 @@ class BanServiceTest extends IntegrationTestCase {
 			$this->appSettings(),
 			$state === null ? Server::get(AddressCache::class) : new AddressCache(Server::get(Caches::class), $state),
 			Server::get(AddressResolver::class),
-			new RemoteAddressResolver($this->createMock(IRequest::class), Server::get(IThrottler::class), Server::get(ServerAddresses::class)),
+			new RemoteAddressResolver($request ?? $this->createMock(IRequest::class), Server::get(IThrottler::class), Server::get(ServerAddresses::class)),
 			$ranges,
 			Server::get(FlaggedSources::class),
 			$lockCaches === null ? Server::get(KeyLock::class) : new KeyLock($lockCaches),
@@ -699,6 +765,7 @@ class BanServiceTest extends IntegrationTestCase {
 			Server::get(ISecureRandom::class),
 			Server::get(TypedEvents::class),
 			$state ?? Server::get(AppState::class),
+			Server::get(AuditLogger::class),
 		);
 	}
 

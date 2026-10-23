@@ -10,6 +10,7 @@ declare(strict_types=1);
 namespace OCA\IntrusionDetection\Tests\Integration;
 
 use OCA\IntrusionDetection\AppInfo\Application;
+use OCA\IntrusionDetection\Audit\AuditLogger;
 use OCA\IntrusionDetection\BackgroundJob\AlertMailJob;
 use OCA\IntrusionDetection\Cache\Caches;
 use OCA\IntrusionDetection\Check\CheckRegistry;
@@ -157,7 +158,7 @@ abstract class IntegrationTestCase extends TestCase {
 	protected function settingsOn(Prerequisites $prerequisites): array {
 		$appConfig = Server::get(IAppConfig::class);
 		$checks = new CheckSettings($appConfig, $this->appSettings(), $prerequisites);
-		return [$checks, new SettingsEditor($appConfig, $checks, $this->appSettings(), Server::get(CheckRegistry::class), $prerequisites, Server::get(GlobalSettings::class), Server::get(IEventDispatcher::class), Server::get(AppState::class))];
+		return [$checks, new SettingsEditor($appConfig, $checks, $this->appSettings(), Server::get(CheckRegistry::class), $prerequisites, Server::get(GlobalSettings::class), Server::get(IEventDispatcher::class), Server::get(AppState::class), Server::get(AuditLogger::class))];
 	}
 
 	/**

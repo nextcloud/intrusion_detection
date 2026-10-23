@@ -13,11 +13,6 @@ use OCA\IntrusionDetection\Admin\GlobalSettingsPresenter;
 use OCA\IntrusionDetection\Admin\SettingsTransfer;
 use OCA\IntrusionDetection\Admin\StatusService;
 use OCA\IntrusionDetection\AdminChange\ActorResolver;
-use OCA\IntrusionDetection\Audit\AuditLogger;
-use OCA\IntrusionDetection\Config\GlobalSettings;
-use OCA\IntrusionDetection\Configure\SettingsEditor;
-use OCA\IntrusionDetection\Definition\InvalidParamException;
-use OCA\IntrusionDetection\Definition\ParamDefinition;
 use OCA\IntrusionDetection\Learning\LearningService;
 use OCA\IntrusionDetection\ResponseDefinitions;
 use OCP\AppFramework\Http;
@@ -46,12 +41,9 @@ class SettingsApiController extends AdminOCSController {
 		IL10N $l,
 		ActorResolver $actors,
 		private readonly StatusService $status,
-		private readonly SettingsEditor $settings,
 		private readonly LearningService $learningService,
 		private readonly GlobalSettingsPresenter $globalSettings,
-		private readonly GlobalSettings $globals,
 		private readonly SettingsTransfer $transfer,
-		private readonly AuditLogger $audit,
 	) {
 		parent::__construct($request, $l, $actors);
 	}
@@ -130,25 +122,7 @@ class SettingsApiController extends AdminOCSController {
 	#[ApiRoute(verb: 'PUT', url: '/api/v1/settings')]
 	#[PasswordConfirmationRequired]
 	public function updateSettings(array $values = []): DataResponse {
-		$parsed = [];
-		foreach ($values as $name => $value) {
-			$name = (string)$name;
-			$definition = $this->globals->get($name);
-			if ($definition === null || !$this->globalSettings->isEditable($name)) {
-				throw new InvalidParamException('unknown_param', ['param' => $name]);
-			}
-			$parsed[$name] = self::validated($definition, $value);
-		}
-		$changes = $this->settings->updateGlobals($parsed);
-		if (array_key_exists(GlobalSettings::ENABLED, $changes)) {
-			$this->audit->log('intrusion detection turned %s by %s', [
-				'state' => $changes[GlobalSettings::ENABLED] === true ? 'on' : 'off',
-				'actor' => $this->actor(),
-			]);
-		}
-		if ($changes !== []) {
-			$this->audit->log('settings changed by %s: %s', ['actor' => $this->actor(), 'change' => json_encode($changes)]);
-		}
+		$this->transfer->changeSettings($values, $this->actor());
 		return new DataResponse($this->globalSettings->present($this->l));
 	}
 
@@ -164,8 +138,7 @@ class SettingsApiController extends AdminOCSController {
 	#[ApiRoute(verb: 'POST', url: '/api/v1/settings/reset')]
 	#[PasswordConfirmationRequired]
 	public function resetSettings(): DataResponse {
-		$this->transfer->resetAll();
-		$this->audit->log('all settings reset to defaults by %s', ['actor' => $this->actor()]);
+		$this->transfer->resetAll($this->actor());
 		return new DataResponse($this->globalSettings->present($this->l));
 	}
 
@@ -181,14 +154,4 @@ class SettingsApiController extends AdminOCSController {
 		return new DataResponse($this->transfer->export());
 	}
 
-	/**
-	 * A value from the page: text as typed into a field is parsed (so "10m"
-	 * works for durations), anything else is validated as it is.
-	 *
-	 * @return int|float|bool|string|list<string>
-	 * @throws InvalidParamException
-	 */
-	private static function validated(ParamDefinition $definition, mixed $value): int|float|bool|string|array {
-		return is_string($value) ? $definition->parse($value) : $definition->validate($value);
-	}
 }

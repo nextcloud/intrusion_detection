@@ -13,7 +13,7 @@ use OCA\IntrusionDetection\AdminChange\ApprovalException;
 use OCA\IntrusionDetection\Definition\InvalidParamException;
 use OCA\IntrusionDetection\Incident\InvalidIncidentQuery;
 use OCA\IntrusionDetection\Learning\LearningLimitException;
-use OCA\IntrusionDetection\Response\BanRefusedException;
+use OCA\IntrusionDetection\Response\InvalidBanException;
 use OCA\IntrusionDetection\ResponseDefinitions;
 use OCA\IntrusionDetection\WasThisYou\AnswerException;
 use OCP\AppFramework\Controller;
@@ -64,7 +64,7 @@ class ApiErrorMiddleware extends Middleware {
 			$e instanceof InvalidParamException => [Http::STATUS_BAD_REQUEST, self::body($e->describe($this->l), isset($e->details['param']) ? (string)$e->details['param'] : null, $e->reason)],
 			$e instanceof InvalidIncidentQuery => [Http::STATUS_BAD_REQUEST, self::body($e->describe($this->l), $e->param(), $e->reason)],
 			$e instanceof LearningLimitException => [Http::STATUS_BAD_REQUEST, self::body($e->describe($this->l), 'days', 'learning_limit')],
-			$e instanceof BanRefusedException => [Http::STATUS_BAD_REQUEST, self::body($e->describe($this->l), 'target', 'invalid_target')],
+			$e instanceof InvalidBanException => [Http::STATUS_BAD_REQUEST, self::body($e->describe($this->l), $e->param(), $e->reason())],
 			$e instanceof ApprovalException => [match ($e->reason) {
 				ApprovalException::NOT_FOUND => Http::STATUS_NOT_FOUND,
 				ApprovalException::REQUESTER, ApprovalException::SUBJECT, ApprovalException::NOT_ADMIN, ApprovalException::UNCONFIRMED => Http::STATUS_FORBIDDEN,

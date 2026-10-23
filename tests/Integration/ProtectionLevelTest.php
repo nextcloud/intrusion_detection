@@ -46,7 +46,7 @@ class ProtectionLevelTest extends IntegrationTestCase {
 	public function testStrictHalvesTheLimitsAndLengthensBlocksButKeepsModesAndResponses(): void {
 		$this->settingsEditor()->updateCheck(CredentialStuffing::ID, Mode::Observe, [], [ResponseType::NotifyAdmin]);
 
-		$changes = $this->levels->apply(ProtectionLevel::Strict);
+		$changes = $this->levels->apply(ProtectionLevel::Strict, 'test');
 
 		$this->assertSame(ProtectionLevel::Strict, $this->settingsEditor()->protectionLevel());
 		$this->assertSame(5, $this->checkSettings()->paramInt(CredentialStuffing::ID, 'min_failures'));
@@ -61,20 +61,20 @@ class ProtectionLevelTest extends IntegrationTestCase {
 	}
 
 	public function testRelaxedDoublesTheLimitsWithinTheirRangeAndRecommendedRestoresTheDefaults(): void {
-		$this->levels->apply(ProtectionLevel::Relaxed);
+		$this->levels->apply(ProtectionLevel::Relaxed, 'test');
 		$this->assertSame(20, $this->checkSettings()->paramInt(CredentialStuffing::ID, 'min_failures'));
 		$this->assertSame(7200, $this->appSettings()->banDurations()[1]);
 		$this->assertSame(10, $this->checkSettings()->paramInt('second_factor_failed', 'max_failures_hour'));
 		$this->assertSame(6, $this->checkSettings()->paramInt('second_factor_failed', 'max_failures'));
 
-		$this->levels->apply(ProtectionLevel::Recommended);
+		$this->levels->apply(ProtectionLevel::Recommended, 'test');
 		$this->assertSame(ProtectionLevel::Recommended, $this->settingsEditor()->protectionLevel());
 		$this->assertSame(10, $this->checkSettings()->paramInt(CredentialStuffing::ID, 'min_failures'));
 		$this->assertSame(14400, $this->appSettings()->banDurations()[1]);
 	}
 
 	public function testAManualChangeOfALimitMakesTheLevelCustom(): void {
-		$this->levels->apply(ProtectionLevel::Strict);
+		$this->levels->apply(ProtectionLevel::Strict, 'test');
 		$this->settingsEditor()->updateCheck(CredentialStuffing::ID, null, ['window' => 900], null);
 		$this->assertSame(ProtectionLevel::Strict, $this->settingsEditor()->protectionLevel(), 'a time window is not part of the level');
 
@@ -83,25 +83,25 @@ class ProtectionLevelTest extends IntegrationTestCase {
 	}
 
 	public function testAManualChangeOfABlockDurationOrAResetMakesTheLevelCustom(): void {
-		$this->levels->apply(ProtectionLevel::Relaxed);
+		$this->levels->apply(ProtectionLevel::Relaxed, 'test');
 		$this->settingsEditor()->updateGlobals([GlobalSettings::BAN_DURATION_2 => 3600]);
 		$this->assertSame(ProtectionLevel::Custom, $this->settingsEditor()->protectionLevel());
 
-		$this->levels->apply(ProtectionLevel::Strict);
+		$this->levels->apply(ProtectionLevel::Strict, 'test');
 		$this->settingsEditor()->resetCheck(CredentialStuffing::ID);
 		$this->assertSame(ProtectionLevel::Custom, $this->settingsEditor()->protectionLevel());
 	}
 
 	public function testResettingEverythingIsTheRecommendedLevel(): void {
-		$this->levels->apply(ProtectionLevel::Strict);
-		Server::get(SettingsTransfer::class)->resetAll();
+		$this->levels->apply(ProtectionLevel::Strict, 'test');
+		Server::get(SettingsTransfer::class)->resetAll('test');
 		$this->assertSame(ProtectionLevel::Recommended, $this->settingsEditor()->protectionLevel());
 		$this->assertSame(10, $this->checkSettings()->paramInt(CredentialStuffing::ID, 'min_failures'));
 	}
 
 	public function testCustomCannotBeApplied(): void {
 		$this->expectException(\OCA\IntrusionDetection\Definition\InvalidParamException::class);
-		$this->levels->apply(ProtectionLevel::Custom);
+		$this->levels->apply(ProtectionLevel::Custom, 'test');
 	}
 
 	public function testTheEndpointSetsTheLevelAndReturnsTheChecks(): void {

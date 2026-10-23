@@ -11,12 +11,13 @@ namespace OCA\IntrusionDetection\Command\Bans;
 
 use OC\Core\Command\Base;
 use OCA\IntrusionDetection\Address\AddressResolver;
-use OCA\IntrusionDetection\Audit\AuditLogger;
 use OCA\IntrusionDetection\Db\Ban;
 use OCA\IntrusionDetection\Db\BanMapper;
 use OCA\IntrusionDetection\Net\SourceKey;
 use OCA\IntrusionDetection\Response\BanService;
+use OCA\IntrusionDetection\Response\InvalidBanException;
 use OCP\AppFramework\Db\DoesNotExistException;
+use OCP\IL10N;
 use Symfony\Component\Console\Input\InputArgument;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Input\InputOption;
@@ -31,7 +32,7 @@ class Lift extends Base {
 		private readonly BanMapper $mapper,
 		private readonly BanService $bans,
 		private readonly AddressResolver $resolver,
-		private readonly AuditLogger $audit,
+		private readonly IL10N $l,
 	) {
 		parent::__construct();
 	}
@@ -55,8 +56,12 @@ class Lift extends Base {
 			return self::FAILURE;
 		}
 		foreach ($bans as $ban) {
-			$this->bans->lift($ban, 'occ', $note);
-			$this->audit->log('block %s (%s) lifted by %s: %s', ['reference' => $ban->getDisplayReference(), 'cidr' => $ban->getCidr(), 'actor' => 'occ', 'note' => $note]);
+			try {
+				$this->bans->lift($ban, 'occ', $note);
+			} catch (InvalidBanException $e) {
+				$output->writeln('<error>' . $e->describe($this->l) . '</error>');
+				return self::INVALID;
+			}
 			$output->writeln(sprintf('Lifted %s (%s).', $ban->getCidr(), $ban->getDisplayReference()));
 		}
 		return self::SUCCESS;

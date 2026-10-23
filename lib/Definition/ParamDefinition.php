@@ -91,6 +91,18 @@ final class ParamDefinition {
 	}
 
 	/**
+	 * A value as an administrator gives it: text as typed into a field is
+	 * parsed (so "10m" works for durations), anything else is validated as
+	 * it is.
+	 *
+	 * @return int|float|bool|string|list<string>
+	 * @throws InvalidParamException
+	 */
+	public function fromInput(mixed $value): int|float|bool|string|array {
+		return is_string($value) ? $this->parse($value) : $this->validate($value);
+	}
+
+	/**
 	 * Parse a value typed on the command line or in a form field. Lists are
 	 * comma-separated, or a JSON array for items that contain commas.
 	 *

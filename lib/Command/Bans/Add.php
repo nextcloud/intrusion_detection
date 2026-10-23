@@ -10,10 +10,11 @@ declare(strict_types=1);
 namespace OCA\IntrusionDetection\Command\Bans;
 
 use OC\Core\Command\Base;
-use OCA\IntrusionDetection\Audit\AuditLogger;
 use OCA\IntrusionDetection\Definition\InvalidParamException;
 use OCA\IntrusionDetection\Definition\ParamDefinition;
 use OCA\IntrusionDetection\Response\BanService;
+use OCA\IntrusionDetection\Response\InvalidBanException;
+use OCP\IL10N;
 use Symfony\Component\Console\Input\InputArgument;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Input\InputOption;
@@ -22,7 +23,7 @@ use Symfony\Component\Console\Output\OutputInterface;
 class Add extends Base {
 	public function __construct(
 		private readonly BanService $bans,
-		private readonly AuditLogger $audit,
+		private readonly IL10N $l,
 	) {
 		parent::__construct();
 	}
@@ -47,17 +48,15 @@ class Add extends Base {
 		}
 		try {
 			$duration = is_string($input->getOption('duration')) ? ParamDefinition::parseDuration((string)$input->getOption('duration')) : null;
-			if ($duration !== null && ($duration <= 0 || $duration > BanService::MAX_DURATION)) {
-				$output->writeln('<error>A block lasts more than 0 seconds and at most 90 days.</error>');
-				return self::INVALID;
-			}
 			$note = is_string($input->getOption('note')) ? (string)$input->getOption('note') : null;
 			$ban = $this->bans->banManually((string)$input->getArgument('target'), (int)$level, 'occ', $note, $duration);
-		} catch (InvalidParamException|\InvalidArgumentException $e) {
-			$output->writeln('<error>' . $e->getMessage() . '</error>');
+		} catch (InvalidParamException $e) {
+			$output->writeln('<error>' . $e->describe($this->l) . '</error>');
+			return self::INVALID;
+		} catch (InvalidBanException $e) {
+			$output->writeln('<error>' . $e->describe($this->l) . '</error>');
 			return self::INVALID;
 		}
-		$this->audit->log('block %s (%s) added by %s: %s', ['reference' => $ban->getDisplayReference(), 'cidr' => $ban->getCidr(), 'actor' => 'occ', 'note' => $note]);
 		$output->writeln(sprintf('Blocked %s until %s (reference %s).', $ban->getCidr(), date('c', $ban->getExpiresAt()), $ban->getDisplayReference()));
 		return self::SUCCESS;
 	}

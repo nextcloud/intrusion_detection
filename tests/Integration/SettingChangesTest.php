@@ -122,7 +122,7 @@ class SettingChangesTest extends IntegrationTestCase {
 	}
 
 	public function testAProtectionLevelReportsEachValueButNotTheLevel(): void {
-		Server::get(ProtectionLevels::class)->apply(ProtectionLevel::Strict);
+		Server::get(ProtectionLevels::class)->apply(ProtectionLevel::Strict, 'test');
 
 		$this->assertContains(['check_credential_stuffing_min_failures', 10, 5, true], $this->events);
 		$this->assertContains(['ban_duration_1', 14400, 28800, true], $this->events);

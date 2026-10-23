@@ -10,6 +10,7 @@ declare(strict_types=1);
 namespace OCA\IntrusionDetection\Configure;
 
 use OCA\IntrusionDetection\AppInfo\Application;
+use OCA\IntrusionDetection\Audit\AuditLogger;
 use OCA\IntrusionDetection\Check\CheckRegistry;
 use OCA\IntrusionDetection\Check\IValidatesParams;
 use OCA\IntrusionDetection\Config\AppSettings;
@@ -52,7 +53,44 @@ class SettingsEditor {
 		private readonly GlobalSettings $globals,
 		private readonly IEventDispatcher $dispatcher,
 		private readonly AppState $state,
+		private readonly AuditLogger $audit,
 	) {
+	}
+
+	/**
+	 * Change a check as an administrator asks, and write the change to the
+	 * audit log: the mode and the responses by name, the parameters as
+	 * given (text is parsed, so "10m" works). Every value is validated
+	 * before anything is saved.
+	 *
+	 * @param list<mixed>|null $responses
+	 * @param array<array-key, mixed> $params
+	 * @return array{mode?: string, params?: array<string, int|float|bool|string|list<string>>, responses?: list<string>} what really changed
+	 * @throws InvalidParamException
+	 */
+	public function changeCheck(string $checkId, ?string $mode, ?array $responses, array $params, string $actor): array {
+		$check = $this->registry->get($checkId);
+		$newMode = $mode === null ? null : (Mode::tryFrom($mode) ?? throw new InvalidParamException('unknown_mode'));
+		$newResponses = null;
+		if ($responses !== null) {
+			$newResponses = [];
+			foreach ($responses as $value) {
+				$response = is_string($value) ? ResponseType::tryFrom($value) : null;
+				if ($response === null || !$check->allowsResponse($response)) {
+					throw new InvalidParamException('unknown_response', ['response' => is_scalar($value) ? (string)$value : '']);
+				}
+				$newResponses[] = $response;
+			}
+		}
+		$newParams = [];
+		foreach ($params as $name => $value) {
+			$newParams[(string)$name] = $check->param((string)$name)->fromInput($value);
+		}
+		$changes = $this->updateCheck($checkId, $newMode, $newParams, $newResponses);
+		if ($changes !== []) {
+			$this->audit->log('check %s changed by %s: %s', ['check' => $checkId, 'actor' => $actor, 'change' => json_encode($changes)]);
+		}
+		return $changes;
 	}
 
 	/**
@@ -202,8 +240,11 @@ class SettingsEditor {
 
 	/**
 	 * Put a check back to its default mode, responses and parameters.
+	 *
+	 * @param ?string $actor who asked, for the audit log; null for a reset
+	 *                       that is part of a change audited as a whole
 	 */
-	public function resetCheck(string $checkId): void {
+	public function resetCheck(string $checkId, ?string $actor = null): void {
 		$check = $this->registry->get($checkId);
 		$oldMode = $this->checks->configuredMode($checkId)->value;
 		$oldResponses = $this->responseValues($checkId);
@@ -217,6 +258,9 @@ class SettingsEditor {
 		$this->changed(Keys::responses($checkId), $oldResponses, $this->responseValues($checkId));
 		foreach ($this->checks->params($checkId) as $name => $value) {
 			$this->presetChanged($check->param($name), $this->changed(Keys::param($checkId, $name), $oldParams[$name], $value));
+		}
+		if ($actor !== null) {
+			$this->audit->log('check %s reset to defaults by %s', ['check' => $checkId, 'actor' => $actor]);
 		}
 	}
 

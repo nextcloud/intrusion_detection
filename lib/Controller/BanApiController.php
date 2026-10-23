@@ -11,11 +11,7 @@ namespace OCA\IntrusionDetection\Controller;
 
 use OCA\IntrusionDetection\Admin\BanPresenter;
 use OCA\IntrusionDetection\AdminChange\ActorResolver;
-use OCA\IntrusionDetection\Audit\AuditLogger;
 use OCA\IntrusionDetection\Db\BanMapper;
-use OCA\IntrusionDetection\Net\RemoteAddressResolver;
-use OCA\IntrusionDetection\Net\SourceKey;
-use OCA\IntrusionDetection\Response\BanRefusedException;
 use OCA\IntrusionDetection\Response\BanService;
 use OCA\IntrusionDetection\ResponseDefinitions;
 use OCP\AppFramework\Http;
@@ -40,9 +36,6 @@ use OCP\IRequest;
 #[OpenAPI(scope: OpenAPI::SCOPE_ADMINISTRATION)]
 class BanApiController extends AdminOCSController {
 	public const MAX_PAGE = 100;
-	public const MAX_NOTE = 255;
-	public const MIN_BAN_DURATION = 300;
-	public const MAX_BAN_DURATION = BanService::MAX_DURATION;
 
 	public function __construct(
 		IRequest $request,
@@ -52,8 +45,6 @@ class BanApiController extends AdminOCSController {
 		private readonly BanMapper $banMapper,
 		private readonly BanService $banService,
 		private readonly BanPresenter $bans,
-		private readonly RemoteAddressResolver $addresses,
-		private readonly AuditLogger $audit,
 	) {
 		parent::__construct($request, $l, $actors);
 	}
@@ -100,35 +91,7 @@ class BanApiController extends AdminOCSController {
 	#[ApiRoute(verb: 'POST', url: '/api/v1/bans')]
 	#[PasswordConfirmationRequired]
 	public function addBan(string $target, int $level = 1, ?int $duration = null, string $note = ''): DataResponse {
-		$target = trim($target);
-		$note = trim($note);
-		if ($level < 1 || $level > 3) {
-			return $this->error($this->l->t('The level must be 1, 2 or 3.'), 'level', 'invalid_level');
-		}
-		if ($duration !== null && ($duration < self::MIN_BAN_DURATION || $duration > self::MAX_BAN_DURATION)) {
-			return $this->error($this->l->t('A block lasts from 5 minutes to 90 days.'), 'duration', 'invalid_duration');
-		}
-		if (mb_strlen($note) > self::MAX_NOTE) {
-			return $this->error($this->l->t('The note can have at most %s characters.', [(string)self::MAX_NOTE]), 'note', 'too_long');
-		}
-		$refusal = $this->refuseTarget($target);
-		if ($refusal !== null) {
-			return $this->error($refusal, 'target', 'invalid_target');
-		}
-		try {
-			$ban = $this->banService->banManually($target, $level, $this->actor(), $note === '' ? null : $note, $duration);
-		} catch (BanRefusedException $e) {
-			return $this->error($this->l->t('%s contains this server, a loopback address or an address on the brute-force allowlist, so it is never blocked.', [$e->cidr]), 'target', 'invalid_target');
-		} catch (\InvalidArgumentException) {
-			return $this->error($this->targetHelp(), 'target', 'invalid_target');
-		}
-		$this->audit->log('block %s (%s) added by %s: %s', [
-			'reference' => $ban->getDisplayReference(),
-			'cidr' => $ban->getCidr(),
-			'actor' => $this->actor(),
-			'note' => $note,
-		]);
-		return new DataResponse($this->bans->present($ban, $this->l));
+		return new DataResponse($this->bans->present($this->banService->banManually($target, $level, $this->actor(), $note, $duration), $this->l));
 	}
 
 	/**
@@ -145,50 +108,11 @@ class BanApiController extends AdminOCSController {
 	#[ApiRoute(verb: 'DELETE', url: '/api/v1/bans/{id}', requirements: ['id' => '\d+'])]
 	#[PasswordConfirmationRequired]
 	public function liftBan(int $id, string $note = ''): DataResponse {
-		$note = trim($note);
-		if ($note === '') {
+		if (trim($note) === '') {
 			return $this->error($this->l->t('Please say why the block is lifted. The note is kept with the block and in the audit log.'), 'note', 'required');
 		}
-		if (mb_strlen($note) > self::MAX_NOTE) {
-			return $this->error($this->l->t('The note can have at most %s characters.', [(string)self::MAX_NOTE]), 'note', 'too_long');
-		}
-		$ban = $this->found(fn () => $this->banMapper->findById($id), $this->l->t('This block does not exist (any more).'));
-		if ($ban->getLiftedAt() === null) {
-			$this->banService->lift($ban, $this->actor(), $note);
-			$this->audit->log('block %s (%s) lifted by %s: %s', [
-				'reference' => $ban->getDisplayReference(),
-				'cidr' => $ban->getCidr(),
-				'actor' => $this->actor(),
-				'note' => $note,
-			]);
-		}
+		$ban = $this->found(fn () => $this->banService->liftById($id, $this->actor(), $note), $this->l->t('This block does not exist (any more).'));
 		return new DataResponse($this->bans->present($ban, $this->l));
 	}
 
-	/**
-	 * Why a manual block of this target is refused, or null when it is allowed.
-	 */
-	private function refuseTarget(string $target): ?string {
-		$parts = explode('/', $target, 2);
-		$source = SourceKey::tryFromIp($parts[0]);
-		if ($source === null || (isset($parts[1]) && !ctype_digit($parts[1]))) {
-			return $this->targetHelp();
-		}
-		$wholeNetwork = $source->family === 6 || ($parts[1] ?? '') === '24';
-		if ($this->addresses->isNeverBlocked($source)) {
-			return $this->l->t('%s is this server or a loopback address. It is never blocked.', [$source->ip]);
-		}
-		if ($this->addresses->isBypassListed($source)) {
-			return $this->l->t('%s is on the brute-force allowlist, so it is never blocked. Remove it from the allowlist first.', [$source->ip]);
-		}
-		$own = $this->addresses->current();
-		if ($own !== null && ($wholeNetwork ? $own->sameNetwork($source) : $own->ipKey === $source->ipKey)) {
-			return $this->l->t('This would block your own address (%s) and lock you out. If you really need it, use occ intrusion:bans:add.', [$own->ip]);
-		}
-		return null;
-	}
-
-	private function targetHelp(): string {
-		return $this->l->t('Enter an IPv4 address, an IPv4 network ending in /24, or an IPv6 address or /64 network.');
-	}
 }
