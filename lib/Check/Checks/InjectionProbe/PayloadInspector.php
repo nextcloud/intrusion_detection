@@ -21,10 +21,11 @@ class PayloadInspector {
 	public const MAX_NAME_LENGTH = 100;
 
 	/**
-	 * Path segments after these hold share, login flow or call tokens; in an
-	 * excerpt a token-like segment there is replaced by asterisks.
+	 * Path segments after these hold share, calendar, login flow, call,
+	 * conversation, password reset or lock link tokens; in an excerpt a
+	 * token-like segment there is replaced by asterisks.
 	 */
-	private const TOKEN_SEGMENTS = '~(/(?:s|publicpreview|flow|public|call|share|token)/)([a-z0-9_.+-]{1,64})(?=/|$)~';
+	private const TOKEN_SEGMENTS = '~(/(?:s|p|publicpreview|public-files|public-calendars|flow|public|call|room|share|token|form|lock/\d+)/)([a-z0-9_.+-]{1,64})(?=/|$)~';
 
 	public function __construct(
 		private readonly PayloadMatcher $matcher,
@@ -68,7 +69,7 @@ class PayloadInspector {
 			$bestForm->weight,
 			$rules->minWeight,
 			$bestForm->encoding,
-			PayloadMatcher::excerpt($excerptFrom),
+			$best->location === PayloadHit::LOCATION_PATH || PayloadRules::quotesValue($best->name) ? PayloadMatcher::excerpt($excerptFrom) : '',
 			array_slice(array_values(array_unique(array_filter($others, static fn (string $n): bool => $n !== ''))), 0, PayloadHit::MAX_OTHERS),
 		);
 	}

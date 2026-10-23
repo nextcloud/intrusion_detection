@@ -19,6 +19,7 @@ use OCA\IntrusionDetection\Check\Checks\InjectionProbe\PayloadInspector;
 use OCA\IntrusionDetection\Check\Checks\InjectionProbe\PayloadMatcher;
 use OCA\IntrusionDetection\Check\Checks\InjectionProbe\PayloadRules;
 use OCA\IntrusionDetection\Check\Checks\InjectionProbe\RequestParts;
+use PHPUnit\Framework\Attributes\DataProvider;
 use Test\TestCase;
 
 class PayloadInspectorTest extends TestCase {
@@ -62,6 +63,17 @@ class PayloadInspectorTest extends TestCase {
 		$this->assertNull($this->inspect('/index.php/apps/foo', ['user' => ['password' => "1' UNION SELECT 1--"]]));
 	}
 
+	public function testValuesOfParametersThatMayHoldASecretAreInspectedButNotQuoted(): void {
+		foreach (['pass', 'pwd', 'passphrase', 'pin', 'otp', 'code', 'apikey', 'key', 'user[PIN]'] as $name) {
+			$hit = $this->inspect('/index.php/apps/foo?' . rawurlencode($name) . '=1%27%20UNION%20SELECT%201--');
+			$this->assertNotNull($hit, $name);
+			$this->assertSame('', $hit->excerpt, $name);
+			$hit = $this->inspect('/index.php/apps/foo', [$name => "1' UNION SELECT 1--"]);
+			$this->assertSame('', $hit?->excerpt, $name);
+		}
+		$this->assertSame("1' union select 1--", $this->inspect('/index.php/apps/foo?id=1%27%20UNION%20SELECT%201--')?->excerpt);
+	}
+
 	public function testFreeTextParametersAreExcluded(): void {
 		$this->assertNull($this->inspect('/index.php/apps/foo?comment=1%20UNION%20SELECT%201'));
 		$this->assertNull($this->inspect('/index.php/apps/foo?files[]=1%20UNION%20SELECT%201'));
@@ -102,6 +114,28 @@ class PayloadInspectorTest extends TestCase {
 		$this->assertStringNotContainsStringIgnoringCase('AbCdEfGhIjKlMnO', $hit->excerpt);
 		$this->assertStringContainsString('/s/***************/', $hit->excerpt);
 		$this->assertStringContainsString("1' or '1'='1", $hit->excerpt);
+	}
+
+	/**
+	 * @return array<string, array{string, string}>
+	 */
+	public static function tokenPaths(): array {
+		return [
+			'a public WebDAV share' => ['/remote.php/dav/public-files/AbCdEfGhIjKlMnO/', 'AbCdEfGhIjKlMnO'],
+			'a public calendar' => ['/remote.php/dav/public-calendars/AbCdEfGhIjKlMnO/', 'AbCdEfGhIjKlMnO'],
+			'a calendar link' => ['/index.php/apps/calendar/p/AbCdEfGhIjKlMnO/', 'AbCdEfGhIjKlMnO'],
+			'a password reset' => ['/index.php/lostpassword/reset/form/AbCdEfGhIjKlMnOpQrSt/alice/', 'AbCdEfGhIjKlMnOpQrSt'],
+			'a lock link' => ['/index.php/apps/intrusion_detection/lock/12/AbCdEfGhIjKlMnOpQrStUvWxYz0123456789abcdefg/', 'AbCdEfGhIjKlMnOpQrStUvWxYz0123456789abcdefg'],
+			'a conversation' => ['/ocs/v2.php/apps/spreed/api/v4/room/AbCdEfGh/', 'AbCdEfGh'],
+		];
+	}
+
+	#[DataProvider('tokenPaths')]
+	public function testTokensInMoreRoutesAreMasked(string $path, string $token): void {
+		$hit = $this->inspect($path . '1%27%20OR%20%271%27=%271');
+		$this->assertNotNull($hit);
+		$this->assertStringNotContainsStringIgnoringCase(substr($token, -8), $hit->excerpt);
+		$this->assertStringContainsString('********/', $hit->excerpt);
 	}
 
 	public function testBase64InAPathSegment(): void {

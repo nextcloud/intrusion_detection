@@ -656,6 +656,19 @@
 				"keepsFromUser": true
 			}
 		},
+		"a parameter that may hold a secret": {
+			"detection": {"id": 41, "checkId": "injection_probe", "severity": "high", "enforced": true, "ip": "203.0.113.5", "netKey": "4:203.0.113.0/24", "uid": null, "shareId": null, "hits": 1, "createdAt": 1789999700, "lastSeenAt": 1790000000, "actions": [], "explanation": {"v": 1, "check": "injection_probe", "mode": {"configured": "protect", "effective": "protect", "reason": null}, "thresholds": [], "facts": {"location": "query", "param": "pin", "signatures": ["sql_union"], "weights": {"sql_union": 3}, "weight": 3, "minWeight": 3, "encoding": "none", "excerpt": "", "otherParams": ["https://evil.example"], "signaturesVersion": 4, "authenticated": false, "credential": null}, "first": 1789999700, "last": 1790000000}},
+			"reads": {
+				"narrative": [
+					"The address 203.0.113.5 sent a request in which the parameter \"pin\" of the web address matched these signatures: sql_union (3). Their total weight was 3; the limit was 3.",
+					"The value matched as it was sent, after URL decoding.",
+					"The value is not shown: the name of the parameter suggests that it may hold a secret.",
+					"These parameters matched as well: https[://]evil[.]example.",
+					"The request was not logged in."
+				],
+				"keepsFromUser": true
+			}
+		},
 		"old row": {
 			"detection": {"id": 41, "checkId": "injection_probe", "severity": "high", "enforced": true, "ip": null, "netKey": "4:203.0.113.0/24", "uid": null, "shareId": null, "hits": 1, "createdAt": 1789999700, "lastSeenAt": 1790000000, "actions": [], "explanation": {"v": 1, "check": "injection_probe", "mode": {"configured": "protect", "effective": "protect", "reason": null}, "thresholds": [], "facts": {"location": "query", "param": "id"}, "first": 1789999700, "last": 1790000000}},
 			"reads": {

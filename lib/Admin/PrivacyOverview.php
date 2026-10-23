@@ -204,7 +204,7 @@ class PrivacyOverview {
 			],
 			DataKind::RequestExcerpts => [
 				'name' => $l->t('Excerpts of suspicious requests'),
-				'what' => $l->t('The parameter name, the matched signatures and at most 200 characters of the value, never from password fields.'),
+				'what' => $l->t('The parameter name, the matched signatures and at most 200 characters of the value, never from password fields, and not for parameters whose name suggests a secret such as a PIN, a code or a key.'),
 				'why' => $l->t('To show exactly what matched, so you can tell an attack from a false alarm.'),
 				'retention' => $l->t('{retention_detections_days} days, with the detection'),
 				'where' => 'ids_detections',

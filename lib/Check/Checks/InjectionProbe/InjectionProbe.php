@@ -89,7 +89,7 @@ final class InjectionProbe implements ICheck, IExplainsDetection, IKeepsFromUser
 				detects: $l->t('Attack tools try to break into web applications by putting database commands into web addresses, like ?id=1\' OR \'1\'=\'1 or UNION SELECT password FROM users. Some hide them in base64 so that simple filters miss them. Nextcloud itself is built to resist this, but such requests reveal an attacker before they find a weakness elsewhere, for example in an app.'),
 				decides: $l->t('Looks at the web address and form fields of requests, up to {max_bytes} bytes each. A request fires when it matches signatures with a total weight of at least {sql_min_weight}: one stray quote never does, UNION SELECT alone does. Values that look like base64 are decoded and checked the same way, plus checks for script, PHP and shell code. File names, search fields and password fields are never inspected. Visitors who are not logged in are handled by the mode of this check; requests of logged-in users by the mode for logged-in users, now: {authenticated_mode}.'),
 				wrong: $l->t('A third-party app that legitimately passes SQL-like text in a URL parameter. Add that parameter to the excluded list, or turn single signatures off. Use "Test a URL" to see exactly what matches. A link or an image on another website or in an email can make a visitor\'s browser send such a request: it is recorded, but the address is not blocked.'),
-				data: $l->t('The parameter name, the matched signatures, and up to 200 characters of the suspicious value.'),
+				data: $l->t('The parameter name, the matched signatures, and up to 200 characters of the suspicious value, unless the name suggests a secret such as a PIN, a code or a key.'),
 				params: [
 					'authenticated_mode' => new ParamText($l->t('Logged-in users'), $l->t('What the check does with requests of logged-in users. It never goes beyond the mode of the check.')),
 					'sql_min_weight' => new ParamText($l->t('Weight that fires'), $l->t('The matched signatures of one value must add up to at least this.')),
@@ -142,6 +142,8 @@ final class InjectionProbe implements ICheck, IExplainsDetection, IKeepsFromUser
 		};
 		if ($facts->excerpt !== '') {
 			$sentences[] = $l->t('The suspicious part read: %s', ['“' . TextRenderer::defused($facts->excerpt) . '”']);
+		} elseif ($facts->location !== PayloadHit::LOCATION_PATH && !PayloadRules::quotesValue($facts->param)) {
+			$sentences[] = $l->t('The value is not shown: the name of the parameter suggests that it may hold a secret.');
 		}
 		if ($facts->otherParams !== []) {
 			$sentences[] = $l->t('These parameters matched as well: %s.', [implode(', ', array_map(TextRenderer::defused(...), $facts->otherParams))]);
