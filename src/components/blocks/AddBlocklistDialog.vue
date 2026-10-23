@@ -18,7 +18,7 @@ import { modeLabel } from '../../store.ts'
 import { addBlocklist } from '../../stores/blocks.ts'
 import { APP_ID } from '../../utils/format.ts'
 import { t } from '../../utils/l10n.ts'
-import { httpsUrlProblem, listIdProblem } from '../../utils/validate.ts'
+import { httpsUrlProblem, listIdProblem, sha256Problem } from '../../utils/validate.ts'
 
 const open = defineModel<boolean>('open', { required: true })
 
@@ -33,6 +33,7 @@ const address = ref('')
 const purpose = ref<ListPurpose>('deny')
 const mode = ref<'observe' | 'protect'>('observe')
 const format = ref('cidr')
+const checksum = ref('')
 const touched = ref({ name: false, address: false })
 const serverErrors = ref<Record<string, string>>({})
 const { busy, error, run } = useAction()
@@ -44,6 +45,7 @@ watch(open, (value) => {
 		purpose.value = 'deny'
 		mode.value = 'observe'
 		format.value = 'cidr'
+		checksum.value = ''
 		touched.value = { name: false, address: false }
 		serverErrors.value = {}
 		error.value = null
@@ -54,7 +56,11 @@ watch(open, (value) => {
  *
  * @param field - The field that was edited
  */
-function edited(field: 'name' | 'address') {
+function edited(field: 'name' | 'address' | 'checksum') {
+	if (field === 'checksum') {
+		delete serverErrors.value.sha256
+		return
+	}
 	touched.value[field] = true
 	delete serverErrors.value[field === 'name' ? 'id' : 'url']
 }
@@ -70,7 +76,8 @@ const nameError = computed(() => {
 	return listIdProblem(value) ?? serverErrors.value.id ?? null
 })
 const addressError = computed(() => (touched.value.address ? httpsUrlProblem(address.value) : null) ?? serverErrors.value.url ?? null)
-const valid = computed(() => listIdProblem(name.value.trim()) === null && !props.existing.includes(name.value.trim()) && httpsUrlProblem(address.value) === null)
+const checksumError = computed(() => sha256Problem(checksum.value) ?? serverErrors.value.sha256 ?? null)
+const valid = computed(() => listIdProblem(name.value.trim()) === null && !props.existing.includes(name.value.trim()) && httpsUrlProblem(address.value) === null && sha256Problem(checksum.value) === null)
 
 const PURPOSES: { value: ListPurpose, label: () => string, text: () => string }[] = [
 	{ value: 'deny', label: () => t(APP_ID, 'Blocklist'), text: () => t(APP_ID, 'Addresses known for attacks. They are counted, or refused in Protect mode.') },
@@ -101,12 +108,12 @@ async function submit() {
 		return
 	}
 	serverErrors.value = {}
-	const added = await run('add', () => addBlocklist({ id: name.value.trim(), url: address.value.trim(), purpose: purpose.value, format: format.value, mode: mode.value }), {
+	const added = await run('add', () => addBlocklist({ id: name.value.trim(), url: address.value.trim(), purpose: purpose.value, format: format.value, mode: mode.value, sha256: checksum.value.trim() === '' ? null : checksum.value.trim() }), {
 		done: (list: Blocklist) => t(APP_ID, '{list} was added and is downloaded within the next minutes.', { list: list.name }),
 		fallback: t(APP_ID, 'The list could not be added. Please try again.'),
 		inline: true,
 		handle: (e) => {
-			if (e instanceof ApiError && (e.param === 'id' || e.param === 'url')) {
+			if (e instanceof ApiError && (e.param === 'id' || e.param === 'url' || e.param === 'sha256')) {
 				serverErrors.value = { [e.param]: e.message }
 				return true
 			}
@@ -178,6 +185,16 @@ async function submit() {
 					:label="t(APP_ID, 'Format')"
 					:options="formats.map((value) => ({ value, label: FORMAT_LABELS[value]?.() ?? value }))" />
 			</div>
+
+			<NcTextField
+				v-model="checksum"
+				:label="t(APP_ID, 'SHA-256 of the file (optional)')"
+				autocomplete="off"
+				spellcheck="false"
+				:error="checksumError !== null"
+				:helperText="checksumError ?? t(APP_ID, 'For a list that rarely changes: a file with another checksum is not used, and you update the checksum when the list changes. Leave it empty to trust the publisher and https.')"
+				data-test="list-sha256"
+				@update:modelValue="edited('checksum')" />
 
 			<fieldset v-if="purpose === 'deny'" :class="$style.dialog__fieldset">
 				<legend :class="$style.dialog__legend">

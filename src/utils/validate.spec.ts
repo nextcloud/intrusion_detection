@@ -6,7 +6,7 @@
 import type { Choice, Param } from '../types.ts'
 
 import { describe, expect, test } from 'vitest'
-import { httpsUrlProblem, isCidr, isLoginName, listIdProblem, validateParam } from './validate.ts'
+import { httpsUrlProblem, isCidr, isLoginName, listIdProblem, sha256Problem, validateParam } from './validate.ts'
 
 const rules = (type: Param['type'], min: number | null = null, max: number | null = null, choices: Choice[] = []) => ({ type, min, max, choices })
 
@@ -103,5 +103,15 @@ describe('listIdProblem', () => {
 
 	test.each(['', 'Corp', '1list', 'a', 'with space', 'x'.repeat(33)])('"%s" is not', (id) => {
 		expect(listIdProblem(id)).not.toBeNull()
+	})
+})
+
+describe('sha256Problem', () => {
+	test.each(['', '  ', 'a'.repeat(64), ' ' + 'AB12'.repeat(16) + ' '])('"%s" is fine', (value) => {
+		expect(sha256Problem(value)).toBeNull()
+	})
+
+	test.each(['abc', 'g'.repeat(64), 'a'.repeat(65)])('"%s" is not', (value) => {
+		expect(sha256Problem(value)).toBe('A SHA-256 checksum has 64 hexadecimal characters.')
 	})
 })

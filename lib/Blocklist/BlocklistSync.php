@@ -35,11 +35,13 @@ use Psr\Log\LoggerInterface;
  * 2. Download with `If-Modified-Since` / `If-None-Match`, timeouts, at most
  *    three https redirects (each checked like the address itself), into a
  *    sink that aborts the transfer after MAX_BYTES ({@see LimitedSink}).
- * 3. Parse, and refuse a list that is empty, has more than MAX_ENTRIES
+ * 3. Refuse a file whose SHA-256 is not the one pinned for the list, if
+ *    any; a pinned list is downloaded without conditions.
+ * 4. Parse, and refuse a list that is empty, has more than MAX_ENTRIES
  *    entries (parsing stops at the first one over), or more than 1 %
  *    malformed entries.
- * 4. Write the ranges, merged so they never overlap, as a new version.
- * 5. Switch the list's active version in app config (one write), bump the
+ * 5. Write the ranges, merged so they never overlap, as a new version.
+ * 6. Switch the list's active version in app config (one write), bump the
  *    address cache so every cached verdict is re-resolved, and delete
  *    versions older than the previous one. The previous version is deleted a
  *    few minutes later, so a request that read the old state just before the
@@ -189,7 +191,11 @@ class BlocklistSync {
 				$this->states->save($source->id, $state);
 				return new SyncResult($source->id, SyncResult::UNCHANGED, ranges: $state->ranges);
 			}
-			$parsed = $this->parse($source, $this->readBody($response));
+			$body = $this->readBody($response);
+			if ($source->sha256 !== null && !hash_equals($source->sha256, hash('sha256', $body))) {
+				throw new SyncFailure(SyncFailure::CHECKSUM_MISMATCH);
+			}
+			$parsed = $this->parse($source, $body);
 			$merged = RangeCodec::merge($parsed->ranges);
 			$parsed->ranges = [];
 
@@ -246,7 +252,8 @@ class BlocklistSync {
 			throw new SyncFailure(SyncFailure::URL_REFUSED);
 		}
 		$headers = ['Accept' => '*/*'];
-		$conditional = !$force && $state->version !== null && $state->url === $source->url;
+		// A pinned list is always checked in full, so that a new pin is checked against the current file.
+		$conditional = !$force && $state->version !== null && $state->url === $source->url && $source->sha256 === null;
 		if ($conditional && $state->lastModified !== null) {
 			$headers['If-Modified-Since'] = $state->lastModified;
 		}

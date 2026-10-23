@@ -336,8 +336,9 @@ export function fetchBlocklists(signal?: AbortSignal): Promise<Blocklists> {
  * @param list.purpose - Block, or mark as hosting or Tor
  * @param list.format - The file format
  * @param list.mode - For blocklists: observe or protect
+ * @param list.sha256 - The SHA-256 the file must have, or null to trust the publisher and https
  */
-export function createBlocklist(list: { id: string, url: string, purpose: string, format: string, mode: string }): Promise<Blocklist> {
+export function createBlocklist(list: { id: string, url: string, purpose: string, format: string, mode: string, sha256: string | null }): Promise<Blocklist> {
 	const { format, ...rest } = list
 	// "format" would choose the OCS response format
 	return call<Blocklist>('post', 'blocklists', { data: { ...rest, fileFormat: format }, confirm: true })
@@ -349,8 +350,9 @@ export function createBlocklist(list: { id: string, url: string, purpose: string
  * @param change.enabled - Use the list
  * @param change.mode - Observe or protect
  * @param change.interval - Seconds between downloads, 0 for the default
+ * @param change.sha256 - Your own list: the SHA-256 the file must have, '' to trust the publisher and https
  */
-export function updateBlocklist(id: string, change: { enabled?: boolean, mode?: string, interval?: number }): Promise<Blocklist> {
+export function updateBlocklist(id: string, change: { enabled?: boolean, mode?: string, interval?: number, sha256?: string }): Promise<Blocklist> {
 	return call<Blocklist>('put', 'blocklists/' + encodeURIComponent(id), { data: change, confirm: true })
 }
 

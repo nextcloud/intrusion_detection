@@ -98,6 +98,7 @@ class BlocklistApiController extends AdminOCSController {
 	 * @param string $fileFormat The file format, usually "cidr" (one range per line); not called "format", which chooses the OCS response format
 	 * @param 'observe'|'protect' $mode For blocklists: only count matches, or refuse them
 	 * @param int<900, 604800>|null $interval Seconds between downloads; null for the global interval
+	 * @param string|null $sha256 The SHA-256 the file must have, in hexadecimal; null to trust the publisher and https
 	 * @return DataResponse<Http::STATUS_OK, IntrusionDetectionBlocklist, array{}>|DataResponse<Http::STATUS_BAD_REQUEST, IntrusionDetectionError, array{}>
 	 *
 	 * 200: List added
@@ -105,7 +106,7 @@ class BlocklistApiController extends AdminOCSController {
 	 */
 	#[ApiRoute(verb: 'POST', url: '/api/v1/blocklists')]
 	#[PasswordConfirmationRequired]
-	public function create(string $id, string $url, string $purpose, string $fileFormat = 'cidr', string $mode = BlocklistSource::MODE_OBSERVE, ?int $interval = null): DataResponse {
+	public function create(string $id, string $url, string $purpose, string $fileFormat = 'cidr', string $mode = BlocklistSource::MODE_OBSERVE, ?int $interval = null, ?string $sha256 = null): DataResponse {
 		$id = trim($id);
 		if ($this->sources->get($id) !== null) {
 			return $this->error($this->l->t('A list with this name exists already.'), 'id', 'list_exists');
@@ -116,6 +117,7 @@ class BlocklistApiController extends AdminOCSController {
 			'format' => $fileFormat,
 			'mode' => $mode,
 			'interval' => $interval,
+			'sha256' => $sha256,
 			'enabled' => true,
 		], $this->actor());
 		return $this->one($id);
@@ -124,12 +126,13 @@ class BlocklistApiController extends AdminOCSController {
 	/**
 	 * Change a list
 	 *
-	 * Switch it on or off, choose the mode of a blocklist, or its interval.
+	 * Switch it on or off, choose the mode of a blocklist, its interval, or the SHA-256 of your own list.
 	 *
 	 * @param string $id The list
 	 * @param bool|null $enabled Download and use the list
 	 * @param 'observe'|'protect'|null $mode For blocklists: only count matches, or refuse them
 	 * @param int<0, 604800>|null $interval Seconds between downloads; 0 for the default interval
+	 * @param string|null $sha256 Your own list: the SHA-256 the file must have, in hexadecimal; an empty string to trust the publisher and https
 	 * @return DataResponse<Http::STATUS_OK, IntrusionDetectionBlocklist, array{}>|DataResponse<Http::STATUS_BAD_REQUEST, IntrusionDetectionError, array{}>
 	 * @throws OCSNotFoundException The list does not exist
 	 *
@@ -138,7 +141,7 @@ class BlocklistApiController extends AdminOCSController {
 	 */
 	#[ApiRoute(verb: 'PUT', url: '/api/v1/blocklists/{id}', requirements: ['id' => '[a-z][a-z0-9_]{1,31}'])]
 	#[PasswordConfirmationRequired]
-	public function update(string $id, ?bool $enabled = null, ?string $mode = null, ?int $interval = null): DataResponse {
+	public function update(string $id, ?bool $enabled = null, ?string $mode = null, ?int $interval = null, ?string $sha256 = null): DataResponse {
 		$this->existing($id);
 		$changes = [];
 		if ($enabled !== null) {
@@ -149,6 +152,9 @@ class BlocklistApiController extends AdminOCSController {
 		}
 		if ($interval !== null) {
 			$changes['interval'] = $interval === 0 ? null : $interval;
+		}
+		if ($sha256 !== null) {
+			$changes['sha256'] = $sha256;
 		}
 		$this->editor->set($id, $changes, $this->actor());
 		return $this->one($id);

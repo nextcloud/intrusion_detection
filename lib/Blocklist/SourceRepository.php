@@ -131,6 +131,7 @@ class SourceRepository {
 				$id, $id, $url, $format, $purpose,
 				$isDeny ? (self::mode($entry['mode'] ?? null) ?? BlocklistSource::MODE_OBSERVE) : null,
 				$enabled, $interval, false,
+				sha256: is_string($entry['sha256'] ?? null) && preg_match(BlocklistSource::SHA256_PATTERN, $entry['sha256']) ? $entry['sha256'] : null,
 			);
 		}
 		return $sources;

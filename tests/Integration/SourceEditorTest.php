@@ -61,6 +61,17 @@ class SourceEditorTest extends IntegrationTestCase {
 		$this->assertNull(Server::get(SourceRepository::class)->get('office_block'));
 	}
 
+	public function testACustomListCanPinTheChecksumOfItsFile(): void {
+		$pin = hash('sha256', 'the file');
+		$this->editor()->set('office_block', ['url' => 'https://lists.example.org/block.txt', 'purpose' => 'deny', 'sha256' => ' ' . strtoupper($pin) . ' '], 'occ');
+		$this->assertSame($pin, Server::get(SourceRepository::class)->get('office_block')?->sha256, 'stored in lower case, trimmed');
+		$this->assertStringContainsString($pin, json_encode($this->audited, JSON_THROW_ON_ERROR));
+		$this->editor()->set('office_block', ['mode' => 'protect'], 'occ');
+		$this->assertSame($pin, Server::get(SourceRepository::class)->get('office_block')?->sha256, 'other changes keep the pin');
+		$this->editor()->set('office_block', ['sha256' => ''], 'occ');
+		$this->assertNull(Server::get(SourceRepository::class)->get('office_block')?->sha256);
+	}
+
 	/**
 	 * @return array<string, array{string, array<string, mixed>, string}>
 	 */
@@ -77,6 +88,8 @@ class SourceEditorTest extends IntegrationTestCase {
 			'unknown mode' => ['spamhaus_drop_v4', ['mode' => 'block'], 'not_a_choice'],
 			'interval too short' => ['spamhaus_drop_v4', ['interval' => 60], 'too_small'],
 			'interval too long' => ['spamhaus_drop_v4', ['interval' => 30 * 86400], 'too_large'],
+			'a checksum that is no SHA-256' => ['mine', ['url' => 'https://lists.example.org/x.txt', 'purpose' => 'deny', 'sha256' => 'abc'], 'invalid_sha256'],
+			'a checksum for a built-in list' => ['spamhaus_drop_v4', ['sha256' => str_repeat('a', 64)], 'builtin_list'],
 			'bad id' => ['Mine!', ['url' => 'https://lists.example.org/x.txt', 'purpose' => 'deny'], 'invalid_list_id'],
 			'built-in address' => ['spamhaus_drop_v4', ['url' => 'https://lists.example.org/x.txt'], 'builtin_list'],
 			'built-in purpose' => ['aws', ['purpose' => 'deny'], 'builtin_list'],

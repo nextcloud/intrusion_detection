@@ -175,3 +175,15 @@ export function listIdProblem(value: string): string | null {
 		? null
 		: t(APP_ID, 'Start with a letter and use only lower-case letters, digits and underscores, 2 to 32 characters.')
 }
+
+/**
+ * What is wrong with a pinned SHA-256 of a list; an empty value pins nothing.
+ *
+ * @param value - The checksum as typed
+ */
+export function sha256Problem(value: string): string | null {
+	const trimmed = value.trim()
+	return trimmed === '' || /^[0-9a-fA-F]{64}$/.test(trimmed)
+		? null
+		: t(APP_ID, 'A SHA-256 checksum has 64 hexadecimal characters.')
+}

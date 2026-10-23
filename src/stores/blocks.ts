@@ -72,8 +72,9 @@ function putBlocklist(list: Blocklist): void {
  * @param list.purpose - Block, or mark as hosting or Tor
  * @param list.format - The file format
  * @param list.mode - For blocklists: observe or protect
+ * @param list.sha256 - The SHA-256 the file must have, or null
  */
-export async function addBlocklist(list: { id: string, url: string, purpose: string, format: string, mode: string }): Promise<Blocklist> {
+export async function addBlocklist(list: { id: string, url: string, purpose: string, format: string, mode: string, sha256: string | null }): Promise<Blocklist> {
 	const created = await createBlocklist(list)
 	putBlocklist(created)
 	return created
@@ -85,8 +86,9 @@ export async function addBlocklist(list: { id: string, url: string, purpose: str
  * @param change.enabled - Use the list
  * @param change.mode - Observe or protect
  * @param change.interval - Seconds between downloads, 0 for the default
+ * @param change.sha256 - Your own list: the SHA-256 the file must have, '' for none
  */
-export async function changeBlocklist(id: string, change: { enabled?: boolean, mode?: string, interval?: number }): Promise<void> {
+export async function changeBlocklist(id: string, change: { enabled?: boolean, mode?: string, interval?: number, sha256?: string }): Promise<void> {
 	putBlocklist(await updateBlocklist(id, change))
 }
 

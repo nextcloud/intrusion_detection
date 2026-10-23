@@ -192,7 +192,7 @@ export type paths = {
         get?: never;
         /**
          * Change a list
-         * @description Switch it on or off, choose the mode of a blocklist, or its interval.
+         * @description Switch it on or off, choose the mode of a blocklist, its interval, or the SHA-256 of your own list.
          *     This endpoint requires admin access
          *     This endpoint requires password confirmation
          */
@@ -1459,6 +1459,7 @@ export type components = {
             interval: number;
             customInterval: boolean;
             termsUrl: string | null;
+            sha256: string | null;
             reference: string | null;
             /** Format: int64 */
             ranges: number;
@@ -3256,6 +3257,11 @@ export interface operations {
                      * @default null
                      */
                     interval?: number | null;
+                    /**
+                     * @description The SHA-256 the file must have, in hexadecimal; null to trust the publisher and https
+                     * @default null
+                     */
+                    sha256?: string | null;
                 };
             };
         };
@@ -3351,6 +3357,11 @@ export interface operations {
                      * @default null
                      */
                     interval?: number | null;
+                    /**
+                     * @description Your own list: the SHA-256 the file must have, in hexadecimal; an empty string to trust the publisher and https
+                     * @default null
+                     */
+                    sha256?: string | null;
                 };
             };
         };

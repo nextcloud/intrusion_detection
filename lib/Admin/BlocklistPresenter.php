@@ -91,6 +91,7 @@ class BlocklistPresenter {
 				'interval' => $list['interval'],
 				'customInterval' => $source !== null && $source->interval !== null,
 				'termsUrl' => $list['termsUrl'],
+				'sha256' => $source?->sha256,
 				'reference' => $list['reference'],
 				'ranges' => $list['ranges'],
 				'entries' => $list['entries'],

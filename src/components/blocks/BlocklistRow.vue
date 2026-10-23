@@ -16,6 +16,7 @@ import NcIconSvgWrapper from '@nextcloud/vue/components/NcIconSvgWrapper'
 import NcLoadingIcon from '@nextcloud/vue/components/NcLoadingIcon'
 import NcRadioGroup from '@nextcloud/vue/components/NcRadioGroup'
 import NcRadioGroupButton from '@nextcloud/vue/components/NcRadioGroupButton'
+import NcTextField from '@nextcloud/vue/components/NcTextField'
 import DurationInput from '../checks/DurationInput.vue'
 import MatchSparkline from '../common/MatchSparkline.vue'
 import StateBadge from '../common/StateBadge.vue'
@@ -28,6 +29,7 @@ import { changeBlocklist, deleteBlocklist, syncBlocklistNow } from '../../stores
 import { APP_ID, formatDuration, formatNumber } from '../../utils/format.ts'
 import { n, t } from '../../utils/l10n.ts'
 import { vRadioGroupName } from '../../utils/radioGroupName.ts'
+import { sha256Problem } from '../../utils/validate.ts'
 
 const props = defineProps<{
 	list: Blocklist
@@ -47,6 +49,11 @@ const intervalError = ref<string | null>(null)
 
 watch(() => props.list.interval, (value) => {
 	interval.value = value
+})
+const checksum = ref(props.list.sha256 ?? '')
+const checksumError = ref<string | null>(null)
+watch(() => props.list.sha256, (value) => {
+	checksum.value = value ?? ''
 })
 
 const isDeny = computed(() => props.list.purpose === 'deny')
@@ -100,15 +107,20 @@ const totalMatches = computed(() => points.value.reduce((sum, p) => sum + p.valu
  * @param change.enabled - Use the list
  * @param change.mode - Observe or protect
  * @param change.interval - Seconds, 0 for the default
+ * @param change.sha256 - The SHA-256 the file must have, '' for none
  * @param done - What to announce when it worked
  */
-function save(key: string, change: { enabled?: boolean, mode?: string, interval?: number }, done: string) {
+function save(key: string, change: { enabled?: boolean, mode?: string, interval?: number, sha256?: string }, done: string) {
 	return run(key, () => changeBlocklist(props.list.id, change), {
 		done,
 		fallback: t(APP_ID, 'The list could not be changed. Please try again.'),
 		handle: (error) => {
 			if (key === 'interval' && error instanceof ApiError) {
 				intervalError.value = error.message
+				return true
+			}
+			if (key === 'sha256' && error instanceof ApiError) {
+				checksumError.value = error.message
 				return true
 			}
 			return false
@@ -169,6 +181,23 @@ async function saveInterval(reset: boolean) {
 		return
 	}
 	await save('interval', { interval: reset ? 0 : Number(interval.value) }, t(APP_ID, 'Saved'))
+}
+
+const checksumProblem = computed(() => sha256Problem(checksum.value))
+const checksumChanged = computed(() => checksum.value.trim().toLowerCase() !== (props.list.sha256 ?? ''))
+
+/**
+ * Pin the SHA-256 of the file, or trust the publisher and https again.
+ */
+async function saveChecksum() {
+	checksumError.value = null
+	if (checksumProblem.value !== null) {
+		return
+	}
+	const value = checksum.value.trim()
+	await save('sha256', { sha256: value }, value === ''
+		? t(APP_ID, '{list} is used without a checksum.', { list: props.list.name })
+		: t(APP_ID, '{list} is used only while its file has this checksum.', { list: props.list.name }))
 }
 
 /**
@@ -338,6 +367,27 @@ async function remove() {
 					<p v-if="intervalProblem || intervalError" :class="$style.interval__error">
 						{{ intervalError ?? intervalProblem }}
 					</p>
+				</form>
+
+				<form v-if="!list.builtin" :class="$style.interval" @submit.prevent="saveChecksum">
+					<NcTextField
+						v-model="checksum"
+						:label="t(APP_ID, 'SHA-256 of the file')"
+						autocomplete="off"
+						spellcheck="false"
+						:error="checksumProblem !== null || checksumError !== null"
+						:helperText="checksumError ?? checksumProblem ?? t(APP_ID, 'Optional. A file with another checksum is not used. Empty: trust the publisher and https.')"
+						:disabled="busy !== null"
+						@update:modelValue="checksumError = null" />
+					<NcButton
+						type="submit"
+						variant="secondary"
+						:disabled="busy !== null || checksumProblem !== null || !checksumChanged">
+						<template v-if="busy === 'sha256'" #icon>
+							<NcLoadingIcon />
+						</template>
+						{{ t(APP_ID, 'Save') }}
+					</NcButton>
 				</form>
 
 				<div :class="$style.row__footer">

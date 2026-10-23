@@ -246,7 +246,7 @@ class ApiResponsesTest extends IntegrationTestCase {
 			'remove builtin list' => [
 				'DELETE /api/v1/blocklists/{id}',
 				['id' => 'spamhaus_drop_v4'],
-				['status' => 400, 'message' => '', 'data' => ['message' => 'The address, purpose and format of a built-in list cannot be changed, and it cannot be removed. Switch it off instead.', 'param' => null, 'reason' => 'builtin_list']],
+				['status' => 400, 'message' => '', 'data' => ['message' => 'The address, purpose, format and checksum of a built-in list cannot be changed, and it cannot be removed. Switch it off instead.', 'param' => null, 'reason' => 'builtin_list']],
 			],
 			'decoy format' => [
 				'POST /api/v1/decoys',

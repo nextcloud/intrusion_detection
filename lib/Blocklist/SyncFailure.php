@@ -31,6 +31,8 @@ class SyncFailure extends \RuntimeException {
 	public const TOO_MANY_ENTRIES = 'too_many_entries';
 	/** More than 1 % of the entries are not ranges */
 	public const TOO_MANY_MALFORMED = 'too_many_malformed';
+	/** The file's SHA-256 is not the one pinned for the list */
+	public const CHECKSUM_MISMATCH = 'checksum_mismatch';
 
 	/**
 	 * @param ?int $status the HTTP status of an {@see self::HTTP} failure
@@ -59,7 +61,7 @@ class SyncFailure extends \RuntimeException {
 			SyncFailure::HTTP => $status !== null
 				? $l->t('%1$s answered with HTTP status %2$s', [$host, (string)$status])
 				: $l->t('%s answered with an error', [$host]),
-			SyncFailure::URL_REFUSED, SyncFailure::TOO_LARGE, SyncFailure::INVALID_FORMAT, SyncFailure::EMPTY, SyncFailure::TOO_MANY_ENTRIES, SyncFailure::TOO_MANY_MALFORMED => self::describeWithoutHost($error, $l),
+			SyncFailure::URL_REFUSED, SyncFailure::TOO_LARGE, SyncFailure::INVALID_FORMAT, SyncFailure::EMPTY, SyncFailure::TOO_MANY_ENTRIES, SyncFailure::TOO_MANY_MALFORMED, SyncFailure::CHECKSUM_MISMATCH => self::describeWithoutHost($error, $l),
 			default => $l->t('the download from %s did not finish', [$host]),
 		};
 	}
@@ -74,6 +76,7 @@ class SyncFailure extends \RuntimeException {
 			SyncFailure::EMPTY => $l->t('the file contains no address ranges'),
 			SyncFailure::TOO_MANY_ENTRIES => $l->t('the list has more entries than allowed'),
 			SyncFailure::TOO_MANY_MALFORMED => $l->t('more than one in a hundred entries are not address ranges'),
+			SyncFailure::CHECKSUM_MISMATCH => $l->t('the file is not the one whose SHA-256 you pinned'),
 			default => $l->t('the download failed'),
 		};
 	}

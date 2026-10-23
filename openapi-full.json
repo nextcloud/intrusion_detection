@@ -377,6 +377,7 @@
                     "interval",
                     "customInterval",
                     "termsUrl",
+                    "sha256",
                     "reference",
                     "ranges",
                     "entries",
@@ -433,6 +434,10 @@
                         "type": "boolean"
                     },
                     "termsUrl": {
+                        "type": "string",
+                        "nullable": true
+                    },
+                    "sha256": {
                         "type": "string",
                         "nullable": true
                     },
@@ -6330,6 +6335,12 @@
                                         "description": "Seconds between downloads; null for the global interval",
                                         "minimum": 900,
                                         "maximum": 604800
+                                    },
+                                    "sha256": {
+                                        "type": "string",
+                                        "nullable": true,
+                                        "default": null,
+                                        "description": "The SHA-256 the file must have, in hexadecimal; null to trust the publisher and https"
                                     }
                                 }
                             }
@@ -6472,7 +6483,7 @@
             "put": {
                 "operationId": "blocklist_api-update",
                 "summary": "Change a list",
-                "description": "Switch it on or off, choose the mode of a blocklist, or its interval.\nThis endpoint requires admin access\nThis endpoint requires password confirmation",
+                "description": "Switch it on or off, choose the mode of a blocklist, its interval, or the SHA-256 of your own list.\nThis endpoint requires admin access\nThis endpoint requires password confirmation",
                 "tags": [
                     "blocklist_api"
                 ],
@@ -6515,6 +6526,12 @@
                                         "description": "Seconds between downloads; 0 for the default interval",
                                         "minimum": 0,
                                         "maximum": 604800
+                                    },
+                                    "sha256": {
+                                        "type": "string",
+                                        "nullable": true,
+                                        "default": null,
+                                        "description": "Your own list: the SHA-256 the file must have, in hexadecimal; an empty string to trust the publisher and https"
                                     }
                                 }
                             }

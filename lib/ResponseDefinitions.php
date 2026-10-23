@@ -426,6 +426,7 @@ namespace OCA\IntrusionDetection;
  *     interval: int,
  *     customInterval: bool,
  *     termsUrl: ?string,
+ *     sha256: ?string,
  *     reference: ?string,
  *     ranges: int,
  *     entries: int,

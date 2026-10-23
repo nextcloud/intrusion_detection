@@ -121,6 +121,24 @@ class BlocklistSyncTest extends IntegrationTestCase {
 		}
 	}
 
+	public function testAPinnedListIsTakenOnlyWithItsChecksum(): void {
+		$body = $this->fixture('custom.txt');
+		$this->setSources([
+			['id' => 'office_block', 'url' => self::URL, 'purpose' => 'deny', 'mode' => 'protect', 'enabled' => true, 'sha256' => hash('sha256', $body)],
+		]);
+		$this->respond(self::URL, 200, $body, ['ETag' => '"abc"']);
+		$this->respond(self::URL, 200, $body . "203.0.113.0/24\n", ['ETag' => '"def"']);
+		[$first] = $this->sync()->sync();
+		$this->assertSame(SyncResult::UPDATED, $first->outcome);
+
+		$this->now += 86400;
+		[$changed] = $this->sync()->sync();
+		$this->assertSame(SyncResult::FAILED, $changed->outcome);
+		$this->assertSame(SyncFailure::CHECKSUM_MISMATCH, $changed->error);
+		$this->assertSame(1, $this->states()->get('office_block')->version, 'The checked version stays in use');
+		$this->assertArrayNotHasKey('If-None-Match', $this->requests[1]['options']['headers'], 'A pinned list is always checked in full');
+	}
+
 	public function testAnUnchangedListIsNotDownloadedAgain(): void {
 		$this->respond(self::URL, 200, $this->fixture('custom.txt'), ['Last-Modified' => 'Tue, 20 Oct 2026 08:00:00 GMT', 'ETag' => '"abc"']);
 		$this->respond(self::URL, 304, '');
