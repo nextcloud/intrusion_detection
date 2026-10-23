@@ -118,6 +118,20 @@ class SessionStateRules {
 	}
 
 	/**
+	 * The step-up rule alone, for a request no other rule may see yet.
+	 * Fails closed like {@see self::check()}.
+	 */
+	public function checkStepUp(SessionMarkers $state, RequestTarget $target): ?SessionBlock {
+		try {
+			$rule = $this->container->get(self::FAIL_CLOSED);
+			return $rule instanceof ISessionStateRule ? $rule->check($state, $target) : $this->onError($state);
+		} catch (\Throwable $e) {
+			$this->logger->error('Intrusion detection session rule {rule} failed', ['rule' => self::FAIL_CLOSED, 'exception' => $e]);
+			return $this->onError($state);
+		}
+	}
+
+	/**
 	 * The rules for a WebDAV request. Most have nothing to check, and then
 	 * neither the request target nor a rule is built.
 	 */

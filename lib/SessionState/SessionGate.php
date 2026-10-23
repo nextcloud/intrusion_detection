@@ -65,4 +65,19 @@ class SessionGate {
 			return $this->rules->onError($this->markers);
 		}
 	}
+
+	/**
+	 * @return ?SessionBlock why the step-up of the session keeps the WebDAV request out, or null
+	 */
+	public function decideStepUpDav(string $method, string $uri): ?SessionBlock {
+		try {
+			if (!$this->userSession->isLoggedIn()) {
+				return null;
+			}
+			return $this->rules->checkStepUp($this->markers, RequestTarget::dav($method, $uri));
+		} catch (\Throwable $e) {
+			$this->logger->error('Intrusion detection could not check the session state of a WebDAV request', ['exception' => $e]);
+			return $this->rules->onError($this->markers);
+		}
+	}
 }

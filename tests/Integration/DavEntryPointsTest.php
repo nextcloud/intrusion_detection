@@ -10,19 +10,27 @@ declare(strict_types=1);
 namespace OCA\IntrusionDetection\Tests\Integration;
 
 use OCA\DAV\Events\SabrePluginAddEvent;
+use OCA\IntrusionDetection\Confirm\ConfirmationStatus;
+use OCA\IntrusionDetection\Confirm\LoginConfirmation;
+use OCA\IntrusionDetection\Confirm\StepUpState;
 use OCA\IntrusionDetection\Dav\GuardDecisionPlugin;
+use OCA\IntrusionDetection\Dav\RemoteSessionCheck;
 use OCA\IntrusionDetection\Dav\SessionStatePlugin;
+use OCA\IntrusionDetection\Login\RequestContext;
 use OCP\EventDispatcher\IEventDispatcher;
 use OCP\IRequest;
 use OCP\Server;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Group;
+use Sabre\DAV\Exception\NotAuthenticated;
 use Sabre\DAV\Server as SabreServer;
 
 /**
  * Every DAV endpoint of remote.php that serves a logged-in account carries
- * the session rules, through the app's own listener. The endpoints are read
- * from remote.php, so that a new one is covered or listed here.
+ * the session rules: through the app's own listener where the endpoint
+ * lets apps add plugins, otherwise through {@see RemoteSessionCheck}, which
+ * refuses unconfirmed logins on such a request itself. The endpoints are
+ * read from remote.php, so that a new one is covered or listed here.
  */
 #[Group('DB')]
 class DavEntryPointsTest extends IntegrationTestCase {
@@ -53,11 +61,26 @@ class DavEntryPointsTest extends IntegrationTestCase {
 
 	#[DataProvider('endpoints')]
 	public function testTheEndpointCarriesTheSessionRules(string $file): void {
+		$context = Server::get(RequestContext::class);
+		$context->set(RemoteSessionCheck::PLUGINS_ADDED, false);
 		$server = $this->serverOf(\OC::$SERVERROOT . '/apps/' . $file);
 
-		$this->assertInstanceOf(SabreServer::class, $server, 'The endpoint lets apps add plugins');
+		if ($server === null) {
+			// A server whose endpoint lets no app add plugins: the login itself is refused there.
+			$this->assertFalse($context->get(RemoteSessionCheck::PLUGINS_ADDED));
+			$this->expectException(NotAuthenticated::class);
+			RemoteSessionCheck::atLogin($this->remoteRequest(), $context, LoginConfirmation::ofStepUp(new StepUpState('alice', ConfirmationStatus::RefusedClient, ['flagged_source'], time(), 0, null)));
+			return;
+		}
 		$this->assertInstanceOf(SessionStatePlugin::class, $server->getPlugin('intrusion-detection-session-state'));
 		$this->assertInstanceOf(GuardDecisionPlugin::class, $server->getPlugin('intrusion-detection-guard-decisions'), 'Guard hits decided at the login refuse WebDAV requests too');
+		$this->assertTrue($context->get(RemoteSessionCheck::PLUGINS_ADDED), 'The plugins answer unconfirmed logins');
+	}
+
+	private function remoteRequest(): IRequest {
+		$request = $this->createMock(IRequest::class);
+		$request->method('getScriptName')->willReturn('/remote.php');
+		return $request;
 	}
 
 	/**

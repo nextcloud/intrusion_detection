@@ -143,6 +143,9 @@ A login passes through these, each using only the ones before it
    `SessionStateRules::LOOKS_AT` says what each rule reads, so that a
    plain request builds no rule. An internal error lets a request pass,
    except while a step-up is pending: then it is blocked.
+   On remote.php, `Dav\RemoteSessionCheck` holds the step-up also where
+   the WebDAV plugin does not run: at the app's boot for a session with a
+   step-up, and at the login for an app refused on the request itself.
 
 The session format is read as remembered logins stored it: they last
 about 15 days, so `LoginConfirmation::fromMarkers()` keeps reading every

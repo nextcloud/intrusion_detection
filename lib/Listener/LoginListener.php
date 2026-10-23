@@ -12,6 +12,7 @@ namespace OCA\IntrusionDetection\Listener;
 use OCA\IntrusionDetection\AppInfo\Application;
 use OCA\IntrusionDetection\Config\AppSettings;
 use OCA\IntrusionDetection\Confirm\UnconfirmedSessions;
+use OCA\IntrusionDetection\Dav\RemoteSessionCheck;
 use OCA\IntrusionDetection\Listener\Login\ILoginStep;
 use OCA\IntrusionDetection\Listener\Login\LoginFacts;
 use OCA\IntrusionDetection\Login\LoginClassifier;
@@ -39,9 +40,11 @@ use Psr\Log\LoggerInterface;
  * {@see LoginGate} is asked once: after the app's first request of the
  * hour from an address, nothing that records logins is built.
  *
- * Failures are logged per step and never break the login. What depends
- * on the request is looked up per login: core keeps its listeners for the
- * whole process.
+ * Failures are logged per step and never break the login. The one
+ * exception is a login with a step-up on a remote.php request that the
+ * app's WebDAV plugins do not guard: it is refused there
+ * ({@see RemoteSessionCheck::atLogin()}). What depends on the request is
+ * looked up per login: core keeps its listeners for the whole process.
  *
  * @template-implements IEventListener<UserLoggedInEvent|UserLoggedInWithCookieEvent>
  */
@@ -104,6 +107,12 @@ class LoginListener implements IEventListener {
 			} catch (\Throwable $e) {
 				// One step that fails must not stop the others, nor the login.
 				$this->logger->error('Intrusion detection could not run {step} at a login', ['step' => $class, 'exception' => $e]);
+			}
+		}
+		if ($facts->confirmation?->stepUp !== null) {
+			$request = $this->container->get(IRequest::class);
+			if ($request instanceof IRequest) {
+				RemoteSessionCheck::atLogin($request, $this->context, $facts->confirmation);
 			}
 		}
 	}

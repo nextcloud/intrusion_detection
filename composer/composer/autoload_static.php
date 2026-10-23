@@ -322,6 +322,7 @@ class ComposerStaticInitIntrusionDetection
         'OCA\\IntrusionDetection\\Dashboard\\IntrusionWidget' => __DIR__ . '/..' . '/../lib/Dashboard/IntrusionWidget.php',
         'OCA\\IntrusionDetection\\Dav\\FederatedShareUsePlugin' => __DIR__ . '/..' . '/../lib/Dav/FederatedShareUsePlugin.php',
         'OCA\\IntrusionDetection\\Dav\\GuardDecisionPlugin' => __DIR__ . '/..' . '/../lib/Dav/GuardDecisionPlugin.php',
+        'OCA\\IntrusionDetection\\Dav\\RemoteSessionCheck' => __DIR__ . '/..' . '/../lib/Dav/RemoteSessionCheck.php',
         'OCA\\IntrusionDetection\\Dav\\SessionStatePlugin' => __DIR__ . '/..' . '/../lib/Dav/SessionStatePlugin.php',
         'OCA\\IntrusionDetection\\Db\\Approval' => __DIR__ . '/..' . '/../lib/Db/Approval.php',
         'OCA\\IntrusionDetection\\Db\\ApprovalMapper' => __DIR__ . '/..' . '/../lib/Db/ApprovalMapper.php',

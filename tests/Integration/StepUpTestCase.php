@@ -200,7 +200,7 @@ abstract class StepUpTestCase extends AccountTestCase {
 	 * @param list<class-string<ILoginStep>> $steps
 	 */
 	protected function loginListener(array $steps, ?LoginHistory $history = null): LoginListener {
-		$context = new RequestContext();
+		$context = $this->requestContext();
 		$services = [
 			StepUpStep::class => new StepUpStep($this->assessment()),
 			KnownDeviceStep::class => new KnownDeviceStep($this->knownDevices(), $this->service()),
@@ -208,6 +208,13 @@ abstract class StepUpTestCase extends AccountTestCase {
 		];
 		$steps = array_map(fn (string $class): ILoginStep => $services[$class] ?? Server::get($class), array_combine($steps, $steps));
 		return LoginSteps::listener($steps, $this->appSettings(), $this->request, $context, $this->addresses(), new LoginGate($this->listenerCaches ?? $this->noCaches(), $this->coreSession, Server::get(Fingerprinter::class)));
+	}
+
+	/**
+	 * The request context of the login listener.
+	 */
+	protected function requestContext(): RequestContext {
+		return new RequestContext();
 	}
 
 	protected function assessment(): LoginAssessment {

@@ -307,6 +307,7 @@ return array(
     'OCA\\IntrusionDetection\\Dashboard\\IntrusionWidget' => $baseDir . '/../lib/Dashboard/IntrusionWidget.php',
     'OCA\\IntrusionDetection\\Dav\\FederatedShareUsePlugin' => $baseDir . '/../lib/Dav/FederatedShareUsePlugin.php',
     'OCA\\IntrusionDetection\\Dav\\GuardDecisionPlugin' => $baseDir . '/../lib/Dav/GuardDecisionPlugin.php',
+    'OCA\\IntrusionDetection\\Dav\\RemoteSessionCheck' => $baseDir . '/../lib/Dav/RemoteSessionCheck.php',
     'OCA\\IntrusionDetection\\Dav\\SessionStatePlugin' => $baseDir . '/../lib/Dav/SessionStatePlugin.php',
     'OCA\\IntrusionDetection\\Db\\Approval' => $baseDir . '/../lib/Db/Approval.php',
     'OCA\\IntrusionDetection\\Db\\ApprovalMapper' => $baseDir . '/../lib/Db/ApprovalMapper.php',

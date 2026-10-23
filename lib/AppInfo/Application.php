@@ -15,6 +15,7 @@ use OCA\DAV\Events\SabrePluginAddEvent;
 use OCA\IntrusionDetection\Admin\SetupProblems;
 use OCA\IntrusionDetection\Config\Lexicon;
 use OCA\IntrusionDetection\Dashboard\IntrusionWidget;
+use OCA\IntrusionDetection\Dav\RemoteSessionCheck;
 use OCA\IntrusionDetection\Event\BanCreatedEvent;
 use OCA\IntrusionDetection\Event\BanLiftedEvent;
 use OCA\IntrusionDetection\Event\DetectionCreatedEvent;
@@ -92,6 +93,7 @@ use OCP\BeforeSabrePubliclyLoadedEvent;
 use OCP\Group\Events\SubAdminAddedEvent;
 use OCP\Group\Events\UserAddedEvent;
 use OCP\Group\Events\UserRemovedEvent;
+use OCP\IRequest;
 use OCP\Security\Events\PasswordResetRequestedEvent;
 use OCP\SetupCheck\ISetupCheck;
 use OCP\Share\Events\ShareLinkAccessFailedEvent;
@@ -220,7 +222,20 @@ class Application extends App implements IBootstrap {
 		$context->registerServiceAlias(IAcceptedLogins::class, LoginHistory::class);
 	}
 
+	/**
+	 * On remote.php, a session whose login waits for its confirmation, or
+	 * was refused, is turned away before the endpoint runs. On any other
+	 * request this reads the script name only.
+	 */
 	#[\Override]
 	public function boot(IBootContext $context): void {
+		$request = $context->getServerContainer()->get(IRequest::class);
+		if (!str_ends_with($request->getScriptName(), '/remote.php')) {
+			return;
+		}
+		$block = $context->getAppContainer()->get(RemoteSessionCheck::class)->atBoot();
+		if ($block !== null) {
+			RemoteSessionCheck::refuse($block);
+		}
 	}
 }

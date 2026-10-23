@@ -14,7 +14,9 @@ use OCA\IntrusionDetection\Check\Checks\ShareBruteforce\ShareBruteforce;
 use OCA\IntrusionDetection\Config\CheckSettings;
 use OCA\IntrusionDetection\Dav\FederatedShareUsePlugin;
 use OCA\IntrusionDetection\Dav\GuardDecisionPlugin;
+use OCA\IntrusionDetection\Dav\RemoteSessionCheck;
 use OCA\IntrusionDetection\Dav\SessionStatePlugin;
+use OCA\IntrusionDetection\Login\RequestContext;
 use OCP\BeforeSabrePubliclyLoadedEvent;
 use OCP\EventDispatcher\Event;
 use OCP\EventDispatcher\IEventListener;
@@ -24,7 +26,8 @@ use Psr\Log\LoggerInterface;
 /**
  * Adds the guard decision and session-state plugins to the WebDAV servers,
  * and, while the share link check runs, the federated share plugin to the
- * public WebDAV servers.
+ * public WebDAV servers. A request whose server got the plugins is marked
+ * for {@see RemoteSessionCheck}.
  *
  * @template-implements IEventListener<SabrePluginAddEvent|BeforeSabrePubliclyLoadedEvent>
  */
@@ -47,6 +50,7 @@ class SabrePluginAddListener implements IEventListener {
 		try {
 			$event->getServer()->addPlugin($this->container->get(GuardDecisionPlugin::class));
 			$event->getServer()->addPlugin($this->container->get(SessionStatePlugin::class));
+			$this->container->get(RequestContext::class)->set(RemoteSessionCheck::PLUGINS_ADDED, true);
 		} catch (\Throwable $e) {
 			$this->logger->error('Intrusion detection could not add its WebDAV plugin', ['exception' => $e]);
 		}
