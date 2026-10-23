@@ -21,8 +21,8 @@ enforces this on every test run.
 ## Rules
 
 - **One folder per check.** `Check/Checks/<Name>/` holds the check's
-  definition and texts (`<Name>`), its detector (`<Name>Detector`) and the
-  classes only that check uses, such as the payload matching of
+  definition and texts (`<Name>`), its detector (`<Name>Detector`, listed
+  in `CheckRegistry::DETECTORS`) and the classes only that check uses, such as the payload matching of
   `InjectionProbe` or the credential tracking of `TokenConcurrentUse`.
 - **A table belongs to its feature.** A feature's mappers and entities live
   in its `Db/` sub-namespace (`KnownDevice\Db\KnownDeviceMapper`), which is
@@ -68,9 +68,36 @@ enforces this on every test run.
   that requests read often stay in the app config, in `State\HotState`. The
   app config holds the settings an administrator chooses.
 - **The plain request path stays cheap.** Registries are lazy class-string
-  lists (`CheckRegistry::CHECKS`, `ResponseEngine::HANDLERS`,
-  `Application::SETUP_CHECKS`). Registering the app reads no constant of
+  lists (`CheckRegistry::CHECKS`, `CheckRegistry::DETECTORS`,
+  `ResponseEngine::HANDLERS`, `Application::SETUP_CHECKS`). Registering the app reads no constant of
   another class, so the listener priorities live in `Application`.
+
+## How a detection flows
+
+1. **An adapter makes a signal.** A listener, guard or service turns what
+   happened into a small value object in `Signal\` (`FailedLogin`,
+   `FailedLoginAttempt`, `SuccessfulLogin`, `ShareAccessFailed`,
+   `ResetRequested`, `AdminChanged`, …), or a check's own signal in its
+   folder (`TokenConcurrentUse\CredentialSwitched`). Secrets in a signal are
+   `#[\SensitiveParameter]` and left out of `__debugInfo()`.
+2. **The dispatcher picks the detectors.** `Signal\SignalDispatcher` reads
+   the detectors of the signal from `CheckRegistry::DETECTORS`, in order,
+   keyed by check id. A detector whose check does not run is neither loaded
+   nor built; each one that runs gets the mode and its own try/catch. A
+   listener asks `runs()` or `acts()` before work it does only for the
+   checks, such as recording an attempt.
+3. **A detector returns drafts.** It implements `IDetector`, reads data and
+   returns `DetectionDraft`s; it never records, answers or reads its mode.
+   A final draft (a decoy, a reserved name) ends the chain. A detector that
+   needs the stored detection is a generator and gets it back from `yield`.
+4. **The engine records and answers.** `ResponseEngine::handle()` takes
+   the mode from the check, or from the draft for the few that run in
+   another one, stores the detection and runs the responses the check
+   selects for it (`ISelectsResponses`). Nobody else passes responses.
+
+Code whose finding is itself the detection (a guard's trap or payload
+hit, a counter over its limit, a step-up outcome, the account holder's
+"No", a lock link) builds its draft and hands it to the engine directly.
 
 ## The allow-lists
 
