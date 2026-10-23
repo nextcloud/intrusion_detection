@@ -10,6 +10,7 @@ declare(strict_types=1);
 namespace OCA\IntrusionDetection\Tests\Unit\Config;
 
 use OCA\IntrusionDetection\Check\CheckRegistry;
+use OCA\IntrusionDetection\Check\Checks\AdminChange\AdminChange;
 use OCA\IntrusionDetection\Config\GlobalSettings;
 use OCA\IntrusionDetection\Config\Keys;
 use OCA\IntrusionDetection\Config\Lexicon;
@@ -50,6 +51,11 @@ class LexiconDataTest extends TestCase {
 		$this->assertSame(count(CheckRegistry::CHECKS), count(LexiconData::CHECKS));
 	}
 
+	public function testTheLockedChecksMatchTheRegistry(): void {
+		$this->assertSame($this->builder->lockedChecks(), LexiconData::LOCKED_CHECKS, 'LexiconData.php is out of date: run this test with IDS_WRITE_LEXICON_DATA=1');
+		$this->assertSame([AdminChange::ID], LexiconData::LOCKED_CHECKS);
+	}
+
 	public function testTheEntriesMatchTheDefinitions(): void {
 		$this->assertSame($this->builder->entries(), LexiconData::ENTRIES, 'LexiconData.php is out of date: run this test with IDS_WRITE_LEXICON_DATA=1');
 	}
@@ -83,5 +89,6 @@ class LexiconDataTest extends TestCase {
 		$this->assertSame(LexiconData::CHECKS, constant($class . '::CHECKS'));
 		$this->assertSame(LexiconData::GLOBALS, constant($class . '::GLOBALS'));
 		$this->assertSame(LexiconData::ENTRIES, constant($class . '::ENTRIES'));
+		$this->assertSame(LexiconData::LOCKED_CHECKS, constant($class . '::LOCKED_CHECKS'));
 	}
 }

@@ -12,16 +12,25 @@ namespace OCA\IntrusionDetection\Config;
 use OCA\IntrusionDetection\Definition\InvalidParamException;
 use OCP\AppFramework\Utility\ITimeFactory;
 use OCP\IAppConfig;
+use OCP\IConfig;
 
 /**
  * The settings that belong to the app rather than to one check
  * ({@see GlobalSettings}), read-only and typed. Writes go through
  * {@see \OCA\IntrusionDetection\Configure\SettingsEditor}.
+ *
+ * With {@see self::LOCK} set in config.php, the settings in
+ * {@see GlobalSettings::LOCKED} read as their locked values whatever is
+ * stored, so that neither the admin page, the API nor occ can change them.
  */
 class AppSettings extends StoredSettings {
+	/** The config.php switch that holds the protective settings at their safest values */
+	public const LOCK = 'intrusion_detection.locked';
+
 	public function __construct(
 		IAppConfig $appConfig,
 		private readonly ITimeFactory $timeFactory,
+		private readonly IConfig $config,
 	) {
 		parent::__construct($appConfig);
 	}
@@ -33,6 +42,9 @@ class AppSettings extends StoredSettings {
 	 * @throws InvalidParamException for a name that is no global setting
 	 */
 	public function value(string $name): int|float|bool|string|array {
+		if ($this->isLockedSetting($name)) {
+			return GlobalSettings::LOCKED[$name];
+		}
 		$spec = LexiconData::GLOBALS[$name] ?? throw new InvalidParamException('unknown_param', ['param' => $name]);
 		return $this->readSpec($name, $name, $spec);
 	}
@@ -48,6 +60,20 @@ class AppSettings extends StoredSettings {
 			$values[$name] = $this->value($name);
 		}
 		return $values;
+	}
+
+	/**
+	 * Whether config.php holds the protective settings at their safest values.
+	 */
+	public function isLocked(): bool {
+		return $this->config->getSystemValueBool(self::LOCK, false);
+	}
+
+	/**
+	 * Whether the config.php lock holds this global setting now.
+	 */
+	public function isLockedSetting(string $name): bool {
+		return array_key_exists($name, GlobalSettings::LOCKED) && $this->isLocked();
 	}
 
 	public function isEnabled(): bool {

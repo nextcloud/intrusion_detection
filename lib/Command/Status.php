@@ -78,6 +78,7 @@ class Status extends Base {
 			'export' => $export,
 			'blocklists_enabled' => count($lists),
 			'blocklists_stale' => count(array_filter($lists, static fn (array $l): bool => $l['stale'])),
+			'locked' => $this->appSettings->isLocked(),
 		];
 
 		if ($input->getOption('output') !== self::OUTPUT_FORMAT_PLAIN) {
@@ -90,6 +91,9 @@ class Status extends Base {
 			'learning' => sprintf('<info>Learning:</info> %d day(s) left, until %s. Checks set to Protect only observe.', $status['learning_days_left'], $status['learning_until']),
 			default => '<info>Protecting.</info>',
 		});
+		if ($status['locked']) {
+			$output->writeln('<info>Locked in config.php:</info> intrusion detection, the admin change alerts and the approval of new administrators cannot be switched off.');
+		}
 		$output->writeln(sprintf('Checks: %d protecting, %d observing, %d off.', $modes[Mode::Protect->value], $modes[Mode::Observe->value], $modes[Mode::Off->value]));
 		$output->writeln(sprintf('Memory cache: %s. Mail: %s.', $status['memory_cache'], $status['mail'] ? 'configured' : 'not configured'));
 		$output->writeln(sprintf('Active blocks: %d. Detections in the last 24 hours: %d.', $status['active_bans'], $status['detections_24h']));

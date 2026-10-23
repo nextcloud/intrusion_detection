@@ -43,6 +43,7 @@ class CheckSummary {
 				'reason' => $state->reason,
 				'missing' => $state->missing?->value,
 				'default' => $check->defaultMode->value,
+				'locked' => $this->settings->isHeldByLock($check->id),
 			],
 		];
 	}

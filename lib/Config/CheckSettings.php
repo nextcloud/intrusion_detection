@@ -34,12 +34,23 @@ class CheckSettings extends StoredSettings {
 	}
 
 	/**
-	 * The mode the admin chose for a check.
+	 * The mode the admin chose for a check; Protect for a check the
+	 * config.php lock holds ({@see isHeldByLock()}).
 	 */
 	public function configuredMode(string $checkId): Mode {
+		if ($this->isHeldByLock($checkId)) {
+			return Mode::Protect;
+		}
 		$default = Mode::from($this->check($checkId)['mode']);
 		$raw = $this->appConfig->getValueString(Application::APP_ID, Keys::mode($checkId), $default->value);
 		return Mode::tryFrom($raw) ?? $default;
+	}
+
+	/**
+	 * Whether the config.php lock holds the check in Protect now.
+	 */
+	public function isHeldByLock(string $checkId): bool {
+		return in_array($checkId, LexiconData::LOCKED_CHECKS, true) && $this->app->isLocked();
 	}
 
 	/**

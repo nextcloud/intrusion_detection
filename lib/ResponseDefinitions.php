@@ -49,6 +49,7 @@ namespace OCA\IntrusionDetection;
  *     reason: ?string,
  *     missing: ?string,
  *     default: 'off'|'observe'|'protect',
+ *     locked: bool,
  * }
  *
  * @psalm-type IntrusionDetectionCheckTexts = array{
@@ -296,6 +297,7 @@ namespace OCA\IntrusionDetection;
  *     help: string,
  *     unit: string,
  *     group: string,
+ *     locked: bool,
  * }
  *
  * @psalm-type IntrusionDetectionSettings = array{

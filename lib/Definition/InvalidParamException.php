@@ -61,6 +61,7 @@ final class InvalidParamException extends \InvalidArgumentException {
 			'builtin_list' => $l->t('The address, purpose and format of a built-in list cannot be changed, and it cannot be removed. Switch it off instead.'),
 			'too_many_lists' => $l->t('There can be at most %s lists.', [(string)($this->details['max'] ?? '')]),
 			'existing_user' => $l->t('"%s" is an existing account. Only names that no account uses can be reserved or used as decoys.', [(string)($this->details['item'] ?? '')]),
+			'locked' => $l->t('This setting is locked in config.php ("intrusion_detection.locked"), so it cannot be changed here or with occ.'),
 			'too_few_admins' => $l->t('A second administrator must exist who can approve. Add another administrator first.'),
 			'nextcloud_path' => $l->t('"%s" is, or covers, a path Nextcloud itself uses, so legitimate clients would be blocked.', [(string)($this->details['item'] ?? '')]),
 			default => $l->t('The value is not valid.'),

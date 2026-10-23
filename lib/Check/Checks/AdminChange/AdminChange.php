@@ -96,6 +96,7 @@ final class AdminChange implements ICheck, IExplainsDetection, IHeadlinesDetecti
 			cost: CostClass::Background,
 			stores: [DataKind::Detections, DataKind::ConfigSnapshot, DataKind::Approvals],
 			globals: [GlobalSettings::ADMIN_CHANGE_REQUIRE_APPROVAL],
+			heldByLock: true,
 			texts: static fn (IL10N $l): CheckTexts => new CheckTexts(
 				name: $l->t('Admin change alerts'),
 				shortName: $l->t('Admin change'),

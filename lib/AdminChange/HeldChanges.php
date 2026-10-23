@@ -11,6 +11,7 @@ namespace OCA\IntrusionDetection\AdminChange;
 
 use OCA\IntrusionDetection\Check\CheckRegistry;
 use OCA\IntrusionDetection\Check\Checks\AdminChange\AdminChange;
+use OCA\IntrusionDetection\Config\AppSettings;
 use OCA\IntrusionDetection\Config\GlobalSettings;
 use OCA\IntrusionDetection\Configure\SettingsEditor;
 use OCA\IntrusionDetection\Db\Approval;
@@ -27,7 +28,8 @@ use OCA\IntrusionDetection\Definition\Mode;
  *
  * The approval ends when the master switch, the approval setting or the
  * Protect mode of the admin change check ends ({@see AdminGrantGate::isRequired()}).
- * A change is held whole, with every other value it carries, so that it is
+ * With the config.php lock, nothing that would end it can be changed at
+ * all, so nothing is held. A change is held whole, with every other value it carries, so that it is
  * made as asked or not at all. It is one of:
  *
  * - `settings`: global settings, `values` by name as validated;
@@ -48,6 +50,7 @@ class HeldChanges {
 		private readonly GlobalSettings $globals,
 		private readonly CheckRegistry $registry,
 		private readonly SettingsEditor $editor,
+		private readonly AppSettings $appSettings,
 	) {
 	}
 
@@ -57,7 +60,7 @@ class HeldChanges {
 	 * @param HeldChange $change
 	 */
 	public function needsApproval(array $change): bool {
-		return $this->gate->isRequired() && $this->endsApproval($change);
+		return $this->gate->isRequired() && !$this->appSettings->isLocked() && $this->endsApproval($change);
 	}
 
 	/**

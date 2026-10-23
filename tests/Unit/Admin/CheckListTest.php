@@ -77,7 +77,7 @@ class CheckListTest extends TestCase {
 		$this->assertSame(0, $result['checks'][0]['stats']['detections']);
 		$this->assertSame('Fires at 12 failures within 15 minutes.', $login['decides']);
 		$this->assertSame('Fires at {min_failures} failures within {window}.', $login['decidesTemplate']);
-		$this->assertSame(['configured' => 'protect', 'effective' => 'observe', 'reason' => 'learning', 'missing' => null, 'default' => 'protect'], $login['mode']);
+		$this->assertSame(['configured' => 'protect', 'effective' => 'observe', 'reason' => 'learning', 'missing' => null, 'default' => 'protect', 'locked' => false], $login['mode']);
 
 		// Responses run blocks first; "what happens" fills in the durations.
 		$this->assertSame('The address is blocked for 4 hours ({ban_duration_2} if it is blocked again within {ban_history_days} days, then {ban_duration_3}).', $login['happens'][0]);

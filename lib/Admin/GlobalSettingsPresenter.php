@@ -94,6 +94,7 @@ class GlobalSettingsPresenter {
 				'help' => $text->help,
 				'unit' => $text->unit,
 				'group' => $group,
+				'locked' => $this->settings->isLockedSetting($name),
 			]);
 		}
 		return [

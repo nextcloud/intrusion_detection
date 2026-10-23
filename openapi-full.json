@@ -1798,7 +1798,8 @@
                     "label",
                     "help",
                     "unit",
-                    "group"
+                    "group",
+                    "locked"
                 ],
                 "properties": {
                     "name": {
@@ -1908,6 +1909,9 @@
                     },
                     "group": {
                         "type": "string"
+                    },
+                    "locked": {
+                        "type": "boolean"
                     }
                 }
             },
@@ -2522,7 +2526,8 @@
                     "effective",
                     "reason",
                     "missing",
-                    "default"
+                    "default",
+                    "locked"
                 ],
                 "properties": {
                     "configured": {
@@ -2556,6 +2561,9 @@
                             "observe",
                             "protect"
                         ]
+                    },
+                    "locked": {
+                        "type": "boolean"
                     }
                 }
             },

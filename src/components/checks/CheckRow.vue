@@ -50,7 +50,10 @@ const effectiveNote = computed(() => {
 			mail: t(APP_ID, 'Needs email'),
 		} as Record<string, string>)[missing.id] ?? missing.text
 	}
-	const { configured, effective, reason } = props.check.mode
+	const { configured, effective, reason, locked } = props.check.mode
+	if (locked) {
+		return t(APP_ID, 'Locked in config.php')
+	}
 	if (configured === effective || reason === 'learning') {
 		return null
 	}
@@ -91,7 +94,7 @@ const effectiveNote = computed(() => {
 					:modelValue="mode"
 					:label="t(APP_ID, 'Mode of {check}', { check: check.texts.name })"
 					:onlyOff="missingRequirement !== null"
-					:disabled="saving"
+					:disabled="saving || check.mode.locked"
 					@update:modelValue="change" />
 				<button
 					type="button"

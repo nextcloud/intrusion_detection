@@ -85,6 +85,12 @@ describe('a check on the Protection tab', () => {
 		expect(row.text()).toContain('Needs a memory cache')
 	})
 
+	test('a mode locked in config.php cannot be changed, and the row says why', () => {
+		const row = mountRow(makeCheck({ mode: { configured: 'protect', effective: 'protect', reason: null, missing: null, default: 'protect', locked: true } }))
+		expect(row.findAll('input[type="radio"]').every((r) => (r.element as HTMLInputElement).disabled)).toBe(true)
+		expect(row.text()).toContain('Locked in config.php')
+	})
+
 	test('learning mode is left to the header', () => {
 		const row = mountRow(makeCheck({ mode: { configured: 'protect', effective: 'observe', reason: 'learning', missing: null, default: 'protect' } }))
 		expect(row.text()).not.toContain('Runs as')

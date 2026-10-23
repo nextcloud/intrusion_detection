@@ -93,6 +93,13 @@ final class GlobalSettings {
 	/** The policies that setting may name: every one but a sprayed or breached password and an administrator outside the trusted networks */
 	public const STEP_UP_KNOWN_DEVICE_PATTERN = '/^(flagged_source|protected_account|risky_network|risk_high)$/';
 
+	/**
+	 * The global settings that the config.php lock ({@see AppSettings::LOCK})
+	 * holds at these values: protection on, and a second administrator
+	 * approves new administrators.
+	 */
+	public const LOCKED = [self::ENABLED => true, self::ADMIN_CHANGE_REQUIRE_APPROVAL => true];
+
 	/** Changed through their own endpoints only (learning mode, blocklists), so every change is explained and audited as such */
 	private const MANAGED_ELSEWHERE = [self::LEARNING_UNTIL, self::BLOCKLIST_SOURCES];
 

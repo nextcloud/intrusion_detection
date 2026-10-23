@@ -89,6 +89,7 @@ class SettingsEditor {
 		[$newMode, , $newParams] = $this->parsedCheckChange($checkId, $mode, $responses, $params);
 		if ($newMode !== null) {
 			$this->assertModeAvailable($checkId, $newMode);
+			$this->assertModeNotLocked($checkId);
 		}
 		foreach ($newParams as $name => $value) {
 			$this->validatedParam($checkId, $name, $value);
@@ -128,9 +129,19 @@ class SettingsEditor {
 	 */
 	public function setMode(string $checkId, Mode $mode): bool {
 		$this->assertModeAvailable($checkId, $mode);
+		$this->assertModeNotLocked($checkId);
 		$old = $this->checks->configuredMode($checkId);
 		$this->appConfig->setValueString(Application::APP_ID, Keys::mode($checkId), $mode->value);
 		return $this->changed(Keys::mode($checkId), $old->value, $mode->value);
+	}
+
+	/**
+	 * @throws InvalidParamException when the config.php lock holds the mode
+	 */
+	private function assertModeNotLocked(string $checkId): void {
+		if ($this->checks->isHeldByLock($checkId)) {
+			throw new InvalidParamException('locked', ['param' => 'mode']);
+		}
 	}
 
 	/**
@@ -159,6 +170,7 @@ class SettingsEditor {
 	public function updateCheck(string $checkId, ?Mode $mode, array $params, ?array $responses): array {
 		if ($mode !== null) {
 			$this->assertModeAvailable($checkId, $mode);
+			$this->assertModeNotLocked($checkId);
 		}
 		$validated = [];
 		foreach ($params as $name => $value) {
@@ -268,7 +280,8 @@ class SettingsEditor {
 	}
 
 	/**
-	 * Put a check back to its default mode, responses and parameters.
+	 * Put a check back to its default mode, responses and parameters. A mode
+	 * the config.php lock holds is left as it is.
 	 *
 	 * @param ?string $actor who asked, for the audit log; null for a reset
 	 *                       that is part of a change audited as a whole
@@ -278,7 +291,9 @@ class SettingsEditor {
 		$oldMode = $this->checks->configuredMode($checkId)->value;
 		$oldResponses = $this->responseValues($checkId);
 		$oldParams = $this->checks->params($checkId);
-		$this->appConfig->deleteKey(Application::APP_ID, Keys::mode($checkId));
+		if (!$this->checks->isHeldByLock($checkId)) {
+			$this->appConfig->deleteKey(Application::APP_ID, Keys::mode($checkId));
+		}
 		$this->appConfig->deleteKey(Application::APP_ID, Keys::responses($checkId));
 		foreach ($check->params as $param) {
 			$this->appConfig->deleteKey(Application::APP_ID, Keys::param($checkId, $param->name));
@@ -343,10 +358,14 @@ class SettingsEditor {
 	}
 
 	/**
-	 * Put a global setting back to its default.
+	 * Put a global setting back to its default. A setting the config.php
+	 * lock holds is left as it is.
 	 */
 	public function resetGlobal(string $name): bool {
 		$definition = $this->globalDefinition($name);
+		if ($this->settings->isLockedSetting($name)) {
+			return false;
+		}
 		$old = $this->settings->value($name);
 		$this->appConfig->deleteKey(Application::APP_ID, $name);
 		return $this->presetReset($definition, $this->changed($name, $old, $this->settings->value($name)));
@@ -361,6 +380,9 @@ class SettingsEditor {
 	 */
 	public function validatedGlobal(string $name, mixed $value): int|float|bool|string|array {
 		$definition = $this->globalDefinition($name);
+		if ($this->settings->isLockedSetting($name)) {
+			throw new InvalidParamException('locked', ['param' => $name]);
+		}
 		$value = $definition->validate($value, true);
 		GlobalSettings::checkRule($name, $value);
 		foreach ($this->registry->all() as $id => $owner) {

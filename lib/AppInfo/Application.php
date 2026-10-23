@@ -58,6 +58,7 @@ use OCA\IntrusionDetection\SetupCheck\AdminNetworksCheck;
 use OCA\IntrusionDetection\SetupCheck\ApprovalCheck;
 use OCA\IntrusionDetection\SetupCheck\BlocklistSyncCheck;
 use OCA\IntrusionDetection\SetupCheck\BruteForceProtectionCheck;
+use OCA\IntrusionDetection\SetupCheck\ConfigLockCheck;
 use OCA\IntrusionDetection\SetupCheck\LearningModeCheck;
 use OCA\IntrusionDetection\SetupCheck\MailCheck;
 use OCA\IntrusionDetection\SetupCheck\MemoryCacheCheck;
@@ -127,6 +128,7 @@ class Application extends App implements IBootstrap {
 		AdminContactCheck::class,
 		AdminNetworksCheck::class,
 		StaleCredentialsCheck::class,
+		ConfigLockCheck::class,
 	];
 	/**
 	 * Setup checks registered with core only: they are no ProblemCheck, so the

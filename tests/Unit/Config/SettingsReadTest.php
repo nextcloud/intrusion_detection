@@ -107,7 +107,7 @@ class SettingsReadTest extends TestCase {
 	private function app(): AppSettings {
 		$time = $this->createMock(ITimeFactory::class);
 		$time->method('getTime')->willReturn(1_800_000_000);
-		return new AppSettings($this->appConfig(), $time);
+		return new AppSettings($this->appConfig(), $time, $this->createMock(\OCP\IConfig::class));
 	}
 
 	private function checks(bool $prerequisitesMet = true): CheckSettings {

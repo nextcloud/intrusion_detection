@@ -1056,6 +1056,11 @@ final class LexiconData {
 		],
 	];
 
+	/** @var list<string> the checks the config.php lock holds in Protect */
+	public const LOCKED_CHECKS = [
+		'admin_change',
+	];
+
 	/** @var list<EntrySpec> */
 	public const ENTRIES = [
 		['protection_enabled', ValueType::BOOL, true, 'intrusion detection: protection_enabled'],

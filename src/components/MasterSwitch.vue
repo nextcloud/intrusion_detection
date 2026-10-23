@@ -15,7 +15,10 @@ import { t } from '../utils/l10n.ts'
 const { busy, run } = useAction()
 const confirmOff = ref(false)
 
-const enabled = computed(() => state.settings.find((s) => s.name === 'protection_enabled')?.value !== false)
+const setting = computed(() => state.settings.find((s) => s.name === 'protection_enabled'))
+const enabled = computed(() => setting.value?.value !== false)
+/** config.php keeps it on */
+const locked = computed(() => setting.value?.locked === true)
 
 /**
  * @param on - The new state of the switch; turning it off asks first
@@ -47,10 +50,13 @@ async function switchTo(on: boolean) {
 			:modelValue="enabled"
 			type="switch"
 			:loading="busy !== null"
-			:disabled="busy !== null"
+			:disabled="busy !== null || locked"
 			@update:modelValue="toggle">
 			{{ t(APP_ID, 'Intrusion detection is on') }}
 		</NcCheckboxRadioSwitch>
+		<p v-if="locked" :class="$style.switch__note" data-test="master-switch-locked">
+			{{ t(APP_ID, 'Locked in config.php') }}
+		</p>
 
 		<NcDialog
 			v-model:open="confirmOff"
@@ -66,5 +72,9 @@ async function switchTo(on: boolean) {
 <style module>
 .switch {
 	flex: 0 0 auto;
+}
+
+.switch__note {
+	color: var(--color-text-maxcontrast);
 }
 </style>

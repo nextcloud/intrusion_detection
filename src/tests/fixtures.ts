@@ -16,7 +16,7 @@ export function makeCheck(overrides: Partial<Check> = {}): Check {
 		category: 'login_attacks',
 		internal: false,
 		severity: 'medium',
-		mode: { configured: 'protect', effective: 'protect', reason: null, missing: null, default: 'protect' },
+		mode: { configured: 'protect', effective: 'protect', reason: null, missing: null, default: 'protect', locked: false },
 		texts: {
 			name: 'Credential stuffing',
 			summary: 'Many different login names failing from one source.',

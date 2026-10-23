@@ -68,7 +68,7 @@ async function save() {
 					v-model="draft[setting.name]"
 					:param="setting"
 					:error="errors[setting.name] ?? null"
-					:disabled="saving" />
+					:disabled="saving || setting.locked" />
 			</div>
 		</component>
 		<div v-if="changed.length > 0 || hasErrors" :class="$style.group__save">

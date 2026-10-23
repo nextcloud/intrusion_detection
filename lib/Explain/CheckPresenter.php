@@ -54,6 +54,7 @@ class CheckPresenter {
 				'reason' => $state->reason,
 				'missing' => $state->missing?->value,
 				'default' => $check->defaultMode->value,
+				'locked' => $this->settings->isHeldByLock($check->id),
 			],
 			'texts' => $texts->toArray(),
 			// The template, for the page to fill in while the admin types.

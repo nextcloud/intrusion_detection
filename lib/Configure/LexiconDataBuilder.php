@@ -13,6 +13,7 @@ use OCA\IntrusionDetection\Check\CheckRegistry;
 use OCA\IntrusionDetection\Config\GlobalSettings;
 use OCA\IntrusionDetection\Config\Keys;
 use OCA\IntrusionDetection\Config\LexiconData;
+use OCA\IntrusionDetection\Definition\CheckDefinition;
 use OCA\IntrusionDetection\Definition\ParamDefinition;
 use OCA\IntrusionDetection\Definition\ParamType;
 use OCA\IntrusionDetection\Definition\Requirement;
@@ -72,6 +73,15 @@ final class LexiconDataBuilder {
 	}
 
 	/**
+	 * The checks that the config.php lock holds in Protect.
+	 *
+	 * @return list<string>
+	 */
+	public function lockedChecks(): array {
+		return array_values(array_map(static fn (CheckDefinition $c): string => $c->id, array_filter($this->registry->all(), static fn (CheckDefinition $c): bool => $c->heldByLock)));
+	}
+
+	/**
 	 * Every app config key with its value type, default and description, in
 	 * the order of the config lexicon: the global settings, the internal
 	 * state in {@see HotState}, then per check its mode, its responses and
@@ -110,6 +120,8 @@ final class LexiconDataBuilder {
 			. "\tpublic const GLOBALS = " . self::export($this->globals(), 1) . ";\n\n"
 			. "\t/** @var array<string, CheckSpec> */\n"
 			. "\tpublic const CHECKS = " . self::export($this->checks(), 1) . ";\n\n"
+			. "\t/** @var list<string> the checks the config.php lock holds in Protect */\n"
+			. "\tpublic const LOCKED_CHECKS = " . self::export($this->lockedChecks(), 1) . ";\n\n"
 			. "\t/** @var list<EntrySpec> */\n"
 			. "\tpublic const ENTRIES = [\n" . implode('', array_map(static fn (array $entry): string => "\t\t" . self::inline($entry) . ",\n", $this->entries())) . "\t];\n}\n";
 	}

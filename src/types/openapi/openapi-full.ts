@@ -1831,6 +1831,7 @@ export type components = {
             help: string;
             unit: string;
             group: string;
+            locked: boolean;
         };
         IncidentEntry: {
             id: string;
@@ -2001,6 +2002,7 @@ export type components = {
             missing: string | null;
             /** @enum {string} */
             default: "off" | "observe" | "protect";
+            locked: boolean;
         };
         Narrative: {
             title: string;
