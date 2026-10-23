@@ -15,6 +15,7 @@ use OCA\IntrusionDetection\Check\Checks\TokenConcurrentUse\CredentialUse;
 use OCA\IntrusionDetection\Check\Checks\TokenConcurrentUse\CredentialUseResolver;
 use OCA\IntrusionDetection\Check\Checks\TokenConcurrentUse\PresentedCredential;
 use OCA\IntrusionDetection\Config\AppSettings;
+use OCA\IntrusionDetection\Listener\Login\AdminSessionStep;
 use OCA\IntrusionDetection\Listener\Login\BreachStep;
 use OCA\IntrusionDetection\Listener\Login\CredentialUseStep;
 use OCA\IntrusionDetection\Listener\Login\HistoryStep;
@@ -124,13 +125,13 @@ class LoginListenerTest extends TestCase {
 
 	public function testAPasswordLoginRunsTheStepUpFirstAndTheNoticeLast(): void {
 		$this->listener()->handle($this->login(false));
-		$this->assertSame([StepUpStep::class, RecordStep::class, BreachStep::class, PasswordChangeStep::class, KnownDeviceStep::class, HistoryStep::class, NoticeStep::class], $this->built);
+		$this->assertSame([StepUpStep::class, AdminSessionStep::class, RecordStep::class, BreachStep::class, PasswordChangeStep::class, KnownDeviceStep::class, HistoryStep::class, NoticeStep::class], $this->built);
 	}
 
 	public function testABrowserSessionRestoredFromItsTokenIsNoAppLogin(): void {
 		$this->gate->expects($this->never())->method('isFirst');
 		$this->listener()->handle($this->login(true));
-		$this->assertSame([RecordStep::class, PasswordChangeStep::class], $this->built, 'and no history: a restored session is no new login');
+		$this->assertSame([AdminSessionStep::class, RecordStep::class, PasswordChangeStep::class], $this->built, 'and no history: a restored session is no new login');
 	}
 
 	public function testAReturningSessionRunsTheStepUpWhileUnconfirmedSessionsMayExist(): void {
@@ -139,7 +140,7 @@ class LoginListenerTest extends TestCase {
 		$this->first = false;
 		$this->listener()->handle($this->login(true));
 		$this->listener()->handle(new UserLoggedInWithCookieEvent($this->createMock(IUser::class), 'alice', null));
-		$this->assertSame([StepUpStep::class, StepUpStep::class, PasswordChangeStep::class, HistoryStep::class], $this->built);
+		$this->assertSame([StepUpStep::class, StepUpStep::class, AdminSessionStep::class, PasswordChangeStep::class, HistoryStep::class], $this->built);
 	}
 
 	public function testPendingProbesAndCredentialsGetTheirListeners(): void {

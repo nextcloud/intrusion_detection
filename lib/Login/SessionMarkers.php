@@ -37,6 +37,8 @@ class SessionMarkers {
 	public const LOGIN_HISTORY = 'login_history';
 	/** Security events to show once before the start page, for users Nextcloud cannot reach by email */
 	public const LOGIN_NOTICE = 'login_notice';
+	/** The session of an administrator's login, held to "administrators from trusted networks only" while it lasts */
+	public const ADMIN_SESSION = 'admin_session';
 
 	public function __construct(
 		private readonly ISession $session,

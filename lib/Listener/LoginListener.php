@@ -60,6 +60,7 @@ class LoginListener implements IEventListener {
 	 */
 	public const STEPS = [
 		Login\StepUpStep::class,
+		Login\AdminSessionStep::class,
 		Login\RecordStep::class,
 		Login\PayloadStep::class,
 		Login\BreachStep::class,

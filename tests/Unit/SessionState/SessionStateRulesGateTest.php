@@ -44,6 +44,7 @@ class SessionStateRulesGateTest extends TestCase {
 	public function testTheGateKnowsEveryRule(): void {
 		$this->assertSame([
 			Rules\StepUpRule::class,
+			Rules\AdminNetworkRule::class,
 			Rules\PasswordChangeRule::class,
 			Rules\CredentialUseRule::class,
 			Rules\LoginHistoryRule::class,

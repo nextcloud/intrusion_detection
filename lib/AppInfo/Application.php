@@ -29,6 +29,7 @@ use OCA\IntrusionDetection\Guide\SecureAccountNotifier;
 use OCA\IntrusionDetection\KnownDevice\IKnownDevices;
 use OCA\IntrusionDetection\KnownDevice\KnownDevices;
 use OCA\IntrusionDetection\Listener\AdminChangeListener;
+use OCA\IntrusionDetection\Listener\AdminSessionsListener;
 use OCA\IntrusionDetection\Listener\AppPasswordCreatedListener;
 use OCA\IntrusionDetection\Listener\BreachResetListener;
 use OCA\IntrusionDetection\Listener\ChallengePassedListener;
@@ -115,6 +116,8 @@ class Application extends App implements IBootstrap {
 	public const LOGIN_PRIORITY = 10;
 	/** After the other listeners of the events it watches */
 	public const ADMIN_CHANGE_PRIORITY = -100;
+	/** After the approval of new administrators, which may take an addition back */
+	public const ADMIN_SESSIONS_PRIORITY = -110;
 	/**
 	 * The setup checks shown in the status of the admin page
 	 * ({@see SetupProblems}), registered with core's as well. They are listed
@@ -190,6 +193,7 @@ class Application extends App implements IBootstrap {
 		foreach ([UserAddedEvent::class, UserRemovedEvent::class, SubAdminAddedEvent::class, UserCreatedEvent::class, AppEnableEvent::class, AppDisableEvent::class, SettingChangedEvent::class] as $event) {
 			$context->registerEventListener($event, AdminChangeListener::class, self::ADMIN_CHANGE_PRIORITY);
 		}
+		$context->registerEventListener(UserAddedEvent::class, AdminSessionsListener::class, self::ADMIN_SESSIONS_PRIORITY);
 		// One listener runs the app's login listeners, each only when the login concerns it.
 		$context->registerEventListener(UserLoggedInEvent::class, LoginListener::class, self::LOGIN_PRIORITY);
 		$context->registerEventListener(UserLoggedInWithCookieEvent::class, LoginListener::class, self::LOGIN_PRIORITY);

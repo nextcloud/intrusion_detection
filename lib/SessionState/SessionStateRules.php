@@ -44,6 +44,7 @@ class SessionStateRules {
 	 */
 	public const RULES = [
 		Rules\StepUpRule::class,
+		Rules\AdminNetworkRule::class,
 		Rules\PasswordChangeRule::class,
 		Rules\CredentialUseRule::class,
 		Rules\LoginHistoryRule::class,
@@ -65,6 +66,7 @@ class SessionStateRules {
 	 */
 	public const LOOKS_AT = [
 		Rules\StepUpRule::class => [SessionMarkers::STEP_UP, SessionMarkers::LOGIN_DETECTIONS, SessionMarkers::CONFIRMATION],
+		Rules\AdminNetworkRule::class => [SessionMarkers::ADMIN_SESSION],
 		Rules\PasswordChangeRule::class => [SessionMarkers::PASSWORD_CHANGE],
 		Rules\CredentialUseRule::class => [self::CREDENTIAL_TO_LEARN],
 		Rules\LoginHistoryRule::class => [SessionMarkers::LOGIN_HISTORY],

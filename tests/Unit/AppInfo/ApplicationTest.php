@@ -28,6 +28,7 @@ use OCA\IntrusionDetection\Guide\SecureAccountNotifier;
 use OCA\IntrusionDetection\KnownDevice\IKnownDevices;
 use OCA\IntrusionDetection\KnownDevice\KnownDevices;
 use OCA\IntrusionDetection\Listener\AdminChangeListener;
+use OCA\IntrusionDetection\Listener\AdminSessionsListener;
 use OCA\IntrusionDetection\Listener\AppPasswordCreatedListener;
 use OCA\IntrusionDetection\Listener\BreachResetListener;
 use OCA\IntrusionDetection\Listener\ChallengePassedListener;
@@ -162,7 +163,7 @@ class ApplicationTest extends TestCase {
 			TwoFactorProviderChallengePassed::class => [[ChallengePassedListener::class, 0]],
 			TwoFactorProviderForUserRegistered::class => [[UntrustedSecondFactorListener::class, 0], [SecurityChangeListener::class, 0]],
 			TwoFactorProviderForUserUnregistered::class => [[UntrustedSecondFactorListener::class, 0], [SecurityChangeListener::class, 0]],
-			UserAddedEvent::class => [[AdminChangeListener::class, -100]],
+			UserAddedEvent::class => [[AdminChangeListener::class, -100], [AdminSessionsListener::class, -110]],
 			UserChangedEvent::class => [[SecurityChangeListener::class, 0]],
 			UserCreatedEvent::class => [[AdminChangeListener::class, -100]],
 			UserDeletedEvent::class => [[UserDeletedListener::class, 0]],
