@@ -1,0 +1,149 @@
+# Based on the phpunit-sqlite.yml workflow template of
+# https://github.com/nextcloud/.github, adapted to an app without a
+# composer.json: the tests run with the server's PHPUnit and test bootstrap.
+#
+# SPDX-FileCopyrightText: 2022-2026 Nextcloud GmbH and Nextcloud contributors
+# SPDX-License-Identifier: MIT
+
+name: PHPUnit SQLite
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+      - master
+      - stable*
+
+permissions:
+  contents: read
+
+concurrency:
+  group: phpunit-sqlite-${{ github.head_ref || github.run_id }}
+  cancel-in-progress: true
+
+jobs:
+  changes-and-matrix:
+    runs-on: ubuntu-latest-low
+    permissions:
+      contents: read
+      pull-requests: read
+
+    outputs:
+      src: ${{ steps.changes.outputs.src }}
+      php-version: ${{ steps.versions.outputs.php-available-list }}
+      server-max: ${{ steps.versions.outputs.branches-max-list }}
+
+    steps:
+      - uses: dorny/paths-filter@ceb8a2b8f2d89434be7ff52d3de7ec3738c5cc9d # v4.0.3
+        id: changes
+        continue-on-error: true
+        with:
+          filters: |
+            src:
+              - '.github/workflows/**'
+              - 'appinfo/**'
+              - 'composer/**'
+              - 'lib/**'
+              - 'templates/**'
+              - 'tests/**'
+              - 'phpunit.xml'
+
+      - name: Checkout app
+        if: steps.changes.outputs.src != 'false'
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Get version matrix
+        if: steps.changes.outputs.src != 'false'
+        id: versions
+        uses: nextcloud-libraries/nextcloud-version-matrix@cd0211ffcef1065e2020cd579e4843b8746e7a58 # v1.3.3
+
+  phpunit-sqlite:
+    runs-on: ubuntu-latest
+
+    needs: changes-and-matrix
+    if: needs.changes-and-matrix.outputs.src != 'false'
+
+    strategy:
+      fail-fast: false
+      matrix:
+        php-versions: ${{ fromJson(needs.changes-and-matrix.outputs.php-version) }}
+        server-versions: ${{ fromJson(needs.changes-and-matrix.outputs.server-max) }}
+
+    name: SQLite PHP ${{ matrix.php-versions }} Nextcloud ${{ matrix.server-versions }}
+
+    steps:
+      - name: Set app env
+        if: ${{ env.APP_NAME == '' }}
+        run: |
+          # Split and keep last
+          echo "APP_NAME=${GITHUB_REPOSITORY##*/}" >> $GITHUB_ENV
+
+      # The repository variables SERVER_REPOSITORY and SERVER_REF point the
+      # tests at a server that already has core changes still in review.
+      - name: Checkout server
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          submodules: true
+          repository: ${{ vars.SERVER_REPOSITORY || 'nextcloud/server' }}
+          ref: ${{ vars.SERVER_REF || matrix.server-versions }}
+
+      - name: Check that the server has the core API the app needs
+        run: |
+          if ! grep -q 'function registerRequestGuard' lib/public/AppFramework/Bootstrap/IRegistrationContext.php; then
+            echo '::error::This server has no request guards yet. Set the repository variables SERVER_REPOSITORY and SERVER_REF to a server branch with the core changes listed in the README.'
+            exit 1
+          fi
+
+      - name: Checkout app
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          path: apps/${{ env.APP_NAME }}
+
+      - name: Set up php ${{ matrix.php-versions }}
+        uses: shivammathur/setup-php@eb7c497e18156a6bbabfef1d3a82760b9eda3962 # 2.40.0
+        with:
+          php-version: ${{ matrix.php-versions }}
+          # https://docs.nextcloud.com/server/stable/admin_manual/installation/source_installation.html#prerequisites-for-manual-installation
+          extensions: bz2, ctype, curl, dom, fileinfo, gd, iconv, intl, json, libxml, mbstring, openssl, pcntl, posix, session, simplexml, xmlreader, xmlwriter, zip, zlib, sqlite, pdo_sqlite
+          coverage: none
+          ini-file: development
+          # Temporary workaround for missing pcntl_* in PHP 8.3
+          ini-values: disable_functions=
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Install PHPUnit
+        run: composer install --no-interaction --working-dir=vendor-bin/phpunit
+
+      - name: Set up Nextcloud
+        run: |
+          mkdir data
+          ./occ maintenance:install --verbose --database=sqlite --database-name=nextcloud --database-user=root --database-pass=rootpassword --admin-user admin --admin-pass admin
+          ./occ app:enable --force ${{ env.APP_NAME }}
+
+      - name: PHPUnit
+        run: php -d memory_limit=2G vendor-bin/phpunit/vendor/bin/phpunit -c tests/phpunit-autotest.xml apps/${{ env.APP_NAME }}/tests
+
+      - name: Print logs
+        if: always()
+        run: |
+          cat data/nextcloud.log
+
+  summary:
+    permissions:
+      contents: none
+    runs-on: ubuntu-latest-low
+    needs: [changes-and-matrix, phpunit-sqlite]
+
+    if: always()
+
+    name: phpunit-sqlite-summary
+
+    steps:
+      - name: Summary status
+        run: if ${{ needs.changes-and-matrix.outputs.src != 'false' && needs.phpunit-sqlite.result != 'success' }}; then exit 1; fi
