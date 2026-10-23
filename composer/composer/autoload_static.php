@@ -110,6 +110,7 @@ class ComposerStaticInitIntrusionDetection
         'OCA\\IntrusionDetection\\Check\\Checks\\AccountUnderAttack\\AccountUnderAttackFacts' => __DIR__ . '/..' . '/../lib/Check/Checks/AccountUnderAttack/AccountUnderAttackFacts.php',
         'OCA\\IntrusionDetection\\Check\\Checks\\AdminChange\\AdminChange' => __DIR__ . '/..' . '/../lib/Check/Checks/AdminChange/AdminChange.php',
         'OCA\\IntrusionDetection\\Check\\Checks\\AdminChange\\AdminChangeDetector' => __DIR__ . '/..' . '/../lib/Check/Checks/AdminChange/AdminChangeDetector.php',
+        'OCA\\IntrusionDetection\\Check\\Checks\\AdminChange\\AdminChangeFacts' => __DIR__ . '/..' . '/../lib/Check/Checks/AdminChange/AdminChangeFacts.php',
         'OCA\\IntrusionDetection\\Check\\Checks\\BlocklistMatch\\BlocklistMatch' => __DIR__ . '/..' . '/../lib/Check/Checks/BlocklistMatch/BlocklistMatch.php',
         'OCA\\IntrusionDetection\\Check\\Checks\\BlocklistMatch\\BlocklistMatchDetector' => __DIR__ . '/..' . '/../lib/Check/Checks/BlocklistMatch/BlocklistMatchDetector.php',
         'OCA\\IntrusionDetection\\Check\\Checks\\BlocklistMatch\\BlocklistMatchFacts' => __DIR__ . '/..' . '/../lib/Check/Checks/BlocklistMatch/BlocklistMatchFacts.php',

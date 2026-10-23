@@ -95,6 +95,7 @@ return array(
     'OCA\\IntrusionDetection\\Check\\Checks\\AccountUnderAttack\\AccountUnderAttackFacts' => $baseDir . '/../lib/Check/Checks/AccountUnderAttack/AccountUnderAttackFacts.php',
     'OCA\\IntrusionDetection\\Check\\Checks\\AdminChange\\AdminChange' => $baseDir . '/../lib/Check/Checks/AdminChange/AdminChange.php',
     'OCA\\IntrusionDetection\\Check\\Checks\\AdminChange\\AdminChangeDetector' => $baseDir . '/../lib/Check/Checks/AdminChange/AdminChangeDetector.php',
+    'OCA\\IntrusionDetection\\Check\\Checks\\AdminChange\\AdminChangeFacts' => $baseDir . '/../lib/Check/Checks/AdminChange/AdminChangeFacts.php',
     'OCA\\IntrusionDetection\\Check\\Checks\\BlocklistMatch\\BlocklistMatch' => $baseDir . '/../lib/Check/Checks/BlocklistMatch/BlocklistMatch.php',
     'OCA\\IntrusionDetection\\Check\\Checks\\BlocklistMatch\\BlocklistMatchDetector' => $baseDir . '/../lib/Check/Checks/BlocklistMatch/BlocklistMatchDetector.php',
     'OCA\\IntrusionDetection\\Check\\Checks\\BlocklistMatch\\BlocklistMatchFacts' => $baseDir . '/../lib/Check/Checks/BlocklistMatch/BlocklistMatchFacts.php',

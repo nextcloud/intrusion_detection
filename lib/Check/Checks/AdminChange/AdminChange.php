@@ -117,57 +117,58 @@ final class AdminChange implements ICheck, IExplainsDetection, IHeadlinesDetecti
 
 	#[\Override]
 	public function headline(Detection $detection, IL10N $l): ?string {
-		$facts = DetectionFacts::of($detection);
-		$subject = self::subject($detection);
-		return match ($facts->string('kind')) {
-			self::KIND_ADMIN_GRANTED => $facts->list('delegated') !== []
-				? $l->t('%1$s got administration rights through the group "%2$s"', [$subject, $facts->string('group')])
+		$facts = AdminChangeFacts::fromArray(DetectionFacts::of($detection)->facts);
+		$subject = self::subject($detection, $facts);
+		return match ($facts->kind) {
+			self::KIND_ADMIN_GRANTED => ($facts->delegated ?? []) !== []
+				? $l->t('%1$s got administration rights through the group "%2$s"', [$subject, $facts->group ?? ''])
 				: $l->t('%s was made an administrator', [$subject]),
 			self::KIND_GRANT_REQUESTED => $l->t('Approval needed: %s to become an administrator', [$subject]),
-			self::KIND_ADMIN_REMOVED => $facts->list('delegated') !== []
-				? $l->t('%1$s left the group "%2$s", which has administration rights', [$subject, $facts->string('group')])
+			self::KIND_ADMIN_REMOVED => ($facts->delegated ?? []) !== []
+				? $l->t('%1$s left the group "%2$s", which has administration rights', [$subject, $facts->group ?? ''])
 				: $l->t('%s is no longer an administrator', [$subject]),
-			self::KIND_SUBADMIN_GRANTED => $l->t('%1$s was made a group administrator of "%2$s"', [$subject, $facts->string('group')]),
+			self::KIND_SUBADMIN_GRANTED => $l->t('%1$s was made a group administrator of "%2$s"', [$subject, $facts->group ?? '']),
 			self::KIND_USER_CREATED => $l->t('The account %s was created', [$subject]),
-			self::KIND_APP_ENABLED => $l->t('The app "%s" was switched on', [$facts->string('app')]),
-			self::KIND_APP_DISABLED => $l->t('The app "%s" was switched off', [$facts->string('app')]),
-			self::KIND_SETTING_CHANGED => $l->t('Security setting changed: %s', [$this->label($facts->string('setting'), $l)]),
+			self::KIND_APP_ENABLED => $l->t('The app "%s" was switched on', [$facts->app ?? '']),
+			self::KIND_APP_DISABLED => $l->t('The app "%s" was switched off', [$facts->app ?? '']),
+			self::KIND_SETTING_CHANGED => $l->t('Security setting changed: %s', [$this->label($facts->setting ?? '', $l)]),
 			default => null,
 		};
 	}
 
 	#[\Override]
 	public function responsesFor(DetectionDraft $draft, array $configured, array $params): array {
-		return ($draft->facts['kind'] ?? null) === self::KIND_GRANT_REQUESTED && isset($draft->facts['approval']) ? [] : $configured;
+		$facts = AdminChangeFacts::fromArray($draft->facts);
+		return $facts->kind === self::KIND_GRANT_REQUESTED && $facts->approval !== null ? [] : $configured;
 	}
 
 	#[\Override]
 	public function narrative(Detection $detection, IL10N $l): array {
-		$facts = DetectionFacts::of($detection);
-		$actor = self::actorName($facts->string('actor', ActorResolver::UNKNOWN), $l);
-		$subject = self::subject($detection);
-		$group = $facts->string('group');
-		$delegated = $facts->list('delegated');
+		$facts = AdminChangeFacts::fromArray(DetectionFacts::of($detection)->facts);
+		$actor = self::actorName($facts->actor ?? ActorResolver::UNKNOWN, $l);
+		$subject = self::subject($detection, $facts);
+		$group = $facts->group ?? '';
+		$delegated = $facts->delegated ?? [];
 		$sentences = [];
 
-		switch ($facts->string('kind')) {
+		switch ($facts->kind) {
 			case self::KIND_ADMIN_GRANTED:
 				$sentences[] = $delegated !== []
 					? $l->t('%1$s added %2$s to the group "%3$s", which has these administration settings: %4$s.', [$actor, $subject, $group, implode(', ', $delegated)])
 					: $l->t('%1$s made %2$s an administrator.', [$actor, $subject]);
-				if ($facts->string('approved_by') !== '') {
-					$sentences[] = $l->t('%1$s asked for it, and %2$s approved it.', [self::actorName($facts->string('requested_by', ActorResolver::UNKNOWN), $l), $facts->string('approved_by')]);
+				if (($facts->approvedBy ?? '') !== '') {
+					$sentences[] = $l->t('%1$s asked for it, and %2$s approved it.', [self::actorName($facts->requestedBy ?? ActorResolver::UNKNOWN, $l), $facts->approvedBy]);
 				}
-				$sentences = array_merge($sentences, $this->exemption($facts->string('exempt'), $l));
+				$sentences = array_merge($sentences, $this->exemption($facts->exempt ?? '', $l));
 				break;
 			case self::KIND_GRANT_REQUESTED:
 				$sentences[] = $l->t('%1$s tried to make %2$s an administrator.', [$actor, $subject]);
-				if ($facts->bool('revert_failed')) {
+				if ($facts->revertFailed === true) {
 					$sentences[] = $l->t('A second administrator must approve new administrators, but Nextcloud could not take %s out of the admin group again. Check the members of the admin group now.', [$subject]);
 				} else {
 					$sentences[] = $l->t('A second administrator must approve new administrators, so %s was taken out of the admin group again at once.', [$subject]);
-					$sentences[] = $facts->has('approval')
-						? $l->t('The request waits for the approval of another administrator until %s. Neither the one who asked nor the account itself can approve it.', [$this->dates->dateTime($facts->int('expires_at'))])
+					$sentences[] = $facts->approval !== null
+						? $l->t('The request waits for the approval of another administrator until %s. Neither the one who asked nor the account itself can approve it.', [$this->dates->dateTime($facts->expiresAt ?? 0)])
 						: $l->t('Too many requests are already waiting, so this one was not stored. Decide the open requests, then add the account again.');
 				}
 				break;
@@ -183,14 +184,14 @@ final class AdminChange implements ICheck, IExplainsDetection, IHeadlinesDetecti
 				$sentences[] = $l->t('%1$s created the account %2$s.', [$actor, $subject]);
 				break;
 			case self::KIND_APP_ENABLED:
-				$groups = $facts->list('groups');
+				$groups = $facts->groups ?? [];
 				$sentences[] = $groups === []
-					? $l->t('%1$s switched on the app "%2$s" for everyone.', [$actor, $facts->string('app')])
-					: $l->t('%1$s switched on the app "%2$s" for the groups %3$s.', [$actor, $facts->string('app'), implode(', ', $groups)]);
+					? $l->t('%1$s switched on the app "%2$s" for everyone.', [$actor, $facts->app ?? ''])
+					: $l->t('%1$s switched on the app "%2$s" for the groups %3$s.', [$actor, $facts->app ?? '', implode(', ', $groups)]);
 				break;
 			case self::KIND_APP_DISABLED:
-				$sentences[] = $l->t('%1$s switched off the app "%2$s".', [$actor, $facts->string('app')]);
-				if ($facts->string('app') === Application::APP_ID) {
+				$sentences[] = $l->t('%1$s switched off the app "%2$s".', [$actor, $facts->app ?? '']);
+				if ($facts->app === Application::APP_ID) {
 					$sentences[] = $l->t('This switches off intrusion detection itself: nothing is watched or blocked any more until it is switched on again.');
 				}
 				break;
@@ -201,7 +202,7 @@ final class AdminChange implements ICheck, IExplainsDetection, IHeadlinesDetecti
 				$sentences[] = $l->t('An administration setting was changed.');
 		}
 
-		$ip = $facts->string('actor_ip');
+		$ip = $facts->actorIp ?? '';
 		if ($ip !== '') {
 			$sentences[] = $l->t('The change came from the address %s.', [$ip]);
 		}
@@ -217,16 +218,16 @@ final class AdminChange implements ICheck, IExplainsDetection, IHeadlinesDetecti
 	 */
 	#[\Override]
 	public function keepsFromUser(Detection $detection): bool {
-		return !in_array(DetectionFacts::of($detection)->string('kind'), [self::KIND_ADMIN_GRANTED, self::KIND_ADMIN_REMOVED, self::KIND_SUBADMIN_GRANTED], true);
+		return !in_array(AdminChangeFacts::fromArray(DetectionFacts::of($detection)->facts)->kind, [self::KIND_ADMIN_GRANTED, self::KIND_ADMIN_REMOVED, self::KIND_SUBADMIN_GRANTED], true);
 	}
 
 	#[\Override]
 	public function userNotice(Detection $detection, IL10N $l): UserNotice {
-		$facts = DetectionFacts::of($detection);
-		$group = $facts->string('group');
-		$delegated = $facts->list('delegated') !== [];
+		$facts = AdminChangeFacts::fromArray(DetectionFacts::of($detection)->facts);
+		$group = $facts->group ?? '';
+		$delegated = ($facts->delegated ?? []) !== [];
 		$advice = [$l->t('If you did not expect this, ask your administrators about it.')];
-		return match ($facts->string('kind')) {
+		return match ($facts->kind) {
 			self::KIND_ADMIN_GRANTED => $delegated
 				? new UserNotice($l->t('You got administration rights'), [$l->t('You were added to the group "%s", which has administration rights for some settings.', [$group])], $advice)
 				: new UserNotice($l->t('You were made an administrator'), [$l->t('An administrator made you an administrator. You can now manage all accounts and settings.')], $advice),
@@ -242,16 +243,16 @@ final class AdminChange implements ICheck, IExplainsDetection, IHeadlinesDetecti
 	/**
 	 * @return list<string>
 	 */
-	private function settingSentences(DetectionFacts $facts, string $actor, IL10N $l): array {
-		$label = $this->label($facts->string('setting'), $l);
-		$watch = $facts->bool('watch');
-		if ($facts->bool('secret')) {
+	private function settingSentences(AdminChangeFacts $facts, string $actor, IL10N $l): array {
+		$label = $this->label($facts->setting ?? '', $l);
+		$watch = $facts->watch === true;
+		if ($facts->secret === true) {
 			$sentences = [$watch
 				? $l->t('The regular check of the security settings found that "%s" changed. Its value is secret, so it is neither stored nor shown.', [$label])
 				: $l->t('%1$s changed "%2$s". Its value is secret, so it is neither stored nor shown.', [$actor, $label])];
 		} else {
-			$old = self::formatValue($facts->value('old'), $l);
-			$new = self::formatValue($facts->value('new'), $l);
+			$old = self::formatValue($facts->old, $l);
+			$new = self::formatValue($facts->new, $l);
 			$sentences = [$watch
 				? $l->t('The regular check of the security settings found that "%1$s" changed from %2$s to %3$s.', [$label, $old, $new])
 				: $l->t('%1$s changed "%2$s" from %3$s to %4$s.', [$actor, $label, $old, $new])];
@@ -282,9 +283,8 @@ final class AdminChange implements ICheck, IExplainsDetection, IHeadlinesDetecti
 	 * The account a change was about. A deleted account's id is removed from
 	 * stored detections, so this says so instead.
 	 */
-	private static function subject(Detection $detection): string {
-		$targets = DetectionFacts::of($detection)->list('targets');
-		return $detection->getUid() ?? $targets[0] ?? '?';
+	private static function subject(Detection $detection, AdminChangeFacts $facts): string {
+		return $detection->getUid() ?? $facts->common->targets[0] ?? '?';
 	}
 
 	public static function actorName(string $actor, IL10N $l): string {

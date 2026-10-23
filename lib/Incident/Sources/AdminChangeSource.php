@@ -11,6 +11,7 @@ namespace OCA\IntrusionDetection\Incident\Sources;
 
 use OCA\IntrusionDetection\Admin\DetectionPresenter;
 use OCA\IntrusionDetection\Check\Checks\AdminChange\AdminChange;
+use OCA\IntrusionDetection\Check\Checks\AdminChange\AdminChangeFacts;
 use OCA\IntrusionDetection\Db\Approval;
 use OCA\IntrusionDetection\Db\ApprovalMapper;
 use OCA\IntrusionDetection\Db\Detection;
@@ -82,14 +83,22 @@ class AdminChangeSource implements ITimelineSource {
 		return MatchingRows::collect(
 			fn (?Detection $after, int $limit): array => $this->detections->findOfCheckFor(AdminChange::ID, $query->uid, $needle, $query->since, $query->until, $limit, $after),
 			// Changes to the account itself are its own detections already.
-			static fn (Detection $d): bool => DetectionFacts::of($d)->string($field) === $value && ($query->uid === null || $d->getUid() !== $query->uid),
+			static fn (Detection $d): bool => self::actorOf($d, $query->uid !== null) === $value && ($query->uid === null || $d->getUid() !== $query->uid),
 			$query->limit,
 		);
 	}
 
+	/**
+	 * The account that made a change, or the address it came from.
+	 */
+	private static function actorOf(Detection $detection, bool $account): string {
+		$facts = AdminChangeFacts::fromArray(DetectionFacts::of($detection)->facts);
+		return ($account ? $facts->actor : $facts->actorIp) ?? '';
+	}
+
 	private function change(Detection $detection, IncidentQuery $query, IL10N $l): TimelineEntry {
 		$narrative = $this->narratives->build($detection, $l);
-		$facts = DetectionFacts::of($detection);
+		$facts = AdminChangeFacts::fromArray(DetectionFacts::of($detection)->facts);
 		return new TimelineEntry(
 			id: 'detection:' . (int)$detection->getId(),
 			at: $detection->getCreatedAt(),
@@ -101,8 +110,8 @@ class AdminChangeSource implements ITimelineSource {
 			details: $narrative->happened,
 			done: $narrative->done,
 			note: $narrative->observedBecause,
-			address: $facts->string('actor_ip') !== '' ? $facts->string('actor_ip') : null,
-			accounts: array_values(array_filter([$detection->getUid(), $facts->string('actor')], static fn (?string $a): bool => $a !== null && $a !== '')),
+			address: ($facts->actorIp ?? '') !== '' ? $facts->actorIp : null,
+			accounts: array_values(array_filter([$detection->getUid(), $facts->actor], static fn (?string $a): bool => $a !== null && $a !== '')),
 			ref: ['type' => 'detection', 'id' => (string)$detection->getId()],
 			categories: [DataCategory::Administration],
 			followUp: $l->t('Review every administration change listed here and undo the ones that were not planned.'),

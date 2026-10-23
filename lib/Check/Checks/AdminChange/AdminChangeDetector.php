@@ -18,7 +18,6 @@ use OCA\IntrusionDetection\Definition\Mode;
 use OCA\IntrusionDetection\Definition\Severity;
 use OCA\IntrusionDetection\Detection\DetectionDraft;
 use OCA\IntrusionDetection\Net\RemoteAddressResolver;
-use OCA\IntrusionDetection\Notification\AdminAlerts;
 use OCA\IntrusionDetection\Signal\AdminChanged;
 use OCA\IntrusionDetection\Signal\IDetector;
 use OCA\IntrusionDetection\Signal\ISignal;
@@ -56,22 +55,11 @@ class AdminChangeDetector implements IDetector {
 	 */
 	#[\Override]
 	public function detect(#[\SensitiveParameter] ISignal $signal, ModeState $mode): iterable {
-		$facts = ['kind' => $signal->kind, 'actor' => $signal->actor] + $signal->facts;
-		if ($signal->subject !== null) {
-			$facts['targets'] = [$signal->subject];
-		}
-		if ($signal->withAddress && !$this->actors->isCommandLine()) {
-			$ip = $this->addresses->current()?->ip;
-			if ($ip !== null) {
-				$facts['actor_ip'] = $ip;
-			}
-		}
-		$facts[AdminAlerts::FACT_ALERT_KEY] = $signal->alertKey;
-		$facts[AdminAlerts::FACT_ALL_ADMINS] = true;
+		$ip = $signal->withAddress && !$this->actors->isCommandLine() ? $this->addresses->current()?->ip : null;
 		return [new DetectionDraft(
 			checkId: AdminChange::ID,
 			uid: $signal->subject,
-			facts: $facts,
+			facts: AdminChangeFacts::fromArray($signal->facts)->of($signal->kind, $signal->actor, $signal->subject, $ip, $signal->alertKey),
 			severity: $signal->severity,
 			mode: $mode,
 		)];
