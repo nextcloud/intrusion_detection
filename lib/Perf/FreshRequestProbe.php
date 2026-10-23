@@ -89,15 +89,8 @@ final class FreshRequestProbe {
 	 * @return FreshRequestResult|null null when the process failed
 	 */
 	public static function inNewProcess(int $timeout = 60): ?array {
-		$process = proc_open([PHP_BINARY, '-r', self::code(self::serverRoot())], [1 => ['pipe', 'w'], 2 => ['pipe', 'w']], $pipes);
-		if (!is_resource($process)) {
-			return null;
-		}
-		stream_set_timeout($pipes[1], $timeout);
-		$output = stream_get_contents($pipes[1]);
-		fclose($pipes[1]);
-		fclose($pipes[2]);
-		if (proc_close($process) !== 0 || !is_string($output)) {
+		$output = self::runChild(self::code(self::serverRoot()), $timeout);
+		if ($output === null) {
 			return null;
 		}
 		$start = strrpos($output, '{"settings_us"');
@@ -113,6 +106,36 @@ final class FreshRequestProbe {
 			'app_classes' => (int)$decoded['app_classes'],
 			'classes' => array_values(array_filter($decoded['classes'], 'is_string')),
 		];
+	}
+
+	/**
+	 * Run PHP code in a child process and return what it printed, or null
+	 * when it failed or printed nothing for `$timeout` seconds; then it is
+	 * killed, so that a hanging child never hangs the command.
+	 */
+	private static function runChild(string $code, int $timeout): ?string {
+		$process = proc_open([PHP_BINARY, '-r', $code], [1 => ['pipe', 'w'], 2 => ['file', '/dev/null', 'w']], $pipes);
+		if (!is_resource($process)) {
+			return null;
+		}
+		$deadline = hrtime(true) + $timeout * 1_000_000_000;
+		$output = '';
+		while (!feof($pipes[1])) {
+			$left = $deadline - hrtime(true);
+			if ($left <= 0) {
+				fclose($pipes[1]);
+				proc_terminate($process, 9);
+				proc_close($process);
+				return null;
+			}
+			$read = [$pipes[1]];
+			$write = $except = null;
+			if (stream_select($read, $write, $except, intdiv($left, 1_000_000_000), intdiv($left % 1_000_000_000, 1000)) > 0) {
+				$output .= (string)fread($pipes[1], 65536);
+			}
+		}
+		fclose($pipes[1]);
+		return proc_close($process) === 0 ? $output : null;
 	}
 
 	private static function request(): IRequest {
