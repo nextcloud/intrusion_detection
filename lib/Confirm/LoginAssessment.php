@@ -32,7 +32,7 @@ use Psr\Log\LoggerInterface;
  *   hosting or Tor network are reported;
  * - the breach check runs on a password a person typed, when it is on and
  *   due ({@see InteractivePasswordLogin});
- * - the step-up reasons are collected and {@see StepUpService} decides.
+ * - the step-up reasons are collected and {@see LoginConfirmations} decides.
  *
  * Basic auth is an app whatever cookies it sends: no confirmation is ever
  * started for it. A session that comes back through its remember-me
@@ -142,9 +142,9 @@ class LoginAssessment {
 	/**
 	 * Built only when a login needs it.
 	 */
-	private function stepUps(): StepUpService {
-		$stepUps = $this->container->get(StepUpService::class);
-		return $stepUps instanceof StepUpService ? $stepUps : throw new \LogicException('No step-up service');
+	private function stepUps(): LoginConfirmations {
+		$stepUps = $this->container->get(LoginConfirmations::class);
+		return $stepUps instanceof LoginConfirmations ? $stepUps : throw new \LogicException('No step-up service');
 	}
 
 	private function linker(): LoginDetections {

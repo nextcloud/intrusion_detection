@@ -11,9 +11,8 @@ namespace OCA\IntrusionDetection\Listener;
 
 use OCA\IntrusionDetection\Config\AppSettings;
 use OCA\IntrusionDetection\Confirm\IConfirmationMethod;
+use OCA\IntrusionDetection\Confirm\LoginConfirmations;
 use OCA\IntrusionDetection\Confirm\SecondFactors;
-use OCA\IntrusionDetection\Confirm\SessionConfirmation;
-use OCA\IntrusionDetection\Confirm\StepUpService;
 use OCA\IntrusionDetection\LoginHistory\LoginHistory;
 use OCP\Authentication\TwoFactorAuth\TwoFactorProviderChallengePassed;
 use OCP\EventDispatcher\Event;
@@ -27,7 +26,7 @@ use Psr\Log\LoggerInterface;
  *   (core's challenge at login, or "Confirm with your second factor" on
  *   the verify page) is confirmed;
  * - a login that needed no confirmation has proved the second factor
- *   ({@see SessionConfirmation});
+ *   ({@see \OCA\IntrusionDetection\Confirm\SessionConfirmation});
  * - the login history notes the second factor of the session's login.
  *
  * Only a second factor that the account had when the login happened
@@ -38,9 +37,8 @@ use Psr\Log\LoggerInterface;
  */
 class ChallengePassedListener implements IEventListener {
 	public function __construct(
-		private readonly StepUpService $stepUps,
+		private readonly LoginConfirmations $stepUps,
 		private readonly SecondFactors $secondFactors,
-		private readonly SessionConfirmation $confirmation,
 		private readonly LoginHistory $history,
 		private readonly AppSettings $settings,
 		private readonly LoggerInterface $logger,
@@ -73,7 +71,7 @@ class ChallengePassedListener implements IEventListener {
 		}
 		$stepUp = $this->stepUps->current();
 		if ($stepUp === null) {
-			$this->confirmation->proved($user->getUID(), IConfirmationMethod::SECOND_FACTOR);
+			$this->stepUps->proved($user->getUID(), IConfirmationMethod::SECOND_FACTOR);
 			return;
 		}
 		if (!$stepUp->isPending()

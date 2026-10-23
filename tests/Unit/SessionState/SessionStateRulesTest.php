@@ -10,6 +10,7 @@ declare(strict_types=1);
 namespace OCA\IntrusionDetection\Tests\Unit\SessionState;
 
 use OC\Session\Memory;
+use OCA\IntrusionDetection\Confirm\ConfirmationStatus;
 use OCA\IntrusionDetection\Confirm\StepUpState;
 use OCA\IntrusionDetection\Login\SessionMarkers;
 use OCA\IntrusionDetection\SessionState\RequestTarget;
@@ -73,7 +74,7 @@ class SessionStateRulesTest extends TestCase {
 	}
 
 	private function pending(): void {
-		$this->state->set(SessionMarkers::STEP_UP, (new StepUpState('alice', StepUpState::PENDING, ['flagged_source'], 1, 2))->toArray());
+		$this->state->set(SessionMarkers::STEP_UP, (new StepUpState('alice', ConfirmationStatus::Pending, ['flagged_source'], 1, 2))->toArray());
 	}
 
 	/**

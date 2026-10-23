@@ -12,7 +12,7 @@ namespace OCA\IntrusionDetection\Tests\Integration;
 use OCA\IntrusionDetection\AppInfo\Application;
 use OCA\IntrusionDetection\BackgroundJob\Cleanup;
 use OCA\IntrusionDetection\Config\GlobalSettings;
-use OCA\IntrusionDetection\Confirm\StepUpState;
+use OCA\IntrusionDetection\Confirm\ConfirmationStatus;
 use OCA\IntrusionDetection\Crypto\Fingerprinter;
 use OCA\IntrusionDetection\Db\Detection;
 use OCA\IntrusionDetection\Event\WasThisYouAnsweredEvent;
@@ -85,7 +85,7 @@ class KnownDevicesTest extends StepUpTestCase {
 	public function testARememberedDeviceConfirmsTheNextLoginSilently(): void {
 		$this->rememberDevice();
 		$this->mailed = [];
-		$this->freshLogin(StepUpState::PENDING, expectPending: false);
+		$this->freshLogin(ConfirmationStatus::Pending, expectPending: false);
 		$this->assertNull($this->stepUp(), 'Nothing is asked');
 		$this->assertSame('known_device', $this->state->get(SessionMarkers::CONFIRMATION)['by'] ?? null);
 		$this->assertSame([], $this->mailed, 'No code is sent');
@@ -215,7 +215,7 @@ class KnownDevicesTest extends StepUpTestCase {
 	/**
 	 * A login with the password from the flagged address, in a new session.
 	 */
-	private function freshLogin(string $status = StepUpState::PENDING, bool $expectPending = true): void {
+	private function freshLogin(ConfirmationStatus $status = ConfirmationStatus::Pending, bool $expectPending = true): void {
 		$this->session->clear();
 		$this->nextRequest();
 		$this->startSession($this->alice);

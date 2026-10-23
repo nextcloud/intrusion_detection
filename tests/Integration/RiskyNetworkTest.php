@@ -21,12 +21,12 @@ use OCA\IntrusionDetection\Check\Checks\RiskyNetwork\RiskyNetworkFacts;
 use OCA\IntrusionDetection\Check\Checks\StepUpRefused\StepUpRefused;
 use OCA\IntrusionDetection\Check\Checks\StepUpUnconfirmed\StepUpUnconfirmed;
 use OCA\IntrusionDetection\Config\GlobalSettings;
+use OCA\IntrusionDetection\Confirm\ConfirmationStatus;
 use OCA\IntrusionDetection\Confirm\IConfirmationMethod;
 use OCA\IntrusionDetection\Confirm\Reasons\RiskHighReason;
 use OCA\IntrusionDetection\Confirm\Reasons\RiskyNetworkReason;
 use OCA\IntrusionDetection\Confirm\StepUpPolicy;
 use OCA\IntrusionDetection\Confirm\StepUpReasons;
-use OCA\IntrusionDetection\Confirm\StepUpState;
 use OCA\IntrusionDetection\Db\AttemptMapper;
 use OCA\IntrusionDetection\Db\DetectionMapper;
 use OCA\IntrusionDetection\Definition\Mode;
@@ -76,7 +76,7 @@ class RiskyNetworkTest extends StepUpTestCase {
 		$this->login($this->alice);
 
 		$stepUp = $this->stepUp();
-		$this->assertSame(StepUpState::PENDING, $stepUp?->status);
+		$this->assertSame(ConfirmationStatus::Pending, $stepUp?->status);
 		$this->assertSame([StepUpPolicy::RiskyNetwork->value], $stepUp->policies);
 		$this->assertSame([IConfirmationMethod::EMAIL_CODE], $stepUp->methods);
 
@@ -160,7 +160,7 @@ class RiskyNetworkTest extends StepUpTestCase {
 		$bob = $this->user('ids-risky-refuse', null);
 		$this->network(['hosting']);
 		$this->login($bob);
-		$this->assertSame(StepUpState::REFUSED, $this->stepUp()?->status);
+		$this->assertSame(ConfirmationStatus::Refused, $this->stepUp()?->status);
 		$this->assertCount(1, $this->detectionsOf(StepUpRefused::ID));
 	}
 
@@ -200,7 +200,7 @@ class RiskyNetworkTest extends StepUpTestCase {
 			$this->session->clear();
 			$this->session->id = null;
 			$this->login($this->alice);
-			$this->assertSame(StepUpState::REFUSED_CLIENT, $this->stepUp()?->status, 'Refused: the account can confirm in a browser, so the app must use an app password');
+			$this->assertSame(ConfirmationStatus::RefusedClient, $this->stepUp()?->status, 'Refused: the account can confirm in a browser, so the app must use an app password');
 		}
 		$detections = $this->detectionsOf(RiskyNetwork::ID);
 		$this->assertCount(1, $detections);
@@ -286,7 +286,7 @@ class RiskyNetworkTest extends StepUpTestCase {
 		$this->context->set(Verdict::CONTEXT_KEY, new Verdict());
 		$bob = $this->user('ids-risky-high', null);
 		$this->login($bob);
-		$this->assertSame(StepUpState::REFUSED, $this->stepUp()?->status);
+		$this->assertSame(ConfirmationStatus::Refused, $this->stepUp()?->status);
 		$this->assertContains(StepUpPolicy::RiskHigh->value, $this->stepUp()?->policies ?? []);
 	}
 

@@ -13,6 +13,7 @@ use OC\Core\Controller\CssController;
 use OC\Core\Controller\LoginController;
 use OC\Core\Controller\TwoFactorChallengeController;
 use OC\Session\Memory;
+use OCA\IntrusionDetection\Confirm\ConfirmationStatus;
 use OCA\IntrusionDetection\Confirm\LoginDetections;
 use OCA\IntrusionDetection\Confirm\SecondFactorSetup;
 use OCA\IntrusionDetection\Confirm\StepUpState;
@@ -121,7 +122,7 @@ class LoginFlowExemptionsTest extends TestCase {
 			case 'pending':
 			case 'refused':
 			case 'refused_client':
-				$this->state->set(SessionMarkers::STEP_UP, (new StepUpState('alice', $marker, ['flagged_source'], self::NOW - 60, $marker === 'pending' ? self::NOW + 840 : 0, '198.51.100.7', ['email_code']))->toArray());
+				$this->state->set(SessionMarkers::STEP_UP, (new StepUpState('alice', ConfirmationStatus::from($marker), ['flagged_source'], self::NOW - 60, $marker === 'pending' ? self::NOW + 840 : 0, '198.51.100.7', ['email_code']))->toArray());
 				return $this->stepUpRule();
 			case 'client_only':
 				$this->state->set(SessionMarkers::CONFIRMATION, ['uid' => 'alice', 'by' => 'none', 'policies' => ['protected_account'], 'at' => self::NOW - 60, 'client' => true]);

@@ -58,7 +58,7 @@ final class LoginConfirmation {
 	}
 
 	public static function ofStepUp(StepUpState $stepUp): self {
-		return new self($stepUp->uid, ConfirmationStatus::from($stepUp->status), null, $stepUp->policies, $stepUp->started, false, $stepUp);
+		return new self($stepUp->uid, $stepUp->status, null, $stepUp->policies, $stepUp->started, false, $stepUp);
 	}
 
 	/**

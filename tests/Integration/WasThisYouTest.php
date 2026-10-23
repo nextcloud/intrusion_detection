@@ -20,6 +20,7 @@ use OCA\IntrusionDetection\Check\Checks\TokenConcurrentUse\TokenConcurrentUse;
 use OCA\IntrusionDetection\Check\Checks\UserDenied\UserDenied;
 use OCA\IntrusionDetection\Config\GlobalSettings;
 use OCA\IntrusionDetection\Config\Keys;
+use OCA\IntrusionDetection\Confirm\ConfirmationStatus;
 use OCA\IntrusionDetection\Confirm\IConfirmationMethod;
 use OCA\IntrusionDetection\Confirm\LoginDetections;
 use OCA\IntrusionDetection\Confirm\StepUpPolicy;
@@ -245,7 +246,7 @@ class WasThisYouTest extends StepUpTestCase {
 
 		$this->session->clear();
 		$this->startSession($this->alice);
-		$this->state->set(SessionMarkers::STEP_UP, (new StepUpState($this->alice->getUID(), StepUpState::PENDING, ['flagged_source'], time(), time() + 900))->toArray());
+		$this->state->set(SessionMarkers::STEP_UP, (new StepUpState($this->alice->getUID(), ConfirmationStatus::Pending, ['flagged_source'], time(), time() + 900))->toArray());
 		$this->assertAnswerFails(AnswerException::SESSION_NOT_ALLOWED, fn () => $this->answers()->deny($this->alice, $detection->getId()), 'A login that waits for its confirmation');
 		$this->assertNull(Server::get(DetectionMapper::class)->findById($detection->getId())->getUserVerdict());
 		$this->assertSame([], $this->detectionsOf(UserDenied::ID));
@@ -533,7 +534,7 @@ class WasThisYouTest extends StepUpTestCase {
 	}
 
 	private function prove(IUser $user): void {
-		$this->sessionConfirmation()->proved($user->getUID(), IConfirmationMethod::SECOND_FACTOR);
+		$this->service()->proved($user->getUID(), IConfirmationMethod::SECOND_FACTOR);
 	}
 
 	private function answers(): WasThisYouService {

@@ -131,7 +131,7 @@ class LoginNoticesTest extends StepUpTestCase {
 		$this->refusedLogin();
 		$this->session->clear();
 		$this->startSession($this->bob);
-		$this->sessionConfirmation()->proved($this->bob->getUID(), IConfirmationMethod::KNOWN_DEVICE);
+		$this->service()->proved($this->bob->getUID(), IConfirmationMethod::KNOWN_DEVICE);
 		$this->notices()->atLogin($this->bob->getUID(), null);
 		$detection = $this->detectionsOf(StepUpRefused::ID)[0];
 		$response = $this->controller()->deny($detection->getId());

@@ -10,6 +10,7 @@ declare(strict_types=1);
 namespace OCA\IntrusionDetection\Tests\Unit\SessionState;
 
 use OC\Session\Memory;
+use OCA\IntrusionDetection\Confirm\ConfirmationStatus;
 use OCA\IntrusionDetection\Confirm\StepUpState;
 use OCA\IntrusionDetection\Login\RequestContext;
 use OCA\IntrusionDetection\Login\SessionMarkers;
@@ -52,7 +53,7 @@ class SessionGateTest extends TestCase {
 	}
 
 	public function testAnErrorBeforeTheRulesRunBlocksAPendingStepUp(): void {
-		$this->markers->set(SessionMarkers::STEP_UP, (new StepUpState('alice', StepUpState::PENDING, ['flagged_source'], 1, 2))->toArray());
+		$this->markers->set(SessionMarkers::STEP_UP, (new StepUpState('alice', ConfirmationStatus::Pending, ['flagged_source'], 1, 2))->toArray());
 		$this->sessionBroken = true;
 		$this->assertSame(StepUpRule::ERROR, $this->gate()->decide($this->createMock(Controller::class), 'index')?->error);
 		$this->assertSame(StepUpRule::ERROR, $this->gate()->decideDav('PROPFIND', '/remote.php/dav/files/alice/')?->error);

@@ -10,7 +10,7 @@ declare(strict_types=1);
 namespace OCA\IntrusionDetection\Listener\Login;
 
 use OCA\IntrusionDetection\Confirm\IConfirmationMethod;
-use OCA\IntrusionDetection\Confirm\SessionConfirmation;
+use OCA\IntrusionDetection\Confirm\LoginConfirmations;
 use OCA\IntrusionDetection\KnownDevice\KnownDevices;
 
 /**
@@ -21,7 +21,7 @@ use OCA\IntrusionDetection\KnownDevice\KnownDevices;
 class KnownDeviceStep implements ILoginStep {
 	public function __construct(
 		private readonly KnownDevices $devices,
-		private readonly SessionConfirmation $confirmation,
+		private readonly LoginConfirmations $confirmations,
 	) {
 	}
 
@@ -38,6 +38,6 @@ class KnownDeviceStep implements ILoginStep {
 		}
 		$facts->device = $device;
 		$this->devices->used($device);
-		$this->confirmation->proved($facts->uid(), IConfirmationMethod::KNOWN_DEVICE);
+		$this->confirmations->proved($facts->uid(), IConfirmationMethod::KNOWN_DEVICE);
 	}
 }

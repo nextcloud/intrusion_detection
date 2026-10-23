@@ -13,6 +13,7 @@ use OC\Authentication\TwoFactorAuth\ProviderLoader;
 use OCA\IntrusionDetection\Config\AppSettings;
 use OCA\IntrusionDetection\Confirm\AccountMethods;
 use OCA\IntrusionDetection\Confirm\ConfirmationPolicy;
+use OCA\IntrusionDetection\Confirm\ConfirmationStatus;
 use OCA\IntrusionDetection\Confirm\EmailCodes;
 use OCA\IntrusionDetection\Confirm\IConfirmationMethod;
 use OCA\IntrusionDetection\Confirm\Methods\EmailCodeMethod;
@@ -116,10 +117,11 @@ class ConfirmationPolicyTest extends TestCase {
 		$this->assertFalse($method->isAvailable($user, StepUpPolicy::FlaggedSource), 'Backup codes alone, or a disabled provider, are not a second factor');
 		$this->assertFalse($method->isAvailable($user, StepUpPolicy::FlaggedSource), 'Two factors enforced without a provider: none yet');
 
-		$state = new StepUpState('u', StepUpState::PENDING, [], 0, 0, methods: [IConfirmationMethod::SECOND_FACTOR, IConfirmationMethod::EMAIL_CODE]);
-		$this->assertSame(IConfirmationMethod::PENDING, $method->begin($user, $state), 'The login waits for core\'s challenge');
-		$this->assertTrue($state->secondFactorRequested);
-		$this->assertSame([IConfirmationMethod::SECOND_FACTOR], $state->methods, 'No code was sent, so none is offered');
+		$state = new StepUpState('u', ConfirmationStatus::Pending, [], 0, 0, methods: [IConfirmationMethod::SECOND_FACTOR, IConfirmationMethod::EMAIL_CODE]);
+		$start = $method->begin($user, $state);
+		$this->assertSame(IConfirmationMethod::PENDING, $start->outcome, 'The login waits for core\'s challenge');
+		$this->assertTrue($start->state->secondFactorRequested);
+		$this->assertSame([IConfirmationMethod::SECOND_FACTOR], $start->state->methods, 'No code was sent, so none is offered');
 
 		$secondFactors = new SecondFactors($registry, $this->createMock(ProviderLoader::class), $untrusted, $this->createMock(LoggerInterface::class));
 		$withUntrusted = new SecondFactorMethod($challenges, new AccountMethods($this->createMock(MailReach::class), $secondFactors));
@@ -133,7 +135,7 @@ class ConfirmationPolicyTest extends TestCase {
 		$appPasswordSession->method('requestChallenge')->willThrowException(new \LogicException('no'));
 		$noChallenge = new SecondFactorMethod($appPasswordSession, new AccountMethods($this->createMock(MailReach::class), $secondFactors));
 		$this->assertFalse($noChallenge->isAvailable($user, StepUpPolicy::FlaggedSource));
-		$this->assertSame(IConfirmationMethod::UNAVAILABLE, $noChallenge->begin($user, new StepUpState('u', StepUpState::PENDING, [], 0, 0)));
+		$this->assertSame(IConfirmationMethod::UNAVAILABLE, $noChallenge->begin($user, new StepUpState('u', ConfirmationStatus::Pending, [], 0, 0))->outcome);
 	}
 
 	/**

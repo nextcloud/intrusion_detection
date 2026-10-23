@@ -14,51 +14,97 @@ namespace OCA\IntrusionDetection\Confirm;
  * 7, "intrusion_detection.step_up"): why the login needs confirmation, when
  * it started, the email code's hash, attempts and resends, and the request
  * for an administrator's approval. Never the code itself.
+ *
+ * A value: a change is a new state, which only {@see LoginConfirmations}
+ * stores.
  */
 final class StepUpState {
-	/** The login waits for its confirmation on the verify page */
-	public const PENDING = 'pending';
-	/** The login was refused: nothing could confirm it */
-	public const REFUSED = 'refused';
-	/** An app or script logged in with the password: refused for this session */
-	public const REFUSED_CLIENT = 'refused_client';
-	/** A session whose login was never confirmed came back without its state: it is ended */
-	public const RESUMED = 'resumed';
-
 	/**
-	 * @param self::PENDING|self::REFUSED|self::REFUSED_CLIENT|self::RESUMED $status
+	 * @param ConfirmationStatus $status one a step-up has ({@see ConfirmationStatus::isStepUp()})
 	 * @param list<string> $policies the policies of the reasons that applied
 	 * @param list<string> $methods the confirmation methods offered, in order
 	 * @param list<int> $resends when a new code was sent
 	 */
 	public function __construct(
 		public readonly string $uid,
-		public readonly string $status,
+		public readonly ConfirmationStatus $status,
 		public readonly array $policies,
 		public readonly int $started,
 		/** Until when the login may wait; an administrator's approval can extend it */
-		public int $deadline,
+		public readonly int $deadline,
 		/** The address the login came from */
 		public readonly ?string $ip = null,
-		public array $methods = [],
-		public ?string $codeHash = null,
-		public int $codeExpires = 0,
-		public int $attempts = 0,
-		public array $resends = [],
-		public ?string $reference = null,
-		public ?int $detectionId = null,
-		public bool $secondFactorRequested = false,
+		public readonly array $methods = [],
+		public readonly ?string $codeHash = null,
+		public readonly int $codeExpires = 0,
+		public readonly int $attempts = 0,
+		public readonly array $resends = [],
+		public readonly ?string $reference = null,
+		public readonly ?int $detectionId = null,
+		public readonly bool $secondFactorRequested = false,
 		/** The request for an administrator's approval of this login */
-		public ?int $approvalId = null,
+		public readonly ?int $approvalId = null,
 	) {
 	}
 
 	public function isPending(): bool {
-		return $this->status === self::PENDING;
+		return $this->status === ConfirmationStatus::Pending;
 	}
 
 	public function hasMethod(string $id): bool {
 		return in_array($id, $this->methods, true);
+	}
+
+	/**
+	 * @param list<string> $methods
+	 */
+	public function withMethods(array $methods): self {
+		return $this->copy(['methods' => $methods]);
+	}
+
+	/**
+	 * A new email code, or none (null): the earlier one stops working.
+	 */
+	public function withCode(?string $codeHash, int $codeExpires): self {
+		return $this->copy(['codeHash' => $codeHash, 'codeExpires' => $codeHash === null ? 0 : $codeExpires]);
+	}
+
+	/**
+	 * @param list<int> $resends
+	 */
+	public function withResends(array $resends): self {
+		return $this->copy(['resends' => $resends]);
+	}
+
+	public function withAttempts(int $attempts): self {
+		return $this->copy(['attempts' => $attempts]);
+	}
+
+	public function withSecondFactorRequested(): self {
+		return $this->copy(['secondFactorRequested' => true]);
+	}
+
+	/**
+	 * An administrator was asked; the login may wait as long as the request.
+	 */
+	public function withApproval(int $approvalId, int $expiresAt): self {
+		return $this->copy(['approvalId' => $approvalId, 'deadline' => max($this->deadline, $expiresAt)]);
+	}
+
+	public function withDeadline(int $deadline): self {
+		return $this->copy(['deadline' => $deadline]);
+	}
+
+	/**
+	 * @param array<string, mixed> $changes
+	 */
+	private function copy(array $changes): self {
+		$data = $this->toArray();
+		$keys = ['detectionId' => 'detection', 'secondFactorRequested' => 'secondFactor', 'approvalId' => 'approval'];
+		foreach ($changes as $name => $value) {
+			$data[$keys[$name] ?? $name] = $value;
+		}
+		return self::fromArray($data) ?? throw new \LogicException('A step-up stays valid');
 	}
 
 	/**
@@ -67,7 +113,7 @@ final class StepUpState {
 	public function toArray(): array {
 		return [
 			'uid' => $this->uid,
-			'status' => $this->status,
+			'status' => $this->status->value,
 			'policies' => $this->policies,
 			'started' => $this->started,
 			'deadline' => $this->deadline,
@@ -89,8 +135,8 @@ final class StepUpState {
 	 * @return ?self null for anything that is not a valid state
 	 */
 	public static function fromArray(array $data): ?self {
-		$status = $data['status'] ?? null;
-		if (!is_string($data['uid'] ?? null) || !in_array($status, [self::PENDING, self::REFUSED, self::REFUSED_CLIENT, self::RESUMED], true)) {
+		$status = is_string($data['status'] ?? null) ? ConfirmationStatus::tryFrom($data['status']) : null;
+		if (!is_string($data['uid'] ?? null) || $status === null || !$status->isStepUp()) {
 			return null;
 		}
 		return new self(

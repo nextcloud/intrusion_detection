@@ -17,8 +17,11 @@ use OC\User\Manager;
 use OCA\IntrusionDetection\AdminChange\ActorResolver;
 use OCA\IntrusionDetection\AdminChange\ApprovalException;
 use OCA\IntrusionDetection\AdminChange\ApprovalService;
+use OCA\IntrusionDetection\Confirm\ConfirmationStatus;
+use OCA\IntrusionDetection\Confirm\LoginConfirmationStore;
 use OCA\IntrusionDetection\Confirm\SessionConfirmation;
 use OCA\IntrusionDetection\Confirm\StepUpState;
+use OCA\IntrusionDetection\Confirm\UnconfirmedSessions;
 use OCA\IntrusionDetection\Controller\ApprovalController;
 use OCA\IntrusionDetection\Db\Approval;
 use OCA\IntrusionDetection\Login\CoreSession;
@@ -161,7 +164,7 @@ class ApprovalControllerTest extends TestCase {
 		$this->assertSame(ApprovalException::UNCONFIRMED, $response->getData()['reason']);
 
 		$this->confirmation = null;
-		$this->stepUp = (new StepUpState('carol', StepUpState::PENDING, ['flagged_source'], 1, 901))->toArray();
+		$this->stepUp = (new StepUpState('carol', ConfirmationStatus::Pending, ['flagged_source'], 1, 901))->toArray();
 		$this->assertSame(ApprovalException::UNCONFIRMED, $this->answer(fn () => $this->controller($service)->approve(5))->getData()['reason'], 'A login that still waits for its confirmation');
 		$this->stepUp = null;
 		$this->appPassword = true;
@@ -258,7 +261,8 @@ class ApprovalControllerTest extends TestCase {
 		$state->method('all')->willReturnCallback(fn (): array => array_filter([SessionMarkers::CONFIRMATION => $this->confirmation, SessionMarkers::STEP_UP => $this->stepUp], static fn (?array $marker): bool => $marker !== null));
 		$phpSession = $this->createMock(ISession::class);
 		$phpSession->method('exists')->willReturnCallback(fn (string $key): bool => $key === 'app_password' && $this->appPassword);
-		$confirmation = new SessionConfirmation($state, new CoreSession($phpSession, $this->createMock(\OCP\Authentication\Token\IProvider::class), $this->createMock(LoggerInterface::class)), $this->createMock(ITimeFactory::class));
+		$coreSession = new CoreSession($phpSession, $this->createMock(\OCP\Authentication\Token\IProvider::class), $this->createMock(LoggerInterface::class));
+		$confirmation = new SessionConfirmation(new LoginConfirmationStore($state, $this->createMock(UnconfirmedSessions::class), $coreSession), $coreSession);
 		$time = $this->createMock(ITimeFactory::class);
 		$time->method('getTime')->willReturn(self::NOW);
 		return new ApprovalController($this->createMock(IRequest::class), $l, new ActorResolver($session), $session, $service, $confirmation, $this->userManager, $time);

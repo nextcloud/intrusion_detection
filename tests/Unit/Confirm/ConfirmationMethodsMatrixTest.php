@@ -19,18 +19,17 @@ use OCA\IntrusionDetection\Confirm\ConfirmationCoverage;
 use OCA\IntrusionDetection\Confirm\ConfirmationPolicy;
 use OCA\IntrusionDetection\Confirm\EmailCodes;
 use OCA\IntrusionDetection\Confirm\IConfirmationMethod;
+use OCA\IntrusionDetection\Confirm\LoginConfirmationStore;
 use OCA\IntrusionDetection\Confirm\Methods\AdminApprovalMethod;
 use OCA\IntrusionDetection\Confirm\Methods\EmailCodeMethod;
 use OCA\IntrusionDetection\Confirm\Methods\KnownDeviceMethod;
 use OCA\IntrusionDetection\Confirm\Methods\SecondFactorMethod;
 use OCA\IntrusionDetection\Confirm\SecondFactors;
 use OCA\IntrusionDetection\Confirm\StepUpPolicy;
-use OCA\IntrusionDetection\Confirm\UnconfirmedSessions;
 use OCA\IntrusionDetection\Confirm\UntrustedSecondFactors;
 use OCA\IntrusionDetection\Db\ApprovalMapper;
 use OCA\IntrusionDetection\KnownDevice\KnownDevice;
 use OCA\IntrusionDetection\KnownDevice\KnownDevices;
-use OCA\IntrusionDetection\Login\CoreSession;
 use OCA\IntrusionDetection\Notification\MailReach;
 use OCA\IntrusionDetection\Notification\Mails;
 use OCA\IntrusionDetection\Notification\UserMessages;
@@ -205,8 +204,7 @@ class ConfirmationMethodsMatrixTest extends TestCase {
 			$this->createMock(Mails::class),
 			$this->createMock(UserMessages::class),
 			$this->createMock(ITimeFactory::class),
-			$this->createMock(UnconfirmedSessions::class),
-			$this->createMock(CoreSession::class),
+			$this->createMock(LoginConfirmationStore::class),
 			$this->createMock(IUserConfig::class),
 		);
 	}

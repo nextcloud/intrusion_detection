@@ -11,6 +11,7 @@ namespace OCA\IntrusionDetection\Confirm\Methods;
 
 use OCA\IntrusionDetection\Config\AppSettings;
 use OCA\IntrusionDetection\Confirm\IConfirmationMethod;
+use OCA\IntrusionDetection\Confirm\MethodStart;
 use OCA\IntrusionDetection\Confirm\StepUpPolicy;
 use OCA\IntrusionDetection\Confirm\StepUpState;
 use OCA\IntrusionDetection\KnownDevice\KnownDevices;
@@ -51,13 +52,13 @@ class KnownDeviceMethod implements IConfirmationMethod {
 	}
 
 	#[\Override]
-	public function begin(IUser $user, StepUpState $state): string {
+	public function begin(IUser $user, StepUpState $state): MethodStart {
 		$device = $this->devices->recognise($user->getUID());
 		if ($device === null) {
-			return self::UNAVAILABLE;
+			return new MethodStart(self::UNAVAILABLE, $state);
 		}
 		$this->devices->used($device);
-		return self::CONFIRMED;
+		return new MethodStart(self::CONFIRMED, $state);
 	}
 
 	/**

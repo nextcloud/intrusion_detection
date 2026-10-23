@@ -13,10 +13,10 @@ use OCA\IntrusionDetection\AdminChange\ApprovalService;
 use OCA\IntrusionDetection\Config\AppSettings;
 use OCA\IntrusionDetection\Config\GlobalSettings;
 use OCA\IntrusionDetection\Confirm\EmailCodes;
+use OCA\IntrusionDetection\Confirm\LoginConfirmations;
 use OCA\IntrusionDetection\Confirm\Methods\AdminApprovalMethod;
 use OCA\IntrusionDetection\Confirm\NoMethodOutcome;
 use OCA\IntrusionDetection\Confirm\StepUpPolicy;
-use OCA\IntrusionDetection\Confirm\StepUpService;
 use OCA\IntrusionDetection\Definition\ParamText;
 use OCA\IntrusionDetection\Explain\TextRenderer;
 use OCA\IntrusionDetection\KnownDevice\KnownDevices;
@@ -109,7 +109,7 @@ class GlobalSettingsPresenter {
 				'neverBlocked' => $l->t('Addresses on the brute-force allowlist and the server\'s own addresses are never blocked, and no network that contains one. Checks also never block an address an administrator logged in from in the last 7 days (except for trap URLs and injection probes), nor, for attacks on one account, an address from which that account confirmed a login in the last 7 days (with a second factor, an email code, an administrator\'s approval or a remembered device), nor a private address many people or an administrator log in from while no trusted proxies are configured. You can still block these by hand.'),
 				'confirmationTimes' => $l->t('Email codes are valid for %1$s. A login that is not confirmed within %2$s is ended, and the user is told. A login waits for an administrator\'s approval at most %3$s. When a user answers "Yes, it was me", their network is trusted for %4$s.', [
 					TextRenderer::duration(EmailCodes::TTL, $l),
-					TextRenderer::duration(StepUpService::SESSION_TTL, $l),
+					TextRenderer::duration(LoginConfirmations::SESSION_TTL, $l),
 					TextRenderer::duration(AdminApprovalMethod::TTL, $l),
 					TextRenderer::duration(TrustedNetworks::DURATION, $l),
 				]),

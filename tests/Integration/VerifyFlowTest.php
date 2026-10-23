@@ -12,9 +12,10 @@ namespace OCA\IntrusionDetection\Tests\Integration;
 use OCA\IntrusionDetection\AppInfo\Application;
 use OCA\IntrusionDetection\Check\Checks\StepUpFailed\StepUpFailed;
 use OCA\IntrusionDetection\Config\UserKeys;
+use OCA\IntrusionDetection\Confirm\ConfirmationStatus;
 use OCA\IntrusionDetection\Confirm\EmailCodes;
 use OCA\IntrusionDetection\Confirm\IConfirmationMethod;
-use OCA\IntrusionDetection\Confirm\StepUpService;
+use OCA\IntrusionDetection\Confirm\LoginConfirmations;
 use OCA\IntrusionDetection\Confirm\StepUpState;
 use OCA\IntrusionDetection\Controller\VerifyController;
 use OCA\IntrusionDetection\Db\BanMapper;
@@ -189,7 +190,7 @@ class VerifyFlowTest extends StepUpTestCase {
 		$this->assertNotNull($stepUp);
 		$expired = StepUpState::fromArray(array_merge($stepUp->toArray(), ['deadline' => time() - 1]));
 		$this->assertNotNull($expired);
-		$this->service()->save($expired);
+		$this->service()->update($expired);
 
 		$block = $this->rule()->check($this->state, RequestTarget::dav('PROPFIND', '/remote.php/dav/files/'));
 		$this->assertNotNull($block);
@@ -206,8 +207,7 @@ class VerifyFlowTest extends StepUpTestCase {
 		$this->pendingLogin();
 		$stepUp = $this->stepUp();
 		$this->assertNotNull($stepUp);
-		$stepUp->codeExpires = time() - 1;
-		$this->service()->save($stepUp);
+		$this->service()->update($stepUp->withCode($stepUp->codeHash, time() - 1));
 		$response = $this->verifyController()->confirm('482915');
 		$this->assertSame('This code has expired. Send a new one, then enter it.', $this->paramOf($response, 'error'));
 		$this->assertSame(0, $this->stepUp()?->attempts);
@@ -269,8 +269,7 @@ class VerifyFlowTest extends StepUpTestCase {
 
 		$stepUp = $this->stepUp();
 		$this->assertNotNull($stepUp);
-		$stepUp->methods = [IConfirmationMethod::SECOND_FACTOR, IConfirmationMethod::EMAIL_CODE];
-		$this->service()->save($stepUp);
+		$this->service()->update($stepUp->withMethods([IConfirmationMethod::SECOND_FACTOR, IConfirmationMethod::EMAIL_CODE]));
 		$this->assertTrue($this->paramOf($this->verifyController()->show(), 'secondFactor'));
 
 		$this->passChallenge($this->alice);
@@ -303,14 +302,14 @@ class VerifyFlowTest extends StepUpTestCase {
 	public function testTheTimeLimits(): void {
 		$this->pendingLogin();
 		$stepUp = $this->stepUp();
-		$this->assertSame(StepUpService::SESSION_TTL, ($stepUp?->deadline ?? 0) - ($stepUp?->started ?? 0));
+		$this->assertSame(LoginConfirmations::SESSION_TTL, ($stepUp?->deadline ?? 0) - ($stepUp?->started ?? 0));
 		$this->assertLessThanOrEqual(Server::get(ITimeFactory::class)->getTime() + EmailCodes::TTL, $stepUp?->codeExpires);
 	}
 
 	private function pendingLogin(): void {
 		$this->token = $this->startSession($this->alice);
 		$this->login($this->alice);
-		$this->assertSame(StepUpState::PENDING, $this->stepUp()?->status);
+		$this->assertSame(ConfirmationStatus::Pending, $this->stepUp()?->status);
 	}
 
 	private function paramOf(Response $response, string $name): mixed {

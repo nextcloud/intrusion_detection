@@ -12,12 +12,13 @@ namespace OCA\IntrusionDetection\Controller;
 use OCA\IntrusionDetection\AppInfo\Application;
 use OCA\IntrusionDetection\Check\Checks\StepUpFailed\StepUpFailed;
 use OCA\IntrusionDetection\Confirm\ConfirmationPolicy;
+use OCA\IntrusionDetection\Confirm\ConfirmationStatus;
 use OCA\IntrusionDetection\Confirm\EmailCodes;
 use OCA\IntrusionDetection\Confirm\IConfirmationMethod;
+use OCA\IntrusionDetection\Confirm\LoginConfirmations;
 use OCA\IntrusionDetection\Confirm\Methods\AdminApprovalMethod;
 use OCA\IntrusionDetection\Confirm\Methods\SecondFactorMethod;
 use OCA\IntrusionDetection\Confirm\StepUpPolicy;
-use OCA\IntrusionDetection\Confirm\StepUpService;
 use OCA\IntrusionDetection\Confirm\StepUpState;
 use OCA\IntrusionDetection\Explain\TextRenderer;
 use OCA\IntrusionDetection\Http\LocalRedirect;
@@ -86,7 +87,7 @@ class VerifyController extends Controller implements ILoginFlowPage {
 	public function __construct(
 		IRequest $request,
 		private readonly IUserSession $userSession,
-		private readonly StepUpService $stepUps,
+		private readonly LoginConfirmations $stepUps,
 		private readonly EmailCodes $codes,
 		private readonly ConfirmationPolicy $policy,
 		private readonly IURLGenerator $urlGenerator,
@@ -113,7 +114,7 @@ class VerifyController extends Controller implements ILoginFlowPage {
 		if ($user === null || $stepUp === null) {
 			return $this->continue($redirect_url);
 		}
-		if ($stepUp->status === StepUpState::REFUSED) {
+		if ($stepUp->status === ConfirmationStatus::Refused) {
 			$response = $this->refusedPage($stepUp);
 			$this->stepUps->endRefused();
 			return $response;
@@ -145,7 +146,7 @@ class VerifyController extends Controller implements ILoginFlowPage {
 		if (!$stepUp->hasMethod(IConfirmationMethod::EMAIL_CODE)) {
 			return $this->codePage($user, $stepUp, $redirect_url, $this->l->t('This login cannot be confirmed with a code.'));
 		}
-		$result = $this->codes->verify($stepUp, $code);
+		[$result, $stepUp] = $this->codes->verify($stepUp, $code);
 		switch ($result) {
 			case EmailCodes::VERIFIED:
 				$this->stepUps->complete($stepUp, IConfirmationMethod::EMAIL_CODE);
@@ -157,7 +158,7 @@ class VerifyController extends Controller implements ILoginFlowPage {
 				$response->throttle();
 				return $response;
 			case EmailCodes::WRONG:
-				$this->stepUps->save($stepUp);
+				$this->stepUps->update($stepUp);
 				$left = $this->codes->attemptsLeft($stepUp);
 				$response = $this->codePage($user, $stepUp, $redirect_url, $this->l->n('This code is not correct. You can try %n more time.', 'This code is not correct. You can try %n more times.', $left), status: Http::STATUS_FORBIDDEN);
 				$response->throttle();
@@ -184,9 +185,9 @@ class VerifyController extends Controller implements ILoginFlowPage {
 		if (!$stepUp->hasMethod(IConfirmationMethod::EMAIL_CODE) || !$this->codes->canResend($stepUp)) {
 			return $this->codePage($user, $stepUp, $redirect_url, $this->l->t('No more codes can be sent for a few minutes. Use the last code you received, or wait and try again.'));
 		}
-		$sent = $this->codes->resend($user, $stepUp);
-		$this->stepUps->save($stepUp);
-		return $sent
+		$stepUp = $this->codes->resend($user, $stepUp) ?? $stepUp;
+		$this->stepUps->update($stepUp);
+		return $stepUp->codeHash !== null
 			? $this->codePage($user, $stepUp, $redirect_url, notice: $this->l->t('A new code was sent to %s. Earlier codes no longer work.', [EmailCodes::mask((string)$user->getEMailAddress())]))
 			: $this->codePage($user, $stepUp, $redirect_url, $this->l->t('The email could not be sent. Try again in a moment, or contact your administrator.'));
 	}
@@ -204,8 +205,8 @@ class VerifyController extends Controller implements ILoginFlowPage {
 		if ($method === null) {
 			return $this->codePage($user, $stepUp, $redirect_url, $this->l->t('Your account has no second factor that could confirm this login.'));
 		}
-		$stepUp->secondFactorRequested = true;
-		$this->stepUps->save($stepUp);
+		$stepUp = $stepUp->withSecondFactorRequested();
+		$this->stepUps->update($stepUp);
 		$back = $this->urlGenerator->linkToRoute(Application::APP_ID . '.Verify.show', LocalRedirect::isSafe($redirect_url, self::EXCLUDED) ? ['redirect_url' => $redirect_url] : []);
 		try {
 			return new RedirectResponse($method->requestChallenge($user, $back));
@@ -238,10 +239,12 @@ class VerifyController extends Controller implements ILoginFlowPage {
 			}
 			return $this->endByApproval($stepUp, $status) ?? $this->waitingPage($user, $stepUp, $redirect_url);
 		}
-		if ($method->begin($user, $stepUp) !== IConfirmationMethod::PENDING) {
+		$start = $method->begin($user, $stepUp);
+		if ($start->outcome !== IConfirmationMethod::PENDING) {
 			return $this->codePage($user, $stepUp, $redirect_url, $this->l->t('No administrator can be asked right now. Try again in a while, or contact your administrator.'));
 		}
-		$this->stepUps->save($stepUp);
+		$stepUp = $start->state;
+		$this->stepUps->update($stepUp);
 		return $this->waitingPage($user, $stepUp, $redirect_url);
 	}
 

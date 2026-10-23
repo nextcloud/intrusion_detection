@@ -13,8 +13,8 @@ use OCA\IntrusionDetection\AdminChange\ApprovalService;
 use OCA\IntrusionDetection\AppInfo\Application;
 use OCA\IntrusionDetection\Blocklist\BlocklistSync;
 use OCA\IntrusionDetection\Confirm\EmailCodes;
+use OCA\IntrusionDetection\Confirm\LoginConfirmations;
 use OCA\IntrusionDetection\Confirm\Methods\AdminApprovalMethod;
-use OCA\IntrusionDetection\Confirm\StepUpService;
 use OCA\IntrusionDetection\KnownDevice\KnownDevices;
 use OCA\IntrusionDetection\Migration\Version1000Date20261022100000;
 use OCA\IntrusionDetection\Response\FlaggedSources;
@@ -71,7 +71,7 @@ class RemoveRetiredSettings implements IRepairStep {
 			'risk_factor_high' => [0.25, (string)RiskAssessment::FACTOR_HIGH],
 			'risk_attack_tool_patterns' => [[], 'the built-in list of attack tools only'],
 			'step_up_code_ttl' => [600, $seconds(EmailCodes::TTL)],
-			'step_up_session_ttl' => [900, $seconds(StepUpService::SESSION_TTL)],
+			'step_up_session_ttl' => [900, $seconds(LoginConfirmations::SESSION_TTL)],
 			'step_up_admin_approval_ttl' => [1800, $seconds(AdminApprovalMethod::TTL)],
 			'admin_change_approval_ttl' => [604800, $seconds(ApprovalService::TTL)],
 			'known_device_duration' => [180 * 86400, $seconds(KnownDevices::DURATION)],

@@ -10,8 +10,8 @@ declare(strict_types=1);
 namespace OCA\IntrusionDetection\Personal;
 
 use OCA\IntrusionDetection\Config\AppSettings;
+use OCA\IntrusionDetection\Confirm\LoginConfirmations;
 use OCA\IntrusionDetection\Confirm\Methods\AdminApprovalMethod;
-use OCA\IntrusionDetection\Confirm\StepUpService;
 use OCA\IntrusionDetection\Db\DetectionFilter;
 use OCA\IntrusionDetection\Db\DetectionMapper;
 use OCA\IntrusionDetection\Guide\SecureAccountOverview;
@@ -197,7 +197,7 @@ class PersonalActivity {
 	 */
 	public function waitedOutBefore(): int {
 		$approval = $this->settings->stepUpAdminApproval() ? AdminApprovalMethod::TTL : 0;
-		return $this->timeFactory->getTime() - StepUpService::SESSION_TTL - $approval;
+		return $this->timeFactory->getTime() - LoginConfirmations::SESSION_TTL - $approval;
 	}
 
 	/**

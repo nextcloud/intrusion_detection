@@ -21,6 +21,8 @@ use OCA\IntrusionDetection\Confirm\Db\StepUpSessionMapper;
 use OCA\IntrusionDetection\Confirm\EmailCodes;
 use OCA\IntrusionDetection\Confirm\FamiliarLogin;
 use OCA\IntrusionDetection\Confirm\LoginAssessment;
+use OCA\IntrusionDetection\Confirm\LoginConfirmations;
+use OCA\IntrusionDetection\Confirm\LoginConfirmationStore;
 use OCA\IntrusionDetection\Confirm\LoginDetections;
 use OCA\IntrusionDetection\Confirm\Methods\AdminApprovalMethod;
 use OCA\IntrusionDetection\Confirm\Methods\EmailCodeMethod;
@@ -30,7 +32,6 @@ use OCA\IntrusionDetection\Confirm\SecondFactors;
 use OCA\IntrusionDetection\Confirm\SecondFactorSetup;
 use OCA\IntrusionDetection\Confirm\SessionConfirmation;
 use OCA\IntrusionDetection\Confirm\StepUpReasons;
-use OCA\IntrusionDetection\Confirm\StepUpService;
 use OCA\IntrusionDetection\Confirm\StepUpState;
 use OCA\IntrusionDetection\Confirm\UnconfirmedSessions;
 use OCA\IntrusionDetection\Confirm\UntrustedSecondFactors;
@@ -200,7 +201,7 @@ abstract class StepUpTestCase extends AccountTestCase {
 		$context = new RequestContext();
 		$services = [
 			StepUpStep::class => new StepUpStep($this->assessment()),
-			KnownDeviceStep::class => new KnownDeviceStep($this->knownDevices(), $this->sessionConfirmation()),
+			KnownDeviceStep::class => new KnownDeviceStep($this->knownDevices(), $this->service()),
 			HistoryStep::class => new HistoryStep($history ?? $this->history()),
 		];
 		$steps = array_map(fn (string $class): ILoginStep => $services[$class] ?? Server::get($class), array_combine($steps, $steps));
@@ -216,7 +217,7 @@ abstract class StepUpTestCase extends AccountTestCase {
 			$this->coreSession,
 			$this->request,
 			new OverridingContainer([
-				StepUpService::class => $this->service(),
+				LoginConfirmations::class => $this->service(),
 				LoginDetections::class => $this->linker(),
 				SignalDispatcher::class => $this->dispatcher($this->listenerServices(), $this->engine()),
 			]),
@@ -245,13 +246,12 @@ abstract class StepUpTestCase extends AccountTestCase {
 		return [];
 	}
 
-	protected function service(): StepUpService {
-		return new StepUpService(
-			$this->state,
+	protected function service(): LoginConfirmations {
+		return new LoginConfirmations(
+			$this->store(),
 			$this->userSession,
 			$this->policy(),
 			$this->engine(),
-			Server::get(UnconfirmedSessions::class),
 			$this->coreSession,
 			$this->addresses(),
 			Server::get(ITimeFactory::class),
@@ -261,6 +261,10 @@ abstract class StepUpTestCase extends AccountTestCase {
 			new FamiliarLogin($this->knownDevices(), $this->history(), Server::get(TrustedNetworks::class), Server::get(ITimeFactory::class)),
 			$this->request,
 		);
+	}
+
+	protected function store(): LoginConfirmationStore {
+		return new LoginConfirmationStore($this->state, Server::get(UnconfirmedSessions::class), $this->coreSession);
 	}
 
 	protected function policy(): ConfirmationPolicy {
@@ -366,8 +370,7 @@ abstract class StepUpTestCase extends AccountTestCase {
 			$this->mails,
 			Server::get(UserMessages::class),
 			Server::get(ITimeFactory::class),
-			Server::get(UnconfirmedSessions::class),
-			$this->coreSession,
+			$this->store(),
 			Server::get(IUserConfig::class),
 		);
 	}
@@ -380,14 +383,14 @@ abstract class StepUpTestCase extends AccountTestCase {
 		$setup = $this->createMock(SecondFactorSetup::class);
 		$setup->method('isRequired')->willReturnCallback(fn (): bool => $this->secondFactorSetupRequired);
 		return new StepUpRule($this->userSession, Server::get(IURLGenerator::class), Server::get(ITimeFactory::class), new OverridingContainer([
-			StepUpService::class => $this->service(),
+			LoginConfirmations::class => $this->service(),
 			LoginDetections::class => $this->linker(),
 			SecondFactorSetup::class => $setup,
 		]), Server::get(LoggerInterface::class));
 	}
 
 	protected function sessionConfirmation(): SessionConfirmation {
-		return new SessionConfirmation($this->state, $this->coreSession, Server::get(ITimeFactory::class));
+		return new SessionConfirmation($this->store(), $this->coreSession);
 	}
 
 	protected function untrustedSecondFactors(): UntrustedSecondFactors {
@@ -404,7 +407,7 @@ abstract class StepUpTestCase extends AccountTestCase {
 	protected function passChallenge(IUser $user, string $providerId = 'totp'): void {
 		$provider = $this->createMock(IProvider::class);
 		$provider->method('getId')->willReturn($providerId);
-		(new ChallengePassedListener($this->service(), $this->secondFactors(), $this->sessionConfirmation(), $this->history(), $this->appSettings(), Server::get(LoggerInterface::class)))
+		(new ChallengePassedListener($this->service(), $this->secondFactors(), $this->history(), $this->appSettings(), Server::get(LoggerInterface::class)))
 			->handle(new TwoFactorProviderChallengePassed($user, $provider));
 	}
 

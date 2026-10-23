@@ -11,7 +11,7 @@ namespace OCA\IntrusionDetection\Tests\Unit\Listener\Login;
 
 use OCA\IntrusionDetection\Config\AppSettings;
 use OCA\IntrusionDetection\Confirm\IConfirmationMethod;
-use OCA\IntrusionDetection\Confirm\SessionConfirmation;
+use OCA\IntrusionDetection\Confirm\LoginConfirmations;
 use OCA\IntrusionDetection\KnownDevice\KnownDevice;
 use OCA\IntrusionDetection\KnownDevice\KnownDevices;
 use OCA\IntrusionDetection\Listener\Login\HistoryStep;
@@ -150,7 +150,7 @@ class HistoryStepTest extends TestCase {
 		$notices->method('atLogin')->willReturnCallback(function (string $uid): void {
 			$this->noticed[] = $uid;
 		});
-		$confirmation = $this->createMock(SessionConfirmation::class);
+		$confirmation = $this->createMock(LoginConfirmations::class);
 		$confirmation->method('proved')->willReturnCallback(function (string $uid, string $by): void {
 			$this->proofs[] = [$uid, $by];
 		});

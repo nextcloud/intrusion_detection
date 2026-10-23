@@ -19,12 +19,13 @@ use OCA\IntrusionDetection\Check\Checks\StepUpRefused\StepUpRefused;
 use OCA\IntrusionDetection\Check\Checks\StepUpRefusedClient\StepUpRefusedClient;
 use OCA\IntrusionDetection\Check\Checks\StepUpUnconfirmed\StepUpUnconfirmed;
 use OCA\IntrusionDetection\Config\GlobalSettings;
+use OCA\IntrusionDetection\Confirm\ConfirmationStatus;
 use OCA\IntrusionDetection\Confirm\LoginAssessment;
 use OCA\IntrusionDetection\Confirm\LoginConfirmation;
+use OCA\IntrusionDetection\Confirm\LoginConfirmations;
 use OCA\IntrusionDetection\Confirm\NoMethodOutcome;
 use OCA\IntrusionDetection\Confirm\StepUpPolicy;
 use OCA\IntrusionDetection\Confirm\StepUpReasons;
-use OCA\IntrusionDetection\Confirm\StepUpService;
 use OCA\IntrusionDetection\Confirm\StepUpState;
 use OCA\IntrusionDetection\Confirm\UnconfirmedSessions;
 use OCA\IntrusionDetection\Crypto\Fingerprinter;
@@ -140,7 +141,7 @@ class RealLoginTest extends IntegrationTestCase {
 
 		$stepUp = StepUpState::fromArray(Server::get(SessionMarkers::class)->get(SessionMarkers::STEP_UP) ?? []);
 		$this->assertNotNull($stepUp, 'The app\'s own listener marked the session');
-		$this->assertSame(StepUpState::REFUSED, $stepUp->status, 'No email address and no second factor: refused, as configured');
+		$this->assertSame(ConfirmationStatus::Refused, $stepUp->status, 'No email address and no second factor: refused, as configured');
 		$this->assertSame(['protected_account'], $stepUp->policies);
 		$this->assertCount(1, Server::get(DetectionMapper::class)->findList(new DetectionFilter(checkIds: [StepUpRefused::ID], uid: $this->user->getUID())));
 		$history = Server::get(LoginHistoryMapper::class)->forUser($this->user->getUID(), 0);
@@ -157,7 +158,7 @@ class RealLoginTest extends IntegrationTestCase {
 			$result = Server::get(Chain::class)->process(new LoginData($this->request, $this->user->getUID(), self::PASSWORD, false));
 			$this->assertTrue($result->isSuccess());
 			$stepUp = StepUpState::fromArray(Server::get(SessionMarkers::class)->get(SessionMarkers::STEP_UP) ?? []);
-			$this->assertSame(StepUpState::REFUSED, $stepUp?->status, 'Held back like any login form, with ' . $header);
+			$this->assertSame(ConfirmationStatus::Refused, $stepUp?->status, 'Held back like any login form, with ' . $header);
 			$history = Server::get(LoginHistoryMapper::class)->forUser($this->user->getUID(), 0);
 			$this->assertSame([LoginHistory::METHOD_PASSWORD, LoginHistory::STEP_UP_REFUSED], [$history[0]->method, $history[0]->stepUp]);
 		}
@@ -172,7 +173,7 @@ class RealLoginTest extends IntegrationTestCase {
 		$this->assertTrue(Server::get(Session::class)->logClientIn($this->user->getUID(), self::PASSWORD, $this->request, Server::get(IThrottler::class)));
 
 		$stepUp = StepUpState::fromArray(Server::get(SessionMarkers::class)->get(SessionMarkers::STEP_UP) ?? []);
-		$this->assertSame(StepUpState::REFUSED_CLIENT, $stepUp?->status);
+		$this->assertSame(ConfirmationStatus::RefusedClient, $stepUp?->status);
 		$this->assertCount(1, Server::get(DetectionMapper::class)->findList(new DetectionFilter(checkIds: [StepUpRefusedClient::ID], uid: $this->user->getUID())));
 		$history = Server::get(LoginHistoryMapper::class)->forUser($this->user->getUID(), 0);
 		$this->assertCount(4, $history);
@@ -188,7 +189,7 @@ class RealLoginTest extends IntegrationTestCase {
 		Server::get(ISession::class)->clear();
 		$this->assertTrue(Server::get(Session::class)->logClientIn($this->user->getUID(), self::PASSWORD, $this->request, Server::get(IThrottler::class)));
 		$stepUp = StepUpState::fromArray(Server::get(SessionMarkers::class)->get(SessionMarkers::STEP_UP) ?? []);
-		$this->assertSame(StepUpState::REFUSED_CLIENT, $stepUp?->status, 'The password over Basic auth does not get around the email code');
+		$this->assertSame(ConfirmationStatus::RefusedClient, $stepUp?->status, 'The password over Basic auth does not get around the email code');
 		$this->assertSame([], Server::get(DetectionMapper::class)->findList(new DetectionFilter(checkIds: [StepUpUnconfirmed::ID], uid: $this->user->getUID())), 'Not let in unconfirmed');
 		$this->assertSame([], $this->codeMails(), 'No code: an app cannot enter it');
 
@@ -200,10 +201,10 @@ class RealLoginTest extends IntegrationTestCase {
 		$notices = $this->mailsOf('intrusion_detection.userNotice');
 		Server::get(Session::class)->logout();
 		Server::get(ISession::class)->clear();
-		$this->cookies[StepUpService::COOKIE_TEST] = 'test';
+		$this->cookies[LoginConfirmations::COOKIE_TEST] = 'test';
 		$this->assertTrue(Server::get(Session::class)->logClientIn($this->user->getUID(), self::PASSWORD, $this->request, Server::get(IThrottler::class)));
 		$stepUp = StepUpState::fromArray(Server::get(SessionMarkers::class)->get(SessionMarkers::STEP_UP) ?? []);
-		$this->assertSame(StepUpState::REFUSED_CLIENT, $stepUp?->status, 'Basic auth is an app whatever cookies it sends');
+		$this->assertSame(ConfirmationStatus::RefusedClient, $stepUp?->status, 'Basic auth is an app whatever cookies it sends');
 		$this->assertSame([], $this->codeMails(), 'No code');
 		$this->assertSame(0, Server::get(ApprovalMapper::class)->countPendingFor(Approval::KIND_LOGIN, $this->user->getUID(), time()), 'No approval request');
 		$this->assertSame([], Server::get(DetectionMapper::class)->findList(new DetectionFilter(checkIds: [StepUpFailed::ID], uid: $this->user->getUID())), 'Nothing waits that could fail');

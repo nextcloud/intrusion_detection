@@ -16,11 +16,11 @@ use OCA\IntrusionDetection\AppInfo\Application;
 use OCA\IntrusionDetection\Check\Checks\StepUpRefused\StepUpRefused;
 use OCA\IntrusionDetection\Check\Checks\StepUpRefusedClient\StepUpRefusedClient;
 use OCA\IntrusionDetection\Config\GlobalSettings;
+use OCA\IntrusionDetection\Confirm\ConfirmationStatus;
 use OCA\IntrusionDetection\Confirm\IConfirmationMethod;
 use OCA\IntrusionDetection\Confirm\Reasons\AdminOutsideNetworksReason;
 use OCA\IntrusionDetection\Confirm\StepUpPolicy;
 use OCA\IntrusionDetection\Confirm\StepUpReasons;
-use OCA\IntrusionDetection\Confirm\StepUpState;
 use OCA\IntrusionDetection\Controller\VerifyController;
 use OCA\IntrusionDetection\Login\SessionMarkers;
 use OCA\IntrusionDetection\Net\SourceKey;
@@ -84,7 +84,7 @@ class AdminTrustedNetworksTest extends StepUpTestCase {
 		$this->login($this->admin);
 
 		$stepUp = $this->stepUp();
-		$this->assertSame(StepUpState::PENDING, $stepUp?->status);
+		$this->assertSame(ConfirmationStatus::Pending, $stepUp?->status);
 		$this->assertSame([StepUpPolicy::AdminOutsideNetworks->value], $stepUp->policies);
 		$this->assertSame([IConfirmationMethod::EMAIL_CODE], $stepUp->methods);
 		$this->assertSame('482915', $this->lastCode($this->admin->getUID()));
@@ -130,7 +130,7 @@ class AdminTrustedNetworksTest extends StepUpTestCase {
 		$this->delegations[] = Server::get(AuthorizedGroupMapper::class)->insert($delegation)->getId();
 		$this->session->clear();
 		$this->login($carol);
-		$this->assertSame(StepUpState::PENDING, $this->stepUp()?->status);
+		$this->assertSame(ConfirmationStatus::Pending, $this->stepUp()?->status);
 	}
 
 	public function testARememberedDeviceIsNotEnough(): void {
@@ -139,7 +139,7 @@ class AdminTrustedNetworksTest extends StepUpTestCase {
 		$this->assertNotNull($this->knownDevices()->recognise($this->admin->getUID()), 'The device is known');
 
 		$this->login($this->admin);
-		$this->assertSame(StepUpState::PENDING, $this->stepUp()?->status);
+		$this->assertSame(ConfirmationStatus::Pending, $this->stepUp()?->status);
 		$this->assertSame([IConfirmationMethod::EMAIL_CODE], $this->stepUp()?->methods);
 	}
 
@@ -148,7 +148,7 @@ class AdminTrustedNetworksTest extends StepUpTestCase {
 		Server::get(IGroupManager::class)->get('admin')?->addUser($dave);
 		$this->login($dave);
 
-		$this->assertSame(StepUpState::REFUSED, $this->stepUp()?->status);
+		$this->assertSame(ConfirmationStatus::Refused, $this->stepUp()?->status);
 		$this->assertCount(1, $this->detectionsOf(StepUpRefused::ID));
 		$response = $this->verifyController()->show();
 		$this->assertInstanceOf(StandaloneTemplateResponse::class, $response);
@@ -159,7 +159,7 @@ class AdminTrustedNetworksTest extends StepUpTestCase {
 	public function testAppsSendingThePasswordFromOutsideAreRefused(): void {
 		$this->basicAuth($this->admin);
 		$this->login($this->admin);
-		$this->assertSame(StepUpState::REFUSED_CLIENT, $this->stepUp()?->status);
+		$this->assertSame(ConfirmationStatus::RefusedClient, $this->stepUp()?->status);
 		$this->assertNull($this->state->get(SessionMarkers::CONFIRMATION));
 		$detections = $this->detectionsOf(StepUpRefusedClient::ID);
 		$this->assertCount(1, $detections);
@@ -171,7 +171,7 @@ class AdminTrustedNetworksTest extends StepUpTestCase {
 		Server::get(\OCA\IntrusionDetection\TrustedNetwork\TrustedNetworks::class)->trust($this->admin->getUID(), SourceKey::fromIp(self::OUTSIDE));
 		$this->basicAuth($this->admin);
 		$this->login($this->admin);
-		$this->assertSame(StepUpState::REFUSED_CLIENT, $this->stepUp()?->status, 'A network of "Yes, it was me" is no trusted network');
+		$this->assertSame(ConfirmationStatus::RefusedClient, $this->stepUp()?->status, 'A network of "Yes, it was me" is no trusted network');
 	}
 
 	public function testAppPasswordsFromOutsideAreNotAffected(): void {
@@ -195,6 +195,6 @@ class AdminTrustedNetworksTest extends StepUpTestCase {
 		$this->settingsEditor()->setGlobal(GlobalSettings::RISKY_NETWORK_OFFICE_NETWORKS, []);
 		$this->remoteAddress = self::INSIDE;
 		$this->login($this->admin);
-		$this->assertSame(StepUpState::PENDING, $this->stepUp()?->status);
+		$this->assertSame(ConfirmationStatus::Pending, $this->stepUp()?->status);
 	}
 }

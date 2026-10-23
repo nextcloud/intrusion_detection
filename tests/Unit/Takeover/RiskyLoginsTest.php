@@ -10,6 +10,7 @@ declare(strict_types=1);
 namespace OCA\IntrusionDetection\Tests\Unit\Takeover;
 
 use OC\Session\Memory;
+use OCA\IntrusionDetection\Confirm\ConfirmationStatus;
 use OCA\IntrusionDetection\Confirm\StepUpState;
 use OCA\IntrusionDetection\Login\CoreSession;
 use OCA\IntrusionDetection\Login\SessionMarkers;
@@ -37,7 +38,7 @@ class RiskyLoginsTest extends TestCase {
 	}
 
 	public function testALoginThatStillWaitsForItsConfirmationIsRisky(): void {
-		$signal = $this->signal(null, 7, new StepUpState('alice', StepUpState::PENDING, ['protected_account'], 900, 1800));
+		$signal = $this->signal(null, 7, new StepUpState('alice', ConfirmationStatus::Pending, ['protected_account'], 900, 1800));
 		$login = $signal->riskyLogin('alice', 7);
 		$this->assertSame(900, $login?->at);
 		$this->assertSame(RiskyLogin::REASON_UNCONFIRMED, $login->reason);

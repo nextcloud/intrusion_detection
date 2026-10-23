@@ -24,15 +24,15 @@ use OCA\IntrusionDetection\Check\Checks\StepUpUnconfirmed\StepUpUnconfirmed;
 use OCA\IntrusionDetection\Config\GlobalSettings;
 use OCA\IntrusionDetection\Config\Keys;
 use OCA\IntrusionDetection\Config\UserKeys;
+use OCA\IntrusionDetection\Confirm\ConfirmationStatus;
 use OCA\IntrusionDetection\Confirm\Db\StepUpSessionMapper;
 use OCA\IntrusionDetection\Confirm\IConfirmationMethod;
 use OCA\IntrusionDetection\Confirm\LoginConfirmation;
+use OCA\IntrusionDetection\Confirm\LoginConfirmations;
 use OCA\IntrusionDetection\Confirm\LoginDetections;
 use OCA\IntrusionDetection\Confirm\NoMethodOutcome;
 use OCA\IntrusionDetection\Confirm\StepUpPolicy;
 use OCA\IntrusionDetection\Confirm\StepUpReference;
-use OCA\IntrusionDetection\Confirm\StepUpService;
-use OCA\IntrusionDetection\Confirm\StepUpState;
 use OCA\IntrusionDetection\Confirm\UnconfirmedSessions;
 use OCA\IntrusionDetection\Crypto\Fingerprinter;
 use OCA\IntrusionDetection\Db\Approval;
@@ -102,7 +102,7 @@ class StepUpTest extends StepUpTestCase {
 
 		$stepUp = $this->stepUp();
 		$this->assertNotNull($stepUp);
-		$this->assertSame(StepUpState::PENDING, $stepUp->status);
+		$this->assertSame(ConfirmationStatus::Pending, $stepUp->status);
 		$this->assertSame([$policy], $stepUp->policies);
 		$this->assertSame([IConfirmationMethod::EMAIL_CODE], $stepUp->methods);
 		$this->assertSame($stepUp->started + 900, $stepUp->deadline);
@@ -146,7 +146,7 @@ class StepUpTest extends StepUpTestCase {
 		$this->give(StepUpPolicy::FlaggedSource, $this->alice);
 		$this->login($this->alice);
 		$stepUp = $this->stepUp();
-		$this->assertSame(StepUpState::PENDING, $stepUp?->status, 'Stopped at core\'s challenge: not confirmed yet');
+		$this->assertSame(ConfirmationStatus::Pending, $stepUp?->status, 'Stopped at core\'s challenge: not confirmed yet');
 		$this->assertSame([IConfirmationMethod::SECOND_FACTOR], $stepUp->methods);
 		$this->assertTrue($stepUp->secondFactorRequested);
 		$this->assertSame([], $this->mailed, 'No code: the second factor is asked instead');
@@ -281,7 +281,7 @@ class StepUpTest extends StepUpTestCase {
 		$this->give(StepUpPolicy::ProtectedAccount, $this->alice);
 		$this->headers = $headers;
 		$this->login($this->alice);
-		$this->assertSame(StepUpState::PENDING, $this->stepUp()?->status, 'Asked for the email code like any login form');
+		$this->assertSame(ConfirmationStatus::Pending, $this->stepUp()?->status, 'Asked for the email code like any login form');
 	}
 
 	public function testWithoutEmailTheLoginIsRefusedAndTheAdministratorsAreTold(): void {
@@ -290,7 +290,7 @@ class StepUpTest extends StepUpTestCase {
 		$this->login($bob);
 
 		$stepUp = $this->stepUp();
-		$this->assertSame(StepUpState::REFUSED, $stepUp?->status);
+		$this->assertSame(ConfirmationStatus::Refused, $stepUp?->status);
 		$this->assertSame([], $this->mailed, 'Never an email to an account without an address');
 		$detections = $this->detectionsOf(StepUpRefused::ID);
 		$this->assertCount(1, $detections);
@@ -308,7 +308,7 @@ class StepUpTest extends StepUpTestCase {
 		$this->mailWorks = false;
 		$this->give(StepUpPolicy::FlaggedSource, $this->alice);
 		$this->login($this->alice);
-		$this->assertSame(StepUpState::REFUSED, $this->stepUp()?->status);
+		$this->assertSame(ConfirmationStatus::Refused, $this->stepUp()?->status);
 	}
 
 	public function testAllowAndNotifyLetsTheLoginInAndTellsUserAndAdministrators(): void {
@@ -344,7 +344,7 @@ class StepUpTest extends StepUpTestCase {
 		$this->give(StepUpPolicy::BreachedPassword, $bob);
 		$this->give(StepUpPolicy::ProtectedAccount, $bob);
 		$this->login($bob);
-		$this->assertSame(StepUpState::REFUSED, $this->stepUp()?->status);
+		$this->assertSame(ConfirmationStatus::Refused, $this->stepUp()?->status);
 		$this->assertSame([StepUpPolicy::ProtectedAccount->value, StepUpPolicy::BreachedPassword->value], $this->stepUp()?->policies);
 	}
 
@@ -353,16 +353,16 @@ class StepUpTest extends StepUpTestCase {
 		$this->give(StepUpPolicy::ProtectedAccount, $this->alice);
 		$this->basicAuth($this->alice);
 		$this->login($this->alice);
-		$this->assertSame(StepUpState::REFUSED_CLIENT, $this->stepUp()?->status);
+		$this->assertSame(ConfirmationStatus::RefusedClient, $this->stepUp()?->status);
 		$this->assertSame(0, $this->unconfirmedRows(), 'No cookies yet: core gives no session token');
 		$told = count($this->notificationsFor($this->alice->getUID(), UserAlerts::SUBJECT));
 
 		// Core set its cookie test; the client sends it back with the next request.
 		$this->session->clear();
 		$this->session->id = null;
-		$this->cookies[StepUpService::COOKIE_TEST] = 'test';
+		$this->cookies[LoginConfirmations::COOKIE_TEST] = 'test';
 		$this->login($this->alice);
-		$this->assertSame(StepUpState::REFUSED_CLIENT, $this->stepUp()?->status, 'Still an app, refused for every request');
+		$this->assertSame(ConfirmationStatus::RefusedClient, $this->stepUp()?->status, 'Still an app, refused for every request');
 		$this->assertSame(1, $this->unconfirmedRows(), 'Core gives it a session token, which could come back');
 		$this->assertNull($this->lastCode($this->alice->getUID()), 'No code email');
 		$this->assertSame(0, Server::get(ApprovalMapper::class)->countPendingFor(Approval::KIND_LOGIN, $this->alice->getUID(), time()), 'No approval request');
@@ -388,7 +388,7 @@ class StepUpTest extends StepUpTestCase {
 		$this->give(StepUpPolicy::from($policy), $this->alice);
 		$this->basicAuth($this->alice);
 		$this->login($this->alice);
-		$this->assertSame(StepUpState::REFUSED_CLIENT, $this->stepUp()?->status, 'The login form would ask for the code: the app must use an app password');
+		$this->assertSame(ConfirmationStatus::RefusedClient, $this->stepUp()?->status, 'The login form would ask for the code: the app must use an app password');
 		$this->assertNull($this->state->get(SessionMarkers::CONFIRMATION), 'Never let in unconfirmed');
 		$this->assertSame([], $this->detectionsOf(StepUpUnconfirmed::ID));
 		$this->assertCount(1, $this->detectionsOf(StepUpRefusedClient::ID));
@@ -402,7 +402,7 @@ class StepUpTest extends StepUpTestCase {
 		$this->give(StepUpPolicy::ProtectedAccount, $bob);
 		$this->basicAuth($bob);
 		$this->login($bob);
-		$this->assertSame(StepUpState::REFUSED_CLIENT, $this->stepUp()?->status);
+		$this->assertSame(ConfirmationStatus::RefusedClient, $this->stepUp()?->status);
 	}
 
 	public function testAnAttackerGuessingThePasswordDoesNotLockOutTheCalendarAppAtHome(): void {
@@ -423,7 +423,7 @@ class StepUpTest extends StepUpTestCase {
 		$this->session->id = null;
 		$this->remoteAddress = '203.0.113.50';
 		$this->login($this->alice);
-		$this->assertSame(StepUpState::REFUSED_CLIENT, $this->stepUp()?->status, 'The attacker\'s place is not familiar');
+		$this->assertSame(ConfirmationStatus::RefusedClient, $this->stepUp()?->status, 'The attacker\'s place is not familiar');
 	}
 
 	public function testASessionOfAnAppLetInUnconfirmedServesAppsOnly(): void {
@@ -456,7 +456,7 @@ class StepUpTest extends StepUpTestCase {
 		$this->give(StepUpPolicy::FlaggedSource, $this->alice);
 		$this->basicAuth($this->alice);
 		$this->login($this->alice);
-		$this->assertSame(StepUpState::REFUSED_CLIENT, $this->stepUp()?->status);
+		$this->assertSame(ConfirmationStatus::RefusedClient, $this->stepUp()?->status);
 	}
 
 	public function testATrustedNetworkOrARememberedDeviceIsAFamiliarPlaceForApps(): void {
@@ -483,7 +483,7 @@ class StepUpTest extends StepUpTestCase {
 		$this->give(StepUpPolicy::ProtectedAccount, $this->alice);
 		$this->basicAuth($this->alice);
 		$this->login($this->alice);
-		$this->assertSame(StepUpState::REFUSED_CLIENT, $this->stepUp()?->status);
+		$this->assertSame(ConfirmationStatus::RefusedClient, $this->stepUp()?->status);
 	}
 
 	public function testAppsOfAnAccountWithARememberedDeviceAreRefusedWhereTheDeviceCounts(): void {
@@ -495,7 +495,7 @@ class StepUpTest extends StepUpTestCase {
 		$this->give(StepUpPolicy::ProtectedAccount, $bob);
 		$this->basicAuth($bob);
 		$this->login($bob);
-		$this->assertSame(StepUpState::REFUSED_CLIENT, $this->stepUp()?->status, 'The account holder can confirm from the remembered browser');
+		$this->assertSame(ConfirmationStatus::RefusedClient, $this->stepUp()?->status, 'The account holder can confirm from the remembered browser');
 
 		$carol = $this->user('ids-stepup-device-breached', null);
 		$this->knownDevices()->remember($carol, SourceKey::fromIp('192.0.2.30'), 'Mozilla/5.0 (X11; Linux x86_64) Firefox/140.0');
@@ -521,7 +521,7 @@ class StepUpTest extends StepUpTestCase {
 			$this->session->clear();
 			$this->session->id = null;
 			$this->login($this->alice);
-			$this->assertSame(StepUpState::REFUSED_CLIENT, $this->stepUp()?->status, 'Still refused, request ' . $i);
+			$this->assertSame(ConfirmationStatus::RefusedClient, $this->stepUp()?->status, 'Still refused, request ' . $i);
 		}
 		$this->assertSame(1, $this->detectionsOf(StepUpRefusedClient::ID)[0]->getHits(), 'Decided once, then repeated');
 
@@ -586,14 +586,14 @@ class StepUpTest extends StepUpTestCase {
 		$this->pathInfo = '/login';
 		$this->remoteAddress = '192.0.2.50';
 		$this->login($bob);
-		$this->assertSame(StepUpState::REFUSED, $this->stepUp()?->status, 'A refused login is no familiar place');
+		$this->assertSame(ConfirmationStatus::Refused, $this->stepUp()?->status, 'A refused login is no familiar place');
 
 		$this->session->clear();
 		$this->session->id = null;
 		$this->remoteAddress = '198.51.100.7';
 		$this->give(StepUpPolicy::FlaggedSource, $bob);
 		$this->login($bob);
-		$this->assertSame(StepUpState::REFUSED, $this->stepUp()?->status, 'Only the protection is lifted for familiar places');
+		$this->assertSame(ConfirmationStatus::Refused, $this->stepUp()?->status, 'Only the protection is lifted for familiar places');
 	}
 
 	public function testAppsSendingThePasswordAreRefusedAndTheUserIsToldOnceADay(): void {
@@ -601,14 +601,14 @@ class StepUpTest extends StepUpTestCase {
 		$this->give(StepUpPolicy::ProtectedAccount, $this->alice);
 		$this->basicAuth($this->alice);
 		$this->login($this->alice);
-		$this->assertSame(StepUpState::REFUSED_CLIENT, $this->stepUp()?->status);
+		$this->assertSame(ConfirmationStatus::RefusedClient, $this->stepUp()?->status);
 		$this->assertNull($this->lastCode($this->alice->getUID()), 'No code: an app cannot enter it');
 
 		for ($i = 0; $i < 3; $i++) {
 			$this->session->clear();
 			$this->session->id = null;
 			$this->login($this->alice);
-			$this->assertSame(StepUpState::REFUSED_CLIENT, $this->stepUp()?->status);
+			$this->assertSame(ConfirmationStatus::RefusedClient, $this->stepUp()?->status);
 		}
 		$detections = $this->detectionsOf(StepUpRefusedClient::ID);
 		$this->assertCount(1, $detections, 'One detection per account and day');
@@ -664,7 +664,7 @@ class StepUpTest extends StepUpTestCase {
 		$this->cookies['nc_session_id'] = $old;
 		$this->method = 'GET';
 		$this->listener()->handle(new UserLoggedInWithCookieEvent($this->alice, null));
-		$this->assertSame(StepUpState::RESUMED, $this->stepUp()?->status);
+		$this->assertSame(ConfirmationStatus::Resumed, $this->stepUp()?->status);
 
 		$block = $this->rule()->check($this->state, \OCA\IntrusionDetection\SessionState\RequestTarget::dav('PROPFIND', '/remote.php/dav/files/'));
 		$this->assertNotNull($block);
@@ -685,7 +685,7 @@ class StepUpTest extends StepUpTestCase {
 		$this->session->id = $token['secret'];
 		$this->method = 'GET';
 		$this->login($this->alice, self::PASSWORD, tokenLogin: true);
-		$this->assertSame(StepUpState::RESUMED, $this->stepUp()?->status);
+		$this->assertSame(ConfirmationStatus::Resumed, $this->stepUp()?->status);
 	}
 
 	public function testOtherRememberedLoginsAreLeftAlone(): void {

@@ -10,12 +10,13 @@ declare(strict_types=1);
 namespace OCA\IntrusionDetection\Tests\Unit\Confirm;
 
 use OC\Session\Memory;
+use OCA\IntrusionDetection\Confirm\LoginConfirmationStore;
 use OCA\IntrusionDetection\Confirm\SessionConfirmation;
 use OCA\IntrusionDetection\Confirm\StepUpState;
+use OCA\IntrusionDetection\Confirm\UnconfirmedSessions;
 use OCA\IntrusionDetection\Login\CoreSession;
 use OCA\IntrusionDetection\Login\SessionMarkers;
 use OCA\IntrusionDetection\Takeover\Signals\UnconfirmedLoginSignal;
-use OCP\AppFramework\Utility\ITimeFactory;
 use OCP\Authentication\Token\IProvider;
 use OCP\ISession;
 use PHPUnit\Framework\Attributes\DataProvider;
@@ -108,7 +109,8 @@ class StoredSessionFormatTest extends TestCase {
 
 	private function level(ISession $session): string {
 		$state = new SessionMarkers($session, $this->createMock(LoggerInterface::class));
-		return (new SessionConfirmation($state, new CoreSession($session, $this->createMock(IProvider::class), $this->createMock(LoggerInterface::class)), $this->createMock(ITimeFactory::class)))->level('alice');
+		$coreSession = new CoreSession($session, $this->createMock(IProvider::class), $this->createMock(LoggerInterface::class));
+		return (new SessionConfirmation(new LoginConfirmationStore($state, $this->createMock(UnconfirmedSessions::class), $coreSession), $coreSession))->level('alice');
 	}
 
 	private function riskyLogin(ISession $session): ?\OCA\IntrusionDetection\Takeover\RiskyLogin {

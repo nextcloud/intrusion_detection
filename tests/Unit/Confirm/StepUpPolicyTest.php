@@ -10,6 +10,7 @@ declare(strict_types=1);
 namespace OCA\IntrusionDetection\Tests\Unit\Confirm;
 
 use OCA\IntrusionDetection\Config\GlobalSettings;
+use OCA\IntrusionDetection\Confirm\ConfirmationStatus;
 use OCA\IntrusionDetection\Confirm\IStepUpReason;
 use OCA\IntrusionDetection\Confirm\NoMethodOutcome;
 use OCA\IntrusionDetection\Confirm\StepUpPolicy;
@@ -89,7 +90,7 @@ class StepUpPolicyTest extends TestCase {
 	}
 
 	public function testTheStateRoundTripsAndRejectsGarbage(): void {
-		$state = new StepUpState('alice', StepUpState::PENDING, ['flagged_source'], 100, 1000, '198.51.100.7', ['email_code'], '$2y$hash', 700, 2, [150, 160], null, 42, true);
+		$state = new StepUpState('alice', ConfirmationStatus::Pending, ['flagged_source'], 100, 1000, '198.51.100.7', ['email_code'], '$2y$hash', 700, 2, [150, 160], null, 42, true);
 		$copy = StepUpState::fromArray($state->toArray());
 		$this->assertEquals($state, $copy);
 		$this->assertNull(StepUpState::fromArray([]));

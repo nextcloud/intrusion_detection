@@ -11,10 +11,11 @@ namespace OCA\IntrusionDetection\SessionState\Rules;
 
 use OCA\IntrusionDetection\AppInfo\Application;
 use OCA\IntrusionDetection\Check\Checks\StepUpFailed\StepUpFailed;
+use OCA\IntrusionDetection\Confirm\ConfirmationStatus;
 use OCA\IntrusionDetection\Confirm\LoginConfirmation;
+use OCA\IntrusionDetection\Confirm\LoginConfirmations;
 use OCA\IntrusionDetection\Confirm\LoginDetections;
 use OCA\IntrusionDetection\Confirm\SecondFactorSetup;
-use OCA\IntrusionDetection\Confirm\StepUpService;
 use OCA\IntrusionDetection\Confirm\StepUpState;
 use OCA\IntrusionDetection\Login\SessionMarkers;
 use OCA\IntrusionDetection\SessionState\ISessionStateRule;
@@ -35,7 +36,7 @@ use Psr\Log\LoggerInterface;
  * `{"error": "step_up_required"}`, WebDAV requests 403 with
  * `X-Nextcloud-Step-Up: required`.
  *
- * - A login that is not confirmed within {@see StepUpService::SESSION_TTL} is failed
+ * - A login that is not confirmed within {@see LoginConfirmations::SESSION_TTL} is failed
  *   here, on its next request: the session ends.
  * - A refused login can only open the verify page, which says why and ends it.
  * - A refused app login (Basic auth) is refused for every request.
@@ -105,24 +106,24 @@ class StepUpRule implements ISessionStateRule {
 			return null;
 		}
 
-		if ($stepUp->status === StepUpState::RESUMED
+		if ($stepUp->status === ConfirmationStatus::Resumed
 			|| ($stepUp->isPending() && $this->timeFactory->getTime() >= $stepUp->deadline)) {
-			$rule = $stepUp->status === StepUpState::RESUMED ? StepUpFailed::RULE_RESUMED : StepUpFailed::RULE_TIMEOUT;
+			$rule = $stepUp->status === ConfirmationStatus::Resumed ? StepUpFailed::RULE_RESUMED : StepUpFailed::RULE_TIMEOUT;
 			try {
-				$this->container->get(StepUpService::class)->fail($stepUp, $rule);
+				$this->container->get(LoginConfirmations::class)->fail($stepUp, $rule);
 			} catch (\Throwable $e) {
 				// The request stays blocked: an error must not turn an unconfirmed login into a confirmed one.
 				$this->logger->error('Intrusion detection could not end an unconfirmed login', ['exception' => $e]);
 			}
 			return $this->block(self::ERROR, $this->urlGenerator->linkToRoute(self::ENDED_ROUTE, ['reason' => $rule]), self::MESSAGE_ENDED);
 		}
-		if ($stepUp->status === StepUpState::REFUSED_CLIENT) {
+		if ($stepUp->status === ConfirmationStatus::RefusedClient) {
 			return $this->block(self::ERROR, null, self::MESSAGE_CLIENT);
 		}
 		if (!$target->dav && $this->isExempt($stepUp, $target)) {
 			return null;
 		}
-		$refused = $stepUp->status === StepUpState::REFUSED;
+		$refused = $stepUp->status === ConfirmationStatus::Refused;
 		return $this->block(
 			$refused ? self::ERROR_REFUSED : self::ERROR,
 			$this->urlGenerator->linkToRoute(self::ROUTE, ['redirect_url' => $target->uri]),
@@ -142,7 +143,7 @@ class StepUpRule implements ISessionStateRule {
 		if ($target->isRoute(LoginFlowRoute::Logout) || $target->isPublicResource()) {
 			return true;
 		}
-		if ($stepUp->status === StepUpState::REFUSED) {
+		if ($stepUp->status === ConfirmationStatus::Refused) {
 			return $target->isRoute(LoginFlowRoute::Verify) && $target->isMethod('show');
 		}
 		return $target->isRoute(LoginFlowRoute::Verify, LoginFlowRoute::SecondFactorChallenge)

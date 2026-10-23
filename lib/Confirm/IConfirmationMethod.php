@@ -52,11 +52,8 @@ interface IConfirmationMethod {
 	public function isAvailableInBrowser(IUser $user, StepUpPolicy $policy): bool;
 
 	/**
-	 * Start confirming a login with this method, at the login itself.
-	 * The method may keep what it needs in the state, never a secret in
-	 * plain text.
-	 *
-	 * @return self::CONFIRMED|self::PENDING|self::UNAVAILABLE
+	 * Start confirming a login with this method. The method may keep what
+	 * it needs in the state it returns, never a secret in plain text.
 	 */
-	public function begin(IUser $user, StepUpState $state): string;
+	public function begin(IUser $user, StepUpState $state): MethodStart;
 }

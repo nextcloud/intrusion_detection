@@ -10,8 +10,6 @@ declare(strict_types=1);
 namespace OCA\IntrusionDetection\Confirm;
 
 use OCA\IntrusionDetection\Login\CoreSession;
-use OCA\IntrusionDetection\Login\SessionMarkers;
-use OCP\AppFramework\Utility\ITimeFactory;
 
 /**
  * How much the current session's login proved, for decisions a session
@@ -35,9 +33,8 @@ class SessionConfirmation {
 	public const PROVEN = 'proven';
 
 	public function __construct(
-		private readonly SessionMarkers $state,
+		private readonly LoginConfirmationStore $store,
 		private readonly CoreSession $coreSession,
-		private readonly ITimeFactory $timeFactory,
 	) {
 	}
 
@@ -71,22 +68,12 @@ class SessionConfirmation {
 	}
 
 	/**
-	 * A login that needed no step-up proved more than the password anyway:
-	 * core's second factor, or a known device.
-	 *
-	 * @param IConfirmationMethod::SECOND_FACTOR|IConfirmationMethod::KNOWN_DEVICE $by
-	 */
-	public function proved(string $uid, string $by): void {
-		$this->state->set(SessionMarkers::PROOF, ['uid' => $uid, 'by' => $by, 'at' => $this->timeFactory->getTime()]);
-	}
-
-	/**
 	 * What the session's login proved, whatever the request authenticated with.
 	 *
 	 * @return self::UNCONFIRMED|self::PASSWORD|self::PROVEN
 	 */
 	private function loginLevel(string $uid): string {
-		return LoginConfirmation::fromMarkers($this->state->all(), $uid)->level();
+		return $this->store->of($uid)->level();
 	}
 
 	private function isAppPassword(): bool {

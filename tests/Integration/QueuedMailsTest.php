@@ -14,14 +14,14 @@ use OCA\IntrusionDetection\AppInfo\Application;
 use OCA\IntrusionDetection\Audit\AuditLogger;
 use OCA\IntrusionDetection\Check\CheckRegistry;
 use OCA\IntrusionDetection\Check\Checks\SecondFactorFailed\SecondFactorFailed;
+use OCA\IntrusionDetection\Confirm\ConfirmationStatus;
 use OCA\IntrusionDetection\Confirm\EmailCodes;
+use OCA\IntrusionDetection\Confirm\LoginConfirmationStore;
 use OCA\IntrusionDetection\Confirm\StepUpState;
-use OCA\IntrusionDetection\Confirm\UnconfirmedSessions;
 use OCA\IntrusionDetection\Definition\ResponseType;
 use OCA\IntrusionDetection\Detection\DetectionDraft;
 use OCA\IntrusionDetection\Detection\DetectionService;
 use OCA\IntrusionDetection\Event\TypedEvents;
-use OCA\IntrusionDetection\Login\CoreSession;
 use OCA\IntrusionDetection\Net\SourceKey;
 use OCA\IntrusionDetection\Notification\AdminNotices;
 use OCA\IntrusionDetection\Notification\Db\AlertMapper;
@@ -103,13 +103,12 @@ class QueuedMailsTest extends AccountTestCase {
 			$this->slowMails(),
 			Server::get(UserMessages::class),
 			Server::get(ITimeFactory::class),
-			Server::get(UnconfirmedSessions::class),
-			Server::get(CoreSession::class),
+			Server::get(LoginConfirmationStore::class),
 			Server::get(IUserConfig::class),
 		);
-		$state = new StepUpState($user->getUID(), StepUpState::PENDING, ['protected_account'], time(), time() + 600, '198.51.100.7');
+		$state = new StepUpState($user->getUID(), ConfirmationStatus::Pending, ['protected_account'], time(), time() + 600, '198.51.100.7');
 
-		$this->assertTrue($codes->issue($user, $state));
+		$this->assertNotNull($codes->issue($user, $state)->codeHash);
 
 		$this->assertCount(1, $this->delivered, 'Sent in the request the user waits in');
 		$this->assertSame('Confirm your login', $this->delivered[0]->getSubject());

@@ -9,12 +9,11 @@ declare(strict_types=1);
 
 namespace OCA\IntrusionDetection\Tests\Integration;
 
-use OCA\IntrusionDetection\Audit\AuditLogger;
 use OCA\IntrusionDetection\Check\Checks\StepUpFailed\StepUpFailed;
 use OCA\IntrusionDetection\Config\GlobalSettings;
 use OCA\IntrusionDetection\Confirm\AbandonedLogins;
 use OCA\IntrusionDetection\Confirm\Db\StepUpSessionMapper;
-use OCA\IntrusionDetection\Confirm\StepUpService;
+use OCA\IntrusionDetection\Confirm\LoginConfirmations;
 use OCA\IntrusionDetection\Db\BanMapper;
 use OCA\IntrusionDetection\LoginHistory\Db\LoginHistoryMapper;
 use OCA\IntrusionDetection\LoginHistory\LoginHistory;
@@ -71,8 +70,7 @@ class AbandonedLoginsTest extends StepUpTestCase {
 		$stepUp = $this->stepUp();
 		$this->assertNotNull($stepUp);
 		$this->moveDeadline(time() - 1);
-		$stepUp->deadline = time() + 1800;
-		$this->service()->save($stepUp);
+		$this->service()->update($stepUp->withDeadline(time() + 1800));
 		$this->assertSame(0, $this->abandoned()->purge(time()), 'Still waiting for an administrator');
 	}
 
@@ -133,7 +131,7 @@ class AbandonedLoginsTest extends StepUpTestCase {
 		$migration->postSchemaChange($this->createMock(IOutput::class), static fn () => null, []);
 
 		$deadlines = array_column($this->deadlines(), 'deadline', 'uid');
-		$this->assertSame($now - 60 + StepUpService::SESSION_TTL, $deadlines[$this->alice->getUID()] ?? null, 'When it started, plus the time a login may wait');
+		$this->assertSame($now - 60 + LoginConfirmations::SESSION_TTL, $deadlines[$this->alice->getUID()] ?? null, 'When it started, plus the time a login may wait');
 		$this->assertArrayHasKey($carol->getUID(), $deadlines);
 		$this->assertNull($deadlines[$carol->getUID()], 'Past its time: no deadline the job would act on');
 		$this->assertSame(LoginHistory::STEP_UP_FAILED, $history->forUser($carol->getUID(), 0)[0]->stepUp, 'Ended quietly');
@@ -170,13 +168,6 @@ class AbandonedLoginsTest extends StepUpTestCase {
 	}
 
 	private function abandoned(): AbandonedLogins {
-		return new AbandonedLogins(
-			Server::get(StepUpSessionMapper::class),
-			Server::get(LoginHistory::class),
-			$this->engine(),
-			$this->appSettings(),
-			Server::get(AuditLogger::class),
-			Server::get(LoggerInterface::class),
-		);
+		return new AbandonedLogins(Server::get(StepUpSessionMapper::class), $this->service(), $this->appSettings(), Server::get(LoggerInterface::class));
 	}
 }

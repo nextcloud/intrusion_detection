@@ -11,6 +11,7 @@ namespace OCA\IntrusionDetection\Confirm\Methods;
 
 use OCA\IntrusionDetection\Confirm\AccountMethods;
 use OCA\IntrusionDetection\Confirm\IConfirmationMethod;
+use OCA\IntrusionDetection\Confirm\MethodStart;
 use OCA\IntrusionDetection\Confirm\StepUpPolicy;
 use OCA\IntrusionDetection\Confirm\StepUpState;
 use OCA\IntrusionDetection\Confirm\UntrustedSecondFactors;
@@ -54,16 +55,14 @@ class SecondFactorMethod implements IConfirmationMethod {
 	}
 
 	#[\Override]
-	public function begin(IUser $user, StepUpState $state): string {
+	public function begin(IUser $user, StepUpState $state): MethodStart {
 		try {
 			$this->challenges->requestChallenge($user, '');
 		} catch (\LogicException) {
-			return self::UNAVAILABLE;
+			return new MethodStart(self::UNAVAILABLE, $state);
 		}
-		$state->secondFactorRequested = true;
 		// Other methods would need to be started now (an email code): this one is answered at core's challenge.
-		$state->methods = [self::SECOND_FACTOR];
-		return self::PENDING;
+		return new MethodStart(self::PENDING, $state->withSecondFactorRequested()->withMethods([self::SECOND_FACTOR]));
 	}
 
 	/**

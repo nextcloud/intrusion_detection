@@ -16,6 +16,7 @@ use OCA\IntrusionDetection\Config\AppSettings;
 use OCA\IntrusionDetection\Config\GlobalSettings;
 use OCA\IntrusionDetection\Confirm\AccountMethods;
 use OCA\IntrusionDetection\Confirm\ConfirmationPolicy;
+use OCA\IntrusionDetection\Confirm\ConfirmationStatus;
 use OCA\IntrusionDetection\Confirm\EmailCodes;
 use OCA\IntrusionDetection\Confirm\IConfirmationMethod;
 use OCA\IntrusionDetection\Confirm\Methods\AdminApprovalMethod;
@@ -121,10 +122,10 @@ class ConfirmationOrderTest extends TestCase {
 
 	public function testAKnownDeviceConfirmsSilently(): void {
 		$this->knownDevice = true;
-		$state = new StepUpState('alice', StepUpState::PENDING, ['flagged_source'], self::NOW, self::NOW + 900);
-		$this->assertSame(IConfirmationMethod::CONFIRMED, $this->knownDeviceMethod()->begin($this->user(), $state));
+		$state = new StepUpState('alice', ConfirmationStatus::Pending, ['flagged_source'], self::NOW, self::NOW + 900);
+		$this->assertSame(IConfirmationMethod::CONFIRMED, $this->knownDeviceMethod()->begin($this->user(), $state)->outcome);
 		$this->knownDevice = false;
-		$this->assertSame(IConfirmationMethod::UNAVAILABLE, $this->knownDeviceMethod()->begin($this->user(), $state));
+		$this->assertSame(IConfirmationMethod::UNAVAILABLE, $this->knownDeviceMethod()->begin($this->user(), $state)->outcome);
 	}
 
 	public function testAdminApprovalNeedsTheSettingAndAnotherAdministrator(): void {
@@ -140,15 +141,18 @@ class ConfirmationOrderTest extends TestCase {
 	public function testAdminApprovalWaitsAsLongAsTheRequest(): void {
 		$this->approval = true;
 		$this->requested = $this->approvalRow(Approval::STATUS_PENDING, self::NOW + 1800);
-		$state = new StepUpState('alice', StepUpState::PENDING, ['flagged_source'], self::NOW, self::NOW + 900, '203.0.113.7');
-		$this->assertSame(IConfirmationMethod::PENDING, $this->approvalMethod()->begin($this->user(), $state));
+		$state = new StepUpState('alice', ConfirmationStatus::Pending, ['flagged_source'], self::NOW, self::NOW + 900, '203.0.113.7');
+		$start = $this->approvalMethod()->begin($this->user(), $state);
+		$this->assertSame(IConfirmationMethod::PENDING, $start->outcome);
+		$state = $start->state;
 		$this->assertSame(41, $state->approvalId);
 		$this->assertSame(self::NOW + 1800, $state->deadline, 'The login may wait until the request expires');
 
 		$this->requested = null;
-		$other = new StepUpState('alice', StepUpState::PENDING, ['flagged_source'], self::NOW, self::NOW + 900);
-		$this->assertSame(IConfirmationMethod::UNAVAILABLE, $this->approvalMethod()->begin($this->user(), $other), 'No request could be stored');
-		$this->assertNull($other->approvalId);
+		$other = new StepUpState('alice', ConfirmationStatus::Pending, ['flagged_source'], self::NOW, self::NOW + 900);
+		$start = $this->approvalMethod()->begin($this->user(), $other);
+		$this->assertSame(IConfirmationMethod::UNAVAILABLE, $start->outcome, 'No request could be stored');
+		$this->assertNull($start->state->approvalId);
 	}
 
 	/**
@@ -169,7 +173,7 @@ class ConfirmationOrderTest extends TestCase {
 	public function testTheStatusOfTheRequest(string $status, ?string $decidedBy, int $expiresAt, string $expected): void {
 		$row = $this->approvalRow($status, $expiresAt);
 		$row->setDecidedBy($decidedBy);
-		$state = new StepUpState('alice', StepUpState::PENDING, ['flagged_source'], self::NOW, self::NOW + 900, approvalId: 41);
+		$state = new StepUpState('alice', ConfirmationStatus::Pending, ['flagged_source'], self::NOW, self::NOW + 900, approvalId: 41);
 		$this->assertSame($expected, $this->approvalMethod($row)->status($this->user(), $state));
 	}
 
@@ -177,7 +181,7 @@ class ConfirmationOrderTest extends TestCase {
 		$row = $this->approvalRow(Approval::STATUS_APPROVED, self::NOW + 60);
 		$row->setSubjectUid('mallory');
 		$row->setDecidedBy('carol');
-		$state = new StepUpState('alice', StepUpState::PENDING, ['flagged_source'], self::NOW, self::NOW + 900, approvalId: 41);
+		$state = new StepUpState('alice', ConfirmationStatus::Pending, ['flagged_source'], self::NOW, self::NOW + 900, approvalId: 41);
 		$this->assertSame(AdminApprovalMethod::STATUS_NONE, $this->approvalMethod($row)->status($this->user(), $state));
 	}
 

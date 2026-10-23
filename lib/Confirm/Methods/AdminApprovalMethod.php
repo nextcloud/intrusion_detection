@@ -13,6 +13,7 @@ use OCA\IntrusionDetection\AdminChange\ApprovalService;
 use OCA\IntrusionDetection\AdminChange\Approvers;
 use OCA\IntrusionDetection\Config\AppSettings;
 use OCA\IntrusionDetection\Confirm\IConfirmationMethod;
+use OCA\IntrusionDetection\Confirm\MethodStart;
 use OCA\IntrusionDetection\Confirm\StepUpPolicy;
 use OCA\IntrusionDetection\Confirm\StepUpState;
 use OCA\IntrusionDetection\Db\Approval;
@@ -29,7 +30,7 @@ use OCP\IUser;
  * expires after TTL, and the login may wait that long. A login asks once,
  * and only before its own deadline: the step-up rule ends it on the first
  * request after that, so the wait never exceeds
- * {@see \OCA\IntrusionDetection\Confirm\StepUpService::SESSION_TTL} plus
+ * {@see \OCA\IntrusionDetection\Confirm\LoginConfirmations::SESSION_TTL} plus
  * one approval's time. When its request was rejected or has expired, the
  * login ends.
  *
@@ -82,14 +83,12 @@ class AdminApprovalMethod implements IConfirmationMethod {
 	 * Ask the administrators. The login may wait until the request expires.
 	 */
 	#[\Override]
-	public function begin(IUser $user, StepUpState $state): string {
+	public function begin(IUser $user, StepUpState $state): MethodStart {
 		$approval = $this->approvals->requestLogin($user, $state->ip, self::TTL);
 		if ($approval === null) {
-			return self::UNAVAILABLE;
+			return new MethodStart(self::UNAVAILABLE, $state);
 		}
-		$state->approvalId = $approval->getId();
-		$state->deadline = max($state->deadline, $approval->getExpiresAt());
-		return self::PENDING;
+		return new MethodStart(self::PENDING, $state->withApproval($approval->getId(), $approval->getExpiresAt()));
 	}
 
 	/**

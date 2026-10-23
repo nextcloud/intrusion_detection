@@ -12,7 +12,6 @@ namespace OCA\IntrusionDetection\Confirm;
 use OCA\IntrusionDetection\AppInfo\Application;
 use OCA\IntrusionDetection\Config\UserKeys;
 use OCA\IntrusionDetection\Explain\TextRenderer;
-use OCA\IntrusionDetection\Login\CoreSession;
 use OCA\IntrusionDetection\Notification\MailContent;
 use OCA\IntrusionDetection\Notification\Mails;
 use OCA\IntrusionDetection\Notification\UserMessages;
@@ -59,8 +58,7 @@ class EmailCodes {
 		private readonly Mails $mails,
 		private readonly UserMessages $messages,
 		private readonly ITimeFactory $timeFactory,
-		private readonly UnconfirmedSessions $sessions,
-		private readonly CoreSession $coreSession,
+		private readonly LoginConfirmationStore $store,
 		private readonly IUserConfig $userConfig,
 	) {
 	}
@@ -68,23 +66,20 @@ class EmailCodes {
 	/**
 	 * Send a new code. The earlier code, if any, stops working.
 	 *
-	 * @return bool whether the email was handed to the mail server; when not, or when the account got too many codes, the state keeps no code
+	 * @return StepUpState with the new code; with none when the email was not handed to the mail server or the account got too many codes
 	 */
-	public function issue(IUser $user, StepUpState $state): bool {
-		$state->codeHash = null;
-		$state->codeExpires = 0;
+	public function issue(IUser $user, StepUpState $state): StepUpState {
+		$state = $state->withCode(null, 0);
 		$sent = $this->recentMails($user->getUID());
 		if (count($sent) >= self::MAX_MAILS) {
-			return false;
+			return $state;
 		}
 		$code = $this->random->generate(self::LENGTH, ISecureRandom::CHAR_DIGITS);
 		if (!$this->mails->send($user, $this->mail($user, $state, $code))) {
-			return false;
+			return $state;
 		}
 		$this->userConfig->setValueArray($user->getUID(), Application::APP_ID, UserKeys::CODE_MAILS, [...$sent, $this->timeFactory->getTime()], lazy: true);
-		$state->codeHash = $this->hasher->hash($code);
-		$state->codeExpires = $this->timeFactory->getTime() + self::TTL;
-		return true;
+		return $state->withCode($this->hasher->hash($code), $this->timeFactory->getTime() + self::TTL);
 	}
 
 	/**
@@ -104,47 +99,43 @@ class EmailCodes {
 	/**
 	 * Send another code, if the limit allows it.
 	 *
-	 * @return bool whether a new code was sent
+	 * @return ?StepUpState null when the limit does not allow it; else as {@see self::issue()}
 	 */
-	public function resend(IUser $user, StepUpState $state): bool {
+	public function resend(IUser $user, StepUpState $state): ?StepUpState {
 		if (!$this->canResend($state)) {
-			return false;
+			return null;
 		}
-		$state->resends = [...$this->recentResends($state), $this->timeFactory->getTime()];
-		return $this->issue($user, $state);
+		return $this->issue($user, $state->withResends([...$this->recentResends($state), $this->timeFactory->getTime()]));
 	}
 
 	/**
 	 * Check an entered code. A wrong code counts as an attempt; a correct
 	 * one is used up.
 	 *
-	 * @return self::VERIFIED|self::WRONG|self::EXPIRED|self::MALFORMED|self::EXHAUSTED
+	 * @return array{0: self::VERIFIED|self::WRONG|self::EXPIRED|self::MALFORMED|self::EXHAUSTED, 1: StepUpState} the result, and the state with the attempt counted or the code used up
 	 */
-	public function verify(StepUpState $state, #[\SensitiveParameter] string $input): string {
+	public function verify(StepUpState $state, #[\SensitiveParameter] string $input): array {
 		if ($state->attempts >= self::MAX_ATTEMPTS) {
-			return self::EXHAUSTED;
+			return [self::EXHAUSTED, $state];
 		}
 		$code = preg_replace('/[\s-]+/', '', $input) ?? '';
 		if (preg_match('/^\d{' . self::LENGTH . '}$/', $code) !== 1) {
-			return self::MALFORMED;
+			return [self::MALFORMED, $state];
 		}
 		if ($state->codeHash === null || $state->codeExpires <= $this->timeFactory->getTime()) {
-			return self::EXPIRED;
+			return [self::EXPIRED, $state];
 		}
-		$used = $this->sessions->takeCodeAttempt($this->sessionId(), self::MAX_ATTEMPTS);
+		$used = $this->store->takeCodeAttempt(self::MAX_ATTEMPTS);
 		if ($used === null) {
-			$state->attempts = self::MAX_ATTEMPTS;
-			return self::EXHAUSTED;
+			return [self::EXHAUSTED, $state->withAttempts(self::MAX_ATTEMPTS)];
 		}
 		// The tries before this one, as the server counted them.
-		$state->attempts = max($state->attempts, $used - 1);
+		$state = $state->withAttempts(max($state->attempts, $used - 1));
 		if (!$this->hasher->verify($code, $state->codeHash)) {
-			$state->attempts++;
-			return $state->attempts >= self::MAX_ATTEMPTS ? self::EXHAUSTED : self::WRONG;
+			$state = $state->withAttempts($state->attempts + 1);
+			return [$state->attempts >= self::MAX_ATTEMPTS ? self::EXHAUSTED : self::WRONG, $state];
 		}
-		$state->codeHash = null;
-		$state->codeExpires = 0;
-		return self::VERIFIED;
+		return [self::VERIFIED, $state->withCode(null, 0)];
 	}
 
 	public function attemptsLeft(StepUpState $state): int {
@@ -161,10 +152,6 @@ class EmailCodes {
 			return '***';
 		}
 		return mb_substr(substr($address, 0, $at), 0, 1) . '***' . substr($address, $at);
-	}
-
-	private function sessionId(): string {
-		return $this->coreSession->sessionId() ?? '';
 	}
 
 	/**

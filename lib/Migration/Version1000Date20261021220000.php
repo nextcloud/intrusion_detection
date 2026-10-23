@@ -12,7 +12,7 @@ namespace OCA\IntrusionDetection\Migration;
 use Closure;
 use OCA\IntrusionDetection\Audit\AuditLogger;
 use OCA\IntrusionDetection\Confirm\Db\StepUpSessionMapper;
-use OCA\IntrusionDetection\Confirm\StepUpService;
+use OCA\IntrusionDetection\Confirm\LoginConfirmations;
 use OCA\IntrusionDetection\LoginHistory\Db\LoginHistoryMapper;
 use OCA\IntrusionDetection\LoginHistory\LoginHistory;
 use OCP\AppFramework\Utility\ITimeFactory;
@@ -30,7 +30,7 @@ use OCP\Migration\SimpleMigrationStep;
  * Pending logins remembered before their deadline was kept are found by
  * the login history ({@see LoginHistoryMapper::pendingAround()}); refused
  * and ended logins keep no deadline. One still within
- * {@see StepUpService::SESSION_TTL} of its start gets that deadline, so that the
+ * {@see LoginConfirmations::SESSION_TTL} of its start gets that deadline, so that the
  * background job ends it as usual. One already past it ends quietly, as
  * {@see \OCA\IntrusionDetection\Confirm\AbandonedLogins} ends logins while
  * protection is off: the history says it failed, nobody is told days
@@ -69,7 +69,7 @@ class Version1000Date20261021220000 extends SimpleMigrationStep {
 
 	#[\Override]
 	public function postSchemaChange(IOutput $output, Closure $schemaClosure, array $options): void {
-		$ttl = StepUpService::SESSION_TTL;
+		$ttl = LoginConfirmations::SESSION_TTL;
 		$now = $this->timeFactory->getTime();
 		$filled = 0;
 		$ended = 0;

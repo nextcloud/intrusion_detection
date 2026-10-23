@@ -10,19 +10,17 @@ declare(strict_types=1);
 namespace OCA\IntrusionDetection\Tests\Integration;
 
 use OCA\IntrusionDetection\AdminChange\ApprovalService;
-use OCA\IntrusionDetection\Audit\AuditLogger;
 use OCA\IntrusionDetection\Config\GlobalSettings;
 use OCA\IntrusionDetection\Confirm\AbandonedLogins;
 use OCA\IntrusionDetection\Confirm\Db\StepUpSessionMapper;
 use OCA\IntrusionDetection\Confirm\LoginConfirmation;
+use OCA\IntrusionDetection\Confirm\LoginConfirmations;
 use OCA\IntrusionDetection\Confirm\SessionConfirmation;
 use OCA\IntrusionDetection\Confirm\StepUpPolicy;
-use OCA\IntrusionDetection\Confirm\StepUpService;
 use OCA\IntrusionDetection\Db\DetectionFilter;
 use OCA\IntrusionDetection\Db\DetectionMapper;
 use OCA\IntrusionDetection\Login\SessionMarkers;
 use OCA\IntrusionDetection\LoginHistory\Db\LoginHistoryMapper;
-use OCA\IntrusionDetection\LoginHistory\LoginHistory;
 use OCA\IntrusionDetection\Net\SourceKey;
 use OCA\IntrusionDetection\Response\AccountProtection;
 use OCA\IntrusionDetection\Response\FlaggedSources;
@@ -83,7 +81,7 @@ class LoginConfirmationTransitionsTest extends StepUpTestCase {
 	public function testARefusedAppWithCoresCookieTestIsRemembered(): void {
 		$this->flagSource();
 		$this->basicAuth($this->alice);
-		$this->cookies[StepUpService::COOKIE_TEST] = 'test';
+		$this->cookies[LoginConfirmations::COOKIE_TEST] = 'test';
 		$this->loginThroughTheApp($this->alice);
 		$this->assertSame($this->expected(stepUp: 'refused_client', rows: ['kept'], history: ['refused', 'none'], detections: ['step_up_refused_client']), $this->snapshot($this->alice));
 	}
@@ -263,14 +261,7 @@ class LoginConfirmationTransitionsTest extends StepUpTestCase {
 	}
 
 	private function abandonedLogins(): AbandonedLogins {
-		return new AbandonedLogins(
-			Server::get(StepUpSessionMapper::class),
-			Server::get(LoginHistory::class),
-			$this->engine(),
-			$this->appSettings(),
-			Server::get(AuditLogger::class),
-			Server::get(LoggerInterface::class),
-		);
+		return new AbandonedLogins(Server::get(StepUpSessionMapper::class), $this->service(), $this->appSettings(), Server::get(LoggerInterface::class));
 	}
 
 	private function flagSource(): void {
