@@ -88,6 +88,7 @@ class ComposerStaticInitIntrusionDetection
         'OCA\\IntrusionDetection\\Blocklist\\Parser\\JsonDocument' => __DIR__ . '/..' . '/../lib/Blocklist/Parser/JsonDocument.php',
         'OCA\\IntrusionDetection\\Blocklist\\Parser\\Lines' => __DIR__ . '/..' . '/../lib/Blocklist/Parser/Lines.php',
         'OCA\\IntrusionDetection\\Blocklist\\Parser\\ListFormatException' => __DIR__ . '/..' . '/../lib/Blocklist/Parser/ListFormatException.php',
+        'OCA\\IntrusionDetection\\Blocklist\\Parser\\ListTooLongException' => __DIR__ . '/..' . '/../lib/Blocklist/Parser/ListTooLongException.php',
         'OCA\\IntrusionDetection\\Blocklist\\Parser\\OracleCloudParser' => __DIR__ . '/..' . '/../lib/Blocklist/Parser/OracleCloudParser.php',
         'OCA\\IntrusionDetection\\Blocklist\\Parser\\ParsedList' => __DIR__ . '/..' . '/../lib/Blocklist/Parser/ParsedList.php',
         'OCA\\IntrusionDetection\\Blocklist\\Parser\\SpamhausDropParser' => __DIR__ . '/..' . '/../lib/Blocklist/Parser/SpamhausDropParser.php',

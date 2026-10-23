@@ -16,12 +16,12 @@ namespace OCA\IntrusionDetection\Blocklist\Parser;
  */
 class AwsIpRangesParser implements IListParser {
 	#[\Override]
-	public function parse(string $body): ParsedList {
+	public function parse(string $body, int $maxEntries = PHP_INT_MAX): ParsedList {
 		$data = JsonDocument::decode($body);
 		if (!isset($data['prefixes']) && !isset($data['ipv6_prefixes'])) {
 			throw new ListFormatException('Not an AWS ip-ranges document');
 		}
-		$list = new ParsedList();
+		$list = new ParsedList($maxEntries);
 		JsonDocument::collect($list, $data['prefixes'] ?? null, 'ip_prefix');
 		JsonDocument::collect($list, $data['ipv6_prefixes'] ?? null, 'ipv6_prefix');
 		return $list;

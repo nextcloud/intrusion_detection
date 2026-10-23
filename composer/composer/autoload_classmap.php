@@ -73,6 +73,7 @@ return array(
     'OCA\\IntrusionDetection\\Blocklist\\Parser\\JsonDocument' => $baseDir . '/../lib/Blocklist/Parser/JsonDocument.php',
     'OCA\\IntrusionDetection\\Blocklist\\Parser\\Lines' => $baseDir . '/../lib/Blocklist/Parser/Lines.php',
     'OCA\\IntrusionDetection\\Blocklist\\Parser\\ListFormatException' => $baseDir . '/../lib/Blocklist/Parser/ListFormatException.php',
+    'OCA\\IntrusionDetection\\Blocklist\\Parser\\ListTooLongException' => $baseDir . '/../lib/Blocklist/Parser/ListTooLongException.php',
     'OCA\\IntrusionDetection\\Blocklist\\Parser\\OracleCloudParser' => $baseDir . '/../lib/Blocklist/Parser/OracleCloudParser.php',
     'OCA\\IntrusionDetection\\Blocklist\\Parser\\ParsedList' => $baseDir . '/../lib/Blocklist/Parser/ParsedList.php',
     'OCA\\IntrusionDetection\\Blocklist\\Parser\\SpamhausDropParser' => $baseDir . '/../lib/Blocklist/Parser/SpamhausDropParser.php',

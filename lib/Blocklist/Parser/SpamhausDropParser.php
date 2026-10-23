@@ -16,8 +16,8 @@ namespace OCA\IntrusionDetection\Blocklist\Parser;
  */
 class SpamhausDropParser implements IListParser {
 	#[\Override]
-	public function parse(string $body): ParsedList {
-		$list = new ParsedList();
+	public function parse(string $body, int $maxEntries = PHP_INT_MAX): ParsedList {
+		$list = new ParsedList($maxEntries);
 		$objects = 0;
 		foreach (Lines::of($body) as $line) {
 			$line = trim($line);

@@ -14,12 +14,12 @@ namespace OCA\IntrusionDetection\Blocklist\Parser;
  */
 class OracleCloudParser implements IListParser {
 	#[\Override]
-	public function parse(string $body): ParsedList {
+	public function parse(string $body, int $maxEntries = PHP_INT_MAX): ParsedList {
 		$data = JsonDocument::decode($body);
 		if (!isset($data['regions']) || !is_array($data['regions'])) {
 			throw new ListFormatException('Not an Oracle Cloud ranges document');
 		}
-		$list = new ParsedList();
+		$list = new ParsedList($maxEntries);
 		foreach ($data['regions'] as $region) {
 			if (!is_array($region)) {
 				$list->malformed++;

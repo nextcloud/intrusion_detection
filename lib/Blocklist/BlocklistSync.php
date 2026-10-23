@@ -13,6 +13,7 @@ use OCA\IntrusionDetection\Address\AddressCache;
 use OCA\IntrusionDetection\Blocklist\Db\BlocklistRangeMapper;
 use OCA\IntrusionDetection\Blocklist\Db\BlocklistStatMapper;
 use OCA\IntrusionDetection\Blocklist\Parser\ListFormatException;
+use OCA\IntrusionDetection\Blocklist\Parser\ListTooLongException;
 use OCA\IntrusionDetection\Blocklist\Parser\ParsedList;
 use OCA\IntrusionDetection\Check\Checks\BlocklistMatch\BlocklistMatch;
 use OCA\IntrusionDetection\Config\CheckSettings;
@@ -35,7 +36,8 @@ use Psr\Log\LoggerInterface;
  *    three https redirects (each checked like the address itself), into a
  *    sink that aborts the transfer after MAX_BYTES ({@see LimitedSink}).
  * 3. Parse, and refuse a list that is empty, has more than MAX_ENTRIES
- *    entries, or more than 1 % malformed entries.
+ *    entries (parsing stops at the first one over), or more than 1 %
+ *    malformed entries.
  * 4. Write the ranges, merged so they never overlap, as a new version.
  * 5. Switch the list's active version in app config (one write), bump the
  *    address cache so every cached verdict is re-resolved, and delete
@@ -318,12 +320,11 @@ class BlocklistSync {
 	 */
 	private function parse(BlocklistSource $source, string $body): ParsedList {
 		try {
-			$parsed = $source->format->parser()->parse($body);
+			$parsed = $source->format->parser()->parse($body, self::MAX_ENTRIES);
 		} catch (ListFormatException $e) {
 			throw new SyncFailure(SyncFailure::INVALID_FORMAT, $e->getMessage());
-		}
-		if ($parsed->entries > self::MAX_ENTRIES) {
-			throw new SyncFailure(SyncFailure::TOO_MANY_ENTRIES, $parsed->entries . ' > ' . self::MAX_ENTRIES);
+		} catch (ListTooLongException $e) {
+			throw new SyncFailure(SyncFailure::TOO_MANY_ENTRIES, $e->getMessage());
 		}
 		if ($parsed->malformedShare() > self::MAX_MALFORMED_SHARE) {
 			throw new SyncFailure(SyncFailure::TOO_MANY_MALFORMED, $parsed->malformed . ' of ' . ($parsed->entries + $parsed->malformed));
