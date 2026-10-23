@@ -235,6 +235,8 @@ Everything lives under **Administration settings → Intrusion detection**, in f
 
 **Administrators from trusted networks only.** One switch in the login confirmation settings: a password login of an administrator from outside your trusted networks (office, VPN) then needs the second factor, an email code or, if you switched it on, another admin's approval. A remembered device is not enough, because the point is the network. Apps with app passwords are not affected. "Needs attention" warns you when the list of trusted networks is empty, or when an administrator has neither an email address nor a second factor, so nobody is locked out by surprise. `occ` keeps working from the server.
 
+**Four-eyes approval.** With "A second administrator approves new administrators" on, someone added to the admin group, or to a group with delegated administration settings, from the web or the API waits until another administrator approves. Switching that approval or intrusion detection off from the admin page, lowering the admin change alerts below Protect and "Reset all settings" wait for another administrator the same way. `occ` is not held back, and is reported. To make these settings unchangeable even with `occ`, set `'intrusion_detection.locked' => true` in `config.php`; see [Who may do what](docs/authorization.md).
+
 **Notifications and digest.** Admins in the chosen groups get a notification at most once per check, address and hour, and an email for severity High and above. A weekly digest (Monday 08:00, or daily, or off) sums up how each check did and what is still open.
 
 <details>
@@ -434,6 +436,8 @@ With a memory cache, a few microseconds; see [Light on resources](#-light-on-res
 - [Browser security](docs/browser-security.md)
 - [Resource limits](docs/limits.md)
 - [Functionality that needs care](docs/dangerous-functionality.md)
+- [Who may do what](docs/authorization.md): access rules, approvals, four-eyes approval and tamper resistance
+- [Keys and fingerprints](docs/keys.md): what is kept instead of secrets, and what changing the instance `secret` does
 
 ## Contributing and security
 
