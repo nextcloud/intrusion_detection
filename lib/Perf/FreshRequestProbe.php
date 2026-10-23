@@ -80,7 +80,7 @@ final class FreshRequestProbe {
 	 * The directory of this server's lib/base.php.
 	 */
 	public static function serverRoot(): string {
-		return dirname((string)(new \ReflectionClass(\OC\Server::class))->getFileName(), 3);
+		return dirname((string)(new \ReflectionClass(\OCP\Server::class))->getFileName(), 3);
 	}
 
 	/**
