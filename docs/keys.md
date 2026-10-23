@@ -6,7 +6,8 @@
 # Keys and fingerprints
 
 What the app keeps instead of secrets, which key protects it, and what
-changing the instance `secret` does.
+changing the instance `secret` does. [Cryptography and keys](cryptography.md)
+lists every hash, code and random secret the app makes in more detail.
 
 ## One root key
 
@@ -34,6 +35,7 @@ work instead of hashing without a key.
 | `session` | PHP session ids of logins that wait for their confirmation | HMAC-SHA256, 128 bits | until the login is confirmed or ends |
 | `lock_link` | lock link tokens | HMAC-SHA256 | 7 days, one use |
 | `setting` | the values of the watched settings | HMAC-SHA256 | the config watch snapshot |
+| `lookup` | accounts, email addresses and IP addresses in memory-cache keys, and the merge key of a detection | HMAC-SHA256 | memory cache, minutes to a day; detections, with the detection |
 
 Secrets are compared in constant time (`hash_equals`), or looked up by
 their fingerprint.
@@ -78,6 +80,8 @@ old key and nothing tells the keys apart:
   the new state, not reported.
 - Failed attempts and flags made with the old key are no longer linked to
   new ones; they expire within a day anyway.
+- New hits are no longer merged into the detections made before the
+  change.
 
 ## Algorithms and the future
 

@@ -229,9 +229,9 @@ Everything lives under **Administration settings → Intrusion detection**, in f
 
 *Everything about one account on one timeline, ready to print or download.*
 
-**Blocklists.** Spamhaus DROP (IPv4 and IPv6) and FireHOL level 1, plus network lists for Amazon Web Services, Google Cloud, Oracle Cloud, DigitalOcean and Tor exit nodes. All are off until you switch them on; you can add your own `https://` lists.
+**Blocklists.** Spamhaus DROP (IPv4 and IPv6) and FireHOL level 1, plus network lists for Amazon Web Services, Google Cloud, Oracle Cloud, DigitalOcean and Tor exit nodes. All are off until you switch them on; you can add your own `https://` lists and pin the SHA-256 of their file. See [Blocklists and the firewall export](docs/blocklists.md) for the formats, the limits and what you trust.
 
-**Firewall export.** Write the active blocks to files your firewall reads, so blocked addresses are dropped before they reach the web server: `bans.txt`, an nftables script (`bans.nft`), an `ipset restore` script (`bans.ipset`) and an append-only `bans.log` for fail2ban. The admin page shows ready-made nftables, ipset, fail2ban and systemd snippets. The export directory can only be set in `config.php` (`intrusion_detection.export_dir`), and the app never runs a firewall command itself.
+**Firewall export.** Write the active blocks to files your firewall reads, so blocked addresses are dropped before they reach the web server: `bans.txt`, an nftables script (`bans.nft`), an `ipset restore` script (`bans.ipset`) and an append-only `bans.log` for fail2ban. The admin page shows ready-made nftables, ipset, fail2ban and systemd snippets. The export directory can only be set in `config.php` (`intrusion_detection.export_dir`) and must be outside every web root, and the app never runs a firewall command itself.
 
 **Administrators from trusted networks only.** One switch in the login confirmation settings: a password login of an administrator from outside your trusted networks (office, VPN) then needs the second factor, an email code or, if you switched it on, another admin's approval. A remembered device is not enough, because the point is the network. Apps with app passwords are not affected. "Needs attention" warns you when the list of trusted networks is empty, or when an administrator has neither an email address nor a second factor, so nobody is locked out by surprise. `occ` keeps working from the server.
 
@@ -322,7 +322,8 @@ occ intrusion:benchmark                       # measure the cost per request
 - **The breach check uses k-anonymity.** Only the first 5 characters of the password's SHA-1 hash go to the Have I Been Pwned range API, with padding, and the comparison happens on your server. It only checks logins through the login form, and it is off until you switch it on.
 - **Secrets are never stored.** Passwords and account names in failed attempts, decoy secrets, email codes, lock links and remembered-device cookies are kept only as keyed fingerprints or hashes.
 - **Everything has an expiry.** Failed attempts are kept 1 hour, successful logins 24 hours, detections, login history and security changes 90 days (configurable from 7 to 730), remembered devices 180 days after last use. A background job deletes them on time. Deleting an account deletes or anonymises its data.
-- **The admin page lists all of it.** Settings → Data and privacy shows every kind of data the app keeps, why and for how long. IP addresses are stored as they are, because the admin needs them to recognise and lift blocks.
+- **The admin page lists all of it.** Settings → Data and privacy shows every kind of data the app keeps, why, for how long and who sees it. IP addresses are stored as they are, because the admin needs them to recognise and lift blocks.
+- **Users can take their data with them.** With the User migration app, a user's export contains their logins, remembered devices, trusted networks, security changes and security events.
 
 <details>
 <summary><strong>What Nextcloud keeps</strong> (screenshot)</summary>
@@ -438,6 +439,9 @@ With a memory cache, a few microseconds; see [Light on resources](#-light-on-res
 - [Functionality that needs care](docs/dangerous-functionality.md)
 - [Who may do what](docs/authorization.md): access rules, approvals, four-eyes approval and tamper resistance
 - [Keys and fingerprints](docs/keys.md): what is kept instead of secrets, and what changing the instance `secret` does
+- [Cryptography and keys](docs/cryptography.md): every key, fingerprint and secret, and what changing the instance `secret` does to them
+- [Logging](docs/logging.md): what goes to the audit log, `nextcloud.log`, `bans.log` and webhooks, and lock links in web server access logs
+- [Blocklists and the firewall export](docs/blocklists.md): what you trust, list formats and limits, and where to put the export folder
 
 ## Contributing and security
 
