@@ -10,6 +10,8 @@ declare(strict_types=1);
 namespace OCA\IntrusionDetection\Tests\Integration;
 
 use OC\Authentication\TwoFactorAuth\ProviderLoader;
+use OC\Session\SessionIdRenewer;
+use OC\User\Session as UserSession;
 use OCA\IntrusionDetection\AdminChange\ApprovalService;
 use OCA\IntrusionDetection\AdminChange\Approvers;
 use OCA\IntrusionDetection\AppInfo\Application;
@@ -56,6 +58,7 @@ use OCA\IntrusionDetection\Listener\Login\StepUpStep;
 use OCA\IntrusionDetection\Listener\LoginListener;
 use OCA\IntrusionDetection\Login\LoginGate;
 use OCA\IntrusionDetection\Login\RequestContext;
+use OCA\IntrusionDetection\Login\SessionIdRenewal;
 use OCA\IntrusionDetection\Login\SessionMarkers;
 use OCA\IntrusionDetection\Login\SessionTokenLinker;
 use OCA\IntrusionDetection\LoginHistory\Db\LoginHistoryMapper;
@@ -71,6 +74,7 @@ use OCA\IntrusionDetection\Signal\SignalDispatcher;
 use OCA\IntrusionDetection\Tests\BasicAuthServer;
 use OCA\IntrusionDetection\Tests\LoginSteps;
 use OCA\IntrusionDetection\Tests\Unit\Cache\FixedCaches;
+use OCA\IntrusionDetection\Tests\Unit\Login\FixedSessionIdRenewal;
 use OCA\IntrusionDetection\TrustedNetwork\TrustedNetworks;
 use OCP\AppFramework\Utility\ITimeFactory;
 use OCP\Authentication\TwoFactorAuth\IChallengeRequester;
@@ -87,6 +91,7 @@ use OCP\Security\Bruteforce\IThrottler;
 use OCP\Security\IHasher;
 use OCP\Security\ISecureRandom;
 use OCP\Server;
+use OCP\Session\ISessionIdRenewer;
 use OCP\User\Events\UserLoggedInEvent;
 use OCP\User\Events\UserLoggedInWithCookieEvent;
 use PHPUnit\Framework\MockObject\MockObject;
@@ -124,6 +129,10 @@ abstract class StepUpTestCase extends AccountTestCase {
 	protected IChallengeRequester $challenges;
 	/** @var list<array{string, int}> device cookies set: value and expiry */
 	protected array $deviceCookiesSet = [];
+	/** Whether the server can renew a session id and keep its token */
+	protected bool $sessionIdRenewal = true;
+	/** @var list<string> the session ids core moved a remember-me cookie from */
+	protected array $magicCookieRenewedFrom = [];
 	private ?KnownDevices $knownDevices = null;
 	private ?LoginHistory $history = null;
 
@@ -272,7 +281,22 @@ abstract class StepUpTestCase extends AccountTestCase {
 			new FamiliarLogin($this->knownDevices(), $this->history(), Server::get(TrustedNetworks::class), Server::get(ITimeFactory::class)),
 			$this->request,
 			Server::get(Tokens::class),
+			$this->sessionIds(),
 		);
+	}
+
+	/**
+	 * Core's renewal of the session id, on the test session and the real
+	 * token provider. Moving the remember-me cookie is recorded.
+	 */
+	protected function sessionIds(): SessionIdRenewal {
+		$userSession = $this->createMock(UserSession::class);
+		$userSession->method('getSession')->willReturn($this->session);
+		$userSession->method('renewMagicSessionId')->willReturnCallback(function (string $oldSessionId): void {
+			$this->magicCookieRenewedFrom[] = $oldSessionId;
+		});
+		$container = new OverridingContainer([ISessionIdRenewer::class => new SessionIdRenewer($userSession, $this->tokens)]);
+		return new FixedSessionIdRenewal($container, Server::get(LoggerInterface::class), $this->sessionIdRenewal);
 	}
 
 	protected function store(): LoginConfirmationStore {

@@ -23,6 +23,7 @@ use OCA\IntrusionDetection\Db\Detection;
 use OCA\IntrusionDetection\Detection\DetectionDraft;
 use OCA\IntrusionDetection\Login\CoreSession;
 use OCA\IntrusionDetection\Login\LoginContext;
+use OCA\IntrusionDetection\Login\SessionIdRenewal;
 use OCA\IntrusionDetection\LoginHistory\LoginHistory;
 use OCA\IntrusionDetection\Net\RemoteAddressResolver;
 use OCA\IntrusionDetection\Net\SourceKey;
@@ -90,6 +91,7 @@ class LoginConfirmations {
 		private readonly FamiliarLogin $familiar,
 		private readonly IRequest $request,
 		private readonly Tokens $tokens,
+		private readonly SessionIdRenewal $sessionIds,
 	) {
 	}
 
@@ -216,7 +218,8 @@ class LoginConfirmations {
 	}
 
 	/**
-	 * The login was confirmed: the session may continue.
+	 * The login was confirmed: the session may continue, under a new
+	 * session id where the server can give one.
 	 */
 	public function complete(StepUpState $stepUp, string $method): void {
 		$this->store->removeStepUp();
@@ -224,6 +227,7 @@ class LoginConfirmations {
 		$this->store->forget();
 		$this->recordOutcome($stepUp->uid, $method, LoginHistory::STEP_UP_CONFIRMED);
 		$this->audit->log('login of %s confirmed with %s', ['uid' => $stepUp->uid, 'method' => $method]);
+		$this->sessionIds->renew();
 	}
 
 	/**

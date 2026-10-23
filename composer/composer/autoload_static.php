@@ -495,6 +495,7 @@ class ComposerStaticInitIntrusionDetection
         'OCA\\IntrusionDetection\\Login\\LoginGate' => __DIR__ . '/..' . '/../lib/Login/LoginGate.php',
         'OCA\\IntrusionDetection\\Login\\LoginKind' => __DIR__ . '/..' . '/../lib/Login/LoginKind.php',
         'OCA\\IntrusionDetection\\Login\\RequestContext' => __DIR__ . '/..' . '/../lib/Login/RequestContext.php',
+        'OCA\\IntrusionDetection\\Login\\SessionIdRenewal' => __DIR__ . '/..' . '/../lib/Login/SessionIdRenewal.php',
         'OCA\\IntrusionDetection\\Login\\SessionMarkers' => __DIR__ . '/..' . '/../lib/Login/SessionMarkers.php',
         'OCA\\IntrusionDetection\\Login\\SessionTokenLinker' => __DIR__ . '/..' . '/../lib/Login/SessionTokenLinker.php',
         'OCA\\IntrusionDetection\\Middleware\\ApiErrorMiddleware' => __DIR__ . '/..' . '/../lib/Middleware/ApiErrorMiddleware.php',

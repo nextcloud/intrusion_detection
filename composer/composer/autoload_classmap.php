@@ -480,6 +480,7 @@ return array(
     'OCA\\IntrusionDetection\\Login\\LoginGate' => $baseDir . '/../lib/Login/LoginGate.php',
     'OCA\\IntrusionDetection\\Login\\LoginKind' => $baseDir . '/../lib/Login/LoginKind.php',
     'OCA\\IntrusionDetection\\Login\\RequestContext' => $baseDir . '/../lib/Login/RequestContext.php',
+    'OCA\\IntrusionDetection\\Login\\SessionIdRenewal' => $baseDir . '/../lib/Login/SessionIdRenewal.php',
     'OCA\\IntrusionDetection\\Login\\SessionMarkers' => $baseDir . '/../lib/Login/SessionMarkers.php',
     'OCA\\IntrusionDetection\\Login\\SessionTokenLinker' => $baseDir . '/../lib/Login/SessionTokenLinker.php',
     'OCA\\IntrusionDetection\\Middleware\\ApiErrorMiddleware' => $baseDir . '/../lib/Middleware/ApiErrorMiddleware.php',
