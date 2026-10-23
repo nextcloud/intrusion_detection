@@ -101,6 +101,27 @@ class ConfirmationPolicy {
 		return false;
 	}
 
+	/**
+	 * The method a pending login offers, while it can still confirm every
+	 * reason of that login; null otherwise.
+	 */
+	public function offered(IUser $user, StepUpState $stepUp, string $id): ?IConfirmationMethod {
+		if (!$stepUp->hasMethod($id)) {
+			return null;
+		}
+		$method = $this->method($id);
+		if ($method === null) {
+			return null;
+		}
+		foreach ($stepUp->policies as $policy) {
+			$known = StepUpPolicy::tryFrom($policy);
+			if ($known === null || !$method->isAvailable($user, $known)) {
+				return null;
+			}
+		}
+		return $method;
+	}
+
 	public function method(string $id): ?IConfirmationMethod {
 		foreach ($this->methods() as $method) {
 			if ($method->id() === $id) {

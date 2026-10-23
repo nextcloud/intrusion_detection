@@ -28,6 +28,7 @@ use OCA\IntrusionDetection\Confirm\Methods\AdminApprovalMethod;
 use OCA\IntrusionDetection\Confirm\Methods\EmailCodeMethod;
 use OCA\IntrusionDetection\Confirm\Methods\KnownDeviceMethod;
 use OCA\IntrusionDetection\Confirm\Methods\SecondFactorMethod;
+use OCA\IntrusionDetection\Confirm\PendingLoginFlow;
 use OCA\IntrusionDetection\Confirm\SecondFactors;
 use OCA\IntrusionDetection\Confirm\SecondFactorSetup;
 use OCA\IntrusionDetection\Confirm\SessionConfirmation;
@@ -415,14 +416,12 @@ abstract class StepUpTestCase extends AccountTestCase {
 		return new VerifyController(
 			$this->request,
 			$this->userSession,
-			$this->service(),
+			new PendingLoginFlow($this->service(), $this->policy(), $this->codes(), $this->knownDevices(), $this->addresses(), $this->request),
 			$this->codes(),
-			$this->policy(),
 			Server::get(IURLGenerator::class),
 			Server::get(LocalRedirect::class),
 			Server::get(IFactory::class)->get(Application::APP_ID, 'en'),
 			$this->knownDevices(),
-			$this->addresses(),
 			Server::get(ITimeFactory::class),
 		);
 	}

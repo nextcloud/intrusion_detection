@@ -11,19 +11,17 @@ namespace OCA\IntrusionDetection\Controller;
 
 use OCA\IntrusionDetection\AppInfo\Application;
 use OCA\IntrusionDetection\Check\Checks\StepUpFailed\StepUpFailed;
-use OCA\IntrusionDetection\Confirm\ConfirmationPolicy;
 use OCA\IntrusionDetection\Confirm\ConfirmationStatus;
 use OCA\IntrusionDetection\Confirm\EmailCodes;
 use OCA\IntrusionDetection\Confirm\IConfirmationMethod;
-use OCA\IntrusionDetection\Confirm\LoginConfirmations;
 use OCA\IntrusionDetection\Confirm\Methods\AdminApprovalMethod;
-use OCA\IntrusionDetection\Confirm\Methods\SecondFactorMethod;
+use OCA\IntrusionDetection\Confirm\PendingLoginFlow;
+use OCA\IntrusionDetection\Confirm\PendingLoginResult;
 use OCA\IntrusionDetection\Confirm\StepUpPolicy;
 use OCA\IntrusionDetection\Confirm\StepUpState;
 use OCA\IntrusionDetection\Explain\TextRenderer;
 use OCA\IntrusionDetection\Http\LocalRedirect;
 use OCA\IntrusionDetection\KnownDevice\KnownDevices;
-use OCA\IntrusionDetection\Net\RemoteAddressResolver;
 use OCA\IntrusionDetection\SessionState\ILoginFlowPage;
 use OCA\IntrusionDetection\SessionState\LoginFlowRoute;
 use OCP\AppFramework\Controller;
@@ -87,14 +85,12 @@ class VerifyController extends Controller implements ILoginFlowPage {
 	public function __construct(
 		IRequest $request,
 		private readonly IUserSession $userSession,
-		private readonly LoginConfirmations $stepUps,
+		private readonly PendingLoginFlow $flow,
 		private readonly EmailCodes $codes,
-		private readonly ConfirmationPolicy $policy,
 		private readonly IURLGenerator $urlGenerator,
 		private readonly LocalRedirect $redirect,
 		private readonly IL10N $l,
 		private readonly KnownDevices $knownDevices,
-		private readonly RemoteAddressResolver $addresses,
 		private readonly ITimeFactory $timeFactory,
 	) {
 		parent::__construct(Application::APP_ID, $request);
@@ -116,7 +112,7 @@ class VerifyController extends Controller implements ILoginFlowPage {
 		}
 		if ($stepUp->status === ConfirmationStatus::Refused) {
 			$response = $this->refusedPage($stepUp);
-			$this->stepUps->endRefused();
+			$this->flow->endRefused();
 			return $response;
 		}
 		if (!$stepUp->isPending()) {
@@ -139,34 +135,27 @@ class VerifyController extends Controller implements ILoginFlowPage {
 		string $redirect_url = '',
 		string $remember = '',
 	): Response {
-		[$user, $stepUp] = $this->current();
-		if ($user === null || $stepUp === null || !$stepUp->isPending()) {
-			return $this->continue($redirect_url);
-		}
-		if (!$stepUp->hasMethod(IConfirmationMethod::EMAIL_CODE)) {
-			return $this->codePage($user, $stepUp, $redirect_url, $this->l->t('This login cannot be confirmed with a code.'));
-		}
-		[$result, $stepUp] = $this->codes->verify($stepUp, $code);
+		$user = $this->userSession->getUser();
+		$result = $user === null ? PendingLoginResult::NotPending : $this->flow->enterCode($user, $code, $remember === '1');
 		switch ($result) {
-			case EmailCodes::VERIFIED:
-				$this->stepUps->complete($stepUp, IConfirmationMethod::EMAIL_CODE);
-				$this->rememberIfChosen($user, $remember);
+			case PendingLoginResult::NotPending:
+			case PendingLoginResult::Confirmed:
 				return $this->continue($redirect_url);
-			case EmailCodes::EXHAUSTED:
-				$this->stepUps->fail($stepUp, StepUpFailed::RULE_ATTEMPTS);
-				$response = new RedirectResponse($this->urlGenerator->linkToRoute(Application::APP_ID . '.Verify.ended', ['reason' => StepUpFailed::RULE_ATTEMPTS]));
+			case PendingLoginResult::EndedAttempts:
+				$response = $this->endedPage($result);
 				$response->throttle();
 				return $response;
-			case EmailCodes::WRONG:
-				$this->stepUps->update($stepUp);
-				$left = $this->codes->attemptsLeft($stepUp);
-				$response = $this->codePage($user, $stepUp, $redirect_url, $this->l->n('This code is not correct. You can try %n more time.', 'This code is not correct. You can try %n more times.', $left), status: Http::STATUS_FORBIDDEN);
+			case PendingLoginResult::WrongCode:
+				$left = $this->codes->attemptsLeft($this->pending($user));
+				$response = $this->again($user, $redirect_url, $this->l->n('This code is not correct. You can try %n more time.', 'This code is not correct. You can try %n more times.', $left), status: Http::STATUS_FORBIDDEN);
 				$response->throttle();
 				return $response;
-			case EmailCodes::EXPIRED:
-				return $this->codePage($user, $stepUp, $redirect_url, $this->l->t('This code has expired. Send a new one, then enter it.'));
+			case PendingLoginResult::Unavailable:
+				return $this->again($user, $redirect_url, $this->l->t('This login cannot be confirmed with a code.'));
+			case PendingLoginResult::ExpiredCode:
+				return $this->again($user, $redirect_url, $this->l->t('This code has expired. Send a new one, then enter it.'));
 			default:
-				return $this->codePage($user, $stepUp, $redirect_url, $this->l->t('Enter the 6 digits from the email.'));
+				return $this->again($user, $redirect_url, $this->l->t('Enter the 6 digits from the email.'));
 		}
 	}
 
@@ -175,21 +164,15 @@ class VerifyController extends Controller implements ILoginFlowPage {
 	#[UserRateLimit(limit: 10, period: 600)]
 	#[FrontpageRoute(verb: 'POST', url: '/verify/resend')]
 	public function resend(string $redirect_url = ''): Response {
-		[$user, $stepUp] = $this->current();
-		if ($user === null || $stepUp === null || !$stepUp->isPending()) {
-			return $this->continue($redirect_url);
-		}
-		if ($stepUp->hasMethod(IConfirmationMethod::EMAIL_CODE) && $this->codes->isLimited($user)) {
-			return $this->codePage($user, $stepUp, $redirect_url, $this->tooManyCodes());
-		}
-		if (!$stepUp->hasMethod(IConfirmationMethod::EMAIL_CODE) || !$this->codes->canResend($stepUp)) {
-			return $this->codePage($user, $stepUp, $redirect_url, $this->l->t('No more codes can be sent for a few minutes. Use the last code you received, or wait and try again.'));
-		}
-		$stepUp = $this->codes->resend($user, $stepUp) ?? $stepUp;
-		$this->stepUps->update($stepUp);
-		return $stepUp->codeHash !== null
-			? $this->codePage($user, $stepUp, $redirect_url, notice: $this->l->t('A new code was sent to %s. Earlier codes no longer work.', [EmailCodes::mask((string)$user->getEMailAddress())]))
-			: $this->codePage($user, $stepUp, $redirect_url, $this->l->t('The email could not be sent. Try again in a moment, or contact your administrator.'));
+		$user = $this->userSession->getUser();
+		$result = $user === null ? PendingLoginResult::NotPending : $this->flow->resendCode($user);
+		return match ($result) {
+			PendingLoginResult::NotPending => $this->continue($redirect_url),
+			PendingLoginResult::TooManyCodes => $this->again($user, $redirect_url, $this->tooManyCodes()),
+			PendingLoginResult::CodeSent => $this->again($user, $redirect_url, notice: $this->l->t('A new code was sent to %s. Earlier codes no longer work.', [EmailCodes::mask((string)$user?->getEMailAddress())])),
+			PendingLoginResult::CodeNotSent => $this->again($user, $redirect_url, $this->l->t('The email could not be sent. Try again in a moment, or contact your administrator.')),
+			default => $this->again($user, $redirect_url, $this->l->t('No more codes can be sent for a few minutes. Use the last code you received, or wait and try again.')),
+		};
 	}
 
 	#[NoAdminRequired]
@@ -197,22 +180,14 @@ class VerifyController extends Controller implements ILoginFlowPage {
 	#[UserRateLimit(limit: 10, period: 600)]
 	#[FrontpageRoute(verb: 'POST', url: '/verify/second-factor')]
 	public function secondFactor(string $redirect_url = ''): Response {
-		[$user, $stepUp] = $this->current();
-		if ($user === null || $stepUp === null || !$stepUp->isPending()) {
-			return $this->continue($redirect_url);
-		}
-		$method = $this->secondFactorMethod($user, $stepUp);
-		if ($method === null) {
-			return $this->codePage($user, $stepUp, $redirect_url, $this->l->t('Your account has no second factor that could confirm this login.'));
-		}
-		$stepUp = $stepUp->withSecondFactorRequested();
-		$this->stepUps->update($stepUp);
+		$user = $this->userSession->getUser();
 		$back = $this->urlGenerator->linkToRoute(Application::APP_ID . '.Verify.show', LocalRedirect::isSafe($redirect_url, self::EXCLUDED) ? ['redirect_url' => $redirect_url] : []);
-		try {
-			return new RedirectResponse($method->requestChallenge($user, $back));
-		} catch (\LogicException) {
-			return $this->codePage($user, $stepUp, $redirect_url, $this->l->t('Your account has no second factor that could confirm this login.'));
-		}
+		$result = $user === null ? PendingLoginResult::NotPending : $this->flow->requestSecondFactor($user, $back);
+		return match ($result) {
+			PendingLoginResult::NotPending => $this->continue($redirect_url),
+			PendingLoginResult::Unavailable => $this->again($user, $redirect_url, $this->l->t('Your account has no second factor that could confirm this login.')),
+			default => is_string($result) ? new RedirectResponse($result) : $this->continue($redirect_url),
+		};
 	}
 
 	/**
@@ -223,29 +198,15 @@ class VerifyController extends Controller implements ILoginFlowPage {
 	#[UserRateLimit(limit: 5, period: 600)]
 	#[FrontpageRoute(verb: 'POST', url: '/verify/approval')]
 	public function requestApproval(string $redirect_url = ''): Response {
-		[$user, $stepUp] = $this->current();
-		if ($user === null || $stepUp === null || !$stepUp->isPending()) {
-			return $this->continue($redirect_url);
-		}
-		$method = $this->approvalMethod($user, $stepUp);
-		if ($method === null) {
-			return $this->codePage($user, $stepUp, $redirect_url, $this->l->t('No administrator can be asked to approve this login.'));
-		}
-		if ($stepUp->approvalId !== null) {
-			// A login asks once: a rejected, expired or vanished request ends it.
-			$status = $method->status($user, $stepUp);
-			if ($status === AdminApprovalMethod::STATUS_NONE) {
-				$status = AdminApprovalMethod::STATUS_EXPIRED;
-			}
-			return $this->endByApproval($stepUp, $status) ?? $this->waitingPage($user, $stepUp, $redirect_url);
-		}
-		$start = $method->begin($user, $stepUp);
-		if ($start->outcome !== IConfirmationMethod::PENDING) {
-			return $this->codePage($user, $stepUp, $redirect_url, $this->l->t('No administrator can be asked right now. Try again in a while, or contact your administrator.'));
-		}
-		$stepUp = $start->state;
-		$this->stepUps->update($stepUp);
-		return $this->waitingPage($user, $stepUp, $redirect_url);
+		$user = $this->userSession->getUser();
+		$result = $user === null ? PendingLoginResult::NotPending : $this->flow->requestApproval($user);
+		return match ($result) {
+			PendingLoginResult::NotPending => $this->continue($redirect_url),
+			PendingLoginResult::Unavailable => $this->again($user, $redirect_url, $this->l->t('No administrator can be asked to approve this login.')),
+			PendingLoginResult::NotStarted => $this->again($user, $redirect_url, $this->l->t('No administrator can be asked right now. Try again in a while, or contact your administrator.')),
+			PendingLoginResult::Waiting => $this->waitingPage($user, $this->pending($user), $redirect_url),
+			default => $this->endedPage($result),
+		};
 	}
 
 	/**
@@ -258,10 +219,8 @@ class VerifyController extends Controller implements ILoginFlowPage {
 	#[UserRateLimit(limit: 120, period: 600)]
 	#[FrontpageRoute(verb: 'GET', url: '/verify/approval/status')]
 	public function approvalStatus(): JSONResponse {
-		[$user, $stepUp] = $this->current();
-		$method = $user === null || $stepUp === null || !$stepUp->isPending() ? null : $this->approvalMethod($user, $stepUp);
-		$status = $method === null || $user === null || $stepUp === null ? AdminApprovalMethod::STATUS_NONE : $method->status($user, $stepUp);
-		$response = new JSONResponse(['status' => $status, 'retryAfter' => self::POLL_INTERVAL]);
+		$user = $this->userSession->getUser();
+		$response = new JSONResponse(['status' => $user === null ? AdminApprovalMethod::STATUS_NONE : $this->flow->approvalStatus($user), 'retryAfter' => self::POLL_INTERVAL]);
 		$response->cacheFor(0);
 		return $response;
 	}
@@ -275,26 +234,14 @@ class VerifyController extends Controller implements ILoginFlowPage {
 	#[UserRateLimit(limit: 60, period: 600)]
 	#[FrontpageRoute(verb: 'POST', url: '/verify/approval/continue')]
 	public function continueApproval(string $redirect_url = '', string $remember = ''): Response {
-		[$user, $stepUp] = $this->current();
-		if ($user === null || $stepUp === null || !$stepUp->isPending()) {
-			return $this->continue($redirect_url);
-		}
-		$method = $this->approvalMethod($user, $stepUp);
-		$status = $method === null ? AdminApprovalMethod::STATUS_NONE : $method->status($user, $stepUp);
-		$ended = $this->endByApproval($stepUp, $status);
-		if ($ended !== null) {
-			return $ended;
-		}
-		switch ($status) {
-			case AdminApprovalMethod::STATUS_APPROVED:
-				$this->stepUps->complete($stepUp, IConfirmationMethod::ADMIN_APPROVAL);
-				$this->rememberIfChosen($user, $remember);
-				return $this->continue($redirect_url);
-			case AdminApprovalMethod::STATUS_PENDING:
-				return $this->waitingPage($user, $stepUp, $redirect_url, $this->l->t('No administrator has decided yet. This page keeps checking.'));
-			default:
-				return $this->codePage($user, $stepUp, $redirect_url);
-		}
+		$user = $this->userSession->getUser();
+		$result = $user === null ? PendingLoginResult::NotPending : $this->flow->continueApproval($user, $remember === '1');
+		return match ($result) {
+			PendingLoginResult::NotPending, PendingLoginResult::Confirmed => $this->continue($redirect_url),
+			PendingLoginResult::Waiting => $this->waitingPage($user, $this->pending($user), $redirect_url, $this->l->t('No administrator has decided yet. This page keeps checking.')),
+			PendingLoginResult::EndedRejected, PendingLoginResult::EndedTimeout => $this->endedPage($result),
+			default => $this->again($user, $redirect_url),
+		};
 	}
 
 	/**
@@ -305,10 +252,9 @@ class VerifyController extends Controller implements ILoginFlowPage {
 	#[UserRateLimit(limit: 10, period: 600)]
 	#[FrontpageRoute(verb: 'POST', url: '/verify/approval/cancel')]
 	public function cancelApproval(): RedirectResponse {
-		[$user, $stepUp] = $this->current();
-		if ($user !== null && $stepUp !== null && $stepUp->isPending()) {
-			$this->approvalMethod($user, $stepUp)?->withdraw($user, $stepUp);
-			$this->stepUps->abandon($stepUp);
+		$user = $this->userSession->getUser();
+		if ($user !== null) {
+			$this->flow->cancel($user);
 		}
 		return new RedirectResponse($this->urlGenerator->linkToRoute('core.login.showLoginForm'));
 	}
@@ -338,11 +284,32 @@ class VerifyController extends Controller implements ILoginFlowPage {
 	 */
 	private function current(): array {
 		$user = $this->userSession->getUser();
-		$stepUp = $this->stepUps->current();
-		if ($user === null || $stepUp === null || $stepUp->uid !== $user->getUID()) {
-			return [$user, null];
+		return [$user, $user === null ? null : $this->flow->current($user)];
+	}
+
+	/**
+	 * The step-up of a login that still waits, after a step that left it waiting.
+	 */
+	private function pending(?IUser $user): StepUpState {
+		return ($user === null ? null : $this->flow->pending($user)) ?? throw new \LogicException('The login no longer waits');
+	}
+
+	/**
+	 * The code page again, after a step that left the login waiting.
+	 */
+	private function again(?IUser $user, string $redirectUrl, ?string $error = null, ?string $notice = null, int $status = Http::STATUS_OK): Response {
+		$stepUp = $user === null ? null : $this->flow->pending($user);
+		if ($user === null || $stepUp === null) {
+			return $this->continue($redirectUrl);
 		}
-		return [$user, $stepUp];
+		return $this->codePage($user, $stepUp, $redirectUrl, $error, $notice, $status);
+	}
+
+	/**
+	 * The page that says why the login ended.
+	 */
+	private function endedPage(PendingLoginResult $result): RedirectResponse {
+		return new RedirectResponse($this->urlGenerator->linkToRoute(Application::APP_ID . '.Verify.ended', ['reason' => $result->endedRule() ?? StepUpFailed::RULE_TIMEOUT]));
 	}
 
 	private function codePage(IUser $user, StepUpState $stepUp, string $redirectUrl, ?string $error = null, ?string $notice = null, int $status = Http::STATUS_OK): StandaloneTemplateResponse {
@@ -370,8 +337,8 @@ class VerifyController extends Controller implements ILoginFlowPage {
 			'hasCode' => $hasCode,
 			'attemptsLeft' => $stepUp->attempts > 0 ? $this->l->n('%n try left.', '%n tries left.', $this->codes->attemptsLeft($stepUp)) : null,
 			'canResend' => $hasCode && !$limited && $this->codes->canResend($stepUp),
-			'secondFactor' => $this->secondFactorMethod($user, $stepUp) !== null,
-			'askAdmin' => $this->approvalMethod($user, $stepUp) !== null,
+			'secondFactor' => $this->flow->offers($user, $stepUp, IConfirmationMethod::SECOND_FACTOR),
+			'askAdmin' => $this->flow->offers($user, $stepUp, IConfirmationMethod::ADMIN_APPROVAL),
 			'waiting' => $stepUp->approvalId !== null,
 			'canRemember' => $this->knownDevices->isEnabled(),
 			'rememberHint' => $this->rememberHint($stepUp),
@@ -393,7 +360,7 @@ class VerifyController extends Controller implements ILoginFlowPage {
 	private function waitingPage(IUser $user, StepUpState $stepUp, string $redirectUrl, ?string $notice = null): StandaloneTemplateResponse {
 		$because = StepUpPolicy::describeAll($stepUp->policies, $this->l);
 		$safeRedirect = LocalRedirect::isSafe($redirectUrl, self::EXCLUDED) ? $redirectUrl : '';
-		$expiresAt = $this->approvalMethod($user, $stepUp)?->expiresAt($user, $stepUp) ?? $stepUp->deadline;
+		$expiresAt = $this->flow->approvalExpiresAt($user, $stepUp) ?? $stepUp->deadline;
 		// Whole minutes: "30 minutes", not "1799 seconds".
 		$left = max(60, (int)ceil(($expiresAt - $this->timeFactory->getTime()) / 60) * 60);
 		Util::addScript(Application::APP_ID, 'verify');
@@ -444,69 +411,6 @@ class VerifyController extends Controller implements ILoginFlowPage {
 		return in_array(StepUpPolicy::AdminOutsideNetworks->value, $stepUp->policies, true)
 			? $this->l->t('Only on your own device. For %s, logins from this browser are confirmed without asking again, unless your password itself is at risk or you log in from outside your trusted networks.', [$for])
 			: $this->l->t('Only on your own device. For %s, logins from this browser are confirmed without asking again, unless your password itself is at risk.', [$for]);
-	}
-
-	private function secondFactorMethod(IUser $user, StepUpState $stepUp): ?SecondFactorMethod {
-		if (!$stepUp->hasMethod(IConfirmationMethod::SECOND_FACTOR)) {
-			return null;
-		}
-		$method = $this->policy->method(IConfirmationMethod::SECOND_FACTOR);
-		if (!$method instanceof SecondFactorMethod) {
-			return null;
-		}
-		foreach ($stepUp->policies as $policy) {
-			$known = StepUpPolicy::tryFrom($policy);
-			if ($known === null || !$method->isAvailable($user, $known)) {
-				return null;
-			}
-		}
-		return $method;
-	}
-
-	private function approvalMethod(IUser $user, StepUpState $stepUp): ?AdminApprovalMethod {
-		if (!$stepUp->hasMethod(IConfirmationMethod::ADMIN_APPROVAL)) {
-			return null;
-		}
-		$method = $this->policy->method(IConfirmationMethod::ADMIN_APPROVAL);
-		if (!$method instanceof AdminApprovalMethod) {
-			return null;
-		}
-		foreach ($stepUp->policies as $policy) {
-			$known = StepUpPolicy::tryFrom($policy);
-			if ($known === null || !$method->isAvailable($user, $known)) {
-				return null;
-			}
-		}
-		return $method;
-	}
-
-	/**
-	 * End the login when its request for approval was rejected or has
-	 * expired.
-	 *
-	 * @param AdminApprovalMethod::STATUS_* $status
-	 * @return ?RedirectResponse the page that says why, or null when the login goes on
-	 */
-	private function endByApproval(StepUpState $stepUp, string $status): ?RedirectResponse {
-		$rule = match ($status) {
-			AdminApprovalMethod::STATUS_REJECTED => StepUpFailed::RULE_REJECTED,
-			AdminApprovalMethod::STATUS_EXPIRED => StepUpFailed::RULE_TIMEOUT,
-			default => null,
-		};
-		if ($rule === null) {
-			return null;
-		}
-		$this->stepUps->fail($stepUp, $rule);
-		return new RedirectResponse($this->urlGenerator->linkToRoute(Application::APP_ID . '.Verify.ended', ['reason' => $rule]));
-	}
-
-	/**
-	 * After a confirmed login: remember this browser, when the user ticked it.
-	 */
-	private function rememberIfChosen(IUser $user, string $remember): void {
-		if ($remember === '1') {
-			$this->knownDevices->remember($user, $this->addresses->current(), $this->request->getHeader('User-Agent'));
-		}
 	}
 
 	private function continue(string $redirectUrl): RedirectResponse {

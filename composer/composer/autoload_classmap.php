@@ -250,6 +250,8 @@ return array(
     'OCA\\IntrusionDetection\\Confirm\\NoMethodDecision' => $baseDir . '/../lib/Confirm/NoMethodDecision.php',
     'OCA\\IntrusionDetection\\Confirm\\NoMethodOutcome' => $baseDir . '/../lib/Confirm/NoMethodOutcome.php',
     'OCA\\IntrusionDetection\\Confirm\\NoMethodPreset' => $baseDir . '/../lib/Confirm/NoMethodPreset.php',
+    'OCA\\IntrusionDetection\\Confirm\\PendingLoginFlow' => $baseDir . '/../lib/Confirm/PendingLoginFlow.php',
+    'OCA\\IntrusionDetection\\Confirm\\PendingLoginResult' => $baseDir . '/../lib/Confirm/PendingLoginResult.php',
     'OCA\\IntrusionDetection\\Confirm\\Reasons\\AdminOutsideNetworksReason' => $baseDir . '/../lib/Confirm/Reasons/AdminOutsideNetworksReason.php',
     'OCA\\IntrusionDetection\\Confirm\\Reasons\\BreachedPasswordReason' => $baseDir . '/../lib/Confirm/Reasons/BreachedPasswordReason.php',
     'OCA\\IntrusionDetection\\Confirm\\Reasons\\FlaggedSourceReason' => $baseDir . '/../lib/Confirm/Reasons/FlaggedSourceReason.php',

@@ -265,6 +265,8 @@ class ComposerStaticInitIntrusionDetection
         'OCA\\IntrusionDetection\\Confirm\\NoMethodDecision' => __DIR__ . '/..' . '/../lib/Confirm/NoMethodDecision.php',
         'OCA\\IntrusionDetection\\Confirm\\NoMethodOutcome' => __DIR__ . '/..' . '/../lib/Confirm/NoMethodOutcome.php',
         'OCA\\IntrusionDetection\\Confirm\\NoMethodPreset' => __DIR__ . '/..' . '/../lib/Confirm/NoMethodPreset.php',
+        'OCA\\IntrusionDetection\\Confirm\\PendingLoginFlow' => __DIR__ . '/..' . '/../lib/Confirm/PendingLoginFlow.php',
+        'OCA\\IntrusionDetection\\Confirm\\PendingLoginResult' => __DIR__ . '/..' . '/../lib/Confirm/PendingLoginResult.php',
         'OCA\\IntrusionDetection\\Confirm\\Reasons\\AdminOutsideNetworksReason' => __DIR__ . '/..' . '/../lib/Confirm/Reasons/AdminOutsideNetworksReason.php',
         'OCA\\IntrusionDetection\\Confirm\\Reasons\\BreachedPasswordReason' => __DIR__ . '/..' . '/../lib/Confirm/Reasons/BreachedPasswordReason.php',
         'OCA\\IntrusionDetection\\Confirm\\Reasons\\FlaggedSourceReason' => __DIR__ . '/..' . '/../lib/Confirm/Reasons/FlaggedSourceReason.php',

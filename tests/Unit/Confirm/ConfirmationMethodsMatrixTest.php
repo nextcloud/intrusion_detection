@@ -17,6 +17,7 @@ use OCA\IntrusionDetection\Config\AppSettings;
 use OCA\IntrusionDetection\Confirm\AccountMethods;
 use OCA\IntrusionDetection\Confirm\ConfirmationCoverage;
 use OCA\IntrusionDetection\Confirm\ConfirmationPolicy;
+use OCA\IntrusionDetection\Confirm\ConfirmationStatus;
 use OCA\IntrusionDetection\Confirm\EmailCodes;
 use OCA\IntrusionDetection\Confirm\IConfirmationMethod;
 use OCA\IntrusionDetection\Confirm\LoginConfirmationStore;
@@ -26,6 +27,7 @@ use OCA\IntrusionDetection\Confirm\Methods\KnownDeviceMethod;
 use OCA\IntrusionDetection\Confirm\Methods\SecondFactorMethod;
 use OCA\IntrusionDetection\Confirm\SecondFactors;
 use OCA\IntrusionDetection\Confirm\StepUpPolicy;
+use OCA\IntrusionDetection\Confirm\StepUpState;
 use OCA\IntrusionDetection\Confirm\UntrustedSecondFactors;
 use OCA\IntrusionDetection\Db\ApprovalMapper;
 use OCA\IntrusionDetection\KnownDevice\KnownDevice;
@@ -119,6 +121,12 @@ class ConfirmationMethodsMatrixTest extends TestCase {
 			];
 		}
 		$this->assertSame($expected, $answers);
+		$all = [IConfirmationMethod::SECOND_FACTOR, IConfirmationMethod::KNOWN_DEVICE, IConfirmationMethod::EMAIL_CODE, IConfirmationMethod::ADMIN_APPROVAL];
+		foreach (StepUpPolicy::cases() as $reason) {
+			$pending = new StepUpState('alice', ConfirmationStatus::Pending, [$reason->value], 1, 900, methods: $all);
+			$offered = array_values(array_filter($all, static fn (string $id): bool => $policy->offered($user, $pending, $id) !== null));
+			$this->assertSame($answers[$reason->value][0], $offered, 'A pending login offers what the login would start: ' . $reason->value);
+		}
 		$admins = $this->coverage()->admins();
 		$this->assertSame($coverage, [
 			!in_array('alice', $admins['withoutEmail'], true),
