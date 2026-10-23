@@ -32,13 +32,18 @@ work instead of hashing without a key.
 | `credential/<day>` | presented app passwords and session tokens | HMAC-SHA256, 96 bits, key changes every day | memory cache only |
 | `decoy` | decoy secrets | HMAC-SHA256 | until the decoy is deleted |
 | `device` | remembered-browser ids | HMAC-SHA256 | until the browser is forgotten (180 days unused) |
-| `session` | PHP session ids of logins that wait for their confirmation | HMAC-SHA256, 128 bits | until the login is confirmed or ends |
 | `lock_link` | lock link tokens | HMAC-SHA256 | 7 days, one use |
 | `setting` | the values of the watched settings | HMAC-SHA256 | the config watch snapshot |
 | `lookup` | accounts, email addresses and IP addresses in memory-cache keys, and the merge key of a detection | HMAC-SHA256 | memory cache, minutes to a day; detections, with the detection |
 
 Secrets are compared in constant time (`hash_equals`), or looked up by
 their fingerprint.
+
+The PHP session ids of logins that wait for their confirmation, or were
+refused, are the one exception: they are kept as a SHA-256 digest without
+a key (128 bits), until the login is confirmed or ends. A session id is
+long and random, so its digest cannot be tested against guesses, and a
+new `secret` must not let such a login back in unconfirmed.
 
 ## What is encrypted
 
@@ -67,11 +72,8 @@ old key and nothing tells the keys apart:
 - **Remembered browsers** are forgotten: their next login is treated as a
   new device.
 - **Lock links** that were sent and not used stop working.
-- **Logins that wait for their confirmation** are remembered on the server
-  by a fingerprint of their session id. After the change, such a login
-  that comes back with its remember-me cookie, without its session data,
-  is no longer recognised as unconfirmed. A remembered login lasts 15
-  days unless `remember_login_cookie_lifetime` says otherwise.
+- **Logins that wait for their confirmation**, or were refused, stay
+  recognised: their session ids are kept without a key.
 - **The config watch** finds that the secret changed (it keeps a
   fingerprint of a fixed text under the current key). It records one high
   detection about the change, which tells the administrators the above,

@@ -26,7 +26,7 @@ What the app hashes, encrypts and generates, with which key, and for how long th
 | Credential of a request (session or app password) | HMAC-SHA256, 12 bytes, base64url | `credential/<UTC day>` | Memory cache only, about an hour |
 | Decoy secret | HMAC-SHA256, 32 bytes | `decoy` | Decoys, until deleted |
 | Remembered-device id from the cookie | HMAC-SHA256, 32 bytes | `device` | Known devices, 180 days after last use |
-| Session id of an unconfirmed login | HMAC-SHA256, 16 bytes as hex | `session` | Unconfirmed logins, until confirmed or ended |
+| Session id of an unconfirmed or refused login | SHA-256 without a key, 16 bytes as hex; a session id is long and random, and a new `secret` must not let the login back in | — | Unconfirmed logins, until confirmed or ended |
 | Lock-link token | HMAC-SHA256 as hex | `lock_link` | Lock links, 7 days |
 | Value of a watched setting | HMAC-SHA256 as hex | `setting` | Settings snapshot, replaced at every check |
 | Accounts, email addresses and IP addresses in memory-cache keys, and the merge key of a detection | HMAC-SHA256 as hex | `lookup` | Memory cache, minutes to a day; detections, with the detection |
@@ -41,7 +41,7 @@ Hashes that protect nothing: SHA-1 of a password for the Pwned Passwords range A
 ## Lifetime and rotation
 
 - The password and credential keys change at UTC midnight. A stored password fingerprint can therefore only be linked to attempts of the same day; in the first hour after midnight the previous day's key is tried too.
-- The other keys change only with the instance `secret`. Changing the `secret` makes every value in the table above that was made with the old key unusable: decoy secrets no longer match, remembered devices are forgotten, open lock links stop working, unconfirmed logins are no longer recognised, and the stored hashes of watched settings no longer match their values. The config watch notices the change, alerts the administrators once and records the watched settings again; [Keys and fingerprints](keys.md#changing-the-instance-secret) describes what the change resets and what to do about it.
+- The other keys change only with the instance `secret`. Changing the `secret` makes every value in the table above that was made with the old key unusable: decoy secrets no longer match, remembered devices are forgotten, open lock links stop working, and the stored hashes of watched settings no longer match their values. The config watch notices the change, alerts the administrators once and records the watched settings again; [Keys and fingerprints](keys.md#changing-the-instance-secret) describes what the change resets and what to do about it.
 
 ## Algorithms and migration
 

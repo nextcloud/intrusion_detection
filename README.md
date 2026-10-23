@@ -175,8 +175,8 @@ Security works better when the account owner can say "that wasn't me". Users fin
 
 1. the user's **second factor**, if they have one;
 2. a **remembered device**: after a confirmed login, users can tick "Remember this device" (kept 180 days after last use; never enough when the password itself is at risk, or for an administrator outside the trusted networks);
-3. a 6-digit **email code**, valid for 10 minutes, with 5 tries;
-4. optionally, **approval by an administrator** (off by default).
+3. a 6-digit **email code**, valid for 10 minutes, with 5 tries (and at most 10 wrong codes per account and hour); administrators get one only when neither their second factor nor an approval can confirm;
+4. optionally, **approval by an administrator** (off by default), asked for 10 minutes.
 
 Apps that log in with an app password are never interrupted.
 
@@ -233,7 +233,7 @@ Everything lives under **Administration settings → Intrusion detection**, in f
 
 **Firewall export.** Write the active blocks to files your firewall reads, so blocked addresses are dropped before they reach the web server: `bans.txt`, an nftables script (`bans.nft`), an `ipset restore` script (`bans.ipset`) and an append-only `bans.log` for fail2ban. The admin page shows ready-made nftables, ipset, fail2ban and systemd snippets. The export directory can only be set in `config.php` (`intrusion_detection.export_dir`) and must be outside every web root, and the app never runs a firewall command itself.
 
-**Administrators from trusted networks only.** One switch in the login confirmation settings: a password login of an administrator from outside your trusted networks (office, VPN) then needs the second factor, an email code or, if you switched it on, another admin's approval. A remembered device is not enough, because the point is the network. Apps with app passwords are not affected. "Needs attention" warns you when the list of trusted networks is empty, or when an administrator has neither an email address nor a second factor, so nobody is locked out by surprise. `occ` keeps working from the server.
+**Administrators from trusted networks only.** One switch in the login confirmation settings: a password login of an administrator from outside your trusted networks (office, VPN) then needs the second factor or, if you switched it on, another admin's approval, and an email code only without both. A remembered device is not enough, because the point is the network. A browser session let in from a trusted network ends when it is used elsewhere, and an account made administrator logs in again. Apps with app passwords and single sign-on are not affected. "Needs attention" warns you when the list of trusted networks is empty, or when an administrator has neither an email address nor a second factor, so nobody is locked out by surprise. `occ` keeps working from the server.
 
 **Four-eyes approval.** With "A second administrator approves new administrators" on, someone added to the admin group, or to a group with delegated administration settings, from the web or the API waits until another administrator approves. Switching that approval or intrusion detection off from the admin page, lowering the admin change alerts below Protect and "Reset all settings" wait for another administrator the same way. `occ` is not held back, and is reported. To make these settings unchangeable even with `occ`, set `'intrusion_detection.locked' => true` in `config.php`; see [Who may do what](docs/authorization.md).
 
@@ -442,6 +442,7 @@ With a memory cache, a few microseconds; see [Light on resources](#-light-on-res
 - [Cryptography and keys](docs/cryptography.md): every key, fingerprint and secret, and what changing the instance `secret` does to them
 - [Logging](docs/logging.md): what goes to the audit log, `nextcloud.log`, `bans.log` and webhooks, and lock links in web server access logs
 - [Blocklists and the firewall export](docs/blocklists.md): what you trust, list formats and limits, and where to put the export folder
+- [Logins and their confirmation](docs/logins.md): which logins are confirmed, timers, limits, and lock links in access logs
 
 ## Contributing and security
 
