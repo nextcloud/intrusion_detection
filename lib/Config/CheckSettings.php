@@ -59,11 +59,24 @@ class CheckSettings extends StoredSettings {
 	 * @param int|float|bool|string|list<string> $old its value before
 	 */
 	public function modeStateBefore(string $checkId, string $name, int|float|bool|string|array $old, int $now): ModeState {
-		$configured = $name === Keys::mode($checkId)
-			? (is_string($old) ? Mode::tryFrom($old) : null) ?? Mode::from($this->check($checkId)['mode'])
+		return $this->modeStateBeforeAll($checkId, [$name => $old], $now);
+	}
+
+	/**
+	 * The mode a check ran in before several of the app's own settings
+	 * changed together.
+	 *
+	 * @param array<string, int|float|bool|string|list<string>> $old the values before, by setting name
+	 */
+	public function modeStateBeforeAll(string $checkId, array $old, int $now): ModeState {
+		$modeKey = Keys::mode($checkId);
+		$configured = array_key_exists($modeKey, $old)
+			? (is_string($old[$modeKey]) ? Mode::tryFrom($old[$modeKey]) : null) ?? Mode::from($this->check($checkId)['mode'])
 			: $this->configuredMode($checkId);
-		$enabled = $name === GlobalSettings::ENABLED ? $old === true : $this->app->isEnabled();
-		$learning = $name === GlobalSettings::LEARNING_UNTIL ? is_int($old) && $old > $now : $this->app->isLearning();
+		$enabled = array_key_exists(GlobalSettings::ENABLED, $old) ? $old[GlobalSettings::ENABLED] === true : $this->app->isEnabled();
+		$learning = array_key_exists(GlobalSettings::LEARNING_UNTIL, $old)
+			? is_int($old[GlobalSettings::LEARNING_UNTIL]) && $old[GlobalSettings::LEARNING_UNTIL] > $now
+			: $this->app->isLearning();
 		return $this->state($checkId, $configured, $enabled, $learning);
 	}
 

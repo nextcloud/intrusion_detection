@@ -261,16 +261,77 @@ class ConfigWatchTest extends AdminChangeTestCase {
 		$this->assertStringContainsString('Its value is secret', $texts);
 	}
 
-	public function testSwitchingTheCheckOffStartsANewBaseline(): void {
+	public function testSwitchingTheCheckOffAroundTheAppIsReported(): void {
 		$this->watch->run();
 		$this->appConfig->setValueString(Application::APP_ID, Keys::mode(AdminChange::ID), Mode::Off->value);
-		$this->assertSame(0, $this->watch->run());
-		$this->assertSame(0, Server::get(AppState::class)->getInt(ConfigWatch::BASELINE_STATE));
+		$this->watch->run();
+
+		[$detection] = $this->adminChanges();
+		$this->assertSame(WatchedSettings::ownKey(Keys::mode(AdminChange::ID)), $this->facts($detection)['setting']);
+		$this->assertSame(Severity::High->value, $detection->getSeverity());
+		$this->assertNotSame([], $this->notificationsWithSubject(AdminAlerts::SUBJECT), 'The administrators are alerted');
+		$this->assertNotSame(0, Server::get(AppState::class)->getInt(ConfigWatch::BASELINE_STATE), 'The baseline is kept');
+		$this->watch->run();
+		$this->assertCount(1, $this->adminChanges(), 'Reported once');
+	}
+
+	public function testChangesWhileTheCheckWasOffAreReportedWhenItIsBack(): void {
+		$this->watch->run();
+		$this->appConfig->setValueString(Application::APP_ID, Keys::mode(AdminChange::ID), Mode::Off->value);
+		$this->watch->run();
+		$this->system['trusted_proxies'] = [];
+		$this->system['loglevel'] = 0;
+		$this->watch->run();
+		$this->assertCount(1, $this->adminChanges(), 'Nothing is recorded while the check is off');
+
+		$this->appConfig->setValueString(Application::APP_ID, Keys::mode(AdminChange::ID), Mode::Protect->value);
+		$this->watch->run();
+		$settings = array_map(fn ($d): string => $this->facts($d)['setting'], array_slice($this->adminChanges(), 1));
+		sort($settings);
+		$this->assertSame([WatchedSettings::systemKey('loglevel'), WatchedSettings::systemKey('trusted_proxies')], $settings, 'Compared with the last baseline');
+	}
+
+	public function testChangesWhileProtectionWasOffAreReportedWhenItIsBack(): void {
+		$this->watch->run();
+		$this->appConfig->setValueBool(Application::APP_ID, GlobalSettings::ENABLED, false);
+		$this->watch->run();
+		[$off] = $this->adminChanges();
+		$this->assertSame(WatchedSettings::ownKey(GlobalSettings::ENABLED), $this->facts($off)['setting']);
+		$this->assertSame(Severity::High->value, $off->getSeverity());
 
 		$this->system['trusted_proxies'] = [];
-		$this->appConfig->setValueString(Application::APP_ID, Keys::mode(AdminChange::ID), Mode::Protect->value);
-		$this->assertSame(0, $this->watch->run(), 'Changes while it was off are not told: nobody knows when they happened');
-		$this->assertSame([], $this->adminChanges());
+		$this->watch->run();
+		$this->appConfig->setValueBool(Application::APP_ID, GlobalSettings::ENABLED, true);
+		$this->watch->run();
+		$settings = array_map(fn ($d): string => $this->facts($d)['setting'], $this->adminChanges());
+		$this->assertContains(WatchedSettings::systemKey('trusted_proxies'), $settings);
+	}
+
+	public function testSwitchingTheCheckAndProtectionOffTogetherIsReported(): void {
+		$this->watch->run();
+		$this->appConfig->setValueString(Application::APP_ID, Keys::mode(AdminChange::ID), Mode::Off->value);
+		$this->appConfig->setValueBool(Application::APP_ID, GlobalSettings::ENABLED, false);
+		$this->watch->run();
+		$settings = array_map(fn ($d): string => $this->facts($d)['setting'], $this->adminChanges());
+		sort($settings);
+		$this->assertSame([WatchedSettings::ownKey(Keys::mode(AdminChange::ID)), WatchedSettings::ownKey(GlobalSettings::ENABLED)], $settings);
+	}
+
+	public function testOwnChangesWhileTheCheckWasOffAreReportedWhenItIsBack(): void {
+		$watch = Server::get(ConfigWatch::class);
+		$watch->run();
+		$editor = $this->settingsEditor();
+		$editor->setMode(AdminChange::ID, Mode::Off);
+		$this->assertCount(1, $this->adminChanges(), 'Switching it off is reported at once');
+		$editor->setMode('credential_stuffing', Mode::Off);
+		$this->assertCount(1, $this->adminChanges());
+		$watch->run();
+		$this->assertCount(1, $this->adminChanges());
+
+		$editor->setMode(AdminChange::ID, Mode::Protect);
+		$watch->run();
+		$settings = array_map(fn ($d): string => $this->facts($d)['setting'], $this->adminChanges());
+		$this->assertContains(WatchedSettings::ownKey(Keys::mode('credential_stuffing')), $settings);
 	}
 
 	public function testANewlyWatchedFixedKeyIsRecordedSilently(): void {
