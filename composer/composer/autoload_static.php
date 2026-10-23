@@ -559,6 +559,7 @@ class ComposerStaticInitIntrusionDetection
         'OCA\\IntrusionDetection\\Personal\\LogOutElsewhere' => __DIR__ . '/..' . '/../lib/Personal/LogOutElsewhere.php',
         'OCA\\IntrusionDetection\\Personal\\ManageSummary' => __DIR__ . '/..' . '/../lib/Personal/ManageSummary.php',
         'OCA\\IntrusionDetection\\Personal\\PersonalActivity' => __DIR__ . '/..' . '/../lib/Personal/PersonalActivity.php',
+        'OCA\\IntrusionDetection\\Personal\\PersonalDataMigrator' => __DIR__ . '/..' . '/../lib/Personal/PersonalDataMigrator.php',
         'OCA\\IntrusionDetection\\Personal\\PersonalOverview' => __DIR__ . '/..' . '/../lib/Personal/PersonalOverview.php',
         'OCA\\IntrusionDetection\\Privacy\\UserDataCleanup' => __DIR__ . '/..' . '/../lib/Privacy/UserDataCleanup.php',
         'OCA\\IntrusionDetection\\Repair\\MoveInternalState' => __DIR__ . '/..' . '/../lib/Repair/MoveInternalState.php',

@@ -52,6 +52,7 @@ use OCA\IntrusionDetection\Middleware\PayloadMiddleware;
 use OCA\IntrusionDetection\Middleware\SessionStateMiddleware;
 use OCA\IntrusionDetection\Notification\Notifier;
 use OCA\IntrusionDetection\Notification\ShareOwnerNotifier;
+use OCA\IntrusionDetection\Personal\PersonalDataMigrator;
 use OCA\IntrusionDetection\Response\IAcceptedLogins;
 use OCA\IntrusionDetection\SetupCheck\AdminContactCheck;
 use OCA\IntrusionDetection\SetupCheck\AdminNetworksCheck;
@@ -205,6 +206,8 @@ class Application extends App implements IBootstrap {
 		$context->registerNotifierService(Notifier::class);
 		$context->registerNotifierService(ShareOwnerNotifier::class);
 		$context->registerNotifierService(SecureAccountNotifier::class);
+
+		$context->registerUserMigrator(PersonalDataMigrator::class);
 
 		foreach ([...self::CORE_SETUP_CHECKS, ...self::SETUP_CHECKS] as $setupCheck) {
 			$context->registerSetupCheck($setupCheck);

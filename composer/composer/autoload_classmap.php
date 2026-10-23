@@ -544,6 +544,7 @@ return array(
     'OCA\\IntrusionDetection\\Personal\\LogOutElsewhere' => $baseDir . '/../lib/Personal/LogOutElsewhere.php',
     'OCA\\IntrusionDetection\\Personal\\ManageSummary' => $baseDir . '/../lib/Personal/ManageSummary.php',
     'OCA\\IntrusionDetection\\Personal\\PersonalActivity' => $baseDir . '/../lib/Personal/PersonalActivity.php',
+    'OCA\\IntrusionDetection\\Personal\\PersonalDataMigrator' => $baseDir . '/../lib/Personal/PersonalDataMigrator.php',
     'OCA\\IntrusionDetection\\Personal\\PersonalOverview' => $baseDir . '/../lib/Personal/PersonalOverview.php',
     'OCA\\IntrusionDetection\\Privacy\\UserDataCleanup' => $baseDir . '/../lib/Privacy/UserDataCleanup.php',
     'OCA\\IntrusionDetection\\Repair\\MoveInternalState' => $baseDir . '/../lib/Repair/MoveInternalState.php',
