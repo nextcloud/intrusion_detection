@@ -3,7 +3,7 @@
     "info": {
         "title": "intrusion_detection-full",
         "version": "0.0.1",
-        "description": "Recognises attacks on logins, shares and accounts, and answers them with graduated, explained responses.",
+        "description": "The Nextcloud-aware companion to fail2ban, CrowdSec and WAFs: recognises and answers attacks on logins, shares and accounts.",
         "license": {
             "name": "agpl"
         }

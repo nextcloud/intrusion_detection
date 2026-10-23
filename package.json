@@ -1,7 +1,7 @@
 {
   "name": "intrusion_detection",
   "private": true,
-  "description": "Recognises attacks on logins, shares and accounts, and answers them with graduated, explained responses.",
+  "description": "The Nextcloud-aware companion to fail2ban, CrowdSec and WAFs: recognises and answers attacks on logins, shares and accounts.",
   "homepage": "https://github.com/nextcloud/intrusion_detection",
   "bugs": {
     "url": "https://github.com/nextcloud/intrusion_detection/issues"
