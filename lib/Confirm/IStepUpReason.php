@@ -9,6 +9,8 @@ declare(strict_types=1);
 
 namespace OCA\IntrusionDetection\Confirm;
 
+use OCA\IntrusionDetection\Login\LoginContext;
+
 /**
  * One reason why a password login needs extra confirmation. Providers are
  * listed in {@see StepUpReasons::PROVIDERS} and asked once per successful

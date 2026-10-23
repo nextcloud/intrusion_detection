@@ -13,9 +13,9 @@ use OCA\IntrusionDetection\Check\Checks\BreachedPassword\BreachedPassword;
 use OCA\IntrusionDetection\Check\Checks\BreachedPassword\BreachedPasswordDetector;
 use OCA\IntrusionDetection\Config\CheckSettings;
 use OCA\IntrusionDetection\Confirm\IStepUpReason;
-use OCA\IntrusionDetection\Confirm\LoginContext;
 use OCA\IntrusionDetection\Confirm\StepUpPolicy;
 use OCA\IntrusionDetection\Definition\ResponseType;
+use OCA\IntrusionDetection\Login\LoginContext;
 use Psr\Container\ContainerInterface;
 
 /**

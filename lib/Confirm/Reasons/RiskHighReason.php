@@ -11,8 +11,8 @@ namespace OCA\IntrusionDetection\Confirm\Reasons;
 
 use OCA\IntrusionDetection\Config\AppSettings;
 use OCA\IntrusionDetection\Confirm\IStepUpReason;
-use OCA\IntrusionDetection\Confirm\LoginContext;
 use OCA\IntrusionDetection\Confirm\StepUpPolicy;
+use OCA\IntrusionDetection\Login\LoginContext;
 use OCA\IntrusionDetection\Risk\RiskScorer;
 use OCA\IntrusionDetection\TrustedNetwork\ITrustedNetworks;
 

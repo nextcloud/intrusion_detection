@@ -7,7 +7,7 @@ declare(strict_types=1);
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 
-namespace OCA\IntrusionDetection\Confirm;
+namespace OCA\IntrusionDetection\Login;
 
 use OCA\IntrusionDetection\Net\SourceKey;
 use OCP\IUser;

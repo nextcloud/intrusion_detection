@@ -10,7 +10,7 @@ declare(strict_types=1);
 namespace OCA\IntrusionDetection\Tests\Unit\Confirm;
 
 use OCA\IntrusionDetection\Confirm\IStepUpReason;
-use OCA\IntrusionDetection\Confirm\LoginContext;
+use OCA\IntrusionDetection\Login\LoginContext;
 use OCA\IntrusionDetection\Confirm\Reasons\BreachedPasswordReason;
 use OCA\IntrusionDetection\Confirm\Reasons\FlaggedSourceReason;
 use OCA\IntrusionDetection\Confirm\Reasons\ProtectedAccountReason;

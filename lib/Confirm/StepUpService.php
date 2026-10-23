@@ -16,6 +16,7 @@ use OCA\IntrusionDetection\Check\Checks\StepUpRefusedClient\StepUpRefusedClient;
 use OCA\IntrusionDetection\Check\Checks\StepUpUnconfirmed\StepUpUnconfirmed;
 use OCA\IntrusionDetection\Db\Detection;
 use OCA\IntrusionDetection\Detection\DetectionDraft;
+use OCA\IntrusionDetection\Login\LoginContext;
 use OCA\IntrusionDetection\LoginHistory\LoginHistory;
 use OCA\IntrusionDetection\Net\RemoteAddressResolver;
 use OCA\IntrusionDetection\Net\SourceKey;

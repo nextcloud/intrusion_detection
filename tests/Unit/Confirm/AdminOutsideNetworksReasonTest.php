@@ -11,11 +11,11 @@ namespace OCA\IntrusionDetection\Tests\Unit\Confirm;
 
 use OCA\IntrusionDetection\AdminChange\DelegatedGroups;
 use OCA\IntrusionDetection\Config\AppSettings;
-use OCA\IntrusionDetection\Confirm\LoginContext;
 use OCA\IntrusionDetection\Confirm\Methods\KnownDeviceMethod;
 use OCA\IntrusionDetection\Confirm\Reasons\AdminOutsideNetworksReason;
 use OCA\IntrusionDetection\Confirm\StepUpPolicy;
 use OCA\IntrusionDetection\Confirm\StepUpReasons;
+use OCA\IntrusionDetection\Login\LoginContext;
 use OCA\IntrusionDetection\Net\SourceKey;
 use OCP\IGroupManager;
 use OCP\IUser;

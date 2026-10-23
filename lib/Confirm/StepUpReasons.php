@@ -9,6 +9,7 @@ declare(strict_types=1);
 
 namespace OCA\IntrusionDetection\Confirm;
 
+use OCA\IntrusionDetection\Login\LoginContext;
 use Psr\Container\ContainerInterface;
 use Psr\Log\LoggerInterface;
 

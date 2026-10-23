@@ -16,7 +16,6 @@ use OCA\IntrusionDetection\Check\Checks\PasswordSpraying\PasswordSprayingDetecto
 use OCA\IntrusionDetection\Check\Checks\RiskyNetwork\RiskyNetworkDetector;
 use OCA\IntrusionDetection\Config\AppSettings;
 use OCA\IntrusionDetection\Config\CheckSettings;
-use OCA\IntrusionDetection\Confirm\LoginContext;
 use OCA\IntrusionDetection\Confirm\LoginDetections;
 use OCA\IntrusionDetection\Confirm\StepUpPolicy;
 use OCA\IntrusionDetection\Confirm\StepUpReasons;
@@ -24,6 +23,7 @@ use OCA\IntrusionDetection\Confirm\StepUpService;
 use OCA\IntrusionDetection\Confirm\UnconfirmedSessions;
 use OCA\IntrusionDetection\Crypto\Fingerprinter;
 use OCA\IntrusionDetection\Login\InteractiveLogin;
+use OCA\IntrusionDetection\Login\LoginContext;
 use OCA\IntrusionDetection\Net\RemoteAddressResolver;
 use OCA\IntrusionDetection\Net\SourceKey;
 use OCA\IntrusionDetection\Response\FlaggedSources;
