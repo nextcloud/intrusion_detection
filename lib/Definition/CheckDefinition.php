@@ -32,8 +32,8 @@ final class CheckDefinition {
 	 * @param list<DataKind> $stores
 	 * @param list<Requirement> $requirements
 	 * @param \Closure(IL10N): CheckTexts $texts
-	 * @param bool $honoursLure a plain link can trigger the check, so a detection from a lure (a browser
-	 *                          that fetched a URL for another site's page or an email) does not block the
+	 * @param bool $honoursLure another site's page can trigger the check, so a detection from a lure (a
+	 *                          request a browser made for another site's page or an email) does not block the
 	 *                          address of the request
 	 * @param bool $trustedLoginsExempt an address an administrator logged in from recently is not blocked;
 	 *                                  false for checks no client's mistake can trigger

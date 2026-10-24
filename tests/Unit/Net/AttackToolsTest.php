@@ -7,9 +7,9 @@ declare(strict_types=1);
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 
-namespace OCA\IntrusionDetection\Tests\Unit\Risk;
+namespace OCA\IntrusionDetection\Tests\Unit\Net;
 
-use OCA\IntrusionDetection\Risk\AttackTools;
+use OCA\IntrusionDetection\Net\AttackTools;
 use PHPUnit\Framework\Attributes\DataProvider;
 use Test\TestCase;
 

@@ -59,3 +59,32 @@ account" are Vue apps and need JavaScript.
   Nextcloud. Other targets are ignored.
 - External links (documentation, Have I Been Pwned, blocklist terms) are
   fixed addresses and open with `rel="noreferrer noopener"`.
+
+## Requests other sites start
+
+Any web page or HTML email can make a visitor's browser ask this server
+for a URL: an image, a link, or a form that submits itself. The visitor's
+cookies usually stay behind, so the request looks anonymous. If it asks for
+a trap URL, carries an injection probe or opens a share link that does not
+exist, it is recorded as a possible lure, but its address is not blocked.
+Otherwise any page could lock its visitors out, administrators included.
+
+A request counts as a possible lure when the browser says another site
+started it: `Sec-Fetch-Site: cross-site` or `same-site` (another host of
+the same domain counts as another site), or, from a browser that sends no
+fetch metadata, an `Origin` of another site. A GET or HEAD that embeds a
+URL (an image, a script, a frame) counts too. Only requests that another
+site's page can send without the server's consent qualify:
+
+- GET and HEAD;
+- POST as a form, plain text, a beacon, a link ping or a policy report,
+  with a matching `Sec-Fetch-Mode` and `Sec-Fetch-Dest`;
+- OPTIONS as a CORS preflight.
+
+A request is never a possible lure when its `Origin` or `Referer` is this
+server, when it uses another method (PUT, DELETE, PROPFIND) or another body
+type (JSON, XML), when it carries a header only scripts send
+(`OCS-APIRequest`, `X-Requested-With`, `requesttoken`), or when its user
+agent names an attack tool or scripting library. Scanners can still send
+browser headers on purpose; their requests are recorded all the same, and
+every other check blocks them as usual.

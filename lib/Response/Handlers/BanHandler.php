@@ -34,10 +34,11 @@ use Psr\Container\ContainerInterface;
  * ({@see \OCA\IntrusionDetection\Response\BanExemptions}); the action says so.
  *
  * The address of the request is not blocked when the request is a possible
- * lure ({@see \OCA\IntrusionDetection\Net\FetchMetadata}): a browser that
- * fetched a URL for another site's page or an email. Anyone could have caused
- * it, so it is recorded, but blocking it would let any page lock its visitors
- * out. Only the checks a plain link can trigger honour lures
+ * lure ({@see \OCA\IntrusionDetection\Net\FetchMetadata}): a request a
+ * browser made for another site's page or an email, by a link, an embed or a
+ * form. Anyone could have caused it, so it is recorded, but blocking it would
+ * let any page lock its visitors out. Only the checks such a request can
+ * trigger honour lures
  * ({@see \OCA\IntrusionDetection\Definition\CheckDefinition::$honoursLure});
  * failed logins and wrong share passwords never come from a lure.
  */

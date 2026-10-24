@@ -38,9 +38,10 @@ use Psr\Log\LoggerInterface;
  * A request without credentials that matches is answered at once: detection,
  * block, and this request refused with the block's reference. A request with
  * credentials is decided once it is known whether it is really logged in
- * ({@see PayloadResponder}). A possible lure (a GET request a browser made
- * for another site, {@see FetchMetadata}) is recorded without blocking its
- * address. The brute-force allowlist is always honoured.
+ * ({@see PayloadResponder}). A possible lure (a request a browser made for
+ * another site, such as an image or a form, {@see FetchMetadata}) is
+ * recorded without blocking its address. The brute-force allowlist is always
+ * honoured.
  * Anything that goes wrong lets the request through.
  */
 class PayloadGuard implements IRequestGuard {

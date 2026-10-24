@@ -21,6 +21,7 @@ use OCA\IntrusionDetection\Db\AttemptKind;
 use OCA\IntrusionDetection\Db\AttemptMapper;
 use OCA\IntrusionDetection\Db\DetectionMapper;
 use OCA\IntrusionDetection\Login\RequestContext;
+use OCA\IntrusionDetection\Net\AttackTools;
 use OCA\IntrusionDetection\Net\RangeCodec;
 use OCA\IntrusionDetection\Net\RemoteAddressResolver;
 use OCA\IntrusionDetection\Net\SourceKey;

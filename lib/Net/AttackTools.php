@@ -7,7 +7,7 @@ declare(strict_types=1);
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 
-namespace OCA\IntrusionDetection\Risk;
+namespace OCA\IntrusionDetection\Net;
 
 /**
  * Recognises the user agents of attack tools and scripting libraries on
