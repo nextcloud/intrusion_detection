@@ -17,6 +17,7 @@ use OCA\IntrusionDetection\Db\AttemptKind;
 use OCA\IntrusionDetection\Db\AttemptMapper;
 use OCA\IntrusionDetection\Db\Detection;
 use OCA\IntrusionDetection\Definition\ResponseType;
+use OCA\IntrusionDetection\Detection\AttemptCounters;
 use OCA\IntrusionDetection\Detection\AttemptRecord;
 use OCA\IntrusionDetection\Detection\CommonFacts;
 use OCA\IntrusionDetection\Detection\DetectionDraft;
@@ -38,7 +39,8 @@ use OCA\IntrusionDetection\Signal\SuccessfulLogin;
  * - Otherwise: attempts with the same password fingerprint within `window`
  *   (at most one hour) for at least `min_names` different login names fire.
  *   The limit is lowered when the failing address has an elevated or high
- *   risk score ({@see RiskScorer::limits()}).
+ *   risk score ({@see RiskScorer::limits()}). The names are only counted
+ *   once the cheap bound of {@see AttemptCounters} can reach the limit.
  *   The failing address is blocked, and so is every address that tried the
  *   password for at least MIN_NAMES_TO_BLOCK accounts in the window (at most
  *   MAX_BAN_TARGETS); the fingerprint is flagged for a day.
@@ -63,6 +65,7 @@ class PasswordSprayingDetector implements IDetector {
 		private readonly Fingerprinter $fingerprinter,
 		private readonly Caches $caches,
 		private readonly RiskScorer $risk,
+		private readonly AttemptCounters $counters,
 	) {
 	}
 
@@ -105,8 +108,12 @@ class PasswordSprayingDetector implements IDetector {
 		}
 
 		$since = $attempt->time - $window;
+		$minNames = $this->settings->paramInt(PasswordSpraying::ID, 'min_names');
+		if (!$this->counters->mayReach('pw_fp', $attempt->passwordCandidates, $attempt->time, $this->risk->lowestLimit($minNames))) {
+			return;
+		}
 		$stats = $this->attempts->stats('pw_fp', $attempt->passwordCandidates, self::KINDS, $since);
-		$limits = $this->risk->limits($attempt->source, ['min_names' => [$this->settings->paramInt(PasswordSpraying::ID, 'min_names'), $stats->distinctNames]]);
+		$limits = $this->risk->limits($attempt->source, ['min_names' => [$minNames, $stats->distinctNames]]);
 		if (!$limits->reached()) {
 			return;
 		}
@@ -182,6 +189,9 @@ class PasswordSprayingDetector implements IDetector {
 	 * @return \Generator<int, DetectionDraft, ?Detection, void>
 	 */
 	private function banJoiningSource(#[\SensitiveParameter] AttemptRecord $attempt, ?string $userAgent): \Generator {
+		if (!$this->counters->mayReach('ip_key', [$attempt->source->ipKey], $attempt->time, PasswordSpraying::MIN_NAMES_TO_BLOCK)) {
+			return;
+		}
 		$window = $this->settings->paramInt(PasswordSpraying::ID, 'window');
 		$own = $this->attempts->statsForSourceWithPasswords($attempt->source->ipKey, $attempt->passwordCandidates, self::KINDS, $attempt->time - $window);
 		if ($own->distinctNames < PasswordSpraying::MIN_NAMES_TO_BLOCK) {

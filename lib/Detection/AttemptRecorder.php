@@ -23,7 +23,8 @@ use OCP\AppFramework\Utility\ITimeFactory;
  * The login name and the password are fingerprinted with keys derived from
  * the instance secret before anything is stored; the plain values never
  * leave this method. Expired attempts are deleted by the cleanup job
- * ({@see purge()}), never on the path of a failed login.
+ * ({@see purge()}), never on the path of a failed login. Failed logins are
+ * also counted in the distributed cache ({@see AttemptCounters}).
  */
 class AttemptRecorder implements IPurges {
 	/** Attempts are kept this long */
@@ -38,6 +39,7 @@ class AttemptRecorder implements IPurges {
 		private readonly Fingerprinter $fingerprinter,
 		private readonly ITimeFactory $timeFactory,
 		private readonly HotState $hotState,
+		private readonly AttemptCounters $counters,
 	) {
 	}
 
@@ -113,7 +115,9 @@ class AttemptRecorder implements IPurges {
 		if ($stored) {
 			$this->mapper->insert($kind, $source->ipKey, $source->netKey, $nameHmac, $uid, $shareId, $fingerprint, $now, $weight, $lure);
 		}
-		return new AttemptRecord($kind, $source, $nameHmac, $uid, $shareId, $fingerprint, $candidates, $now, $stored, $lure);
+		$record = new AttemptRecord($kind, $source, $nameHmac, $uid, $shareId, $fingerprint, $candidates, $now, $stored, $lure);
+		$this->counters->count($record);
+		return $record;
 	}
 
 	private static function isSampledKind(AttemptKind $kind): bool {

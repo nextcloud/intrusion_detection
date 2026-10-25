@@ -353,6 +353,7 @@ return array(
     'OCA\\IntrusionDetection\\Definition\\Requirement' => $baseDir . '/../lib/Definition/Requirement.php',
     'OCA\\IntrusionDetection\\Definition\\ResponseType' => $baseDir . '/../lib/Definition/ResponseType.php',
     'OCA\\IntrusionDetection\\Definition\\Severity' => $baseDir . '/../lib/Definition/Severity.php',
+    'OCA\\IntrusionDetection\\Detection\\AttemptCounters' => $baseDir . '/../lib/Detection/AttemptCounters.php',
     'OCA\\IntrusionDetection\\Detection\\AttemptRecord' => $baseDir . '/../lib/Detection/AttemptRecord.php',
     'OCA\\IntrusionDetection\\Detection\\AttemptRecorder' => $baseDir . '/../lib/Detection/AttemptRecorder.php',
     'OCA\\IntrusionDetection\\Detection\\CommonFacts' => $baseDir . '/../lib/Detection/CommonFacts.php',
