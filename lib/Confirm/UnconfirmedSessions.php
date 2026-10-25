@@ -29,12 +29,16 @@ use Psr\Log\LoggerInterface;
  * when it is confirmed or ended.
  *
  * Normal logins cost nothing: the table is only read while an unconfirmed
- * session may exist, which a global setting tells without a query.
+ * session may exist, which a global setting tells without a query. That
+ * setting is written at most once a day: it runs a day ahead of the last
+ * session remembered.
  */
 class UnconfirmedSessions implements IPurges {
 	/** Core's defaults for how long a remembered login and a session last */
 	public const DEFAULT_REMEMBER_LIFETIME = 15 * 86400;
 	public const DEFAULT_SESSION_LIFETIME = 86400;
+	/** How far the stored end of the last unconfirmed session runs ahead, so that the logins of a day write it once */
+	public const UNTIL_HEADROOM = 86400;
 
 	public function __construct(
 		private readonly StepUpSessionMapper $mapper,
@@ -71,7 +75,7 @@ class UnconfirmedSessions implements IPurges {
 			$pending?->status === ConfirmationStatus::Refused,
 		);
 		if ($this->hotState->stepUpSessionsUntil() < $expires) {
-			$this->hotState->setStepUpSessionsUntil($expires);
+			$this->hotState->setStepUpSessionsUntil($expires + self::UNTIL_HEADROOM);
 		}
 	}
 
