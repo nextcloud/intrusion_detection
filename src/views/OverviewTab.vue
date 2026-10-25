@@ -17,15 +17,17 @@ import AdminGrantRequests from '../components/confirmation/AdminGrantRequests.vu
 import PendingApprovals from '../components/confirmation/PendingApprovals.vue'
 import DetectionChart from '../components/overview/DetectionChart.vue'
 import DetectionList from '../components/overview/DetectionList.vue'
+import LearningRecap from '../components/overview/LearningRecap.vue'
 import LookupBox from '../components/overview/LookupBox.vue'
 import ProblemList from '../components/ProblemList.vue'
 import StatusBanner from '../components/StatusBanner.vue'
 import { adminGrants, decidableLogins, openDetectionId, state } from '../store.ts'
-import { useDailyStats } from '../stores/overview.ts'
+import { useDailyStats, useLearningRecap } from '../stores/overview.ts'
 import { APP_ID } from '../utils/format.ts'
 import { t } from '../utils/l10n.ts'
 
 const { data: stats, error: statsError } = useDailyStats({ failure: () => t(APP_ID, 'The chart could not be loaded.') })
+const { data: recap } = useLearningRecap()
 const liftTarget = ref<Ban | null>(null)
 
 /**
@@ -56,6 +58,8 @@ watch(openDetectionId, async (id) => {
 
 <template>
 	<div :class="$style.overview">
+		<LearningRecap v-if="recap" :recap="recap" />
+
 		<StatusBanner v-if="state.status" :status="state.status" />
 
 		<ProblemList

@@ -10,6 +10,7 @@ declare(strict_types=1);
 namespace OCA\IntrusionDetection\Controller;
 
 use OCA\IntrusionDetection\Admin\GlobalSettingsPresenter;
+use OCA\IntrusionDetection\Admin\LearningRecap;
 use OCA\IntrusionDetection\Admin\SettingsTransfer;
 use OCA\IntrusionDetection\Admin\StatusService;
 use OCA\IntrusionDetection\AdminChange\ActorResolver;
@@ -27,9 +28,11 @@ use OCP\IRequest;
  * The global settings and learning mode on the admin page, with the
  * export for support and the reset to the defaults. Administrators only;
  * every change needs a recent password confirmation and is written to the
- * audit log.
+ * audit log. Closing the recap of the learning period changes only what
+ * the administrator sees, so it needs neither.
  *
  * @psalm-import-type IntrusionDetectionLearning from ResponseDefinitions
+ * @psalm-import-type IntrusionDetectionLearningRecapResult from ResponseDefinitions
  * @psalm-import-type IntrusionDetectionSettings from ResponseDefinitions
  * @psalm-import-type IntrusionDetectionExport from ResponseDefinitions
  * @psalm-import-type IntrusionDetectionError from ResponseDefinitions
@@ -42,6 +45,7 @@ class SettingsApiController extends AdminOCSController {
 		ActorResolver $actors,
 		private readonly StatusService $status,
 		private readonly LearningService $learningService,
+		private readonly LearningRecap $recap,
 		private readonly GlobalSettingsPresenter $globalSettings,
 		private readonly SettingsTransfer $transfer,
 	) {
@@ -91,6 +95,36 @@ class SettingsApiController extends AdminOCSController {
 			$this->learningService->extend($days, $this->actor());
 		}
 		return new DataResponse($this->status->learning());
+	}
+
+	/**
+	 * Show the recap of the learning period that ended last
+	 *
+	 * What the checks saw while learning and what they would have blocked,
+	 * with the accounts that logged in from addresses they would have
+	 * blocked. Null once the administrator closed it, while learning, and
+	 * two weeks after the period ended.
+	 *
+	 * @return DataResponse<Http::STATUS_OK, IntrusionDetectionLearningRecapResult, array{}>
+	 *
+	 * 200: Recap returned
+	 */
+	#[ApiRoute(verb: 'GET', url: '/api/v1/learning/recap')]
+	public function learningRecap(): DataResponse {
+		return new DataResponse(['recap' => $this->recap->forAdmin($this->actor(), $this->l)]);
+	}
+
+	/**
+	 * Close the recap of the learning period for the current administrator
+	 *
+	 * @return DataResponse<Http::STATUS_OK, IntrusionDetectionLearningRecapResult, array{}>
+	 *
+	 * 200: Recap closed
+	 */
+	#[ApiRoute(verb: 'DELETE', url: '/api/v1/learning/recap')]
+	public function closeLearningRecap(): DataResponse {
+		$this->recap->close($this->actor());
+		return new DataResponse(['recap' => null]);
 	}
 
 	/**

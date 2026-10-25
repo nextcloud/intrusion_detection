@@ -10,10 +10,7 @@ declare(strict_types=1);
 namespace OCA\IntrusionDetection\Notification;
 
 use OCA\IntrusionDetection\AppInfo\Application;
-use OCA\IntrusionDetection\Config\ModeState;
-use OCA\IntrusionDetection\Db\DetectionFilter;
-use OCA\IntrusionDetection\Db\DetectionMapper;
-use OCA\IntrusionDetection\Definition\ResponseType;
+use OCA\IntrusionDetection\Db\StatsMapper;
 use OCA\IntrusionDetection\Learning\LearningService;
 use OCA\IntrusionDetection\State\AppState;
 use OCP\AppFramework\Utility\ITimeFactory;
@@ -24,7 +21,8 @@ use OCP\Notification\IManager as INotificationManager;
  *
  * - a day before it ends, what the app would have done so far, with the
  *   actions "Start protecting now" and "Observe 7 more days";
- * - when protection starts automatically.
+ * - when protection starts automatically, linking to the recap of the
+ *   period on the overview of the admin page.
  *
  * The notice is sent once per learning period (`learning_notice_sent`;
  * starting or extending learning mode resets it). Its actions open the admin
@@ -47,7 +45,7 @@ class LearningNotices {
 		private readonly LearningService $learning,
 		private readonly AdminRecipients $recipients,
 		private readonly INotificationManager $notifications,
-		private readonly DetectionMapper $detections,
+		private readonly StatsMapper $stats,
 		private readonly AdminLinks $links,
 		private readonly ITimeFactory $timeFactory,
 		private readonly AppState $state,
@@ -110,25 +108,13 @@ class LearningNotices {
 	}
 
 	/**
-	 * What learning mode held back since a time: detections that were only
-	 * observed because of learning mode (not those of checks set to Observe),
-	 * and how many different addresses they would have blocked.
+	 * What learning mode held back since a time: the detections, and how
+	 * many different addresses they would have blocked.
 	 *
 	 * @return array{0: int, 1: int}
 	 */
 	private function summary(int $since): array {
-		$detections = 0;
-		$addresses = [];
-		foreach ($this->detections->findList(new DetectionFilter(enforced: false, since: $since, limit: self::SUMMARY_LIMIT)) as $detection) {
-			if (($detection->getExplanationData()['mode']['reason'] ?? null) !== ModeState::REASON_LEARNING) {
-				continue;
-			}
-			$detections++;
-			$ip = $detection->getIp();
-			if ($ip !== null && in_array(ResponseType::Ban->value, array_column($detection->getActionList(), 'type'), true)) {
-				$addresses[$ip] = true;
-			}
-		}
-		return [$detections, count($addresses)];
+		$heldBack = $this->stats->heldBackByLearning($since, null, self::SUMMARY_LIMIT);
+		return [$heldBack['detections'], count($heldBack['addresses'])];
 	}
 }

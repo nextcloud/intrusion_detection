@@ -14,6 +14,7 @@ use OCA\IntrusionDetection\Admin\CheckList;
 use OCA\IntrusionDetection\Admin\DailyStats;
 use OCA\IntrusionDetection\Admin\DetectionPresenter;
 use OCA\IntrusionDetection\Admin\GlobalSettingsPresenter;
+use OCA\IntrusionDetection\Admin\LearningRecap;
 use OCA\IntrusionDetection\Admin\LookupService;
 use OCA\IntrusionDetection\Admin\SettingsTransfer;
 use OCA\IntrusionDetection\Admin\StatusService;
@@ -126,7 +127,7 @@ class ResourceControllersTest extends TestCase {
 		$this->checkApi = new CheckApiController($request, $l, $actors, $this->registry, $this->settings, $this->status, $this->checks, $this->levels, $this->createMock(ApprovalService::class));
 		$this->detectionApi = new DetectionApiController($request, $l, $actors, $this->detectionMapper, $this->detections, $this->createMock(DailyStats::class), $this->createMock(LookupService::class));
 		$this->banApi = new BanApiController($request, $l, $actors, $time, $this->banMapper, $this->banService, $this->bans);
-		$this->settingsApi = new SettingsApiController($request, $l, $actors, $this->status, $this->learning, $this->globalSettings, $this->transfer);
+		$this->settingsApi = new SettingsApiController($request, $l, $actors, $this->status, $this->learning, $this->createMock(LearningRecap::class), $this->globalSettings, $this->transfer);
 	}
 
 	private static function definition(string $id, bool $internal = false): CheckDefinition {

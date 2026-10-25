@@ -259,7 +259,7 @@ export async function resetAllSettings(): Promise<void> {
  */
 export async function changeLearning(action: 'start' | 'extend' | 'stop', days?: number): Promise<void> {
 	await updateLearning(action, days)
-	await invalidate('status', 'checks', 'settings')
+	await invalidate('status', 'checks', 'settings', 'learning-recap')
 }
 
 /**

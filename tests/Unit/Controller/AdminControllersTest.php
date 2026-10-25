@@ -17,6 +17,7 @@ use OCA\IntrusionDetection\Controller\DigestApiController;
 use OCA\IntrusionDetection\Controller\IncidentApiController;
 use OCA\IntrusionDetection\Controller\NotificationApiController;
 use OCA\IntrusionDetection\Controller\PayloadApiController;
+use OCA\IntrusionDetection\Controller\SettingsApiController;
 use OCA\IntrusionDetection\Controller\SimulationApiController;
 use OCP\AppFramework\Http\Attribute\ApiRoute;
 use OCP\AppFramework\Http\Attribute\AuthorizedAdminSetting;
@@ -64,6 +65,8 @@ class AdminControllersTest extends TestCase {
 	private const UNCONFIRMED_WRITES = [
 		// Rejecting changes nothing, and stopping a request one did not expect must be quick (decided in PR #8).
 		ApprovalController::class . '::reject',
+		// Closing the learning recap changes only what this administrator sees.
+		SettingsApiController::class . '::closeLearningRecap',
 	];
 
 	/**

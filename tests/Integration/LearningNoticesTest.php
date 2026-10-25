@@ -15,7 +15,7 @@ use OCA\IntrusionDetection\BackgroundJob\LearningModeJob;
 use OCA\IntrusionDetection\Check\Checks\ManualBlock\ManualBlock;
 use OCA\IntrusionDetection\Config\GlobalSettings;
 use OCA\IntrusionDetection\Config\ModeState;
-use OCA\IntrusionDetection\Db\DetectionMapper;
+use OCA\IntrusionDetection\Db\StatsMapper;
 use OCA\IntrusionDetection\Definition\Mode;
 use OCA\IntrusionDetection\Detection\DetectionDraft;
 use OCA\IntrusionDetection\Learning\LearningService;
@@ -80,7 +80,7 @@ class LearningNoticesTest extends IntegrationTestCase {
 			$this->learning,
 			Server::get(AdminRecipients::class),
 			$this->notifications,
-			Server::get(DetectionMapper::class),
+			Server::get(StatsMapper::class),
 			Server::get(AdminLinks::class),
 			Server::get(ITimeFactory::class),
 			Server::get(AppState::class),
@@ -180,7 +180,9 @@ class LearningNoticesTest extends IntegrationTestCase {
 		$this->assertFalse($this->learning->isActive());
 		$this->assertSame(1, $this->dismissed, 'The notice about the ending period goes');
 		$this->assertSame([Notifier::SUBJECT_PROTECTION_STARTED, Notifier::SUBJECT_PROTECTION_STARTED], array_map(static fn (INotification $n): string => $n->getSubject(), $this->sent));
-		$this->assertSame('Intrusion detection is now protecting this server', Server::get(Notifier::class)->prepare($this->sent[0], 'en')->getParsedSubject());
+		$prepared = Server::get(Notifier::class)->prepare($this->sent[0], 'en');
+		$this->assertSame('Intrusion detection is now protecting this server', $prepared->getParsedSubject());
+		$this->assertStringEndsWith('/settings/admin/intrusion_detection#overview-recap', $prepared->getLink(), 'It opens the recap of the period');
 	}
 
 	public function testTheNoticeCountsWhatLearningHeldBackAndTheAddressesItWouldHaveBlocked(): void {

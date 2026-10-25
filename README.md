@@ -148,6 +148,7 @@ An app that blocks people has to be careful about *whom* it blocks.
 
 - **Off, Observe, Protect for every check.** Observe shows exactly what Protect would have done, so you can try a check before you trust it.
 - **Learning mode first.** When you first enable the app, it observes for 7 days. Checks set to Protect only record what they would block; earlier blocks, blocks you add by hand, a user's "No, it was not me", decoys and reserved names still act. You can end, extend or restart learning at any time.
+- **A recap when learning ends.** The Overview then shows what the checks saw and would have done: the attempts and their addresses, the top attack in plain words, how many addresses would have been blocked, and whether any of your own people would have been among them, with their account names. "Your own people" are accounts that logged in successfully during the learning period from an address that would have been blocked. This is the worst case: when protecting, the app spares shared addresses and, for most checks, the addresses administrators logged in from.
 - **Protection levels.** *Relaxed*, *Recommended* (the default) or *Strict* sets the limits of every check at once: Strict fires at half the usual counts with blocks twice as long, Relaxed the other way round. Modes and responses stay as they are, and every number can still be changed by hand.
 - **Shared addresses are never blocked automatically.** An address from which at least 5 different people with established accounts (at least 3 days old, or administrators) logged in successfully in the last 24 hours, such as an office network or a reverse proxy, is not blocked. You are told instead.
 - **Admins' own addresses are spared.** Checks never block an address an administrator logged in from in the last 7 days, except for trap URLs and injection probes. The admin page refuses to block your own address. Addresses on the brute-force allowlist and the server's own addresses are never blocked.
@@ -205,7 +206,7 @@ Apps that log in with an app password are never interrupted.
 
 Everything lives under **Administration settings → Intrusion detection**, in five tabs: Overview, Protection, Blocks, Settings and Incidents.
 
-**Overview.** What happened in the last 24 hours, what needs your attention, and every detection with its explanation. Filter by check, severity, outcome, address or account.
+**Overview.** What happened in the last 24 hours, what needs your attention, and every detection with its explanation. Filter by check, severity, outcome, address or account. When learning mode ends, by itself or by an administrator, a recap of the learning period comes first; the notice "Intrusion detection is now protecting this server" links to it. Each administrator sees it until they close it with "Got it", for at most 14 days. Starting learning mode again replaces it with the recap of the new period.
 
 **Block references.** A blocked visitor sees a reference such as `K7Q2-MPXA`. Paste it into the lookup box to see the block, why it happened, and lift it with a note.
 
@@ -373,7 +374,7 @@ the web server can reach them.
 
 Then:
 
-1. **Let it learn.** The app starts in learning mode for 7 days and records what it would have done. Look at the Overview now and then. To act at once, run `occ intrusion:learning --stop`.
+1. **Let it learn.** The app starts in learning mode for 7 days and records what it would have done. Look at the Overview now and then. To act at once, run `occ intrusion:learning --stop`. When learning ends, the Overview sums up the period, including whether it would have blocked any of your own people.
 2. **Check "Needs attention" and "Tips"** on the Overview. They tell you, for example, about admins without a second factor, a missing memory cache or a reverse proxy that is not set up as a trusted proxy.
 3. **Route the trap paths** on nginx or on Apache with PHP-FPM: Blocks → Trap paths shows which paths your web server answers itself, and the rule that hands them to Nextcloud.
 4. **Pick a protection level** on the Protection tab, and switch on blocklists or the breached-password check if you want them.

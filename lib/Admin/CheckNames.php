@@ -46,6 +46,14 @@ class CheckNames {
 		return $this->shortNames[$key];
 	}
 
+	/**
+	 * What the check detects, in one plain sentence; empty for a check that
+	 * no longer exists.
+	 */
+	public function summary(string $checkId, IL10N $l): string {
+		return $this->registry->has($checkId) ? $this->registry->get($checkId)->texts($l)->summary : '';
+	}
+
 	public function category(string $checkId): Category {
 		return $this->registry->has($checkId) ? $this->registry->get($checkId)->category : Category::Internal;
 	}
