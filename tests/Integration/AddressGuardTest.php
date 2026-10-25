@@ -166,6 +166,7 @@ class AddressGuardTest extends IntegrationTestCase {
 			$context ?? new RequestContext(),
 			$time,
 			new GuardTimer($factory, $time),
+			Server::get(\OCA\IntrusionDetection\BackgroundJob\PendingCounts::class),
 		);
 		return [$guard, $bans];
 	}

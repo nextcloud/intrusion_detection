@@ -227,11 +227,11 @@ class PrivacyOverview {
 			],
 			DataKind::CacheCounters => [
 				'name' => $l->t('Short-lived counters'),
-				'what' => $l->t('Counters per address or account in the memory cache.'),
+				'what' => $l->t('Counters per address or account in the memory cache, and the failed logins, blocklist matches and detection hits that wait there until they are written to the database.'),
 				'why' => $l->t('To recognise fast attacks without writing to the database on every request.'),
-				'retention' => $l->t('Minutes, at most an hour'),
+				'retention' => $l->t('Minutes, at most an hour; counts that wait to be written usually a few minutes, at most a day'),
 				'where' => $l->t('memory cache'),
-				'protection' => $l->t('Keyed by fingerprints of addresses and accounts. Never shown.'),
+				'protection' => $l->t('Keyed by fingerprints of addresses and accounts. Counts that wait to be written list the accounts and addresses in clear, like the tables they go to.'),
 			],
 			DataKind::AccountState => [
 				'name' => $l->t('Account state'),

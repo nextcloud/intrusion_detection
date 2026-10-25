@@ -13,9 +13,10 @@ use OC\Memcache\ArrayCache;
 use OCA\IntrusionDetection\Address\AddressCache;
 use OCA\IntrusionDetection\Address\AddressResolver;
 use OCA\IntrusionDetection\Address\Verdict;
+use OCA\IntrusionDetection\BackgroundJob\PendingCounts;
 use OCA\IntrusionDetection\Blocklist\BlocklistFactsProvider;
+use OCA\IntrusionDetection\Blocklist\BlocklistMatches;
 use OCA\IntrusionDetection\Blocklist\Db\BlocklistRangeMapper;
-use OCA\IntrusionDetection\Blocklist\Db\BlocklistStatMapper;
 use OCA\IntrusionDetection\Blocklist\ListState;
 use OCA\IntrusionDetection\Blocklist\SourceRepository;
 use OCA\IntrusionDetection\Blocklist\StateStore;
@@ -113,7 +114,7 @@ class RiskyNetworkBenchmarkTest extends IntegrationTestCase {
 			new SourceRepository($this->appSettings(), Server::get(\OCA\IntrusionDetection\Crypto\Fingerprinter::class)),
 			Server::get(StateStore::class),
 			Server::get(BlocklistRangeMapper::class),
-			Server::get(BlocklistStatMapper::class),
+			Server::get(BlocklistMatches::class),
 			$this->appSettings(), $this->checkSettings(),
 			$addressCache,
 			Server::get(ITimeFactory::class),
@@ -133,6 +134,7 @@ class RiskyNetworkBenchmarkTest extends IntegrationTestCase {
 			$this->context,
 			Server::get(ITimeFactory::class),
 			new GuardTimer(FixedCaches::none(), Server::get(ITimeFactory::class)),
+			Server::get(PendingCounts::class),
 		);
 	}
 

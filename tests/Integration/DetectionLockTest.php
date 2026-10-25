@@ -18,9 +18,9 @@ use OCA\IntrusionDetection\Config\ModeState;
 use OCA\IntrusionDetection\Crypto\Fingerprinter;
 use OCA\IntrusionDetection\Db\DetectionMapper;
 use OCA\IntrusionDetection\Definition\Mode;
-use OCA\IntrusionDetection\Detection\Cooldown;
 use OCA\IntrusionDetection\Detection\DetectionAccounts;
 use OCA\IntrusionDetection\Detection\DetectionDraft;
+use OCA\IntrusionDetection\Detection\DetectionHits;
 use OCA\IntrusionDetection\Detection\DetectionService;
 use OCA\IntrusionDetection\Detection\DetectionTotals;
 use OCA\IntrusionDetection\Net\SourceKey;
@@ -71,7 +71,7 @@ class DetectionLockTest extends IntegrationTestCase {
 			Server::get(DetectionTotals::class),
 			new KeyLock($factory),
 			Server::get(Fingerprinter::class),
-			Server::get(Cooldown::class),
+			Server::get(DetectionHits::class),
 		);
 	}
 

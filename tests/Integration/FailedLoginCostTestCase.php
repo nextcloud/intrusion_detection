@@ -10,11 +10,11 @@ declare(strict_types=1);
 namespace OCA\IntrusionDetection\Tests\Integration;
 
 use OC\DB\ConnectionAdapter;
-use OC\Memcache\ArrayCache;
 use OCA\IntrusionDetection\Address\AddressCache;
 use OCA\IntrusionDetection\Audit\AuditLogger;
 use OCA\IntrusionDetection\Blocklist\SourceRepository;
 use OCA\IntrusionDetection\Cache\Caches;
+use OCA\IntrusionDetection\Cache\CountBuffer;
 use OCA\IntrusionDetection\Cache\KeyLock;
 use OCA\IntrusionDetection\Check\CheckRegistry;
 use OCA\IntrusionDetection\Check\Checks\AccountUnderAttack\AccountUnderAttackDetector;
@@ -30,6 +30,7 @@ use OCA\IntrusionDetection\Detection\AttemptRecord;
 use OCA\IntrusionDetection\Detection\AttemptRecorder;
 use OCA\IntrusionDetection\Detection\Cooldown;
 use OCA\IntrusionDetection\Detection\DetectionAccounts;
+use OCA\IntrusionDetection\Detection\DetectionHits;
 use OCA\IntrusionDetection\Detection\DetectionService;
 use OCA\IntrusionDetection\Detection\DetectionTotals;
 use OCA\IntrusionDetection\Event\TypedEvents;
@@ -45,6 +46,7 @@ use OCA\IntrusionDetection\Response\ResponseEngine;
 use OCA\IntrusionDetection\Risk\RiskScorer;
 use OCA\IntrusionDetection\State\AppState;
 use OCA\IntrusionDetection\State\HotState;
+use OCA\IntrusionDetection\Tests\Unit\Cache\ClockedCache;
 use OCA\IntrusionDetection\Tests\Unit\Cache\FixedCaches;
 use OCP\AppFramework\Utility\ITimeFactory;
 use OCP\IDBConnection;
@@ -62,6 +64,7 @@ abstract class FailedLoginCostTestCase extends LoginFailureTestCase {
 	protected int $offset = 0;
 	protected ITimeFactory $clock;
 	protected ?Cooldown $cooldown = null;
+	protected ?Caches $caches = null;
 	protected ?AttemptCounters $counters = null;
 
 	protected function setUp(): void {
@@ -75,7 +78,22 @@ abstract class FailedLoginCostTestCase extends LoginFailureTestCase {
 	 * @param 'distributed'|'local' $kind
 	 */
 	protected static function memoryCaches(string $kind): Caches {
-		return new FixedCaches(new ArrayCache('ids-cooldown-test'), null, $kind === 'distributed');
+		// Kept across requests like Redis or APCu; nothing expires within a test.
+		return new FixedCaches(new ClockedCache(static fn (): int => 0), null, $kind === 'distributed');
+	}
+
+	/**
+	 * Write the counts that wait in the memory cache, as the flush does once
+	 * their minutes are over.
+	 */
+	protected function flushCounts(): void {
+		if ($this->caches === null) {
+			return;
+		}
+		$later = $this->createMock(ITimeFactory::class);
+		$later->method('getTime')->willReturnCallback(fn (): int => $this->clock->getTime() + 2 * CountBuffer::PERIOD);
+		$buffer = new CountBuffer($this->caches, $later, Server::get(LoggerInterface::class), Server::get(Fingerprinter::class));
+		$buffer->flush([(new DetectionHits(Server::get(DetectionMapper::class), $buffer))->writeCounts(...)]);
 	}
 
 	/**
@@ -84,7 +102,9 @@ abstract class FailedLoginCostTestCase extends LoginFailureTestCase {
 	 * and the clock. Counted: the counters bound the counts from the start.
 	 */
 	protected function useCaches(Caches $caches, bool $counted = false): void {
-		$this->cooldown = new Cooldown($caches, Server::get(DetectionMapper::class));
+		$this->caches = $caches;
+		$hits = new DetectionHits(Server::get(DetectionMapper::class), new CountBuffer($caches, $this->clock, Server::get(LoggerInterface::class), Server::get(Fingerprinter::class)));
+		$this->cooldown = new Cooldown($caches, Server::get(DetectionMapper::class), $hits);
 		$counters = new AttemptCounters($caches);
 		if ($counted) {
 			// Counting started a window ago, so that the counters bound the counts.
@@ -101,7 +121,7 @@ abstract class FailedLoginCostTestCase extends LoginFailureTestCase {
 			Server::get(DetectionTotals::class),
 			new KeyLock($caches),
 			Server::get(Fingerprinter::class),
-			$this->cooldown,
+			$hits,
 		);
 		$engine = new ResponseEngine(
 			Server::get(CheckRegistry::class),

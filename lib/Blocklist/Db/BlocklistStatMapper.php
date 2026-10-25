@@ -32,18 +32,24 @@ class BlocklistStatMapper implements IPurges {
 
 	/**
 	 * Count one match of an address for a list on a day.
-	 *
-	 * One read and one write. The sample keeps each address once, the most
-	 * recent last.
 	 */
 	public function record(string $listId, string $day, string $ip): void {
+		$this->add($listId, $day, 1, [$ip]);
+	}
+
+	/**
+	 * Count matches for a list on a day. One read and one write.
+	 *
+	 * @param list<string> $ips the addresses that matched, the most recent last
+	 */
+	public function add(string $listId, string $day, int $matches, array $ips): void {
 		$row = $this->find($listId, $day);
 		if ($row === null) {
 			$inserted = $this->db->insertIgnoreConflict(self::TABLE, [
 				'list_id' => $listId,
 				'day' => $day,
-				'matches' => 1,
-				'sample' => json_encode([$ip]),
+				'matches' => $matches,
+				'sample' => json_encode(self::sample([], $ips)),
 			]);
 			if ($inserted > 0) {
 				return;
@@ -54,14 +60,10 @@ class BlocklistStatMapper implements IPurges {
 				return;
 			}
 		}
-		$sample = array_values(array_filter($row['sample'], static fn (string $s): bool => $s !== $ip));
-		$sample[] = $ip;
-		$sample = array_slice($sample, -self::SAMPLE_SIZE);
-
 		$qb = $this->db->getQueryBuilder();
 		$qb->update(self::TABLE)
-			->set('matches', $qb->createFunction($qb->getColumnName('matches') . ' + 1'))
-			->set('sample', $qb->createNamedParameter(json_encode($sample)))
+			->set('matches', $qb->createFunction($qb->getColumnName('matches') . ' + ' . $qb->createNamedParameter($matches, IQueryBuilder::PARAM_INT)))
+			->set('sample', $qb->createNamedParameter(json_encode(self::sample($row['sample'], $ips))))
 			->where($qb->expr()->eq('list_id', $qb->createNamedParameter($listId)))
 			->andWhere($qb->expr()->eq('day', $qb->createNamedParameter($day)));
 		$qb->executeStatement();
@@ -132,6 +134,19 @@ class BlocklistStatMapper implements IPurges {
 		$qb->delete(self::TABLE)
 			->where($qb->expr()->eq('list_id', $qb->createNamedParameter($listId)));
 		return $qb->executeStatement();
+	}
+
+	/**
+	 * The sample with the new addresses: each address once, the most recent
+	 * last, at most SAMPLE_SIZE.
+	 *
+	 * @param list<string> $sample
+	 * @param list<string> $ips
+	 * @return list<string>
+	 */
+	private static function sample(array $sample, array $ips): array {
+		$sample = array_values(array_filter($sample, static fn (string $s): bool => !in_array($s, $ips, true)));
+		return array_slice([...$sample, ...array_values(array_unique($ips))], -self::SAMPLE_SIZE);
 	}
 
 	/**

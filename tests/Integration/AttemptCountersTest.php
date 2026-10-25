@@ -20,7 +20,6 @@ use OCA\IntrusionDetection\Db\AttemptKind;
 use OCA\IntrusionDetection\Db\Detection;
 use OCA\IntrusionDetection\Detection\AttemptCounters;
 use OCA\IntrusionDetection\Detection\AttemptRecord;
-use OCA\IntrusionDetection\Detection\Cooldown;
 use OCA\IntrusionDetection\Net\SourceKey;
 use OCA\IntrusionDetection\Tests\Unit\Cache\FixedCaches;
 use PHPUnit\Framework\Attributes\Group;
@@ -135,7 +134,7 @@ class AttemptCountersTest extends FailedLoginCostTestCase {
 			$this->failLogin('192.0.2.' . ($i % 6 + 1), $uid, 'guess-' . $i);
 		}
 		// The hits counted while the checks cooled down.
-		$this->cooldown?->purge($this->clock->getTime() + 2 * Cooldown::FLUSH_SLICE);
+		$this->flushCounts();
 		$rows = [];
 		foreach ([PasswordSpraying::ID, CredentialStuffing::ID, AccountUnderAttack::ID] as $check) {
 			foreach ($this->detectionsOf($check) as $detection) {

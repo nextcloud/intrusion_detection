@@ -91,7 +91,7 @@ abstract class LoginFailureTestCase extends IntegrationTestCase {
 			Server::get(IUserManager::class),
 			$this->request,
 			$this->listenerLogger(),
-			Server::get(FailedLoginStats::class),
+			$this->failedLoginStats(),
 			Server::get(\OCA\IntrusionDetection\Login\EmailAccounts::class),
 		);
 	}
@@ -109,6 +109,10 @@ abstract class LoginFailureTestCase extends IntegrationTestCase {
 
 	protected function listenerLogger(): LoggerInterface {
 		return Server::get(LoggerInterface::class);
+	}
+
+	protected function failedLoginStats(): FailedLoginStats {
+		return Server::get(FailedLoginStats::class);
 	}
 
 	protected function attemptRecorder(): AttemptRecorder {

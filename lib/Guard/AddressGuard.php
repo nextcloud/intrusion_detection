@@ -12,6 +12,7 @@ namespace OCA\IntrusionDetection\Guard;
 use OCA\IntrusionDetection\Address\AddressCache;
 use OCA\IntrusionDetection\Address\AddressResolver;
 use OCA\IntrusionDetection\Address\Verdict;
+use OCA\IntrusionDetection\BackgroundJob\PendingCounts;
 use OCA\IntrusionDetection\Config\AppSettings;
 use OCA\IntrusionDetection\Login\RequestContext;
 use OCA\IntrusionDetection\Net\RemoteAddressResolver;
@@ -27,7 +28,9 @@ use OCP\Security\Guard\IRequestGuard;
  * The one per-request address check, for blocks and blocklists.
  *
  * On the common path it costs two memory-cache gets: the cache version and
- * the verdict for the address. Only on a cold cache does it ask the database.
+ * the verdict for the address. Only on a cold cache does it ask the database,
+ * and then also writes the counts kept in the memory cache when they are due
+ * ({@see PendingCounts::flushIfDue()}).
  */
 class AddressGuard implements IRequestGuard {
 	/** config.php switch that turns every guard off without touching the database */
@@ -42,6 +45,7 @@ class AddressGuard implements IRequestGuard {
 		private readonly RequestContext $context,
 		private readonly ITimeFactory $timeFactory,
 		private readonly GuardTimer $timer,
+		private readonly PendingCounts $counts,
 	) {
 	}
 
@@ -90,6 +94,7 @@ class AddressGuard implements IRequestGuard {
 		$this->cache->set($source, $verdict, $now);
 		// Off the common path: a verdict is resolved once per address and cache lifetime.
 		$this->addresses->observeServerAddress();
+		$this->counts->flushIfDue();
 		return $verdict;
 	}
 }

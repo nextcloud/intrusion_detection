@@ -79,7 +79,7 @@ class FreshRequestCostTest extends IntegrationTestCase {
 
 		$detectors = array_values(array_filter($result['classes'], static fn (string $c): bool => str_ends_with($c, 'Detector')));
 		$this->assertSame([], $detectors, 'a check that is off loads no detector');
-		$this->assertLessThanOrEqual(43, count($result['classes']), implode("\n", $result['classes']));
+		$this->assertLessThanOrEqual(44, count($result['classes']), implode("\n", $result['classes']));
 		$this->assertLessThanOrEqual(2, $result['queries']);
 	}
 
