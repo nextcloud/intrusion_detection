@@ -63,6 +63,28 @@ Approving a new administrator or a held settings change needs a login
 that proved more than the password: a second factor, an emailed code, an approval or a remembered
 device. A client that sends the password with Basic auth cannot approve.
 
+## Labels on the personal page
+
+Each login on the user's Account protection page gets plain labels, worked
+out when the page is shown from data the app keeps anyway. A login is
+compared with the account's logins of the 30 days before it that went
+through (needed nothing, or were confirmed); refused, failed and waiting
+logins never count.
+
+| Label | When |
+| --- | --- |
+| Your usual network | The network (/24 for IPv4, /64 for IPv6) is one the user trusts after "Yes, it was me", or one of those logins came from it |
+| New network | Neither, while there were such logins |
+| New device | Not a remembered device, and none of those logins came from the same browser on the same system ("Firefox on Windows"); never for a client that names neither |
+| Unusual hour | A login in the browser (password, single sign-on or a remembered login) more than an hour away, in the user's time zone, from each of at least 5 such logins before it. App logins have no hour |
+
+Nothing new is claimed where the history cannot tell: before the first login
+that went through, and where the 30 days before a login reach back past the
+retention of the login history (the retention of detections) or past the
+500 logins before the shown ones the page reads. There only "Your usual
+network" is said. The address stays in the row as before; the labels show
+nothing the page did not show.
+
 ## Timers
 
 | What | How long |

@@ -2029,6 +2029,7 @@ export type components = {
             stepUp: string | null;
             current: boolean;
             device: string;
+            labels: ("usual_network" | "new_network" | "new_device" | "unusual_hour")[];
         };
         LoginApproval: {
             id: string;

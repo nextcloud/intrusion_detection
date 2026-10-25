@@ -199,7 +199,7 @@ Apps that log in with an app password are never interrupted.
 
 <img src="screenshots/secure-account.png" alt="The 'Secure my account' checklist: 0 of 5 steps done, with steps to change the password, check devices and sessions, turn on two-factor authentication, check the email address and profile, check recent shares and check recent file changes." width="600">
 
-**Account protection page.** Users also see their recent logins and security events of the last 30 days, the failed logins, their remembered devices and trusted networks, and a button to log out other browsers. Admins can hide this page.
+**Account protection page.** Users also see their recent logins and security events of the last 30 days, the failed logins, their remembered devices and trusted networks, and a button to log out other browsers. Each login says in plain words what is usual about it and what is not: "Your usual network", "New network", "New device" or "Unusual hour", compared with the account's own logins of the 30 days before ([how](docs/logins.md#labels-on-the-personal-page)). Admins can hide this page.
 
 **Unused app passwords and devices.** An app password or a remembered browser login that nobody has used for 3 months is exactly what a thief finds and nobody notices. The same page lists them calmly, with name, type and last use, and users remove one or all of them after entering their password. Once a day Nextcloud looks for them and, when one is new since the last reminder, tells the user at most once a month: "You have 3 app passwords you haven't used for 3 months".
 

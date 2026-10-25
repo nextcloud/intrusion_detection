@@ -15,7 +15,6 @@ use OCA\IntrusionDetection\Guide\SecureAccountGuide;
 use OCA\IntrusionDetection\Guide\SecureAccountOverview;
 use OCA\IntrusionDetection\KnownDevice\KnownDevices;
 use OCA\IntrusionDetection\Login\CoreSession;
-use OCA\IntrusionDetection\LoginHistory\LoginHistory;
 use OCA\IntrusionDetection\LoginHistory\LoginHistoryEntry;
 use OCA\IntrusionDetection\Personal\LogOutElsewhere;
 use OCA\IntrusionDetection\Personal\PersonalActivity;
@@ -79,7 +78,6 @@ class PersonalApiController extends OCSController {
 		private readonly TrustedNetworks $trustedNetworks,
 		private readonly IL10N $l,
 		private readonly KnownDevices $knownDevices,
-		private readonly LoginHistory $loginHistory,
 		private readonly CoreSession $coreSession,
 		private readonly SecureAccountGuide $guide,
 		private readonly SecureAccountOverview $overview,
@@ -243,10 +241,10 @@ class PersonalApiController extends OCSController {
 		$this->requirePage();
 		$days = max(1, min($days, $this->settings->retentionDays()));
 		$current = $this->coreSession->tokenId();
-		$entries = $this->loginHistory->forUser($this->user()->getUID(), $this->timeFactory->getTime() - $days * 86400, null, max(1, min(200, $limit)));
+		[$entries, $habits] = $this->activity->logins($this->user(), $this->timeFactory->getTime() - $days * 86400, max(1, min(200, $limit)));
 		$l = $this->l;
 		$waitedOutBefore = $this->activity->waitedOutBefore();
-		return new DataResponse(array_map(static fn (LoginHistoryEntry $e): array => PersonalActivity::login($e, $current, $waitedOutBefore, $l), $entries));
+		return new DataResponse(array_map(static fn (LoginHistoryEntry $e): array => PersonalActivity::login($e, $current, $waitedOutBefore, $l, $habits->forLogin($e)), $entries));
 	}
 
 	/**

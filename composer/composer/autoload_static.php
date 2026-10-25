@@ -488,6 +488,8 @@ class ComposerStaticInitIntrusionDetection
         'OCA\\IntrusionDetection\\LoginHistory\\Db\\LoginHistoryMapper' => __DIR__ . '/..' . '/../lib/LoginHistory/Db/LoginHistoryMapper.php',
         'OCA\\IntrusionDetection\\LoginHistory\\LoginHistory' => __DIR__ . '/..' . '/../lib/LoginHistory/LoginHistory.php',
         'OCA\\IntrusionDetection\\LoginHistory\\LoginHistoryEntry' => __DIR__ . '/..' . '/../lib/LoginHistory/LoginHistoryEntry.php',
+        'OCA\\IntrusionDetection\\LoginHistory\\SignInHabits' => __DIR__ . '/..' . '/../lib/LoginHistory/SignInHabits.php',
+        'OCA\\IntrusionDetection\\LoginHistory\\SignInHistory' => __DIR__ . '/..' . '/../lib/LoginHistory/SignInHistory.php',
         'OCA\\IntrusionDetection\\Login\\BasicCredentials' => __DIR__ . '/..' . '/../lib/Login/BasicCredentials.php',
         'OCA\\IntrusionDetection\\Login\\CoreSession' => __DIR__ . '/..' . '/../lib/Login/CoreSession.php',
         'OCA\\IntrusionDetection\\Login\\EmailAccounts' => __DIR__ . '/..' . '/../lib/Login/EmailAccounts.php',

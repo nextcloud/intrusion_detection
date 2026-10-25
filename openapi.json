@@ -213,7 +213,8 @@
                     "confirmedBy",
                     "stepUp",
                     "current",
-                    "device"
+                    "device",
+                    "labels"
                 ],
                 "properties": {
                     "id": {
@@ -253,6 +254,18 @@
                     },
                     "device": {
                         "type": "string"
+                    },
+                    "labels": {
+                        "type": "array",
+                        "items": {
+                            "type": "string",
+                            "enum": [
+                                "usual_network",
+                                "new_network",
+                                "new_device",
+                                "unusual_hour"
+                            ]
+                        }
                     }
                 }
             },

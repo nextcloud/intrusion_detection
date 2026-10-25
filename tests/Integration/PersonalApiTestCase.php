@@ -18,7 +18,7 @@ use OCA\IntrusionDetection\Db\DetectionMapper;
 use OCA\IntrusionDetection\Detection\DetectionDraft;
 use OCA\IntrusionDetection\Guide\SecureAccountGuide;
 use OCA\IntrusionDetection\Guide\SecureAccountOverview;
-use OCA\IntrusionDetection\LoginHistory\LoginHistory;
+use OCA\IntrusionDetection\LoginHistory\SignInHistory;
 use OCA\IntrusionDetection\Net\SourceKey;
 use OCA\IntrusionDetection\Notification\UserMessages;
 use OCA\IntrusionDetection\Personal\FailedLoginStats;
@@ -120,7 +120,6 @@ abstract class PersonalApiTestCase extends StepUpTestCase {
 			Server::get(TrustedNetworks::class),
 			Server::get(IFactory::class)->get(Application::APP_ID, 'en'),
 			$this->knownDevices(),
-			Server::get(LoginHistory::class),
 			$this->coreSession,
 			Server::get(SecureAccountGuide::class),
 			Server::get(SecureAccountOverview::class),
@@ -133,7 +132,7 @@ abstract class PersonalApiTestCase extends StepUpTestCase {
 				Server::get(DetectionMapper::class),
 				Server::get(Questions::class),
 				$detections,
-				Server::get(LoginHistory::class),
+				Server::get(SignInHistory::class),
 				Server::get(SecurityChangeMapper::class),
 				Server::get(FailedLoginStats::class),
 				Server::get(UserMessages::class),

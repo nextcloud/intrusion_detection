@@ -40,7 +40,6 @@ use OCA\IntrusionDetection\Guide\SecureAccountOverview;
 use OCA\IntrusionDetection\KnownDevice\Db\KnownDeviceMapper;
 use OCA\IntrusionDetection\KnownDevice\KnownDevices;
 use OCA\IntrusionDetection\Login\SessionMarkers;
-use OCA\IntrusionDetection\LoginHistory\LoginHistory;
 use OCA\IntrusionDetection\Net\SourceKey;
 use OCA\IntrusionDetection\Notification\AdminAlerts;
 use OCA\IntrusionDetection\Notification\Notifier;
@@ -591,7 +590,6 @@ class WasThisYouTest extends StepUpTestCase {
 			Server::get(TrustedNetworks::class),
 			Server::get(IFactory::class)->get(Application::APP_ID, 'en'),
 			Server::get(KnownDevices::class),
-			Server::get(LoginHistory::class),
 			$this->coreSession,
 			Server::get(SecureAccountGuide::class),
 			Server::get(SecureAccountOverview::class),

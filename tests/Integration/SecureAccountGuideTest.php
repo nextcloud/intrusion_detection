@@ -27,7 +27,6 @@ use OCA\IntrusionDetection\Guide\SecureAccountGuide;
 use OCA\IntrusionDetection\Guide\SecureAccountNotifier;
 use OCA\IntrusionDetection\Guide\SecureAccountOverview;
 use OCA\IntrusionDetection\KnownDevice\KnownDevices;
-use OCA\IntrusionDetection\LoginHistory\LoginHistory;
 use OCA\IntrusionDetection\Net\SourceKey;
 use OCA\IntrusionDetection\Notification\AdminLinks;
 use OCA\IntrusionDetection\Personal\LogOutElsewhere;
@@ -267,7 +266,6 @@ class SecureAccountGuideTest extends AccountTestCase {
 			Server::get(TrustedNetworks::class),
 			Server::get(IFactory::class)->get(Application::APP_ID, 'en'),
 			Server::get(KnownDevices::class),
-			Server::get(LoginHistory::class),
 			$this->coreSession,
 			$this->guide,
 			new SecureAccountOverview($this->guide, Server::get(SecurityChangeMapper::class), Server::get(\OCA\IntrusionDetection\Db\TokenOriginMapper::class), $this->tokens, $this->coreSession, Server::get(\OCP\Share\IManager::class), Server::get(\OCP\App\IAppManager::class), Server::get(IURLGenerator::class), Server::get(ITimeFactory::class), Server::get(LoggerInterface::class)),

@@ -88,6 +88,39 @@ class PersonalActivityTest extends PersonalApiTestCase {
 		$this->assertSame($sorted, $times);
 	}
 
+	public function testLoginsAreLabelledFromTheAccountsOwnHistory(): void {
+		$now = time();
+		$history = Server::get(LoginHistoryMapper::class);
+		// Before the timeline's window: what makes the network and the browser usual.
+		$this->loginAt($this->alice, $now - 86400 * 3, '198.51.100.7');
+		$usual = $this->loginAt($this->alice, $now - 7200, '198.51.100.8');
+		$new = $history->insert($this->alice->getUID(), $now - 600, SourceKey::fromIp('203.0.113.9'), 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/130.0 Safari/537.36', LoginHistory::METHOD_PASSWORD, false, 'none', null, null);
+		$trusted = $history->insert($this->alice->getUID(), $now - 300, SourceKey::fromIp('192.0.2.44'), 'Mozilla/5.0 (X11; Linux x86_64) Firefox/131.0', LoginHistory::METHOD_PASSWORD, false, 'none', null, null);
+		$this->trustedNetwork($this->alice, '192.0.2.1');
+		$this->loginAt($this->bob, $now - 900, '203.0.113.9');
+		$this->startSession($this->alice);
+		$api = $this->controller();
+
+		$expected = [$trusted => ['usual_network'], $new => ['new_network', 'new_device'], $usual => ['usual_network']];
+		$this->assertSame($expected, array_column(array_column($api->activity(1)->getData()['items'], 'login'), 'labels', 'id'));
+		$logins = array_column($api->logins(30)->getData(), 'labels', 'id');
+		$this->assertSame([], end($logins), 'Nothing to compare the first login with');
+		$this->assertSame($expected, array_slice($logins, 0, 3, true));
+	}
+
+	public function testNothingNewIsClaimedWhereTheLoginHistoryIsNotKeptLongEnough(): void {
+		$now = time();
+		$history = Server::get(LoginHistoryMapper::class);
+		$this->loginAt($this->alice, $now - 86400 * 3, '198.51.100.7');
+		$usual = $this->loginAt($this->alice, $now - 7200, '198.51.100.8');
+		$new = $history->insert($this->alice->getUID(), $now - 600, SourceKey::fromIp('203.0.113.9'), 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/130.0 Safari/537.36', LoginHistory::METHOD_PASSWORD, false, 'none', null, null);
+		$this->appConfig->setValueInt(Application::APP_ID, GlobalSettings::RETENTION_DETECTIONS_DAYS, 7);
+		$this->startSession($this->alice);
+
+		$labels = array_column($this->controller()->logins(1)->getData(), 'labels', 'id');
+		$this->assertSame([$new => [], $usual => ['usual_network']], $labels);
+	}
+
 	public function testALoginThatWaitedOutItsConfirmationIsNotShownAsWaiting(): void {
 		$now = time();
 		$waitedOut = $now - 900 - 60;

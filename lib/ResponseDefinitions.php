@@ -847,6 +847,7 @@ namespace OCA\IntrusionDetection;
  *     stepUp: ?string,
  *     current: bool,
  *     device: string,
+ *     labels: list<'usual_network'|'new_network'|'new_device'|'unusual_hour'>,
  * }
  *
  * @psalm-type IntrusionDetectionFailedLoginDay = array{

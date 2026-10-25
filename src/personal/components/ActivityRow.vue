@@ -14,7 +14,7 @@ import StateBadge from '../../components/common/StateBadge.vue'
 import EventDetails from './EventDetails.vue'
 import { APP_ID } from '../../utils/format.ts'
 import { n, t } from '../../utils/l10n.ts'
-import { changedBy, changeValues, confirmationLabel, methodLabel } from '../activity.ts'
+import { changedBy, changeValues, confirmationLabel, methodLabel, signInBadges } from '../activity.ts'
 import { clock, dateTime } from '../time.ts'
 
 const props = defineProps<{
@@ -39,6 +39,7 @@ const row = computed(() => {
 			icon: loginIcon(login),
 			title: t(APP_ID, 'Login with {device}', { device: login.device }),
 			values: null,
+			badges: signInBadges(login.labels),
 			meta: [login.ip, methodLabel(login), confirmationLabel(login)],
 		}
 	}
@@ -47,6 +48,7 @@ const row = computed(() => {
 			icon: mdiShieldEditOutline,
 			title: change.label,
 			values: changeValues(change),
+			badges: [],
 			meta: [changedBy(change), change.address ? t(APP_ID, 'from {address}', { address: change.address }) : null],
 		}
 	}
@@ -55,6 +57,7 @@ const row = computed(() => {
 			icon: mdiLockAlertOutline,
 			title: n(APP_ID, '%n failed login with a wrong password', '%n failed logins with a wrong password', failedLogins.count),
 			values: null,
+			badges: [],
 			meta: [],
 		}
 	}
@@ -62,6 +65,7 @@ const row = computed(() => {
 		icon: event?.verdict === 'confirmed' ? mdiAccountCheckOutline : event?.verdict === 'denied' ? mdiAccountCancelOutline : mdiShieldOutline,
 		title: event?.subject ?? '',
 		values: null,
+		badges: [],
 		meta: [event?.address ?? null],
 	}
 })
@@ -95,6 +99,14 @@ const answer = computed(() => {
 				<span v-if="row.values" :class="$style.row__values">{{ row.values }}</span>
 				<StateBadge v-if="item.login?.current" type="active" :icon="mdiCheckCircleOutline">
 					{{ t(APP_ID, 'This session') }}
+				</StateBadge>
+				<StateBadge
+					v-for="badge in row.badges"
+					:key="badge.label"
+					:type="badge.type"
+					:icon="badge.icon"
+					:data-test="`label-${badge.label}`">
+					{{ badge.text }}
 				</StateBadge>
 			</p>
 			<p :class="$style.row__meta">

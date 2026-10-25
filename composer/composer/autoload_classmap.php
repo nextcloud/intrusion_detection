@@ -473,6 +473,8 @@ return array(
     'OCA\\IntrusionDetection\\LoginHistory\\Db\\LoginHistoryMapper' => $baseDir . '/../lib/LoginHistory/Db/LoginHistoryMapper.php',
     'OCA\\IntrusionDetection\\LoginHistory\\LoginHistory' => $baseDir . '/../lib/LoginHistory/LoginHistory.php',
     'OCA\\IntrusionDetection\\LoginHistory\\LoginHistoryEntry' => $baseDir . '/../lib/LoginHistory/LoginHistoryEntry.php',
+    'OCA\\IntrusionDetection\\LoginHistory\\SignInHabits' => $baseDir . '/../lib/LoginHistory/SignInHabits.php',
+    'OCA\\IntrusionDetection\\LoginHistory\\SignInHistory' => $baseDir . '/../lib/LoginHistory/SignInHistory.php',
     'OCA\\IntrusionDetection\\Login\\BasicCredentials' => $baseDir . '/../lib/Login/BasicCredentials.php',
     'OCA\\IntrusionDetection\\Login\\CoreSession' => $baseDir . '/../lib/Login/CoreSession.php',
     'OCA\\IntrusionDetection\\Login\\EmailAccounts' => $baseDir . '/../lib/Login/EmailAccounts.php',

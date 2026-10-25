@@ -4,8 +4,9 @@
  */
 
 import type { SecurityChange } from '../secureAccountTypes.ts'
-import type { ActivityItem, Login, SecurityEvent } from './types.ts'
+import type { ActivityItem, Login, SecurityEvent, SignInLabel } from './types.ts'
 
+import { mdiClockAlertOutline, mdiDevices, mdiMapMarkerCheckOutline, mdiMapMarkerQuestionOutline } from '@mdi/js'
 import { APP_ID } from '../utils/format.ts'
 import { t } from '../utils/l10n.ts'
 import { calendarDay } from './time.ts'
@@ -164,4 +165,30 @@ export function changeValues(change: SecurityChange): string | null {
 		return t(APP_ID, 'from {previous}', { previous: change.previous })
 	}
 	return change.new ?? change.detail
+}
+
+/** A label of a login, as a badge shows it */
+export interface SignInBadge {
+	label: SignInLabel
+	text: string
+	type: 'neutral' | 'info'
+	icon: string
+}
+
+const BADGES: Record<SignInLabel, () => Omit<SignInBadge, 'label'>> = {
+	usual_network: () => ({ text: t(APP_ID, 'Your usual network'), type: 'neutral', icon: mdiMapMarkerCheckOutline }),
+	new_network: () => ({ text: t(APP_ID, 'New network'), type: 'info', icon: mdiMapMarkerQuestionOutline }),
+	new_device: () => ({ text: t(APP_ID, 'New device'), type: 'info', icon: mdiDevices }),
+	unusual_hour: () => ({ text: t(APP_ID, 'Unusual hour'), type: 'info', icon: mdiClockAlertOutline }),
+}
+
+/**
+ * What the account's own history says about a login, in plain words: a
+ * calm badge for the usual network, a noticeable one for anything new.
+ * Labels this page does not know are left out.
+ *
+ * @param labels - The login's labels
+ */
+export function signInBadges(labels: SignInLabel[]): SignInBadge[] {
+	return labels.filter((label) => label in BADGES).map((label) => ({ label, ...BADGES[label]() }))
 }
