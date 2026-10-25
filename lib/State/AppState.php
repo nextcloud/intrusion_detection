@@ -67,6 +67,39 @@ class AppState {
 	}
 
 	/**
+	 * The rows whose name starts with a prefix.
+	 *
+	 * @return array<string, string> value by the rest of the name
+	 */
+	public function getPrefixed(string $prefix): array {
+		$qb = $this->db->getQueryBuilder();
+		$qb->select('name', 'value')
+			->from(self::TABLE)
+			->where($qb->expr()->like('name', $qb->createNamedParameter($this->db->escapeLikeParameter($prefix) . '%')));
+		$result = $qb->executeQuery();
+		$rows = [];
+		while (($row = $result->fetch()) !== false) {
+			$rows[substr((string)$row['name'], strlen($prefix))] = (string)$row['value'];
+		}
+		$result->closeCursor();
+		return $rows;
+	}
+
+	/**
+	 * @param list<string> $names
+	 */
+	public function deleteNames(array $names): int {
+		$deleted = 0;
+		foreach (array_chunk($names, 1000) as $chunk) {
+			$qb = $this->db->getQueryBuilder();
+			$qb->delete(self::TABLE)
+				->where($qb->expr()->in('name', $qb->createNamedParameter($chunk, IQueryBuilder::PARAM_STR_ARRAY)));
+			$deleted += $qb->executeStatement();
+		}
+		return $deleted;
+	}
+
+	/**
 	 * A stored number; 0 when there is none.
 	 */
 	public function getInt(string $name): int {

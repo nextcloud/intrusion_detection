@@ -26,15 +26,12 @@ class HotState {
 	public const STEP_UP_SESSIONS_UNTIL = 'step_up_sessions_until';
 	/** While in the future, low-value attempts are sampled because the attempts table is flooded */
 	public const ATTEMPTS_FLOOD_UNTIL = 'attempts_flood_until';
-	/** This server's own addresses seen in web requests, for cron and occ */
-	public const SERVER_ADDRESSES = 'server_addresses';
 
-	/** @var array<string, array{0: ValueType, 1: int|list<string>}> value type and default by key, for the config lexicon */
+	/** @var array<string, array{0: ValueType, 1: int}> value type and default by key, for the config lexicon */
 	public const LEXICON = [
 		self::DECOY_COUNT => [ValueType::INT, 0],
 		self::STEP_UP_SESSIONS_UNTIL => [ValueType::INT, 0],
 		self::ATTEMPTS_FLOOD_UNTIL => [ValueType::INT, 0],
-		self::SERVER_ADDRESSES => [ValueType::ARRAY, []],
 	];
 
 	public function __construct(
@@ -64,20 +61,6 @@ class HotState {
 
 	public function setAttemptsFloodUntil(int $until): void {
 		$this->setInt(self::ATTEMPTS_FLOOD_UNTIL, $until);
-	}
-
-	/**
-	 * @return list<string>
-	 */
-	public function serverAddresses(): array {
-		return array_values(array_filter($this->appConfig->getValueArray(Application::APP_ID, self::SERVER_ADDRESSES, []), 'is_string'));
-	}
-
-	/**
-	 * @param list<string> $addresses
-	 */
-	public function setServerAddresses(array $addresses): void {
-		$this->appConfig->setValueArray(Application::APP_ID, self::SERVER_ADDRESSES, $addresses);
 	}
 
 	private function getInt(string $key): int {

@@ -121,6 +121,26 @@ class HotWritesCostTest extends LoginFailureTestCase {
 		$this->assertSame(['203.0.113.1', '203.0.113.2', '203.0.113.3', '203.0.113.4'], $row['sample'] ?? null);
 	}
 
+	public function testMoreWebServersThanAddressesKeptOnceWriteNothingOnAVerdictMiss(): void {
+		$guard = $this->guard();
+		$this->cache = new ClockedCache(fn (): int => $this->now);
+		$_SERVER['SERVER_ADDR'] = '10.0.0.1';
+		$guard->decisionFor('192.0.2.1');
+		$steady = $this->queries(fn () => $guard->decisionFor('192.0.2.2'));
+		$costs = [];
+		for ($round = 0; $round < 2; $round++) {
+			for ($node = 1; $node <= 20; $node++) {
+				$_SERVER['SERVER_ADDR'] = '10.0.0.' . $node;
+				$costs[$round][] = $this->queries(fn () => $guard->decisionFor('192.0.2.' . (10 + $round * 20 + $node)));
+			}
+		}
+		unset($_SERVER['SERVER_ADDR']);
+		$this->assertSame(array_fill(0, 19, $steady + 4), array_slice($costs[0], 1), 'A new web server reads its row, stores it (an update that finds none, then the insert) and reads the others to forget quiet ones, once');
+		$this->assertSame(array_fill(0, 20, $steady), $costs[1], 'then its misses cost nothing more, with 20 web servers');
+		$this->assertFalse($this->appConfig->hasKey('intrusion_detection', 'server_addresses'), 'The app config is not written');
+		$this->assertCount(20, Server::get(AppState::class)->getPrefixed(ServerAddresses::STATE_PREFIX));
+	}
+
 	public function testAMergedHitWithNothingNewWritesNoRow(): void {
 		$service = $this->detectionService();
 		$mode = new ModeState(Mode::Protect, Mode::Protect);
@@ -265,7 +285,7 @@ class HotWritesCostTest extends LoginFailureTestCase {
 			$this->appSettings(),
 			$addressCache,
 			new AddressResolver(Server::get(BanMapper::class), $this->time(), $container),
-			new RemoteAddressResolver($this->createMock(IRequest::class), Server::get(IThrottler::class), Server::get(ServerAddresses::class)),
+			new RemoteAddressResolver($this->createMock(IRequest::class), Server::get(IThrottler::class), new ServerAddresses(Server::get(AppState::class), new FixedCaches(null, new ClockedCache(fn (): int => $this->now)), $this->time())),
 			new RequestContext(),
 			$this->time(),
 			new GuardTimer(FixedCaches::none(), $this->time()),

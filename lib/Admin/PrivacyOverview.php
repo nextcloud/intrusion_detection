@@ -110,8 +110,8 @@ class PrivacyOverview {
 		$rows[] = [
 			'id' => 'internal_state',
 			'name' => $l->t('Internal state'),
-			'what' => $l->t('The version of the cached address checks, and when the firewall export was last written and what it changed.'),
-			'why' => $l->t('So that every web server knows when its cached address checks are out of date, and the export is only written again when something changed.'),
+			'what' => $l->t('The version of the cached address checks, when the firewall export was last written and what it changed, and the addresses of your web servers with when each was last seen.'),
+			'why' => $l->t('So that every web server knows when its cached address checks are out of date, the export is only written again when something changed, and background jobs never block your own servers.'),
 			'retention' => $l->t('As long as the app is installed'),
 			'where' => 'ids_state',
 			'protection' => $l->t('No personal data.'),
