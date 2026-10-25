@@ -31,7 +31,9 @@ A plain request costs a few memory-cache lookups; see "Light on
 resources" in the README. A failed login that a check has already
 answered within the last 30 seconds (one account attacked from many
 places, credential stuffing) is counted without evaluating the attack
-again; only its own address is judged. The injection check looks at a request only
+again; only its own address is judged. With a distributed cache, the
+failed logins of an address, network, account or password are counted
+in the database only once their count in the cache can reach a limit. The injection check looks at a request only
 within fixed bounds:
 
 - at most 1,000 query parameters and form fields, and at most 64 KB of the
