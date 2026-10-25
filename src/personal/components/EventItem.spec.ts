@@ -59,6 +59,7 @@ function bodyButton(text: string): HTMLButtonElement | undefined {
 
 describe('EventItem', () => {
 	beforeEach(() => {
+		personal.receipts = []
 		personal.overview = overview()
 		personal.activity = activity({ questions: [securityEvent(1, { asks: true, canConfirm: true })] })
 		personal.manage = { devices: 0, networks: 0, otherBrowsers: 0 }
@@ -158,7 +159,7 @@ describe('EventItem', () => {
 	})
 
 	test('"No" explains the consequences first and then answers', async () => {
-		const answered = securityEvent(1, { asks: true, verdict: 'denied', verdictAt: 1792580400 })
+		const answered = securityEvent(1, { asks: true, verdict: 'denied', verdictAt: 1792580400, receipt: ['The address 203.0.113.7 was blocked.'] })
 		vi.mocked(denyEvent).mockResolvedValue(answered)
 		const wrapper = mountItem(securityEvent(1, { asks: true, canConfirm: true }))
 		await wrapper.get('[data-test="deny"]').trigger('click')
@@ -176,6 +177,8 @@ describe('EventItem', () => {
 		expect(denyEvent).toHaveBeenCalledWith(snowflake(1))
 		expect(personal.activity?.questions).toEqual([])
 		expect(fetchActivity).toHaveBeenCalled()
+		expect(personal.receipts).toEqual([{ id: snowflake(1), subject: 'Someone entered your password but failed the second factor 1', lines: ['The address 203.0.113.7 was blocked.'] }])
+		expect(showSuccess).toHaveBeenCalledWith('Thank you. Your answer was recorded.')
 	})
 
 	test('"No" from a session that proved only the password keeps the question open', async () => {

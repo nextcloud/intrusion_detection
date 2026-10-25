@@ -133,6 +133,23 @@ claimed where the login history does not reach back 30 days. The security
 notice shows the comparison only where the Account protection page, which
 lists the logins, is shown. Nothing is stored for it.
 
+## After the answer and after the code
+
+After "No, it was not me", the Account protection page and the security
+notice list what Nextcloud did about it: the responses that the answer's
+own detection recorded as done (sessions ended, app passwords revoked,
+the address blocked, a new password required, the administrators told)
+and, when it acted, that logins from the event's network need extra
+confirmation for a day. A response that did not run is not listed. Next
+to it, "Secure my account" opens the checklist.
+
+After a login was confirmed with the email code, the next page says once
+why the code was asked for, naming the reasons of
+[Which logins are confirmed](#which-logins-are-confirmed). When the
+account's password is being guessed, it also says how many wrong passwords
+were entered for the account today, as the Account protection page counts
+them. Nothing is stored for either.
+
 ## Timers
 
 | What | How long |

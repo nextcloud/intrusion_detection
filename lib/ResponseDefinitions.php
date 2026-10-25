@@ -714,6 +714,7 @@ namespace OCA\IntrusionDetection;
  *     verdictAt: ?int,
  *     canConfirm: bool,
  *     comparison: ?IntrusionDetectionSignInComparison,
+ *     receipt: ?list<string>,
  * }
  *
  * @psalm-type IntrusionDetectionTrustedNetwork = array{

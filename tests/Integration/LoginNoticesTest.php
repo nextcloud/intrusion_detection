@@ -163,7 +163,9 @@ class LoginNoticesTest extends StepUpTestCase {
 		$this->assertSame('denied', Server::get(DetectionMapper::class)->findById($detection->getId())->getUserVerdict());
 		$html = $response->render();
 		$this->assertStringContainsString('You answered: No, it was not me.', $html);
-		$this->assertStringContainsString('Your answer was recorded and your administrator was told.', $html);
+		$this->assertStringContainsString('Thank you. Your answer was recorded. This is what Nextcloud did:', $html);
+		$this->assertStringContainsString('<li>Your administrators were told.</li>', $html);
+		$this->assertStringContainsString('/apps/intrusion_detection/secure-account', $html, 'Secure my account');
 	}
 
 	public function testNoAfterALoginWithOnlyThePasswordTellsHowToAnswerSoThatItCounts(): void {

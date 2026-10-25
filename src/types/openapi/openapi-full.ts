@@ -2198,6 +2198,7 @@ export type components = {
             verdictAt: number | null;
             canConfirm: boolean;
             comparison: components["schemas"]["SignInComparison"] | null;
+            receipt: string[] | null;
         };
         PersonalOverview: {
             status: components["schemas"]["PersonalStatus"];
@@ -6874,7 +6875,7 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description The answer was taken; from a session whose login proved only the password, or with an app password, the administrators were told and the event stays open (no verdict) */
+            /** @description The answer was taken, with what Nextcloud did in `receipt`; from a session whose login proved only the password, or with an app password, the administrators were told and the event stays open (no verdict, no receipt) */
             200: {
                 headers: {
                     [name: string]: unknown;

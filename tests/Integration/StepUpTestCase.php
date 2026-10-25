@@ -67,6 +67,7 @@ use OCA\IntrusionDetection\Net\RemoteAddressResolver;
 use OCA\IntrusionDetection\Net\ServerAddresses;
 use OCA\IntrusionDetection\Notification\MailReach;
 use OCA\IntrusionDetection\Notification\UserMessages;
+use OCA\IntrusionDetection\Personal\FailedLoginStats;
 use OCA\IntrusionDetection\Response\FlaggedSources;
 use OCA\IntrusionDetection\Response\Tokens;
 use OCA\IntrusionDetection\SessionState\Rules\StepUpRule;
@@ -459,6 +460,8 @@ abstract class StepUpTestCase extends AccountTestCase {
 			Server::get(IFactory::class)->get(Application::APP_ID, 'en'),
 			$this->knownDevices(),
 			Server::get(ITimeFactory::class),
+			Server::get(FailedLoginStats::class),
+			Server::get(UserMessages::class),
 		);
 	}
 

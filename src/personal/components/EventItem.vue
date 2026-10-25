@@ -72,7 +72,7 @@ function deny() {
 			announce(t(APP_ID, 'Your administrators were told. The question stays open.'))
 		}
 	}, {
-		done: () => toldOnly.value ? '' : t(APP_ID, 'Thank you. Your answer was recorded and your administrators were told.'),
+		done: () => toldOnly.value ? '' : t(APP_ID, 'Thank you. Your answer was recorded.'),
 		toast: true,
 		fallback: t(APP_ID, 'Your answer could not be saved. Please try again.'),
 		handle: refusedOrStale,

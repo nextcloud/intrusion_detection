@@ -60,6 +60,7 @@ export function securityEvent(id: number, overrides: Partial<SecurityEvent> = {}
 		verdictAt: null,
 		canConfirm: false,
 		comparison: null,
+		receipt: null,
 		...overrides,
 	}
 }

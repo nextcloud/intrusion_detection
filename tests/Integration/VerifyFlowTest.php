@@ -23,6 +23,8 @@ use OCA\IntrusionDetection\Db\BanMapper;
 use OCA\IntrusionDetection\Login\SessionMarkers;
 use OCA\IntrusionDetection\Net\SourceKey;
 use OCA\IntrusionDetection\Notification\UserAlerts;
+use OCA\IntrusionDetection\Personal\FailedLoginStats;
+use OCA\IntrusionDetection\Response\AccountProtection;
 use OCA\IntrusionDetection\Response\FlaggedSources;
 use OCA\IntrusionDetection\SessionState\RequestTarget;
 use OCA\IntrusionDetection\SessionState\Rules\StepUpRule;
@@ -74,16 +76,32 @@ class VerifyFlowTest extends StepUpTestCase {
 		$this->assertStringNotContainsString('second-factor', $html, 'No second factor to offer');
 	}
 
-	public function testTheRightCodeContinuesToThePageTheUserWanted(): void {
+	public function testTheRightCodeSaysOnceWhyItWasAskedForAndContinuesToThePageTheUserWanted(): void {
 		$this->pendingLogin();
 		$response = $this->verifyController()->confirm('482 915', '/index.php/apps/files/?dir=/Photos');
-		$this->assertInstanceOf(RedirectResponse::class, $response);
-		$this->assertStringEndsWith('/index.php/apps/files/?dir=/Photos', $response->getRedirectURL());
+		$this->assertSame(VerifyController::MODE_CONFIRMED, $this->paramOf($response, 'mode'));
+		$this->assertSame('We asked for the code because the address or its network took part in an attack.', $this->paramOf($response, 'lead'));
+		$this->assertStringEndsWith('/index.php/apps/files/?dir=/Photos', (string)$this->paramOf($response, 'continueUrl'));
+		$this->assertInstanceOf(StandaloneTemplateResponse::class, $response);
+		$this->assertStringContainsString('Continue to Nextcloud', $response->render());
 		$this->assertNull($this->stepUp());
 		$this->assertSame('email_code', $this->state->get(SessionMarkers::CONFIRMATION)['by'] ?? null);
 		$this->assertSame(0, $this->unconfirmedRows());
 		$this->assertNull($this->rule()->check($this->state, RequestTarget::dav('PROPFIND', '/')), 'The session may continue');
 		$this->assertSame([], $this->detectionsOf(StepUpFailed::ID));
+	}
+
+	public function testForAnAccountWhosePasswordIsGuessedItSaysHowOftenToday(): void {
+		Server::get(FlaggedSources::class)->unflagSource(SourceKey::fromIp($this->remoteAddress));
+		Server::get(AccountProtection::class)->protect($this->alice->getUID(), time() + 3600);
+		foreach (['192.0.2.1', '192.0.2.2', '198.51.100.9'] as $ip) {
+			Server::get(FailedLoginStats::class)->record($this->alice->getUID(), SourceKey::fromIp($ip));
+		}
+		$this->pendingLogin();
+
+		$response = $this->verifyController()->confirm('482915');
+
+		$this->assertSame('We asked for the code because someone is guessing the account\'s password. Today 3 wrong passwords were entered for your account.', $this->paramOf($response, 'lead'));
 	}
 
 	/**
@@ -102,8 +120,7 @@ class VerifyFlowTest extends StepUpTestCase {
 	public function testOnlyLocalPathsAreContinuedTo(string $target): void {
 		$this->pendingLogin();
 		$response = $this->verifyController()->confirm('482915', $target);
-		$this->assertInstanceOf(RedirectResponse::class, $response);
-		$this->assertSame(Server::get(IURLGenerator::class)->linkToDefaultPageUrl(), $response->getRedirectURL());
+		$this->assertSame(Server::get(IURLGenerator::class)->linkToDefaultPageUrl(), $this->paramOf($response, 'continueUrl'));
 		$this->assertStringNotContainsString('evil', (string)$this->verifyController()->show($target)->getHeaders()['Location']);
 	}
 
@@ -242,7 +259,7 @@ class VerifyFlowTest extends StepUpTestCase {
 		$response = $this->verifyController()->resend();
 		$this->assertStringContainsString('No more codes can be sent', (string)$this->paramOf($response, 'error'));
 		$this->assertFalse($this->paramOf($response, 'canResend'));
-		$this->assertInstanceOf(RedirectResponse::class, $this->verifyController()->confirm('650417'), 'The newest code works');
+		$this->assertSame(VerifyController::MODE_CONFIRMED, $this->paramOf($this->verifyController()->confirm('650417'), 'mode'), 'The newest code works');
 	}
 
 	public function testARefusedLoginIsToldWhyWithItsReferenceAndEnded(): void {

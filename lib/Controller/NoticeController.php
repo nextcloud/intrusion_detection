@@ -134,14 +134,19 @@ class NoticeController extends Controller implements ILoginFlowPage {
 			// "No" ended the session the event was about, and that was this one.
 			return new RedirectResponse($this->urlGenerator->linkToRoute('core.login.showLoginForm'));
 		}
+		$receipt = $yes ? null : $this->personal->receipt($answered, $user);
 		return $this->page($user, $redirectUrl, notice: match (true) {
 			$yes => $this->l->t('Thank you. The network of this event is trusted for a while.'),
 			$answered->getUserVerdict() === null => $this->l->t('Your administrator was told. To end the sessions of this event, answer again after a login with your second factor or an email code, or from a device you remembered.'),
-			default => $this->l->t('Thank you. Your answer was recorded and your administrator was told.'),
-		});
+			$receipt === [] => $this->l->t('Thank you. Your answer was recorded.'),
+			default => $this->l->t('Thank you. Your answer was recorded. This is what Nextcloud did:'),
+		}, receipt: $receipt ?? []);
 	}
 
-	private function page(IUser $user, string $redirectUrl, ?string $error = null, ?string $notice = null, int $status = Http::STATUS_OK): StandaloneTemplateResponse {
+	/**
+	 * @param list<string> $receipt what Nextcloud did after "No, it was not me"
+	 */
+	private function page(IUser $user, string $redirectUrl, ?string $error = null, ?string $notice = null, int $status = Http::STATUS_OK, array $receipt = []): StandaloneTemplateResponse {
 		$since = $this->notices->shownSince($user->getUID()) ?? 0;
 		$found = $this->personal->find($user, $since, self::MAX);
 		$habits = $found !== [] && $this->settings->personalPageEnabled() ? $this->signIns->read($user, $since, 0)[1] : null;
@@ -157,6 +162,8 @@ class NoticeController extends Controller implements ILoginFlowPage {
 			'events' => $events,
 			'error' => $error,
 			'notice' => $notice,
+			'receipt' => $receipt,
+			'secureAccountUrl' => $receipt === [] ? null : $this->urlGenerator->linkToRoute(Application::APP_ID . '.SecureAccount.page'),
 			'redirect_url' => LocalRedirect::isSafe($redirectUrl, self::EXCLUDED) ? $redirectUrl : '',
 			'continueAction' => $this->urlGenerator->linkToRoute(Application::APP_ID . '.Notice.done'),
 			'logout_url' => $this->urlGenerator->getLogoutUrl(),

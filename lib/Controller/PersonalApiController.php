@@ -113,7 +113,7 @@ class PersonalApiController extends OCSController {
 	 * @param string $id the event
 	 * @return DataResponse<Http::STATUS_OK, IntrusionDetectionPersonalDetection, array{}>|DataResponse<Http::STATUS_BAD_REQUEST|Http::STATUS_FORBIDDEN|Http::STATUS_NOT_FOUND|Http::STATUS_CONFLICT, IntrusionDetectionError, array{}>
 	 *
-	 * 200: The answer was taken; from a session whose login proved only the password, or with an app password, the administrators were told and the event stays open (no verdict)
+	 * 200: The answer was taken, with what Nextcloud did in `receipt`; from a session whose login proved only the password, or with an app password, the administrators were told and the event stays open (no verdict, no receipt)
 	 * 400: The event does not ask
 	 * 403: The answer cannot be given from this session: its login was not confirmed
 	 * 404: There is no such event of the current user
@@ -124,7 +124,10 @@ class PersonalApiController extends OCSController {
 	#[ApiRoute(verb: 'POST', url: '/api/v1/personal/detections/{id}/deny', requirements: ['id' => '\d+'])]
 	public function deny(string $id): DataResponse {
 		$user = $this->user();
-		return new DataResponse($this->detections->present($this->answers->deny($user, $id), $user));
+		$answered = $this->answers->deny($user, $id);
+		$event = $this->detections->present($answered, $user);
+		$event['receipt'] = $this->detections->receipt($answered, $user);
+		return new DataResponse($event);
 	}
 
 	/**

@@ -22,6 +22,8 @@ use OCA\IntrusionDetection\Confirm\StepUpState;
 use OCA\IntrusionDetection\Explain\TextRenderer;
 use OCA\IntrusionDetection\Http\LocalRedirect;
 use OCA\IntrusionDetection\KnownDevice\KnownDevices;
+use OCA\IntrusionDetection\Notification\UserMessages;
+use OCA\IntrusionDetection\Personal\FailedLoginStats;
 use OCA\IntrusionDetection\SessionState\ILoginFlowPage;
 use OCA\IntrusionDetection\SessionState\LoginFlowRoute;
 use OCP\AppFramework\Controller;
@@ -57,6 +59,9 @@ use OCP\Util;
  * - After a correct code or an administrator's approval, the user may tick
  *   "Remember this device" ({@see KnownDevices}): later logins from this
  *   browser are confirmed without asking, where the reason allows it.
+ * - A correct code is answered once with a page that says in plain words
+ *   why the code was asked for, and continues from there. Nothing is
+ *   stored for it.
  * - While an administrator is asked, the page shows that it waits and asks
  *   a cheap status endpoint every few seconds (the verify script); without
  *   the script, "Check now" does the same. The user can give up waiting.
@@ -79,6 +84,7 @@ class VerifyController extends Controller implements ILoginFlowPage {
 	public const MODE_REFUSED = 'refused';
 	public const MODE_ENDED = 'ended';
 	public const MODE_WAITING = 'waiting';
+	public const MODE_CONFIRMED = 'confirmed';
 	/** Seconds between two status requests of the waiting page */
 	public const POLL_INTERVAL = 10;
 
@@ -92,6 +98,8 @@ class VerifyController extends Controller implements ILoginFlowPage {
 		private readonly IL10N $l,
 		private readonly KnownDevices $knownDevices,
 		private readonly ITimeFactory $timeFactory,
+		private readonly FailedLoginStats $failedLogins,
+		private readonly UserMessages $messages,
 	) {
 		parent::__construct(Application::APP_ID, $request);
 	}
@@ -134,10 +142,12 @@ class VerifyController extends Controller implements ILoginFlowPage {
 		string $remember = '',
 	): Response {
 		$user = $this->userSession->getUser();
+		$policies = $user === null ? [] : $this->flow->pending($user)?->policies ?? [];
 		$result = $user === null ? PendingLoginResult::NotPending : $this->flow->enterCode($user, $code, $remember === '1');
 		switch ($result) {
-			case PendingLoginResult::NotPending:
 			case PendingLoginResult::Confirmed:
+				return $user === null || $policies === [] ? $this->continue($redirect_url) : $this->confirmedPage($user, $policies, $redirect_url);
+			case PendingLoginResult::NotPending:
 				return $this->continue($redirect_url);
 			case PendingLoginResult::EndedAttempts:
 				$response = $this->endedPage($result);
@@ -414,6 +424,30 @@ class VerifyController extends Controller implements ILoginFlowPage {
 		]);
 		$response->setStatus(Http::STATUS_FORBIDDEN);
 		return $response;
+	}
+
+	/**
+	 * Why the code was asked for, in plain words, once after it was entered.
+	 * For an account whose password is being guessed, also how many wrong
+	 * passwords were entered today, as the user's security page counts them.
+	 *
+	 * @param list<string> $policies the reasons the login needed confirmation
+	 */
+	private function confirmedPage(IUser $user, array $policies, string $redirectUrl): StandaloneTemplateResponse {
+		$because = StepUpPolicy::describeAll($policies, $this->l);
+		$why = [$because === '' ? $this->l->t('We asked for the code because we noticed unusual activity around your login.') : $this->l->t('We asked for the code because %s.', [$because])];
+		if (in_array(StepUpPolicy::ProtectedAccount->value, $policies, true) && $this->failedLogins->isEnabled()) {
+			$days = $this->failedLogins->forUser($user->getUID(), $this->messages->timeZoneOf($user))['days'];
+			$today = $days === [] ? 0 : $days[count($days) - 1]['count'];
+			if ($today > 0) {
+				$why[] = $this->l->n('Today %n wrong password was entered for your account.', 'Today %n wrong passwords were entered for your account.', $today);
+			}
+		}
+		return $this->render(self::MODE_CONFIRMED, [
+			'title' => $this->l->t('Thank you, your login is confirmed'),
+			'lead' => implode(' ', $why),
+			'continueUrl' => $this->redirect->target($redirectUrl, self::EXCLUDED),
+		]);
 	}
 
 	/**

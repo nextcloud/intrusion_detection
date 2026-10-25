@@ -181,7 +181,7 @@ Security works better when the account owner can say "that wasn't me". Users fin
 3. a 6-digit **email code**, valid for 10 minutes, with 5 tries (and at most 10 wrong codes per account and hour); administrators get one only when neither their second factor nor an approval can confirm;
 4. optionally, **approval by an administrator** (off by default), asked for 10 minutes.
 
-Apps that log in with an app password are never interrupted.
+Apps that log in with an app password are never interrupted. After a correct email code, one page says in plain words why it was asked for ("We asked for the code because someone is guessing the account's password. Today 14 wrong passwords were entered for your account."), then the user continues.
 
 <img src="screenshots/login-confirmation.gif" alt="Animation: Mia logs in with her correct password. Because her account was attacked today, the 'Confirm it's you' page asks for the 6-digit code that was emailed to her. She types the code, clicks 'Confirm and continue' and lands on her dashboard." width="960">
 
@@ -189,7 +189,7 @@ Apps that log in with an app password are never interrupted.
 
 **"Was this you?"** When Nextcloud sees something it cannot check by itself, such as a login that was not confirmed, a device connected from another network or a credential used in two places, it asks the account owner. The question appears on the personal page and as a notification. On the personal page it is put next to the user's habit: "Firefox on Windows, new network, 3:12 AM, an unusual hour for you" and "You usually log in with Chrome on macOS from your usual network" ([how](docs/logins.md#was-this-you-next-to-the-habit)).
 
-- **"No, it was not me"** ends the sessions and app passwords that came with the event, blocks the address it came from, requires a new password if the password was involved, and tells the admins. It only does all that from a login that proved more than the password, so an intruder who knows only the password cannot use it. From the Nextcloud desktop and mobile apps, or after a login with just the password, it tells the admins, and the question stays open.
+- **"No, it was not me"** ends the sessions and app passwords that came with the event, blocks the address it came from, requires a new password if the password was involved, and tells the admins. It only does all that from a login that proved more than the password, so an intruder who knows only the password cannot use it. Afterwards the page lists what Nextcloud actually did, and only that (the session ended, the address blocked, the admins told), next to a "Secure my account" button. From the Nextcloud desktop and mobile apps, or after a login with just the password, it tells the admins, and the question stays open.
 - **"Yes, it was me"**, from a login that proved more than the password, trusts that network for the user for 30 days.
 
 <img src="screenshots/was-this-you.gif" alt="Animation: on her Account protection page, Mia sees 'A login to your account was not confirmed' from 203.0.113.77 with the buttons 'Yes, it was me' and 'No, it was not me'. She clicks No and confirms 'It was not me'. The page then says she will be asked to choose a new password, and her recent activity shows 'You said it was not you'." width="960">
