@@ -356,6 +356,7 @@ return array(
     'OCA\\IntrusionDetection\\Detection\\AttemptRecord' => $baseDir . '/../lib/Detection/AttemptRecord.php',
     'OCA\\IntrusionDetection\\Detection\\AttemptRecorder' => $baseDir . '/../lib/Detection/AttemptRecorder.php',
     'OCA\\IntrusionDetection\\Detection\\CommonFacts' => $baseDir . '/../lib/Detection/CommonFacts.php',
+    'OCA\\IntrusionDetection\\Detection\\Cooldown' => $baseDir . '/../lib/Detection/Cooldown.php',
     'OCA\\IntrusionDetection\\Detection\\DetectionAccounts' => $baseDir . '/../lib/Detection/DetectionAccounts.php',
     'OCA\\IntrusionDetection\\Detection\\DetectionDraft' => $baseDir . '/../lib/Detection/DetectionDraft.php',
     'OCA\\IntrusionDetection\\Detection\\DetectionService' => $baseDir . '/../lib/Detection/DetectionService.php',

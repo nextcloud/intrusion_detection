@@ -22,6 +22,7 @@ use OCA\IntrusionDetection\Db\LoginMapper;
 use OCA\IntrusionDetection\Db\TokenOriginMapper;
 use OCA\IntrusionDetection\Db\UserDailyMapper;
 use OCA\IntrusionDetection\Detection\AttemptRecorder;
+use OCA\IntrusionDetection\Detection\Cooldown;
 use OCA\IntrusionDetection\Detection\DetectionTotals;
 use OCA\IntrusionDetection\KnownDevice\Db\KnownDeviceMapper;
 use OCA\IntrusionDetection\KnownDevice\KnownDevices;
@@ -68,6 +69,8 @@ class Cleanup extends TimedJob {
 		LoginMapper::class => [LoginMapper::TABLE],
 		// A detection's accounts go with it; old hours go into the running totals.
 		DetectionTotals::class => [DetectionMapper::TABLE, DetectionAccountMapper::TABLE, DetectionTotals::TABLE],
+		// Adds the hits counted while a check cooled down, after the attack ended.
+		Cooldown::class => [],
 		FlaggedSources::class => [FlagMapper::TABLE],
 		AccountProtection::class => [ProtectedAccountMapper::TABLE],
 		AlertMapper::class => [AlertMapper::TABLE],

@@ -153,6 +153,48 @@ class DetectionMapper extends QBMapper {
 	}
 
 	/**
+	 * Write a merged hit: the changed fields, with `hits` raised by `$hits`
+	 * and `last_seen_at` moved on to `$seenAt`, in one statement that keeps
+	 * the hits other requests add at the same time ({@see addHits()}). The
+	 * entity takes the new values and has no changed field afterwards.
+	 */
+	public function updateMerged(Detection $detection, int $hits, int $seenAt): void {
+		$qb = $this->db->getQueryBuilder();
+		$qb->update(self::TABLE);
+		foreach (array_keys($detection->getUpdatedFields()) as $property) {
+			if (in_array($property, ['id', 'hits', 'lastSeenAt'], true)) {
+				continue;
+			}
+			$qb->set($detection->propertyToColumn($property), $qb->createNamedParameter($detection->{'get' . ucfirst($property)}(), $this->getParameterTypeForProperty($detection, $property)));
+		}
+		$this->countHits($qb, $hits, $seenAt)
+			->where($qb->expr()->eq('id', $qb->createNamedParameter((string)$detection->getId())))
+			->executeStatement();
+		$detection->setHits((int)$detection->getHits() + $hits);
+		$detection->setLastSeenAt(max((int)$detection->getLastSeenAt(), $seenAt));
+		$detection->resetUpdatedFields();
+	}
+
+	/**
+	 * Add hits to a detection and move its `last_seen_at` on to `$seenAt`,
+	 * unless it is later already.
+	 */
+	public function addHits(string $id, int $hits, int $seenAt): void {
+		$qb = $this->db->getQueryBuilder();
+		$qb->update(self::TABLE);
+		$this->countHits($qb, $hits, $seenAt)
+			->where($qb->expr()->eq('id', $qb->createNamedParameter($id)))
+			->executeStatement();
+	}
+
+	private function countHits(IQueryBuilder $qb, int $hits, int $seenAt): IQueryBuilder {
+		$lastSeen = $qb->getColumnName('last_seen_at');
+		$seen = $qb->createNamedParameter($seenAt, IQueryBuilder::PARAM_INT);
+		return $qb->set('hits', $qb->func()->add('hits', $qb->createNamedParameter($hits, IQueryBuilder::PARAM_INT)))
+			->set('last_seen_at', $qb->createFunction('CASE WHEN ' . $lastSeen . ' < ' . $seen . ' THEN ' . $seen . ' ELSE ' . $lastSeen . ' END'));
+	}
+
+	/**
 	 * Detections of an account, or of an address, that were active in a
 	 * period: started before its end and last seen after its start. An
 	 * account matches the detections recorded for it

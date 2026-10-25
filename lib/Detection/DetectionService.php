@@ -25,7 +25,9 @@ use OCP\AppFramework\Utility\ITimeFactory;
  * Stores detections. Repeated hits of the same check and rule from the same
  * source (or for the same user) within the merge window update one row,
  * which keeps the noise of traps and scanners small. The row's facts are
- * merged ({@see FactsMerger}), so it still explains every hit.
+ * merged ({@see FactsMerger}), so it still explains every hit. A merged
+ * hit adds to the stored hit count rather than replacing it, together with
+ * the hits counted while its check cooled down ({@see Cooldown}).
  *
  * A new detection with an address keeps the address risk score at that
  * moment (fact `risk`), unless its check already stored the score it
@@ -45,11 +47,12 @@ class DetectionService {
 		private readonly DetectionTotals $totals,
 		private readonly KeyLock $locks,
 		private readonly Fingerprinter $fingerprinter,
+		private readonly Cooldown $cooldown,
 	) {
 	}
 
 	/**
-	 * @return array{0: Detection, 1: bool} the stored detection, and whether it is new
+	 * @return array{0: Detection, 1: bool, 2: int} the stored detection, whether it is new, and how many hits it stands for (with those counted while its check cooled down)
 	 */
 	public function record(DetectionDraft $draft, ModeState $mode): array {
 		$mergeKey = $draft->mergeKey($this->fingerprinter);
@@ -61,15 +64,15 @@ class DetectionService {
 	}
 
 	/**
-	 * @return array{0: Detection, 1: bool}
+	 * @return array{0: Detection, 1: bool, 2: int}
 	 */
 	private function recordUnlocked(DetectionDraft $draft, ModeState $mode): array {
 		$now = $this->timeFactory->getTime();
 		$existing = $this->mergeTarget($draft, $mode);
 		if ($existing !== null) {
 			$accountsBefore = DetectionAccounts::of($existing);
-			$existing->setHits($existing->getHits() + 1);
-			$existing->setLastSeenAt($now);
+			// The hits counted while its check cooled down join this one.
+			[$pending, $cooled] = $this->cooldown->takeHits((string)$existing->getId());
 			$severity = Severity::tryFrom($existing->getSeverity());
 			$raised = $draft->severity !== null && ($severity === null || $draft->severity->rank() > $severity->rank());
 			if ($raised) {
@@ -80,22 +83,20 @@ class DetectionService {
 			$explanation['last'] = $now;
 			$explanation['facts'] = FactsMerger::merge(is_array($explanation['facts'] ?? null) ? $explanation['facts'] : [], $draft);
 			$existing->setExplanationData($explanation);
-			$this->mapper->update($existing);
-			// Only what changes from here on is written again (the actions).
-			$existing->resetUpdatedFields();
+			$this->mapper->updateMerged($existing, 1 + $pending, $now);
 			if ($raised) {
 				$this->totals->raised($existing, $now);
 			}
 			// The merged facts may name accounts the detection did not name before.
 			$this->recorded[(string)$existing->getId()] = $this->accounts->recordChange($existing, $accountsBefore);
-			return [$existing, false];
+			return [$existing, false, 1 + $cooled];
 		}
 
 		$detection = $this->mapper->insert($this->build($draft, $mode, $now, true));
 		$detection->resetUpdatedFields();
 		$this->totals->created($detection);
 		$this->recorded[(string)$detection->getId()] = $this->accounts->recordNew($detection);
-		return [$detection, true];
+		return [$detection, true, 1];
 	}
 
 	/**

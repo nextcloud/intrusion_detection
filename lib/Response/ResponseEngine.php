@@ -78,14 +78,14 @@ class ResponseEngine {
 			return null;
 		}
 
-		[$detection, $isNew] = $this->detections->record($draft, $mode);
+		[$detection, $isNew, $hits] = $this->detections->record($draft, $mode);
 
 		$responses = $this->responsesFor($draft);
 		if (!$isNew) {
 			$responses = array_values(array_filter($responses, static fn (ResponseType $r): bool => !$draft->runsOnlyWhenNew($r)));
 		}
 
-		$context = new ResponseContext($draft, $detection, $definition, $isNew);
+		$context = new ResponseContext($draft, $detection, $definition, $isNew, $hits);
 		$actions = $isNew ? [] : $detection->getActionList();
 		foreach ($responses as $response) {
 			$actions = $this->replaceAction($actions, $this->run($response, $context, $mode->acts()));

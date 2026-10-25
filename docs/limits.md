@@ -28,7 +28,10 @@ entries or more than 1 % malformed entries. At most 50 lists can be set up.
 ## Work per request
 
 A plain request costs a few memory-cache lookups; see "Light on
-resources" in the README. The injection check looks at a request only
+resources" in the README. A failed login that a check has already
+answered within the last 30 seconds (one account attacked from many
+places, credential stuffing) is counted without evaluating the attack
+again; only its own address is judged. The injection check looks at a request only
 within fixed bounds:
 
 - at most 1,000 query parameters and form fields, and at most 64 KB of the

@@ -33,18 +33,18 @@ class AlertMapper implements IPurges {
 	}
 
 	/**
-	 * Count one hit.
+	 * Count a hit, or several at once.
 	 *
 	 * @return array{0: string, 1: bool} the counter's id, and whether this was its first hit
 	 */
-	public function hit(string $checkId, string $sourceKey, int $bucket, ?string $detectionId, int $now): array {
+	public function hit(string $checkId, string $sourceKey, int $bucket, ?string $detectionId, int $now, int $hits = 1): array {
 		$id = $this->snowflakes->nextId();
 		$inserted = $this->db->insertIgnoreConflict(self::TABLE, [
 			'id' => $id,
 			'check_id' => $checkId,
 			'source_key' => $sourceKey,
 			'bucket' => $bucket,
-			'hits' => 1,
+			'hits' => $hits,
 			'detection_id' => $detectionId,
 			'first_at' => $now,
 			'last_at' => $now,
@@ -52,7 +52,7 @@ class AlertMapper implements IPurges {
 		if (!$inserted) {
 			$qb = $this->db->getQueryBuilder();
 			$qb->update(self::TABLE)
-				->set('hits', $qb->func()->add('hits', $qb->createNamedParameter(1, IQueryBuilder::PARAM_INT)))
+				->set('hits', $qb->func()->add('hits', $qb->createNamedParameter($hits, IQueryBuilder::PARAM_INT)))
 				->set('last_at', $qb->createNamedParameter($now, IQueryBuilder::PARAM_INT))
 				->where($qb->expr()->eq('check_id', $qb->createNamedParameter($checkId)))
 				->andWhere($qb->expr()->eq('source_key', $qb->createNamedParameter($sourceKey)))

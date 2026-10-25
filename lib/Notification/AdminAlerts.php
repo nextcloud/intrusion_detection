@@ -87,13 +87,14 @@ class AdminAlerts {
 	}
 
 	/**
+	 * @param int $hits the hits of the detection this alert stands for
 	 * @return array{alert: string, hits: int, bell: string, email: string, recipients: int}
 	 */
-	public function alert(Detection $detection): array {
+	public function alert(Detection $detection, int $hits = 1): array {
 		$now = $this->timeFactory->getTime();
 		$bucket = intdiv($now, 3600);
 		$checkId = $detection->getCheckId();
-		[$alertId, $first] = $this->alerts->hit($checkId, self::sourceKey($detection), $bucket, (string)$detection->getId(), $now);
+		[$alertId, $first] = $this->alerts->hit($checkId, self::sourceKey($detection), $bucket, (string)$detection->getId(), $now, $hits);
 		// Group members are only looked up when a notification or an email is sent.
 		$recipients = null;
 		$allAdmins = self::reachesAdminGroup($detection);
