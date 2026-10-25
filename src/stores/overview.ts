@@ -6,11 +6,11 @@
 import type { MaybeRefOrGetter } from 'vue'
 import type { ResourceOptions } from '../composables/useResource.ts'
 import type { AccountGuide } from '../secureAccountTypes.ts'
-import type { DetectionList } from '../types.ts'
+import type { DetectionList, LearningRecap } from '../types.ts'
 
 import { toValue } from 'vue'
 import { update, usePagedResource, useResource } from '../composables/useResource.ts'
-import { fetchDailyStats, fetchDetection, fetchDetections, lookup } from '../services/api.ts'
+import { closeLearningRecap, fetchDailyStats, fetchDetection, fetchDetections, fetchLearningRecap, lookup } from '../services/api.ts'
 import { confirmPasswordReset, endAccountSessions, fetchAccountGuide, reenableAccount } from '../services/secureAccount.ts'
 import { detectionFilters } from '../store.ts'
 
@@ -66,6 +66,23 @@ export function useDetection(id: MaybeRefOrGetter<string | null>, seen: MaybeRef
  */
 export function useDailyStats(options: ResourceOptions = {}) {
 	return useResource('stats', (signal) => fetchDailyStats(30, signal), options)
+}
+
+/**
+ * The recap of the learning period that ended last, or null.
+ *
+ * @param options - Resource options
+ */
+export function useLearningRecap(options: ResourceOptions = {}) {
+	return useResource('learning-recap', fetchLearningRecap, options)
+}
+
+/**
+ * Close the recap of the learning period; it is gone for this admin.
+ */
+export async function closeRecap(): Promise<void> {
+	await closeLearningRecap()
+	update<LearningRecap | null>('learning-recap', () => null)
 }
 
 /**

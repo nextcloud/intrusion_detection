@@ -122,6 +122,36 @@ namespace OCA\IntrusionDetection;
  *     maxDays: int,
  * }
  *
+ * @psalm-type IntrusionDetectionRecapAttack = array{
+ *     checkId: string,
+ *     name: string,
+ *     summary: string,
+ *     attempts: int,
+ * }
+ *
+ * @psalm-type IntrusionDetectionRecapAccount = array{
+ *     uid: string,
+ *     displayName: string,
+ * }
+ *
+ * @psalm-type IntrusionDetectionLearningRecap = array{
+ *     startedAt: int,
+ *     endedAt: int,
+ *     days: int,
+ *     first: bool,
+ *     attempts: int,
+ *     addresses: int,
+ *     topAttack: ?IntrusionDetectionRecapAttack,
+ *     wouldHaveBlocked: int,
+ *     ownPeople: int,
+ *     accounts: list<IntrusionDetectionRecapAccount>,
+ *     complete: bool,
+ * }
+ *
+ * @psalm-type IntrusionDetectionLearningRecapResult = array{
+ *     recap: ?IntrusionDetectionLearningRecap,
+ * }
+ *
  * @psalm-type IntrusionDetectionProblem = array{
  *     id: string,
  *     level: 'info'|'warning'|'error',

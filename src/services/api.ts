@@ -26,6 +26,7 @@ import type {
 	IncidentReport,
 	IncidentRequest,
 	Learning,
+	LearningRecap,
 	LoginApproval,
 	LookupResult,
 	Mode,
@@ -271,6 +272,22 @@ export function lookup(q: string, signal?: AbortSignal): Promise<LookupResult> {
  */
 export function updateLearning(action: 'start' | 'extend' | 'stop', days = 7): Promise<Learning> {
 	return call<Learning>('put', 'learning', { data: { action, days }, confirm: true })
+}
+
+/**
+ * The recap of the learning period that ended last, unless the admin closed it.
+ *
+ * @param signal - Cancels the request
+ */
+export async function fetchLearningRecap(signal?: AbortSignal): Promise<LearningRecap | null> {
+	return (await call<{ recap: LearningRecap | null }>('get', 'learning/recap', { signal })).recap
+}
+
+/**
+ * Close the recap of the learning period for the current admin.
+ */
+export async function closeLearningRecap(): Promise<void> {
+	await call<{ recap: null }>('delete', 'learning/recap')
 }
 
 /**

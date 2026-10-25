@@ -246,14 +246,14 @@ class LoginHistoryMapper {
 
 	/**
 	 * The different accounts with logins from an address (`ip`) or networks
-	 * (`net_key`) since a time that were not refused or left unconfirmed, at
-	 * most `$limit`. Distinct, so that the many logins of one client never
-	 * hide another account.
+	 * (`net_key`) since a time, and before `$until` when given, that were not
+	 * refused or left unconfirmed, at most `$limit`. Distinct, so that the
+	 * many logins of one client never hide another account.
 	 *
 	 * @param 'ip'|'net_key' $column
 	 * @return list<string>
 	 */
-	public function acceptedUidsFrom(string $column, KeyMatch $keys, int $since, int $limit): array {
+	public function acceptedUidsFrom(string $column, KeyMatch $keys, int $since, int $limit, ?int $until = null): array {
 		$qb = $this->db->getQueryBuilder();
 		$qb->selectDistinct('uid')
 			->from(self::TABLE)
@@ -261,6 +261,9 @@ class LoginHistoryMapper {
 			->andWhere($qb->expr()->gte('created_at', $qb->createNamedParameter($since, IQueryBuilder::PARAM_INT)))
 			->andWhere($this->accepted($qb))
 			->setMaxResults($limit);
+		if ($until !== null) {
+			$qb->andWhere($qb->expr()->lt('created_at', $qb->createNamedParameter($until, IQueryBuilder::PARAM_INT)));
+		}
 		$result = $qb->executeQuery();
 		$uids = array_map('strval', $result->fetchFirstColumn());
 		$result->closeCursor();

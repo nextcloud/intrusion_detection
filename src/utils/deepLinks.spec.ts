@@ -13,6 +13,7 @@ describe('links of the admin page', () => {
 		expect(resolveLink('settings-notifications')).toEqual({ tab: 'settings', check: null, section: 'settings-notifications', detection: null })
 		expect(resolveLink('#blocks-active')).toMatchObject({ tab: 'blocks', section: 'blocks-active' })
 		expect(resolveLink('#overview-attention')).toMatchObject({ tab: 'overview', section: 'overview-attention' })
+		expect(resolveLink('#overview-recap')).toMatchObject({ tab: 'overview', section: 'overview-recap' })
 	})
 
 	test('a detection opens on the overview', () => {

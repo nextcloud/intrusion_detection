@@ -36,6 +36,13 @@ class AdminLinks {
 		return $this->adminPage() . '#detection-' . $id;
 	}
 
+	/**
+	 * The recap of the learning period that ended last, on the overview.
+	 */
+	public function learningRecap(): string {
+		return $this->adminPage() . '#overview-recap';
+	}
+
 	public function approval(string $id): string {
 		return $this->adminPage() . '#approval-' . $id;
 	}

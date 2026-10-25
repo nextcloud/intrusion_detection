@@ -6,7 +6,7 @@
 import { flushPromises, mount } from '@vue/test-utils'
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 import OverviewTab from './OverviewTab.vue'
-import { approveRequest, fetchAdminGrants, fetchDailyStats, fetchDetections, fetchWaitingLogins, lookup, rejectRequest } from '../services/api.ts'
+import { approveRequest, fetchAdminGrants, fetchDailyStats, fetchDetections, fetchLearningRecap, fetchWaitingLogins, lookup, rejectRequest } from '../services/api.ts'
 import { adminGrants, incidentRequest, state, waitingLogins } from '../store.ts'
 import { makeStatus } from '../tests/fixtures.ts'
 
@@ -14,6 +14,7 @@ vi.mock('../services/api.ts', async (importOriginal) => ({
 	...(await importOriginal<object>()),
 	fetchDailyStats: vi.fn(),
 	fetchDetections: vi.fn(),
+	fetchLearningRecap: vi.fn(() => Promise.resolve(null)),
 	fetchWaitingLogins: vi.fn(() => Promise.resolve([])),
 	fetchAdminGrants: vi.fn(() => Promise.resolve([])),
 	approveRequest: vi.fn(),
@@ -68,6 +69,31 @@ describe('the overview', () => {
 		expect(wrapper.find('#overview-attention').exists()).toBe(true)
 		expect(wrapper.text()).toContain('Recent activity')
 		expect(wrapper.text()).toContain('Look up an address or account')
+	})
+
+	test('the recap of the learning period comes first, once learning ended', async () => {
+		const { wrapper } = await mountOverview()
+		expect(wrapper.find('[data-test="learning-recap"]').exists()).toBe(false)
+		wrapper.unmount()
+		mounted.splice(0)
+
+		vi.mocked(fetchLearningRecap).mockResolvedValueOnce({
+			startedAt: 1_760_000_000,
+			endedAt: 1_760_604_800,
+			days: 7,
+			first: true,
+			attempts: 0,
+			addresses: 0,
+			topAttack: null,
+			wouldHaveBlocked: 0,
+			ownPeople: 0,
+			accounts: [],
+			complete: true,
+		})
+		const { wrapper: ended } = await mountOverview()
+		const first = ended.get('section')
+		expect(first.attributes('id')).toBe('overview-recap')
+		expect(first.text()).toContain('A quiet first week: nothing to block.')
 	})
 
 	test('the empty address and account filters show an example', async () => {

@@ -946,6 +946,31 @@ export type paths = {
         patch?: never;
         trace?: never;
     };
+    "/ocs/v2.php/apps/intrusion_detection/api/v1/learning/recap": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Show the recap of the learning period that ended last
+         * @description What the checks saw while learning and what they would have blocked, with the accounts that logged in from addresses they would have blocked. Null once the administrator closed it, while learning, and two weeks after the period ended.
+         *     This endpoint requires admin access
+         */
+        get: operations["settings_api-learning-recap"];
+        put?: never;
+        post?: never;
+        /**
+         * Close the recap of the learning period for the current administrator
+         * @description This endpoint requires admin access
+         */
+        delete: operations["settings_api-close-learning-recap"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/ocs/v2.php/apps/intrusion_detection/api/v1/settings": {
         parameters: {
             query?: never;
@@ -1962,6 +1987,29 @@ export type components = {
             /** Format: int64 */
             maxDays: number;
         };
+        LearningRecap: {
+            /** Format: int64 */
+            startedAt: number;
+            /** Format: int64 */
+            endedAt: number;
+            /** Format: int64 */
+            days: number;
+            first: boolean;
+            /** Format: int64 */
+            attempts: number;
+            /** Format: int64 */
+            addresses: number;
+            topAttack: components["schemas"]["RecapAttack"] | null;
+            /** Format: int64 */
+            wouldHaveBlocked: number;
+            /** Format: int64 */
+            ownPeople: number;
+            accounts: components["schemas"]["RecapAccount"][];
+            complete: boolean;
+        };
+        LearningRecapResult: {
+            recap: components["schemas"]["LearningRecap"] | null;
+        };
         LoggedOutElsewhere: {
             /** Format: int64 */
             sessions: number;
@@ -2215,6 +2263,17 @@ export type components = {
             /** @enum {string} */
             level: "recommended" | "strict" | "relaxed" | "custom";
             checks: components["schemas"]["CheckList"];
+        };
+        RecapAccount: {
+            uid: string;
+            displayName: string;
+        };
+        RecapAttack: {
+            checkId: string;
+            name: string;
+            summary: string;
+            /** Format: int64 */
+            attempts: number;
         };
         Recipient: {
             uid: string;
@@ -6228,6 +6287,118 @@ export interface operations {
                         ocs: {
                             meta: components["schemas"]["OCSMeta"];
                             data: components["schemas"]["Error"];
+                        };
+                    };
+                };
+            };
+            /** @description Current user is not logged in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        ocs: {
+                            meta: components["schemas"]["OCSMeta"];
+                            data: unknown;
+                        };
+                    };
+                };
+            };
+            /** @description Logged in account must be an admin */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        ocs: {
+                            meta: components["schemas"]["OCSMeta"];
+                            data: unknown;
+                        };
+                    };
+                };
+            };
+        };
+    };
+    "settings_api-learning-recap": {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Required to be true for the API request to pass */
+                "OCS-APIRequest": boolean;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Recap returned */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        ocs: {
+                            meta: components["schemas"]["OCSMeta"];
+                            data: components["schemas"]["LearningRecapResult"];
+                        };
+                    };
+                };
+            };
+            /** @description Current user is not logged in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        ocs: {
+                            meta: components["schemas"]["OCSMeta"];
+                            data: unknown;
+                        };
+                    };
+                };
+            };
+            /** @description Logged in account must be an admin */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        ocs: {
+                            meta: components["schemas"]["OCSMeta"];
+                            data: unknown;
+                        };
+                    };
+                };
+            };
+        };
+    };
+    "settings_api-close-learning-recap": {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Required to be true for the API request to pass */
+                "OCS-APIRequest": boolean;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Recap closed */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        ocs: {
+                            meta: components["schemas"]["OCSMeta"];
+                            data: components["schemas"]["LearningRecapResult"];
                         };
                     };
                 };

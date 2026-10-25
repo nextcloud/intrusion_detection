@@ -49,6 +49,7 @@ final class Lexicon implements ILexicon {
 			new Entry(UserKeys::CODE_WRONG, ValueType::ARRAY, [], 'when wrong confirmation codes were entered for the account, to limit them per hour', lazy: true),
 			new Entry(UserKeys::SECURE_GUIDE, ValueType::STRING, '', 'progress through the "Secure my account" checklist (JSON)', lazy: true),
 			new Entry(UserKeys::STALE_CREDENTIALS_NOTIFIED_AT, ValueType::INT, 0, 'when the user was last reminded of app passwords and devices they have not used for 90 days (0: never)', lazy: true),
+			new Entry(UserKeys::LEARNING_RECAP_CLOSED, ValueType::INT, 0, 'when the learning period ended whose recap on the overview the administrator closed (0: none)', lazy: true),
 		];
 	}
 }

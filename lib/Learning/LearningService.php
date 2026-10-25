@@ -38,12 +38,18 @@ use OCP\Notification\IManager as INotificationManager;
  *
  * Every change of the period removes the "learning ends tomorrow" notice:
  * it was about the period before.
+ *
+ * When a period ends, by itself or by an administrator, its end is kept
+ * with its start ({@see lastPeriod()}), for the recap of what it saw on the
+ * overview of the admin page. Starting a new period forgets it.
  */
 class LearningService {
 	/** When the running learning period started */
 	public const STARTED_STATE = 'learning_started_at';
 	/** When the "learning ends tomorrow" notice was sent for the running period; 0 before */
 	public const NOTICE_STATE = 'learning_notice_sent';
+	/** When the last learning period ended; 0 while one runs, or before one ended */
+	public const ENDED_STATE = 'learning_ended_at';
 	public const MIN_DAYS = 1;
 	public const MAX_DAYS = 30;
 
@@ -108,6 +114,25 @@ class LearningService {
 	}
 
 	/**
+	 * The start and end of the learning period that ended last, or null
+	 * while learning, and when no period ended since this was recorded.
+	 *
+	 * @return ?array{0: int, 1: int}
+	 */
+	public function lastPeriod(): ?array {
+		if ($this->isActive()) {
+			return null;
+		}
+		$ended = $this->state->getInt(self::ENDED_STATE);
+		if ($ended === 0) {
+			return null;
+		}
+		$started = $this->state->getInt(self::STARTED_STATE);
+		$started = $started > 0 ? $started : $this->state->getInt(AppState::INSTALLED_AT);
+		return $started > 0 && $started < $ended ? [$started, $ended] : null;
+	}
+
+	/**
 	 * The latest end a learning period that starts now, or the running one, may have.
 	 */
 	public function latestUntil(): int {
@@ -130,6 +155,7 @@ class LearningService {
 		$this->editor->setGlobal(GlobalSettings::LEARNING_UNTIL, $until, reported: $until > $before);
 		if ($protecting) {
 			$this->state->setInt(self::STARTED_STATE, $this->timeFactory->getTime());
+			$this->state->setInt(self::ENDED_STATE, 0);
 		}
 		$this->state->setInt(self::NOTICE_STATE, 0);
 		$this->dismissEndingNotice();
@@ -141,10 +167,12 @@ class LearningService {
 	 */
 	public function stop(string $actor): void {
 		$this->dismissEndingNotice();
-		if ($this->until() === 0) {
+		$until = $this->until();
+		if ($until === 0) {
 			return;
 		}
 		$this->editor->setGlobal(GlobalSettings::LEARNING_UNTIL, 0, reported: false);
+		$this->recordEnd($until);
 		$this->audit->log('learning mode ended by %s', ['actor' => $actor]);
 	}
 
@@ -169,9 +197,18 @@ class LearningService {
 			return false;
 		}
 		$this->editor->setGlobal(GlobalSettings::LEARNING_UNTIL, 0, reported: false);
+		$this->recordEnd($until);
 		$this->dismissEndingNotice();
 		$this->audit->log('learning mode ended automatically; protection is active', []);
 		return true;
+	}
+
+	/**
+	 * Keep when the period ended: at its planned end when that passed
+	 * before the background job noticed, else now.
+	 */
+	private function recordEnd(int $until): void {
+		$this->state->setInt(self::ENDED_STATE, min($until, $this->timeFactory->getTime()));
 	}
 
 	/**

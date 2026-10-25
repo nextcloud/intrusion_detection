@@ -41,6 +41,7 @@ class ApiResponsesTest extends IntegrationTestCase {
 		'GET /api/v1/bans' => [200, ['bans', 'hasMore', 'activeCount', 'limits']],
 		'GET /api/v1/lookup' => [200, ['kind', 'query', 'bans', 'detections', 'user']],
 		'GET /api/v1/learning' => [200, ['active', 'until', 'daysLeft', 'minDays', 'maxDays']],
+		'GET /api/v1/learning/recap' => [200, ['recap']],
 		'GET /api/v1/settings' => [200, ['settings', 'templates']],
 		'GET /api/v1/settings/export' => [200, ['format', 'version', 'exportedAt', 'settings', 'checks']],
 		'GET /api/v1/approvals' => [200, []],
@@ -436,6 +437,8 @@ class ApiResponsesTest extends IntegrationTestCase {
 		$this->assertSame([400, 'days', 'learning_limit'], [$limit['status'], $limit['data']['param'], $limit['data']['reason']]);
 		$this->assertStringStartsWith('Learning mode lasts at most 30 days in all, so that protection cannot stay off for long. This learning period started on ', $limit['data']['message']);
 		$this->assertSame(200, $this->call('PUT /api/v1/learning', ['action' => 'stop'])['status']);
+		$closed = $this->call('DELETE /api/v1/learning/recap', []);
+		$this->assertSame([200, ['recap' => null]], [$closed['status'], $closed['data']]);
 	}
 
 	public function testWritesAreAudited(): void {

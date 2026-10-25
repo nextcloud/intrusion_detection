@@ -31,4 +31,6 @@ final class UserKeys {
 	public const SECURE_GUIDE = 'secure_guide';
 	/** When the user was last reminded of app passwords and devices they have not used for 90 days */
 	public const STALE_CREDENTIALS_NOTIFIED_AT = 'stale_credentials_notified_at';
+	/** When the learning period ended whose recap the administrator closed */
+	public const LEARNING_RECAP_CLOSED = 'learning_recap_closed';
 }

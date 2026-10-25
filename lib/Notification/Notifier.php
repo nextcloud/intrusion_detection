@@ -348,8 +348,8 @@ class Notifier implements INotifier {
 
 	private function prepareProtectionStarted(INotification $notification, IL10N $l): INotification {
 		$notification->setParsedSubject($l->t('Intrusion detection is now protecting this server'))
-			->setParsedMessage($l->t('The learning period is over. Checks set to Protect now act on what they find. You can start learning mode again on the admin page at any time.'))
-			->setLink($this->links->adminPage());
+			->setParsedMessage($l->t('The learning period is over. Checks set to Protect now act on what they find. The overview shows what they would have done while learning. You can start learning mode again on the admin page at any time.'))
+			->setLink($this->links->learningRecap());
 		return $notification;
 	}
 

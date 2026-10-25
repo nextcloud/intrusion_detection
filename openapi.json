@@ -3970,7 +3970,7 @@
         },
         {
             "name": "settings_api",
-            "description": "The global settings and learning mode on the admin page, with the export for support and the reset to the defaults. Administrators only; every change needs a recent password confirmation and is written to the audit log."
+            "description": "The global settings and learning mode on the admin page, with the export for support and the reset to the defaults. Administrators only; every change needs a recent password confirmation and is written to the audit log. Closing the recap of the learning period changes only what the administrator sees, so it needs neither."
         },
         {
             "name": "share_alert",

@@ -2341,6 +2341,88 @@
                     }
                 }
             },
+            "LearningRecap": {
+                "type": "object",
+                "required": [
+                    "startedAt",
+                    "endedAt",
+                    "days",
+                    "first",
+                    "attempts",
+                    "addresses",
+                    "topAttack",
+                    "wouldHaveBlocked",
+                    "ownPeople",
+                    "accounts",
+                    "complete"
+                ],
+                "properties": {
+                    "startedAt": {
+                        "type": "integer",
+                        "format": "int64"
+                    },
+                    "endedAt": {
+                        "type": "integer",
+                        "format": "int64"
+                    },
+                    "days": {
+                        "type": "integer",
+                        "format": "int64"
+                    },
+                    "first": {
+                        "type": "boolean"
+                    },
+                    "attempts": {
+                        "type": "integer",
+                        "format": "int64"
+                    },
+                    "addresses": {
+                        "type": "integer",
+                        "format": "int64"
+                    },
+                    "topAttack": {
+                        "nullable": true,
+                        "allOf": [
+                            {
+                                "$ref": "#/components/schemas/RecapAttack"
+                            }
+                        ]
+                    },
+                    "wouldHaveBlocked": {
+                        "type": "integer",
+                        "format": "int64"
+                    },
+                    "ownPeople": {
+                        "type": "integer",
+                        "format": "int64"
+                    },
+                    "accounts": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/RecapAccount"
+                        }
+                    },
+                    "complete": {
+                        "type": "boolean"
+                    }
+                }
+            },
+            "LearningRecapResult": {
+                "type": "object",
+                "required": [
+                    "recap"
+                ],
+                "properties": {
+                    "recap": {
+                        "nullable": true,
+                        "allOf": [
+                            {
+                                "$ref": "#/components/schemas/LearningRecap"
+                            }
+                        ]
+                    }
+                }
+            },
             "LoggedOutElsewhere": {
                 "type": "object",
                 "required": [
@@ -3475,6 +3557,45 @@
                     },
                     "checks": {
                         "$ref": "#/components/schemas/CheckList"
+                    }
+                }
+            },
+            "RecapAccount": {
+                "type": "object",
+                "required": [
+                    "uid",
+                    "displayName"
+                ],
+                "properties": {
+                    "uid": {
+                        "type": "string"
+                    },
+                    "displayName": {
+                        "type": "string"
+                    }
+                }
+            },
+            "RecapAttack": {
+                "type": "object",
+                "required": [
+                    "checkId",
+                    "name",
+                    "summary",
+                    "attempts"
+                ],
+                "properties": {
+                    "checkId": {
+                        "type": "string"
+                    },
+                    "name": {
+                        "type": "string"
+                    },
+                    "summary": {
+                        "type": "string"
+                    },
+                    "attempts": {
+                        "type": "integer",
+                        "format": "int64"
                     }
                 }
             },
@@ -12731,6 +12852,240 @@
                 }
             }
         },
+        "/ocs/v2.php/apps/intrusion_detection/api/v1/learning/recap": {
+            "get": {
+                "operationId": "settings_api-learning-recap",
+                "summary": "Show the recap of the learning period that ended last",
+                "description": "What the checks saw while learning and what they would have blocked, with the accounts that logged in from addresses they would have blocked. Null once the administrator closed it, while learning, and two weeks after the period ended.\nThis endpoint requires admin access",
+                "tags": [
+                    "settings_api"
+                ],
+                "security": [
+                    {
+                        "bearer_auth": []
+                    },
+                    {
+                        "basic_auth": []
+                    }
+                ],
+                "parameters": [
+                    {
+                        "name": "OCS-APIRequest",
+                        "in": "header",
+                        "description": "Required to be true for the API request to pass",
+                        "required": true,
+                        "schema": {
+                            "type": "boolean",
+                            "default": true
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Recap returned",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "required": [
+                                        "ocs"
+                                    ],
+                                    "properties": {
+                                        "ocs": {
+                                            "type": "object",
+                                            "required": [
+                                                "meta",
+                                                "data"
+                                            ],
+                                            "properties": {
+                                                "meta": {
+                                                    "$ref": "#/components/schemas/OCSMeta"
+                                                },
+                                                "data": {
+                                                    "$ref": "#/components/schemas/LearningRecapResult"
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Current user is not logged in",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "required": [
+                                        "ocs"
+                                    ],
+                                    "properties": {
+                                        "ocs": {
+                                            "type": "object",
+                                            "required": [
+                                                "meta",
+                                                "data"
+                                            ],
+                                            "properties": {
+                                                "meta": {
+                                                    "$ref": "#/components/schemas/OCSMeta"
+                                                },
+                                                "data": {}
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "Logged in account must be an admin",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "required": [
+                                        "ocs"
+                                    ],
+                                    "properties": {
+                                        "ocs": {
+                                            "type": "object",
+                                            "required": [
+                                                "meta",
+                                                "data"
+                                            ],
+                                            "properties": {
+                                                "meta": {
+                                                    "$ref": "#/components/schemas/OCSMeta"
+                                                },
+                                                "data": {}
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "operationId": "settings_api-close-learning-recap",
+                "summary": "Close the recap of the learning period for the current administrator",
+                "description": "This endpoint requires admin access",
+                "tags": [
+                    "settings_api"
+                ],
+                "security": [
+                    {
+                        "bearer_auth": []
+                    },
+                    {
+                        "basic_auth": []
+                    }
+                ],
+                "parameters": [
+                    {
+                        "name": "OCS-APIRequest",
+                        "in": "header",
+                        "description": "Required to be true for the API request to pass",
+                        "required": true,
+                        "schema": {
+                            "type": "boolean",
+                            "default": true
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Recap closed",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "required": [
+                                        "ocs"
+                                    ],
+                                    "properties": {
+                                        "ocs": {
+                                            "type": "object",
+                                            "required": [
+                                                "meta",
+                                                "data"
+                                            ],
+                                            "properties": {
+                                                "meta": {
+                                                    "$ref": "#/components/schemas/OCSMeta"
+                                                },
+                                                "data": {
+                                                    "$ref": "#/components/schemas/LearningRecapResult"
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Current user is not logged in",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "required": [
+                                        "ocs"
+                                    ],
+                                    "properties": {
+                                        "ocs": {
+                                            "type": "object",
+                                            "required": [
+                                                "meta",
+                                                "data"
+                                            ],
+                                            "properties": {
+                                                "meta": {
+                                                    "$ref": "#/components/schemas/OCSMeta"
+                                                },
+                                                "data": {}
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "Logged in account must be an admin",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "required": [
+                                        "ocs"
+                                    ],
+                                    "properties": {
+                                        "ocs": {
+                                            "type": "object",
+                                            "required": [
+                                                "meta",
+                                                "data"
+                                            ],
+                                            "properties": {
+                                                "meta": {
+                                                    "$ref": "#/components/schemas/OCSMeta"
+                                                },
+                                                "data": {}
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
         "/ocs/v2.php/apps/intrusion_detection/api/v1/settings": {
             "get": {
                 "operationId": "settings_api-settings",
@@ -16545,7 +16900,7 @@
         },
         {
             "name": "settings_api",
-            "description": "The global settings and learning mode on the admin page, with the export for support and the reset to the defaults. Administrators only; every change needs a recent password confirmation and is written to the audit log."
+            "description": "The global settings and learning mode on the admin page, with the export for support and the reset to the defaults. Administrators only; every change needs a recent password confirmation and is written to the audit log. Closing the recap of the learning period changes only what the administrator sees, so it needs neither."
         },
         {
             "name": "share_alert",

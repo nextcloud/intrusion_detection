@@ -243,6 +243,18 @@ class LoginHistory implements IAcceptedLogins, IPurges {
 		return $this->mapper->acceptedUidsFrom($column, $keys, $since, $limit);
 	}
 
+	/**
+	 * The different accounts with logins in [since, until) from an address
+	 * (`ip`) or networks (`net_key`) that were not refused or left
+	 * unconfirmed, at most `$limit`.
+	 *
+	 * @param 'ip'|'net_key' $column
+	 * @return list<string>
+	 */
+	public function acceptedUidsBetween(string $column, KeyMatch $keys, int $since, int $until, int $limit): array {
+		return $this->mapper->acceptedUidsFrom($column, $keys, $since, $limit, $until);
+	}
+
 	#[\Override]
 	public function hasConfirmedLogin(string $uid, string $column, KeyMatch $keys, int $since): bool {
 		return $this->mapper->hasConfirmedLogin($uid, $column, $keys, $since);
