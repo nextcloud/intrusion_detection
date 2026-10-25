@@ -85,6 +85,33 @@ retention of the login history (the retention of detections) or past the
 network" is said. The address stays in the row as before; the labels show
 nothing the page did not show.
 
+## New login from a new device and network
+
+The check "Login from a new device and network" tells the user about a
+login that nothing else asked or told them about, when both its device and
+its network are new: the labels above would say "New network" and "New
+device". The user gets a notification (and an email, as for other
+security notices) and the question "Was this you?"; "No" works as for any
+other question, and asks for a new password when the password was typed.
+
+It looks only at a login in the browser, with the password or single
+sign-on, that
+
+- came from no remembered device and needed no extra confirmation, and no
+  other detection of the same login tells the user;
+- belongs to an account without a second factor (that factor is asked for
+  next anyway);
+- belongs to an account whose login history reaches back further than 30
+  days, so never at the first logins of a new account, in the first 30 days
+  after the app was installed, or with a retention shorter than 30 days.
+
+Once a login from a device went through, the device is no longer new for
+30 days, so the user hears about a device at most once in that time. In
+learning mode the detection is recorded but nobody is told. Admins can
+switch the check off or to Observe like any other. It stores nothing
+besides the detection: it reads the login history and the trusted
+networks.
+
 ## "Was this you?" next to the habit
 
 An open "Was this you?" question on the Account protection page, and on

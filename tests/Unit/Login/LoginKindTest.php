@@ -17,6 +17,7 @@ use OCA\IntrusionDetection\Listener\Login\HistoryStep;
 use OCA\IntrusionDetection\Listener\Login\ILoginStep;
 use OCA\IntrusionDetection\Listener\Login\KnownDeviceStep;
 use OCA\IntrusionDetection\Listener\Login\LoginFacts;
+use OCA\IntrusionDetection\Listener\Login\NewLoginStep;
 use OCA\IntrusionDetection\Listener\Login\NoticeStep;
 use OCA\IntrusionDetection\Listener\Login\PasswordChangeStep;
 use OCA\IntrusionDetection\Listener\Login\RecordStep;
@@ -74,8 +75,8 @@ class LoginKindTest extends TestCase {
 	 * @return iterable<string, array{0: array{event: string, password?: ?string, method?: string, path?: string, authorization?: string, basic?: array{string, string}, cookie?: bool}, 1: array{kind: string, steps: list<string>, history: array{?string, bool}, passwordChange: ?string, interactive: ?string, presented: ?string}}>
 	 */
 	public static function logins(): iterable {
-		$browser = ['stepUp', 'adminSession', 'record', 'breach', 'passwordChange', 'knownDevice', 'history', 'notice'];
-		$sso = ['record', 'passwordChange', 'knownDevice', 'history', 'notice'];
+		$browser = ['stepUp', 'adminSession', 'record', 'breach', 'passwordChange', 'knownDevice', 'newLogin', 'history', 'notice'];
+		$sso = ['record', 'passwordChange', 'knownDevice', 'newLogin', 'history', 'notice'];
 		yield 'login form' => [
 			['event' => 'login', 'password' => 'secret'],
 			['kind' => 'form_password', 'steps' => $browser, 'history' => ['password', true], 'passwordChange' => 'redirect', 'interactive' => 'form', 'presented' => null],
@@ -168,7 +169,7 @@ class LoginKindTest extends TestCase {
 	 * @return iterable<string, array{0: array{event: string, password?: ?string, method?: string, path?: string, authorization?: string, basic?: array{string, string}, cookie?: bool}, 1: list<string>}>
 	 */
 	public static function returningSessions(): iterable {
-		yield 'login form' => [['event' => 'login', 'password' => 'secret'], ['stepUp', 'adminSession', 'record', 'breach', 'passwordChange', 'knownDevice', 'history', 'notice']];
+		yield 'login form' => [['event' => 'login', 'password' => 'secret'], ['stepUp', 'adminSession', 'record', 'breach', 'passwordChange', 'knownDevice', 'newLogin', 'history', 'notice']];
 		yield 'app password over Basic auth' => [['event' => 'token', 'method' => 'PROPFIND', 'authorization' => 'Basic YWxpY2U6YXBw', 'basic' => ['alice', 'app']], ['stepUp', 'record', 'history']];
 		yield 'Bearer token' => [['event' => 'token', 'method' => 'GET', 'authorization' => 'Bearer token'], ['stepUp', 'record', 'history']];
 		yield 'browser session restored from its token' => [['event' => 'token', 'method' => 'GET', 'cookie' => true], ['stepUp', 'adminSession', 'record', 'passwordChange']];
@@ -228,6 +229,7 @@ class LoginKindTest extends TestCase {
 			BreachStep::class => 'breach',
 			PasswordChangeStep::class => 'passwordChange',
 			KnownDeviceStep::class => 'knownDevice',
+			NewLoginStep::class => 'newLogin',
 			HistoryStep::class => 'history',
 			NoticeStep::class => 'notice',
 		];

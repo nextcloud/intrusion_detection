@@ -45,12 +45,21 @@ class LoginDetections {
 		if ($ids === []) {
 			return;
 		}
-		$waiting = $this->state->get(SessionMarkers::LOGIN_DETECTIONS);
-		$known = is_array($waiting) && ($waiting['uid'] ?? null) === $uid && is_array($waiting['ids'] ?? null) ? array_values(array_filter($waiting['ids'], 'is_string')) : [];
 		$this->state->set(SessionMarkers::LOGIN_DETECTIONS, [
 			'uid' => $uid,
-			'ids' => array_slice(array_values(array_unique([...$known, ...$ids])), 0, self::MAX),
+			'ids' => array_slice(array_values(array_unique([...$this->waiting($uid), ...$ids])), 0, self::MAX),
 		]);
+	}
+
+	/**
+	 * The detections the account's login in this session recorded that
+	 * still wait for its session token.
+	 *
+	 * @return list<string>
+	 */
+	public function waiting(string $uid): array {
+		$waiting = $this->state->get(SessionMarkers::LOGIN_DETECTIONS);
+		return is_array($waiting) && ($waiting['uid'] ?? null) === $uid && is_array($waiting['ids'] ?? null) ? array_values(array_filter($waiting['ids'], 'is_string')) : [];
 	}
 
 	/**

@@ -22,6 +22,7 @@ use OCA\IntrusionDetection\Listener\Login\HistoryStep;
 use OCA\IntrusionDetection\Listener\Login\ILoginStep;
 use OCA\IntrusionDetection\Listener\Login\KnownDeviceStep;
 use OCA\IntrusionDetection\Listener\Login\LoginFacts;
+use OCA\IntrusionDetection\Listener\Login\NewLoginStep;
 use OCA\IntrusionDetection\Listener\Login\NoticeStep;
 use OCA\IntrusionDetection\Listener\Login\PasswordChangeStep;
 use OCA\IntrusionDetection\Listener\Login\PayloadStep;
@@ -125,7 +126,7 @@ class LoginListenerTest extends TestCase {
 
 	public function testAPasswordLoginRunsTheStepUpFirstAndTheNoticeLast(): void {
 		$this->listener()->handle($this->login(false));
-		$this->assertSame([StepUpStep::class, AdminSessionStep::class, RecordStep::class, BreachStep::class, PasswordChangeStep::class, KnownDeviceStep::class, HistoryStep::class, NoticeStep::class], $this->built);
+		$this->assertSame([StepUpStep::class, AdminSessionStep::class, RecordStep::class, BreachStep::class, PasswordChangeStep::class, KnownDeviceStep::class, NewLoginStep::class, HistoryStep::class, NoticeStep::class], $this->built);
 	}
 
 	public function testABrowserSessionRestoredFromItsTokenIsNoAppLogin(): void {

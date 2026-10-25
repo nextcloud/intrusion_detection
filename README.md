@@ -81,7 +81,7 @@ None of this shows up in an access log as anything unusual. All of it is visible
 
 ## 🔎 What it catches
 
-18 checks, in four groups. Most of them only work *because* they run inside Nextcloud. Their limits count over minutes and hours, so an attack spread thinly over days ("low and slow") stays below them; strong passwords and a second factor are the answer to that.
+19 checks, in four groups. Most of them only work *because* they run inside Nextcloud. Their limits count over minutes and hours, so an attack spread thinly over days ("low and slow") stays below them; strong passwords and a second factor are the answer to that.
 
 ### Logins and passwords
 
@@ -92,6 +92,7 @@ None of this shows up in an access log as anything unusual. All of it is visible
 | **Correct password, then a failed second factor** | The password was right, but the second factor failed 3 times in one login (or 5 times within an hour). | Protect | Ends that session, blocks the address, requires a new password, tells the user and the admins. |
 | **Credential stuffing** | One address fails 10 times for at least 5 accounts within 10 minutes, or the whole server sees a botnet: 100 failures from 20 addresses for 20 accounts. | Protect | Blocks the address, marks it so a later successful login needs confirmation, tells the admins. |
 | **Password known from data breaches** | A user logs in with a password from public breach lists. | Off (opt-in) | Asks for confirmation, requires a new password, tells the user. |
+| **Login from a new device and network** | A user logs in in the browser from a device and a network that their account has not used in the last 30 days, and nothing else asked or told them about it. | Protect | Tells the user ("New login from Firefox on Windows") and asks "Was this you?". Never for accounts with a second factor, and not while the account's login history is younger than 30 days. |
 
 <img src="screenshots/password-spraying.gif" alt="Animation: one password is tried on eight accounts from eight addresses. The Overview then shows a password-spraying detection; its explanation says one password was tried against 5 accounts from 5 addresses, that addresses which tried it only once were not blocked, and that the password itself is never stored." width="960">
 
