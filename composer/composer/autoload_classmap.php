@@ -670,5 +670,6 @@ return array(
     'OCA\\IntrusionDetection\\WasThisYou\\AnswerException' => $baseDir . '/../lib/WasThisYou/AnswerException.php',
     'OCA\\IntrusionDetection\\WasThisYou\\PersonalDetections' => $baseDir . '/../lib/WasThisYou/PersonalDetections.php',
     'OCA\\IntrusionDetection\\WasThisYou\\Questions' => $baseDir . '/../lib/WasThisYou/Questions.php',
+    'OCA\\IntrusionDetection\\WasThisYou\\SignInComparison' => $baseDir . '/../lib/WasThisYou/SignInComparison.php',
     'OCA\\IntrusionDetection\\WasThisYou\\WasThisYouService' => $baseDir . '/../lib/WasThisYou/WasThisYouService.php',
 );

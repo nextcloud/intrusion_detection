@@ -31,6 +31,7 @@ use OCA\IntrusionDetection\Takeover\Db\SecurityChangeMapper;
 use OCA\IntrusionDetection\TrustedNetwork\TrustedNetworks;
 use OCA\IntrusionDetection\WasThisYou\PersonalDetections;
 use OCA\IntrusionDetection\WasThisYou\Questions;
+use OCA\IntrusionDetection\WasThisYou\SignInComparison;
 use OCA\IntrusionDetection\WasThisYou\WasThisYouService;
 use OCP\AppFramework\Utility\ITimeFactory;
 use OCP\EventDispatcher\IEventDispatcher;
@@ -111,7 +112,7 @@ abstract class PersonalApiTestCase extends StepUpTestCase {
 			Server::get(\OCA\IntrusionDetection\Takeover\LockLinks::class),
 			Server::get(\OCA\IntrusionDetection\Crypto\Fingerprinter::class),
 		);
-		$detections = new PersonalDetections(Server::get(DetectionMapper::class), Server::get(UserMessages::class), Server::get(Questions::class), $answers, $this->appSettings(), Server::get(ITimeFactory::class));
+		$detections = new PersonalDetections(Server::get(DetectionMapper::class), Server::get(UserMessages::class), Server::get(Questions::class), $answers, $this->appSettings(), Server::get(ITimeFactory::class), Server::get(SignInComparison::class));
 		return new PersonalApiController(
 			$this->request,
 			$this->userSession,

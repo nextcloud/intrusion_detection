@@ -186,7 +186,7 @@ Apps that log in with an app password are never interrupted.
 
 *Mia's account was attacked today, so even the right password needs one more proof.*
 
-**"Was this you?"** When Nextcloud sees something it cannot check by itself, such as a login that was not confirmed, a device connected from another network or a credential used in two places, it asks the account owner. The question appears on the personal page and as a notification.
+**"Was this you?"** When Nextcloud sees something it cannot check by itself, such as a login that was not confirmed, a device connected from another network or a credential used in two places, it asks the account owner. The question appears on the personal page and as a notification. On the personal page it is put next to the user's habit: "Firefox on Windows, new network, 3:12 AM, an unusual hour for you" and "You usually log in with Chrome on macOS from your usual network" ([how](docs/logins.md#was-this-you-next-to-the-habit)).
 
 - **"No, it was not me"** ends the sessions and app passwords that came with the event, blocks the address it came from, requires a new password if the password was involved, and tells the admins. It only does all that from a login that proved more than the password, so an intruder who knows only the password cannot use it. From the Nextcloud desktop and mobile apps, or after a login with just the password, it tells the admins, and the question stays open.
 - **"Yes, it was me"**, from a login that proved more than the password, trusts that network for the user for 30 days.

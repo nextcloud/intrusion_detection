@@ -2197,6 +2197,7 @@ export type components = {
             /** Format: int64 */
             verdictAt: number | null;
             canConfirm: boolean;
+            comparison: components["schemas"]["SignInComparison"] | null;
         };
         PersonalOverview: {
             status: components["schemas"]["PersonalStatus"];
@@ -2411,6 +2412,10 @@ export type components = {
             templates: {
                 [key: string]: string;
             };
+        };
+        SignInComparison: {
+            seen: string;
+            usually: string | null;
         };
         Signature: {
             id: string;

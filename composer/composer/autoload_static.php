@@ -685,6 +685,7 @@ class ComposerStaticInitIntrusionDetection
         'OCA\\IntrusionDetection\\WasThisYou\\AnswerException' => __DIR__ . '/..' . '/../lib/WasThisYou/AnswerException.php',
         'OCA\\IntrusionDetection\\WasThisYou\\PersonalDetections' => __DIR__ . '/..' . '/../lib/WasThisYou/PersonalDetections.php',
         'OCA\\IntrusionDetection\\WasThisYou\\Questions' => __DIR__ . '/..' . '/../lib/WasThisYou/Questions.php',
+        'OCA\\IntrusionDetection\\WasThisYou\\SignInComparison' => __DIR__ . '/..' . '/../lib/WasThisYou/SignInComparison.php',
         'OCA\\IntrusionDetection\\WasThisYou\\WasThisYouService' => __DIR__ . '/..' . '/../lib/WasThisYou/WasThisYouService.php',
     );
 

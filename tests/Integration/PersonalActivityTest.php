@@ -13,6 +13,7 @@ use OCA\IntrusionDetection\AppInfo\Application;
 use OCA\IntrusionDetection\Check\Checks\PasswordSpraying\PasswordSpraying;
 use OCA\IntrusionDetection\Check\Checks\PasswordSpraying\PasswordSprayingFacts;
 use OCA\IntrusionDetection\Check\Checks\PasswordSpraying\PasswordSprayingRule;
+use OCA\IntrusionDetection\Check\Checks\SecondFactorFailed\SecondFactorFailed;
 use OCA\IntrusionDetection\Config\GlobalSettings;
 use OCA\IntrusionDetection\Db\DetectionMapper;
 use OCA\IntrusionDetection\Detection\DetectionDraft;
@@ -106,6 +107,33 @@ class PersonalActivityTest extends PersonalApiTestCase {
 		$logins = array_column($api->logins(30)->getData(), 'labels', 'id');
 		$this->assertSame([], end($logins), 'Nothing to compare the first login with');
 		$this->assertSame($expected, array_slice($logins, 0, 3, true));
+	}
+
+	public function testAnOpenQuestionIsPutNextToTheAccountsHabit(): void {
+		$now = time();
+		$chromeMac = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 14_6) AppleWebKit/537.36 Chrome/130.0 Safari/537.36';
+		$firefoxWindows = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:131.0) Gecko/20100101 Firefox/131.0';
+		$history = Server::get(LoginHistoryMapper::class);
+		foreach ([1, 2, 3] as $day) {
+			$history->insert($this->alice->getUID(), $now - $day * 86400, SourceKey::fromIp('198.51.100.7'), $chromeMac, LoginHistory::METHOD_PASSWORD, false, 'none', null, null);
+		}
+		// The event's own login, just before it, is no habit.
+		$history->insert($this->alice->getUID(), $now - 30, SourceKey::fromIp('203.0.113.9'), $firefoxWindows, LoginHistory::METHOD_PASSWORD, false, 'none', null, null);
+		$question = $this->storeDetection(new DetectionDraft(checkId: SecondFactorFailed::ID, source: SourceKey::fromIp('203.0.113.9'), uid: $this->alice->getUID(), userAgent: $firefoxWindows));
+		$this->startSession($this->alice);
+
+		$questions = $this->controller()->activity(30)->getData()['questions'];
+		$this->assertSame([(string)$question->getId()], array_column($questions, 'id'));
+		$comparison = $questions[0]['comparison'];
+		$this->assertNotNull($comparison);
+		$this->assertStringStartsWith('Firefox on Windows, new network, ', $comparison['seen']);
+		$this->assertSame('You usually log in with Chrome on macOS from your usual network.', $comparison['usually']);
+		$this->assertNull($questions[0]['receipt'] ?? null);
+
+		$this->setCreatedTime($question->getId(), $now - 3 * 86400 - 3600);
+		$older = $this->controller()->activity(30)->getData()['questions'][0]['comparison'];
+		$this->assertNotNull($older);
+		$this->assertNull($older['usually'], 'No usual device before the first logins');
 	}
 
 	public function testNothingNewIsClaimedWhereTheLoginHistoryIsNotKeptLongEnough(): void {

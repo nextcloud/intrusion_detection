@@ -10,8 +10,10 @@ declare(strict_types=1);
 namespace OCA\IntrusionDetection\Controller;
 
 use OCA\IntrusionDetection\AppInfo\Application;
+use OCA\IntrusionDetection\Config\AppSettings;
 use OCA\IntrusionDetection\Db\Detection;
 use OCA\IntrusionDetection\Http\LocalRedirect;
+use OCA\IntrusionDetection\LoginHistory\SignInHistory;
 use OCA\IntrusionDetection\Notification\LoginNotices;
 use OCA\IntrusionDetection\SessionState\ILoginFlowPage;
 use OCA\IntrusionDetection\SessionState\LoginFlowRoute;
@@ -41,7 +43,9 @@ use OCP\Util;
  * The security notice before the start page, for users Nextcloud could
  * only tell inside Nextcloud ({@see LoginNotices}, concept section 11.1):
  * the events since the first one that was not shown, each with the "Was
- * this you?" answers where it asks. Continuing clears the notice.
+ * this you?" answers where it asks. Continuing clears the notice. A
+ * question is put next to the account's habit only where the user's
+ * security page, which lists the logins, is shown.
  *
  * Only ever the current user's own events. The answers follow
  * {@see WasThisYouService}: "Yes, it was me" needs a recent password
@@ -65,6 +69,8 @@ class NoticeController extends Controller implements ILoginFlowPage {
 		private readonly IURLGenerator $urlGenerator,
 		private readonly LocalRedirect $redirect,
 		private readonly IL10N $l,
+		private readonly SignInHistory $signIns,
+		private readonly AppSettings $settings,
 	) {
 		parent::__construct(Application::APP_ID, $request);
 	}
@@ -137,12 +143,14 @@ class NoticeController extends Controller implements ILoginFlowPage {
 
 	private function page(IUser $user, string $redirectUrl, ?string $error = null, ?string $notice = null, int $status = Http::STATUS_OK): StandaloneTemplateResponse {
 		$since = $this->notices->shownSince($user->getUID()) ?? 0;
+		$found = $this->personal->find($user, $since, self::MAX);
+		$habits = $found !== [] && $this->settings->personalPageEnabled() ? $this->signIns->read($user, $since, 0)[1] : null;
 		$events = array_map(
-			fn (Detection $d): array => $this->personal->present($d, $user) + [
+			fn (Detection $d): array => $this->personal->present($d, $user, $habits) + [
 				'denyAction' => $this->urlGenerator->linkToRoute(Application::APP_ID . '.Notice.deny', ['id' => $d->getId()]),
 				'confirmAction' => $this->urlGenerator->linkToRoute(Application::APP_ID . '.Notice.confirm', ['id' => $d->getId()]),
 			],
-			$this->personal->find($user, $since, self::MAX),
+			$found,
 		);
 		Util::addStyle(Application::APP_ID, 'pages');
 		$response = new StandaloneTemplateResponse(Application::APP_ID, self::TEMPLATE, [

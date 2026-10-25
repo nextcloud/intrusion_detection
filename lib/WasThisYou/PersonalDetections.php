@@ -13,6 +13,7 @@ use OCA\IntrusionDetection\Config\AppSettings;
 use OCA\IntrusionDetection\Db\Detection;
 use OCA\IntrusionDetection\Db\DetectionFilter;
 use OCA\IntrusionDetection\Db\DetectionMapper;
+use OCA\IntrusionDetection\LoginHistory\SignInHabits;
 use OCA\IntrusionDetection\Notification\UserMessages;
 use OCA\IntrusionDetection\ResponseDefinitions;
 use OCP\AppFramework\Utility\ITimeFactory;
@@ -22,7 +23,9 @@ use OCP\IUser;
  * A user's own detections as the user sees them: what happened, when and
  * from where, what Nextcloud did and what to do, in the words of the
  * check's user notice ({@see UserMessages}), and whether it asks "Was this
- * you?". Never thresholds, other accounts or administrator notes.
+ * you?". An open question is put next to the account's habit when the
+ * caller has it ({@see SignInComparison}). Never thresholds, other accounts
+ * or administrator notes.
  *
  * @psalm-import-type IntrusionDetectionPersonalDetection from ResponseDefinitions
  */
@@ -36,6 +39,7 @@ class PersonalDetections {
 		private readonly WasThisYouService $answers,
 		private readonly AppSettings $settings,
 		private readonly ITimeFactory $timeFactory,
+		private readonly SignInComparison $comparison,
 	) {
 	}
 
@@ -58,9 +62,10 @@ class PersonalDetections {
 	}
 
 	/**
+	 * @param ?SignInHabits $habits the account's habits, to compare an open question with
 	 * @return IntrusionDetectionPersonalDetection
 	 */
-	public function present(Detection $detection, IUser $user): array {
+	public function present(Detection $detection, IUser $user, ?SignInHabits $habits = null): array {
 		$message = $this->messages->build($detection, $user, onSecurityPage: true);
 		$asks = $this->questions->asks($detection);
 		$open = $asks && $detection->getUserVerdict() === null;
@@ -82,6 +87,7 @@ class PersonalDetections {
 			'verdict' => $detection->getUserVerdict(),
 			'verdictAt' => $detection->getVerdictAt(),
 			'canConfirm' => $open && $this->answers->maySessionVouch($detection),
+			'comparison' => $open && $habits !== null ? $this->comparison->describe($detection, $user, $habits) : null,
 		];
 	}
 }

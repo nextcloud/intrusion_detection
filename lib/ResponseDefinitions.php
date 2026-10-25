@@ -690,6 +690,11 @@ namespace OCA\IntrusionDetection;
  *     canApprove: bool,
  * }
  *
+ * @psalm-type IntrusionDetectionSignInComparison = array{
+ *     seen: string,
+ *     usually: ?string,
+ * }
+ *
  * @psalm-type IntrusionDetectionPersonalDetection = array{
  *     id: string,
  *     check: string,
@@ -708,6 +713,7 @@ namespace OCA\IntrusionDetection;
  *     verdict: ?string,
  *     verdictAt: ?int,
  *     canConfirm: bool,
+ *     comparison: ?IntrusionDetectionSignInComparison,
  * }
  *
  * @psalm-type IntrusionDetectionTrustedNetwork = array{

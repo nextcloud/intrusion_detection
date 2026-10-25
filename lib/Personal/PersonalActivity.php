@@ -113,7 +113,7 @@ class PersonalActivity {
 			));
 			foreach ($unanswered as $detection) {
 				if (count($questions) < self::MAX_QUESTIONS && $this->questions->isOpen($detection) && $this->messages->tellsUser($detection)) {
-					$questions[] = $this->personalDetections->present($detection, $user);
+					$questions[] = $this->personalDetections->present($detection, $user, $habits);
 				}
 			}
 			if (count($unanswered) < self::MAX_QUESTIONS) {

@@ -13,6 +13,7 @@ use OC\Core\Controller\LoginController;
 use OCA\IntrusionDetection\AppInfo\Application;
 use OCA\IntrusionDetection\Audit\AuditLogger;
 use OCA\IntrusionDetection\Check\Checks\StepUpRefused\StepUpRefused;
+use OCA\IntrusionDetection\Config\GlobalSettings;
 use OCA\IntrusionDetection\Config\UserKeys;
 use OCA\IntrusionDetection\Confirm\IConfirmationMethod;
 use OCA\IntrusionDetection\Controller\NoticeController;
@@ -20,6 +21,9 @@ use OCA\IntrusionDetection\Db\DetectionMapper;
 use OCA\IntrusionDetection\Http\LocalRedirect;
 use OCA\IntrusionDetection\KnownDevice\Db\KnownDeviceMapper;
 use OCA\IntrusionDetection\Login\SessionMarkers;
+use OCA\IntrusionDetection\LoginHistory\Db\LoginHistoryMapper;
+use OCA\IntrusionDetection\LoginHistory\LoginHistory;
+use OCA\IntrusionDetection\LoginHistory\SignInHistory;
 use OCA\IntrusionDetection\Net\SourceKey;
 use OCA\IntrusionDetection\Notification\AdminNotices;
 use OCA\IntrusionDetection\Notification\LoginNotices;
@@ -127,6 +131,26 @@ class LoginNoticesTest extends StepUpTestCase {
 		$this->assertInstanceOf(RedirectResponse::class, $this->controller()->show(), 'Nothing left to show');
 	}
 
+	public function testAQuestionOnThePageIsPutNextToTheAccountsHabitWhereTheSecurityPageIsShown(): void {
+		$mapper = Server::get(LoginHistoryMapper::class);
+		foreach ([1, 2, 3] as $day) {
+			$mapper->insert($this->bob->getUID(), time() - $day * 86400, SourceKey::fromIp('192.0.2.10'), 'Mozilla/5.0 (Macintosh; Intel Mac OS X 14_6) AppleWebKit/537.36 Chrome/130.0 Safari/537.36', LoginHistory::METHOD_PASSWORD, false, LoginHistory::CONFIRMED_BY_NONE, null, null);
+		}
+		$this->refusedLogin();
+		$this->notices()->atLogin($this->bob->getUID(), null);
+
+		$page = $this->controller()->show();
+		$this->assertInstanceOf(StandaloneTemplateResponse::class, $page);
+		$html = $page->render();
+		$this->assertMatchesRegularExpression('/<p class="ids-page__meta">new network, [^<]+<\/p>/', $html);
+		$this->assertStringContainsString('You usually log in with Chrome on macOS from your usual network.', $html);
+
+		$this->appConfig->setValueBool(Application::APP_ID, GlobalSettings::PERSONAL_PAGE_ENABLED, false);
+		$page = $this->controller()->show();
+		$this->assertInstanceOf(StandaloneTemplateResponse::class, $page);
+		$this->assertStringNotContainsString('You usually log in', $page->render(), 'The logins are not shown to the user elsewhere either');
+	}
+
 	public function testNoItWasNotMeCanBeAnsweredOnThePage(): void {
 		$this->refusedLogin();
 		$this->session->clear();
@@ -206,6 +230,8 @@ class LoginNoticesTest extends StepUpTestCase {
 			Server::get(IURLGenerator::class),
 			Server::get(LocalRedirect::class),
 			Server::get(IFactory::class)->get(Application::APP_ID, 'en'),
+			Server::get(SignInHistory::class),
+			$this->appSettings(),
 		);
 	}
 }

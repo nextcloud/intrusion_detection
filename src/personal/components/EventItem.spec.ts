@@ -90,6 +90,19 @@ describe('EventItem', () => {
 		expect(details.text()).toContain('from the address 203.0.113.7')
 	})
 
+	test('puts the event next to the user\'s habit when the server compared them', () => {
+		const wrapper = mountItem(securityEvent(1, {
+			asks: true,
+			comparison: { seen: 'Firefox on Windows, new network, 3:12 AM', usually: 'You usually log in with Chrome on macOS from your usual network.' },
+		}))
+		const comparison = wrapper.get('[data-test="comparison"]')
+		expect(comparison.findAll('span').map((part) => part.text())).toEqual([
+			'Firefox on Windows, new network, 3:12 AM',
+			'You usually log in with Chrome on macOS from your usual network.',
+		])
+		expect(mountItem(securityEvent(2, { asks: true })).find('[data-test="comparison"]').exists()).toBe(false)
+	})
+
 	test('confirms after the password', async () => {
 		const answered = securityEvent(1, { asks: true, canConfirm: false, verdict: 'confirmed', verdictAt: 1792580400 })
 		vi.mocked(confirmEvent).mockResolvedValue(answered)

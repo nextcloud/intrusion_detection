@@ -45,6 +45,8 @@ final class SignInHabits {
 	public const MIN_HOUR_BASELINE = 5;
 	/** Hours of the day this close to an earlier login are usual */
 	public const HOUR_SPREAD = 1;
+	/** A kind of device is the usual one after this many logins of a person with it */
+	public const MIN_USUAL_DEVICE = 3;
 	/** The logins of a person, whose time of day and device say something about a habit */
 	public const PERSONAL_METHODS = [LoginHistory::METHOD_PASSWORD, LoginHistory::METHOD_SSO, LoginHistory::METHOD_COOKIE];
 
@@ -106,10 +108,11 @@ final class SignInHabits {
 	 * The labels of an event at a time, from a network and a device.
 	 *
 	 * @param bool $personal a login of a person, whose hour says something
+	 * @param int $ownLogin seconds before the event whose logins are left out, as the event's own
 	 * @return list<'usual_network'|'new_network'|'new_device'|'unusual_hour'>
 	 */
-	public function labels(int $at, ?string $netKey, ?string $userAgent, bool $knownDevice, bool $personal): array {
-		$earlier = $this->before($at);
+	public function labels(int $at, ?string $netKey, ?string $userAgent, bool $knownDevice, bool $personal, int $ownLogin = 0): array {
+		$earlier = $this->before($at, $ownLogin);
 		$usual = $netKey !== null && (isset($this->trusted[$netKey]) || in_array($netKey, array_column($earlier, 'net'), true));
 		if ($at - self::WINDOW < $this->completeSince) {
 			return $usual ? [self::USUAL_NETWORK] : [];
@@ -131,15 +134,47 @@ final class SignInHabits {
 	}
 
 	/**
+	 * The known kind of device most of the person's logins in the WINDOW
+	 * before a time came from, when at least MIN_USUAL_DEVICE did, and how
+	 * many networks the account trusts or such logins came from.
+	 *
+	 * @param int $ownLogin seconds before the time whose logins are left out, as the event's own
+	 * @return ?array{family: string, platform: string, networks: int} the browser and system as {@see DeviceLabel::parse()} gives them
+	 */
+	public function usual(int $at, int $ownLogin = 0): ?array {
+		if ($at - self::WINDOW < $this->completeSince) {
+			return null;
+		}
+		$earlier = $this->before($at, $ownLogin);
+		$kinds = [];
+		foreach ($earlier as $login) {
+			if ($login['personal'] && $login['kind'] !== self::UNKNOWN_KIND) {
+				$kinds[] = $login['kind'];
+			}
+		}
+		$counts = array_count_values($kinds);
+		arsort($counts);
+		$kind = (string)array_key_first($counts);
+		if ($kind === '' || $counts[$kind] < self::MIN_USUAL_DEVICE) {
+			return null;
+		}
+		[$family, $platform] = explode('/', $kind, 2);
+		$networks = array_filter(array_column($earlier, 'net'), 'is_string');
+		return ['family' => $family, 'platform' => $platform, 'networks' => count(array_unique([...$networks, ...array_keys($this->trusted)]))];
+	}
+
+	/**
 	 * The logins that went through in the WINDOW before a time. Logins in
-	 * the same second are left out: an event's own login is no habit.
+	 * the same second, or the given seconds before it, are left out: an
+	 * event's own login is no habit.
 	 *
 	 * @return list<array{at: int, net: ?string, kind: string, personal: bool, hour: int}>
 	 */
-	private function before(int $at): array {
+	private function before(int $at, int $ownLogin = 0): array {
+		$until = $at - max(0, $ownLogin);
 		return array_values(array_filter(
 			$this->through,
-			static fn (array $login): bool => $login['at'] < $at && $login['at'] >= $at - self::WINDOW,
+			static fn (array $login): bool => $login['at'] < $until && $login['at'] >= $at - self::WINDOW,
 		));
 	}
 

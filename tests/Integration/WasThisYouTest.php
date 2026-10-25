@@ -58,6 +58,7 @@ use OCA\IntrusionDetection\TrustedNetwork\TrustedNetworks;
 use OCA\IntrusionDetection\WasThisYou\AnswerException;
 use OCA\IntrusionDetection\WasThisYou\PersonalDetections;
 use OCA\IntrusionDetection\WasThisYou\Questions;
+use OCA\IntrusionDetection\WasThisYou\SignInComparison;
 use OCA\IntrusionDetection\WasThisYou\WasThisYouService;
 use OCP\AppFramework\Http;
 use OCP\AppFramework\Http\Attribute\NoAdminRequired;
@@ -465,7 +466,7 @@ class WasThisYouTest extends StepUpTestCase {
 		$list = $response->getData();
 		$this->assertCount(1, $list);
 		$this->assertSame($mine->getId(), $list[0]['id']);
-		$this->assertSame(['id', 'check', 'severity', 'enforced', 'createdAt', 'lastSeenAt', 'hits', 'subject', 'happened', 'when', 'done', 'advice', 'address', 'asks', 'verdict', 'verdictAt', 'canConfirm'], array_keys($list[0]), 'No explanation, thresholds or actions');
+		$this->assertSame(['id', 'check', 'severity', 'enforced', 'createdAt', 'lastSeenAt', 'hits', 'subject', 'happened', 'when', 'done', 'advice', 'address', 'asks', 'verdict', 'verdictAt', 'canConfirm', 'comparison'], array_keys($list[0]), 'No explanation, thresholds or actions');
 		$this->assertTrue($list[0]['asks']);
 		$this->assertTrue($list[0]['canConfirm']);
 		$this->assertStringNotContainsString('limit', strtolower(json_encode($list, JSON_THROW_ON_ERROR)), 'Users never see thresholds');
@@ -585,7 +586,7 @@ class WasThisYouTest extends StepUpTestCase {
 		return new PersonalApiController(
 			$this->request,
 			$this->userSession,
-			new PersonalDetections(Server::get(DetectionMapper::class), Server::get(UserMessages::class), Server::get(Questions::class), $service, $this->appSettings(), Server::get(ITimeFactory::class)),
+			new PersonalDetections(Server::get(DetectionMapper::class), Server::get(UserMessages::class), Server::get(Questions::class), $service, $this->appSettings(), Server::get(ITimeFactory::class), Server::get(SignInComparison::class)),
 			$service,
 			Server::get(TrustedNetworks::class),
 			Server::get(IFactory::class)->get(Application::APP_ID, 'en'),

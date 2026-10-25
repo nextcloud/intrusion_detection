@@ -122,6 +122,10 @@ const denyButtons = computed(() => [
 						{{ event.address }}
 					</span>
 				</p>
+				<p v-if="event.comparison" :class="$style.event__comparison" data-test="comparison">
+					<span>{{ event.comparison.seen }}</span>
+					<span v-if="event.comparison.usually" :class="$style.event__usually">{{ event.comparison.usually }}</span>
+				</p>
 			</div>
 		</div>
 
@@ -244,6 +248,18 @@ const denyButtons = computed(() => [
 	gap: var(--ids-space-1) var(--ids-space-3);
 	margin: 0;
 	font-size: 0.92em;
+}
+
+.event__comparison {
+	display: flex;
+	flex-direction: column;
+	margin: 0;
+	line-height: 1.5;
+	overflow-wrap: anywhere;
+}
+
+.event__usually {
+	color: var(--color-text-maxcontrast);
 }
 
 .event__address {

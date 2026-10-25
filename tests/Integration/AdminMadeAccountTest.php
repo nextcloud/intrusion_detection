@@ -11,8 +11,10 @@ namespace OCA\IntrusionDetection\Tests\Integration;
 
 use OCA\IntrusionDetection\AppInfo\Application;
 use OCA\IntrusionDetection\Check\Checks\AdminChange\AdminChange;
+use OCA\IntrusionDetection\Config\AppSettings;
 use OCA\IntrusionDetection\Controller\NoticeController;
 use OCA\IntrusionDetection\Http\LocalRedirect;
+use OCA\IntrusionDetection\LoginHistory\SignInHistory;
 use OCA\IntrusionDetection\Notification\LoginNotices;
 use OCA\IntrusionDetection\Notification\Notifier;
 use OCA\IntrusionDetection\Notification\UserAlerts;
@@ -179,6 +181,8 @@ class AdminMadeAccountTest extends AdminChangeTestCase {
 			Server::get(IURLGenerator::class),
 			Server::get(LocalRedirect::class),
 			$this->l(),
+			Server::get(SignInHistory::class),
+			Server::get(AppSettings::class),
 		))->show();
 		$this->assertInstanceOf(StandaloneTemplateResponse::class, $page);
 		return $page->render();

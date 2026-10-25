@@ -3196,7 +3196,8 @@
                     "asks",
                     "verdict",
                     "verdictAt",
-                    "canConfirm"
+                    "canConfirm",
+                    "comparison"
                 ],
                 "properties": {
                     "id": {
@@ -3271,6 +3272,14 @@
                     },
                     "canConfirm": {
                         "type": "boolean"
+                    },
+                    "comparison": {
+                        "nullable": true,
+                        "allOf": [
+                            {
+                                "$ref": "#/components/schemas/SignInComparison"
+                            }
+                        ]
                     }
                 }
             },
@@ -4127,6 +4136,22 @@
                         "additionalProperties": {
                             "type": "string"
                         }
+                    }
+                }
+            },
+            "SignInComparison": {
+                "type": "object",
+                "required": [
+                    "seen",
+                    "usually"
+                ],
+                "properties": {
+                    "seen": {
+                        "type": "string"
+                    },
+                    "usually": {
+                        "type": "string",
+                        "nullable": true
                     }
                 }
             },

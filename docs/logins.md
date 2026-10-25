@@ -85,6 +85,27 @@ retention of the login history (the retention of detections) or past the
 network" is said. The address stays in the row as before; the labels show
 nothing the page did not show.
 
+## "Was this you?" next to the habit
+
+An open "Was this you?" question on the Account protection page, and on
+the security notice for users Nextcloud cannot reach by email, is put next
+to the account's habit in two lines:
+
+- what the event was: the device its user agent names ("Firefox on
+  Windows"), "new network" or "your usual network" as in the labels above,
+  and the time in the user's time zone, with "an unusual hour for you" by
+  the same rule as the label;
+- how the user usually logs in: the browser and system most of the
+  account's logins in the browser of the 30 days before came from, when at
+  least 3 did ("You usually log in with Chrome on macOS"), followed by
+  "from your usual network" when the event's network is new.
+
+Logins in the 5 minutes before the event are left out: they may be the
+event's own login. The same limits as for the labels apply: nothing new is
+claimed where the login history does not reach back 30 days. The security
+notice shows the comparison only where the Account protection page, which
+lists the logins, is shown. Nothing is stored for it.
+
 ## Timers
 
 | What | How long |
