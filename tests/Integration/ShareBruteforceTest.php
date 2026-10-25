@@ -79,6 +79,9 @@ use Sabre\HTTP\Response;
 #[Group('DB')]
 class ShareBruteforceTest extends RequestEventTestCase {
 	private const SHARE_PASSWORD = 'Correct-Horse-Battery-Staple-1';
+	private const BROWSER = 'Mozilla/5.0 (X11; Linux x86_64; rv:131.0) Gecko/20100101 Firefox/131.0';
+	/** What a browser sends for an image another site embeds */
+	private const IMAGE = ['Sec-Fetch-Site' => 'cross-site', 'Sec-Fetch-Mode' => 'no-cors', 'Sec-Fetch-Dest' => 'image', 'User-Agent' => self::BROWSER];
 
 	private BanMapper $bans;
 	private AttemptMapper $attempts;
@@ -163,7 +166,7 @@ class ShareBruteforceTest extends RequestEventTestCase {
 	}
 
 	public function testALinkABrowserOpensForAnotherSiteIsRecordedButDoesNotBlockItsAddress(): void {
-		$this->requestHeaders = ['Sec-Fetch-Site' => 'cross-site', 'Sec-Fetch-Mode' => 'no-cors', 'Sec-Fetch-Dest' => 'image'];
+		$this->requestHeaders = self::IMAGE;
 		for ($i = 1; $i <= 10; $i++) {
 			$this->openUnknownLink('198.51.100.7', 'luredToken' . $i);
 		}
@@ -175,9 +178,28 @@ class ShareBruteforceTest extends RequestEventTestCase {
 		$this->assertSame([true], array_values(array_unique(array_map('boolval', $lures))), 'Each attempt is marked as a possible lure');
 	}
 
+	public function testAFormAnotherSiteSubmitsToAMadeUpLinkDoesNotBlockItsAddress(): void {
+		$this->requestMethod = 'POST';
+		$this->requestHeaders = [
+			'Sec-Fetch-Site' => 'cross-site', 'Sec-Fetch-Mode' => 'navigate', 'Sec-Fetch-Dest' => 'document',
+			'Origin' => 'https://attacker.example.org', 'Content-Type' => 'multipart/form-data; boundary=x', 'User-Agent' => self::BROWSER,
+		];
+		for ($i = 1; $i <= 10; $i++) {
+			$this->openUnknownLink('198.51.100.7', 'formToken' . $i);
+		}
+		$this->assertCount(1, $this->detectionsOf(ShareBruteforce::ID), 'It is recorded');
+		$this->assertSame([], $this->bans->findActiveForKeys(['198.51.100.7'], time()), 'but the address is not blocked');
+
+		$this->requestHeaders['User-Agent'] = 'python-requests/2.31.0';
+		for ($i = 1; $i <= 10; $i++) {
+			$this->openUnknownLink('198.51.100.8', 'scriptToken' . $i);
+		}
+		$this->assertNotSame([], $this->bans->findActiveForKeys(['198.51.100.8'], time()), 'A script that claims to be a form is blocked');
+	}
+
 	public function testLuresNeverMakeTheAddressesOfANetworkTargets(): void {
 		// An email with many images of made-up links, opened by people behind one network.
-		$this->requestHeaders = ['Sec-Fetch-Site' => 'cross-site', 'Sec-Fetch-Mode' => 'no-cors', 'Sec-Fetch-Dest' => 'image'];
+		$this->requestHeaders = self::IMAGE;
 		$n = 0;
 		foreach (['198.51.100.1', '198.51.100.2', '198.51.100.3'] as $ip) {
 			for ($i = 0; $i < 9; $i++) {

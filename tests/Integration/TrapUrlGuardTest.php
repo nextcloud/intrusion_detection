@@ -46,6 +46,12 @@ use Psr\Log\LoggerInterface;
 class TrapUrlGuardTest extends IntegrationTestCase {
 	/** What a browser sends for an image another site embeds */
 	private const LURE = ['Sec-Fetch-Site' => 'cross-site', 'Sec-Fetch-Mode' => 'no-cors', 'Sec-Fetch-Dest' => 'image'];
+	/** What a browser sends for a form another site submits by itself */
+	private const FORM_POST = [
+		'Sec-Fetch-Site' => 'cross-site', 'Sec-Fetch-Mode' => 'navigate', 'Sec-Fetch-Dest' => 'document',
+		'Origin' => 'https://attacker.example.org', 'Content-Type' => 'application/x-www-form-urlencoded',
+		'User-Agent' => 'Mozilla/5.0 (X11; Linux x86_64; rv:131.0) Gecko/20100101 Firefox/131.0',
+	];
 
 	private DetectionMapper $detections;
 	private RequestContext $context;
@@ -198,8 +204,33 @@ class TrapUrlGuardTest extends IntegrationTestCase {
 		$this->assertNotNull($this->guard()->check($this->request('/.git/config')));
 	}
 
-	public function testOnlyAGetOrHeadRequestCanBeALure(): void {
-		$this->assertNotNull($this->guard()->check($this->request('/.env', headers: self::LURE, method: 'POST')));
+	public function testAFormAnotherSiteSubmitsIsRecordedButNotBlocked(): void {
+		$this->assertNull($this->guard()->check($this->request('/wp-login.php', headers: self::FORM_POST, method: 'POST')));
+		$this->assertSame(0, Server::get(BanMapper::class)->countActive(time()));
+		$detection = $this->detections->findList(new DetectionFilter(checkIds: [TrapUrl::ID]))[0];
+		$this->assertTrue($detection->isEnforced());
+		$this->assertSame(ResponseOutcome::NOTE_HELD_BACK, $detection->getActionList()[0]['note']);
+		$this->assertSame('POST', TrapUrlFacts::fromArray($detection->getExplanationData()['facts'])->method);
+	}
+
+	/**
+	 * @return array<string, array{string, array<string, string>}>
+	 */
+	public static function noBrowserLures(): array {
+		return [
+			'an image is never a POST' => ['POST', self::LURE],
+			'a PUT, which needs a preflight' => ['PUT', self::FORM_POST],
+			'JSON, which needs a preflight' => ['POST', ['Content-Type' => 'application/json'] + self::FORM_POST],
+			'an attack tool' => ['POST', ['User-Agent' => 'sqlmap/1.7.2#stable (https://sqlmap.org)'] + self::FORM_POST],
+		];
+	}
+
+	/**
+	 * @param array<string, string> $headers
+	 */
+	#[DataProvider('noBrowserLures')]
+	public function testARequestNoBrowserSendsForAnotherSiteIsBlocked(string $method, array $headers): void {
+		$this->assertNotNull($this->guard()->check($this->request('/wp-login.php', headers: $headers, method: $method)));
 	}
 
 	public function testARequestFromAPageOfThisServerIsNoLure(): void {

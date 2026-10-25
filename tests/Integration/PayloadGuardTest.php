@@ -71,6 +71,7 @@ use Psr\Log\LoggerInterface;
 #[Group('DB')]
 class PayloadGuardTest extends IntegrationTestCase {
 	private const IP = '198.51.100.23';
+	private const BROWSER = 'Mozilla/5.0 (X11; Linux x86_64; rv:131.0) Gecko/20100101 Firefox/131.0';
 
 	private RequestContext $context;
 	/** @var list<\Closure> */
@@ -429,18 +430,35 @@ class PayloadGuardTest extends IntegrationTestCase {
 	}
 
 	public function testAProbeInAnImageAnotherSiteEmbedsIsRecordedButNotBlocked(): void {
-		$lure = ['Sec-Fetch-Site' => 'cross-site', 'Sec-Fetch-Mode' => 'no-cors', 'Sec-Fetch-Dest' => 'image'];
+		$lure = ['Sec-Fetch-Site' => 'cross-site', 'Sec-Fetch-Mode' => 'no-cors', 'Sec-Fetch-Dest' => 'image', 'User-Agent' => self::BROWSER];
 		$this->assertNull($this->decide('/index.php/apps/foo?id=1%20UNION%20SELECT%201', '/index.php', headers: $lure));
 		$this->assertSame([], Server::get(BanMapper::class)->findActiveForKeys([self::IP], time()));
 		$this->assertSame(ResponseOutcome::NOTE_HELD_BACK, $this->onlyDetection()->getActionList()[0]['note']);
 
 		$this->resetTables();
-		$this->assertNotNull($this->decide('/index.php/apps/foo?id=1%20UNION%20SELECT%201', '/index.php', headers: $lure, method: 'POST'), 'No image or link makes a POST');
+		$this->assertNotNull($this->decide('/index.php/apps/foo?id=1%20UNION%20SELECT%201', '/index.php', headers: $lure, method: 'POST'), 'No image makes a POST');
+		$this->resetTables();
+		$this->assertNotNull($this->decide('/index.php/apps/foo?id=1%20UNION%20SELECT%201', '/index.php', headers: ['User-Agent' => 'sqlmap/1.7'] + $lure), 'No browser names an attack tool');
+	}
+
+	public function testAProbeInAFormAnotherSiteSubmitsIsRecordedButNotBlocked(): void {
+		$form = [
+			'Sec-Fetch-Site' => 'cross-site', 'Sec-Fetch-Mode' => 'navigate', 'Sec-Fetch-Dest' => 'document',
+			'Origin' => 'https://attacker.example.org', 'Content-Type' => 'application/x-www-form-urlencoded', 'User-Agent' => self::BROWSER,
+		];
+		$this->assertNull($this->decide('/index.php/apps/foo', '/index.php', post: ['id' => '1 UNION SELECT 1'], headers: $form, method: 'POST'));
+		$this->assertSame([], Server::get(BanMapper::class)->findActiveForKeys([self::IP], time()));
+		$this->assertSame(ResponseOutcome::NOTE_HELD_BACK, $this->onlyDetection()->getActionList()[0]['note']);
+
+		$this->resetTables();
+		$this->assertNotNull($this->decide('/index.php/apps/foo', '/index.php', post: ['id' => '1 UNION SELECT 1'], headers: ['Content-Type' => 'application/json'] + $form, method: 'POST'), 'Another site cannot send JSON without a preflight');
+		$this->resetTables();
+		$this->assertNotNull($this->decide('/index.php/apps/foo?id=1%20UNION%20SELECT%201', '/index.php', headers: $form, method: 'DELETE'), 'nor a DELETE');
 	}
 
 	public function testAProbeLoggedInUsersMakeForAnotherSiteDoesNotBlockTheirAddress(): void {
 		$this->settingsEditor()->setParam(InjectionProbe::ID, InjectionProbe::PARAM_AUTHENTICATED_MODE, 'protect');
-		$lure = ['Sec-Fetch-Site' => 'cross-site', 'Sec-Fetch-Dest' => 'image'];
+		$lure = ['Sec-Fetch-Site' => 'cross-site', 'Sec-Fetch-Dest' => 'image', 'User-Agent' => self::BROWSER];
 		$this->assertNull($this->decide('/index.php/apps/foo?id=1%20UNION%20SELECT%201', '/index.php', cookies: [$this->sessionCookie() => 'x'], headers: $lure));
 		$this->assertNull($this->responder->resolve($this->user('alice')));
 		$this->assertSame([], Server::get(BanMapper::class)->findActiveForKeys([self::IP], time()));
