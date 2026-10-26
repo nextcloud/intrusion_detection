@@ -16,6 +16,7 @@ use OCA\IntrusionDetection\Db\AttemptKind;
 use OCA\IntrusionDetection\Db\AttemptMapper;
 use OCA\IntrusionDetection\Db\Detection;
 use OCA\IntrusionDetection\Definition\ResponseType;
+use OCA\IntrusionDetection\Detection\AttemptCounters;
 use OCA\IntrusionDetection\Detection\AttemptRecord;
 use OCA\IntrusionDetection\Detection\CommonFacts;
 use OCA\IntrusionDetection\Detection\Cooldown;
@@ -34,7 +35,9 @@ use OCA\IntrusionDetection\Signal\ISignal;
  *
  * The detection is about the account, so it has no single source address.
  * The limits are lowered when the address of the failed login has an
- * elevated or high risk score ({@see RiskScorer::limits()}).
+ * elevated or high risk score ({@see RiskScorer::limits()}). The failed
+ * logins of the account are only counted once the cheap bound of
+ * {@see AttemptCounters} can reach them.
  * The protection lasts `protect_duration` from the last time the limits
  * were reached: single failures below them never extend it, so nobody can
  * keep an account protected with an occasional guess.
@@ -63,6 +66,7 @@ class AccountUnderAttackDetector implements IDetector {
 		private readonly RiskScorer $risk,
 		private readonly Cooldown $cooldown,
 		private readonly BanService $bans,
+		private readonly AttemptCounters $counters,
 	) {
 	}
 
@@ -82,6 +86,11 @@ class AccountUnderAttackDetector implements IDetector {
 		$detectionId = $this->cooldown->cooled(AccountUnderAttack::ID, [$uid], $mode, $attempt->time);
 		if ($detectionId !== null) {
 			yield from $this->banJoiningSource($attempt, $uid, $mode, (int)$params['ban_min_failures'], $since, $detectionId);
+			return;
+		}
+		$needed = max($this->risk->lowestLimit((int)$params['min_failures']), $this->risk->lowestLimit((int)$params['min_sources']));
+		if (!$this->counters->mayReach('uid', [$uid], $attempt->time, $needed)) {
+			$this->cooldown->stop(AccountUnderAttack::ID, [$uid], $mode);
 			return;
 		}
 		$stats = $this->attempts->stats('uid', [$uid], self::KINDS, $since);
@@ -131,6 +140,9 @@ class AccountUnderAttackDetector implements IDetector {
 			return;
 		}
 		$source = $attempt->source;
+		if (!$this->counters->mayReach('ip_key', [$source->ipKey], $attempt->time, max($minimum, self::MIN_PASSWORDS_TO_BLOCK))) {
+			return;
+		}
 		$counts = $this->attempts->countsPerSource('uid', [$uid], self::KINDS, $since, 1, $source->ipKey)[$source->ipKey] ?? null;
 		if ($counts === null || !self::hostile($counts, $minimum)) {
 			return;

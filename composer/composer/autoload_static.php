@@ -368,6 +368,7 @@ class ComposerStaticInitIntrusionDetection
         'OCA\\IntrusionDetection\\Definition\\Requirement' => __DIR__ . '/..' . '/../lib/Definition/Requirement.php',
         'OCA\\IntrusionDetection\\Definition\\ResponseType' => __DIR__ . '/..' . '/../lib/Definition/ResponseType.php',
         'OCA\\IntrusionDetection\\Definition\\Severity' => __DIR__ . '/..' . '/../lib/Definition/Severity.php',
+        'OCA\\IntrusionDetection\\Detection\\AttemptCounters' => __DIR__ . '/..' . '/../lib/Detection/AttemptCounters.php',
         'OCA\\IntrusionDetection\\Detection\\AttemptRecord' => __DIR__ . '/..' . '/../lib/Detection/AttemptRecord.php',
         'OCA\\IntrusionDetection\\Detection\\AttemptRecorder' => __DIR__ . '/..' . '/../lib/Detection/AttemptRecorder.php',
         'OCA\\IntrusionDetection\\Detection\\CommonFacts' => __DIR__ . '/..' . '/../lib/Detection/CommonFacts.php',

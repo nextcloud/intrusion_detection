@@ -9,55 +9,23 @@ declare(strict_types=1);
 
 namespace OCA\IntrusionDetection\Tests\Integration;
 
-use OC\DB\ConnectionAdapter;
-use OC\Memcache\ArrayCache;
-use OCA\IntrusionDetection\Address\AddressCache;
-use OCA\IntrusionDetection\Audit\AuditLogger;
 use OCA\IntrusionDetection\BackgroundJob\Cleanup;
-use OCA\IntrusionDetection\Blocklist\SourceRepository;
 use OCA\IntrusionDetection\Cache\Caches;
-use OCA\IntrusionDetection\Cache\KeyLock;
-use OCA\IntrusionDetection\Check\CheckRegistry;
 use OCA\IntrusionDetection\Check\Checks\AccountUnderAttack\AccountUnderAttack;
-use OCA\IntrusionDetection\Check\Checks\AccountUnderAttack\AccountUnderAttackDetector;
-use OCA\IntrusionDetection\Check\Checks\BlocklistMatch\BlocklistMatchDetector;
 use OCA\IntrusionDetection\Check\Checks\CredentialStuffing\CredentialStuffing;
-use OCA\IntrusionDetection\Check\Checks\CredentialStuffing\CredentialStuffingDetector;
 use OCA\IntrusionDetection\Check\Checks\CredentialStuffing\CredentialStuffingFacts;
 use OCA\IntrusionDetection\Check\Checks\CredentialStuffing\CredentialStuffingRule;
 use OCA\IntrusionDetection\Check\Checks\PasswordSpraying\PasswordSpraying;
-use OCA\IntrusionDetection\Crypto\Fingerprinter;
 use OCA\IntrusionDetection\Db\BanMapper;
 use OCA\IntrusionDetection\Db\Detection;
 use OCA\IntrusionDetection\Db\DetectionMapper;
 use OCA\IntrusionDetection\Definition\Mode;
 use OCA\IntrusionDetection\Definition\ResponseType;
-use OCA\IntrusionDetection\Detection\AttemptRecorder;
 use OCA\IntrusionDetection\Detection\Cooldown;
-use OCA\IntrusionDetection\Detection\DetectionAccounts;
-use OCA\IntrusionDetection\Detection\DetectionService;
-use OCA\IntrusionDetection\Detection\DetectionTotals;
-use OCA\IntrusionDetection\Event\TypedEvents;
-use OCA\IntrusionDetection\Listener\FailedLoginListener;
-use OCA\IntrusionDetection\Login\EmailAccounts;
-use OCA\IntrusionDetection\Net\RemoteAddressResolver;
-use OCA\IntrusionDetection\Net\ServerAddresses;
-use OCA\IntrusionDetection\Personal\FailedLoginStats;
-use OCA\IntrusionDetection\Response\BanService;
-use OCA\IntrusionDetection\Response\FlaggedSources;
-use OCA\IntrusionDetection\Response\ResponseEngine;
-use OCA\IntrusionDetection\Risk\RiskScorer;
-use OCA\IntrusionDetection\State\AppState;
-use OCA\IntrusionDetection\State\HotState;
 use OCA\IntrusionDetection\Tests\Unit\Cache\FixedCaches;
-use OCP\AppFramework\Utility\ITimeFactory;
-use OCP\IDBConnection;
-use OCP\IUserManager;
 use OCP\Server;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Group;
-use Psr\Container\ContainerInterface;
-use Psr\Log\LoggerInterface;
 
 /**
  * A check that fired cools down: the same attack ends with the same
@@ -65,18 +33,10 @@ use Psr\Log\LoggerInterface;
  * the queries per failed login.
  */
 #[Group('DB')]
-class CooldownTest extends LoginFailureTestCase {
-	/** Seconds added to the clock of the attempts and the detections */
-	private int $offset = 0;
-	private ITimeFactory $clock;
-	private ?Cooldown $cooldown = null;
-
+class CooldownTest extends FailedLoginCostTestCase {
 	protected function setUp(): void {
 		parent::setUp();
 		$this->settingsEditor()->setMode(PasswordSpraying::ID, Mode::Off);
-		$clock = $this->createMock(ITimeFactory::class);
-		$clock->method('getTime')->willReturnCallback(fn (): int => time() + $this->offset);
-		$this->clock = $clock;
 	}
 
 	/**
@@ -313,82 +273,5 @@ class CooldownTest extends LoginFailureTestCase {
 		$rules = array_map(static fn (Detection $d): ?CredentialStuffingRule => CredentialStuffingFacts::fromArray($d->getExplanationData()['facts'])->rule, $this->detectionsOf(CredentialStuffing::ID));
 		usort($rules, static fn (?CredentialStuffingRule $a, ?CredentialStuffingRule $b): int => strcmp((string)$a?->value, (string)$b?->value));
 		return array_values(array_filter($rules));
-	}
-
-	/**
-	 * @param 'distributed'|'local' $kind
-	 */
-	private static function memoryCaches(string $kind): Caches {
-		return new FixedCaches(new ArrayCache('ids-cooldown-test'), null, $kind === 'distributed');
-	}
-
-	/**
-	 * Rebuild the failed-login listener with the detectors that cool down,
-	 * the detection service and the lock on these caches, and the clock.
-	 */
-	private function useCaches(Caches $caches): void {
-		$this->cooldown = new Cooldown($caches, Server::get(DetectionMapper::class));
-		$service = new DetectionService(
-			Server::get(DetectionMapper::class),
-			Server::get(CheckRegistry::class),
-			$this->checkSettings(),
-			$this->clock,
-			Server::get(RiskScorer::class),
-			Server::get(DetectionAccounts::class),
-			Server::get(DetectionTotals::class),
-			new KeyLock($caches),
-			Server::get(Fingerprinter::class),
-			$this->cooldown,
-		);
-		$engine = new ResponseEngine(
-			Server::get(CheckRegistry::class),
-			$this->checkSettings(),
-			$service,
-			Server::get(ContainerInterface::class),
-			Server::get(TypedEvents::class),
-			Server::get(AuditLogger::class),
-			Server::get(LoggerInterface::class),
-		);
-		$addresses = new RemoteAddressResolver($this->request, $this->throttler(), Server::get(ServerAddresses::class));
-		$this->listener = new FailedLoginListener(
-			$this->appSettings(),
-			$addresses,
-			$this->dispatcher([
-				BlocklistMatchDetector::class => new BlocklistMatchDetector($addresses, $this->requestContext, Server::get(AddressCache::class), Server::get(SourceRepository::class)),
-				CredentialStuffingDetector::class => new CredentialStuffingDetector(
-					$this->checkSettings(),
-					$this->attempts,
-					Server::get(FlaggedSources::class),
-					Server::get(BanService::class),
-					$addresses,
-					Server::get(Caches::class),
-					Server::get(RiskScorer::class),
-					Server::get(AppState::class),
-					$this->cooldown,
-				),
-				AccountUnderAttackDetector::class => new AccountUnderAttackDetector(
-					$this->checkSettings(),
-					$this->attempts,
-					Server::get(RiskScorer::class),
-					$this->cooldown,
-					Server::get(BanService::class),
-				),
-			], $engine),
-			new AttemptRecorder($this->attempts, Server::get(Fingerprinter::class), $this->clock, Server::get(HotState::class)),
-			Server::get(RiskScorer::class),
-			Server::get(IUserManager::class),
-			$this->request,
-			Server::get(LoggerInterface::class),
-			Server::get(FailedLoginStats::class),
-			Server::get(EmailAccounts::class),
-		);
-	}
-
-	private function queriesFor(\Closure $action): int {
-		$connection = Server::get(IDBConnection::class);
-		$this->assertInstanceOf(ConnectionAdapter::class, $connection);
-		$before = $connection->getInner()->getStats()['executed'];
-		$action();
-		return $connection->getInner()->getStats()['executed'] - $before;
 	}
 }

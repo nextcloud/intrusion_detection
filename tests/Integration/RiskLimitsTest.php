@@ -23,6 +23,7 @@ use OCA\IntrusionDetection\Crypto\Fingerprinter;
 use OCA\IntrusionDetection\Db\AttemptKind;
 use OCA\IntrusionDetection\Db\AttemptMapper;
 use OCA\IntrusionDetection\Db\Detection;
+use OCA\IntrusionDetection\Detection\AttemptCounters;
 use OCA\IntrusionDetection\Detection\AttemptRecord;
 use OCA\IntrusionDetection\Detection\AttemptRecorder;
 use OCA\IntrusionDetection\Explain\NarrativeBuilder;
@@ -185,7 +186,7 @@ class RiskLimitsTest extends LoginFailureTestCase {
 	 */
 	#[\Override]
 	protected function attemptRecorder(): AttemptRecorder {
-		return new class(Server::get(AttemptMapper::class), Server::get(Fingerprinter::class), Server::get(ITimeFactory::class), Server::get(HotState::class)) extends AttemptRecorder {
+		return new class(Server::get(AttemptMapper::class), Server::get(Fingerprinter::class), Server::get(ITimeFactory::class), Server::get(HotState::class), Server::get(AttemptCounters::class)) extends AttemptRecorder {
 			#[\Override]
 			protected function oneIn(int $n): bool {
 				return false;
