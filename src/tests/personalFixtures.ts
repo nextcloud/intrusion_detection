@@ -59,6 +59,8 @@ export function securityEvent(id: number, overrides: Partial<SecurityEvent> = {}
 		verdict: null,
 		verdictAt: null,
 		canConfirm: false,
+		comparison: null,
+		receipt: null,
 		...overrides,
 	}
 }
@@ -80,6 +82,7 @@ export function login(id: number, overrides: Partial<Login> = {}): Login {
 		stepUp: null,
 		current: false,
 		device: 'Firefox on Linux',
+		labels: [],
 		...overrides,
 	}
 }

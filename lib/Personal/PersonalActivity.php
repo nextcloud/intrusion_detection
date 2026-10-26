@@ -19,6 +19,8 @@ use OCA\IntrusionDetection\KnownDevice\DeviceLabel;
 use OCA\IntrusionDetection\Login\CoreSession;
 use OCA\IntrusionDetection\LoginHistory\LoginHistory;
 use OCA\IntrusionDetection\LoginHistory\LoginHistoryEntry;
+use OCA\IntrusionDetection\LoginHistory\SignInHabits;
+use OCA\IntrusionDetection\LoginHistory\SignInHistory;
 use OCA\IntrusionDetection\Notification\UserMessages;
 use OCA\IntrusionDetection\ResponseDefinitions;
 use OCA\IntrusionDetection\Takeover\Db\SecurityChangeMapper;
@@ -41,6 +43,11 @@ use OCP\IUser;
  * rows, repeated for up to QUESTION_PAGES pages while their rows do not
  * ask. Only events that are shown are put into words.
  *
+ * Logins are labelled from the account's own history: the logins query
+ * reads up to SignInHistory::HABIT_LOGINS more rows of the habit window
+ * before the timeline, and the trusted networks are one more query by uid
+ * ({@see SignInHistory}).
+ *
  * @psalm-import-type IntrusionDetectionPersonalActivity from ResponseDefinitions
  * @psalm-import-type IntrusionDetectionPersonalActivityItem from ResponseDefinitions
  * @psalm-import-type IntrusionDetectionLogin from ResponseDefinitions
@@ -62,7 +69,7 @@ class PersonalActivity {
 		private readonly DetectionMapper $detections,
 		private readonly Questions $questions,
 		private readonly PersonalDetections $personalDetections,
-		private readonly LoginHistory $loginHistory,
+		private readonly SignInHistory $signIns,
 		private readonly SecurityChangeMapper $changes,
 		private readonly FailedLoginStats $failedLogins,
 		private readonly UserMessages $messages,
@@ -88,6 +95,7 @@ class PersonalActivity {
 		/** @var list<array{at: int, kind: 'login'|'change'|'failed_logins'|'event', id: int|string, make: \Closure(): IntrusionDetectionPersonalActivityItem}> $entries */
 		$entries = [];
 		$day = static fn (int $at): string => (new \DateTimeImmutable('@' . $at))->setTimezone($timeZone)->format('Y-m-d');
+		[$logins, $habits] = $this->logins($user, $since, $limit + 1);
 
 		// Open questions are listed however old they are, newest first; the rest by the timeline's window.
 		$questions = [];
@@ -105,7 +113,7 @@ class PersonalActivity {
 			));
 			foreach ($unanswered as $detection) {
 				if (count($questions) < self::MAX_QUESTIONS && $this->questions->isOpen($detection) && $this->messages->tellsUser($detection)) {
-					$questions[] = $this->personalDetections->present($detection, $user);
+					$questions[] = $this->personalDetections->present($detection, $user, $habits);
 				}
 			}
 			if (count($unanswered) < self::MAX_QUESTIONS) {
@@ -134,12 +142,12 @@ class PersonalActivity {
 
 		$current = $this->coreSession->tokenId();
 		$waitedOutBefore = $this->waitedOutBefore();
-		foreach ($this->loginHistory->forUser($uid, $since, null, $limit + 1) as $entry) {
+		foreach ($logins as $entry) {
 			$entries[] = [
 				'at' => $entry->createdAt,
 				'kind' => 'login',
 				'id' => $entry->id,
-				'make' => static fn (): array => self::item('login-' . $entry->id, 'login', $entry->createdAt, $day($entry->createdAt), login: self::login($entry, $current, $waitedOutBefore, $l)),
+				'make' => static fn (): array => self::item('login-' . $entry->id, 'login', $entry->createdAt, $day($entry->createdAt), login: self::login($entry, $current, $waitedOutBefore, $l, $habits->forLogin($entry))),
 			];
 		}
 
@@ -191,6 +199,16 @@ class PersonalActivity {
 	}
 
 	/**
+	 * The account's logins since a time, newest first, and what its history
+	 * says about them ({@see SignInHistory::read()}).
+	 *
+	 * @return array{0: list<LoginHistoryEntry>, 1: SignInHabits}
+	 */
+	public function logins(IUser $user, int $since, int $limit): array {
+		return $this->signIns->read($user, $since, $limit);
+	}
+
+	/**
 	 * Logins that still wait for a confirmation and started before this
 	 * time can no longer be confirmed: they waited longer than a login
 	 * session, and an administrator's approval when those are on, last.
@@ -206,9 +224,10 @@ class PersonalActivity {
 	 *
 	 * @param ?int $current the token id of the current session
 	 * @param int $waitedOutBefore see {@see waitedOutBefore()}
+	 * @param list<'usual_network'|'new_network'|'new_device'|'unusual_hour'> $labels what the account's history says about it ({@see SignInHabits})
 	 * @return IntrusionDetectionLogin
 	 */
-	public static function login(LoginHistoryEntry $entry, ?int $current, int $waitedOutBefore, IL10N $l): array {
+	public static function login(LoginHistoryEntry $entry, ?int $current, int $waitedOutBefore, IL10N $l, array $labels = []): array {
 		[$family, $platform] = DeviceLabel::parse($entry->userAgent);
 		return [
 			'id' => $entry->id,
@@ -222,6 +241,7 @@ class PersonalActivity {
 			'stepUp' => $entry->stepUp === LoginHistory::STEP_UP_PENDING && $entry->createdAt < $waitedOutBefore ? LoginHistory::STEP_UP_FAILED : $entry->stepUp,
 			'current' => $current !== null && $entry->sessionTokenId === $current,
 			'device' => DeviceLabel::translated($family, $platform, $l),
+			'labels' => $labels,
 		];
 	}
 }

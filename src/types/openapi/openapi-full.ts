@@ -2029,6 +2029,7 @@ export type components = {
             stepUp: string | null;
             current: boolean;
             device: string;
+            labels: ("usual_network" | "new_network" | "new_device" | "unusual_hour")[];
         };
         LoginApproval: {
             id: string;
@@ -2196,6 +2197,8 @@ export type components = {
             /** Format: int64 */
             verdictAt: number | null;
             canConfirm: boolean;
+            comparison: components["schemas"]["SignInComparison"] | null;
+            receipt: string[] | null;
         };
         PersonalOverview: {
             status: components["schemas"]["PersonalStatus"];
@@ -2410,6 +2413,10 @@ export type components = {
             templates: {
                 [key: string]: string;
             };
+        };
+        SignInComparison: {
+            seen: string;
+            usually: string | null;
         };
         Signature: {
             id: string;
@@ -6868,7 +6875,7 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description The answer was taken; from a session whose login proved only the password, or with an app password, the administrators were told and the event stays open (no verdict) */
+            /** @description The answer was taken, with what Nextcloud did in `receipt`; from a session whose login proved only the password, or with an app password, the administrators were told and the event stays open (no verdict, no receipt) */
             200: {
                 headers: {
                     [name: string]: unknown;

@@ -213,7 +213,8 @@
                     "confirmedBy",
                     "stepUp",
                     "current",
-                    "device"
+                    "device",
+                    "labels"
                 ],
                 "properties": {
                     "id": {
@@ -253,6 +254,18 @@
                     },
                     "device": {
                         "type": "string"
+                    },
+                    "labels": {
+                        "type": "array",
+                        "items": {
+                            "type": "string",
+                            "enum": [
+                                "usual_network",
+                                "new_network",
+                                "new_device",
+                                "unusual_hour"
+                            ]
+                        }
                     }
                 }
             },
@@ -398,7 +411,9 @@
                     "asks",
                     "verdict",
                     "verdictAt",
-                    "canConfirm"
+                    "canConfirm",
+                    "comparison",
+                    "receipt"
                 ],
                 "properties": {
                     "id": {
@@ -473,6 +488,21 @@
                     },
                     "canConfirm": {
                         "type": "boolean"
+                    },
+                    "comparison": {
+                        "nullable": true,
+                        "allOf": [
+                            {
+                                "$ref": "#/components/schemas/SignInComparison"
+                            }
+                        ]
+                    },
+                    "receipt": {
+                        "type": "array",
+                        "nullable": true,
+                        "items": {
+                            "type": "string"
+                        }
                     }
                 }
             },
@@ -884,6 +914,22 @@
                     }
                 }
             },
+            "SignInComparison": {
+                "type": "object",
+                "required": [
+                    "seen",
+                    "usually"
+                ],
+                "properties": {
+                    "seen": {
+                        "type": "string"
+                    },
+                    "usually": {
+                        "type": "string",
+                        "nullable": true
+                    }
+                }
+            },
             "StaleCredential": {
                 "type": "object",
                 "required": [
@@ -1117,7 +1163,7 @@
                 ],
                 "responses": {
                     "200": {
-                        "description": "The answer was taken; from a session whose login proved only the password, or with an app password, the administrators were told and the event stays open (no verdict)",
+                        "description": "The answer was taken, with what Nextcloud did in `receipt`; from a session whose login proved only the password, or with an app password, the administrators were told and the event stays open (no verdict, no receipt)",
                         "content": {
                             "application/json": {
                                 "schema": {

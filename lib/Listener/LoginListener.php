@@ -67,6 +67,7 @@ class LoginListener implements IEventListener {
 		Login\PasswordChangeStep::class,
 		Login\CredentialUseStep::class,
 		Login\KnownDeviceStep::class,
+		Login\NewLoginStep::class,
 		Login\HistoryStep::class,
 		Login\NoticeStep::class,
 	];

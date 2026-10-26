@@ -63,6 +63,93 @@ Approving a new administrator or a held settings change needs a login
 that proved more than the password: a second factor, an emailed code, an approval or a remembered
 device. A client that sends the password with Basic auth cannot approve.
 
+## Labels on the personal page
+
+Each login on the user's Account protection page gets plain labels, worked
+out when the page is shown from data the app keeps anyway. A login is
+compared with the account's logins of the 30 days before it that went
+through (needed nothing, or were confirmed); refused, failed and waiting
+logins never count.
+
+| Label | When |
+| --- | --- |
+| Your usual network | The network (/24 for IPv4, /64 for IPv6) is one the user trusts after "Yes, it was me", or one of those logins came from it |
+| New network | Neither, while there were such logins |
+| New device | Not a remembered device, and none of those logins came from the same browser on the same system ("Firefox on Windows"); never for a client that names neither |
+| Unusual hour | A login in the browser (password, single sign-on or a remembered login) more than an hour away, in the user's time zone, from each of at least 5 such logins before it. App logins have no hour |
+
+Nothing new is claimed where the history cannot tell: before the first login
+that went through, and where the 30 days before a login reach back past the
+retention of the login history (the retention of detections) or past the
+500 logins before the shown ones the page reads. There only "Your usual
+network" is said. The address stays in the row as before; the labels show
+nothing the page did not show.
+
+## New login from a new device and network
+
+The check "Login from a new device and network" tells the user about a
+login that nothing else asked or told them about, when both its device and
+its network are new: the labels above would say "New network" and "New
+device". The user gets a notification (and an email, as for other
+security notices) and the question "Was this you?"; "No" works as for any
+other question, and asks for a new password when the password was typed.
+
+It looks only at a login in the browser, with the password or single
+sign-on, that
+
+- came from no remembered device and needed no extra confirmation, and no
+  other detection of the same login tells the user;
+- belongs to an account without a second factor (that factor is asked for
+  next anyway);
+- belongs to an account whose login history reaches back further than 30
+  days, so never at the first logins of a new account, in the first 30 days
+  after the app was installed, or with a retention shorter than 30 days.
+
+Once a login from a device went through, the device is no longer new for
+30 days, so the user hears about a device at most once in that time. In
+learning mode the detection is recorded but nobody is told. Admins can
+switch the check off or to Observe like any other. It stores nothing
+besides the detection: it reads the login history and the trusted
+networks.
+
+## "Was this you?" next to the habit
+
+An open "Was this you?" question on the Account protection page, and on
+the security notice for users Nextcloud cannot reach by email, is put next
+to the account's habit in two lines:
+
+- what the event was: the device its user agent names ("Firefox on
+  Windows"), "new network" or "your usual network" as in the labels above,
+  and the time in the user's time zone, with "an unusual hour for you" by
+  the same rule as the label;
+- how the user usually logs in: the browser and system most of the
+  account's logins in the browser of the 30 days before came from, when at
+  least 3 did ("You usually log in with Chrome on macOS"), followed by
+  "from your usual network" when the event's network is new.
+
+Logins in the 5 minutes before the event are left out: they may be the
+event's own login. The same limits as for the labels apply: nothing new is
+claimed where the login history does not reach back 30 days. The security
+notice shows the comparison only where the Account protection page, which
+lists the logins, is shown. Nothing is stored for it.
+
+## After the answer and after the code
+
+After "No, it was not me", the Account protection page and the security
+notice list what Nextcloud did about it: the responses that the answer's
+own detection recorded as done (sessions ended, app passwords revoked,
+the address blocked, a new password required, the administrators told)
+and, when it acted, that logins from the event's network need extra
+confirmation for a day. A response that did not run is not listed. Next
+to it, "Secure my account" opens the checklist.
+
+After a login was confirmed with the email code, the next page says once
+why the code was asked for, naming the reasons of
+[Which logins are confirmed](#which-logins-are-confirmed). When the
+account's password is being guessed, it also says how many wrong passwords
+were entered for the account today, as the Account protection page counts
+them. Nothing is stored for either.
+
 ## Timers
 
 | What | How long |

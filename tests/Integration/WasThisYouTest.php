@@ -32,6 +32,7 @@ use OCA\IntrusionDetection\Db\Detection;
 use OCA\IntrusionDetection\Db\DetectionMapper;
 use OCA\IntrusionDetection\Db\TokenOriginMapper;
 use OCA\IntrusionDetection\Definition\Mode;
+use OCA\IntrusionDetection\Definition\ResponseType;
 use OCA\IntrusionDetection\Definition\Severity;
 use OCA\IntrusionDetection\Detection\DetectionDraft;
 use OCA\IntrusionDetection\Event\WasThisYouAnsweredEvent;
@@ -40,7 +41,6 @@ use OCA\IntrusionDetection\Guide\SecureAccountOverview;
 use OCA\IntrusionDetection\KnownDevice\Db\KnownDeviceMapper;
 use OCA\IntrusionDetection\KnownDevice\KnownDevices;
 use OCA\IntrusionDetection\Login\SessionMarkers;
-use OCA\IntrusionDetection\LoginHistory\LoginHistory;
 use OCA\IntrusionDetection\Net\SourceKey;
 use OCA\IntrusionDetection\Notification\AdminAlerts;
 use OCA\IntrusionDetection\Notification\Notifier;
@@ -59,6 +59,7 @@ use OCA\IntrusionDetection\TrustedNetwork\TrustedNetworks;
 use OCA\IntrusionDetection\WasThisYou\AnswerException;
 use OCA\IntrusionDetection\WasThisYou\PersonalDetections;
 use OCA\IntrusionDetection\WasThisYou\Questions;
+use OCA\IntrusionDetection\WasThisYou\SignInComparison;
 use OCA\IntrusionDetection\WasThisYou\WasThisYouService;
 use OCP\AppFramework\Http;
 use OCP\AppFramework\Http\Attribute\NoAdminRequired;
@@ -164,6 +165,39 @@ class WasThisYouTest extends StepUpTestCase {
 			static fn ($n): array => [$n->getUser(), $n->getObjectType(), $n->getObjectId()],
 			array_filter(CapturingNotificationApp::$processed, static fn ($n): bool => $n->getObjectType() === UserAlerts::OBJECT_TYPE),
 		), SORT_REGULAR)), 'The notification with the question goes away');
+	}
+
+	public function testTheAnswerToNoListsWhatNextcloudDidAndOnlyThat(): void {
+		$other = $this->token($this->alice, IToken::TEMPORARY_TOKEN, 'The real Alice on her laptop');
+		$suspicious = $this->token($this->alice, IToken::TEMPORARY_TOKEN, 'The session the detection is about');
+		$detection = $this->detection(SecondFactorFailed::ID, $this->alice, ['sessionTokenId' => $suspicious['id']]);
+		$this->session->id = $other['secret'];
+		$this->sessionUser = $this->alice;
+		$this->prove($this->alice);
+
+		$receipt = $this->controller()->deny($detection->getId())->getData()['receipt'];
+
+		$this->assertSame([
+			'The address ' . self::ATTACKER . '/32 was blocked.',
+			'The suspicious session was ended.',
+			'You will be asked to choose a new password the next time you log in.',
+			'Your administrators were told.',
+			'Logins from that network need extra confirmation for 1 day.',
+		], $receipt);
+	}
+
+	public function testTheAnswerToNoLeavesOutWhatDidNotHappen(): void {
+		$this->remoteAddress = self::ATTACKER;
+		$this->provenSession($this->alice);
+		$this->settingsEditor()->setResponses(UserDenied::ID, [ResponseType::Ban, ResponseType::KillSession, ResponseType::ForcePasswordChange]);
+		$detection = $this->detection(SecondFactorFailed::ID, $this->alice);
+
+		$receipt = $this->controller()->deny($detection->getId())->getData()['receipt'];
+
+		$this->assertSame([
+			'You will be asked to choose a new password the next time you log in.',
+			'Logins from that network need extra confirmation for 1 day.',
+		], $receipt, 'No block from the answering address, no session to end, nobody told');
 	}
 
 	public function testNoAboutAConnectedDeviceRevokesItWithoutANewPassword(): void {
@@ -292,6 +326,7 @@ class WasThisYouTest extends StepUpTestCase {
 		$this->assertSame(Http::STATUS_OK, $response->getStatus(), 'The app shows no error');
 		$this->assertSame($detection->getId(), $response->getData()['id']);
 		$this->assertNull($response->getData()['verdict'], 'The question stays open');
+		$this->assertNull($response->getData()['receipt'], 'Nothing was done but telling the administrators');
 		$this->assertTrue($response->getData()['asks']);
 		$this->assertNull(Server::get(DetectionMapper::class)->findById($detection->getId())->getUserVerdict());
 		$this->assertSame([], $this->answered);
@@ -466,7 +501,7 @@ class WasThisYouTest extends StepUpTestCase {
 		$list = $response->getData();
 		$this->assertCount(1, $list);
 		$this->assertSame($mine->getId(), $list[0]['id']);
-		$this->assertSame(['id', 'check', 'severity', 'enforced', 'createdAt', 'lastSeenAt', 'hits', 'subject', 'happened', 'when', 'done', 'advice', 'address', 'asks', 'verdict', 'verdictAt', 'canConfirm'], array_keys($list[0]), 'No explanation, thresholds or actions');
+		$this->assertSame(['id', 'check', 'severity', 'enforced', 'createdAt', 'lastSeenAt', 'hits', 'subject', 'happened', 'when', 'done', 'advice', 'address', 'asks', 'verdict', 'verdictAt', 'canConfirm', 'comparison', 'receipt'], array_keys($list[0]), 'No explanation, thresholds or actions');
 		$this->assertTrue($list[0]['asks']);
 		$this->assertTrue($list[0]['canConfirm']);
 		$this->assertStringNotContainsString('limit', strtolower(json_encode($list, JSON_THROW_ON_ERROR)), 'Users never see thresholds');
@@ -586,12 +621,11 @@ class WasThisYouTest extends StepUpTestCase {
 		return new PersonalApiController(
 			$this->request,
 			$this->userSession,
-			new PersonalDetections(Server::get(DetectionMapper::class), Server::get(UserMessages::class), Server::get(Questions::class), $service, $this->appSettings(), Server::get(ITimeFactory::class)),
+			new PersonalDetections(Server::get(DetectionMapper::class), Server::get(UserMessages::class), Server::get(Questions::class), $service, $this->appSettings(), Server::get(ITimeFactory::class), Server::get(SignInComparison::class)),
 			$service,
 			Server::get(TrustedNetworks::class),
 			Server::get(IFactory::class)->get(Application::APP_ID, 'en'),
 			Server::get(KnownDevices::class),
-			Server::get(LoginHistory::class),
 			$this->coreSession,
 			Server::get(SecureAccountGuide::class),
 			Server::get(SecureAccountOverview::class),

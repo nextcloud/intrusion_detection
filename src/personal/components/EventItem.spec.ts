@@ -59,6 +59,7 @@ function bodyButton(text: string): HTMLButtonElement | undefined {
 
 describe('EventItem', () => {
 	beforeEach(() => {
+		personal.receipts = []
 		personal.overview = overview()
 		personal.activity = activity({ questions: [securityEvent(1, { asks: true, canConfirm: true })] })
 		personal.manage = { devices: 0, networks: 0, otherBrowsers: 0 }
@@ -88,6 +89,19 @@ describe('EventItem', () => {
 		expect(details.text()).toContain('What Nextcloud did')
 		expect(details.text()).toContain('The suspicious session was ended.')
 		expect(details.text()).toContain('from the address 203.0.113.7')
+	})
+
+	test('puts the event next to the user\'s habit when the server compared them', () => {
+		const wrapper = mountItem(securityEvent(1, {
+			asks: true,
+			comparison: { seen: 'Firefox on Windows, new network, 3:12 AM', usually: 'You usually log in with Chrome on macOS from your usual network.' },
+		}))
+		const comparison = wrapper.get('[data-test="comparison"]')
+		expect(comparison.findAll('span').map((part) => part.text())).toEqual([
+			'Firefox on Windows, new network, 3:12 AM',
+			'You usually log in with Chrome on macOS from your usual network.',
+		])
+		expect(mountItem(securityEvent(2, { asks: true })).find('[data-test="comparison"]').exists()).toBe(false)
 	})
 
 	test('confirms after the password', async () => {
@@ -145,7 +159,7 @@ describe('EventItem', () => {
 	})
 
 	test('"No" explains the consequences first and then answers', async () => {
-		const answered = securityEvent(1, { asks: true, verdict: 'denied', verdictAt: 1792580400 })
+		const answered = securityEvent(1, { asks: true, verdict: 'denied', verdictAt: 1792580400, receipt: ['The address 203.0.113.7 was blocked.'] })
 		vi.mocked(denyEvent).mockResolvedValue(answered)
 		const wrapper = mountItem(securityEvent(1, { asks: true, canConfirm: true }))
 		await wrapper.get('[data-test="deny"]').trigger('click')
@@ -163,6 +177,8 @@ describe('EventItem', () => {
 		expect(denyEvent).toHaveBeenCalledWith(snowflake(1))
 		expect(personal.activity?.questions).toEqual([])
 		expect(fetchActivity).toHaveBeenCalled()
+		expect(personal.receipts).toEqual([{ id: snowflake(1), subject: 'Someone entered your password but failed the second factor 1', lines: ['The address 203.0.113.7 was blocked.'] }])
+		expect(showSuccess).toHaveBeenCalledWith('Thank you. Your answer was recorded.')
 	})
 
 	test('"No" from a session that proved only the password keeps the question open', async () => {

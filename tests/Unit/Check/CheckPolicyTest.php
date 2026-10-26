@@ -41,7 +41,7 @@ class CheckPolicyTest extends TestCase {
 	private const LURES = ['trap_url', 'injection_probe', 'share_bruteforce'];
 	private const NEVER_TRUSTED = ['trap_url', 'injection_probe'];
 	private const ACCOUNT_SCOPED = ['account_under_attack'];
-	private const DAILY_USER_ALERTS = ['account_under_attack', 'step_up_refused_client', 'step_up_unconfirmed'];
+	private const DAILY_USER_ALERTS = ['account_under_attack', 'step_up_refused_client', 'step_up_unconfirmed', 'new_login'];
 
 	/**
 	 * @return array<string, array{string}>

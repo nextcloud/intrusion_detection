@@ -8,6 +8,7 @@ import type { ActivityItem } from '../types.ts'
 import { mount } from '@vue/test-utils'
 import { describe, expect, test } from 'vitest'
 import ActivityRow from './ActivityRow.vue'
+import { activityItem, login } from '../../tests/personalFixtures.ts'
 
 const item: ActivityItem = {
 	id: 'change-1',
@@ -29,5 +30,18 @@ describe('a row of the activity timeline', () => {
 		expect(parts[0]!.tagName).toBe('TIME')
 		// Every part is its own element, so the line can break between them.
 		expect([...parts].every((part) => part.textContent!.trim() !== '')).toBe(true)
+	})
+
+	test('a login shows its labels next to its title, and its address stays in the details', () => {
+		const wrapper = mount(ActivityRow, { props: { item: activityItem({ login: login(3, { labels: ['new_network', 'new_device'] }) }) } })
+		const title = wrapper.get('p:nth-of-type(1)')
+		expect(title.get('[data-test="label-new_network"]').text()).toBe('New network')
+		expect(title.get('[data-test="label-new_device"]').text()).toBe('New device')
+		expect(wrapper.get('p:nth-of-type(2)').text()).toContain('198.51.100.3')
+	})
+
+	test('a login without labels shows none', () => {
+		const wrapper = mount(ActivityRow, { props: { item: activityItem({ login: login(3) }) } })
+		expect(wrapper.find('[data-test^="label-"]').exists()).toBe(false)
 	})
 })

@@ -8,7 +8,7 @@ declare(strict_types=1);
  */
 
 /** @var \OCP\IL10N $l */
-/** @var array{events: list<array{id: int, subject: string, when: string, happened: list<string>, done: list<string>, asks: bool, verdict: ?string, canConfirm: bool, denyAction: string, confirmAction: string}>, error: ?string, notice: ?string, redirect_url: string, continueAction: string, logout_url: string, requesttoken: string} $_ */
+/** @var array{events: list<array{id: int, subject: string, when: string, happened: list<string>, done: list<string>, asks: bool, verdict: ?string, canConfirm: bool, comparison: ?array{seen: string, usually: ?string}, denyAction: string, confirmAction: string}>, error: ?string, notice: ?string, receipt: list<string>, secureAccountUrl: ?string, redirect_url: string, continueAction: string, logout_url: string, requesttoken: string} $_ */
 $events = $_['events'];
 ?>
 <div class="guest-box ids-page ids-page--wide">
@@ -19,7 +19,19 @@ $events = $_['events'];
 	<?php if ($_['error'] !== null): ?>
 		<p class="ids-page__error" role="alert"><?php p($_['error']); ?></p>
 	<?php elseif ($_['notice'] !== null): ?>
-		<p class="ids-page__notice" role="status"><?php p($_['notice']); ?></p>
+		<div class="ids-page__notice" role="status">
+			<p><?php p($_['notice']); ?></p>
+			<?php if ($_['receipt'] !== []): ?>
+				<ul class="ids-page__receipt">
+					<?php foreach ($_['receipt'] as $line): ?>
+						<li><?php p($line); ?></li>
+					<?php endforeach; ?>
+				</ul>
+			<?php endif; ?>
+		</div>
+		<?php if ($_['secureAccountUrl'] !== null): ?>
+			<p class="ids-page__actions"><a href="<?php p($_['secureAccountUrl']); ?>"><?php p($l->t('Secure my account')); ?></a></p>
+		<?php endif; ?>
 	<?php endif; ?>
 
 	<?php if ($events === []): ?>
@@ -30,6 +42,12 @@ $events = $_['events'];
 				<li class="ids-page__event">
 					<h3 class="ids-page__event-title"><?php p($event['subject']); ?></h3>
 					<p class="ids-page__meta"><?php p($event['when']); ?></p>
+					<?php if ($event['comparison'] !== null): ?>
+						<p class="ids-page__meta"><?php p($event['comparison']['seen']); ?></p>
+						<?php if ($event['comparison']['usually'] !== null): ?>
+							<p class="ids-page__meta"><?php p($event['comparison']['usually']); ?></p>
+						<?php endif; ?>
+					<?php endif; ?>
 					<?php foreach ($event['happened'] as $sentence): ?>
 						<p class="ids-page__event-text"><?php p($sentence); ?></p>
 					<?php endforeach; ?>

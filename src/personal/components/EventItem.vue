@@ -72,7 +72,7 @@ function deny() {
 			announce(t(APP_ID, 'Your administrators were told. The question stays open.'))
 		}
 	}, {
-		done: () => toldOnly.value ? '' : t(APP_ID, 'Thank you. Your answer was recorded and your administrators were told.'),
+		done: () => toldOnly.value ? '' : t(APP_ID, 'Thank you. Your answer was recorded.'),
 		toast: true,
 		fallback: t(APP_ID, 'Your answer could not be saved. Please try again.'),
 		handle: refusedOrStale,
@@ -121,6 +121,10 @@ const denyButtons = computed(() => [
 						<span class="hidden-visually">{{ t(APP_ID, 'From the address') }}</span>
 						{{ event.address }}
 					</span>
+				</p>
+				<p v-if="event.comparison" :class="$style.event__comparison" data-test="comparison">
+					<span>{{ event.comparison.seen }}</span>
+					<span v-if="event.comparison.usually" :class="$style.event__usually">{{ event.comparison.usually }}</span>
 				</p>
 			</div>
 		</div>
@@ -244,6 +248,18 @@ const denyButtons = computed(() => [
 	gap: var(--ids-space-1) var(--ids-space-3);
 	margin: 0;
 	font-size: 0.92em;
+}
+
+.event__comparison {
+	display: flex;
+	flex-direction: column;
+	margin: 0;
+	line-height: 1.5;
+	overflow-wrap: anywhere;
+}
+
+.event__usually {
+	color: var(--color-text-maxcontrast);
 }
 
 .event__address {

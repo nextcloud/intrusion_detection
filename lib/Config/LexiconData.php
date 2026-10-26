@@ -821,6 +821,20 @@ final class LexiconData {
 				],
 			],
 		],
+		'new_login' => [
+			'mode' => 'protect',
+			'responses' => [
+				'notify_user',
+			],
+			'allowed' => [
+				'notify_user',
+				'notify_admin',
+			],
+			'requirements' => [],
+			'learning' => false,
+			'onlyNotifies' => true,
+			'params' => [],
+		],
 		'step_up_failed' => [
 			'mode' => 'protect',
 			'responses' => [
@@ -1187,6 +1201,8 @@ final class LexiconData {
 		['check_token_concurrent_use_responses', ValueType::ARRAY, ['notify_admin', 'notify_user'], 'responses of the token_concurrent_use check'],
 		['check_token_concurrent_use_window', ValueType::INT, 900, 'token_concurrent_use check: window'],
 		['check_token_concurrent_use_min_switches', ValueType::INT, 3, 'token_concurrent_use check: min_switches'],
+		['check_new_login_mode', ValueType::STRING, 'protect', 'mode of the new_login check'],
+		['check_new_login_responses', ValueType::ARRAY, ['notify_user'], 'responses of the new_login check'],
 		['check_step_up_failed_mode', ValueType::STRING, 'protect', 'mode of the step_up_failed check'],
 		['check_step_up_failed_responses', ValueType::ARRAY, ['ban', 'kill_session', 'notify_admin', 'notify_user'], 'responses of the step_up_failed check'],
 		['check_step_up_refused_mode', ValueType::STRING, 'protect', 'mode of the step_up_refused check'],

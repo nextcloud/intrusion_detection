@@ -50,6 +50,7 @@ class CheckRegistry {
 		Checks\SecondFactorFailed\SecondFactorFailed::class,
 		Checks\AdminChange\AdminChange::class,
 		Checks\TokenConcurrentUse\TokenConcurrentUse::class,
+		Checks\NewLogin\NewLogin::class,
 		Checks\StepUpFailed\StepUpFailed::class,
 		Checks\StepUpRefused\StepUpRefused::class,
 		Checks\StepUpRefusedClient\StepUpRefusedClient::class,
@@ -91,6 +92,9 @@ class CheckRegistry {
 		],
 		Checks\TokenConcurrentUse\CredentialSwitched::class => [
 			'token_concurrent_use' => Checks\TokenConcurrentUse\TokenConcurrentUseDetector::class,
+		],
+		Checks\NewLogin\UnfamiliarLogin::class => [
+			'new_login' => Checks\NewLogin\NewLoginDetector::class,
 		],
 		SecondFactorFailure::class => [
 			'second_factor_failed' => Checks\SecondFactorFailed\SecondFactorFailedDetector::class,

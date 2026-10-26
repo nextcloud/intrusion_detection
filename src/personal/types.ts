@@ -19,7 +19,15 @@ export type FailedLogins = Schemas['FailedLogins']
 export type EmailHint = Schemas['EmailHint']
 export type PersonalOverview = Schemas['PersonalOverview']
 export type SecurityEvent = Schemas['PersonalDetection']
+
+/** What Nextcloud did after the user answered "No, it was not me" about an event */
+export interface DenialReceipt {
+	id: string
+	subject: string
+	lines: string[]
+}
 export type Login = Schemas['Login']
+export type SignInLabel = Login['labels'][number]
 export type KnownDevice = Schemas['KnownDevice']
 export type TrustedNetwork = Schemas['TrustedNetwork']
 export type LoggedOutElsewhere = Schemas['LoggedOutElsewhere']

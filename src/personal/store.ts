@@ -4,7 +4,7 @@
  */
 
 import type { ResourceOptions } from '../composables/useResource.ts'
-import type { KnownDevice, LoggedOutElsewhere, ManageSummary, PersonalActivity, PersonalOverview, PersonalState, SecurityEvent, StaleCredential, TrustedNetwork } from './types.ts'
+import type { DenialReceipt, KnownDevice, LoggedOutElsewhere, ManageSummary, PersonalActivity, PersonalOverview, PersonalState, SecurityEvent, StaleCredential, TrustedNetwork } from './types.ts'
 
 import { loadState } from '@nextcloud/initial-state'
 import { reactive, ref } from 'vue'
@@ -62,6 +62,8 @@ export const personal = reactive({
 		overview.data = value
 	},
 	manage: { devices: 0, networks: 0, otherBrowsers: 0 } as ManageSummary,
+	/** What Nextcloud did after each "No, it was not me" answered on this page */
+	receipts: [] as DenialReceipt[],
 	/** App passwords and remembered browsers not used for 90 days */
 	get staleCredentials(): StaleCredential[] {
 		return staleCredentials.data ?? []
@@ -128,7 +130,8 @@ export function showMoreActivity(): Promise<void> {
 /**
  * Answer "Was this you?". An answered question leaves the list at once;
  * the timeline and the overview then show the answer. "Yes" trusts the
- * network of the event for a while.
+ * network of the event for a while; after "No" the receipt of what
+ * Nextcloud did takes the question's place until it is closed.
  *
  * @param id - The event
  * @param answer - "Yes, it was me" or "No, it was not me"
@@ -142,6 +145,9 @@ export async function answerEvent(id: string, answer: 'confirm' | 'deny'): Promi
 	update<PersonalActivity>('personal-activity', (current) => {
 		current.questions = current.questions.filter((question) => question.id !== id)
 	})
+	if (answer === 'deny') {
+		personal.receipts = [...personal.receipts.filter((receipt) => receipt.id !== id), { id, subject: event.subject, lines: event.receipt ?? [] }]
+	}
 	if (answer === 'confirm') {
 		personal.manage.networks = Math.max(personal.manage.networks, 1)
 	}

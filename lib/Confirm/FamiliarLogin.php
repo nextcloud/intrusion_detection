@@ -12,6 +12,7 @@ namespace OCA\IntrusionDetection\Confirm;
 use OCA\IntrusionDetection\KnownDevice\KnownDevices;
 use OCA\IntrusionDetection\Login\LoginContext;
 use OCA\IntrusionDetection\LoginHistory\LoginHistory;
+use OCA\IntrusionDetection\LoginHistory\SignInHabits;
 use OCA\IntrusionDetection\TrustedNetwork\TrustedNetworks;
 use OCP\AppFramework\Utility\ITimeFactory;
 
@@ -24,8 +25,8 @@ use OCP\AppFramework\Utility\ITimeFactory;
  * and cannot make a place familiar without such a login.
  */
 class FamiliarLogin {
-	/** Logins this recent count */
-	public const WINDOW = 30 * 86400;
+	/** Logins this recent count, as for the habits on the personal page */
+	public const WINDOW = SignInHabits::WINDOW;
 
 	public function __construct(
 		private readonly KnownDevices $devices,

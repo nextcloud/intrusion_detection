@@ -690,6 +690,11 @@ namespace OCA\IntrusionDetection;
  *     canApprove: bool,
  * }
  *
+ * @psalm-type IntrusionDetectionSignInComparison = array{
+ *     seen: string,
+ *     usually: ?string,
+ * }
+ *
  * @psalm-type IntrusionDetectionPersonalDetection = array{
  *     id: string,
  *     check: string,
@@ -708,6 +713,8 @@ namespace OCA\IntrusionDetection;
  *     verdict: ?string,
  *     verdictAt: ?int,
  *     canConfirm: bool,
+ *     comparison: ?IntrusionDetectionSignInComparison,
+ *     receipt: ?list<string>,
  * }
  *
  * @psalm-type IntrusionDetectionTrustedNetwork = array{
@@ -847,6 +854,7 @@ namespace OCA\IntrusionDetection;
  *     stepUp: ?string,
  *     current: bool,
  *     device: string,
+ *     labels: list<'usual_network'|'new_network'|'new_device'|'unusual_hour'>,
  * }
  *
  * @psalm-type IntrusionDetectionFailedLoginDay = array{

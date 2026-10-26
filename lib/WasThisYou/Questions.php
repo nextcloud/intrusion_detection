@@ -10,6 +10,8 @@ declare(strict_types=1);
 namespace OCA\IntrusionDetection\WasThisYou;
 
 use OCA\IntrusionDetection\Check\CheckRegistry;
+use OCA\IntrusionDetection\Check\Checks\NewLogin\NewLogin;
+use OCA\IntrusionDetection\Check\Checks\NewLogin\NewLoginFacts;
 use OCA\IntrusionDetection\Check\Checks\PasswordSpraying\PasswordSpraying;
 use OCA\IntrusionDetection\Check\Checks\SecondFactorFailed\SecondFactorFailed;
 use OCA\IntrusionDetection\Check\Checks\StepUpFailed\StepUpFailed;
@@ -97,8 +99,11 @@ class Questions {
 		if (in_array($detection->getCheckId(), self::PASSWORD_INVOLVED, true)) {
 			return true;
 		}
-		return $detection->getCheckId() === TokenConcurrentUse::ID
-			&& TokenConcurrentUseFacts::fromArray(DetectionFacts::of($detection)->facts)->kind === TokenConcurrentUse::KIND_PASSWORD;
+		return match ($detection->getCheckId()) {
+			TokenConcurrentUse::ID => TokenConcurrentUseFacts::fromArray(DetectionFacts::of($detection)->facts)->kind === TokenConcurrentUse::KIND_PASSWORD,
+			NewLogin::ID => NewLoginFacts::fromArray(DetectionFacts::of($detection)->facts)->typedPassword,
+			default => false,
+		};
 	}
 
 	/**

@@ -67,6 +67,7 @@ use OCA\IntrusionDetection\Net\RemoteAddressResolver;
 use OCA\IntrusionDetection\Net\ServerAddresses;
 use OCA\IntrusionDetection\Notification\MailReach;
 use OCA\IntrusionDetection\Notification\UserMessages;
+use OCA\IntrusionDetection\Personal\FailedLoginStats;
 use OCA\IntrusionDetection\Response\FlaggedSources;
 use OCA\IntrusionDetection\Response\Tokens;
 use OCA\IntrusionDetection\SessionState\Rules\StepUpRule;
@@ -209,10 +210,11 @@ abstract class StepUpTestCase extends AccountTestCase {
 	 * test session and request.
 	 *
 	 * @param list<class-string<ILoginStep>> $steps
+	 * @param array<class-string<ILoginStep>, ILoginStep> $instances steps a test builds itself
 	 */
-	protected function loginListener(array $steps, ?LoginHistory $history = null): LoginListener {
+	protected function loginListener(array $steps, ?LoginHistory $history = null, array $instances = []): LoginListener {
 		$context = $this->requestContext();
-		$services = [
+		$services = $instances + [
 			StepUpStep::class => new StepUpStep($this->assessment()),
 			KnownDeviceStep::class => new KnownDeviceStep($this->knownDevices(), $this->service()),
 			HistoryStep::class => new HistoryStep($history ?? $this->history()),
@@ -458,6 +460,8 @@ abstract class StepUpTestCase extends AccountTestCase {
 			Server::get(IFactory::class)->get(Application::APP_ID, 'en'),
 			$this->knownDevices(),
 			Server::get(ITimeFactory::class),
+			Server::get(FailedLoginStats::class),
+			Server::get(UserMessages::class),
 		);
 	}
 

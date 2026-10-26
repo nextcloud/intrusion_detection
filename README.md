@@ -81,7 +81,7 @@ None of this shows up in an access log as anything unusual. All of it is visible
 
 ## 🔎 What it catches
 
-18 checks, in four groups. Most of them only work *because* they run inside Nextcloud. Their limits count over minutes and hours, so an attack spread thinly over days ("low and slow") stays below them; strong passwords and a second factor are the answer to that.
+19 checks, in four groups. Most of them only work *because* they run inside Nextcloud. Their limits count over minutes and hours, so an attack spread thinly over days ("low and slow") stays below them; strong passwords and a second factor are the answer to that.
 
 ### Logins and passwords
 
@@ -92,6 +92,7 @@ None of this shows up in an access log as anything unusual. All of it is visible
 | **Correct password, then a failed second factor** | The password was right, but the second factor failed 3 times in one login (or 5 times within an hour). | Protect | Ends that session, blocks the address, requires a new password, tells the user and the admins. |
 | **Credential stuffing** | One address fails 10 times for at least 5 accounts within 10 minutes, or the whole server sees a botnet: 100 failures from 20 addresses for 20 accounts. | Protect | Blocks the address, marks it so a later successful login needs confirmation, tells the admins. |
 | **Password known from data breaches** | A user logs in with a password from public breach lists. | Off (opt-in) | Asks for confirmation, requires a new password, tells the user. |
+| **Login from a new device and network** | A user logs in in the browser from a device and a network that their account has not used in the last 30 days, and nothing else asked or told them about it. | Protect | Tells the user ("New login from Firefox on Windows") and asks "Was this you?". Never for accounts with a second factor, and not while the account's login history is younger than 30 days. |
 
 <img src="screenshots/password-spraying.gif" alt="Animation: one password is tried on eight accounts from eight addresses. The Overview then shows a password-spraying detection; its explanation says one password was tried against 5 accounts from 5 addresses, that addresses which tried it only once were not blocked, and that the password itself is never stored." width="960">
 
@@ -180,15 +181,15 @@ Security works better when the account owner can say "that wasn't me". Users fin
 3. a 6-digit **email code**, valid for 10 minutes, with 5 tries (and at most 10 wrong codes per account and hour); administrators get one only when neither their second factor nor an approval can confirm;
 4. optionally, **approval by an administrator** (off by default), asked for 10 minutes.
 
-Apps that log in with an app password are never interrupted.
+Apps that log in with an app password are never interrupted. After a correct email code, one page says in plain words why it was asked for ("We asked for the code because someone is guessing the account's password. Today 14 wrong passwords were entered for your account."), then the user continues.
 
 <img src="screenshots/login-confirmation.gif" alt="Animation: Mia logs in with her correct password. Because her account was attacked today, the 'Confirm it's you' page asks for the 6-digit code that was emailed to her. She types the code, clicks 'Confirm and continue' and lands on her dashboard." width="960">
 
 *Mia's account was attacked today, so even the right password needs one more proof.*
 
-**"Was this you?"** When Nextcloud sees something it cannot check by itself, such as a login that was not confirmed, a device connected from another network or a credential used in two places, it asks the account owner. The question appears on the personal page and as a notification.
+**"Was this you?"** When Nextcloud sees something it cannot check by itself, such as a login that was not confirmed, a device connected from another network or a credential used in two places, it asks the account owner. The question appears on the personal page and as a notification. On the personal page it is put next to the user's habit: "Firefox on Windows, new network, 3:12 AM, an unusual hour for you" and "You usually log in with Chrome on macOS from your usual network" ([how](docs/logins.md#was-this-you-next-to-the-habit)).
 
-- **"No, it was not me"** ends the sessions and app passwords that came with the event, blocks the address it came from, requires a new password if the password was involved, and tells the admins. It only does all that from a login that proved more than the password, so an intruder who knows only the password cannot use it. From the Nextcloud desktop and mobile apps, or after a login with just the password, it tells the admins, and the question stays open.
+- **"No, it was not me"** ends the sessions and app passwords that came with the event, blocks the address it came from, requires a new password if the password was involved, and tells the admins. It only does all that from a login that proved more than the password, so an intruder who knows only the password cannot use it. Afterwards the page lists what Nextcloud actually did, and only that (the session ended, the address blocked, the admins told), next to a "Secure my account" button. From the Nextcloud desktop and mobile apps, or after a login with just the password, it tells the admins, and the question stays open.
 - **"Yes, it was me"**, from a login that proved more than the password, trusts that network for the user for 30 days.
 
 <img src="screenshots/was-this-you.gif" alt="Animation: on her Account protection page, Mia sees 'A login to your account was not confirmed' from 203.0.113.77 with the buttons 'Yes, it was me' and 'No, it was not me'. She clicks No and confirms 'It was not me'. The page then says she will be asked to choose a new password, and her recent activity shows 'You said it was not you'." width="960">
@@ -199,7 +200,7 @@ Apps that log in with an app password are never interrupted.
 
 <img src="screenshots/secure-account.png" alt="The 'Secure my account' checklist: 0 of 5 steps done, with steps to change the password, check devices and sessions, turn on two-factor authentication, check the email address and profile, check recent shares and check recent file changes." width="600">
 
-**Account protection page.** Users also see their recent logins and security events of the last 30 days, the failed logins, their remembered devices and trusted networks, and a button to log out other browsers. Admins can hide this page.
+**Account protection page.** Users also see their recent logins and security events of the last 30 days, the failed logins, their remembered devices and trusted networks, and a button to log out other browsers. Each login says in plain words what is usual about it and what is not: "Your usual network", "New network", "New device" or "Unusual hour", compared with the account's own logins of the 30 days before ([how](docs/logins.md#labels-on-the-personal-page)). Admins can hide this page.
 
 **Unused app passwords and devices.** An app password or a remembered browser login that nobody has used for 3 months is exactly what a thief finds and nobody notices. The same page lists them calmly, with name, type and last use, and users remove one or all of them after entering their password. Once a day Nextcloud looks for them and, when one is new since the last reminder, tells the user at most once a month: "You have 3 app passwords you haven't used for 3 months".
 

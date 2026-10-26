@@ -39,7 +39,7 @@ enum DataCategory: string {
 	public static function forCheck(string $checkId): array {
 		return match ($checkId) {
 			// The password was right, or a device was connected, or a credential was used elsewhere.
-			'second_factor_failed', 'breached_password', 'login_flow_mismatch', 'token_concurrent_use', 'account_takeover', 'risky_network' => [self::AccountContent],
+			'second_factor_failed', 'breached_password', 'login_flow_mismatch', 'token_concurrent_use', 'account_takeover', 'risky_network', 'new_login' => [self::AccountContent],
 			'admin_change' => [self::Administration],
 			'reset_probing', 'reserved_name' => [self::AccountExistence],
 			'directory_scraping' => [self::UserDirectory],

@@ -187,7 +187,6 @@ class ConfirmationApiTest extends StepUpTestCase {
 			Server::get(TrustedNetworks::class),
 			Server::get(IFactory::class)->get(Application::APP_ID, 'en'),
 			$this->knownDevices(),
-			Server::get(LoginHistory::class),
 			$this->coreSession,
 			Server::get(SecureAccountGuide::class),
 			Server::get(SecureAccountOverview::class),

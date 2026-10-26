@@ -9,11 +9,17 @@ declare(strict_types=1);
 
 namespace OCA\IntrusionDetection\WasThisYou;
 
+use OCA\IntrusionDetection\Check\Checks\UserDenied\UserDenied;
+use OCA\IntrusionDetection\Check\Checks\UserDenied\UserDeniedFacts;
 use OCA\IntrusionDetection\Config\AppSettings;
 use OCA\IntrusionDetection\Db\Detection;
 use OCA\IntrusionDetection\Db\DetectionFilter;
 use OCA\IntrusionDetection\Db\DetectionMapper;
+use OCA\IntrusionDetection\Explain\DetectionFacts;
+use OCA\IntrusionDetection\Explain\TextRenderer;
+use OCA\IntrusionDetection\LoginHistory\SignInHabits;
 use OCA\IntrusionDetection\Notification\UserMessages;
+use OCA\IntrusionDetection\Response\FlaggedSources;
 use OCA\IntrusionDetection\ResponseDefinitions;
 use OCP\AppFramework\Utility\ITimeFactory;
 use OCP\IUser;
@@ -22,12 +28,16 @@ use OCP\IUser;
  * A user's own detections as the user sees them: what happened, when and
  * from where, what Nextcloud did and what to do, in the words of the
  * check's user notice ({@see UserMessages}), and whether it asks "Was this
- * you?". Never thresholds, other accounts or administrator notes.
+ * you?". An open question is put next to the account's habit when the
+ * caller has it ({@see SignInComparison}). Never thresholds, other accounts
+ * or administrator notes.
  *
  * @psalm-import-type IntrusionDetectionPersonalDetection from ResponseDefinitions
  */
 class PersonalDetections {
 	public const MAX = 100;
+	/** The answer's own detection is looked for this many seconds before the answer */
+	private const RECEIPT_SLACK = 60;
 
 	public function __construct(
 		private readonly DetectionMapper $detections,
@@ -36,6 +46,7 @@ class PersonalDetections {
 		private readonly WasThisYouService $answers,
 		private readonly AppSettings $settings,
 		private readonly ITimeFactory $timeFactory,
+		private readonly SignInComparison $comparison,
 	) {
 	}
 
@@ -58,9 +69,10 @@ class PersonalDetections {
 	}
 
 	/**
+	 * @param ?SignInHabits $habits the account's habits, to compare an open question with
 	 * @return IntrusionDetectionPersonalDetection
 	 */
-	public function present(Detection $detection, IUser $user): array {
+	public function present(Detection $detection, IUser $user, ?SignInHabits $habits = null): array {
 		$message = $this->messages->build($detection, $user, onSecurityPage: true);
 		$asks = $this->questions->asks($detection);
 		$open = $asks && $detection->getUserVerdict() === null;
@@ -82,6 +94,38 @@ class PersonalDetections {
 			'verdict' => $detection->getUserVerdict(),
 			'verdictAt' => $detection->getVerdictAt(),
 			'canConfirm' => $open && $this->answers->maySessionVouch($detection),
+			'comparison' => $open && $habits !== null ? $this->comparison->describe($detection, $user, $habits) : null,
+			'receipt' => null,
 		];
+	}
+
+	/**
+	 * What Nextcloud did after the user answered "No, it was not me" about
+	 * a detection: the responses its answer's own detection
+	 * ({@see UserDenied}) recorded as done, and the network whose logins
+	 * need extra confirmation now. Only what happened; empty when nothing
+	 * acted, null when the detection was not answered "No".
+	 *
+	 * @return ?list<string>
+	 */
+	public function receipt(Detection $answered, IUser $user): ?array {
+		if ($answered->getUserVerdict() !== Detection::VERDICT_DENIED) {
+			return null;
+		}
+		$since = ($answered->getVerdictAt() ?? $this->timeFactory->getTime()) - self::RECEIPT_SLACK;
+		$denials = $this->detections->findList(new DetectionFilter(checkIds: [UserDenied::ID], uid: $user->getUID(), since: $since, limit: 10));
+		foreach ($denials as $denial) {
+			$facts = UserDeniedFacts::fromArray(DetectionFacts::of($denial)->facts);
+			if ($facts->detection !== (string)$answered->getId()) {
+				continue;
+			}
+			$done = $this->messages->build($denial, $user, onSecurityPage: true)->done;
+			if (($facts->network ?? '') !== '' && $denial->isEnforced()) {
+				$l = $this->messages->l10nFor($user);
+				$done[] = $l->t('Logins from that network need extra confirmation for %s.', [TextRenderer::duration(FlaggedSources::DURATION, $l)]);
+			}
+			return $done;
+		}
+		return [];
 	}
 }

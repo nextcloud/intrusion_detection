@@ -8,7 +8,7 @@ declare(strict_types=1);
  */
 
 /** @var \OCP\IL10N $l */
-/** @var array{mode: string, title: string, lead: string, logout_url: string, login_url: string, requesttoken: string, why?: ?string, error?: ?string, notice?: ?string, hasCode?: bool, attemptsLeft?: ?string, canResend?: bool, secondFactor?: bool, askAdmin?: bool, waiting?: bool, canRemember?: bool, rememberHint?: string, confirmAction?: string, resendAction?: string, secondFactorAction?: string, askAdminAction?: string, waitingUrl?: string, redirect_url?: string, reference?: ?string, expires?: string, codeUrl?: string, statusUrl?: string, pollInterval?: int, continueAction?: string, cancelAction?: string, endAction?: string} $_ */
+/** @var array{mode: string, title: string, lead: string, logout_url: string, login_url: string, requesttoken: string, why?: ?string, error?: ?string, notice?: ?string, hasCode?: bool, attemptsLeft?: ?string, canResend?: bool, secondFactor?: bool, askAdmin?: bool, waiting?: bool, canRemember?: bool, rememberHint?: string, confirmAction?: string, resendAction?: string, secondFactorAction?: string, askAdminAction?: string, waitingUrl?: string, redirect_url?: string, reference?: ?string, expires?: string, codeUrl?: string, statusUrl?: string, pollInterval?: int, continueAction?: string, cancelAction?: string, endAction?: string, continueUrl?: string} $_ */
 $mode = $_['mode'];
 $error = $_['error'] ?? null;
 $notice = $_['notice'] ?? null;
@@ -19,6 +19,8 @@ $described = $error !== null ? 'ids-verify-error' : null;
 		<div class="ids-page__icon ids-page__icon--mail" aria-hidden="true"></div>
 	<?php elseif ($mode === 'waiting'): ?>
 		<div class="ids-page__icon ids-page__icon--waiting" aria-hidden="true"></div>
+	<?php elseif ($mode === 'confirmed'): ?>
+		<div class="ids-page__icon ids-page__icon--done" aria-hidden="true"></div>
 	<?php else: ?>
 		<div class="ids-page__icon ids-page__icon--blocked" aria-hidden="true"></div>
 	<?php endif; ?>
@@ -134,6 +136,11 @@ $described = $error !== null ? 'ids-verify-error' : null;
 		<p class="ids-page__warning">
 			<?php p($l->t('If you did not just log in, someone knows your password. Cancel this login, then change your password.')); ?>
 		</p>
+	<?php elseif ($mode === 'confirmed'): ?>
+		<p class="ids-page__hint"><?php p($l->t('You do not need to do anything else. This note is shown once.')); ?></p>
+		<div class="ids-page__form">
+			<a class="ids-page__submit" href="<?php p($_['continueUrl'] ?? ''); ?>"><?php p($l->t('Continue to Nextcloud')); ?></a>
+		</div>
 	<?php elseif ($mode === 'refused'): ?>
 		<?php if (($_['why'] ?? null) !== null): ?>
 			<p class="ids-page__hint"><?php p($_['why']); ?></p>

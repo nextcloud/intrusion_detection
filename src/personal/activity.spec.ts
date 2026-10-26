@@ -6,7 +6,7 @@
 import { describe, expect, test } from 'vitest'
 import { snowflake } from '../tests/fixtures.ts'
 import { activityItem, login, NOW, securityChange, securityEvent } from '../tests/personalFixtures.ts'
-import { changeValues, confirmationLabel, dayBefore, dayLabel, groupByDay, hasNews, isOpenQuestion } from './activity.ts'
+import { changeValues, confirmationLabel, dayBefore, dayLabel, groupByDay, hasNews, isOpenQuestion, signInBadges } from './activity.ts'
 
 describe('the activity timeline', () => {
 	test('is grouped per day, newest day first and newest entry first within a day', () => {
@@ -57,5 +57,20 @@ describe('the activity timeline', () => {
 		expect(confirmationLabel(login(1)), 'Nothing to say about an ordinary login').toBeNull()
 		expect(changeValues(securityChange(1, { previous: 'a***@old.example', new: 'a***@example.com' }))).toBe('from a***@old.example to a***@example.com')
 		expect(changeValues(securityChange(1, { detail: 'TOTP' }))).toBe('TOTP')
+	})
+})
+
+describe('the labels of a login', () => {
+	test('say in plain words what is usual and what is new', () => {
+		expect(signInBadges(['usual_network', 'new_device', 'unusual_hour']).map(({ text, type }) => [text, type])).toEqual([
+			['Your usual network', 'neutral'],
+			['New device', 'info'],
+			['Unusual hour', 'info'],
+		])
+		expect(signInBadges(['new_network']).map(({ text }) => text)).toEqual(['New network'])
+	})
+
+	test('leave out labels the page does not know', () => {
+		expect(signInBadges(['later' as never, 'new_device'])).toHaveLength(1)
 	})
 })

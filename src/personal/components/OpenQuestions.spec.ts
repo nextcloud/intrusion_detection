@@ -24,6 +24,7 @@ enableAutoUnmount(afterEach)
 
 describe('OpenQuestions', () => {
 	beforeEach(() => {
+		personal.receipts = []
 		personal.overview = overview()
 		personal.activity = null
 		personal.manage = { devices: 0, networks: 0, otherBrowsers: 0 }
@@ -33,6 +34,28 @@ describe('OpenQuestions', () => {
 	afterEach(() => {
 		vi.mocked(confirmEvent).mockReset()
 		vi.mocked(fetchActivity).mockReset()
+	})
+
+	test('after "No" shows what Nextcloud did, only that, and the way to secure the account', async () => {
+		personal.activity = activity({ questions: [] })
+		personal.receipts = [
+			{ id: snowflake(1), subject: 'A login was not confirmed', lines: ['The suspicious session was ended.', 'Your administrators were told.'] },
+			{ id: snowflake(2), subject: 'Someone entered your password', lines: [] },
+		]
+		const wrapper = mount(OpenQuestions)
+
+		const first = wrapper.get(`[data-test="receipt-${snowflake(1)}"]`)
+		expect(first.get('h4').text()).toBe('You said it was not you')
+		expect(first.findAll('[data-test="receipt-lines"] li').map((line) => line.text())).toEqual(['The suspicious session was ended.', 'Your administrators were told.'])
+		expect(first.get('[data-test="receipt-secure"]').attributes('href')).toContain('/apps/intrusion_detection/secure-account')
+		const second = wrapper.get(`[data-test="receipt-${snowflake(2)}"]`)
+		expect(second.find('[data-test="receipt-lines"]').exists()).toBe(false)
+		expect(second.get('[data-test="receipt-nothing"]').text()).toContain('Nothing else could be ended or blocked')
+
+		await first.get('[data-test="receipt-close"]').trigger('click')
+		expect(wrapper.find(`[data-test="receipt-${snowflake(1)}"]`).exists()).toBe(false)
+		await wrapper.get(`[data-test="receipt-${snowflake(2)}"] [data-test="receipt-close"]`).trigger('click')
+		expect(wrapper.find('[data-test="questions"]').exists()).toBe(false)
 	})
 
 	test('lists only the questions still waiting for an answer', () => {
