@@ -27,6 +27,7 @@ use OCA\IntrusionDetection\Db\BanMapper;
 use OCA\IntrusionDetection\Db\Detection;
 use OCA\IntrusionDetection\Definition\Mode;
 use OCA\IntrusionDetection\Definition\ResponseType;
+use OCA\IntrusionDetection\Detection\AttemptCounters;
 use OCA\IntrusionDetection\Detection\AttemptRecord;
 use OCA\IntrusionDetection\Detection\AttemptRecorder;
 use OCA\IntrusionDetection\Explain\NarrativeBuilder;
@@ -354,7 +355,7 @@ class ShareBruteforceTest extends RequestEventTestCase {
 
 	public function testTheRecorderStoresTheWeightOfASampledAttempt(): void {
 		Server::get(HotState::class)->setAttemptsFloodUntil(time() + 600);
-		$recorder = new class(Server::get(AttemptMapper::class), Server::get(Fingerprinter::class), Server::get(\OCP\AppFramework\Utility\ITimeFactory::class), Server::get(HotState::class)) extends AttemptRecorder {
+		$recorder = new class(Server::get(AttemptMapper::class), Server::get(Fingerprinter::class), Server::get(\OCP\AppFramework\Utility\ITimeFactory::class), Server::get(HotState::class), Server::get(AttemptCounters::class)) extends AttemptRecorder {
 			protected function oneIn(int $n): bool {
 				return $n === AttemptRecorder::FLOOD_SAMPLE;
 			}

@@ -20,6 +20,7 @@ use OCA\IntrusionDetection\Db\AttemptMapper;
 use OCA\IntrusionDetection\Db\Detection;
 use OCA\IntrusionDetection\Db\DetectionFilter;
 use OCA\IntrusionDetection\Db\DetectionMapper;
+use OCA\IntrusionDetection\Detection\AttemptCounters;
 use OCA\IntrusionDetection\Detection\AttemptRecorder;
 use OCA\IntrusionDetection\Detection\Cooldown;
 use OCA\IntrusionDetection\Listener\FailedLoginListener;
@@ -82,6 +83,7 @@ abstract class LoginFailureTestCase extends IntegrationTestCase {
 					Server::get(RiskScorer::class),
 					Server::get(AppState::class),
 					Server::get(Cooldown::class),
+					Server::get(AttemptCounters::class),
 				),
 			], logger: $this->listenerLogger()),
 			$this->attemptRecorder(),

@@ -18,6 +18,7 @@ use OCA\IntrusionDetection\Db\AttemptMapper;
 use OCA\IntrusionDetection\Db\AttemptStats;
 use OCA\IntrusionDetection\Db\Detection;
 use OCA\IntrusionDetection\Definition\ResponseType;
+use OCA\IntrusionDetection\Detection\AttemptCounters;
 use OCA\IntrusionDetection\Detection\AttemptRecord;
 use OCA\IntrusionDetection\Detection\CommonFacts;
 use OCA\IntrusionDetection\Detection\Cooldown;
@@ -46,6 +47,8 @@ use OCA\IntrusionDetection\State\AppState;
  *    failure only counts as a hit of the detection. While the network rule
  *    cools down, the address's own numbers are still counted, so that the
  *    rule for the address fires at once when it is reached.
+ *    The failed logins of an address or network are only counted once the
+ *    cheap bound of {@see AttemptCounters} can reach the limits.
  * 2. Distributed: the whole server has at least the distributed numbers of
  *    failures, addresses and names within 10 minutes. One web server
  *    evaluates this for all, once every EVALUATE_EVERY seconds
@@ -94,6 +97,7 @@ class CredentialStuffingDetector implements IDetector {
 		private readonly RiskScorer $risk,
 		private readonly AppState $state,
 		private readonly Cooldown $cooldown,
+		private readonly AttemptCounters $counters,
 	) {
 	}
 
@@ -120,9 +124,9 @@ class CredentialStuffingDetector implements IDetector {
 		$sourceRule = [CredentialStuffingRule::Source->value, $source->ipKey];
 		$ip = null;
 		if ($this->cooldown->cooled(CredentialStuffing::ID, $sourceRule, $mode, $now) === null) {
-			$ip = $this->attempts->stats('ip_key', [$source->ipKey], self::KINDS, $since);
-			$limits = $this->risk->limits($source, self::limits($ip, $minFailures, $minNames));
-			if ($limits->reached()) {
+			$ip = $this->mayReach('ip_key', $source->ipKey, $now, $minFailures, $minNames) ? $this->attempts->stats('ip_key', [$source->ipKey], self::KINDS, $since) : null;
+			$limits = $ip === null ? null : $this->risk->limits($source, self::limits($ip, $minFailures, $minNames));
+			if ($limits !== null && $limits->reached()) {
 				$this->cooldown->start(CredentialStuffing::ID, $sourceRule, $mode, yield new DetectionDraft(
 					checkId: CredentialStuffing::ID,
 					source: $source,
@@ -155,6 +159,10 @@ class CredentialStuffingDetector implements IDetector {
 	private function network(SourceKey $source, ModeState $mode, int $minFailures, int $minNames, int $since, int $now, ?string $userAgent): \Generator {
 		$networkRule = [CredentialStuffingRule::Network->value, $source->ipKey];
 		if ($this->cooldown->cooled(CredentialStuffing::ID, $networkRule, $mode, $now) !== null) {
+			return;
+		}
+		if (!$this->mayReach('net_key', $source->netKey, $now, $minFailures, $minNames)) {
+			$this->cooldown->stop(CredentialStuffing::ID, $networkRule, $mode);
 			return;
 		}
 		$net = $this->attempts->stats('net_key', [$source->netKey], self::KINDS, $since);
@@ -272,6 +280,9 @@ class CredentialStuffingDetector implements IDetector {
 		if ($now >= $until || !in_array(ResponseType::Ban, $responses, true)) {
 			return;
 		}
+		if ($ipStats === null && !$this->counters->mayReach('ip_key', [$attempt->source->ipKey], $now, self::MEMBER_MIN_FAILURES)) {
+			return;
+		}
 		$stats = $ipStats ?? $this->attempts->stats('ip_key', [$attempt->source->ipKey], self::KINDS, $now - self::DISTRIBUTED_WINDOW);
 		if (self::reaches($stats, self::MEMBER_MIN_FAILURES, self::MEMBER_MIN_NAMES)) {
 			$result = $this->bans->ban($attempt->source, CredentialStuffing::ID, $detectionId);
@@ -302,6 +313,19 @@ class CredentialStuffingDetector implements IDetector {
 			return false;
 		}
 		return $this->state->claim(self::EVALUATED_STATE, $period);
+	}
+
+	/**
+	 * Whether the failed logins of an address or network can reach the
+	 * limits of a rule, by the cheap bound of {@see AttemptCounters}: the
+	 * names counted are never more than the failures. A network rule needs
+	 * at least two addresses, and so two failures.
+	 *
+	 * @param 'ip_key'|'net_key' $column
+	 */
+	private function mayReach(string $column, string $value, int $now, int $minFailures, int $minNames): bool {
+		$needed = max($this->risk->lowestLimit($minFailures), $this->risk->lowestLimit($minNames), $column === 'net_key' ? 2 : 1);
+		return $this->counters->mayReach($column, [$value], $now, $needed);
 	}
 
 	/**

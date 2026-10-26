@@ -122,13 +122,20 @@ class RiskScorer {
 		if ($source === null || !$this->isEnabled() || $this->allReach($measured, $plain)) {
 			return new RiskLimits($plain, $plain, $measured, null);
 		}
-		$lowest = min(RiskAssessment::FACTOR_ELEVATED, RiskAssessment::FACTOR_HIGH);
-		$possible = array_map(static fn (int $limit): int => RiskAssessment::lowerBy($limit, $lowest), $plain);
+		$possible = array_map($this->lowestLimit(...), $plain);
 		if (!$this->allReach($measured, $possible)) {
 			return new RiskLimits($plain, $plain, $measured, null);
 		}
 		$risk = $this->score($source);
 		return new RiskLimits($plain, array_map(static fn (int $limit): int => $risk->lower($limit), $plain), $measured, $risk);
+	}
+
+	/**
+	 * The lowest a count limit can become for an address with the highest
+	 * risk score: the limit itself while the score is off.
+	 */
+	public function lowestLimit(int $limit): int {
+		return $this->isEnabled() ? RiskAssessment::lowerBy($limit, min(RiskAssessment::FACTOR_ELEVATED, RiskAssessment::FACTOR_HIGH)) : $limit;
 	}
 
 	/**

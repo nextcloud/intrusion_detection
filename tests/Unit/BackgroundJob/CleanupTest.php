@@ -12,8 +12,10 @@ namespace OCA\IntrusionDetection\Tests\Unit\BackgroundJob;
 use OCA\IntrusionDetection\BackgroundJob\Cleanup;
 use OCA\IntrusionDetection\Db\AttemptMapper;
 use OCA\IntrusionDetection\Db\IPurges;
+use OCA\IntrusionDetection\Detection\AttemptCounters;
 use OCA\IntrusionDetection\Detection\AttemptRecorder;
 use OCA\IntrusionDetection\State\HotState;
+use OCA\IntrusionDetection\Tests\Unit\Cache\FixedCaches;
 use OCP\AppFramework\Utility\ITimeFactory;
 use Psr\Container\ContainerInterface;
 use Psr\Log\LoggerInterface;
@@ -55,7 +57,7 @@ class CleanupTest extends TestCase {
 		$mapper->expects($this->once())->method('hasMoreThan')->with(AttemptRecorder::FLOOD_ROWS)->willReturn(true);
 		$hotState = $this->createMock(HotState::class);
 		$hotState->expects($this->once())->method('setAttemptsFloodUntil')->with(self::NOW + 600);
-		$recorder = new AttemptRecorder($mapper, $this->createMock(\OCA\IntrusionDetection\Crypto\Fingerprinter::class), $this->createMock(ITimeFactory::class), $hotState);
+		$recorder = new AttemptRecorder($mapper, $this->createMock(\OCA\IntrusionDetection\Crypto\Fingerprinter::class), $this->createMock(ITimeFactory::class), $hotState, new AttemptCounters(FixedCaches::none()));
 		$this->expectExceptionMessage('deadlock');
 		$recorder->purge(self::NOW);
 	}
@@ -68,7 +70,7 @@ class CleanupTest extends TestCase {
 		$fingerprinter->method('name')->willReturn('n');
 		$time = $this->createMock(ITimeFactory::class);
 		$time->method('getTime')->willReturn(self::NOW);
-		$recorder = new AttemptRecorder($mapper, $fingerprinter, $time, $this->createMock(HotState::class));
+		$recorder = new AttemptRecorder($mapper, $fingerprinter, $time, $this->createMock(HotState::class), new AttemptCounters(FixedCaches::none()));
 		for ($i = 0; $i < 60; $i++) {
 			$recorder->record(\OCA\IntrusionDetection\Db\AttemptKind::PasswordReset, \OCA\IntrusionDetection\Net\SourceKey::fromIp('203.0.113.7'), 'alice');
 		}
