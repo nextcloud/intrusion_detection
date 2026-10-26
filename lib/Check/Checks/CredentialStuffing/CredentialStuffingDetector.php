@@ -20,6 +20,7 @@ use OCA\IntrusionDetection\Db\Detection;
 use OCA\IntrusionDetection\Definition\ResponseType;
 use OCA\IntrusionDetection\Detection\AttemptRecord;
 use OCA\IntrusionDetection\Detection\CommonFacts;
+use OCA\IntrusionDetection\Detection\Cooldown;
 use OCA\IntrusionDetection\Detection\DetectionDraft;
 use OCA\IntrusionDetection\Net\RemoteAddressResolver;
 use OCA\IntrusionDetection\Net\SourceKey;
@@ -40,7 +41,11 @@ use OCA\IntrusionDetection\State\AppState;
  *    held to `net_factor` times these numbers; then its addresses with at
  *    least 2 failures for 2 names are blocked, or the /24 itself when none
  *    has. Both are lowered for an address with an elevated or high risk
- *    score ({@see RiskScorer::limits()}).
+ *    score ({@see RiskScorer::limits()}). Once a rule fired for an address,
+ *    it cools down for the address ({@see Cooldown}): within the period, a
+ *    failure only counts as a hit of the detection. While the network rule
+ *    cools down, the address's own numbers are still counted, so that the
+ *    rule for the address fires at once when it is reached.
  * 2. Distributed: the whole server has at least the distributed numbers of
  *    failures, addresses and names within 10 minutes. One web server
  *    evaluates this for all, once every EVALUATE_EVERY seconds
@@ -88,6 +93,7 @@ class CredentialStuffingDetector implements IDetector {
 		private readonly Caches $caches,
 		private readonly RiskScorer $risk,
 		private readonly AppState $state,
+		private readonly Cooldown $cooldown,
 	) {
 	}
 
@@ -111,44 +117,67 @@ class CredentialStuffingDetector implements IDetector {
 		$now = $attempt->time;
 		$since = $now - $window;
 
-		$ip = $this->attempts->stats('ip_key', [$source->ipKey], self::KINDS, $since);
-		$limits = $this->risk->limits($source, self::limits($ip, $minFailures, $minNames));
-		if ($limits->reached()) {
-			yield new DetectionDraft(
-				checkId: CredentialStuffing::ID,
-				source: $source,
-				facts: self::facts(
-					CredentialStuffingRule::Source,
-					$ip,
-					targets: $this->attempts->distinctUids('ip_key', [$source->ipKey], self::KINDS, $since, 20),
-					risk: $limits->facts(),
-				),
-				merge: DetectionDraft::MERGE_SOURCE,
-				userAgent: $userAgent,
-			);
-		} elseif ($source->family === 4 && $factor > 0) {
-			$net = $this->attempts->stats('net_key', [$source->netKey], self::KINDS, $since);
-			$netLimits = $net->distinctSources > 1 ? $this->risk->limits($source, self::limits($net, $minFailures * $factor, $minNames * $factor)) : null;
-			if ($netLimits !== null && $netLimits->reached()) {
-				$draft = new DetectionDraft(
+		$sourceRule = [CredentialStuffingRule::Source->value, $source->ipKey];
+		$ip = null;
+		if ($this->cooldown->cooled(CredentialStuffing::ID, $sourceRule, $mode, $now) === null) {
+			$ip = $this->attempts->stats('ip_key', [$source->ipKey], self::KINDS, $since);
+			$limits = $this->risk->limits($source, self::limits($ip, $minFailures, $minNames));
+			if ($limits->reached()) {
+				$this->cooldown->start(CredentialStuffing::ID, $sourceRule, $mode, yield new DetectionDraft(
 					checkId: CredentialStuffing::ID,
 					source: $source,
 					facts: self::facts(
-						CredentialStuffingRule::Network,
-						$net,
-						net: $source->netKey,
-						targets: $this->attempts->distinctUids('net_key', [$source->netKey], self::KINDS, $since, 20),
-						risk: $netLimits->facts(),
+						CredentialStuffingRule::Source,
+						$ip,
+						targets: $this->attempts->distinctUids('ip_key', [$source->ipKey], self::KINDS, $since, 20),
+						risk: $limits->facts(),
 					),
 					merge: DetectionDraft::MERGE_SOURCE,
 					userAgent: $userAgent,
-				);
-				$this->addNetworkTargets($draft, $since);
-				yield $draft;
+				));
+			} else {
+				$this->cooldown->stop(CredentialStuffing::ID, $sourceRule, $mode);
+				if ($source->family === 4 && $factor > 0) {
+					yield from $this->network($source, $mode, $minFailures * $factor, $minNames * $factor, $since, $now, $userAgent);
+				}
 			}
 		}
 
 		yield from $this->distributed($attempt, $mode, $params, $window === self::DISTRIBUTED_WINDOW ? $ip : null);
+	}
+
+	/**
+	 * The rule for the IPv4 /24 of an address, held to `net_factor` times
+	 * the numbers of an address.
+	 *
+	 * @return \Generator<int, DetectionDraft, ?Detection, void>
+	 */
+	private function network(SourceKey $source, ModeState $mode, int $minFailures, int $minNames, int $since, int $now, ?string $userAgent): \Generator {
+		$networkRule = [CredentialStuffingRule::Network->value, $source->ipKey];
+		if ($this->cooldown->cooled(CredentialStuffing::ID, $networkRule, $mode, $now) !== null) {
+			return;
+		}
+		$net = $this->attempts->stats('net_key', [$source->netKey], self::KINDS, $since);
+		$netLimits = $net->distinctSources > 1 ? $this->risk->limits($source, self::limits($net, $minFailures, $minNames)) : null;
+		if ($netLimits === null || !$netLimits->reached()) {
+			$this->cooldown->stop(CredentialStuffing::ID, $networkRule, $mode);
+			return;
+		}
+		$draft = new DetectionDraft(
+			checkId: CredentialStuffing::ID,
+			source: $source,
+			facts: self::facts(
+				CredentialStuffingRule::Network,
+				$net,
+				net: $source->netKey,
+				targets: $this->attempts->distinctUids('net_key', [$source->netKey], self::KINDS, $since, 20),
+				risk: $netLimits->facts(),
+			),
+			merge: DetectionDraft::MERGE_SOURCE,
+			userAgent: $userAgent,
+		);
+		$this->addNetworkTargets($draft, $since);
+		$this->cooldown->start(CredentialStuffing::ID, $networkRule, $mode, yield $draft);
 	}
 
 	/**

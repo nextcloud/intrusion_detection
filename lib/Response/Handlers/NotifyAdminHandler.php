@@ -36,7 +36,7 @@ class NotifyAdminHandler implements IResponseHandler, IDescribesAction {
 
 	#[\Override]
 	public function apply(ResponseContext $context): ResponseOutcome {
-		$result = $this->alerts->alert($context->detection);
+		$result = $this->alerts->alert($context->detection, $context->hits);
 		if ($result['recipients'] === 0) {
 			return ResponseOutcome::skipped(ResponseOutcome::NOTE_NOTHING_TO_DO, $result);
 		}

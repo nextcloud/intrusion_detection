@@ -20,6 +20,8 @@ final class ResponseContext {
 		public readonly CheckDefinition $definition,
 		/** False for a repeated hit merged into an earlier detection */
 		public readonly bool $isNew,
+		/** The hits this added to the detection: more than one when its check cooled down before */
+		public readonly int $hits = 1,
 	) {
 	}
 }

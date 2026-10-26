@@ -348,6 +348,8 @@ Normal requests get only a few quick checks. The expensive work happens on faile
 
 The memory-cache rows use an in-memory stand-in for the cache; a networked cache such as Redis adds its own round trip.
 
+Under attack, the checks for one account attacked from many places and for credential stuffing cool down for 30 seconds once they have fired for an account or address. Within that time a further failed login is still recorded and counted for the detection, and only its own address is judged (and blocked, when it guessed enough), without counting the whole attack again. With one account attacked by a botnet, a failed login then costs 8 database queries instead of 22. A distributed cache such as Redis shares the cool-down between all web servers; with APCu, each web server cools down on its own.
+
 A plain request in a new PHP process loads none of the checks and at most 45 of the app's classes. Measure your own server with `occ intrusion:benchmark`; with a memory cache, the app also samples 1 in 1,000 real requests and reports the cost in `occ intrusion:status` and the `intrusion_guard_seconds` metric.
 
 ## 🚀 Getting started

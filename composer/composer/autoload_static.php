@@ -371,6 +371,7 @@ class ComposerStaticInitIntrusionDetection
         'OCA\\IntrusionDetection\\Detection\\AttemptRecord' => __DIR__ . '/..' . '/../lib/Detection/AttemptRecord.php',
         'OCA\\IntrusionDetection\\Detection\\AttemptRecorder' => __DIR__ . '/..' . '/../lib/Detection/AttemptRecorder.php',
         'OCA\\IntrusionDetection\\Detection\\CommonFacts' => __DIR__ . '/..' . '/../lib/Detection/CommonFacts.php',
+        'OCA\\IntrusionDetection\\Detection\\Cooldown' => __DIR__ . '/..' . '/../lib/Detection/Cooldown.php',
         'OCA\\IntrusionDetection\\Detection\\DetectionAccounts' => __DIR__ . '/..' . '/../lib/Detection/DetectionAccounts.php',
         'OCA\\IntrusionDetection\\Detection\\DetectionDraft' => __DIR__ . '/..' . '/../lib/Detection/DetectionDraft.php',
         'OCA\\IntrusionDetection\\Detection\\DetectionService' => __DIR__ . '/..' . '/../lib/Detection/DetectionService.php',

@@ -334,9 +334,10 @@ class AttemptMapper {
 	 * @param 'ip_key'|'net_key'|'pw_fp'|'uid'|'share_id'|'name_hmac' $column
 	 * @param list<string|int> $values
 	 * @param list<AttemptKind> $kinds
+	 * @param ?string $ipKey only this source
 	 * @return array<string, array{failures: int, names: int, passwords: int}> keyed by ip key
 	 */
-	public function countsPerSource(string $column, array $values, array $kinds, int $since, int $limit = 500): array {
+	public function countsPerSource(string $column, array $values, array $kinds, int $since, int $limit = 500, ?string $ipKey = null): array {
 		if (!in_array($column, self::KEY_COLUMNS, true)) {
 			throw new \InvalidArgumentException('Not an indexed key column: ' . $column);
 		}
@@ -358,6 +359,9 @@ class AttemptMapper {
 			->andWhere($qb->expr()->gte('created_at', $qb->createNamedParameter($since, IQueryBuilder::PARAM_INT)))
 			->groupBy('ip_key')
 			->setMaxResults($limit);
+		if ($ipKey !== null) {
+			$qb->andWhere($qb->expr()->eq('ip_key', $qb->createNamedParameter($ipKey)));
+		}
 		$this->whereKinds($qb, $kinds);
 		$result = $qb->executeQuery();
 		$counts = [];

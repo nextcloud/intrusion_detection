@@ -22,12 +22,14 @@ use OCA\IntrusionDetection\Check\Checks\SharedAddress\SharedAddress;
 use OCA\IntrusionDetection\Config\GlobalSettings;
 use OCA\IntrusionDetection\Crypto\Fingerprinter;
 use OCA\IntrusionDetection\Db\BanMapper;
+use OCA\IntrusionDetection\Db\Detection;
 use OCA\IntrusionDetection\Db\DetectionFilter;
 use OCA\IntrusionDetection\Db\DetectionMapper;
 use OCA\IntrusionDetection\Db\LoginMapper;
 use OCA\IntrusionDetection\Definition\Mode;
 use OCA\IntrusionDetection\Definition\ResponseType;
 use OCA\IntrusionDetection\Detection\CommonFacts;
+use OCA\IntrusionDetection\Detection\Cooldown;
 use OCA\IntrusionDetection\Detection\DetectionAccounts;
 use OCA\IntrusionDetection\Detection\DetectionDraft;
 use OCA\IntrusionDetection\Detection\DetectionService;
@@ -151,6 +153,11 @@ class ResponseEngineTest extends IntegrationTestCase {
 				$this->updates++;
 				return parent::update($entity);
 			}
+
+			public function updateMerged(Detection $detection, int $hits, int $seenAt): void {
+				$this->updates++;
+				parent::updateMerged($detection, $hits, $seenAt);
+			}
 		};
 		$this->engine = new ResponseEngine(
 			Server::get(CheckRegistry::class),
@@ -165,6 +172,7 @@ class ResponseEngineTest extends IntegrationTestCase {
 				Server::get(DetectionTotals::class),
 				Server::get(KeyLock::class),
 				Server::get(Fingerprinter::class),
+				Server::get(Cooldown::class),
 			),
 			Server::get(ContainerInterface::class),
 			Server::get(TypedEvents::class),
