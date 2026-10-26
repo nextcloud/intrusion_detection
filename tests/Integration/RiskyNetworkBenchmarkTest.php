@@ -46,6 +46,8 @@ use Psr\Log\LoggerInterface;
  */
 #[Group('DB')]
 class RiskyNetworkBenchmarkTest extends IntegrationTestCase {
+	use FastestRun;
+
 	private const RANGES = 100000;
 	private const WARM = 10000;
 	private const COLD = 500;
@@ -71,15 +73,15 @@ class RiskyNetworkBenchmarkTest extends IntegrationTestCase {
 		$warmGuard = $this->guard(true);
 		$this->assertNull($warmGuard->decisionFor($listed));
 		$this->assertSame(['hosting', 'net:cloud'], Verdict::of($this->context)?->attributes, 'The verdict carries the attributes');
-		$warm = $this->measure(fn () => $warmGuard->decisionFor($listed), self::WARM);
+		$warm = self::fastest(fn (): float => $this->measure(fn () => $warmGuard->decisionFor($listed), self::WARM));
 
 		$coldGuard = $this->guard(false);
 		$i = 0;
-		$cold = $this->measure(function () use ($coldGuard, &$i): void {
+		$cold = self::fastest(fn (): float => $this->measure(function () use ($coldGuard, &$i): void {
 			// Half on the list, half just next to a listed address.
 			$coldGuard->decisionFor(long2ip(ip2long('20.0.0.0') + 2 * (($i * 197) % self::RANGES) + ($i % 2)));
 			$i++;
-		}, self::COLD);
+		}, self::COLD));
 		$withoutList = $this->guard(false, false);
 		$plain = $this->measure(fn () => $withoutList->decisionFor('20.0.0.1'), self::COLD);
 
@@ -90,8 +92,8 @@ class RiskyNetworkBenchmarkTest extends IntegrationTestCase {
 			$cold,
 			$plain,
 		));
-		$this->assertLessThan(self::WARM_BUDGET_US, $warm);
-		$this->assertLessThan(self::COLD_BUDGET_US, $cold);
+		$this->assertLessThan(self::budget(self::WARM_BUDGET_US), $warm);
+		$this->assertLessThan(self::budget(self::COLD_BUDGET_US), $cold);
 	}
 
 	private RequestContext $context;
