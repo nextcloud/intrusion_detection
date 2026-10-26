@@ -13,7 +13,6 @@ use OCA\IntrusionDetection\Address\AddressCache;
 use OCA\IntrusionDetection\Address\AddressFacts;
 use OCA\IntrusionDetection\Address\IAddressFactsProvider;
 use OCA\IntrusionDetection\Blocklist\Db\BlocklistRangeMapper;
-use OCA\IntrusionDetection\Blocklist\Db\BlocklistStatMapper;
 use OCA\IntrusionDetection\Check\Checks\BlocklistMatch\BlocklistMatch;
 use OCA\IntrusionDetection\Check\Checks\RiskyNetwork\RiskyNetwork;
 use OCA\IntrusionDetection\Config\AppSettings;
@@ -40,7 +39,7 @@ use Psr\Log\LoggerInterface;
  * attribute lists while neither the hosting and Tor check runs nor the
  * address risk score is on: then nothing reads their attributes.
  *
- * Matches of all lists are counted per list and day ({@see BlocklistStatMapper}).
+ * Matches of all lists are counted per list and day ({@see BlocklistMatches}).
  * Counting happens here, on resolve, so it costs nothing on requests with a
  * cached verdict: an address is counted about once per verdict lifetime
  * ({@see AddressCache::OK_TTL}, and again after every block or list change),
@@ -52,7 +51,7 @@ class BlocklistFactsProvider implements IAddressFactsProvider {
 		private readonly SourceRepository $sources,
 		private readonly StateStore $states,
 		private readonly BlocklistRangeMapper $ranges,
-		private readonly BlocklistStatMapper $stats,
+		private readonly BlocklistMatches $matches,
 		private readonly AppSettings $appSettings,
 		private readonly CheckSettings $settings,
 		private readonly AddressCache $addressCache,
@@ -160,10 +159,9 @@ class BlocklistFactsProvider implements IAddressFactsProvider {
 		if (!$this->addressCache->isAvailable()) {
 			return;
 		}
-		$day = gmdate('Y-m-d', $now);
 		foreach ($listIds as $id) {
 			try {
-				$this->stats->record($id, $day, $source->ip);
+				$this->matches->record($id, $source, $now);
 			} catch (\Throwable $e) {
 				$this->logger->error('Intrusion detection could not count a blocklist match', ['exception' => $e]);
 			}

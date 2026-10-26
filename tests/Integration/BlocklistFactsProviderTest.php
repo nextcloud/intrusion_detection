@@ -13,7 +13,9 @@ use OCA\IntrusionDetection\Address\AddressCache;
 use OCA\IntrusionDetection\Address\AddressResolver;
 use OCA\IntrusionDetection\Address\Verdict;
 use OCA\IntrusionDetection\AppInfo\Application;
+use OCA\IntrusionDetection\BackgroundJob\PendingCounts;
 use OCA\IntrusionDetection\Blocklist\BlocklistFactsProvider;
+use OCA\IntrusionDetection\Blocklist\BlocklistMatches;
 use OCA\IntrusionDetection\Blocklist\Db\BlocklistRangeMapper;
 use OCA\IntrusionDetection\Blocklist\Db\BlocklistStatMapper;
 use OCA\IntrusionDetection\Blocklist\ListState;
@@ -279,7 +281,7 @@ class BlocklistFactsProviderTest extends IntegrationTestCase {
 			Server::get(SourceRepository::class),
 			Server::get(StateStore::class),
 			$ranges,
-			Server::get(BlocklistStatMapper::class),
+			Server::get(BlocklistMatches::class),
 			$this->appSettings(), $this->checkSettings(),
 			$this->addressCache($withCache),
 			$this->time(),
@@ -314,6 +316,7 @@ class BlocklistFactsProviderTest extends IntegrationTestCase {
 			$context,
 			$this->time(),
 			new GuardTimer(FixedCaches::none(), $this->time()),
+			Server::get(PendingCounts::class),
 		);
 		return [$guard, $context, $resolver];
 	}

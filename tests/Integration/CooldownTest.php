@@ -10,22 +10,27 @@ declare(strict_types=1);
 namespace OCA\IntrusionDetection\Tests\Integration;
 
 use OCA\IntrusionDetection\BackgroundJob\Cleanup;
+use OCA\IntrusionDetection\BackgroundJob\PendingCounts;
 use OCA\IntrusionDetection\Cache\Caches;
+use OCA\IntrusionDetection\Cache\CountBuffer;
 use OCA\IntrusionDetection\Check\Checks\AccountUnderAttack\AccountUnderAttack;
 use OCA\IntrusionDetection\Check\Checks\CredentialStuffing\CredentialStuffing;
 use OCA\IntrusionDetection\Check\Checks\CredentialStuffing\CredentialStuffingFacts;
 use OCA\IntrusionDetection\Check\Checks\CredentialStuffing\CredentialStuffingRule;
 use OCA\IntrusionDetection\Check\Checks\PasswordSpraying\PasswordSpraying;
+use OCA\IntrusionDetection\Crypto\Fingerprinter;
 use OCA\IntrusionDetection\Db\BanMapper;
 use OCA\IntrusionDetection\Db\Detection;
 use OCA\IntrusionDetection\Db\DetectionMapper;
 use OCA\IntrusionDetection\Definition\Mode;
 use OCA\IntrusionDetection\Definition\ResponseType;
 use OCA\IntrusionDetection\Detection\Cooldown;
+use OCA\IntrusionDetection\Detection\DetectionHits;
 use OCA\IntrusionDetection\Tests\Unit\Cache\FixedCaches;
 use OCP\Server;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Group;
+use Psr\Log\LoggerInterface;
 
 /**
  * A check that fired cools down: the same attack ends with the same
@@ -123,6 +128,7 @@ class CooldownTest extends FailedLoginCostTestCase {
 		$uid = $this->user('ids-cd-' . bin2hex(random_bytes(4)))->getUID();
 		$this->useCaches(self::memoryCaches('local'));
 		$this->attack($uid, '198.51.100.', 1, 8);
+		$this->flushCounts();
 		$detections = $this->detectionsOf(AccountUnderAttack::ID);
 		$this->assertCount(1, $detections);
 		$this->assertFalse($detections[0]->isEnforced());
@@ -172,7 +178,7 @@ class CooldownTest extends FailedLoginCostTestCase {
 			for ($i = 0; $i < 40; $i++) {
 				$this->failLogin($ip, 'name-' . $i);
 			}
-			$this->cooldown?->purge($this->clock->getTime() + 2 * Cooldown::FLUSH_SLICE);
+			$this->flushCounts();
 			$detections = array_values(array_filter($this->detectionsOf(CredentialStuffing::ID), static fn (Detection $d): bool => $d->getIp() === $ip));
 			$results[$run] = array_map(static fn (Detection $d): array => [CredentialStuffingFacts::fromArray($d->getExplanationData()['facts'])->rule, $d->getHits()], $detections);
 		}
@@ -181,10 +187,15 @@ class CooldownTest extends FailedLoginCostTestCase {
 	}
 
 	public function testHitsAreTakenOnce(): void {
-		$cooldown = new Cooldown(self::memoryCaches('distributed'), Server::get(DetectionMapper::class));
-		$this->assertSame([0, 0], $cooldown->takeHits('123'));
-		$this->assertSame(0, $cooldown->purge(time()));
-		$this->assertArrayHasKey(Cooldown::class, Cleanup::PURGES, 'The cleanup job adds the hits after an attack');
+		$caches = self::memoryCaches('distributed');
+		$buffer = new CountBuffer($caches, $this->clock, Server::get(LoggerInterface::class), Server::get(Fingerprinter::class));
+		$hits = new DetectionHits(Server::get(DetectionMapper::class), $buffer);
+		$this->assertSame([0, 0], $hits->take('123'));
+		$hits->count('123');
+		$hits->count('123');
+		$this->assertSame([2, $this->clock->getTime()], $hits->take('123'));
+		$this->assertSame([0, 0], $hits->take('123'), 'Taken once');
+		$this->assertArrayHasKey(PendingCounts::class, Cleanup::PURGES, 'The cleanup job adds the hits after an attack');
 	}
 
 	/**
@@ -216,7 +227,7 @@ class CooldownTest extends FailedLoginCostTestCase {
 				$this->assertCount(1, $bans->findActiveForKeys([$prefix . $address . '.7'], time()), 'Blocked on its fourth password');
 			}
 		}
-		$this->cooldown?->purge($this->clock->getTime() + 2 * Cooldown::FLUSH_SLICE);
+		$this->flushCounts();
 		$detections = array_values(array_filter($this->detectionsOf(AccountUnderAttack::ID), static fn (Detection $d): bool => $d->getUid() === $uid));
 		$banned = [];
 		for ($address = 1; $address <= 15; $address++) {

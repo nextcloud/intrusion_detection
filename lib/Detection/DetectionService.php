@@ -27,7 +27,11 @@ use OCP\AppFramework\Utility\ITimeFactory;
  * which keeps the noise of traps and scanners small. The row's facts are
  * merged ({@see FactsMerger}), so it still explains every hit. A merged
  * hit adds to the stored hit count rather than replacing it, together with
- * the hits counted while its check cooled down ({@see Cooldown}).
+ * the hits counted in the memory cache meanwhile ({@see DetectionHits}),
+ * such as those while its check cooled down ({@see Cooldown}). With a
+ * memory cache, a merged hit that changes nothing else, while the row was
+ * written less than {@see DetectionHits::REFRESH} seconds ago, is only
+ * counted there and writes no row.
  *
  * A new detection with an address keeps the address risk score at that
  * moment (fact `risk`), unless its check already stored the score it
@@ -47,7 +51,7 @@ class DetectionService {
 		private readonly DetectionTotals $totals,
 		private readonly KeyLock $locks,
 		private readonly Fingerprinter $fingerprinter,
-		private readonly Cooldown $cooldown,
+		private readonly DetectionHits $hits,
 	) {
 	}
 
@@ -71,17 +75,26 @@ class DetectionService {
 		$existing = $this->mergeTarget($draft, $mode);
 		if ($existing !== null) {
 			$accountsBefore = DetectionAccounts::of($existing);
-			// The hits counted while its check cooled down join this one.
-			[$pending, $cooled] = $this->cooldown->takeHits((string)$existing->getId());
 			$severity = Severity::tryFrom($existing->getSeverity());
 			$raised = $draft->severity !== null && ($severity === null || $draft->severity->rank() > $severity->rank());
+			$explanation = $existing->getExplanationData();
+			$facts = is_array($explanation['facts'] ?? null) ? $explanation['facts'] : [];
+			$merged = FactsMerger::merge($facts, $draft);
+			if (!$raised && $merged === $facts && $existing->getLastSeenAt() > $now - DetectionHits::REFRESH && $this->hits->count((string)$existing->getId())) {
+				// Nothing new for the row; the hit waits in the cache. The entity tells the responses when it was seen.
+				$existing->setLastSeenAt($now);
+				$existing->resetUpdatedFields();
+				$this->recorded[(string)$existing->getId()] = $this->accounts->recordChange($existing, $accountsBefore);
+				return [$existing, false, 1];
+			}
+			// The hits counted in the memory cache meanwhile, e.g. while its check cooled down, join this one.
+			[$pending] = $this->hits->take((string)$existing->getId());
 			if ($raised) {
 				// A stronger sign in the same attack raises the detection, e.g. a decoy's secret after its login name.
 				$existing->setSeverity($draft->severity->value);
 			}
-			$explanation = $existing->getExplanationData();
 			$explanation['last'] = $now;
-			$explanation['facts'] = FactsMerger::merge(is_array($explanation['facts'] ?? null) ? $explanation['facts'] : [], $draft);
+			$explanation['facts'] = $merged;
 			$existing->setExplanationData($explanation);
 			$this->mapper->updateMerged($existing, 1 + $pending, $now);
 			if ($raised) {
@@ -89,7 +102,7 @@ class DetectionService {
 			}
 			// The merged facts may name accounts the detection did not name before.
 			$this->recorded[(string)$existing->getId()] = $this->accounts->recordChange($existing, $accountsBefore);
-			return [$existing, false, 1 + $cooled];
+			return [$existing, false, 1 + $pending];
 		}
 
 		$detection = $this->mapper->insert($this->build($draft, $mode, $now, true));

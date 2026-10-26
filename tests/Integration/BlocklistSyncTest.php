@@ -13,6 +13,7 @@ use GuzzleHttp\Psr7\Response;
 use GuzzleHttp\Psr7\Uri;
 use OCA\IntrusionDetection\Address\AddressCache;
 use OCA\IntrusionDetection\Blocklist\BlocklistFactsProvider;
+use OCA\IntrusionDetection\Blocklist\BlocklistMatches;
 use OCA\IntrusionDetection\Blocklist\BlocklistOverview;
 use OCA\IntrusionDetection\Blocklist\BlocklistSync;
 use OCA\IntrusionDetection\Blocklist\Db\BlocklistRangeMapper;
@@ -456,7 +457,7 @@ class BlocklistSyncTest extends IntegrationTestCase {
 			Server::get(SourceRepository::class),
 			$this->states(),
 			$this->ranges(),
-			Server::get(BlocklistStatMapper::class),
+			Server::get(BlocklistMatches::class),
 			$this->appSettings(), $this->checkSettings(),
 			$this->addressCache(),
 			$this->time(),

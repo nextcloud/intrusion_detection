@@ -110,8 +110,8 @@ class PrivacyOverview {
 		$rows[] = [
 			'id' => 'internal_state',
 			'name' => $l->t('Internal state'),
-			'what' => $l->t('The version of the cached address checks, and when the firewall export was last written and what it changed.'),
-			'why' => $l->t('So that every web server knows when its cached address checks are out of date, and the export is only written again when something changed.'),
+			'what' => $l->t('The version of the cached address checks, when the firewall export was last written and what it changed, and the addresses of your web servers with when each was last seen.'),
+			'why' => $l->t('So that every web server knows when its cached address checks are out of date, the export is only written again when something changed, and background jobs never block your own servers.'),
 			'retention' => $l->t('As long as the app is installed'),
 			'where' => 'ids_state',
 			'protection' => $l->t('No personal data.'),
@@ -227,11 +227,11 @@ class PrivacyOverview {
 			],
 			DataKind::CacheCounters => [
 				'name' => $l->t('Short-lived counters'),
-				'what' => $l->t('Counters per address or account in the memory cache.'),
+				'what' => $l->t('Counters per address or account in the memory cache, and the failed logins, blocklist matches and detection hits that wait there until they are written to the database.'),
 				'why' => $l->t('To recognise fast attacks without writing to the database on every request.'),
-				'retention' => $l->t('Minutes, at most an hour'),
+				'retention' => $l->t('Minutes, at most an hour; counts that wait to be written usually a few minutes, at most a day'),
 				'where' => $l->t('memory cache'),
-				'protection' => $l->t('Keyed by fingerprints of addresses and accounts. Never shown.'),
+				'protection' => $l->t('Keyed by fingerprints of addresses and accounts. Counts that wait to be written list the accounts and addresses in clear, like the tables they go to.'),
 			],
 			DataKind::AccountState => [
 				'name' => $l->t('Account state'),

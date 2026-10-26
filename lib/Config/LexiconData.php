@@ -1109,7 +1109,6 @@ final class LexiconData {
 		['decoy_count', ValueType::INT, 0, 'intrusion detection: decoy_count'],
 		['step_up_sessions_until', ValueType::INT, 0, 'intrusion detection: step_up_sessions_until'],
 		['attempts_flood_until', ValueType::INT, 0, 'intrusion detection: attempts_flood_until'],
-		['server_addresses', ValueType::ARRAY, [], 'intrusion detection: server_addresses'],
 		['check_manual_mode', ValueType::STRING, 'protect', 'mode of the manual check'],
 		['check_manual_responses', ValueType::ARRAY, ['ban'], 'responses of the manual check'],
 		['check_shared_address_mode', ValueType::STRING, 'protect', 'mode of the shared_address check'],

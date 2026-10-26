@@ -79,7 +79,7 @@ class RetentionTest extends IntegrationTestCase {
 		// Three accounts with a row on each of three days: batches of two cut across the days.
 		foreach (['a', 'b', 'c'] as $uid) {
 			foreach ([1, 2, 3] as $day) {
-				$mapper->insert('ids-retention-' . $uid, $day * 86400, '[]', '{}', $day * 86400);
+				$mapper->insert('ids-retention-' . $uid, $day * 86400, 1, '[]', '{}', $day * 86400);
 			}
 		}
 		$where = static fn (IQueryBuilder $qb): IQueryBuilder => $qb->where($qb->expr()->lt('day', $qb->createNamedParameter(3 * 86400, IQueryBuilder::PARAM_INT)));

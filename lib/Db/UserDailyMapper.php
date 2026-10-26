@@ -26,11 +26,11 @@ class UserDailyMapper {
 	}
 
 	/**
-	 * @return ?array{failed_logins: int, hours: ?string, sources: ?string}
+	 * @return ?array{failed_logins: int, hours: ?string, sources: ?string, updated_at: int}
 	 */
 	public function find(string $uid, int $day): ?array {
 		$qb = $this->db->getQueryBuilder();
-		$qb->select('failed_logins', 'hours', 'sources')
+		$qb->select('failed_logins', 'hours', 'sources', 'updated_at')
 			->from(self::TABLE)
 			->where($qb->expr()->eq('uid', $qb->createNamedParameter($uid)))
 			->andWhere($qb->expr()->eq('day', $qb->createNamedParameter($day, IQueryBuilder::PARAM_INT)));
@@ -44,19 +44,20 @@ class UserDailyMapper {
 			'failed_logins' => (int)$row['failed_logins'],
 			'hours' => $row['hours'] === null ? null : (string)$row['hours'],
 			'sources' => $row['sources'] === null ? null : (string)$row['sources'],
+			'updated_at' => (int)$row['updated_at'],
 		];
 	}
 
 	/**
-	 * The first failure of the day.
+	 * The first failures of the day.
 	 *
 	 * @return bool false when another request created the day's row first
 	 */
-	public function insert(string $uid, int $day, string $hours, string $sources, int $now): bool {
+	public function insert(string $uid, int $day, int $count, string $hours, string $sources, int $now): bool {
 		return $this->db->insertIgnoreConflict(self::TABLE, [
 			'uid' => $uid,
 			'day' => $day,
-			'failed_logins' => 1,
+			'failed_logins' => $count,
 			'hours' => $hours,
 			'sources' => $sources,
 			'updated_at' => $now,
@@ -64,16 +65,16 @@ class UserDailyMapper {
 	}
 
 	/**
-	 * Count one more failure with the new hours and sources, unless another
-	 * request counted one since the row was read.
+	 * Count more failures with the new hours and sources, unless another
+	 * request counted some since the row was read.
 	 *
 	 * @param int $seen the count that was read
 	 * @return bool whether the row still had that count and was updated
 	 */
-	public function replace(string $uid, int $day, int $seen, string $hours, string $sources, int $now): bool {
+	public function replace(string $uid, int $day, int $seen, int $count, string $hours, string $sources, int $now): bool {
 		$qb = $this->db->getQueryBuilder();
 		$qb->update(self::TABLE)
-			->set('failed_logins', $qb->createNamedParameter($seen + 1, IQueryBuilder::PARAM_INT))
+			->set('failed_logins', $qb->createNamedParameter($seen + $count, IQueryBuilder::PARAM_INT))
 			->set('hours', $qb->createNamedParameter($hours))
 			->set('sources', $qb->createNamedParameter($sources))
 			->set('updated_at', $qb->createNamedParameter($now, IQueryBuilder::PARAM_INT))
@@ -84,12 +85,12 @@ class UserDailyMapper {
 	}
 
 	/**
-	 * Count one more failure without touching the hours and sources.
+	 * Count more failures without touching the hours and sources.
 	 */
-	public function increment(string $uid, int $day, int $now): void {
+	public function increment(string $uid, int $day, int $count, int $now): void {
 		$qb = $this->db->getQueryBuilder();
 		$qb->update(self::TABLE)
-			->set('failed_logins', $qb->func()->add('failed_logins', $qb->createNamedParameter(1, IQueryBuilder::PARAM_INT)))
+			->set('failed_logins', $qb->func()->add('failed_logins', $qb->createNamedParameter($count, IQueryBuilder::PARAM_INT)))
 			->set('updated_at', $qb->createNamedParameter($now, IQueryBuilder::PARAM_INT))
 			->where($qb->expr()->eq('uid', $qb->createNamedParameter($uid)))
 			->andWhere($qb->expr()->eq('day', $qb->createNamedParameter($day, IQueryBuilder::PARAM_INT)))

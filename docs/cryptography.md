@@ -34,6 +34,8 @@ What the app hashes, encrypts and generates, with which key, and for how long th
 | Cached Pwned Passwords range | core `ICrypto`; cache key is core's `calculateHMAC` of the prefix | instance secret | Memory cache, 1 day |
 | Email confirmation code (6 digits) | core `IHasher` | — | The login's session state, 10 minutes |
 
+The counts that wait in the memory cache until they are written to the database (failed logins per account and day, blocklist matches, detection hits) are keyed with the `lookup` key like every other cache entry, but they list the accounts and addresses they count in clear, for minutes and at most a day, as the tables they go to do.
+
 Secrets the app generates with `ISecureRandom`: lock-link tokens (43 letters and digits), remembered-device ids (43 characters), the lock page nonce (32 letters and digits), decoy secrets, and email codes (6 digits; valid 10 minutes, 5 tries, at most 5 emails an hour per account).
 
 Hashes that protect nothing: SHA-1 of a password for the Pwned Passwords range API (only the first 5 hex characters are sent), MD5 for lock names in the memory cache, CRC32 as a short tag of a login name in the memory cache, and SHA-256 for ids of custom signatures and of the firewall export state.

@@ -29,9 +29,9 @@ use OCA\IntrusionDetection\Db\LoginMapper;
 use OCA\IntrusionDetection\Definition\Mode;
 use OCA\IntrusionDetection\Definition\ResponseType;
 use OCA\IntrusionDetection\Detection\CommonFacts;
-use OCA\IntrusionDetection\Detection\Cooldown;
 use OCA\IntrusionDetection\Detection\DetectionAccounts;
 use OCA\IntrusionDetection\Detection\DetectionDraft;
+use OCA\IntrusionDetection\Detection\DetectionHits;
 use OCA\IntrusionDetection\Detection\DetectionService;
 use OCA\IntrusionDetection\Detection\DetectionTotals;
 use OCA\IntrusionDetection\Event\TypedEvents;
@@ -172,7 +172,7 @@ class ResponseEngineTest extends IntegrationTestCase {
 				Server::get(DetectionTotals::class),
 				Server::get(KeyLock::class),
 				Server::get(Fingerprinter::class),
-				Server::get(Cooldown::class),
+				Server::get(DetectionHits::class),
 			),
 			Server::get(ContainerInterface::class),
 			Server::get(TypedEvents::class),
